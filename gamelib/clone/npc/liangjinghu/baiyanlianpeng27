@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="莲蓬内有无数眼珠，盯住过往的生物。\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	sex="female";
+	gender="女";
+	pronoun="她";
+	picture="humanlike_female";
+	_npcLevel=27;
+	name_cn="百眼莲蓬";
+	setup_npc();
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

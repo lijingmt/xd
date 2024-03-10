@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【诅】裂甲剑风";
+	unit="本";
+	picture=name;
+	desc="破坏对方防御力，同时造成极大的仇恨\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="liejiajianfeng";
+	level_limit=9;
+	profe_read_limit="剑仙";
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

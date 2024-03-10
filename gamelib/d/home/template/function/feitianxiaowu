@@ -1,0 +1,33 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	name_cn="飞天小屋";
+	desc="从这里可以传送到你指定的房间\n";
+	set_level_limit(1);
+	set_used_times(0);
+	set_priceYushi(10);
+	set_buff_kind("home_fly");
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "这里是"+room->query_roomNameCn()+"\n\n\n\n";
+	tmp += "房间中有一个偌大的传送阵。\n\n";
+
+	string targetPath = room->query_flyTarget();
+	if(targetPath && targetPath!=""){
+		tmp += "[传送:home_function_fly_show_target]\n";
+	}
+	else{
+		tmp += "你尚未指定相关联的房间。\n";
+		tmp += "请先进入需要传送的房间，然后使用 '传送神符'实现关联，关联后可反复传送。\n";
+		tmp += "在添加房间时，你已免费获得一张传送神符。如果需要改变关联房间，可以在杂货商人处购买新的传送神符。\n\n";
+	}
+	tmp += "[返回:home_function_room_list]\n";
+	return tmp;
+}

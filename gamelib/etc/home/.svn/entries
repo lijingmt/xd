@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/etc/home"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1873"/>
+<entry
+   committed-rev="1860"
+   name="map_dropBak"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f3f549e942e29c686c9ae0890b648f41"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_drop"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ae6675c1cf236bef70d9cb7aa34a9a7b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="shop_recommend"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8209cb010f11af012800fa36e45b1923"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_flat"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="77011155805ed2c85245202167a64c57"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_infancy"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f8126a4da2fc03351a98714e675bdf7f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_level"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="200b9e8c6b0aac5f96b6f69df4e89bff"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_area"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9f4088c320c23108e4d5e2fbe465b432"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_home"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8708e5b27b591bc1713e4c183ce1c078"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_home1"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="240a7e8dc12157e32978e8a3ee966a98"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="detail_home"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1e4d6351c07968e6984592d64862f3e0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   name="bak"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="map_slot"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9732532102f5a1252578abf5a8b13371"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+</wc-entries>

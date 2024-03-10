@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+int effect_value;//70技能特有的字段，用于记录一些效果值
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】裂山猛击";
+	picture=name;
+	desc="消耗法力1000，每秒消耗200点生命，每秒获得物理伤害增加3%的属性，可叠加，持续20秒，技能10分钟冷却";
+	s_type="zhudong";
+	s_skill_type="70_spec";
+	s_delayTime=600;
+	s_lasttime=20;
+	skill_type+=({"kuangyao"});
+	performs_cast[1]=1000;
+	effect_value = 3;
+	performs_level_limit[1]=69;
+}

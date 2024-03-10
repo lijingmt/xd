@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【图样】冥火长袍";
+	unit="本";
+	picture=name;
+	desc="上面记载了冥火长袍的制造方法\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_peifang_kind("caifeng");
+	set_peifang_type("cloth");
+	peifang_id=45;
+	level_limit=34;
+	viceskill_level=90;
+}
+int read(){
+	int result=::caifeng_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

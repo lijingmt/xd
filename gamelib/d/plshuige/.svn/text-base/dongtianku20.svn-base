@@ -1,0 +1,16 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=406;
+void create(){
+	name=object_name(this_object());
+	name_cn="洞天窟二十层";
+	desc="\n";
+	desc+="[走出洞窟:qge74hye "+"plshuige/jishuihu"+"]\n";
+	exits["north"]=ROOT "/gamelib/d/plshuige/dongtianku19";
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/tunyunshou35"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/nuleishou35"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/fanyunxie35"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/yunxia35"}));
+}

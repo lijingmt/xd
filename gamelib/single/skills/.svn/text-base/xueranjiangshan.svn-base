@@ -1,0 +1,69 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit MUD_SKILL;
+inherit WAP_F_VIEW_PICTURE;
+mapping(int:int) performs_attack=([]);
+mapping(int:int) performs_per=([]);
+mapping(int:int) performs_cast=([]);
+array(string) skill_type=({});
+mapping(int:array(int)) performs_mofa_attack=([]);
+mapping(int:string) performs_desc=([]);
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】血染江山";
+	picture=name;
+	desc="凶暴到不要命的地步，消耗自己当前生命的50%，对目标造成自己当前生命60%的伤害，技能耗法800，冷却时间10分钟";
+	s_type="zhudong";
+	s_skill_type="spec";
+	s_delayTime=600;
+	performs_cast[1]=800;
+	skill_type+=({"kuangyao"});
+}
+int query_performs_attack(int level){
+	if(!level)
+		return 0;
+	if(performs_attack&&sizeof(performs_attack))
+		return (int)performs_attack[level];
+	else
+		return 0;
+}
+int query_performs_per(int level){
+	if(!level)
+		return 0;
+	if(performs_per&&sizeof(performs_per))
+		return (int)performs_per[level];
+	else
+		return 0;
+}
+int query_performs_cast(int level){
+		if(!level)
+		return 0;
+	if(performs_cast&&sizeof(performs_cast))
+		return (int)performs_cast[level];
+	else
+		return 0;
+}
+int query_performs_mofa_attack_high(int level){
+	if(!level)
+		return 0;
+	if(performs_mofa_attack&&sizeof(performs_mofa_attack))
+		return (int)performs_mofa_attack[level][1];
+	else
+		return 0;
+}
+int query_performs_mofa_attack_low(int level){
+	if(!level)
+		return 0;
+	if(performs_mofa_attack&&sizeof(performs_mofa_attack))
+		return (int)performs_mofa_attack[level][0];
+	else
+		return 0;
+}
+string query_performs_desc(int level){
+	if(!level)
+		return "";
+	if(performs_desc&&sizeof(performs_desc))
+		return (string)performs_desc[level];
+	else
+		return "";
+}

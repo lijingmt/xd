@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】清风身法二级";
+	unit="本";
+	picture=name;
+	desc="仙界玄妙身法，可增加使用者的闪避\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="qingfengshenfa";
+	level_limit=37;
+	profe_read_limit="诛仙";
+	beidong_level=2;
+}
+int read(){
+	int result=::beidong_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

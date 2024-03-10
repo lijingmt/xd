@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_LIFE;
+void create(){
+	name=object_name(this_object());
+	name_cn="大紫草";
+	unit="株";
+	picture=name;
+	desc="已经有嫩嫩的小芽，看样子不错";
+	set_item_canDrop(1);
+	set_item_canGet(0);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(0);
+	value=100;
+	set_item_type("home_grown_plant");
+	set_final_life(3000);
+	set_heart_beat(1);
+	set_grow_speed(150);
+	desc += "成熟度:" + query_current_life() + "/" + query_final_life()+"\n";
+}

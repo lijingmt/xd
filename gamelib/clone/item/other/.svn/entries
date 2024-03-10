@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/item/other"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1924"
+   name="lunhuifuyin"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="5cf49eb0da320e3ae000b275ebf1766c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mianzhanfu"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="996916407b0ea2164e0c69da60bf7f95"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="kaibanglingpai"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="115ec0172b861c062fea41c9382f06ba"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qianlichuanyinfu"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fe96c548a03f31869b672fb75a02fc96"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="liujinshi"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="0ee224f11a6e1180c184742e211f2ef4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+</wc-entries>

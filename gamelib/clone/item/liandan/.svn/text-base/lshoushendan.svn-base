@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="【灵】兽神丹";
+	unit="颗";
+	desc="增加防御力上限2000，持续30分钟\n";
+	set_danyao_kind("attri_defend");
+	set_danyao_type("defend");
+	set_effect_value(2000);
+	set_danyao_timedelay(1800);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_level(50);
+}

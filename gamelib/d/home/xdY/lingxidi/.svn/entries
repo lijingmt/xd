@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/d/home/xdY/lingxidi"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="lingxizhen"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2e9b0f2b7b78e60eca9a7259dc6adbba"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingxixiaoxiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9c8ece327c4f3d2ea7c5e3331129332d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingxipingyuan"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9dc0c084d6be354cdf3d1f9a1164c3f3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingxihepan"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5442b918867a45c2636cb0ee20d96142"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingximen"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c5dae5092e0a9871f1fd47f6ed234601"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingxiqiaotou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="61755c2a2a71f2775cfc72994bb969c2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingxixiaolu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="155570dc67045d49629de4596770f4d8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+</wc-entries>

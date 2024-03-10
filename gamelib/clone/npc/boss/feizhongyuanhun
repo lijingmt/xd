@@ -1,0 +1,34 @@
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	_boss=1;
+	_flushtime=36000;
+	name_cn="·ÑÖÙÔ©»ê";
+	desc="ÖÒÁ¼ÒÑËÀ£¬Ô©»êÓÀÊØÍõ×ù¡£\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	picture="1";
+	_npcLevel=65;
+	set_base_think(500);
+	set_base_dex(300);
+	set_base_str(450);
+	set_base_life(600000);
+	this_object()->query_life_max();
+	set_base_baoji(19);
+	set_base_hitte(100);
+	set_base_dodge(14);
+	setup_npc();
+	set_heart_beat(1);
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

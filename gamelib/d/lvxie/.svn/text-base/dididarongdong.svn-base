@@ -1,0 +1,40 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="地底大溶洞";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/lvxieshenyuan/wugongshouwei18"}));
+	add_items(({ROOT "/gamelib/clone/npc/lvxieshenyuan/meidufu19"}));
+	add_items(({ROOT "/gamelib/clone/npc/lvxieshenyuan/judubaozi20"}));
+	add_items(({ROOT "/gamelib/clone/npc/lvxieshenyuan/baizuyuanshuai21"}));
+	add_items(({ROOT "/gamelib/clone/npc/boss/wanchengjinjiawang"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[去往咕噜洞:fb_entry lvxie 5 1]\n";
+	if(check_if_clear() == 1)
+		tmp += "[去往深穴河:fb_entry lvxie 7 1]\n";
+	else
+		tmp += "去往深穴河\n";
+	tmp += "[离开幻境:fb_leave lvxie]\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

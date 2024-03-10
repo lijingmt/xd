@@ -1,0 +1,20 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="真情月饼";
+	desc="增加法力上限1500，持续一小时\n";
+	unit="个";
+	picture=name;
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_danyao_kind("attri_defend");
+	set_danyao_type("mofa_max");
+	set_effect_value(1500);
+	set_danyao_timedelay(3600);
+	set_item_level(1);
+}

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/npc/tianyecheng"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="sudaji"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b9da6307ecf0558c3bae0a322a3ea9e9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="jingweiduishibing"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f8edf1ef1cd872bbb567e2620531df6a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mojunshizu"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="91e73db80dcb89fbceb12531c990aa5a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="nangongshi"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="56c7a6060eb579405046ce3280a93eaf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="jushoubing"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="739ace575b46dfc1b557a2f03aec31c7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="zhongjiamenwei"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a06270b15e40ef5cfb2519e4d5d9bfb4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+</wc-entries>

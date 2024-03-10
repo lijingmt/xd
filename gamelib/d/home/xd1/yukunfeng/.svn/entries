@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/d/home/xd1/yukunfeng"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="yukunquan"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1db023e3ea8b0781e2095398f722d0bb"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yukunzhen"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7b7bd230be2b9271622e461b8758c289"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yukunjie"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fdf37cc276e660aa802b0f27d5ab9dee"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yulinglu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="32e34cf00c1f655d759fafd656fc5c7e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yukunmen"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f13be6b8d473353b206e724a3e0610d1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yukunwangyue"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a765f7146471e7e87d164b6cab837b70"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yukunjian"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="99bee7169edcea921470275e9650078b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+</wc-entries>

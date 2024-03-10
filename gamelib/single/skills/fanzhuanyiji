@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+int effect_value;//70技能特有的字段，用于记录一些效果值
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】反转一击";
+	picture=name;
+	desc="消耗法力1000，结束所有技能冷却时间,每秒消耗自身防御力400点,获得30%物理伤害反射的效果,持续20秒";
+	s_type="zhudong";
+	s_skill_type="70_spec";
+	s_delayTime=600;
+	s_lasttime=20;
+	skill_type+=({"jianxian"});
+	performs_cast[1]=1000;
+	effect_value = 400;
+	performs_level_limit[1]=69;
+}

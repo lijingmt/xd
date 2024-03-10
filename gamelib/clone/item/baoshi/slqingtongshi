@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BAOSHI;
+void create(){
+	name=object_name(this_object());
+	name_cn="闪亮青铜石";
+	unit="颗";
+	picture="slqingtongshi";
+	desc="增加火焰法术抗性15点\n";
+	set_color("yellow");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_value(150);
+	set_item_canLevel(60);
+	set_huoyan_defend_add(15);
+	set_item_kind("shanliang");
+}

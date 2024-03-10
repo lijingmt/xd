@@ -1,0 +1,36 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=10000;
+array(string) flush_monst = ({"chaogecheng/mojunshizu","chaogecheng/mojunshizu","chaogecheng/mojunshizu","chaogecheng/mojunshizu","chaogecheng/mojunshizu","chaogecheng/mojunshizu","chaogecheng/mojunshizu","chaogecheng/mojunshizu",});
+array(string) flush_human = ({"chaogecheng/jingweiduishibing","chaogecheng/jingweiduishibing","chaogecheng/jingweiduishibing","chaogecheng/jingweiduishibing",});
+void create(){
+	name=object_name(this_object());
+	set_room_type("city");
+	name_cn="养心殿";
+	desc="\n";
+	set_belong_to("chaogecheng");
+	exits["north"]=ROOT "/gamelib/d/chaogecheng/qizhengdian";
+	string tmp_s = CITYD->query_captured("chaogecheng");
+	if(tmp_s == "monst"){
+		room_race="monst";
+		name_cn += "(妖魔占领)";
+		guarded_exits["south"]="sudaji";
+		add_items(({ROOT "/gamelib/clone/npc/chaogecheng/sudaji"}));
+		foreach(flush_monst,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+	else if(tmp_s == "human"){
+		room_race="human";
+		name_cn += "(人类占领)";
+		guarded_exits["south"]="nangongshi";
+		add_items(({ROOT "/gamelib/clone/npc/chaogecheng/nangongshi"}));
+		foreach(flush_human,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+}

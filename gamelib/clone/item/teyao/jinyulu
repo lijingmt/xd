@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="金玉露";
+	unit="瓶";
+	desc="该药可以使得某技能熟练度提高10%\n";
+	set_danyao_kind("te_skill");
+	set_danyao_type("skill_improve");
+	set_effect_value(10);
+	set_danyao_timedelay(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_level(1);
+}
+
+
+string query_inventory_links(void|int count)
+{
+	string s = "[食用:skill_eat_teyao "+name+" "+count+"]\n";
+	return s;
+}

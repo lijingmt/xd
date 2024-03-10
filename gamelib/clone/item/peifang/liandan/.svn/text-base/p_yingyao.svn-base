@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【配方】影药";
+	unit="本";
+	picture=name;
+	desc="上面记载了影药的制造方法\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_peifang_kind("liandan");
+	set_peifang_type("spec");
+	peifang_id=12;
+	level_limit=15;
+	viceskill_level=15;
+}
+int read(){
+	int result=::liandan_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

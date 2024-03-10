@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1292"
+   name=""
+   committed-date="2008-07-15T01:37:33.377681Z"
+   url="svn://221.130.176.164/xdX/front/includes"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   prop-time="2008-07-15T08:06:46.000000Z"
+   revision="1303"/>
+<entry
+   committed-rev="1191"
+   name="header.inc"
+   text-time="2008-07-14T09:53:19.000000Z"
+   committed-date="2008-07-04T05:30:50.148978Z"
+   checksum="3a784426047a3bd23babf05e2e3ea34c"
+   last-author="cap"
+   kind="file"
+   prop-time="2008-07-14T09:53:19.000000Z"/>
+<entry
+   committed-rev="1191"
+   name="pike.inc"
+   text-time="2008-07-14T09:53:19.000000Z"
+   committed-date="2008-07-04T05:30:50.148978Z"
+   checksum="a8f4ad25a9b5f845d2f8cd1359b1df93"
+   last-author="cap"
+   kind="file"
+   prop-time="2008-07-14T09:53:19.000000Z"/>
+<entry
+   committed-rev="1191"
+   name="tail.inc"
+   text-time="2008-07-14T09:53:19.000000Z"
+   committed-date="2008-07-04T05:30:50.148978Z"
+   checksum="8a6d8a65b6a1813de6a76f87e9f04dbe"
+   last-author="cap"
+   kind="file"
+   prop-time="2008-07-14T09:53:19.000000Z"/>
+</wc-entries>

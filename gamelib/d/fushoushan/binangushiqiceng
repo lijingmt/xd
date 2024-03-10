@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=214;
+void create(){
+	name=object_name(this_object());
+	name_cn="避难谷十七层";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/fushoushan/binangushiliuceng";
+	exits["north"]=ROOT "/gamelib/d/fushoushan/binangushibaceng";
+	desc+="[走出洞穴:qge74hye "+"fushoushan/binanguyiceng"+"]\n";
+	add_items(({ROOT "/gamelib/clone/npc/fushouzhuangyuan/mafu24"}));
+	add_items(({ROOT "/gamelib/clone/npc/fushouzhuangyuan/muyangnv24"}));
+	add_items(({ROOT "/gamelib/clone/npc/fushouzhuangyuan/tianyuanquan24"}));
+	add_items(({ROOT "/gamelib/clone/npc/fushouzhuangyuan/caochanggunong24"}));
+	add_items(({ROOT "/gamelib/clone/npc/fushouzhuangyuan/zhuanyuandashou24"}));
+	add_items(({ROOT "/gamelib/clone/npc/fushouzhuangyuan/xunyangshi24"}));
+}

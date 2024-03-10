@@ -1,0 +1,9 @@
+文件名,地点名,描述,东,南,西,北,门,房间配图,钥匙,止,看守,看守语,人s,物s,是复活点,是休息室,禁止战斗,是杂货铺,是铁匠铺,是当铺,是钱庄,额外的连接,阵营所属,房间等级
+qianxuehu/qianxuemen,千雪门,,,qianxuehu/qianxuexiaoxiang,,,,,,,,,"qianxuehu/qxhzahuoshang400
+qianxuehu/qxhdiqishang400",,0,0,0,0,0,0,0,,中立,0
+qianxuehu/qianxuexiaoxiang,千雪小巷,,,qianxuehu/qianxueqiaotou,,qianxuehu/qianxuemen,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+qianxuehu/qianxueqiaotou,千雪桥头,,,qianxuehu/qianxuechangjie,,qianxuehu/qianxuexiaoxiang,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+qianxuehu/qianxuechangjie,千雪长街,,qianxuehu/qianxuezhen,,,qianxuehu/qianxueqiaotou,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+qianxuehu/qianxuezhen,千雪镇,,qianxuehu/qianxuehupan,,qianxuehu/qianxuechangjie,,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+qianxuehu/qianxuehupan,千雪湖畔,,,,qianxuehu/qianxuezhen,qianxuehu/qianxueningwu,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+qianxuehu/qianxueningwu,千雪凝雾,,,qianxuehu/qianxuehupan,,,,,,,,,,,0,0,0,0,0,0,0,,中立,0

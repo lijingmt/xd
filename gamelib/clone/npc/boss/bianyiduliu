@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	_boss=1;
+	_flushtime=3600;
+	name_cn="变异毒瘤";
+	desc="以融合各类毒虫的尸体制造而成的毒物\n";
+	set_raceId("third");
+	set_profeId("bugs");
+	picture="bianyiduliu";
+	_npcLevel=20;
+	set_base_dex(40);
+	set_base_str(80);
+	set_base_life(30000);
+	this_object()->query_life_max();
+	set_base_baoji(3);
+	set_base_hitte(80);
+	set_base_dodge(3);
+	boss_skills=(["60/60":"b_tuxi","180/180":"b_suanyeyu",]);
+	setup_npc();
+	set_heart_beat(1);
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

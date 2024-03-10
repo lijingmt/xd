@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=96;
+void create(){
+	name=object_name(this_object());
+	name_cn="¿•¬ÿ…Ω€Í";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/huangjiazhuang/lvyepingyuan";
+	exits["north"]=ROOT "/gamelib/d/kunlunshan/kunlunhoushan";
+}

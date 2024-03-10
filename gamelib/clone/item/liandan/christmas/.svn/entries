@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/item/liandan/christmas"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="lingyujiang"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e7287e7cd6235a506eb07f09171a5bd3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ziyunsan"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="18335ab644779e00cde6a08832767e2d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lingdonglu"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6ebfbc1989c1c851f4c9c50df4f32e24"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ningfalu"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="80becb3a3efee53d7370198cb81fcd07"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bishuilu"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6d8c5caf9636e452fc45d0f525a67cf8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ningliwan"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="71cc37f4c73bbdc09e5d51215910d1c2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="cuipingjiang"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9a2c8203386250e5d08fbefd08f03142"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="danqiongjiang"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b4f142fceabd0d714c56c1602f4c093f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="liefengdan"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5a071b1ae5580fa3da356a1ef9c60874"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qingyulu"
+   text-time="2009-01-08T05:37:47.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dc2fd427f58d878d06ac4620a1eb6fde"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+</wc-entries>

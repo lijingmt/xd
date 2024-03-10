@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=243;
+void create(){
+	name=object_name(this_object());
+	name_cn="云霄洞十三层";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/shierxianjing/lingxiadongshierceng";
+	exits["north"]=ROOT "/gamelib/d/shierxianjing/lingxiadongshisiceng";
+	desc+="[走出洞穴:qge74hye "+"shierxianjing/lingxiadongyiceng"+"]\n";
+	add_items(({ROOT "/gamelib/clone/npc/shierxianshan/juyanguai23"}));
+	add_items(({ROOT "/gamelib/clone/npc/shierxianshan/baixushuyao23"}));
+	add_items(({ROOT "/gamelib/clone/npc/shierxianshan/xiaopanlong23"}));
+	add_items(({ROOT "/gamelib/clone/npc/shierxianshan/huoyunshou23"}));
+}

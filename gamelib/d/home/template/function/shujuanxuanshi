@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	name_cn="书卷轩室";
+	desc="在这里读书，可使你的智力提高30点效果，持续30分钟\n";
+	set_level_limit(1);
+	set_used_times(0);
+	set_priceYushi(5);
+	set_buff_kind("home_base");
+	set_buff_type("think");
+	set_buff_value(30);
+	set_effect_time(1800);
+	set_wait_time(60);
+	set_oprate_desc("你开始读书，来提高智力。");
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "这里是"+room->query_roomNameCn()+"\n\n\n\n";
+	tmp += "房间的桌上放着各种书籍\n";
+	tmp += "[阅读:exercise function/shujuanxuanshi 0]\n";
+	tmp += "[返回:home_function_room_list]\n";
+	return tmp;
+}

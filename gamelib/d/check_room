@@ -1,0 +1,40 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=1;
+//针对外挂玩家输入验证码的房间
+void create(){
+	name=object_name(this_object());
+	name_cn="茶水间";
+}
+string query_links(){
+	string s = "";
+	object me = this_player();
+	s += "【"+me["/plus/check_code"]+"】\n";
+	s += "[int cd:...][submit 确定:waigua_check ...]\n";
+	s += "在游戏中进行违规操作者，将送入于此做为警告，凡是进入该房间5次以上者，将会直接送入小黑屋\n";
+	return s;
+}
+string have_character(){
+	return "";
+}
+string query_desc(){
+	object me=this_player();
+	string desc="请输入一下验证码才能走出房间\n";
+	return desc;
+}
+
+void init(){
+	object me=this_player();
+	me["/plus/check_code"] = 1000+random(9000);
+	return;
+}
+int is_playerPeace()
+{
+	return 1;
+}
+int is_peaceful()
+{
+	return 1;
+}

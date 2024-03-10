@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/npc/jiaolongchaoxue"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="fanjianglong41"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b30cec339f81d2405a9879dad14179c1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="jiaolongwei38"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f30a51aa17f9186e6d1065bc8cf607d5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="longwu44"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="efcd3097d74420d5fd82e1ab92d67944"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="minglonghufa45"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="030ce17ec3acd0bddff8529a4a97830b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="julongwei42"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="61aa676e64903f66742586cfcdf383f2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lvyijiaolong40"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bde5c8036228e186f478a91fef06a843"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="longtoufubing39"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f5a649816d7c63df56fcb978fb9f14a8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qiannianlongyao43"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3dbc020819b79f7db5e965d7f4aeaa4d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+</wc-entries>

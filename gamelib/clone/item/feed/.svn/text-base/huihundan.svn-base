@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="回魂丹(宠物专用)";
+	unit="颗";
+	desc="复活吧！我的狗狗～\n效果：立刻使您的狗狗复活\n";
+	value=1000;
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_type("fuhuo");
+}

@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="虚空精华";
+	unit="瓶";
+	desc="虚空精华(任务物品)\n";
+	amount=1;
+	//picture=name;
+	set_item_task(1);
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+}

@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="凝花月饼";
+	unit="个";
+	picture="ninghua";
+	desc="增加闪避5点，持续30分钟\n";
+	set_danyao_kind("te_vice");
+	set_danyao_type("dodge");
+	set_effect_value(5);
+	set_danyao_timedelay(1800);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+}

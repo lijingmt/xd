@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=1192;
+void create(){
+	name=object_name(this_object());
+	name_cn="云水夜光";
+	desc="\n";
+	desc+="[进入【幻境】云绕天宫:fb_entry yunraotiangong 0 0]\n";
+	exits["east"]=ROOT "/gamelib/d/penglaihuanjing/duanyeya";
+	exits["south"]=ROOT "/gamelib/d/penglaihuanjing/yeyulin";
+	exits["west"]=ROOT "/gamelib/d/penglaihuanjing/yunyejiguang";
+	exits["north"]=ROOT "/gamelib/d/penglaihuanjing/yunshuipubu";
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/60yunshuixiaoyao"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/60piaoyexiaoxian"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/60qingyingxiaoyao"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/60qingmengxiaoxian"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/60huabanxiaoxian"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/60mohuanxiaoyao"}));
+}

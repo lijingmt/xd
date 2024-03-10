@@ -1,0 +1,20 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="绣线菊";
+	unit="朵";
+	picture="rongxianju";
+	desc="鲜艳美丽的花朵，食用更是美味，也可用作炼制丹药的材料\n";
+	set_danyao_kind("attri_vice");
+	set_danyao_type("hitte");
+	set_effect_value(2);
+	set_danyao_timedelay(1800);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_for_material("liandan");
+}

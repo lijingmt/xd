@@ -1,0 +1,29 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】凝气成盾一级";
+	unit="本";
+	picture=name;
+	desc="凝结仙气，增加自身的防御力\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="ningqichengdun";
+	level_limit=15;
+	profe_read_limit="剑仙";
+	beidong_level=1;
+	need_yushi=10;
+	need_money=400;
+}
+int read(){
+	int result=::beidong_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

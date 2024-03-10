@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=12;
+void create(){
+	name=object_name(this_object());
+	name_cn="小兽穴一层";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/congxianzhen/xiaoshouxueerceng";
+	exits["north"]=ROOT "/gamelib/d/congxianzhen/xiaoshouxuerukou";
+	desc+="[走出洞穴:qge74hye congxianzhen/xiaoshouxuerukou]\n";
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/qinyuan3"}));
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/shuanglang3"}));
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/yaodao3"}));
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/tulou3"}));
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/wunaojiangshi3"}));
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/shiroubianfu3"}));
+}

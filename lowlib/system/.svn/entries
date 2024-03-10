@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1910"
+   name=""
+   committed-date="2009-02-01T06:51:55.031730Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/lowlib/system"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="clone"
+   kind="dir"/>
+<entry
+   name="single"
+   kind="dir"/>
+<entry
+   name="inherit"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="master.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cba227c84158bcfcab3ea83741d011c0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   name="include"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name=".edrc.bak.bak"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e6d604c19ab3dad77d96f20161330764"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   name="filter"
+   kind="dir"/>
+<entry
+   name="cmds"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name=".edrc"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e6d604c19ab3dad77d96f20161330764"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+</wc-entries>

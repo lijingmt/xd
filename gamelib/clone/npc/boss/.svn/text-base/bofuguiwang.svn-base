@@ -1,0 +1,47 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	_boss=1;
+	_flushtime=3600;
+	name_cn="伯夫鬼王";
+	desc="鬼域之王，有夺人生死之能\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	picture="bofuguiwang";
+	_npcLevel=36;
+	set_base_think(100);
+	set_base_dex(100);
+	set_base_str(150);
+	set_base_life(80000);
+	this_object()->query_life_max();
+	set_base_baoji(10);
+	set_base_hitte(100);
+	set_base_dodge(10);
+	array(string) equip_list=({"bossdrop/29guiwangzhan",});
+	foreach(equip_list,string equip){
+		object ob=clone(ITEM_PATH+equip);
+		if(ob){
+			ob->move(this_object());
+			if(ob->query_item_type() != "armor")
+				this_object()->wield(ob);
+			else
+				this_object()->wear(ob);
+		}
+	}
+	boss_skills=(["30/60":"b_guikushenhao","60/180":"b_guiyuzuzhou","10/10":"b_guiwangzhan",]);
+	setup_npc();
+	set_heart_beat(1);
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

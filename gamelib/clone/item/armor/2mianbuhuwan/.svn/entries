@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/armor/2mianbuhuwan"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1873"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="15483a16be30a4448b0eab40527d0f58"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan00000000000000000000000000000001000"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e3b79f07df5c790cc46ffb4b48ce5b81"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan01000000000000000000000000000000000"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0059e001c660351ff05b8660ac735534"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan01100000000000002000000000000002000"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="74eb548383e73ab13b549173f2efd34c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan22000000000000000000000000000000020"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f24c3b5fc48811952bc6b56c7109a4d6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan02000000000000001000000000000003400"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="31841a8bca60b9a5aef5889b386ef05f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2mianbuhuwan12100000000000000000000000000004020"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cf54f18afa8948ede5461dcb0287525b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+</wc-entries>

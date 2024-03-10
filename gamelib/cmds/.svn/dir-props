@@ -1,0 +1,9 @@
+K 10
+svn:ignore
+V 88
+present_set.pike
+bandpsw_change_confirm.pike
+msg_write_confirm.pike
+vendue_confirm.pike
+
+END

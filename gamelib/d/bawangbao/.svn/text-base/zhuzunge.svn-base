@@ -1,0 +1,16 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=3010;
+void create(){
+	name=object_name(this_object());
+	name_cn="至尊阁";
+	desc="\n";
+	desc+="[进入【幻境】霸王魔窟:fb_entry bawangmoku 0 0]\n";
+	exits["west"]=ROOT "/gamelib/d/bawangbao/zhizunpianting";
+}
+int is_peaceful()
+{
+	return 1;
+}

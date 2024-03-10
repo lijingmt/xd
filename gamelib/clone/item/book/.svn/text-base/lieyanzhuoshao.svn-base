@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】烈焰灼烧";
+	unit="本";
+	picture=name;
+	desc="战斗区域被烈焰围绕，缩短所有技能冷却时间2秒,持续30秒,技能结束后, 【咒】炎龙咒, 【仙】极光术, 【仙】冰雪风暴 同时释放(需冷却),给敌人以极大的冲击\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="lieyanzhuoshao";
+	level_limit=69;
+	profe_read_limit="羽士";
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

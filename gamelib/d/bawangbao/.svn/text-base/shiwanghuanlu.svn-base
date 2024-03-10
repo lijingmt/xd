@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=3003;
+void create(){
+	name=object_name(this_object());
+	name_cn="Ê¨Íõ»·Â·";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/bawangbao/wangzhedating";
+	exits["west"]=ROOT "/gamelib/d/bawangbao/bawanganxiang";
+	exits["north"]=ROOT "/gamelib/d/bawangbao/chengbaojushimen";
+}
+int is_peaceful()
+{
+	return 1;
+}

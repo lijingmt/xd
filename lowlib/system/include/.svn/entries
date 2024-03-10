@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1869"
+   name=""
+   committed-date="2009-01-08T04:08:10.050887Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/lowlib/system/include"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   prop-time="2009-01-08T05:37:54.000000Z"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="command.h"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bd07c48422da327eff9ffee02d499497"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+</wc-entries>

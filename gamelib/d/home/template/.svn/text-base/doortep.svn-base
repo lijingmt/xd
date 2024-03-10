@@ -1,0 +1,23 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	desc="\n";
+}
+string query_home_links(){
+	string tmp="";
+	object room = this_object();
+	werror("++++++++ 111 ++++++++\n");
+	tmp += "主人寄语："+room->query_customDesc() + "\n\n\n\n";
+	werror("++++++++ 222 ++++++++\n");
+	tmp += "[敲门进去看看:home_knock_door]\n";
+	werror("++++++++ 333 ++++++++\n");
+	tmp += "[砸门进去抢劫:home_break_door]\n";
+	werror("++++++++ 444 ++++++++\n");
+	tmp += "[离开这里:home_return_to_flat "+ room->query_flatPath() +"]\n";
+	return tmp;
+}

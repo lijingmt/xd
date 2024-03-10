@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/item/home/grown"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="animal"
+   kind="dir"/>
+<entry
+   name="ore"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_grown.pike"
+   text-time="2009-01-08T05:37:46.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4a6b22d5e44560c6adc4e01069a00446"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:46.000000Z"/>
+<entry
+   name="plant"
+   kind="dir"/>
+</wc-entries>

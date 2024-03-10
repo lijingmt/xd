@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+int effect_value;//70技能特有的字段，用于记录一些效果值
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】烈焰灼烧";
+	picture=name;
+	desc="消耗法力2000，战斗区域被烈焰围绕，缩短所有技能冷却时间2秒,持续30秒,技能结束后, 【咒】炎龙咒, 【仙】极光术, 【仙】冰雪风暴 同时释放(需冷却),给敌人以极大的冲击，技能15分钟冷却";
+	s_type="zhudong";
+	s_skill_type="70_spec";
+	s_delayTime=900;
+	s_lasttime=30;
+	skill_type+=({"yushi"});
+	performs_cast[1]=2000;
+	effect_value = 2;
+	performs_level_limit[1]=69;
+}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/data/task"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="Backup"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="task_item_list.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8531125d0d6204271ba2be9c1ffefb10"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="task_list.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d60f9485c3d1820e9a739e9985d36971"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+</wc-entries>

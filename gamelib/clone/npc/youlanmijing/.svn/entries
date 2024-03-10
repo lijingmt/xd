@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/npc/youlanmijing"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="hongpaojianke20"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="aecc572c789275e7089d26e785093117"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qingcaoguai18"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="14093072b62b115159941321462db056"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="shuixianzi19"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="180533ccd506eec1ee0e238306627ba1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="huashuai21"
+   text-time="2009-01-08T05:37:43.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a1fb8009a6344197aff24f6a59de187a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:43.000000Z"/>
+</wc-entries>

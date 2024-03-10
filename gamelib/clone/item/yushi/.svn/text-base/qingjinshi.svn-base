@@ -1,0 +1,18 @@
+//用于清空武器转化次数的特殊玉石。
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="青金石";
+	unit="个";
+	desc="这块沉重的石头表面有着金属般的光泽，你甚至都怀疑是一坨铁。能保证你的熔炼绝不会出错。\n";
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+}

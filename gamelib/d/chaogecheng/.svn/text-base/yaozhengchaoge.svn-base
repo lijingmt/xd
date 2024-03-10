@@ -1,0 +1,50 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=10000;
+array(string) flush_monst = ({"",});
+array(string) flush_human = ({"",});
+void create(){
+	name=object_name(this_object());
+	set_room_type("city");
+	name_cn="";
+	desc="\n";
+	set_belong_to("chaogecheng");
+	exits["east"]=ROOT "/gamelib/d/chaogecheng/juyaoting";
+	string tmp_s = CITYD->query_captured("chaogecheng");
+	if(tmp_s == "monst"){
+		room_race="monst";
+		name_cn = "ÑıÕó¡¾³¯¸è¡¿";
+		name_cn += "(ÑıÄ§Õ¼Áì)";
+		foreach(flush_monst,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+	else if(tmp_s == "human"){
+		room_race="human";
+		name_cn = "ÏÉÕó¡¾³¯¸è¡¿";
+		name_cn += "(ÈËÀàÕ¼Áì)";
+		foreach(flush_human,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+}
+string query_links() 
+{   
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race&&player->query_level()>=30){
+		if(room_race=="monst")
+			tmp+="[ÑıÕó¡¾±ÌÓÎ¹¬¡¿:city_qge74hye jinaodao/yaozhenbiyougong chaogecheng]\n";
+		else if(room_race=="human")
+			tmp+="[ÏÉÕó¡¾ÓñĞé¹¬¡¿:city_qge74hye kunlunshan/xianzhenxuyugong chaogecheng]\n";
+	}
+	if(player->query_raceId()==room_race&&player->query_level()>=45){
+		if(room_race=="monst")
+			tmp+="[ÑıÕó¡¾·üôË¹¬¡¿:qge74hye fuxishan/yaozhenfuxigong]\n";
+	}
+	return tmp;
+}

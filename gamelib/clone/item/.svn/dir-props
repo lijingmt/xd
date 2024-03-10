@@ -1,0 +1,13 @@
+K 10
+svn:ignore
+V 68
+armor/*
+armor
+jewelry/*
+jewelry
+decorate/*
+decorate
+weapon/*
+weapon
+
+END

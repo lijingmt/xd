@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=74;
+void create(){
+	name=object_name(this_object());
+	name_cn="荣耀塔";
+	desc="";
+	exits["east"]=ROOT "/gamelib/d/jinaodao/yuhuacun";
+}
+string query_links()
+{
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId() == room_race){
+		tmp+="[换取荣誉装备:honer_equip_view weapon]\n";
+		tmp+="[推荐积分兑换处:present_equip_view other]\n";
+	}
+	return tmp;
+}

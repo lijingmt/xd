@@ -1,0 +1,15 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=496;
+void create(){
+	name=object_name(this_object());
+	name_cn="铁水熔炉";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/muye/linghepubu";
+	exits["north"]=ROOT "/gamelib/d/muye/qixianyizhan";
+	links="[修理装备:repair]\n";
+	links+="[修理所有装备:repair_all]\n";
+	links+="[锻造:viceskill_duanzao_list m_weapon]|[熔解:viceskill_rongjie_list]|[熔炼:viceskill_ronglian_list 0]\n";
+}

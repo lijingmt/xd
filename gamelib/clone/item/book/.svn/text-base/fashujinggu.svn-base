@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【诅】法术禁锢";
+	unit="本";
+	picture=name;
+	desc="诅咒敌人，降低对方的法术抵抗能力\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="fashujinggu";
+	level_limit=34;
+	profe_read_limit="巫妖";
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

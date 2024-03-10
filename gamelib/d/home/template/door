@@ -1,0 +1,57 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	desc="\n";
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "主人寄语："+room->query_customDesc() + "\n\n\n\n";
+	if(HOMED->is_master(room->homeId))//主人，随时都可以进入自己的房间
+	{
+		tmp += "尊敬的主人，欢迎你回家\n";
+		//tmp += "door="+room->query_door()+"\n";
+		//tmp += "dog="+room->query_dog()+"\n";
+		tmp += "[进入家中:home_enter main]\n";
+		tmp += "[管理家园:home_myzone]\n";
+	}
+	else{
+		string st = room->query_door();                 //没有门
+		if(st==""||!st){
+			tmp += "这家人连门都没有安装，真是路不拾遗夜不闭户啊\n";
+			//tmp += "\n[敲门进去看看:home_knock_door]\n";
+			tmp += "[进去看看:home_enter main]\n";
+		}
+		else{
+			array(string) a = st/",";
+			if(a[0]=="2"){                          //门被砸坏了
+				int time = time();
+				if((time-(int)a[1])>=300||this_player()->query_name()==a[2]){//门被砸超过5分钟，砸门者，允许进入
+					tmp += "这家的门已坏,可能已经被洗劫一空了\n";
+					tmp += "[进去看看:home_enter main]\n";
+					HOMED->save_door("");
+				}
+				else{
+					tmp += "这家人正在被抢劫，等强盗走了你再来吧～\n";
+				}
+			}
+			else{
+				object door = (object)(ITEM_PATH+a[1]);
+				tmp += door->query_name_cn()+"\n";
+				tmp += door->query_picture_url()+"\n"+door->query_desc()+"\n";
+				tmp += "[敲门进去看看:home_knock_door]\n";
+				tmp += "[砸门进去抢劫:door_destroy_detail]\n";
+			}
+		}
+		string masterId = room->query_masterId();
+		if(HOMED->if_have_shopLicense(masterId))
+			tmp += "[私家小店:home_move sijiaxiaodian]\n";
+	}
+	tmp += "[离开这里:home_leave "+ room->query_slotName()+" "+room->query_flatName() +"]\n\n";
+	return tmp;
+}

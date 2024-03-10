@@ -1,0 +1,20 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	name_cn="书卷轩室";
+	desc="在这里读书，可以使你的智力值提高30点，持续30分钟\n";
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "这里是"+room->query_roomNameCn()+"\n\n\n\n";
+	tmp += "房间的桌上放着各种书籍\n";
+	tmp += "[阅读:exercise home_think think 30 1800]\n\n";
+	tmp += "[返回:home_function_room_list]\n";
+	return tmp;
+}

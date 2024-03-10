@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/npc/huanyecun"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="3huanyeshouwei"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="75aabc26acb7975eb7ea6b403e323ab1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="4shanliangyaochong"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2ced83d2c466f2d0249ce387fee72d31"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="3huanyeqibing"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="973215c62ae196921b77cda14da5adb0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="4huanyecunmin"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3eefafcd839b7050ce487ba2bfea8b3f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="5huanyeshenpo"
+   text-time="2009-01-08T05:37:45.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0bbd5d8536dac0251c55ff9da064ce7b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+</wc-entries>

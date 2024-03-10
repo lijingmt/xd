@@ -1,0 +1,184 @@
+#include <globals.h>
+#include <mudlib/include/mudlib.h>
+#define LEAVE_TIME 20 //离开保留时间
+inherit LOW_BASE;
+inherit LOW_F_DBASE;
+inherit MUD_F_INIT;
+inherit MUD_F_ITEMS;
+
+mapping exits=([]);//(["west":ROOT+"/wapmud2/d/someroom"])
+mapping closed_exits=([]);//([string DIRECTORY:int|string|program|object KEY])
+mapping opened_exits=([]);//([string DIRECTORY:int|string|program|object KEY])
+mapping hidden_exits=([]);//([string DIRECTORY:string|program|object KEY_OBJECT])
+mapping switch_exits=([]);//([string DIRECTORY:({({string VAR,int VAL_MIN,int VAL_MAX,string DEST})})])
+mapping guarded_exits=([]);//([string DIRECTORY:string|program|object GUARDER])
+int reset_interval=150;
+private mapping leaveMSG=([]);//纪录任务信息([string userid:array({玩家中文名,离开方向,时间,(<看过的玩家id>)})])
+private mapping remainMSG=([]);//该房间的剩余信息([int 时间:string 信息,<看过的玩家id>])
+private mapping arriveMSG=([]);//该房间的来人信息([int 时间:string 信息,<看过的玩家id>])
+string guard_msg;
+string get_guard_msg(object guarder,string dir){
+	if(guard_msg)
+		return guard_msg;
+	else
+		return guarder->name_cn+"挡住了你的去路。";
+}
+int is_room(){
+	return 1;
+}
+private int last_reset;
+private void try_reset(){
+	if(time()-last_reset>reset_interval){
+		last_reset=time();
+		reset_items();
+		if(this_object()->is("store")){
+			this_object()->reset_boss();
+		}
+		closed_exits+=opened_exits;
+		opened_exits=([]);
+	}
+}
+/*
+ * 增加一个离开纪录
+ * object user 离开的人
+ */
+void addLeaveInfo(object user){
+	leaveMSG+=([user->name:({user->name_cn,user->leave_direction,time(),(<>)})]);
+}
+/*
+* 整理房间离开信息，删除过期信息
+*/
+void trimLeaveInfo(){
+	array names = indices(leaveMSG);
+	foreach(names,string name){
+		array t = leaveMSG[name];
+		if(t[2]<time()-LEAVE_TIME){
+			m_delete(leaveMSG,name);
+		}
+	}
+	while(sizeof(leaveMSG)>3){//最多显示3条信息
+		array names = indices(leaveMSG);
+		string deleteName="";
+		int time = 0;
+		foreach(names,string name){
+			array t = leaveMSG[name];
+			if(t[2]>time){
+				deleteName = name;
+			}
+		}
+		m_delete(leaveMSG,deleteName);
+	}
+}
+//删除该用户的离开信息
+void deleteLeaveInfo(string name){
+		m_delete(leaveMSG,name);
+}
+//显示最近的离开信息
+string query_leave(string username){
+	trimLeaveInfo();
+	string returnString="";
+	array names = indices(leaveMSG);
+	foreach(names,string name){
+		array t = leaveMSG[name];
+		if(t[3][username]) continue;
+		leaveMSG[name][3]+=(<username>);
+		returnString+=t[0]+"向"+(["east":"东","west":"西","north":"北","south":"南"])[t[1]]+"离开。\n";
+	}
+	return returnString;
+}
+/*
+ * 增加一条信息
+*/
+void addRemainMSG(string msg,multiset except){
+		remainMSG+=([gethrtime():({msg,except})]);
+}
+/**
+* 得到剩余信息的大小
+*/
+private int getRemainMSGSize(){
+	array names = indices(remainMSG);
+	int size=0;
+	foreach(names,int name){
+		size+=sizeof(remainMSG[name][0]);
+	}
+	return size;
+}
+/*
+ * 整理房间离开信息，删除过期信息
+*/
+void trimRemainMSG(){
+	array names = indices(remainMSG);
+		foreach(names,int name){
+			if(name/1000000<time()-LEAVE_TIME){
+				m_delete(remainMSG,name);
+			}
+		}
+	while(sizeof(remainMSG)>2){//最多2条信息
+		array names = indices(remainMSG);
+		int deleteName=0;
+		int time = 0;
+		foreach(names,int name){
+			if(name>time){
+				deleteName = name;
+			}
+		}
+		m_delete(remainMSG,deleteName);
+	}
+}
+//显示最新的遗留信息
+string query_remain_msg(string username){
+	trimRemainMSG();
+	string returnMSG="";
+	array names = indices(remainMSG);
+	foreach(names,int name){
+		if(remainMSG[name][1][username]) continue;
+		remainMSG[name][1]+=(<username>);
+		returnMSG+=remainMSG[name][0]+"\n";
+	}
+	return returnMSG;
+}
+/*
+* 增加一条来人信息
+*/
+void addArriveMSG(object user){
+		arriveMSG+=([user->name:({user->name_cn,time(),(<user->name>)})]);
+}
+/*
+* 整理房间离开信息，删除过期信息
+*/
+void trimArriveMSG(){
+	array names = indices(arriveMSG);
+		foreach(names,int name){
+			if(arriveMSG[name][1]<time()-10){
+				m_delete(arriveMSG,name);
+			}
+		}
+		while(sizeof(arriveMSG)>3){//最多显示3条信息
+		array names = indices(arriveMSG);
+		int deleteName=0;
+		int time = 0;
+		foreach(names,int name){
+			if(arriveMSG[name][1]>time){
+				deleteName = name;
+			}
+		}
+		m_delete(arriveMSG,deleteName);
+	}
+}
+//显示最新的遗留信息
+string query_arrive_msg(string username){
+	trimArriveMSG();
+	string returnMSG="";
+	array names = indices(arriveMSG);
+	foreach(names,int name){
+		if(arriveMSG[name][2][username]) continue;
+		arriveMSG[name][2]+=(<username>);
+		returnMSG+=arriveMSG[name][0]+"来到了这里。\n";
+	}
+	return returnMSG;
+}
+//删除该用户的离开信息
+void deleteArriveInfo(string name){
+		m_delete(arriveMSG,name);
+}
+private string initer=(add_init(try_reset),"");

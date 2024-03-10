@@ -1,0 +1,26 @@
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="本在灵鹫山元觉洞修行，坐骑梅花鹿，左右持乾坤尺，右手托紫金钵盂游历到此。\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	sex="male";
+	gender="男";
+	pronoun="他";
+	picture="humanlike_male";
+	_npcLevel=400;
+	name_cn="燃灯道人";
+	setup_npc();
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

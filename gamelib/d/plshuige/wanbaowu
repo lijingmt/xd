@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=302;
+void create(){
+	name=object_name(this_object());
+	name_cn="Íò±¦ÎÝ";
+	desc="\n";
+	exits["west"]=ROOT "/gamelib/d/plshuige/raoyunti";
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[¶Ä·»:dubo_items_list]\n";
+	return tmp;
+}
+int is_peaceful()
+{
+	return 1;
+}

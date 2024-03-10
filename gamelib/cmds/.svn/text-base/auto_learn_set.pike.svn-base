@@ -1,0 +1,44 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+//进入到 挂机 页面
+int main(string arg)
+{
+	string s = "";
+	string type = arg;
+	object me = this_player();
+	if(me->query_level() <70)
+	{
+		int myTime = 0;
+		string typeDes = "";
+		if(type == "xiuchan")
+		{
+			myTime = me->query_auto_learn_xiuchan();
+			s += "注意：20碎玉=60分钟，最低修禅时间为5分钟。不同等级玩家获得的修炼经验会不一样哦。\n";
+			typeDes = "修禅";
+		}
+		else if(type == "dazuo")
+		{
+			myTime = me->query_auto_learn_dazuo();
+			s += "注意：5碎玉=60分钟，最低打坐时间为5分钟。不同等级玩家获得的修炼经验会不一样哦。\n";
+			typeDes = "打坐";
+		}
+		if(myTime) //如果玩家有剩余的 挂机 时间，则给出开始 挂机 的链接。
+		{
+			s += "你当前还剩余"+typeDes+"时间"+myTime+"分钟\n";
+			s += "[继续打坐:auto_learn_confirm "+ type +" "+myTime+"]\n";
+			s += "您也可以充值玉石以增加"+ typeDes +"时间\n";
+		}
+
+		s += "请输入你要使用的碎玉数:\n";
+		s += "[int no:...]块\n";
+		s += "[submit 确定:auto_learn_submit "+type+" ...]\n";
+
+	}
+	else
+	{
+		s += "你已经到达70级了，不能进行该项操作。\n";
+	}
+	s += "\n[返回:look]\n";
+	write(s);
+	return 1;
+}

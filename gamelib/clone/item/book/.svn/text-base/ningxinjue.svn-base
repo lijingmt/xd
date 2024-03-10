@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】凝心决";
+	unit="本";
+	picture=name;
+	desc="转化仙力成气，制造一面可以吸收伤害的护盾\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="ningxinjue";
+	level_limit=9;
+	profe_read_limit="羽士";
+	need_yushi=5;
+	need_money=50;
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

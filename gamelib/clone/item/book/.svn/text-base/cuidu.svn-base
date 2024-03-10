@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】淬毒";
+	unit="本";
+	picture=name;
+	desc="武器自然溢出毒素，增加对方技能冷却时间1秒，获得毒素伤害提高50%的效果，影遁状态下的第一击爆击率提高80%，持续20秒\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="cuidu";
+	level_limit=69;
+	profe_read_limit="影鬼";
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

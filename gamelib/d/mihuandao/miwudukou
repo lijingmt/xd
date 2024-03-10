@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=1;
+void create(){
+	name=object_name(this_object());
+	name_cn="ÃÔÎí¶É¿Ú";
+	desc="\n";
+	set_room_type("rookie");
+	exits["south"]=ROOT "/gamelib/d/mihuandao/milishuilu";
+	add_items(({ROOT "/gamelib/clone/npc/mihuandao/10xiongmengeyu"}));
+	add_items(({ROOT "/gamelib/clone/npc/mihuandao/9youdangelang"}));
+	add_items(({ROOT "/gamelib/clone/npc/mihuandao/9jinmaoxiongshi"}));
+	add_items(({ROOT "/gamelib/clone/npc/mihuandao/10baisejuying"}));
+	add_items(({ROOT "/gamelib/clone/npc/mihuandao/10zamaozhuque"}));
+}

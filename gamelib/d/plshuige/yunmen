@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=308;
+void create(){
+	name=object_name(this_object());
+	name_cn="云门";
+	desc="\n";
+	object player=this_player();
+//	exits["east"]=ROOT "/gamelib/d/plxianjing/mingyunxiaojing";
+	exits["south"]=ROOT "/gamelib/d/plshuige/yunlitongdao";
+//	exits["west"]=ROOT "/gamelib/d/plxianjing/lingyunxiaojing";
+	desc+="[进入【幻境】狐妖洞:fb_entry huyaodong 0 0]\n";
+	desc+="[熔合碎片:huanjin_view_equiplist hundun]\n";
+	desc+="[上交血火石:huanjin_view_equiplist hu]\n";
+	desc+="[签缘竹筒:qianyuanzhutong]\n";
+}

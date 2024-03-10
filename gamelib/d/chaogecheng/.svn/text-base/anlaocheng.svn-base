@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=10000;
+array(string) flush_monst = ({"",});
+array(string) flush_human = ({"",});
+void create(){
+	name=object_name(this_object());
+	set_room_type("city");
+	name_cn="暗牢城";
+	desc="\n";
+//	desc+="[进入【幻境】灵燃之焰:fb_entry lingranzhiyan_m 0 0]\n";
+//	desc+="[进入【幻境】魂飞之井:fb_entry hunfeizhijing_m 0 0]\n";
+//	desc+="[进入【幻境】魄散之眼:fb_entry posanzhidi_m 0 0]\n";
+	set_belong_to("chaogecheng");
+	exits["west"]=ROOT "/gamelib/d/chaogecheng/houjie";
+	string tmp_s = CITYD->query_captured("chaogecheng");
+	if(tmp_s == "monst"){
+		room_race="monst";
+		name_cn += "(妖魔占领)";
+		foreach(flush_monst,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+	else if(tmp_s == "human"){
+		room_race="human";
+		name_cn += "(人类占领)";
+		foreach(flush_human,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+}

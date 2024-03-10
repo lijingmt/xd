@@ -1,0 +1,20 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	name_cn="牧场";
+	desc="\n";
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "这里是"+room->query_roomNameCn()+"\n\n\n\n";
+	tmp += "这里有:\n";
+	tmp += HOMED->query_all_lifes(room->query_name())+"\n\n";
+	tmp += "[返回前厅:home_move main]\n";
+	return tmp;
+}

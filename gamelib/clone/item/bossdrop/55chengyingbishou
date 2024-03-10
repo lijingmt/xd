@@ -1,0 +1,39 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_WEAPON;
+void create(){
+	name=object_name(this_object());
+	name_cn="【狐】承影匕首";
+	unit="把";
+	picture=name;
+	desc="\n";
+	item_cur_dura=1500;
+	item_dura=1500;
+	set_item_type("single_weapon");
+	set_item_weapon_type("bi");
+	set_item_kind("single_other_weapon");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_attack_power(120);
+	set_attack_power_limit(150);
+	set_speed_power(2);
+	set_item_canLevel(55);
+	set_item_profeLimit("zhuxian");
+	if(query_item_kind()=="single_main_weapon")
+		desc+="(主手)\n";
+	else if(query_item_kind()=="single_other_weapon")
+		desc+="(副手)\n";
+	else if(query_item_kind()=="double_main_weapon")
+		desc+="(双手)\n";
+	set_dex_add(30);
+	set_think_add(25);
+	set_doub_add(3);
+	set_weapon_attack_add(6);
+	set_life_add(30);
+	set_attack_fengren_add(30);
+	set_attack_dusu_add(30);
+}

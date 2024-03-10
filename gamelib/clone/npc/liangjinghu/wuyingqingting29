@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="由于月光的照射而产生变异的巨型昆虫。\n";
+	set_raceId("third");
+	set_profeId("bugs");
+	sex="male";
+	gender="雄";
+	pronoun="它";
+	picture="bugs_male";
+	_npcLevel=29;
+	name_cn="雾影蜻蜓";
+	setup_npc();
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

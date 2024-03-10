@@ -1,0 +1,8 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+void create(){
+	name=object_name(this_object());
+	name_cn="";
+	desc="\n";
+}

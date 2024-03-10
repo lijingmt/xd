@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/d/chaogewaicheng"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="qingtaidao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c80f357f1edf95f6c42184da0b4f7b91"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hebaomu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="48ac52fa522c2edf3321b5063309736c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="liaotai"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b0828caf678889ee1aa31e357e6e4298"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tuanliuhehan"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d61f92ac108955d5aa4ff135afbd18b4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hegu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4e5deb051d1af2931b19f87208d577d1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="eluanshihetan"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cf8247d9a656639ce2843a50c5cce2fe"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tianfengmen"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="10c67a53fcbdf564ee84f921c5990691"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dongbeichengqiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5c5b56691a3054694f6fb5660319ad71"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="songzhenlu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="16658d452687af48b46ba81ef4776334"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yutailu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="03bbe75174bbc221a4b09a4adf238bde"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chengbeichakou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9d0198cb5c370daabe4a11e068f25ade"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="xihuchenghe"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5b287f0afc905bb68ead4ba8528f60b1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="huiyingu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c8c2b102962396e14d2fb144e0234bc9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beijiaoguandao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="181bb78713f89f0bd1e0fa412fd3a5b0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="songyoulu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2f398ec4de06d66a6fd8c9bb853a7460"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chaogexinanlou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7cf69b6c7cfe8db3820ace2c457ba65b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="huanglinlu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d4d5bb39f1a43168d4a2031ff06c528f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chengheshuikou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="251dab568862f0e413333c78f6c75bf9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dongnanchengqiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="511822671b82f61eccdb0a69f6c2497f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yanxilu2"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="27170eef2d8aa9aae93dda8b7cfe5bd0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chaogedongnanlou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="239874e32f5d5382ee6886a05fa4e466"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beichenqiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="910fdc1af60d8cc8b244ac65ed82175d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="gumulin"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4c7cb7b63144eedec2b907e35adbe1af"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="shuijinqiao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="027c92ec637b11c52f19f10146630398"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="xibeichengqiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fa5921a1d621b460f0c230127aa4ae0e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="xiaochenglou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7011d60f3c1141563dd7133a46ee7e21"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chenghedao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cccb1f75479386cc77bcd0fc827872be"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="songxiangxiaojing"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="57cf1939faea8440ffbb56f174468319"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chaogexibeilou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="06fa6ad32883d90137fef0d7230365fa"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yanxilu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a5e68dfc7ca0fd0c5d169896890a070e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="baiyutai2"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e7393bded3ae02ada8c778257d0d9edd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="xiyingu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7af495c0715a617f8edcb79ef02e485e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chaogedongbeilou"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="042979a487ef2d49e1ba8adcc5206586"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wulin"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3c116375738ff65c92c2620d7a29d4b2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="nanchengqiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="081a95c35af9ce17fca3de9dc250ad78"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="migu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="22c1dc48aee033db22d189588945b2be"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="xinanchengqiang"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a60883ccda40484b15081852e924248a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="sandao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bd2c4130ecff0ff7f71e7441d39752be"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="donghuchenghe"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e63a7583b3443650e0d7f155f4de6352"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beichengqiang2"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6f81ed0f4489d73456db6951f288a2ae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="baiyutai"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="21b7c6a40de2cbbec84fd025b6335e88"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beichengqiang3"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4b3c6476b81f2a4ba3dbca0cacfea505"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="xitandao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cd6e4594be84400445fdee4fb13d77ab"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beichengqiang4"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5897ac415eacec9040856fb08203c83c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beichengqiang5"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0a78c59e2638eaa64f3a526ca3b8c521"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chaogebeijiao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4436c564b62fc0dafdc7956305a810c8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="zheyanggujing"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="288fd30df9cec00c9acd86a156d426cc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="jinlongqiao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ff3bcc8593a804392b14047aeb329bb1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="beichengqaing6"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b6c786802a24546009cbdcd526962e29"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="zhenguqiao"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1a3ee3caf63f17cda2d4aeffe48f2baf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tenglonglu"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="eae14aca110670e7b8ab368234287733"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+</wc-entries>

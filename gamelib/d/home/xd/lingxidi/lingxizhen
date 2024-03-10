@@ -1,0 +1,20 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=0;
+void create(){
+	name=object_name(this_object());
+	name_cn="ÁéÏ¬Õò";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/home/xd9/lingxidi/lingxixiaolu";
+	exits["north"]=ROOT "/gamelib/d/home/xd9/lingxidi/lingxixiaoxiang";
+}
+string query_links(){
+	string tmp="";
+	string name = this_object()->query_name();
+	tmp+= HOMED->banner_slot(name);
+	tmp+= HOMED->display_flats(name);
+	tmp+= "\n\n\n\n";
+	return tmp;
+}

@@ -1,0 +1,16 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=372;
+void create(){
+	name=object_name(this_object());
+	name_cn="ÔÆÖÐËþ°Ë²ã";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/plshuige/yunzhongta7";
+	exits["north"]=ROOT "/gamelib/d/plshuige/yunzhongta9";
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/tunyunshou27"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/nuleishou27"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/fanyunxie27"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/yunxia27"}));
+}

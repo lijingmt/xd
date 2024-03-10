@@ -1,0 +1,84 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit LOW_DAEMON;
+void create()
+{
+}
+void do_remove(object me)
+{
+}
+void do_login(object me)
+{
+	check_daily(me);
+}
+void check_daily(object me)
+{
+	mapping now_time = localtime(time());
+	int day = now_time["mday"];
+	int month = now_time["mon"]+1;
+	//更新日信息
+	if((int)me["/plus/daily/day"]!=day || (int)me["/plus/daily/mon"]!=month){
+		//记录每次登录，该用户级别信息，金钱信息，荣誉信息(包括杀人数)
+		if(me->query_raceId()=="human"){
+			Stdio.append_file(ROOT+"/log/pk/human_"+month+"_"+day+"_user_day_info.log",me->query_profeId()+"|"+me->query_name_cn()+"("+me->query_name()+"):level="+me->query_level()+"|money="+me->query_account()+"|hlevel="+me->honerlv+"|killcount="+me->killcount+"\n");
+		}
+		if(me->query_raceId()=="monst"){
+			Stdio.append_file(ROOT+"/log/pk/monst_"+month+"_"+day+"_user_day_info.log",me->query_profeId()+"|"+me->query_name_cn()+"("+me->query_name()+"):level="+me->query_level()+"|money="+me->query_account()+"|hlevel="+me->honerlv+"|killcount="+me->killcount+"\n");
+		}
+		//////////////////得到多长时间没上线,作为乘数,乘以每天需要剪去的荣誉值
+		int tmp;
+		int monthdiff = month - me["/plus/daily/mon"];
+		if( monthdiff == 0 ){//本月的情况
+			tmp = day - (int)me["/plus/daily/day"]; 
+			if(tmp<=0)
+				tmp = 1;
+		}
+		else if(monthdiff == 1){//差一个月的情况
+			tmp = 30 - (int)me["/plus/daily/day"] + day;	
+			if(tmp<=0)
+				tmp = 1;
+		}
+		else if((int)me["/plus/daily/mon"]-month==11){//上年12月到今年1月
+			tmp = 30 - (int)me["/plus/daily/day"] + day;	
+			if(tmp<=0)
+				tmp = 1;
+		}
+		else//其他情况
+			tmp = 60;
+		me->_m_delete("/plus/daily");
+		//////////////////得到多长时间没上线,作为乘数,乘以每天需要剪去的荣誉值
+		me["/plus/daily/day"]=day;
+		me["/plus/daily/mon"]=month;
+		//更新荣誉值存储敌人映射表
+		me["/plus/daily/honer_map"]=([]);
+		//重置领取赠送物品的标志位
+		me->get_gift = 0;
+		//重置每天一次领取记录
+		me->get_once_day=([]);
+		//每次登录需要更新荣誉值
+		//荣誉值会随着时间的推移而降低，玩家的荣誉值每天会减少
+		//玩家荣誉级别*20
+		if(me->honerpt>0){
+			me->honerpt = (int)(pow(99/100,tmp)*me->honerpt);
+			if(me->honerpt<=0)
+				me->honerpt=0;
+			//刷新该玩家荣誉表现
+			me->honerlv = WAP_HONERD->flush_honer_level(me->honerpt,me->honerlv);
+		}
+		//轮回值绝对值每天以2点速度减少.
+		if(me->lunhuipt){
+			if(me->lunhuipt>=2){
+				me->lunhuipt -= 2;
+			}
+			else if(me->lunhuipt<=-2){
+				me->lunhuipt += 2;
+			}
+			else{
+				me->lunhuipt = 0;
+			}
+		}
+		//写入日登陆用户信息的统计，包括写入数据库和写入log 
+		//由liaocheng于07/08/13添加
+		USER_COUNTD->entry_record(me);
+	}
+}

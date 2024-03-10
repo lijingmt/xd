@@ -1,0 +1,24 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】破魔心法";
+	desc="刚烈的仙法，可以增加修炼者的意志，提高对敌人的爆击等级";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_delayTime=3;
+	s_lasttime=600;
+	s_curse_type="doub";
+	performs_attack[1]=1;
+	performs_attack[2]=2;
+	performs_attack[3]=3;
+	performs_attack[4]=4;
+	performs_attack[5]=6;
+	skill_type+=({"zhuxian"});
+	performs_level_limit[1]=20;
+	performs_level_limit[2]=22;
+	performs_level_limit[3]=25;
+	performs_level_limit[4]=28;
+	performs_level_limit[5]=30;
+}

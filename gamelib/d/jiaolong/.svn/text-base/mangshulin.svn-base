@@ -1,0 +1,38 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="盲树林";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/jiaolongwei38"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/longtoufubing39"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/lvyijiaolong40"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/fanjianglong41"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[去往金蛟穴:fb_entry jiaolong 5 1]\n";
+	if(check_if_clear() == 1)
+		tmp += "[去往苔藓小路:fb_entry jiaolong 7 1]\n";
+	else
+		tmp += "去往苔藓小路\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

@@ -1,0 +1,115 @@
+#include <wapmud2/include/wapmud2.h>
+
+#define GAMELIB_USER (ROOT+"/gamelib/clone/user")
+#define GAMELIB_INIT (ROOT+"/gamelib/d/init")
+
+#define GAMELIB_NPC ROOT "/gamelib/inherit/npc"
+#define GAMELIB_MASTER ROOT "/gamelib/inherit/master"
+#define GAMELIB_ROOM ROOT "/gamelib/inherit/room"
+//用户仓库系统
+#define GAMELIB_PACKAGED ROOT "/gamelib/inherit/packaged"
+//表情系统
+//#define CHAT_EMOTED ((object)(ROOT "/gamelib/single/daemons/chatemoted"))
+//统计管理模块
+#define COUNTD ((object)(ROOT "/gamelib/single/daemons/countd"))
+#define CROND ((object)(ROOT "/gamelib/single/daemons/crond"))
+//管理后台
+#define MANAGERD ((object)(ROOT+"/gamelib/single/daemons/managed"))
+//信息记录模块
+#define LOG_P ((program)(ROOT "/gamelib/single/daemons/log"))
+//物品随即生成模块
+#define ITEMSD ((object)(ROOT "/gamelib/single/daemons/itemsd"))
+//任务守护模块
+#define TASKD ((object)(ROOT "/gamelib/single/daemons/taskd"))
+//拍卖行守护模块
+#define AUCTIOND ((object)(ROOT "/gamelib/single/daemons/auctiond"))
+//房间等级守护模块
+#define ROOMLEVELD ((object)(ROOT "/gamelib/single/daemons/roomLeveld"))
+//采矿守护模块
+#define KUANGD ((object)(ROOT "/gamelib/single/daemons/kuangd"))
+//锻造守护模块
+#define DUANZAOD ((object)(ROOT "/gamelib/single/daemons/duanzaod"))
+//炼丹守护模块
+#define LIANDAND ((object)(ROOT "/gamelib/single/daemons/liandand"))
+//采药守护模块
+#define CAOYAOD ((object)(ROOT "/gamelib/single/daemons/caoyaod"))
+//熔解守护模块
+#define RONGJIED ((object)(ROOT "/gamelib/single/daemons/rongjied"))
+//熔炼守护模块
+#define RONGLIAND ((object)(ROOT "/gamelib/single/daemons/rongliand"))
+//新副业裁缝，制甲材料掉落守护模块
+#define VICEDROPD ((object)(ROOT "/gamelib/single/daemons/vicedropd"))
+//新副业裁缝，制甲材料怪刷新守护模块
+#define VICEFLUSHD ((object)(ROOT "/gamelib/single/daemons/viceflushd"))
+//新副业裁缝守护模块
+#define CAIFENGD ((object)(ROOT "/gamelib/single/daemons/caifengd"))
+//新副业制甲守护模块
+#define ZHIJIAD ((object)(ROOT "/gamelib/single/daemons/zhijiad"))
+//配方守护模块
+#define PEIFANGD ((object)(ROOT "/gamelib/single/daemons/peifangd"))
+//副本守护模块                                                                                      
+#define FBD ((object)(ROOT "/gamelib/single/daemons/fbd"))
+//boss掉落守护模块
+#define BOSSDROPD ((object)(ROOT "/gamelib/single/daemons/bossdropd"))
+//组队管理模块
+#define TERMD	((object)(ROOT "/gamelib/single/daemons/termd"))
+//阵营级城池守护模块
+#define CITYD ((object)(ROOT "/gamelib/single/daemons/cityd"))
+//排行榜守护模块                                                                                    
+#define PAIHANGD ((object)(ROOT "/gamelib/single/daemons/paihangd"))
+//时间模块，以后会做细化和调整
+#define TIMESD ((object)(ROOT "/gamelib/single/daemons/timesd"))
+//用户登录游戏检查更新模块
+#define USERD ((object)(ROOT "/gamelib/single/daemons/userd"))
+//用户统计模块
+#define USER_COUNTD ((object)(ROOT "/gamelib/single/daemons/user_countd"))
+//用户登陆随机提示
+#define TIPSD ((object)(ROOT "/gamelib/single/daemons/storyd"))
+//用户聊天频道系统
+#define CHATROOMD ((object)(ROOT "/gamelib/single/daemons/chatroomd"))
+#define CHATROOM2D ((object)(ROOT "/gamelib/single/daemons/chatroom2d"))
+//活动奖励发放模块
+#define GIFTD ((object)(ROOT "/gamelib/single/daemons/giftd"))
+//玉石系统模块
+#define YUSHID ((object)(ROOT "/gamelib/single/daemons/yushid"))
+//付费赌装模块
+#define DUBOD ((object)(ROOT "/gamelib/single/daemons/dubod"))
+//名字管理模块
+#define NAMESD ((object)(ROOT "/gamelib/single/daemons/namesd"))
+//大额充值数据库相关模块
+#define DBD ((object)(ROOT "/gamelib/single/daemons/dbd"))
+//大额充值记录文件
+#define LOG_BIG_FEE LOG_P(ROOT "/log/fee_log/bigfee") 
+#define LOG_DBD LOG_P(ROOT "/log/fee_log/dbd")
+//用于规范日志文件格式
+#define LOG_P ((program)(ROOT "/gamelib/cmds/log"))
+//用于刷野外boss的守护模块
+#define YWBOSS_FLUSHD ((object)(ROOT "/gamelib/single/daemons/yewaiboss_flushd"))
+//购买物品模块
+#define BUYD ((object)(ROOT "/gamelib/single/daemons/buyd.pike"))
+//广播系统
+#define BROADCASTD ((object)(ROOT "/gamelib/single/daemons/broadcastd"))
+//VIP系统
+#define VIPD ((object)(ROOT "/gamelib/single/daemons/vipd"))
+//游戏公告
+#define MSGD ((object)(ROOT "/gamelib/single/daemons/messaged"))
+//抽奖模块
+#define LOTTERYD ((object)(ROOT "/gamelib/single/daemons/lotteryd"))
+//游戏间货币兑换
+#define FEE_EXCHANGED ((object)(ROOT "/gamelib/single/daemons/fee_exchanged"))
+//家园基本操作
+#define HOMED ((object)(ROOT "/gamelib/single/daemons/homed"))
+//挂机基本操作
+#define AUTO_LEARND ((object)(ROOT "/gamelib/single/daemons/autolearnd"))
+//问卷调查
+#define DIAOCHAD ((object)(ROOT "/gamelib/single/daemons/diaochad"))
+//附加技能上限
+#define VICESKILL_UP 150
+//玩家等级上限制
+#define MAX_LEVEL 200
+//洞穴刷新出口操作
+#define ROOM_FLUSHD ((object)(ROOT "/gamelib/single/daemons/room_flushd"))
+//兑换物品守护模块
+#define ITEMS_EXCHANGED ((object)(ROOT "/gamelib/single/daemons/items_exchanged"))
+//地图显示
+#define MAPD ((object)(ROOT "/gamelib/single/daemons/mapd"))

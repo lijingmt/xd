@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=81;
+void create(){
+	name=object_name(this_object());
+	name_cn="毒湿地";
+	desc="\n";
+	desc+="[进入【幻境】绿血深渊:fb_entry lvxie 0 0]\n";
+	exits["east"]=ROOT "/gamelib/d/wugongdong/duzhao";
+	exits["west"]=ROOT "/gamelib/d/jinaodao/tumen";
+	add_items(({ROOT "/gamelib/clone/npc/wugongdong/chixiewugong15"}));
+	add_items(({ROOT "/gamelib/clone/npc/wugongdong/xiaoduxie15"}));
+	add_items(({ROOT "/gamelib/clone/npc/wugongdong/quchongyouti15"}));
+	add_items(({ROOT "/gamelib/clone/npc/wugongdong/xiangbiduchong15"}));
+	add_items(({ROOT "/gamelib/clone/npc/wugongdong/baizuwugong15"}));
+	add_items(({ROOT "/gamelib/clone/npc/wugongdong/xiaodufeng15"}));
+}

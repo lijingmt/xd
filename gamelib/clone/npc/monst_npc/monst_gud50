@@ -1,0 +1,47 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="\n";
+	set_raceId("monst");
+	set_profeId("humanlike");
+	sex="male";
+	gender="男";
+	picture="humanlike_male";
+	_npcLevel=50;
+	name_cn="妖魔之眼";
+	_meritocrat=1;
+	setup_npc();
+	//加上巡逻心跳
+	add_heart_beat(randomGo,30);
+	set_heart_beat(1);
+}
+void randomGo()
+{
+	if(query_in_combat()==1) 
+		return;
+	if(this_object()->is("item")) 
+		return;
+	object env = environment(this_object());
+	foreach(all_inventory(env),object player){
+		if( player && player->userip && !player->is("npc") ){
+			if(player->query_raceId()!=this_object()->query_raceId()){
+				tell_object(player,this_object()->query_name_cn()+"：新鲜的人类血肉！"+player->query_name_cn()+"！是你自找的！\n");
+				this_object()->kill(player->query_name(),0);
+				break;
+			}
+		}
+	}
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

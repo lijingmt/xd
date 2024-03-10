@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=517;
+void create(){
+	name=object_name(this_object());
+	name_cn="·ýÂ²ÓªÊ®¾Å²ã";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/muye/fuluying18";
+	exits["north"]=ROOT "/gamelib/d/muye/fuluying20";
+	add_items(({ROOT "/gamelib/clone/npc/muye/kunlunfulu40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/canjibingzu40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/luopoxianren40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/jinguxianren40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/xianrendujun40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/kunlunlaoyi40"}));
+}

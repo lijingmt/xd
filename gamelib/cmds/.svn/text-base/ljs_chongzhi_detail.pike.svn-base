@@ -1,0 +1,19 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+//鎏金石充值接口
+int main(string arg)
+{
+	object me = this_player();
+	string s = "";
+	s += "请选择您所需要的效果持续时间: \n";
+	s += "\n";
+	s += "[60分钟(1【玉】仙缘玉):ljs_chongzhi_confirm 3600 10 0]\n";
+	s += "[180分钟(2【玉】仙缘玉9【玉】碎玉):ljs_chongzhi_confirm 10800 29 0]\n";
+	s += "[300分钟(4【玉】仙缘玉8【玉】碎玉):ljs_chongzhi_confirm 18000 48 0]\n";
+	s += "[480分钟(7【玉】仙缘玉7【玉】碎玉):ljs_chongzhi_confirm 28800 77 0]\n";
+	s += "\n";
+	s += "[返回:inventory]\n";
+	s += "[返回游戏:look]\n";
+	write(s);
+	return 1;
+}

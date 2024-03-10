@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BAOSHI;
+void create(){
+	name=object_name(this_object());
+	name_cn="ÆÓËØ¾§ĞşÌú";
+	unit="¿Å";
+	picture="psjingxuantie";
+	desc="Ôö¼Ó»ğÑæÉËº¦15µã\n";
+	set_color("red");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_value(50);
+	set_item_canLevel(50);
+	set_attack_huoyan_add(15);
+	set_item_kind("pusu");
+}

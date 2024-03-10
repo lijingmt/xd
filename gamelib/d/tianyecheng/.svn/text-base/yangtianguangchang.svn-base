@@ -1,0 +1,33 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=5000;
+array(string) flush_monst = ({"tianyecheng/mojunshizu","tianyecheng/mojunshizu","tianyecheng/mojunshizu","tianyecheng/mojunshizu","tianyecheng/mojunshizu","tianyecheng/mojunshizu","tianyecheng/mojunshizu","tianyecheng/mojunshizu",});
+array(string) flush_human = ({"tianyecheng/jingweiduishibing","tianyecheng/jingweiduishibing","tianyecheng/jingweiduishibing","tianyecheng/jingweiduishibing",});
+void create(){
+	name=object_name(this_object());
+	set_room_type("city");
+	name_cn="仰天广场";
+	desc="\n";
+	set_belong_to("tianyecheng");
+	exits["south"]=ROOT "/gamelib/d/tianyecheng/qizhengdian";
+	exits["north"]=ROOT "/gamelib/d/tianyecheng/jinggongchengmen";
+	string tmp_s = CITYD->query_captured("tianyecheng");
+	if(tmp_s == "monst"){
+		room_race="monst";
+		name_cn += "(妖魔占领)";
+		foreach(flush_monst,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+	else if(tmp_s == "human"){
+		room_race="human";
+		name_cn += "(人类占领)";
+		foreach(flush_human,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+}

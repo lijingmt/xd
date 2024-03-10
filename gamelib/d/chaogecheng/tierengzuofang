@@ -1,0 +1,43 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=10000;
+array(string) flush_monst = ({"",});
+array(string) flush_human = ({"",});
+void create(){
+	name=object_name(this_object());
+	set_room_type("city");
+	name_cn="铁刃作坊";
+	desc="\n";
+	set_belong_to("chaogecheng");
+	exits["south"]=ROOT "/gamelib/d/chaogecheng/wumanlou";
+	string tmp_s = CITYD->query_captured("chaogecheng");
+	if(tmp_s == "monst"){
+		room_race="monst";
+		name_cn += "(妖魔占领)";
+		foreach(flush_monst,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+	else if(tmp_s == "human"){
+		room_race="human";
+		name_cn += "(人类占领)";
+		foreach(flush_human,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+}
+string query_links() 
+{
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race){
+		tmp="[修理装备:repair]\n";
+		tmp+="[修理所有装备:repair_all]\n";
+		tmp+="[锻造:viceskill_duanzao_list m_weapon]|[熔解:viceskill_rongjie_list]|[熔炼:viceskill_ronglian_list 0]\n";
+	}
+	return tmp;
+}

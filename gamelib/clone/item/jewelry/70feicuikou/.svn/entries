@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/jewelry/70feicuikou"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1873"/>
+<entry
+   committed-rev="1860"
+   name="70feicuikou00000000000000000000000000000000z00"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="70a1bad1c1d1a2272eef17b5aae2b6b5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="70feicuikou0z000000000000000000000000000000000"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="29a17bd9da493c4d27fef88d2cd9d617"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="70feicuikou00000100000000000000000000D000000v0"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ae0201b5dcfec062319e0b3f2ec3498e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="70feicuikou"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e59b6c03915cf1e8009f77995a65ccf1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="70feicuikou0000000A0000000000000r0000000000000"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b3e2c939dec5405bd8bb288b424c1f9d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+</wc-entries>

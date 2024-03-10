@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1910"
+   name=""
+   committed-date="2009-02-01T06:51:55.031730Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/lowlib/mudlib/single"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="moneyd.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="918b29aeaaacd07140323f8f91492f66"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="emoted.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b56f2990db22c3e7405c300bb05ba273"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="stored.pike"
+   text-time="2009-01-14T06:27:03.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="421929bc96e5c5f3fb22347ec21c8bc4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chinesed.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a6f9018c933f4edce11752796a4f84e8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="appearanced.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="497d3701bfa0d42e4b52e165aa50456c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1862"
+   name="presentd.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T09:32:12.216005Z"
+   checksum="6a2488ba1db6cb7f91f2292ed878b7f6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="skillsd.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8bd38f0a5d7ac22987028e649095b5b0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="timesd.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8c0135ec371c39875a0a6b4d8a751005"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+</wc-entries>

@@ -1,0 +1,80 @@
+/* wiz_update.pike
+ * author hps
+ * Date: 2003/09/13 
+ * 指令格式 : wiz_update <档名|玩家名>
+ * 这个指令可以更新档案, 并将新档的内容载入记忆体内. 若目标为
+ * 'here' 则更新所在环境. 若目标为 'me' 则更新自己的人物. 若目
+ * 标为玩家则可更新玩家物件.
+ */
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+#define TEMP_ENV ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang"
+
+int update_player(object player);
+int main(string file)
+{
+	object obj,env,usr;
+	array oblist;
+	//if( this_player()->query_name()!="zhubin"||this_player()->query_name()!="wangyan" )	
+	//	return 1;
+	obj=find_player(file);
+	if(obj)
+		return update_player(obj);
+	if(file == "here" )
+		file = file_name(environment(this_player()));
+	if(file&&file[0]!='/'&&file[0]!='~'){
+		file=getcwd()+"/"+file;
+	}
+	if(file&&sizeof(file)>1&&file[0]=='~'&&file[1]=='/'){
+		file=ROOT+file[2..];
+	}
+    if (!file) {
+#ifndef __NO_ADD_ACTION__
+	return notify_fail("update what?\n");
+#else
+	write("update what?\n");
+	return 1;
+#endif
+    }
+    object ob = find_object(file);
+    if(ob && ob->is_room){
+    	env = find_object(TEMP_ENV);
+    	oblist = all_inventory(ob);
+    	if(!env) env = load_object(TEMP_ENV);
+		if(!env){
+			write("%s not exist \n",TEMP_ENV);
+			return 1;
+		}
+    	foreach(oblist,usr){
+    		if( usr->is_character && !usr->is_npc)//player move to kezhan
+    			usr->move(env);
+    		else{//remove npc&items
+    			oblist-=({usr});
+    			usr->remove();
+    		}
+    	}
+    }
+    mixed err=catch{
+    	compile_file(file);
+    };
+    if(err){
+    	write("build file %s fail\n",file);
+    	werror("%O.\n",err);
+    	return 1;
+    }
+	update(file);//defined in efuns
+	env = find_object(file);
+	if(env && env->is_room && sizeof(oblist)){
+	    foreach(oblist,usr){
+    		if( usr->is_character && !usr->is_npc)
+    			usr->move(env);
+    	}
+    }
+	write("%s update success\n",file);
+    return 1;
+}
+int update_player(object player)
+{
+	write("this function is not supplied now!\n[返回游戏:look]\n");
+	return 1;
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1925"
+   name=""
+   committed-date="2009-02-05T02:23:10.278355Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/lowlib/wapmud2"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="single"
+   kind="dir"/>
+<entry
+   name="inherit"
+   kind="dir"/>
+<entry
+   name="include"
+   kind="dir"/>
+<entry
+   name="cmds"
+   kind="dir"/>
+<entry
+   name="etc"
+   kind="dir"/>
+</wc-entries>

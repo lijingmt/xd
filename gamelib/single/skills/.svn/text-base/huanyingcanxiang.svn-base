@@ -1,0 +1,24 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+void create(){
+	name=object_name(this_object());
+	name_cn="【术】幻影残像";
+	desc="可以极大强化自身敏捷性的技能，技能冷却时间为3秒，";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_delayTime=3;
+	s_lasttime=600;
+	s_curse_type="dex";
+	performs_attack[1]=10;
+	performs_attack[2]=14;
+	performs_attack[3]=18;
+	performs_attack[4]=22;
+	performs_attack[5]=26;
+	skill_type+=({"yinggui"});
+	performs_level_limit[1]=30;
+	performs_level_limit[2]=30;
+	performs_level_limit[3]=40;
+	performs_level_limit[4]=42;
+	performs_level_limit[5]=45;
+}

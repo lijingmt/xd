@@ -1,0 +1,23 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_LIFE;
+void create(){
+	name=object_name(this_object());
+	name_cn="桃树";
+	desc="这是一颗桃树\n";
+	unit="株";
+//	amount = 1;
+//	value=100;
+	//picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(0);
+	set_final_life(1000);
+	set_current_life(200);
+	set_grow_speed(100);
+	desc += "当前生命："+ query_current_life()+"\n";
+	desc += "成熟需要: "+ query_final_life();
+}

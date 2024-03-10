@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【卷轴】残酷铁手";
+	unit="本";
+	picture=name;
+	desc="上面记载了残酷铁手的制作方法\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_peifang_kind("duanzao");
+	set_peifang_type("armor");
+	peifang_id=102;
+	level_limit=54;
+	viceskill_level=165;
+}
+int read(){
+	int result=::duanzao_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

@@ -1,0 +1,14 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=1135;
+void create(){
+	name=object_name(this_object());
+	name_cn="蓬莱幻境杂货铺";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/penglaihuanjing/yueyingchanglu";
+	exits["west"]=ROOT "/gamelib/d/penglaihuanjing/hupanxiaolu";
+	exits["north"]=ROOT "/gamelib/d/penglaihuanjing/plhjtiejiangpu";
+	links="[卖东西:inventory_sell]\n";
+}

@@ -1,0 +1,67 @@
+#include <command.h>
+#include <wapmud2/include/wapmud2.h>
+int main(string arg)
+{
+	object env=environment(this_player());
+	if(env->exits[arg]&&!env->closed_exits[arg]&&!(env->hidden_exits[arg]&&!present(env->hidden_exits[arg],this_player()))){
+		object guarder;
+		if(!(env->guarded_exits[arg]&&(guarder=present(env->guarded_exits[arg],env))&&guarder->query_raceId() != this_player()->query_raceId())){
+			string dest=env->exits[arg];
+			mapping switch_exits=(env->switch_exits);
+			if(switch_exits[arg]){
+				foreach(switch_exits[arg],array a){
+					int val;
+					if(a[0]!=""){
+						val=this_player()[a[0]];
+						if(val>=a[1]&&val<=a[2]){
+							dest=a[3];
+							break;
+						}
+					}
+				}
+			}
+			if(dest!=""){
+				if(this_player()->in_combat)
+					this_player()->command("attack");
+				else{
+					this_player()->leave_direction=arg;
+					if(this_player()->hind == 0){
+						env->addLeaveInfo(this_player());
+						env->deleteArriveInfo(this_player()->name);
+					}
+					this_player()->move(dest);
+					this_player()->command("arrive");
+					//自动跟随在这里添加,liaocheng于07/09/21                
+					array(string) tmp_f = this_player()->follow_me;         
+					if(sizeof(tmp_f)){
+						for(int i=0;i<sizeof(tmp_f);i++){
+							if(tmp_f[i] != ""){
+								object follower = find_player(tmp_f[i]);
+								if(follower){
+									if(environment(follower)==env)
+										follower->command("leave "+arg);
+									else{
+										this_player()->follow_me -= ({tmp_f[i]});
+										follower->follow = "_none";
+									}
+								}
+								else{
+									this_player()->follow_me -= ({tmp_f[i]});
+								}
+							}
+						}
+					}
+					//自动跟随完毕
+				}
+			}
+			else
+				this_player()->write_view(WAP_VIEWD["/leave_noway"]);
+		}
+		else
+			this_player()->write_view(WAP_VIEWD["/leave_guarder"],guarder,0,arg);
+	}
+	else
+		this_player()->write_view(WAP_VIEWD["/leave_noway"]);
+	return 1;
+}
+

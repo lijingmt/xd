@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/udtestII/bangpai"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="bang_members"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="575ee4c8d558c28133ed3462b629241f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_size"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="060304b88988c4c0d40dc81fdf51e343"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="name_namecn"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="17220dd70604c2b9f64052200aaeafbe"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_list"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9ee750df6b6f5145b4e355ea1571df20"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_apply"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="aaf552a49e37e0251cf2a8fd0802c658"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="bak"
+   kind="dir"/>
+</wc-entries>

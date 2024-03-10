@@ -1,0 +1,22 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="草宁汁";
+	desc="增加打怪获得的经验150%，持续1小时\n";
+	desc+="该效果不会因为被杀或者下线而消失\n";
+	//desc+="该药品每天只能食用一颗.\n";
+	unit="瓶";
+	picture=name;
+	set_item_canDrop(0);
+	set_item_canGet(0);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_danyao_kind("te_exp");
+	set_danyao_type("exp");
+	set_effect_value(150);
+	set_danyao_timedelay(3600);
+	set_item_level(1);
+}

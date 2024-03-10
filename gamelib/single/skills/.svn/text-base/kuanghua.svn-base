@@ -1,0 +1,24 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】狂化";
+	desc="狂妖的特性技能，可以极大的发挥自己的潜力，增加力量，技能冷却时间为3秒，";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_delayTime=3;
+	s_lasttime=600;
+	s_curse_type="0";
+	performs_attack[1]=8;
+	performs_attack[2]=11;
+	performs_attack[3]=14;
+	performs_attack[4]=17;
+	performs_attack[5]=20;
+	skill_type+=({"kuangyao"});
+	performs_level_limit[1]=30;
+	performs_level_limit[2]=30;
+	performs_level_limit[3]=40;
+	performs_level_limit[4]=42;
+	performs_level_limit[5]=45;
+}

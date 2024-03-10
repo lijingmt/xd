@@ -1,0 +1,948 @@
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+#define LOG_PATH ROOT+"/log/setpassword_user.log" 
+void create(){
+	name_cn="游戏入口\n";
+	//picture = "logo";
+}
+int is_menu(){
+	return 1;
+}
+string query_links(){
+	return "";
+}
+string query_desc(){
+	object me=this_player();
+	string desc="";
+
+	//针对妖族推广07/04/2007 liaocheng添加
+	array(string) sid_tmp = this_player()->sid/"_"; 
+	if(sizeof(sid_tmp) == 3 && sid_tmp[0]=="monst" && sid_tmp[1]=="intro")
+	{
+		if(!me->query_raceId() || me->query_raceId() == ""){
+			me->set_raceId("monst");
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+			desc += "欢迎加入金鳌岛，请您选择职业\n";
+			desc += "[狂妖:choice_profe monst/kuangyao]\n";
+			desc += "狂暴凶猛，嗜血如命\n";
+			desc += "[巫妖:choice_profe monst/wuyao]\n";
+			desc += "诡异法术，毒术大师\n";
+			desc += "[影鬼:choice_profe monst/yinggui]\n";
+			desc += "刺杀王者，无影无踪\n";
+			return desc;
+		}
+	}
+
+	//新人登陆，要设置阵营：人类/妖魔
+	if(!me->query_raceId()){
+		desc += "欢迎加入仙道世界！\n";
+		desc += "请您选择一个您想要加入的游戏阵营：\n";
+		desc += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+		desc += "[妖魔:choice_race monst]\n";
+		desc += "[imgurl loading:/"+GAME_NAME+"/images/human_logo.png]\n";
+		desc += "[人类:choice_race human]\n";
+		//desc += "[选择角色种族:choice_race]\n";
+	}
+	else{
+		desc += "[imgurl loading:/"+GAME_NAME+"/images/logo.png]\n";
+
+		//int game_hour = me->query_user_hour();
+		//int game_mint = me->query_user_mint();
+		//资费提示/////////////////////////////
+		///////////////////////////////////////
+		/*
+		   desc += "剩余游戏时间：\n";
+		   if(game_hour&&game_mint){
+		   desc += game_hour+" 小时 ";
+		   desc += game_mint+" 分钟\n ";
+		   }
+		   else if(game_hour)
+		   desc += game_hour+" 小时\n";
+		   else if(game_mint)
+		   desc += game_mint+" 分钟\n ";
+		//else
+		//	desc += "您的游戏时间已经用完，公测结束后请冲值获得游戏时间，否则将无法进行游戏。\n";
+		 */
+		//加上随机的提示
+		desc += TIPSD->query_tips()+"\n";
+		desc += "[进入游戏:start]\n";
+		if(!me->mobile || me->mobile == "")
+			desc +="[手机绑定:tieToMobile]\n";
+		desc+="[修改密码:check_password]\n";
+	}
+	//用户下线重新登陆，消除以前的队伍状态
+	me->set_term("noterm");
+	desc += "[游戏介绍:intr_game]\n";
+	desc += "--------\n";
+	 desc += "由于受到奥运会影响，手机找回密码服务暂时停止服务，请需要找回密码的玩家直接使用绑定手机号拨打我们的客服电话查询．客服电话：（010）58621742 \n";
+	desc += "大部分地区短信充值已经恢复，部分地区还无法使用的玩家可以使用其他方式充值。\n";
+	desc += "--------\n";
+	desc += TIPSD->get_tail_desc();
+	return desc;
+}
+
+int tieToMobile(string arg)
+{
+	object me=this_player();
+	if(me->mobile && me->mobile != "")
+	{
+		write("您的帐号已经绑定，不能重复进行绑定操作，如需取消，请联系客服010-58621742.\n");
+		write("[进入游戏:start]\n");
+		write("[返回:look]\n");
+	}
+	else{
+		if(!arg)
+		{
+			write("帐号一旦与手机号码绑定，用户将不能更改绑定信息。如需解除绑定，请致电客服:010-58621742\n\n");
+			write("请输入本帐号要绑定的手机号码:\n");
+			write("[string:tieToMobile ...]\n");
+			write("[返回:look]\n");
+		}
+		else{
+			string mobile=arg;
+			string desc=check_mobile(mobile);
+			if(""!=desc)
+			{
+				write(desc);
+				write("[重新输入:tieToMobile]\n");
+				write("[返回:look]\n");
+			}
+			else{     
+				write("确认要将你的帐号与号码"+mobile+"绑定吗？\n");
+				write("[确认:tie_yes "+arg+"]\n");
+				write("[重新输入:tieToMobile]\n");
+				write("[返回:look]\n");
+			}
+		}
+	}
+	return 1;
+}
+
+int tie_yes(string num)
+{
+	object me =this_player();
+	if(me->mobile && me->mobile != "")
+	{
+		write("您的帐号已经绑定，不能重复进行绑定操作，如需取消，请联系客服010-58621742.\n");
+		write("[进入游戏:start]\n");
+		write("[返回:look]\n");
+	}
+	else
+	{
+		me->mobile=num;
+		write("您的帐号已经与手机号码：" + num + "成功绑定，如需取消，请联系客服010-58621742.\n");
+		write("[进入游戏:start]\n");
+		write("[返回:look]\n");
+	}
+
+}
+
+
+string check_mobile(string str)
+{
+	string desc="";
+	if(sizeof(str) == 0 || ""==str){
+		desc += "手机号码不能为空\n";
+	}
+	else
+	{
+		if(sizeof(str)!=11)
+		{
+			desc += "你输入的手机号码位数不正确\n";
+		}
+		else{
+			if((str[0]=='1')&&(str[1]=='3'||str[1]=='5'))
+			{
+				for(int i=2;i<11;i++)
+				{
+					if(!(str[i]>='0'&&str[i]<='9'))
+					{
+						desc += "请输入正确的手机号码\n";
+						return desc;
+					}		
+				}
+			}
+			else
+			{
+				desc += "请输入正确的手机号码\n";
+				return desc;
+			}
+
+		}
+	}
+	return desc;
+}
+
+int check_password(string arg){
+	object me=this_player();
+	if(!arg){
+		if(me->password==0)
+			me->command("set_password");
+		else
+		{
+			write("请输入您的原帐号密码\n");
+			write("[string:check_password ...]\n");
+			write("[返回:look]\n");
+		}
+	}
+	else{
+		string password=arg;
+		if(sizeof(password)<2||sizeof(password)>=12)
+		{
+			//格式不对
+			write("密码验证错误。\n");
+			write("请输入您的原帐号密码\n");
+			write("[string:check_password ...]\n");
+			write("[返回:look]\n");
+		}
+		else if(password[0]>127||password[0]<0)
+		{
+			write("密码验证错误。\n");
+			write("请输入您的原帐号密码\n");
+			write("[string:check_password ...]\n");
+			write("[返回:look]\n");
+		}
+		else
+		{
+			int flag = 1;
+			for(int i=0;i<sizeof(password);i++)
+			{
+				if( password[i]>='a'&&password[i]<='z'||password[i]>='A'&&password[i]<='Z'||password[i]>='0'&&password[i]<='9')
+				{
+					;	
+				}
+				else
+				{
+					flag = 0;
+				}
+			}
+			if(flag)
+			{
+				if(me->password==password)
+					me->command("set_password");
+				else
+				{
+					write("密码验证错误。\n");
+					write("请输入您的原帐号密码\n");
+					write("[string:check_password ...]\n");
+					write("[返回:look]\n");
+				}
+			}
+			else
+			{
+				write("密码验证错误。\n");
+				write("请输入您的原帐号密码\n");
+				write("[string:check_password ...]\n");
+				write("[返回:look]\n");
+			}
+		}
+	}
+	return 1;
+}
+
+int set_password(string arg){
+	object me=this_player();
+	if(!arg)
+	{
+		write("验证成功，请输入您的新密码（必须是英文或者数字）\n");
+		write("[string:set_password ...]\n");
+		write("[返回:look]\n");
+	}
+	else
+	{
+		string password=arg;
+		if(sizeof(password)<2||sizeof(password)>=12)
+		{
+			//格式不对
+			write("您输入的新密码太长或者太短，请重新输入\n");
+			write("[string:set_password ...]\n");
+			write("[返回:look]\n");
+		}
+		else if(password[0]>127||password[0]<0)
+		{
+			//格式不对
+			write("您输入的新密码有特殊字符，请重新输入\n");
+			write("[string:set_password ...]\n");
+			write("[返回:look]\n");
+		}
+		else
+		{
+			int flag = 1;
+			for(int i=0;i<sizeof(password);i++)
+			{
+				if( password[i]>='a'&&password[i]<='z'||password[i]>='A'&&password[i]<='Z'||password[i]>='0'&&password[i]<='9')
+				{
+					;	
+				}
+				else
+				{
+					flag = 0;
+				}
+			}
+			if(flag)
+			{
+				me->password=password;
+				string now=ctime(time());
+				Stdio.append_file(LOG_PATH,"["+now[0..sizeof(now)-2]+"]["+me->name+"]["+me->name_cn+"][设置密码:"+arg+"]\n");
+				write("设置密码成功。\n");
+				me->command("save");
+				write("[返回:look]\n");
+			}
+			else
+			{
+				write("您输入的新密码含有特殊字符，请重新输入.\n");
+				write("[string:set_password ...]\n");
+				write("[返回:look]\n");
+			}
+		}
+	}
+	return 1;
+}
+
+int is_peaceful(){
+	return 1;
+}
+int intr_game(string arg){
+	object me = this_player();
+	string s = "";
+	s += "[imgurl loading:/"+GAME_NAME+"/images/logo.png]\n";
+	s += "自女娲补天之后，洪均老祖门下三徒太上老君，原始天尊，通天教主执掌大千世界，原始天尊创建昆仑山一派接引人类成仙，而通天教主则光收天下妖魔创立金鳌岛。人妖本不两立，混沌的年代，烽烟再起，到底是仙人们能够驯服妖魔，还是妖魔们统治人类，一切的历史，等你来创造……\n";
+
+	if(!me->query_raceId()){
+		s += "欢迎加入仙道世界！\n";
+		s += "[选择游戏阵营:choice_race]\n";
+	}
+	else{
+		s += "[进入游戏:start]\n";
+		if(!me->mobile || me->mobile == "")
+			s +="[手机绑定:tieToMobile]\n";
+	}
+	s += "--------\n";
+	s += "仙界时间\n"+TIMESD->query_cur_time()+"\n";
+	write(s);
+	return 1;
+}
+int choice_race(string arg){
+	object me = this_player();
+	string s = "";
+	if(!arg){
+		s += "请您选择一个您想要加入的游戏阵营：\n";
+		s += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+		s += "[妖魔:choice_race monst]\n";
+		s += "[imgurl loading:/"+GAME_NAME+"/images/human_logo.png]\n";
+		s += "[人类:choice_race human]\n";
+	}
+	else{
+		if(arg=="human"){
+			//me->set_raceId(arg);
+			s += "从仙之路\n";
+			s += "[imgurl loading:/"+GAME_NAME+"/images/human_logo.png]\n";
+			s += "欢迎加入昆仑山，请您选择职业\n";
+			s += "[剑仙:choice_profe human/jianxian]\n";
+			s += "重甲长剑，力敌山河\n";
+			s += "[羽士:choice_profe human/yushi]\n";
+			s += "元素使者，法力无边\n";
+			s += "[诛仙:choice_profe human/zhuxian]\n";
+			s += "舞剑天涯，斩妖无数\n";
+			s += "[狂妖:choice_profe human/kuangyao]\n";
+			s += "狂暴凶猛，嗜血如命\n";
+			s += "[巫妖:choice_profe human/wuyao]\n";
+			s += "诡异法术，毒术大师\n";
+			s += "[影鬼:choice_profe human/yinggui]\n";
+			s += "刺杀王者，无影无踪\n";
+		}
+		else if(arg=="monst"){
+			//me->set_raceId(arg);
+			s += "化妖之路\n";
+			s += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+			s += "欢迎加入金鳌岛，请您选择职业\n";
+			s += "[狂妖:choice_profe monst/kuangyao]\n";
+			s += "狂暴凶猛，嗜血如命\n";
+			s += "[巫妖:choice_profe monst/wuyao]\n";
+			s += "诡异法术，毒术大师\n";
+			s += "[影鬼:choice_profe monst/yinggui]\n";
+			s += "刺杀王者，无影无踪\n";
+			s += "[剑仙:choice_profe monst/jianxian]\n";
+			s += "重甲长剑，力敌山河\n";
+			s += "[羽士:choice_profe monst/yushi]\n";
+			s += "元素使者，法力无边\n";
+			s += "[诛仙:choice_profe monst/zhuxian]\n";
+			s += "舞剑天涯，斩妖无数\n";
+		}
+		s += "[更换阵营:choice_race]\n";
+	}
+	s += "--------\n";
+	s += "仙界时间\n"+TIMESD->query_cur_time()+"\n";
+	write(s);
+	return 1;
+}
+int choice_profe(string arg){
+	object me = this_player();
+	string s = "";
+	if(!arg){
+		s += "请您选择一个您想要加入的游戏阵营：\n";
+		s += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+		s += "[妖魔:choice_race monst]\n";
+		s += "[imgurl loading:/"+GAME_NAME+"/images/human_logo.png]\n";
+		s += "[人类:choice_race human]\n";
+	}
+	else if(me->query_raceId()&&me->query_profeId()){
+		s += "你已经选择过了你的阵营和职业，请直接进入游戏。\n";	
+		//reg_new
+		s += "[进入游戏:start monst]\n";
+		if(!me->mobile || me->mobile == "")
+			s +="[手机绑定:tieToMobile]\n";
+	}
+	else{
+		//初始化新角色职业值
+		array(string) arr = arg/"/";
+		string u_r = (string)arr[0];
+		string u_p = (string)arr[1];
+		me->set_raceId(u_r);
+		me->set_profeId(u_p);
+
+		//针对妖族推广的用户注册记录，07/05/2007 liaocheng添加
+		array(string) sid_tmp = me->sid/"_"; 
+		if(sizeof(sid_tmp) == 3 && sid_tmp[0] == "monst" && sid_tmp[1] == "intro"){
+			string from = sid_tmp[2];
+			newuser_monst(me->query_name(),from);
+		}
+		
+		newuser(me->query_name());
+		if(u_p=="jianxian"){
+			me->setup_player("human",u_p);
+			if(me->skills["qieyunzhan"]==0)
+				me->skills["qieyunzhan"]=({1,0});
+			s += "好，你选择了剑仙作为你游戏中人类角色的职业。\n";
+			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			//reg_new
+			s += "[进入游戏:start human]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="yushi"){
+			me->setup_player("human",u_p);
+			if(me->skills["yinghuozhou"]==0)
+				me->skills["yinghuozhou"]=({1,0});
+			s += "好，你选择了羽士作为你游戏中人类角色的职业。\n";
+			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			//reg_new
+			s += "[进入游戏:start human]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="zhuxian"){
+			me->setup_player("human",u_p);
+			if(me->skills["suixinjue"]==0)
+				me->skills["suixinjue"]=({1,0});
+			s += "好，你选择了诛仙作为你游戏中人类角色的职业。\n";
+			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			//reg_new
+			s += "[进入游戏:start human]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="kuangyao"){
+			me->setup_player("monst",u_p);
+			if(me->skills["silie"]==0)
+				me->skills["silie"]=({1,0});
+			s += "好，你选择了狂妖作为你游戏中妖魔角色的职业。\n";
+			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			//reg_new
+			s += "[进入游戏:start monst]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="wuyao"){
+			me->setup_player("monst",u_p);
+			if(me->skills["wudushu"]==0)
+				me->skills["wudushu"]=({1,0});
+			s += "好，你选择了巫妖作为你游戏中妖魔角色的职业。\n";
+			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			//reg_new
+			s += "[进入游戏:start monst]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="yinggui"){
+			me->setup_player("monst",u_p);
+			if(me->skills["fuji"]==0)
+				me->skills["fuji"]=({1,0});
+			s += "好，你选择了影鬼作为你游戏中妖魔角色的职业。\n";
+			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			//reg_new
+			s += "[进入游戏:start monst]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		//添加物品，初级
+		object w = new(ROOT+"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		if(w){
+			w->move(me);
+			me->wield(w);
+		}
+		object c1 = new(ROOT+"/gamelib/clone/item/armor/2caoxie/2caoxie");
+		if(c1)
+			c1->move(me);
+		object c2 = new(ROOT+"/gamelib/clone/item/armor/2cubuchangku/2cubuchangku");
+		if(c2)
+			c2->move(me);
+		object c3 = new(ROOT+"/gamelib/clone/item/armor/2cubuyi/2cubuyi");
+		if(c3)
+			c3->move(me);
+		me->add_money(20);
+		me->set_user_fee(6000);
+
+		if(!me->relife){
+			if(me->query_raceId()=="human")
+				me->relife="/gamelib/d/congxianzhen/xiaomuwu";
+			if(me->query_raceId()=="monst")
+				me->relife="/gamelib/d/jinaodao/maocaowu";
+		}
+
+		if(me->sid != "5dwap")
+			me->command("save");
+
+		//reg_new
+		//统计用户的注册时间
+		if(me->user_reg_time==0)
+			me->user_reg_time = MUD_TIMESD->get_mysql_timedesc();
+		USER_COUNTD->reg_new(me);
+
+		//填写推荐人标示，""表示不可填写，"can_set"表示可填写，"推荐人帐号"表示已填写 
+		//由liaocheng于07/8/23添加，用于人推人系统
+		if(!me->set_presenter)
+			me->set_presenter = "can_set";
+
+		COUNTD->count_register();
+	}
+	s += "--------\n";
+	s += "仙界时间\n"+TIMESD->query_cur_time()+"\n";
+	write(s);
+	return 1;
+}
+//重载wapmud2/inherit/feature/inventory.pike中的have_character方法
+//这里直接返回空，避免在登陆游戏房间中看到其他用户
+string have_character(){
+	return "";
+}
+//重载wapmud2/inherit/feature/inventory.pike中的have_item方法，不显示
+//该登陆界面中的物品
+string have_item(){
+	return "";
+}
+int start(string arg){
+	object me=this_player();
+	if(this_object()->sid == "5dwap")
+		tell_object(me,"欢迎尝试仙道，您现在是游客身份，你的档案将不会被保存，欢迎点击注册一个正式帐号来体验仙道的乐趣。\n");
+	//针对妖族推广后退bug的修复 07/23/2007 liaocheng添加
+	//array(string) sid_tmp = this_player()->sid/"_"; 
+	//if(sizeof(sid_tmp) == 3 && sid_tmp[0]=="monst" && sid_tmp[1]=="intro")
+	//{
+	if(!me->query_profeId() || me->query_profeId() == ""){
+		string desc = "";
+		me->set_raceId("monst");
+		desc += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+		desc += "欢迎加入金鳌岛，您尚未选择职业，请您选择：\n";
+		desc += "[狂妖:choice_profe monst/kuangyao]\n";
+		desc += "狂暴凶猛，嗜血如命\n";
+		desc += "[巫妖:choice_profe monst/wuyao]\n";
+		desc += "诡异法术，毒术大师\n";
+		desc += "[影鬼:choice_profe monst/yinggui]\n";
+		desc += "刺杀王者，无影无踪\n";
+		write(desc);
+		return 1;
+	}
+
+	//领取标识的初始化
+        if(!me->get_gift)                                                                                         
+	        me->get_gift = 0;
+	if(!me->get_once_day)
+	        me->get_once_day=([]);
+	//跟随的初始化
+	me->follow_me = ({});
+	me->follow = "_none";
+
+	//副业系统相关数据结构初始化
+	if(me->vice_skills==0)
+		me->vice_skills=([]);
+	else {
+		if(me->vice_skills["duanzao"]&&sizeof(me->vice_skills["duanzao"]))
+			me->vice_skills["duanzao"][2]=VICESKILL_UP;
+		if(me->vice_skills["caikuang"]&&sizeof(me->vice_skills["caikuang"]))
+			me->vice_skills["caikuang"][2]=VICESKILL_UP;
+		if(me->vice_skills["zhijia"]&&sizeof(me->vice_skills["zhijia"]))
+			me->vice_skills["zhijia"][2]=VICESKILL_UP;
+		if(me->vice_skills["caifeng"]&&sizeof(me->vice_skills["caifeng"]))
+			me->vice_skills["caifeng"][2]=VICESKILL_UP;
+		if(me->vice_skills["caiyao"]&&sizeof(me->vice_skills["caiyao"]))
+			me->vice_skills["caiyao"][2]=VICESKILL_UP;
+		if(me->vice_skills["liandan"]&&sizeof(me->vice_skills["liandan"]))
+			me->vice_skills["liandan"][2]=VICESKILL_UP;
+	}
+	if(me->material_m==0)
+		me->material_m=([]);
+	if(me->baoshi_add==0)
+		me->baoshi_add=([]);
+	if(me->ronglian_list == 0)
+		me->ronglian_list=([]);
+	me["/danyao"]=([]);
+	me["/homeBuff"]=([]);
+	//加载还有效果的特药，由liaocheng于07/11/21添加
+	if(me["/teyao"] && sizeof(me["/teyao"])>0){
+		foreach(indices(me["/teyao"]),string kind){
+			array tmp_a = me["/teyao/"+kind];
+			if(tmp_a[2]>0){ 
+				me->set_buff(kind,0,tmp_a[0]);
+				me->set_buff(kind,1,tmp_a[1]);
+				me->set_buff(kind,2,tmp_a[2]);
+			}
+			else
+				m_delete(me["/teyao"],kind);
+		}
+	}
+
+	//用户每次登录，应该给与10分钟下线时间，为了避免误差损失，9分钟即可
+	//貌似有bug。。。。。。。
+	//me->set_user_fee(me->query_user_fee()+18);
+	//初始化bangid,帮派解散后，登录会自动置为0
+	if(!me->bangid || (me->bangid && !BANGD->if_is_bang(me->bangid)))
+		me->bangid = 0;
+	//初始话影遁 
+	if(!me->hind)
+		me->hind = 0;
+	//初始化特殊技能标志 
+	if(!me->can_spec)
+		me->can_spec = 0;
+	if(!me["/spec_skill/coldtime"])
+		me["/spec_skill/coldtime"]=0;
+	if(!me["/spec_skill/coldtime2"])
+		me["/spec_skill/coldtime2"]=0;
+	//初始化ui聊天
+	me->roomchatid = "close";
+	//初始化先手
+	if(!me->first_fight)
+		me->first_fight = 0;
+	//初始化用户快捷键配置
+	if(me->toolbar_key==0 || me->toolbar_key == ({}))
+		me->toolbar_key =({(["none":0]),(["none":0]),(["none":0]),(["none":0]),(["none":0]),(["none":0])});
+	else
+	{
+		if(sizeof(me->toolbar_key)==3)
+		me->toolbar_key = me->toolbar_key + ({(["none":0]),(["none":0]),(["none":0])});
+	}
+	
+	
+	//初始化用户藏宝箱，第一次空初始化为10个格子
+	if(me->packageLevel==0)
+		me->packageLevel = 20;
+	//初始化红名 
+	me->red_flag = 0;
+	//初始化杀戮标示,用于帮战
+	me->kill_flag = 1;
+	//初始化推广活动-升级换玉石-相关的标志位 evan added 2007.12.05
+	if(!me->yushi_flag)
+		me->yushi_flag = 0;
+	//end of evan added 2007.12.05
+
+	//初始化玩家关注列表 added evan 2008.07.07
+	if(!me->spy_info)
+		me->spy_info = ([]);
+	//end of evan added 2008.07.07
+
+	//初始化玩家VIP状态 added evan 2008.07.17
+	if(!me->vip_flag)
+		me->vip_flag = 0;
+	else{
+		if(!VIPD->get_vip_state(me)){//会员资格到期
+			me->vip_flag = 0;
+		}
+	}
+	if(!me->vip_end_time)
+		me->vip_end_time = 0;
+	if(!me->vip_history)
+		me->vip_history = ([]);
+	//end of evan added 2008.07.17
+	 //add by caijie 080923 家园权限标识
+	if(!me->home_rights)	
+		me->home_rights = ([]);//以int型为索引，1表示敲门进入，2表示砸门进入，索引对应的值为家园主人的id
+	if(!me->package_expand)
+		me->package_expand = ([]);
+	
+	//初始化微缩图显示状态，默认状态为全部打开,由caijie添加于08/12/24
+	if(!me->pic_flag){
+		me->pic_flag = ([]);
+		me->pic_flag["scene"] = me->pic_flag["item"] = me->pic_flag["character"] = me->pic_flag["decrate"] = "open";
+	}
+
+
+
+	//以前错误的静心决修正
+	if(me->query_profeId() == "yushi"){
+		if(me->skills["jingxinjue"] && me->query_base_think()==0){
+			array tmp_arr = me->skills["jingxinjue"];
+			int val = 10+((int)tmp_arr[0]-1)*4;
+			me->set_base_think(val);
+		}
+	}
+
+	//新仓库内存初始化
+	if(me->packaged_items==0)
+		me->packaged_items = ({});
+	//每次登录，初始化清空回城时间为该次登陆时间
+	if(!me["/post/posttime"])
+		me["/post/posttime"] = time()-900;
+	else
+		me["/post/posttime"] = time()-900;
+	//每次登录初始化并清理用户聊天频道屏蔽发言列表
+	if(me["/plus/chatblock"])
+		me["/plus/chatblock"] = ({});
+	//初始化用户信息，必须作，如果未初始化的话
+	if(!me->honerpt)
+		me->honerpt = 0;
+	else if(me->honerpt && me->honerpt>0){
+		me->honerpt -= me->honerpt/100;
+	}
+	if(!me->honerlv)
+		me->honerlv = 0;
+	if(!me->lunhuipt)
+		me->lunhuipt = 0;
+	//用户下线重新登陆，消除以前的队伍状态
+	//me->set_term("noterm");
+	reguser(me->name);
+	//统计系统
+	COUNTD->count_login_time(me->name);
+	USERD->do_login(me);
+	//赠送系统，临时变量标示
+	if(me["/plus/sendrecd"])
+		me["/plus/sendrecd"] = 0;
+
+	//填写推荐人标示，""表示不可填写，"can_set"表示可填写，"推荐人帐号"表示已填写
+	//由liaocheng于07/8/23添加，用于人推人系统
+	if(!me->set_presenter) 
+		me->set_presenter = "";
+	if(!me->cur_mark)
+		me->cur_mark = 0;
+	if(!me->all_mark)
+		me->all_mark = 0;
+
+	if(!arg){
+		if(!me->last_pos){
+			if(me->query_raceId()=="human")
+				me->last_pos="/gamelib/d/congxianzhen/xiaomuwu";
+			if(me->query_raceId()=="monst")
+				me->last_pos="/gamelib/d/jinaodao/maocaowu";
+		}
+		if(!me->relife){
+			if(me->query_raceId()=="human")
+				me->relife="/gamelib/d/congxianzhen/xiaomuwu";
+			if(me->query_raceId()=="monst")
+				me->relife="/gamelib/d/jinaodao/maocaowu";
+		}
+		//副本和家园的特殊处理
+		array allPos = me->last_pos/"#";
+		int num = sizeof(allPos);
+		if(num == 2) //表示玩家在副本或者家园中
+		{
+			if(me->inhome_path=="")           //玩家在副本中
+			{
+				me->last_pos = (me->last_pos/"#")[0];
+				string fb_name = "";
+				fb_name = (me->fb_id/"/")[1];
+				me->last_pos="/gamelib/d/"+FBD->query_fb_leave_room(fb_name);
+
+				object last = (object)(ROOT+me->last_pos);
+				if(!last || last->query_room_type() == "fb"){
+					fb_name = (me->fb_id/"/")[1];
+					me->last_pos="/gamelib/d/"+FBD->query_fb_leave_room(fb_name);
+				}
+				if(me->last_pos){
+					mixed err=catch{
+						(object)(ROOT+me->last_pos);
+					};
+					if(!err)
+						me->move(ROOT+me->last_pos);
+				}
+			}
+			else                              //玩家在家园中
+			{
+				object room = HOMED->query_home_by_masterId(me->inhome_pos);
+				if(room){
+					me->move(room);
+					HOMED->add_user(me->query_name());
+				}
+				//该玩家在某个home中，但是在这期间，主人将home变卖了，就会进入到这里。
+				else{		
+					me->last_pos = "/gamelib/d/ninggedian/ninggedian";
+					me->inhome_pos =="";//将inhome_pos置空，以免下次登陆再次进入到这里。
+					me->last_pos=me->last_pos-ROOT;
+					if(me->last_pos){
+						mixed err=catch{
+							(object)(ROOT+me->last_pos);
+						};
+						if(!err)
+							me->move(ROOT+me->last_pos);
+					}
+
+				}
+			}
+		}
+		//副本和家园的特殊处理 结束	
+		else
+		{
+			if(me->last_pos){
+				mixed err=catch{
+					(object)(ROOT+me->last_pos);
+				};
+				if(!err)
+					me->move(ROOT+me->last_pos);
+			}
+		}
+
+	}
+	else
+	{
+		if(!me->last_pos){
+			if(arg=="human")
+				me->last_pos="/gamelib/d/congxianzhen/xiaomuwu";
+			if(arg=="monst")
+				me->last_pos="/gamelib/d/jinaodao/maocaowu";
+		}
+		/*
+		//在副本中则要把玩家传到副本外
+		me->last_pos = (me->last_pos/"#")[0];
+		object last = (object)(ROOT+me->last_pos);
+		if(!last || last->query_room_type() == "fb"){
+		string fb_name = (me->fb_id/"/")[1];
+		me->last_pos="/gamelib/d/"+FBD->query_fb_leave_room(fb_name);
+		}
+
+		me->last_pos=me->last_pos-ROOT;
+		 */
+		if(me->last_pos){
+			mixed err=catch{
+				(object)(ROOT+me->last_pos);
+			};
+			if(!err)
+				me->move(ROOT+me->last_pos);
+		}
+	}
+	me->command("look");
+	return 1;
+}
+
+//add by calvin : 纪录日独立用户
+int reguser(string arg)
+{
+	string webdir = "/usr/local/data/uniq_user/"+GAME_NAME_S+".";
+	if(!arg)
+	{
+		return 1;
+	}
+	else
+	{
+		string s_mon,s_day;                                                                           
+		int year,mon,day=0;                                                                                    
+		mapping now_time = localtime(time());                                                                     
+		mon = now_time["mon"]+1;                                                                                  
+		day = now_time["mday"];                                                                                   
+		year = now_time["year"]+1900;
+		if(mon<10)                                                                                                
+			s_mon = "0"+mon;                                                                                  
+		else                                                                                                      
+			s_mon = (string)mon;                                                                              
+		if(day<10)                                                                                                
+			s_day = "0"+day;                                                                                  
+		else                                                                                                      
+			s_day = (string)day;
+
+		string logdate = "";
+		logdate += year+s_mon+s_day;
+
+		Stdio.append_file(webdir+logdate+".txt",arg+"\n");
+	}
+	return 1;
+}
+//add by liaocheng : 纪录日注册游戏帐号用户
+int newuser(string arg)
+{
+	string webdir = DATA_ROOT+"new_users/"+GAME_NAME_S+".";
+	if(!arg)
+	{
+		return 1;
+	}
+	else
+	{
+		string s_mon,s_day;                                                                           
+		int year,mon,day=0;                                                                                    
+		mapping now_time = localtime(time());                                                                     
+		mon = now_time["mon"]+1;                                                                                  
+		day = now_time["mday"];                                                                                   
+		year = now_time["year"]+1900;
+		if(mon<10)                                                                                                
+			s_mon = "0"+mon;                                                                                  
+		else                                                                                                      
+			s_mon = (string)mon;                                                                              
+		if(day<10)                                                                                                
+			s_day = "0"+day;                                                                                  
+		else                                                                                                      
+			s_day = (string)day;
+
+		string logdate = "";
+		logdate += year+s_mon+s_day;
+
+		Stdio.append_file(webdir+logdate+".txt",arg+"\n");
+	}
+	return 1;
+}
+//add by liaocheng : 纪录推广妖魔游戏帐号用户
+int newuser_monst(string arg,string flag)
+{
+	string webdir = DATA_ROOT + "new_users_monst/" + GAME_NAME_S + "_from_"+flag+".";
+	if(!arg)
+	{
+		return 1;
+	}
+	else
+	{
+		string s_mon,s_day;                                                                           
+		int year,mon,day=0;                                                                                    
+		mapping now_time = localtime(time());                                                                     
+		mon = now_time["mon"]+1;                                                                                  
+		day = now_time["mday"];                                                                                   
+		year = now_time["year"]+1900;
+		if(mon<10)                                                                                                
+			s_mon = "0"+mon;                                                                                  
+		else                                                                                                      
+			s_mon = (string)mon;                                                                              
+		if(day<10)                                                                                                
+			s_day = "0"+day;                                                                                  
+		else                                                                                                      
+			s_day = (string)day;
+
+		string logdate = "";
+		logdate += year+s_mon+s_day;
+
+		Stdio.append_file(webdir+logdate+".txt",arg+"\n");
+	}
+	return 1;
+}
+
+void init(){
+	add_action(start,"start");
+	add_action(intr_game,"intr_game");
+	add_action(choice_race,"choice_race");//选择阵营：人类/妖魔
+	add_action(choice_profe,"choice_profe");//选择职业：人类3种/妖魔3种
+
+	add_action(reguser,"reguser");
+
+	add_action(set_password,"set_password");
+	add_action(check_password,"check_password");
+	add_action(tieToMobile,"tieToMobile");//进入绑定页面
+	add_action(tie_yes,"tie_yes");//确认绑定 
+}
+/*
+   string query_picture_url(){
+   return "[imgurl loading:/"+GAME_NAME+"/images/logo.png]";
+   }
+ */

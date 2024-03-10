@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="成年的赤血蜈蚣，由于常年吸食活血，极具魔性。\n";
+	set_raceId("third");
+	set_profeId("bugs");
+	sex="female";
+	gender="雌";
+	pronoun="它";
+	picture="bugs_female";
+	_npcLevel=23;
+	name_cn="魔血蜈蚣";
+	setup_npc();
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

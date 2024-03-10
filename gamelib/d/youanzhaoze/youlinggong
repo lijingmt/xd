@@ -1,0 +1,37 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="幽灵宫";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/youanzhaoze/fushuiyao60"}));
+	add_items(({ROOT "/gamelib/clone/npc/youanzhaoze/kugubianfu60"}));
+	add_items(({ROOT "/gamelib/clone/npc/youanzhaoze/zhaozeligui60"}));
+	add_items(({ROOT "/gamelib/clone/npc/youanzhaoze/dushichong60"}));
+	add_items(({ROOT "/gamelib/clone/npc/youanzhaoze/zhaozeyouhun60"}));
+	add_items(({ROOT "/gamelib/clone/npc/youanzhaoze/shifuchong60"}));
+	add_items(({ROOT "/gamelib/clone/npc/boss/zhouzhiningsi"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[去往沉重石门:fb_entry youanzhaoze 16 1]\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

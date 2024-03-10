@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_INFANCY;
+void create(){
+	name=object_name(this_object());
+	name_cn="天鹅绒草籽";
+	unit="颗";
+	picture=name;
+	desc="看起来长势不错，种在家园中，可以得到一棵天鹅绒草";
+	amount=1;
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=100;
+	set_item_type("home_infancy_plant");
+	set_grownItem_path("home/grown/plant/tianerongcao");
+	set_harvest_desc("可收获天鹅绒草，天鹅绒草籽");
+	homeLevel_limit = 1;
+}

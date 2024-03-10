@@ -1,0 +1,15 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="【圣】圣诞星星";
+	unit="个";
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	desc="一闪一闪亮晶晶，快点拿我换礼品！\n";
+}

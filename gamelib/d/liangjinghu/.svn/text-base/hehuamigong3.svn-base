@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=347;
+void create(){
+	name=object_name(this_object());
+	name_cn="荷花迷宫三层";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/liangjinghu/hehuamigong2";
+	exits["north"]=ROOT "/gamelib/d/liangjinghu/hehuamigong4";
+	desc+="[走出洞穴:qge74hye "+"liangjinghu/hehuamigong1"+"]\n";
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/shuixichong25"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/xiaoheyao25"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/shiroufuping25"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/hehuanv25"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/baiyanlianpeng25"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/duouguai25"}));
+}

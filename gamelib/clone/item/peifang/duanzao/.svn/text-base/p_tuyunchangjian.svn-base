@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【卷轴】突云长剑";
+	unit="本";
+	picture=name;
+	desc="上面记载了突云长剑的制造方法\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_peifang_kind("duanzao");
+	set_peifang_type("d_weapon");
+	peifang_id=22;
+	level_limit=29;
+	viceskill_level=105;
+}
+int read(){
+	int result=::duanzao_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

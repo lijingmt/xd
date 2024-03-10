@@ -1,0 +1,81 @@
+mapping(string:string) exits_chinese=([]);
+private mapping cwaym=(["east":"东→","west":"西←","north":"北↑","south":"南↓","northeast":"东北","southeast":"东南","northwest":"西北","southwest":"西南","in":"进","out":"出"]);
+string view_exits()
+{
+	array(string) sorted_dir=({"in","out","north","west","east","south","southeast","northeast","southwest","northwest"});
+	array(string) dirs=indices(this_object()->exits);
+	mapping switch_exits=(this_object()->switch_exits);
+	mapping hidden=(this_object()->hidden_exits);
+	mapping closed=(this_object()->closed_exits);
+	array(string) ks=({});
+	for(int i=0;i<sizeof(sorted_dir);i++){
+		if(member_array(sorted_dir[i],dirs)!=-1)
+			ks+=({sorted_dir[i]});
+	}
+	if(sizeof(ks)!=sizeof(dirs))
+		ks+=dirs-ks;
+	string out="";
+	//自动跟随的显示，由liaocheng于07/09/21添加
+	int follow_f = 0;
+	object leader;
+	if(this_player()->follow != "_none"){
+		leader = find_player(this_player()->follow);
+		if(leader){
+			follow_f = 1;
+		}
+		else
+			this_player()->follow = "_none";
+	}
+	if(follow_f)
+		out += "你正在跟随 "+leader->query_name_cn()+" [取消跟随:follow_cancel]\n";
+	else{
+		if(sizeof(ks))
+			out+="请选择你的行走方向：\n";
+			//out+=this_player()->query_mini_picture_url("xingzoufangxiang")+"请选择你的行走方向：\n";
+		for(int i=0;i<sizeof(ks);i++){
+			if(hidden[ks[i]]&&!present(hidden[ks[i]],this_player()))
+				;//don't show it
+			else{
+				if(closed[ks[i]]){
+					if(exits_chinese[ks[i]]!=0)
+						out+=("["+exits_chinese[ks[i]]);
+					else
+						out+=("["+cwaym[ks[i]]);
+					out+=("：（大门紧闭）");
+					out+=(":open "+ks[i]+"]\n");
+				}
+				else{
+					string dest=this_object()->exits[ks[i]];
+					if(switch_exits[ks[i]]){
+						foreach(switch_exits[ks[i]],array a){
+							int val;
+							if(a[0]!=""){
+								val=this_player()[a[0]];
+								if(val>=a[1]&&val<=a[2]){
+									dest=a[3];
+									break;
+								}
+							}
+						}
+					}
+					if(dest!=""){
+						if(exits_chinese[ks[i]]!=0)
+							out+=("["+exits_chinese[ks[i]]);
+						else
+							out+=("["+cwaym[ks[i]]);
+						out+=("："+load_object(dest)->query_short());
+						string accesskey="";
+						if(ks[i]=="west") accesskey="{10}";
+						if(ks[i]=="east") accesskey="{11}";
+						if(ks[i]=="north") accesskey="{8}";
+						if(ks[i]=="south") accesskey="{0}";
+						out+=accesskey+(":leave "+ks[i]+"]\n");
+					}
+				}
+			}
+		}
+		if(sizeof(ks))
+			out+="\n";
+	}	
+	return out;
+}

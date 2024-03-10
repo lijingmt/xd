@@ -1,0 +1,23 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=1135;
+void create(){
+	name=object_name(this_object());
+	name_cn="妖阵【流光平原】";
+	desc="\n";
+	exits["west"]=ROOT "/gamelib/d/liuguangpingyuan/liuguangyizhan";
+}
+int is_peaceful()
+{
+	return 1;
+}
+string query_links() 
+{   
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race&&player->query_level()>=40)
+		tmp+="[妖阵【牧野】:qge74hye muye/yaozhenmuye]\n";
+	return tmp;
+}

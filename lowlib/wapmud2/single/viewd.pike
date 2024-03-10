@@ -1,0 +1,407 @@
+#include <globals.h>
+#include <wapmud2/include/wapmud2.h>
+inherit LOW_DAEMON;
+inherit LOW_F_DBASE;
+void create()
+{
+	//这个视图实现一个巧妙而令人恶心的方法，将视图影射到mudlib/clone/view.pike中，
+	//并将代码写入该程序，并且最后笨拙的将linux的回车作为\n符号映射到程序中造成很多
+	//转换后的<br/>代码挥之不去.
+	//WAP_VIEWD["/init"]=WAP_VIEWD["/leave_noway"]=WAP_VIEWD["/look"]=new(MUD_VIEW,
+//#"$(player->drain_catch_tell())$(env->query_remain_msg(player->name))$(env->query_short())$(env->query_links(arg))$(env->have_character())$(env->have_item())$(env->view_exits())$(env->query_leave(player->name))
+//$(env->query_desc())$(player->query_extra_links())
+//");
+	WAP_VIEWD["/init"]=WAP_VIEWD["/leave_noway"]=WAP_VIEWD["/look"]=new(MUD_VIEW,
+#"$(player->drain_catch_tell())
+$(player->query_bandpswd_link())
+$(player->query_tips_msg())
+$(env->query_remain_msg(player->name))$(env->query_short())
+$(player->query_bc_msg())
+$(env->query_picture_url()) 
+$(env->have_character())$(env->have_item())$(env->query_links(arg))$(env->view_exits())
+$(player->query_chat_msg())
+$(env->query_leave(player->name))$(env->query_desc())$(player->query_extra_links())");
+
+	WAP_VIEWD["/arrive"]=new(MUD_VIEW,
+#"$(player->drain_catch_tell())
+$(player->query_tips_msg())
+$(env->query_remain_msg(player->name))你来到了$(env->query_short())
+$(player->query_bc_msg())
+$(env->query_picture_url()) 
+$(env->have_character())$(env->have_item())$(env->query_links(arg))$(env->view_exits())
+$(player->query_chat_msg())
+$(env->query_leave(player->name))$(env->query_desc())$(player->query_extra_links())");
+	WAP_VIEWD["/home"]=new(MUD_VIEW,
+#"$(player->drain_catch_tell())
+$(player->query_bandpswd_link())
+$(player->query_tips_msg())
+$(env->query_remain_msg(player->name))$(env->query_short())
+$(player->query_bc_msg())
+$(env->query_picture_url()) 
+$(env->have_character())$(env->have_item())$(env->query_links(arg))$(env->view_exits())
+$(player->query_chat_msg())
+$(env->query_leave(player->name))$(env->query_desc())$(player->query_extra_links())");
+
+	WAP_VIEWD["/life_detail"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+$(ob->query_inventory_links(arg))
+");
+	WAP_VIEWD["/leave_guarder"]=new(MUD_VIEW,
+#"$(env->get_guard_msg(ob,arg))
+");
+
+WAP_VIEWD["/item_source"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+$(ob->query_content())
+$(ob->query_inventory_links(arg))
+");
+	WAP_VIEWD["/item"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+$(ob->query_content())
+$(ob->query_links(arg))
+[捡起:get $(ob->name) $(arg)]
+");
+	WAP_VIEWD["/item_equip"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+$(ob->query_content())
+$(ob->query_links(arg))
+[捡起:get $(ob->name) $(arg)]
+");
+	WAP_VIEWD["/item_canNotGet"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+$(ob->query_links(arg))
+该物品无法拾取。
+");
+	WAP_VIEWD["/item_notfound"]=new(MUD_VIEW,
+#"这里没有这件东西，可能已经被别人捡走了。
+");
+	WAP_VIEWD["/char"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_user_picture_url())
+性别：$(ob->query_gender())
+称谓：$(ob->query_honer_desc())
+种族：$(ob->query_race_cn(ob->query_raceId()))
+职业：$(ob->query_profe_cn(ob->query_profeId()))
+等级：$(ob->query_level())
+$(ob->query_bangstatus())
+状态：$(ob->query_status())
+生命：$(ob->get_cur_life())
+$(ob->query_links(arg))
+");
+	WAP_VIEWD["/char_npc"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+性别：$(ob->query_gender())
+阵营：$(ob->query_race_cn(ob->query_raceId()))
+种类：$(ob->query_profe_cn(ob->query_profeId()))
+等级：$(ob->_npcLevel)
+状态：$(ob->query_status())
+$(ob->query_npc_status((int)player->query_level()))
+$(ob->view_equip())
+$(ob->query_npc_links(arg))
+");
+	WAP_VIEWD["/char_dog"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+种类：$(ob->query_profe_cn(ob->query_profeId()))
+状态：$(ob->query_status())
+生命：$(ob->get_cur_life())
+力量：$(ob->query_str())
+智力：$(ob->query_think())
+敏捷：$(ob->query_dex())
+$(ob->query_npc_links(arg))
+");
+//[对话:ask_npc $(ob->query_name())]
+	WAP_VIEWD["/char_notfound"]=new(MUD_VIEW,
+#"这里没有这个人，或许已经离开了。
+");
+	WAP_VIEWD["/ask"]=new(MUD_VIEW,
+#"$(ob->query_words())
+");
+	WAP_VIEWD["/ask_npc"]=new(MUD_VIEW,
+#"$(ob->query_name_cn()):
+$(ob->query_words())
+");
+	WAP_VIEWD["/ask_notfound"]=new(MUD_VIEW,
+#"这里没有这个人，他已经离开了。
+");
+	WAP_VIEWD["/tell"]=new(MUD_VIEW,
+#"你告诉$(ob->query_name_cn())：“$(arg)”
+");
+	WAP_VIEWD["/tell_self"]=new(MUD_VIEW,
+#"你自言自语道：“$(arg)”
+");
+	WAP_VIEWD["/tell_prompt"]=new(MUD_VIEW,
+#"请输入你要发送的信息：[tell $(arg[0]) $(arg[1]) ...]
+");
+	WAP_VIEWD["/tell_notfound"]=new(MUD_VIEW,
+#"对方不在线，暂时不能发送消息给对方。
+");
+	WAP_VIEWD["/items"]=new(MUD_VIEW,
+#"$(env->view_items())
+[随身物品:inventory]
+");
+	WAP_VIEWD["/chars"]=new(MUD_VIEW,
+#"$(env->view_chars())
+");
+	WAP_VIEWD["/chars_npc"]=new(MUD_VIEW,
+#"$(env->view_chars_npc())
+");
+	WAP_VIEWD["/chars_player"]=new(MUD_VIEW,
+#"$(env->view_chars_player())
+");
+	WAP_VIEWD["/get"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())捡了起来。
+[随身物品:inventory]
+");
+	WAP_VIEWD["/get_inmoveable"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+$(ob->query_picture_url())
+$(ob->query_desc())
+$(ob->query_links(arg))
+该物品你无法拾取。
+");
+	WAP_VIEWD["/get_notfound"]=new(MUD_VIEW,
+#"该物品可能已经被其他人拾取。
+");
+	WAP_VIEWD["/get_protect"]=new(MUD_VIEW,
+#"你现在暂时不能拾取别人打落的物品。
+");	
+	WAP_VIEWD["/get_term"]=new(MUD_VIEW,
+#"你现在暂时不能拾取其他团队打落的物品。
+");
+	WAP_VIEWD["/drop_equiped"]=new(MUD_VIEW,
+#"正在装备或穿戴的物品不能摧毁。
+");
+	WAP_VIEWD["/drop_indropable"]=new(MUD_VIEW,
+#"该物品不允许摧毁。
+");
+	WAP_VIEWD["/drop"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())摧毁了。
+");
+	WAP_VIEWD["/drop_prompt"]=new(MUD_VIEW,
+#"你要摧毁几$(ob->query_unit())$(ob->query_name_cn())？[int:drop_some $(ob->name) ...]
+");
+	WAP_VIEWD["/drop_prompt_count"]=new(MUD_VIEW,
+#"你输入的数目不对！不能小于0也不能大于该物品数量！
+你要摧毁几$(ob->query_unit())$(ob->query_name_cn())？[int:drop_some $(ob->name) ...]
+");
+
+	WAP_VIEWD["/drop_notfound"]=new(MUD_VIEW,
+#"你身上没有这样东西。
+");
+	WAP_VIEWD["/eat"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())拿出来吃了两口。
+");
+	WAP_VIEWD["/read_success"]=new(MUD_VIEW,
+#"你仔细研读$(ob->query_name_cn())，终于学会了技能 $(ob->query_name_cn())！
+");
+	WAP_VIEWD["/read_fail"]=new(MUD_VIEW,
+#"你仔细研读$(ob->query_name_cn())，可是始终没有懂得其中的奥妙。
+");
+	WAP_VIEWD["/read_repeat"]=new(MUD_VIEW,
+#"你以前已经学习过并掌握了$(ob->query_name_cn())技能！
+");
+	WAP_VIEWD["/read_profeLimit"]=new(MUD_VIEW,
+#"你仔细研读$(ob->query_name_cn())，但是该技能并非你这个职业所能领悟的！
+");
+	WAP_VIEWD["/read_levelLimit"]=new(MUD_VIEW,
+#"你仔细研读$(ob->query_name_cn())，但你等级不够，无法领悟该技能！
+");
+	WAP_VIEWD["/read_Limitone"]=new(MUD_VIEW,
+#"你还未曾学习过 $(ob->query_name_cn())，必须从该技能的一级开始学习。
+");
+	WAP_VIEWD["/read_Limitnext"]=new(MUD_VIEW,
+#"该技能等级你已经掌握了，请找下一级的技能书来学习。
+");
+	WAP_VIEWD["/read_Limitmore"]=new(MUD_VIEW,
+#"你不能越级学习技能，请返回。
+");
+	WAP_VIEWD["/read_nobook"]=new(MUD_VIEW,
+#"你身上并没有该书！
+");
+	WAP_VIEWD["/read_notfound"]=new(MUD_VIEW,
+#"你要学什么？
+");
+	//针对锻造和炼金学习技能书
+	WAP_VIEWD["/read_Noskill"]=new(MUD_VIEW,
+#"你并不会相关的技能，无法读懂上面的东西。
+			");
+	WAP_VIEWD["/read_Csvwrong"]=new(MUD_VIEW,
+#"这份卷轴配方有问题，无法被阅读。
+			");
+	WAP_VIEWD["/read_Levlimit"]=new(MUD_VIEW,
+#"你的技能熟练度不够，无法学习此卷轴配方。
+			");
+	WAP_VIEWD["/read_Learned"]=new(MUD_VIEW,
+#"你已经学过了此卷轴配方。
+			");
+
+	WAP_VIEWD["/eat_toomuch"]=new(MUD_VIEW,
+#"你已经吃得太多了。
+			");
+	WAP_VIEWD["/eat_nomore"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())已经被你吃光了。
+			");
+	WAP_VIEWD["/eat_notfound"]=new(MUD_VIEW,
+#"你身上没有这样东西。
+			");
+	WAP_VIEWD["/drink"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())拿出来喝了两口。
+			");
+	WAP_VIEWD["/drink_toomuch"]=new(MUD_VIEW,
+#"你已经喝得太多了。
+			");
+	WAP_VIEWD["/drink_nomore"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())已经被你喝光了。
+			");
+	WAP_VIEWD["/drink_notfound"]=new(MUD_VIEW,
+#"你身上没有这样东西。
+			");
+	WAP_VIEWD["/inventory"]=new(MUD_VIEW,
+#"$(player->view_inventory_zhuangbei())
+			");
+	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,
+#"$(player->view_inventory_daoju())
+			");
+	WAP_VIEWD["/inventory_sell"]=new(MUD_VIEW,
+#"$(player->view_inventory_zhuangbei_sell(\"sell\",1,1))
+			");
+	WAP_VIEWD["/inventory_sell_daoju"]=new(MUD_VIEW,
+#"$(player->view_inventory_daoju_sell(\"sell\",1,1))
+			");
+	WAP_VIEWD["/inventory_vendue"]=new(MUD_VIEW,
+#"你要寄卖什么物品？
+			$(player->view_inventory_zhuangbei_sell(\"vendue\",1,1))
+			");
+	WAP_VIEWD["/inventory_daoju_vendue"]=new(MUD_VIEW,
+#"你要寄卖什么物品？
+			$(player->view_inventory_daoju_sell(\"vendue\",1,1))
+			");
+	WAP_VIEWD["/inventory_package"]=new(MUD_VIEW,
+#"你要存储什么物品？
+			$(player->view_inventory_zhuangbei_package(\"user_package\",0,0))
+			");
+	WAP_VIEWD["/inventory_daoju_package"]=new(MUD_VIEW,
+#"你要存储什么物品？
+			$(player->view_inventory_daoju_package(\"user_package\",0,0))
+			");
+	WAP_VIEWD["/inv_equip"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+			$(ob->query_picture_url())
+			$(ob->query_desc())
+			$(ob->query_content())
+			$(ob->query_inventory_links(arg))
+			[摧毁:drop $(ob->query_name()) $(arg)]
+			");
+	//#"$(ob->query_name_cn())
+	WAP_VIEWD["/inv"]=new(MUD_VIEW,
+#"$(ob->query_short())
+			$(ob->query_picture_url())
+			$(ob->query_desc())
+			$(ob->query_content())
+			$(ob->query_inventory_links(arg))
+			[摧毁:drop $(ob->query_name()) $(arg)]
+			[分组:item_ungroup $(ob->query_name()) $(arg)]
+			");
+	WAP_VIEWD["/inv_other"]=new(MUD_VIEW,
+#"$(ob->query_name_cn())
+			$(ob->query_picture_url())
+			$(ob->query_desc())
+			$(ob->query_content())
+			");
+	WAP_VIEWD["/inv_notfound"]=new(MUD_VIEW,
+#"你身上没有该物品。
+			");
+	WAP_VIEWD["/wield_double_main"]=new(MUD_VIEW,
+#"你拿出一$(ob->query_unit())$(ob->query_name_cn())当作双手武器。
+			");
+	WAP_VIEWD["/wield_single_main"]=new(MUD_VIEW,
+#"你拿出一$(ob->query_unit())$(ob->query_name_cn())当作单手主手武器。
+			");
+	WAP_VIEWD["/wield_single_other"]=new(MUD_VIEW,
+#"你拿出一$(ob->query_unit())$(ob->query_name_cn())当作单手副手武器。
+			");
+	WAP_VIEWD["/wield_notfound"]=new(MUD_VIEW,
+#"你身上没有那样东西。
+			");
+	WAP_VIEWD["/wield_same"]=new(MUD_VIEW,
+#"你已装备同类型的武器了。
+			");
+	WAP_VIEWD["/unwield"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())收了起来。
+			");
+	WAP_VIEWD["/unwield_notfound"]=new(MUD_VIEW,
+#"你没有装备过那件武器。
+			");
+	WAP_VIEWD["/wear_armor"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())当作防具穿戴起来。
+			");
+	WAP_VIEWD["/wear_jewelry"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())当作首饰穿戴起来。
+			");
+	WAP_VIEWD["/wear_decorate"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())当作饰物穿戴起来。
+			");
+	WAP_VIEWD["/wear_notfound"]=new(MUD_VIEW,
+#"你身上没有那样东西。
+			");
+	WAP_VIEWD["/wear_same"]=new(MUD_VIEW,
+#"你已穿戴同类型的护具了。
+			");
+	WAP_VIEWD["/unwear"]=new(MUD_VIEW,
+#"你把$(ob->query_name_cn())收了起来。
+			");
+	WAP_VIEWD["/unwear_notfound"]=new(MUD_VIEW,
+#"你没有穿戴过那种物品。
+			");
+	WAP_VIEWD["/fight"]=new(MUD_VIEW,
+#"[察看战况:attack] [技能使用:use_perform] [逃跑:escape]
+			$(player->query_toolbar_cn())
+			$(player->query_cur_life())
+			$(player->query_fighting_msg())
+			");
+	WAP_VIEWD["/fight_peaceful"]=new(MUD_VIEW,
+#"你不能在这里打架。
+			");
+	WAP_VIEWD["/perform"]=new(MUD_VIEW,
+#"$(player->view_use_performs())
+			");
+	WAP_VIEWD["/skill_enable"]=new(MUD_VIEW,
+#"你要把哪种特殊技能和$(ob->name_cn)配合使用：$(player->view_skill_enable(ob->name))
+			");
+	WAP_VIEWD["/enable"]=new(MUD_VIEW,
+#"设置成功。
+			");
+	WAP_VIEWD["/enable_fail"]=new(MUD_VIEW,
+#"设置失败。
+			");
+	WAP_VIEWD["/sleep_nobedroom"]=new(MUD_VIEW,
+#"这里不是睡觉的地方。
+			");
+	WAP_VIEWD["/sleep_for_learn"]=new(MUD_VIEW,
+#"你现在正在闭关修炼\n[查看修炼情况:_break_then_auto_learn_check]\n[中断修炼:_break_then_auto_learn_end_submit]\n
+");
+	WAP_VIEWD["/modal_award"]=new(MUD_VIEW,
+#"恭喜，随机奖励系统抽中了您，请将正确答案输入以获得奖励，会有一定几率得到一份神秘随机奖励：
+请问 $(this_player()->tmp_rd_tmp1) 乘以 $(this_player()->tmp_rd_tmp2) 等于多少？
+
+请输入答案[int:random_award ...]
+");
+
+	WAP_VIEWD["/emote"]=new(MUD_VIEW,
+#"$(arg)
+			");
+}

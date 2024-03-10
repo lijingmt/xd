@@ -1,0 +1,18 @@
+//用于清空武器转化次数的特殊玉石。
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="尖晶石";
+	unit="个";
+	desc="剔透的水晶外有让人心寒的刺尖，真不知道这块石头是怎么采集来的。能大大提升熔炼成功几率\n";
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+}

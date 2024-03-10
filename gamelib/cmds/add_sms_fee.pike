@@ -1,0 +1,18 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+#define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
+//神州行捐赠卡购买说明
+int main(string arg)
+{
+	object me = this_player();
+	string s = "";
+	s += "【短信捐赠获取仙玉】\n\n";
+	s += "移动用户发送短信9901"+ GAME_NAME_S+me->query_name()+"到10668282就可以在本区为你的帐号购买1颗【玉】仙缘玉，收费1元/次\n";
+	s += "注意：\n";
+	s += "  1、短信捐赠每天最多只可以使用10次。\n";
+	s += "2、短信捐赠只限移动手机用户\n";
+	s += "\n[返回:yushi_myzone.pike]\n";
+	s += "[返回游戏:look]\n";
+	write(s);
+	return 1;
+}

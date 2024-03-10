@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=477;
+void create(){
+	name=object_name(this_object());
+	name_cn="河西岩洞五层";
+	desc="\n";
+	desc+="[走出洞穴:qge74hye "+"muye/nanshanjian"+"]\n";
+	exits["south"]=ROOT "/gamelib/d/muye/hexiyandong6";
+	exits["north"]=ROOT "/gamelib/d/muye/hexiyandong4";
+	add_items(({ROOT "/gamelib/clone/npc/muye/juyanguai36"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/shuihuodushou36"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/dayanshe36"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/shifutoushou36"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/shiluxuejuren36"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/duliuxujuren36"}));
+}

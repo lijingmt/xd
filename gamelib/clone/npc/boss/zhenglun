@@ -1,0 +1,36 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+#define ITEM_PATH "/usr/local/games/xiand/gamelib/clone/item/"
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	_boss=3;
+	_flushtime=43200;
+	name_cn="郑伦";
+	desc="哼哈二将之一，拥有口哈白光、勾魂夺魄之超强异能，战斗经验非常丰富\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	picture="1";
+	_npcLevel=52;
+	set_base_think(220);
+	set_base_dex(220);
+	set_base_str(430);
+	set_base_life(5000000);
+	this_object()->query_life_max();
+	set_base_baoji(15);
+	set_base_hitte(25);
+	set_base_dodge(5);
+	setup_npc();
+	set_heart_beat(1);
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

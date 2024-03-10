@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/item"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   prop-time="2009-01-08T05:37:48.000000Z"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="create_gouliang.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5b89f0154abf64eb7533d58d3a1d660d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   name="zongzi"
+   kind="dir"/>
+<entry
+   name="teyao"
+   kind="dir"/>
+<entry
+   name="taskaward"
+   kind="dir"/>
+<entry
+   name="other"
+   kind="dir"/>
+<entry
+   name="water"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_spec_item.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5aba7b2ab7e50cd6aa023b13a1e998dc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:45.000000Z"/>
+<entry
+   name="zhongqiuyuebing"
+   kind="dir"/>
+<entry
+   name="food"
+   kind="dir"/>
+<entry
+   name="home"
+   kind="dir"/>
+<entry
+   name="baoxiang"
+   kind="dir"/>
+<entry
+   name="gift"
+   kind="dir"/>
+<entry
+   name="book"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_task_item.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4a63984ee63e108a48c52ce8de0396bb"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:46.000000Z"/>
+<entry
+   name="bossdrop"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_teyao.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a37827b39a5555dd6f06cc12f66caf2a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:46.000000Z"/>
+<entry
+   name="material"
+   kind="dir"/>
+<entry
+   name="tmp"
+   kind="dir"/>
+<entry
+   name="duanzao"
+   kind="dir"/>
+<entry
+   name="yushi"
+   kind="dir"/>
+<entry
+   name="task"
+   kind="dir"/>
+<entry
+   name="feed"
+   kind="dir"/>
+<entry
+   name="door"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_can_buy_book.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1d763463fe9d3bd721b19a56d5715467"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="create_book.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="90cf6a506544fb095f4e571a9e88c163"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:47.000000Z"/>
+<entry
+   name="baoshi"
+   kind="dir"/>
+<entry
+   name="Backup"
+   kind="dir"/>
+<entry
+   name="liandan"
+   kind="dir"/>
+<entry
+   name="peifang"
+   kind="dir"/>
+<entry
+   name="honer"
+   kind="dir"/>
+</wc-entries>

@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="【秘典】御剑术";
+	desc="御剑而行，能迅速飞到队友身边\n";
+	desc+="[学习:spec_learn "+name+"]\n";
+	unit="本";
+	picture=name;
+	set_item_task(1);
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+}

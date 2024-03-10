@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1925"
+   name=""
+   committed-date="2009-02-05T02:23:10.278355Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   prop-time="2009-01-08T05:37:53.000000Z"
+   revision="1925"/>
+<entry
+   name="clone"
+   kind="dir"/>
+<entry
+   name="single"
+   kind="dir"/>
+<entry
+   name="inherit"
+   kind="dir"/>
+<entry
+   committed-rev="1910"
+   name="master.pike"
+   text-time="2009-01-14T09:39:59.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="c142e561ff0a83cb9840826fd9907b44"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   name="d"
+   kind="dir"/>
+<entry
+   name="include"
+   kind="dir"/>
+<entry
+   name="Backup"
+   kind="dir"/>
+<entry
+   name="cmds"
+   kind="dir"/>
+<entry
+   name="data"
+   kind="dir"/>
+</wc-entries>

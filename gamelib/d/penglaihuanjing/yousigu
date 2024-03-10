@@ -1,0 +1,33 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=1172;
+void create(){
+	name=object_name(this_object());
+	name_cn="幽思谷";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/penglaihuanjing/yaozhenplhj";
+	exits["west"]=ROOT "/gamelib/d/penglaihuanjing/shanguxiaolu";
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race || room_race == "third"){
+		tmp+="[休息:sleep]\n";
+	
+		object env=environment(player);
+		string cur_pos=file_name(env)-ROOT;
+		if(player->relife){
+			if(player->relife!=cur_pos)
+				tmp+="[设置复活点:relife "+cur_pos+"]\n";
+		}
+		else
+			tmp+="[设置复活点:relife "+cur_pos+"]\n";
+	}
+	return tmp;
+}

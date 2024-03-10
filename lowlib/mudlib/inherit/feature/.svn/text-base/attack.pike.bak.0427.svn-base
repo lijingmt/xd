@@ -1,0 +1,418 @@
+#include <globals.h>
+#include <mudlib/include/mudlib.h>
+//影射表，
+static mapping(string:int) m_profe = ([
+	"jianxian" : 1,
+	"yushi" : 2,
+	"zhuxian" : 3, 
+	"kuangyao" : 4, 
+	"wuyao" : 5, 
+	"yinggui" : 6,
+	"humanlike" : 7,
+	"beast" : 8, 
+	"bird" : 9, 
+	"fish" : 10, 
+	"amphibian" : 11, 
+	"bugs" : 12 
+]);
+//返回给玩家表现层显示用的/////////////////////////////////////////////////
+string query_phy_dodge_str(){
+	string tmp = sprintf("%0.2f",(float)query_phy_dodge());
+	return tmp;
+}
+string query_phy_hitte_str(){
+	string tmp = sprintf("%0.2f",(float)query_phy_hitte());
+	return tmp;
+}
+string query_phy_baoji_str(){
+	string tmp = sprintf("%0.2f",(float)query_phy_baoji());
+	return tmp;
+}
+//////////////////////////////////////////////////////////////////////
+//得到物理闪避=(敏捷/xx+所有物品增加的闪避值总和)/100
+float query_phy_dodge(){
+	float result = 0.00;
+	int attribute = this_object()->query_dex();//玩家敏捷属性
+	int equip_add = this_object()->query_equip_add("dodge");//玩家装备中附带闪避值
+	//玩家职业不同，得到的计算公式也不同
+	string u_profe = this_object()->query_profeId();
+	if(u_profe){
+		int i_profe = m_profe[u_profe];
+		switch(i_profe){
+			case 1://剑仙
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 2://羽士
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 3://诛仙
+				result = ((float)attribute/15)+(float)equip_add;	
+			break;
+			case 4://狂妖
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 5://巫妖
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 6://影鬼
+				result = ((float)attribute/20)+(float)equip_add;	
+			break;
+			case 7://人形 包括人类和妖魔
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 8://野兽
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 9://飞禽
+				result = ((float)attribute/30)+(float)equip_add;	
+			break;
+			case 10://鱼
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 11://两栖动物
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+			case 12://虫类
+				result = ((float)attribute/50)+(float)equip_add;	
+			break;
+		}
+	}
+	return result+this_object()->query_base_dodge();
+}
+//得到物理命中
+float query_phy_hitte(){
+	float result = 0.00;
+	int attribute = 80;//this_object()->query_dex();//玩家敏捷属性
+	int equip_add = this_object()->query_equip_add("hitte");//玩家装备中附带命中值
+	//玩家职业不同，得到的计算公式也不同
+	string u_profe = this_object()->query_profeId();
+	if(u_profe){
+		int i_profe = m_profe[u_profe];
+		switch(i_profe){
+			case 1://剑仙
+				result = (float)attribute+(float)equip_add+5;	
+			break;
+			case 2://羽士
+				result = (float)attribute+(float)equip_add+10;	
+			break;
+			case 3://诛仙
+				result = (float)attribute+(float)equip_add+5;	
+			break;
+			case 4://狂妖
+				result = (float)attribute+(float)equip_add+5;	
+			break;
+			case 5://巫妖
+				result = (float)attribute+(float)equip_add+10;	
+			break;
+			case 6://影鬼
+				result = (float)attribute+(float)equip_add+5;	
+			break;
+			case 7://人形 包括人类和妖魔
+				result = (float)attribute+(float)equip_add;
+			break;
+			case 8://野兽
+				result = (float)attribute+(float)equip_add;	
+			break;
+			case 9://飞禽
+				result = (float)attribute+(float)equip_add;	
+			break;
+			case 10://鱼
+				result = (float)attribute+(float)equip_add;	
+			break;
+			case 11://两栖动物
+				result = (float)attribute+(float)equip_add;	
+			break;
+			case 12://虫类
+				result = (float)attribute+(float)equip_add;	
+			break;
+		}
+	}
+	return result+this_object()->query_base_hitte();
+}
+//得到物理爆击
+float query_phy_baoji(){
+	float result = 0.00;
+	int attribute = this_object()->query_dex();//玩家敏捷属性
+	int equip_add = this_object()->query_equip_add("doub");//玩家装备中附带爆击值
+	//玩家职业不同，得到的计算公式也不同
+	string u_profe = this_object()->query_profeId();
+	if(u_profe){
+		int i_profe = m_profe[u_profe];
+		switch(i_profe){
+			case 1://剑仙
+				result = 5.00+((float)attribute/50)+(float)equip_add;	
+			break;
+			case 2://羽士
+				result = 5.00+(float)equip_add;	
+			break;
+			case 3://诛仙
+				result = 5.00+((float)attribute/20)+(float)equip_add;	
+			break;
+			case 4://狂妖
+				result = 5.00+((float)attribute/40)+(float)equip_add;	
+			break;
+			case 5://巫妖
+				result = 5.00+(float)equip_add;	
+			break;
+			case 6://影鬼
+				result = 5.00+((float)attribute/20)+(float)equip_add;	
+			break;
+			case 7://人形 包括人类和妖魔
+				result = 5.00+(float)equip_add;	
+			break;
+			case 8://野兽
+				result = 5.00+((float)attribute/40)+(float)equip_add;	
+			break;
+			case 9://飞禽
+				result = 5.00+((float)attribute/30)+(float)equip_add;	
+			break;
+			case 10://鱼
+				result = 5.00+(float)equip_add;	
+			break;
+			case 11://两栖动物
+				result = 5.00+(float)equip_add;	
+			break;
+			case 12://虫类
+				result = 5.00+(float)equip_add;	
+			break;
+		}
+	}
+	//werror("    base_baoji ="+this_object()->query_base_baoji()+"      \n");
+	return result+this_object()->query_base_baoji();
+}
+
+//得到本身攻击力
+int query_base_damage(){
+	int result = 0;
+	int str = this_object()->query_str();//玩家力量属性
+	int dex = this_object()->query_dex();//玩家敏捷属性
+	//玩家职业不同，得到的计算公式也不同
+	string u_profe = this_object()->query_profeId();
+	if(u_profe){
+		int i_profe = m_profe[u_profe];
+		switch(i_profe){
+			case 1://剑仙
+				result = str/8;//+dex/3;	
+			break;
+			case 2://羽士
+				result =str/10; 
+			break;
+			case 3://诛仙
+				result = str/2+dex/2;
+			break;
+			case 4://狂妖
+				result = str/6;	
+			break;
+			case 5://巫妖
+				result = str/10;	
+			break;
+			case 6://影鬼
+				result = dex;	
+			break;
+			case 7://人形 包括人类和妖魔
+				result = str;	
+			break;
+			case 8://野兽
+				result = str;	
+			break;
+			case 9://飞禽
+				result = str/2+dex/2;
+			break;
+			case 10://鱼
+				result = str;	
+			break;
+			case 11://两栖动物
+				result = str;	
+			break;
+			case 12://虫类
+				result = str;	
+			break;
+		}
+	}
+	if(this_object()->query_buff("buff",0)=="attack")
+		result+=this_object()->query_buff("buff",1);
+	if(this_object()->query_debuff("curse",0)=="attack"){
+		result-=this_object()->query_debuff("curse",1);
+		if(result<0)
+			result=1;
+	}
+	return result;
+}
+//得到装备武器附加攻击力上下限,分主手，副手
+int query_equip_damage(string arg){
+	int equip_add = 0;
+	if(arg=="base_main")
+		equip_add = this_object()->query_equip_add("base_attack_main");//玩家装备中主手附带攻击值
+	if(arg=="base_other")
+		equip_add = this_object()->query_equip_add("base_attack_other");//玩家装备中副手附带攻击值
+	if(arg=="limit_main")
+		equip_add = this_object()->query_equip_add("limit_attack_main");//玩家装备中主手附带攻击值
+	if(arg=="limit_other")
+		equip_add = this_object()->query_equip_add("limit_attack_other");//玩家装备中副手附带攻击值
+	return equip_add;
+}
+//得到人物攻击力描述中的伤害下限
+//由liaocheng于2007/1/5 修改
+int query_low_attack(string arg){ //伤害的下限接口.
+//arg="base_main"返回主手攻击伤害下限
+//arg="base_other" 返回副手攻击伤害下限
+	object me = this_object();
+	int low_attack = 0;
+	int base_weapon_attack = me->query_equip_damage(arg);//得到武器固有的攻击力下限(其中包括了附加攻击属性的伤害)
+	
+	if(base_weapon_attack<0)
+		base_weapon_attack=0;
+	low_attack = base_weapon_attack; // + me->query_base_damage();将自身攻击提到fight.pike中使用
+	return low_attack;
+}
+//由liaocheng于2007/1/5 修改
+int query_high_attack(string arg){   //伤害的上限接口
+//arg="limit_main"返回主手攻击伤害上限
+//arg="limit_other" 返回副手攻击伤害上限
+	object me = this_object();
+	int high_attack = 0;
+	int limit_weapon_attack = me->query_equip_damage(arg);//得到武器固有的攻击力上限(其中包括了附加攻击属性的伤害)
+	
+	if(limit_weapon_attack<0)
+		limit_weapon_attack=0;
+	high_attack = limit_weapon_attack;// + me->query_base_damage();同上low_attack
+	return high_attack;
+}
+//返回使用主手武器产生的伤害值的接口函数,供上层fight.pike中战斗模块调用
+//由liaocheng于2007/1/5 修改
+int query_main_equiped_attack(){
+	//返回主手伤害=伤害下限+random(伤害上限-伤害下限+1)
+	object me = this_object();
+	int l=me->query_low_attack("base_main");
+	int h=me->query_high_attack("limit_main");
+	return (l+random(h-l+1));
+}
+//返回使用副手武器产生的伤害值的接口函数,供上层fight.pike中战斗模块调用
+//由liaocheng于2007/1/5 修改
+int query_other_equiped_attack(){
+	//返回副手伤害=伤害下限+random(伤害上限-伤害下限+1)
+	object me = this_object();
+	int l=me->query_low_attack("base_other");
+	int h=me->query_high_attack("limit_other");
+	return (l+random(h-l+1));
+}
+//返回同时使用主副手武器产生的伤害值的接口函数,供上层fight.pike中战斗模块调用
+//由liaocheng于2007/1/5 修改
+int query_both_equiped_attack(){
+	//返回主副手伤害之和)
+	object me = this_object();
+	int lo=me->query_low_attack("base_other");
+	int ho=me->query_high_attack("limit_other");
+	int lm=me->query_low_attack("base_main");
+	int hm=me->query_high_attack("limit_main");
+	return ((lm+random(hm-lm+1))+(lo+random(ho-lo+1)));
+}
+
+//得到人物攻击力描述中的攻击力下限
+int query_low_attack_desc(){
+	object me = this_object();
+	int low_attack = 0;
+	//(主手武器攻击下限+人物本身攻击)+(副手武器攻击下限+人物本身攻击力) 
+	int base_main_weapon_attack = me->query_equip_damage("base_main");//主手武器附加攻击力下限
+	int base_other_weapon_attack = me->query_equip_damage("base_other");//副手武器附加攻击力下限
+	
+	if(base_main_weapon_attack>0&&base_other_weapon_attack>0)
+			low_attack = base_other_weapon_attack + base_main_weapon_attack + me->query_base_damage()*2;
+	else if(base_main_weapon_attack>0&&base_other_weapon_attack<=0)//只有主手
+			low_attack = base_main_weapon_attack + me->query_base_damage();
+	else if(base_main_weapon_attack<=0&&base_other_weapon_attack>0)//只有副手
+			low_attack = base_other_weapon_attack + me->query_base_damage();
+	else//空手情况返回自身攻击力
+			low_attack = me->query_base_damage();
+	
+	return low_attack;
+}
+//得到人物攻击力描述中的攻击力上限
+int query_high_attack_desc(){
+	object me = this_object();
+	int high_attack = 0;
+	//(主手武器攻击上限+人物本身攻击)+(副手武器攻击上限+人物本身攻击力) 
+	int limit_main_weapon_attack = me->query_equip_damage("limit_main");//主手武器附加攻击力下限
+	int limit_other_weapon_attack = me->query_equip_damage("limit_other");//副手武器附加攻击力下限
+	
+	if(limit_main_weapon_attack>0&&limit_other_weapon_attack>0)
+			high_attack = limit_other_weapon_attack + limit_main_weapon_attack + me->query_base_damage()*2;
+	else if(limit_main_weapon_attack>0&&limit_other_weapon_attack<=0)//只有主手
+			high_attack = limit_main_weapon_attack + me->query_base_damage();
+	else if(limit_main_weapon_attack<=0&&limit_other_weapon_attack>0)//只有副手
+			high_attack = limit_other_weapon_attack + me->query_base_damage();
+	else//空手情况返回自身攻击力
+			high_attack = me->query_base_damage();
+
+	return high_attack;
+}
+
+//得到物理防御力
+int query_defend_power(){
+	int result = 0;
+	int str = this_object()->query_str();//玩家力量属性
+	int equip_add = this_object()->query_equip_add("defend");//玩家装备中附带防御值
+	//玩家职业不同，得到的计算公式也不同
+	string u_profe = this_object()->query_profeId();
+	if(u_profe){
+		int i_profe = m_profe[u_profe];
+		switch(i_profe){
+			case 1://剑仙
+				result = str*3+equip_add;	
+			break;
+			case 2://羽士
+				result = str+equip_add;	
+			break;
+			case 3://诛仙
+				result = str*2+equip_add;
+			break;
+			case 4://狂妖
+				result = str*2+equip_add;	
+			break;
+			case 5://巫妖
+				result = str+equip_add;	
+			break;
+			case 6://影鬼
+				result = str*2+equip_add;	
+			break;
+			case 7://人形 包括人类和妖魔
+				result = str+equip_add;	
+			break;
+			case 8://野兽
+				result = str*2+equip_add;	
+			break;
+			case 9://飞禽
+				result = str*2+equip_add;
+			break;
+			case 10://鱼
+				result = str*2+equip_add;
+			break;
+			case 11://两栖动物
+				result = str*2+equip_add;
+			break;
+			case 12://虫类
+				result = str*2+equip_add;
+			break;
+		}
+	}
+	//werror("    base_defend ="+this_object()->query_base_defend()+"      \n");
+	result+=this_object()->query_base_defend();
+	//在这里处理增益和降低防御力诅咒的影响
+	if(this_object()->query_buff("buff",0)=="defend")
+		result+=this_object()->query_buff("buff",1);
+	if(this_object()->query_debuff("curse",0)=="defend"){
+		result-=this_object()->query_debuff("curse",1);
+		if(result<0)
+			result=0;
+	}
+	return result;
+}
+
+//得到攻击速度,一般武器的攻击速度，所有职业都一样，除非是两手
+//拿了两把单手武器，会在运算中分别计算伤害和速度
+int query_speed_power(string arg){
+	if(arg=="main")
+		return this_object()->query_equip_add("speed_main");
+	if(arg=="other")
+		return this_object()->query_equip_add("speed_other");
+}

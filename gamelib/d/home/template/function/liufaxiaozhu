@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	name_cn="流法小筑";
+	desc="在这里练功，只需要2分钟的时间，即可使你的法术伤害提高100点效果，持续60分钟\n";
+	set_level_limit(3);
+	set_used_times(10);
+	set_priceYushi(50);
+	set_buff_kind("home_attack");
+	set_buff_type("all_mofa_attack");
+	set_buff_value(100);
+	set_effect_time(3600);
+	set_wait_time(120);
+	set_oprate_desc("你开始练武，来提高攻击力。");
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "这里是"+room->query_roomNameCn()+"\n\n\n\n";
+	tmp += "房间的桌上放着一本古老的法术心诀\n";
+	tmp += "[修炼:exercise function/liufaxiaozhu 0]\n";
+	tmp += "[返回:home_function_room_list]\n";
+	return tmp;
+}

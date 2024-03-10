@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="npc"
+   kind="dir"/>
+<entry
+   committed-rev="1924"
+   name="user.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="1f42beabe0794316aff54dfd1238e412"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   name="item"
+   kind="dir"/>
+</wc-entries>

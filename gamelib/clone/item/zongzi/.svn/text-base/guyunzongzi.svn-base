@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="古韵粽子";
+	desc="增加幸运值50点，持续30分钟\n";
+	desc+="该效果不会因为被杀或者下线而消失\n";
+	unit="个";
+	picture=name;
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_danyao_kind("te_luck");
+	set_danyao_type("luck");
+	set_effect_value(50);
+	set_danyao_timedelay(1800);
+	set_item_level(1);
+}

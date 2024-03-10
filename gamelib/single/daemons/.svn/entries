@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/single/daemons"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="viceflushd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="70fc1dcc8044931469d0ddbb3c5e1e8f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dubod.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2bee50c8be956a2568b87deb7cce5377"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1912"
+   name="autolearnd.pike"
+   text-time="2009-02-01T09:54:03.000000Z"
+   committed-date="2009-02-01T09:56:48.312348Z"
+   checksum="702185bb35631455d386ad546b726240"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="bossdropd.pike"
+   text-time="2009-01-09T06:25:33.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="433e993d3ee42496d1d51a9c71f97dfe"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="caifengd.pike"
+   text-time="2009-01-09T05:38:18.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="a9e304aa6d015c6d7d93b05d60c6f33f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="vipd.pike"
+   text-time="2009-01-09T06:42:21.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="9430482573c9048da085df69050986b7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="buyd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2f6dc5e590b2bcbaffbeba41a31a1060"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchanged.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a297f9d35947ab74ebc5a1863a200b61"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="crond.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="11e26bccf70fe231d302d752ab74fd35"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="duanzaod.pike"
+   text-time="2009-01-09T06:11:36.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="2a520c75200da9382c2dfcc4365c000e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="lotteryd.pike"
+   text-time="2009-01-09T05:38:43.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="5a9da5791e1fbd6d44227a0481ec0d6a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="auctiond.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3ee3de2e9ecf52da036fbd365de301de"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="roomLeveld.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ae72a3806482d1785259426f968c86a6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="kuangd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="67390928526c7bb78dc0099482ad489f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yewaiboss_flushd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c3bb9dcd8d4df561225fc49aa4e243ab"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="termd.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="9e438c63d31a009d57c5106ad1a8036f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1917"
+   name="paihangd.pike"
+   text-time="2009-02-04T03:14:05.000000Z"
+   committed-date="2009-02-04T03:14:33.778039Z"
+   checksum="50d01b7e1bee63100c3cce96bf57d27c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="rongliand.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ed5510613b4e24023dd1d13bd052386f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="peifangd.pike"
+   text-time="2009-01-09T06:09:35.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="5b8b1b7f1be3cf491a99db0f21f202d7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroomd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="76398422e9545efa8a4d70de0db18134"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="log.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1656535a32d2b8c81a58e8b31c26ea8c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="zhijiad.pike"
+   text-time="2009-01-09T06:30:22.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="2117b35b43ca5e322f5611a241fa2f8b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="userd.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="2aadda459ae961e60ccad8f7a7c776c0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="storyd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3ffab7d37a8976b16d9a9879c7e828f7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="itemsd.pike"
+   text-time="2009-01-09T06:46:56.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="5cab74b8ef33cb2a8685a6bd8fe8ce34"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="messaged.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="09c7c01f0bfc6e01c3559c84fd6ff689"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dbd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="74f6521f0cabc8bbcffbaaca382acbe7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1917"
+   name="user_countd.pike"
+   text-time="2009-02-04T02:41:56.000000Z"
+   committed-date="2009-02-04T03:14:33.778039Z"
+   checksum="c176477c080a76423da03e6f09124113"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="fbd.pike"
+   text-time="2009-01-09T06:43:44.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="691452b74d6cbd57491b793ec0033270"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="countd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bb1bc95ded843f7babeaa68e1124a935"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="homed.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="64e44fe1509b80f33fb0cb6302ed4dff"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="diaochad.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="abf89d742dafe0d4cdb645a8f6e5dc81"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="giftd.pike"
+   text-time="2009-01-09T05:40:46.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="6bdb37170047861cffaae7a59b2edc99"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="rongjied.pike"
+   text-time="2009-01-09T06:29:17.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="e9739d65192bad785811d841d4f3d9c8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom2d.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3c2bdf9690c968900827ada72017fc16"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="yushid.pike"
+   text-time="2009-01-09T09:52:08.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="0df96222d41519e401da007cc6b3af37"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="broadcastd.pike"
+   text-time="2009-01-09T05:37:55.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="57920f1df53c3dd05fb1abacc91d03c9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="taskd.pike"
+   text-time="2009-02-01T06:49:59.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="1c34c96e69fa4ee47dae2949d6e5a96e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="namesd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="44fa9da356dc5eeb1ebfff6f72c8c557"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="liandand.pike"
+   text-time="2009-01-09T06:10:34.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="c6acbcec1a06bc56fe4ea4bb97304d81"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="cityd.pike"
+   text-time="2009-01-09T06:43:46.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="75c32bedf8561bc87c7785f3bd5c1762"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="caoyaod.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="100602aabd6692c4f27ddfb2a628f80e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="vicedropd.pike"
+   text-time="2009-01-09T05:44:13.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="398f6859a6bb1fb8b6fd15d4a06d5181"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1862"
+   name="mapd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T09:32:12.216005Z"
+   checksum="b96a65e54ae11c477a51d24460301af4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="room_flushd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ac7e0b0e47e943c16503ebda19ab5136"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="timesd.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="af3c353823f46b7e3f28f7ea4ab90f0e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="items_exchanged.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="96d2b1d2bbb85a2a9938b37f9032d7c5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+</wc-entries>

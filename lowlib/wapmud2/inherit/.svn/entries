@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/lowlib/wapmud2/inherit"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="baoxiang.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="070b07f6fbc06273111b6044a5fa352b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="weapon.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="61626b3a88993b81efcdde83c7e3f36c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="book.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0746952daee81e572963d726a99bb28b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="combine_item.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7005f3ec61089852647244c73aa4e2ca"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="item.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ecb61bc010545d4327984d145414aeec"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="source.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="249c3d9cebff5964af69dcd77eba8f06"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f7bc7b31a7e7300051ce7b02773cb5da"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="feed.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2c0d2c9cbbcbb1823a2f3f9b5356bf31"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   name="feature"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="baoshi.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1d4e80680bf742c380b3fa2da1701d80"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="danyao.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b6ad067275f2ca2d3446b22462f17dae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="room.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="00412a6bd83de6e43246dd493eec7c53"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hongbao.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="344740ae4d345c856090eae59570ee7b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1926"
+   name="skill.pike"
+   text-time="2009-02-04T09:54:18.000000Z"
+   committed-date="2009-02-05T03:17:25.510362Z"
+   checksum="07b7aa421c8b16c5db31ee9e7735e565"
+   last-author="cap"
+   kind="file"
+   revision="1926"/>
+<entry
+   committed-rev="1860"
+   name="user.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ed1c935bf1d1036b3c41844b77263c8a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="life.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2a822c5e5bcd5ec02c5c02dd345eb8eb"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="npc.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="97b62de79ce39b24314d84239dff76ab"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="armor.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="72b4a5f6e21d18a6ac9a890b2212d175"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="jewelry.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b51a3017a2f04fd7e055888728dfafcf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="water.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0a2fc637191bb73bb26f94530fb0f15e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="transfer.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="48244b6a235e46ed8ec41f516f2a19f4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="decorate.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6cf8d8568d8e4c2e57f6ebaff665bd71"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="infancy.pike"
+   text-time="2009-01-08T05:37:54.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c58885844c652513f475e37deb5a5691"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="food.pike"
+   text-time="2009-01-16T07:14:10.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4b2c07c9d3ccc740a97a3e0e3b7357db"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:54.000000Z"/>
+</wc-entries>

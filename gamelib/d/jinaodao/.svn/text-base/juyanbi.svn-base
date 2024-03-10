@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=44;
+void create(){
+	name=object_name(this_object());
+	name_cn="¾ÞÑÒ±Ú";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/jinaodao/yinandongxuerukou";
+	exits["west"]=ROOT "/gamelib/d/jinaodao/guanmulin";
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong6"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun6"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike6"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe6"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi6"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying6"}));
+}

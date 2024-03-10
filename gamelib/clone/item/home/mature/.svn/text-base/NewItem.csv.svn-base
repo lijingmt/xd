@@ -1,0 +1,8 @@
+文件名,物品名,单位,物品图片,描述,药丸大类,药丸效果类型,药丸效果值（比如：增加力量10点则该值为10）,药丸持续时间（以秒为单位）,是否可以丢弃,是否可以捡起,是否可以交易,是否可以赠送,是否能存储仓库银行
+plant/bairicao,百日草,棵,1,青绿的仙草，食用效果更佳,attri_base,str,1,1800,1,1,1,1,1
+plant/shuixian,水仙,朵,1,清雅的色彩，食用可是美味!,attri_base,dex,1,1800,1,1,1,1,1
+plant/jinqiancao,金钱草,棵,1,青绿的仙草，食用效果更佳,attri_base,think,1,1800,1,1,1,1,1
+plant/xianhecao,仙鹤草,棵,1,青绿的仙草，食用效果更佳,attri_vice,hitte,1,1800,1,1,1,1,1
+plant/tianerongcao,天鹅绒草,棵,1,青绿的仙草，食用效果更佳,attri_vice,dodge,1,1800,1,1,1,1,1
+plant/mujinhua,木槿花,朵,1,鲜艳美丽的花朵，食用更是美味,te_luck,luck,1,1800,1,1,1,1,1
+plant/dazicao,大紫草,棵,1,幽紫的仙草，食用效果更佳,attri_vice,doub,1,1800,1,1,1,1,1

@@ -1,0 +1,40 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="ÔÆÀËÓêÎí";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/yunshuixianjing/hualuyaojing65"}));
+	add_items(({ROOT "/gamelib/clone/npc/yunshuixianjing/wucaidiejing65"}));
+	add_items(({ROOT "/gamelib/clone/npc/yunshuixianjing/zhimanguai65"}));
+	add_items(({ROOT "/gamelib/clone/npc/yunshuixianjing/tunhaiyao65"}));
+	add_items(({ROOT "/gamelib/clone/npc/yunshuixianjing/tuyunyao65"}));
+	add_items(({ROOT "/gamelib/clone/npc/yunshuixianjing/wushuiyaojing65"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[È¥ÍùÒçÔÆÃÅ:fb_entry yunshuixianjing 1 1]\n";
+	if(check_if_clear() == 1)
+		tmp += "[È¥ÍùÔÆÀË¸ó:fb_entry yunshuixianjing 3 1]\n";
+	else
+		tmp += "È¥ÍùÔÆÀË¸ó\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ARMOR;
+void create(){
+	name=object_name(this_object());
+	name_cn="¡¾À½¡¿Ì«ÑôÕÖÃ±";
+	unit="¶¥";
+	desc="\n";
+	item_cur_dura=392;
+	item_dura=392;
+	set_item_type("armor");
+	set_item_kind("armor_head");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_equip_defend(150);
+	set_item_canLevel(19);
+	set_item_profeLimit("jianxian");
+	set_item_profeLimit("kuangyao");
+	set_str_add(6);
+	set_defend_add(4);
+	set_item_from("boss");
+}

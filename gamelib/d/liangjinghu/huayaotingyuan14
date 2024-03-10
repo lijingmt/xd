@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=334;
+void create(){
+	name=object_name(this_object());
+	name_cn="花妖庭院十四层";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/liangjinghu/huayaotingyuan13";
+	exits["north"]=ROOT "/gamelib/d/liangjinghu/huayaotingyuan15";
+	desc+="[走出洞穴:qge74hye "+"liangjinghu/huayaotingyuan1"+"]\n";
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/meiguiteng28"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/taohuajingguai28"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/guihudie28"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/duhuapopo28"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/hongyanmeifu28"}));
+	add_items(({ROOT "/gamelib/clone/npc/liangjinghu/jiaomeihuayao28"}));
+}

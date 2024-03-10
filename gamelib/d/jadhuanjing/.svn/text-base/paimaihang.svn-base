@@ -1,0 +1,48 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=10000;
+array(string) flush_monst = ({"jadhuanjing/mojunshizu","jadhuanjing/mojunshizu","jadhuanjing/mojunshizu","jadhuanjing/mojunshizu",});
+array(string) flush_human = ({"jadhuanjing/jingweiduishibing","jadhuanjing/jingweiduishibing","jadhuanjing/jingweiduishibing","jadhuanjing/jingweiduishibing",});
+void create(){
+	name=object_name(this_object());
+	set_room_type("city");
+	name_cn="拍卖行";
+	desc="\n";
+	set_belong_to("jadhuanjing");
+	exits["east"]=ROOT "/gamelib/d/jadhuanjing/wuge";
+	string tmp_s = CITYD->query_captured("jadhuanjing");
+	if(tmp_s == "monst"){
+		room_race="monst";
+		name_cn += "(妖魔占领)";
+		foreach(flush_monst,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+	else if(tmp_s == "human"){
+		room_race="human";
+		name_cn += "(人类占领)";
+		foreach(flush_human,string item){
+			if(item && sizeof(item))
+				add_items(({ROOT "/gamelib/clone/npc/"+item}));
+		}
+	}
+}
+int is_peaceful()
+{
+	return 1;
+}
+string query_links() 
+{   
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race){
+		tmp+="[**新手必读**:vendue_readme]\n";
+		tmp+="[**拍卖物品**:vendue_mygoods_list]\n";
+		tmp+="[**竞拍物品**:vendue_goods_list]\n";
+		tmp+="[**领取处**:vendue_getback_list]\n";
+	}
+	return tmp;
+}

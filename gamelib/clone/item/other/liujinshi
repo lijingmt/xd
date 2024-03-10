@@ -1,0 +1,33 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="鎏金石";
+	unit="块";
+	desc="神奇的石头!\n装备此石头,能使你被其他玩家击杀后不会损失升级经验.\n效果不因下线或死亡消失.\n";
+	value=1000;
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+}
+
+
+string query_inventory_links()
+{
+	object me = this_player();
+	string s = "";
+	if(me->ljs_time && me->ljs_time>0 && me->ljs_sw && me->ljs_sw=="open"){
+		s += "[关闭:ljs_used close]\n";
+	}
+	else{
+		s += "[使用:ljs_used open]\n";
+	}
+	s += "[购买:ljs_chongzhi_detail]\n";
+	return s;
+}

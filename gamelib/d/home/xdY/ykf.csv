@@ -1,0 +1,9 @@
+文件名,地点名,描述,东,南,西,北,门,房间配图,钥匙,止,看守,看守语,人s,物s,是复活点,是休息室,禁止战斗,是杂货铺,是铁匠铺,是当铺,是钱庄,额外的连接,阵营所属,房间等级
+yukunfeng/yukunmen,玉昆门,,yukunfeng/yulinglu,,,,,,,,,,"yukunfeng/ykfzahuoshang400
+yukunfeng/ykfdiqishang400",,0,0,0,0,0,0,0,,中立,0
+yukunfeng/yulinglu,玉灵路,,yukunfeng/yukunjian,yukunfeng/yukunjie,yukunfeng/yukunmen,,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+yukunfeng/yukunjian,玉昆涧,,,yukunfeng/yukunquan,yukunfeng/yulinglu,,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+yukunfeng/yukunjie,玉昆街,,yukunfeng/yukunquan,yukunfeng/yukunzhen,,yukunfeng/yulinglu,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+yukunfeng/yukunquan,玉昆泉,,,,yukunfeng/yukunjie,yukunfeng/yukunjian,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+yukunfeng/yukunzhen,玉昆镇,,,yukunfeng/yukunwangyue,,yukunfeng/yukunjie,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+yukunfeng/yukunwangyue,玉昆望月,,,,,yukunfeng/yukunzhen,,,,,,,,,0,0,0,0,0,0,0,,中立,0

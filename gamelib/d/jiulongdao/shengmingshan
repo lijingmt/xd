@@ -1,0 +1,34 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=1;
+void create(){
+	name=object_name(this_object());
+	name_cn="声名山";
+	desc="和吕岳谈谈，他会指引你任务~\n";
+	set_room_type("rookie");
+	exits["east"]=ROOT "/gamelib/d/jiulongdao/jiulongxiaozhu";
+	exits["south"]=ROOT "/gamelib/d/jiulongdao/jiulongdaotiejiangpu";
+	exits["west"]=ROOT "/gamelib/d/jiulongdao/jiulongdaozahuopu";
+	exits["north"]=ROOT "/gamelib/d/jiulongdao/yaozhenjiulongdao";
+	add_items(({ROOT "/gamelib/clone/npc/jiulongdao/lvyue400"}));
+}
+int is_peaceful()
+{
+	return 1;
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race || room_race == "third"){
+		tmp+="[休息:sleep]\n";
+	}
+	if(player->query_raceId()==room_race)
+		tmp+="[离开【新手村】:qge74hye jinaodao/maocaowu]\n";
+	return tmp;
+}

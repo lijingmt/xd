@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=471;
+void create(){
+	name=object_name(this_object());
+	name_cn="破妖阵二十层";
+	desc="\n";
+	desc+="[走出洞穴:qge74hye "+"muye/yinghoushanlu"+"]\n";
+	exits["south"]=ROOT "/gamelib/d/muye/poyaozhen19";
+	add_items(({ROOT "/gamelib/clone/npc/muye/xiaoyaobing40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/yaobingfulu40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/duyao40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/zhongjiayaobing40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/changjianyaojiang40"}));
+	add_items(({ROOT "/gamelib/clone/npc/muye/yaomojianjun40"}));
+}

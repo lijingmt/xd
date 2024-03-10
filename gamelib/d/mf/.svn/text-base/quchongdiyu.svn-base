@@ -1,0 +1,38 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="蛆虫地狱";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/mf/zhuanshengshi29"}));
+	add_items(({ROOT "/gamelib/clone/npc/mf/senluoyao30"}));
+	add_items(({ROOT "/gamelib/clone/npc/mf/zhongkaimingyao31"}));
+	add_items(({ROOT "/gamelib/clone/npc/mf/yanluohufa32"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[去往畜生地狱:fb_entry mingfu 15 1]\n";
+	if(check_if_clear() == 1)
+		tmp += "[去往转轮王宫:fb_entry mingfu 17 1]\n";
+	else
+			tmp +="去往转轮王宫\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

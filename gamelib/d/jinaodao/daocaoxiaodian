@@ -1,0 +1,14 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=4;
+int store_level_low = 1;
+int store_level_high = 10;
+void create(){
+	name=object_name(this_object());
+	name_cn="稻草小店";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/jinaodao/yuhuacunguangchang";
+	links="[买东西:list]\n[卖东西:inventory_sell]\n[锻造配方:viceskill_peifang_view duanzao]\n[炼丹配方:viceskill_peifang_view liandan]\n[裁缝配方:viceskill_peifang_view caifeng]\n[制甲配方:viceskill_peifang_view zhijia]\n[技能卷轴:buy_items book kuangyao]\n";
+}

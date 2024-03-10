@@ -1,0 +1,22 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_FEED;
+void create(){
+	name=object_name(this_object());
+	name_cn="一级狗豆";
+	unit="包";
+	picture=name;
+	desc="狗吃后可永久增加2000点生命，1点力量，1点智力，1点敏捷\n";
+	amount=1;
+	value=100;
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_life_add(2000);
+	set_str_add(1);
+	set_think_add(1);
+	set_dex_add(1);
+	set_item_type("feed");
+}

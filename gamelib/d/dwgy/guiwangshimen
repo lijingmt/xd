@@ -1,0 +1,40 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="鬼王石门";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/dwgy/guitoujiang29"}));
+	add_items(({ROOT "/gamelib/clone/npc/dwgy/sanhunshi30"}));
+	add_items(({ROOT "/gamelib/clone/npc/dwgy/yulinguibu31"}));
+	add_items(({ROOT "/gamelib/clone/npc/dwgy/youguishi32"}));
+	add_items(({ROOT "/gamelib/clone/npc/boss/yaoniaoguiche"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[去往幽魂大厅:fb_entry duwuguiyu 10 1]\n";
+	if(check_if_clear() == 1)
+		tmp += "[去往冤魂领域:fb_entry duwuguiyu 12 1]\n";
+	else
+			tmp +="去往冤魂领域\n";
+	tmp += "[离开幻境:fb_leave duwuguiyu]\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

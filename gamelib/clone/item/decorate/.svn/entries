@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/decorate"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1873"/>
+<entry
+   committed-rev="1860"
+   name="49xuewupifeng"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="480e775c56251774508b39ad46c8711a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="70feicuipifeng"
+   kind="dir"/>
+<entry
+   name="70luoyanpifeng"
+   kind="dir"/>
+<entry
+   name="60meixinpifeng"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="29bingrongpifeng"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9cbfb178a3e1bc033e70260e6c252a84"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="65lingyupifeng"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="65guixingpifeng"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4b115ed3691d0b4878e0037b05c99730"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+</wc-entries>

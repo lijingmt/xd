@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="【霸】霸仙露";
+	desc="增加物理伤害100点，持续1个小时\n";
+	unit="颗";
+	picture=name;
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(0);
+	set_danyao_kind("attri_attack");
+	set_danyao_type("attack");
+	set_effect_value(100);
+	set_danyao_timedelay(3600);
+	set_item_level(30);
+	set_for_material("bawang_spec");
+}

@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_INFANCY;
+void create(){
+	name=object_name(this_object());
+	name_cn="钨金矿之源";
+	unit="块";
+	picture=name;
+	desc="黑漆漆的一团，可以在你的家中汇聚出一处晶钨金矿";
+	amount=1;
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=100;
+	set_item_type("home_infancy_ore");
+	set_grownItem_path("home/grown/ore/jingwujinkuang");
+	set_harvest_desc("可得到钨金矿之源，钨金矿石，晶铂金，紫琥珀");
+	homeLevel_limit = 2;
+}

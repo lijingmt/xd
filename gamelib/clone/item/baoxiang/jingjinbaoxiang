@@ -1,0 +1,22 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BAOXIANG;
+void create(){
+	name=object_name(this_object());
+	name_cn="精金宝箱";
+	unit="个";
+	picture = name;
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_item_level(1);
+	desc="金属宝箱，雕刻细致精美\n";
+	desc="精美的箱子能开出什么呢？\n";
+}
+
+string query_inventory_links(void|int count)
+{
+	return "[打开:jjbx_open "+name+" "+count+"]";
+}

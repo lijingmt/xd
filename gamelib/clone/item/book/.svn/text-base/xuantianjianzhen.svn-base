@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】玄天剑阵";
+	unit="本";
+	picture=name;
+	desc="剑气化阵，使敌人受到巨大的伤害，直接造成伤害的攻击技能\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="xuantianjianzhen";
+	level_limit=19;
+	profe_read_limit="诛仙";
+	need_yushi=15;
+	need_money=700;
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

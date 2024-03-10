@@ -1,0 +1,9 @@
+文件名,地点名,描述,东,南,西,北,门,房间配图,钥匙,止,看守,看守语,人s,物s,是复活点,是休息室,禁止战斗,是杂货铺,是铁匠铺,是当铺,是钱庄,额外的连接,阵营所属,房间等级
+lengyuecaoyuan/lengyuemen,冷月门,,,lengyuecaoyuan/lengyuelu,,,,,,,,,"lengyuecaoyuan/lycyzahuoshang400
+lengyuecaoyuan/lycydiqishang400",,0,0,0,0,0,0,0,,中立,0
+lengyuecaoyuan/lengyuelu,冷月路,,,lengyuecaoyuan/lengyuecun,,lengyuecaoyuan/lengyuemen,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lengyuecaoyuan/lengyuecun,冷月村,,,lengyuecaoyuan/lengyueshuitang,lengyuecaoyuan/lengyuehupan,lengyuecaoyuan/lengyuelu,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lengyuecaoyuan/lengyuehupan,冷月湖畔,,lengyuecaoyuan/lengyuecun,lengyuecaoyuan/lengyuelindi,,,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lengyuecaoyuan/lengyuelindi,冷月林地,,,lengyuecaoyuan/lengyuehanguang,,lengyuecaoyuan/lengyuehupan,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lengyuecaoyuan/lengyuehanguang,冷月寒光,,,,,lengyuecaoyuan/lengyuelindi,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lengyuecaoyuan/lengyueshuitang,冷月水塘,,,,,lengyuecaoyuan/lengyuecun,,,,,,,,,0,0,0,0,0,0,0,,中立,0

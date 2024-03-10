@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BAOSHI;
+void create(){
+	name=object_name(this_object());
+	name_cn="朴素青月石";
+	unit="颗";
+	picture="psqingyueshi";
+	desc="每秒回蓝增加2点\n";
+	set_color("blue");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_value(50);
+	set_item_canLevel(50);
+	set_rase_mofa_add(2);
+	set_item_kind("pusu");
+}

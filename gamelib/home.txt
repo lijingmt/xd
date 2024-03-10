@@ -1,0 +1,431 @@
+clone/.svn/text-base/user.pike.svn-base:		out += "??԰??["+HOMED->query_homeName_by_masterId(this_object()->query_name())+":home_display "+this_object()->query_home_path()+"]\n";
+clone/npc/vice_npc/.svn/text-base/huoyunquan.svn-base:	HOMED->save_dog(st,masterId);
+clone/npc/vice_npc/huoyunquan:	HOMED->save_dog(st,masterId);
+clone/user.pike:		out += "??԰??["+HOMED->query_homeName_by_masterId(this_object()->query_name())+":home_display "+this_object()->query_home_path()+"]\n";
+cmds/door_destroy_confirm.pike:			HOMED->save_door("2,"+time+","+me->query_name());
+cmds/door_destroy_confirm.pike:			HOMED->give_master_msg(room,me,"???ҵĴ??ű?"+me->query_name_cn()+"?ҿ??ˣ???????ȥץǿ?��?\n");
+cmds/door_destroy_detail.pike:			HOMED->save_door("");
+cmds/home_sell_confirm.pike:	if(HOMED->if_have_home(me->query_name()))
+cmds/home_sell_confirm.pike:		if(HOMED->is_cleared(homeName))
+cmds/home_sell_confirm.pike:			s += HOMED->sell_confirm(homeName,yushi,money);
+cmds/home_sell_functionroom_confirm.pike:	if(!HOMED->if_have_home(me->query_name()))
+cmds/home_sell_functionroom_confirm.pike:		int rt = HOMED->sell_function_room(f_room_name,yushi,money);
+cmds/home_sell_remind.pike:	if(!HOMED->if_have_home(me->query_name()))
+cmds/home_sell_remind.pike:		s += HOMED->query_sell_info();
+cmds/home_add_tanwei.pike:	//werror("------is_master="+HOMED->is_master(homeId)+"--if_have_shopLicense="+HOMED->if_have_shopLicense(masterId)+"\n");
+cmds/home_add_tanwei.pike:	if(HOMED->is_master(homeId) && HOMED->if_have_shopLicense(masterId)){
+cmds/home_add_tanwei.pike:		int tw_count = HOMED->query_tanwei_count(masterId);
+cmds/home_add_tanwei.pike:		int tanwei_up = HOMED->query_tanwei_up(masterId);
+cmds/home_add_tanwei.pike:			HOMED->save_shopItem(masterId,"",tw_count+1);//????һ??̯λ
+cmds/home_add_tanwei.pike:			s += HOMED->get_home_level(masterId)+"???ļ?԰??????????"+tanwei_up+"??̯λ?????Ѿ??ﵽ??????????\n";
+cmds/home_shop.pike:			s += HOMED->get_time_delay_list(name,ind,"home_shopItem_marked_price");
+cmds/home_apply_shopLicense.pike:	if(HOMED->if_have_home(masterId)){
+cmds/home_apply_shopLicense.pike:		if(!HOMED->if_have_shopLicense(masterId)){
+cmds/home_apply_shopLicense_confirm.pike:	if(HOMED->if_have_home(masterId)){
+cmds/home_apply_shopLicense_confirm.pike:		if(!HOMED->if_have_shopLicense(masterId)){
+cmds/home_apply_shopLicense_confirm.pike:					HOMED->add_shop_license(masterId,roomName);//???ӵ???
+cmds/home_shopItem_cancel.pike:	object item = HOMED->get_shop_item(masterId,shopId);
+cmds/home_shopItem_cancel.pike:	if(HOMED->is_master(homeId)){
+cmds/home_shopItem_cancel.pike:				HOMED->save_shopItem(masterId,"",shopId);
+cmds/home_buy_dog_conferm.pike:	if(!HOMED->if_have_home(id)){
+cmds/home_buy_dog_conferm.pike:	object door = HOMED->query_room_by_masterId(id,"door");
+cmds/home_buy_dog_conferm.pike:	object main = HOMED->query_room_by_masterId(id,"main");
+cmds/home_buy_dog_conferm.pike:	if(HOMED->is_have_dog(door)==1||HOMED->is_have_dog(main)==1){
+cmds/home_buy_dog_conferm.pike:	if(HOMED->is_have_dog(door)==2||HOMED->is_have_dog(main)==2){
+cmds/home_buy_dog_conferm.pike:			HOMED->save_dog("1,"+name+","+dog->query_base_life()+",100,100,100,"+(string)(time()-3*3600),id);
+cmds/home_buy_dog_detail.pike:	if(!HOMED->if_have_home(my_name)){
+cmds/home_buy_dog_detail.pike:	object room = HOMED->query_room_by_masterId(my_name,"main");
+cmds/home_buy_dog_detail.pike:	if(HOMED->is_have_dog(room)==1){
+cmds/home_buy_dog_detail.pike:	if(HOMED->is_have_dog(room)==2){
+cmds/home_purchase_confirm.pike:	int yushi = HOMED->query_yushi_by_slot(slotName);//??????ʯ(????Ϊ??λ)
+cmds/home_purchase_confirm.pike:	int money = HOMED->query_money_by_slot(slotName);//??????Ǯ(??Ϊ??λ)
+cmds/home_purchase_confirm.pike:	if(HOMED->if_have_home(me->query_name()))//ÿ??????ֻ?ܹ???һ??????
+cmds/home_purchase_confirm.pike:				HOMED->build_new_home(homeName,flatName,slotName);
+cmds/home_buy_shopItem_confirm.pike:			item = HOMED->get_shop_item(masterId,shopId);
+cmds/home_buy_shopItem_confirm.pike:				HOMED->change_flag(masterId,shopId,2);//?ı???־λ
+cmds/home_buy_shopItem_confirm.pike:			price = (int)(price * (100-HOMED->get_tax(timeDelay))/100);
+cmds/home_purchase_flat_list.pike:	s += HOMED->banner_slot(slotName);
+cmds/home_purchase_flat_list.pike:	s += HOMED->query_flat_for_sale(slotName);
+cmds/home_purchase_flat_list.pike:	s += "\n[????:home_purchase_slot_list "+ HOMED->query_area_by_slot(slotName) +"]\n";
+cmds/home_buy_shopItem_detail.pike:	object item = HOMED->get_shop_item(masterId,shopId);
+cmds/home_buy_shopItem_detail.pike:	s += "??Ʒ??��??"+HOMED->get_shopItem_num(masterId,shopId)+"\n";
+cmds/home_buy_shopItem_detail.pike:	if(HOMED->is_master(homeId)){
+cmds/home_display.pike:	object room = HOMED->query_home_by_path(arg);
+cmds/home_display.pike:		s += "??????λ?á? "+HOMED->query_home_pos(room->query_masterId())+"\n";
+cmds/home_shop_item_detail.pike:			if(HOMED->if_have_home(me->query_name()))
+cmds/home_shop_item_detail.pike:				s += "?㵱ǰ??԰?ȼ???:"+ HOMED->get_home_level(me->query_name())+"\n";
+cmds/home_display_home.pike:	s += HOMED->banner_flat(slotName,flatName);
+cmds/home_display_home.pike:	s += HOMED->display_homes(slotName,flatName,backFlag);
+cmds/home_display_home.pike:	string slotPath = HOMED->query_slotPath(slotName);
+cmds/home_dog_bury.pike:	int stats = HOMED->is_have_dog(room);
+cmds/home_dog_bury.pike:		HOMED->save_dog("",me->query_name());
+cmds/home_dog_feed.pike:		if(!HOMED->is_have_dog(room)){
+cmds/home_dog_feed.pike:		if(!HOMED->is_have_dog(room)){
+cmds/home_dog_feed.pike:		if(HOMED->is_have_dog(room)==2){
+cmds/home_dog_feed.pike:			//int feed_result = HOMED->change_dog_att(room,life_add,str_add,think_add,dex_add);
+cmds/home_dog_feed.pike:				HOMED->save_dog("1,vice_npc/huoyunquan,"+(string)dog->query_base_life()+","+(string)dog->query_str()+","+(string)dog->query_think()+","+(string)dog->query_dex()+","+(string)time(),me->query_name());
+cmds/home_shop_item_list.pike:	s += HOMED->query_infancy(infancyType);
+cmds/home_dog_resurrected.pike:		if(!HOMED->is_have_dog(room)){
+cmds/home_dog_resurrected.pike:		if(HOMED->is_have_dog(room)==1){
+cmds/home_dog_resurrected.pike:			HOMED->save_dog(st,me->query_name());
+cmds/home_enter.pike:		object room = HOMED->query_room(arg,homeId);
+cmds/home_function_fly_set_target_confirm.pike:	if(HOMED->if_have_home(me->query_name()))
+cmds/home_function_fly_set_target_confirm.pike:			s +=  HOMED->set_fly_target(me,room);
+cmds/home_myzone.pike:	s += "?㵱ǰ?ļ?԰?ȼ?Ϊ:"+HOMED->get_home_level(me->query_name())+"??\n";
+cmds/home_myzone.pike:	if(HOMED->if_have_shopLicense(me->query_name()))
+cmds/home_purchase_home_list.pike:	s += HOMED->banner_flat(slotName,flatName);
+cmds/home_purchase_home_list.pike:	s += HOMED->query_home_for_sale(slotName,flatName);
+cmds/home_function_fly_show_target.pike:	if(HOMED->if_have_home(me->query_name()))
+cmds/home_shop_recommend.pike:	s += HOMED->query_shopRcm_list();
+cmds/home_function_room_list.pike:	s += HOMED->query_function_room_links();
+cmds/home_purchase_slot_list.pike:	s += HOMED->banner_area(areaName) + "\n\n";
+cmds/home_purchase_slot_list.pike:	s += HOMED->query_slot_for_sale(areaName);
+cmds/home_functionroom_buy_confirm.pike:	if(HOMED->if_can_buy_functionroom(me->query_name())){
+cmds/home_functionroom_buy_confirm.pike:		if(HOMED->is_master(homeId)){
+cmds/home_functionroom_buy_confirm.pike:			if(HOMED->get_home_level(me->query_name())<room->query_level_limit()){
+cmds/home_functionroom_buy_confirm.pike:			if(!HOMED->if_have_function_room(roomName)){
+cmds/home_functionroom_buy_confirm.pike:						int addResult = HOMED->add_function_room(roomName);//???ӹ??ܷ???
+cmds/home_query_area_desc.pike:	s += HOMED->query_area_desc(arg) + "\n";
+cmds/home_functionroom_buy_detail.pike:	if(HOMED->if_can_buy_functionroom(me->query_name())){
+cmds/home_redesc_confirm.pike:			p_name = HOMED->reset_home_desc(p_name);
+cmds/home_functionroom_buy_list.pike:	if(HOMED->if_can_buy_functionroom(me->query_name())){
+cmds/home_functionroom_buy_list.pike:		s += HOMED->query_function_room_for_sale(arg);
+cmds/home_functionroom_remind.pike:	if(!HOMED->if_have_home(me->query_name()))
+cmds/home_functionroom_remind.pike:		s += HOMED->get_sell_functionroom_list(arg);
+cmds/home_rename_confirm.pike:			p_name = HOMED->reset_home_name(p_name);
+cmds/home_functionroom_sell_detail.pike:	if(!HOMED->if_have_home(me->query_name()))
+cmds/home_functionroom_sell_detail.pike:		if(!HOMED->if_have_function_room(f_room_name)){
+cmds/home_functionroom_sell_detail.pike:			s += HOMED->query_sell_functionroom_info(f_room_name);
+cmds/home_shop_recommend_confirm.pike:	if(HOMED->if_have_home(masterId)){
+cmds/home_shop_recommend_confirm.pike:		if(HOMED->if_have_shopLicense(masterId)){
+cmds/home_shop_recommend_confirm.pike:			if(!HOMED->if_shop_rcmed(homeId)){
+cmds/home_shop_recommend_confirm.pike:						HOMED->add_shop_recommend(me,homeId,rcmTimeDelay);//?????Ƽ?????
+cmds/home_get_pass_time_item.pike:	if(HOMED->is_master(env->homeId)){
+cmds/home_get_pass_time_item.pike:	int result = HOMED->get_pass_time_ob(me,ind);
+cmds/home_get_pass_time_item.pike:		HOMED->save_shopItem(masterId,"",ind);
+cmds/home_shop_sale_paihang.pike:				string homeId = HOMED->query_homeId_by_masterId(Id);
+cmds/home_shop_sale_paihang.pike:				string homeId = HOMED->query_homeId_by_masterId(Id);
+cmds/home_install_conform.pike:		HOMED->save_door("1,door/"+dr_name);
+cmds/home_shop_service_center.pike:	s += HOMED->get_past_time_items(masterId);
+cmds/home_view.pike:	object room = HOMED->query_home_by_path(arg);
+cmds/home_view.pike:		HOMED->add_user(me->query_name());
+cmds/home_knock_door_conferm.pike:	if(HOMED->if_have_home(my_name)){
+cmds/home_knock_door_conferm.pike:		room = HOMED->query_room_by_masterId(my_name,"main");
+cmds/home_life_add.pike:	re += HOMED->query_life_addList(lifeType,ind);
+cmds/home_visit.pike:	object room = HOMED->query_room_by_masterId(arg,"main");
+cmds/home_life_add_confirm.pike:	re += HOMED->life_add(infancyName,lifeType,ind,count);
+cmds/home_life_add_submit.pike:	re += HOMED->query_infancy_detail(infancyName,lifeType,ind,count);
+cmds/home_life_cancel_confirm.pike:	string re = HOMED->life_cancel(lifeType,ind);
+cmds/home_life_detail.pike:	string re = HOMED->query_life_detail(lifeType,ind);
+cmds/home_life_get.pike:	re += HOMED->life_get(lifeType,ind);
+cmds/home_return.pike:		HOMED->clear_user(me);
+cmds/home_return.pike:	object room = HOMED->query_home_by_path(arg);
+cmds/home_return.pike:		HOMED->add_user(me->query_name());
+cmds/home_life_replace_confirm.pike:	string re = HOMED->life_replace(lifeType,ind);
+cmds/home_move.pike:		object room = HOMED->query_room(arg,homeId);
+cmds/home_shopItem_marked_price_confirm.pike:		HOMED->save_shopItem(me->query_name(),shopInfo,ind);
+cmds/home_shopItem_marked_price_detail.pike:				s += "??????"+YUSHID->get_yushi_for_desc(price)+"????"+ob->query_name_cn()+"????Ϊ"+timeDelay+"?죬???׳ɹ???????"+HOMED->get_tax(timeDelay)+"%????˰\n";
+cmds/home_shopItem_marked_price_detail.pike:				//s += "??????"+YUSHID->get_yushi_for_desc(price)+"????"+count+ ob->unit +ob->query_name_cn()+"????Ϊ"+timeDelay+"?죬???׳ɹ???????"+HOMED->get_tax(timeDelay)+"%????˰\n";
+cmds/home_shopItem_marked_price_detail.pike:				s += "??????"+jin+"??"+yin+"??????"+count+ ob->unit +ob->query_name_cn()+"????Ϊ"+timeDelay+"?죬???׳ɹ???????"+HOMED->get_tax(timeDelay)+"%????˰\n";
+cmds/spec_yujian_to.pike:							HOMED->clear_user(me);//???????ص???Ϣ Evan 2008.09.21
+cmds/postcity.pike:				HOMED->clear_user(me);
+cmds/qge74hye.pike:		HOMED->clear_user(me);//清除相关的信息 Evan 2008.09.21
+cmds/wiz_sb.pike:	HOMED->store_all_info(1);
+d/home/xd/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->display_flats(name);
+d/home/xd/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->display_flats(name);
+d/home/xd/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xd/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->display_flats(name);
+d/home/xd/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->display_flats(name);
+d/home/xd/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->display_flats(name);
+d/home/xd/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingxihepan:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingxihepan:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingximen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingximen:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingxipingyuan:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingxipingyuan:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingxiqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingxiqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingxixiaolu:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingxixiaolu:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingxixiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingxixiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xd/lingxidi/lingxizhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/lingxidi/lingxizhen:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxuechangjie:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxuechangjie:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxuemen:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxueningwu:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxueningwu:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxueqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxueqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xd/qianxuehu/qianxuezhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/qianxuehu/qianxuezhen:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yukunjian:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yukunjian:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yukunjie:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yukunjie:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yukunmen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yukunmen:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yukunquan:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yukunquan:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yukunwangyue:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yukunwangyue:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yukunzhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yukunzhen:	tmp+= HOMED->display_flats(name);
+d/home/xd/yukunfeng/yulinglu:	tmp+= HOMED->banner_slot(name);
+d/home/xd/yukunfeng/yulinglu:	tmp+= HOMED->display_flats(name);
+d/home/xd/create_home_room.pike:		writeFile += "\ttmp+= HOMED->banner_slot(name);\n";
+d/home/xd/create_home_room.pike:		writeFile += "\ttmp+= HOMED->display_flats(name);\n";
+d/home/xd1/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingxihepan:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingxihepan:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingximen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingximen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingxipingyuan:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingxipingyuan:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingxiqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingxiqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingxixiaolu:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingxixiaolu:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingxixiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingxixiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xd1/lingxidi/lingxizhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/lingxidi/lingxizhen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxuechangjie:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxuechangjie:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxuemen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxueningwu:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxueningwu:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxueqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxueqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xd1/qianxuehu/qianxuezhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/qianxuehu/qianxuezhen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yukunjian:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yukunjian:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yukunjie:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yukunjie:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yukunmen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yukunmen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yukunquan:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yukunquan:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yukunwangyue:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yukunwangyue:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yukunzhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yukunzhen:	tmp+= HOMED->display_flats(name);
+d/home/xd1/yukunfeng/yulinglu:	tmp+= HOMED->banner_slot(name);
+d/home/xd1/yukunfeng/yulinglu:	tmp+= HOMED->display_flats(name);
+d/home/xd1/create_home_room.pike:		writeFile += "\ttmp+= HOMED->banner_slot(name);\n";
+d/home/xd1/create_home_room.pike:		writeFile += "\ttmp+= HOMED->display_flats(name);\n";
+d/home/xd9/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingxihepan:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingxihepan:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingximen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingximen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingxipingyuan:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingxipingyuan:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingxiqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingxiqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingxixiaolu:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingxixiaolu:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingxixiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingxixiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xd9/lingxidi/lingxizhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/lingxidi/lingxizhen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxuechangjie:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxuechangjie:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxuemen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxueningwu:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxueningwu:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxueqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxueqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xd9/qianxuehu/qianxuezhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/qianxuehu/qianxuezhen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yukunjian:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yukunjian:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yukunjie:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yukunjie:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yukunmen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yukunmen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yukunquan:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yukunquan:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yukunwangyue:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yukunwangyue:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yukunzhen:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yukunzhen:	tmp+= HOMED->display_flats(name);
+d/home/xd9/yukunfeng/yulinglu:	tmp+= HOMED->banner_slot(name);
+d/home/xd9/yukunfeng/yulinglu:	tmp+= HOMED->display_flats(name);
+d/home/xd9/create_home_room.pike:		writeFile += "\ttmp+= HOMED->banner_slot(name);\n";
+d/home/xd9/create_home_room.pike:		writeFile += "\ttmp+= HOMED->display_flats(name);\n";
+d/home/xdX/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingxihepan:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingxihepan:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingximen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingximen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingxipingyuan:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingxipingyuan:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingxiqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingxiqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingxixiaolu:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingxixiaolu:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingxixiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingxixiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xdX/lingxidi/lingxizhen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/lingxidi/lingxizhen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxuechangjie:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxuechangjie:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxuemen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxueningwu:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxueningwu:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxueqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxueqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xdX/qianxuehu/qianxuezhen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/qianxuehu/qianxuezhen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yukunjian:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yukunjian:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yukunjie:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yukunjie:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yukunmen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yukunmen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yukunquan:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yukunquan:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yukunwangyue:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yukunwangyue:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yukunzhen:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yukunzhen:	tmp+= HOMED->display_flats(name);
+d/home/xdX/yukunfeng/yulinglu:	tmp+= HOMED->banner_slot(name);
+d/home/xdX/yukunfeng/yulinglu:	tmp+= HOMED->display_flats(name);
+d/home/xdX/create_home_room.pike:		writeFile += "\ttmp+= HOMED->banner_slot(name);\n";
+d/home/xdX/create_home_room.pike:		writeFile += "\ttmp+= HOMED->display_flats(name);\n";
+d/home/xdY/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyuecun:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyuehanguang:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyuelindi:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyuelu:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyuemen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lengyuecaoyuan/lengyueshuitang:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingxihepan:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingxihepan:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingximen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingximen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingxipingyuan:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingxipingyuan:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingxiqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingxiqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingxixiaolu:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingxixiaolu:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingxixiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingxixiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xdY/lingxidi/lingxizhen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/lingxidi/lingxizhen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxuechangjie:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxuechangjie:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxuehupan:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxuehupan:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxuemen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxuemen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxueningwu:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxueningwu:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxueqiaotou:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxueqiaotou:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxuexiaoxiang:	tmp+= HOMED->display_flats(name);
+d/home/xdY/qianxuehu/qianxuezhen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/qianxuehu/qianxuezhen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yukunjian:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yukunjian:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yukunjie:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yukunjie:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yukunmen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yukunmen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yukunquan:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yukunquan:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yukunwangyue:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yukunwangyue:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yukunzhen:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yukunzhen:	tmp+= HOMED->display_flats(name);
+d/home/xdY/yukunfeng/yulinglu:	tmp+= HOMED->banner_slot(name);
+d/home/xdY/yukunfeng/yulinglu:	tmp+= HOMED->display_flats(name);
+d/home/xdY/create_home_room.pike:		writeFile += "\ttmp+= HOMED->banner_slot(name);\n";
+d/home/xdY/create_home_room.pike:		writeFile += "\ttmp+= HOMED->display_flats(name);\n";
+d/init:				object room = HOMED->query_home_by_masterId(me->inhome_pos);
+d/init:					HOMED->add_user(me->query_name());
+single/daemons/homed.pike:	werror("============== HOMED start  ===============\n");
+single/daemons/homed.pike:	werror("==============  HOMED end  ===============\n\n");
+single/daemons/homed.pike:				if(HOMED->is_master(homeId))
+single/daemons/homed.pike:				if(HOMED->is_master(homeId))
+single/daemons/homed.pike:			if(HOMED->is_master(homeId))
+single/daemons/homed.pike:	if(HOMED->is_master(homeId)&&num){

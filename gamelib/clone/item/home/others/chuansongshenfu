@@ -1,0 +1,25 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="传送符";
+	unit="张";
+	desc="将当前房间与家园中的飞天小屋建立联系\n";
+	value=1000;
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(0);
+	set_item_canGet(0);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+}
+
+
+string query_inventory_links()
+{
+	string s = "[使用:home_function_fly_set_target_detail]\n";
+	return s;
+}

@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="【灵】鬼神之力";
+	unit="颗";
+	desc="增加爆击7%，持续15分钟\n";
+	set_danyao_kind("attri_vice");
+	set_danyao_type("doub");
+	set_effect_value(7);
+	set_danyao_timedelay(900);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_level(50);
+}

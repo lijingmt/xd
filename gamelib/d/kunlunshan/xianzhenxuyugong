@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=71;
+void create(){
+	name=object_name(this_object());
+	name_cn="œ…’Û°æ”Ò–Èπ¨°ø";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/kunlunshan/shierchanglang";
+}
+string query_links()                                                                                                         
+{   
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race&&player->query_level()>=10)
+		tmp+="[œ…’Û°æª∆º“◊Ø°ø:qge74hye huangjiazhuang/jianzhenhuangjiazhuang]\n";
+	if(player->query_raceId()==room_race&&player->query_level()>=15)
+		tmp+="[œ…’Û°æΩ´æ¸ƒπ°ø:qge74hye jiangjunmu/xianzhenjiangjunmu]\n";
+	if(player->query_raceId()==room_race&&player->query_level()>=20)
+		tmp+="[œ…’Û°æ¡Ωæµ∫˛°ø:qge74hye liangjinghu/xianzhenliangjinghu]\n";
+	if(player->query_raceId()==room_race&&player->query_level()>=25)
+		tmp+="[œ…’Û°æ≈Ó¿≥ÀÆ∏Û°ø:qge74hye plshuige/xianzhenpenglaishuige]\n";
+	if(player->query_raceId()==room_race&&player->query_level()>=30){
+		tmp+="[œ…’Û°æƒ¡“∞°ø:qge74hye muye/xianzhenmuye]\n";
+		if(CITYD->query_captured("chaogecheng")=="human")
+			tmp+="[œ…’Û°æ≥Ø∏Ë°ø:city_qge74hye chaogecheng/yaozhengchaoge chaogecheng]\n";
+		if(CITYD->query_captured("xiqicheng")=="human")
+			tmp+="[œ…’Û°æŒ˜·™°ø:city_qge74hye xiqicheng/xianzhen xiqicheng]\n";
+	}
+	if(player->query_raceId()==room_race&&player->query_level()>=40)
+		tmp+="[œ…’Û°æÕ‚∫£°ø:qge74hye waihai/xianzhenwaihai]\n";
+	return tmp;
+}
+

@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【杀】斩妖决";
+	unit="本";
+	picture=name;
+	desc="聚集巨大的剑气攻击敌人，直接造成伤害的攻击技能\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="zhanyaojue";
+	level_limit=14;
+	profe_read_limit="诛仙";
+	need_yushi=10;
+	need_money=150;
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

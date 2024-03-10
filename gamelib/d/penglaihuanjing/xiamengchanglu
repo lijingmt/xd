@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=1155;
+void create(){
+	name=object_name(this_object());
+	name_cn="ÏÄÃÎ³¤Â·";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/penglaihuanjing/sifangqiao";
+	exits["west"]=ROOT "/gamelib/d/penglaihuanjing/xiamengyuan";
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/68yingyushuiyao"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/68luoshuangyao"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/68jingshuikuangyao"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/68hualuyouhun"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/68huayuyaojing"}));
+	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/68linglanhuaxian"}));
+}

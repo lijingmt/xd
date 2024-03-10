@@ -1,0 +1,24 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】清风身法";
+	desc="仙界玄妙身法，可增加使用者的闪避等级";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_delayTime=3;
+	s_lasttime=600;
+	s_curse_type="dodge";
+	performs_attack[1]=2;
+	performs_attack[2]=3;
+	performs_attack[3]=4;
+	performs_attack[4]=5;
+	performs_attack[5]=6;
+	skill_type+=({"zhuxian"});
+	performs_level_limit[1]=30;
+	performs_level_limit[2]=40;
+	performs_level_limit[3]=40;
+	performs_level_limit[4]=45;
+	performs_level_limit[5]=48;
+}

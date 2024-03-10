@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=900;
+void create(){
+	name=object_name(this_object());
+	name_cn="清水林场";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/qingshuilindi/zawujian";
+	exits["south"]=ROOT "/gamelib/d/qingshuilindi/yunwumilu";
+	exits["west"]=ROOT "/gamelib/d/qingshuilindi/chucangshi";
+	exits["north"]=ROOT "/gamelib/d/qingshuilindi/qingyanshilu";
+	add_items(({ROOT "/gamelib/clone/npc/qingshuilindi/50linchangshouwei"}));
+	add_items(({ROOT "/gamelib/clone/npc/qingshuilindi/50linchangbanyungong"}));
+	add_items(({ROOT "/gamelib/clone/npc/qingshuilindi/50linchangnongfu"}));
+	add_items(({ROOT "/gamelib/clone/npc/qingshuilindi/50qingshuishouwei"}));
+	add_items(({ROOT "/gamelib/clone/npc/qingshuilindi/50chailangeling"}));
+}

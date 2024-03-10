@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【术】摄魂术五级";
+	unit="本";
+	picture=name;
+	desc="吸取天地间冤魂的能量，增加自己的力量\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="shihunshu";
+	level_limit=41;
+	profe_read_limit="巫妖";
+	beidong_level=5;
+}
+int read(){
+	int result=::beidong_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

@@ -1,0 +1,34 @@
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	name_cn="重甲门卫";
+	desc="人类大军守城重兵\n";
+	set_raceId("human");
+	set_profeId("humanlike");
+	picture="zhongjiamenwei";
+	_npcLevel=73;
+	set_npc_type("city_keeper");
+	_flushtime=3600;
+	set_base_think(100);
+	set_base_dex(100);
+	set_base_str(400);
+	set_base_life(800000);
+	this_object()->flush_life();
+	set_base_baoji(15);
+	set_base_hitte(2);
+	set_base_dodge(10);
+	setup_npc();
+	set_heart_beat(1);
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

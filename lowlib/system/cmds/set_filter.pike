@@ -1,0 +1,15 @@
+#include <globals.h>
+int main(string arg)
+{
+	string filter=arg;
+	string param,title;
+	//[set_filter wml /xiand/main.jsp xdtest]
+	sscanf(arg,"%s %s %s",filter,param,title);
+	object ob=new(SROOT+"/system/filter/"+filter);
+	string s=ob->setup(param);
+	if(s)
+		write(s);
+	set_filter(ob);
+	ob->set_title(title);
+	return 1;
+}

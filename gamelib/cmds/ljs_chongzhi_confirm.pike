@@ -1,0 +1,50 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+//鎏金石捐赠接口
+//传入参数：时间 所需玉石 flag
+int main(string arg)
+{
+	object me = this_player();
+	string s = "";
+	int time = 0;
+	int need_yushi = 0;
+	int flag = 1;
+	sscanf(arg,"%d %d %d",time,need_yushi,flag);
+	time = time/60;
+	if(flag==0){
+		s += "您将需要花"+YUSHID->get_yushi_for_desc(need_yushi)+"购买并装备效果持续"+time+"分钟的鎏金石\n";
+		s += "\n";
+		s += "[确定购买并装备:ljs_chongzhi_confirm "+time+" "+need_yushi+" 1]\n";
+		s += "[我再考虑一下:look]\n\n";
+	}
+	else{
+		int buy_result = BUYD->do_trade(me,need_yushi,0);
+		switch(buy_result){
+			case 0:
+				s += "你身上的玉石不够！\n";
+				break;
+			case 1:
+				s += "你身上的金钱不够！\n";
+				break;
+			case 2..3:
+				if(!me->ljs_time){
+					me->ljs_time = time;
+					me->ljs_sw = "open";
+				}
+				else{
+					me->ljs_time += time;
+				}
+				s += "恭喜您，在未来的"+time+"分钟内，你被其他玩家击杀后将不会损失升级经验.\n";
+				string s_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][ljs_chongzhi]["+time+"min][][1]["+need_yushi+"][0]\n";
+				Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",s_log);
+				break;
+			default:
+				s += "系统犯晕了，请和管理员联系。\n";
+				break;
+		}
+	}
+	s += "[返回:inventory]\n";
+	s += "[返回游戏:look]\n";
+	write(s);
+	return 1;
+}

@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/weapon"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1873"/>
+<entry
+   name="37lingmuzhi"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="29bingcibishou"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3e015e082318915fd649b14fd613879a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="49shenjianchixiao"
+   kind="dir"/>
+<entry
+   name="53poxuekuangdao"
+   kind="dir"/>
+<entry
+   name="53lingyuefazhang"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="70yunraofazhang"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6a1a5cac348aada17d9c55fca251bc9a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="29duyabishou"
+   kind="dir"/>
+<entry
+   name="25bailudao"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="70yunraochangjian"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9b56fb6c526fa2030ef9601c5273ee14"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="70cijichangjian"
+   kind="dir"/>
+<entry
+   name="33zherijujian"
+   kind="dir"/>
+<entry
+   name="60qingtianshuangjian"
+   kind="dir"/>
+<entry
+   name="41lingbaobishou"
+   kind="dir"/>
+<entry
+   name="25yubadao"
+   kind="dir"/>
+<entry
+   name="33mangyabishou"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="69hanbingshuangjian"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0635c4c9df847adb9ad7121ae086754c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="69hanlengjian"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="06afa08f9a29cd5fda8a4f0c2ad03c57"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="65bingliebishou"
+   kind="dir"/>
+<entry
+   name="70baokukuangjian"
+   kind="dir"/>
+<entry
+   name="9yangjiaobishou"
+   kind="dir"/>
+<entry
+   name="41zhanlujian"
+   kind="dir"/>
+<entry
+   name="70ningyunbishou"
+   kind="dir"/>
+<entry
+   name="13huojingjian"
+   kind="dir"/>
+<entry
+   name="33baishengdao"
+   kind="dir"/>
+<entry
+   name="21shenmugun"
+   kind="dir"/>
+<entry
+   name="45dingguangjian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="70yunraoshuangdao"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cedfd067b019c95834765e6ff900de62"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="9ezuimugun"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="49binglongzhiya"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d06e94fe4fbf4c4799e208a6160d61cc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="65huanhaishuangdao"
+   kind="dir"/>
+<entry
+   name="17sichiqianjinjian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="69bingyuelingzhang"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cf1d0c6857cf91c9460097e1d27a17ee"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="37yaolongjian"
+   kind="dir"/>
+<entry
+   name="1zhupiaodao"
+   kind="dir"/>
+<entry
+   name="60fufengbishou"
+   kind="dir"/>
+<entry
+   name="41wangdaobaipi"
+   kind="dir"/>
+<entry
+   name="49ganjiang"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="65liuyunfazhang"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b961ca730455032d94703afed5c43dcf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="69hanbingci"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6b5935effac21247cae4b031f5ce12b3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="45zhaoriliuguangjian"
+   kind="dir"/>
+<entry
+   name="65ranshaofazhang"
+   kind="dir"/>
+<entry
+   name="37juquejian"
+   kind="dir"/>
+<entry
+   name="13hanguangbishou"
+   kind="dir"/>
+<entry
+   name="5tiejian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="29bingliedao"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="526f35849c9576bce2b13d0d73cc28fc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="25longxiefazhang"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="70yunraonbishou"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="812570fb8515dca3285c1e4383d6e540"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="60lingkongfazhang"
+   kind="dir"/>
+<entry
+   name="9zhihuishouzhang"
+   kind="dir"/>
+<entry
+   name="9qingtongjian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="49xueyueshenjian"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="60b999a63c276fa26b68312224b314f8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="17zhuanhunbishou"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="49huanxuezhang"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3f679a2e9ea4e7bb869fb4450a7d6d8e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="13zhenshanjian"
+   kind="dir"/>
+<entry
+   name="1duanmugun"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="65liyunbishou"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fa4704525441462a8df77a70674956f9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="21chixiebishou"
+   kind="dir"/>
+<entry
+   name="70shelingzhang"
+   kind="dir"/>
+<entry
+   name="17duanshuijian"
+   kind="dir"/>
+<entry
+   name="17bikuangchangjian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="65huanyunshuangdao"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0762e1d6ef3ab2010b6bdfbac9a8c121"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="5potongjian"
+   kind="dir"/>
+<entry
+   name="70jufengduanjian"
+   kind="dir"/>
+<entry
+   name="70cijibishou"
+   kind="dir"/>
+<entry
+   name="65haixiaofengjian"
+   kind="dir"/>
+<entry
+   name="70cuicanxingmang"
+   kind="dir"/>
+<entry
+   name="29tuyunchangjian"
+   kind="dir"/>
+<entry
+   name="1canpodezhongjian"
+   kind="dir"/>
+<entry
+   name="70sheyueshuangdao"
+   kind="dir"/>
+<entry
+   name="5canpodezhongjian"
+   kind="dir"/>
+<entry
+   name="5shanmuchangzhang"
+   kind="dir"/>
+<entry
+   name="60xiangyunchangjian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="29lingguangzhang"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="69d5a9352a5f9b270ab902aaaffa3234"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="53duanyazhibi"
+   kind="dir"/>
+<entry
+   name="13liulifazhang"
+   kind="dir"/>
+<entry
+   name="29danghunfan"
+   kind="dir"/>
+<entry
+   name="49wanliqiyunyan"
+   kind="dir"/>
+<entry
+   name="41zhenhuojian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="65qieyunchangjian"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d59ab4bc451ea3ac0ef2713759c0e912"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="49wannianhanbingfu"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="11617bb6d5eb2a3216adf496359740f5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="29longyuanbaojian"
+   kind="dir"/>
+<entry
+   name="49moxie"
+   kind="dir"/>
+<entry
+   name="45wushubishou"
+   kind="dir"/>
+<entry
+   name="21qingyunjian"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="29bingyansiliezhe"
+   text-time="2009-01-08T05:37:59.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="37862e1a6bd39a7a3cfef662db43959c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="37qufengjian"
+   kind="dir"/>
+<entry
+   name="21yanchidao"
+   kind="dir"/>
+<entry
+   name="53yufengchangjian"
+   kind="dir"/>
+<entry
+   name="1taomujian"
+   kind="dir"/>
+<entry
+   name="33jiuyufazhang"
+   kind="dir"/>
+<entry
+   name="25anlinggujian"
+   kind="dir"/>
+<entry
+   name="45liuhechunyangjian"
+   kind="dir"/>
+</wc-entries>

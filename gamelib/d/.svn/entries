@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/d"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="xiqicheng"
+   kind="dir"/>
+<entry
+   name="muye"
+   kind="dir"/>
+<entry
+   name="yl"
+   kind="dir"/>
+<entry
+   name="lvxie"
+   kind="dir"/>
+<entry
+   name="jadhuanjingwaicheng"
+   kind="dir"/>
+<entry
+   name="home"
+   kind="dir"/>
+<entry
+   name="jingyushanzhuang"
+   kind="dir"/>
+<entry
+   name="chaogewaicheng"
+   kind="dir"/>
+<entry
+   name="huyaodong"
+   kind="dir"/>
+<entry
+   name="nanhai"
+   kind="dir"/>
+<entry
+   name="xihai"
+   kind="dir"/>
+<entry
+   name="langhaodongxue"
+   kind="dir"/>
+<entry
+   name="ninggedian"
+   kind="dir"/>
+<entry
+   name="Backup"
+   kind="dir"/>
+<entry
+   name="mihuandao"
+   kind="dir"/>
+<entry
+   name="dongxue"
+   kind="dir"/>
+<entry
+   name="liehuoying"
+   kind="dir"/>
+<entry
+   name="liefengcun"
+   kind="dir"/>
+<entry
+   name="beihai"
+   kind="dir"/>
+<entry
+   name="bawangbao"
+   kind="dir"/>
+<entry
+   name="fuxishan"
+   kind="dir"/>
+<entry
+   name="chaogecheng"
+   kind="dir"/>
+<entry
+   name="kulougang"
+   kind="dir"/>
+<entry
+   name="yunshuixianjing"
+   kind="dir"/>
+<entry
+   name="zhongnanshan"
+   kind="dir"/>
+<entry
+   name="minglingzhihai"
+   kind="dir"/>
+<entry
+   name="penglaihuanjing"
+   kind="dir"/>
+<entry
+   committed-rev="1924"
+   name="init"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="1e52e6892c4e03a2a5d7c062a9311571"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   name="wujinchangqiao"
+   kind="dir"/>
+<entry
+   name="jiangjunmu"
+   kind="dir"/>
+<entry
+   name="xinnian_fb"
+   kind="dir"/>
+<entry
+   name="wugongdong"
+   kind="dir"/>
+<entry
+   name="plshuige"
+   kind="dir"/>
+<entry
+   name="jadhuanjing"
+   kind="dir"/>
+<entry
+   name="fushoushan"
+   kind="dir"/>
+<entry
+   name="klshuanjingwaicheng"
+   kind="dir"/>
+<entry
+   name="jinaodao"
+   kind="dir"/>
+<entry
+   name="kunlunshan"
+   kind="dir"/>
+<entry
+   name="liuguangpingyuan"
+   kind="dir"/>
+<entry
+   name="sigumudi"
+   kind="dir"/>
+<entry
+   name="shanyaohaiwan"
+   kind="dir"/>
+<entry
+   name="guangmaoyuan"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="tmptmptmp.csv"
+   text-time="2009-01-08T05:37:52.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d060aefef270b8e41ec2d265b1ffb31c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:51.000000Z"/>
+<entry
+   name="yeguangxiagu"
+   kind="dir"/>
+<entry
+   name="paimh"
+   kind="dir"/>
+<entry
+   name="tianyecheng"
+   kind="dir"/>
+<entry
+   name="bwmk"
+   kind="dir"/>
+<entry
+   name="waihai"
+   kind="dir"/>
+<entry
+   name="huangjiazhuang"
+   kind="dir"/>
+<entry
+   name="plxianjing"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="manager_room"
+   text-time="2009-01-08T05:37:52.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="85acd26c8544d76eb9a07adef0e0b17e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:51.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="check_room"
+   text-time="2009-01-08T05:37:52.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f936c00560fc5bb9a1e08067d60a3a9f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:51.000000Z"/>
+<entry
+   name="dwgy"
+   kind="dir"/>
+<entry
+   name="youanzhaoze"
+   kind="dir"/>
+<entry
+   name="konglingshangu"
+   kind="dir"/>
+<entry
+   name="xiqiwaicheng"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_city.pike"
+   text-time="2009-01-08T05:37:52.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ca6a5e161391dcbdae68d524bbe19630"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:52.000000Z"/>
+<entry
+   name="bishuitan"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_room.pike"
+   text-time="2009-01-08T05:37:52.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8752a0c475e80fe40b20545cf14bec2c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:52.000000Z"/>
+<entry
+   name="autolearn"
+   kind="dir"/>
+<entry
+   name="chenjichaoze"
+   kind="dir"/>
+<entry
+   name="congxianzhen"
+   kind="dir"/>
+<entry
+   name="jiulongdao"
+   kind="dir"/>
+<entry
+   name="huanyecun"
+   kind="dir"/>
+<entry
+   name="huangyuan"
+   kind="dir"/>
+<entry
+   name="liangjinghu"
+   kind="dir"/>
+<entry
+   name="yandigu"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="create_fb.pike"
+   text-time="2009-01-08T05:37:52.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="409eb406a497f945847ebef929617dcd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:52.000000Z"/>
+<entry
+   name="mf"
+   kind="dir"/>
+<entry
+   name="shierxianjing"
+   kind="dir"/>
+<entry
+   name="jiaolong"
+   kind="dir"/>
+<entry
+   name="yunraotiangong"
+   kind="dir"/>
+<entry
+   name="qingshuilindi"
+   kind="dir"/>
+<entry
+   name="donghai"
+   kind="dir"/>
+<entry
+   name="klshuanjing"
+   kind="dir"/>
+</wc-entries>

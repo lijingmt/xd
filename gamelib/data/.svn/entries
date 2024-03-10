@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/data"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="can_buy_book_list.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f17b7326ada1ccf59117e0607760c281"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   name="chat"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="questionnaire.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="387db42431ef1cfe1470bae54a963cac"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fb.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d3806b667274fcb6c1b0ec0a3cc6adcd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="items_exchanged.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="713ece18005d47f751b925a127a671c5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="vip_goods_list"
+   text-time="2009-01-09T03:46:55.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="c2d428363345b0d497b07308772bf98e"
+   last-author="cap"
+   kind="file"/>
+<entry
+   committed-rev="1860"
+   name="allItems.list"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d4d6add603874e1985f430cffcdb67cc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="package_expand.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7d71f123c538638eeda7c550bd965db7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bossdrop.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f3e80333a9ce5902a480b99d300f5506"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1879"
+   name="goods_price_list"
+   text-time="2009-01-09T03:47:27.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="26c9da882d98e805be54daa9a1c63199"
+   last-author="cap"
+   kind="file"/>
+<entry
+   committed-rev="1879"
+   name="vip_list"
+   text-time="2009-01-09T03:47:12.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="cbc639c3209de72964f2cd787916296e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-09T06:59:20.000000Z"/>
+<entry
+   name="material"
+   kind="dir"/>
+<entry
+   committed-rev="1879"
+   name="word_replace_list"
+   text-time="2009-01-09T03:47:18.000000Z"
+   committed-date="2009-01-09T07:00:24.032082Z"
+   checksum="00216eadccd8d39c1bcf0fae30d99c3d"
+   last-author="cap"
+   kind="file"/>
+<entry
+   name="task"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="orgItems.list"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8d2d0818220f267549c3273f80310fc5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1912"
+   name="worlddrop_item.list"
+   text-time="2009-02-01T09:18:02.000000Z"
+   committed-date="2009-02-01T09:56:48.312348Z"
+   checksum="e7e65c87ed1d27ce4fb18f0c13fe4bab"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vicedrop.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="43a2f2d92ac8b37a663861c242c9260d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="gifts.csv"
+   text-time="2009-02-05T02:55:37.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="specItems.list"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="762be89544332da9d205b729b6fdb905"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lottery_info.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="311bc128c9a0bd6902f7cdd8b227e381"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   name="honer"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="ywboss_room.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3035f27e01c59bcfe6c25b286fa26725"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+</wc-entries>

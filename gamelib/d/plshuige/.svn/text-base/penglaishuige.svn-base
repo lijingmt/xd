@@ -1,0 +1,38 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=304;
+void create(){
+	name=object_name(this_object());
+	name_cn="蓬莱水阁";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/plshuige/duyunge";
+	exits["south"]=ROOT "/gamelib/d/plshuige/penglaiwuhai";
+	exits["west"]=ROOT "/gamelib/d/plshuige/cangyunge";
+	exits["north"]=ROOT "/gamelib/d/plshuige/yunshangxing";
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/chiyun60"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/biyun60"}));
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp+="[休息:sleep]\n";
+	tmp+="[换取圣诞礼品:bx_view_equiplist weapon]\n";
+	object env=environment(player);
+	string cur_pos=file_name(env)-ROOT;
+	if(player->relife){
+		if(player->relife!=cur_pos)
+			tmp+="[设置复活点:relife "+cur_pos+"]\n";
+	}else
+		tmp+="[设置复活点:relife "+cur_pos+"]\n";
+	return tmp;
+}
+int is_peaceful()
+{
+        return 1;
+	}

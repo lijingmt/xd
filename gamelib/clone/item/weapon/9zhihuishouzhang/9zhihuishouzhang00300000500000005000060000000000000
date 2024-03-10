@@ -1,0 +1,43 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_WEAPON;
+void create(){
+	name=object_name(this_object());
+	name_cn="智慧手杖";
+	unit="把";
+picture="9zhihuishouzhang";
+	desc="\n";
+	item_cur_dura=240;
+	item_dura=240;
+	set_item_type("single_weapon");
+	set_item_weapon_type("zhang");
+	set_item_kind("single_main_weapon");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_attack_power(16);
+	set_attack_power_limit(21);
+	set_speed_power(2);
+	set_item_canLevel(9);
+	set_item_profeLimit("jianxian");
+	set_item_profeLimit("yushi");
+	set_item_profeLimit("zhuxian");
+	set_item_profeLimit("kuangyao");
+	set_item_profeLimit("wuyao");
+	set_item_profeLimit("yinggui");
+	if(query_item_kind()=="single_main_weapon")
+		desc+="(主手)\n";
+	else if(query_item_kind()=="single_other_weapon")
+		desc+="(副手)\n";
+	else if(query_item_kind()=="double_main_weapon")
+		desc+="(双手)\n";
+    set_item_rareLevel(4);
+    set_think_add(3);
+    set_feng_mofa_attack_add(6);
+    set_mofa_add(5);
+    set_attack_add(5);
+    name_cn=query_rare_level()+name_cn;
+}

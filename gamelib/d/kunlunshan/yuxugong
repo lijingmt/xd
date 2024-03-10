@@ -1,0 +1,40 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=72;
+void create(){
+	name=object_name(this_object());
+	name_cn="玉虚宫";
+	desc="[**建帮立派**:bang_create]\n";  
+	desc+="[**查找帮派**:bang_search]\n";
+	desc+="[**领取玉石**:tuiguang_yushi]\n";
+	desc+="[**换取国庆礼品**:shzzh_view_equiplist 9ji]\n";
+	exits["east"]=ROOT "/gamelib/d/kunlunshan/yuxugonghouting";
+	exits["south"]=ROOT "/gamelib/d/kunlunshan/fengshenjing";
+	exits["west"]=ROOT "/gamelib/d/kunlunshan/shierchanglang";
+	exits["north"]=ROOT "/gamelib/d/kunlunshan/xinglou";
+	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/yuanshitianzun999"}));
+	//add_items(({ROOT "/gamelib/clone/npc/kunlunshan/yuebingshangren100"}));
+	//add_items(({ROOT "/gamelib/clone/npc/pub_npc/fushouxianweng"}));
+}
+int is_bedroom()
+{
+	return 1;
+}
+
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race){
+		tmp+="[休息:sleep]\n";
+		object env=environment(player);
+		string cur_pos=file_name(env)-ROOT;
+		if(player->relife){
+			if(player->relife!=cur_pos)
+				tmp+="[设置复活点:relife "+cur_pos+"]\n";
+		}else
+			tmp+="[设置复活点:relife "+cur_pos+"]\n";
+	}
+	return tmp;
+}

@@ -1,0 +1,22 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="【特】神女露";
+	desc="增加幸运值500点，持续1小时\n";
+	desc+="该效果不会因为被杀或者下线而消失\n";
+	unit="瓶";
+	picture=name;
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_danyao_kind("te_luck");
+	set_danyao_type("luck");
+	set_effect_value(500);
+	set_danyao_timedelay(3600);
+	set_item_level(1);
+	set_for_material("liandan");
+}

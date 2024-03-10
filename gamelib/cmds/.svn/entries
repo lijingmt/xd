@@ -1,0 +1,3922 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1925"
+   name=""
+   committed-date="2009-02-05T02:23:10.278355Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/cmds"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   prop-time="2009-01-08T05:37:53.000000Z"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="home_redesc_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a2ad05517e68bff4aef86da6ca5b388a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="inventory_daoju_package.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="73abad2b0c5878f9387122efe4cba396"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_buy_shopItem_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="26f39489121237f3fa6a422f91e2eeb6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="whoa.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c3280d0b99e98a304d6e139eca35030e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="follow_you.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="16cecba636397cedc34e6b189f474b6d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="door_destroy_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e19868ee568559c885da151d7fc0ac23"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="trade.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b09c1c5810eee3edcea66a670c9c3bcd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_replace_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3b5471d8e72639429a058e35598817e3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_knock_door.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="81b5daf34724e9dea1cad0bec4bbddcf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="auto_learn_set.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d07054a4a19a67fb84905b882493d514"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_kick.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e859c5c7b13f1dce89e3c686c7e4e702"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="ljs_used.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="0c5a603abd4bc68ab42bf1ef94e273dc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_delete_group_user.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="15e0418bd54bdd4d5f5f0bce17c7d720"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_change_desc.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4887a1e5805ca89e8dc646ad8ab79ac9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_view_members.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4e1c4e4e0ba1fcb5bc8849dc42d61a48"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="44d90702d2e6388c305ea32d83a845b2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone_free_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="676c806392c5dc3498aad791bb4da696"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="get.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a11c201defcabef0d6c4abc137538bf9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_package_replace_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="86d1b38beaf99552231e3f6c55962014"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange_to_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="800578345689cab65bcc0b32f4c061af"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_dog_bury.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ff0c0d0e9d1fd9d72e3303a3d6ebffac"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_shenfu_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a4b8fb433b0013d3b904c415ac9141f4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_package_buy_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a85f1a295063e366d0420684550c2ab2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_liandan_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="74f8d8dd0f66613146803cf749a3f41b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_item_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8c6698a8c4fc9568e5067febe0fc98ed"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yblh_buy_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b704304c782136cdaa39d1f061f3b6b0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_modi_info.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4038cfa125090835b5bec08b5154d57b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myshop.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ca591b5e437914555ad572dabf5fb732"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_equip_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c07536f451ec30d0d48b104bae0ea892"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_duanzao_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fb2bb03832b8d92705bcc35f0ac919e8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="ljs_chongzhi_detail.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="b8d958b6af4d541e42e72e56f7c4dcd0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mytools.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9de60c519961f5b3b5ff5ad0b2070bc6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_extend_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4e18794ee04add49cc696f2c0c7279df"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="honer_equip_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9658e0db18751155338a8bf2736d3ee2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_cancel_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="99da20867e62e9450a0224e2a36f59c3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_quit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="59c0751b46a3134c9fa049fbecd2eed6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lottery_view_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0cc391d36b092fe03f103a26a2af7103"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_rongjie_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="db758fd5ff6f1024634d3a1379e4545d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_cancel_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f1f6c89ba9ec97fc228725dddb42d928"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="conn_menu.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5484f62c9df5873e9228816079fdf8fd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_buy_dog_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="59f9bee7aa10845ae12c45d49a5db5fd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_add_moxian_caifeng.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="28f86b00532aff684fe1f7c9d79d4357"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_enter.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="880da5cd1755f0e2d02836e564c3b7df"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_ronglian_add.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a62ae77d9900af27e2ef11cec623604a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="reg_account.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4c7b32e743667b74ef3e50c12138225f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="bang_create.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="e02e20b942b638e65c7c45ec31314644"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="63ac16f4125b98abef51dee87adc9aea"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_teyao_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b2fbebc1f75559caaaf9e61b05056b49"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="equip_xiangqian_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f019aba567029895c96b728a30951f7d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_purchase_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="db1d28e89ee5620a34302bf125e25999"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="present_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0d32c10146ce0fb716811ffbd5b02f7b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_hlbook_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ced860db8ea10a061a33cc191fc30645"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="buy_items.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e4189a05c62cbc980f217dc8c9b5f45e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_package_replace_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="452a3ae130ade7e18f4a0615eca742cd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="szx_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ec8ff7e17cfdc8836659f11a02e21071"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="my_games.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="d6bac3b31f5bc566c19f99bb27503beb"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tuiguang_yushi.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a86d44734018737a1d96e6d361d5c06d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange_fetch_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="41f4b140189f09f545d872cc53a9ed22"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_view_apply.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5b46c8657ba0b25eeccd8e7ff6413f7e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="follow_cancel.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d089af0a13546c218f060b5195572b0a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="myskills.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bc89cedb5d09d0fee80860a6760179c0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d5220fb36865a9b92c58cfa7a022581d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ui_char.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="24b0561c43549014c121f8a08a6ecbf4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_degrade.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6932275dfb5d8d5a6952d78fdfe51a00"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="postcity.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9eb041d2c473a2aa6fb5a9096d49ea4d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_equip_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="14d5acac5e9aa51aae24824905b014bf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_book_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7361350d92cba757a6b05b17ae5808bf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="waihai_qge74hye.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9f7e12a7c5b6018b9b84236a7ccc0ee1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_be_root.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="155284978496fde0c97e6a9f4815f95c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_upgrade_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="018659c5024872ba6e17d3fdc31abcbd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_leave.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="47e4ee4fb675d14f2faae0708e2dc320"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_recommend_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a9159fcfe2a6e559decca623b711b8a5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shopItem_marked_price_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="26b8c215607108fea34409d47dd20b89"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_return.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b919e9a5548739f3a3aab23c28898917"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="door_destroy_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f5eb1b73da4e12f64b27f9d9bc92a8ed"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="user_package.pike"
+   text-time="2009-01-14T09:48:24.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="17d70fc52b3c4221249360c540fa4e1b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_bx_open.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="40f89cf0702a98377fe86809b6427be3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_app_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2b4e78c60b1513856496643226d23cfc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="gift_info_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c8e15cf546d336ae96f770f6203ebc1b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="paihang_update_mark_toplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e7fcb05f1feaac5cb784de8e1888a0b3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_package_buy_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a672ea1ad87f950abe4fcb59e2606045"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_update_city.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6a7e4c48d86e359588aac9389dc68532"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_giveup.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="72d2cd807c34433ec7d845b1764adff8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_check_user.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="13903314074f72b825de41f1eb44c193"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_bc_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="404fed18c909d5ba1ed614549a1f31e6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_quit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f20ec1aa0174797514ebabc95ca553de"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_app_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9b3a7cc21c097e8d57d9d6fdd124329d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="diaocha_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d6ea0f1ed30ed3e946e5d21f844208d0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_user.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="67babd6e8f1b55325336551b0610d9d8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_update.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="025acd13380a62d3c18019a9381c9527"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_item_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fa63c17b2250f2557e107ce1f01781af"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_view_player.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e5d5736068a7a24aec78dad324dcf428"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_move.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2fe8b8f4b4e01810c5c0b128efb3d80e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_show.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5cf2fe7e990681e06629857d4176880d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_use_huawu.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4a5b85f7856dfc95f7cc411f40f3af0a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mailbox_compose.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="318ae80f66dbecc36d5c4af3083bac03"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_update_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3710a71529bac8c123b4848228ca9e75"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="msg_write_entry.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="50a8431ab5336f9e14cd738a9e6d5600"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="trade_daoju.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="85631dee7c39dccb70be5f8353a6797a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_sell_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9dcc64e87694dd6a20d4d7b9e158da8d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_test.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="de3f63a87c6effbf22fac80f6fbc5a55"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="inventory_daoju_vendue.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="15cb687fff43e4359e7bd48c7c732948"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e95f34eb86295144ad1b4b01947b814a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_force.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="282aae610bc06f2beda3fbc36c072f61"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_baoshi_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="978642667edd2d87e3e6e74fe39a9b96"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bx_open.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f3db8d582c698025dde3ce6094bdcb06"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1925"
+   name="item_ungroup_confirm.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-05T02:23:10.278355Z"
+   checksum="0fa1af968645a0bbf72c57746308e59f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_shout.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fded51abda90f510f5243231cb65b078"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_ronglian_item.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="789d78af0a231409b458a3fcf13c0cff"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_delete_user.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e44883ec9267bd897861f0fc96b99a32"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_sb.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3b203e0b76c2c65834bb50c29e157d88"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="myinfo.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="548993dc43733875a406966d5c176d6d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1912"
+   name="yushi_myzone.pike"
+   text-time="2009-02-01T09:06:59.000000Z"
+   committed-date="2009-02-01T09:56:48.312348Z"
+   checksum="0553cd03e3e5e89ca4002b687bff92a5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_change_level.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1d8e3f445eae95d86febf2d28042ee4f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tuiguang_get_yushi.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a6b546e325d7417556c8502f1a861456"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_update.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f94df6d90a69f8363cd33e16ac71a539"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="relife.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2d83a3a0fdd6848508d910b1a6e8dc1f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hj_equip_exchange.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="275f26d5a6ec294ded0703c99a03a337"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_test2.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dfb81586a7f67cd52459ed1581ad29a7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fb_entry.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="390fc4c45bb486207857ee2175c529cc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ui_select_room.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6c99a09f0a1b41394ecaafde998cd050"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_vie_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f94edd457f5ff79e0c805deb41297fdd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_char.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7a200e13108fa5f60117e5761ee3d641"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_eat_danyao.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="046e67958d6605ec44df464e3ee23a78"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="msg_del.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c736040bac58509cd650717a52eb9b93"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1925"
+   name="item_ungroup.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-05T02:23:10.278355Z"
+   checksum="51bfd8e2a7361d357de2afad5f1c62e1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   name="Backup"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="jjbx_open.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c302ddd26b74c86e4247f48a4a1d9f3d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="check_yun_msg.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1ad7111c363e035e3dc75244cad1fd83"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_else_fee.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2d350f72432835963a8f30140f81413c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_change_root.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="575362b3147688b3e2632b8f57ad7f3f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_refuse.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="76bc1da99282f59d6259560dcfb692cf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="msg_read.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f217faeebf5aca1e504e31b569fd2cf1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_add_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9c8b09e624b3fd35473effee14bb1552"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="my_qqlist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ed9a9c9c6b93b048b062cf5a92727c5e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="diaocha_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="63833913acee1062c7d227d5169a20d6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_equip_reset.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f93c0411bcf48fcf288c0a6280cb1151"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_purchase_home_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="17b31fabf3bbfc98b34a723f0a2dbc85"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mailbox_read.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="af1489349e82d194427f97fea67b3bc9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_start.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="82bc86a077bd2bb65adfdc3a30d13dae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_group.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b85f58a42b7cbfc28e0cd5ac9444a26a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="bang_hint.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="240613b4a1357e787e31946293c787b0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mailbox.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e00d2a31aad45c2f2f65009af82f77cb"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_goto.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="36d23432b7b2d05063161ed99e0962e0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="map_display.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f2434639b01a95259d668b52c380fb6b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bandpsw_change.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a13520b713bbcbd36d7322a069a420dd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="pic_switch_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="010efc34a6818de14c2df82530489e80"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="userlist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="27f0edbbc684cffdc86f3aaf180ec61b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_big_fee_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f5afda2ad45b070a7565c8382b3b85dd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_yujian_to.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="067f9b9d5816da24dc23adf0f3ea8dec"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_goods_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="36c7e5fb5bf86b9d09b7c1ee12a63ed4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8b491a22384008ee2999064425f66679"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_wap_fee.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="eb53705f1a00c4348de3cbd361b69c9d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yblh_open.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7c4a5028e97350a107f60436aec9d61e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dd0d1cbee44aa6b146439d180681f4f2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="sendother_ok.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6e00aa4b46ea9bbf998320151c99dcbe"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dubo_items_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c8cb20f0b2e79dcb240dbfd1bfad2f09"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="huanjin_view_equiplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="663d703d6e6257578d1a0de5aed56f8e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_accept.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6d280d4fa518130c18f1b4187c8ef354"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="set_bandpsw_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4dd5cbe8107cfbc35fcc4f6c4bb41a1c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange_fetch_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dff5d1cdaf9de495e1f08513a74e2986"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_ronglian_spec.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5f19f58a8f1b804216d3dc1fcfcd162b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_myzone.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d6ce46f8d2a3aec18043bcd34dbb5990"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_add_daoju_shopItem.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1327782e9cfb3852aee0b235feea0f7a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_ronglian_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cb894fcff72ef0011d1321cc3d5dea8a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_cancel.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="edd5c39d199e503c6a641be06cc479ac"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="game_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="56ca2e8856869bf8f15e3d3ef6f6c49b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_rongjie_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3456fe1fdac01a52f0c18c6bb163720e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="door_destroy_entry.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="508af66f22cb6da9cd703c328627bc43"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_get_test.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="96ed7685bd154fb8c26cb7d19b4a3ffd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="shzzh_view_equiplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b5749ae00c60e83dde27a382a18632fa"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_liandan_pf.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bb28b8ebd0d2afdb402dde73c1a502c5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="set_game_fg.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8afb50b853c261d3c73b12950e3c43b9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_service_center.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6b3d22ac2e37d003aceac7130a8162d5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_dismiss.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e3763ee9ac58308a035b9d5f19b7545e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_add_moxian_zhijia.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="85161d3f7ab0ccf0a6b14e8b2e3f8255"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lottery_join_in.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4b103722a92390d4d57c5872e4b83a64"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_peifang_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5d617696899eef66c830c33be24bb432"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_dig.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5eec1602ad8a87b27d242ccbe40ad7ee"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_ronglian_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4cb2ccfb82943947f68974b1e02f3cca"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="set_bandpsw.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="538de22a9147b2f9bd7d2aa5c676e548"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="waigua_check.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dfa636fab57b2375c6dd00f937d3c98f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_buy_else_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="31f2c7b1e69b837bc85c384d2c24f4b9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_group_create.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6d40ce2be668b1b135c589f87779e9e8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="equip_xiangqian_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e5ad1a7a476f05a5581a704db3834060"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_manage.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f38024179a72faebd4903060c46dd2a0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_equip_exchange.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3f4bc557c5157d6ba4af1832069709d5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_blocklist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="88f8bce21003bdbc5be2ad05822beab0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dubo_item_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="51717a851e747f48b1effa4127477e86"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_admin_groups.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ce34df03ccf93ada2536a3e61bf9e95d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange_to_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="018a6f6e6374944650232c0673b9888d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_disblock.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2d5563e04def68e1935f261344acb077"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_mydog.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="90a6033e4ed7537ed5525eb9d9003d05"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_dog_resurrected.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="70c3bdee49bbffe4abffec6f029fda55"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_top_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="602b27a74a4f2ff15214b1d146182fd9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_hlbook_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="01c937e557af46232b10ca0a3dfb332b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_duanzao_pf.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="49dd60c62030c42c9fab586e2f4ac42f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mytasks.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="25f8ae7215b485cf7ceb804aaec06b96"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_entry.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e4f9af9996da1ea11ca253c71f57f32e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_degrade_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="671fd0fb722f8a89d857cd46c0f10643"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_add_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a4c6e9e5cb48108f81952749a2a629b4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_view_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a87934418d19162ed0e20d2a8cd7afae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_upgrade_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d5648cefc951b80d95a9ff83afbe0dd5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bx_view_equiplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="581caf424a6713b99569041f6d107763"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_rename_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f77bfdcdd25bd003afe24f2b8d047070"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_equip_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2b7c4a5dec7135c84369ba4d42102238"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_package_replace_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2e88d996bef60e6d039739f16280fe8b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_bz_restart.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c8c1547c645e66c4694c558e228733c4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fb_assign_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ebe15fda545c8c25dcdfc80f32b53e2a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_hlbook_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a54ddd3b0bcd6f94e47ac2781e9f4902"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_find.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dea63710c1073eb400379f91ba830301"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_add_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f0fa184a7140e2a6070b616fa7e734c2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_sale_paihang.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="03b3146260974d12fd9171cfbcbce6ff"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_caifeng_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4f2f51b54927732aaa17a85195fe3607"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dhzz.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d55ffe8b8a6a1a39c4f6937ef10d29d0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_add.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1607db63f4fda39999244caa7bd491fc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="_break_then_auto_learn_end_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b56e77f29855d28d93c9484c8eb056a0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_get_info.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4441b8732be6c915b9dd975e62ce010e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_block.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="23ba45f2e2ae261002a23f299789e06a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_sell_functionroom_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="715987f632c920d8e8c85c857f68f6cc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_yujianshu.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d91ccdcf71d46113dfece21bf5bbc4f7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="test_get_item.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="157aac8568d31a65501663c36084a026"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_assist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="61d3f8dd1e41b4a1ff6e9145c1ef9c27"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="sendother_to.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dfb9060122fb50f74a86bc6f644b5d8f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_add.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8a0d676b61ed300f36fbdb4595f91173"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_return_to_flat.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d9bd1a67812edf093b11377eafec8313"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tell.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="be3bb9c11a30d59cfc8102580a5d6184"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1917"
+   name="paihang_list.pike"
+   text-time="2009-02-04T03:02:35.000000Z"
+   committed-date="2009-02-04T03:14:33.778039Z"
+   checksum="dcbcce79e362355f6b2d1eeda9b0e9df"
+   last-author="cap"
+   kind="file"/>
+<entry
+   committed-rev="1860"
+   name="home_dog_feed.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f533671ba64145c38f7e22c391ee5021"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_leave.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5cb49ce06ed5d76fab517252b0331cbb"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_sell_remind.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="064510c36901411975f06bb6b19bab78"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_summon.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a42ab0aed5b45fb7a3766b4b1a83e2d3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="toolbar_cancel.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fd41acb28e6dfc2f382f1ae42f6b2d00"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="inventory_package.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d3782dc713d4558864e832abe990a5ff"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1921"
+   name="my_bang.pike"
+   text-time="2009-02-04T06:35:55.000000Z"
+   committed-date="2009-02-04T06:49:24.579135Z"
+   checksum="7add89012eb7631b3426dccf1efeb5b2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_check_fb.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dbc3c7f2d94b7dbb3059a0f39551f5e9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_change_notice.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="93b8d8a6d9a1574e054dbc3c389a3669"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="_break_then_wakeup.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="80e1ff5975c3b5a1c888ce416df05c14"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="myhp.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="f4327e4f544b3956fb9f695f498f6223"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="paihang_view_player.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9690bf500e71ac0b125f12025417dc34"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="set_mkey.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bdbf73a51376ab26af9927edbc76a06c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_explain.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2695c34480b73dac53eb14f24932f39a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_add_baoshi.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="96b084531984e53ec03fb2e5e3ea994b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="viceskill_duanzao_confirm.pike"
+   text-time="2009-02-01T03:31:15.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="d5c72fe3f5c610864290a844b6285509"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_purchase_flat_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="adce7b5977988bb08c4ba6bf5e31dc62"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_function_room_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5d3d18ea083fb3d77edbaec3b5bd20f3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_get.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1d7c4a423241fc93eed7385c0694d9e8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="dubo_item_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d91807604bd7871d3f093baf9396aa8e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_update_toplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f276e3540b5a3dbac004c783dff0cdde"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_goods_info.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="41866a65626edb06a7cceadf24c74b81"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="toolbar_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b4b85383df2b218ad9273e2a903e3e5b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mailbox_mail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7d52d87ae3a2a0a413e70974cb663748"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="ljs_chongzhi_confirm.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="378a2cc3312a691b486ff483b66163e1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_inv_other.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7ff0aebadb001d7db390c9b1c2048e4d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fb_leave.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f72ecd2c0e7aac96580922808b980d67"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="equip_xiangqian_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d01722fbdefdd794a8e38c0069df0f3d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_package_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d06135c019c3d180733073d9383324f4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_view_banginfo.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="368d964f36bdfc31dcb483b65d7abf40"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_disblock2.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="128a441e39ee577dc676d957130e9fe5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hb_open.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1df497445f845b8926f4534dd568062d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_mylist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e8a4ccf93f0ea9ce7bc8542804c8a822"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1912"
+   name="yushi_buy_teyao_list.pike"
+   text-time="2009-02-01T09:06:10.000000Z"
+   committed-date="2009-02-01T09:56:48.312348Z"
+   checksum="b5aab7e8a7024aeb0f30cc497d06a94d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="sendother_daoju.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e5cfeac5cfdedffd2222a2d272bc0437"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="present_equip_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="932d3ae8d0802b562b5b88c654e09020"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_function_fly_show_target.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="771c434cbd48a22961dd5732bc919d29"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="sendother_daoju_to.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e01a7c32d631b9e752d365017576aaf3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_gather.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5575e933c0cfb8caefe17f577b21fc5b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone_free_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f0fb9ea16b69e539e4e8e115f419992c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_getback_item.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e50fab4fa452a79b4886e4676ca22929"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_update_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b9750e930433ec8777d23a80a4943563"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_changeleader.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8e4d60307b5ffcf112132cc22c78ea2a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="yushi_degrade_confirm.pike"
+   text-time="2009-01-14T03:37:22.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="c153dfa7026f0b44f92c49c383f36420"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_rename_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0c89fbfacebc78b0f31b03bca46e70f9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fb_items_assign.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="810e83c2425750de4ecc268c5d7f6142"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="tfzz.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="00a23f734a646ddf3c87591ee8376418"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_delete_other_user.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a83c267441fbc5c1f3a5f22a835c8a8f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_exchange_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="22e6b8a9fc2627a203527462b9763f55"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_buy_shopItem_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3d3422ca41d74a940eeccd70937484ea"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hyq_exchange.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8209bc94d8eb60e5a5bdeb46f17ffdc3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_teyao_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e67bf8afa8aa96bc0daf23d4b6423bb7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qianyuanzhutong.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c2c90cb15353ae61b9b30857fc080983"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_life_replace_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="052085c0bd750edb7a093436ca0c43ec"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_apply_in.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ffd543513d790efe3bf340a5093143ae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_chat.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="343e21ef776be73d4d01f2f4a1406c24"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="710d5cfd642920ebaa6a82ab15b4ad95"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="_break_then_auto_learn_check.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="43652e7b42e398ec15f0efe2d20e5bd0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mail_send_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bbd51814cbe1c5de25895808a48fdcad"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_add_shopItem.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bd795a2233e7f95a1fbed06c8b65bb74"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_book_buy_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="838f53bbbf847b9afe310bb8facdbcac"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="gift_take_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="73f12d366238ec6b97dc6f00b03d91af"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mzf_used.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="34acf45d07618d8f1802399b4ec16f69"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_del_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="68ba7dd435d254ab9f463a8d1e9f2837"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_group_insert.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7fdd1af3da165d0b3378e02f49b0561d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="toolbar_set.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9ed8db793c6ea1c68912fc3d76c192b3"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_getback_money.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a5a575229f5e7972f3eeedd4b5fe935e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e1a525f017b9445a04bb5c3af2d37bc6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="gift_view_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bef0e8b6b96743268c0e8c72879a0f2b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5793a6410c5c92e40c0dab09ce829caf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="lottery_view_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="45653fc6a6b675e66007c5454f290616"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_functionroom_remind.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ec20447bff79711ddda2ec0b2de22310"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_buy_now.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1d2070805ee496418eeddc5b258b71ad"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone_free_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f0ac9978461dc80403af5a2836a7d76c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="delete_all_mail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9409b7b59357e1125ed72cddb082947c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="gift_take.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3493e8cbaaa2a216837c2cec951ff4cf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_look.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1165702bcd4a54a0912429b8768b89e0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="paihang_mark_toplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3871df8cf5119fd59031ec458b030166"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_xianxing.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8044968e97315e736f74d51414af3e80"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_del.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f6b662ac1ae134bee7aa676c96886e53"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_baoshi_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3e45f99f8a43cbef5cfc01e219a96116"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="look.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="324a28e76e7c604fd8d29e9931712cc7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_functionroom_buy_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="64bfa232d0ef63a251e0d291fab8706d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="auto_learn_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="14d2340d4840c3709e82e2040d44b507"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_apply_shopLicense_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="58b6f7b7850dfb98c2ed5170823ad674"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="my_toolbar.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ead76964e64f21caaf0b5b4e8826be97"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_upgrade_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="508ae85d5f21af54b3012d8cf0df433f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_knock_door_conferm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="06919fe55c69d6d19fc88ceb13b8b5db"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8f658ccb608372cbb50cb371efa7d228"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="repair_all.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1628de3ee7f5f6ab25e68c90c459d5d9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_recommend.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="85c0f5f728f070d1bd9e5f92639d62e6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="my_term.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9f3ff776816a452922d743d6cfb14ff8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="_break_then_auto_learn_end_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bc14c8ac0471c11c9ab0ca91f1311a03"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="view_equip.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="330595095b10d194b093c0d3cbef0cea"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="user_repackage.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a5a7a0172c0b37c02977326aeaeafbd0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone_off_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9b10acebbfe26f202a5563c78181a7a8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_functionroom_buy_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="145476a9fbf0cfee510dda9894c186dd"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="transfer_to.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8112926892d04583fcb3d2dc9c8ee218"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="pic_switch_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="603483b9273269f27bdc7557ad56d8aa"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_apply_shopLicense.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="aaa992edc97d7f4a0aa35e7aefddc17b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_functionroom_buy_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="30a7c193ad435c1c11a81f433e71c9d1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e94597ec8b695ba71e2e34b69f6e3a82"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qge74hye.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="713aace3b98c3c0e1bee26586d9618c6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_install_door.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ece459a0a5b18909411522e390f2d9e7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bc_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="22eaf1fb11a47f8bf85cf14323741681"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_getback_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8fcae37a47e360a19680d27ca8433d7a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_apply_in.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7a31cbbd77213e097f8855519d8f850e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1912"
+   name="yushi_spec_sales.pike"
+   text-time="2009-02-01T09:10:31.000000Z"
+   committed-date="2009-02-01T09:56:48.312348Z"
+   checksum="a53ab3e2bbc972781613bee847c07bcc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_move.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4265db2cd409632d99da1542e66fb458"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_huawu.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c240811f15f2b41a6ea53685010697ba"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_ningye.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e47de9d4ccaf7897ad9cb832aa082ade"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ba79077b9a3dcc543351413df4ed861d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spy_start_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f869c9e3dbd677c6934cecfbac59c58a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone_off_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2884ab8d8ee8ebeb407e57079a96ad4d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_change.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9ec2930d7990335a331f6b9586c28dc9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_add_tanwei.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="92009da8d66843dccb9d678deb04108e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="blacklist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="01da58d0d657b6dc94cdeefb044b199c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_zhijia_pf.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d7e2e598ff6f3ba1b61900ef1219d506"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_buy_dog_conferm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a98fb1d8c97cb1f50481dbe20eb9bb6d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="present_view.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8c74c1e1a5d46f321f201708ac2f177e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_szx_fee.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="217ed05cb5a160b3655b276f88e04943"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone_off_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="42db22dfda283a378c1e1c78930757c9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ui_chat.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="394ef6cb90b670133e9787e86e82246b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_purchase_slot_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d615f865ec47c83044f82bd5ac1e0956"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="transfer_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bb0dbe724d0b8452e1899252b54da1b6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_msg_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b170c77790895aed53b9c0c5a145f225"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="city_qge74hye.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cdf8f9ca7e236fb0206ff168428acba1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_display_home.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b88a6636091cd9cd35b2bfcf9ccfd833"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_big_fee.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b67c1940ed5a5ac095cb4fb5d7da7d03"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1920"
+   name="yushi_add_fee.pike"
+   text-time="2009-02-04T05:54:03.000000Z"
+   committed-date="2009-02-04T05:54:23.397369Z"
+   checksum="04c4a9d32290a58aee7107e4920d3bdc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_sms_fee.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d889ced8ec5570291862810944735ed0"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="honer_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ed1b64361eb51e7022f7a889449ec04b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="view_more_tips.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ae80369689c741421fbb20aac7ad8f80"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_search.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="610014ebe6b90ae47b52393a4abce914"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="race_change_confirm.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="c029d2aa34eb9da1889fb4d5cfb84004"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_myzone.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1488d2b9c0f74edc9ea4ffb738d6d1de"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yblh_buy_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="92a55c084662847aae104f40e38e9488"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="skill_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="25980450cbf9e2db084d0ee3abf06996"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_ok.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a6fcf7e668702e737bc299060f7e4afa"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_maunl_comp.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b226bcde27ca6dab2851ff49c24844c4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="huanjin_equip_exchange.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="38209f0bfba4046b755b9d11b0a16e01"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_extend_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b56989063a466c71acb2baf83d0e00fe"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="paihang_update_account_toplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d9ddf3fb94eb83b348ad45e84cd96f36"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_query_area_desc.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ef6ad0720793abe1ee3c2b3f14db3524"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="diaocha_advice.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="614bafba615f3fe04d08ba38e219fee8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_function_fly_set_target_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f443925b8fd2a6fca540615cab59b9ca"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="term_release.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0d3722dc7894aea9d38e2d7930a9ce78"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="shzzh_equip_exchange.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0b7051731ae521f46648098f91c3425e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="mailbox_delete.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2b94e732a448c3635fea55c029bee655"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_cd.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1e8cd4797acf6a3d888050b3ed04e12b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="race_change.pike"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="7a198fc09f5bce9794850ae8863fb27f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop_item_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a2cb42fef6310d7865945f898fe0773a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bc_enter.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b996cbe409c7863085e224b669e536b2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yuebing_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e6f801872cda8140ac177f42a4be3dd2"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bang_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5e0321542a3b8848a3e527abf9e42f28"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_admin.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2702a448c599739422bf3c528208b61f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bx_get_xx_test.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4b3fa08fb9c9e4e2732872c638ffb140"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="equip_xiangqian_change.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="6cc44a5588e1920aa62482c11002ffc6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="sendother.pike"
+   text-time="2009-01-14T09:24:34.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="aa67730e52d0e61c6ef74ab6cfa520e9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_do_else.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e0ad90f34ba513d5c1e9def18ab2347c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_pf_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9a9e68c59551cae3ebc6150071626862"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_peifang_buy.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a8db301b852fc8d6c3b6356a6728575f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_check_term.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="768f306ae6fc2a1ba7fab9eeb907cfd6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_admin_new.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="16199f5c361c6f8811060cdb688bbe87"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vip_service_app_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a1f8544943eb4106df1076f8ccc19502"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_install_conform.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e193eef7e45a7a828633e0fc82127a62"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_bc_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0261b9200943139ccd25beaad225f98c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="inventory_vendue.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dc2cc43a7a6d54695efcb6c0280d645f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_visit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3b3fadc8a3e7a896c12cd3c0e2f9e6e5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="skill_eat_teyao.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="06941e6512528719d9af71aa158012f9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_get_pass_time_item.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="fc77aea991719c7f733a8ce38d0b747b"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_function_fly_set_target_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c24187f2dfa14c54031954efcfefb80e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="chatroom_chat.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="13e7c9885314d63ed1545953bda88e06"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bandpsw_readme.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0a3f1dd9d6e2d0fee32aa5fc0039e8a4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_learn.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="050edc60a4e2e395a7e560cb179aa326"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="auto_learn_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f8fda308788411a6f193e3fc049bc24a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bx_equip_exchange.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c2d6fc2e7c9a41d6825b69458b2831d7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="log.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="dd2078a6fab1a68dfd87246e5f22f160"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shopItem_marked_price_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4539661c1b4a4e2b4ce007703e96e364"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="add_big_fee_des.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="0582d84b60b8486d4e422783df455173"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="set_mid.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="009507f8607695e6edd5572c85bdf14e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_caifeng_pf.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="82cba7bd73f11c1f49e4d04c5a540115"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="coustom.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2d97200347de62536e01718f26e5c822"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_functionroom_sell_detail.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7486c7ba7506e16ebffd92cd50a71904"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="convert_equip_vip_off.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c2cce1a3ccf04826156adfd8a66fd424"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hb_take.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="20de52f8e1ea4bc9292407220dfe2d46"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yuebing_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="09fedaf2378fbefcd97c37a0872a87ad"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_history.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2eb790d7b7d29f6c6b9c174388fd0a38"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_redesc_submit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="41201b05fd636ec2fed173a64871b6d7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_zhijia_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="193bae8e2aa8ac979ecc60159fb08e98"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="paihang_account_toplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8c30d42339abe3ba973225129cf41edc"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="waigua_check_exit.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4ba8edfcf5fff7003dec4c5c505f5198"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bz_view_equiplist.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5ec0445c0690a2ab6062403dcb032cd1"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shopItem_marked_price.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4574365eb2372636d7200ea664abac0e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1878"
+   name="home_shopItem_cancel.pike"
+   text-time="2009-01-09T03:41:28.000000Z"
+   committed-date="2009-01-09T03:35:14.834004Z"
+   checksum="a408b1f030eeea50339ebd54e047bfe7"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-09T03:41:28.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fb_term_cangku.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c396bb99ca7ec498fb15a8c90f955b4d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="viceskill_learn.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="8dca727c9da92acf5f1f1d0096b600a9"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="wiz_ls.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7f0af00d4c648f80f3ff2ded49a0073f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="qqlist_group_delete.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="9f063beb0cb82561e998c09fb7f62492"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_display.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a1431cebb07c4cc548772274449b7837"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_use_ningye.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="45b212671885b4fd7fcc9c42b8e69a5a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_shop.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f72c378c9e02a5cc03c1a9bf784b1092"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="repair.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5c9086284fecb7538fad664e5e6a4eae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vendue_mygoods_list.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d6ad3c56a586ea06b62d1d972cd4f722"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="yushi_buy_baoshi_confirm.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="7d6d9f070442016c54775ce450e99574"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="home_paimaihang_entry.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b34e4d86978ff1330cf57f54bba2264a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="spec_yingdun.pike"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c63ccdcb0be952b599b0f9f5a9b0d2a4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+</wc-entries>

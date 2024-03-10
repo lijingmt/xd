@@ -1,0 +1,15 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=1058;
+void create(){
+	name=object_name(this_object());
+	name_cn="³Á¼Å´å";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/chenjichaoze/chenjimingta";
+	exits["south"]=ROOT "/gamelib/d/chenjichaoze/chenjiwanlu";
+	exits["west"]=ROOT "/gamelib/d/chenjichaoze/chenjinongzhuang";
+	exits["north"]=ROOT "/gamelib/d/chenjichaoze/chenjixiaolu";
+	add_items(({ROOT "/gamelib/clone/npc/chenjizhaoze/chenjilingxiu400"}));
+}

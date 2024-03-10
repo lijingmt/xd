@@ -1,0 +1,23 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=428;
+void create(){
+	name=object_name(this_object());
+	name_cn="±ÙÑýÕó";
+	desc="\n";
+	exits["north"]=ROOT "/gamelib/d/liangjinghu/mianyinlu";
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race){
+		tmp+="[ÐÝÏ¢:sleep]\n";
+	}
+	return tmp;
+}

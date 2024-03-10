@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=757;
+void create(){
+	name=object_name(this_object());
+	name_cn="下山碎石路";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/fuxishan/miwuchalu";
+	exits["north"]=ROOT "/gamelib/d/fuxishan/ruantulu";
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/49shenshanlieren"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/49fuxishanlinshouwei"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/49fuxibianyishaobing"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/49shenshankuxiuzhe"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/49fuxishanzei"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/49fuxihuwei"}));
+}

@@ -1,0 +1,16 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=352;
+void create(){
+	name=object_name(this_object());
+	name_cn="深云幽境十三层";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/plshuige/shenyunyoujin14";
+	exits["north"]=ROOT "/gamelib/d/plshuige/shenyunyoujin12";
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/tianshuiwuzei34"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/mianxuyao34"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/yunhaixieguai34"}));
+	add_items(({ROOT "/gamelib/clone/npc/penglaishuige/zhulanghuohe34"}));
+}

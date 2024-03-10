@@ -1,0 +1,9 @@
+文件名,地点名,描述,东,南,西,北,门,房间配图,钥匙,止,看守,看守语,人s,物s,是复活点,是休息室,禁止战斗,是杂货铺,是铁匠铺,是当铺,是钱庄,额外的连接,阵营所属,房间等级
+lingxidi/lingximen,灵犀门,,lingxidi/lingxixiaolu,,,,,,,,,,"lingxidi/lxdzahuoshang400
+lingxidi/lxddiqishang400",,0,0,0,0,0,0,0,,中立,0
+lingxidi/lingxixiaolu,灵犀小路,,lingxidi/lingxiqiaotou,,lingxidi/lingximen,,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lingxidi/lingxiqiaotou,灵犀桥头,,,lingxidi/lingxixiaoxiang,lingxidi/lingxixiaolu,,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lingxidi/lingxixiaoxiang,灵犀小巷,,,lingxidi/lingxizhen,,lingxidi/lingxiqiaotou,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lingxidi/lingxizhen,灵犀镇,,,lingxidi/lingxihepan,,lingxidi/lingxixiaoxiang,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lingxidi/lingxihepan,灵犀河畔,,lingxidi/lingxipingyuan,,,lingxidi/lingxizhen,,,,,,,,,0,0,0,0,0,0,0,,中立,0
+lingxidi/lingxipingyuan,灵犀平原,,,,lingxidi/lingxihepan,,,,,,,,,,0,0,0,0,0,0,0,,中立,0

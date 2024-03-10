@@ -1,0 +1,20 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	name_cn="灵光小筑";
+	desc="在这里参拜佛像，可以使你的幸运值提高200点，持续30分钟\n";
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "这里是"+room->query_roomNameCn()+"\n\n\n\n";
+	tmp += "房间中央供着一尊佛像\n";
+	tmp += "[参拜:exercise home_luck luck 200 1800]\n\n";
+	tmp += "[返回:home_function_room_list]\n";
+	return tmp;
+}

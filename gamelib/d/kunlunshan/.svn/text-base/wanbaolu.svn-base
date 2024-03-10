@@ -1,0 +1,92 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=91;
+static int dubo_level_low = 11;//赌博房间级别为1
+static int dubo_level_high = 20;//赌博房间级别为1
+void create(){
+	name=object_name(this_object());
+	name_cn="万宝炉";
+	desc="\n";
+	exits["north"]=ROOT "/gamelib/d/kunlunshan/yuxugonghouting";
+	links="[修理装备:repair]\n";
+	links+="[修理所有装备:repair_all]\n";
+	links+="[赌装备:dubo]\n";  
+	links+="[锻造:viceskill_duanzao_list m_weapon]|[熔解:viceskill_rongjie_list]|[熔炼:viceskill_ronglian_list 0]\n";
+	links+="[七彩八卦炉:convert_equip_list]\n";
+	links += "[镶嵌宝石:equip_xiangqian_list]\n";
+}
+void init()
+{
+	add_action(dubo,"dubo");
+	add_action(dubo_confirm,"dubo_confirm");
+}
+int dubo(string arg){
+	object me = this_player();
+	//判断身上物品是否超过60件
+	if(me->if_over_easy_load()){
+		string tmp = "你的背包已满，无法执行此操作，请返回。\n";       
+		tmp+="[返回:look]\n";
+		write(tmp);
+		return 1;
+	}
+	string s = "该房间为 "+dubo_level_low+"-"+dubo_level_high+" 级赌装备物品房间，可供选择的物品有：\n";
+	string list = "";
+	for(int i=dubo_level_low; i<=dubo_level_high; i++){
+		string tmp = ITEMSD->query_dubo_items(i);
+		object itemTmp;
+		if(tmp&&sizeof(tmp)){
+			itemTmp = clone(ROOT+"/gamelib/clone/item/"+tmp);
+			if(itemTmp)
+				list += "["+itemTmp->query_name_cn()+"("+itemTmp->query_item_canLevel()+"金):dubo_confirm "+tmp+"|"+itemTmp->query_item_canLevel()+"]\n";
+		}
+	}
+	if(list&&sizeof(list))
+		s += list;
+	else
+		s += "暂无可赌的装备\n";
+	s += "\n[刷新:dubo]\n[返回游戏:look]\n";
+	write(s);
+	return 1;
+}
+int dubo_confirm(string arg)
+{
+	//传递来的参数格式为 物品id|物品等级
+	object me = this_player();
+	//判断身上物品是否超过60件
+	if(me->if_over_easy_load()){
+		string tmp = "你的背包已满，无法执行此操作，请返回。\n";       
+		tmp+="[返回:look]\n";
+		write(tmp);
+		return 1;
+	}
+	string s = "";
+	if(arg){
+		//点击生成物品,需要检查该次赌博费用是否够用
+		array item_attri = arg/"|";
+		int need_money = (int)item_attri[1];//等级
+		string itemid = item_attri[0];//物品地址
+		if(me->pay_money(need_money*100)==0)
+			s += "你身上的钱不够支付费用，请返回。\n";
+		else{
+			//need_money既为物品等级
+			object r_item = ITEMSD->dubo_item(need_money,itemid,(int)me->query_lunck());
+			//成功生成物品,需要扣除赌博费用
+			if(r_item){
+				string now=ctime(time());
+				Stdio.append_file(ROOT+"/log/dubo.log",now[0..sizeof(now)-2]+":"+me->name_cn+"("+me->name+"):"+r_item->name_cn+"("+r_item->name+"):花了"+need_money+"金\n");
+				s += "交易成功！\n你花费"+need_money+"金\n";
+				r_item->move(me);
+				s += "赌到了物品 "+r_item->query_name_cn()+"！\n";
+			}
+			else{
+				me->add_money(need_money*100);
+				s += "赌装备失败，你的费用已经被退回。\n";
+			}
+		}
+	}
+	s += "\n[返回:dubo]\n[返回游戏:look]\n";
+	write(s);
+	return 1;
+}

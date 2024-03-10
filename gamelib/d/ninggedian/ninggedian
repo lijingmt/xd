@@ -1,0 +1,43 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=0;
+void create(){
+	name=object_name(this_object());
+	name_cn="宁歌殿";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/ninggedian/qianxuehu";
+	exits["south"]=ROOT "/gamelib/d/ninggedian/lingxidi";
+	exits["west"]=ROOT "/gamelib/d/ninggedian/lengyuecaoyuan";
+	exits["north"]=ROOT "/gamelib/d/ninggedian/yukunfeng";
+}
+int is_peaceful()
+{
+	return 1;
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race || room_race == "third"){
+		tmp+="[休息:sleep]\n";
+	
+		object env=environment(player);
+		string cur_pos=file_name(env)-ROOT;
+		if(player->relife){
+			if(player->relife!=cur_pos)
+				tmp+="[设置复活点:relife "+cur_pos+"]\n";
+		}
+		else
+			tmp+="[设置复活点:relife "+cur_pos+"]\n";
+	}
+	tmp+="[店铺推荐:home_shop_recommend]\n";
+	tmp+= "[拍卖行:home_paimaihang_entry]\n";
+	tmp+="[店铺销量排行:home_shop_sale_paihang yushi]\n";
+	tmp+="[家园传送阵【湖心亭】:qge74hye liangjinghu/huxinting]\n";
+	return tmp;
+}

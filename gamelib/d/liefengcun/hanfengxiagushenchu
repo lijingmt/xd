@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=1;
+void create(){
+	name=object_name(this_object());
+	name_cn="∫Æ∑Áœøπ»…Ó¥¶";
+	desc="\n";
+	set_room_type("rookie");
+	exits["north"]=ROOT "/gamelib/d/liefengcun/hanfengxiaguqianchu";
+	add_items(({ROOT "/gamelib/clone/npc/liefengcun/9liefengcunmin"}));
+	add_items(({ROOT "/gamelib/clone/npc/liefengcun/10liefengqibing"}));
+	add_items(({ROOT "/gamelib/clone/npc/liefengcun/10liefengshouwei"}));
+	add_items(({ROOT "/gamelib/clone/npc/liefengcun/9hanfengyoumin"}));
+	add_items(({ROOT "/gamelib/clone/npc/liefengcun/10baisejuying"}));
+}

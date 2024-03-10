@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+int effect_value;//70技能特有的字段，用于记录一些效果值
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】淬毒";
+	picture=name;
+	desc="消耗法力1300，武器自然溢出毒素，增加对方技能冷却时间1秒，获得毒素伤害提高50%的效果，影遁状态下的第一击爆击率提高80%，持续20秒，技能15分钟冷却";
+	s_type="zhudong";
+	s_skill_type="70_spec";
+	s_delayTime=900;
+	s_lasttime=20;
+	skill_type+=({"yinggui"});
+	performs_cast[1]=1300;
+	effect_value = 80;
+	performs_level_limit[1]=69;
+}

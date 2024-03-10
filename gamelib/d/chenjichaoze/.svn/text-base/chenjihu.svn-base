@@ -1,0 +1,29 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=1020;
+void create(){
+	name=object_name(this_object());
+	name_cn="³Á¼Åºþ";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/chenjichaoze/chenjigudao";
+	exits["south"]=ROOT "/gamelib/d/chenjichaoze/huinishuilu";
+	exits["west"]=ROOT "/gamelib/d/chenjichaoze/feixuxiaolu";
+}
+int is_peaceful()
+{
+	return 1;
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race || room_race=="third"){
+		tmp+="[ÐÝÏ¢:sleep]\n";
+		}
+	return tmp;
+}

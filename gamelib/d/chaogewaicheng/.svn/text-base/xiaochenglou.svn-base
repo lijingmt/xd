@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=10000;
+void create(){
+	name=object_name(this_object());
+	name_cn="Ð¡³ÇÂ¥";
+	desc="\n";
+	exits["south"]=ROOT "/gamelib/d/chaogewaicheng/xinanchengqiang";
+	exits["north"]=ROOT "/gamelib/d/chaogewaicheng/xihuchenghe";
+	add_items(({ROOT "/gamelib/clone/npc/chaogewaicheng/yinjiaomilu31"}));
+	add_items(({ROOT "/gamelib/clone/npc/chaogewaicheng/xihuoyeniu31"}));
+	add_items(({ROOT "/gamelib/clone/npc/chaogewaicheng/jinxianfushe31"}));
+	add_items(({ROOT "/gamelib/clone/npc/chaogewaicheng/jushilonggui31"}));
+	add_items(({ROOT "/gamelib/clone/npc/chaogewaicheng/muwenshujing31"}));
+}

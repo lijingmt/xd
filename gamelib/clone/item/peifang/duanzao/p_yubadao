@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【卷轴】玉把刀";
+	unit="本";
+	picture=name;
+	desc="上面记载了玉把刀的制造方法\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_peifang_kind("duanzao");
+	set_peifang_type("s_weapon");
+	peifang_id=18;
+	level_limit=25;
+	viceskill_level=90;
+}
+int read(){
+	int result=::duanzao_read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

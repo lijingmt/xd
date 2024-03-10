@@ -1,0 +1,18 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+
+//仙玉特卖场
+int main(string arg)
+{
+	object me = this_player();
+	string s = "";
+	s += "欢迎光临!这里的物品多种多样, 你想购买些什么物品：\n";
+	s += "[特级药品:yushi_buy_teyao_list exp]\n";
+	s += "[特级宝石:yushi_buy_baoshi_list lianhua]\n";
+	//s += me->query_mini_picture_url("decorate10")+"[神符:yushi_buy_shenfu_list]\n";
+	s += "\n";
+	s += "[返回仙玉妙坊:yushi_myzone]\n";
+	s += "[返回游戏:look]\n";
+	write(s);
+	return 1;
+}

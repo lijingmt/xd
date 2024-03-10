@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=72;
+void create(){
+	name=object_name(this_object());
+	name_cn="东禅区(高级区)";
+	desc="玩家每天可以在此利用不线时间闭目修炼，所修炼的时间可以提取修为等级哦。\n";
+	exits["west"]=ROOT "/gamelib/d/autolearn/foyuanchantang";
+}
+
+string have_character()
+{
+	//::have_character();
+	return "";
+}
+int is_peaceful()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="[修禅:auto_learn_set xiuchan]\n";
+	return tmp;
+}

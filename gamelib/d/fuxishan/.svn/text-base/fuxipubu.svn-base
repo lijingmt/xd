@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=786;
+void create(){
+	name=object_name(this_object());
+	name_cn="·üôËÆÙ²¼";
+	desc="\n";
+	exits["west"]=ROOT "/gamelib/d/fuxishan/fuxihe";
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/47youyijinghun"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/47laogongeling"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/47linjianhuanying"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/47fuxichaobaizhe"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/47shenshanqiuxianzhe"}));
+	add_items(({ROOT "/gamelib/clone/npc/fuxishan/47linjianyoudangzhe"}));
+}

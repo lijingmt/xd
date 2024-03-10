@@ -1,0 +1,69 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_WATER;
+void create(){
+	name=object_name(this_object());
+	name_cn="混元露";
+	desc="每次食用，可以补充法力1000点。\n";
+	unit="颗";
+	amount = 1;
+	value=100;
+	//picture=name;
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	
+	level_limit = 10;//食物食用等级限制
+
+	add_supplay["mofa_supply"] = 1000;
+
+	race_limit["human"] = "人类";//阵营限制[阵营名字：阵营中文名字]
+	race_limit["monst"] = "妖魔";
+	
+	profe_limit["jianxian"] = "剑仙";//职业限制[职业名字：职业中文名字]
+	profe_limit["yushi"] = "羽士";
+	profe_limit["zhuxian"] = "诛仙";
+	profe_limit["kuangyao"] = "狂妖";
+	profe_limit["wuyao"] = "巫妖";
+	profe_limit["yinggui"] = "影鬼";
+
+	desc += "阵营限制：";
+	string t_race = "";
+	if(race_limit&&sizeof(race_limit)){
+		foreach(indices(race_limit),string index)
+			t_race += race_limit[index] + " ";
+	}
+	if(t_race&&sizeof(t_race))
+		desc += t_race+"\n";
+	else
+		desc += "无\n";
+	
+	desc += "职业限制：";
+	string tmp = "";
+	if(profe_limit&&sizeof(profe_limit)){
+		foreach(indices(profe_limit),string index)
+			tmp += profe_limit[index] + " ";
+	}
+	if(tmp&&sizeof(tmp))
+		desc += tmp+"\n";
+	else
+		desc += "无\n";
+	
+	if(level_limit!=0){
+		desc += "等级限制："+level_limit+"级\n";
+	}
+	else
+		desc += "等级限制：无\n";
+
+	eat_flag = 1;
+}
+int drink(){
+	int result=::drink();
+	if(eat_flag==0){
+		remove();
+	}
+	return result;
+}

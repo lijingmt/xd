@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/clone/item/peifang"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="pf.csv"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a3c9fb56b14dc7b3e77d2b152c13233d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:48.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="pf_create.pike"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="37906baa2e09b567303d5b4b9ae62217"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:48.000000Z"/>
+<entry
+   name="duanzao"
+   kind="dir"/>
+<entry
+   name="liandan"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="book_pf.csv"
+   text-time="2009-01-08T05:37:48.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d9d50a1f72e9c77bfb907e3824a9e68c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:48.000000Z"/>
+<entry
+   name="caifeng"
+   kind="dir"/>
+<entry
+   name="zhijia"
+   kind="dir"/>
+</wc-entries>

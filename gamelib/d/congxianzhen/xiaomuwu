@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=1;
+void create(){
+	name=object_name(this_object());
+	name_cn="小木屋";
+	desc="\n";
+	exits["north"]=ROOT "/gamelib/d/congxianzhen/congxianzhen";
+}
+string query_links()
+{
+	object player=this_player();
+	string tmp="";
+	if(player->query_raceId()==room_race&&player->query_level()<=10)
+		tmp+="[去【新手村】看看:qge74hye zhongnanshan/yuzhudong]\n";
+	return tmp;
+}

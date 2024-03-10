@@ -1,0 +1,31 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ARMOR;
+void create(){
+	name=object_name(this_object());
+	name_cn="幽冷法袍 ";
+	unit="件";
+	picture="70youlengfapao";
+	desc="\n";
+	item_cur_dura=1900;
+	item_dura=1900;
+	set_item_type("armor");
+	set_item_kind("armor_cloth");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_equip_defend(250);
+	set_item_canLevel(70);
+	set_item_profeLimit("yushi");
+	set_item_profeLimit("wuyao");
+	set_aocao_max("blue",3);
+	if(query_item_kind()=="single_main_weapon")
+		desc+="(主手)\n";
+	else if(query_item_kind()=="single_other_weapon")
+		desc+="(副手)\n";
+	else if(query_item_kind()=="double_main_weapon")
+		desc+="(双手)\n";
+}

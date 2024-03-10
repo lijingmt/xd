@@ -1,0 +1,48 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	name_cn="Ä§¾üÊ¿×ä";
+	desc="ÆÕÍ¨ÎÀ±ø£¬ÊØÎÀ·¿¼ä\n";
+	set_raceId("monst");
+	set_profeId("humanlike");
+	picture="mojunshizu";
+	_npcLevel=45;
+	set_npc_type("city_guarder");
+	_flushtime=3600;
+	set_base_think(50);
+	set_base_dex(50);
+	set_base_str(100);
+	set_base_life(24000);
+	this_object()->flush_life();
+	set_base_baoji(10);
+	set_base_hitte(1);
+	set_base_dodge(10);
+	setup_npc();
+	set_heart_beat(1);
+}
+void init()
+{
+	if(this_player()->query_raceId() != this_object()->query_raceId() && this_player()->hind == 0){
+		string s = this_object()->query_name_cn()+"£ºÎá·îÃüÕòÊØ´Ë¹Ø£¬¶ûµÈ¹Ô¹ÔÊÜËÀ°É£¡\n";
+		tell_object(this_player(),s);
+		if(!this_object()->in_combat){
+			this_object()->flush_life();
+			this_object()->kill(this_player()->query_name(),0);
+		}
+		else
+			this_object()->flush_targets(this_player(),1);
+	}
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+void create(){
+	name=object_name(this_object());
+	name_cn="»ìãçËéÆ¬";
+	unit="Æ¬";
+	desc="ÌìµØ³õ¿ª£¬ÓîÖæ¼ä»ìãçËéÁÑ£¬ËéÆ¬É¢Âä¡£\n";
+	value=1000;
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(0);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+}

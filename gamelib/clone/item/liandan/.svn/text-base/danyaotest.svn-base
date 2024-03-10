@@ -1,0 +1,23 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="≤‚ ‘µ§“©";
+	unit="ø≈";
+	picture=name;
+	desc="≤‚ ‘”√£¨≥‘¡À∫‹happy~~\n";
+
+	set_danyao_kind("attri_base");
+	set_danyao_type("str");
+	set_effect_value(10);
+	set_danyao_timedelay(600);
+
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_level(30);
+}

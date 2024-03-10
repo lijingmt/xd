@@ -1,0 +1,15 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+
+int main(string arg)
+{
+	object me = this_player();
+	string desc = "";
+	desc="我们这儿的东西应有尽有~~\n";
+	desc+="[**新手必读**:vendue_readme]\n";
+	desc+="[**拍卖物品**:vendue_mygoods_list]\n";
+	desc+="[**竞拍物品**:vendue_goods_list]\n";
+	desc+="[**领取处**:vendue_getback_list]\n";
+	me->write_view(WAP_VIEWD["/emote"],0,0,desc);
+	return 1;
+}

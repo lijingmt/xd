@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="免战符";
+	unit="张";
+	desc="神圣的灵符，只要你拥有灵符，你将可以远离杀戮\n";
+	desc+="有效时间1小时，下线后不消失\n";
+	value=1000;
+	amount=1;
+	picture=name;
+	set_item_canEquip(0);
+	set_item_canDrop(1);
+	set_item_canGet(0);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_danyao_kind("mianzhan");
+	set_danyao_timedelay(3600);
+}
+
+
+string query_inventory_links()
+{
+	string s = "[使用:mzf_used mianzhanfu 0 0]\n";
+	return s;
+}

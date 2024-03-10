@@ -1,0 +1,26 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】诛天剑阵";
+	unit="本";
+	picture=name;
+	desc="召唤三千灵剑组成的巨大剑阵，对敌人造成致命打击，直接造成伤害的攻击技能\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=50;
+	skill_bname="zhutianjianzhen";
+	level_limit=49;
+	profe_read_limit="诛仙";
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

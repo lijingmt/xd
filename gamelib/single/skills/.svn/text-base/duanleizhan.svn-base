@@ -1,0 +1,108 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit MUD_SKILL;
+inherit WAP_F_VIEW_PICTURE;
+mapping(int:int) performs_attack=([]);
+mapping(int:int) performs_per=([]);
+mapping(int:int) performs_cast=([]);
+array(string) skill_type=({});
+mapping(int:array(int)) performs_mofa_attack=([]);
+mapping(int:string) performs_desc=([]);
+void create(){
+	name=object_name(this_object());
+	name_cn="【斩】断雷斩";
+picture=name;
+	desc="驱动武器以急快的速度攻击敌人，直接造成伤害，技能冷却时间3秒。";
+	s_type="zhudong";
+	s_skill_type="phy";
+	s_delayTime=3;
+	performs_attack[1]=10;
+	performs_attack[2]=25;
+	performs_attack[3]=40;
+	performs_attack[4]=55;
+	performs_attack[5]=70;
+	performs_attack[6]=85;
+	performs_attack[7]=100;
+	performs_attack[8]=115;
+	performs_attack[9]=130;
+	performs_attack[10]=160;
+	performs_per[1]=15;
+	performs_per[2]=18;
+	performs_per[3]=21;
+	performs_per[4]=24;
+	performs_per[5]=27;
+	performs_per[6]=30;
+	performs_per[7]=33;
+	performs_per[8]=36;
+	performs_per[9]=39;
+	performs_per[10]=42;
+	performs_cast[1]=14;
+	performs_cast[2]=16;
+	performs_cast[3]=18;
+	performs_cast[4]=20;
+	performs_cast[5]=22;
+	performs_cast[6]=24;
+	performs_cast[7]=26;
+	performs_cast[8]=28;
+	performs_cast[9]=30;
+	performs_cast[10]=32;
+	skill_type+=({"jianxian"});
+	performs_desc[1]="增加15%武器伤害，并附加10点伤害攻击敌人，消耗法力14点";
+	performs_desc[2]="增加18%武器伤害，并附加25点伤害攻击敌人，消耗法力16点";
+	performs_desc[3]="增加21%武器伤害，并附加40点伤害攻击敌人，消耗法力18点";
+	performs_desc[4]="增加24%武器伤害，并附加55点伤害攻击敌人，消耗法力20点";
+	performs_desc[5]="增加27%武器伤害，并附加70点伤害攻击敌人，消耗法力22点";
+	performs_desc[6]="增加30%武器伤害，并附加85点伤害攻击敌人，消耗法力24点";
+	performs_desc[7]="增加33%武器伤害，并附加100点伤害攻击敌人，消耗法力26点";
+	performs_desc[8]="增加36%武器伤害，并附加115点伤害攻击敌人，消耗法力28点";
+	performs_desc[9]="增加39%武器伤害，并附加130点伤害攻击敌人，消耗法力30点";
+	performs_desc[10]="增加42%武器伤害，并附加160点伤害攻击敌人，消耗法力32点";
+}
+int query_performs_attack(int level){
+	if(!level)
+		return 0;
+	if(performs_attack&&sizeof(performs_attack))
+		return (int)performs_attack[level];
+	else
+		return 0;
+}
+int query_performs_per(int level){
+	if(!level)
+		return 0;
+	if(performs_per&&sizeof(performs_per))
+		return (int)performs_per[level];
+	else
+		return 0;
+}
+int query_performs_cast(int level){
+		if(!level)
+		return 0;
+	if(performs_cast&&sizeof(performs_cast))
+		return (int)performs_cast[level];
+	else
+		return 0;
+}
+int query_performs_mofa_attack_high(int level){
+	if(!level)
+		return 0;
+	if(performs_mofa_attack&&sizeof(performs_mofa_attack))
+		return (int)performs_mofa_attack[level][1];
+	else
+		return 0;
+}
+int query_performs_mofa_attack_low(int level){
+	if(!level)
+		return 0;
+	if(performs_mofa_attack&&sizeof(performs_mofa_attack))
+		return (int)performs_mofa_attack[level][0];
+	else
+		return 0;
+}
+string query_performs_desc(int level){
+	if(!level)
+		return "";
+	if(performs_desc&&sizeof(performs_desc))
+		return (string)performs_desc[level];
+	else
+		return "";
+}

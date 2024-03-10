@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/data/material"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="liandan.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5292e6be7e09c12c3f1ed5a68c1fd24c"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="vicenpc.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a9533203143eb3acbd60b666f6f3fb26"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="peifang.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cd3688289c3d17d1f8bf9d1019b5b722"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="ronglian.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="c8f3da99aa482c8099db2226576cb819"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="caoyao.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1e28194ec867b435242bd836b6c18405"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="caifeng.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ce1cf8da7f56b659da83096636e91343"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="rongjie.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="72001948f3ae6d169a9ab76c567fea69"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="zhijia.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2b5bdc6a05cc6aaf050ffef7c6297190"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="duanzao.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2613cec156333735ec25842a70026d55"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="kuangwu.csv"
+   text-time="2009-01-08T05:37:53.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="50bec6ad1e9856fb430cc44b4100e464"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:53.000000Z"/>
+</wc-entries>

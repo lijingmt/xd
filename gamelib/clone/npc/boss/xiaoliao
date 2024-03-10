@@ -1,0 +1,59 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="比较酷，会动感光波，要小心！\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	sex="male";
+	gender="男";
+	pronoun="他";
+	picture="humanlike_male";
+	_npcLevel=2;
+	name_cn="无敌小廖";
+	_boss=1;
+	array(string) equip_list=({"weapon/1canpodezhongjian/1canpodezhongjian"});
+	foreach(equip_list,string equip){
+		object ob=clone(ITEM_PATH+equip);
+		if(ob){
+			ob->move(this_object());
+			if(ob->query_item_type() != "armor")
+				this_object()->wield(ob);
+			else
+				this_object()->wear(ob);
+		}
+	}
+	//boss_skills = (["3/10":"b_dongganguangbo","1/6":"b_loufengzhang","5/20":"b_fangxie"]);
+	boss_skills = (["5/30":"b_shufushu"]);
+	setup_npc();
+	add_heart_beat(randomGo,60);
+	set_heart_beat(1);
+}
+void randomGo(){
+	mixed err=catch{
+	if(query_in_combat()==1) return;
+	if(this_object()->is("item")) return;
+	object env = environment(this_object());
+	array exits = indices(env -> exits);
+	string go = exits[random(sizeof(exits))];
+	string goRoom = env -> exits[go];
+	array goRoomArea = goRoom/"/";
+	string thisRoom = (file_name(env)/"#")[0];
+	array thisRoomArea = thisRoom/"/";
+	if(goRoomArea[sizeof(goRoomArea)-2]!=thisRoomArea[sizeof(thisRoomArea)-2]) return;
+	this_object()->command("leave "+go);
+	};
+	if(err) return;
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

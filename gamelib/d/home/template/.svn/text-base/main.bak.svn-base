@@ -1,0 +1,27 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	desc="\n";
+	exits["north"]=ROOT "/gamelib/d/ninggedian/ninggedian";
+}
+string query_home_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "主人寄语："+room->query_customDesc() + "\n\n\n\n";
+	if(HOMED->is_master(room->homeId))
+	{
+		tmp += "请选择你要前往的房间：\n";
+		tmp += "[进入家中:home_enter "+ room->homeId +"]\n";
+	}
+	else{
+		tmp += "[敲门:home_knock_door]\n";
+		tmp += "[砸门:home_break_door]\n";
+		tmp += "[离开:home_display_home "+ room->query_slotName()+" "+room->query_flatName() +"]\n";
+	}
+	return tmp;
+}

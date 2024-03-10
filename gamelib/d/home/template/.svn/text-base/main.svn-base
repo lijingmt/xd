@@ -1,0 +1,59 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ROOM;
+string room_race="third";
+static int room_level=1;
+void create(){
+	object room = this_object();
+	name=object_name(this_object());
+	desc="\n";
+}
+void init(){
+	object room = this_object();
+	if(HOMED->is_have_dog(room)==1){
+		object ob = present("huoyunquan",room,0);
+		if(!ob){
+			HOMED->init_dog(room);
+		}
+	}
+}
+string query_links(){
+	string tmp="";
+	object room = this_object();
+	tmp += "主人寄语："+room->query_customDesc() + "\n\n\n\n";
+	string door = room->query_door();
+	//tmp += room->query_dog();
+	if(HOMED->is_master(room->homeId))    //主人
+	{
+		tmp += "请选择你要前往的房间：\n";
+		tmp += HOMED->query_room_links(room->homeId);
+		tmp += "\n\n[离开:home_leave "+ room->query_slotName()+" "+room->query_flatName() +"]\n";
+	}
+	else{  //其他人
+		array door_info = door/",";
+		string door_state = door_info[0];
+		if(door!=""&& door_state=="1") //有门          一定是主人允许进入的玩家
+		{
+			tmp += "请选择你要前往的房间：\n";
+			tmp += HOMED->query_room_links(room->homeId);
+			tmp += "\n\n[离开:home_leave "+ room->query_slotName()+" "+room->query_flatName() +"]\n";
+		}
+		else //没有门+门已损坏                         可能是砸门人、其他自由进入的人 
+		{
+			if(HOMED->is_have_dog(room)==1)  //有狗
+			{
+				tmp += "\n\n【黑市商人提示】在杀死看门狗之前，你什么都做不了。要不了多久，其他人都可以进入这里，所以你要抓紧时间了!\n";
+				tmp += "\n[悄悄离开:home_leave "+ room->query_slotName()+" "+room->query_flatName() +"]\n";
+			}
+			else
+			{
+				tmp += "请选择你要前往的房间：\n";
+				tmp += HOMED->query_room_links(room->homeId);
+				tmp += "\n\n[离开:home_leave "+ room->query_slotName()+" "+room->query_flatName() +"]\n";
+			}
+
+		}
+	}
+	return tmp;
+}
+

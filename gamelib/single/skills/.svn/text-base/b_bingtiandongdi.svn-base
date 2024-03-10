@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit MUD_SKILL;
+inherit WAP_F_VIEW_PICTURE;
+int performs_attack;
+int performs_per;
+array(string) skill_type=({});
+array(int) performs_mofa_attack=({});
+void create(){
+	name=object_name(this_object());
+	boss_skill = 1;
+	name_cn="¡¾±ùÌì¶³µØ¡¿";
+	s_skill_type="bing_mofa_attack";
+	is_aoe=1;
+	s_delayTime=180;
+	performs_mofa_attack=({1000,1500});
+}
+int query_performs_attack(){
+	return (int)performs_attack;
+}
+int query_performs_per(){
+	return (int)performs_per;
+}
+int query_performs_mofa_attack_high(){
+	if(performs_mofa_attack&&sizeof(performs_mofa_attack))
+		return (int)performs_mofa_attack[1];
+	else
+		return 0;
+}
+int query_performs_mofa_attack_low(){
+	if(performs_mofa_attack&&sizeof(performs_mofa_attack))
+		return (int)performs_mofa_attack[0];
+	else
+		return 0;
+}

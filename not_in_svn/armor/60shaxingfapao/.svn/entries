@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/armor/60shaxingfapao"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao000000000000h0000000yx00t00000in000"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="16183e75d09aa63852994f5f6c0bbaef"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao0p00000000000000000w0000m000000j0j0"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="ef33c13b3abb6e590117b08ebae2cbae"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao000000000000000j000w000000000000ll0"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="50fa1a7975e250c9a8b6450204b4c1b5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao000000000000000000000000000000000k0"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="54f828fc4f41d9060088ab355f4055c8"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao0000000000000000000s0000000000n0l00"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="935ff7ac75b978c7d56f1d7ee2872a98"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="029688ef9a481aa98010a9b0ac35a0c4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="60shaxingfapao00p00000000000000000p00000000000000"
+   text-time="2009-01-08T05:37:57.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="2521e6fae6d0b213d7e85ec05b0cbf51"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:57.000000Z"/>
+</wc-entries>

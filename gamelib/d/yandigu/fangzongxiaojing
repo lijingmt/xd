@@ -1,0 +1,19 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=856;
+void create(){
+	name=object_name(this_object());
+	name_cn="·¼×ÙÐ¡¾¶";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/yandigu/douranting";
+	exits["south"]=ROOT "/gamelib/d/yandigu/fangzongwanlu";
+	exits["north"]=ROOT "/gamelib/d/yandigu/sanchalu";
+	add_items(({ROOT "/gamelib/clone/npc/yandigu/47shanguyouhun"}));
+	add_items(({ROOT "/gamelib/clone/npc/yandigu/47shanguyouying"}));
+	add_items(({ROOT "/gamelib/clone/npc/yandigu/47shanguyoudangzhe"}));
+	add_items(({ROOT "/gamelib/clone/npc/yandigu/47kulieling"}));
+	add_items(({ROOT "/gamelib/clone/npc/yandigu/47shanguqiuxianzhe"}));
+	add_items(({ROOT "/gamelib/clone/npc/yandigu/47shangukuli"}));
+}

@@ -1,0 +1,196 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="monst";
+static int room_level=3;
+void create(){
+	name=object_name(this_object());
+	name_cn="羽化村广场";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/jinaodao/canzharonglu";
+	exits["south"]=ROOT "/gamelib/d/jinaodao/chucuntulu";
+	exits["west"]=ROOT "/gamelib/d/jinaodao/daocaoxiaodian";
+	exits["north"]=ROOT "/gamelib/d/jinaodao/yuhuacun";
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/zhaogongming400"}));
+	add_items(({ROOT "/gamelib/clone/npc/monst_npc/monst_gud50"}));
+}
+int is_bedroom()
+{
+	return 1;
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player->have_name_cn() && player->set_pic_ok==0)
+		tmp+="[改头换面:set_pic]\n";
+	else if(!player->have_name_cn()){
+		if(player->query_raceId()==room_race)
+			tmp+="[取名字:set_name_cn]\n";
+	}
+	//if(player->set_pic_ok==0 && player->have_name_cn())
+	//	tmp+="[更换图片:set_pic]\n";
+
+	//由liaocheng于07/08/15添加，用于人推人系统 
+	if(player->set_presenter == "can_set")
+		tmp += "[填写推荐人:present_set]\n";
+
+	if(player->query_raceId()==room_race){
+		tmp+="[休息:sleep]\n";
+		object env=environment(player);
+		string cur_pos=file_name(env)-ROOT;
+		if(player->relife){
+			if(player->relife!=cur_pos)
+				tmp+="[设置复活点:relife "+cur_pos+"]\n";
+		}else
+			tmp+="[设置复活点:relife "+cur_pos+"]\n";
+	}
+	return tmp;
+}
+void init()
+{
+	add_action(set_name_cn,"set_name_cn");
+	add_action(set_gender,"set_gender");
+	add_action(set_pic,"set_pic");
+}
+int set_name_cn(string arg)                                                                                       
+{
+	string s;                                                                                                        
+	object me = this_player();                                                                                       
+	if(me->sid == "5dwap"){
+		tell_object(me,"欢迎尝试仙道，您现在是游客身份，你的档案将不会被保存，欢迎点击注册一个正式帐号来体验仙道的乐趣。\n[注册帐号:reg_account]\n[返回游戏:look]\n");
+		return 1; 
+	}
+	if(me->have_name_cn()){
+		s = "你已经有名字了，每个人只能取一次名字。\n";                                                                 
+		me->write_view(WAP_VIEWD["/emote"],0,0,s);                                                                          
+		return 1;                                                                                                      
+	}                                                                                                                
+	if(arg){                                                                                                         
+		arg=replace(arg,(["%20":""]));                                                                                  
+	}                                                                                                                
+	else{                                                                                                            
+		s = "请输入你的中文姓名，一旦选定无法更改，请仔细选取：[set_name_cn ...]\n";                                    
+		me->write_view(WAP_VIEWD["/emote"],0,0,s);                                                                          
+		return 1;                                                                                                       
+	}                                                                                                                
+	if(arg&&arg!=""){ 
+		//////////////////////////////////////////////////////////////////////////////////
+		if(NAMESD->is_name_reserved(arg)){                                                                         
+			s = "你不能取那种奇怪的名字。\n";                                                                              
+			me->write_view(WAP_VIEWD["/emote"],0,0,s);    
+			return 1;                                                                                                      
+		}
+		else if(NAMESD->is_name_regged(arg)){
+			s = "你取得名字有人取过了,请另外取一个名字。\n";
+			me->write_view(WAP_VIEWD["/emote"],0,0,s);
+			return 1;   
+		}
+		else if(sizeof(arg)>8){                                                                                         
+			s = "名字长度不能超过四个中文汉字。\n";                                                                        
+			me->write_view(WAP_VIEWD["/emote"],0,0,s);
+			return 1;                                                                                                      
+		}                                                                                                               
+		else{                                                                                                           
+			for(int i=0;i<sizeof(arg);i++){                                                                                
+				if(arg[i]>=0&&arg[i]<=127){
+					if(arg[i]>='a'&&arg[i]<='z'||arg[i]>='A'&&arg[i]<='Z'||arg[i]>='0'&&arg[i]<='9'){     
+					}
+					else{ 
+						arg=0;  
+						s = "请使用中文、英文字母或者数字取名。\n";     
+						me->write_view(WAP_VIEWD["/emote"],0,0,s);
+						return 1; 
+					}
+				}
+			}                                                                                                              
+			me["/tmp/tmp"]=arg; 
+		} 
+	} 
+	me->command("set_gender"); 
+	return 1; 
+}
+int set_gender(string arg)                                                                                        
+{                                                                                                                 
+	string s;                                                                                                        
+	object me = this_player();                                                                                       
+	if(me->sex=="male" || me->sex=="female"){
+		me->name_cn=me["/tmp/tmp"]; 
+		NAMESD->reg_name(me->name_cn);
+		me->command("set_pic");
+		return 1;
+	}
+	if(!arg){                                                                                                        
+		s = "请选择你的性别，一旦选定无法更改，请仔细选取：[男:set_gender male] [女:set_gender female]\n";              
+		me->write_view(WAP_VIEWD["/emote"],0,0,s); 
+		return 1; 
+	} 
+	if(arg=="male"||arg=="female"){ 
+		if(arg=="female") 
+			COUNTD->count_reg_female();//统计系统 
+		me->sex=arg;
+		me->name_cn=me["/tmp/tmp"]; 
+		//新起的名字要加到列表里
+		NAMESD->reg_name(me->name_cn);
+		me->command("set_pic");
+	} 
+	else{ 
+		s = "性别输入错误。\n"; 
+		me->write_view(WAP_VIEWD["/emote"],0,0,s); 
+	}
+	return 1; 
+}
+
+int set_pic(string arg)
+{
+	string s = "";
+	object me = this_player();
+	if(me->user_pic && me->user_pic != ""){
+		me->command("look");
+		return 1;
+	}
+	if(!arg){
+		s += "请选择你的头像：\n";
+		if(me->query_raceId()=="human"){
+			if(me->query_sex()=="male"){
+				for(int i=1;i<12;i++){
+					s += "[imgurl loading:/"+GAME_NAME+"/images/h_male"+i+".gif]";
+					s += "[选择:set_pic h_male"+i+"]\n";
+				}
+			}
+			else{
+				for(int i=1;i<13;i++){
+					s += "[imgurl loading:/"+GAME_NAME+"/images/h_female"+i+".gif]";
+					s += "[选择:set_pic h_female"+i+"]\n";
+				}
+			}
+		}
+		else if(me->query_raceId()=="monst"){
+			if(me->query_sex()=="male"){
+				for(int i=1;i<13;i++){
+					s += "[imgurl loading:/"+GAME_NAME+"/images/m_male"+i+".gif]";
+					s += "[选择:set_pic m_male"+i+"]\n";
+				}
+			}
+			else{
+				for(int i=1;i<12;i++){
+					s += "[imgurl loading:/"+GAME_NAME+"/images/m_female"+i+".gif]";
+					s += "[选择:set_pic m_female"+i+"]\n";
+				}
+			}
+		}
+		me->write_view(WAP_VIEWD["/emote"],0,0,s); 
+	}
+	else{
+		if(me->set_pic_ok == 1){
+			s += "你已经选择了头像，无法再次更换\n";
+			me->write_view(WAP_VIEWD["/emote"],0,0,s); 	
+		}
+		else{
+			me->user_pic=arg; 
+			me->set_pic_ok = 1;
+			me->command("save");
+			me->command("look");
+		}
+	}
+	return 1; 
+}

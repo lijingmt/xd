@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+void create(){
+	name=object_name(this_object());
+	name_cn="凝力丸";
+	desc="增加物理伤害50点，持续1小时,\n下线后效果不消失,\n";
+	//desc+="该药品每天只能食用一颗.\n";
+	unit="颗";
+	picture=name;
+	set_item_canDrop(0);
+	set_item_canGet(0);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_danyao_kind("te_attack");
+	set_danyao_type("attack");
+	set_effect_value(50);
+	set_danyao_timedelay(3600);
+	set_item_level(1);
+}

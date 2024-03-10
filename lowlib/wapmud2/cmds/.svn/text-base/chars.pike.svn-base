@@ -1,0 +1,19 @@
+#include <command.h>
+#include <wapmud2/include/wapmud2.h>
+int main(string arg)
+{
+	if(arg){
+		if(arg=="npc"){
+			this_player()->write_view(WAP_VIEWD["/chars_npc"]);
+		}
+		else if(arg=="player"){
+			this_player()->write_view(WAP_VIEWD["/chars_player"]);
+		}
+		else{
+			this_player()->write_view(WAP_VIEWD["/chars"]);
+		}
+	}
+	else
+		this_player()->write_view(WAP_VIEWD["/chars"]);
+	return 1;
+}

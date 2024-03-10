@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+int effect_value;//70技能特有的字段，用于记录一些效果值
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】暴风飞雪";
+	picture=name;
+	desc="消耗法力1500，战斗区域被风雪围绕，对方逃跑无效,自身获得风刃法术伤害提高50%的属性，并且降低自身受到伤害的30%，持续30秒，技能15分钟冷却";
+	s_type="zhudong";
+	s_skill_type="70_spec";
+	s_delayTime=900;
+	s_lasttime=30;
+	skill_type+=({"wuyao"});
+	performs_cast[1]=1500;
+	effect_value = 50;
+	performs_level_limit[1]=69;
+}

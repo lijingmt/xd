@@ -1,0 +1,74 @@
+#include <command.h>
+#include <wapmud2/include/wapmud2.h>
+int main(string arg)
+{
+	string name=arg;
+	int count;
+	int flag = 0;
+	sscanf(arg,"%s %d",name,count);
+	object ob=present(name,environment(this_player()),count,this_player());
+	if(!ob){
+		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你攻击的目标不存在！\n");
+		return 1;
+	}
+	if(environment(this_player())->is("peaceful")){
+		this_player()->write_view(WAP_VIEWD["/fight_peaceful"]);
+		return 1;
+	}
+	//新年年兽不接受高级玩家的杀戮，由liaocheng于08/01/26添加
+	if(ob->query_picture()=="nianshou"){
+		if(this_player()->query_level() > ob->query_level()+20){
+			this_player()->write_view(WAP_VIEWD["/emote"],0,0,"年兽可不想打没胜算的架~\n");
+			return 1;                                                                                 
+		}
+	}
+	else if(ob&&ob->query_raceId()==this_player()->query_raceId()){
+		//帮战杀戮，由liaocheng于08/08/30添加
+		if(ob->bangid && this_player()->bangid && BANGZHAND->is_in_bangzhan(ob->bangid,this_player()->bangid)) 
+			flag = 1;
+		else{
+			this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你不能攻击那个目标！\n");
+			return 1;
+		}
+	}
+	////////////////////////////////////////////	
+	//阵营控制，不能攻击敌对地图中的玩家
+	object env = environment(ob);
+	string map_race = env->room_race;
+	//攻击者阵营
+	string a_raceid = this_player()->query_raceId();
+	//被攻击者阵营
+	string e_raceid = ob->query_raceId();
+	if(a_raceid !=e_raceid &&!ob->is("npc")){
+		//判断是否敌对阵营地图
+		if(map_race!="third" && a_raceid!=map_race){
+			if(env->query_room_type() == "city" && ob->red_flag)
+				flag = 1;
+			else{
+				//人类不能在敌对阵营主动攻击敌人
+				this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你不能在敌对阵营攻击那个目标！\n");
+				return 1;
+			}
+		}
+		else{
+			if(env->query_room_type() == "city")
+				this_player()->red_flag = 1;
+			flag = 1;
+		}
+	}
+	if(ob->query_buff("mianzhan",0) != "none"&&env->query_room_type() != "city"){
+		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"免战神符在此，别打扰我修行\n");
+		return 1;
+	}
+	if(ob->is("npc"))
+		flag = 1;
+	///////////////////////////////////////////////////
+	if(flag){
+		this_player()->kill(name,count);
+		this_player()->reset_view(WAP_VIEWD["/fight"]);
+		this_player()->write_view();
+		return 1;
+	}
+	this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你要攻击哪个目标？\n");
+	return 1;
+}

@@ -1,0 +1,14 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="\n";
+	set_raceId("human");
+	set_profeId("humanlike");
+	sex="male";
+	picture="humanlike_male";
+	_npcLevel=50;
+	name_cn="œ…µ¿≈ƒ¬Ù–≈ π";
+	setup_npc();
+}

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1910"
+   name=""
+   committed-date="2009-02-01T06:51:55.031730Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/gamelib/inherit"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="room.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b37c12a93b8ea8eb8f7f1b172d6929d6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   name="Backup"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="packaged.pike"
+   text-time="2009-01-08T05:37:49.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="557d4a930ce6fed33bf90ad0130a9c98"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+<entry
+   committed-rev="1910"
+   name="npc.pike"
+   text-time="2009-02-01T06:24:55.000000Z"
+   committed-date="2009-02-01T06:51:55.031730Z"
+   checksum="9fbe39c751507707a841ca627eb3954f"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:49.000000Z"/>
+</wc-entries>

@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BAOSHI;
+void create(){
+	name=object_name(this_object());
+	name_cn="朴素流金石";
+	unit="颗";
+	picture="psliujinshi";
+	desc="增加闪避1%\n";
+	set_color("yellow");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_value(50);
+	set_item_canLevel(50);
+	set_dodge_add(1);
+	set_item_kind("pusu");
+}

@@ -1,0 +1,29 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="À¥ÂØÉ½ÄÏ¼«ÏÉÎÌ×ùÏÂÍ½µÜ\n";
+	set_raceId("human");
+	set_profeId("humanlike");
+	sex="male";
+	gender="ÄÐ";
+	pronoun="Ëû";
+	picture=name;
+	_npcLevel=400;
+	name_cn="Â¹º×ÏÉÍ¯";
+	setup_npc();
+}
+string query_words(){
+	string s = ::query_words();
+	s += "[ÒøÉ«»Õ¼Ç¶Ò»»:hj_equip_exchange]\n";
+	s += "[»ðÔÂÇ©¶Ò»»:hyq_exchange]\n";
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

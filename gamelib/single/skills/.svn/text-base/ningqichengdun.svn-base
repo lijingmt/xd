@@ -1,0 +1,22 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+void create(){
+	name=object_name(this_object());
+	name_cn="【仙】凝气成盾";
+	desc="凝结仙气，增加自身的防御力";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_curse_type="defend";
+	performs_attack[1]=100;
+	performs_attack[2]=220;
+	performs_attack[3]=340;
+	performs_attack[4]=460;
+	performs_attack[5]=580;
+	skill_type+=({"jianxian"});
+	performs_level_limit[1]=15;
+	performs_level_limit[2]=22;
+	performs_level_limit[3]=25;
+	performs_level_limit[4]=29;
+	performs_level_limit[5]=30;
+}

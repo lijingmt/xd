@@ -1,0 +1,18 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="human";
+static int room_level=322;
+void create(){
+	name=object_name(this_object());
+	name_cn="大将军陵二十层";
+	desc="\n";
+	exits["west"]=ROOT "/gamelib/d/jiangjunmu/dajiangjunlingshijiuceng";
+	desc+="[走出洞穴:qge74hye "+"jiangjunmu/dajiangjunlingyiceng"+"]\n";
+	desc+="[进入【幻境】冥府:fb_entry mingfu 0 0]\n";
+	add_items(({ROOT "/gamelib/clone/npc/jiangjunmu/wuqianyingling30"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiangjunmu/longhuanyingling30"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiangjunmu/zhoujiyingling30"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiangjunmu/huangmingyingling30"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiangjunmu/guijiangjunhuangfeihu35"}));
+}

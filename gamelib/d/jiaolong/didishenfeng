@@ -1,0 +1,38 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+int clear = 0;
+void create(){
+	name=object_name(this_object());
+	set_room_type("fb");
+	name_cn="地底深缝";
+	desc="\n";
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/julongwei42"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/qiannianlongyao43"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/longwu44"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiaolongchaoxue/minglonghufa45"}));
+}
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	tmp += "[去往无底坑道:fb_entry jiaolong 19 1]\n";
+	if(check_if_clear() == 1)
+		tmp += "[去往裂地穴:fb_entry jiaolong 21 1]\n";
+	else
+		tmp += "去往裂地穴\n";
+	return tmp;
+}
+int check_if_clear(){
+	if(clear == 1)
+		return 1;
+	array(object) all_obj = all_inventory(this_object());
+	foreach(all_obj,object ob){
+		if(ob->is("npc")){
+			clear = 0;
+			break;
+		}
+		else
+			clear = 1;
+	}
+	return clear;
+}

@@ -1,0 +1,14 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+static int room_level=575;
+void create(){
+	name=object_name(this_object());
+	name_cn="东海熔宝炉";
+	desc="\n";
+	exits["east"]=ROOT "/gamelib/d/donghai/donghaita";
+	links="[修理装备:repair]\n";
+	links+="[修理所有装备:repair_all]\n";
+	links+="[锻造:viceskill_duanzao_list m_weapon]|[熔解:viceskill_rongjie_list]|[熔炼:viceskill_ronglian_list 0]\n";
+}

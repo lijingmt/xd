@@ -1,0 +1,160 @@
+/**                                                                                                                          
+ *  log格式：INFO|STAT|DEBUG|ERROR Datetime -- [fuction(arg1,arg2,...)] [retValue] [succ|fail] [proccTime] [cause] 
+ *  Author: zhupengcheng@dogstart.com
+ *  Date  : 2007-3-30
+ **/
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit LOW_DAEMON;
+
+Sql.Sql dbfee;
+string dbfeeSql = "mysql://root:34ccpalm@game_database:22334/fee_ldwy";
+
+Sql.Sql dblog;
+string dblogSql = "mysql://root:34ccpalm@gamelog_database:22334/gamelog";
+string game_id = GAME_NAME_S;
+
+object obt;
+
+int create()
+{
+	obt= System.Time();
+	dbfee=Sql.Sql(dbfeeSql);
+	dblog = Sql.Sql(dblogSql);
+}
+
+int isValid_IVR(int ivr_account)
+{
+	int st = obt->usec_full;
+	string query = "select * from channel_ivr where id="+ivr_account+" and status = 0";
+//	werror("----the sql is '"+query+"'\n");
+	mixed catchResult = catch {
+		if(!dbfee)
+			dbfee=Sql.Sql(dbfeeSql);
+		mixed result = dbfee->query(query);
+		int retInt = sizeof(result);
+		if(!retInt)
+		{
+			string s = "[isValid_IVR(" + ivr_account+ ")] [0] [succ] ["+(obt->usec_full-st)/1000+"ms] [isInvalid]";
+			LOG_DBD->info_time(s);
+		}
+		return retInt;
+	};
+	if(catchResult)
+	{
+		string s = "[isValid_IVR(" + ivr_account+ ")] [0] [fail] ["+(obt->usec_full-st)/1000+"ms] [querySql:"+query+"]";
+		LOG_DBD->error_time(s);
+		return 0;
+	}
+	return 1;
+}
+
+void updateStatus_IVR(int ivr_account)
+{
+	int st = obt->usec_full;
+	string query = "update channel_ivr set status = 1 ,modifytime = now() where id =" + ivr_account;
+	mixed catchResult = catch {
+		if(dbfee == 0)
+			dbfee=Sql.Sql(dbfeeSql);
+		dbfee->query(query);
+	};
+	if(catchResult != 0)
+	{
+		string s = "updateStatus_IVR("+ ivr_account + ")] [-] [fail] [" + (obt->usec_full-st)/1000 + 
+			"ms] [querySql:"+query+"]";
+		LOG_DBD->error_time(s);
+	}
+}
+
+void reg_userinfo_log(object me)
+{
+	int st = obt->usec_full;
+
+	//string uid = me->sid;
+	string uid = me->name;
+	int money = me->money;
+	int savings = me->savings;
+	int fee = me->fee;
+	int war_repute = me["/ward/repute"];
+
+	mapping now_time = localtime(time());
+	int year = now_time["year"] + 1900;
+	int mon = now_time["mon"]+1;                                               
+	int day = now_time["mday"];    
+	if(me["/plus/daily/day"])
+		day = (int)me["/plus/daily/day"];
+	if(me["/plus/daily/mon"])
+		mon = (int)me["/plus/daily/mon"];
+	string str_year = sprintf("%d",year);
+	string str_mon = sprintf("%d",mon);
+	if(mon<10)
+		str_mon=sprintf("0%d",mon);
+	string str_day = sprintf("%d",day);
+	if(day<10)
+		str_day = sprintf("0%d",day);
+	string date_str = str_year + "-" + str_mon + "-" + str_day; 
+	string sqlStr = "";
+	mixed catchResult = catch {
+		if(dblog == 0)
+			dblog = Sql.Sql(dblogSql);
+		sqlStr = "select * from user_infos where user_id ='" + uid + "' and logined_on='" + 
+			date_str + "' and game_id='" + game_id + "'";
+		mixed result = dblog->query(sqlStr);
+
+		sqlStr = "insert into user_infos(user_id,money,savings,fee,war_repute,logined_on,game_id) values(\"" + uid + "\"," + money+"," + savings + ","+ fee + "," + war_repute + ",\"" + date_str+ "\",\"" + game_id + "\")";
+
+		if(sizeof(result)>0)
+		{
+			sqlStr = "update user_infos set money="+money+",savings="+savings+",fee="+fee+",war_repute="+war_repute+",logined_on=\""+date_str+"\",game_id=\""+game_id+"\" where user_id=\"" + uid + "\"";
+		}
+		dblog->query(sqlStr);
+		LOG_DBD->info_time("[reg_userinfo_log(" +game_id +","+ uid+ ")] [-] [succ] ["+(obt->usec_full-st)/1000+
+				"ms] [querySql:"+sqlStr+"]");
+	};
+	if(catchResult)
+		LOG_DBD->error_time("[reg_userinfo_log(" +game_id +","+ uid+ ")] [-] [fail] ["+(obt->usec_full-st)/1000+
+				"ms] [querySql:"+sqlStr+"]");
+}
+
+array(mapping(string:mixed)) query_bigfee_info(int id)
+{
+	int st = obt->usec_full;
+	string query = "select * from channel_bank where id="+id+" and status = 0";
+	mixed catchResult = catch {
+		if(!dbfee)
+			dbfee=Sql.Sql(dbfeeSql);
+		array(mapping(string:mixed)) result = dbfee->query(query);
+		LOG_DBD->info_time("[query_bigfee_info(" +id + ")] ["+sizeof(result)+
+				"] [succ] ["+(obt->usec_full-st)/1000+"ms]");
+		return result;
+	};
+	if(catchResult)
+	{
+	werror("----database error!!--------\n");
+		LOG_DBD->error_time("[query_bigfee_info(" + id+ ")] [zero_size_array] [fail] ["+
+				(obt->usec_full-st)/1000+"ms] [querySql:"+query+"]");
+		return ({});
+	}
+}
+
+void updateStatus_big(string user_id,int id)
+{
+	LOG_DBD->info_time("updateStatus_big("+ user_id + ","+ id + ")] [start]");
+	int st = obt->usec_full;
+	string query = "update channel_bank set status = 1,modifytime = now(),game_id=\""+game_id+
+		"\",user_id=\""+user_id+"\" where id =" + id;
+	LOG_DBD->info_time("updateStatus_big("+ user_id + ","+ id + ")] [record] [" + 
+			(obt->usec_full-st)/1000 + "ms] [querySql:"+query+"]");
+	mixed catchResult = catch {
+		if(dbfee == 0)
+			dbfee=Sql.Sql(dbfeeSql);
+		dbfee->query(query);
+		LOG_DBD->info_time("updateStatus_big("+ user_id + ","+ id + ")] [-] [succ] [" + 
+				(obt->usec_full-st)/1000 + "ms] [querySql:"+query+"]");
+	};
+	if(catchResult != 0)
+	{
+		LOG_DBD->error_time("updateStatus_big("+ user_id + ","+ id + ")] [-] [fail] [" + (obt->usec_full-st)/1000 + 
+				"ms] [querySql:"+query+"]");
+	}
+}

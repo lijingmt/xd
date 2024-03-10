@@ -1,0 +1,37 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="½Å²ÈÏé»ð£¬ËÆÔÚÔÆ¶Ë\n";
+	set_raceId("third");
+	set_profeId("dog");
+	sex="female";
+	gender="´Æ";
+	pronoun="Ëü";
+	picture=name;
+	_npcLevel=75;
+	name_cn="»ðÔÆÈ®";
+	set_base_life(45250);
+	set_str(100);
+	set_think(100);
+	set_dex(100);
+	set_heart_beat(1);
+	setup_npc();
+}
+string query_words(){
+	string s = ::query_words();
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	object room = environment(this_object());
+	string masterId = room->query_masterId();
+	string st = room->query_dog();
+	st[0]='0';
+	HOMED->save_dog(st,masterId);
+	::fight_die();
+}

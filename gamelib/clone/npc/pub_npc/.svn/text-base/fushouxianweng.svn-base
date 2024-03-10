@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+void create(){
+	name=object_name(this_object());
+	desc="和蔼可亲，笑容可掬！\n";
+	set_raceId("third");
+	set_profeId("humanlike");
+	sex="male";
+	gender="男";
+	pronoun="他";
+	picture=name;
+	_npcLevel=400;
+	name_cn="福寿仙翁";
+	_boss=1;
+	setup_npc();
+}
+string query_words(){
+	string s = "我看你根骨精奇，是个练武奇才！我这儿有些红包，你快快领去，用心练武，想必他日定成高手哇~~\n[领取红包:hb_take]\n";
+	s += TASKD->query_words(this_player(),this_object());
+	return s;
+}
+string query_links(void|int count){
+	return ::query_links(count);
+}
+void fight_die(){
+	::fight_die();
+}

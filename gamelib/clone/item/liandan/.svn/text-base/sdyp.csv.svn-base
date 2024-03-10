@@ -1,0 +1,11 @@
+文件名,物品名,单位,物品图片,描述,药丸大类,药丸效果类型,药丸效果值,药丸持续时间,是否可装备,是否可以丢弃,是否可以捡起,是否可以交易,是否可以赠送,是否能存储仓库银行,价值,物品使用等级
+christmas/ningliwan,凝力丸,颗,1,增加火焰抗性60点，持续30分钟,attri_defend,huoyan_defend,60,1800,0,1,1,0,1,1,1000,30
+christmas/ningfalu,凝法露,瓶,1,增加风刃抗性60点，持续30分钟,attri_defend,fengren_defend,60,1800,0,1,1,0,1,1,1000,30
+christmas/cuipingjiang,翠屏浆,瓶,1,增加冰霜抗性60点，持续30分钟,attri_defend,bingshuang_defend,60,1800,0,1,1,0,1,1,1000,30
+christmas/lingdonglu,灵洞露,瓶,1,增加毒素抗性60点，持续30分钟,attri_defend,dusu_defend,60,1800,0,1,1,0,1,1,1000,30
+christmas/bishuilu,碧水露,瓶,1,增加爆击率10%，持续30分钟,attri_vice,doub,10,1800,0,1,1,0,1,1,1000,30
+christmas/qingyulu,青玉露,瓶,1,增加命中率10%，持续30分钟,attri_vice,hitte,10,1800,0,1,1,0,1,1,1000,30
+christmas/ziyunsan,紫云散,瓶,1,增加幸运200点，持续30分钟,attri_vice,lunck,200,1800,0,1,1,0,1,1,1000,30
+christmas/lingyujiang,灵羽浆,瓶,1,增加法力上限1500点，持续30分钟,attri_defend,mofa_max,1500,1800,0,1,1,0,1,1,1000,30
+christmas/liefengdan,冽风丹,颗,1,增加物理伤害150点，持续30分钟,attri_attack,attack,150,1800,0,1,1,0,1,1,1000,30
+christmas/danqiongjiang,丹琼浆,瓶,1,增加生命上限1500点，持续30分钟,attri_defend,life_max,1500,1800,0,1,1,0,1,1,1000,30

@@ -1,0 +1,24 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+void create(){
+	name=object_name(this_object());
+	name_cn="【妖】鬼踪";
+	desc="鬼魅的步伐，可以增加使用者的闪避等级，技能冷却时间为3秒，";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_delayTime=3;
+	s_lasttime=600;
+	s_curse_type="dodge";
+	performs_attack[1]=1;
+	performs_attack[2]=2;
+	performs_attack[3]=3;
+	performs_attack[4]=4;
+	performs_attack[5]=5;
+	skill_type+=({"yinggui"});
+	performs_level_limit[1]=10;
+	performs_level_limit[2]=14;
+	performs_level_limit[3]=20;
+	performs_level_limit[4]=22;
+	performs_level_limit[5]=25;
+}

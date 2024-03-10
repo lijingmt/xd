@@ -1,0 +1,16 @@
+#include <command.h>
+#include <gamelib/include/gamelib.h>
+#define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
+int main()
+{
+	string s = "";
+	s += "银行汇款捐赠说明：\n";
+	s += "仙道网游已经推出银行转帐或者汇款捐赠捐赠获取玉石的业务，玩家可通过到当地银行汇款或者转帐的方式付款到官方所提供的指定帐号。系统只接受汇款额度为50元以上的捐赠，汇款额以 元 为单位，我们会依据汇款或转账的数额，赠送玩家一定数量的玉石.\n";
+	s += "注: 为了方便分辨各玩家汇款数，请在汇款的时候多汇几分钱或几角钱，我们会把玩家多付的款折成玉石保存到玩家账号中的。\n";
+	s += "[赠送说明:add_big_fee_detail 1]\n";
+	s += "[银行汇款帐户:add_big_fee_detail 2]\n";
+	s += "[返回:add_big_fee]\n";
+	s += "[返回游戏:look]\n";
+	write(s);
+	return 1;     
+}
