@@ -7,7 +7,7 @@ void create(){
 	desc="直接对敌人的要害进行致命的打击，技能冷却时间为3秒，";
 	s_type="zhudong";
 	s_skill_type="phy";
-	s_delayTime=6;
+	s_delayTime=3;
 	performs_attack[1]=20;
 	performs_attack[2]=30;
 	performs_attack[3]=40;

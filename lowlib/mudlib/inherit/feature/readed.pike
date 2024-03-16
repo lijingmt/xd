@@ -277,6 +277,7 @@ int liandan_read()
 			if(now_lev < lev_limit)
 				return 10;//熟练度不够，无法学习
 			else{
+				werror("=======peifang type:"+type+"\n");
 				if(me["/liandan/"+type][p_id] == 0){
 					me["/liandan/"+type][p_id]=1;
 					peifang->read_flag = 0;

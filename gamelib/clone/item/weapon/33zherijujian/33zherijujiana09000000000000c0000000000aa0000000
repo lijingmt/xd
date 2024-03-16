@@ -1,0 +1,40 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_WEAPON;
+void create(){
+	name=object_name(this_object());
+	name_cn="掩日巨剑";
+	unit="把";
+picture="33zherijujian";
+	desc="\n";
+	item_cur_dura=420;
+	item_dura=420;
+	set_item_type("double_weapon");
+	set_item_weapon_type("jian");
+	set_item_kind("double_main_weapon");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_attack_power(140);
+	set_attack_power_limit(155);
+	set_speed_power(4);
+	set_item_canLevel(33);
+	set_item_profeLimit("jianxian");
+	set_item_profeLimit("kuangyao");
+	if(query_item_kind()=="single_main_weapon")
+		desc+="(主手)\n";
+	else if(query_item_kind()=="single_other_weapon")
+		desc+="(副手)\n";
+	else if(query_item_kind()=="double_main_weapon")
+		desc+="(双手)\n";
+    set_item_rareLevel(5);
+    set_attack_fengren_add(10);
+    set_attack_bingshuang_add(10);
+    set_think_add(9);
+    set_str_add(10);
+    set_life_add(12);
+    name_cn=query_rare_level()+name_cn;
+}

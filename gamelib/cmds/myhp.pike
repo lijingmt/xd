@@ -9,6 +9,7 @@ int main(string arg)
 	s += "[［人物属性］:myinfo]\n";
 	s += me->query_user_picture_url()+"\n";
 	s += me->query_name_cn()+"\n";
+	s += "ID:"+me->query_name()-me->game_fg+"\n";
 	s += "性别："+me->query_gender()+"\n";
 	s += "称谓："+WAP_HONERD->query_honer_level_desc(me->honerlv,me->query_raceId())+"\n";
 	s += "种族："+me->query_race_cn(me->query_raceId())+"\n";
@@ -51,7 +52,57 @@ int main(string arg)
 	//else
 	//	s += "您的游戏时间已经用完，请冲值获得游戏时间。\n";
 */
+	
+	int szx=0;
+	string bs_tips = "";
+	if(me->all_fee>=200){
+		szx = me->all_fee;
+		if(szx>=200 && szx<400){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍</font>";	
+		}
+		if(szx>=400 && szx<600){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍</font>";	
+		}
+		if(szx>=600 && szx<800){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍</font>";	
+		}
+		if(szx>=800 && szx<1000){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍</font>";	
+		}
+		if(szx>=1000 && szx<1200){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍</font>";	
+		}
+		if(szx>=1200 && szx<1400){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍</font>";	
+		}
+		if(szx>=1400 && szx<1600){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍</font>";	
+		}
+		if(szx>=1600 && szx<3200){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍</font>";	
+		}
+		if(szx>=3200 && szx<6400){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍</font>";	
+		}
+		if(szx>=6400 && szx<12800){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍</font>";	
+		}
+		if(szx>=12800 && szx<25600){
+			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍</font>";	
+		}
+	}
+ 	else
+		bs_tips += "<font style=\"color:DARKORANGE\">经验倍速尚未开启</font>";	
+	//if(bs_tips&&sizeof(bs_tips)) 
+	
+	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠200元--2倍经验获得</font>\n";
+	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠400元--3倍经验获得</font>\n";
+	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠600元--4倍经验获得</font>\n";	
+	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠获取更高经验倍数(最高50倍），QQ:1811117272</font>\n";
+	s += "\n"+bs_tips+"\n\n";
+	
 	s += "[返回游戏:look]\n";
+	
 	write(s);
 	return 1;
 }

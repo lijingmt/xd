@@ -21,8 +21,8 @@ int main(string arg)
 		s += "[¡¾Ñ©¡¿ÍòÄêº®±ù¸«:bx_equip_exchange "+type+" weapon/49wannianhanbingfu 240 500000 0]\n";
 		s += "[¡¾Ñ©¡¿»ÃÑ©ÕÈ:bx_equip_exchange "+type+" weapon/49huanxuezhang 240 500000 0]\n";
 		s += "----\n";
-		s += "[¡¾¾§¡¿º®Àä½£:bx_equip_exchange "+type+" weapon/69hanlengjian  480 700000 0]\n";
-		s += "[¡¾¾§¡¿º®±ù´Ì:bx_equip_exchange "+type+" weapon/69hanbingci 480 700000 0]\n";
+		s += "[¡¾¾§¡¿º®Àä½£:bx_equip_exchange "+type+" weapon/69hanlengjian 240 700000 0]\n";
+		s += "[¡¾¾§¡¿º®±ù´Ì:bx_equip_exchange "+type+" weapon/69hanbingci 240 700000 0]\n";
 		s += "[¡¾¾§¡¿º®±ùË«½£:bx_equip_exchange "+type+" weapon/69hanbingshuangjian 480 700000 0]\n";
 		s += "[¡¾¾§¡¿±ùÔÂÁéÕÈ:bx_equip_exchange "+type+" weapon/69bingyuelingzhang 480 700000 0]\n";
 	}

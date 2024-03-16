@@ -17,6 +17,6 @@ void create(){
 string query_links(){
 	object player=this_player();
 	string tmp="";
-	//tmp+="[¼ÒÔ°´«ËÍÕó¡¾Äş¸èµî¡¿:qge74hye ninggedian/ninggedian]\n";
+	tmp+="[¼ÒÔ°´«ËÍÕó¡¾Äş¸èµî¡¿:qge74hye ninggedian/ninggedian]\n";
 	return tmp;
 }

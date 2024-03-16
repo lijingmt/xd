@@ -56,35 +56,35 @@ int main(string arg)
 		switch(bx_level)//依据不同的宝箱等级，确定不同的物品掉率。
 		{
 			case 1:
-				rate = 200;
+				rate = 2;
 				bs_rate = 500;
 				break;
 			case 2:
-				rate = 400;
+				rate = 4;
 				break;
 				bs_rate = 1000;
 			case 3:
-				rate = 600;
+				rate = 6;
 				bs_rate = 1500;
 				break;
 			case 4:
-				rate = 800;
+				rate = 8;
 				bs_rate = 2000;
 				break;
 			case 5:
-				rate = 1000;
+				rate = 10;
 				bs_rate = 2500;
 				break;
 			case 6:
-				rate = 1200;
+				rate = 12;
 				bs_rate = 3000;
 				break;
 			case 7:
-				rate = 1400;
+				rate = 14;
 				bs_rate = 3500;
 				break;
 			default:
-				rate=200;
+				rate=2;
 				bs_rate = 500;
 		}
 

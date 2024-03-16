@@ -54,7 +54,7 @@
 #define SHOP_CN ({"私家小店"})                  		//店铺中文名 caijie
 #define ROOM_PATH ROOT "/gamelib/d/home/template/"                           //home中房间模板所在位置
 #define LIFE_PATH ROOT "/gamelib/clone/item/home/grown"                      //所有"生命"文件所在位置
-#define TIME_SAPCE 600                                                       //每10分钟将内存中的数据写入到文件中
+#define TIME_SAPCE 60                                                    //每10分钟将内存中的数据写入到文件中
 
 #define LIFE_TYPE  ({"ore","plant","animal"})                                //生物的种类
 //#define SPEED_UNIT 2                                                       //生物生长速度为每2秒提高xxx点
@@ -583,15 +583,21 @@ void init_home()
 			
 			//以下的属性值通过"home-flat-slot-area"相互关联得到，在detail_home中并没有以下这些值
 			homeListTmp = homeMap[homeId];             //通过homeId得到homeList对象，该对象包括home的基本信息
-			homeTmp->flatName = homeListTmp->flatName; //该home对应的flat
-                        slotName = homeListTmp->slotName;          //该home对应的slot
+			if(homeListTmp){
+				homeTmp->flatName = homeListTmp->flatName; //该home对应的flat
+                slotName = homeListTmp->slotName;          //该home对应的slot
+			}
+			
 			homeTmp->slotName = slotName;
 
 			slotTmp = slotMap[slotName];               //得到名字为slotName的slot对象
-			homeTmp->areaName = slotTmp->areaName;     //通过slot对象得到该home对应的area
-			homeTmp->priceYushi = slotTmp->yushi;      //通过slot对象得到该home的价格（玉）
-			homeTmp->priceMoney = slotTmp->money;      //通过slot对象得到该home的价格（金）
-			homeTmp->lv = slotTmp->lv;                 //通过slot对象得到该home的等级
+			if(slotTmp){
+				homeTmp->areaName = slotTmp->areaName;     //通过slot对象得到该home对应的area
+				homeTmp->priceYushi = slotTmp->yushi;      //通过slot对象得到该home的价格（玉）
+				homeTmp->priceMoney = slotTmp->money;      //通过slot对象得到该home的价格（金）
+				homeTmp->lv = slotTmp->lv;   
+			}
+			              //通过slot对象得到该home的等级
 			homeDetail[masterId] = homeTmp;
 		}
 		werror("===== [home] init home completed! =====\n");
@@ -692,7 +698,7 @@ string display_homes(string slotName,string flatName,int backFlag)
 	{
 		homeName = homePath + (string)i;
 		homeList rl = homeMap[homeName];              //home是否被使用的列表
-		if(rl->isUsed){  //如果已被使用，添加进入链接
+		if(rl && rl->isUsed){  //如果已被使用，添加进入链接
 			home ro = homeDetail[rl->masterId];   //该home的详细信息
 			re += "【" + ro->customName + "】(" + ro->masterName + "的家)";
 			re += " [进入:home_view "+ homeName +"]\n";
@@ -1036,6 +1042,7 @@ string banner_flat(string slotName,string flatName)
 	string re = "";
 	slot st = slotMap[slotName];
 	flat ft = flatMap[flatName];
+	if(st && ft)
 	re += st->nameCn + "-" + ft->nameCn+ "\n\n";
 	return re;
 }
@@ -1135,7 +1142,7 @@ string query_home_for_sale(string slotName,string flatName)
 	{
 		homeName = homePath + (string)i;
 		homeList rl = homeMap[homeName];
-		if(rl->isUsed){
+		if(rl && rl->isUsed){
 			home ro = homeDetail[rl->masterId];
 			re += "【" + ro->customName + "】(" + ro->masterName + "的家)\n";
 		}
@@ -1198,9 +1205,17 @@ void build_new_home(string homeName,string flatName,string slotName)
 
 	homeDetail[player->query_name()] = he;                                            
 	//homeList
-	homeList hl = homeMap[homeName];                                                   //家使用情况
+	werror("===========homeName:"+homeName+"\n");
+	homeList hl = homeMap[homeName]; 
+	//if(hl){
 	hl->isUsed = 1;
 	hl->masterId = player->query_name();
+	/*}else{
+		hl= homeList();
+		hl->isUsed = 1;
+		hl->masterId = player->query_name();
+	} */                                                //家使用情况
+	
 	homeMap[homeName] = hl;
 
 	//masterMap
@@ -1974,6 +1989,7 @@ void save_dog(string dogInfo,string masterId)
 
 //保存所有的信息
 void store_all_info(void|int fg){
+	werror("============try to save home map"+fg+"\n");
 	string he_s = "房间名|主人ID|主人名|房间名|房间描述|允许列表|矿石|动物|植物|门信息|看门狗信息|home中玩家|功能房间|飞天小屋目的地|店铺信息"+"\n";
 	foreach(sort(indices(homeDetail)),string masterId)
 	{
@@ -2003,6 +2019,7 @@ void store_all_info(void|int fg){
 			int lifeNum = sizeof(lifeTmpList);
 			int numLimit = he->lv;                   //房间的等级也就是每个房间可以养成的作物数
 			if(lifeNum>numLimit) lifeNum = numLimit; //如果用户的作物数超过了房间的上限，则取房间上限作为保存的作物数目
+			if(sizeof(lifeTmpList)==0)numLimit=0;
 			for(int i =0;i<numLimit;i++)
 			{
 				int ind = lifeTmpList[i];
@@ -2058,6 +2075,7 @@ void store_all_info(void|int fg){
 		he_s += "\n";
 	}
 	Stdio.write_file(ROOT+HOME_INFO,he_s);
+	werror("============finished to save home_info"+fg+"\n");
 	//map_home
 	string hem_s = "path|所属地段|所属公寓|使用与否|主人ID"+"\n";
 	foreach(sort(indices(homeMap)),string roomId)
@@ -2074,7 +2092,7 @@ void store_all_info(void|int fg){
 		hem_s += "\n";
 	}
 	Stdio.write_file(ROOT+ROOM_MAP,hem_s);
-
+	werror("============finished to save room_map"+fg+"\n");
 	//shop_recommend
 	string her_s = "path|主人ID|主人名称|推荐时间|推荐期限"+"\n";
 	foreach(sort(indices(shopRcmMap)),string homeId)
@@ -2083,9 +2101,10 @@ void store_all_info(void|int fg){
 		her_s += tmp->path+"|"+tmp->masterId+"|"+tmp->masterNameCN+"|"+tmp->rcmTime+"|"+tmp->rcmTimeDelay+"\n";
 	}
 	Stdio.write_file(ROOT+SHOPRCM_MAP,her_s);
-
+	werror("============finished to save shomercm"+fg+"\n");
 	if(!fg)
 		call_out(store_all_info,TIME_SAPCE);
+	
 }
 
 

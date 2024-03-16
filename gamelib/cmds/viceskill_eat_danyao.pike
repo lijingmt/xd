@@ -30,7 +30,8 @@ int main(string arg)
 				int eat = LIANDAND->eat_danyao(me,ob);
 				//eat_danyao()的返回值1-成功食用，2-特药食用超过限制
 				if(eat == 2){
-					s += "你已经达到每天的食用次数限制，无法再食用此类药品\n";
+					s += "你已经达到每天的食用次数限制(当前最大次数："+me->query_max_yao()+")，无法再食用此类药品\n";
+					s += me->query_max_yao_info();//会员最大食用药数说明
 				}
 				else if(eat == 1){
 					if(kind == "te_exp" || kind == "te_honer" || kind == "te_luck" || kind == "te_attack" || kind == "te_vice" || kind == "te_defend" || kind =="te_base"){

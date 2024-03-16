@@ -9,8 +9,8 @@ int main(string arg)
 		if(!me["/tmp/pfm_ctime"])
 			me["/tmp/pfm_ctime"] = (System.Time()->usec_full)/1000;
 		else{
-			if( ((System.Time()->usec_full)/1000 - me["/tmp/pfm_ctime"]) <= 500 ){
-				//werror("-------- player["+me->name+"] perform difftime<=500 --------\n");
+			if( ((System.Time()->usec_full)/1000 - me["/tmp/pfm_ctime"]) <= 1200 ){
+				werror("-------- player["+me->name+"] perform difftime<=500 --------\n");
 				//调用flushview的业务处理，等于刷新页面，从viewstack堆栈中推出上一个
 				//this_player()->write_view();
 				//return 1;

@@ -27,7 +27,7 @@ int is_room(){
 	return 1;
 }
 //override item类的函数，用来动态调整npc的等级
-/*
+int dongtai_npc_start_level=50;
 void add_items(array(string|program) _items){
 	object me= this_player();
 	object env=environment(me);
@@ -40,8 +40,8 @@ void add_items(array(string|program) _items){
 		object t_ob = 0;
 		object ob=0;
 		mixed err=catch{
-			
-			if(env->is_peaceful()!=1)
+			//等级大于50级以上才开启动态NPC
+			if(env->is_peaceful()!=1&&me->query_level()>=dongtai_npc_start_level)
 				t_ob=MUD_ROOMD->get_npc_level(s-ROOT,me->query_level()+adjust);//生成文件名不变的npc对象，再赋予对应等级/强度
 		};
 		if(!err&&t_ob) ob=t_ob;
@@ -57,7 +57,7 @@ void add_items(array(string|program) _items){
 		items+=({({((program)s),ob,ob->_flushtime,time()})});
 		ob->move(this_object());
 	}
-}*/
+}
 /*
 此方法重构override了底层的reset times，每次用户进入房间，都会调用这个方法检查房间的npc
 
@@ -65,15 +65,19 @@ void add_items(array(string|program) _items){
 所以，其实可以把差值30秒去掉，只要玩家进入，就触发该reset_items方法
 先用30秒做测试
  */
-/*
+
 void reset_items()
 {
 	::reset_items();//调用底层的reset方法
 	object me= this_player();
 	//werror("----reset_items -> player=["+me->name+"]----\n");
-	MUD_ROOMD->refresh_room_npc_to_currentlevel(me);//动态刷新当前要去的目标房间npclevel 为玩家的等级
+	//等级大于50级以上才开启动态NPC
+	if(me->query_level()>=dongtai_npc_start_level){
+		MUD_ROOMD->refresh_room_npc_to_currentlevel(me);//动态刷新当前要去的目标房间npclevel 为玩家的等级
+	}
+	
 	////werror("===reset to refresh room npc to current me level\n");
-}*/
+}
 private int last_reset;
 private void try_reset(){
 	if(time()-last_reset>reset_interval){

@@ -1421,6 +1421,79 @@ string http_encode_string_7bits(string in)
 	}
 	return out;
 }
+//add 20090430
+string pack(mixed v)
+{
+	if(intp(v)||floatp(v)){
+		return (string)v;
+	}
+	else if(stringp(v)){
+		return "\""+filterout(v)+"\"";
+	}
+	else if(arrayp(v)){
+		string out="({";
+		for(int i=0;i<sizeof(v);i++){
+			out+=pack(v[i])+",";
+		}
+		out+="})";
+		return out;
+	}
+	else if(mappingp(v)){
+		string out="([";
+		array a=indices(v);
+		for(int i=0;i<sizeof(a);i++){
+			out+=pack(a[i])+":"+pack(v[a[i]])+",";
+		}
+		out+="])";
+		return out;
+	}
+	else if(multisetp(v)){
+		string out="(<";
+		array a=indices(v);
+		for(int i=0;i<sizeof(a);i++){
+			out+=pack(a[i])+",";
+		}
+		out+=">)";
+		return out;
+	}
+	return 0;
+}
+int os_save(object o,string path)
+{
+	if(!o)return 0;
+	string data="";
+	array a=indices(o);
+	for(int i=0;i<sizeof(a);i++)
+	{
+		if(object_variablep(o,a[i])&&(!objectp(o[a[i]])))
+		{
+			data+=("mixed "+a[i]+"="+pack(o[a[i]])+";\n");
+		}
+	}
+	object obf = Stdio.File();
+	obf->open(path,"wct");
+	obf->write(data);
+	obf->close();
+	return 1;
+}
+int os_load(object o,string path)
+{
+	if(!o)return 0;
+	if(!Stdio.is_file(path))return 2;
+	//object saver = load_object(path);
+	object saver = (compile_file(path))();
+	if(!saver)return 0;
+	array a=indices(saver);
+	for(int i=0;i<sizeof(a);i++)
+	{
+		if(object_variablep(o,a[i])&&object_variablep(saver,a[i]))
+		{
+			o[a[i]]=saver[a[i]];
+		}
+	}
+	destruct(saver);//my god ,so secret a bug !!!!!! I found!!!!!!
+	return 1;
+}
 #define SIGALRM 14
 void create(void|string _logfile_prefix)
 {
@@ -1448,6 +1521,8 @@ void create(void|string _logfile_prefix)
 	add_constant("destruct",_destruct);
 	add_constant("explode",`/);
 	add_constant("implode",`*);
+	add_constant("os_save",os_save);//存储对象到os任何目录
+	add_constant("os_load",os_load);
 	//	add_constant("file_size",Stdio.file_size);
 	call_out(heart_beat,2);
 }

@@ -12,9 +12,9 @@ int main(string arg)
 	s += me->query_mini_picture_url("1taomujian")+"[仙玉特卖场:yushi_spec_sales]\n";
 	s += me->query_mini_picture_url("1taomujian")+"[玉石操作:yushi_change]\n";
 	
-	s += me->query_mini_picture_url("1taomujian")+"**捐赠获取玉石**\n";
+//	s += me->query_mini_picture_url("1taomujian")+"**捐赠获取玉石**\n";
 	s += me->query_mini_picture_url("1taomujian")+"[捐赠获取仙玉:add_szx_fee]\n";
-	s += me->query_mini_picture_url("1taomujian")+"[其他方式购买:add_else_fee]\n";
+//	s += me->query_mini_picture_url("1taomujian")+"[其他方式购买:add_else_fee]\n";
 	
 	s += me->query_mini_picture_url("1taomujian")+"**玉石说明**\n";
 	s += me->query_mini_picture_url("1taomujian")+"[玉石说明:yushi_explain]\n";

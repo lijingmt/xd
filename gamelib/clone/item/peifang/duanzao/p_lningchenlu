@@ -13,10 +13,10 @@ void create(){
 	set_item_canSend(1);
 	set_item_canStorage(1);
 	set_peifang_kind("liandan");
-	set_peifang_type("");
+	set_peifang_type("attri_base");
 	peifang_id=95;
 	level_limit=50;
-	viceskill_level=220;
+	viceskill_level=150;
 }
 int read(){
 	int result=::liandan_read();

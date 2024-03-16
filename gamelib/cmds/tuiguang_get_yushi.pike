@@ -16,6 +16,15 @@ int main(string arg)
 	int yushi_flag= me->query_yushi_flag();
 	string desc="";
 
+	if(level >= 1){
+		//desc += "已经超过了领取的上限-50级\n";
+		desc += "赠送活动已经停止了，请返回。\n";
+		desc += "[返回游戏:look]\n";
+		write(desc);
+		return 1;
+	}
+
+
 	int n = level/5;
 
 	if(yushi_flag<5*n)

@@ -8,7 +8,7 @@ void create(){
 	name_cn="碧游宫";
 	desc="[**建帮立派**:bang_create]\n";  
 	desc+="[**查找帮派**:bang_search]\n";
-	desc+="[**领取玉石**:tuiguang_yushi]\n";
+	//desc+="[**领取玉石**:tuiguang_yushi]\n";
 	exits["east"]=ROOT "/gamelib/d/jinaodao/yinguitang";
 	exits["south"]=ROOT "/gamelib/d/jinaodao/biyougonghoudian";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/shijundian";

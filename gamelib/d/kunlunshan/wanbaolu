@@ -24,6 +24,7 @@ void init()
 }
 int dubo(string arg){
 	object me = this_player();
+	int player_level=me->query_level();
 	//判断身上物品是否超过60件
 	if(me->if_over_easy_load()){
 		string tmp = "你的背包已满，无法执行此操作，请返回。\n";       
@@ -34,12 +35,12 @@ int dubo(string arg){
 	string s = "该房间为 "+dubo_level_low+"-"+dubo_level_high+" 级赌装备物品房间，可供选择的物品有：\n";
 	string list = "";
 	for(int i=dubo_level_low; i<=dubo_level_high; i++){
-		string tmp = ITEMSD->query_dubo_items(i);
+		string tmp = ITEMSD->query_dubo_items(player_level);
 		object itemTmp;
 		if(tmp&&sizeof(tmp)){
 			itemTmp = clone(ROOT+"/gamelib/clone/item/"+tmp);
 			if(itemTmp)
-				list += "["+itemTmp->query_name_cn()+"("+itemTmp->query_item_canLevel()+"金):dubo_confirm "+tmp+"|"+itemTmp->query_item_canLevel()+"]\n";
+				list += "["+itemTmp->query_name_cn()+"("+player_level*10+"金):dubo_confirm "+tmp+"|"+player_level+"]\n";
 		}
 	}
 	if(list&&sizeof(list))
@@ -67,7 +68,7 @@ int dubo_confirm(string arg)
 		array item_attri = arg/"|";
 		int need_money = (int)item_attri[1];//等级
 		string itemid = item_attri[0];//物品地址
-		if(me->pay_money(need_money*100)==0)
+		if(me->pay_money(need_money*100*10)==0)
 			s += "你身上的钱不够支付费用，请返回。\n";
 		else{
 			//need_money既为物品等级
@@ -76,7 +77,7 @@ int dubo_confirm(string arg)
 			if(r_item){
 				string now=ctime(time());
 				Stdio.append_file(ROOT+"/log/dubo.log",now[0..sizeof(now)-2]+":"+me->name_cn+"("+me->name+"):"+r_item->name_cn+"("+r_item->name+"):花了"+need_money+"金\n");
-				s += "交易成功！\n你花费"+need_money+"金\n";
+				s += "交易成功！\n你花费"+need_money*10+"金\n";
 				r_item->move(me);
 				s += "赌到了物品 "+r_item->query_name_cn()+"！\n";
 			}

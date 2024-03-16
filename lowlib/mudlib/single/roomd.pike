@@ -66,7 +66,7 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 		foreach(all_inventory(env),object npc_player){
 			if(npc_player->is("npc")&&!npc_player->in_combat&&npc_player->_tasknpc!=1){
 				if(first_player){ //第一个进来房间的，刷新怪为玩家自己等级
-					int levelbase = me->level - 3 + random(6);
+					int levelbase = me->level  + random(3);
 					if(levelbase<=1) levelbase=1; //得到上下3级的怪物
 					npc_player->_npcLevel = levelbase;	
 					npc_player->setup_npc();
@@ -89,7 +89,8 @@ object get_npc_level(string orgi_path,int npclevel){
 	}
 	///////////////////////////////////////////////////////////
 	if(rtn_ob){
-		int levelbase = npclevel - 3 + random(6);
+		//int levelbase = npclevel - 3 + random(6);
+		int levelbase = npclevel + random(3);//怪的等级比自己高6的随机数
 		if(levelbase<=1) levelbase=1; //得到上下3级的怪物
 		//werror("===============org monster=["+rtn_ob->name+"] org level=["+rtn_ob->level+"]\n");
 		rtn_ob->_npcLevel = levelbase;

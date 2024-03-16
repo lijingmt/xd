@@ -245,6 +245,7 @@ object get_ronglian_item(object add_item1,object add_item2,int yushi_flag)
 	get_luck = (prob_add[rare_level1]+prob_add[rare_level2])*100;
 	werror("-----------get_luck = "+get_luck+"-----------\n");
 	//4.最后获得物品
+	werror("-----------get_level = "+get_level+"-----------\n");
 	object get_item = ITEMSD->get_ronglian_item(get_level,get_luck);
 	if(get_item)
 		return get_item;

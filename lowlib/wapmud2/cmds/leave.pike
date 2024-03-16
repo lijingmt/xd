@@ -4,14 +4,29 @@ int main(string arg)
 {
 	if(!this_player()->is("npc")){
 		object me = this_player();
+		//leave操作，也触发外挂监控，不然太猖獗
+		if(!me["/tmp/atk_ctime"])
+			me["/tmp/atk_ctime"] = (System.Time()->usec_full)/1000;
+		else{
+			if( ((System.Time()->usec_full)/1000 - me["/tmp/atk_ctime"]) <= 1500 ){
+				werror("-------- player["+me->name+"] leave difftime<=1000 --------\n");
+				if(!me["/tmp/wg_times"]) me["/tmp/wg_times"] = 1;
+				else me["/tmp/wg_times"]++;
+			}
+			else{
+				me["/tmp/atk_ctime"] = (System.Time()->usec_full)/1000;
+			}
+		}
+
 		int entry_flag = 0;
 		//attack/use_perform记录超过300次连击，判定进入调用
-		if(me["/tmp/wg_times"]>=100) entry_flag = 1;
+		//暂时设置成1000，等服务器负载上去了再调整
+		if(me["/tmp/wg_times"]>=1000) entry_flag = 1;
 		else entry_flag = 0;
 		//会员不触发答题me->all_fee += fee;//记录玩家的捐赠总数
 		if(me->all_fee>=1) entry_flag = 0;
 		//10级以下不触发答题和迷宫
-		if(me->query_level()<=10) entry_flag = 0;
+		if(me->query_level()<=20) entry_flag = 0;
 		
 		werror("---player["+me->name+"]----- leave call tmp-wg_times=["+me["/tmp/wg_times"]+"]\n");
 		
@@ -27,8 +42,8 @@ int main(string arg)
 							me["/plus/random_rcd"] = 1;//触发就置为1，正确完成了，置为0，否则，下线重登录也会触发验证强制界面
 							int t1 = random(10) + 1;
 							int t2 = random(10) + 1;
-							if(random(100)<30) t1 = random(100)+1;
-							if(random(100)<5) t2 = random(100)+1;
+							if(random(100)<40) t1 = random(100)+1;
+							if(random(100)<10) t2 = random(100)+1;
 							int t3 = t1*t2;
 							int c1 = random(10) + 1;
 							int c2 = random(10) + 1;

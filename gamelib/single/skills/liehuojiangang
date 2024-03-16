@@ -4,10 +4,10 @@ inherit WAP_SKILL;
 void create(){
 	name=object_name(this_object());
 	name_cn="【仙】烈火剑罡";
-	desc="引天之火，成剑之罡，焚烧敌人，技能冷却时间6秒，";
+	desc="引天之火，成剑之罡，焚烧敌人，技能冷却时间3秒，";
 	s_type="zhudong";
 	s_skill_type="huo_mofa_attack";
-	s_delayTime=6;
+	s_delayTime=3;
 	performs_cast[1]=18;
 	performs_cast[2]=20;
 	performs_cast[3]=22;

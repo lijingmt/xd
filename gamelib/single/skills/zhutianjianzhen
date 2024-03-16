@@ -4,10 +4,10 @@ inherit WAP_SKILL;
 void create(){
 	name=object_name(this_object());
 	name_cn="【仙】诛天剑阵";
-	desc="召唤三千灵剑组成的巨大剑阵，对敌人造成致命打击，技能冷却时间6秒，";
+	desc="召唤三千灵剑组成的巨大剑阵，对敌人造成致命打击，技能冷却时间3秒，";
 	s_type="zhudong";
 	s_skill_type="phy";
-	s_delayTime=6;
+	s_delayTime=3;
 	performs_attack[1]=60;
 	performs_attack[2]=80;
 	performs_attack[3]=100;

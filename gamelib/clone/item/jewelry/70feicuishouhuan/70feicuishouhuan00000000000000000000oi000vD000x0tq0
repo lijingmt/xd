@@ -1,0 +1,44 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_JEWELRY;
+void create(){
+	name=object_name(this_object());
+	name_cn="翡翠手环";
+	unit="对";
+	picture="70feicuishouhuan";
+	desc="\n";
+	item_cur_dura=10000;
+	item_dura=10000;
+	set_item_type("jewelry");
+	set_item_kind("jewelry_bangle");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_canLevel(70);
+	set_item_profeLimit("jianxian");
+	set_item_profeLimit("yushi");
+	set_item_profeLimit("zhuxian");
+	set_item_profeLimit("kuangyao");
+	set_item_profeLimit("wuyao");
+	set_item_profeLimit("yinggui");
+	set_aocao_max("yellow",1);
+	set_aocao_max("blue",1);
+	if(query_item_kind()=="single_main_weapon")
+		desc+="(主手)\n";
+	else if(query_item_kind()=="single_other_weapon")
+		desc+="(副手)\n";
+	else if(query_item_kind()=="double_main_weapon")
+		desc+="(双手)\n";
+    set_item_rareLevel(7);
+    set_dusu_defend_add(26);
+    set_feng_mofa_attack_add(18);
+    set_attack_bingshuang_add(39);
+    set_attack_huoyan_add(31);
+    set_fengren_defend_add(29);
+    set_huoyan_defend_add(33);
+    set_bing_mofa_attack_add(24);
+    name_cn=query_rare_level()+name_cn;
+}

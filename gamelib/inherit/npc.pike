@@ -236,74 +236,86 @@ void fight_die()
 							if(te_eff){
 								last_exp = last_exp+last_exp*te_eff/100;
 							}
-							//if(termer->query_level()>=MAX_LEVEL){
-							//	last_exp = 0;
-							//}
-							if(termer->query_level()>=51){
-									string tipsvip = "";
-									tipsvip += "目前游戏内容支持到等级50，新等级内容敬请期待。\n";
-									tell_object(termer,tipsvip);
-									last_exp = 0;
-							}
-							/*
-							if(termer->query_level()>=51){
-								if(!termer->query_vip_flag()){
-									string tipsvip = "";
-									tipsvip += "等级超过50级，需要相应vip级别才可以获得经验值\n";
-									tipsvip += "等级51-60级，需要水晶会员级别及以上级别\n";
-									tipsvip += "等级61-70级，需要黄金会员级别及以上级别\n";
-									tipsvip += "等级71-80级，需要白金会员级别及以上级别\n";
-									tipsvip += "等级81-100级，需要钻石会员级别及以上级别\n";
-									tell_object(termer,tipsvip);
-									last_exp = 0;
-								}
+							///////////////////////////////////////////////////////////////////////////////////////
+							exp_gain = last_exp;
+							//大于20级，必须付费
+							int melevel = termer->query_level();//player等级
+							if(melevel>=21){
+								if(termer->all_fee>=20)
+									;
 								else{
-									switch(termer->query_level()){
-										case 51..60:
-											if(termer->query_vip_flag()>=1)
-												;
-											else{
-												string tmp60 = "等级范围51-60级，需要水晶会员级别及以上级别\n";
-												tell_object(termer,tmp60);
-												last_exp = 0;
-											}
-											break;
-										case 61..70:
-											if(termer->query_vip_flag()>=2)
-												;
-											else{
-												string tmp70 = "等级范围61-70级，需要黄金会员级别及以上级别\n";
-												tell_object(termer,tmp70);
-												last_exp = 0;
-											}
-											break;
-										case 71..80:
-											if(termer->query_vip_flag()>=3)
-												;
-											else{
-												string tmp80 = "等级范围71-80级，需要白金会员级别及以上级别\n";
-												tell_object(termer,tmp80);
-												last_exp = 0;
-											}
-											break;
-										case 81..100:
-											if(termer->query_vip_flag()>=4)
-												;
-											else{
-												string tmp100 = "等级范围81-100级，需要钻石会员级别及以上级别\n";
-												tell_object(termer,tmp100);
-												last_exp = 0;
-											}
-											break;
-										case 101..200:
-											string tmp200 = "等级范围101-200级，暂未开放\n";
-											tell_object(termer,tmp200);
-											last_exp = 0;
-											break;
-									}
+									string tipsvip = "";
+									tipsvip += "等级超过20级，累计捐赠20元，才可以继续获得经验值\n";
+									tell_object(termer,tipsvip);
+									exp_gain = 0;
 								}
 							}
-							*/	
+							int szx=0;                                                                                                                  
+							string bs_tips = "";
+							int extra_dh=0;
+							if(termer->all_fee>=200){
+								szx = termer->all_fee;
+								if(szx>=200 && szx<400){
+									extra_dh += exp_gain*2;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=400 && szx<600){
+									extra_dh += exp_gain*3;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=600 && szx<800){
+									extra_dh += exp_gain*4;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=800 && szx<1000){
+									extra_dh += exp_gain*5;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=1000 && szx<1200){
+									extra_dh += exp_gain*6;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=1200 && szx<1400){
+									extra_dh += exp_gain*8;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=1400 && szx<1600){
+									extra_dh += exp_gain*10;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=1600 && szx<3200){
+									extra_dh += exp_gain*20;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=3200 && szx<6400){
+									extra_dh += exp_gain*30;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=6400 && szx<12800){
+									extra_dh += exp_gain*40;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+								if(szx>=12800){
+									extra_dh += exp_gain*50;
+									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
+								}
+							}
+							if(exp_gain>0){
+								exp_gain += extra_dh;
+								termer->exp += exp_gain;
+								termer->current_exp += exp_gain;
+								string t = "";
+								if(bs_tips&&sizeof(bs_tips))
+									t + "你得到了 "+exp_gain+" 点经验。\n（"+bs_tips+")\n";
+								else
+									t + "你得到了 "+exp_gain+" 点经验。\n";
+								termer->query_if_levelup();
+								if(termer->query_levelFlag())
+									t += "你的等级提升到了 "+termer->query_level()+" 级！\n";	
+								tell_object(termer,t);
+							}
+							///////////////////////////////////////////////////////////////////////////////////////
+							/*	
 							termer->exp += last_exp;
 							termer->current_exp += last_exp;
 							string strt = "得到了 "+last_exp+" 点经验。\n";
@@ -311,6 +323,7 @@ void fight_die()
 							if(termer->query_levelFlag())
 								strt += "你的等级提升到了 "+termer->query_level()+" 级！\n";	
 							tell_object(termer,strt);
+							*/	
 						}
 					}
 				}
@@ -658,63 +671,117 @@ void fight_die_single(object env)
 			int tem_exp = npc_exp - npc_exp*diff/10;
 			exp_gain = tem_exp;
 		}
-		//MAX_LEVEL改为200级
-		//if(melevel>=MAX_LEVEL){
-		if(melevel>=51){
-			if(!first->query_vip_flag()){
+		///////////////////////////////////////////////////////////////////////////////////////
+		//大于20级，必须付费 目前支持20-100级 等到200级以后得玩家再加
+		if(melevel>=21 && melevel<30){
+			if(first->all_fee>=20)
+				;
+			else{
 				string tipsvip = "";
-				tipsvip += "等级超过50级，需要相应vip级别才可以获得经验值\n";
-				tipsvip += "等级51-60级，需要水晶会员级别及以上级别\n";
-				tipsvip += "等级61-70级，需要黄金会员级别及以上级别\n";
-				tipsvip += "等级71-80级，需要白金会员级别及以上级别\n";
-				tipsvip += "等级81-100级，需要钻石会员级别及以上级别\n";
+				tipsvip += "等级超过20级，累计捐赠20元，才可以继续获得经验值\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
+		}else
+		if(melevel>=30 && melevel<50){
+			if(first->all_fee>=50)
+				;
 			else{
-				switch(melevel){
-					case 51..60:
-						if(first->query_vip_flag()>=1)
-							;
-						else{
-							string tmp60 = "等级范围51-60级，需要水晶会员级别及以上级别\n";
-							tell_object(first,tmp60);
-							exp_gain = 0;
-						}
-						break;
-					case 61..70:
-						if(first->query_vip_flag()>=2)
-							;
-						else{
-							string tmp70 = "等级范围61-70级，需要黄金会员级别及以上级别\n";
-							tell_object(first,tmp70);
-							exp_gain = 0;
-						}
-						break;
-					case 71..80:
-						if(first->query_vip_flag()>=3)
-							;
-						else{
-							string tmp80 = "等级范围71-80级，需要白金会员级别及以上级别\n";
-							tell_object(first,tmp80);
-							exp_gain = 0;
-						}
-						break;
-					case 81..100:
-						if(first->query_vip_flag()>=4)
-							;
-						else{
-							string tmp100 = "等级范围81-100级，需要钻石会员级别及以上级别\n";
-							tell_object(first,tmp100);
-							exp_gain = 0;
-						}
-						break;
-					case 101..200:
-						string tmp200 = "等级范围101-200级，暂未开放\n";
-						tell_object(first,tmp200);
-						exp_gain = 0;
-						break;
-				}
+				string tipsvip = "";
+				tipsvip += "等级超过30级，累计捐赠50元，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}
+		}else
+		if(melevel>=50 && melevel<60){
+			if(first->all_fee>=100)
+				;
+			else{
+				string tipsvip = "";
+				tipsvip += "等级超过50级，累计捐赠100元，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}
+		}else
+		if(melevel>=60 && melevel<100){
+			if(first->all_fee>=200)
+				;
+			else{
+				string tipsvip = "";
+				tipsvip += "等级超过60级，累计捐赠200元，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}
+		}else
+		if(melevel>=100  && melevel<200){
+			if(first->all_fee>=500)
+				;
+			else{
+				string tipsvip = "";
+				tipsvip += "等级超过100级，累计捐赠500元，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}
+		}
+		else
+		if(melevel>=200){
+			if(first->all_fee>=1000)
+				;
+			else{
+				string tipsvip = "";
+				tipsvip += "等级超过200级，累计捐赠1000元，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}
+		}
+		int szx=0;                                                                                                                  
+		string bs_tips = "";
+		int extra_dh=0;
+		if(first->all_fee>=200){
+			szx = first->all_fee;
+			if(szx>=200 && szx<400){
+				extra_dh += exp_gain*2;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=400 && szx<600){
+				extra_dh += exp_gain*3;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=600 && szx<800){
+				extra_dh += exp_gain*4;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=800 && szx<1000){
+				extra_dh += exp_gain*5;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=1000 && szx<1200){
+				extra_dh += exp_gain*6;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=1200 && szx<1400){
+				extra_dh += exp_gain*8;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=1400 && szx<1600){
+				extra_dh += exp_gain*10;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=1600 && szx<3200){
+				extra_dh += exp_gain*20;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=3200 && szx<6400){
+				extra_dh += exp_gain*30;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=6400 && szx<12800){
+				extra_dh += exp_gain*40;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍，额外获得 "+extra_dh+" 点经验值</font>";	
+			}
+			if(szx>=12800){
+				extra_dh += exp_gain*50;
+				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
 			}
 		}
 		if(exp_gain>0){
@@ -724,14 +791,20 @@ void fight_die_single(object env)
 			if(te_eff){
 				exp_gain = exp_gain+exp_gain*te_eff/100;
 			}
+			exp_gain += extra_dh;
 			first->exp += exp_gain;
 			first->current_exp += exp_gain;
-			string t = "你得到了 "+exp_gain+" 点经验。\n";
+			string t = "";
+			if(bs_tips&&sizeof(bs_tips))
+				t += "你得到了 "+exp_gain+" 点经验。\n（"+bs_tips+")\n";
+			else
+				t += "你得到了 "+exp_gain+" 点经验。\n";
 			first->query_if_levelup();
 			if(first->query_levelFlag())
 				t += "你的等级提升到了 "+first->query_level()+" 级！\n";	
 			tell_object(first,t);
 		}
+		///////////////////////////////////////////////////////////////////////////////////////
 		//直接这个地方掉落物品算法
 		//新副业织布，制皮材料的掉落
 		//由liaocheng于07/10/17添加

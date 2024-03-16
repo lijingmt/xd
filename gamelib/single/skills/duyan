@@ -7,7 +7,7 @@ void create(){
 	desc="释放剧毒的青色火焰攻击敌人，焚烧对方的身体和灵魂，技能冷却时间为3秒，";
 	s_type="zhudong";
 	s_skill_type="du_mofa_attack";
-	s_delayTime=6;
+	s_delayTime=3;
 	performs_cast[1]=100;
 	performs_cast[2]=110;
 	performs_cast[3]=120;

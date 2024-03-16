@@ -7,7 +7,7 @@ void create(){
 	desc="最强攻击技能，对敌人造成毁灭性的打击";
 	s_type="zhudong";
 	s_skill_type="phy";
-	s_delayTime=12;
+	s_delayTime=3;
 	performs_attack[1]=100;
 	performs_attack[2]=130;
 	performs_attack[3]=160;

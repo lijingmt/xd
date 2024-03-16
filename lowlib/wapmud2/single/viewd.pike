@@ -396,7 +396,7 @@ $(ob->query_links(arg))
 ");
 	WAP_VIEWD["/modal_award"]=new(MUD_VIEW,
 #"恭喜，随机奖励系统抽中了您，请将正确答案输入以获得奖励，会有一定几率得到一份神秘随机奖励：
-请问 $(this_player()->tmp_rd_tmp1) 乘以 $(this_player()->tmp_rd_tmp2) 等于多少？
+请问 $(this_player()[\"/tmp/rd_tmp1\"]) 乘以 $(this_player()[\"/tmp/rd_tmp2\"]) 等于多少？
 
 请输入答案[int:random_award ...]
 ");

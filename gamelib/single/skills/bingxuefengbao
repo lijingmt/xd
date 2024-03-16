@@ -4,10 +4,10 @@ inherit WAP_SKILL;
 void create(){
 	name=object_name(this_object());
 	name_cn="【仙】冰雪风暴";
-	desc="召唤暴风雪袭击敌人，对敌人造成巨大的伤害，技能冷却时间6秒，";
+	desc="召唤暴风雪袭击敌人，对敌人造成巨大的伤害，技能冷却时间3秒，";
 	s_type="zhudong";
 	s_skill_type="bing_mofa_attack";
-	s_delayTime=12;
+	s_delayTime=3;
 	performs_cast[1]=100;
 	performs_cast[2]=110;
 	performs_cast[3]=120;

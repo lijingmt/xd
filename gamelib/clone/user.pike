@@ -1,5 +1,6 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
+#include <gamelib.h>
 inherit WAP_USER;
 //用户仓库继承类
 inherit GAMELIB_PACKAGED;
@@ -39,6 +40,22 @@ string ljs_sw;//鎏金石开关
 int auto_learn_dazuo;// 打坐剩余时间
 int query_auto_learn_dazuo(){
 	return auto_learn_dazuo;
+}
+int max_yao;
+int query_max_yao(){
+	object me=this_player();
+	max_yao=5*(me->query_vip_flag()+1);
+	//werror("========me->query_vip_flag() "+me->query_vip_flag()+"\n");
+	return max_yao;
+}
+string query_max_yao_info(){
+	string s="会员最大食用次数:\n";
+	s+="水晶会员10次\n";
+	s+="黄金会员15次\n";
+	s+="白金会员20次\n";
+	s+="钻石会员25次\n";
+	s+="捐赠获得会员 QQ：1811117272\n";
+	return s;
 }
 void set_auto_learn_dazuo(int s)
 {
@@ -347,7 +364,8 @@ string query_extra_links(void|int count)
 		if(me->query_buff("spec_attack_buff",0) == "jinchanmeiying2")
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
-	string returnLinks="[刷新:look]"+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]\n[任务:mytasks]|[帮派:my_bang]|[江湖:my_games]\n[仙玉:yushi_myzone]|[设置:game_detail]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string topten= "[排行榜:look_top]\t";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]\n[任务:mytasks]|[帮派:my_bang]|[江湖:my_games]\n[仙玉:yushi_myzone]|[设置:game_detail]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	//string returnLinks="[刷新:look]"+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[任务:mytasks]\n[队伍:my_term]|[好友:my_qqlist]\n[聊天:chatroom_list]|[玩家:userlist]\n[我的帮派:my_bang]\n[仙玉妙坊:yushi_myzone]\n[游戏设置:game_detail]\n[url 仙道官方站:http://xd.dogstart.com]\n";
 	if(this_player()->sid == "5dwap")
 		returnLinks += addstr;
@@ -373,6 +391,21 @@ void save(void|int autosave){
 		last_pos=file_name(env)-ROOT;
 	}
 	string now=ctime(time());
+	//更新排行榜数据
+	string topname = this_object()->query_name_cn()+"("+this_object()->query_level()+"级)";
+	TOPTEN->try_top(this_object()->query_name(),topname,"等级",this_object()->query_level());
+	TOPTEN->try_top(this_object()->query_name(),topname,"富翁",this_object()->query_account());
+	TOPTEN->try_top(this_object()->query_name(),topname,"戾气",this_object()->killcount);
+	/*
+	TOPTEN->try_top(this_object()->query_name(),topname,"攻击",this_object()->query_fight_attack());
+	TOPTEN->try_top(this_object()->query_name(),topname,"防御",this_object()->query_defend_power());
+	TOPTEN->try_top(this_object()->query_name(),topname,"躲闪",(int)this_object()->query_phy_dodge());
+	TOPTEN->try_top(this_object()->query_name(),topname,"招架",(int)this_object()->query_phy_parry());
+	TOPTEN->try_top(this_object()->query_name(),topname,"命中",(int)this_object()->query_phy_hitte());
+	TOPTEN->try_top(this_object()->query_name(),topname,"暴击",(int)this_object()->query_phy_baoji());
+	*/
+	TOPTEN->try_top(this_object()->query_name(),topname+"("+this_object()->all_fee+")("+this_object()->name+")","捐赠",(int)this_object()->all_fee);
+	//end 更新排行榜数据
 	::save();
 	if(!environment(this_object())){
 		//destruct(this_object());

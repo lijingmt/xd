@@ -372,7 +372,8 @@ string display_off_goods(string sub,int lv)
 int if_can_get_freely(object player,object goods,int lv)
 {
 	int re = 4;
-	int mylv = player->query_vip_flag();      
+	int mylv = player->query_vip_flag(); 
+	int vip_max_yao=player->query_max_yao();     
 	if(!mylv)                                  //不是会员
 		return 0;
 	if(mylv<lv)                                //会员级别不够
@@ -383,7 +384,7 @@ int if_can_get_freely(object player,object goods,int lv)
 	array(object) items=all_inventory(player);//判断是否已经超过会员物品数上限
 	foreach(items, object tmp){
 		if(goods->query_name()==tmp->query_name()&&tmp->toVip == 1){
-			if(tmp->amount>=ITEM_MAX_NUM){
+			if(tmp->amount>=vip_max_yao){
 				return 3;           //已经达到上线
 			}
 			else
@@ -400,6 +401,7 @@ int if_can_get_freely(object player,object goods,int lv)
 string if_can_get_freely_desc(int state,int lv,string name)
 {
 	string re = "";
+	int vip_max_yao=this_player()->query_max_yao();
 	switch(state){
 		case 0:
 			re +="抱歉，你还不是会员或者会员资格已经到期，赶快加入到会员的大家庭中，享受尊贵的会员特权！\n\n"; 
@@ -413,7 +415,7 @@ string if_can_get_freely_desc(int state,int lv,string name)
 			re += "你的包裹已经满了！\n";
 			break;
 		case 3:
-			re +="相同会员物品只能随身携带最多"+(string)ITEM_MAX_NUM+"个，用完再来取吧！\n";
+			re +="相同会员物品只能随身携带最多"+(string)vip_max_yao+"个，用完再来取吧！\n";
 			break;
 		case 4:
 			re +="恭喜，你获得了"+name+"\n";
@@ -438,7 +440,8 @@ string if_can_get_freely_desc(int state,int lv,string name)
 int if_can_get_offly(object player,object goods,int lv)
 {
 	int re = 4;
-	int mylv = player->query_vip_flag();      
+	int mylv = player->query_vip_flag(); 
+	int vip_max_yao=player->query_max_yao();     
 	if(!mylv)                                  //不是会员
 		return 0;
 	if(mylv<lv)                                //会员级别不够
@@ -448,8 +451,8 @@ int if_can_get_offly(object player,object goods,int lv)
 
 	array(object) items=all_inventory(player);//判断是否已经超过会员物品数上限
 	foreach(items, object tmp){
-		if(goods->query_name()==tmp->query_name()&&tmp->toVip == 1){
-			if(tmp->amount>=ITEM_MAX_NUM){
+		if(goods->query_name()==tmp->query_name()&&tmp->toVip == 1){			
+			if(tmp->amount>=vip_max_yao){
 				return 3;           //已经达到上线
 			}
 			else
@@ -466,6 +469,7 @@ int if_can_get_offly(object player,object goods,int lv)
 string if_can_get_offly_desc(int state,int lv,string name)
 {
 	string re = "";
+	int vip_max_yao=this_player()->query_max_yao();
 	switch(state){
 		case 0:
 			re +="抱歉，你还不是会员或者会员资格已经到期，赶快加入到会员的大家庭中，享受尊贵的会员特权！\n\n"; 
@@ -479,7 +483,8 @@ string if_can_get_offly_desc(int state,int lv,string name)
 			re += "你的包裹已经满了！\n";
 			break;
 		case 3:
-			re +="相同会员物品只能随身携带最多"+(string)ITEM_MAX_NUM+"个，用完再来取吧！\n";
+			
+			re +="相同会员物品只能随身携带最多"+(string)vip_max_yao+"个，用完再来取吧！\n";
 			break;
 		case 4:
 			//re +="恭喜，你获得了"+name+"\n";

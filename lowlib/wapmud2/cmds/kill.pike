@@ -2,16 +2,104 @@
 #include <wapmud2/include/wapmud2.h>
 int main(string arg)
 {
+	object me = this_player();
+	/////////////////////////////////////////////
+
+	/* 100级钻石会员 61-100 白金会员 50-61 黄金 40-50 水晶*/	
+	if(me->query_level()>=40 && me->query_level()<50){
+		if(!me->query_vip_flag()){
+			string tipsvip = "";
+			tipsvip += "等级超过40级，需要水晶会员级别及以上级别，才可以继续进行相关游戏功能\n";
+			tell_object(me,tipsvip);
+			return 1;
+		}
+		else{
+			if(me->query_vip_flag()>=1)
+				;
+			else{
+				string tipsvip2 = "";
+				tipsvip2 += "等级超过40级，需要水晶会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip2);
+				return 1;
+			}
+		}
+	}else 
+	if(me->query_level()>=50 && me->query_level()<61){
+		if(!me->query_vip_flag()){
+			string tipsvip = "";
+			tipsvip += "等级超过50级，需要黄金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+			tell_object(me,tipsvip);
+			return 1;
+		}
+		else{
+			if(me->query_vip_flag()>=2)
+				;
+			else{
+				string tipsvip2 = "";
+				tipsvip2 += "等级超过50级，需要黄金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip2);
+				return 1;
+			}
+		}
+	}else if(me->query_level()>=61 && me->query_level()<100){
+		if(!me->query_vip_flag()){
+			string tipsvip = "";
+			tipsvip += "等级超过60级，需要白金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+			tell_object(me,tipsvip);
+			return 1;
+		}
+		else{
+			if(me->query_vip_flag()>=3)
+				;
+			else{
+				string tipsvip2 = "";
+				tipsvip2 += "等级超过60级，需要白金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip2);
+				return 1;
+			}
+		}
+	}else if(me->query_level()>=100){
+		if(!me->query_vip_flag()){
+			string tipsvip = "";
+			tipsvip += "等级超过100级，需要钻石会员级别及以上级别，才可以继续进行相关游戏功能\n";
+			tell_object(me,tipsvip);
+			return 1;
+		}
+		else{
+			if(me->query_vip_flag()>=4)
+				;
+			else{
+				string tipsvip2 = "";
+				tipsvip2 += "等级超过100级，需要钻石会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip2);
+				return 1;
+			}
+		}
+	}
+	
+	//大于50级，必须付费200并获得
+	/*
+	if(me->query_level()>=51){
+		if(me->all_fee>=200)
+			;
+		else{
+			string tipsvip = "";
+			tipsvip += "等级超过50级，累计捐赠200元，才可以继续打怪升级.\n";
+			tell_object(me,tipsvip);
+			return 1;
+		}
+	}*/
+
+	/////////////////////////////////////////////	
 	if(!this_player()->is("npc")){
-		object me = this_player();
 		int entry_flag = 0;
 		//attack/use_perform记录超过300次连击，判定进入调用
-		if(me["/tmp/wg_times"]>=100) entry_flag = 1;
+		if(me["/tmp/wg_times"]>=50) entry_flag = 1;
 		else entry_flag = 0;
 		//会员不触发答题me->all_fee += fee;//记录玩家的捐赠总数
 		if(me->all_fee>=1) entry_flag = 0;
 		//10级以下不触发答题和迷宫
-		if(me->query_level()<=10) entry_flag = 0;
+		if(me->query_level()<=20) entry_flag = 0;
 	
 		werror("---player["+me->name+"]------ kill call tmp-wg_times=["+me["/tmp/wg_times"]+"]\n");
 		
@@ -27,8 +115,8 @@ int main(string arg)
 							me["/plus/random_rcd"] = 1;//触发就置为1，正确完成了，置为0，否则，下线重登录也会触发验证强制界面
 							int t1 = random(10) + 1;
 							int t2 = random(10) + 1;
-							if(random(100)<30) t1 = random(100)+1;
-							if(random(100)<5) t2 = random(100)+1;
+							if(random(100)<40) t1 = random(100)+1;
+							if(random(100)<10) t2 = random(100)+1;
 							int t3 = t1*t2;
 							int c1 = random(10) + 1;
 							int c2 = random(10) + 1;

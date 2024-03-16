@@ -14,8 +14,9 @@ int main()
 	level = me->query_level();
 	yushi_flag = me->query_yushi_flag();
 	desc += "尊敬的玩家，您当前游戏角色的等级为"+level+"级，";
-	if(level > 50){
-		desc += "已经超过了领取的上限-50级\n";
+	if(level >= 1){
+		//desc += "已经超过了领取的上限-50级\n";
+		desc += "赠送活动已经停止了，请返回。\n";
 		desc += "[返回游戏:look]\n";
 		write(desc);
 		return 1;

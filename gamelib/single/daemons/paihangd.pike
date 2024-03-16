@@ -11,26 +11,28 @@ inherit LOW_DAEMON;
 #define TOP_DAY 10 //取10天内的数据
 //#define UPDATE_TIME 20 //更新时间间隔为40秒 测试用
 Sql.Sql db;
-string dbSql = "mysql://root:34ccpalm@gamelog_database:22334/xd_game_db";
+//string dbSql = "mysql://root:34ccpalm@gamelog_database:22334/xd_game_db";
+string dbSql = "mysql://root:mrzr@li123456@127.0.0.1/xd";
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
 mapping optionsMapOfFee = ([]);
 object obt;
-/*mapping allTypeDesc = ([
+array(mapping(string:mixed)) mark_toplist = ({});
+mapping allTypeDesc = ([
 		"mark":"综合实力",
 		"account":"财富",
 		"all_fee":"捐赠",
 		"home_bi":"私家小店(金钱)",
 		"home_yu":"私家小店(玉石)",
-		])
-*/
-array all_type = ({"mark","account","all_fee","home_bi","home_yu","honerpt","lunhuipt"});
+		]);
+
+array(string) all_type = ({"mark","account","all_fee","home_bi","home_yu","honerpt","lunhuipt"});
 mapping(string:array(mapping(string:mixed))) all_info=([]);
 void create()
 {
-	//db=Sql.Sql(dbSql,optionsMap);
+	db=Sql.Sql(dbSql,optionsMap);
 	obt= System.Time();
-	/*
+	
 	for(int i=0;i<sizeof(all_type);i++)
 	{
 		string type = all_type[i];
@@ -57,10 +59,10 @@ void create()
 		if(type&&sizeof(type))
 			call_out(update_toplist,need_time_mark,type,0);
 	}
-	*/
+	
 
 	//金钱排行
-	/*int update_time_account = mktime(0,59,23,now_mday,now_mon,now_year);
+	int update_time_account = mktime(0,59,23,now_mday,now_mon,now_year);
 	int need_time_account = update_time_account - time();
 
 	int update_time_home_yushi = mktime(0,59,23,now_mday,now_mon,now_year);
@@ -72,11 +74,11 @@ void create()
 	//捐赠排行
 	int update_time_fee = mktime(0,59,23,now_mday,now_mon,now_year);
 	int need_time_fee = update_time_fee - time();
-	*/
-	//call_out(update_mark_toplist,need_time_mark);
-	//call_out(update_account_toplist,need_time_account);
-	//call_out(update_home_yushi_toplist,need_time_home_yushi);
-	//call_out(update_home_money_toplist,need_time_home_money);*/
+	
+	call_out(update_mark_toplist,need_time_mark);
+	call_out(update_account_toplist,need_time_account);
+	call_out(update_home_yushi_toplist,need_time_home_yushi);
+	call_out(update_home_money_toplist,need_time_home_money);
 	
 }
 //外部调用接口
@@ -135,7 +137,7 @@ array(mapping(string:mixed)) flush_toplist(string type)
 	}
 	return result;
 }
-/*
+
 //更新综合实力排行榜
 void update_mark_toplist(int fg)
 {
@@ -181,6 +183,7 @@ array(mapping(string:mixed)) flush_mark_toplist()
 }
 
 //更新金钱排行榜
+array(mapping(string:mixed)) account_toplist = ({});
 void update_account_toplist(int fg)
 {
 	account_toplist = flush_account_toplist();
@@ -243,6 +246,7 @@ array(mapping(string:mixed)) query_account_toplist()
 		return ({});
 }
 //更新私家小店销量（玉石）排行榜
+array(mapping(string:mixed)) home_yushi_toplist = ({});
 void update_home_yushi_toplist(int fg)
 {
 	home_yushi_toplist = flush_home_yushi_toplist();
@@ -289,6 +293,7 @@ array(mapping(string:mixed)) flush_home_yushi_toplist()
 	return result;
 }
 //更新私家小店销量（黄金）排行榜
+array(mapping(string:mixed)) home_money_toplist = ({});
 void update_home_money_toplist(int fg)
 {
 	home_money_toplist = flush_home_money_toplist();
@@ -351,6 +356,7 @@ array(mapping(string:mixed)) query_home_money_toplist()
 		return ({});
 }
 //捐赠排行外部接口 evan 2009.2.2
+array(mapping(string:mixed)) fee_toplist=({});
 array(mapping(string:mixed)) query_fee_toplist()
 {
 	werror("============i am here =========\n");
@@ -361,7 +367,7 @@ array(mapping(string:mixed)) query_fee_toplist()
 		return ({});
 }
 
-更新捐赠排行榜
+//更新捐赠排行榜
 void update_fee_toplist(int fg)
 {
 	fee_toplist = flush_fee_toplist();
@@ -369,7 +375,7 @@ void update_fee_toplist(int fg)
 		call_out(update_fee_toplist,UPDATE_TIME);
 	return;
 }
-捐赠排行查询
+//捐赠排行查询
 array(mapping(string:mixed)) flush_fee_toplist()
 {
 	werror("============i am in =========\n");
@@ -443,37 +449,6 @@ array(mapping(string:mixed)) flush_fee_toplist()
 	werror("=========== result_to_return[0][name_cn] = "+ result_to_return[0]["name_cn"]+" =========\n");
 	return result_to_return;
 }
-*/
-/*
-array(mapping(string:mixed)) query_toplist(string type)
-{
-	if(type&&sizeof(type))
-	{
-		switch(type){
-			case "qi":
-				return;
-			break;
-			case "chongzhi":
-				return ;
-			break;
-			case "caifu":
-				return ;
-			break;
-			case "lunhui":
-				return ;
-			break;
-			case "zhonghe":
-				return ;
-			break;
-			case "bangzhan":
-				return ;
-			break;
-			default:
-			return ([]);
-		}
-	}
-	else
-		return ([]);
 
-}
-*/
+
+

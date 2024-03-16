@@ -344,6 +344,13 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 	//判断是否掉落白色物品
 	int pro = 10000;
 	int itemlevel=get_item_level(npclevel); //调用了获得物品等级的接口
+
+	if(npclevel>73){
+		itemlevel=get_item_level(73);//支持超过73以上的装备，如果超过70级按照70级的装备模板区增量增加
+		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
+		b=35;//极品10万分之4
+	}
+
 	//在gamelib/data/orgItems.list表中，73级的装备为洞穴装备，洞穴装备的掉率为80%
 	if(itemlevel>=73){
 		pro = 80000;
@@ -370,24 +377,25 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 		//int two = (int)((1640-a*12)*10+playerluck*b*0.7);
 		int one = (int)((1080-a*16)*20+playerluck*b*1);
 		//int one = (int)((2160-a*16)*20+playerluck*b*1);
-
 		int ran=random(100000)+1;
+		//get_attributes_item最后两项为原始装备的等级，以及目标NPC等级
 		if(ran<=seven)
-			ret_item=get_attributes_item(item_rawname,7); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,7,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else if(ran<=six)
-			ret_item=get_attributes_item(item_rawname,6); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,6,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else if(ran<=five)
-			ret_item=get_attributes_item(item_rawname,5); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,5,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else if(ran<=four)
-			ret_item=get_attributes_item(item_rawname,4); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,4,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else if(ran<=three)
-			ret_item=get_attributes_item(item_rawname,3); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,3,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else if(ran<=two)
-			ret_item=get_attributes_item(item_rawname,2); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,2,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else if(ran<=one)
-			ret_item=get_attributes_item(item_rawname,1); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,1,itemlevel,npclevel); //调用了获得属性物品的核心接口
 		else
-			ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
+			ret_item=get_attributes_item(item_rawname,1,itemlevel,npclevel); 
+			//ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
 
 		return ret_item;
 	}
@@ -527,6 +535,7 @@ object get_task_item(string item_path_name,int prob)
 }
 
 //外部接口，玩家赌博装备时调用
+//动态装备，等级大于73的时候，按照73的模版，动态生成高于73等级的装备
 object dubo_item(int itemlevel,string item,int playerluck)
 {
 	string item_rawname=item; //白装备名称,包含了一个路径。如weapon/1taomujian/1taomujian
@@ -534,6 +543,18 @@ object dubo_item(int itemlevel,string item,int playerluck)
 	object ret_item; //最后生成并返回的装备
 	int a=itemlevel-1; //概率算法的一个因子
 	int b=101-itemlevel; //第二个因子
+
+	//没有考虑清楚，下次在考虑
+	object tmp_ob=clone(ITEM_PATH+item_rawname);
+	int orginal_level=itemlevel;
+	if(tmp_ob){
+		orginal_level=tmp_ob->query_item_canLevel();
+	}
+	if(itemlevel>73){
+		orginal_level=73;
+		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
+		b=35;//极品10万分之4
+	}
 
 	//一定会赌到白色物品
 	if((random(100000)+1)<=100000) {
@@ -549,21 +570,22 @@ object dubo_item(int itemlevel,string item,int playerluck)
 
 		int ran=random(100000)+1;
 		if(ran<=seven)
-			ret_item=get_attributes_item(item_rawname,7); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,7,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else if(ran<=six)
-			ret_item=get_attributes_item(item_rawname,6); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,6,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else if(ran<=five)
-			ret_item=get_attributes_item(item_rawname,5); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,5,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else if(ran<=four)
-			ret_item=get_attributes_item(item_rawname,4); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,4,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else if(ran<=three)
-			ret_item=get_attributes_item(item_rawname,3); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,3,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else if(ran<=two)
-			ret_item=get_attributes_item(item_rawname,2); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,2,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else if(ran<=one)
-			ret_item=get_attributes_item(item_rawname,1); //调用了获得属性物品的核心接口
+			ret_item=get_attributes_item(item_rawname,1,orginal_level,itemlevel); //调用了获得属性物品的核心接口
 		else
-			ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
+			ret_item=get_attributes_item(item_rawname,1,orginal_level,itemlevel);
+			//ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
 
 		return ret_item;
 	}
@@ -577,7 +599,14 @@ string query_dubo_items(int level,void|int fg)
 {
 	string rtn="";
 	array(string) dubo_itemsallow=({}); //等级范围类允许物品列表
-	dubo_itemsallow=copy_value(item_list[level]);//用copy_value()是为了防止下面对dubo_itemsallow的操作影响到item_list 
+	if(level<=73)
+		dubo_itemsallow=copy_value(item_list[level]);//用copy_value()是为了防止下面对dubo_itemsallow的操作影响到item_list 
+	else{
+		//int random_level=random(73);
+		//if(random_level==0) random_level=73;
+		dubo_itemsallow=copy_value(item_list[73]);//超过73级的，因为表里面没有，就得到1-73级的装备了，用来生成高等级装备的模板 
+	}
+		
 	if(fg && fg == 1){
 		if(level == 9)
 			dubo_itemsallow += ({"material/xuanhuangshi","material/mx_mojinsi"});
@@ -604,7 +633,8 @@ object get_spec_item_for_holiday(void|int level)
 	//return 0;//关闭活动
 	object ob_rtn;
 	int ran = 10;
-	if(random(100) <= ran){
+	//非节日，改为万分之一
+	if(random(100000) <= ran){
 		if(level){
 			int i = 1;
 			if(level>=1 && level<=10) i=1;
@@ -693,8 +723,12 @@ private int get_item_level(int level)
 //2.检查是否已生成过这种物品，如果是，则直接从已存在的物品文件clone一个返回给调用者
 //  如果不是，要生成相应的物品文件，并将文件写回，最后从该文件clone一个
 //	返回给调用者
-private object get_attributes_item(string orgitem,int num)
-{
+// 核心，重点：本方法是扩展后的方法，可以生成73级以上的装备，计算差额随机的方式 浮动各个数据，其中73级内的是在系统内固定写死的，73以上的则自动生成
+// 核心重点： orginal_level为73级以前的原始装备等级，target_item_level则为目标生成的高于73级以上的装备，用差额来计算浮动数字
+//如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
+private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level)
+{	
+	werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
 	int size; //该物品允许可能出现的属性的个数
 	int base,limit,value; //属性的取值范围和最后的确定取值
@@ -708,11 +742,22 @@ private object get_attributes_item(string orgitem,int num)
 	array(string) exist_item_names=({}); //已存在文件列表
 	array(string) attri_allow=copy_value(item_attributes[orgitem]); //得到该物品允许出现的属性列表
 	object rtn_ob; //接口的返回
-
+	float rate=1.0;// 计算73以上装备的增长率，初始化为1
+	if(target_item_level&&orginal_level){
+		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
+		if(difference<0) difference=0;
+		else{
+			difference=random(difference);//随机增长率，最大可以达到差额的增长率
+		}
+		rate=((float)(100+difference))/(float)100;//增加武器属性的增长率
+	}
+	werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
+
 	size=sizeof(attri_allow);
 	count=size<num?size:num;
 	writetmp="    set_item_rareLevel("+count+");\n"; //设置新物品的稀有等级
+
 	if(attri_allow&&size) {
 		for(int i=1;i<=count;i++) {
 			attri=attri_allow[random(size)];
@@ -730,6 +775,8 @@ private object get_attributes_item(string orgitem,int num)
 					limit = base;
 				value=base>=limit?limit:(base+random(limit-base+1)); //得到附加属性的确值
 				//werror("---------value="+value+"-----------\n");
+				if(rate>1)
+					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				postfix[postfix_map[attri_name]]=char_value[value];//根据属性修改文件后缀
 				attri_allow-=({attri});
@@ -743,6 +790,8 @@ private object get_attributes_item(string orgitem,int num)
 
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		item_name=orgitem+postfix; //得到了完整的物品文件名
+		if(target_item_level>73)
+			item_name=orgitem+postfix+"_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
 		if(Stdio.exist(ITEM_PATH+item_name)){
 			mixed err = catch{
 				rtn_ob=clone(ITEM_PATH+item_name);
@@ -763,7 +812,48 @@ private object get_attributes_item(string orgitem,int num)
 
 				//写回到文件
 				for(int k=0; k<sizelines; k++) {
-					writeback+=orgfilelines[k]+"\n";
+					// 读取原有文件的防御值和攻击值以及攻击最大值，重置
+					if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
+						writeback+="    set_item_canLevel("+target_item_level+");\n"; //设置新物品的的穿戴等级
+						continue;					
+					}else
+					if(rate>1 && search(orgfilelines[k],"set_equip_defend")!=-1){
+						int set_equip_defend=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_equip_defend(%d);",nothing,set_equip_defend);
+						if(set_equip_defend){
+							set_equip_defend=(int)(set_equip_defend*rate);
+							writeback+="    set_equip_defend("+set_equip_defend+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}
+						
+					}else if(rate>1 &&search(orgfilelines[k],"set_attack_power")!=-1){
+						int attack_power=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_attack_power(%d);",nothing,attack_power);
+						if(attack_power){
+							attack_power=(int)(attack_power*rate);
+							writeback+="    set_attack_power("+attack_power+");\n";
+						}
+						else{
+							writeback+=orgfilelines[k]+"\n";
+						}
+					}else if(rate>1 &&search(orgfilelines[k],"set_attack_power_limit")!=-1){
+						int attack_power_limit=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,attack_power_limit);
+						if(attack_power_limit){
+							attack_power_limit=(int)(attack_power_limit*rate);
+							writeback+="    set_attack_power_limit("+attack_power_limit+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}
+						
+					}else{
+						writeback+=orgfilelines[k]+"\n";
+					}
+					
 				}
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
@@ -839,6 +929,7 @@ void create()
 
 
 //熔炼物品时被调用
+//当熔炼目标装备大于73是，则按照73的装备模版出，增加增量属性到目标等级，见get_item(方法)
 object get_ronglian_item(int itemlevel,int playerluck)
 {
 	string item_rawname=""; //白装备名称,包含了一个路径。如weapon/1taomujian
@@ -847,8 +938,16 @@ object get_ronglian_item(int itemlevel,int playerluck)
 	int a=itemlevel-1; //概率算法的一个因子
 	int b=101-itemlevel; //第二个因子
 
+	int orgitem_level=itemlevel;
+	if(itemlevel>73){
+		orgitem_level=73;//支持超过73以上的装备，如果超过70级按照70级的装备模板区增量增加
+		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
+		b=35;//极品10万分之4
+	}
+	werror("============orgitem_level:"+orgitem_level+"\n");
+	werror("============itemlevel:"+itemlevel+"\n");
 	//判断是否掉落白色物品
-	itemsallow=item_list[itemlevel]; 
+	itemsallow=itemlevel>73?item_list[73]:item_list[itemlevel]; //大于73按照73的模版出装备
 	if(!itemsallow){
 		werror("----Caution:get itemlevel=0 in get_ronglian_item()!----\n");
 		return 0;
@@ -866,30 +965,31 @@ object get_ronglian_item(int itemlevel,int playerluck)
 
 	int ran=random(100000)+1;
 	if(ran<=seven)
-		ret_item=get_attributes_item(item_rawname,7); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,7,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else if(ran<=six)
-		ret_item=get_attributes_item(item_rawname,6); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,6,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else if(ran<=five)
-		ret_item=get_attributes_item(item_rawname,5); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,5,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else if(ran<=four)
-		ret_item=get_attributes_item(item_rawname,4); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,4,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else if(ran<=three)
-		ret_item=get_attributes_item(item_rawname,3); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,3,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else if(ran<=two)
-		ret_item=get_attributes_item(item_rawname,2); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,2,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else if(ran<=one)
-		ret_item=get_attributes_item(item_rawname,1); //调用了获得属性物品的核心接口
+		ret_item=get_attributes_item(item_rawname,1,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
 	else
-		ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
+		ret_item=get_attributes_item(item_rawname,1,orgitem_level,itemlevel); //调用了获得属性物品的核心接口
+		//ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
 
 	return ret_item;
 }
 
 //炼化物品（用玉石转化装备属性）调用的接口
 //这个接口也是获得num属性指定装备的接口
-object get_convert_item(string item_rawname,int num)
+object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level)
 {
-	object ret_item = get_attributes_item(item_rawname,num);
+	object ret_item = get_attributes_item(item_rawname,num,orginal_level,item_level);//生成目标itemlevel大于70级的装备
 	return ret_item;
 }
 

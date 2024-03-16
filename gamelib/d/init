@@ -46,26 +46,21 @@ string query_desc(){
 	else{
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/logo.png]\n";
 
-		//int game_hour = me->query_user_hour();
-		//int game_mint = me->query_user_mint();
-		//资费提示/////////////////////////////
-		///////////////////////////////////////
-		/*
-		   desc += "剩余游戏时间：\n";
-		   if(game_hour&&game_mint){
-		   desc += game_hour+" 小时 ";
-		   desc += game_mint+" 分钟\n ";
-		   }
-		   else if(game_hour)
-		   desc += game_hour+" 小时\n";
-		   else if(game_mint)
-		   desc += game_mint+" 分钟\n ";
-		//else
-		//	desc += "您的游戏时间已经用完，公测结束后请冲值获得游戏时间，否则将无法进行游戏。\n";
-		 */
 		//加上随机的提示
-		desc += TIPSD->query_tips()+"\n";
+		//desc += TIPSD->query_tips()+"\n";
+		desc += "<div style=\"color:Orange\">";
+		desc += "【最新活动】\n\n";
+		desc += "</div>";
+		desc += "一、开启动态地图和怪物系统，可以无限升级打怪\n";
+		desc += "二、开展倍速经验活动，2倍速经验一直到10倍速经验，由您选择\n";
+		desc += "以上活动详情请咨询客服\n";
+		desc += "<div style=\"color:DarkViolet\">";
+		desc += "(QQ客服1811117272)\n";
+		desc += "</div>";
+		
+		desc += "<br>";	
 		desc += "[进入游戏:start]\n";
+		desc += "[排行榜:look_top]\n";
 		if(!me->mobile || me->mobile == "")
 			desc +="[手机绑定:tieToMobile]\n";
 		desc+="[修改密码:check_password]\n";
@@ -178,6 +173,10 @@ int check_password(string arg){
 	}
 	else{
 		string password=arg;
+		werror("======arg:"+arg+"\n");
+		array(string) t_arg=arg/" ";//如果arg有重复的例如：123456 123456
+		if(sizeof(t_arg)==2 && t_arg[0]==t_arg[1])
+			password=t_arg[0];
 		if(sizeof(password)<2||sizeof(password)>=12)
 		{
 			//格式不对
@@ -242,6 +241,9 @@ int set_password(string arg){
 	else
 	{
 		string password=arg;
+		array(string) t_arg=arg/" ";//如果arg有重复的例如：123456 123456
+		if(sizeof(t_arg)==2 && t_arg[0]==t_arg[1])
+			password=t_arg[0];
 		if(sizeof(password)<2||sizeof(password)>=12)
 		{
 			//格式不对

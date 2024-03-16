@@ -7,7 +7,7 @@ void create(){
 	desc="威力无穷的仙法，召唤巨大的炎龙攻击敌人";
 	s_type="zhudong";
 	s_skill_type="huo_mofa_attack";
-	s_delayTime=6;
+	s_delayTime=3;
 	performs_cast[1]=90;
 	performs_cast[2]=100;
 	performs_cast[3]=110;

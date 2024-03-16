@@ -333,7 +333,7 @@ int eat_danyao(object player,object yao)
 			if(!player["/plus/daily/teyao_map"][kind])                                      
 				player["/plus/daily/teyao_map"][kind] = 1;
 
-			else if(player["/plus/daily/teyao_map"][kind]>=5)                               
+			else if(player["/plus/daily/teyao_map"][kind]>=player->query_max_yao()) //各个vip等级不同的最大上限                              
 				return 2;//超出食用次数限制                                             
 			else                                                                            
 			player["/plus/daily/teyao_map"][kind]++;           

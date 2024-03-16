@@ -1,4 +1,5 @@
 #include <globals.h>
+#include <gamelib.h>
 inherit LOW_FILTER;
 inherit Crypto.DES;
 //inherit Crypto.Cipher;
@@ -34,7 +35,7 @@ string setup(string _url)
 	out+= "<meta charset=\"UTF-8\">\n"; 
 	out+= "<meta name=\"viewport\" content=\"maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0\"/>\n"; 
 	out+= "<title>¡¶ÏÉµÀ¡· ÎÄ×ÖÓÎÏ· WAPÓÎÏ· »³¾ÉÍøÓÎ WAPÎÄ×ÖÓÎÏ· WAPÄà°ÍÍø</title>\n";
-	out+= "<link rel=\"stylesheet\" href=\"includes/bootstrap-4.6.2-dist/css/bootstrap.min.css?v=2\"/>\n";
+	out+= "<link rel=\"stylesheet\" href=\"includes/bootstrap-4.6.2-dist/css/bootstrap.min.css?v=3\"/>\n";
 	out+= "<link href=\"includes/intro.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";
 	out+= "</head>\n";
 	out+= "<body>\n"; 
@@ -187,7 +188,7 @@ string get_right_href_css(string link_name)
 		primary_key_map["¡¾¾«ÖÆ¡¿"]=hrefcss_darkorange;
 		primary_key_map["¡¾ÉñÁ¶¡¿"]=hrefcss_purple;
 		primary_key_map["¡¾Ìì½µ¡¿"]=hrefcss_green2;
-		primary_key_map["¡¾»Ã»¯¡¿"]=hrefcss_xuan;
+		primary_key_map["¡¾»Ã»¯¡¿"]=hrefcss_orange;
 
 		primary_key_map["¡¾Óñ¡¿ËéÓñ"]=hrefcss_blue;
 		primary_key_map["¡¾Óñ¡¿ÏÉÔµÓñ"]=hrefcss_darkorange;
@@ -195,7 +196,22 @@ string get_right_href_css(string link_name)
 		primary_key_map["¡¾Óñ¡¿±ÌçôÓñ"]=hrefcss_green2;
 		primary_key_map["¡¾Óñ¡¿ĞşÌì±¦Óñ"]=hrefcss_xuan;
 		
+		//vip level shows different color
 		
+		mapping(string:int) grade_mapping=TOPTEN->get_grade_mapping();
+		foreach(grade_mapping;string index;int n){
+			//werror("=======index:"+index+"\n");
+			//werror("=======n:"+n+"\n");
+			if(n==1){
+				primary_key_map[index]=hrefcss_green2;
+			}else if(n==2){
+				primary_key_map[index]=hrefcss_darkorange;
+			}else if(n==3){
+				primary_key_map[index]=hrefcss_orange;
+			}else if(n==4){
+				primary_key_map[index]=hrefcss_purple;
+			}	
+		}
 
 		array(string) index_array=indices(primary_key_map);
 		foreach(index_array,string index){

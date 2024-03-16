@@ -8,8 +8,8 @@ void create(){
 	name_cn="玉虚宫";
 	desc="[**建帮立派**:bang_create]\n";  
 	desc+="[**查找帮派**:bang_search]\n";
-	desc+="[**领取玉石**:tuiguang_yushi]\n";
-	desc+="[**换取国庆礼品**:shzzh_view_equiplist 9ji]\n";
+	//desc+="[**领取玉石**:tuiguang_yushi]\n";
+	//desc+="[**换取国庆礼品**:shzzh_view_equiplist 9ji]\n";
 	exits["east"]=ROOT "/gamelib/d/kunlunshan/yuxugonghouting";
 	exits["south"]=ROOT "/gamelib/d/kunlunshan/fengshenjing";
 	exits["west"]=ROOT "/gamelib/d/kunlunshan/shierchanglang";

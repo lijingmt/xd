@@ -19,6 +19,8 @@
 #define LOG_P ((program)(ROOT "/gamelib/single/daemons/log"))
 //物品随即生成模块
 #define ITEMSD ((object)(ROOT "/gamelib/single/daemons/itemsd"))
+//排行榜系统
+#define TOPTEN ((object)(ROOT "/gamelib/single/daemons/topten"))
 //任务守护模块
 #define TASKD ((object)(ROOT "/gamelib/single/daemons/taskd"))
 //拍卖行守护模块
