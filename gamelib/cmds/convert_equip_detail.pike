@@ -120,6 +120,7 @@ int main(string arg)
 			s += "增加需要："+YUSHID->get_yushi_for_desc(add_cost)+","+s_money+"\n";
 			s += "[增加属性:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 2 0]\n";
 			s += "[会员优惠增加属性:convert_equip_vip_off "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 2]\n";
+			if(item->query_item_rareLevel()<7)
 			s += "[冰蓝玉石辅助增加:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 3](x"+have_binglanyushi+")\n";
 			if(item->query_item_rareLevel()==0){
 				s += "[琥珀石辅助增加:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 4](x"+have_huposhi+")\n";

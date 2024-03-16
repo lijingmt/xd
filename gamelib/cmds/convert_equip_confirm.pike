@@ -102,39 +102,39 @@ int main(string arg)
 				int ran = 0;
 				switch(item->query_item_canLevel()){
 					case 1..10:
-						ran = 100;
+						ran = 1000;
 						break;
 					case 11..20:
-						ran = 80;
+						ran = 800;
 						break;
 					case 21..30:
-						ran = 60;
+						ran = 600;
 						break;
 					case 31..40:
-						ran = 40;
+						ran = 400;
 						break;
 					case 41..50:
-						ran = 20;
+						ran = 200;
 						break;
 					case 51..100:
-						ran = 10;
+						ran = 100;
 						break;
 					case 101..200:
-						ran = 5;
+						ran = 50;
 						break;
 					default:
-						ran = 10;
+						ran = 100;
 				}
 				//此处增加几率和强化级别的挂钩关系，装备越强，几率越低
 				switch(attri_num){
 					case 7:
-						ran=4;
+						ran=10;
 						break;
 					case 8:
-						ran=3;
+						ran=5;
 						break;
 					case 9:
-						ran=2;
+						ran=3;
 						break;
 					case 10:
 						ran=1;
@@ -145,7 +145,7 @@ int main(string arg)
 					int have_binglanyushi = 0;
 					foreach(all_obj,object ob){
 						if(ob && ob->query_name()=="binglanyushi"){
-							ran = 100;
+							ran = 1000;
 							have_binglanyushi = 1;
 							break;
 						}
@@ -163,7 +163,7 @@ int main(string arg)
 					int have_huposhi = 0;
 					foreach(all_obj,object ob){
 						if(ob && ob->query_name()=="huposhi"){
-							ran = 100;
+							ran = 1000;
 							have_huposhi = 1;
 							break;
 						}
@@ -181,7 +181,7 @@ int main(string arg)
 					int have_cuijinshi = 0;
 					foreach(all_obj,object ob){
 						if(ob && ob->query_name()=="cuijinshi"){
-							ran = 100;
+							ran = 1000;
 							have_cuijinshi = 1;
 							break;
 						}
@@ -194,7 +194,7 @@ int main(string arg)
 						return 1;
 					}
 				}
-				if(ran>random(100)){
+				if(ran>random(1000)){
 					log_consume = "convert_add";
 					attri_num++;
 					if(flag==4) attri_num=2;//使用琥珀石得到两个属性的装备
