@@ -32,7 +32,8 @@ int dubo(string arg){
 		write(tmp);
 		return 1;
 	}
-	string s = "该房间为 "+dubo_level_low+"-"+dubo_level_high+" 级赌装备物品房间，可供选择的物品有：\n";
+	//string s = "该房间为 "+dubo_level_low+"-"+dubo_level_high+" 级赌装备物品房间，可供选择的物品有：\n";
+	string s = "该房间为 "+player_level+" 级赌装备物品房间，可供选择的物品有：\n";
 	string list = "";
 	for(int i=dubo_level_low; i<=dubo_level_high; i++){
 		string tmp = ITEMSD->query_dubo_items(player_level);

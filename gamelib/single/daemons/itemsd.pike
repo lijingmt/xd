@@ -747,9 +747,9 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
 		else{
-			difference=random(difference);//随机增长率，最大可以达到差额的增长率
+			difference=random(difference+difference);//随机增长率，最大可以达到差额的增长率
 		}
-		rate=((float)(100+difference))/(float)100;//增加武器属性的增长率
+		rate=((float)(orginal_level+difference))/(float)orginal_level;//增加武器属性的增长率
 	}
 	werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
@@ -790,8 +790,10 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		item_name=orgitem+postfix; //得到了完整的物品文件名
-		if(target_item_level>73)
-			item_name=orgitem+postfix+"_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
+		if(target_item_level>73)//这里之所以不用postfix，他超出了文件名最大长度，存储出现问题
+			item_name=orgitem+"_converted_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
+		
+
 		if(Stdio.exist(ITEM_PATH+item_name)){
 			mixed err = catch{
 				rtn_ob=clone(ITEM_PATH+item_name);
