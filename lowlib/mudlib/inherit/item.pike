@@ -11,7 +11,10 @@ static mapping(int:string) m_rareLevel = ([
 	4:"【精制】",
 	5:"【神炼】",
 	6:"【天降】",
-	7:"【幻化】"
+	7:"【幻化】",
+	8:"【空觉】",
+	9:"【破空】",
+	10:"【寂灭】"
 ]);
 //物品通用继承的基本属性
 private string item_type;//物品类别：武器weapon(单双手,single_weapon,double_weapon)防具armor首饰jewelry饰物decorat消耗品food等

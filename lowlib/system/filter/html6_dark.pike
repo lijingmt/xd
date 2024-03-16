@@ -189,6 +189,9 @@ string get_right_href_css(string link_name)
 		primary_key_map["¡¾ÉñÁ¶¡¿"]=hrefcss_purple;
 		primary_key_map["¡¾Ìì½µ¡¿"]=hrefcss_green2;
 		primary_key_map["¡¾»Ã»¯¡¿"]=hrefcss_orange;
+		primary_key_map["¡¾¿Õ¾õ¡¿"]=hrefcss_di;
+		primary_key_map["¡¾ÆÆ¿Õ¡¿"]=hrefcss_tian;
+		primary_key_map["¡¾¼ÅÃğ¡¿"]=hrefcss_huang;
 
 		primary_key_map["¡¾Óñ¡¿ËéÓñ"]=hrefcss_blue;
 		primary_key_map["¡¾Óñ¡¿ÏÉÔµÓñ"]=hrefcss_darkorange;

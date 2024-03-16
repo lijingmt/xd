@@ -17,10 +17,18 @@ int main(string arg)
 	//look_top list 等级 1
 	sscanf(arg,"%s %s",act,value);
 	//----------------------
-	string topname = me->query_name_cn()+"("+me->query_level()+"级)";
+	string zhenying="【仙】";
+	if(me->query_raceId()=="monst")
+		zhenying="【妖】";
+	string topname = me->query_name_cn()+"("+me->query_level()+"级)"+zhenying;
+
 	TOPTEN->try_top(me->query_name(),topname,"等级",me->query_level());
 	TOPTEN->try_top(me->query_name(),topname,"富翁",me->query_account());
-	TOPTEN->try_top(me->query_name(),topname,"戾气",me->killcount);
+	if(me->query_raceId()=="monst")
+		TOPTEN->try_top(me->query_name(),topname,"妖气",me->killcount);
+	else if(me->query_raceId()=="human"){
+		TOPTEN->try_top(me->query_name(),topname,"仙气",me->killcount);
+	}
 	/*
 	TOPTEN->try_top(me->query_name(),topname,"攻击",me->query_fight_attack());
 	TOPTEN->try_top(me->query_name(),topname,"防御",me->query_defend_power());
@@ -71,7 +79,8 @@ int main(string arg)
 		re += "----------------\n";
 		re += "[等级排行榜:look_top list 等级 1]\n";
 		re += "[富翁排行榜:look_top list 富翁 1]\n";
-		re += "[戾气排行榜:look_top list 戾气 1]\n";
+		re += "[仙气排行榜:look_top list 仙气 1]\n";
+		re += "[妖气排行榜:look_top list 妖气 1]\n";
 		/*
 		re += "[攻击排行榜:look_top list 攻击 1]\n";
 		re += "[防御排行榜:look_top list 防御 1]\n";

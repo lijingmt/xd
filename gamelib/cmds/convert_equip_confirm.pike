@@ -92,7 +92,7 @@ int main(string arg)
 			int item_convert_count = item->query_convert_count();
 			int item_convert_limit = item->query_convert_limit();
 			if(flag == 2 || flag == 3 || flag ==4 || flag==5){
-				if(attri_num>=7){
+				if(attri_num>=10){
 					s += "增强失败！此物品已经无法再增加更多的属性\n"; 
 					s += "[返回:convert_equip_list]\n";
 					s += "[返回游戏:look]\n";
@@ -116,8 +116,29 @@ int main(string arg)
 					case 41..50:
 						ran = 20;
 						break;
+					case 51..100:
+						ran = 10;
+						break;
+					case 101..200:
+						ran = 5;
+						break;
 					default:
-						ran = 20;
+						ran = 10;
+				}
+				//此处增加几率和强化级别的挂钩关系，装备越强，几率越低
+				switch(attri_num){
+					case 7:
+						ran=4;
+						break;
+					case 8:
+						ran=3;
+						break;
+					case 9:
+						ran=2;
+						break;
+					case 10:
+						ran=1;
+						break;
 				}
 				if(flag == 3){
 					//如果是用冰蓝玉石辅助，则需要判断是否身上有此种玉石	
