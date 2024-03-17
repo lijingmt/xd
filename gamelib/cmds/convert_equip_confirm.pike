@@ -128,16 +128,16 @@ int main(string arg)
 				//此处增加几率和强化级别的挂钩关系，装备越强，几率越低
 				switch(attri_num){
 					case 7:
-						ran=100;//10%的几率成功
+						ran=80;//10%的几率成功
 						break;
 					case 8:
 						ran=50;//15%的几率成功
 						break;
 					case 9:
-						ran=50;//5%的几率成功
+						ran=30;//5%的几率成功
 						break;
 					case 10://1%的几率成功
-						ran=30;
+						ran=3;
 						break;
 				}
 				if(flag == 3){

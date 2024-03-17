@@ -790,8 +790,8 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		item_name=orgitem+postfix; //得到了完整的物品文件名
-		if(target_item_level>73)//这里之所以不用postfix，他超出了文件名最大长度，存储出现问题
-			item_name=orgitem+"_converted_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
+		if(target_item_level>73)//这里之所以不用postfix，他超出了文件名最大长度，存储出现问题,暂时放postfix等以后解决
+			item_name=orgitem+"_c_"+random(100000)+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
 		
 
 		if(Stdio.exist(ITEM_PATH+item_name)){
