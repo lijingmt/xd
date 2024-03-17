@@ -754,6 +754,7 @@ private object get_attributes_item(string orgitem,int num)
 		}
 		else{ //如果不存在，则要做很多麻烦的事情
 			//生成新的物品文件数据
+			string writeback=""; //回写到新物品文件中的数据
 			string orgfile=Stdio.read_file(ITEM_PATH+orgitem);
 			if(orgfile&&sizeof(orgfile)) {
 				array(string) orgfilelines=orgfile/"\n";

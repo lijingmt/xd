@@ -99,7 +99,7 @@ int main(string arg)
 					write(s);
 					return 1;
 				}
-				int ran = 0;
+				int ran = 0;//总数字是1000,1000就是100%，数字越大，成功率越大
 				switch(item->query_item_canLevel()){
 					case 1..10:
 						ran = 1000;
@@ -128,16 +128,16 @@ int main(string arg)
 				//此处增加几率和强化级别的挂钩关系，装备越强，几率越低
 				switch(attri_num){
 					case 7:
-						ran=10;
+						ran=100;//10%的几率成功
 						break;
 					case 8:
-						ran=5;
+						ran=50;//15%的几率成功
 						break;
 					case 9:
-						ran=3;
+						ran=50;//5%的几率成功
 						break;
-					case 10:
-						ran=1;
+					case 10://1%的几率成功
+						ran=30;
 						break;
 				}
 				if(flag == 3){

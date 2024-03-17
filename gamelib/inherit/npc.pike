@@ -380,10 +380,10 @@ void fight_die()
 			//由liaocheng于07/12/11添加
 			string get_specitem = BOSSDROPD->get_bossdrop_specitem(this_object()->query_name());
 			if(get_specitem != ""){
-				object specitem_ob;
+				object specitem_ob;				
 				foreach(indices(map_term),string uid){
 					object termer = find_player(uid);
-					if(termer){
+					if(termer){						
 						if(environment(this_object())->query_name() == (environment(termer))->query_name()){
 							mixed err = catch{
 								specitem_ob = clone(ITEM_PATH+get_specitem);
@@ -401,7 +401,13 @@ void fight_die()
 			//掉落装备
 			int count = this_object()->_boss;
 			for(int i = 0;i<count;i++){
-			string drop_item = BOSSDROPD->get_bossdrop_item(this_object()->query_name());
+			//string drop_item = BOSSDROPD->get_bossdrop_item(this_object()->query_name());
+			//获取当前boss的可掉落物品的文件名字，这里我修改了一下，增加了一个level，就是原始文件是50级，但boss被动态刷新成70级，则生成的装备就是70
+			string drop_item = BOSSDROPD->get_bossdrop_item_level(this_object()->query_name(),this_object()->query_level());
+			if(drop_item ==""){
+				//如果没有获得搞等级的动态装备，则直接掉落置顶的非动态的装备
+				drop_item = BOSSDROPD->get_bossdrop_item(this_object()->query_name());
+			}
 			if(drop_item != ""){
 				object item_ob;
 				mixed catchResult = catch {

@@ -170,13 +170,15 @@ int main(string arg)
 		return 1;
 	}
 	//新年年兽不接受高级玩家的杀戮，由liaocheng于08/01/26添加
-	if(ob->query_picture()=="nianshou"){
+	//由于现在是动态npc，等级和玩家挂钩，所以取消了20的限制
+	/*if(ob->query_picture()=="nianshou"){
 		if(this_player()->query_level() > ob->query_level()+20){
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,"年兽可不想打没胜算的架~\n");
 			return 1;                                                                                 
 		}
 	}
-	else if(ob&&ob->query_raceId()==this_player()->query_raceId()){
+	else */
+	if(ob&&ob->query_raceId()==this_player()->query_raceId()){
 		//帮战杀戮，由liaocheng于08/08/30添加
 		if(ob->bangid && this_player()->bangid && BANGZHAND->is_in_bangzhan(ob->bangid,this_player()->bangid)) 
 			flag = 1;
