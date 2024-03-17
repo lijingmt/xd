@@ -18,11 +18,23 @@ void create(){
 	set_item_canSend(0);
 	set_item_canStorage(1);
 	set_item_canLevel(50);
+	set_item_profeLimit("jianxian");
+	set_item_profeLimit("yushi");
 	set_item_profeLimit("zhuxian");
+	set_item_profeLimit("kuangyao");
+	set_item_profeLimit("wuyao");
 	set_item_profeLimit("yinggui");
-	set_dex_add(20);
+	set_str_add(20);
 	set_dodge_add(1);
 	set_doub_add(2);
-	set_life_add(15);
-	set_all_mofa_defend_add(20);
+	set_life_add(10);
+	set_rase_life_add(2);
+	set_dex_add(30);
+	set_think_add(30);
+	set_hitte_add(3);
+	set_lunck_add(40);
+	set_bingshuang_defend_add(20);
+	set_huoyan_defend_add(20);
+	set_fengren_defend_add(20);
+	set_dusu_defend_add(20);
 }

@@ -9,7 +9,7 @@ void create(){
 	desc="禁锢对方的精神，使其无法使用任何技能\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
-	set_item_canTrade(0);
+	set_item_canTrade(1);
 	set_item_canSend(0);
 	set_item_canStorage(1);
 	value=1000;
