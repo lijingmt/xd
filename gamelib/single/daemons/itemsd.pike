@@ -779,6 +779,10 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				postfix[postfix_map[attri_name]]=char_value[value];//根据属性修改文件后缀
+				if(char_value[value]==0){
+					postfix[postfix_map[attri_name]]=95;//如果不在字母表，则用_替代 95代表 下划线 _
+				}
+				//werror("=========char_value[value] "+char_value[value]+" value"+value+"\n");
 				attri_allow-=({attri});
 				size--;
 			}
@@ -791,7 +795,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		item_name=orgitem+postfix; //得到了完整的物品文件名
 		if(target_item_level>73)//这里之所以不用postfix，他超出了文件名最大长度，存储出现问题,暂时放postfix等以后解决
-			item_name=orgitem+"_c_"+random(100000)+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
+			item_name=orgitem+postfix+"_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
 		
 
 		if(Stdio.exist(ITEM_PATH+item_name)){
