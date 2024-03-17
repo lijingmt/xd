@@ -354,6 +354,7 @@ string query_extra_links(void|int count)
 {
 	object env=environment(this_object());
 	object me = this_player();
+	USERD->check_daily(me);//检查每天需要重置的事项，包括吃药啊等等
 	if(env&&env->is("menu")){
 		return "";
 	}
