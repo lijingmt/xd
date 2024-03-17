@@ -8,6 +8,7 @@ mapping(int:int) performs_cast=([]);
 array(string) skill_type=({});
 mapping(int:array(int)) performs_mofa_attack=([]);
 mapping(int:string) performs_desc=([]);
+mapping(int:int) performs_level_limit=([]);//技能等级限制,之所以重新定义，因为这个技能有时候无法找到这个方法，所以重新定义一个，并设置一个query的方法
 void create(){
 	name=object_name(this_object());
 	name_cn="【妖】金蝉魅影";
@@ -51,6 +52,7 @@ int query_performs_mofa_attack_high(int level){
 	else
 		return 0;
 }
+//技能等级限制,之所以重新定义，因为这个技能有时候无法找到这个方法，所以重新定义一个，并设置一个query的方法
 int query_performs_mofa_attack_low(int level){
 	if(!level)
 		return 0;
@@ -66,4 +68,10 @@ string query_performs_desc(int level){
 		return (string)performs_desc[level];
 	else
 		return "";
+}
+mapping query_performs_level_limit_all(){
+	if(performs_level_limit&&sizeof(performs_level_limit))
+		return performs_level_limit;
+	else
+		return ([]);
 }

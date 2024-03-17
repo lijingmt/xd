@@ -8,11 +8,12 @@ mapping(int:int) performs_cast=([]);
 array(string) skill_type=({});
 mapping(int:array(int)) performs_mofa_attack=([]);
 mapping(int:string) performs_desc=([]);
+mapping(int:int) performs_level_limit=([]);//技能等级限制,之所以重新定义，因为这个技能有时候无法找到这个方法，所以重新定义一个，并设置一个query的方法
 void create(){
 	name=object_name(this_object());
 	name_cn="【妖】金蝉魅影(2级)";
 	picture=name;
-	desc="消耗700法力立即脱离战斗进入影遁状态，同时获得一个所有伤害提高5%的效果，持续25秒，并且结束其他所有技能的冷却时间，技能冷却时间5分钟";
+	desc="消耗700法力立即脱离战斗进入影遁状态，同时获得一个所有伤害提高百分之5的效果，持续25秒，并且结束其他所有技能的冷却时间，技能冷却时间5分钟";
 	s_type="zhudong";
 	s_skill_type="spec";
 	s_curse_type="jinchanmeiying2";
@@ -69,4 +70,11 @@ string query_performs_desc(int level){
 		return (string)performs_desc[level];
 	else
 		return "";
+}
+//技能等级限制,之所以重新定义，因为这个技能有时候无法找到这个方法，所以重新定义一个，并设置一个query的方法
+mapping query_performs_level_limit_all(){
+	if(performs_level_limit&&sizeof(performs_level_limit))
+		return performs_level_limit;
+	else
+		return ([]);
 }

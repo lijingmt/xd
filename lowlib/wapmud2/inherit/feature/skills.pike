@@ -133,7 +133,8 @@ string view_performs(string name)
 		else if(cur_skill->s_type=="beidong")
 			out+="被动技能，";
 		out+=cur_skill->query_desc()+cur_skill->query_performs_desc((int)this_object()->skills[name][0])+"\n";
-	
+		//有时候有些技能例如 金蝉魅影 找不到这个方法，只能先判断这个方法是否存在，然后再执行。
+		//mapping(int:string) lvLimit = cur_skill->query_performs_level_limit_all?cur_skill->query_performs_level_limit_all():0;
 		mapping(int:string) lvLimit = cur_skill->query_performs_level_limit_all();
 		if(lvLimit && sizeof(lvLimit))//该技能有等级限制
 		{
