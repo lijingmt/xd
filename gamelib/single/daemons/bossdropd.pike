@@ -127,7 +127,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 						writeback+=orgfilelines[k]+"\n";
 					}
 					
-				}else if(rate>1 &&search(orgfilelines[k],"set_attack_power")!=-1){
+				}else if(rate>1 &&search(orgfilelines[k],"set_attack_power")!=-1 && search(orgfilelines[k],"set_attack_power_limit")==-1){
 					int attack_power=0;
 					string nothing;
 					sscanf(orgfilelines[k],"%sset_attack_power(%d);",nothing,attack_power);
@@ -139,12 +139,12 @@ string get_org_converted_level(string orgitem,int boss_level){
 						writeback+=orgfilelines[k]+"\n";
 					}
 				}else if(rate>1 &&search(orgfilelines[k],"set_attack_power_limit")!=-1){
-					int attack_power_limit=0;
+					int set_attack_power_limit=0;
 					string nothing;
-					sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,attack_power_limit);
-					if(attack_power_limit){
-						attack_power_limit=(int)(attack_power_limit*rate);
-						writeback+="    set_attack_power_limit("+attack_power_limit+");\n";
+					sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,set_attack_power_limit);
+					if(set_attack_power_limit){
+						set_attack_power_limit=(int)(set_attack_power_limit*rate);
+						writeback+="    set_attack_power_limit("+set_attack_power_limit+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";
 					}

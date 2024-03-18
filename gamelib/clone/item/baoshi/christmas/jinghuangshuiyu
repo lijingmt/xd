@@ -6,7 +6,7 @@ void create(){
 	name_cn="【晶】黄水玉";
 	unit="颗";
 	picture="jinghuangshuiyu";
-	desc="增加防御力500点\n";
+	desc="增加防御力500点\n增加全法术抗性30点\n";
 	set_color("yellow");
 	set_item_canEquip(1);
 	set_item_canDrop(1);
@@ -17,5 +17,6 @@ void create(){
 	set_value(50);
 	set_item_canLevel(50);
 	set_defend_add(50);
+	set_all_mofa_defend_add(30);//增加全法术抗性30
 	set_item_kind("pusu");
 }

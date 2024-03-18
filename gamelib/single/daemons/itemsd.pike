@@ -793,6 +793,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		writetmp+="    name_cn=query_rare_level()+name_cn;\n}";
 
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
+		//orgitem="/weapon/70shelingzhang/70shelingzhang";
 		item_name=orgitem+postfix; //得到了完整的物品文件名
 		if(target_item_level>73)//这里之所以不用postfix，他超出了文件名最大长度，存储出现问题,暂时放postfix等以后解决
 			item_name=orgitem+postfix+"_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
@@ -818,6 +819,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 
 				//写回到文件
 				for(int k=0; k<sizelines; k++) {
+					//werror("============821writeback+=orgfilelines[k] "+orgfilelines[k]+" index:"+search(orgfilelines[k],"set_attack_power_limit")+"\n");
 					// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 					if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
 						writeback+="    set_item_canLevel("+target_item_level+");\n"; //设置新物品的的穿戴等级
@@ -834,7 +836,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 							writeback+=orgfilelines[k]+"\n";
 						}
 						
-					}else if(rate>1 &&search(orgfilelines[k],"set_attack_power")!=-1){
+					}else if(rate>1 &&search(orgfilelines[k],"set_attack_power")!=-1 &&search(orgfilelines[k],"set_attack_power_limit")==-1){
 						int attack_power=0;
 						string nothing;
 						sscanf(orgfilelines[k],"%sset_attack_power(%d);",nothing,attack_power);
@@ -845,18 +847,21 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						else{
 							writeback+=orgfilelines[k]+"\n";
 						}
-					}else if(rate>1 &&search(orgfilelines[k],"set_attack_power_limit")!=-1){
-						int attack_power_limit=0;
+					}else if(rate>1 && search(orgfilelines[k],"set_attack_power_limit")!=-1){
+						//werror("===============set_attack_power_limit:"+orgfilelines[k]+"\n");
+						int set_attack_power_limit=0;
 						string nothing;
-						sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,attack_power_limit);
-						if(attack_power_limit){
-							attack_power_limit=(int)(attack_power_limit*rate);
-							writeback+="    set_attack_power_limit("+attack_power_limit+");\n";
+						sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,set_attack_power_limit);
+						if(set_attack_power_limit){
+							set_attack_power_limit=(int)(set_attack_power_limit*rate);
+							writeback+="    set_attack_power_limit("+set_attack_power_limit+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
 						}
-						
-					}else{
+						//set_attack_power_limit(235);
+					}
+					else{
+						//werror("===============nothing found in file setup default:"+orgfilelines[k]+"\n");
 						writeback+=orgfilelines[k]+"\n";
 					}
 					
