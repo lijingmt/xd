@@ -8,6 +8,7 @@ void create(){
 	name_cn="ÆÇÉ¢Ö®ÑÛ";
 	desc="\n";
 	add_items(({ROOT "/gamelib/clone/npc/nianshou/canrennianshou"}));
+	add_items(({ROOT "/gamelib/clone/npc/nianshou/liudaocanrennianshou"}));
 }
 string query_links(){
 	object player=this_player();
