@@ -1,6 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-#define BUY_MAX_COUNT 5
+#define BUY_MAX_COUNT 50
 int main(string arg)
 {
 	object me = this_player();
