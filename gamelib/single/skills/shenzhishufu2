@@ -70,6 +70,7 @@ string query_performs_desc(int level){
 	else
 		return "";
 }
+
 mapping query_performs_level_limit_all(){
 	if(performs_level_limit&&sizeof(performs_level_limit))
 		return performs_level_limit;

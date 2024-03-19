@@ -236,7 +236,9 @@ void perform(string name,void|int flag){
 	if(f_cur_skill){
 		int can_skill_level=0;//本字段记录 玩家可以使用的该技能的最高级别
 		//首先判断技能使用的等级限制
-		mapping(int:string) lvLimit = f_cur_skill->query_performs_level_limit_all();                                          
+		//mapping(int:string) lvLimit = f_cur_skill->query_performs_level_limit_all(); 
+		//有时候很奇怪，这个方法找不到，所以要判断下这个方法，如果存在再执行，否则则返回0，不检查级别
+		mapping(int:string) lvLimit = f_cur_skill->query_performs_level_limit_all?f_cur_skill->query_performs_level_limit_all():0;                                         
 		if(lvLimit && sizeof(lvLimit))//该技能有等级限制
 		{
 			//第一种情况：技能有熟练度，使用得越多级别越高，这种技能只有一个等级限制
