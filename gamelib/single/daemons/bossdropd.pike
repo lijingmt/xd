@@ -232,7 +232,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 					sscanf(orgfilelines[k],"%sset_hitte_add(%d);",nothing,set_hitte_add);
 					if(set_hitte_add){
 						set_hitte_add=(int)(set_hitte_add*rate);
-						writeback+="    set_think_add("+set_hitte_add+");\n";
+						writeback+="    set_hitte_add("+set_hitte_add+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";
 					}						

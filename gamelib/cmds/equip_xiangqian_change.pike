@@ -50,7 +50,7 @@ int main(string arg)
 			};
 			if(!err&&old_baoshi){
 				string old_baoshi_name = old_baoshi->query_short();
-				if(old_baoshi->query_name()=="pshuangshuiyu"||old_baoshi->query_name()=="slhuangshuiyu"||old_baoshi->query_name()=="jinghuangshuiyu"||old_baoshi->query_name()=="nianshoulingshi"){
+				if(old_baoshi->query_name()=="pshuangshuiyu"||old_baoshi->query_name()=="slhuangshuiyu"||old_baoshi->query_name()=="jinghuangshuiyu"||old_baoshi->query_name()=="nianshoulingshi"||old_baoshi->query_name()=="nianshoulingshi2"||old_baoshi->query_name()=="nianshoulingshi3"){
 					s += old_baoshi->query_short()+"已放到您的背包中\n";
 					old_baoshi->move_player(me->query_name());
 				}
