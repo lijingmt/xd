@@ -615,9 +615,9 @@ void fight_die()
 	if(me->sucide == 0){
 		if(env->query_room_type() != "city"){
 			if(w_kill&&sizeof(w_kill))
-				t ="\n你被"+w_kill+"杀死了。所有装备当前耐久损失百分之二十五。\n";
+				t ="\n你被"+w_kill+"杀死了。所有装备当前耐久损失百分之一。\n";
 			else
-				t = "\n你已经死亡。所有装备当前耐久损失百分之二十五。\n";
+				t = "\n你已经死亡。所有装备当前耐久损失百分之一。\n";
 			//死亡惩罚，所有装备当前耐久损失25%
 			array(object) items=all_inventory(me);
 			if(items&&sizeof(items)){
@@ -625,7 +625,8 @@ void fight_die()
 					//每件装备的耐久损失
 					if(items[i]->equiped && items[i]->item_dura<10000){
 						if(items[i]->item_cur_dura>0){
-							items[i]->item_cur_dura -= items[i]->item_dura*25/100;
+							//items[i]->item_cur_dura -= items[i]->item_dura*25/100;
+							items[i]->item_cur_dura -= items[i]->item_dura*1/100;//提高游戏易玩性，扣1%耐久度
 							if(items[i]->item_cur_dura<=0)
 								items[i]->item_cur_dura = 0;
 						}
@@ -643,8 +644,8 @@ void fight_die()
 				t = "\n你已经死亡。\n";
 		}
 		//无论是被怪杀死还是被玩家杀死，都会损失经验
-		/*取消了死亡损失装备的逻辑，让游戏更爽一点适应2024的趋势
-		if(enemy&&(enemy->query_level()-my_level<=5)){
+		//如果敌人是npc则不掉经验，如果和玩家pk则掉落经验
+		if(enemy&&(enemy->query_level()-my_level<=5)&&!enemy->is_npc){
 			//这里添加鎏金石使用效果，鎏金石效果用两个字段控制，一个是时间ljs_time，一个是使用开关ljs_sw，当时间用完后或者鎏金石处于关闭状态是被对方杀死会损失相应的经验
 			if(!me->ljs_time||me->ljs_time<=0||(me->ljs_sw&&me->ljs_sw=="close")){
 				int drop_exp = me->killed_exp(enemy);
@@ -658,7 +659,7 @@ void fight_die()
 					}
 				}
 			}
-		}*/
+		}
 	}
 	else 
 		t += "你服毒自杀了~~\n";

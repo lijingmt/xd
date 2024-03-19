@@ -1,4 +1,4 @@
-#define HIDDEN_SIZE 5000
+#define HIDDEN_SIZE 2000
 #include <globals.h>
 static array(string) hidden=allocate(HIDDEN_SIZE);
 read_write(hidden);
