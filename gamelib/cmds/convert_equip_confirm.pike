@@ -235,14 +235,22 @@ int main(string arg)
 				item_type = "weapon";
 			string item_rawname = item_type+"/"+item->query_picture()+"/"+item->query_picture();
 			object orginal_item=clone (ITEM_PATH+item_rawname);
-			werror("=============217orginal_item "+orginal_item->query_item_canLevel()+"\n");
-			werror("=============218item "+item->query_item_canLevel()+"\n");
+			//werror("=============217orginal_item "+orginal_item->query_item_canLevel()+"\n");
+			//werror("=============218item "+item->query_item_canLevel()+"\n");
 			object new_item = 0;
 			if(ret_flag != 3){
 				if(orginal_item)//如果超过70级以上物品熔炼，则获得原物品等级，以及目前装备的等级，100级装备，熔炼出100级的装备
 					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,orginal_item->query_item_canLevel(),item->query_item_canLevel());
-				else
-					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,item->query_item_canLevel(),item->query_item_canLevel());
+				else{
+					//有时候上面的clone装备出现问题，再尝试一次即可
+					s += "今天时运不加，装备和时辰相冲，所以转化失败！请模数10下，再尝试一次\n";
+					s += "[返回:convert_equip_list]\n";
+					s += "[返回游戏:look]\n";
+					write(s);
+					return 1;
+					//new_item = ITEMSD->get_convert_item(item_rawname,attri_num,item->query_item_canLevel(),item->query_item_canLevel());
+				}
+					
 			//	werror("====[dubug]  the num of new item's attrabute is "+ attri_num+" =====\n");
 			}
 			if(new_item){
