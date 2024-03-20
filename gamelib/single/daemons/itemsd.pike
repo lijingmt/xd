@@ -716,8 +716,22 @@ private int get_item_level(int level)
 		}
 	}
 }
+string get_item_prefix(int level){
+	string ret="";
+	switch(level){
+		case 71..80:
+			ret="【修】";
+			break;
+		case 81..90:
+			ret="【禅】";
+			break;
+		case 91..100:
+			ret="【禅】";
+			break;
 
-
+	}
+	return ret;
+}
 //内部接口，被get_item()调用，为物品掉落的核心算法，主要完成下面几件事：
 //1.获取随即属性附加，并生成完整的物品名称
 //2.检查是否已生成过这种物品，如果是，则直接从已存在的物品文件clone一个返回给调用者
@@ -742,7 +756,8 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 	array(string) exist_item_names=({}); //已存在文件列表
 	array(string) attri_allow=copy_value(item_attributes[orgitem]); //得到该物品允许出现的属性列表
 	object rtn_ob; //接口的返回
-	float rate=1.0;// 计算73以上装备的增长率，初始化为1
+	float rate=1.01;// 计算73以上装备的增长率，初始化为1
+	
 	if(target_item_level&&orginal_level){
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
