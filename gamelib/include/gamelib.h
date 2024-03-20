@@ -106,7 +106,7 @@
 //问卷调查
 #define DIAOCHAD ((object)(ROOT "/gamelib/single/daemons/diaochad"))
 //附加技能上限
-#define VICESKILL_UP 150
+#define VICESKILL_UP 300
 //玩家等级上限制
 #define MAX_LEVEL 200
 //洞穴刷新出口操作

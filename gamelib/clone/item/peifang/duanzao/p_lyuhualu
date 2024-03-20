@@ -16,7 +16,7 @@ void create(){
 	set_peifang_type("attri_defend");
 	peifang_id=91;
 	level_limit=50;
-	viceskill_level=210;
+	viceskill_level=150;
 }
 int read(){
 	int result=::liandan_read();
