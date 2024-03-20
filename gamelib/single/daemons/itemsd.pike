@@ -791,7 +791,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			}
 		}
 		writetmp+="    name_cn=query_rare_level()+name_cn;\n}";
-
+		//werror("=====add attri:\n"+writetmp+"\n");
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		//orgitem="/weapon/70shelingzhang/70shelingzhang";
 		item_name=orgitem+postfix; //得到了完整的物品文件名
@@ -813,9 +813,13 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			if(orgfile&&sizeof(orgfile)) {
 				array(string) orgfilelines=orgfile/"\n";
 				orgfilelines-=({""});
+				orgfilelines-=({"}"});//先把源文件的最后一个括号去掉
+				array(string)  writetmplines=writetmp/"\n";//把临时的这个变成数组，这个数组最后一位是右括号}
+				orgfilelines+=writetmplines;//最后再把两个数组加一起
 				int sizelines=sizeof(orgfilelines);
-				if(orgfilelines[sizelines-1])
-					orgfilelines[sizelines-1]=writetmp; //在这里追加新文件的附加属性
+				
+				//if(orgfilelines[sizelines-1])
+					//orgfilelines[sizelines-1]=writetmp; //在这里追加新文件的附加属性
 
 				//写回到文件
 				for(int k=0; k<sizelines; k++) {
@@ -858,7 +862,147 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						}else{
 							writeback+=orgfilelines[k]+"\n";
 						}
-						//set_attack_power_limit(235);
+					}else if(rate>1 &&search(orgfilelines[k],"set_dodge_add")!=-1){
+						int set_dodge_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_dodge_add(%d);",nothing,set_dodge_add);
+						if(set_dodge_add){
+							set_dodge_add=(int)(set_dodge_add*rate);
+							writeback+="    set_dodge_add("+set_dodge_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}					
+					}else if(rate>1 &&search(orgfilelines[k],"set_str_add")!=-1){
+						int set_str_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_str_add(%d);",nothing,set_str_add);
+						if(set_str_add){
+							set_str_add=(int)(set_str_add*rate);
+							writeback+="    set_str_add("+set_str_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}
+						
+					}else if(rate>1 &&search(orgfilelines[k],"set_doub_add")!=-1){
+						int set_doub_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_doub_add(%d);",nothing,set_doub_add);
+						if(set_doub_add){
+							set_doub_add=(int)(set_doub_add*rate);
+							writeback+="    set_doub_add("+set_doub_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_life_add")!=-1){
+						int set_life_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_life_add(%d);",nothing,set_life_add);
+						if(set_life_add){
+							set_life_add=(int)(set_life_add*rate);
+							writeback+="    set_life_add("+set_life_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_rase_life_add")!=-1){
+						int set_rase_life_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_rase_life_add(%d);",nothing,set_rase_life_add);
+						if(set_rase_life_add){
+							set_rase_life_add=(int)(set_rase_life_add*rate);
+							writeback+="    set_rase_life_add("+set_rase_life_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_dex_add")!=-1){
+						int set_dex_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_dex_add(%d);",nothing,set_dex_add);
+						if(set_dex_add){
+							set_dex_add=(int)(set_dex_add*rate);
+							writeback+="    set_dex_add("+set_dex_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_think_add")!=-1){
+						int set_think_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_think_add(%d);",nothing,set_think_add);
+						if(set_think_add){
+							set_think_add=(int)(set_think_add*rate);
+							writeback+="    set_think_add("+set_think_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_hitte_add")!=-1){
+						int set_hitte_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_hitte_add(%d);",nothing,set_hitte_add);
+						if(set_hitte_add){
+							set_hitte_add=(int)(set_hitte_add*rate);
+							writeback+="    set_hitte_add("+set_hitte_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_lunck_add")!=-1){
+						int set_lunck_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_lunck_add(%d);",nothing,set_lunck_add);
+						if(set_lunck_add){
+							set_lunck_add=(int)(set_lunck_add*rate);
+							writeback+="    set_lunck_add("+set_lunck_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_bingshuang_defend_add")!=-1){
+						int set_bingshuang_defend_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_bingshuang_defend_add(%d);",nothing,set_bingshuang_defend_add);
+						if(set_bingshuang_defend_add){
+							set_bingshuang_defend_add=(int)(set_bingshuang_defend_add*rate);
+							writeback+="    set_bingshuang_defend_add("+set_bingshuang_defend_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_huoyan_defend_add")!=-1){
+						int set_huoyan_defend_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_huoyan_defend_add(%d);",nothing,set_huoyan_defend_add);
+						if(set_huoyan_defend_add){
+							set_huoyan_defend_add=(int)(set_huoyan_defend_add*rate);
+							writeback+="    set_huoyan_defend_add("+set_huoyan_defend_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_fengren_defend_add")!=-1){
+						int set_fengren_defend_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_fengren_defend_add(%d);",nothing,set_fengren_defend_add);
+						if(set_fengren_defend_add){
+							set_fengren_defend_add=(int)(set_fengren_defend_add*rate);
+							writeback+="    set_fengren_defend_add("+set_fengren_defend_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_dusu_defend_add")!=-1){
+						int set_dusu_defend_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_dusu_defend_add(%d);",nothing,set_dusu_defend_add);
+						if(set_dusu_defend_add){
+							set_dusu_defend_add=(int)(set_dusu_defend_add*rate);
+							writeback+="    set_dusu_defend_add("+set_dusu_defend_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
 					}
 					else{
 						//werror("===============nothing found in file setup default:"+orgfilelines[k]+"\n");
@@ -866,6 +1010,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					}
 					
 				}
+				//werror("====:\n"+writeback+"\n");
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
 				//从写回的文件中clone一个该物品返回
