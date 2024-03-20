@@ -92,7 +92,7 @@ int main(string arg)
 			int item_convert_count = item->query_convert_count();
 			int item_convert_limit = item->query_convert_limit();
 			if(flag == 2 || flag == 3 || flag ==4 || flag==5){
-				if(attri_num>=10){
+				if(attri_num>=11){
 					s += "增强失败！此物品已经无法再增加更多的属性\n"; 
 					s += "[返回:convert_equip_list]\n";
 					s += "[返回游戏:look]\n";
@@ -134,9 +134,9 @@ int main(string arg)
 						ran=50;//15%的几率成功
 						break;
 					case 9:
-						ran=30;//5%的几率成功
+						ran=20;//2%的几率成功
 						break;
-					case 10://1%的几率成功
+					case 10://1%的几率成功，从第10级往第11级冲的概率为0.3%
 						ran=3;
 						break;
 				}

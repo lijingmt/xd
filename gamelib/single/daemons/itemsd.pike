@@ -716,20 +716,41 @@ private int get_item_level(int level)
 		}
 	}
 }
-string get_item_prefix(int level){
+float get_item_rate_add(int level){
+	float ret=1.0;
+	switch(level){
+		case 71..80:
+			ret=1.1;
+			break;
+		case 81..90:
+			ret=1.3;
+			break;
+		case 91..100:
+			ret=1.5;
+			break;
+		case 101..:
+			ret=1.7;
+			break;
+	}
+	return ret;
+}
+string get_item_name_prefix(int level){
 	string ret="";
 	switch(level){
 		case 71..80:
-			ret="【修】";
+			ret="欲界-";
 			break;
 		case 81..90:
-			ret="【禅】";
+			ret="色界-";
 			break;
 		case 91..100:
-			ret="【禅】";
+			ret="无色界-";
 			break;
-
+		case 101..:
+			ret="离三界-";
+			break;
 	}
+	//werror("========get_item_name_prefixret:"+ret+"\n");
 	return ret;
 }
 //内部接口，被get_item()调用，为物品掉落的核心算法，主要完成下面几件事：
@@ -766,6 +787,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		}
 		rate=((float)(orginal_level+difference))/(float)orginal_level;//增加武器属性的增长率
 	}
+	rate=rate*get_item_rate_add(target_item_level);//设置几个等级的门槛，跨过去了有加成1.1 1.3 1.5 1.7
 	werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
 
@@ -805,7 +827,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 				werror("something wrong with attri in get_attributes_item()\n");
 			}
 		}
-		writetmp+="    name_cn=query_rare_level()+name_cn;\n}";
+		writetmp+="    name_cn=query_rare_level()+\""+get_item_name_prefix(target_item_level)+"\"+name_cn;\n}";
 		//werror("=====add attri:\n"+writetmp+"\n");
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		//orgitem="/weapon/70shelingzhang/70shelingzhang";
@@ -824,6 +846,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		}
 		else{ //如果不存在，则要做很多麻烦的事情
 			//生成新的物品文件数据
+			werror("============writetmp:\n"+writetmp+"\n");
 			string orgfile=Stdio.read_file(ITEM_PATH+orgitem);
 			if(orgfile&&sizeof(orgfile)) {
 				array(string) orgfilelines=orgfile/"\n";
@@ -1025,7 +1048,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					}
 					
 				}
-				//werror("====:\n"+writeback+"\n");
+				werror("====:\n"+writeback+"\n");
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
 				//从写回的文件中clone一个该物品返回

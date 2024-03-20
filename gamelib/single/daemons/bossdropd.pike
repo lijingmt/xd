@@ -108,12 +108,17 @@ string get_org_converted_level(string orgitem,int boss_level){
 			orgfilelines-=({""});
 			int sizelines=sizeof(orgfilelines);
 
-
+			array(string) aocao_color=({"yellow","red","blue"});
 			//写回到文件
 			for(int k=0; k<sizelines; k++) {
 				// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 				if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
 					writeback+="    set_item_canLevel("+boss_level+");\n"; //设置新物品的的穿戴等级
+					int aocao_num=random(3)+1;//生成1-3的数字
+					if(random(1000)<2)	aocao_num=4;	
+					if(random(10000)<2)	aocao_num=5;			
+					writeback+="    set_aocao_max(\""+aocao_color[random(sizeof(aocao_color))]+"\","+aocao_num+");\n"; //设置新物品的的穿戴等级
+
 					continue;					
 				}else
 				if(rate>1 && search(orgfilelines[k],"set_equip_defend")!=-1){
