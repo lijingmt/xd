@@ -1434,19 +1434,21 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			}
 			////////////////加上被攻击者防御计算得到最终物理伤害值attack_a/////////////////////
 			defend = enemy->query_defend_power();
-
+			
+			
 			int division = this_object()->query_level()*120;//重新启用这个算法；
 			if(this_object()->query_level()<70){
-				division=8000;
+				division=8000;//保持之前的默认值
 			}
-			//werror("=======================division:"+division+"\n");
+			string u_profe = this_object()->query_profeId();
+			if(u_profe=="yinggui"){//对影鬼的物理攻击加以修正，对方的防御分母扩大4倍，一般对方都有1万多防御
+			//由于法师的魔法伤害是在此之后额外加的，多以对影鬼等物理攻击的职业做了加成。
+				division=this_object()->query_level()*450;
+				//werror("===========wuyaoxiuzheng:\n");
+			}
+			//werror("=======================division:"+division+" u_profe:"+u_profe+"\n");
 			//werror("=======================enemy defend:"+defend+"\n");
-			//int division = 8000;//此处有一个bug，如果defend大于8000的话，可能会出现负值需要修正
-			//加入对分母的修正，如果防御总值大于分母默认8000，则总的分母始终是总防御的1.1倍，也就是说，免伤最大只能防御90%左右的伤害
-			/*if(division<=defend){
-				division=defend*105/100;
-			}*/
-			//免伤修正结束，如果未来有问题，再调整
+			
 			attack_a = (total_attack - (int)(defend*total_attack)/division);
 			if(name_skill && skill_name_cn != "" && name_skill != "xueranjiangshan" && name_skill != "xueranjiangshan2") 
 				attack_a = attack_a*3/2;//为了玩家能够接受，技能攻击加强1.5倍

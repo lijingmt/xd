@@ -77,7 +77,8 @@ string get_bossdrop_specitem(string boss_name)
 
 //获得原始物品的升级等级的，升级属性的物品
 string get_org_converted_level(string orgitem,int boss_level){
-
+		//orgitem="jewelry/49xingmangzhihuan";
+		//werror("================orgitem:"+orgitem+"\n");
 		//以下则处理比较麻烦的生成物品流程
 		object ob=0;
 		int org_level=boss_level;
