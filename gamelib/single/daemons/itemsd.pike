@@ -347,13 +347,15 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 
 	if(npclevel>73){
 		itemlevel=get_item_level(random(63)+10);//支持超过73以上的装备，如果超过70级按照10-73级的装备模板区随机选一个级别的装备，作为原始模板
+		//werror("=========itemlevel:"+itemlevel+"\n");
 		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
 		b=35;//极品10万分之4
+		pro = 50000;//掉率为50%
 	}
 
 	//在gamelib/data/orgItems.list表中，73级的装备为洞穴装备，洞穴装备的掉率为80%
 	if(itemlevel>=73){
-		pro = 80000;
+		pro = 50000;//掉率为50%，由于现在是动态npc掉率设置为50%
 	}
 	if(npclevel <= 10)
 		pro = 20000;
@@ -364,7 +366,9 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 		if(!itemsallow){
 			return 0;
 		}
+		
 		item_rawname=itemsallow[random(sizeof(itemsallow))]; //在这里获得了白色物品的名字
+		werror("============item_rawname:"+item_rawname+"\n");
 		//判断掉落的物品是否有属性
 		//掉落的属性概率xxxxxxxxxxx
 		int seven = (int)(120-a*2+playerluck*b*0.01);
@@ -846,7 +850,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		}
 		else{ //如果不存在，则要做很多麻烦的事情
 			//生成新的物品文件数据
-			werror("============writetmp:\n"+writetmp+"\n");
+			//werror("============writetmp:\n"+writetmp+"\n");
 			string orgfile=Stdio.read_file(ITEM_PATH+orgitem);
 			if(orgfile&&sizeof(orgfile)) {
 				array(string) orgfilelines=orgfile/"\n";
@@ -1048,7 +1052,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					}
 					
 				}
-				werror("====:\n"+writeback+"\n");
+				//werror("====:\n"+writeback+"\n");
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
 				//从写回的文件中clone一个该物品返回
