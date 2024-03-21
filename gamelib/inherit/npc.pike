@@ -719,7 +719,7 @@ void fight_die_single(object env)
 				exp_gain = 0;
 			}
 		}else
-		if(melevel>=100  && melevel<200){
+		if(melevel>=100  && melevel<120){
 			if(first->all_fee>=500)
 				;
 			else{
@@ -730,15 +730,20 @@ void fight_die_single(object env)
 			}
 		}
 		else
-		if(melevel>=200){
-			if(first->all_fee>=1000)
+		if(melevel>=108){
+			//等级超过120级封顶，以后有需要再扩充。
+			/*if(first->all_fee>=1000)
 				;
 			else{
 				string tipsvip = "";
 				tipsvip += "等级超过200级，累计捐赠1000元，才可以继续获得经验值\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
-			}
+			}*/
+			string tipsvip = "";
+			tipsvip += "等级超过120级满级，无法继续获得经验了。\n";
+			tell_object(first,tipsvip);
+			exp_gain = 0;
 		}
 		int szx=0;                                                                                                                  
 		string bs_tips = "";
