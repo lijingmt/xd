@@ -741,7 +741,7 @@ void fight_die_single(object env)
 				exp_gain = 0;
 			}*/
 			string tipsvip = "";
-			tipsvip += "等级超过120级满级，无法继续获得经验了。\n";
+			tipsvip += "等级超过108级满级，无法继续获得经验了。\n";
 			tell_object(first,tipsvip);
 			exp_gain = 0;
 		}

@@ -346,7 +346,7 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 	int itemlevel=get_item_level(npclevel); //调用了获得物品等级的接口
 
 	if(npclevel>73){
-		itemlevel=get_item_level(73);//支持超过73以上的装备，如果超过70级按照70级的装备模板区增量增加
+		itemlevel=get_item_level(random(63)+10);//支持超过73以上的装备，如果超过70级按照10-73级的装备模板区随机选一个级别的装备，作为原始模板
 		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
 		b=35;//极品10万分之4
 	}
