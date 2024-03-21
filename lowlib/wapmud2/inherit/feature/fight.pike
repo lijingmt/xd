@@ -1435,7 +1435,12 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			////////////////加上被攻击者防御计算得到最终物理伤害值attack_a/////////////////////
 			defend = enemy->query_defend_power();
 
-			int division = this_object()->query_level()*100;//重新启用这个算法；
+			int division = this_object()->query_level()*120;//重新启用这个算法；
+			if(this_object()->query_level()<70){
+				division=8000;
+			}
+			//werror("=======================division:"+division+"\n");
+			//werror("=======================enemy defend:"+defend+"\n");
 			//int division = 8000;//此处有一个bug，如果defend大于8000的话，可能会出现负值需要修正
 			//加入对分母的修正，如果防御总值大于分母默认8000，则总的分母始终是总防御的1.1倍，也就是说，免伤最大只能防御90%左右的伤害
 			/*if(division<=defend){

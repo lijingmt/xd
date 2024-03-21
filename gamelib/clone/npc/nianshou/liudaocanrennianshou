@@ -5,10 +5,10 @@ void create(){
 	name=object_name(this_object());
 	_boss=1;
 	_flushtime=36000;
-	name_cn="【六道】残忍年兽";
+	name_cn="【六道】残忍年兽鱼";
 	desc="头长触角，凶残异常\n";
 	set_raceId("third");
-	set_profeId("beast");
+	set_profeId("fish");
 	picture="nianshou";
 	_npcLevel=50;
 	set_base_think(300);
