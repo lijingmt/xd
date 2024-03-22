@@ -104,7 +104,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 			int difference=boss_level-org_level;//生成目标装备等级和原始装备的等级之差
 			if(difference<0) difference=0;
 			else{
-				difference=random(difference+difference+difference);//随机增长率，最大可以达到差额的增长率
+				difference=random(difference+difference);//随机增长率，最大可以达到差额的增长率
 			}
 			rate=((float)(org_level+difference))/(float)org_level;//增加武器属性的增长率
 		}
@@ -126,13 +126,23 @@ string get_org_converted_level(string orgitem,int boss_level){
 					int aocao_num=random(3)+1;//生成1-3的数字
 					if(random(1000)<2)	aocao_num=4;	
 					if(random(10000)<2)	aocao_num=5;
-					if(search(orgfile,"set_color(")==-1)//宝石类的不能打孔			
+					if(random(100)>50 && search(orgfile,"set_color(")==-1 && search(orgfile,"set_aocao_max")==-1)//宝石类的不能打孔，如果装备已经有凹槽，则不在这里设置凹槽			
 						writeback+="    set_aocao_max(\""+aocao_color[random(sizeof(aocao_color))]+"\","+aocao_num+");\n"; //设置新物品的的穿戴等级
 
 					continue;					
 				}else if(rate>1 && search(orgfilelines[k],"picture=name")!=-1 &&item_pinyin_name){
 					werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
 					writeback+="    picture=\""+item_pinyin_name+"\";\n";
+				}else if(rate>1 &&search(orgfilelines[k],"set_aocao_max")!=-1 ){
+					int aocao_num=random(3)+1;//生成1-3的数字
+					if(random(1000)<2)	aocao_num=4;	
+					if(random(10000)<2)	aocao_num=5;
+					if(search(orgfile,"set_color(")==-1){//判断不是宝石类的
+						writeback+="    set_aocao_max(\""+aocao_color[random(sizeof(aocao_color))]+"\","+aocao_num+");\n"; //设置新物品的的穿戴等级
+					}
+					else{
+						writeback+=orgfilelines[k]+"\n";
+					}
 				}else
 				if(rate>1 && search(orgfilelines[k],"set_equip_defend")!=-1){
 					int set_equip_defend=0;
