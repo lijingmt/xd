@@ -9,6 +9,7 @@ void create(){
 	desc="\n";
 	add_items(({ROOT "/gamelib/clone/npc/nianshou/canrennianshou"}));
 	add_items(({ROOT "/gamelib/clone/npc/nianshou/liudaocanrennianshou"}));
+	add_items(({ROOT "/gamelib/clone/npc/nianshou/wusejiecanrennianshou"}));
 }
 string query_links(){
 	object player=this_player();

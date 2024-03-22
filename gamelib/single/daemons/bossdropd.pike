@@ -126,8 +126,8 @@ string get_org_converted_level(string orgitem,int boss_level){
 					int aocao_num=random(3)+1;//生成1-3的数字
 					if(random(1000)<2)	aocao_num=4;	
 					if(random(10000)<2)	aocao_num=5;
-					if(search(orgfile,"set_color(")==-1)			
-					writeback+="    set_aocao_max(\""+aocao_color[random(sizeof(aocao_color))]+"\","+aocao_num+");\n"; //设置新物品的的穿戴等级
+					if(search(orgfile,"set_color(")==-1)//宝石类的不能打孔			
+						writeback+="    set_aocao_max(\""+aocao_color[random(sizeof(aocao_color))]+"\","+aocao_num+");\n"; //设置新物品的的穿戴等级
 
 					continue;					
 				}else if(rate>1 && search(orgfilelines[k],"picture=name")!=-1 &&item_pinyin_name){
@@ -306,6 +306,28 @@ string get_org_converted_level(string orgitem,int boss_level){
 					if(set_dusu_defend_add){
 						set_dusu_defend_add=(int)(set_dusu_defend_add*rate);
 						writeback+="    set_dusu_defend_add("+set_dusu_defend_add+");\n";
+					}else{
+						writeback+=orgfilelines[k]+"\n";
+					}						
+				}	
+				else if(rate>1 &&search(orgfilelines[k],"set_mofa_all_add")!=-1){
+					int set_mofa_all_add=0;
+					string nothing;
+					sscanf(orgfilelines[k],"%sset_mofa_all_add(%d);",nothing,set_mofa_all_add);
+					if(set_mofa_all_add){
+						set_mofa_all_add=(int)(set_mofa_all_add*rate);
+						writeback+="    set_mofa_all_add("+set_mofa_all_add+");\n";
+					}else{
+						writeback+=orgfilelines[k]+"\n";
+					}						
+				}
+				else if(rate>1 &&search(orgfilelines[k],"set_attack_all_add")!=-1){
+					int set_attack_all_add=0;
+					string nothing;
+					sscanf(orgfilelines[k],"%sset_attack_all_add(%d);",nothing,set_attack_all_add);
+					if(set_attack_all_add){
+						set_attack_all_add=(int)(set_attack_all_add*rate);
+						writeback+="    set_attack_all_add("+set_attack_all_add+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";
 					}						
