@@ -183,6 +183,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 					sscanf(orgfilelines[k],"%sset_dodge_add(%d);",nothing,set_dodge_add);
 					if(set_dodge_add){
 						set_dodge_add=(int)(set_dodge_add*rate);
+						if(set_dodge_add>=20)set_dodge_add=20;//闪避最大20
 						writeback+="    set_dodge_add("+set_dodge_add+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";
@@ -205,6 +206,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 					sscanf(orgfilelines[k],"%sset_doub_add(%d);",nothing,set_doub_add);
 					if(set_doub_add){
 						set_doub_add=(int)(set_doub_add*rate);
+						if(set_doub_add>=20)set_doub_add=20;//暴击最大提高20%
 						writeback+="    set_doub_add("+set_doub_add+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";
@@ -260,6 +262,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 					sscanf(orgfilelines[k],"%sset_hitte_add(%d);",nothing,set_hitte_add);
 					if(set_hitte_add){
 						set_hitte_add=(int)(set_hitte_add*rate);
+						if(set_hitte_add>=20)set_hitte_add=20;//命中率极限20%
 						writeback+="    set_hitte_add("+set_hitte_add+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";

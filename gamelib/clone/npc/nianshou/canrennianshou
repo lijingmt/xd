@@ -14,7 +14,7 @@ void create(){
 	set_base_think(100);
 	set_base_dex(200);
 	set_base_str(150);
-	set_base_life(300000);
+	set_base_life(1);
 	this_object()->query_life_max();
 	set_base_baoji(8);
 	set_base_hitte(20);

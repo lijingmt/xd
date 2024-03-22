@@ -788,12 +788,13 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		if(difference<0) difference=0;
 		else{
 			if(orginal_level<=65)
-				difference=random(difference);//原始装备小于65的话，增长率保持线性
+				difference=random(difference);//原始装备小于65的话，增长率保持线性增长
 			else{
 				difference=random(difference+difference);//随机增长率，最大可以达到差额的增长率
 			}		
 		}
 		rate=((float)(orginal_level+difference))/(float)orginal_level;//增加武器属性的增长率
+
 	}
 	rate=rate*get_item_rate_add(target_item_level);//设置几个等级的门槛，跨过去了有加成1.1 1.3 1.5 1.7
 	werror("=========rate:"+rate+"\n");
@@ -943,6 +944,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						sscanf(orgfilelines[k],"%sset_dodge_add(%d);",nothing,set_dodge_add);
 						if(set_dodge_add){
 							set_dodge_add=(int)(set_dodge_add*rate);
+							if(set_dodge_add>=20)set_dodge_add=20;//闪避最大20
 							writeback+="    set_dodge_add("+set_dodge_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
@@ -964,6 +966,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						sscanf(orgfilelines[k],"%sset_doub_add(%d);",nothing,set_doub_add);
 						if(set_doub_add){
 							set_doub_add=(int)(set_doub_add*rate);
+							if(set_doub_add>=20)set_doub_add=20;//暴击最大提高20%
 							writeback+="    set_doub_add("+set_doub_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
@@ -1019,6 +1022,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						sscanf(orgfilelines[k],"%sset_hitte_add(%d);",nothing,set_hitte_add);
 						if(set_hitte_add){
 							set_hitte_add=(int)(set_hitte_add*rate);
+							if(set_hitte_add>=20)set_hitte_add=20;//命中率极限20%
 							writeback+="    set_hitte_add("+set_hitte_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
