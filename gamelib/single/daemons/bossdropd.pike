@@ -80,6 +80,14 @@ string get_org_converted_level(string orgitem,int boss_level){
 		//orgitem="jewelry/49xingmangzhihuan";
 		//werror("================orgitem:"+orgitem+"\n");
 		//以下则处理比较麻烦的生成物品流程
+		string item_pinyin_name=0;
+		mixed err1=catch{
+			item_pinyin_name=(orgitem/"/")[1];
+		};
+		if(err1){
+			item_pinyin_name=0;
+		}
+		
 		object ob=0;
 		int org_level=boss_level;
 		mixed err= catch{ob=clone(ITEM_PATH+orgitem);};
@@ -91,7 +99,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 		}
 		string item_name=orgitem+"_c_"+random(100000)+"_"+boss_level;
 		werror("=========92 item_name:"+item_name+"\n");
-		float rate=1.0;// 计算50级以上装备的增长率，初始化为1
+		float rate=1.01;// 计算50级以上装备的增长率，初始化为1
 		if(org_level&&boss_level){
 			int difference=boss_level-org_level;//生成目标装备等级和原始装备的等级之差
 			if(difference<0) difference=0;
@@ -117,10 +125,14 @@ string get_org_converted_level(string orgitem,int boss_level){
 					writeback+="    set_item_canLevel("+boss_level+");\n"; //设置新物品的的穿戴等级
 					int aocao_num=random(3)+1;//生成1-3的数字
 					if(random(1000)<2)	aocao_num=4;	
-					if(random(10000)<2)	aocao_num=5;			
+					if(random(10000)<2)	aocao_num=5;
+					if(search(orgfile,"set_color(")==-1)			
 					writeback+="    set_aocao_max(\""+aocao_color[random(sizeof(aocao_color))]+"\","+aocao_num+");\n"; //设置新物品的的穿戴等级
 
 					continue;					
+				}else if(rate>1 && search(orgfilelines[k],"picture=name")!=-1 &&item_pinyin_name){
+					werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
+					writeback+="    picture=\""+item_pinyin_name+"\";\n";
 				}else
 				if(rate>1 && search(orgfilelines[k],"set_equip_defend")!=-1){
 					int set_equip_defend=0;

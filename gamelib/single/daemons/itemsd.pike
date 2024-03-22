@@ -851,6 +851,14 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		else{ //如果不存在，则要做很多麻烦的事情
 			//生成新的物品文件数据
 			//werror("============writetmp:\n"+writetmp+"\n");
+			string item_pinyin_name=0;//获得装备的原始拼音名字，为了设置图片
+			mixed err1=catch{
+				item_pinyin_name=(orgitem/"/")[1];
+			};
+			if(err1){
+				item_pinyin_name=0;
+			}
+			werror("==========pinname:"+item_pinyin_name+"\n");
 			string orgfile=Stdio.read_file(ITEM_PATH+orgitem);
 			if(orgfile&&sizeof(orgfile)) {
 				array(string) orgfilelines=orgfile/"\n";
@@ -1045,6 +1053,9 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						}else{
 							writeback+=orgfilelines[k]+"\n";
 						}						
+					}else if(rate>1 && search(orgfilelines[k],"picture=name")!=-1 &&item_pinyin_name){
+						werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
+						writeback+="    picture=\""+item_pinyin_name+"\";\n";
 					}
 					else{
 						//werror("===============nothing found in file setup default:"+orgfilelines[k]+"\n");
@@ -1052,6 +1063,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					}
 					
 				}
+				//werror("====item_name:\n"+item_name+"\n");
 				//werror("====:\n"+writeback+"\n");
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
