@@ -788,8 +788,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		if(difference<0) difference=0;
 		else{
 			if(orginal_level<=65)
-				difference=random(difference);//原始装备小于65的话，增长率保持线性增长、
-				difference=difference/5;
+				difference=random(difference);//原始装备小于65的话，增长率保持线性
 			else{
 				difference=random(difference+difference);//随机增长率，最大可以达到差额的增长率
 			}		
