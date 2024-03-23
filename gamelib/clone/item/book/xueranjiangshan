@@ -9,8 +9,8 @@ void create(){
 	desc="疯狂到不要命的地步，消耗自己生命给对方以重创\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
-	set_item_canTrade(0);
-	set_item_canSend(0);
+	set_item_canTrade(1);
+	set_item_canSend(1);
 	set_item_canStorage(1);
 	value=1000;
 	skill_bname="xueranjiangshan";

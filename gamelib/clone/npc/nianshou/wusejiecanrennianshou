@@ -19,7 +19,7 @@ void create(){
 	set_base_baoji(8);
 	set_base_hitte(20);
 	set_base_dodge(2);//½µµÍÉÁ±Ü
-	//set_all_mofa_defend_add(50);
+	set_all_mofa_defend_add(50);
 	setup_npc();
 	set_heart_beat(1);
 }
