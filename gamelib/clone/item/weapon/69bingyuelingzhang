@@ -39,4 +39,5 @@ void create(){
 	set_attack_bingshuang_add(48);
 	set_aocao_max("yellow",1);
 	set_aocao_max("blue",2);
+	set_mofachuantou_add(98);
 }

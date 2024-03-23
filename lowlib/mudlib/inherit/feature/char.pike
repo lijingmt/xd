@@ -1505,6 +1505,34 @@ int query_equip_add(string arg){
 				}
 			}
 		break;
+		case "wulichuantou_add": //物理穿透，一点穿透，就无视一点物理防御
+			foreach(indices(equip),string s){                                                       
+				object ob=equip[s];
+				if(ob&&ob->item_cur_dura>0){
+					power+=ob->query_wulichuantou_add();
+					if(ob->query_if_aocao("all")&&ob->query_baoshi("all")){
+						foreach(ob->query_baoshi("all"),object tmp){
+							 power+=tmp->query_wulichuantou_add();
+						}
+					}
+				}
+			}
+			
+		break;
+		case "mofachuantou_add": //物理穿透，一点穿透，就无视一点物理防御
+			foreach(indices(equip),string s){                                                       
+				object ob=equip[s];
+				if(ob&&ob->item_cur_dura>0){
+					power+=ob->query_mofachuantou_add();
+					if(ob->query_if_aocao("all")&&ob->query_baoshi("all")){
+						foreach(ob->query_baoshi("all"),object tmp){
+							 power+=tmp->query_mofachuantou_add();
+						}
+					}
+				}
+			}
+			
+		break;
 		default :
 		return 0;
 	}

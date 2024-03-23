@@ -67,6 +67,14 @@ void set_hitte_add(int a){ hitte_add=a;}
 private int doub_add=0;//附加暴击
 int query_doub_add(){ return doub_add;}
 void set_doub_add(int a){ doub_add=a;}
+//新属性2024//////////////////////////////////
+private int wulichuantou_add=0;//物品增加物理穿透，1点就穿透1点伤害，不按照百分比走
+int query_wulichuantou_add(){ return wulichuantou_add;}
+void set_wulichuantou_add(int a){ wulichuantou_add=a;}
+
+private int mofachuantou_add=0;//法术穿透，1点就穿透1点伤害，不按照百分比走
+int query_mofachuantou_add(){ return mofachuantou_add;}
+void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 
 //新属性0121//////////////////////////////////
 private int all_add=0;//物品附加全属性
@@ -331,6 +339,8 @@ string query_content(){
 	if(ob->fengren_defend_add) r+="风刃抗性增加 "+ob->fengren_defend_add+"点\n";
 	if(ob->dusu_defend_add) r+="毒素抗性增加 "+ob->dusu_defend_add+"点\n";
 	if(ob->all_mofa_defend_add) r+="全法术抗性增加 "+ob->all_mofa_defend_add+"点\n";
+	if(ob->wulichuantou_add) r+="全物理穿透 "+ob->wulichuantou_add+"点\n";
+	if(ob->mofachuantou_add) r+="全法术穿透 "+ob->mofachuantou_add+"点\n";
 
 	//宝石
 	if(ob->query_baoshi("blue")){

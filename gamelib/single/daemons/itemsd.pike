@@ -1082,6 +1082,27 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						}else{
 							writeback+=orgfilelines[k]+"\n";
 						}						
+					}else if(rate>1 &&search(orgfilelines[k],"set_wulichuantou_add")!=-1){
+						int set_wulichuantou_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_wulichuantou_add(%d);",nothing,set_wulichuantou_add);
+						if(set_wulichuantou_add){
+							set_wulichuantou_add=(int)(set_wulichuantou_add*rate);
+							writeback+="    set_wulichuantou_add("+set_wulichuantou_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
+					else if(rate>1 &&search(orgfilelines[k],"set_mofachuantou_add")!=-1){
+						int set_mofachuantou_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_mofachuantou_add(%d);",nothing,set_mofachuantou_add);
+						if(set_mofachuantou_add){
+							set_mofachuantou_add=(int)(set_mofachuantou_add*rate);
+							writeback+="    set_mofachuantou_add("+set_mofachuantou_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
 					}else if(rate>1 && search(orgfilelines[k],"picture=name")!=-1 &&item_pinyin_name){
 						werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
 						writeback+="    picture=\""+item_pinyin_name+"\";\n";

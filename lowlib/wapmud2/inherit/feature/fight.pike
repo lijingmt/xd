@@ -517,6 +517,7 @@ void perform(string name,void|int flag){
 				int mofa_a=0; //取得法术攻击的随即值
 				int mofa_defend=0; //敌人的魔法抗性
 				int fact_mofa_a=0; //最终的法术伤害
+				int mofachuantou_add=0;//魔法穿透值
 				if(s_cold <= 1){
 					this_object()->timeCold = 2;
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
@@ -570,8 +571,11 @@ void perform(string name,void|int flag){
 							break;
 						}
 						mofa_defend += enemy->query_equip_add("all_mofa_defend");
+						//计算装备所有的魔法穿透值
+						mofachuantou_add=this_object()->query_equip_add("mofachuantou_add");
 						//最后获得实际的魔法伤害值
 						fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
+						fact_mofa_a+=mofachuantou_add;//增加魔法穿透的攻击数值到最重结果中
 						//判断暴击
 						int b = this_object()->query_if_baoji();
 						s += "你施放了"+f_cur_skill->query_name_cn()+"(等级"+skill_level+")";
@@ -619,8 +623,13 @@ void perform(string name,void|int flag){
 								enemy->clean_buff("buff2");
 							}
 						}
-						s += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+"\n";
-						s1 += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+"\n";
+						//如果魔法穿透大于零，则要在前端提示给玩家
+						string chuantou_desc = "";
+						if(mofachuantou_add>0){
+							chuantou_desc = "【"+mofachuantou_add+" 点法术穿透】";
+						}
+						s += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+chuantou_desc+"\n";
+						s1 += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+chuantou_desc+"\n";
 						tell_object(this_object(),s);
 						tell_object(enemy,s1);
 
@@ -1448,8 +1457,10 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			}
 			//werror("=======================division:"+division+" u_profe:"+u_profe+"\n");
 			//werror("=======================enemy defend:"+defend+"\n");
-			
+			//新增加的属性 物理穿透，无视防御，直接加载最终结果上
+			int wulichuantou_add=this_object()->query_equip_add("wulichuantou_add");
 			attack_a = (total_attack - (int)(defend*total_attack)/division);
+			attack_a+=wulichuantou_add;//增加物理穿透
 			if(name_skill && skill_name_cn != "" && name_skill != "xueranjiangshan" && name_skill != "xueranjiangshan2") 
 				attack_a = attack_a*3/2;//为了玩家能够接受，技能攻击加强1.5倍
 			//技能的伤害百分比buff在这儿添加，由liaocheng于080827添加
@@ -1525,7 +1536,11 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 					enemy->clean_buff("buff2");
 				}
 			}
-
+			//如果物理穿透大于零，则要在前端提示给玩家
+			string chuantou_desc = "";
+			if(wulichuantou_add>0){
+				chuantou_desc = "【"+wulichuantou_add+" 点物理穿透】";
+			}
 			//在这里产生威胁值
 			int hate=(int)(attack_a*skills_hate["test"]/100);
 			enemy->flush_targets(this_object(),hate);
@@ -1534,25 +1549,25 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			////////////////////////战斗描述///////////////////////////////////////////////
 			if(baoji_a==1) {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					skills_level_check(name_skill);
 				}
 			}
 			else {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
 					//tell_object(enemy,this_object()->query_name_cn()+"紧握"+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					if(name_skill != "xueranjiangshan")
 						skills_level_check(name_skill);
