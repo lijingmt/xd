@@ -1533,6 +1533,20 @@ int query_equip_add(string arg){
 			}
 			
 		break;
+		case "dodgechuantou_add": //闪避穿透，一点就是1% 最大20%
+			foreach(indices(equip),string s){                                                       
+				object ob=equip[s];
+				if(ob&&ob->item_cur_dura>0){
+					power+=ob->query_dodgechuantou_add();
+					if(ob->query_if_aocao("all")&&ob->query_baoshi("all")){
+						foreach(ob->query_baoshi("all"),object tmp){
+							 power+=tmp->query_dodgechuantou_add();
+						}
+					}
+				}
+			}
+			if(power>20)power=20;//最大无视闪避20%			
+		break;
 		default :
 		return 0;
 	}

@@ -333,7 +333,7 @@ static private string view_something_zhuangbei(function filter_func,string list,
 						if(showPrice)
 							strlist+="("+MUD_MONEYD->query_store_money_cn(items[i]->query_item_canLevel()*50/4)+")";
 						else if(items[i]->query_item_canLevel())
-							strlist+="("+items[i]->query_item_canLevel()+"级)";
+							strlist+="("+(items[i]->query_item_canLevel()>0?items[i]->query_item_canLevel():"无等")+"级)";
 						strlist+=":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
 						name_count[items[i]->query_name()]++;
 					}
@@ -342,7 +342,7 @@ static private string view_something_zhuangbei(function filter_func,string list,
 						if(showPrice)
 							out_no_equip += "("+MUD_MONEYD->query_store_money_cn(items[i]->query_item_canLevel()*50/4)+")";
 						else if(items[i]->query_item_canLevel())
-							out_no_equip += "("+items[i]->query_item_canLevel()+"级)";
+							out_no_equip += "("+(items[i]->query_item_canLevel()>0?items[i]->query_item_canLevel():"无等")+"级)";
 						out_no_equip+=":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
 						name_count[items[i]->query_name()]++;
 					}
@@ -524,7 +524,7 @@ static private string view_something_zhuangbei_sell(function filter_func,string 
 						if(showPrice)
 							out_no_equip+="("+MUD_MONEYD->query_store_money_cn(items[i]->query_item_canLevel()*50/4)+")";
 						else if(items[i]->query_item_canLevel())
-							out_no_equip+="("+items[i]->query_item_canLevel()+"级)";
+							out_no_equip+="("+(items[i]->query_item_canLevel()>0?items[i]->query_item_canLevel():"无等")+"级)";
 						out_no_equip+=":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
 						name_count[items[i]->query_name()]++;
 					}
@@ -727,7 +727,7 @@ static private string view_something_home_shop(function filter_func,string list,
 						if(showPrice)
 							out_no_equip+="("+MUD_MONEYD->query_store_money_cn(items[i]->query_item_canLevel()*50/4)+")";
 						else if(items[i]->query_item_canLevel())
-							out_no_equip+="("+items[i]->query_item_canLevel()+"级)";
+							out_no_equip+="("+(items[i]->query_item_canLevel()>0?items[i]->query_item_canLevel():"无等")+"级)";
 						out_no_equip+=":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+" "+shopId+"]\n";
 						name_count[items[i]->query_name()]++;
 					}
@@ -991,7 +991,7 @@ static private string view_something_trade_zhuangbei(function filter_func,string
 					else{
 						out_no_equip+="["+items[i]->query_short();
 						if(items[i]->query_item_canLevel())
-							out_no_equip+="("+items[i]->query_item_canLevel()+"级)";
+							out_no_equip+="("+(items[i]->query_item_canLevel()>0?items[i]->query_item_canLevel():"无等")+"级)";
 						out_no_equip+=":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
 						name_count[items[i]->query_name()]++;
 					}

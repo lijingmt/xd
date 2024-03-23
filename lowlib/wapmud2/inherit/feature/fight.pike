@@ -1374,6 +1374,13 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 		//闪避计算：计算被攻击者的闪避率+装备的闪避	
 		int dodge_e = enemy->query_if_dodge();
 		//只有被攻击者未能闪避，才需要进行下一步计算
+		int dodgechuantou_add=this_object()->query_equip_add("dodgechuantou_add");
+		//当被闪避掉以后，则判断是否无视闪避，计算闪避穿透的值，如果随机到几率 则重置闪避
+		string dodgechuantou_desc="";
+		if(dodge_e==1 && dodgechuantou_add>0 && random(100)<=dodgechuantou_add){
+			dodge_e=0;//虽然躲掉了，但又被拉回来了，因为无视闪避生效。
+			dodgechuantou_desc="\n(闪避穿透生效，无视对方闪避技能，你的攻击命中 【"+enemy->query_name_cn()+"】)\n";
+		}
 		if(dodge_e==0){
 
 			//在这里添加武器的魔法伤害附加
@@ -1549,25 +1556,25 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			////////////////////////战斗描述///////////////////////////////////////////////
 			if(baoji_a==1) {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					skills_level_check(name_skill);
 				}
 			}
 			else {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//tell_object(enemy,this_object()->query_name_cn()+"紧握"+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_a+"点伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					if(name_skill != "xueranjiangshan")
 						skills_level_check(name_skill);

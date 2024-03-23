@@ -122,7 +122,13 @@ string get_org_converted_level(string orgitem,int boss_level){
 			for(int k=0; k<sizelines; k++) {
 				// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 				if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
-					writeback+="    set_item_canLevel("+boss_level+");\n"; //设置新物品的的穿戴等级
+					if(random(10000)<=1){
+						//万分之2的几率出现无等级需求的装备
+						writeback+="    set_item_canLevel(-1);\n"; //设置新物品的的穿戴等级
+					}else{
+						writeback+="    set_item_canLevel("+boss_level+");\n"; //设置新物品的的穿戴等级
+					}
+					
 					int aocao_num=random(3)+1;//生成1-3的数字
 					if(random(1000)<2)	aocao_num=4;	
 					if(random(10000)<2)	aocao_num=5;
@@ -366,6 +372,17 @@ string get_org_converted_level(string orgitem,int boss_level){
 						writeback+=orgfilelines[k]+"\n";
 					}						
 				}
+				else if(rate>1 &&search(orgfilelines[k],"set_dodgechuantou_add")!=-1){//闪避属性扫描
+						int set_dodgechuantou_add=0;
+						string nothing;
+						sscanf(orgfilelines[k],"%sset_dodgechuantou_add(%d);",nothing,set_dodgechuantou_add);
+						if(set_dodgechuantou_add){
+							set_dodgechuantou_add=(int)(set_dodgechuantou_add*rate);
+							writeback+="    set_dodgechuantou_add("+set_dodgechuantou_add+");\n";
+						}else{
+							writeback+=orgfilelines[k]+"\n";
+						}						
+					}
 				else{
 					writeback+=orgfilelines[k]+"\n";
 				}

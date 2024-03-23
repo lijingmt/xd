@@ -76,6 +76,10 @@ private int mofachuantou_add=0;//法术穿透，1点就穿透1点伤害，不按照百分比走
 int query_mofachuantou_add(){ return mofachuantou_add;}
 void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 
+private int dodgechuantou_add=0;//闪避穿透，1点就是1%的几率无视对方闪避
+int query_dodgechuantou_add(){ return dodgechuantou_add;}
+void set_dodgechuantou_add(int a){ dodgechuantou_add=a;}
+
 //新属性0121//////////////////////////////////
 private int all_add=0;//物品附加全属性
 int query_all_add(){ return all_add;}
@@ -341,6 +345,7 @@ string query_content(){
 	if(ob->all_mofa_defend_add) r+="全法术抗性增加 "+ob->all_mofa_defend_add+"点\n";
 	if(ob->wulichuantou_add) r+="全物理穿透 "+ob->wulichuantou_add+"点\n";
 	if(ob->mofachuantou_add) r+="全法术穿透 "+ob->mofachuantou_add+"点\n";
+	if(ob->dodgechuantou_add) r+="闪避穿透 "+ob->dodgechuantou_add+"点\n";
 
 	//宝石
 	if(ob->query_baoshi("blue")){
