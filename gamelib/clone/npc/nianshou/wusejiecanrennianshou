@@ -12,13 +12,14 @@ void create(){
 	picture="nianshou";
 	_npcLevel=100;
 	set_base_think(300);
-	set_base_dex(100);
+	set_base_dex(20);//½µµÍÉÁ±Ü
 	set_base_str(70);
 	set_base_life(10000000);
 	this_object()->query_life_max();
 	set_base_baoji(8);
 	set_base_hitte(20);
-	set_base_dodge(6);
+	set_base_dodge(2);//½µµÍÉÁ±Ü
+	//set_all_mofa_defend_add(50);
 	setup_npc();
 	set_heart_beat(1);
 }
