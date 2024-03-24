@@ -721,7 +721,7 @@ private int get_item_level(int level)
 	}
 }
 float get_item_rate_add(int level){
-	float ret=1.0;
+	float ret=1.01;
 	switch(level){
 		case 71..80:
 			ret=1.1;
@@ -782,7 +782,8 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 	array(string) attri_allow=copy_value(item_attributes[orgitem]); //得到该物品允许出现的属性列表
 	object rtn_ob; //接口的返回
 	float rate=1.01;// 计算73以上装备的增长率，初始化为1
-	
+	werror("=====orginal_level "+orginal_level+"\n");
+	werror("=====target_item_level "+target_item_level+"\n");
 	if(target_item_level&&orginal_level){
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
@@ -794,6 +795,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			}		
 		}
 		rate=((float)(orginal_level+difference))/(float)orginal_level;//增加武器属性的增长率
+		if(rate==0) rate=1.01;
 
 	}
 	rate=rate*get_item_rate_add(target_item_level);//设置几个等级的门槛，跨过去了有加成1.1 1.3 1.5 1.7
@@ -950,7 +952,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						sscanf(orgfilelines[k],"%sset_dodge_add(%d);",nothing,set_dodge_add);
 						if(set_dodge_add){
 							set_dodge_add=(int)(set_dodge_add*rate);
-							if(set_dodge_add>=20)set_dodge_add=20;//闪避最大20
+							if(set_dodge_add>=8)set_dodge_add=8;//闪避最大20
 							writeback+="    set_dodge_add("+set_dodge_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";

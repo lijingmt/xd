@@ -189,7 +189,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 					sscanf(orgfilelines[k],"%sset_dodge_add(%d);",nothing,set_dodge_add);
 					if(set_dodge_add){
 						set_dodge_add=(int)(set_dodge_add*rate);
-						if(set_dodge_add>=20)set_dodge_add=20;//闪避最大20
+						if(set_dodge_add>=8)set_dodge_add=8;//闪避最大20
 						writeback+="    set_dodge_add("+set_dodge_add+");\n";
 					}else{
 						writeback+=orgfilelines[k]+"\n";
