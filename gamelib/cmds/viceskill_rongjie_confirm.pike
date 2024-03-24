@@ -28,6 +28,14 @@ int main(string arg)
 		s += "\n[返回:viceskill_rongjie_list]\n";
 	}
 	else if(flag == 1){
+		if(ob->query_item_canLevel()<0){
+			//装备等级为-1的，设置为无等级装备
+			s += "该装备是无等级的传家宝，不能溶解【无等级类】的装备\n";
+			s += "[返回:viceskill_rongjie_list]\n";
+			s += "[返回游戏:look]\n";
+			write(s);
+			return 1;
+		}
 		//获得熔解产物
 		int rare_level = ob->query_item_rareLevel();
 		if(ob->query_item_from() != "")

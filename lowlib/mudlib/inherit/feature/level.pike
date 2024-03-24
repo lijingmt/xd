@@ -47,7 +47,8 @@ int query_need_exp(){
 		rst = t_level*t_level*100*2+b_level*b_level*100;
 	}
 	else if((b_level>=10&&b_level<19)||(b_level>=20&&b_level<29)){
-		rst = t_level*t_level*100*2*(int)(t_level/9);
+		//rst = t_level*t_level*100*2*(int)(t_level/9);
+		rst = t_level*t_level*100*2;//新算法，29级前调简单点，新手入门快
 	}
 	else if(b_level==19||b_level==29){
 		rst = t_level*t_level*100*2*(int)(t_level/9)+b_level*9*100;
