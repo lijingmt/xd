@@ -1545,7 +1545,7 @@ int query_equip_add(string arg){
 					}
 				}
 			}
-			if(power>20)power=20;//最大无视闪避20%			
+			if(power>200)power=200;//最大无视闪避20%			
 		break;
 		default :
 		return 0;

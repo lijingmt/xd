@@ -1377,7 +1377,7 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 		int dodgechuantou_add=this_object()->query_equip_add("dodgechuantou_add");
 		//当被闪避掉以后，则判断是否无视闪避，计算闪避穿透的值，如果随机到几率 则重置闪避
 		string dodgechuantou_desc="";
-		if(dodge_e==1 && dodgechuantou_add>0 && random(100)<=dodgechuantou_add){
+		if(dodge_e==1 && dodgechuantou_add>0 && random(1000)<=dodgechuantou_add){//这里的闪避穿透是千分之几的基点
 			dodge_e=0;//虽然躲掉了，但又被拉回来了，因为无视闪避生效。
 			dodgechuantou_desc="\n(闪避穿透生效，无视对方闪避技能，你的攻击命中 【"+enemy->query_name_cn()+"】)\n";
 		}
