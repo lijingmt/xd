@@ -163,7 +163,7 @@ private mapping(string:array(mixed)) infancyMap = ([]);                      //n
 private mapping(int:int) timeDelay = ([1:0,3:3,7:5,]);		//物品出售期限及对应的所得税
 
 void create(){
-	werror("============== HOMED start  ===============\n");
+	//werror("============== HOMED start  ===============\n");
 	init_level();
 	init_area();
 	init_slot();
@@ -175,7 +175,7 @@ void create(){
 	init_shopRcmMap();
 	flush_shopRcm_list(1);
 	call_out(store_all_info,TIME_SAPCE);
-	werror("==============  HOMED end  ===============\n\n");
+	//werror("==============  HOMED end  ===============\n\n");
 }
 
 //读取店铺推荐列表到内存当中 08/11/18
@@ -215,7 +215,7 @@ void init_shopRcmMap(){
  */
 void init_level()
 {
-	werror("===== [home] start to init level  =====\n");
+	//werror("===== [home] start to init level  =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	int lv = 0;
@@ -246,7 +246,7 @@ void init_level()
 			levelTmp->homeNum = homeNum;
 			levelMap[lv] = levelTmp;
 		}
-		werror("===== [home] init level completed! =====\n");
+		//werror("===== [home] init level completed! =====\n");
 	}
 	return;
 }
@@ -255,7 +255,7 @@ void init_level()
  */
 void init_area()
 {
-	werror("===== [home] start to init area  =====\n");
+	//werror("===== [home] start to init area  =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	int id = 0;
@@ -291,7 +291,7 @@ void init_area()
 			areaTmp->speedUpList  = speedUp/","-({""});
 			areaMap[areaName] = areaTmp;
 		}
-		werror("===== [home] init area completed! =====\n");
+		//werror("===== [home] init area completed! =====\n");
 	}
 	return;
 }
@@ -301,7 +301,7 @@ void init_area()
  */
 void init_slot()
 {
-	werror("===== [home] start to init slot =====\n");
+	//werror("===== [home] start to init slot =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	int id = 0;
@@ -345,7 +345,7 @@ void init_slot()
                         slotMap[name] = slotTmp;
 		}
 	}
-	werror("===== [home] init slot completed! =====\n");
+	//werror("===== [home] init slot completed! =====\n");
 }
 
 /*
@@ -353,7 +353,7 @@ void init_slot()
  */
 void init_flat()
 {
-	werror("===== [home] start to init flat =====\n");
+	//werror("===== [home] start to init flat =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	int id = 0;
@@ -381,14 +381,14 @@ void init_flat()
                         flatMap[name] = flatTmp;
 		}
 	}
-	werror("===== [home] init flat completed! =====\n");
+	//werror("===== [home] init flat completed! =====\n");
 }
 /*
 方法描述：初始化【家园占用情况】列表 homeMap
  */
 void init_homeMap()
 {
-	werror("===== [home] start to init homeList =====\n");
+	//werror("===== [home] start to init homeList =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	string name = "";
@@ -423,7 +423,7 @@ void init_homeMap()
 			homeMap[name] = homeListTmp;
 		}
 	}
-	werror("===== [home] init homeList completed! =====\n");
+	//werror("===== [home] init homeList completed! =====\n");
 }
 
 /*
@@ -431,7 +431,7 @@ void init_homeMap()
  */
 void init_dropMap()
 {
-	werror("===== [home] start to init dropMap =====\n");
+	//werror("===== [home] start to init dropMap =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	string lifeName = "";
@@ -469,7 +469,7 @@ void init_dropMap()
 			dropMap[lifeName] = goodsMap;
 		}
 	}
-	werror("===== [home] init dropMap completed! =====\n");
+	//werror("===== [home] init dropMap completed! =====\n");
 }
 
 /*
@@ -477,7 +477,7 @@ void init_dropMap()
  */
 void init_infancy()
 {
-	werror("===== [home] start to init infancy =====\n");
+	//werror("===== [home] start to init infancy =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	string infancyPath = "";
@@ -511,7 +511,7 @@ void init_infancy()
 			infancyMap[infancyName] = infos;
 		}
 	}
-	werror("===== [home] init map_infancy completed! =====\n");
+	//werror("===== [home] init map_infancy completed! =====\n");
 }
 /*
 方法描述：初始化【家园详细】列表 detailHome
@@ -519,7 +519,7 @@ void init_infancy()
  */
 void init_home()
 {
-	werror("===== [home] start to init home!  =====\n");
+	//werror("===== [home] start to init home!  =====\n");
 	array(string) map_tmp = ({});
 	string strtips = "";
 	
@@ -600,7 +600,7 @@ void init_home()
 			              //通过slot对象得到该home的等级
 			homeDetail[masterId] = homeTmp;
 		}
-		werror("===== [home] init home completed! =====\n");
+		//werror("===== [home] init home completed! =====\n");
 	}
 }
 
@@ -1205,7 +1205,7 @@ void build_new_home(string homeName,string flatName,string slotName)
 
 	homeDetail[player->query_name()] = he;                                            
 	//homeList
-	werror("===========homeName:"+homeName+"\n");
+	//werror("===========homeName:"+homeName+"\n");
 	homeList hl = homeMap[homeName]; 
 	//if(hl){
 	hl->isUsed = 1;
@@ -1989,7 +1989,7 @@ void save_dog(string dogInfo,string masterId)
 
 //保存所有的信息
 void store_all_info(void|int fg){
-	werror("============try to save home map"+fg+"\n");
+	//werror("============try to save home map"+fg+"\n");
 	string he_s = "房间名|主人ID|主人名|房间名|房间描述|允许列表|矿石|动物|植物|门信息|看门狗信息|home中玩家|功能房间|飞天小屋目的地|店铺信息"+"\n";
 	foreach(sort(indices(homeDetail)),string masterId)
 	{
@@ -2075,7 +2075,7 @@ void store_all_info(void|int fg){
 		he_s += "\n";
 	}
 	Stdio.write_file(ROOT+HOME_INFO,he_s);
-	werror("============finished to save home_info"+fg+"\n");
+	//werror("============finished to save home_info"+fg+"\n");
 	//map_home
 	string hem_s = "path|所属地段|所属公寓|使用与否|主人ID"+"\n";
 	foreach(sort(indices(homeMap)),string roomId)
@@ -2092,7 +2092,7 @@ void store_all_info(void|int fg){
 		hem_s += "\n";
 	}
 	Stdio.write_file(ROOT+ROOM_MAP,hem_s);
-	werror("============finished to save room_map"+fg+"\n");
+	//werror("============finished to save room_map"+fg+"\n");
 	//shop_recommend
 	string her_s = "path|主人ID|主人名称|推荐时间|推荐期限"+"\n";
 	foreach(sort(indices(shopRcmMap)),string homeId)
@@ -2101,7 +2101,7 @@ void store_all_info(void|int fg){
 		her_s += tmp->path+"|"+tmp->masterId+"|"+tmp->masterNameCN+"|"+tmp->rcmTime+"|"+tmp->rcmTimeDelay+"\n";
 	}
 	Stdio.write_file(ROOT+SHOPRCM_MAP,her_s);
-	werror("============finished to save shomercm"+fg+"\n");
+	//werror("============finished to save shomercm"+fg+"\n");
 	if(!fg)
 		call_out(store_all_info,TIME_SAPCE);
 	

@@ -40,7 +40,7 @@ void create()
 
 void load_csv()
 {
-	werror("==========  [RONGJIED start!]  =========\n");
+	//werror("==========  [RONGJIED start!]  =========\n");
 	rongjie_m = ([]);
 	string rongjieData = Stdio.read_file(RONGJIE_CSV);
 	array(string) lines = rongjieData/"\r\n";
@@ -66,8 +66,8 @@ void load_csv()
 	}
 	else 
 		werror("===== Error! file not exist =====\n");
-	werror("===== everything is ok!  =====\n");
-	werror("==========  [RONGJIED end!]  =========\n");
+	//werror("===== everything is ok!  =====\n");
+	//werror("==========  [RONGJIED end!]  =========\n");
 }
 
 string query_can_rongjie(object player)
@@ -92,7 +92,7 @@ string query_can_rongjie(object player)
 //获得矿物
 object get_kuang(int level)
 {
-	werror("-------get_kuang call-----------\n");
+	//werror("-------get_kuang call-----------\n");
 	int lev = 0; 
 	for(int i=sizeof(levelLimit)-1;i>=0;i--){
 		if(level > levelLimit[i]){
@@ -100,13 +100,13 @@ object get_kuang(int level)
 			break;
 		}
 	}
-	werror("---------lev = "+lev+"-------------\n");
+	//werror("---------lev = "+lev+"-------------\n");
 	rongjie tmp = rongjie_m[lev];
 	if(tmp){
 		string kuang_name = tmp->kuang;
 		object kuang = clone(MATERIAL_PATH+kuang_name);
 		if(kuang){
-			werror("------kuang name = "+kuang_name+"------\n");
+			//werror("------kuang name = "+kuang_name+"------\n");
 			kuang->amount = tmp->kuang_num;
 			return kuang;
 		}
@@ -153,19 +153,19 @@ array(object) get_rongjie_items(int level,int rare_level)
 			break;
 		}
 	}
-	werror("---------lev = "+lev+"-------------\n");
+	//werror("---------lev = "+lev+"-------------\n");
 	rongjie tmp = rongjie_m[lev];
 	if(tmp){
 		string kuang_name = tmp->kuang;
 		object kuang = clone(MATERIAL_PATH+kuang_name);
 		if(kuang){
-			werror("------kuang name = "+kuang_name+"------\n");
+			//werror("------kuang name = "+kuang_name+"------\n");
 			kuang->amount = tmp->kuang_num;
 			a_rtn = ({kuang});
 		}
 		//得到出宝石的概率
 		int ran = prob[rare_level];
-		werror("----------get baoshi prob = "+ran+"------------\n");
+		//werror("----------get baoshi prob = "+ran+"------------\n");
 		if((random(100)+1) < ran){
 			string baoshi_name = tmp->baoshi;
 			int get_num = 1;
