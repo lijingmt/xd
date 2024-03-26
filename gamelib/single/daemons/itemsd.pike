@@ -215,7 +215,7 @@ private static mapping(string:string) worlddrop_item_list = ([]);
 //加载task_world_drop.csv，写入worlddrop_item_list映射表中
 private int ReadFile_worlddrop_item_list(string filename)
 {
-	//werror("=====  Worlddrop_Item_list start!  ====\n");
+	werror("=====  Worlddrop_Item_list start!  ====\n");
 	string strTmp = Stdio.read_file(filename);
 	if(strTmp){
 		array(string) lines = strTmp/"\r\n";
@@ -227,11 +227,11 @@ private int ReadFile_worlddrop_item_list(string filename)
 				worlddrop_item_list[column[0]] = column[1];
 			}
 		}
-		//werror("=====  everything is ok!  ====\n");
+		werror("=====  everything is ok!  ====\n");
 		return 1;
 	}
 	else 
-		//werror("===== Error! file not exist =====\n");
+		werror("===== Error! file not exist =====\n");
 		return 0;
 }
 //end of evan added 2008.06.17
@@ -243,7 +243,7 @@ private int ReadFile_worlddrop_item_list(string filename)
 //内部接口，被create()调用，用于读入白物品文件列表数据，存在item_list映射表中
 private int ReadFile_item_list(string filename)
 {
-	//werror("=====  Item_list Start!  ====\n");
+	werror("=====  Item_list Start!  ====\n");
 	string strTmp=Stdio.read_file(filename);
 	if(strTmp){
 		//以每一行为单位分割文件数据
@@ -263,17 +263,17 @@ private int ReadFile_item_list(string filename)
 				}
 			}
 		}
-		//werror("=====  everything is ok!  ====\n");
+		werror("=====  everything is ok!  ====\n");
 		return 1;
 	}
-	//werror("===== Error! file not exist =====\n");
+	werror("===== Error! file not exist =====\n");
 	return 0;
 }
 
 //由liaocheng于07/2/7添加，内部接口，被create()调用，用于读入特殊物品文件索引到spec_item_list映射表
 private int ReadFile_spec_item_list(string filename)
 {
-	//werror("=====  Spec_Item_list Start!  ====\n");
+	werror("=====  Spec_Item_list Start!  ====\n");
 	string strTmp=Stdio.read_file(filename);
 	if(strTmp){
 		//以每一行为单位分割文件数据
@@ -291,17 +291,17 @@ private int ReadFile_spec_item_list(string filename)
 				}
 			}
 		}
-		//werror("=====  everything is ok!  ====\n");
+		werror("=====  everything is ok!  ====\n");
 		return 1;
 	}
-	//werror("===== Error! file not exist =====\n");
+	werror("===== Error! file not exist =====\n");
 	return 0;
 }
 
 //内部接口，被create()调用，用于读入物品属性约束文件数据，存于item_attributes映射表中
 private int ReadFile_item_attributes(string filename)
 {
-	//werror("=====  Item_attributes Start!  ====\n");
+	werror("=====  Item_attributes Start!  ====\n");
 	string strTmp=Stdio.read_file(filename);
 	if(strTmp){
 		//先按行分割
@@ -316,7 +316,7 @@ private int ReadFile_item_attributes(string filename)
 				item_attributes[tmp[0]]=attributes-({""});//copy_value(attributes);
 			}
 		}
-		//werror("=====  everything is ok!  ====\n");
+		werror("=====  everything is ok!  ====\n");
 		return 1;
 	}
 	else 
@@ -368,7 +368,7 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 		}
 		
 		item_rawname=itemsallow[random(sizeof(itemsallow))]; //在这里获得了白色物品的名字
-		//werror("============item_rawname:"+item_rawname+"\n");
+		werror("============item_rawname:"+item_rawname+"\n");
 		//判断掉落的物品是否有属性
 		//掉落的属性概率xxxxxxxxxxx
 		int seven = (int)(120-a*2+playerluck*b*0.01);
@@ -454,7 +454,7 @@ private int get_spec_item_level(int level)
 			return item_level;
 		}
 		else {
-			//werror("something wrong in get_spec_item_level!\n");
+			werror("something wrong in get_spec_item_level!\n");
 			return 0;
 		}
 	}
@@ -715,7 +715,7 @@ private int get_item_level(int level)
 			return item_level;
 		}
 		else {
-			//werror("something wrong in get_item_level!\n");
+			werror("something wrong in get_item_level!\n");
 			return 0;
 		}
 	}
@@ -767,7 +767,7 @@ string get_item_name_prefix(int level){
 //如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
 private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level)
 {	
-	//werror("=============711 num:"+num+"\n");
+	werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
 	int size; //该物品允许可能出现的属性的个数
 	int base,limit,value; //属性的取值范围和最后的确定取值
@@ -782,8 +782,8 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 	array(string) attri_allow=copy_value(item_attributes[orgitem]); //得到该物品允许出现的属性列表
 	object rtn_ob; //接口的返回
 	float rate=1.01;// 计算73以上装备的增长率，初始化为1
-	//werror("=====orginal_level "+orginal_level+"\n");
-	//werror("=====target_item_level "+target_item_level+"\n");
+	werror("=====orginal_level "+orginal_level+"\n");
+	werror("=====target_item_level "+target_item_level+"\n");
 	if(target_item_level&&orginal_level){
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
@@ -799,7 +799,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 
 	}
 	rate=rate*get_item_rate_add(target_item_level);//设置几个等级的门槛，跨过去了有加成1.1 1.3 1.5 1.7
-	//werror("=========rate:"+rate+"\n");
+	werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
 
 	size=sizeof(attri_allow);
@@ -811,7 +811,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			attri=attri_allow[random(size)];
 
 			if(attri&&sizeof(attri)) {
-				//werror("------------attri="+attri+"---------\n");
+				werror("------------attri="+attri+"---------\n");
 				tmp_attri=attri/":";
 				attri_name=(string)tmp_attri[0];
 				//取得属性范围的下限
@@ -865,7 +865,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			if(err1){
 				item_pinyin_name=0;
 			}
-			//werror("==========pinname:"+item_pinyin_name+"\n");
+			werror("==========pinname:"+item_pinyin_name+"\n");
 			string orgfile=Stdio.read_file(ITEM_PATH+orgitem);
 			if(orgfile&&sizeof(orgfile)) {
 				array(string) orgfilelines=orgfile/"\n";
@@ -1123,7 +1123,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 							writeback+=orgfilelines[k]+"\n";
 						}						
 					}else if(rate>1 && search(orgfilelines[k],"picture=name")!=-1 &&item_pinyin_name){
-						//werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
+						werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
 						writeback+="    picture=\""+item_pinyin_name+"\";\n";
 					}
 					else{
@@ -1155,7 +1155,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					//werror("$$$$$$$$$$$$$$$$创建新物品结束$$$$$$$$$$$$$$$$$$$$\n");
 					if(!rtn_ob){
 						return 0;
-						//werror("	clone新物品给玩家失败了。\n");
+						werror("	clone新物品给玩家失败了。\n");
 					}
 					else
 						//werror("	已成功clone了这个新的物品给玩家。\n");
@@ -1165,45 +1165,45 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					return 0;
 			}
 			else {
-				//werror("read file "+ITEM_PATH+orgitem+" wrong!!\n");
+				werror("read file "+ITEM_PATH+orgitem+" wrong!!\n");
 				return 0;
 			}
 		}
 	}
 	else {
-		//werror("something wrong with attri_allow in get_attributes_item()\n");
+		werror("something wrong with attri_allow in get_attributes_item()\n");
 		return 0;
 	}
 }
 
 void create()
 {
-	//werror("==========  [ITEMSD start!]  =========\n");
+	werror("==========  [ITEMSD start!]  =========\n");
 	//读入普通物品的索引文件
 	if(!ReadFile_item_list(FILE_PATH+"orgItems.list")){
-		//werror("=====  Item_list end!  ====\n");
+		werror("=====  Item_list end!  ====\n");
 		exit(1);
 	}
 
 	//读入特殊物品的索引文件
 	if(!ReadFile_spec_item_list(FILE_PATH+"specItems.list")){
-		//werror("=====  Spc_Item_list end!  ====\n");
+		werror("=====  Spc_Item_list end!  ====\n");
 		exit(1);
 	}
 
 	//读入普通物品属性约束索引文件
 	if(!ReadFile_item_attributes(FILE_PATH+"allItems.list")){
-		//werror("=====  Item_attributes end!  ====\n");
+		werror("=====  Item_attributes end!  ====\n");
 		exit(1);
 	}
 
 	//读取世界掉落物品 evan added 2008.08.17
 	if(!ReadFile_worlddrop_item_list(FILE_PATH+"worlddrop_item.list")){
-		//werror("=====  Worlddrop_Item_list end!  ====\n");
+		werror("=====  Worlddrop_Item_list end!  ====\n");
 		exit(1);
 	}
 	//end of evan added 2008.08.17
-	//werror("==========  [ITEMSD end!]  =========\n");
+	werror("==========  [ITEMSD end!]  =========\n");
 }
 
 
@@ -1223,12 +1223,12 @@ object get_ronglian_item(int itemlevel,int playerluck)
 		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
 		b=35;//极品10万分之4
 	}
-	//werror("============orgitem_level:"+orgitem_level+"\n");
-	//werror("============itemlevel:"+itemlevel+"\n");
+	werror("============orgitem_level:"+orgitem_level+"\n");
+	werror("============itemlevel:"+itemlevel+"\n");
 	//判断是否掉落白色物品
 	itemsallow=itemlevel>73?item_list[73]:item_list[itemlevel]; //大于73按照73的模版出装备
 	if(!itemsallow){
-		//werror("----Caution:get itemlevel=0 in get_ronglian_item()!----\n");
+		werror("----Caution:get itemlevel=0 in get_ronglian_item()!----\n");
 		return 0;
 	}
 	item_rawname=itemsallow[random(sizeof(itemsallow))]; //在这里获得了白色物品的名字

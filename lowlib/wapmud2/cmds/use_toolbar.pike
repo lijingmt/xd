@@ -11,7 +11,7 @@ int main(string arg)
 			me["/tmp/atk_ctime"] = (System.Time()->usec_full)/1000;
 		else{
 			if( ((System.Time()->usec_full)/1000 - me["/tmp/atk_ctime"]) <= 1500 ){
-				//werror("-------- player["+me->name+"] use_toolbar difftime<=1000 --------\n");
+				werror("-------- player["+me->name+"] use_toolbar difftime<=1000 --------\n");
 				if(!me["/tmp/wg_times"]) me["/tmp/wg_times"] = 1;
 				else me["/tmp/wg_times"]++;
 			}
