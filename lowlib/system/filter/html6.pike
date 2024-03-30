@@ -48,8 +48,8 @@ string net_dead()
 {
 	//werror("\n555555555555555555555 html5.pike net_dead call 555555555555555555555555555555\n");
 	//out+="</html>";
-	//out+="</body><script src=\"includes/translate.js\"></script><script>translate.language.setLocal('chinese_simplified'); translate.service.use('client.edge'); translate.setAutoDiscriminateLocalLanguage();translate.execute();</script></html>";
-	out+="</body></html>";
+	out+="</body><script src=\"includes/translate.js\"></script><script>translate.language.setLocal('chinese_simplified'); translate.service.use('client.edge'); translate.setAutoDiscriminateLocalLanguage();translate.execute();</script></html>";
+	//out+="</body></html>";
 	input=({});
 	string o=out;
 	out="";
