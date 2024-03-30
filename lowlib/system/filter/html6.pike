@@ -48,7 +48,8 @@ string net_dead()
 {
 	//werror("\n555555555555555555555 html5.pike net_dead call 555555555555555555555555555555\n");
 	//out+="</html>";
-	out+="</body></html>";
+	out+="</body><script src=\"includes/translate.js\"></script><script>translate.language.setLocal('chinese_simplified'); translate.service.use('client.edge'); translate.setAutoDiscriminateLocalLanguage();translate.execute();</script></html>";
+	//out+="</body></html>";
 	input=({});
 	string o=out;
 	out="";
@@ -352,7 +353,7 @@ string filter(string s)
 					out+=sprintf("<form action='%s' method='post'>",url);
 					in_form=1;
 				}
-				out+=sprintf("<input type='hidden' name='_cmd' value='%s'><input name='_arg'><input type='hidden' name='_usid' value='%s'><input type='hidden' name='_txd' value='%s'><input type='submit' value='确定'></form>",cmd,usid,txd);
+				out+=sprintf("<input type='hidden' name='_cmd' value='%s'><input name='_arg'><input type='hidden' name='_usid' value='%s'><input type='hidden' name='_txd' value='%s'><input type='submit' value='提交'></form>",cmd,usid,txd);
 				in_form=0;
 
 			}
