@@ -61,11 +61,7 @@ int query_need_exp(){
 	}
 	else if(b_level>=69 && b_level<99){
 		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*100;
-	}else if(b_level>=99 && b_level<108){//大于100级则三次方的指数曲线1/3
-		rst = t_level*t_level*100*2*(int)(t_level/8.5)+(int)(t_level*t_level*t_level*100/3);
-	}else if(b_level>=108 && b_level<150){//大于100级则三次方的指数曲线2/3 曲线稍微陡一点
-		rst = t_level*t_level*100*2*(int)(t_level/8.5)+(int)(t_level*t_level*t_level*100*2/3);
-	}else if(b_level>=150){//大于100级则三次方的指数曲线
+	}else if(b_level>=99){//大于100级则三次方的指数曲线
 		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*t_level*100;
 	}
 	return rst;
