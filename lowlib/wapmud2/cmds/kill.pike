@@ -101,7 +101,7 @@ int main(string arg)
 		//10级以下不触发答题和迷宫
 		if(me->query_level()<=20) entry_flag = 0;
 	
-		werror("---player["+me->name+"]------ kill call tmp-wg_times=["+me["/tmp/wg_times"]+"]\n");
+		//werror("---player["+me->name+"]------ kill call tmp-wg_times=["+me["/tmp/wg_times"]+"]\n");
 		
 		if(entry_flag==1){
 			int ts_num = 0;//!!!!!!!!!!!!!! 调试数据，正式版设置为0即可
@@ -138,9 +138,9 @@ int main(string arg)
 							me["/tmp/rd_tmp2"] = s2;
 							me["/tmp/rd_tmp3"] = t3;
 							tell_object(me,"<font style=\"color:red; font-size:x-large;\">请输入两个颜色相同数字相乘的结果</font>\n");	
-							werror("kill call /tmp/rd_tmp1=["+me["/tmp/rd_tmp1"]+"]\n");
-							werror("kill call /tmp/rd_tmp2=["+me["/tmp/rd_tmp2"]+"]\n");
-							werror("kill call /tmp/rd_tmp3=["+me["/tmp/rd_tmp3"]+"]\n");
+							//werror("kill call /tmp/rd_tmp1=["+me["/tmp/rd_tmp1"]+"]\n");
+							//werror("kill call /tmp/rd_tmp2=["+me["/tmp/rd_tmp2"]+"]\n");
+							//werror("kill call /tmp/rd_tmp3=["+me["/tmp/rd_tmp3"]+"]\n");
 							//////////////////////////////////////////////
 							string now=ctime(time());
 							string record_s = now[0..sizeof(now)-2]+"|"+me->name+"|"+me->name_cn+"|yanzheng award! left count= ["+me["/plus/random_award"]+"]\n";	
