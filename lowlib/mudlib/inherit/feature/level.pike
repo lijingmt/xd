@@ -62,7 +62,7 @@ int query_need_exp(){
 	else if(b_level>=69 && b_level<99){
 		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*100;
 	}else if(b_level>=99){//大于100级则三次方的指数曲线
-		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*t_level*100;
+		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*t_level*50;
 	}
 	return rst;
 	//return (level+1)*(level+1)*(level+1)*100 - level*level*level*100; 

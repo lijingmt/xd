@@ -719,7 +719,7 @@ void fight_die_single(object env)
 				exp_gain = 0;
 			}
 		}else
-		if(melevel>=100  && melevel<120){
+		if(melevel>=100  && melevel<108){
 			if(first->all_fee>=500)
 				;
 			else{
