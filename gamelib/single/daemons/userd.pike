@@ -59,7 +59,7 @@ void check_daily(object me)
 		//荣誉值会随着时间的推移而降低，玩家的荣誉值每天会减少
 		//玩家荣誉级别*20
 		if(me->honerpt>0){
-			me->honerpt = (int)(pow(99/100,tmp)*me->honerpt);
+			me->honerpt = (int)(pow(0.99,tmp)*me->honerpt);
 			if(me->honerpt<=0)
 				me->honerpt=0;
 			//刷新该玩家荣誉表现
