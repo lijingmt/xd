@@ -575,6 +575,9 @@ void perform(string name,void|int flag){
 						mofachuantou_add=this_object()->query_equip_add("mofachuantou_add");
 						//最后获得实际的魔法伤害值
 						fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
+						if(fact_mofa_a<0){
+							fact_mofa_a=1;
+						}
 						fact_mofa_a+=mofachuantou_add;//增加魔法穿透的攻击数值到最重结果中
 						//判断暴击
 						int b = this_object()->query_if_baoji();
@@ -1467,6 +1470,9 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			//新增加的属性 物理穿透，无视防御，直接加载最终结果上
 			int wulichuantou_add=this_object()->query_equip_add("wulichuantou_add");
 			attack_a = (total_attack - (int)(defend*total_attack)/division);
+			if(attack_a<0){
+				attack_a=1;//当对方防御很厚时候，则打出来1的伤害。
+			}
 			attack_a+=wulichuantou_add;//增加物理穿透
 			if(name_skill && skill_name_cn != "" && name_skill != "xueranjiangshan" && name_skill != "xueranjiangshan2") 
 				attack_a = attack_a*3/2;//为了玩家能够接受，技能攻击加强1.5倍

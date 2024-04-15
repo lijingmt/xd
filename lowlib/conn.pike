@@ -100,9 +100,8 @@ static void read_callback(mixed id,string data)
 					if(s){
 						if(s=="0")
 							s = "look what";
-						//EFUNSD->command(s,user);
-						
-							
+						EFUNSD->command(s,user);
+						/*	
 						object obt= System.Time();
 						int st =  obt->usec_full;
 						EFUNSD->command(s,user);
@@ -118,7 +117,7 @@ static void read_callback(mixed id,string data)
 							else
 								Stdio.append_file(ROOT+"/log/cmd_record.log."+get_time(),"["+user->name+"]["+s+"] ["+timediff+"]\n");
 						}
-						
+						*/	
 					}
 				}
 			};

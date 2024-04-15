@@ -39,6 +39,22 @@ int main(string arg)
 			xq_flag = 0;
 		}
 	}
+	if(baoshi_name=="nianshoulingshilisanjie"||baoshi_name=="nianshoulingshilisanjie2"||baoshi_name=="nianshoulingshilisanjie3"){
+		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
+	    int shuiyu_num = me->query_baoshi_xiangqian_num("nianshoulingshilisanjie",0)+me->query_baoshi_xiangqian_num("nianshoulingshilisanjie2",0)+me->query_baoshi_xiangqian_num("nianshoulingshilisanjie3",0);
+		if(shuiyu_num>=4){
+			s += "每个玩家最多只能镶嵌4颗离三界年兽灵石（包括红 黄 蓝）\n";
+			xq_flag = 0;
+		}
+	}
+	if(baoshi_name=="nianshoulingshiwuse"||baoshi_name=="nianshoulingshiwuse2"||baoshi_name=="nianshoulingshiwuse3"){
+		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
+	    int shuiyu_num = me->query_baoshi_xiangqian_num("nianshoulingshiwuse",0)+me->query_baoshi_xiangqian_num("nianshoulingshiwuse2",0)+me->query_baoshi_xiangqian_num("nianshoulingshiwuse3",0);
+		if(shuiyu_num>=4){
+			s += "每个玩家最多只能镶嵌4颗无色界年兽灵石（包括红 黄 蓝）\n";
+			xq_flag = 0;
+		}
+	}
 	if(!xq_flag){
 		s += "[返回:equip_xiangqian_list]\n";
 		s += "[返回游戏:look]\n";

@@ -78,7 +78,7 @@ string get_bossdrop_specitem(string boss_name)
 //获得原始物品的升级等级的，升级属性的物品
 string get_org_converted_level(string orgitem,int boss_level){
 		//orgitem="jewelry/49xingmangzhihuan";
-		//werror("================orgitem:"+orgitem+"\n");
+		werror("================orgitem:"+orgitem+"\n");
 		//以下则处理比较麻烦的生成物品流程
 		string item_pinyin_name=0;
 		mixed err1=catch{
@@ -449,6 +449,7 @@ string get_org_converted_level(string orgitem,int boss_level){
 //获得掉落的装备,并将其转化为高于原物品等级的物品，例如原始文件物品等级是50，而可以将其转为70级的同样的物品，属性等比例增加
 string get_bossdrop_item_level(string boss_name,int boss_level)
 {
+	//werror("============bossname:"+boss_name+"\n");
 	droplist tmplist = bossdrop_m[boss_name];
 	if(tmplist && sizeof(tmplist)){
 		return get_org_converted_level(tmplist->item_arr[random(sizeof(tmplist->item_arr))],boss_level);

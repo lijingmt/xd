@@ -370,6 +370,7 @@ string query_extra_links(void|int count)
 	//string returnLinks="[刷新:look]"+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[任务:mytasks]\n[队伍:my_term]|[好友:my_qqlist]\n[聊天:chatroom_list]|[玩家:userlist]\n[我的帮派:my_bang]\n[仙玉妙坊:yushi_myzone]\n[游戏设置:game_detail]\n[url 仙道官方站:http://xd.dogstart.com]\n";
 	if(this_player()->sid == "5dwap")
 		returnLinks += addstr;
+	returnLinks += "[邮箱:1811117272@qq.com]\n";
 	returnLinks += "--------\n";
 	//returnLinks += "仙界时间\n"+TIMESD->query_cur_time()+"\n";
 	returnLinks += TIPSD->get_tail_desc();

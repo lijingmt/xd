@@ -1,0 +1,5 @@
+id|name|中文名|附加价格(玉石)|附加价格(金)|所含地段名|描述|加速生长类型
+1|yukunfeng|玉昆峰|0|0|yukunmen,yulinglu,yukunjian,yukunquan,yukunjie,yukunzhen,yukunwangyue|矿物浓度聚集速度提高5%，且有一定几率重复采集。|ore,
+2|qianxuehu|千雪湖|0|0|qianxuemen,qianxuexiaoxiang,qianxueqiaotou,qianxuechangjie,qianxuezhen,qianxuehupan,qianxueningwu|植物生长速度提高5%,且有一定几率重复采集。|plant,
+3|lengyuecaoyuan|冷月草原|0|0|lengyuemen,lengyuelu,lengyuecun,lengyueshuitang,lengyuehupan,lengyuelindi,lengyuehanguang|牲畜生长速度提高5%，且有一定几率重复采集。|animal,
+4|lingxidi|灵犀地|10|100|lingximen,lingxixiaolu,lingxiqiaotou,lingxixiaoxiang,lingxizhen,lingxihepan,lingxipingyuan|矿物浓度聚集速度提高5%，植物生长速度提高5%，牲畜生长速度提高5%，并且均有一定几率重复采集。|ore,plant,animal,
