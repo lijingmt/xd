@@ -401,9 +401,9 @@ void save(void|int autosave){
 	TOPTEN->try_top(this_object()->query_name(),topname,"等级",this_object()->query_level());
 	TOPTEN->try_top(this_object()->query_name(),topname,"富翁",this_object()->query_account());
 	if(this_object()->query_raceId()=="monst")
-		TOPTEN->try_top(this_object()->query_name(),topname,"妖气",this_object()->killcount);
+		TOPTEN->try_top(this_object()->query_name(),topname,"妖气",this_object()->honerpt);
 	if(this_object()->query_raceId()=="human")
-		TOPTEN->try_top(this_object()->query_name(),topname,"仙气",this_object()->killcount);
+		TOPTEN->try_top(this_object()->query_name(),topname,"仙气",this_object()->honerpt);
 	/*
 	TOPTEN->try_top(this_object()->query_name(),topname,"攻击",this_object()->query_fight_attack());
 	TOPTEN->try_top(this_object()->query_name(),topname,"防御",this_object()->query_defend_power());

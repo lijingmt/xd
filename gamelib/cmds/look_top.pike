@@ -25,9 +25,9 @@ int main(string arg)
 	TOPTEN->try_top(me->query_name(),topname,"等级",me->query_level());
 	TOPTEN->try_top(me->query_name(),topname,"富翁",me->query_account());
 	if(me->query_raceId()=="monst")
-		TOPTEN->try_top(me->query_name(),topname,"妖气",me->killcount);
+		TOPTEN->try_top(me->query_name(),topname,"妖气",me->honerpt);
 	else if(me->query_raceId()=="human"){
-		TOPTEN->try_top(me->query_name(),topname,"仙气",me->killcount);
+		TOPTEN->try_top(me->query_name(),topname,"仙气",me->honerpt);
 	}
 	/*
 	TOPTEN->try_top(me->query_name(),topname,"攻击",me->query_fight_attack());
