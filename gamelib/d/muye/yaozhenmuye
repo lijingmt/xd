@@ -17,7 +17,7 @@ string query_links()
 		tmp+="[ÑıÕó¡¾±ÌÓÎ¹¬¡¿:qge74hye jinaodao/yaozhenbiyougong]\n";
 	if(player->query_raceId()==room_race&&player->query_level()>=40)
 		tmp+="[ÑıÕó¡¾Á÷¹âÆ½Ô­¡¿:qge74hye liuguangpingyuan/yaozhenliuguangpingy]\n";
-//	if(player->query_raceId()==room_race&&player->query_level()>=50)
-//		tmp+="[ÑıÕó¡¾ÅîÀ³ÏÉ¾³¡¿:qge74hye plxianjing/yaozhenplxianjing]\n";
+	if(player->query_raceId()==room_race&&player->query_level()>=50)
+		tmp+="[ÑıÕó¡¾ÅîÀ³ÏÉ¾³¡¿:qge74hye plxianjing/yaozhenplxianjing]\n";
 	return tmp;
 }
