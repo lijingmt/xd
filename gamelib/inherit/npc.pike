@@ -719,7 +719,7 @@ void fight_die_single(object env)
 				exp_gain = 0;
 			}
 		}else
-		if(melevel>=100  && melevel<108){
+		if(melevel>=100  && melevel<120){
 			if(first->all_fee>=500)
 				;
 			else{
@@ -730,20 +730,36 @@ void fight_die_single(object env)
 			}
 		}
 		else
-		if(melevel>=108){
+		if(melevel>=120 && melevel<150){
 			//等级超过120级封顶，以后有需要再扩充。
-			/*if(first->all_fee>=1000)
+			if(first->all_fee>=5000)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过200级，累计捐赠1000元，才可以继续获得经验值\n";
+				tipsvip += "等级超过120级，累计捐赠5000元，才可以继续获得经验值\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
-			}*/
-			string tipsvip = "";
-			tipsvip += "等级超过108级满级，无法继续获得经验了。\n";
-			tell_object(first,tipsvip);
-			exp_gain = 0;
+			}
+		}else
+		if(melevel>=150 && melevel<200){
+			if(first->all_fee>=8000)
+				;
+			else{
+				string tipsvip = "";
+				tipsvip += "等级超过150级，累计捐赠8000元，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}			
+		}else
+		if(melevel>=200){
+			if(first->all_fee>=16000)
+				;
+			else{
+				string tipsvip = "";
+				tipsvip += "等级超过200级，累计捐赠16000元，请联系客服，才可以继续获得经验值\n";
+				tell_object(first,tipsvip);
+				exp_gain = 0;
+			}			
 		}
 		int szx=0;                                                                                                                  
 		string bs_tips = "";
@@ -995,8 +1011,14 @@ string query_npc_links(void|int count)
 		//该npc是人类阵营
 		if(this_player()->query_raceId()=="human")
 			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
-		else
+		else{
 			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
+			//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
+			if(this_object()->_boss)
+				;
+			else
+				out += "[快速攻击:kill_quick "+this_object()->query_name()+" "+count+"]\n";
+		}
 		if(this_object()->query_name()=="daodezhenjun400"){
 			out += "[学习采矿:viceskill_learn caikuang 0]\n";
 			out += "[学习采药:viceskill_learn caiyao 0]\n";
@@ -1010,8 +1032,14 @@ string query_npc_links(void|int count)
 		//该npc是妖魔阵营
 		if(this_player()->query_raceId()=="monst")
 			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
-		else
+		else{
 			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
+			//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
+			if(this_object()->_boss)
+				;
+			else
+				out += "[快速攻击:kill_quick "+this_object()->query_name()+" "+count+"]\n";
+		}
 		if(this_object()->query_name()=="zhaogongming400"){
 			out += "[学习采矿:viceskill_learn caikuang 0]\n";
 			out += "[学习采药:viceskill_learn caiyao 0]\n";
@@ -1025,6 +1053,12 @@ string query_npc_links(void|int count)
 		//该npc是中立阵营
 		out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"] ";
 		out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
+		//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
+		if(this_object()->_boss)
+			;
+		else
+			out += "[快速攻击:kill_quick "+this_object()->query_name()+" "+count+"]\n";
+		
 		//if(this_object()->query_name()=="yuebingshangren100")
 		//	out += "[我想看看你的月饼:yuebing_list]\n";
 		switch(this_object()->query_name()){

@@ -64,6 +64,7 @@ int main(string arg)
 		int need_xianyuan = 0;
 		int need_suiyu = 0;
 		int need_money = item->query_item_canLevel()*100;
+		if(me->query_vip_flag()) need_money = 0;//会员金币免费
 		if(cost>=0 && cost<100){
 			need_xianyuan = cost/10;
 			need_suiyu = cost%10;

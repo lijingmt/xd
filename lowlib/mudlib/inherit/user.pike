@@ -140,6 +140,11 @@ private void user_heart_beat()
 			}
 		}
 	}
+	//精力每次心跳+3点（心跳间隔在efuns中为2秒一次，这样也就是2秒加3点精力值，上限100）	
+	this_object()->set_jingli(this_object()->query_jingli()+2);
+	//if(!this_object()->is("npc"))
+	//	this_object()->set_jingli(this_object()->query_jingli()+2);
+	
 	//技能持续时间
 	if(this_object()->query_buff("spec_attack_buff",0) != "none"){
 		int time_remain = this_object()->query_buff("spec_attack_buff",2);

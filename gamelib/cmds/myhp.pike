@@ -29,6 +29,7 @@ int main(string arg)
 	s += "升级所需经验："+me->query_levelUp_need_exp()+"\n";
 	s += "生命值："+me->get_cur_life()+"/"+me->query_life_max()+"\n";
 	s += "法力值："+me->get_cur_mofa()+"/"+me->query_mofa_max()+"\n";
+	s += "精力值："+me->query_jingli()+"\n"; 
 	if(me->query_raceId()=="human")
 		s += "仙气："+me->honerpt+"("+me->killcount+")\n";
 	else if(me->query_raceId()=="monst")

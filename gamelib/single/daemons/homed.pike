@@ -1991,6 +1991,10 @@ void save_dog(string dogInfo,string masterId)
 void store_all_info(void|int fg){
 	werror("============try to save home map"+fg+"\n");
 	string he_s = "房间名|主人ID|主人名|房间名|房间描述|允许列表|矿石|动物|植物|门信息|看门狗信息|home中玩家|功能房间|飞天小屋目的地|店铺信息"+"\n";
+	if(sizeof(indices(homeDetail)) == 0){
+		werror("============try to save home map, but failed due to the home info is blank and stop saving\n");
+		return;
+	}
 	foreach(sort(indices(homeDetail)),string masterId)
 	{
 		home he = homeDetail[masterId];

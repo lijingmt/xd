@@ -479,6 +479,18 @@ int can_cut;//是否可以将尸体切割，以便作任务物品或合成装备道具等
 string attitude;//性格：主动狂暴，或者和平
 int red_flag;//红名，成战中使用
 
+//新加精力系统，用来控制自动战斗
+int jingli = 100;
+int query_jingli(){return jingli;}
+void set_jingli(int value){
+	if(value<=0)
+		value = 0;
+	else if(value>=100)
+		value = 100;
+	jingli = value;
+}
+//新加精力系统，用来控制自动战斗
+
 //种族id:种族中文名(其实就是两个对立阵营)//////////////////////////
 string raceId;
 read_write(raceId);

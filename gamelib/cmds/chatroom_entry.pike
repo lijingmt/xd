@@ -10,8 +10,9 @@ int main(string arg)
 	}
 	else{
 		me->set_chatid(arg);
-		if(me->query_level()>=6) //为了屏蔽枪手而做的修改
-			s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
+		//if(me->query_level()>=6) //为了屏蔽枪手而做的修改
+		//s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
+		s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
 		if(me->query_raceId()=="human")
 			s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
 		else if(me->query_raceId()=="monst")

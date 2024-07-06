@@ -1676,6 +1676,12 @@ private void heart_beat_action(){
 			this_object()->timeCold--;
 		if(this_object()->eat_timeCold>0)
 			this_object()->eat_timeCold--;
+		
+		//精力每次心跳+3点（心跳间隔在efuns中为2秒一次，这样也就是2秒加3点精力值，上限100）	
+		//貌似这里的心跳，战斗状态才触发，不能在这里设定
+		//if(!this_object()->is("npc"))
+		//	this_object()->set_jingli(this_object()->query_jingli()+3);
+		
 		//一般技能冷却时间
 		if(this_object()->get_cur_life()>0&&this_object()->get_cur_life()<this_object()->life_max)
 			this_object()->set_life(this_object()->get_cur_life()+this_object()->rase_life);

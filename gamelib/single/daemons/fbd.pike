@@ -117,7 +117,13 @@ void delete_fb_members(string fb_id,string player_name)
 	if(fb_members[fb_id] && fb_members[fb_id][player_name])
 		m_delete(fb_members[fb_id],player_name);
 }
-
+//查阅玩家是否在副本里面，判断副本不打开动态npc的条件
+int query_fb_memebers(string fb_id,string player_name){
+	//werror("=======query fb status\n");
+	if(search(fb_id,"posanzhidi_m") != -1) return 0;//如果是这里的地图，则依然打开动态npc，不受副本的影响
+	if(fb_members[fb_id] && fb_members[fb_id][player_name]) return 1;
+	return 0;
+}
 //获得玩家离开时的应该回到的地图文件,如congxianzhen/congxianzhen
 string query_fb_leave_room(string fb_name)
 {

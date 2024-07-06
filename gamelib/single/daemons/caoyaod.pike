@@ -30,7 +30,8 @@ inherit LOW_DAEMON;
 //#define FLUSH_TIME 900
 //草药的刷新时间比较多样性，这也是这个守护模块的难点
 //#define FLUSH_TIME 120 //测试用，循环执行flush_caoyao()的时间间隔
-#define FLUSH_TIME 900 //正式用，15分钟为一单位
+#define FLUSH_TIME 300 //正式用，6分钟为一单位
+//#define FLUSH_TIME 300 //2024版正式用，6分钟为一单位，每5分钟增加一次15，也就是说原来15分钟的，压缩到5分钟一次刷新了，60分钟的压缩到20分钟刷新一次
 #define MAX_TIME 360  //刷新时间最长的草药的刷新时间
 
 class caoyao
@@ -60,11 +61,13 @@ void create()
 {
 	load_csv();
 	flush_caoyao();
+	
 	//call_out(flush_caoyao,FLUSH_TIME);
 }
 
 void load_csv()
 {
+	
 	caoyaoMap = ([]);
 	caoyaoNeed = ([]);
 	caoyao_flush_time = ([]);
@@ -105,6 +108,9 @@ void load_csv()
 	}
 	else 
 		werror("------read caoyao.csv wrong in gamelib/single/daemon/caoyaod.pike------\n");
+
+
+
 }
 
 
@@ -113,6 +119,18 @@ void flush_caoyao()
 {
 	flush_count += 15; //刷新时间是15的倍数
 	string now=ctime(time());
+	int need_reload = 1;
+	foreach(indices(caoyaoNeed),string str_name){
+		if(caoyaoNeed[str_name]){
+			Stdio.append_file(ROOT+"/log/flush_caoyao.log","--------no need to reload csv ----"+str_name+"------"+caoyaoNeed[str_name]+"----------\n");
+			need_reload = 0;
+			break;
+		}
+	}
+	if(need_reload){
+		Stdio.append_file(ROOT+"/log/flush_caoyao.log","--------reload csv --------------------\n");
+		load_csv();
+	}
 	foreach(indices(caoyao_flush_time),int time){
 		if(flush_count%time == 0){
 		//到刷新时间了
@@ -121,6 +139,7 @@ void flush_caoyao()
 				int size = sizeof(tmp_flush);
 				for(int i=0;i<size;i++){
 					string caoyaoname = tmp_flush[i];
+					Stdio.append_file(ROOT+"/log/flush_caoyao.log","-----------------caoyaoNeed[caoyaoname]:"+caoyaoNeed[caoyaoname]+"-----------\n");
 					if(caoyaoNeed[caoyaoname]){
 						int need_num = caoyaoNeed[caoyaoname];
 						Stdio.append_file(ROOT+"/log/flush_caoyao.log",now[0..sizeof(now)-2]+":此次刷新 "+caoyaoname+" "+need_num+"株\n");

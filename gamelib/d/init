@@ -49,10 +49,12 @@ string query_desc(){
 		//加上随机的提示
 		//desc += TIPSD->query_tips()+"\n";
 		desc += "<div style=\"color:Orange\">";
-		desc += "【最新活动】\n\n";
+		//desc += "【最新活动】\n\n";
+		desc += "【端午活动】\n";
 		desc += "</div>";
 		desc += "一、开启动态地图和怪物系统，可以无限升级打怪\n";
 		desc += "二、开展倍速经验活动，2倍速经验一直到10倍速经验，由您选择\n";
+		desc += "三、全区捐赠多少送多少；\n 活动时间6.8-6.10日\n";
 		desc += "以上活动详情请咨询客服\n";
 		desc += "<div style=\"color:DarkViolet\">";
 		desc += "(QQ客服1811117272)\n";
@@ -693,6 +695,9 @@ int start(string arg){
 	//初始化用户信息，必须作，如果未初始化的话
 	if(!me->honerpt)
 		me->honerpt = 0;
+	//初始化，不然该属性不存储
+	if(!me->jingli)
+		me->jingli = 100;
 	else if(me->honerpt && me->honerpt>0){
 		me->honerpt -= me->honerpt/100;
 	}

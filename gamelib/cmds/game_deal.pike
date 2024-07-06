@@ -15,6 +15,7 @@ int main(string arg)
 		s += "--游戏内部管理接口平台--\n";
 		//s+="管理神秘货币(目前暂停)[进入:mgr_smhb]\n";
 		s+="管理神秘货币(目前暂停)\n";
+		s+= "[发系统消息:wiz_shout2]\n";
 		s+="在线更新脚本[进入:mgr_script]\n";
 		s+="用户数据管理[进入:mgr_usr_data]\n";
 		//s+="测试购买空间[进入:user_package_buy_list]\n";

@@ -41,7 +41,15 @@ int main(string arg)
 	if(arg&&sizeof(arg)){
 		//by calvin 2007-08-31
                 arg = TIPSD->check_words(arg);
+		//werror("========arg:"+arg+"\n");
+		if(search(arg," ")!=-1) {//这里去重，有起名字老是重复2次，中间有空格
+			array(string) t=arg/" ";
+			if(sizeof(t)==2&&t[0]==t[1]){
+				arg=t[0];
+			}
+		}
 		arg = filter_msg(arg);
+		//werror("========after arg:"+arg+"\n");
 		for(int i=0;i<sizeof(arg);i++){
 			if(arg[i]>=0&&arg[i]<=127){
 				if(arg[i]>='a'&&arg[i]<='z'||arg[i]>='A'&&arg[i]<='Z'||arg[i]>='0'&&arg[i]<='9')
@@ -156,39 +164,39 @@ string filter_msg(string arg)
 {
 	if(!arg)
 		return "";
-	arg=replace(arg,"'","‘");
-	arg=replace(arg,",","，");
-	arg=replace(arg,".","。");
-	arg=replace(arg,"@","。");
-	arg=replace(arg,"#","。");
-	arg=replace(arg,"%","。");
-	arg=replace(arg,"~","。");
-	arg=replace(arg,"^","。");
-	arg=replace(arg,"$","。");
-	arg=replace(arg,"+","。");
-	arg=replace(arg,"|","。");
-	arg=replace(arg,"&","。");
-	arg=replace(arg,"=","＝");
-	arg=replace(arg,"(","（");
-	arg=replace(arg,")","）");
-	arg=replace(arg,"-","－");
-	arg=replace(arg,"_","－");
-	arg=replace(arg,"*","－");
-	arg=replace(arg,"?","？");
-	arg=replace(arg,"!","！");
-	arg=replace(arg,"<","－");
-	arg=replace(arg,">","－");
-	arg=replace(arg,"\/","“");
-	arg=replace(arg,"\"","“");
-	arg=replace(arg,"\\","“");
+	arg=replace(arg,"'","??");
+	arg=replace(arg,",","??");
+	arg=replace(arg,".","??");
+	arg=replace(arg,"@","??");
+	arg=replace(arg,"#","??");
+	arg=replace(arg,"%","??");
+	arg=replace(arg,"~","??");
+	arg=replace(arg,"^","??");
+	arg=replace(arg,"$","??");
+	arg=replace(arg,"+","??");
+	arg=replace(arg,"|","??");
+	arg=replace(arg,"&","??");
+	arg=replace(arg,"=","??");
+	arg=replace(arg,"(","?¨");
+	arg=replace(arg,")","??");
+	arg=replace(arg,"-","??");
+	arg=replace(arg,"_","??");
+	arg=replace(arg,"*","??");
+	arg=replace(arg,"?","??");
+	arg=replace(arg,"!","??");
+	arg=replace(arg,"<","??");
+	arg=replace(arg,">","??");
+	arg=replace(arg,"\/","?°");
+	arg=replace(arg,"\"","?°");
+	arg=replace(arg,"\\","?°");
 	arg=replace(arg,"\r\n","");
-	arg=replace(arg,":","：");
-	arg=replace(arg,";","；");
-	arg=replace(arg,"\{","「");
-	arg=replace(arg,"\}","「");
-	arg=replace(arg,"[","「");
-	arg=replace(arg,"]","」");
-	arg=replace(arg,"%20","－");	
+	arg=replace(arg,":","??");
+	arg=replace(arg,";","??");
+	arg=replace(arg,"\{","??");
+	arg=replace(arg,"\}","??");
+	arg=replace(arg,"[","??");
+	arg=replace(arg,"]","??");
+	arg=replace(arg,"%20","??");	
 	return arg;
 }
 
