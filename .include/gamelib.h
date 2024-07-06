@@ -1,0 +1,1 @@
+#include </usr/local/games/xiand/gamelib/include/gamelib.h>

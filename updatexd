@@ -1,0 +1,2 @@
+rsync  -av  gamelib /usr/local/games/xiand/
+rsync  -av  lowlib /usr/local/games/xiand/

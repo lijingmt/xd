@@ -1,0 +1,1 @@
+#include </usr/local/games/xiand/lowlib/wapmud2/include/wapmud2.h>
