@@ -50,11 +50,10 @@ string query_desc(){
 		//desc += TIPSD->query_tips()+"\n";
 		desc += "<div style=\"color:Orange\">";
 		//desc += "【最新活动】\n\n";
-		desc += "【端午活动】\n";
+		desc += "【更新提示】\n";
 		desc += "</div>";
-		desc += "一、开启动态地图和怪物系统，可以无限升级打怪\n";
+		desc += "一、修复低级怪区怪刷新问题，任何玩家进入都会刷新对应等级的怪，无需等待\n";
 		desc += "二、开展倍速经验活动，2倍速经验一直到10倍速经验，由您选择\n";
-		desc += "三、全区捐赠多少送多少；\n 活动时间6.8-6.10日\n";
 		desc += "以上活动详情请咨询客服\n";
 		desc += "<div style=\"color:DarkViolet\">";
 		desc += "(QQ客服1811117272)\n";
