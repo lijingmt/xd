@@ -88,7 +88,7 @@ void reset_items()
 }
 private int last_reset;
 private void try_reset(){
-	if(time()-last_reset>reset_interval){
+	//if(time()-last_reset>reset_interval){
 		last_reset=time();
 		reset_items();
 		if(this_object()->is("store")){
@@ -96,7 +96,7 @@ private void try_reset(){
 		}
 		closed_exits+=opened_exits;
 		opened_exits=([]);
-	}
+	//}
 }
 /*
  * 增加一个离开纪录
