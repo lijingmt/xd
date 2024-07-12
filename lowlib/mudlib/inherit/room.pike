@@ -89,7 +89,7 @@ void reset_items()
 private int last_reset;
 private void try_reset(){
 	//此处屏蔽了npc的刷新间隔时间，也就是说，只要有玩家进来，就可以刷新ncp
-	//if(time()-last_reset>reset_interval){
+	if(time()-last_reset>reset_interval){
 		last_reset=time();
 		reset_items();
 		if(this_object()->is("store")){
@@ -97,7 +97,7 @@ private void try_reset(){
 		}
 		closed_exits+=opened_exits;
 		opened_exits=([]);
-	//}
+	}
 }
 /*
  * 增加一个离开纪录
