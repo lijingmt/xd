@@ -119,18 +119,6 @@ void flush_caoyao()
 {
 	flush_count += 15; //刷新时间是15的倍数
 	string now=ctime(time());
-	int need_reload = 1;
-	foreach(indices(caoyaoNeed),string str_name){
-		if(caoyaoNeed[str_name]>=2){
-			Stdio.append_file(ROOT+"/log/flush_caoyao.log","--------no need to reload csv ----"+str_name+"------"+caoyaoNeed[str_name]+"----------\n");
-			need_reload = 0;
-			break;
-		}
-	}
-	if(need_reload){
-		Stdio.append_file(ROOT+"/log/flush_caoyao.log","--------reload csv --------------------\n");
-		load_csv();
-	}
 	foreach(indices(caoyao_flush_time),int time){
 		if(flush_count%time == 0){
 		//到刷新时间了
