@@ -488,6 +488,11 @@ object get_spec_item(int npclevel,int playerlevel,int playerluck)
 			//闪亮宝石的掉率
 				got_it = 100;
 			}
+			if(npclevel > 73){//如果动态npc的等级超过73，则说明没有可用的技能书掉落了，则随机任何一个以前的技能书等级，掉落技能书
+				itemlevel = random(74);
+				//got_it=100000;//测试用，未来要屏蔽掉
+				werror("=========above 73 level will randomly generate the itemlevel:"+itemlevel+"\n");
+			}		
 		}
 	}
 	if((random(100000)+1)<=got_it) {
