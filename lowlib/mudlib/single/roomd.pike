@@ -85,9 +85,9 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 						new_npc->_npcLevel = levelbase;	
 						new_npc->setup_npc();
 						new_npc->move(env);
-						if(sizeof(all_inventory(env)) > 50)
+						if(sizeof(all_inventory(env)) > 15)
 						{
-							werror("============exceed 50 max npc in this room \n");
+							werror("============exceed 15 max npc in this room \n");
 							break;//超过50个npc 则停止刷新
 						}
 						call_out(new_npc->remove,60*10);
