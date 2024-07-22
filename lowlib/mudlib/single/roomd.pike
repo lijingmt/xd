@@ -73,7 +73,7 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 					npc_player->_npcLevel = levelbase;	
 					npc_player->setup_npc();
 					//werror("===============refresh_room_npcto_currentlevel monster=["+npc_player->name+"] change level=["+npc_player->level+"]\n");
-				}else{
+				}/*else{
 					string npc_path = file_name(npc_player);
 					//werror("============npc_path " +npc_path +"\n");
 					if(search(npc_path, "#") != -1){
@@ -94,7 +94,7 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 						//werror("============real_path " +real_path +"\n");
 					}
 					
-				}
+				}*/
 			}
 		}
 	};
