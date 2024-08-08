@@ -4,6 +4,7 @@
 inherit WAP_USER;
 //用户仓库继承类
 inherit GAMELIB_PACKAGED;
+#define SAVE_TIME 60 //60秒存一次
 //增加新用户注册时间记录                                                                            
 string user_reg_time;
 
@@ -348,7 +349,7 @@ void create(){
 	//term = "noterm";
 	picture = "nosex";	
 	living_time=10*60;
-	call_out(save,10*60);
+	call_out(save,SAVE_TIME);
 }
 string query_extra_links(void|int count)
 {
@@ -420,7 +421,7 @@ void save(void|int autosave){
 		return;
 	}
 	else
-		call_out(save,10*60);
+		call_out(save,SAVE_TIME);//改成每分钟存一次，防止丢档案
 }
 void remove(){
 	if(term && term != "noterm"){
