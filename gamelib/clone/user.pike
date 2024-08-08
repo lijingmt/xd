@@ -4,7 +4,7 @@
 inherit WAP_USER;
 //用户仓库继承类
 inherit GAMELIB_PACKAGED;
-#define SAVE_TIME 60 //60秒存一次
+#define SAVE_TIME 30 //60秒存一次
 //增加新用户注册时间记录                                                                            
 string user_reg_time;
 
