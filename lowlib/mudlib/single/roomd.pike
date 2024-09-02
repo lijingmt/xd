@@ -62,7 +62,7 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 		if(!player->is("npc")&&!player->is("item")&&player!=me) 
 			first_player=0;
 	}
-	//werror("============first_player " +first_player +"\n");
+	werror("============first_player " +first_player +"\n");
 	mixed err = catch{
 		foreach(all_inventory(env),object npc_player){
 			if(npc_player->is("npc")&&!npc_player->in_combat&&npc_player->_tasknpc!=1){
@@ -73,9 +73,9 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 					npc_player->_npcLevel = levelbase;	
 					npc_player->setup_npc();
 					//werror("===============refresh_room_npcto_currentlevel monster=["+npc_player->name+"] change level=["+npc_player->level+"]\n");
-				}/*else{
+				}else{
 					string npc_path = file_name(npc_player);
-					//werror("============npc_path " +npc_path +"\n");
+					werror("============78 npc_path " +npc_path +"\n");
 					if(search(npc_path, "#") != -1){
 						string real_path = (npc_path/"#")[0];
 						object new_npc = new(real_path);
@@ -85,16 +85,17 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 						new_npc->_npcLevel = levelbase;	
 						new_npc->setup_npc();
 						new_npc->move(env);
-						if(sizeof(all_inventory(env)) > 15)
+						call_out(new_npc->remove,60*10);
+						if(sizeof(all_inventory(env)) > 50)
 						{
 							werror("============exceed 15 max npc in this room \n");
 							break;//超过50个npc 则停止刷新
 						}
-						call_out(new_npc->remove,60*10);
+						
 						//werror("============real_path " +real_path +"\n");
 					}
 					
-				}*/
+				}
 			}
 		}
 	};

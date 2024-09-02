@@ -13,7 +13,7 @@ mapping opened_exits=([]);//([string DIRECTORY:int|string|program|object KEY])
 mapping hidden_exits=([]);//([string DIRECTORY:string|program|object KEY_OBJECT])
 mapping switch_exits=([]);//([string DIRECTORY:({({string VAR,int VAL_MIN,int VAL_MAX,string DEST})})])
 mapping guarded_exits=([]);//([string DIRECTORY:string|program|object GUARDER])
-int reset_interval=150;
+int reset_interval=30;
 private mapping leaveMSG=([]);//纪录任务信息([string userid:array({玩家中文名,离开方向,时间,(<看过的玩家id>)})])
 private mapping remainMSG=([]);//该房间的剩余信息([int 时间:string 信息,<看过的玩家id>])
 private mapping arriveMSG=([]);//该房间的来人信息([int 时间:string 信息,<看过的玩家id>])
@@ -88,7 +88,7 @@ void reset_items()
 }
 private int last_reset;
 private void try_reset(){
-	//此处屏蔽了npc的刷新间隔时间，也就是说，只要有玩家进来，就可以刷新ncp
+	//此处设置了30秒钟的间隔，来刷npc的刷新间隔时间，也就是说，只要有玩家进来比头一个晚30秒，就可以刷新ncp
 	if(time()-last_reset>reset_interval){
 		last_reset=time();
 		reset_items();
