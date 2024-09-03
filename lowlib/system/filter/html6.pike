@@ -34,7 +34,7 @@ string setup(string _url)
 	//out+= "<%@ page language=\"java\" contentType=\"text/html;charset=UTF-8\"%>";
 	out+= "<meta charset=\"UTF-8\">\n"; 
 	out+= "<meta name=\"viewport\" content=\"maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0\"/>\n"; 
-	out+= "<title>《仙道》 文字游戏 WAP游戏 怀旧网游 WAP文字游戏 WAP泥巴网</title>\n";
+	out+= "<title>《仙道》 《游戏泥巴》WAP泥巴 文字游戏 WAP游戏 怀旧网游 WAP文字游戏 手机游戏 手机复古游戏 手机武侠游戏 苹果游戏 安卓游戏 企鹅加速器</title>\n";
 	out+= "<link rel=\"icon\" type=\"image/x-icon\" href=\"images/favicon.ico\">";
 	out+= "<link rel=\"stylesheet\" href=\"includes/bootstrap-4.6.2-dist/css/bootstrap.min.css?v=3\"/>\n";
 	out+= "<link href=\"includes/intro.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";
