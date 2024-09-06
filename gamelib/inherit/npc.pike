@@ -239,7 +239,9 @@ void fight_die()
 							///////////////////////////////////////////////////////////////////////////////////////
 							exp_gain = last_exp;
 							//大于20级，必须付费
+							
 							int melevel = termer->query_level();//player等级
+							/*
 							if(melevel>=21){
 								if(termer->all_fee>=20)
 									;
@@ -249,7 +251,7 @@ void fight_die()
 									tell_object(termer,tipsvip);
 									exp_gain = 0;
 								}
-							}
+							}*/
 							int szx=0;                                                                                                                  
 							string bs_tips = "";
 							int extra_dh=0;
@@ -679,6 +681,7 @@ void fight_die_single(object env)
 		}
 		///////////////////////////////////////////////////////////////////////////////////////
 		//大于20级，必须付费 目前支持20-100级 等到200级以后得玩家再加
+		/*
 		if(melevel>=21 && melevel<30){
 			if(first->all_fee>=20)
 				;
@@ -760,7 +763,7 @@ void fight_die_single(object env)
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}			
-		}
+		}*/
 		int szx=0;                                                                                                                  
 		string bs_tips = "";
 		int extra_dh=0;
