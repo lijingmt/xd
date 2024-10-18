@@ -30,7 +30,7 @@ inherit LOW_DAEMON;
 //#define FLUSH_TIME 900
 //草药的刷新时间比较多样性，这也是这个守护模块的难点
 //#define FLUSH_TIME 120 //测试用，循环执行flush_caoyao()的时间间隔
-#define FLUSH_TIME 300 //正式用，6分钟为一单位..
+#define FLUSH_TIME 900 //正式用，6分钟为一单位..
 //#define FLUSH_TIME 300 //2024版正式用，6分钟为一单位，每5分钟增加一次15，也就是说原来15分钟的，压缩到5分钟一次刷新了，60分钟的压缩到20分钟刷新一次
 #define MAX_TIME 360  //刷新时间最长的草药的刷新时间
 
