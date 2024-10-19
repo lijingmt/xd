@@ -15,8 +15,16 @@ string getTimeCurDesc()
 	int hour = now_time["hour"];
 	int min = now_time["min"];
 	int sec = now_time["sec"];
-
-	return ""+hour+":"+min+":"+sec;
+	string str_hour = hour+"";
+	string str_min = min+"";
+	string str_sec = sec+"";
+	if(hour<10)
+		str_hour = "0"+str_hour;
+	if(min<10)
+		str_min = "0"+str_min;
+	if(sec<10)
+		str_sec = "0"+str_sec;
+	return str_hour+":"+str_min+":"+str_sec;
 }
 string getTimeShortDesc()
 {

@@ -119,7 +119,7 @@ string check_words(string words){
 string get_tail_desc()
 {
         string s_rtn = "";
-	s_rtn += "仙道-";
+	s_rtn += "仙界时间：";
 	s_rtn += TIMESD->query_cur_time()+"\n";
 	s_rtn += "--------\n";
 	s_rtn += "[url 首页:http://www.wapmud.com/gamehome/]|";
