@@ -47,6 +47,14 @@ int main(string arg)
 			xq_flag = 0;
 		}
 	}
+	if(baoshi_name=="nvwalingshi"||baoshi_name=="nvwalingshi2"||baoshi_name=="nvwalingshi3"){
+		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
+	    int shuiyu_num = me->query_baoshi_xiangqian_num("nvwalingshi",0)+me->query_baoshi_xiangqian_num("nvwalingshi2",0)+me->query_baoshi_xiangqian_num("nvwalingshi3",0);
+		if(shuiyu_num>=4){
+			s += "每个玩家最多只能镶嵌4颗离三界女娲灵石（包括红 黄 蓝）\n";
+			xq_flag = 0;
+		}
+	}
 	if(baoshi_name=="nianshoulingshiwuse"||baoshi_name=="nianshoulingshiwuse2"||baoshi_name=="nianshoulingshiwuse3"){
 		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
 	    int shuiyu_num = me->query_baoshi_xiangqian_num("nianshoulingshiwuse",0)+me->query_baoshi_xiangqian_num("nianshoulingshiwuse2",0)+me->query_baoshi_xiangqian_num("nianshoulingshiwuse3",0);
