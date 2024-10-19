@@ -705,6 +705,7 @@ void perform(string name,void|int flag){
 				//判断冷却时间
 				int s_phy_damage = f_cur_skill->query_performs_attack(skill_level);
 				int s_weapon_add = f_cur_skill->query_performs_per(skill_level);
+				s_weapon_add += this_object()->query_equip_add("attack_all");//增加其他装备的物理伤害 20241019
 				if(s_cold <= 1){
 					//该技不在表中或者冷却，
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
