@@ -1017,7 +1017,7 @@ int query_baoshi_xiangqian_num(void|string baoshi_name,int equip){
 	}
 	else{
 		foreach(tmp,object eachbaoshi){
-			if(eachbaoshi->query_name()==baoshi_name){
+			if(eachbaoshi->query_name()==baoshi_name || search(eachbaoshi->query_name(),"_") != -1 && (eachbaoshi->query_name()/"_")[0] == baoshi_name){
 				baoshi_num ++;
 			}
 		}
