@@ -45,3 +45,7 @@ string view_goods_list(){
 	}
 	return rst;
 }
+
+string view_goods_spec_list(){
+	return MUD_SPEC_STORED->random_list();	
+}

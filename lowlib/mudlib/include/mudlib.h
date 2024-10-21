@@ -63,6 +63,7 @@
 #define MUD_CHINESED		((object)(SROOT "/mudlib/single/chinesed"))//数字转换中文系统
 #define MUD_MONEYD		((object)(SROOT "/mudlib/single/moneyd"))//通用金钱处理系统
 #define MUD_STORED		((object)(SROOT "/mudlib/single/stored"))//游戏中商店买卖系统
+#define MUD_SPEC_STORED		((object)(SROOT "/mudlib/single/specstored"))//购买技能书的商店
 #define MUD_ROOMD 		((object)(SROOT "/mudlib/single/roomd.pike"))//动态刷新房间npc等级
 
 #define MUD_F_GHOST		SROOT "/mudlib/inherit/feature/ghost"//死亡处理流程
