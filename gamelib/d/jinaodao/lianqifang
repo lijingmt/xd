@@ -16,6 +16,7 @@ void create(){
 	links+="[¶ÍÔì:viceskill_duanzao_list m_weapon]|[ÈÛ½â:viceskill_rongjie_list]|[ÈÛÁ¶:viceskill_ronglian_list 0]\n";
 	links+="[Æß²Ê°ËØÔÂ¯:convert_equip_list]\n";
 	links += "[ÏâÇ¶±¦Ê¯:equip_xiangqian_list]\n";
+	links += "[ÉñÃØÉÌµê:list_spec]\n";
 }
 void init()
 {

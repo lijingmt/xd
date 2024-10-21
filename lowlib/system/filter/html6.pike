@@ -200,6 +200,7 @@ string get_right_href_css(string link_name)
 		primary_key_map["¡¾Óñ¡¿ÁáççÓñ"]=hrefcss_purple;
 		primary_key_map["¡¾Óñ¡¿±ÌçôÓñ"]=hrefcss_green2;
 		primary_key_map["¡¾Óñ¡¿ĞşÌì±¦Óñ"]=hrefcss_xuan;
+		primary_key_map["ÉñÃØÉÌµê"]=hrefcss_darkorange;
 		
 		//vip level shows different color
 		
