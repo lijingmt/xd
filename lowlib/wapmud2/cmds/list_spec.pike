@@ -3,14 +3,14 @@
 int main(string arg)
 {
 	string s = "";
-	s +="[1碎玉刷新:list_spec 1 1][1万金币刷新:list_spec 2 1000000]\n每次刷新只能购买一件物品\n";
-	int count = 0;
+	s +="[1碎玉刷新（装备和技能）:list_spec 1 1][1万金币刷新（技能）:list_spec 2 1000000]\n每次刷新只能购买一件物品\n";
+	int type = 0;
 	int rarelevel = 1;//碎玉是1，越大越好
 	int need_amount = 1;//需要碎玉
 	object me = this_player();
 	if(arg){
-		sscanf(arg,"%d %d",count, need_amount);
-		if(count == 2){
+		sscanf(arg,"%d %d",type, need_amount);
+		if(type == 2){//金币购买
 			int fee = need_amount;
 			if(me->pay_money(fee)==0){
 				s+="您的金币不够"+MUD_MONEYD->query_store_money_cn(fee)+"，请返回。\n";
@@ -18,7 +18,7 @@ int main(string arg)
 				//s +=MUD_MONEYD->query_store_money_cn(fee)+"付款成功\n";
 				s += environment(this_player())->view_goods_spec_list();
 			}
-		}else if(count == 1){
+		}else if(type == 1){//碎玉刷新
 			string need_yushi = YUSHID->get_yushi_name(rarelevel);
 			string need_yushicn = YUSHID->get_yushi_namecn(rarelevel);
 			//获得玩家身上此种玉石的个数
@@ -29,7 +29,7 @@ int main(string arg)
 			if(can_num){
 				me->remove_combine_item(need_yushi,need_amount);
 				//s += "交易成功，随机神秘商店货架已满\n";
-				s += environment(this_player())->view_goods_spec_list();
+				s += environment(this_player())->view_goods_spec_list(type);
 			}else{
 				s +="您的"+need_yushicn+"不够购买，刷新失败， 请联系客服捐赠获取\n";
 			}

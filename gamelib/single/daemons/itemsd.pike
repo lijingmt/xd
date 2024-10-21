@@ -408,6 +408,79 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 }
 
 
+//外部接口，由fight_die()调用，为装备掉落的的接口
+object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,string item_rawname)
+{
+	array(string) itemsallow=({}); //等级范围类允许物品列表
+	object ret_item; //最后生成并返回的装备
+	int a=npclevel-1; //概率算法的一个因子
+	int b=101-npclevel; //第二个因子
+
+	//判断是否掉落白色物品
+	int pro = 10000;
+	int itemlevel=get_item_level(npclevel); //调用了获得物品等级的接口
+
+	if(npclevel>73){
+		itemlevel=get_item_level(random(63)+10);//支持超过73以上的装备，如果超过70级按照10-73级的装备模板区随机选一个级别的装备，作为原始模板
+		//werror("=========itemlevel:"+itemlevel+"\n");
+		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
+		b=35;//极品10万分之4
+		pro = 50000;//掉率为50%
+	}
+
+	//在gamelib/data/orgItems.list表中，73级的装备为洞穴装备，洞穴装备的掉率为80%
+	if(itemlevel>=73){
+		pro = 50000;//掉率为50%，由于现在是动态npc掉率设置为50%
+	}
+	if(npclevel <= 10)
+		pro = 20000;
+	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
+		if(itemlevel==0)
+			return 0;
+		itemsallow=item_list[itemlevel]; 
+		if(!itemsallow){
+			return 0;
+		}
+		
+		//item_rawname=itemsallow[random(sizeof(itemsallow))]; //在这里获得了白色物品的名字
+		//werror("============item_rawname:"+item_rawname+"\n");
+		//判断掉落的物品是否有属性
+		//掉落的属性概率xxxxxxxxxxx
+		int seven = (int)(120-a*2+playerluck*b*0.01);
+		int six = (int)(180-a*3+playerluck*b*0.05);
+		int five = (int)(280-a*4+playerluck*b*0.1);
+		int four = (int)(420-a*5+playerluck*b*0.2);
+		int three = (int)((600-a*8)*5+playerluck*b*0.5);
+		//int three = (int)((1200-a*8)*5+playerluck*b*0.5);
+		int two = (int)((820-a*12)*10+playerluck*b*0.7);
+		//int two = (int)((1640-a*12)*10+playerluck*b*0.7);
+		int one = (int)((1080-a*16)*20+playerluck*b*1);
+		//int one = (int)((2160-a*16)*20+playerluck*b*1);
+		int ran=random(100000)+1;
+		//get_attributes_item最后两项为原始装备的等级，以及目标NPC等级
+		if(ran<=seven)
+			ret_item=get_attributes_item(item_rawname,7,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else if(ran<=six)
+			ret_item=get_attributes_item(item_rawname,6,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else if(ran<=five)
+			ret_item=get_attributes_item(item_rawname,5,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else if(ran<=four)
+			ret_item=get_attributes_item(item_rawname,4,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else if(ran<=three)
+			ret_item=get_attributes_item(item_rawname,3,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else if(ran<=two)
+			ret_item=get_attributes_item(item_rawname,2,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else if(ran<=one)
+			ret_item=get_attributes_item(item_rawname,1,itemlevel,npclevel); //调用了获得属性物品的核心接口
+		else
+			ret_item=get_attributes_item(item_rawname,1,itemlevel,npclevel); 
+			//ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
+
+		return ret_item;
+	}
+	else	
+		return 0;
+}
 //外部接口，由fight_die()调用，为世界掉落装备的的接口
 object get_worlddrop_item(int npclevel,int playerlevel)
 {
