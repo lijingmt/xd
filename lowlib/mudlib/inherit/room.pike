@@ -36,7 +36,7 @@ void add_items(array(string|program) _items){
 	object env=environment(me);
 	foreach(_items,string|program s){
 		int adjust=0;//刷新npc级别调整，如果是地狱，则增加3级		
-		werror("----add_items -> player=["+me->name+"]----\n");
+		//werror("----add_items -> player=["+me->name+"]----\n");
 		if(me->gamelevel=="putong") adjust=0;
 		else if(me->gamelevel=="emeng") adjust=5;
 		else if(me->gamelevel=="diyu") adjust=10;
@@ -46,7 +46,7 @@ void add_items(array(string|program) _items){
 			//等级大于50级以上才开启动态NPC
 			int fb_status = FBD->query_fb_memebers(me->fb_id,me->query_name());//0 为非副本，1为副本
 			//int fb_status = search(fb_arr,this_object()->name);
-			werror("======fb_status "+fb_status +"\n");
+			//werror("======fb_status "+fb_status +"\n");
 			if(env->is_peaceful()!=1&&me->query_level()>=dongtai_npc_start_level && fb_status == 0)
 				t_ob=MUD_ROOMD->get_npc_level(s-ROOT,me->query_level()+adjust);//生成文件名不变的npc对象，再赋予对应等级/强度
 		};
@@ -79,7 +79,7 @@ void reset_items()
 	//werror("----reset_items -> player=["+me->name+"]----\n");
 	//等级大于50级以上才开启动态NPC
 	int fb_status = FBD->query_fb_memebers(me->fb_id,me->query_name());
-	werror("======fb_status "+fb_status +"\n");
+	//werror("======fb_status "+fb_status +"\n");
 	if(me->query_level()>=dongtai_npc_start_level && fb_status == 0){
 		MUD_ROOMD->refresh_room_npc_to_currentlevel(me);//动态刷新当前要去的目标房间npclevel 为玩家的等级
 	}

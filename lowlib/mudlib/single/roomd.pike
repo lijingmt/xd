@@ -71,7 +71,7 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 					if(levelbase<=1) levelbase=1 +random(3); //得到上下3级的怪物
 					if(levelbase>=200) levelbase=200;//最大刷新怪物的等级是200级
 					npc_player->_npcLevel = levelbase;	
-					npc_player->setup_npc();
+					npc_player->setup_npc_dongtai(me);
 					//werror("===============refresh_room_npcto_currentlevel monster=["+npc_player->name+"] change level=["+npc_player->level+"]\n");
 				}else{
 					string npc_path = file_name(npc_player);
@@ -83,7 +83,7 @@ void refresh_room_npc_to_currentlevel(object me,string path){
 						if(levelbase<=1) levelbase=1; //得到上下3级的怪物
 						if(levelbase>=200) levelbase=200;//最大刷新怪物的等级是200级
 						new_npc->_npcLevel = levelbase;	
-						new_npc->setup_npc();
+						new_npc->setup_npc_dongtai(me);
 						new_npc->move(env);
 						call_out(new_npc->remove,60*10);
 						if(sizeof(all_inventory(env)) > 50)
@@ -142,7 +142,7 @@ object get_npc_level(string orgi_path,int npclevel){
 			//werror("===============at last monster=["+rtn_ob->name+"] type=[normal]\n");
 		}
 		//设定boss和精英后，再次进行属性重置和计算
-		rtn_ob->setup_npc();
+		rtn_ob->setup_npc_dongtai(this_player());
 	}
 	return rtn_ob;
 }
