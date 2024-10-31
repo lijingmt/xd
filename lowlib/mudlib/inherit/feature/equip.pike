@@ -239,7 +239,7 @@ int query_weapon_attack(){
 void reduce_power(int power){
 	object ob=this_object();
 	if(ob->item_canDura){
-		if(ob->item_dura>=10000)
+		if(ob->item_dura>=10000 || random(100)<95)
 			return;
 		ob->item_cur_dura-=power;
 		if(ob->item_cur_dura<0)
