@@ -14,3 +14,7 @@ void create(){
 	add_items(({ROOT "/gamelib/clone/npc/yukunfeng/ykfdiqishang400"}));
 	add_items(({ROOT "/gamelib/clone/npc/yukunfeng/ykfheishang400"}));
 }
+int is_peaceful()
+{
+	return 1;
+}
