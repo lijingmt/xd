@@ -3,7 +3,7 @@
 int main(string arg)
 {
 	string s = "";
-	s +="[1碎玉刷新（装备和技能）:list_spec 1 1][1万金币刷新（技能）:list_spec 2 1000000]\n每次刷新只能购买一件物品\n";
+	s +="[1碎玉刷新（装备和技能）:list_spec 1 1][100万金币刷新（技能）:list_spec 2 100000000]\n每次刷新只能购买一件物品\n";
 	int type = 0;
 	int rarelevel = 1;//碎玉是1，越大越好
 	int need_amount = 1;//需要碎玉
