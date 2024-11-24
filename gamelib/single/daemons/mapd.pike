@@ -110,11 +110,11 @@ string get_all_kinds_map(){
 		if(pinyin_to_cn[block]){
 			int fee = 1000000;
 			if(this_player()->query_level()>100)	
-				fee = 1000000;	
+				fee = 10000000;	
 			else if(this_player()->query_level()>50){
-				fee = 100000;	
+				fee = 1000000;	
 			}else{
-				fee = 100;
+				fee = 1000;
 			}
 			string fee_cn =MUD_MONEYD->query_store_money_cn(fee);
 			s+="[Ö§¸¶"+fee_cn+"·Éµ½ "+pinyin_to_cn[block]+":map_display "+block+" "+fee+"]\n";
