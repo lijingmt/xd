@@ -6,7 +6,7 @@ int main(string arg)
 	/////////////////////////////////////////////
 
 	/* 100级钻石会员 61-100 白金会员 50-61 黄金 40-50 水晶*/	
-	if(me->query_level()>=40 && me->query_level()<50){
+	if(me->query_level()>=10 && me->query_level()<50){
 		if(!me->query_vip_flag()){
 			string tipsvip = "";
 			tipsvip += "等级超过40级，需要水晶会员级别及以上级别，才可以继续进行相关游戏功能\n";
