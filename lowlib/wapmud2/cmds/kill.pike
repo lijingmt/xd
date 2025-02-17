@@ -6,6 +6,7 @@ int main(string arg)
 	/////////////////////////////////////////////
 
 	/* 100级钻石会员 61-100 白金会员 50-61 黄金 40-50 水晶*/	
+	/*
 	if(me->query_level()>=10 && me->query_level()<50){
 		if(!me->query_vip_flag()){
 			string tipsvip = "";
@@ -76,7 +77,7 @@ int main(string arg)
 			}
 		}
 	}
-	
+	*/
 	//大于50级，必须付费200并获得
 	/*
 	if(me->query_level()>=51){
