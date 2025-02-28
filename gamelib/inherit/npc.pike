@@ -252,6 +252,12 @@ void fight_die()
 									exp_gain = 0;
 								}
 							}*/
+							if(melevel>=120){
+								string tipsvip = "";
+								tipsvip += "您的等级已经满级了，获取经验为0，赶紧去做其他任务吧\n";
+								tell_object(termer,tipsvip);
+								exp_gain = 0;								
+							}
 							int szx=0;                                                                                                                  
 							string bs_tips = "";
 							int extra_dh=0;
