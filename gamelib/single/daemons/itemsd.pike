@@ -833,6 +833,7 @@ string get_item_name_prefix(int level, void|object ob){
 			break;
 	};
 	if(ob && level == -1){
+		werror("=========get_item_name_prefix 836 ob name cn:"+ob->query_name_cn()+"\n");
 		if(search(ob->query_name_cn(), "离三界-") !=-1)
 				ret="离三界-";
 		if(search(ob->query_name_cn(), "无色界-") !=-1)
@@ -859,6 +860,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 	if(Stdio.exist(ITEM_PATH+orgitem)){
 		mixed err = catch{
 				origin_item_ob = clone(ITEM_PATH+orgitem);
+				werror("line 862 origin_item_ob:"+origin_item_ob->query_name_cn()+"\n");
 			};
 			if(err)
 				origin_item_ob=0;
