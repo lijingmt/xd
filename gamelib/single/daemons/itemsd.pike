@@ -832,6 +832,7 @@ string get_item_name_prefix(int level, void|object ob){
 			ret="离三界-";
 			break;
 	};
+	werror("=========get_item_name_prefix level:"+level+"\n");
 	if(ob && level == -1){
 		werror("=========get_item_name_prefix 836 ob name cn:"+ob->query_name_cn()+"\n");
 		if(search(ob->query_name_cn(), "离三界-") !=-1)
