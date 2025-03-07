@@ -816,7 +816,7 @@ float get_item_rate_add(int level){
 	}
 	return ret;
 }
-string get_item_name_prefix(int level){
+string get_item_name_prefix(int level, void|object ob){
 	string ret="";
 	switch(level){
 		case 71..80:
@@ -831,6 +831,17 @@ string get_item_name_prefix(int level){
 		case 101..:
 			ret="离三界-";
 			break;
+	};
+	if(ob && level == -1){
+		if(search(ob->query_name_cn(), "离三界-") !=-1)
+				ret="离三界-";
+		if(search(ob->query_name_cn(), "无色界-") !=-1)
+				ret="无色界-";
+		if(search(ob->query_name_cn(), "色界-") !=-1)
+				ret="色界-";
+		if(search(ob->query_name_cn(), "欲界-") !=-1)
+				ret="欲界-";
+		
 	}
 	//werror("========get_item_name_prefixret:"+ret+"\n");
 	return ret;
@@ -844,7 +855,14 @@ string get_item_name_prefix(int level){
 // 核心重点： orginal_level为73级以前的原始装备等级，target_item_level则为目标生成的高于73级以上的装备，用差额来计算浮动数字
 //如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
 private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level)
-{	
+{	object origin_item_ob;
+	if(Stdio.exist(ITEM_PATH+orgitem)){
+		mixed err = catch{
+				origin_item_ob = clone(ITEM_PATH+orgitem);
+			};
+			if(err)
+				origin_item_ob=0;
+	}
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
 	int size; //该物品允许可能出现的属性的个数
@@ -916,7 +934,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 				werror("something wrong with attri in get_attributes_item()\n");
 			}
 		}
-		writetmp+="    name_cn=query_rare_level()+\""+get_item_name_prefix(target_item_level)+"\"+name_cn;\n}";
+		writetmp+="    name_cn=query_rare_level()+\""+get_item_name_prefix(target_item_level, origin_item_ob)+"\"+name_cn;\n}";
 		//werror("=====add attri:\n"+writetmp+"\n");
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		//orgitem="/weapon/70shelingzhang/70shelingzhang";
