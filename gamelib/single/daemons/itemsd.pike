@@ -855,17 +855,8 @@ string get_item_name_prefix(int level, void|object ob){
 // 核心，重点：本方法是扩展后的方法，可以生成73级以上的装备，计算差额随机的方式 浮动各个数据，其中73级内的是在系统内固定写死的，73以上的则自动生成
 // 核心重点： orginal_level为73级以前的原始装备等级，target_item_level则为目标生成的高于73级以上的装备，用差额来计算浮动数字
 //如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
-private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level)
-{	object origin_item_ob;
-	if(Stdio.exist(ITEM_PATH+orgitem)){
-		mixed err = catch{
-				werror("line 862 orgitem path:"+orgitem+"\n");
-				origin_item_ob = clone(ITEM_PATH+orgitem);
-				werror("line 862 origin_item_ob:"+origin_item_ob->query_name_cn()+"\n");
-			};
-			if(err)
-				origin_item_ob=0;
-	}
+private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level, void|object origin_item_ob)
+{	
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
 	int size; //该物品允许可能出现的属性的个数
@@ -1365,9 +1356,9 @@ object get_ronglian_item(int itemlevel,int playerluck)
 
 //炼化物品（用玉石转化装备属性）调用的接口
 //这个接口也是获得num属性指定装备的接口
-object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level)
+object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level, void|object origin_item_ob)
 {
-	object ret_item = get_attributes_item(item_rawname,num,orginal_level,item_level);//生成目标itemlevel大于70级的装备
+	object ret_item = get_attributes_item(item_rawname,num,orginal_level,item_level,origin_item_ob);//生成目标itemlevel大于70级的装备
 	return ret_item;
 }
 
