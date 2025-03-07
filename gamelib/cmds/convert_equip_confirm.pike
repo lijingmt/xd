@@ -241,7 +241,7 @@ int main(string arg)
 			object new_item = 0;
 			if(ret_flag != 3){
 				if(orginal_item)//如果超过70级以上物品熔炼，则获得原物品等级，以及目前装备的等级，100级装备，熔炼出100级的装备
-					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,orginal_item->query_item_canLevel(),item->query_item_canLevel(),orginal_item);
+					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,orginal_item->query_item_canLevel(),item->query_item_canLevel(),item);
 				else{
 					//有时候上面的clone装备出现问题，再尝试一次即可
 					s += "今天时运不加，装备和时辰相冲，所以转化失败！请模数10下，再尝试一次\n";

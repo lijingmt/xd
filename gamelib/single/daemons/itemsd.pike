@@ -856,7 +856,7 @@ string get_item_name_prefix(int level, void|object ob){
 // 核心，重点：本方法是扩展后的方法，可以生成73级以上的装备，计算差额随机的方式 浮动各个数据，其中73级内的是在系统内固定写死的，73以上的则自动生成
 // 核心重点： orginal_level为73级以前的原始装备等级，target_item_level则为目标生成的高于73级以上的装备，用差额来计算浮动数字
 //如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
-private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level, void|object origin_item_ob)
+private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level, void|object item_ob)
 {	
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
@@ -875,6 +875,11 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 	float rate=1.01;// 计算73以上装备的增长率，初始化为1
 	//werror("=====orginal_level "+orginal_level+"\n");
 	//werror("=====target_item_level "+target_item_level+"\n");
+	int flag_no_level = 0;
+	if (target_item_level == -1){
+		flag_no_level = 1;
+		target_item_level = this_player()->query_level();
+	}
 	if(target_item_level&&orginal_level){
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
@@ -889,6 +894,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		if(rate==0) rate=1.01;
 
 	}
+
 	rate=rate*get_item_rate_add(target_item_level);//设置几个等级的门槛，跨过去了有加成1.1 1.3 1.5 1.7
 	//werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
@@ -929,7 +935,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 				werror("something wrong with attri in get_attributes_item()\n");
 			}
 		}
-		writetmp+="    name_cn=query_rare_level()+\""+get_item_name_prefix(target_item_level, origin_item_ob)+"\"+name_cn;\n}";
+		writetmp+="    name_cn=query_rare_level()+\""+get_item_name_prefix(target_item_level, item_ob)+"\"+name_cn;\n}";
 		//werror("=====add attri:\n"+writetmp+"\n");
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		//orgitem="/weapon/70shelingzhang/70shelingzhang";
@@ -975,7 +981,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					//werror("============821writeback+=orgfilelines[k] "+orgfilelines[k]+" index:"+search(orgfilelines[k],"set_attack_power_limit")+"\n");
 					// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 					if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
-						if(random(10000)<=1){
+						if(random(10000)<=1 || flag_no_level == 1){
 							//万分之2的几率出现无等级需求的装备
 							writeback+="    set_item_canLevel(-1);\n"; //设置新物品的的穿戴等级
 						}else{
@@ -1357,9 +1363,9 @@ object get_ronglian_item(int itemlevel,int playerluck)
 
 //炼化物品（用玉石转化装备属性）调用的接口
 //这个接口也是获得num属性指定装备的接口
-object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level, void|object origin_item_ob)
+object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level, void|object item_ob)
 {
-	object ret_item = get_attributes_item(item_rawname,num,orginal_level,item_level,origin_item_ob);//生成目标itemlevel大于70级的装备
+	object ret_item = get_attributes_item(item_rawname,num,orginal_level,item_level,item_ob);//生成目标itemlevel大于70级的装备
 	return ret_item;
 }
 
