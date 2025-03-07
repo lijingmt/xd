@@ -859,6 +859,7 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 {	object origin_item_ob;
 	if(Stdio.exist(ITEM_PATH+orgitem)){
 		mixed err = catch{
+				werror("line 862 orgitem path:"+orgitem+"\n");
 				origin_item_ob = clone(ITEM_PATH+orgitem);
 				werror("line 862 origin_item_ob:"+origin_item_ob->query_name_cn()+"\n");
 			};
