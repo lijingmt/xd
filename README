@@ -45,3 +45,5 @@ With the release of Pike 9.0, we plan to adapt and enhance this codebase to fit 
 随着 Pike 语言 9.0 的发布，我们也将不断更新这套引擎，使其适应新的技术标准与时代需求。更重要的是，我希望在我死后，它依然可以被人使用、被人热爱，继续陪伴更多人的技术之路与游戏梦想。
 
 > 我曾为它倾尽热爱，如今，它属于所有人。
+
+如果要了解如何架设这个游戏后端服务器，请翻阅README.txt
