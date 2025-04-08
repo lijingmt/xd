@@ -14,26 +14,28 @@ int main(string arg)
 	}
 	*/
 	if(arg){
-		ob=clone(ROOT+"/gamelib/clone/item/"+arg);
+		string name;
+		int fee;
+		sscanf(arg,"%s %d",name, fee);
+		ob=clone(ROOT+"/gamelib/clone/item/"+name);
 		//只购买一个
 		if(!ob){
 			s += "你要购买的物品不存在，请返回。\n";	
-			s+="[返回:list]\n";
-			s+="[返回游戏:look]\n";
-			write(s);
+			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
 		}
 	
 		if(me->if_over_load(ob)){
-			string tmp = "你的背包已满，无法执行此操作，请返回。\n";       
-			tmp+="[返回:look]\n";
-			write(tmp);
+			s = "你的背包已满，无法执行此操作，请返回。\n";       
+			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
 		}
 
-		int need_money = ob->query_item_canLevel? (int)ob->query_item_canLevel()*50:10000*50;
-		if(me->pay_money(need_money)==0)
+		int need_money = fee;
+		if(me->pay_money(need_money)==0){
 			s += "你身上的钱不够支付费用，请返回。\n";
+			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
+		}
 		else{
 			s += "交易成功！\n你花费"+MUD_MONEYD->query_store_money_cn(need_money)+"\n";
 			s += "得到了物品 "+ob->query_name_cn()+"！\n";
@@ -46,11 +48,11 @@ int main(string arg)
 			string tmp = now[0..sizeof(now)-2]+":"+me->name_cn+"("+me->name+")\n";
 			tmp += s;
 			Stdio.append_file(ROOT+"/log/buy.log",tmp+"\n");
+			s+="[返回游戏:look]\n";
+			write(s);
 		}
 	}
-	s+="[返回:list]\n";
-	s+="[返回游戏:look]\n";
-	write(s);
+	
 	return 1;
 }
 

@@ -183,11 +183,13 @@ int killed_exp(object enemy){
 	else{
 		//被对方阵营玩家杀死
 		if(enemy->query_raceId()!=me->query_raceId()){
-			 drop_exp = level_next*10/100;
+			 //drop_exp = level_next*10/100;
+			 drop_exp = level_next*2/1000;
 		}
 		//被本方阵营玩家所杀
 		else if(enemy->query_raceId()==me->query_raceId()){
-			drop_exp = level_next*5/100;
+			//drop_exp = level_next*5/100;
+			drop_exp = level_next*1/1000;
 		}
 		//以下是处理在同一天被同一玩家所杀的情况
 		if(!me->get_once_day["killed_by_player"]){

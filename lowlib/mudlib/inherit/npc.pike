@@ -295,6 +295,248 @@ void npc_level_define(){
 			mofa=mofa_max=_costom_npc_mofa;
 	}
 }
+void setup_npc_dongtai(object player){
+	if(this_object()->query_raceId()=="human"&&this_object()->query_profeId()=="humanlike"){
+		kind_cn = "人类";
+		unit = "位";
+		//gender = "男性";
+	}
+	else if(this_object()->query_raceId()=="monst"&&this_object()->query_profeId()=="humanlike"){
+		kind_cn = "妖魔";
+		unit = "位";
+		//gender = "男性";
+	}
+	else if(this_object()->query_profeId()=="beast"){
+		kind_cn = "野兽";
+		unit = "只";
+		//gender = "雄性";
+	}
+	else if(this_object()->query_profeId()=="bird"){
+		kind_cn = "飞禽";
+		unit = "只";
+		//gender = "雄性";
+	}
+	else if(this_object()->query_profeId()=="fish"){
+		kind_cn = "鱼";
+		unit = "条";
+		//gender = "雄性";
+	}
+	else if(this_object()->query_profeId()=="bugs"){
+		kind_cn = "昆虫";
+		unit = "只";
+		//gender = "雄性";
+	}
+	else if(this_object()->query_profeId()=="amphibian"){
+		kind_cn = "两栖动物";
+		unit = "只";
+		//gender = "雄性";
+	}
+	else if(this_object()->query_profeId()=="dog"){
+		kind_cn = "狗";
+		unit = "只";
+		//gender = "雄性";
+	}
+	//得到该等级的npc基本属性值
+	npc_level_define_dongtai(player);
+}
+//该方法自动根据npc类型和等级，生成该Npc基本属性值,给动态地图使用
+void npc_level_define_dongtai(object player){
+	int npcLevel = _npcLevel-1;
+	//npc类型，等级不同，得到的基本属性计算公式也不同
+	string u_profe = this_object()->query_profeId();
+	if(u_profe){
+		int i_profe = m_profe[u_profe];
+		switch(i_profe){
+			////////////////////////////////////////////////////	
+			case 7://人形 包括人类和妖魔
+				{
+					//初始值
+					_str = 3;//力量
+					_dex = 6;//敏捷
+					_think = 6;//智力
+					_lunck = 0;//幸运
+					_appear = 20;//容貌
+					//力量算法////////////////////
+					int need = 0;
+					for(int i=0; i<=npcLevel; i++)
+						need += 3+(int)(i/10);
+					_str += need;
+					//十级以下怪力量/2
+					//if(npcLevel<=9)
+					//	_str = _str/2;
+					//力量算法////////////////////
+					_dex += npcLevel;//敏捷算法 + 装备的物品附加敏捷总和
+					_think += npcLevel*4;//智力算法 + 装备的物品附加智力总和
+					_lunck = 0;//幸运算法 + 装备的物品附加幸运总和
+					_appear = 20;//容貌
+				}
+				break;
+				////////////////////////////////////////////////////	
+			case 8://野兽
+				{
+					//初始值
+					_str = 6;//力量
+					_dex = 2;//敏捷
+					_think = 2;//智力
+					_lunck = 0;//幸运
+					_appear = 20;//容貌
+					//力量算法////////////////////
+					int need = 0;
+					for(int i=0; i<=npcLevel; i++)
+						need += 4+(int)(i/10);	
+					_str += need;
+					//十级以下怪力量/2
+					//if(npcLevel<=9)
+					//	_str = _str/2;
+					//力量算法////////////////////
+					_dex += npcLevel;//敏捷算法 + 装备的物品附加敏捷总和
+					_think += npcLevel*2;//智力算法 + 装备的物品附加智力总和
+					_lunck = 0;//幸运算法 + 装备的物品附加幸运总和
+					_appear = 20;//容貌
+				}
+				break;
+				////////////////////////////////////////////////////	
+			case 9://飞禽
+				{
+					//初始值
+					_str = 3;//力量
+					_dex = 12;//敏捷
+					_think = 4;//智力
+					_lunck = 0;//幸运
+					_appear = 20;//容貌
+					//力量算法////////////////////
+					int need = 0;
+					for(int i=0; i<=npcLevel; i++)
+						need += 3+(int)(i/10);	
+					_str += need;
+					//十级以下怪力量/2
+					//if(npcLevel<=9)
+					//	_str = _str/2;
+					//力量算法////////////////////
+					_dex += npcLevel*4;//敏捷算法 + 装备的物品附加敏捷总和
+					_think += npcLevel;//智力算法 + 装备的物品附加智力总和
+					_lunck = 0;//幸运算法 + 装备的物品附加幸运总和
+					_appear = 20;//容貌
+				}
+				break;
+				////////////////////////////////////////////////////	
+			case 10://鱼
+				{
+					//初始值
+					_str = 3;//力量
+					_dex = 12;//敏捷
+					_think = 4;//智力
+					_lunck = 0;//幸运
+					_appear = 20;//容貌
+					//力量算法////////////////////
+					int need = 0;
+					for(int i=0; i<=npcLevel; i++)
+						need += 3+(int)(i/10);	
+					_str += need;
+					//十级以下怪力量/2
+					//if(npcLevel<=9)
+					//	_str = _str/2;
+					_dex += npcLevel*4;//敏捷算法 + 装备的物品附加敏捷总和
+					_think += npcLevel;//智力算法 + 装备的物品附加智力总和
+					_lunck = 0;//幸运算法 + 装备的物品附加幸运总和
+					_appear = 20;//容貌
+				}
+				break;
+				////////////////////////////////////////////////////	
+			case 11://两栖动物
+				{
+					//初始值
+					_str = 3;//力量
+					_dex = 12;//敏捷
+					_think = 4;//智力
+					_lunck = 0;//幸运
+					_appear = 20;//容貌
+					//力量算法////////////////////
+					int need = 0;
+					for(int i=0; i<=npcLevel; i++)
+						need += 3+(int)(i/10);	
+					_str += need;
+					//十级以下怪力量/2
+					//if(npcLevel<=9)
+					//	_str = _str/2;
+					_dex += npcLevel*4;//敏捷算法 + 装备的物品附加敏捷总和
+					_think += npcLevel;//智力算法 + 装备的物品附加智力总和
+					_lunck = 0;//幸运算法 + 装备的物品附加幸运总和
+					_appear = 20;//容貌
+				}
+				break;
+				////////////////////////////////////////////////////	
+			case 12://虫类
+				{
+					//初始值
+					_str = 3;//力量
+					_dex = 12;//敏捷
+					_think = 4;//智力
+					_lunck = 0;//幸运
+					_appear = 20;//容貌
+					//力量算法////////////////////
+					int need = 0;
+					for(int i=0; i<=npcLevel; i++)
+						need += 3+(int)(i/10);	
+					_str += need;
+					//十级以下怪力量/2
+					//if(npcLevel<=9)
+					//	_str = _str/2;
+					_dex += npcLevel*4;//敏捷算法 + 装备的物品附加敏捷总和
+					_think += npcLevel;//智力算法 + 装备的物品附加智力总和
+					_lunck = 0;//幸运算法 + 装备的物品附加幸运总和
+					_appear = 20;//容貌
+
+					//set_str(_str);
+				}
+				break;
+				////////////////////////////////////////////////////	
+				/*
+			case 13://看门狗
+				{
+					_costom_npc_life = 3000;
+					_str = 30;
+					_think = 30;
+					_dex = 30;
+				}
+				break;
+				*/
+		}
+
+		int plus_add = (int) pow(player->query_defend_power(),0.3);//根据玩家防御度增加npc的强度
+		werror("=========plus_add "+plus_add+"\n");
+		werror("=========player->query_defend_power() "+player->query_defend_power()+"\n");
+		if(npcLevel < 100){
+			plus_add = 1;
+		}
+		if(plus_add){//玩家自身防御调整npc强度
+			_str = _str*plus_add;
+			_dex = _dex*plus_add;//敏捷
+			_think = _think*plus_add;//智力
+			_lunck = plus_add*10;//幸运
+		}
+		//精英怪和boss怪的处理，分别是精英*2,boss*3
+		if(_meritocrat==1){
+			_str = _str*3;
+			_dex = _dex*3;//敏捷
+			_think = _think*3;//智力
+		}
+		else if(_boss==1){
+			_str = _str*6;
+			_dex = _dex*6;//敏捷
+			_think = _think*6;//智力
+		}
+		life = _str*10;//生命=生命上限
+		life_max = life;
+		mofa = _think*10;//法力=法力上限
+		mofa_max = mofa;
+		//如果自定义了该npc的生命值，返回自定义生命值
+		if(_costom_npc_life!=0)
+			life=life_max=_costom_npc_life;
+		if(_costom_npc_mofa!=0)
+			mofa=mofa_max=_costom_npc_mofa;
+	}
+}
 int is_npc(){
 	return 1;
 }

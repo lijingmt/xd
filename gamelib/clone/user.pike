@@ -4,6 +4,7 @@
 inherit WAP_USER;
 //用户仓库继承类
 inherit GAMELIB_PACKAGED;
+#define SAVE_TIME 30 //60秒存一次
 //增加新用户注册时间记录                                                                            
 string user_reg_time;
 
@@ -348,7 +349,7 @@ void create(){
 	//term = "noterm";
 	picture = "nosex";	
 	living_time=10*60;
-	call_out(save,10*60);
+	call_out(save,SAVE_TIME);
 }
 string query_extra_links(void|int count)
 {
@@ -366,7 +367,7 @@ string query_extra_links(void|int count)
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
 	string topten= "[排行榜:look_top]\t";	
-	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]\n[任务:mytasks]|[帮派:my_bang]|[江湖:my_games]\n[仙玉:yushi_myzone]|[设置:game_detail]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[帮派:my_bang]|[江湖:my_games]|[传送:userlist]\n[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	//string returnLinks="[刷新:look]"+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[任务:mytasks]\n[队伍:my_term]|[好友:my_qqlist]\n[聊天:chatroom_list]|[玩家:userlist]\n[我的帮派:my_bang]\n[仙玉妙坊:yushi_myzone]\n[游戏设置:game_detail]\n[url 仙道官方站:http://xd.dogstart.com]\n";
 	if(this_player()->sid == "5dwap")
 		returnLinks += addstr;
@@ -420,7 +421,7 @@ void save(void|int autosave){
 		return;
 	}
 	else
-		call_out(save,10*60);
+		call_out(save,SAVE_TIME);//改成每分钟存一次，防止丢档案
 }
 void remove(){
 	if(term && term != "noterm"){
@@ -1016,7 +1017,9 @@ int query_baoshi_xiangqian_num(void|string baoshi_name,int equip){
 	}
 	else{
 		foreach(tmp,object eachbaoshi){
-			if(eachbaoshi->query_name()==baoshi_name){
+			werror("==============baoshi file name "+eachbaoshi->query_name()+"\n");
+			werror("==============baoshi_name "+baoshi_name+"\n");
+			if(eachbaoshi->query_name()==baoshi_name || search(eachbaoshi->query_name(),"_") != -1 && (eachbaoshi->query_name()/"_")[0] == baoshi_name){
 				baoshi_num ++;
 			}
 		}

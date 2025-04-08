@@ -119,12 +119,12 @@ string check_words(string words){
 string get_tail_desc()
 {
         string s_rtn = "";
-	s_rtn += "仙道-";
+	s_rtn += "仙界时间：";
 	s_rtn += TIMESD->query_cur_time()+"\n";
 	s_rtn += "--------\n";
 	s_rtn += "[url 首页:http://www.wapmud.com/gamehome/]|";
 	s_rtn += "[url 贴吧:https://tieba.baidu.com/f?kw=wapmud]\n";
-	s_rtn += "捐赠获取仙玉 qq:1811117272\n Line:txai\n 邮箱：1811117272@qq.com";
+	s_rtn += "捐赠获取仙玉 qq:1811117272\n Line:txai\n 邮箱：1811117272@qq.com\n官方qq群号:478189825\n";
 	//s_rtn += "★数字狗狗☆娱乐无限★\n";
 	//s_rtn += "-- [url 天:http://tx1.dogstart.com/txmud/tx/index.jsp]||";
 	//s_rtn += "[url 天下 AI 网游:http://tx.wapmud.com/tx/pc.jsp]\n";

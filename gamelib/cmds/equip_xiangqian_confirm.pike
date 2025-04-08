@@ -32,14 +32,14 @@ int main(string arg)
 	//werror("--------name="+baoshi->query_name()+"--color="+color+"--color_cn="+color_cn+"-\n");
 	string baoshi_name_cn = baoshi->query_name_cn();
 	string item_name_cn = item->query_name_cn();
-	if(baoshi_name=="pshuangshuiyu"||baoshi_name=="slhuangshuiyu"||baoshi_name=="jinghuangshuiyu"){
+	if(baoshi_name=="pshuangshuiyu"||baoshi_name=="slhuangshuiyu"||baoshi_name=="jinghuangshuiyu" || search(baoshi_name,"huangshuiyu") != -1){
 		int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
 		if(shuiyu_num>=4){
 			s += "每个玩家最多只能镶嵌4颗黄水玉（包括闪亮黄水玉、朴素黄水玉和【晶】黄水玉）\n";
 			xq_flag = 0;
 		}
 	}
-	if(baoshi_name=="nianshoulingshilisanjie"||baoshi_name=="nianshoulingshilisanjie2"||baoshi_name=="nianshoulingshilisanjie3"){
+	if(baoshi_name=="nianshoulingshilisanjie"||baoshi_name=="nianshoulingshilisanjie2"||baoshi_name=="nianshoulingshilisanjie3" || search(baoshi_name,"nianshoulingshilisanjie") != -1){
 		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
 	    int shuiyu_num = me->query_baoshi_xiangqian_num("nianshoulingshilisanjie",0)+me->query_baoshi_xiangqian_num("nianshoulingshilisanjie2",0)+me->query_baoshi_xiangqian_num("nianshoulingshilisanjie3",0);
 		if(shuiyu_num>=4){
@@ -47,7 +47,15 @@ int main(string arg)
 			xq_flag = 0;
 		}
 	}
-	if(baoshi_name=="nianshoulingshiwuse"||baoshi_name=="nianshoulingshiwuse2"||baoshi_name=="nianshoulingshiwuse3"){
+	if(baoshi_name=="nvwalingshi"||baoshi_name=="nvwalingshi2"||baoshi_name=="nvwalingshi3" || search(baoshi_name,"nvwalingshi") != -1){
+		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
+	    int shuiyu_num = me->query_baoshi_xiangqian_num("nvwalingshi",0)+me->query_baoshi_xiangqian_num("nvwalingshi2",0)+me->query_baoshi_xiangqian_num("nvwalingshi3",0);
+		if(shuiyu_num>=4){
+			s += "每个玩家最多只能镶嵌4颗离三界女娲灵石（包括红 黄 蓝）\n";
+			xq_flag = 0;
+		}
+	}
+	if(baoshi_name=="nianshoulingshiwuse"||baoshi_name=="nianshoulingshiwuse2"||baoshi_name=="nianshoulingshiwuse3" || search(baoshi_name,"nianshoulingshiwuse") != -1){
 		//int shuiyu_num = me->query_baoshi_xiangqian_num("pshuangshuiyu",0)+me->query_baoshi_xiangqian_num("slhuangshuiyu",0)+me->query_baoshi_xiangqian_num("jinghuangshuiyu",0);
 	    int shuiyu_num = me->query_baoshi_xiangqian_num("nianshoulingshiwuse",0)+me->query_baoshi_xiangqian_num("nianshoulingshiwuse2",0)+me->query_baoshi_xiangqian_num("nianshoulingshiwuse3",0);
 		if(shuiyu_num>=4){

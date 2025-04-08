@@ -1060,6 +1060,19 @@ int query_equip_add(string arg){
 				}
 			}
 		break;
+		case "attack_all": //武器伤害附加
+			foreach(indices(equip),string s){                                                       
+				object ob=equip[s];
+				if(ob&&ob->item_cur_dura>0){
+					power+=ob->query_attack_all_add();
+					if(ob->query_if_aocao("all")&&ob->query_baoshi("all")){
+						foreach(ob->query_baoshi("all"),object tmp){
+							 power+=tmp->query_attack_all_add();
+						}
+					}
+				}
+			}
+		break;
 		case "weapon_attack": //武器增加伤害百分比
 			foreach(indices(equip),string s){                                                       
 				object ob=equip[s];

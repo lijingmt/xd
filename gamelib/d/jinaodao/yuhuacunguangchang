@@ -64,8 +64,17 @@ int set_name_cn(string arg)
 		s = "你已经有名字了，每个人只能取一次名字。\n";                                                                 
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);                                                                          
 		return 1;                                                                                                      
-	}                                                                                                                
-	if(arg){                                                                                                         
+	}   
+	                                                                                                             
+	if(arg){ 
+		//werror("===== 69 arg "+arg+"\n"); 
+		if(search(arg," ")!=-1) {//这里去重，有起名字老是重复2次，中间有空格
+			array(string) t=arg/" ";
+			if(sizeof(t)==2&&t[0]==t[1]){
+				arg=t[0];
+			}
+		}                                                                                                        
+                                                                                                       
 		arg=replace(arg,(["%20":""]));                                                                                  
 	}                                                                                                                
 	else{                                                                                                            
