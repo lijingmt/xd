@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/etc"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="tips"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="a47ddc2b7b2e8514ef5d0c77d4f15e6a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="servermsg.restart"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="25b84561e9bf45ad45ca4b6c6b03dc29"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   name="broadcast"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="bangzhan.info"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="city.info"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="998567d8abae64f3a6a85d71e5ec7420"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="reserved_names"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="282f0109bfb23df1f3454a6021f0d5c6"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="advice.csv"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f5af07d8f5e9addc823d3df83071a511"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   name="home"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="postmsg"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="servermsg"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="fee_exchange.infos"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f9294e113a735f256da8f5578612a5d4"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1924"
+   name="regname"
+   text-time="2009-02-05T03:16:59.000000Z"
+   committed-date="2009-02-04T08:58:28.408202Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-02-05T03:16:59.000000Z"/>
+</wc-entries>

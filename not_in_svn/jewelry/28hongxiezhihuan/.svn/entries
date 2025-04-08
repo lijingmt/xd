@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/jewelry/28hongxiezhihuan"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="28hongxiezhihuan"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5043fd96ea66ac5dcfbf468301a3831a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+</wc-entries>
