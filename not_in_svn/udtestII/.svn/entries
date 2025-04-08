@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/udtestII"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="msg.list"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d41d8cd98f00b204e9800998ecf8427e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="bangpai"
+   kind="dir"/>
+<entry
+   name="items"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="room_level.log"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="163a2fb9cbb58ec97c2a31767dbdceff"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   name="u"
+   kind="dir"/>
+<entry
+   name="new_users"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="room_levelnew.log"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="4dde57eb6cf8b36d17619e50ff167673"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+</wc-entries>

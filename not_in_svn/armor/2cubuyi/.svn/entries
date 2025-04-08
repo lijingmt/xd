@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1860"
+   name=""
+   committed-date="2009-01-07T06:56:16.181738Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn/armor/2cubuyi"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e042c4c42afeb56de7c5dc5238ff4e12"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi00000000000000000000000000000010000"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="1134bf2f3d065792b0e9a1a8c188140d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi00100000000000000000000000000000000"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="868345e3ed5d75930fd6bed960373144"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi00000000000000000000000000000000200"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="f4706ee336543efc44524a82c6e5d6e5"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi20000000000000000000000000000000000"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="5632aeb8bc287f1cec7754e1043c3332"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi00000000000000000000000000000000300"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="57441e6eac12f39728ddd1b365cc5b0e"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="2cubuyi00000000000000000000000000000050000"
+   text-time="2009-01-08T05:37:58.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="17b83d5d537ecedcf7eef6446755cc90"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+</wc-entries>

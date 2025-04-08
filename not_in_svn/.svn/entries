@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1924"
+   name=""
+   committed-date="2009-02-04T08:58:28.408202Z"
+   url="svn://221.130.176.164/xiand2.0/trunk/not_in_svn"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1925"/>
+<entry
+   name="armor"
+   kind="dir"/>
+<entry
+   name="jewelry"
+   kind="dir"/>
+<entry
+   name="log"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="present_set.pike"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="31f90909613549d43db1857018f49136"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:58.000000Z"/>
+<entry
+   name="db_log"
+   kind="dir"/>
+<entry
+   name="decorate"
+   kind="dir"/>
+<entry
+   name="weapon"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="vendue_confirm.pike"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="3f6aec90ea9497ec529c1e6f2f14b113"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:37:59.000000Z"/>
+<entry
+   name="udtestII"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="callback_add.pike"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="cf9cb982fc457143134a8d359062e186"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="hosts_list"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="107c4da30ebb56942dd6ec71bcbaedcf"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="msg_write_confirm.pike"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="d9b8645fce266b1b5d8774653c00e00d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="bandpsw_change_confirm.pike"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="e0c6cddd9f567fac9e6d7cd7cd91b13a"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="globals.h"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="bc9158f98752b8905730ac9ae8396a26"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   committed-rev="1860"
+   name="cp_file.sh"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="b728e22e3fae6a02be199d0de1a4e51d"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+<entry
+   name="etc"
+   kind="dir"/>
+<entry
+   committed-rev="1860"
+   name="startup.sh"
+   text-time="2009-01-08T05:38:00.000000Z"
+   committed-date="2009-01-07T06:56:16.181738Z"
+   checksum="18203d7c782c3f52a18084414141a9be"
+   last-author="cap"
+   kind="file"
+   prop-time="2009-01-08T05:38:00.000000Z"/>
+</wc-entries>
