@@ -1,11 +1,12 @@
 #!/usr/local/bin/pike
 #define IP "127.0.0.1"
-#define PORT 5499
+#define PORT 5400
 #define PROJECT "gamelib" 
-#define LOG "/usr/local/games/xiand9/log/fee_log/feelog"
+#define LOG "/usr/local/games/xiand/log/fee_log/feelog"
 
 int main(int num,array(string) args)
 {
+	//String result = exec_pike(pike_url,uid,point,"xianyuanyu",present);
 	if(num==4 || num==5)
 	{
 		int fee = 1;	
