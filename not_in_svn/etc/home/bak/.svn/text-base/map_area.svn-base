@@ -1,5 +1,0 @@
-id|name|中文名|附加价格(玉石)|附加价格(金)|所含地段名|描述|加速生长类型
-1|yukunfeng|玉昆峰|0|0|yukunmen,yulinglu,yukunjian,yukunquan,yukunjie,yukunzhen,yukunwangyue|矿物浓度聚集速度提高5%，且可多采集3次，采集时5%几率获得矿物精华，1%几率获得种子，1%几率获得小动物，如果不用任何营养，矿物每小时增加10点浓度，花草每小时增加5点精神，牲畜每小时增加20点生命。|ore,
-2|qianxuehu|千雪湖|0|0|qianxuemen,qianxuexiaoxiang,qianxueqiaotou,qianxuechangjie,qianxuezhen,qianxuehupan,qianxueningwu|植物生长速度提高5%，且可多采集3次，采集时5%几率获得该植物种子，1%几率获得矿物精华，1%几率获得小动物，如果不用任何营养，矿物每小时增加5点浓度，花草每小时增加10点精神，牲畜每小时增加20点生命。|plant,
-3|lengyuecaoyuan|冷月草原|0|0|lengyuemen,lengyuelu,lengyuecun,lengyueshuitang,lengyuehupan,lengyuelindi,lengyuehanguang|牲畜生长速度提高5%，且多掉落3块毛皮，采集时5%几率获得小动物，1%几率获得种子，1%几率获得矿物精华，如果不用任何营养，矿物每小时增加5点浓度，花草每小时增加5点精神，牲畜每小时增加50点生命。|animal,
-4|lingxidi|灵犀地|10|100|lingximen,lingxixiaolu,lingxiqiaotou,lingxixiaoxiang,lingxizhen,lingxihepan,lingxipingyuan|矿物浓度聚集速度提高5%，且可多采集3次，植物生长速度提高5%，且可多采集3次，牲畜生长速度提高5%，且多掉落3块毛皮，采集时5%几率获得种子，5%几率获得矿物精华，5%几率获得小动物，如果不用任何营养，矿物每小时增加11点浓度，花草每小时增加10点精神，牲畜每小时增加50点生命。|ore,plant,animal,

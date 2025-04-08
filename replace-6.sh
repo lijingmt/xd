@@ -1,1 +1,0 @@
-sed -i 's/Ê¥»ğÁî/ÌìµØ»ğÁî/g'  $(grep 'Ê¥»ğÁî' * -rl| grep -v replace)
