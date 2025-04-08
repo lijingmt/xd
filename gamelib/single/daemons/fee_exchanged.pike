@@ -32,7 +32,7 @@
 //#define SAVE_TIME 120 //回写fee_exchange.infos的时间
 inherit LOW_DAEMON;
 Sql.Sql db;
-string dbSql = "mysql://root:34ccpalm@game_database:22334/pokegame_tongji";
+string dbSql = "mysql://root:password@game_database:22334/pokegame_tongji";
 mapping optionsMap = ([]);
 object obt;
 

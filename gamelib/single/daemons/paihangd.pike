@@ -11,8 +11,8 @@ inherit LOW_DAEMON;
 #define TOP_DAY 10 //取10天内的数据
 //#define UPDATE_TIME 20 //更新时间间隔为40秒 测试用
 Sql.Sql db;
-//string dbSql = "mysql://root:34ccpalm@gamelog_database:22334/xd_game_db";
-string dbSql = "mysql://root:mrzr@li123456@127.0.0.1/xd";
+//string dbSql = "mysql://root:password@gamelog_database:22334/xd_game_db";
+string dbSql = "mysql://root:password@127.0.0.1/xd";
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
 mapping optionsMapOfFee = ([]);
