@@ -4,10 +4,10 @@ inherit LOW_DAEMON;
 
 #define TIME_UNIT 600 //每10分钟统计一次在线数据
 Sql.Sql db;
-string dbSql = "mysql://root:34ccpalm@gamelog_database:22334/xd_game_db";//这个db里记录是5,6区的日登录数据
+string dbSql = "mysql://root:password@gamelog_database:22334/xd_game_db";//这个db里记录是5,6区的日登录数据
 
 Sql.Sql db2;
-string dbSql2 = "mysql://root:34ccpalm@gamelog_database:22334/gamelog";
+string dbSql2 = "mysql://root:password@gamelog_database:22334/gamelog";
 
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);

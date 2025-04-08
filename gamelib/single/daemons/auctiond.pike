@@ -15,8 +15,8 @@ object LOG;
 
 Sql.Sql db;
 //#define GAME_NAME		"xd"//游戏区名
-//string dbSql = "mysql://root:34ccpalm@game_database:22334/"+GAME_NAME; //远程数据库服务器
-string dbSql = "mysql://root:mrzr@li123456@127.0.0.1/xd";
+//string dbSql = "mysql://root:password@game_database:22334/"+GAME_NAME; //远程数据库服务器
+string dbSql = "mysql://root:password@127.0.0.1/xd";
 
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);

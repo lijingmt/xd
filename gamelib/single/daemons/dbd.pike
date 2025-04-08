@@ -8,10 +8,10 @@
 inherit LOW_DAEMON;
 
 Sql.Sql dbfee;
-string dbfeeSql = "mysql://root:34ccpalm@game_database:22334/fee_ldwy";
+string dbfeeSql = "mysql://root:password@game_database:22334/fee_ldwy";
 
 Sql.Sql dblog;
-string dblogSql = "mysql://root:34ccpalm@gamelog_database:22334/gamelog";
+string dblogSql = "mysql://root:password@gamelog_database:22334/gamelog";
 string game_id = GAME_NAME_S;
 
 object obt;
