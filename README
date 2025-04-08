@@ -1,15 +1,16 @@
 
-# Xiandao (ÏÉµÀ) ¨C Open Source WAP RPG Engine
 
-**A mobile MMORPG engine originally developed in 2004¨C2008, now open-sourced for historical preservation and technical education.**
+# Xiandao (ï¿½Éµï¿½) ï¿½C Open Source WAP RPG Engine
 
-## About the Project / ÏîÄ¿¼ò½é
+**A mobile MMORPG engine originally developed in 2004ï¿½C2008, now open-sourced for historical preservation and technical education.**
 
-"Xiandao (ÏÉµÀ)" is a classic WAP-based mobile MMORPG engine developed by Jing Li and his team between 2004 and 2008. It represents one of the earliest large-scale mobile online game infrastructures in China.
+## About the Project / ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
+
+"Xiandao (ï¿½Éµï¿½)" is a classic WAP-based mobile MMORPG engine developed by Jing Li and his team between 2004 and 2008. It represents one of the earliest large-scale mobile online game infrastructures in China.
 
 The game engine was written in **Pike**, a powerful interpreted language based on LPC and C++, and featured real-time multiplayer interaction, world-building, and a dynamic NPC system long before smartphones became mainstream.
 
-> ? You could call it a **milestone** in China¡¯s mobile game history ¡ª one of the very first to "eat the crab" (a Chinese expression for being a true pioneer).
+> ? You could call it a **milestone** in Chinaï¿½ï¿½s mobile game history ï¿½ï¿½ one of the very first to "eat the crab" (a Chinese expression for being a true pioneer).
 
 During its time, Xiandao supported tens of thousands of players daily and pioneered several concepts now seen as standard in mobile RPGs:
 - PvP war zones and guild system
@@ -28,22 +29,23 @@ This release includes source code, configuration samples, and documentation for 
 ? License: [MIT License](./LICENSE)
 
 
-## Why Open Source Now / ÎªÊ²Ã´Ñ¡ÔñÏÖÔÚ¿ªÔ´£¿
+## Why Open Source Now / ÎªÊ²Ã´Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½Ô´ï¿½ï¿½
 
 It's been 20 years since I first built this game engine with my team.
 
-Today, I have decided to release the source code to the public ¡ª not only to preserve a piece of history, but to give new developers and dreamers the tools to build upon it. I hope this engine will continue to inspire creativity, serve as a foundation for new ideas, and evolve with the times.
+Today, I have decided to release the source code to the public ï¿½ï¿½ not only to preserve a piece of history, but to give new developers and dreamers the tools to build upon it. I hope this engine will continue to inspire creativity, serve as a foundation for new ideas, and evolve with the times.
 
-With the release of Pike 9.0, we plan to adapt and enhance this codebase to fit modern standards. More importantly, we hope this code will live on beyond me ¡ª that one day, long after I am gone, it will still be used, modified, and celebrated by future generations of developers and game lovers.
+With the release of Pike 9.0, we plan to adapt and enhance this codebase to fit modern standards. More importantly, we hope this code will live on beyond me ï¿½ï¿½ that one day, long after I am gone, it will still be used, modified, and celebrated by future generations of developers and game lovers.
 
 > I built it with love. Now it's yours.
 
 ---
 
-¾à½ñÒÑ¹ýÈ¥ÕûÕû¶þÊ®Äê¡£
+ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê®ï¿½ê¡£
 
-ÎÒºÍÎÒµÄÍÅ¶ÓÔøÇã×¢ÎÞÊýÐÄÑª£¬¿ª·¢³öÕâ¿îÓÎÏ·ÒýÇæ¡£½ñÌì£¬ÎÒ¾ö¶¨½«Ëü¿ªÔ´£¬²»½öÊÇÎªÁË¼ÍÄîÎÒÃÇÔÚÖÐ¹úÊÖ»úÍøÓÎ²Ý´´Ê±´úµÄÌ½Ë÷£¬¸üÊÇÎªÁËÈÃ¸ü¶à¿ª·¢Õß¡¢°®ºÃÕßÓÐ»ú»áÊ¹ÓÃËü¡¢Ñ§Ï°Ëü¡¢¼Ì³ÐËü¡¢³¬Ô½Ëü¡£
+ï¿½Òºï¿½ï¿½Òµï¿½ï¿½Å¶ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½æ¡£ï¿½ï¿½ï¿½ì£¬ï¿½Ò¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Ë¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Î²Ý´ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ã¸ï¿½ï¿½à¿ªï¿½ï¿½ï¿½ß¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ§Ï°ï¿½ï¿½ï¿½ï¿½ï¿½Ì³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô½ï¿½ï¿½ï¿½ï¿½
 
-Ëæ×Å Pike ÓïÑÔ 9.0 µÄ·¢²¼£¬ÎÒÃÇÒ²½«²»¶Ï¸üÐÂÕâÌ×ÒýÇæ£¬Ê¹ÆäÊÊÓ¦ÐÂµÄ¼¼Êõ±ê×¼ÓëÊ±´úÐèÇó¡£¸üÖØÒªµÄÊÇ£¬ÎÒÏ£ÍûÔÚÎÒËÀºó£¬ËüÒÀÈ»¿ÉÒÔ±»ÈËÊ¹ÓÃ¡¢±»ÈËÈÈ°®£¬¼ÌÐøÅã°é¸ü¶àÈËµÄ¼¼ÊõÖ®Â·ÓëÓÎÏ·ÃÎÏë¡£
+ï¿½ï¿½ï¿½ï¿½ Pike ï¿½ï¿½ï¿½ï¿½ 9.0 ï¿½Ä·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ£¬Ê¹ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ÂµÄ¼ï¿½ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ó¡£¸ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½Ê¹ï¿½Ã¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ËµÄ¼ï¿½ï¿½ï¿½Ö®Â·ï¿½ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ë¡£
 
-> ÎÒÔøÎªËüÇã¾¡ÈÈ°®£¬Èç½ñ£¬ËüÊôÓÚËùÓÐÈË¡£
+> ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ã¾¡ï¿½È°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¡ï¿½
+
