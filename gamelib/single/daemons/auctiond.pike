@@ -16,7 +16,7 @@ object LOG;
 Sql.Sql db;
 //#define GAME_NAME		"xd"//游戏区名
 //string dbSql = "mysql://root:password@game_database:22334/"+GAME_NAME; //远程数据库服务器
-string mysql_password = System.getenv("MYSQL_PASSWORD");
+string mysql_password ="Happy888888";
 string dbSql = "mysql://root:"+mysql_password+"@127.0.0.1/xd";
 
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
