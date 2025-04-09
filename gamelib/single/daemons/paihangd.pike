@@ -12,7 +12,7 @@ inherit LOW_DAEMON;
 //#define UPDATE_TIME 20 //更新时间间隔为40秒 测试用
 Sql.Sql db;
 //string dbSql = "mysql://root:password@gamelog_database:22334/xd_game_db";
-string mysql_password ="Happy888888";
+string mysql_password = "Happy888888";
 string dbSql = "mysql://root:"+mysql_password+"@127.0.0.1/xd";
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
