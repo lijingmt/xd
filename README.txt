@@ -45,3 +45,4 @@
      OK, after doing all above,you have create a new game of xiandII.
 
 	 【Evan 2009.01.07 at Dogstart】
+	 All front end code is under frontjsp, you can just copy them to yout tomcat/webapps/, then you are good to go.
