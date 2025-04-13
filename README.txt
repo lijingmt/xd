@@ -46,6 +46,14 @@
 
 	 【Evan 2009.01.07 at Dogstart】
 
-	 Update on April 12 2025:
+Update on April 12 2025:
+=======================
 
-	 All front end code is under frontjsp, you can just copy them to yout tomcat/webapps/, then you are good to go.
+All front end code is under frontjsp, you can just copy them to yout tomcat/webapps/, then you are good to go.
+frontjsp/xd/includes/config.inc this file is the key file you need to modify and configure your server ip here
+we use 3rd party js package bootstrap
+frontjsp/xd/images: all the initial game images are stored under this folder
+main.jsp: this jsp will connect to backend server and generate the html back to frontend
+pc.jsp: this is then entry point, generally users can login from this page
+entrycheck.jsp is in charge of checking and validating the user password
+
