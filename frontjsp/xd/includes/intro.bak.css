@@ -1,0 +1,19 @@
+html, body {
+	font: Normal 18px "Arial Black";
+}
+
+@media (min-width: 768px) {
+	div {
+		margin: 0 auto;
+		width: 415px;
+	}
+}
+a {
+	text-decoration: none;
+	margin: 1px auto;
+}
+input {
+	font-size: 18px;
+	outline: none;
+	border: 1px solid #a1a1a1;
+}
