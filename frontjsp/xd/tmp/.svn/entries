@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1191"
+   name=""
+   committed-date="2008-07-04T05:30:50.148978Z"
+   url="svn://221.130.176.164/xdX/front/tmp"
+   last-author="cap"
+   kind="dir"
+   uuid="8fba5df8-ee92-11dc-a7b1-848a7f753b50"
+   revision="1303"/>
+<entry
+   name="images"
+   kind="dir"/>
+<entry
+   committed-rev="1191"
+   name="images1.tar"
+   text-time="2008-07-14T09:53:16.000000Z"
+   committed-date="2008-07-04T05:30:50.148978Z"
+   checksum="bedf027050ca4a6c743984393ea202e5"
+   last-author="cap"
+   kind="file"
+   prop-time="2008-07-14T09:53:16.000000Z"/>
+</wc-entries>
