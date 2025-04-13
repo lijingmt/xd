@@ -46,8 +46,8 @@
 
 	 【Evan 2009.01.07 at Dogstart】
 
+
 Update on April 12 2025:
-=======================
 
 All front end codes are under the frontjsp folder, you can just copy them to yout tomcat/webapps/, then you are good to go.
 frontjsp/xd/includes/config.inc this file is the key file you need to modify and configure your server ip here
