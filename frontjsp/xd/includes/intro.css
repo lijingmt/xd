@@ -1,0 +1,25 @@
+html, body {
+	font: Normal 18px "Noto Sans SC Medium";
+	background:lightyellow;
+  	color: #101010;
+	margin-left:20px;
+	margin-right:20px;
+}
+
+@media (min-width: 768px) {
+	div {
+		margin: 0 auto;
+		width: 415px;
+	}
+}
+a {
+	text-decoration: none;
+	margin: 1px auto;
+
+}
+input {
+	font-size: 18px;
+	outline: none;
+	border: 1px solid #a1a1a1;
+  	background-color : #959292; 
+}
