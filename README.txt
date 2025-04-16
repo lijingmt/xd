@@ -60,7 +60,9 @@ entrycheck.jsp is in charge of checking and validating the user password
 Pike env setup:
 The Stardard of version is 8.0, but you can use 7.8 as well.
 you can setup on your macos, or your test linux centos, 8.0 support the most latest OS.
+
 We recommend centos 7 for 8.0, but if you can not find the centos7 you can use centos 8, 
 the difference is you have to rebuild the pike, which is a really pain to rebuild pike from src.
 
 But I can write a walk through to demo how to install pike with mysql supports.
+
