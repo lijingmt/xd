@@ -4,7 +4,8 @@
 
 ## About the Project / 项目简介
 
-"Xiandao (仙道)" is a classic WAP-based mobile MMORPG engine developed by Jing Li and his team between 2004 and 2008. It represents one of the earliest large-scale mobile online game infrastructures in China.
+"Xiandao (仙道)" is a classic WAP-based mobile MMORPG engine developed by Jing Li and his team including Qiang Li, Zhangyang Li, Pengcheng Zhu, Cheng Liao
+between 2004 and 2008. It represents one of the earliest large-scale mobile online game infrastructures in China.
 
 The game engine was written in **Pike**, a powerful interpreted language based on LPC and C++, and featured real-time multiplayer interaction, world-building, and a dynamic NPC system long before smartphones became mainstream.
 
@@ -40,7 +41,7 @@ With the release of Pike 9.0, we plan to adapt and enhance this codebase to fit 
 
 距今已过去整整二十年。
 
-我和我的团队曾倾注无数心血，开发出这款游戏引擎。今天，我决定将它开源，不仅是为了纪念我们在中国手机网游草创时代的探索，更是为了让更多开发者、爱好者有机会使用它、学习它、继承它、超越它。
+我和我的团队曾倾注无数心血，开发出这款游戏引擎。感谢曾经付出的核心技术包括但不限于，李强，李章漾，廖诚，朱鹏程等等。今天，我决定将它开源，不仅是为了纪念我们在中国手机网游草创时代的探索，更是为了让更多开发者、爱好者有机会使用它、学习它、继承它、超越它。
 
 随着 Pike 语言 9.0 的发布，我们也将不断更新这套引擎，使其适应新的技术标准与时代需求。更重要的是，我希望在我死后，它依然可以被人使用、被人热爱，继续陪伴更多人的技术之路与游戏梦想。
 
