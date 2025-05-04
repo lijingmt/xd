@@ -261,8 +261,7 @@ void fight_die()
 							int szx=0;                                                                                                                  
 							string bs_tips = "";
 							int extra_dh=0;
-							extra_dh += exp_gain*2;
-							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+							
 							if(termer->all_fee>=200){
 								szx = termer->all_fee;
 								if(szx>=200 && szx<400){
@@ -310,6 +309,8 @@ void fight_die()
 									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
 								}
 							}
+							extra_dh += exp_gain*2;
+							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
 							if(exp_gain>0){
 								exp_gain += extra_dh;
 								termer->exp += exp_gain;
@@ -822,6 +823,8 @@ void fight_die_single(object env)
 				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
 			}
 		}
+		extra_dh += exp_gain*2;
+		bs_tips += "<br><font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
 		if(exp_gain>0){
 			//这里添加经验特药的加成，由liaocheng于07/11/21添加
 			//int te_eff = (int)first->query_buff("te_exp",1);
