@@ -44,6 +44,7 @@
 #define COUNT_TABLE_NAME        "xd_game_db"//统计数据表名
 #define GAME_NAME_S		"xd"//游戏区名简写 
 #define GAME_NAME_CN		"天下仙道网游一区"//游戏区中文名 
+#define GAME_AREA		"xd01" //用于区分不同区的字段，有一些区限制等级，可以用这个字段区分 
 //#define GAME_URL		"xd.dogstart.com"//仙道首页 
 #define GAME_URL		"tx.wapmud.com"//仙道首页 
 #define IP                      "127.0.0.1"//socket连接IP
