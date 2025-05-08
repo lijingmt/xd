@@ -252,7 +252,14 @@ void fight_die()
 									exp_gain = 0;
 								}
 							}*/
-							if(melevel>=120){
+							mapping(string:int) level_limit = ([
+								"xd01":120,
+								"xd02":70,
+								"xd03":70,
+								"xd04":70,
+								"xd05":70
+							]);
+							if(melevel>=level_limit[GAME_AREA]){
 								string tipsvip = "";
 								tipsvip += "您的等级已经满级了，获取经验为0，赶紧去做其他任务吧\n";
 								tell_object(termer,tipsvip);
@@ -261,8 +268,6 @@ void fight_die()
 							int szx=0;                                                                                                                  
 							string bs_tips = "";
 							int extra_dh=0;
-							extra_dh += exp_gain*2;
-							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
 							if(termer->all_fee>=200){
 								szx = termer->all_fee;
 								if(szx>=200 && szx<400){
@@ -310,6 +315,8 @@ void fight_die()
 									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
 								}
 							}
+							extra_dh += exp_gain*2;
+							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
 							if(exp_gain>0){
 								exp_gain += extra_dh;
 								termer->exp += exp_gain;
@@ -822,6 +829,8 @@ void fight_die_single(object env)
 				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
 			}
 		}
+		extra_dh += exp_gain*2;
+		bs_tips += "<br><font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
 		if(exp_gain>0){
 			//这里添加经验特药的加成，由liaocheng于07/11/21添加
 			//int te_eff = (int)first->query_buff("te_exp",1);

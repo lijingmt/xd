@@ -24,14 +24,76 @@ int main(string arg)
 		s +="<div style=\"color:Orange\">"+tmp+"</div>";//name_cn=query_rare_level()+name_cn;</p>\n";
 	}
 	else{
-		if(me->all_fee>=100)
-			;
-		else{
-			string st1 = "";
-			st1 += "等级超过10级，累计捐赠100元，才可以继续使用快速攻击\n捐赠请加qq 1811117272。\n";
-			st1 += "[返回:look]\n";
-			write(st1);
-			return 1;
+		/* 100级钻石会员 61-100 白金会员 50-61 黄金 40-50 水晶*/	
+		if(me->query_level()>=10 && me->query_level()<50){
+			if(!me->query_vip_flag()){
+				string tipsvip = "";
+				tipsvip += "等级超过40级，需要水晶会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip);
+				return 1;
+			}
+			else{
+				if(me->query_vip_flag()>=1)
+					;
+				else{
+					string tipsvip2 = "";
+					tipsvip2 += "等级超过40级，需要水晶会员级别及以上级别，才可以继续进行相关游戏功能\n";
+					tell_object(me,tipsvip2);
+					return 1;
+				}
+			}
+		}else 
+		if(me->query_level()>=50 && me->query_level()<61){
+			if(!me->query_vip_flag()){
+				string tipsvip = "";
+				tipsvip += "等级超过50级，需要黄金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip);
+				return 1;
+			}
+			else{
+				if(me->query_vip_flag()>=2)
+					;
+				else{
+					string tipsvip2 = "";
+					tipsvip2 += "等级超过50级，需要黄金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+					tell_object(me,tipsvip2);
+					return 1;
+				}
+			}
+		}else if(me->query_level()>=61 && me->query_level()<100){
+			if(!me->query_vip_flag()){
+				string tipsvip = "";
+				tipsvip += "等级超过60级，需要白金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip);
+				return 1;
+			}
+			else{
+				if(me->query_vip_flag()>=3)
+					;
+				else{
+					string tipsvip2 = "";
+					tipsvip2 += "等级超过60级，需要白金会员级别及以上级别，才可以继续进行相关游戏功能\n";
+					tell_object(me,tipsvip2);
+					return 1;
+				}
+			}
+		}else if(me->query_level()>=100){
+			if(!me->query_vip_flag()){
+				string tipsvip = "";
+				tipsvip += "等级超过100级，需要钻石会员级别及以上级别，才可以继续进行相关游戏功能\n";
+				tell_object(me,tipsvip);
+				return 1;
+			}
+			else{
+				if(me->query_vip_flag()>=4)
+					;
+				else{
+					string tipsvip2 = "";
+					tipsvip2 += "等级超过100级，需要钻石会员级别及以上级别，才可以继续进行相关游戏功能\n";
+					tell_object(me,tipsvip2);
+					return 1;
+				}
+			}
 		}
 	}
 	//////1000元免精力//////
