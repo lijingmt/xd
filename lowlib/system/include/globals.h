@@ -33,7 +33,7 @@
 #define FILTER_PREFIX		SROOT "/system/filter/"
 
 #define WEB_ROOT	        "/home/httpd/html/xd/"  //前台页面根目录
-#define DATA_ROOT		"/usr/local/games/data_xiand/"//用户数据根目录
+#define DATA_ROOT		ROOT "/data_xiand/"//用户数据根目录
 #define GAME_BASE_DATA_ROOT	ROOT "/gamelib/data/"        //游戏基础数据根目录（各区一致的数据）
 #define GAME_EXTEND_DATA_ROOT	ROOT "/gamelib/etc/"         //游戏扩展数据根目录（各区不一致的数据）
 #define ITEM_PATH		ROOT "/gamelib/clone/item/"  //物品根目录
