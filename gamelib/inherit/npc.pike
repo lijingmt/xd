@@ -5,19 +5,19 @@ void fight_die()
 {
 	object env = environment(this_object());
 	//werror("============ name of the room type is "+env->query_room_type()+"==============");
-	//设置刷新起始时间 
+	//����ˢ����ʼʱ�� 
 	env->flush_items(this_object());
 
 	string npc_type = this_object()->query_npc_type();
 	if(npc_type=="city_keeper"||npc_type=="city_guarder"||npc_type=="city_lord"){
-	//攻城中的npc死亡处理，获得荣誉
-	//由liaocheng于107/07/30添加
+	//�����е�npc�����������������
+	//��liaocheng��107/07/30����
 		array(object) killers = this_object()->get_all_targets();
 		if(killers == 0)
 			return;
-		string h_type = "仙气";
+		string h_type = "����";
 		if(this_object()->query_raceId()=="human")
-			h_type = "妖气";
+			h_type = "����";
 		int honer_get = 0;
 		object suipian;
 		if(npc_type=="city_keeper"){
@@ -47,16 +47,16 @@ void fight_die()
 		}
 		foreach(killers,object killer){
 			if(killer && objectp(killer)){
-				//加入特药的荣誉加成，由liaocheng于07/11/21添加                 
+				//������ҩ�������ӳɣ���liaocheng��07/11/21����                 
 				//int te_honer = (int)killer->query_buff("te_honer",1);           
 				int te_honer = (int)killer->query_buff("te_honer",1)+(int)killer->query_buff("attri_honer",1);           
 				int honer_get_tmp = honer_get;
 				if(te_honer){
 					honer_get_tmp = honer_get+honer_get*te_honer/100; 
 				}
-				string s_tell = this_object()->query_name_cn()+"被杀死\n你获得了"+honer_get_tmp+"点"+h_type+"。\n";
+				string s_tell = this_object()->query_name_cn()+"��ɱ��\n������"+honer_get_tmp+"��"+h_type+"��\n";
 				if(suipian){
-					s_tell += "掉落了 "+suipian->query_short()+" ！\n";
+					s_tell += "������ "+suipian->query_short()+" ��\n";
 				}
 				killer->honerpt+=honer_get_tmp;
 				killer->honerlv = WAP_HONERD->flush_honer_level(killer->honerpt,killer->honerlv);
@@ -67,39 +67,39 @@ void fight_die()
 			suipian->move(environment(this_object()));
 			call_out(suipian->remove,5*60,1);
 		}
-		//城战情况通告
+		//��ս���ͨ��
 		if(env){
 			string city_name = env->query_belong_to();
 			string city_name_cn = "";
 			string race = "monst";
-			string race_cn = "妖魔";
+			string race_cn = "��ħ";
 			//city_name_cn = CITYD->query_city_namecn(city_name);
 			if(city_name=="xiqicheng")
-				city_name_cn = "西岐城";
+				city_name_cn = "��᪳�";
 			else if(city_name=="chaogecheng")
-				city_name_cn = "朝歌城";
+				city_name_cn = "�����";
 			else if(city_name=="tianyecheng")
-				city_name_cn = "天野城";
+				city_name_cn = "��Ұ��";
 			else if(city_name=="klshuanjing")
-				city_name_cn = "玉虚宫幻境";
+				city_name_cn = "���鹬�þ�";
 			else if(city_name=="jadhuanjing")
-				city_name_cn = "金鳌岛幻境";
+				city_name_cn = "�������þ�";
 			if(CITYD->query_captured(city_name)=="monst"){
 				race = "human";
-				race_cn = "人类";
+				race_cn = "����";
 			}
 			string notice = "";
 			if(this_object()->query_npc_type()=="city_keeper"){
-				notice = "战况！"+city_name_cn+"，"+env->query_name_cn()+"被"+race_cn+"攻破！\n";
+				notice = "ս����"+city_name_cn+"��"+env->query_name_cn()+"��"+race_cn+"���ƣ�\n";
 			}
 			else if(this_object()->query_npc_type()=="city_lord"){
-				notice = "战况！"+city_name_cn+"被"+race_cn+"占领！\n";
+				notice = "ս����"+city_name_cn+"��"+race_cn+"ռ�죡\n";
 				if((city_name=="chaogecheng"&&race=="human")||(city_name=="xiqicheng"&&race=="monst")||(city_name=="klshuanjing"&&race=="monst")||(city_name=="jadhuanjing"&&race=="human")){
-					notice += "3日内若未被夺回，城池将自动归还\n";          
+					notice += "3������δ����أ��ǳؽ��Զ��黹\n";          
 					CITYD->set_giveback_time(city_name); 
 					CITYD->give_back_city(city_name,race);
 				}
-				//本方阵营夺回，则取消自动归还 
+				//������Ӫ��أ���ȡ���Զ��黹 
 				else{
 					CITYD->clean_giveback_time(city_name);
 				}
@@ -107,7 +107,7 @@ void fight_die()
 				return;
 			}
 			else if(this_object()->query_npc_type()=="city_guarder"){
-				notice = "战况！"+city_name_cn+"，"+env->query_name_cn()+"遭到"+race_cn+"的攻击！\n";
+				notice = "ս����"+city_name_cn+"��"+env->query_name_cn()+"�⵽"+race_cn+"�Ĺ�����\n";
 			}
 			CITYD->notice_update(notice);
 		}
@@ -117,46 +117,46 @@ void fight_die()
 		return;
 	}
 
-	//正常的死亡路程
+	//����������·��
 	string term_who = "";
 	string t_w = "";	
-	//判断是否团队杀死怪物 2007/3/20 add by calvin/////////////////////////
+	//�ж��Ƿ��Ŷ�ɱ������ 2007/3/20 add by calvin/////////////////////////
 	int term_flag = 0;
 	term_who += this_object()->term_who_fight_npc;
 	TERMD->flush_term(term_who); 
-	//判断团队是否还在内存中
+	//�ж��Ŷ��Ƿ����ڴ���
 	if(TERMD->query_termId(term_who))
 		term_flag = 1;
 	else
 		term_flag = 0;
 	if(term_flag){
-		//获得团队内存mapping指针
+		//����Ŷ��ڴ�mappingָ��
 		mapping(string:array) map_term = ([]);
 		map_term = (mapping)TERMD->query_term_m(term_who);
-		//如果队伍已经解散，直接返回，给玩家个提示，下面的流程就不走了
+		//��������Ѿ���ɢ��ֱ�ӷ��أ�����Ҹ���ʾ����������̾Ͳ�����
 		if(map_term&&sizeof(map_term))
 			;
 		else{
-			//fight_die_single();//团队突然解散，谁也不给	
+			//fight_die_single();//�Ŷ�ͻȻ��ɢ��˭Ҳ����	
 			return;
 		}
-		//是团队杀死怪物,按照公式分配金钱，经验，物品/////////////////////////
+		//���Ŷ�ɱ������,���չ�ʽ�����Ǯ�����飬��Ʒ/////////////////////////
 
-		//先团队公告，杀死了某怪物
+		//���Ŷӹ��棬ɱ����ĳ����
 		if(enemy&&!enemy->is("npc"))
-			t_w+=enemy->query_name_cn()+" 杀死了"+this_object()->query_name_cn()+"\n"; 
+			t_w+=enemy->query_name_cn()+" ɱ����"+this_object()->query_name_cn()+"\n"; 
 		else
-			t_w += "杀死了"+this_object()->query_name_cn()+"\n";
-		//如果是大boss，可以给大boss随即添一些死掉时候说的话，更有戏剧性
+			t_w += "ɱ����"+this_object()->query_name_cn()+"\n";
+		//����Ǵ�boss�����Ը���boss�漴��һЩ����ʱ��˵�Ļ�������Ϸ����
 
-		//1.经验分配///////////////////////////////////////////////
-		//首先得到根据队伍人数得到的经验值加成
+		//1.�������///////////////////////////////////////////////
+		//���ȵõ����ݶ��������õ��ľ���ֵ�ӳ�
 		int exp_gain = 0;
-		int npclevel = this_object()->query_level();//npc等级
-		//首先，得到该挂掉的npc所应该获得的固定经验值
-		//杀死npc得到的经验>=10：(100+(npcLevel-9)*5)    
-		//如果是1-9级的怪：(20+(npcLevel-1)*10)
-		int npc_exp = 0;//npc本身掉落的经验值
+		int npclevel = this_object()->query_level();//npc�ȼ�
+		//���ȣ��õ��ùҵ���npc��Ӧ�û�õĹ̶�����ֵ
+		//ɱ��npc�õ��ľ���>=10��(100+(npcLevel-9)*5)    
+		//�����1-9���Ĺ֣�(20+(npcLevel-1)*10)
+		int npc_exp = 0;//npc��������ľ���ֵ
 		if(npclevel<10)
 			npc_exp = 20+(npclevel-1)*15;
 		else
@@ -170,14 +170,14 @@ void fight_die()
 				foreach(indices(map_term),string uid){
 					object termer = find_player(uid);
 					if(termer){
-						//判断是否一个房间，一个房间可以分配
+						//�ж��Ƿ�һ�����䣬һ��������Է���
 						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
 							t_count++;
 					}
 				}
 				if(t_count<=0)
 					t_count = 1;
-				//得到真正经验值，应该和房间队员人数挂钩
+				//�õ���������ֵ��Ӧ�úͷ����Ա�����ҹ�
 				switch(t_count){
 					case 2:
 						exp_gain = exp_gain*6/5;
@@ -192,7 +192,7 @@ void fight_die()
 						exp_gain = exp_gain*2;
 						break;
 				}
-				//每个人应得到初始经验值为 经验值/队伍人数
+				//ÿ����Ӧ�õ���ʼ����ֵΪ ����ֵ/��������
 				int fact_exp = exp_gain/t_count;
 				if(fact_exp<=0)
 					fact_exp = 1;
@@ -201,36 +201,36 @@ void fight_die()
 					object termer = find_player(uid);
 					int last_exp = 0;
 					if(termer){
-						//判断是否一个房间，一个房间可以分配
+						//�ж��Ƿ�һ�����䣬һ��������Է���
 						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
 							flag = 1;
 						if(flag){
 
-							//根据玩家等级获得计算后的应得经验值
-							//如果玩家等级大于该npc等级的获得计算
+							//������ҵȼ���ü�����Ӧ�þ���ֵ
+							//�����ҵȼ����ڸ�npc�ȼ��Ļ�ü���
 							int diff = termer->query_level() - npclevel;
 							if(diff>=0){
 								if(diff>=10)
 									diff = 10;
 								last_exp = fact_exp - fact_exp*diff/10;
 							}
-							//如果玩家等级低于该npc等级，需要计算等级差
+							//�����ҵȼ����ڸ�npc�ȼ�����Ҫ����ȼ���
 							else{
-								//怪高于玩家等级的情况
+								//�ָ�����ҵȼ������
 								int diff1 = npclevel - termer->query_level();
-								//怪比玩家高3级，也是直接获得均分的经验值
+								//�ֱ���Ҹ�3����Ҳ��ֱ�ӻ�þ��ֵľ���ֵ
 								if(diff1<=3)
 									last_exp = fact_exp;
-								else if(diff1<=4)//怪高4级，获得70%
+								else if(diff1<=4)//�ָ�4�������70%
 									last_exp = fact_exp*7/10;
-								else if(diff1<=5)//怪高5级，获得40%	
+								else if(diff1<=5)//�ָ�5�������40%	
 									last_exp = fact_exp*4/10;
-								else if(diff1<=6)//怪高6级，获得10%	
+								else if(diff1<=6)//�ָ�6�������10%	
 									last_exp = fact_exp/10;
-								else//怪高过玩家6级以上
-									last_exp = random(10)+1;//不能一点不得经验，随即给10点经验
+								else//�ָ߹����6������
+									last_exp = random(10)+1;//����һ�㲻�þ��飬�漴��10�㾭��
 							}
-							//这里添加经验特药的加成，由liaocheng于07/11/21添加
+							//�������Ӿ�����ҩ�ļӳɣ���liaocheng��07/11/21����
 							//int te_eff = (int)termer->query_buff("te_exp",1);
 							int te_eff = (int)termer->query_buff("te_exp",1)+(int)termer->query_buff("attri_exp",1);
 							if(te_eff){
@@ -238,16 +238,16 @@ void fight_die()
 							}
 							///////////////////////////////////////////////////////////////////////////////////////
 							exp_gain = last_exp;
-							//大于20级，必须付费
+							//����20�������븶��
 							
-							int melevel = termer->query_level();//player等级
+							int melevel = termer->query_level();//player�ȼ�
 							/*
 							if(melevel>=21){
 								if(termer->all_fee>=20)
 									;
 								else{
 									string tipsvip = "";
-									tipsvip += "等级超过20级，累计捐赠20元，才可以继续获得经验值\n";
+									tipsvip += "�ȼ�����20�����ۼƾ���20Ԫ���ſ��Լ�����þ���ֵ\n";
 									tell_object(termer,tipsvip);
 									exp_gain = 0;
 								}
@@ -261,7 +261,7 @@ void fight_die()
 							]);
 							if(melevel>=level_limit[GAME_AREA]){
 								string tipsvip = "";
-								tipsvip += "您的等级已经满级了，获取经验为0，赶紧去做其他任务吧\n";
+								tipsvip += "���ĵȼ��Ѿ������ˣ���ȡ����Ϊ0���Ͻ�ȥ�����������\n";
 								tell_object(termer,tipsvip);
 								exp_gain = 0;								
 							}
@@ -272,73 +272,73 @@ void fight_die()
 								szx = termer->all_fee;
 								if(szx>=200 && szx<400){
 									extra_dh += exp_gain*2;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����2���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=400 && szx<600){
 									extra_dh += exp_gain*3;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����3���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=600 && szx<800){
 									extra_dh += exp_gain*4;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����4���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=800 && szx<1000){
 									extra_dh += exp_gain*5;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����5���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=1000 && szx<1200){
 									extra_dh += exp_gain*6;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����6���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=1200 && szx<1400){
 									extra_dh += exp_gain*8;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����8���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=1400 && szx<1600){
 									extra_dh += exp_gain*10;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����10���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=1600 && szx<3200){
 									extra_dh += exp_gain*20;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����20���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=3200 && szx<6400){
 									extra_dh += exp_gain*30;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����30���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=6400 && szx<12800){
 									extra_dh += exp_gain*40;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����40���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 								if(szx>=12800){
 									extra_dh += exp_gain*50;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
+									bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����50���������� "+extra_dh+" �㾭��ֵ</font>";	
 								}
 							}
 							extra_dh += exp_gain*2;
-							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+							bs_tips += "<font style=\"color:DARKORANGE\">��һ�ھ���˫��������鱶�ٿ�����2���������� "+extra_dh+" �㾭��ֵ</font>";	
 							if(exp_gain>0){
 								exp_gain += extra_dh;
 								termer->exp += exp_gain;
 								termer->current_exp += exp_gain;
 								string t = "";
 								if(bs_tips&&sizeof(bs_tips))
-									t + "你得到了 "+exp_gain+" 点经验。\n（"+bs_tips+")\n";
+									t + "��õ��� "+exp_gain+" �㾭�顣\n��"+bs_tips+")\n";
 								else
-									t + "你得到了 "+exp_gain+" 点经验。\n";
+									t + "��õ��� "+exp_gain+" �㾭�顣\n";
 								termer->query_if_levelup();
 								if(termer->query_levelFlag())
-									t += "你的等级提升到了 "+termer->query_level()+" 级！\n";	
+									t += "��ĵȼ��������� "+termer->query_level()+" ����\n";	
 								tell_object(termer,t);
 							}
 							///////////////////////////////////////////////////////////////////////////////////////
 							/*	
 							termer->exp += last_exp;
 							termer->current_exp += last_exp;
-							string strt = "得到了 "+last_exp+" 点经验。\n";
+							string strt = "�õ��� "+last_exp+" �㾭�顣\n";
 							termer->query_if_levelup();
 							if(termer->query_levelFlag())
-								strt += "你的等级提升到了 "+termer->query_level()+" 级！\n";	
+								strt += "��ĵȼ��������� "+termer->query_level()+" ����\n";	
 							tell_object(termer,strt);
 							*/	
 						}
@@ -347,54 +347,54 @@ void fight_die()
 			}
 		}
 
-		//2.金钱分配///////////////////////////////////////////
+		//2.��Ǯ����///////////////////////////////////////////
 		if(random(100)<=80){
 			int m_low = this_object()->query_level()*10-(int)(this_object()->query_level());
 			int m_high = this_object()->query_level()*10+(int)(this_object()->query_level());
 			int g_m = m_low + random(m_high-m_low+1);
-			//金钱掉落数量不变，然后平均分配给每个打怪的队员
+			//��Ǯ�����������䣬Ȼ��ƽ�������ÿ����ֵĶ�Ա
 			if(map_term&&sizeof(map_term)){
-				//如果只有一个人打，就把钱给那个打怪的队员了
-				//1.先得到当前打这个怪的队员人数
+				//���ֻ��һ���˴򣬾Ͱ�Ǯ���Ǹ���ֵĶ�Ա��
+				//1.�ȵõ���ǰ������ֵĶ�Ա����
 				int t_count = 0;//sizeof(map_term);
 				foreach(indices(map_term),string uid){
 					object termer = find_player(uid);
 					if(termer){
-						//判断是否一个房间，一个房间可以分配
+						//�ж��Ƿ�һ�����䣬һ��������Է���
 						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
 							t_count++;
 					}
 				}
 				if(t_count<=0)
 					t_count = 1;
-				//钱太多，调整为原来的一半，20070322 by calvin
-				//又修改为除以5
+				//Ǯ̫�࣬����Ϊԭ����һ�룬20070322 by calvin
+				//���޸�Ϊ����5
 				int t_money = (g_m/t_count)/5;
 				if(t_money<=0)
 					t_money = 1;
-				//给钱给房间的队员	
+				//��Ǯ������Ķ�Ա	
 				foreach(indices(map_term),string uid){
 					int flag = 0;
 					object termer = find_player(uid);
 					if(termer){
-						//判断是否一个房间，一个房间可以分配
+						//�ж��Ƿ�һ�����䣬һ��������Է���
 						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
 							flag = 1;
 					}
-					if(flag){//玩家在同一房间中
+					if(flag){//�����ͬһ������
 						termer->add_account(t_money);
-						tell_object(termer,"你分到了 "+MUD_MONEYD->query_other_money_cn(t_money)+" ！\n");
+						tell_object(termer,"��ֵ��� "+MUD_MONEYD->query_other_money_cn(t_money)+" ��\n");
 					}
 				}
 			}
 		}
 
-		//3.物品分配，设置为队伍拾取
+		//3.��Ʒ���䣬����Ϊ����ʰȡ
 		int pro_add = 0;
 		if(this_object()->_boss){
-			//boss掉落////////////////////////////////////////////////////////
-			//玩家100%获取的boss特殊物品，如霸王魔窟boss的霸王徽记
-			//由liaocheng于07/12/11添加
+			//boss����////////////////////////////////////////////////////////
+			//���100%��ȡ��boss������Ʒ�������ħ��boss�İ����ռ�
+			//��liaocheng��07/12/11����
 			string get_specitem = BOSSDROPD->get_bossdrop_specitem(this_object()->query_name());
 			if(get_specitem != ""){
 				object specitem_ob;				
@@ -406,7 +406,7 @@ void fight_die()
 								specitem_ob = clone(ITEM_PATH+get_specitem);
 							};
 							if(!err && specitem_ob){
-								tell_object(termer,"你获得了"+specitem_ob->query_short()+"\n");
+								tell_object(termer,"������"+specitem_ob->query_short()+"\n");
 								specitem_ob->move_player(termer->query_name());
 							}
 							else
@@ -415,14 +415,14 @@ void fight_die()
 					}
 				}
 			}
-			//掉落装备
+			//����װ��
 			int count = this_object()->_boss;
 			for(int i = 0;i<count;i++){
 			//string drop_item = BOSSDROPD->get_bossdrop_item(this_object()->query_name());
-			//获取当前boss的可掉落物品的文件名字，这里我修改了一下，增加了一个level，就是原始文件是50级，但boss被动态刷新成70级，则生成的装备就是70
+			//��ȡ��ǰboss�Ŀɵ�����Ʒ���ļ����֣��������޸���һ�£�������һ��level������ԭʼ�ļ���50������boss����̬ˢ�³�70���������ɵ�װ������70
 			string drop_item = BOSSDROPD->get_bossdrop_item_level(this_object()->query_name(),this_object()->query_level());
 			if(drop_item ==""){
-				//如果没有获得搞等级的动态装备，则直接掉落置顶的非动态的装备
+				//���û�л�ø�ȼ��Ķ�̬װ������ֱ�ӵ����ö��ķǶ�̬��װ��
 				drop_item = BOSSDROPD->get_bossdrop_item(this_object()->query_name());
 			}
 			if(drop_item != ""){
@@ -436,13 +436,13 @@ void fight_die()
 				}
 				if(item_ob){
 					TERMD->add_termItems(term_who,item_ob);
-					t_w += "掉落了 "+item_ob->query_name_cn()+",已放入队伍仓库!\n";	
+					t_w += "������ "+item_ob->query_name_cn()+",�ѷ������ֿ�!\n";	
 				}
 			}
 			}
-			//记录野外boss死亡时间 add by caijie 0805221
+			//��¼Ұ��boss����ʱ�� add by caijie 0805221
 			if(this_object()->_boss == 3) YWBOSS_FLUSHD->get_boss_die_time(this_object()->query_name());
-			//掉落材料配方等其他物品
+			//��������䷽��������Ʒ
 			if(random(100)<10){
 				string drop_other = BOSSDROPD->get_bossdrop_other(this_object()->query_name());
 				if(drop_other != ""){
@@ -456,32 +456,32 @@ void fight_die()
 					}
 					if(other_ob){
 						TERMD->add_termItems(term_who,other_ob);
-						t_w += "掉落了 "+other_ob->query_name_cn()+",已放入队伍仓库!\n";	
+						t_w += "������ "+other_ob->query_name_cn()+",�ѷ������ֿ�!\n";	
 					}
 				}
 			}
-			//团队杀怪时，这里需要注意团队内队员的任务状态的处理
-			//是否此怪与杀戮任务有联系,于2007/3/14由liaocheng添加
-			//团队杀怪碰到任务时候，如果是简单任务，只掉落一次
-			//如果是精英或者boss任务，需要每个有这个任务标示的人
-			//都能得到一个任务物品
+			//�Ŷ�ɱ��ʱ��������Ҫע���Ŷ��ڶ�Ա������״̬�Ĵ���
+			//�Ƿ�˹���ɱ¾��������ϵ,��2007/3/14��liaocheng����
+			//�Ŷ�ɱ����������ʱ������Ǽ�����ֻ����һ��
+			//����Ǿ�Ӣ����boss������Ҫÿ������������ʾ����
+			//���ܵõ�һ��������Ʒ
 			if(map_term&&sizeof(map_term)){
 				foreach(indices(map_term),string uid){
 					int flag = 0;
 					object termer = find_player(uid);
 					if(termer){
-						//判断是否一个房间，一个房间可以分配
+						//�ж��Ƿ�һ�����䣬һ��������Է���
 						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
 							flag = 1;
 					}
-					if(flag){ //玩家在同一房间中
-						//是否此怪与杀戮任务有联系,于2007/3/14由liaocheng添加
-						//没有接口判断每个人的一般任务是否相同，所以，暂时这里
-						//就给每个有任务的人掉落任务物品
+					if(flag){ //�����ͬһ������
+						//�Ƿ�˹���ɱ¾��������ϵ,��2007/3/14��liaocheng����
+						//û�нӿ��ж�ÿ���˵�һ�������Ƿ���ͬ�����ԣ���ʱ����
+						//�͸�ÿ����������˵���������Ʒ
 						TASKD->if_in_killTask(termer,this_object()->query_name_cn());
 						object ob_task = TASKD->if_in_findTask(termer,this_object()->query_name_cn());
 						if(ob_task){
-							t_w += termer->query_name_cn()+" 得到了 "+ob_task->query_short()+" ！\n";
+							t_w += termer->query_name_cn()+" �õ��� "+ob_task->query_short()+" ��\n";
 							if(ob_task->is("combine_item"))
 								ob_task->move_player(termer->query_name());
 							else
@@ -493,10 +493,10 @@ void fight_die()
 		}
 		////////////////////////////////////////////////////////////////////////
 		else{
-			//新副业织布，制皮材料的掉落
-			//由liaocheng于07/10/17添加
+			//�¸�ҵ֯������Ƥ���ϵĵ���
+			//��liaocheng��07/10/17����
 			if(VICEDROPD->can_vicedrop(this_object()->query_name())==1){
-				//100%掉落普通材料
+				//100%������ͨ����
 				string normal_name = VICEDROPD->get_vicedrop_item(this_object()->query_name());
 				object normal_ob;
 				if(normal_name != ""){
@@ -510,12 +510,12 @@ void fight_die()
 						normal_ob->amount = VICEDROPD->get_drop_nums();
 						normal_ob->item_whoCanGet = term_who;
 						normal_ob->item_TimewhoCanGet = time();
-						t_w += "掉落了 "+normal_ob->query_short()+" ！\n";
+						t_w += "������ "+normal_ob->query_short()+" ��\n";
 						call_out(normal_ob->remove,5*60,1);
 						normal_ob->move(environment(this_object()));
 					}
 				}
-				//有一定几率掉落特殊材料
+				//��һ�����ʵ����������
 				int vice_prob = 100;
 				if(random(10000)<vice_prob){
 					string spec_name = VICEDROPD->get_vicedrop_spec(this_object()->query_name());
@@ -530,7 +530,7 @@ void fight_die()
 						if(spec_ob){
 							spec_ob->item_whoCanGet = term_who;
 							spec_ob->item_TimewhoCanGet = time();
-							t_w += "掉落了 "+spec_ob->query_short()+" ！\n";
+							t_w += "������ "+spec_ob->query_short()+" ��\n";
 							call_out(spec_ob->remove,5*60,1);
 							spec_ob->move(environment(this_object()));
 						}
@@ -540,31 +540,31 @@ void fight_die()
 
 			}
 			///////////////////////////////////////////////////////////////////////
-			//掉落普通装备
+			//������ͨװ��
 			if(this_object()->_meritocrat)
-				pro_add = 100;   //精英加成50 luck
+				pro_add = 100;   //��Ӣ�ӳ�50 luck
 
 			//evan added 2008-04-24
 			string room_type = env->query_room_type();
 			if(room_type && room_type == "rookie")
-				pro_add = 3000;  //新手村的怪，有一定的幸运加成  
+				pro_add = 3000;  //���ִ�Ĺ֣���һ�������˼ӳ�  
 			//end of evan add 2008-04-24
 			
 			object ob = ITEMSD->get_item(this_object()->query_level(), 0, pro_add);
-			//掉落特殊物品
+			//����������Ʒ
 			object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), 0, pro_add);
-			//掉落宝石 added by caijie 080807
+			//���䱦ʯ added by caijie 080807
 			object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),1);
-			//节日特殊掉落
-			//由liaocheng于07/09/24添加
+			//�����������
+			//��liaocheng��07/09/24����
 			object ob_holiday_spec = ITEMSD->get_spec_item_for_holiday(this_object()->query_level());
 			if(ob && environment(this_object())){
-				//加入掉装保护属性字段
-				//这里需要将团队拾取标示加上
+				//�����װ���������ֶ�
+				//������Ҫ���Ŷ�ʰȡ��ʾ����
 				//Stdio.append_file(ROOT+"/log/item_drop.log",now[0..sizeof(now)-2]+":team:"+ob->query_name_cn()+"("+ob->query_name()+")\n");
 				ob->item_whoCanGet = term_who;
 				ob->item_TimewhoCanGet = time();
-				t_w += "掉落了 "+ob->query_short()+" ！\n";
+				t_w += "������ "+ob->query_short()+" ��\n";
 				call_out(ob->remove,5*60,1);
 				ob->move(environment(this_object()));
 			}
@@ -572,47 +572,47 @@ void fight_die()
 				//Stdio.append_file(ROOT+"/log/item_spec_drop.log",now[0..sizeof(now)-2]+":team:"+ob_spec->query_name_cn()+"("+ob_spec->query_name()+")\n");
 				ob_spec->item_whoCanGet = term_who;
 				ob_spec->item_TimewhoCanGet = time();
-				t_w += "掉落了 "+ob_spec->query_short()+" ！\n";
+				t_w += "������ "+ob_spec->query_short()+" ��\n";
 				call_out(ob_spec->remove,5*60,1);
 				ob_spec->move(environment(this_object()));
 			}
 			if(ob_holiday_spec&& environment(this_object())){
 				ob_holiday_spec->item_whoCanGet = term_who;
 				ob_holiday_spec->item_TimewhoCanGet = time();
-				t_w += "掉落了 "+ob_holiday_spec->query_short()+" ！\n";
+				t_w += "������ "+ob_holiday_spec->query_short()+" ��\n";
 				call_out(ob_holiday_spec->remove,5*60,1);
 				ob_holiday_spec->move(environment(this_object()));
 			}
 			if(ob_shi&& environment(this_object())){
 				ob_shi->item_whoCanGet = term_who;
 				ob_shi->item_TimewhoCanGet = time();
-				t_w += "掉落了 "+ob_shi->query_short()+" ！\n";
+				t_w += "������ "+ob_shi->query_short()+" ��\n";
 				call_out(ob_shi->remove,5*60,1);
 				ob_shi->move(environment(this_object()));
 			}
-			////比较麻烦的地方////////////////////////////////////////
-			//团队杀怪时，这里需要注意团队内队员的任务状态的处理
-			//是否此怪与杀戮任务有联系,于2007/3/14由liaocheng添加
-			//团队杀怪碰到任务时候，如果是简单任务，只掉落一次
-			//如果是精英或者boss任务，需要每个有这个任务标示的人
-			//都能得到一个任务物品
+			////�Ƚ��鷳�ĵط�////////////////////////////////////////
+			//�Ŷ�ɱ��ʱ��������Ҫע���Ŷ��ڶ�Ա������״̬�Ĵ���
+			//�Ƿ�˹���ɱ¾��������ϵ,��2007/3/14��liaocheng����
+			//�Ŷ�ɱ����������ʱ������Ǽ�����ֻ����һ��
+			//����Ǿ�Ӣ����boss������Ҫÿ������������ʾ����
+			//���ܵõ�һ��������Ʒ
 			if(map_term&&sizeof(map_term)){
 				foreach(indices(map_term),string uid){
 					int flag = 0;
 					object termer = find_player(uid);
 					if(termer){
-						//判断是否一个房间，一个房间可以分配
+						//�ж��Ƿ�һ�����䣬һ��������Է���
 						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
 							flag = 1;
 					}
-					if(flag){ //玩家在同一房间中
-						//是否此怪与杀戮任务有联系,于2007/3/14由liaocheng添加
-						//没有接口判断每个人的一般任务是否相同，所以，暂时这里
-						//就给每个有任务的人掉落任务物品
+					if(flag){ //�����ͬһ������
+						//�Ƿ�˹���ɱ¾��������ϵ,��2007/3/14��liaocheng����
+						//û�нӿ��ж�ÿ���˵�һ�������Ƿ���ͬ�����ԣ���ʱ����
+						//�͸�ÿ����������˵���������Ʒ
 						TASKD->if_in_killTask(termer,this_object()->query_name_cn());
 						object ob_task = TASKD->if_in_findTask(termer,this_object()->query_name_cn());
 						if(ob_task && environment(termer)){
-							t_w += termer->query_name_cn()+" 得到了 "+ob_task->query_short()+" ！\n";
+							t_w += termer->query_name_cn()+" �õ��� "+ob_task->query_short()+" ��\n";
 							if(ob_task->is("combine_item"))
 								ob_task->move_player(termer->query_name());
 							else
@@ -622,72 +622,72 @@ void fight_die()
 				}
 			}
 		}
-		//团队公告掉落物品
+		//�Ŷӹ��������Ʒ
 		TERMD->term_tell(term_who,t_w);
-		//怪死亡处理
+		//����������
 		_clean_fight();
 		if(this_object()->is_npc())
 			this_object()->remove();
 	}
 	else
-		fight_die_single(env);//非团队杀死怪的处理接口	
+		fight_die_single(env);//���Ŷ�ɱ���ֵĴ����ӿ�	
 }
-//个人杀死怪的判断接口
+//����ɱ���ֵ��жϽӿ�
 void fight_die_single(object env)
 {
 	int npcflag = 0;
 	if(enemy&&!enemy->is("npc")){
-		tell_object(enemy,"你杀死了"+this_object()->query_name_cn()+"\n");
+		tell_object(enemy,"��ɱ����"+this_object()->query_name_cn()+"\n");
 		npcflag = 1;
 	}
-	//记录野外boss死亡时间 add by caijie 0805221
+	//��¼Ұ��boss����ʱ�� add by caijie 0805221
 	if(this_object()->_boss == 3) YWBOSS_FLUSHD->get_boss_die_time(this_object()->query_name());
 
-	//必须是首先攻击者
+	//���������ȹ�����
 	int flag = 0;
 	object first = find_player(this_object()->who_fight_npc);
 	if(first)
 		if(this_object()->if_in_targets(first))
 			flag = 1;
-	//必须是首先攻击者
+	//���������ȹ�����
 
 	if(flag&&npcflag){
 		TASKD->if_in_killTask(first,this_object()->query_name_cn());
-		//不是团队杀死怪物，是个人杀死/////////////////////////
-		int npclevel = this_object()->query_level();//npc等级
-		int melevel = first->query_level();//player等级
-		//首先，得到该挂掉的npc所应该获得的固定经验值
-		//杀死npc得到的经验>=10：(100+(npcLevel-9)*5)    
-		//如果是1-9级的怪：(20+(npcLevel-1)*10)
+		//�����Ŷ�ɱ������Ǹ���ɱ��/////////////////////////
+		int npclevel = this_object()->query_level();//npc�ȼ�
+		int melevel = first->query_level();//player�ȼ�
+		//���ȣ��õ��ùҵ���npc��Ӧ�û�õĹ̶�����ֵ
+		//ɱ��npc�õ��ľ���>=10��(100+(npcLevel-9)*5)    
+		//�����1-9���Ĺ֣�(20+(npcLevel-1)*10)
 		int exp_gain = 0;
-		int npc_exp = 0;//npc本身掉落的经验值
+		int npc_exp = 0;//npc��������ľ���ֵ
 		if(npclevel<10)
 			npc_exp = 20+(npclevel-1)*15;
 		else
 			npc_exp = 100+(npclevel-9)*5;
-		//经验值获得算法
-		//1.如果我的等级小于等于怪物等级10，经验 = 怪物应该掉落的固定经验
-		//2.如果我的等级大于怪物等级：公式如下
-		// 怪物经验-怪物经验*(我的级别-怪的级别:大于10就等于10)/10
-		//第一种，我的等级小于怪物等级
+		//����ֵ����㷨
+		//1.����ҵĵȼ�С�ڵ��ڹ���ȼ�10������ = ����Ӧ�õ���Ĺ̶�����
+		//2.����ҵĵȼ����ڹ���ȼ�����ʽ����
+		// ���ﾭ��-���ﾭ��*(�ҵļ���-�ֵļ���:����10�͵���10)/10
+		//��һ�֣��ҵĵȼ�С�ڹ���ȼ�
 		if(melevel<npclevel){
-			//如果玩家等级低于该npc等级，需要计算等级差
+			//�����ҵȼ����ڸ�npc�ȼ�����Ҫ����ȼ���
 			int last_exp = 0;
 			int diff1 = npclevel - melevel;
-			//怪比玩家高3级，也是直接获得均分的经验值
+			//�ֱ���Ҹ�3����Ҳ��ֱ�ӻ�þ��ֵľ���ֵ
 			if(diff1<=3)
 				last_exp = npc_exp;
-			else if(diff1<=4)//怪高4级，获得70%
+			else if(diff1<=4)//�ָ�4�������70%
 				last_exp = npc_exp*7/10;
-			else if(diff1<=5)//怪高5级，获得40%	
+			else if(diff1<=5)//�ָ�5�������40%	
 				last_exp = npc_exp*4/10;
-			else if(diff1<=6)//怪高6级，获得10%	
+			else if(diff1<=6)//�ָ�6�������10%	
 				last_exp = npc_exp/10;
-			else//怪高过玩家6级以上
-				last_exp = random(10);//不能一点不得经验，随即给10点经验
+			else//�ָ߹����6������
+				last_exp = random(10);//����һ�㲻�þ��飬�漴��10�㾭��
 			exp_gain = last_exp;
 		}
-		else{//玩家高于怪的等级
+		else{//��Ҹ��ڹֵĵȼ�
 			int diff = melevel - npclevel;
 			if(diff>=10)
 				diff = 10;
@@ -695,14 +695,14 @@ void fight_die_single(object env)
 			exp_gain = tem_exp;
 		}
 		///////////////////////////////////////////////////////////////////////////////////////
-		//大于20级，必须付费 目前支持20-100级 等到200级以后得玩家再加
+		//����20�������븶�� Ŀǰ֧��20-100�� �ȵ�200���Ժ������ټ�
 		/*
 		if(melevel>=21 && melevel<30){
 			if(first->all_fee>=20)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过20级，累计捐赠20元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����20�����ۼƾ���20Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
@@ -712,7 +712,7 @@ void fight_die_single(object env)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过30级，累计捐赠50元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����30�����ۼƾ���50Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
@@ -722,7 +722,7 @@ void fight_die_single(object env)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过50级，累计捐赠100元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����50�����ۼƾ���100Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
@@ -732,7 +732,7 @@ void fight_die_single(object env)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过60级，累计捐赠200元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����60�����ۼƾ���200Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
@@ -742,19 +742,19 @@ void fight_die_single(object env)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过100级，累计捐赠500元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����100�����ۼƾ���500Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
 		}
 		else
 		if(melevel>=120 && melevel<150){
-			//等级超过120级封顶，以后有需要再扩充。
+			//�ȼ�����120���ⶥ���Ժ�����Ҫ�����䡣
 			if(first->all_fee>=5000)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过120级，累计捐赠5000元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����120�����ۼƾ���5000Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}
@@ -764,7 +764,7 @@ void fight_die_single(object env)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过150级，累计捐赠8000元，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����150�����ۼƾ���8000Ԫ���ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}			
@@ -774,7 +774,7 @@ void fight_die_single(object env)
 				;
 			else{
 				string tipsvip = "";
-				tipsvip += "等级超过200级，累计捐赠16000元，请联系客服，才可以继续获得经验值\n";
+				tipsvip += "�ȼ�����200�����ۼƾ���16000Ԫ������ϵ�ͷ����ſ��Լ�����þ���ֵ\n";
 				tell_object(first,tipsvip);
 				exp_gain = 0;
 			}			
@@ -786,53 +786,53 @@ void fight_die_single(object env)
 			szx = first->all_fee;
 			if(szx>=200 && szx<400){
 				extra_dh += exp_gain*2;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����2���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=400 && szx<600){
 				extra_dh += exp_gain*3;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����3���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=600 && szx<800){
 				extra_dh += exp_gain*4;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����4���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=800 && szx<1000){
 				extra_dh += exp_gain*5;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����5���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=1000 && szx<1200){
 				extra_dh += exp_gain*6;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����6���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=1200 && szx<1400){
 				extra_dh += exp_gain*8;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����8���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=1400 && szx<1600){
 				extra_dh += exp_gain*10;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����10���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=1600 && szx<3200){
 				extra_dh += exp_gain*20;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����20���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=3200 && szx<6400){
 				extra_dh += exp_gain*30;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����30���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=6400 && szx<12800){
 				extra_dh += exp_gain*40;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����40���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 			if(szx>=12800){
 				extra_dh += exp_gain*50;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
+				bs_tips += "<font style=\"color:DARKORANGE\">���鱶�ٿ�����50���������� "+extra_dh+" �㾭��ֵ</font>";	
 			}
 		}
 		extra_dh += exp_gain*2;
-		bs_tips += "<br><font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
+		bs_tips += "<br><font style=\"color:DARKORANGE\">��һ�ھ���˫��������鱶�ٿ�����2���������� "+extra_dh+" �㾭��ֵ</font>";	
 		if(exp_gain>0){
-			//这里添加经验特药的加成，由liaocheng于07/11/21添加
+			//�������Ӿ�����ҩ�ļӳɣ���liaocheng��07/11/21����
 			//int te_eff = (int)first->query_buff("te_exp",1);
 			int te_eff = (int)first->query_buff("te_exp",1)+(int)first->query_buff("attri_exp",1);
 			if(te_eff){
@@ -843,20 +843,20 @@ void fight_die_single(object env)
 			first->current_exp += exp_gain;
 			string t = "";
 			if(bs_tips&&sizeof(bs_tips))
-				t += "你得到了 "+exp_gain+" 点经验。\n（"+bs_tips+")\n";
+				t += "��õ��� "+exp_gain+" �㾭�顣\n��"+bs_tips+")\n";
 			else
-				t += "你得到了 "+exp_gain+" 点经验。\n";
+				t += "��õ��� "+exp_gain+" �㾭�顣\n";
 			first->query_if_levelup();
 			if(first->query_levelFlag())
-				t += "你的等级提升到了 "+first->query_level()+" 级！\n";	
+				t += "��ĵȼ��������� "+first->query_level()+" ����\n";	
 			tell_object(first,t);
 		}
 		///////////////////////////////////////////////////////////////////////////////////////
-		//直接这个地方掉落物品算法
-		//新副业织布，制皮材料的掉落
-		//由liaocheng于07/10/17添加
+		//ֱ������ط�������Ʒ�㷨
+		//�¸�ҵ֯������Ƥ���ϵĵ���
+		//��liaocheng��07/10/17����
 		if(VICEDROPD->can_vicedrop(this_object()->query_name())==1){
-			//100%掉落普通材料
+			//100%������ͨ����
 			string t = "";
 			string normal_name = VICEDROPD->get_vicedrop_item(this_object()->query_name());
 			object normal_ob;
@@ -871,12 +871,12 @@ void fight_die_single(object env)
 					normal_ob->amount = VICEDROPD->get_drop_nums();
 					normal_ob->item_whoCanGet = first->query_name();;
 					normal_ob->item_TimewhoCanGet = time();
-					t += "掉落了 "+normal_ob->query_short()+" ！\n";
+					t += "������ "+normal_ob->query_short()+" ��\n";
 					call_out(normal_ob->remove,5*60,1);
 					normal_ob->move(environment(this_object()));
 				}
 			}
-			//有一定几率掉落特殊材料
+			//��һ�����ʵ����������
 			int vice_prob = 100;
 			if(random(10000)<vice_prob){
 				string spec_name = VICEDROPD->get_vicedrop_spec(this_object()->query_name());
@@ -891,7 +891,7 @@ void fight_die_single(object env)
 					if(spec_ob){
 						spec_ob->item_whoCanGet = first->query_name();
 						spec_ob->item_TimewhoCanGet = time();
-						t += "掉落了 "+spec_ob->query_short()+" ！\n";
+						t += "������ "+spec_ob->query_short()+" ��\n";
 						call_out(spec_ob->remove,5*60,1);
 						spec_ob->move(environment(this_object()));
 					}
@@ -903,40 +903,40 @@ void fight_die_single(object env)
 			VICEFLUSHD->set_flush_num(this_object()->query_name());
 		}
 		///////////////////////////////////////////////////////////////////////
-		//掉落普通装备
-		//boss怪和精英怪掉落有加成
+		//������ͨװ��
+		//boss�ֺ;�Ӣ�ֵ����мӳ�
 		int pro_add = 0;
 		if(this_object()->_boss) 
-			pro_add = 300;    //boss加成300 luck
+			pro_add = 300;    //boss�ӳ�300 luck
 		else if(this_object()->_meritocrat)
-			pro_add = 50;   //精英加成50 luck
+			pro_add = 50;   //��Ӣ�ӳ�50 luck
 
 		//evan added 2008-04-24
 		string room_type = env->query_room_type();
 		if(room_type && room_type == "rookie")
-			pro_add = 3000; //新手村的怪，都有一定的幸运加成。
+			pro_add = 3000; //���ִ�Ĺ֣�����һ�������˼ӳɡ�
 		//end of evan added 2008-04-24
 		object ob = ITEMSD->get_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
-		//掉落特殊物品
+		//����������Ʒ
 		object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
-		//掉落宝石 caijie 080807
+		//���䱦ʯ caijie 080807
 		object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),first->query_level());
 		//end cai 080807
 
-		//节日特殊掉落
-		//由liaocheng于07/09/24添加
+		//�����������
+		//��liaocheng��07/09/24����
 		object ob_holiday_spec = ITEMSD->get_spec_item_for_holiday(this_object()->query_level());
-		//掉落任务物品,2007/3/14由liaocheng添加
+		//����������Ʒ,2007/3/14��liaocheng����
 		object ob_task = TASKD->if_in_findTask(first,this_object()->query_name_cn());
 		if(ob && environment(this_object())){
 			//Stdio.append_file(ROOT+"/log/item_drop.log",now[0..sizeof(now)-2]+":"+first->query_name_cn()+"("+first->query_name()+"):"+ob->query_name_cn()+"("+ob->query_name()+")\n");
 			string t = "";
-			//加入掉装保护属性字段
-			//用于掉装保护 2007-0302 by calvin
+			//�����װ���������ֶ�
+			//���ڵ�װ���� 2007-0302 by calvin
 			ob->item_whoCanGet = first->query_name();
 			ob->item_TimewhoCanGet = time();
-			t += "掉落了 "+ob->query_short()+" ！\n";	
-			//t += "物品掉落标示="+ob->item_whoCanGet+"\n";
+			t += "������ "+ob->query_short()+" ��\n";	
+			//t += "��Ʒ�����ʾ="+ob->item_whoCanGet+"\n";
 			foreach(indices(this_object()->targets),object who)	
 				tell_object(who,t);
 			call_out(ob->remove,5*60,1);
@@ -945,12 +945,12 @@ void fight_die_single(object env)
 		if(ob_shi && environment(this_object())){
 			//Stdio.append_file(ROOT+"/log/item_drop.log",now[0..sizeof(now)-2]+":"+first->query_name_cn()+"("+first->query_name()+"):"+ob->query_name_cn()+"("+ob->query_name()+")\n");
 			string t = "";
-			//加入掉装保护属性字段
-			//用于掉装保护 2007-0302 by calvin
+			//�����װ���������ֶ�
+			//���ڵ�װ���� 2007-0302 by calvin
 			ob_shi->item_whoCanGet = first->query_name();
 			ob_shi->item_TimewhoCanGet = time();
-			t += "掉落了 "+ob_shi->query_short()+" ！\n";	
-			//t += "物品掉落标示="+ob->item_whoCanGet+"\n";
+			t += "������ "+ob_shi->query_short()+" ��\n";	
+			//t += "��Ʒ�����ʾ="+ob->item_whoCanGet+"\n";
 			foreach(indices(this_object()->targets),object who)	
 				tell_object(who,t);
 			call_out(ob_shi->remove,5*60,1);
@@ -959,12 +959,12 @@ void fight_die_single(object env)
 		if(ob_spec&& environment(this_object())){
 			//Stdio.append_file(ROOT+"/log/item_spec_drop.log",now[0..sizeof(now)-2]+":"+first->query_name_cn()+"("+first->query_name()+"):"+ob_spec->query_name_cn()+"("+ob_spec->query_name()+")\n");
 			string t = "";
-			//加入掉装保护属性字段
-			//用于掉装保护 2007-0302 by calvin
+			//�����װ���������ֶ�
+			//���ڵ�װ���� 2007-0302 by calvin
 			ob_spec->item_whoCanGet = first->query_name();
 			ob_spec->item_TimewhoCanGet = time();
-			t += "掉落了 "+ob_spec->query_short()+" ！\n";
-			//t += "物品掉落标示="+ob_spec->item_whoCanGet+"\n";
+			t += "������ "+ob_spec->query_short()+" ��\n";
+			//t += "��Ʒ�����ʾ="+ob_spec->item_whoCanGet+"\n";
 			foreach(indices(this_object()->targets),object who)	
 				tell_object(who,t);
 			call_out(ob_spec->remove,5*60,1);
@@ -974,7 +974,7 @@ void fight_die_single(object env)
 			string t = "";
 			ob_holiday_spec->item_whoCanGet = first->query_name();
 			ob_holiday_spec->item_TimewhoCanGet = time();
-			t += "掉落了 "+ob_holiday_spec->query_short()+" ！\n";
+			t += "������ "+ob_holiday_spec->query_short()+" ��\n";
 			foreach(indices(this_object()->targets),object who)	
 				tell_object(who,t);
 			call_out(ob_holiday_spec->remove,5*60,1);
@@ -982,11 +982,11 @@ void fight_die_single(object env)
 		}
 		if(ob_task && environment(this_object())){
 			string t = "";
-			//加入掉装保护属性字段
-			//用于掉装保护 2007-0302 by calvin
+			//�����װ���������ֶ�
+			//���ڵ�װ���� 2007-0302 by calvin
 			//ob_task->item_whoCanGet = first->query_name();
 			//ob_task->item_TimewhoCanGet = time();
-			t += " 你得到了 "+ob_task->query_short()+" ！\n";
+			t += " ��õ��� "+ob_task->query_short()+" ��\n";
 			//foreach(indices(this_object()->targets),object who)	
 			//	tell_object(who,t);
 			tell_object(first,t);
@@ -1001,16 +1001,16 @@ void fight_die_single(object env)
 			int m_low = this_object()->query_level()*10-(int)(this_object()->query_level());
 			int m_high = this_object()->query_level()*10+(int)(this_object()->query_level());
 			int g_m = m_low + random(m_high-m_low+1);
-			//钱太多，调整为原来的一半，20070322 by calvin
-			//又调整为除以5
+			//Ǯ̫�࣬����Ϊԭ����һ�룬20070322 by calvin
+			//�ֵ���Ϊ����5
 			g_m = g_m/5;
 			if(g_m<=0)
 				g_m = 1;
 			int flag = 0;
 			first->add_account(g_m);
-			tell_object(first,"你得到了 "+MUD_MONEYD->query_other_money_cn(g_m)+" ！\n");
+			tell_object(first,"��õ��� "+MUD_MONEYD->query_other_money_cn(g_m)+" ��\n");
 		}
-		//怪物死亡处理
+		//������������
 		_clean_fight();
 		if(this_object()->is_npc())
 			this_object()->remove();
@@ -1028,101 +1028,101 @@ string query_npc_links(void|int count)
 {
 	string out="";
 	if(this_object()->query_raceId()=="human"){
-		//该npc是人类阵营
+		//��npc��������Ӫ
 		if(this_player()->query_raceId()=="human")
-			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
+			out += "[�Ի�:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 		else{
-			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
-			//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
+			out += "[ɱ¾:kill "+this_object()->query_name()+" "+count+"]\n";
+			//��Ҫ�ж��Ƿ�Ӣ/boss��--��������Ӣ̫�࣬��������ս������_boss������
 			if(this_object()->_boss)
 				;
 			else
-				out += "[快速攻击:kill_quick "+this_object()->query_name()+" "+count+"]\n";
+				out += "[���ٹ���:kill_quick "+this_object()->query_name()+" "+count+"]\n";
 		}
 		if(this_object()->query_name()=="daodezhenjun400"){
-			out += "[学习采矿:viceskill_learn caikuang 0]\n";
-			out += "[学习采药:viceskill_learn caiyao 0]\n";
-			out += "[学习锻造:viceskill_learn duanzao 0]\n";
-			out += "[学习炼丹:viceskill_learn liandan 0]\n";
-			out += "[学习裁缝:viceskill_learn caifeng 0]\n";
-			out += "[学习制甲:viceskill_learn zhijia 0]\n";
+			out += "[ѧϰ�ɿ�:viceskill_learn caikuang 0]\n";
+			out += "[ѧϰ��ҩ:viceskill_learn caiyao 0]\n";
+			out += "[ѧϰ����:viceskill_learn duanzao 0]\n";
+			out += "[ѧϰ����:viceskill_learn liandan 0]\n";
+			out += "[ѧϰ�÷�:viceskill_learn caifeng 0]\n";
+			out += "[ѧϰ�Ƽ�:viceskill_learn zhijia 0]\n";
 		}
 	}
 	else if(this_object()->query_raceId()=="monst"){
-		//该npc是妖魔阵营
+		//��npc����ħ��Ӫ
 		if(this_player()->query_raceId()=="monst")
-			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
+			out += "[�Ի�:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 		else{
-			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
-			//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
+			out += "[ɱ¾:kill "+this_object()->query_name()+" "+count+"]\n";
+			//��Ҫ�ж��Ƿ�Ӣ/boss��--��������Ӣ̫�࣬��������ս������_boss������
 			if(this_object()->_boss)
 				;
 			else
-				out += "[快速攻击:kill_quick "+this_object()->query_name()+" "+count+"]\n";
+				out += "[���ٹ���:kill_quick "+this_object()->query_name()+" "+count+"]\n";
 		}
 		if(this_object()->query_name()=="zhaogongming400"){
-			out += "[学习采矿:viceskill_learn caikuang 0]\n";
-			out += "[学习采药:viceskill_learn caiyao 0]\n";
-			out += "[学习锻造:viceskill_learn duanzao 0]\n";
-			out += "[学习炼丹:viceskill_learn liandan 0]\n";
-			out += "[学习裁缝:viceskill_learn caifeng 0]\n";
-			out += "[学习制甲:viceskill_learn zhijia 0]\n";
+			out += "[ѧϰ�ɿ�:viceskill_learn caikuang 0]\n";
+			out += "[ѧϰ��ҩ:viceskill_learn caiyao 0]\n";
+			out += "[ѧϰ����:viceskill_learn duanzao 0]\n";
+			out += "[ѧϰ����:viceskill_learn liandan 0]\n";
+			out += "[ѧϰ�÷�:viceskill_learn caifeng 0]\n";
+			out += "[ѧϰ�Ƽ�:viceskill_learn zhijia 0]\n";
 		}
 	}
 	else if(this_object()->query_raceId()=="third"){
-		//该npc是中立阵营
-		out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"] ";
-		out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
-		//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
+		//��npc��������Ӫ
+		out += "[�Ի�:ask_npc "+this_object()->query_name()+" "+count+"] ";
+		out += "[ɱ¾:kill "+this_object()->query_name()+" "+count+"]\n";
+		//��Ҫ�ж��Ƿ�Ӣ/boss��--��������Ӣ̫�࣬��������ս������_boss������
 		if(this_object()->_boss)
 			;
 		else
-			out += "[快速攻击:kill_quick "+this_object()->query_name()+" "+count+"]\n";
+			out += "[���ٹ���:kill_quick "+this_object()->query_name()+" "+count+"]\n";
 		
 		//if(this_object()->query_name()=="yuebingshangren100")
-		//	out += "[我想看看你的月饼:yuebing_list]\n";
+		//	out += "[���뿴������±�:yuebing_list]\n";
 		switch(this_object()->query_name()){
 			case "qxhdiqishang400":
-				out += "[购买地皮:home_purchase_slot_list qianxuehu]\n";
-				out += "[变卖地皮:home_sell_remind]\n";
-				out += "[申请店铺许可:home_apply_shopLicense sijiaxiaodian 200]\n";
+				out += "[�����Ƥ:home_purchase_slot_list qianxuehu]\n";
+				out += "[������Ƥ:home_sell_remind]\n";
+				out += "[�����������:home_apply_shopLicense sijiaxiaodian 200]\n";
 			break;
 			case "ykfdiqishang400":
-				out += "[购买地皮:home_purchase_slot_list yukunfeng]\n";
-				out += "[变卖地皮:home_sell_remind]\n";
-				out += "[申请店铺许可:home_apply_shopLicense sijiaxiaodian 200]\n";
+				out += "[�����Ƥ:home_purchase_slot_list yukunfeng]\n";
+				out += "[������Ƥ:home_sell_remind]\n";
+				out += "[�����������:home_apply_shopLicense sijiaxiaodian 200]\n";
 			break;
 			case "lycydiqishang400":
-				out += "[购买地皮:home_purchase_slot_list lengyuecaoyuan]\n";
-				out += "[变卖地皮:home_sell_remind]\n";
-				out += "[申请店铺许可:home_apply_shopLicense sijiaxiaodian 200]\n";
+				out += "[�����Ƥ:home_purchase_slot_list lengyuecaoyuan]\n";
+				out += "[������Ƥ:home_sell_remind]\n";
+				out += "[�����������:home_apply_shopLicense sijiaxiaodian 200]\n";
 			break;
 			case "lxddiqishang400":
-				out += "[购买地皮:home_purchase_slot_list lingxidi]\n";
-				out += "[变卖地皮:home_sell_remind]\n";
-				out += "[申请店铺许可:home_apply_shopLicense sijiaxiaodian 200]\n";
+				out += "[�����Ƥ:home_purchase_slot_list lingxidi]\n";
+				out += "[������Ƥ:home_sell_remind]\n";
+				out += "[�����������:home_apply_shopLicense sijiaxiaodian 200]\n";
 			break;
 
 			case "qxhzahuoshang400":
-				out += "[购买物品:home_shop_item_list plant]\n";
-				out += "[其它杂货:home_buy_else_list plant]\n";
+				out += "[������Ʒ:home_shop_item_list plant]\n";
+				out += "[�����ӻ�:home_buy_else_list plant]\n";
 			break;
 			case "ykfzahuoshang400":
-				out += "[购买物品:home_shop_item_list plant]\n";
-				out += "[其它杂货:home_buy_else_list plant]\n";
+				out += "[������Ʒ:home_shop_item_list plant]\n";
+				out += "[�����ӻ�:home_buy_else_list plant]\n";
 			break;
 			case "lycyzahuoshang400":
-				out += "[购买物品:home_shop_item_list plant]\n";
-				out += "[其它杂货:home_buy_else_list plant]\n";
+				out += "[������Ʒ:home_shop_item_list plant]\n";
+				out += "[�����ӻ�:home_buy_else_list plant]\n";
 			break;
 			case "lxdzahuoshang400":
-				out += "[购买物品:home_shop_item_list plant]\n";
-				out += "[其它杂货:home_buy_else_list plant]\n";
+				out += "[������Ʒ:home_shop_item_list plant]\n";
+				out += "[�����ӻ�:home_buy_else_list plant]\n";
 			break;
 
 		}
 		if(this_object()->query_profeId()=="dog"&&HOMED->is_master(environment(this_player())->homeId)){
-			out += "[喂养:home_dog_feed]\n";
+			out += "[ι��:home_dog_feed]\n";
 		}
 	}
 	return out;
