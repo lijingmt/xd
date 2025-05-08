@@ -257,7 +257,7 @@ void fight_die()
 								"xd02":70,
 								"xd03":70,
 								"xd04":70,
-								"xd05":70,
+								"xd05":70
 							]);
 							if(melevel>=level_limit[GAME_AREA]){
 								string tipsvip = "";
