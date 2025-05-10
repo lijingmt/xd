@@ -83,3 +83,11 @@ void load()
 {
 	os_load(this_object(),SAVEPATH);
 }
+string get_game_area(){
+	mixed err = catch{
+		return GAME_AREA[2..];
+	};
+	if(err){
+		return "";
+	}
+}

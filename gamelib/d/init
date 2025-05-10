@@ -2,7 +2,7 @@
 inherit WAP_ROOM;
 #define LOG_PATH ROOT+"/log/setpassword_user.log" 
 void create(){
-	name_cn="游戏入口\n";
+	name_cn="游戏入口\n 仙道："+TOPTEN->get_game_area()+"区\n";
 	//picture = "logo";
 }
 int is_menu(){
@@ -52,8 +52,8 @@ string query_desc(){
 		//desc += "【最新活动】\n\n";
 		desc += "【更新提示】\n";
 		desc += "</div>";
-		desc += "一、修复低级怪区怪刷新问题，任何玩家进入都会刷新对应等级的怪，无需等待\n";
-		desc += "二、开展倍速经验活动，2倍速经验一直到10倍速经验，由您选择\n";
+		desc += "一、新区开放，经典最高70级\n";
+		desc += "二、新区取消捐赠倍速，回归经典\n";
 		desc += "以上活动详情请咨询客服\n";
 		desc += "<div style=\"color:DarkViolet\">";
 		desc += "(QQ客服1811117272)\n";
