@@ -1,5 +1,5 @@
 rsync  -av  --exclude='gamelib/etc' --exclude='gamelib/clone/item' gamelib /usr/local/games/xiand/
-rsync  -av  lowlib /usr/local/games/xiand/
+rsync  -av  --exclude='lowlib/system/include/globals.h' lowlib /usr/local/games/xiand/
 
 rsync  -av  --exclude='gamelib/etc' --exclude='gamelib/clone/item' gamelib /usr/local/games/xiand2/
-rsync  -av  lowlib /usr/local/games/xiand2/
+rsync  -av  --exclude='lowlib/system/include/globals.h' lowlib /usr/local/games/xiand2/
