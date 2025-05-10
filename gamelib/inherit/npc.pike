@@ -252,14 +252,8 @@ void fight_die()
 									exp_gain = 0;
 								}
 							}*/
-							mapping(string:int) level_limit = ([
-								"xd01":120,
-								"xd02":70,
-								"xd03":70,
-								"xd04":70,
-								"xd05":70
-							]);
-							if(melevel>=level_limit[GAME_AREA]){
+							
+							if(melevel>=query_level_limit()){
 								string tipsvip = "";
 								tipsvip += "您的等级已经满级了，获取经验为0，赶紧去做其他任务吧\n";
 								tell_object(termer,tipsvip);
@@ -268,7 +262,7 @@ void fight_die()
 							int szx=0;                                                                                                                  
 							string bs_tips = "";
 							int extra_dh=0;
-							if(termer->all_fee>=200){
+							if(termer->all_fee>=200 && GAME_AREA=="xd01"){
 								szx = termer->all_fee;
 								if(szx>=200 && szx<400){
 									extra_dh += exp_gain*2;
@@ -314,7 +308,8 @@ void fight_die()
 									extra_dh += exp_gain*50;
 									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
 								}
-							}
+							}	
+							
 							extra_dh += exp_gain*2;
 							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
 							if(exp_gain>0){
@@ -1126,4 +1121,19 @@ string query_npc_links(void|int count)
 		}
 	}
 	return out;
+}
+int query_level_limit(){
+	mapping(string:int) level_limit = ([
+		"xd01":120,
+		"xd02":70,
+		"xd03":70,
+		"xd04":70,
+		"xd05":70,
+		"xd06":70,
+		"xd07":70,
+		"xd08":70,
+		"xd09":70,
+		"xd10":70
+	]);
+	return level_limit[GAME_AREA] != 0 ? level_limit[GAME_AREA] : 70;
 }
