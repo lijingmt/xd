@@ -22,12 +22,12 @@ string filter(string msg,object emoter,object target,void|object looker){
 	}
 	string P=emoter->query_pronoun(looker);
 	string p=target->query_pronoun(looker);
-	string R="ÅóÓÑ";
-	string r="ÅóÓÑ";
-	string U="Æ¥·ò";
-	string u="Æ¥·ò";
-	string S="ÔÚÏÂ";
-	string s="±¾ÈË";
+	string R="æœ‹å‹";
+	string r="æœ‹å‹";
+	string U="åŒ¹å¤«";
+	string u="åŒ¹å¤«";
+	string S="åœ¨ä¸‹";
+	string s="æœ¬äºº";
 	string W="";
 	string w="";
 	mapping emoter_equip = emoter->query_equip();
@@ -39,12 +39,12 @@ string filter(string msg,object emoter,object target,void|object looker){
 		w = (target_equip["weapon"])->query_name_cn();
 	}
 	array(string) parts=target->query_parts();
-	string a="ÉíÌå";
+	string a="èº«ä½“";
 	if(parts&&sizeof(parts)){
 		a=parts[random(sizeof(parts))];
 	}
 	array(string) Parts=emoter->query_parts();
-	string A="ÉíÌå";
+	string A="èº«ä½“";
 	if(Parts&&sizeof(Parts)){
 		A=Parts[random(sizeof(Parts))];
 	}
@@ -61,8 +61,8 @@ string filter(string msg,object emoter,object target,void|object looker){
 				"$u":u,
 				"$S":S,
 				"$s":s,
-				"$Q":"È¥",
-				"$L":"À´",
+				"$Q":"å»",
+				"$L":"æ¥",
 				"$W":W,
 				"$w":w
 				]));

@@ -9,9 +9,9 @@ inherit WAP_F_VIEW_PICTURE;
 string query_inventory_links(void|int count)
 {
 	if(!equiped){
-		return ::query_inventory_links(count)+"[´©ÉÏ:wear "+name+" "+count+"]";
+		return ::query_inventory_links(count)+"[ç©¿ä¸Š:wear "+name+" "+count+"]";
 	}
 	else{
-		return ::query_inventory_links(count)+"[ÍÑÏÂ:unwear "+name+" "+count+"]";
+		return ::query_inventory_links(count)+"[è„±ä¸‹:unwear "+name+" "+count+"]";
 	}
 }

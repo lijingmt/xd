@@ -6,5 +6,5 @@ inherit WAP_F_VIEW_VALUE;
 inherit WAP_F_VIEW_PICTURE;
 string query_inventory_links(void|int count)
 {
-	return ::query_inventory_links(count)+"[∫»:drink "+name+" "+count+"]";
+	return ::query_inventory_links(count)+"[Âñù:drink "+name+" "+count+"]";
 }

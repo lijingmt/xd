@@ -7,7 +7,7 @@ inherit WAP_F_VIEW_PICTURE;
 string query_inventory_links(void|int count)
 {
 	if(this_object()->query_source_type()=="kuang")
-		return ::query_inventory_links(count)+"[ÎÒÍÚ:viceskill_dig "+name+" "+count+"]";
+		return ::query_inventory_links(count)+"[æˆ‘æŒ–:viceskill_dig "+name+" "+count+"]";
 	else if(this_object()->query_source_type()=="caoyao")
-		return ::query_inventory_links(count)+"[ÎÒ²É:viceskill_gather "+name+" "+count+"]";
+		return ::query_inventory_links(count)+"[æˆ‘é‡‡:viceskill_gather "+name+" "+count+"]";
 }

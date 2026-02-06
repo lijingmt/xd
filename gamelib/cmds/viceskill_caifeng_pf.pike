@@ -1,58 +1,58 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-//²é¿´ÒÑÑ§µÄ²Ã·ìÅä·½
+//æŸ¥çœ‹å·²å­¦çš„è£ç¼é…æ–¹
 //arg = type 
 int main(string arg)
 {
 	string s = "";
 	object me=this_player();
 	if(arg == "head"){
-		s += "Í·²¿ | [ĞØ²¿:viceskill_caifeng_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_caifeng_pf waste] | [ÊÖ²¿:viceskill_caifeng_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_caifeng_pf thou] | [½Å²¿:viceskill_caifeng_pf shoes]\n";
-		s += "[ÆäËû:viceskill_caifeng_pf other]\n";
+		s += "å¤´éƒ¨ | [èƒ¸éƒ¨:viceskill_caifeng_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_caifeng_pf waste] | [æ‰‹éƒ¨:viceskill_caifeng_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_caifeng_pf thou] | [è„šéƒ¨:viceskill_caifeng_pf shoes]\n";
+		s += "[å…¶ä»–:viceskill_caifeng_pf other]\n";
 	}
 	else if(arg == "cloth"){
-		s += "[Í·²¿:viceskill_caifeng_pf head] | ĞØ²¿\n";
-		s += "[ÊÖÍó:viceskill_caifeng_pf waste] | [ÊÖ²¿:viceskill_caifeng_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_caifeng_pf thou] | [½Å²¿:viceskill_caifeng_pf shoes]\n";
-		s += "[ÆäËû:viceskill_caifeng_pf other]\n";
+		s += "[å¤´éƒ¨:viceskill_caifeng_pf head] | èƒ¸éƒ¨\n";
+		s += "[æ‰‹è…•:viceskill_caifeng_pf waste] | [æ‰‹éƒ¨:viceskill_caifeng_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_caifeng_pf thou] | [è„šéƒ¨:viceskill_caifeng_pf shoes]\n";
+		s += "[å…¶ä»–:viceskill_caifeng_pf other]\n";
 	}
 	else if(arg == "waste"){
-		s += "[Í·²¿:viceskill_caifeng_pf head] | [ĞØ²¿:viceskill_caifeng_pf cloth]\n";
-		s += "ÊÖÍó | [ÊÖ²¿:viceskill_caifeng_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_caifeng_pf thou] | [½Å²¿:viceskill_caifeng_pf shoes]\n";
-		s += "[ÆäËû:viceskill_caifeng_pf other]\n";
+		s += "[å¤´éƒ¨:viceskill_caifeng_pf head] | [èƒ¸éƒ¨:viceskill_caifeng_pf cloth]\n";
+		s += "æ‰‹è…• | [æ‰‹éƒ¨:viceskill_caifeng_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_caifeng_pf thou] | [è„šéƒ¨:viceskill_caifeng_pf shoes]\n";
+		s += "[å…¶ä»–:viceskill_caifeng_pf other]\n";
 	}
 	else if(arg == "hand"){
-		s += "[Í·²¿:viceskill_caifeng_pf head] | [ĞØ²¿:viceskill_caifeng_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_caifeng_pf waste] | ÊÖ²¿\n";
-		s += "[ÍÈ²¿:viceskill_caifeng_pf thou] | [½Å²¿:viceskill_caifeng_pf shoes]\n";
-		s += "[ÆäËû:viceskill_caifeng_pf other]\n";
+		s += "[å¤´éƒ¨:viceskill_caifeng_pf head] | [èƒ¸éƒ¨:viceskill_caifeng_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_caifeng_pf waste] | æ‰‹éƒ¨\n";
+		s += "[è…¿éƒ¨:viceskill_caifeng_pf thou] | [è„šéƒ¨:viceskill_caifeng_pf shoes]\n";
+		s += "[å…¶ä»–:viceskill_caifeng_pf other]\n";
 	}
 	else if(arg == "thou"){
-		s += "[Í·²¿:viceskill_caifeng_pf head] | [ĞØ²¿:viceskill_caifeng_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_caifeng_pf waste] | [ÊÖ²¿:viceskill_caifeng_pf hand]\n";
-		s += "ÍÈ²¿ | [½Å²¿:viceskill_caifeng_pf shoes]\n";
-		s += "[ÆäËû:viceskill_caifeng_pf other]\n";
+		s += "[å¤´éƒ¨:viceskill_caifeng_pf head] | [èƒ¸éƒ¨:viceskill_caifeng_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_caifeng_pf waste] | [æ‰‹éƒ¨:viceskill_caifeng_pf hand]\n";
+		s += "è…¿éƒ¨ | [è„šéƒ¨:viceskill_caifeng_pf shoes]\n";
+		s += "[å…¶ä»–:viceskill_caifeng_pf other]\n";
 	}
 	else if(arg == "shoes"){
-		s += "[Í·²¿:viceskill_caifeng_pf head] | [ĞØ²¿:viceskill_caifeng_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_caifeng_pf waste] | [ÊÖ²¿:viceskill_caifeng_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_caifeng_pf thou] | ½Å²¿\n";
-		s += "[ÆäËû:viceskill_caifeng_pf other]\n";
+		s += "[å¤´éƒ¨:viceskill_caifeng_pf head] | [èƒ¸éƒ¨:viceskill_caifeng_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_caifeng_pf waste] | [æ‰‹éƒ¨:viceskill_caifeng_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_caifeng_pf thou] | è„šéƒ¨\n";
+		s += "[å…¶ä»–:viceskill_caifeng_pf other]\n";
 	}
 	else if(arg == "other"){
-		s += "[Í·²¿:viceskill_caifeng_pf head] | [ĞØ²¿:viceskill_caifeng_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_caifeng_pf waste] | [ÊÖ²¿:viceskill_caifeng_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_caifeng_pf thou] | [½Å²¿:viceskill_caifeng_pf shoes]\n";
-		s += "ÆäËû\n";
+		s += "[å¤´éƒ¨:viceskill_caifeng_pf head] | [èƒ¸éƒ¨:viceskill_caifeng_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_caifeng_pf waste] | [æ‰‹éƒ¨:viceskill_caifeng_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_caifeng_pf thou] | [è„šéƒ¨:viceskill_caifeng_pf shoes]\n";
+		s += "å…¶ä»–\n";
 	}
 	s += "--------\n";
 	s += CAIFENGD->query_peifang(me,arg);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
-	s += "\n[·µ»Ø:viceskill_view caifeng]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "\n[è¿”å›:viceskill_view caifeng]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

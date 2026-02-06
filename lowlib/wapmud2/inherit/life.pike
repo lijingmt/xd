@@ -6,26 +6,26 @@ inherit WAP_F_VIEW_LINKS;
 inherit WAP_F_VIEW_VALUE;
 inherit WAP_F_VIEW_PICTURE;
 static mapping(int:string) rareLevel = ([
-	0:"¡¾ÆÕÍ¨¡¿",
-	1:"¡¾Ò»°ã¡¿",
-	2:"¡¾Ï¡ÓĞ¡¿",
-	3:"¡¾º±¼û¡¿",
+	0:"ã€æ™®é€šã€‘",
+	1:"ã€ä¸€èˆ¬ã€‘",
+	2:"ã€ç¨€æœ‰ã€‘",
+	3:"ã€ç½•è§ã€‘",
 ]);
 
-//ÉúÎï Í¨ÓÃ¼Ì³ĞµÄ»ù±¾ÊôĞÔ
-private string life_type;//ÉúÎïÀà±ğ£º ¶¯Îï animal  Ö²Îï plant  ¿óÎï ore ÆäËü other(¿óÎï»áËæ×ÅÊ±¼äÍÆÒÆ²»¶Ï»ã¾Û£¬¿ÉÒÔÈÏÎª¾ßÓĞÀàËÆÓÚ"ÉúÃüÉú³¤"µÄÌØĞÔ)
+//ç”Ÿç‰© é€šç”¨ç»§æ‰¿çš„åŸºæœ¬å±æ€§
+private string life_type;//ç”Ÿç‰©ç±»åˆ«ï¼š åŠ¨ç‰© animal  æ¤ç‰© plant  çŸ¿ç‰© ore å…¶å®ƒ other(çŸ¿ç‰©ä¼šéšç€æ—¶é—´æ¨ç§»ä¸æ–­æ±‡èšï¼Œå¯ä»¥è®¤ä¸ºå…·æœ‰ç±»ä¼¼äº"ç”Ÿå‘½ç”Ÿé•¿"çš„ç‰¹æ€§)
 string query_life_type(){return life_type;}
 void set_life_type(string s){ life_type= s;}
 
-private int life_level=0;//ÉúÎï×ÔÉíµÈ¼¶
+private int life_level=0;//ç”Ÿç‰©è‡ªèº«ç­‰çº§
 int query_life_level(){return life_level;}
 void set_life_level(int a){ life_level= a;}
 
-private int homeLevel_limit=0;//ÉúÎïÅàÓı ĞèÒªµÄ·¿¼äµÈ¼¶
+private int homeLevel_limit=0;//ç”Ÿç‰©åŸ¹è‚² éœ€è¦çš„æˆ¿é—´ç­‰çº§
 int query_homeLevel_limit(){return homeLevel_limit;}
 void set_homeLevel_limit(int a){ homeLevel_limit= a;}
 
-private int life_rareLevel=0;//ÉúÎïÏ¡ÓĞ³Ì¶È
+private int life_rareLevel=0;//ç”Ÿç‰©ç¨€æœ‰ç¨‹åº¦
 int query_life_rareLevel(){return life_rareLevel;}
 void set_life_rareLevel(int a){ life_rareLevel= a;}
 
@@ -33,23 +33,23 @@ string query_rare_level(){
 	return rareLevel[life_rareLevel]; 
 }
 
-//ÉúÎïµÄ³õÊ¼ÉúÃü
+//ç”Ÿç‰©çš„åˆå§‹ç”Ÿå‘½
 private int init_life=0;
 void set_init_life(int a){init_life=a;}
 int query_init_life(){return init_life;}
-//ÉúÎïµÄÖÕÖ¹ÉúÃü
+//ç”Ÿç‰©çš„ç»ˆæ­¢ç”Ÿå‘½
 private int final_life=0;
 void set_final_life(int a){final_life=a;}
 int query_final_life(){return final_life;}
-//ÉúÎïµÄµ±Ç°ÉúÃü
+//ç”Ÿç‰©çš„å½“å‰ç”Ÿå‘½
 private int current_life=0;
 void set_current_life(int a){current_life=a;}
 int query_current_life(){return current_life;}
-//Éú³¤ËÙ¶È 
+//ç”Ÿé•¿é€Ÿåº¦ 
 private int grow_speed = 0;
 void set_grow_speed(int a){grow_speed=a;}
 int query_grow_speed(){return grow_speed;}
-//³ÉÊìÊ±¼ä
+//æˆç†Ÿæ—¶é—´
 private int dead_time = 0;
 void set_dead_time(int a){dead_time=a;}
 int query_dead_time(){return dead_time;}

@@ -1,46 +1,46 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-//²é¿´ÒÑÑ§µÄ²Ã·ìÅä·½
+//æŸ¥çœ‹å·²å­¦çš„è£ç¼é…æ–¹
 //arg = type 
 int main(string arg)
 {
 	string s = "";
 	object me=this_player();
 	if(arg == "head"){
-		s += "Í·²¿ | [ĞØ²¿:viceskill_zhijia_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_zhijia_pf waste] | [ÊÖ²¿:viceskill_zhijia_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_zhijia_pf thou] | [½Å²¿:viceskill_zhijia_pf shoes]\n";
+		s += "å¤´éƒ¨ | [èƒ¸éƒ¨:viceskill_zhijia_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_zhijia_pf waste] | [æ‰‹éƒ¨:viceskill_zhijia_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_zhijia_pf thou] | [è„šéƒ¨:viceskill_zhijia_pf shoes]\n";
 	}
 	else if(arg == "cloth"){
-		s += "[Í·²¿:viceskill_zhijia_pf head] | ĞØ²¿\n";
-		s += "[ÊÖÍó:viceskill_zhijia_pf waste] | [ÊÖ²¿:viceskill_zhijia_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_zhijia_pf thou] | [½Å²¿:viceskill_zhijia_pf shoes]\n";
+		s += "[å¤´éƒ¨:viceskill_zhijia_pf head] | èƒ¸éƒ¨\n";
+		s += "[æ‰‹è…•:viceskill_zhijia_pf waste] | [æ‰‹éƒ¨:viceskill_zhijia_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_zhijia_pf thou] | [è„šéƒ¨:viceskill_zhijia_pf shoes]\n";
 	}
 	else if(arg == "waste"){
-		s += "[Í·²¿:viceskill_zhijia_pf head] | [ĞØ²¿:viceskill_zhijia_pf cloth]\n";
-		s += "ÊÖÍó | [ÊÖ²¿:viceskill_zhijia_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_zhijia_pf thou] | [½Å²¿:viceskill_zhijia_pf shoes]\n";
+		s += "[å¤´éƒ¨:viceskill_zhijia_pf head] | [èƒ¸éƒ¨:viceskill_zhijia_pf cloth]\n";
+		s += "æ‰‹è…• | [æ‰‹éƒ¨:viceskill_zhijia_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_zhijia_pf thou] | [è„šéƒ¨:viceskill_zhijia_pf shoes]\n";
 	}
 	else if(arg == "hand"){
-		s += "[Í·²¿:viceskill_zhijia_pf head] | [ĞØ²¿:viceskill_zhijia_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_zhijia_pf waste] | ÊÖ²¿\n";
-		s += "[ÍÈ²¿:viceskill_zhijia_pf thou] | [½Å²¿:viceskill_zhijia_pf shoes]\n";
+		s += "[å¤´éƒ¨:viceskill_zhijia_pf head] | [èƒ¸éƒ¨:viceskill_zhijia_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_zhijia_pf waste] | æ‰‹éƒ¨\n";
+		s += "[è…¿éƒ¨:viceskill_zhijia_pf thou] | [è„šéƒ¨:viceskill_zhijia_pf shoes]\n";
 	}
 	else if(arg == "thou"){
-		s += "[Í·²¿:viceskill_zhijia_pf head] | [ĞØ²¿:viceskill_zhijia_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_zhijia_pf waste] | [ÊÖ²¿:viceskill_zhijia_pf hand]\n";
-		s += "ÍÈ²¿ | [½Å²¿:viceskill_zhijia_pf shoes]\n";
+		s += "[å¤´éƒ¨:viceskill_zhijia_pf head] | [èƒ¸éƒ¨:viceskill_zhijia_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_zhijia_pf waste] | [æ‰‹éƒ¨:viceskill_zhijia_pf hand]\n";
+		s += "è…¿éƒ¨ | [è„šéƒ¨:viceskill_zhijia_pf shoes]\n";
 	}
 	else if(arg == "shoes"){
-		s += "[Í·²¿:viceskill_zhijia_pf head] | [ĞØ²¿:viceskill_zhijia_pf cloth]\n";
-		s += "[ÊÖÍó:viceskill_zhijia_pf waste] | [ÊÖ²¿:viceskill_zhijia_pf hand]\n";
-		s += "[ÍÈ²¿:viceskill_zhijia_pf thou] | ½Å²¿\n";
+		s += "[å¤´éƒ¨:viceskill_zhijia_pf head] | [èƒ¸éƒ¨:viceskill_zhijia_pf cloth]\n";
+		s += "[æ‰‹è…•:viceskill_zhijia_pf waste] | [æ‰‹éƒ¨:viceskill_zhijia_pf hand]\n";
+		s += "[è…¿éƒ¨:viceskill_zhijia_pf thou] | è„šéƒ¨\n";
 	}
 	s += "--------\n";
 	s += ZHIJIAD->query_peifang(me,arg);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
-	s += "\n[·µ»Ø:viceskill_view zhijia]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "\n[è¿”å›:viceskill_view zhijia]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

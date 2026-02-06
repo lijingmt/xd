@@ -1,6 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-//»áÔ±ÕÛ¿ÛÉÌÆ·Ä¿Â¼
+//ä¼šå‘˜æŠ˜æ‰£å•†å“ç›®å½•
 int main(string arg)
 {
 	object me = this_player();
@@ -9,29 +9,29 @@ int main(string arg)
 	int item_cost = 0;
 	sscanf(arg,"%s %s %d",item_name,item_type,item_cost);
 
-	string s = "*** »áÔ±ÓÅ»Ý ***\n";
+	string s = "*** ä¼šå‘˜ä¼˜æƒ  ***\n";
 	mapping(int:int) vip_off_list = VIPD->get_vip_off_map();
 	mapping(int:string) vip_list = VIPD->get_vip_name_map();
 	for(int i=1;i<=sizeof(vip_off_list);i++)
 	{
-		s += vip_list[i]+ "("+ vip_off_list[i]+"ÕÛ)\n";
+		s += vip_list[i]+ "("+ vip_off_list[i]+"æŠ˜)\n";
 	}
 	int vip_level = me->query_vip_flag();
 	string vip_name = vip_list[vip_level];
 	item_cost = item_cost* vip_off_list[vip_level]/10;
 	if(vip_level)
 	{
-		s += "×ð¾´µÄ"+ me->query_name_cn()+",ÄãÏÖÔÚÊÇ"+vip_name+",ÄãÖ´ÐÐ±¾²Ù×÷Ö»Ðè»¨·Ñ"+ YUSHID->get_yushi_for_desc(item_cost)+"\n";
-		s += "[È·ÈÏ:convert_equip_confirm " + item_name+" "+item_type+" "+ item_cost+ " 2 1]\n";
-		s += "[·µ»Ø:convert_equip_detail " + item_name +" 0]\n";	
+		s += "å°Šæ•¬çš„"+ me->query_name_cn()+",ä½ çŽ°åœ¨æ˜¯"+vip_name+",ä½ æ‰§è¡Œæœ¬æ“ä½œåªéœ€èŠ±è´¹"+ YUSHID->get_yushi_for_desc(item_cost)+"\n";
+		s += "[ç¡®è®¤:convert_equip_confirm " + item_name+" "+item_type+" "+ item_cost+ " 2 1]\n";
+		s += "[è¿”å›ž:convert_equip_detail " + item_name +" 0]\n";	
 	}
 	else
 	{
-		s +="Äã»¹²»ÊÇÎÒÃÇµÄ»áÔ±£¬¸Ï¿ì¼ÓÈëµ½»áÔ±µÄ´ó¼ÒÍ¥ÖÐ£¬ÏíÊÜ×ð¹óµÄ»áÔ±ÌØÈ¨°É\n\n";                               
-		s += "[ÉêÇëÈë»á:vip_service_app_list]\n";
-		s += "[·µ»Ø:convert_equip_detail " + item_name +" 0]\n";
+		s +="ä½ è¿˜ä¸æ˜¯æˆ‘ä»¬çš„ä¼šå‘˜ï¼Œèµ¶å¿«åŠ å…¥åˆ°ä¼šå‘˜çš„å¤§å®¶åº­ä¸­ï¼Œäº«å—å°Šè´µçš„ä¼šå‘˜ç‰¹æƒå§\n\n";                               
+		s += "[ç”³è¯·å…¥ä¼š:vip_service_app_list]\n";
+		s += "[è¿”å›ž:convert_equip_detail " + item_name +" 0]\n";
 	}
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "[è¿”å›žæ¸¸æˆ:look]\n";
 	write(s);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;

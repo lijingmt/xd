@@ -13,7 +13,7 @@ int main(string arg)
 	}
 	//else if( ob&&ob->query_raceId()==this_player()->query_raceId() )
 	//{
-	//	this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你不能攻击那个目标！\n");
+	//	this_player()->write_view(WAP_VIEWD["/emote"],0,0,"浣犱笉鑳芥敾鍑婚偅涓洰鏍囷紒\n");
 	//}
 	else{
 		if(this_player()->fight(name,count,flg)){

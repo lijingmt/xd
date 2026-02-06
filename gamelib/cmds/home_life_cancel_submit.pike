@@ -6,9 +6,9 @@ int main(string arg)
 	int ind = 0;
 	sscanf(arg,"%s %d",lifeType,ind);
 	string re = "";
-	re += "你确认要这么做吗？\n";
-	re += "[确认:home_life_cancel_confirm "+ lifeType+" "+ ind +"]\n";
-	re += "[返回:home_life_detail "+ lifeType +" "+ind +"]";
+	re += "浣犵‘璁よ杩欎箞鍋氬悧锛焅n";
+	re += "[纭:home_life_cancel_confirm "+ lifeType+" "+ ind +"]\n";
+	re += "[杩斿洖:home_life_detail "+ lifeType +" "+ind +"]";
 	write(re);
 	return 1;
 }

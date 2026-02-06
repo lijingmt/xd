@@ -2,7 +2,7 @@
 #include <wapmud2/include/wapmud2.h>
 #include <gamelib/include/gamelib.h>
 
-//·şÎñÖĞĞÄ
+//æœåŠ¡ä¸­å¿ƒ
 int main(string arg)
 {
 	object me = this_player();
@@ -12,13 +12,13 @@ int main(string arg)
 	string masterId = "";
 	string itemName = "";
 	int price = 0;
-	int priceFlag = 0;//1£ºÓñÊ¯ 0£º»Æ½ğ
+	int priceFlag = 0;//1ï¼šç‰çŸ³ 0ï¼šé»„é‡‘
 	int shopId = 0;
 	int timeDelay = 0;
 	sscanf(arg,"%s %d %d %d %d",masterId,price,priceFlag,shopId,timeDelay);
 	object item = HOMED->get_shop_item(masterId,shopId);
 	if(!item){
-		s += "¸ÃÌ¯Î»ÒÑ¾­Ã»ÓĞÎïÆ·,Çë·µ»Ø\n";
+		s += "è¯¥æ‘Šä½å·²ç»æ²¡æœ‰ç‰©å“,è¯·è¿”å›\n";
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
@@ -27,8 +27,8 @@ int main(string arg)
 	if(!item->is_combine_item()&&item->query_item_type()!="book"){
 		s += item->query_content()+"\n"; 
 	}
-	s += "ÎïÆ·ÊıÁ¿£º"+HOMED->get_shopItem_num(masterId,shopId)+"\n";
-	s += "ĞèÒª£º";
+	s += "ç‰©å“æ•°é‡ï¼š"+HOMED->get_shopItem_num(masterId,shopId)+"\n";
+	s += "éœ€è¦ï¼š";
 	if(priceFlag==1){
 		s += YUSHID->get_yushi_for_desc(price);
 	}
@@ -37,12 +37,12 @@ int main(string arg)
 	}
 	s += "\n\n";
 	if(HOMED->is_master(homeId)){
-		s += "[È¡Ïû:home_shopItem_cancel "+shopId+" 0]\n";
+		s += "[å–æ¶ˆ:home_shopItem_cancel "+shopId+" 0]\n";
 	}
 	else
-		s += "[¹ºÂò:home_buy_shopItem_confirm "+arg+"]\n";
-	s += "[ÔÙ¹äÒ»È¦:popview]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+		s += "[è´­ä¹°:home_buy_shopItem_confirm "+arg+"]\n";
+	s += "[å†é€›ä¸€åœˆ:popview]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

@@ -6,13 +6,13 @@ int main(string arg)
 	string s = "";
 	if(arg){
 		me->skills_enable = "";
-		s += "Äã½«¼¼ÄÜ "+MUD_SKILLSD[arg]->query_name_cn()+" È¡ÏûÔÚÕ½¶·ÖÐ×Ô¶¯Ê©·Å¡£\n";
+		s += "ä½ å°†æŠ€èƒ½ "+MUD_SKILLSD[arg]->query_name_cn()+" å–æ¶ˆåœ¨æˆ˜æ–—ä¸­è‡ªåŠ¨æ–½æ”¾ã€‚\n";
 	}
 	else
-		s += "ÄãÒªÈ¡ÏûÄÄ¸ö×Ô¶¯Ê©·Å¼¼ÄÜ£¿\n";
+		s += "ä½ è¦å–æ¶ˆå“ªä¸ªè‡ªåŠ¨æ–½æ”¾æŠ€èƒ½ï¼Ÿ\n";
 	write(s);
-	write("[·µ»Ø:myskills]\n");
-	write("[·µ»ØÓÎÏ·:look]\n");
+	write("[è¿”å›ž:myskills]\n");
+	write("[è¿”å›žæ¸¸æˆ:look]\n");
 	//this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
 }

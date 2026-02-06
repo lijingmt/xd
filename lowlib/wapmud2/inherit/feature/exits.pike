@@ -1,5 +1,5 @@
 mapping(string:string) exits_chinese=([]);
-private mapping cwaym=(["east":"¶«¡ú","west":"Î÷¡û","north":"±±¡ü","south":"ÄÏ¡ı","northeast":"¶«±±","southeast":"¶«ÄÏ","northwest":"Î÷±±","southwest":"Î÷ÄÏ","in":"½ø","out":"³ö"]);
+private mapping cwaym=(["east":"ä¸œâ†’","west":"è¥¿â†","north":"åŒ—â†‘","south":"å—â†“","northeast":"ä¸œåŒ—","southeast":"ä¸œå—","northwest":"è¥¿åŒ—","southwest":"è¥¿å—","in":"è¿›","out":"å‡º"]);
 string view_exits()
 {
 	array(string) sorted_dir=({"in","out","north","west","east","south","southeast","northeast","southwest","northwest"});
@@ -15,7 +15,7 @@ string view_exits()
 	if(sizeof(ks)!=sizeof(dirs))
 		ks+=dirs-ks;
 	string out="";
-	//×Ô¶¯¸úËæµÄÏÔÊ¾£¬ÓÉliaochengÓÚ07/09/21Ìí¼Ó
+	//è‡ªåŠ¨è·Ÿéšçš„æ˜¾ç¤ºï¼Œç”±liaochengäº07/09/21æ·»åŠ 
 	int follow_f = 0;
 	object leader;
 	if(this_player()->follow != "_none"){
@@ -27,11 +27,11 @@ string view_exits()
 			this_player()->follow = "_none";
 	}
 	if(follow_f)
-		out += "ÄãÕıÔÚ¸úËæ "+leader->query_name_cn()+" [È¡Ïû¸úËæ:follow_cancel]\n";
+		out += "ä½ æ­£åœ¨è·Ÿéš "+leader->query_name_cn()+" [å–æ¶ˆè·Ÿéš:follow_cancel]\n";
 	else{
 		if(sizeof(ks))
-			out+="ÇëÑ¡ÔñÄãµÄĞĞ×ß·½Ïò£º\n";
-			//out+=this_player()->query_mini_picture_url("xingzoufangxiang")+"ÇëÑ¡ÔñÄãµÄĞĞ×ß·½Ïò£º\n";
+			out+="è¯·é€‰æ‹©ä½ çš„è¡Œèµ°æ–¹å‘ï¼š\n";
+			//out+=this_player()->query_mini_picture_url("xingzoufangxiang")+"è¯·é€‰æ‹©ä½ çš„è¡Œèµ°æ–¹å‘ï¼š\n";
 		for(int i=0;i<sizeof(ks);i++){
 			if(hidden[ks[i]]&&!present(hidden[ks[i]],this_player()))
 				;//don't show it
@@ -41,7 +41,7 @@ string view_exits()
 						out+=("["+exits_chinese[ks[i]]);
 					else
 						out+=("["+cwaym[ks[i]]);
-					out+=("£º£¨´óÃÅ½ô±Õ£©");
+					out+=("ï¼šï¼ˆå¤§é—¨ç´§é—­ï¼‰");
 					out+=(":open "+ks[i]+"]\n");
 				}
 				else{
@@ -63,7 +63,7 @@ string view_exits()
 							out+=("["+exits_chinese[ks[i]]);
 						else
 							out+=("["+cwaym[ks[i]]);
-						out+=("£º"+load_object(dest)->query_short());
+						out+=("ï¼š"+load_object(dest)->query_short());
 						string accesskey="";
 						if(ks[i]=="west") accesskey="{10}";
 						if(ks[i]=="east") accesskey="{11}";

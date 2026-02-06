@@ -6,34 +6,34 @@ int main(string arg)
 	string s = "";
 	object me=this_player();
 	if(arg == "m_weapon"){
-		s += "［主手武器］:\n";
-		s += "[［副手武器］:viceskill_duanzao_pf s_weapon]\n";
-		s += "[［双手武器］:viceskill_duanzao_pf d_weapon]\n";
-		s += "[［防具］:viceskill_duanzao_pf armor]\n";
+		s += "锛讳富鎵嬫鍣冀:\n";
+		s += "[锛诲壇鎵嬫鍣冀:viceskill_duanzao_pf s_weapon]\n";
+		s += "[锛诲弻鎵嬫鍣冀:viceskill_duanzao_pf d_weapon]\n";
+		s += "[锛婚槻鍏凤冀:viceskill_duanzao_pf armor]\n";
 	}
 	else if(arg == "s_weapon"){
-		s += "[［主手武器］:viceskill_duanzao_pf m_weapon]\n";
-		s += "［副手武器］\n";
-		s += "[［双手武器］:viceskill_duanzao_pf d_weapon]\n";
-		s += "[［防具］:viceskill_duanzao_pf armor]\n";
+		s += "[锛讳富鎵嬫鍣冀:viceskill_duanzao_pf m_weapon]\n";
+		s += "锛诲壇鎵嬫鍣冀\n";
+		s += "[锛诲弻鎵嬫鍣冀:viceskill_duanzao_pf d_weapon]\n";
+		s += "[锛婚槻鍏凤冀:viceskill_duanzao_pf armor]\n";
 	}
 	else if(arg == "d_weapon"){
-		s += "[［主手武器］:viceskill_duanzao_pf m_weapon]\n";
-		s += "[［副手武器］:viceskill_duanzao_pf s_weapon]\n";
-		s += "［双手武器］\n";
-		s += "[［防具］:viceskill_duanzao_pf armor]\n";
+		s += "[锛讳富鎵嬫鍣冀:viceskill_duanzao_pf m_weapon]\n";
+		s += "[锛诲壇鎵嬫鍣冀:viceskill_duanzao_pf s_weapon]\n";
+		s += "锛诲弻鎵嬫鍣冀\n";
+		s += "[锛婚槻鍏凤冀:viceskill_duanzao_pf armor]\n";
 	}
 	else if(arg == "armor"){
-		s += "[［主手武器］:viceskill_duanzao_pf m_weapon]\n";
-		s += "[［副手武器］:viceskill_duanzao_pf s_weapon]\n";
-		s += "[［双手武器］:viceskill_duanzao_pf d_weapon]\n";
-		s += "［防具］\n";
+		s += "[锛讳富鎵嬫鍣冀:viceskill_duanzao_pf m_weapon]\n";
+		s += "[锛诲壇鎵嬫鍣冀:viceskill_duanzao_pf s_weapon]\n";
+		s += "[锛诲弻鎵嬫鍣冀:viceskill_duanzao_pf d_weapon]\n";
+		s += "锛婚槻鍏凤冀\n";
 	}
 	s += "--------\n";
 	s += DUANZAOD->query_peifang(me,arg);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
-	s += "\n[返回:viceskill_view duanzao]\n";
-	s += "[返回游戏:look]\n";
+	s += "\n[杩斿洖:viceskill_view duanzao]\n";
+	s += "[杩斿洖娓告垙:look]\n";
 	write(s);
 	return 1;
 }

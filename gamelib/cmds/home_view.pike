@@ -14,8 +14,8 @@ int main(string arg)
 		return 1;
 	}
 	else{
-		s += "他家的地契有些问题，房屋已经暂时被官府查封了！\n";
-		s += "\n[确定:look]\n";
+		s += "浠栧鐨勫湴濂戞湁浜涢棶棰橈紝鎴垮眿宸茬粡鏆傛椂琚畼搴滄煡灏佷簡锛乗n";
+		s += "\n[纭畾:look]\n";
 		write(s);
 		return 1;
 	}

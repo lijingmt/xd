@@ -1,14 +1,14 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>  
-//´ËÖ¸ÁîÏÔÊ¾²Æ¸»µÄÅÅĞĞ
+//æ­¤æŒ‡ä»¤æ˜¾ç¤ºè´¢å¯Œçš„æ’è¡Œ
 int main(string arg)
 {
 	string s = "";
 	object me=this_player();
-	s += "µêÆÌÏúÁ¿ÅÅĞĞ£º\n";
+	s += "åº—é“ºé”€é‡æ’è¡Œï¼š\n";
 	array(mapping(string:mixed)) top_list = ({});
 	if(arg=="yushi"){
-		s += "ÓñÊ¯½»Ò×|[½ğ±Ò½»Ò×:home_shop_sale_paihang money]\n";
+		s += "ç‰çŸ³äº¤æ˜“|[é‡‘å¸äº¤æ˜“:home_shop_sale_paihang money]\n";
 		top_list = PAIHANGD->query_home_yushi_toplist();
 		if(top_list && sizeof(top_list)){
 			for(int i=0;i<sizeof(top_list);i++){
@@ -19,13 +19,13 @@ int main(string arg)
 				string homeId = HOMED->query_homeId_by_masterId(Id);
 				//werror("-----yushi="+home_yushi+"----\n");
 				if(name_cn && sizeof(name_cn)&&homeId!=""&&home_yushi){
-					s += (i+1)+"£®["+name_cn+"µÄË½¼ÒĞ¡µê:home_view "+homeId+"]("+YUSHID->get_yushi_for_desc(home_yushi)+")\n";//£¨"+account+"£©\n";
+					s += (i+1)+"ï¼["+name_cn+"çš„ç§å®¶å°åº—:home_view "+homeId+"]("+YUSHID->get_yushi_for_desc(home_yushi)+")\n";//ï¼ˆ"+account+"ï¼‰\n";
 				}
 			}
 		}
 	}
 	else if(arg=="money"){
-		s += "[ÓñÊ¯½»Ò×:home_shop_sale_paihang yushi]|½ğ±Ò½»Ò×\n";
+		s += "[ç‰çŸ³äº¤æ˜“:home_shop_sale_paihang yushi]|é‡‘å¸äº¤æ˜“\n";
 		top_list = PAIHANGD->query_home_money_toplist();
 		if(top_list && sizeof(top_list)){
 			for(int i=0;i<sizeof(top_list);i++){
@@ -35,16 +35,16 @@ int main(string arg)
 				//string account_cn = MUD_MONEYD->query_money_for_paihang(account);
 				string homeId = HOMED->query_homeId_by_masterId(Id);
 				if(name_cn && sizeof(name_cn)&&homeId!=""&&home_money){
-					s += (i+1)+"£®["+name_cn+"µÄË½¼ÒĞ¡µê:home_view "+homeId+"]("+MUD_MONEYD->query_store_money_cn(home_money)+")\n";//£¨"+account+"£©\n";
+					s += (i+1)+"ï¼["+name_cn+"çš„ç§å®¶å°åº—:home_view "+homeId+"]("+MUD_MONEYD->query_store_money_cn(home_money)+")\n";//ï¼ˆ"+account+"ï¼‰\n";
 				}
 			}
 		}
 	}
 	else
-		s += "ÔİÎ´·¢°ñ\n";
-	//s += "[Ë¢ĞÂÅÅĞĞ°ñ:paihang_update_account_toplist]\n";
+		s += "æš‚æœªå‘æ¦œ\n";
+	//s += "[åˆ·æ–°æ’è¡Œæ¦œ:paihang_update_account_toplist]\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
-	//s += "\n[·µ»ØÓÎÏ·:look]\n";
+	//s += "\n[è¿”å›æ¸¸æˆ:look]\n";
 	//write(s);
 	return 1;
 }

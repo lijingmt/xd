@@ -11,36 +11,36 @@ int main(string arg)
 {
 	object me = this_player();
 	string act,value,re="";
-	//re += "[¼ÇÂ¼:record list 1]|[ºÃÓÑ:friend list 1]|[¹«»á:guild]|[ÔÚÏß:onlineuser]|ÅÅĞĞ°ñ\n";
+	//re += "[è®°å½•:record list 1]|[å¥½å‹:friend list 1]|[å…¬ä¼š:guild]|[åœ¨çº¿:onlineuser]|æ’è¡Œæ¦œ\n";
 	if(!arg)
 		arg = "start";
-	//look_top list µÈ¼¶ 1
+	//look_top list ç­‰çº§ 1
 	sscanf(arg,"%s %s",act,value);
 	//----------------------
-	string zhenying="¡¾ÏÉ¡¿";
+	string zhenying="ã€ä»™ã€‘";
 	if(me->query_raceId()=="monst")
-		zhenying="¡¾Ñı¡¿";
-	string topname = me->query_name_cn()+"("+me->query_level()+"¼¶)"+zhenying;
+		zhenying="ã€å¦–ã€‘";
+	string topname = me->query_name_cn()+"("+me->query_level()+"çº§)"+zhenying;
 
-	TOPTEN->try_top(me->query_name(),topname,"µÈ¼¶",me->query_level());
-	TOPTEN->try_top(me->query_name(),topname,"¸»ÎÌ",me->query_account());
+	TOPTEN->try_top(me->query_name(),topname,"ç­‰çº§",me->query_level());
+	TOPTEN->try_top(me->query_name(),topname,"å¯Œç¿",me->query_account());
 	if(me->query_raceId()=="monst")
-		TOPTEN->try_top(me->query_name(),topname,"ÑıÆø",me->honerpt);
+		TOPTEN->try_top(me->query_name(),topname,"å¦–æ°”",me->honerpt);
 	else if(me->query_raceId()=="human"){
-		TOPTEN->try_top(me->query_name(),topname,"ÏÉÆø",me->honerpt);
+		TOPTEN->try_top(me->query_name(),topname,"ä»™æ°”",me->honerpt);
 	}
 	/*
-	TOPTEN->try_top(me->query_name(),topname,"¹¥»÷",me->query_fight_attack());
-	TOPTEN->try_top(me->query_name(),topname,"·ÀÓù",me->query_defend_power());
-	TOPTEN->try_top(me->query_name(),topname,"¶ãÉÁ",(int)me->query_phy_dodge());
-	TOPTEN->try_top(me->query_name(),topname,"ÕĞ¼Ü",(int)me->query_phy_parry());
-	TOPTEN->try_top(me->query_name(),topname,"ÃüÖĞ",(int)me->query_phy_hitte());
-	TOPTEN->try_top(me->query_name(),topname,"±©»÷",(int)me->query_phy_baoji());
+	TOPTEN->try_top(me->query_name(),topname,"æ”»å‡»",me->query_fight_attack());
+	TOPTEN->try_top(me->query_name(),topname,"é˜²å¾¡",me->query_defend_power());
+	TOPTEN->try_top(me->query_name(),topname,"èº²é—ª",(int)me->query_phy_dodge());
+	TOPTEN->try_top(me->query_name(),topname,"æ‹›æ¶",(int)me->query_phy_parry());
+	TOPTEN->try_top(me->query_name(),topname,"å‘½ä¸­",(int)me->query_phy_hitte());
+	TOPTEN->try_top(me->query_name(),topname,"æš´å‡»",(int)me->query_phy_baoji());
 	*/
-	TOPTEN->try_top(me->query_name(),topname+"("+me->all_fee+")("+me->name+")","¾èÔù",(int)me->all_fee);
+	TOPTEN->try_top(me->query_name(),topname+"("+me->all_fee+")("+me->name+")","æèµ ",(int)me->all_fee);
 	//string powers = MANAGERD->checkpower(me->name);
 	//if(powers=="admin"||powers=="assist")
-	//	TOPTEN->try_top(me->query_name(),topname,"¾èÔù",(int)me->history_tongbao);
+	//	TOPTEN->try_top(me->query_name(),topname,"æèµ ",(int)me->history_tongbao);
 	//----------------------
 	switch(act)
 	{
@@ -49,16 +49,16 @@ int main(string arg)
 		int page;
 		type = value;
 		sscanf(value,"%s %d",type,page);
-		re += "¡¾"+type+"ÅÅĞĞ°ñ¡¿\n";
+		re += "ã€"+type+"æ’è¡Œæ¦œã€‘\n";
 		array record = TOPTEN->get_top(type,RANGE);
 		string lr = "";
 		for(int i=(page-1)*PAGELEN;i<sizeof(record)&&i<(page-1)*PAGELEN+PAGELEN;i++)
                 {
-                        lr += sprintf("µÚ%dÃû|%s\n",i+1,record[i][NAMECN]);
+                        lr += sprintf("ç¬¬%då|%s\n",i+1,record[i][NAMECN]);
                 }
  		if(lr&&sizeof(lr)){
 			re += lr;
-			re += "µÚ";
+			re += "ç¬¬";
 			for(int i=1;i<=sizeof(record)/PAGELEN+1;i++)
 			{
 				if(i==page)
@@ -67,35 +67,35 @@ int main(string arg)
                                 	re += sprintf("[%d:look_top list %s %d]",i,type,i);
 					//re += sprintf("[%d:record list %d]",i,i);
 			}
-			re += "Ò³\n";
+			re += "é¡µ\n";
 		}
 		else
-			re += "ÔİÎŞÏà¹Ø¼ÇÂ¼¡£\n";
-                re += "[·µ»ØÉÏ¼¶:look_top]\n";
+			re += "æš‚æ— ç›¸å…³è®°å½•ã€‚\n";
+                re += "[è¿”å›ä¸Šçº§:look_top]\n";
               	break;
 		case "start":
 		default:
-		re += "¡¾ÅÅĞĞ°ñ¡¿\n";
+		re += "ã€æ’è¡Œæ¦œã€‘\n";
 		re += "----------------\n";
-		re += "[µÈ¼¶ÅÅĞĞ°ñ:look_top list µÈ¼¶ 1]\n";
-		re += "[¸»ÎÌÅÅĞĞ°ñ:look_top list ¸»ÎÌ 1]\n";
-		re += "[ÏÉÆøÅÅĞĞ°ñ:look_top list ÏÉÆø 1]\n";
-		re += "[ÑıÆøÅÅĞĞ°ñ:look_top list ÑıÆø 1]\n";
+		re += "[ç­‰çº§æ’è¡Œæ¦œ:look_top list ç­‰çº§ 1]\n";
+		re += "[å¯Œç¿æ’è¡Œæ¦œ:look_top list å¯Œç¿ 1]\n";
+		re += "[ä»™æ°”æ’è¡Œæ¦œ:look_top list ä»™æ°” 1]\n";
+		re += "[å¦–æ°”æ’è¡Œæ¦œ:look_top list å¦–æ°” 1]\n";
 		/*
-		re += "[¹¥»÷ÅÅĞĞ°ñ:look_top list ¹¥»÷ 1]\n";
-		re += "[·ÀÓùÅÅĞĞ°ñ:look_top list ·ÀÓù 1]\n";
-		re += "[¶ãÉÁÅÅĞĞ°ñ:look_top list ¶ãÉÁ 1]\n";
-		re += "[ÕĞ¼ÜÅÅĞĞ°ñ:look_top list ÕĞ¼Ü 1]\n";
-		re += "[ÃüÖĞÅÅĞĞ°ñ:look_top list ÃüÖĞ 1]\n";
-		re += "[±©»÷ÅÅĞĞ°ñ:look_top list ±©»÷ 1]\n";
+		re += "[æ”»å‡»æ’è¡Œæ¦œ:look_top list æ”»å‡» 1]\n";
+		re += "[é˜²å¾¡æ’è¡Œæ¦œ:look_top list é˜²å¾¡ 1]\n";
+		re += "[èº²é—ªæ’è¡Œæ¦œ:look_top list èº²é—ª 1]\n";
+		re += "[æ‹›æ¶æ’è¡Œæ¦œ:look_top list æ‹›æ¶ 1]\n";
+		re += "[å‘½ä¸­æ’è¡Œæ¦œ:look_top list å‘½ä¸­ 1]\n";
+		re += "[æš´å‡»æ’è¡Œæ¦œ:look_top list æš´å‡» 1]\n";
 		*/
 		string powers = MANAGERD->checkpower(me->name);
 		if(powers=="admin"||powers=="assist")
-			re += "[¾èÔùÅÅĞĞ°ñ:look_top list ¾èÔù 1]\n";
+			re += "[æèµ æ’è¡Œæ¦œ:look_top list æèµ  1]\n";
 		re += "----------------\n";
 		break;
 	}
-	re += "[·µ»ØÓÎÏ·:look]\n";
+	re += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(re);
 	return 1;
 }

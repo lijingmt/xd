@@ -61,7 +61,7 @@ string get_user_year_month_day(int time){
 		s_day = "0"+day;
 	else
 		s_day = (string)day;
-	return ""+year+"Äê"+s_mon+"ÔÂ"+s_day+"ÈÕ";
+	return ""+year+"å¹´"+s_mon+"æœˆ"+s_day+"æ—¥";
 }
 string get_user_year_to_second(int time){
 	string s_mon,s_day;
@@ -81,32 +81,32 @@ string get_user_year_to_second(int time){
 		s_day = "0"+day;
 	else
 		s_day = (string)day;
-	return ""+year+"Äê"+s_mon+"ÔÂ"+s_day+"ÈÕ"+(string)hour+"µã"+(string)min+"·Ö"+(string)sec+"Ãë";
+	return ""+year+"å¹´"+s_mon+"æœˆ"+s_day+"æ—¥"+(string)hour+"ç‚¹"+(string)min+"åˆ†"+(string)sec+"ç§’";
 }
 
-//·µ»ØÊ£ÓàÊ±¼äÃèÊö
+//è¿”å›å‰©ä½™æ—¶é—´æè¿°
 string get_remainTime_desc(int deadline){
 	string time_s = "";
 	if(deadline<=time()){
 		return time_s;
 	}
 	else{
-		int lastTime = deadline - time();   //Ê£ÓàÊ±¼ä
+		int lastTime = deadline - time();   //å‰©ä½™æ—¶é—´
 		int day = (int)(lastTime/(24*3600));
 		int hourTmp = (int)(lastTime%(24*3600));
 		int hour = (int)(hourTmp/3600);
 		int min = (hourTmp%3600)/60;
 		if(day)
-			time_s += day+"Ìì";
+			time_s += day+"å¤©";
 		if(hour)
-			time_s += hour+"Ğ¡Ê±";
+			time_s += hour+"å°æ—¶";
 		if(min)
-			time_s += min+"·Ö";
+			time_s += min+"åˆ†";
 	}
 	return time_s;
 }
 
-//·µ»ØÅÄÂôĞĞÊ£ÓàÊ±¼äÃèÊö
+//è¿”å›æ‹å–è¡Œå‰©ä½™æ—¶é—´æè¿°
 string get_lasttime_desc(int deadline){
 	string time_s = "";
 	if(deadline<=0)
@@ -117,10 +117,10 @@ string get_lasttime_desc(int deadline){
 	int hour = (int)(hourTmp/3600);
 	int min = (hourTmp%3600)/60;
 	if(day)
-		time_s += day+"Ìì";
+		time_s += day+"å¤©";
 	if(hour)
-		time_s += hour+"Ğ¡Ê±";
+		time_s += hour+"å°æ—¶";
 	if(min)
-		time_s += min+"·Ö";
+		time_s += min+"åˆ†";
 	return time_s;
 }

@@ -1,7 +1,7 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 //arg = num flag name count 
-//此指令在加入熔炼物品
+//姝ゆ寚浠ゅ湪鍔犲叆鐔旂偧鐗╁搧
 int main(string arg)
 {
 	string s = "";
@@ -12,20 +12,20 @@ int main(string arg)
 	int count = 0;
 	sscanf(arg,"%d %d %s %d",num,flag,item_name,count);
 	if(me->vice_skills["duanzao"] == 0)
-		s += "你现在并不会锻造技能\n";
+		s += "浣犵幇鍦ㄥ苟涓嶄細閿婚�犳妧鑳絓n";
 	else{
 		object ob = present(item_name,me,count);
 		if(!ob){
-			s += "你没有此物品\n";
+			s += "浣犳病鏈夋鐗╁搧\n";
 		}
 		else{
 			if(flag == 0){
 				s += ob->query_name_cn()+"\n";
 				s += ob->query_desc()+"\n";
 				s += ob->query_content()+"\n";
-				s += "\n[加入熔炼:viceskill_ronglian_add "+num+" 1 "+item_name+" "+count+"]\n";
-				s += "[返回:viceskill_ronglian_list 1]\n";
-				s += "[返回游戏:look]\n";
+				s += "\n[鍔犲叆鐔旂偧:viceskill_ronglian_add "+num+" 1 "+item_name+" "+count+"]\n";
+				s += "[杩斿洖:viceskill_ronglian_list 1]\n";
+				s += "[杩斿洖娓告垙:look]\n";
 				write(s);
 				return 1;
 			}
@@ -36,7 +36,7 @@ int main(string arg)
 			}
 		}
 	}
-	s += "\n[返回:viceskill_ronglian_list 1]\n";
+	s += "\n[杩斿洖:viceskill_ronglian_list 1]\n";
 	write(s);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	//write(s);

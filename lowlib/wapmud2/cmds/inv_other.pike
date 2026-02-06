@@ -4,8 +4,8 @@
 int main(string arg)
 {
 	if(!arg){
-		write("你要看的物品不存在！\n");
-		write("[返回:look]\n");
+		write("浣犺鐪嬬殑鐗╁搧涓嶅瓨鍦紒\n");
+		write("[杩斿洖:look]\n");
 		return 1;	
 	}
 	string player_name = "";
@@ -15,8 +15,8 @@ int main(string arg)
 	if(sscanf(arg,"%s %s %d",player_name,ob_name,ob_count) != 3){
 		ob_name = arg;
 		flag = 1;
-		//write("无法查看物品！\n");
-		//write("[返回:look]\n");
+		//write("鏃犳硶鏌ョ湅鐗╁搧锛乗n");
+		//write("[杩斿洖:look]\n");
 		//return 1;	
 	}	
 	object ob = 0;
@@ -39,14 +39,14 @@ int main(string arg)
 		if(ob && !err)
 			this_player()->write_view(WAP_VIEWD["/inv_other"],ob,this_player());
 		else{
-			write("你要看的物品不存在！\n");
-			write("[返回:look]\n");
+			write("浣犺鐪嬬殑鐗╁搧涓嶅瓨鍦紒\n");
+			write("[杩斿洖:look]\n");
 			return 1;
 		}
 	}
 	else{
-		write("你要看的物品不存在！\n");
-		write("[返回:look]\n");
+		write("浣犺鐪嬬殑鐗╁搧涓嶅瓨鍦紒\n");
+		write("[杩斿洖:look]\n");
 		return 1;
 	}
 }

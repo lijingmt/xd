@@ -3,17 +3,17 @@
 int main(string arg)
 {
 	object me = this_player();
-	string s="¹ºÂò\n\n";
+	string s="è´­ä¹°\n\n";
 	if(!arg){
-		s += "[¹ºÂò±³°ü:user_package_buy_list beibao]\n";
-		s += "[¹ºÂò²Ö¿â:user_package_buy_list cangku]";
+		s += "[è´­ä¹°èƒŒåŒ…:user_package_buy_list beibao]\n";
+		s += "[è´­ä¹°ä»“åº“:user_package_buy_list cangku]";
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
 	else{
 		string type = arg;
 		if(type=="cangku"){
-			s += "[»Æ½ð¹ºÂò:user_package_buy]\n";
+			s += "[é»„é‡‘è´­ä¹°:user_package_buy]\n";
 		}
 		s += BUYD->get_pac_list(type,"user_package_buy_confirm");
 	}

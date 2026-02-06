@@ -7,16 +7,16 @@ int main(string arg){
 	object me = this_player();
 	object item;
 	string s = "";
-	string s_log = "";//´òlog
-	int have_zongzi = 0;//¼ÇÂ¼Íæ¼ÒÊÇ·ñÓĞµÄôÕ×Ó
+	string s_log = "";//æ‰“log
+	int have_zongzi = 0;//è®°å½•ç©å®¶æ˜¯å¦æœ‰çš„ç²½å­
 	array(object) all_ob = all_inventory(me);
 	mapping(string:int) zz_tmp = ([]);
 	mapping can_ex_zz = ([]);
-	string zz_name = "";//ôÕ×ÓÃû³Æ
+	string zz_name = "";//ç²½å­åç§°
 	int need_count = 0;
-	int count = 0;//»»È¡»òÍ¶·ÅµÄÊıÁ¿
-	int ex_type = 0;//»»È¡±êÖ¾ 1£º10¸ö»»1¸ö£»  2£º100»»1£» 3£º1»»10£» 4£º1»»100
-	int get_count = 0;//Íæ¼ÒËùµÃµ½µÄôÕ×ÓµÄÊıÁ¿
+	int count = 0;//æ¢å–æˆ–æŠ•æ”¾çš„æ•°é‡
+	int ex_type = 0;//æ¢å–æ ‡å¿— 1ï¼š10ä¸ªæ¢1ä¸ªï¼›  2ï¼š100æ¢1ï¼› 3ï¼š1æ¢10ï¼› 4ï¼š1æ¢100
+	int get_count = 0;//ç©å®¶æ‰€å¾—åˆ°çš„ç²½å­çš„æ•°é‡
 	array zz = ({"nuomizongzi","huangshuzongzi","guxiangzongzi","xianrouzongzi","lurouzongzi","helezongzi","xiaozaozongzi","zaonizongzi","xingfuzongzi","lvdouzongzi","doushazongzi","wuweizongzi","danhuangzongzi","huotuizongzi","aixinzongzi","babaozongzi","shanludouzong","pinganzongzi","boluozongzi","jiaoyandouzong","guyunzongzi",});
 	foreach(all_ob,object ob){
 		string name = ob->query_name();
@@ -31,7 +31,7 @@ int main(string arg){
 	}
 	if(zz_tmp&&sizeof(zz_tmp)){
 		if(!arg){
-			s += "Ñ¡ÔñÄúËùÒª¶Ò»»µÄôÕ×Ó:\n";
+			s += "é€‰æ‹©æ‚¨æ‰€è¦å…‘æ¢çš„ç²½å­:\n";
 			array all_zz = indices(zz_tmp);
 			foreach(all_zz,string z_name){
 				int i = search(zz,z_name);
@@ -66,20 +66,20 @@ int main(string arg){
 				if(i%3==0){
 					object zz_ob1 = (object)(ITEM_PATH+"zongzi/"+zz[i+1]);
 					object zz_ob2 = (object)(ITEM_PATH+"zongzi/"+zz[i+2]);
-					s += "[ÓÃ1¸ö"+zz_ob1->query_name_cn()+"¶Ò»»10¸ö:dhzz "+zz[i+1]+" 1 10 3]\n";
-					s += "[ÓÃ1¸ö"+zz_ob2->query_name_cn()+"¶Ò»»100¸ö:dhzz "+zz[i+2]+" 1 100 4]\n";
+					s += "[ç”¨1ä¸ª"+zz_ob1->query_name_cn()+"å…‘æ¢10ä¸ª:dhzz "+zz[i+1]+" 1 10 3]\n";
+					s += "[ç”¨1ä¸ª"+zz_ob2->query_name_cn()+"å…‘æ¢100ä¸ª:dhzz "+zz[i+2]+" 1 100 4]\n";
 				}
 				else if(i%3==1){
 					object zz_ob1 = (object)(ITEM_PATH+"zongzi/"+zz[i+1]);
 					object zz_ob2 = (object)(ITEM_PATH+"zongzi/"+zz[i-1]);
-					s += "[ÓÃ1¸ö"+zz_ob1->query_name_cn()+"¶Ò»»10¸ö:dhzz "+zz[i+1]+" 1 10 3]\n";
-					s += "[ÓÃ10¸ö"+zz_ob2->query_name_cn()+"¶Ò»»1¸ö:dhzz "+zz[i-1]+" 10 1 1]\n";
+					s += "[ç”¨1ä¸ª"+zz_ob1->query_name_cn()+"å…‘æ¢10ä¸ª:dhzz "+zz[i+1]+" 1 10 3]\n";
+					s += "[ç”¨10ä¸ª"+zz_ob2->query_name_cn()+"å…‘æ¢1ä¸ª:dhzz "+zz[i-1]+" 10 1 1]\n";
 				}
 				else if(i%3==2){
 					object zz_ob1 = (object)(ITEM_PATH+"zongzi/"+zz[i-1]);
 					object zz_ob2 = (object)(ITEM_PATH+"zongzi/"+zz[i-2]);
-					s += "[ÓÃ10¸ö"+zz_ob1->query_name_cn()+"¶Ò»»1¸ö:dhzz "+zz[i-1]+" 10 1 1]\n";
-					s += "[ÓÃ100¸ö"+zz_ob2->query_name_cn()+"¶Ò»»1¸ö:dhzz "+zz[i-2]+" 100 1 2]\n";
+					s += "[ç”¨10ä¸ª"+zz_ob1->query_name_cn()+"å…‘æ¢1ä¸ª:dhzz "+zz[i-1]+" 10 1 1]\n";
+					s += "[ç”¨100ä¸ª"+zz_ob2->query_name_cn()+"å…‘æ¢1ä¸ª:dhzz "+zz[i-2]+" 100 1 2]\n";
 				}
 			}
 			else {
@@ -107,7 +107,7 @@ int main(string arg){
 								item->move(me);
 							}
 						}
-						s += "¶Ò»»³É¹¦£¬×£Äã¶ËÎç½ÚÍæµÃÓä¿ì^_^\n";
+						s += "å…‘æ¢æˆåŠŸï¼Œç¥ä½ ç«¯åˆèŠ‚ç©å¾—æ„‰å¿«^_^\n";
 					}
 					else {
 						mixed err=catch{
@@ -117,25 +117,25 @@ int main(string arg){
 							item->amount = get_count;
 							item->move(me);
 						}
-						s += "¶Ò»»³É¹¦£¬×£Äã¶ËÎç½ÚÍæµÃÓä¿ì^_^\n";
+						s += "å…‘æ¢æˆåŠŸï¼Œç¥ä½ ç«¯åˆèŠ‚ç©å¾—æ„‰å¿«^_^\n";
 					}
 					me->remove_combine_item(zz_name,need_count);
-					s_log += me->query_name_cn()+"("+me->query_name()+") »¨·Ñ"+need_count+"¸ö"+zz[i-1]+"»»È¡"+get_count+"¸ö"+zz_name+"\n";
+					s_log += me->query_name_cn()+"("+me->query_name()+") èŠ±è´¹"+need_count+"ä¸ª"+zz[i-1]+"æ¢å–"+get_count+"ä¸ª"+zz_name+"\n";
 					string now=ctime(time());
 					Stdio.append_file(ROOT+"/log/hyq_exchange.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 				}
 				else {
-					s += "ÄúÃ»ÓĞ×ã¹»µÄôÕ×Ó\n";
+					s += "æ‚¨æ²¡æœ‰è¶³å¤Ÿçš„ç²½å­\n";
 				}
 			}
 		}
 		s += "\n";
-		s += "[·µ»Ø:dhzz]\n";
+		s += "[è¿”å›:dhzz]\n";
 	}
 	else {
-		s += "ÄúÉíÉÏÃ»ÓĞôÕ×Ó¿É¶Ò»»\n";
+		s += "æ‚¨èº«ä¸Šæ²¡æœ‰ç²½å­å¯å…‘æ¢\n";
 	}
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

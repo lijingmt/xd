@@ -1,4 +1,4 @@
-//! 连接管理Daemon
+//! 杩炴帴绠＄悊Daemon
 #include "lowlib.h"
 mapping(object:object) conn_map;
 mapping(object:int) users;

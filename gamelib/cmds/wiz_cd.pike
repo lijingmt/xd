@@ -1,5 +1,5 @@
 /* wiz_cd.pike
- * 改变当前路径
+ * 鏀瑰彉褰撳墠璺緞
  */
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
@@ -10,6 +10,6 @@ int main(string arg)
 	if(!arg)
 		arg="..";
 	cd(arg);
-	write("当前路径为： %s \n",getcwd());
+	write("褰撳墠璺緞涓猴細 %s \n",getcwd());
 	return 1;
 }

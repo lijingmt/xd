@@ -1,7 +1,7 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
-//-Éı¼¶»»ÓñÊ¯-ÍÆ¹ã»î¶¯£¬»ñµÃÓñÊ¯µÄ·½·¨¡£
+//-å‡çº§æ¢ç‰çŸ³-æ¨å¹¿æ´»åŠ¨ï¼Œè·å¾—ç‰çŸ³çš„æ–¹æ³•ã€‚
 
 int main(string arg)
 {
@@ -10,16 +10,16 @@ int main(string arg)
 	string s_log = "";
 	int yushi_num = (int)arg;
 	string yushi_type = "suiyu";
-	string yushi_type_cn = "ËéÓñ";
+	string yushi_type_cn = "ç¢ç‰";
 	string now = ctime(time());
 	int level = me->query_level();
 	int yushi_flag= me->query_yushi_flag();
 	string desc="";
 
 	if(level >= 1){
-		//desc += "ÒÑ¾­³¬¹ıÁËÁìÈ¡µÄÉÏÏŞ-50¼¶\n";
-		desc += "ÔùËÍ»î¶¯ÒÑ¾­Í£Ö¹ÁË£¬Çë·µ»Ø¡£\n";
-		desc += "[·µ»ØÓÎÏ·:look]\n";
+		//desc += "å·²ç»è¶…è¿‡äº†é¢†å–çš„ä¸Šé™-50çº§\n";
+		desc += "èµ é€æ´»åŠ¨å·²ç»åœæ­¢äº†ï¼Œè¯·è¿”å›ã€‚\n";
+		desc += "[è¿”å›æ¸¸æˆ:look]\n";
 		write(desc);
 		return 1;
 	}
@@ -33,7 +33,7 @@ int main(string arg)
 		{
 			yushi_type = "xianyuanyu";
 			yushi_num = yushi_num/10;
-			yushi_type_cn = "ÏÉÔµÓñ";
+			yushi_type_cn = "ä»™ç¼˜ç‰";
 		}
 		mixed err=catch{
 			yushi = clone(YUSHI_PATH+yushi_type);
@@ -44,24 +44,24 @@ int main(string arg)
 			{
 				yushi->move_player(me->query_name());
 				me->set_yushi_flag(5*n);
-				desc += "¹§Ï²!ÄãÒÑ¾­»ñµÃ"+yushi_num+"¿é"+yushi_type_cn+"\n";
-				s_log = me->query_name_cn()+"("+me->query_name()+") Éı¼¶»»ÓñÊ¯»ñµÃ"+yushi_type_cn+yushi_num+"¿é\n";
+				desc += "æ­å–œ!ä½ å·²ç»è·å¾—"+yushi_num+"å—"+yushi_type_cn+"\n";
+				s_log = me->query_name_cn()+"("+me->query_name()+") å‡çº§æ¢ç‰çŸ³è·å¾—"+yushi_type_cn+yushi_num+"å—\n";
 				Stdio.append_file(ROOT+"/log/fee_log/yushi_tuiguang.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 			}
 			else{
-				desc += "ÄãµÄ±³°üÒÑÂú£¬ÁìÈ¡ÓñÊ¯Ê§°Ü¡£\n";
+				desc += "ä½ çš„èƒŒåŒ…å·²æ»¡ï¼Œé¢†å–ç‰çŸ³å¤±è´¥ã€‚\n";
 			}
 		}
 		else{
-			s_log = me->query_name_cn()+"("+me->query_name()+") tuiguang_yushi error! Éı¼¶»»ÓñÊ¯Ê±ÎŞ·¨»ñµÃÎïÆ·\n";
+			s_log = me->query_name_cn()+"("+me->query_name()+") tuiguang_yushi error! å‡çº§æ¢ç‰çŸ³æ—¶æ— æ³•è·å¾—ç‰©å“\n";
 			Stdio.append_file(ROOT+"/log/fee_log/yushi_tuiguang_error.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 		}
 	}
 	else
 	{
-		desc +="ÄãÒÑ¾­ÁìÈ¡¹ıÓñÊ¯£¬Çë·µ»ØÓÎÏ·¡£\n";
+		desc +="ä½ å·²ç»é¢†å–è¿‡ç‰çŸ³ï¼Œè¯·è¿”å›æ¸¸æˆã€‚\n";
 	}
-	desc += "[·µ»ØÓÎÏ·:look]\n";
+	desc += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(desc);
 	return 1;
 }

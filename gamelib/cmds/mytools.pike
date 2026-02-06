@@ -4,64 +4,64 @@ int main(string arg)
 {
 	object me = this_player();
 	string s = "";
-	s += "£ÛÎäÆ÷×°±¸£Ý\n";
-	s += "[£ÛÈËÎïÊôÐÔ£Ý:myinfo]\n";
-	s += "[£ÛÈËÎï×´Ì¬£Ý:myhp]\n";
-	//s += "¹¥»÷Ç¿¶È£º"+me->query_low_attack_desc()+"-"+me->query_high_attack_desc()+"\n";
+	s += "ï¼»æ­¦å™¨è£…å¤‡ï¼½\n";
+	s += "[ï¼»äººç‰©å±žæ€§ï¼½:myinfo]\n";
+	s += "[ï¼»äººç‰©çŠ¶æ€ï¼½:myhp]\n";
+	//s += "æ”»å‡»å¼ºåº¦ï¼š"+me->query_low_attack_desc()+"-"+me->query_high_attack_desc()+"\n";
 	////////////////////////////////////////////////////////////////////////////////
-	//s += "¹¥»÷ËÙ¶È£º"+me->query_speed_power("main")+"("+me->query_speed_power("other")+")\n";
+	//s += "æ”»å‡»é€Ÿåº¦ï¼š"+me->query_speed_power("main")+"("+me->query_speed_power("other")+")\n";
 	////////////////////////////////////////////////////////////////////////////////
-	//s += "·ÀÓùÇ¿¶È£º"+me->query_defend_power()+"\n";
+	//s += "é˜²å¾¡å¼ºåº¦ï¼š"+me->query_defend_power()+"\n";
 	////////////////////////////////////////////////////////////////////////////////
-	//s += "£ÛÎäÆ÷£Ý\n";
+	//s += "ï¼»æ­¦å™¨ï¼½\n";
 	/*
 	string user_equip_main_weapon = me->query_equiped_main_weapons();
 	string user_equip_other_weapon = me->query_equiped_other_weapons();
-	s += "¡õÖ÷ÊÖ£º";
+	s += "â–¡ä¸»æ‰‹ï¼š";
 	if(user_equip_main_weapon&&sizeof(user_equip_main_weapon)){
 		s += user_equip_main_weapon;//+"\n";
-		s += "ÉËº¦£º"+me->query_low_attack("base_main")+"-"+me->query_high_attack("limit_main")+"\n";
-		s += "ËÙ¶È£º"+me->query_speed_power("main")+"\n";
+		s += "ä¼¤å®³ï¼š"+me->query_low_attack("base_main")+"-"+me->query_high_attack("limit_main")+"\n";
+		s += "é€Ÿåº¦ï¼š"+me->query_speed_power("main")+"\n";
 	}
 	else
-		s += "ÎÞ\n";
+		s += "æ— \n";
 	//////////////////////////
-	s += "¡õ¸±ÊÖ£º";
+	s += "â–¡å‰¯æ‰‹ï¼š";
 	if(user_equip_other_weapon&&sizeof(user_equip_other_weapon)){
 		s += user_equip_other_weapon;
-		s += "ÉËº¦£º"+me->query_low_attack("base_other")+"-"+me->query_high_attack("limit_other")+"\n";
-		s += "ËÙ¶È£º"+me->query_speed_power("other")+"\n";
+		s += "ä¼¤å®³ï¼š"+me->query_low_attack("base_other")+"-"+me->query_high_attack("limit_other")+"\n";
+		s += "é€Ÿåº¦ï¼š"+me->query_speed_power("other")+"\n";
 	}
 	else
-		s += "ÎÞ\n";
+		s += "æ— \n";
 	s+="--------\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "£Û·À¾ß£Ý\n";
+	s += "ï¼»é˜²å…·ï¼½\n";
 	string user_equip_armor = me->query_equiped_armor();
 	if(user_equip_armor&&sizeof(user_equip_armor))
 		s += user_equip_armor;
 	else
-		s += "ÎÞ\n";
+		s += "æ— \n";
 	s+="--------\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "£ÛÊ×ÊÎ£Ý\n";
+	s += "ï¼»é¦–é¥°ï¼½\n";
 	string user_equip_jewelry = me->query_equiped_jewelry();
 	if(user_equip_jewelry&&sizeof(user_equip_jewelry))
 		s += user_equip_jewelry;
 	else
-		s += "ÎÞ\n";
+		s += "æ— \n";
 	s+="--------\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "£ÛÊÎÎï£Ý\n";
+	s += "ï¼»é¥°ç‰©ï¼½\n";
 	string user_equip_decorate = me->query_equiped_decorate();
 	if(user_equip_decorate&&sizeof(user_equip_decorate))
 		s += user_equip_decorate;
 	else
-		s += "ÎÞ\n";
+		s += "æ— \n";
 	////////////////////////////////////////////////////////////////////////////////
 	*/
 	s += me->view_equip();
-	//s += "[·µ»ØÓÎÏ·:look]\n";
+	//s += "[è¿”å›žæ¸¸æˆ:look]\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	//write(s);
 	return 1;

@@ -20,18 +20,18 @@ int main(string arg)
 			remove_flag=1;
 		}
 		if(ob){
-			//s += "[确定:mail_send_confirm "+me->name+" "+me->name_cn+" "+to+" "+ob->name_cn+" "+subject+" "+body+"]\n";
+			//s += "[纭畾:mail_send_confirm "+me->name+" "+me->name_cn+" "+to+" "+ob->name_cn+" "+subject+" "+body+"]\n";
 			ob->recieve_mail(send,send_cn,to,to_cn,subject,body);
 			if(remove_flag) ob->remove();
 		}
-		s+="发送成功，请返回！\n";
-		s+="[返回:qqlist]\n";
+		s+="鍙戦�佹垚鍔燂紝璇疯繑鍥烇紒\n";
+		s+="[杩斿洖:qqlist]\n";
 		write(s);
 		//this_player()->write_view(WAP_VIEWD["/mailbox_mail"]);
 		return 1;
 	}
-	s+="输入错误，请返回重试！\n";	
-	s+="[返回:qqlist]\n";
+	s+="杈撳叆閿欒锛岃杩斿洖閲嶈瘯锛乗n";	
+	s+="[杩斿洖:qqlist]\n";
 	write(s);
 	return 1;
 }

@@ -68,7 +68,7 @@ int view_file(string name,int pos,int ppos)
 		header=m["header"];
 		footer=m["footer"];
 	}
-	//Õ∑≤ø
+	//Â§¥ÈÉ®
 	write(header);
 	if(text==0)
 		return 0;
@@ -116,10 +116,10 @@ int view_file(string name,int pos,int ppos)
 	}
 	if(text!=""){
 		text=text[0..len-1];
-		//÷–≤øƒ⁄»›
+		//‰∏≠ÈÉ®ÂÜÖÂÆπ
 		write(text+"\n");
 		if(!eof)
-			write("[œ¬“ª“≥:_explorer "+name+" "+(pos+len)+" "+ppos+"]\n");
+			write("[‰∏ã‰∏ÄÈ°µ:_explorer "+name+" "+(pos+len)+" "+ppos+"]\n");
 	}
 	if(pos!=0){
 		if(pos>PAGESIZE){
@@ -177,9 +177,9 @@ int view_file(string name,int pos,int ppos)
 		last_pos=pos-i;
 		if(last_pos==1||last_pos==-1)
 			last_pos=0;
-		write("[…œ“ª“≥:_explorer "+name+" "+last_pos+" "+ppos+"]\n");
+		write("[‰∏ä‰∏ÄÈ°µ:_explorer "+name+" "+last_pos+" "+ppos+"]\n");
 	}
-	//Œ≤≤ø–≈œ¢
+	//Â∞æÈÉ®‰ø°ÊÅØ
 	write(footer);
 	return 1;
 }

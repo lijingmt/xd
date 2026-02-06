@@ -6,8 +6,8 @@ int main(string arg)
 	int n;
 	sscanf(arg,"%d",n);
 	this_player()->delete_mail(n);
-	s+="³É¹¦É¾³ý¸ÃÓÊ¼þ£¬Çë·µ»Ø£¡\n";
-	s+="[·µ»Ø:mailbox]\n";
+	s+="æˆåŠŸåˆ é™¤è¯¥é‚®ä»¶ï¼Œè¯·è¿”å›žï¼\n";
+	s+="[è¿”å›ž:mailbox]\n";
 	write(s);
 	//this_player()->write_view(WAP_VIEWD["/mailbox_delete"]);
 	return 1;

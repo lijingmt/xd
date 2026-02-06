@@ -13,14 +13,14 @@ int main(string arg)
 	}
 	else if(spec){
 			me->can_spec = 1;
-			s += "你学会了"+spec->query_name_cn()+"\n";
+			s += "浣犲浼氫簡"+spec->query_name_cn()+"\n";
 			spec->remove();
-			s += "[返回:look]\n";
+			s += "[杩斿洖:look]\n";
 			write(s);
 	}
 	else{
-		s += "你身上没有这件物品\n";
-		s += "[返回:look]\n";
+		s += "浣犺韩涓婃病鏈夎繖浠剁墿鍝乗n";
+		s += "[杩斿洖:look]\n";
 		write(s);
 	}
 	return 1;

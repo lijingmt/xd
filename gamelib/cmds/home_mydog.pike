@@ -1,15 +1,15 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
-//¹ÜÀí¿´ÃÅ¹·
+//ç®¡ç†çœ‹é—¨ç‹—
 int main(string arg)
 {
 	object me = this_player();
 	string s = "";
-	s += "ÎÒµÄ¹·¹·\n\n";
-	s += "[ÂñÔá:home_dog_bury]\n";
-	s += "[¸´»î:home_dog_resurrected]\n\n";
-	s += "[·µ»Ø:look]\n";
+	s += "æˆ‘çš„ç‹—ç‹—\n\n";
+	s += "[åŸ‹è‘¬:home_dog_bury]\n";
+	s += "[å¤æ´»:home_dog_resurrected]\n\n";
+	s += "[è¿”å›:look]\n";
 	write(s);
 	return 1;
 }

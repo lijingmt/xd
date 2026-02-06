@@ -1,8 +1,8 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 //arg = num content 
-//      num:¥˙±Ì∏¸∏ƒµƒº∂ ˝
-//      content:¥˙±Ì∏¸∏ƒµƒ≥∆ŒΩ
+//      num:‰ª£Ë°®Êõ¥ÊîπÁöÑÁ∫ßÊï∞
+//      content:‰ª£Ë°®Êõ¥ÊîπÁöÑÁß∞Ë∞ì
 int main(string arg)
 {
 	object me = this_player();
@@ -11,7 +11,7 @@ int main(string arg)
 	int num = 0;
 	string content = "";
 	if(!me->bangid){
-		s = "ƒ„Œ¥º”»Î»Œ∫Œ∞Ô≈…\n";
+		s = "‰Ω†Êú™Âä†ÂÖ•‰ªª‰ΩïÂ∏ÆÊ¥æ\n";
 	}
 	else{
 		sscanf(arg,"%d %s",num,content);
@@ -21,14 +21,14 @@ int main(string arg)
 		}
 		level = BANGD->query_level(me->query_name(),me->bangid);
 		string bang_name = BANGD->query_bang_name(me->bangid);
-		s += "<"+bang_name+">£∫";
+		s += "<"+bang_name+">Ôºö";
 		s += BANGD->query_level_cn(me->query_name(),me->bangid)+"\n";
-		s += "µ±«∞"+num+"º∂≥∆ŒΩŒ™(≤ªƒ‹∂‡”⁄6∏ˆ◊÷)£∫\n";
+		s += "ÂΩìÂâç"+num+"Á∫ßÁß∞Ë∞ì‰∏∫(‰∏çËÉΩÂ§ö‰∫é6‰∏™Â≠ó)Ôºö\n";
 		s += BANGD->query_bang_level(me->bangid,num)+"\n";
 		s += "[bang_change_level "+num+" ...]\n";
 	}
-	s += "[∑µªÿ:bang_manage "+level+"]\n";
-	s += "[∑µªÿ”Œœ∑:look]\n";
+	s += "[ËøîÂõû:bang_manage "+level+"]\n";
+	s += "[ËøîÂõûÊ∏∏Êàè:look]\n";
 	write(s);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
@@ -37,38 +37,38 @@ string filter_msg(string arg)
 {
 	if(!arg)
 		return "";
-	arg=replace(arg,"'","°Æ");
-	arg=replace(arg,",","£¨");
-	arg=replace(arg,".","°£");
-	arg=replace(arg,"@","°£");
-	arg=replace(arg,"#","°£");
-	arg=replace(arg,"%","°£");
-	arg=replace(arg,"~","°£");
-	arg=replace(arg,"^","°£");
-	arg=replace(arg,"$","°£");
-	arg=replace(arg,"+","°£");
-	arg=replace(arg,"|","°£");
-	arg=replace(arg,"&","°£");
-	arg=replace(arg,"=","£Ω");
-	arg=replace(arg,"(","£®");
-	arg=replace(arg,")","£©");
-	arg=replace(arg,"-","£≠");
-	arg=replace(arg,"_","£≠");
-	arg=replace(arg,"*","£≠");
-	arg=replace(arg,"?","£ø");
-	arg=replace(arg,"!","£°");
-	arg=replace(arg,"<","£≠");
-	arg=replace(arg,">","£≠");
-	arg=replace(arg,"\/","°∞");
-	arg=replace(arg,"\"","°∞");
-	arg=replace(arg,"\\","°∞");
+	arg=replace(arg,"'","‚Äò");
+	arg=replace(arg,",","Ôºå");
+	arg=replace(arg,".","„ÄÇ");
+	arg=replace(arg,"@","„ÄÇ");
+	arg=replace(arg,"#","„ÄÇ");
+	arg=replace(arg,"%","„ÄÇ");
+	arg=replace(arg,"~","„ÄÇ");
+	arg=replace(arg,"^","„ÄÇ");
+	arg=replace(arg,"$","„ÄÇ");
+	arg=replace(arg,"+","„ÄÇ");
+	arg=replace(arg,"|","„ÄÇ");
+	arg=replace(arg,"&","„ÄÇ");
+	arg=replace(arg,"=","Ôºù");
+	arg=replace(arg,"(","Ôºà");
+	arg=replace(arg,")","Ôºâ");
+	arg=replace(arg,"-","Ôºç");
+	arg=replace(arg,"_","Ôºç");
+	arg=replace(arg,"*","Ôºç");
+	arg=replace(arg,"?","Ôºü");
+	arg=replace(arg,"!","ÔºÅ");
+	arg=replace(arg,"<","Ôºç");
+	arg=replace(arg,">","Ôºç");
+	arg=replace(arg,"\/","‚Äú");
+	arg=replace(arg,"\"","‚Äú");
+	arg=replace(arg,"\\","‚Äú");
 	arg=replace(arg,"\r\n","");
-	arg=replace(arg,":","£∫");
-	arg=replace(arg,";","£ª");
-	arg=replace(arg,"\{","°∏");
-	arg=replace(arg,"\}","°∏");
-	arg=replace(arg,"[","°∏");
-	arg=replace(arg,"]","°π");
-	arg=replace(arg,"%20","£≠");	
+	arg=replace(arg,":","Ôºö");
+	arg=replace(arg,";","Ôºõ");
+	arg=replace(arg,"\{","„Äå");
+	arg=replace(arg,"\}","„Äå");
+	arg=replace(arg,"[","„Äå");
+	arg=replace(arg,"]","„Äç");
+	arg=replace(arg,"%20","Ôºç");	
 	return arg;
 }

@@ -5,11 +5,11 @@ int main(string arg)
 {
 	object me = this_player();
 	string s = "";
-	s += "[¿´ÃÅ¹·:home_buy_dog_detail vice_npc/huoyunquan 80]\n";
-	s += "[Âò¸öÃÅ:buy_items home_door all]\n";
-	s += "[³èÎïÊ³Æ·:buy_items home_feed goudou]\n";
-	s += "[»Ø»êµ¤(³èÎï×¨ÓÃ):buy_items home_fuhuo all]\n";
-	s += "[´«ËÍÉñ·û:buy_items home_function all]\n";
+	s += "[çœ‹é—¨ç‹—:home_buy_dog_detail vice_npc/huoyunquan 80]\n";
+	s += "[ä¹°ä¸ªé—¨:buy_items home_door all]\n";
+	s += "[å® ç‰©é£Ÿå“:buy_items home_feed goudou]\n";
+	s += "[å›žé­‚ä¸¹(å® ç‰©ä¸“ç”¨):buy_items home_fuhuo all]\n";
+	s += "[ä¼ é€ç¥žç¬¦:buy_items home_function all]\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
 }

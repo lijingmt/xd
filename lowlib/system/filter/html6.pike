@@ -34,7 +34,7 @@ string setup(string _url)
 	//out+= "<%@ page language=\"java\" contentType=\"text/html;charset=UTF-8\"%>";
 	out+= "<meta charset=\"UTF-8\">\n"; 
 	out+= "<meta name=\"viewport\" content=\"maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0\"/>\n"; 
-	out+= "<title>¡¶ÏÉµÀ¡·£¨" + get_game_area() + "Çø£© ¡¶ÓÎÏ·Äà°Í¡·WAPÄà°Í ÎÄ×ÖÓÎÏ· WAPÓÎÏ· »³¾ÉÍøÓÎ WAPÎÄ×ÖÓÎÏ· ÊÖ»úÓÎÏ· ÊÖ»ú¸´¹ÅÓÎÏ· ÊÖ»úÎäÏÀÓÎÏ· Æ»¹ûÓÎÏ· °²×¿ÓÎÏ·</title>\n";
+	out+= "<title>ã€Šä»™é“ã€‹ï¼ˆ" + get_game_area() + "åŒºï¼‰ ã€Šæ¸¸æˆæ³¥å·´ã€‹WAPæ³¥å·´ æ–‡å­—æ¸¸æˆ WAPæ¸¸æˆ æ€€æ—§ç½‘æ¸¸ WAPæ–‡å­—æ¸¸æˆ æ‰‹æœºæ¸¸æˆ æ‰‹æœºå¤å¤æ¸¸æˆ æ‰‹æœºæ­¦ä¾ æ¸¸æˆ è‹¹æœæ¸¸æˆ å®‰å“æ¸¸æˆ</title>\n";
 	out+= "<link rel=\"icon\" type=\"image/x-icon\" href=\"images/favicon.ico\">";
 	out+= "<link rel=\"stylesheet\" href=\"includes/bootstrap-4.6.2-dist/css/bootstrap.min.css?v=3\"/>\n";
 	out+= "<link href=\"includes/intro.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";
@@ -145,65 +145,65 @@ string get_right_href_css(string link_name)
 		primary_key_map["1*"]=hrefcss_gray;
 		
 		
-		primary_key_map["¶«¡ú"]=hrefcss_green;
-		primary_key_map["Î÷¡û"]=hrefcss_green;
-		primary_key_map["ÄÏ¡ı"]=hrefcss_green;
-		primary_key_map["±±¡ü"]=hrefcss_green;
-		primary_key_map["¿ìËÙ¹¥»÷"]=hrefcss_warning;
-		primary_key_map["æäÕ¾"]=hrefcss_warning;
-		primary_key_map["ÉÌ³Ç"]=hrefcss_warning;
-		primary_key_map["¶ÍÔì"]=hrefcss_warning;
-		primary_key_map["ºÚÊĞ"]=hrefcss_orange;
-		primary_key_map["¡¾Ç¿»¯¡¿"]=hrefcss_orange;
-		primary_key_map["ºÏ³É"]=hrefcss_orange;
-		primary_key_map["±¦ÉÌ"]=hrefcss_orange;
-		primary_key_map["¾«Á¶"]=hrefcss_orange;
-		primary_key_map["ÒşÃØ»Ã¾³"]=hrefcss_warning;
-		primary_key_map["ÈÎÎñ"]=hrefcss_green;
-		primary_key_map["Ê¬Ìå"]=hrefcss_gray;
-		primary_key_map["Îä¹¦"]=hrefcss_green;
-		primary_key_map["×´Ì¬"]=hrefcss_green;
-		primary_key_map["³ÔÒ©"]=hrefcss_purple;
-		primary_key_map["°×Òø"]=hrefcss_warning;
-		primary_key_map["ÉÁÁÁµÄÊ¯¿é(Ã¤ºĞ)"]=hrefcss_green;
-		primary_key_map["Ä§Æ¤ºÉ°ü(Ã¤ºĞ)"]=hrefcss_green2;
-		primary_key_map["Ä§¾«´ü×Ó(Ã¤ºĞ"]=hrefcss_darkorange;
-		primary_key_map["Ä§Ìú±¦Ïä(Ã¤ºĞ)"]=hrefcss_orange;
-		primary_key_map["Ä§½ğ±¦Ïä(Ã¤ºĞ)"]=hrefcss_purple;
-		primary_key_map["ĞÒÔË±¦Ê¯"]=hrefcss_purple;
-		primary_key_map["¡¸Ò¼¡¹"]=hrefcss_green;
-		primary_key_map["¡¸°Æ¡¹"]=hrefcss_darkorange;
-		primary_key_map["¡¸Â½¡¹"]=hrefcss_green2;
-		primary_key_map["¡¸Îé¡¹"]=hrefcss_green2;
-		primary_key_map["¡¸·¡¡¹"]=hrefcss_green;
-		primary_key_map["¡¸ËÁ¡¹"]=hrefcss_green2;
-		primary_key_map["¡¸·¡¡¹"]=hrefcss_green;
-		primary_key_map["¡¸Æâ¡¹"]=hrefcss_darkorange;
-		primary_key_map["¡¸¾Á¡¹"]=hrefcss_darkorange;
-		primary_key_map["¡¸Ê°¡¹"]=hrefcss_darkorange;
-		primary_key_map["¡¸Ê®·¡¡¹"]=hrefcss_orange;
-		primary_key_map["¡¸Ê°Ò¼¡¹"]=hrefcss_orange;
-		primary_key_map["¡¸Ê®Èş¡¹"]=hrefcss_purple;
-		primary_key_map["¡¸µØ-"]=hrefcss_di;
-		primary_key_map["¡¸Ìì-"]=hrefcss_tian;
-		primary_key_map["¡¸»Æ-"]=hrefcss_huang;
-		primary_key_map["¡¸Ğş-"]=hrefcss_xuan;
+		primary_key_map["ä¸œâ†’"]=hrefcss_green;
+		primary_key_map["è¥¿â†"]=hrefcss_green;
+		primary_key_map["å—â†“"]=hrefcss_green;
+		primary_key_map["åŒ—â†‘"]=hrefcss_green;
+		primary_key_map["å¿«é€Ÿæ”»å‡»"]=hrefcss_warning;
+		primary_key_map["é©¿ç«™"]=hrefcss_warning;
+		primary_key_map["å•†åŸ"]=hrefcss_warning;
+		primary_key_map["é”»é€ "]=hrefcss_warning;
+		primary_key_map["é»‘å¸‚"]=hrefcss_orange;
+		primary_key_map["ã€å¼ºåŒ–ã€‘"]=hrefcss_orange;
+		primary_key_map["åˆæˆ"]=hrefcss_orange;
+		primary_key_map["å®å•†"]=hrefcss_orange;
+		primary_key_map["ç²¾ç‚¼"]=hrefcss_orange;
+		primary_key_map["éšç§˜å¹»å¢ƒ"]=hrefcss_warning;
+		primary_key_map["ä»»åŠ¡"]=hrefcss_green;
+		primary_key_map["å°¸ä½“"]=hrefcss_gray;
+		primary_key_map["æ­¦åŠŸ"]=hrefcss_green;
+		primary_key_map["çŠ¶æ€"]=hrefcss_green;
+		primary_key_map["åƒè¯"]=hrefcss_purple;
+		primary_key_map["ç™½é“¶"]=hrefcss_warning;
+		primary_key_map["é—ªäº®çš„çŸ³å—(ç›²ç›’)"]=hrefcss_green;
+		primary_key_map["é­”çš®è·åŒ…(ç›²ç›’)"]=hrefcss_green2;
+		primary_key_map["é­”ç²¾è¢‹å­(ç›²ç›’"]=hrefcss_darkorange;
+		primary_key_map["é­”é“å®ç®±(ç›²ç›’)"]=hrefcss_orange;
+		primary_key_map["é­”é‡‘å®ç®±(ç›²ç›’)"]=hrefcss_purple;
+		primary_key_map["å¹¸è¿å®çŸ³"]=hrefcss_purple;
+		primary_key_map["ã€Œå£¹ã€"]=hrefcss_green;
+		primary_key_map["ã€ŒæŒã€"]=hrefcss_darkorange;
+		primary_key_map["ã€Œé™†ã€"]=hrefcss_green2;
+		primary_key_map["ã€Œä¼ã€"]=hrefcss_green2;
+		primary_key_map["ã€Œè´°ã€"]=hrefcss_green;
+		primary_key_map["ã€Œè‚†ã€"]=hrefcss_green2;
+		primary_key_map["ã€Œè´°ã€"]=hrefcss_green;
+		primary_key_map["ã€ŒæŸ’ã€"]=hrefcss_darkorange;
+		primary_key_map["ã€Œç–ã€"]=hrefcss_darkorange;
+		primary_key_map["ã€Œæ‹¾ã€"]=hrefcss_darkorange;
+		primary_key_map["ã€Œåè´°ã€"]=hrefcss_orange;
+		primary_key_map["ã€Œæ‹¾å£¹ã€"]=hrefcss_orange;
+		primary_key_map["ã€Œååã€"]=hrefcss_purple;
+		primary_key_map["ã€Œåœ°-"]=hrefcss_di;
+		primary_key_map["ã€Œå¤©-"]=hrefcss_tian;
+		primary_key_map["ã€Œé»„-"]=hrefcss_huang;
+		primary_key_map["ã€Œç„-"]=hrefcss_xuan;
 
-		primary_key_map["¡¾ÓÅÁ¼¡¿"]=hrefcss_blue;
-		primary_key_map["¡¾¾«ÖÆ¡¿"]=hrefcss_darkorange;
-		primary_key_map["¡¾ÉñÁ¶¡¿"]=hrefcss_purple;
-		primary_key_map["¡¾Ìì½µ¡¿"]=hrefcss_green2;
-		primary_key_map["¡¾»Ã»¯¡¿"]=hrefcss_orange;
-		primary_key_map["¡¾¿Õ¾õ¡¿"]=hrefcss_di;
-		primary_key_map["¡¾ÆÆ¿Õ¡¿"]=hrefcss_tian;
-		primary_key_map["¡¾¼ÅÃğ¡¿"]=hrefcss_huang;
+		primary_key_map["ã€ä¼˜è‰¯ã€‘"]=hrefcss_blue;
+		primary_key_map["ã€ç²¾åˆ¶ã€‘"]=hrefcss_darkorange;
+		primary_key_map["ã€ç¥ç‚¼ã€‘"]=hrefcss_purple;
+		primary_key_map["ã€å¤©é™ã€‘"]=hrefcss_green2;
+		primary_key_map["ã€å¹»åŒ–ã€‘"]=hrefcss_orange;
+		primary_key_map["ã€ç©ºè§‰ã€‘"]=hrefcss_di;
+		primary_key_map["ã€ç ´ç©ºã€‘"]=hrefcss_tian;
+		primary_key_map["ã€å¯‚ç­ã€‘"]=hrefcss_huang;
 		
-		primary_key_map["¡¾Óñ¡¿ËéÓñ"]=hrefcss_blue;
-		primary_key_map["¡¾Óñ¡¿ÏÉÔµÓñ"]=hrefcss_darkorange;
-		primary_key_map["¡¾Óñ¡¿ÁáççÓñ"]=hrefcss_purple;
-		primary_key_map["¡¾Óñ¡¿±ÌçôÓñ"]=hrefcss_green2;
-		primary_key_map["¡¾Óñ¡¿ĞşÌì±¦Óñ"]=hrefcss_xuan;
-		primary_key_map["ÉñÃØÉÌµê"]=hrefcss_darkorange;
+		primary_key_map["ã€ç‰ã€‘ç¢ç‰"]=hrefcss_blue;
+		primary_key_map["ã€ç‰ã€‘ä»™ç¼˜ç‰"]=hrefcss_darkorange;
+		primary_key_map["ã€ç‰ã€‘ç²ç‘ç‰"]=hrefcss_purple;
+		primary_key_map["ã€ç‰ã€‘ç¢§çºç‰"]=hrefcss_green2;
+		primary_key_map["ã€ç‰ã€‘ç„å¤©å®ç‰"]=hrefcss_xuan;
+		primary_key_map["ç¥ç§˜å•†åº—"]=hrefcss_darkorange;
 		
 		//vip level shows different color
 		
@@ -237,7 +237,7 @@ string get_right_href_css(string link_name)
 string filter(string s)
 {
 	////////////////20060309 by qianglee
-	//¼òµ¥¼ÓÃÜÓÃ»§ĞÅÏ¢
+	//ç®€å•åŠ å¯†ç”¨æˆ·ä¿¡æ¯
 	string txd = "";
 	string userid = this_player()->name;
 	string passwd = this_player()->password;
@@ -245,22 +245,22 @@ string filter(string s)
 	/*
 	if(userid&&passwd)
 	{
-		//½øĞĞÃÜÂëµÄ¼òµ¥¼ÓÃÜ
+		//è¿›è¡Œå¯†ç çš„ç®€å•åŠ å¯†
 		string uid="";
 		string pid="";
 		for(int i=0;i<sizeof(userid);i++)
 		{
 			if(i/2==0)
-				uid += sprintf("%c",userid[i]+2);//¼òµ¥¼ÓÃÜ
+				uid += sprintf("%c",userid[i]+2);//ç®€å•åŠ å¯†
 			else
-				uid += sprintf("%c",userid[i]+1);//¼òµ¥¼ÓÃÜ
+				uid += sprintf("%c",userid[i]+1);//ç®€å•åŠ å¯†
 		}
 		for(int j=0;j<sizeof(passwd);j++)
 		{
 			if(j/2==0)
-				pid += sprintf("%c",passwd[j]+1);//¼òµ¥¼ÓÃÜ
+				pid += sprintf("%c",passwd[j]+1);//ç®€å•åŠ å¯†
 			else
-				pid += sprintf("%c",passwd[j]+2);//¼òµ¥¼ÓÃÜ
+				pid += sprintf("%c",passwd[j]+2);//ç®€å•åŠ å¯†
 		}
 		txd = uid+"~"+pid;
 		txd = decode(txd);
@@ -271,7 +271,7 @@ string filter(string s)
 	txd = userid+"~"+passwd;
 	txd = decode(txd);
 	
-/*Ê¹ÓÃDESËã·¨£¬¶Ôtxd½øĞĞ¼ÓÃÜ²Ù×÷ Evan added 20081008
+/*ä½¿ç”¨DESç®—æ³•ï¼Œå¯¹txdè¿›è¡ŒåŠ å¯†æ“ä½œ Evan added 20081008
 //	txd = this_player()->command("desEncryptor");
 	string deskey = Nettle.DES_Info()->fix_parity(DES_KEY);
 	werror("==== deskey = "+ deskey +"========\n");
@@ -357,7 +357,7 @@ string filter(string s)
 					out+=sprintf("<form action='%s' method='post'>",url);
 					in_form=1;
 				}
-				out+=sprintf("<input type='hidden' name='_cmd' value='%s'><input name='_arg'><input type='hidden' name='_usid' value='%s'><input type='hidden' name='_txd' value='%s'><input type='submit' value='Ìá½»'></form>",cmd,usid,txd);
+				out+=sprintf("<input type='hidden' name='_cmd' value='%s'><input name='_arg'><input type='hidden' name='_usid' value='%s'><input type='hidden' name='_txd' value='%s'><input type='submit' value='æäº¤'></form>",cmd,usid,txd);
 				in_form=0;
 
 			}

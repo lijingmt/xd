@@ -2,7 +2,7 @@
 #include <gamelib/include/gamelib.h>
 #define INFANCY_PATH ROOT "/gamelib/clone/item/home/infancy/"
 
-//ÁĞ³öinfancyµÄ¾ßÌåĞÅÏ¢
+//åˆ—å‡ºinfancyçš„å…·ä½“ä¿¡æ¯
 
 int main(string arg)
 {
@@ -18,36 +18,36 @@ int main(string arg)
 		infancy = (object)(INFANCY_PATH + infancyName);
 	};
 	if(!err && infancy){
-		s += infancy->query_name_cn()+"£º\n";
+		s += infancy->query_name_cn()+"ï¼š\n";
 		s += infancy->query_picture_url()+"\n" + infancy->query_desc()+"\n";
 		s += infancy->query_harvest_desc() +"\n";
 		string yushi_desc = YUSHID->get_yushi_for_desc(yushi);
 		s += "--------\n";
-		//s += "ĞèÒª£º"+ yushi_desc +" ºÍ "+ money +"½ğ\n";
+		//s += "éœ€è¦ï¼š"+ yushi_desc +" å’Œ "+ money +"é‡‘\n";
 		if(flag==0){
-			s += "[ÓñÊ¯¹ºÂò:home_shop_item_detail "+infancyName+" "+yushi+" 0 1](ĞèÒª"+yushi_desc+")\n";
-			s += "[»Æ½ğ¹ºÂò:home_shop_item_detail "+infancyName+" 0 "+money+" 2](ĞèÒª"+money+"½ğ)\n";
+			s += "[ç‰çŸ³è´­ä¹°:home_shop_item_detail "+infancyName+" "+yushi+" 0 1](éœ€è¦"+yushi_desc+")\n";
+			s += "[é»„é‡‘è´­ä¹°:home_shop_item_detail "+infancyName+" 0 "+money+" 2](éœ€è¦"+money+"é‡‘)\n";
 			s += "\n\n";
 		}
 		else {
 			if(flag==1)
-				s += "ĞèÒª£º"+ yushi_desc +"\n";
+				s += "éœ€è¦ï¼š"+ yushi_desc +"\n";
 			else if(flag==2)
-				s += "ĞèÒª£º"+money+"½ğ\n";
-			s += "ĞèÒª¼ÒÔ°µÈ¼¶:"+ infancy->query_homeLevel_limit()+"\n";
+				s += "éœ€è¦ï¼š"+money+"é‡‘\n";
+			s += "éœ€è¦å®¶å›­ç­‰çº§:"+ infancy->query_homeLevel_limit()+"\n";
 			if(HOMED->if_have_home(me->query_name()))
-				s += "Äãµ±Ç°¼ÒÔ°µÈ¼¶ÊÇ:"+ HOMED->get_home_level(me->query_name())+"\n";
+				s += "ä½ å½“å‰å®¶å›­ç­‰çº§æ˜¯:"+ HOMED->get_home_level(me->query_name())+"\n";
 			else
-				s += "ÄãÏÖÔÚ²¢Ã»ÓĞ¼ÒÔ°\n";
+				s += "ä½ ç°åœ¨å¹¶æ²¡æœ‰å®¶å›­\n";
 			s += "\n\n";
 			s += "[int no:...]\n";
-			s += "[submit È·¶¨¹ºÂò:home_shop_item_confirm "+ infancyName+" "+ yushi +" "+money+" ...]\n";
+			s += "[submit ç¡®å®šè´­ä¹°:home_shop_item_confirm "+ infancyName+" "+ yushi +" "+money+" ...]\n";
 		}
 	}
 	else
-		s += "Õâ¶«Î÷ºÃÏñÒÑ¾­Âô¹âÁË£¬¸ÄÌìÔÙÀ´°É£¡\n";
-	s += "[·µ»Ø:home_shop_item_list plant]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+		s += "è¿™ä¸œè¥¿å¥½åƒå·²ç»å–å…‰äº†ï¼Œæ”¹å¤©å†æ¥å§ï¼\n";
+	s += "[è¿”å›:home_shop_item_list plant]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

@@ -9,8 +9,8 @@ int main(string arg)
 	string s = "";
 	s += HOMED->banner_flat(slotName,flatName);
 	s += HOMED->query_home_for_sale(slotName,flatName);
-	s += "\n[返回:home_purchase_flat_list "+ slotName +"]\n";
-	s += "[返回游戏:look]\n";
+	s += "\n[杩斿洖:home_purchase_flat_list "+ slotName +"]\n";
+	s += "[杩斿洖娓告垙:look]\n";
 	write(s);
 	return 1;
 }

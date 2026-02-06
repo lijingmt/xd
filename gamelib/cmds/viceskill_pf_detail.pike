@@ -3,10 +3,10 @@
 #define MATERIAL_PATH ROOT "/gamelib/clone/item/material/"
 //arg = type p_id flag name
 //   type="duanzao" , "liandan" "caifeng" or "zhijia"
-//   flag = 0 Ö»ÊÇ²é¿´Åä·½
-//   flag = 1 ¶ÍÔìÊ±µÄÏÔÊ¾
-//   name Îª¶ÍÔìÊ±¼ÓÈëµÄ±¦Ê¯Ãû×Ö
-//¶ÍÔìºÍÁ¶µ¤¹«ÓÃÕâ¸öÖ¸ÁîÀ´²é¿´Åä·½µÄ¾ßÌåÐÅÏ¢£¬ÓÖ¼ÓÈëÁËÐÂµÄ²Ã·ìºÍÖÆ¼×
+//   flag = 0 åªæ˜¯æŸ¥çœ‹é…æ–¹
+//   flag = 1 é”»é€ æ—¶çš„æ˜¾ç¤º
+//   name ä¸ºé”»é€ æ—¶åŠ å…¥çš„å®çŸ³åå­—
+//é”»é€ å’Œç‚¼ä¸¹å…¬ç”¨è¿™ä¸ªæŒ‡ä»¤æ¥æŸ¥çœ‹é…æ–¹çš„å…·ä½“ä¿¡æ¯ï¼ŒåˆåŠ å…¥äº†æ–°çš„è£ç¼å’Œåˆ¶ç”²
 int main(string arg)
 {
 	string s = "";
@@ -33,12 +33,12 @@ int main(string arg)
 					s += tmp_arr[0]+"x1\n";
 				}
 			}
-			s += "[¶ÍÔì:viceskill_duanzao_confirm "+p_id+"]\n";
-			s += "[¼ÓÈë±¦Ê¯:viceskill_add_baoshi "+p_id+"]\n";
-			s += "\n[·µ»Ø:viceskill_duanzao_list m_weapon]\n";
+			s += "[é”»é€ :viceskill_duanzao_confirm "+p_id+"]\n";
+			s += "[åŠ å…¥å®çŸ³:viceskill_add_baoshi "+p_id+"]\n";
+			s += "\n[è¿”å›ž:viceskill_duanzao_list m_weapon]\n";
 		}
 		else if(flag == 0)
-			s += "\n[·µ»Ø:viceskill_duanzao_pf m_weapon]\n";
+			s += "\n[è¿”å›ž:viceskill_duanzao_pf m_weapon]\n";
 	}
 	else if(type == "caifeng"){
 		s += CAIFENGD->query_pf_detail(me,p_id);
@@ -57,10 +57,10 @@ int main(string arg)
 					s += tmp_arr[0]+"x1\n";
 				}
 			}
-			s += "[·ìÖÆ:viceskill_caifeng_confirm "+p_id+"]\n";
-			s += "[¼ÓÈëÄ§Ïß:viceskill_add_moxian_caifeng "+p_id+"]\n";
+			s += "[ç¼åˆ¶:viceskill_caifeng_confirm "+p_id+"]\n";
+			s += "[åŠ å…¥é­”çº¿:viceskill_add_moxian_caifeng "+p_id+"]\n";
 		}
-		s += "\n[·µ»Ø:viceskill_caifeng_pf head]\n";
+		s += "\n[è¿”å›ž:viceskill_caifeng_pf head]\n";
 	}
 	if(type == "zhijia"){
 		s += ZHIJIAD->query_pf_detail(me,p_id);
@@ -79,23 +79,23 @@ int main(string arg)
 					s += tmp_arr[0]+"x1\n";
 				}
 			}
-			s += "[ÖÆ×÷:viceskill_zhijia_confirm "+p_id+"]\n";
-			s += "[¼ÓÈëÄ§Ïß:viceskill_add_moxian_zhijia "+p_id+"]\n";
+			s += "[åˆ¶ä½œ:viceskill_zhijia_confirm "+p_id+"]\n";
+			s += "[åŠ å…¥é­”çº¿:viceskill_add_moxian_zhijia "+p_id+"]\n";
 		}
-		s += "\n[·µ»Ø:viceskill_zhijia_pf head]\n";
+		s += "\n[è¿”å›ž:viceskill_zhijia_pf head]\n";
 	}
 	else if(type == "liandan"){
 		s += LIANDAND->query_pf_detail(me,p_id);
 		if(flag == 1){
-		//	s += "[Á¶ÖÆ:viceskill_liandan_confirm "+p_id+"]\n";
-			s += "ÇëÊäÈëÁ¶ÖÆÊýÁ¿£º\n";                                                                           
+		//	s += "[ç‚¼åˆ¶:viceskill_liandan_confirm "+p_id+"]\n";
+			s += "è¯·è¾“å…¥ç‚¼åˆ¶æ•°é‡ï¼š\n";                                                                           
 			s += "[int no:...]\n";
-			s += "[submit Á¶ÖÆ:viceskill_liandan_confirm "+p_id+" ...]\n";
+			s += "[submit ç‚¼åˆ¶:viceskill_liandan_confirm "+p_id+" ...]\n";
 
 		}
-		s += "\n[·µ»Ø:viceskill_liandan_pf normal]\n";
+		s += "\n[è¿”å›ž:viceskill_liandan_pf normal]\n";
 	}
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "[è¿”å›žæ¸¸æˆ:look]\n";
 	write(s);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;

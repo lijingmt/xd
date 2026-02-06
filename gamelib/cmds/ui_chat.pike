@@ -24,7 +24,7 @@ int main(string arg)
 		//arg = filter_msg(arg);
 		string content = "";
 		if(me->roomchatid=="pub"){ 
-			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]£∫"+arg;
+			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]Ôºö"+arg;
 		werror("ui_chat content="+arg+"\n");
 			if(me->query_raceId()=="human")
 				CHATROOMD->add_chat_msg("pub_channel",content);
@@ -32,18 +32,18 @@ int main(string arg)
 				CHATROOM2D->add_chat_msg("pub_channel",content);
 		}
 		else if(me->roomchatid=="sale"){ 
-			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]£∫"+arg;
+			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]Ôºö"+arg;
 			if(me->query_raceId()=="human")
 				CHATROOMD->add_chat_msg("sales_channel",content);
 			else if(me->query_raceId()=="monst")
 				CHATROOM2D->add_chat_msg("sales_channel",content);
 		}
 		else if(me->roomchatid=="term"){ 
-			content = me->query_name_cn()+"£∫"+arg;
+			content = me->query_name_cn()+"Ôºö"+arg;
 			TERMD->add_termChat(me->query_term(),content);
 		}
 		else if(me->roomchatid=="bang"){
-			content = me->query_name_cn()+"£∫"+arg;
+			content = me->query_name_cn()+"Ôºö"+arg;
 			BANGD->add_ui_chat(me->bangid,content);
 		}
 		string record_s = "";
@@ -59,38 +59,38 @@ string filter_msg(string arg)
 {
 	if(!arg)
 		return "";
-	arg=replace(arg,"'","°Æ");
-	arg=replace(arg,",","£¨");
-	arg=replace(arg,".","°£");
-	arg=replace(arg,"@","°£");
-	arg=replace(arg,"#","°£");
-	arg=replace(arg,"%","°£");
-	arg=replace(arg,"~","°£");
-	arg=replace(arg,"^","°£");
-	arg=replace(arg,"$","°£");
-	arg=replace(arg,"+","°£");
-	arg=replace(arg,"|","°£");
-	arg=replace(arg,"&","°£");
-	arg=replace(arg,"=","£Ω");
-	arg=replace(arg,"(","£®");
-	arg=replace(arg,")","£©");
-	arg=replace(arg,"-","£≠");
-	arg=replace(arg,"_","£≠");
-	arg=replace(arg,"*","£≠");
-	arg=replace(arg,"?","£ø");
-	arg=replace(arg,"!","£°");
-	arg=replace(arg,"<","£≠");
-	arg=replace(arg,">","£≠");
-	arg=replace(arg,"\/","°∞");
-	arg=replace(arg,"\"","°∞");
-	arg=replace(arg,"\\","°∞");
+	arg=replace(arg,"'","‚Äò");
+	arg=replace(arg,",","Ôºå");
+	arg=replace(arg,".","„ÄÇ");
+	arg=replace(arg,"@","„ÄÇ");
+	arg=replace(arg,"#","„ÄÇ");
+	arg=replace(arg,"%","„ÄÇ");
+	arg=replace(arg,"~","„ÄÇ");
+	arg=replace(arg,"^","„ÄÇ");
+	arg=replace(arg,"$","„ÄÇ");
+	arg=replace(arg,"+","„ÄÇ");
+	arg=replace(arg,"|","„ÄÇ");
+	arg=replace(arg,"&","„ÄÇ");
+	arg=replace(arg,"=","Ôºù");
+	arg=replace(arg,"(","Ôºà");
+	arg=replace(arg,")","Ôºâ");
+	arg=replace(arg,"-","Ôºç");
+	arg=replace(arg,"_","Ôºç");
+	arg=replace(arg,"*","Ôºç");
+	arg=replace(arg,"?","Ôºü");
+	arg=replace(arg,"!","ÔºÅ");
+	arg=replace(arg,"<","Ôºç");
+	arg=replace(arg,">","Ôºç");
+	arg=replace(arg,"\/","‚Äú");
+	arg=replace(arg,"\"","‚Äú");
+	arg=replace(arg,"\\","‚Äú");
 	arg=replace(arg,"\r\n","");
-	arg=replace(arg,":","£∫");
-	arg=replace(arg,";","£ª");
-	arg=replace(arg,"\{","°∏");
-	arg=replace(arg,"\}","°∏");
-	arg=replace(arg,"[","°∏");
-	arg=replace(arg,"]","°π");
-	arg=replace(arg,"%20","£≠");	
+	arg=replace(arg,":","Ôºö");
+	arg=replace(arg,";","Ôºõ");
+	arg=replace(arg,"\{","„Äå");
+	arg=replace(arg,"\}","„Äå");
+	arg=replace(arg,"[","„Äå");
+	arg=replace(arg,"]","„Äç");
+	arg=replace(arg,"%20","Ôºç");	
 	return arg;
 }

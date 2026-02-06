@@ -1,6 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>  
-//¥À÷∏¡Óœ‘ ææË‘˘µƒ≈≈––
+//Ê≠§Êåá‰ª§ÊòæÁ§∫ÊçêËµ†ÁöÑÊéíË°å
 int main(string arg)
 {
 	string type = "";
@@ -10,20 +10,20 @@ int main(string arg)
 	//werror("========== type = "+  type  +"==========\n");
 	//werror("========== pageNum = "+  pageNum  +"==========\n");
 	mapping(string:string) titles_with_link = ([
-			"all_fee":"[æË‘˘:paihang_list all_fee 1]",
-			"account":"[≤∆∏ª:paihang_list account 1]",
-			"mark":"[◊€∫œ µ¡¶:paihang_list mark 1]",
-			"lunhuipt":"[¬÷ªÿ÷µ:paihang_list lunhuipt 1]",
-			"honerpt":"[œ…∆¯/ƒß∆¯:paihang_list honerpt 1]",
+			"all_fee":"[ÊçêËµ†:paihang_list all_fee 1]",
+			"account":"[Ë¥¢ÂØå:paihang_list account 1]",
+			"mark":"[ÁªºÂêàÂÆûÂäõ:paihang_list mark 1]",
+			"lunhuipt":"[ËΩÆÂõûÂÄº:paihang_list lunhuipt 1]",
+			"honerpt":"[‰ªôÊ∞î/È≠îÊ∞î:paihang_list honerpt 1]",
 			]);
 	mapping(string:string) titles_without_link = ([
-			"all_fee":"æË‘˘",
-			"account":"≤∆∏ª",
-			"mark":"◊€∫œ µ¡¶",
-			"lunhuipt":"¬÷ªÿ÷µ",
-			"honerpt":"œ…∆¯/ƒß∆¯",
+			"all_fee":"ÊçêËµ†",
+			"account":"Ë¥¢ÂØå",
+			"mark":"ÁªºÂêàÂÆûÂäõ",
+			"lunhuipt":"ËΩÆÂõûÂÄº",
+			"honerpt":"‰ªôÊ∞î/È≠îÊ∞î",
 			]);
-	string s = "====== œ…µ¿≈≈––∞Ò ======\n\n";
+	string s = "====== ‰ªôÈÅìÊéíË°åÊ¶ú ======\n\n";
 
 	foreach(sort(indices(titles_with_link)),string single){
 		if(single == type)
@@ -33,7 +33,7 @@ int main(string arg)
 	}
 	s += "\n";
 
-//ø™ ºªÒ»°≈≈–––≈œ¢
+//ÂºÄÂßãËé∑ÂèñÊéíË°å‰ø°ÊÅØ
 	//werror("======== hahahah ==========\n");
 	array(mapping(string:mixed)) top_list = PAIHANGD->query_toplist(type);
 	if(top_list && sizeof(top_list)){
@@ -52,7 +52,7 @@ int main(string arg)
 			mapping tmp = top_list[i];
 			string name_cn = tmp["name_cn"];
 			if(name_cn && sizeof(name_cn)){
-				s += (i+1)+"£Æ"+name_cn;
+				s += (i+1)+"Ôºé"+name_cn;
 				if(type == "mark")
 					s +="("+tmp["mark"]+")";
 				else if(type == "lunhuipt")
@@ -62,13 +62,13 @@ int main(string arg)
 		}
 		s += "------------\n";
 		if(pageNum>1)
-			s += "[…œ“ª“≥:paihang_list "+ type +" "+ (pageNum-1) +"] ";
+			s += "[‰∏ä‰∏ÄÈ°µ:paihang_list "+ type +" "+ (pageNum-1) +"] ";
 		if(endNum < listSize-1)
-			s += "[œ¬“ª“≥:paihang_list "+ type +" "+ (pageNum+1) +"]\n";
+			s += "[‰∏ã‰∏ÄÈ°µ:paihang_list "+ type +" "+ (pageNum+1) +"]\n";
 	}
 	else
-		s += "‘›Œ¥∑¢∞Ò\n";
-	s += "\n[∑µªÿ”Œœ∑:look]\n";
+		s += "ÊöÇÊú™ÂèëÊ¶ú\n";
+	s += "\n[ËøîÂõûÊ∏∏Êàè:look]\n";
 	write(s);
 	return 1;
 }

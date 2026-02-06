@@ -1,26 +1,26 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
-//ÓñÊ¯Íæ¼Ò²Ù×÷½Ó¿Ú
+//ç‰çŸ³ç©å®¶æ“ä½œæ¥å£
 int main(string arg)
 {
 	object me = this_player();
 	string s = "";
-	s += me->query_mini_picture_url("1taomujian")+"**Ê¹ÓÃÓñÊ¯**\n";
-	s += me->query_mini_picture_url("1taomujian")+"[ÏÉµÀ»áÔ±µê:vip_myshop]\n";
-	//s += me->query_mini_picture_url("decorate9")+"[ĞÒÔË³é³é:lottery_view_list]\n";
-	s += me->query_mini_picture_url("1taomujian")+"[ÏÉÓñÌØÂô³¡:yushi_spec_sales]\n";
-	s += me->query_mini_picture_url("1taomujian")+"[ÓñÊ¯²Ù×÷:yushi_change]\n";
+	s += me->query_mini_picture_url("1taomujian")+"**ä½¿ç”¨ç‰çŸ³**\n";
+	s += me->query_mini_picture_url("1taomujian")+"[ä»™é“ä¼šå‘˜åº—:vip_myshop]\n";
+	//s += me->query_mini_picture_url("decorate9")+"[å¹¸è¿æŠ½æŠ½:lottery_view_list]\n";
+	s += me->query_mini_picture_url("1taomujian")+"[ä»™ç‰ç‰¹å–åœº:yushi_spec_sales]\n";
+	s += me->query_mini_picture_url("1taomujian")+"[ç‰çŸ³æ“ä½œ:yushi_change]\n";
 	
-//	s += me->query_mini_picture_url("1taomujian")+"**¾èÔù»ñÈ¡ÓñÊ¯**\n";
-	s += me->query_mini_picture_url("1taomujian")+"[¾èÔù»ñÈ¡ÏÉÓñ:add_szx_fee]\n";
-//	s += me->query_mini_picture_url("1taomujian")+"[ÆäËû·½Ê½¹ºÂò:add_else_fee]\n";
+//	s += me->query_mini_picture_url("1taomujian")+"**æèµ è·å–ç‰çŸ³**\n";
+	s += me->query_mini_picture_url("1taomujian")+"[æèµ è·å–ä»™ç‰:add_szx_fee]\n";
+//	s += me->query_mini_picture_url("1taomujian")+"[å…¶ä»–æ–¹å¼è´­ä¹°:add_else_fee]\n";
 	
-	s += me->query_mini_picture_url("1taomujian")+"**ÓñÊ¯ËµÃ÷**\n";
-	s += me->query_mini_picture_url("1taomujian")+"[ÓñÊ¯ËµÃ÷:yushi_explain]\n";
-	//s += me->query_mini_picture_url("1taomujian")+"[¾èÔù»ñÈ¡ÓñÊ¯ËµÃ÷:yushi_readme]\n";
-	s += me->query_mini_picture_url("1taomujian")+"[Á¶»¯×°±¸ËµÃ÷:convert_readme]\n";
-	s += "\n[·µ»ØÓÎÏ·:look]\n";
+	s += me->query_mini_picture_url("1taomujian")+"**ç‰çŸ³è¯´æ˜**\n";
+	s += me->query_mini_picture_url("1taomujian")+"[ç‰çŸ³è¯´æ˜:yushi_explain]\n";
+	//s += me->query_mini_picture_url("1taomujian")+"[æèµ è·å–ç‰çŸ³è¯´æ˜:yushi_readme]\n";
+	s += me->query_mini_picture_url("1taomujian")+"[ç‚¼åŒ–è£…å¤‡è¯´æ˜:convert_readme]\n";
+	s += "\n[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

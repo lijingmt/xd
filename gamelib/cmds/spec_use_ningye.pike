@@ -16,13 +16,13 @@ int main(string arg)
 		return 1;
 	}
 	else if(me["/spec_skill/coldtime2"]>time())
-		s += "¼¼ÄÜÎ´ÀäÈ´\n";
+		s += "æŠ€èƒ½æœªå†·å´\n";
 	else{
 		sscanf(arg,"%d",flag);
 		if(flag == 1){
-			//Ò»¼¶
+			//ä¸€çº§
 			if(me->get_cur_mofa() < 200)
-				s += "ÄãµÄ·¨Á¦²»¹»\n";
+				s += "ä½ çš„æ³•åŠ›ä¸å¤Ÿ\n";
 			else{
 				string path = HUAWU+"sanqingshui";
 				object ob = clone(path);
@@ -30,16 +30,16 @@ int main(string arg)
 					me->set_mofa(me->get_cur_mofa()-200);
 					me["/spec_skill/coldtime2"] = time()+SPEC;
 					ob->move_player(me->query_name());
-					s += "ÄãÖÆÔì³öÁËÈıÇåË®x5\n";
+					s += "ä½ åˆ¶é€ å‡ºäº†ä¸‰æ¸…æ°´x5\n";
 				}
 				else 
-					s += "ÎŞ·¨ÖÆÔì\n";
+					s += "æ— æ³•åˆ¶é€ \n";
 			}
 		}
 		else if(flag == 2){
-			//¶ş¼¶
+			//äºŒçº§
 			if(me->get_cur_mofa() < 400)
-				s += "ÄãµÄ·¨Á¦²»¹»\n";
+				s += "ä½ çš„æ³•åŠ›ä¸å¤Ÿ\n";
 			else{
 				string path = HUAWU+"zishengshui";
 				object ob = clone(path);
@@ -47,16 +47,16 @@ int main(string arg)
 					me->set_mofa(me->get_cur_mofa()-400);
 					me["/spec_skill/coldtime2"] = time()+SPEC;
 					ob->move_player(me->query_name());
-					s += "ÄãÖÆÔì³öÁË×ÌÉúË®x5\n";
+					s += "ä½ åˆ¶é€ å‡ºäº†æ»‹ç”Ÿæ°´x5\n";
 				}
 				else 
-					s += "ÎŞ·¨ÖÆÔì\n";
+					s += "æ— æ³•åˆ¶é€ \n";
 			}
 		}
 		else if(flag == 3){
-			//Èı¼¶
+			//ä¸‰çº§
 			if(me->get_cur_mofa() < 600)
-				s += "ÄãµÄ·¨Á¦²»¹»\n";
+				s += "ä½ çš„æ³•åŠ›ä¸å¤Ÿ\n";
 			else{
 				string path = HUAWU+"bingxinquanshui";
 				object ob = clone(path);
@@ -64,16 +64,16 @@ int main(string arg)
 					me->set_mofa(me->get_cur_mofa()-600);
 					me["/spec_skill/coldtime2"] = time()+SPEC;
 					ob->move_player(me->query_name());
-					s += "ÄãÖÆÔì³öÁË±ùĞÄÈªË®x5\n";
+					s += "ä½ åˆ¶é€ å‡ºäº†å†°å¿ƒæ³‰æ°´x5\n";
 				}
 				else 
-					s += "ÎŞ·¨ÖÆÔì\n";
+					s += "æ— æ³•åˆ¶é€ \n";
 			}
 		}
 		else if(flag == 4){
-			//ËÄ¼¶
+			//å››çº§
 			if(me->get_cur_mofa() < 800)
-				s += "ÄãµÄ·¨Á¦²»¹»\n";
+				s += "ä½ çš„æ³•åŠ›ä¸å¤Ÿ\n";
 			else{
 				string path = HUAWU+"tianshanganlu";
 				object ob = clone(path);
@@ -81,16 +81,16 @@ int main(string arg)
 					me->set_mofa(me->get_cur_mofa()-800);
 					me["/spec_skill/coldtime2"] = time()+SPEC;
 					ob->move_player(me->query_name());
-					s += "ÄãÖÆÔì³öÁËÌìÉ½¸ÊÂ¶x5\n";
+					s += "ä½ åˆ¶é€ å‡ºäº†å¤©å±±ç”˜éœ²x5\n";
 				}
 				else 
-					s += "ÎŞ·¨ÖÆÔì\n";
+					s += "æ— æ³•åˆ¶é€ \n";
 			}
 		}
 		if(flag == 5){
-			//Îå¼¶
+			//äº”çº§
 			if(me->get_cur_mofa() < 1000)
-				s += "ÄãµÄ·¨Á¦²»¹»\n";
+				s += "ä½ çš„æ³•åŠ›ä¸å¤Ÿ\n";
 			else{
 				string path = HUAWU+"qiongjiangye";
 				object ob = clone(path);
@@ -98,15 +98,15 @@ int main(string arg)
 					me->set_mofa(me->get_cur_mofa()-1000);
 					me["/spec_skill/coldtime2"] = time()+SPEC;
 					ob->move_player(me->query_name());
-					s += "ÄãÖÆÔì³öÁËÇí½¬Òºx5\n";
+					s += "ä½ åˆ¶é€ å‡ºäº†ç¼æµ†æ¶²x5\n";
 				}
 				else 
-					s += "ÎŞ·¨ÖÆÔì\n";
+					s += "æ— æ³•åˆ¶é€ \n";
 			}
 		}
 	}
-	s += "[·µ»Ø:myskills]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "[è¿”å›:myskills]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

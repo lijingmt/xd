@@ -4,8 +4,8 @@ int main(string arg)
 {
 	string s = "";
 	s += this_player()->view_mail_list()+"\n";
-	s+="[返回:my_qqlist]\n";
-	s+="[返回游戏:look]\n";
+	s+="[杩斿洖:my_qqlist]\n";
+	s+="[杩斿洖娓告垙:look]\n";
 	write(s);
 	//this_player()->write_view(WAP_VIEWD["/mailbox"]);
 	return 1;

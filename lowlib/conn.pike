@@ -1,4 +1,4 @@
-//! ÓÃ»§Á¬½ÓÀà
+//! ç”¨æˆ·è¿æ¥ç±»
 #include "lowlib.h"
 #include <gamelib/include/time.h>
 #include <globals.h>
@@ -14,7 +14,7 @@ object query_filter()
 {
 	return filter;//EFUNSD->player_filter[user];
 }
-//¸Ãwrite·½·¨ÆäÊµµ÷ÓÃfilter½øĞĞ×ª»»£¬Èç¹ûÉèÖÃÁËfilterµÄÊ±ºò
+//è¯¥writeæ–¹æ³•å…¶å®è°ƒç”¨filterè¿›è¡Œè½¬æ¢ï¼Œå¦‚æœè®¾ç½®äº†filterçš„æ—¶å€™
 int write(string s)
 {
 	//werror("========write call==========\n");
@@ -24,7 +24,7 @@ int write(string s)
 	if(filter)
 		s=filter->filter(s);
 	out+=s;
-	if(sizeof(out))//²»¹ÜÊÇ·ñÍ¨¹ıfilter²ã×ª»»£¬Èç¹ûÓĞÊı¾İ£¬ÏÂÃæ¾Í¿ÉÒÔµ÷ÓÃ¶ÁĞ´»Øµ÷·½·¨´¦ÀíÖ®
+	if(sizeof(out))//ä¸ç®¡æ˜¯å¦é€šè¿‡filterå±‚è½¬æ¢ï¼Œå¦‚æœæœ‰æ•°æ®ï¼Œä¸‹é¢å°±å¯ä»¥è°ƒç”¨è¯»å†™å›è°ƒæ–¹æ³•å¤„ç†ä¹‹
 		conn->set_nonblocking(read_callback,write_callback,close_callback);
 	EFUNSD->set_this_player(old);
 	if(!user){
@@ -40,7 +40,7 @@ static void tryclose()
 		if(user){
 			//werror("---- tryclose clean this user call CONND->erase_conn(user) ----\n");
 			CONND->erase_conn(user);
-			//Èç¹ûÓÎÏ·ÊµÌå¶ÔÏóuser´æÔÚnet_dead·½·¨£¬µ÷ÓÃ½«»áÔÚwapmud2²ã±»inherit/user.pike½ØÈ¡£¬µ÷ÓÃ
+			//å¦‚æœæ¸¸æˆå®ä½“å¯¹è±¡userå­˜åœ¨net_deadæ–¹æ³•ï¼Œè°ƒç”¨å°†ä¼šåœ¨wapmud2å±‚è¢«inherit/user.pikeæˆªå–ï¼Œè°ƒç”¨
 			//call_out(remove,living_time);
 			if(user["net_dead"])
 				user->net_dead();

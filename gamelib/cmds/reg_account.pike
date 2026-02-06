@@ -8,9 +8,9 @@ int main(string arg)
 	int day = now_time["mday"];
 	int month = now_time["mon"]+1;
 	Stdio.append_file(ROOT+"/log/push/"+month+"_"+day+"_user_push_info.log",me->query_name()+"|"+me->user_mid+"|"+me->user_mkey+"\n");
-	s += "请选择注册游戏区：\n";
-	s += "[url "+GAME_NAME_CN+"(本区):http://"+GAME_URL+"/"+GAME_NAME+"/regnew.jsp]\n";
-	s += "[返回游戏:look]\n";
+	s += "璇烽�夋嫨娉ㄥ唽娓告垙鍖猴細\n";
+	s += "[url "+GAME_NAME_CN+"(鏈尯):http://"+GAME_URL+"/"+GAME_NAME+"/regnew.jsp]\n";
+	s += "[杩斿洖娓告垙:look]\n";
 	write(s);
 	return 1;
 }

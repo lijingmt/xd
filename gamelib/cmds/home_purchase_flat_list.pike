@@ -7,8 +7,8 @@ int main(string arg)
 	string s = "";
 	s += HOMED->banner_slot(slotName);
 	s += HOMED->query_flat_for_sale(slotName);
-	s += "\n[返回:home_purchase_slot_list "+ HOMED->query_area_by_slot(slotName) +"]\n";
-	s += "[返回游戏:look]\n"; 
+	s += "\n[杩斿洖:home_purchase_slot_list "+ HOMED->query_area_by_slot(slotName) +"]\n";
+	s += "[杩斿洖娓告垙:look]\n"; 
 	write(s);
 	return 1;
 }

@@ -1,33 +1,33 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 /*
-ÉêÇëÈë»áÏêÇéÒ³Ãæ
+ç”³è¯·å…¥ä¼šè¯¦æƒ…é¡µé¢
 auther: evan
 2008.07.16
 */
 int main(string arg)
 {
 	object me = this_player();
-	string s = "***»áÔ±Ğø·Ñ***\n\n";
+	string s = "***ä¼šå‘˜ç»­è´¹***\n\n";
 	s += VIPD->get_vip_state_des_withoutlink(me);
 	int state = VIPD->get_vip_state(me);
-	if(state)//Èç¹ûÊÇ»áÔ±
+	if(state)//å¦‚æœæ˜¯ä¼šå‘˜
 	{
 		int level = me->query_vip_flag();
 		int vip_cost = VIPD->get_vip_cost(level);
-		vip_cost = vip_cost*9/10;//Ğø·Ñ9ÕÛÓÅ»İ
+		vip_cost = vip_cost*9/10;//ç»­è´¹9æŠ˜ä¼˜æƒ 
 		string cost_des = YUSHID->get_yushi_for_desc(vip_cost*10);
 		string vip_name = VIPD->get_vip_name(level);
 		string vip_desc = VIPD->get_vip_desc(level);
-		s += "ÄãÊÇ"+vip_name+",ÏÖÔÚĞø·ÑÏíÊÜ9ÕÛÓÅ»İ£¬Ö»Ğè"+cost_des+"\n(×¢Òâ£ºĞø·Ñ½«Ê¹»áÔ±×Ê¸ñÔÚÔ­ÓĞ»ù´¡ÉÏË³ÑÓ30Ìì)\n"; 
-		s += "[Ğø·Ñ:vip_service_extend_confirm "+ vip_cost +"]\n\n";
+		s += "ä½ æ˜¯"+vip_name+",ç°åœ¨ç»­è´¹äº«å—9æŠ˜ä¼˜æƒ ï¼Œåªéœ€"+cost_des+"\n(æ³¨æ„ï¼šç»­è´¹å°†ä½¿ä¼šå‘˜èµ„æ ¼åœ¨åŸæœ‰åŸºç¡€ä¸Šé¡ºå»¶30å¤©)\n"; 
+		s += "[ç»­è´¹:vip_service_extend_confirm "+ vip_cost +"]\n\n";
 	}
-	else//·Ç»áÔ±Ôò¸ø³öÉêÇëÌáÊ¾
+	else//éä¼šå‘˜åˆ™ç»™å‡ºç”³è¯·æç¤º
 	{
 		s += VIPD->get_vip_state_des(me);
 	}
-	s += "[·µ»Ø:vip_service_list.pike]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "[è¿”å›:vip_service_list.pike]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

@@ -12,11 +12,11 @@ int main(string arg)
 			if(ob->query_item_type()=="baoshi"){
 				s += ob->query_short()+"\n";
 				s += ob->query_picture_url()+"\n";
-				s += "¶ÔÓ¦"+ob->query_color_cn(ob->query_color())+"°¼²Û\n";
+				s += "å¯¹åº”"+ob->query_color_cn(ob->query_color())+"å‡¹æ§½\n";
 				s += ob->query_content()+"\n";
-				s += "[´İ»Ù:drop "+ob->query_name()+" "+count+"]\n";
-				s += "[·µ»Ø:inventory]\n";
-				s += "[·µ»ØÓÎÏ·:look]\n";
+				s += "[æ‘§æ¯:drop "+ob->query_name()+" "+count+"]\n";
+				s += "[è¿”å›:inventory]\n";
+				s += "[è¿”å›æ¸¸æˆ:look]\n";
 				write(s);
 				return 1;
 			}
@@ -29,25 +29,25 @@ int main(string arg)
 				s += ob->query_picture_url()+"\n"; 
 				s += ob->query_desc()+"\n"; 
 				if(sizeof(ob->profe_read_limit)>0)
-					s+="ÒªÇóÖ°Òµ£º"+ob->profe_read_limit+"\n";
+					s+="è¦æ±‚èŒä¸šï¼š"+ob->profe_read_limit+"\n";
 				if(ob->level_limit && sizeof(ob->query_peifang_type()) == 0)
-					s+="ÒªÇóµÈ¼¶£º"+ob->level_limit+"\n";
+					s+="è¦æ±‚ç­‰çº§ï¼š"+ob->level_limit+"\n";
 				if(sizeof(ob->query_peifang_type()) > 0){
 					string type = "";
 					if(ob->query_peifang_kind() == "liandan")
-						type = "Á¶µ¤";                                  
+						type = "ç‚¼ä¸¹";                                  
 					else if(ob->query_peifang_kind() == "caifeng")          
-						type = "²Ã·ì";                                  
+						type = "è£ç¼";                                  
 					else if(ob->query_peifang_kind() == "zhijia")           
-						type = "ÖÆ¼×";                                  
+						type = "åˆ¶ç”²";                                  
 					else if(ob->query_peifang_kind() == "duanzao")          
-						type = "¶ÍÔì";
-					s+="ÒªÇó"+type+"ÊìÁ·¶È£º"+ob->viceskill_level+"\n";
+						type = "é”»é€ ";
+					s+="è¦æ±‚"+type+"ç†Ÿç»ƒåº¦ï¼š"+ob->viceskill_level+"\n";
 				}
 				s += ob->query_inventory_links(count)+"\n"; 
-				s += "[´İ»Ù:drop "+ob->query_name()+" "+count+"]\n";
-				s += "[·µ»Ø:inventory]\n";
-				s += "[·µ»ØÓÎÏ·:look]\n";
+				s += "[æ‘§æ¯:drop "+ob->query_name()+" "+count+"]\n";
+				s += "[è¿”å›:inventory]\n";
+				s += "[è¿”å›æ¸¸æˆ:look]\n";
 				write(s);
 				return 1;
 			}

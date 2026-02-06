@@ -1,15 +1,15 @@
-//´ËÎªÍæ¼Ò¸öÈËÅÅĞĞµÄÊØ»¤Ä£¿é£¬Íê³É»ùÓÚ½ğÇ®£¬×ÛºÏÊµÁ¦µÄÅÅĞĞ
-//ÓÉliaochengÓÚ07/09/03¿ª·¢
-//ÊµÏÖË¼Â·ÎªÊ¹ÓÃÍ³¼ÆÊı¾İ¿âÀïµÄÈÕµÇÂ½ĞÅÏ¢£¬»ñµÃÅÅĞò
+//æ­¤ä¸ºç©å®¶ä¸ªäººæ’è¡Œçš„å®ˆæŠ¤æ¨¡å—ï¼Œå®ŒæˆåŸºäºé‡‘é’±ï¼Œç»¼åˆå®åŠ›çš„æ’è¡Œ
+//ç”±liaochengäº07/09/03å¼€å‘
+//å®ç°æ€è·¯ä¸ºä½¿ç”¨ç»Ÿè®¡æ•°æ®åº“é‡Œçš„æ—¥ç™»é™†ä¿¡æ¯ï¼Œè·å¾—æ’åº
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit LOW_DAEMON;
 
-#define TIME_UNIT 600 //Ã¿10·ÖÖÓÍ³¼ÆÒ»´ÎÔÚÏßÊı¾İ
-#define UPDATE_TIME 86400 //¸üĞÂÊ±¼ä¼ä¸ôÎª24Ğ¡Ê±
-#define TOP_NUM 30 //Ã¿ÖÖÅÅĞĞÈ¡Ç°30Ãû
-#define TOP_DAY 10 //È¡10ÌìÄÚµÄÊı¾İ
-//#define UPDATE_TIME 20 //¸üĞÂÊ±¼ä¼ä¸ôÎª40Ãë ²âÊÔÓÃ
+#define TIME_UNIT 600 //æ¯10åˆ†é’Ÿç»Ÿè®¡ä¸€æ¬¡åœ¨çº¿æ•°æ®
+#define UPDATE_TIME 86400 //æ›´æ–°æ—¶é—´é—´éš”ä¸º24å°æ—¶
+#define TOP_NUM 30 //æ¯ç§æ’è¡Œå–å‰30å
+#define TOP_DAY 10 //å–10å¤©å†…çš„æ•°æ®
+//#define UPDATE_TIME 20 //æ›´æ–°æ—¶é—´é—´éš”ä¸º40ç§’ æµ‹è¯•ç”¨
 Sql.Sql db;
 //string dbSql = "mysql://root:password@gamelog_database:22334/xd_game_db";
 string mysql_password = "Happy888888";
@@ -20,11 +20,11 @@ mapping optionsMapOfFee = ([]);
 object obt;
 array(mapping(string:mixed)) mark_toplist = ({});
 mapping allTypeDesc = ([
-		"mark":"×ÛºÏÊµÁ¦",
-		"account":"²Æ¸»",
-		"all_fee":"¾èÔù",
-		"home_bi":"Ë½¼ÒĞ¡µê(½ğÇ®)",
-		"home_yu":"Ë½¼ÒĞ¡µê(ÓñÊ¯)",
+		"mark":"ç»¼åˆå®åŠ›",
+		"account":"è´¢å¯Œ",
+		"all_fee":"æèµ ",
+		"home_bi":"ç§å®¶å°åº—(é‡‘é’±)",
+		"home_yu":"ç§å®¶å°åº—(ç‰çŸ³)",
 		]);
 
 array(string) all_type = ({"mark","account","all_fee","home_bi","home_yu","honerpt","lunhuipt"});
@@ -48,12 +48,12 @@ void create()
 	int now_mon = now_time["mon"];
 	int now_year = now_time["year"];
 
-	//×ÛºÏÅÅĞĞ
-	//µÃµ½Æô¶¯ºóµÚÒ»´Î×Ô¶¯¸üĞÂÅÅĞĞ°ñµÄÊ±¼ä
+	//ç»¼åˆæ’è¡Œ
+	//å¾—åˆ°å¯åŠ¨åç¬¬ä¸€æ¬¡è‡ªåŠ¨æ›´æ–°æ’è¡Œæ¦œçš„æ—¶é—´
 	int update_time_mark = mktime(0,58,23,now_mday,now_mon,now_year);
-	//ÓÉ´Ë»ñµÃ¾àÀëÏÖÔÚ»¹ÓĞ¶àÉÙÊ±¼ä¸üĞÂ
+	//ç”±æ­¤è·å¾—è·ç¦»ç°åœ¨è¿˜æœ‰å¤šå°‘æ—¶é—´æ›´æ–°
 	int need_time_mark = update_time_mark - time();
-	//	need_time_mark = 40; //²âÊÔÓÃ
+	//	need_time_mark = 40; //æµ‹è¯•ç”¨
 	for(int i=0;i<sizeof(all_type);i++)
 	{
 		string type = all_type[i];
@@ -62,7 +62,7 @@ void create()
 	}
 	
 
-	//½ğÇ®ÅÅĞĞ
+	//é‡‘é’±æ’è¡Œ
 	int update_time_account = mktime(0,59,23,now_mday,now_mon,now_year);
 	int need_time_account = update_time_account - time();
 
@@ -72,7 +72,7 @@ void create()
 	int update_time_home_money = mktime(0,59,23,now_mday,now_mon,now_year);
 	int need_time_home_money = update_time_home_money - time();
 	
-	//¾èÔùÅÅĞĞ
+	//æèµ æ’è¡Œ
 	int update_time_fee = mktime(0,59,23,now_mday,now_mon,now_year);
 	int need_time_fee = update_time_fee - time();
 	
@@ -82,7 +82,7 @@ void create()
 	call_out(update_home_money_toplist,need_time_home_money);
 	
 }
-//Íâ²¿µ÷ÓÃ½Ó¿Ú
+//å¤–éƒ¨è°ƒç”¨æ¥å£
 array(mapping(string:mixed)) query_toplist(string type)
 {
 	if(type && sizeof(type))
@@ -95,7 +95,7 @@ array(mapping(string:mixed)) query_toplist(string type)
 	else
 		return ({});
 }
-//¸üĞÂÅÅĞĞĞÅÏ¢µÄ½Ó¿Ú
+//æ›´æ–°æ’è¡Œä¿¡æ¯çš„æ¥å£
 void update_toplist(string type,int fg)
 {
 	all_info[type] = flush_toplist(type);
@@ -103,7 +103,7 @@ void update_toplist(string type,int fg)
 		call_out(update_toplist,UPDATE_TIME,type,0);
 	return;
 }
-//¸üĞÂÅÅĞĞµÄ²Ù×÷
+//æ›´æ–°æ’è¡Œçš„æ“ä½œ
 array(mapping(string:mixed)) flush_toplist(string type)
 {
 	array(mapping(string:mixed)) result = ({});
@@ -133,13 +133,13 @@ array(mapping(string:mixed)) flush_toplist(string type)
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"£º"+querySql+" in query_mark_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"ï¼š"+querySql+" in query_mark_toplist wrong!\n");
 		return ({});
 	}
 	return result;
 }
 
-//¸üĞÂ×ÛºÏÊµÁ¦ÅÅĞĞ°ñ
+//æ›´æ–°ç»¼åˆå®åŠ›æ’è¡Œæ¦œ
 void update_mark_toplist(int fg)
 {
 	mark_toplist = flush_mark_toplist();
@@ -150,7 +150,7 @@ void update_mark_toplist(int fg)
 array(mapping(string:mixed)) flush_mark_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
-	//localtime()·µ»ØµÄÊ±¼ä¸ñÊ½²Î¼ûpikeÎÄµµ£¬ĞèÒª×öÒ»Ğ©µ÷Õû²ÅÄÜÓÃÓÚsql²éÑ¯	
+	//localtime()è¿”å›çš„æ—¶é—´æ ¼å¼å‚è§pikeæ–‡æ¡£ï¼Œéœ€è¦åšä¸€äº›è°ƒæ•´æ‰èƒ½ç”¨äºsqlæŸ¥è¯¢	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
 	string day = now_mday+"";
@@ -176,14 +176,14 @@ array(mapping(string:mixed)) flush_mark_toplist()
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"£º"+querySql+" in query_mark_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"ï¼š"+querySql+" in query_mark_toplist wrong!\n");
 		return ({});
 	}
-	//db²Ù×÷½áÊø
+	//dbæ“ä½œç»“æŸ
 	return result;
 }
 
-//¸üĞÂ½ğÇ®ÅÅĞĞ°ñ
+//æ›´æ–°é‡‘é’±æ’è¡Œæ¦œ
 array(mapping(string:mixed)) account_toplist = ({});
 void update_account_toplist(int fg)
 {
@@ -193,12 +193,12 @@ void update_account_toplist(int fg)
 	return;
 }
 
-//½ğÇ®ÅÅĞĞ²éÑ¯
+//é‡‘é’±æ’è¡ŒæŸ¥è¯¢
 array(mapping(string:mixed)) flush_account_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
 
-	//localtime()·µ»ØµÄÊ±¼ä¸ñÊ½²Î¼ûpikeÎÄµµ£¬ĞèÒª×öÒ»Ğ©µ÷Õû²ÅÄÜÓÃÓÚsql²éÑ¯	
+	//localtime()è¿”å›çš„æ—¶é—´æ ¼å¼å‚è§pikeæ–‡æ¡£ï¼Œéœ€è¦åšä¸€äº›è°ƒæ•´æ‰èƒ½ç”¨äºsqlæŸ¥è¯¢	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
 	string day = now_mday+"";
@@ -224,14 +224,14 @@ array(mapping(string:mixed)) flush_account_toplist()
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"£º"+querySql+" in query_account_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"ï¼š"+querySql+" in query_account_toplist wrong!\n");
 		return ({});
 	}
-	//db²Ù×÷½áÊø
+	//dbæ“ä½œç»“æŸ
 	return result;
 }
 
-//Íâ²¿»ñµÃÅÅĞĞµÄ½Ó¿Ú
+//å¤–éƒ¨è·å¾—æ’è¡Œçš„æ¥å£
 array(mapping(string:mixed)) query_mark_toplist()
 {
 	if(mark_toplist && sizeof(mark_toplist))
@@ -246,7 +246,7 @@ array(mapping(string:mixed)) query_account_toplist()
 	else 
 		return ({});
 }
-//¸üĞÂË½¼ÒĞ¡µêÏúÁ¿£¨ÓñÊ¯£©ÅÅĞĞ°ñ
+//æ›´æ–°ç§å®¶å°åº—é”€é‡ï¼ˆç‰çŸ³ï¼‰æ’è¡Œæ¦œ
 array(mapping(string:mixed)) home_yushi_toplist = ({});
 void update_home_yushi_toplist(int fg)
 {
@@ -256,12 +256,12 @@ void update_home_yushi_toplist(int fg)
 	return;
 }
 
-//Ë½¼ÒĞ¡µêÏúÁ¿£¨ÓñÊ¯£©ÅÅĞĞ²éÑ¯
+//ç§å®¶å°åº—é”€é‡ï¼ˆç‰çŸ³ï¼‰æ’è¡ŒæŸ¥è¯¢
 array(mapping(string:mixed)) flush_home_yushi_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
 
-	//localtime()·µ»ØµÄÊ±¼ä¸ñÊ½²Î¼ûpikeÎÄµµ£¬ĞèÒª×öÒ»Ğ©µ÷Õû²ÅÄÜÓÃÓÚsql²éÑ¯	
+	//localtime()è¿”å›çš„æ—¶é—´æ ¼å¼å‚è§pikeæ–‡æ¡£ï¼Œéœ€è¦åšä¸€äº›è°ƒæ•´æ‰èƒ½ç”¨äºsqlæŸ¥è¯¢	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
 	string day = now_mday+"";
@@ -287,13 +287,13 @@ array(mapping(string:mixed)) flush_home_yushi_toplist()
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"£º"+querySql+" in query_home_yushi_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"ï¼š"+querySql+" in query_home_yushi_toplist wrong!\n");
 		return ({});
 	}
-	//db²Ù×÷½áÊø
+	//dbæ“ä½œç»“æŸ
 	return result;
 }
-//¸üĞÂË½¼ÒĞ¡µêÏúÁ¿£¨»Æ½ğ£©ÅÅĞĞ°ñ
+//æ›´æ–°ç§å®¶å°åº—é”€é‡ï¼ˆé»„é‡‘ï¼‰æ’è¡Œæ¦œ
 array(mapping(string:mixed)) home_money_toplist = ({});
 void update_home_money_toplist(int fg)
 {
@@ -303,12 +303,12 @@ void update_home_money_toplist(int fg)
 	return;
 }
 
-//Ë½¼ÒĞ¡µêÏúÁ¿£¨ÓñÊ¯£©ÅÅĞĞ²éÑ¯
+//ç§å®¶å°åº—é”€é‡ï¼ˆç‰çŸ³ï¼‰æ’è¡ŒæŸ¥è¯¢
 array(mapping(string:mixed)) flush_home_money_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
 
-	//localtime()·µ»ØµÄÊ±¼ä¸ñÊ½²Î¼ûpikeÎÄµµ£¬ĞèÒª×öÒ»Ğ©µ÷Õû²ÅÄÜÓÃÓÚsql²éÑ¯	
+	//localtime()è¿”å›çš„æ—¶é—´æ ¼å¼å‚è§pikeæ–‡æ¡£ï¼Œéœ€è¦åšä¸€äº›è°ƒæ•´æ‰èƒ½ç”¨äºsqlæŸ¥è¯¢	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
 	string day = now_mday+"";
@@ -334,13 +334,13 @@ array(mapping(string:mixed)) flush_home_money_toplist()
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"£º"+querySql+" in query_home_yushi_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"ï¼š"+querySql+" in query_home_yushi_toplist wrong!\n");
 		return ({});
 	}
-	//db²Ù×÷½áÊø
+	//dbæ“ä½œç»“æŸ
 	return result;
 }
-//¼ÒÔ°Ë½¼ÒĞ¡µêÏúÁ¿ÅÅĞĞ£¨ÓñÊ¯½»Ò×£©µÄÍâ²¿½Ó¿Ú caijie 08/11/18
+//å®¶å›­ç§å®¶å°åº—é”€é‡æ’è¡Œï¼ˆç‰çŸ³äº¤æ˜“ï¼‰çš„å¤–éƒ¨æ¥å£ caijie 08/11/18
 array(mapping(string:mixed)) query_home_yushi_toplist()
 {
 	if(home_yushi_toplist && sizeof(home_yushi_toplist))
@@ -348,7 +348,7 @@ array(mapping(string:mixed)) query_home_yushi_toplist()
 	else 
 		return ({});
 }
-//¼ÒÔ°Ë½¼ÒĞ¡µêÏúÁ¿ÅÅĞĞ£¨½ğÇ®½»Ò×£©µÄÍâ²¿½Ó¿Ú caijie 08/11/18
+//å®¶å›­ç§å®¶å°åº—é”€é‡æ’è¡Œï¼ˆé‡‘é’±äº¤æ˜“ï¼‰çš„å¤–éƒ¨æ¥å£ caijie 08/11/18
 array(mapping(string:mixed)) query_home_money_toplist()
 {
 	if(home_money_toplist && sizeof(home_money_toplist))
@@ -356,7 +356,7 @@ array(mapping(string:mixed)) query_home_money_toplist()
 	else 
 		return ({});
 }
-//¾èÔùÅÅĞĞÍâ²¿½Ó¿Ú evan 2009.2.2
+//æèµ æ’è¡Œå¤–éƒ¨æ¥å£ evan 2009.2.2
 array(mapping(string:mixed)) fee_toplist=({});
 array(mapping(string:mixed)) query_fee_toplist()
 {
@@ -368,7 +368,7 @@ array(mapping(string:mixed)) query_fee_toplist()
 		return ({});
 }
 
-//¸üĞÂ¾èÔùÅÅĞĞ°ñ
+//æ›´æ–°æèµ æ’è¡Œæ¦œ
 void update_fee_toplist(int fg)
 {
 	fee_toplist = flush_fee_toplist();
@@ -376,7 +376,7 @@ void update_fee_toplist(int fg)
 		call_out(update_fee_toplist,UPDATE_TIME);
 	return;
 }
-//¾èÔùÅÅĞĞ²éÑ¯
+//æèµ æ’è¡ŒæŸ¥è¯¢
 array(mapping(string:mixed)) flush_fee_toplist()
 {
 	werror("============i am in =========\n");
@@ -408,22 +408,22 @@ array(mapping(string:mixed)) flush_fee_toplist()
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"£º"+querySql+" in query_home_yushi_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"ï¼š"+querySql+" in query_home_yushi_toplist wrong!\n");
 		return ({});
 	}
 	werror("=========== sizeof(result) = "+ sizeof(result)+" =========\n");
 	werror("=========== result[0][user_id] = "+ result[0]["user_id"]+" =========\n");
-	//db²Ù×÷½áÊø
-	//Í¨¹ıuidµÃµ½ÖĞÎÄÃû,µÃµ½×îºóµÄ·µ»ØÖµ
+	//dbæ“ä½œç»“æŸ
+	//é€šè¿‡uidå¾—åˆ°ä¸­æ–‡å,å¾—åˆ°æœ€åçš„è¿”å›å€¼
 	array(mapping(string:mixed)) result_to_return = ({});
 	int j = 0;
 	for(int i=0;i<sizeof(result);i++){
 		werror("===== rururirurururu ======\n");
 		string user_id = result[i]["user_id"];
 		object user = find_player(user_id);
-		if(!user){ //Èç¹ûµ±Ç°Òª²Ù×÷µÄÍæ¼Ò²»ÔÚÏß£¬Ôò¼ÓÔØ                                                                     
+		if(!user){ //å¦‚æœå½“å‰è¦æ“ä½œçš„ç©å®¶ä¸åœ¨çº¿ï¼Œåˆ™åŠ è½½                                                                     
 			array list=users(1);
-			object helper; //Ëæ»úÕÒ¸öÔÚÏßµÄÍæ¼Ò£¬ÒÔµ÷ÓÃload_player()À´¼ÓÔØĞèÒª²Ù×÷µÄÍæ¼Ò
+			object helper; //éšæœºæ‰¾ä¸ªåœ¨çº¿çš„ç©å®¶ï¼Œä»¥è°ƒç”¨load_player()æ¥åŠ è½½éœ€è¦æ“ä½œçš„ç©å®¶
 			for(int j=0;j<sizeof(list);j++){
 				helper = list[j];
 				if(helper)

@@ -4,8 +4,8 @@ int main(string arg)
 {
 	object me = this_player();
 	string s = "";
-	s += "你拒绝了加入队伍的邀请。\n";
-	s += "[返回游戏:look]\n";
+	s += "浣犳嫆缁濅簡鍔犲叆闃熶紞鐨勯個璇枫�俓n";
+	s += "[杩斿洖娓告垙:look]\n";
 	write(s);
 	return 1;
 }

@@ -1,16 +1,16 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-//ÓÃÓÚÁĞ³öÔÂ±ıµÄÁĞ±í
+//ç”¨äºåˆ—å‡ºæœˆé¥¼çš„åˆ—è¡¨
 int main(string arg)
 {
-	string s = "ÉÏºÃµÄÔÂ±ı¼ÄÍĞ¸ü¶àµÄË¼Áµ\n\n";
+	string s = "ä¸Šå¥½çš„æœˆé¥¼å¯„æ‰˜æ›´å¤šçš„æ€æ‹\n\n";
 	object me=this_player();
-	s += "[Á«ÈØÔÂ±ı:yuebing_buy lianrong 0]\n";
-	s += "[µ°»ÆÔÂ±ı:yuebing_buy danhuang 0]\n";
-	s += "[ÔæÄàÔÂ±ı:yuebing_buy zaoni 0]\n";
-	s += "[¶¹É³ÔÂ±ı:yuebing_buy dousha 0]\n";
-	s += "[ÎåÈÊÔÂ±ı:yuebing_buy wuren 0]\n";
-	s += "\n[·µ»ØÓÎÏ·:look]\n";
+	s += "[è²è“‰æœˆé¥¼:yuebing_buy lianrong 0]\n";
+	s += "[è›‹é»„æœˆé¥¼:yuebing_buy danhuang 0]\n";
+	s += "[æ£æ³¥æœˆé¥¼:yuebing_buy zaoni 0]\n";
+	s += "[è±†æ²™æœˆé¥¼:yuebing_buy dousha 0]\n";
+	s += "[äº”ä»æœˆé¥¼:yuebing_buy wuren 0]\n";
+	s += "\n[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

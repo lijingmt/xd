@@ -1,12 +1,12 @@
 #include <globals.h>
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
-//³ÇÖ÷±»¹¥»÷ĞèÒªµ÷ÓÃÕâ¸ö³ÌĞòÀïµÄÍ¨¸æÄ£¿é
+//åŸä¸»è¢«æ”»å‡»éœ€è¦è°ƒç”¨è¿™ä¸ªç¨‹åºé‡Œçš„é€šå‘Šæ¨¡å—
 #define CITYD ((object)(ROOT "/gamelib/single/daemons/cityd"))
 private int tmp_heart_beat;
 private int in_combat;
 private mapping items;
-//Ó°ÉäÈ¡ÖÖ×åÖ°ÒµÀàĞÍ±í
+//å½±å°„å–ç§æ—èŒä¸šç±»å‹è¡¨
 static mapping(string:int) profe_fight=([
 		"jianxian":0,
 		"yushi":1,
@@ -22,40 +22,40 @@ static mapping(string:int) profe_fight=([
 		"bugs":11
 		]);
 
-//¼¼ÄÜ³ğºŞ¼ÓÈ¨Ó³Éä±í
+//æŠ€èƒ½ä»‡æ¨åŠ æƒæ˜ å°„è¡¨
 private mapping(string:int) skills_hate=([
 		"test":100,
 
 		]);
 
-//Õ½¶·ÃèÊö//////////////////////////////////
-//ÓÉliaochengÓÚ07/1/11Ìí¼Ó£¬ÓÃÓÚÕ½¶·ÃèÊö
+//æˆ˜æ–—æè¿°//////////////////////////////////
+//ç”±liaochengäº07/1/11æ·»åŠ ï¼Œç”¨äºæˆ˜æ–—æè¿°
 static mapping(string:array(string)) m_fight_desc=([
-		"jian"  :({"Ò»¸öÖ±´Ì","Ò»¸öºáÉ¨","Ò»ÕóÂÒÎè","Ò»¸öĞ±¿³"}),
-		"dao"   :({"Ò»¸öË³ÊÆÕ¶","Ò»¶ÙÃÍ¿³","Ò»¸öÍ»½ø","Ò»¸öµ¥µ¶ÅüÂí"}),
-		"qiang" :({"Ò»¸öÖ±´Ì","Ò»¸ö¸ú½ø","Ò»¸öÉÏÌô","Çï·çÉ¨ÂäÒ¶","Ò»¸ö»ØÂíÇ¹"}),
-		"gun"   :({"Ò»¸ö×óºáÉ¨","µ±Í·Ò»°ô","Ê©Õ¹Èº¹÷ÂÒÎè","Ò»¸öÖ±ÏßÍ»½ø"}),
-		"bi"    :({"Ò»¸ö×ó´Ì","Ò»¸öÓÒ´Ì","Ò»¸öÖ±´Ì","Ò»¸ö¸îÊ×","Ò»¸ö¶Ï½î"}),
-		"zhang" :({"Ò»¸öÃÍ»÷","Ò»¸öºáÉ¨","Ó­ÃæÆËÈ¥","×óÓÒÂÒ´ò"}),
-		"chui"  :({"µ±Í·ÔÒÏÂ","Ò»¸ö½ğ¸Õ±§È­","ÂÕÁË¹ıÈ¥","Ò»¼ÆÖØÑ¹","Ò»¼ÆÕğÉ½ÇÃ»¢"}),
-		"fu"	:({"Ò»¸öºáÉ¨","Ò»¶Ù¿ñ¿³","Ó­Ãæ¿³ÏÂ","Ê¹³öÒ»¼ÆÆÆÈÕÔÂ"}),
-		"none"	:({"Ó­ÃæÒ»È­","Ò»¸ö×ó°Ú","Ò»¸öÖ±È­","ºôºô´øÏì"}),
-		"beast" :({"·è¿ñËºÒ§","Ò»¸öÃÍ³å","Ò»¼Æ×¦»÷","·¢³ö´Ì¶úºğ½Ğ"}),
-		"bird"	:({"Õ¹³áÆË´ò","Ò»¸ö¸©³å","ÂÒ×ÄÒ»Æø","ÂÒ×¥Ò»Í¨"}),
-		"fish"  :({"Ò»¸ö³å×²","Ò»¸öÎ²²¿ÅÄ´ò","Ğ¡Ò§Ò»¿Ú"}),
-		"amphibian"  :({"Ò»¸ö³å×²","Ò»¸öÎ²²¿ÅÄ´ò","Ğ¡Ò§Ò»¿Ú"}),
-		"bugs"  :({"Ò»¸ö³å×²","Ò»¸ö¶¤´Ì","Ğ¡òØÒ»ÏÂ","¶¾ÒºÅçÉä"})
+		"jian"  :({"ä¸€ä¸ªç›´åˆº","ä¸€ä¸ªæ¨ªæ‰«","ä¸€é˜µä¹±èˆ","ä¸€ä¸ªæ–œç "}),
+		"dao"   :({"ä¸€ä¸ªé¡ºåŠ¿æ–©","ä¸€é¡¿çŒ›ç ","ä¸€ä¸ªçªè¿›","ä¸€ä¸ªå•åˆ€åŠˆé©¬"}),
+		"qiang" :({"ä¸€ä¸ªç›´åˆº","ä¸€ä¸ªè·Ÿè¿›","ä¸€ä¸ªä¸ŠæŒ‘","ç§‹é£æ‰«è½å¶","ä¸€ä¸ªå›é©¬æª"}),
+		"gun"   :({"ä¸€ä¸ªå·¦æ¨ªæ‰«","å½“å¤´ä¸€æ£’","æ–½å±•ç¾¤æ£ä¹±èˆ","ä¸€ä¸ªç›´çº¿çªè¿›"}),
+		"bi"    :({"ä¸€ä¸ªå·¦åˆº","ä¸€ä¸ªå³åˆº","ä¸€ä¸ªç›´åˆº","ä¸€ä¸ªå‰²é¦–","ä¸€ä¸ªæ–­ç­‹"}),
+		"zhang" :({"ä¸€ä¸ªçŒ›å‡»","ä¸€ä¸ªæ¨ªæ‰«","è¿é¢æ‰‘å»","å·¦å³ä¹±æ‰“"}),
+		"chui"  :({"å½“å¤´ç ¸ä¸‹","ä¸€ä¸ªé‡‘åˆšæŠ±æ‹³","æŠ¡äº†è¿‡å»","ä¸€è®¡é‡å‹","ä¸€è®¡éœ‡å±±æ•²è™"}),
+		"fu"	:({"ä¸€ä¸ªæ¨ªæ‰«","ä¸€é¡¿ç‹‚ç ","è¿é¢ç ä¸‹","ä½¿å‡ºä¸€è®¡ç ´æ—¥æœˆ"}),
+		"none"	:({"è¿é¢ä¸€æ‹³","ä¸€ä¸ªå·¦æ‘†","ä¸€ä¸ªç›´æ‹³","å‘¼å‘¼å¸¦å“"}),
+		"beast" :({"ç–¯ç‹‚æ’•å’¬","ä¸€ä¸ªçŒ›å†²","ä¸€è®¡çˆªå‡»","å‘å‡ºåˆºè€³å¼å«"}),
+		"bird"	:({"å±•ç¿…æ‰‘æ‰“","ä¸€ä¸ªä¿¯å†²","ä¹±å•„ä¸€æ°”","ä¹±æŠ“ä¸€é€š"}),
+		"fish"  :({"ä¸€ä¸ªå†²æ’","ä¸€ä¸ªå°¾éƒ¨æ‹æ‰“","å°å’¬ä¸€å£"}),
+		"amphibian"  :({"ä¸€ä¸ªå†²æ’","ä¸€ä¸ªå°¾éƒ¨æ‹æ‰“","å°å’¬ä¸€å£"}),
+		"bugs"  :({"ä¸€ä¸ªå†²æ’","ä¸€ä¸ªé’‰åˆº","å°èœ‡ä¸€ä¸‹","æ¯’æ¶²å–·å°„"})
 		]);
-//Ö÷Òª½Ó¿Ú£¬ÓÉattack£¨£©ÖĞµÄÕ½¶·ÃèÊö´úÂëµ÷ÓÃ
-//ÔÚÊ¹ÓÃËüÖ®Ç°£¬ÎÒÃÇĞèÒªµÃµ½arg£¬¼´ÔÚ_fight()ÖĞÒªÌí¼ÓÏàÓ¦µÄÅĞ¶Ï
-string query_fight_desc(string arg) {  //arg ÎªÉÏÃæÓ°Éä±íµÄindexÖĞµÄ
+//ä¸»è¦æ¥å£ï¼Œç”±attackï¼ˆï¼‰ä¸­çš„æˆ˜æ–—æè¿°ä»£ç è°ƒç”¨
+//åœ¨ä½¿ç”¨å®ƒä¹‹å‰ï¼Œæˆ‘ä»¬éœ€è¦å¾—åˆ°argï¼Œå³åœ¨_fight()ä¸­è¦æ·»åŠ ç›¸åº”çš„åˆ¤æ–­
+string query_fight_desc(string arg) {  //arg ä¸ºä¸Šé¢å½±å°„è¡¨çš„indexä¸­çš„
 	array(string) desc_tmp=m_fight_desc[arg];
 	if(desc_tmp)
 		return desc_tmp[random(sizeof(desc_tmp))];
 	else
 		return ("");
 }
-//»ñµÃargµÄ½Ó¿Ú,¶ÔÓÚÈËĞÎÉúÎïÎÒÃÇ·µ»Øneed_weapon_type£¬ÔÚ_fight()ÖĞÔÙ¸ø³ö×îÖÕÊ¹ÓÃµÄÎäÆ÷ÀàĞÍ
+//è·å¾—argçš„æ¥å£,å¯¹äºäººå½¢ç”Ÿç‰©æˆ‘ä»¬è¿”å›need_weapon_typeï¼Œåœ¨_fight()ä¸­å†ç»™å‡ºæœ€ç»ˆä½¿ç”¨çš„æ­¦å™¨ç±»å‹
 string query_fight_type() {
 	string proId=this_object()->query_profeId();
 	switch(profe_fight[proId]){
@@ -67,11 +67,11 @@ string query_fight_type() {
 			break;
 	}
 }
-static string fight_desc_arg_main="";//Îª¿ÕÊ±±íÊ¾²»ÊÇÈËĞÎ£¬²»Îª¿ÕÊ±¼ÇÂ¼Ö÷ÊÖÎäÆ÷µÄËùÊôÀàĞÍ
-static string fight_desc_arg_other="";//ÔÚfight_desc_arg_mainÎª¿ÕÊ±£¬¼ÇÂ¼¸±ÊÖÎäÆ÷µÄËùÊôÀàĞÍ
+static string fight_desc_arg_main="";//ä¸ºç©ºæ—¶è¡¨ç¤ºä¸æ˜¯äººå½¢ï¼Œä¸ä¸ºç©ºæ—¶è®°å½•ä¸»æ‰‹æ­¦å™¨çš„æ‰€å±ç±»å‹
+static string fight_desc_arg_other="";//åœ¨fight_desc_arg_mainä¸ºç©ºæ—¶ï¼Œè®°å½•å‰¯æ‰‹æ­¦å™¨çš„æ‰€å±ç±»å‹
 
 
-// Õ½¶·ÉËº¦////////////////////////////////
+// æˆ˜æ–—ä¼¤å®³////////////////////////////////
 private int attack_weapon=0;
 private int attack_huoyan_add=0;
 private int attack_bingshuang_add=0;
@@ -81,18 +81,18 @@ private int defend = 0;
 //////////////////////////////////////////
 
 private int killing;
-private int autoPerforming;//×Ô¶¯ÊÍ·Å¼¼ÄÜµÚÒ»´Î±êÊ¾
+private int autoPerforming;//è‡ªåŠ¨é‡Šæ”¾æŠ€èƒ½ç¬¬ä¸€æ¬¡æ ‡ç¤º
 object enemy;
 private string action;//"escape"|"perform ..."
-static string accept_fight_msg="$N½ÓÊÜÁË$pµÄÌôÕ½¡£";
+static string accept_fight_msg="$Næ¥å—äº†$pçš„æŒ‘æˆ˜ã€‚";
 read_only(accept_fight_msg);
-static string deny_fight_msg="$N²»Ô¸ÒâºÍ$p¹ıÕĞ¡£";
+static string deny_fight_msg="$Nä¸æ„¿æ„å’Œ$pè¿‡æ‹›ã€‚";
 read_only(deny_fight_msg);
-static string success_msg="$N¶Ô$p¹°ÊÖµÀ£º¡°³ĞÈÃÁË¡£¡±";
+static string success_msg="$Nå¯¹$pæ‹±æ‰‹é“ï¼šâ€œæ‰¿è®©äº†ã€‚â€";
 read_only(success_msg);
-static string surrender_msg="$NÏò$p´óÉùÇóÈÄµÀ£º¡°±ğ´òÁË±ğ´òÁË£¬ÎÒÍ¶½µÁË¡£¡±";
+static string surrender_msg="$Nå‘$på¤§å£°æ±‚é¥¶é“ï¼šâ€œåˆ«æ‰“äº†åˆ«æ‰“äº†ï¼Œæˆ‘æŠ•é™äº†ã€‚â€";
 read_only(surrender_msg);
-static string killing_msg="$N¿´ÆğÀ´ÏëÉ±ÁË$p¡£";
+static string killing_msg="$Nçœ‹èµ·æ¥æƒ³æ€äº†$pã€‚";
 read_only(killing_msg);
 int query_killing(){
 	return killing;
@@ -102,11 +102,11 @@ int query_in_combat(){
 }
 private void recover(){
 	if(in_combat) return;
-	//npcÕ½¶·ÒÔºó×Ô¶¯»Ö¸´ÉúÃü
+	//npcæˆ˜æ–—ä»¥åè‡ªåŠ¨æ¢å¤ç”Ÿå‘½
 	this_object()->life=this_object()->life_max;
 }
 void _clean_fight(){
-	//werror("\n----"+this_object()->query_name_cn()+"ºô½Ğ_clean_fight()¿ªÊ¼----\n");
+	//werror("\n----"+this_object()->query_name_cn()+"å‘¼å«_clean_fight()å¼€å§‹----\n");
 	in_combat=0;
 	action=0;
 	killing=0;
@@ -114,13 +114,13 @@ void _clean_fight(){
 	this_object()->timeCold = 0;
 	this_object()->eat_timeCold = 0;
 	if(this_object()->is("npc")){
-		this_object()->who_fight_npc = "";//ÖØÖÃÊ×´Î¹¥»÷Õß
-		this_object()->term_who_fight_npc = "";//ÖØÖÃÊ×´Î¹¥»÷Õß¶ÓÎé±êÊ¾          
+		this_object()->who_fight_npc = "";//é‡ç½®é¦–æ¬¡æ”»å‡»è€…
+		this_object()->term_who_fight_npc = "";//é‡ç½®é¦–æ¬¡æ”»å‡»è€…é˜Ÿä¼æ ‡ç¤º          
 	}
 	else 
-		//»¹Ô­É±Â¾±ê,Ê¾ÒòÎª°ïÕ½ÒªÇó£¬ÓÉliaochengÓÚ08/08/30Ìí¼Ó
+		//è¿˜åŸæ€æˆ®æ ‡,ç¤ºå› ä¸ºå¸®æˆ˜è¦æ±‚ï¼Œç”±liaochengäº08/08/30æ·»åŠ 
 		this_object()->kill_flag = 1;
-	this_object()->reset_targets(); //ÖØÖÃ³ğºŞÁĞ±í
+	this_object()->reset_targets(); //é‡ç½®ä»‡æ¨åˆ—è¡¨
 	if(tmp_heart_beat){
 		set_heart_beat(0);
 		tmp_heart_beat=0;
@@ -129,7 +129,7 @@ void _clean_fight(){
 		if(zero_type(find_call_out(recover)))
 			call_out(recover,2);
 	}
-	//³õÊ¼»¯debuffÓ³Éä±í
+	//åˆå§‹åŒ–debuffæ˜ å°„è¡¨
 	this_object()->set_debuff("dot",0,"none");
 	this_object()->set_debuff("dot",1,0);
 	this_object()->set_debuff("dot",2,0);
@@ -139,30 +139,30 @@ void _clean_fight(){
 	this_object()->set_debuff("curse2",0,"none");
 	this_object()->set_debuff("curse2",1,0);
 	this_object()->set_debuff("curse2",2,0);
-	//³õÊ¼»¯buffÓ³Éä±í
+	//åˆå§‹åŒ–buffæ˜ å°„è¡¨
 	this_object()->set_buff("buff",0,"none");
 	this_object()->set_buff("buff",1,0);
 	this_object()->set_buff("buff",2,0);
 	this_object()->set_buff("buff2",0,"none");
 	this_object()->set_buff("buff2",1,0);
 	this_object()->set_buff("buff2",2,0);
-	//werror("\n22222"+this_object()->query_name_cn()+"ºô½Ğ_clean_fight()½áÊø222222\n");
+	//werror("\n22222"+this_object()->query_name_cn()+"å‘¼å«_clean_fight()ç»“æŸ222222\n");
 }
 //private void escape(void|int change){
 void escape(void|int change){
 	if(this_object()->get_cur_life()>0&&enemy->get_cur_life()>0){
 		if(this_object()->query_debuff("70_skill_curse",0) == "baofengfeixue"){
-			tell_object(this_object(),"¡¾Ñı¡¿±©·ç·ÉÑ©Ğ§¹û£¬ÄãÎŞ·¨ÌÓÅÜ¡£\n");
+			tell_object(this_object(),"ã€å¦–ã€‘æš´é£é£é›ªæ•ˆæœï¼Œä½ æ— æ³•é€ƒè·‘ã€‚\n");
 			return;
 		}
 		int succ = 40+(int)(this_object()->query_dex()/20);
 		if(random(100)>=succ){
-			tell_object(enemy,this_object()->query_name_cn()+"ÏëÌÓÅÜ£¬µ«ÊÇÊ§°ÜÁË¡£\n");
-			tell_object(this_object(),"ÄãÌÓÅÜÊ§°ÜÁË¡£\n");
+			tell_object(enemy,this_object()->query_name_cn()+"æƒ³é€ƒè·‘ï¼Œä½†æ˜¯å¤±è´¥äº†ã€‚\n");
+			tell_object(this_object(),"ä½ é€ƒè·‘å¤±è´¥äº†ã€‚\n");
 			return;
 		}
-		tell_object(enemy,this_object()->query_name_cn()+"ÌÓÅÜÁË¡£\n");
-		tell_object(this_object(),"ÄãÌÓÅÜÁË¡£\n");
+		tell_object(enemy,this_object()->query_name_cn()+"é€ƒè·‘äº†ã€‚\n");
+		tell_object(this_object(),"ä½ é€ƒè·‘äº†ã€‚\n");
 		enemy->clean_targets(this_object());
 		_clean_fight();
 		object env=environment(this_object());
@@ -173,36 +173,36 @@ void escape(void|int change){
 	}
 	else{                                                                    
 		if(!this_object()->is("npc"))
-			tell_object(this_object(),"ÄãÒÑ¾­ËÀÍö¡£\n");
+			tell_object(this_object(),"ä½ å·²ç»æ­»äº¡ã€‚\n");
 		return;
 	}
 }
-//¼¼ÄÜÉı¼¶ÏµÍ³20070206//////////////////////////////////
-//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
-//¶øÇÒ£¬·ÀÖ¹³¬³ö¼¼ÄÜµÈ¼¶ÉÏÏŞ¶øÒç³ö
+//æŠ€èƒ½å‡çº§ç³»ç»Ÿ20070206//////////////////////////////////
+//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
+//è€Œä¸”ï¼Œé˜²æ­¢è¶…å‡ºæŠ€èƒ½ç­‰çº§ä¸Šé™è€Œæº¢å‡º
 	void skills_level_check(string sname){
 		if(MUD_SKILLSD[sname]->boss_skill == 1)
 			return;
 		int cur_skills_level_limit = 10;
-		//µ±Ç°¸ÃÓÃ»§¸Ã¼¼ÄÜµÈ¼¶µÄÊìÁ·¶È´óÓÚ¸Ã¼¼ÄÜ±¾Éí¸ÃµÈ¼¶µÄÊìÁ·¶È£¬ÔòÉı¼¶¸ÃÓÃ»§µÄ¸Ã¼¼ÄÜµÈ¼¶
+		//å½“å‰è¯¥ç”¨æˆ·è¯¥æŠ€èƒ½ç­‰çº§çš„ç†Ÿç»ƒåº¦å¤§äºè¯¥æŠ€èƒ½æœ¬èº«è¯¥ç­‰çº§çš„ç†Ÿç»ƒåº¦ï¼Œåˆ™å‡çº§è¯¥ç”¨æˆ·çš„è¯¥æŠ€èƒ½ç­‰çº§
 		if( this_object()->skills[sname][1]>=MUD_SKILLSD[sname]->performs_shuliandu[this_object()->skills[sname][0]] ){
-			//µ±Ç°¼¼ÄÜµÈ¼¶Éè¶¨ÉÏÏŞÎª10¼¶
+			//å½“å‰æŠ€èƒ½ç­‰çº§è®¾å®šä¸Šé™ä¸º10çº§
 			if(this_object()->skills[sname][0]<cur_skills_level_limit){
 				this_object()->skills[sname][0]++;
 				this_object()->skills[sname][1] = 0;
 			}
 		}
 		else{
-			//¼¼ÄÜÉı¼¶ËÙ¶È½µµÍÒ»°ë
+			//æŠ€èƒ½å‡çº§é€Ÿåº¦é™ä½ä¸€åŠ
 			int tmp = random(3)+1;
 			if(tmp==2)
 				this_object()->skills[sname][1]++;
 		}
 	}
-//¼¼ÄÜÉı¼¶ÏµÍ³20070206//////////////////////////////////
-//¼¼ÄÜÊÍ·Å½Ó¿Ú20070131//////////////////////////////////
+//æŠ€èƒ½å‡çº§ç³»ç»Ÿ20070206//////////////////////////////////
+//æŠ€èƒ½é‡Šæ”¾æ¥å£20070131//////////////////////////////////
 void perform(string name,void|int flag){
-	//¹ÖËÀÍöÅĞ¶Ï......
+	//æ€ªæ­»äº¡åˆ¤æ–­......
 	if(enemy==0)
 		return;
 	if(enemy && environment(this_object())==environment(enemy)){
@@ -211,55 +211,55 @@ void perform(string name,void|int flag){
 			enemy->first_fight = 1;
 		}
 	}
-	object f_cur_skill;//µ±Ç°Ê¹ÓÃ¼¼ÄÜ¶ÔÏó
-	string s = "";//ÃæÏò×Ô¼ºµÄÕ½¶·ÃèÊö
-	string s1=""; //ÃæÏòµĞÈËµÄÕ½¶·ÃèÊö
+	object f_cur_skill;//å½“å‰ä½¿ç”¨æŠ€èƒ½å¯¹è±¡
+	string s = "";//é¢å‘è‡ªå·±çš„æˆ˜æ–—æè¿°
+	string s1=""; //é¢å‘æ•Œäººçš„æˆ˜æ–—æè¿°
 	if(name&&sizeof(name))
 		f_cur_skill = (object)MUD_SKILLSD[name];
 	else
 	{
-		string stmp = "ÄãÒªÊ©·ÅÊ²Ã´¼¼ÄÜ£¿";
+		string stmp = "ä½ è¦æ–½æ”¾ä»€ä¹ˆæŠ€èƒ½ï¼Ÿ";
 		tell_object(this_object(),stmp+"\n");
 		return;
 	}
 	if(this_object()->query_debuff("curse2",0)=="shenzhishufu"){
 		int time_left = this_object()->query_debuff("curse2",2);
-		string stmp = "¡¾Ñı¡¿ÉñÖ®Êø¸¿Ğ§¹û£¬ÄãÔİÊ±ÎŞ·¨Ê¹ÓÃ¼¼ÄÜ(»¹Ê£"+time_left+"s)\n";
+		string stmp = "ã€å¦–ã€‘ç¥ä¹‹æŸç¼šæ•ˆæœï¼Œä½ æš‚æ—¶æ— æ³•ä½¿ç”¨æŠ€èƒ½(è¿˜å‰©"+time_left+"s)\n";
 		tell_object(this_object(),stmp+"\n");
 		return;
 	}
 	if(this_object()->timeCold!=0 && !flag){
-		string stmp = "»¹ÓĞ"+this_object()->timeCold+"Ãë·¨Êõ¹«¹²ÀäÈ´Ê±¼ä\n";
+		string stmp = "è¿˜æœ‰"+this_object()->timeCold+"ç§’æ³•æœ¯å…¬å…±å†·å´æ—¶é—´\n";
 		tell_object(this_object(),stmp);
 		return;
 	}
 	if(f_cur_skill){
-		int can_skill_level=0;//±¾×Ö¶Î¼ÇÂ¼ Íæ¼Ò¿ÉÒÔÊ¹ÓÃµÄ¸Ã¼¼ÄÜµÄ×î¸ß¼¶±ğ
-		//Ê×ÏÈÅĞ¶Ï¼¼ÄÜÊ¹ÓÃµÄµÈ¼¶ÏŞÖÆ
+		int can_skill_level=0;//æœ¬å­—æ®µè®°å½• ç©å®¶å¯ä»¥ä½¿ç”¨çš„è¯¥æŠ€èƒ½çš„æœ€é«˜çº§åˆ«
+		//é¦–å…ˆåˆ¤æ–­æŠ€èƒ½ä½¿ç”¨çš„ç­‰çº§é™åˆ¶
 		//mapping(int:string) lvLimit = f_cur_skill->query_performs_level_limit_all(); 
-		//ÓĞÊ±ºòºÜÆæ¹Ö£¬Õâ¸ö·½·¨ÕÒ²»µ½£¬ËùÒÔÒªÅĞ¶ÏÏÂÕâ¸ö·½·¨£¬Èç¹û´æÔÚÔÙÖ´ĞĞ£¬·ñÔòÔò·µ»Ø0£¬²»¼ì²é¼¶±ğ
+		//æœ‰æ—¶å€™å¾ˆå¥‡æ€ªï¼Œè¿™ä¸ªæ–¹æ³•æ‰¾ä¸åˆ°ï¼Œæ‰€ä»¥è¦åˆ¤æ–­ä¸‹è¿™ä¸ªæ–¹æ³•ï¼Œå¦‚æœå­˜åœ¨å†æ‰§è¡Œï¼Œå¦åˆ™åˆ™è¿”å›0ï¼Œä¸æ£€æŸ¥çº§åˆ«
 		mapping(int:string) lvLimit = f_cur_skill->query_performs_level_limit_all?f_cur_skill->query_performs_level_limit_all():0;                                         
-		if(lvLimit && sizeof(lvLimit))//¸Ã¼¼ÄÜÓĞµÈ¼¶ÏŞÖÆ
+		if(lvLimit && sizeof(lvLimit))//è¯¥æŠ€èƒ½æœ‰ç­‰çº§é™åˆ¶
 		{
-			//µÚÒ»ÖÖÇé¿ö£º¼¼ÄÜÓĞÊìÁ·¶È£¬Ê¹ÓÃµÃÔ½¶à¼¶±ğÔ½¸ß£¬ÕâÖÖ¼¼ÄÜÖ»ÓĞÒ»¸öµÈ¼¶ÏŞÖÆ
-			if(sizeof(lvLimit) == 1){ //Ö»ÓĞÒ»¸ö¼¶±ğµÄ¼¼ÄÜ
+			//ç¬¬ä¸€ç§æƒ…å†µï¼šæŠ€èƒ½æœ‰ç†Ÿç»ƒåº¦ï¼Œä½¿ç”¨å¾—è¶Šå¤šçº§åˆ«è¶Šé«˜ï¼Œè¿™ç§æŠ€èƒ½åªæœ‰ä¸€ä¸ªç­‰çº§é™åˆ¶
+			if(sizeof(lvLimit) == 1){ //åªæœ‰ä¸€ä¸ªçº§åˆ«çš„æŠ€èƒ½
 				if(this_object()->query_level()<lvLimit[1])
 				{
-					string stmp = "ÄãÉĞÎ´´ïµ½"+lvLimit[1]+"¼¶£¬ÎŞ·¨Ê¹ÓÃ¸Ã¼¼ÄÜ¡£\n";
+					string stmp = "ä½ å°šæœªè¾¾åˆ°"+lvLimit[1]+"çº§ï¼Œæ— æ³•ä½¿ç”¨è¯¥æŠ€èƒ½ã€‚\n";
 					tell_object(this_object(),stmp);
 					return;
 				}
 			}
-			else{//µÚ¶şÖÖÇé¿ö£»¼¼ÄÜ·ÖÎª¼¸¸öµÈ¼¶£¬Ã¿¸öµÈ¼¶¶ÔÓ¦µÄlvÒªÇó²»Í¬£¬Ä³¸ö¼¶±ğ²»ÄÜÊ¹ÓÃ£¬Ôò×Ô¶¯ÅĞ¶ÏÆäÄÜ·ñÊ¹ÓÃ½ÏµÍµÄ¼¶±ğ£¬·´¸´ÅĞ¶ÏÖ±µ½×îµÍ¼¶±ğ£»
+			else{//ç¬¬äºŒç§æƒ…å†µï¼›æŠ€èƒ½åˆ†ä¸ºå‡ ä¸ªç­‰çº§ï¼Œæ¯ä¸ªç­‰çº§å¯¹åº”çš„lvè¦æ±‚ä¸åŒï¼ŒæŸä¸ªçº§åˆ«ä¸èƒ½ä½¿ç”¨ï¼Œåˆ™è‡ªåŠ¨åˆ¤æ–­å…¶èƒ½å¦ä½¿ç”¨è¾ƒä½çš„çº§åˆ«ï¼Œåå¤åˆ¤æ–­ç›´åˆ°æœ€ä½çº§åˆ«ï¼›
 				for(int i=sizeof(lvLimit);i>0;i--)
 				{
 					if(this_object()->query_level>=lvLimit[i])
 					{
 						can_skill_level = i;
 					}
-					else if(i == 1)//Íæ¼ÒÁ¬×îµÍÒ»¼¶µÄÒªÇó¶¼Ã»ÓĞ´ïµ½£¬ÔòÎŞ·¨Ê¹ÓÃ¸Ã¼¼ÄÜ¡£
+					else if(i == 1)//ç©å®¶è¿æœ€ä½ä¸€çº§çš„è¦æ±‚éƒ½æ²¡æœ‰è¾¾åˆ°ï¼Œåˆ™æ— æ³•ä½¿ç”¨è¯¥æŠ€èƒ½ã€‚
 					{
-						string stmp = "ÄãÉĞÎ´´ïµ½"+lvLimit[1]+"¼¶£¬ÎŞ·¨Ê¹ÓÃ¸Ã¼¼ÄÜ¡£\n";
+						string stmp = "ä½ å°šæœªè¾¾åˆ°"+lvLimit[1]+"çº§ï¼Œæ— æ³•ä½¿ç”¨è¯¥æŠ€èƒ½ã€‚\n";
 						tell_object(this_object(),stmp);
 						return;
 					}
@@ -267,9 +267,9 @@ void perform(string name,void|int flag){
 			}
 		}
 
-		//ÅĞ¶ÏÓĞÕâÖÖ¼¼ÄÜ
-		string mofa_type=f_cur_skill->s_skill_type; //µÃµ½Ä§·¨ÀàĞÍ
-		//ÔÙÅĞ¶ÏÊÇ·ñÓĞ×ã¹»µÄ·¨Á¦Ê©·Å¸Ã¼¼ÄÜ
+		//åˆ¤æ–­æœ‰è¿™ç§æŠ€èƒ½
+		string mofa_type=f_cur_skill->s_skill_type; //å¾—åˆ°é­”æ³•ç±»å‹
+		//å†åˆ¤æ–­æ˜¯å¦æœ‰è¶³å¤Ÿçš„æ³•åŠ›æ–½æ”¾è¯¥æŠ€èƒ½
 		int skill_level=(int)(this_object()->skills[name][0]);
 		//werror("===========skill_level:"+skill_level+"\n");
 		if(skill_level>can_skill_level&&can_skill_level>0)
@@ -277,10 +277,10 @@ void perform(string name,void|int flag){
 		//werror("===========275 skill_level:"+skill_level+"\n");
 		int s_cast = f_cur_skill->query_performs_cast(skill_level);
 		if(s_cast<=this_object()->get_cur_mofa()){
-			//ÓĞ×ã¹»µÄ·¨Á¦
-			int s_cold = this_object()->f_skills[name];//¼¼ÄÜµÄÀäÈ´Ê±¼ä
-			int s_cold_del = 0;//Òò¼¼ÄÜ¶ø¼õÉÙµÄÀäÈ´Ê±¼ä
-			int s_cold_add = 0;//Òò¼¼ÄÜ¶øÑÓ³¤µÄÀäÈ´Ê±¼ä
+			//æœ‰è¶³å¤Ÿçš„æ³•åŠ›
+			int s_cold = this_object()->f_skills[name];//æŠ€èƒ½çš„å†·å´æ—¶é—´
+			int s_cold_del = 0;//å› æŠ€èƒ½è€Œå‡å°‘çš„å†·å´æ—¶é—´
+			int s_cold_add = 0;//å› æŠ€èƒ½è€Œå»¶é•¿çš„å†·å´æ—¶é—´
 			if(this_object()->query_buff("70_skill_buff",0)=="lieyanzhuoshao"||this_object()->query_buff("70_skill_buff",0)=="bingci"){
 				s_cold_del = this_object()->query_buff("70_skill_buff",1);
 				s_cold -= s_cold_del;
@@ -291,15 +291,15 @@ void perform(string name,void|int flag){
 			}
 			if(s_cold < 0)
 				s_cold = 0;
-			//Ê×ÏÈÅĞ¶ÏÊÇ·ñÊÇ¸÷Ö°ÒµÓĞÌØÊâĞ§¹û¼¼ÄÜ£¬ÓÉliaochengÓÚ08/01/16Ìí¼Ó
+			//é¦–å…ˆåˆ¤æ–­æ˜¯å¦æ˜¯å„èŒä¸šæœ‰ç‰¹æ®Šæ•ˆæœæŠ€èƒ½ï¼Œç”±liaochengäº08/01/16æ·»åŠ 
 			if(mofa_type == "spec"){
 				if(s_cold <= 1){
 					this_object()->timeCold = 2;
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
-					//¸üĞÂ¸Ã¼¼ÄÜÀäÈ´Ê±¼ä,Ã»ÔÚ±íÀïµÄÔòÊÇÌí¼Ó
+					//æ›´æ–°è¯¥æŠ€èƒ½å†·å´æ—¶é—´,æ²¡åœ¨è¡¨é‡Œçš„åˆ™æ˜¯æ·»åŠ 
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
 					if(name == "xinhunzhuanhua" || name == "xinhunzhuanhua2"){
-						//½£ÏÉµÄĞÄ»ê×ª»¯
+						//å‰‘ä»™çš„å¿ƒé­‚è½¬åŒ–
 						int life_tmp;
 						if(name == "xinhunzhuanhua")
 							life_tmp = this_object()->get_cur_mofa()*3+this_object()->get_cur_life();
@@ -309,20 +309,20 @@ void perform(string name,void|int flag){
 							life_tmp = this_object()->life_max;
 						this_object()->set_mofa(0);
 						this_object()->set_life(life_tmp);
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")\n";
-						s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")\n";
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")\n";
+						s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")\n";
 						tell_object(this_object(),s);
 						tell_object(enemy,s1);
-						//²úÉú³ğºŞÖµ
+						//äº§ç”Ÿä»‡æ¨å€¼
 						int hate=(int)(100*skills_hate["test"]/100);
 						enemy->flush_targets(this_object(),hate);
 					}
 
 					else if(name == "fashukuangchao" || name == "shishabenneng" || name == "fashukuangchao2" || name == "shishabenneng2"){
-						//ÓğÊ¿µÄ·¨Êõ¿ñ³±£¬ÖïÏÉµÄÊÈÑª±¾ÄÜ
-						//¼ÇÂ¼buffµÄÀàĞÍ
+						//ç¾½å£«çš„æ³•æœ¯ç‹‚æ½®ï¼Œè¯›ä»™çš„å—œè¡€æœ¬èƒ½
+						//è®°å½•buffçš„ç±»å‹
 						this_object()->set_buff("buff2",0,f_cur_skill->s_curse_type);
-						//¼ÇÂ¼buffµÄÖµ
+						//è®°å½•buffçš„å€¼
 						int tmp_int=f_cur_skill->query_performs_attack(skill_level);
 						if(name == "shishabenneng"){
 							tmp_int=this_object()->life_max*2/5;
@@ -335,30 +335,30 @@ void perform(string name,void|int flag){
 							this_object()->f_skills[name] = f_cur_skill->s_delayTime+1;
 						}
 						this_object()->set_buff("buff2",1,tmp_int);
-						//¼ÇÂ¼buffµÄ³ÖĞøÊ±¼ä
+						//è®°å½•buffçš„æŒç»­æ—¶é—´
 						this_object()->set_buff("buff2",2,f_cur_skill->query_s_lasttime(skill_level));
 
-						//²úÉú³ğºŞÖµ,buffµÄ³ğºŞÔİÊ±¶¨Îª10
+						//äº§ç”Ÿä»‡æ¨å€¼,buffçš„ä»‡æ¨æš‚æ—¶å®šä¸º10
 						int hate=(int)(10*skills_hate["test"]/100);
 						enemy->flush_targets(this_object(),hate);
 
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+ "(µÈ¼¶"+skill_level+")";
-						s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+ "(ç­‰çº§"+skill_level+")";
+						s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
 
 					}
 					else if(name == "xueranjiangshan" || name == "xueranjiangshan2"){
-						//¿ñÑıµÄÑªÈ¾½­É½
-						//ÏÈ¿´ÊÇ·ñÓĞÖ÷ÊÖÎäÆ÷£¬Ã»ÓĞ¾Í²»ÄÜ¹¥»÷
+						//ç‹‚å¦–çš„è¡€æŸ“æ±Ÿå±±
+						//å…ˆçœ‹æ˜¯å¦æœ‰ä¸»æ‰‹æ­¦å™¨ï¼Œæ²¡æœ‰å°±ä¸èƒ½æ”»å‡»
 						mapping items = this_object()->query_equip();//[string:object]
 						if(!items["single_main_weapon"]&&!items["double_main_weapon"])
 						{
-							s += "¸Ã¼¼ÄÜĞèÒª×°±¸Ö÷ÊÖÎäÆ÷²ÅÄÜÊ©·Å¡£";
+							s += "è¯¥æŠ€èƒ½éœ€è¦è£…å¤‡ä¸»æ‰‹æ­¦å™¨æ‰èƒ½æ–½æ”¾ã€‚";
 							tell_object(this_object(),s+"\n");
 							return;
 						}
-						//µÈ¼¶Ñ¹ÖÆ
+						//ç­‰çº§å‹åˆ¶
 						int difflevel = enemy->query_level()-this_object()->query_level();
 						if(difflevel<0)
 							difflevel=0;
@@ -367,7 +367,7 @@ void perform(string name,void|int flag){
 						if(h<30)
 							h=30;
 						if(random(100)<=h){
-							//ÃüÖĞÀ² ~
+							//å‘½ä¸­å•¦ ~
 							int s_phy_damage;
 							int life_left;
 							if(name == "xueranjiangshan"){
@@ -378,7 +378,7 @@ void perform(string name,void|int flag){
 								s_phy_damage = this_object()->get_cur_life()*65/100;
 								life_left = this_object()->get_cur_life()*55/100;
 							}
-							string s_name_cn = f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
+							string s_name_cn = f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
 							this_object()->set_life(life_left);
 							if(this_object()->weapon_type=="double_main")
 								attack(s_phy_damage,0,"double_main",s_name_cn,f_cur_skill->query_name());
@@ -386,16 +386,16 @@ void perform(string name,void|int flag){
 								attack(s_phy_damage,0,"single_main",s_name_cn,f_cur_skill->query_name());
 						}
 						else{
-							//Î´ÃüÖĞ	
-							s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+"), µ«Î´ÃüÖĞ¶Ô·½¡£";
-							s1 += this_object()->query_name_cn()+"Ê©·Å"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")£¬µ«Î´»÷ÖĞÄã¡£"; 
+							//æœªå‘½ä¸­	
+							s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+"), ä½†æœªå‘½ä¸­å¯¹æ–¹ã€‚";
+							s1 += this_object()->query_name_cn()+"æ–½æ”¾"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ï¼Œä½†æœªå‡»ä¸­ä½ ã€‚"; 
 							tell_object(this_object(),s+"\n");
 							tell_object(enemy,s1+"\n");
 						}
 					}
 					else if(name == "shenzhishufu" || name == "shenzhishufu2"){
-						//Î×ÑıµÄÉñÖ®Êø¸¿
-						//µÈ¼¶Ñ¹ÖÆ
+						//å·«å¦–çš„ç¥ä¹‹æŸç¼š
+						//ç­‰çº§å‹åˆ¶
 						int difflevel = enemy->query_level()-this_object()->query_level();          
 						if(difflevel<0)
 							difflevel=0;
@@ -403,39 +403,39 @@ void perform(string name,void|int flag){
 						int h = (int)(myhitte-difflevel*5);
 						if(h<30)
 							h=30;
-						if(random(100)<=h){ //ÃüÖĞÀ²~
-							//¼ÇÂ¼×çÖäµÄÀàĞÍ
+						if(random(100)<=h){ //å‘½ä¸­å•¦~
+							//è®°å½•è¯…å’’çš„ç±»å‹
 							enemy->set_debuff("curse2",0,f_cur_skill->s_curse_type);
-							//¼ÇÂ¼×çÖäµÄÖµ
+							//è®°å½•è¯…å’’çš„å€¼
 							enemy->set_debuff("curse2",1,f_cur_skill->query_performs_attack(skill_level));
-							//¼ÇÂ¼×çÖäµÄ³ÖĞøÊ±¼ä
+							//è®°å½•è¯…å’’çš„æŒç»­æ—¶é—´
 							enemy->set_debuff("curse2",2,f_cur_skill->query_s_lasttime(skill_level));
 
-							//²úÉú³ğºŞÖµ,curseµÄ³ğºŞÔİÊ±¶¨Îª20
+							//äº§ç”Ÿä»‡æ¨å€¼,curseçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 							int hate=(int)(20*skills_hate["test"]/100);
 							enemy->flush_targets(this_object(),hate);
 
-							s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-							s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
+							s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+							s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
 							tell_object(this_object(),s+"\n");
 							tell_object(enemy,s1+"\n");
 
-							//Õ½¶·ÖĞ»÷ÖĞ¶Ô·½£¬¼õ¹¥»÷ÕßÎäÆ÷Ä¥Ëğ
+							//æˆ˜æ–—ä¸­å‡»ä¸­å¯¹æ–¹ï¼Œå‡æ”»å‡»è€…æ­¦å™¨ç£¨æŸ
 							this_object()->reduce_fight_wield_weapon(1);
-							//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+							//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 							enemy->reduce_fight_wear_armor(1);
 						}
-						else { //Î´ÃüÖĞ
-							s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+"), µ«±»¶Ô·½µÖ¿¹ÁË¡£";
-							s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")£¬µ«±»ÄãµÖ¿¹ÁË";
+						else { //æœªå‘½ä¸­
+							s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+"), ä½†è¢«å¯¹æ–¹æŠµæŠ—äº†ã€‚";
+							s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 							tell_object(this_object(),s+"\n");
 							tell_object(enemy,s1+"\n");
 						}
 					}
 					else if(name == "jinchanmeiying" || name == "jinchanmeiying2"){
-						//Ó°¹íµÄ½ğ²õ÷ÈÓ°
+						//å½±é¬¼çš„é‡‘è‰é­…å½±
 						array(object) enemys = this_object()->get_all_targets();
-						s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")\n";
+						s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")\n";
 						if(enemys && sizeof(enemys)){
 							for(int i=0;i<sizeof(enemys);i++){
 								object target = enemys[i];
@@ -453,25 +453,25 @@ void perform(string name,void|int flag){
 							this_object()->set_buff("spec_attack_buff",1,tmp_int);
 							this_object()->set_buff("spec_attack_buff",2,f_cur_skill->s_lasttime);
 						}
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")\n";
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")\n";
 						tell_object(this_object(),s+"\n");
 						this_object()->command("look");
 					}
 					return;
 				}
 				else{
-					//¸ÃÊ¹ÓÃ¹ıµÄ¼¼ÄÜÎ´ÀäÈ´,ÌáÊ¾²¢·µ»Ø
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//è¯¥ä½¿ç”¨è¿‡çš„æŠ€èƒ½æœªå†·å´,æç¤ºå¹¶è¿”å›
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
-			//70¼¶µÄ¸÷Ö°ÒµÌØÊâ¼¼ÄÜ
+			//70çº§çš„å„èŒä¸šç‰¹æ®ŠæŠ€èƒ½
 			else if(mofa_type == "70_spec"){
 				if(s_cold <= 1){
 					this_object()->timeCold = 2;
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
-					//¸üĞÂ¸Ã¼¼ÄÜÀäÈ´Ê±¼ä,Ã»ÔÚ±íÀïµÄÔòÊÇÌí¼Ó
+					//æ›´æ–°è¯¥æŠ€èƒ½å†·å´æ—¶é—´,æ²¡åœ¨è¡¨é‡Œçš„åˆ™æ˜¯æ·»åŠ 
 					if(name == "fanzhuanyiji")
 						this_object()->f_skills = ([]);
 					this_object()->f_skills[name] = f_cur_skill->s_delayTime+1;
@@ -483,48 +483,48 @@ void perform(string name,void|int flag){
 						this_object()->set_debuff("70_skill_curse",1,f_cur_skill->effect_value);
 						enemy->set_debuff("70_skill_curse",2,f_cur_skill->s_lasttime);
 					}
-					s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")\n";
-					s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")\n";
+					s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")\n";
+					s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")\n";
 					tell_object(this_object(),s);
 					tell_object(enemy,s1);
-					//²úÉú³ğºŞÖµ
+					//äº§ç”Ÿä»‡æ¨å€¼
 					int hate=(int)(100*skills_hate["test"]/100);
 					enemy->flush_targets(this_object(),hate);
 					return;
 				}
 				else{
-					//¸ÃÊ¹ÓÃ¹ıµÄ¼¼ÄÜÎ´ÀäÈ´,ÌáÊ¾²¢·µ»Ø
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//è¯¥ä½¿ç”¨è¿‡çš„æŠ€èƒ½æœªå†·å´,æç¤ºå¹¶è¿”å›
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
-			//ÅĞ¶ÏÊÇÎïÀí»¹ÊÇ·¨Êõ¼¼ÄÜ
-			/*   ·¨Êõ¹¥»÷¼¼ÄÜ     */
+			//åˆ¤æ–­æ˜¯ç‰©ç†è¿˜æ˜¯æ³•æœ¯æŠ€èƒ½
+			/*   æ³•æœ¯æ”»å‡»æŠ€èƒ½     */
 			else if(mofa_type!="phy"&&mofa_type!="dot"&&mofa_type!="curse"&&mofa_type!="buff"){
-				//ÖïÏÉ70¼¼ÄÜµÄ·¨ÊõÃâÒßĞ§¹û
+				//è¯›ä»™70æŠ€èƒ½çš„æ³•æœ¯å…ç–«æ•ˆæœ
 				if(enemy->query_buff("70_skill_buff",0)=="bingci"){
-					string stmp = "¡¾ÏÉ¡¿±ù´ÌĞ§¹û£¬¶Ô·¨ÊõÉËº¦ÃâÒß(»¹Óà"+enemy->query_buff("70_skill_buff",2)+"s)\n";
+					string stmp = "ã€ä»™ã€‘å†°åˆºæ•ˆæœï¼Œå¯¹æ³•æœ¯ä¼¤å®³å…ç–«(è¿˜ä½™"+enemy->query_buff("70_skill_buff",2)+"s)\n";
 					tell_object(this_object(),stmp);
-					stmp = "¡¾ÏÉ¡¿±ù´ÌĞ§¹û£¬ÄãÃâÒßÁË¶Ô·½µÄÒ»´Î·¨Êõ¹¥»÷(»¹Óà"+enemy->query_buff("70_skill_buff",2)+"s)\n";
+					stmp = "ã€ä»™ã€‘å†°åˆºæ•ˆæœï¼Œä½ å…ç–«äº†å¯¹æ–¹çš„ä¸€æ¬¡æ³•æœ¯æ”»å‡»(è¿˜ä½™"+enemy->query_buff("70_skill_buff",2)+"s)\n";
 					tell_object(enemy,stmp);
 					return;
 				}
-				//ÅĞ¶¨¸Ã¼¼ÄÜÀäÈ´Ê±¼äµÄÅĞ¶¨
-				//µÃµ½ÊÍ·Å¼¼ÄÜ±í£¬¿´ÓĞÎŞ¼ÇÂ¼£¬Èç¹ûÓĞ£¬¿´ÀäÈ´Ê±¼äµ½ÁËÃ»ÓĞ
-				int mofa_a_low=0; //·¨Êõ¹¥»÷µÄÏÂÏŞ
-				int mofa_a_high=0; //·¨Êõ¹¥»÷µÄÉÏÏŞ
-				int mofa_a=0; //È¡µÃ·¨Êõ¹¥»÷µÄËæ¼´Öµ
-				int mofa_defend=0; //µĞÈËµÄÄ§·¨¿¹ĞÔ
-				int fact_mofa_a=0; //×îÖÕµÄ·¨ÊõÉËº¦
-				int mofachuantou_add=0;//Ä§·¨´©Í¸Öµ
+				//åˆ¤å®šè¯¥æŠ€èƒ½å†·å´æ—¶é—´çš„åˆ¤å®š
+				//å¾—åˆ°é‡Šæ”¾æŠ€èƒ½è¡¨ï¼Œçœ‹æœ‰æ— è®°å½•ï¼Œå¦‚æœæœ‰ï¼Œçœ‹å†·å´æ—¶é—´åˆ°äº†æ²¡æœ‰
+				int mofa_a_low=0; //æ³•æœ¯æ”»å‡»çš„ä¸‹é™
+				int mofa_a_high=0; //æ³•æœ¯æ”»å‡»çš„ä¸Šé™
+				int mofa_a=0; //å–å¾—æ³•æœ¯æ”»å‡»çš„éšå³å€¼
+				int mofa_defend=0; //æ•Œäººçš„é­”æ³•æŠ—æ€§
+				int fact_mofa_a=0; //æœ€ç»ˆçš„æ³•æœ¯ä¼¤å®³
+				int mofachuantou_add=0;//é­”æ³•ç©¿é€å€¼
 				if(s_cold <= 1){
 					this_object()->timeCold = 2;
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
-					//¸üĞÂ¸Ã¼¼ÄÜÀäÈ´Ê±¼ä,Ã»ÔÚ±íÀïµÄÔòÊÇÌí¼Ó
+					//æ›´æ–°è¯¥æŠ€èƒ½å†·å´æ—¶é—´,æ²¡åœ¨è¡¨é‡Œçš„åˆ™æ˜¯æ·»åŠ 
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
-					//·¨ÊõÉËº¦¼ÆËã¹«Ê½£¬»¹ÓĞ¼õÃâ¹«Ê½
-					//µÈ¼¶Ñ¹ÖÆ
+					//æ³•æœ¯ä¼¤å®³è®¡ç®—å…¬å¼ï¼Œè¿˜æœ‰å‡å…å…¬å¼
+					//ç­‰çº§å‹åˆ¶
 					int difflevel = enemy->query_level()-this_object()->query_level();
 					if(difflevel<0)
 						difflevel=0;
@@ -533,14 +533,14 @@ void perform(string name,void|int flag){
 					if(h<30)
 						h=30;
 					if(random(100)<=h){
-						//ÃüÖĞÀ² ~
-						//µÃµ½·¨Êõ¼¼ÄÜµÄÉËº¦Ëæ¼´Öµ
+						//å‘½ä¸­å•¦ ~
+						//å¾—åˆ°æ³•æœ¯æŠ€èƒ½çš„ä¼¤å®³éšå³å€¼
 						mofa_a_low = f_cur_skill->query_performs_mofa_attack_low(skill_level);	
 						mofa_a_high = f_cur_skill->query_performs_mofa_attack_high(skill_level);
 						mofa_a = random(mofa_a_high-mofa_a_low+1)+mofa_a_low;
-						//ÔÙ¼ÓÉÏ×°±¸ÊôĞÔ´øÀ´µÄ·¨ÊõÉËº¦ÌáÉı
-						//ÖÇÁ¦Ò²»áÌá¸ß·¨ÉËÓÉliaochengÓÚ07/4/16Ìí¼Ó
-						//Ö°Òµµ÷Õû caijie 08/12/03
+						//å†åŠ ä¸Šè£…å¤‡å±æ€§å¸¦æ¥çš„æ³•æœ¯ä¼¤å®³æå‡
+						//æ™ºåŠ›ä¹Ÿä¼šæé«˜æ³•ä¼¤ç”±liaochengäº07/4/16æ·»åŠ 
+						//èŒä¸šè°ƒæ•´ caijie 08/12/03
 						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"){
 							mofa_a += this_object()->query_equip_add(mofa_type)+this_object()->query_equip_add("mofa_all")+(int)(this_object()->query_think()*7/2);
 						}
@@ -549,7 +549,7 @@ void perform(string name,void|int flag){
 						if(this_object()->query_buff("buff2",0)=="all_mofa_attack"){
 							mofa_a = mofa_a*3/2;
 						}
-						//¼ÆËã³öÏà¶ÔÓ¦µÄµĞÈËµÄÄ§·¨¿¹ĞÔ
+						//è®¡ç®—å‡ºç›¸å¯¹åº”çš„æ•Œäººçš„é­”æ³•æŠ—æ€§
 						switch(mofa_type) {
 							case "huo_mofa_attack":
 								mofa_defend = enemy->query_equip_add("huoyan_defend");
@@ -558,7 +558,7 @@ void perform(string name,void|int flag){
 								mofa_defend = enemy->query_equip_add("bingshuang_defend");
 							break;
 							case "feng_mofa_attack":
-								//Î×Ñı70¼¼ÄÜµÄ·çÈĞ·¨Êõ¼Ó³ÉĞ§¹û
+								//å·«å¦–70æŠ€èƒ½çš„é£åˆƒæ³•æœ¯åŠ æˆæ•ˆæœ
 								if(this_object()->query_buff("70_skill_buff",0)=="baofengfeixue")
 									mofa_a += mofa_a/2;
 								mofa_defend = enemy->query_equip_add("fengren_defend");
@@ -571,34 +571,34 @@ void perform(string name,void|int flag){
 							break;
 						}
 						mofa_defend += enemy->query_equip_add("all_mofa_defend");
-						//¼ÆËã×°±¸ËùÓĞµÄÄ§·¨´©Í¸Öµ
+						//è®¡ç®—è£…å¤‡æ‰€æœ‰çš„é­”æ³•ç©¿é€å€¼
 						mofachuantou_add=this_object()->query_equip_add("mofachuantou_add");
-						//×îºó»ñµÃÊµ¼ÊµÄÄ§·¨ÉËº¦Öµ
+						//æœ€åè·å¾—å®é™…çš„é­”æ³•ä¼¤å®³å€¼
 						fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
 						if(fact_mofa_a<0){
 							fact_mofa_a=1;
 						}
-						fact_mofa_a+=mofachuantou_add;//Ôö¼ÓÄ§·¨´©Í¸µÄ¹¥»÷ÊıÖµµ½×îÖØ½á¹ûÖĞ
-						//ÅĞ¶Ï±©»÷
+						fact_mofa_a+=mofachuantou_add;//å¢åŠ é­”æ³•ç©¿é€çš„æ”»å‡»æ•°å€¼åˆ°æœ€é‡ç»“æœä¸­
+						//åˆ¤æ–­æš´å‡»
 						int b = this_object()->query_if_baoji();
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-						s1+=this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+						s1+=this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
 						if(b){
-							//±©»÷À² ~
+							//æš´å‡»å•¦ ~
 							fact_mofa_a=(int)fact_mofa_a*150/100;
-							s += "£¬²úÉúÁË±©»÷Ğ§¹û£¡";
-							s1 += "£¬²úÉúÁË±©»÷Ğ§¹û£¡";
+							s += "ï¼Œäº§ç”Ÿäº†æš´å‡»æ•ˆæœï¼";
+							s1 += "ï¼Œäº§ç”Ÿäº†æš´å‡»æ•ˆæœï¼";
 
 						}
 
-						//ÔÚÕâ¶ù¼ÓÈëbuffµÄÄ§·¨¶ÜÎüÊÕÉËº¦liaocheng 07/4/9
+						//åœ¨è¿™å„¿åŠ å…¥buffçš„é­”æ³•ç›¾å¸æ”¶ä¼¤å®³liaocheng 07/4/9
 						int attack_fact = fact_mofa_a;
 						string absorb_desc = "";
 						if(enemy->query_buff("buff",0)=="absorb"){
 							if((int)enemy->query_buff("buff",1) >= fact_mofa_a){
 								int remain = (int)enemy->query_buff("buff",1) - fact_mofa_a;
 								attack_fact= 0;
-								absorb_desc = "(±»ÎüÊÕ)";
+								absorb_desc = "(è¢«å¸æ”¶)";
 								if(remain <= 0)
 									enemy->clean_buff("buff");
 								else
@@ -606,7 +606,7 @@ void perform(string name,void|int flag){
 							}
 							else{
 								attack_fact = fact_mofa_a - (int)enemy->query_buff("buff",1); 
-								absorb_desc = "("+enemy->query_buff("buff",1)+"µã±»ÎüÊÕ)";
+								absorb_desc = "("+enemy->query_buff("buff",1)+"ç‚¹è¢«å¸æ”¶)";
 								enemy->clean_buff("buff");
 							}
 						}
@@ -614,7 +614,7 @@ void perform(string name,void|int flag){
 							if((int)enemy->query_buff("buff2",1) >= fact_mofa_a){
 								int remain = (int)enemy->query_buff("buff2",1) - fact_mofa_a;
 								attack_fact= 0;
-								absorb_desc = "(±»ÎüÊÕ)";
+								absorb_desc = "(è¢«å¸æ”¶)";
 								if(remain <= 0)
 									enemy->clean_buff("buff2");
 								else
@@ -622,36 +622,36 @@ void perform(string name,void|int flag){
 							}
 							else{
 								attack_fact = fact_mofa_a - (int)enemy->query_buff("buff",1); 
-								absorb_desc = "("+enemy->query_buff("buff2",1)+"µã±»ÎüÊÕ)";
+								absorb_desc = "("+enemy->query_buff("buff2",1)+"ç‚¹è¢«å¸æ”¶)";
 								enemy->clean_buff("buff2");
 							}
 						}
-						//Èç¹ûÄ§·¨´©Í¸´óÓÚÁã£¬ÔòÒªÔÚÇ°¶ËÌáÊ¾¸øÍæ¼Ò
+						//å¦‚æœé­”æ³•ç©¿é€å¤§äºé›¶ï¼Œåˆ™è¦åœ¨å‰ç«¯æç¤ºç»™ç©å®¶
 						string chuantou_desc = "";
 						if(mofachuantou_add>0){
-							chuantou_desc = "¡¾"+mofachuantou_add+" µã·¨Êõ´©Í¸¡¿";
+							chuantou_desc = "ã€"+mofachuantou_add+" ç‚¹æ³•æœ¯ç©¿é€ã€‘";
 						}
-						s += "Ôì³ÉÁË " +fact_mofa_a+ " µãÉËº¦£¡"+absorb_desc+chuantou_desc+"\n";
-						s1 += "Ôì³ÉÁË " +fact_mofa_a+ " µãÉËº¦£¡"+absorb_desc+chuantou_desc+"\n";
+						s += "é€ æˆäº† " +fact_mofa_a+ " ç‚¹ä¼¤å®³ï¼"+absorb_desc+chuantou_desc+"\n";
+						s1 += "é€ æˆäº† " +fact_mofa_a+ " ç‚¹ä¼¤å®³ï¼"+absorb_desc+chuantou_desc+"\n";
 						tell_object(this_object(),s);
 						tell_object(enemy,s1);
 
-						//²úÉú³ğºŞÖµ
+						//äº§ç”Ÿä»‡æ¨å€¼
 						int hate=(int)(fact_mofa_a*skills_hate["test"]/100);
 						enemy->flush_targets(this_object(),hate);
 
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());	
-						//ÉúÃü¼õÈ¡ 
+						//ç”Ÿå‘½å‡å– 
 						int life_damage = enemy->get_cur_life()-attack_fact;
 						if(life_damage<=0){
-							//µĞÈËËÀÍö£¬Ôò°ÑµĞÈË´Ó³ğºŞÁĞ±íÖĞÇå³ı
+							//æ•Œäººæ­»äº¡ï¼Œåˆ™æŠŠæ•Œäººä»ä»‡æ¨åˆ—è¡¨ä¸­æ¸…é™¤
 							this_object()->clean_targets(enemy);
-							//ÔÚÕâÀï¼ÓÈëËÀÍö´¦Àí,killingÅĞ¶ÏÊÇÉ±Â¾»¹ÊÇ¾ö¶·
+							//åœ¨è¿™é‡ŒåŠ å…¥æ­»äº¡å¤„ç†,killingåˆ¤æ–­æ˜¯æ€æˆ®è¿˜æ˜¯å†³æ–—
 							if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 								enemy->set_life(1);
-								tell_object(this_object(),"ÄãÔÚ¾ö¶·ÖĞÕ½Ê¤ÁË "+enemy->query_name_cn()+" £¡\n");
-								tell_object(enemy,this_object()->query_name_cn()+"ÔÚ¾ö¶·ÖĞÕ½Ê¤ÁËÄã£¡\n");
+								tell_object(this_object(),"ä½ åœ¨å†³æ–—ä¸­æˆ˜èƒœäº† "+enemy->query_name_cn()+" ï¼\n");
+								tell_object(enemy,this_object()->query_name_cn()+"åœ¨å†³æ–—ä¸­æˆ˜èƒœäº†ä½ ï¼\n");
 								enemy->_clean_fight();
 								_clean_fight();
 								enemy=0;
@@ -664,55 +664,55 @@ void perform(string name,void|int flag){
 						}
 						enemy->set_life(life_damage);
 						//if(this_object()->is("player")){
-						//Õ½¶·ÖĞ»÷ÖĞ¶Ô·½£¬¼õ¹¥»÷ÕßÎäÆ÷Ä¥Ëğ
+						//æˆ˜æ–—ä¸­å‡»ä¸­å¯¹æ–¹ï¼Œå‡æ”»å‡»è€…æ­¦å™¨ç£¨æŸ
 						this_object()->reduce_fight_wield_weapon(1);
-						//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+						//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 						enemy->reduce_fight_wear_armor(1);
 						//}
 					}
 					else{
-						//Î´ÃüÖĞ	
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+"), µ«±»¶Ô·½µÖ¿¹ÁË¡£";
-						s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+"£¬µ«±»ÄãµÖ¿¹ÁË";
+						//æœªå‘½ä¸­	
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+"), ä½†è¢«å¯¹æ–¹æŠµæŠ—äº†ã€‚";
+						s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
 
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());	
 					}
 					return;
 				}
 				else{
-					//¸ÃÊ¹ÓÃ¹ıµÄ¼¼ÄÜÎ´ÀäÈ´,ÌáÊ¾²¢·µ»Ø
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//è¯¥ä½¿ç”¨è¿‡çš„æŠ€èƒ½æœªå†·å´,æç¤ºå¹¶è¿”å›
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
-			/*   ÎïÀí¹¥»÷¼¼ÄÜ     */
+			/*   ç‰©ç†æ”»å‡»æŠ€èƒ½     */
 			else if(f_cur_skill->s_skill_type=="phy"){
 				//werror("===========skill_level:"+skill_level+"\n");
-				string s_name_cn=f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-				//ÏÈ¿´ÊÇ·ñÓĞÖ÷ÊÖÎäÆ÷£¬Ã»ÓĞ¾Í²»ÄÜ¹¥»÷
+				string s_name_cn=f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+				//å…ˆçœ‹æ˜¯å¦æœ‰ä¸»æ‰‹æ­¦å™¨ï¼Œæ²¡æœ‰å°±ä¸èƒ½æ”»å‡»
 				mapping items = this_object()->query_equip();//[string:object]
 				if(!items["single_main_weapon"]&&!items["double_main_weapon"])
 				{
-					s += "¸Ã¼¼ÄÜĞèÒª×°±¸Ö÷ÊÖÎäÆ÷²ÅÄÜÊ©·Å¡£";
+					s += "è¯¥æŠ€èƒ½éœ€è¦è£…å¤‡ä¸»æ‰‹æ­¦å™¨æ‰èƒ½æ–½æ”¾ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
-				//ÅĞ¶¨¸Ã¼¼ÄÜÀäÈ´Ê±¼äµÄÅĞ¶¨
-				//ÅĞ¶ÏÀäÈ´Ê±¼ä
+				//åˆ¤å®šè¯¥æŠ€èƒ½å†·å´æ—¶é—´çš„åˆ¤å®š
+				//åˆ¤æ–­å†·å´æ—¶é—´
 				int s_phy_damage = f_cur_skill->query_performs_attack(skill_level);
 				int s_weapon_add = f_cur_skill->query_performs_per(skill_level);
-				s_weapon_add += this_object()->query_equip_add("attack_all");//Ôö¼ÓÆäËû×°±¸µÄÎïÀíÉËº¦ 20241019
+				s_weapon_add += this_object()->query_equip_add("attack_all");//å¢åŠ å…¶ä»–è£…å¤‡çš„ç‰©ç†ä¼¤å®³ 20241019
 				if(s_cold <= 1){
-					//¸Ã¼¼²»ÔÚ±íÖĞ»òÕßÀäÈ´£¬
+					//è¯¥æŠ€ä¸åœ¨è¡¨ä¸­æˆ–è€…å†·å´ï¼Œ
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
-					//ÎïÀí¼¼ÄÜ¹¥»÷×ßattackÁ÷³Ì£¬ÊìÁ·¶ÈÌá¸ßÒ²ÔÚÄÇÀï½øĞĞ¼ÆËã
+					//ç‰©ç†æŠ€èƒ½æ”»å‡»èµ°attackæµç¨‹ï¼Œç†Ÿç»ƒåº¦æé«˜ä¹Ÿåœ¨é‚£é‡Œè¿›è¡Œè®¡ç®—
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
-					//µÈ¼¶Ñ¹ÖÆ
+					//ç­‰çº§å‹åˆ¶
 					int difflevel = enemy->query_level()-this_object()->query_level();
 					if(difflevel<0)
 						difflevel=0;
@@ -721,37 +721,37 @@ void perform(string name,void|int flag){
 					if(h<30)
 						h=30;
 					if(random(100)<=h){
-						//ÃüÖĞÀ² ~
+						//å‘½ä¸­å•¦ ~
 						if(this_object()->weapon_type=="double_main")
 							attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,f_cur_skill->query_name());
 						else if(this_object()->weapon_type=="single_main"||this_object()->weapon_type=="both")
 							attack(s_phy_damage,s_weapon_add,"single_main",s_name_cn,f_cur_skill->query_name());
 					}
 					else{
-						//Î´ÃüÖĞ	
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+"), µ«Î´ÃüÖĞ¶Ô·½¡£";
-						s1 += this_object()->query_name_cn()+"Ê©·Å "+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")£¬µ«Î´»÷ÖĞÄã¡£"; 
+						//æœªå‘½ä¸­	
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+"), ä½†æœªå‘½ä¸­å¯¹æ–¹ã€‚";
+						s1 += this_object()->query_name_cn()+"æ–½æ”¾ "+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ï¼Œä½†æœªå‡»ä¸­ä½ ã€‚"; 
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());	
 					}
 					return;
 				}
 				else{
-					//¸ÃÊ¹ÓÃ¹ıµÄ¼¼ÄÜÎ´ÀäÈ´,ÌáÊ¾²¢·µ»Ø
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//è¯¥ä½¿ç”¨è¿‡çš„æŠ€èƒ½æœªå†·å´,æç¤ºå¹¶è¿”å›
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
-			/*    Ê©·ÅµÄÊÇdot¼¼ÄÜ    */
+			/*    æ–½æ”¾çš„æ˜¯dotæŠ€èƒ½    */
 			else if(f_cur_skill->s_skill_type=="dot"){
 				if(s_cold <= 1){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
-					//µÈ¼¶Ñ¹ÖÆ
+					//ç­‰çº§å‹åˆ¶
 					int difflevel = enemy->query_level()-this_object()->query_level();          
 					if(difflevel<0)
 						difflevel=0;
@@ -759,56 +759,56 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<=h){ //ÃüÖĞÀ²~
-						//¼ÇÂ¼dot¼¼ÄÜµÄÃû×Ö
+					if(random(100)<=h){ //å‘½ä¸­å•¦~
+						//è®°å½•dotæŠ€èƒ½çš„åå­—
 						enemy->set_debuff("dot",0,name);
-						//¼ÇÂ¼dotµÄÃ¿ÃëÉËº¦
+						//è®°å½•dotçš„æ¯ç§’ä¼¤å®³
 						enemy->set_debuff("dot",1,f_cur_skill->query_performs_attack(skill_level));
-						//¼ÇÂ¼dotÊ£ÓàÊ±¼ä
+						//è®°å½•dotå‰©ä½™æ—¶é—´
 						enemy->set_debuff("dot",2,f_cur_skill->query_s_lasttime(skill_level));
 
-						//²úÉú³ğºŞÖµ,dotµÄ³ğºŞÔİÊ±¶¨Îª20
+						//äº§ç”Ÿä»‡æ¨å€¼,dotçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 						int hate=(int)(20*skills_hate["test"]/100);
 						enemy->flush_targets(this_object(),hate);
 
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-						s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+						s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
 
 						//if(this_object()->is("player")){
-						//Õ½¶·ÖĞ»÷ÖĞ¶Ô·½£¬¼õ¹¥»÷ÕßÎäÆ÷Ä¥Ëğ
+						//æˆ˜æ–—ä¸­å‡»ä¸­å¯¹æ–¹ï¼Œå‡æ”»å‡»è€…æ­¦å™¨ç£¨æŸ
 						this_object()->reduce_fight_wield_weapon(1);
-						//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+						//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 						enemy->reduce_fight_wear_armor(1);
 						//}
 					}
-					else { //Î´ÃüÖĞ
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")£¬µ«±»¶Ô·½µÖ¿¹ÁË¡£";
-						s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")£¬µ«±»ÄãµÖ¿¹ÁË";
+					else { //æœªå‘½ä¸­
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ï¼Œä½†è¢«å¯¹æ–¹æŠµæŠ—äº†ã€‚";
+						s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());
 						return;
 					}
 				}
 				else {
-					//¼¼ÄÜ»¹Î´ÀäÈ´
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//æŠ€èƒ½è¿˜æœªå†·å´
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
-			/*      Ê©·ÅµÄÊÇ×çÖä¼¼ÄÜ     */
+			/*      æ–½æ”¾çš„æ˜¯è¯…å’’æŠ€èƒ½     */
 			else if(f_cur_skill->s_skill_type=="curse"){
 				if(s_cold <= 1){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
-					//µÈ¼¶Ñ¹ÖÆ
+					//ç­‰çº§å‹åˆ¶
 					int difflevel = enemy->query_level()-this_object()->query_level();          
 					if(difflevel<0)
 						difflevel=0;
@@ -816,57 +816,57 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<=h){ //ÃüÖĞÀ²~
-						//¼ÇÂ¼×çÖäµÄÀàĞÍ
+					if(random(100)<=h){ //å‘½ä¸­å•¦~
+						//è®°å½•è¯…å’’çš„ç±»å‹
 						enemy->set_debuff("curse",0,f_cur_skill->s_curse_type);
-						//¼ÇÂ¼×çÖäµÄÖµ
+						//è®°å½•è¯…å’’çš„å€¼
 						enemy->set_debuff("curse",1,f_cur_skill->query_performs_attack(skill_level));
-						//¼ÇÂ¼×çÖäµÄ³ÖĞøÊ±¼ä
+						//è®°å½•è¯…å’’çš„æŒç»­æ—¶é—´
 						enemy->set_debuff("curse",2,f_cur_skill->query_s_lasttime(skill_level));
 
-						//²úÉú³ğºŞÖµ,curseµÄ³ğºŞÔİÊ±¶¨Îª20
+						//äº§ç”Ÿä»‡æ¨å€¼,curseçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 						int hate=(int)(20*skills_hate["test"]/100);
 						enemy->flush_targets(this_object(),hate);
 
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-						s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+						s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());
 
-						//Õ½¶·ÖĞ»÷ÖĞ¶Ô·½£¬¼õ¹¥»÷ÕßÎäÆ÷Ä¥Ëğ
+						//æˆ˜æ–—ä¸­å‡»ä¸­å¯¹æ–¹ï¼Œå‡æ”»å‡»è€…æ­¦å™¨ç£¨æŸ
 						this_object()->reduce_fight_wield_weapon(1);
-						//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+						//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 						enemy->reduce_fight_wear_armor(1);
 					}
-					else { //Î´ÃüÖĞ
-						s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+"), µ«±»¶Ô·½µÖ¿¹ÁË¡£";
-						s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")£¬µ«±»ÄãµÖ¿¹ÁË";
+					else { //æœªå‘½ä¸­
+						s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+"), ä½†è¢«å¯¹æ–¹æŠµæŠ—äº†ã€‚";
+						s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 						tell_object(this_object(),s+"\n");
 						tell_object(enemy,s1+"\n");
-						//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+						//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 						skills_level_check(f_cur_skill->query_name());
 						return;
 					}
 				}
 				else {
-					//Î´ÀäÈ´
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//æœªå†·å´
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
-			/*    Ê©·ÅµÄÔöÒæÄ§·¨    */
+			/*    æ–½æ”¾çš„å¢ç›Šé­”æ³•    */
 			else if(f_cur_skill->s_skill_type=="buff"){
 				if(s_cold <= 1){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
 
-					//¼ÇÂ¼buffµÄÀàĞÍ
+					//è®°å½•buffçš„ç±»å‹
 					this_object()->set_buff("buff",0,f_cur_skill->s_curse_type);
-					//¼ÇÂ¼buffµÄÖµ
+					//è®°å½•buffçš„å€¼
 					int tmp_int=f_cur_skill->query_performs_attack(skill_level);
 					if(f_cur_skill->s_curse_type == "absorb"){
 						if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"){
@@ -876,80 +876,80 @@ void perform(string name,void|int flag){
 							tmp_int += (int)(this_object()->query_think()*3/2);
 					}
 					this_object()->set_buff("buff",1,tmp_int);
-					//¼ÇÂ¼buffµÄ³ÖĞøÊ±¼ä
+					//è®°å½•buffçš„æŒç»­æ—¶é—´
 					this_object()->set_buff("buff",2,f_cur_skill->query_s_lasttime(skill_level));
 
-					//²úÉú³ğºŞÖµ,buffµÄ³ğºŞÔİÊ±¶¨Îª10
+					//äº§ç”Ÿä»‡æ¨å€¼,buffçš„ä»‡æ¨æš‚æ—¶å®šä¸º10
 					int hate=(int)(10*skills_hate["test"]/100);
 					enemy->flush_targets(this_object(),hate);
 
-					s += "ÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
-					s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")";
+					s += "ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
+					s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")";
 					tell_object(this_object(),s+"\n");
 					tell_object(enemy,s1+"\n");
-					//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
-					//ÕâÀïÅÅ³ıÁË¿ñÑıµÄ³å¶¯¼¼ÄÜ
+					//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
+					//è¿™é‡Œæ’é™¤äº†ç‹‚å¦–çš„å†²åŠ¨æŠ€èƒ½
 					if(f_cur_skill->query_name() != "chongdong")
 						skills_level_check(f_cur_skill->query_name());
 					return;
 				}
 				else {
-					//Î´ÀäÈ´
-					s += "¸Ã¼¼ÄÜ»¹ĞèÒª"+(s_cold-1)+"ÃëÀäÈ´Ê±¼ä,ÎŞ·¨Ê¹ÓÃ¡£";
+					//æœªå†·å´
+					s += "è¯¥æŠ€èƒ½è¿˜éœ€è¦"+(s_cold-1)+"ç§’å†·å´æ—¶é—´,æ— æ³•ä½¿ç”¨ã€‚";
 					tell_object(this_object(),s+"\n");
 					return;
 				}
 			}
 		}
 		else {
-			//ÎŞ×ã¹»µÄ·¨Á¦
-			s += "ÄãµÄÏÉÁ¦²»¹»£¬ÎŞ·¨Ê©·Å"+f_cur_skill->query_name_cn()+"(µÈ¼¶"+skill_level+")¡£";
+			//æ— è¶³å¤Ÿçš„æ³•åŠ›
+			s += "ä½ çš„ä»™åŠ›ä¸å¤Ÿï¼Œæ— æ³•æ–½æ”¾"+f_cur_skill->query_name_cn()+"(ç­‰çº§"+skill_level+")ã€‚";
 			tell_object(this_object(),s+"\n");
 			return;
 		}
 	}
 	else {
-		//Ã»ÓĞÕâÖÖ¼¼ÄÜ
-		string stmp = "ÄãÒªÊ©·ÅÊ²Ã´¼¼ÄÜ£¿";
+		//æ²¡æœ‰è¿™ç§æŠ€èƒ½
+		string stmp = "ä½ è¦æ–½æ”¾ä»€ä¹ˆæŠ€èƒ½ï¼Ÿ";
 		tell_object(this_object(),stmp+"\n");
 		return;
 	}
 }
 
-//boss¼¼ÄÜÊÍ·Å
+//bossæŠ€èƒ½é‡Šæ”¾
 void boss_perform(string name){
-	//¹ÖËÀÍöÅĞ¶Ï......
+	//æ€ªæ­»äº¡åˆ¤æ–­......
 	if(enemy==0)
 		return;
-	object f_cur_skill;//µ±Ç°Ê¹ÓÃ¼¼ÄÜ¶ÔÏó
-	string s = "";//ÃæÏò×Ô¼ºµÄÕ½¶·ÃèÊö
-	string s1=""; //ÃæÏòµĞÈËµÄÕ½¶·ÃèÊö
+	object f_cur_skill;//å½“å‰ä½¿ç”¨æŠ€èƒ½å¯¹è±¡
+	string s = "";//é¢å‘è‡ªå·±çš„æˆ˜æ–—æè¿°
+	string s1=""; //é¢å‘æ•Œäººçš„æˆ˜æ–—æè¿°
 	f_cur_skill = (object)MUD_SKILLSD[name];
 	if(f_cur_skill){
-		//Ê×ÏÈÅĞ¶ÏÓĞÕâÖÖ¼¼ÄÜ
-		//ÔÙÅĞ¶ÏÊÇ·ñÓĞ×ã¹»µÄ·¨Á¦Ê©·Å¸Ã¼¼ÄÜ
-		string mofa_type=f_cur_skill->s_skill_type; //µÃµ½Ä§·¨ÀàĞÍ
-		//ÓĞ×ã¹»µÄ·¨Á¦
-		//ÅĞ¶ÏÊÇÎïÀí»¹ÊÇ·¨Êõ¼¼ÄÜ
-		/*   ·¨Êõ¹¥»÷¼¼ÄÜ     */
+		//é¦–å…ˆåˆ¤æ–­æœ‰è¿™ç§æŠ€èƒ½
+		//å†åˆ¤æ–­æ˜¯å¦æœ‰è¶³å¤Ÿçš„æ³•åŠ›æ–½æ”¾è¯¥æŠ€èƒ½
+		string mofa_type=f_cur_skill->s_skill_type; //å¾—åˆ°é­”æ³•ç±»å‹
+		//æœ‰è¶³å¤Ÿçš„æ³•åŠ›
+		//åˆ¤æ–­æ˜¯ç‰©ç†è¿˜æ˜¯æ³•æœ¯æŠ€èƒ½
+		/*   æ³•æœ¯æ”»å‡»æŠ€èƒ½     */
 		if(mofa_type!="phy"&&mofa_type!="dot"&&mofa_type!="curse"&&mofa_type!="buff"){
-			int mofa_a_low=0; //·¨Êõ¹¥»÷µÄÏÂÏŞ
-			int mofa_a_high=0; //·¨Êõ¹¥»÷µÄÉÏÏŞ
-			int mofa_a=0; //È¡µÃ·¨Êõ¹¥»÷µÄËæ¼´Öµ
-			int mofa_defend=0; //µĞÈËµÄÄ§·¨¿¹ĞÔ
-			int fact_mofa_a=0; //×îÖÕµÄ·¨ÊõÉËº¦
+			int mofa_a_low=0; //æ³•æœ¯æ”»å‡»çš„ä¸‹é™
+			int mofa_a_high=0; //æ³•æœ¯æ”»å‡»çš„ä¸Šé™
+			int mofa_a=0; //å–å¾—æ³•æœ¯æ”»å‡»çš„éšå³å€¼
+			int mofa_defend=0; //æ•Œäººçš„é­”æ³•æŠ—æ€§
+			int fact_mofa_a=0; //æœ€ç»ˆçš„æ³•æœ¯ä¼¤å®³
 			int myhitte= this_object()->query_if_hitte();
-			//ÃüÖĞÀ² ~
-			//µÃµ½·¨Êõ¼¼ÄÜµÄÉËº¦Ëæ¼´Öµ
+			//å‘½ä¸­å•¦ ~
+			//å¾—åˆ°æ³•æœ¯æŠ€èƒ½çš„ä¼¤å®³éšå³å€¼
 			mofa_a_low = f_cur_skill->query_performs_mofa_attack_low();	
 			mofa_a_high = f_cur_skill->query_performs_mofa_attack_high();
 			mofa_a = random(mofa_a_high-mofa_a_low+1)+mofa_a_low;
-			//ÔÙ¼ÓÉÏ×°±¸ÊôĞÔ´øÀ´µÄ·¨ÊõÉËº¦ÌáÉı
-			//ÖÇÁ¦Ò²»áÌá¸ß·¨ÉËÓÉliaochengÓÚ07/4/16Ìí¼Ó
+			//å†åŠ ä¸Šè£…å¤‡å±æ€§å¸¦æ¥çš„æ³•æœ¯ä¼¤å®³æå‡
+			//æ™ºåŠ›ä¹Ÿä¼šæé«˜æ³•ä¼¤ç”±liaochengäº07/4/16æ·»åŠ 
 			mofa_a +=this_object()->query_equip_add(mofa_type)+this_object()->query_equip_add("mofa_all")+(int)(this_object()->query_think());
 			if(f_cur_skill->is_aoe){
 				array(object) enemys;
-				//ÊÇaoeÄ§·¨
+				//æ˜¯aoeé­”æ³•
 				enemys = this_object()->get_all_targets();
 				if(enemys && sizeof(enemys)){
 					for(int i=0;i<sizeof(enemys);i++){
@@ -958,7 +958,7 @@ void boss_perform(string name){
 							if(myhitte<0)
 								myhitte=0;
 							if(random(100)<=myhitte){
-								//¼ÆËã³öÏà¶ÔÓ¦µÄµĞÈËµÄÄ§·¨¿¹ĞÔ
+								//è®¡ç®—å‡ºç›¸å¯¹åº”çš„æ•Œäººçš„é­”æ³•æŠ—æ€§
 								switch(mofa_type) {
 									case "huo_mofa_attack":
 										mofa_defend = enemys[i]->query_equip_add("huoyan_defend");
@@ -977,26 +977,26 @@ void boss_perform(string name){
 									break;
 								}
 								mofa_defend += enemys[i]->query_equip_add("all_mofa_defend");
-								//×îºó»ñµÃÊµ¼ÊµÄÄ§·¨ÉËº¦Öµ
+								//æœ€åè·å¾—å®é™…çš„é­”æ³•ä¼¤å®³å€¼
 								fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
-								//ÅĞ¶Ï±©»÷
+								//åˆ¤æ–­æš´å‡»
 								int b = this_object()->query_if_baoji();
-								s1+=this_object()->query_name_cn()+"Ê©·Å "+f_cur_skill->query_name_cn();
+								s1+=this_object()->query_name_cn()+"æ–½æ”¾ "+f_cur_skill->query_name_cn();
 								if(b){
-									//±©»÷À² ~
+									//æš´å‡»å•¦ ~
 									fact_mofa_a=(int)fact_mofa_a*150/100;
-									s1 += "£¬²úÉúÁË±©»÷Ğ§¹û£¡";
+									s1 += "ï¼Œäº§ç”Ÿäº†æš´å‡»æ•ˆæœï¼";
 
 								}
 
-								//ÔÚÕâ¶ù¼ÓÈëbuffµÄÄ§·¨¶ÜÎüÊÕÉËº¦liaocheng 07/4/9
+								//åœ¨è¿™å„¿åŠ å…¥buffçš„é­”æ³•ç›¾å¸æ”¶ä¼¤å®³liaocheng 07/4/9
 								int	attack_fact = fact_mofa_a;
 								string absorb_desc = "";
 								if(enemys[i]->query_buff("buff",0)=="absorb"){
 									if((int)enemys[i]->query_buff("buff",1) >= fact_mofa_a){
 										int remain = (int)enemys[i]->query_buff("buff",1) - fact_mofa_a;
 										attack_fact= 0;
-										absorb_desc = "(±»ÎüÊÕ)";
+										absorb_desc = "(è¢«å¸æ”¶)";
 										if(remain <= 0)
 											enemys[i]->clean_buff("buff");
 										else
@@ -1004,7 +1004,7 @@ void boss_perform(string name){
 									}
 									else{
 										attack_fact = fact_mofa_a - (int)enemys[i]->query_buff("buff",1); 
-										absorb_desc = "("+enemys[i]->query_buff("buff",1)+"µã±»ÎüÊÕ)";
+										absorb_desc = "("+enemys[i]->query_buff("buff",1)+"ç‚¹è¢«å¸æ”¶)";
 										enemys[i]->clean_buff("buff");
 									}
 								}
@@ -1012,7 +1012,7 @@ void boss_perform(string name){
 									if((int)enemys[i]->query_buff("buff2",1) >= fact_mofa_a){
 										int remain = (int)enemys[i]->query_buff("buff2",1) - fact_mofa_a;
 										attack_fact= 0;
-										absorb_desc = "(±»ÎüÊÕ)";
+										absorb_desc = "(è¢«å¸æ”¶)";
 										if(remain <= 0)
 											enemys[i]->clean_buff("buff2");
 										else
@@ -1020,21 +1020,21 @@ void boss_perform(string name){
 									}
 									else{
 										attack_fact = fact_mofa_a - (int)enemys[i]->query_buff("buff2",1); 
-										absorb_desc = "("+enemys[i]->query_buff("buff2",1)+"µã±»ÎüÊÕ)";
+										absorb_desc = "("+enemys[i]->query_buff("buff2",1)+"ç‚¹è¢«å¸æ”¶)";
 										enemys[i]->clean_buff("buff2");
 									}
 								}
-								s1 += "¶ÔÄãÔì³ÉÁË " +fact_mofa_a+ " µãÉËº¦£¡"+absorb_desc+"\n";
+								s1 += "å¯¹ä½ é€ æˆäº† " +fact_mofa_a+ " ç‚¹ä¼¤å®³ï¼"+absorb_desc+"\n";
 								tell_object(enemys[i],s1);
 
-								//²úÉú³ğºŞÖµ
+								//äº§ç”Ÿä»‡æ¨å€¼
 								int hate=(int)(fact_mofa_a*skills_hate["test"]/100);
 								enemys[i]->flush_targets(this_object(),hate);
 
-								//ÉúÃü¼õÈ¡ 
+								//ç”Ÿå‘½å‡å– 
 								int life_damage = enemys[i]->get_cur_life()-attack_fact;
 								if(life_damage<=0){
-									//µĞÈËËÀÍö£¬Ôò°ÑµĞÈË´Ó³ğºŞÁĞ±íÖĞÇå³ı
+									//æ•Œäººæ­»äº¡ï¼Œåˆ™æŠŠæ•Œäººä»ä»‡æ¨åˆ—è¡¨ä¸­æ¸…é™¤
 									this_object()->clean_targets(enemys[i]);
 									enemys[i]->fight_die();
 								}
@@ -1044,8 +1044,8 @@ void boss_perform(string name){
 								}
 							}
 							else{
-								//Î´ÃüÖĞ
-								s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"£¬µ«±»ÄãµÖ¿¹ÁË";
+								//æœªå‘½ä¸­
+								s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 								tell_object(enemys[i],s1+"\n");
 							}
 						}
@@ -1053,7 +1053,7 @@ void boss_perform(string name){
 				}
 				return;
 			}
-			//²»ÊÇaoe£¬Ôò×ßÔ­À´µÄÂ·Ïß
+			//ä¸æ˜¯aoeï¼Œåˆ™èµ°åŸæ¥çš„è·¯çº¿
 			if(myhitte<0)
 				myhitte=0;
 			if(random(100)<=myhitte){
@@ -1075,26 +1075,26 @@ void boss_perform(string name){
 					break;
 				}
 				mofa_defend += enemy->query_equip_add("all_mofa_defend");
-				//×îºó»ñµÃÊµ¼ÊµÄÄ§·¨ÉËº¦Öµ
+				//æœ€åè·å¾—å®é™…çš„é­”æ³•ä¼¤å®³å€¼
 				fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
-				//ÅĞ¶Ï±©»÷
+				//åˆ¤æ–­æš´å‡»
 				int b = this_object()->query_if_baoji();
-				s1+=this_object()->query_name_cn()+"¶ÔÄãÊ©·Å"+f_cur_skill->query_name_cn();
+				s1+=this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾"+f_cur_skill->query_name_cn();
 				if(b){
-					//±©»÷À² ~
+					//æš´å‡»å•¦ ~
 					fact_mofa_a=(int)fact_mofa_a*150/100;
-					s1 += "£¬²úÉúÁË±©»÷Ğ§¹û£¡";
+					s1 += "ï¼Œäº§ç”Ÿäº†æš´å‡»æ•ˆæœï¼";
 
 				}
 
-				//ÔÚÕâ¶ù¼ÓÈëbuffµÄÄ§·¨¶ÜÎüÊÕÉËº¦liaocheng 07/4/9
+				//åœ¨è¿™å„¿åŠ å…¥buffçš„é­”æ³•ç›¾å¸æ”¶ä¼¤å®³liaocheng 07/4/9
 				int	attack_fact = fact_mofa_a;
 				string absorb_desc = "";
 				if(enemy->query_buff("buff",0)=="absorb"){
 					if((int)enemy->query_buff("buff",1) >= fact_mofa_a){
 						int remain = (int)enemy->query_buff("buff",1) - fact_mofa_a;
 						attack_fact= 0;
-						absorb_desc = "(±»ÎüÊÕ)";
+						absorb_desc = "(è¢«å¸æ”¶)";
 						if(remain <= 0)
 							enemy->clean_buff("buff");
 						else
@@ -1102,7 +1102,7 @@ void boss_perform(string name){
 					}
 					else{
 						attack_fact = fact_mofa_a - (int)enemy->query_buff("buff",1); 
-						absorb_desc = "("+enemy->query_buff("buff",1)+"µã±»ÎüÊÕ)";
+						absorb_desc = "("+enemy->query_buff("buff",1)+"ç‚¹è¢«å¸æ”¶)";
 						enemy->clean_buff("buff");
 					}
 				}
@@ -1110,7 +1110,7 @@ void boss_perform(string name){
 					if((int)enemy->query_buff("buff2",1) >= fact_mofa_a){
 						int remain = (int)enemy->query_buff("buff2",1) - fact_mofa_a;
 						attack_fact= 0;
-						absorb_desc = "(±»ÎüÊÕ)";
+						absorb_desc = "(è¢«å¸æ”¶)";
 						if(remain <= 0)
 							enemy->clean_buff("buff2");
 						else
@@ -1118,27 +1118,27 @@ void boss_perform(string name){
 					}
 					else{
 						attack_fact = fact_mofa_a - (int)enemy->query_buff("buff2",1); 
-						absorb_desc = "("+enemy->query_buff("buff2",1)+"µã±»ÎüÊÕ)";
+						absorb_desc = "("+enemy->query_buff("buff2",1)+"ç‚¹è¢«å¸æ”¶)";
 						enemy->clean_buff("buff2");
 					}
 				}
-				s1 += "Ôì³ÉÁË " +fact_mofa_a+ " µãÉËº¦£¡"+absorb_desc+"\n";
+				s1 += "é€ æˆäº† " +fact_mofa_a+ " ç‚¹ä¼¤å®³ï¼"+absorb_desc+"\n";
 				tell_object(enemy,s1);
 
-				//²úÉú³ğºŞÖµ
+				//äº§ç”Ÿä»‡æ¨å€¼
 				int hate=(int)(fact_mofa_a*skills_hate["test"]/100);
 				enemy->flush_targets(this_object(),hate);
 
-				//ÉúÃü¼õÈ¡ 
+				//ç”Ÿå‘½å‡å– 
 				int life_damage = enemy->get_cur_life()-attack_fact;
 				if(life_damage<=0){
-					//µĞÈËËÀÍö£¬Ôò°ÑµĞÈË´Ó³ğºŞÁĞ±íÖĞÇå³ı
+					//æ•Œäººæ­»äº¡ï¼Œåˆ™æŠŠæ•Œäººä»ä»‡æ¨åˆ—è¡¨ä¸­æ¸…é™¤
 					this_object()->clean_targets(enemy);
-					//ÔÚÕâÀï¼ÓÈëËÀÍö´¦Àí,killingÅĞ¶ÏÊÇÉ±Â¾»¹ÊÇ¾ö¶·
+					//åœ¨è¿™é‡ŒåŠ å…¥æ­»äº¡å¤„ç†,killingåˆ¤æ–­æ˜¯æ€æˆ®è¿˜æ˜¯å†³æ–—
 					if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 						enemy->set_life(1);
-						tell_object(this_object(),"ÄãÔÚ¾ö¶·ÖĞÕ½Ê¤ÁË "+enemy->query_name_cn()+" £¡\n");
-						tell_object(enemy,this_object()->query_name_cn()+"ÔÚ¾ö¶·ÖĞÕ½Ê¤ÁËÄã£¡\n");
+						tell_object(this_object(),"ä½ åœ¨å†³æ–—ä¸­æˆ˜èƒœäº† "+enemy->query_name_cn()+" ï¼\n");
+						tell_object(enemy,this_object()->query_name_cn()+"åœ¨å†³æ–—ä¸­æˆ˜èƒœäº†ä½ ï¼\n");
 						enemy->_clean_fight();
 						_clean_fight();
 						enemy=0;
@@ -1150,30 +1150,30 @@ void boss_perform(string name){
 					return;
 				}
 				enemy->set_life(life_damage);
-				//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+				//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 				enemy->reduce_fight_wear_armor(1);
 			}
 			else{
-				//Î´ÃüÖĞ	
-				s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"£¬µ«±»ÄãµÖ¿¹ÁË";
+				//æœªå‘½ä¸­	
+				s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 				tell_object(enemy,s1+"\n");
 			}
 			return;
 		}
-		//   --- ÎïÀí¹¥»÷¼¼ÄÜ ---    
+		//   --- ç‰©ç†æ”»å‡»æŠ€èƒ½ ---    
 		else if(f_cur_skill->s_skill_type=="phy"){
 			string s_name_cn=f_cur_skill->query_name_cn();
-			//ÅĞ¶ÏÀäÈ´Ê±¼ä
+			//åˆ¤æ–­å†·å´æ—¶é—´
 			int s_phy_damage = f_cur_skill->query_performs_attack();
 			int s_weapon_add = f_cur_skill->query_performs_per();
-			//¸Ã¼¼²»ÔÚ±íÖĞ»òÕßÀäÈ´£¬
-			//ÎïÀí¼¼ÄÜ¹¥»÷×ßattackÁ÷³Ì£¬ÊìÁ·¶ÈÌá¸ßÒ²ÔÚÄÇÀï½øĞĞ¼ÆËã
-			//µÈ¼¶Ñ¹ÖÆ
+			//è¯¥æŠ€ä¸åœ¨è¡¨ä¸­æˆ–è€…å†·å´ï¼Œ
+			//ç‰©ç†æŠ€èƒ½æ”»å‡»èµ°attackæµç¨‹ï¼Œç†Ÿç»ƒåº¦æé«˜ä¹Ÿåœ¨é‚£é‡Œè¿›è¡Œè®¡ç®—
+			//ç­‰çº§å‹åˆ¶
 			int myhitte= this_object()->query_if_hitte();
 			if(myhitte<0)
 				myhitte=0;
 			if(random(100)<=myhitte){
-				//ÃüÖĞÀ² ~
+				//å‘½ä¸­å•¦ ~
 				//if(this_object()->weapon_type=="double_main")
 				attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,f_cur_skill->query_name());
 				//else if(this_object()->weapon_type=="single_main"||this_object()->weapon_type=="both")
@@ -1181,16 +1181,16 @@ void boss_perform(string name){
 
 			}
 			else{
-				//Î´ÃüÖĞ	
-				s1 += this_object()->query_name_cn()+"Ê©·Å "+f_cur_skill->query_name_cn()+"£¬µ«Î´»÷ÖĞÄã¡£"; 
+				//æœªå‘½ä¸­	
+				s1 += this_object()->query_name_cn()+"æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†æœªå‡»ä¸­ä½ ã€‚"; 
 				tell_object(enemy,s1+"\n");
 			}
 			return;
 		}
-		//  ---  Ê©·ÅµÄÊÇdot¼¼ÄÜ ---
+		//  ---  æ–½æ”¾çš„æ˜¯dotæŠ€èƒ½ ---
 		else if(f_cur_skill->s_skill_type=="dot"){
 			if(f_cur_skill->is_aoe){
-				//ÊÇaoeÄ§·¨
+				//æ˜¯aoeé­”æ³•
 				array(object) enemys;
 				enemys = this_object()->get_all_targets();
 				if(enemys && sizeof(enemys)){
@@ -1199,63 +1199,63 @@ void boss_perform(string name){
 						int myhitte= this_object()->query_if_hitte();
 						if(myhitte<0)
 							myhitte=0;
-						if(random(100)<=myhitte){   //ÃüÖĞÀ²~
-							//¼ÇÂ¼dot¼¼ÄÜµÄÃû×Ö
+						if(random(100)<=myhitte){   //å‘½ä¸­å•¦~
+							//è®°å½•dotæŠ€èƒ½çš„åå­—
 							enemys[i]->set_debuff("dot",0,name);
-							//¼ÇÂ¼dotµÄÃ¿ÃëÉËº¦
+							//è®°å½•dotçš„æ¯ç§’ä¼¤å®³
 							enemys[i]->set_debuff("dot",1,f_cur_skill->query_performs_attack());
-							//¼ÇÂ¼dotÊ£ÓàÊ±¼ä
+							//è®°å½•dotå‰©ä½™æ—¶é—´
 							enemys[i]->set_debuff("dot",2,f_cur_skill->query_s_lasttime());
 
-							//²úÉú³ğºŞÖµ,dotµÄ³ğºŞÔİÊ±¶¨Îª20
+							//äº§ç”Ÿä»‡æ¨å€¼,dotçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 							int hate=(int)(20*skills_hate["test"]/100);
 							enemys[i]->flush_targets(this_object(),hate);
-							s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn();
+							s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn();
 							tell_object(enemys[i],s1+"\n");
 
-							//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+							//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 							enemys[i]->reduce_fight_wear_armor(1);
 						}
-						else { //Î´ÃüÖĞ
-							s1 += this_object()->query_name_cn()+"Ê©·Å "+f_cur_skill->query_name_cn()+"£¬µ«±»ÄãµÖ¿¹ÁË";
+						else { //æœªå‘½ä¸­
+							s1 += this_object()->query_name_cn()+"æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 							tell_object(enemys[i],s1+"\n");
 						}
 					}
 				}
 				return;
 			}
-			//µ¥Ò»Â·Ïß
+			//å•ä¸€è·¯çº¿
 			int myhitte= this_object()->query_if_hitte();
 			if(myhitte<0)
 				myhitte=0;
-			if(random(100)<=myhitte){   //ÃüÖĞÀ²~
-				//¼ÇÂ¼dot¼¼ÄÜµÄÃû×Ö
+			if(random(100)<=myhitte){   //å‘½ä¸­å•¦~
+				//è®°å½•dotæŠ€èƒ½çš„åå­—
 				enemy->set_debuff("dot",0,name);
-				//¼ÇÂ¼dotµÄÃ¿ÃëÉËº¦
+				//è®°å½•dotçš„æ¯ç§’ä¼¤å®³
 				enemy->set_debuff("dot",1,f_cur_skill->query_performs_attack());
-				//¼ÇÂ¼dotÊ£ÓàÊ±¼ä
+				//è®°å½•dotå‰©ä½™æ—¶é—´
 				enemy->set_debuff("dot",2,f_cur_skill->query_s_lasttime());
 
-				//²úÉú³ğºŞÖµ,dotµÄ³ğºŞÔİÊ±¶¨Îª20
+				//äº§ç”Ÿä»‡æ¨å€¼,dotçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 				int hate=(int)(20*skills_hate["test"]/100);
 				enemy->flush_targets(this_object(),hate);
 
-				s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn();
+				s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn();
 				tell_object(enemy,s1+"\n");
 
-				//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+				//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 				enemy->reduce_fight_wear_armor(1);
 			}
-			else { //Î´ÃüÖĞ
-				s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"£¬µ«±»ÄãµÖ¿¹ÁË";
+			else { //æœªå‘½ä¸­
+				s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 				tell_object(enemy,s1+"\n");
 				return;
 			}
 		}
-		//    ---  Ê©·ÅµÄÊÇ×çÖä¼¼ÄÜ  ---
+		//    ---  æ–½æ”¾çš„æ˜¯è¯…å’’æŠ€èƒ½  ---
 		else if(f_cur_skill->s_skill_type=="curse"){
 			if(f_cur_skill->is_aoe){
-				//ÊÇaoeÄ§·¨
+				//æ˜¯aoeé­”æ³•
 				array(object) enemys;
 				enemys = this_object()->get_all_targets();
 				if(enemys && sizeof(enemys)){
@@ -1264,220 +1264,220 @@ void boss_perform(string name){
 						int myhitte= this_object()->query_if_hitte();
 						if(myhitte<0)
 							myhitte=0;
-						if(random(100)<=myhitte){ //ÃüÖĞÀ²~
-							//¼ÇÂ¼×çÖäµÄÀàĞÍ
+						if(random(100)<=myhitte){ //å‘½ä¸­å•¦~
+							//è®°å½•è¯…å’’çš„ç±»å‹
 							enemys[i]->set_debuff("curse",0,f_cur_skill->s_curse_type);
-							//¼ÇÂ¼×çÖäµÄÖµ
+							//è®°å½•è¯…å’’çš„å€¼
 							enemys[i]->set_debuff("curse",1,f_cur_skill->query_performs_attack());
-							//¼ÇÂ¼×çÖäµÄ³ÖĞøÊ±¼ä
+							//è®°å½•è¯…å’’çš„æŒç»­æ—¶é—´
 							enemys[i]->set_debuff("curse",2,f_cur_skill->query_s_lasttime());
 
-							//²úÉú³ğºŞÖµ,curseµÄ³ğºŞÔİÊ±¶¨Îª20
+							//äº§ç”Ÿä»‡æ¨å€¼,curseçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 							int hate=(int)(20*skills_hate["test"]/100);
 							enemys[i]->flush_targets(this_object(),hate);
 
-							s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn();
+							s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn();
 							tell_object(enemys[i],s1+"\n");
 
-							//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+							//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 							enemys[i]->reduce_fight_wear_armor(1);
 						}
-						else { //Î´ÃüÖĞ
-							s1 += this_object()->query_name_cn()+"Ê©·Å "+f_cur_skill->query_name_cn()+"£¬µ«±»ÄãµÖ¿¹ÁË";
+						else { //æœªå‘½ä¸­
+							s1 += this_object()->query_name_cn()+"æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 							tell_object(enemys[i],s1+"\n");
 						}
 					}
 					return;
 				}
-				//µ¥Ò»Â·Ïß
+				//å•ä¸€è·¯çº¿
 				int myhitte= this_object()->query_if_hitte();
 				if(myhitte<0)
 					myhitte=0;
-				if(random(100)<=myhitte){ //ÃüÖĞÀ²~
-					//¼ÇÂ¼×çÖäµÄÀàĞÍ
+				if(random(100)<=myhitte){ //å‘½ä¸­å•¦~
+					//è®°å½•è¯…å’’çš„ç±»å‹
 					enemy->set_debuff("curse",0,f_cur_skill->s_curse_type);
-					//¼ÇÂ¼×çÖäµÄÖµ
+					//è®°å½•è¯…å’’çš„å€¼
 					enemy->set_debuff("curse",1,f_cur_skill->query_performs_attack());
-					//¼ÇÂ¼×çÖäµÄ³ÖĞøÊ±¼ä
+					//è®°å½•è¯…å’’çš„æŒç»­æ—¶é—´
 					enemy->set_debuff("curse",2,f_cur_skill->query_s_lasttime());
 
-					//²úÉú³ğºŞÖµ,curseµÄ³ğºŞÔİÊ±¶¨Îª20
+					//äº§ç”Ÿä»‡æ¨å€¼,curseçš„ä»‡æ¨æš‚æ—¶å®šä¸º20
 					int hate=(int)(20*skills_hate["test"]/100);
 					enemy->flush_targets(this_object(),hate);
 
-					s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·ÅÁË"+f_cur_skill->query_name_cn();
+					s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾äº†"+f_cur_skill->query_name_cn();
 					tell_object(enemy,s1+"\n");
-					//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+					//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 					enemy->reduce_fight_wear_armor(1);
 				}
-				else { //Î´ÃüÖĞ
-					s1 += this_object()->query_name_cn()+"¶ÔÄãÊ©·Å "+f_cur_skill->query_name_cn()+"£¬µ«±»ÄãµÖ¿¹ÁË";
+				else { //æœªå‘½ä¸­
+					s1 += this_object()->query_name_cn()+"å¯¹ä½ æ–½æ”¾ "+f_cur_skill->query_name_cn()+"ï¼Œä½†è¢«ä½ æŠµæŠ—äº†";
 					tell_object(enemy,s1+"\n");
 				}
 			}
 			return;
 		}
-		//  ---  Ê©·ÅµÄÔöÒæÄ§·¨ ---
+		//  ---  æ–½æ”¾çš„å¢ç›Šé­”æ³• ---
 		else if(f_cur_skill->s_skill_type=="buff"){
-			//¼ÇÂ¼buffµÄÀàĞÍ
+			//è®°å½•buffçš„ç±»å‹
 			this_object()->set_buff("buff",0,f_cur_skill->s_curse_type);
-			//¼ÇÂ¼buffµÄÖµ
+			//è®°å½•buffçš„å€¼
 			this_object()->set_buff("buff",1,f_cur_skill->query_performs_attack());
-			//¼ÇÂ¼buffµÄ³ÖĞøÊ±¼ä
+			//è®°å½•buffçš„æŒç»­æ—¶é—´
 			this_object()->set_buff("buff",2,f_cur_skill->query_s_lasttime());
 
-			//²úÉú³ğºŞÖµ,buffµÄ³ğºŞÔİÊ±¶¨Îª10
+			//äº§ç”Ÿä»‡æ¨å€¼,buffçš„ä»‡æ¨æš‚æ—¶å®šä¸º10
 			int hate=(int)(10*skills_hate["test"]/100);
 			enemy->flush_targets(this_object(),hate);
 
-			s1 += this_object()->query_name_cn()+"Ê©·ÅÁË"+f_cur_skill->query_name_cn();
+			s1 += this_object()->query_name_cn()+"æ–½æ”¾äº†"+f_cur_skill->query_name_cn();
 			tell_object(enemy,s1+"\n");
 			return;
 		}
 	}
 	else {
-		//Ã»ÓĞÕâÖÖ¼¼ÄÜ
+		//æ²¡æœ‰è¿™ç§æŠ€èƒ½
 		werror("-----error boss_perform the skill "+name+" is not exist------\n");
 		return;
 	}
 }
 
 
-//Õ½¶·ºËĞÄËã·¨,ÆÕÍ¨¹¥»÷»òÕßÊ©·ÅÎïÀí¹¥»÷¼¼ÄÜÊ±µ÷ÓÃµÄ½Ó¿Ú
+//æˆ˜æ–—æ ¸å¿ƒç®—æ³•,æ™®é€šæ”»å‡»æˆ–è€…æ–½æ”¾ç‰©ç†æ”»å‡»æŠ€èƒ½æ—¶è°ƒç”¨çš„æ¥å£
 private void attack(int skill_add,int skill_add_per,string type,string skill_name_cn,void|string name_skill){
 	if(enemy==0){
 		return;
 	}
 	string fight_action_desc="";
-	//±¾´Î¹¥»÷³É¹¦ºóµÄ×îÖÕÉËº¦Öµ
+	//æœ¬æ¬¡æ”»å‡»æˆåŠŸåçš„æœ€ç»ˆä¼¤å®³å€¼
 	int attack_a = 0;
-	//Èç¹ûÓĞÄ§·¨¶Übuff£¬ÔòÎªÎüÊÕºóµÄÉËº¦
+	//å¦‚æœæœ‰é­”æ³•ç›¾buffï¼Œåˆ™ä¸ºå¸æ”¶åçš„ä¼¤å®³
 	int attack_fact = 0;
 
-	int self=this_object()->query_base_damage(); //µÃµ½×ÔÉí¹¥»÷Á¦
-	int add=0; //µÃµ½¸½¼ÓÎäÆ÷ÉËº¦
-	int add_per=0; //µÃµ½Ôö¼ÓÎäÆ÷ÉËº¦°Ù·Ö±È
+	int self=this_object()->query_base_damage(); //å¾—åˆ°è‡ªèº«æ”»å‡»åŠ›
+	int add=0; //å¾—åˆ°é™„åŠ æ­¦å™¨ä¼¤å®³
+	int add_per=0; //å¾—åˆ°å¢åŠ æ­¦å™¨ä¼¤å®³ç™¾åˆ†æ¯”
 	int h;
-	//Ê×ÏÈÅĞ¶Ï¹¥»÷ÕßµÄÃüÖĞ¼ÆËã£º¹¥»÷ÕßµÄÃüÖĞÂÊ+×°±¸µÄ¸½¼ÓÃüÖĞ+¼¼ÄÜµÄÃüÖĞ(¿ÉÄÜÊÇ100%ÃüÖĞ¼¼ÄÜ)
+	//é¦–å…ˆåˆ¤æ–­æ”»å‡»è€…çš„å‘½ä¸­è®¡ç®—ï¼šæ”»å‡»è€…çš„å‘½ä¸­ç‡+è£…å¤‡çš„é™„åŠ å‘½ä¸­+æŠ€èƒ½çš„å‘½ä¸­(å¯èƒ½æ˜¯100%å‘½ä¸­æŠ€èƒ½)
 	if(skill_name_cn!=""){
-		h=100; //ÎïÀí¼¼ÄÜ¹¥»÷£¬ÔÚperform()ÀïÒÑ¾­×÷ÁËµÈ¼¶Ñ¹ÖÆ£¬ÕâÀï²»Ğè×ßÆÕ¹¥µÄÃüÖĞÅĞ¶Ï
+		h=100; //ç‰©ç†æŠ€èƒ½æ”»å‡»ï¼Œåœ¨perform()é‡Œå·²ç»ä½œäº†ç­‰çº§å‹åˆ¶ï¼Œè¿™é‡Œä¸éœ€èµ°æ™®æ”»çš„å‘½ä¸­åˆ¤æ–­
 	}
 	else{
-		int hitte_a = this_object()->query_if_hitte();//mudlib/inherit/feature/char.pikeÖĞ½Ó¿Ú
+		int hitte_a = this_object()->query_if_hitte();//mudlib/inherit/feature/char.pikeä¸­æ¥å£
 		int difflevel = enemy->query_level()-this_object()->query_level(); 
 		if(difflevel<0)
 			difflevel=0;
 		h = (int)(hitte_a-difflevel*5);
-		if(this_object()->is_both_weapons) //Ë«ÎäÆ÷ÃüÖĞµÄ³Í·£
+		if(this_object()->is_both_weapons) //åŒæ­¦å™¨å‘½ä¸­çš„æƒ©ç½š
 			h -= 10;
 		if(h<30)
 			h=30;
 	}
-	//Ö»ÓĞ¹¥»÷ÕßÃüÖĞÁË£¬²ÅĞèÒª½øĞĞÏÂÒ»²½¼ÆËã	
+	//åªæœ‰æ”»å‡»è€…å‘½ä¸­äº†ï¼Œæ‰éœ€è¦è¿›è¡Œä¸‹ä¸€æ­¥è®¡ç®—	
 	if(random(100)<h){
-		//ÉÁ±Ü¼ÆËã£º¼ÆËã±»¹¥»÷ÕßµÄÉÁ±ÜÂÊ+×°±¸µÄÉÁ±Ü	
+		//é—ªé¿è®¡ç®—ï¼šè®¡ç®—è¢«æ”»å‡»è€…çš„é—ªé¿ç‡+è£…å¤‡çš„é—ªé¿	
 		int dodge_e = enemy->query_if_dodge();
-		//Ö»ÓĞ±»¹¥»÷ÕßÎ´ÄÜÉÁ±Ü£¬²ÅĞèÒª½øĞĞÏÂÒ»²½¼ÆËã
+		//åªæœ‰è¢«æ”»å‡»è€…æœªèƒ½é—ªé¿ï¼Œæ‰éœ€è¦è¿›è¡Œä¸‹ä¸€æ­¥è®¡ç®—
 		int dodgechuantou_add=this_object()->query_equip_add("dodgechuantou_add");
-		//µ±±»ÉÁ±ÜµôÒÔºó£¬ÔòÅĞ¶ÏÊÇ·ñÎŞÊÓÉÁ±Ü£¬¼ÆËãÉÁ±Ü´©Í¸µÄÖµ£¬Èç¹ûËæ»úµ½¼¸ÂÊ ÔòÖØÖÃÉÁ±Ü
+		//å½“è¢«é—ªé¿æ‰ä»¥åï¼Œåˆ™åˆ¤æ–­æ˜¯å¦æ— è§†é—ªé¿ï¼Œè®¡ç®—é—ªé¿ç©¿é€çš„å€¼ï¼Œå¦‚æœéšæœºåˆ°å‡ ç‡ åˆ™é‡ç½®é—ªé¿
 		string dodgechuantou_desc="";
-		if(dodge_e==1 && dodgechuantou_add>0 && random(1000)<=dodgechuantou_add){//ÕâÀïµÄÉÁ±Ü´©Í¸ÊÇÇ§·ÖÖ®¼¸µÄ»ùµã
-			dodge_e=0;//ËäÈ»¶ãµôÁË£¬µ«ÓÖ±»À­»ØÀ´ÁË£¬ÒòÎªÎŞÊÓÉÁ±ÜÉúĞ§¡£
-			dodgechuantou_desc="\n(ÉÁ±Ü´©Í¸ÉúĞ§£¬ÎŞÊÓ¶Ô·½ÉÁ±Ü¼¼ÄÜ£¬ÄãµÄ¹¥»÷ÃüÖĞ ¡¾"+enemy->query_name_cn()+"¡¿)\n";
+		if(dodge_e==1 && dodgechuantou_add>0 && random(1000)<=dodgechuantou_add){//è¿™é‡Œçš„é—ªé¿ç©¿é€æ˜¯åƒåˆ†ä¹‹å‡ çš„åŸºç‚¹
+			dodge_e=0;//è™½ç„¶èº²æ‰äº†ï¼Œä½†åˆè¢«æ‹‰å›æ¥äº†ï¼Œå› ä¸ºæ— è§†é—ªé¿ç”Ÿæ•ˆã€‚
+			dodgechuantou_desc="\n(é—ªé¿ç©¿é€ç”Ÿæ•ˆï¼Œæ— è§†å¯¹æ–¹é—ªé¿æŠ€èƒ½ï¼Œä½ çš„æ”»å‡»å‘½ä¸­ ã€"+enemy->query_name_cn()+"ã€‘)\n";
 		}
 		if(dodge_e==0){
 
-			//ÔÚÕâÀïÌí¼ÓÎäÆ÷µÄÄ§·¨ÉËº¦¸½¼Ó
+			//åœ¨è¿™é‡Œæ·»åŠ æ­¦å™¨çš„é­”æ³•ä¼¤å®³é™„åŠ 
 			//
 			///////////////////////////////
 
 			//if(this_object()->is("player")){	
-			//Õ½¶·ÖĞ»÷ÖĞ¶Ô·½£¬¼õ¹¥»÷ÕßÎäÆ÷Ä¥Ëğ
+			//æˆ˜æ–—ä¸­å‡»ä¸­å¯¹æ–¹ï¼Œå‡æ”»å‡»è€…æ­¦å™¨ç£¨æŸ
 			this_object()->reduce_fight_wield_weapon(1);
-			//Õ½¶·ÖĞ±»¹¥»÷Õß»÷ÖĞ£¬¼õ·À¾ßÄ¥Ëğ
+			//æˆ˜æ–—ä¸­è¢«æ”»å‡»è€…å‡»ä¸­ï¼Œå‡é˜²å…·ç£¨æŸ
 			enemy->reduce_fight_wear_armor(1);
 			//}
-			////////////////¹¥»÷ÕßÉËº¦¼ÆËã//////////////////////////////////////
-			//1.Íæ¼ÒµÄÎïÀíÉËº¦(Íæ¼ÒÉËº¦ÉÏÏÂÏŞÖ®¼äµÄÒ»¸öËæ»úÊıÖµ)
-			if(type=="double_main" || type=="single_main") { //Íæ¼Ò×°±¸µÄÊÇÖ÷ÊÖÎäÆ÷
-				//µÃµ½¸½¼ÓÎäÆ÷ÉËº¦
+			////////////////æ”»å‡»è€…ä¼¤å®³è®¡ç®—//////////////////////////////////////
+			//1.ç©å®¶çš„ç‰©ç†ä¼¤å®³(ç©å®¶ä¼¤å®³ä¸Šä¸‹é™ä¹‹é—´çš„ä¸€ä¸ªéšæœºæ•°å€¼)
+			if(type=="double_main" || type=="single_main") { //ç©å®¶è£…å¤‡çš„æ˜¯ä¸»æ‰‹æ­¦å™¨
+				//å¾—åˆ°é™„åŠ æ­¦å™¨ä¼¤å®³
 				add=this_object()->main_attack_attri_add+skill_add; 
-				//µÃµ½Ôö¼ÓÎäÆ÷ÉËº¦°Ù·Ö±È
+				//å¾—åˆ°å¢åŠ æ­¦å™¨ä¼¤å®³ç™¾åˆ†æ¯”
 				//add_per=add+(add*this_object()->main_attack_attri_add_per*10)/100+skill_add_per; 
-				add_per=this_object()->main_attack_attri_add_per*10+skill_add_per;//ÕıÈ·µÄ¹«Ê½
-				attack_weapon = this_object()->query_main_equiped_attack();//mudlib/inherit/feature/attack.pikeÖĞ¶¨ÒåµÄ½Ó¿Ú
+				add_per=this_object()->main_attack_attri_add_per*10+skill_add_per;//æ­£ç¡®çš„å…¬å¼
+				attack_weapon = this_object()->query_main_equiped_attack();//mudlib/inherit/feature/attack.pikeä¸­å®šä¹‰çš„æ¥å£
 
-				//ÃèÊö
+				//æè¿°
 				if(fight_desc_arg_main=="beast"||fight_desc_arg_main=="bird"||fight_desc_arg_main=="fish"||fight_desc_arg_main=="amphibian"||fight_desc_arg_main=="bugs")
 					fight_action_desc=query_fight_desc(fight_desc_arg_main);
 				else {
 					if(skill_name_cn=="")
-						fight_action_desc=this_object()->cur_main_weapon_name+"£¬"+query_fight_desc(fight_desc_arg_main);
+						fight_action_desc=this_object()->cur_main_weapon_name+"ï¼Œ"+query_fight_desc(fight_desc_arg_main);
 					else
 						fight_action_desc=this_object()->cur_main_weapon_name;
 				}
 			}
 
 			else if(type=="other") {
-				//µÃµ½¸½¼ÓÎäÆ÷ÉËº¦
+				//å¾—åˆ°é™„åŠ æ­¦å™¨ä¼¤å®³
 				add=this_object()->other_attack_attri_add+skill_add;
-				//µÃµ½Ôö¼ÓÎäÆ÷ÉËº¦°Ù·Ö±È
+				//å¾—åˆ°å¢åŠ æ­¦å™¨ä¼¤å®³ç™¾åˆ†æ¯”
 				//add_per=add+(add*this_object()->other_attack_attri_add_per*10)/100+skill_add_per; 
-				add_per=this_object()->other_attack_attri_add_per*10+skill_add_per;//ÕıÈ·µÄ¹«Ê½	
+				add_per=this_object()->other_attack_attri_add_per*10+skill_add_per;//æ­£ç¡®çš„å…¬å¼	
 				attack_weapon = this_object()->query_other_equiped_attack();
 				if(skill_name_cn=="")
-					fight_action_desc = this_object()->cur_other_weapon_name+"£¬"+query_fight_desc(fight_desc_arg_other);
+					fight_action_desc = this_object()->cur_other_weapon_name+"ï¼Œ"+query_fight_desc(fight_desc_arg_other);
 				else 
 					fight_action_desc=this_object()->cur_main_weapon_name;
 			}
 
-			//µÃµ½Î´±©»÷Ç°µÄ×Ü¹¥»÷ÉËº¦,¾¡Á¿±ÜÃâ²»±ØÒªµÄ¸¡µãÔËËã
+			//å¾—åˆ°æœªæš´å‡»å‰çš„æ€»æ”»å‡»ä¼¤å®³,å°½é‡é¿å…ä¸å¿…è¦çš„æµ®ç‚¹è¿ç®—
 			int total_attack=0;
 			if(add_per) 
 				total_attack = attack_weapon+(int)(attack_weapon*add_per/100)+add+self;
 			else 
 				total_attack = attack_weapon+add+self;
 
-			//npc¹¥»÷Á¦µ÷Õû£¬³ıÒÔ3
+			//npcæ”»å‡»åŠ›è°ƒæ•´ï¼Œé™¤ä»¥3
 			if(this_object()->is("npc")){
 				total_attack = total_attack/3;
 			}
-			//3.¼ÆËãÊÇ·ñÓĞ±©»÷£¬Èç¹ûÓĞ£¬¼ÆËã¼Ó³É±©»÷ÂÊÖ®ºóµÄ¹¥»÷Öµ=ËùÓĞ¹¥»÷Öµ×ÜºÍ*±©»÷/100	
-			int baoji_a = this_object()->query_if_baoji(enemy);//·µ»ØÒ»¸öÕûÊıÖµ£¬Îª%µÄ·Ö×ÓĞÎÊ½Ìá¹©
+			//3.è®¡ç®—æ˜¯å¦æœ‰æš´å‡»ï¼Œå¦‚æœæœ‰ï¼Œè®¡ç®—åŠ æˆæš´å‡»ç‡ä¹‹åçš„æ”»å‡»å€¼=æ‰€æœ‰æ”»å‡»å€¼æ€»å’Œ*æš´å‡»/100	
+			int baoji_a = this_object()->query_if_baoji(enemy);//è¿”å›ä¸€ä¸ªæ•´æ•°å€¼ï¼Œä¸º%çš„åˆ†å­å½¢å¼æä¾›
 			if(baoji_a==1){
 				total_attack = (int)((total_attack)*150/100);
 				int renxing = enemy->query_equip_add("renxing");
 				if(renxing){
-				//Èç¹û¶Ô·½ÓĞÈÍĞÔ£¬ÔòÃ¿40µãÈÍĞÔ¼õÉÙ2%±»±©»÷ºóµÄÉËº¦£¬¼ÆËã¹«Ê½Îª£ºÊµ¼Ê¹¥»÷Öµ=±©»÷ºóµÄ¹¥»÷Öµ - ±©»÷ºóµÄ¹¥»÷ * (ÈÍĞÔ/40) * 2%;ÎªÁË¾¡Á¿Ğ¡µÄ¼õÉÙÎó²î£¬¹Ê°Ñ¹«Ê½×ª»¯Îª Êµ¼Ê¹¥»÷Öµ=±©»÷ºóµÄ¹¥»÷Öµ - (±©»÷ºóµÄ¹¥»÷ * ÈÍĞÔ *2¡Á)/(40*100)  added by caijie 08/12/04
+				//å¦‚æœå¯¹æ–¹æœ‰éŸ§æ€§ï¼Œåˆ™æ¯40ç‚¹éŸ§æ€§å‡å°‘2%è¢«æš´å‡»åçš„ä¼¤å®³ï¼Œè®¡ç®—å…¬å¼ä¸ºï¼šå®é™…æ”»å‡»å€¼=æš´å‡»åçš„æ”»å‡»å€¼ - æš´å‡»åçš„æ”»å‡» * (éŸ§æ€§/40) * 2%;ä¸ºäº†å°½é‡å°çš„å‡å°‘è¯¯å·®ï¼Œæ•…æŠŠå…¬å¼è½¬åŒ–ä¸º å®é™…æ”»å‡»å€¼=æš´å‡»åçš„æ”»å‡»å€¼ - (æš´å‡»åçš„æ”»å‡» * éŸ§æ€§ *2Ã—)/(40*100)  added by caijie 08/12/04
 					total_attack -= (int)((total_attack * renxing * 2)/(40*100));
 				}
 			}
-			////////////////¼ÓÉÏ±»¹¥»÷Õß·ÀÓù¼ÆËãµÃµ½×îÖÕÎïÀíÉËº¦Öµattack_a/////////////////////
+			////////////////åŠ ä¸Šè¢«æ”»å‡»è€…é˜²å¾¡è®¡ç®—å¾—åˆ°æœ€ç»ˆç‰©ç†ä¼¤å®³å€¼attack_a/////////////////////
 			defend = enemy->query_defend_power();
 			
 			
-			int division = this_object()->query_level()*120;//ÖØĞÂÆôÓÃÕâ¸öËã·¨£»
+			int division = this_object()->query_level()*120;//é‡æ–°å¯ç”¨è¿™ä¸ªç®—æ³•ï¼›
 			if(this_object()->query_level()<70){
-				division=8000;//±£³ÖÖ®Ç°µÄÄ¬ÈÏÖµ
+				division=8000;//ä¿æŒä¹‹å‰çš„é»˜è®¤å€¼
 			}
 			string u_profe = this_object()->query_profeId();
-			if(u_profe=="yinggui"){//¶ÔÓ°¹íµÄÎïÀí¹¥»÷¼ÓÒÔĞŞÕı£¬¶Ô·½µÄ·ÀÓù·ÖÄ¸À©´ó4±¶£¬Ò»°ã¶Ô·½¶¼ÓĞ1Íò¶à·ÀÓù
-			//ÓÉÓÚ·¨Ê¦µÄÄ§·¨ÉËº¦ÊÇÔÚ´ËÖ®ºó¶îÍâ¼ÓµÄ£¬¶àÒÔ¶ÔÓ°¹íµÈÎïÀí¹¥»÷µÄÖ°Òµ×öÁË¼Ó³É¡£
+			if(u_profe=="yinggui"){//å¯¹å½±é¬¼çš„ç‰©ç†æ”»å‡»åŠ ä»¥ä¿®æ­£ï¼Œå¯¹æ–¹çš„é˜²å¾¡åˆ†æ¯æ‰©å¤§4å€ï¼Œä¸€èˆ¬å¯¹æ–¹éƒ½æœ‰1ä¸‡å¤šé˜²å¾¡
+			//ç”±äºæ³•å¸ˆçš„é­”æ³•ä¼¤å®³æ˜¯åœ¨æ­¤ä¹‹åé¢å¤–åŠ çš„ï¼Œå¤šä»¥å¯¹å½±é¬¼ç­‰ç‰©ç†æ”»å‡»çš„èŒä¸šåšäº†åŠ æˆã€‚
 				division=this_object()->query_level()*450;
 				//werror("===========wuyaoxiuzheng:\n");
 			}
 			//werror("=======================division:"+division+" u_profe:"+u_profe+"\n");
 			//werror("=======================enemy defend:"+defend+"\n");
-			//ĞÂÔö¼ÓµÄÊôĞÔ ÎïÀí´©Í¸£¬ÎŞÊÓ·ÀÓù£¬Ö±½Ó¼ÓÔØ×îÖÕ½á¹ûÉÏ
+			//æ–°å¢åŠ çš„å±æ€§ ç‰©ç†ç©¿é€ï¼Œæ— è§†é˜²å¾¡ï¼Œç›´æ¥åŠ è½½æœ€ç»ˆç»“æœä¸Š
 			int wulichuantou_add=this_object()->query_equip_add("wulichuantou_add");
 			attack_a = (total_attack - (int)(defend*total_attack)/division);
 			if(attack_a<0){
-				attack_a=1;//µ±¶Ô·½·ÀÓùºÜºñÊ±ºò£¬Ôò´ò³öÀ´1µÄÉËº¦¡£
+				attack_a=1;//å½“å¯¹æ–¹é˜²å¾¡å¾ˆåšæ—¶å€™ï¼Œåˆ™æ‰“å‡ºæ¥1çš„ä¼¤å®³ã€‚
 			}
-			attack_a+=wulichuantou_add;//Ôö¼ÓÎïÀí´©Í¸
+			attack_a+=wulichuantou_add;//å¢åŠ ç‰©ç†ç©¿é€
 			if(name_skill && skill_name_cn != "" && name_skill != "xueranjiangshan" && name_skill != "xueranjiangshan2") 
-				attack_a = attack_a*3/2;//ÎªÁËÍæ¼ÒÄÜ¹»½ÓÊÜ£¬¼¼ÄÜ¹¥»÷¼ÓÇ¿1.5±¶
-			//¼¼ÄÜµÄÉËº¦°Ù·Ö±ÈbuffÔÚÕâ¶ùÌí¼Ó£¬ÓÉliaochengÓÚ080827Ìí¼Ó
+				attack_a = attack_a*3/2;//ä¸ºäº†ç©å®¶èƒ½å¤Ÿæ¥å—ï¼ŒæŠ€èƒ½æ”»å‡»åŠ å¼º1.5å€
+			//æŠ€èƒ½çš„ä¼¤å®³ç™¾åˆ†æ¯”buffåœ¨è¿™å„¿æ·»åŠ ï¼Œç”±liaochengäº080827æ·»åŠ 
 			int per_tmp;
 			if(this_object()->query_buff("spec_attack_buff",0) != "none"){
 				per_tmp = this_object()->query_buff("spec_attack_buff",1);
@@ -1487,10 +1487,10 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			}
 			if(per_tmp)
 				attack_a += total_attack*per_tmp/100;
-			//¼õÉÙÉËº¦µÄ¼¼ÄÜÔÚÕâ¶ùÌí¼Ó
+			//å‡å°‘ä¼¤å®³çš„æŠ€èƒ½åœ¨è¿™å„¿æ·»åŠ 
 			if(enemy->query_buff("70_skill_buff") == "baofengfeixue")
 				attack_a = attack_a*70/100;
-			//½£ÏÉ70¼¶¼¼ÄÜÉËº¦·´µ¯
+			//å‰‘ä»™70çº§æŠ€èƒ½ä¼¤å®³åå¼¹
 			string reflect_desc = "";
 			if(enemy->query_buff("70_skill_buff",0) == "fanzhuanyiji"){
 				int attack_reflect = attack_a*30/100;
@@ -1499,30 +1499,30 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 				if(life_left<0)
 					life_left = 0;
 				this_object()->set_life(life_left);
-				reflect_desc = "("+attack_reflect+"±»·´µ¯)";
+				reflect_desc = "("+attack_reflect+"è¢«åå¼¹)";
 			}
-			//ÔÙÔÚÕâ¶ù¼ÓÈëÎäÆ÷¸½¼ÓµÄÄ§·¨ÉËº¦(Èç+3»ğÑæÉËº¦)
+			//å†åœ¨è¿™å„¿åŠ å…¥æ­¦å™¨é™„åŠ çš„é­”æ³•ä¼¤å®³(å¦‚+3ç«ç„°ä¼¤å®³)
 			attack_huoyan_add = get_attack_mofa_add("huoyan_defend",this_object()->huo_add,enemy);
 			attack_bingshuang_add = get_attack_mofa_add("bingshuang_defend",this_object()->bing_add,enemy);
 			attack_fengren_add = get_attack_mofa_add("fengren_defend",this_object()->feng_add,enemy);
 			attack_dusu_add = get_attack_mofa_add("dusu_defend",this_object()->du_add,enemy);
-			//Ó°¹í70¼¶¶¾ËØÉËº¦Ìá¸ßµÄĞ§¹û
+			//å½±é¬¼70çº§æ¯’ç´ ä¼¤å®³æé«˜çš„æ•ˆæœ
 			if(this_object()->query_buff("70_skill_buff",0)=="cuidu")
 				attack_dusu_add += attack_dusu_add/2;
 
 			attack_a += attack_huoyan_add+attack_bingshuang_add+attack_fengren_add+attack_dusu_add;
-			//ÏÖÔÚµÄattack_a¾ÍÊÇ×îÖÕµÄÉËº¦Öµ
+			//ç°åœ¨çš„attack_aå°±æ˜¯æœ€ç»ˆçš„ä¼¤å®³å€¼
 			if (attack_a<=0)
 				attack_a=random(5);
 
-			//ÔÚÕâ¶ù¼ÓÈëbuffµÄÄ§·¨¶ÜÎüÊÕÉËº¦liaocheng 07/4/9
+			//åœ¨è¿™å„¿åŠ å…¥buffçš„é­”æ³•ç›¾å¸æ”¶ä¼¤å®³liaocheng 07/4/9
 			attack_fact = attack_a;
 			string absorb_desc = "";
 			if(enemy->query_buff("buff",0)=="absorb"){
 				if((int)enemy->query_buff("buff",1) >= attack_a){
 					int remain = (int)enemy->query_buff("buff",1) - attack_a;
 					attack_fact = 0;
-					absorb_desc = "(±»ÎüÊÕ)";
+					absorb_desc = "(è¢«å¸æ”¶)";
 					if(remain <= 0)
 						enemy->clean_buff("buff");
 					else
@@ -1530,7 +1530,7 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 				}
 				else{
 					attack_fact = attack_a - (int)enemy->query_buff("buff",1); 
-					absorb_desc = "("+enemy->query_buff("buff",1)+"µã±»ÎüÊÕ)";
+					absorb_desc = "("+enemy->query_buff("buff",1)+"ç‚¹è¢«å¸æ”¶)";
 					enemy->clean_buff("buff");
 				}
 			}
@@ -1538,7 +1538,7 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 				if((int)enemy->query_buff("buff2",1) >= attack_a){
 					int remain = (int)enemy->query_buff("buff2",1) - attack_a;
 					attack_fact = 0;
-					absorb_desc = "(±»ÎüÊÕ)";
+					absorb_desc = "(è¢«å¸æ”¶)";
 					if(remain <= 0)
 						enemy->clean_buff("buff2");
 					else
@@ -1546,56 +1546,56 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 				}
 				else{
 					attack_fact = attack_a - (int)enemy->query_buff("buff2",1); 
-					absorb_desc = "("+enemy->query_buff("buff2",1)+"µã±»ÎüÊÕ)";
+					absorb_desc = "("+enemy->query_buff("buff2",1)+"ç‚¹è¢«å¸æ”¶)";
 					enemy->clean_buff("buff2");
 				}
 			}
-			//Èç¹ûÎïÀí´©Í¸´óÓÚÁã£¬ÔòÒªÔÚÇ°¶ËÌáÊ¾¸øÍæ¼Ò
+			//å¦‚æœç‰©ç†ç©¿é€å¤§äºé›¶ï¼Œåˆ™è¦åœ¨å‰ç«¯æç¤ºç»™ç©å®¶
 			string chuantou_desc = "";
 			if(wulichuantou_add>0){
-				chuantou_desc = "¡¾"+wulichuantou_add+" µãÎïÀí´©Í¸¡¿";
+				chuantou_desc = "ã€"+wulichuantou_add+" ç‚¹ç‰©ç†ç©¿é€ã€‘";
 			}
-			//ÔÚÕâÀï²úÉúÍşĞ²Öµ
+			//åœ¨è¿™é‡Œäº§ç”Ÿå¨èƒå€¼
 			int hate=(int)(attack_a*skills_hate["test"]/100);
 			enemy->flush_targets(this_object(),hate);
 			if(!enemy->in_combat)
 				enemy->_fight(this_object());
-			////////////////////////Õ½¶·ÃèÊö///////////////////////////////////////////////
+			////////////////////////æˆ˜æ–—æè¿°///////////////////////////////////////////////
 			if(baoji_a==1) {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"Äã½ôÎÕ"+fight_action_desc+"£¬²úÉú±©»÷Ğ§¹û£¬¶Ô"+enemy->query_name_cn()+"Ôì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"£¬¶ÔÄãµÄ¹¥»÷²úÉú±©»÷Ğ§¹û£¬Ôì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"ä½ ç´§æ¡"+fight_action_desc+"ï¼Œäº§ç”Ÿæš´å‡»æ•ˆæœï¼Œå¯¹"+enemy->query_name_cn()+"é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"ï¼Œå¯¹ä½ çš„æ”»å‡»äº§ç”Ÿæš´å‡»æ•ˆæœï¼Œé€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"Äã½ôÎÕ"+fight_action_desc+"Ê©Õ¹"+skill_name_cn+"£¬²úÉú±©»÷Ğ§¹û£¬¶Ô"+enemy->query_name_cn()+"Ôì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"Ê©Õ¹"+skill_name_cn+"£¬¶ÔÄãµÄ¹¥»÷²úÉú±©»÷Ğ§¹û£¬Ôì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+					tell_object(this_object(),"ä½ ç´§æ¡"+fight_action_desc+"æ–½å±•"+skill_name_cn+"ï¼Œäº§ç”Ÿæš´å‡»æ•ˆæœï¼Œå¯¹"+enemy->query_name_cn()+"é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"æ–½å±•"+skill_name_cn+"ï¼Œå¯¹ä½ çš„æ”»å‡»äº§ç”Ÿæš´å‡»æ•ˆæœï¼Œé€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 					skills_level_check(name_skill);
 				}
 			}
 			else {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"Äã½ôÎÕ"+fight_action_desc+"£¬¶Ô"+enemy->query_name_cn()+"Ôì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"£¬¶ÔÄãÔì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					//tell_object(enemy,this_object()->query_name_cn()+"½ôÎÕ"+fight_action_desc+"£¬¶ÔÄãÔì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+"\n");
+					tell_object(this_object(),"ä½ ç´§æ¡"+fight_action_desc+"ï¼Œå¯¹"+enemy->query_name_cn()+"é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"ï¼Œå¯¹ä½ é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					//tell_object(enemy,this_object()->query_name_cn()+"ç´§æ¡"+fight_action_desc+"ï¼Œå¯¹ä½ é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"Äã½ôÎÕ"+fight_action_desc+"Ê©Õ¹"+skill_name_cn+"£¬¶Ô"+enemy->query_name_cn()+"Ôì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+"Ê©Õ¹"+skill_name_cn+"£¬¶ÔÄãÔì³ÉÁË"+attack_a+"µãÉËº¦"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					//ÊìÁ·¶ÈÌá¸ß,ĞèÒª¶Ô·½µÈ¼¶ºÍ×Ô¼ºÏàµ±£¬²Å»áÌáÉı¼¼ÄÜÊìÁ·¶È
+					tell_object(this_object(),"ä½ ç´§æ¡"+fight_action_desc+"æ–½å±•"+skill_name_cn+"ï¼Œå¯¹"+enemy->query_name_cn()+"é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+"æ–½å±•"+skill_name_cn+"ï¼Œå¯¹ä½ é€ æˆäº†"+attack_a+"ç‚¹ä¼¤å®³"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					//ç†Ÿç»ƒåº¦æé«˜,éœ€è¦å¯¹æ–¹ç­‰çº§å’Œè‡ªå·±ç›¸å½“ï¼Œæ‰ä¼šæå‡æŠ€èƒ½ç†Ÿç»ƒåº¦
 					if(name_skill != "xueranjiangshan")
 						skills_level_check(name_skill);
 				}
 			}
 			int life_damage = enemy->get_cur_life()-attack_fact;
 			if(life_damage<=0){
-				//µĞÈËËÀÍö£¬Ôò°ÑµĞÈË´Ó³ğºŞÁĞ±íÖĞÇå³ı
+				//æ•Œäººæ­»äº¡ï¼Œåˆ™æŠŠæ•Œäººä»ä»‡æ¨åˆ—è¡¨ä¸­æ¸…é™¤
 				this_object()->clean_targets(enemy);
-				//ÔÚÕâÀï¼ÓÈëËÀÍö´¦Àí,killingÅĞ¶ÏÊÇÉ±Â¾»¹ÊÇ¾ö¶·
+				//åœ¨è¿™é‡ŒåŠ å…¥æ­»äº¡å¤„ç†,killingåˆ¤æ–­æ˜¯æ€æˆ®è¿˜æ˜¯å†³æ–—
 				if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 					enemy->set_life(1);
-					tell_object(this_object(),"ÄãÔÚ¾ö¶·ÖĞÕ½Ê¤ÁË "+enemy->query_name_cn()+" £¡\n");
-					tell_object(enemy,this_object()->query_name_cn()+"ÔÚ¾ö¶·ÖĞÕ½Ê¤ÁËÄã£¡\n");
+					tell_object(this_object(),"ä½ åœ¨å†³æ–—ä¸­æˆ˜èƒœäº† "+enemy->query_name_cn()+" ï¼\n");
+					tell_object(enemy,this_object()->query_name_cn()+"åœ¨å†³æ–—ä¸­æˆ˜èƒœäº†ä½ ï¼\n");
 					enemy->_clean_fight();
 					_clean_fight();
 				}
@@ -1606,44 +1606,44 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			}
 			enemy->set_life(life_damage);
 		}
-		//¹¥»÷ÕßÃüÖĞ¶Ô·½£¬µ«±»¶Ô·½ÉÁ±ÜÁË
+		//æ”»å‡»è€…å‘½ä¸­å¯¹æ–¹ï¼Œä½†è¢«å¯¹æ–¹é—ªé¿äº†
 		else{
 			if(skill_name_cn==""){
-				tell_object(this_object(),"ÄãµÄÕâ´Î¹¥»÷±»¶Ô·½ÉÁ±ÜÁË¹ıÈ¥!\n");
-				tell_object(enemy,"Äã¶ãÉÁ¿ªÁË"+this_object()->query_name_cn()+"µÄÕâ´Î¹¥»÷.\n");
+				tell_object(this_object(),"ä½ çš„è¿™æ¬¡æ”»å‡»è¢«å¯¹æ–¹é—ªé¿äº†è¿‡å»!\n");
+				tell_object(enemy,"ä½ èº²é—ªå¼€äº†"+this_object()->query_name_cn()+"çš„è¿™æ¬¡æ”»å‡».\n");
 			}
 			else {
-				tell_object(this_object(),"ÄãµÄ"+skill_name_cn+"±»¶Ô·½ÉÁ±ÜÁË¹ıÈ¥!\n");
-				tell_object(enemy,"Äã¶ãÉÁ¿ªÁË"+this_object()->query_name_cn()+"µÄ"+skill_name_cn+".\n");
+				tell_object(this_object(),"ä½ çš„"+skill_name_cn+"è¢«å¯¹æ–¹é—ªé¿äº†è¿‡å»!\n");
+				tell_object(enemy,"ä½ èº²é—ªå¼€äº†"+this_object()->query_name_cn()+"çš„"+skill_name_cn+".\n");
 			}
 		}
 	}
-	//¹¥»÷Õß±¾´Î¹¥»÷Ã»ÓĞÃüÖĞ
+	//æ”»å‡»è€…æœ¬æ¬¡æ”»å‡»æ²¡æœ‰å‘½ä¸­
 	else{
 		if(skill_name_cn==""){
-			tell_object(this_object(),"ÄãµÄ¹¥»÷Ã»ÓĞ»÷ÖĞ¶Ô·½!\n");
-			tell_object(enemy,this_object()->query_name_cn()+"Ã»ÓĞ»÷ÖĞÄã¡£\n");
+			tell_object(this_object(),"ä½ çš„æ”»å‡»æ²¡æœ‰å‡»ä¸­å¯¹æ–¹!\n");
+			tell_object(enemy,this_object()->query_name_cn()+"æ²¡æœ‰å‡»ä¸­ä½ ã€‚\n");
 		}
 		else {
-			tell_object(this_object(),"ÄãµÄ"+skill_name_cn+"Ã»ÓĞ»÷ÖĞ¶Ô·½!\n");
-			tell_object(enemy,this_object()->query_name_cn()+"µÄ"+skill_name_cn+"Ã»ÓĞ»÷ÖĞÄã.\n");
+			tell_object(this_object(),"ä½ çš„"+skill_name_cn+"æ²¡æœ‰å‡»ä¸­å¯¹æ–¹!\n");
+			tell_object(enemy,this_object()->query_name_cn()+"çš„"+skill_name_cn+"æ²¡æœ‰å‡»ä¸­ä½ .\n");
 		}
 	}
 }
-//ÑéÖ¤¸ÃperformÊÇ·ñÄÜÓÃ
+//éªŒè¯è¯¥performæ˜¯å¦èƒ½ç”¨
 private int validate_perform(string arg){
 	return 0;
 }
 private void heart_beat_action(){
-	//ÔÚÕâ¶ùÒ²Ìí¼ÓËÀÍö´¦Àí¹ı³Ì£¬ÊÇÎªÁË´¦ÀíÓÉÓÚdot¶øËÀÍöµÄÇé¿ö£¬dotÊÇÔÚ×Ô¼ºµÄĞÄÌøÖĞ¼õÈ¥×Ô¼ºµÄÑª£¬
-	//ÒªÊÇÑª¼õÎªÁãÁË£¬Ôò±íÊ¾×Ô¼ºËÀÍö£¬µ«²»ÄÜÔÚ×Ô¼ºµÄĞÄÌøÖĞÍ¨¹ıÓï¾äthis_object()->fight_die()À´´¦
-	//ÀíËÀÍö£¬ÕâÑùºóÌ¨»á±¨´í¡£Òò´ËÖ»ÓĞÔÚµĞÈËÃ¿´ÎĞÄÌøÊ±¼ì²é×Ô¼ºµÄÑªÁ¿£¬È»ºóµĞÈËµ÷ÓÃ
-	//enemy->fight_die()À´Íê³É×Ô¼ºµÄËÀÍö´¦Àí
+	//åœ¨è¿™å„¿ä¹Ÿæ·»åŠ æ­»äº¡å¤„ç†è¿‡ç¨‹ï¼Œæ˜¯ä¸ºäº†å¤„ç†ç”±äºdotè€Œæ­»äº¡çš„æƒ…å†µï¼Œdotæ˜¯åœ¨è‡ªå·±çš„å¿ƒè·³ä¸­å‡å»è‡ªå·±çš„è¡€ï¼Œ
+	//è¦æ˜¯è¡€å‡ä¸ºé›¶äº†ï¼Œåˆ™è¡¨ç¤ºè‡ªå·±æ­»äº¡ï¼Œä½†ä¸èƒ½åœ¨è‡ªå·±çš„å¿ƒè·³ä¸­é€šè¿‡è¯­å¥this_object()->fight_die()æ¥å¤„
+	//ç†æ­»äº¡ï¼Œè¿™æ ·åå°ä¼šæŠ¥é”™ã€‚å› æ­¤åªæœ‰åœ¨æ•Œäººæ¯æ¬¡å¿ƒè·³æ—¶æ£€æŸ¥è‡ªå·±çš„è¡€é‡ï¼Œç„¶åæ•Œäººè°ƒç”¨
+	//enemy->fight_die()æ¥å®Œæˆè‡ªå·±çš„æ­»äº¡å¤„ç†
 	if(enemy&&enemy->get_cur_life()<=0&&enemy->in_combat){
 		if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 			enemy->set_life(1);
-			tell_object(this_object(),"ÄãÔÚ¾ö¶·ÖĞÕ½Ê¤ÁË "+enemy->query_name_cn()+" £¡\n");
-			tell_object(enemy,this_object()->query_name_cn()+"ÔÚ¾ö¶·ÖĞÕ½Ê¤ÁËÄã£¡\n");
+			tell_object(this_object(),"ä½ åœ¨å†³æ–—ä¸­æˆ˜èƒœäº† "+enemy->query_name_cn()+" ï¼\n");
+			tell_object(enemy,this_object()->query_name_cn()+"åœ¨å†³æ–—ä¸­æˆ˜èƒœäº†ä½ ï¼\n");
 			enemy->_clean_fight();
 			_clean_fight();
 			enemy=0;
@@ -1654,13 +1654,13 @@ private void heart_beat_action(){
 		}
 		return;
 	}
-	//×Ô¼ºËÀÍöºó½«²»×÷³öÈÎºÎ¶¯×÷£¬µÈ´ıËÀÍö´¦Àí
+	//è‡ªå·±æ­»äº¡åå°†ä¸ä½œå‡ºä»»ä½•åŠ¨ä½œï¼Œç­‰å¾…æ­»äº¡å¤„ç†
 	//if(enemy&&this_object()->get_cur_life()<=0)
 	//	return;
 
-	enemy=this_object()->get_target(); //Õâ¾äÎ»ÖÃ²»¶Ô£¬Òª×ÁÄ¥ÏÂ
+	enemy=this_object()->get_target(); //è¿™å¥ä½ç½®ä¸å¯¹ï¼Œè¦ç¢ç£¨ä¸‹
 	if(enemy==0){
-		//Õâ¸öµØ·½±ØĞë×÷´¦Àí£¬·ñÔò»á³öÏÖÔÚÕ½¶·×´Ì¬ÏÂÎŞ·¨ÍË³öµÄÎÊÌâ¡£¡£¡£¡£
+		//è¿™ä¸ªåœ°æ–¹å¿…é¡»ä½œå¤„ç†ï¼Œå¦åˆ™ä¼šå‡ºç°åœ¨æˆ˜æ–—çŠ¶æ€ä¸‹æ— æ³•é€€å‡ºçš„é—®é¢˜ã€‚ã€‚ã€‚ã€‚
 		_clean_fight();
 		return;
 	}
@@ -1678,12 +1678,12 @@ private void heart_beat_action(){
 		if(this_object()->eat_timeCold>0)
 			this_object()->eat_timeCold--;
 		
-		//¾«Á¦Ã¿´ÎĞÄÌø+3µã£¨ĞÄÌø¼ä¸ôÔÚefunsÖĞÎª2ÃëÒ»´Î£¬ÕâÑùÒ²¾ÍÊÇ2Ãë¼Ó3µã¾«Á¦Öµ£¬ÉÏÏŞ100£©	
-		//Ã²ËÆÕâÀïµÄĞÄÌø£¬Õ½¶·×´Ì¬²Å´¥·¢£¬²»ÄÜÔÚÕâÀïÉè¶¨
+		//ç²¾åŠ›æ¯æ¬¡å¿ƒè·³+3ç‚¹ï¼ˆå¿ƒè·³é—´éš”åœ¨efunsä¸­ä¸º2ç§’ä¸€æ¬¡ï¼Œè¿™æ ·ä¹Ÿå°±æ˜¯2ç§’åŠ 3ç‚¹ç²¾åŠ›å€¼ï¼Œä¸Šé™100ï¼‰	
+		//è²Œä¼¼è¿™é‡Œçš„å¿ƒè·³ï¼Œæˆ˜æ–—çŠ¶æ€æ‰è§¦å‘ï¼Œä¸èƒ½åœ¨è¿™é‡Œè®¾å®š
 		//if(!this_object()->is("npc"))
 		//	this_object()->set_jingli(this_object()->query_jingli()+3);
 		
-		//Ò»°ã¼¼ÄÜÀäÈ´Ê±¼ä
+		//ä¸€èˆ¬æŠ€èƒ½å†·å´æ—¶é—´
 		if(this_object()->get_cur_life()>0&&this_object()->get_cur_life()<this_object()->life_max)
 			this_object()->set_life(this_object()->get_cur_life()+this_object()->rase_life);
 		if(this_object()->get_cur_mofa()>0&&this_object()->get_cur_mofa()<this_object()->mofa_max)
@@ -1699,30 +1699,30 @@ private void heart_beat_action(){
 		}
 		/////////////////////////////////////////////////////////
 		//
-		//ÔÚÕâ¶ù¿ÉÒÔ¶ÁÈ¡×Ô¼ºÉíÉÏµÄdebuffÓ³Éä±í£¬À´Ó°Ïì×ÔÉíµÄ×´Ì¬
+		//åœ¨è¿™å„¿å¯ä»¥è¯»å–è‡ªå·±èº«ä¸Šçš„debuffæ˜ å°„è¡¨ï¼Œæ¥å½±å“è‡ªèº«çš„çŠ¶æ€
 		//
 		/////////////////////////////////////////////////////////
-		//Èç¹ûÉíÉÏÓĞdot×´Ì¬
+		//å¦‚æœèº«ä¸Šæœ‰dotçŠ¶æ€
 		if(this_object()->query_debuff("dot",0)!="none"){
-			//µôÑª
+			//æ‰è¡€
 			int tmp_life=this_object()->get_cur_life()-this_object()->query_debuff("dot",1);
 			if(tmp_life<=0){
 				this_object()->set_life(0);
-				//µĞÈËËÀÍö£¬Ôò°ÑµĞÈË´Ó³ğºŞÁĞ±íÖĞÇå³ı
+				//æ•Œäººæ­»äº¡ï¼Œåˆ™æŠŠæ•Œäººä»ä»‡æ¨åˆ—è¡¨ä¸­æ¸…é™¤
 				enemy->clean_targets(this_object());
 				return;
 			}
 			else {
-				//³ÖĞøÊ±¼ä¼õ1
+				//æŒç»­æ—¶é—´å‡1
 				this_object()->set_life(tmp_life);
 				int dot_time=this_object()->query_debuff("dot",2)-1; 
-				if(dot_time<=0) //dot³ÖĞøÊ±¼ä½áÊø£¬ÔòÈ¥³ıdot×´Ì¬
+				if(dot_time<=0) //dotæŒç»­æ—¶é—´ç»“æŸï¼Œåˆ™å»é™¤dotçŠ¶æ€
 					this_object()->clean_debuff("dot");
 				else
 					this_object()->set_debuff("dot",2,dot_time);
 			}
 		}
-		//Èç¹ûÉíÉÏÓĞ×çÖä×´Ì¬
+		//å¦‚æœèº«ä¸Šæœ‰è¯…å’’çŠ¶æ€
 		if(this_object()->query_debuff("curse",0)!="none"){
 			int curse_time=this_object()->query_debuff("curse",2)-1;
 			if(curse_time<=0){
@@ -1739,7 +1739,7 @@ private void heart_beat_action(){
 			else
 				this_object()->set_debuff("curse2",2,curse_time);
 		}
-		//Èç¹ûÉíÉÏÓĞbuff×´Ì¬
+		//å¦‚æœèº«ä¸Šæœ‰buffçŠ¶æ€
 		if(this_object()->query_buff("buff",0)!="none"){
 			int buff_time=this_object()->query_buff("buff",2)-1;
 			if(buff_time<=0)
@@ -1755,7 +1755,7 @@ private void heart_beat_action(){
 				this_object()->set_buff("buff2",2,buff_time);
 		}
 
-		//ÔÚÕâÀï´¦ÀíÔöÒæºÍ½µËÙ×çÖäµÄÓ°Ïì
+		//åœ¨è¿™é‡Œå¤„ç†å¢ç›Šå’Œé™é€Ÿè¯…å’’çš„å½±å“
 		this_object()->attack_speed_main=this_object()->raw_attack_speed_main;	
 		this_object()->attack_speed_other=this_object()->raw_attack_speed_other;
 		if(this_object()->query_buff("buff",0)=="speed"){
@@ -1793,7 +1793,7 @@ private void heart_beat_action(){
 	//		surrender(arg);
 	//	}
 	else{
-		//boss¼¼ÄÜ¹¥»÷£¬liaochengÓÚ07/6/18Ìí¼Ó
+		//bossæŠ€èƒ½æ”»å‡»ï¼Œliaochengäº07/6/18æ·»åŠ 
 		if(this_object()->_boss){
 			foreach(indices(this_object()->boss_skills),string time_str){
 				array(string) tmp_arr = time_str/"/";
@@ -1806,7 +1806,7 @@ private void heart_beat_action(){
 		}
 		//////////////////////////////////////
 
-		//ÉèÖÃ×Ô¶¯ÊÍ·ÅÖ÷¶¯¼¼ÄÜ	
+		//è®¾ç½®è‡ªåŠ¨é‡Šæ”¾ä¸»åŠ¨æŠ€èƒ½	
 		if(this_object()->skills_enable!=""&&this_object()->skills_enable_colddown!=0){
 			if(autoPerforming==1){
 				autoPerforming = 0;	
@@ -1816,9 +1816,9 @@ private void heart_beat_action(){
 				perform(this_object()->skills_enable);
 			}
 		}
-		//Ë«ÊÖ¶¼ÄÃÎäÆ÷
+		//åŒæ‰‹éƒ½æ‹¿æ­¦å™¨
 		if(this_object()->weapon_type=="both"){
-			//ÅĞ¶¨Ê±¼ä
+			//åˆ¤å®šæ—¶é—´
 			if((this_object()->timeCount%this_object()->attack_speed_main)==0&&(this_object()->timeCount%this_object()->attack_speed_other)==0){
 				attack(0,0,"single_main","");
 				if(enemy!=0)
@@ -1869,61 +1869,61 @@ int _fight(object _enemy){
 		this_object()->clean_buff("spec");
 		m_delete(this_object()["/danyao"],"spec");
 	}
-	if(!in_combat){ //Èç¹û×Ô¼ºÔÚ·ÇÕ½¶·×´Ì¬£¬ÔòÊÇ¸Õ¿ªÊ¼Õ½¶·£¬ĞèÒªµÃµ½Õ½¶·¿ìÕÕ
+	if(!in_combat){ //å¦‚æœè‡ªå·±åœ¨éæˆ˜æ–—çŠ¶æ€ï¼Œåˆ™æ˜¯åˆšå¼€å§‹æˆ˜æ–—ï¼Œéœ€è¦å¾—åˆ°æˆ˜æ–—å¿«ç…§
 		this_object()->sucide = 0;
 		enemy=_enemy;
 		if(this_object()->is("npc")){
-			//Èç¹ûÊÇ³ÇÖ÷,ÊÜµ½¹¥»÷»á·¢³öÍ¨¸æ
+			//å¦‚æœæ˜¯åŸä¸»,å—åˆ°æ”»å‡»ä¼šå‘å‡ºé€šå‘Š
 			if(this_object()->query_npc_type()=="city_lord"){
 				object env = environment(this_object());
 				string city_name = env->query_belong_to();
 				string city_name_cn = "";
 				if(city_name=="xiqicheng")
-					city_name_cn = "Î÷áª³Ç";
+					city_name_cn = "è¥¿å²åŸ";
 				else if(city_name=="chaogecheng")
-					city_name_cn = "³¯¸è³Ç";
-				string notice = "Õ½¿ö£¡"+city_name_cn+"£¬"+this_object()->query_name_cn()+"Ôâµ½ÁË¹¥»÷£¡\n";
+					city_name_cn = "æœæ­ŒåŸ";
+				string notice = "æˆ˜å†µï¼"+city_name_cn+"ï¼Œ"+this_object()->query_name_cn()+"é­åˆ°äº†æ”»å‡»ï¼\n";
 				CITYD->notice_update(notice);
 			}		
-			//×é¶Ó¼ÇÂ¼
+			//ç»„é˜Ÿè®°å½•
 			this_object()->term_who_fight_npc = enemy->query_term();
-			//Ë­ÏÈ¿ªÊ¼µÄ¹¥»÷£¬µôÂäÎïÆ·ÊôÓÚË­
+			//è°å…ˆå¼€å§‹çš„æ”»å‡»ï¼Œæ‰è½ç‰©å“å±äºè°
 			this_object()->who_fight_npc = enemy->query_name();
 		}
-		//µĞÈËµÄ³ğºŞÁĞ±íÖĞ¼ÓÈë×Ô¼º
-		this_object()->flush_targets(enemy,1); //³õÊ¼³ğºŞÖµÎª1
+		//æ•Œäººçš„ä»‡æ¨åˆ—è¡¨ä¸­åŠ å…¥è‡ªå·±
+		this_object()->flush_targets(enemy,1); //åˆå§‹ä»‡æ¨å€¼ä¸º1
 		in_combat=1;
 		action="attack";
-		//³õÊ¼»¯Õ½¶·¿ìÕÕ
-		//µ±Ç°Õ½¶·Íæ¼Ò×°±¸ÎäÆ÷µÄÀàĞÍ,ËÙ¶È
-		this_object()->timeCount=0;//Õ½¶·Ê±¼ä¼ÆÊı
-		this_object()->timeCold=0; //·¨Êõ¹«¹²ÀäÈ´Ê±¼ä
-		this_object()->eat_timeCold=0; //·¨Êõ¹«¹²ÀäÈ´Ê±¼ä
-		this_object()->rase_life=this_object()->query_equip_add("rase_life_add"); //Õ½¶·ÉúÃü»Ø¸´
-		this_object()->rase_mofa=this_object()->query_equip_add("rase_mofa_add"); //Õ½¶·Ä§·¨»Ø¸´
-		this_object()->is_both_weapons = 0;  //ÊÇ·ñÎªË«ÎäÆ÷
-		this_object()->cur_main_weapon_name ="";//Ö÷ÊÖÎäÆ÷Ãû
-		this_object()->cur_other_weapon_name = "";//¸±ÊÖÎäÆ÷Ãû
-		this_object()->weapon_type = "";//ÎäÆ÷ÀàĞÍ,Ö÷,¸±,Ë«ÊÖ
-		this_object()->attack_speed_main = 0;//Ö÷ÊÖËÙ¶È
-		this_object()->attack_speed_other = 0;//¸±ÊÖËÙ¶È
-		this_object()->raw_attack_speed_main = 0;//Ö÷ÊÖËÙ¶È
-		this_object()->raw_attack_speed_other = 0;//¸±ÊÖËÙ¶È
-		this_object()->main_attack_attri_add=0; //Ö÷ÊÖÎäÆ÷¸½¼ÓµÄÎäÆ÷ÉËº¦ 
-		this_object()->main_attack_attri_add_per=0; //Ö÷ÊÖÎäÆ÷Ôö¼ÓµÄÎäÆ÷ÉËº¦°Ù·Ö±È
-		this_object()->other_attack_attri_add=0; //¸±ÊÖ.. 
-		this_object()->other_attack_attri_add_per=0; //¸±ÊÖ..
-		//Ö÷ÊÖ¸½¼ÓÄ§·¨ÉËº¦³õÊ¼»¯
+		//åˆå§‹åŒ–æˆ˜æ–—å¿«ç…§
+		//å½“å‰æˆ˜æ–—ç©å®¶è£…å¤‡æ­¦å™¨çš„ç±»å‹,é€Ÿåº¦
+		this_object()->timeCount=0;//æˆ˜æ–—æ—¶é—´è®¡æ•°
+		this_object()->timeCold=0; //æ³•æœ¯å…¬å…±å†·å´æ—¶é—´
+		this_object()->eat_timeCold=0; //æ³•æœ¯å…¬å…±å†·å´æ—¶é—´
+		this_object()->rase_life=this_object()->query_equip_add("rase_life_add"); //æˆ˜æ–—ç”Ÿå‘½å›å¤
+		this_object()->rase_mofa=this_object()->query_equip_add("rase_mofa_add"); //æˆ˜æ–—é­”æ³•å›å¤
+		this_object()->is_both_weapons = 0;  //æ˜¯å¦ä¸ºåŒæ­¦å™¨
+		this_object()->cur_main_weapon_name ="";//ä¸»æ‰‹æ­¦å™¨å
+		this_object()->cur_other_weapon_name = "";//å‰¯æ‰‹æ­¦å™¨å
+		this_object()->weapon_type = "";//æ­¦å™¨ç±»å‹,ä¸»,å‰¯,åŒæ‰‹
+		this_object()->attack_speed_main = 0;//ä¸»æ‰‹é€Ÿåº¦
+		this_object()->attack_speed_other = 0;//å‰¯æ‰‹é€Ÿåº¦
+		this_object()->raw_attack_speed_main = 0;//ä¸»æ‰‹é€Ÿåº¦
+		this_object()->raw_attack_speed_other = 0;//å‰¯æ‰‹é€Ÿåº¦
+		this_object()->main_attack_attri_add=0; //ä¸»æ‰‹æ­¦å™¨é™„åŠ çš„æ­¦å™¨ä¼¤å®³ 
+		this_object()->main_attack_attri_add_per=0; //ä¸»æ‰‹æ­¦å™¨å¢åŠ çš„æ­¦å™¨ä¼¤å®³ç™¾åˆ†æ¯”
+		this_object()->other_attack_attri_add=0; //å‰¯æ‰‹.. 
+		this_object()->other_attack_attri_add_per=0; //å‰¯æ‰‹..
+		//ä¸»æ‰‹é™„åŠ é­”æ³•ä¼¤å®³åˆå§‹åŒ–
 		this_object()->huo_add=this_object()->query_equip_add("attack_huoyan");
 		this_object()->bing_add=this_object()->query_equip_add("attack_bingshuang");
 		this_object()->feng_add=this_object()->query_equip_add("attack_fengren");
 		this_object()->du_add=this_object()->query_equip_add("attack_dusu");
 		this_object()->spec_add=0;//this_object()->query_equip_add("attack_spec");
 
-		//¼¼ÄÜÕ½¶·¿ìÕÕ20070131////////////////////////////
+		//æŠ€èƒ½æˆ˜æ–—å¿«ç…§20070131////////////////////////////
 		//([skill_name:skill_limit_time])
 		//this_object()->f_skills = ([]);
-		//³õÊ¼»¯debuffÓ³Éä±í
+		//åˆå§‹åŒ–debuffæ˜ å°„è¡¨
 		/*
 		   this_object()->set_debuff("dot",0,"none");
 		   this_object()->set_debuff("dot",1,0);
@@ -1931,32 +1931,32 @@ int _fight(object _enemy){
 		   this_object()->set_debuff("curse",0,"none");
 		   this_object()->set_debuff("curse",1,0);
 		   this_object()->set_debuff("curse",2,0);
-		//³õÊ¼»¯buffÓ³Éä±í
+		//åˆå§‹åŒ–buffæ˜ å°„è¡¨
 		this_object()->set_buff("buff",0,"none");
 		this_object()->set_buff("buff",1,0);
 		this_object()->set_buff("buff",2,0);
 		 */
-		//ÃèÊö
+		//æè¿°
 		fight_desc_arg_main=query_fight_type();
 		items = this_object()->query_equip();//[string:object]
 		if(items["single_main_weapon"]&&items["single_other_weapon"]){
 			this_object()->is_both_weapons = 1;
-			this_object()->weapon_type = "both";//ÕâÀïµÄweapon_typeÊÇÖ¸ÎäÆ÷µÄ×°±¸Çé¿ö
-			//»ñµÃÎäÆ÷µÄ¹¥ËÙ
+			this_object()->weapon_type = "both";//è¿™é‡Œçš„weapon_typeæ˜¯æŒ‡æ­¦å™¨çš„è£…å¤‡æƒ…å†µ
+			//è·å¾—æ­¦å™¨çš„æ”»é€Ÿ
 			this_object()->raw_attack_speed_main = items["single_main_weapon"]->query_speed_power();	
 			this_object()->raw_attack_speed_other = items["single_other_weapon"]->query_speed_power();	
-			//»ñµÃÎäÆ÷µÄÃû×Ö
+			//è·å¾—æ­¦å™¨çš„åå­—
 			this_object()->cur_main_weapon_name = items["single_main_weapon"]->query_name_cn();
 			this_object()->cur_other_weapon_name = items["single_other_weapon"]->query_name_cn();
-			//»ñµÃÎäÆ÷µÄÉËº¦¸½¼Ó(¸½¼ÓÊôĞÔ)
-			//ÉËº¦¸½¼Ó
+			//è·å¾—æ­¦å™¨çš„ä¼¤å®³é™„åŠ (é™„åŠ å±æ€§)
+			//ä¼¤å®³é™„åŠ 
 			this_object()->set_attack_attri_add("main",items["single_main_weapon"]->query_attack_add());
 			this_object()->set_attack_attri_add("other",items["single_other_weapon"]->query_attack_add());
-			//ÉËº¦°Ù·Ö±È¸½¼Ó
+			//ä¼¤å®³ç™¾åˆ†æ¯”é™„åŠ 
 			this_object()->set_attack_attri_add_per("main",items["single_main_weapon"]->query_weapon_attack_add());
 			this_object()->set_attack_attri_add_per("other",items["single_other_weapon"]->query_weapon_attack_add());
 
-			//»ñµÃÎäÆ÷ËùÊô´óÀà£ºjian£¬dao£¬qiangµÈµÈ
+			//è·å¾—æ­¦å™¨æ‰€å±å¤§ç±»ï¼šjianï¼Œdaoï¼Œqiangç­‰ç­‰
 			if(fight_desc_arg_main=="") {
 				fight_desc_arg_main = items["single_main_weapon"]->query_item_weapon_type();
 				fight_desc_arg_other = items["single_other_weapon"]->query_item_weapon_type();
@@ -1966,11 +1966,11 @@ int _fight(object _enemy){
 			this_object()->weapon_type = "double_main";
 			this_object()->raw_attack_speed_main = items["double_main_weapon"]->query_speed_power();
 			this_object()->cur_main_weapon_name = items["double_main_weapon"]->query_name_cn();
-			//Ö÷ÊÖË«ÊÖÉËº¦¸½¼Ó
+			//ä¸»æ‰‹åŒæ‰‹ä¼¤å®³é™„åŠ 
 			this_object()->set_attack_attri_add("main",items["double_main_weapon"]->query_attack_add());
 			this_object()->set_attack_attri_add_per("main",items["double_main_weapon"]->query_weapon_attack_add());
 
-			//ÃèÊö
+			//æè¿°
 			if(fight_desc_arg_main=="")
 				fight_desc_arg_main = items["double_main_weapon"]->query_item_weapon_type();
 		}
@@ -1978,7 +1978,7 @@ int _fight(object _enemy){
 			this_object()->weapon_type = "single_main";
 			this_object()->raw_attack_speed_main = items["single_main_weapon"]->query_speed_power();
 			this_object()->cur_main_weapon_name = items["single_main_weapon"]->query_name_cn();
-			//Ö÷ÊÖµ¥ÊÖÎäÆ÷ÉËº¦¸½¼Ó
+			//ä¸»æ‰‹å•æ‰‹æ­¦å™¨ä¼¤å®³é™„åŠ 
 			this_object()->set_attack_attri_add("main",items["single_main_weapon"]->query_attack_add());
 			this_object()->set_attack_attri_add_per("main",items["single_main_weapon"]->query_weapon_attack_add());
 
@@ -1989,22 +1989,22 @@ int _fight(object _enemy){
 			this_object()->weapon_type = "other";
 			this_object()->raw_attack_speed_other = items["single_other_weapon"]->query_speed_power();
 			this_object()->cur_other_weapon_name = items["single_other_weapon"]->query_name_cn();
-			//¸±ÊÖÉËº¦¸½¼Ó
+			//å‰¯æ‰‹ä¼¤å®³é™„åŠ 
 			this_object()->set_attack_attri_add("other",items["single_other_weapon"]->query_attack_add());
 			this_object()->set_attack_attri_add_per("other",items["single_other_weapon"]->query_weapon_attack_add());
 
-			//ÃèÊö
+			//æè¿°
 			if(fight_desc_arg_main=="")
 				fight_desc_arg_other = items["single_other_weapon"]->query_item_weapon_type();
 		}
 		else{
 			this_object()->weapon_type = "none";
 			this_object()->raw_attack_speed_main = 1; 
-			this_object()->cur_main_weapon_name = "ÂÕÆğÈ­Í·";
+			this_object()->cur_main_weapon_name = "æŠ¡èµ·æ‹³å¤´";
 			if(fight_desc_arg_main=="")
 				fight_desc_arg_main = "none";
 		}
-		//×Ô¶¯ÊÍ·ÅµÄ¼¼ÄÜ
+		//è‡ªåŠ¨é‡Šæ”¾çš„æŠ€èƒ½
 		object sk;
 		if(this_object()->skills_enable&&sizeof(this_object()->skills_enable)){
 			autoPerforming = 1;
@@ -2012,18 +2012,18 @@ int _fight(object _enemy){
 			this_object()->skills_enable_colddown = sk->query_s_delayTime()+1;
 		}
 	}
-	else{ //ÒÑ´¦ÓÚÕ½¶·×´Ì¬ÁË£¬Ôò°Ñ¶Ô·½¼ÓÈëµ½×Ô¼ºµÄ³ğºŞÁĞ±íÖĞ 
+	else{ //å·²å¤„äºæˆ˜æ–—çŠ¶æ€äº†ï¼Œåˆ™æŠŠå¯¹æ–¹åŠ å…¥åˆ°è‡ªå·±çš„ä»‡æ¨åˆ—è¡¨ä¸­ 
 		this_object()->flush_targets(_enemy,1);
 	}
-	//¿ªÊ¼Õ½¶·ĞÄÌø
+	//å¼€å§‹æˆ˜æ–—å¿ƒè·³
 	if(query_heart_beat()==0){
 		set_heart_beat(1);
 		tmp_heart_beat=1;
 	}
 }
 
-//ÓÉliaochengÓÚ 07/1/30Ìí¼Ó
-//this_object()->ÓÃÓÚÉèÖÃchar.pikeÖĞÕ½¶·¿ìÕÕµÄ¸÷ÖÖÄ§·¨¸½¼ÓÉËº¦
+//ç”±liaochengäº 07/1/30æ·»åŠ 
+//this_object()->ç”¨äºè®¾ç½®char.pikeä¸­æˆ˜æ–—å¿«ç…§çš„å„ç§é­”æ³•é™„åŠ ä¼¤å®³
 int get_attack_mofa_add(string type,int attack,object enemy){
 	int tmp1,tmp2;
 	if(attack){
@@ -2054,13 +2054,13 @@ int fight(string|object _enemy,int count,int flag){
 	object ob=present(_enemy,environment(this_object()),count,this_object());
 	if(ob){
 		if(ob->in_combat){
-			tell_object(this_object(),"ÄãÒªÇĞ´èµÄÈËÕıÔÚÕ½¶·ÖĞ£¬ÇëÉÔºòÔÙÊÔ¡£\n[·µ»Ø:look]\n");
+			tell_object(this_object(),"ä½ è¦åˆ‡ç£‹çš„äººæ­£åœ¨æˆ˜æ–—ä¸­ï¼Œè¯·ç¨å€™å†è¯•ã€‚\n[è¿”å›:look]\n");
 			return 0;
 		}
 		if(flag){
-			//½ÓÊÜÌôÕ½ÕßÖ´ĞĞ
-			tell_object(ob,this_object()->query_name_cn()+"½ÓÊÜÁËÄãµÄÌôÕ½¡£\n");
-			//ÉèÖÃ¾ö¶·±êÊ¾£¬ÒòÎª°ïÕ½ÒªÇó£¬ÓÉliaochengÓÚ08/08/30Ìí¼Ó 
+			//æ¥å—æŒ‘æˆ˜è€…æ‰§è¡Œ
+			tell_object(ob,this_object()->query_name_cn()+"æ¥å—äº†ä½ çš„æŒ‘æˆ˜ã€‚\n");
+			//è®¾ç½®å†³æ–—æ ‡ç¤ºï¼Œå› ä¸ºå¸®æˆ˜è¦æ±‚ï¼Œç”±liaochengäº08/08/30æ·»åŠ  
 			ob->kill_flag = 0;
 			this_object()->kill_flag = 0;
 
@@ -2069,28 +2069,28 @@ int fight(string|object _enemy,int count,int flag){
 			return 1;
 		}
 		else{
-			//ÌôÕ½·¢ÆğÕßÖ´ĞĞ
-			tell_object(this_object(),"ÄãÏò"+ob->query_name_cn()+"·¢ÆğÁË¾ö¶·ÑûÇë£¬ÇëÔÚÔ­µØµÈ´ı¶Ô·½µÄÍ¬Òâ¡£\n[·µ»Ø:look]\n");
-			tell_object(ob,this_object()->query_name_cn()+"ÏëºÍÄã¾ö¶·£¬Èç¹ûÔ¸Òâ½ÓÊÜÇë½ÓÊÜÌôÕ½¡£[½ÓÊÜÌôÕ½:fight "+this_object()->query_name()+" "+count+" 1]\n[·µ»Ø:look]\n");
+			//æŒ‘æˆ˜å‘èµ·è€…æ‰§è¡Œ
+			tell_object(this_object(),"ä½ å‘"+ob->query_name_cn()+"å‘èµ·äº†å†³æ–—é‚€è¯·ï¼Œè¯·åœ¨åŸåœ°ç­‰å¾…å¯¹æ–¹çš„åŒæ„ã€‚\n[è¿”å›:look]\n");
+			tell_object(ob,this_object()->query_name_cn()+"æƒ³å’Œä½ å†³æ–—ï¼Œå¦‚æœæ„¿æ„æ¥å—è¯·æ¥å—æŒ‘æˆ˜ã€‚[æ¥å—æŒ‘æˆ˜:fight "+this_object()->query_name()+" "+count+" 1]\n[è¿”å›:look]\n");
 		}
 
 	}
 	else
-		tell_object(this_object(),"ÄãÒªÇĞ´èµÄÈË²»ÔÚµ±Ç°³¡¾°£¬Çë¸úËû´¦ÓÚÍ¬Ò»³¡¾°½øĞĞÇĞ´è¡£\n[·µ»Ø:look]\n");
+		tell_object(this_object(),"ä½ è¦åˆ‡ç£‹çš„äººä¸åœ¨å½“å‰åœºæ™¯ï¼Œè¯·è·Ÿä»–å¤„äºåŒä¸€åœºæ™¯è¿›è¡Œåˆ‡ç£‹ã€‚\n[è¿”å›:look]\n");
 	return 0;
 }
-//¹Ì¶¨ÏÔÊ¾µ±Ç°¹¥»÷ÕßºÍ±»¹¥»÷ÕßÉúÃü·¨Á¦×´¿ö
+//å›ºå®šæ˜¾ç¤ºå½“å‰æ”»å‡»è€…å’Œè¢«æ”»å‡»è€…ç”Ÿå‘½æ³•åŠ›çŠ¶å†µ
 	string query_cur_life(){
 		if(enemy==0)
 			return "";
 		string s = "";
 		if(in_combat&&enemy!=0){
-			//ÕâÀïµÄÉúÃüÏÔÊ¾
-			s += "ÉúÃü:"+this_object()->get_cur_life()+" | ·¨Á¦:"+this_object()->get_cur_mofa()+"\n";
-			//s += "ÉúÃü:"+(this_object()->get_cur_life()==0?1:this_object()->get_cur_life())+" | ·¨Á¦:"+this_object()->get_cur_mofa()+"\n";
+			//è¿™é‡Œçš„ç”Ÿå‘½æ˜¾ç¤º
+			s += "ç”Ÿå‘½:"+this_object()->get_cur_life()+" | æ³•åŠ›:"+this_object()->get_cur_mofa()+"\n";
+			//s += "ç”Ÿå‘½:"+(this_object()->get_cur_life()==0?1:this_object()->get_cur_life())+" | æ³•åŠ›:"+this_object()->get_cur_mofa()+"\n";
 			s += "--------\n";
-			//s += "¶Ô·½ÉúÃü:"+(enemy->get_cur_life()==0?1:enemy->get_cur_life())+" | ¶Ô·½Ä¿±ê:"+enemy->get_target_name()+"\n";
-			s += "¶Ô·½ÉúÃü:"+enemy->get_cur_life()+" | ¶Ô·½Ä¿±ê:"+enemy->get_target_name()+"\n";
+			//s += "å¯¹æ–¹ç”Ÿå‘½:"+(enemy->get_cur_life()==0?1:enemy->get_cur_life())+" | å¯¹æ–¹ç›®æ ‡:"+enemy->get_target_name()+"\n";
+			s += "å¯¹æ–¹ç”Ÿå‘½:"+enemy->get_cur_life()+" | å¯¹æ–¹ç›®æ ‡:"+enemy->get_target_name()+"\n";
 			s += "--------\n";
 		}
 		return s;
@@ -2098,7 +2098,7 @@ int fight(string|object _enemy,int count,int flag){
 string query_fighting_msg(){
 	string s = this_object()->drain_catch_tell(0,6);
 	if(enemy==0){
-		s+= "Õ½¶·½áÊøÁË¡£\n[·µ»Ø:look]\n";
+		s+= "æˆ˜æ–—ç»“æŸäº†ã€‚\n[è¿”å›:look]\n";
 	}
 	return s;
 }
@@ -2106,11 +2106,11 @@ string query_status(){
 	string s = "";
 	string more = "\n";
 	if(this_object()->red_flag && environment(this_object())->query_room_type()=="city")
-		more = "(¿ÉÉ±Â¾)\n";
+		more = "(å¯æ€æˆ®)\n";
 	if(this_object()->in_combat && enemy)
-		s += "½»Õ½ÖĞ£¨"+this_object()->get_target_name()+"£©";
+		s += "äº¤æˆ˜ä¸­ï¼ˆ"+this_object()->get_target_name()+"ï¼‰";
 	else
-		s += "ÓÎµ´ÖĞ";
+		s += "æ¸¸è¡ä¸­";
 	return s+more;
 }
 /*	void attack_notify(object who){

@@ -1,45 +1,45 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 //arg = type 
-//´ËÖ¸ÁîÔÚÍæ¼Ò¶ÍÔìÎïÆ·Ê±×îÏÈµ÷ÓÃ£¬ÁÐ³öÍæ¼ÒÄ¿Ç°ÄÜ¶ÍÔìµÄÎïÆ·ÁÐ±í
+//æ­¤æŒ‡ä»¤åœ¨çŽ©å®¶é”»é€ ç‰©å“æ—¶æœ€å…ˆè°ƒç”¨ï¼Œåˆ—å‡ºçŽ©å®¶ç›®å‰èƒ½é”»é€ çš„ç‰©å“åˆ—è¡¨
 int main(string arg)
 {
 	string s = "";
 	object me=this_player();
 	if(me->vice_skills["duanzao"] == 0)
-		s += "ÄãÏÖÔÚ²¢²»»á¶ÍÔì¼¼ÄÜ\n";
+		s += "ä½ çŽ°åœ¨å¹¶ä¸ä¼šé”»é€ æŠ€èƒ½\n";
 	else{
-		s += "ÇëÑ¡ÔñÄãÒª¶ÍÔìµÄÎïÆ·\n";
+		s += "è¯·é€‰æ‹©ä½ è¦é”»é€ çš„ç‰©å“\n";
 		if(arg == "m_weapon"){
-			s += "£ÛÖ÷ÊÖÎäÆ÷£Ý:\n";
-			s += "[£Û¸±ÊÖÎäÆ÷£Ý:viceskill_duanzao_list s_weapon]\n";
-			s += "[£ÛË«ÊÖÎäÆ÷£Ý:viceskill_duanzao_list d_weapon]\n";
-			s += "[£Û·À¾ß£Ý:viceskill_duanzao_list armor]\n";
+			s += "ï¼»ä¸»æ‰‹æ­¦å™¨ï¼½:\n";
+			s += "[ï¼»å‰¯æ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list s_weapon]\n";
+			s += "[ï¼»åŒæ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list d_weapon]\n";
+			s += "[ï¼»é˜²å…·ï¼½:viceskill_duanzao_list armor]\n";
 		}
 		else if(arg == "s_weapon"){
-			s += "[£ÛÖ÷ÊÖÎäÆ÷£Ý:viceskill_duanzao_list m_weapon]\n";
-			s += "£Û¸±ÊÖÎäÆ÷£Ý\n";
-			s += "[£ÛË«ÊÖÎäÆ÷£Ý:viceskill_duanzao_list d_weapon]\n";
-			s += "[£Û·À¾ß£Ý:viceskill_duanzao_list armor]\n";
+			s += "[ï¼»ä¸»æ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list m_weapon]\n";
+			s += "ï¼»å‰¯æ‰‹æ­¦å™¨ï¼½\n";
+			s += "[ï¼»åŒæ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list d_weapon]\n";
+			s += "[ï¼»é˜²å…·ï¼½:viceskill_duanzao_list armor]\n";
 		}
 		else if(arg == "d_weapon"){
-			s += "[£ÛÖ÷ÊÖÎäÆ÷£Ý:viceskill_duanzao_list m_weapon]\n";
-			s += "[£Û¸±ÊÖÎäÆ÷£Ý:viceskill_duanzao_list s_weapon]\n";
-			s += "£ÛË«ÊÖÎäÆ÷£Ý\n";
-			s += "[£Û·À¾ß£Ý:viceskill_duanzao_list armor]\n";
+			s += "[ï¼»ä¸»æ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list m_weapon]\n";
+			s += "[ï¼»å‰¯æ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list s_weapon]\n";
+			s += "ï¼»åŒæ‰‹æ­¦å™¨ï¼½\n";
+			s += "[ï¼»é˜²å…·ï¼½:viceskill_duanzao_list armor]\n";
 		}
 		else if(arg == "armor"){
-			s += "[£ÛÖ÷ÊÖÎäÆ÷£Ý:viceskill_duanzao_list m_weapon]\n";
-			s += "[£Û¸±ÊÖÎäÆ÷£Ý:viceskill_duanzao_list s_weapon]\n";
-			s += "[£ÛË«ÊÖÎäÆ÷£Ý:viceskill_duanzao_list d_weapon]\n";
-			s += "£Û·À¾ß£Ý\n";
+			s += "[ï¼»ä¸»æ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list m_weapon]\n";
+			s += "[ï¼»å‰¯æ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list s_weapon]\n";
+			s += "[ï¼»åŒæ‰‹æ­¦å™¨ï¼½:viceskill_duanzao_list d_weapon]\n";
+			s += "ï¼»é˜²å…·ï¼½\n";
 		}
 		s += "--------\n";
 		s += DUANZAOD->query_can_duanzao(me,arg);
 		//me->write_view(WAP_VIEWD["/emote"],0,0,s);
-		//s += "\n[·µ»Ø:viceskill_duanzao_list m_weapon]\n";
+		//s += "\n[è¿”å›ž:viceskill_duanzao_list m_weapon]\n";
 	}
-	s += "\n[·µ»ØÓÎÏ·:look]\n";
+	s += "\n[è¿”å›žæ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

@@ -8,7 +8,7 @@ int main(string arg)
 	int count = 0;
 	object env=environment(me);
 	string s = "";
-	int ind ;//Ì¯Î»id
+	int ind ;//æ‘Šä½id
 	object ob;
 	sscanf(arg,"%s %d %d",name,count,ind);
 	array(object) all_ob = all_inventory(me);
@@ -20,24 +20,24 @@ int main(string arg)
 	}
 	if(env){
 		if(!ob)
-			me->write_view(WAP_VIEWD["/emote"],0,0,"ÄãÉíÉÏÃ»ÓÐÄÇÑù¶«Î÷¡£\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"ä½ èº«ä¸Šæ²¡æœ‰é‚£æ ·ä¸œè¥¿ã€‚\n");
 		else if(!ob->is("item"))
-			me->write_view(WAP_VIEWD["/emote"],0,0,"¸ÃÎïÆ·²»ÊôÓÚ¿ÉÒÔ³öÊÛµÄÎïÆ·¡£\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"è¯¥ç‰©å“ä¸å±žäºŽå¯ä»¥å‡ºå”®çš„ç‰©å“ã€‚\n");
 		else if(ob->equiped)
-			me->write_view(WAP_VIEWD["/emote"],0,0,"ÉíÉÏÕýÔÚ×°±¸µÄ¶«Î÷ÎÞ·¨³öÊÛ¡£\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"èº«ä¸Šæ­£åœ¨è£…å¤‡çš„ä¸œè¥¿æ— æ³•å‡ºå”®ã€‚\n");
 		else if(ob->query_item_save() == 0)
-			me->write_view(WAP_VIEWD["/emote"],0,0,"´ËÎïÆ·²»ÄÜ³öÊÛ¡£\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"æ­¤ç‰©å“ä¸èƒ½å‡ºå”®ã€‚\n");
 		else if(!ob->query_item_canTrade())
-			me->write_view(WAP_VIEWD["/emote"],0,0,"¸ÃÀàÎïÆ·²»ÄÜ³öÊÛ¡£\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"è¯¥ç±»ç‰©å“ä¸èƒ½å‡ºå”®ã€‚\n");
 		else if(ob->query_toVip())
-			me->write_view(WAP_VIEWD["/emote"],0,0,"»áÔ±×¨ÊôÎïÆ·²»ÄÜ³öÊÛ¡£\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"ä¼šå‘˜ä¸“å±žç‰©å“ä¸èƒ½å‡ºå”®ã€‚\n");
 		else if((ob->query_item_type()=="weapon"||ob->query_item_type()=="single_weapon"||ob->query_item_type()=="double_weapon"||ob->query_item_type()=="armor")&&ob->item_cur_dura<ob->item_dura)
-			me->write_view(WAP_VIEWD["/emote"],0,0,"ÕâÆÆÀÃÍæÒâ²»ÄÜ³öÊÛ£¬ÏÈÄÃÈ¥ÐÞÐÞÔÙÀ´ÅÄ°É\n");
+			me->write_view(WAP_VIEWD["/emote"],0,0,"è¿™ç ´çƒ‚çŽ©æ„ä¸èƒ½å‡ºå”®ï¼Œå…ˆæ‹¿åŽ»ä¿®ä¿®å†æ¥æ‹å§\n");
 		else{
-			s += "ÇëÑ¡ÔñÄãÒª³öÊÛµÄÆÚÏÞ£º\n";
+			s += "è¯·é€‰æ‹©ä½ è¦å‡ºå”®çš„æœŸé™ï¼š\n";
 			s += HOMED->get_time_delay_list(name,ind,"home_shopItem_marked_price");
 			s += "\n\n";
-			s += "[·þÎñÖÐÐÄ:home_shop_service_center "+env->query_masterId()+"]\n";
+			s += "[æœåŠ¡ä¸­å¿ƒ:home_shop_service_center "+env->query_masterId()+"]\n";
 			me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		}
 	}

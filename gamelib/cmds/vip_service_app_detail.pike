@@ -1,14 +1,14 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 /*
-ÉêÇëÈë»áÏêÇéÒ³Ãæ
+ç”³è¯·å…¥ä¼šè¯¦æƒ…é¡µé¢
 auther: evan
 2008.07.16
 */
 int main(string arg)
 {
 	object me = this_player();
-	string s = "***»áÔ±ÉêÇë***\n\n";
+	string s = "***ä¼šå‘˜ç”³è¯·***\n\n";
 	int level = 0;
 	sscanf(arg,"%d",level);
 	string vip_name = VIPD->get_vip_name(level);
@@ -16,10 +16,10 @@ int main(string arg)
 	int vip_cost = VIPD->get_vip_cost(level);
 	s += vip_name + "\n\n";
 	s += vip_desc + "\n\n";
-	s += "ĞèÒª"+ YUSHID->get_yushi_for_desc(vip_cost*10)+"\n"; 
-	s += "[ÉêÇë:vip_service_app_confirm.pike "+level+"]\n\n";
-	s += "[·µ»Ø:yushi_myzone.pike]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "éœ€è¦"+ YUSHID->get_yushi_for_desc(vip_cost*10)+"\n"; 
+	s += "[ç”³è¯·:vip_service_app_confirm.pike "+level+"]\n\n";
+	s += "[è¿”å›:yushi_myzone.pike]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

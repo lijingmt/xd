@@ -1,11 +1,11 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>  
-//´ËÖ¸ÁîÏÔÊ¾²Æ¸»µÄÅÅĞĞ
+//æ­¤æŒ‡ä»¤æ˜¾ç¤ºè´¢å¯Œçš„æ’è¡Œ
 int main(string arg)
 {
 	string s = "";
 	object me=this_player();
-	s += "²Æ¸»ÅÅĞĞ°ñ£º\n";
+	s += "è´¢å¯Œæ’è¡Œæ¦œï¼š\n";
 	/*
 	array(mapping(string:mixed)) top_list = PAIHANGD->query_account_toplist();
 	if(top_list && sizeof(top_list)){
@@ -19,17 +19,17 @@ int main(string arg)
 			int account = (int)top_list[i]["account"];
 			//string account_cn = MUD_MONEYD->query_money_for_paihang(account);
 			if(name_cn && sizeof(name_cn)){
-				s += (i+1)+"£®["+name_cn+":paihang_view_player "+name_cn+" "+raceId+" "+profeId+" "+level+" "+bangid+" 1]\n";//£¨"+account+"£©\n";
+				s += (i+1)+"ï¼["+name_cn+":paihang_view_player "+name_cn+" "+raceId+" "+profeId+" "+level+" "+bangid+" 1]\n";//ï¼ˆ"+account+"ï¼‰\n";
 			}
 		}
 	}
 	else
-		s += "ÔİÎ´·¢°ñ\n";
+		s += "æš‚æœªå‘æ¦œ\n";
 	*/
-	//s += "[Ë¢ĞÂÅÅĞĞ°ñ:paihang_update_account_toplist]\n";
-	s += "ÔİÎ´·¢°ñ\n";
+	//s += "[åˆ·æ–°æ’è¡Œæ¦œ:paihang_update_account_toplist]\n";
+	s += "æš‚æœªå‘æ¦œ\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
-	//s += "\n[·µ»ØÓÎÏ·:look]\n";
+	//s += "\n[è¿”å›æ¸¸æˆ:look]\n";
 	//write(s);
 	return 1;
 }

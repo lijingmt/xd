@@ -1,6 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-//²é¿´Íæ¼ÒĞÅÏ¢ÄÚÈİ
+//æŸ¥çœ‹ç©å®¶ä¿¡æ¯å†…å®¹
 int main(string arg)
 {
 	string s = "";
@@ -14,60 +14,60 @@ int main(string arg)
 			
 			if(err){
 				s += "load player wrong\n";
-				s += "[·µ»Ø:look]\n";
-				s += "[·µ»ØÓÎÏ·:qge74hye congxianzhen/xiaomuwu]\n";
+				s += "[è¿”å›:look]\n";
+				s += "[è¿”å›æ¸¸æˆ:qge74hye congxianzhen/xiaomuwu]\n";
 				write(s);
 				return 1;
 			}
 			if(!user){
-				s += "ÎŞ´ËÍæ¼Ò£¬ÇëÈ·ÈÏÊäÈëÕıÈ·\n";
-				s += "[·µ»Ø:look]\n";
-				s += "[·µ»ØÓÎÏ·:qge74hye congxianzhen/xiaomuwu]\n";
+				s += "æ— æ­¤ç©å®¶ï¼Œè¯·ç¡®è®¤è¾“å…¥æ­£ç¡®\n";
+				s += "[è¿”å›:look]\n";
+				s += "[è¿”å›æ¸¸æˆ:qge74hye congxianzhen/xiaomuwu]\n";
 				write(s);
 				return 1;
 			}
 		}
 		string tmp="";
-		s += "ÕÊºÅ£º"+user->query_name()+"\n";
-		s += "-----------ÕÊ»§ĞÅÏ¢-----------\n";
-		s += "ÓÎÏ·Ãû£º"+user->query_name_cn()+"\n";
-		//s += "ÃÜÂë£º"+user->password+"\n";
-		s += "Ö°Òµ£º"+user->query_profeId()+"\n";
-		s += "µÈ¼¶£º"+user->query_level()+" [ĞŞ¸Ä:wiz_modi_info level "+arg+" ...]\n";
-		s += "½ğÇ®£º"+user->query_account()+" [ĞŞ¸Ä:wiz_modi_info account "+arg+" ...]\n";
-		s += "ÃÜÂë£º"+user->query_password()+" [ĞŞ¸Ä:wiz_modi_info password "+arg+" ...]\n";
-		s += "°ó¶¨ÊÖ»ú£º"+user->query_mobile()+" [ĞŞ¸Ä:wiz_modi_info mobile "+arg+" ...]\n";
+		s += "å¸å·ï¼š"+user->query_name()+"\n";
+		s += "-----------å¸æˆ·ä¿¡æ¯-----------\n";
+		s += "æ¸¸æˆåï¼š"+user->query_name_cn()+"\n";
+		//s += "å¯†ç ï¼š"+user->password+"\n";
+		s += "èŒä¸šï¼š"+user->query_profeId()+"\n";
+		s += "ç­‰çº§ï¼š"+user->query_level()+" [ä¿®æ”¹:wiz_modi_info level "+arg+" ...]\n";
+		s += "é‡‘é’±ï¼š"+user->query_account()+" [ä¿®æ”¹:wiz_modi_info account "+arg+" ...]\n";
+		s += "å¯†ç ï¼š"+user->query_password()+" [ä¿®æ”¹:wiz_modi_info password "+arg+" ...]\n";
+		s += "ç»‘å®šæ‰‹æœºï¼š"+user->query_mobile()+" [ä¿®æ”¹:wiz_modi_info mobile "+arg+" ...]\n";
 		
-		s +="-------------½ÇÉ«ÊôĞÔ-------------\n";
-		s += "¹¥»÷Ç¿¶È£º"+user->query_low_attack_desc()+"-"+user->query_high_attack_desc()+"\n";
-		s += "·ÀÓùÇ¿¶È£º"+user->query_defend_power()+"\n";
+		s +="-------------è§’è‰²å±æ€§-------------\n";
+		s += "æ”»å‡»å¼ºåº¦ï¼š"+user->query_low_attack_desc()+"-"+user->query_high_attack_desc()+"\n";
+		s += "é˜²å¾¡å¼ºåº¦ï¼š"+user->query_defend_power()+"\n";
 
-		s += "ÉúÃüÁ¦£º"+user->get_cur_life()+"/"+user->query_life_max()+"\n";
-		s += "·¨Á¦Öµ£º"+user->get_cur_mofa()+"/"+user->query_mofa_max()+"\n";
-		s += "Ãô½İ£º"+user->get_cur_dex();
+		s += "ç”Ÿå‘½åŠ›ï¼š"+user->get_cur_life()+"/"+user->query_life_max()+"\n";
+		s += "æ³•åŠ›å€¼ï¼š"+user->get_cur_mofa()+"/"+user->query_mofa_max()+"\n";
+		s += "æ•æ·ï¼š"+user->get_cur_dex();
 		tmp = user->query_equip_add("dex")+user->query_equip_add("all");
 		if(tmp)
-			s += "£«"+tmp+"\n";
+			s += "ï¼‹"+tmp+"\n";
 		else
 			s += "\n";
-		s += "Á¦Á¿£º"+user->get_cur_str();
+		s += "åŠ›é‡ï¼š"+user->get_cur_str();
 		tmp = user->query_equip_add("str")+user->query_equip_add("all");
 		if(tmp)
-			s += "£«"+tmp+"\n";
+			s += "ï¼‹"+tmp+"\n";
 		else
 			s += "\n";
-		s += "ÖÇÁ¦£º"+user->get_cur_think();
+		s += "æ™ºåŠ›ï¼š"+user->get_cur_think();
 		tmp = user->query_equip_add("think")+user->query_equip_add("all");
 		if(tmp)
-			s += "£«"+tmp+"\n";
+			s += "ï¼‹"+tmp+"\n";
 		else
 			s += "\n";
-		s += "ÉÁ±Ü£º"+user->query_phy_dodge_str()+"%\n";
-		s += "ÃüÖĞ£º"+user->query_phy_hitte_str()+"%\n";
-		s += "±©»÷£º"+user->query_phy_baoji_str()+"%\n";
+		s += "é—ªé¿ï¼š"+user->query_phy_dodge_str()+"%\n";
+		s += "å‘½ä¸­ï¼š"+user->query_phy_hitte_str()+"%\n";
+		s += "æš´å‡»ï¼š"+user->query_phy_baoji_str()+"%\n";
 	}
-	s += "[·µ»Ø:look]\n";
-	s += "[·µ»ØÓÎÏ·:qge74hye congxianzhen/xiaomuwu]\n";
+	s += "[è¿”å›:look]\n";
+	s += "[è¿”å›æ¸¸æˆ:qge74hye congxianzhen/xiaomuwu]\n";
 	write(s);
 	return 1;
 }

@@ -1,6 +1,6 @@
 #include <globals.h>
 #include <mudlib/include/mudlib.h>
-//Ó°Éä±í£¬
+//å½±å°„è¡¨ï¼Œ
 static mapping(string:int) m_profe = ([
 	"jianxian" : 1,
 	"yushi" : 2,
@@ -16,7 +16,7 @@ static mapping(string:int) m_profe = ([
 	"bugs" : 12, 
 	"dog" : 13 
 ]);
-//·µ»Ø¸øÍæ¼Ò±íÏÖ²ãÏÔÊ¾ÓÃµÄ/////////////////////////////////////////////////
+//è¿”å›ç»™ç©å®¶è¡¨ç°å±‚æ˜¾ç¤ºç”¨çš„/////////////////////////////////////////////////
 string query_phy_dodge_str(){
 	string tmp = sprintf("%0.2f",(float)query_phy_dodge());
 	return tmp;
@@ -30,50 +30,50 @@ string query_phy_baoji_str(){
 	return tmp;
 }
 //////////////////////////////////////////////////////////////////////
-//µÃµ½ÎïÀíÉÁ±Ü=(Ãô½İ/xx+ËùÓĞÎïÆ·Ôö¼ÓµÄÉÁ±ÜÖµ×ÜºÍ)/100
+//å¾—åˆ°ç‰©ç†é—ªé¿=(æ•æ·/xx+æ‰€æœ‰ç‰©å“å¢åŠ çš„é—ªé¿å€¼æ€»å’Œ)/100
 float query_phy_dodge(){
 	float result = 0.00;
-	int attribute = this_object()->query_dex();//Íæ¼ÒÃô½İÊôĞÔ
-	int equip_add = this_object()->query_equip_add("dodge");//Íæ¼Ò×°±¸ÖĞ¸½´øÉÁ±ÜÖµ
-	//Íæ¼ÒÖ°Òµ²»Í¬£¬µÃµ½µÄ¼ÆËã¹«Ê½Ò²²»Í¬
+	int attribute = this_object()->query_dex();//ç©å®¶æ•æ·å±æ€§
+	int equip_add = this_object()->query_equip_add("dodge");//ç©å®¶è£…å¤‡ä¸­é™„å¸¦é—ªé¿å€¼
+	//ç©å®¶èŒä¸šä¸åŒï¼Œå¾—åˆ°çš„è®¡ç®—å…¬å¼ä¹Ÿä¸åŒ
 	string u_profe = this_object()->query_profeId();
 	if(u_profe){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
-			case 1://½£ÏÉ
+			case 1://å‰‘ä»™
 				result = (((float)attribute/50)+(float)equip_add)*0.75;	
 			break;
-			case 2://ÓğÊ¿
+			case 2://ç¾½å£«
 				result = (((float)attribute/50)+(float)equip_add)*0.75;	
 			break;
-			case 3://ÖïÏÉ
+			case 3://è¯›ä»™
 				result = (((float)attribute/30)+(float)equip_add)*0.75;	
 			break;
-			case 4://¿ñÑı
+			case 4://ç‹‚å¦–
 				result = (((float)attribute/50)+(float)equip_add)*0.75;	
 			break;
-			case 5://Î×Ñı
+			case 5://å·«å¦–
 				result = (((float)attribute/50)+(float)equip_add)*0.75;	
 			break;
-			case 6://Ó°¹í
+			case 6://å½±é¬¼
 				result = (((float)attribute/40)+(float)equip_add)*0.75;	
 			break;
-			case 7://ÈËĞÎ °üÀ¨ÈËÀàºÍÑıÄ§
+			case 7://äººå½¢ åŒ…æ‹¬äººç±»å’Œå¦–é­”
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
-			case 8://Ò°ÊŞ
+			case 8://é‡å…½
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
-			case 9://·ÉÇİ
+			case 9://é£ç¦½
 				result = ((float)attribute/30)+(float)equip_add;	
 			break;
-			case 10://Óã
+			case 10://é±¼
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
-			case 11://Á½ÆÜ¶¯Îï
+			case 11://ä¸¤æ –åŠ¨ç‰©
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
-			case 12://³æÀà
+			case 12://è™«ç±»
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
 		}
@@ -86,50 +86,50 @@ float query_phy_dodge(){
 	return result;
 	//added end
 }
-//µÃµ½ÎïÀíÃüÖĞ
+//å¾—åˆ°ç‰©ç†å‘½ä¸­
 float query_phy_hitte(){
 	float result = 0.00;
-	int attribute = 80;//this_object()->query_dex();//Íæ¼ÒÃô½İÊôĞÔ
-	int equip_add = this_object()->query_equip_add("hitte");//Íæ¼Ò×°±¸ÖĞ¸½´øÃüÖĞÖµ
-	//Íæ¼ÒÖ°Òµ²»Í¬£¬µÃµ½µÄ¼ÆËã¹«Ê½Ò²²»Í¬
+	int attribute = 80;//this_object()->query_dex();//ç©å®¶æ•æ·å±æ€§
+	int equip_add = this_object()->query_equip_add("hitte");//ç©å®¶è£…å¤‡ä¸­é™„å¸¦å‘½ä¸­å€¼
+	//ç©å®¶èŒä¸šä¸åŒï¼Œå¾—åˆ°çš„è®¡ç®—å…¬å¼ä¹Ÿä¸åŒ
 	string u_profe = this_object()->query_profeId();
 	if(u_profe){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
-			case 1://½£ÏÉ
+			case 1://å‰‘ä»™
 				result = (float)attribute+(float)equip_add+5;	
 			break;
-			case 2://ÓğÊ¿
+			case 2://ç¾½å£«
 				result = (float)attribute+(float)equip_add+10;	
 			break;
-			case 3://ÖïÏÉ
+			case 3://è¯›ä»™
 				result = (float)attribute+(float)equip_add+5;	
 			break;
-			case 4://¿ñÑı
+			case 4://ç‹‚å¦–
 				result = (float)attribute+(float)equip_add+5;	
 			break;
-			case 5://Î×Ñı
+			case 5://å·«å¦–
 				result = (float)attribute+(float)equip_add+10;	
 			break;
-			case 6://Ó°¹í
+			case 6://å½±é¬¼
 				result = (float)attribute+(float)equip_add+5;	
 			break;
-			case 7://ÈËĞÎ °üÀ¨ÈËÀàºÍÑıÄ§
+			case 7://äººå½¢ åŒ…æ‹¬äººç±»å’Œå¦–é­”
 				result = (float)attribute+(float)equip_add;
 			break;
-			case 8://Ò°ÊŞ
+			case 8://é‡å…½
 				result = (float)attribute+(float)equip_add;	
 			break;
-			case 9://·ÉÇİ
+			case 9://é£ç¦½
 				result = (float)attribute+(float)equip_add;	
 			break;
-			case 10://Óã
+			case 10://é±¼
 				result = (float)attribute+(float)equip_add;	
 			break;
-			case 11://Á½ÆÜ¶¯Îï
+			case 11://ä¸¤æ –åŠ¨ç‰©
 				result = (float)attribute+(float)equip_add;	
 			break;
-			case 12://³æÀà
+			case 12://è™«ç±»
 				result = (float)attribute+(float)equip_add;	
 			break;
 		}
@@ -142,50 +142,50 @@ float query_phy_hitte(){
 	return result;
 	//added end
 }
-//µÃµ½ÎïÀí±¬»÷
+//å¾—åˆ°ç‰©ç†çˆ†å‡»
 float query_phy_baoji(){
 	float result = 0.00;
-	int attribute = this_object()->query_dex();//Íæ¼ÒÃô½İÊôĞÔ
-	int equip_add = this_object()->query_equip_add("doub");//Íæ¼Ò×°±¸ÖĞ¸½´ø±¬»÷Öµ
-	//Íæ¼ÒÖ°Òµ²»Í¬£¬µÃµ½µÄ¼ÆËã¹«Ê½Ò²²»Í¬
+	int attribute = this_object()->query_dex();//ç©å®¶æ•æ·å±æ€§
+	int equip_add = this_object()->query_equip_add("doub");//ç©å®¶è£…å¤‡ä¸­é™„å¸¦çˆ†å‡»å€¼
+	//ç©å®¶èŒä¸šä¸åŒï¼Œå¾—åˆ°çš„è®¡ç®—å…¬å¼ä¹Ÿä¸åŒ
 	string u_profe = this_object()->query_profeId();
 	if(u_profe){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
-			case 1://½£ÏÉ
+			case 1://å‰‘ä»™
 				result = (5.00+((float)attribute/50)+(float)equip_add)*0.75;	
 			break;
-			case 2://ÓğÊ¿
+			case 2://ç¾½å£«
 				result = (5.00+(float)equip_add)*0.75;	
 			break;
-			case 3://ÖïÏÉ
+			case 3://è¯›ä»™
 				result = (5.00+((float)attribute/30)+(float)equip_add)*0.75;	
 			break;
-			case 4://¿ñÑı
+			case 4://ç‹‚å¦–
 				result = (5.00+((float)attribute/40)+(float)equip_add)*0.75;	
 			break;
-			case 5://Î×Ñı
+			case 5://å·«å¦–
 				result = (5.00+(float)equip_add)*0.75;	
 			break;
-			case 6://Ó°¹í
+			case 6://å½±é¬¼
 				result = (5.00+((float)attribute/20)+(float)equip_add)*0.75;	
 			break;
-			case 7://ÈËĞÎ °üÀ¨ÈËÀàºÍÑıÄ§
+			case 7://äººå½¢ åŒ…æ‹¬äººç±»å’Œå¦–é­”
 				result = 5.00+(float)equip_add;	
 			break;
-			case 8://Ò°ÊŞ
+			case 8://é‡å…½
 				result = 5.00+((float)attribute/40)+(float)equip_add;	
 			break;
-			case 9://·ÉÇİ
+			case 9://é£ç¦½
 				result = 5.00+((float)attribute/30)+(float)equip_add;	
 			break;
-			case 10://Óã
+			case 10://é±¼
 				result = 5.00+(float)equip_add;	
 			break;
-			case 11://Á½ÆÜ¶¯Îï
+			case 11://ä¸¤æ –åŠ¨ç‰©
 				result = 5.00+(float)equip_add;	
 			break;
-			case 12://³æÀà
+			case 12://è™«ç±»
 				result = 5.00+(float)equip_add;	
 			break;
 		}
@@ -201,50 +201,50 @@ float query_phy_baoji(){
 	//added end 
 }
 
-//µÃµ½±¾Éí¹¥»÷Á¦
+//å¾—åˆ°æœ¬èº«æ”»å‡»åŠ›
 int query_base_damage(){
 	int result = 0;
-	int str = this_object()->query_str();//Íæ¼ÒÁ¦Á¿ÊôĞÔ
-	int dex = this_object()->query_dex();//Íæ¼ÒÃô½İÊôĞÔ
-	//Íæ¼ÒÖ°Òµ²»Í¬£¬µÃµ½µÄ¼ÆËã¹«Ê½Ò²²»Í¬
+	int str = this_object()->query_str();//ç©å®¶åŠ›é‡å±æ€§
+	int dex = this_object()->query_dex();//ç©å®¶æ•æ·å±æ€§
+	//ç©å®¶èŒä¸šä¸åŒï¼Œå¾—åˆ°çš„è®¡ç®—å…¬å¼ä¹Ÿä¸åŒ
 	string u_profe = this_object()->query_profeId();
 	if(u_profe){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
-			case 1://½£ÏÉ
+			case 1://å‰‘ä»™
 				result = str/6;//+dex/3;	
 			break;
-			case 2://ÓğÊ¿
+			case 2://ç¾½å£«
 				result =str/10; 
 			break;
-			case 3://ÖïÏÉ
+			case 3://è¯›ä»™
 				result = str/2+dex/2;
 			break;
-			case 4://¿ñÑı
+			case 4://ç‹‚å¦–
 				result = str/4;	
 			break;
-			case 5://Î×Ñı
+			case 5://å·«å¦–
 				result = str/10;	
 			break;
-			case 6://Ó°¹í
+			case 6://å½±é¬¼
 				result = dex;	
 			break;
-			case 7://ÈËĞÎ °üÀ¨ÈËÀàºÍÑıÄ§
+			case 7://äººå½¢ åŒ…æ‹¬äººç±»å’Œå¦–é­”
 				result = str;	
 			break;
-			case 8://Ò°ÊŞ
+			case 8://é‡å…½
 				result = str;	
 			break;
-			case 9://·ÉÇİ
+			case 9://é£ç¦½
 				result = str/2+dex/2;
 			break;
-			case 10://Óã
+			case 10://é±¼
 				result = str;	
 			break;
-			case 11://Á½ÆÜ¶¯Îï
+			case 11://ä¸¤æ –åŠ¨ç‰©
 				result = str;	
 			break;
-			case 12://³æÀà
+			case 12://è™«ç±»
 				result = str;	
 			break;
 		}
@@ -264,68 +264,68 @@ int query_base_damage(){
 	}
 	return result;
 }
-//µÃµ½×°±¸ÎäÆ÷¸½¼Ó¹¥»÷Á¦ÉÏÏÂÏŞ,·ÖÖ÷ÊÖ£¬¸±ÊÖ
+//å¾—åˆ°è£…å¤‡æ­¦å™¨é™„åŠ æ”»å‡»åŠ›ä¸Šä¸‹é™,åˆ†ä¸»æ‰‹ï¼Œå‰¯æ‰‹
 int query_equip_damage(string arg){
 	int equip_add = 0;
 	if(arg=="base_main")
-		equip_add = this_object()->query_equip_add("base_attack_main");//Íæ¼Ò×°±¸ÖĞÖ÷ÊÖ¸½´ø¹¥»÷Öµ
+		equip_add = this_object()->query_equip_add("base_attack_main");//ç©å®¶è£…å¤‡ä¸­ä¸»æ‰‹é™„å¸¦æ”»å‡»å€¼
 	if(arg=="base_other")
-		equip_add = this_object()->query_equip_add("base_attack_other");//Íæ¼Ò×°±¸ÖĞ¸±ÊÖ¸½´ø¹¥»÷Öµ
+		equip_add = this_object()->query_equip_add("base_attack_other");//ç©å®¶è£…å¤‡ä¸­å‰¯æ‰‹é™„å¸¦æ”»å‡»å€¼
 	if(arg=="limit_main")
-		equip_add = this_object()->query_equip_add("limit_attack_main");//Íæ¼Ò×°±¸ÖĞÖ÷ÊÖ¸½´ø¹¥»÷Öµ
+		equip_add = this_object()->query_equip_add("limit_attack_main");//ç©å®¶è£…å¤‡ä¸­ä¸»æ‰‹é™„å¸¦æ”»å‡»å€¼
 	if(arg=="limit_other")
-		equip_add = this_object()->query_equip_add("limit_attack_other");//Íæ¼Ò×°±¸ÖĞ¸±ÊÖ¸½´ø¹¥»÷Öµ
+		equip_add = this_object()->query_equip_add("limit_attack_other");//ç©å®¶è£…å¤‡ä¸­å‰¯æ‰‹é™„å¸¦æ”»å‡»å€¼
 	return equip_add;
 }
-//µÃµ½ÈËÎï¹¥»÷Á¦ÃèÊöÖĞµÄÉËº¦ÏÂÏŞ
-//ÓÉliaochengÓÚ2007/1/5 ĞŞ¸Ä
-int query_low_attack(string arg){ //ÉËº¦µÄÏÂÏŞ½Ó¿Ú.
-//arg="base_main"·µ»ØÖ÷ÊÖ¹¥»÷ÉËº¦ÏÂÏŞ
-//arg="base_other" ·µ»Ø¸±ÊÖ¹¥»÷ÉËº¦ÏÂÏŞ
+//å¾—åˆ°äººç‰©æ”»å‡»åŠ›æè¿°ä¸­çš„ä¼¤å®³ä¸‹é™
+//ç”±liaochengäº2007/1/5 ä¿®æ”¹
+int query_low_attack(string arg){ //ä¼¤å®³çš„ä¸‹é™æ¥å£.
+//arg="base_main"è¿”å›ä¸»æ‰‹æ”»å‡»ä¼¤å®³ä¸‹é™
+//arg="base_other" è¿”å›å‰¯æ‰‹æ”»å‡»ä¼¤å®³ä¸‹é™
 	object me = this_object();
 	int low_attack = 0;
-	int base_weapon_attack = me->query_equip_damage(arg);//µÃµ½ÎäÆ÷¹ÌÓĞµÄ¹¥»÷Á¦ÏÂÏŞ(ÆäÖĞ°üÀ¨ÁË¸½¼Ó¹¥»÷ÊôĞÔµÄÉËº¦)
+	int base_weapon_attack = me->query_equip_damage(arg);//å¾—åˆ°æ­¦å™¨å›ºæœ‰çš„æ”»å‡»åŠ›ä¸‹é™(å…¶ä¸­åŒ…æ‹¬äº†é™„åŠ æ”»å‡»å±æ€§çš„ä¼¤å®³)
 	
 	if(base_weapon_attack<0)
 		base_weapon_attack=0;
-	low_attack = base_weapon_attack; // + me->query_base_damage();½«×ÔÉí¹¥»÷Ìáµ½fight.pikeÖĞÊ¹ÓÃ
+	low_attack = base_weapon_attack; // + me->query_base_damage();å°†è‡ªèº«æ”»å‡»æåˆ°fight.pikeä¸­ä½¿ç”¨
 	return low_attack;
 }
-//ÓÉliaochengÓÚ2007/1/5 ĞŞ¸Ä
-int query_high_attack(string arg){   //ÉËº¦µÄÉÏÏŞ½Ó¿Ú
-//arg="limit_main"·µ»ØÖ÷ÊÖ¹¥»÷ÉËº¦ÉÏÏŞ
-//arg="limit_other" ·µ»Ø¸±ÊÖ¹¥»÷ÉËº¦ÉÏÏŞ
+//ç”±liaochengäº2007/1/5 ä¿®æ”¹
+int query_high_attack(string arg){   //ä¼¤å®³çš„ä¸Šé™æ¥å£
+//arg="limit_main"è¿”å›ä¸»æ‰‹æ”»å‡»ä¼¤å®³ä¸Šé™
+//arg="limit_other" è¿”å›å‰¯æ‰‹æ”»å‡»ä¼¤å®³ä¸Šé™
 	object me = this_object();
 	int high_attack = 0;
-	int limit_weapon_attack = me->query_equip_damage(arg);//µÃµ½ÎäÆ÷¹ÌÓĞµÄ¹¥»÷Á¦ÉÏÏŞ(ÆäÖĞ°üÀ¨ÁË¸½¼Ó¹¥»÷ÊôĞÔµÄÉËº¦)
+	int limit_weapon_attack = me->query_equip_damage(arg);//å¾—åˆ°æ­¦å™¨å›ºæœ‰çš„æ”»å‡»åŠ›ä¸Šé™(å…¶ä¸­åŒ…æ‹¬äº†é™„åŠ æ”»å‡»å±æ€§çš„ä¼¤å®³)
 	
 	if(limit_weapon_attack<0)
 		limit_weapon_attack=0;
-	high_attack = limit_weapon_attack;// + me->query_base_damage();Í¬ÉÏlow_attack
+	high_attack = limit_weapon_attack;// + me->query_base_damage();åŒä¸Šlow_attack
 	return high_attack;
 }
-//·µ»ØÊ¹ÓÃÖ÷ÊÖÎäÆ÷²úÉúµÄÉËº¦ÖµµÄ½Ó¿Úº¯Êı,¹©ÉÏ²ãfight.pikeÖĞÕ½¶·Ä£¿éµ÷ÓÃ
-//ÓÉliaochengÓÚ2007/1/5 ĞŞ¸Ä
+//è¿”å›ä½¿ç”¨ä¸»æ‰‹æ­¦å™¨äº§ç”Ÿçš„ä¼¤å®³å€¼çš„æ¥å£å‡½æ•°,ä¾›ä¸Šå±‚fight.pikeä¸­æˆ˜æ–—æ¨¡å—è°ƒç”¨
+//ç”±liaochengäº2007/1/5 ä¿®æ”¹
 int query_main_equiped_attack(){
-	//·µ»ØÖ÷ÊÖÉËº¦=ÉËº¦ÏÂÏŞ+random(ÉËº¦ÉÏÏŞ-ÉËº¦ÏÂÏŞ+1)
+	//è¿”å›ä¸»æ‰‹ä¼¤å®³=ä¼¤å®³ä¸‹é™+random(ä¼¤å®³ä¸Šé™-ä¼¤å®³ä¸‹é™+1)
 	object me = this_object();
 	int l=me->query_low_attack("base_main");
 	int h=me->query_high_attack("limit_main");
 	return (l+random(h-l+1));
 }
-//·µ»ØÊ¹ÓÃ¸±ÊÖÎäÆ÷²úÉúµÄÉËº¦ÖµµÄ½Ó¿Úº¯Êı,¹©ÉÏ²ãfight.pikeÖĞÕ½¶·Ä£¿éµ÷ÓÃ
-//ÓÉliaochengÓÚ2007/1/5 ĞŞ¸Ä
+//è¿”å›ä½¿ç”¨å‰¯æ‰‹æ­¦å™¨äº§ç”Ÿçš„ä¼¤å®³å€¼çš„æ¥å£å‡½æ•°,ä¾›ä¸Šå±‚fight.pikeä¸­æˆ˜æ–—æ¨¡å—è°ƒç”¨
+//ç”±liaochengäº2007/1/5 ä¿®æ”¹
 int query_other_equiped_attack(){
-	//·µ»Ø¸±ÊÖÉËº¦=ÉËº¦ÏÂÏŞ+random(ÉËº¦ÉÏÏŞ-ÉËº¦ÏÂÏŞ+1)
+	//è¿”å›å‰¯æ‰‹ä¼¤å®³=ä¼¤å®³ä¸‹é™+random(ä¼¤å®³ä¸Šé™-ä¼¤å®³ä¸‹é™+1)
 	object me = this_object();
 	int l=me->query_low_attack("base_other");
 	int h=me->query_high_attack("limit_other");
 	return (l+random(h-l+1));
 }
-//·µ»ØÍ¬Ê±Ê¹ÓÃÖ÷¸±ÊÖÎäÆ÷²úÉúµÄÉËº¦ÖµµÄ½Ó¿Úº¯Êı,¹©ÉÏ²ãfight.pikeÖĞÕ½¶·Ä£¿éµ÷ÓÃ
-//ÓÉliaochengÓÚ2007/1/5 ĞŞ¸Ä
+//è¿”å›åŒæ—¶ä½¿ç”¨ä¸»å‰¯æ‰‹æ­¦å™¨äº§ç”Ÿçš„ä¼¤å®³å€¼çš„æ¥å£å‡½æ•°,ä¾›ä¸Šå±‚fight.pikeä¸­æˆ˜æ–—æ¨¡å—è°ƒç”¨
+//ç”±liaochengäº2007/1/5 ä¿®æ”¹
 int query_both_equiped_attack(){
-	//·µ»ØÖ÷¸±ÊÖÉËº¦Ö®ºÍ)
+	//è¿”å›ä¸»å‰¯æ‰‹ä¼¤å®³ä¹‹å’Œ)
 	object me = this_object();
 	int lo=me->query_low_attack("base_other");
 	int ho=me->query_high_attack("limit_other");
@@ -334,96 +334,96 @@ int query_both_equiped_attack(){
 	return ((lm+random(hm-lm+1))+(lo+random(ho-lo+1)));
 }
 
-//µÃµ½ÈËÎï¹¥»÷Á¦ÃèÊöÖĞµÄ¹¥»÷Á¦ÏÂÏŞ
+//å¾—åˆ°äººç‰©æ”»å‡»åŠ›æè¿°ä¸­çš„æ”»å‡»åŠ›ä¸‹é™
 int query_low_attack_desc(){
 	object me = this_object();
 	int low_attack = 0;
-	//(Ö÷ÊÖÎäÆ÷¹¥»÷ÏÂÏŞ+ÈËÎï±¾Éí¹¥»÷)+(¸±ÊÖÎäÆ÷¹¥»÷ÏÂÏŞ+ÈËÎï±¾Éí¹¥»÷Á¦) 
-	int base_main_weapon_attack = me->query_equip_damage("base_main");//Ö÷ÊÖÎäÆ÷¸½¼Ó¹¥»÷Á¦ÏÂÏŞ
-	int base_other_weapon_attack = me->query_equip_damage("base_other");//¸±ÊÖÎäÆ÷¸½¼Ó¹¥»÷Á¦ÏÂÏŞ
+	//(ä¸»æ‰‹æ­¦å™¨æ”»å‡»ä¸‹é™+äººç‰©æœ¬èº«æ”»å‡»)+(å‰¯æ‰‹æ­¦å™¨æ”»å‡»ä¸‹é™+äººç‰©æœ¬èº«æ”»å‡»åŠ›) 
+	int base_main_weapon_attack = me->query_equip_damage("base_main");//ä¸»æ‰‹æ­¦å™¨é™„åŠ æ”»å‡»åŠ›ä¸‹é™
+	int base_other_weapon_attack = me->query_equip_damage("base_other");//å‰¯æ‰‹æ­¦å™¨é™„åŠ æ”»å‡»åŠ›ä¸‹é™
 	
 	if(base_main_weapon_attack>0&&base_other_weapon_attack>0)
 			low_attack = base_other_weapon_attack + base_main_weapon_attack + me->query_base_damage()*2;
-	else if(base_main_weapon_attack>0&&base_other_weapon_attack<=0)//Ö»ÓĞÖ÷ÊÖ
+	else if(base_main_weapon_attack>0&&base_other_weapon_attack<=0)//åªæœ‰ä¸»æ‰‹
 			low_attack = base_main_weapon_attack + me->query_base_damage();
-	else if(base_main_weapon_attack<=0&&base_other_weapon_attack>0)//Ö»ÓĞ¸±ÊÖ
+	else if(base_main_weapon_attack<=0&&base_other_weapon_attack>0)//åªæœ‰å‰¯æ‰‹
 			low_attack = base_other_weapon_attack + me->query_base_damage();
-	else//¿ÕÊÖÇé¿ö·µ»Ø×ÔÉí¹¥»÷Á¦
+	else//ç©ºæ‰‹æƒ…å†µè¿”å›è‡ªèº«æ”»å‡»åŠ›
 			low_attack = me->query_base_damage();
 	
 	return low_attack;
 }
-//µÃµ½ÈËÎï¹¥»÷Á¦ÃèÊöÖĞµÄ¹¥»÷Á¦ÉÏÏŞ
+//å¾—åˆ°äººç‰©æ”»å‡»åŠ›æè¿°ä¸­çš„æ”»å‡»åŠ›ä¸Šé™
 int query_high_attack_desc(){
 	object me = this_object();
 	int high_attack = 0;
-	//(Ö÷ÊÖÎäÆ÷¹¥»÷ÉÏÏŞ+ÈËÎï±¾Éí¹¥»÷)+(¸±ÊÖÎäÆ÷¹¥»÷ÉÏÏŞ+ÈËÎï±¾Éí¹¥»÷Á¦) 
-	int limit_main_weapon_attack = me->query_equip_damage("limit_main");//Ö÷ÊÖÎäÆ÷¸½¼Ó¹¥»÷Á¦ÏÂÏŞ
-	int limit_other_weapon_attack = me->query_equip_damage("limit_other");//¸±ÊÖÎäÆ÷¸½¼Ó¹¥»÷Á¦ÏÂÏŞ
+	//(ä¸»æ‰‹æ­¦å™¨æ”»å‡»ä¸Šé™+äººç‰©æœ¬èº«æ”»å‡»)+(å‰¯æ‰‹æ­¦å™¨æ”»å‡»ä¸Šé™+äººç‰©æœ¬èº«æ”»å‡»åŠ›) 
+	int limit_main_weapon_attack = me->query_equip_damage("limit_main");//ä¸»æ‰‹æ­¦å™¨é™„åŠ æ”»å‡»åŠ›ä¸‹é™
+	int limit_other_weapon_attack = me->query_equip_damage("limit_other");//å‰¯æ‰‹æ­¦å™¨é™„åŠ æ”»å‡»åŠ›ä¸‹é™
 	
 	if(limit_main_weapon_attack>0&&limit_other_weapon_attack>0)
 			high_attack = limit_other_weapon_attack + limit_main_weapon_attack + me->query_base_damage()*2;
-	else if(limit_main_weapon_attack>0&&limit_other_weapon_attack<=0)//Ö»ÓĞÖ÷ÊÖ
+	else if(limit_main_weapon_attack>0&&limit_other_weapon_attack<=0)//åªæœ‰ä¸»æ‰‹
 			high_attack = limit_main_weapon_attack + me->query_base_damage();
-	else if(limit_main_weapon_attack<=0&&limit_other_weapon_attack>0)//Ö»ÓĞ¸±ÊÖ
+	else if(limit_main_weapon_attack<=0&&limit_other_weapon_attack>0)//åªæœ‰å‰¯æ‰‹
 			high_attack = limit_other_weapon_attack + me->query_base_damage();
-	else//¿ÕÊÖÇé¿ö·µ»Ø×ÔÉí¹¥»÷Á¦
+	else//ç©ºæ‰‹æƒ…å†µè¿”å›è‡ªèº«æ”»å‡»åŠ›
 			high_attack = me->query_base_damage();
 
 	return high_attack;
 }
 
-//µÃµ½ÎïÀí·ÀÓùÁ¦
+//å¾—åˆ°ç‰©ç†é˜²å¾¡åŠ›
 int query_defend_power(){
 	int result = 0;
-	int str = this_object()->query_str();//Íæ¼ÒÁ¦Á¿ÊôĞÔ
-	int equip_add = this_object()->query_equip_add("defend");//Íæ¼Ò×°±¸ÖĞ¸½´ø·ÀÓùÖµ
-	//Íæ¼ÒÖ°Òµ²»Í¬£¬µÃµ½µÄ¼ÆËã¹«Ê½Ò²²»Í¬
+	int str = this_object()->query_str();//ç©å®¶åŠ›é‡å±æ€§
+	int equip_add = this_object()->query_equip_add("defend");//ç©å®¶è£…å¤‡ä¸­é™„å¸¦é˜²å¾¡å€¼
+	//ç©å®¶èŒä¸šä¸åŒï¼Œå¾—åˆ°çš„è®¡ç®—å…¬å¼ä¹Ÿä¸åŒ
 	string u_profe = this_object()->query_profeId();
 	if(u_profe){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
-			case 1://½£ÏÉ
+			case 1://å‰‘ä»™
 				result = str*3+equip_add;	
 			break;
-			case 2://ÓğÊ¿
+			case 2://ç¾½å£«
 				result = str+equip_add;	
 			break;
-			case 3://ÖïÏÉ
+			case 3://è¯›ä»™
 				result = str*2+equip_add;
 			break;
-			case 4://¿ñÑı
+			case 4://ç‹‚å¦–
 				result = str*2+equip_add;	
 			break;
-			case 5://Î×Ñı
+			case 5://å·«å¦–
 				result = str+equip_add;	
 			break;
-			case 6://Ó°¹í
+			case 6://å½±é¬¼
 				result = str*2+equip_add;	
 			break;
-			case 7://ÈËĞÎ °üÀ¨ÈËÀàºÍÑıÄ§
+			case 7://äººå½¢ åŒ…æ‹¬äººç±»å’Œå¦–é­”
 				result = str+equip_add;	
 			break;
-			case 8://Ò°ÊŞ
+			case 8://é‡å…½
 				result = str*2+equip_add;	
 			break;
-			case 9://·ÉÇİ
+			case 9://é£ç¦½
 				result = str*2+equip_add;
 			break;
-			case 10://Óã
+			case 10://é±¼
 				result = str*2+equip_add;
 			break;
-			case 11://Á½ÆÜ¶¯Îï
+			case 11://ä¸¤æ –åŠ¨ç‰©
 				result = str*2+equip_add;
 			break;
-			case 12://³æÀà
+			case 12://è™«ç±»
 				result = str*2+equip_add;
 			break;
 		}
 	}
 	//werror("    base_defend ="+this_object()->query_base_defend()+"      \n");
 	result+=this_object()->query_base_defend();
-	//ÔÚÕâÀï´¦ÀíÔöÒæºÍ½µµÍ·ÀÓùÁ¦×çÖäµÄÓ°Ïì
+	//åœ¨è¿™é‡Œå¤„ç†å¢ç›Šå’Œé™ä½é˜²å¾¡åŠ›è¯…å’’çš„å½±å“
 	if(this_object()->query_buff("buff",0)=="defend")
 		result+=this_object()->query_buff("buff",1);
 	if(this_object()->query_buff("attri_defend",0)=="defend")
@@ -431,7 +431,7 @@ int query_defend_power(){
 	if(this_object()->query_debuff("curse",0)=="defend"){
 		result-=this_object()->query_debuff("curse",1);
 	}
-	//½£ÏÉ70¼¶¼¼ÄÜ·ÀÓù×Ô¼õĞ§¹û£¬ÓÉliaochengÓÚ08/09/01Ìí¼Ó
+	//å‰‘ä»™70çº§æŠ€èƒ½é˜²å¾¡è‡ªå‡æ•ˆæœï¼Œç”±liaochengäº08/09/01æ·»åŠ 
 	if(this_object()->query_buff("70_skill_buff",0)=="fanzhuanyiji"){
 		result-=this_object()->query_buff("70_skill_buff",1);
 	}
@@ -440,8 +440,8 @@ int query_defend_power(){
 	return result;
 }
 
-//µÃµ½¹¥»÷ËÙ¶È,Ò»°ãÎäÆ÷µÄ¹¥»÷ËÙ¶È£¬ËùÓĞÖ°Òµ¶¼Ò»Ñù£¬³ı·ÇÊÇÁ½ÊÖ
-//ÄÃÁËÁ½°Ñµ¥ÊÖÎäÆ÷£¬»áÔÚÔËËãÖĞ·Ö±ğ¼ÆËãÉËº¦ºÍËÙ¶È
+//å¾—åˆ°æ”»å‡»é€Ÿåº¦,ä¸€èˆ¬æ­¦å™¨çš„æ”»å‡»é€Ÿåº¦ï¼Œæ‰€æœ‰èŒä¸šéƒ½ä¸€æ ·ï¼Œé™¤éæ˜¯ä¸¤æ‰‹
+//æ‹¿äº†ä¸¤æŠŠå•æ‰‹æ­¦å™¨ï¼Œä¼šåœ¨è¿ç®—ä¸­åˆ†åˆ«è®¡ç®—ä¼¤å®³å’Œé€Ÿåº¦
 int query_speed_power(string arg){
 	if(arg=="main")
 		return this_object()->query_equip_add("speed_main");

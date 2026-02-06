@@ -7,7 +7,7 @@ inherit WAP_F_VIEW_VALUE;
 
 string query_inventory_links(void|int count)
 {
-	return ::query_inventory_links(count)+"[´ò¿ª:bx_open "+name+" "+count+"]";
+	return ::query_inventory_links(count)+"[æ‰“å¼€:bx_open "+name+" "+count+"]";
 }
 string query_extra_links(void|int count)
 {

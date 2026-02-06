@@ -6,7 +6,7 @@ int main()
 	if(s&&sizeof(s))
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	else{
-		s = "ÔÝÎÞÈÎºÎÐÅÏ¢¡£";	
+		s = "æš‚æ— ä»»ä½•ä¿¡æ¯ã€‚";	
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	}
 	return 1;

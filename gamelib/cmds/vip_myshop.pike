@@ -1,16 +1,16 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 
-//ÏÉµÀ»áÔ±µêÈë¿Ú
+//ä»™é“ä¼šå‘˜åº—å…¥å£
 
 int main(string arg){
 	object me = this_player();
-	string s = "ÏÉµÀ»áÔ±µê\n\n";
-	s += "[»áÔ±·şÎñ:vip_service_list]\n";
-	s += "[»áÔ±»¶¹º³¡:vip_myzone]\n";
+	string s = "ä»™é“ä¼šå‘˜åº—\n\n";
+	s += "[ä¼šå‘˜æœåŠ¡:vip_service_list]\n";
+	s += "[ä¼šå‘˜æ¬¢è´­åœº:vip_myzone]\n";
 	s += "\n";
-	s += "[·µ»ØÏÉÓñÃî·»:yushi_myzone]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "[è¿”å›ä»™ç‰å¦™åŠ:yushi_myzone]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

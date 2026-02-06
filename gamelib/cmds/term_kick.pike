@@ -5,23 +5,23 @@ int main(string arg)
 	object me = this_player();
 	string s = "";
 	if(!arg){
-		s += "你想将哪位队员移出队伍？\n";
-		s += "[返回游戏:look]\n";
+		s += "浣犳兂灏嗗摢浣嶉槦鍛樼Щ鍑洪槦浼嶏紵\n";
+		s += "[杩斿洖娓告垙:look]\n";
 		write(s);
 		return 1;
 	}
 	//only term leader can kick out termer
 	if(TERMD->get_term_power(me->query_term(),me->query_name())!="leader"){
-		s += "只有队长才有这个权限！\n";
-		s += "[返回游戏:look]\n";
+		s += "鍙湁闃熼暱鎵嶆湁杩欎釜鏉冮檺锛乗n";
+		s += "[杩斿洖娓告垙:look]\n";
 		write(s);
 		return 1;
 	}
 	int rs;
 	object ob = find_player(arg);
 	if(!ob){
-		s += "该队员不在线，请返回。\n";
-		s += "[返回游戏:look]\n";
+		s += "璇ラ槦鍛樹笉鍦ㄧ嚎锛岃杩斿洖銆俓n";
+		s += "[杩斿洖娓告垙:look]\n";
 		write(s);
 		return 1;
 	}
@@ -29,19 +29,19 @@ int main(string arg)
 		rs = TERMD->kick_termer(me->query_term(), ob->query_name(), ob->query_name_cn());
 		switch(rs){
 			case 0:
-				s += "移出队员 "+ob->query_name_cn()+" 失败\n";
+				s += "绉诲嚭闃熷憳 "+ob->query_name_cn()+" 澶辫触\n";
 				break;
 			case 1:
-				s += "成功移出队员 "+ob->query_name_cn()+"\n";
-				//刷新队伍
+				s += "鎴愬姛绉诲嚭闃熷憳 "+ob->query_name_cn()+"\n";
+				//鍒锋柊闃熶紞
 				TERMD->flush_term(me->query_term());
 				break;
 			case 2:
-				s += "你没有这个权限，请返回。\n";
+				s += "浣犳病鏈夎繖涓潈闄愶紝璇疯繑鍥炪�俓n";
 				break;
 		}
 	}
-	s += "[返回游戏:look]\n";
+	s += "[杩斿洖娓告垙:look]\n";
 	write(s);
 	return 1;
 }

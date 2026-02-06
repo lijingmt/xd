@@ -27,7 +27,7 @@ int main(string arg)
 				return 1;
 			}
 		}
-		//取出在线用户列表
+		//鍙栧嚭鍦ㄧ嚎鐢ㄦ埛鍒楄〃
 		if(user_name!="managerTxAll20060520")
 		{
 			write("error");
@@ -36,7 +36,7 @@ int main(string arg)
 		else
 		{
 			string getDirCmd="/home/httpd/awstats/data/";
-			//得到文件名和日期适配
+			//寰楀埌鏂囦欢鍚嶅拰鏃ユ湡閫傞厤
 			/*string s_mon,s_day;                                                                           
         		int year,mon,day=0;                                                                                    
         		mapping now_time = localtime(time());                                                                     

@@ -13,7 +13,7 @@ mixed fail_str;
 string ROOT;
 
 
-//! À©Õ¹·ûºÅÁ¬½Ó£¬Èç¹ûprefix+"/"+sËùÖ¸´úµÄÎÄ¼şÊÇÒ»¸ö·ûºÅÁ¬½Ó£¬Ôò·µ»Ø¸Ã·ûºÅÁ¬½ÓËùÁ¬ÏòµÄÎÄ¼ş£¬²»×öµİ¹é½âÎö¡£
+//! æ‰©å±•ç¬¦å·è¿æ¥ï¼Œå¦‚æœprefix+"/"+sæ‰€æŒ‡ä»£çš„æ–‡ä»¶æ˜¯ä¸€ä¸ªç¬¦å·è¿æ¥ï¼Œåˆ™è¿”å›è¯¥ç¬¦å·è¿æ¥æ‰€è¿å‘çš„æ–‡ä»¶ï¼Œä¸åšé€’å½’è§£æã€‚
 string expand_symlinks(string s,void|string prefix)
 {
 	if(prefix==0){
@@ -26,7 +26,7 @@ string expand_symlinks(string s,void|string prefix)
 	return prefix+"/"+s;
 }
 
-//! ´ÓÊı×éaÖĞÉ¾³ıÏÂ±êÎªnµÄÔªËØ£¬·µ»ØÉ¾³ıºóµÄÊı×é¡£
+//! ä»æ•°ç»„aä¸­åˆ é™¤ä¸‹æ ‡ä¸ºnçš„å…ƒç´ ï¼Œè¿”å›åˆ é™¤åçš„æ•°ç»„ã€‚
 array a_delete(array a,int n)
 {
 	array left;
@@ -45,7 +45,7 @@ array a_delete(array a,int n)
 	return a;
 }
 
-//! ÔÚÊı×éaµÄÏÂ±êÎªnµÄÔªËØÇ°Ãæ²åÈëÖµÎªdataµÄÔªËØ£¬·µ»Ø²åÈëºóµÄÊı×é¡£
+//! åœ¨æ•°ç»„açš„ä¸‹æ ‡ä¸ºnçš„å…ƒç´ å‰é¢æ’å…¥å€¼ä¸ºdataçš„å…ƒç´ ï¼Œè¿”å›æ’å…¥åçš„æ•°ç»„ã€‚
 array a_insert(array a,int n,mixed data)
 {
 	array left;
@@ -64,7 +64,7 @@ array a_insert(array a,int n,mixed data)
 	return a;
 }
 
-//! ÔÚÊı×éaÖĞÒÀ´ÎÉ¾³ıÊı×ébÖĞµÄÔªËØ£¬bÖĞ³öÏÖÒ»´ÎÉ¾³ıÒ»´Î¡£
+//! åœ¨æ•°ç»„aä¸­ä¾æ¬¡åˆ é™¤æ•°ç»„bä¸­çš„å…ƒç´ ï¼Œbä¸­å‡ºç°ä¸€æ¬¡åˆ é™¤ä¸€æ¬¡ã€‚
 array a_sub(array a,array b)
 {
 	foreach(b,mixed c){
@@ -76,7 +76,7 @@ array a_sub(array a,array b)
 	return a;
 }
 
-//! ·µ»Øµ÷ÓÃµ±Ç°º¯ÊıµÄ¶ÔÏó¡£ÒÑ·ÏÖ¹¡£
+//! è¿”å›è°ƒç”¨å½“å‰å‡½æ•°çš„å¯¹è±¡ã€‚å·²åºŸæ­¢ã€‚
 object previous_object()
 {
 	int e;
@@ -112,13 +112,13 @@ mixed command_call(object ob,function f,mixed ... args)
 	return ret;
 }
 
-//! ·µ»ØÔÚÏßÓÃ»§¶ÔÏóÁĞ±í£¬Èç¹ûallÎªÕæ·µ»ØËùÓĞÓÃ»§ÁĞ±í
+//! è¿”å›åœ¨çº¿ç”¨æˆ·å¯¹è±¡åˆ—è¡¨ï¼Œå¦‚æœallä¸ºçœŸè¿”å›æ‰€æœ‰ç”¨æˆ·åˆ—è¡¨
 array(object) users(void|int all)
 {
 	return CONND->query_users(all);
 }
 //add by calvin 20061107
-//!ÓÃ»§µôÏßÖ®ºóÉ¾³ıÓÃ»§¶ÔÏóÔÚÁĞ±íÖĞ 
+//!ç”¨æˆ·æ‰çº¿ä¹‹ååˆ é™¤ç”¨æˆ·å¯¹è±¡åœ¨åˆ—è¡¨ä¸­ 
 void del_users()
 {
 	object cur_me = this_player();
@@ -129,7 +129,7 @@ void del_users()
 }
 //add by calvin 20061107
 
-//! ½«×Ö·û´®s·¢ËÍ¸ø³ıÁËµ±Ç°ÓÃ»§(this_player)ÒÔÍâµÄËùÓĞ¶ÔÏó
+//! å°†å­—ç¬¦ä¸²så‘é€ç»™é™¤äº†å½“å‰ç”¨æˆ·(this_player)ä»¥å¤–çš„æ‰€æœ‰å¯¹è±¡
 void shout(string s)
 {
 	array(object) a=users(1);
@@ -138,7 +138,7 @@ void shout(string s)
 	}
 }
 
-//! Ñ°ÕÒÎÄ¼şÃûfileÖ¸´úµÄ¶ÔÏó£¬Èç¹û¶ÔÏóÎ´±»×°Èë£¬×°Èë²¢·µ»Ø¸Ã¶ÔÏó²¢Èç¹û¶ÔÏóÔçÒÑ×°ÔØ£¬Ö±½Ó·µ»Ø¸Ã¶ÔÏó£¬³ö´í·µ»Ø0¡£
+//! å¯»æ‰¾æ–‡ä»¶åfileæŒ‡ä»£çš„å¯¹è±¡ï¼Œå¦‚æœå¯¹è±¡æœªè¢«è£…å…¥ï¼Œè£…å…¥å¹¶è¿”å›è¯¥å¯¹è±¡å¹¶å¦‚æœå¯¹è±¡æ—©å·²è£…è½½ï¼Œç›´æ¥è¿”å›è¯¥å¯¹è±¡ï¼Œå‡ºé”™è¿”å›0ã€‚
 object load_object(string|object file)
 {
 	object ob;
@@ -252,14 +252,14 @@ int write_file(string file,string data,void|int overwrite)
 */
 int write_item_file(string file,string data,void|int overwrite)
 {
-	if(!overwrite){//´´½¨ĞÂÎÄ¼ş
+	if(!overwrite){//åˆ›å»ºæ–°æ–‡ä»¶
 		int n=Stdio.write_file(file,data);
 		if(n==sizeof(data))
 			return 1;
 		else
 			return 0;
 	}
-	else{//¸²¸ÇÎÄ¼ş
+	else{//è¦†ç›–æ–‡ä»¶
 		object f=Stdio.FILE(file,"wct");
 		int n=f->write(data);
 		int err=f->close();
@@ -442,8 +442,8 @@ string pikenv_save_object(object ob,void|int save_zero)
 	}
 	return out;
 }
-//É¾³ıÕËºÅÉíÉÏ±È½Ï´óµÄ×Ö¶Î,ÔÙ½øĞĞ´æ´¢ 
-//¸Ã·½·¨ÔÚÕı³£´æ´¢Ê§°ÜÊ±²Å±»µ÷ÓÃ
+//åˆ é™¤è´¦å·èº«ä¸Šæ¯”è¾ƒå¤§çš„å­—æ®µ,å†è¿›è¡Œå­˜å‚¨ 
+//è¯¥æ–¹æ³•åœ¨æ­£å¸¸å­˜å‚¨å¤±è´¥æ—¶æ‰è¢«è°ƒç”¨
 //Evan add 2008-10-27
 string pikenv_save_object_without_inbox(object ob,void|int save_zero)
 {
@@ -536,7 +536,7 @@ int save_object(string file,void|int save_zero)
 	mixed err =catch{                                                                                   
 		re = Stdio.write_file(file,pikenv_save_object(this,save_zero));
 	};
-	if(err || re==-1){ //Èç¹û´æ´¢³ö´í£¬Ôò°Ñinbox msg msg_history Õâ¼¸¸ö×Ö¶ÎÇå¿ÕºóÔÙ×öÒ»´Î´æ´¢³¢ÊÔ
+	if(err || re==-1){ //å¦‚æœå­˜å‚¨å‡ºé”™ï¼Œåˆ™æŠŠinbox msg msg_history è¿™å‡ ä¸ªå­—æ®µæ¸…ç©ºåå†åšä¸€æ¬¡å­˜å‚¨å°è¯•
 		werror("\n["+get_mysql_timedesc()+"][name:"+ this->name +"][Something wrong when store infos]\n");
 		werror("========== THE INFO TO BE RECORD IS:\n" + pikenv_save_object(this,save_zero) +"\n\n");
 		string msg =  "["+ get_mysql_timedesc()+"][name:"+ this->name +"][Something wrong when store infos]\n";
@@ -1089,7 +1089,7 @@ object find_player(string name)
 
 int str_is_excepted(string str)
 {
-	array exceptions = ({"_break_then","_explorer"});//ÒÔÕâÁ½¸ö×Ö·û´®¿ªÍ·µÄÖ¸Áî£¬¼´Ê±Íæ¼Ò²»ÔÙliving×´Ì¬£¬Ò²¿ÉÒÔÖ´ĞĞËûÃÇ¡£
+	array exceptions = ({"_break_then","_explorer"});//ä»¥è¿™ä¸¤ä¸ªå­—ç¬¦ä¸²å¼€å¤´çš„æŒ‡ä»¤ï¼Œå³æ—¶ç©å®¶ä¸å†livingçŠ¶æ€ï¼Œä¹Ÿå¯ä»¥æ‰§è¡Œä»–ä»¬ã€‚
 	int num = sizeof(exceptions);
 	for(int n =0;n<num;n++)
 	{
@@ -1311,7 +1311,7 @@ private void heart_beat()
 {
 	foreach(indices(heart_beats),object ob){
 		if(ob&&ob["heart_beat"]&&heart_beats[ob]){
-			//Èç¹ûÔÚÒ»´Îheart_beatÖĞÄ³¶ÔÏóµ÷ÓÃÁËset_heart_beat(0)¾Í»á³öÏÖheart_beats[ob]==0µÄÇé¿ö¡£
+			//å¦‚æœåœ¨ä¸€æ¬¡heart_beatä¸­æŸå¯¹è±¡è°ƒç”¨äº†set_heart_beat(0)å°±ä¼šå‡ºç°heart_beats[ob]==0çš„æƒ…å†µã€‚
 			heart_beats[ob][1]++;
 			if(heart_beats[ob][1]==heart_beats[ob][0]){
 				heart_beats[ob][1]=0;
@@ -1521,7 +1521,7 @@ void create(void|string _logfile_prefix)
 	add_constant("destruct",_destruct);
 	add_constant("explode",`/);
 	add_constant("implode",`*);
-	add_constant("os_save",os_save);//´æ´¢¶ÔÏóµ½osÈÎºÎÄ¿Â¼
+	add_constant("os_save",os_save);//å­˜å‚¨å¯¹è±¡åˆ°osä»»ä½•ç›®å½•
 	add_constant("os_load",os_load);
 	//	add_constant("file_size",Stdio.file_size);
 	call_out(heart_beat,2);

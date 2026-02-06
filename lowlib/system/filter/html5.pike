@@ -33,7 +33,7 @@ string setup(string _url)
 	//out+= "<%@ page language=\"java\" contentType=\"text/html;charset=UTF-8\"%>";
 	out+= "<meta charset=\"UTF-8\">\n"; 
 	out+= "<meta name=\"viewport\" content=\"maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0\"/>\n"; 
-	out+= "<title>¡¶ÌìÏÂÏÉµÀÍøÓÎ¡·</title>\n";
+	out+= "<title>ã€Šå¤©ä¸‹ä»™é“ç½‘æ¸¸ã€‹</title>\n";
 	out+= "<link href=\"includes/intro.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";
 	out+= "</head>\n";
 	out+= "<body>\n"; 
@@ -89,7 +89,7 @@ private string decode(string s)
 string filter(string s)
 {
 	////////////////20060309 by qianglee
-	//¼òµ¥¼ÓÃÜÓÃ»§ĞÅÏ¢
+	//ç®€å•åŠ å¯†ç”¨æˆ·ä¿¡æ¯
 	string txd = "";
 	string userid = this_player()->name;
 	string passwd = this_player()->password;
@@ -97,22 +97,22 @@ string filter(string s)
 	/*
 	if(userid&&passwd)
 	{
-		//½øĞĞÃÜÂëµÄ¼òµ¥¼ÓÃÜ
+		//è¿›è¡Œå¯†ç çš„ç®€å•åŠ å¯†
 		string uid="";
 		string pid="";
 		for(int i=0;i<sizeof(userid);i++)
 		{
 			if(i/2==0)
-				uid += sprintf("%c",userid[i]+2);//¼òµ¥¼ÓÃÜ
+				uid += sprintf("%c",userid[i]+2);//ç®€å•åŠ å¯†
 			else
-				uid += sprintf("%c",userid[i]+1);//¼òµ¥¼ÓÃÜ
+				uid += sprintf("%c",userid[i]+1);//ç®€å•åŠ å¯†
 		}
 		for(int j=0;j<sizeof(passwd);j++)
 		{
 			if(j/2==0)
-				pid += sprintf("%c",passwd[j]+1);//¼òµ¥¼ÓÃÜ
+				pid += sprintf("%c",passwd[j]+1);//ç®€å•åŠ å¯†
 			else
-				pid += sprintf("%c",passwd[j]+2);//¼òµ¥¼ÓÃÜ
+				pid += sprintf("%c",passwd[j]+2);//ç®€å•åŠ å¯†
 		}
 		txd = uid+"~"+pid;
 		txd = decode(txd);
@@ -123,7 +123,7 @@ string filter(string s)
 	txd = userid+"~"+passwd;
 	txd = decode(txd);
 	
-/*Ê¹ÓÃDESËã·¨£¬¶Ôtxd½øĞĞ¼ÓÃÜ²Ù×÷ Evan added 20081008
+/*ä½¿ç”¨DESç®—æ³•ï¼Œå¯¹txdè¿›è¡ŒåŠ å¯†æ“ä½œ Evan added 20081008
 //	txd = this_player()->command("desEncryptor");
 	string deskey = Nettle.DES_Info()->fix_parity(DES_KEY);
 	werror("==== deskey = "+ deskey +"========\n");
@@ -209,7 +209,7 @@ string filter(string s)
 					out+=sprintf("<form action='%s' method='post'>",url);
 					in_form=1;
 				}
-				out+=sprintf("<input type='hidden' name='_cmd' value='%s'><input name='_arg'><input type='hidden' name='_usid' value='%s'><input type='hidden' name='_txd' value='%s'><input type='submit' value='È·¶¨'></form>",cmd,usid,txd);
+				out+=sprintf("<input type='hidden' name='_cmd' value='%s'><input name='_arg'><input type='hidden' name='_usid' value='%s'><input type='hidden' name='_txd' value='%s'><input type='submit' value='ç¡®å®š'></form>",cmd,usid,txd);
 				in_form=0;
 
 			}

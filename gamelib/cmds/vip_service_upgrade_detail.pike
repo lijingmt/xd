@@ -1,16 +1,16 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 /*
-»áÔ±Éı¼¶ÏêÏ¸Ò³Ãæ
+ä¼šå‘˜å‡çº§è¯¦ç»†é¡µé¢
 auther: evan
 2008.07.18
 */
 int main(string arg)
 {
 	object me = this_player();
-	string s = "***»áÔ±Éı¼¶***\n\n";
-	int old_level = me->query_vip_flag();//µ±Ç°¼¶±ğ
-	int new_level = 0;//Éı¼¶ºóµÄ¼¶±ğ
+	string s = "***ä¼šå‘˜å‡çº§***\n\n";
+	int old_level = me->query_vip_flag();//å½“å‰çº§åˆ«
+	int new_level = 0;//å‡çº§åçš„çº§åˆ«
 	sscanf(arg,"%d",new_level);
 	string new_vip_desc = VIPD->get_vip_desc(new_level);
 	mapping vip_name = VIPD->get_vip_name_map();
@@ -23,12 +23,12 @@ int main(string arg)
 	int cost = ((int)vip_cost[new_level]-(int)vip_cost[old_level]);
 	if(state==2||state==3)
 	{
-		cost=cost*6/10;//»áÔ±ÆÚÏŞ¹ı°ëºó£¬ÏíÊÜ6ÕÛÓÅ»İ
+		cost=cost*6/10;//ä¼šå‘˜æœŸé™è¿‡åŠåï¼Œäº«å—6æŠ˜ä¼˜æƒ 
 	}
-	s += "Äã¼´½«Éı¼¶Îª"+vip_name[new_level]+",ĞèÒª»¨·Ñ"+ YUSHID->get_yushi_for_desc(cost*10)+"\n\n";
-	s += "[È·ÈÏ:vip_service_upgrade_confirm.pike "+new_level+" "+cost+"]\n";
-	s += "[·µ»Ø:vip_service_upgrade_list.pike]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+	s += "ä½ å³å°†å‡çº§ä¸º"+vip_name[new_level]+",éœ€è¦èŠ±è´¹"+ YUSHID->get_yushi_for_desc(cost*10)+"\n\n";
+	s += "[ç¡®è®¤:vip_service_upgrade_confirm.pike "+new_level+" "+cost+"]\n";
+	s += "[è¿”å›:vip_service_upgrade_list.pike]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

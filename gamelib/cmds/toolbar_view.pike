@@ -6,14 +6,14 @@ int main(string arg)
 	int num;
 	string flag = "";
 	sscanf(arg,"%d %s",num,flag);
-	string s = "ÅäÖÃ¿ì½İ¼ü"+(num+1)+":\n";
-	s += "[¼¼ÄÜ:toolbar_view "+num+" skills]|[Ò©Æ·:toolbar_view "+num+" other]\n";
+	string s = "é…ç½®å¿«æ·é”®"+(num+1)+":\n";
+	s += "[æŠ€èƒ½:toolbar_view "+num+" skills]|[è¯å“:toolbar_view "+num+" other]\n";
 	if(flag == "skills")
-		s += this_player()->view_skills_toolbar(num); //ÔÚwapmud2/inherit/feature/skills.pikeÀï¶¨Òå
+		s += this_player()->view_skills_toolbar(num); //åœ¨wapmud2/inherit/feature/skills.pikeé‡Œå®šä¹‰
 	else if(flag == "other")
-		s += this_player()->view_things_toolbar(num); //ÔÚchar.pike¶¨Òå
-	s += "[·µ»Ø:my_toolbar]\n";
-	s += "[·µ»ØÓÎÏ·:look]\n";
+		s += this_player()->view_things_toolbar(num); //åœ¨char.pikeå®šä¹‰
+	s += "[è¿”å›:my_toolbar]\n";
+	s += "[è¿”å›æ¸¸æˆ:look]\n";
 	write(s);
 	return 1;
 }

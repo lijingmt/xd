@@ -56,15 +56,15 @@ string query_name_cn(void|int true_name){
 	if(name_cn)
 	{
 		if(toVip)//add by evan 2008.07.21
-			return name_cn +"(会员专用)";
+			return name_cn +"(浼氬憳涓撶敤)";
 		else
 			return name_cn;
 	}
 	else{
 		if(this_object()->query_raceId()=="human")
-			return "无名道童";
+			return "鏃犲悕閬撶";
 		else
-			return "无名妖灵";
+			return "鏃犲悕濡栫伒";
 	}
 }
 void set_fake_name_cn(string arg){

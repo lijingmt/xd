@@ -7,7 +7,7 @@ inherit WAP_F_VIEW_VALUE;
 
 string query_inventory_links(void|int count)
 {
-	return ::query_inventory_links(count)+"[´ò¿ª:hb_open "+name+" "+count+" 0 0]\n[ÓÃÌú¼ôµ¶´ò¿ª:hb_open "+name+" "+count+" 1 1](1ËéÓñ)\n[ÓÃÒø¼ôµ¶´ò¿ª:hb_open "+name+" "+count+" 2 1](1ÏÉÔµÓñ)\n[ÓÃ½ğ¼ôµ¶´ò¿ª:hb_open "+name+" "+count+" 3 1](1ÁáççÓñ)";
+	return ::query_inventory_links(count)+"[æ‰“å¼€:hb_open "+name+" "+count+" 0 0]\n[ç”¨é“å‰ªåˆ€æ‰“å¼€:hb_open "+name+" "+count+" 1 1](1ç¢ç‰)\n[ç”¨é“¶å‰ªåˆ€æ‰“å¼€:hb_open "+name+" "+count+" 2 1](1ä»™ç¼˜ç‰)\n[ç”¨é‡‘å‰ªåˆ€æ‰“å¼€:hb_open "+name+" "+count+" 3 1](1ç²ç‘ç‰)";
 }
 string query_extra_links(void|int count)
 {

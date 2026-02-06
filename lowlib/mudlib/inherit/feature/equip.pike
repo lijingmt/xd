@@ -1,190 +1,190 @@
 #include <globals.h>
-//ĞèÒª±»´æ´¢µÄ£¬È¥µôprivate×Ö¶Î,²âÊÔ½×¶Î¿ÉÒÔºÃºÃ¿´¿´
-//±ÈÈçÕâ¸öattack_powerÊÇÈ»Ä¾½£µÄ¹¥»÷Á¦,ÕâÑùÓÎÏ·ÊÀ½ç
-//ÖĞËùÓĞÈ»Ä¾½£Éú³ÉµÄobject¶¼¾ßÓĞÕâ¸öÊôĞÔ£¬Ã»±ØÒª´æ´¢ÆğÀ´
-//³ı·ÇÊôÓÚ¸ÃÎïÆ·×°±¸×´Ì¬µÄÌØÊâÊôĞÔÊÇ»á±ä»¯£¬¶øÇÒĞèÒª´æ´¢£¬±ÈÈçÄ¥Ëğ³Ì¶ÈµÈ
-private int attack_power=0;//ÎäÆ÷ÉËº¦»ù´¡Öµ
+//éœ€è¦è¢«å­˜å‚¨çš„ï¼Œå»æ‰privateå­—æ®µ,æµ‹è¯•é˜¶æ®µå¯ä»¥å¥½å¥½çœ‹çœ‹
+//æ¯”å¦‚è¿™ä¸ªattack_poweræ˜¯ç„¶æœ¨å‰‘çš„æ”»å‡»åŠ›,è¿™æ ·æ¸¸æˆä¸–ç•Œ
+//ä¸­æ‰€æœ‰ç„¶æœ¨å‰‘ç”Ÿæˆçš„objectéƒ½å…·æœ‰è¿™ä¸ªå±æ€§ï¼Œæ²¡å¿…è¦å­˜å‚¨èµ·æ¥
+//é™¤éå±äºè¯¥ç‰©å“è£…å¤‡çŠ¶æ€çš„ç‰¹æ®Šå±æ€§æ˜¯ä¼šå˜åŒ–ï¼Œè€Œä¸”éœ€è¦å­˜å‚¨ï¼Œæ¯”å¦‚ç£¨æŸç¨‹åº¦ç­‰
+private int attack_power=0;//æ­¦å™¨ä¼¤å®³åŸºç¡€å€¼
 int query_attack_power(){ return attack_power;}
 void set_attack_power(int a){ attack_power=a;}
 
-private int attack_power_limit=0;//ÎäÆ÷ÉËº¦ÉÏÏŞÖµ
+private int attack_power_limit=0;//æ­¦å™¨ä¼¤å®³ä¸Šé™å€¼
 int query_attack_power_limit(){ return attack_power_limit;}
 void set_attack_power_limit(int a){ attack_power_limit=a;}
 
-private int speed_power=0;//ÎäÆ÷¹¥»÷ËÙ¶È,¿ÉÄÜ»á±ä»¯£¬ĞèÒª´æ´¢
+private int speed_power=0;//æ­¦å™¨æ”»å‡»é€Ÿåº¦,å¯èƒ½ä¼šå˜åŒ–ï¼Œéœ€è¦å­˜å‚¨
 int query_speed_power(){ return speed_power;}
 void set_speed_power(int a){ speed_power=a;}
 
-private int equip_defend=0;//·À¾ßµÄ·ÀÓùÁ¦
+private int equip_defend=0;//é˜²å…·çš„é˜²å¾¡åŠ›
 int query_equip_defend(){ return equip_defend+(query_defend_add()==0?0:query_defend_add());}
 void set_equip_defend(int a){ equip_defend=a;}
 
-private int str_add=0;//ÎïÆ·¸½´øÁ¦Á¿Ôö¼ÓÊôĞÔ
+private int str_add=0;//ç‰©å“é™„å¸¦åŠ›é‡å¢åŠ å±æ€§
 int query_str_add(){ return str_add;}
 void set_str_add(int a){ str_add=a;}
 
-private int dex_add=0;//ÎïÆ·¸½´øÃô½İÔö¼ÓÊôĞÔ
+private int dex_add=0;//ç‰©å“é™„å¸¦æ•æ·å¢åŠ å±æ€§
 int query_dex_add(){ return dex_add;}
 void set_dex_add(int a){ dex_add=a;}
 
-private int think_add=0;//ÎïÆ·¸½´øÖÇÁ¦Ôö¼ÓÊôĞÔ
+private int think_add=0;//ç‰©å“é™„å¸¦æ™ºåŠ›å¢åŠ å±æ€§
 int query_think_add(){ return think_add;}
 void set_think_add(int a){ think_add=a;}
 
-private int life_add=0;//ÉúÃü¸½¼Ó
+private int life_add=0;//ç”Ÿå‘½é™„åŠ 
 int query_life_add(){ return life_add*10;}
 void set_life_add(int a){ life_add=a;}
 
-private int mofa_add=0;//·¨Á¦¸½¼Ó
+private int mofa_add=0;//æ³•åŠ›é™„åŠ 
 int query_mofa_add(){ return mofa_add*10;}
 void set_mofa_add(int a){ mofa_add=a;}
 
-private int lunck_add=0;//ĞÒÔË¸½¼Ó
+private int lunck_add=0;//å¹¸è¿é™„åŠ 
 int query_lunck_add(){ return lunck_add;}
 void set_lunck_add(int a){ lunck_add=a;}
 
-private int appear_add=0;//ÈİÃ²¸½¼Ó
+private int appear_add=0;//å®¹è²Œé™„åŠ 
 int query_appear_add(){ return appear_add;}
 void set_appear_add(int a){ appear_add=a;}
 
-//¸½¼Ó¹¥»÷£¬·ÀÓù£¬ÉÁ±Ü£¬ÃüÖĞ£¬±©»÷ÊôĞÔ
-private int attack_add=0;//¸½¼Ó¹¥»÷
+//é™„åŠ æ”»å‡»ï¼Œé˜²å¾¡ï¼Œé—ªé¿ï¼Œå‘½ä¸­ï¼Œæš´å‡»å±æ€§
+private int attack_add=0;//é™„åŠ æ”»å‡»
 int query_attack_add(){ return attack_add;}
 void set_attack_add(int a){ attack_add=a;}
 
-private int defend_add=0;//¸½¼Ó·ÀÓù
+private int defend_add=0;//é™„åŠ é˜²å¾¡
 int query_defend_add(){ return defend_add*10;}
 void set_defend_add(int a){ defend_add=a;}
 
-private int dodge_add=0;//¸½¼ÓÉÁ±Ü
+private int dodge_add=0;//é™„åŠ é—ªé¿
 int query_dodge_add(){ return dodge_add;}
 void set_dodge_add(int a){ dodge_add=a;}
 
-private int hitte_add=0;//¸½¼ÓÃüÖĞ
+private int hitte_add=0;//é™„åŠ å‘½ä¸­
 int query_hitte_add(){ return hitte_add;}
 void set_hitte_add(int a){ hitte_add=a;}
 
-private int doub_add=0;//¸½¼Ó±©»÷
+private int doub_add=0;//é™„åŠ æš´å‡»
 int query_doub_add(){ return doub_add;}
 void set_doub_add(int a){ doub_add=a;}
-//ĞÂÊôĞÔ2024//////////////////////////////////
-private int wulichuantou_add=0;//ÎïÆ·Ôö¼ÓÎïÀí´©Í¸£¬1µã¾Í´©Í¸1µãÉËº¦£¬²»°´ÕÕ°Ù·Ö±È×ß
+//æ–°å±æ€§2024//////////////////////////////////
+private int wulichuantou_add=0;//ç‰©å“å¢åŠ ç‰©ç†ç©¿é€ï¼Œ1ç‚¹å°±ç©¿é€1ç‚¹ä¼¤å®³ï¼Œä¸æŒ‰ç…§ç™¾åˆ†æ¯”èµ°
 int query_wulichuantou_add(){ return wulichuantou_add;}
 void set_wulichuantou_add(int a){ wulichuantou_add=a;}
 
-private int mofachuantou_add=0;//·¨Êõ´©Í¸£¬1µã¾Í´©Í¸1µãÉËº¦£¬²»°´ÕÕ°Ù·Ö±È×ß
+private int mofachuantou_add=0;//æ³•æœ¯ç©¿é€ï¼Œ1ç‚¹å°±ç©¿é€1ç‚¹ä¼¤å®³ï¼Œä¸æŒ‰ç…§ç™¾åˆ†æ¯”èµ°
 int query_mofachuantou_add(){ return mofachuantou_add;}
 void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 
-private int dodgechuantou_add=0;//ÉÁ±Ü´©Í¸£¬1µã¾ÍÊÇ1%µÄ¼¸ÂÊÎŞÊÓ¶Ô·½ÉÁ±Ü
+private int dodgechuantou_add=0;//é—ªé¿ç©¿é€ï¼Œ1ç‚¹å°±æ˜¯1%çš„å‡ ç‡æ— è§†å¯¹æ–¹é—ªé¿
 int query_dodgechuantou_add(){ return dodgechuantou_add;}
 void set_dodgechuantou_add(int a){ dodgechuantou_add=a;}
 
-//ĞÂÊôĞÔ0121//////////////////////////////////
-private int all_add=0;//ÎïÆ·¸½¼ÓÈ«ÊôĞÔ
+//æ–°å±æ€§0121//////////////////////////////////
+private int all_add=0;//ç‰©å“é™„åŠ å…¨å±æ€§
 int query_all_add(){ return all_add;}
 void set_all_add(int a){ all_add=a;}
 
-private int recive_add=0;//ÎïÆ·¸½¼ÓÎüÊÕÉËº¦
+private int recive_add=0;//ç‰©å“é™„åŠ å¸æ”¶ä¼¤å®³
 int query_recive_add(){ return recive_add;}
 void set_recive_add(int a){ recive_add=a;}
 
-private int back_add=0;//ÎïÆ·¸½¼Ó·´µ¯ÉËº¦
+private int back_add=0;//ç‰©å“é™„åŠ åå¼¹ä¼¤å®³
 int query_back_add(){ return back_add;}
 void set_back_add(int a){ back_add=a;}
 
-private int weapon_attack_add=0;//ÎïÆ·¸½¼ÓÎäÆ÷¹¥»÷Á¦Ôö¼Ó°Ù·Ö±È
+private int weapon_attack_add=0;//ç‰©å“é™„åŠ æ­¦å™¨æ”»å‡»åŠ›å¢åŠ ç™¾åˆ†æ¯”
 int query_weapon_attack_add(){ return weapon_attack_add;}
 void set_weapon_attack_add(int a){ weapon_attack_add=a;}
 
-private int dura_add=0;//ÎïÆ·¸½¼ÓÄÍ¾Ã¶È
+private int dura_add=0;//ç‰©å“é™„åŠ è€ä¹…åº¦
 int query_dura_add(){ return dura_add*10;}
 void set_dura_add(int a){ dura_add=a;}
 
-private int rase_life_add=0;//ÎïÆ·¸½¼ÓÉúÃü»Ö¸´Ôö¼Ó
+private int rase_life_add=0;//ç‰©å“é™„åŠ ç”Ÿå‘½æ¢å¤å¢åŠ 
 int query_rase_life_add(){ return rase_life_add;}
 void set_rase_life_add(int a){ rase_life_add=a;}
 
-private int rase_mofa_add=0;//ÎïÆ·¸½¼Ó·¨Á¦»Ö¸´Ôö¼Ó
+private int rase_mofa_add=0;//ç‰©å“é™„åŠ æ³•åŠ›æ¢å¤å¢åŠ 
 int query_rase_mofa_add(){ return rase_mofa_add;}
 void set_rase_mofa_add(int a){ rase_mofa_add=a;}
 
-private int huo_mofa_attack_add=0;//ÎïÆ·¸½¼Ó»ğÏµ·¨ÊõÉËº¦
+private int huo_mofa_attack_add=0;//ç‰©å“é™„åŠ ç«ç³»æ³•æœ¯ä¼¤å®³
 int query_huo_mofa_attack_add(){ return huo_mofa_attack_add;}
 void set_huo_mofa_attack_add(int a){ huo_mofa_attack_add=a;}
 
-private int bing_mofa_attack_add=0;//ÎïÆ·¸½¼Ó±ùÏµ·¨ÊõÉËº¦
+private int bing_mofa_attack_add=0;//ç‰©å“é™„åŠ å†°ç³»æ³•æœ¯ä¼¤å®³
 int query_bing_mofa_attack_add(){ return bing_mofa_attack_add;}
 void set_bing_mofa_attack_add(int a){ bing_mofa_attack_add=a;}
 
-private int feng_mofa_attack_add=0;//ÎïÆ·¸½¼Ó·çÏµ·¨ÊõÉËº¦
+private int feng_mofa_attack_add=0;//ç‰©å“é™„åŠ é£ç³»æ³•æœ¯ä¼¤å®³
 int query_feng_mofa_attack_add(){ return feng_mofa_attack_add;}
 void set_feng_mofa_attack_add(int a){ feng_mofa_attack_add=a;}
 
-private int du_mofa_attack_add=0;//ÎïÆ·¸½¼Ó¶¾Ïµ·¨ÊõÉËº¦
+private int du_mofa_attack_add=0;//ç‰©å“é™„åŠ æ¯’ç³»æ³•æœ¯ä¼¤å®³
 int query_du_mofa_attack_add(){ return du_mofa_attack_add;}
 void set_du_mofa_attack_add(int a){ du_mofa_attack_add=a;}
 
-private int spec_mofa_attack_add=0;//ÎïÆ·¸½¼ÓÌØÊâ·¨ÊõÉËº¦
+private int spec_mofa_attack_add=0;//ç‰©å“é™„åŠ ç‰¹æ®Šæ³•æœ¯ä¼¤å®³
 int query_spec_mofa_attack_add(){ return spec_mofa_attack_add;}
 void set_spec_mofa_attack_add(int a){ spec_mofa_attack_add=a;}
 
-private int mofa_all_add=0;//ÎïÆ·¸½¼ÓÈ«Ïµ·¨ÊõÉËº¦
+private int mofa_all_add=0;//ç‰©å“é™„åŠ å…¨ç³»æ³•æœ¯ä¼¤å®³
 int query_mofa_all_add(){ return mofa_all_add;}
 void set_mofa_all_add(int a){ mofa_all_add=a;}
 
-private int attack_huoyan_add=0;//ÎïÆ·¸½¼Ó»ğÑæ¹¥»÷Á¦
+private int attack_huoyan_add=0;//ç‰©å“é™„åŠ ç«ç„°æ”»å‡»åŠ›
 int query_attack_huoyan_add(){ return attack_huoyan_add;}
 void set_attack_huoyan_add(int a){ attack_huoyan_add=a;}
 
-private int attack_bingshuang_add=0;//ÎïÆ·¸½¼Ó±ùËª¹¥»÷Á¦
+private int attack_bingshuang_add=0;//ç‰©å“é™„åŠ å†°éœœæ”»å‡»åŠ›
 int query_attack_bingshuang_add(){ return attack_bingshuang_add;}
 void set_attack_bingshuang_add(int a){ attack_bingshuang_add=a;}
 
-private int attack_fengren_add=0;//ÎïÆ·¸½¼Ó·çÈĞ¹¥»÷Á¦
+private int attack_fengren_add=0;//ç‰©å“é™„åŠ é£åˆƒæ”»å‡»åŠ›
 int query_attack_fengren_add(){ return attack_fengren_add;}
 void set_attack_fengren_add(int a){ attack_fengren_add=a;}
 
-private int attack_dusu_add=0;//ÎïÆ·¸½¼Ó¶¾ËØ¹¥»÷Á¦
+private int attack_dusu_add=0;//ç‰©å“é™„åŠ æ¯’ç´ æ”»å‡»åŠ›
 int query_attack_dusu_add(){ return attack_dusu_add;}
 void set_attack_dusu_add(int a){ attack_dusu_add=a;}
 
-private int attack_spec_add=0;//ÎïÆ·¸½¼ÓÌØÊâ¹¥»÷Á¦
+private int attack_spec_add=0;//ç‰©å“é™„åŠ ç‰¹æ®Šæ”»å‡»åŠ›
 int query_attack_spec_add(){ return attack_spec_add;}
 void set_attack_spec_add(int a){ attack_spec_add=a;}
 
-private int attack_all_add=0;//ÎïÆ·¸½¼ÓÈ«ÏµÎïÀíÉËº¦
+private int attack_all_add=0;//ç‰©å“é™„åŠ å…¨ç³»ç‰©ç†ä¼¤å®³
 int query_attack_all_add(){ return attack_all_add;}
 void set_attack_all_add(int a){ attack_all_add=a;}
 
-private int huoyan_defend_add=0;//ÎïÆ·¸½¼Ó»ğÑæ¿¹ĞÔ
+private int huoyan_defend_add=0;//ç‰©å“é™„åŠ ç«ç„°æŠ—æ€§
 int query_huoyan_defend_add(){ return huoyan_defend_add;}
 void set_huoyan_defend_add(int a){ huoyan_defend_add=a;}
 
-private int bingshuang_defend_add=0;//ÎïÆ·¸½¼Ó±ùËª¿¹ĞÔ
+private int bingshuang_defend_add=0;//ç‰©å“é™„åŠ å†°éœœæŠ—æ€§
 int query_bingshuang_defend_add(){ return bingshuang_defend_add;}
 void set_bingshuang_defend_add(int a){ bingshuang_defend_add=a;}
 
-private int fengren_defend_add=0;//ÎïÆ·¸½¼Ó·çÈĞ¿¹ĞÔ
+private int fengren_defend_add=0;//ç‰©å“é™„åŠ é£åˆƒæŠ—æ€§
 int query_fengren_defend_add(){ return fengren_defend_add;}
 void set_fengren_defend_add(int a){ fengren_defend_add=a;}
 
-private int dusu_defend_add=0;//ÎïÆ·¸½¼Ó¶¾ËØ¿¹ĞÔ
+private int dusu_defend_add=0;//ç‰©å“é™„åŠ æ¯’ç´ æŠ—æ€§
 int query_dusu_defend_add(){ return dusu_defend_add;}
 void set_dusu_defend_add(int a){ dusu_defend_add=a;}
 
-private int all_mofa_defend_add=0;//ÎïÆ·¸½¼ÓÈ«·¨Êõ¿¹ĞÔ
+private int all_mofa_defend_add=0;//ç‰©å“é™„åŠ å…¨æ³•æœ¯æŠ—æ€§
 int query_all_mofa_defend_add(){ return all_mofa_defend_add;}
 void set_all_mofa_defend_add(int a){ all_mofa_defend_add=a;}
 
-//ĞÂÊôĞÔ0121//////////////////////////////////
-int equiped;//ÊÇ·ñ×°±¸ÁË¸ÃÎïÆ·
+//æ–°å±æ€§0121//////////////////////////////////
+int equiped;//æ˜¯å¦è£…å¤‡äº†è¯¥ç‰©å“
 
-private int renxing = 0;//ÈÍĞÔ
+private int renxing = 0;//éŸ§æ€§
 void set_renxing(int num){ renxing = num;}
 int query_renxing(){ return renxing;}
 
-private array(string) item_profeLimit=({});//ÎïÆ·×°±¸µÄÖ°ÒµÏŞÖÆ£¬ÌØ¶¨Ö°Òµ·½¿É×°±¸¸ÃÎïÆ·
+private array(string) item_profeLimit=({});//ç‰©å“è£…å¤‡çš„èŒä¸šé™åˆ¶ï¼Œç‰¹å®šèŒä¸šæ–¹å¯è£…å¤‡è¯¥ç‰©å“
 void set_item_profeLimit(string s){
 	//array(string) arr = s/":";	
 	//if(arr&&sizeof(arr)){
@@ -194,21 +194,21 @@ void set_item_profeLimit(string s){
 }
 array(string) query_item_profeLimit(){return item_profeLimit;}
 
-private int item_canLevel;//ÎïÆ·×°±¸ĞèÒªµÈ¼¶£¬¿ÉÒÔ×°±¸µÄµÈ¼¶ÏŞÖÆ
+private int item_canLevel;//ç‰©å“è£…å¤‡éœ€è¦ç­‰çº§ï¼Œå¯ä»¥è£…å¤‡çš„ç­‰çº§é™åˆ¶
 int query_item_canLevel(){ return item_canLevel;}
 void set_item_canLevel(int a){ item_canLevel=a;}
 
-private string item_kind;//ÎïÆ·ÖÖÀà£ºµ¥ÊÖÎäÆ÷£¨Ö÷¸±ÊÖ£©single_main_weapon,single_other_weapon, Ë«ÊÖÎäÆ÷£¨ÎäÆ÷ double_main_weapon£©£¬Ğ¬×Óshoes£¨·À¾ß£©½äÖ¸ringÏîÁ´neck£¨Ê×ÊÎ£©Åû·ç£¨ÊÎÎï£©µÈ¡£
+private string item_kind;//ç‰©å“ç§ç±»ï¼šå•æ‰‹æ­¦å™¨ï¼ˆä¸»å‰¯æ‰‹ï¼‰single_main_weapon,single_other_weapon, åŒæ‰‹æ­¦å™¨ï¼ˆæ­¦å™¨ double_main_weaponï¼‰ï¼Œé‹å­shoesï¼ˆé˜²å…·ï¼‰æˆ’æŒ‡ringé¡¹é“¾neckï¼ˆé¦–é¥°ï¼‰æŠ«é£ï¼ˆé¥°ç‰©ï¼‰ç­‰ã€‚
 string query_item_kind(){ return item_kind;}
 void set_item_kind(string a){ item_kind=a;}
 
-private string item_skill;//ÎïÆ·¼¼ÄÜÒªÇó£ºÎäÆ÷weapon·À¾ßarmorËùĞèÒªµÄ¼¼ÄÜ£¬±ÈÈçË«ÊÖÎäÆ÷±ØĞëÓĞ¸Ã¼¼ÄÜ·½¿É×°±¸
+private string item_skill;//ç‰©å“æŠ€èƒ½è¦æ±‚ï¼šæ­¦å™¨weaponé˜²å…·armoræ‰€éœ€è¦çš„æŠ€èƒ½ï¼Œæ¯”å¦‚åŒæ‰‹æ­¦å™¨å¿…é¡»æœ‰è¯¥æŠ€èƒ½æ–¹å¯è£…å¤‡
 string query_item_skill(){ return item_skill;}
 void set_item_skill(string a){ item_skill=a;}
-//ÕâÀïÈ¥µôprivate¿´ÊÇ·ñ´æ´¢
+//è¿™é‡Œå»æ‰privateçœ‹æ˜¯å¦å­˜å‚¨
 
-int item_dura;//ÎïÆ·ÄÍ¾Ã¶È£ºÎïÆ·Ä¥Ëğ³Ì¶È£¬ËùÓĞÎïÆ·»ù±¾¶¼ÓĞ´ËÖÖÊôĞÔ£¬³ıÁË½äÖ¸ÏîÁ´ºÍÈÎÎñÎïÆ·µÈ²»»áÄ¥Ëğ
-int item_cur_dura;//ÎïÆ·µ±Ç°ÄÍ¾Ã¶È
+int item_dura;//ç‰©å“è€ä¹…åº¦ï¼šç‰©å“ç£¨æŸç¨‹åº¦ï¼Œæ‰€æœ‰ç‰©å“åŸºæœ¬éƒ½æœ‰æ­¤ç§å±æ€§ï¼Œé™¤äº†æˆ’æŒ‡é¡¹é“¾å’Œä»»åŠ¡ç‰©å“ç­‰ä¸ä¼šç£¨æŸ
+int item_cur_dura;//ç‰©å“å½“å‰è€ä¹…åº¦
 int query_item_dura(){
 	int tmp = 0;
 	if(query_dura_add()){
@@ -218,10 +218,10 @@ int query_item_dura(){
 	return item_dura;
 }
 
-//Ôö¼ÓÎïÆ·Ë¢ÊôĞÔµÄ´ÎÊı
-//ÓÉliaochengÓÚ07/12/27Ìí¼Ó£¬ÓÃÓÚÓñÊ¯Ë¢×°±¸ÊôĞÔ
-private int convert_limit = 10;//ÎïÆ·Ë¢µÄ´ÎÊıÏŞÖÆ
-int convert_count;//¼ÇÂ¼ÎïÆ·ÒÑË¢µÄ´ÎÊı
+//å¢åŠ ç‰©å“åˆ·å±æ€§çš„æ¬¡æ•°
+//ç”±liaochengäº07/12/27æ·»åŠ ï¼Œç”¨äºç‰çŸ³åˆ·è£…å¤‡å±æ€§
+private int convert_limit = 10;//ç‰©å“åˆ·çš„æ¬¡æ•°é™åˆ¶
+int convert_count;//è®°å½•ç‰©å“å·²åˆ·çš„æ¬¡æ•°
 void set_convert_count(int a){
 	if(a>convert_limit)
 		a = convert_limit;
@@ -235,7 +235,7 @@ int is_equip(){return 1;}
 int query_weapon_attack(){
 	return attack_power+random(attack_power_limit-attack_power+1);
 }
-//×°±¸µÄÄ¥Ëğ¼ÆËã
+//è£…å¤‡çš„ç£¨æŸè®¡ç®—
 void reduce_power(int power){
 	object ob=this_object();
 	if(ob->item_canDura){
@@ -254,100 +254,100 @@ string query_content(){
 	if(ob->query_item_type()=="armor"){
 		switch(ob->item_kind){
 			case "armor_head":
-				r += "(Í·²¿)\n";
+				r += "(å¤´éƒ¨)\n";
 			break;
 			case "armor_cloth":
-				r += "(ĞØ²¿)\n";
+				r += "(èƒ¸éƒ¨)\n";
 			break;
 			case "armor_waste":
-				r += "(Íó²¿)\n";
+				r += "(è…•éƒ¨)\n";
 			break;
 			case "armor_hand":
-				r += "(ÊÖ²¿)\n";
+				r += "(æ‰‹éƒ¨)\n";
 			break;
 			case "armor_thou":
-				r += "(ÍÈ²¿)\n";
+				r += "(è…¿éƒ¨)\n";
 			break;
 			case "armor_shoes":
-				r += "(½Å²¿)\n";
+				r += "(è„šéƒ¨)\n";
 		}
 	}
 	else if(ob->query_item_type()=="jewelry"){
 		switch(ob->item_kind){
 			case "jewelry_ring":
-				r += "(½äÖ¸)\n";
+				r += "(æˆ’æŒ‡)\n";
 			break;
 			case "jewelry_neck":
-				r += "(ÏîÁ´)\n";
+				r += "(é¡¹é“¾)\n";
 			break;
 			case "jewelry_bangle":
-				r += "(ÊÖïí)\n";
+				r += "(æ‰‹é•¯)\n";
 			break;
 		}
 	}
 	else if(ob->query_item_type()=="decorate"){
 		switch(ob->item_kind){
 			case "decorate_manteau":
-				r += "(Åû·ç)\n";
+				r += "(æŠ«é£)\n";
 			break;
 			case "decorate_thing":
-				r += "(¹Ò¼ş)\n";
+				r += "(æŒ‚ä»¶)\n";
 			break;
 			case "decorate_tool":
-				r += "(ÊÎÆ·)\n";
+				r += "(é¥°å“)\n";
 			break;
 		}
 	}
-	if(ob->attack_power&&ob->attack_power_limit) r+="ÉËº¦£º"+ob->attack_power+"-"+ob->attack_power_limit+"\n";
+	if(ob->attack_power&&ob->attack_power_limit) r+="ä¼¤å®³ï¼š"+ob->attack_power+"-"+ob->attack_power_limit+"\n";
 	if(ob->item_kind=="double_main_weapon"||ob->item_kind=="single_main_weapon"||ob->item_kind=="single_other_weapon")
-		r+="ËÙ¶È£º"+ob->speed_power+"\n";
+		r+="é€Ÿåº¦ï¼š"+ob->speed_power+"\n";
 	if(ob->query_item_type()=="weapon"||ob->query_item_type()=="single_weapon"||ob->query_item_type()=="double_weapon"||ob->query_item_type()=="armor")
-		r+="ÄÍ¾Ã¶È£º"+ob->item_cur_dura+"/"+ob->item_dura+"\n";
+		r+="è€ä¹…åº¦ï¼š"+ob->item_cur_dura+"/"+ob->item_dura+"\n";
 
-	if(ob->str_add) r+="+"+ob->str_add+"Á¦Á¿\n";
-	if(ob->dex_add) r+="+"+ob->dex_add+" Ãô½İ\n";
-	if(ob->think_add) r+="+"+ob->think_add+" ÖÇÁ¦\n";
-	if(ob->renxing) r+="+"+ob->renxing+" ÈÍĞÔ\n";
-	if(ob->life_add) r+="+"+ob->life_add+" ÉúÃüÁ¦\n";
-	if(ob->mofa_add) r+="+"+ob->mofa_add+" ·¨Á¦Öµ\n";
-	if(ob->lunck_add) r+="+"+ob->lunck_add+" ĞÒÔË\n";
-	if(ob->appear_add) r+="+"+ob->appear_add+" ÷ÈÁ¦\n";
-	if(ob->hitte_add) r+="ÃüÖĞÂÊÔö¼Ó "+ob->hitte_add+"%\n";
-	if(ob->doub_add) r+="±©»÷ÂÊÔö¼Ó "+ob->doub_add+"%\n";
-	if(ob->dodge_add) r+="ÉÁ±ÜÂÊÔö¼Ó "+ob->dodge_add+"%\n";
-	if(ob->equip_defend) r+="+"+ob->equip_defend+" ·ÀÓù\n";
-	if(ob->attack_add) r+="+"+ob->attack_add+" ÎäÆ÷ÉËº¦\n";
-	if(ob->defend_add) r+="+"+ob->defend_add+" ·ÀÓùÁ¦\n";
-	//¸½¼ÓÊôĞÔ¼Ó³ÉµÄÃèÊö£º
-	if(ob->all_add) r+="+"+ob->all_add+" ËùÓĞÊôĞÔ\n";
-	if(ob->recive_add) r+="ÎüÊÕÉËº¦ "+ob->recive_add+"%\n";
-	if(ob->back_add) r+="·´µ¯ÉËº¦ "+ob->back_add+"%\n";
-	if(ob->weapon_attack_add) r+="ÎäÆ÷ÉËº¦¼Ó³É "+ob->weapon_attack_add*10+"%\n";
-	if(ob->dura_add) r+="+"+ob->dura_add+" ÎïÆ·ÄÍ¾Ã\n";
-	if(ob->rase_life_add) r+="Ã¿Ãë»Ö¸´ "+ob->rase_life_add+" µãÉúÃü\n";
-	if(ob->rase_mofa_add) r+="Ã¿Ãë»Ö¸´"+ob->rase_mofa_add+" µã·¨Á¦\n";
-	if(ob->huo_mofa_attack_add) r+="»ğÏµ·¨ÊõÉËº¦Ôö¼Ó "+ob->huo_mofa_attack_add+"µã\n";
-	if(ob->bing_mofa_attack_add) r+="±ùÏµ·¨ÊõÉËº¦Ôö¼Ó "+ob->bing_mofa_attack_add+"µã\n";
-	if(ob->feng_mofa_attack_add) r+="·çÏµ·¨ÊõÉËº¦Ôö¼Ó "+ob->feng_mofa_attack_add+"µã\n";
-	if(ob->du_mofa_attack_add) r+="¶¾Ïµ·¨ÊõÉËº¦Ôö¼Ó "+ob->du_mofa_attack_add+"µã\n";
-	if(ob->spec_mofa_attack_add) r+="ÌØÊâ·¨ÊõÉËº¦Ôö¼Ó "+ob->spec_mofa_attack_add+"µã\n";
-	if(ob->mofa_all_add) r+="ËùÓĞ·¨ÊõÉËº¦Ôö¼Ó "+ob->mofa_all_add+"µã\n";
-	if(ob->attack_huoyan_add) r+="+"+ob->attack_huoyan_add+" »ğÑæÉËº¦\n";
-	if(ob->attack_bingshuang_add) r+="+"+ob->attack_bingshuang_add+" ±ùËªÉËº¦\n";
-	if(ob->attack_fengren_add) r+="+"+ob->attack_fengren_add+" ·çÈĞÉËº¦\n";
-	if(ob->attack_dusu_add) r+="+"+ob->attack_dusu_add+" ¶¾ËØÉËº¦\n";
-	if(ob->attack_all_add) r+="+"+ob->attack_all_add+" È«ÏµÉËº¦\n";
-	if(ob->attack_spec_add) r+="+"+ob->attack_spec_add+" ÌØÊâÉËº¦\n";
-	if(ob->huoyan_defend_add) r+="»ğÑæ¿¹ĞÔÔö¼Ó "+ob->huoyan_defend_add+"µã\n";
-	if(ob->bingshuang_defend_add) r+="±ùËª¿¹ĞÔÔö¼Ó "+ob->bingshuang_defend_add+"µã\n";
-	if(ob->fengren_defend_add) r+="·çÈĞ¿¹ĞÔÔö¼Ó "+ob->fengren_defend_add+"µã\n";
-	if(ob->dusu_defend_add) r+="¶¾ËØ¿¹ĞÔÔö¼Ó "+ob->dusu_defend_add+"µã\n";
-	if(ob->all_mofa_defend_add) r+="È«·¨Êõ¿¹ĞÔÔö¼Ó "+ob->all_mofa_defend_add+"µã\n";
-	if(ob->wulichuantou_add) r+="È«ÎïÀí´©Í¸ "+ob->wulichuantou_add+"µã\n";
-	if(ob->mofachuantou_add) r+="È«·¨Êõ´©Í¸ "+ob->mofachuantou_add+"µã\n";
-	if(ob->dodgechuantou_add) r+="ÉÁ±Ü´©Í¸ "+ob->dodgechuantou_add+"µã\n";
+	if(ob->str_add) r+="+"+ob->str_add+"åŠ›é‡\n";
+	if(ob->dex_add) r+="+"+ob->dex_add+" æ•æ·\n";
+	if(ob->think_add) r+="+"+ob->think_add+" æ™ºåŠ›\n";
+	if(ob->renxing) r+="+"+ob->renxing+" éŸ§æ€§\n";
+	if(ob->life_add) r+="+"+ob->life_add+" ç”Ÿå‘½åŠ›\n";
+	if(ob->mofa_add) r+="+"+ob->mofa_add+" æ³•åŠ›å€¼\n";
+	if(ob->lunck_add) r+="+"+ob->lunck_add+" å¹¸è¿\n";
+	if(ob->appear_add) r+="+"+ob->appear_add+" é­…åŠ›\n";
+	if(ob->hitte_add) r+="å‘½ä¸­ç‡å¢åŠ  "+ob->hitte_add+"%\n";
+	if(ob->doub_add) r+="æš´å‡»ç‡å¢åŠ  "+ob->doub_add+"%\n";
+	if(ob->dodge_add) r+="é—ªé¿ç‡å¢åŠ  "+ob->dodge_add+"%\n";
+	if(ob->equip_defend) r+="+"+ob->equip_defend+" é˜²å¾¡\n";
+	if(ob->attack_add) r+="+"+ob->attack_add+" æ­¦å™¨ä¼¤å®³\n";
+	if(ob->defend_add) r+="+"+ob->defend_add+" é˜²å¾¡åŠ›\n";
+	//é™„åŠ å±æ€§åŠ æˆçš„æè¿°ï¼š
+	if(ob->all_add) r+="+"+ob->all_add+" æ‰€æœ‰å±æ€§\n";
+	if(ob->recive_add) r+="å¸æ”¶ä¼¤å®³ "+ob->recive_add+"%\n";
+	if(ob->back_add) r+="åå¼¹ä¼¤å®³ "+ob->back_add+"%\n";
+	if(ob->weapon_attack_add) r+="æ­¦å™¨ä¼¤å®³åŠ æˆ "+ob->weapon_attack_add*10+"%\n";
+	if(ob->dura_add) r+="+"+ob->dura_add+" ç‰©å“è€ä¹…\n";
+	if(ob->rase_life_add) r+="æ¯ç§’æ¢å¤ "+ob->rase_life_add+" ç‚¹ç”Ÿå‘½\n";
+	if(ob->rase_mofa_add) r+="æ¯ç§’æ¢å¤"+ob->rase_mofa_add+" ç‚¹æ³•åŠ›\n";
+	if(ob->huo_mofa_attack_add) r+="ç«ç³»æ³•æœ¯ä¼¤å®³å¢åŠ  "+ob->huo_mofa_attack_add+"ç‚¹\n";
+	if(ob->bing_mofa_attack_add) r+="å†°ç³»æ³•æœ¯ä¼¤å®³å¢åŠ  "+ob->bing_mofa_attack_add+"ç‚¹\n";
+	if(ob->feng_mofa_attack_add) r+="é£ç³»æ³•æœ¯ä¼¤å®³å¢åŠ  "+ob->feng_mofa_attack_add+"ç‚¹\n";
+	if(ob->du_mofa_attack_add) r+="æ¯’ç³»æ³•æœ¯ä¼¤å®³å¢åŠ  "+ob->du_mofa_attack_add+"ç‚¹\n";
+	if(ob->spec_mofa_attack_add) r+="ç‰¹æ®Šæ³•æœ¯ä¼¤å®³å¢åŠ  "+ob->spec_mofa_attack_add+"ç‚¹\n";
+	if(ob->mofa_all_add) r+="æ‰€æœ‰æ³•æœ¯ä¼¤å®³å¢åŠ  "+ob->mofa_all_add+"ç‚¹\n";
+	if(ob->attack_huoyan_add) r+="+"+ob->attack_huoyan_add+" ç«ç„°ä¼¤å®³\n";
+	if(ob->attack_bingshuang_add) r+="+"+ob->attack_bingshuang_add+" å†°éœœä¼¤å®³\n";
+	if(ob->attack_fengren_add) r+="+"+ob->attack_fengren_add+" é£åˆƒä¼¤å®³\n";
+	if(ob->attack_dusu_add) r+="+"+ob->attack_dusu_add+" æ¯’ç´ ä¼¤å®³\n";
+	if(ob->attack_all_add) r+="+"+ob->attack_all_add+" å…¨ç³»ä¼¤å®³\n";
+	if(ob->attack_spec_add) r+="+"+ob->attack_spec_add+" ç‰¹æ®Šä¼¤å®³\n";
+	if(ob->huoyan_defend_add) r+="ç«ç„°æŠ—æ€§å¢åŠ  "+ob->huoyan_defend_add+"ç‚¹\n";
+	if(ob->bingshuang_defend_add) r+="å†°éœœæŠ—æ€§å¢åŠ  "+ob->bingshuang_defend_add+"ç‚¹\n";
+	if(ob->fengren_defend_add) r+="é£åˆƒæŠ—æ€§å¢åŠ  "+ob->fengren_defend_add+"ç‚¹\n";
+	if(ob->dusu_defend_add) r+="æ¯’ç´ æŠ—æ€§å¢åŠ  "+ob->dusu_defend_add+"ç‚¹\n";
+	if(ob->all_mofa_defend_add) r+="å…¨æ³•æœ¯æŠ—æ€§å¢åŠ  "+ob->all_mofa_defend_add+"ç‚¹\n";
+	if(ob->wulichuantou_add) r+="å…¨ç‰©ç†ç©¿é€ "+ob->wulichuantou_add+"ç‚¹\n";
+	if(ob->mofachuantou_add) r+="å…¨æ³•æœ¯ç©¿é€ "+ob->mofachuantou_add+"ç‚¹\n";
+	if(ob->dodgechuantou_add) r+="é—ªé¿ç©¿é€ "+ob->dodgechuantou_add+"ç‚¹\n";
 
-	//±¦Ê¯
+	//å®çŸ³
 	if(ob->query_baoshi("blue")){
 		foreach(ob->query_baoshi("blue"),object each_ob){
 			r += each_ob->query_name_cn()+"("+(each_ob->query_desc()-"\n")+")\n";
@@ -363,17 +363,17 @@ string query_content(){
 			r += each_ob->query_name_cn()+"("+(each_ob->query_desc()-"\n")+")\n";
 		}
 	}
-	//°¼²Û
-	if(ob->query_aocao("blue")) r+="À¶É«°¼²Ûx"+ob->query_aocao("blue")+"\n";
-	if(ob->query_aocao("red")) r+="ºìÉ«°¼²Ûx"+ob->query_aocao("red")+"\n";
-	if(ob->query_aocao("yellow")) r+="»ÆÉ«°¼²Ûx"+ob->query_aocao("yellow")+"\n";
+	//å‡¹æ§½
+	if(ob->query_aocao("blue")) r+="è“è‰²å‡¹æ§½x"+ob->query_aocao("blue")+"\n";
+	if(ob->query_aocao("red")) r+="çº¢è‰²å‡¹æ§½x"+ob->query_aocao("red")+"\n";
+	if(ob->query_aocao("yellow")) r+="é»„è‰²å‡¹æ§½x"+ob->query_aocao("yellow")+"\n";
 
 	if(ob->query_item_rareLevel()>0)
-		r+="×ª»¯´ÎÊı£º"+ob->query_convert_count()+"/"+ob->query_convert_limit()+"\n";
-	if(ob->item_canLevel>0) r+="ÒªÇó¼¶±ğ£º"+ob->item_canLevel+"\n";
-	//Ö°ÒµÒªÇó
+		r+="è½¬åŒ–æ¬¡æ•°ï¼š"+ob->query_convert_count()+"/"+ob->query_convert_limit()+"\n";
+	if(ob->item_canLevel>0) r+="è¦æ±‚çº§åˆ«ï¼š"+ob->item_canLevel+"\n";
+	//èŒä¸šè¦æ±‚
 	if(ob->item_profeLimit&&sizeof(ob->item_profeLimit)){
-		r+="ÒªÇóÖ°Òµ£º";
+		r+="è¦æ±‚èŒä¸šï¼š";
 		for(int i=0; i<sizeof(ob->item_profeLimit); i++){
 			if(ob->item_profeLimit[i]&&sizeof(ob->item_profeLimit[i]))
 				r+=this_player()->query_profe_cn(ob->item_profeLimit[i])+" ";

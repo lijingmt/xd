@@ -1,25 +1,25 @@
 #include <wapmud2.h>
-inherit LOW_F_HIDDEN;//´«Êä²ã×ªÂë
-inherit MUD_USER;//ÓÎÏ·¼Ü¹¹²ãÓÃ»§ÊôĞÔ
-inherit MUD_F_GHOST;//ÓÎÏ·wap²ãËÀÍö´¦Àí
-inherit WAP_F_FIGHT;//ÓÎÏ·wap²ãÕ½¶·´¦Àí
-inherit WAP_F_VIEWSTACK;//ÓÎÏ·wap²ãÊÓÍ¼¶ÑÕ»
-inherit WAP_F_VIEW_LINKS;//ÓÎÏ·wap²ã³¬Á¬½Ó·½Ê½
-inherit WAP_F_VIEW_INVENTORY;//ÓÎÏ·wap²ã½ÇÉ«£¬ÎïÆ·ÏÔÊ¾·½Ê½
-inherit WAP_F_CATCH_TELL;//ÓÎÏ·wap²ãĞÅÏ¢»º´æ
-inherit WAP_F_VIEW_PICTURE;//ÓÎÏ·wap²ãÍ¼Æ¬ÏÔÊ¾
-inherit WAP_F_VIEW_SKILLS;//ÓÎÏ·wap¼¼ÄÜ±íÏÖ²ã
-inherit WAP_F_QQLIST;//ÓÎÏ·wap²ãºÃÓÑÏµÍ³
-inherit WAP_F_MBOX;//ÓÎÏ·wap²ãÁÄÌìĞÅÏ¢ÏµÍ³
+inherit LOW_F_HIDDEN;//ä¼ è¾“å±‚è½¬ç 
+inherit MUD_USER;//æ¸¸æˆæ¶æ„å±‚ç”¨æˆ·å±æ€§
+inherit MUD_F_GHOST;//æ¸¸æˆwapå±‚æ­»äº¡å¤„ç†
+inherit WAP_F_FIGHT;//æ¸¸æˆwapå±‚æˆ˜æ–—å¤„ç†
+inherit WAP_F_VIEWSTACK;//æ¸¸æˆwapå±‚è§†å›¾å †æ ˆ
+inherit WAP_F_VIEW_LINKS;//æ¸¸æˆwapå±‚è¶…è¿æ¥æ–¹å¼
+inherit WAP_F_VIEW_INVENTORY;//æ¸¸æˆwapå±‚è§’è‰²ï¼Œç‰©å“æ˜¾ç¤ºæ–¹å¼
+inherit WAP_F_CATCH_TELL;//æ¸¸æˆwapå±‚ä¿¡æ¯ç¼“å­˜
+inherit WAP_F_VIEW_PICTURE;//æ¸¸æˆwapå±‚å›¾ç‰‡æ˜¾ç¤º
+inherit WAP_F_VIEW_SKILLS;//æ¸¸æˆwapæŠ€èƒ½è¡¨ç°å±‚
+inherit WAP_F_QQLIST;//æ¸¸æˆwapå±‚å¥½å‹ç³»ç»Ÿ
+inherit WAP_F_MBOX;//æ¸¸æˆwapå±‚èŠå¤©ä¿¡æ¯ç³»ç»Ÿ
 
 string user_mid;
 string user_mkey;
 
 string query_UNCONSCIOUS(){
-	return unconscious_msg+"[µÈ´ı:look]\n";
+	return unconscious_msg+"[ç­‰å¾…:look]\n";
 }
 string query_LOGIN_MSG(){
-	return "µÇÂ¼ĞÅÏ¢ÒÑ¾­¹ıÆÚ£¬ÇëÖØĞÂ½øÈëÓÎÏ·\n[url ¹·goÊ×Ò³:http://dogstart.com]\n[url wapÌìÏÂ:http://tx.com.cn]\n";
+	return "ç™»å½•ä¿¡æ¯å·²ç»è¿‡æœŸï¼Œè¯·é‡æ–°è¿›å…¥æ¸¸æˆ\n[url ç‹—goé¦–é¡µ:http://dogstart.com]\n[url wapå¤©ä¸‹:http://tx.com.cn]\n";
 }
 string sid;
 static int living_time=10*60;
@@ -63,17 +63,17 @@ string query_links(void|int count){
 string view_equip(){
 	object me = this_object();
 	string s = "";
-	s += "£ÛÎäÆ÷£İ\n";
+	s += "ï¼»æ­¦å™¨ï¼½\n";
 	string user_equip_main_weapon = me->query_equiped_main_weapons();
 	string user_equip_other_weapon = me->query_equiped_other_weapons();
-	s += "¡õÖ÷ÊÖ£º";
+	s += "â–¡ä¸»æ‰‹ï¼š";
 	if(user_equip_main_weapon&&sizeof(user_equip_main_weapon)){
 		s += user_equip_main_weapon;
 	}
 	else
 		s += "\n";
 	//////////////////////////
-	s += "¡õ¸±ÊÖ£º";
+	s += "â–¡å‰¯æ‰‹ï¼š";
 	if(user_equip_other_weapon&&sizeof(user_equip_other_weapon)){
 		s += user_equip_other_weapon;
 	}
@@ -81,7 +81,7 @@ string view_equip(){
 		s += "\n";
 	s+="--------\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "£Û·À¾ß£İ\n";
+	s += "ï¼»é˜²å…·ï¼½\n";
 	string user_equip_armor = me->query_equiped_armor();
 	if(user_equip_armor&&sizeof(user_equip_armor))
 		s += user_equip_armor;
@@ -89,7 +89,7 @@ string view_equip(){
 		s += "\n";
 	s+="--------\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "£ÛÊ×ÊÎ£İ\n";
+	s += "ï¼»é¦–é¥°ï¼½\n";
 	string user_equip_jewelry = me->query_equiped_jewelry();
 	if(user_equip_jewelry&&sizeof(user_equip_jewelry))
 		s += user_equip_jewelry;
@@ -97,7 +97,7 @@ string view_equip(){
 		s += "\n";
 	s+="--------\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "£ÛÊÎÎï£İ\n";
+	s += "ï¼»é¥°ç‰©ï¼½\n";
 	string user_equip_decorate = me->query_equiped_decorate();
 	if(user_equip_decorate&&sizeof(user_equip_decorate))
 		s += user_equip_decorate;
@@ -105,7 +105,7 @@ string view_equip(){
 		s += "\n";
 	return s;
 }
-//Íæ¼ÒÉíÉÏ×°±¸µÄÖ÷ÊÖÎäÆ÷
+//ç©å®¶èº«ä¸Šè£…å¤‡çš„ä¸»æ‰‹æ­¦å™¨
 string query_equiped_main_weapons(){
 	object me = this_object();
 	string out="";
@@ -120,7 +120,7 @@ string query_equiped_main_weapons(){
 	}
 	return out;
 }
-//Íæ¼ÒÉíÉÏ×°±¸µÄ¸±ÊÖÎäÆ÷
+//ç©å®¶èº«ä¸Šè£…å¤‡çš„å‰¯æ‰‹æ­¦å™¨
 string query_equiped_other_weapons(){
 	object me = this_object();
 	string out="";
@@ -135,7 +135,7 @@ string query_equiped_other_weapons(){
 	}
 	return out;
 }
-//Íæ¼ÒÉíÉÏ×°±¸µÄ·À¾ß
+//ç©å®¶èº«ä¸Šè£…å¤‡çš„é˜²å…·
 string query_equiped_armor(){
 	object me = this_object();
 	string out="";
@@ -145,23 +145,23 @@ string query_equiped_armor(){
 		if(ob["equiped"]&&ob->query_item_type()=="armor"){
 			string ob_name = ob->query_name();
 			if(ob->query_item_kind()=="armor_head")
-out+="¡õÍ·²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+out+="â–¡å¤´éƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="armor_cloth")
-				out+="¡õĞØ²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡èƒ¸éƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="armor_waste")
-				out+="¡õÍó²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡è…•éƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="armor_hand")
-				out+="¡õÊÖ²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡æ‰‹éƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="armor_thou")
-				out+="¡õÍÈ²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡è…¿éƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="armor_shoes")
-				out+="¡õ½Å²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡è„šéƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			name_count[ob_name]++;
 		}
 	}
 	return out;
 }
-//Íæ¼ÒÉíÉÏ×°±¸µÄÊ×ÊÎ
+//ç©å®¶èº«ä¸Šè£…å¤‡çš„é¦–é¥°
 string query_equiped_jewelry(){
 	object me = this_object();
 	string out="";
@@ -171,17 +171,17 @@ string query_equiped_jewelry(){
 		if(ob["equiped"]&&ob->query_item_type()=="jewelry"){
 			string ob_name = ob->query_name();
 			if(ob->query_item_kind()=="jewelry_ring")
-				out+="¡õÊÖÖ¸£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡æ‰‹æŒ‡ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="jewelry_neck")
-				out+="¡õ¾±²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡é¢ˆéƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="jewelry_bangle")
-				out+="¡õÊÖÍó£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡æ‰‹è…•ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			name_count[ob_name]++;
 		}
 	}
 	return out;
 }
-//Íæ¼ÒÉíÉÏ×°±¸µÄÊÎÎï
+//ç©å®¶èº«ä¸Šè£…å¤‡çš„é¥°ç‰©
 string query_equiped_decorate(){
 	object me = this_object();
 	string out="";
@@ -191,17 +191,17 @@ string query_equiped_decorate(){
 		if(ob["equiped"]&&ob->query_item_type()=="decorate"){
 			string ob_name = ob->query_name();
 			if(ob->query_item_kind()=="decorate_manteau")
-				out+="¡õ±³²¿£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡èƒŒéƒ¨ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="decorate_thing")
-				out+="¡õ¹Ò¼ş£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡æŒ‚ä»¶ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			if(ob->query_item_kind()=="decorate_tool")
-				out+="¡õÊÎÆ·£º["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
+				out+="â–¡é¥°å“ï¼š["+ob->query_name_cn()+":inv_other "+me->query_name()+" "+ob_name+" "+name_count[ob_name]+"]\n";
 			name_count[ob_name]++;
 		}
 	}
 	return out;
 }
-/*//µÃµ½Íæ¼ÒÊÇ·ñÓµÓĞÒ»´¦hoe
+/*//å¾—åˆ°ç©å®¶æ˜¯å¦æ‹¥æœ‰ä¸€å¤„hoe
 int have_home()
 {
 	object me = this_object();

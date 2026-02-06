@@ -1,7 +1,7 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
-//Ò»¿ªÊ¼Ãâ·Ñ10¸öÎ»ÖÃ
-//Ã¿Ôö¼Ó10¸öÎ»ÖÃ100g,×Ü¹²ÄÜÂò9´Î£¬·ÅÖÃ100¸öÎïÆ·
+//ä¸€å¼€å§‹å…è´¹10ä¸ªä½ç½®
+//æ¯å¢åŠ 10ä¸ªä½ç½®100g,æ€»å…±èƒ½ä¹°9æ¬¡ï¼Œæ”¾ç½®100ä¸ªç‰©å“
 mapping packaged_goods =([]);
 array packaged_items =({});
 string state_packaged(int user_p_level)
@@ -22,7 +22,7 @@ int packaged(object ob, int user_p_level){
 		packaged_items = ({});
 	if(sizeof(packaged_items)>=user_p_level)
 		return 1;
-	//¸´ÊıÎïÆ·µÄÅĞ¶Ï
+	//å¤æ•°ç‰©å“çš„åˆ¤æ–­
 	string filename_all = (file_name(ob)/"#")[0];
 	string tmp = "";
 	string filename = "";
@@ -51,9 +51,9 @@ int packaged(object ob, int user_p_level){
 				packaged_items+=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,0,0,convert_count})});
 		}
 	}
-	//¼ÓÈë´æÈë²Ö¿âµÄLog
+	//åŠ å…¥å­˜å…¥ä»“åº“çš„Log
 	string now=ctime(time());
-	Stdio.append_file(ROOT+"/log/package.log",now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+"("+this_object()->query_name()+"):"+ob->name_cn+"("+ob->name+")±»´æÈë\n");
+	Stdio.append_file(ROOT+"/log/package.log",now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+"("+this_object()->query_name()+"):"+ob->name_cn+"("+ob->name+")è¢«å­˜å…¥\n");
 	return 0;
 }
 string view_packaged_list(){
@@ -67,7 +67,7 @@ string view_packaged_list(){
 			out+=":user_repackage "+s[0]+"]\n";
 		}
 		if(out=="")
-			out="µ±Ç°Ã»ÓĞ´æ´¢ÈÎºÎÎïÆ·¡£";
+			out="å½“å‰æ²¡æœ‰å­˜å‚¨ä»»ä½•ç‰©å“ã€‚";
 	}
 	return out;
 }
@@ -76,7 +76,7 @@ object repackaged(string name){
 		packaged_items = ({});
 	for(int i=0;i<sizeof(packaged_items);i++){
 		if(!packaged_items[i]) continue;
-		if(packaged_items[i][0]==name){//ÓĞ¸ÃÎïÆ·
+		if(packaged_items[i][0]==name){//æœ‰è¯¥ç‰©å“
 			string returnString = packaged_items[i][3];
 			array(string) tmp = returnString/"item/";
 			if(tmp && sizeof(tmp)==2){
@@ -87,7 +87,7 @@ object repackaged(string name){
 				ob=new (ITEM_PATH+returnString);
 			};
 			if(!err && ob){
-				//È¡³ö¸´ÊıÎïÆ·
+				//å–å‡ºå¤æ•°ç‰©å“
 				if(ob->is("combine_item"))
 					ob->amount = (int)packaged_items[i][6];
 				else{
@@ -104,9 +104,9 @@ object repackaged(string name){
 				}
 				packaged_items[i]=packaged_items[0];
 				packaged_items = packaged_items[1..sizeof(packaged_items)-1];
-				//¼ÓÈëÈ¡³ö²Ö¿âµÄLog
+				//åŠ å…¥å–å‡ºä»“åº“çš„Log
 				string now=ctime(time());
-				Stdio.append_file(ROOT+"/log/package.log",now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+"("+this_object()->query_name()+"):"+ob->name_cn+"("+ob->name+")±»È¡³ö\n");
+				Stdio.append_file(ROOT+"/log/package.log",now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+"("+this_object()->query_name()+"):"+ob->name_cn+"("+ob->name+")è¢«å–å‡º\n");
 				return ob;
 			}
 			else{

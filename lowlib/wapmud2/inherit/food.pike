@@ -6,5 +6,5 @@ inherit WAP_F_VIEW_VALUE;
 inherit WAP_F_VIEW_PICTURE;
 string query_inventory_links(void|int count)
 {
-	return ::query_inventory_links(count)+"[³Ô:eat "+name+" "+count+"]";
+	return ::query_inventory_links(count)+"[åƒ:eat "+name+" "+count+"]";
 }

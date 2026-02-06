@@ -8,7 +8,7 @@ inherit WAP_F_VIEW_VALUE;
 
 private string initer=((set_item_type("baoshi")),"");
 
-//宝石颜色
+//瀹濈煶棰滆壊
 private string color = "";
 void set_color(string s){ color = s;}
 string query_color(){ return color;}
@@ -16,11 +16,11 @@ string query_color(){ return color;}
 string query_color_cn(string color){
 	string s = "";
 	switch(color){
-		case "blue": s += "蓝色";
+		case "blue": s += "钃濊壊";
 			     break;
-		case "red": s += "红色";
+		case "red": s += "绾㈣壊";
 			     break;
-		case "yellow": s += "黄色";
+		case "yellow": s += "榛勮壊";
 			     break;
 	}
 	return s;

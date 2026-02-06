@@ -3,49 +3,49 @@
 
 int main(int argc, array(string) argv){
 mapping(string:string) templates =([]);
-//Í·²¿ĞÅÏ¢
+//å¤´éƒ¨ä¿¡æ¯
 templates["include"]="#include <gamelib/include/gamelib.h>\n";
-//»ù±¾ÊôĞÔ
+//åŸºæœ¬å±æ€§
 templates["head"]="inherit GAMELIB_NPC;\nvoid create(){\n\tname=object_name(this_object());\n";
-templates["Ãû³Æ"]="\tname_cn=\"$1\";\n";
-templates["ÃèÊö"]="\tdesc=\"$1\\n\";\n";
-templates["ÕóÓª"]="\tset_raceId(\"$1\");\n";
-templates["Ö°Òµ"]="\tset_profeId(\"$1\");\n";
-templates["Í¼Æ¬"]="\tpicture=\"$1\";\n";
-templates["µÈ¼¶"]="\t_npcLevel=$1;\n";
-templates["Ë¢ĞÂÊ±¼ä"]="\t_flushtime=$1;\n";
-templates["Éí·İ"]="\tset_npc_type(\"$1\");\n";
-//ÆäËû¸½¼ÓÊôĞÔ
-templates["¸½¼ÓÖÇÁ¦"]="\tset_base_think($1);\n";
-templates["¸½¼ÓÃô½İ"]="\tset_base_dex($1);\n";
-templates["¸½¼ÓÁ¦Á¿"]="\tset_base_str($1);\n";
-templates["¸½¼ÓÉúÃü"]="\tset_base_life($1);\n";
-templates["¸½¼Ó±©»÷"]="\tset_base_baoji($1);\n";
-templates["¸½¼ÓÃüÖĞ"]="\tset_base_hitte($1);\n";
-templates["¸½¼ÓÉÁ±Ü"]="\tset_base_dodge($1);\n";
-templates["×°±¸ÁĞ±í"]= "\tarray(string) equip_list=({$1});\n";
-templates["´©×°±¸"]= "\tforeach(equip_list,string equip){\n\t\tobject ob=clone(ITEM_PATH+equip);\n\t\tif(ob){\n\t\t\tob->move(this_object());\n\t\t\tif(ob->query_item_type() != \"armor\")\n\t\t\t\tthis_object()->wield(ob);\n\t\t\telse\n\t\t\t\tthis_object()->wear(ob);\n\t\t}\n\t}\n";
-templates["¼¼ÄÜÁĞ±í"]="\tboss_skills=([$1]);\n";
-//ÉèÖÃ·½·¨ÊÇ¹Ì¶¨Ğ´ÈëµÄ
-templates["ÉèÖÃ·½·¨"]="\tsetup_npc();\n\tset_heart_beat(1);\n}\n";
-templates["Ö÷¶¯¹¥»÷"]="void init()\n{\n\tif(this_player()->query_raceId() != this_object()->query_raceId() && this_player()->hind == 0){\n\t\tstring s = this_object()->query_name_cn()+\"£º$1\\n\";\n\t\ttell_object(this_player(),s);\n\t\tif(!this_object()->in_combat){\n\t\t\tthis_object()->flush_life();\n\t\t\tthis_object()->kill(this_player()->query_name(),0);\n\t\t}\n\t\telse\n\t\t\tthis_object()->flush_targets(this_player(),1);\n\t}\n}\n";
-templates["Ëæ»úÓï"]="string query_words(){\n\tstring s = ::query_words();\n\ts += TASKD->query_words(this_player(),this_object());\n\treturn s;\n}\n";
-templates["¸½¼ÓÁ´½Ó"]="string query_links(void|int count){\n\treturn ::query_links(count);\n}\n";
-//templates["ËÀÍö´¦Àí"]="void fight_die(){\n\t::fight_die();\n}\n";
-templates["ËÀÍö´¦Àí"]="void fight_die(){\n\t::fight_die();\n}\n";
+templates["åç§°"]="\tname_cn=\"$1\";\n";
+templates["æè¿°"]="\tdesc=\"$1\\n\";\n";
+templates["é˜µè¥"]="\tset_raceId(\"$1\");\n";
+templates["èŒä¸š"]="\tset_profeId(\"$1\");\n";
+templates["å›¾ç‰‡"]="\tpicture=\"$1\";\n";
+templates["ç­‰çº§"]="\t_npcLevel=$1;\n";
+templates["åˆ·æ–°æ—¶é—´"]="\t_flushtime=$1;\n";
+templates["èº«ä»½"]="\tset_npc_type(\"$1\");\n";
+//å…¶ä»–é™„åŠ å±æ€§
+templates["é™„åŠ æ™ºåŠ›"]="\tset_base_think($1);\n";
+templates["é™„åŠ æ•æ·"]="\tset_base_dex($1);\n";
+templates["é™„åŠ åŠ›é‡"]="\tset_base_str($1);\n";
+templates["é™„åŠ ç”Ÿå‘½"]="\tset_base_life($1);\n";
+templates["é™„åŠ æš´å‡»"]="\tset_base_baoji($1);\n";
+templates["é™„åŠ å‘½ä¸­"]="\tset_base_hitte($1);\n";
+templates["é™„åŠ é—ªé¿"]="\tset_base_dodge($1);\n";
+templates["è£…å¤‡åˆ—è¡¨"]= "\tarray(string) equip_list=({$1});\n";
+templates["ç©¿è£…å¤‡"]= "\tforeach(equip_list,string equip){\n\t\tobject ob=clone(ITEM_PATH+equip);\n\t\tif(ob){\n\t\t\tob->move(this_object());\n\t\t\tif(ob->query_item_type() != \"armor\")\n\t\t\t\tthis_object()->wield(ob);\n\t\t\telse\n\t\t\t\tthis_object()->wear(ob);\n\t\t}\n\t}\n";
+templates["æŠ€èƒ½åˆ—è¡¨"]="\tboss_skills=([$1]);\n";
+//è®¾ç½®æ–¹æ³•æ˜¯å›ºå®šå†™å…¥çš„
+templates["è®¾ç½®æ–¹æ³•"]="\tsetup_npc();\n\tset_heart_beat(1);\n}\n";
+templates["ä¸»åŠ¨æ”»å‡»"]="void init()\n{\n\tif(this_player()->query_raceId() != this_object()->query_raceId() && this_player()->hind == 0){\n\t\tstring s = this_object()->query_name_cn()+\"ï¼š$1\\n\";\n\t\ttell_object(this_player(),s);\n\t\tif(!this_object()->in_combat){\n\t\t\tthis_object()->flush_life();\n\t\t\tthis_object()->kill(this_player()->query_name(),0);\n\t\t}\n\t\telse\n\t\t\tthis_object()->flush_targets(this_player(),1);\n\t}\n}\n";
+templates["éšæœºè¯­"]="string query_words(){\n\tstring s = ::query_words();\n\ts += TASKD->query_words(this_player(),this_object());\n\treturn s;\n}\n";
+templates["é™„åŠ é“¾æ¥"]="string query_links(void|int count){\n\treturn ::query_links(count);\n}\n";
+//templates["æ­»äº¡å¤„ç†"]="void fight_die(){\n\t::fight_die();\n}\n";
+templates["æ­»äº¡å¤„ç†"]="void fight_die(){\n\t::fight_die();\n}\n";
 
-	//ÅĞ¶ÏÊäÈë²ÎÊıºÏ·¨ĞÔ///////////////////////////////////////
+	//åˆ¤æ–­è¾“å…¥å‚æ•°åˆæ³•æ€§///////////////////////////////////////
 	if(argc==2){
 		if(search(argv[argc-1],".csv")!=-1)
-			write("ĞèÒª´¦ÀíµÄnpcÎÄµµÃû³ÆÎª£º"+argv[argc-1]+"\n");	
+			write("éœ€è¦å¤„ç†çš„npcæ–‡æ¡£åç§°ä¸ºï¼š"+argv[argc-1]+"\n");	
 		else{
-			write("ĞèÒª´¦ÀíµÄnpcÎÄµµÃû³ÆÎª£º"+argv[argc-1]+"\n");	
-			write("µ«ÊÇ¸ÃÎÄ¼ş²¢·ÇÒ»¸öºÏ·¨µÄcsv´¦ÀíÎÄµµ£¬Çë·µ»Ø¼ì²é!\n");
+			write("éœ€è¦å¤„ç†çš„npcæ–‡æ¡£åç§°ä¸ºï¼š"+argv[argc-1]+"\n");	
+			write("ä½†æ˜¯è¯¥æ–‡ä»¶å¹¶éä¸€ä¸ªåˆæ³•çš„csvå¤„ç†æ–‡æ¡£ï¼Œè¯·è¿”å›æ£€æŸ¥!\n");
 			return 0;
 		}
 	}
 	else{
-		write("²ÎÊı´íÎó£¬Çë·µ»Ø¼ì²é£¡\n");	
+		write("å‚æ•°é”™è¯¯ï¼Œè¯·è¿”å›æ£€æŸ¥ï¼\n");	
 		return 0;
 	}
 	array(string) all_lines;
@@ -63,113 +63,113 @@ templates["ËÀÍö´¦Àí"]="void fight_die(){\n\t::fight_die();\n}\n";
 	for(int i=1;i<sizeof(all_lines)-1;i++){
 		string writeFile="";
 		line_values=all_lines[i]/",";
-		write("Éú³Énpc:"+line_values[1]+" Ä¿Â¼:"+line_values[0]+"\n");
-		configs["ÎÄ¼şÃû"]=line_values[0];
-		configs["Ãû³Æ"]=line_values[1];
-		configs["ÃèÊö"]=line_values[2];
-		configs["Éí·İ"]=line_values[3];
-		configs["Ëµ»°"]=line_values[4];
-		configs["ÕóÓª"]=line_values[5];
-		configs["Ö°Òµ"]=line_values[6];
-		configs["Í¼Æ¬"]=line_values[7];
-		configs["Ë¢ĞÂÊ±¼ä"]=line_values[8];
-		configs["µÈ¼¶"]=line_values[9];
-		configs["¸½¼ÓÖÇÁ¦"]=line_values[10];
-		configs["¸½¼ÓÃô½İ"]=line_values[11];
-		configs["¸½¼ÓÁ¦Á¿"]=line_values[12];
-		configs["¸½¼ÓÉúÃü"]=line_values[13];
-		configs["¸½¼Ó±©»÷"]=line_values[14];
-		configs["¸½¼ÓÃüÖĞ"]=line_values[15];
-		configs["¸½¼ÓÉÁ±Ü"]=line_values[16];
-		configs["Ö÷¶¯¹¥»÷"]=line_values[17];
-		configs["×°±¸ÁĞ±í"]=line_values[18];
-		configs["¼¼ÄÜÁĞ±í"]=line_values[19];
+		write("ç”Ÿæˆnpc:"+line_values[1]+" ç›®å½•:"+line_values[0]+"\n");
+		configs["æ–‡ä»¶å"]=line_values[0];
+		configs["åç§°"]=line_values[1];
+		configs["æè¿°"]=line_values[2];
+		configs["èº«ä»½"]=line_values[3];
+		configs["è¯´è¯"]=line_values[4];
+		configs["é˜µè¥"]=line_values[5];
+		configs["èŒä¸š"]=line_values[6];
+		configs["å›¾ç‰‡"]=line_values[7];
+		configs["åˆ·æ–°æ—¶é—´"]=line_values[8];
+		configs["ç­‰çº§"]=line_values[9];
+		configs["é™„åŠ æ™ºåŠ›"]=line_values[10];
+		configs["é™„åŠ æ•æ·"]=line_values[11];
+		configs["é™„åŠ åŠ›é‡"]=line_values[12];
+		configs["é™„åŠ ç”Ÿå‘½"]=line_values[13];
+		configs["é™„åŠ æš´å‡»"]=line_values[14];
+		configs["é™„åŠ å‘½ä¸­"]=line_values[15];
+		configs["é™„åŠ é—ªé¿"]=line_values[16];
+		configs["ä¸»åŠ¨æ”»å‡»"]=line_values[17];
+		configs["è£…å¤‡åˆ—è¡¨"]=line_values[18];
+		configs["æŠ€èƒ½åˆ—è¡¨"]=line_values[19];
 		
 		writeFile+=templates["include"];
 		writeFile+=templates["head"];
 
-		writeFile+=replace(templates["Ãû³Æ"],"$1",configs["Ãû³Æ"]);
-		writeFile+=replace(templates["ÃèÊö"],"$1",configs["ÃèÊö"]);
-		if(configs["ÕóÓª"]!=""){
-			string tmp = (string)configs["ÕóÓª"];	
-			if(tmp=="ÈËÀà")
-				writeFile+=replace(templates["ÕóÓª"],"$1","human");
-			else if(tmp=="ÑıÄ§")
-				writeFile+=replace(templates["ÕóÓª"],"$1","monst");
-			else if(tmp=="ÖĞÁ¢")
-				writeFile+=replace(templates["ÕóÓª"],"$1","third");
+		writeFile+=replace(templates["åç§°"],"$1",configs["åç§°"]);
+		writeFile+=replace(templates["æè¿°"],"$1",configs["æè¿°"]);
+		if(configs["é˜µè¥"]!=""){
+			string tmp = (string)configs["é˜µè¥"];	
+			if(tmp=="äººç±»")
+				writeFile+=replace(templates["é˜µè¥"],"$1","human");
+			else if(tmp=="å¦–é­”")
+				writeFile+=replace(templates["é˜µè¥"],"$1","monst");
+			else if(tmp=="ä¸­ç«‹")
+				writeFile+=replace(templates["é˜µè¥"],"$1","third");
 		}
-		if(configs["Ö°Òµ"]!=""){
-			string tmp = (string)configs["Ö°Òµ"];	
-			if(tmp=="ÈËĞÎ")
-				writeFile+=replace(templates["Ö°Òµ"],"$1","humanlike");
-			if(tmp=="Ò°ÊŞ")
-				writeFile+=replace(templates["Ö°Òµ"],"$1","beast");
-			if(tmp=="·ÉÇİ")
-				writeFile+=replace(templates["Ö°Òµ"],"$1","bird");
-			if(tmp=="Óã")
-				writeFile+=replace(templates["Ö°Òµ"],"$1","fish");
-			if(tmp=="Á½ÆÜ¶¯Îï")
-				writeFile+=replace(templates["Ö°Òµ"],"$1","amphibian");
-			if(tmp=="À¥³æ")
-				writeFile+=replace(templates["Ö°Òµ"],"$1","bugs");
+		if(configs["èŒä¸š"]!=""){
+			string tmp = (string)configs["èŒä¸š"];	
+			if(tmp=="äººå½¢")
+				writeFile+=replace(templates["èŒä¸š"],"$1","humanlike");
+			if(tmp=="é‡å…½")
+				writeFile+=replace(templates["èŒä¸š"],"$1","beast");
+			if(tmp=="é£ç¦½")
+				writeFile+=replace(templates["èŒä¸š"],"$1","bird");
+			if(tmp=="é±¼")
+				writeFile+=replace(templates["èŒä¸š"],"$1","fish");
+			if(tmp=="ä¸¤æ –åŠ¨ç‰©")
+				writeFile+=replace(templates["èŒä¸š"],"$1","amphibian");
+			if(tmp=="æ˜†è™«")
+				writeFile+=replace(templates["èŒä¸š"],"$1","bugs");
 		}
 
-		if(configs["Í¼Æ¬"]!=""){
-			writeFile+=replace(templates["Í¼Æ¬"],"$1",configs["Í¼Æ¬"]);
+		if(configs["å›¾ç‰‡"]!=""){
+			writeFile+=replace(templates["å›¾ç‰‡"],"$1",configs["å›¾ç‰‡"]);
 		}
-		if(configs["µÈ¼¶"]!=""){
-			writeFile+=replace(templates["µÈ¼¶"],"$1",configs["µÈ¼¶"]);
+		if(configs["ç­‰çº§"]!=""){
+			writeFile+=replace(templates["ç­‰çº§"],"$1",configs["ç­‰çº§"]);
 		}
-		if(configs["Éí·İ"]!="")
-			writeFile+=replace(templates["Éí·İ"],"$1",configs["Éí·İ"]);
-		if(configs["Ë¢ĞÂÊ±¼ä"]!="")
-			writeFile+=replace(templates["Ë¢ĞÂÊ±¼ä"],"$1",configs["Ë¢ĞÂÊ±¼ä"]);
+		if(configs["èº«ä»½"]!="")
+			writeFile+=replace(templates["èº«ä»½"],"$1",configs["èº«ä»½"]);
+		if(configs["åˆ·æ–°æ—¶é—´"]!="")
+			writeFile+=replace(templates["åˆ·æ–°æ—¶é—´"],"$1",configs["åˆ·æ–°æ—¶é—´"]);
 
-		if(configs["¸½¼ÓÖÇÁ¦"]!="")
-			writeFile+=replace(templates["¸½¼ÓÖÇÁ¦"],"$1",configs["¸½¼ÓÖÇÁ¦"]);
-		if(configs["¸½¼ÓÃô½İ"]!="")
-			writeFile+=replace(templates["¸½¼ÓÃô½İ"],"$1",configs["¸½¼ÓÃô½İ"]);
-		if(configs["¸½¼ÓÁ¦Á¿"]!="")
-			writeFile+=replace(templates["¸½¼ÓÁ¦Á¿"],"$1",configs["¸½¼ÓÁ¦Á¿"]);
-		if(configs["¸½¼ÓÉúÃü"]!=""){
-			writeFile+=replace(templates["¸½¼ÓÉúÃü"],"$1",configs["¸½¼ÓÉúÃü"]);
+		if(configs["é™„åŠ æ™ºåŠ›"]!="")
+			writeFile+=replace(templates["é™„åŠ æ™ºåŠ›"],"$1",configs["é™„åŠ æ™ºåŠ›"]);
+		if(configs["é™„åŠ æ•æ·"]!="")
+			writeFile+=replace(templates["é™„åŠ æ•æ·"],"$1",configs["é™„åŠ æ•æ·"]);
+		if(configs["é™„åŠ åŠ›é‡"]!="")
+			writeFile+=replace(templates["é™„åŠ åŠ›é‡"],"$1",configs["é™„åŠ åŠ›é‡"]);
+		if(configs["é™„åŠ ç”Ÿå‘½"]!=""){
+			writeFile+=replace(templates["é™„åŠ ç”Ÿå‘½"],"$1",configs["é™„åŠ ç”Ÿå‘½"]);
 			writeFile+="\tthis_object()->flush_life();\n";
 		}
-		if(configs["¸½¼Ó±©»÷"]!="")
-			writeFile+=replace(templates["¸½¼Ó±©»÷"],"$1",configs["¸½¼Ó±©»÷"]);
-		if(configs["¸½¼ÓÃüÖĞ"]!="")
-			writeFile+=replace(templates["¸½¼ÓÃüÖĞ"],"$1",configs["¸½¼ÓÃüÖĞ"]);
-		if(configs["¸½¼ÓÉÁ±Ü"]!="")
-			writeFile+=replace(templates["¸½¼ÓÉÁ±Ü"],"$1",configs["¸½¼ÓÉÁ±Ü"]);
-		if(configs["×°±¸ÁĞ±í"]!=""){
-			array(string) tmp_arr = configs["×°±¸ÁĞ±í"]/"|";
+		if(configs["é™„åŠ æš´å‡»"]!="")
+			writeFile+=replace(templates["é™„åŠ æš´å‡»"],"$1",configs["é™„åŠ æš´å‡»"]);
+		if(configs["é™„åŠ å‘½ä¸­"]!="")
+			writeFile+=replace(templates["é™„åŠ å‘½ä¸­"],"$1",configs["é™„åŠ å‘½ä¸­"]);
+		if(configs["é™„åŠ é—ªé¿"]!="")
+			writeFile+=replace(templates["é™„åŠ é—ªé¿"],"$1",configs["é™„åŠ é—ªé¿"]);
+		if(configs["è£…å¤‡åˆ—è¡¨"]!=""){
+			array(string) tmp_arr = configs["è£…å¤‡åˆ—è¡¨"]/"|";
 			string tmp_str = "";
 			for(int i=0;i<sizeof(tmp_arr);i++){
 				tmp_str += "\""+tmp_arr[i]+"\",";
 			}
-			writeFile+=replace(templates["×°±¸ÁĞ±í"],"$1",tmp_str);
-			writeFile+=templates["´©×°±¸"];
+			writeFile+=replace(templates["è£…å¤‡åˆ—è¡¨"],"$1",tmp_str);
+			writeFile+=templates["ç©¿è£…å¤‡"];
 		}
-		if(configs["¼¼ÄÜÁĞ±í"]!=""){
-			array(string) tmp_arr = configs["¼¼ÄÜÁĞ±í"]/"|";
+		if(configs["æŠ€èƒ½åˆ—è¡¨"]!=""){
+			array(string) tmp_arr = configs["æŠ€èƒ½åˆ—è¡¨"]/"|";
 			string tmp_str = "";
 			for(int i=0;i<sizeof(tmp_arr);i++){
 				array(string) tmp_arr2 = tmp_arr[i]/":";
 				tmp_str += "\""+tmp_arr2[0]+"\":\""+tmp_arr2[1]+"\",";
 			}
-			writeFile+=replace(templates["¼¼ÄÜÁĞ±í"],"$1",tmp_str);
+			writeFile+=replace(templates["æŠ€èƒ½åˆ—è¡¨"],"$1",tmp_str);
 		}
-		writeFile+=templates["ÉèÖÃ·½·¨"];
-		if(configs["Ö÷¶¯¹¥»÷"]!="")
-			writeFile+=replace(templates["Ö÷¶¯¹¥»÷"],"$1",configs["Ëµ»°"]);
+		writeFile+=templates["è®¾ç½®æ–¹æ³•"];
+		if(configs["ä¸»åŠ¨æ”»å‡»"]!="")
+			writeFile+=replace(templates["ä¸»åŠ¨æ”»å‡»"],"$1",configs["è¯´è¯"]);
 
-		writeFile+=templates["Ëæ»úÓï"];
-		writeFile+=templates["¸½¼ÓÁ´½Ó"];
-		writeFile+=templates["ËÀÍö´¦Àí"];
-		array dir = configs["ÎÄ¼şÃû"]/"/";
+		writeFile+=templates["éšæœºè¯­"];
+		writeFile+=templates["é™„åŠ é“¾æ¥"];
+		writeFile+=templates["æ­»äº¡å¤„ç†"];
+		array dir = configs["æ–‡ä»¶å"]/"/";
 		if(!Stdio.exist(dir[0])) mkdir(ROOTDIR+dir[0]);
-		Stdio.write_file(ROOTDIR+configs["ÎÄ¼şÃû"],writeFile);
+		Stdio.write_file(ROOTDIR+configs["æ–‡ä»¶å"],writeFile);
 	}
 	return 1;
 }

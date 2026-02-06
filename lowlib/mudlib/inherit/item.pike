@@ -5,44 +5,44 @@ inherit LOW_F_DBASE;
 inherit MUD_F_HEARTBEAT;
 static mapping(int:string) m_rareLevel = ([
 	0:"",
-	1:"¡¾ÓÅÁ¼¡¿",
-	2:"¡¾ÓÅÁ¼¡¿",
-	3:"¡¾¾«ÖÆ¡¿",
-	4:"¡¾¾«ÖÆ¡¿",
-	5:"¡¾ÉñÁ¶¡¿",
-	6:"¡¾Ìì½µ¡¿",
-	7:"¡¾»Ã»¯¡¿",
-	8:"¡¾¿Õ¾õ¡¿",
-	9:"¡¾ÆÆ¿Õ¡¿",
-	10:"¡¾¼ÅÃğ¡¿",
-	11:"¡¾ÈıÄ¦µØ¡¿",
+	1:"ã€ä¼˜è‰¯ã€‘",
+	2:"ã€ä¼˜è‰¯ã€‘",
+	3:"ã€ç²¾åˆ¶ã€‘",
+	4:"ã€ç²¾åˆ¶ã€‘",
+	5:"ã€ç¥ç‚¼ã€‘",
+	6:"ã€å¤©é™ã€‘",
+	7:"ã€å¹»åŒ–ã€‘",
+	8:"ã€ç©ºè§‰ã€‘",
+	9:"ã€ç ´ç©ºã€‘",
+	10:"ã€å¯‚ç­ã€‘",
+	11:"ã€ä¸‰æ‘©åœ°ã€‘",
 ]);
-//ÎïÆ·Í¨ÓÃ¼Ì³ĞµÄ»ù±¾ÊôĞÔ
-private string item_type;//ÎïÆ·Àà±ğ£ºÎäÆ÷weapon(µ¥Ë«ÊÖ,single_weapon,double_weapon)·À¾ßarmorÊ×ÊÎjewelryÊÎÎïdecoratÏûºÄÆ·foodµÈ
+//ç‰©å“é€šç”¨ç»§æ‰¿çš„åŸºæœ¬å±æ€§
+private string item_type;//ç‰©å“ç±»åˆ«ï¼šæ­¦å™¨weapon(å•åŒæ‰‹,single_weapon,double_weapon)é˜²å…·armoré¦–é¥°jewelryé¥°ç‰©decoratæ¶ˆè€—å“foodç­‰
 string query_item_type(){return item_type;}
 void set_item_type(string s){ item_type= s;}
 
-private string item_weapon_type;//ÎäÆ÷ÀàÎïÆ·ÏêÏ¸·Ö±ğ£º½£sword£¬µ¶blade,¹÷,xxx
+private string item_weapon_type;//æ­¦å™¨ç±»ç‰©å“è¯¦ç»†åˆ†åˆ«ï¼šå‰‘swordï¼Œåˆ€blade,æ£,xxx
 string query_item_weapon_type(){return item_weapon_type;}
 void set_item_weapon_type(string s){ item_weapon_type= s;}
 
-private int item_level=0;//ÎïÆ·×ÔÉíµÈ¼¶£¬ºÍÎïÆ·×°±¸ĞèÒªÏŞÖÆµÄµÈ¼¶ÒªÇóÎŞ¹Ø
+private int item_level=0;//ç‰©å“è‡ªèº«ç­‰çº§ï¼Œå’Œç‰©å“è£…å¤‡éœ€è¦é™åˆ¶çš„ç­‰çº§è¦æ±‚æ— å…³
 int query_item_level(){return item_level;}
 void set_item_level(int a){ item_level= a;}
 
-private int item_strLimit=0;//×°±¸ÎïÆ·ĞèÒªµÄÊôĞÔÏŞÖÆ£¬±ÈÈçÁ¦Á¿ĞèÒª30µã£¬ÖÇÁ¦ĞèÒª10µãµÈµÈ¡£
+private int item_strLimit=0;//è£…å¤‡ç‰©å“éœ€è¦çš„å±æ€§é™åˆ¶ï¼Œæ¯”å¦‚åŠ›é‡éœ€è¦30ç‚¹ï¼Œæ™ºåŠ›éœ€è¦10ç‚¹ç­‰ç­‰ã€‚
 int query_item_strLimit(){return item_strLimit;}
 void set_item_strLimit(int a){ item_strLimit= a;}
 
-private int item_dexLimit=0;//×°±¸ÎïÆ·ĞèÒªµÄÊôĞÔÏŞÖÆ£¬±ÈÈçÁ¦Á¿ĞèÒª30µã£¬ÖÇÁ¦ĞèÒª10µãµÈµÈ¡£
+private int item_dexLimit=0;//è£…å¤‡ç‰©å“éœ€è¦çš„å±æ€§é™åˆ¶ï¼Œæ¯”å¦‚åŠ›é‡éœ€è¦30ç‚¹ï¼Œæ™ºåŠ›éœ€è¦10ç‚¹ç­‰ç­‰ã€‚
 int query_item_dexLimit(){return item_dexLimit;}
 void set_item_dexLimit(int a){ item_dexLimit= a;}
 
-private int item_thinkLimit=0;//×°±¸ÎïÆ·ĞèÒªµÄÊôĞÔÏŞÖÆ£¬±ÈÈçÁ¦Á¿ĞèÒª30µã£¬ÖÇÁ¦ĞèÒª10µãµÈµÈ¡£
+private int item_thinkLimit=0;//è£…å¤‡ç‰©å“éœ€è¦çš„å±æ€§é™åˆ¶ï¼Œæ¯”å¦‚åŠ›é‡éœ€è¦30ç‚¹ï¼Œæ™ºåŠ›éœ€è¦10ç‚¹ç­‰ç­‰ã€‚
 int query_item_thinkLimit(){return item_thinkLimit;}
 void set_item_thinkLimit(int a){ item_thinkLimit= a;}
 
-private int item_rareLevel=0;//ÎïÆ·Ï¡ÓĞ³Ì¶È£¬·ÖÎª5¸öµÈ¼¶,1-2¸ö¸½¼ÓÊôĞÔÎª1->¾«£¬3-4¸ö¸½¼ÓÊôĞÔÎª2->Ìì...5->»Ã
+private int item_rareLevel=0;//ç‰©å“ç¨€æœ‰ç¨‹åº¦ï¼Œåˆ†ä¸º5ä¸ªç­‰çº§,1-2ä¸ªé™„åŠ å±æ€§ä¸º1->ç²¾ï¼Œ3-4ä¸ªé™„åŠ å±æ€§ä¸º2->å¤©...5->å¹»
 int query_item_rareLevel(){return item_rareLevel;}
 void set_item_rareLevel(int a){ item_rareLevel= a;}
 
@@ -50,81 +50,81 @@ string query_rare_level(){
 	return m_rareLevel[item_rareLevel]; 
 }
 
-//ÎïÆ·µÄÀ´Ô´
-//Ä¿Ç°À´Ô´ÓĞ£º"boss"£¬"task"£¬"honer"£¬"duanzao"
+//ç‰©å“çš„æ¥æº
+//ç›®å‰æ¥æºæœ‰ï¼š"boss"ï¼Œ"task"ï¼Œ"honer"ï¼Œ"duanzao"
 private string item_from="";
 void set_item_from(string s){item_from=s;}
 string query_item_from(){return item_from;}
 
-//ÎïÆ·ĞèÒª¶àÉÙÈÙÓşÖµ¹ºÂò £¬Ö÷ÒªÕë¶ÔÈÙÓşÎïÆ·
+//ç‰©å“éœ€è¦å¤šå°‘è£èª‰å€¼è´­ä¹° ï¼Œä¸»è¦é’ˆå¯¹è£èª‰ç‰©å“
 private int need_honer=0;
 void set_need_honer(int a){need_honer=a;}
 int query_need_honer(){return need_honer;}
 
 
-private int item_save=1;//ÊÇ·ñÎ¨Ò»ÎïÆ·£¬Ö»ÄÜĞ¯´ø»ò×°±¸Ò»¸ö
+private int item_save=1;//æ˜¯å¦å”¯ä¸€ç‰©å“ï¼Œåªèƒ½æºå¸¦æˆ–è£…å¤‡ä¸€ä¸ª
 int query_item_save(){return item_save;}
 void set_item_save(int a){ item_save= a;}
 
-private int item_only=0;//ÊÇ·ñÎ¨Ò»ÎïÆ·£¬Ö»ÄÜĞ¯´ø»ò×°±¸Ò»¸ö
+private int item_only=0;//æ˜¯å¦å”¯ä¸€ç‰©å“ï¼Œåªèƒ½æºå¸¦æˆ–è£…å¤‡ä¸€ä¸ª
 int query_item_only(){return item_only;}
 void set_item_only(int a){ item_only= a;}
 
-private int item_canDura=1;//ÊÇ·ñ»á±»Ä¥ËğµÄ±êÖ¾£¬±ÈÈç½äÖ¸ÏîÁ´ºÍÈÎÎñÎïÆ·µÈ²»»áÄ¥Ëğ
+private int item_canDura=1;//æ˜¯å¦ä¼šè¢«ç£¨æŸçš„æ ‡å¿—ï¼Œæ¯”å¦‚æˆ’æŒ‡é¡¹é“¾å’Œä»»åŠ¡ç‰©å“ç­‰ä¸ä¼šç£¨æŸ
 int query_item_canDura(){return item_canDura;}
 void set_item_canDura(int a){ item_canDura= a;}
 
-private int item_canEquip=1;//ÎïÆ·¿É·ñ×°±¸£¬±ÈÈçÈÎÎñÎïÆ·£¬Ã»ÓĞÍê³ÉÖ®Ç°ÊÇ²»¿É×°±¸µÄ£¬µÈµÈ
+private int item_canEquip=1;//ç‰©å“å¯å¦è£…å¤‡ï¼Œæ¯”å¦‚ä»»åŠ¡ç‰©å“ï¼Œæ²¡æœ‰å®Œæˆä¹‹å‰æ˜¯ä¸å¯è£…å¤‡çš„ï¼Œç­‰ç­‰
 int query_item_canEquip(){return item_canEquip;}
 void set_item_canEquip(int a){ item_canEquip= a;}
 
-private int item_canDrop=1;//ÎïÆ·ÊÇ·ñ¿ÉÒÔ¶ªÆú
+private int item_canDrop=1;//ç‰©å“æ˜¯å¦å¯ä»¥ä¸¢å¼ƒ
 int query_item_canDrop(){return item_canDrop;}
 void set_item_canDrop(int a){ item_canDrop= a;}
 
-private int item_canGet=0;//ÎïÆ·ÊÇ·ñ¿ÉÒÔ¼ìÆğ
+private int item_canGet=0;//ç‰©å“æ˜¯å¦å¯ä»¥æ£€èµ·
 int query_item_canGet(){return item_canGet;}
 void set_item_canGet(int a){ item_canGet= a;}
 
-private int item_canTrade=1;//ÎïÆ·ÊÇ·ñ¿ÉÒÔ½»Ò×
+private int item_canTrade=1;//ç‰©å“æ˜¯å¦å¯ä»¥äº¤æ˜“
 int query_item_canTrade(){return item_canTrade;}
 void set_item_canTrade(int a){ item_canTrade= a;}
 
-private int item_canSend=1;//ÎïÆ·ÊÇ·ñ¿ÉÒÔÔùËÍ
+private int item_canSend=1;//ç‰©å“æ˜¯å¦å¯ä»¥èµ é€
 int query_item_canSend(){return item_canSend;}
 void set_item_canSend(int a){ item_canSend= a;}
 
-private int item_task=0;//ÎïÆ·ÊÇ·ñÊÇÈÎÎñÎïÆ·
+private int item_task=0;//ç‰©å“æ˜¯å¦æ˜¯ä»»åŠ¡ç‰©å“
 int query_item_task(){return item_task;}
 void set_item_task(int a){ item_task= a;}
 
-private int item_canStorage=1;//ÎïÆ·ÊÇ·ñ¿ÉÒÔ´æ´¢²Ö¿â»òÕßÒøĞĞÖĞ
+private int item_canStorage=1;//ç‰©å“æ˜¯å¦å¯ä»¥å­˜å‚¨ä»“åº“æˆ–è€…é“¶è¡Œä¸­
 int query_item_canStorage(){return item_canStorage;}
 void set_item_canStorage(int a){ item_canStorage= a;}
 
-string item_playerDesc;//¿ÉÒÔÔö¼ÓÍæ¼Ò×Ô¼º±êÖ¾µÄÎïÆ·
-string item_whoCanGet;//Ôö¼ÓÍæ¼Ò´ò¹ÖµôÂäÎïÆ·±êÊ¾£¬ÓÃÓÚµô×°±£»¤ 2007-0302 by calvin
-int item_TimewhoCanGet;//Ôö¼ÓÍæ¼Ò´ò¹ÖµôÂäÎïÆ·Ê±¼ä¿ØÖÆ£¬ÓÃÓÚµô×°±£»¤ 2007-0302 by calvin
+string item_playerDesc;//å¯ä»¥å¢åŠ ç©å®¶è‡ªå·±æ ‡å¿—çš„ç‰©å“
+string item_whoCanGet;//å¢åŠ ç©å®¶æ‰“æ€ªæ‰è½ç‰©å“æ ‡ç¤ºï¼Œç”¨äºæ‰è£…ä¿æŠ¤ 2007-0302 by calvin
+int item_TimewhoCanGet;//å¢åŠ ç©å®¶æ‰“æ€ªæ‰è½ç‰©å“æ—¶é—´æ§åˆ¶ï¼Œç”¨äºæ‰è£…ä¿æŠ¤ 2007-0302 by calvin
 
-int amount=1;//ÊıÁ¿
-int max_count=STACK_NUM;//¸ÃÖÖÎïÆ·Ã¿×éÊıÁ¿ÉÏÏŞ
-static string unit="¸ö";//µ¥Î»
+int amount=1;//æ•°é‡
+int max_count=STACK_NUM;//è¯¥ç§ç‰©å“æ¯ç»„æ•°é‡ä¸Šé™
+static string unit="ä¸ª";//å•ä½
 string query_unit(){ return unit;}
 
 
-static int value;//¼ÛÖµ
+static int value;//ä»·å€¼
 int query_value(){return value;}
 void set_value(int a){ value= a;}
 
-private int weight;//ÖØÁ¿
+private int weight;//é‡é‡
 int query_weight(){return weight;}
 void set_weight(int s){ weight= s;}
 
-static string status;//×´Ì¬
+static string status;//çŠ¶æ€
 string query_status(){return status;}
 void set_status(string s){ status= s;}
 
-static int add_luck = 0;//Ôö¼ÓµÄĞÒÔËÖµ£¬¶ÍÔìÊ±±¦Ê¯ĞèÓÃÕâ¸ö
+static int add_luck = 0;//å¢åŠ çš„å¹¸è¿å€¼ï¼Œé”»é€ æ—¶å®çŸ³éœ€ç”¨è¿™ä¸ª
 int query_add_luck(){return add_luck;}
 void set_add_luck(int s){ add_luck = s;}
 
@@ -135,7 +135,7 @@ string query_short(){
 	if(status){
 		s="<"+status+">";
 	}
-	return "Ò»"+unit+::query_name_cn()+s;
+	return "ä¸€"+unit+::query_name_cn()+s;
 }
 void remove(void|int judgement){
 	if(judgement){
@@ -152,13 +152,13 @@ int is_combine_item()
 {
 	return 0;
 }
-//ĞÂÊôĞÔ08/11/26////////////////////////////////
-int red_aocao = 0;//ºìÉ«¿ÕÏĞ°¼²Û
-int blue_aocao = 0;//À¶É«¿ÕÏĞ°¼²Û
-int yellow_aocao = 0;//»ÆÉ«¿ÕÏĞ°¼²Û
-int red_aocao_max = 0;//ºìÉ«°¼²Û
-int blue_aocao_max = 0;//À¶É«°¼²Û
-int yellow_aocao_max = 0;//»ÆÉ«°¼²Û
+//æ–°å±æ€§08/11/26////////////////////////////////
+int red_aocao = 0;//çº¢è‰²ç©ºé—²å‡¹æ§½
+int blue_aocao = 0;//è“è‰²ç©ºé—²å‡¹æ§½
+int yellow_aocao = 0;//é»„è‰²ç©ºé—²å‡¹æ§½
+int red_aocao_max = 0;//çº¢è‰²å‡¹æ§½
+int blue_aocao_max = 0;//è“è‰²å‡¹æ§½
+int yellow_aocao_max = 0;//é»„è‰²å‡¹æ§½
 void set_aocao(string color,int num){ 
 	switch(color){
 		case "blue": blue_aocao = num;
@@ -180,46 +180,46 @@ void set_aocao_max(string color,int num){
 	}
 }
 
-//»ñµÃÏà¶ÔÓ¦¿ÕÏĞ°¼²ÛµÄÊıÁ¿
+//è·å¾—ç›¸å¯¹åº”ç©ºé—²å‡¹æ§½çš„æ•°é‡
 int query_aocao(string color){
 	int num = 0;
 	switch(color){
-		case "blue": num = blue_aocao;//À¶É«
+		case "blue": num = blue_aocao;//è“è‰²
 			     break;
-		case "red" : num = red_aocao;//ºìÉ«
+		case "red" : num = red_aocao;//çº¢è‰²
 			     break;
-		case "yellow":num = yellow_aocao;//»ÆÉ«°¼²Û
+		case "yellow":num = yellow_aocao;//é»„è‰²å‡¹æ§½
 			     break;
-		case "all" : num = blue_aocao + red_aocao + yellow_aocao;//ËùÓĞ°¼²Û
+		case "all" : num = blue_aocao + red_aocao + yellow_aocao;//æ‰€æœ‰å‡¹æ§½
 			     break;
 	}
 	return num;
 }
-//»ñµÃÏà¶ÔÓ¦°¼²ÛµÄÊıÁ¿
+//è·å¾—ç›¸å¯¹åº”å‡¹æ§½çš„æ•°é‡
 int query_aocao_max(string color){
 	object ob=this_object();
 	int num = 0;
 	switch(color){
-		case "blue": num = ob->blue_aocao_max;//À¶É«
+		case "blue": num = ob->blue_aocao_max;//è“è‰²
 			     break;
-		case "red" : num = ob->red_aocao_max;//ºìÉ«
+		case "red" : num = ob->red_aocao_max;//çº¢è‰²
 			     break;
-		case "yellow":num = ob->yellow_aocao_max;//»ÆÉ«°¼²Û
+		case "yellow":num = ob->yellow_aocao_max;//é»„è‰²å‡¹æ§½
 			     break;
-		case "all" : num = ob->blue_aocao_max + ob->red_aocao_max + ob->yellow_aocao_max;//ËùÓĞ°¼²Û
+		case "all" : num = ob->blue_aocao_max + ob->red_aocao_max + ob->yellow_aocao_max;//æ‰€æœ‰å‡¹æ§½
 			     break;
 	}
 	return num;
 }
 
-array(string) red_baoshi = ({}); //ºìÉ«±¦Ê¯
-array(string) blue_baoshi = ({}); //À¶É«±¦Ê¯
-array(string) yellow_baoshi = ({}); //»ÆÉ«±¦Ê¯
+array(string) red_baoshi = ({}); //çº¢è‰²å®çŸ³
+array(string) blue_baoshi = ({}); //è“è‰²å®çŸ³
+array(string) yellow_baoshi = ({}); //é»„è‰²å®çŸ³
 
 void set_baoshi(string color,object baoshi_ob,void|int ind){
 	object ob = this_object();
 	string baoshi = file_name(baoshi_ob)-ITEM_PATH;
-	baoshi = (baoshi/"#")[0];//»ñµÃ±¦Ê¯µÄÎÄ¼şÂ·¾¶£¬Èçbaoshi/pshongchuoshi
+	baoshi = (baoshi/"#")[0];//è·å¾—å®çŸ³çš„æ–‡ä»¶è·¯å¾„ï¼Œå¦‚baoshi/pshongchuoshi
 	switch(color){
 		case "blue":
 			if(!ob->blue_baoshi){ ob->blue_baoshi = ({});}
@@ -261,7 +261,7 @@ void set_baoshi(string color,object baoshi_ob,void|int ind){
 	}
 }
 
-//Í¨¹ıid²éÕÒÏà¶ÔÓ¦µÄ±¦Ê¯£¬·µ»ØÎÄ¼şÃû,Èç£ºbaoshi/slhuangshuiyu
+//é€šè¿‡idæŸ¥æ‰¾ç›¸å¯¹åº”çš„å®çŸ³ï¼Œè¿”å›æ–‡ä»¶å,å¦‚ï¼šbaoshi/slhuangshuiyu
 string query_baoshi_by_id(string color,int id){
 	object ob = this_object();
 	string baoshi_name = "";
@@ -286,7 +286,7 @@ string query_baoshi_by_id(string color,int id){
 	return baoshi_name;
 }
 
-//»ñµÃ±¦Ê¯
+//è·å¾—å®çŸ³
 array(object) query_baoshi(string color){
 	object ob = this_object();
 	array(object) baoshi_ob = ({});
@@ -335,7 +335,7 @@ array(object) query_baoshi(string color){
 		return 0;
 }
 
-//ÅĞ¶Ï¸Ã×°±¸ÊÇ·ñÓĞÏà¶ÔÓ¦ÑÕÉ«µÄ°¼²Û
+//åˆ¤æ–­è¯¥è£…å¤‡æ˜¯å¦æœ‰ç›¸å¯¹åº”é¢œè‰²çš„å‡¹æ§½
 int query_if_aocao(string s){
 	object ob = this_object();
 	if(ob->query_aocao_max(s))

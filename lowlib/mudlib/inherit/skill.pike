@@ -1,19 +1,19 @@
 #include <globals.h>
 #include <mudlib/include/mudlib.h>
 inherit LOW_BASE;
-string s_type="zhudong";//¼¼ÄÜÀà±ğ£ºÖ÷¶¯(zhudong),±»¶¯(beidong)
-string s_skill_type = "";//¼¼ÄÜÀàĞÍ huo_mofa_attack,bing_mofa_attack,feng_mofa_attack,du_mofa_attack,dot,curse,phy,buff
-int s_lasttime = 0;//¼¼ÄÜ³ÖĞøÉËº¦Ê±¼ä °üÀ¨×çÖäºÍDOT
+string s_type="zhudong";//æŠ€èƒ½ç±»åˆ«ï¼šä¸»åŠ¨(zhudong),è¢«åŠ¨(beidong)
+string s_skill_type = "";//æŠ€èƒ½ç±»å‹ huo_mofa_attack,bing_mofa_attack,feng_mofa_attack,du_mofa_attack,dot,curse,phy,buff
+int s_lasttime = 0;//æŠ€èƒ½æŒç»­ä¼¤å®³æ—¶é—´ åŒ…æ‹¬è¯…å’’å’ŒDOT
 
-//boss¼¼ÄÜÏµÍ³£¬liaochengÓÚ07/6/18Ìí¼Ó                                                              
-int boss_skill = 0;//ÊÇ·ñÎªboss¼¼ÄÜ
-int is_aoe = 0;//ÊÇ·ñÎªÈº¹¥¼¼ÄÜ
+//bossæŠ€èƒ½ç³»ç»Ÿï¼Œliaochengäº07/6/18æ·»åŠ                                                               
+int boss_skill = 0;//æ˜¯å¦ä¸ºbossæŠ€èƒ½
+int is_aoe = 0;//æ˜¯å¦ä¸ºç¾¤æ”»æŠ€èƒ½
 
-string s_curse_type = "";//¼¼ÄÜ×çÖä¶Ô·½ÊôĞÔÀàĞÍ str, dex, think, all,huoyan_defend,bingshuang_defend,fengren_defend,dusu_defend,all_mofa_defend,obsord,add_mama
-int s_delayTime=0;//¼¼ÄÜÀäÈ´Ê±¼ä
-//¼¼ÄÜÉı¼¶ÊìÁ·¶ÈÒªÇó
-mapping(int:int) s_delayTime_add=([]);//¼¼ÄÜµÄ²»Í¬µÈ¼¶Ôö¼ÓµÄÀäÈ´Ê±¼ä
-mapping(int:int) s_lasttime_add=([]);//¼¼ÄÜµÄ²»Í¬µÈ¼¶Ôö¼ÓµÄÑÓĞøÊ±¼ä
+string s_curse_type = "";//æŠ€èƒ½è¯…å’’å¯¹æ–¹å±æ€§ç±»å‹ str, dex, think, all,huoyan_defend,bingshuang_defend,fengren_defend,dusu_defend,all_mofa_defend,obsord,add_mama
+int s_delayTime=0;//æŠ€èƒ½å†·å´æ—¶é—´
+//æŠ€èƒ½å‡çº§ç†Ÿç»ƒåº¦è¦æ±‚
+mapping(int:int) s_delayTime_add=([]);//æŠ€èƒ½çš„ä¸åŒç­‰çº§å¢åŠ çš„å†·å´æ—¶é—´
+mapping(int:int) s_lasttime_add=([]);//æŠ€èƒ½çš„ä¸åŒç­‰çº§å¢åŠ çš„å»¶ç»­æ—¶é—´
 mapping(int:int) performs_shuliandu=([
 	1:2000,
 	2:4000,
