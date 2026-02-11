@@ -1,0 +1,331 @@
+// ============================================================================
+// Claude 技能 - 系统架构文档
+// ============================================================================
+// 此技能文件记录 TXPike9 游戏系统的架构和关键信息
+// 供 Claude AI 理解代码库结构使用
+// ============================================================================
+
+#include <globals.h>
+#include <wapmud2/include/wapmud2.h>
+inherit SKILL;
+
+mapping(string:int) performs=([]);
+
+protected void create()
+{
+	name = "claude";
+	name_cn = "Claude系统文档";
+	initial = 1;
+	attenuation = 0;
+	remain = 0;
+	type = "knowledge";
+}
+
+// ============================================================================
+// 一、项目结构
+// ============================================================================
+//
+// ROOT = /usr/local/games/oldtx/tx
+//
+// 核心目录:
+// ├── pikenv/           # Pike 环境/核心系统
+// │   ├── efuns.pike        # 全局函数 (users(), load_object()等)
+// │   ├── connd.pike        # 连接管理器 (用户连接、虚拟连接)
+// │   ├── mudlib/           # MUD 基础库
+// │   └── wapmud2/         # WAPMUD2 系统
+// │       ├── cmds/         # 命令文件
+// │       └── inherit/     # 继承类
+// ├── gamenv/           # 游戏环境
+// │   ├── clone/          # 可克隆对象 (NPC、物品)
+// │   │   └── npc/        # NPC 类
+// │   │       └── bot_user.pike  # 假用户
+// │   ├── d/              # 地图房间
+// │   ├── single/         # 单例对象
+// │   │   └── daemons/    # 守护进程
+// │   │       └── botd.pike     # 假用户管理
+// │   └── u/              # 用户数据目录
+// └── manager/           # 管理后台
+//     └── m94ayhohe      # 管理员房间
+//
+// ============================================================================
+
+// ============================================================================
+// 二、关键系统架构
+// ============================================================================
+
+/*
+【1. 连接系统 (CONND)】
+
+位置: pikenv/connd.pike
+
+功能:
+- 管理所有用户连接
+- 提供 query_users() 查询在线用户
+- 提供 set_conn(user, conn) 注册连接
+- 提供 erase_conn(user) 删除连接
+
+重要: Bot 用户通过 BufferConnection 注册到 CONND，使用户统计包含 bot
+
+【2. 虚拟连接系统 (HTTP API)】
+
+位置: gamenv/single/daemons/http_api/
+
+功能:
+- HTTP 请求映射为游戏内命令
+- 虚拟连接池管理
+- Vue 前端支持
+
+关键文件:
+- http_api.pike        # 主 HTTP API 处理
+- virtual_conn.pike    # 虚拟连接管理
+
+【3. 假用户系统 (Bot)】
+
+位置: gamenv/single/daemons/botd.pike
+
+功能:
+- 创建 200-300 个假用户
+- 随机分配到各个地图
+- 自动随机移动
+- 显示在在线用户列表
+
+Bot 特点:
+- 继承自 user 类 (gamenv/clone/user)
+- 使用 BufferConnection 注册到 CONND
+- is_bot() 返回 1 可识别
+- 属性超强化 (10000倍)
+- 自动装备武器
+
+【4. 战斗系统】
+
+位置: pikenv/mudlib/inherit/fight.pike
+
+关键:
+- attack_skill: 当前攻击技能
+- skills 映射存储技能等级
+- skills_enable 映射存储启用的高级技能
+- get_attack_skill() 获取当前攻击技能对象
+
+【5. 技能系统】
+
+位置: gamenv/single/skills/
+
+基础技能 (type="basic"):
+- blade (刀法)
+- sword (剑法)
+- unarmed (拳脚)
+- parry (招架)
+- dodge (闪避)
+- force (内功)
+- spells (法术)
+
+技能等级格式: ({等级, 经验})
+
+【6. 用户类 (USER)】
+
+位置: gamenv/clone/user
+
+继承链: USER -> CHAR -> LIVING -> OBJECT
+
+关键属性:
+- name: 账号名 (tx01xxx)
+- name_cn: 中文名
+- gender: 性别 (male/female)
+- daoheng: 道行/修为
+- jing: 生命值
+- qi: 内力
+- mana: 法力
+- gengu: 根骨
+- school: 门派
+- rank: 称号
+- skills: 技能映射
+- equip: 装备映射
+
+*/
+
+// ============================================================================
+// 三、常用函数和API
+// ============================================================================
+
+/*
+【全局函数】
+
+// 获取在线用户
+array(object) users(void|int all)
+// all=0: 不包含bot, all=1: 包含所有用户
+
+// 加载对象
+object load_object(string path)
+
+// 查找玩家
+object find_player(string name)
+
+【环境函数】
+
+// 获取环境
+object environment(object ob)
+
+// 移动到房间
+int move(object room)
+
+【房间系统】
+
+// 获取出口
+mapping query_exits()
+// 返回格式: ({"direction": "room_path", ...})
+
+// NPC 移动方式
+command("leave "+direction)  // 正确
+move(direction)              // 错误! 会尝试 cast 字符串为对象
+
+【战斗函数】
+
+// 获取攻击技能
+object get_attack_skill()
+
+// 技能查询
+object SKILLSD["skill_name"]  // 获取技能对象
+*/
+
+// ============================================================================
+// 四、重要常量和宏
+// ============================================================================
+
+/*
+ROOT     = /usr/local/games/oldtx/tx
+SROOT    = ROOT/pikenv/mudlib
+GAME_ENV = ROOT/gamenv
+
+常用宏:
+#define CONND ((object)(ROOT + "/pikenv/connd.pike"))
+#define SKILLSD ((object)(ROOT + "/mudlib/single/skillsd"))
+*/
+
+// ============================================================================
+// 五、Pike 9 语法注意
+// ============================================================================
+
+/*
+【类型声明】
+
+// 联合类型 (zero|object) 可能不支持，使用 mixed 代替
+mixed room;           // 可以为 0 或 object
+object room = 0;      // 可能报错，初始化为 0 需要注意
+
+【create() 方法】
+
+protected void create()  // Pike 9: create() 应该是 protected
+
+【字符串操作】
+
+// 字符串长度 (UTF-8)
+int utf8_strlen(string str)
+
+// 字符串索引
+str[i]           // 获取单个字符
+str[0..j-1]      // 子串
+str[..sizeof(str)-2]  // 去掉最后一个字符
+
+【映射操作】
+
+mapping m = ([]);
+m[key] = value;       // 设置
+m[key]              // 获取
+m_delete(m, key);    // 删除
+indices(m);          // 获取所有键
+values(m);           // 获取所有值
+
+【数组操作】
+
+array a = ({});
+a += ({element});     // 添加元素
+sizeof(a);           // 数组大小
+*/
+
+// ============================================================================
+// 六、Bot 用户开发指南
+// ============================================================================
+
+/*
+【创建新 Bot】
+
+object bot = new(ROOT + "/gamenv/clone/npc/bot_user");
+bot->set_bot_id("bot_xxx");
+bot->set_bot_name_cn("名字");
+bot->set_bot_gender("male");
+bot->set_bot_level(100);
+bot->init_bot();
+bot->move(room);
+
+// 注册到 CONND (重要!)
+object dummy_conn = BufferConnection();
+CONND->set_conn(bot, dummy_conn);
+
+【识别 Bot】
+
+if(ob->is_bot && ob->is_bot()) {
+    // 这是一个 bot
+}
+
+【Bot 属性】
+
+- is_bot() 返回 1
+- 超强属性 (10000倍于普通玩家)
+- 自动装备武器
+- 自动技能 (blade/sword 等)
+- 随机门派和称号
+*/
+
+// ============================================================================
+// 七、常见问题
+// ============================================================================
+
+/*
+【Q: 如何让 NPC 移动?】
+
+错误: move("north")
+正确: command("leave "+direction)
+
+【Q: 如何获取技能对象?】
+
+object skill = SKILLSD["skill_name"];
+
+【Q: 如何检查对象是否存在?】
+
+if(objectp(ob)) { ... }
+if(!ob) { ... }
+
+【Q: 如何遍历房间内容?】
+
+foreach(all_inventory(room), object ob) {
+    // ob 是房间中的每个对象
+}
+
+【Q: 房间出口格式?】
+
+mapping exits = room->query_exits();
+// exits["east"] = "/path/to/room"
+
+【Q: 类型错误处理?】
+
+mixed room;  // 使用 mixed 代替 object 可以避免初始化问题
+*/
+
+// ============================================================================
+// 技能方法（占位，实际不使用）
+// ============================================================================
+
+string query_attack_msg()
+{
+	return "$N读取系统文档，了解了架构细节！\n";
+}
+
+string query_parry_msg()
+{
+	return "$N凭借文档知识，轻松化解了攻击！\n";
+}
+
+string query_hit_msg()
+{
+	return "$N运用架构知识，发现了对手的破绽！\n";
+}
