@@ -34,7 +34,7 @@ string setup(string _url)
 	//out+= "<%@ page language=\"java\" contentType=\"text/html;charset=UTF-8\"%>";
 	out+= "<meta charset=\"UTF-8\">\n"; 
 	out+= "<meta name=\"viewport\" content=\"maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0\"/>\n"; 
-	out+= "<title>Ц─┼Д╩≥И│⌠Ц─▀О╪┬" + get_game_area() + "Е▄╨О╪┴ Ц─┼Ф╦╦Ф┬▐ФЁ╔Е╥╢Ц─▀WAPФЁ╔Е╥╢ Ф√┤Е╜≈Ф╦╦Ф┬▐ WAPФ╦╦Ф┬▐ Ф──Ф≈╖Г╫▒Ф╦╦ WAPФ√┤Е╜≈Ф╦╦Ф┬▐ Ф┴▀Ф°╨Ф╦╦Ф┬▐ Ф┴▀Ф°╨Е╓█Е▐╓Ф╦╦Ф┬▐ Ф┴▀Ф°╨Ф╜╕Д╬═Ф╦╦Ф┬▐ Х▀╧Ф·°Ф╦╦Ф┬▐ Е╝┴Е█⌠Ф╦╦Ф┬▐</title>\n";
+	out+= "<title>║╤ои╣ю║╥ё╗" + get_game_area() + "гЬё╘ ║╤сно╥дЮ╟м║╥WAPдЮ╟м ндвжсно╥ WAPсно╥ ╩Ё╬имЬсн WAPндвжсно╥ йж╩Зсно╥ йж╩З╦╢╧есно╥ йж╩ЗнДоюсно╥ ф╩╧Шсно╥ ╟╡в©сно╥</title>\n";
 	out+= "<link rel=\"icon\" type=\"image/x-icon\" href=\"images/favicon.ico\">";
 	out+= "<link rel=\"stylesheet\" href=\"includes/bootstrap-4.6.2-dist/css/bootstrap.min.css?v=3\"/>\n";
 	out+= "<link href=\"includes/intro.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";

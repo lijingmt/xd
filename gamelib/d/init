@@ -2,7 +2,7 @@
 inherit WAP_ROOM;
 #define LOG_PATH ROOT+"/log/setpassword_user.log" 
 void create(){
-	name_cn="æ¸¸æˆå…¥å£\n ä»™é“ï¼š"+TOPTEN->get_game_area()+"åŒº\n";
+	name_cn="ÓÎÏ·Èë¿Ú\n ÏÉµÀ£º"+TOPTEN->get_game_area()+"Çø\n";
 	//picture = "logo";
 }
 int is_menu(){
@@ -52,9 +52,9 @@ string query_desc(){
 		//desc += "ã€æœ€æ–°æ´»åŠ¨ã€‘\n\n";
 		desc += "ã€æ›´æ–°æç¤ºã€‘\n";
 		desc += "</div>";
-		desc += "ä¸€ã€æ–°åŒºå¼€æ”¾ï¼Œç»å…¸æœ€é«˜70çº§\n";
-		desc += "äºŒã€æ–°åŒºå–æ¶ˆæèµ å€é€Ÿï¼Œå›å½’ç»å…¸\n";
-		desc += "ä»¥ä¸Šæ´»åŠ¨è¯¦æƒ…è¯·å’¨è¯¢å®¢æœ\n";
+		desc += "Ò»¡¢ĞÂÇø¿ª·Å£¬¾­µä×î¸ß70¼¶\n";
+		desc += "¶ş¡¢ĞÂÇøÈ¡Ïû¾èÔù±¶ËÙ£¬»Ø¹é¾­µä\n";
+		desc += "ÒÔÉÏ»î¶¯ÏêÇéÇë×ÉÑ¯¿Í·ş\n";
 		desc += "<div style=\"color:DarkViolet\">";
 		desc += "(QQå®¢æœ1811117272)\n";
 		desc += "</div>";
