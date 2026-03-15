@@ -3,7 +3,7 @@
 
 /**
  * 解锁方士职业命令
- * 需要钻石会员(VIP level 4)才能解锁
+ * 需要钻石会员(VIP level 4) + 1块碧銮玉才能解锁
  */
 int main(string|zero arg)
 {
@@ -42,7 +42,6 @@ int main(string|zero arg)
 
 	// 显示解锁确认界面
 	if(!arg){
-		int cost = SEASONALD->get_unlock_cost();
 		s += "【方士职业解锁】\n\n";
 		s += "恭喜你，你是钻石会员，可以解锁方士职业！\n\n";
 		s += "方士介绍：\n";
@@ -50,7 +49,7 @@ int main(string|zero arg)
 		s += "- 可以召唤虎灵（物理攻击）、鹤灵（治疗）、龟灵（防御）\n";
 		s += "- 终极技能三灵合一，全面强化自身\n\n";
 		s += "解锁需要：\n";
-		s += "- " + YUSHID->get_yushi_for_desc(cost) + "\n\n";
+		s += "- " + SEASONALD->get_unlock_cost_desc() + "\n\n";
 		s += "[确认解锁:unlock_fangshi confirm]\n";
 		s += "[返回游戏:look]\n";
 		me->write(s);
@@ -59,18 +58,31 @@ int main(string|zero arg)
 
 	// 确认解锁
 	if(arg == "confirm"){
-		int cost = SEASONALD->get_unlock_cost();
+		int jade_level = SEASONALD->get_unlock_cost_jade_level();
+		string jade_name = YUSHID->get_yushi_namecn(jade_level);
 
-		// 检查碎玉
-		if(me->query_yushi() < cost){
-			s += "你的碎玉不足！需要 " + YUSHID->get_yushi_for_desc(cost) + "\n";
+		// 查找玩家身上的高级玉
+		array(object) all_obj = all_inventory(me);
+		object jade_item = 0;
+
+		foreach(all_obj, object ob){
+			if(ob->query_item_type()=="yushi"){
+				if(ob->query_yushi_rarelevel()==jade_level){
+					jade_item = ob;
+					break;
+				}
+			}
+		}
+
+		if(!jade_item){
+			s += "你需要 " + SEASONALD->get_unlock_cost_desc() + " 才能解锁！\n";
 			s += "[返回游戏:look]\n";
 			me->write(s);
 			return 1;
 		}
 
-		// 扣除碎玉
-		me->add_yushi(-cost);
+		// 消耗玉石
+		jade_item->add_amount(-10);  // 高级玉1块=amount=10
 
 		// 解锁
 		SEASONALD->unlock_fangshi(me->query_name());

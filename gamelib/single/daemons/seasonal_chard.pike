@@ -119,9 +119,18 @@ int can_create_fangshi(object player)
 }
 
 /**
- * 解锁方士的代价
+ * 解锁方士的代价 (高级玉等级)
+ * 返回玉石稀有度等级，4=碧銮玉
  */
-int get_unlock_cost()
+int get_unlock_cost_jade_level()
 {
-	return 1000; // 解锁需要1000碎玉
+	return 4; // 解锁需要1块碧銮玉(高级玉)
+}
+
+/**
+ * 解锁方士的代价描述
+ */
+string get_unlock_cost_desc()
+{
+	return "1块碧銮玉(高级玉)";
 }
