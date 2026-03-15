@@ -13,6 +13,7 @@ protected void create(){
 	exits["north"]=ROOT "/gamelib/d/congxianzhen/shangshanlu";
 	add_items(({ROOT "/gamelib/clone/npc/kunlunshan/daodezhenjun400"}));
 	add_items(({ROOT "/gamelib/clone/npc/human_npc/human_gud50"}));
+	add_items(({ROOT "/gamelib/clone/npc/fangshi_teacher"}));
 }
 int is_bedroom()
 {

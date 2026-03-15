@@ -11,6 +11,7 @@ protected void create(){
 	exits["south"]=ROOT "/gamelib/d/jinaodao/chucuntulu";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/daocaoxiaodian";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/yuhuacun";
+	add_items(({ROOT "/gamelib/clone/npc/fangshi_teacher"}));
 }
 int is_bedroom()
 {

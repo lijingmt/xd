@@ -1,0 +1,54 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NPC;
+
+protected void create(){
+	name=object_name(this_object());
+	desc="一位仙风道骨的方士，精通召唤之术，可以传授你方士的技能。\n";
+	set_raceId("third");
+	set_profeId("fangshi");
+	sex="male";
+	gender="男";
+	picture="humanlike_male";
+	_npcLevel=80;
+	name_cn="方士传人";
+	setup_npc();
+}
+
+string query_words(){
+	string s = "";
+	object me = this_player();
+	if(!me) return ::query_words();
+
+	s += ::query_words();
+	if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
+		s += name_cn + "说道：方士之道，在于召唤灵兽助战。\n";
+		s += "虎灵主攻击，鹤灵主治疗，龟灵主防御。\n";
+		s += "三灵合一，则可发挥最大威力！\n";
+	}
+	else{
+		s += name_cn + "说道：只有方士才能学习召唤之术。\n";
+	}
+	return s;
+}
+
+string query_links(void|int count){
+	string tmp = "";
+	object me = this_player();
+	if(!me) return ::query_links(count);
+
+	tmp += ::query_links(count);
+
+	// 方士可以购买技能书
+	if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
+		tmp += "[学习方士技能:buy_items book fangshi]\n";
+	}
+
+	// 如果是钻石会员且未解锁，显示解锁选项
+	int can_result = SEASONALD->can_create_fangshi(me);
+	if(can_result == 2){  // 需要解锁
+		tmp += "[解锁方士职业:unlock_fangshi]\n";
+	}
+
+	return tmp;
+}

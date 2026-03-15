@@ -100,6 +100,8 @@
 #define VIPD ((object)(ROOT "/gamelib/single/daemons/vipd"))
 //赛季角色系统
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
+//召唤系统
+#define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
 //游戏公告
 #define MSGD ((object)(ROOT "/gamelib/single/daemons/messaged"))
 //抽奖模块

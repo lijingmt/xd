@@ -21,7 +21,7 @@ protected void create(){
 	need_money=50;
 }
 int read(){
-	int result=::beidong_read();
+	int result=::read();
 	if(read_flag==0){
 		remove();
 	}

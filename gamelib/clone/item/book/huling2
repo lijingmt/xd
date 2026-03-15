@@ -16,12 +16,11 @@ protected void create(){
 	skill_bname="huling";
 	level_limit=20;
 	profe_read_limit="方士";
-	beidong_level=0;
 	need_yushi=15;
 	need_money=400;
 }
 int read(){
-	int result=::zhudong_read();
+	int result=::read();
 	if(read_flag==0){
 		remove();
 	}
