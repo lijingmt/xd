@@ -4,17 +4,18 @@
 protected mapping(string:int) m_profe = ([
 	"jianxian" : 1,
 	"yushi" : 2,
-	"zhuxian" : 3, 
-	"kuangyao" : 4, 
-	"wuyao" : 5, 
+	"zhuxian" : 3,
+	"kuangyao" : 4,
+	"wuyao" : 5,
 	"yinggui" : 6,
-	"humanlike" : 7,
-	"beast" : 8, 
-	"bird" : 9, 
-	"fish" : 10, 
-	"amphibian" : 11, 
-	"bugs" : 12, 
-	"dog" : 13 
+	"fangshi" : 7,
+	"humanlike" : 8,
+	"beast" : 9,
+	"bird" : 10,
+	"fish" : 11,
+	"amphibian" : 12,
+	"bugs" : 13,
+	"dog" : 14
 ]);
 //返回给玩家表现层显示用的/////////////////////////////////////////////////
 string query_phy_dodge_str(){
@@ -56,25 +57,31 @@ float query_phy_dodge(){
 				result = (((float)attribute/50)+(float)equip_add)*0.75;	
 			break;
 			case 6://影鬼
-				result = (((float)attribute/40)+(float)equip_add)*0.75;	
+				result = (((float)attribute/40)+(float)equip_add)*0.75;
 			break;
-			case 7://人形 包括人类和妖魔
+			case 7://方士
+				result = (((float)attribute/50)+(float)equip_add)*0.75;
+			break;
+			case 8://人形 包括人类和妖魔
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
-			case 8://野兽
-				result = ((float)attribute/50)+(float)equip_add;	
+			case 9://野兽
+				result = ((float)attribute/50)+(float)equip_add;
 			break;
-			case 9://飞禽
-				result = ((float)attribute/30)+(float)equip_add;	
+			case 10://飞禽
+				result = ((float)attribute/30)+(float)equip_add;
 			break;
-			case 10://鱼
-				result = ((float)attribute/50)+(float)equip_add;	
+			case 11://鱼
+				result = ((float)attribute/50)+(float)equip_add;
 			break;
-			case 11://两栖动物
-				result = ((float)attribute/50)+(float)equip_add;	
+			case 12://两栖动物
+				result = ((float)attribute/50)+(float)equip_add;
 			break;
-			case 12://虫类
-				result = ((float)attribute/50)+(float)equip_add;	
+			case 13://虫类
+				result = ((float)attribute/50)+(float)equip_add;
+			break;
+			case 14://狗
+				result = ((float)attribute/50)+(float)equip_add;
 			break;
 		}
 	}
@@ -112,25 +119,31 @@ float query_phy_hitte(){
 				result = (float)attribute+(float)equip_add+10;	
 			break;
 			case 6://影鬼
-				result = (float)attribute+(float)equip_add+5;	
+				result = (float)attribute+(float)equip_add+5;
 			break;
-			case 7://人形 包括人类和妖魔
+			case 7://方士
+				result = (float)attribute+(float)equip_add+10;
+			break;
+			case 8://人形 包括人类和妖魔
 				result = (float)attribute+(float)equip_add;
 			break;
-			case 8://野兽
-				result = (float)attribute+(float)equip_add;	
+			case 9://野兽
+				result = (float)attribute+(float)equip_add;
 			break;
-			case 9://飞禽
-				result = (float)attribute+(float)equip_add;	
+			case 10://飞禽
+				result = (float)attribute+(float)equip_add;
 			break;
-			case 10://鱼
-				result = (float)attribute+(float)equip_add;	
+			case 11://鱼
+				result = (float)attribute+(float)equip_add;
 			break;
-			case 11://两栖动物
-				result = (float)attribute+(float)equip_add;	
+			case 12://两栖动物
+				result = (float)attribute+(float)equip_add;
 			break;
-			case 12://虫类
-				result = (float)attribute+(float)equip_add;	
+			case 13://虫类
+				result = (float)attribute+(float)equip_add;
+			break;
+			case 14://狗
+				result = (float)attribute+(float)equip_add;
 			break;
 		}
 	}
@@ -168,25 +181,31 @@ float query_phy_baoji(){
 				result = (5.00+(float)equip_add)*0.75;	
 			break;
 			case 6://影鬼
-				result = (5.00+((float)attribute/20)+(float)equip_add)*0.75;	
+				result = (5.00+((float)attribute/20)+(float)equip_add)*0.75;
 			break;
-			case 7://人形 包括人类和妖魔
-				result = 5.00+(float)equip_add;	
+			case 7://方士
+				result = (5.00+(float)equip_add)*0.75;
 			break;
-			case 8://野兽
-				result = 5.00+((float)attribute/40)+(float)equip_add;	
+			case 8://人形 包括人类和妖魔
+				result = 5.00+(float)equip_add;
 			break;
-			case 9://飞禽
-				result = 5.00+((float)attribute/30)+(float)equip_add;	
+			case 9://野兽
+				result = 5.00+((float)attribute/40)+(float)equip_add;
 			break;
-			case 10://鱼
-				result = 5.00+(float)equip_add;	
+			case 10://飞禽
+				result = 5.00+((float)attribute/30)+(float)equip_add;
 			break;
-			case 11://两栖动物
-				result = 5.00+(float)equip_add;	
+			case 11://鱼
+				result = 5.00+(float)equip_add;
 			break;
-			case 12://虫类
-				result = 5.00+(float)equip_add;	
+			case 12://两栖动物
+				result = 5.00+(float)equip_add;
+			break;
+			case 13://虫类
+				result = 5.00+(float)equip_add;
+			break;
+			case 14://狗
+				result = 5.00+(float)equip_add;
 			break;
 		}
 	}
@@ -227,25 +246,31 @@ int query_base_damage(){
 				result = str/10;	
 			break;
 			case 6://影鬼
-				result = dex;	
+				result = dex;
 			break;
-			case 7://人形 包括人类和妖魔
-				result = str;	
+			case 7://方士
+				result = str/8+dex/10;  // 方士自身攻击较弱，主要靠召唤物
 			break;
-			case 8://野兽
-				result = str;	
+			case 8://人形 包括人类和妖魔
+				result = str;
 			break;
-			case 9://飞禽
+			case 9://野兽
+				result = str;
+			break;
+			case 10://飞禽
 				result = str/2+dex/2;
 			break;
-			case 10://鱼
-				result = str;	
+			case 11://鱼
+				result = str;
 			break;
-			case 11://两栖动物
-				result = str;	
+			case 12://两栖动物
+				result = str;
 			break;
-			case 12://虫类
-				result = str;	
+			case 13://虫类
+				result = str;
+			break;
+			case 14://狗
+				result = str;
 			break;
 		}
 	}
@@ -399,24 +424,30 @@ int query_defend_power(){
 				result = str+equip_add;	
 			break;
 			case 6://影鬼
-				result = str*2+equip_add;	
-			break;
-			case 7://人形 包括人类和妖魔
-				result = str+equip_add;	
-			break;
-			case 8://野兽
-				result = str*2+equip_add;	
-			break;
-			case 9://飞禽
 				result = str*2+equip_add;
 			break;
-			case 10://鱼
+			case 7://方士
+				result = str+equip_add;  // 方士防御中等，类似羽士/巫妖
+			break;
+			case 8://人形 包括人类和妖魔
+				result = str+equip_add;
+			break;
+			case 9://野兽
 				result = str*2+equip_add;
 			break;
-			case 11://两栖动物
+			case 10://飞禽
 				result = str*2+equip_add;
 			break;
-			case 12://虫类
+			case 11://鱼
+				result = str*2+equip_add;
+			break;
+			case 12://两栖动物
+				result = str*2+equip_add;
+			break;
+			case 13://虫类
+				result = str*2+equip_add;
+			break;
+			case 14://狗
 				result = str*2+equip_add;
 			break;
 		}

@@ -141,6 +141,11 @@ void set_att_by_level(){
 		this_object()->set_dex(14+(int)(level_now*2.5));
 		this_object()->set_think(3+level_now);
 	}
+	if(this_object()->query_profeId()=="fangshi"){//方士 - 中立职业，召唤师
+		this_object()->set_str(10+(int)(level_now*1.5));
+		this_object()->set_dex(5+(int)(level_now*0.8));
+		this_object()->set_think(12+(int)(level_now*2));
+	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());
 	this_object()->set_mofa(this_object()->query_mofa_max());

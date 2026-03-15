@@ -509,8 +509,8 @@ protected mapping(string:string) races=([
 //鱼：fish 两栖动物：amphibian 昆虫：bugs
 string profeId;
 read_write(profeId);
-protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","humanlike","beast","bird","fish","amphibian","bugs","dog"});
-protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
+protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","humanlike","beast","bird","fish","amphibian","bugs","dog"});
+protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
 protected mapping(string:string) profes=([
 		profeKindList[0]:profeNameList[0],
 		profeKindList[1]:profeNameList[1],
@@ -524,7 +524,8 @@ protected mapping(string:string) profes=([
 		profeKindList[9]:profeNameList[9],
 		profeKindList[10]:profeNameList[10],
 		profeKindList[11]:profeNameList[11],
-		profeKindList[12]:profeNameList[12]
+		profeKindList[12]:profeNameList[12],
+		profeKindList[13]:profeNameList[13]
 		]);
 ////////////////阵营/////////////////////////////////////////////////
 string query_race_cn(string rid){

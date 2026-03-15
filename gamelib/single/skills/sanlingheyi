@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】三灵合一";
+	desc="三大灵兽同时附体，获得全面强化，是方士的最强绝技";
+	s_type="zhudong";
+	s_skill_type="buff";
+	s_curse_type="all"; // 全面提升
+	s_delayTime=300; // 5分钟冷却
+	s_lasttime=15; // 持续15秒
+	// 攻击增加
+	performs_attack[1]=2000;
+	performs_attack[2]=3500;
+	performs_attack[3]=5500;
+	performs_attack[4]=8000;
+	performs_attack[5]=11000;
+	performs_cast[1]=200;
+	performs_cast[2]=250;
+	performs_cast[3]=300;
+	performs_cast[4]=350;
+	performs_cast[5]=400;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=50;
+	performs_level_limit[2]=70;
+	performs_level_limit[3]=90;
+	performs_level_limit[4]=110;
+	performs_level_limit[5]=130;
+	performs_desc[1]="15秒内攻击+2000，防御+1500，每秒恢复500生命，暴击+20%，消耗法力200点";
+	performs_desc[2]="15秒内攻击+3500，防御+2500，每秒恢复800生命，暴击+25%，消耗法力250点";
+	performs_desc[3]="15秒内攻击+5500，防御+3500，每秒恢复1200生命，暴击+30%，消耗法力300点";
+	performs_desc[4]="15秒内攻击+8000，防御+4500，每秒恢复1500生命，暴击+35%，消耗法力350点";
+	performs_desc[5]="15秒内攻击+11000，防御+5500，每秒恢复2000生命，暴击+40%，消耗法力400点";
+}
