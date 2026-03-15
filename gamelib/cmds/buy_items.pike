@@ -23,17 +23,19 @@ int main(string|zero arg)
 		s = "您想购买些什么：\n";
 		s += "-------\n";
 		if(type == "jianxian")
-			s += "剑仙|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]\n";
+			s += "剑仙|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type == "yushi")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|羽士|[诛仙:buy_items "+item_type+" zhuxian]\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|羽士|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type == "zhuxian")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|诛仙\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|诛仙|[方士:buy_items "+item_type+" fangshi]\n";
+		else if(type == "fangshi")
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|方士\n";
 		else if(type == "kuangyao")
-			s += "狂妖|[巫妖:buy_items "+item_type+" wuyao]|[影鬼:buy_items "+item_type+" yinggui]\n";
+			s += "狂妖|[巫妖:buy_items "+item_type+" wuyao]|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type == "wuyao")
-			s += "[狂妖:buy_items "+item_type+" kuangyao]|巫妖|[影鬼:buy_items "+item_type+" yinggui]\n";
+			s += "[狂妖:buy_items "+item_type+" kuangyao]|巫妖|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type == "yinggui")
-			s += "[狂妖:buy_items "+item_type+" kuangyao]|[巫妖:buy_items "+item_type+" kuangyao]|影鬼\n";
+			s += "[狂妖:buy_items "+item_type+" kuangyao]|[巫妖:buy_items "+item_type+" wuyao]|影鬼|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type=="goudou")
 			s += "狗豆|[狗粮:buy_items "+item_type+" gouliang]|[骨头:buy_items "+item_type+" gutou]\n";
 		else if(type=="gouliang")

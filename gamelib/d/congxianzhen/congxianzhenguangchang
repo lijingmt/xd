@@ -25,7 +25,7 @@ string query_links(){
 	if(player->have_name_cn() && player->set_pic_ok==0)
 		tmp+="[改头换面:set_pic]\n";
 	else if(!player->have_name_cn()){
-		if(player->query_raceId()==room_race)
+		if(player->query_raceId()==room_race || player->query_raceId()=="third")  // third=方士可在人类区取名字
 			tmp+="[取名字:set_name_cn]\n";
 	}
 	//if(player->set_pic_ok==0)
@@ -166,7 +166,7 @@ int set_pic(string|zero arg)
 		s += "请选择你的头像：\n";
 		string raceId = me->query_raceId();
 		string sex = me->sex || "male";  // 直接访问 sex 属性，默认为 male
-		if(raceId=="human"){
+		if(raceId=="human" || raceId=="third"){  // third = 方士/中立阵营
 			if(sex=="male"){
 				for(int i=1;i<12;i++){
 					s += "[imgurl loading:/"+GAME_NAME+"/images/h_male"+i+".gif]";

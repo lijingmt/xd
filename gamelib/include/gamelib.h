@@ -98,6 +98,8 @@
 #define BROADCASTD ((object)(ROOT "/gamelib/single/daemons/broadcastd"))
 //VIP系统
 #define VIPD ((object)(ROOT "/gamelib/single/daemons/vipd"))
+//赛季角色系统
+#define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
 //游戏公告
 #define MSGD ((object)(ROOT "/gamelib/single/daemons/messaged"))
 //抽奖模块

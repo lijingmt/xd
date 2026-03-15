@@ -24,7 +24,7 @@ string query_links(){
 	if(player->have_name_cn() && player->set_pic_ok==0)
 		tmp+="[改头换面:set_pic]\n";
 	else if(!player->have_name_cn()){
-		if(player->query_raceId()==room_race)
+		if(player->query_raceId()==room_race || player->query_raceId()=="third")  // third=方士可在妖魔区取名字
 			tmp+="[取名字:set_name_cn]\n";
 	}
 
@@ -160,7 +160,7 @@ int set_pic(string|zero arg)
 	}
 	if(!arg){
 		s += "请选择你的头像：\n";
-		if(me->query_raceId()=="human"){
+		if(me->query_raceId()=="human" || me->query_raceId()=="third"){  // third = 方士
 			if(me->query_sex()=="male"){
 				for(int i=1;i<12;i++){
 					s += "[imgurl loading:/"+GAME_NAME+"/images/h_male"+i+".gif]";
