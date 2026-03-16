@@ -110,6 +110,18 @@ void setup_player(string rid, string pid){
 			this_object()->set_lunck(0);
 		}
 	}
+	else if(rid&&rid=="third"){
+		if(pid&&pid=="fangshi"){
+			kind_cn = "中立";
+			unit = "位";
+			this_object()->set_life(100);
+			this_object()->set_mofa(50);
+			this_object()->set_str(10);
+			this_object()->set_dex(8);
+			this_object()->set_think(8);
+			this_object()->set_lunck(0);
+		}
+	}
 }
 //每次调用reconnect将会传回密码字段进行验证
 int reconnect(string _passwd){
