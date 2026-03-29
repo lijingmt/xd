@@ -133,6 +133,12 @@ void run_tests()
 	// 运行装备掉落方士职业测试
 	run_test_unit_file("test_equipment_drop_fangshi.pike");
 
+	// 运行技能书学习测试
+	run_test_unit_file("test_skill_book_learning.pike");
+
+	// 运行技能学习模拟测试
+	run_test_unit_file("test_skill_learning_simulation.pike");
+
 	werror("\n========== 所有测试完成 ==========\n");
 }
 

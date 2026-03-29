@@ -518,6 +518,74 @@ void check_owner_status() {
 
 ---
 
+## 技能书学习系统
+
+### ⚠️ 重要踩坑：职业匹配问题
+
+#### 问题描述
+
+方士玩家学习技能书时提示职业限制错误，即使职业是方士。
+
+**错误信息：**
+```
+你仔细研读【方】灵一触，但是该技能并非你这个职业所能领悟的！
+```
+
+#### 根本原因
+
+`readed.pike` 中的职业比较逻辑：
+- 技能书使用职业ID（如 `"fangshi"`）从CSV导入
+- 但代码只比较职业中文名（如 `"方士"`）
+- 两者不匹配导致学习失败
+
+**修复前代码：**
+```pike
+// 只比较职业中文名
+if(this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId()))
+```
+
+#### 解决方案
+
+**修复后代码（支持两种格式）：**
+```pike
+// 修复：比较职业ID而不是职业名称
+// 之前比较 profe_read_limit(如"fangshi") 与 query_profe_cn()(如"方士") 会失败
+if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId()))
+```
+
+**向后兼容：**
+- 老技能书使用中文名（`profe_read_limit="方士"`）→ 匹配 `query_profe_cn()`
+- 新技能书使用职业ID（`profe_read_limit="fangshi"`）→ 匹配 `query_profeId()`
+- OR逻辑确保两种格式都能正常工作
+
+#### 修复文件
+
+| 文件 | 修改内容 |
+|------|----------|
+| `lowlib/mudlib/inherit/feature/readed.pike` | 修复 `read()`, `beidong_read()`, `spec_read()` 三个函数中的职业比较 |
+
+### 技能书学习单元测试
+
+| 测试文件 | 测试内容 |
+|----------|----------|
+| `test_unit/test_skill_book_learning.pike` | 技能书文件静态检查（10个测试） |
+| `test_unit/test_skill_learning_simulation.pike` | 真实模拟学习逻辑（11个测试） |
+
+### 学习返回码
+
+| 返回码 | 含义 | 提示消息 |
+|--------|------|----------|
+| 0 | 学习失败 | 通用错误 |
+| 1 | 学习成功 | 成功学会了技能！ |
+| 2 | 已经学会 | 你已经学会该技能了 |
+| 3 | 职业限制 | 该技能并非你这个职业所能领悟的 |
+| 4 | 等级限制 | 你等级不够，无法领悟该技能 |
+| 5 | 必须学会前一级 | 必须学会前一级技能 |
+| 6 | 同级不能学习 | 已学会同级技能 |
+| 7 | 跳级学习不能 | 不能跳级学习技能 |
+
+---
+
 ## 关键文件清单
 
 ### 方士核心文件
@@ -548,17 +616,22 @@ gamelib/
 └── cmds/
     └── summon.pike                      # 召唤命令
 
-lowlib/wapmud2/
-├── cmds/
-│   └── summon_command.pike              # 召令命令
-└── inherit/
-    └── summon.pike                      # 召唤继承
+lowlib/
+├── mudlib/inherit/feature/
+│   └── readed.pike                      # 技能书学习（已修复职业匹配）
+└── wapmud2/
+    ├── cmds/
+    │   └── summon_command.pike          # 召令命令
+    └── inherit/
+        └── summon.pike                  # 召唤继承
 
 test_unit/
 ├── test_fangshi.pike                    # 基础测试
 ├── test_fangshi_pk.pike                 # PK测试
 ├── test_fangshi_edge_cases.pike         # 边缘测试
-└── test_equipment_drop_fangshi.pike     # 装备测试
+├── test_equipment_drop_fangshi.pike     # 装备测试
+├── test_skill_book_learning.pike        # 技能书静态检查
+└── test_skill_learning_simulation.pike  # 技能学习模拟测试
 ```
 
 ---

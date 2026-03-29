@@ -16,7 +16,9 @@ int read(){
 	object me=this_player();
 	if(me&&me->is_character()){
 		if(me->query_level()>=this_object()->level_limit){//等级符合要求可以学习
-			if(this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){ //职业要求要求可以学习
+			// 修复：比较职业ID而不是职业名称
+			// 之前比较 profe_read_limit(如"fangshi") 与 query_profe_cn()(如"方士") 会失败
+			if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){ //职业要求要求可以学习
 				if(me->skills[this_object()->skill_bname]==0){
 					me->skills[this_object()->skill_bname]=({1,0});
 					this_object()->read_flag = 0;
@@ -54,7 +56,8 @@ int beidong_read(){
 	object me=this_player();
 	if(me&&me->is_character()){
 		if(me->query_level()>=this_object()->level_limit){//等级符合要求可以学习
-			if(this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){//职业要求要求可以学习
+			// 修复：比较职业ID而不是职业名称
+			if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){//职业要求要求可以学习
 				//如果第一次学习该技能,并且该技能书为1级,可以学习到一级
 				if(me->skills[this_object()->skill_bname]==0){
 					if(this_object()->beidong_level==1){//该被动技能书为1级可以直接学到
@@ -174,7 +177,8 @@ int spec_read(string old){
 	object me=this_player();
 	if(me&&me->is_character()){
 		if(me->query_level()>=this_object()->level_limit){//等级符合要求可以学习
-			if(this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){ //职业要求要求可以学习
+			// 修复：比较职业ID而不是职业名称
+			if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){ //职业要求要求可以学习
 				if(!me->skills[this_object()->skill_bname]){
 					if(me->skills[old]){
 						m_delete(me->skills,old);
