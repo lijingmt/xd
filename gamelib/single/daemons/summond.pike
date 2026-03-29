@@ -20,6 +20,17 @@ private mapping(string:mapping) active_summons = ([]);
 // 每个玩家的最大召唤数量
 private mapping(string:int) max_summons = ([]);
 
+// 辅助函数：向房间广播消息
+void tell_room_daemon(object env, string msg){
+	if(!env)
+		return;
+	foreach(all_inventory(env), object ob){
+		if(ob && ob->is("living")){
+			tell_object(ob, msg);
+		}
+	}
+}
+
 /**
  * 获取玩家的最大召唤数量
  */
@@ -139,7 +150,7 @@ object summon_creature(string player_name, string summon_type, int duration, int
 	summon->set_heart_beat(1);
 
 	// 广播
-	tell_room(env, player->query_name_cn() + "召唤出了" + summon_name + "！\n");
+	tell_room_daemon(env, player->query_name_cn() + "召唤出了" + summon_name + "！\n");
 
 	return summon;
 }
@@ -166,7 +177,7 @@ void dismiss_creature(string player_name, string summon_type){
 	if(summon){
 		object env = environment(summon);
 		if(env){
-			tell_room(env, summon->query_name_cn() + "化作光芒消失了。\n");
+			tell_room_daemon(env, summon->query_name_cn() + "化作光芒消失了。\n");
 		}
 		destruct(summon);
 	}
@@ -187,12 +198,13 @@ void dismiss_all(string player_name){
 	m_delete(active_summons, player_name);
 
 	// 逐个销毁召唤物
-	foreach(player_summons, string summon_type){
+	array(string) summon_types = indices(player_summons);
+	foreach(summon_types, string summon_type){
 		object summon = player_summons[summon_type];
 		if(summon){
 			object env = environment(summon);
 			if(env){
-				tell_room(env, summon->query_name_cn() + "化作光芒消失了。\n");
+				tell_room_daemon(env, summon->query_name_cn() + "化作光芒消失了。\n");
 			}
 			destruct(summon);
 		}

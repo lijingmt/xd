@@ -42,7 +42,7 @@ int main(string|zero arg)
 			s += "你当前没有召唤任何灵兽。\n";
 		}
 		else{
-			foreach(string summon_type, object summon; summons){
+			foreach(summons; string summon_type; object summon){
 				if(summon){
 					s += summon->query_name_cn() + " - " + summon_type + "\n";
 				}
