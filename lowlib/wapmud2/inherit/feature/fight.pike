@@ -253,7 +253,7 @@ void perform(string name,void|int flag){
 			else{//第二种情况；技能分为几个等级，每个等级对应的lv要求不同，某个级别不能使用，则自动判断其能否使用较低的级别，反复判断直到最低级别；
 				for(int i=sizeof(lvLimit);i>0;i--)
 				{
-					if(this_object()->query_level>=lvLimit[i])
+					if(this_object()->query_level()>=lvLimit[i])
 					{
 						can_skill_level = i;
 					}
