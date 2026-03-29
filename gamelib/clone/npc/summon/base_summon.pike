@@ -1,6 +1,7 @@
 #include <globals.h>
+#include <wapmud2.h>
 #include <gamelib/include/gamelib.h>
-inherit GAMELIB_NPC;
+inherit WAP_NPC;
 
 /**
  * 召唤物基类
