@@ -17,8 +17,6 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 
-inherit LOW_DAEMON;
-
 // 测试结果统计
 mapping(string:int) test_results = ([
 	"total": 0,
@@ -29,7 +27,7 @@ mapping(string:int) test_results = ([
 // 辅助函数：输出测试结果
 void test_start(string test_name) {
 	test_results["total"]++;
-	werror("\n[测试 %d] %s\n", test_results["total"], test_name);
+	werror("\n[方士测试 %d] %s\n", test_results["total"], test_name);
 }
 
 void test_pass() {
@@ -44,7 +42,7 @@ void test_fail(string reason) {
 
 void print_summary() {
 	werror("\n========================================\n");
-	werror("测试完成！\n");
+	werror("方士系统测试完成！\n");
 	werror("总计: %d, 通过: %d, 失败: %d\n",
 		test_results["total"], test_results["passed"], test_results["failed"]);
 	if(test_results["failed"] == 0) {
@@ -108,7 +106,6 @@ void test_fangshi_books_compile() {
 	foreach(book_files, string book_name) {
 		string book_path = ROOT + "/gamelib/clone/item/book/" + book_name;
 		if(!Stdio.exist(book_path)) {
-			// 文件不存在，跳过
 			continue;
 		}
 		mixed err = catch {
@@ -365,11 +362,54 @@ void test_fangshi_npc() {
 	}
 }
 
-// 主测试运行函数
+// 测试8: 心跳逻辑修复验证
+void test_heartbeat_fix() {
+	test_start("心跳逻辑修复验证");
+
+	// 检查 heling.pike 是否使用了计数器而不是 time() % n
+	string heling_path = ROOT + "/gamelib/clone/npc/summon/heling.pike";
+	string content = Stdio.read_file(heling_path);
+
+	if(!content) {
+		test_fail("无法读取 heling.pike");
+		return;
+	}
+
+	if(has_value(content, "heal_counter")) {
+		werror("  ✓ heling.pike 使用了计数器\n");
+	} else if(has_value(content, "time() %")) {
+		test_fail("heling.pike 仍在使用 time() % n，应该使用计数器");
+		return;
+	} else {
+		werror("  ! heling.pike 可能没有治疗计时逻辑\n");
+	}
+
+	// 检查 guiling.pike
+	string guiling_path = ROOT + "/gamelib/clone/npc/summon/guiling.pike";
+	content = Stdio.read_file(guiling_path);
+
+	if(!content) {
+		test_fail("无法读取 guiling.pike");
+		return;
+	}
+
+	if(has_value(content, "taunt_counter")) {
+		werror("  ✓ guiling.pike 使用了计数器\n");
+	} else if(has_value(content, "time() %")) {
+		test_fail("guiling.pike 仍在使用 time() % n，应该使用计数器");
+		return;
+	} else {
+		werror("  ! guiling.pike 可能没有嘲讽计时逻辑\n");
+	}
+
+	test_pass();
+}
+
+// 主测试运行函数 - 由 testunitd 调用
 void run_tests() {
 	werror("\n");
 	werror("╔════════════════════════════════════════╗\n");
-	werror("║   方士系统单元测试                        ║\n");
+	werror("║   方士系统单元测试                      ║\n");
 	werror("╚════════════════════════════════════════╝\n");
 
 	test_fangshi_skills_compile();
@@ -379,11 +419,13 @@ void run_tests() {
 	test_skill_config_integrity();
 	test_summon_command();
 	test_fangshi_npc();
+	test_heartbeat_fix();
 
 	print_summary();
 }
 
-protected void create() {
-	// 延迟3秒后运行测试，确保系统完全启动
-	call_out(run_tests, 3);
+// 如果直接运行此文件（非守护进程模式），执行测试
+int main() {
+	run_tests();
+	return 0;
 }

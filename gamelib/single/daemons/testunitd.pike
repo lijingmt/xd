@@ -9,6 +9,35 @@
 
 inherit LOW_DAEMON;
 
+// 加载并运行 test_unit 目录下的测试文件
+void run_test_unit_file(string test_name) {
+	werror("\n[运行测试] %s\n", test_name);
+	string test_path = ROOT + "/test_unit/" + test_name;
+
+	if(!Stdio.exist(test_path)) {
+		werror("  ✗ 测试文件不存在: %s\n", test_path);
+		return;
+	}
+
+	mixed err = catch {
+		program p = (program)test_path;
+		if(p) {
+			werror("  ✓ 测试文件加载成功\n");
+			// 创建测试对象并调用 run_tests()
+			object test_obj = p();
+			if(test_obj && functionp(test_obj->run_tests)) {
+				test_obj->run_tests();
+			}
+		} else {
+			werror("  ✗ 测试文件编译失败\n");
+		}
+	};
+
+	if(err) {
+		werror("  ✗ 错误: %s\n", describe_error(err));
+	}
+}
+
 // 运行测试
 void run_tests()
 {
@@ -89,14 +118,14 @@ void run_tests()
 		}
 	}
 
-	// 运行方士系统测试
-	werror("\n========== 运行方士系统测试 ==========\n");
-	if(TESTFANGSHID) {
-		werror("  调用 TESTFANGSHID->run_tests()...\n");
-		TESTFANGSHID->run_tests();
-	} else {
-		werror("  ! TESTFANGSHID 守护进程未加载\n");
-	}
+	// 运行 test_unit 目录下的方士系统测试
+	werror("\n========== 运行 test_unit 测试文件 ==========\n");
+
+	// 运行方士基础测试
+	run_test_unit_file("test_fangshi.pike");
+
+	// 运行方士集成测试
+	run_test_unit_file("test_fangshi_integration.pike");
 
 	werror("\n========== 所有测试完成 ==========\n");
 }
