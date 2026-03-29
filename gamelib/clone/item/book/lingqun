@@ -3,21 +3,21 @@
 inherit WAP_BOOK;
 protected void create(){
 	name=object_name(this_object());
-	name_cn="【方】三灵合一(2级)";
+	name_cn="【方】灵群";
 	unit="本";
 	picture=name;
-	desc="三大灵兽同时附体，获得全面强化（强化版）\n";
+	desc="召唤灵群攻击，对多个敌人造成伤害并减速\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);
 	set_item_canSend(1);
 	set_item_canStorage(1);
-	value=700;
-	skill_bname="sanlingheyi";
-	level_limit=65;
+	value=250;
+	skill_bname="lingqun";
+	level_limit=22;
 	profe_read_limit="方士";
-	need_yushi=490;
-	need_money=0;
+	need_yushi=24;
+	need_money=250;
 }
 int read(){
 	int result=::read();

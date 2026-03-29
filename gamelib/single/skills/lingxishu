@@ -1,0 +1,37 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵吸术";
+	desc="吸取敌人的生命和法力";
+	s_type="zhudong";
+	s_skill_type="phy";
+	s_delayTime=15; // 15秒冷却
+	performs_attack[1]=250;
+	performs_attack[2]=400;
+	performs_attack[3]=600;
+	performs_attack[4]=850;
+	performs_attack[5]=1150;
+	performs_per[1]=18;
+	performs_per[2]=22;
+	performs_per[3]=26;
+	performs_per[4]=30;
+	performs_per[5]=34;
+	performs_cast[1]=50;
+	performs_cast[2]=60;
+	performs_cast[3]=70;
+	performs_cast[4]=80;
+	performs_cast[5]=90;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=19;
+	performs_level_limit[2]=39;
+	performs_level_limit[3]=59;
+	performs_level_limit[4]=79;
+	performs_level_limit[5]=99;
+	performs_desc[1]="造成250点伤害，恢复125点生命和62点法力，消耗法力50点";
+	performs_desc[2]="造成400点伤害，恢复200点生命和100点法力，消耗法力60点";
+	performs_desc[3]="造成600点伤害，恢复300点生命和150点法力，消耗法力70点";
+	performs_desc[4]="造成850点伤害，恢复425点生命和212点法力，消耗法力80点";
+	performs_desc[5]="造成1150点伤害，恢复575点生命和287点法力，消耗法力90点";
+}

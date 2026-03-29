@@ -1,0 +1,37 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵气术";
+	desc="汇聚灵气攻击，对多个敌人造成伤害";
+	s_type="zhudong";
+	s_skill_type="phy";
+	s_delayTime=12; // 12秒冷却
+	performs_attack[1]=200;
+	performs_attack[2]=350;
+	performs_attack[3]=550;
+	performs_attack[4]=800;
+	performs_attack[5]=1100;
+	performs_per[1]=25;
+	performs_per[2]=30;
+	performs_per[3]=35;
+	performs_per[4]=40;
+	performs_per[5]=45;
+	performs_cast[1]=55;
+	performs_cast[2]=65;
+	performs_cast[3]=75;
+	performs_cast[4]=85;
+	performs_cast[5]=95;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=12;
+	performs_level_limit[2]=32;
+	performs_level_limit[3]=52;
+	performs_level_limit[4]=72;
+	performs_level_limit[5]=92;
+	performs_desc[1]="攻击最多3个敌人，每个造成200点伤害，消耗法力55点";
+	performs_desc[2]="攻击最多4个敌人，每个造成350点伤害，消耗法力65点";
+	performs_desc[3]="攻击最多5个敌人，每个造成550点伤害，消耗法力75点";
+	performs_desc[4]="攻击最多6个敌人，每个造成800点伤害，消耗法力85点";
+	performs_desc[5]="攻击最多7个敌人，每个造成1100点伤害，消耗法力95点";
+}

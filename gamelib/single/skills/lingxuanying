@@ -1,0 +1,34 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵玄影";
+	desc="化身为灵玄影，提升暴击和闪避";
+	s_type="zhudong";
+	s_skill_type="buff";
+	s_curse_type="all";
+	s_delayTime=70; // 70秒冷却
+	s_lasttime=15; // 持续15秒
+	performs_attack[1]=500;
+	performs_attack[2]=800;
+	performs_attack[3]=1200;
+	performs_attack[4]=1700;
+	performs_attack[5]=2300;
+	performs_cast[1]=90;
+	performs_cast[2]=100;
+	performs_cast[3]=110;
+	performs_cast[4]=120;
+	performs_cast[5]=130;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=28;
+	performs_level_limit[2]=48;
+	performs_level_limit[3]=68;
+	performs_level_limit[4]=88;
+	performs_level_limit[5]=108;
+	performs_desc[1]="15秒内暴击率提升25%，闪避率提升25%，攻击力增加500，消耗法力90点";
+	performs_desc[2]="15秒内暴击率提升30%，闪避率提升30%，攻击力增加800，消耗法力100点";
+	performs_desc[3]="15秒内暴击率提升35%，闪避率提升35%，攻击力增加1200，消耗法力110点";
+	performs_desc[4]="15秒内暴击率提升40%，闪避率提升40%，攻击力增加1700，消耗法力120点";
+	performs_desc[5]="15秒内暴击率提升45%，闪避率提升45%，攻击力增加2300，消耗法力130点";
+}

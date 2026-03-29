@@ -1,0 +1,37 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵裂爆";
+	desc="聚能后释放强烈灵爆，造成巨额伤害";
+	s_type="zhudong";
+	s_skill_type="phy";
+	s_delayTime=30; // 30秒冷却
+	performs_attack[1]=500;
+	performs_attack[2]=800;
+	performs_attack[3]=1200;
+	performs_attack[4]=1700;
+	performs_attack[5]=2300;
+	performs_per[1]=30;
+	performs_per[2]=35;
+	performs_per[3]=40;
+	performs_per[4]=45;
+	performs_per[5]=50;
+	performs_cast[1]=80;
+	performs_cast[2]=90;
+	performs_cast[3]=100;
+	performs_cast[4]=110;
+	performs_cast[5]=120;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=23;
+	performs_level_limit[2]=43;
+	performs_level_limit[3]=63;
+	performs_level_limit[4]=83;
+	performs_level_limit[5]=103;
+	performs_desc[1]="造成500点巨额伤害，消耗法力80点";
+	performs_desc[2]="造成800点巨额伤害，消耗法力90点";
+	performs_desc[3]="造成1200点巨额伤害，消耗法力100点";
+	performs_desc[4]="造成1700点巨额伤害，消耗法力110点";
+	performs_desc[5]="造成2300点巨额伤害，消耗法力120点";
+}
