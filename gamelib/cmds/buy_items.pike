@@ -22,7 +22,11 @@ int main(string|zero arg)
 		sscanf(arg,"%s %s",item_type,type);
 		s = "您想购买些什么：\n";
 		s += "-------\n";
-		if(type == "jianxian")
+		// 如果玩家是方士，只显示方士技能书，不显示职业切换选项
+		if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
+			s += BUYD->get_buy_item_list(item_type,type);
+		}
+		else if(type == "jianxian")
 			s += "剑仙|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type == "yushi")
 			s += "[剑仙:buy_items "+item_type+" jianxian]|羽士|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]\n";
@@ -42,7 +46,9 @@ int main(string|zero arg)
 			s += "[狗豆:buy_items "+item_type+" goudou]|狗粮|[骨头:buy_items "+item_type+" gutou]\n";
 		else if(type=="gutou")
 			s += "[狗豆:buy_items "+item_type+" goudou]|[狗粮:buy_items "+item_type+" gouliang] |骨头\n";
-		s += BUYD->get_buy_item_list(item_type,type);
+		if(me->query_profeId() != "fangshi" && me->query_raceId() != "third"){
+			s += BUYD->get_buy_item_list(item_type,type);
+		}
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}

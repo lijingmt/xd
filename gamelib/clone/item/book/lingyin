@@ -1,0 +1,29 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵引";
+	unit="本";
+	picture=name;
+	desc="方士的入门修行，引导天地灵气，提升法力值\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=30;
+	skill_bname="lingyin";
+	level_limit=1;
+	profe_read_limit="方士";
+	beidong_level=1;
+	need_yushi=2;
+	need_money=30;
+}
+int read(){
+	int result=::read();
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

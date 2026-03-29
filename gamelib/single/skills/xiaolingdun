@@ -1,0 +1,34 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】小灵盾";
+	desc="凝聚灵气形成小护盾，抵挡少量伤害";
+	s_type="zhudong";
+	s_skill_type="buff";
+	s_curse_type="life_max"; // 护盾
+	s_delayTime=30; // 30秒冷却
+	s_lasttime=10; // 持续10秒
+	performs_attack[1]=500;
+	performs_attack[2]=800;
+	performs_attack[3]=1200;
+	performs_attack[4]=1800;
+	performs_attack[5]=2500;
+	performs_cast[1]=30;
+	performs_cast[2]=40;
+	performs_cast[3]=50;
+	performs_cast[4]=60;
+	performs_cast[5]=70;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=2;
+	performs_level_limit[2]=15;
+	performs_level_limit[3]=30;
+	performs_level_limit[4]=50;
+	performs_level_limit[5]=70;
+	performs_desc[1]="获得500点护盾，持续10秒，消耗法力30点";
+	performs_desc[2]="获得800点护盾，持续10秒，消耗法力40点";
+	performs_desc[3]="获得1200点护盾，持续10秒，消耗法力50点";
+	performs_desc[4]="获得1800点护盾，持续10秒，消耗法力60点";
+	performs_desc[5]="获得2500点护盾，持续10秒，消耗法力70点";
+}

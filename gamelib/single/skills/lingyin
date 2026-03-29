@@ -1,0 +1,22 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵引";
+	desc="方士的入门修行，引导天地灵气，提升法力值";
+	s_type="beidong";
+	s_skill_type="buff";
+	s_curse_type="all";
+	performs_attack[1]=50;
+	performs_attack[2]=100;
+	performs_attack[3]=200;
+	performs_attack[4]=350;
+	performs_attack[5]=500;
+	skill_type+=({"fangshi"});
+	performs_level_limit[1]=1;
+	performs_level_limit[2]=10;
+	performs_level_limit[3]=25;
+	performs_level_limit[4]=45;
+	performs_level_limit[5]=65;
+}
