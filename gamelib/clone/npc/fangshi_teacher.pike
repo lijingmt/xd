@@ -35,15 +35,10 @@ string query_words(){
 string query_links(void|int count){
 	string tmp = "";
 	object me = this_player();
-	if(!me) return ::query_links(count);
+	if(!me) return "";
 
-	tmp += ::query_links(count);
-
-	// 所有玩家都可以看到学习选项
+	// 不调用 ::query_links(count)，直接返回学习选项
 	tmp += "[学习方士技能:buy_items book fangshi]\n";
-
-	// 调试信息
-	tmp += "[调试:我可以看到这个选项]\n";
 
 	return tmp;
 }
