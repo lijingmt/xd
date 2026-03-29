@@ -2,6 +2,9 @@
 #include <gamelib/include/gamelib.h>
 inherit "/gamelib/clone/npc/summon/base_summon";
 
+// 心跳计数器，用于控制嘲讽频率
+private int taunt_counter = 0;
+
 protected void create(){
 	::create();
 	name_cn="灵龟神兽";
@@ -58,8 +61,10 @@ void heart_beat(){
 
 	object master = find_player(master_name);
 	if(master && master->query_in_combat()){
-		// 每5秒嘲讽一次
-		if(time() % 5 == 0){
+		// 使用计数器，每5次心跳嘲讽一次（约5秒）
+		taunt_counter++;
+		if(taunt_counter >= 5){
+			taunt_counter = 0;
 			taunt_enemies();
 		}
 	}

@@ -54,3 +54,13 @@ void adjust_stats_by_player(int player_level, int skill_level){
 	set_base_baoji(baoji);
 	set_base_hitte(hitte);
 }
+
+/**
+ * 虎灵特殊能力 - 暴击攻击
+ * 覆盖攻击函数，增加暴击几率
+ */
+int query_baoji(){
+	int base_baoji = ::query_baoji();
+	// 虎灵有额外的暴击加成
+	return base_baoji + 10;
+}

@@ -154,20 +154,21 @@ void dismiss_creature(string player_name, string summon_type){
 	if(!active_summons[player_name])
 		return;
 
-	object summon = active_summons[player_name][summon_type];
+	// 先从映射中移除，避免重复调用
+	object summon = m_delete(active_summons[player_name], summon_type);
+
+	// 如果没有召唤物了，清理玩家记录
+	if(sizeof(active_summons[player_name]) == 0){
+		m_delete(active_summons, player_name);
+	}
+
+	// 然后销毁召唤物对象
 	if(summon){
 		object env = environment(summon);
 		if(env){
 			tell_room(env, summon->query_name_cn() + "化作光芒消失了。\n");
 		}
 		destruct(summon);
-	}
-
-	m_delete(active_summons[player_name], summon_type);
-
-	// 如果没有召唤物了，清理玩家记录
-	if(sizeof(active_summons[player_name]) == 0){
-		m_delete(active_summons, player_name);
 	}
 }
 
@@ -181,8 +182,13 @@ void dismiss_all(string player_name){
 	if(!active_summons[player_name])
 		return;
 
-	foreach(active_summons[player_name], string summon_type){
-		object summon = active_summons[player_name][summon_type];
+	// 获取所有召唤物并清空映射
+	mapping player_summons = active_summons[player_name];
+	m_delete(active_summons, player_name);
+
+	// 逐个销毁召唤物
+	foreach(player_summons, string summon_type){
+		object summon = player_summons[summon_type];
 		if(summon){
 			object env = environment(summon);
 			if(env){
@@ -191,8 +197,6 @@ void dismiss_all(string player_name){
 			destruct(summon);
 		}
 	}
-
-	m_delete(active_summons, player_name);
 }
 
 /**

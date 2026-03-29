@@ -16,7 +16,7 @@ protected void create(){
 	name=object_name(this_object());
 	set_raceId("third");
 	set_profeId("beast");
-	_tasknpc = 1;  // 标记为任务NPC，不被攻击
+	// 移除 _tasknpc = 1，让召唤物可以正常参与战斗
 	setup_npc();
 	summon_start_time = time();
 	call_out(check_duration, 60);  // 每分钟检查一次
@@ -71,7 +71,10 @@ void check_duration(){
 
 	// 检查主人是否在战斗中死亡
 	if(master->query_life() <= 0){
-		tell_room(environment(this_object()), query_name_cn() + "化作一道光芒消失了。\n");
+		object env = environment(this_object());
+		if(env){
+			tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
+		}
 		destruct(this_object());
 		return;
 	}
@@ -99,22 +102,36 @@ void heart_beat(){
 	object my_env = environment(this_object());
 	object master_env = environment(master);
 
+	if(!master_env){
+		// 主人没有环境，可能已死亡或离线
+		return;
+	}
+
 	if(my_env != master_env){
 		// 不在同一房间，跟随主人
-		if(master_env){
+		if(my_env){
 			tell_room(my_env, query_name_cn() + "急匆匆地离开了。\n");
-			this_object()->move(master_env);
-			tell_room(master_env, query_name_cn() + "急匆匆地赶了过来。\n");
 		}
+		this_object()->move(master_env);
+		tell_room(master_env, query_name_cn() + "急匆匆地赶了过来。\n");
 	}
 
 	// 如果主人在战斗中，参与战斗
-	if(master->query_in_combat() && !this_object()->query_in_combat()){
+	if(master->query_in_combat()){
 		object enemy = master->query_enemy();
 		if(enemy && enemy->query_life() > 0){
-			// 攻击主人的敌人
-			this_object()->kill(enemy->query_name(), 0);
-			tell_room(environment(this_object()), query_name_cn() + "愤怒地冲向" + enemy->query_name_cn() + "！\n");
+			// 如果召唤物不在战斗中，开始攻击
+			if(!this_object()->query_in_combat()){
+				this_object()->kill(enemy->query_name(), 0);
+				my_env = environment(this_object()); // 更新环境引用
+				if(my_env){
+					tell_room(my_env, query_name_cn() + "愤怒地冲向" + enemy->query_name_cn() + "！\n");
+				}
+			}
+			// 如果已在战斗中，确保目标正确
+			else if(this_object()->query_enemy() != enemy){
+				this_object()->kill(enemy->query_name(), 0);
+			}
 		}
 	}
 }
@@ -131,6 +148,14 @@ void fight_die(){
 	object master = find_player(master_name);
 	if(master){
 		tell_object(master, "你的" + query_name_cn() + "已经死亡消失。\n");
+	}
+
+	// 从召唤守护进程中移除（消息已在上面发送，这里只清理数据）
+	if(master_name && summon_type){
+		mapping summons = SUMMOND->get_player_summons(master_name);
+		if(summons && summons[summon_type]){
+			SUMMOND->dismiss_creature(master_name, summon_type);
+		}
 	}
 
 	destruct(this_object());

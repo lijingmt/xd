@@ -2,6 +2,9 @@
 #include <gamelib/include/gamelib.h>
 inherit "/gamelib/clone/npc/summon/base_summon";
 
+// 心跳计数器，用于控制治疗频率
+private int heal_counter = 0;
+
 protected void create(){
 	::create();
 	name_cn="仙鹤灵兽";
@@ -55,8 +58,10 @@ void heal_master(){
 void heart_beat(){
 	::heart_beat();
 
-	// 每3秒（约3次心跳）治疗一次
-	if(time() % 3 == 0){
+	// 使用计数器，每3次心跳治疗一次（约3秒）
+	heal_counter++;
+	if(heal_counter >= 3){
+		heal_counter = 0;
 		heal_master();
 	}
 }
