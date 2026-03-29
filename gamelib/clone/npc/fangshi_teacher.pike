@@ -39,8 +39,11 @@ string query_links(void|int count){
 
 	tmp += ::query_links(count);
 
-	// 所有玩家都可以看到学习选项（购买时会检查职业）
+	// 所有玩家都可以看到学习选项
 	tmp += "[学习方士技能:buy_items book fangshi]\n";
+
+	// 调试信息
+	tmp += "[调试:我可以看到这个选项]\n";
 
 	return tmp;
 }
