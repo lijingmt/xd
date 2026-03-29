@@ -39,10 +39,8 @@ string query_links(void|int count){
 
 	tmp += ::query_links(count);
 
-	// 方士可以购买技能书
-	if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
-		tmp += "[学习方士技能:buy_items book fangshi]\n";
-	}
+	// 所有玩家都可以看到学习选项（购买时会检查职业）
+	tmp += "[学习方士技能:buy_items book fangshi]\n";
 
 	return tmp;
 }
