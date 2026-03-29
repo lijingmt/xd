@@ -44,11 +44,5 @@ string query_links(void|int count){
 		tmp += "[学习方士技能:buy_items book fangshi]\n";
 	}
 
-	// 如果是钻石会员且未解锁，显示解锁选项
-	int can_result = SEASONALD->can_create_fangshi(me);
-	if(can_result == 2){  // 需要解锁
-		tmp += "[解锁方士职业:unlock_fangshi]\n";
-	}
-
 	return tmp;
 }

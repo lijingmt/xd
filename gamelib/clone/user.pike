@@ -414,6 +414,8 @@ void save(void|int autosave){
 	string zhenying="【仙】";
 	if(this_object()->query_raceId()=="monst")
 		zhenying="【妖】";
+	else if(this_object()->query_raceId()=="third")
+		zhenying="【方】";
 	string topname = this_object()->query_name_cn()+"("+this_object()->query_level()+"级)"+zhenying;
 	TOPTEN->try_top(this_object()->query_name(),topname,"等级",this_object()->query_level());
 	TOPTEN->try_top(this_object()->query_name(),topname,"富翁",this_object()->query_account());
@@ -421,6 +423,8 @@ void save(void|int autosave){
 		TOPTEN->try_top(this_object()->query_name(),topname,"妖气",this_object()->honerpt);
 	if(this_object()->query_raceId()=="human")
 		TOPTEN->try_top(this_object()->query_name(),topname,"仙气",this_object()->honerpt);
+	if(this_object()->query_raceId()=="third")
+		TOPTEN->try_top(this_object()->query_name(),topname,"灵气",this_object()->honerpt);
 	/*
 	TOPTEN->try_top(this_object()->query_name(),topname,"攻击",this_object()->query_fight_attack());
 	TOPTEN->try_top(this_object()->query_name(),topname,"防御",this_object()->query_defend_power());
@@ -505,6 +509,8 @@ void fight_die()
 						string tmp = "";
 						if(enemy->query_raceId()=="human")
 							tmp += "仙气";
+						else if(enemy->query_raceId()=="third")
+							tmp += "灵气";
 						else
 							tmp += "妖气";
 						//荣誉点数量不变，然后平均分配给每个打怪的队员
@@ -567,7 +573,7 @@ void fight_die()
 						if(t_lunhui<=0){
 							t_lunhui = 1;
 						}
-						if(me->query_raceId()=="human"){
+						if(me->query_raceId()=="human" || me->query_raceId()=="third"){
 							t_lunhui = 0 - t_lunhui;
 						}
 						//均分轮回点给房间的队员	
@@ -600,6 +606,8 @@ void fight_die()
 					string tmp = "";
 					if(enemy->query_raceId()=="human")
 						tmp += "仙气";
+					else if(enemy->query_raceId()=="third")
+						tmp += "灵气";
 					else
 						tmp += "妖气";
 					//加入特药的荣誉加成，由liaocheng于07/11/21添加
@@ -614,7 +622,7 @@ void fight_die()
 				}
 				//加入轮回值
 				if(gain_lunhui>0){
-					if(me->query_raceId()=="human"){
+					if(me->query_raceId()=="human" || me->query_raceId()=="third"){
 						enemy->lunhuipt -= gain_lunhui;
 					}
 					else
@@ -717,6 +725,13 @@ void fight_die()
 			me->last_pos="/gamelib/d/congxianzhen/congxianzhenguangchang";
 		if(me->query_raceId()=="monst")
 			me->last_pos="/gamelib/d/jinaodao/yuhuacunguangchang";
+		if(me->query_raceId()=="third"){
+			// 方士随机在人类或妖魔区复活
+			if(random(2)==0)
+				me->last_pos="/gamelib/d/congxianzhen/congxianzhenguangchang";
+			else
+				me->last_pos="/gamelib/d/jinaodao/yuhuacunguangchang";
+		}
 		if(me->last_pos){
 			mixed err=catch{
 				(object)(ROOT+me->last_pos);
@@ -797,6 +812,11 @@ string query_chat_msg()
 			tmp += CHATROOMD->query_chatroom_msg("pub_channel",me->query_name());
 		else if(me->query_raceId()=="monst")
 			tmp += CHATROOM2D->query_chatroom_msg("pub_channel",me->query_name());
+		else if(me->query_raceId()=="third"){
+			// 方士可以看到两个阵营的聊天
+			tmp += CHATROOMD->query_chatroom_msg("pub_channel",me->query_name());
+			tmp += CHATROOM2D->query_chatroom_msg("pub_channel",me->query_name());
+		}
 		tmp += "公|";
 		//tmp += "[交:ui_select_room sale]|";
 		tmp += "[队:ui_select_room term]|";
@@ -923,7 +943,7 @@ string query_danyao_effect()
 		foreach(sort(indices(have_yao)),string kind){
 			flag += 1;
 			string yao_name = have_yao[kind];
-			if(sizeof(yao_name) > 0){
+			if(yao_name && sizeof(yao_name) > 0){
 				int time_remain = me->query_buff(kind,2);
 				if(flag != 1)
 					s_rtn += "|";
@@ -936,48 +956,54 @@ string query_danyao_effect()
 	return s_rtn;
 }
 string query_teyao_effect()
-{                       
-	object me = this_object();                      
+{
+	object me = this_object();
 	string s_rtn = "";
 	int flag = 0;
 	mapping(string:array) have_yao = me["/teyao"];
 	if(have_yao && sizeof(have_yao)){
 		foreach(sort(indices(have_yao)),string kind){
-			flag += 1;
-			string yao_name = have_yao[kind][3];
-			if(sizeof(yao_name) > 0){
-				int time_remain = me->query_buff(kind,2);
-				if(flag != 1)                                                   
-					s_rtn += "|";                                           
-				s_rtn += yao_name+"("+time_remain+"m)";                         
+			array yao_data = have_yao[kind];
+			if(yao_data && sizeof(yao_data) >= 4){
+				flag += 1;
+				string yao_name = yao_data[3];
+				if(yao_name && sizeof(yao_name) > 0){
+					int time_remain = me->query_buff(kind,2);
+					if(flag != 1)
+						s_rtn += "|";
+					s_rtn += yao_name+"("+time_remain+"m)";
+				}
 			}
 		}
 	}
 	if(s_rtn == "")
-		s_rtn += "无"; 
+		s_rtn += "无";
 	return s_rtn;
 }
 
 string query_homeBuff_effect()
-{                       
-	object me = this_object();                      
+{
+	object me = this_object();
 	string s_rtn = "";
 	int flag = 0;
 	mapping(string:array) have_buff = me["/homeBuff"];
 	if(have_buff && sizeof(have_buff)){
 		foreach(sort(indices(have_buff)),string kind){
-			flag += 1;
-			string buff_name = have_buff[kind][3];
-			if(sizeof(buff_name) > 0){
-				int time_remain = me->query_buff(kind,2);
-				if(flag != 1)                                                   
-					s_rtn += "|";                                           
-				s_rtn += buff_name+"("+time_remain+"m)";                         
+			array buff_data = have_buff[kind];
+			if(buff_data && sizeof(buff_data) >= 4){
+				flag += 1;
+				string buff_name = buff_data[3];
+				if(buff_name && sizeof(buff_name) > 0){
+					int time_remain = me->query_buff(kind,2);
+					if(flag != 1)
+						s_rtn += "|";
+					s_rtn += buff_name+"("+time_remain+"m)";
+				}
 			}
 		}
 	}
 	if(s_rtn == "")
-		s_rtn += "无"; 
+		s_rtn += "无";
 	return s_rtn;
 }
 

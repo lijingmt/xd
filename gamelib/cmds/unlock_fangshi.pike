@@ -3,7 +3,7 @@
 
 /**
  * 解锁方士职业命令
- * 需要钻石会员(VIP level 4) + 1块碧銮玉才能解锁
+ * 方士是免费职业，所有玩家都可以解锁
  */
 int main(string|zero arg)
 {
@@ -21,35 +21,14 @@ int main(string|zero arg)
 		return 1;
 	}
 
-	// 检查VIP等级
-	int vip_level = me->query_vip_flag();
-	if(vip_level < 4){
-		s += "【方士职业解锁】\n\n";
-		s += "方士是赛季限定职业，需要钻石会员才能解锁！\n\n";
-		s += "你当前的会员等级：";
-		switch(vip_level){
-			case 0: s += "非会员\n"; break;
-			case 1: s += "水晶会员\n"; break;
-			case 2: s += "黄金会员\n"; break;
-			case 3: s += "白金会员\n"; break;
-		}
-		s += "\n升级到钻石会员后即可解锁方士职业！\n";
-		s += "[查看会员服务:vip_service_extend_list]\n";
-		s += "[返回游戏:look]\n";
-		me->write(s);
-		return 1;
-	}
-
 	// 显示解锁确认界面
 	if(!arg){
 		s += "【方士职业解锁】\n\n";
-		s += "恭喜你，你是钻石会员，可以解锁方士职业！\n\n";
 		s += "方士介绍：\n";
 		s += "- 中立阵营，召唤师/辅助职业\n";
 		s += "- 可以召唤虎灵（物理攻击）、鹤灵（治疗）、龟灵（防御）\n";
 		s += "- 终极技能三灵合一，全面强化自身\n\n";
-		s += "解锁需要：\n";
-		s += "- " + SEASONALD->get_unlock_cost_desc() + "\n\n";
+		s += "解锁是免费的，所有玩家都可以创建方士角色！\n\n";
 		s += "[确认解锁:unlock_fangshi confirm]\n";
 		s += "[返回游戏:look]\n";
 		me->write(s);
@@ -58,41 +37,12 @@ int main(string|zero arg)
 
 	// 确认解锁
 	if(arg == "confirm"){
-		int jade_level = SEASONALD->get_unlock_cost_jade_level();
-		string jade_name = YUSHID->get_yushi_namecn(jade_level);
-
-		// 查找玩家身上的高级玉
-		array(object) all_obj = all_inventory(me);
-		object jade_item = 0;
-
-		foreach(all_obj, object ob){
-			if(ob->query_item_type()=="yushi"){
-				if(ob->query_yushi_rarelevel()==jade_level){
-					jade_item = ob;
-					break;
-				}
-			}
-		}
-
-		if(!jade_item){
-			s += "你需要 " + SEASONALD->get_unlock_cost_desc() + " 才能解锁！\n";
-			s += "[返回游戏:look]\n";
-			me->write(s);
-			return 1;
-		}
-
-		// 消耗玉石
-		jade_item->add_amount(-10);  // 高级玉1块=amount=10
-
-		// 解锁
+		// 直接解锁，无需任何条件
 		SEASONALD->unlock_fangshi(me->query_name());
-
-		// 广播
-		BROADCASTD->broadcast(me->query_name_cn() + " 解锁了方士职业，从此踏上了召唤师之路！\n");
 
 		s += "恭喜！你成功解锁了方士职业！\n\n";
 		s += "现在你可以创建方士角色了！\n";
-		s += "方士将随机在从仙镇或聚妖岛出生\n";
+		s += "重新登录后即可在职业选择中选择方士。\n";
 		s += "[返回游戏:look]\n";
 		me->write(s);
 

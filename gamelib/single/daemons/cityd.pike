@@ -40,7 +40,7 @@ private mapping(string:city) cityMap = ([]); //物品信息总表
 private array(string) city_list = ({"xiqicheng","chaogecheng","tianyecheng","jadhuanjing","klshuanjing",});
 
 private mapping(string:string) city_name_m = (["xiqicheng":"西岐城","chaogecheng":"朝歌城","tianyecheng":"天野城","jadhuanjing":"金鳌岛幻境","klshuanjing":"玉虚宫幻境",]);
-private mapping(string:string) race_name_m = (["human":"人类","monst":"妖魔",]);
+private mapping(string:string) race_name_m = (["human":"人类","monst":"妖魔","third":"中立",]);
 
 private mixed xiqi_call_out;//用来记录西岐城自动归还调用call_out返回id
 private mixed chaoge_call_out;//用来记录朝歌城自动归还调用call_out返回id

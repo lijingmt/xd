@@ -34,6 +34,8 @@ int main(string|zero arg)
 		s += "仙气："+me->honerpt+"("+me->killcount+")\n";
 	else if(me->query_raceId()=="monst")
 		s += "妖气："+me->honerpt+"("+me->killcount+")\n";
+	else if(me->query_raceId()=="third")
+		s += "灵气："+me->honerpt+"("+me->killcount+")\n";
 	s += "轮回值："+me->lunhuipt+"\n";
 
 

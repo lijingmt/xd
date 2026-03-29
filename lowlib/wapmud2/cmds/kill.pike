@@ -183,14 +183,17 @@ int main(string arg)
 	else */
 	if(ob&&ob->query_raceId()==this_player()->query_raceId()){
 		//帮战杀戮，由liaocheng于08/08/30添加
-		if(ob->bangid && this_player()->bangid && BANGZHAND->is_in_bangzhan(ob->bangid,this_player()->bangid)) 
+		if(ob->bangid && this_player()->bangid && BANGZHAND->is_in_bangzhan(ob->bangid,this_player()->bangid))
+			flag = 1;
+		//方士是中立阵营，可以攻击任何阵营
+		else if(this_player()->query_raceId()=="third" && ob->is("npc"))
 			flag = 1;
 		else{
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你不能攻击那个目标！\n");
 			return 1;
 		}
 	}
-	////////////////////////////////////////////	
+	////////////////////////////////////////////
 	//阵营控制，不能攻击敌对地图中的玩家
 	object env = environment(ob);
 	string map_race = env->room_race;
@@ -198,7 +201,12 @@ int main(string arg)
 	string a_raceid = this_player()->query_raceId();
 	//被攻击者阵营
 	string e_raceid = ob->query_raceId();
-	if(a_raceid !=e_raceid &&!ob->is("npc")){
+
+	//方士是中立阵营，可以自由攻击任何地图的NPC
+	if(a_raceid == "third" && ob->is("npc")){
+		flag = 1;
+	}
+	else if(a_raceid !=e_raceid &&!ob->is("npc")){
 		//判断是否敌对阵营地图
 		if(map_race!="third" && a_raceid!=map_race){
 			if(env->query_room_type() == "city" && ob->red_flag)

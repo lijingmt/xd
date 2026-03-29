@@ -5,8 +5,8 @@
  *
  * 赛季角色规则：
  * - 一个账号只能有一个主角色
- * - 方士为赛季限定职业，需要钻石会员(VIP level 4)解锁
- * - 解锁后永久可玩
+ * - 方士为中立阵营职业，所有玩家都可以创建
+ * - 方士可以在人类或妖魔阵营的出生点随机出生
  *
  * ========================================================================
  */
@@ -99,32 +99,25 @@ int unlock_fangshi(string account)
 
 /**
  * 检查玩家是否能创建方士角色
- * 返回: 0=可以, 1=需要钻石会员, 2=需要解锁方士, 3=已解锁
+ * 返回: 0=可以, 1=需要钻石会员(已废弃), 2=需要解锁方士(已废弃), 3=已解锁
+ * 现在所有玩家都可以创建方士角色
  */
 int can_create_fangshi(object player)
 {
 	if(!player)
 		return 1;
 
-	// 检查VIP等级
-	int vip_level = player->query_vip_flag();
-	if(vip_level < 4)
-		return 1; // 需要钻石会员
-
-	// 检查是否已解锁
-	if(fangshi_unlocked[player->query_name()])
-		return 3; // 已解锁
-
-	return 2; // 需要解锁
+	// 所有玩家都可以创建方士角色
+	return 0; // 可以创建
 }
 
 /**
  * 解锁方士的代价 (高级玉等级)
- * 返回玉石稀有度等级，4=碧銮玉
+ * 返回玉石稀有度等级，0=免费
  */
 int get_unlock_cost_jade_level()
 {
-	return 4; // 解锁需要1块碧銮玉(高级玉)
+	return 0; // 解锁免费
 }
 
 /**
@@ -132,5 +125,5 @@ int get_unlock_cost_jade_level()
  */
 string get_unlock_cost_desc()
 {
-	return "1块碧銮玉(高级玉)";
+	return "免费";
 }
