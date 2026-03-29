@@ -25,8 +25,10 @@ int main(string|zero arg)
 		// 如果玩家是方士，只显示方士技能书，不显示职业切换选项
 		if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
 			s += BUYD->get_buy_item_list(item_type,type);
+			me->write_view(WAP_VIEWD["/emote"],0,0,s);
+			return 1;
 		}
-		else if(type == "jianxian")
+		if(type == "jianxian")
 			s += "剑仙|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]\n";
 		else if(type == "yushi")
 			s += "[剑仙:buy_items "+item_type+" jianxian]|羽士|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]\n";
