@@ -9,6 +9,10 @@ string view_skills()
 	string out="";
 	if(m&&sizeof(m)){
 		foreach(sort(indices(m)),string name){
+			// 检查技能是否存在，如果不存在则跳过
+			if(!MUD_SKILLSD[name])
+				continue;
+
 			if(e==name){
 				out+="□";
 			}
@@ -52,6 +56,10 @@ string view_skills_mud(string cmds)
 	string out="";
 	if(m&&sizeof(m)){
 		foreach(sort(indices(m)),string name){
+			// 检查技能是否存在，如果不存在则跳过
+			if(!MUD_SKILLSD[name])
+				continue;
+
 			if(e==name){
 				out+="□";
 			}
@@ -94,6 +102,10 @@ string view_skills_toolbar(int num)
 	string out="";
 	if(m&&sizeof(m)){
 		foreach(sort(indices(m)),string name){
+			// 检查技能是否存在，如果不存在则跳过
+			if(!MUD_SKILLSD[name])
+				continue;
+
 			if(e==name){
 				out+="□";
 			}
@@ -118,6 +130,9 @@ string view_performs(string name)
 {
 	string out="";
 	object cur_skill = MUD_SKILLSD[name];
+	if(!cur_skill)
+		return "你要查看的技能不存在。";
+
 	if(cur_skill){
 		if(cur_skill->query_name() == "chongdong" || cur_skill->s_skill_type == "spec" || MUD_SKILLSD[name]->s_skill_type == "70_spec")
 			out+=MUD_SKILLSD[name]->query_name_cn()+"\n";
@@ -172,6 +187,10 @@ string view_use_performs()
 	string out="";
 	if(m&&sizeof(m)){
 		foreach(sort(indices(m)),string name){
+			// 检查技能是否存在，如果不存在则跳过
+			if(!MUD_SKILLSD[name])
+				continue;
+
 			if(MUD_SKILLSD[name]->s_type=="beidong")
 				continue;//被动技能在战斗调用界面中不显示
 			if(e==name)
