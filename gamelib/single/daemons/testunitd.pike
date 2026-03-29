@@ -1,6 +1,7 @@
 #!/usr/bin/env pike
 /**
  * 单元测试守护进程
+ * 统一运行所有单元测试
  */
 
 #include <globals.h>
@@ -11,7 +12,7 @@ inherit LOW_DAEMON;
 // 运行测试
 void run_tests()
 {
-	werror("\n========== 运行测试 ==========\n");
+	werror("\n========== 运行单元测试 ==========\n");
 
 	// 测试房间编译 - congxianzhenguangchang
 	werror("\n[测试] 编译房间 congxianzhenguangchang\n");
@@ -88,7 +89,16 @@ void run_tests()
 		}
 	}
 
-	werror("\n========== 测试完成 ==========\n");
+	// 运行方士系统测试
+	werror("\n========== 运行方士系统测试 ==========\n");
+	if(TESTFANGSHID) {
+		werror("  调用 TESTFANGSHID->run_tests()...\n");
+		TESTFANGSHID->run_tests();
+	} else {
+		werror("  ! TESTFANGSHID 守护进程未加载\n");
+	}
+
+	werror("\n========== 所有测试完成 ==========\n");
 }
 
 protected void create()
