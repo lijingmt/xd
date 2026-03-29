@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵火烧·秘";
+	desc="神秘传承的灵火烧术，持续伤害更高，同时降低敌人的攻击和防御";
+	s_type="zhudong";
+	s_skill_type="curse";
+	s_curse_type="defend";
+	s_delayTime=15; // 15秒冷却，比普通版更快
+	s_lasttime=12; // 持续12秒
+	performs_attack[1]=600;   // 总伤害更高
+	performs_attack[2]=950;
+	performs_attack[3]=1400;
+	performs_attack[4]=1900;
+	performs_attack[5]=2500;
+	performs_cast[1]=60;
+	performs_cast[2]=70;
+	performs_cast[3]=80;
+	performs_cast[4]=90;
+	performs_cast[5]=100;
+	skill_type+=({"fangshi"});
+	skill_rare="mystic"; // 稀有度标记
+	performs_level_limit[1]=16;
+	performs_level_limit[2]=36;
+	performs_level_limit[3]=56;
+	performs_level_limit[4]=76;
+	performs_level_limit[5]=96;
+	performs_desc[1]="12秒内造成600点总伤害，降低敌人15%攻击和防御，消耗法力60点";
+	performs_desc[2]="12秒内造成950点总伤害，降低敌人18%攻击和防御，消耗法力70点";
+	performs_desc[3]="12秒内造成1400点总伤害，降低敌人22%攻击和防御，消耗法力80点";
+	performs_desc[4]="12秒内造成1900点总伤害，降低敌人26%攻击和防御，消耗法力90点";
+	performs_desc[5]="12秒内造成2500点总伤害，降低敌人30%攻击和防御，消耗法力100点";
+}

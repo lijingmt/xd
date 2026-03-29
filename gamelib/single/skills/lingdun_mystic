@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵盾·秘";
+	desc="神秘传承的灵盾术，提供更强的防御，同时反弹部分伤害";
+	s_type="zhudong";
+	s_skill_type="buff";
+	s_curse_type="defend";
+	s_delayTime=45; // 45秒冷却，比普通版更快
+	s_lasttime=25; // 持续25秒，比普通版更长
+	performs_attack[1]=800;   // 防御值更高
+	performs_attack[2]=1200;
+	performs_attack[3]=1800;
+	performs_attack[4]=2500;
+	performs_attack[5]=3500;
+	performs_cast[1]=60;
+	performs_cast[2]=75;
+	performs_cast[3]=90;
+	performs_cast[4]=105;
+	performs_cast[5]=120;
+	skill_type+=({"fangshi"});
+	skill_rare="mystic"; // 稀有度标记
+	performs_level_limit[1]=8;
+	performs_level_limit[2]=28;
+	performs_level_limit[3]=48;
+	performs_level_limit[4]=68;
+	performs_level_limit[5]=88;
+	performs_desc[1]="25秒内增加800点防御，反弹10%伤害，消耗法力60点";
+	performs_desc[2]="25秒内增加1200点防御，反弹15%伤害，消耗法力75点";
+	performs_desc[3]="25秒内增加1800点防御，反弹20%伤害，消耗法力90点";
+	performs_desc[4]="25秒内增加2500点防御，反弹25%伤害，消耗法力105点";
+	performs_desc[5]="25秒内增加3500点防御，反弹30%伤害，消耗法力120点";
+}

@@ -124,6 +124,15 @@ void run_tests()
 	// 运行方士系统测试
 	run_test_unit_file("test_fangshi.pike");
 
+	// 运行方士PK测试
+	run_test_unit_file("test_fangshi_pk.pike");
+
+	// 运行方士边缘测试
+	run_test_unit_file("test_fangshi_edge_cases.pike");
+
+	// 运行装备掉落方士职业测试
+	run_test_unit_file("test_equipment_drop_fangshi.pike");
+
 	werror("\n========== 所有测试完成 ==========\n");
 }
 

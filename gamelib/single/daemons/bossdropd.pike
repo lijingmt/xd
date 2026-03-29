@@ -381,8 +381,12 @@ string get_org_converted_level(string orgitem,int boss_level){
 							writeback+="    set_dodgechuantou_add("+set_dodgechuantou_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
-						}						
+						}
 					}
+				else if(search(orgfilelines[k],"set_item_profeLimit(")!=-1){
+					// 捕获所有职业限制设置行，保持原样
+					writeback+=orgfilelines[k]+"\n";
+				}
 				else{
 					writeback+=orgfilelines[k]+"\n";
 				}
@@ -405,6 +409,21 @@ string get_org_converted_level(string orgitem,int boss_level){
 	set_dusu_defend_add(20);
 	*/
 			}
+
+			// 自动为所有生成的装备添加方士职业支持
+			// 检查writeback中是否已经包含fangshi
+			if(search(writeback, "set_item_profeLimit(\"fangshi\")") == -1 &&
+			   search(writeback, "set_item_profeLimit") != -1) {
+				// 在文件结束前 } 之前插入
+				int last_brace = search(writeback, "\n}\n");
+				if(last_brace == -1) {
+					last_brace = search(writeback, "}\n");
+				}
+				if(last_brace != -1) {
+					writeback = writeback[..last_brace-1] + "    set_item_profeLimit(\"fangshi\");\n" + writeback[last_brace..];
+				}
+			}
+
 			int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 		werror("=========212 item_name:"+item_name+" write_flag "+write_flag+"\n");
 			//从写回的文件中clone一个该物品返回
@@ -423,6 +442,15 @@ string get_org_converted_level(string orgitem,int boss_level){
 					//将新生成对象加入master的总对象影射中
 					//master()->programs[new_item_path]=p;
 					rtn_ob=clone(p);
+
+					// 检查并添加方士职业
+					if(rtn_ob) {
+						array(string) profs = rtn_ob->query_item_profeLimit();
+						if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
+							rtn_ob->set_item_profeLimit("fangshi");
+							werror("=== [BOSSDROP DEBUG] 为装备添加方士职业: %s ===\n", item_name);
+						}
+					}
 				}
 				//werror("$$$$$$$$$$$$$$$$创建新物品结束$$$$$$$$$$$$$$$$$$$$\n");
 				if(!rtn_ob){

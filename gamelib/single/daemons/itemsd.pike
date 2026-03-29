@@ -1039,6 +1039,15 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			};
 			if(err)
 				rtn_ob=0;
+			// 即使装备已存在，也要检查并添加方士职业
+			if(rtn_ob) {
+				array(string) profs = rtn_ob->query_item_profeLimit();
+				if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
+					// 装备有职业限制但不包含方士，添加方士
+					rtn_ob->set_item_profeLimit("fangshi");
+					werror("=== [FANGSHI DEBUG] 为已存在装备添加方士职业: %s ===\n", item_name);
+				}
+			}
 			return (rtn_ob);
 		}
 		else{ //如果不存在，则要做很多麻烦的事情
@@ -1312,6 +1321,10 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						//werror("=======write picture as pinyin name:"+item_pinyin_name+"\n");
 						writeback+="    picture=\""+item_pinyin_name+"\";\n";
 					}
+					else if(search(orgfilelines[k],"set_item_profeLimit(")!=-1){
+						// 捕获所有职业限制设置行，保持原样
+						writeback+=orgfilelines[k]+"\n";
+					}
 					else{
 						//werror("===============nothing found in file setup default:"+orgfilelines[k]+"\n");
 						writeback+=orgfilelines[k]+"\n";
@@ -1320,6 +1333,32 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 				}
 				//werror("====item_name:\n"+item_name+"\n");
 				//werror("====:\n"+writeback+"\n");
+
+				// 自动为所有生成的装备添加方士职业支持
+				// 检查writeback中是否已经包含fangshi
+				werror("=== [FANGSHI DEBUG] 检查装备是否包含职业限制 ===\n");
+				if(search(writeback, "set_item_profeLimit") != -1) {
+					werror("=== [FANGSHI DEBUG] 装备有职业限制\n");
+					if(search(writeback, "set_item_profeLimit(\"fangshi\")") == -1) {
+						werror("=== [FANGSHI DEBUG] 装备没有方士职业，准备添加\n");
+						// 在文件结束前 } 之前插入
+						int last_brace = search(writeback, "\n}\n");
+						if(last_brace == -1) {
+							last_brace = search(writeback, "}\n");
+						}
+						if(last_brace != -1) {
+							writeback = writeback[..last_brace-1] + "    set_item_profeLimit(\"fangshi\");\n" + writeback[last_brace..];
+							werror("=== [FANGSHI DEBUG] 已添加方士职业\n");
+						} else {
+							werror("=== [FANGSHI DEBUG] 错误：找不到结束括号\n");
+						}
+					} else {
+						werror("=== [FANGSHI DEBUG] 装备已有方士职业\n");
+					}
+				} else {
+					werror("=== [FANGSHI DEBUG] 装备无职业限制\n");
+				}
+
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
 				//从写回的文件中clone一个该物品返回
