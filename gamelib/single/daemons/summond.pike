@@ -181,7 +181,7 @@ void dismiss_all(string player_name){
 	if(!active_summons[player_name])
 		return;
 
-	foreach(string summon_type, object summon; active_summons[player_name]){
+	foreach(active_summons[player_name]; string summon_type; object summon;){
 		if(summon){
 			object env = environment(summon);
 			if(env){
@@ -226,7 +226,7 @@ int summon_all_spirits(string player_name, int duration, int skill_level){
 	int count = 0;
 	array(string) summon_types = ({"huling", "heling", "guiling"});
 
-	foreach(string summon_type; summon_types){
+	foreach(summon_types; string summon_type;){
 		object s = summon_creature(player_name, summon_type, duration, skill_level);
 		if(s)
 			count++;
