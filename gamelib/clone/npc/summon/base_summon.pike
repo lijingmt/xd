@@ -12,6 +12,17 @@ int summon_duration; // 召唤持续时间（秒）
 int summon_start_time; // 召唤开始时间
 string summon_type;  // 召唤物类型: "huling", "heling", "guiling"
 
+// 向房间广播消息
+void summon_tell_room(object env, string msg){
+	if(!env)
+		return;
+	foreach(all_inventory(env), object ob){
+		if(ob && ob->is("living")){
+			tell_object(ob, msg);
+		}
+	}
+}
+
 protected void create(){
 	name=object_name(this_object());
 	set_raceId("third");
@@ -56,7 +67,7 @@ void check_duration(){
 		// 时间到，消失
 		object env = environment(this_object());
 		if(env){
-			tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
+			summon_tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
 		}
 		destruct(this_object());
 		return;
@@ -73,7 +84,7 @@ void check_duration(){
 	if(master->query_life() <= 0){
 		object env = environment(this_object());
 		if(env){
-			tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
+			summon_tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
 		}
 		destruct(this_object());
 		return;
@@ -110,10 +121,10 @@ void heart_beat(){
 	if(my_env != master_env){
 		// 不在同一房间，跟随主人
 		if(my_env){
-			tell_room(my_env, query_name_cn() + "急匆匆地离开了。\n");
+			summon_tell_room(my_env, query_name_cn() + "急匆匆地离开了。\n");
 		}
 		this_object()->move(master_env);
-		tell_room(master_env, query_name_cn() + "急匆匆地赶了过来。\n");
+		summon_tell_room(master_env, query_name_cn() + "急匆匆地赶了过来。\n");
 	}
 
 	// 如果主人在战斗中，参与战斗
@@ -125,7 +136,7 @@ void heart_beat(){
 				this_object()->kill(enemy->query_name(), 0);
 				my_env = environment(this_object()); // 更新环境引用
 				if(my_env){
-					tell_room(my_env, query_name_cn() + "愤怒地冲向" + enemy->query_name_cn() + "！\n");
+					summon_tell_room(my_env, query_name_cn() + "愤怒地冲向" + enemy->query_name_cn() + "！\n");
 				}
 			}
 			// 如果已在战斗中，确保目标正确
@@ -142,7 +153,7 @@ void heart_beat(){
 void fight_die(){
 	object env = environment(this_object());
 	if(env){
-		tell_room(env, query_name_cn() + "发出一声哀鸣，化作光芒消失了。\n");
+		summon_tell_room(env, query_name_cn() + "发出一声哀鸣，化作光芒消失了。\n");
 	}
 
 	object master = find_player(master_name);
@@ -177,7 +188,7 @@ int can_be_attacked(object attacker){
 	if(master && attacker->query_raceId() == master->query_raceId())
 		return 0;
 
-	return ::can_be_attacked(attacker);
+	return 1;  // 默认可以被攻击
 }
 
 /**

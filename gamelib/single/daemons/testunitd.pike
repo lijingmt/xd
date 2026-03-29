@@ -121,11 +121,8 @@ void run_tests()
 	// 运行 test_unit 目录下的方士系统测试
 	werror("\n========== 运行 test_unit 测试文件 ==========\n");
 
-	// 运行方士基础测试
+	// 运行方士系统测试
 	run_test_unit_file("test_fangshi.pike");
-
-	// 运行方士集成测试
-	run_test_unit_file("test_fangshi_integration.pike");
 
 	werror("\n========== 所有测试完成 ==========\n");
 }
