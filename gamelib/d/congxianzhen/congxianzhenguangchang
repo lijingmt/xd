@@ -46,6 +46,10 @@ string query_links(){
 		}else
 			tmp+="[设置复活点:set_relife "+cur_pos+"]\n";
 	}
+	// 方士技能学习链接
+	if(player->query_profeId()=="fangshi" || player->query_raceId()=="third"){
+		tmp+="[学习方士技能:buy_items book fangshi]\n";
+	}
 	return tmp;
 }
 void init()
