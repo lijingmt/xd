@@ -402,7 +402,7 @@ void test_skill_file_correspondence() {
 	test_start("技能文件与技能书对应关系验证");
 
 	// 检查技能书对应的技能文件是否存在
-	array(string) test_cases = ({
+	array(array(string)) test_cases = ({
 		({"lingyichu", "灵一触"}),
 		({"lingxuan", "灵旋"}),
 	});
