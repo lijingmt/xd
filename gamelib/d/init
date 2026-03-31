@@ -52,6 +52,7 @@ string query_desc(){
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
 		desc += "[妖魔:choice_race monst]\n";
 		desc += "金鳌化妖，狂妖巫妖影鬼\n";
+		desc += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		desc += "[中立:choice_race third]\n";
 		desc += "中立阵营，召唤方士之道\n";
 	}
@@ -339,6 +340,7 @@ int choice_race(string arg){
 		s += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
 		s += "[妖魔:choice_race monst]\n";
 		s += "金鳌化妖，狂妖巫妖影鬼\n";
+		s += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		s += "[中立:choice_race third]\n";
 		s += "中立阵营，召唤方士之道\n";
 	}
@@ -393,6 +395,8 @@ int choice_profe(string arg){
 		s += "[妖魔:choice_race monst]\n";
 		s += "[imgurl loading:/"+GAME_NAME+"/images/human_logo.png]\n";
 		s += "[人类:choice_race human]\n";
+		s += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
+		s += "[中立:choice_race third]\n";
 	}
 	else if(me->query_raceId()&&me->query_profeId()){
 		s += "你已经选择过了你的阵营和职业，请直接进入游戏。\n";	
