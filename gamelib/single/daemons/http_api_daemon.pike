@@ -430,6 +430,9 @@ string execute_command_sync(string userid, string password, string cmd)
 {
     // http_werror(" execute_command_sync: %s for %s\n", cmd, userid);
 
+    // 立即更新连接活跃时间 - 确保活跃用户不会被踢出
+    update_connection_time(userid);
+
     mixed err = catch {
         // 检查是否已有虚拟连接
         object player = get_player_from_connection(userid);
@@ -1886,7 +1889,8 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
     }
 
     string userid = auth["userid"];
-    // 只读API：不更新闲置时间
+    // 更新闲置时间 - 活跃用户不应被踢出
+    update_connection_time(userid);
     object player = get_player_from_connection(userid, 0);
 
     // 如果虚拟连接池中没有，尝试从 find_player 获取
@@ -2465,6 +2469,12 @@ void handle_api_result(Protocols.HTTP.Server.Request req)
     string|zero result = get_request_result(request_id);
 
     if(result == 0) {
+        // 更新闲置时间 - 活跃用户不应被踢出
+        string txd = params["txd"];
+        if(txd && txd != "") {
+            mapping auth = decode_txd(txd);
+            if(auth) update_connection_time(auth["userid"]);
+        }
         send_json(req, ([ "status": "pending", "message": "命令正在执行中" ]));
     } else if(result == UNDEFINED) {
         send_json(req, ([ "error": "请求超时或已过期" ]), 408);
@@ -2473,7 +2483,11 @@ void handle_api_result(Protocols.HTTP.Server.Request req)
         string userid = "";
         if(txd && txd != "") {
             mapping auth = decode_txd(txd);
-            if(auth) userid = auth["userid"];
+            if(auth) {
+                userid = auth["userid"];
+                // 更新闲置时间 - 活跃用户不应被踢出
+                update_connection_time(userid);
+            }
         }
 
         string html = response_to_html(result, userid, "look");

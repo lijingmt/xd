@@ -366,7 +366,15 @@ if(p_pswd == null)
 	else if("7".equals(error_str))
 		out.print("<div class='error-message'>友情提示：系统犯晕了，请通知管理员</div>");
 %>
-            <form action="./entrycheck.jsp?regnewFlag=0&amp;game_fg=<%=game_pre%>" method="post">
+            <form action="./entrycheck.jsp" id="loginForm" method="post">
+                <input type="hidden" name="game_fg" id="game_fg" value="<%=game_pre%>">
+                <div class="form-group">
+                    <label for="zoneSelect" style="display:block;margin-bottom:5px;color:#666;font-size:14px;">选择区服</label>
+                    <select id="zoneSelect" class="form-control" onchange="updateZone()">
+                        <option value="xd01">01区</option>
+                        <option value="xd02">02区</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <input type="text" class="form-control" name="_user" value="<%=p_user%>" placeholder="输入账号(不超过13位英文或数字)">
                 </div>
@@ -389,6 +397,23 @@ if(p_pswd == null)
     </div>
 
 <script>
+    // Update zone selection
+    function updateZone() {
+        var zone = document.getElementById('zoneSelect').value;
+        document.getElementById('game_fg').value = zone;
+        // Save to localStorage for persistence
+        localStorage.setItem('mud_zone_choice', zone);
+    }
+
+    // Load saved zone choice
+    function loadSavedZone() {
+        var savedZone = localStorage.getItem('mud_zone_choice');
+        if (savedZone) {
+            document.getElementById('zoneSelect').value = savedZone;
+            document.getElementById('game_fg').value = savedZone;
+        }
+    }
+
     // Check saved UI choice
     function checkSavedUI() {
         // Check URL parameter FIRST (优先检查 URL 参数，避免循环跳转)
@@ -447,6 +472,8 @@ if(p_pswd == null)
             }
             document.getElementById('uiSelection').style.display = 'none';
             document.getElementById('oldLoginForm').style.display = 'block';
+            // Load saved zone selection when showing old login form
+            loadSavedZone();
         }
     }
 
@@ -458,6 +485,7 @@ if(p_pswd == null)
 
     // Check on page load
     window.onload = function() {
+        loadSavedZone();
         checkSavedUI();
     };
 </script>

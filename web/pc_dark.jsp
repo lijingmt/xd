@@ -112,9 +112,17 @@ if(p_pswd == null)
 	else if("6".equals(error_str))
 		out.print("<h4 class=\"text-danger\">友情提示：您输入的用户名和密码认证失败，是否需要找回密码？ <br/></h4>");  
 	else if("7".equals(error_str))
-		out.print("<h4 class=\"text-danger\">友情提示：系统犯晕了，请通知管理员。 <br/></h4>");  
+		out.print("<h4 class=\"text-danger\">友情提示：系统犯晕了，请通知管理员。 <br/></h4>");
 %>
-			<form action="./entrycheck_dark.jsp?regnewFlag=0&amp;game_fg=<%=game_pre%>" method="post">
+			<form action="./entrycheck_dark.jsp" id="loginForm" method="post">
+				<input type="hidden" name="game_fg" id="game_fg" value="<%=game_pre%>">
+				<div class="form-group">
+					<label for="zoneSelect" style="display:block;margin-bottom:5px;">选择区服</label>
+					<select id="zoneSelect" class="form-control" onchange="updateZone()">
+						<option value="xd01">01区</option>
+						<option value="xd02">02区</option>
+					</select>
+				</div>
 				<div class="form-group">
 					<input type="text"  class="form-control"  id="" name="_user" maxlength="16" placeholder="输入账号(不超过13位英文或数字)">
 				</div>
@@ -138,6 +146,29 @@ if(p_pswd == null)
 		</body>
 			<script src="includes/jquery.min.js"></script>
 			<script src="includes/bootstrap.min.js"></script>
+			<script>
+				// Update zone selection
+				function updateZone() {
+					var zone = document.getElementById('zoneSelect').value;
+					document.getElementById('game_fg').value = zone;
+					// Save to localStorage for persistence
+					localStorage.setItem('mud_zone_choice', zone);
+				}
+
+				// Load saved zone choice
+				function loadSavedZone() {
+					var savedZone = localStorage.getItem('mud_zone_choice');
+					if (savedZone) {
+						document.getElementById('zoneSelect').value = savedZone;
+						document.getElementById('game_fg').value = savedZone;
+					}
+				}
+
+				// Load saved zone on page load
+				window.onload = function() {
+					loadSavedZone();
+				};
+			</script>
 			</html>
 	</body>
 </html>
