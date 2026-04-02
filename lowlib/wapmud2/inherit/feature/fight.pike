@@ -14,6 +14,7 @@ protected mapping(string:int) profe_fight=([
 		"kuangyao":3,
 		"wuyao":4,
 		"yinggui":5,
+		"fangshi":6,
 		"humanlike":6,
 		"beast":7,
 		"bird":8,
@@ -541,7 +542,7 @@ void perform(string name,void|int flag){
 						//再加上装备属性带来的法术伤害提升
 						//智力也会提高法伤由liaocheng于07/4/16添加
 						//职业调整 caijie 08/12/03
-						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"){
+						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="fangshi"){
 							mofa_a += this_object()->query_equip_add(mofa_type)+this_object()->query_equip_add("mofa_all")+(int)(this_object()->query_think()*7/2);
 						}
 						else
@@ -869,7 +870,7 @@ void perform(string name,void|int flag){
 					//记录buff的值
 					int tmp_int=f_cur_skill->query_performs_attack(skill_level);
 					if(f_cur_skill->s_curse_type == "absorb"){
-						if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"){
+						if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"){
 							tmp_int += (int)(this_object()->query_think()*3);
 						}
 						else
