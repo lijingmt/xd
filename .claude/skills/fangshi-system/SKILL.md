@@ -6,10 +6,11 @@ version: 1.0.0
 
 # 方士职业系统 (Fangshi Profession System)
 
-方士是游戏中的**中立职业**，通过召唤灵兽（虎、鹤、龟）进行战斗。这个文档涵盖了方士系统的完整实现，包括所有踩过的坑和解决方案。
+方士是游戏中的**中立阵营职业**（raceId: `third`），通过召唤灵兽（虎、鹤、龟）进行战斗。这个文档涵盖了方士系统的完整实现，包括所有踩过的坑和解决方案。
 
 ## 目录
 - [职业基础](#职业基础)
+- [中立阵营规则](#中立阵营规则)
 - [召唤系统](#召唤系统)
 - [技能系统](#技能系统)
 - [PK系统](#pk系统)
@@ -30,7 +31,9 @@ version: 1.0.0
 
 | 文件 | 作用 |
 |------|------|
-| `gamelib/setup_player.pike` | 角色创建，添加方士职业选项 |
+| `gamelib/setup_player.c` | 角色创建，添加方士职业选项 |
+| `gamelib/cmds/unlock_fangshi.pike` | 方士职业解锁命令 |
+| `gamelib/clone/npc/fangshi_teacher.pike` | 方士技能NPC |
 | `gamelib/single/skills/` | 方士技能目录 |
 | `gamelib/single/skills/lingxuan` | 灵玄（主动攻击技能） |
 | `gamelib/single/skills/linghuoshao` | 灵火烧（DOT减防） |
@@ -39,6 +42,83 @@ version: 1.0.0
 | `gamelib/single/skills/huling` | 虎灵（召唤猛虎） |
 | `gamelib/single/skills/heling` | 鹤灵（召唤仙鹤） |
 | `gamelib/single/skills/guiling` | 龟灵（召唤灵龟） |
+
+### 职业解锁
+
+方士是**免费职业**，所有玩家都可以解锁：
+
+```pike
+// 使用 unlock_fangshi 命令解锁
+SEASONALD->unlock_fangshi(player_name);
+
+// 解锁后可以创建方士角色
+// 重新登录后在职业选择中选择"方士"
+```
+
+---
+
+## 中立阵营规则
+
+### 中立阵营特殊规则
+
+方士的 raceId 为 `third`，是中立阵营，有以下特殊规则：
+
+1. **可以攻击任何阵营的NPC**
+   ```pike
+   // kill.pike 中的规则
+   if(a_raceid == "third" && ob->is("npc")){
+       flag = 1;  // 方士可以攻击任何阵营的NPC
+   }
+   ```
+
+2. **不能攻击同阵营玩家**（除非帮战）
+3. **在敌对阵营地图不能主动攻击玩家**（除非对方红名）
+
+### 中立地图
+
+方士可以自由进入的地图：
+- `room_race == "third"` 的地图
+- 任何城市地图（如果是攻击状态被追杀，对方是红名则可以反击）
+
+---
+
+## 召唤系统架构
+
+### 召唤系统目录结构
+
+```
+gamelib/
+├── clone/npc/summon/
+│   ├── base_summon.pike       # 召唤兽基类（继承WAP_NPC）
+│   ├── huling.pike            # 猛虎灵兽
+│   ├── heling.pike            # 仙鹤灵兽
+│   └── guiling.pike           # 灵龟神兽
+└── single/daemons/
+    └── summond.pike           # SUMMOND - 召唤守护进程
+```
+
+### SUMMOND 核心方法
+
+```pike
+// 获取玩家最大召唤数量（基于等级）
+int get_max_summons(string player_name)
+// <30级: 1只, 30-59级: 2只, >=60级: 3只
+
+// 检查是否可以召唤
+int can_summon(string player_name)
+
+// 召唤灵兽
+object summon_creature(string player_name, string summon_type, int duration, int skill_level)
+
+// 解除召唤
+void dismiss_creature(string player_name, string summon_type)
+
+// 解除所有召唤
+void dismiss_all(string player_name)
+
+// 三灵合一（同时召唤三只）
+int summon_all_spirits(string player_name, int duration, int skill_level)
+```
 
 ### 技能类型
 
@@ -67,9 +147,70 @@ s_skill_type = "curse";   // 减益效果
 
 | 文件 | 作用 |
 |------|------|
-| `gamelib/single/skills/base_summon.pike` | 召唤兽基类 |
+| `gamelib/clone/npc/summon/base_summon.pike` | 召唤兽基类（继承WAP_NPC） |
 | `gamelib/single/daemons/summond.pike` | 召唤守护进程 |
 | `lowlib/wapmud2/cmds/summon.pike` | 召唤命令 |
+
+### base_summon.pike 核心实现
+
+```pike
+// 基类继承 WAP_NPC
+inherit WAP_NPC;
+
+// 关键属性
+string master_name;       // 主人名字
+int summon_duration;      // 召唤持续时间（秒）
+int summon_start_time;    // 召唤开始时间
+string summon_type;       // 召唤物类型
+
+protected void create(){
+    // ⚠️ 重要：不要设置 _tasknpc = 1，否则召唤兽不能战斗
+    set_raceId("third");      // 中立阵营
+    set_profeId("beast");     // 野兽职业
+    setup_npc();
+    set_heart_beat(1);        // 启动心跳
+}
+
+// 心跳处理：跟随主人 + 攻击敌人
+void heart_beat(){
+    ::heart_beat();
+
+    // 1. 检查主人是否存在
+    object master = find_player(master_name);
+    if(!master){ destruct(this_object()); return; }
+
+    // 2. 跟随主人到同一房间
+    if(environment(this_object()) != environment(master)){
+        this_object()->move(environment(master));
+    }
+
+    // 3. 如果主人在战斗中，参与攻击
+    if(master->query_in_combat()){
+        object enemy = master->query_enemy();
+        if(enemy && enemy->query_life() > 0){
+            this_object()->kill(enemy->query_name(), 0);
+        }
+    }
+}
+```
+
+### 召唤兽属性调整公式
+
+```pike
+// huling.pike - 虎灵属性公式
+void adjust_stats_by_player(int player_level, int skill_level){
+    int str = 30 + player_level * 2 + skill_level * 5;
+    int dex = 20 + player_level * 1 + skill_level * 3;
+    int life = 200 + player_level * 10 + skill_level * 50;
+    int mofa = 20 + player_level * 2 + skill_level * 10;
+
+    set_base_str(str);
+    set_base_dex(dex);
+    set_base_life(life);
+    set_base_life_max(life);
+    set_base_mofa(mofa);
+}
+```
 
 ### ⚠️ 重要踩坑记录
 
@@ -651,3 +792,52 @@ test_unit/
 - "方士PK"
 - "third race"
 - "中立职业"
+
+---
+
+## 调试经验总结
+
+### 1. 添加新方士技能的完整流程
+
+```bash
+# 1. 创建技能文件
+gamelib/single/skills/new_skill.pike
+
+# 2. 创建技能书文件
+gamelib/clone/item/book/new_skill.pike
+
+# 3. 更新CSV配置
+gamelib/data/can_buy_book_list.csv
+
+# 4. 添加单元测试
+test_unit/test_fangshi.pike
+```
+
+### 2. 召唤系统调试技巧
+
+```pike
+// 添加调试输出
+werror("召唤调试: player=%s, type=%s, level=%d\n", player_name, summon_type, skill_level);
+
+// 检查召唤物是否存活
+if(summon && objectp(summon) && environment(summon)){
+    werror("召唤物存活，位置: %s\n", environment(summon)->query_name());
+}
+```
+
+### 3. 常见错误及解决方案
+
+| 错误 | 原因 | 解决方案 |
+|------|------|----------|
+| 召唤兽不攻击 | `_tasknpc = 1` 或心跳未启动 | 移除 `_tasknpc`，检查 `set_heart_beat(1)` |
+| 技能学习失败 | 职业ID不匹配 | 检查 `profe_read_limit` 使用 `"fangshi"` |
+| 装备无方士 | 旧代码未修改 | 更新 `itemsd.pike` 和 `bossdropd.pike` |
+| PK时召唤兽乱打 | 目标获取错误 | 检查 `query_enemy()` 返回值 |
+
+### 4. 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| 1.0.0 | 2025-03 | 初始版本，完整方士系统 |
+| 1.1.0 | 2025-03 | 添加装备掉落支持 |
+| 1.2.0 | 2025-04 | 添加技能书学习修复，中立阵营规则 |
