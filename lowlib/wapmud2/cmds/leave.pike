@@ -2,6 +2,7 @@
 #include <wapmud2/include/wapmud2.h>
 int main(string arg)
 {
+	/* // 暂时屏蔽答题验证
 	if(!this_player()->is("npc")){
 		object me = this_player();
 		//leave操作，也触发外挂监控，不然太猖獗
@@ -27,9 +28,9 @@ int main(string arg)
 		if(me->all_fee>=1) entry_flag = 0;
 		//10级以下不触发答题和迷宫
 		if(me->query_level()<=20) entry_flag = 0;
-		
+
 		werror("---player["+me->name+"]----- leave call tmp-wg_times=["+me["/tmp/wg_times"]+"]\n");
-		
+
 		if(entry_flag==1){
 			int ts_num = 0;//!!!!!!!!!!!!!! 调试数据，正式版设置为0即可
 			int add = 0;
@@ -49,28 +50,28 @@ int main(string arg)
 							int c2 = random(10) + 1;
 							int d1 = random(10) + 1;
 							int d2 = random(10) + 1;
-							array tmp1 = ({ 
+							array tmp1 = ({
 									"<font style=\"color:red\">"+t1+"</font>"+c1+d1,
 									""+c1+"<font style=\"color:red\">"+t1+"</font>"+d1,
 									""+c1+""+d1+"<font style=\"color:red\">"+t1+"</font>"
 									});
-							array tmp2 = ({ 
+							array tmp2 = ({
 									"<font style=\"color:red\">"+t2+"</font>"+c2+d2,
 									""+c2+"<font style=\"color:red\">"+t2+"</font>"+d2,
 									""+c2+""+d2+"<font style=\"color:red\">"+t2+"</font>"
 									});
-							string s1 = tmp1[random(sizeof(tmp1))]; 
+							string s1 = tmp1[random(sizeof(tmp1))];
 							string s2 = tmp2[random(sizeof(tmp2))];
 							me["/tmp/rd_tmp1"] = s1;
 							me["/tmp/rd_tmp2"] = s2;
 							me["/tmp/rd_tmp3"] = t3;
-							tell_object(me,"<font style=\"color:red; font-size:x-large;\">请输入两个颜色相同数字相乘的结果</font>\n");	
+							tell_object(me,"<font style=\"color:red; font-size:x-large;\">请输入两个颜色相同数字相乘的结果</font>\n");
 							werror("leave call /tmp/rd_tmp1=["+me["/tmp/rd_tmp1"]+"]\n");
 							werror("leave call /tmp/rd_tmp2=["+me["/tmp/rd_tmp2"]+"]\n");
 							werror("leave call /tmp/rd_tmp3=["+me["/tmp/rd_tmp3"]+"]\n");
 							//////////////////////////////////////////////
 							string now=ctime(time());
-							string record_s = now[0..sizeof(now)-2]+"|"+me->name+"|"+me->name_cn+"|yanzheng award! left count= ["+me["/plus/random_award"]+"]\n";	
+							string record_s = now[0..sizeof(now)-2]+"|"+me->name+"|"+me->name_cn+"|yanzheng award! left count= ["+me["/plus/random_award"]+"]\n";
 							Stdio.append_file(ROOT+"/log/random_award.log",record_s);
 							//////////////////////////////////////////////
 							me->reset_view(WAP_VIEWD["/modal_award"]);//该视图负责调出随机抽奖界面，并输入参数供random_award验证
@@ -82,6 +83,7 @@ int main(string arg)
 			}
 		}
 	}
+	*/
 
 	object env=environment(this_player());
 	if(env->exits[arg]&&!env->closed_exits[arg]&&!(env->hidden_exits[arg]&&!present(env->hidden_exits[arg],this_player()))){
