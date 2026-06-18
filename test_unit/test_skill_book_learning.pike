@@ -246,9 +246,9 @@ void test_viewd_error_messages() {
 	test_pass();
 }
 
-// 测试6: 验证调试输出
-void test_debug_output() {
-	test_start("调试输出验证");
+// 测试6: 确认没有遗留调试输出
+void test_no_debug_output() {
+	test_start("调试输出清理验证");
 
 	string readed_path = ROOT + "/lowlib/mudlib/inherit/feature/readed.pike";
 	string content = Stdio.read_file(readed_path);
@@ -258,18 +258,12 @@ void test_debug_output() {
 		return;
 	}
 
-	if(search(content, "SKILL BOOK DEBUG") == -1) {
-		test_fail("没有找到调试输出");
+	if(search(content, "SKILL BOOK DEBUG") != -1) {
+		test_fail("readed.pike 存在遗留调试输出");
 		return;
 	}
 
-	werror("  ✓ 调试输出已添加\n");
-	werror("  调试输出会显示:\n");
-	werror("    - 玩家当前等级\n");
-	werror("    - 书籍要求的等级\n");
-	werror("    - 玩家职业ID和中文名\n");
-	werror("    - 书籍要求的职业\n");
-	werror("    - 职业检查是否通过\n");
+	werror("  ✓ readed.pike 没有遗留调试输出\n");
 
 	test_pass();
 }
@@ -353,22 +347,26 @@ void test_learning_scenarios() {
 void test_skill_book_file_integrity() {
 	test_start("技能书文件完整性验证");
 
-	// 要检查的方士技能书列表
-	array(string) fangshi_books = ({
-		"lingyichu",     // 灵一触
-		"lingxuan",      // 灵旋
-		"linghuoshao",   // 灵火烧
-		"lingzhi",       // 灵治
-		"lingdun",       // 灵盾
-		"huling",        // 虎灵
-		"heling",        // 鹤灵
-		"guiling",       // 龟灵
-	});
-
 	int missing_count = 0;
 	int checked_count = 0;
+	string csv_path = ROOT + "/gamelib/data/can_buy_book_list.csv";
+	string csv_content = Stdio.read_file(csv_path);
 
-	foreach(fangshi_books, string book_name) {
+	if(!csv_content) {
+		test_fail("无法读取技能书配置 CSV");
+		return;
+	}
+
+	foreach(csv_content / "\n", string line) {
+		if(!line || line == "" || line[0] == '#')
+			continue;
+
+		array(string) parts = line / ",";
+		if(sizeof(parts) < 4 || parts[3] != "fangshi")
+			continue;
+
+		array(string) path_parts = parts[1] / "/";
+		string book_name = path_parts[-1];
 		string book_path = ROOT + "/gamelib/clone/item/book/" + book_name;
 		if(Stdio.exist(book_path)) {
 			checked_count++;
@@ -401,37 +399,53 @@ void test_skill_book_file_integrity() {
 void test_skill_file_correspondence() {
 	test_start("技能文件与技能书对应关系验证");
 
-	// 检查技能书对应的技能文件是否存在
-	array(array(string)) test_cases = ({
-		({"lingyichu", "灵一触"}),
-		({"lingxuan", "灵旋"}),
-	});
-
 	int all_match = 1;
+	int checked_count = 0;
+	string csv_path = ROOT + "/gamelib/data/can_buy_book_list.csv";
+	string csv_content = Stdio.read_file(csv_path);
 
-	foreach(test_cases, array(string) test_case) {
-		string skill_name = test_case[0];
-		string skill_cn = test_case[1];
+	if(!csv_content) {
+		test_fail("无法读取技能书配置 CSV");
+		return;
+	}
 
-		string book_path = ROOT + "/gamelib/clone/item/book/" + skill_name;
+	foreach(csv_content / "\n", string line) {
+		if(!line || line == "" || line[0] == '#')
+			continue;
+
+		array(string) parts = line / ",";
+		if(sizeof(parts) < 4 || parts[3] != "fangshi")
+			continue;
+
+		array(string) path_parts = parts[1] / "/";
+		string book_name = path_parts[-1];
+		string book_path = ROOT + "/gamelib/clone/item/book/" + book_name;
+		string book_content = Stdio.read_file(book_path);
+		string skill_name = "";
+		if(book_content) {
+			sscanf(book_content, "%*sskill_bname=\"%s\";%*s", skill_name);
+		}
 		string skill_path = ROOT + "/gamelib/single/skills/" + skill_name;
 
 		int book_exists = Stdio.exist(book_path);
 		int skill_exists = Stdio.exist(skill_path);
 
 		if(book_exists && skill_exists) {
-			werror("  ✓ %s (%s): 技能书和技能文件都存在\n", skill_name, skill_cn);
+			checked_count++;
+			werror("  ✓ %s -> %s: 技能书和技能文件都存在\n", book_name, skill_name);
 		} else if(book_exists && !skill_exists) {
-			werror("  ✗ %s (%s): 技能书存在但技能文件缺失\n", skill_name, skill_cn);
+			werror("  ✗ %s -> %s: 技能书存在但技能文件缺失\n", book_name, skill_name);
 			all_match = 0;
 		} else if(!book_exists && skill_exists) {
-			werror("  ✗ %s (%s): 技能文件存在但技能书缺失\n", skill_name, skill_cn);
+			werror("  ✗ %s -> %s: 技能文件存在但技能书缺失\n", book_name, skill_name);
 			all_match = 0;
 		} else {
-			werror("  ✗ %s (%s): 技能书和技能文件都缺失\n", skill_name, skill_cn);
+			werror("  ✗ %s -> %s: 技能书和技能文件都缺失\n", book_name, skill_name);
 			all_match = 0;
 		}
 	}
+
+	werror("  已检查 %d 个技能书与技能文件对应关系\n", checked_count);
 
 	if(all_match) {
 		test_pass();
@@ -453,7 +467,7 @@ void run_tests()
 	test_read_return_codes();
 	test_skill_addition_logic();
 	test_viewd_error_messages();
-	test_debug_output();
+	test_no_debug_output();
 	test_fangshi_profession_definition();
 	test_learning_scenarios();
 	test_skill_book_file_integrity();
@@ -461,4 +475,10 @@ void run_tests()
 
 	// 打印测试结果汇总
 	print_summary();
+}
+
+int main()
+{
+	run_tests();
+	return test_results["failed"];
 }

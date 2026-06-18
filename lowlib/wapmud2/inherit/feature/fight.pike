@@ -101,6 +101,11 @@ int query_killing(){
 int query_in_combat(){
 	return in_combat;
 }
+object query_enemy(){
+	if(enemy)
+		return enemy;
+	return this_object()->get_target();
+}
 private void recover(){
 	if(in_combat) return;
 	//npc战斗以后自动恢复生命

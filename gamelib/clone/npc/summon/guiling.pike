@@ -45,8 +45,8 @@ void taunt_enemies(){
 	}
 
 	foreach(enemies, object enemy){
-		if(enemy->query_life() > 0){
-			tell_room(env, name_cn + "发出一声怒吼，吸引了" + enemy->query_name_cn() + "的注意！\n");
+		if(enemy->get_cur_life() > 0){
+			summon_tell_room(env, name_cn + "发出一声怒吼，吸引了" + enemy->query_name_cn() + "的注意！\n");
 			// 攻击灵龟而不是主人
 			enemy->kill(query_name(), 0);
 		}

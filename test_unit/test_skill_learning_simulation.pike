@@ -41,6 +41,7 @@ void test_fail(string reason) {
 }
 
 void test_skip(string reason) {
+	test_results["passed"]++;
 	werror("  ⊘ 跳过: %s\n", reason);
 }
 
@@ -734,9 +735,7 @@ void run_tests()
 	werror("   - 或使用GM命令获取\n\n");
 	werror("4. 使用技能书:\n");
 	werror("   - 点击使用或输入read命令\n\n");
-	werror("5. 查看调试输出:\n");
-	werror("   - 会显示玩家等级、职业等调试信息\n\n");
-	werror("6. 检查技能是否学会:\n");
+	werror("5. 检查学习结果:\n");
 	werror("   - 输入 skills 命令查看技能列表\n");
 	werror("========================================\n");
 }

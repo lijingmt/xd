@@ -63,6 +63,17 @@ int get_current_summon_count(string player_name){
 	if(!player_name || !active_summons[player_name])
 		return 0;
 
+	array(string) summon_types = indices(active_summons[player_name]);
+	foreach(summon_types, string summon_type){
+		if(!active_summons[player_name][summon_type]){
+			m_delete(active_summons[player_name], summon_type);
+		}
+	}
+	if(sizeof(active_summons[player_name]) == 0){
+		m_delete(active_summons, player_name);
+		return 0;
+	}
+
 	return sizeof(active_summons[player_name]);
 }
 
@@ -125,12 +136,9 @@ object summon_creature(string player_name, string summon_type, int duration, int
 			return 0;
 	}
 
-	object summon = load_object(summon_file);
-	if(!summon){
-		summon = new(summon_file);
-		if(!summon)
-			return 0;
-	}
+	object summon = clone(summon_file);
+	if(!summon)
+		return 0;
 
 	// 设置召唤物属性
 	summon->set_master(player_name);
@@ -180,6 +188,23 @@ void dismiss_creature(string player_name, string summon_type){
 			tell_room_daemon(env, summon->query_name_cn() + "化作光芒消失了。\n");
 		}
 		destruct(summon);
+	}
+}
+
+/**
+ * 只清理召唤记录，不销毁对象。
+ * 召唤物自然消失或死亡时调用，避免 SUMMOND 保留旧对象。
+ */
+void remove_creature_record(string player_name, string summon_type){
+	if(!player_name || !summon_type)
+		return;
+
+	if(!active_summons[player_name])
+		return;
+
+	m_delete(active_summons[player_name], summon_type);
+	if(sizeof(active_summons[player_name]) == 0){
+		m_delete(active_summons, player_name);
 	}
 }
 

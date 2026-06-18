@@ -43,12 +43,12 @@ void heal_master(){
 		return;
 
 	int heal_amount = 50 + (int)(master->query_level() * 5);
-	int current_life = master->query_life();
+	int current_life = master->get_cur_life();
 	int max_life = master->query_life_max();
 
 	if(current_life < max_life){
 		master->add_life(heal_amount);
-		tell_room(my_env, name_cn + "发出一声清鸣，" + master->query_name_cn() + "感到一股暖流涌遍全身。\n");
+		summon_tell_room(my_env, name_cn + "发出一声清鸣，" + master->query_name_cn() + "感到一股暖流涌遍全身。\n");
 	}
 }
 

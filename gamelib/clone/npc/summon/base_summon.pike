@@ -54,6 +54,12 @@ string query_summon_type(){
 	return summon_type;
 }
 
+void remove_summon_record(){
+	if(master_name && summon_type){
+		SUMMOND->remove_creature_record(master_name, summon_type);
+	}
+}
+
 /**
  * 检查召唤持续时间
  */
@@ -70,6 +76,7 @@ void check_duration(){
 		if(env){
 			summon_tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
 		}
+		remove_summon_record();
 		destruct(this_object());
 		return;
 	}
@@ -77,16 +84,18 @@ void check_duration(){
 	// 检查主人是否在线
 	object master = find_player(master_name);
 	if(!master){
+		remove_summon_record();
 		destruct(this_object());
 		return;
 	}
 
 	// 检查主人是否在战斗中死亡
-	if(master->query_life() <= 0){
+	if(master->get_cur_life() <= 0){
 		object env = environment(this_object());
 		if(env){
 			summon_tell_room(env, query_name_cn() + "化作一道光芒消失了。\n");
 		}
+		remove_summon_record();
 		destruct(this_object());
 		return;
 	}
@@ -106,6 +115,7 @@ void heart_beat(){
 
 	object master = find_player(master_name);
 	if(!master){
+		remove_summon_record();
 		destruct(this_object());
 		return;
 	}
@@ -131,7 +141,7 @@ void heart_beat(){
 	// 如果主人在战斗中，参与战斗
 	if(master->query_in_combat()){
 		object enemy = master->query_enemy();
-		if(enemy && enemy->query_life() > 0){
+		if(enemy && enemy->get_cur_life() > 0){
 			// 如果召唤物不在战斗中，开始攻击
 			if(!this_object()->query_in_combat()){
 				this_object()->kill(enemy->query_name(), 0);
@@ -163,12 +173,7 @@ void fight_die(){
 	}
 
 	// 从召唤守护进程中移除（消息已在上面发送，这里只清理数据）
-	if(master_name && summon_type){
-		mapping summons = SUMMOND->get_player_summons(master_name);
-		if(summons && summons[summon_type]){
-			SUMMOND->dismiss_creature(master_name, summon_type);
-		}
-	}
+	remove_summon_record();
 
 	destruct(this_object());
 }

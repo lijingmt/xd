@@ -182,7 +182,8 @@ void test_summon_daemon() {
 
 	// 尝试创建 SUMMOND 对象
 	err = catch {
-		object summond = new(summond_path);
+		program p = (program)summond_path;
+		object summond = p();
 		if(summond) {
 			werror("  ✓ SUMMOND 对象创建成功\n");
 			// 测试基本方法
@@ -239,27 +240,38 @@ void test_skill_config_integrity() {
 			continue;
 
 		// 检查是否是方士技能
-		if(sizeof(parts) >= 5 && parts[4] == "fangshi") {
+		if(sizeof(parts) >= 4 && parts[3] == "fangshi") {
 			fangshi_skill_count++;
 
-			// 提取技能名
+			// 提取技能书名，并从书中读取真正的 skill_bname
 			string book_path = parts[1];
 			array(string) path_parts = book_path / "/";
 			if(sizeof(path_parts) > 0) {
-				string skill_name = path_parts[-1];
+				// 检查书籍文件是否存在
+				string book_name = path_parts[-1];
+				string book_file = ROOT + "/gamelib/clone/item/book/" + book_name;
+				if(!Stdio.exist(book_file)) {
+					werror("  ! 书籍文件缺失: %s\n", book_name);
+					missing_book++;
+					continue;
+				}
+
+				string book_content = Stdio.read_file(book_file);
+				string skill_name = "";
+				if(book_content) {
+					sscanf(book_content, "%*sskill_bname=\"%s\";%*s", skill_name);
+				}
+				if(!skill_name || skill_name == "") {
+					werror("  ! 书籍未配置 skill_bname: %s\n", book_name);
+					missing_skill++;
+					continue;
+				}
 
 				// 检查技能文件是否存在
 				string skill_file = ROOT + "/gamelib/single/skills/" + skill_name;
 				if(!Stdio.exist(skill_file)) {
-					werror("  ! 技能文件缺失: %s\n", skill_name);
+					werror("  ! 技能文件缺失: %s (book=%s)\n", skill_name, book_name);
 					missing_skill++;
-				}
-
-				// 检查书籍文件是否存在
-				string book_file = ROOT + "/gamelib/clone/item/book/" + skill_name;
-				if(!Stdio.exist(book_file)) {
-					werror("  ! 书籍文件缺失: %s\n", skill_name);
-					missing_book++;
 				}
 			}
 		}

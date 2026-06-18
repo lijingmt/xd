@@ -448,7 +448,6 @@ string get_org_converted_level(string orgitem,int boss_level){
 						array(string) profs = rtn_ob->query_item_profeLimit();
 						if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
 							rtn_ob->set_item_profeLimit("fangshi");
-							werror("=== [BOSSDROP DEBUG] 为装备添加方士职业: %s ===\n", item_name);
 						}
 					}
 				}
