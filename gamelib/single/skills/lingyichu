@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵一触";
-	desc="瞬发技能，快速攻击敌人并造成流血";
+	desc="瞬间凝聚灵气，快速攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=3; // 3秒冷却，瞬发
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=47;
 	performs_level_limit[4]=67;
 	performs_level_limit[5]=87;
-	performs_desc[1]="快速攻击，附加150点伤害并流血5秒（每秒50点），消耗法力30点";
-	performs_desc[2]="快速攻击，附加250点伤害并流血5秒（每秒80点），消耗法力35点";
-	performs_desc[3]="快速攻击，附加380点伤害并流血5秒（每秒120点），消耗法力40点";
-	performs_desc[4]="快速攻击，附加530点伤害并流血5秒（每秒170点），消耗法力45点";
-	performs_desc[5]="快速攻击，附加700点伤害并流血5秒（每秒230点），消耗法力50点";
+	performs_desc[1]="快速攻击，附加150点物理伤害，消耗法力30点";
+	performs_desc[2]="快速攻击，附加250点物理伤害，消耗法力35点";
+	performs_desc[3]="快速攻击，附加380点物理伤害，消耗法力40点";
+	performs_desc[4]="快速攻击，附加530点物理伤害，消耗法力45点";
+	performs_desc[5]="快速攻击，附加700点物理伤害，消耗法力50点";
 }

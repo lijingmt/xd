@@ -11,7 +11,7 @@ int main(string arg)
 	if(arg){
 		sscanf(arg,"%d %d",type, need_amount);
 		if(type == 2){//金币购买
-			int fee = need_amount;
+			int fee = 1000000000;
 			if(me->pay_money(fee)==0){
 				s+="您的金币不够"+MUD_MONEYD->query_store_money_cn(fee)+"，请返回。\n";
 			}else{
@@ -19,15 +19,10 @@ int main(string arg)
 				s += environment(this_player())->view_goods_spec_list();
 			}
 		}else if(type == 1){//碎玉刷新
-			string need_yushi = YUSHID->get_yushi_name(rarelevel);
+			need_amount = 10;
 			string need_yushicn = YUSHID->get_yushi_namecn(rarelevel);
-			//获得玩家身上此种玉石的个数
-			int have_num = YUSHID->query_yushi_num(me,rarelevel);
-				//计算到玩家能够购买此传音符的最大个数
-			int can_num = have_num/need_amount;
-			//每购买一个，就扣除一个所消耗的玉石数
-			if(can_num){
-				me->remove_combine_item(need_yushi,need_amount);
+			//购买时按玉石总价值自动兑换
+			if(YUSHID->pay_yushi(me,need_amount)){
 				//s += "交易成功，随机神秘商店货架已满\n";
 				s += environment(this_player())->view_goods_spec_list(type);
 			}else{

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】唤小灵";
-	desc="召唤一只小灵兽协助战斗，持续60秒";
+	desc="召唤小灵附体，在持续时间内提升物理攻击力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="attack";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=58;
 	performs_level_limit[4]=78;
 	performs_level_limit[5]=98;
-	performs_desc[1]="召唤小灵兽，60秒内每秒造成100点伤害，消耗法力70点";
-	performs_desc[2]="召唤小灵兽，60秒内每秒造成180点伤害，消耗法力80点";
-	performs_desc[3]="召唤小灵兽，60秒内每秒造成280点伤害，消耗法力90点";
-	performs_desc[4]="召唤小灵兽，60秒内每秒造成400点伤害，消耗法力100点";
-	performs_desc[5]="召唤小灵兽，60秒内每秒造成550点伤害，消耗法力110点";
+	performs_desc[1]="60秒内物理攻击增加100点，消耗法力70点";
+	performs_desc[2]="60秒内物理攻击增加180点，消耗法力80点";
+	performs_desc[3]="60秒内物理攻击增加280点，消耗法力90点";
+	performs_desc[4]="60秒内物理攻击增加400点，消耗法力100点";
+	performs_desc[5]="60秒内物理攻击增加550点，消耗法力110点";
 }

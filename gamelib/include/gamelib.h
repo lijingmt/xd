@@ -73,6 +73,7 @@
 //用户聊天频道系统
 #define CHATROOMD ((object)(ROOT "/gamelib/single/daemons/chatroomd"))
 #define CHATROOM2D ((object)(ROOT "/gamelib/single/daemons/chatroom2d"))
+#define RACECHATD ((object)(ROOT "/gamelib/single/daemons/racechatd"))
 //活动奖励发放模块
 #define GIFTD ((object)(ROOT "/gamelib/single/daemons/giftd"))
 //玉石系统模块

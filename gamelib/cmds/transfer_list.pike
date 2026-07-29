@@ -16,6 +16,8 @@ int main(string|zero arg)
     if(transfer)
     {
     	mapping(int:array(string)) transfer_list = ROOMLEVELD->query_transfer_list(me->query_raceId());
+	if(!transfer_list)
+	    transfer_list = ([]);
 	int user_level = me->query_level();
 	foreach(sort(indices(transfer_list)),int lev){
 	    if(lev && lev <= user_level){

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】龟灵";
-	desc="召唤灵龟灵兽附体，获得护盾并减少受到的伤害";
+	desc="召唤灵龟附体，在持续时间内提升生命上限";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="life_max"; // 增加生命上限
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=60;
 	performs_level_limit[4]=80;
 	performs_level_limit[5]=100;
-	performs_desc[1]="获得2000点护盾，受到的伤害减少20%，消耗法力120点";
-	performs_desc[2]="获得4000点护盾，受到的伤害减少25%，消耗法力150点";
-	performs_desc[3]="获得7000点护盾，受到的伤害减少30%，消耗法力180点";
-	performs_desc[4]="获得11000点护盾，受到的伤害减少35%，消耗法力210点";
-	performs_desc[5]="获得16000点护盾，受到的伤害减少40%，消耗法力250点";
+	performs_desc[1]="25秒内生命上限增加2000点，消耗法力120点";
+	performs_desc[2]="25秒内生命上限增加4000点，消耗法力150点";
+	performs_desc[3]="25秒内生命上限增加7000点，消耗法力180点";
+	performs_desc[4]="25秒内生命上限增加11000点，消耗法力210点";
+	performs_desc[5]="25秒内生命上限增加16000点，消耗法力250点";
 }

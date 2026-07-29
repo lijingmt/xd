@@ -13,7 +13,7 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race&&player->query_level()>=15)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=15)
 		tmp+="[妖阵【碧游宫】:qge74hye jinaodao/yaozhenbiyougong]\n";
 	return tmp;
 }

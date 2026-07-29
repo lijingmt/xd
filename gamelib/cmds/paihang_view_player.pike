@@ -2,6 +2,17 @@
 #include <gamelib/include/gamelib.h>  
 //此指令查看在榜人员的个人信息
 //arg = player_name raceId profeId level flag
+string query_race_name(string raceId)
+{
+	if(raceId=="human")
+		return "人类";
+	if(raceId=="monst")
+		return "妖魔";
+	if(raceId=="third")
+		return "中立";
+	return "未知";
+}
+
 int main(string|zero arg)
 {
 	string s = "";
@@ -21,9 +32,7 @@ int main(string|zero arg)
 		}
 	}
 
-	string race_cn = "妖魔";
-	if( raceId == "human")
-		race_cn = "人类";
+	string race_cn = query_race_name(raceId);
 	s += "阵营："+race_cn+"\n";
 	
 	s += "等级："+level+"\n";

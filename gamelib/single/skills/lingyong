@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵涌";
-	desc="灵力涌动，提升攻击力和法力回复";
+	desc="灵力涌动，在持续时间内提升物理攻击力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="attack";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=53;
 	performs_level_limit[4]=73;
 	performs_level_limit[5]=93;
-	performs_desc[1]="20秒内攻击力增加300点，法力回复提升50%，消耗法力60点";
-	performs_desc[2]="20秒内攻击力增加500点，法力回复提升60%，消耗法力70点";
-	performs_desc[3]="20秒内攻击力增加750点，法力回复提升70%，消耗法力80点";
-	performs_desc[4]="20秒内攻击力增加1050点，法力回复提升80%，消耗法力90点";
-	performs_desc[5]="20秒内攻击力增加1400点，法力回复提升90%，消耗法力100点";
+	performs_desc[1]="20秒内物理攻击增加300点，消耗法力60点";
+	performs_desc[2]="20秒内物理攻击增加500点，消耗法力70点";
+	performs_desc[3]="20秒内物理攻击增加750点，消耗法力80点";
+	performs_desc[4]="20秒内物理攻击增加1050点，消耗法力90点";
+	performs_desc[5]="20秒内物理攻击增加1400点，消耗法力100点";
 }

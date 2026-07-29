@@ -6,10 +6,8 @@ int main(string|zero arg)
 	string s = "";
 	if(!arg){
 		s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-		if(me->query_raceId()=="human")
-			s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-		else if(me->query_raceId()=="monst")
-			s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
+		s += RACECHATD->query_chat_msg(
+			me->query_raceId(),me->query_chatid(),me->query_name());
 		s += "[刷新:chatroom_chat flush]\n";
 		s+="[返回:chatroom_list]\n";
 		s+="[返回游戏:look]\n";
@@ -27,10 +25,8 @@ int main(string|zero arg)
 		else{
 			//更新聊天信息	
 			s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-			if(me->query_raceId()=="human")
-				s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-			else if(me->query_raceId()=="monst")
-				s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
+			s += RACECHATD->query_chat_msg(
+				me->query_raceId(),me->query_chatid(),me->query_name());
 			s += "[刷新:chatroom_chat flush]\n";
 		}
 		s+="[返回:chatroom_list]\n";
@@ -69,10 +65,9 @@ int main(string|zero arg)
 			else{
       			s += "请使用中文、英文字母或者数字。\n";
 				s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-				if(me->query_raceId()=="human")
-					s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-				else if(me->query_raceId()=="monst")
-					s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
+				s += RACECHATD->query_chat_msg(
+					me->query_raceId(),me->query_chatid(),
+					me->query_name());
 				s += "[刷新:chatroom_chat flush]\n";
 			}
 			s+="[返回:chatroom_list]\n";
@@ -91,10 +86,9 @@ int main(string|zero arg)
 			else{
    				s += "聊天信息长度不能小于1个字符或者超过70个字符。\n";
 				s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-				if(me->query_raceId()=="human")
-					s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-				else if(me->query_raceId()=="monst")
-					s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
+				s += RACECHATD->query_chat_msg(
+					me->query_raceId(),me->query_chatid(),
+					me->query_name());
 				s += "[刷新:chatroom_chat flush]\n";
 			}
 			s+="[返回:chatroom_list]\n";
@@ -118,33 +112,22 @@ int main(string|zero arg)
 			string mtmp ="["+me->query_name_cn()+":chatroom_char "+me->query_name()+"]："+arg;
 			arg = me->query_name()+"|"+mtmp;
 
-			if(me->query_raceId()=="human"){
-				if(CHATROOMD->add_chat_msg(me->query_chatid(),arg)){
-					s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-					s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-					s += "[刷新:chatroom_chat flush]\n";
-					Stdio.append_file(ROOT+"/log/chat_msg.log",arg+"\n");
-				}
-				else{
-					s += "信息发布失败，请重试！\n";
-					s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-					s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-					s += "[刷新:chatroom_chat flush]\n";
-				}
+			if(RACECHATD->add_chat_msg(
+			   me->query_raceId(),me->query_chatid(),arg)){
+				s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
+				s += RACECHATD->query_chat_msg(
+					me->query_raceId(),me->query_chatid(),
+					me->query_name());
+				s += "[刷新:chatroom_chat flush]\n";
+				Stdio.append_file(ROOT+"/log/chat_msg.log",arg+"\n");
 			}
-			else if(me->query_raceId()=="monst"){
-				if(CHATROOM2D->add_chat_msg(me->query_chatid(),arg)){
-					s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-					s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
-					s += "[刷新:chatroom_chat flush]\n";
-					Stdio.append_file(ROOT+"/log/chat_msg.log",arg+"\n");
-				}
-				else{
-					s += "信息发布失败，请重试！\n";
-					s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-					s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
-					s += "[刷新:chatroom_chat flush]\n";
-				}
+			else{
+				s += "信息发布失败，请重试！\n";
+				s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
+				s += RACECHATD->query_chat_msg(
+					me->query_raceId(),me->query_chatid(),
+					me->query_name());
+				s += "[刷新:chatroom_chat flush]\n";
 			}
 		}
 	}
@@ -199,4 +182,3 @@ string filter_msg(string|zero arg)
 	arg=replace(arg,"%20","??");	
 	return arg;
 }
-

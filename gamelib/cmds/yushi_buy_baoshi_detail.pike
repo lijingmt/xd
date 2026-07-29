@@ -24,16 +24,21 @@ int main(string|zero arg)
 		s += yushi->query_name_cn()+"：\n";
 		s += yushi->query_picture_url()+"\n"+yushi->query_desc()+"\n";
 		string need_namecn = YUSHID->get_yushi_namecn(rarelevel);
-		int have_num = YUSHID->query_yushi_num(me,rarelevel);
+		int have_num = 0;
+		int yushi_value = YUSHID->get_yushi_value(rarelevel);
+		if(yushi_value > 0)
+			have_num = YUSHID->query_all_num(me)/yushi_value;
 		s += "--------\n";
 		if(flag == 0){
 			s += "需要："+amount+"块"+need_namecn+"("+have_num+")\n";
+			s += "购买时自动兑换不同面额玉石\n";
 			//s += "（你目前拥有"+need_namecn+"："+have_num+"块）\n";
 			s += "购买个数(1-20)：\n[int no:...]\n";
 			s += "[submit 确定购买:yushi_buy_baoshi_confirm "+yushi_name+" "+rarelevel+" "+amount+" "+money+" 0 ...]\n";
 		}
 		else if(flag == 1){
 			s += "需要："+amount+"块"+need_namecn+","+money+"金("+have_num+")\n";
+			s += "购买时自动兑换不同面额玉石\n";
 			s += "每天只能买一次,一次只能购买"+yushi->query_short()+"\n";
 			s += "[购买:yushi_buy_baoshi_confirm "+yushi_name+" "+rarelevel+" "+amount+" "+money+" 1 1]\n";
 		}

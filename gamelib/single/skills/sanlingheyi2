@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】三灵合一(2级)";
-	desc="三大灵兽同时附体，获得全面强化，方士的最强绝技（强化版）";
+	desc="三大灵兽同时附体，大幅提升全属性（强化版）";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="all"; // 全面提升
@@ -23,9 +23,13 @@ protected void create(){
 	performs_cast[5]=500;
 	skill_type+=({"fangshi"});
 	performs_level_limit[1]=65;
-	performs_desc[1]="20秒内攻击+3500，防御+3000，每秒恢复1000生命，暴击+30%，消耗法力300点";
-	performs_desc[2]="20秒内攻击+5000，防御+4000，每秒恢复1400生命，暴击+35%，消耗法力350点";
-	performs_desc[3]="20秒内攻击+7000，防御+5500，每秒恢复1900生命，暴击+40%，消耗法力400点";
-	performs_desc[4]="20秒内攻击+9500，防御+7000，每秒恢复2500生命，暴击+45%，消耗法力450点";
-	performs_desc[5]="20秒内攻击+12500，防御+9000，每秒恢复3200生命，暴击+50%，消耗法力500点";
+	performs_level_limit[2]=85;
+	performs_level_limit[3]=105;
+	performs_level_limit[4]=125;
+	performs_level_limit[5]=145;
+	performs_desc[1]="20秒内全属性增加3500点，消耗法力300点";
+	performs_desc[2]="20秒内全属性增加5000点，消耗法力350点";
+	performs_desc[3]="20秒内全属性增加7000点，消耗法力400点";
+	performs_desc[4]="20秒内全属性增加9500点，消耗法力450点";
+	performs_desc[5]="20秒内全属性增加12500点，消耗法力500点";
 }

@@ -17,7 +17,7 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race&&player->query_level()>=58)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=58)
 		tmp+="[仙阵【蓬莱仙境】:qge74hye plxianjing/xianzhenplxianjing]\n";
 	return tmp;
 }

@@ -515,6 +515,10 @@ int choice_profe(string arg){
 		object c3 = new(ROOT+"/gamelib/clone/item/armor/2cubuyi/2cubuyi");
 		if(c3)
 			c3->move(me);
+		// 新手穿衣助手只补空位，不会替换已穿上的桃木剑。
+		me->command("auto_equip silent");
+		s += "新手穿衣助手已为你穿好初始装备；以后可从物品页使用一键穿装。\n";
+		s += "[查看新手引导:newbie_guide]\n";
 		me->add_money(20);
 		me->set_user_fee(6000);
 
@@ -523,6 +527,13 @@ int choice_profe(string arg){
 				me->relife="/gamelib/d/congxianzhen/xiaomuwu";
 			if(me->query_raceId()=="monst")
 				me->relife="/gamelib/d/jinaodao/maocaowu";
+			if(me->query_raceId()=="third"){
+				if(random(2)==0)
+					me->relife="/gamelib/d/congxianzhen/xiaomuwu";
+				else
+					me->relife="/gamelib/d/jinaodao/maocaowu";
+				me->last_pos=me->relife;
+			}
 		}
 
 		if(me->sid != "5dwap")
@@ -716,6 +727,16 @@ int start(string arg){
 			array tmp_arr = me->skills["jingxinjue"];
 			int val = 10+((int)tmp_arr[0]-1)*4;
 			me->set_base_think(val);
+		}
+	}
+	// 修复旧方士使用主动读书流程学会灵智魂后未获得被动属性。
+	if(me->query_profeId() == "fangshi"){
+		if(me->skills["lingzhihun"] && me->query_base_all()==0){
+			array tmp_arr = me->skills["lingzhihun"];
+			int val =
+				MUD_SKILLSD["lingzhihun"]->query_performs_attack(
+					(int)tmp_arr[0]);
+			me->set_base_all(val);
 		}
 	}
 

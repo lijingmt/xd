@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】三灵合一一级";
 	unit="本";
 	picture=name;
-	desc="三大灵兽同时附体，获得全面强化，是方士的最强绝技\n";
+	desc="三大灵兽同时附体，在持续时间内大幅提升全属性\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

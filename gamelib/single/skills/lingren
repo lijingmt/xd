@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵刃";
-	desc="将灵气化为锋利刀刃攻击敌人，有几率降低敌人防御";
+	desc="将灵气化为锋利刀刃攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=8; // 8秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=35;
 	performs_level_limit[4]=55;
 	performs_level_limit[5]=75;
-	performs_desc[1]="挥出灵刃，附加100点伤害，并降低10%防御5秒，消耗法力30点";
-	performs_desc[2]="挥出灵刃，附加180点伤害，并降低12%防御5秒，消耗法力35点";
-	performs_desc[3]="挥出灵刃，附加280点伤害，并降低15%防御5秒，消耗法力40点";
-	performs_desc[4]="挥出灵刃，附加400点伤害，并降低18%防御5秒，消耗法力45点";
-	performs_desc[5]="挥出灵刃，附加550点伤害，并降低20%防御5秒，消耗法力50点";
+	performs_desc[1]="挥出灵刃，附加100点物理伤害，消耗法力30点";
+	performs_desc[2]="挥出灵刃，附加180点物理伤害，消耗法力35点";
+	performs_desc[3]="挥出灵刃，附加280点物理伤害，消耗法力40点";
+	performs_desc[4]="挥出灵刃，附加400点物理伤害，消耗法力45点";
+	performs_desc[5]="挥出灵刃，附加550点物理伤害，消耗法力50点";
 }

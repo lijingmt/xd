@@ -58,6 +58,11 @@ string get_yushi_name(int rarelevel)
 {
 	return rarelevel_name[rarelevel];
 }
+//根据稀有度获得玉石折合碎玉的价值
+int get_yushi_value(int rarelevel)
+{
+	return rarelevel_value[rarelevel];
+}
 
 //查询能够合成的某稀有度玉石的个数
 //这个也用于判断是否可以合成，防止玩家非法刷
@@ -148,44 +153,14 @@ int query_all_num(object player)
 	}
 	return re;
 }
-/* 【方法描述】 判断玩家身上的玉石是否够支付
-       【变量】 player    玩家
-                num       需要支付的玉石数量(以碎玉为单位)
-     【返回值】 0: 玉石不够
-                1：足够支付
-      【说明】  这个方法是实现主要利用了"取整"、"取余"这两个操作。实现逻辑为：
-                 (1) 得到玩家身上各种玉石的数目；
-	         (2) 判断玩家是否有足够多的"碎玉" (num对10取余就能得到需要支付的碎玉数)
-	         (3) 如果碎玉的数量足够，则用 num对10"取整"，从而得到需要的"仙缘玉"数目；
-	         (4) 重复(2)(3)步操作，直到判断完最高级的玉石"玄天宝玉"；
-	         (5) (2)(3)(4)中，只要有任何一种玉石的数目不足，则直接返回"0"
-	    例如：某人身上的玉石数目是 2块玄天宝玉   3块碧銮玉   5块玲珑玉 4块仙缘玉 5块碎玉
-	          而需要支付的数目是  345 碎玉
-                  当方法运行时：(1) num = 345，对10取余，得到 5 ，而此人正好有5块碎玉，则满足条件，进入下一步；
-                                (2) num对10取整，得到新的 num=34；
-				(3) 此时，num=34 对10取余，得到 4 ，这就是需支付的仙缘玉个数，依次循环，最终实现判断功能
-    【author】Evan 2008.07.25 
-   */
+/* 判断玩家全部玉石折合碎玉后的总价值是否足够支付。
+ * 支付时无需预先手动打碎或合成玉石。
+ */
 int have_enough_yushi(object player,int num)
 {
-	mapping(int:int) my_num =([]);//玩家各种玉石的数目列表
-	int tmp = 0;//每种玉的个数；
-	for(int i=1;i<6;i++)//得到玩家身上各种玉石的数目
-	{
-		tmp = query_yushi_num(player,i);
-		my_num[i]=tmp;
-	}
-	for(int m=1;m<6;m++)
-	{
-		if(my_num[m]<(num%10))//如果有一类玉石的数目不够，则直接返回 0 ;
-		{
-			return 0;
-		}
-		num = num/10;
-		if(!num)
-		break;
-	}
-	return 1;
+	if(num < 0)
+		return 0;
+	return query_all_num(player) >= num;
 }
 /*
    方法描述：扣出玩家身上的玉石
@@ -197,32 +172,70 @@ int have_enough_yushi(object player,int num)
  */
 int pay_yushi(object player,int num)
 {
-	if(!have_enough_yushi(player,num))//如果玉石不够支付，直接返回失败
-	{
+	if(num < 0 || !have_enough_yushi(player,num))//如果玉石不够支付，直接返回失败
 		return 0;
-	}
-	else
+
+	if(num == 0)
+		return 1;
+
+	mapping(int:int) my_num = ([]);//玩家各种玉石的数目列表
+	mapping(int:int) remove_num = ([]);//实际需要扣除的各种玉石
+	int remain = num;//还需要支付的碎玉价值
+	int change = 0;//打碎较大面额后需要找回的碎玉价值
+
+	for(int i=1;i<6;i++)
 	{
-		mapping(int:int) all_yushi = ([]);//需要扣除的玉石列表
-		string yushi = "";//需要扣除的玉石名
-		int re_num = 0;//扣除操作的返回值
-		for(int i=1;i<6;i++)
+		my_num[i] = query_yushi_num(player,i);
+		remove_num[i] = 0;
+	}
+
+	//优先使用不超过待支付金额的面额，尽量避免打碎大玉
+	for(int m=5;m>0;m--)
+	{
+		int can_use = remain/rarelevel_value[m];
+		if(can_use > my_num[m])
+			can_use = my_num[m];
+		if(can_use > 0)
 		{
-			all_yushi[i] = num%10;
-			num = num/10;
-			if(!num) break;
+			remove_num[m] = can_use;
+			remain -= can_use*rarelevel_value[m];
 		}
-		for(int m=1;m<6;m++)//按列表扣除石头
+	}
+
+	//小面额仍不足时，自动打碎一块最接近的大面额并找零
+	if(remain > 0)
+	{
+		for(int m=1;m<6;m++)
 		{
-			if(all_yushi[m])//如果该类玉石的扣除数不为0
+			int left_num = my_num[m]-remove_num[m];
+			if(left_num > 0 && rarelevel_value[m] > remain)
 			{
-				yushi = get_yushi_name(m);//得到此类玉石的文件名
-				re_num = player->remove_combine_item(yushi,all_yushi[m]);//扣除玉石
+				remove_num[m]++;
+				change = rarelevel_value[m]-remain;
+				remain = 0;
+				break;
 			}
-			if(re_num != all_yushi[m])//扣除时出错
-			return 0;
-			re_num = 0;//标志位归零
 		}
+	}
+
+	if(remain > 0)
+		return 0;
+
+	for(int m=1;m<6;m++)//按支付计划扣除玉石
+	{
+		if(remove_num[m] > 0)
+		{
+			string yushi = get_yushi_name(m);
+			int re_num = player->remove_combine_item(yushi,remove_num[m]);
+			if(re_num != remove_num[m])
+				return 0;
+		}
+	}
+
+	if(change > 0)
+	{
+		give_yushi(player,change);
+		tell_object(player,"系统已自动兑换玉石，并找回"+get_yushi_for_desc(change)+"。\n");
 	}
 	return 1;
 }

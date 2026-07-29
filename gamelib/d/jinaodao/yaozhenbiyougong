@@ -13,22 +13,22 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race&&player->query_level()>=10)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=10)
 		tmp+="[妖阵【蜈蚣洞穴】:qge74hye wugongdong/yaozhenwugongdongxue]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=15)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=15)
 		tmp+="[妖阵【福寿山】:qge74hye fushoushan/yaozhenfushoushan]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=20)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=20)
 		tmp+="[妖阵【两镜湖】:qge74hye liangjinghu/yaozhenliangjinghu]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=25)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=25)
 		tmp+="[妖阵【蓬莱水阁】:qge74hye plshuige/yaozhenpenglaishuige]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=30){
+	if(player->can_use_room_race(room_race)&&player->query_level()>=30){
 		tmp+="[妖阵【牧野】:qge74hye muye/yaozhenmuye]\n";
 		if(CITYD->query_captured("chaogecheng")=="monst")
 			tmp+="[妖阵【朝歌】:city_qge74hye chaogecheng/yaozhengchaoge chaogecheng]\n";
 		if(CITYD->query_captured("xiqicheng")=="monst")
 			tmp+="[妖阵【西岐】:city_qge74hye xiqicheng/xianzhen xiqicheng]\n";
 	}
-	if(player->query_raceId()==room_race&&player->query_level()>=40)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=40)
 		tmp+="[妖阵【外海】:qge74hye waihai/yaozhenwaihai]\n";
 	return tmp;
 }

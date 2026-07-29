@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵魂打击";
-	desc="直接攻击敌人的灵魂，造成高额伤害并有几率眩晕";
+	desc="直接攻击敌人的灵魂，造成高额物理伤害";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=15; // 15秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=45;
 	performs_level_limit[4]=65;
 	performs_level_limit[5]=85;
-	performs_desc[1]="打击灵魂，附加200点伤害，10%几率眩晕1秒，消耗法力40点";
-	performs_desc[2]="打击灵魂，附加320点伤害，12%几率眩晕1秒，消耗法力45点";
-	performs_desc[3]="打击灵魂，附加470点伤害，15%几率眩晕1秒，消耗法力50点";
-	performs_desc[4]="打击灵魂，附加650点伤害，18%几率眩晕1秒，消耗法力55点";
-	performs_desc[5]="打击灵魂，附加860点伤害，20%几率眩晕1秒，消耗法力60点";
+	performs_desc[1]="打击灵魂，附加200点物理伤害，消耗法力40点";
+	performs_desc[2]="打击灵魂，附加320点物理伤害，消耗法力45点";
+	performs_desc[3]="打击灵魂，附加470点物理伤害，消耗法力50点";
+	performs_desc[4]="打击灵魂，附加650点物理伤害，消耗法力55点";
+	performs_desc[5]="打击灵魂，附加860点物理伤害，消耗法力60点";
 }

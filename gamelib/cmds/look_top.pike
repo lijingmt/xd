@@ -7,6 +7,25 @@
 #define NAMECN 1
 #define VALUE 2
 #define PAGELEN 10
+
+string query_race_tag(string race_id)
+{
+	if(race_id == "monst")
+		return "【妖】";
+	if(race_id == "third")
+		return "【方】";
+	return "【仙】";
+}
+
+string query_honer_top_name(string race_id)
+{
+	if(race_id == "monst")
+		return "妖气";
+	if(race_id == "third")
+		return "灵气";
+	return "仙气";
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -17,18 +36,13 @@ int main(string|zero arg)
 	//look_top list 等级 1
 	sscanf(arg,"%s %s",act,value);
 	//----------------------
-	string zhenying="【仙】";
-	if(me->query_raceId()=="monst")
-		zhenying="【妖】";
+	string zhenying=query_race_tag(me->query_raceId());
 	string topname = me->query_name_cn()+"("+me->query_level()+"级)"+zhenying;
 
 	TOPTEN->try_top(me->query_name(),topname,"等级",me->query_level());
 	TOPTEN->try_top(me->query_name(),topname,"富翁",me->query_account());
-	if(me->query_raceId()=="monst")
-		TOPTEN->try_top(me->query_name(),topname,"妖气",me->honerpt);
-	else if(me->query_raceId()=="human"){
-		TOPTEN->try_top(me->query_name(),topname,"仙气",me->honerpt);
-	}
+	TOPTEN->try_top(me->query_name(),topname,
+		query_honer_top_name(me->query_raceId()),me->honerpt);
 	/*
 	TOPTEN->try_top(me->query_name(),topname,"攻击",me->query_fight_attack());
 	TOPTEN->try_top(me->query_name(),topname,"防御",me->query_defend_power());
@@ -81,6 +95,7 @@ int main(string|zero arg)
 		re += "[富翁排行榜:look_top list 富翁 1]\n";
 		re += "[仙气排行榜:look_top list 仙气 1]\n";
 		re += "[妖气排行榜:look_top list 妖气 1]\n";
+		re += "[灵气排行榜:look_top list 灵气 1]\n";
 		/*
 		re += "[攻击排行榜:look_top list 攻击 1]\n";
 		re += "[防御排行榜:look_top list 防御 1]\n";

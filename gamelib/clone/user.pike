@@ -382,8 +382,10 @@ string query_extra_links(void|int count)
 		if(me->query_buff("spec_attack_buff",0) == "jinchanmeiying2")
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
-	string topten= "[排行榜:look_top]\t";	
+	string topten= "[排行榜:look_top]\t";
 	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[帮派:my_bang]|[江湖:my_games]|[传送:userlist]\n[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	if(me->query_level() <= 10)
+		returnLinks = "【新手助手】[新手引导:newbie_guide]|[自动穿装:auto_equip]\n" + returnLinks;
 	//string returnLinks="[刷新:look]"+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[任务:mytasks]\n[队伍:my_term]|[好友:my_qqlist]\n[聊天:chatroom_list]|[玩家:userlist]\n[我的帮派:my_bang]\n[仙玉妙坊:yushi_myzone]\n[游戏设置:game_detail]\n[url 仙道官方站:http://xd.dogstart.com]\n";
 	if(this_player()->sid == "5dwap")
 		returnLinks += addstr;
@@ -699,7 +701,8 @@ void fight_die()
 
 	//如果设置了复活点，从复活点复活，否则从默认阵营复活地复活
 	//首先城战中死亡将被自动送往城池复活点
-	if(env->query_room_type() == "city" && me->query_raceId()==env->room_race){
+	if(env->query_room_type() == "city" &&
+	   me->can_use_room_race(env->room_race)){
 		string city_name = env->query_belong_to();                                                  
 		string rest_room = CITYD->query_rest_room(city_name);
 		if(rest_room && sizeof(rest_room)){
@@ -750,10 +753,15 @@ string query_links(void|int count)
 		out += "家园：["+HOMED->query_homeName_by_masterId(this_object()->query_name())+":home_display "+this_object()->query_home_path()+"]\n";
 	}
 	object tp=this_player();
-	if(tp&&this_object()->query_raceId()==tp->query_raceId()){
+	if(tp&&this_object()->can_socialize_with(tp)){
+		int neutral_cross_race =
+			this_object()->query_raceId()!=tp->query_raceId();
 		//增加了帮战杀戮的显示，由liaocheng于08/08/30添加
 		object env=environment(this_object());
 		if(env && env->room_race == "third" && this_object()->bangid && this_player()->bangid && BANGZHAND->is_in_bangzhan(this_object()->bangid,this_player()->bangid))
+			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
+		// 方士与仙、妖玩家之间同时保留中立PK入口和社交入口。
+		else if(neutral_cross_race)
 			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
 		//添加跟随链接，由liaocheng于07/09/21添加
 		else if(this_player()->follow == "_none" && this_player()->query_term()==this_object()->query_term() && this_player()->query_term() != "noterm")
@@ -809,15 +817,8 @@ string query_chat_msg()
 	if(me->roomchatid=="pub" || me->roomchatid=="open"){
 		//if(me->query_level() >=6)//为了屏蔽枪手而做的修改
 			tmp +="[ui_chat ...]\n";
-		if(me->query_raceId()=="human")
-			tmp += CHATROOMD->query_chatroom_msg("pub_channel",me->query_name());
-		else if(me->query_raceId()=="monst")
-			tmp += CHATROOM2D->query_chatroom_msg("pub_channel",me->query_name());
-		else if(me->query_raceId()=="third"){
-			// 方士可以看到两个阵营的聊天
-			tmp += CHATROOMD->query_chatroom_msg("pub_channel",me->query_name());
-			tmp += CHATROOM2D->query_chatroom_msg("pub_channel",me->query_name());
-		}
+		tmp += RACECHATD->query_chatroom_msg(
+			me->query_raceId(),"pub_channel",me->query_name());
 		tmp += "公|";
 		//tmp += "[交:ui_select_room sale]|";
 		tmp += "[队:ui_select_room term]|";

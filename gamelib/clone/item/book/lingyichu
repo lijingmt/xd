@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵一触";
 	unit="本";
 	picture=name;
-	desc="瞬发技能，快速攻击敌人并造成流血\n";
+	desc="瞬间凝聚灵气，快速攻击当前敌人\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

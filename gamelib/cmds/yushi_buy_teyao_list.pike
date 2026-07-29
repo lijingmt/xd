@@ -6,12 +6,13 @@ int main(string|zero arg)
 	object me = this_player();
 	string type = arg;
 	string s = "你想购买些什么药品：\n";
-	//获得玩家身上个稀有度玉石的个数
-	int have_1 = YUSHID->query_yushi_num(me,1);
-	int have_2 = YUSHID->query_yushi_num(me,2);
-	int have_3 = YUSHID->query_yushi_num(me,3);
-	int have_4 = YUSHID->query_yushi_num(me,4);
-	int have_5 = YUSHID->query_yushi_num(me,5);
+	//按总价值显示各面额可购买数量，购买时会自动兑换
+	int have_all = YUSHID->query_all_num(me);
+	int have_1 = have_all;
+	int have_2 = have_all/YUSHID->get_yushi_value(2);
+	int have_3 = have_all/YUSHID->get_yushi_value(3);
+	int have_4 = have_all/YUSHID->get_yushi_value(4);
+	int have_5 = have_all/YUSHID->get_yushi_value(5);
 	int have_money = me->query_account();
 	have_money = have_money/100;
 	if(type == "exp"){

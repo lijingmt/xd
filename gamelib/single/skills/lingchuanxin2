@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵穿心(2级)";
-	desc="灵气穿透攻击，无视敌人大量防御（强化版）";
+	desc="凝聚灵气，对当前敌人发动强力物理攻击（强化版）";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=10; // 10秒冷却
@@ -25,9 +25,13 @@ protected void create(){
 	performs_cast[5]=210;
 	skill_type+=({"fangshi"});
 	performs_level_limit[1]=65;
-	performs_desc[1]="无视50%防御造成2000点伤害，消耗法力150点";
-	performs_desc[2]="无视55%防御造成2800点伤害，消耗法力165点";
-	performs_desc[3]="无视60%防御造成3800点伤害，消耗法力180点";
-	performs_desc[4]="无视65%防御造成5000点伤害，消耗法力195点";
-	performs_desc[5]="无视70%防御造成6400点伤害，消耗法力210点";
+	performs_level_limit[2]=85;
+	performs_level_limit[3]=105;
+	performs_level_limit[4]=125;
+	performs_level_limit[5]=145;
+	performs_desc[1]="攻击当前敌人，附加2000点物理伤害，消耗法力150点";
+	performs_desc[2]="攻击当前敌人，附加2800点物理伤害，消耗法力165点";
+	performs_desc[3]="攻击当前敌人，附加3800点物理伤害，消耗法力180点";
+	performs_desc[4]="攻击当前敌人，附加5000点物理伤害，消耗法力195点";
+	performs_desc[5]="攻击当前敌人，附加6400点物理伤害，消耗法力210点";
 }

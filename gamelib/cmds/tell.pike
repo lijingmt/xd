@@ -70,7 +70,7 @@ int main(string|zero arg)
 			me->write_view(WAP_VIEWD["/tell_notfound"]);
 		}
 		else{
-			if(me->query_raceId()!=ob->query_raceId())
+			if(!me->can_socialize_with(ob))
 			{
 				write("不同阵营的玩家之间不能谈话。\n[返回游戏:look]\n");
 				return 1;

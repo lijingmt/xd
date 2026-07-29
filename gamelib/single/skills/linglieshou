@@ -25,6 +25,10 @@ protected void create(){
 	performs_cast[5]=240;
 	skill_type+=({"fangshi"});
 	performs_level_limit[1]=70;
+	performs_level_limit[2]=90;
+	performs_level_limit[3]=110;
+	performs_level_limit[4]=130;
+	performs_level_limit[5]=150;
 	performs_desc[1]="召唤灵裂兽攻击，造成3000点巨额伤害，消耗法力180点";
 	performs_desc[2]="召唤灵裂兽攻击，造成4200点巨额伤害，消耗法力195点";
 	performs_desc[3]="召唤灵裂兽攻击，造成5700点巨额伤害，消耗法力210点";

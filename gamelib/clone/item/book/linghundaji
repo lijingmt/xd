@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵魂打击";
 	unit="本";
 	picture=name;
-	desc="直接攻击敌人的灵魂，造成高额伤害并有几率眩晕\n";
+	desc="直接攻击敌人的灵魂，造成高额物理伤害\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

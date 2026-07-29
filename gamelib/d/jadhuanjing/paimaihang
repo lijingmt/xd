@@ -38,7 +38,7 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race){
+	if(player->can_use_room_race(room_race)){
 		tmp+="[**新手必读**:vendue_readme]\n";
 		tmp+="[**拍卖物品**:vendue_mygoods_list]\n";
 		tmp+="[**竞拍物品**:vendue_goods_list]\n";

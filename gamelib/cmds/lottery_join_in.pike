@@ -12,13 +12,11 @@ int main(string|zero arg)
 		lv = (int)arg;
 	else
 		lv = LOTTERYD->get_random_lottery_level();
-	//获得玩家身上玉石的个数
-	int have_num = YUSHID->query_yushi_num(me,1);
 	int need_num = LOTTERYD->get_lottery_award_price(lv);
 	if(!lv){
 		s += "操作失败！奖项已全部抽完，请等待下次抽奖\n";
 	}
-	else if(have_num < need_num){
+	else if(!YUSHID->have_enough_yushi(me,need_num)){
 		s += "操作失败！需要"+need_num+"碎玉，你身上没有足够的玉石\n";
 	}
 	else if(LOTTERYD->get_lottery_award_left(lv) <= 0){
@@ -108,7 +106,7 @@ int main(string|zero arg)
 		//扣除玩家身上的玉石
 		if(remove_fg){
 			cost_reb = need_num;
-			me->remove_combine_item("suiyu",2);
+			YUSHID->pay_yushi(me,need_num);
 		}
 		string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][lottery]["+award_name+"]["+award_namecn+"]["+award_num+"]["+cost_reb+"]["+log_flag+"]\n";
 		Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);

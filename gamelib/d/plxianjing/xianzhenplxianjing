@@ -18,9 +18,9 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race&&player->query_level()>=50)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=50)
 		tmp+="[仙阵【牧野】:qge74hye muye/xianzhenmuye]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=58)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=58)
 		tmp+="[仙阵【蓬莱幻境】:qge74hye penglaihuanjing/xianzhenplhj]\n";
 	return tmp;
 }

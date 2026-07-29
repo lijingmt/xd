@@ -51,6 +51,8 @@ protected protected void create(){
 			string t1 = (string)arrt1[0];
 			sscanf(t1,"%d",index);
 			string t2 = (string)arrt1[1]+"|"+(string)arrt1[2]+"|"+(string)arrt1[3];
+			if(sizeof(arrt1)>4)
+				t2 += "|"+(string)arrt1[4];
 			array arrt2 = t2/"|";
 			arrt2 -= ({""});
 			honer_list[index] = arrt2;
@@ -84,10 +86,14 @@ string query_honer_level_desc(int hlevel, string rid)
 	string honerDesc = "";
 	array atmp = ({});
 	atmp = (array)honer_list[hlevel];
+	if(!atmp || sizeof(atmp)<3)
+		return honerDesc;
 	if(rid=="human")
 		honerDesc += (string)atmp[1];//人类
 	else if(rid=="monst")
 		honerDesc += (string)atmp[2];//妖魔
+	else if(rid=="third" && sizeof(atmp)>3)
+		honerDesc += (string)atmp[3];//中立方士
 	return honerDesc;
 }
 //得到荣誉级别对应需要的荣誉点

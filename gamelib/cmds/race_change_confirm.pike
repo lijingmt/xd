@@ -6,6 +6,12 @@ int main(string|zero arg)
 	object me = this_player();
 	string s = "";
 	string tmp_s = "";
+	if(!me->can_change_faction()){
+		s += "方士属于中立职业，不能转换阵营，也不会消耗轮回符印。\n";
+		s += "[返回游戏:look]\n";
+		me->write_view(WAP_VIEWD["/emote"],0,0,s);
+		return 1;
+	}
 	/*
 	if(!me->lunhuipt||abs(me->lunhuipt)<=50){
 		s += "抱歉，您的所具有的轮回值没有达到转换要求，不能转换阵营\n";

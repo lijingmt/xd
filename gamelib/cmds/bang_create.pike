@@ -32,7 +32,7 @@ int main(string|zero arg)
 		if(be == 1){
 			string now = ctime(time());
 			me->del_account(100000);
-			int del_yushi = YUSHID->give_yushi(me,100);
+			int del_yushi = YUSHID->pay_yushi(me,100);
 			me->remove_combine_item("kaibanglingpai",1);
 			s += "恭喜您! \n";
 			s += "你建立了帮派<"+arg+">:\n";

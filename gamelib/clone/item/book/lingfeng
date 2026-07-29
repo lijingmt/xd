@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵风";
 	unit="本";
 	picture=name;
-	desc="召唤灵风围绕，持续伤害周围敌人\n";
+	desc="召唤灵风附体，在持续时间内提升物理攻击力\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

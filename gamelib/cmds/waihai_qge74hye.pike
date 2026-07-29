@@ -45,6 +45,12 @@ int main(string path)
 				me->last_pos="/gamelib/d/congxianzhen/congxianzhenguangchang";
 			if(me->query_raceId()=="monst")
 				me->last_pos="/gamelib/d/jinaodao/yuhuacunguangchang";
+			if(me->query_raceId()=="third"){
+				if(random(2)==0)
+					me->last_pos="/gamelib/d/congxianzhen/congxianzhenguangchang";
+				else
+					me->last_pos="/gamelib/d/jinaodao/yuhuacunguangchang";
+			}
 			if(me->last_pos){
 				mixed err=catch{
 					(object)(ROOT+me->last_pos);

@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵玄影(2级)";
 	unit="本";
 	picture=name;
-	desc="化身为灵玄影，大幅提升暴击和闪避（强化版）\n";
+	desc="化身为灵玄影，大幅提升力量、敏捷和智力（强化版）\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);
@@ -20,7 +20,7 @@ protected void create(){
 	need_money=0;
 }
 int read(){
-	int result=::read();
+	int result=::spec_read("lingxuanying");
 	if(read_flag==0){
 		remove();
 	}

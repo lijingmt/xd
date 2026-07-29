@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵吸术";
-	desc="吸取敌人的生命和法力";
+	desc="以灵力攻击当前敌人，造成物理伤害";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=15; // 15秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=59;
 	performs_level_limit[4]=79;
 	performs_level_limit[5]=99;
-	performs_desc[1]="造成250点伤害，恢复125点生命和62点法力，消耗法力50点";
-	performs_desc[2]="造成400点伤害，恢复200点生命和100点法力，消耗法力60点";
-	performs_desc[3]="造成600点伤害，恢复300点生命和150点法力，消耗法力70点";
-	performs_desc[4]="造成850点伤害，恢复425点生命和212点法力，消耗法力80点";
-	performs_desc[5]="造成1150点伤害，恢复575点生命和287点法力，消耗法力90点";
+	performs_desc[1]="攻击当前敌人，附加250点物理伤害，消耗法力50点";
+	performs_desc[2]="攻击当前敌人，附加400点物理伤害，消耗法力60点";
+	performs_desc[3]="攻击当前敌人，附加600点物理伤害，消耗法力70点";
+	performs_desc[4]="攻击当前敌人，附加850点物理伤害，消耗法力80点";
+	performs_desc[5]="攻击当前敌人，附加1150点物理伤害，消耗法力90点";
 }

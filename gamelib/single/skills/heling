@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】鹤灵";
-	desc="召唤仙鹤灵兽附体，持续恢复生命并提升防御力";
+	desc="召唤仙鹤附体，在持续时间内提升防御力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="defend"; // 增加防御
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=55;
 	performs_level_limit[4]=75;
 	performs_level_limit[5]=95;
-	performs_desc[1]="20秒内每秒恢复300点生命，防御增加300点，消耗法力80点";
-	performs_desc[2]="20秒内每秒恢复500点生命，防御增加500点，消耗法力100点";
-	performs_desc[3]="20秒内每秒恢复800点生命，防御增加800点，消耗法力120点";
-	performs_desc[4]="20秒内每秒恢复1200点生命，防御增加1200点，消耗法力150点";
-	performs_desc[5]="20秒内每秒恢复1800点生命，防御增加1800点，消耗法力180点";
+	performs_desc[1]="20秒内防御增加300点，消耗法力80点";
+	performs_desc[2]="20秒内防御增加500点，消耗法力100点";
+	performs_desc[3]="20秒内防御增加800点，消耗法力120点";
+	performs_desc[4]="20秒内防御增加1200点，消耗法力150点";
+	performs_desc[5]="20秒内防御增加1800点，消耗法力180点";
 }

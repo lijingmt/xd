@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵盾";
-	desc="召唤灵盾保护自己，免疫控制效果";
+	desc="召唤灵盾保护自己，在持续时间内提升生命上限";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="life_max";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=57;
 	performs_level_limit[4]=77;
 	performs_level_limit[5]=97;
-	performs_desc[1]="获得1500点护盾，8秒内免疫所有控制效果，消耗法力70点";
-	performs_desc[2]="获得2500点护盾，8秒内免疫所有控制效果，消耗法力80点";
-	performs_desc[3]="获得3800点护盾，8秒内免疫所有控制效果，消耗法力90点";
-	performs_desc[4]="获得5400点护盾，8秒内免疫所有控制效果，消耗法力100点";
-	performs_desc[5]="获得7200点护盾，8秒内免疫所有控制效果，消耗法力110点";
+	performs_desc[1]="8秒内生命上限增加1500点，消耗法力70点";
+	performs_desc[2]="8秒内生命上限增加2500点，消耗法力80点";
+	performs_desc[3]="8秒内生命上限增加3800点，消耗法力90点";
+	performs_desc[4]="8秒内生命上限增加5400点，消耗法力100点";
+	performs_desc[5]="8秒内生命上限增加7200点，消耗法力110点";
 }

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】虎灵";
-	desc="召唤猛虎灵兽附体，大幅提升物理攻击力和暴击率";
+	desc="召唤猛虎附体，在持续时间内大幅提升物理攻击力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="attack"; // 增加攻击
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=50;
 	performs_level_limit[4]=70;
 	performs_level_limit[5]=90;
-	performs_desc[1]="30秒内物理攻击增加500点，暴击率增加10%，消耗法力100点";
-	performs_desc[2]="30秒内物理攻击增加800点，暴击率增加15%，消耗法力120点";
-	performs_desc[3]="30秒内物理攻击增加1200点，暴击率增加20%，消耗法力150点";
-	performs_desc[4]="30秒内物理攻击增加1800点，暴击率增加25%，消耗法力180点";
-	performs_desc[5]="30秒内物理攻击增加2500点，暴击率增加30%，消耗法力200点";
+	performs_desc[1]="30秒内物理攻击增加500点，消耗法力100点";
+	performs_desc[2]="30秒内物理攻击增加800点，消耗法力120点";
+	performs_desc[3]="30秒内物理攻击增加1200点，消耗法力150点";
+	performs_desc[4]="30秒内物理攻击增加1800点，消耗法力180点";
+	performs_desc[5]="30秒内物理攻击增加2500点，消耗法力200点";
 }

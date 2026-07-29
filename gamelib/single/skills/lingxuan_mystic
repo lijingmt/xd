@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵玄·秘";
-	desc="神秘传承的灵玄术，威力远超普通版本，造成巨额物理伤害并有机会使敌人混乱";
+	desc="神秘传承的灵玄术，以更高威力攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_curse_type="attack";
@@ -27,9 +27,9 @@ protected void create(){
 	performs_level_limit[3]=50;
 	performs_level_limit[4]=70;
 	performs_level_limit[5]=90;
-	performs_desc[1]="造成800点物理伤害，20%几率使敌人混乱，消耗法力80点";
-	performs_desc[2]="造成1200点物理伤害，25%几率使敌人混乱，消耗法力90点";
-	performs_desc[3]="造成1800点物理伤害，30%几率使敌人混乱，消耗法力100点";
-	performs_desc[4]="造成2600点物理伤害，35%几率使敌人混乱，消耗法力110点";
-	performs_desc[5]="造成3500点物理伤害，40%几率使敌人混乱，消耗法力120点";
+	performs_desc[1]="攻击当前敌人，附加800点物理伤害，消耗法力80点";
+	performs_desc[2]="攻击当前敌人，附加1200点物理伤害，消耗法力90点";
+	performs_desc[3]="攻击当前敌人，附加1800点物理伤害，消耗法力100点";
+	performs_desc[4]="攻击当前敌人，附加2600点物理伤害，消耗法力110点";
+	performs_desc[5]="攻击当前敌人，附加3500点物理伤害，消耗法力120点";
 }

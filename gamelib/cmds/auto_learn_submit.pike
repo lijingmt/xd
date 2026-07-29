@@ -12,7 +12,7 @@ int main(string|zero arg)
 	int time = 0;      //新增加的时间
 	int myTime = 0;    //原有的时间
 	int timeTotal = 0; //总时间
-	int myYushi = YUSHID->query_yushi_num(me,1);   //玩家身上的碎玉数目
+	int myYushi = YUSHID->query_all_num(me);   //玩家全部玉石折合碎玉的数目
 	sscanf(arg,"%s %s",type,yushi_s);
 	sscanf(yushi_s,"no=%d",yushi);
 	if(yushi>0)

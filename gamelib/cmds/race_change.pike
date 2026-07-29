@@ -6,6 +6,12 @@ int main(string|zero arg)
 	object me = this_player();
 	string s = "";
 	string tmp_s = "";
+	if(!me->can_change_faction()){
+		s += "方士属于中立职业，可以往来仙妖两界，不能转换阵营。\n";
+		s += "[返回游戏:look]\n";
+		write(s);
+		return 1;
+	}
 	//仙转魔
 	if(me->query_raceId()=="human"){
 		tmp_s = "小于负50(不包括负50)";

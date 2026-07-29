@@ -5,7 +5,6 @@
 int main(string|zero arg)
 {
 	object me = this_player();
-	object item;
 	string item_name = "";
 	int index;
 	int range;
@@ -21,9 +20,7 @@ int main(string|zero arg)
 		need_xianyuan = item_level/10;
 		need_suiyu = item_level%10;
 	}
-	int have_xianyuan = YUSHID->query_yushi_num(me,2);
-	int have_suiyu = YUSHID->query_yushi_num(me,1);
-	if(have_xianyuan<need_xianyuan || have_suiyu<need_suiyu)
+	if(!YUSHID->have_enough_yushi(me,item_level))
 		s += "交易失败！你身上没有足够的玉石\n";
 	else if(me->if_over_easy_load())
 		s += "交易失败！你的随身物品已满\n";
@@ -56,26 +53,29 @@ int main(string|zero arg)
 			string cost = "";
 			string get_item_cn = get_item->query_name_cn();
 			if(need_xianyuan){
-				me->remove_combine_item("xianyuanyu",need_xianyuan);
 				cost += need_xianyuan+"|xianyuanyu,";
 			}
 			if(need_suiyu){
-				me->remove_combine_item("suiyu",need_suiyu);
 				cost += need_suiyu+"|suiyu,";
 			}
-			DUBOD->set_dubo_num(item_name,index,range);
-			s += "交易成功！你获得了"+get_item->query_short()+"\n";
-			string consume_time = MUD_TIMESD->get_mysql_timedesc();
-			int cost_reb = item_level;
-			//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','dubo','"+cost+"','"+get_item->query_name()+"',"+get_item_num+",'"+get_item_cn+"',"+item_level+");\n";
-			 string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][dubo]["+get_item->query_name()+"]["+get_item_cn+"][1]["+cost_reb+"][0]\n";
-			Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
-			if(get_item->is_combine_item()==1)
-				get_item->move_player(me->query_name());
-			else
-				get_item->move(me);
-			string now=ctime(time());
-			//Stdio.append_file(ROOT+"/log/fee_log/yushi_use-"+MUD_TIMESD->get_year_month_day()+".log",s_log);
+			if(!YUSHID->pay_yushi(me,item_level)){
+				s += "交易失败！玉石扣除失败，请稍后再试\n";
+			}
+			else{
+				DUBOD->set_dubo_num(item_name,index,range);
+				s += "交易成功！你获得了"+get_item->query_short()+"\n";
+				string consume_time = MUD_TIMESD->get_mysql_timedesc();
+				int cost_reb = item_level;
+				//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','dubo','"+cost+"','"+get_item->query_name()+"',"+get_item_num+",'"+get_item_cn+"',"+item_level+");\n";
+				 string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][dubo]["+get_item->query_name()+"]["+get_item_cn+"][1]["+cost_reb+"][0]\n";
+				Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+				if(get_item->is_combine_item()==1)
+					get_item->move_player(me->query_name());
+				else
+					get_item->move(me);
+				string now=ctime(time());
+				//Stdio.append_file(ROOT+"/log/fee_log/yushi_use-"+MUD_TIMESD->get_year_month_day()+".log",s_log);
+			}
 		}
 	}
 	s += "[返回:dubo_items_list "+range+"]\n";

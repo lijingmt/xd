@@ -11,7 +11,10 @@ int main(string|zero arg)
 	s += "[我的好友:my_qqlist]\n";
 	s += "[当前玩家:userlist]\n";
 	s += "[聊天内容:chatroom_list]\n";
-	s += "[转换阵营:race_change]\n";
+	if(me->can_change_faction())
+		s += "[转换阵营:race_change]\n";
+	else
+		s += "方士为中立职业，可往来仙妖两界，无需转换阵营。\n";
 	s += "[返回:look]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

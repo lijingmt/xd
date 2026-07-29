@@ -22,7 +22,7 @@ int main(string|zero arg)
 				this_player()->write_view(WAP_VIEWD["/qqlist_insert_guest_other"],ob);
 				return 1;
 			}
-			if(this_player()->query_raceId()==ob->query_raceId()){
+			if(this_player()->can_socialize_with(ob)){
 				this_player()->qqlist_insert(arg);
 				this_player()->write_view(WAP_VIEWD["/qqlist_insert"],ob);
 			}

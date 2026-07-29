@@ -86,7 +86,9 @@ int main(string arg)
 	object env=environment(this_player());
 	if(env->exits[arg]&&!env->closed_exits[arg]&&!(env->hidden_exits[arg]&&!present(env->hidden_exits[arg],this_player()))){
 		object guarder;
-		if(!(env->guarded_exits[arg]&&(guarder=present(env->guarded_exits[arg],env))&&guarder->query_raceId() != this_player()->query_raceId())){
+		if(!(env->guarded_exits[arg] &&
+		   (guarder=present(env->guarded_exits[arg],env)) &&
+		   !this_player()->can_use_room_race(guarder->query_raceId()))){
 			string dest=env->exits[arg];
 			mapping switch_exits=(env->switch_exits);
 			if(switch_exits[arg]){
@@ -145,4 +147,3 @@ int main(string arg)
 		this_player()->write_view(WAP_VIEWD["/leave_noway"]);
 	return 1;
 }
-

@@ -271,7 +271,9 @@ $(ob->query_links(arg))
 #"你身上没有这样东西。
 			");
 	WAP_VIEWD["/inventory"]=new(MUD_VIEW,
-#"$(player->view_inventory_zhuangbei())
+#"【装备背包】
+			[一键穿装:auto_equip]
+			$(player->view_inventory_zhuangbei())
 			");
 	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,
 #"$(player->view_inventory_daoju())

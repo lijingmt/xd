@@ -16,7 +16,7 @@ int is_bedroom()
 string query_links(){
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race){
+	if(player->can_use_room_race(room_race)){
 		if(player->query_level()>=45 && CITYD->query_captured("chaogecheng")=="monst")
 			tmp+="[妖阵【朝歌】:city_qge74hye chaogecheng/yaozhengchaoge chaogecheng]\n";
 		tmp+="[休息:sleep]\n";

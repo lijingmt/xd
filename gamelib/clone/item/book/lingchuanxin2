@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵穿心(2级)";
 	unit="本";
 	picture=name;
-	desc="灵气穿透攻击，无视敌人大量防御（强化版）\n";
+	desc="凝聚灵气，对当前敌人发动强力物理攻击（强化版）\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);
@@ -20,7 +20,7 @@ protected void create(){
 	need_money=0;
 }
 int read(){
-	int result=::read();
+	int result=::spec_read("lingchuanxin");
 	if(read_flag==0){
 		remove();
 	}

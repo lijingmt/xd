@@ -3,6 +3,17 @@
 #define HONER ROOT "/gamelib/clone/item/honer/"
 //arg = type name flag
 // type为"duanzao" or "liandan" ;name为配方文件; flag为0表示察看，为1表示购买
+string query_honer_name(string race_id)
+{
+	if(race_id == "human")
+		return "仙气";
+	if(race_id == "monst")
+		return "妖气";
+	if(race_id == "third")
+		return "灵气";
+	return "荣誉值";
+}
+
 int main(string|zero arg)
 {
 	string s = "荣誉属于真正的勇者\n";
@@ -23,10 +34,7 @@ int main(string|zero arg)
 		if(flag == 0){
 			s += ob->query_name_cn()+"\n";
 			s += ob->query_picture_url()+"\n"+ob->query_desc()+"\n"+ob->query_content()+"\n";
-			if(me->query_raceId() == "human")
-				race = "仙气";
-			else if(me->query_raceId() == "monst")
-				race = "妖气";
+			race = query_honer_name(me->query_raceId());
 			s += "需要"+race+"："+need_honer+"\n";
 			if(need_num>0){
 				s += "需要"+need_ob->query_name_cn()+":"+need_num+"块\n";

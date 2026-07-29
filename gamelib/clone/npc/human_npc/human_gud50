@@ -26,7 +26,7 @@ void randomGo()
 	object env = environment(this_object());
 	foreach(all_inventory(env),object player){
 		if( player && player->userip && !player->is("npc") ){
-			if(player->query_raceId()!=this_object()->query_raceId()){
+			if(!player->can_use_room_race(this_object()->query_raceId())){
 				tell_object(player,this_object()->query_name_cn()+"：大胆妖孽！"+player->query_name_cn()+"！竟敢来这里，找死！\n");
 				this_object()->kill(player->query_name(),0);
 				break;

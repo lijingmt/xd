@@ -24,7 +24,7 @@ protected void create(){
 }
 void init()
 {
-	if(this_player()->query_raceId() != this_object()->query_raceId() && this_player()->hind == 0){
+	if(!this_player()->can_use_room_race(this_object()->query_raceId()) && this_player()->hind == 0){
 		string s = this_object()->query_name_cn()+"：大胆妖孽，竟敢袭击西歧城~~拿命来！\n";
 		tell_object(this_player(),s);
 		if(!this_object()->in_combat){

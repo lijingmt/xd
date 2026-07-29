@@ -13,11 +13,11 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race&&player->query_level()>=30)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=30)
 		tmp+="[仙阵【玉虚宫】:qge74hye kunlunshan/xianzhenxuyugong]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=40)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=40)
 		tmp+="[仙阵【流光平原】:qge74hye liuguangpingyuan/xianzhenliuguangping]\n";
-	if(player->query_raceId()==room_race&&player->query_level()>=50)
+	if(player->can_use_room_race(room_race)&&player->query_level()>=50)
 		tmp+="[仙阵【蓬莱仙境】:qge74hye plxianjing/xianzhenplxianjing]\n";
 	return tmp;
 }

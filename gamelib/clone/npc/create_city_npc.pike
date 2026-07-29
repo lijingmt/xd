@@ -28,7 +28,7 @@ templates["穿装备"]= "\tforeach(equip_list,string equip){\n\t\tobject ob=clon
 templates["技能列表"]="\tboss_skills=([$1]);\n";
 //设置方法是固定写入的
 templates["设置方法"]="\tsetup_npc();\n\tset_heart_beat(1);\n}\n";
-templates["主动攻击"]="void init()\n{\n\tif(this_player()->query_raceId() != this_object()->query_raceId() && this_player()->hind == 0){\n\t\tstring s = this_object()->query_name_cn()+\"：$1\\n\";\n\t\ttell_object(this_player(),s);\n\t\tif(!this_object()->in_combat){\n\t\t\tthis_object()->flush_life();\n\t\t\tthis_object()->kill(this_player()->query_name(),0);\n\t\t}\n\t\telse\n\t\t\tthis_object()->flush_targets(this_player(),1);\n\t}\n}\n";
+templates["主动攻击"]="void init()\n{\n\tif(!this_player()->can_use_room_race(this_object()->query_raceId()) && this_player()->hind == 0){\n\t\tstring s = this_object()->query_name_cn()+\"：$1\\n\";\n\t\ttell_object(this_player(),s);\n\t\tif(!this_object()->in_combat){\n\t\t\tthis_object()->flush_life();\n\t\t\tthis_object()->kill(this_player()->query_name(),0);\n\t\t}\n\t\telse\n\t\t\tthis_object()->flush_targets(this_player(),1);\n\t}\n}\n";
 templates["随机语"]="string query_words(){\n\tstring s = ::query_words();\n\ts += TASKD->query_words(this_player(),this_object());\n\treturn s;\n}\n";
 templates["附加链接"]="string query_links(void|int count){\n\treturn ::query_links(count);\n}\n";
 //templates["死亡处理"]="void fight_die(){\n\t::fight_die();\n}\n";

@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵百雷11级";
 	unit="本";
 	picture=name;
-	desc="召唤大量灵雷攻击范围敌人（11级强化）\n";
+	desc="召唤大量灵雷攻击当前敌人（强化版）\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);
@@ -20,7 +20,7 @@ protected void create(){
 	need_money=0;
 }
 int read(){
-	int result=::read();
+	int result=::spec_read("lingbailei");
 	if(read_flag==0){
 		remove();
 	}

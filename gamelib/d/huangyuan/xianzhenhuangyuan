@@ -16,7 +16,7 @@ int is_bedroom()
 string query_links(){
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race){
+	if(player->can_use_room_race(room_race)){
 		tmp+="[休息:sleep]\n";
 		}
 	return tmp;

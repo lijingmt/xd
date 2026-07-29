@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵护护术";
-	desc="强大的护盾，同时吸收伤害并转化为生命";
+	desc="以灵力保护自身，在持续时间内提升生命上限";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="life_max";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=65;
 	performs_level_limit[4]=85;
 	performs_level_limit[5]=105;
-	performs_desc[1]="吸收2000点伤害，并将50%吸收量转化为生命，消耗法力80点";
-	performs_desc[2]="吸收3500点伤害，并将50%吸收量转化为生命，消耗法力90点";
-	performs_desc[3]="吸收5500点伤害，并将50%吸收量转化为生命，消耗法力100点";
-	performs_desc[4]="吸收8000点伤害，并将50%吸收量转化为生命，消耗法力110点";
-	performs_desc[5]="吸收11000点伤害，并将50%吸收量转化为生命，消耗法力120点";
+	performs_desc[1]="15秒内生命上限增加2000点，消耗法力80点";
+	performs_desc[2]="15秒内生命上限增加3500点，消耗法力90点";
+	performs_desc[3]="15秒内生命上限增加5500点，消耗法力100点";
+	performs_desc[4]="15秒内生命上限增加8000点，消耗法力110点";
+	performs_desc[5]="15秒内生命上限增加11000点，消耗法力120点";
 }

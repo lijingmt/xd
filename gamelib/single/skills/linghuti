@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵护体";
-	desc="灵气环绕身体，反弹部分伤害给攻击者";
+	desc="灵气环绕身体，在持续时间内提升防御力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="defend";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=45;
 	performs_level_limit[4]=65;
 	performs_level_limit[5]=85;
-	performs_desc[1]="20秒内反弹50点伤害，增加200点防御，消耗法力50点";
-	performs_desc[2]="20秒内反弹80点伤害，增加400点防御，消耗法力60点";
-	performs_desc[3]="20秒内反弹120点伤害，增加600点防御，消耗法力70点";
-	performs_desc[4]="20秒内反弹180点伤害，增加900点防御，消耗法力80点";
-	performs_desc[5]="20秒内反弹250点伤害，增加1200点防御，消耗法力90点";
+	performs_desc[1]="20秒内增加50点防御，消耗法力50点";
+	performs_desc[2]="20秒内增加80点防御，消耗法力60点";
+	performs_desc[3]="20秒内增加120点防御，消耗法力70点";
+	performs_desc[4]="20秒内增加180点防御，消耗法力80点";
+	performs_desc[5]="20秒内增加250点防御，消耗法力90点";
 }

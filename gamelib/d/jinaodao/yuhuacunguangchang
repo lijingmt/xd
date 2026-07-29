@@ -25,7 +25,7 @@ string query_links(){
 	if(player->have_name_cn() && player->set_pic_ok==0)
 		tmp+="[改头换面:set_pic]\n";
 	else if(!player->have_name_cn()){
-		if(player->query_raceId()==room_race || player->query_raceId()=="third")  // third=方士可在妖魔区取名字
+		if(player->can_use_room_race(room_race) || player->query_raceId()=="third")  // third=方士可在妖魔区取名字
 			tmp+="[取名字:set_name_cn]\n";
 	}
 
@@ -33,7 +33,7 @@ string query_links(){
 	if(player->set_presenter == "can_set")
 		tmp += "[填写推荐人:present_set]\n";
 
-	if(player->query_raceId()==room_race){
+	if(player->can_use_room_race(room_race)){
 		tmp+="[休息:sleep]\n";
 		object env=environment(player);
 		string cur_pos=file_name(env)-ROOT;

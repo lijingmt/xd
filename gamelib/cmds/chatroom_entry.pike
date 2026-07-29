@@ -13,10 +13,8 @@ int main(string|zero arg)
 		//if(me->query_level()>=6) //为了屏蔽枪手而做的修改
 		//s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
 		s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
-		if(me->query_raceId()=="human")
-			s += CHATROOMD->query_chat_msg(me->query_chatid(),me->query_name());	
-		else if(me->query_raceId()=="monst")
-			s += CHATROOM2D->query_chat_msg(me->query_chatid(),me->query_name());	
+		s += RACECHATD->query_chat_msg(
+			me->query_raceId(),me->query_chatid(),me->query_name());
 	}
 	s+="[返回:chatroom_list]\n";
 	s+="[返回游戏:look]\n";

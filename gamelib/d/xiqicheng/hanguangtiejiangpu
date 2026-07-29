@@ -34,7 +34,7 @@ string query_links()
 {
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race){
+	if(player->can_use_room_race(room_race)){
 		tmp="[修理装备:repair]\n";
 		tmp+="[修理所有装备:repair_all]\n";
 		tmp+="[锻造:viceskill_duanzao_list m_weapon]|[熔解:viceskill_rongjie_list]|[熔炼:viceskill_ronglian_list 0]\n";

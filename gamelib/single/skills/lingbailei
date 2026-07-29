@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵百雷";
-	desc="召唤大量灵雷攻击范围敌人";
+	desc="召唤大量灵雷攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=35; // 35秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=70;
 	performs_level_limit[4]=90;
 	performs_level_limit[5]=110;
-	performs_desc[1]="对范围内所有敌人造成800点伤害，30%几率麻痹1秒，消耗法力100点";
-	performs_desc[2]="对范围内所有敌人造成1200点伤害，35%几率麻痹1.5秒，消耗法力110点";
-	performs_desc[3]="对范围内所有敌人造成1700点伤害，40%几率麻痹2秒，消耗法力120点";
-	performs_desc[4]="对范围内所有敌人造成2300点伤害，45%几率麻痹2.5秒，消耗法力130点";
-	performs_desc[5]="对范围内所有敌人造成3000点伤害，50%几率麻痹3秒，消耗法力140点";
+	performs_desc[1]="攻击当前敌人，附加800点物理伤害，消耗法力100点";
+	performs_desc[2]="攻击当前敌人，附加1200点物理伤害，消耗法力110点";
+	performs_desc[3]="攻击当前敌人，附加1700点物理伤害，消耗法力120点";
+	performs_desc[4]="攻击当前敌人，附加2300点物理伤害，消耗法力130点";
+	performs_desc[5]="攻击当前敌人，附加3000点物理伤害，消耗法力140点";
 }

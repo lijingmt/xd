@@ -20,7 +20,7 @@ class buy_item
 	string item_type;//[0]物品类别，如：书，肥料，丹药
 	string file;//[1]物品文件名
 	int level;//[2]学习技能等级限制
-	string zhiye;//[3]学习技能职业限制,剑仙:jianxian 羽士:yushi 诛仙:zhuxian 巫妖：wuyao 狂妖:kuangyao 影鬼:yinggui 人类:human 妖魔:monst 所有职业:all
+	string zhiye;//[3]学习技能职业限制,剑仙:jianxian 羽士:yushi 诛仙:zhuxian 巫妖:wuyao 狂妖:kuangyao 影鬼:yinggui 方士:fangshi 人类:human 妖魔:monst 所有职业:all
 	string name_cn;//[4]技能书的中文名
 	int need_yushi;//[5]需要的碎玉
 	//int yushi_level;
@@ -44,10 +44,13 @@ void load_list()
 {
 	buy_item_list = ([]);
 	string liandanData = Stdio.read_file(BOOK_LIST);
-	array(string) lines = liandanData/"\r\n";
+	array(string) lines = liandanData/"\n";
 	if(lines && sizeof(lines)){
 		lines = lines-({""});
 		foreach(lines,string eachline){
+			eachline = String.trim_all_whites(eachline);
+			if(eachline=="")
+				continue;
 			buy_item tmpBuy = buy_item();
 			array(string) columns = eachline/",";
 			if(sizeof(columns) == 8){
@@ -154,7 +157,10 @@ string buy_items(string item_name,string item_type)
 		item_namecn = item->query_name_cn();
 	};
 	if(!err&&item){
-		YUSHID->pay_yushi(me,yushi);
+		if(!YUSHID->pay_yushi(me,yushi)){
+			s += "玉石扣除失败，请稍后再试\n";
+			return s;
+		}
 		me->del_account(money);
 		if(item->is_combine_item()){
 			item->move_player(me->query_name());

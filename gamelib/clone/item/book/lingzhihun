@@ -3,10 +3,10 @@
 inherit WAP_BOOK;
 protected void create(){
 	name=object_name(this_object());
-	name_cn="【方】灵智魂";
+	name_cn="【方】灵智魂一级";
 	unit="本";
 	picture=name;
-	desc="提升所有灵兽技能的效果\n";
+	desc="永久提升10点力量、敏捷和智力\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);
@@ -21,7 +21,7 @@ protected void create(){
 	need_money=200;
 }
 int read(){
-	int result=::read();
+	int result=::beidong_read();
 	if(read_flag==0){
 		remove();
 	}

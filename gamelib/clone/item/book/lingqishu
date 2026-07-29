@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵气术";
 	unit="本";
 	picture=name;
-	desc="汇聚灵气攻击，对多个敌人造成伤害\n";
+	desc="汇聚灵气攻击当前敌人\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

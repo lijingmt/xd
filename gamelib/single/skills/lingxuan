@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵旋";
-	desc="灵气旋转，攻击周围所有敌人";
+	desc="灵气旋转，攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=10; // 10秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=61;
 	performs_level_limit[4]=81;
 	performs_level_limit[5]=101;
-	performs_desc[1]="对周围所有敌人造成280点伤害，消耗法力60点";
-	performs_desc[2]="对周围所有敌人造成450点伤害，消耗法力70点";
-	performs_desc[3]="对周围所有敌人造成680点伤害，消耗法力80点";
-	performs_desc[4]="对周围所有敌人造成950点伤害，消耗法力90点";
-	performs_desc[5]="对周围所有敌人造成1260点伤害，消耗法力100点";
+	performs_desc[1]="攻击当前敌人，附加280点物理伤害，消耗法力60点";
+	performs_desc[2]="攻击当前敌人，附加450点物理伤害，消耗法力70点";
+	performs_desc[3]="攻击当前敌人，附加680点物理伤害，消耗法力80点";
+	performs_desc[4]="攻击当前敌人，附加950点物理伤害，消耗法力90点";
+	performs_desc[5]="攻击当前敌人，附加1260点物理伤害，消耗法力100点";
 }

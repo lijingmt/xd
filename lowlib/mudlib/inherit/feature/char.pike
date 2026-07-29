@@ -531,9 +531,28 @@ protected mapping(string:string) profes=([
 string query_race_cn(string rid){
 	return races[rid];
 }
+// 中立方士可以使用仙、妖两边的公共设施；老职业仍受本阵营限制。
+int can_use_room_race(string target_race){
+	if(raceId=="third")
+		return target_race=="human" ||
+			target_race=="monst" ||
+			target_race=="third";
+	return raceId==target_race;
+}
+int can_change_faction(){
+	return raceId=="human" || raceId=="monst";
+}
+// 方士可与仙、妖两边玩家组队、交易和交流；仙妖之间仍保持敌对隔离。
+int can_socialize_with(object target){
+	if(!target)
+		return 0;
+	return raceId==target->query_raceId() ||
+		raceId=="third" ||
+		target->query_raceId()=="third";
+}
 ///////////////职业&npc种类/////////////////////////////////////////////////
 string query_profe_cn(string pid){
-	return profes[pid]; 
+	return profes[pid];
 }
 //武器种类定义
 protected mapping(string:int) rnt_wield = ([

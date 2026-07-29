@@ -1523,13 +1523,20 @@ string buy_items(object item,void|int yushi,void|int yushi_level,int money)
 		return s ;
 	}
 	if(yushi){
-		int have_yushi = YUSHID->query_yushi_num(me,yushi_level);
-		if(have_yushi<yushi){
+		int unit_value = YUSHID->get_yushi_value(yushi_level);
+		if(unit_value <= 0){
+			s += "玉石价格有误\n";
+			return s;
+		}
+		int yushi_value = yushi*unit_value;
+		if(!YUSHID->have_enough_yushi(me,yushi_value)){
 			s += "玉石不够\n";
 			return s;
 		}
-		string yushi_name = YUSHID->get_yushi_name(yushi_level);
-		me->remove_combine_item(yushi_name,yushi);
+		if(!YUSHID->pay_yushi(me,yushi_value)){
+			s += "玉石扣除失败，请稍后再试\n";
+			return s;
+		}
 	}
 	me->del_account(money);
 	item->move(me);

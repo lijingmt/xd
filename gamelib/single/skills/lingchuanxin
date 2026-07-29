@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵穿心";
-	desc="灵气穿透攻击，无视敌人部分防御";
+	desc="凝聚灵气，对当前敌人发动强力物理攻击";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=12; // 12秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=67;
 	performs_level_limit[4]=87;
 	performs_level_limit[5]=107;
-	performs_desc[1]="无视30%防御造成450点伤害，消耗法力65点";
-	performs_desc[2]="无视35%防御造成700点伤害，消耗法力75点";
-	performs_desc[3]="无视40%防御造成1000点伤害，消耗法力85点";
-	performs_desc[4]="无视45%防御造成1350点伤害，消耗法力95点";
-	performs_desc[5]="无视50%防御造成1750点伤害，消耗法力105点";
+	performs_desc[1]="攻击当前敌人，附加450点物理伤害，消耗法力65点";
+	performs_desc[2]="攻击当前敌人，附加700点物理伤害，消耗法力75点";
+	performs_desc[3]="攻击当前敌人，附加1000点物理伤害，消耗法力85点";
+	performs_desc[4]="攻击当前敌人，附加1350点物理伤害，消耗法力95点";
+	performs_desc[5]="攻击当前敌人，附加1750点物理伤害，消耗法力105点";
 }

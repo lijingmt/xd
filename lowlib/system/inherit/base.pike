@@ -123,6 +123,9 @@ string query_name_cn(void|int true_name){
 		// Check if query_raceId function exists before calling it
 		if(this_object()["query_raceId"] && this_object()->query_raceId()=="human")
 			return "无名剑客";
+		else if(this_object()["query_raceId"] &&
+			this_object()->query_raceId()=="third")
+			return "无名方士";
 		else
 			return "无名妖女";
 	}

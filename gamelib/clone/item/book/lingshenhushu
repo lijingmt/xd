@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵护护术";
 	unit="本";
 	picture=name;
-	desc="强大的护盾，同时吸收伤害并转化为生命\n";
+	desc="以灵力保护自身，在持续时间内提升生命上限\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

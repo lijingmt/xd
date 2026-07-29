@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵涌";
 	unit="本";
 	picture=name;
-	desc="灵力涌动，提升攻击力和法力回复\n";
+	desc="灵力涌动，在持续时间内提升物理攻击力\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

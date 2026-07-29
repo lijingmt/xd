@@ -94,6 +94,20 @@ mapping(int:array(string)) query_transfer_list(string race)
 		return monst_transfer_room;
 	else if(race == "human")
 		return human_transfer_room;
-	else
-		return 0;
+	else if(race == "third"){
+		mapping(int:array(string)) neutral_transfer_room = ([]);
+		foreach(indices(human_transfer_room),int level)
+			neutral_transfer_room[level] =
+				copy_value(human_transfer_room[level]);
+		foreach(indices(monst_transfer_room),int level){
+			if(neutral_transfer_room[level])
+				neutral_transfer_room[level] +=
+					copy_value(monst_transfer_room[level]);
+			else
+				neutral_transfer_room[level] =
+					copy_value(monst_transfer_room[level]);
+		}
+		return neutral_transfer_room;
+	}
+	return ([]);
 }

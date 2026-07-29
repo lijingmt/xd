@@ -20,7 +20,7 @@ string view_user_list(){
 			object env = environment(list[j]);
 			string room_path = file_name(env)-ROOT -"/gamelib/d/";
 			postions = (string)env->query_name_cn();
-			if(list[j]->query_raceId()==this_object()->query_raceId())
+			if(this_object()->can_socialize_with(list[j]))
 				data+=(string)list[j]->query_name_cn()+"("+list[j]->query_profe_cn(list[j]->query_profeId())+")"+" "+gender+" "+idle+" *"+postions+" [加为好友:qqlist "+(string)list[j]->query_name()+"] [发消息:tell "+(string)list[j]->query_name()+"][传送过去:qge74hye "+ room_path + "]\n\n";
 			else
 				data+=(string)list[j]->query_name_cn()+"("+list[j]->query_profe_cn(list[j]->query_profeId())+")"+" "+gender+" "+idle+" *"+postions+" [加为好友:qqlist "+(string)list[j]->query_name()+"] [发消息:tell "+(string)list[j]->query_name()+"]传送过去\n\n";

@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵吸术";
 	unit="本";
 	picture=name;
-	desc="吸取敌人的生命和法力\n";
+	desc="以灵力攻击当前敌人，造成物理伤害\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

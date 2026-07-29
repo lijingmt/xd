@@ -22,5 +22,9 @@ string query_links(){
 		tmp+="[离开这里:qge74hye kunlunshan/mengxianjing]\n";
 	else if(player->query_raceId()=="monst")
 		tmp+="[离开这里:qge74hye jinaodao/anyingchaoxue]\n";
+	else if(player->query_raceId()=="third"){
+		tmp+="[前往仙界入口:qge74hye kunlunshan/mengxianjing]\n";
+		tmp+="[前往妖界入口:qge74hye jinaodao/anyingchaoxue]\n";
+	}
 	return tmp;
 }

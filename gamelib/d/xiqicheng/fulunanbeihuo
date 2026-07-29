@@ -34,7 +34,7 @@ string query_links()
 {   
 	object player=this_player();
 	string tmp="";
-	if(player->query_raceId()==room_race){
+	if(player->can_use_room_race(room_race)){
 		tmp="[买东西:list]\n[卖东西:inventory_sell]\n[锻造配方:viceskill_peifang_view duanzao]\n[炼丹配方:viceskill_peifang_view liandan]\n";
 	}
 	return tmp;

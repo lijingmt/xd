@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵群";
 	unit="本";
 	picture=name;
-	desc="召唤灵群攻击，对多个敌人造成伤害并减速\n";
+	desc="召唤灵群攻击当前敌人\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵群";
-	desc="召唤灵群攻击，对多个敌人造成伤害并减速";
+	desc="召唤灵群攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=22; // 22秒冷却
@@ -29,9 +29,9 @@ protected void create(){
 	performs_level_limit[3]=62;
 	performs_level_limit[4]=82;
 	performs_level_limit[5]=102;
-	performs_desc[1]="对最多3个敌人造成320点伤害并减速30%，持续3秒，消耗法力70点";
-	performs_desc[2]="对最多4个敌人造成500点伤害并减速35%，持续3秒，消耗法力80点";
-	performs_desc[3]="对最多5个敌人造成750点伤害并减速40%，持续3秒，消耗法力90点";
-	performs_desc[4]="对最多6个敌人造成1050点伤害并减速45%，持续3秒，消耗法力100点";
-	performs_desc[5]="对最多7个敌人造成1400点伤害并减速50%，持续3秒，消耗法力110点";
+	performs_desc[1]="攻击当前敌人，附加320点物理伤害，消耗法力70点";
+	performs_desc[2]="攻击当前敌人，附加500点物理伤害，消耗法力80点";
+	performs_desc[3]="攻击当前敌人，附加750点物理伤害，消耗法力90点";
+	performs_desc[4]="攻击当前敌人，附加1050点物理伤害，消耗法力100点";
+	performs_desc[5]="攻击当前敌人，附加1400点物理伤害，消耗法力110点";
 }

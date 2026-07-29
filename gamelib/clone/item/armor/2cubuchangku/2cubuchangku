@@ -18,7 +18,7 @@ picture="2cubuchangku";
 	set_item_canSend(1);
 	set_item_canStorage(1);
 	set_equip_defend(8);
-	set_item_canLevel(2);
+	set_item_canLevel(1);
 	set_item_profeLimit("jianxian");
 	set_item_profeLimit("yushi");
 	set_item_profeLimit("zhuxian");

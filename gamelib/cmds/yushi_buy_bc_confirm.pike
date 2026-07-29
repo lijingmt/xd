@@ -22,10 +22,15 @@ int main(string|zero arg)
 	sscanf(s_buy_num,"no=%d",buy_num);
 	object bc;
 	string need_yushi = YUSHID->get_yushi_name(rarelevel);
-	//获得玩家身上此种玉石的个数
-	int have_num = YUSHID->query_yushi_num(me,rarelevel);
+	int yushi_value = YUSHID->get_yushi_value(rarelevel);
+	//按总价值换算玩家拥有的指定面额数量
+	int have_num = 0;
+	if(yushi_value > 0)
+		have_num = YUSHID->query_all_num(me)/yushi_value;
 	//计算到玩家能够购买此传音符的最大个数
-	int can_num = have_num/need_amount;
+	int can_num = 0;
+	if(need_amount > 0)
+		can_num = have_num/need_amount;
 	/*
 	if(need_money>0){
 		need_money = need_money*100;
@@ -52,29 +57,23 @@ int main(string|zero arg)
 				s += "你的随身物品已满，无法再装下更多\n";
 			}
 			else{
-				//每购买一个，就扣除一个所消耗的玉石数
-				me->remove_combine_item(need_yushi,need_amount*buy_num);
-				s += "交易成功，你获得了"+bc->query_short()+"\n";
-				int val = 1;
-				if(need_yushi == "xianyuanyu")
-					val = 10;
-				else if(need_yushi == "linglongyu")
-					val = 100;
-				else if(need_yushi == "biluanyu")
-					val = 1000;
-				else if(need_yushi == "xuantianbaoyu")
-					val = 10000;
-				int cost_reb = need_amount*buy_num*val;
-				string bc_namecn = bc->query_name_cn();
-				string consume_time = MUD_TIMESD->get_mysql_timedesc();
-				string cost = ""+(need_amount*buy_num)+"|"+need_yushi;
-				//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','chaunyinfu','"+cost+"','"+bc_name+"',"+buy_num+",'"+bc_namecn+"',"+cost_reb+");\n";
-				if(bc_name=="qianlichuanyinfu")
-					c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][chuanyinfu]["+bc_name+"]["+bc_namecn+"]["+buy_num+"]["+cost_reb+"][0]\n";
-				else
-					c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][mianzhanfu]["+bc_name+"]["+bc_namecn+"]["+buy_num+"]["+cost_reb+"][0]\n";
-				bc->move_player(me->query_name());
-				BROADCASTD->set_bc_num(bc_name,buy_num);
+				int cost_reb = need_amount*buy_num*yushi_value;
+				if(!YUSHID->pay_yushi(me,cost_reb)){
+					s += "玉石扣除失败，请稍后再试\n";
+				}
+				else{
+					s += "交易成功，你获得了"+bc->query_short()+"\n";
+					string bc_namecn = bc->query_name_cn();
+					string consume_time = MUD_TIMESD->get_mysql_timedesc();
+					string cost = ""+(need_amount*buy_num)+"|"+need_yushi;
+					//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','chaunyinfu','"+cost+"','"+bc_name+"',"+buy_num+",'"+bc_namecn+"',"+cost_reb+");\n";
+					if(bc_name=="qianlichuanyinfu")
+						c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][chuanyinfu]["+bc_name+"]["+bc_namecn+"]["+buy_num+"]["+cost_reb+"][0]\n";
+					else
+						c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][mianzhanfu]["+bc_name+"]["+bc_namecn+"]["+buy_num+"]["+cost_reb+"][0]\n";
+					bc->move_player(me->query_name());
+					BROADCASTD->set_bc_num(bc_name,buy_num);
+				}
 			}
 		}
 		else{

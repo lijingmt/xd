@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵虎盾";
-	desc="灵虎附体，获得攻击和防御双重强化";
+	desc="灵虎附体，在持续时间内提升力量、敏捷和智力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="all";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=66;
 	performs_level_limit[4]=86;
 	performs_level_limit[5]=106;
-	performs_desc[1]="18秒内攻击力增加600，防御力增加400，消耗法力85点";
-	performs_desc[2]="18秒内攻击力增加950，防御力增加650，消耗法力95点";
-	performs_desc[3]="18秒内攻击力增加1400，防御力增加950，消耗法力105点";
-	performs_desc[4]="18秒内攻击力增加1950，防御力增加1300，消耗法力115点";
-	performs_desc[5]="18秒内攻击力增加2600，防御力增加1700，消耗法力125点";
+	performs_desc[1]="18秒内全属性增加600点，消耗法力85点";
+	performs_desc[2]="18秒内全属性增加950点，消耗法力95点";
+	performs_desc[3]="18秒内全属性增加1400点，消耗法力105点";
+	performs_desc[4]="18秒内全属性增加1950点，消耗法力115点";
+	performs_desc[5]="18秒内全属性增加2600点，消耗法力125点";
 }

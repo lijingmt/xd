@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵爆术";
-	desc="引爆灵气造成范围爆炸伤害";
+	desc="引爆灵气攻击当前敌人";
 	s_type="zhudong";
 	s_skill_type="phy";
 	s_delayTime=10; // 10秒冷却

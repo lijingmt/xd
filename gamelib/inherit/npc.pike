@@ -1039,6 +1039,9 @@ string query_npc_links(void|int count)
 		if(this_player()->query_raceId()=="human")
 			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 		else{
+			// 中立方士可以与两边NPC交谈，也保留主动战斗选择。
+			if(this_player()->query_raceId()=="third")
+				out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
 			//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
 			if(this_object()->_boss)
@@ -1060,6 +1063,9 @@ string query_npc_links(void|int count)
 		if(this_player()->query_raceId()=="monst")
 			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 		else{
+			// 中立方士可以与两边NPC交谈，也保留主动战斗选择。
+			if(this_player()->query_raceId()=="third")
+				out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 			out += "[杀戮:kill "+this_object()->query_name()+" "+count+"]\n";
 			//需要判定是否精英/boss类--修正：精英太多，允许快速战斗，但_boss不允许
 			if(this_object()->_boss)

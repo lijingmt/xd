@@ -837,6 +837,26 @@ int quit_bang(string name,int bangid)
 }
 
 //建立帮派
+// 方士建帮时以当前所在仙城或妖城作为帮派归属。
+string query_bang_side(object player)
+{
+	string race_id;
+	object env;
+
+	if(!player)
+		return "";
+	race_id = player->query_raceId();
+	if(race_id=="human" || race_id=="monst")
+		return race_id;
+	if(race_id!="third")
+		return "";
+
+	env = environment(player);
+	if(env && (env->room_race=="human" || env->room_race=="monst"))
+		return env->room_race;
+	return "";
+}
+
 int create_bang(object creater,string bang_name)
 {
 	if(bang_exist[bang_name] == 1){
@@ -848,7 +868,7 @@ int create_bang(object creater,string bang_name)
 		string creater_name = creater->query_name();
 		string creater_name_cn = creater->query_name_cn();
 		array(string) bang_info = ({bang_name,"小黑屋","会员","精英","官员","副帮主","帮主","","",});
-		string profId = creater->query_raceId();
+		string profId = query_bang_side(creater);
 		int bangid;
 		if(profId == "monst"){
 			if(!monster_size)
@@ -923,6 +943,18 @@ string query_bang_list(object player)
 			}
 			else
 				continue;
+		}
+	}
+	else if(prof == "third"){
+		foreach(sort(indices(bang_list)),int bangid){
+			if(bangid == 0)
+				continue;
+			string bang_name = bang_list[bangid][0];
+			if(flag%2 == 0)
+				s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0] | ";
+			else
+				s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0]\n";
+			flag += 1;
 		}
 	}
 	return s;

@@ -23,10 +23,14 @@ int main(string|zero arg)
 		s += bc->query_name_cn()+"：\n";
 		s += bc->query_picture_url()+"\n"+bc->query_desc()+"\n";
 		string need_namecn = YUSHID->get_yushi_namecn(rarelevel);
-		int have_num = YUSHID->query_yushi_num(me,rarelevel);
+		int have_num = 0;
+		int yushi_value = YUSHID->get_yushi_value(rarelevel);
+		if(yushi_value > 0)
+			have_num = YUSHID->query_all_num(me)/yushi_value;
 		string shf_name =  bc->query_name();
 		s += "--------\n";
 		s += "需要："+amount+"块"+need_namecn+"("+have_num+")\n";
+		s += "购买时自动兑换不同面额玉石\n";
 		s += "\n\n";
 		if(bc_name=="qianlichuanyinfu"){
 			int num = BROADCASTD->query_num(bc_name);

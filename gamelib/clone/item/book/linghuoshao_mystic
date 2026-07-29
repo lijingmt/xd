@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【方】灵火烧·秘";
+	unit="本";
+	picture=name;
+	desc="神秘传承的灵火烧术，可更强地削弱敌人防御\n";
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	value=1000;
+	skill_bname="linghuoshao_mystic";
+	level_limit=75;
+	profe_read_limit="方士";
+	need_yushi=790;
+	need_money=0;
+}
+int read(){
+	int result=::spec_read("linghuoshao");
+	if(read_flag==0){
+		remove();
+	}
+	return result;
+}

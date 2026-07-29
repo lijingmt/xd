@@ -25,6 +25,9 @@ void check_daily(object me)
 		if(me->query_raceId()=="monst"){
 			Stdio.append_file(ROOT+"/log/pk/monst_"+month+"_"+day+"_user_day_info.log",me->query_profeId()+"|"+me->query_name_cn()+"("+me->query_name()+"):level="+me->query_level()+"|money="+me->query_account()+"|hlevel="+me->honerlv+"|killcount="+me->killcount+"\n");
 		}
+		if(me->query_raceId()=="third"){
+			Stdio.append_file(ROOT+"/log/pk/third_"+month+"_"+day+"_user_day_info.log",me->query_profeId()+"|"+me->query_name_cn()+"("+me->query_name()+"):level="+me->query_level()+"|money="+me->query_account()+"|hlevel="+me->honerlv+"|killcount="+me->killcount+"\n");
+		}
 		//////////////////得到多长时间没上线,作为乘数,乘以每天需要剪去的荣誉值
 		int tmp;
 		int monthdiff = month - me["/plus/daily/mon"];

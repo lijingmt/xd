@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵风";
-	desc="召唤灵风围绕，持续伤害周围敌人";
+	desc="召唤灵风附体，在持续时间内提升物理攻击力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="attack";
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=51;
 	performs_level_limit[4]=71;
 	performs_level_limit[5]=91;
-	performs_desc[1]="12秒内每秒对周围敌人造成80点伤害，消耗法力55点";
-	performs_desc[2]="12秒内每秒对周围敌人造成140点伤害，消耗法力65点";
-	performs_desc[3]="12秒内每秒对周围敌人造成220点伤害，消耗法力75点";
-	performs_desc[4]="12秒内每秒对周围敌人造成320点伤害，消耗法力85点";
-	performs_desc[5]="12秒内每秒对周围敌人造成440点伤害，消耗法力95点";
+	performs_desc[1]="12秒内物理攻击增加80点，消耗法力55点";
+	performs_desc[2]="12秒内物理攻击增加140点，消耗法力65点";
+	performs_desc[3]="12秒内物理攻击增加220点，消耗法力75点";
+	performs_desc[4]="12秒内物理攻击增加320点，消耗法力85点";
+	performs_desc[5]="12秒内物理攻击增加440点，消耗法力95点";
 }

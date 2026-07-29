@@ -2,16 +2,27 @@
 #include <gamelib/include/gamelib.h>
 //arg = type
 //   type="weapon" , "buyi"，"qingjia" or "zhongkai" "spec"
+string query_catalog_race(string player_race,string room_race)
+{
+	if(room_race!="human" && room_race!="monst")
+		return "";
+	if(player_race=="third" || player_race==room_race)
+		return room_race;
+	return "";
+}
+
 int main(string|zero arg)
 {
 	string s = "";
 	object me=this_player();
 	string type = arg;
 	string map_race = environment(me)->room_race;
-	if(me->query_raceId() != map_race)
+	string catalog_race = query_catalog_race(
+		me->query_raceId(),map_race);
+	if(catalog_race == "")
 		s += "哪里跑来的妖孽，如此猖狂~~\n";
 	else{
-		if(me->query_raceId() == "human"){
+		if(catalog_race == "human"){
 			if(type == "weapon"){
 				s += "武器|[布衣:honer_equip_view buyi]|[轻甲:honer_equip_view qingjia]|[重铠:honer_equip_view zhongkai]|[饰品:honer_equip_view decorate]|[特殊:honer_equip_view spec]\n";
 				s += "[【仙】屠魔剑:honer_buy "+type+" 29tumojian bingfusuipian 0 0]\n";
@@ -79,7 +90,7 @@ int main(string|zero arg)
 				s += "[武器:honer_equip_view weapon]|[布衣:honer_equip_view buyi]|[轻甲:honer_equip_view qingjia]|[重铠:honer_equip_view zhongkai]|饰品|[特殊:honer_equip_view spec]\n";
 			}
 		}
-		else if(me->query_raceId() == "monst"){
+		else if(catalog_race == "monst"){
 			if(type == "weapon"){
 				s += "武器|[布衣:honer_equip_view buyi]|[轻甲:honer_equip_view qingjia]|[重铠:honer_equip_view zhongkai]|[饰品:honer_equip_view decorate]|[特殊:honer_equip_view spec]\n";
 				s += "[【妖】鬼龙剑:honer_buy "+type+" 29guilongjian bingfusuipian 0 0]\n";
@@ -148,7 +159,8 @@ int main(string|zero arg)
 			}
 		}
 		s += "----\n";
-		s += ITEMS_EXCHANGED->query_equip_list(me->query_raceId(),type,"honer_buy");
+		s += ITEMS_EXCHANGED->query_equip_list(
+			catalog_race,type,"honer_buy");
 	}
 	s += "[返回游戏:look]\n";
 	write(s);

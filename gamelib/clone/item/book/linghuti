@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵护体";
 	unit="本";
 	picture=name;
-	desc="灵气环绕身体，反弹部分伤害给攻击者\n";
+	desc="灵气环绕身体，在持续时间内提升防御力\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

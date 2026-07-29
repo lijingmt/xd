@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】灵火烧·秘";
-	desc="神秘传承的灵火烧术，持续伤害更高，同时降低敌人的攻击和防御";
+	desc="神秘传承的灵火烧术，可更强地降低敌人防御";
 	s_type="zhudong";
 	s_skill_type="curse";
 	s_curse_type="defend";
@@ -27,9 +27,9 @@ protected void create(){
 	performs_level_limit[3]=56;
 	performs_level_limit[4]=76;
 	performs_level_limit[5]=96;
-	performs_desc[1]="12秒内造成600点总伤害，降低敌人15%攻击和防御，消耗法力60点";
-	performs_desc[2]="12秒内造成950点总伤害，降低敌人18%攻击和防御，消耗法力70点";
-	performs_desc[3]="12秒内造成1400点总伤害，降低敌人22%攻击和防御，消耗法力80点";
-	performs_desc[4]="12秒内造成1900点总伤害，降低敌人26%攻击和防御，消耗法力90点";
-	performs_desc[5]="12秒内造成2500点总伤害，降低敌人30%攻击和防御，消耗法力100点";
+	performs_desc[1]="12秒内降低敌人600点防御，消耗法力60点";
+	performs_desc[2]="12秒内降低敌人950点防御，消耗法力70点";
+	performs_desc[3]="12秒内降低敌人1400点防御，消耗法力80点";
+	performs_desc[4]="12秒内降低敌人1900点防御，消耗法力90点";
+	performs_desc[5]="12秒内降低敌人2500点防御，消耗法力100点";
 }

@@ -26,17 +26,13 @@ int main(string|zero arg)
 		if(me->roomchatid=="pub"){ 
 			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]："+arg;
 		werror("ui_chat content="+arg+"\n");
-			if(me->query_raceId()=="human")
-				CHATROOMD->add_chat_msg("pub_channel",content);
-			else if(me->query_raceId()=="monst")
-				CHATROOM2D->add_chat_msg("pub_channel",content);
+			RACECHATD->add_chat_msg(
+				me->query_raceId(),"pub_channel",content);
 		}
 		else if(me->roomchatid=="sale"){ 
 			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]："+arg;
-			if(me->query_raceId()=="human")
-				CHATROOMD->add_chat_msg("sales_channel",content);
-			else if(me->query_raceId()=="monst")
-				CHATROOM2D->add_chat_msg("sales_channel",content);
+			RACECHATD->add_chat_msg(
+				me->query_raceId(),"sales_channel",content);
 		}
 		else if(me->roomchatid=="term"){ 
 			content = me->query_name_cn()+"："+arg;

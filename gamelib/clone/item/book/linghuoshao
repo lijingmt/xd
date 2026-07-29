@@ -6,7 +6,7 @@ protected void create(){
 	name_cn="【方】灵火烧";
 	unit="本";
 	picture=name;
-	desc="召唤灵火烧灼敌人，造成持续伤害并降低防御\n";
+	desc="召唤灵火侵蚀敌人，在持续时间内降低防御\n";
 	set_item_canDrop(1);
 	set_item_canGet(1);
 	set_item_canTrade(1);

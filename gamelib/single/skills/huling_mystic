@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【方】虎灵·秘";
-	desc="神秘传承的虎灵召唤术，召唤的灵兽更强大，持续时间更长";
+	desc="神秘传承的虎灵附体，可更久地提升物理攻击力";
 	s_type="zhudong";
 	s_skill_type="buff";
 	s_curse_type="attack";
@@ -27,9 +27,9 @@ protected void create(){
 	performs_level_limit[3]=50;
 	performs_level_limit[4]=70;
 	performs_level_limit[5]=90;
-	performs_desc[1]="40秒内物理攻击增加700点，暴击率增加15%，召唤强化虎灵，消耗法力90点";
-	performs_desc[2]="40秒内物理攻击增加1100点，暴击率增加20%，召唤强化虎灵，消耗法力105点";
-	performs_desc[3]="40秒内物理攻击增加1700点，暴击率增加25%，召唤强化虎灵，消耗法力120点";
-	performs_desc[4]="40秒内物理攻击增加2400点，暴击率增加30%，召唤强化虎灵，消耗法力135点";
-	performs_desc[5]="40秒内物理攻击增加3200点，暴击率增加35%，召唤强化虎灵，消耗法力150点";
+	performs_desc[1]="40秒内物理攻击增加700点，消耗法力90点";
+	performs_desc[2]="40秒内物理攻击增加1100点，消耗法力105点";
+	performs_desc[3]="40秒内物理攻击增加1700点，消耗法力120点";
+	performs_desc[4]="40秒内物理攻击增加2400点，消耗法力135点";
+	performs_desc[5]="40秒内物理攻击增加3200点，消耗法力150点";
 }

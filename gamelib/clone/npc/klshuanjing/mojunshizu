@@ -23,7 +23,7 @@ protected void create(){
 }
 void init()
 {
-	if(this_player()->query_raceId() != this_object()->query_raceId() && this_player()->hind == 0){
+	if(!this_player()->can_use_room_race(this_object()->query_raceId()) && this_player()->hind == 0){
 		string s = this_object()->query_name_cn()+"：吾奉命镇守此关，尔等乖乖受死吧！\n";
 		tell_object(this_player(),s);
 		if(!this_object()->in_combat){
