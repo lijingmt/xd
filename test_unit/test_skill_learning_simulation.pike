@@ -739,3 +739,9 @@ void run_tests()
 	werror("   - 输入 skills 命令查看技能列表\n");
 	werror("========================================\n");
 }
+
+int main()
+{
+	run_tests();
+	return test_results["failed"];
+}

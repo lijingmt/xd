@@ -444,6 +444,7 @@ void save(void|int autosave){
 		call_out(save,SAVE_TIME);//改成每分钟存一次，防止丢档案
 }
 void remove(){
+	SUMMOND->player_logout(this_object()->query_name());
 	if(term && term != "noterm"){
 		TERMD->leave_term(term,this_object()->query_name(),this_object()->query_name_cn()); 
 	}

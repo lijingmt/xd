@@ -118,30 +118,34 @@ void test_csv_config_completeness() {
 	test_pass();
 }
 
-// 测试2: 前端种族选择包含third
+// 测试2: 角色创建输出包含third
 void test_frontend_race_selection() {
 	test_start("前端种族选择测试");
 
-	// 检查前端文件
-	string html_path = ROOT + "/web/web_vue/index.html";
-	if(!Stdio.exist(html_path)) {
-		test_fail("index.html不存在");
+	// 角色选项由服务端 d/init 输出，Vue/JSP 只负责渲染命令链接
+	string init_path = ROOT + "/gamelib/d/init";
+	if(!Stdio.exist(init_path)) {
+		test_fail("角色创建文件不存在");
 		return;
 	}
 
-	string content = Stdio.read_file(html_path);
+	string content = Stdio.read_file(init_path);
 	if(!content) {
-		test_fail("无法读取index.html");
+		test_fail("无法读取角色创建文件");
 		return;
 	}
 
-	// 检查是否有third种族选项
-	if(has_value(content, "third") || has_value(content, "方士") || has_value(content, "中立")) {
-		werror("  ✓ 前端有方士/中立相关内容\n");
-	} else {
-		werror("  ! 前端可能没有方士选项（需手动确认）\n");
+	if(!has_value(content, "[中立:choice_race third]")) {
+		test_fail("角色创建页没有中立阵营入口");
+		return;
 	}
 
+	if(!has_value(content, "[方士:choice_profe third/fangshi]")) {
+		test_fail("中立阵营没有方士职业入口");
+		return;
+	}
+
+	werror("  ✓ 服务端角色创建输出包含中立/方士入口\n");
 	test_pass();
 }
 

@@ -102,6 +102,8 @@
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
 //召唤系统
 #define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
+//召唤物公共基类
+#define GAMELIB_SUMMON_BASE ROOT "/gamelib/clone/npc/summon/base_summon"
 //游戏公告
 #define MSGD ((object)(ROOT "/gamelib/single/daemons/messaged"))
 //抽奖模块

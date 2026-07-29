@@ -32,13 +32,13 @@ string query_words(){
 	return s;
 }
 
-string query_links(void|int count){
-	string tmp = "";
+string query_npc_links(void|int count){
 	object me = this_player();
-	if(!me) return "";
+	if(!me)
+		return ::query_npc_links(count);
 
-	// 不调用 ::query_links(count)，直接返回学习选项
-	tmp += "[学习方士技能:buy_items book fangshi]\n";
-
-	return tmp;
+	if(me->query_profeId() == "fangshi" || me->query_raceId() == "third")
+		return ::query_npc_links(count) +
+			"[学习方士技能:buy_items book fangshi]\n";
+	return ::query_npc_links(count);
 }

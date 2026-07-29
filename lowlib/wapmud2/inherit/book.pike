@@ -6,5 +6,5 @@ inherit WAP_F_VIEW_LINKS;
 inherit WAP_F_VIEW_VALUE;
 string query_inventory_links(void|int count)
 {
-	return ::query_inventory_links(count)+"[瀛︿範:read "+name+" "+count+"]";
+	return ::query_inventory_links(count)+"[学习:read "+name+" "+count+"]";
 }

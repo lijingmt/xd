@@ -111,6 +111,11 @@ int main(string arg)
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你要攻击什么东西？\n");
 		return 1;
 	}
+	if(functionp(ob->can_be_attacked) && !ob->can_be_attacked(me)){
+		this_player()->write_view(WAP_VIEWD["/emote"],0,0,
+			"你不能攻击自己的召唤灵兽或同阵营灵兽！\n");
+		return 1;
+	}
 	if(environment(this_player())->is("peaceful")){
 		this_player()->write_view(WAP_VIEWD["/fight_peaceful"]);
 		return 1;

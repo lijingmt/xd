@@ -11,10 +11,10 @@ protected void create(){
 	s_delayTime=20; // 20秒冷却
 	s_lasttime=10; // 持续10秒
 	performs_attack[1]=30;
-	performs_attack[2]=50;
-	performs_attack[3]=80;
-	performs_attack[4]=120;
-	performs_attack[5]=170;
+	performs_attack[2]=40;
+	performs_attack[3]=50;
+	performs_attack[4]=60;
+	performs_attack[5]=70;
 	performs_cast[1]=40;
 	performs_cast[2]=50;
 	performs_cast[3]=60;
@@ -26,9 +26,9 @@ protected void create(){
 	performs_level_limit[3]=42;
 	performs_level_limit[4]=62;
 	performs_level_limit[5]=82;
-	performs_desc[1]="10秒内敌人受到治疗效果降低30%，造成30点伤害，消耗法力40点";
-	performs_desc[2]="10秒内敌人受到治疗效果降低40%，造成50点伤害，消耗法力50点";
-	performs_desc[3]="10秒内敌人受到治疗效果降低50%，造成80点伤害，消耗法力60点";
-	performs_desc[4]="10秒内敌人受到治疗效果降低60%，造成120点伤害，消耗法力70点";
-	performs_desc[5]="10秒内敌人受到治疗效果降低70%，造成170点伤害，消耗法力80点";
+	performs_desc[1]="10秒内敌人受到治疗效果降低30%，消耗法力40点";
+	performs_desc[2]="10秒内敌人受到治疗效果降低40%，消耗法力50点";
+	performs_desc[3]="10秒内敌人受到治疗效果降低50%，消耗法力60点";
+	performs_desc[4]="10秒内敌人受到治疗效果降低60%，消耗法力70点";
+	performs_desc[5]="10秒内敌人受到治疗效果降低70%，消耗法力80点";
 }

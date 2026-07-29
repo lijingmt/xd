@@ -192,7 +192,12 @@ void set_item_profeLimit(string s){
 	//}
 	item_profeLimit += ({s});
 }
-array(string) query_item_profeLimit(){return item_profeLimit;}
+array(string) query_item_profeLimit(){
+	if(sizeof(item_profeLimit) &&
+	   search(item_profeLimit,"fangshi")==-1)
+		return item_profeLimit+({"fangshi"});
+	return item_profeLimit;
+}
 
 private int item_canLevel;//物品装备需要等级，可以装备的等级限制
 int query_item_canLevel(){ return item_canLevel;}

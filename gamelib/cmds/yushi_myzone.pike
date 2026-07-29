@@ -10,6 +10,7 @@ int main(string|zero arg)
 	s += me->query_mini_picture_url("1taomujian")+"[仙道会员店:vip_myshop]\n";
 	//s += me->query_mini_picture_url("decorate9")+"[幸运抽抽:lottery_view_list]\n";
 	s += me->query_mini_picture_url("1taomujian")+"[仙玉特卖场:yushi_spec_sales]\n";
+	s += me->query_mini_picture_url("1taomujian")+"[高级技能书:yushi_buy_hlbook_list]\n";
 	s += me->query_mini_picture_url("1taomujian")+"[玉石操作:yushi_change]\n";
 	
 //	s += me->query_mini_picture_url("1taomujian")+"**捐赠获取玉石**\n";

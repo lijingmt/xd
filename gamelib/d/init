@@ -490,13 +490,13 @@ int choice_profe(string arg){
 		}
 		else if(u_p=="fangshi"){
 			me->setup_player("third",u_p);
-			if(me->skills["lingshu"]==0)
-				me->skills["lingshu"]=({1,0});
+			if(me->skills["lingdanshu"]==0)
+				me->skills["lingdanshu"]=({1,0});
 			s += "好，你选择了方士作为你游戏中中立阵营的职业。\n";
 			s += "方士可以召唤灵兽助战，是强大的召唤师！\n";
 			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
 			//reg_new - 方士随机在人类或妖魔区出生
-			s += "[进入游戏:start human]\n";
+			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";
 		}
@@ -577,6 +577,14 @@ int start(string arg){
 		desc += "刺杀王者，无影无踪\n";
 		write(desc);
 		return 1;
+	}
+
+	// 修复早期方士角色的无效初始技能，并补发可用的一级技能
+	if(me->query_profeId()=="fangshi"){
+		if(me->skills["lingshu"])
+			m_delete(me->skills,"lingshu");
+		if(!me->skills["lingdanshu"])
+			me->skills["lingdanshu"]=({1,0});
 	}
 
 	//领取标识的初始化

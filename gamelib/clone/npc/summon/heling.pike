@@ -1,6 +1,6 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
-inherit "/gamelib/clone/npc/summon/base_summon";
+inherit GAMELIB_SUMMON_BASE;
 
 // 心跳计数器，用于控制治疗频率
 private int heal_counter = 0;
@@ -19,8 +19,8 @@ protected void create(){
 	set_base_dex(30);
 	set_base_think(40);  // 高智力，治疗能力强
 	set_base_life(300);
-	set_base_life_max(300);
-	set_base_mofa(80);  // 高法术值用于治疗
+	flush_life();
+	set_mofa(query_mofa_max());
 
 	_meritocrat=1;
 	_troth=100;
@@ -47,7 +47,10 @@ void heal_master(){
 	int max_life = master->query_life_max();
 
 	if(current_life < max_life){
-		master->add_life(heal_amount);
+		if(current_life + heal_amount > max_life)
+			master->set_life(max_life);
+		else
+			master->set_life(current_life + heal_amount);
 		summon_tell_room(my_env, name_cn + "发出一声清鸣，" + master->query_name_cn() + "感到一股暖流涌遍全身。\n");
 	}
 }
@@ -74,13 +77,11 @@ void adjust_stats_by_player(int player_level, int skill_level){
 	int dex = 25 + player_level;
 	int think = 30 + player_level + skill_level * 5;
 	int life = 150 + player_level * 8 + skill_level * 30;
-	int life_max = life;
-	int mofa = 50 + player_level * 3 + skill_level * 15;
 
 	set_base_str(str);
 	set_base_dex(dex);
 	set_base_think(think);
 	set_base_life(life);
-	set_base_life_max(life_max);
-	set_base_mofa(mofa);
+	flush_life();
+	set_mofa(query_mofa_max());
 }

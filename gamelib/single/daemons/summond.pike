@@ -154,9 +154,6 @@ object summon_creature(string player_name, string summon_type, int duration, int
 
 	active_summons[player_name][summon_type] = summon;
 
-	// 设置心跳
-	summon->set_heart_beat(1);
-
 	// 广播
 	tell_room_daemon(env, player->query_name_cn() + "召唤出了" + summon_name + "！\n");
 

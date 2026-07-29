@@ -124,32 +124,58 @@ void test_fangshi_books_compile() {
 	test_pass();
 }
 
-// 测试3: 召唤物文件编译
+// 测试3: 召唤物运行时创建
 void test_summon_creatures_compile() {
-	test_start("召唤物文件编译测试");
-
-	// 注意: 召唤物继承 WAP_NPC，在测试环境中可能无法编译
-	// 但在游戏运行时应该是正常的
-	// 这里只检查文件是否存在
+	test_start("召唤物运行时创建测试");
 
 	array(string) summon_files = ({
-		"base_summon", "huling", "heling", "guiling",
+		"huling", "heling", "guiling",
 	});
 
-	int all_exist = 1;
+	int all_valid = 1;
 	foreach(summon_files, string summon_name) {
-		string summon_path = ROOT + "/gamelib/clone/npc/summon/" + summon_name + ".pike";
+		string summon_path;
+		object summon_ob;
+		mixed err;
+		string error_desc = "";
+		summon_path = ROOT + "/gamelib/clone/npc/summon/" + summon_name + ".pike";
 		if(!Stdio.exist(summon_path)) {
 			werror("  ! 召唤物文件不存在: %s\n", summon_name);
-			all_exist = 0;
+			all_valid = 0;
+			continue;
 		}
+
+		err = catch {
+			summon_ob = clone(ROOT + "/gamelib/clone/npc/summon/" + summon_name);
+			if(summon_ob) {
+				summon_ob->adjust_stats_by_player(30, 3);
+			}
+		};
+		if(err)
+			error_desc = describe_error(err);
+		else if(!summon_ob)
+			error_desc = "返回空对象";
+		if(err || !summon_ob) {
+			werror("  ! %s 创建失败: %s\n", summon_name, error_desc);
+			all_valid = 0;
+		}
+		else {
+			if(summon_ob->get_cur_life() <= 0 || summon_ob->query_life_max() <= 0) {
+				werror("  ! %s 生命属性无效\n", summon_name);
+				all_valid = 0;
+			}
+			else {
+				werror("  ✓ %s 创建并调整属性成功\n", summon_name);
+			}
+		}
+		if(summon_ob)
+			destruct(summon_ob);
 	}
 
-	if(all_exist) {
-		werror("  ✓ 所有召唤物文件都存在\n");
+	if(all_valid) {
 		test_pass();
 	} else {
-		test_fail("部分召唤物文件缺失");
+		test_fail("部分召唤物无法在游戏环境中创建");
 	}
 }
 
@@ -279,7 +305,9 @@ void test_skill_config_integrity() {
 
 	werror("  找到 %d 个方士技能配置\n", fangshi_skill_count);
 
-	if(missing_skill > 0 || missing_book > 0) {
+	if(fangshi_skill_count == 0) {
+		test_fail("CSV中没有方士技能配置");
+	} else if(missing_skill > 0 || missing_book > 0) {
 		test_fail(sprintf("缺失 %d 个技能文件, %d 个书籍文件", missing_skill, missing_book));
 	} else {
 		test_pass();
@@ -291,6 +319,7 @@ void test_summon_command() {
 	test_start("召唤命令测试");
 
 	string summon_cmd_path = ROOT + "/gamelib/cmds/summon.pike";
+	string skills_cmd = "";
 	if(!Stdio.exist(summon_cmd_path)) {
 		test_fail("summon.pike 文件不存在");
 		return;
@@ -321,6 +350,12 @@ void test_summon_command() {
 			}
 			if(!has_value(content, "guiling")) {
 				test_fail("summon.pike 没有处理 guiling");
+				return;
+			}
+
+			skills_cmd = Stdio.read_file(ROOT + "/gamelib/cmds/myskills.pike");
+			if(!skills_cmd || !has_value(skills_cmd, "[召唤灵兽:summon]")) {
+				test_fail("方士技能页没有召唤灵兽入口");
 				return;
 			}
 

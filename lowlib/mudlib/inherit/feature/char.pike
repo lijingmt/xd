@@ -720,6 +720,8 @@ int query_life_max(){
 		life_max += buff["attri_defend"][1];
 	if(buff["te_defend"][0] == "life_max")
 		life_max += buff["te_defend"][1];
+	if(buff["buff"][0] == "life_max")
+		life_max += buff["buff"][1];
 	if(buff["home_base"][0] == "life"||buff["home_base"][0] == "lifAndMage")
 		life_max += buff["home_base"][1];
 	if(this_object()->life > life_max)

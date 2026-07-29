@@ -13,7 +13,7 @@ protected void create(){
 	set_item_canSend(1);
 	set_item_canStorage(1);
 	value=650;
-	skill_bname="lingchuanxin";
+	skill_bname="lingchuanxin2";
 	level_limit=65;
 	profe_read_limit="方士";
 	need_yushi=490;

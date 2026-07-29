@@ -31,6 +31,7 @@ protected void create(){
 	// 移除 _tasknpc = 1，让召唤物可以正常参与战斗
 	setup_npc();
 	summon_start_time = time();
+	set_heart_beat(1);
 	call_out(check_duration, 60);  // 每分钟检查一次
 }
 

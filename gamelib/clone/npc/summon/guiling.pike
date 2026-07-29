@@ -1,6 +1,6 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
-inherit "/gamelib/clone/npc/summon/base_summon";
+inherit GAMELIB_SUMMON_BASE;
 
 // 心跳计数器，用于控制嘲讽频率
 private int taunt_counter = 0;
@@ -19,9 +19,9 @@ protected void create(){
 	set_base_dex(10);
 	set_base_think(25);
 	set_base_life(800);  // 高生命值
-	set_base_life_max(800);
 	set_base_dodge(20);  // 高闪避
-	set_base_mofa(30);
+	flush_life();
+	set_mofa(query_mofa_max());
 
 	_meritocrat=1;
 	_troth=100;
@@ -78,15 +78,13 @@ void adjust_stats_by_player(int player_level, int skill_level){
 	int dex = 5 + skill_level;
 	int think = 20 + player_level + skill_level * 3;
 	int life = 400 + player_level * 15 + skill_level * 80;  // 龟灵生命最高
-	int life_max = life;
-	int mofa = 20 + player_level + skill_level * 5;
 
 	set_base_str(str);
 	set_base_dex(dex);
 	set_base_think(think);
 	set_base_life(life);
-	set_base_life_max(life_max);
-	set_base_mofa(mofa);
+	flush_life();
+	set_mofa(query_mofa_max());
 
 	int dodge = 15 + skill_level * 2;
 	set_base_dodge(dodge);

@@ -262,6 +262,7 @@ void perform(string name,void|int flag){
 					if(this_object()->query_level()>=lvLimit[i])
 					{
 						can_skill_level = i;
+						break;
 					}
 					else if(i == 1)//玩家连最低一级的要求都没有达到，则无法使用该技能。
 					{
@@ -507,7 +508,8 @@ void perform(string name,void|int flag){
 			}
 			//判断是物理还是法术技能
 			/*   法术攻击技能     */
-			else if(mofa_type!="phy"&&mofa_type!="dot"&&mofa_type!="curse"&&mofa_type!="buff"){
+			else if(mofa_type!="phy"&&mofa_type!="dot"&&mofa_type!="curse"&&
+				mofa_type!="buff"&&mofa_type!="heal"){
 				//诛仙70技能的法术免疫效果
 				if(enemy->query_buff("70_skill_buff",0)=="bingci"){
 					string stmp = "【仙】冰刺效果，对法术伤害免疫(还余"+enemy->query_buff("70_skill_buff",2)+"s)\n";
@@ -858,6 +860,84 @@ void perform(string name,void|int flag){
 				}
 				else {
 					//未冷却
+					s += "该技能还需要"+(s_cold-1)+"秒冷却时间,无法使用。";
+					tell_object(this_object(),s+"\n");
+					return;
+				}
+			}
+			/*    施放的是治疗技能    */
+			else if(f_cur_skill->s_skill_type=="heal"){
+				if(s_cold <= 1){
+					int life_before = this_object()->get_cur_life();
+					int life_limit = this_object()->query_life_max();
+					int base_heal_amount =
+						f_cur_skill->query_performs_attack(skill_level);
+					int heal_amount = base_heal_amount;
+					if(this_object()->query_debuff("curse",0)=="life"){
+						int heal_reduce = this_object()->query_debuff("curse",1);
+						if(heal_reduce < 0)
+							heal_reduce = 0;
+						if(heal_reduce > 90)
+							heal_reduce = 90;
+						heal_amount = heal_amount*(100-heal_reduce)/100;
+					}
+					int life_after = life_before+heal_amount;
+					if(life_after > life_limit)
+						life_after = life_limit;
+
+					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
+					this_object()->timeCold = 2;
+					this_object()->f_skills[name] =
+						f_cur_skill->query_s_delayTime(skill_level)+1;
+					this_object()->set_life(life_after);
+
+					if(name=="linglianpu"){
+						string team_id = this_object()->query_term();
+						object env = environment(this_object());
+						if(env && team_id!="" && team_id!="noterm"){
+							foreach(all_inventory(env), object member){
+								if(member==this_object() || !member->is("player") ||
+								   member->query_term()!=team_id)
+									continue;
+
+								int member_life = member->get_cur_life();
+								int member_limit = member->query_life_max();
+								int member_heal = base_heal_amount;
+								if(member->query_debuff("curse",0)=="life"){
+									int member_reduce =
+										member->query_debuff("curse",1);
+									if(member_reduce < 0)
+										member_reduce = 0;
+									if(member_reduce > 90)
+										member_reduce = 90;
+									member_heal =
+										member_heal*(100-member_reduce)/100;
+								}
+								if(member_life+member_heal > member_limit)
+									member->set_life(member_limit);
+								else
+									member->set_life(member_life+member_heal);
+								tell_object(member,this_object()->query_name_cn()+
+									"施放"+f_cur_skill->query_name_cn()+
+									"，为你恢复了生命。\n");
+							}
+						}
+					}
+
+					int hate=(int)(10*skills_hate["test"]/100);
+					enemy->flush_targets(this_object(),hate);
+					s += "你施放了"+f_cur_skill->query_name_cn()+
+						"(等级"+skill_level+")，恢复了"+
+						(life_after-life_before)+"点生命。";
+					s1 += this_object()->query_name_cn()+"施放了"+
+						f_cur_skill->query_name_cn()+"(等级"+
+						skill_level+")。";
+					tell_object(this_object(),s+"\n");
+					tell_object(enemy,s1+"\n");
+					skills_level_check(f_cur_skill->query_name());
+					return;
+				}
+				else {
 					s += "该技能还需要"+(s_cold-1)+"秒冷却时间,无法使用。";
 					tell_object(this_object(),s+"\n");
 					return;
