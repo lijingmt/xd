@@ -1033,16 +1033,17 @@ mapping query_player_state(object player)
 
         // 自动挂机状态与当日剩余时间
         int autofight = 0;
-        int autofight_time_left = 8*60*60;
+        int autofight_time_left = 0;
+        int autofight_daily_limit = 0;
         if(functionp(player->query_autofight)) {
             autofight = player->query_autofight() == "enable" ? 1 : 0;
         }
-        if((int)player["/plus/autofight_initialized"] > 0) {
-            autofight_time_left =
-                (int)player["/plus/autofight_time_left"];
-        }
+        AUTOFIGHTD->initialize_player(player);
+        autofight_time_left = AUTOFIGHTD->query_time_left(player);
+        autofight_daily_limit = AUTOFIGHTD->query_daily_seconds_for(player);
         result["autofight"] = autofight;
         result["autofight_time_left"] = autofight_time_left;
+        result["autofight_daily_limit"] = autofight_daily_limit;
 
         // 生命值 HP (xiand 使用 life 而不是 jing)
         int hp = 0, hp_max = 0;

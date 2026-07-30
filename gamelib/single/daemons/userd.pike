@@ -1,6 +1,9 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit LOW_DAEMON;
+
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
+
 protected void create()
 {
 }
@@ -85,9 +88,8 @@ void check_daily(object me)
 		if(me["/plus/random_award"]<=50)
 			me["/plus/random_award"]=50;
 
-		//自动打怪每天最多8小时，跨日登录时恢复并保持关闭状态。
-		me["/plus/autofight_initialized"] = 1;
-		me["/plus/autofight_time_left"] = 8*60*60;
+		//自动打怪普通玩家8小时，VIP每级增加2小时，VIP4最高16小时。
+		AUTOFIGHTD->reset_daily_time(me);
 		if(functionp(me->set_autofight))
 			me->set_autofight("disable");
 		

@@ -118,6 +118,51 @@ void test_defaults_and_switch()
 	destroy_runtime_player(player);
 }
 
+void test_vip_daily_limits()
+{
+	test_start("VIP1至VIP4每日额度、当天升级与降级同步");
+	object normal_player = create_runtime_player(
+		"__testunit_autofight_normal_limit__");
+	object vip_player = create_runtime_player(
+		"__testunit_autofight_vip_limit__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		daemon->initialize_player(normal_player);
+		normal_player["/plus/autofight_time_left"] = 7*60*60;
+		normal_player->set_vip_flag(1);
+		valid = daemon->query_daily_seconds_for(normal_player) == 10*60*60 &&
+			daemon->query_time_left(normal_player) == 9*60*60;
+		normal_player->set_vip_flag(4);
+		valid = valid &&
+			daemon->query_daily_seconds_for(normal_player) == 16*60*60 &&
+			daemon->query_time_left(normal_player) == 15*60*60;
+		normal_player->set_vip_flag(0);
+		valid = valid &&
+			daemon->query_daily_seconds_for(normal_player) == 8*60*60 &&
+			daemon->query_time_left(normal_player) == 7*60*60;
+
+		vip_player->set_vip_flag(4);
+		daemon->initialize_player(vip_player);
+		valid = valid &&
+			daemon->query_time_left(vip_player) == 16*60*60;
+		vip_player["/plus/autofight_time_left"] = 1;
+		daemon->reset_daily_time(vip_player);
+		valid = valid &&
+			daemon->query_time_left(vip_player) == 16*60*60;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("VIP挂机额度同步错误: "+error_desc);
+	destroy_runtime_player(normal_player);
+	destroy_runtime_player(vip_player);
+}
+
 void test_time_and_low_life_guard()
 {
 	test_start("计时扣减、低血判断与回血食物自动选择");
@@ -236,6 +281,7 @@ void test_integration_wiring()
 	   daily_source && kill_source && leave_source && user_source &&
 	   search(api_source,"AUTOFIGHTD->start_autofight(player)") != -1 &&
 	   search(renderer_source,"result[\"autofight_time_left\"]") != -1 &&
+	   search(renderer_source,"result[\"autofight_daily_limit\"]") != -1 &&
 	   search(vue_source,"autofightTickInFlight") != -1 &&
 	   search(vue_source,"runAutofightTick") != -1 &&
 	   search(vue_source,"isAutofightRefresh") != -1 &&
@@ -246,7 +292,7 @@ void test_integration_wiring()
 	   search(index_source,"挂机设置") != -1 &&
 	   search(user_source,"[自动打怪／挂机:autofight open]") != -1 &&
 	   search(user_source,"[停止自动挂机:autofightclose]") != -1 &&
-	   search(daily_source,"/plus/autofight_time_left") != -1 &&
+	   search(daily_source,"AUTOFIGHTD->reset_daily_time(me)") != -1 &&
 	   search(kill_source,"query_autofight()==\"disable\"") != -1 &&
 	   search(leave_source,"query_autofight()==\"disable\"") != -1)
 		test_pass();
@@ -259,6 +305,7 @@ int main()
 	werror("\n========== 自动打怪／挂机系统测试 ==========\n");
 	test_runtime_compile();
 	test_defaults_and_switch();
+	test_vip_daily_limits();
 	test_time_and_low_life_guard();
 	test_duplicate_object_count();
 	test_end_to_end_current_room_fight();

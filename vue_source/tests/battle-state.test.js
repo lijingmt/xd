@@ -9,6 +9,8 @@ let nextBattleState = {
   player: { name: '测试方士', hp: 90, hp_max: 100 },
   enemy: { name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50, is_npc: true }
 };
+const sessionValues = new Map();
+let requestedLoginUrl = '';
 
 const sandbox = {
   Vue: {
@@ -27,6 +29,17 @@ const sandbox = {
       return null;
     },
     setItem() {}
+  },
+  sessionStorage: {
+    getItem(key) {
+      return sessionValues.get(key) || null;
+    },
+    setItem(key, value) {
+      sessionValues.set(key, value);
+    },
+    removeItem(key) {
+      sessionValues.delete(key);
+    }
   },
   console,
   TextEncoder,
@@ -71,6 +84,38 @@ client.handlePlayerAvatarError();
 assert.strictEqual(client.playerAvatarFailed, true);
 
 (async () => {
+  const autoLoginTxd = client.encodeTxd('xd01autolog', 'yz12zy');
+  const decodedCredentials = client.decodeCredentialsFromTxd(autoLoginTxd);
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(decodedCredentials)),
+    { userid: 'xd01autolog', password: 'yz12zy' }
+  );
+
+  sessionValues.clear();
+  sessionValues.set('mud_txd', autoLoginTxd);
+  client.showLogin = true;
+  sandbox.fetch = async url => {
+    requestedLoginUrl = url;
+    return {
+      ok: true,
+      json: async () => ({ txd: autoLoginTxd, lines: [] })
+    };
+  };
+  await client.relogin();
+  const restoredParams = new URL(requestedLoginUrl).searchParams;
+  assert.strictEqual(restoredParams.get('userid'), 'xd01autolog');
+  assert.strictEqual(restoredParams.get('password'), 'yz12zy');
+  assert.strictEqual(sessionValues.get('mud_partition'), 'xd01');
+  assert.strictEqual(sessionValues.get('mud_userid'), 'autolog');
+  assert.strictEqual(client.showLogin, false);
+
+  sandbox.fetch = async () => ({
+    ok: true,
+    json: async () => nextBattleState
+  });
+  client.mudLines = [{
+    segments: [{ type: 'button', label: '关闭自动挂机', cmd: 'autofightclose' }]
+  }];
   await client.checkBattleStatus();
   assert.strictEqual(client.isInBattle, true);
   assert.strictEqual(client.battleEnemy.name, '测试怪物');

@@ -4,6 +4,8 @@
 inherit LOW_DAEMON;
 
 #define AUTOFIGHT_DAILY_SECONDS (8*60*60)
+#define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
+#define AUTOFIGHT_MAX_VIP_LEVEL 4
 
 protected void create()
 {
@@ -11,11 +13,14 @@ protected void create()
 
 void initialize_player(object me)
 {
+	int daily_limit;
 	if(!me)
 		return;
 	if(!(int)me["/plus/autofight_initialized"]){
+		daily_limit = query_daily_seconds_for(me);
 		me["/plus/autofight_initialized"] = 1;
-		me["/plus/autofight_time_left"] = AUTOFIGHT_DAILY_SECONDS;
+		me["/plus/autofight_daily_limit"] = daily_limit;
+		me["/plus/autofight_time_left"] = daily_limit;
 		me["/plus/autofight_hp_percent"] = 50;
 		me["/plus/autofight_mana_percent"] = 30;
 		me["/plus/autofight_loot"] = 1;
@@ -23,11 +28,68 @@ void initialize_player(object me)
 		me["/plus/autofight_food"] = "auto";
 		me["/plus/autofight_water"] = "auto";
 	}
+	else
+		sync_daily_limit(me);
 }
 
 int query_daily_seconds()
 {
 	return AUTOFIGHT_DAILY_SECONDS;
+}
+
+int query_vip_level(object me)
+{
+	int vip_level;
+	if(!me)
+		return 0;
+	vip_level = 0;
+	if(functionp(me->query_vip_flag))
+		vip_level = (int)me->query_vip_flag();
+	if(vip_level < 0)
+		vip_level = 0;
+	if(vip_level > AUTOFIGHT_MAX_VIP_LEVEL)
+		vip_level = AUTOFIGHT_MAX_VIP_LEVEL;
+	return vip_level;
+}
+
+int query_daily_seconds_for(object me)
+{
+	return AUTOFIGHT_DAILY_SECONDS+
+		query_vip_level(me)*AUTOFIGHT_VIP_BONUS_SECONDS;
+}
+
+void sync_daily_limit(object me)
+{
+	int daily_limit;
+	int previous_limit;
+	int time_left;
+	if(!me)
+		return;
+	daily_limit = query_daily_seconds_for(me);
+	previous_limit = (int)me["/plus/autofight_daily_limit"];
+	if(previous_limit <= 0)
+		previous_limit = AUTOFIGHT_DAILY_SECONDS;
+	time_left = (int)me["/plus/autofight_time_left"];
+	if(previous_limit != daily_limit)
+		time_left += daily_limit-previous_limit;
+	if(time_left < 0)
+		time_left = 0;
+	if(time_left > daily_limit)
+		time_left = daily_limit;
+	me["/plus/autofight_daily_limit"] = daily_limit;
+	me["/plus/autofight_time_left"] = time_left;
+}
+
+void reset_daily_time(object me)
+{
+	int daily_limit;
+	if(!me)
+		return;
+	daily_limit = query_daily_seconds_for(me);
+	me["/plus/autofight_initialized"] = 1;
+	me["/plus/autofight_daily_limit"] = daily_limit;
+	me["/plus/autofight_time_left"] = daily_limit;
+	me["/tmp/autofight_last_charge"] = 0;
 }
 
 int query_time_left(object me)
@@ -137,7 +199,8 @@ string query_start_block_reason(object me)
 	if((int)me["/plus/random_rcd"] > 0)
 		return "请先完成当前的安全验证";
 	if(query_time_left(me) <= 0)
-		return "今天的8小时自动挂机时间已经用完";
+		return sprintf("今天的%d小时自动挂机时间已经用完",
+			query_daily_seconds_for(me)/3600);
 	if(query_loot_enabled(me) && me->if_over_easy_load())
 		return "背包已满，请整理背包后再开启";
 	return "";

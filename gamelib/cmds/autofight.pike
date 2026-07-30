@@ -62,10 +62,14 @@ private void show_settings(object me, string notice)
 	string food;
 	string water;
 	string skill;
+	int daily_seconds;
+	int vip_level;
 	AUTOFIGHTD->initialize_player(me);
 	food = (string)me["/plus/autofight_food"];
 	water = (string)me["/plus/autofight_water"];
 	skill = me->skills_enable;
+	daily_seconds = AUTOFIGHTD->query_daily_seconds_for(me);
+	vip_level = AUTOFIGHTD->query_vip_level(me);
 	if(food == "" || food == "auto")
 		food = "自动选择";
 	if(water == "" || water == "auto")
@@ -79,6 +83,11 @@ private void show_settings(object me, string notice)
 		out += notice+"\n\n";
 	out += "状态："+(me->query_autofight()=="enable" ? "运行中" : "已停止")+"\n";
 	out += "今日剩余："+format_time(AUTOFIGHTD->query_time_left(me))+"\n";
+	out += "每日额度："+format_time(daily_seconds);
+	if(vip_level > 0)
+		out += "（VIP"+vip_level+"，每级增加2小时）\n";
+	else
+		out += "（普通玩家；VIP每级增加2小时，VIP4最高16小时）\n";
 	out += "低血保护："+AUTOFIGHTD->query_hp_percent(me)+"％\n";
 	out += "低法力补充："+AUTOFIGHTD->query_mana_percent(me)+"％\n";
 	out += "回血食物："+food+"\n";

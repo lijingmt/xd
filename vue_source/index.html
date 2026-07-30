@@ -27,10 +27,13 @@
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
-                <form class="auth-form" @submit.prevent="doLogin">
+                <form class="auth-form"
+                      autocomplete="on"
+                      @submit.prevent="doLogin">
                     <div class="form-group">
                         <label for="login-partition">分区</label>
                         <select id="login-partition"
+                                name="partition"
                                 v-model="loginForm.partition"
                                 class="form-select"
                                 :disabled="partitionsLoading || isLoggingIn">
@@ -42,6 +45,7 @@
                     <div class="form-group">
                         <label for="login-userid">账号</label>
                         <input id="login-userid"
+                               name="username"
                                type="text"
                                v-model.trim="loginForm.userid"
                                placeholder="输入账号"
@@ -54,6 +58,7 @@
                         <label for="login-password">密码</label>
                         <div class="password-field">
                             <input id="login-password"
+                                   name="password"
                                    :type="loginPasswordVisible ? 'text' : 'password'"
                                    v-model="loginForm.password"
                                    placeholder="输入密码"
@@ -69,8 +74,9 @@
                     </div>
                     <button type="submit"
                             class="btn btn-primary btn-block auth-submit"
+                            aria-label="登录游戏"
                             :disabled="isLoggingIn">
-                        <span v-if="!isLoggingIn">进入仙道</span>
+                        <span v-if="!isLoggingIn">登录游戏</span>
                         <span v-else class="loading">正在连接...</span>
                     </button>
                 </form>

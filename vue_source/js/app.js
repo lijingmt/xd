@@ -1444,24 +1444,33 @@ createApp({
 
         // 自动重新登录（当会话过期时）
         async relogin() {
-            const savedPartition = sessionStorage.getItem('mud_partition') || 'tx01';
-            const savedUser = sessionStorage.getItem('mud_userid');
+            let savedPartition = sessionStorage.getItem('mud_partition') || '';
+            let savedUser = sessionStorage.getItem('mud_userid') || '';
             const savedTxd = sessionStorage.getItem('mud_txd');
-            if (!savedTxd || !savedUser) {
+            const credentials = this.decodeCredentialsFromTxd(savedTxd);
+            let fullUserid = '';
+            let password = '';
+
+            if (credentials) {
+                fullUserid = credentials.userid;
+                password = credentials.password;
+                const useridMatch = fullUserid.match(/^([a-z]+\d+)(.+)$/i);
+                if (useridMatch) {
+                    savedPartition = useridMatch[1];
+                    savedUser = useridMatch[2];
+                }
+            } else if (savedPartition && savedUser) {
+                fullUserid = savedPartition + savedUser;
+                password = this.decodePasswordFromTxd(savedTxd);
+            }
+
+            if (!savedTxd || !fullUserid || !password) {
                 // 没有保存的登录信息，显示登录界面
                 this.showLogin = true;
                 return;
             }
 
             try {
-                // 解码密码从 txd
-                const password = this.decodePasswordFromTxd(savedTxd);
-                if (!password) {
-                    throw new Error('无法解码密码');
-                }
-
-                const fullUserid = savedPartition + savedUser;
-
                 // 使用明文密码（不再使用challenge哈希）
                 const plainPassword = password;
 
@@ -1507,48 +1516,51 @@ createApp({
             }
         },
 
-        // 从 txd 解码密码（encodeTxd 的逆操作）
-        decodePasswordFromTxd(txd) {
+        // 从 txd 解码账号和密码（encodeTxd 的逆操作）
+        decodeCredentialsFromTxd(txd) {
             try {
+                if (!txd) return null;
                 const parts = txd.split('~');
                 if (parts.length !== 2) return null;
 
-                const pid = parts[1];  // 编码后的密码部分
+                const encodedUserid = parts[0]
+                    .replace(/%7B/gi, '{')
+                    .replace(/%7C/gi, '|');
+                const encodedPassword = parts[1]
+                    .replace(/%7B/gi, '{')
+                    .replace(/%7C/gi, '|');
+                let userid = '';
                 let password = '';
 
-                for (let i = 0; i < pid.length; i++) {
-                    const code = pid.charCodeAt(i);
-
-                    // 处理 URL 编码的特殊字符
-                    if (pid[i] === '%' && i + 2 < pid.length) {
-                        const hex = pid.substring(i + 1, i + 3);
-                        if (hex === '7B') {
-                            if (Math.floor(i / 2) === 0) {
-                                password += 'z';
-                            } else {
-                                password += 'y';
-                            }
-                            i += 2;
-                            continue;
-                        } else if (hex === '7C') {
-                            password += 'z';
-                            i += 2;
-                            continue;
-                        }
+                for (let i = 0; i < encodedUserid.length; i++) {
+                    const code = encodedUserid.charCodeAt(i);
+                    if (Math.floor(i / 2) === 0) {
+                        userid += String.fromCharCode(code - 2);
+                    } else {
+                        userid += String.fromCharCode(code - 1);
                     }
+                }
 
-                    // 逆操作还原密码
+                for (let i = 0; i < encodedPassword.length; i++) {
+                    const code = encodedPassword.charCodeAt(i);
                     if (Math.floor(i / 2) === 0) {
                         password += String.fromCharCode(code - 1);
                     } else {
                         password += String.fromCharCode(code - 2);
                     }
                 }
-                return password;
+
+                return { userid, password };
             } catch (e) {
-                console.error('解码密码失败:', e);
+                console.error('解码登录信息失败:', e);
                 return null;
             }
+        },
+
+        // 保留旧调用接口
+        decodePasswordFromTxd(txd) {
+            const credentials = this.decodeCredentialsFromTxd(txd);
+            return credentials ? credentials.password : null;
         },
 
         // 返回界面选择
