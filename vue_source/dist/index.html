@@ -2,117 +2,216 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>仙道</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785426823049">
-    <link rel="stylesheet" href="css/realm.css?v=v1785426823049">
+    <link rel="stylesheet" href="css/app.css?v=v1785428290936">
+    <link rel="stylesheet" href="css/realm.css?v=v1785428290936">
 </head>
 <body>
     <div id="app">
         <!-- 登录弹窗 -->
-        <div class="modal-overlay" v-if="showLogin">
-            <div class="modal">
-                <h2 class="modal-title">⚔️ 仙道</h2>
-                <div class="form-group">
-                    <label>分区</label>
-                    <select v-model="loginForm.partition" class="form-select" :disabled="partitionsLoading">
-                        <option v-for="p in partitions" :key="p.value" :value="p.value">
-                            {{ p.label }}
-                        </option>
-                    </select>
+        <div class="modal-overlay auth-overlay" v-if="showLogin">
+            <div class="modal auth-modal" role="dialog" aria-labelledby="login-title">
+                <div class="auth-brand" aria-hidden="true">
+                    <div class="auth-brand-mark"><span>仙</span></div>
+                    <div class="auth-brand-copy">
+                        <div class="auth-eyebrow">东方幻想 · 多职业世界</div>
+                        <h1 id="login-title">仙道</h1>
+                        <p>一念入世，七职同行</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>账号</label>
-                    <input type="text" v-model="loginForm.userid" placeholder="输入账号">
+                <div class="auth-feature-row" aria-label="游戏特色">
+                    <span>七大职业</span>
+                    <span>自由成长</span>
+                    <span>随时开玩</span>
                 </div>
-                <div class="form-group">
-                    <label>密码</label>
-                    <input type="password" v-model="loginForm.password" placeholder="输入密码">
-                </div>
-                <button class="btn btn-primary btn-block" @click="doLogin">
-                    <span v-if="!isLoggingIn">🎮 登录游戏</span>
-                    <span v-else class="loading">登录中...</span>
-                </button>
-                <div style="margin-top: 12px; text-align: center;">
-                    <button class="btn" style="padding: 6px 12px; background: var(--bg-card-light); color: var(--text-primary); border: 1px solid var(--border);" @click="toggleTheme">
-                        {{ theme === 'classic' ? '🌙 暗色模式' : (theme === 'dark' ? '☀️ 浅色模式' : '🏜️ 经典模式') }}
+                <form class="auth-form" @submit.prevent="doLogin">
+                    <div class="form-group">
+                        <label for="login-partition">分区</label>
+                        <select id="login-partition"
+                                v-model="loginForm.partition"
+                                class="form-select"
+                                :disabled="partitionsLoading || isLoggingIn">
+                            <option v-for="p in partitions" :key="p.value" :value="p.value">
+                                {{ p.label }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-userid">账号</label>
+                        <input id="login-userid"
+                               type="text"
+                               v-model.trim="loginForm.userid"
+                               placeholder="输入账号"
+                               autocomplete="username"
+                               autocapitalize="none"
+                               spellcheck="false"
+                               :disabled="isLoggingIn">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <div class="password-field">
+                            <input id="login-password"
+                                   :type="loginPasswordVisible ? 'text' : 'password'"
+                                   v-model="loginForm.password"
+                                   placeholder="输入密码"
+                                   autocomplete="current-password"
+                                   :disabled="isLoggingIn">
+                            <button type="button"
+                                    class="password-toggle"
+                                    @click="loginPasswordVisible = !loginPasswordVisible"
+                                    :aria-label="loginPasswordVisible ? '隐藏密码' : '显示密码'">
+                                {{ loginPasswordVisible ? '隐藏' : '显示' }}
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit"
+                            class="btn btn-primary btn-block auth-submit"
+                            :disabled="isLoggingIn">
+                        <span v-if="!isLoggingIn">进入仙道</span>
+                        <span v-else class="loading">正在连接...</span>
                     </button>
-                </div>
-                <div v-if="loginError" class="message message-error" style="margin-top:12px">
+                </form>
+                <div v-if="loginError"
+                     class="message message-error auth-message"
+                     role="alert"
+                     aria-live="assertive">
                     {{ loginError }}
                 </div>
-                <div class="register-link" style="margin-top:16px;text-align:center">
-                    <a @click="openRegister" style="color:#667eea;cursor:pointer">还没有账号？点击注册</a>
-                </div>
-                <div style="margin-top:12px;text-align:center">
-                    <a @click="goToSelection" style="color:#999;cursor:pointer;font-size:13px">← 返回新旧界面选择</a>
+                <div class="auth-secondary-actions">
+                    <button type="button" class="auth-text-action primary" @click="openRegister">
+                        创建新账号
+                    </button>
+                    <button type="button" class="auth-text-action" @click="toggleTheme">
+                        {{ theme === 'classic' ? '切换暗色' : (theme === 'dark' ? '切换浅色' : '切换经典') }}
+                    </button>
+                    <button type="button" class="auth-text-action" @click="goToSelection">
+                        新旧界面选择
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- 注册弹窗 -->
-        <div class="modal-overlay" v-if="showRegister">
-            <div class="modal">
-                <h2 class="modal-title">✨ 新账号注册</h2>
+        <div class="modal-overlay auth-overlay" v-if="showRegister">
+            <div class="modal auth-modal register-modal" role="dialog" aria-labelledby="register-title">
+                <div class="auth-section-heading">
+                    <div class="auth-section-icon" aria-hidden="true">启</div>
+                    <div>
+                        <div class="auth-eyebrow">建立你的仙途身份</div>
+                        <h2 id="register-title">创建新账号</h2>
+                    </div>
+                </div>
+                <form class="auth-form" @submit.prevent="doRegister">
                 <div class="form-group">
-                    <label>分区</label>
-                    <select v-model="registerForm.partition" class="form-select" :disabled="partitionsLoading">
+                    <label for="register-partition">分区</label>
+                    <select id="register-partition"
+                            v-model="registerForm.partition"
+                            class="form-select"
+                            :disabled="partitionsLoading || isRegistering">
                         <option v-for="p in partitions" :key="p.value" :value="p.value">
                             {{ p.label }}
                         </option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>账号</label>
-                    <input type="text" v-model="registerForm.userid" placeholder="2-12位英文或数字" maxlength="12">
+                    <label for="register-userid">账号</label>
+                    <input id="register-userid"
+                           type="text"
+                           v-model.trim="registerForm.userid"
+                           placeholder="2-12位英文或数字"
+                           maxlength="12"
+                           autocomplete="username"
+                           autocapitalize="none"
+                           spellcheck="false"
+                           :disabled="isRegistering">
                 </div>
                 <div class="form-group">
-                    <label>密码</label>
-                    <input type="password" v-model="registerForm.password" placeholder="2-12位英文或数字" maxlength="12">
-                </div>
-                <div class="form-group">
-                    <label>确认密码</label>
-                    <input type="password" v-model="registerForm.passwordConfirm" placeholder="请再次输入密码" maxlength="12">
-                </div>
-                <div class="form-group">
-                    <label>验证码</label>
-                    <div class="captcha-group">
-                        <input type="text" v-model="registerForm.captcha" placeholder="输入验证码" maxlength="4" class="form-control" style="flex:1">
-                        <div class="captcha-display" @click="refreshCaptcha" style="flex:0 0 80px;height:40px;background:#667eea;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;cursor:pointer;">
-                            {{ captchaCode }}
-                        </div>
+                    <label for="register-password">密码</label>
+                    <div class="password-field">
+                        <input id="register-password"
+                               :type="registerPasswordVisible ? 'text' : 'password'"
+                               v-model="registerForm.password"
+                               placeholder="2-12位英文或数字"
+                               maxlength="12"
+                               autocomplete="new-password"
+                               :disabled="isRegistering">
+                        <button type="button"
+                                class="password-toggle"
+                                @click="registerPasswordVisible = !registerPasswordVisible"
+                                :aria-label="registerPasswordVisible ? '隐藏密码' : '显示密码'">
+                            {{ registerPasswordVisible ? '隐藏' : '显示' }}
+                        </button>
                     </div>
                 </div>
-                <button class="btn btn-primary btn-block" @click="doRegister">
-                    <span v-if="!isRegistering">📝 立即注册</span>
-                    <span v-else class="loading">注册中...</span>
-                </button>
-                <div style="margin-top: 12px; text-align: center;">
-                    <button class="btn" style="padding: 6px 12px; background: var(--bg-card-light); color: var(--text-primary); border: 1px solid var(--border);" @click="toggleTheme">
-                        {{ theme === 'classic' ? '🌙 暗色模式' : (theme === 'dark' ? '☀️ 浅色模式' : '🏜️ 经典模式') }}
-                    </button>
+                <div class="form-group">
+                    <label for="register-password-confirm">确认密码</label>
+                    <input id="register-password-confirm"
+                           type="password"
+                           v-model="registerForm.passwordConfirm"
+                           placeholder="请再次输入密码"
+                           maxlength="12"
+                           autocomplete="new-password"
+                           :disabled="isRegistering">
                 </div>
-                <div v-if="registerError" class="message message-error" style="margin-top:12px">
+                <div class="form-group">
+                    <label for="register-captcha">验证码</label>
+                    <div class="captcha-group">
+                        <input id="register-captcha"
+                               type="text"
+                               v-model.trim="registerForm.captcha"
+                               placeholder="输入验证码"
+                               maxlength="4"
+                               class="form-control"
+                               autocomplete="off"
+                               :disabled="isRegistering">
+                        <button type="button"
+                                class="captcha-display"
+                                @click="refreshCaptcha"
+                                aria-label="刷新验证码">
+                            {{ captchaCode }}
+                        </button>
+                    </div>
+                </div>
+                <button type="submit"
+                        class="btn btn-primary btn-block auth-submit"
+                        :disabled="isRegistering">
+                    <span v-if="!isRegistering">创建账号</span>
+                    <span v-else class="loading">正在创建...</span>
+                </button>
+                </form>
+                <div v-if="registerError"
+                     class="message message-error auth-message"
+                     role="alert"
+                     aria-live="assertive">
                     {{ registerError }}
                 </div>
-                <div v-if="registerSuccess" class="message message-success" style="margin-top:12px">
-                    ✅ 注册成功！请返回登录
+                <div v-if="registerSuccess"
+                     class="message message-success auth-message"
+                     role="status"
+                     aria-live="polite">
+                    注册成功，请返回登录
                 </div>
-                <div class="register-link" style="margin-top:16px;text-align:center">
-                    <a @click="closeRegister" style="color:#667eea;cursor:pointer">← 返回登录</a>
-                </div>
-                <div style="margin-top:12px;text-align:center">
-                    <a @click="goToSelection" style="color:#999;cursor:pointer;font-size:13px">🔄 返回新旧界面选择</a>
+                <div class="auth-secondary-actions">
+                    <button type="button" class="auth-text-action primary" @click="closeRegister">
+                        返回登录
+                    </button>
+                    <button type="button" class="auth-text-action" @click="toggleTheme">
+                        切换主题
+                    </button>
+                    <button type="button" class="auth-text-action" @click="goToSelection">
+                        新旧界面选择
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- 游戏主界面 - 使用iframe显示原始HTML -->
-        <template v-if="!showLogin">
+        <template v-if="!showLogin && !showRegister">
             <!-- 顶部状态栏 -->
-            <header class="game-header">
+            <header class="game-header" aria-label="人物状态">
                 <div class="player-info">
                     <div class="player-info-line">
                         <span class="player-fullid">{{ loginForm.userid }}</span>
@@ -123,30 +222,57 @@
                     </div>
                     <!-- 玩家状态信息 - 血槽显示 -->
                     <div class="player-stats" v-if="playerStats">
-                        <div class="stat-bar">
+                        <div class="stat-bar"
+                             role="progressbar"
+                             aria-label="生命"
+                             aria-valuemin="0"
+                             :aria-valuemax="playerStats.hp_max || 0"
+                             :aria-valuenow="playerStats.hp || 0">
                             <span class="stat-label">生命</span>
                             <div class="bar-container">
-                                <div class="bar-fill hp-bar" :style="{ width: (playerStats.hp / playerStats.hp_max * 100) + '%' }"></div>
+                                <div class="bar-fill hp-bar"
+                                     :style="{ width: getStatPercent(playerStats.hp, playerStats.hp_max) + '%' }"></div>
                             </div>
+                            <span class="stat-value">{{ formatCompactNumber(playerStats.hp) }}</span>
                         </div>
-                        <div class="stat-bar">
+                        <div class="stat-bar"
+                             role="progressbar"
+                             aria-label="法力"
+                             aria-valuemin="0"
+                             :aria-valuemax="playerStats.mana_max || 0"
+                             :aria-valuenow="playerStats.mana || 0">
                             <span class="stat-label">法力</span>
                             <div class="bar-container">
-                                <div class="bar-fill mana-bar" :style="{ width: (playerStats.mana / playerStats.mana_max * 100) + '%' }"></div>
+                                <div class="bar-fill mana-bar"
+                                     :style="{ width: getStatPercent(playerStats.mana, playerStats.mana_max) + '%' }"></div>
                             </div>
+                            <span class="stat-value">{{ formatCompactNumber(playerStats.mana) }}</span>
                         </div>
-                        <div class="stat-bar">
+                        <div class="stat-bar"
+                             role="progressbar"
+                             aria-label="精力"
+                             aria-valuemin="0"
+                             aria-valuemax="100"
+                             :aria-valuenow="Math.min(100, Math.max(0, Number(playerStats.energy) || 0))">
                             <span class="stat-label">精力</span>
                             <div class="bar-container">
-                                <div class="bar-fill energy-bar" :style="{ width: Math.min(100, playerStats.energy) + '%' }"></div>
+                                <div class="bar-fill energy-bar"
+                                     :style="{ width: Math.min(100, Math.max(0, Number(playerStats.energy) || 0)) + '%' }"></div>
                             </div>
+                            <span class="stat-value">{{ formatCompactNumber(playerStats.energy) }}</span>
                         </div>
                     </div>
                     <!-- 经验进度条 - 横跨整个宽度 -->
                     <div class="exp-progress-bar" v-if="playerStats && playerStats.exp_need">
                         <span class="exp-level-left">Lv.{{ playerStats.level }}</span>
                         <div class="exp-bar-track">
-                            <div class="exp-bar-fill" :style="{ width: Math.min(100, (playerStats.exp / playerStats.exp_need * 100)) + '%' }"></div>
+                            <div class="exp-bar-fill"
+                                 role="progressbar"
+                                 aria-label="升级经验"
+                                 aria-valuemin="0"
+                                 :aria-valuemax="playerStats.exp_need || 0"
+                                 :aria-valuenow="playerStats.exp || 0"
+                                 :style="{ width: getStatPercent(playerStats.exp, playerStats.exp_need) + '%' }"></div>
                         </div>
                         <span class="exp-level-right">Lv.{{ playerStats.level + 1 }}</span>
                     </div>
@@ -154,15 +280,24 @@
                 <div class="header-actions">
                     <!-- 菜单按钮 -->
                     <div class="header-menu-container">
-                        <button class="header-btn menu-btn" @click="toggleHeaderMenu" :class="{ active: headerMenuOpen }" title="菜单">
+                        <button class="header-btn menu-btn"
+                                @click="toggleHeaderMenu"
+                                :class="{ active: headerMenuOpen }"
+                                :aria-expanded="headerMenuOpen ? 'true' : 'false'"
+                                aria-controls="header-menu"
+                                aria-label="打开功能菜单"
+                                title="菜单">
                             ☰
                         </button>
                         <!-- 弹出菜单 -->
-                        <div class="header-dropdown-menu" v-if="headerMenuOpen">
-                            <div class="menu-item" @click="toggleTheme(); headerMenuOpen = false;">
+                        <div id="header-menu"
+                             class="header-dropdown-menu"
+                             v-if="headerMenuOpen"
+                             role="menu">
+                            <button type="button" class="menu-item" @click="toggleTheme(); headerMenuOpen = false;">
                                 <span class="menu-icon">{{ theme === 'classic' ? '🌙' : (theme === 'dark' ? '☀️' : '🏜️') }}</span>
                                 <span>{{ theme === 'classic' ? '暗色模式' : (theme === 'dark' ? '浅色模式' : '经典模式') }}</span>
-                            </div>
+                            </button>
                             <div class="menu-divider"></div>
                             <div class="menu-item language-item">
                                 <span class="menu-icon">🌐</span>
@@ -180,36 +315,49 @@
                                 </select>
                             </div>
                             <div class="menu-divider"></div>
-                            <div class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">
+                            <button type="button" class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔃</span>
                                 <span>刷新</span>
-                            </div>
-                            <div class="menu-item" @click="showChatModal(); headerMenuOpen = false;">
+                            </button>
+                            <button type="button" class="menu-item" @click="showChatModal(); headerMenuOpen = false;">
                                 <span class="menu-icon">💬</span>
                                 <span>聊天</span>
-                            </div>
-                            <div class="menu-item" @click="goToSelection(); headerMenuOpen = false;">
+                            </button>
+                            <button type="button" class="menu-item" @click="goToSelection(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔄</span>
                                 <span>返回选择</span>
-                            </div>
+                            </button>
                             <div class="menu-divider"></div>
-                            <div class="menu-item" @click="copyBookmarkUrl(); headerMenuOpen = false;">
+                            <button type="button" class="menu-item" @click="copyBookmarkUrl(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔗</span>
                                 <span>复制登录链接</span>
-                            </div>
-                            <div class="menu-item menu-danger" @click="doLogout(); headerMenuOpen = false;">
+                            </button>
+                            <button type="button" class="menu-item menu-danger" @click="doLogout(); headerMenuOpen = false;">
                                 <span class="menu-icon">🚪</span>
                                 <span>退出</span>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </div>
             </header>
 
+            <div v-if="uiToast"
+                 class="ui-toast"
+                 :class="'ui-toast-' + uiToast.type"
+                 role="status"
+                 aria-live="polite">
+                <span class="ui-toast-dot" aria-hidden="true"></span>
+                <span>{{ uiToast.message }}</span>
+                <button type="button" @click="clearUiToast" aria-label="关闭提示">✕</button>
+            </div>
+
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
             <main class="game-frame-container">
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
-                <div v-if="useJsonMode" class="mud-output-container" :class="{ 'dark-mode': theme === 'dark' }">
+                <div v-if="useJsonMode"
+                     class="mud-output-container"
+                     :class="{ 'dark-mode': theme === 'dark' }"
+                     :aria-busy="mudLoading ? 'true' : 'false'">
                     <div class="mud-parent" v-if="!mudLoading">
                         <div class="mud-child">
                             <div v-for="(line, index) in mudLines" :key="index" class="mud-line">
@@ -462,7 +610,6 @@
                     </div>
                 </div>
             </div>
-            </main>
 
             <!-- 新手任务完成弹窗 -->
             <div class="modal-overlay newbie-completion-overlay"
@@ -613,40 +760,77 @@
             </div>
 
             <!-- 快捷命令栏 -->
-            <footer class="quick-actions" :class="{ collapsed: quickActionsCollapsed }">
-                <button class="quick-toggle-btn" @click="toggleQuickActions" :title="quickActionsCollapsed ? '展开菜单' : '折叠菜单'">
-                    {{ quickActionsCollapsed ? '▲' : '▼' }}
-                </button>
-                <div class="quick-actions-inner" v-show="!quickActionsCollapsed">
-                    <div class="quick-btn-row">
-                        <button class="quick-btn" @click="sendQuickCommand('look')">🔄 刷新</button>
-                        <button class="quick-btn" @click="sendQuickCommand('myhp')">❤️ 状态</button>
-                        <button class="quick-btn" @click="sendQuickCommand('inventory')">🎒 物品</button>
-                        <button class="quick-btn" @click="sendQuickCommand('myskills')">⚔️ 技能</button>
-                        <button class="quick-btn" @click="sendQuickCommand('map_display')">🗺️ 地图</button>
+            <footer class="quick-actions"
+                    :class="{ collapsed: quickActionsCollapsed }"
+                    aria-label="快捷导航">
+                <div class="quick-more-panel"
+                     id="quick-more-panel"
+                     v-show="!quickActionsCollapsed">
+                    <div class="quick-more-heading">
+                        <div>
+                            <span class="quick-more-eyebrow">常用功能</span>
+                            <strong>探索与成长</strong>
+                        </div>
+                        <button type="button"
+                                class="quick-panel-close"
+                                @click="toggleQuickActions"
+                                aria-label="收起更多功能">✕</button>
                     </div>
-                    <div class="quick-btn-row">
-                        <button class="quick-btn" @click="sendQuickCommand('my_term')">👥 队伍</button>
-                        <button class="quick-btn" @click="sendQuickCommand('yushi_change')">💎 玉石</button>
-                        <button class="quick-btn" @click="sendQuickCommand('mytasks')">📜 任务</button>
-                        <button class="quick-btn" @click="sendQuickCommand('my_bang')">🏰 帮派</button>
-                        <button class="quick-btn" @click="sendQuickCommand('my_games')">🌊 江湖</button>
-                    </div>
-                    <div class="quick-btn-row">
-                        <button class="quick-btn" @click="sendQuickCommand('userlist')">🌀 传送</button>
-                        <button class="quick-btn" @click="sendQuickCommand('yushi_myzone')">🪙 仙玉</button>
-                        <button class="quick-btn" @click="sendQuickCommand('game_detail')">⚙️ 设置</button>
-                        <button class="quick-btn" @click="sendQuickCommand('vip_service_list')">👑 会员</button>
+                    <div class="quick-more-grid">
+                        <button class="quick-tool-btn" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('my_term')"><span>👥</span>队伍</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('yushi_change')"><span>💎</span>玉石</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('my_bang')"><span>🏰</span>帮派</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('my_games')"><span>🌊</span>江湖</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('userlist')"><span>🌀</span>传送</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('yushi_myzone')"><span>🪙</span>仙玉</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('game_detail')"><span>⚙️</span>设置</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('vip_service_list')"><span>👑</span>会员</button>
                     </div>
                 </div>
+                <nav class="quick-primary-nav" aria-label="主要功能">
+                    <button class="quick-nav-btn"
+                            :class="{ active: isQuickActionActive('look') }"
+                            @click="sendQuickCommand('look')">
+                        <span class="quick-nav-icon" aria-hidden="true">⌂</span>
+                        <span>场景</span>
+                    </button>
+                    <button class="quick-nav-btn"
+                            :class="{ active: isQuickActionActive('myhp') }"
+                            @click="sendQuickCommand('myhp')">
+                        <span class="quick-nav-icon" aria-hidden="true">♡</span>
+                        <span>状态</span>
+                    </button>
+                    <button class="quick-nav-btn"
+                            :class="{ active: isQuickActionActive('inventory') }"
+                            @click="sendQuickCommand('inventory')">
+                        <span class="quick-nav-icon" aria-hidden="true">▣</span>
+                        <span>物品</span>
+                    </button>
+                    <button class="quick-nav-btn"
+                            :class="{ active: isQuickActionActive('myskills') }"
+                            @click="sendQuickCommand('myskills')">
+                        <span class="quick-nav-icon" aria-hidden="true">◇</span>
+                        <span>技能</span>
+                    </button>
+                    <button class="quick-nav-btn quick-more-btn"
+                            :class="{ active: !quickActionsCollapsed }"
+                            @click="toggleQuickActions"
+                            :aria-expanded="quickActionsCollapsed ? 'false' : 'true'"
+                            aria-controls="quick-more-panel">
+                        <span class="quick-nav-icon" aria-hidden="true">•••</span>
+                        <span>更多</span>
+                    </button>
+                </nav>
             </footer>
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785426823049"></script>
-    <script src="js/app.js?v=v1785426823049"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785428290936"></script>
+    <script src="js/app.js?v=v1785428290936"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785426823049"></script>
+    <script src="../includes/translate.js?v=v1785428290936"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

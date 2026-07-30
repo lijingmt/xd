@@ -107,6 +107,8 @@ createApp({
             showRegister: false,
             isLoggingIn: false,
             isRegistering: false,
+            loginPasswordVisible: false,
+            registerPasswordVisible: false,
             loginError: '',
             registerError: '',
             registerSuccess: false,
@@ -168,7 +170,7 @@ createApp({
             performsData: null,  // 招式数据
             performsLoading: false,  // 招式加载中
             // 快捷菜单
-            quickActionsCollapsed: false,  // 快捷菜单是否折叠
+            quickActionsCollapsed: true,  // 更多功能默认收起，保留五项高频导航
             // 邀请系统
             refCode: '',  // 推荐人邀请码（从URL参数ref获取）
             showInviteModal: false,  // 显示邀请弹窗
@@ -178,6 +180,9 @@ createApp({
             // 新手任务完成弹窗
             activeNewbieCompletion: null,
             newbieCompletionQueue: [],
+            // 全局轻提示
+            uiToast: null,
+            uiToastTimer: null,
             // 语言选择
             selectedLanguage: localStorage.getItem('userLanguage') || 'chinese_simplified',  // 当前选择的语言
             isInitializing: true  // 初始化标志，防止初始化时触发changeLanguage
@@ -201,6 +206,64 @@ createApp({
     },
 
     methods: {
+        getStatPercent(current, maximum) {
+            const value = Number(current);
+            const max = Number(maximum);
+            if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) {
+                return 0;
+            }
+            return Math.min(100, Math.max(0, value / max * 100));
+        },
+
+        formatCompactNumber(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) {
+                return '0';
+            }
+            const absolute = Math.abs(number);
+            const units = [
+                { value: 1e16, label: '京' },
+                { value: 1e12, label: '万亿' },
+                { value: 1e8, label: '亿' },
+                { value: 1e4, label: '万' }
+            ];
+            const unit = units.find(item => absolute >= item.value);
+            if (!unit) {
+                return Math.round(number).toLocaleString('zh-CN');
+            }
+            const compact = number / unit.value;
+            const digits = Math.abs(compact) >= 100 ? 0 :
+                (Math.abs(compact) >= 10 ? 1 : 2);
+            return compact.toFixed(digits).replace(/\.?0+$/, '') + unit.label;
+        },
+
+        showUiToast(message, type = 'info') {
+            if (!message) {
+                return;
+            }
+            if (this.uiToastTimer) {
+                clearTimeout(this.uiToastTimer);
+            }
+            this.uiToast = { message, type };
+            this.uiToastTimer = setTimeout(() => {
+                this.uiToast = null;
+                this.uiToastTimer = null;
+            }, 4500);
+        },
+
+        clearUiToast() {
+            if (this.uiToastTimer) {
+                clearTimeout(this.uiToastTimer);
+                this.uiToastTimer = null;
+            }
+            this.uiToast = null;
+        },
+
+        isQuickActionActive(command) {
+            return this.lastCommand === command ||
+                this.lastCommand.startsWith(command + ' ');
+        },
+
         // 重新应用翻译（用于 mudLines 更新后）
         reapplyTranslation() {
             const savedLang = localStorage.getItem('userLanguage');
@@ -243,6 +306,7 @@ createApp({
         openRegister() {
             this.showLogin = false;
             this.showRegister = true;
+            this.registerPasswordVisible = false;
             this.registerError = '';
             this.registerSuccess = false;
         },
@@ -251,6 +315,7 @@ createApp({
         closeRegister() {
             this.showRegister = false;
             this.showLogin = true;
+            this.registerPasswordVisible = false;
         },
 
         // 从API加载分区列表
@@ -365,11 +430,6 @@ createApp({
                     url += '&ref=' + encodeURIComponent(refCode);
                     console.log('使用推荐码:', refCode);
                 }
-
-                console.log('=== 注册请求开始 ===');
-                console.log('apiBase:', this.apiBase);
-                console.log('cmd:', cmd);
-                console.log('url:', url);
 
                 const response = await fetch(url, {
                     method: 'GET'
@@ -560,18 +620,15 @@ createApp({
 
         // 更新URL以包含txd参数（便于书签/分享）
         updateUrlWithTxd() {
-            console.log('[updateUrlWithTxd] txd=', this.txd ? this.txd.substring(0, 20) + '...' : 'null');
             if (!this.txd) return;
 
             const url = new URL(window.location.href);
             url.searchParams.set('txd', this.txd);
 
             const newUrl = url.toString();
-            console.log('[updateUrlWithTxd] 新URL:', newUrl.substring(0, 100) + '...');
 
             // 使用replaceState更新URL而不刷新页面
             window.history.replaceState({}, '', newUrl);
-            console.log('[updateUrlWithTxd] URL已更新');
         },
 
         // 复制书签URL到剪贴板
@@ -945,6 +1002,10 @@ createApp({
 
         // 快捷命令
         sendQuickCommand(cmd) {
+            if (!this.quickActionsCollapsed) {
+                this.quickActionsCollapsed = true;
+                localStorage.setItem('quickActionsCollapsed', '1');
+            }
             // 点击快捷按钮时立即滚动到顶部
             window.scrollTo({ top: 0, behavior: 'smooth' });
             const mudContainer = document.querySelector('.mud-output-container');
@@ -980,6 +1041,10 @@ createApp({
                 await this.copyToClipboard(decodeURIComponent(url), '邀请链接');
                 return;  // 不发送到服务器
             }
+            if (cmd) {
+                this.lastCommand = cmd;
+            }
+            this.clearUiToast();
 
             // 滚动到顶部（同时滚动window和MUD容器）
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -987,10 +1052,6 @@ createApp({
             if (mudContainer) {
                 mudContainer.scrollTop = 0;
             }
-
-            console.log('[sendJsonCommand] 发送命令:', cmd);
-            console.log('[sendJsonCommand] apiBase:', this.apiBase);
-            console.log('[sendJsonCommand] txd:', this.txd);
 
             // 清除之前的计时器
             if (this.loadingTimer) {
@@ -1008,7 +1069,6 @@ createApp({
             }, 3000);
             try {
                 const url = `${this.apiBase}/api/json?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent(cmd)}`;
-                console.log('[sendJsonCommand] 完整URL:', url);
 
                 const response = await fetch(url);
                 console.log('[sendJsonCommand] 响应状态:', response.status);
@@ -1020,14 +1080,12 @@ createApp({
                         await this.relogin();
                         // 重新登录成功后重试原始命令
                         if (!this.showLogin) {
-                            console.log('[重试命令]', cmd);
                             return this.sendJsonCommand(cmd, true);
                         }
                     }
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const data = await response.json();
-                console.log('[sendJsonCommand] 响应数据:', data);
 
                 if (data.error) {
                     console.error('命令执行错误:', data.error);
@@ -1037,10 +1095,10 @@ createApp({
                         await this.relogin();
                         // 重新登录成功后重试原始命令
                         if (!this.showLogin) {
-                            console.log('[重试命令]', cmd);
                             return this.sendJsonCommand(cmd, true);
                         }
                     }
+                    this.showUiToast(data.error || '命令执行失败，请稍后重试', 'error');
                     return;
                 }
                 // 更新txd（可能已变化）
@@ -1091,10 +1149,10 @@ createApp({
                     await this.relogin();
                     // 重新登录成功后重试原始命令
                     if (!this.showLogin) {
-                        console.log('[重试命令]', cmd);
                         return this.sendJsonCommand(cmd, true);
                     }
                 }
+                this.showUiToast('连接暂时中断，请检查网络后重试', 'error');
             } finally {
                 this.mudLoading = false;
                 this.slowLoadingTip = false;
@@ -1270,56 +1328,40 @@ createApp({
 
         // JSON模式: 提交输入框
         submitInput(name, event) {
-            console.log('[submitInput] 被调用, name:', name);
-            console.log('[submitInput] event.target:', event.target);
-
             let inputValue = '';
             // 如果是输入框的回车事件
             if (event.target && event.target.tagName === 'INPUT') {
                 inputValue = event.target.value || '';
-                console.log('[submitInput] 从INPUT获取值:', inputValue);
             } else {
                 // 如果是确定按钮的点击事件，通过ref获取输入框的值
                 const refName = 'input-' + name;
                 const inputRef = this.$refs[refName];
-                console.log('[submitInput] refName:', refName, 'inputRef:', inputRef);
                 if (inputRef && inputRef.length) {
                     inputValue = inputRef[0].value || '';
-                    console.log('[submitInput] 从inputRef[0]获取值:', inputValue);
                 } else if (inputRef) {
                     inputValue = inputRef.value || '';
-                    console.log('[submitInput] 从inputRef获取值:', inputValue);
                 }
             }
             const cmd = `${name} ${inputValue}`;
-            console.log('[submitInput] 最终命令:', cmd);
             this.sendJsonCommand(cmd);
         },
 
         // JSON模式: 提交命令输入框
         submitCmdInput(cmdName, event) {
-            console.log('[submitCmdInput] 被调用, cmdName:', cmdName);
-            console.log('[submitCmdInput] event.target:', event.target);
-
             let inputValue = '';
             if (event.target && event.target.tagName === 'INPUT') {
                 inputValue = event.target.value || '';
-                console.log('[submitCmdInput] 从INPUT获取值:', inputValue);
             } else {
                 // 找到同组的输入框
                 const input = event.target.parentElement.querySelector('input');
                 inputValue = input ? input.value : '';
-                console.log('[submitCmdInput] 从兄弟input获取值:', inputValue);
             }
             const cmd = `${cmdName} ${inputValue}`;
-            console.log('[submitCmdInput] 最终命令:', cmd);
             this.sendJsonCommand(cmd);
         },
 
         // JSON模式: 提交表单（多个输入框共用一个提交按钮）
         submitForm(formSegment) {
-            console.log('[submitForm] 被调用, formSegment:', formSegment);
-
             const inputs = formSegment.inputs || [];
             const cmd = formSegment.cmd;
 
@@ -1338,7 +1380,6 @@ createApp({
                 cmdWithArgs += ` ${input.name}=${value}`;
             }
 
-            console.log('[submitForm] 最终命令:', cmdWithArgs);
             this.sendJsonCommand(cmdWithArgs);
         },
 
@@ -1350,6 +1391,8 @@ createApp({
             this.txd = '';
             this.gameFrameUrl = '';
             this.playerStats = null;
+            this.loginPasswordVisible = false;
+            this.clearUiToast();
             this.dismissNewbieCompletions();
             this.stopStatsUpdate();
             // 清理自动战斗定时器
@@ -1692,7 +1735,7 @@ createApp({
                     throw new Error('未获得request_id');
                 }
 
-                console.log(`[Async] 命令已入队: ${cmd}, requestId: ${requestId}, 队列位置: ${asyncData.queue_position}`);
+                console.log(`[Async] 命令已入队，队列位置: ${asyncData.queue_position}`);
 
                 // 2. 轮询结果
                 const startTime = Date.now();
@@ -1734,7 +1777,7 @@ createApp({
                     } else if (contentType && contentType.includes('text/html')) {
                         // HTML响应 - 完成
                         const html = await resultResp.text();
-                        console.log(`[Async] 命令完成: ${cmd}, 耗时: ${Date.now() - startTime}ms`);
+                        console.log(`[Async] 命令完成，耗时: ${Date.now() - startTime}ms`);
                         return html;
                     }
                 }
@@ -2438,16 +2481,8 @@ createApp({
         adjustContainerHeight() {
             const container = document.querySelector('.mud-output-container');
             if (!container) return;
-
-            const lineCount = this.mudLines.length;
-            // 每行约 14px 高度，几乎不留基础空间
-            const lineHeight = 14;
-            const baseHeight = 5;  // 几乎不留基础高度
-
-            // 完全根据行数计算
-            let calculatedHeight = baseHeight + (lineCount * lineHeight);
-
-            container.style.minHeight = calculatedHeight + 'px';
+            // 高度交给响应式CSS和真实内容决定，避免短页面被压缩成几像素。
+            container.style.minHeight = '';
             container.style.maxHeight = 'none';
         },
 
@@ -2617,14 +2652,6 @@ createApp({
             this.htmlMode = true;
             console.log('HTML模式已启用：按钮使用href链接');
         }
-        console.log('URL参数解析:', {
-            fullUrl: window.location.href,
-            pathname: window.location.pathname,
-            search: window.location.search,
-            refParam: refParam,
-            txdParam: txdParam ? txdParam.substring(0, 20) + '...' : null,
-            urlParams: Array.from(urlParams.entries())
-        });
         if (refParam) {
             this.refCode = refParam;
             console.log('检测到推荐码:', refParam);
@@ -2664,9 +2691,7 @@ createApp({
 
         // 恢复快捷菜单折叠状态
         const savedQuickActionsCollapsed = localStorage.getItem('quickActionsCollapsed');
-        if (savedQuickActionsCollapsed === '1') {
-            this.quickActionsCollapsed = true;
-        }
+        this.quickActionsCollapsed = savedQuickActionsCollapsed !== '0';
 
         console.log('API地址:', this.apiBase);
 
@@ -2708,7 +2733,6 @@ createApp({
             this.loginForm.partition = savedPartition || 'tx01';
             this.loginForm.userid = savedUser || '';  // URL模式可能没有用户名
 
-            console.log('恢复登录: txd=', savedTxd.substring(0, 20) + '...');
             console.log('apiBase=', this.apiBase);
 
             // 如果txd来自URL，保存到sessionStorage以便后续使用
