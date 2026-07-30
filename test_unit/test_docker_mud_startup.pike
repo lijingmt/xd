@@ -7,6 +7,8 @@
  * - 镜像启动脚本开放 Linux 进程栈
  * - Pike evaluator 栈设为 1000000
  * - Pike 线程栈设为 64 MiB
+ * - 部署时先同步外置 item 目录再启动容器
+ * - 第三阵营头像复制到容器内 Tomcat 的新旧访问路径
  */
 
 #include <globals.h>
@@ -91,6 +93,60 @@ void test_stack_order_contract()
 		test_fail("系统栈必须在Pike进程创建前放开");
 }
 
+void test_item_sync_contract()
+{
+	test_start("部署时同步并校验容器外置物品");
+	string source =
+		Stdio.read_file(ROOT+"/restart-docker.sh");
+	int sync_position = -1;
+	int run_position = -1;
+
+	if(source){
+		sync_position = search(source,"\n    sync_item_directory\n");
+		run_position = search(source,"\n    docker run -d");
+	}
+	if(source &&
+	   search(source,"local commands=(\"docker\" \"rsync\")")!=-1 &&
+	   search(source,
+		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
+	   search(source,
+		   "$shared_item_dir/book/huling1")!=-1 &&
+	   search(source,
+		   "-v \"${SHARED_ITEM_DIR}:/app/xiand/gamelib/clone/item\"")!=-1 &&
+	   sync_position!=-1 && run_position!=-1 &&
+	   sync_position<run_position)
+		test_pass();
+	else
+		test_fail("item必须同步到实际挂载目录、校验huling1并先于容器启动");
+}
+
+void test_third_logo_deploy_contract()
+{
+	test_start("部署第三阵营头像到容器内Tomcat");
+	string source =
+		Stdio.read_file(ROOT+"/restart-docker.sh");
+	string source_logo =
+		Stdio.read_file(ROOT+"/images/third_logo.png");
+	string web_logo =
+		Stdio.read_file(ROOT+"/web/images/third_logo.png");
+
+	if(source && source_logo && web_logo &&
+	   source_logo==web_logo &&
+	   search(source,
+		   "$tomcat_root/images/third_logo.png")!=-1 &&
+	   search(source,
+		   "$tomcat_root/xd/images/third_logo.png")!=-1 &&
+	   search(source,
+		   "copy_third_logo_to_container \"$CONTAINER_NAME\"")!=-1 &&
+	   search(source,
+		   "test -s \"$tomcat_root/images/third_logo.png\"")!=-1 &&
+	   search(source,
+		   "test -s \"$tomcat_root/xd/images/third_logo.png\"")!=-1)
+		test_pass();
+	else
+		test_fail("头像源文件必须一致并复制、校验Tomcat的/images与/xd/images");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -106,6 +162,8 @@ int main()
 	test_container_stack_contract();
 	test_pike_stack_contract();
 	test_stack_order_contract();
+	test_item_sync_contract();
+	test_third_logo_deploy_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;

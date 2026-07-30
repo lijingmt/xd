@@ -41,6 +41,7 @@ if [ ! -f "$PROJECT_ROOT/docker/docker-compose.yml" ]; then
 fi
 
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
+SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 
 # 从命令行参数或环境变量读取配置
 # 优先级：命令行参数 > 环境变量 > 默认值
@@ -104,13 +105,92 @@ print_error() {
 
 # 函数：检查必要的命令
 check_commands() {
-    local commands=("docker")
+    local commands=("docker" "rsync")
     for cmd in "${commands[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             print_error "$cmd 命令未找到，请先安装"
             exit 1
         fi
     done
+}
+
+# 函数：同步镜像外置的游戏物品目录
+sync_item_directory() {
+    local source_item_dir="$PROJECT_ROOT/gamelib/clone/item"
+    local shared_item_dir="$SHARED_ITEM_DIR"
+
+    if [ ! -d "$source_item_dir" ]; then
+        print_error "源 item 目录不存在: $source_item_dir"
+        exit 1
+    fi
+
+    if [[ "$shared_item_dir" != /* ]]; then
+        print_error "共享 item 目录必须是绝对路径: $shared_item_dir"
+        exit 1
+    fi
+
+    if ! mkdir -p "$shared_item_dir"; then
+        print_error "无法创建共享 item 目录: $shared_item_dir"
+        exit 1
+    fi
+
+    print_info "同步游戏物品到容器映射目录..."
+    echo "  来源：$source_item_dir/"
+    echo "  目标：$shared_item_dir/"
+    if ! rsync -a "$source_item_dir/" "$shared_item_dir/"; then
+        print_error "游戏物品同步失败，停止部署"
+        exit 1
+    fi
+
+    # 方士技能书是本次缺失问题的关键部署哨兵。
+    if [ ! -f "$shared_item_dir/book/huling1" ]; then
+        print_error "物品同步校验失败，缺少: $shared_item_dir/book/huling1"
+        exit 1
+    fi
+
+    chmod -R 755 "$shared_item_dir" 2>/dev/null || true
+    print_success "游戏物品同步完成，并已校验方士技能书 huling1"
+}
+
+# 函数：把第三阵营头像更新到容器内 Tomcat 的新旧访问路径
+copy_third_logo_to_container() {
+    local container_name="$1"
+    local tomcat_root="/usr/local/tomcat/webapps/ROOT"
+    local source_logo="$PROJECT_ROOT/images/third_logo.png"
+    local web_logo="$PROJECT_ROOT/web/images/third_logo.png"
+
+    if [ ! -f "$source_logo" ] || [ ! -f "$web_logo" ]; then
+        print_error "第三阵营头像源文件不完整，停止部署"
+        return 1
+    fi
+
+    if ! docker exec "$container_name" \
+        mkdir -p "$tomcat_root/images" "$tomcat_root/xd/images"; then
+        print_error "无法创建容器内 Tomcat 头像目录"
+        return 1
+    fi
+
+    if ! docker cp "$web_logo" \
+        "$container_name:$tomcat_root/images/third_logo.png"; then
+        print_error "复制 Web 第三阵营头像失败"
+        return 1
+    fi
+
+    if ! docker cp "$source_logo" \
+        "$container_name:$tomcat_root/xd/images/third_logo.png"; then
+        print_error "复制游戏第三阵营头像失败"
+        return 1
+    fi
+
+    if ! docker exec "$container_name" \
+        test -s "$tomcat_root/images/third_logo.png" ||
+       ! docker exec "$container_name" \
+        test -s "$tomcat_root/xd/images/third_logo.png"; then
+        print_error "容器内 Tomcat 第三阵营头像校验失败"
+        return 1
+    fi
+
+    print_success "第三阵营头像已更新到容器内 Tomcat"
 }
 
 # 函数：从 Docker 配置获取用户名
@@ -286,13 +366,8 @@ prepare_data_directories() {
         area_num="${area_num#xd}"
     fi
 
-    # 创建统一的 item 目录（所有区共享）
-    local shared_item_dir="/usr/local/games/allxd/item"
-    if [ ! -d "$shared_item_dir" ] || [ -z "$(ls -A "$shared_item_dir" 2>/dev/null)" ]; then
-        print_warning "共享 item 目录为空或不存在: $shared_item_dir"
-        print_info "请执行: rsync -av /usr/local/games/xiand/gamelib/clone/item/ /usr/local/games/allxd/item/"
-    fi
-    chmod -R 755 "$shared_item_dir" 2>/dev/null || true
+    # item 不进入 Docker 镜像，部署时必须同步到实际的共享挂载目录。
+    sync_item_directory
 
     # 检查是否是范围格式（01-05）
     if [[ $area_num =~ ^([0-9]+)-([0-9]+)$ ]]; then
@@ -510,7 +585,7 @@ main() {
         -e GAME_AREAS="$GAME_AREAS" \
         -v /usr/local/games/allxd/${GAME_AREA}/data_xiand:/app/xiand/data_xiand \
         -v /usr/local/games/allxd/${GAME_AREA}/etc:/app/xiand/gamelib/etc \
-        -v /usr/local/games/allxd/item:/app/xiand/gamelib/clone/item \
+        -v "${SHARED_ITEM_DIR}:/app/xiand/gamelib/clone/item" \
         -v /usr/local/games/allxd/log/${GAME_AREA}:/app/xiand/log \
         "${docker_image}" >/dev/null 2>&1
 
@@ -535,6 +610,12 @@ main() {
         docker cp "${PROJECT_ROOT}/web/web_vue/manifest.json" "${CONTAINER_NAME}:/usr/local/tomcat/webapps/ROOT/web_vue/manifest.json" 2>/dev/null || true
         docker cp "${PROJECT_ROOT}/web/web_vue/index.html" "${CONTAINER_NAME}:/usr/local/tomcat/webapps/ROOT/web_vue/index.html" 2>/dev/null || true
         print_success "前端文件已复制到容器"
+
+        # 更新第三阵营头像；游戏输出使用 /xd/images，Web 页面使用 /images。
+        if ! copy_third_logo_to_container "$CONTAINER_NAME"; then
+            print_error "第三阵营头像部署失败，停止后续部署"
+            exit 1
+        fi
 
         # 创建 /tmp 目录和必要的日志文件
         docker exec "${CONTAINER_NAME}" mkdir -p /tmp 2>/dev/null || true
@@ -588,5 +669,7 @@ main() {
     echo ""
 }
 
-# 执行主函数
-main "$@"
+# 执行主函数；被测试脚本 source 时只加载函数，不执行部署。
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    main "$@"
+fi
