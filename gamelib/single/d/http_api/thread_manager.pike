@@ -33,7 +33,7 @@ constant CORE_COMMANDS = ({
     "attack", "kill", "hit", "fight", "strike",
     "flee", "escape", "run", "surrender",
     "zhaohuan", "zhaohuan_cfm", "summon",  // 召唤（涉及NPC和共享状态）
-    "growth_task",  // 每级职业历练（经验、金钱和人物持久状态）
+    "growth_task", "task_guide",  // 职业历练与任务引导传送
     "autofight", "autofightclose",  // 自动战斗
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========

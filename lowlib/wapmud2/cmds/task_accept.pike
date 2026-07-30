@@ -17,6 +17,7 @@ int main(string arg)
 		if(get_flag==1){
 			s += TASKD->queryTaskAcceptWord(taskid)+"\n";
 			s += "\n你接受了任务："+TASKD->queryTaskName(taskid)+"\n";
+			s += TASKD->queryTaskGuideLink(this_player(),taskid);
 		}
 		else if(get_flag==2)
 			s += "\n"+this_player()->query_name_cn()+"，这任务对你来说太危险了，我不能把它交给你\n";

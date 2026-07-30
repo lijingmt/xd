@@ -25,6 +25,7 @@ int main(string arg)
 		
 		if(flag){
 			s += "\n"+TASKD->queryTaskProcess(this_player(),taskid);
+			s += TASKD->queryTaskGuideLink(this_player(),taskid);
 			s += "[放弃任务:task_cancel "+taskid+"]\n";
 		}
 	}

@@ -22,6 +22,9 @@ int main(string arg)
 		s += TASKD->queryTaskItem(taskid);
 		
 		s += "[接受任务:task_accept "+arg+"]\n";
+		if(TASKD->queryTaskHasGuide(taskid))
+			s += "[接受并前往任务地图:task_guide accept "+
+				npcname+" "+taskid+"]\n";
 	}
 	else
 		s += "任务信息不存在，请返回任务列表后重试。\n";

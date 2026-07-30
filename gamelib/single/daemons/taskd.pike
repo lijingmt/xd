@@ -53,7 +53,9 @@ class task
 	string roomToReTask;//[31]交任务的房间(新手任务专用)
 
 	mapping(string:int) kill_map = ([]);
+	array(string) kill_order = ({});
 	mapping(string:int) find_map = ([]);
+	array(string) find_order = ({});
 	mapping(string:int) send_map = ([]);
 }
 
@@ -65,6 +67,45 @@ private mapping(string:array(int)) dropItemMap = ([]); //掉落任务物品与�
 private mapping(string:mapping(string:int)) taskItemMap = ([]); //怪:任务物品 掉落表
 private mapping(string:string) pathMap = ([]); //怪的中文名:怪的文件路径,
                                                //如："沙虫的眼睛":"task/shachongdeyanjing"  
+// 任务引导只保存服务端审核过的大地图或副本外入口，避免按钮注入任意路径。
+private mapping(string:string) taskGuideTargetRoom = ([
+	"清云兽":"shierxianjing/shierxianjing",
+	"灵龟":"shierxianjing/shierxianjing",
+	"雷鸟":"shierxianjing/shierxianjing",
+	"飘渺仙灵":"plxianjing/xianzhenplxianjing",
+	"游云飞龙":"plxianjing/xianzhenplxianjing",
+	"卷云幽魂":"plxianjing/xianzhenplxianjing",
+	"阎罗王":"jiangjunmu/dajiangjunlingershiceng",
+	"秦广王":"jiangjunmu/dajiangjunlingershiceng",
+	"五道转轮王":"jiangjunmu/dajiangjunlingershiceng",
+	"金蛟龙":"muye/huanghean",
+	"木蛟龙":"muye/huanghean",
+	"水蛟龙":"muye/huanghean",
+	"火蛟龙":"muye/huanghean",
+	"土蛟龙":"muye/huanghean",
+	"七彩龙":"muye/huanghean",
+	"金翅蛟龙王":"muye/huanghean",
+	"金毛狮鹫":"plxianjing/xianzhenplxianjing",
+	"凝泪水妖":"plxianjing/xianzhenplxianjing",
+	"虚空妖婆":"plxianjing/xianzhenplxianjing",
+	"虚幻鬼帅":"fushoushan/dijiaoershiceng",
+	"妖鸟鬼车":"fushoushan/dijiaoershiceng",
+	"伯夫鬼王":"fushoushan/dijiaoershiceng",
+]);
+private mapping(string:string) taskGuideFindRoom = ([
+	"狮鹫之尾":"plxianjing/xianzhenplxianjing",
+	"苍鹰尾羽":"plxianjing/xianzhenplxianjing",
+	"妖法水球":"plxianjing/xianzhenplxianjing",
+	"仙灵之魂":"plxianjing/xianzhenplxianjing",
+	"凝泪之眼":"plxianjing/xianzhenplxianjing",
+	"蛇之精粹":"plxianjing/xianzhenplxianjing",
+	"苍鹰之眼":"plxianjing/xianzhenplxianjing",
+	"狮鹫之眼":"plxianjing/xianzhenplxianjing",
+	"仙灵之眼":"plxianjing/xianzhenplxianjing",
+	"虚空精华":"plxianjing/xianzhenplxianjing",
+	"毒蛇之眼":"plxianjing/xianzhenplxianjing",
+	"水妖之泪":"plxianjing/xianzhenplxianjing",
+]);
 
 protected void create() 
 {
@@ -226,6 +267,7 @@ void load(int|void isFirst)
 							s = String.trim_all_whites(s);
 							array b_array = s/":";
 
+							tempTask->kill_order += ({b_array[0]});
 							if(sizeof(b_array) == 1)
 								tempTask->kill_map[b_array[0]] = 1;
 							else
@@ -249,6 +291,7 @@ void load(int|void isFirst)
 							s = String.trim_all_whites(s);
 							array b_array = s/":";
 
+							tempTask->find_order += ({b_array[0]});
 							if(sizeof(b_array) == 1)
 								tempTask->find_map[b_array[0]] = 1;
 							else
@@ -340,6 +383,37 @@ string normalize_task_npc_name(string npcname)
 	return npcname;
 }
 
+// 每级职业历练由各阵营的职业导师发放；方士使用独立的方士传人。
+int is_growth_task_teacher(object player,object npc)
+{
+	string profession_id;
+	string npcname;
+
+	if(!player || !npc)
+		return 0;
+	profession_id = player->query_profeId();
+	npcname = normalize_task_npc_name(npc->query_name());
+	switch(profession_id){
+		case "jianxian":
+		case "yushi":
+		case "zhuxian":
+			return npcname=="daodezhenjun400" ||
+				npcname=="taijizhenren400" ||
+				npcname=="yuanshitianzun999" ||
+				npcname=="yuyixian400";
+		case "kuangyao":
+		case "wuyao":
+		case "yinggui":
+			return npcname=="zhaogongming400" ||
+				npcname=="wangtianjun400" ||
+				npcname=="tongtianjiaozhu999" ||
+				npcname=="yuyuan400";
+		case "fangshi":
+			return npcname=="fangshi_teacher";
+	}
+	return 0;
+}
+
 //根据玩家的任务完成情况返回玩家可以接受的任务,可以提交的任务
 string query_npc_taskList(object player,object npc)
 {
@@ -376,6 +450,9 @@ string query_npc_taskList(object player,object npc)
 				//如果玩家没有完成这个任务的前续任务,也略过
 				if(tmp_task->preIds&&player["/taskd/done"][tmp_task->preIds]==0)
 					continue;
+				//任务列表只显示当前等级真正可以领取的任务。
+				if(player->query_level()<tmp_task->level_limit)
+					continue;
 				//职业不对口也不显示
 				if(tmp_task->profe_limit!=""&&tmp_task->profe_limit!=player->query_profe_cn(player->query_profeId()))
 					continue;
@@ -402,6 +479,32 @@ string query_npc_taskList(object player,object npc)
 			}
 			else 
 				werror("task:"+ tmp_taskList[i]+",may not exist----\n");
+		}
+	}
+
+	// 动态每级历练不占普通任务栏，但应与普通任务一起出现在导师对话中。
+	if(is_growth_task_teacher(player,npc)){
+		mapping growth_state = query_growth_task_state(player);
+		int growth_level = player->query_level();
+		if(mappingp(growth_state) && sizeof(growth_state)){
+			int required =
+				query_growth_task_required(growth_state["level"]);
+			canRefer += "["+
+				query_growth_task_title(
+					growth_state["profession"],growth_state["level"])+
+				":growth_task]（"+growth_state["progress"]+"/"+
+				required+"）";
+			if(growth_state["progress"]>=required)
+				canRefer += "(完成)";
+			canRefer += "\n";
+			flag_ref = 1;
+		}
+		else if(!query_growth_task_done(player,growth_level)){
+			canAccept += "["+
+				query_growth_task_title(
+					player->query_profeId(),growth_level)+
+				":growth_task]\n";
+			flag_acc = 1;
 		}
 	}
 
@@ -745,6 +848,196 @@ mapping claim_growth_task(object player)
 	return result;
 }
 
+string query_growth_task_guide_room(object player)
+{
+	mapping state;
+	string race_id;
+	int level;
+
+	if(!player)
+		return "";
+	state = player["/taskd/growth_active"];
+	if(!mappingp(state) || !sizeof(state))
+		return "";
+	level = state["level"];
+	race_id = player->query_raceId();
+
+	// 50级以上的普通地图怪会按玩家等级动态刷新。
+	if(level>=50){
+		if(race_id=="human")
+			return "plxianjing/zilingxijing";
+		if(race_id=="monst")
+			return "plxianjing/qingyuwulin";
+		return "plxianjing/binghuanyuntai";
+	}
+	if(level<=5){
+		if(race_id=="monst")
+			return "shanyaohaiwan/diwashuikeng";
+		return "huanyecun/baishizilu";
+	}
+	if(level<=10){
+		if(race_id=="monst")
+			return "jinaodao/xiangshudongsiceng";
+		return "kunlunshan/pubudongxuesiceng";
+	}
+	if(level<=15){
+		if(race_id=="monst")
+			return "wugongdong/xiaozhuadong";
+		return "kunlunshan/lianpi";
+	}
+	if(level<=20){
+		if(race_id=="monst")
+			return "fushoushan/fushounongchangsanceng";
+		if(race_id=="third")
+			return "liangjinghu/yanghuxuanqiao";
+		return "jiangjunmu/peilingyiceng";
+	}
+	if(level<=25){
+		if(race_id=="monst")
+			return "wugongdong/daxiedong";
+		if(race_id=="third")
+			return "liangjinghu/hehuamigong3";
+		return "shierxianjing/lingxiadongershiceng";
+	}
+	if(level<=30){
+		if(race_id=="monst")
+			return "chaogewaicheng/beichenqiang";
+		if(race_id=="third")
+			return "liangjinghu/yueyingmigong18";
+		return "shierxianjing/lingxiadongershiceng";
+	}
+	if(level<=35){
+		if(race_id=="monst")
+			return "chaogewaicheng/hebaomu";
+		if(race_id=="third")
+			return "liangjinghu/huayaotingyuan20";
+		return "jiangjunmu/dajiangjunlingershiceng";
+	}
+	if(level<=40){
+		if(race_id=="monst")
+			return "muye/fuluying19";
+		if(race_id=="third")
+			return "liangjinghu/huxinting";
+		return "muye/poyaozhen17";
+	}
+	return "waihai/qianhaihuangshapo";
+}
+
+mapping queryGrowthTaskGuideTarget(object player)
+{
+	mapping result = ([]);
+	mapping state;
+	string room_path;
+	int required;
+
+	if(!player)
+		return result;
+	state = player["/taskd/growth_active"];
+	if(!mappingp(state) || !sizeof(state))
+		return result;
+	required = query_growth_task_required(state["level"]);
+	if(state["progress"]>=required)
+		return result;
+	room_path = query_growth_task_guide_room(player);
+	if(!room_path || room_path=="")
+		return result;
+	return ([
+		"path":room_path,
+		"target":state["level"]+"级历练区",
+		"level":state["level"],
+	]);
+}
+
+string queryGrowthTaskGuideLink(object player)
+{
+	mapping target = queryGrowthTaskGuideTarget(player);
+	if(!sizeof(target))
+		return "";
+	return "[任务引导·飞往"+target["target"]+
+		":task_guide growth]\n";
+}
+
+int queryTaskHasGuide(int taskid)
+{
+	task my_task = taskMap[taskid];
+	if(!my_task)
+		return 0;
+	if(my_task->roomToDoTask &&
+	   my_task->roomToDoTask!="" &&
+	   my_task->roomToDoTask!="null")
+		return 1;
+	foreach(my_task->kill_order,string target_name){
+		if(taskGuideTargetRoom[target_name])
+			return 1;
+	}
+	foreach(my_task->find_order,string item_name){
+		if(taskGuideFindRoom[item_name])
+			return 1;
+	}
+	return 0;
+}
+
+mapping queryTaskGuideTarget(object player,int taskid)
+{
+	mapping result = ([]);
+	task my_task = taskMap[taskid];
+	string room_path = "";
+	string target_name = "任务区域";
+
+	if(!player || !my_task ||
+	   !mappingp(player["/taskd/Cont"]) ||
+	   !player["/taskd/Cont"][taskid])
+		return result;
+
+	if(my_task->kind=="kill"){
+		foreach(my_task->kill_order,string each_target){
+			int progress = 0;
+			if(mappingp(player["/taskd/kill"]) &&
+			   mappingp(player["/taskd/kill"][taskid]))
+				progress =
+					player["/taskd/kill"][taskid][each_target];
+			if(progress<my_task->kill_map[each_target] &&
+			   taskGuideTargetRoom[each_target]){
+				target_name = each_target+"所在地图";
+				room_path = taskGuideTargetRoom[each_target];
+				break;
+			}
+		}
+	}
+	else if(my_task->kind=="find"){
+		foreach(my_task->find_order,string each_item){
+			if(count_MyItem(player,each_item)<
+			   my_task->find_map[each_item] &&
+			   taskGuideFindRoom[each_item]){
+				target_name = each_item+"来源地图";
+				room_path = taskGuideFindRoom[each_item];
+				break;
+			}
+		}
+	}
+	if(room_path=="" &&
+	   my_task->roomToDoTask &&
+	   my_task->roomToDoTask!="" &&
+	   my_task->roomToDoTask!="null")
+		room_path = my_task->roomToDoTask;
+	if(room_path=="")
+		return result;
+	return ([
+		"path":room_path,
+		"target":target_name,
+		"taskid":taskid,
+	]);
+}
+
+string queryTaskGuideLink(object player,int taskid)
+{
+	mapping target = queryTaskGuideTarget(player,taskid);
+	if(!sizeof(target))
+		return "";
+	return "[任务引导·飞往"+target["target"]+
+		":task_guide "+taskid+"]\n";
+}
+
 string queryGrowthTaskPage(object player)
 {
 	string s = "";
@@ -785,8 +1078,10 @@ string queryGrowthTaskPage(object player)
 				query_growth_task_money(state["level"]))+"。\n\n";
 		if(state["progress"]>=required)
 			s += "[提交本级历练:growth_task claim]\n";
-		else
+		else{
 			s += "只有真实击杀才会推进；组队时必须与队伍同处一室。\n";
+			s += queryGrowthTaskGuideLink(player);
+		}
 		s += "[放弃本级历练:growth_task cancel]\n";
 		return s;
 	}
@@ -809,6 +1104,7 @@ string queryGrowthTaskPage(object player)
 		MUD_MONEYD->query_other_money_cn(
 			query_growth_task_money(level))+"。\n\n";
 	s += "[领取本级历练:growth_task accept]\n";
+	s += "[领取并前往任务地图:task_guide growth_accept]\n";
 	return s;
 }
 
@@ -1237,11 +1533,12 @@ string queryMyTasks(object player)
 				//werror("\n\n---------taskType="+tmp_task->taskType+"----------\n");
 					if(tmp_task->taskType)
 					{
-				//		werror("\n\n--------i am in!!------\n");
+						//		werror("\n\n--------i am in!!------\n");
 						s_rtn += "([开始任务:qge74hye "+tmp_task->roomToDoTask+"])\n";
 					}
 					else
-					s_rtn += "\n";
+						s_rtn += "\n";
+					s_rtn += queryTaskGuideLink(player,taskid);
 				}
 			}
 		}
