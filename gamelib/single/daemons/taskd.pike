@@ -105,7 +105,8 @@ void load(int|void isFirst)
 	string taskList = Stdio.read_file(TASK_LIST);
 	array lines;
 	if(taskList&&sizeof(taskList))
-		lines = taskList/"\r\n";
+		// 同时兼容历史CRLF和新任务的LF行尾。
+		lines = taskList/"\n";
 	if(lines&&sizeof(lines))
 	{
 		//werror("----we have "+sizeof(lines)+" tasks----\n");
@@ -328,6 +329,17 @@ void Load_task_item_list()
 
 
 
+// 新增的 .pike NPC 文件在 object_name 中保留扩展名，任务表沿用旧式短名。
+string normalize_task_npc_name(string npcname)
+{
+	if(!npcname)
+		return "";
+	if(sizeof(npcname)>=5 &&
+	   npcname[sizeof(npcname)-5..]==".pike")
+		return npcname[0..sizeof(npcname)-6];
+	return npcname;
+}
+
 //根据玩家的任务完成情况返回玩家可以接受的任务,可以提交的任务
 string query_npc_taskList(object player,object npc)
 {
@@ -336,10 +348,11 @@ string query_npc_taskList(object player,object npc)
 	string canRefer = "\n可提交的任务：\n";
 	string s_rtn = "";
 	string npcname=npc->query_name();
+	string tasknpcname=normalize_task_npc_name(npcname);
 	int flag_acc = 0;
 	int flag_ref = 0;
 	task tmp_task;
-	tmp_taskList = grantMap[npcname];
+	tmp_taskList = grantMap[tasknpcname];
 	//werror("task_list"+ tmp_taskList[0]+"----\n");
 	if(player["/taskd/done"]==0)
 		player["/taskd/done"]=([]);  //([string:int])
@@ -393,7 +406,7 @@ string query_npc_taskList(object player,object npc)
 	}
 
 	//npc有任务可验收
-	tmp_taskList = checkMap[npcname];
+	tmp_taskList = checkMap[tasknpcname];
 	if(tmp_taskList&&sizeof(tmp_taskList)){
 		for(int i=0;i<sizeof(tmp_taskList);i++){
 			tmp_task = taskMap[tmp_taskList[i]];
@@ -555,6 +568,13 @@ int get_task(object player,int taskid,void|object npc)
 	if(tmp_task){
 		if(player->query_level()<tmp_task->level_limit)
 			return 2;  //玩家等级不够
+		if(tmp_task->preIds &&
+		   (!player["/taskd/done"] ||
+		    player["/taskd/done"][tmp_task->preIds]==0))
+			return 7;  //前续任务尚未完成
+		if(npc && tmp_task->grantNPC!=
+		   normalize_task_npc_name(npc->query_name()))
+			return 7;  //必须从实际发放该任务的NPC处领取
 		if(sizeof(indices(player["/taskd/Cont"]))>=10)
 			return 3;  //玩家接受的任务超过了10个的限制
 		if(tmp_task->profe_limit!=""&&tmp_task->profe_limit!=player->query_profe_cn(player->query_profeId()))

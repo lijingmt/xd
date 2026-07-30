@@ -32,7 +32,7 @@ constant CORE_COMMANDS = ({
     // ========== 战斗相关（多人交互）==========
     "attack", "kill", "hit", "fight", "strike",
     "flee", "escape", "run", "surrender",
-    "zhaohuan", "zhaohuan_cfm",  // 召唤（涉及NPC）
+    "zhaohuan", "zhaohuan_cfm", "summon",  // 召唤（涉及NPC和共享状态）
     "autofight", "autofightclose",  // 自动战斗
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========

@@ -30,7 +30,7 @@ protected void create(){
  * 鹤灵特殊能力 - 治疗主人
  */
 void heal_master(){
-	if(!master_name)
+	if(!master_name || get_cur_life() <= 0)
 		return;
 
 	object master = find_player(master_name);
@@ -42,11 +42,20 @@ void heal_master(){
 	if(my_env != master_env)
 		return;
 
-	int heal_amount = 50 + (int)(master->query_level() * 5);
+	int heal_amount = 50 + (int)(master->query_level() * 5) +
+		query_summon_skill_level()*20;
 	int current_life = master->get_cur_life();
 	int max_life = master->query_life_max();
 	if(current_life <= 0)
 		return;
+	if(master->query_debuff("curse",0) == "life"){
+		int heal_reduce = (int)master->query_debuff("curse",1);
+		if(heal_reduce < 0)
+			heal_reduce = 0;
+		if(heal_reduce > 90)
+			heal_reduce = 90;
+		heal_amount = heal_amount * (100-heal_reduce) / 100;
+	}
 
 	if(current_life < max_life){
 		if(current_life + heal_amount > max_life)
@@ -62,8 +71,10 @@ void heal_master(){
  */
 void heart_beat(){
 	::heart_beat();
+	if(!objectp(this_object()) || get_cur_life() <= 0 || !master_name)
+		return;
 
-	// 使用计数器，每3次心跳治疗一次（约3秒）
+	// 系统心跳约2秒，每3次心跳治疗一次（约6秒）
 	heal_counter++;
 	if(heal_counter >= 3){
 		heal_counter = 0;

@@ -69,6 +69,11 @@ void test_honor_runtime()
 		(object)(ROOT+"/gamelib/cmds/honer_buy.pike");
 	object view_command =
 		(object)(ROOT+"/gamelib/cmds/honer_equip_view.pike");
+	object fangshi =
+		create_player("__testunit_parity_honer_http__",
+			"third","fangshi",20);
+	fangshi->honerlv = 0;
+	mapping http_state = HTTP_APID->query_player_state(fangshi);
 	string top_source =
 		Stdio.read_file(ROOT+"/gamelib/cmds/look_top.pike");
 
@@ -80,11 +85,13 @@ void test_honor_runtime()
 	   view_command->query_catalog_race("third","human")=="human" &&
 	   view_command->query_catalog_race("third","monst")=="monst" &&
 	   view_command->query_catalog_race("human","monst")=="" &&
+	   http_state["honer"]=="游方者" &&
 	   search(top_source,
 		"[灵气排行榜:look_top list 灵气 1]")!=-1)
 		test_pass();
 	else
 		test_fail("中立荣誉称号、显示或商店选表不正确");
+	destroy_player(fangshi);
 }
 
 void test_transfer_runtime()
@@ -349,6 +356,86 @@ void test_npc_interaction_runtime()
 		destruct(monst_npc);
 	destroy_player(fangshi);
 	destroy_player(human);
+}
+
+void test_fangshi_profession_tasks_runtime()
+{
+	test_start("方士20级专属奖励与53级四段传承任务完整且不能跨职业跳步");
+	object fangshi =
+		create_player("__testunit_parity_task_fangshi__",
+			"third","fangshi",53);
+	object yushi =
+		create_player("__testunit_parity_task_yushi__",
+			"human","yushi",53);
+	object teacher = clone(ROOT+"/gamelib/clone/npc/fangshi_teacher");
+	object wrong_teacher = clone(
+		ROOT+"/gamelib/clone/npc/fangshi_teacher");
+	wrong_teacher->set_name("__testunit_wrong_task_teacher__");
+	object reward = clone(ROOT+
+		"/gamelib/clone/item/taskaward/sanlingqiyin");
+	string fangshi_tasks = TASKD->query_npc_taskList(fangshi,teacher);
+	string yushi_tasks = TASKD->query_npc_taskList(yushi,teacher);
+	int wrong_profession = TASKD->get_task(yushi,364,teacher);
+	int wrong_npc = TASKD->get_task(fangshi,365,wrong_teacher);
+	int accepted_special = TASKD->get_task(fangshi,364,teacher);
+	int skipped_chain = TASKD->get_task(fangshi,366);
+	fangshi["/taskd/done"] = ([365:1]);
+	int continued_chain = TASKD->get_task(fangshi,366,teacher);
+
+	if(TASKD->queryTaskLevel(364)==20 &&
+	   TASKD->queryTaskProfe(364)=="方士" &&
+	   TASKD->queryTaskProfe(365)=="方士" &&
+	   TASKD->queryTaskProfe(366)=="方士" &&
+	   TASKD->queryTaskProfe(367)=="方士" &&
+	   TASKD->queryTaskProfe(368)=="方士" &&
+	   search(TASKD->queryTaskItem(364),"三灵契印")!=-1 &&
+	   search(TASKD->queryTaskItem(368),"三灵合一")!=-1 &&
+	   search(fangshi_tasks,"三灵初契")!=-1 &&
+	   search(fangshi_tasks,"灵息试炼")!=-1 &&
+	   search(yushi_tasks,"三灵初契")==-1 &&
+	   search(yushi_tasks,"灵息试炼")==-1 &&
+	   wrong_profession==4 &&
+	   wrong_npc==7 &&
+	   accepted_special==1 &&
+	   skipped_chain==7 &&
+	   continued_chain==1 &&
+	   reward->query_item_canLevel()==20 &&
+	   search(reward->query_item_profeLimit(),"fangshi")!=-1 &&
+	   reward->query_think_add()==5 &&
+	   reward->query_mofa_all_add()==12 &&
+	   reward->query_item_canTrade()==0 &&
+	   reward->query_item_canSend()==0 &&
+	   reward->query_item_canStorage()==1)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"职业任务、前置或奖励不正确: teacher=%s level=%d profe=%s/%s/%s/%s/%s item=%d/%d links=%d/%d ylinks=%d/%d wrong=%d/%d accepted=%d skipped=%d continued=%d reward=%d/%d/%d/%d/%d/%d",
+			teacher->query_name(),
+			TASKD->queryTaskLevel(364),
+			TASKD->queryTaskProfe(364),TASKD->queryTaskProfe(365),
+			TASKD->queryTaskProfe(366),TASKD->queryTaskProfe(367),
+			TASKD->queryTaskProfe(368),
+			search(TASKD->queryTaskItem(364),"三灵契印"),
+			search(TASKD->queryTaskItem(368),"三灵合一"),
+			search(fangshi_tasks,"三灵初契"),
+			search(fangshi_tasks,"灵息试炼"),
+			search(yushi_tasks,"三灵初契"),
+			search(yushi_tasks,"灵息试炼"),
+			wrong_profession,wrong_npc,accepted_special,
+			skipped_chain,continued_chain,
+			reward->query_item_canLevel(),
+			search(reward->query_item_profeLimit(),"fangshi"),
+			reward->query_think_add(),reward->query_mofa_all_add(),
+			reward->query_item_canTrade(),reward->query_item_canStorage()));
+
+	if(teacher)
+		destruct(teacher);
+	if(wrong_teacher)
+		destruct(wrong_teacher);
+	if(reward)
+		destruct(reward);
+	destroy_player(fangshi);
+	destroy_player(yushi);
 }
 
 void test_guild_runtime()
@@ -624,6 +711,7 @@ int main()
 	test_faction_change_protection();
 	test_regional_tasks_runtime();
 	test_npc_interaction_runtime();
+	test_fangshi_profession_tasks_runtime();
 	test_guild_runtime();
 	test_social_runtime();
 	test_city_guard_runtime();

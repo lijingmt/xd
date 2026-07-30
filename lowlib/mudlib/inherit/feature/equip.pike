@@ -254,6 +254,7 @@ void reduce_power(int power){
 string query_content(){
 	string r="";
 	object ob=this_object();
+	array(string) profe_limits = ob->query_item_profeLimit();
 	if(!ob->is_equip())
 		return r;
 	if(ob->query_item_type()=="armor"){
@@ -377,11 +378,11 @@ string query_content(){
 		r+="转化次数："+ob->query_convert_count()+"/"+ob->query_convert_limit()+"\n";
 	if(ob->item_canLevel>0) r+="要求级别："+ob->item_canLevel+"\n";
 	//职业要求
-	if(ob->item_profeLimit&&sizeof(ob->item_profeLimit)){
+	if(profe_limits&&sizeof(profe_limits)){
 		r+="要求职业：";
-		for(int i=0; i<sizeof(ob->item_profeLimit); i++){
-			if(ob->item_profeLimit[i]&&sizeof(ob->item_profeLimit[i]))
-				r+=this_player()->query_profe_cn(ob->item_profeLimit[i])+" ";
+		for(int i=0; i<sizeof(profe_limits); i++){
+			if(profe_limits[i]&&sizeof(profe_limits[i]))
+				r+=this_player()->query_profe_cn(profe_limits[i])+" ";
 		}
 		r+="\n";
 	}

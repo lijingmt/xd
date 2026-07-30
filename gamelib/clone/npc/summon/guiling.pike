@@ -28,17 +28,22 @@ protected void create(){
 }
 
 /**
- * 龟灵特殊能力 - 嘲讽和减伤
+ * 龟灵特殊能力 - 嘲讽
  */
 void taunt_enemies(){
 	object env = environment(this_object());
-	if(!env) return;
+	if(!env || get_cur_life() <= 0)
+		return;
+	object master = find_player(master_name);
+	if(!master || environment(master) != env ||
+	   master->get_cur_life() <= 0)
+		return;
 
 	array(object) enemies = ({});
 	foreach(all_inventory(env), object ob){
-		if(ob && ob->is("living") && ob->query_in_combat() && ob != this_object()){
-			object master = find_player(master_name);
-			if(master && ob->query_enemy() == master){
+		if(ob && (ob->is("player") || ob->is("npc")) &&
+		   ob->query_in_combat() && ob != this_object()){
+			if(ob->query_enemy() == master || ob->if_in_targets(master)){
 				enemies += ({ob});
 			}
 		}
@@ -46,9 +51,14 @@ void taunt_enemies(){
 
 	foreach(enemies, object enemy){
 		if(enemy->get_cur_life() > 0){
+			int max_hate = 0;
+			foreach(indices(enemy->targets), object target){
+				if(enemy->targets[target] > max_hate)
+					max_hate = enemy->targets[target];
+			}
+			enemy->flush_targets(this_object(),max_hate+100);
+			enemy->enemy = this_object();
 			summon_tell_room(env, name_cn + "发出一声怒吼，吸引了" + enemy->query_name_cn() + "的注意！\n");
-			// 攻击灵龟而不是主人
-			enemy->kill(query_name(), 0);
 		}
 	}
 }
@@ -58,10 +68,12 @@ void taunt_enemies(){
  */
 void heart_beat(){
 	::heart_beat();
+	if(!objectp(this_object()) || get_cur_life() <= 0 || !master_name)
+		return;
 
 	object master = find_player(master_name);
 	if(master && master->query_in_combat()){
-		// 使用计数器，每5次心跳嘲讽一次（约5秒）
+		// 系统心跳约2秒，每5次心跳嘲讽一次（约10秒）
 		taunt_counter++;
 		if(taunt_counter >= 5){
 			taunt_counter = 0;

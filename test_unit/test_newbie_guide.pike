@@ -144,6 +144,51 @@ void test_common_growth_and_home_links()
 	destroy_player(player);
 }
 
+void test_fangshi_advanced_milestones()
+{
+	test_start("方士30至75级召唤、高级书、隐藏书与职业任务提示完整");
+	object guide = (object)(ROOT+"/gamelib/cmds/newbie_guide.pike");
+	object level_thirty = create_player("__testunit_guide_l30__",30);
+	object level_fifty = create_player("__testunit_guide_l50__",50);
+	object level_sixty = create_player("__testunit_guide_l60__",60);
+	object level_sixty_five = create_player("__testunit_guide_l65__",65);
+	object level_seventy = create_player("__testunit_guide_l70__",70);
+	object level_seventy_five = create_player("__testunit_guide_l75__",75);
+	string thirty = guide->query_fangshi_growth_guide(level_thirty);
+	string fifty;
+	string sixty;
+	string sixty_five;
+	string seventy;
+	string seventy_five;
+
+	level_fifty->skills["sanlingheyi"] = ({1,0});
+	fifty = guide->query_fangshi_growth_guide(level_fifty);
+	sixty = guide->query_fangshi_growth_guide(level_sixty);
+	sixty_five = guide->query_fangshi_growth_guide(level_sixty_five);
+	seventy = guide->query_fangshi_growth_guide(level_seventy);
+	seventy_five = guide->query_fangshi_growth_guide(level_seventy_five);
+
+	if(search(thirty,"30级起可同时保留2只灵兽")!=-1 &&
+	   search(fifty,"已掌握“三灵合一”")!=-1 &&
+	   search(sixty,"每天为每个职业独立轮换2种")!=-1 &&
+	   search(sixty,"[高级技能书:yushi_buy_hlbook_list]")!=-1 &&
+	   search(sixty_five,"65级进阶书会替换旧技能")!=-1 &&
+	   search(seventy,"实际等级70以上怪物")!=-1 &&
+	   search(seventy,"不会出现在任何商店")!=-1 &&
+	   search(seventy_five,"75级秘传可强化")!=-1 &&
+	   search(seventy_five,"53级四段职业传承")!=-1)
+		test_pass();
+	else
+		test_fail("30/50/60/65/70/75级关键路线仍有缺项");
+
+	destroy_player(level_thirty);
+	destroy_player(level_fifty);
+	destroy_player(level_sixty);
+	destroy_player(level_sixty_five);
+	destroy_player(level_seventy);
+	destroy_player(level_seventy_five);
+}
+
 void test_creation_and_ui_wiring()
 {
 	test_start("建角提示与新手快捷入口已经接线");
@@ -178,6 +223,7 @@ int main()
 	test_real_equipment_state();
 	test_fangshi_level_guidance();
 	test_common_growth_and_home_links();
+	test_fangshi_advanced_milestones();
 	test_creation_and_ui_wiring();
 	print_summary();
 	return test_results["failed"];

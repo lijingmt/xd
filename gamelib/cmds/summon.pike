@@ -27,7 +27,7 @@ int main(string|zero arg)
 		s += "[召唤虎灵:summon huling] - 物理攻击型\n";
 		s += "[召唤鹤灵:summon heling] - 治疗辅助型\n";
 		s += "[召唤龟灵:summon guiling] - 防御坦克型\n";
-		s += "[三灵合一:summon all] - 同时召唤三只灵兽\n\n";
+		s += "[三灵合一:summon all] - 60级起同时召唤三只灵兽\n\n";
 		s += "【方士专属·灵契共鸣】\n";
 		s += "虎契缩短方士技能冷却，鹤契治疗自己与同队成员，";
 		s += "龟契净化持续伤害和诅咒；";
@@ -158,19 +158,30 @@ int main(string|zero arg)
 			me->write(s);
 			return 1;
 		}
+		if(SUMMOND->get_max_summons(me->query_name()) < 3){
+			s += "你已经掌握三灵附体，但要到60级召唤上限达到3只后，";
+			s += "才能让虎、鹤、龟三灵同时现身。\n[返回游戏:look]\n";
+			me->write(s);
+			return 1;
+		}
+		if(SUMMOND->get_current_summon_count(me->query_name()) == 3){
+			s += "虎、鹤、龟三灵已经全部在你身边。\n[查看当前召唤:summon list]\n";
+			s += "[返回游戏:look]\n";
+			me->write(s);
+			return 1;
+		}
 
 		int all_level = skills[all_skill][0];
-		duration = 300 + all_level * 60; // 5-10分钟
+		duration = 300 + all_level * 60;
 
 		int count = SUMMOND->summon_all_spirits(me->query_name(), duration, all_level);
-		if(count == 0){
-			s += "召唤失败！可能是你已达到召唤上限或已有同名灵兽。\n[返回游戏:look]\n";
-		}
-		else if(count < 3){
-			s += "三灵合一！你召唤了" + count + "只灵兽！\n[返回游戏:look]\n";
+		if(count > 0 &&
+		   SUMMOND->get_current_summon_count(me->query_name()) == 3){
+			s += "三灵合一！虎、鹤、龟三只灵兽同时出现！\n[返回游戏:look]\n";
 		}
 		else{
-			s += "三灵合一！虎、鹤、龟三只灵兽同时出现！\n[返回游戏:look]\n";
+			s += "三灵召唤失败，本次没有留下不完整的灵兽组合。";
+			s += "请先解除多余召唤后再试。\n[返回游戏:look]\n";
 		}
 		me->write(s);
 		return 1;

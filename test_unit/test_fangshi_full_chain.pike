@@ -625,6 +625,9 @@ void test_summon_daemon_runtime()
 			"/gamelib/d/congxianzhen/congxianzhenguangchang");
 		if(player && room){
 			player->move(room);
+			player->skills["huling"] = ({2,0});
+			player->skills["heling"] = ({2,0});
+			player->skills["guiling"] = ({2,0});
 			tiger = SUMMOND->summon_creature(player_name, "huling", 600, 2);
 			crane = SUMMOND->summon_creature(player_name, "heling", 600, 2);
 			turtle = SUMMOND->summon_creature(player_name, "guiling", 600, 2);
@@ -644,6 +647,7 @@ void test_summon_daemon_runtime()
 		if(player){
 			SUMMOND->dismiss_all(player_name);
 			player->level = 60;
+			player->skills["sanlingheyi"] = ({3,0});
 			all_count = SUMMOND->summon_all_spirits(
 				player_name, 600, 3);
 		}

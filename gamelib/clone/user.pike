@@ -460,6 +460,10 @@ void fight_die()
 	int my_level = me->query_level();
 	object env =environment(me);//城战中加入，要是城战，装备耐久将会损耗很小
 	me->red_flag=0;
+	// 灵兽最后一击的PK、荣誉与击杀记录归属主人。
+	enemy = SUMMOND->query_combat_credit_owner(enemy);
+	// 主人死亡时立即清理全部灵兽，不能继续留场攻击或治疗。
+	SUMMOND->player_death(me->query_name());
 
 	if(enemy)
 		w_kill += enemy->query_name_cn();

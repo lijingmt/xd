@@ -990,10 +990,10 @@ mapping query_player_state(object player)
 
         // 称谓
         string honer = "";
-        if(functionp(player->honerlv) && functionp(player->query_raceId)) {
-            honer = WAP_HONERD->query_honer_level_desc(player->honerlv, player->query_raceId());
-        } else if(player["honerlv"]) {
-            honer = sprintf("%d", player->honerlv);
+        if(functionp(player->query_raceId)) {
+            honer = WAP_HONERD->query_honer_level_desc((int)player->honerlv, player->query_raceId());
+        } else {
+            honer = sprintf("%d", (int)player->honerlv);
         }
         result["honer"] = honer || "";
 

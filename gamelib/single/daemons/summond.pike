@@ -17,9 +17,6 @@ inherit LOW_DAEMON;
 // 格式: master_name -> ([召唤物类型: 召唤物对象])
 private mapping(string:mapping) active_summons = ([]);
 
-// 每个玩家的最大召唤数量
-private mapping(string:int) max_summons = ([]);
-
 // 方士职业天赋“灵契共鸣”的独立冷却时间
 private int resonance_cooldown = 90;
 private int perfect_resonance_cooldown = 120;
@@ -29,7 +26,7 @@ void tell_room_daemon(object env, string msg){
 	if(!env)
 		return;
 	foreach(all_inventory(env), object ob){
-		if(ob && ob->is("living")){
+		if(ob && (ob->is("player") || ob->is("npc"))){
 			tell_object(ob, msg);
 		}
 	}
@@ -69,7 +66,8 @@ int get_current_summon_count(string player_name){
 
 	array(string) summon_types = indices(active_summons[player_name]);
 	foreach(summon_types, string summon_type){
-		if(!active_summons[player_name][summon_type]){
+		object summon = active_summons[player_name][summon_type];
+		if(!summon || summon->get_cur_life() <= 0){
 			m_delete(active_summons[player_name], summon_type);
 		}
 	}
@@ -95,11 +93,106 @@ int can_summon(string player_name){
 }
 
 /**
- * 召唤灵兽
- * 返回: 召唤物对象，失败返回0
+ * 查询单只灵兽对应的已学技能。
+ * 高级虎灵会替换基础虎灵，但仍保留召唤授权。
  */
-object summon_creature(string player_name, string summon_type, int duration, int skill_level){
-	if(!player_name || !summon_type)
+string query_summon_skill_name(object player, string summon_type){
+	if(!player || player->query_profeId() != "fangshi" || !player->skills)
+		return "";
+	if(summon_type == "huling"){
+		if(player->skills["huling_mystic"])
+			return "huling_mystic";
+		if(player->skills["huling"])
+			return "huling";
+		return "";
+	}
+	if(summon_type == "heling" && player->skills["heling"])
+		return "heling";
+	if(summon_type == "guiling" && player->skills["guiling"])
+		return "guiling";
+	return "";
+}
+
+/**
+ * 查询三灵合一对应的已学技能。
+ */
+string query_all_spirits_skill_name(object player){
+	if(!player || player->query_profeId() != "fangshi" || !player->skills)
+		return "";
+	if(player->skills["sanlingheyi2"])
+		return "sanlingheyi2";
+	if(player->skills["sanlingheyi"])
+		return "sanlingheyi";
+	return "";
+}
+
+/**
+ * 从人物真实技能数据取得有效等级，并限制在技能配置上限内。
+ */
+int query_authorized_skill_level(object player, string skill_name){
+	if(!player || !skill_name || !player->skills ||
+	   !player->skills[skill_name])
+		return 0;
+
+	int skill_level = (int)player->skills[skill_name][0];
+	int skill_level_max = 0;
+	object|zero skill = MUD_SKILLSD[skill_name];
+	if(!skill){
+		mixed err = catch {
+			skill = (object)(ROOT +
+				"/gamelib/single/skills/" + skill_name);
+		};
+		if(err)
+			skill = 0;
+	}
+	if(!skill || !skill->query_skill_level_max)
+		return 0;
+	if(skill && skill->query_skill_level_max)
+		skill_level_max = (int)skill->query_skill_level_max();
+	if(skill_level < 1)
+		return 0;
+	if(skill_level > skill_level_max)
+		skill_level = skill_level_max;
+	return skill_level;
+}
+
+/**
+ * 单只召唤持续时间完全由服务端真实技能等级计算。
+ */
+int query_single_summon_duration(int skill_level){
+	int duration = 600 + skill_level*60;
+	if(duration < 660)
+		duration = 660;
+	if(duration > 900)
+		duration = 900;
+	return duration;
+}
+
+/**
+ * 三灵合一持续时间完全由服务端真实技能等级计算。
+ */
+int query_all_spirits_duration(int skill_level){
+	int duration = 300 + skill_level*60;
+	if(duration < 360)
+		duration = 360;
+	if(duration > 600)
+		duration = 600;
+	return duration;
+}
+
+/**
+ * 召唤类型白名单。
+ */
+int is_valid_summon_type(string summon_type){
+	return search(({"huling","heling","guiling"}),summon_type) != -1;
+}
+
+/**
+ * 已通过职业与技能鉴权后的内部召唤实现。
+ */
+private object create_authorized_summon(object player, string player_name,
+	string summon_type, int duration, int skill_level, int broadcast){
+	if(!player || !player_name || !summon_type || skill_level <= 0)
 		return 0;
 
 	// 检查是否可以召唤
@@ -108,10 +201,6 @@ object summon_creature(string player_name, string summon_type, int duration, int
 
 	// 检查是否已有同类型召唤
 	if(active_summons[player_name] && active_summons[player_name][summon_type])
-		return 0;
-
-	object player = find_player(player_name);
-	if(!player)
 		return 0;
 
 	int player_level = player->query_level();
@@ -146,11 +235,16 @@ object summon_creature(string player_name, string summon_type, int duration, int
 
 	// 设置召唤物属性
 	summon->set_master(player_name);
+	summon->set_summon_skill_level(skill_level);
 	summon->set_summon_duration(duration);
 	summon->adjust_stats_by_player(player_level, skill_level);
 
 	// 移动到主人所在房间
 	summon->move(env);
+	if(environment(summon) != env){
+		destruct(summon);
+		return 0;
+	}
 
 	// 记录召唤物
 	if(!active_summons[player_name])
@@ -159,9 +253,34 @@ object summon_creature(string player_name, string summon_type, int duration, int
 	active_summons[player_name][summon_type] = summon;
 
 	// 广播
-	tell_room_daemon(env, player->query_name_cn() + "召唤出了" + summon_name + "！\n");
+	if(broadcast)
+		tell_room_daemon(env,
+			player->query_name_cn() + "召唤出了" + summon_name + "！\n");
 
 	return summon;
+}
+
+/**
+ * 召唤单只灵兽。
+ * 守护进程必须自行校验职业和已学技能，不能信任命令层传入的等级。
+ */
+object summon_creature(string player_name, string summon_type,
+	int _duration, int _skill_level){
+	if(!player_name || !summon_type)
+		return 0;
+
+	object player = find_player(player_name);
+	if(!player || player->query_profeId() != "fangshi")
+		return 0;
+	string skill_name = query_summon_skill_name(player, summon_type);
+	if(skill_name == "")
+		return 0;
+	int skill_level = query_authorized_skill_level(player, skill_name);
+	if(skill_level <= 0)
+		return 0;
+	return create_authorized_summon(
+		player, player_name, summon_type,
+		query_single_summon_duration(skill_level), skill_level, 1);
 }
 
 /**
@@ -243,8 +362,72 @@ void dismiss_all(string player_name){
 mapping get_player_summons(string player_name){
 	if(!player_name)
 		return ([]);
+	get_current_summon_count(player_name);
+	if(!active_summons[player_name])
+		return ([]);
+	return copy_value(active_summons[player_name]);
+}
 
-	return active_summons[player_name] || ([]);
+/**
+ * 守护进程热更新后，存活灵兽可从心跳恢复登记。
+ * 同类型已有有效对象时拒绝后到对象，避免产生双灵兽。
+ */
+int register_existing_summon(string player_name, string summon_type,
+	object summon){
+	if(!player_name || !is_valid_summon_type(summon_type) || !summon ||
+	   summon->get_cur_life() <= 0 ||
+	   summon->query_profeId() != "beast" ||
+	   summon->query_master() != player_name ||
+	   summon->query_summon_type() != summon_type)
+		return 0;
+
+	object player = find_player(player_name);
+	if(!player || player->query_profeId() != "fangshi" ||
+	   !environment(player))
+		return 0;
+
+	get_current_summon_count(player_name);
+	if(active_summons[player_name] &&
+	   active_summons[player_name][summon_type]){
+		return active_summons[player_name][summon_type] == summon;
+	}
+	if(get_current_summon_count(player_name) >=
+	   get_max_summons(player_name))
+		return 0;
+	if(!active_summons[player_name])
+		active_summons[player_name] = ([]);
+	active_summons[player_name][summon_type] = summon;
+	return 1;
+}
+
+/**
+ * 检查登记对象是否仍是主人身边存活的对应灵兽。
+ */
+int is_living_summon(object summon, object env,
+	string player_name, string summon_type){
+	if(!summon || !env || summon->get_cur_life() <= 0 ||
+	   environment(summon) != env ||
+	   summon->query_master() != player_name ||
+	   summon->query_summon_type() != summon_type)
+		return 0;
+	return 1;
+}
+
+/**
+ * 灵兽造成最后一击时，战斗奖励与PK记录归属其在线主人。
+ */
+object query_combat_credit_owner(object actor){
+	if(!actor || !actor->query_master || !actor->query_summon_type)
+		return actor;
+	string owner_name = (string)actor->query_master();
+	string summon_name = (string)actor->query_summon_type();
+	if(owner_name == "" || !is_valid_summon_type(summon_name) ||
+	   actor->query_profeId() != "beast")
+		return actor;
+	object owner = find_player(owner_name);
+	if(!owner || owner->query_profeId() != "fangshi")
+		return actor;
+	return owner;
 }
 
 /**
@@ -303,18 +486,18 @@ mapping get_resonance_state(object player){
 	get_current_summon_count(player_name);
 	mapping summons = get_player_summons(player_name);
 
-	if(env && summons["huling"] &&
-	   environment(summons["huling"]) == env){
+	if(is_living_summon(
+	   summons["huling"],env,player_name,"huling")){
 		result["huling"] = 1;
 		result["count"]++;
 	}
-	if(env && summons["heling"] &&
-	   environment(summons["heling"]) == env){
+	if(is_living_summon(
+	   summons["heling"],env,player_name,"heling")){
 		result["heling"] = 1;
 		result["count"]++;
 	}
-	if(env && summons["guiling"] &&
-	   environment(summons["guiling"]) == env){
+	if(is_living_summon(
+	   summons["guiling"],env,player_name,"guiling")){
 		result["guiling"] = 1;
 		result["count"]++;
 	}
@@ -552,25 +735,67 @@ void player_logout(string player_name){
 }
 
 /**
+ * 玩家死亡时立即解除所有召唤。
+ */
+void player_death(string player_name){
+	dismiss_all(player_name);
+}
+
+/**
  * 三灵合一 - 同时召唤三只灵兽
  * 返回召唤的灵兽数量
  */
-int summon_all_spirits(string player_name, int duration, int skill_level){
+int summon_all_spirits(string player_name, int _duration, int _skill_level){
 	if(!player_name)
 		return 0;
 
 	object player = find_player(player_name);
-	if(!player)
+	if(!player || player->query_profeId() != "fangshi")
+		return 0;
+	string skill_name = query_all_spirits_skill_name(player);
+	if(skill_name == "")
+		return 0;
+	int skill_level = query_authorized_skill_level(player, skill_name);
+	if(skill_level <= 0)
 		return 0;
 
-	int count = 0;
-	array(string) summon_types = ({"huling", "heling", "guiling"});
+	// 50级学习技能，60级召唤上限达到3后才开放三只实体灵兽。
+	if(get_max_summons(player_name) < 3)
+		return 0;
 
+	array(string) summon_types = ({"huling", "heling", "guiling"});
+	array(string) missing_types = ({});
+	array(string) created_types = ({});
+	mapping existing = get_player_summons(player_name);
 	foreach(summon_types, string summon_type){
-		object s = summon_creature(player_name, summon_type, duration, skill_level);
-		if(s)
-			count++;
+		if(!existing[summon_type])
+			missing_types += ({summon_type});
+	}
+	if(sizeof(missing_types) == 0)
+		return 0;
+	if(get_current_summon_count(player_name) + sizeof(missing_types) >
+	   get_max_summons(player_name))
+		return 0;
+
+	int duration = query_all_spirits_duration(skill_level);
+	foreach(missing_types, string summon_type){
+		object s = create_authorized_summon(
+			player, player_name, summon_type,
+			duration, skill_level, 0);
+		if(!s){
+			foreach(created_types, string created_type){
+				object created = active_summons[player_name] &&
+					active_summons[player_name][created_type];
+				remove_creature_record(player_name, created_type);
+				if(created)
+					destruct(created);
+			}
+			return 0;
+		}
+		created_types += ({summon_type});
 	}
 
-	return count;
+	tell_room_daemon(environment(player), player->query_name_cn() +
+		"施展三灵合一，虎、鹤、龟三道灵光同时降临！\n");
+	return sizeof(created_types);
 }

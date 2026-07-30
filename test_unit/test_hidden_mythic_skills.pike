@@ -587,6 +587,7 @@ void test_crane_and_guide_regressions()
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	int dead_life = -1;
 	int living_life = -1;
+	int reduced_life = -1;
 	string guide_text = "";
 	string error_desc = "";
 
@@ -604,6 +605,12 @@ void test_crane_and_guide_regressions()
 		player->set_life(100);
 		crane->heal_master();
 		living_life = player->get_cur_life();
+		player->set_life(100);
+		player->set_debuff("curse",0,"life");
+		player->set_debuff("curse",1,50);
+		player->set_debuff("curse",2,10);
+		crane->heal_master();
+		reduced_life = player->get_cur_life();
 		player->skills["lingzhi_mystic"] = ({1,0});
 		m_delete(player->skills,"lingzhi");
 		guide_text = guide->query_fangshi_growth_guide(player);
@@ -611,14 +618,15 @@ void test_crane_and_guide_regressions()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && dead_life==0 && living_life>100 &&
+	if(!err && dead_life==0 && living_life==650 &&
+	   reduced_life==375 &&
 	   search(guide_text,"√ “灵治”治疗自己")!=-1 &&
 	   search(guide_text,"可以购买并学习“灵治”")==-1)
 		test_pass();
 	else
 		test_fail(sprintf(
-			"鹤灵生命=%d/%d 或指引误判: %s",
-			dead_life,living_life,error_desc));
+			"鹤灵生命=%d/%d/%d 或指引误判: %s",
+			dead_life,living_life,reduced_life,error_desc));
 
 	if(crane)
 		destruct(crane);

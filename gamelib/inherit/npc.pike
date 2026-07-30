@@ -17,6 +17,8 @@ void log_hidden_skill_drop(object book,string owner_type,string owner_name)
 void fight_die()
 {
 	object env = environment(this_object());
+	// 灵兽最后一击的经验、任务、掉落和荣誉归属在线主人。
+	enemy = SUMMOND->query_combat_credit_owner(enemy);
 	//werror("============ name of the room type is "+env->query_room_type()+"==============");
 	//设置刷新起始时间 
 	env->flush_items(this_object());
@@ -24,9 +26,18 @@ void fight_die()
 	string npc_type = this_object()->query_npc_type();
 	if(npc_type=="city_keeper"||npc_type=="city_guarder"||npc_type=="city_lord"){
 	//攻城中的npc死亡处理，获得荣誉
-	//由liaocheng于107/07/30添加
+		//由liaocheng于107/07/30添加
 		array(object) killers = this_object()->get_all_targets();
 		if(killers == 0)
+			return;
+		array(object) credited_killers = ({});
+		foreach(killers,object attacker){
+			object credited = SUMMOND->query_combat_credit_owner(attacker);
+			if(credited && search(credited_killers,credited)==-1)
+				credited_killers += ({credited});
+		}
+		killers = credited_killers;
+		if(sizeof(killers) == 0)
 			return;
 		string h_type = "仙气";
 		if(this_object()->query_raceId()=="human")

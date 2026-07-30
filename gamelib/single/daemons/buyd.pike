@@ -43,6 +43,7 @@ protected void create(){
 void load_list()
 {
 	buy_item_list = ([]);
+	high_level_book = ([]);
 	string liandanData = Stdio.read_file(BOOK_LIST);
 	array(string) lines = liandanData/"\n";
 	if(lines && sizeof(lines)){
@@ -234,14 +235,29 @@ int do_trade(object player,int suiyu_num,int money,void|int flag)
 }
 
 
-//列出可购买的高级技能书 080903 
-string get_book()
+//返回当前职业今日轮换到的高级技能书文件名
+array(string) query_book_names_for_profe(string profe)
+{
+	array(string) result = ({});
+	if(!profe || !book_on || !sizeof(book_on))
+		return result;
+
+	foreach(sort(indices(book_on)),string name){
+		if(high_level_book[name] &&
+		   high_level_book[name]->zhiye == profe)
+			result += ({name});
+	}
+	return result;
+}
+
+//列出指定职业可购买的高级技能书
+string get_book_for_profe(string profe)
 {
 	string s = "";
 	string name,name_cn;
 	int num,need_yushi;
-	if(book_on && sizeof(book_on)){
-		array tmp = indices(book_on);
+	array(string) tmp = query_book_names_for_profe(profe);
+	if(tmp && sizeof(tmp)){
 		int size = sizeof(tmp);
 		for(int i=0;i<size;i++){
 			name = tmp[i];
@@ -254,24 +270,41 @@ string get_book()
 	return s;
 }
 
+//兼容旧入口：只显示当前人物本职业的轮换书
+string get_book()
+{
+	object me = this_player();
+	if(!me)
+		return "";
+	return get_book_for_profe(me->query_profeId());
+}
+
 //加载可购买的高级技能书 080903
 void start_book()
 {
 	book_on = ([]);
-	array(string) book = indices(high_level_book);
-	int size = sizeof(book);
-	int i = random(size);
-	int j = random(size);
-	//werror("=size="+size+"========what's wrong with start_book???=i="+i+"==j="+j+"==\n");
-	while(j==i){
-		j = random(size);
-	//werror("==========what's wrong with start_book???=======\n");
-		if(j!=i) 
-			break;
+	mapping(string:array(string)) profession_books = ([]);
+	foreach(sort(indices(high_level_book)),string name){
+		string profe = high_level_book[name]->zhiye;
+		if(!profession_books[profe])
+			profession_books[profe] = ({});
+		profession_books[profe] += ({name});
 	}
-	//werror("==========what's wrong with start_book???=======\n");
-	book_on[book[i]] = query_hl_book_info(book[i]);
-	book_on[book[j]] = query_hl_book_info(book[j]) ;
+	foreach(sort(indices(profession_books)),string profe){
+		array(string) books = profession_books[profe];
+		int size = sizeof(books);
+		if(size <= 2){
+			foreach(books,string name)
+				book_on[name] = query_hl_book_info(name);
+			continue;
+		}
+		int i = random(size);
+		int j = random(size);
+		while(j == i)
+			j = random(size);
+		book_on[books[i]] = query_hl_book_info(books[i]);
+		book_on[books[j]] = query_hl_book_info(books[j]);
+	}
 	call_out(start_book,FLUSH_TIME);
 }
 
@@ -291,6 +324,24 @@ array query_hl_book_info(string name)
 		a += ({name_cn,num,need_yushi});
 	}
 	return a;
+}
+
+//高级技能书购买必须同时满足：今日轮换存在、职业匹配
+int can_buy_high_level_book(object player,string name)
+{
+	if(!player || !name || !book_on[name] || !high_level_book[name])
+		return 0;
+	if(high_level_book[name]->zhiye != player->query_profeId())
+		return 0;
+	return 1;
+}
+
+//价格只从服务端目录读取，不信任客户端命令参数
+int query_high_level_book_price(string name)
+{
+	if(!name || !high_level_book[name])
+		return 0;
+	return high_level_book[name]->need_yushi;
 }
 
 

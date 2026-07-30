@@ -61,6 +61,48 @@ string query_fangshi_growth_guide(object player)
 		result += "√ “灵莲铺”始终治疗自己；有队伍时同时治疗同房间队友，没组队时只治疗自己。\n";
 
 	result += "10级虎灵偏攻击，15级鹤灵持续治疗主人，20级龟灵偏防御。\n";
+	result += "【方士中高阶路线】\n";
+	if(level<30)
+		result += "○ 30级召唤上限提升到2只。\n";
+	else
+		result += "√ 30级起可同时保留2只灵兽。\n";
+
+	if(level<50)
+		result += "○ 50级可学习“三灵合一”，发动三灵附体强化全属性。\n";
+	else if(!player->skills["sanlingheyi"] &&
+		!player->skills["sanlingheyi2"])
+		result += "○ 已到50级，可购买并学习“三灵合一”。\n";
+	else
+		result += "√ 已掌握“三灵合一”，可施放三灵附体；60级开放三灵齐召。\n";
+
+	if(level<60)
+		result += "○ 60级召唤上限提升到3只，开放三灵齐召与本职业高级技能书轮换。\n";
+	else{
+		result += "√ 60级起可用“summon all”齐召三灵；高级书每天为每个职业独立轮换2种。\n";
+		result += "[高级技能书:yushi_buy_hlbook_list]\n";
+	}
+
+	if(level<65)
+		result += "○ 65级起可学习灵玄影、三灵合一和灵穿心的进阶替换技能。\n";
+	else
+		result += "√ 65级进阶书会替换旧技能，并保留原有召唤能力。\n";
+
+	if(level<70)
+		result += "○ 70级可学习“灵裂兽”；实际等级70以上的怪物才有极低概率掉落隐藏大神技能书。\n";
+	else
+		result += "√ 隐藏大神技能书只由实际等级70以上怪物极低概率掉落，不会出现在任何商店。\n";
+
+	if(level<75)
+		result += "○ 75级开放灵玄、灵火烧、灵治、灵盾与虎灵的秘传替换书。\n";
+	else
+		result += "√ 75级秘传可强化控制、伤害、治疗、防护与虎灵召唤，替换后原功能不会丢失。\n";
+
+	if(level<20)
+		result += "○ 20级可向两边主城广场的方士传人领取专属挂件任务。\n";
+	else if(level<53)
+		result += "√ 已可领取20级方士专属挂件任务；53级还有四段职业传承任务。\n";
+	else
+		result += "√ 可向方士传人完成53级四段职业传承，最终获得“三灵合一”技能书。\n";
 	result += "[购买方士技能书:buy_items book fangshi]|[查看技能:myskills]|[召唤灵兽:summon]\n";
 	return result;
 }

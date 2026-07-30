@@ -7,7 +7,7 @@ protected void create(){
 	desc="神秘传承的灵治术，可恢复更多生命";
 	s_type="zhudong";
 	s_skill_type="heal";
-	s_curse_type="attack";
+	s_curse_type="life";
 	s_delayTime=20; // 20秒冷却，比普通版更快
 	s_lasttime=0;
 	performs_attack[1]=500;   // 治疗量更高
