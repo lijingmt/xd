@@ -141,7 +141,7 @@ string render_guide(object player)
 	result += "【3. 打怪与成长】\n";
 	result += "从地图选择适合等级的区域，点击怪物后开始战斗；怪物会提供经验、金钱和随机装备。\n";
 	result += "新装备先放入背包，再用一键穿装补空位；已有装备不会被自动顶掉。\n";
-	result += "[查看地图:map_display]|[查看任务:mytasks]|[查看排行榜:look_top]\n";
+	result += "[查看地图:map_display]|[查看任务:mytasks]|[每级职业历练:growth_task]|[查看排行榜:look_top]\n";
 
 	result += "【4. 队伍、聊天与家园】\n";
 	result += "[队伍:my_term]|[聊天:chatroom_list]";

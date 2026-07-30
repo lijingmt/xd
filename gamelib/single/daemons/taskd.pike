@@ -442,6 +442,401 @@ string query_words(object player,object npc)
 	return taskStr;
 }
 
+// ------------------------------------------------------------------------
+// 每级职业历练
+//
+// 旧CSV任务只覆盖到68级，并且中间存在等级断档。这里为七个职业提供
+// 1-MAX_LEVEL每级一次的动态历练，不占用旧任务的10个任务位。
+// 只有击杀与领取等级相差5级以内的真实NPC才会推进，避免刷低级怪领奖。
+// ------------------------------------------------------------------------
+
+int is_growth_task_profession(string profession_id)
+{
+	switch(profession_id){
+		case "jianxian":
+		case "yushi":
+		case "zhuxian":
+		case "kuangyao":
+		case "wuyao":
+		case "yinggui":
+		case "fangshi":
+			return 1;
+	}
+	return 0;
+}
+
+string query_growth_task_profession_name(string profession_id)
+{
+	switch(profession_id){
+		case "jianxian":
+			return "剑仙";
+		case "yushi":
+			return "羽士";
+		case "zhuxian":
+			return "诛仙";
+		case "kuangyao":
+			return "狂妖";
+		case "wuyao":
+			return "巫妖";
+		case "yinggui":
+			return "影鬼";
+		case "fangshi":
+			return "方士";
+	}
+	return "未知职业";
+}
+
+string query_growth_task_base_name(string profession_id)
+{
+	switch(profession_id){
+		case "jianxian":
+			return "剑心试锋";
+		case "yushi":
+			return "羽化巡灵";
+		case "zhuxian":
+			return "诛邪试炼";
+		case "kuangyao":
+			return "狂战淬体";
+		case "wuyao":
+			return "巫咒采魂";
+		case "yinggui":
+			return "影行猎杀";
+		case "fangshi":
+			return "灵契巡游";
+	}
+	return "职业历练";
+}
+
+string query_growth_task_stage(int level)
+{
+	switch(level%5){
+		case 0:
+			return "破境";
+		case 1:
+			return "初识";
+		case 2:
+			return "磨砺";
+		case 3:
+			return "精进";
+		case 4:
+			return "圆融";
+	}
+	return "历练";
+}
+
+string query_growth_task_title(string profession_id,int level)
+{
+	return "【"+query_growth_task_profession_name(profession_id)+"】"+
+		query_growth_task_base_name(profession_id)+"·"+
+		query_growth_task_stage(level)+"（"+level+"级）";
+}
+
+string query_growth_task_flavor(string profession_id)
+{
+	switch(profession_id){
+		case "jianxian":
+			return "以同阶妖邪磨砺剑心，在实战中稳固御剑根基。";
+		case "yushi":
+			return "巡察同阶灵脉，以仙术净化沿途作乱的妖邪。";
+		case "zhuxian":
+			return "追猎同阶强敌，在攻守转换间磨炼诛邪之术。";
+		case "kuangyao":
+			return "挑战同阶对手，以正面搏杀淬炼妖躯与战意。";
+		case "wuyao":
+			return "从同阶敌手身上感悟魂息，精进巫咒变化。";
+		case "yinggui":
+			return "潜行猎取同阶目标，在生死一线磨炼身法。";
+		case "fangshi":
+			return "携灵兽巡游同阶区域，以灵契或自身法术平息异动。";
+	}
+	return "击败同阶敌人，完成本级职业历练。";
+}
+
+int query_growth_task_required(int level)
+{
+	int required = 3+level/25;
+	if(required>12)
+		required = 12;
+	if(required<3)
+		required = 3;
+	return required;
+}
+
+int query_growth_task_exp(int level)
+{
+	if(level<1)
+		level = 1;
+	if(level>MAX_LEVEL)
+		level = MAX_LEVEL;
+	return level*level*25+100;
+}
+
+int query_growth_task_money(int level)
+{
+	if(level<1)
+		level = 1;
+	if(level>MAX_LEVEL)
+		level = MAX_LEVEL;
+	return level*100+100;
+}
+
+mapping query_growth_task_state(object player)
+{
+	if(!player || !mappingp(player["/taskd/growth_active"]))
+		return ([]);
+	return copy_value(player["/taskd/growth_active"]);
+}
+
+int query_growth_task_done(object player,int level)
+{
+	if(!player || !mappingp(player["/taskd/growth_done"]))
+		return 0;
+	return player["/taskd/growth_done"][level] ? 1 : 0;
+}
+
+int query_growth_task_done_count(object player)
+{
+	if(!player || !mappingp(player["/taskd/growth_done"]))
+		return 0;
+	return sizeof(player["/taskd/growth_done"]);
+}
+
+int accept_growth_task(object player)
+{
+	string profession_id;
+	int level;
+
+	if(!player)
+		return 0;
+	profession_id = player->query_profeId();
+	level = player->query_level();
+	if(!is_growth_task_profession(profession_id))
+		return 2;
+	if(level<1 || level>MAX_LEVEL)
+		return 3;
+	if(mappingp(player["/taskd/growth_active"]))
+		return 4;
+	if(query_growth_task_done(player,level))
+		return 5;
+
+	player["/taskd/growth_active"] = ([
+		"level":level,
+		"profession":profession_id,
+		"progress":0,
+		"required":query_growth_task_required(level),
+		"accepted_time":time(),
+	]);
+	return 1;
+}
+
+int cancel_growth_task(object player)
+{
+	if(!player || !mappingp(player["/taskd/growth_active"]))
+		return 0;
+	player["/taskd/growth_active"] = 0;
+	return 1;
+}
+
+// 返回0=不计数，1=计数成功，2=本级历练已达成。
+int record_growth_task_kill(object player,int killed_level)
+{
+	mapping state;
+	int task_level;
+	int min_level;
+	int max_level;
+	int required;
+
+	if(!player || killed_level<1)
+		return 0;
+	state = player["/taskd/growth_active"];
+	if(!mappingp(state))
+		return 0;
+	if(state["profession"]!=player->query_profeId())
+		return 0;
+	task_level = state["level"];
+	if(task_level<1 || task_level>MAX_LEVEL)
+		return 0;
+	required = query_growth_task_required(task_level);
+	state["required"] = required;
+	if(state["progress"]<0)
+		state["progress"] = 0;
+	min_level = task_level-5;
+	if(min_level<1)
+		min_level = 1;
+	max_level = task_level+5;
+	if(max_level>MAX_LEVEL)
+		max_level = MAX_LEVEL;
+	if(killed_level<min_level || killed_level>max_level)
+		return 0;
+	if(state["progress"]>=required)
+		return 0;
+
+	state["progress"]++;
+	tell_object(player,"职业历练进度："+state["progress"]+"/"+
+		required+"\n");
+	if(state["progress"]>=required){
+		tell_object(player,"本级职业历练已经完成，可从任务列表提交。\n");
+		return 2;
+	}
+	return 1;
+}
+
+mapping claim_growth_task(object player)
+{
+	mapping result = ([
+		"code":0,
+		"level":0,
+		"exp":0,
+		"money":0,
+		"level_up":0,
+	]);
+	mapping state;
+	int level;
+	int get_exp;
+	int actual_exp;
+	int get_money;
+	int required;
+
+	if(!player)
+		return result;
+	state = player["/taskd/growth_active"];
+	if(!mappingp(state)){
+		result["code"] = 1;
+		return result;
+	}
+	if(state["profession"]!=player->query_profeId()){
+		result["code"] = 2;
+		return result;
+	}
+	level = state["level"];
+	if(level<1 || level>MAX_LEVEL){
+		result["code"] = 4;
+		return result;
+	}
+	required = query_growth_task_required(level);
+	if(state["progress"]<required){
+		result["code"] = 3;
+		return result;
+	}
+	if(query_growth_task_done(player,level)){
+		player["/taskd/growth_active"] = 0;
+		result["code"] = 5;
+		return result;
+	}
+
+	if(!mappingp(player["/taskd/growth_done"]))
+		player["/taskd/growth_done"] = ([]);
+	// 先落完成标记再发奖励，配合HTTP核心命令锁避免重复提交。
+	player["/taskd/growth_done"][level] = 1;
+	player["/taskd/growth_active"] = 0;
+
+	get_exp = query_growth_task_exp(level);
+	if(player->query_level()<MAX_LEVEL)
+		actual_exp = player->add_exp_with_bonus(get_exp);
+	get_money = query_growth_task_money(level);
+	player->add_account(get_money);
+	player->query_if_levelup();
+
+	result["code"] = 6;
+	result["level"] = level;
+	result["exp"] = actual_exp;
+	result["money"] = get_money;
+	result["level_up"] = player->query_levelFlag();
+	return result;
+}
+
+string queryGrowthTaskPage(object player)
+{
+	string s = "";
+	string profession_id;
+	mapping state;
+	int level;
+	int min_level;
+	int max_level;
+	int required;
+
+	if(!player)
+		return "无法读取人物状态。\n";
+	profession_id = player->query_profeId();
+	level = player->query_level();
+	s += "【每级职业历练】\n";
+	s += "每个等级都可完成一次，独立于普通任务栏。\n\n";
+	if(!is_growth_task_profession(profession_id)){
+		s += "当前职业尚未开放每级历练。\n";
+		return s;
+	}
+
+	state = player["/taskd/growth_active"];
+	if(mappingp(state)){
+		required = query_growth_task_required(state["level"]);
+		min_level = state["level"]-5;
+		if(min_level<1)
+			min_level = 1;
+		max_level = state["level"]+5;
+		if(max_level>MAX_LEVEL)
+			max_level = MAX_LEVEL;
+		s += query_growth_task_title(state["profession"],state["level"])+"\n";
+		s += query_growth_task_flavor(state["profession"])+"\n";
+		s += "目标：击败"+min_level+"至"+max_level+"级怪物 "+
+			required+"只。\n";
+		s += "进度："+state["progress"]+"/"+required+"\n";
+		s += "奖励："+query_growth_task_exp(state["level"])+"经验、"+
+			MUD_MONEYD->query_other_money_cn(
+				query_growth_task_money(state["level"]))+"。\n\n";
+		if(state["progress"]>=required)
+			s += "[提交本级历练:growth_task claim]\n";
+		else
+			s += "只有真实击杀才会推进；组队时必须与队伍同处一室。\n";
+		s += "[放弃本级历练:growth_task cancel]\n";
+		return s;
+	}
+
+	if(query_growth_task_done(player,level)){
+		s += level+"级职业历练已经完成，升级后会开放下一次历练。\n";
+		return s;
+	}
+	s += query_growth_task_title(profession_id,level)+"\n";
+	s += query_growth_task_flavor(profession_id)+"\n";
+	min_level = level-5;
+	if(min_level<1)
+		min_level = 1;
+	max_level = level+5;
+	if(max_level>MAX_LEVEL)
+		max_level = MAX_LEVEL;
+	s += "目标：击败"+min_level+"至"+max_level+"级怪物 "+
+		query_growth_task_required(level)+"只。\n";
+	s += "奖励："+query_growth_task_exp(level)+"经验、"+
+		MUD_MONEYD->query_other_money_cn(
+			query_growth_task_money(level))+"。\n\n";
+	s += "[领取本级历练:growth_task accept]\n";
+	return s;
+}
+
+string queryGrowthTaskLine(object player)
+{
+	mapping state;
+	int level;
+	int required;
+
+	if(!player || !is_growth_task_profession(player->query_profeId()))
+		return "";
+	level = player->query_level();
+	state = player["/taskd/growth_active"];
+	if(mappingp(state)){
+		required = query_growth_task_required(state["level"]);
+		return "\n【每级职业历练】"+
+			"["+query_growth_task_title(
+				state["profession"],state["level"])+
+			":growth_task]（"+state["progress"]+"/"+
+			required+"）\n";
+	}
+	if(query_growth_task_done(player,level))
+		return "\n【每级职业历练】"+level+"级已完成，升级后刷新。\n";
+	return "\n【每级职业历练】"+
+		"["+query_growth_task_title(player->query_profeId(),level)+
+		":growth_task]\n";
+}
+
 task queryTask(int id)
 {
 	return taskMap[id];
@@ -815,9 +1210,10 @@ string queryMyTasks(object player)
 		player["/taskd/kill"]=([]);
 	if(player["/taskd/find"]==0)
 		player["/taskd/find"]=([]);
+	s_rtn += queryGrowthTaskLine(player);
 	s_rtn +="[查询已完成的任务历史:viewTaskHistory]\n";
 	if((task_num=sizeof(player["/taskd/Cont"]))==0){
-		s_rtn += "\n你目前没有接受任何任务.T_T\n";
+		s_rtn += "\n你目前没有接受任何普通任务.T_T\n";
 	}
 	else{
 		s_rtn += "\n已接受的任务("+task_num+"/10)：\n";
@@ -859,9 +1255,15 @@ string queryTaskHistory(object player)
 	string s_rtn = "";
 	array(int) task_arr = ({});
 	int taskid;
+	int growth_count;
 	task tmp_task;
 
+	if(player["/taskd/done"]==0)
+		player["/taskd/done"]=([]);
 	task_arr = indices(player["/taskd/done"]);
+	growth_count = query_growth_task_done_count(player);
+	if(growth_count)
+		s_rtn += "每级职业历练：已完成"+growth_count+"个等级。\n";
 	if(task_arr&&sizeof(task_arr)){
 		s_rtn += "已完成任务的历史记录：\n";
 		for(int i=0;i<sizeof(task_arr);i++){
@@ -872,7 +1274,7 @@ string queryTaskHistory(object player)
 			}
 		}
 	}
-	else 
+	else if(!growth_count)
 		s_rtn += "没有已完成任务的历史\n";
 	return s_rtn;
 }
@@ -933,11 +1335,13 @@ int cancelTask(object player,int taskid)
 }
 
 //判断所杀怪是否属于玩家的任务，若是，则进行相应的处理
-int if_in_killTask(object player,string killed_name)
+int if_in_killTask(object player,string killed_name,int|void killed_level)
 {
 	int taskid;
+	int growth_result;
 	task tmp_task;
 	array(int) task_array = killMap[killed_name];
+	growth_result = record_growth_task_kill(player,killed_level);
 	if(!player["/taskd/Cont"])
 		player["/taskd/Cont"]=([]);
 	if(!player["/taskd/kill"])
@@ -962,7 +1366,7 @@ int if_in_killTask(object player,string killed_name)
 		}
 		return 1;
 	}
-	return 0;
+	return growth_result ? 1 : 0;
 }
 
 //判断是否掉落任务物品,由npc.pike->fight_die()调用

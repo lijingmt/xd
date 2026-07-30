@@ -515,7 +515,9 @@ void fight_die()
 						//是否此怪与杀戮任务有联系,于2007/3/14由liaocheng添加
 						//没有接口判断每个人的一般任务是否相同，所以，暂时这里
 						//就给每个有任务的人掉落任务物品
-						TASKD->if_in_killTask(termer,this_object()->query_name_cn());
+						TASKD->if_in_killTask(termer,
+							this_object()->query_name_cn(),
+							this_object()->query_level());
 						object ob_task = TASKD->if_in_findTask(termer,this_object()->query_name_cn());
 						if(ob_task){
 							t_w += termer->query_name_cn()+" 得到了 "+ob_task->query_short()+" ！\n";
@@ -646,7 +648,9 @@ void fight_die()
 						//是否此怪与杀戮任务有联系,于2007/3/14由liaocheng添加
 						//没有接口判断每个人的一般任务是否相同，所以，暂时这里
 						//就给每个有任务的人掉落任务物品
-						TASKD->if_in_killTask(termer,this_object()->query_name_cn());
+						TASKD->if_in_killTask(termer,
+							this_object()->query_name_cn(),
+							this_object()->query_level());
 						object ob_task = TASKD->if_in_findTask(termer,this_object()->query_name_cn());
 						if(ob_task && environment(termer)){
 							t_w += termer->query_name_cn()+" 得到了 "+ob_task->query_short()+" ！\n";
@@ -689,7 +693,8 @@ void fight_die_single(object env)
 	//必须是首先攻击者
 
 	if(flag&&npcflag){
-		TASKD->if_in_killTask(first,this_object()->query_name_cn());
+		TASKD->if_in_killTask(first,this_object()->query_name_cn(),
+			this_object()->query_level());
 		//不是团队杀死怪物，是个人杀死/////////////////////////
 		int npclevel = this_object()->query_level();//npc等级
 		int melevel = first->query_level();//player等级
