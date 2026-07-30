@@ -94,7 +94,8 @@ int main(string arg)
 	}*/
 
 	/////////////////////////////////////////////	
-	if(!this_player()->is("npc")){
+	if(!this_player()->is("npc") &&
+	   this_player()->query_autofight()=="disable"){
 		int entry_flag = 0;
 		//attack/use_perform记录超过300次连击，判定进入调用
 		if(me["/tmp/wg_times"]>=50) entry_flag = 1;

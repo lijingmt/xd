@@ -187,3 +187,17 @@ void set_project(string arg){
 string query_project(){
 	return project;
 }
+
+// 自动打怪状态只在当前在线对象中生效，重新登录后默认关闭。
+string autofight = "disable";
+void set_autofight(string arg)
+{
+	if(arg == "enable")
+		autofight = "enable";
+	else
+		autofight = "disable";
+}
+string query_autofight()
+{
+	return autofight;
+}

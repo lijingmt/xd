@@ -33,6 +33,9 @@ assert(indexSource.includes('role="progressbar"'));
 assert(indexSource.includes(':aria-busy="mudLoading ? \'true\' : \'false\'"'));
 assert(indexSource.includes('class="quick-primary-nav"'));
 assert(indexSource.includes('class="quick-more-panel"'));
+assert(indexSource.includes('class="player-avatar-shell"'));
+assert(indexSource.includes(':src="playerAvatarUrl"'));
+assert(indexSource.includes('@error="handlePlayerAvatarError"'));
 assert.strictEqual(
   (indexSource.match(/<main\b/g) || []).length,
   (indexSource.match(/<\/main>/g) || []).length
@@ -51,11 +54,25 @@ assert(appSource.includes('formatCompactNumber(value)'));
 assert(appSource.includes('showUiToast(message, type = \'info\')'));
 assert(appSource.includes('isQuickActionActive(command)'));
 assert(appSource.includes('quickActionsCollapsed: true'));
+assert(appSource.includes('playerAvatarFailed: false'));
+assert(appSource.includes('playerAvatarUrl()'));
+assert(appSource.includes('playerAvatarFallback()'));
+assert(appSource.includes('handlePlayerAvatarError()'));
+assert(appSource.includes('await this.checkBattleStatus(isAutofightRefresh)'));
+assert(appSource.includes("seg.label.includes('关闭自动挂机')"));
+assert(appSource.includes("seg.cmd === 'autofightclose'"));
+assert(appSource.includes('battleStatusLoading: false'));
+assert(appSource.includes('if (data.in_battle)'));
+assert(appSource.includes('this.isInBattle = true'));
+assert(appSource.includes('this.isInBattle = false'));
 assert(!appSource.includes("console.log('cmd:', cmd)"));
 assert(!appSource.includes('[sendJsonCommand] txd:'));
 assert(!appSource.includes('[sendJsonCommand] 完整URL:'));
 assert(!appSource.includes('fullUrl: window.location.href'));
 assert(cssSource.includes('.newbie-completion-modal'));
+assert(cssSource.includes('.player-avatar-shell'));
+assert(cssSource.includes('.player-avatar-image'));
+assert(cssSource.includes('.player-avatar-fallback'));
 assert(cssSource.includes('@keyframes newbieCompletionPop'));
 assert(cssSource.includes('2026 UI/UX refresh'));
 assert(cssSource.includes('padding: 24px 28px 34px'));

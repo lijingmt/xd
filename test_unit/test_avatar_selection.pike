@@ -177,6 +177,7 @@ void test_state_recovery_and_validation()
 	string links_after = "";
 	string invalid_output = "";
 	string error_desc = "";
+	mapping http_state = ([]);
 	mixed err = catch {
 		player = create_test_player("third","male");
 		player->move(room);
@@ -188,6 +189,7 @@ void test_state_recovery_and_validation()
 		invalid_output = query_player_output(player);
 		room->set_pic("h_male11");
 		links_after = room->query_links();
+		http_state = HTTP_APID->query_player_state(player);
 	};
 	if(original_player)
 		set_this_player(original_player);
@@ -203,6 +205,7 @@ void test_state_recovery_and_validation()
 	   search(links_before,"[选择头像:set_pic]")!=-1 &&
 	   search(invalid_output,"头像选择无效")!=-1 &&
 	   player->user_pic=="h_male11" &&
+	   http_state["avatar"]=="/images/h_male11.gif" &&
 	   player->set_pic_ok==1 &&
 	   search(links_after,"set_pic")==-1)
 		test_pass();

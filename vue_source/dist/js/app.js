@@ -141,8 +141,10 @@ createApp({
             chatPollingInterval: null,  // 聊天轮询定时器
             theme: 'classic',  // classic or dark，默认经典模式
             playerStats: null,  // 玩家状态信息
+            playerAvatarFailed: false,  // 当前头像加载失败时显示文字回退
             statsInterval: null,  // 状态更新定时器
             autofightInterval: null,  // 自动战斗定时器
+            autofightTickInFlight: false,  // 防止慢请求造成挂机指令重叠
             lastCommand: 'look',  // 上一次执行的命令，默认是look
             pendingRequests: {},  // 正在进行的异步请求
             useAsyncMode: false,  // 是否使用异步模式（同步更快，无轮询开销）
@@ -164,6 +166,7 @@ createApp({
             battleEnemyFull: null,  // 敌人完整状态（从API获取）
             battlePlayerFull: null,  // 玩家完整状态（从API获取）
             battleStatusInterval: null,  // 战斗状态轮询定时器
+            battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 武侠技能动画列表
             // 招式系统
             showPerformsList: false,  // 显示招式列表
@@ -235,6 +238,16 @@ createApp({
             const digits = Math.abs(compact) >= 100 ? 0 :
                 (Math.abs(compact) >= 10 ? 1 : 2);
             return compact.toFixed(digits).replace(/\.?0+$/, '') + unit.label;
+        },
+
+        formatAutofightTime(value) {
+            const seconds = Math.max(0, Number(value) || 0);
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}时${minutes}分`;
+            }
+            return `${minutes}分`;
         },
 
         showUiToast(message, type = 'info') {
@@ -1035,38 +1048,48 @@ createApp({
 
         // JSON模式: 发送命令并获取结构化数据
         async sendJsonCommand(cmd, isRetry = false) {
+            const isAutofightRefresh = cmd === 'flushview' &&
+                this.playerStats && this.playerStats.autofight;
             // 拦截复制邀请链接命令 - 直接在前端处理，不发送到服务器
             if (cmd && cmd.startsWith('copy_invite_url:')) {
                 const url = cmd.substring('copy_invite_url:'.length);
                 await this.copyToClipboard(decodeURIComponent(url), '邀请链接');
                 return;  // 不发送到服务器
             }
-            if (cmd) {
+            if (cmd && !isAutofightRefresh) {
                 this.lastCommand = cmd;
             }
-            this.clearUiToast();
+            if (!isAutofightRefresh) {
+                this.clearUiToast();
+            }
 
             // 滚动到顶部（同时滚动window和MUD容器）
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            const mudContainer = document.querySelector('.mud-output-container');
-            if (mudContainer) {
-                mudContainer.scrollTop = 0;
+            if (!isAutofightRefresh) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                const mudContainer = document.querySelector('.mud-output-container');
+                if (mudContainer) {
+                    mudContainer.scrollTop = 0;
+                }
             }
 
             // 清除之前的计时器
-            if (this.loadingTimer) {
+            if (!isAutofightRefresh && this.loadingTimer) {
                 clearTimeout(this.loadingTimer);
             }
 
-            this.mudLoading = true;
-            this.slowLoadingTip = false;
+            if (!isAutofightRefresh) {
+                this.mudLoading = true;
+                this.slowLoadingTip = false;
+            }
 
             // 3秒后显示慢速加载提示
-            this.loadingTimer = setTimeout(() => {
-                if (this.mudLoading) {
-                    this.slowLoadingTip = true;
-                }
-            }, 3000);
+            if (!isAutofightRefresh) {
+                this.loadingTimer = setTimeout(() => {
+                    if (this.mudLoading) {
+                        this.slowLoadingTip = true;
+                    }
+                }, 3000);
+            }
             try {
                 const url = `${this.apiBase}/api/json?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent(cmd)}`;
 
@@ -1131,8 +1154,8 @@ createApp({
                     await this.copyToClipboard(copyData.data, label);
                 }
 
-                // 检测战斗状态
-                this.checkBattleStatus();
+                // 检测战斗状态。挂机刷新必须查询真实战斗状态，不能只依赖文本按钮。
+                await this.checkBattleStatus(isAutofightRefresh);
                 // 解析战斗动作并生成动画
                 this.parseBattleActions(data.lines || []);
 
@@ -1154,11 +1177,13 @@ createApp({
                 }
                 this.showUiToast('连接暂时中断，请检查网络后重试', 'error');
             } finally {
-                this.mudLoading = false;
-                this.slowLoadingTip = false;
-                if (this.loadingTimer) {
-                    clearTimeout(this.loadingTimer);
-                    this.loadingTimer = null;
+                if (!isAutofightRefresh) {
+                    this.mudLoading = false;
+                    this.slowLoadingTip = false;
+                    if (this.loadingTimer) {
+                        clearTimeout(this.loadingTimer);
+                        this.loadingTimer = null;
+                    }
                 }
             }
         },
@@ -1315,6 +1340,10 @@ createApp({
             return baseUrl + imagePath;
         },
 
+        handlePlayerAvatarError() {
+            this.playerAvatarFailed = true;
+        },
+
         // 解析聊天消息中的链接 [label:command argument]
         parseChatLinks(text) {
             if (!text) return '';
@@ -1391,6 +1420,7 @@ createApp({
             this.txd = '';
             this.gameFrameUrl = '';
             this.playerStats = null;
+            this.playerAvatarFailed = false;
             this.loginPasswordVisible = false;
             this.clearUiToast();
             this.dismissNewbieCompletions();
@@ -1400,6 +1430,13 @@ createApp({
                 clearInterval(this.autofightInterval);
                 this.autofightInterval = null;
             }
+            this.autofightTickInFlight = false;
+            this.isInBattle = false;
+            this.battleEnemy = null;
+            this.battleEnemyFull = null;
+            this.battlePlayerFull = null;
+            this.battleStatusLoading = false;
+            this.stopBattleStatusPolling();
             // 清理聊天轮询定时器
             this.stopChatPolling();
             this.showLogin = true;
@@ -1574,7 +1611,11 @@ createApp({
                     if (!data.error) {
                         // 记录之前的 autofight 状态
                         const wasAutofight = this.playerStats && this.playerStats.autofight;
+                        const previousAvatar = this.playerStats && this.playerStats.avatar;
                         this.playerStats = data;
+                        if (previousAvatar !== data.avatar) {
+                            this.playerAvatarFailed = false;
+                        }
                         // 检查自动战斗状态变化
                         const isAutofight = this.playerStats && this.playerStats.autofight;
                         if (wasAutofight && !isAutofight) {
@@ -1634,13 +1675,44 @@ createApp({
                     // 刷新状态
                     await this.fetchPlayerStats();
                     // 显示提示
-                    alert(data.message || '自动战斗状态已切换');
+                    this.showUiToast(
+                        data.message || '自动挂机状态已切换',
+                        data.autofight ? 'success' : 'info'
+                    );
                 } else {
-                    alert('切换自动战斗失败');
+                    const data = await response.json().catch(() => ({}));
+                    this.showUiToast(data.error || '切换自动挂机失败', 'error');
                 }
             } catch (e) {
                 console.error('切换自动战斗失败:', e);
-                alert('切换自动战斗失败: ' + e.message);
+                this.showUiToast('切换自动挂机失败: ' + e.message, 'error');
+            }
+        },
+
+        async runAutofightTick() {
+            if (!this.txd || this.autofightTickInFlight) {
+                return;
+            }
+            if (this.useJsonMode && this.mudLoading) {
+                return;
+            }
+            if (!this.useJsonMode && this.frameLoading) {
+                return;
+            }
+            this.autofightTickInFlight = true;
+            try {
+                if (this.useJsonMode) {
+                    await this.sendJsonCommand('flushview');
+                } else {
+                    const url = `${this.apiBase}/api/html?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent('flushview')}`;
+                    const iframe = this.$refs.gameFrame;
+                    if (iframe) {
+                        this.frameLoading = true;
+                        iframe.src = url;
+                    }
+                }
+            } finally {
+                this.autofightTickInFlight = false;
             }
         },
 
@@ -1650,22 +1722,9 @@ createApp({
                 // 开启自动战斗 - 每秒执行 flushview 命令
                 if (!this.autofightInterval) {
                     this.autofightInterval = setInterval(() => {
-                        if (this.txd) {
-                            // 自动战斗使用 flushview 命令，而不是重复最后命令
-                            // flushview 会自动处理：打怪、吃药、拾取、移动等
-                            if (this.useJsonMode) {
-                                // JSON模式: 直接调用 sendJsonCommand
-                                this.sendJsonCommand('flushview');
-                            } else {
-                                // iframe模式: 更新iframe src
-                                const url = `${this.apiBase}/api/html?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent('flushview')}`;
-                                const iframe = this.$refs.gameFrame;
-                                if (iframe) {
-                                    iframe.src = url;
-                                }
-                            }
-                        }
+                        this.runAutofightTick();
                     }, 1000);  // 1秒执行一次
+                    this.runAutofightTick();
                 }
             } else {
                 // 关闭自动战斗
@@ -1673,6 +1732,7 @@ createApp({
                     clearInterval(this.autofightInterval);
                     this.autofightInterval = null;
                 }
+                this.autofightTickInFlight = false;
             }
         },
 
@@ -1858,36 +1918,22 @@ createApp({
 
         /**
          * 检测是否处于战斗状态
-         * 通过检查 mudLines 中是否有"察看战况"按钮或"关闭自动战斗"按钮
-         * 有"关闭自动战斗"按钮也说明处于战斗状态（虽然可能没有active round）
+         * 文本按钮只负责触发查询，最终状态以 /api/battle_status 为准。
+         * 自动挂机的 flushview 即使没有旧式战斗按钮，也必须主动查询。
          */
-        async checkBattleStatus() {
-            const hasBattleButton = this.mudLines.some(line =>
+        async checkBattleStatus(forceApiCheck = false) {
+            const hasBattleSignal = this.mudLines.some(line =>
                 line.segments && line.segments.some(seg =>
-                    seg.type === 'button' && (seg.label === '察看战况' || seg.label.includes('关闭自动战斗'))
+                    seg.type === 'button' && (
+                        seg.label === '察看战况' ||
+                        seg.label.includes('关闭自动战斗') ||
+                        seg.label.includes('关闭自动挂机') ||
+                        seg.cmd === 'autofightclose'
+                    )
                 )
             );
 
-            const wasInBattle = this.isInBattle;
-            this.isInBattle = hasBattleButton;
-
-            // 战斗状态变化时的处理
-            if (hasBattleButton && !wasInBattle) {
-                // 进入战斗
-                console.log('[战斗] 进入战斗状态');
-                this.battleLog = [];
-                this.startBattleStatusPolling();
-                // 立即获取一次战斗状态
-                await this.fetchBattleStatus();
-            } else if (!hasBattleButton && wasInBattle) {
-                // 离开战斗
-                console.log('[战斗] 离开战斗状态');
-                this.battleEnemy = null;
-                this.battleEnemyFull = null;
-                this.battlePlayerFull = null;
-                this.stopBattleStatusPolling();
-            } else if (hasBattleButton) {
-                // 仍在战斗中，更新状态
+            if (forceApiCheck || hasBattleSignal || this.isInBattle) {
                 await this.fetchBattleStatus();
             }
         },
@@ -1917,6 +1963,14 @@ createApp({
          * 获取战斗状态（敌我双方）
          */
         async fetchBattleStatus() {
+            if (!this.txd || this.battleStatusLoading) {
+                return;
+            }
+            if (typeof document !== 'undefined' && document.hidden) {
+                return;
+            }
+
+            this.battleStatusLoading = true;
             try {
                 const response = await fetch(`${this.apiBase}/api/battle_status?txd=${encodeURIComponent(this.txd)}`);
                 if (!response.ok) return;
@@ -1924,6 +1978,13 @@ createApp({
                 const data = await response.json();
 
                 if (data.in_battle) {
+                    if (!this.isInBattle) {
+                        console.log('[战斗] 进入战斗状态');
+                        this.isInBattle = true;
+                        this.battleLog = [];
+                        this.startBattleStatusPolling();
+                    }
+
                     // 更新玩家完整状态
                     if (data.player) {
                         this.battlePlayerFull = data.player;
@@ -1942,9 +2003,18 @@ createApp({
                         this.battleEnemyFull = null;
                         this.battleEnemy = null;
                     }
+                } else if (this.isInBattle) {
+                    console.log('[战斗] 离开战斗状态');
+                    this.isInBattle = false;
+                    this.battleEnemy = null;
+                    this.battleEnemyFull = null;
+                    this.battlePlayerFull = null;
+                    this.stopBattleStatusPolling();
                 }
             } catch (e) {
                 console.error('[战斗] 获取战斗状态失败:', e);
+            } finally {
+                this.battleStatusLoading = false;
             }
         },
 
@@ -2614,6 +2684,20 @@ createApp({
     },
 
     computed: {
+        playerAvatarUrl() {
+            if (!this.playerStats || !this.playerStats.avatar) {
+                return '';
+            }
+            return this.getImageUrl(this.playerStats.avatar);
+        },
+
+        playerAvatarFallback() {
+            const displayName = this.playerStats && this.playerStats.name_cn
+                ? this.playerStats.name_cn
+                : this.loginForm.userid;
+            return displayName ? String(displayName).trim().charAt(0) : '仙';
+        },
+
         // 将区号转换为可读格式 (tx01 -> 1区, tx02 -> 2区, etc.)
         areaName() {
             const partition = this.loginForm.partition || '';

@@ -30,6 +30,8 @@
 
 inherit LOW_DAEMON;
 
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
+
 // ========================================================================
 // HTTP API 日志函数 (必须在 include 之前定义)
 // ========================================================================
@@ -2137,19 +2139,40 @@ void handle_api_autofight(Protocols.HTTP.Server.Request req)
     }
 
     int new_state = 0;
-    string current = player->query_autofight();
+    string current;
+    string reason;
+
+    if(!functionp(player->query_autofight) ||
+       !functionp(player->set_autofight)) {
+        send_json(req, ([ "error": "自动挂机模块尚未加载，请稍后重试" ]), 503);
+        return;
+    }
+
+    AUTOFIGHTD->initialize_player(player);
+    current = player->query_autofight();
 
     if(action == "on" || (action == "toggle" && current != "enable")) {
-        player->set_autofight("enable");
+        reason = AUTOFIGHTD->query_start_block_reason(player);
+        if(reason != "") {
+            AUTOFIGHTD->stop_autofight(player);
+            send_json(req, ([
+                "autofight": 0,
+                "message": "无法开启自动挂机："+reason
+            ]));
+            return;
+        }
+        AUTOFIGHTD->start_autofight(player);
         new_state = 1;
     } else {
-        player->set_autofight("disable");
+        AUTOFIGHTD->stop_autofight(player);
         new_state = 0;
     }
 
     send_json(req, ([
         "autofight": new_state,
-        "message": new_state ? "自动战斗已开启" : "自动战斗已关闭"
+        "message": new_state ?
+            "自动挂机已开启：默认刷当前地图，可在“更多－挂机设置”开启区域巡游" :
+            "自动挂机已关闭"
     ]));
 }
 

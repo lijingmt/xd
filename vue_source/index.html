@@ -212,6 +212,18 @@
         <template v-if="!showLogin && !showRegister">
             <!-- 顶部状态栏 -->
             <header class="game-header" aria-label="人物状态">
+                <div class="player-avatar-shell"
+                     :title="playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像'">
+                    <img v-if="playerAvatarUrl && !playerAvatarFailed"
+                         :src="playerAvatarUrl"
+                         :alt="playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像'"
+                         class="player-avatar-image"
+                         @error="handlePlayerAvatarError">
+                    <span v-else
+                          class="player-avatar-fallback"
+                          role="img"
+                          aria-label="人物头像">{{ playerAvatarFallback }}</span>
+                </div>
                 <div class="player-info">
                     <div class="player-info-line">
                         <span class="player-fullid">{{ loginForm.userid }}</span>
@@ -219,6 +231,15 @@
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
                         <span class="divider" v-if="playerStats && playerStats.name_cn">·</span>
                         <span class="server-info">{{ areaName }}</span>
+                        <button type="button"
+                                class="autofight-status-text"
+                                :class="{ active: playerStats && playerStats.autofight }"
+                                @click="toggleAutofight"
+                                :title="playerStats && playerStats.autofight ? '点击停止自动挂机' : '点击开始自动挂机'">
+                            {{ playerStats && playerStats.autofight
+                                ? '● 挂机中 ' + formatAutofightTime(playerStats.autofight_time_left)
+                                : '▷ 自动挂机' }}
+                        </button>
                     </div>
                     <!-- 玩家状态信息 - 血槽显示 -->
                     <div class="player-stats" v-if="playerStats">
@@ -787,6 +808,13 @@
                         <button class="quick-tool-btn" @click="sendQuickCommand('yushi_myzone')"><span>🪙</span>仙玉</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('game_detail')"><span>⚙️</span>设置</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('vip_service_list')"><span>👑</span>会员</button>
+                        <button class="quick-tool-btn"
+                                :class="{ active: playerStats && playerStats.autofight }"
+                                @click="toggleAutofight">
+                            <span>{{ playerStats && playerStats.autofight ? '⏹️' : '▶️' }}</span>
+                            {{ playerStats && playerStats.autofight ? '停止挂机' : '自动挂机' }}
+                        </button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('autofight open')"><span>🛠️</span>挂机设置</button>
                     </div>
                 </div>
                 <nav class="quick-primary-nav" aria-label="主要功能">

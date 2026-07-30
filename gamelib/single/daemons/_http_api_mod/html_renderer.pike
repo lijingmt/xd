@@ -988,6 +988,13 @@ mapping query_player_state(object player)
         }
         result["gender"] = gender || "";
 
+        // 玩家当前选择的头像，供 Vue 顶部状态栏直接显示。
+        string avatar = "";
+        if(player->user_pic && player->user_pic != "") {
+            avatar = "/images/" + player->user_pic + ".gif";
+        }
+        result["avatar"] = avatar;
+
         // 称谓
         string honer = "";
         if(functionp(player->query_raceId)) {
@@ -1023,6 +1030,19 @@ mapping query_player_state(object player)
             level = player["level"];
         }
         result["level"] = level;
+
+        // 自动挂机状态与当日剩余时间
+        int autofight = 0;
+        int autofight_time_left = 8*60*60;
+        if(functionp(player->query_autofight)) {
+            autofight = player->query_autofight() == "enable" ? 1 : 0;
+        }
+        if((int)player["/plus/autofight_initialized"] > 0) {
+            autofight_time_left =
+                (int)player["/plus/autofight_time_left"];
+        }
+        result["autofight"] = autofight;
+        result["autofight_time_left"] = autofight_time_left;
 
         // 生命值 HP (xiand 使用 life 而不是 jing)
         int hp = 0, hp_max = 0;

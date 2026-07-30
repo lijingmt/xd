@@ -84,6 +84,12 @@ void check_daily(object me)
 		//更新每日随机奖励限次20次
 		if(me["/plus/random_award"]<=50)
 			me["/plus/random_award"]=50;
+
+		//自动打怪每天最多8小时，跨日登录时恢复并保持关闭状态。
+		me["/plus/autofight_initialized"] = 1;
+		me["/plus/autofight_time_left"] = 8*60*60;
+		if(functionp(me->set_autofight))
+			me->set_autofight("disable");
 		
 		//写入日登陆用户信息的统计，包括写入数据库和写入log 
 		//由liaocheng于07/08/13添加

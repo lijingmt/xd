@@ -2,7 +2,8 @@
 #include <wapmud2/include/wapmud2.h>
 int main(string arg)
 {
-	if(!this_player()->is("npc")){
+	if(!this_player()->is("npc") &&
+	   this_player()->query_autofight()=="disable"){
 		object me = this_player();
 		//leave操作，也触发外挂监控，不然太猖獗
 		if(!me["/tmp/atk_ctime"])
