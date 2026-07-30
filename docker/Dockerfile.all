@@ -222,9 +222,9 @@ fi
 # 启动Pike MUD
 echo "启动Pike MUD (区号: ${GAME_PREFIX})..."
 cd /app/xiand
-# 设置堆栈限制为无限，防止编译大文件时栈溢出
+# 设置系统栈和 Pike 内部栈，防止启动期编译大量对象时栈溢出
 ulimit -s unlimited
-pike /app/xiand/lowlib/driver.pike -i 0.0.0.0 -p 13800 /app/xiand/ > /app/xiand/log/pike.log 2>&1 &
+pike -s1000000 -ss67108864 /app/xiand/lowlib/driver.pike -i 0.0.0.0 -p 13800 /app/xiand/ > /app/xiand/log/pike.log 2>&1 &
 PIKE_PID=$!
 echo "✓ Pike MUD 已启动 (PID: $PIKE_PID)"
 
