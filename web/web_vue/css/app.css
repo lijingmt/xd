@@ -5852,6 +5852,11 @@ body {
     --ux-focus: #c59045;
     --ux-shadow: 0 18px 50px rgba(71, 47, 29, 0.18);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --quick-nav-height: 52px;
+    --quick-icon-size: 18px;
+    --quick-label-size: 10px;
+    --quick-tool-height: 52px;
+    --quick-tool-icon-size: 18px;
 }
 
 [data-theme="dark"] {
@@ -6449,7 +6454,7 @@ select:focus-visible {
 /* Content readability */
 .game-frame-container {
     min-height: calc(100dvh - 96px);
-    padding-bottom: calc(74px + var(--safe-bottom));
+    padding-bottom: calc(var(--quick-nav-height) + 10px + var(--safe-bottom));
     background:
         linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
         var(--ux-surface-muted);
@@ -6582,7 +6587,7 @@ select:focus-visible {
     left: 50%;
     display: block;
     width: min(100%, 760px);
-    padding: 0 10px var(--safe-bottom);
+    padding: 0 8px var(--safe-bottom);
     border: 0;
     border-top: 1px solid var(--ux-line);
     background: color-mix(in srgb, var(--ux-surface-strong) 94%, transparent);
@@ -6593,38 +6598,39 @@ select:focus-visible {
 
 .quick-primary-nav {
     display: grid;
-    min-height: 66px;
+    min-height: var(--quick-nav-height);
     grid-template-columns: repeat(5, 1fr);
     align-items: stretch;
-    gap: 2px;
+    gap: 1px;
 }
 
 .quick-nav-btn {
     position: relative;
     display: flex;
     min-width: 0;
-    min-height: 60px;
+    min-height: 44px;
+    height: var(--quick-nav-height);
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 6px 3px 5px;
+    gap: 0;
+    padding: 4px 3px 3px;
     border: 0;
-    border-radius: 13px;
+    border-radius: 11px;
     background: transparent;
     color: var(--ux-ink-muted);
-    font-size: 11px;
+    font-size: var(--quick-label-size);
     font-weight: 700;
     cursor: pointer;
 }
 
 .quick-nav-icon {
     display: grid;
-    width: 30px;
-    height: 28px;
+    width: 24px;
+    height: 22px;
     place-items: center;
     color: currentColor;
-    font-size: 22px;
+    font-size: var(--quick-icon-size);
     font-weight: 800;
     line-height: 1;
 }
@@ -6636,10 +6642,10 @@ select:focus-visible {
 .quick-nav-btn.active::before {
     content: "";
     position: absolute;
-    top: 3px;
+    top: 2px;
     left: 50%;
-    width: 28px;
-    height: 3px;
+    width: 22px;
+    height: 2px;
     border-radius: 999px;
     background: var(--ux-accent);
     transform: translateX(-50%);
@@ -6651,12 +6657,12 @@ select:focus-visible {
 
 .quick-more-panel {
     position: absolute;
-    right: 10px;
-    bottom: calc(100% + 10px);
-    left: 10px;
-    padding: 16px;
+    right: 8px;
+    bottom: calc(100% + 8px);
+    left: 8px;
+    padding: 12px;
     border: 1px solid var(--ux-line);
-    border-radius: 20px;
+    border-radius: 16px;
     background: var(--ux-surface-strong);
     box-shadow: var(--ux-shadow);
 }
@@ -6666,16 +6672,16 @@ select:focus-visible {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 13px;
+    margin-bottom: 9px;
     color: var(--ux-ink);
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .quick-panel-close {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--ux-surface-muted);
     color: var(--ux-ink-muted);
     cursor: pointer;
@@ -6684,29 +6690,29 @@ select:focus-visible {
 .quick-more-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
 }
 
 .quick-tool-btn {
     display: flex;
     min-width: 0;
-    min-height: 64px;
+    min-height: var(--quick-tool-height);
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    padding: 6px 3px;
+    gap: 1px;
+    padding: 4px 3px;
     border: 1px solid var(--ux-line);
-    border-radius: 13px;
+    border-radius: 11px;
     background: var(--ux-surface-muted);
     color: var(--ux-ink);
-    font-size: 12px;
+    font-size: var(--quick-label-size);
     font-weight: 700;
     cursor: pointer;
 }
 
 .quick-tool-btn span {
-    font-size: 20px;
+    font-size: var(--quick-tool-icon-size);
 }
 
 .quick-tool-btn:hover {
@@ -6805,8 +6811,8 @@ select:focus-visible {
     }
 
     .quick-tool-btn {
-        min-height: 60px;
-        font-size: 11px;
+        min-height: var(--quick-tool-height);
+        font-size: var(--quick-label-size);
     }
 }
 
@@ -6828,16 +6834,16 @@ select:focus-visible {
     }
 
     .quick-nav-btn {
-        font-size: 10px;
+        font-size: var(--quick-label-size);
     }
 
     .quick-more-panel {
-        padding: 13px 10px;
+        padding: 10px 8px;
     }
 
     .quick-tool-btn {
-        min-height: 56px;
-        font-size: 10px;
+        min-height: var(--quick-tool-height);
+        font-size: var(--quick-label-size);
     }
 
     .battle-name {
@@ -6848,6 +6854,50 @@ select:focus-visible {
     .hp-text,
     .neili-text {
         font-size: 10px;
+    }
+}
+
+/* Small phones: compact, but never below the 44px safe touch target. */
+@media (max-width: 389px) {
+    :root {
+        --quick-nav-height: 48px;
+        --quick-icon-size: 17px;
+        --quick-label-size: 9px;
+        --quick-tool-height: 48px;
+        --quick-tool-icon-size: 17px;
+    }
+}
+
+/* Mainstream phones and narrow browser windows. */
+@media (min-width: 390px) and (max-width: 600px) {
+    :root {
+        --quick-nav-height: 50px;
+        --quick-icon-size: 18px;
+        --quick-label-size: 10px;
+        --quick-tool-height: 50px;
+        --quick-tool-icon-size: 18px;
+    }
+}
+
+/* Tablets, iPad split view and medium browser windows. */
+@media (min-width: 601px) and (max-width: 1024px) {
+    :root {
+        --quick-nav-height: 54px;
+        --quick-icon-size: 19px;
+        --quick-label-size: 10px;
+        --quick-tool-height: 54px;
+        --quick-tool-icon-size: 19px;
+    }
+}
+
+/* Desktop browsers with a precise pointer can use the densest layout. */
+@media (min-width: 1025px) and (pointer: fine) {
+    :root {
+        --quick-nav-height: 46px;
+        --quick-icon-size: 16px;
+        --quick-label-size: 9px;
+        --quick-tool-height: 48px;
+        --quick-tool-icon-size: 17px;
     }
 }
 

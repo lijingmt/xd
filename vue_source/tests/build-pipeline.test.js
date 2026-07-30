@@ -61,6 +61,13 @@ assert(cssSource.includes('2026 UI/UX refresh'));
 assert(cssSource.includes('padding: 24px 28px 34px'));
 assert(cssSource.includes('min-height: 44px'));
 assert(cssSource.includes('env(safe-area-inset-bottom, 0px)'));
+assert(cssSource.includes('--quick-nav-height: 52px'));
+assert(cssSource.includes('height: var(--quick-nav-height)'));
+assert(cssSource.includes('padding-bottom: calc(var(--quick-nav-height)'));
+assert(cssSource.includes('@media (max-width: 389px)'));
+assert(cssSource.includes('@media (min-width: 390px) and (max-width: 600px)'));
+assert(cssSource.includes('@media (min-width: 601px) and (max-width: 1024px)'));
+assert(cssSource.includes('@media (min-width: 1025px) and (pointer: fine)'));
 assert(cssSource.includes('@media (prefers-reduced-motion: reduce)'));
 
 assert(buildSource.includes("path.join(__dirname, 'css', 'app.css')"));
