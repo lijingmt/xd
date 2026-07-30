@@ -6,8 +6,8 @@
     <title>仙道</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785435023845">
-    <link rel="stylesheet" href="css/realm.css?v=v1785435023845">
+    <link rel="stylesheet" href="css/app.css?v=v1785447350365">
+    <link rel="stylesheet" href="css/realm.css?v=v1785447350365">
 </head>
 <body>
     <div id="app">
@@ -855,37 +855,49 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785435023845"></script>
-    <script src="js/app.js?v=v1785435023845"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785447350365"></script>
+    <script src="js/app.js?v=v1785447350365"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785435023845"></script>
+    <script src="../includes/translate.js?v=v1785447350365"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
 
-    // 获取用户保存的语言，如果没有则自动检测浏览器语言（仅首次）
-    var savedLang = localStorage.getItem('userLanguage');
-    if (!savedLang) {
-        // 首次访问，自动检测浏览器语言并保存
-        translate.autoDiscriminateLocalLanguage();
-        savedLang = translate.language.getCurrent();
-        localStorage.setItem('userLanguage', savedLang);
-        console.log('[Translate] Auto-detected language:', savedLang);
+    // 启动时直接恢复目标语言，不调用 changeLanguage。
+    // translate.js 的 changeLanguage 会在已有目标语言时 reload；
+    // 手机浏览器保存非中文语言后，启动时重复调用会形成无限刷新。
+    var supportedLanguages = [
+        'chinese_simplified',
+        'chinese_traditional',
+        'english',
+        'japanese',
+        'korean',
+        'french',
+        'german',
+        'spanish',
+        'russian',
+        'portuguese'
+    ];
+    var savedLang = localStorage.getItem('userLanguage') || 'chinese_simplified';
+    if (supportedLanguages.indexOf(savedLang) === -1) {
+        savedLang = 'chinese_simplified';
+    }
+    localStorage.setItem('userLanguage', savedLang);
+
+    translate.language.setLocal('chinese_simplified');
+    if (savedLang === 'chinese_simplified') {
+        translate.to = '';
+        translate.storage.set('to', '');
     } else {
-        console.log('[Translate] Saved language:', savedLang);
+        translate.to = savedLang;
+        translate.storage.set('to', savedLang);
     }
+    translate.execute();
 
-    // 设置本地语言并执行翻译
-    translate.language.setLocal('chinese_simplified'); // 原文是简体中文
-    translate.execute(); // 首次执行
-
-    // 如果用户选择了其他语言，立即切换
-    if (savedLang && savedLang !== 'chinese_simplified') {
-        setTimeout(function() {
-            console.log('[Translate] Switching to saved language:', savedLang);
-            translate.changeLanguage(savedLang);
-        }, 100);
+    if (window.vueInstance) {
+        window.vueInstance.selectedLanguage = savedLang;
     }
+    console.log('[Translate] Restored language without reload:', savedLang);
 
     // Vue外层语言切换函数
     window.changeVueLanguage = function(lang) {
@@ -908,6 +920,9 @@
     window.addEventListener('message', function(event) {
         if (event.data.type === 'changeLanguage') {
             if (typeof translate !== 'undefined' && translate.changeLanguage) {
+                if (localStorage.getItem('userLanguage') === event.data.lang) {
+                    return;
+                }
                 console.log('[Translate] Received language change from iframe:', event.data.lang);
                 localStorage.setItem('userLanguage', event.data.lang);
                 translate.changeLanguage(event.data.lang);

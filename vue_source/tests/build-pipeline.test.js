@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const { createManifest } = require('../manifest');
 
 const sourceDir = path.join(__dirname, '..');
@@ -42,6 +43,10 @@ assert.strictEqual(
 );
 assert(indexSource.includes('v-if="activeNewbieCompletion"'));
 assert(indexSource.includes('@click="continueNewbieGuide"'));
+assert(!indexSource.includes('translate.autoDiscriminateLocalLanguage();'));
+assert(!indexSource.includes('translate.changeLanguage(savedLang);'));
+assert(indexSource.includes("translate.storage.set('to', savedLang)"));
+assert(indexSource.includes("translate.storage.set('to', '')"));
 
 const appSource = read('vue_source/js/app.js');
 const cssSource = read('vue_source/css/app.css');
@@ -111,5 +116,98 @@ assert.strictEqual(manifest.id, './');
 assert.strictEqual(manifest.start_url, './');
 assert.strictEqual(manifest.scope, './');
 assert.strictEqual(manifest.icons[0].src, 'favicon.ico');
+
+const inlineScripts = Array.from(indexSource.matchAll(/<script>([\s\S]*?)<\/script>/g));
+const translateBootstrap = inlineScripts
+  .map(match => match[1])
+  .find(script => script.includes('Restored language without reload'));
+assert(translateBootstrap, 'translation bootstrap script should exist');
+
+function runTranslationBootstrap(userLanguage, storedTarget) {
+  const values = new Map();
+  if (userLanguage) values.set('userLanguage', userLanguage);
+  if (storedTarget) values.set('to', storedTarget);
+  let reloadCalls = 0;
+  let autoDetectCalls = 0;
+  let executeCalls = 0;
+  const vueInstance = { selectedLanguage: '' };
+  const translate = {
+    to: storedTarget || '',
+    service: { use() {} },
+    language: { setLocal() {} },
+    storage: {
+      get(key) {
+        return values.get(key) || '';
+      },
+      set(key, value) {
+        values.set(key, value);
+      }
+    },
+    execute() {
+      executeCalls += 1;
+    },
+    changeLanguage() {
+      reloadCalls += 1;
+    },
+    autoDiscriminateLocalLanguage() {
+      autoDetectCalls += 1;
+    }
+  };
+  vm.runInNewContext(translateBootstrap, {
+    console: { log() {}, error() {} },
+    document: {
+      querySelector() {
+        return null;
+      },
+      getElementById() {
+        return null;
+      }
+    },
+    localStorage: {
+      getItem(key) {
+        return values.get(key) || null;
+      },
+      setItem(key, value) {
+        values.set(key, value);
+      }
+    },
+    translate,
+    window: {
+      vueInstance,
+      addEventListener() {}
+    }
+  });
+  return {
+    autoDetectCalls,
+    executeCalls,
+    reloadCalls,
+    selectedLanguage: vueInstance.selectedLanguage,
+    storedLanguage: values.get('userLanguage'),
+    storedTarget: values.get('to'),
+    target: translate.to
+  };
+}
+
+const restoredEnglish = runTranslationBootstrap('english', 'english');
+assert.deepStrictEqual(restoredEnglish, {
+  autoDetectCalls: 0,
+  executeCalls: 1,
+  reloadCalls: 0,
+  selectedLanguage: 'english',
+  storedLanguage: 'english',
+  storedTarget: 'english',
+  target: 'english'
+});
+
+const firstMobileVisit = runTranslationBootstrap(null, 'english');
+assert.deepStrictEqual(firstMobileVisit, {
+  autoDetectCalls: 0,
+  executeCalls: 1,
+  reloadCalls: 0,
+  selectedLanguage: 'chinese_simplified',
+  storedLanguage: 'chinese_simplified',
+  storedTarget: '',
+  target: ''
+});
 
 console.log('✓ Vue build pipeline contract passed');
