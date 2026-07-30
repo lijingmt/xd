@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ============================================
 # xiand Docker 镜像构建脚本
@@ -14,39 +14,25 @@
 #   IS_PRIVATE_REPO     - 是否为私有仓库（true/false，默认：false）
 #   DOCKER_HUB_TAG      - 自定义镜像标签
 #   SKIP_PUSH           - 跳过推送，仅构建本地镜像
+#   BUILD_FRONTEND_ONLY - 仅测试、构建并校验前端，不构建 Docker 镜像
 #
 # 使用示例：
 #   ./rebuild-image.sh                                    # 使用默认配置
 #   IS_PRIVATE_REPO=true ./rebuild-image.sh              # 推送到私有仓库
 #   DOCKER_TOKEN=xxx IS_PRIVATE_REPO=true ./rebuild-image.sh
 #   SKIP_PUSH=1 ./rebuild-image.sh                       # 仅构建，不推送
+#   BUILD_FRONTEND_ONLY=1 ./rebuild-image.sh             # 仅构建前端
 #
 # 注意：GAME_AREA 环境变量在运行时指定，
 #       构建镜像时无需关心游戏区号
 # ============================================
 
-set -e
+set -euo pipefail
 
 # ============================================
 # 配置参数
 # ============================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# ============================================
-# 构建 Vue 前端
-# ============================================
-echo "========================================"
-echo "正在构建 Vue 前端..."
-echo "========================================"
-cd "$SCRIPT_DIR/vue_source" && node build.js
-if [ $? -eq 0 ]; then
-    echo "✓ Vue 前端构建成功！"
-else
-    echo "✗ Vue 前端构建失败！"
-    exit 1
-fi
-cd "$SCRIPT_DIR"
-echo ""
 
 # 自动定位项目根目录
 PROJECT_ROOT="$SCRIPT_DIR"
@@ -58,6 +44,7 @@ fi
 
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 DOCKERFILE="$PROJECT_ROOT/docker/Dockerfile.all"
+VUE_BUILD_SCRIPT="$PROJECT_ROOT/scripts/build/build_vue_frontend.sh"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -83,11 +70,21 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# 函数：测试、构建并验证 Vue 前端产物
+build_vue_frontend() {
+    if [ ! -x "$VUE_BUILD_SCRIPT" ]; then
+        print_error "Vue 构建脚本不可执行：$VUE_BUILD_SCRIPT"
+        exit 1
+    fi
+    "$VUE_BUILD_SCRIPT"
+    print_success "Vue 前端已构建并同步到 web/web_vue"
+}
+
 # 函数：检查必要的命令
 check_commands() {
     local commands=("docker" "git")
     for cmd in "${commands[@]}"; do
-        if ! command -v $cmd &> /dev/null; then
+        if ! command -v "$cmd" &> /dev/null; then
             print_error "$cmd 命令未找到，请先安装"
             exit 1
         fi
@@ -97,7 +94,7 @@ check_commands() {
 # 函数：从 Docker 配置获取用户名
 get_docker_username() {
     # 如果已通过环境变量指定，直接使用
-    if [ -n "$DOCKER_USER" ]; then
+    if [ -n "${DOCKER_USER:-}" ]; then
         echo "$DOCKER_USER"
         return 0
     fi
@@ -233,6 +230,7 @@ main() {
     echo "  DOCKER_TOKEN=token          指定 Personal Access Token"
     echo "  IS_PRIVATE_REPO=false       推送到公开仓库（默认为私有）"
     echo "  SKIP_PUSH=1                 跳过 Docker Hub 推送，仅构建本地镜像"
+    echo "  BUILD_FRONTEND_ONLY=1       仅测试、构建并校验 Vue 前端"
     echo ""
     echo "使用示例："
     echo "  # 私有仓库（默认）"
@@ -244,11 +242,22 @@ main() {
     echo "  # 仅构建，不推送"
     echo "  SKIP_PUSH=1 ./rebuild-image.sh"
     echo ""
+    echo "  # 仅测试、构建并校验前端"
+    echo "  BUILD_FRONTEND_ONLY=1 ./rebuild-image.sh"
+    echo ""
     echo "注意："
     echo "  - 镜像构建完全不依赖 GAME_AREA"
     echo "  - GAME_AREA 在运行时通过环境变量指定"
     echo "  - 构建一次，可用于任意游戏区号"
     echo ""
+
+    # Docker 构建前必须先生成并验证最新 Vue 产物
+    build_vue_frontend
+
+    if [ "${BUILD_FRONTEND_ONLY:-0}" = "1" ]; then
+        print_success "Vue 前端验证完成，按配置跳过 Docker 镜像构建"
+        return 0
+    fi
 
     # 检查必要命令
     check_commands

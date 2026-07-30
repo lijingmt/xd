@@ -1,16 +1,18 @@
 {
+  "id": "./",
   "name": "仙道",
   "short_name": "仙道",
-  "version": "v1781782356255",
-  "start_url": "/",
+  "version": "v1785373827306",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#667eea",
   "icons": [
     {
-      "src": "/icon.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
     }
   ]
 }

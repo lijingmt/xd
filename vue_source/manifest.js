@@ -1,0 +1,20 @@
+function createManifest(version) {
+  return {
+    id: './',
+    name: '仙道',
+    short_name: '仙道',
+    version,
+    start_url: './',
+    scope: './',
+    display: 'standalone',
+    background_color: '#1a1a2e',
+    theme_color: '#667eea',
+    icons: [{
+      src: 'favicon.ico',
+      sizes: 'any',
+      type: 'image/x-icon'
+    }]
+  };
+}
+
+module.exports = { createManifest };

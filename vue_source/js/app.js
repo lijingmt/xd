@@ -2688,4 +2688,3 @@ window.handleChatLinkClick = function(element) {
         window.vueInstance.sendQuickCommand(command);
     }
 };
-

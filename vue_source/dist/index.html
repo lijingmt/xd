@@ -2,17 +2,27 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>天下AI网游 - Vue版</title>
-    <link rel="stylesheet" href="css/app.css">
-    <link rel="stylesheet" href="css/realm.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>仙道</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/app.css?v=v1785373827306">
+    <link rel="stylesheet" href="css/realm.css?v=v1785373827306">
 </head>
 <body>
     <div id="app">
         <!-- 登录弹窗 -->
         <div class="modal-overlay" v-if="showLogin">
             <div class="modal">
-                <h2>账号登录</h2>
+                <h2 class="modal-title">⚔️ 仙道</h2>
+                <div class="form-group">
+                    <label>分区</label>
+                    <select v-model="loginForm.partition" class="form-select" :disabled="partitionsLoading">
+                        <option v-for="p in partitions" :key="p.value" :value="p.value">
+                            {{ p.label }}
+                        </option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>账号</label>
                     <input type="text" v-model="loginForm.userid" placeholder="输入账号">
@@ -22,87 +32,630 @@
                     <input type="password" v-model="loginForm.password" placeholder="输入密码">
                 </div>
                 <button class="btn btn-primary btn-block" @click="doLogin">
-                    {{ isLoggingIn ? '登录中...' : '登录' }}
+                    <span v-if="!isLoggingIn">🎮 登录游戏</span>
+                    <span v-else class="loading">登录中...</span>
                 </button>
-                <div v-if="loginError" class="message message-error" style="margin-top:15px">
+                <div style="margin-top: 12px; text-align: center;">
+                    <button class="btn" style="padding: 6px 12px; background: var(--bg-card-light); color: var(--text-primary); border: 1px solid var(--border);" @click="toggleTheme">
+                        {{ theme === 'classic' ? '🌙 暗色模式' : (theme === 'dark' ? '☀️ 浅色模式' : '🏜️ 经典模式') }}
+                    </button>
+                </div>
+                <div v-if="loginError" class="message message-error" style="margin-top:12px">
                     {{ loginError }}
                 </div>
+                <div class="register-link" style="margin-top:16px;text-align:center">
+                    <a @click="openRegister" style="color:#667eea;cursor:pointer">还没有账号？点击注册</a>
+                </div>
+                <div style="margin-top:12px;text-align:center">
+                    <a @click="goToSelection" style="color:#999;cursor:pointer;font-size:13px">← 返回新旧界面选择</a>
+                </div>
             </div>
         </div>
 
-        <!-- 顶部状态栏 -->
-        <header class="game-header" v-if="!showLogin">
-            <div class="player-info">
-                <div class="player-main">
-                    <div class="player-name">{{ state.player?.name || '加载中...' }}</div>
-                    <div class="player-level">Lv.{{ state.player?.level || 0 }}</div>
+        <!-- 注册弹窗 -->
+        <div class="modal-overlay" v-if="showRegister">
+            <div class="modal">
+                <h2 class="modal-title">✨ 新账号注册</h2>
+                <div class="form-group">
+                    <label>分区</label>
+                    <select v-model="registerForm.partition" class="form-select" :disabled="partitionsLoading">
+                        <option v-for="p in partitions" :key="p.value" :value="p.value">
+                            {{ p.label }}
+                        </option>
+                    </select>
                 </div>
-            </div>
-
-            <div class="status-bars" v-if="state.player">
-                <div class="status-bar">
-                    <div class="bar-label">HP</div>
-                    <div class="bar-track">
-                        <div class="bar-fill hp-bar" :style="{width: (state.player.hpPercent || 0) + '%'}"></div>
+                <div class="form-group">
+                    <label>账号</label>
+                    <input type="text" v-model="registerForm.userid" placeholder="2-12位英文或数字" maxlength="12">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" v-model="registerForm.password" placeholder="2-12位英文或数字" maxlength="12">
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" v-model="registerForm.passwordConfirm" placeholder="请再次输入密码" maxlength="12">
+                </div>
+                <div class="form-group">
+                    <label>验证码</label>
+                    <div class="captcha-group">
+                        <input type="text" v-model="registerForm.captcha" placeholder="输入验证码" maxlength="4" class="form-control" style="flex:1">
+                        <div class="captcha-display" @click="refreshCaptcha" style="flex:0 0 80px;height:40px;background:#667eea;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;cursor:pointer;">
+                            {{ captchaCode }}
+                        </div>
                     </div>
-                    <div class="bar-value">{{ state.player.hp || 0 }}/{{ state.player.hpMax || 0 }}</div>
                 </div>
-                <div class="status-bar">
-                    <div class="bar-label">MP</div>
-                    <div class="bar-track">
-                        <div class="bar-fill mp-bar" :style="{width: (state.player.mpPercent || 0) + '%'}"></div>
-                    </div>
-                    <div class="bar-value">{{ state.player.mp || 0 }}/{{ state.player.mpMax || 0 }}</div>
+                <button class="btn btn-primary btn-block" @click="doRegister">
+                    <span v-if="!isRegistering">📝 立即注册</span>
+                    <span v-else class="loading">注册中...</span>
+                </button>
+                <div style="margin-top: 12px; text-align: center;">
+                    <button class="btn" style="padding: 6px 12px; background: var(--bg-card-light); color: var(--text-primary); border: 1px solid var(--border);" @click="toggleTheme">
+                        {{ theme === 'classic' ? '🌙 暗色模式' : (theme === 'dark' ? '☀️ 浅色模式' : '🏜️ 经典模式') }}
+                    </button>
+                </div>
+                <div v-if="registerError" class="message message-error" style="margin-top:12px">
+                    {{ registerError }}
+                </div>
+                <div v-if="registerSuccess" class="message message-success" style="margin-top:12px">
+                    ✅ 注册成功！请返回登录
+                </div>
+                <div class="register-link" style="margin-top:16px;text-align:center">
+                    <a @click="closeRegister" style="color:#667eea;cursor:pointer">← 返回登录</a>
+                </div>
+                <div style="margin-top:12px;text-align:center">
+                    <a @click="goToSelection" style="color:#999;cursor:pointer;font-size:13px">🔄 返回新旧界面选择</a>
                 </div>
             </div>
-        </header>
-
-        <!-- 主内容区 -->
-        <main class="game-content" ref="messageContainer" v-if="!showLogin">
-            <div v-for="msg in state.messages" :key="msg.id"
-                 :class="['message', 'message-' + msg.type]">
-                <span class="message-text">{{ msg.text }}</span>
-            </div>
-        </main>
-
-        <!-- 操作按钮区 -->
-        <section class="game-actions" v-if="!showLogin && state.actions?.length">
-            <button v-for="action in state.actions" :key="action.id"
-                    class="btn btn-action"
-                    :class="'btn-' + (action.style || 'default')"
-                    @click="sendCommand(action.command)">
-                {{ action.label }}
-            </button>
-        </section>
-
-        <!-- 方向导航 -->
-        <nav class="game-navigation" v-if="!showLogin && state.navigation?.exits">
-            <button v-for="exit in state.navigation.exits" :key="exit.direction"
-                    class="nav-btn" @click="sendCommand(exit.command)">
-                <span class="nav-icon">{{ getNavIcon(exit.label) }}</span>
-                <span class="nav-label">{{ exit.label }}</span>
-            </button>
-        </nav>
-
-        <!-- 命令输入区 -->
-        <footer class="game-input" v-if="!showLogin">
-            <input type="text" class="cmd-input" v-model="inputCommand"
-                   @keyup.enter="sendCommand(inputCommand)"
-                   placeholder="输入命令..." :disabled="isLoading"
-                   ref="cmdInput">
-            <button class="send-btn" @click="sendCommand(inputCommand)" :disabled="isLoading">
-                发送
-            </button>
-        </footer>
-
-        <!-- 连接状态 -->
-        <div class="connection-status" :class="{connected: !showLogin, disconnected: showLogin}">
-            <span class="status-dot"></span>
-            {{ connectionStatus }}
         </div>
+
+        <!-- 游戏主界面 - 使用iframe显示原始HTML -->
+        <template v-if="!showLogin">
+            <!-- 顶部状态栏 -->
+            <header class="game-header">
+                <div class="player-info">
+                    <div class="player-info-line">
+                        <span class="player-fullid">{{ loginForm.userid }}</span>
+                        <span class="divider">·</span>
+                        <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
+                        <span class="divider" v-if="playerStats && playerStats.name_cn">·</span>
+                        <span class="server-info">{{ areaName }}</span>
+                    </div>
+                    <!-- 玩家状态信息 - 血槽显示 -->
+                    <div class="player-stats" v-if="playerStats">
+                        <div class="stat-bar">
+                            <span class="stat-label">生命</span>
+                            <div class="bar-container">
+                                <div class="bar-fill hp-bar" :style="{ width: (playerStats.hp / playerStats.hp_max * 100) + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="stat-bar">
+                            <span class="stat-label">法力</span>
+                            <div class="bar-container">
+                                <div class="bar-fill mana-bar" :style="{ width: (playerStats.mana / playerStats.mana_max * 100) + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="stat-bar">
+                            <span class="stat-label">精力</span>
+                            <div class="bar-container">
+                                <div class="bar-fill energy-bar" :style="{ width: Math.min(100, playerStats.energy) + '%' }"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 经验进度条 - 横跨整个宽度 -->
+                    <div class="exp-progress-bar" v-if="playerStats && playerStats.exp_need">
+                        <span class="exp-level-left">Lv.{{ playerStats.level }}</span>
+                        <div class="exp-bar-track">
+                            <div class="exp-bar-fill" :style="{ width: Math.min(100, (playerStats.exp / playerStats.exp_need * 100)) + '%' }"></div>
+                        </div>
+                        <span class="exp-level-right">Lv.{{ playerStats.level + 1 }}</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <!-- 菜单按钮 -->
+                    <div class="header-menu-container">
+                        <button class="header-btn menu-btn" @click="toggleHeaderMenu" :class="{ active: headerMenuOpen }" title="菜单">
+                            ☰
+                        </button>
+                        <!-- 弹出菜单 -->
+                        <div class="header-dropdown-menu" v-if="headerMenuOpen">
+                            <div class="menu-item" @click="toggleTheme(); headerMenuOpen = false;">
+                                <span class="menu-icon">{{ theme === 'classic' ? '🌙' : (theme === 'dark' ? '☀️' : '🏜️') }}</span>
+                                <span>{{ theme === 'classic' ? '暗色模式' : (theme === 'dark' ? '浅色模式' : '经典模式') }}</span>
+                            </div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-item language-item">
+                                <span class="menu-icon">🌐</span>
+                                <select id="vueLanguageSelect" v-model="selectedLanguage" @change="changeLanguage($event)" class="menu-select">
+                                    <option value="chinese_simplified">简体中文</option>
+                                    <option value="chinese_traditional">繁體中文</option>
+                                    <option value="english">English</option>
+                                    <option value="japanese">日本語</option>
+                                    <option value="korean">한국어</option>
+                                    <option value="french">Français</option>
+                                    <option value="german">Deutsch</option>
+                                    <option value="spanish">Español</option>
+                                    <option value="russian">Русский</option>
+                                    <option value="portuguese">Português</option>
+                                </select>
+                            </div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">
+                                <span class="menu-icon">🔃</span>
+                                <span>刷新</span>
+                            </div>
+                            <div class="menu-item" @click="showChatModal(); headerMenuOpen = false;">
+                                <span class="menu-icon">💬</span>
+                                <span>聊天</span>
+                            </div>
+                            <div class="menu-item" @click="goToSelection(); headerMenuOpen = false;">
+                                <span class="menu-icon">🔄</span>
+                                <span>返回选择</span>
+                            </div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-item" @click="copyBookmarkUrl(); headerMenuOpen = false;">
+                                <span class="menu-icon">🔗</span>
+                                <span>复制登录链接</span>
+                            </div>
+                            <div class="menu-item menu-danger" @click="doLogout(); headerMenuOpen = false;">
+                                <span class="menu-icon">🚪</span>
+                                <span>退出</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
+            <main class="game-frame-container">
+                <!-- JSON模式: Vue直接渲染MUD输出 -->
+                <div v-if="useJsonMode" class="mud-output-container" :class="{ 'dark-mode': theme === 'dark' }">
+                    <div class="mud-parent" v-if="!mudLoading">
+                        <div class="mud-child">
+                            <div v-for="(line, index) in mudLines" :key="index" class="mud-line">
+                                <!-- 空行 -->
+                                <br v-if="line.type === 'empty'">
+                                <!-- 内容行 -->
+                                <template v-else-if="line.type === 'line'">
+                                    <template v-for="(segment, segIndex) in line.segments" :key="segIndex">
+                                        <!-- 文本段落 -->
+                                        <span v-if="segment.type === 'text'" class="mud-text" v-html="renderTextParts(segment.parts)"></span>
+                                        <!-- 图片 [imgurl picture:/images/...] -->
+                                        <img v-else-if="segment.type === 'image'"
+                                             :src="getImageUrl(segment.src)"
+                                             class="mud-inline-image"
+                                             :alt="segment.alt || '图片'"
+                                             onerror="this.style.display='none'">
+                                        <!-- 按钮 -->
+                                        <a v-else-if="segment.type === 'button'"
+                                           :href="htmlMode ? getDirectUrl(segment.cmd) : '#'"
+                                           @click.prevent="!htmlMode && sendJsonCommand(segment.cmd)"
+                                           :class="segment.class"
+                                           class="mud-btn"
+                                           v-html="segment.label"></a>
+                                        <!-- 输入框 -->
+                                        <span v-else-if="segment.type === 'input'" class="mud-input-group">
+                                            <input :type="segment.isPassword ? 'password' : 'text'"
+                                                   :name="segment.name"
+                                                   :placeholder="segment.default || ('请输入' + segment.name)"
+                                                   :style="segment.width ? 'width:' + segment.width : ''"
+                                                   @keyup.enter="submitInput(segment.name, $event)"
+                                                   class="mud-input"
+                                                   :ref="'input-' + segment.name">
+                                            <!-- 不在表单中的输入框显示确定按钮 -->
+                                            <a v-if="!segment.inForm"
+                                               href="#"
+                                               @click.prevent="submitInput(segment.name, $event)"
+                                               class="mud-btn mud-confirm-btn">确定</a>
+                                        </span>
+                                        <!-- 表单提交按钮 (多个输入框共用一个确定按钮) -->
+                                        <a v-else-if="segment.type === 'form-submit'"
+                                           href="#"
+                                           @click.prevent="submitForm(segment)"
+                                           :class="segment.class"
+                                           class="mud-btn mud-form-submit-btn">{{ segment.label }}</a>
+                                        <!-- 命令输入框 -->
+                                        <span v-else-if="segment.type === 'cmd-input'" class="mud-cmd-input">
+                                            <input type="text"
+                                                   :placeholder="'输入' + segment.cmd + '的参数'"
+                                                   @keyup.enter="submitCmdInput(segment.cmd, $event)"
+                                                   class="mud-input">
+                                            <a href="#"
+                                               @click.prevent="submitCmdInput(segment.cmd, $event)"
+                                               class="mud-btn mud-confirm-btn">确定</a>
+                                        </span>
+                                        <!-- URL链接 -->
+                                        <a v-else-if="segment.type === 'url-link'"
+                                           :href="segment.url"
+                                           target="_top"
+                                           class="mud-btn mud-url">{{ segment.text }}</a>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="mud-loading">
+                        <div class="spinner"></div>
+                        <div>加载中...</div>
+                        <div v-if="slowLoadingTip" class="slow-loading-tip">数据量较大，请耐心等待...</div>
+                    </div>
+                </div>
+
+                <!-- iframe模式: 显示原始HTML -->
+                <iframe
+                    v-else
+                    ref="gameFrame"
+                    :src="gameFrameUrl"
+                    class="game-frame"
+                    @load="onFrameLoad"
+                    sandbox="allow-same-origin allow-scripts allow-forms">
+                </iframe>
+                <div v-if="!useJsonMode && frameLoading" class="frame-loading">
+                    <div class="spinner"></div>
+                    <div>加载中...</div>
+                </div>
+            </main>
+
+            <!-- 战斗面板 (JSON模式专用) -->
+            <div v-if="useJsonMode && isInBattle" class="battle-panel" :class="{ 'mini-mode': !battleFullscreen, 'fullscreen-mode': battleFullscreen }">
+                <!-- 迷你模式: 只显示HP条和内力条 -->
+                <div v-if="!battleFullscreen" class="battle-mini">
+                    <div class="battle-side player-side">
+                        <span class="battle-name">{{ playerStats?.name_cn || loginForm.userid }}</span>
+                        <div class="hp-bar-container">
+                            <div class="hp-bar-fill player-hp" :style="{ width: playerStats ? (playerStats.hp / playerStats.hp_max * 100) + '%' : '0%' }"></div>
+                        </div>
+                        <span class="hp-text">{{ playerStats?.hp || 0 }}/{{ playerStats?.hp_max || 0 }}</span>
+                        <!-- 内力条 -->
+                        <div class="neili-bar-container">
+                            <div class="neili-bar-fill player-neili" :style="{ width: playerStats ? (playerStats.neili / playerStats.neili_max * 100) + '%' : '0%' }"></div>
+                        </div>
+                        <span class="neili-text">{{ playerStats?.neili || 0 }}/{{ playerStats?.neili_max || 0 }}</span>
+                    </div>
+                    <div class="battle-vs">⚔️</div>
+                    <div class="battle-side enemy-side">
+                        <span class="battle-name">{{ battleEnemy?.name || '敌人' }}</span>
+                        <div class="hp-bar-container">
+                            <div class="hp-bar-fill enemy-hp" :style="{ width: battleEnemy && battleEnemy.hpMax ? (battleEnemy.hp / battleEnemy.hpMax * 100) + '%' : '100%' }"></div>
+                        </div>
+                        <span class="hp-text">{{ battleEnemy?.hp ?? '?' }}/{{ battleEnemy?.hpMax ?? '?' }}</span>
+                    </div>
+                    <!-- 展开到全屏按钮 -->
+                    <button class="battle-toggle-btn" @click="toggleBattleFullscreen" title="展开战斗面板">☰</button>
+                </div>
+
+                <!-- 全屏模式: 上下布局显示敌我双方 -->
+                <div v-if="battleFullscreen" class="battle-full">
+                    <div class="battle-header">
+                        <h4>⚔️ 战斗中</h4>
+                        <div class="battle-controls">
+                            <button class="battle-control-btn" @click="toggleBattleLog" :class="{ active: battleShowLog }" title="战斗日志">📜</button>
+                            <button class="battle-control-btn" @click="toggleBattleFullscreen" title="迷你模式">━</button>
+                        </div>
+                    </div>
+
+                    <!-- 双方状态 - 上下布局 -->
+                    <div class="battle-combatants-vertical">
+                        <!-- 敌人（上方） -->
+                        <div class="combatant-vertical enemy-combatant" :class="{ 'damage-flash': hasDamageAnimation('enemy') }">
+                            <div class="combatant-row">
+                                <div class="combatant-row-left">
+                                    <span class="combatant-avatar">{{ battleEnemy?.is_npc ? '👹' : '⚔️' }}</span>
+                                    <span class="combatant-name enemy-name">{{ battleEnemy?.name || '敌人' }}</span>
+                                </div>
+                                <span class="hp-text-small">{{ battleEnemy?.hp ?? '?' }}/{{ battleEnemy?.hpMax ?? '?' }}</span>
+                            </div>
+                            <div class="hp-bar-wrapper-vertical">
+                                <div class="hp-bar-track-vertical">
+                                    <div class="hp-bar-fill enemy-hp" :style="{ width: battleEnemy && battleEnemy.hpMax ? (battleEnemy.hp / battleEnemy.hpMax * 100) + '%' : '100%' }"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 战斗VS标志 + 武侠技能动画层 -->
+                        <div class="battle-center-area">
+                            <div class="battle-vs-vertical">⚔️</div>
+                            <!-- 武侠技能动画 -->
+                            <div class="skill-effect-container" v-for="skill in skillAnimations" :key="skill.id">
+                                <div :class="getSkillAnimationClass(skill.type)">
+                                    <span :class="getSkillIconClass(skill.type)">{{ getSkillIcon(skill.type) }}</span>
+                                </div>
+                            </div>
+                            <!-- 伤害数字动画 -->
+                            <div class="battle-animation-layer">
+                                <div v-for="anim in battleAnimations" :key="anim.id" class="battle-animation" :class="getAnimationClass(anim)">
+                                    <span class="animation-value" :class="{ 'critical': anim.isCritical }">
+                                        {{ anim.type === 'heal' ? '+' : '-' }}{{ anim.value }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 玩家（下方） -->
+                        <div class="combatant-vertical player-combatant" :class="{ 'damage-flash': hasDamageAnimation('player') }">
+                            <div class="combatant-row">
+                                <div class="combatant-row-left">
+                                    <span class="combatant-avatar">👤</span>
+                                    <span class="combatant-name player-name">{{ playerStats?.name_cn || loginForm.userid }}</span>
+                                </div>
+                                <span class="hp-text-small">{{ playerStats?.hp || 0 }}/{{ playerStats?.hp_max || 0 }}</span>
+                            </div>
+                            <div class="hp-bar-wrapper-vertical">
+                                <div class="hp-bar-track-vertical">
+                                    <div class="hp-bar-fill player-hp" :style="{ width: playerStats ? (playerStats.hp / playerStats.hp_max * 100) + '%' : '0%' }"></div>
+                                </div>
+                            </div>
+                            <!-- 内力条 -->
+                            <div class="neili-bar-wrapper-vertical">
+                                <div class="neili-bar-track-vertical">
+                                    <div class="neili-bar-fill player-neili" :style="{ width: playerStats ? (playerStats.neili / playerStats.neili_max * 100) + '%' : '0%' }"></div>
+                                </div>
+                            </div>
+                            <div class="combatant-stats" v-if="battlePlayerFull" style="margin-top: 6px;">
+                                <span class="stat-item">精神: {{ battlePlayerFull.spirit || 0 }}/{{ battlePlayerFull.spirit_max || 0 }}</span>
+                                <span class="stat-item">潜能: {{ battlePlayerFull.potential || 0 }}/{{ battlePlayerFull.potential_max || 0 }}</span>
+                                <span class="stat-item">内力: {{ battlePlayerFull.neili || 0 }}/{{ battlePlayerFull.neili_max || 0 }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 战斗操作按钮 (全屏模式显示) -->
+                    <div class="battle-actions" v-if="battleFullscreen && !showPerformsList">
+                        <button class="battle-action-btn" @click="sendJsonCommand('attack')">
+                            ⚔️ 察看战况
+                        </button>
+                        <button class="battle-action-btn" @click="openPerformsList">
+                            ✨ 特殊攻击
+                        </button>
+                        <button class="battle-action-btn warning" @click="sendJsonCommand('surrender')">
+                            🏳️ 投降
+                        </button>
+                        <button class="battle-action-btn danger" @click="sendJsonCommand('escape')">
+                            🏃 逃跑
+                        </button>
+                    </div>
+
+                    <!-- 招式列表 (全屏模式显示) -->
+                    <div class="battle-actions" v-if="battleFullscreen && showPerformsList">
+                        <div class="performs-header">
+                            <button class="battle-action-btn back-btn" @click="closePerformsList">
+                                ← 返回
+                            </button>
+                            <span class="performs-title">{{ performsData?.skill_name_cn || '招式列表' }}</span>
+                            <span class="performs-subtitle">Lv.{{ performsData?.skill_level || 0 }}</span>
+                        </div>
+                        <div class="performs-list" v-if="performsData?.performs?.length > 0">
+                            <button
+                                v-for="perform in performsData.performs"
+                                :key="perform.id"
+                                class="perform-item"
+                                :class="{ 'disabled': !perform.available || !perform.enough_neili }"
+                                @click="selectPerform(perform)"
+                            >
+                                <span class="perform-name">{{ perform.name_cn }}</span>
+                                <span class="perform-cost" v-if="perform.neili_cost > 0">
+                                    ⚡ {{ perform.neili_cost }}
+                                </span>
+                                <span class="perform-req" v-if="perform.level_req > 0">
+                                    需Lv.{{ perform.level_req }}
+                                </span>
+                            </button>
+                        </div>
+                        <div class="performs-empty" v-else>
+                            {{ performsData?.message || '暂无可用招式' }}
+                        </div>
+                    </div>
+
+                    <!-- 战斗日志 -->
+                    <div v-if="battleShowLog" class="battle-log-panel">
+                        <div class="battle-log-header">
+                            <span>战斗日志</span>
+                            <button class="battle-log-clear" @click="clearBattleLog">清空</button>
+                        </div>
+                        <div class="battle-log-list">
+                            <div v-for="(log, index) in battleLog" :key="index" class="battle-log-item" :class="'log-' + log.type">
+                                <span class="log-time">{{ log.timestamp }}</span>
+                                <span class="log-message">{{ log.message }}</span>
+                            </div>
+                            <div v-if="battleLog.length === 0" class="battle-log-empty">暂无战斗记录</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </main>
+
+            <!-- 命令输入弹窗 -->
+            <div class="modal-overlay" v-if="showCommandInput" @click.self="showCommandInput = false">
+                <div class="modal command-modal">
+                    <h3>发送命令</h3>
+                    <input
+                        type="text"
+                        v-model="commandInput"
+                        @keyup.enter="sendCommand"
+                        placeholder="输入命令..."
+                        class="command-input"
+                        ref="commandInputRef"
+                    >
+                    <div class="command-buttons">
+                        <button class="btn btn-secondary" @click="showCommandInput = false">取消</button>
+                        <button class="btn btn-primary" @click="sendCommand">发送</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天室视图 -->
+            <div class="modal-overlay" v-if="showChatRoom" @click.self="closeChatRoom">
+                <div class="chat-room">
+                    <div class="chat-room-header">
+                        <h3>💬 公共聊天室</h3>
+                        <button class="chat-close-btn" @click="closeChatRoom">✕</button>
+                    </div>
+                    <div class="chat-messages" ref="chatMessagesContainer">
+                        <div v-if="chatMessages.length === 0" class="chat-empty">暂无消息</div>
+                        <div v-for="(msg, index) in chatMessages" :key="index" class="chat-message" v-html="parseChatLinks(msg)">
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input
+                            type="text"
+                            v-model="chatInput"
+                            @keyup.enter="sendChat"
+                            placeholder="输入消息..."
+                            class="chat-input"
+                            ref="chatInputRef"
+                        >
+                        <button class="btn btn-primary chat-send-btn" @click="sendChat">发送</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 邀请好友弹窗 -->
+            <div class="modal-overlay" v-if="showInviteModal" @click.self="closeInviteModal">
+                <div class="invite-modal">
+                    <div class="invite-modal-header">
+                        <h3>👥 邀请好友</h3>
+                        <button class="chat-close-btn" @click="closeInviteModal">✕</button>
+                    </div>
+                    <div class="invite-modal-body">
+                        <p class="invite-desc">通过邀请链接注册的玩家充值后，您将获得天下点奖励！</p>
+
+                        <div class="invite-section">
+                            <label class="invite-label">您的邀请码：</label>
+                            <div class="invite-code-box">
+                                <span class="invite-code-text">{{ inviteCode || username }}</span>
+                                <button class="copy-btn" @click="copyInviteCode">复制</button>
+                            </div>
+                        </div>
+
+                        <div class="invite-section">
+                            <label class="invite-label">邀请链接：</label>
+                            <div class="invite-link-box">
+                                <span class="invite-link-text">{{ inviteLink }}</span>
+                                <button class="copy-btn" @click="copyInviteLink">复制</button>
+                            </div>
+                        </div>
+
+                        <div class="invite-qr-section">
+                            <label class="invite-label">扫码邀请：</label>
+                            <div class="qr-code-container">
+                                <img :src="qrCodeUrl" alt="邀请二维码" class="qr-code-img">
+                            </div>
+                        </div>
+
+                        <div class="invite-rules">
+                            <p class="rules-title">🎁 奖励规则</p>
+                            <p>每推荐 <strong>4</strong> 人充值，获得 <strong>5000</strong> 天下点！</p>
+                        </div>
+
+                        <div class="invite-stats">
+                            <button class="stats-btn" @click="viewInviteStats">查看邀请统计</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快捷命令栏 -->
+            <footer class="quick-actions" :class="{ collapsed: quickActionsCollapsed }">
+                <button class="quick-toggle-btn" @click="toggleQuickActions" :title="quickActionsCollapsed ? '展开菜单' : '折叠菜单'">
+                    {{ quickActionsCollapsed ? '▲' : '▼' }}
+                </button>
+                <div class="quick-actions-inner" v-show="!quickActionsCollapsed">
+                    <div class="quick-btn-row">
+                        <button class="quick-btn" @click="sendQuickCommand('look')">🔄 刷新</button>
+                        <button class="quick-btn" @click="sendQuickCommand('myhp')">❤️ 状态</button>
+                        <button class="quick-btn" @click="sendQuickCommand('inventory')">🎒 物品</button>
+                        <button class="quick-btn" @click="sendQuickCommand('myskills')">⚔️ 技能</button>
+                        <button class="quick-btn" @click="sendQuickCommand('map_display')">🗺️ 地图</button>
+                    </div>
+                    <div class="quick-btn-row">
+                        <button class="quick-btn" @click="sendQuickCommand('my_term')">👥 队伍</button>
+                        <button class="quick-btn" @click="sendQuickCommand('yushi_change')">💎 玉石</button>
+                        <button class="quick-btn" @click="sendQuickCommand('mytasks')">📜 任务</button>
+                        <button class="quick-btn" @click="sendQuickCommand('my_bang')">🏰 帮派</button>
+                        <button class="quick-btn" @click="sendQuickCommand('my_games')">🌊 江湖</button>
+                    </div>
+                    <div class="quick-btn-row">
+                        <button class="quick-btn" @click="sendQuickCommand('userlist')">🌀 传送</button>
+                        <button class="quick-btn" @click="sendQuickCommand('yushi_myzone')">🪙 仙玉</button>
+                        <button class="quick-btn" @click="sendQuickCommand('game_detail')">⚙️ 设置</button>
+                        <button class="quick-btn" @click="sendQuickCommand('vip_service_list')">👑 会员</button>
+                    </div>
+                </div>
+            </footer>
+        </template>
     </div>
 
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="js/app.js"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785373827306"></script>
+    <script src="js/app.js?v=v1785373827306"></script>
+    <!-- 翻译插件 - 立即执行初始化 -->
+    <script src="../includes/translate.js?v=v1785373827306"></script>
+    <script>
+    // 翻译初始化
+    translate.service.use('client.edge');
+
+    // 获取用户保存的语言，如果没有则自动检测浏览器语言（仅首次）
+    var savedLang = localStorage.getItem('userLanguage');
+    if (!savedLang) {
+        // 首次访问，自动检测浏览器语言并保存
+        translate.autoDiscriminateLocalLanguage();
+        savedLang = translate.language.getCurrent();
+        localStorage.setItem('userLanguage', savedLang);
+        console.log('[Translate] Auto-detected language:', savedLang);
+    } else {
+        console.log('[Translate] Saved language:', savedLang);
+    }
+
+    // 设置本地语言并执行翻译
+    translate.language.setLocal('chinese_simplified'); // 原文是简体中文
+    translate.execute(); // 首次执行
+
+    // 如果用户选择了其他语言，立即切换
+    if (savedLang && savedLang !== 'chinese_simplified') {
+        setTimeout(function() {
+            console.log('[Translate] Switching to saved language:', savedLang);
+            translate.changeLanguage(savedLang);
+        }, 100);
+    }
+
+    // Vue外层语言切换函数
+    window.changeVueLanguage = function(lang) {
+        console.log('[Translate] changeVueLanguage called with:', lang);
+        if (typeof translate !== 'undefined' && translate.changeLanguage) {
+            // 保存用户选择
+            localStorage.setItem('userLanguage', lang);
+            translate.changeLanguage(lang);
+            // 同步到iframe
+            const iframe = document.querySelector('.game-frame');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({type: 'changeLanguage', lang: lang}, '*');
+            }
+        } else {
+            console.error('[Translate] translate not available');
+        }
+    };
+
+    // 监听iframe的postMessage
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'changeLanguage') {
+            if (typeof translate !== 'undefined' && translate.changeLanguage) {
+                console.log('[Translate] Received language change from iframe:', event.data.lang);
+                localStorage.setItem('userLanguage', event.data.lang);
+                translate.changeLanguage(event.data.lang);
+            }
+        }
+    });
+
+    // 页面加载后，同步语言选择器的值
+    window.addEventListener('load', function() {
+        var savedLang = localStorage.getItem('userLanguage');
+        if (savedLang) {
+            var select = document.getElementById('vueLanguageSelect');
+            if (select) {
+                select.value = savedLang;
+                console.log('[Translate] Set select to:', savedLang);
+            }
+        }
+    });
+    </script>
 </body>
 </html>
