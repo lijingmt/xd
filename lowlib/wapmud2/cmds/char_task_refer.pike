@@ -10,7 +10,7 @@ int main(string arg)
 	sscanf(arg,"%s %d",npcname,taskid);	
 	string s = "";
 	object npc=present(npcname,environment(this_player()));
-	if(taskid&&npc){
+	if(taskid&&npc&&TASKD->is_task_check_npc(taskid,npc)){
 		s += npc->query_name_cn()+"：";
 		s += TASKD->queryTaskPromptWord(taskid)+"\n";
 		s += "任务名："+TASKD->queryTaskName(taskid)+"\n";
@@ -29,7 +29,11 @@ int main(string arg)
 		}
 		else
 			s +="你未完成该任务\n";
-		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	}
+	else
+		s += "这里不能验收该任务，请返回游戏并重新与正确的任务NPC对话。\n";
+	s += "[返回任务列表:mytasks]\n";
+	s += "[返回游戏:look]\n";
+	this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
 }

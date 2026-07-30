@@ -22,7 +22,11 @@ int main(string arg)
 		s += TASKD->queryTaskItem(taskid);
 		
 		s += "[接受任务:task_accept "+arg+"]\n";
-		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	}
+	else
+		s += "任务信息不存在，请返回任务列表后重试。\n";
+	s += "[返回任务列表:mytasks]\n";
+	s += "[返回游戏:look]\n";
+	this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
 }

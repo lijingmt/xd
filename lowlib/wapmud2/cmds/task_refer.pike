@@ -10,7 +10,7 @@ int main(string arg)
 	sscanf(arg,"%s %d",npcname,taskid);
 	object npc = present(npcname,environment(this_player()));
 	string s = "";
-	if(npc){
+	if(npc&&TASKD->is_task_check_npc(taskid,npc)){
 		int canRepeat = TASKD->query_task_isRepeat(taskid);
 		if(!canRepeat && this_player()["/taskd/done"][taskid]){
 			s += "你已经提交过了这个任务\n";
@@ -43,6 +43,13 @@ int main(string arg)
 			write(s);
 			return 3;
 		}
+	}
+	else{
+		s += "这里不能验收该任务，请返回游戏并重新与正确的任务NPC对话。\n";
+		s += "[返回任务列表:mytasks]\n";
+		s += "[返回游戏:look]\n";
+		write(s);
+		return 5;
 	}
 	return 0;
 }

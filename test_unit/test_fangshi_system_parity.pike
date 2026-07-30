@@ -345,10 +345,12 @@ void test_npc_interaction_runtime()
 	   search(fangshi_monst_links,"[对话:ask_npc ")!=-1 &&
 	   search(fangshi_monst_links,"[杀戮:kill ")!=-1 &&
 	   search(human_links,"[对话:ask_npc ")!=-1 &&
-	   search(human_links,"[杀戮:kill ")==-1)
+	   search(human_links,"[杀戮:kill ")==-1 &&
+	   TASKD->is_task_check_npc(11,human_npc)==1 &&
+	   TASKD->is_task_check_npc(1,monst_npc)==1)
 		test_pass();
 	else
-		test_fail("NPC对话/战斗双入口不正确: "+error_desc);
+		test_fail("NPC对话/战斗入口或老职业任务验收NPC不正确: "+error_desc);
 
 	if(human_npc)
 		destruct(human_npc);
@@ -375,9 +377,25 @@ void test_fangshi_profession_tasks_runtime()
 		"/gamelib/clone/item/taskaward/sanlingqiyin");
 	string fangshi_tasks = TASKD->query_npc_taskList(fangshi,teacher);
 	string yushi_tasks = TASKD->query_npc_taskList(yushi,teacher);
+	object original_player = this_player();
+	string teacher_words_before = "";
+	string teacher_words_complete = "";
+	set_this_player(fangshi);
+	teacher_words_before = teacher->query_words();
 	int wrong_profession = TASKD->get_task(yushi,364,teacher);
 	int wrong_npc = TASKD->get_task(fangshi,365,wrong_teacher);
+	int correct_check_npc = TASKD->is_task_check_npc(364,teacher);
+	int wrong_check_npc = TASKD->is_task_check_npc(364,wrong_teacher);
 	int accepted_special = TASKD->get_task(fangshi,364,teacher);
+	fangshi["/taskd/kill"][364]["清云兽"] = 3;
+	fangshi["/taskd/kill"][364]["灵龟"] = 3;
+	fangshi["/taskd/kill"][364]["雷鸟"] = 3;
+	int special_complete = TASKD->isComplete(fangshi,364);
+	teacher_words_complete = teacher->query_words();
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
 	int skipped_chain = TASKD->get_task(fangshi,366);
 	fangshi["/taskd/done"] = ([365:1]);
 	int continued_chain = TASKD->get_task(fangshi,366,teacher);
@@ -394,6 +412,14 @@ void test_fangshi_profession_tasks_runtime()
 	   search(fangshi_tasks,"灵息试炼")!=-1 &&
 	   search(yushi_tasks,"三灵初契")==-1 &&
 	   search(yushi_tasks,"灵息试炼")==-1 &&
+	   search(teacher_words_before,"可领取的任务")!=-1 &&
+	   search(teacher_words_before,"char_task_accept")!=-1 &&
+	   special_complete==1 &&
+	   search(teacher_words_complete,"可提交的任务")!=-1 &&
+	   search(teacher_words_complete,"char_task_refer")!=-1 &&
+	   search(teacher_words_complete,"(完成)")!=-1 &&
+	   correct_check_npc==1 &&
+	   wrong_check_npc==0 &&
 	   wrong_profession==4 &&
 	   wrong_npc==7 &&
 	   accepted_special==1 &&
@@ -436,6 +462,40 @@ void test_fangshi_profession_tasks_runtime()
 		destruct(reward);
 	destroy_player(fangshi);
 	destroy_player(yushi);
+}
+
+void test_task_navigation_fallbacks()
+{
+	test_start("任务详情、提交与NPC离场分支都有明确返回入口");
+	string accept_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/char_task_accept.pike");
+	string refer_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/char_task_refer.pike");
+	string detail_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/view_mytask.pike");
+	string submit_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/task_refer.pike");
+	string list_source = Stdio.read_file(
+		ROOT+"/gamelib/cmds/mytasks.pike");
+	string history_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/viewTaskHistory.pike");
+	string task_accept_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/task_accept.pike");
+
+	if(accept_source && refer_source && detail_source && submit_source &&
+	   list_source && history_source && task_accept_source &&
+	   search(accept_source,"[返回任务列表:mytasks]")!=-1 &&
+	   search(refer_source,"[返回任务列表:mytasks]")!=-1 &&
+	   search(detail_source,"[返回任务列表:mytasks]")!=-1 &&
+	   search(submit_source,"[返回任务列表:mytasks]")!=-1 &&
+	   search(list_source,"[返回游戏:look]")!=-1 &&
+	   search(history_source,"[返回任务列表:mytasks]")!=-1 &&
+	   search(task_accept_source,"[返回任务列表:mytasks]")!=-1 &&
+	   search(refer_source,"这里不能验收该任务")!=-1 &&
+	   search(submit_source,"这里不能验收该任务")!=-1)
+		test_pass();
+	else
+		test_fail("任务页面仍存在无返回入口或NPC离场无提示分支");
 }
 
 void test_guild_runtime()
@@ -712,6 +772,7 @@ int main()
 	test_regional_tasks_runtime();
 	test_npc_interaction_runtime();
 	test_fangshi_profession_tasks_runtime();
+	test_task_navigation_fallbacks();
 	test_guild_runtime();
 	test_social_runtime();
 	test_city_guard_runtime();

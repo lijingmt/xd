@@ -29,6 +29,7 @@ string query_words(){
 	else{
 		s += name_cn + "说道：只有方士才能学习召唤之术。\n";
 	}
+	s += TASKD->query_words(me,this_object());
 	return s;
 }
 

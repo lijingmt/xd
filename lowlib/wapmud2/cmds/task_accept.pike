@@ -31,7 +31,10 @@ int main(string arg)
 		else
 			s +="\n你不能接受此任务\n";
 	}
-	s += "[返回:look]\n";
+	else
+		s += "发放任务的NPC已不在当前场景，请返回游戏重新对话。\n";
+	s += "[返回任务列表:mytasks]\n";
+	s += "[返回游戏:look]\n";
 	write(s);
 	return 1;
 }

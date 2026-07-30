@@ -7,6 +7,8 @@ int main(string arg)
 {
 	string s = "";
 	s += TASKD->queryTaskHistory(this_player());	
+	s += "[返回任务列表:mytasks]\n";
+	s += "[返回游戏:look]\n";
 	this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
 }

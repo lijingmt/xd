@@ -558,6 +558,16 @@ int query_task_isRepeat(int id)
 	return rtn;
 }
 
+//任务只能交给任务表中配置的验收NPC，避免旧页面或伪造命令静默失败。
+int is_task_check_npc(int taskid,object npc)
+{
+	task myTask = taskMap[taskid];
+	if(!myTask || !npc)
+		return 0;
+	return myTask->checkNPC==
+		normalize_task_npc_name(npc->query_name());
+}
+
 //核心接口之一，由task_accept.pike调用，完成接受任务的一系列动作
 int get_task(object player,int taskid,void|object npc)
 {
