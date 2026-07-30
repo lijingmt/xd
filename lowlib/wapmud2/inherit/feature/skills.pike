@@ -1,6 +1,16 @@
 #include <globals.h>
 #include <mudlib/include/mudlib.h>
 #define level_max 11
+
+// 返回技能真正配置的熟练度上限；未声明时保持老职业10级规则。
+int query_skill_training_level_max(string name)
+{
+	object skill = MUD_SKILLSD[name];
+	if(skill && skill->query_skill_level_max)
+		return (int)skill->query_skill_level_max();
+	return level_max-1;
+}
+
 string view_skills()
 {
 	mapping m=this_object()->skills;
@@ -12,6 +22,7 @@ string view_skills()
 			// 检查技能是否存在，如果不存在则跳过
 			if(!MUD_SKILLSD[name])
 				continue;
+			int skill_level_max = query_skill_training_level_max(name);
 
 			if(e==name){
 				out+="□";
@@ -30,9 +41,9 @@ string view_skills()
 
 			if(MUD_SKILLSD[name]->query_name() == "chongdong" || MUD_SKILLSD[name]->s_skill_type == "spec" || MUD_SKILLSD[name]->s_skill_type == "70_spec")
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+":skill_detail "+name+"]";
-			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]<level_max)
+			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]<skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(MUD_SKILLSD[name]->performs_shuliandu[m[name][0]]))+"%):skill_detail "+name+"]";
-			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]==level_max)
+			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]>=skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级):skill_detail "+name+"]";
 			else if(MUD_SKILLSD[name]->s_type=="beidong")
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级/5级):skill_detail "+name+"](被动)";
@@ -59,6 +70,7 @@ string view_skills_mud(string cmds)
 			// 检查技能是否存在，如果不存在则跳过
 			if(!MUD_SKILLSD[name])
 				continue;
+			int skill_level_max = query_skill_training_level_max(name);
 
 			if(e==name){
 				out+="□";
@@ -76,9 +88,9 @@ string view_skills_mud(string cmds)
 			}
 			if(MUD_SKILLSD[name]->query_name() == "chongdong" || MUD_SKILLSD[name]->s_skill_type == "spec" || MUD_SKILLSD[name]->s_skill_type == "70_spec")
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+":"+cmds+" "+name+"]";
-			if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]<level_max)
+			if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]<skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(MUD_SKILLSD[name]->performs_shuliandu[m[name][0]]))+"%):"+cmds+" "+name+"]";
-			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]==level_max)
+			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]>=skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级):"+cmds+" "+name+"]";
 			else if(MUD_SKILLSD[name]->s_type=="beidong")
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级/5级):"+cmds+" "+name+"](被动)";
@@ -105,15 +117,16 @@ string view_skills_toolbar(int num)
 			// 检查技能是否存在，如果不存在则跳过
 			if(!MUD_SKILLSD[name])
 				continue;
+			int skill_level_max = query_skill_training_level_max(name);
 
 			if(e==name){
 				out+="□";
 			}
 			if(MUD_SKILLSD[name]->query_name() == "chongdong" || MUD_SKILLSD[name]->s_skill_type == "spec" || MUD_SKILLSD[name]->s_skill_type == "70_spec")
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+":toolbar_set "+num+" "+name+" 1]\n";
-			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]<level_max)
+			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]<skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(MUD_SKILLSD[name]->performs_shuliandu[m[name][0]]))+"%):toolbar_set "+num+" "+name+" 1]\n";
-			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]==level_max)
+			else if(MUD_SKILLSD[name]->s_type=="zhudong"&&m[name][0]>=skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级):toolbar_set "+num+" "+name+" 1]\n";
 		}
 		if(out==""){
@@ -134,11 +147,15 @@ string view_performs(string name)
 		return "你要查看的技能不存在。";
 
 	if(cur_skill){
+		int skill_level_max = query_skill_training_level_max(name);
+		int display_level = (int)this_object()->skills[name][0];
+		if(display_level > skill_level_max)
+			display_level = skill_level_max;
 		if(cur_skill->query_name() == "chongdong" || cur_skill->s_skill_type == "spec" || MUD_SKILLSD[name]->s_skill_type == "70_spec")
 			out+=MUD_SKILLSD[name]->query_name_cn()+"\n";
-		else if(cur_skill->s_type=="zhudong"&&this_object()->skills[name][0]<level_max)
+		else if(cur_skill->s_type=="zhudong"&&this_object()->skills[name][0]<skill_level_max)
 			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级/"+(int)(100*(this_object()->skills[name][1])/(cur_skill->performs_shuliandu[this_object()->skills[name][0]]))+"%)\n";
-		else if(cur_skill->s_type=="zhudong"&&this_object()->skills[name][0]==level_max)
+		else if(cur_skill->s_type=="zhudong"&&this_object()->skills[name][0]>=skill_level_max)
 			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级)\n";
 		else if(cur_skill->s_type=="beidong")
 			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级/5级)\n";
@@ -147,7 +164,7 @@ string view_performs(string name)
 			out+="主动技能，";
 		else if(cur_skill->s_type=="beidong")
 			out+="被动技能，";
-		out+=cur_skill->query_desc()+cur_skill->query_performs_desc((int)this_object()->skills[name][0])+"\n";
+		out+=cur_skill->query_desc()+cur_skill->query_performs_desc(display_level)+"\n";
 		//有时候有些技能例如 金蝉魅影 找不到这个方法，只能先判断这个方法是否存在，然后再执行。
 		mapping(int:int) lvLimit = cur_skill->query_performs_level_limit_all?cur_skill->query_performs_level_limit_all():0;
 		//mapping(int:int) lvLimit = cur_skill->query_performs_level_limit_all();
@@ -190,6 +207,7 @@ string view_use_performs()
 			// 检查技能是否存在，如果不存在则跳过
 			if(!MUD_SKILLSD[name])
 				continue;
+			int skill_level_max = query_skill_training_level_max(name);
 
 			if(MUD_SKILLSD[name]->s_type=="beidong")
 				continue;//被动技能在战斗调用界面中不显示
@@ -207,9 +225,9 @@ string view_use_performs()
 			}
 			if(MUD_SKILLSD[name]->query_name() == "chongdong" || MUD_SKILLSD[name]->s_skill_type == "spec")
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+":use_perform "+name+"]";
-			else if(m[name][0]<level_max)
+			else if(m[name][0]<skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(MUD_SKILLSD[name]->performs_shuliandu[m[name][0]]))+"%):use_perform "+name+"]";
-			else if(m[name][0]==level_max)
+			else if(m[name][0]>=skill_level_max)
 				out+="["+MUD_SKILLSD[name]->query_name_cn()+"("+m[name][0]+"级):use_perform "+name+"]";
 			out += coldtime_s+"\n";
 		}
@@ -225,7 +243,9 @@ string view_use_performs()
 }
 
 //返回技能上限
-int query_skill_up()
+int query_skill_up(void|string name)
 {
+	if(name && sizeof(name))
+		return query_skill_training_level_max(name);
 	return level_max;
 }

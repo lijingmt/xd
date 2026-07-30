@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【神】太乙玄光";
+	desc="凝聚太乙玄光，短时间形成可吸收大量伤害的护盾";
+	s_type="zhudong";
+	s_skill_type="buff";
+	s_curse_type="absorb";
+	s_delayTime=90;
+	s_lasttime=20;
+	performs_attack[1]=4500;
+	performs_attack[2]=6000;
+	performs_attack[3]=7800;
+	performs_attack[4]=9800;
+	performs_attack[5]=12000;
+	performs_cast[1]=300;
+	performs_cast[2]=360;
+	performs_cast[3]=430;
+	performs_cast[4]=510;
+	performs_cast[5]=600;
+	skill_type+=({"yushi"});
+	skill_rare="mythic";
+	performs_level_limit[1]=80;
+	performs_level_limit[2]=100;
+	performs_level_limit[3]=120;
+	performs_level_limit[4]=140;
+	performs_level_limit[5]=160;
+	performs_desc[1]="20秒内吸收4500点伤害，消耗法力300点";
+	performs_desc[2]="20秒内吸收6000点伤害，消耗法力360点";
+	performs_desc[3]="20秒内吸收7800点伤害，消耗法力430点";
+	performs_desc[4]="20秒内吸收9800点伤害，消耗法力510点";
+	performs_desc[5]="20秒内吸收12000点伤害，消耗法力600点";
+}

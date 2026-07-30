@@ -28,6 +28,12 @@ int main(string|zero arg)
 		s += "[召唤鹤灵:summon heling] - 治疗辅助型\n";
 		s += "[召唤龟灵:summon guiling] - 防御坦克型\n";
 		s += "[三灵合一:summon all] - 同时召唤三只灵兽\n\n";
+		s += "【方士专属·灵契共鸣】\n";
+		s += "虎契缩短方士技能冷却，鹤契治疗自己与同队成员，";
+		s += "龟契净化持续伤害和诅咒；";
+		s += "三灵齐聚还会解除技能封禁并恢复仙力。\n";
+		s += "普通共鸣冷却90秒，三灵共鸣冷却120秒。\n";
+		s += "[发动灵契共鸣:summon resonance]\n\n";
 		s += "[查看当前召唤:summon list]\n";
 		s += "[解除所有召唤:summon dismiss]\n";
 		s += "[返回游戏:look]\n";
@@ -48,7 +54,66 @@ int main(string|zero arg)
 				}
 			}
 		}
+		mapping resonance_state = SUMMOND->get_resonance_state(me);
+		s += "\n【灵契共鸣】\n";
+		if(resonance_state["count"] == 0){
+			s += "暂无在你身边的灵兽，无法发动共鸣。\n";
+		}
+		else{
+			s += "当前灵契：" + resonance_state["count"] + "道";
+			if(resonance_state["perfect"])
+				s += "（三灵齐聚）";
+			s += "\n";
+			if(resonance_state["huling"])
+				s += "虎契·破军：缩短方士技能冷却\n";
+			if(resonance_state["heling"])
+				s += "鹤契·回春：治疗自己与同队成员\n";
+			if(resonance_state["guiling"])
+				s += "龟契·净厄：净化持续伤害和诅咒\n";
+			if(resonance_state["perfect"])
+				s += "三灵加护：额外解除技能封禁\n";
+			if(resonance_state["cooldown"] > 0)
+				s += "共鸣还需冷却" + resonance_state["cooldown"] + "秒。\n";
+			else
+				s += "[发动灵契共鸣:summon resonance]\n";
+		}
 		s += "\n[返回游戏:look]\n";
+		me->write(s);
+		return 1;
+	}
+
+	if(arg == "resonance" || arg == "gongming"){
+		mapping result = SUMMOND->activate_resonance(me);
+		if(!result["success"]){
+			if(result["reason"] == "no_summon")
+				s += "你身边没有灵兽，无法缔结灵契。\n";
+			else if(result["reason"] == "cooldown")
+				s += "灵契共鸣还需冷却" + result["cooldown"] + "秒。\n";
+			else if(result["reason"] == "dead")
+				s += "你已失去战斗能力，无法发动灵契共鸣。\n";
+			else
+				s += "只有方士才能发动灵契共鸣。\n";
+			s += "[查看灵契状态:summon list]\n[返回游戏:look]\n";
+			me->write(s);
+			return 1;
+		}
+
+		s += "【灵契共鸣】你与" + result["count"] +
+			"只灵兽心意相通！\n";
+		if(result["huling"])
+			s += "虎契·破军：缩短" + result["cooldown_skills"] +
+				"个技能" + result["cooldown_seconds"] + "秒冷却。\n";
+		if(result["heling"])
+			s += "鹤契·回春（" + result["heal_percent"] + "%）：为" +
+				result["healed_members"] +
+				"名成员恢复共" + result["healed_life"] + "点生命。\n";
+		if(result["guiling"])
+			s += "龟契·净厄：净化" + result["cleansed"] +
+				"个负面状态。\n";
+		if(result["perfect"])
+			s += "三灵共鸣：额外恢复" + result["mofa_restored"] +
+				"点仙力，并解除公共冷却！\n";
+		s += "[查看灵契状态:summon list]\n[返回游戏:look]\n";
 		me->write(s);
 		return 1;
 	}
@@ -67,8 +132,13 @@ int main(string|zero arg)
 
 	// 检查技能等级
 	mapping skills = me->skills;
-	if(skills && skills["huling"]){
-		skill_level = skills["huling"][0];
+	string huling_skill = "huling";
+	if(skills && skills["huling_mystic"])
+		huling_skill = "huling_mystic";
+	if(skills && skills[huling_skill]){
+		// 虎灵·秘会替换虎灵，但仍应保留虎灵召唤能力。
+		// 召唤强度使用替换后的高级技能等级。
+		skill_level = skills[huling_skill][0];
 	}
 	if(skills && skills["heling"] && skill_level < skills["heling"][0]){
 		skill_level = skills["heling"][0];
@@ -79,14 +149,17 @@ int main(string|zero arg)
 
 	// 三灵合一
 	if(arg == "all"){
-		// 检查是否学习了三灵合一
-		if(!skills || !skills["sanlingheyi"]){
+		// 三灵合一(2级)会替换基础技能，高级方士仍应能召唤三灵。
+		string all_skill = "sanlingheyi";
+		if(skills && skills["sanlingheyi2"])
+			all_skill = "sanlingheyi2";
+		if(!skills || !skills[all_skill]){
 			s += "你还没有学习三灵合一技能！\n[返回游戏:look]\n";
 			me->write(s);
 			return 1;
 		}
 
-		int all_level = skills["sanlingheyi"][0];
+		int all_level = skills[all_skill][0];
 		duration = 300 + all_level * 60; // 5-10分钟
 
 		int count = SUMMOND->summon_all_spirits(me->query_name(), duration, all_level);
@@ -105,7 +178,7 @@ int main(string|zero arg)
 
 	// 单只灵兽召唤
 	// 检查是否学习了对应技能
-	if(summon_type == "huling" && (!skills || !skills["huling"])){
+	if(summon_type == "huling" && (!skills || !skills[huling_skill])){
 		s += "你还没有学习虎灵技能！\n[返回游戏:look]\n";
 		me->write(s);
 		return 1;
@@ -122,7 +195,11 @@ int main(string|zero arg)
 	}
 
 	// 获取技能等级
-	if(skills[summon_type]){
+	if(summon_type == "huling" && skills[huling_skill]){
+		skill_level = skills[huling_skill][0];
+		duration = 600 + skill_level * 60;
+	}
+	else if(skills && skills[summon_type]){
 		skill_level = skills[summon_type][0];
 		duration = 600 + skill_level * 60;
 	}

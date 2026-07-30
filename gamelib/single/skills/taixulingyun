@@ -1,0 +1,33 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【神】太虚灵陨";
+	desc="引太虚灵光坠落，对当前敌人造成巨额风系法术伤害";
+	s_type="zhudong";
+	s_skill_type="feng_mofa_attack";
+	s_delayTime=60;
+	performs_mofa_attack[1]=({3500,4500});
+	performs_mofa_attack[2]=({4800,6000});
+	performs_mofa_attack[3]=({6300,7800});
+	performs_mofa_attack[4]=({8000,9800});
+	performs_mofa_attack[5]=({10000,12000});
+	performs_cast[1]=300;
+	performs_cast[2]=360;
+	performs_cast[3]=430;
+	performs_cast[4]=510;
+	performs_cast[5]=600;
+	skill_type+=({"fangshi"});
+	skill_rare="mythic";
+	performs_level_limit[1]=80;
+	performs_level_limit[2]=100;
+	performs_level_limit[3]=120;
+	performs_level_limit[4]=140;
+	performs_level_limit[5]=160;
+	performs_desc[1]="造成3500-4500点风系法术伤害，消耗法力300点";
+	performs_desc[2]="造成4800-6000点风系法术伤害，消耗法力360点";
+	performs_desc[3]="造成6300-7800点风系法术伤害，消耗法力430点";
+	performs_desc[4]="造成8000-9800点风系法术伤害，消耗法力510点";
+	performs_desc[5]="造成10000-12000点风系法术伤害，消耗法力600点";
+}

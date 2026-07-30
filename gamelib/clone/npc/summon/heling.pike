@@ -45,6 +45,8 @@ void heal_master(){
 	int heal_amount = 50 + (int)(master->query_level() * 5);
 	int current_life = master->get_cur_life();
 	int max_life = master->query_life_max();
+	if(current_life <= 0)
+		return;
 
 	if(current_life < max_life){
 		if(current_life + heal_amount > max_life)

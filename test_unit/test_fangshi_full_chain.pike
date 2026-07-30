@@ -382,6 +382,57 @@ void test_high_level_skill_growth_contract()
 		test_fail(sprintf("%d 个高级技能成长字段缺失", failed));
 }
 
+void test_five_stage_training_cap_runtime()
+{
+	test_start("方士五段技能封顶且老职业十级成长不受影响");
+	object|zero player = 0;
+	int fangshi_level = 0;
+	int old_skill_level = 0;
+	int fangshi_max = 0;
+	int old_skill_max = 0;
+	string detail = "";
+	string error_desc = "";
+
+	mixed err = catch {
+		player = create_runtime_fangshi(
+			"__testunit_fangshi_training_cap__", 100);
+		if(player){
+			player->skills["lingren"] = ({5,32000});
+			player->skills_level_check("lingren");
+			fangshi_level = player->skills["lingren"][0];
+			fangshi_max =
+				player->query_skill_training_level_max("lingren");
+			detail = player->view_performs("lingren");
+
+			// 技能守护进程按需登记，先真实加载老职业技能对象。
+			object old_skill = (object)(ROOT +
+				"/gamelib/single/skills/hanbingzhou");
+			if(!old_skill)
+				error("无法加载老职业对照技能 hanbingzhou\n");
+			player->skills["hanbingzhou"] = ({5,32000});
+			player->skills_level_check("hanbingzhou");
+			old_skill_level = player->skills["hanbingzhou"][0];
+			old_skill_max =
+				player->query_skill_training_level_max("hanbingzhou");
+		}
+	};
+	if(err)
+		error_desc = describe_error(err);
+
+	if(!err && player &&
+	   fangshi_level == 5 && fangshi_max == 5 &&
+	   search(detail, "附加550点物理伤害") != -1 &&
+	   old_skill_level == 6 && old_skill_max == 10)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"方士等级=%d/%d, 老技能等级=%d/%d: %s",
+			fangshi_level, fangshi_max,
+			old_skill_level, old_skill_max, error_desc));
+
+	destroy_runtime_player(player);
+}
+
 void test_skill_descriptions_match_runtime()
 {
 	test_start("技能说明与战斗引擎效果一致");
@@ -439,10 +490,14 @@ void test_heal_and_life_buff_runtime()
 	object|zero player = 0;
 	object|zero enemy_player = 0;
 	object|zero team_player = 0;
+	object|zero dead_team_player = 0;
+	object|zero outsider_player = 0;
 	object|zero room = 0;
 	int life_after_heal = 0;
 	int life_after_reduced_heal = 0;
 	int team_life_after_heal = 0;
+	int dead_team_life_after_heal = 0;
+	int outsider_life_after_heal = 0;
 	int mofa_before = 0;
 	int mofa_after = 0;
 	int life_limit_before = 0;
@@ -455,12 +510,19 @@ void test_heal_and_life_buff_runtime()
 			"__testunit_fangshi_heal_enemy__", 30);
 		team_player = create_runtime_fangshi(
 			"__testunit_fangshi_heal_team__", 30);
+		dead_team_player = create_runtime_fangshi(
+			"__testunit_fangshi_heal_dead_team__", 30);
+		outsider_player = create_runtime_fangshi(
+			"__testunit_fangshi_heal_outsider__", 30);
 		room = (object)(ROOT +
 			"/gamelib/d/congxianzhen/congxianzhenguangchang");
-		if(player && enemy_player && team_player && room){
+		if(player && enemy_player && team_player && dead_team_player &&
+		   outsider_player && room){
 			player->move(room);
 			enemy_player->move(room);
 			team_player->move(room);
+			dead_team_player->move(room);
+			outsider_player->move(room);
 			player->skills["lingzhi"] = ({2,0});
 			player->set_life(100);
 			player->set_mofa(player->query_mofa_max());
@@ -485,10 +547,18 @@ void test_heal_and_life_buff_runtime()
 			player->skills["linglianpu"] = ({1,0});
 			player->set_term("__testunit_fangshi_team__");
 			team_player->set_term("__testunit_fangshi_team__");
+			dead_team_player->set_term("__testunit_fangshi_team__");
+			outsider_player->set_term("__testunit_fangshi_outsider__");
 			player->set_life(100);
 			team_player->set_life(100);
+			dead_team_player->set_life(0);
+			outsider_player->set_life(100);
 			player->perform("linglianpu", 1);
 			team_life_after_heal = team_player->get_cur_life();
+			dead_team_life_after_heal =
+				dead_team_player->get_cur_life();
+			outsider_life_after_heal =
+				outsider_player->get_cur_life();
 
 			player->_clean_fight();
 			life_limit_before = player->query_life_max();
@@ -501,17 +571,21 @@ void test_heal_and_life_buff_runtime()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && player && enemy_player && team_player && room &&
+	if(!err && player && enemy_player && team_player && dead_team_player &&
+	   outsider_player && room &&
 	   life_after_heal == 600 &&
 	   mofa_after == mofa_before-70 &&
 	   life_after_reduced_heal == 350 &&
 	   team_life_after_heal == 600 &&
+	   dead_team_life_after_heal == 0 &&
+	   outsider_life_after_heal == 100 &&
 	   life_limit_after == life_limit_before+500)
 		test_pass();
 	else
 		test_fail(sprintf(
-			"治疗或生命增益未实际生效: life=%d reduced=%d team=%d mofa=%d/%d max=%d/%d %s",
+			"治疗或生命增益未实际生效: life=%d reduced=%d team=%d dead=%d outsider=%d mofa=%d/%d max=%d/%d %s",
 			life_after_heal, life_after_reduced_heal, team_life_after_heal,
+			dead_team_life_after_heal, outsider_life_after_heal,
 			mofa_before, mofa_after,
 			life_limit_before, life_limit_after, error_desc));
 
@@ -521,9 +595,15 @@ void test_heal_and_life_buff_runtime()
 		enemy_player->_clean_fight();
 	if(team_player)
 		team_player->_clean_fight();
+	if(dead_team_player)
+		dead_team_player->_clean_fight();
+	if(outsider_player)
+		outsider_player->_clean_fight();
 	destroy_runtime_player(player);
 	destroy_runtime_player(enemy_player);
 	destroy_runtime_player(team_player);
+	destroy_runtime_player(dead_team_player);
+	destroy_runtime_player(outsider_player);
 }
 
 void test_summon_daemon_runtime()
@@ -714,6 +794,7 @@ void run_tests()
 	test_mystic_skills_runtime();
 	test_passive_skill_growth_runtime();
 	test_high_level_skill_growth_contract();
+	test_five_stage_training_cap_runtime();
 	test_skill_descriptions_match_runtime();
 	test_heal_and_life_buff_runtime();
 	test_summon_daemon_runtime();

@@ -190,6 +190,9 @@ void escape(void|int change){
 		if(MUD_SKILLSD[sname]->boss_skill == 1)
 			return;
 		int cur_skills_level_limit = 10;
+		if(MUD_SKILLSD[sname]->query_skill_level_max)
+			cur_skills_level_limit =
+				(int)MUD_SKILLSD[sname]->query_skill_level_max();
 		//当前该用户该技能等级的熟练度大于该技能本身该等级的熟练度，则升级该用户的该技能等级
 		if( this_object()->skills[sname][1]>=MUD_SKILLSD[sname]->performs_shuliandu[this_object()->skills[sname][0]] ){
 			//当前技能等级设定上限为10级
@@ -891,7 +894,7 @@ void perform(string name,void|int flag){
 						f_cur_skill->query_s_delayTime(skill_level)+1;
 					this_object()->set_life(life_after);
 
-					if(name=="linglianpu"){
+					if(name=="linglianpu" || name=="wanlingchaosheng"){
 						string team_id = this_object()->query_term();
 						object env = environment(this_object());
 						if(env && team_id!="" && team_id!="noterm"){
@@ -901,6 +904,8 @@ void perform(string name,void|int flag){
 									continue;
 
 								int member_life = member->get_cur_life();
+								if(member_life <= 0)
+									continue;
 								int member_limit = member->query_life_max();
 								int member_heal = base_heal_amount;
 								if(member->query_debuff("curse",0)=="life"){

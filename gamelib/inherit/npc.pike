@@ -1,6 +1,19 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit WAP_NPC;
+void log_hidden_skill_drop(object book,string owner_type,string owner_name)
+{
+	string now = "";
+	string log = "";
+	if(!book)
+		return;
+	now = ctime(time());
+	log = now[0..sizeof(now)-2]+"|"+owner_type+"|"+owner_name+
+		"|npc="+this_object()->query_name()+
+		"|level="+this_object()->query_level()+
+		"|book="+book->query_name()+"\n";
+	Stdio.append_file(ROOT+"/log/hidden_skill_drop.log",log);
+}
 void fight_die()
 {
 	object env = environment(this_object());
@@ -392,6 +405,18 @@ void fight_die()
 
 		//3.物品分配，设置为队伍拾取
 		int pro_add = 0;
+		//在Boss/普通怪分支前只抽取一次，确保队伍击杀Boss也不会漏掉。
+		object ob_hidden =
+			ITEMSD->get_hidden_skill_book(this_object()->query_level());
+		if(ob_hidden&& environment(this_object())){
+			ob_hidden->item_whoCanGet = term_who;
+			ob_hidden->item_TimewhoCanGet = time();
+			t_w += "天地异象，失落传承现世："+
+				ob_hidden->query_short()+" ！\n";
+			log_hidden_skill_drop(ob_hidden,"team",term_who);
+			call_out(ob_hidden->remove,5*60,1);
+			ob_hidden->move(environment(this_object()));
+		}
 		if(this_object()->_boss){
 			//boss掉落////////////////////////////////////////////////////////
 			//玩家100%获取的boss特殊物品，如霸王魔窟boss的霸王徽记
@@ -928,6 +953,9 @@ void fight_die_single(object env)
 		object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
 		//掉落宝石 caijie 080807
 		object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),first->query_level());
+		//三系施法职业的大神传承，只由70级以上怪物极低概率掉落
+		object ob_hidden =
+			ITEMSD->get_hidden_skill_book(this_object()->query_level());
 		//end cai 080807
 
 		//节日特殊掉落
@@ -962,6 +990,19 @@ void fight_die_single(object env)
 				tell_object(who,t);
 			call_out(ob_shi->remove,5*60,1);
 			ob_shi->move(environment(this_object()));
+		}
+		if(ob_hidden && environment(this_object())){
+			string t = "";
+			ob_hidden->item_whoCanGet = first->query_name();
+			ob_hidden->item_TimewhoCanGet = time();
+			t += "天地异象，失落传承现世："+
+				ob_hidden->query_short()+" ！\n";
+			log_hidden_skill_drop(
+				ob_hidden,"player",first->query_name());
+			foreach(indices(this_object()->targets),object who)
+				tell_object(who,t);
+			call_out(ob_hidden->remove,5*60,1);
+			ob_hidden->move(environment(this_object()));
 		}
 		if(ob_spec&& environment(this_object())){
 			//Stdio.append_file(ROOT+"/log/item_spec_drop.log",now[0..sizeof(now)-2]+":"+first->query_name_cn()+"("+first->query_name()+"):"+ob_spec->query_name_cn()+"("+ob_spec->query_name()+")\n");

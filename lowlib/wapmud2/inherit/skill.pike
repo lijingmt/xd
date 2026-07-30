@@ -74,3 +74,14 @@ mapping query_performs_level_limit_all(){
 	else
 		return ([]);
 }
+
+// 主动技能的熟练度上限。
+// 老职业多数为10级；明确配置了多段等级门槛的技能以实际段数为准，
+// 避免练到不存在的等级后说明和成长断档。
+int query_skill_level_max(){
+	int skill_level_max = 10;
+	if(performs_level_limit && sizeof(performs_level_limit) > 1 &&
+	   sizeof(performs_level_limit) < skill_level_max)
+		skill_level_max = sizeof(performs_level_limit);
+	return skill_level_max;
+}

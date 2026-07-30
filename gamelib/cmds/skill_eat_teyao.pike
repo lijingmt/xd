@@ -18,7 +18,8 @@ int main(string|zero arg)
 	else{
 		sscanf(arg,"%s %d %s",teyao_name,count,skill_name);
 		mapping skills_m = me->skills;
-		if(skills_m[skill_name] && skills_m[skill_name][0]<me->query_skill_up()){
+		if(skills_m[skill_name] &&
+		   skills_m[skill_name][0]<me->query_skill_up(skill_name)){
 			//当玩家拥有skill_name这种技能，且技能等级还没达到技能的上限
 			object teyao = present(teyao_name,me,count);
 			if(teyao){

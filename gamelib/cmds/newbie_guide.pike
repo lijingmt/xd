@@ -47,7 +47,8 @@ string query_fangshi_growth_guide(object player)
 
 	if(level<8)
 		result += "○ 8级可学习“灵治”，战斗中为自己恢复生命。\n";
-	else if(!player->skills["lingzhi"])
+	else if(!player->skills["lingzhi"] &&
+		!player->skills["lingzhi_mystic"])
 		result += "○ 你已达到8级，可以购买并学习“灵治”。\n";
 	else
 		result += "√ “灵治”治疗自己；进入战斗后从技能页施放。\n";

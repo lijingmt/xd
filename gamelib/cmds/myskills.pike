@@ -7,8 +7,10 @@ int main(string|zero arg)
 	if(this_player()->home_path&&this_player()->home_path!="")
 		s += "[传送回家:home_return "+this_player()->home_path+"]\n";
 	s += this_player()->view_skills();
-	if(this_player()->query_profeId()=="fangshi")
+	if(this_player()->query_profeId()=="fangshi"){
 		s += "[召唤灵兽:summon]\n";
+		s += "[方士专属·灵契共鸣:summon list]\n";
+	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改
 	if(this_player()->can_spec == 1){

@@ -1,843 +1,295 @@
 ---
 name: fangshi-system
-description: 方士职业完整系统，包括召唤、技能、PK、装备掉落和单元测试
-version: 1.0.0
+description: Develop, audit, debug, balance, or extend the Xiand 方士 profession. Use for neutral third/fangshi character creation, skill books and learning, self/team healing, tiger/crane/turtle summons, 灵契共鸣, hidden mythic drops, advanced replacements, equipment/drop/forge compatibility, newbie guidance, jade purchasing, shared-system parity, TestUnit, restart validation, or push preparation.
 ---
 
-# 方士职业系统 (Fangshi Profession System)
+# Xiand Fangshi System
 
-方士是游戏中的**中立阵营职业**（raceId: `third`），通过召唤灵兽（虎、鹤、龟）进行战斗。这个文档涵盖了方士系统的完整实现，包括所有踩过的坑和解决方案。
+Treat Fangshi as an end-to-end profession. Trace every change from character
+creation through high-level progression and shared game systems. Use the
+current source under `/usr/local/games/xiand` as the authority; do not trust
+old comments or historical design notes without checking active code.
 
-## 目录
-- [职业基础](#职业基础)
-- [中立阵营规则](#中立阵营规则)
-- [召唤系统](#召唤系统)
-- [技能系统](#技能系统)
-- [PK系统](#pk系统)
-- [装备系统](#装备系统)
-- [单元测试](#单元测试)
-- [常见问题](#常见问题)
+## Core contracts
 
----
+- Represent Fangshi as race `third` and profession `fangshi`.
+- Give new characters `lingdanshu`; never reintroduce removed `lingshu`.
+- Keep Fangshi neutral: share supported human/monster facilities and social
+  actions, but reject faction conversion before consuming its item.
+- Preserve the real learning flow: buy or loot book, receive it, use the
+  inventory `[学习:read ...]` action, pass level/profession checks, then learn.
+- Cap five-stage skills at five. Preserve legacy ten-stage behavior where the
+  skill really configures ten stages.
+- Preserve all utilities after `spec_read(old_skill)` removes the old key.
+  `huling_mystic` must still summon tiger and `sanlingheyi2` must still summon
+  all three spirits.
+- Clone every summon and clean its daemon record on dismissal, death, expiry,
+  logout, or owner loss.
+- Never revive a dead player through healing, crane AI, or resonance.
+- Keep hidden mythic books drop-only, equally rare, level/profession gated, and
+  absent from all stores and teachers.
+- Do not report completion from static searches alone. Use real player objects,
+  real book reads, real skills/summons/equipment, full TestUnit restart, ports,
+  and logs.
 
-## 职业基础
+## Architecture
 
-### 职业配置
+### Identity and lifecycle
 
-**raceId**: `third` (中立阵营)
-**profeId**: `fangshi` (方士职业)
+| Area | Source |
+| --- | --- |
+| Character choice/start/migration | `gamelib/d/init` |
+| Identity and neutral helpers | `lowlib/mudlib/inherit/feature/char.pike` |
+| Initial stats | `lowlib/mudlib/inherit/user.pike` |
+| Level growth | `lowlib/mudlib/inherit/feature/level.pike` |
+| Login/logout lifecycle | `gamelib/clone/user.pike` |
 
-### 核心文件
+Creation must call `setup_player("third", "fangshi")`, grant `lingdanshu`,
+starter weapon/armor, run silent auto-equip, choose a valid starter room, and
+save. Login migration must idempotently remove `lingshu`, grant missing
+`lingdanshu`, and repair old `lingzhihun` passive state when required.
 
-| 文件 | 作用 |
-|------|------|
-| `gamelib/setup_player.c` | 角色创建，添加方士职业选项 |
-| `gamelib/cmds/unlock_fangshi.pike` | 方士职业解锁命令 |
-| `gamelib/clone/npc/fangshi_teacher.pike` | 方士技能NPC |
-| `gamelib/single/skills/` | 方士技能目录 |
-| `gamelib/single/skills/lingxuan` | 灵玄（主动攻击技能） |
-| `gamelib/single/skills/linghuoshao` | 灵火烧（DOT减防） |
-| `gamelib/single/skills/lingzhi` | 灵治（治疗+驱散） |
-| `gamelib/single/skills/lingdun` | 灵盾（防御+反弹） |
-| `gamelib/single/skills/huling` | 虎灵（召唤猛虎） |
-| `gamelib/single/skills/heling` | 鹤灵（召唤仙鹤） |
-| `gamelib/single/skills/guiling` | 龟灵（召唤灵龟） |
+### Learning and UI
 
-### 职业解锁
+| Area | Source |
+| --- | --- |
+| State-based guide | `gamelib/cmds/newbie_guide.pike` |
+| Auto-equip | `gamelib/cmds/auto_equip.pike` |
+| Teacher | `gamelib/clone/npc/fangshi_teacher.pike` |
+| Book catalog | `gamelib/data/can_buy_book_list.csv` |
+| Book learning | `lowlib/mudlib/inherit/feature/readed.pike` |
+| Skill pages | `gamelib/cmds/myskills.pike`, `lowlib/wapmud2/inherit/feature/skills.pike` |
 
-方士是**免费职业**，所有玩家都可以解锁：
+Books may store either Chinese profession name `方士` or ID `fangshi`;
+`read()`, `beidong_read()`, and `spec_read()` must accept both. Buying a book
+does not learn it. The guide must inspect real inventory/equipment/skill state,
+not mark progress from button clicks.
 
-```pike
-// 使用 unlock_fangshi 命令解锁
-SEASONALD->unlock_fangshi(player_name);
+Important early milestones:
 
-// 解锁后可以创建方士角色
-// 重新登录后在职业选择中选择"方士"
+- Level 1: `lingdanshu`
+- Level 2: `lingren`
+- Level 8: `lingzhi`
+- Level 10/15/20: tiger/crane/turtle
+- Level 24: `linglianpu`
+- Level 50: `sanlingheyi`
+
+### Combat and skill proficiency
+
+| Area | Source |
+| --- | --- |
+| Attack/defense formulas | `lowlib/mudlib/inherit/feature/attack.pike` |
+| Skill execution/effects | `lowlib/wapmud2/inherit/feature/fight.pike` |
+| Configured skill cap | `lowlib/wapmud2/inherit/skill.pike` |
+| Proficiency/UI | `lowlib/wapmud2/inherit/feature/skills.pike` |
+| Proficiency medicine | `gamelib/cmds/skill_eat_teyao.pike` |
+
+Verify runtime effects rather than descriptions. Check `s_skill_type`,
+`s_curse_type`, damage/heal/debuff mappings, cooldown, duration, mofa cost,
+configured level gates, and actual post-cast state.
+
+Healing rules:
+
+- `lingzhi` heals the caster.
+- `linglianpu` always heals the caster and also living same-room teammates.
+- Without a real team, `linglianpu` heals only the caster.
+- Never heal outsiders, remote teammates, or dead members.
+- Honor `curse/life` healing reduction and maximum-life caps.
+- `lingzhi_mystic` must preserve the base healing role.
+
+Most Fangshi active skills have five configured stages and must stop training
+at level five. A skill with one character-level gate may still use the legacy
+ten-level proficiency model; `lingbailei11` is the important regression case.
+
+## Summons and resonance
+
+| Area | Source |
+| --- | --- |
+| Player command | `gamelib/cmds/summon.pike` |
+| Registry/resonance | `gamelib/single/daemons/summond.pike` |
+| Base summon | `gamelib/clone/npc/summon/base_summon.pike` |
+| Tiger/crane/turtle | `gamelib/clone/npc/summon/{huling,heling,guiling}.pike` |
+
+Summon limits are one below level 30, two at levels 30-59, and three at level
+60+. Resolve replacement aliases before authorization and scaling:
+
+- `huling_mystic` replaces `huling` but still authorizes tiger.
+- `sanlingheyi2` replaces `sanlingheyi` but still authorizes all three spirits.
+
+`summon resonance` uses only living summons in the owner's current room:
+
+- Tiger reduces only currently cooling Fangshi skills by a bounded amount.
+- Crane heals living same-room team members and never revives.
+- Turtle removes supported DOT/curse effects.
+- Perfect three-spirit resonance restores bounded mofa and clears public
+  `timeCold`, without globally erasing arbitrary per-skill cooldowns.
+- Persist cooldown under `/plus/fangshi/resonance_until`.
+- Normal/perfect cooldowns are 90/120 seconds.
+
+Do not set `_tasknpc = 1` on summons. Do not use `time() % n` as heartbeat
+cadence; use an explicit counter. Summon death intentionally bypasses ordinary
+monster drops.
+
+## Advanced and hidden progression
+
+Normal replacement graph:
+
+```text
+lingbailei   -> lingbailei11
+lingxuanying -> lingxuanying2
+sanlingheyi  -> sanlingheyi2
+lingchuanxin -> lingchuanxin2
 ```
 
----
+Mystic replacement graph:
 
-## 中立阵营规则
-
-### 中立阵营特殊规则
-
-方士的 raceId 为 `third`，是中立阵营，有以下特殊规则：
-
-1. **可以攻击任何阵营的NPC**
-   ```pike
-   // kill.pike 中的规则
-   if(a_raceid == "third" && ob->is("npc")){
-       flag = 1;  // 方士可以攻击任何阵营的NPC
-   }
-   ```
-
-2. **不能攻击同阵营玩家**（除非帮战）
-3. **在敌对阵营地图不能主动攻击玩家**（除非对方红名）
-
-### 中立地图
-
-方士可以自由进入的地图：
-- `room_race == "third"` 的地图
-- 任何城市地图（如果是攻击状态被追杀，对方是红名则可以反击）
-
----
-
-## 召唤系统架构
-
-### 召唤系统目录结构
-
-```
-gamelib/
-├── clone/npc/summon/
-│   ├── base_summon.pike       # 召唤兽基类（继承WAP_NPC）
-│   ├── huling.pike            # 猛虎灵兽
-│   ├── heling.pike            # 仙鹤灵兽
-│   └── guiling.pike           # 灵龟神兽
-└── single/daemons/
-    └── summond.pike           # SUMMOND - 召唤守护进程
+```text
+lingxuan    -> lingxuan_mystic
+linghuoshao -> linghuoshao_mystic
+lingzhi     -> lingzhi_mystic
+lingdun     -> lingdun_mystic
+huling      -> huling_mystic
 ```
 
-### SUMMOND 核心方法
-
-```pike
-// 获取玩家最大召唤数量（基于等级）
-int get_max_summons(string player_name)
-// <30级: 1只, 30-59级: 2只, >=60级: 3只
-
-// 检查是否可以召唤
-int can_summon(string player_name)
-
-// 召唤灵兽
-object summon_creature(string player_name, string summon_type, int duration, int skill_level)
-
-// 解除召唤
-void dismiss_creature(string player_name, string summon_type)
-
-// 解除所有召唤
-void dismiss_all(string player_name)
-
-// 三灵合一（同时召唤三只）
-int summon_all_spirits(string player_name, int duration, int skill_level)
-```
-
-### 技能类型
-
-```pike
-skill_type = ({"zhudong", "fangshi"});  // 主动技能
-skill_type = ({"beidong", "fangshi"});  // 被动技能
-s_skill_type = "phy";     // 物理攻击
-s_skill_type = "buff";    // 增益效果
-s_skill_type = "heal";    // 治疗
-s_skill_type = "curse";   // 减益效果
-```
-
----
-
-## 召唤系统
-
-### 召唤兽类型
-
-| 召唤兽 | 技能文件 | 特点 |
-|--------|----------|------|
-| 猛虎 | `huling` | 高攻击、嘲讽、暴击加成 |
-| 仙鹤 | `heling` | 治疗主人、法术攻击 |
-| 灵龟 | `guiling` | 高防御、减伤、保护主人 |
-
-### 召唤系统核心文件
-
-| 文件 | 作用 |
-|------|------|
-| `gamelib/clone/npc/summon/base_summon.pike` | 召唤兽基类（继承WAP_NPC） |
-| `gamelib/single/daemons/summond.pike` | 召唤守护进程 |
-| `lowlib/wapmud2/cmds/summon.pike` | 召唤命令 |
-
-### base_summon.pike 核心实现
-
-```pike
-// 基类继承 WAP_NPC
-inherit WAP_NPC;
-
-// 关键属性
-string master_name;       // 主人名字
-int summon_duration;      // 召唤持续时间（秒）
-int summon_start_time;    // 召唤开始时间
-string summon_type;       // 召唤物类型
-
-protected void create(){
-    // ⚠️ 重要：不要设置 _tasknpc = 1，否则召唤兽不能战斗
-    set_raceId("third");      // 中立阵营
-    set_profeId("beast");     // 野兽职业
-    setup_npc();
-    set_heart_beat(1);        // 启动心跳
-}
-
-// 心跳处理：跟随主人 + 攻击敌人
-void heart_beat(){
-    ::heart_beat();
-
-    // 1. 检查主人是否存在
-    object master = find_player(master_name);
-    if(!master){ destruct(this_object()); return; }
-
-    // 2. 跟随主人到同一房间
-    if(environment(this_object()) != environment(master)){
-        this_object()->move(environment(master));
-    }
-
-    // 3. 如果主人在战斗中，参与攻击
-    if(master->query_in_combat()){
-        object enemy = master->query_enemy();
-        if(enemy && enemy->query_life() > 0){
-            this_object()->kill(enemy->query_name(), 0);
-        }
-    }
-}
-```
-
-### 召唤兽属性调整公式
-
-```pike
-// huling.pike - 虎灵属性公式
-void adjust_stats_by_player(int player_level, int skill_level){
-    int str = 30 + player_level * 2 + skill_level * 5;
-    int dex = 20 + player_level * 1 + skill_level * 3;
-    int life = 200 + player_level * 10 + skill_level * 50;
-    int mofa = 20 + player_level * 2 + skill_level * 10;
-
-    set_base_str(str);
-    set_base_dex(dex);
-    set_base_life(life);
-    set_base_life_max(life);
-    set_base_mofa(mofa);
-}
-```
-
-### ⚠️ 重要踩坑记录
-
-#### 坑1: 心跳函数使用 time() % n 不可靠
-
-**问题代码：**
-```pike
-void heart_beat() {
-    if(time() % 3 == 0) {  // ❌ 错误！
-        // 每3秒执行一次
-    }
-}
-```
-
-**原因：** `time()` 返回的是从1970年至今的秒数，不是心跳计数。
-
-**正确做法：** 使用计数器
-```pike
-int heal_counter = 0;
-
-void heart_beat() {
-    heal_counter++;
-    if(heal_counter >= 3) {
-        heal_counter = 0;
-        // 执行治疗逻辑
-    }
-}
-```
-
-#### 坑2: _tasknpc 标志阻止召唤兽参与战斗
-
-**问题代码：**
-```pike
-void create() {
-    _tasknpc = 1;  // ❌ 错误！这会阻止召唤兽战斗
-}
-```
-
-**正确做法：** 不要设置 `_tasknpc` 标志
-```pike
-void create() {
-    // 只设置必要的属性
-    set("race", "summon");
-    set("gender", "无性");
-}
-```
-
-#### 坑3: 继承语法必须使用大写定义
-
-**错误：**
-```pike
-inherit wap_npc;  // ❌ 错误
-```
-
-**正确：**
-```pike
-#include <wapmud2.h>
-inherit WAP_NPC;  // ✓ 正确
-```
-
-#### 坑4: foreach 语法顺序
-
-**错误：**
-```pike
-foreach(string summon_type, object summon; summons)  // ❌ 错误
-```
-
-**正确：**
-```pike
-foreach(summons; string summon_type; object summon)  // ✓ 正确
-```
-
-#### 坑5: tell_room 在 daemon 中不可用
-
-**问题：** `base_summon.pike` 继承自 `WAP_NPC`，但在某些情况下 `tell_room` 不可用。
-
-**解决：** 创建辅助函数
-```pike
-void summon_tell_room(object env, string msg) {
-    if(env && objectp(env)) {
-        if(functionp(env->tell_room)) {
-            env->tell_room(msg);
-        } else {
-            // 备用方案
-            all_inventory(env)->hear_msg(msg);
-        }
-    }
-}
-```
-
-### 召唤兽AI逻辑
-
-```pike
-void heart_beat() {
-    if(!summon_owner || !objectp(summon_owner)) {
-        destruct(this_object());
-        return;
-    }
-
-    // 获取主人的战斗目标
-    object target = summon_owner->query_attack_target();
-
-    if(target && target->get_cur_life() > 0) {
-        // 攻击主人的敌人
-        attack_target(target);
-    } else if(some_other_condition) {
-        // 根据召唤兽类型执行不同逻辑
-        // 猛虎：攻击目标
-        // 仙鹤：治疗主人
-        // 灵龟：保护主人
-    }
-}
-```
-
----
-
-## 技能系统
-
-### 技能文件结构
-
-```pike
-#include <globals.h>
-#include <gamelib/include/gamelib.h>
-inherit WAP_SKILL;
-
-protected void create() {
-    name = "skill_name";           // 内部名称
-    name_cn = "技能中文名";        // 显示名称
-    desc = "技能描述";             // 描述
-    s_type = "zhudong";            // 类型：zhudong(主动) / beidong(被动)
-    s_skill_type = "phy";          // 效果类型：phy/buff/curse/heal
-    s_curse_type = "attack";       // 诅咒类型（DOT技能用）
-
-    // 冷却和持续时间
-    s_delayTime = 30;              // 冷却时间（秒）
-    s_lasttime = 15;               // 持续时间（秒）
-
-    // 伤害/效果值（按等级）
-    performs_attack[1] = 500;
-    performs_attack[2] = 800;
-    performs_attack[3] = 1200;
-    performs_attack[4] = 1700;
-    performs_attack[5] = 2500;
-
-    // 法力消耗
-    performs_cast[1] = 50;
-    performs_cast[2] = 60;
-    performs_cast[3] = 70;
-    performs_cast[4] = 80;
-    performs_cast[5] = 100;
-
-    // 职业限制
-    skill_type += ({"fangshi"});
-
-    // 等级限制
-    performs_level_limit[1] = 10;
-    performs_level_limit[2] = 30;
-    performs_level_limit[3] = 50;
-    performs_level_limit[4] = 70;
-    performs_level_limit[5] = 90;
-}
-```
-
-### 神秘技能（商店售卖）
-
-| 技能 | 特点 | 文件 |
-|------|------|------|
-| 灵玄·秘 | 更高伤害+混乱 | `lingxuan_mystic` |
-| 灵火烧·秘 | 更长DOT+更大减防 | `linghuoshao_mystic` |
-| 灵治·秘 | 治疗+驱散负面 | `lingzhi_mystic` |
-| 灵盾·秘 | 更高防御+伤害反弹 | `lingdun_mystic` |
-| 虎灵·秘 | 更强虎灵+更长持续时间 | `huling_mystic` |
-
-神秘技能标记：
-```pike
-skill_rare = "mystic";  // 稀有度标记
-```
-
----
-
-## PK系统
-
-### 方士vs方士 PK测试
-
-**测试文件：** `test_unit/test_fangshi_pk.pike`
-
-**测试场景：**
-1. 双方都是方士职业
-2. 各自召唤灵兽
-3. 互相攻击
-4. 验证伤害计算
-5. 验证召唤兽参与战斗
-
-### PK关键代码
-
-```pike
-// 获取PK目标
-object opponent = find_player("other_fangshi_player");
-
-// 发起攻击
-this_player()->kill(opponent);
-
-// 召唤兽自动攻击主人的敌人
-// 召见 summon.pike 中的 logic_ai() 函数
-```
-
-### PK测试验证点
-
-- [ ] 双方玩家都能成功召唤
-- [ ] 召唤兽正确攻击对方的召唤兽或玩家
-- [ ] 伤害数值正确计算
-- [ ] 召唤兽死亡后处理正确
-- [ ] 玩家死亡后召唤兽消失
-- [ ] 技能冷却正常工作
-
----
-
-## 装备系统
-
-### ⚠️ 重大踩坑：装备掉落不包含方士职业
-
-#### 问题描述
-
-玩家打怪掉落的装备显示：
-```
-要求职业：剑仙 羽士 诛仙 狂妖 巫妖 影鬼
-```
-**缺少"方士"！**
-
-#### 根本原因
-
-装备生成流程：
-1. 打怪掉落时，`itemsd.pike` 读取装备模板
-2. 如果装备文件**已存在**，直接 clone 返回
-3. 如果装备文件**不存在**，生成新文件并写入
-
-**问题代码（修复前）：**
-```pike
-if(Stdio.exist(ITEM_PATH+item_name)){
-    // 文件存在，直接返回
-    rtn_ob=clone(ITEM_PATH+item_name);
-    return (rtn_ob);  // ❌ 没有添加方士职业！
-}
-```
-
-#### 解决方案
-
-**方案1：在生成新文件时添加方士**
-
-```pike
-// itemsd.pike 和 bossdropd.pike
-// 在 write_item_file 之前添加
-
-// 自动为所有生成的装备添加方士职业支持
-if(search(writeback, "set_item_profeLimit(\"fangshi\")") == -1 &&
-   search(writeback, "set_item_profeLimit") != -1) {
-    // 在文件结束前 } 之前插入
-    int last_brace = search(writeback, "\n}\n");
-    if(last_brace == -1) {
-        last_brace = search(writeback, "}\n");
-    }
-    if(last_brace != -1) {
-        writeback = writeback[..last_brace-1] + "    set_item_profeLimit(\"fangshi\");\n" + writeback[last_brace..];
-    }
-}
-```
-
-**方案2：在 clone 已有装备时添加方士**
-
-```pike
-// itemsd.pike
-if(Stdio.exist(ITEM_PATH+item_name)){
-    rtn_ob=clone(ITEM_PATH+item_name);
-    // 即使装备已存在，也要检查并添加方士职业
-    if(rtn_ob) {
-        array(string) profs = rtn_ob->query_item_profeLimit();
-        if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
-            rtn_ob->set_item_profeLimit("fangshi");
-        }
-    }
-    return (rtn_ob);
-}
-```
-
-### 装备相关文件
-
-| 文件 | 修改内容 |
-|------|----------|
-| `gamelib/single/daemons/itemsd.pike` | 普通装备掉落，添加方士职业 |
-| `gamelib/single/daemons/bossdropd.pike` | BOSS装备掉落，添加方士职业 |
-| `lowlib/mudlib/inherit/feature/equip.pike` | 装备职业限制显示 |
-
-### 装备职业限制
-
-```pike
-// 设置装备职业限制
-set_item_profeLimit("fangshi");
-set_item_profeLimit("jianxian");
-set_item_profeLimit("yushi");
-// ... 可以多次调用，职业会累加到数组中
-
-// 查询装备职业限制
-array(string) profs = item->query_item_profeLimit();
-// 返回: ({"fangshi", "jianxian", "yushi", ...})
-```
-
----
-
-## 单元测试
-
-### 测试文件结构
-
-| 测试文件 | 测试内容 |
-|----------|----------|
-| `test_unit/test_fangshi.pike` | 基础功能测试（8个测试） |
-| `test_unit/test_fangshi_pk.pike` | PK系统测试（7个测试） |
-| `test_unit/test_fangshi_edge_cases.pike` | 边缘测试（24个测试） |
-| `test_unit/test_equipment_drop_fangshi.pike` | 装备掉落测试（7个测试） |
-
-### 测试运行
-
-所有测试在游戏启动时自动运行：
-```pike
-// gamelib/single/daemons/testunitd.pike
-void run_tests() {
-    run_test_unit_file("test_fangshi.pike");
-    run_test_unit_file("test_fangshi_pk.pike");
-    run_test_unit_file("test_fangshi_edge_cases.pike");
-    run_test_unit_file("test_equipment_drop_fangshi.pike");
-}
-```
-
-### 测试框架
-
-```pike
-#include <globals.h>
-#include <gamelib/include/gamelib.h>
-
-mapping(string:int) test_results = ([
-    "total": 0,
-    "passed": 0,
-    "failed": 0,
-]);
-
-void test_start(string test_name) {
-    test_results["total"]++;
-    werror("\n[测试 %d] %s\n", test_results["total"], test_name);
-}
-
-void test_pass() {
-    test_results["passed"]++;
-    werror("  ✓ 通过\n");
-}
-
-void test_fail(string reason) {
-    test_results["failed"]++;
-    werror("  ✗ 失败: %s\n", reason);
-}
-
-void run_tests() {
-    // 测试代码
-    test_start("测试名称");
-    // 测试逻辑
-    if(成功条件) {
-        test_pass();
-    } else {
-        test_fail("失败原因");
-    }
-}
-```
-
----
-
-## 常见问题
-
-### Q1: 召唤兽不攻击敌人？
-
-**检查清单：**
-1. 是否设置了 `_tasknpc = 1`？如果有，去掉它
-2. 召唤兽的 `heart_beat()` 是否正常工作？
-3. 是否正确获取了主人的攻击目标？
-4. 敌人是否还活着？
-
-```pike
-// 检查心跳是否启动
-if(query_heart_beat() == 0) {
-    set_heart_beat(1);
-}
-```
-
-### Q2: 装备掉落后没有方士职业？
-
-**检查清单：**
-1. 确认 `itemsd.pike` 和 `bossdropd.pike` 已修改
-2. 重启游戏让修改生效
-3. 获取**新掉落**的装备（旧的不会自动更新）
-4. 检查调试输出日志
-
-### Q3: 方士技能学习失败？
-
-**检查清单：**
-1. 技能文件是否存在？
-2. 技能文件的 `create()` 函数是否正确定义？
-3. `skill_type` 是否包含 `"fangshi"`？
-4. CSV配置文件是否正确？
+### Hidden mythic books
+
+`gamelib/single/daemons/itemsd.pike` owns the nine-book pool and deterministic
+boundary helper. `gamelib/inherit/npc.pike` owns team and solo death wiring.
+
+Fangshi:
+
+- `taixulingyun`
+- `wanlingchaosheng`
+- `sixiangfengjin`
+
+Parity professions:
+
+- Yushi: `jiutianleiyin`, `taiyixuanguang`, `bingpochanshen`
+- Wuyao: `huangquanwudu`, `wanxiangshihun`, `jiuyouduzhang`
+
+Drop and economy contract:
+
+- Gate on the killed monster object's actual `query_level() >= 70`.
+- Use total rate `9/100000`; select uniformly from nine books, making each
+  book's long-run rate about `1/100000`.
+- Roll exactly once per monster for team Boss, team normal, and solo kills.
+  Keep the team roll before `if(this_object()->_boss)` so Bosses cannot bypass
+  it. Never multiply the roll by team size.
+- Protect team/player ground ownership for 120 seconds and remove an unclaimed
+  drop after five minutes.
+- Permit ordinary pickup, drop, trade, send, and storage.
+- Enforce level 80 and profession on `read()`. Duplicate learning must not
+  consume the book.
+- Append every successful drop to `log/hidden_skill_drop.log`.
+- Never add these books to `can_buy_book_list.csv`, a teacher, or the advanced
+  shop.
+
+Dynamic scaling is separate from hidden-drop eligibility:
+
+- Ordinary non-peaceful overworld rooms start dynamic NPC scaling at player
+  level 50.
+- Dynamic NPC level is requested player level plus `random(3)`, capped at 500;
+  dynamic NPCs also have a 0.5% Boss roll.
+- Registered ordinary dungeons suppress dynamic scaling. `posanzhidi` is the
+  explicit exception.
+- Fixed and dungeon monsters still qualify when their actual level is 70+.
+- City-war keeper/guard/lord deaths use a separate honor flow and do not use
+  ordinary hidden drops.
+
+## Equipment, economy, and shared systems
+
+Fangshi currently has no dedicated equipment set. It intentionally uses all
+restricted legacy equipment routes through:
+
+- `lowlib/mudlib/inherit/feature/equip.pike`
+- `gamelib/single/daemons/itemsd.pike`
+- `gamelib/single/daemons/bossdropd.pike`
+- `gamelib/cmds/auto_equip.pike`
+
+Test actual `wear()`/`wield()` for existing and dynamically generated gear.
+Preserve slot, two-hand, level, attribute, profession, and task restrictions.
+
+Jade purchases must use total-value automatic denomination conversion and
+change through `YUSHID->have_enough_yushi()` and `YUSHID->pay_yushi()`. Do not
+reintroduce manual break/exchange steps in individual shops.
+
+Include these profession-generic systems in every full audit:
+
+- Tasks, dungeons, home, guild, ranking
+- Team, trade, send, whisper, friends, follow
+- Transfer, rest, warehouse, post, honor stores
+- Offline training and auto-fight
+- Birth, relife, fall-death recovery, login/logout
+
+## Required audit workflow
+
+1. Inspect branch, status, and dirty/generated files.
+2. Compare creation, migration, attributes, and identity maps.
+3. Test starter equipment, auto-equip, guide, attack, and first healing.
+4. Test book catalog, purchase, inventory link, real read, return codes, and
+   profession/level gates.
+5. Test configured caps, proficiency UI/medicine, and an old ten-stage skill.
+6. Test summon creation, scaling, combat, following, death, expiry, logout,
+   limits, resonance, and replacement aliases.
+7. Test equipment generation/drop/wear/forge and high-level purchases.
+8. Test tasks, dungeons, home, guild, ranking, social, offline, and auto-fight.
+9. Reverse-scan old six-profession and two-race hardcodes.
+10. Review Pike syntax against historical precedents, restart the full suite,
+    inspect logs, and verify both ports.
+
+For shared drops, scan every NPC/dungeon `fight_die()` override and require a
+parent `::fight_die()` call unless it is an explicit no-drop class. The expected
+deliberate exception is `gamelib/clone/npc/summon/base_summon.pike`.
+
+## Test and restart contract
+
+Core tests:
+
+| Test | Coverage |
+| --- | --- |
+| `test_fangshi_full_chain.pike` | Creation through advanced progression |
+| `test_fangshi_system_parity.pike` | Neutral/shared-system parity |
+| `test_fangshi_spirit_resonance.pike` | Resonance and alias boundaries |
+| `test_hidden_mythic_skills.pike` | Nine-book pool, dynamic level, Boss wiring, learning, economy, effects |
+| `test_auto_equip_assistant.pike` | Seven professions and equipment rules |
+| `test_equipment_drop_fangshi.pike` | Normal/Boss generated equipment |
+| `test_skill_book_learning.pike` | Book restrictions and return codes |
+| `test_yushi_auto_exchange.pike` | Jade conversion and purchase flows |
+
+After every Pike change:
 
 ```bash
-# 检查技能文件
-ls gamelib/single/skills/huling
-
-# 检查CSV配置
-grep "huling" gamelib/data/can_buy_book_list.csv
+cd /usr/local/games/xiand
+git diff --check
+./startup.sh
 ```
 
-### Q4: 召唤兽消失问题？
+Require:
 
-**可能原因：**
-1. 主人死亡
-2. 主人登出
-3. 召唤时间结束
-4. 召唤兽被杀
+- `[TESTUNITD] COMPLETE ... failed=0`
+- Game port `13800` listening
+- HTTP port `8888` listening
+- No task-related compile, syntax, null-indexing, or runtime errors
 
-**解决方案：**
-```pike
-void check_owner_status() {
-    if(!summon_owner || !objectp(summon_owner)) {
-        // 主人不存在，召唤兽消失
-        destruct(this_object());
-        return;
-    }
+Regression floor verified on 2026-07-29:
 
-    if(summon_owner->get_cur_life() <= 0) {
-        // 主人死亡，召唤兽消失
-        destruct(this_object());
-        return;
-    }
-}
-```
+- TestUnit files: 13 passed, 0 failed, 4 helper scripts skipped
+- Inner assertions: 125 passed
+- `test_fangshi_full_chain`: 14/14
+- `test_fangshi_system_parity`: 13/13
+- `test_fangshi_spirit_resonance`: 7/7
+- `test_hidden_mythic_skills`: 9/9
 
-### Q5: PK时召唤兽行为异常？
+The local environment may still report missing MySQL databases `xd`/`xd01`
+while loading ranking or auction daemons. Report this honestly, but do not
+misclassify it as a Fangshi compile failure.
 
-**检查清单：**
-1. 确认召唤兽的 `attack_target()` 函数正确
-2. 检查 `query_attack_target()` 是否返回正确的敌人
-3. 确认召唤兽没有被其他因素干扰
+## Push safety
 
----
-
-## 技能书学习系统
-
-### ⚠️ 重要踩坑：职业匹配问题
-
-#### 问题描述
-
-方士玩家学习技能书时提示职业限制错误，即使职业是方士。
-
-**错误信息：**
-```
-你仔细研读【方】灵一触，但是该技能并非你这个职业所能领悟的！
-```
-
-#### 根本原因
-
-`readed.pike` 中的职业比较逻辑：
-- 技能书使用职业ID（如 `"fangshi"`）从CSV导入
-- 但代码只比较职业中文名（如 `"方士"`）
-- 两者不匹配导致学习失败
-
-**修复前代码：**
-```pike
-// 只比较职业中文名
-if(this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId()))
-```
-
-#### 解决方案
-
-**修复后代码（支持两种格式）：**
-```pike
-// 修复：比较职业ID而不是职业名称
-// 之前比较 profe_read_limit(如"fangshi") 与 query_profe_cn()(如"方士") 会失败
-if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId()))
-```
-
-**向后兼容：**
-- 老技能书使用中文名（`profe_read_limit="方士"`）→ 匹配 `query_profe_cn()`
-- 新技能书使用职业ID（`profe_read_limit="fangshi"`）→ 匹配 `query_profeId()`
-- OR逻辑确保两种格式都能正常工作
-
-#### 修复文件
-
-| 文件 | 修改内容 |
-|------|----------|
-| `lowlib/mudlib/inherit/feature/readed.pike` | 修复 `read()`, `beidong_read()`, `spec_read()` 三个函数中的职业比较 |
-
-### 技能书学习单元测试
-
-| 测试文件 | 测试内容 |
-|----------|----------|
-| `test_unit/test_skill_book_learning.pike` | 技能书文件静态检查（10个测试） |
-| `test_unit/test_skill_learning_simulation.pike` | 真实模拟学习逻辑（11个测试） |
-
-### 学习返回码
-
-| 返回码 | 含义 | 提示消息 |
-|--------|------|----------|
-| 0 | 学习失败 | 通用错误 |
-| 1 | 学习成功 | 成功学会了技能！ |
-| 2 | 已经学会 | 你已经学会该技能了 |
-| 3 | 职业限制 | 该技能并非你这个职业所能领悟的 |
-| 4 | 等级限制 | 你等级不够，无法领悟该技能 |
-| 5 | 必须学会前一级 | 必须学会前一级技能 |
-| 6 | 同级不能学习 | 已学会同级技能 |
-| 7 | 跳级学习不能 | 不能跳级学习技能 |
-
----
-
-## 关键文件清单
-
-### 方士核心文件
-
-```
-gamelib/
-├── setup_player.pike                    # 角色创建
-├── single/
-│   ├── daemons/
-│   │   ├── summond.pike                 # 召唤守护进程
-│   │   ├── itemsd.pike                  # 装备掉落（已修改）
-│   │   ├── bossdropd.pike               # BOSS掉落（已修改）
-│   │   └── testunitd.pike               # 单元测试守护进程
-│   └── skills/
-│       ├── base_summon.pike             # 召唤兽基类
-│       ├── lingxuan                     # 灵玄
-│       ├── linghuoshao                  # 灵火烧
-│       ├── lingzhi                      # 灵治
-│       ├── lingdun                      # 灵盾
-│       ├── huling                       # 虎灵
-│       ├── heling                       # 鹤灵
-│       ├── guiling                      # 龟灵
-│       ├── lingxuan_mystic              # 灵玄·秘
-│       ├── linghuoshao_mystic           # 灵火烧·秘
-│       ├── lingzhi_mystic               # 灵治·秘
-│       ├── lingdun_mystic               # 灵盾·秘
-│       └── huling_mystic                # 虎灵·秘
-└── cmds/
-    └── summon.pike                      # 召唤命令
-
-lowlib/
-├── mudlib/inherit/feature/
-│   └── readed.pike                      # 技能书学习（已修复职业匹配）
-└── wapmud2/
-    ├── cmds/
-    │   └── summon_command.pike          # 召令命令
-    └── inherit/
-        └── summon.pike                  # 召唤继承
-
-test_unit/
-├── test_fangshi.pike                    # 基础测试
-├── test_fangshi_pk.pike                 # PK测试
-├── test_fangshi_edge_cases.pike         # 边缘测试
-├── test_equipment_drop_fangshi.pike     # 装备测试
-├── test_skill_book_learning.pike        # 技能书静态检查
-└── test_skill_learning_simulation.pike  # 技能学习模拟测试
-```
-
----
-
-## 使用场景
-
-当用户提到以下问题时，触发此技能：
-- "方士"
-- "fangshi"
-- "召唤兽"
-- "召唤系统"
-- "虎灵"
-- "鹤灵"
-- "龟灵"
-- "装备掉落方士"
-- "方士技能"
-- "方士PK"
-- "third race"
-- "中立职业"
-
----
-
-## 调试经验总结
-
-### 1. 添加新方士技能的完整流程
-
-```bash
-# 1. 创建技能文件
-gamelib/single/skills/new_skill.pike
-
-# 2. 创建技能书文件
-gamelib/clone/item/book/new_skill.pike
-
-# 3. 更新CSV配置
-gamelib/data/can_buy_book_list.csv
-
-# 4. 添加单元测试
-test_unit/test_fangshi.pike
-```
-
-### 2. 召唤系统调试技巧
-
-```pike
-// 添加调试输出
-werror("召唤调试: player=%s, type=%s, level=%d\n", player_name, summon_type, skill_level);
-
-// 检查召唤物是否存活
-if(summon && objectp(summon) && environment(summon)){
-    werror("召唤物存活，位置: %s\n", environment(summon)->query_name());
-}
-```
-
-### 3. 常见错误及解决方案
-
-| 错误 | 原因 | 解决方案 |
-|------|------|----------|
-| 召唤兽不攻击 | `_tasknpc = 1` 或心跳未启动 | 移除 `_tasknpc`，检查 `set_heart_beat(1)` |
-| 技能学习失败 | 职业ID不匹配 | 检查 `profe_read_limit` 使用 `"fangshi"` |
-| 装备无方士 | 旧代码未修改 | 更新 `itemsd.pike` 和 `bossdropd.pike` |
-| PK时召唤兽乱打 | 目标获取错误 | 检查 `query_enemy()` 返回值 |
-
-### 4. 版本历史
-
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| 1.0.0 | 2025-03 | 初始版本，完整方士系统 |
-| 1.1.0 | 2025-03 | 添加装备掉落支持 |
-| 1.2.0 | 2025-04 | 添加技能书学习修复，中立阵营规则 |
+- Apply Pike syntax, code-review, and validation skills before editing/pushing.
+- Preserve runtime/generated files such as `data_xiand/**`,
+  `gamelib/data/topten.s`, `gamelib/data/uniq_user/**`, `log/**`,
+  `web/web_vue/index.html`, and `web/web_vue/manifest.json` unless explicitly
+  requested.
+- Use English conventional commit messages.
+- Commit or push only on explicit user request.

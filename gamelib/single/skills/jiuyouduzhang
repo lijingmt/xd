@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【神】九幽毒瘴";
+	desc="九幽毒瘴侵体，短时间大幅削弱敌人受到的治疗";
+	s_type="zhudong";
+	s_skill_type="curse";
+	s_curse_type="life";
+	s_delayTime=120;
+	s_lasttime=12;
+	performs_attack[1]=30;
+	performs_attack[2]=40;
+	performs_attack[3]=50;
+	performs_attack[4]=60;
+	performs_attack[5]=70;
+	performs_cast[1]=320;
+	performs_cast[2]=380;
+	performs_cast[3]=450;
+	performs_cast[4]=530;
+	performs_cast[5]=620;
+	skill_type+=({"wuyao"});
+	skill_rare="mythic";
+	performs_level_limit[1]=80;
+	performs_level_limit[2]=100;
+	performs_level_limit[3]=120;
+	performs_level_limit[4]=140;
+	performs_level_limit[5]=160;
+	performs_desc[1]="12秒内降低敌人30%受到的治疗，消耗法力320点";
+	performs_desc[2]="12秒内降低敌人40%受到的治疗，消耗法力380点";
+	performs_desc[3]="12秒内降低敌人50%受到的治疗，消耗法力450点";
+	performs_desc[4]="12秒内降低敌人60%受到的治疗，消耗法力530点";
+	performs_desc[5]="12秒内降低敌人70%受到的治疗，消耗法力620点";
+}

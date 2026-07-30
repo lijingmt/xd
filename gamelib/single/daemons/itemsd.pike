@@ -98,6 +98,22 @@ private mapping(int:array(string)) item_list = ([]);
 //记录白色装备允许出现属性的映射表
 private mapping(string:array(string)) item_attributes = ([]);
 
+//三系施法职业的大神传承仅通过70级以上怪物极低概率掉落。
+//总掉率为9/100000，九本等概率，即单本长期均值约1/100000。
+private array(string) hidden_skill_books = ({
+	"book/taixulingyun",
+	"book/wanlingchaosheng",
+	"book/sixiangfengjin",
+	"book/jiutianleiyin",
+	"book/taiyixuanguang",
+	"book/bingpochanshen",
+	"book/huangquanwudu",
+	"book/wanxiangshihun",
+	"book/jiuyouduzhang",
+});
+private int hidden_skill_min_level = 70;
+private int hidden_skill_drop_rate = 9;
+
 //用于生成物品文件后缀的映射表,现在暂时未用上
 private mapping(string:int) postfix_map = ([
 		"str_add"                    :0,
@@ -480,6 +496,41 @@ object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,string 
 	}
 	else	
 		return 0;
+}
+int query_hidden_skill_book_count()
+{
+	return sizeof(hidden_skill_books);
+}
+string query_hidden_skill_book(int index)
+{
+	if(index < 0 || index >= sizeof(hidden_skill_books))
+		return "";
+	return hidden_skill_books[index];
+}
+int query_hidden_skill_min_level()
+{
+	return hidden_skill_min_level;
+}
+int query_hidden_skill_drop_rate()
+{
+	return hidden_skill_drop_rate;
+}
+int can_drop_hidden_skill_book(int npclevel,int roll)
+{
+	if(npclevel < hidden_skill_min_level)
+		return 0;
+	if(roll < 1 || roll > hidden_skill_drop_rate)
+		return 0;
+	return 1;
+}
+object get_hidden_skill_book(int npclevel)
+{
+	int roll = random(100000)+1;
+	if(!can_drop_hidden_skill_book(npclevel,roll))
+		return 0;
+	string item_name =
+		hidden_skill_books[random(sizeof(hidden_skill_books))];
+	return clone(ITEM_PATH+item_name);
 }
 //外部接口，由fight_die()调用，为世界掉落装备的的接口
 object get_worlddrop_item(int npclevel,int playerlevel)
