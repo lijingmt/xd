@@ -152,45 +152,75 @@ sync_item_directory() {
     print_success "游戏物品同步完成，并已校验方士技能书 huling1"
 }
 
-# 函数：把第三阵营头像更新到容器内 Tomcat 的新旧访问路径
-copy_third_logo_to_container() {
+# 函数：把方士阵营图标和人物头像更新到容器内 Tomcat 的新旧访问路径
+copy_fangshi_images_to_container() {
     local container_name="$1"
+    local app_root="/app/xiand"
     local tomcat_root="/usr/local/tomcat/webapps/ROOT"
-    local source_logo="$PROJECT_ROOT/images/third_logo.png"
-    local web_logo="$PROJECT_ROOT/web/images/third_logo.png"
+    local image_names=(
+        "third_logo.png"
+        "human_fangshi_logo.png"
+        "human_fangshi_male.png"
+        "human_fangshi_female.png"
+    )
+    local image_name
+    local source_image
+    local web_image
 
-    if [ ! -f "$source_logo" ] || [ ! -f "$web_logo" ]; then
-        print_error "第三阵营头像源文件不完整，停止部署"
-        return 1
-    fi
-
-    if ! docker exec "$container_name" \
-        mkdir -p "$tomcat_root/images" "$tomcat_root/xd/images"; then
+    if ! docker exec "$container_name" mkdir -p \
+        "$app_root/images" "$app_root/web/images" \
+        "$tomcat_root/images" "$tomcat_root/xd/images"; then
         print_error "无法创建容器内 Tomcat 头像目录"
         return 1
     fi
 
-    if ! docker cp "$web_logo" \
-        "$container_name:$tomcat_root/images/third_logo.png"; then
-        print_error "复制 Web 第三阵营头像失败"
-        return 1
-    fi
+    for image_name in "${image_names[@]}"; do
+        source_image="$PROJECT_ROOT/images/$image_name"
+        web_image="$PROJECT_ROOT/web/images/$image_name"
 
-    if ! docker cp "$source_logo" \
-        "$container_name:$tomcat_root/xd/images/third_logo.png"; then
-        print_error "复制游戏第三阵营头像失败"
-        return 1
-    fi
+        if [ ! -f "$source_image" ] || [ ! -f "$web_image" ]; then
+            print_error "方士图片源文件不完整: $image_name"
+            return 1
+        fi
 
-    if ! docker exec "$container_name" \
-        test -s "$tomcat_root/images/third_logo.png" ||
-       ! docker exec "$container_name" \
-        test -s "$tomcat_root/xd/images/third_logo.png"; then
-        print_error "容器内 Tomcat 第三阵营头像校验失败"
-        return 1
-    fi
+        if ! docker cp "$source_image" \
+            "$container_name:$app_root/images/$image_name"; then
+            print_error "复制容器项目方士图片失败: $image_name"
+            return 1
+        fi
 
-    print_success "第三阵营头像已更新到容器内 Tomcat"
+        if ! docker cp "$web_image" \
+            "$container_name:$app_root/web/images/$image_name"; then
+            print_error "复制容器 Web 源方士图片失败: $image_name"
+            return 1
+        fi
+
+        if ! docker cp "$web_image" \
+            "$container_name:$tomcat_root/images/$image_name"; then
+            print_error "复制 Web 方士图片失败: $image_name"
+            return 1
+        fi
+
+        if ! docker cp "$source_image" \
+            "$container_name:$tomcat_root/xd/images/$image_name"; then
+            print_error "复制游戏方士图片失败: $image_name"
+            return 1
+        fi
+
+        if ! docker exec "$container_name" \
+            test -s "$app_root/images/$image_name" ||
+           ! docker exec "$container_name" \
+            test -s "$app_root/web/images/$image_name" ||
+           ! docker exec "$container_name" \
+            test -s "$tomcat_root/images/$image_name" ||
+           ! docker exec "$container_name" \
+            test -s "$tomcat_root/xd/images/$image_name"; then
+            print_error "容器内 Tomcat 方士图片校验失败: $image_name"
+            return 1
+        fi
+    done
+
+    print_success "方士阵营图标及男女头像已更新到容器项目和 Tomcat"
 }
 
 # 函数：从 Docker 配置获取用户名
@@ -611,9 +641,9 @@ main() {
         docker cp "${PROJECT_ROOT}/web/web_vue/index.html" "${CONTAINER_NAME}:/usr/local/tomcat/webapps/ROOT/web_vue/index.html" 2>/dev/null || true
         print_success "前端文件已复制到容器"
 
-        # 更新第三阵营头像；游戏输出使用 /xd/images，Web 页面使用 /images。
-        if ! copy_third_logo_to_container "$CONTAINER_NAME"; then
-            print_error "第三阵营头像部署失败，停止后续部署"
+        # 更新方士阵营图标和人物头像；游戏使用 /xd/images，Web 使用 /images。
+        if ! copy_fangshi_images_to_container "$CONTAINER_NAME"; then
+            print_error "方士图片部署失败，停止后续部署"
             exit 1
         fi
 

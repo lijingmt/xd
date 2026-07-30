@@ -8,7 +8,7 @@
  * - Pike evaluator 栈设为 1000000
  * - Pike 线程栈设为 64 MiB
  * - 部署时先同步外置 item 目录再启动容器
- * - 第三阵营头像复制到容器内 Tomcat 的新旧访问路径
+ * - 方士阵营图标与人物头像同步到容器项目和 Tomcat 的所有访问路径
  */
 
 #include <globals.h>
@@ -120,31 +120,58 @@ void test_item_sync_contract()
 		test_fail("item必须同步到实际挂载目录、校验huling1并先于容器启动");
 }
 
-void test_third_logo_deploy_contract()
+void test_fangshi_images_deploy_contract()
 {
-	test_start("部署第三阵营头像到容器内Tomcat");
+	test_start("部署方士阵营图标与人物头像到容器全部路径");
 	string source =
 		Stdio.read_file(ROOT+"/restart-docker.sh");
-	string source_logo =
+	string source_third =
 		Stdio.read_file(ROOT+"/images/third_logo.png");
-	string web_logo =
+	string web_third =
 		Stdio.read_file(ROOT+"/web/images/third_logo.png");
+	string source_logo =
+		Stdio.read_file(ROOT+"/images/human_fangshi_logo.png");
+	string web_logo =
+		Stdio.read_file(ROOT+"/web/images/human_fangshi_logo.png");
+	string source_male =
+		Stdio.read_file(ROOT+"/images/human_fangshi_male.png");
+	string web_male =
+		Stdio.read_file(ROOT+"/web/images/human_fangshi_male.png");
+	string source_female =
+		Stdio.read_file(ROOT+"/images/human_fangshi_female.png");
+	string web_female =
+		Stdio.read_file(ROOT+"/web/images/human_fangshi_female.png");
 
-	if(source && source_logo && web_logo &&
+	if(source && source_third && web_third &&
+	   source_logo && web_logo &&
+	   source_male && web_male &&
+	   source_female && web_female &&
+	   source_third==web_third &&
 	   source_logo==web_logo &&
+	   source_male==web_male &&
+	   source_female==web_female &&
+	   source_logo!=source_male &&
+	   source_logo!=source_female &&
+	   source_male!=source_female &&
 	   search(source,
-		   "$tomcat_root/images/third_logo.png")!=-1 &&
+		   "\"human_fangshi_logo.png\"")!=-1 &&
 	   search(source,
-		   "$tomcat_root/xd/images/third_logo.png")!=-1 &&
+		   "\"human_fangshi_male.png\"")!=-1 &&
 	   search(source,
-		   "copy_third_logo_to_container \"$CONTAINER_NAME\"")!=-1 &&
+		   "\"human_fangshi_female.png\"")!=-1 &&
 	   search(source,
-		   "test -s \"$tomcat_root/images/third_logo.png\"")!=-1 &&
+		   "copy_fangshi_images_to_container \"$CONTAINER_NAME\"")!=-1 &&
 	   search(source,
-		   "test -s \"$tomcat_root/xd/images/third_logo.png\"")!=-1)
+		   "test -s \"$app_root/images/$image_name\"")!=-1 &&
+	   search(source,
+		   "test -s \"$app_root/web/images/$image_name\"")!=-1 &&
+	   search(source,
+		   "test -s \"$tomcat_root/images/$image_name\"")!=-1 &&
+	   search(source,
+		   "test -s \"$tomcat_root/xd/images/$image_name\"")!=-1)
 		test_pass();
 	else
-		test_fail("头像源文件必须一致并复制、校验Tomcat的/images与/xd/images");
+		test_fail("方士图片必须镜像一致、男女有别并部署到容器全部路径");
 }
 
 void print_summary()
@@ -163,7 +190,7 @@ int main()
 	test_pike_stack_contract();
 	test_stack_order_contract();
 	test_item_sync_contract();
-	test_third_logo_deploy_contract();
+	test_fangshi_images_deploy_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;
