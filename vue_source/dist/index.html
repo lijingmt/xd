@@ -6,8 +6,8 @@
     <title>仙道</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785450277419">
-    <link rel="stylesheet" href="css/realm.css?v=v1785450277419">
+    <link rel="stylesheet" href="css/app.css?v=v1785451399119">
+    <link rel="stylesheet" href="css/realm.css?v=v1785451399119">
 </head>
 <body>
     <div id="app">
@@ -27,9 +27,7 @@
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
-                <form class="auth-form"
-                      autocomplete="on"
-                      @submit.prevent="doLogin">
+                <div class="auth-form">
                     <div class="form-group">
                         <label for="login-partition">分区</label>
                         <select id="login-partition"
@@ -52,6 +50,7 @@
                                autocomplete="username"
                                autocapitalize="none"
                                spellcheck="false"
+                               @keyup.enter="doLogin"
                                :disabled="isLoggingIn">
                     </div>
                     <div class="form-group">
@@ -63,6 +62,7 @@
                                    v-model="loginForm.password"
                                    placeholder="输入密码"
                                    autocomplete="current-password"
+                                   @keyup.enter="doLogin"
                                    :disabled="isLoggingIn">
                             <button type="button"
                                     class="password-toggle"
@@ -72,14 +72,15 @@
                             </button>
                         </div>
                     </div>
-                    <button type="submit"
+                    <button type="button"
                             class="btn btn-primary btn-block auth-submit"
                             aria-label="登录游戏"
+                            @click="doLogin"
                             :disabled="isLoggingIn">
-                        <span v-if="!isLoggingIn">登录游戏</span>
-                        <span v-else class="loading">正在连接...</span>
+                        <span v-if="!isLoggingIn">🎮 登录游戏</span>
+                        <span v-else class="loading">登录中...</span>
                     </button>
-                </form>
+                </div>
                 <div v-if="loginError"
                      class="message message-error auth-message"
                      role="alert"
@@ -404,7 +405,7 @@
                                         <!-- 按钮 -->
                                         <a v-else-if="segment.type === 'button'"
                                            :href="htmlMode ? getDirectUrl(segment.cmd) : '#'"
-                                           @click.prevent="!htmlMode && sendJsonCommand(segment.cmd)"
+                                           @click="handleMudButtonClick($event, segment.cmd)"
                                            :class="segment.class"
                                            class="mud-btn"
                                            v-html="segment.label"></a>
@@ -861,10 +862,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785450277419"></script>
-    <script src="js/app.js?v=v1785450277419"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785451399119"></script>
+    <script src="js/app.js?v=v1785451399119"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785450277419"></script>
+    <script src="../includes/translate.js?v=v1785451399119"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

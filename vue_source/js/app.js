@@ -381,6 +381,17 @@ createApp({
             return `${this.apiBase}/api/html?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent(cmd)}`;
         },
 
+        // 普通模式由Vue处理；HTML模式保留真实href供自动浏览器直接导航
+        handleMudButtonClick(event, cmd) {
+            if (this.htmlMode) {
+                return;
+            }
+            if (event) {
+                event.preventDefault();
+            }
+            this.sendJsonCommand(cmd);
+        },
+
         // 注册功能
         async doRegister() {
             // 验证输入

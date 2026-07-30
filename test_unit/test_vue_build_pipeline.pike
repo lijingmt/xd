@@ -118,6 +118,30 @@ void test_manifest_contract()
 		test_fail("manifest相对路径或favicon配置错误");
 }
 
+void test_auto_browser_login_contract()
+{
+	test_start("自动浏览器登录与HTML直达链接保持兼容");
+	string index_source =
+		Stdio.read_file(ROOT+"/vue_source/index.html");
+	string app_source =
+		Stdio.read_file(ROOT+"/vue_source/js/app.js");
+
+	if(index_source && app_source &&
+	   search(index_source,"@submit.prevent=\"doLogin\"")==-1 &&
+	   search(index_source,"@click=\"doLogin\"")!=-1 &&
+	   search(index_source,
+		"@click=\"handleMudButtonClick($event, segment.cmd)\"")!=-1 &&
+	   search(index_source,
+		"@click.prevent=\"!htmlMode")==-1 &&
+	   search(app_source,
+		"handleMudButtonClick(event, cmd)")!=-1 &&
+	   search(app_source,"if (this.htmlMode)")!=-1 &&
+	   search(app_source,"event.preventDefault();")!=-1)
+		test_pass();
+	else
+		test_fail("登录按钮或HTML模式链接会阻止自动浏览器操作");
+}
+
 void test_docker_copy_contract()
 {
 	test_start("Docker镜像复制web产物到Tomcat ROOT");
@@ -148,6 +172,7 @@ int main()
 	test_shared_build_script_contract();
 	test_vue_source_contract();
 	test_manifest_contract();
+	test_auto_browser_login_contract();
 	test_docker_copy_contract();
 	print_summary();
 	if(test_results["failed"]==0)

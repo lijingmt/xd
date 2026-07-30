@@ -109,6 +109,30 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(sessionValues.get('mud_userid'), 'autolog');
   assert.strictEqual(client.showLogin, false);
 
+  let preventedClicks = 0;
+  let sentCommand = '';
+  client.sendJsonCommand = command => {
+    sentCommand = command;
+  };
+  client.htmlMode = false;
+  client.handleMudButtonClick({
+    preventDefault() {
+      preventedClicks += 1;
+    }
+  }, 'look');
+  assert.strictEqual(preventedClicks, 1);
+  assert.strictEqual(sentCommand, 'look');
+
+  client.htmlMode = true;
+  sentCommand = '';
+  client.handleMudButtonClick({
+    preventDefault() {
+      preventedClicks += 1;
+    }
+  }, 'inventory');
+  assert.strictEqual(preventedClicks, 1);
+  assert.strictEqual(sentCommand, '');
+
   sandbox.fetch = async () => ({
     ok: true,
     json: async () => nextBattleState

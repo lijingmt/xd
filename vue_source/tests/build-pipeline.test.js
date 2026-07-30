@@ -28,7 +28,12 @@ assert(!indexSource.includes('user-scalable=no'));
 assert(!indexSource.includes('maximum-scale=1.0'));
 assert(indexSource.includes('viewport-fit=cover'));
 assert(indexSource.includes('class="modal auth-modal"'));
-assert(indexSource.includes('@submit.prevent="doLogin"'));
+assert(!indexSource.includes('@submit.prevent="doLogin"'));
+assert(indexSource.includes('@click="doLogin"'));
+assert.strictEqual(
+  (indexSource.match(/@keyup\.enter="doLogin"/g) || []).length,
+  2
+);
 assert(indexSource.includes('name="username"'));
 assert(indexSource.includes('name="password"'));
 assert(indexSource.includes('autocomplete="current-password"'));
@@ -66,6 +71,9 @@ assert(appSource.includes('playerAvatarFailed: false'));
 assert(appSource.includes('playerAvatarUrl()'));
 assert(appSource.includes('playerAvatarFallback()'));
 assert(appSource.includes('handlePlayerAvatarError()'));
+assert(indexSource.includes('@click="handleMudButtonClick($event, segment.cmd)"'));
+assert(!indexSource.includes('@click.prevent="!htmlMode'));
+assert(appSource.includes('handleMudButtonClick(event, cmd)'));
 assert(appSource.includes('decodeCredentialsFromTxd(txd)'));
 assert(appSource.includes('const credentials = this.decodeCredentialsFromTxd(savedTxd)'));
 assert(!appSource.includes('if (!savedTxd || !savedUser)'));
