@@ -26,6 +26,8 @@
 #define TOPTEN ((object)(ROOT "/gamelib/single/daemons/topten"))
 //任务守护模块
 #define TASKD ((object)(ROOT "/gamelib/single/daemons/taskd"))
+//新手分步引导守护模块
+#define NEWBIED ((object)(ROOT "/gamelib/single/daemons/newbied"))
 //拍卖行守护模块
 #define AUCTIOND ((object)(ROOT "/gamelib/single/daemons/auctiond"))
 //房间等级守护模块

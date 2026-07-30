@@ -4,6 +4,7 @@ int main(string|zero arg)
 {
 	object me = this_player();
 	string s = "";
+	NEWBIED->record_action(me,"chat");
 	s += RACECHATD->query_chatroom_list(me->query_raceId());
 	s += "[屏蔽列表:chatroom_blocklist]\n";
 	s += "[返回游戏:look]\n";

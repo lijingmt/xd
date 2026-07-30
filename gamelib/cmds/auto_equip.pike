@@ -394,7 +394,9 @@ int main(string|zero arg)
 	if(!player)
 		return 0;
 	result = auto_equip_player(player);
-	if(arg != "silent")
+	if(arg != "silent"){
+		NEWBIED->record_action(player,"auto_equip");
 		player->write_view(WAP_VIEWD["/emote"],0,0,render_result(result));
+	}
 	return 1;
 }

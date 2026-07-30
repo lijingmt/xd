@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
 	string name=arg;
@@ -39,6 +40,8 @@ int main(string arg)
 					s += "你已经到达法力上限，不用食用该物品。\n";
 				break;
 			}
+			if(tmp==1)
+				NEWBIED->record_action(this_player(),"eat");
 		}
 		else if(ob&&ob->eat_flag==0){
 			s += "该物品已经食用过了。\n";

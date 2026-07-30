@@ -225,6 +225,7 @@ int main(string|zero arg)
 	}
 
 	s += "你召唤出了" + summon->query_name_cn() + "！\n[返回游戏:look]\n";
+	NEWBIED->record_summon(me,summon_type);
 	me->write(s);
 	return 1;
 }

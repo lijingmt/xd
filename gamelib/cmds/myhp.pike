@@ -105,7 +105,8 @@ int main(string|zero arg)
 	s += "\n"+bs_tips+"\n\n";
 	
 	s += "[返回游戏:look]\n";
-	
+
+	NEWBIED->record_action(me,"status");
 	write(s);
 	return 1;
 }

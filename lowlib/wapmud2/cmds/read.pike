@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
 	string name=arg;
@@ -51,6 +52,8 @@ int main(string arg)
 					this_player()->write_view(WAP_VIEWD["/read_Learned"],ob);//已学过
 				break;
 			}
+			if(tmp==1)
+				NEWBIED->record_book_read(this_player());
 		}
 		else if(ob&&ob->read_flag==0)
 			this_player()->write_view(WAP_VIEWD["/read_nobook"],ob);

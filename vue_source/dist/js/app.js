@@ -175,6 +175,9 @@ createApp({
             inviteLink: '',  // 邀请链接
             inviteCode: '',  // 邀请码
             qrCodeUrl: '',  // 二维码URL
+            // 新手任务完成弹窗
+            activeNewbieCompletion: null,
+            newbieCompletionQueue: [],
             // 语言选择
             selectedLanguage: localStorage.getItem('userLanguage') || 'chinese_simplified',  // 当前选择的语言
             isInitializing: true  // 初始化标志，防止初始化时触发changeLanguage
@@ -466,6 +469,9 @@ createApp({
 
                     // 更新MUD输出
                     this.mudLines = data.lines || [];
+                    this.handleNewbieCompletions(
+                        data.newbie_completions || []
+                    );
 
                     // 隐藏登录界面
                     this.showLogin = false;
@@ -1058,6 +1064,7 @@ createApp({
                 // 更新MUD输出
                 this.mudLines = data.lines || [];
                 console.log('[sendJsonCommand] mudLines数量:', this.mudLines.length);
+                this.handleNewbieCompletions(data.newbie_completions || []);
 
                 // 处理复制指令（从后端返回的copy字段）
                 if (data.copy && data.copy.data) {
@@ -1096,6 +1103,68 @@ createApp({
                     this.loadingTimer = null;
                 }
             }
+        },
+
+        handleNewbieCompletions(completions) {
+            if (!Array.isArray(completions) || completions.length === 0) {
+                return;
+            }
+            const validCompletions = completions.filter(item =>
+                item && (item.code === 2 || item.code === 4) &&
+                Number.isFinite(Number(item.step))
+            );
+            if (validCompletions.length === 0) {
+                return;
+            }
+            this.newbieCompletionQueue.push(...validCompletions);
+            this.showNextNewbieCompletion();
+        },
+
+        showNextNewbieCompletion() {
+            if (this.activeNewbieCompletion ||
+                this.newbieCompletionQueue.length === 0) {
+                return;
+            }
+            this.activeNewbieCompletion = this.newbieCompletionQueue.shift();
+        },
+
+        dismissNewbieCompletions() {
+            this.activeNewbieCompletion = null;
+            this.newbieCompletionQueue = [];
+        },
+
+        continueNewbieGuide() {
+            const completion = this.activeNewbieCompletion;
+            if (!completion) {
+                return;
+            }
+            this.activeNewbieCompletion = null;
+            if (this.newbieCompletionQueue.length > 0) {
+                this.$nextTick(() => this.showNextNewbieCompletion());
+                return;
+            }
+            const command = completion.code === 4
+                ? 'inventory'
+                : (completion.next_action_command || 'newbie_guide');
+            if (command) {
+                this.sendJsonCommand(command);
+            }
+        },
+
+        getNewbieCompletionPrimaryLabel() {
+            if (!this.activeNewbieCompletion) {
+                return '继续';
+            }
+            if (this.newbieCompletionQueue.length > 0) {
+                return '查看下一项完成结果';
+            }
+            if (this.activeNewbieCompletion.code === 4) {
+                return '整理背包';
+            }
+            return this.activeNewbieCompletion.next_action_label ||
+                (this.activeNewbieCompletion.complete
+                    ? '查看职业成长路线'
+                    : '开始下一步');
         },
 
         // JSON模式: 获取按钮样式类名
@@ -1281,6 +1350,7 @@ createApp({
             this.txd = '';
             this.gameFrameUrl = '';
             this.playerStats = null;
+            this.dismissNewbieCompletions();
             this.stopStatsUpdate();
             // 清理自动战斗定时器
             if (this.autofightInterval) {
@@ -1341,12 +1411,16 @@ createApp({
 
                 // 更新 MUD 输出
                 this.mudLines = data.lines || [];
+                this.handleNewbieCompletions(
+                    data.newbie_completions || []
+                );
                 this.showLogin = false;
 
                 console.log('[重新登录] 成功');
             } catch (e) {
                 console.error('[重新登录] 失败:', e);
                 // 重新登录失败，显示登录界面
+                this.dismissNewbieCompletions();
                 this.showLogin = true;
                 this.loginForm.partition = savedPartition;
                 this.loginForm.userid = savedUser;

@@ -22,6 +22,17 @@ assert(indexSource.includes('js/app.js?v=BUILD_VERSION'));
 assert(indexSource.includes('manifest.json'));
 assert(indexSource.includes('vendor/vue.global.prod.js?v=BUILD_VERSION'));
 assert(!indexSource.includes('unpkg.com/vue'));
+assert(indexSource.includes('v-if="activeNewbieCompletion"'));
+assert(indexSource.includes('@click="continueNewbieGuide"'));
+
+const appSource = read('vue_source/js/app.js');
+const cssSource = read('vue_source/css/app.css');
+assert(appSource.includes('handleNewbieCompletions(data.newbie_completions || [])'));
+assert(appSource.includes('showNextNewbieCompletion()'));
+assert(appSource.includes('dismissNewbieCompletions()'));
+assert(appSource.includes('this.dismissNewbieCompletions();'));
+assert(cssSource.includes('.newbie-completion-modal'));
+assert(cssSource.includes('@keyframes newbieCompletionPop'));
 
 assert(buildSource.includes("path.join(__dirname, 'css', 'app.css')"));
 assert(buildSource.includes("path.join(__dirname, 'css', 'realm.css')"));

@@ -25,6 +25,8 @@ int main(string|zero arg)
 		// 如果玩家是方士，只显示方士技能书，不显示职业切换选项
 		if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
 			s += BUYD->get_buy_item_list(item_type,type);
+			if(item_type=="book" && type==me->query_profeId())
+				NEWBIED->record_book_shop(me,type);
 			me->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
 		}
@@ -50,6 +52,8 @@ int main(string|zero arg)
 			s += "[狗豆:buy_items "+item_type+" goudou]|[狗粮:buy_items "+item_type+" gouliang] |骨头\n";
 		if(me->query_profeId() != "fangshi" && me->query_raceId() != "third"){
 			s += BUYD->get_buy_item_list(item_type,type);
+			if(item_type=="book" && type==me->query_profeId())
+				NEWBIED->record_book_shop(me,type);
 		}
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;

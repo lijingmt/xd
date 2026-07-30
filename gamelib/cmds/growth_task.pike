@@ -8,6 +8,8 @@ int main(string|zero arg)
 
 	if(!me)
 		return 0;
+	// 等级门槛可能在进入对应引导步骤前已经满足，打开历练页时补做自动结算。
+	NEWBIED->try_auto_complete(me);
 
 	if(arg=="accept"){
 		int result = TASKD->accept_growth_task(me);
@@ -23,6 +25,8 @@ int main(string|zero arg)
 			s += "你已经完成了本级职业历练。\n\n";
 		else
 			s += "领取职业历练失败，请稍后重试。\n\n";
+		if(result==1 || result==4 || result==5)
+			NEWBIED->try_auto_complete(me);
 	}
 	else if(arg=="cancel"){
 		if(TASKD->cancel_growth_task(me))

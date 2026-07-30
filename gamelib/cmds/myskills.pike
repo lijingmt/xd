@@ -4,6 +4,7 @@
 int main(string|zero arg)
 {
 	string s = "";
+	NEWBIED->record_action(this_player(),"skills");
 	if(this_player()->home_path&&this_player()->home_path!="")
 		s += "[传送回家:home_return "+this_player()->home_path+"]\n";
 	s += this_player()->view_skills();

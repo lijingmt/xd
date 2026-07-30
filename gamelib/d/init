@@ -517,6 +517,7 @@ int choice_profe(string arg){
 			c3->move(me);
 		// 新手穿衣助手只补空位，不会替换已穿上的桃木剑。
 		me->command("auto_equip silent");
+		NEWBIED->initialize_newbie_guide(me);
 		s += "新手穿衣助手已为你穿好初始装备；以后可从物品页使用一键穿装。\n";
 		s += "[查看新手引导:newbie_guide]\n";
 		me->add_money(20);

@@ -100,6 +100,16 @@ private void check_level(){
 		}
 		*/
 		this_object()->set_att_by_level();
+		if(functionp(this_object()->query_project) &&
+		   this_object()->query_project()=="gamelib"){
+			object newbie_daemon =
+				(object)(ROOT+
+					"/gamelib/single/daemons/newbied");
+			if(newbie_daemon &&
+			   functionp(newbie_daemon->try_auto_complete))
+				newbie_daemon->try_auto_complete(
+					this_object());
+		}
 		//升级后重置当前等级升级到下一级需要的经验为0
 		current_exp = tmp;
 	}

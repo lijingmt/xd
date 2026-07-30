@@ -1638,6 +1638,7 @@ int if_in_killTask(object player,string killed_name,int|void killed_level)
 	int growth_result;
 	task tmp_task;
 	array(int) task_array = killMap[killed_name];
+	NEWBIED->record_kill(player);
 	growth_result = record_growth_task_kill(player,killed_level);
 	if(!player["/taskd/Cont"])
 		player["/taskd/Cont"]=([]);

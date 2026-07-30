@@ -31,12 +31,20 @@ int main(string|zero arg)
 
 	if(arg=="growth_accept"){
 		accept_result = TASKD->accept_growth_task(me);
+		if(accept_result==5){
+			NEWBIED->try_auto_complete(me);
+			s += "你已经完成本级职业历练，引导已按历史真实进度结算。\n";
+			s += "[返回任务列表:mytasks]\n";
+			write(s);
+			return 1;
+		}
 		if(accept_result!=1 && accept_result!=4){
 			s += "当前无法领取这项每级职业历练。\n";
 			s += "[返回职业历练:growth_task]\n";
 			write(s);
 			return 1;
 		}
+		NEWBIED->try_auto_complete(me);
 		target = TASKD->queryGrowthTaskGuideTarget(me);
 	}
 	else if(arg=="growth")
@@ -65,6 +73,14 @@ int main(string|zero arg)
 	}
 
 	if(!mappingp(target) || !sizeof(target)){
+		if(arg=="growth" &&
+		   TASKD->query_growth_task_done(me,me->query_level()) &&
+		   NEWBIED->try_auto_complete(me)==2){
+			s += "你已经完成本级职业历练，引导已按历史真实进度结算。\n";
+			s += "[返回任务列表:mytasks]\n";
+			write(s);
+			return 1;
+		}
 		s += "当前任务已经完成，或尚未配置可用的目标地图。\n";
 		s += "[返回任务列表:mytasks]\n";
 		s += "[返回游戏:look]\n";
@@ -92,5 +108,7 @@ int main(string|zero arg)
 
 	tell_object(me,"任务引导：正在前往"+target["target"]+"。\n");
 	me->command("qge74hye "+room_path);
+	if(environment(me)==room)
+		NEWBIED->record_action(me,"task_guide");
 	return 1;
 }

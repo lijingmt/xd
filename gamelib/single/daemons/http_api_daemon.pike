@@ -1166,6 +1166,12 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
 
     // 执行命令
     string response = execute_command(auth_userid, auth_password, actual_cmd);
+    object response_player = get_player_from_connection(auth_userid);
+    array(mapping) newbie_completions = ({});
+    if(response_player) {
+        newbie_completions =
+            NEWBIED->consume_completion_notices(response_player);
+    }
 
     // 生成新的 TXD - 使用存储的明文密码（因为 auth_password 可能是哈希）
     string stored_password = get_user_password(auth_userid);
@@ -1208,6 +1214,9 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
     // 如果有复制数据，添加到响应中
     if(copy_data && sizeof(copy_data) > 0 && copy_type) {
         json_result->copy = (["type":copy_type, "data":copy_data]);
+    }
+    if(sizeof(newbie_completions) > 0) {
+        json_result->newbie_completions = newbie_completions;
     }
 
     // 返回JSON格式

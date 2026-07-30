@@ -158,9 +158,173 @@ string render_guide(object player)
 	return result;
 }
 
+string render_tutorial(object player)
+{
+	mapping state;
+	string result = "";
+
+	if(!player)
+		return "无法读取人物状态。\n";
+	state = NEWBIED->query_step_state(player);
+	if(state["complete"]){
+		result += "【新手引导·已毕业】\n";
+		result += "你已经完成"+state["total"]+"步真实操作课程，"+
+			state["title"]+"。\n";
+		result += "接下来按职业成长路线继续学习中高阶技能、装备、副业、家园、帮派和副本。\n";
+		result += "[查看职业成长路线:newbie_guide roadmap]\n";
+		result += "[查看完整系统说明:newbie_guide overview]\n";
+		result += "[每级职业历练:growth_task]|[查看任务:mytasks]\n";
+		result += "[返回游戏:look]\n";
+		return result;
+	}
+
+	result += "【新手引导 "+state["step"]+"/"+state["total"]+"】\n";
+	result += player->query_race_cn(player->query_raceId())+"·"+
+		player->query_profe_cn(player->query_profeId())+" | "+
+		player->query_level()+"级\n";
+	result += "当前课程："+state["title"]+"\n";
+	result += state["desc"]+"\n";
+	if(state["progress"] && state["progress"]!="")
+		result += state["progress"]+"\n";
+	result += "--------\n";
+	if(state["ready"]){
+		result += "√ 已通过服务器真实状态验证；正常操作时会立即自动结算并弹出完成提示。\n";
+		result += "[补领本步奖励:newbie_guide check]\n";
+	}
+	else{
+		result += "○ 本步尚未完成。完成指定操作后会立即自动结算，无需返回本页检查。\n";
+		if(state["action_command"] && state["action_command"]!="")
+			result += "["+state["action_label"]+":"+
+				state["action_command"]+"]\n";
+		result += "[手动检查历史进度:newbie_guide check]\n";
+	}
+	if(state["step"]==9)
+		result += "提示：先点击当前场景中的怪物，进入战斗后再从技能页施放"+
+			NEWBIED->query_profession_config(player)["starter_cn"]+"。\n";
+	if(state["step"]==20 && player->query_profeId()=="fangshi")
+		result += "[阅读虎灵技能书:inventory]|[召唤虎灵:summon huling]\n";
+	result += "--------\n";
+	result += "[职业成长路线:newbie_guide roadmap]|"+
+		"[完整系统说明:newbie_guide overview]\n";
+	result += "[返回游戏:look]\n";
+	return result;
+}
+
+string query_profession_roadmap(string profession)
+{
+	string result = "";
+
+	switch(profession){
+		case "jianxian":
+			result += "剑仙：1级切云斩入门；9级裂甲剑风破防；14级御风剑气；"+
+				"19级起凝气成盾；24级分水斩。中高阶强化坦度、仇恨与剑气爆发。\n";
+			break;
+		case "yushi":
+			result += "羽士：1级萤火咒入门；9级凝心决护盾；14级寒冰咒；"+
+				"19级静心决；24级炎爆咒；29级封天冻地。中高阶兼顾法伤、护盾与控制。\n";
+			break;
+		case "zhuxian":
+			result += "诛仙：1级随心诀入门；9级飘忽不定；14级斩妖诀；"+
+				"19级破魔心法；24级玄天剑阵；29级撕魂裂魄。中高阶强调机动、剑阵与爆发。\n";
+			break;
+		case "kuangyao":
+			result += "狂妖：1级撕裂入门；9至21级分段提升嗜血狂暴；"+
+				"14级碎骨重击；19级崩裂冲撞；24级放血；29级狂化。中高阶以近战爆发和暴击成长为核心。\n";
+			break;
+		case "wuyao":
+			result += "巫妖：1级巫毒术入门；9级妖术结界；14级打风刃；"+
+				"19级泥沼术；24级腐蚀术；29级摄魂术。中高阶擅长护盾、持续伤害和限制敌人。\n";
+			break;
+		case "yinggui":
+			result += "影鬼：1级伏击入门；9至21级分段提升鬼踪；"+
+				"14级杀戮；24级剖心剔骨；29级幻影残像。中高阶围绕闪避、潜行和刺杀爆发成长。\n";
+			break;
+		case "fangshi":
+			result += "方士：1级灵弹术，2级灵刃，8级灵治自疗；"+
+				"10级虎灵攻击、15级鹤灵治疗、20级龟灵防护；24级灵莲铺治疗自己和同房间队友。\n";
+			result += "30级召唤上限2只；50级三灵合一；60级上限3只并可齐召三灵；"+
+				"65级进阶替换书；70级隐藏大神书；75级秘传替换书。\n";
+			result += "[查看召唤与灵契:summon]|[方士技能书:buy_items book fangshi]\n";
+			break;
+	}
+	return result;
+}
+
+string render_roadmap(object player)
+{
+	string result = "";
+	string profession;
+
+	if(!player)
+		return "无法读取人物状态。\n";
+	profession = player->query_profeId();
+	result += "【"+player->query_profe_cn(profession)+"·从入门到高阶】\n";
+	result += query_profession_roadmap(profession);
+	result += "[本职业技能书:buy_items book "+profession+
+		"]|[查看技能:myskills]\n\n";
+
+	result += "【任务成长】\n";
+	result += "每一级领取职业历练；20级起留意职业挂件任务，53级完成本职业多段传承。"+
+		"任务列表会显示可接、进行中和提交目标，任务引导只前往服务器核验过的安全地图。\n";
+	result += "[每级职业历练:growth_task]|[任务列表:mytasks]\n\n";
+
+	result += "【装备与副业】\n";
+	result += "怪物会掉落适合等级的随机装备；先检查职业、等级和属性限制，再穿戴。"+
+		"一键穿装只补空位，想换更好的装备要先手动脱下旧装备。"+
+		"采矿、锻造、熔炼、裁缝、制甲、采药与炼丹构成长期装备成长。\n";
+	result += "[查看物品:inventory]|[一键穿装:auto_equip]|[查看副业:myskills]\n\n";
+
+	result += "【队伍与副本】\n";
+	result += "先建立或加入七星阵队伍，再从副本入口进入；副本战利品进入队伍仓库，由队长及时分配。"+
+		"方士组队治疗只影响同房间队友，没组队时灵治、灵莲铺仍会治疗自己。\n";
+	result += "[队伍:my_term]|[查看地图:map_display]\n\n";
+
+	result += "【帮派、家园与交易】\n";
+	result += "10级后可了解帮派申请与建帮；家园可发展功能房、种养、狗狗和私家小店。"+
+		"仓库、邮件、聊天、排行和玉石兑换均不限制职业；购买时玉石会自动拆分并找零。\n";
+	result += "[帮派手册:bang_readme]|[我的家园:home_myzone]|"+
+		"[收件箱:mailbox]|[玉石:yushi_change]\n\n";
+
+	result += "【60级以后】\n";
+	result += "各职业每天独立轮换高级技能书；实际等级70以上怪物才有极低概率掉落本职业隐藏大神技能书，隐藏书不会进商店。\n";
+	result += "[高级技能书:yushi_buy_hlbook_list]|[排行榜:look_top]\n";
+	result += "--------\n";
+	result += "[继续分步引导:newbie_guide]|[完整系统说明:newbie_guide overview]\n";
+	result += "[返回游戏:look]\n";
+	return result;
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
-	write(render_guide(me));
+	string result = "";
+
+	if(arg=="overview")
+		result = render_guide(me);
+	else if(arg=="roadmap")
+		result = render_roadmap(me);
+	else if(arg=="check"){
+		mapping claim = NEWBIED->claim_with_notice(me);
+		if(claim["code"]==1)
+			result += "本步还没有通过真实操作验证，重复点击检查不会跳过课程。\n\n";
+		else if(claim["code"]==2){
+			result += "【第"+claim["step"]+"步完成】"+
+				claim["title"]+"\n";
+			if(claim["reward"] && claim["reward"]!="")
+				result += claim["reward"]+"\n";
+			if(claim["next_step"]>NEWBIED->query_total_steps())
+				result += "恭喜，你已经完成全部新手课程！\n\n";
+			else
+				result += "下一步已经解锁。\n\n";
+		}
+		else if(claim["code"]==3)
+			result += "你已经完成全部新手课程。\n\n";
+		else if(claim["code"]==4)
+			result += claim["reward"]+"\n\n";
+		result += render_tutorial(me);
+	}
+	else
+		result = render_tutorial(me);
+	write(result);
 	return 1;
 }

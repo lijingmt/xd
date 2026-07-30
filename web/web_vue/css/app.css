@@ -1204,6 +1204,123 @@ body {
     animation: slideUp 0.3s ease;
 }
 
+.newbie-completion-overlay {
+    z-index: 1300;
+    padding: var(--space-md);
+}
+
+.newbie-completion-modal {
+    position: relative;
+    width: min(92vw, 390px);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    padding: 30px 22px 22px;
+    border: 1px solid rgba(222, 178, 91, 0.55);
+    border-radius: var(--radius-xl);
+    background:
+        radial-gradient(circle at top, rgba(255, 222, 143, 0.22), transparent 48%),
+        var(--bg-card);
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.45),
+        0 0 36px rgba(222, 178, 91, 0.18);
+    text-align: center;
+    animation: newbieCompletionPop 0.28s ease-out;
+}
+
+.newbie-completion-modal.reward-pending {
+    border-color: rgba(235, 154, 76, 0.7);
+}
+
+.newbie-completion-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.newbie-completion-icon {
+    font-size: 44px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 10px rgba(222, 178, 91, 0.4));
+}
+
+.newbie-completion-kicker {
+    margin-top: 10px;
+    color: var(--primary);
+    font-size: var(--font-sm);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.newbie-completion-progress {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(222, 178, 91, 0.14);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.newbie-completion-modal h3 {
+    margin: 14px 0 10px;
+    color: var(--text-primary);
+    font-size: var(--font-xl);
+}
+
+.newbie-completion-reward {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 7px;
+    margin: 12px 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-card-light);
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+.newbie-completion-next {
+    margin-top: 13px;
+    color: var(--text-primary);
+    line-height: 1.55;
+}
+
+.newbie-completion-next small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.newbie-completion-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 9px;
+    margin-top: 20px;
+}
+
+.newbie-completion-actions .btn {
+    min-height: 42px;
+    white-space: normal;
+}
+
+@keyframes newbieCompletionPop {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 @keyframes slideUp {
     from {
         opacity: 0;

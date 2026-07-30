@@ -6,8 +6,8 @@
     <title>仙道</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785414577108">
-    <link rel="stylesheet" href="css/realm.css?v=v1785414577108">
+    <link rel="stylesheet" href="css/app.css?v=v1785426823049">
+    <link rel="stylesheet" href="css/realm.css?v=v1785426823049">
 </head>
 <body>
     <div id="app">
@@ -464,6 +464,64 @@
             </div>
             </main>
 
+            <!-- 新手任务完成弹窗 -->
+            <div class="modal-overlay newbie-completion-overlay"
+                 v-if="activeNewbieCompletion">
+                <div class="newbie-completion-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="newbie-completion-title"
+                     :class="{ 'reward-pending': activeNewbieCompletion.code === 4 }">
+                    <button class="newbie-completion-close"
+                            @click="dismissNewbieCompletions"
+                            aria-label="关闭">✕</button>
+                    <div class="newbie-completion-icon">
+                        {{ activeNewbieCompletion.code === 4 ? '🎒' : '✨' }}
+                    </div>
+                    <div class="newbie-completion-kicker">
+                        {{ activeNewbieCompletion.code === 4
+                            ? '奖励待领取'
+                            : '新手任务完成' }}
+                    </div>
+                    <div class="newbie-completion-progress"
+                         v-if="activeNewbieCompletion.code === 2">
+                        第 {{ activeNewbieCompletion.step }} /
+                        {{ activeNewbieCompletion.total }} 步
+                    </div>
+                    <h3 id="newbie-completion-title">
+                        {{ activeNewbieCompletion.title }}
+                    </h3>
+                    <div class="newbie-completion-reward">
+                        <span>🎁</span>
+                        <span>{{ activeNewbieCompletion.reward }}</span>
+                    </div>
+                    <div class="newbie-completion-next"
+                         v-if="activeNewbieCompletion.code === 4">
+                        请先腾出背包空位；整理后再执行任一引导操作，系统会自动补发。
+                    </div>
+                    <div class="newbie-completion-next"
+                         v-if="activeNewbieCompletion.code === 2">
+                        <template v-if="activeNewbieCompletion.complete">
+                            恭喜，你已经完成全部新手课程！
+                        </template>
+                        <template v-else>
+                            下一步：{{ activeNewbieCompletion.next_title }}
+                            <small>{{ activeNewbieCompletion.next_desc }}</small>
+                        </template>
+                    </div>
+                    <div class="newbie-completion-actions">
+                        <button class="btn btn-secondary"
+                                @click="dismissNewbieCompletions">
+                            留在当前界面
+                        </button>
+                        <button class="btn btn-primary"
+                                @click="continueNewbieGuide">
+                            {{ getNewbieCompletionPrimaryLabel() }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 命令输入弹窗 -->
             <div class="modal-overlay" v-if="showCommandInput" @click.self="showCommandInput = false">
                 <div class="modal command-modal">
@@ -585,10 +643,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785414577108"></script>
-    <script src="js/app.js?v=v1785414577108"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785426823049"></script>
+    <script src="js/app.js?v=v1785426823049"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785414577108"></script>
+    <script src="../includes/translate.js?v=v1785426823049"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

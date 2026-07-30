@@ -6,6 +6,7 @@ int main(string|zero arg)
 	object me=this_player();
 	object env = environment(me);
 	if(!arg){
+		NEWBIED->record_action(me,"map");
 		s += "您现在身处"+env->query_name_cn()+"\n";
 		s += "\n";
 		s += env->query_picture_url();

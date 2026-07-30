@@ -168,6 +168,7 @@ string buy_items(string item_name,string item_type)
 		}
 		else
 			item->move(me);
+		NEWBIED->record_book_purchase(me,item_name);
 		string consume_time = MUD_TIMESD->get_mysql_timedesc();
 		int cost_reb=yushi;
 		string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"]["+item_type+"]["+item_name+"]["+item_namecn+"][1]["+cost_reb+"][0]\n";

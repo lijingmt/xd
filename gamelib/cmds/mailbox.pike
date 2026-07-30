@@ -3,6 +3,7 @@
 int main(string|zero arg)
 {
 	string s = "";
+	NEWBIED->record_action(this_player(),"mailbox");
 	s += this_player()->view_mail_list()+"\n";
 	s+="[返回:my_qqlist]\n";
 	s+="[返回游戏:look]\n";
@@ -10,5 +11,4 @@ int main(string|zero arg)
 	//this_player()->write_view(WAP_VIEWD["/mailbox"]);
 	return 1;
 }
-
 

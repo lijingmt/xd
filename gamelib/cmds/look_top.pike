@@ -30,6 +30,7 @@ int main(string|zero arg)
 {
 	object me = this_player();
 	string act,value,re="";
+	NEWBIED->record_action(me,"top");
 	//re += "[记录:record list 1]|[好友:friend list 1]|[公会:guild]|[在线:onlineuser]|排行榜\n";
 	if(!arg)
 		arg = "start";
