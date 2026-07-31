@@ -273,6 +273,7 @@ $(ob->query_links(arg))
 	WAP_VIEWD["/inventory"]=new(MUD_VIEW,
 #"【装备背包】
 			[一键穿装:auto_equip]
+			[新手免费领红蓝药:get_free_yao]
 			$(player->view_inventory_zhuangbei())
 			");
 	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,

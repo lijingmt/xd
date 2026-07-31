@@ -6,6 +6,147 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_DAILY_SECONDS (8*60*60)
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 4
+#define AUTOFIGHT_ROUTE_COOLDOWN 8
+#define AUTOFIGHT_CONFIG_VERSION 2
+
+private array(mapping(string:mixed)) smart_training_routes = ({
+	([
+		"max":2,
+		"level":1,
+		"name":"初入仙途",
+		"human":"congxianzhen/shangshanlu",
+		"monst":"jinaodao/chucuntulu",
+		"third":"congxianzhen/shangshanlu",
+	]),
+	([
+		"max":5,
+		"level":3,
+		"name":"村外试炼",
+		"human":"congxianzhen/xiaoshouxueyiceng",
+		"monst":"jinaodao/qianshakeng",
+		"third":"huanyecun/huanyecun",
+	]),
+	([
+		"max":8,
+		"level":6,
+		"name":"营地试炼",
+		"human":"kunlunshan/piaohuaxi",
+		"monst":"jinaodao/wanmuyuan",
+		"third":"liehuoying/liehuonan",
+	]),
+	([
+		"max":10,
+		"level":9,
+		"name":"迷雾试炼",
+		"human":"kunlunshan/pubudongxuesanceng",
+		"monst":"jinaodao/xiangshudongsiceng",
+		"third":"mihuandao/nongwusenlin",
+	]),
+	([
+		"max":13,
+		"level":11,
+		"name":"初阶修行",
+		"human":"kunlunshan/xiuxian",
+		"monst":"jinaodao/fenghouzhen",
+		"third":"kunlunshan/xiuxian",
+	]),
+	([
+		"max":16,
+		"level":14,
+		"name":"炼体修行",
+		"human":"kunlunshan/lianshen",
+		"monst":"jinaodao/hongshazhen",
+		"third":"kunlunshan/lianshen",
+	]),
+	([
+		"max":19,
+		"level":17,
+		"name":"洞府修行",
+		"human":"shierxianjing/taoyuantongjiuceng",
+		"monst":"wugongdong/xieduhe",
+		"third":"shierxianjing/taoyuantongjiuceng",
+	]),
+	([
+		"max":22,
+		"level":20,
+		"name":"灵境修行",
+		"human":"shierxianjing/taoyuantongshijiuceng",
+		"monst":"wugongdong/rongchongfang",
+		"third":"liangjinghu/yanghuxuanqiao",
+	]),
+	([
+		"max":25,
+		"level":23,
+		"name":"深洞修行",
+		"human":"shierxianjing/magudongshisanceng",
+		"monst":"wugongdong/wugongshenyuan",
+		"third":"shierxianjing/magudongshisanceng",
+	]),
+	([
+		"max":28,
+		"level":26,
+		"name":"水阁修行",
+		"human":"plshuige/qingyuntai",
+		"monst":"plshuige/liexiandao",
+		"third":"liangjinghu/yinhuxuanqiao",
+	]),
+	([
+		"max":31,
+		"level":29,
+		"name":"云海修行",
+		"human":"plshuige/mianyunti",
+		"monst":"plshuige/yunpulu",
+		"third":"liangjinghu/huayaotingyuan15",
+	]),
+	([
+		"max":34,
+		"level":32,
+		"name":"城外历练",
+		"human":"xiqiwaicheng/nanchengqiangjiao",
+		"monst":"chaogewaicheng/chaogedongnanlou",
+		"third":"muye/xicezhanhao",
+	]),
+	([
+		"max":37,
+		"level":35,
+		"name":"牧野历练",
+		"human":"xiqiwaicheng/huanhuashuitai",
+		"monst":"chaogewaicheng/eluanshihetan",
+		"third":"muye/guzhandao",
+	]),
+	([
+		"max":40,
+		"level":38,
+		"name":"战场历练",
+		"human":"muye/poyaozhen9",
+		"monst":"muye/fuluying9",
+		"third":"muye/hexiyandong10",
+	]),
+	([
+		"max":43,
+		"level":41,
+		"name":"外海历练",
+		"human":"waihai/lingyicheng",
+		"monst":"waihai/lingyicheng",
+		"third":"waihai/lingyicheng",
+	]),
+	([
+		"max":46,
+		"level":44,
+		"name":"外海深修",
+		"human":"waihai/qianhaiguanmucong",
+		"monst":"waihai/qianhaiguanmucong",
+		"third":"waihai/qianhaiguanmucong",
+	]),
+	([
+		"max":49,
+		"level":47,
+		"name":"三界进阶",
+		"human":"yandigu/xiaoshilu",
+		"monst":"fuxishan/fuxidongrukou",
+		"third":"huangyuan/yingxielu",
+	]),
+});
 
 protected void create()
 {
@@ -21,15 +162,30 @@ void initialize_player(object me)
 		me["/plus/autofight_initialized"] = 1;
 		me["/plus/autofight_daily_limit"] = daily_limit;
 		me["/plus/autofight_time_left"] = daily_limit;
-		me["/plus/autofight_hp_percent"] = 50;
-		me["/plus/autofight_mana_percent"] = 30;
+		if(me->query_level()<=NEWBIED->query_newbie_supply_max_level()){
+			me["/plus/autofight_hp_percent"] = 70;
+			me["/plus/autofight_mana_percent"] = 50;
+		}
+		else{
+			me["/plus/autofight_hp_percent"] = 50;
+			me["/plus/autofight_mana_percent"] = 30;
+		}
 		me["/plus/autofight_loot"] = 1;
 		me["/plus/autofight_roam"] = 0;
+		me["/plus/autofight_smart_route"] = 1;
+		me["/plus/autofight_auto_rest"] = 1;
 		me["/plus/autofight_food"] = "auto";
 		me["/plus/autofight_water"] = "auto";
 	}
 	else
 		sync_daily_limit(me);
+	if((int)me["/plus/autofight_config_version"]<
+	   AUTOFIGHT_CONFIG_VERSION){
+		me["/plus/autofight_smart_route"] = 1;
+		me["/plus/autofight_auto_rest"] = 1;
+		me["/plus/autofight_config_version"] =
+			AUTOFIGHT_CONFIG_VERSION;
+	}
 }
 
 int query_daily_seconds()
@@ -140,12 +296,29 @@ int query_roam_enabled(object me)
 	return (int)me["/plus/autofight_roam"] == 1;
 }
 
+int query_smart_route_enabled(object me)
+{
+	if(!me)
+		return 0;
+	initialize_player(me);
+	return (int)me["/plus/autofight_smart_route"] == 1;
+}
+
+int query_auto_rest_enabled(object me)
+{
+	if(!me)
+		return 0;
+	initialize_player(me);
+	return (int)me["/plus/autofight_auto_rest"] == 1;
+}
+
 void start_autofight(object me)
 {
 	if(!me)
 		return;
 	initialize_player(me);
 	me["/tmp/autofight_last_charge"] = time();
+	me["/tmp/autofight_no_target_ticks"] = 0;
 	me->set_autofight("enable");
 }
 
@@ -154,6 +327,8 @@ void stop_autofight(object me)
 	if(!me)
 		return;
 	me["/tmp/autofight_last_charge"] = 0;
+	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/tmp/autofight_resting"] = 0;
 	me->set_autofight("disable");
 }
 
@@ -241,6 +416,163 @@ int should_recover_mana(object me)
 	return mana*100 < mana_max*percent;
 }
 
+mapping(string:mixed) query_training_route(object me)
+{
+	mapping(string:mixed) route;
+	string race;
+	string path;
+	int level;
+	if(!me)
+		return ([]);
+	level = me->query_level();
+	race = me->query_raceId();
+	if(level>=50){
+		path = "plxianjing/chilingxiaolu";
+		if(race=="monst")
+			path = "plxianjing/chiyuxiaolu";
+		else if(race=="third")
+			path = "penglaihuanjing/qiushuangxiaojing";
+		return ([
+			"max":MAX_LEVEL,
+			"level":level>MAX_LEVEL ? MAX_LEVEL : level,
+			"name":"动态同级历练",
+			"path":path,
+		]);
+	}
+	foreach(smart_training_routes,mapping(string:mixed) one){
+		if(level<=(int)one["max"]){
+			path = (string)one[race];
+			if(path=="")
+				path = (string)one["third"];
+			if(path=="")
+				path = (string)one["human"];
+			route = copy_value(one);
+			route["path"] = path;
+			return route;
+		}
+	}
+	return ([]);
+}
+
+string query_current_room_path(object me)
+{
+	object env;
+	string path;
+	string prefix;
+	if(!me)
+		return "";
+	env = environment(me);
+	if(!env)
+		return "";
+	path = (file_name(env)/"#")[0];
+	prefix = ROOT+"/gamelib/d/";
+	if(has_prefix(path,prefix))
+		return path[sizeof(prefix)..];
+	return path;
+}
+
+int can_auto_leave_current_room(object me)
+{
+	object env;
+	string room_type;
+	if(!me)
+		return 0;
+	env = environment(me);
+	if(!env)
+		return 0;
+	room_type = env->query_room_type();
+	if(room_type=="fb" || room_type=="home" ||
+	   room_type=="city" || room_type=="town")
+		return 0;
+	return 1;
+}
+
+string query_rest_room(object me)
+{
+	if(!me)
+		return "";
+	if(me->query_raceId()=="monst")
+		return "jinaodao/yuhuacunguangchang";
+	return "congxianzhen/congxianzhenguangchang";
+}
+
+int query_is_resting(object me)
+{
+	if(!me)
+		return 0;
+	return (int)me["/tmp/autofight_resting"] == 1;
+}
+
+int begin_auto_rest(object me)
+{
+	if(!me || !query_auto_rest_enabled(me) ||
+	   !can_auto_leave_current_room(me))
+		return 0;
+	me["/tmp/autofight_resting"] = 1;
+	me["/tmp/autofight_rest_started"] = time();
+	return 1;
+}
+
+void finish_auto_rest(object me)
+{
+	if(!me)
+		return;
+	me["/tmp/autofight_resting"] = 0;
+	me["/tmp/autofight_rest_started"] = 0;
+}
+
+int query_route_ready(object me)
+{
+	int last;
+	if(!me)
+		return 0;
+	last = (int)me["/tmp/autofight_last_route_time"];
+	return last<=0 || time()-last>=AUTOFIGHT_ROUTE_COOLDOWN;
+}
+
+void record_route(object me,string path)
+{
+	if(!me)
+		return;
+	me["/tmp/autofight_last_route_time"] = time();
+	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/plus/autofight_last_route"] = path;
+}
+
+int should_route_to_training_area(object me)
+{
+	mapping(string:mixed) route;
+	string current;
+	string destination;
+	if(!me || !query_smart_route_enabled(me) ||
+	   !can_auto_leave_current_room(me) || !query_route_ready(me))
+		return 0;
+	route = query_training_route(me);
+	destination = (string)route["path"];
+	if(destination=="")
+		return 0;
+	current = query_current_room_path(me);
+	if(current==destination)
+		return 0;
+	return 1;
+}
+
+int record_no_target(object me)
+{
+	int ticks;
+	if(!me)
+		return 0;
+	ticks = (int)me["/tmp/autofight_no_target_ticks"]+1;
+	me["/tmp/autofight_no_target_ticks"] = ticks;
+	return ticks;
+}
+
+void clear_no_target(object me)
+{
+	if(me)
+		me["/tmp/autofight_no_target_ticks"] = 0;
+}
+
 private int is_valid_target(object me, object ob)
 {
 	string npc_type;
@@ -248,6 +580,8 @@ private int is_valid_target(object me, object ob)
 	string npc_race;
 	int me_level;
 	int npc_level;
+	int minimum_level;
+	int maximum_level;
 	if(!me || !ob || ob == me)
 		return 0;
 	if(!ob->is("character") || !ob->is("npc"))
@@ -270,7 +604,15 @@ private int is_valid_target(object me, object ob)
 		return 0;
 	me_level = me->query_level();
 	npc_level = ob->query_level();
-	if(npc_level > me_level+2)
+	maximum_level = me_level+2;
+	minimum_level = 1;
+	if(query_smart_route_enabled(me)){
+		maximum_level = me_level>=50 ? me_level+1 : me_level;
+		minimum_level = me_level-4;
+		if(minimum_level<1)
+			minimum_level = 1;
+	}
+	if(npc_level > maximum_level || npc_level < minimum_level)
 		return 0;
 	return 1;
 }
@@ -388,6 +730,23 @@ object|zero query_recovery_item(object me, string kind)
 	return 0;
 }
 
+object|zero query_recovery_item_with_newbie_supply(object me,string kind)
+{
+	object|zero item;
+	mapping result;
+	if(!me)
+		return 0;
+	item = query_recovery_item(me,kind);
+	if(item)
+		return item;
+	if(me->query_level()>NEWBIED->query_newbie_supply_max_level())
+		return 0;
+	result = NEWBIED->claim_newbie_supplies(me);
+	if(result["code"]!=1)
+		return 0;
+	return query_recovery_item(me,kind);
+}
+
 int query_object_count(object ob, object env)
 {
 	array(object) all;
@@ -426,7 +785,10 @@ string query_safe_exit(object me)
 	array(string) exits;
 	array(string) safe_exits;
 	string current_path;
-	if(!me || !query_roam_enabled(me))
+	if(!me || (!query_roam_enabled(me) &&
+	   !query_smart_route_enabled(me)))
+		return "";
+	if(!can_auto_leave_current_room(me))
 		return "";
 	env = environment(me);
 	if(!env || !env->exits || !sizeof(env->exits))

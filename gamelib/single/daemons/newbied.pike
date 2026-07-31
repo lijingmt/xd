@@ -8,6 +8,12 @@ inherit LOW_DAEMON;
 #define GUIDE_POPUP_QUEUE "/tmp/newbie_tutorial/completion_queue"
 #define GUIDE_DISABLE_AUTO "/tmp/newbie_tutorial/disable_auto"
 #define GUIDE_REWARD_ERROR_STEP "/tmp/newbie_tutorial/reward_error_step"
+#define NEWBIE_SUPPLY_ROOT "/plus/newbie_supply"
+#define NEWBIE_SUPPLY_MAX_LEVEL 30
+#define NEWBIE_RED_PATH ROOT+"/gamelib/clone/item/food/xinshouhongyao"
+#define NEWBIE_BLUE_PATH ROOT+"/gamelib/clone/item/water/xinshoulanyao"
+#define NEWBIE_RED_ID "xinshouhongyao"
+#define NEWBIE_BLUE_ID "xinshoulanyao"
 
 mapping(string:mapping(string:mixed)) profession_config = ([
 	"jianxian":([
@@ -99,6 +105,171 @@ mapping(string:mixed) query_profession_config(object player)
 	if(!profession_config[profession])
 		return ([]);
 	return copy_value(profession_config[profession]);
+}
+
+int query_newbie_supply_max_level()
+{
+	return NEWBIE_SUPPLY_MAX_LEVEL;
+}
+
+mapping(string:int) query_newbie_supply_policy(object player)
+{
+	mapping(string:int) policy = ([
+		"limit":0,
+		"red":0,
+		"blue":0,
+	]);
+	int level;
+	if(!player)
+		return policy;
+	level = player->query_level();
+	if(level<=10){
+		policy["limit"] = 3;
+		policy["red"] = 15;
+		policy["blue"] = 12;
+	}
+	else if(level<=20){
+		policy["limit"] = 2;
+		policy["red"] = 12;
+		policy["blue"] = 10;
+	}
+	else if(level<=NEWBIE_SUPPLY_MAX_LEVEL){
+		policy["limit"] = 1;
+		policy["red"] = 8;
+		policy["blue"] = 6;
+	}
+	return policy;
+}
+
+int query_newbie_supply_amount(object player,string item_name)
+{
+	int amount = 0;
+	if(!player)
+		return 0;
+	foreach(all_inventory(player),object item){
+		if(item && item->query_name()==item_name)
+			amount += (int)item->amount;
+	}
+	return amount;
+}
+
+private int grant_newbie_supply_item(object player,string path,
+	string item_name,int amount)
+{
+	object|zero item;
+	int before;
+	int after;
+	mixed err;
+	if(!player || amount<=0)
+		return 0;
+	before = query_newbie_supply_amount(player,item_name);
+	err = catch {
+		item = clone(path);
+	};
+	if(err || !item)
+		return 0;
+	item->amount = amount;
+	item->move_player(player->query_name());
+	after = query_newbie_supply_amount(player,item_name);
+	if(after<=before && item)
+		destruct(item);
+	if(after-before>amount)
+		return amount;
+	if(after>before)
+		return after-before;
+	return 0;
+}
+
+mapping(string:int) grant_newbie_supplies(object player,int red,int blue)
+{
+	mapping(string:int) result = ([
+		"red":0,
+		"blue":0,
+	]);
+	if(!player)
+		return result;
+	result["red"] = grant_newbie_supply_item(player,NEWBIE_RED_PATH,
+		NEWBIE_RED_ID,red);
+	result["blue"] = grant_newbie_supply_item(player,NEWBIE_BLUE_PATH,
+		NEWBIE_BLUE_ID,blue);
+	if(result["red"]>0)
+		player["/plus/autofight_food"] = NEWBIE_RED_ID;
+	if(result["blue"]>0)
+		player["/plus/autofight_water"] = NEWBIE_BLUE_ID;
+	return result;
+}
+
+mapping(string:int) grant_starter_supplies(object player)
+{
+	mapping(string:int) result = ([
+		"code":0,
+		"red":0,
+		"blue":0,
+	]);
+	mapping(string:int) granted;
+	if(!player || player->query_level()>NEWBIE_SUPPLY_MAX_LEVEL)
+		return result;
+	if((int)player[NEWBIE_SUPPLY_ROOT+"/starter_granted"]){
+		result["code"] = 2;
+		return result;
+	}
+	granted = grant_newbie_supplies(player,20,15);
+	result["red"] = granted["red"];
+	result["blue"] = granted["blue"];
+	if(result["red"]>0 || result["blue"]>0){
+		player[NEWBIE_SUPPLY_ROOT+"/starter_granted"] = time();
+		result["code"] = 1;
+	}
+	return result;
+}
+
+mapping(string:int) claim_newbie_supplies(object player)
+{
+	mapping(string:int) result = ([
+		"code":0,
+		"red":0,
+		"blue":0,
+		"used":0,
+		"limit":0,
+	]);
+	mapping(string:int) policy;
+	mapping(string:int) granted;
+	int current_hour;
+	int saved_hour;
+	int used;
+	if(!player)
+		return result;
+	policy = query_newbie_supply_policy(player);
+	result["limit"] = policy["limit"];
+	if(policy["limit"]<=0){
+		result["code"] = 2;
+		return result;
+	}
+	current_hour = time()/3600;
+	saved_hour = (int)player[NEWBIE_SUPPLY_ROOT+"/hour"];
+	used = (int)player[NEWBIE_SUPPLY_ROOT+"/count"];
+	if(saved_hour!=current_hour){
+		used = 0;
+		player[NEWBIE_SUPPLY_ROOT+"/hour"] = current_hour;
+		player[NEWBIE_SUPPLY_ROOT+"/count"] = 0;
+	}
+	result["used"] = used;
+	if(used>=policy["limit"]){
+		result["code"] = 3;
+		return result;
+	}
+	granted = grant_newbie_supplies(player,policy["red"],policy["blue"]);
+	result["red"] = granted["red"];
+	result["blue"] = granted["blue"];
+	if(result["red"]<=0 && result["blue"]<=0){
+		result["code"] = 4;
+		return result;
+	}
+	used++;
+	player[NEWBIE_SUPPLY_ROOT+"/count"] = used;
+	result["used"] = used;
+	result["code"] = 1;
+	return result;
 }
 
 void initialize_newbie_guide(object player)

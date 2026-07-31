@@ -99,10 +99,12 @@ void test_defaults_and_switch()
 		daemon->initialize_player(player);
 		valid = daemon->query_daily_seconds() == 8*60*60 &&
 			daemon->query_time_left(player) == 8*60*60 &&
-			daemon->query_hp_percent(player) == 50 &&
-			daemon->query_mana_percent(player) == 30 &&
+			daemon->query_hp_percent(player) == 70 &&
+			daemon->query_mana_percent(player) == 50 &&
 			daemon->query_loot_enabled(player) == 1 &&
 			daemon->query_roam_enabled(player) == 0 &&
+			daemon->query_smart_route_enabled(player) == 1 &&
+			daemon->query_auto_rest_enabled(player) == 1 &&
 			player->query_autofight() == "disable";
 		daemon->start_autofight(player);
 		valid = valid && player->query_autofight() == "enable";
@@ -218,6 +220,255 @@ void test_duplicate_object_count()
 	destroy_runtime_player(player);
 }
 
+void test_recovery_selection_checkmarks()
+{
+	test_start("回血食物和回蓝饮品只勾选当前选择项");
+	object player = create_runtime_player(
+		"__testunit_autofight_selection__");
+	object command = (object)(ROOT+
+		"/gamelib/cmds/autofight.pike");
+	object red = clone(ROOT+
+		"/gamelib/clone/item/food/xinshouhongyao");
+	object blue = clone(ROOT+
+		"/gamelib/clone/item/water/xinshoulanyao");
+	object other_blue = clone(ROOT+
+		"/gamelib/clone/item/water/qingquanshui");
+	string food_view;
+	string water_view;
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		red->move(player);
+		blue->move(player);
+		other_blue->move(player);
+		player["/plus/autofight_food"] = "xinshouhongyao";
+		player["/plus/autofight_water"] = "xinshoulanyao";
+		food_view = command->view_recovery_items(player,"life");
+		water_view = command->view_recovery_items(player,"mana");
+		valid = search(food_view,
+			"✓ 已选择 [新手回春丹:autofight food xinshouhongyao]") != -1 &&
+			search(water_view,
+			"✓ 已选择 [新手凝神露:autofight water xinshoulanyao]") != -1 &&
+			search(water_view,
+			"✓ 已选择 [清泉水:autofight water qingquanshui]") == -1 &&
+			sizeof(food_view/"✓ 已选择 ") == 2 &&
+			sizeof(water_view/"✓ 已选择 ") == 2;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("恢复物品当前选中标记错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_smart_route_selection()
+{
+	test_start("全阶段按真实怪物等级和阵营选择练级区");
+	object player = create_runtime_player(
+		"__testunit_autofight_smart_route__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	array(mapping(string:mixed)) cases = ({
+		(["level":1,"race":"human",
+			"path":"congxianzhen/shangshanlu","target":1]),
+		(["level":8,"race":"monst",
+			"path":"jinaodao/wanmuyuan","target":6]),
+		(["level":18,"race":"third",
+			"path":"shierxianjing/taoyuantongjiuceng",
+			"target":17]),
+		(["level":35,"race":"human",
+			"path":"xiqiwaicheng/huanhuashuitai",
+			"target":35]),
+		(["level":46,"race":"third",
+			"path":"waihai/qianhaiguanmucong",
+			"target":44]),
+		(["level":49,"race":"monst",
+			"path":"fuxishan/fuxidongrukou","target":47]),
+		(["level":70,"race":"third",
+			"path":"penglaihuanjing/qiushuangxiaojing",
+			"target":70]),
+	});
+	string error_desc = "";
+	int valid = 1;
+	mixed err = catch {
+		foreach(cases,mapping(string:mixed) one){
+			player->level = (int)one["level"];
+			player->set_raceId((string)one["race"]);
+			mapping route = daemon->query_training_route(player);
+			valid = valid &&
+				route["path"] == one["path"] &&
+				route["level"] == one["target"] &&
+				Stdio.exist(ROOT+"/gamelib/d/"+
+					(string)route["path"]);
+		}
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("智能练级路线、等级或文件路径错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_smart_target_level_window()
+{
+	test_start("智能模式避开过强和过低怪，手动模式保留旧范围");
+	object player = create_runtime_player(
+		"__testunit_autofight_target_window__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object low;
+	object matched;
+	object high;
+	string error_desc = "";
+	int smart_level = 0;
+	int manual_level = 0;
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(room),object old_item)
+			destruct(old_item);
+		player->move(room);
+		low = clone(ROOT+
+			"/gamelib/clone/npc/kunlunshan/qinyuan1");
+		matched = clone(ROOT+
+			"/gamelib/clone/npc/kunlunshan/qinyuan1");
+		high = clone(ROOT+
+			"/gamelib/clone/npc/kunlunshan/qinyuan1");
+		low->_npcLevel = 3;
+		matched->_npcLevel = 9;
+		high->_npcLevel = 11;
+		low->setup_npc_dongtai(player);
+		matched->setup_npc_dongtai(player);
+		high->setup_npc_dongtai(player);
+		low->move(room);
+		matched->move(room);
+		high->move(room);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		object smart_target = daemon->query_target(player);
+		if(smart_target)
+			smart_level = smart_target->query_level();
+		player["/plus/autofight_smart_route"] = 0;
+		object manual_target = daemon->query_target(player);
+		if(manual_target)
+			manual_level = manual_target->query_level();
+		valid = smart_target == matched && manual_target == high;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"怪物等级窗口或目标优先级错误: smart=%d manual=%d %s",
+			smart_level,manual_level,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_real_route_targets()
+{
+	test_start("46级静态边界与70级动态练级区均有可攻击同级怪");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object|zero original_player = this_player();
+	array(mapping(string:mixed)) cases = ({
+		(["name":"__testunit_autofight_route_46__",
+			"level":46,
+			"path":"waihai/qianhaiguanmucong",
+			"target":44]),
+		(["name":"__testunit_autofight_route_70__",
+			"level":70,
+			"path":"penglaihuanjing/qiushuangxiaojing",
+			"target":70]),
+	});
+	string error_desc = "";
+	int valid = 1;
+	foreach(cases,mapping(string:mixed) one){
+		object player = create_runtime_player((string)one["name"]);
+		object|zero room;
+		mixed err = catch {
+			player->level = (int)one["level"];
+			player->set_att_by_level();
+			set_this_player(player);
+			room = clone(ROOT+"/gamelib/d/"+(string)one["path"]);
+			player->move(room);
+			daemon->initialize_player(player);
+			player["/plus/autofight_smart_route"] = 1;
+			object target = daemon->query_target(player);
+			valid = valid && target &&
+				target->query_level() == (int)one["target"];
+		};
+		if(err){
+			valid = 0;
+			error_desc += sprintf("%d: %s",
+				(int)one["level"],describe_error(err));
+		}
+		if(room){
+			foreach(all_inventory(room),object item)
+				if(item != player)
+					destruct(item);
+			destruct(room);
+		}
+		destroy_runtime_player(player);
+	}
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(valid)
+		test_pass();
+	else
+		test_fail("实际练级房间目标等级错误: "+error_desc);
+}
+
+void test_auto_rest_safety()
+{
+	test_start("缺药休整只离开普通地图并使用阵营安全休息点");
+	object player = create_runtime_player(
+		"__testunit_autofight_rest__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		player->move(room);
+		daemon->initialize_player(player);
+		valid = daemon->query_rest_room(player) ==
+			"congxianzhen/congxianzhenguangchang" &&
+			daemon->begin_auto_rest(player) == 1 &&
+			daemon->query_is_resting(player) == 1;
+		daemon->finish_auto_rest(player);
+		room->set_room_type("fb");
+		valid = valid &&
+			daemon->can_auto_leave_current_room(player) == 0 &&
+			daemon->begin_auto_rest(player) == 0;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("休息点、休整状态或特殊地图保护错误: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
 void test_end_to_end_current_room_fight()
 {
 	test_start("游戏环境中启动挂机并自动攻击当前地图怪物");
@@ -233,6 +484,8 @@ void test_end_to_end_current_room_fight()
 	mixed err = catch {
 		player->move(room);
 		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 0;
 		daemon->start_autofight(player);
 		flush_command->main(0);
 		valid = player->query_autofight() == "enable" &&
@@ -252,6 +505,146 @@ void test_end_to_end_current_room_fight()
 		test_pass();
 	else
 		test_fail("自动攻击完整链路错误: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_end_to_end_smart_route_fight()
+{
+	test_start("游戏环境中自动换到同级练级区并开始战斗");
+	object player = create_runtime_player(
+		"__testunit_autofight_smart_e2e__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	string route_path = "";
+	string second_path = "";
+	string selected_name = "";
+	int enemy_level = 0;
+	int selected_level = 0;
+	int player_level = 0;
+	int life_percent = 0;
+	int mana_percent = 0;
+	int resting = 0;
+	int was_in_combat = 0;
+	int valid = 0;
+	mixed err = catch {
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		player["/plus/autofight_auto_rest"] = 1;
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		route_path = daemon->query_current_room_path(player);
+		object selected = daemon->query_target(player);
+		if(selected){
+			selected_name = selected->query_name();
+			selected_level = selected->query_level();
+		}
+		player_level = player->query_level();
+		life_percent = player->get_cur_life()*100/
+			player->query_life_max();
+		mana_percent = player->get_cur_mofa()*100/
+			player->query_mofa_max();
+		flush_command->main(0);
+		second_path = daemon->query_current_room_path(player);
+		resting = daemon->query_is_resting(player);
+		if(player->query_enemy())
+			enemy_level = player->query_enemy()->query_level();
+		was_in_combat = player->in_combat;
+		valid = route_path == "mihuandao/nongwusenlin" &&
+			player->in_combat && player->query_enemy() &&
+			player->query_enemy()->is("npc") &&
+			player->query_enemy()->query_level() >= 6 &&
+			player->query_enemy()->query_level() <= 10;
+		daemon->stop_autofight(player);
+		player->_clean_fight();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"智能换区或自动开战完整链路错误: first=%s second=%s player=%d selected=%s/%d life=%d mana=%d resting=%d combat=%d enemy=%d %s",
+			route_path,second_path,player_level,
+			selected_name,selected_level,
+			life_percent,mana_percent,resting,
+			was_in_combat,enemy_level,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_end_to_end_auto_rest()
+{
+	test_start("游戏环境中缺药时自动回安全点并睡眠恢复");
+	object player = create_runtime_player(
+		"__testunit_autofight_rest_e2e__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	string rest_path = "";
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(player),object item)
+			destruct(item);
+		player->level = 31;
+		player->set_att_by_level();
+		player->set_life(1);
+		player->set_mofa(1);
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		player["/plus/autofight_auto_rest"] = 1;
+		player["/plus/autofight_loot"] = 0;
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		rest_path = daemon->query_current_room_path(player);
+		valid = rest_path ==
+			"congxianzhen/congxianzhenguangchang" &&
+			daemon->query_is_resting(player) == 1 &&
+			player->query_autofight() == "enable";
+		flush_command->main(0);
+		valid = valid &&
+			player->get_cur_life() == player->query_life_max() &&
+			player->get_cur_mofa() == player->query_mofa_max();
+		daemon->stop_autofight(player);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("自动返程、睡眠或恢复完整链路错误: path="+
+			rest_path+" "+error_desc);
 	if(room){
 		foreach(all_inventory(room),object item)
 			if(item != player)
@@ -292,6 +685,7 @@ void test_integration_wiring()
 	   search(index_source,"挂机设置") != -1 &&
 	   search(user_source,"[自动打怪／挂机:autofight open]") != -1 &&
 	   search(user_source,"[停止自动挂机:autofightclose]") != -1 &&
+	   search(user_source,"autofight") != -1 &&
 	   search(daily_source,"AUTOFIGHTD->reset_daily_time(me)") != -1 &&
 	   search(kill_source,"query_autofight()==\"disable\"") != -1 &&
 	   search(leave_source,"query_autofight()==\"disable\"") != -1)
@@ -308,7 +702,14 @@ int main()
 	test_vip_daily_limits();
 	test_time_and_low_life_guard();
 	test_duplicate_object_count();
+	test_recovery_selection_checkmarks();
+	test_smart_route_selection();
+	test_smart_target_level_window();
+	test_real_route_targets();
+	test_auto_rest_safety();
 	test_end_to_end_current_room_fight();
+	test_end_to_end_smart_route_fight();
+	test_end_to_end_auto_rest();
 	test_integration_wiring();
 	werror("\n自动挂机测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],

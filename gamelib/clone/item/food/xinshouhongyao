@@ -1,0 +1,45 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_FOOD;
+
+protected void create()
+{
+	name = object_name(this_object());
+	name_cn = "新手回春丹";
+	desc = "新手专用的红药，每次恢复500点生命；自动挂机可在生命不足时自动服用。\n";
+	desc += "此物品没有交易价值，不能丢弃、交易、转赠或存入仓库。\n";
+	unit = "颗";
+	amount = 1;
+	value = 0;
+	set_item_canEquip(1);
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(0);
+
+	level_limit = 1;
+	add_supplay["life_supply"] = 500;
+
+	race_limit["human"] = "人类";
+	race_limit["monst"] = "妖魔";
+	race_limit["third"] = "中立";
+
+	profe_limit["jianxian"] = "剑仙";
+	profe_limit["yushi"] = "羽士";
+	profe_limit["zhuxian"] = "诛仙";
+	profe_limit["kuangyao"] = "狂妖";
+	profe_limit["wuyao"] = "巫妖";
+	profe_limit["yinggui"] = "影鬼";
+	profe_limit["fangshi"] = "方士";
+
+	eat_flag = 1;
+}
+
+int eat()
+{
+	int result = ::eat();
+	if(eat_flag==0 && amount==0)
+		remove();
+	return result;
+}
