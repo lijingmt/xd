@@ -2183,7 +2183,7 @@ void handle_api_autofight(Protocols.HTTP.Server.Request req)
     send_json(req, ([
         "autofight": new_state,
         "message": new_state ?
-            "自动挂机已开启：默认刷当前地图，可在“更多－挂机设置”开启区域巡游" :
+            "自动挂机已开启：智能寻路会选择练级区，并在空图时自动前往相邻地图" :
             "自动挂机已关闭"
     ]));
 }

@@ -22,8 +22,8 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785502124100">
-    <link rel="stylesheet" href="css/realm.css?v=v1785502124100">
+    <link rel="stylesheet" href="css/app.css?v=v1785525040516">
+    <link rel="stylesheet" href="css/realm.css?v=v1785525040516">
 </head>
 <body>
     <div id="app">
@@ -510,6 +510,20 @@
                  class="battle-panel"
                  :class="{ 'mini-mode': !battleFullscreen, 'fullscreen-mode': battleFullscreen, 'dock-collapsed': !battleFullscreen && battleDockCollapsed }"
                  aria-live="polite">
+                <!-- 共用技能动画层：迷你停靠栏和战斗详情都能看到，不遮挡点击。 -->
+                <div v-if="combatEffectsEnabled && skillAnimations.length && (!battleDockCollapsed || battleFullscreen)"
+                     class="battle-skill-stage"
+                     aria-hidden="true">
+                    <div v-for="skill in skillAnimations"
+                         :key="skill.id"
+                         class="skill-effect-container"
+                         :class="'skill-target-' + (skill.target || 'enemy')">
+                        <div class="skill-effect" :class="getSkillAnimationClass(skill.type)">
+                            <span :class="getSkillIconClass(skill.type)">{{ getSkillIcon(skill.type) }}</span>
+                        </div>
+                        <span v-if="skill.name" class="skill-effect-label">{{ skill.name }}</span>
+                    </div>
+                </div>
                 <button v-if="!battleFullscreen && battleDockCollapsed"
                         type="button"
                         class="battle-dock-trigger"
@@ -592,6 +606,11 @@
                     <div class="battle-header">
                         <h4>⚔️ 战斗中</h4>
                         <div class="battle-controls">
+                            <button class="battle-control-btn"
+                                    @click="toggleCombatEffects"
+                                    :class="{ active: combatEffectsEnabled }"
+                                    :title="combatEffectsEnabled ? '关闭技能动画' : '开启技能动画'"
+                                    :aria-label="combatEffectsEnabled ? '关闭技能动画' : '开启技能动画'">✨</button>
                             <button class="battle-control-btn" @click="toggleBattleLog" :class="{ active: battleShowLog }" title="战斗日志">📜</button>
                             <button class="battle-control-btn" @click="toggleBattleFullscreen" title="迷你模式">━</button>
                         </div>
@@ -622,15 +641,9 @@
                             </div>
                         </div>
 
-                        <!-- 战斗VS标志 + 武侠技能动画层 -->
+                        <!-- 战斗VS标志 + 伤害数字动画层 -->
                         <div class="battle-center-area">
                             <div class="battle-vs-vertical">⚔️</div>
-                            <!-- 武侠技能动画 -->
-                            <div class="skill-effect-container" v-for="skill in skillAnimations" :key="skill.id">
-                                <div :class="getSkillAnimationClass(skill.type)">
-                                    <span :class="getSkillIconClass(skill.type)">{{ getSkillIcon(skill.type) }}</span>
-                                </div>
-                            </div>
                             <!-- 伤害数字动画 -->
                             <div class="battle-animation-layer">
                                 <div v-for="anim in battleAnimations" :key="anim.id" class="battle-animation" :class="getAnimationClass(anim)">
@@ -958,10 +971,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785502124100"></script>
-    <script src="js/app.js?v=v1785502124100"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785525040516"></script>
+    <script src="js/app.js?v=v1785525040516"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785502124100"></script>
+    <script src="../includes/translate.js?v=v1785525040516"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

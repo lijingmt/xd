@@ -71,6 +71,31 @@ private string selected_prefix(int selected)
 	return selected ? "✓ 已选择 " : "";
 }
 
+private string view_auto_skills(object me)
+{
+	mapping learned;
+	array(string) names;
+	object|zero skill;
+	string out;
+	string name;
+	if(!me || !me->skills || !sizeof(me->skills))
+		return "尚未学会可设置的主动技能。\n";
+	learned = me->skills;
+	names = sort(indices(learned));
+	out = "";
+	for(int i = 0;i < sizeof(names);i++){
+		name = names[i];
+		skill = MUD_SKILLSD[name];
+		if(!skill || skill->s_type != "zhudong")
+			continue;
+		out += selected_prefix(me->skills_enable == name)+"["+
+			skill->query_name_cn()+":autofight skill "+name+"]\n";
+	}
+	if(out == "")
+		out = "尚未学会可设置的主动技能。\n";
+	return out;
+}
+
 private string vip_label(int level)
 {
 	return AUTOFIGHTD->query_vip_label(level);
@@ -365,6 +390,7 @@ private void show_settings(object me, string notice)
 	string skill;
 	string food_auto_prefix;
 	string water_auto_prefix;
+	string skill_mode;
 	mapping route;
 	int daily_seconds;
 	int vip_level;
@@ -375,7 +401,8 @@ private void show_settings(object me, string notice)
 	water = (string)me["/plus/autofight_water"];
 	food_auto_prefix = "";
 	water_auto_prefix = "";
-	skill = me->skills_enable;
+	skill = AUTOFIGHTD->ensure_auto_skill(me);
+	skill_mode = AUTOFIGHTD->query_auto_skill_mode(me);
 	daily_seconds = AUTOFIGHTD->query_daily_seconds_for(me);
 	vip_level = AUTOFIGHTD->query_vip_level(me);
 	gather_mode = AUTOFIGHTD->query_gather_mode(me);
@@ -390,7 +417,7 @@ private void show_settings(object me, string notice)
 		water_auto_prefix = "✓ 已选择 ";
 	}
 	if(!skill || skill == "")
-		skill = "未设置（使用普通攻击）";
+		skill = "未设置（普通攻击兜底）";
 	else if(MUD_SKILLSD[skill])
 		skill = MUD_SKILLSD[skill]->query_name_cn();
 	out = "【自动打怪／挂机】\n";
@@ -408,7 +435,8 @@ private void show_settings(object me, string notice)
 	out += "低法力补充："+AUTOFIGHTD->query_mana_percent(me)+"％\n";
 	out += "回血食物："+food+"\n";
 	out += "回蓝饮品："+water+"\n";
-	out += "自动技能："+skill+"\n";
+	out += "自动技能："+skill+"（"+
+		AUTOFIGHTD->query_auto_skill_mode_cn(me)+"）\n";
 	out += "自动拾取："+(AUTOFIGHTD->query_loot_enabled(me) ? "开启" : "关闭")+"\n";
 	out += "智能寻路："+(AUTOFIGHTD->query_smart_route_enabled(me) ?
 		"开启（"+(string)route["name"]+"，约"+
@@ -424,7 +452,8 @@ private void show_settings(object me, string notice)
 	out += "挂机自动存仓："+
 		(AUTOFIGHTD->query_auto_store_non_equipment_enabled(me) ?
 		 "开启" : "关闭")+"\n";
-	out += "区域巡游："+(AUTOFIGHTD->query_roam_enabled(me) ? "开启" : "关闭")+"\n";
+	out += "区域巡游："+(AUTOFIGHTD->query_roam_enabled(me) ?
+		"开启" : "关闭（智能寻路空图仍会自动换图）")+"\n";
 	out += "随路自动采集："+
 		AUTOFIGHTD->query_gather_mode_cn(gather_mode)+"\n";
 	out += "采集原料自动出售："+(material_keep < 0 ? "关闭" :
@@ -486,8 +515,13 @@ private void show_settings(object me, string notice)
 	out += water_auto_prefix+
 		"[自动选择回蓝饮品:autofight water auto]\n";
 	out += view_recovery_items(me,"mana");
-	out += "\n自动技能沿用技能页的“自动施放”设置。\n";
-	out += "[前往技能设置:myskills]\n";
+	out += "\n自动技能设置：冷却结束、等级与法力满足时会自动施放；技能不可用时继续普通攻击。\n";
+	out += selected_prefix(skill_mode == "smart")+
+		"[智能推荐攻击技能:autofight skill auto]|";
+	out += selected_prefix(skill_mode == "off")+
+		"[关闭自动技能:autofight skill off]\n";
+	out += view_auto_skills(me);
+	out += "[前往完整技能页:myskills]\n";
 	out += "[返回游戏:look]\n";
 	write(out);
 }
@@ -500,6 +534,7 @@ int main(string|zero arg)
 	string reason;
 	string category;
 	string enabled_text;
+	string selected_skill;
 	int number;
 	me = this_player();
 	if(!me)
@@ -550,7 +585,7 @@ int main(string|zero arg)
 		me["/plus/autofight_roam"] = value == "1" ? 1 : 0;
 		show_settings(me,value == "1" ?
 			"区域巡游已开启，请选择适合当前等级的练级区域。" :
-			"区域巡游已关闭，只会攻击当前地图刷新的怪物。");
+			"区域巡游已关闭；智能寻路开启时，空图仍会在推荐练级区内自动换图。");
 		return 1;
 	}
 	if(action == "route"){
@@ -569,6 +604,27 @@ int main(string|zero arg)
 		show_settings(me,value == "1" ?
 			"缺药休整已开启，补给不足时会前往安全地点恢复。" :
 			"缺药休整已关闭；低血且无药时会安全停止挂机。");
+		return 1;
+	}
+	if(action == "skill"){
+		if(value == "auto"){
+			AUTOFIGHTD->set_auto_skill_mode(me,"smart");
+			selected_skill = AUTOFIGHTD->ensure_auto_skill(me);
+			show_settings(me,selected_skill == "" ?
+				"智能自动技能已开启；学会可用攻击技能后会自动选择。" :
+				"智能自动技能已开启并完成推荐。");
+			return 1;
+		}
+		if(value == "off"){
+			AUTOFIGHTD->set_auto_skill_mode(me,"off");
+			show_settings(me,"自动技能已关闭，挂机仍会使用普通攻击。");
+			return 1;
+		}
+		if(!AUTOFIGHTD->set_selected_auto_skill(me,value)){
+			show_settings(me,"只能选择自己已学会的主动技能。");
+			return 1;
+		}
+		show_settings(me,"自动技能已更新，下一次冷却就绪时自动施放。");
 		return 1;
 	}
 	if(action == "gather"){

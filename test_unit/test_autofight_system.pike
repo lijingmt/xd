@@ -66,6 +66,8 @@ void test_runtime_compile()
 		"/gamelib/single/daemons/autofightd.pike",
 		"/gamelib/cmds/autofight.pike",
 		"/gamelib/cmds/autofightclose.pike",
+		"/lowlib/wapmud2/cmds/set_autoSkills.pike",
+		"/lowlib/wapmud2/cmds/disable_autoSkills.pike",
 		"/gamelib/cmds/cleanup_non_equipment.pike",
 		"/gamelib/cmds/viceskill_dig.pike",
 		"/gamelib/cmds/viceskill_gather.pike",
@@ -115,9 +117,11 @@ void test_defaults_and_switch()
 			daemon->query_material_keep(player) == -1 &&
 			daemon->query_auto_destroy_non_equipment_enabled(player) == 0 &&
 			player->query_autofight() == "disable";
-		valid = valid &&
-			player["/plus/autofight_config_version"] == 6 &&
-			player["/plus/autofight_store_non_equipment"] == 0 &&
+			valid = valid &&
+				player["/plus/autofight_config_version"] == 7 &&
+				player["/plus/autofight_skill_mode"] == "smart" &&
+				daemon->query_auto_skill_mode(player) == "smart" &&
+				player["/plus/autofight_store_non_equipment"] == 0 &&
 			player["/plus/autofight_cleanup_herb"] == 1 &&
 			player["/plus/autofight_cleanup_mine"] == 1 &&
 			player["/plus/autofight_cleanup_misc"] == 0 &&
@@ -135,6 +139,67 @@ void test_defaults_and_switch()
 		test_pass();
 	else
 		test_fail("默认值或开关错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_smart_auto_skill_selection()
+{
+	test_start("智能推荐、手动指定与关闭自动技能");
+	object player = create_runtime_player(
+		"__testunit_autofight_skill_selection__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object lingji_skill = (object)(ROOT+
+		"/gamelib/single/skills/lingji");
+	object lingbailei_skill = (object)(ROOT+
+		"/gamelib/single/skills/lingbailei");
+	object lingzhi_skill = (object)(ROOT+
+		"/gamelib/single/skills/lingzhi");
+	string recommended;
+	string ensured;
+	string mode;
+	string error_desc = "";
+	int off_result = 0;
+	int manual_result = 0;
+	int invalid_result = 0;
+	int valid = 0;
+	mixed err = catch {
+		player->level = 40;
+		player->set_att_by_level();
+		player->skills["lingji"] = ({1,0});
+		player->skills["lingbailei"] = ({1,0});
+		player->skills["lingzhi"] = ({5,0});
+		player->skills_enable = "";
+		daemon->initialize_player(player);
+		recommended = daemon->query_recommended_auto_skill(player);
+		ensured = daemon->ensure_auto_skill(player);
+		valid = recommended == "lingbailei" &&
+			ensured == "lingbailei" &&
+			player->skills_enable == "lingbailei";
+		off_result = daemon->set_auto_skill_mode(player,"off");
+		valid = valid && off_result &&
+			daemon->query_auto_skill_mode(player) == "off" &&
+			player->skills_enable == "" &&
+			daemon->ensure_auto_skill(player) == "";
+		manual_result = daemon->set_selected_auto_skill(player,"lingzhi");
+		invalid_result = daemon->set_selected_auto_skill(
+			player,"__invalid__");
+		mode = daemon->query_auto_skill_mode(player);
+		valid = valid && manual_result &&
+			mode == "manual" &&
+			player->skills_enable == "lingzhi" &&
+			!invalid_result;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"自动技能选择错误: recommended=%s ensured=%s current=%s "
+			"mode=%s off=%d manual=%d invalid=%d %s",
+			recommended,ensured,player->skills_enable,mode,off_result,
+			manual_result,invalid_result,error_desc));
 	destroy_runtime_player(player);
 }
 
@@ -1339,58 +1404,55 @@ void test_end_to_end_current_room_fight()
 	destroy_runtime_player(player);
 }
 
-void test_end_to_end_wait_then_resume_fight()
+void test_end_to_end_auto_skill_perform()
 {
-	test_start("智能寻路空图原地等待且刷怪后恢复攻击");
+	test_start("挂机战斗中按冷却自动施放已选技能");
 	object player = create_runtime_player(
-		"__testunit_autofight_wait_respawn__");
+		"__testunit_autofight_skill_perform__");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
-	object room = clone(ROOT+"/gamelib/d/mihuandao/nongwusenlin");
+	object room = clone(ROOT+
+		"/gamelib/d/jinaodao/huangshayuanye");
 	object flush_command = (object)(ROOT+
 		"/lowlib/wapmud2/cmds/flushview.pike");
-	object|zero target;
-	object|zero selected;
+	object lingji_skill = (object)(ROOT+
+		"/gamelib/single/skills/lingji");
+	object|zero weapon;
 	object|zero original_player = this_player();
 	string error_desc = "";
-	string current_path = "";
-	int wait_valid = 0;
-	int selected_target = 0;
-	int started_combat = 0;
-	int matched_enemy = 0;
+	string ready_skill = "";
+	int before_mofa = 0;
+	int after_mofa = 0;
+	int cold = 0;
+	int entered_combat = 0;
+	int weapon_ready = 0;
 	int valid = 0;
 	mixed err = catch {
-		foreach(all_inventory(room),object old_item)
-			destruct(old_item);
 		player->move(room);
+		weapon = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		weapon->move(player);
+		player->wear(weapon);
+		weapon_ready = weapon->equiped;
+		player->skills["lingji"] = ({1,0});
+		player->set_mofa(player->query_mofa_max());
 		set_this_player(player);
 		daemon->initialize_player(player);
-		player["/plus/autofight_smart_route"] = 1;
-		player["/plus/autofight_roam"] = 0;
+		player["/plus/autofight_smart_route"] = 0;
+		daemon->set_selected_auto_skill(player,"lingji");
 		daemon->start_autofight(player);
-		for(int i = 0;i < 5;i++){
-			foreach(all_inventory(room),object refreshed_item)
-				if(refreshed_item != player)
-					destruct(refreshed_item);
-			flush_command->main(0);
-		}
-		wait_valid = environment(player) == room && !player->in_combat &&
-			daemon->query_safe_exit(player) == "";
-		target = clone(ROOT+
-			"/gamelib/clone/npc/mihuandao/9youdangelang");
-		target->move(room);
-		selected = daemon->query_target(player);
-		selected_target = selected == target;
-		for(int resume_tick = 0;
-		    resume_tick < 3 && !player->in_combat;resume_tick++)
-			flush_command->main(0);
-		current_path = daemon->query_current_room_path(player);
-		started_combat = player->in_combat;
-		matched_enemy = player->query_enemy() &&
-			player->query_enemy()->is("npc") &&
-			environment(player->query_enemy()) == room;
-		valid = wait_valid && selected_target &&
-			environment(player) == room && started_combat && matched_enemy;
+		flush_command->main(0);
+		entered_combat = player->in_combat;
+		before_mofa = player->get_cur_mofa();
+		player->timeCold = 0;
+		player->f_skills["lingji"] = 0;
+		ready_skill = daemon->query_ready_auto_skill(player);
+		flush_command->main(0);
+		after_mofa = player->get_cur_mofa();
+		cold = (int)player->f_skills["lingji"];
+		valid = player->query_autofight() == "enable" &&
+			entered_combat && weapon_ready && ready_skill == "lingji" &&
+			cold > 1 && after_mofa < before_mofa;
 		daemon->stop_autofight(player);
 		player->_clean_fight();
 	};
@@ -1404,10 +1466,115 @@ void test_end_to_end_wait_then_resume_fight()
 		test_pass();
 	else
 		test_fail(sprintf(
-			"空图等待、位置保持或刷怪后恢复攻击错误: "
-			"wait=%d selected=%d combat=%d enemy=%d room=%s %s",
-			wait_valid,selected_target,started_combat,matched_enemy,
-			current_path,error_desc));
+			"挂机自动施放技能错误: combat=%d weapon=%d ready=%s "
+			"mofa=%d/%d cold=%d %s",entered_combat,weapon_ready,
+			ready_skill,before_mofa,after_mofa,cold,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_end_to_end_empty_room_switch()
+{
+	test_start("智能寻路空图防抖后自动换图并恢复攻击");
+	object player = create_runtime_player(
+		"__testunit_autofight_empty_switch__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/mihuandao/nongwusenlin");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero target;
+	object|zero enemy;
+	object|zero switched_room;
+	object|zero original_player = this_player();
+	string error_desc = "";
+	string current_path = "";
+	string available_exit = "";
+	int waited_before_switch = 0;
+	int ticks_after_two = 0;
+	int ticks_after_three = 0;
+	int switched = 0;
+	int stayed_in_training_area = 0;
+	int started_combat = 0;
+	int matched_enemy = 0;
+	int valid = 0;
+	mixed err = catch {
+		room->hidden_exits["south"] = 1;
+		room->hidden_exits["west"] = 1;
+		room->hidden_exits["north"] = 1;
+		player->move(room);
+		// 进入房间会触发一次正常刷新，进入后再清空才能模拟真实空图。
+		foreach(all_inventory(room),object old_item)
+			if(old_item != player)
+				destruct(old_item);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		player["/plus/autofight_roam"] = 0;
+		daemon->start_autofight(player);
+		for(int i = 0;i < 2;i++)
+			flush_command->main(0);
+		ticks_after_two =
+			(int)player["/tmp/autofight_no_target_ticks"];
+		waited_before_switch = environment(player) == room &&
+			!player->in_combat &&
+			daemon->query_safe_exit(player) == "";
+		flush_command->main(0);
+		ticks_after_three =
+			(int)player["/tmp/autofight_no_target_ticks"];
+		available_exit = daemon->query_safe_exit(player);
+		switched_room = environment(player);
+		current_path = daemon->query_current_room_path(player);
+		switched = switched_room && switched_room != room &&
+			current_path == "mihuandao/lvyinshanqiu";
+		player["/tmp/autofight_last_route_time"] = time()-20;
+		stayed_in_training_area =
+			daemon->should_route_to_training_area(player) == 0;
+		target = clone(ROOT+
+			"/gamelib/clone/npc/mihuandao/10xiongmengeyu");
+		target->move(switched_room);
+		for(int resume_tick = 0;resume_tick < 3 &&
+		    !player->in_combat;resume_tick++)
+			flush_command->main(0);
+		started_combat = player->in_combat;
+		enemy = player->query_enemy();
+		matched_enemy = enemy && enemy->is("npc") &&
+			environment(enemy) == switched_room;
+		valid = waited_before_switch && switched &&
+			stayed_in_training_area && started_combat && matched_enemy;
+		daemon->stop_autofight(player);
+		player->_clean_fight();
+		if(enemy)
+			enemy->_clean_fight();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"空图换图或恢复攻击错误: wait=%d ticks=%d/%d "
+			"exit=%s switched=%d stable=%d combat=%d enemy=%d "
+			"room=%s smart=%d roam=%d leave=%d %s",
+			waited_before_switch,ticks_after_two,ticks_after_three,
+			available_exit,switched,stayed_in_training_area,
+			started_combat,matched_enemy,current_path,
+			daemon->query_smart_route_enabled(player),
+			daemon->query_roam_enabled(player),
+			daemon->can_auto_leave_current_room(player),error_desc));
+	if(target){
+		target->_clean_fight();
+		destruct(target);
+	}
 	if(room){
 		foreach(all_inventory(room),object item)
 			if(item != player)
@@ -1714,13 +1881,20 @@ void test_integration_wiring()
 	string user_source = Stdio.read_file(ROOT+"/gamelib/clone/user.pike");
 	string autofight_source = Stdio.read_file(
 		ROOT+"/gamelib/cmds/autofight.pike");
+	string autofight_daemon_source = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/autofightd.pike");
 	string flush_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/cmds/flushview.pike");
+	string set_skill_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/set_autoSkills.pike");
+	string disable_skill_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/disable_autoSkills.pike");
 	string inventory_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/single/viewd.pike");
 	if(api_source && renderer_source && vue_source && index_source &&
 	   daily_source && kill_source && leave_source && user_source &&
-	   autofight_source && flush_source && inventory_source &&
+	   autofight_source && autofight_daemon_source && flush_source &&
+	   set_skill_source && disable_skill_source && inventory_source &&
 	   search(api_source,"AUTOFIGHTD->start_autofight(player)") != -1 &&
 	   search(renderer_source,"result[\"autofight_time_left\"]") != -1 &&
 	   search(renderer_source,"result[\"autofight_daily_limit\"]") != -1 &&
@@ -1742,6 +1916,12 @@ void test_integration_wiring()
 	   search(autofight_source,"永久保护") != -1 &&
 	   search(autofight_source,"cleanup_non_equipment") != -1 &&
 	   search(autofight_source,"自动存仓") != -1 &&
+	   search(autofight_source,"智能推荐攻击技能") != -1 &&
+	   search(autofight_daemon_source,
+		"query_recommended_auto_skill") != -1 &&
+	   search(flush_source,"query_ready_auto_skill(me)") != -1 &&
+	   search(set_skill_source,"autofight_skill_mode\"] = \"manual\"") != -1 &&
+	   search(disable_skill_source,"autofight_skill_mode\"] = \"off\"") != -1 &&
 	   search(flush_source,"perform_auto_sell(me)") != -1 &&
 	   search(flush_source,"perform_auto_store_non_equipment") != -1 &&
 	   search(flush_source,"perform_non_equipment_destroy") != -1 &&
@@ -1756,6 +1936,7 @@ int main()
 	werror("\n========== 自动打怪／挂机系统测试 ==========\n");
 	test_runtime_compile();
 	test_defaults_and_switch();
+	test_smart_auto_skill_selection();
 	test_vip_daily_limits();
 	test_vip_labels_and_plan();
 	test_vip_auto_sell_tiers();
@@ -1777,7 +1958,8 @@ int main()
 	test_level_twenty_fangshi_route_recovery();
 	test_auto_rest_safety();
 	test_end_to_end_current_room_fight();
-	test_end_to_end_wait_then_resume_fight();
+	test_end_to_end_auto_skill_perform();
+	test_end_to_end_empty_room_switch();
 	test_roam_wait_and_backtrack_guard();
 	test_end_to_end_smart_route_fight();
 	test_end_to_end_auto_rest();

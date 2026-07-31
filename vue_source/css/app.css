@@ -3818,13 +3818,78 @@ body {
 }
 
 /* 武侠技能动画效果 */
+.battle-skill-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 120;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
 .skill-effect-container {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    width: 0;
+    height: 0;
     pointer-events: none;
-    z-index: 100;
+}
+
+.skill-effect-container.skill-target-player {
+    left: 27%;
+}
+
+.skill-effect-container.skill-target-enemy {
+    left: 73%;
+}
+
+.battle-panel.fullscreen-mode .skill-effect-container.skill-target-player {
+    top: 72%;
+    left: 50%;
+}
+
+.battle-panel.fullscreen-mode .skill-effect-container.skill-target-enemy {
+    top: 30%;
+    left: 50%;
+}
+
+.skill-effect {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform, opacity;
+}
+
+.skill-effect-label {
+    position: absolute;
+    top: 27px;
+    left: 0;
+    min-width: max-content;
+    max-width: 150px;
+    padding: 3px 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 224, 153, 0.5);
+    border-radius: 999px;
+    background: rgba(22, 14, 32, 0.9);
+    color: #fff1bd;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.25;
+    text-align: center;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    transform: translateX(-50%);
+    animation: skill-label-pop 1.05s ease-out forwards;
+}
+
+@keyframes skill-label-pop {
+    0% { opacity: 0; transform: translate(-50%, 8px) scale(0.88); }
+    22% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    72% { opacity: 1; transform: translate(-50%, -3px) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
 }
 
 /* 剑气效果 - 金色光波 */
@@ -4109,6 +4174,116 @@ body {
 .poison-icon {
     font-size: 50px;
     filter: drop-shadow(0 0 20px rgba(100, 255, 100, 0.8));
+}
+
+/* 治疗、召唤、增益和元素法术：覆盖方士及所有旧职业。 */
+.skill-heal-bloom { animation: heal-bloom-effect 1.2s ease-out forwards; }
+.skill-summon-circle { animation: summon-circle-effect 1.35s ease-out forwards; }
+.skill-buff-aura { animation: buff-aura-effect 1.1s ease-out forwards; }
+.skill-curse-seal { animation: curse-seal-effect 1.1s ease-out forwards; }
+.skill-lightning-strike { animation: lightning-strike-effect 0.9s ease-out forwards; }
+.skill-fire-burst { animation: fire-burst-effect 1s ease-out forwards; }
+.skill-ice-crystal { animation: ice-crystal-effect 1.1s ease-out forwards; }
+.skill-wind-sweep { animation: wind-sweep-effect 0.95s ease-out forwards; }
+.skill-spirit-orbit { animation: spirit-orbit-effect 1.1s ease-out forwards; }
+.skill-generic-cast { animation: generic-cast-effect 0.9s ease-out forwards; }
+
+@keyframes heal-bloom-effect {
+    0% { opacity: 0; transform: translate(-50%, 10%) scale(0.35); }
+    32% { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
+    100% { opacity: 0; transform: translate(-50%, -105%) scale(1.65); }
+}
+
+@keyframes summon-circle-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(-100deg); }
+    30% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(0deg); }
+    72% { opacity: 0.95; transform: translate(-50%, -50%) scale(1) rotate(210deg); }
+    100% { opacity: 0; transform: translate(-50%, -70%) scale(1.55) rotate(360deg); }
+}
+
+@keyframes buff-aura-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45); }
+    35% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+    70% { opacity: 0.9; transform: translate(-50%, -58%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -85%) scale(1.35); }
+}
+
+@keyframes curse-seal-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(1.6) rotate(24deg); }
+    28% { opacity: 1; transform: translate(-50%, -50%) scale(0.9) rotate(-8deg); }
+    60% { opacity: 0.9; transform: translate(-48%, -52%) scale(1.08) rotate(5deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.55) rotate(0deg); }
+}
+
+@keyframes lightning-strike-effect {
+    0%, 18% { opacity: 0; transform: translate(-50%, -95%) scale(1.4); }
+    24% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    42% { opacity: 0.25; transform: translate(-48%, -48%) scale(0.95); }
+    55% { opacity: 1; transform: translate(-52%, -52%) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -20%) scale(0.7); }
+}
+
+@keyframes fire-burst-effect {
+    0% { opacity: 0; transform: translate(-50%, -25%) scale(0.45); }
+    30% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+    100% { opacity: 0; transform: translate(-50%, -115%) scale(1.65); }
+}
+
+@keyframes ice-crystal-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(1.7) rotate(-30deg); }
+    35% { opacity: 1; transform: translate(-50%, -50%) scale(0.95) rotate(0deg); }
+    70% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.12) rotate(12deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8) rotate(35deg); }
+}
+
+@keyframes wind-sweep-effect {
+    0% { opacity: 0; transform: translate(-120%, -50%) scale(0.65) rotate(-35deg); }
+    35% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(0deg); }
+    100% { opacity: 0; transform: translate(45%, -58%) scale(1.45) rotate(35deg); }
+}
+
+@keyframes spirit-orbit-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35) rotate(0deg); }
+    30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(100deg); }
+    72% { opacity: 1; transform: translate(-50%, -60%) scale(0.95) rotate(260deg); }
+    100% { opacity: 0; transform: translate(-50%, -95%) scale(1.4) rotate(360deg); }
+}
+
+@keyframes generic-cast-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
+    35% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -72%) scale(1.65); }
+}
+
+.heal-bloom-icon,
+.summon-circle-icon,
+.buff-aura-icon,
+.curse-seal-icon,
+.lightning-strike-icon,
+.fire-burst-icon,
+.ice-crystal-icon,
+.wind-sweep-icon,
+.spirit-orbit-icon,
+.generic-cast-icon {
+    font-size: 52px;
+}
+
+.heal-bloom-icon { filter: drop-shadow(0 0 20px rgba(98, 255, 164, 0.9)); }
+.summon-circle-icon { filter: drop-shadow(0 0 22px rgba(189, 135, 255, 0.92)); }
+.buff-aura-icon { filter: drop-shadow(0 0 20px rgba(255, 222, 112, 0.92)); }
+.curse-seal-icon { filter: drop-shadow(0 0 20px rgba(199, 100, 255, 0.9)); }
+.lightning-strike-icon { filter: drop-shadow(0 0 20px rgba(250, 242, 112, 0.95)); }
+.fire-burst-icon { filter: drop-shadow(0 0 22px rgba(255, 112, 54, 0.95)); }
+.ice-crystal-icon { filter: drop-shadow(0 0 20px rgba(130, 222, 255, 0.95)); }
+.wind-sweep-icon { filter: drop-shadow(0 0 20px rgba(125, 255, 225, 0.9)); }
+.spirit-orbit-icon { filter: drop-shadow(0 0 22px rgba(185, 132, 255, 0.95)); }
+.generic-cast-icon { filter: drop-shadow(0 0 18px rgba(255, 226, 153, 0.9)); }
+
+@media (max-width: 600px) {
+    .skill-effect-container.skill-target-player { left: 25%; }
+    .skill-effect-container.skill-target-enemy { left: 69%; }
+    .skill-effect-label { top: 23px; max-width: 112px; font-size: 11px; }
+    .skill-effect span:not(.skill-effect-label) { font-size: 42px; }
 }
 
 /* 响应式调整 */

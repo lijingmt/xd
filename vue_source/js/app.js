@@ -169,7 +169,8 @@ createApp({
             battlePlayerFull: null,  // 玩家完整状态（从API获取）
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
-            skillAnimations: [],  // 武侠技能动画列表
+            skillAnimations: [],  // 技能动画列表
+            combatEffectsEnabled: localStorage.getItem('battle_effects_enabled') !== '0',
             // 招式系统
             showPerformsList: false,  // 显示招式列表
             performsData: null,  // 招式数据
@@ -1448,6 +1449,8 @@ createApp({
             this.battleEnemy = null;
             this.battleEnemyFull = null;
             this.battlePlayerFull = null;
+            this.battleAnimations = [];
+            this.skillAnimations = [];
             this.battleStatusLoading = false;
             this.stopBattleStatusPolling();
             // 清理聊天轮询定时器
@@ -2068,6 +2071,8 @@ createApp({
                     this.battleEnemy = null;
                     this.battleEnemyFull = null;
                     this.battlePlayerFull = null;
+                    this.battleAnimations = [];
+                    this.skillAnimations = [];
                     this.stopBattleStatusPolling();
                 }
             } catch (e) {
@@ -2302,21 +2307,24 @@ createApp({
                     this.addBattleLog('info', trimmedText);
                 }
 
-                // 解析武侠技能类型并添加技能动画
-                const skillType = this.parseMartialArtsSkill(lineText);
-                if (skillType) {
-                    this.addSkillAnimation(skillType);
+                // 只有明确的施法文本才触发技能动画，避免状态栏中的“内力”等
+                // 普通文字被误判；同时显示真实技能名。
+                const skillName = this.extractSkillName(lineText);
+                if (skillName) {
+                    const skillType = this.parseMartialArtsSkill(skillName) || 'generic';
+                    const skillTarget = this.getSkillAnimationTarget(skillType, lineText);
+                    this.addSkillAnimation(skillType, skillName, skillTarget);
                 }
 
                 // 解析特殊战斗状态
                 if (lineText.match(/躲过.*攻击|闪避.*招式|身法.*避开/)) {
-                    this.addSkillAnimation('dodge');
+                    this.addSkillAnimation('dodge', '闪避', 'player');
                 }
                 if (lineText.match(/格挡.*攻击|招架.*招式|成功.*防御/)) {
-                    this.addSkillAnimation('block');
+                    this.addSkillAnimation('block', '格挡', 'player');
                 }
                 if (lineText.match(/身中剧毒|毒发.*伤|中毒.*发作/)) {
-                    this.addSkillAnimation('poison');
+                    this.addSkillAnimation('poison', '持续伤害', 'player');
                 }
 
                 // 解析伤害数字用于动画
@@ -2324,12 +2332,12 @@ createApp({
                 if (damageToEnemyMatch && lineText.includes('你')) {
                     const damage = parseInt(damageToEnemyMatch[1] || 0);
                     if (damage > 0) {
-                        const isPlayerAttacking = lineText.includes('你造成') || lineText.includes('你对');
+                        const isPlayerAttacking = lineText.includes('你造成') || /你.*?对/.test(lineText);
                         const criticalMatch = lineText.match(/暴击|致命|会心一击/);
                         if (isPlayerAttacking) {
                             this.addBattleAnimation('damage', 'enemy', damage, criticalMatch);
                             if (criticalMatch) {
-                                this.addSkillAnimation('critical');
+                                this.addSkillAnimation('critical', '会心一击', 'enemy');
                             }
                         } else {
                             this.addBattleAnimation('damage', 'player', damage, criticalMatch);
@@ -2355,180 +2363,155 @@ createApp({
             }
         },
 
+        formatSkillAnimationName(name) {
+            const value = String(name || '').trim();
+            const tagOnly = value.match(/^【([^】]+)】$/);
+            return (tagOnly ? tagOnly[1] : value.replace(/^【[^】]+】/, ''))
+                .replace(/[（(](?:等级)?\d+级?.*$/, '')
+                .trim()
+                .slice(0, 14);
+        },
+
+        /** 从“施展／施放／召唤”战斗文案中提取真实技能名。 */
+        extractSkillName(text) {
+            const source = String(text || '');
+            if (/无法施放|不能施放|未能施放|尚未达到.*无法使用|还需要.*冷却|法术公共冷却/.test(source)) {
+                return '';
+            }
+            const patterns = [
+                /(?:施展了?|施放了?|使出了?|发动了?|祭起了?)(【[^】]+】(?:[^（(，,。！!\n]+)?|[\u3400-\u9fff·]{2,18})(?=[（(，,。！!\s])/,
+                /召唤出了?(【[^】]+】(?:[^（(，,。！!\n]+)?|[\u3400-\u9fff·]{2,18})(?=[（(，,。！!\s])/
+            ];
+            for (const pattern of patterns) {
+                const match = source.match(pattern);
+                if (match && match[1]) {
+                    return this.formatSkillAnimationName(match[1]);
+                }
+            }
+            if (source.includes('三灵合一')) return '三灵合一';
+            if (source.includes('三灵共鸣')) return '三灵共鸣';
+            if (source.includes('灵契共鸣')) return '灵契共鸣';
+            return '';
+        },
+
         /**
-         * 解析武侠技能类型
-         * @param {string} text - 战斗文本
+         * 按技能名识别视觉类型，覆盖全部职业和方士灵术。
+         * @param {string} text - 技能名、技能ID或战斗文本
          * @returns {string|null} 技能类型
          */
         parseMartialArtsSkill(text) {
-            // 剑类技能
-            if (text.includes('剑气') || text.includes('剑芒') || text.includes('万剑') ||
-                text.includes('独孤九剑') || text.includes('太极剑') || text.includes('神剑') ||
-                text.includes('剑光') || text.includes('御剑') || text.includes('剑影')) {
-                return 'sword-qi';
-            }
+            const value = String(text || '');
+            if (!value) return null;
 
-            // 掌法技能
-            if (text.includes('掌') && (text.includes('劈') || text.includes('击') || text.includes('拍')) ||
-                text.includes('降龙十八掌') || text.includes('火焰掌') || text.includes('寒冰掌') ||
-                text.includes('铁砂掌') || text.includes('摧心掌') || text.includes('幻阴掌') ||
-                text.includes('大力金刚掌') || text.includes('七伤掌')) {
-                return 'palm';
-            }
-
-            // 指法技能
-            if (text.includes('指') && (text.includes('戳') || text.includes('点') || text.includes('击')) ||
-                text.includes('六脉神剑') || text.includes('一阳指') || text.includes('幻阴指') ||
-                text.includes('弹指神通') || text.includes('指力') || text.includes('指风')) {
-                return 'finger';
-            }
-
-            // 拳法技能
-            if (text.includes('拳') && (text.includes('轰') || text.includes('击') || text.includes('冲')) ||
-                text.includes('七伤拳') || text.includes('太极拳') || text.includes('伏虎拳') ||
-                text.includes('罗汉拳') || text.includes('长拳') || text.includes('崩拳') ||
-                text.includes('铁拳') || text.includes('重拳')) {
-                return 'fist';
-            }
-
-            // 轻功技能
-            if (text.includes('轻功') || text.includes('身法') || text.includes('移形换位') ||
-                text.includes('梯云纵') || text.includes('凌波微步') || text.includes('踏雪无痕') ||
-                text.includes('飞檐走壁') || text.includes('瞬移') || text.includes('闪身')) {
-                return 'lightness';
-            }
-
-            // 内功技能
-            if (text.includes('内力') || text.includes('真气') || text.includes('内功') ||
-                text.includes('九阳神功') || text.includes('九阴真经') || text.includes('易筋经') ||
-                text.includes('紫霞神功') || text.includes('蛤蟆功') || text.includes('神照功') ||
-                text.includes('混元功') || text.includes('龙象般若功') || text.includes('北冥神功')) {
-                return 'inner-power';
-            }
-
-            // 棍棒技能
-            if (text.includes('棒') || text.includes('棍') && (text.includes('扫') || text.includes('打')) ||
-                text.includes('打狗棒法') || text.includes('降魔棍') || text.includes('齐眉棍') ||
-                text.includes('棒影') || text.includes('横扫')) {
-                return 'staff';
-            }
-
-            // 刀法技能
-            if (text.includes('刀') && (text.includes('斩') || text.includes('劈') || text.includes('砍')) ||
-                text.includes('玄铁重剑') || text.includes('血刀') || text.includes('刀光') ||
-                text.includes('狂风刀') || text.includes('破刀') || text.includes('刀气') ||
-                text.includes('胡家刀法') || text.includes('火焰刀')) {
-                return 'saber';
-            }
-
+            if (/灵治|灵莲铺|万灵朝生|治疗|回春|恢复/.test(value)) return 'heal';
+            if (/召唤|虎灵|鹤灵|龟灵|三灵合一|三灵共鸣|唤小灵|灵契共鸣/.test(value)) return 'summon';
+            if (/雷|电|极光|光芒万丈|玄光/.test(value)) return 'lightning';
+            if (/火|炎|焰|燎|灼|太阳热线/.test(value)) return 'fire';
+            if (/冰|雪|寒|霜|冻/.test(value)) return 'ice';
+            if (/毒|瘴|腐蚀|流血|放血|裂伤|撕裂|灼烧/.test(value)) return 'poison';
+            if (/诅咒|封印|禁锢|束缚|障目|泥沼|灵咒|缠身|重压|致残/.test(value)) return 'curse';
+            if (/轻功|凌波微步|神行百变|灵玄影|幻影残像|鬼踪|飘忽不定|清风身法|九幽鬼步/.test(value)) return 'lightness';
+            if (/盾|护体|结界|剑意|神威|狂化|冲动|静心|凝心|灵涌|灵风/.test(value)) return 'buff';
+            if (/风|云|瞬移/.test(value)) return 'wind';
+            if (/剑气|剑芒|万剑|剑阵|剑域|神剑|剑光|御剑|剑影|破天一剑/.test(value)) return 'sword-qi';
+            if (/刀|斩|刃|切割|伏击|夺命|杀戮|封喉|绝灭/.test(value)) return 'saber';
+            if (/棒|棍|横扫|竹鞭/.test(value)) return 'staff';
+            if (/掌|掌法/.test(value)) return 'palm';
+            if (/指|指法/.test(value)) return 'finger';
+            if (/拳|冲撞|猛击|重击|打击/.test(value)) return 'fist';
+            if (/内力|真气|内功|神功|心法|本能|狂意/.test(value)) return 'inner-power';
+            if (/【方】|灵/.test(value)) return 'spirit';
             return null;
         },
 
-        /**
-         * 添加武侠技能动画
-         * @param {string} skillType - 技能类型
-         */
-        addSkillAnimation(skillType) {
-            const id = 'skill-' + Date.now() + '-' + Math.random();
-            const skillEffect = {
-                id,
-                type: skillType
-            };
-
-            // 添加到技能动画列表
-            if (!this.skillAnimations) {
-                this.skillAnimations = [];
+        getSkillAnimationTarget(skillType, text = '') {
+            const value = String(text || '');
+            const playerCast = /你(?:紧握.*?)?(?:施展|施放|使出|发动|祭起|召唤)/.test(value);
+            const affectsPlayer = /对你|为你恢复|你的这次攻击/.test(value);
+            const selfTypes = ['heal', 'summon', 'buff', 'inner-power', 'lightness', 'dodge', 'block'];
+            if (selfTypes.includes(skillType)) {
+                return playerCast || affectsPlayer ? 'player' : 'enemy';
             }
-            this.skillAnimations.push(skillEffect);
+            return affectsPlayer && !value.includes('你对') ? 'player' : 'enemy';
+        },
 
-            // 自动移除动画
+        /** 添加技能动画；同一技能短时间去重并最多保留三个并行动画。 */
+        addSkillAnimation(skillType, skillName = '', target = 'enemy') {
+            if (!this.combatEffectsEnabled) return;
+            if (!this.skillAnimations) this.skillAnimations = [];
+
+            const createdAt = Date.now();
+            const name = this.formatSkillAnimationName(skillName);
+            const duplicate = this.skillAnimations.some(effect =>
+                effect.type === skillType && effect.name === name &&
+                effect.target === target && createdAt - (effect.createdAt || 0) < 1200
+            );
+            if (duplicate) return;
+
+            const id = 'skill-' + createdAt + '-' + Math.random();
+            this.skillAnimations = this.skillAnimations
+                .filter(effect => createdAt - (effect.createdAt || createdAt) < 2500)
+                .slice(-2);
+            this.skillAnimations.push({ id, type: skillType, name, target, createdAt });
+
             const duration = {
-                'sword-qi': 1000,
-                'palm': 800,
-                'finger': 600,
-                'fist': 500,
-                'lightness': 1000,
-                'inner-power': 1200,
-                'staff': 700,
-                'saber': 600,
-                'critical': 800,
-                'dodge': 500,
-                'block': 600,
-                'poison': 1500
-            }[skillType] || 1000;
+                'sword-qi': 1000, 'palm': 800, 'finger': 650, 'fist': 650,
+                'lightness': 950, 'inner-power': 1100, 'staff': 750,
+                'saber': 750, 'critical': 800, 'dodge': 550, 'block': 650,
+                'poison': 1300, 'heal': 1200, 'summon': 1350, 'buff': 1100,
+                'curse': 1100, 'lightning': 900, 'fire': 1000, 'ice': 1100,
+                'wind': 950, 'spirit': 1100, 'generic': 900
+            }[skillType] || 900;
 
             setTimeout(() => {
-                this.skillAnimations = this.skillAnimations.filter(s => s.id !== id);
+                this.skillAnimations = this.skillAnimations.filter(effect => effect.id !== id);
             }, duration);
         },
 
-        /**
-         * 获取技能动画的CSS类名
-         * @param {string} skillType - 技能类型
-         * @returns {string} CSS类名
-         */
         getSkillAnimationClass(skillType) {
             const classMap = {
-                'sword-qi': 'skill-sword-qi',
-                'palm': 'skill-palm-wave',
-                'finger': 'skill-finger-strike',
-                'fist': 'skill-fist-strike',
-                'lightness': 'skill-lightness',
-                'inner-power': 'skill-inner-power',
-                'staff': 'skill-staff-sweep',
-                'saber': 'skill-saber-slash',
-                'critical': 'skill-critical-blow',
-                'dodge': 'skill-dodge',
-                'block': 'skill-block',
-                'poison': 'skill-poison'
+                'sword-qi': 'skill-sword-qi', 'palm': 'skill-palm-wave',
+                'finger': 'skill-finger-strike', 'fist': 'skill-fist-strike',
+                'lightness': 'skill-lightness', 'inner-power': 'skill-inner-power',
+                'staff': 'skill-staff-sweep', 'saber': 'skill-saber-slash',
+                'critical': 'skill-critical-blow', 'dodge': 'skill-dodge',
+                'block': 'skill-block', 'poison': 'skill-poison',
+                'heal': 'skill-heal-bloom', 'summon': 'skill-summon-circle',
+                'buff': 'skill-buff-aura', 'curse': 'skill-curse-seal',
+                'lightning': 'skill-lightning-strike', 'fire': 'skill-fire-burst',
+                'ice': 'skill-ice-crystal', 'wind': 'skill-wind-sweep',
+                'spirit': 'skill-spirit-orbit', 'generic': 'skill-generic-cast'
             };
-            return classMap[skillType] || '';
+            return classMap[skillType] || 'skill-generic-cast';
         },
 
-        /**
-         * 获取技能图标
-         * @param {string} skillType - 技能类型
-         * @returns {string} 图标emoji
-         */
         getSkillIcon(skillType) {
             const iconMap = {
-                'sword-qi': '⚔️',
-                'palm': '🖐️',
-                'finger': '👆',
-                'fist': '👊',
-                'lightness': '💨',
-                'inner-power': '✨',
-                'staff': '🎋',
-                'saber': '🗡️',
-                'critical': '💥',
-                'dodge': '💫',
-                'block': '🛡️',
-                'poison': '☠️'
+                'sword-qi': '⚔️', 'palm': '🖐️', 'finger': '👆', 'fist': '👊',
+                'lightness': '💨', 'inner-power': '✨', 'staff': '🎋',
+                'saber': '🗡️', 'critical': '💥', 'dodge': '💫', 'block': '🛡️',
+                'poison': '☠️', 'heal': '🪷', 'summon': '🌀', 'buff': '🔆',
+                'curse': '🔮', 'lightning': '⚡', 'fire': '🔥', 'ice': '❄️',
+                'wind': '🌪️', 'spirit': '☯️', 'generic': '✦'
             };
-            return iconMap[skillType] || '⭐';
+            return iconMap[skillType] || '✦';
         },
 
-        /**
-         * 获取技能图标的CSS类名
-         * @param {string} skillType - 技能类型
-         * @returns {string} CSS类名
-         */
         getSkillIconClass(skillType) {
             const classMap = {
-                'sword-qi': 'sword-qi-icon',
-                'palm': 'palm-wave-icon',
-                'finger': 'finger-strike-icon',
-                'fist': 'fist-strike-icon',
-                'lightness': 'lightness-icon',
-                'inner-power': 'inner-power-icon',
-                'staff': 'staff-sweep-icon',
-                'saber': 'saber-slash-icon',
-                'critical': 'critical-blow-icon',
-                'dodge': 'dodge-icon',
-                'block': 'block-icon',
-                'poison': 'poison-icon'
+                'sword-qi': 'sword-qi-icon', 'palm': 'palm-wave-icon',
+                'finger': 'finger-strike-icon', 'fist': 'fist-strike-icon',
+                'lightness': 'lightness-icon', 'inner-power': 'inner-power-icon',
+                'staff': 'staff-sweep-icon', 'saber': 'saber-slash-icon',
+                'critical': 'critical-blow-icon', 'dodge': 'dodge-icon',
+                'block': 'block-icon', 'poison': 'poison-icon',
+                'heal': 'heal-bloom-icon', 'summon': 'summon-circle-icon',
+                'buff': 'buff-aura-icon', 'curse': 'curse-seal-icon',
+                'lightning': 'lightning-strike-icon', 'fire': 'fire-burst-icon',
+                'ice': 'ice-crystal-icon', 'wind': 'wind-sweep-icon',
+                'spirit': 'spirit-orbit-icon', 'generic': 'generic-cast-icon'
             };
-            return classMap[skillType] || '';
+            return classMap[skillType] || 'generic-cast-icon';
         },
 
         /**
@@ -2595,6 +2578,14 @@ createApp({
          */
         toggleBattleLog() {
             this.battleShowLog = !this.battleShowLog;
+        },
+
+        toggleCombatEffects() {
+            this.combatEffectsEnabled = !this.combatEffectsEnabled;
+            localStorage.setItem('battle_effects_enabled', this.combatEffectsEnabled ? '1' : '0');
+            if (!this.combatEffectsEnabled) {
+                this.skillAnimations = [];
+            }
         },
 
         /**
@@ -2683,6 +2674,16 @@ createApp({
                 alert(`内力不足！需要 ${perform.neili_cost} 点内力`);
                 return;
             }
+
+            const skillLabel = perform.name_cn || perform.id || '技能';
+            const skillType = this.parseMartialArtsSkill(
+                `${skillLabel} ${perform.id || ''}`
+            ) || 'generic';
+            const skillTarget = this.getSkillAnimationTarget(
+                skillType,
+                `你施放${skillLabel}`
+            );
+            this.addSkillAnimation(skillType, skillLabel, skillTarget);
 
             // 发送 use_perform 命令（xiand使用use_perform而非perform）
             await this.sendJsonCommand(`use_perform ${perform.id}`);

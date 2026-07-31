@@ -95,6 +95,7 @@ int main(string|zero arg)
 	string reason;
 	string direction;
 	string route_path;
+	string auto_skill;
 	int count;
 	int left;
 	int visible_monsters;
@@ -134,6 +135,16 @@ int main(string|zero arg)
 		if(AUTOFIGHTD->should_recover_mana(me) &&
 		   use_recovery_item(me,"mana"))
 			return 1;
+		auto_skill = AUTOFIGHTD->query_ready_auto_skill(me);
+		if(auto_skill != ""){
+			me->perform(auto_skill);
+			if(!me->in_combat){
+				write("[关闭自动挂机:autofightclose] 今日剩余"+
+					format_time(left)+"\n");
+				me->command("look");
+				return 1;
+			}
+		}
 		write("[关闭自动挂机:autofightclose] 今日剩余"+
 			format_time(left)+"\n");
 		write(me->query_status()+"\n");
@@ -245,6 +256,7 @@ int main(string|zero arg)
 	direction = AUTOFIGHTD->query_safe_exit(me);
 	if(direction != ""){
 		AUTOFIGHTD->record_roam(me);
+		write("当前地图连续没有可攻击目标，挂机助手正前往相邻地图继续寻找。\n");
 		me->command("leave "+direction);
 		return 1;
 	}

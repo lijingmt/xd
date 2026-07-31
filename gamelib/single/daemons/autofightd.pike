@@ -9,7 +9,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
-#define AUTOFIGHT_CONFIG_VERSION 6
+#define AUTOFIGHT_CONFIG_VERSION 7
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 
 private array(mapping(string:mixed)) smart_training_routes = ({
@@ -260,6 +260,7 @@ void initialize_player(object me)
 		me["/plus/autofight_cleanup_trigger"] = 70;
 		me["/plus/autofight_cleanup_protect_names"] = "";
 		me["/plus/autofight_cleanup_force_names"] = "";
+		me["/plus/autofight_skill_mode"] = "smart";
 	}
 	else
 		sync_daily_limit(me);
@@ -292,6 +293,8 @@ void initialize_player(object me)
 		me["/plus/autofight_cleanup_protect_names"] = "";
 		me["/plus/autofight_cleanup_force_names"] = "";
 	}
+	if(config_version < 7)
+		me["/plus/autofight_skill_mode"] = "smart";
 	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
 			AUTOFIGHT_CONFIG_VERSION;
@@ -400,6 +403,213 @@ int query_mana_percent(object me)
 	if(percent != 0 && percent != 30 && percent != 50)
 		percent = 30;
 	return percent;
+}
+
+string query_auto_skill_mode(object me)
+{
+	string mode;
+	if(!me)
+		return "off";
+	initialize_player(me);
+	mode = (string)me["/plus/autofight_skill_mode"];
+	if(mode != "smart" && mode != "manual" && mode != "off")
+		mode = "smart";
+	return mode;
+}
+
+string query_auto_skill_mode_cn(object me)
+{
+	string mode;
+	mode = query_auto_skill_mode(me);
+	if(mode == "smart")
+		return "智能推荐";
+	if(mode == "manual")
+		return "手动指定";
+	return "关闭";
+}
+
+private int query_auto_skill_usable_level(object me,string name)
+{
+	object|zero skill;
+	mapping(int:int) limits;
+	array(int) levels;
+	int learned_level;
+	int usable_level;
+	if(!me || !name || name == "" || !me->skills ||
+	   !me->skills[name])
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill || skill->s_type != "zhudong")
+		return 0;
+	learned_level = (int)me->skills[name][0];
+	if(learned_level <= 0)
+		return 0;
+	limits = skill->query_performs_level_limit_all ?
+		skill->query_performs_level_limit_all() : 0;
+	if(!limits || !sizeof(limits))
+		return learned_level;
+	if(sizeof(limits) == 1){
+		if(me->query_level() < (int)limits[1])
+			return 0;
+		return learned_level;
+	}
+	levels = sort(indices(limits));
+	usable_level = 0;
+	for(int i = 0;i < sizeof(levels);i++){
+		if(me->query_level() >= (int)limits[levels[i]])
+			usable_level = levels[i];
+	}
+	if(usable_level > learned_level)
+		usable_level = learned_level;
+	return usable_level;
+}
+
+private int query_auto_attack_skill_priority(object skill)
+{
+	string skill_type;
+	if(!skill || skill->s_type != "zhudong")
+		return 0;
+	skill_type = (string)skill->s_skill_type;
+	if(skill_type == "phy" || skill_type == "huo_mofa_attack" ||
+	   skill_type == "bing_mofa_attack" ||
+	   skill_type == "feng_mofa_attack" ||
+	   skill_type == "du_mofa_attack")
+		return 3;
+	if(skill_type == "dot")
+		return 2;
+	if(skill_type == "curse")
+		return 1;
+	return 0;
+}
+
+string query_recommended_auto_skill(object me)
+{
+	mapping learned;
+	array(string) names;
+	object|zero skill;
+	string best_name;
+	string name;
+	int usable_level;
+	int priority;
+	int power;
+	int cast;
+	int score;
+	int best_score;
+	if(!me || !me->skills || !sizeof(me->skills))
+		return "";
+	learned = me->skills;
+	names = sort(indices(learned));
+	best_name = "";
+	best_score = -1;
+	for(int i = 0;i < sizeof(names);i++){
+		name = names[i];
+		skill = MUD_SKILLSD[name];
+		priority = query_auto_attack_skill_priority(skill);
+		if(priority <= 0)
+			continue;
+		usable_level = query_auto_skill_usable_level(me,name);
+		if(usable_level <= 0)
+			continue;
+		cast = skill->query_performs_cast(usable_level);
+		if(cast > me->query_mofa_max())
+			continue;
+		power = skill->query_performs_attack(usable_level);
+		score = priority*100000000+usable_level*100000+power;
+		if(score > best_score){
+			best_score = score;
+			best_name = name;
+		}
+	}
+	return best_name;
+}
+
+int set_auto_skill_mode(object me,string mode)
+{
+	if(!me || (mode != "smart" && mode != "off"))
+		return 0;
+	me["/plus/autofight_skill_mode"] = mode;
+	me->skills_enable = "";
+	me->skills_enable_colddown = 0;
+	if(mode == "smart")
+		ensure_auto_skill(me);
+	return 1;
+}
+
+int set_selected_auto_skill(object me,string name)
+{
+	object|zero skill;
+	if(!me || !name || name == "" || !me->skills ||
+	   !me->skills[name])
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill || skill->s_type != "zhudong")
+		return 0;
+	me["/plus/autofight_skill_mode"] = "manual";
+	me->skills_enable = name;
+	me->skills_enable_colddown = skill->query_s_delayTime()+1;
+	return 1;
+}
+
+string ensure_auto_skill(object me)
+{
+	object|zero skill;
+	string mode;
+	string name;
+	if(!me)
+		return "";
+	mode = query_auto_skill_mode(me);
+	if(mode == "off")
+		return "";
+	name = (string)me->skills_enable;
+	if(name != "" && me->skills && me->skills[name] &&
+	   query_auto_skill_usable_level(me,name) > 0){
+		skill = MUD_SKILLSD[name];
+		if(skill && skill->s_type == "zhudong")
+			return name;
+	}
+	me->skills_enable = "";
+	me->skills_enable_colddown = 0;
+	if(mode != "smart")
+		return "";
+	name = query_recommended_auto_skill(me);
+	if(name == "")
+		return "";
+	skill = MUD_SKILLSD[name];
+	if(!skill)
+		return "";
+	me->skills_enable = name;
+	me->skills_enable_colddown = skill->query_s_delayTime()+1;
+	return name;
+}
+
+string query_ready_auto_skill(object me)
+{
+	object|zero skill;
+	mapping items;
+	string name;
+	int usable_level;
+	int cast;
+	if(!me || !me->in_combat)
+		return "";
+	name = ensure_auto_skill(me);
+	if(name == "")
+		return "";
+	skill = MUD_SKILLSD[name];
+	usable_level = query_auto_skill_usable_level(me,name);
+	if(!skill || usable_level <= 0 || me->timeCold != 0)
+		return "";
+	if(me->f_skills && (int)me->f_skills[name] > 1)
+		return "";
+	cast = skill->query_performs_cast(usable_level);
+	if(cast > me->get_cur_mofa())
+		return "";
+	if(skill->s_skill_type == "phy"){
+		items = me->query_equip();
+		if(!items || (!items["single_main_weapon"] &&
+		   !items["double_main_weapon"]))
+			return "";
+	}
+	return name;
 }
 
 int query_loot_enabled(object me)
@@ -1422,6 +1632,7 @@ void start_autofight(object me)
 	me["/tmp/autofight_last_charge"] = time();
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
+	ensure_auto_skill(me);
 	me->set_autofight("enable");
 }
 
@@ -1664,6 +1875,21 @@ void record_route(object me,string path)
 	me["/plus/autofight_last_route"] = path;
 }
 
+private int is_same_area(string current_path, string destination)
+{
+	array(string) current_parts;
+	array(string) destination_parts;
+	if(!current_path || !destination)
+		return 0;
+	current_path = (current_path/"#")[0];
+	current_parts = current_path/"/";
+	destination_parts = destination/"/";
+	if(sizeof(current_parts) < 2 || sizeof(destination_parts) < 2)
+		return 0;
+	return current_parts[sizeof(current_parts)-2] ==
+		destination_parts[sizeof(destination_parts)-2];
+}
+
 int should_route_to_training_area(object me)
 {
 	mapping(string:mixed) route;
@@ -1677,7 +1903,8 @@ int should_route_to_training_area(object me)
 	if(destination=="")
 		return 0;
 	current = query_current_room_path(me);
-	if(current==destination)
+	// 已在推荐练级区内时继续逐图搜索，不反复传回入口房间。
+	if(current==destination || is_same_area(current,destination))
 		return 0;
 	return 1;
 }
@@ -1948,21 +2175,6 @@ int query_object_count(object ob, object env)
 	return 0;
 }
 
-private int is_same_area(string current_path, string destination)
-{
-	array(string) current_parts;
-	array(string) destination_parts;
-	if(!current_path || !destination)
-		return 0;
-	current_path = (current_path/"#")[0];
-	current_parts = current_path/"/";
-	destination_parts = destination/"/";
-	if(sizeof(current_parts) < 2 || sizeof(destination_parts) < 2)
-		return 0;
-	return current_parts[sizeof(current_parts)-2] ==
-		destination_parts[sizeof(destination_parts)-2];
-}
-
 string query_safe_exit(object me)
 {
 	object env;
@@ -1971,7 +2183,10 @@ string query_safe_exit(object me)
 	string current_path;
 	string previous_room;
 	string room_prefix;
-	if(!me || !query_roam_enabled(me))
+	// 区域巡游是手动模式；智能寻路也应在推荐练级区空图时
+	// 自动换到相邻地图，避免默认设置下永久等待刷新。
+	if(!me || (!query_roam_enabled(me) &&
+	   !query_smart_route_enabled(me)))
 		return "";
 	if((int)me["/tmp/autofight_no_target_ticks"] <
 	   AUTOFIGHT_ROAM_NO_TARGET_TICKS)

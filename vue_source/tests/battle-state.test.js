@@ -172,6 +172,67 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(preventedClicks, 1);
   assert.strictEqual(sentCommand, '');
 
+  client.isInBattle = true;
+  client.skillAnimations = [];
+  client.battleAnimations = [];
+  client.parseBattleActions([{
+    segments: [{
+      type: 'text',
+      parts: [{ content: '你施放了【方】灵治(等级3)，恢复了888点生命。' }]
+    }]
+  }]);
+  assert.strictEqual(client.skillAnimations.length, 1);
+  assert.strictEqual(client.skillAnimations[0].type, 'heal');
+  assert.strictEqual(client.skillAnimations[0].name, '灵治');
+  assert.strictEqual(client.skillAnimations[0].target, 'player');
+
+  client.skillAnimations = [];
+  client.parseBattleActions([{
+    segments: [{
+      type: 'text',
+      parts: [{ content: '你施放了【方】灵火烧(等级2)，对妖狼造成了666点伤害。' }]
+    }]
+  }]);
+  assert.strictEqual(client.skillAnimations[0].type, 'fire');
+  assert.strictEqual(client.skillAnimations[0].name, '灵火烧');
+  assert.strictEqual(client.skillAnimations[0].target, 'enemy');
+  assert.strictEqual(client.battleAnimations[0].target, 'enemy');
+  assert.strictEqual(client.parseMartialArtsSkill('【神】万剑归宗'), 'sword-qi');
+  assert.strictEqual(client.parseMartialArtsSkill('九幽鬼步'), 'lightness');
+  assert.strictEqual(client.extractSkillName('你发动了【三灵共鸣】！'), '三灵共鸣');
+  assert.strictEqual(client.parseMartialArtsSkill('三灵共鸣'), 'summon');
+  assert.strictEqual(client.extractSkillName('你召唤出了虎灵！'), '虎灵');
+  assert.strictEqual(client.extractSkillName('你的仙力不够，无法施放【方】灵百雷(等级1)。'), '');
+  assert.strictEqual(client.extractSkillName('该技能还需要8秒冷却时间,无法使用。'), '');
+  assert.strictEqual(client.getSkillAnimationTarget('wind', '你施展御风剑气，对妖狼造成伤害'), 'enemy');
+
+  client.toggleCombatEffects();
+  assert.strictEqual(client.combatEffectsEnabled, false);
+  assert.strictEqual(localValues.get('battle_effects_enabled'), '0');
+  assert.strictEqual(client.skillAnimations.length, 0);
+  client.addSkillAnimation('summon', '虎灵召唤', 'player');
+  assert.strictEqual(client.skillAnimations.length, 0);
+  client.toggleCombatEffects();
+  assert.strictEqual(client.combatEffectsEnabled, true);
+  assert.strictEqual(localValues.get('battle_effects_enabled'), '1');
+
+  sentCommand = '';
+  client.showPerformsList = true;
+  client.sendJsonCommand = async command => {
+    sentCommand = command;
+  };
+  await client.selectPerform({
+    id: 'lingbailei', name_cn: '【方】灵百雷', available: true,
+    enough_neili: true, level_req: 1, neili_cost: 10
+  });
+  assert.strictEqual(sentCommand, 'use_perform lingbailei');
+  assert.strictEqual(client.skillAnimations[0].type, 'lightning');
+  assert.strictEqual(client.skillAnimations[0].name, '灵百雷');
+  assert.strictEqual(client.skillAnimations[0].target, 'enemy');
+  assert.strictEqual(client.showPerformsList, false);
+  client.isInBattle = false;
+  client.battleStatusInterval = null;
+
   sandbox.fetch = async () => ({
     ok: true,
     json: async () => nextBattleState
