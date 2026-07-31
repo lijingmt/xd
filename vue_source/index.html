@@ -485,38 +485,64 @@
                         type="button"
                         class="battle-dock-trigger"
                         @click="toggleBattleDock"
-                        :title="'展开战斗状态：' + (battleEnemy?.name || '敌人')"
+                        :title="'展开战斗状态：' + (battleEnemy?.name || '目标识别中')"
                         aria-label="展开战斗状态">
                     <span aria-hidden="true">⚔️</span>
                     <span class="battle-dock-percent">{{ getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) }}%</span>
                 </button>
-                <!-- 迷你模式: 只显示HP条和内力条 -->
+                <!-- 迷你模式: 显示敌我核心战斗数据 -->
                 <div v-if="!battleFullscreen && !battleDockCollapsed" class="battle-mini">
                     <div class="battle-side player-side">
-                        <span class="battle-name">{{ playerStats?.name_cn || loginForm.userid }}</span>
-                        <div class="hp-bar-container">
-                            <div class="hp-bar-fill player-hp" :style="{ width: getStatPercent(playerStats?.hp, playerStats?.hp_max) + '%' }"></div>
+                        <div class="battle-identity">
+                            <span class="battle-name">{{ battlePlayerFull?.name_cn || playerStats?.name_cn || loginForm.userid }}</span>
+                            <span class="battle-level">Lv.{{ battlePlayerFull?.level ?? playerStats?.level ?? 0 }}</span>
                         </div>
-                        <span class="hp-text" :title="(playerStats?.hp || 0) + '/' + (playerStats?.hp_max || 0)">
-                            {{ formatCompactNumber(playerStats?.hp || 0) }}/{{ formatCompactNumber(playerStats?.hp_max || 0) }}
-                        </span>
-                        <!-- 内力条 -->
-                        <div class="neili-bar-container">
-                            <div class="neili-bar-fill player-neili" :style="{ width: getStatPercent(playerStats?.neili, playerStats?.neili_max) + '%' }"></div>
+                        <div class="battle-resource-row">
+                            <span class="battle-resource-label hp-label">生命</span>
+                            <div class="hp-bar-container">
+                                <div class="hp-bar-fill player-hp" :style="{ width: getStatPercent(battlePlayerFull?.hp ?? playerStats?.hp, battlePlayerFull?.hp_max ?? playerStats?.hp_max) + '%' }"></div>
+                            </div>
+                            <span class="hp-text" :title="(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) + '/' + (battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0)">
+                                {{ formatCompactNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}
+                            </span>
                         </div>
-                        <span class="neili-text" :title="(playerStats?.neili || 0) + '/' + (playerStats?.neili_max || 0)">
-                            {{ formatCompactNumber(playerStats?.neili || 0) }}/{{ formatCompactNumber(playerStats?.neili_max || 0) }}
-                        </span>
+                        <div class="battle-resource-row">
+                            <span class="battle-resource-label mana-label">法力</span>
+                            <div class="neili-bar-container">
+                                <div class="neili-bar-fill player-neili" :style="{ width: getStatPercent(battlePlayerFull?.mana ?? playerStats?.mana, battlePlayerFull?.mana_max ?? playerStats?.mana_max) + '%' }"></div>
+                            </div>
+                            <span class="neili-text" :title="(battlePlayerFull?.mana ?? playerStats?.mana ?? 0) + '/' + (battlePlayerFull?.mana_max ?? playerStats?.mana_max ?? 0)">
+                                {{ formatCompactNumber(battlePlayerFull?.mana ?? playerStats?.mana ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.mana_max ?? playerStats?.mana_max ?? 0) }}
+                            </span>
+                        </div>
+                        <div class="battle-meta">
+                            <span>{{ battlePlayerFull?.profe || playerStats?.profe || '职业未知' }}</span>
+                            <span>{{ battlePlayerFull?.race || playerStats?.race || '阵营未知' }}</span>
+                        </div>
                     </div>
                     <div class="battle-vs">⚔️</div>
                     <div class="battle-side enemy-side">
-                        <span class="battle-name">{{ battleEnemy?.name || '敌人' }}</span>
-                        <div class="hp-bar-container">
-                            <div class="hp-bar-fill enemy-hp" :style="{ width: getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) + '%' }"></div>
+                        <div class="battle-identity">
+                            <span class="battle-name">{{ battleEnemy?.name || '目标识别中' }}</span>
+                            <span class="battle-level" v-if="battleEnemy?.level !== undefined">Lv.{{ battleEnemy.level }}</span>
                         </div>
-                        <span class="hp-text" :title="(battleEnemy?.hp ?? '?') + '/' + (battleEnemy?.hpMax ?? '?')">
-                            {{ battleEnemy ? formatCompactNumber(battleEnemy.hp) : '?' }}/{{ battleEnemy ? formatCompactNumber(battleEnemy.hpMax) : '?' }}
-                        </span>
+                        <div class="battle-resource-row">
+                            <span class="battle-resource-label hp-label">生命</span>
+                            <div class="hp-bar-container">
+                                <div class="hp-bar-fill enemy-hp" :style="{ width: getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) + '%' }"></div>
+                            </div>
+                            <span class="hp-text" :title="(battleEnemy?.hp ?? '?') + '/' + (battleEnemy?.hpMax ?? '?')">
+                                {{ battleEnemy ? formatCompactNumber(battleEnemy.hp) : '?' }}/{{ battleEnemy ? formatCompactNumber(battleEnemy.hpMax) : '?' }}
+                            </span>
+                        </div>
+                        <div class="battle-meta">
+                            <span>{{ battleEnemy?.profe || '怪物' }}</span>
+                            <span v-if="battleEnemy?.race">{{ battleEnemy.race }}</span>
+                        </div>
+                        <div class="battle-meta battle-power" v-if="battleEnemy?.attack !== undefined || battleEnemy?.defend !== undefined">
+                            <span>攻 {{ formatCompactNumber(battleEnemy?.attackLow ?? battleEnemy?.attack ?? 0) }}<template v-if="battleEnemy?.attackHigh !== undefined && battleEnemy.attackHigh !== battleEnemy.attackLow">-{{ formatCompactNumber(battleEnemy.attackHigh) }}</template></span>
+                            <span>防 {{ formatCompactNumber(battleEnemy?.defend ?? 0) }}</span>
+                        </div>
                     </div>
                     <div class="battle-mini-controls">
                         <button type="button"
@@ -549,14 +575,21 @@
                             <div class="combatant-row">
                                 <div class="combatant-row-left">
                                     <span class="combatant-avatar">{{ battleEnemy?.is_npc ? '👹' : '⚔️' }}</span>
-                                    <span class="combatant-name enemy-name">{{ battleEnemy?.name || '敌人' }}</span>
+                                    <span class="combatant-name enemy-name">{{ battleEnemy?.name || '目标识别中' }}</span>
+                                    <span class="battle-level" v-if="battleEnemy?.level !== undefined">Lv.{{ battleEnemy.level }}</span>
                                 </div>
-                                <span class="hp-text-small">{{ battleEnemy?.hp ?? '?' }}/{{ battleEnemy?.hpMax ?? '?' }}</span>
+                                <span class="hp-text-small">{{ formatCompactNumber(battleEnemy?.hp ?? 0) }}/{{ formatCompactNumber(battleEnemy?.hpMax ?? 0) }}</span>
                             </div>
                             <div class="hp-bar-wrapper-vertical">
                                 <div class="hp-bar-track-vertical">
-                                    <div class="hp-bar-fill enemy-hp" :style="{ width: battleEnemy && battleEnemy.hpMax ? (battleEnemy.hp / battleEnemy.hpMax * 100) + '%' : '100%' }"></div>
+                                    <div class="hp-bar-fill enemy-hp" :style="{ width: getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) + '%' }"></div>
                                 </div>
+                            </div>
+                            <div class="combatant-stats enemy-detail-stats" v-if="battleEnemyFull">
+                                <span class="stat-item">职业: {{ battleEnemyFull.profe || '怪物' }}</span>
+                                <span class="stat-item" v-if="battleEnemyFull.race">阵营: {{ battleEnemyFull.race }}</span>
+                                <span class="stat-item">攻击: {{ formatCompactNumber(battleEnemyFull.attack_low ?? battleEnemyFull.attack ?? 0) }}<template v-if="battleEnemyFull.attack_high !== undefined && battleEnemyFull.attack_high !== battleEnemyFull.attack_low">-{{ formatCompactNumber(battleEnemyFull.attack_high) }}</template></span>
+                                <span class="stat-item">防御: {{ formatCompactNumber(battleEnemyFull.defend || 0) }}</span>
                             </div>
                         </div>
 
@@ -584,25 +617,27 @@
                             <div class="combatant-row">
                                 <div class="combatant-row-left">
                                     <span class="combatant-avatar">👤</span>
-                                    <span class="combatant-name player-name">{{ playerStats?.name_cn || loginForm.userid }}</span>
+                                    <span class="combatant-name player-name">{{ battlePlayerFull?.name_cn || playerStats?.name_cn || loginForm.userid }}</span>
+                                    <span class="battle-level">Lv.{{ battlePlayerFull?.level ?? playerStats?.level ?? 0 }}</span>
                                 </div>
-                                <span class="hp-text-small">{{ playerStats?.hp || 0 }}/{{ playerStats?.hp_max || 0 }}</span>
+                                <span class="hp-text-small">{{ formatCompactNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}</span>
                             </div>
                             <div class="hp-bar-wrapper-vertical">
                                 <div class="hp-bar-track-vertical">
-                                    <div class="hp-bar-fill player-hp" :style="{ width: playerStats ? (playerStats.hp / playerStats.hp_max * 100) + '%' : '0%' }"></div>
+                                    <div class="hp-bar-fill player-hp" :style="{ width: getStatPercent(battlePlayerFull?.hp ?? playerStats?.hp, battlePlayerFull?.hp_max ?? playerStats?.hp_max) + '%' }"></div>
                                 </div>
                             </div>
-                            <!-- 内力条 -->
+                            <!-- 法力条 -->
                             <div class="neili-bar-wrapper-vertical">
                                 <div class="neili-bar-track-vertical">
-                                    <div class="neili-bar-fill player-neili" :style="{ width: playerStats ? (playerStats.neili / playerStats.neili_max * 100) + '%' : '0%' }"></div>
+                                    <div class="neili-bar-fill player-neili" :style="{ width: getStatPercent(battlePlayerFull?.mana ?? playerStats?.mana, battlePlayerFull?.mana_max ?? playerStats?.mana_max) + '%' }"></div>
                                 </div>
                             </div>
-                            <div class="combatant-stats" v-if="battlePlayerFull" style="margin-top: 6px;">
-                                <span class="stat-item">精神: {{ battlePlayerFull.spirit || 0 }}/{{ battlePlayerFull.spirit_max || 0 }}</span>
-                                <span class="stat-item">潜能: {{ battlePlayerFull.potential || 0 }}/{{ battlePlayerFull.potential_max || 0 }}</span>
-                                <span class="stat-item">内力: {{ battlePlayerFull.neili || 0 }}/{{ battlePlayerFull.neili_max || 0 }}</span>
+                            <div class="combatant-stats player-detail-stats" v-if="battlePlayerFull">
+                                <span class="stat-item">法力: {{ formatCompactNumber(battlePlayerFull.mana || 0) }}/{{ formatCompactNumber(battlePlayerFull.mana_max || 0) }}</span>
+                                <span class="stat-item">精力: {{ formatCompactNumber(battlePlayerFull.energy || 0) }}</span>
+                                <span class="stat-item">职业: {{ battlePlayerFull.profe || '未知' }}</span>
+                                <span class="stat-item">阵营: {{ battlePlayerFull.race || '未知' }}</span>
                             </div>
                         </div>
                     </div>

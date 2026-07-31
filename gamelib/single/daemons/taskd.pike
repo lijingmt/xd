@@ -905,7 +905,7 @@ string query_growth_task_guide_room(object player)
 		if(race_id=="monst")
 			return "fushoushan/fushounongchangsanceng";
 		if(race_id=="third")
-			return "liangjinghu/yanghuxuanqiao";
+			return "shierxianjing/taoyuantongshijiuceng";
 		return "jiangjunmu/peilingyiceng";
 	}
 	if(level<=25){

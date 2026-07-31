@@ -91,11 +91,13 @@ int main(string|zero arg)
 	mapping material_sell_result;
 	mapping storage_result;
 	mapping destroy_result;
+	mapping level_window;
 	string reason;
 	string direction;
 	string route_path;
 	int count;
 	int left;
+	int visible_monsters;
 	me = this_player();
 	if(!me)
 		return 1;
@@ -248,7 +250,17 @@ int main(string|zero arg)
 	}
 	write("[关闭自动挂机:autofightclose] 今日剩余"+
 		format_time(left)+"\n");
-	write("当前地图暂无可攻击目标，正在等待怪物刷新。\n");
+	visible_monsters = AUTOFIGHTD->query_visible_monster_count(me);
+	if(visible_monsters>0){
+		level_window = AUTOFIGHTD->query_target_level_window(me);
+		write("当前地图可见"+visible_monsters+
+			"只怪物，但没有符合安全攻击条件的目标。\n");
+		write("当前允许等级："+(int)level_window["minimum"]+
+			"-"+(int)level_window["maximum"]+
+			"级；友方、BOSS、任务或召唤单位也会自动跳过。\n");
+	}
+	else
+		write("当前地图暂无怪物，正在等待刷新。\n");
 	write("[挂机设置:autofight open]\n");
 	me->command("look");
 	return 1;

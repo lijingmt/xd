@@ -1919,6 +1919,133 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
 }
 
 /**
+ * 查询玩家当前的真实交战目标。
+ *
+ * 战斗核心已经通过 query_enemy() 维护当前目标，优先使用它可以正确
+ * 识别普通怪物、玩家和方士召唤兽参与的战斗。房间扫描仅作为旧对象
+ * 没有完整战斗接口时的兼容兜底。
+ */
+object|zero query_battle_enemy(object player)
+{
+    if(!player)
+        return 0;
+
+    object room = environment(player);
+    if(!room)
+        return 0;
+
+    object|zero enemy_obj = 0;
+    if(functionp(player->query_enemy)) {
+        enemy_obj = player->query_enemy();
+        if(enemy_obj && environment(enemy_obj) == room)
+            return enemy_obj;
+    }
+
+    array inv = all_inventory(room);
+    foreach(inv, object ob) {
+        if(ob == player)
+            continue;
+        if(functionp(ob->query_in_combat) && ob->query_in_combat() &&
+           functionp(ob->query_enemy) && ob->query_enemy() == player)
+            return ob;
+        if(functionp(ob->query_in_combat) && ob->query_in_combat() &&
+           functionp(ob->query_attack_target) &&
+           ob->query_attack_target() == player)
+            return ob;
+    }
+
+    foreach(inv, object ob) {
+        if(ob == player)
+            continue;
+        if((functionp(ob->is_npc) || functionp(ob->query_player)) &&
+           functionp(ob->query_in_combat) && ob->query_in_combat())
+            return ob;
+    }
+
+    return 0;
+}
+
+/**
+ * 将交战目标转换为 Vue 战斗小窗需要的完整状态。
+ */
+mapping query_battle_enemy_state(object enemy_obj)
+{
+    mapping enemy_state = ([]);
+    if(!enemy_obj)
+        return enemy_state;
+
+    string e_name = "未知";
+    if(functionp(enemy_obj->query_name))
+        e_name = enemy_obj->query_name();
+    enemy_state["name"] = e_name;
+
+    string e_name_cn = e_name;
+    if(functionp(enemy_obj->query_name_cn))
+        e_name_cn = enemy_obj->query_name_cn();
+    if(!e_name_cn || e_name_cn == "")
+        e_name_cn = e_name && e_name != "" ? e_name : "目标识别中";
+    enemy_state["name_cn"] = e_name_cn;
+
+    int e_is_npc = 1;
+    if(functionp(enemy_obj->is_npc))
+        e_is_npc = enemy_obj->is_npc();
+    enemy_state["is_npc"] = e_is_npc;
+
+    if(functionp(enemy_obj->query_level))
+        enemy_state["level"] = enemy_obj->query_level();
+
+    if(functionp(enemy_obj->query_profeId))
+        enemy_state["profe_id"] = enemy_obj->query_profeId();
+    if(functionp(enemy_obj->query_profe_cn) &&
+       functionp(enemy_obj->query_profeId))
+        enemy_state["profe"] =
+            enemy_obj->query_profe_cn(enemy_obj->query_profeId());
+
+    if(functionp(enemy_obj->query_raceId))
+        enemy_state["race_id"] = enemy_obj->query_raceId();
+    if(functionp(enemy_obj->query_race_cn) &&
+       functionp(enemy_obj->query_raceId))
+        enemy_state["race"] =
+            enemy_obj->query_race_cn(enemy_obj->query_raceId());
+
+    if(functionp(enemy_obj->query_low_attack_desc) &&
+       functionp(enemy_obj->query_high_attack_desc)) {
+        int attack_low = enemy_obj->query_low_attack_desc();
+        int attack_high = enemy_obj->query_high_attack_desc();
+        enemy_state["attack_low"] = attack_low;
+        enemy_state["attack_high"] = attack_high;
+        enemy_state["attack"] = attack_high;
+    } else if(functionp(enemy_obj->query_attack_power)) {
+        enemy_state["attack"] = enemy_obj->query_attack_power();
+        enemy_state["attack_low"] = enemy_state["attack"];
+        enemy_state["attack_high"] = enemy_state["attack"];
+    }
+    if(functionp(enemy_obj->query_defend_power))
+        enemy_state["defend"] = enemy_obj->query_defend_power();
+
+    int e_hp = 0;
+    int e_hp_max = 0;
+    if(functionp(enemy_obj->get_cur_life))
+        e_hp = enemy_obj->get_cur_life();
+    if(functionp(enemy_obj->query_life_max))
+        e_hp_max = enemy_obj->query_life_max();
+    if(e_hp < 0)
+        e_hp = 0;
+
+    enemy_state["hp"] = e_hp;
+    enemy_state["hp_max"] = e_hp_max;
+    enemy_state["is_dead"] = (e_hp <= 0);
+
+    http_werror(" Enemy %s HP: %d/%d (is_npc=%d)\n",
+               e_name, e_hp, e_hp_max, e_is_npc);
+
+    if(!e_is_npc && functionp(enemy_obj->query_userid))
+        enemy_state["userid"] = enemy_obj->query_userid();
+
+    return enemy_state;
+}
+
+/**
  * 获取战斗状态 API
  * 返回玩家和敌人的状态信息
  */
@@ -1969,7 +2096,7 @@ void handle_api_battle_status(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    // 方法2: 获取房间中的所有对象，找到敌人的敌人
+    // 获取当前房间和战斗核心维护的真实敌人
     object room = environment(player);
     if(!room) {
         send_json(req, ([
@@ -1980,124 +2107,9 @@ void handle_api_battle_status(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    // 获取房间中的所有生物
-    array inv = all_inventory(room);
-    object|zero enemy_obj = UNDEFINED;
-
-    foreach(inv, object ob) {
-        if(ob == player) continue;  // 跳过自己
-
-        // 检查是否是生物
-        if(functionp(ob->query_living) && ob->query_living()) {
-            // 检查该对象是否在战斗中，且敌人是玩家
-            if(functionp(ob->query_in_combat) && ob->query_in_combat()) {
-                // 检查该对象的敌人是否是玩家
-                // 通过检查该对象是否正在攻击玩家
-                if(functionp(ob->query_attack_target)) {
-                    if(ob->query_attack_target() == player) {
-                        enemy_obj = ob;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // 如果没找到，尝试通过环境中的其他方式判断
-    if(!enemy_obj) {
-        // 检查房间中是否有其他玩家/NPC在战斗
-        foreach(inv, object ob) {
-            if(ob == player) continue;
-            if(functionp(ob->is_npc) || functionp(ob->query_player)) {
-                // 这是一个潜在敌人
-                if(functionp(ob->query_in_combat) && ob->query_in_combat()) {
-                    enemy_obj = ob;
-                    break;
-                }
-            }
-        }
-    }
-
-    if(enemy_obj) {
-        // 获取敌人状态
-        string e_name = "未知";
-        if(functionp(enemy_obj->query_name)) {
-            e_name = enemy_obj->query_name();
-        }
-        enemy_state["name"] = e_name;
-
-        string e_name_cn = e_name;
-        if(functionp(enemy_obj->query_name_cn)) {
-            e_name_cn = enemy_obj->query_name_cn();
-        }
-        enemy_state["name_cn"] = e_name_cn;
-
-        int e_is_npc = 1;
-        if(functionp(enemy_obj->is_npc)) {
-            e_is_npc = enemy_obj->is_npc();
-        }
-        enemy_state["is_npc"] = e_is_npc;
-
-        // 获取敌人等级
-        if(functionp(enemy_obj->query_level)) {
-            enemy_state["level"] = enemy_obj->query_level();
-        }
-
-        // 获取敌人职业/种类
-        if(functionp(enemy_obj->query_profeId)) {
-            enemy_state["profe_id"] = enemy_obj->query_profeId();
-        }
-        if(functionp(enemy_obj->query_profe_cn)) {
-            enemy_state["profe"] = enemy_obj->query_profe_cn(enemy_obj->query_profeId());
-        }
-
-        // 获取敌人种族
-        if(functionp(enemy_obj->query_raceId)) {
-            enemy_state["race_id"] = enemy_obj->query_raceId();
-        }
-        if(functionp(enemy_obj->query_race_cn)) {
-            enemy_state["race"] = enemy_obj->query_race_cn(enemy_obj->query_raceId());
-        }
-
-        // 获取敌人攻击力
-        if(functionp(enemy_obj->query_attack_power)) {
-            enemy_state["attack"] = enemy_obj->query_attack_power();
-        }
-
-        // 获取敌人防御力
-        if(functionp(enemy_obj->query_defend_power)) {
-            enemy_state["defend"] = enemy_obj->query_defend_power();
-        }
-
-        // 获取敌人血量：使用 get_cur_life() 和 query_life_max()
-        int e_hp = 0;
-        int e_hp_max = 0;
-
-        if(functionp(enemy_obj->get_cur_life)) {
-            e_hp = enemy_obj->get_cur_life();
-        }
-        if(functionp(enemy_obj->query_life_max)) {
-            e_hp_max = enemy_obj->query_life_max();
-        }
-
-        // -1 表示死亡，转为 0
-        if(e_hp < 0) {
-            e_hp = 0;
-        }
-
-        // 直接显示真实值
-        enemy_state["hp"] = e_hp;
-        enemy_state["hp_max"] = e_hp_max;
-        enemy_state["is_dead"] = (e_hp <= 0);
-
-        http_werror(" Enemy %s HP: %d/%d (is_npc=%d)\n",
-                   e_name, e_hp, e_hp_max, e_is_npc);
-
-        // 如果敌人是玩家，尝试获取userid
-        if(!e_is_npc && functionp(enemy_obj->query_userid)) {
-            enemy_state["userid"] = enemy_obj->query_userid();
-        }
-    }
+    object|zero enemy_obj = query_battle_enemy(player);
+    if(enemy_obj)
+        enemy_state = query_battle_enemy_state(enemy_obj);
 
     // http_werror(" battle_status response: in_battle=%d, enemy=%O\n", 1, enemy_obj ? enemy_state : 0);
     send_json(req, ([

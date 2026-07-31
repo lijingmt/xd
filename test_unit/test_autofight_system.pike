@@ -926,6 +926,9 @@ void test_smart_route_selection()
 		(["level":18,"race":"third",
 			"path":"shierxianjing/taoyuantongjiuceng",
 			"target":17]),
+		(["level":20,"race":"third",
+			"path":"shierxianjing/taoyuantongshijiuceng",
+			"target":20]),
 		(["level":35,"race":"human",
 			"path":"xiqiwaicheng/huanhuashuitai",
 			"target":35]),
@@ -1047,11 +1050,15 @@ void test_smart_target_level_window()
 
 void test_real_route_targets()
 {
-	test_start("46、50、58、69级静态区与70级动态区均有可攻击怪");
+	test_start("20至69级静态区与70级动态区均有可攻击怪");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	object|zero original_player = this_player();
 	array(mapping(string:mixed)) cases = ({
+		(["name":"__testunit_autofight_route_20__",
+			"level":20,
+			"path":"shierxianjing/taoyuantongshijiuceng",
+			"target":20]),
 		(["name":"__testunit_autofight_route_46__",
 			"level":46,
 			"path":"waihai/qianhaiguanmucong",
@@ -1111,6 +1118,70 @@ void test_real_route_targets()
 		test_pass();
 	else
 		test_fail("实际练级房间目标等级错误: "+error_desc);
+}
+
+void test_level_twenty_fangshi_route_recovery()
+{
+	test_start("20级方士从可见25级怪错误地图换区后自动开战");
+	object player = create_runtime_player(
+		"__testunit_autofight_route_recovery_20__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+
+		"/gamelib/d/liangjinghu/yanghuxuanqiao");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero original_player = this_player();
+	mapping(string:int) level_window = ([]);
+	string first_path = "";
+	string error_desc = "";
+	int visible_monsters = 0;
+	int wrong_target_blocked = 0;
+	int valid = 0;
+	mixed err = catch {
+		player->level = 20;
+		player->set_att_by_level();
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		player["/plus/autofight_roam"] = 0;
+		level_window = daemon->query_target_level_window(player);
+		visible_monsters = daemon->query_visible_monster_count(player);
+		wrong_target_blocked = daemon->query_target(player) == 0;
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		first_path = daemon->query_current_room_path(player);
+		flush_command->main(0);
+		valid = visible_monsters >= 6 && wrong_target_blocked &&
+			level_window["minimum"] == 16 &&
+			level_window["maximum"] == 20 &&
+			first_path == "shierxianjing/taoyuantongshijiuceng" &&
+			player->in_combat && player->query_enemy() &&
+			player->query_enemy()->query_level() == 20;
+		daemon->stop_autofight(player);
+		player->_clean_fight();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"等级过滤或换区恢复错误: visible=%d blocked=%d range=%O path=%s %s",
+			visible_monsters,wrong_target_blocked,level_window,
+			first_path,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
 }
 
 void test_auto_rest_safety()
@@ -1630,6 +1701,7 @@ int main()
 	test_smart_route_selection();
 	test_smart_target_level_window();
 	test_real_route_targets();
+	test_level_twenty_fangshi_route_recovery();
 	test_auto_rest_safety();
 	test_end_to_end_current_room_fight();
 	test_end_to_end_wait_then_resume_fight();

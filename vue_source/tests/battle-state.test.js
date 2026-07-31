@@ -6,8 +6,15 @@ const vm = require('vm');
 let componentOptions = null;
 let nextBattleState = {
   in_battle: true,
-  player: { name: '测试方士', hp: 90, hp_max: 100 },
-  enemy: { name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50, is_npc: true }
+  player: {
+    name_cn: '测试方士', hp: 90, hp_max: 100,
+    mana: 70, mana_max: 80, level: 9, profe: '方士', race: '中立'
+  },
+  enemy: {
+    name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50,
+    is_npc: true, level: 8, profe: '野怪', race: '妖魔',
+    attack: 123, attack_low: 100, attack_high: 123, defend: 45
+  }
 };
 const sessionValues = new Map();
 const localValues = new Map();
@@ -153,8 +160,26 @@ assert.strictEqual(client.playerAvatarFailed, true);
   await client.checkBattleStatus();
   assert.strictEqual(client.isInBattle, true);
   assert.strictEqual(client.battleEnemy.name, '测试怪物');
+  assert.strictEqual(client.battleEnemy.level, 8);
+  assert.strictEqual(client.battleEnemy.profe, '野怪');
+  assert.strictEqual(client.battleEnemy.race, '妖魔');
+  assert.strictEqual(client.battleEnemy.attack, 123);
+  assert.strictEqual(client.battleEnemy.attackLow, 100);
+  assert.strictEqual(client.battleEnemy.attackHigh, 123);
+  assert.strictEqual(client.battleEnemy.defend, 45);
+  assert.strictEqual(client.battlePlayerFull.mana, 70);
+  assert.strictEqual(client.battlePlayerFull.mana_max, 80);
   assert.strictEqual(client.battleStatusInterval, 1);
   assert.strictEqual(client.battleStatusLoading, false);
+
+  nextBattleState = {
+    in_battle: true,
+    player: { name_cn: '测试方士', hp: 88, hp_max: 100, mana: 65, mana_max: 80 },
+    enemy: null
+  };
+  await client.fetchBattleStatus();
+  assert.strictEqual(client.battleEnemy.name, '测试怪物');
+  assert.strictEqual(client.battleEnemyFull, null);
 
   nextBattleState = {
     in_battle: false,

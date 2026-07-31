@@ -163,7 +163,7 @@ createApp({
             battleShowLog: false,  // 显示战斗日志
             battleLog: [],  // 战斗日志条目
             battleAnimations: [],  // 当前显示的战斗动画
-            battleEnemy: null,  // 当前敌人信息 {name, hp, hpMax}
+            battleEnemy: null,  // 当前敌人信息 {name, hp, hpMax, level, profe, race, attackLow, attackHigh, defend}
             battleEnemyFull: null,  // 敌人完整状态（从API获取）
             battlePlayerFull: null,  // 玩家完整状态（从API获取）
             battleStatusInterval: null,  // 战斗状态轮询定时器
@@ -2021,11 +2021,19 @@ createApp({
                             name: data.enemy.name_cn || data.enemy.name,
                             hp: data.enemy.hp,
                             hpMax: data.enemy.hp_max,
-                            is_npc: data.enemy.is_npc
+                            is_npc: data.enemy.is_npc,
+                            level: data.enemy.level,
+                            profe: data.enemy.profe,
+                            race: data.enemy.race,
+                            attack: data.enemy.attack,
+                            attackLow: data.enemy.attack_low,
+                            attackHigh: data.enemy.attack_high,
+                            defend: data.enemy.defend
                         };
                     } else {
                         this.battleEnemyFull = null;
-                        this.battleEnemy = null;
+                        // 战斗建立的首个轮询可能先于敌人快照，保留文本解析或
+                        // 上一次轮询确认的名称，避免小窗闪成“敌人”或空白。
                     }
                 } else if (this.isInBattle) {
                     console.log('[战斗] 离开战斗状态');

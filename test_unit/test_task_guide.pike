@@ -131,8 +131,10 @@ void test_growth_guide_real_teleport()
 
 void test_growth_guide_static_dynamic_boundaries()
 {
-	test_start("50至69级固定成长区与70级动态区引导边界正确");
+	test_start("20至69级固定成长区与70级动态区引导边界正确");
 	array(mapping(string:mixed)) cases = ({
+		(["level":20,
+			"path":"shierxianjing/taoyuantongshijiuceng"]),
 		(["level":50,"path":"liuguangpingyuan/liuguangchalu"]),
 		(["level":58,"path":"plxianjing/binghuanyuntai"]),
 		(["level":59,"path":"penglaihuanjing/yunyepingyuan"]),

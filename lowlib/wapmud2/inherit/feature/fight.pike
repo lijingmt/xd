@@ -2211,8 +2211,12 @@ string query_status(){
 	string more = "\n";
 	if(this_object()->red_flag && environment(this_object())->query_room_type()=="city")
 		more = "(可杀戮)\n";
-	if(this_object()->in_combat && enemy)
-		s += "交战中（"+this_object()->get_target_name()+"）";
+	if(this_object()->in_combat && enemy){
+		string enemy_name = "目标识别中";
+		if(functionp(enemy->query_name_cn) && enemy->query_name_cn()!="")
+			enemy_name = enemy->query_name_cn();
+		s += "交战中（"+enemy_name+"）";
+	}
 	else
 		s += "游荡中";
 	return s+more;

@@ -75,7 +75,7 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"name":"灵境修行",
 		"human":"shierxianjing/taoyuantongshijiuceng",
 		"monst":"wugongdong/rongchongfang",
-		"third":"liangjinghu/yanghuxuanqiao",
+		"third":"shierxianjing/taoyuantongshijiuceng",
 	]),
 	([
 		"max":25,
@@ -1703,12 +1703,54 @@ void record_roam(object me)
 	me["/tmp/autofight_no_target_ticks"] = 0;
 }
 
+mapping(string:int) query_target_level_window(object me)
+{
+	int me_level;
+	int minimum_level;
+	int maximum_level;
+	if(!me)
+		return (["minimum":1,"maximum":1]);
+	me_level = me->query_level();
+	maximum_level = me_level+2;
+	minimum_level = 1;
+	if(query_smart_route_enabled(me)){
+		maximum_level = me_level>=50 ? me_level+1 : me_level;
+		minimum_level = me_level-4;
+		if(minimum_level<1)
+			minimum_level = 1;
+	}
+	return ([
+		"minimum":minimum_level,
+		"maximum":maximum_level,
+	]);
+}
+
+int query_visible_monster_count(object me)
+{
+	object env;
+	array(object) all;
+	int count;
+	if(!me)
+		return 0;
+	env = environment(me);
+	if(!env)
+		return 0;
+	all = all_inventory(env);
+	count = 0;
+	foreach(all,object ob){
+		if(ob != me && ob->is("character") && ob->is("npc") &&
+		   ob->hind == 0 && ob->get_cur_life() > 0)
+			count++;
+	}
+	return count;
+}
+
 private int is_valid_target(object me, object ob)
 {
+	mapping(string:int) level_window;
 	string npc_type;
 	string me_race;
 	string npc_race;
-	int me_level;
 	int npc_level;
 	int minimum_level;
 	int maximum_level;
@@ -1732,16 +1774,10 @@ private int is_valid_target(object me, object ob)
 	npc_race = ob->query_raceId();
 	if(me_race != "third" && me_race == npc_race)
 		return 0;
-	me_level = me->query_level();
 	npc_level = ob->query_level();
-	maximum_level = me_level+2;
-	minimum_level = 1;
-	if(query_smart_route_enabled(me)){
-		maximum_level = me_level>=50 ? me_level+1 : me_level;
-		minimum_level = me_level-4;
-		if(minimum_level<1)
-			minimum_level = 1;
-	}
+	level_window = query_target_level_window(me);
+	minimum_level = level_window["minimum"];
+	maximum_level = level_window["maximum"];
 	if(npc_level > maximum_level || npc_level < minimum_level)
 		return 0;
 	return 1;
