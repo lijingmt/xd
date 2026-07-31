@@ -100,10 +100,23 @@ void test_item_sync_contract()
 		Stdio.read_file(ROOT+"/restart-docker.sh");
 	int sync_position = -1;
 	int run_position = -1;
+	int hidden_count = 0;
+	array(string) hidden_ids = ({
+		"wanjianguizong","taiqingjianyu","pozhenjianyi",
+		"taixulingyun","wanlingchaosheng","sixiangfengjin",
+		"jiutianleiyin","taiyixuanguang","bingpochanshen",
+		"zhutianwujie","tianshajianyi","wuyingfenghou",
+		"xuemoshijie","shurakuangyi","xuehailieshang",
+		"huangquanwudu","wanxiangshihun","jiuyouduzhang",
+		"wuyingjuemie","jiuyouguibu","liudaozhangmu",
+	});
 
 	if(source){
 		sync_position = search(source,"\n    sync_item_directory\n");
 		run_position = search(source,"\n    docker run -d");
+		foreach(hidden_ids,string skill_id)
+			if(search(source,"\""+skill_id+"\"")!=-1)
+				hidden_count++;
 	}
 	if(source &&
 	   search(source,"local commands=(\"docker\" \"rsync\")")!=-1 &&
@@ -111,13 +124,20 @@ void test_item_sync_contract()
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
+	   hidden_count==21 &&
+	   search(source,
+		   "verify_hidden_mythic_assets_in_container")!=-1 &&
+	   search(source,
+		   "test -s \"/app/xiand/gamelib/single/skills/$skill_id\"")!=-1 &&
+	   search(source,
+		   "grep -Fq \"\\\"book/$skill_id\\\"\"")!=-1 &&
 	   search(source,
 		   "-v \"${SHARED_ITEM_DIR}:/app/xiand/gamelib/clone/item\"")!=-1 &&
 	   sync_position!=-1 && run_position!=-1 &&
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录、校验huling1并先于容器启动");
+		test_fail("item必须同步到实际挂载目录，并校验huling1及21套隐藏传承");
 }
 
 void test_fangshi_images_deploy_contract()

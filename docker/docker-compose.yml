@@ -32,9 +32,9 @@ services:
     volumes:
       # 持久化数据 - 映射到 /usr/local/games/allxd/xd01/ (对应区号)
       # 容器内 /app/xiand/data_xiand -> 宿主机 /usr/local/games/allxd/{GAME_AREA}/data_xiand
-      # 容器内 /app/xiand/gamelib/clone/item -> 宿主机 /usr/local/games/allxd/{GAME_AREA}/item
+      # 所有分区共用同一套只读逻辑物品；默认与 restart-docker.sh 的同步目录一致。
       - /usr/local/games/allxd/${GAME_AREA:-xd01}/data_xiand:/app/xiand/data_xiand
-      - /usr/local/games/allxd/${GAME_AREA:-xd01}/item:/app/xiand/gamelib/clone/item
+      - ${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}:/app/xiand/gamelib/clone/item
       # 日志输出 - 映射到 allxd/log 目录
       - /usr/local/games/allxd/log/${GAME_AREA:-xd01}:/app/xiand/log
     security_opt:

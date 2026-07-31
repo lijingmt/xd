@@ -1,0 +1,35 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【神】九幽鬼步";
+	desc="踏出九幽无常鬼步，短时间大幅提高自身闪避等级";
+	s_type="zhudong";
+	s_skill_type="buff";
+	s_curse_type="dodge";
+	s_delayTime=90;
+	s_lasttime=12;
+	performs_attack[1]=12;
+	performs_attack[2]=16;
+	performs_attack[3]=20;
+	performs_attack[4]=24;
+	performs_attack[5]=30;
+	performs_cast[1]=300;
+	performs_cast[2]=360;
+	performs_cast[3]=430;
+	performs_cast[4]=510;
+	performs_cast[5]=600;
+	skill_type+=({"yinggui"});
+	skill_rare="mythic";
+	performs_level_limit[1]=80;
+	performs_level_limit[2]=100;
+	performs_level_limit[3]=120;
+	performs_level_limit[4]=140;
+	performs_level_limit[5]=160;
+	performs_desc[1]="12秒内提高12点闪避等级，消耗法力300点";
+	performs_desc[2]="12秒内提高16点闪避等级，消耗法力360点";
+	performs_desc[3]="12秒内提高20点闪避等级，消耗法力430点";
+	performs_desc[4]="12秒内提高24点闪避等级，消耗法力510点";
+	performs_desc[5]="12秒内提高30点闪避等级，消耗法力600点";
+}

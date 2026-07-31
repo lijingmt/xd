@@ -1,12 +1,12 @@
 #!/usr/bin/env pike
 /**
- * 三系施法职业隐藏大神传承运行时测试。
+ * 七职业隐藏大神传承运行时测试。
  *
  * 覆盖：
- * - 70级怪物门槛、总掉率与九本等概率池
+ * - 70级怪物门槛、总掉率与二十一本等概率池
  * - 秘籍不进入商店，技能与书籍可运行时加载
  * - 80级与职业限制、背包学习入口、真实读书
- * - 方士/羽士/巫妖的爆发、群疗、护盾、DOT与控制
+ * - 七职业的爆发、群疗、增益、DOT与控制
  * - 长冷却、短持续、高法力的平衡边界
  * - 鹤灵不复活主人、灵治进阶后的新手指引
  */
@@ -21,6 +21,11 @@ mapping(string:int) test_results = ([
 ]);
 
 mapping(string:array(string)) hidden_skills = ([
+	"jianxian":({
+		"wanjianguizong",
+		"taiqingjianyu",
+		"pozhenjianyi",
+	}),
 	"fangshi":({
 		"taixulingyun",
 		"wanlingchaosheng",
@@ -31,23 +36,46 @@ mapping(string:array(string)) hidden_skills = ([
 		"taiyixuanguang",
 		"bingpochanshen",
 	}),
+	"zhuxian":({
+		"zhutianwujie",
+		"tianshajianyi",
+		"wuyingfenghou",
+	}),
+	"kuangyao":({
+		"xuemoshijie",
+		"shurakuangyi",
+		"xuehailieshang",
+	}),
 	"wuyao":({
 		"huangquanwudu",
 		"wanxiangshihun",
 		"jiuyouduzhang",
 	}),
+	"yinggui":({
+		"wuyingjuemie",
+		"jiuyouguibu",
+		"liudaozhangmu",
+	}),
 ]);
 
 mapping(string:string) profession_cn = ([
+	"jianxian":"剑仙",
 	"fangshi":"方士",
 	"yushi":"羽士",
+	"zhuxian":"诛仙",
+	"kuangyao":"狂妖",
 	"wuyao":"巫妖",
+	"yinggui":"影鬼",
 ]);
 
 mapping(string:string) profession_race = ([
+	"jianxian":"human",
 	"fangshi":"third",
 	"yushi":"human",
+	"zhuxian":"human",
+	"kuangyao":"monst",
 	"wuyao":"monst",
+	"yinggui":"monst",
 ]);
 
 void test_start(string name)
@@ -102,7 +130,7 @@ void destroy_player(object|zero player)
 
 void test_drop_contract_runtime()
 {
-	test_start("九本秘籍单本等概率且仅70级以上怪物掉落");
+	test_start("二十一本秘籍单本等概率且仅70级以上怪物掉落");
 	string csv =
 		Stdio.read_file(ROOT+"/gamelib/data/can_buy_book_list.csv");
 	string npc_source =
@@ -130,14 +158,14 @@ void test_drop_contract_runtime()
 		if(search(actual,book_path)==-1)
 			failed++;
 	}
-	if(ITEMSD->query_hidden_skill_book_count()!=9 ||
+	if(ITEMSD->query_hidden_skill_book_count()!=21 ||
 	   ITEMSD->query_hidden_skill_min_level()!=70 ||
-	   ITEMSD->query_hidden_skill_drop_rate()!=9 ||
+	   ITEMSD->query_hidden_skill_drop_rate()!=21 ||
 	   ITEMSD->can_drop_hidden_skill_book(69,1)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,0)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,1)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,9)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,10)!=0)
+	   ITEMSD->can_drop_hidden_skill_book(70,21)!=1 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,22)!=0)
 		failed++;
 
 	if(npc_source){
@@ -230,7 +258,7 @@ void test_dynamic_monster_eligibility_runtime()
 
 void test_skill_and_book_config_runtime()
 {
-	test_start("九项技能与九本秘籍完整加载且均为五段大神传承");
+	test_start("二十一项技能与秘籍完整加载且均为五段大神传承");
 	int checked = 0;
 	int failed = 0;
 
@@ -272,7 +300,7 @@ void test_skill_and_book_config_runtime()
 		}
 	}
 
-	if(checked==9 && failed==0)
+	if(checked==21 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf("加载=%d, 配置失败=%d",checked,failed));
@@ -280,53 +308,56 @@ void test_skill_and_book_config_runtime()
 
 void test_real_book_learning()
 {
-	test_start("80级职业限制、背包学习入口与九本真实学习");
-	object|zero fangshi = 0;
-	object|zero yushi = 0;
-	object|zero wuyao = 0;
+	test_start("80级职业限制、背包学习入口与二十一本真实学习");
 	object|zero low_fangshi = 0;
 	object|zero original_player = this_player();
 	mapping(string:object) players = ([]);
 	int learned = 0;
+	int low_rejected = 0;
+	int profession_rejected = 0;
+	int duplicate_preserved = 0;
 	int failed = 0;
 	string error_desc = "";
 
 	mixed err = catch {
-		fangshi = create_player(
-			"__testunit_mythic_learn_fangshi__","third","fangshi",80);
-		yushi = create_player(
-			"__testunit_mythic_learn_yushi__","human","yushi",80);
-		wuyao = create_player(
-			"__testunit_mythic_learn_wuyao__","monst","wuyao",80);
+		foreach(sort(indices(hidden_skills)),string profession_id){
+			players[profession_id] = create_player(
+				"__testunit_mythic_learn_"+profession_id+"__",
+				profession_race[profession_id],profession_id,80);
+		}
 		low_fangshi = create_player(
 			"__testunit_mythic_learn_low__","third","fangshi",79);
-		players = ([
-			"fangshi":fangshi,
-			"yushi":yushi,
-			"wuyao":wuyao,
-		]);
-
-		object low_book = clone(ROOT+
-			"/gamelib/clone/item/book/taixulingyun");
-		set_this_player(low_fangshi);
-		if(!low_book || low_book->read()!=4)
-			failed++;
-		if(low_book)
-			destruct(low_book);
-
-		object wrong_book = clone(ROOT+
-			"/gamelib/clone/item/book/taixulingyun");
-		set_this_player(yushi);
-		if(!wrong_book || wrong_book->read()!=3)
-			failed++;
-		if(wrong_book)
-			destruct(wrong_book);
 
 		foreach(sort(indices(hidden_skills)),string profession_id){
-			set_this_player(players[profession_id]);
 			foreach(hidden_skills[profession_id],string skill_name){
+				object low_book = clone(ROOT+
+					"/gamelib/clone/item/book/"+skill_name);
+				set_this_player(low_fangshi);
+				if(!low_book || low_book->read()!=4 ||
+				   low_book->read_flag!=1)
+					failed++;
+				else
+					low_rejected++;
+				if(low_book)
+					destruct(low_book);
+
+				object wrong_player = players["fangshi"];
+				if(profession_id=="fangshi")
+					wrong_player = players["yushi"];
+				object wrong_book = clone(ROOT+
+					"/gamelib/clone/item/book/"+skill_name);
+				set_this_player(wrong_player);
+				if(!wrong_book || wrong_book->read()!=3 ||
+				   wrong_book->read_flag!=1)
+					failed++;
+				else
+					profession_rejected++;
+				if(wrong_book)
+					destruct(wrong_book);
+
 				object book = clone(ROOT+
 					"/gamelib/clone/item/book/"+skill_name);
+				set_this_player(players[profession_id]);
 				string links = book ?
 					book->query_inventory_links(1) : "";
 				if(!book ||
@@ -336,18 +367,19 @@ void test_real_book_learning()
 					failed++;
 				else
 					learned++;
+
+				object duplicate_book = clone(ROOT+
+					"/gamelib/clone/item/book/"+skill_name);
+				if(!duplicate_book || duplicate_book->read()!=2 ||
+				   duplicate_book->read_flag!=1 ||
+				   !players[profession_id]->skills[skill_name])
+					failed++;
+				else
+					duplicate_preserved++;
+				if(duplicate_book)
+					destruct(duplicate_book);
 			}
 		}
-
-		object duplicate_book = clone(ROOT+
-			"/gamelib/clone/item/book/taixulingyun");
-		set_this_player(fangshi);
-		if(!duplicate_book || duplicate_book->read()!=2 ||
-		   duplicate_book->read_flag!=1 ||
-		   !fangshi->skills["taixulingyun"])
-			failed++;
-		if(duplicate_book)
-			destruct(duplicate_book);
 	};
 	if(original_player)
 		set_this_player(original_player);
@@ -356,25 +388,31 @@ void test_real_book_learning()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && learned==9 && failed==0)
+	if(!err && learned==21 && low_rejected==21 &&
+	   profession_rejected==21 && duplicate_preserved==21 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
-			"成功学习=%d, 失败=%d: %s",learned,failed,error_desc));
+			"学习=%d, 低等级拒绝=%d, 跨职业拒绝=%d, 重复保留=%d, 失败=%d: %s",
+			learned,low_rejected,profession_rejected,
+			duplicate_preserved,failed,error_desc));
 
-	destroy_player(fangshi);
-	destroy_player(yushi);
-	destroy_player(wuyao);
+	foreach(values(players),object player)
+		destroy_player(player);
 	destroy_player(low_fangshi);
 }
 
-void test_three_profession_burst_runtime()
+void test_seven_profession_burst_runtime()
 {
-	test_start("方士、羽士、巫妖大神爆发真实命中并进入长冷却");
+	test_start("七职业大神爆发真实命中并进入长冷却");
 	mapping(string:string) burst_skills = ([
+		"jianxian":"wanjianguizong",
 		"fangshi":"taixulingyun",
 		"yushi":"jiutianleiyin",
+		"zhuxian":"zhutianwujie",
+		"kuangyao":"xuemoshijie",
 		"wuyao":"huangquanwudu",
+		"yinggui":"wuyingjuemie",
 	]);
 	object room =
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
@@ -385,6 +423,7 @@ void test_three_profession_burst_runtime()
 	foreach(sort(indices(burst_skills)),string profession_id){
 		object|zero caster = 0;
 		object|zero enemy = 0;
+		object|zero weapon = 0;
 		mixed err = catch {
 			string skill_name = burst_skills[profession_id];
 			caster = create_player(
@@ -395,6 +434,15 @@ void test_three_profession_burst_runtime()
 				"third","fangshi",100);
 			caster->move(room);
 			enemy->move(room);
+			if(search(({"jianxian","zhuxian","kuangyao","yinggui"}),
+			   profession_id)!=-1){
+				weapon = clone(ROOT+
+					"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+				weapon->move(caster);
+				caster->wear(weapon);
+				if(!weapon->equiped)
+					failed++;
+			}
 			caster->skills[skill_name] = ({1,0});
 			int life_before = enemy->get_cur_life();
 			int mofa_before = caster->get_cur_mofa();
@@ -403,6 +451,72 @@ void test_three_profession_burst_runtime()
 			if(enemy->get_cur_life()>=life_before ||
 			   caster->get_cur_mofa()>=mofa_before ||
 			   caster->f_skills[skill_name]!=61)
+				failed++;
+			else{
+				int life_after = enemy->get_cur_life();
+				int mofa_after = caster->get_cur_mofa();
+				caster->perform(skill_name,1);
+				if(enemy->get_cur_life()!=life_after ||
+				   caster->get_cur_mofa()!=mofa_after ||
+				   caster->f_skills[skill_name]!=61)
+					failed++;
+				else
+					checked++;
+			}
+		};
+		if(err){
+			failed++;
+			error_desc += describe_error(err);
+		}
+		if(caster)
+			caster->_clean_fight();
+		destroy_player(caster);
+		destroy_player(enemy);
+	}
+
+	if(checked==7 && failed==0)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"真实爆发=%d, 失败=%d: %s",checked,failed,error_desc));
+}
+
+void test_physical_mythic_weapon_gate()
+{
+	test_start("四个物理职业大神爆发缺少主手武器时不会误扣法力");
+	mapping(string:string) physical_skills = ([
+		"jianxian":"wanjianguizong",
+		"zhuxian":"zhutianwujie",
+		"kuangyao":"xuemoshijie",
+		"yinggui":"wuyingjuemie",
+	]);
+	object room =
+		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	int checked = 0;
+	int failed = 0;
+	string error_desc = "";
+
+	foreach(sort(indices(physical_skills)),string profession_id){
+		object|zero caster = 0;
+		object|zero enemy = 0;
+		mixed err = catch {
+			string skill_name = physical_skills[profession_id];
+			caster = create_player(
+				"__testunit_mythic_unarmed_"+profession_id+"__",
+				profession_race[profession_id],profession_id,100);
+			enemy = create_player(
+				"__testunit_mythic_unarmed_target_"+profession_id+"__",
+				"third","fangshi",100);
+			caster->move(room);
+			enemy->move(room);
+			caster->skills[skill_name] = ({1,0});
+			int life_before = enemy->get_cur_life();
+			int mofa_before = caster->get_cur_mofa();
+			caster->_fight(enemy);
+			caster->perform(skill_name,1);
+			if(enemy->get_cur_life()!=life_before ||
+			   caster->get_cur_mofa()!=mofa_before ||
+			   caster->f_skills[skill_name])
 				failed++;
 			else
 				checked++;
@@ -417,27 +531,35 @@ void test_three_profession_burst_runtime()
 		destroy_player(enemy);
 	}
 
-	if(checked==3 && failed==0)
+	if(checked==4 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
-			"真实爆发=%d, 失败=%d: %s",checked,failed,error_desc));
+			"武器门槛=%d, 失败=%d: %s",checked,failed,error_desc));
 }
 
 void test_utility_and_control_runtime()
 {
-	test_start("护盾、持续伤害与三系控制均真实生效");
+	test_start("七职业增益、持续伤害与控制均真实生效");
 	object room =
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	int failed = 0;
 	string error_desc = "";
 
 	mapping(string:array(string)) cases = ([
+		"taiqingjianyu":({"human","jianxian","buff","defend","1800"}),
+		"pozhenjianyi":({"human","jianxian","curse","defend","1200"}),
 		"taiyixuanguang":({"human","yushi","buff","absorb","4500"}),
 		"sixiangfengjin":({"third","fangshi","curse","attack","1200"}),
 		"bingpochanshen":({"human","yushi","curse","speed","2"}),
+		"tianshajianyi":({"human","zhuxian","buff","doub","12"}),
+		"wuyingfenghou":({"human","zhuxian","dot","wuyingfenghou","400"}),
+		"shurakuangyi":({"monst","kuangyao","buff","attack","1200"}),
+		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","420"}),
 		"wanxiangshihun":({"monst","wuyao","dot","wanxiangshihun","400"}),
 		"jiuyouduzhang":({"monst","wuyao","curse","life","30"}),
+		"jiuyouguibu":({"monst","yinggui","buff","dodge","12"}),
+		"liudaozhangmu":({"monst","yinggui","curse","hitte","400"}),
 	]);
 
 	foreach(sort(indices(cases)),string skill_name){
@@ -454,6 +576,15 @@ void test_utility_and_control_runtime()
 			caster->move(room);
 			enemy->move(room);
 			caster->skills[skill_name] = ({1,0});
+			int derived_before = 0;
+			if(skill_name=="taiqingjianyu")
+				derived_before = caster->query_defend_power();
+			else if(skill_name=="pozhenjianyi")
+				derived_before = enemy->query_defend_power();
+			else if(skill_name=="shurakuangyi")
+				derived_before = caster->query_base_damage();
+			else if(skill_name=="liudaozhangmu")
+				derived_before = enemy->query_if_hitte();
 			caster->_fight(enemy);
 			caster->perform(skill_name,1);
 
@@ -471,6 +602,26 @@ void test_utility_and_control_runtime()
 			   (skill_name!="taiyixuanguang" &&
 			    effect_value!=(int)info[4]))
 				failed++;
+			if(skill_name=="taiqingjianyu" &&
+			   caster->query_defend_power()!=derived_before+1800)
+				failed++;
+			else if(skill_name=="pozhenjianyi"){
+				int expected_defend = derived_before-1200;
+				if(expected_defend<0)
+					expected_defend=0;
+				if(enemy->query_defend_power()!=expected_defend)
+					failed++;
+			}
+			else if(skill_name=="shurakuangyi" &&
+			   caster->query_base_damage()!=derived_before+1200)
+				failed++;
+			else if(skill_name=="liudaozhangmu"){
+				int expected_hitte = derived_before-400;
+				if(expected_hitte<0)
+					expected_hitte=0;
+				if(enemy->query_if_hitte()!=expected_hitte)
+					failed++;
+			}
 		};
 		if(err){
 			failed++;
@@ -554,8 +705,9 @@ void test_mythic_group_heal_runtime()
 
 void test_balance_envelope()
 {
-	test_start("大神技能保持80级、长冷却、高法力与短控制边界");
+	test_start("大神技能保持五段成长、长冷却且各职业裸装法力可施放");
 	int failed = 0;
+	int resource_checks = 0;
 	foreach(sort(indices(hidden_skills)),string profession_id){
 		foreach(hidden_skills[profession_id],string skill_name){
 			object skill = (object)(ROOT+
@@ -569,12 +721,30 @@ void test_balance_envelope()
 			   skill->query_s_lasttime(1)>12)
 				failed++;
 		}
+		for(int level=1;level<=5;level++){
+			int required_level = 60+level*20;
+			object player = create_player(
+				"__testunit_mythic_resource_"+profession_id+"_"+
+				(string)level+"__",profession_race[profession_id],
+				profession_id,required_level);
+			int mofa_max = player->query_mofa_max();
+			foreach(hidden_skills[profession_id],string skill_name){
+				object skill = (object)(ROOT+
+					"/gamelib/single/skills/"+skill_name);
+				resource_checks++;
+				if(skill->query_performs_cast(level)>mofa_max)
+					failed++;
+			}
+			destroy_player(player);
+		}
 	}
 
-	if(failed==0)
+	if(resource_checks==105 && failed==0)
 		test_pass();
 	else
-		test_fail(sprintf("发现%d项平衡边界越界",failed));
+		test_fail(sprintf(
+			"资源检查=%d, 发现%d项平衡边界越界",
+			resource_checks,failed));
 }
 
 void test_crane_and_guide_regressions()
@@ -647,7 +817,8 @@ void run_tests()
 	test_dynamic_monster_eligibility_runtime();
 	test_skill_and_book_config_runtime();
 	test_real_book_learning();
-	test_three_profession_burst_runtime();
+	test_seven_profession_burst_runtime();
+	test_physical_mythic_weapon_gate();
 	test_utility_and_control_runtime();
 	test_mythic_group_heal_runtime();
 	test_balance_envelope();

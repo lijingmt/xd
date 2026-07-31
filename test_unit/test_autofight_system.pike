@@ -1152,7 +1152,10 @@ void test_level_twenty_fangshi_route_recovery()
 		daemon->start_autofight(player);
 		flush_command->main(0);
 		first_path = daemon->query_current_room_path(player);
-		flush_command->main(0);
+		// 实际公共房间可能遗留可拾取物；挂机会先拾取再继续寻怪。
+		for(int recovery_tick = 0;
+		   recovery_tick < 10 && !player->in_combat;recovery_tick++)
+			flush_command->main(0);
 		valid = visible_monsters >= 6 && wrong_target_blocked &&
 			level_window["minimum"] == 16 &&
 			level_window["maximum"] == 20 &&

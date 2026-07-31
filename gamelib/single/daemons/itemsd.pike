@@ -98,21 +98,33 @@ private mapping(int:array(string)) item_list = ([]);
 //记录白色装备允许出现属性的映射表
 private mapping(string:array(string)) item_attributes = ([]);
 
-//三系施法职业的大神传承仅通过70级以上怪物极低概率掉落。
-//总掉率为9/100000，九本等概率，即单本长期均值约1/100000。
+//七职业大神传承仅通过70级以上怪物极低概率掉落。
+//总掉率为21/100000，二十一本等概率，即单本长期均值约1/100000。
 private array(string) hidden_skill_books = ({
+	"book/wanjianguizong",
+	"book/taiqingjianyu",
+	"book/pozhenjianyi",
 	"book/taixulingyun",
 	"book/wanlingchaosheng",
 	"book/sixiangfengjin",
 	"book/jiutianleiyin",
 	"book/taiyixuanguang",
 	"book/bingpochanshen",
+	"book/zhutianwujie",
+	"book/tianshajianyi",
+	"book/wuyingfenghou",
+	"book/xuemoshijie",
+	"book/shurakuangyi",
+	"book/xuehailieshang",
 	"book/huangquanwudu",
 	"book/wanxiangshihun",
 	"book/jiuyouduzhang",
+	"book/wuyingjuemie",
+	"book/jiuyouguibu",
+	"book/liudaozhangmu",
 });
 private int hidden_skill_min_level = 70;
-private int hidden_skill_drop_rate = 9;
+private int hidden_skill_drop_rate = 21;
 
 //用于生成物品文件后缀的映射表,现在暂时未用上
 private mapping(string:int) postfix_map = ([
