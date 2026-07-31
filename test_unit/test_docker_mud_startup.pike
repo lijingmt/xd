@@ -73,6 +73,28 @@ void test_pike_stack_contract()
 		test_fail("MUD启动命令缺少系统栈、evaluator栈或64MiB线程栈");
 }
 
+void test_pike_version_contract()
+{
+	test_start("Docker构建固定使用Pike 9.0.13并验证关键模块");
+	string source =
+		Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+
+	if(source &&
+	   search(source,"ARG PIKE_VERSION=9.0.13")!=-1 &&
+	   search(source,
+		   "Pike-v${PIKE_VERSION}.tar.gz")!=-1 &&
+	   search(source,"--retry 5")!=-1 &&
+	   search(source,
+		   "gzip -t \"Pike-v${PIKE_VERSION}.tar.gz\"")!=-1 &&
+	   search(source,"--with-mysql")!=-1 &&
+	   search(source,"master()->resolv(\"Sql\")")!=-1 &&
+	   search(source,"master()->resolv(\"SSL\")")!=-1 &&
+	   search(source,"master()->resolv(\"Crypto\")")!=-1)
+		test_pass();
+	else
+		test_fail("Pike版本、可靠下载或MySQL/SSL/Crypto模块验证不完整");
+}
+
 void test_stack_order_contract()
 {
 	test_start("堆栈设置先于Pike MUD启动");
@@ -208,6 +230,7 @@ int main()
 {
 	test_container_stack_contract();
 	test_pike_stack_contract();
+	test_pike_version_contract();
 	test_stack_order_contract();
 	test_item_sync_contract();
 	test_fangshi_images_deploy_contract();

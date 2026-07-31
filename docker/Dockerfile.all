@@ -10,6 +10,8 @@
 # ============================================
 FROM quay.io/centos/centos:stream10 AS pike-builder
 
+ARG PIKE_VERSION=9.0.13
+
 # 设置工作目录
 WORKDIR /tmp/build
 
@@ -27,12 +29,16 @@ RUN dnf install -y dnf-plugins-core && \
     git && \
     dnf clean all
 
-# 下载 Pike 9.0.11 预编译源码包（相比git版本更稳定）
+# 下载 Pike 官方源码包（从官网下载的预打包版本）
 RUN cd /tmp/build && \
-    curl -sL https://pike.lysator.liu.se/pub/pike/beta/9.0.11/Pike-v9.0.11.tar.gz | tar xz && \
-    mv Pike-v9.0.11 pike9
+    curl -fSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o "Pike-v${PIKE_VERSION}.tar.gz" \
+      "https://pike.lysator.liu.se/pub/pike/beta/${PIKE_VERSION}/Pike-v${PIKE_VERSION}.tar.gz" && \
+    gzip -t "Pike-v${PIKE_VERSION}.tar.gz" && \
+    tar xzf "Pike-v${PIKE_VERSION}.tar.gz" && \
+    mv "Pike-v${PIKE_VERSION}" pike9
 
-# 编译 Pike 9.0.11
+# 编译 Pike
 WORKDIR /tmp/build/pike9
 
 # 从源码编译完整版 nettle 获得 nettle_sm3 支持
@@ -44,7 +50,7 @@ RUN cd /tmp/build && \
     make install && \
     ldconfig
 
-# Pike 9.0.11 编译
+# Pike 编译
 RUN export CFLAGS="-O2" && \
     export CXXFLAGS="-O2" && \
     rm -rf src/post_modules/GI src/post_modules/FFI && \
@@ -71,6 +77,19 @@ RUN /usr/local/pike9/bin/pike -e 'int main() { \
         return 0; \
     } else { \
         write("✗ MySQL module not found\n"); \
+        return 1; \
+    } \
+}'
+
+# 验证 SSL/Crypto 模块
+RUN /usr/local/pike9/bin/pike -e 'int main() { \
+    object ssl = master()->resolv("SSL"); \
+    object crypto = master()->resolv("Crypto"); \
+    if(ssl && crypto) { \
+        write("✓ SSL/Crypto module available\n"); \
+        return 0; \
+    } else { \
+        write("✗ SSL/Crypto module not found\n"); \
         return 1; \
     } \
 }'

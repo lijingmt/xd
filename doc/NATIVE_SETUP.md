@@ -26,7 +26,7 @@ This guide shows you how to run the Xiandao game server directly with Pike 9 on 
 
 | Version | Type | URL |
 |--------|------|-----|
-| Pike 9.0.11 (Recommended) | Stable Beta | https://pike.lysator.liu.se/pub/pike/beta/9.0.11/Pike-v9.0.11.tar.gz |
+| Pike 9.0.13 (Recommended) | Stable Beta | https://pike.lysator.liu.se/pub/pike/beta/9.0.13/Pike-v9.0.13.tar.gz |
 | Pike 9.0.0 | Beta | https://pike.lysator.liu.se/pub/pike/9.0.0/pike-9.0.0.tar.gz |
 | Pike 8.0.1738 | Latest Stable | https://pike.lysator.liu.se/pub/pike/latest-stable/pike-8.0.1738.tar.gz |
 
@@ -39,11 +39,11 @@ yum install -y gcc make gcc-c++ autoconf bison flex \
     libpng-devel libjpeg-devel \
     sqlite-devel zlib-devel git
 
-# Download Pike 9.0.11 (same version used in Docker)
+# Download Pike 9.0.13 (same version used in Docker)
 cd /tmp
-wget https://pike.lysator.liu.se/pub/pike/beta/9.0.11/Pike-v9.0.11.tar.gz
-tar xzf Pike-v9.0.11.tar.gz
-mv Pike-v9.0.11 pike9
+wget https://pike.lysator.liu.se/pub/pike/beta/9.0.13/Pike-v9.0.13.tar.gz
+tar xzf Pike-v9.0.13.tar.gz
+mv Pike-v9.0.13 pike9
 
 # Compile nettle (required for SM3 support)
 cd /tmp
@@ -77,7 +77,8 @@ echo 'export PATH="/usr/local/pike9/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
 # Verify installation
-pike -v
+pike --version
+pike -e 'Mysql.mysql; Sql.Sql; write("MySQL/Sql modules OK\n");'
 ```
 
 **For Ubuntu/Debian:**
@@ -90,11 +91,11 @@ apt-get install -y gcc make g++ autoconf bison flex \
     libpng-dev libjpeg-dev \
     libsqlite3-dev zlib1g-dev git
 
-# Download Pike 9.0.11
+# Download Pike 9.0.13
 cd /tmp
-wget https://pike.lysator.liu.se/pub/pike/beta/9.0.11/Pike-v9.0.11.tar.gz
-tar xzf Pike-v9.0.11.tar.gz
-mv Pike-v9.0.11 pike9
+wget https://pike.lysator.liu.se/pub/pike/beta/9.0.13/Pike-v9.0.13.tar.gz
+tar xzf Pike-v9.0.13.tar.gz
+mv Pike-v9.0.13 pike9
 
 # Compile nettle
 cd /tmp
@@ -127,7 +128,8 @@ echo 'export PATH="/usr/local/pike9/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
 # Verify installation
-pike -v
+pike --version
+pike -e 'Mysql.mysql; Sql.Sql; write("MySQL/Sql modules OK\n");'
 ```
 
 #### 2. Install MySQL
