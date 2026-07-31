@@ -7,7 +7,8 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 4
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
-#define AUTOFIGHT_CONFIG_VERSION 4
+#define AUTOFIGHT_CONFIG_VERSION 6
+#define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 
 private array(mapping(string:mixed)) smart_training_routes = ({
 	([
@@ -248,6 +249,15 @@ void initialize_player(object me)
 		me["/plus/autofight_sell_level_gap"] = 5;
 		me["/plus/autofight_gather_mode"] = "off";
 		me["/plus/autofight_material_keep"] = -1;
+		me["/plus/autofight_destroy_non_equipment"] = 0;
+		me["/plus/autofight_store_non_equipment"] = 0;
+		me["/plus/autofight_cleanup_herb"] = 1;
+		me["/plus/autofight_cleanup_mine"] = 1;
+		me["/plus/autofight_cleanup_misc"] = 0;
+		me["/plus/autofight_cleanup_keep"] = 100;
+		me["/plus/autofight_cleanup_trigger"] = 70;
+		me["/plus/autofight_cleanup_protect_names"] = "";
+		me["/plus/autofight_cleanup_force_names"] = "";
 	}
 	else
 		sync_daily_limit(me);
@@ -267,6 +277,18 @@ void initialize_player(object me)
 	if(config_version < 4){
 		me["/plus/autofight_gather_mode"] = "off";
 		me["/plus/autofight_material_keep"] = -1;
+	}
+	if(config_version < 5)
+		me["/plus/autofight_destroy_non_equipment"] = 0;
+	if(config_version < 6){
+		me["/plus/autofight_store_non_equipment"] = 0;
+		me["/plus/autofight_cleanup_herb"] = 1;
+		me["/plus/autofight_cleanup_mine"] = 1;
+		me["/plus/autofight_cleanup_misc"] = 0;
+		me["/plus/autofight_cleanup_keep"] = 100;
+		me["/plus/autofight_cleanup_trigger"] = 70;
+		me["/plus/autofight_cleanup_protect_names"] = "";
+		me["/plus/autofight_cleanup_force_names"] = "";
 	}
 	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
@@ -395,6 +417,141 @@ int query_auto_rest_enabled(object me)
 		return 0;
 	initialize_player(me);
 	return (int)me["/plus/autofight_auto_rest"] == 1;
+}
+
+int query_auto_destroy_non_equipment_enabled(object me)
+{
+	if(!me)
+		return 0;
+	initialize_player(me);
+	return query_vip_level(me) >= 1 &&
+		(int)me["/plus/autofight_destroy_non_equipment"] == 1;
+}
+
+int query_auto_store_non_equipment_enabled(object me)
+{
+	if(!me)
+		return 0;
+	initialize_player(me);
+	return query_vip_level(me) >= 1 &&
+		(int)me["/plus/autofight_store_non_equipment"] == 1;
+}
+
+int query_auto_cleanup_trigger_percent(object me)
+{
+	int vip_level;
+	int trigger;
+	if(!me)
+		return 100;
+	initialize_player(me);
+	vip_level = query_vip_level(me);
+	if(vip_level >= 4){
+		trigger = (int)me["/plus/autofight_cleanup_trigger"];
+		if(trigger == 70 || trigger == 80 || trigger == 90)
+			return trigger;
+		return 70;
+	}
+	if(vip_level == 3)
+		return 80;
+	if(vip_level == 2)
+		return 85;
+	if(vip_level == 1)
+		return 90;
+	return 100;
+}
+
+int query_auto_cleanup_keep(object me)
+{
+	int keep;
+	if(!me || query_vip_level(me) < 3)
+		return 0;
+	initialize_player(me);
+	keep = (int)me["/plus/autofight_cleanup_keep"];
+	if(keep != 0 && keep != 50 && keep != 100 && keep != 300)
+		return 100;
+	return keep;
+}
+
+int query_auto_cleanup_category_enabled(object me,string category)
+{
+	int vip_level;
+	if(!me)
+		return 0;
+	initialize_player(me);
+	vip_level = query_vip_level(me);
+	if(vip_level < 1)
+		return 0;
+	if(vip_level == 1)
+		return category == "herb" || category == "mine";
+	if(category == "herb")
+		return (int)me["/plus/autofight_cleanup_herb"] == 1;
+	if(category == "mine")
+		return (int)me["/plus/autofight_cleanup_mine"] == 1;
+	if(category == "misc")
+		return (int)me["/plus/autofight_cleanup_misc"] == 1;
+	return 0;
+}
+
+private array(string) query_auto_cleanup_names(object me,string key)
+{
+	string raw;
+	array(string) names;
+	if(!me)
+		return ({});
+	raw = (string)me[key];
+	if(!raw || raw == "")
+		return ({});
+	names = raw/","-({""});
+	return names;
+}
+
+array(string) query_auto_cleanup_protect_names(object me)
+{
+	return query_auto_cleanup_names(me,
+		"/plus/autofight_cleanup_protect_names");
+}
+
+array(string) query_auto_cleanup_force_names(object me)
+{
+	return query_auto_cleanup_names(me,
+		"/plus/autofight_cleanup_force_names");
+}
+
+string query_auto_cleanup_name_mode(object me,string item_name)
+{
+	if(!me || query_vip_level(me) < 4 || !item_name)
+		return "normal";
+	if(search(query_auto_cleanup_protect_names(me),item_name) != -1)
+		return "protect";
+	if(search(query_auto_cleanup_force_names(me),item_name) != -1)
+		return "force";
+	return "normal";
+}
+
+int set_auto_cleanup_name_mode(object me,string item_name,string mode)
+{
+	array(string) protect_names;
+	array(string) force_names;
+	if(!me || query_vip_level(me) < 4 || !item_name || item_name == "" ||
+	   search(item_name,",") != -1 || search(item_name," ") != -1)
+		return 0;
+	if(mode != "normal" && mode != "protect" && mode != "force")
+		return 0;
+	protect_names = query_auto_cleanup_protect_names(me)-({item_name});
+	force_names = query_auto_cleanup_force_names(me)-({item_name});
+	if(mode == "protect"){
+		if(sizeof(protect_names) >= AUTOFIGHT_CLEANUP_NAME_LIMIT)
+			return 0;
+		protect_names += ({item_name});
+	}
+	else if(mode == "force"){
+		if(sizeof(force_names) >= AUTOFIGHT_CLEANUP_NAME_LIMIT)
+			return 0;
+		force_names += ({item_name});
+	}
+	me["/plus/autofight_cleanup_protect_names"] = protect_names*",";
+	me["/plus/autofight_cleanup_force_names"] = force_names*",";
+	return 1;
 }
 
 string query_gather_mode(object me)
@@ -902,6 +1059,346 @@ mapping(string:mixed) perform_auto_sell_material(object me)
 	return result;
 }
 
+int query_non_equipment_destroy_item_amount(object item)
+{
+	if(!item)
+		return 0;
+	if(item->is("combine_item") && item->amount > 0)
+		return item->amount;
+	return 1;
+}
+
+string query_non_equipment_destroy_reject_reason(object me,object item)
+{
+	string item_type;
+	string item_from;
+	array(string) protected_types = ({
+		"book","box","danyao","food","water","yushi",
+	});
+	if(!me || !item || environment(item) != me)
+		return "not_in_backpack";
+	if(!item->is("item"))
+		return "not_item";
+	item_type = item->query_item_type();
+	if(item->is("equip") || is_auto_sell_equipment_type(item))
+		return "equipment";
+	if(search(protected_types,item_type) != -1)
+		return "protected_type";
+	if(item->query_item_task() == 1)
+		return "task_item";
+	if(item->query_item_canDrop() != 1)
+		return "not_droppable";
+	if(item->query_item_canTrade() != 1 ||
+	   item->query_item_canStorage() != 1)
+		return "restricted";
+	if(item->query_toVip())
+		return "vip_item";
+	if(item->query_item_only() == 1)
+		return "unique";
+	if(item->item_playerDesc && item->item_playerDesc != "")
+		return "player_marked";
+	item_from = item->query_item_from();
+	if(item_from && item_from != "")
+		return "special_source";
+	if(sizeof(all_inventory(item)) > 0)
+		return "container";
+	return "";
+}
+
+string query_auto_cleanup_category(object item)
+{
+	string material_type;
+	if(!item)
+		return "misc";
+	if(item->is("combine_item")){
+		material_type = item->query_for_material();
+		if(material_type == "liandan")
+			return "herb";
+		if(material_type == "duanzao")
+			return "mine";
+	}
+	return "misc";
+}
+
+int query_auto_cleanup_process_amount(object me,object item)
+{
+	int amount;
+	int keep;
+	string material_type;
+	if(!me || !item)
+		return 0;
+	amount = query_non_equipment_destroy_item_amount(item);
+	if(query_vip_level(me) < 3 || !item->is("combine_item"))
+		return amount;
+	material_type = item->query_for_material();
+	if(material_type == "")
+		return amount;
+	keep = query_auto_cleanup_keep(me);
+	if(amount <= keep)
+		return 0;
+	return amount-keep;
+}
+
+string query_auto_cleanup_reject_reason(object me,object item)
+{
+	string reason;
+	string item_name;
+	string category;
+	reason = query_non_equipment_destroy_reject_reason(me,item);
+	if(reason != "")
+		return reason;
+	if(query_vip_level(me) < 1)
+		return "vip_required";
+	item_name = item->query_name();
+	if(query_vip_level(me) >= 4 &&
+	   query_auto_cleanup_name_mode(me,item_name) == "protect")
+		return "protected_list";
+	if(query_auto_cleanup_process_amount(me,item) <= 0)
+		return "keep_amount";
+	if(query_vip_level(me) >= 4 &&
+	   query_auto_cleanup_name_mode(me,item_name) == "force")
+		return "";
+	category = query_auto_cleanup_category(item);
+	if(!query_auto_cleanup_category_enabled(me,category))
+		return "category_disabled";
+	return "";
+}
+
+array(object) query_auto_cleanup_candidates(object me)
+{
+	array(object) candidates = ({});
+	if(!me || query_vip_level(me) < 1)
+		return candidates;
+	foreach(all_inventory(me),object item){
+		if(query_auto_cleanup_reject_reason(me,item) == "")
+			candidates += ({item});
+	}
+	return candidates;
+}
+
+array(object) query_non_equipment_destroy_candidates(object me)
+{
+	array(object) candidates = ({});
+	if(!me)
+		return candidates;
+	foreach(all_inventory(me),object item){
+		if(query_non_equipment_destroy_reject_reason(me,item) == "")
+			candidates += ({item});
+	}
+	return candidates;
+}
+
+mapping(string:mixed) query_non_equipment_destroy_preview(object me)
+{
+	mapping(string:int) grouped = ([]);
+	mapping(string:mixed) result = ([
+		"object_count":0,
+		"item_count":0,
+		"names":({}),
+	]);
+	array(object) candidates;
+	if(!me)
+		return result;
+	candidates = query_non_equipment_destroy_candidates(me);
+	foreach(candidates,object item){
+		string item_name = item->query_name_cn();
+		int amount = query_non_equipment_destroy_item_amount(item);
+		result["object_count"] = (int)result["object_count"]+1;
+		result["item_count"] = (int)result["item_count"]+amount;
+		grouped[item_name] = (int)grouped[item_name]+amount;
+	}
+	foreach(grouped;string item_name;int amount)
+		result["names"] += ({item_name+"×"+amount});
+	return result;
+}
+
+int should_auto_destroy_non_equipment(object me)
+{
+	if(!me || me->in_combat ||
+	   !query_auto_destroy_non_equipment_enabled(me))
+		return 0;
+	if(query_backpack_percent(me) < query_auto_cleanup_trigger_percent(me))
+		return 0;
+	return sizeof(query_auto_cleanup_candidates(me)) > 0;
+}
+
+mapping(string:mixed) perform_non_equipment_destroy(object me,string source)
+{
+	mapping(string:mixed) result = ([
+		"object_count":0,
+		"item_count":0,
+		"names":({}),
+		"reason":"",
+	]);
+	array(object) candidates;
+	int auto_mode;
+	if(!me)
+		return result;
+	if(me->in_combat){
+		result["reason"] = "in_combat";
+		return result;
+	}
+	auto_mode = source == "autofight" ? 1 : 0;
+	if(!auto_mode)
+		source = "manual";
+	if(auto_mode){
+		if(!query_auto_destroy_non_equipment_enabled(me)){
+			result["reason"] = "vip_required";
+			return result;
+		}
+		candidates = query_auto_cleanup_candidates(me);
+	}
+	else
+		candidates = query_non_equipment_destroy_candidates(me);
+	foreach(candidates,object item){
+		string item_name;
+		string item_path;
+		string now;
+		int amount;
+		if(auto_mode){
+			if(query_auto_cleanup_reject_reason(me,item) != "")
+				continue;
+		}
+		else if(query_non_equipment_destroy_reject_reason(me,item) != "")
+			continue;
+		item_name = item->query_name_cn();
+		item_path = (file_name(item)/"#")[0];
+		if(auto_mode)
+			amount = query_auto_cleanup_process_amount(me,item);
+		else
+			amount = query_non_equipment_destroy_item_amount(item);
+		if(amount <= 0)
+			continue;
+		result["object_count"] = (int)result["object_count"]+1;
+		result["item_count"] = (int)result["item_count"]+amount;
+		result["names"] += ({item_name+"×"+amount});
+		now = ctime(time());
+		Stdio.append_file(ROOT+"/log/non_equipment_destroy.log",
+			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
+			me->query_name()+") "+source+" 销毁 "+item_name+" "+
+			item_path+" 数量"+amount+"\n");
+		if(auto_mode && item->is("combine_item") &&
+		   amount < item->amount)
+			item->amount -= amount;
+		else
+			item->remove();
+	}
+	return result;
+}
+
+int query_auto_store_batch_size(object me)
+{
+	int vip_level;
+	vip_level = query_vip_level(me);
+	if(vip_level >= 4)
+		return 8;
+	if(vip_level == 3)
+		return 4;
+	if(vip_level == 2)
+		return 2;
+	return 1;
+}
+
+int query_auto_storage_free_slots(object me)
+{
+	int maximum;
+	int used;
+	if(!me)
+		return 0;
+	maximum = me->query_cangku_size();
+	used = me->packaged_items ? sizeof(me->packaged_items) : 0;
+	if(maximum <= used)
+		return 0;
+	return maximum-used;
+}
+
+int should_auto_store_non_equipment(object me)
+{
+	if(!me || me->in_combat ||
+	   !query_auto_store_non_equipment_enabled(me))
+		return 0;
+	if(query_auto_storage_free_slots(me) <= 0)
+		return 0;
+	if(query_backpack_percent(me) < query_auto_cleanup_trigger_percent(me))
+		return 0;
+	return sizeof(query_auto_cleanup_candidates(me)) > 0;
+}
+
+mapping(string:mixed) perform_auto_store_non_equipment(object me)
+{
+	mapping(string:mixed) result = ([
+		"object_count":0,
+		"item_count":0,
+		"names":({}),
+		"reason":"",
+	]);
+	array(object) candidates;
+	int batch_size;
+	int maximum;
+	if(!me || me->in_combat)
+		return result;
+	if(!query_auto_store_non_equipment_enabled(me)){
+		result["reason"] = "vip_required";
+		return result;
+	}
+	if(query_auto_storage_free_slots(me) <= 0){
+		result["reason"] = "warehouse_full";
+		return result;
+	}
+	candidates = query_auto_cleanup_candidates(me);
+	batch_size = query_auto_store_batch_size(me);
+	maximum = me->query_cangku_size();
+	for(int i = 0;i < sizeof(candidates) &&
+	   (int)result["object_count"] < batch_size;i++){
+		object item;
+		object storage_item;
+		string item_name;
+		string item_path;
+		string now;
+		int amount;
+		int package_error;
+		item = candidates[i];
+		if(query_auto_cleanup_reject_reason(me,item) != "")
+			continue;
+		if(query_auto_storage_free_slots(me) <= 0){
+			result["reason"] = "warehouse_full";
+			break;
+		}
+		item_name = item->query_name_cn();
+		item_path = (file_name(item)/"#")[0];
+		amount = query_auto_cleanup_process_amount(me,item);
+		if(amount <= 0)
+			continue;
+		storage_item = item;
+		if(item->is("combine_item") && amount < item->amount){
+			storage_item = clone(item_path);
+			storage_item->amount = amount;
+		}
+		package_error = me->packaged(storage_item,maximum);
+		if(package_error){
+			if(storage_item != item)
+				storage_item->remove();
+			result["reason"] = "warehouse_full";
+			break;
+		}
+		if(storage_item != item){
+			item->amount -= amount;
+			storage_item->remove();
+		}
+		else
+			item->remove();
+		result["object_count"] = (int)result["object_count"]+1;
+		result["item_count"] = (int)result["item_count"]+amount;
+		result["names"] += ({item_name+"×"+amount});
+		now = ctime(time());
+		Stdio.append_file(ROOT+"/log/autofight_storage.log",
+			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
+			me->query_name()+") 自动存仓 "+item_name+" "+item_path+
+			" 数量"+amount+"\n");
+	}
+	return result;
+}
+
 void start_autofight(object me)
 {
 	if(!me)
@@ -968,6 +1465,13 @@ string query_start_block_reason(object me)
 			query_daily_seconds_for(me)/3600);
 	consolidate_gathered_materials(me);
 	if(query_loot_enabled(me) && me->if_over_easy_load()){
+		if(query_auto_store_non_equipment_enabled(me) &&
+		   query_auto_storage_free_slots(me) > 0 &&
+		   sizeof(query_auto_cleanup_candidates(me)))
+			return "";
+		if(query_auto_destroy_non_equipment_enabled(me) &&
+		   sizeof(query_auto_cleanup_candidates(me)))
+			return "";
 		if(query_auto_sell_material(me))
 			return "";
 		if(query_auto_sell_enabled(me) &&

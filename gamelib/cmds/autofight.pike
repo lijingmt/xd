@@ -80,6 +80,12 @@ private void show_cleanup_settings(object me,string notice)
 	int backpack_count;
 	int backpack_size;
 	int mode_requirement;
+	int destroy_enabled;
+	int store_enabled;
+	int cleanup_trigger;
+	int cleanup_keep;
+	int warehouse_count;
+	int warehouse_size;
 	AUTOFIGHTD->initialize_player(me);
 	mode = AUTOFIGHTD->query_auto_sell_mode(me);
 	vip_level = AUTOFIGHTD->query_vip_level(me);
@@ -88,6 +94,14 @@ private void show_cleanup_settings(object me,string notice)
 	backpack_size = me->query_beibao_size();
 	mode_requirement =
 		AUTOFIGHTD->query_auto_sell_mode_requirement(mode);
+	destroy_enabled =
+		AUTOFIGHTD->query_auto_destroy_non_equipment_enabled(me);
+	store_enabled =
+		AUTOFIGHTD->query_auto_store_non_equipment_enabled(me);
+	cleanup_trigger = AUTOFIGHTD->query_auto_cleanup_trigger_percent(me);
+	cleanup_keep = AUTOFIGHTD->query_auto_cleanup_keep(me);
+	warehouse_count = me->packaged_items ? sizeof(me->packaged_items) : 0;
+	warehouse_size = me->query_cangku_size();
 
 	out = "【VIP挂机·智能清包】\n";
 	if(notice && notice != "")
@@ -102,9 +116,9 @@ private void show_cleanup_settings(object me,string notice)
 		out += "（VIP权限不足，已安全暂停）\n";
 	else
 		out += "\n";
-	out += "自动触发：背包达到"+
+	out += "装备出售触发：背包达到"+
 		AUTOFIGHTD->query_auto_sell_trigger_percent(me)+"％\n";
-	out += "单次处理："+AUTOFIGHTD->query_auto_sell_batch_size(me)+"件\n";
+	out += "装备单次处理："+AUTOFIGHTD->query_auto_sell_batch_size(me)+"件\n";
 	out += "等级保护：只卖低于人物至少"+level_gap+"级的装备\n";
 	out += "出售类别："+
 		((int)me["/plus/autofight_sell_weapon"] == 1 ? "武器 " : "")+
@@ -112,10 +126,10 @@ private void show_cleanup_settings(object me,string notice)
 		((int)me["/plus/autofight_sell_accessory"] == 1 ?
 			"首饰/饰物" : "")+"\n\n";
 
-	out += "VIP1：满包触发，每次1件，可处理普通白装。\n";
-	out += "VIP2：90％触发，每次2件，可选含优良装备和3级保护线。\n";
-	out += "VIP3：80％触发，每次4件，可选含精制装备和不限等级差。\n";
-	out += "VIP4：70％触发，每次8件，自动程度最高。\n\n";
+	out += "VIP1：装备满包触发，每次1件，可处理普通白装。\n";
+	out += "VIP2：装备90％触发，每次2件，可选含优良装备和3级保护线。\n";
+	out += "VIP3：装备80％触发，每次4件，可选含精制装备和不限等级差。\n";
+	out += "VIP4：装备70％触发，每次8件，自动程度最高。\n\n";
 
 	out += selected_prefix(mode == "off")+
 		"[关闭智能清包:autofight sell off]\n";
@@ -165,7 +179,154 @@ private void show_cleanup_settings(object me,string notice)
 
 	out += "\n永久保护：穿戴中、任务、不可交易、不可丢弃、唯一、特殊来源、玩家标记、无等级需求、已洗炼、已镶宝石、锻造/融合，以及神炼以上装备。\n";
 	out += "自动出售会按普通商店价格结算，并写入独立审计日志。\n\n";
+	out += "【VIP自动存仓／销毁】\n";
+	out += "执行顺序：先存仓；仓库满、关闭存仓或物品不能处理时，才继续销毁和出售。\n";
+	out += "仓库占用："+warehouse_count+"/"+warehouse_size+"\n";
+	out += "当前触发线：背包"+cleanup_trigger+"％；单次存仓"+
+		AUTOFIGHTD->query_auto_store_batch_size(me)+"组。\n";
+	out += "自动存仓："+(store_enabled ? "开启" : "关闭")+"；自动销毁："+
+		(destroy_enabled ? "开启" : "关闭")+"。\n";
+	out += "处理类别：药材"+
+		(AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"herb") ?
+		 "开启" : "保留")+"，矿材"+
+		(AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"mine") ?
+		 "开启" : "保留")+"，其他普通物品"+
+		(AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"misc") ?
+		 "开启" : "保留")+"。\n";
+	if(vip_level >= 3)
+		out += "材料保留量：每种保留"+cleanup_keep+"个，超出部分才处理。\n";
+	out += "VIP1：90％触发，药材/矿材，每次存1组。\n";
+	out += "VIP2：85％触发，每次存2组，可选择处理类别。\n";
+	out += "VIP3：80％触发，每次存4组，可设置每种材料保留量。\n";
+	out += "VIP4：70/80/90％可选，每次存8组，可设名称保护和优先处理。\n\n";
+	if(vip_level < 1)
+		out += "自动存仓和自动销毁（VIP1解锁）；手动预览销毁仍免费。\n";
+	else{
+		out += store_enabled ?
+			"✓ [关闭自动存仓:autofight storage 0]\n" :
+			"[开启自动存仓:autofight storage 1]\n";
+		out += destroy_enabled ?
+			"✓ [关闭挂机销毁非装备:autofight destroy 0]\n" :
+			"[开启挂机销毁非装备:autofight destroyconfirm]\n";
+	}
+	if(vip_level >= 2){
+		out += "\n处理类别（VIP2）：\n";
+		out += AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"herb") ?
+			"✓ [药材：处理:autofight cleantype herb 0]\n" :
+			"[药材：保留:autofight cleantype herb 1]\n";
+		out += AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"mine") ?
+			"✓ [矿材：处理:autofight cleantype mine 0]\n" :
+			"[矿材：保留:autofight cleantype mine 1]\n";
+		out += AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"misc") ?
+			"✓ [其他普通物品：处理:autofight cleantype misc 0]\n" :
+			"[其他普通物品：保留:autofight cleantype misc 1]\n";
+	}
+	if(vip_level >= 3){
+		out += "\n每种材料保留量（VIP3）：\n";
+		out += selected_prefix(cleanup_keep == 0)+
+			"[不保留:autofight cleankeep 0]|";
+		out += selected_prefix(cleanup_keep == 50)+
+			"[保留50:autofight cleankeep 50]|";
+		out += selected_prefix(cleanup_keep == 100)+
+			"[保留100:autofight cleankeep 100]|";
+		out += selected_prefix(cleanup_keep == 300)+
+			"[保留300:autofight cleankeep 300]\n";
+	}
+	if(vip_level >= 4){
+		out += "\n触发线（VIP4）：\n";
+		out += selected_prefix(cleanup_trigger == 70)+
+			"[70％:autofight cleantrigger 70]|";
+		out += selected_prefix(cleanup_trigger == 80)+
+			"[80％:autofight cleantrigger 80]|";
+		out += selected_prefix(cleanup_trigger == 90)+
+			"[90％:autofight cleantrigger 90]\n";
+		out += "[设置名称保护／优先处理:autofight cleanlists]\n";
+	}
+	out += "\n安全规则永久保留：全部装备、任务/VIP物品、技能书、玉石、宝箱、丹药、食物饮品、不可丢弃/交易/存储物品、唯一物品、特殊来源和玩家标记物品。\n";
+	out += "[预览并一键销毁（免费）:cleanup_non_equipment]\n\n";
 	out += "[返回挂机设置:autofight open]\n";
+	out += "[返回游戏:look]\n";
+	write(out);
+}
+
+private void show_destroy_confirm(object me)
+{
+	string out;
+	array(object) candidates;
+	int object_count;
+	int item_count;
+	if(AUTOFIGHTD->query_vip_level(me) < 1){
+		out = "【挂机销毁非装备】\n";
+		out += "自动销毁由VIP1解锁；普通玩家仍可免费手动预览并确认销毁。\n\n";
+		out += "[预览并一键销毁:cleanup_non_equipment]\n";
+		out += "[返回清包设置:autofight cleanup]\n";
+		write(out);
+		return;
+	}
+	candidates = AUTOFIGHTD->query_auto_cleanup_candidates(me);
+	foreach(candidates,object item){
+		object_count++;
+		item_count += AUTOFIGHTD->query_auto_cleanup_process_amount(me,item);
+	}
+	out = "【确认开启·挂机销毁非装备】\n";
+	out += "开启后，挂机脱离战斗且背包达到"+
+		AUTOFIGHTD->query_auto_cleanup_trigger_percent(me)+
+		"％时，会自动销毁符合当前VIP规则的非装备物品。\n";
+	out += "当前按规则可销毁："+object_count+"组，共"+item_count+"个。\n";
+	out += "装备、任务物品、技能书、玉石、宝箱、丹药、食物饮品和受限制物品都会保留。\n";
+	out += "若同时开启自动存仓，将始终先存仓，仓库无法继续存放时才销毁。\n";
+	out += "销毁不会获得金币，并会写入审计日志。\n\n";
+	out += "[确认开启:autofight destroy 1]\n";
+	out += "[先预览物品:cleanup_non_equipment]\n";
+	out += "[取消:autofight cleanup]\n";
+	write(out);
+}
+
+private void show_cleanup_lists(object me,string notice)
+{
+	string out;
+	array(string) protect_names;
+	array(string) force_names;
+	mapping(string:int) shown;
+	array(object) candidates;
+	int shown_count;
+	if(AUTOFIGHTD->query_vip_level(me) < 4){
+		show_cleanup_settings(me,"名称保护和优先处理由VIP4解锁。");
+		return;
+	}
+	protect_names = AUTOFIGHTD->query_auto_cleanup_protect_names(me);
+	force_names = AUTOFIGHTD->query_auto_cleanup_force_names(me);
+	shown = ([]);
+	candidates = AUTOFIGHTD->query_non_equipment_destroy_candidates(me);
+	out = "【VIP4·名称保护／优先处理】\n";
+	if(notice && notice != "")
+		out += notice+"\n\n";
+	out += "保护名单（"+sizeof(protect_names)+"/20）："+
+		(sizeof(protect_names) ? protect_names*"、" : "无")+"\n";
+	out += "优先处理（"+sizeof(force_names)+"/20）："+
+		(sizeof(force_names) ? force_names*"、" : "无")+"\n";
+	out += "优先处理可越过类别开关，但不能越过永久安全保护和材料保留量。\n\n";
+	foreach(candidates,object item){
+		string item_name;
+		string mode;
+		if(shown_count >= 20)
+			break;
+		item_name = item->query_name();
+		if(shown[item_name])
+			continue;
+		shown[item_name] = 1;
+		shown_count++;
+		mode = AUTOFIGHTD->query_auto_cleanup_name_mode(me,item_name);
+		out += item->query_name_cn()+"（"+
+			(mode == "protect" ? "已保护" :
+			 mode == "force" ? "优先处理" : "默认规则")+"）\n";
+		out += "[保护:autofight cleanname protect "+item_name+"]|";
+		out += "[优先处理:autofight cleanname force "+item_name+"]|";
+		out += "[恢复默认:autofight cleanname normal "+item_name+"]\n";
+	}
+	if(!shown_count)
+		out += "背包中暂无可配置的普通非装备物品。\n";
+	out += "\n[返回清包设置:autofight cleanup]\n";
 	out += "[返回游戏:look]\n";
 	write(out);
 }
@@ -230,6 +391,12 @@ private void show_settings(object me, string notice)
 	out += "VIP智能清包："+
 		AUTOFIGHTD->query_auto_sell_mode_cn(
 			AUTOFIGHTD->query_auto_sell_mode(me))+"\n";
+	out += "挂机销毁非装备："+
+		(AUTOFIGHTD->query_auto_destroy_non_equipment_enabled(me) ?
+		 "开启" : "关闭")+"\n";
+	out += "挂机自动存仓："+
+		(AUTOFIGHTD->query_auto_store_non_equipment_enabled(me) ?
+		 "开启" : "关闭")+"\n";
 	out += "区域巡游："+(AUTOFIGHTD->query_roam_enabled(me) ? "开启" : "关闭")+"\n";
 	out += "随路自动采集："+
 		AUTOFIGHTD->query_gather_mode_cn(gather_mode)+"\n";
@@ -261,6 +428,7 @@ private void show_settings(object me, string notice)
 		"[关闭缺药休整:autofight rest 0]\n" :
 		"[开启缺药休整:autofight rest 1]\n";
 	out += "[高级清包设置:autofight cleanup]\n";
+	out += "[预览并一键销毁非装备:cleanup_non_equipment]\n";
 	out += "\n采药采矿设置：\n";
 	out += selected_prefix(gather_mode == "off")+
 		"[关闭自动采集:autofight gather off]|";
@@ -400,6 +568,133 @@ int main(string|zero arg)
 	}
 	if(action == "cleanup"){
 		show_cleanup_settings(me,"");
+		return 1;
+	}
+	if(action == "destroyconfirm"){
+		show_destroy_confirm(me);
+		return 1;
+	}
+	if(action == "destroy"){
+		if(value != "0" && value != "1"){
+			show_cleanup_settings(me,"挂机销毁选项无效。");
+			return 1;
+		}
+		if(value == "1" && AUTOFIGHTD->query_vip_level(me) < 1){
+			show_cleanup_settings(me,
+				"自动销毁由VIP1解锁；手动预览销毁仍免费。");
+			return 1;
+		}
+		me["/plus/autofight_destroy_non_equipment"] =
+			value == "1" ? 1 : 0;
+		show_cleanup_settings(me,value == "1" ?
+			"挂机销毁非装备已开启；只在脱离战斗后执行。" :
+			"挂机销毁非装备已关闭。");
+		return 1;
+	}
+	if(action == "storage"){
+		if(value != "0" && value != "1"){
+			show_cleanup_settings(me,"自动存仓选项无效。");
+			return 1;
+		}
+		if(value == "1" && AUTOFIGHTD->query_vip_level(me) < 1){
+			show_cleanup_settings(me,"自动存仓由VIP1解锁。");
+			return 1;
+		}
+		me["/plus/autofight_store_non_equipment"] =
+			value == "1" ? 1 : 0;
+		show_cleanup_settings(me,value == "1" ?
+			"自动存仓已开启；挂机会优先存仓，再执行销毁或出售。" :
+			"自动存仓已关闭。已有仓库物品不受影响。");
+		return 1;
+	}
+	if(action == "cleantype"){
+		category = "";
+		enabled_text = "";
+		if(sscanf(value,"%s %s",category,enabled_text) != 2 ||
+		   (enabled_text != "0" && enabled_text != "1") ||
+		   (category != "herb" && category != "mine" &&
+		    category != "misc")){
+			show_cleanup_settings(me,"非装备处理类别选项无效。");
+			return 1;
+		}
+		if(AUTOFIGHTD->query_vip_level(me) < 2){
+			show_cleanup_settings(me,"自选处理类别由VIP2解锁。");
+			return 1;
+		}
+		number = enabled_text == "1" ? 1 : 0;
+		if(category == "herb")
+			me["/plus/autofight_cleanup_herb"] = number;
+		else if(category == "mine")
+			me["/plus/autofight_cleanup_mine"] = number;
+		else
+			me["/plus/autofight_cleanup_misc"] = number;
+		show_cleanup_settings(me,"非装备处理类别已更新。");
+		return 1;
+	}
+	if(action == "cleankeep"){
+		number = (int)value;
+		if(AUTOFIGHTD->query_vip_level(me) < 3){
+			show_cleanup_settings(me,"材料保留量由VIP3解锁。");
+			return 1;
+		}
+		if(value == "" ||
+		   (number != 0 && number != 50 && number != 100 &&
+		    number != 300)){
+			show_cleanup_settings(me,"材料保留量选项无效。");
+			return 1;
+		}
+		me["/plus/autofight_cleanup_keep"] = number;
+		show_cleanup_settings(me,"自动存仓／销毁的材料保留量已更新。");
+		return 1;
+	}
+	if(action == "cleantrigger"){
+		number = (int)value;
+		if(AUTOFIGHTD->query_vip_level(me) < 4){
+			show_cleanup_settings(me,"自选背包触发线由VIP4解锁。");
+			return 1;
+		}
+		if(number != 70 && number != 80 && number != 90){
+			show_cleanup_settings(me,"背包触发线选项无效。");
+			return 1;
+		}
+		me["/plus/autofight_cleanup_trigger"] = number;
+		show_cleanup_settings(me,"自动存仓／销毁的背包触发线已更新。");
+		return 1;
+	}
+	if(action == "cleanlists"){
+		show_cleanup_lists(me,"");
+		return 1;
+	}
+	if(action == "cleanname"){
+		string item_mode;
+		string item_name;
+		object|zero selected_item;
+		item_mode = "";
+		item_name = "";
+		if(sscanf(value,"%s %s",item_mode,item_name) != 2 ||
+		   (item_mode != "normal" && item_mode != "protect" &&
+		    item_mode != "force")){
+			show_cleanup_lists(me,"名称规则选项无效。");
+			return 1;
+		}
+		if(AUTOFIGHTD->query_vip_level(me) < 4){
+			show_cleanup_settings(me,"名称保护和优先处理由VIP4解锁。");
+			return 1;
+		}
+		selected_item = present(item_name,me);
+		if(item_mode != "normal" &&
+		   (!selected_item ||
+		    AUTOFIGHTD->query_non_equipment_destroy_reject_reason(
+			me,selected_item) != "")){
+			show_cleanup_lists(me,"只能设置背包内符合永久安全规则的普通物品。");
+			return 1;
+		}
+		if(!AUTOFIGHTD->set_auto_cleanup_name_mode(
+		   me,item_name,item_mode)){
+			show_cleanup_lists(me,"名称规则保存失败，名单最多20项。");
+			return 1;
+		}
+		show_cleanup_lists(me,"名称规则已更新。");
 		return 1;
 	}
 	if(action == "sell"){

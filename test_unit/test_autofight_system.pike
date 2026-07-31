@@ -61,11 +61,12 @@ void destroy_runtime_player(object|zero player)
 
 void test_runtime_compile()
 {
-	test_start("守护进程与三个命令运行时编译");
+	test_start("守护进程与相关命令运行时编译");
 	array(string) paths = ({
 		"/gamelib/single/daemons/autofightd.pike",
 		"/gamelib/cmds/autofight.pike",
 		"/gamelib/cmds/autofightclose.pike",
+		"/gamelib/cmds/cleanup_non_equipment.pike",
 		"/gamelib/cmds/viceskill_dig.pike",
 		"/gamelib/cmds/viceskill_gather.pike",
 		"/lowlib/wapmud2/cmds/flushview.pike",
@@ -112,7 +113,17 @@ void test_defaults_and_switch()
 			daemon->query_auto_sell_enabled(player) == 0 &&
 			daemon->query_gather_mode(player) == "off" &&
 			daemon->query_material_keep(player) == -1 &&
+			daemon->query_auto_destroy_non_equipment_enabled(player) == 0 &&
 			player->query_autofight() == "disable";
+		valid = valid &&
+			player["/plus/autofight_config_version"] == 6 &&
+			player["/plus/autofight_store_non_equipment"] == 0 &&
+			player["/plus/autofight_cleanup_herb"] == 1 &&
+			player["/plus/autofight_cleanup_mine"] == 1 &&
+			player["/plus/autofight_cleanup_misc"] == 0 &&
+			player["/plus/autofight_cleanup_keep"] == 100 &&
+			player["/plus/autofight_cleanup_trigger"] == 70 &&
+			daemon->query_auto_store_non_equipment_enabled(player) == 0;
 		daemon->start_autofight(player);
 		valid = valid && player->query_autofight() == "enable";
 		daemon->stop_autofight(player);
@@ -436,6 +447,332 @@ void test_gathering_and_material_cleanup()
 		test_pass();
 	else
 		test_fail("自动采集、9999堆叠或原料出售错误: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_non_equipment_destroy_safety()
+{
+	test_start("一键销毁只清除普通非装备并按堆叠数量预览");
+	object player = create_runtime_player(
+		"__testunit_non_equipment_destroy__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object cleanup_command = (object)(ROOT+
+		"/gamelib/cmds/cleanup_non_equipment.pike");
+	object material = clone(ROOT+
+		"/gamelib/clone/item/material/tongkuangshi");
+	object task_material = clone(ROOT+
+		"/gamelib/clone/item/material/cf_suibu");
+	object restricted_material = clone(ROOT+
+		"/gamelib/clone/item/material/cf_suibu");
+	object vip_material = clone(ROOT+
+		"/gamelib/clone/item/material/cf_suibu");
+	object weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object book = clone(ROOT+
+		"/gamelib/clone/item/book/lingren");
+	object food = clone(ROOT+
+		"/gamelib/clone/item/food/ganliang");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		daemon->initialize_player(player);
+		material->amount = 37;
+		material->move(player);
+		task_material->set_item_task(1);
+		task_material->move(player);
+		restricted_material->set_item_canDrop(0);
+		restricted_material->move(player);
+		vip_material->set_toVip(1);
+		vip_material->move(player);
+		weapon->move(player);
+		book->move(player);
+		food->move(player);
+		mapping preview =
+			daemon->query_non_equipment_destroy_preview(player);
+		valid = preview["object_count"] == 1 &&
+			preview["item_count"] == 37 &&
+			environment(material) == player &&
+			daemon->query_non_equipment_destroy_reject_reason(
+				player,weapon) == "equipment" &&
+			daemon->query_non_equipment_destroy_reject_reason(
+				player,book) == "protected_type" &&
+			daemon->query_non_equipment_destroy_reject_reason(
+				player,food) == "protected_type" &&
+			daemon->query_non_equipment_destroy_reject_reason(
+				player,task_material) == "task_item" &&
+			daemon->query_non_equipment_destroy_reject_reason(
+				player,restricted_material) == "not_droppable" &&
+			daemon->query_non_equipment_destroy_reject_reason(
+				player,vip_material) == "vip_item";
+		set_this_player(player);
+		cleanup_command->main(0);
+		valid = valid && environment(material) == player;
+		cleanup_command->main("confirm");
+		valid = valid &&
+			!present("tongkuangshi",player) &&
+			environment(task_material) == player &&
+			environment(restricted_material) == player &&
+			environment(vip_material) == player &&
+			environment(weapon) == player &&
+			environment(book) == player &&
+			environment(food) == player &&
+			sizeof(all_inventory(player)) == 6;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("销毁预览、堆叠计数或保护规则错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_vip_non_equipment_cleanup_tiers()
+{
+	test_start("VIP自动存仓与销毁按等级递进解锁");
+	object player = create_runtime_player(
+		"__testunit_autofight_cleanup_tiers__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object material = clone(ROOT+
+		"/gamelib/clone/item/material/tongkuangshi");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		daemon->initialize_player(player);
+		player["/plus/autofight_store_non_equipment"] = 1;
+		player["/plus/autofight_destroy_non_equipment"] = 1;
+		material->amount = 150;
+		material->move(player);
+		valid = !daemon->query_auto_store_non_equipment_enabled(player) &&
+			!daemon->query_auto_destroy_non_equipment_enabled(player) &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 100;
+
+		player->set_vip_flag(1);
+		valid = valid &&
+			daemon->query_auto_store_non_equipment_enabled(player) &&
+			daemon->query_auto_destroy_non_equipment_enabled(player) &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 90 &&
+			daemon->query_auto_store_batch_size(player) == 1 &&
+			daemon->query_auto_cleanup_category_enabled(player,"herb") &&
+			daemon->query_auto_cleanup_category_enabled(player,"mine") &&
+			!daemon->query_auto_cleanup_category_enabled(player,"misc");
+
+		player->set_vip_flag(2);
+		player["/plus/autofight_cleanup_herb"] = 0;
+		player["/plus/autofight_cleanup_mine"] = 1;
+		player["/plus/autofight_cleanup_misc"] = 1;
+		valid = valid &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 85 &&
+			daemon->query_auto_store_batch_size(player) == 2 &&
+			!daemon->query_auto_cleanup_category_enabled(player,"herb") &&
+			daemon->query_auto_cleanup_category_enabled(player,"mine") &&
+			daemon->query_auto_cleanup_category_enabled(player,"misc");
+
+		player->set_vip_flag(3);
+		player["/plus/autofight_cleanup_keep"] = 100;
+		valid = valid &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 80 &&
+			daemon->query_auto_store_batch_size(player) == 4 &&
+			daemon->query_auto_cleanup_process_amount(player,material) == 50;
+
+		player->set_vip_flag(4);
+		player["/plus/autofight_cleanup_trigger"] = 90;
+		valid = valid &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 90 &&
+			daemon->query_auto_store_batch_size(player) == 8 &&
+			daemon->set_auto_cleanup_name_mode(
+				player,material->query_name(),"protect") &&
+			daemon->query_auto_cleanup_reject_reason(player,material) ==
+				"protected_list" &&
+			daemon->set_auto_cleanup_name_mode(
+				player,material->query_name(),"force") &&
+			daemon->query_auto_cleanup_reject_reason(player,material) == "";
+
+		player->set_vip_flag(0);
+		valid = valid &&
+			!daemon->query_auto_store_non_equipment_enabled(player) &&
+			!daemon->query_auto_destroy_non_equipment_enabled(player);
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("VIP非装备清理分级、保留量或名单规则错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_end_to_end_auto_destroy_non_equipment()
+{
+	test_start("挂机脱战自动销毁非装备并保留装备和补给");
+	object player = create_runtime_player(
+		"__testunit_autofight_destroy_e2e__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object material = clone(ROOT+
+		"/gamelib/clone/item/material/tongkuangshi");
+	object weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object food = clone(ROOT+
+		"/gamelib/clone/item/food/ganliang");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		player->move(room);
+		player->set_vip_flag(1);
+		material->amount = 25;
+		material->move(player);
+		weapon->move(player);
+		food->move(player);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_destroy_non_equipment"] = 1;
+		player["/plus/autofight_smart_route"] = 0;
+		while(daemon->query_backpack_percent(player) < 90){
+			object protected_food = clone(ROOT+
+				"/gamelib/clone/item/food/ganliang");
+			protected_food->move(player);
+		}
+		valid = daemon->query_auto_destroy_non_equipment_enabled(player) == 1 &&
+			daemon->should_auto_destroy_non_equipment(player) == 1;
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		valid = valid && !present("tongkuangshi",player) &&
+			environment(weapon) == player &&
+			environment(food) == player &&
+			player->query_autofight() == "enable" &&
+			!player->in_combat;
+		daemon->stop_autofight(player);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("挂机自动销毁链路或保护规则错误: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_end_to_end_auto_storage_priority()
+{
+	test_start("挂机优先存仓、按VIP3保留材料且满仓转销毁");
+	object player = create_runtime_player(
+		"__testunit_autofight_storage_e2e__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object material = clone(ROOT+
+		"/gamelib/clone/item/material/tongkuangshi");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	int storage_blocked = 0;
+	int destroy_ready = 0;
+	int material_removed = 0;
+	int still_running = 0;
+	int initial_store_ready = 0;
+	int initial_destroy_ready = 0;
+	int partial_retained = 0;
+	int packaged_ok = 0;
+	mixed err = catch {
+		player->move(room);
+		player->set_vip_flag(3);
+		player->packageLevel = 20;
+		player->packaged_items = ({});
+		material->amount = 250;
+		material->move(player);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_store_non_equipment"] = 1;
+		player["/plus/autofight_destroy_non_equipment"] = 1;
+		player["/plus/autofight_cleanup_keep"] = 100;
+		player["/plus/autofight_smart_route"] = 0;
+		while(daemon->query_backpack_percent(player) < 80){
+			object protected_food = clone(ROOT+
+				"/gamelib/clone/item/food/ganliang");
+			protected_food->move(player);
+		}
+		initial_store_ready =
+			daemon->should_auto_store_non_equipment(player);
+		initial_destroy_ready =
+			daemon->should_auto_destroy_non_equipment(player);
+		valid = initial_store_ready && initial_destroy_ready;
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		partial_retained = environment(material) == player &&
+			material->amount == 100;
+		packaged_ok =
+			sizeof(player->packaged_items) == 1 &&
+			player->packaged_items[0][0] == "tongkuangshi" &&
+			player->packaged_items[0][6] == 150;
+		valid = valid && partial_retained && packaged_ok &&
+			player->query_autofight() == "enable" &&
+			!player->in_combat;
+		while(sizeof(player->packaged_items) < player->query_cangku_size())
+			player->packaged_items += ({({
+				"testdummy","测试占位","测试占位",
+				"material/cf_suibu",0,0,1,
+			})});
+		player["/plus/autofight_cleanup_keep"] = 0;
+		while(daemon->query_backpack_percent(player) < 80){
+			object fallback_food = clone(ROOT+
+				"/gamelib/clone/item/food/ganliang");
+			fallback_food->move(player);
+		}
+		storage_blocked =
+			!daemon->should_auto_store_non_equipment(player);
+		destroy_ready =
+			daemon->should_auto_destroy_non_equipment(player);
+		valid = valid && storage_blocked && destroy_ready;
+		flush_command->main(0);
+		material_removed = !present("tongkuangshi",player);
+		still_running = player->query_autofight() == "enable";
+		valid = valid && material_removed && still_running;
+		daemon->stop_autofight(player);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"自动存仓优先级、仓库记录或材料保留量错误: initial_store=%d initial_destroy=%d retained=%d packaged=%d blocked=%d ready=%d removed=%d running=%d %s",
+			initial_store_ready,initial_destroy_ready,partial_retained,
+			packaged_ok,storage_blocked,destroy_ready,material_removed,still_running,
+			error_desc));
 	if(room){
 		foreach(all_inventory(room),object item)
 			if(item != player)
@@ -1050,9 +1387,11 @@ void test_integration_wiring()
 		ROOT+"/gamelib/cmds/autofight.pike");
 	string flush_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/cmds/flushview.pike");
+	string inventory_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/single/viewd.pike");
 	if(api_source && renderer_source && vue_source && index_source &&
 	   daily_source && kill_source && leave_source && user_source &&
-	   autofight_source && flush_source &&
+	   autofight_source && flush_source && inventory_source &&
 	   search(api_source,"AUTOFIGHTD->start_autofight(player)") != -1 &&
 	   search(renderer_source,"result[\"autofight_time_left\"]") != -1 &&
 	   search(renderer_source,"result[\"autofight_daily_limit\"]") != -1 &&
@@ -1072,7 +1411,12 @@ void test_integration_wiring()
 	   search(leave_source,"query_autofight()==\"disable\"") != -1 &&
 	   search(autofight_source,"高级清包设置") != -1 &&
 	   search(autofight_source,"永久保护") != -1 &&
-	   search(flush_source,"perform_auto_sell(me)") != -1)
+	   search(autofight_source,"cleanup_non_equipment") != -1 &&
+	   search(autofight_source,"自动存仓") != -1 &&
+	   search(flush_source,"perform_auto_sell(me)") != -1 &&
+	   search(flush_source,"perform_auto_store_non_equipment") != -1 &&
+	   search(flush_source,"perform_non_equipment_destroy") != -1 &&
+	   search(inventory_source,"一键安全销毁非装备") != -1)
 		test_pass();
 	else
 		test_fail("API、Vue、每日重置或防外挂豁免缺少接线");
@@ -1089,6 +1433,10 @@ int main()
 	test_auto_sell_settlement();
 	test_time_and_low_life_guard();
 	test_gathering_and_material_cleanup();
+	test_non_equipment_destroy_safety();
+	test_vip_non_equipment_cleanup_tiers();
+	test_end_to_end_auto_destroy_non_equipment();
+	test_end_to_end_auto_storage_priority();
 	test_recovery_skips_unusable_medicine();
 	test_duplicate_object_count();
 	test_recovery_selection_checkmarks();

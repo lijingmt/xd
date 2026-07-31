@@ -381,7 +381,10 @@
 
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
             <main class="game-frame-container"
-                  :class="{ 'battle-dock-active': useJsonMode && isInBattle && !battleFullscreen && !battleDockCollapsed }">
+                  :class="{
+                      'battle-dock-active': useJsonMode && isInBattle && !battleFullscreen && !battleDockCollapsed,
+                      'battle-dock-collapsed': useJsonMode && isInBattle && !battleFullscreen && battleDockCollapsed
+                  }">
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
                      class="mud-output-container"

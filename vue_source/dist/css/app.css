@@ -5859,6 +5859,8 @@ body {
     --ux-shadow: 0 18px 50px rgba(71, 47, 29, 0.18);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --quick-nav-height: 52px;
+    --quick-nav-bottom-offset: 0px;
+    --battle-dock-height: 78px;
     --quick-icon-size: 18px;
     --quick-label-size: 10px;
     --quick-tool-height: 52px;
@@ -6992,6 +6994,10 @@ select:focus-visible {
         border-radius: 0 0 23px 23px;
     }
 
+    :root {
+        --quick-nav-bottom-offset: 14px;
+    }
+
     .game-frame-container {
         min-height: calc(100dvh - 124px);
     }
@@ -7010,23 +7016,38 @@ select:focus-visible {
 
 /* ========================================================================
    Non-obscuring battle dock
-   Reserve content space on phones/tablets; use the desktop side gutter.
+   Keep it directly above the bottom tabs and reserve the same content space.
    ======================================================================== */
 .game-frame-container.battle-dock-active {
-    padding-top: 82px;
-    transition: padding-top 0.2s ease;
+    padding-bottom: calc(
+        var(--quick-nav-height) + var(--safe-bottom) +
+        var(--quick-nav-bottom-offset) + var(--battle-dock-height) + 18px
+    );
+    transition: padding-bottom 0.2s ease;
+}
+
+.game-frame-container.battle-dock-collapsed {
+    padding-bottom: calc(
+        var(--quick-nav-height) + var(--safe-bottom) +
+        var(--quick-nav-bottom-offset) + 66px
+    );
 }
 
 .battle-panel.mini-mode {
-    top: calc(env(safe-area-inset-top, 0px) + 104px);
-    right: max(8px, calc((100vw - 760px) / 2 + 8px));
-    left: auto;
-    width: min(340px, calc(100vw - 16px));
+    top: auto;
+    right: auto;
+    bottom: calc(
+        var(--quick-nav-height) + var(--safe-bottom) +
+        var(--quick-nav-bottom-offset) + 8px
+    );
+    left: 50%;
+    width: min(420px, calc(100vw - 16px));
     max-width: none;
     padding: 8px 10px;
     border-width: 1px;
     border-radius: 14px;
-    transform: none;
+    z-index: 1700;
+    transform: translateX(-50%);
 }
 
 .battle-panel.mini-mode .battle-mini {
@@ -7075,6 +7096,8 @@ select:focus-visible {
 }
 
 .battle-panel.mini-mode.dock-collapsed {
+    right: max(0px, calc((100vw - 760px) / 2));
+    left: auto;
     width: auto;
     padding: 0;
     overflow: visible;
@@ -7082,6 +7105,7 @@ select:focus-visible {
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
+    transform: none;
 }
 
 .battle-dock-trigger {
@@ -7108,18 +7132,14 @@ select:focus-visible {
 }
 
 @media (max-width: 600px) {
-    .game-frame-container.battle-dock-active {
-        padding-top: 80px;
-    }
-
     .battle-panel.mini-mode {
-        top: calc(env(safe-area-inset-top, 0px) + 100px);
-        right: 8px;
+        right: auto;
         width: calc(100vw - 16px);
     }
 
     .battle-panel.mini-mode.dock-collapsed {
         right: 0;
+        left: auto;
         width: auto;
     }
 
@@ -7135,14 +7155,7 @@ select:focus-visible {
 }
 
 @media (min-width: 1340px) {
-    .game-frame-container.battle-dock-active {
-        padding-top: 0;
-    }
-
     .battle-panel.mini-mode {
-        top: 118px;
-        right: auto;
-        left: calc(50% + 392px);
-        width: min(300px, calc(50vw - 410px));
+        width: 420px;
     }
 }

@@ -274,10 +274,12 @@ $(ob->query_links(arg))
 #"【装备背包】
 			[一键穿装:auto_equip]
 			[新手免费领红蓝药:get_free_yao]
+			[一键安全销毁非装备:cleanup_non_equipment]
 			$(player->view_inventory_zhuangbei())
 			");
 	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,
-#"$(player->view_inventory_daoju())
+#"[一键安全销毁非装备:cleanup_non_equipment]
+			$(player->view_inventory_daoju())
 			");
 	WAP_VIEWD["/inventory_sell"]=new(MUD_VIEW,
 #"$(player->view_inventory_zhuangbei_sell(\"sell\",1,1))

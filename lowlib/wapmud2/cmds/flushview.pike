@@ -89,6 +89,8 @@ int main(string|zero arg)
 	mapping route;
 	mapping sell_result;
 	mapping material_sell_result;
+	mapping storage_result;
+	mapping destroy_result;
 	string reason;
 	string direction;
 	string route_path;
@@ -157,6 +159,28 @@ int main(string|zero arg)
 		if(AUTOFIGHTD->begin_auto_rest(me)){
 			write("回蓝药不足，挂机助手正带你前往安全地点休息。\n");
 			return continue_auto_rest(me);
+		}
+	}
+	if(AUTOFIGHTD->should_auto_store_non_equipment(me)){
+		storage_result =
+			AUTOFIGHTD->perform_auto_store_non_equipment(me);
+		if((int)storage_result["object_count"] > 0){
+			write("挂机助手已自动存入仓库"+
+				(int)storage_result["object_count"]+"组，共"+
+				(int)storage_result["item_count"]+"个非装备物品。\n");
+			write("[查看清理设置:autofight cleanup]\n");
+			return 1;
+		}
+	}
+	if(AUTOFIGHTD->should_auto_destroy_non_equipment(me)){
+		destroy_result =
+			AUTOFIGHTD->perform_non_equipment_destroy(me,"autofight");
+		if((int)destroy_result["object_count"] > 0){
+			write("挂机助手已安全销毁"+
+				(int)destroy_result["object_count"]+"组，共"+
+				(int)destroy_result["item_count"]+"个非装备物品。\n");
+			write("[查看清理设置:autofight cleanup]\n");
+			return 1;
 		}
 	}
 	if(AUTOFIGHTD->should_auto_sell(me)){

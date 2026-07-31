@@ -6,8 +6,8 @@
     <title>仙道</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785496354435">
-    <link rel="stylesheet" href="css/realm.css?v=v1785496354435">
+    <link rel="stylesheet" href="css/app.css?v=v1785498624036">
+    <link rel="stylesheet" href="css/realm.css?v=v1785498624036">
 </head>
 <body>
     <div id="app">
@@ -381,7 +381,10 @@
 
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
             <main class="game-frame-container"
-                  :class="{ 'battle-dock-active': useJsonMode && isInBattle && !battleFullscreen && !battleDockCollapsed }">
+                  :class="{
+                      'battle-dock-active': useJsonMode && isInBattle && !battleFullscreen && !battleDockCollapsed,
+                      'battle-dock-collapsed': useJsonMode && isInBattle && !battleFullscreen && battleDockCollapsed
+                  }">
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
                      class="mud-output-container"
@@ -891,10 +894,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785496354435"></script>
-    <script src="js/app.js?v=v1785496354435"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785498624036"></script>
+    <script src="js/app.js?v=v1785498624036"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785496354435"></script>
+    <script src="../includes/translate.js?v=v1785498624036"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
