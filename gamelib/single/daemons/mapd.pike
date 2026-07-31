@@ -52,6 +52,7 @@ mapping(string:string) pinyin_to_cn = ([
 	"jinaodao":"金鳌岛",
 	"waihai":"外海",
 	"penglaihuanjing":"蓬莱幻境",
+	"jiuxiaojiejing":"九霄界境",
 	"bawangbao":"霸王暗巷",
 	"plshuige":"蓬莱水阁",
 	"fuxishan":"伏羲山",
@@ -143,6 +144,13 @@ string get_all_kinds_map(){
 			object me = this_player();
 			int vip_level = me->query_vip_flag() || 0;
 			int level = me->query_level();
+			if(block=="jiuxiaojiejing" &&
+			   level<ENDGAME_MAP_MIN_LEVEL &&
+			   !MANAGERD->is_cross_zone_admin(me->query_name())){
+				s += "九霄界境（"+ENDGAME_MAP_MIN_LEVEL+
+					"级开放）\n";
+				continue;
+			}
 
 			// 计算VIP费用
 			int vip_fee = vip_fly_fee_config[vip_level];

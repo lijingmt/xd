@@ -18,6 +18,14 @@ int main(string|zero arg)
 	int fee;
 	string block;
 	sscanf(arg,"%s %d",block,fee);
+	if(block=="jiuxiaojiejing" &&
+	   me->query_level()<ENDGAME_MAP_MIN_LEVEL &&
+	   !MANAGERD->is_cross_zone_admin(me->query_name())){
+		s += "九霄界境需要达到"+ENDGAME_MAP_MIN_LEVEL+
+			"级后才能展开地图，未扣除飞行费用。\n";
+		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
+		return 1;
+	}
 	if(me->pay_money(fee)==0){
 		s += "你身上的钱不够支付飞行费用，请返回。\n";
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);

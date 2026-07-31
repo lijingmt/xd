@@ -375,6 +375,60 @@ void test_entry_and_autofight_route_runtime()
 	destroy_player(high_player);
 }
 
+void test_frontend_map_catalog_runtime()
+{
+	test_start("前端地图显示九霄界境且低等级不会误扣传送费");
+	object|zero low_player = 0;
+	object|zero high_player = 0;
+	object|zero original_player = this_player();
+	object map_daemon = (object)(ROOT+
+		"/gamelib/single/daemons/mapd.pike");
+	object map_command = (object)(ROOT+
+		"/gamelib/cmds/map_display.pike");
+	string low_catalog = "";
+	string high_catalog = "";
+	string sub_maps = "";
+	string error_desc = "";
+	int money_before = 0;
+	int valid = 0;
+	mixed err = catch {
+		low_player = create_player(
+			"__testunit_endgame_map_low__",989,"third");
+		low_player->set_account(20000000);
+		set_this_player(low_player);
+		low_catalog = map_daemon->get_all_kinds_map();
+		money_before = low_player->query_account();
+		map_command->main("jiuxiaojiejing 10000000");
+		valid = search(low_catalog,"九霄界境（990级开放）")!=-1 &&
+			search(low_catalog,"map_display jiuxiaojiejing")==-1 &&
+			low_player->query_account()==money_before;
+
+		high_player = create_player(
+			"__testunit_endgame_map_high__",990,"third");
+		set_this_player(high_player);
+		high_catalog = map_daemon->get_all_kinds_map();
+		sub_maps = map_daemon->get_sub_map_list("jiuxiaojiejing");
+		valid = valid &&
+			search(high_catalog,"飞到 九霄界境")!=-1 &&
+			search(high_catalog,"map_display jiuxiaojiejing")!=-1 &&
+			search(sub_maps,
+				"qge74hye jiuxiaojiejing/jiuxiaotianmen")!=-1 &&
+			search(sub_maps,"飞到：万象归墟")!=-1;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("地图分类、等级门槛或扣费保护失败: "+error_desc);
+	destroy_player(low_player);
+	destroy_player(high_player);
+}
+
 int main()
 {
 	werror("\n========== 千级封顶与九霄界境测试 ==========\n");
@@ -383,6 +437,7 @@ int main()
 	test_map_and_npc_runtime();
 	test_endgame_dynamic_level_runtime();
 	test_entry_and_autofight_route_runtime();
+	test_frontend_map_catalog_runtime();
 	werror("千级地图：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);
