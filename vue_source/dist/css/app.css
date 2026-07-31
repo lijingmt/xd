@@ -7007,3 +7007,142 @@ select:focus-visible {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ========================================================================
+   Non-obscuring battle dock
+   Reserve content space on phones/tablets; use the desktop side gutter.
+   ======================================================================== */
+.game-frame-container.battle-dock-active {
+    padding-top: 82px;
+    transition: padding-top 0.2s ease;
+}
+
+.battle-panel.mini-mode {
+    top: calc(env(safe-area-inset-top, 0px) + 104px);
+    right: max(8px, calc((100vw - 760px) / 2 + 8px));
+    left: auto;
+    width: min(340px, calc(100vw - 16px));
+    max-width: none;
+    padding: 8px 10px;
+    border-width: 1px;
+    border-radius: 14px;
+    transform: none;
+}
+
+.battle-panel.mini-mode .battle-mini {
+    width: 100%;
+    max-height: none;
+    gap: 7px;
+}
+
+.battle-panel.mini-mode .battle-side {
+    min-width: 0;
+    flex: 1 1 0;
+}
+
+.battle-panel.mini-mode .hp-bar-container,
+.battle-panel.mini-mode .neili-bar-container {
+    width: 100%;
+}
+
+.battle-mini-controls {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2, 34px);
+    gap: 4px;
+}
+
+.battle-collapse-btn {
+    display: grid;
+    width: 34px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.battle-panel.mini-mode .battle-toggle-btn {
+    width: 34px;
+    min-width: 34px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: 9px;
+}
+
+.battle-panel.mini-mode.dock-collapsed {
+    width: auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.battle-dock-trigger {
+    display: grid;
+    min-width: 48px;
+    min-height: 48px;
+    place-items: center;
+    gap: 0;
+    padding: 4px 7px;
+    border: 1px solid rgba(255, 100, 100, 0.62);
+    border-radius: 14px 4px 4px 14px;
+    background: linear-gradient(145deg, rgba(39, 27, 48, 0.96), rgba(72, 25, 28, 0.96));
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(62, 18, 23, 0.24);
+    font-size: 17px;
+    cursor: pointer;
+}
+
+.battle-dock-percent {
+    color: #ffd6d6;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+@media (max-width: 600px) {
+    .game-frame-container.battle-dock-active {
+        padding-top: 80px;
+    }
+
+    .battle-panel.mini-mode {
+        top: calc(env(safe-area-inset-top, 0px) + 100px);
+        right: 8px;
+        width: calc(100vw - 16px);
+    }
+
+    .battle-panel.mini-mode.dock-collapsed {
+        right: 0;
+        width: auto;
+    }
+
+    .battle-panel.mini-mode .battle-name {
+        max-width: 78px;
+        font-size: 12px;
+    }
+
+    .battle-panel.mini-mode .hp-text,
+    .battle-panel.mini-mode .neili-text {
+        font-size: 10px;
+    }
+}
+
+@media (min-width: 1340px) {
+    .game-frame-container.battle-dock-active {
+        padding-top: 0;
+    }
+
+    .battle-panel.mini-mode {
+        top: 118px;
+        right: auto;
+        left: calc(50% + 392px);
+        width: min(300px, calc(50vw - 410px));
+    }
+}

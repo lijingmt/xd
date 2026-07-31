@@ -380,7 +380,8 @@
             </div>
 
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
-            <main class="game-frame-container">
+            <main class="game-frame-container"
+                  :class="{ 'battle-dock-active': useJsonMode && isInBattle && !battleFullscreen && !battleDockCollapsed }">
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
                      class="mud-output-container"
@@ -473,31 +474,59 @@
             </main>
 
             <!-- 战斗面板 (JSON模式专用) -->
-            <div v-if="useJsonMode && isInBattle" class="battle-panel" :class="{ 'mini-mode': !battleFullscreen, 'fullscreen-mode': battleFullscreen }">
+            <div v-if="useJsonMode && isInBattle"
+                 class="battle-panel"
+                 :class="{ 'mini-mode': !battleFullscreen, 'fullscreen-mode': battleFullscreen, 'dock-collapsed': !battleFullscreen && battleDockCollapsed }"
+                 aria-live="polite">
+                <button v-if="!battleFullscreen && battleDockCollapsed"
+                        type="button"
+                        class="battle-dock-trigger"
+                        @click="toggleBattleDock"
+                        :title="'展开战斗状态：' + (battleEnemy?.name || '敌人')"
+                        aria-label="展开战斗状态">
+                    <span aria-hidden="true">⚔️</span>
+                    <span class="battle-dock-percent">{{ getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) }}%</span>
+                </button>
                 <!-- 迷你模式: 只显示HP条和内力条 -->
-                <div v-if="!battleFullscreen" class="battle-mini">
+                <div v-if="!battleFullscreen && !battleDockCollapsed" class="battle-mini">
                     <div class="battle-side player-side">
                         <span class="battle-name">{{ playerStats?.name_cn || loginForm.userid }}</span>
                         <div class="hp-bar-container">
-                            <div class="hp-bar-fill player-hp" :style="{ width: playerStats ? (playerStats.hp / playerStats.hp_max * 100) + '%' : '0%' }"></div>
+                            <div class="hp-bar-fill player-hp" :style="{ width: getStatPercent(playerStats?.hp, playerStats?.hp_max) + '%' }"></div>
                         </div>
-                        <span class="hp-text">{{ playerStats?.hp || 0 }}/{{ playerStats?.hp_max || 0 }}</span>
+                        <span class="hp-text" :title="(playerStats?.hp || 0) + '/' + (playerStats?.hp_max || 0)">
+                            {{ formatCompactNumber(playerStats?.hp || 0) }}/{{ formatCompactNumber(playerStats?.hp_max || 0) }}
+                        </span>
                         <!-- 内力条 -->
                         <div class="neili-bar-container">
-                            <div class="neili-bar-fill player-neili" :style="{ width: playerStats ? (playerStats.neili / playerStats.neili_max * 100) + '%' : '0%' }"></div>
+                            <div class="neili-bar-fill player-neili" :style="{ width: getStatPercent(playerStats?.neili, playerStats?.neili_max) + '%' }"></div>
                         </div>
-                        <span class="neili-text">{{ playerStats?.neili || 0 }}/{{ playerStats?.neili_max || 0 }}</span>
+                        <span class="neili-text" :title="(playerStats?.neili || 0) + '/' + (playerStats?.neili_max || 0)">
+                            {{ formatCompactNumber(playerStats?.neili || 0) }}/{{ formatCompactNumber(playerStats?.neili_max || 0) }}
+                        </span>
                     </div>
                     <div class="battle-vs">⚔️</div>
                     <div class="battle-side enemy-side">
                         <span class="battle-name">{{ battleEnemy?.name || '敌人' }}</span>
                         <div class="hp-bar-container">
-                            <div class="hp-bar-fill enemy-hp" :style="{ width: battleEnemy && battleEnemy.hpMax ? (battleEnemy.hp / battleEnemy.hpMax * 100) + '%' : '100%' }"></div>
+                            <div class="hp-bar-fill enemy-hp" :style="{ width: getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) + '%' }"></div>
                         </div>
-                        <span class="hp-text">{{ battleEnemy?.hp ?? '?' }}/{{ battleEnemy?.hpMax ?? '?' }}</span>
+                        <span class="hp-text" :title="(battleEnemy?.hp ?? '?') + '/' + (battleEnemy?.hpMax ?? '?')">
+                            {{ battleEnemy ? formatCompactNumber(battleEnemy.hp) : '?' }}/{{ battleEnemy ? formatCompactNumber(battleEnemy.hpMax) : '?' }}
+                        </span>
                     </div>
-                    <!-- 展开到全屏按钮 -->
-                    <button class="battle-toggle-btn" @click="toggleBattleFullscreen" title="展开战斗面板">☰</button>
+                    <div class="battle-mini-controls">
+                        <button type="button"
+                                class="battle-collapse-btn"
+                                @click="toggleBattleDock"
+                                title="收起到屏幕边缘"
+                                aria-label="收起战斗状态">›</button>
+                        <button type="button"
+                                class="battle-toggle-btn"
+                                @click="toggleBattleFullscreen"
+                                title="打开战斗详情"
+                                aria-label="打开战斗详情">☰</button>
+                    </div>
                 </div>
 
                 <!-- 全屏模式: 上下布局显示敌我双方 -->

@@ -10,6 +10,7 @@ let nextBattleState = {
   enemy: { name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50, is_npc: true }
 };
 const sessionValues = new Map();
+const localValues = new Map();
 let requestedLoginUrl = '';
 
 const sandbox = {
@@ -25,10 +26,12 @@ const sandbox = {
   },
   document: { hidden: false },
   localStorage: {
-    getItem() {
-      return null;
+    getItem(key) {
+      return localValues.get(key) || null;
     },
-    setItem() {}
+    setItem(key, value) {
+      localValues.set(key, value);
+    }
   },
   sessionStorage: {
     getItem(key) {
@@ -72,6 +75,13 @@ client.mudLines = [{
 }];
 
 client.playerStats = { avatar: '/images/h_male2.gif', name_cn: '测试方士' };
+assert.strictEqual(client.battleDockCollapsed, false);
+client.toggleBattleDock();
+assert.strictEqual(client.battleDockCollapsed, true);
+assert.strictEqual(localValues.get('battle_dock_collapsed'), '1');
+client.toggleBattleDock();
+assert.strictEqual(client.battleDockCollapsed, false);
+assert.strictEqual(localValues.get('battle_dock_collapsed'), '0');
 assert.strictEqual(
   componentOptions.computed.playerAvatarUrl.call(client),
   'https://game.example.com/images/h_male2.gif'
