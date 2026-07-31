@@ -86,6 +86,7 @@ int main(string|zero arg)
 	object|zero target;
 	object|zero item;
 	mapping route;
+	mapping sell_result;
 	string reason;
 	string direction;
 	string route_path;
@@ -154,6 +155,17 @@ int main(string|zero arg)
 		if(AUTOFIGHTD->begin_auto_rest(me)){
 			write("回蓝药不足，挂机助手正带你前往安全地点休息。\n");
 			return continue_auto_rest(me);
+		}
+	}
+	if(AUTOFIGHTD->should_auto_sell(me)){
+		sell_result = AUTOFIGHTD->perform_auto_sell(me);
+		if((int)sell_result["count"] > 0){
+			write("VIP智能清包已自动出售"+
+				(int)sell_result["count"]+"件装备，获得"+
+				MUD_MONEYD->query_store_money_cn(
+					(int)sell_result["money"])+"。\n");
+			write("[查看清包设置:autofight cleanup]\n");
+			return 1;
 		}
 	}
 	item = AUTOFIGHTD->query_loot_item(me);

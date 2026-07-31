@@ -7,7 +7,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 4
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
-#define AUTOFIGHT_CONFIG_VERSION 2
+#define AUTOFIGHT_CONFIG_VERSION 3
 
 private array(mapping(string:mixed)) smart_training_routes = ({
 	([
@@ -154,6 +154,7 @@ protected void create()
 
 void initialize_player(object me)
 {
+	int config_version;
 	int daily_limit;
 	if(!me)
 		return;
@@ -176,16 +177,30 @@ void initialize_player(object me)
 		me["/plus/autofight_auto_rest"] = 1;
 		me["/plus/autofight_food"] = "auto";
 		me["/plus/autofight_water"] = "auto";
+		me["/plus/autofight_auto_sell_mode"] = "off";
+		me["/plus/autofight_sell_weapon"] = 1;
+		me["/plus/autofight_sell_armor"] = 1;
+		me["/plus/autofight_sell_accessory"] = 1;
+		me["/plus/autofight_sell_level_gap"] = 5;
 	}
 	else
 		sync_daily_limit(me);
-	if((int)me["/plus/autofight_config_version"]<
-	   AUTOFIGHT_CONFIG_VERSION){
+	config_version =
+		(int)me["/plus/autofight_config_version"];
+	if(config_version < 2){
 		me["/plus/autofight_smart_route"] = 1;
 		me["/plus/autofight_auto_rest"] = 1;
+	}
+	if(config_version < 3){
+		me["/plus/autofight_auto_sell_mode"] = "off";
+		me["/plus/autofight_sell_weapon"] = 1;
+		me["/plus/autofight_sell_armor"] = 1;
+		me["/plus/autofight_sell_accessory"] = 1;
+		me["/plus/autofight_sell_level_gap"] = 5;
+	}
+	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
 			AUTOFIGHT_CONFIG_VERSION;
-	}
 }
 
 int query_daily_seconds()
@@ -312,6 +327,310 @@ int query_auto_rest_enabled(object me)
 	return (int)me["/plus/autofight_auto_rest"] == 1;
 }
 
+string query_auto_sell_mode(object me)
+{
+	string mode;
+	array(string) valid_modes = ({
+		"off","normal","excellent","refined",
+	});
+	if(!me)
+		return "off";
+	initialize_player(me);
+	mode = (string)me["/plus/autofight_auto_sell_mode"];
+	if(search(valid_modes,mode) == -1)
+		return "off";
+	return mode;
+}
+
+string query_auto_sell_mode_cn(string mode)
+{
+	if(mode == "normal")
+		return "仅普通白装";
+	if(mode == "excellent")
+		return "普通及优良装备";
+	if(mode == "refined")
+		return "普通、优良及精制装备";
+	return "关闭";
+}
+
+int query_auto_sell_mode_requirement(string mode)
+{
+	if(mode == "normal")
+		return 1;
+	if(mode == "excellent")
+		return 2;
+	if(mode == "refined")
+		return 3;
+	return 0;
+}
+
+int query_auto_sell_quality_limit(string mode)
+{
+	if(mode == "excellent")
+		return 2;
+	if(mode == "refined")
+		return 4;
+	return 0;
+}
+
+int query_auto_sell_enabled(object me)
+{
+	string mode;
+	int requirement;
+	int vip_level;
+	if(!me)
+		return 0;
+	mode = query_auto_sell_mode(me);
+	requirement = query_auto_sell_mode_requirement(mode);
+	vip_level = query_vip_level(me);
+	return requirement > 0 && vip_level >= requirement &&
+		vip_level >= query_auto_sell_gap_requirement(
+			query_auto_sell_level_gap(me));
+}
+
+int query_auto_sell_trigger_percent(object me)
+{
+	int vip_level = query_vip_level(me);
+	if(vip_level >= 4)
+		return 70;
+	if(vip_level == 3)
+		return 80;
+	if(vip_level == 2)
+		return 90;
+	return 100;
+}
+
+int query_auto_sell_batch_size(object me)
+{
+	int vip_level = query_vip_level(me);
+	if(vip_level >= 4)
+		return 8;
+	if(vip_level == 3)
+		return 4;
+	if(vip_level == 2)
+		return 2;
+	return 1;
+}
+
+int query_auto_sell_level_gap(object me)
+{
+	int gap;
+	if(!me)
+		return 5;
+	initialize_player(me);
+	gap = (int)me["/plus/autofight_sell_level_gap"];
+	if(gap != 0 && gap != 3 && gap != 5)
+		return 5;
+	return gap;
+}
+
+int query_auto_sell_gap_requirement(int gap)
+{
+	if(gap == 0)
+		return 3;
+	if(gap == 3)
+		return 2;
+	return 1;
+}
+
+int query_backpack_percent(object me)
+{
+	int maximum;
+	int count;
+	if(!me)
+		return 0;
+	maximum = me->query_beibao_size();
+	if(maximum <= 0)
+		return 0;
+	count = sizeof(all_inventory(me));
+	return count*100/maximum;
+}
+
+private int is_auto_sell_equipment_type(object item)
+{
+	string item_type;
+	if(!item)
+		return 0;
+	item_type = item->query_item_type();
+	return item_type == "weapon" ||
+		item_type == "single_weapon" ||
+		item_type == "double_weapon" ||
+		item_type == "armor" ||
+		item_type == "jewelry" ||
+		item_type == "decorate";
+}
+
+private int is_auto_sell_category_enabled(object me,object item)
+{
+	string item_type;
+	if(!me || !item)
+		return 0;
+	item_type = item->query_item_type();
+	if(item_type == "weapon" ||
+	   item_type == "single_weapon" ||
+	   item_type == "double_weapon")
+		return (int)me["/plus/autofight_sell_weapon"] == 1;
+	if(item_type == "armor")
+		return (int)me["/plus/autofight_sell_armor"] == 1;
+	if(item_type == "jewelry" || item_type == "decorate")
+		return (int)me["/plus/autofight_sell_accessory"] == 1;
+	return 0;
+}
+
+private int has_auto_sell_protected_gem(object item)
+{
+	array(string) colors = ({"blue","red","yellow"});
+	if(!item || !functionp(item->query_baoshi))
+		return 0;
+	foreach(colors,string color){
+		array(object) gems = item->query_baoshi(color);
+		if(gems && sizeof(gems))
+			return 1;
+	}
+	return 0;
+}
+
+private int has_auto_sell_protected_filename(object item)
+{
+	string path;
+	if(!item)
+		return 1;
+	path = (file_name(item)/"#")[0];
+	if(search(path,"/duanzao/") != -1 ||
+	   search(path,"/suit_") != -1 ||
+	   search(path,"Xa") != -1 ||
+	   search(path,"Xl") != -1 ||
+	   search(path,"Xh") != -1 ||
+	   search(path,"Xf") != -1)
+		return 1;
+	return 0;
+}
+
+string query_auto_sell_reject_reason(object me,object item)
+{
+	string mode;
+	string item_from;
+	int level_gap;
+	int item_level;
+	if(!me || !item || environment(item) != me)
+		return "not_in_backpack";
+	if(!item->is("item") || !item->is("equip") ||
+	   !is_auto_sell_equipment_type(item))
+		return "not_equipment";
+	if(!query_auto_sell_enabled(me))
+		return "disabled";
+	if(item->equiped)
+		return "equipped";
+	if(item->query_item_task() == 1)
+		return "task_item";
+	if(item->query_item_canTrade() != 1)
+		return "not_tradeable";
+	if(item->query_item_canDrop() != 1 ||
+	   item->query_item_canStorage() != 1)
+		return "restricted";
+	if(item->query_item_only() == 1)
+		return "unique";
+	if(item->item_playerDesc && item->item_playerDesc != "")
+		return "player_marked";
+	item_from = item->query_item_from();
+	if(item_from && item_from != "")
+		return "special_source";
+	if(has_auto_sell_protected_filename(item))
+		return "forged_or_fused";
+	if(functionp(item->query_convert_count) &&
+	   item->query_convert_count() > 0)
+		return "converted";
+	if(has_auto_sell_protected_gem(item))
+		return "socketed";
+	mode = query_auto_sell_mode(me);
+	if(item->query_item_rareLevel() >
+	   query_auto_sell_quality_limit(mode))
+		return "quality";
+	if(item->query_item_rareLevel() >= 5)
+		return "rare";
+	if(!is_auto_sell_category_enabled(me,item))
+		return "category";
+	item_level = item->query_item_canLevel();
+	if(item_level < 0)
+		return "no_level_requirement";
+	level_gap = query_auto_sell_level_gap(me);
+	if(item_level > me->query_level()-level_gap)
+		return "recent_level";
+	return "";
+}
+
+array(object) query_auto_sell_candidates(object me)
+{
+	array(object) candidates = ({});
+	if(!me || !query_auto_sell_enabled(me))
+		return candidates;
+	foreach(all_inventory(me),object item){
+		if(query_auto_sell_reject_reason(me,item) == "")
+			candidates += ({item});
+	}
+	return candidates;
+}
+
+int should_auto_sell(object me)
+{
+	if(!me || !query_auto_sell_enabled(me))
+		return 0;
+	if(query_backpack_percent(me) <
+	   query_auto_sell_trigger_percent(me))
+		return 0;
+	return sizeof(query_auto_sell_candidates(me)) > 0;
+}
+
+int query_auto_sell_value(object item)
+{
+	int money_num;
+	if(!item || !is_auto_sell_equipment_type(item))
+		return 0;
+	money_num = (int)item->query_item_canLevel()*50/4;
+	if(money_num <= 0)
+		money_num = 1;
+	return money_num;
+}
+
+mapping(string:mixed) perform_auto_sell(object me)
+{
+	mapping(string:mixed) result = ([
+		"count":0,
+		"money":0,
+		"names":({}),
+	]);
+	array(object) candidates;
+	int batch_size;
+	if(!me || !query_auto_sell_enabled(me) || me->in_combat)
+		return result;
+	candidates = query_auto_sell_candidates(me);
+	batch_size = query_auto_sell_batch_size(me);
+	for(int i = 0;i < sizeof(candidates) && i < batch_size;i++){
+		object item = candidates[i];
+		string item_name;
+		string item_path;
+		string now;
+		int money_num;
+		if(query_auto_sell_reject_reason(me,item) != "")
+			continue;
+		item_name = item->query_name_cn();
+		item_path = (file_name(item)/"#")[0];
+		money_num = query_auto_sell_value(item);
+		me->add_money(money_num);
+		result["count"] = (int)result["count"]+1;
+		result["money"] = (int)result["money"]+money_num;
+		result["names"] += ({item_name});
+		now = ctime(time());
+		Stdio.append_file(ROOT+"/log/autofight_sell.log",
+			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
+			me->query_name()+") VIP"+query_vip_level(me)+
+			" 自动出售 "+item_name+" "+item_path+" 得到"+
+			money_num+"\n");
+		item->remove();
+	}
+	return result;
+}
+
 void start_autofight(object me)
 {
 	if(!me)
@@ -376,8 +695,14 @@ string query_start_block_reason(object me)
 	if(query_time_left(me) <= 0)
 		return sprintf("今天的%d小时自动挂机时间已经用完",
 			query_daily_seconds_for(me)/3600);
-	if(query_loot_enabled(me) && me->if_over_easy_load())
+	if(query_loot_enabled(me) && me->if_over_easy_load()){
+		if(query_auto_sell_enabled(me) &&
+		   sizeof(query_auto_sell_candidates(me)))
+			return "";
+		if(query_auto_sell_mode(me) != "off")
+			return "背包已满，智能清包没有找到符合当前规则的装备";
 		return "背包已满，请整理背包后再开启";
+	}
 	return "";
 }
 

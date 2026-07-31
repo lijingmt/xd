@@ -105,6 +105,9 @@ void test_defaults_and_switch()
 			daemon->query_roam_enabled(player) == 0 &&
 			daemon->query_smart_route_enabled(player) == 1 &&
 			daemon->query_auto_rest_enabled(player) == 1 &&
+			daemon->query_auto_sell_mode(player) == "off" &&
+			daemon->query_auto_sell_level_gap(player) == 5 &&
+			daemon->query_auto_sell_enabled(player) == 0 &&
 			player->query_autofight() == "disable";
 		daemon->start_autofight(player);
 		valid = valid && player->query_autofight() == "enable";
@@ -163,6 +166,181 @@ void test_vip_daily_limits()
 		test_fail("VIP挂机额度同步错误: "+error_desc);
 	destroy_runtime_player(normal_player);
 	destroy_runtime_player(vip_player);
+}
+
+void test_vip_auto_sell_tiers()
+{
+	test_start("VIP等级递进解锁清包品质、触发线和批量数量");
+	object player = create_runtime_player(
+		"__testunit_autofight_sell_tiers__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		daemon->initialize_player(player);
+		player->set_vip_flag(1);
+		player["/plus/autofight_auto_sell_mode"] = "normal";
+		valid = daemon->query_auto_sell_enabled(player) == 1 &&
+			daemon->query_auto_sell_trigger_percent(player) == 100 &&
+			daemon->query_auto_sell_batch_size(player) == 1 &&
+			daemon->query_auto_sell_mode_requirement("excellent") == 2;
+
+		player->set_vip_flag(2);
+		player["/plus/autofight_auto_sell_mode"] = "excellent";
+		player["/plus/autofight_sell_level_gap"] = 3;
+		valid = valid &&
+			daemon->query_auto_sell_enabled(player) == 1 &&
+			daemon->query_auto_sell_trigger_percent(player) == 90 &&
+			daemon->query_auto_sell_batch_size(player) == 2;
+
+		player->set_vip_flag(3);
+		player["/plus/autofight_auto_sell_mode"] = "refined";
+		player["/plus/autofight_sell_level_gap"] = 0;
+		valid = valid &&
+			daemon->query_auto_sell_enabled(player) == 1 &&
+			daemon->query_auto_sell_trigger_percent(player) == 80 &&
+			daemon->query_auto_sell_batch_size(player) == 4;
+
+		player->set_vip_flag(4);
+		valid = valid &&
+			daemon->query_auto_sell_trigger_percent(player) == 70 &&
+			daemon->query_auto_sell_batch_size(player) == 8;
+
+		player->set_vip_flag(1);
+		valid = valid &&
+			daemon->query_auto_sell_enabled(player) == 0;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("VIP清包能力分级错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_sell_protection_rules()
+{
+	test_start("智能清包永久保护珍贵、穿戴、任务和加工装备");
+	object player = create_runtime_player(
+		"__testunit_autofight_sell_protection__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object item = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object gem = clone(ROOT+
+		"/gamelib/clone/item/baoshi/psqingtongshi");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		player->level = 30;
+		player->set_att_by_level();
+		player->set_vip_flag(4);
+		daemon->initialize_player(player);
+		player["/plus/autofight_auto_sell_mode"] = "refined";
+		player["/plus/autofight_sell_level_gap"] = 0;
+		item->move(player);
+		item->set_item_rareLevel(4);
+		valid = daemon->query_auto_sell_reject_reason(player,item) == "";
+
+		item->set_item_rareLevel(5);
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) != "";
+		item->set_item_rareLevel(0);
+		item->equiped = 1;
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"equipped";
+		item->equiped = 0;
+		item->set_item_task(1);
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"task_item";
+		item->set_item_task(0);
+		item->set_item_from("duanzao");
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"special_source";
+		item->set_item_from("");
+		item->set_convert_count(1);
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"converted";
+		item->set_convert_count(0);
+		item->set_baoshi("blue",gem);
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"socketed";
+		item->blue_baoshi = ({});
+		item->set_item_canTrade(0);
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"not_tradeable";
+		item->set_item_canTrade(1);
+		item->item_playerDesc = "玩家保留";
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"player_marked";
+		item->item_playerDesc = "";
+		item->set_item_canLevel(-1);
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"no_level_requirement";
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("自动出售保护规则错误: "+error_desc);
+	if(gem)
+		destruct(gem);
+	destroy_runtime_player(player);
+}
+
+void test_auto_sell_settlement()
+{
+	test_start("智能清包按商店价格结算并只处理允许类别");
+	object player = create_runtime_player(
+		"__testunit_autofight_sell_settlement__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object protected_weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		player->level = 30;
+		player->set_att_by_level();
+		player->set_vip_flag(4);
+		daemon->initialize_player(player);
+		player["/plus/autofight_auto_sell_mode"] = "normal";
+		player["/plus/autofight_sell_level_gap"] = 0;
+		weapon->move(player);
+		protected_weapon->move(player);
+		protected_weapon->set_item_task(1);
+		player["/plus/autofight_sell_weapon"] = 0;
+		valid = daemon->query_auto_sell_reject_reason(player,weapon) ==
+			"category";
+		player["/plus/autofight_sell_weapon"] = 1;
+		int money_before = player->query_account();
+		mapping result = daemon->perform_auto_sell(player);
+		valid = valid && result["count"] == 1 &&
+			result["money"] == 12 &&
+			player->query_account() == money_before+12 &&
+			environment(protected_weapon) == player &&
+			sizeof(all_inventory(player)) == 1;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("自动出售数量、价格或保护对象错误: "+error_desc);
+	destroy_runtime_player(player);
 }
 
 void test_time_and_low_life_guard()
@@ -654,6 +832,66 @@ void test_end_to_end_auto_rest()
 	destroy_runtime_player(player);
 }
 
+void test_end_to_end_auto_sell()
+{
+	test_start("游戏挂机循环在VIP4阈值自动批量清包并继续运行");
+	object player = create_runtime_player(
+		"__testunit_autofight_sell_e2e__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int before_count = 0;
+	int after_count = 0;
+	int valid = 0;
+	mixed err = catch {
+		player->level = 30;
+		player->set_att_by_level();
+		player->set_vip_flag(4);
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_auto_sell_mode"] = "normal";
+		player["/plus/autofight_sell_level_gap"] = 0;
+		player["/plus/autofight_smart_route"] = 0;
+		while(daemon->query_backpack_percent(player) < 70){
+			object item = clone(ROOT+
+				"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+			item->move(player);
+		}
+		before_count = sizeof(all_inventory(player));
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		after_count = sizeof(all_inventory(player));
+		valid = before_count-after_count == 8 &&
+			player->query_autofight() == "enable" &&
+			!player->in_combat;
+		daemon->stop_autofight(player);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"挂机自动清包完整链路错误: before=%d after=%d %s",
+			before_count,after_count,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
 void test_integration_wiring()
 {
 	test_start("HTTP状态、前端入口、防重入与每日重置完整接线");
@@ -670,8 +908,13 @@ void test_integration_wiring()
 	string leave_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/cmds/leave.pike");
 	string user_source = Stdio.read_file(ROOT+"/gamelib/clone/user.pike");
+	string autofight_source = Stdio.read_file(
+		ROOT+"/gamelib/cmds/autofight.pike");
+	string flush_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/cmds/flushview.pike");
 	if(api_source && renderer_source && vue_source && index_source &&
 	   daily_source && kill_source && leave_source && user_source &&
+	   autofight_source && flush_source &&
 	   search(api_source,"AUTOFIGHTD->start_autofight(player)") != -1 &&
 	   search(renderer_source,"result[\"autofight_time_left\"]") != -1 &&
 	   search(renderer_source,"result[\"autofight_daily_limit\"]") != -1 &&
@@ -688,7 +931,10 @@ void test_integration_wiring()
 	   search(user_source,"autofight") != -1 &&
 	   search(daily_source,"AUTOFIGHTD->reset_daily_time(me)") != -1 &&
 	   search(kill_source,"query_autofight()==\"disable\"") != -1 &&
-	   search(leave_source,"query_autofight()==\"disable\"") != -1)
+	   search(leave_source,"query_autofight()==\"disable\"") != -1 &&
+	   search(autofight_source,"高级清包设置") != -1 &&
+	   search(autofight_source,"永久保护") != -1 &&
+	   search(flush_source,"perform_auto_sell(me)") != -1)
 		test_pass();
 	else
 		test_fail("API、Vue、每日重置或防外挂豁免缺少接线");
@@ -700,6 +946,9 @@ int main()
 	test_runtime_compile();
 	test_defaults_and_switch();
 	test_vip_daily_limits();
+	test_vip_auto_sell_tiers();
+	test_auto_sell_protection_rules();
+	test_auto_sell_settlement();
 	test_time_and_low_life_guard();
 	test_duplicate_object_count();
 	test_recovery_selection_checkmarks();
@@ -710,6 +959,7 @@ int main()
 	test_end_to_end_current_room_fight();
 	test_end_to_end_smart_route_fight();
 	test_end_to_end_auto_rest();
+	test_end_to_end_auto_sell();
 	test_integration_wiring();
 	werror("\n自动挂机测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
