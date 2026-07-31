@@ -1580,7 +1580,7 @@ int query_equip_add(string arg){
 			}
 			
 		break;
-		case "dodgechuantou_add": //闪避穿透，一点就是1% 最大20%
+		case "dodgechuantou_add": //闪避穿透按千分点保存，结算时区分普攻40%和技能60%
 			foreach(indices(equip),string s){                                                       
 				object ob=equip[s];
 				if(ob&&ob->item_cur_dura>0){
@@ -1592,7 +1592,7 @@ int query_equip_add(string arg){
 					}
 				}
 			}
-			if(power>200)power=200;//最大无视闪避20%			
+			if(power>600)power=600;//主动物理技能最高无视闪避60%
 		break;
 		default :
 		return 0;
@@ -1825,6 +1825,8 @@ int query_if_hitte(){
 		if(h<0)
 			h=0;
 	}
+	if(h>99)
+		h=99.0;
 	return (int)h;
 	/*	hInt = (int)(h*100);
 		if(hInt>=random(10000))//恭喜你，命中了
@@ -1847,8 +1849,10 @@ int query_if_dodge(){
 		if(p<0)
 			p = 0;
 	}
+	if(p>75)
+		p=75.0;
 	pInt = (int)p;
-	if(pInt>=random(100))
+	if(pInt>0 && random(100)<pInt)
 		return 1;//恭喜你，你躲过了
 	else
 		return 0;//也恭喜你，你中标了
@@ -1882,7 +1886,7 @@ int query_if_baoji(void|object enemy){
 		}
 	}
 	bInt = (int)b;
-	if(bInt>=random(100))
+	if(bInt>0 && random(100)<bInt)
 		return 1;
 	else 
 		return 0;

@@ -13,6 +13,32 @@ mapping(string:string) manager_mem = ([]);//管理员列表([id:权限]) 权限�
 mapping(string:array) unlogin_mem = ([]);//封号列表([id:({中文名，封号起始时间，封号期限，})])
 mapping(string:array) unchat_mem = ([]);//禁言列表([id:({中文名，禁言起始时间，禁言期限，})])
 
+// 固定管理员账号在新旧区服共用权限。只接受“xd/tx+两位数字+完整账号”
+// 的登录ID，不能用任意前缀或后缀模糊匹配，避免伪造区服标识越权。
+int is_cross_zone_admin(string userid)
+{
+	string account;
+	string zone_prefix;
+	int zone_number;
+	if(!userid || userid=="")
+		return 0;
+	if(userid=="jinghaha" || userid=="mumu215")
+		return 1;
+	if(sizeof(userid)<=4)
+		return 0;
+	zone_prefix = lower_case(userid[..1]);
+	if(zone_prefix!="xd" && zone_prefix!="tx")
+		return 0;
+	if(userid[2]<'0' || userid[2]>'9' ||
+	   userid[3]<'0' || userid[3]>'9')
+		return 0;
+	zone_number = (userid[2]-'0')*10+(userid[3]-'0');
+	if(zone_number<1 || zone_number>99)
+		return 0;
+	account = userid[4..];
+	return account=="jinghaha" || account=="mumu215";
+}
+
 
 //获取时间描述
 string get_log_name(int type){ 
@@ -88,8 +114,8 @@ void rewritefile()
 				tmp2 += s1 + "\n";
 			}
 		}
-		if(tmp&&sizeof(tmp))
-			Stdio.write_file(CHAT_PATH,tmp);
+		if(tmp2&&sizeof(tmp2))
+			Stdio.write_file(CHAT_PATH,tmp2);
 	}
 	call_out(rewritefile,SAVE_MANAGER);
 }
@@ -334,6 +360,8 @@ string query_user_deal_status(string mid,string userid){
 //返回admin为权限最高管理员，assist为辅助管理员，只能增加操作，不能解封
 string checkpower(string userid) 
 {
+	if(is_cross_zone_admin(userid))
+		return "admin";
 	if(manager_mem&&sizeof(manager_mem))
 	{
 		foreach(sort(indices(manager_mem)),string id)
@@ -571,6 +599,3 @@ string add_unlogin(string mid,string userid,string usernamecn,int limit_time){
 	}
 	return rtn;
 }
-
-
-

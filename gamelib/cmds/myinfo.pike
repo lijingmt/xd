@@ -73,7 +73,9 @@ int main(string|zero arg)
 	s += "全系法术伤害："+(int)(me->query_equip_add("mofa_all"))+"\n";
 	s += "附加物理穿透："+(int)(me->query_equip_add("wulichuantou_add"))+"\n";
 	s += "附加法术穿透："+(int)(me->query_equip_add("mofachuantou_add"))+"\n";
-	s += "附加闪避穿透："+(int)(me->query_equip_add("dodgechuantou_add"))+"\n";
+	s += "附加闪避穿透："+
+		sprintf("%0.2f",(float)me->query_equip_add("dodgechuantou_add")/10.0)+
+		"%（普攻最高40%，物理技能最高60%）\n";
 	//s += "全法术抗性："+me->query_equip_add("all_mofa_defend")+"\n";
 	////////////////////////////////////////////////////////////////////////////////
 	s += "[返回游戏:look]\n";

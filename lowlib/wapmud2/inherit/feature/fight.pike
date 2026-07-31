@@ -3,6 +3,7 @@
 #include <wapmud2/include/wapmud2.h>
 //城主被攻击需要调用这个程序里的通告模块
 #define CITYD ((object)(ROOT "/gamelib/single/daemons/cityd"))
+#define MANAGERD ((object)(ROOT "/gamelib/single/daemons/managed"))
 private int tmp_heart_beat;
 private int in_combat;
 private mapping items;
@@ -80,6 +81,95 @@ private int attack_fengren_add=0;
 private int attack_dusu_add=0;
 private int defend = 0;
 //////////////////////////////////////////
+
+// 统一的伤害结算辅助接口。防御/抗性采用递减收益，避免高属性版本中
+// 线性减伤直接把伤害压成 1；穿透最多削减目标 60% 的防御属性。
+int query_balanced_physical_damage(int raw_attack,int defend_power,
+	int penetration)
+{
+	int penetration_limit;
+	int effective_defend;
+	int result;
+	if(raw_attack <= 0)
+		return 1;
+	if(defend_power < 0)
+		defend_power = 0;
+	if(penetration < 0)
+		penetration = 0;
+	penetration_limit = defend_power*60/100;
+	if(penetration > penetration_limit)
+		penetration = penetration_limit;
+	effective_defend = defend_power-penetration;
+	result = raw_attack*raw_attack/(raw_attack+effective_defend);
+	if(result < 1)
+		result = 1;
+	return result;
+}
+
+int query_balanced_magic_damage(int raw_attack,int magic_defend,
+	int penetration)
+{
+	int penetration_limit;
+	int effective_defend;
+	int result;
+	if(raw_attack <= 0)
+		return 1;
+	if(magic_defend < 0)
+		magic_defend = 0;
+	if(penetration < 0)
+		penetration = 0;
+	penetration_limit = magic_defend*60/100;
+	if(penetration > penetration_limit)
+		penetration = penetration_limit;
+	effective_defend = magic_defend-penetration;
+	result = raw_attack*400/(400+effective_defend);
+	if(result < 1)
+		result = 1;
+	return result;
+}
+
+// 韧性只削减暴击的额外 50% 部分，不能让暴击伤害低于普通伤害。
+int query_balanced_critical_damage(int raw_attack,int renxing)
+{
+	int bonus_reduce_percent;
+	int critical_bonus;
+	if(raw_attack <= 0)
+		return 1;
+	if(renxing < 0)
+		renxing = 0;
+	bonus_reduce_percent = renxing/20;
+	if(bonus_reduce_percent > 100)
+		bonus_reduce_percent = 100;
+	critical_bonus = raw_attack/2;
+	return raw_attack+
+		critical_bonus*(100-bonus_reduce_percent)/100;
+}
+
+// 闪避穿透以千分点保存：普攻最高 40%，主动物理技能最高 60%。
+int query_balanced_dodge_penetration(int penetration,int is_skill_attack)
+{
+	int limit = is_skill_attack ? 600 : 400;
+	if(penetration < 0)
+		return 0;
+	if(penetration > limit)
+		return limit;
+	return penetration;
+}
+
+// 血海裂伤使用万分点记录每个战斗节拍的最大生命伤害，Boss 每跳封顶
+// 0.25%，完整持续时间最多约 3%，避免按 Boss 巨量生命无限放大。
+int query_xuehai_dot_damage(int life_max,int basis_points,int is_boss)
+{
+	int result;
+	if(life_max <= 0 || basis_points <= 0)
+		return 1;
+	if(is_boss && basis_points > 25)
+		basis_points = 25;
+	result = life_max*basis_points/10000;
+	if(result < 1)
+		result = 1;
+	return result;
+}
 
 private int killing;
 private int autoPerforming;//自动释放技能第一次标示
@@ -220,11 +310,11 @@ void perform(string name,void|int flag){
 			enemy->first_fight = 1;
 		}
 	}
-	object f_cur_skill;//当前使用技能对象
+	object|zero f_cur_skill;//当前使用技能对象
 	string s = "";//面向自己的战斗描述
 	string s1=""; //面向敌人的战斗描述
 	if(name&&sizeof(name))
-		f_cur_skill = (object)MUD_SKILLSD[name];
+		f_cur_skill = MUD_SKILLSD[name];
 	else
 	{
 		string stmp = "你要施放什么技能？";
@@ -376,7 +466,7 @@ void perform(string name,void|int flag){
 						int h = (int)(myhitte-difflevel*5);
 						if(h<30)
 							h=30;
-						if(random(100)<=h){
+						if(random(100)<h){
 							//命中啦 ~
 							int s_phy_damage;
 							int life_left;
@@ -413,7 +503,7 @@ void perform(string name,void|int flag){
 						int h = (int)(myhitte-difflevel*5);
 						if(h<30)
 							h=30;
-						if(random(100)<=h){ //命中啦~
+						if(random(100)<h){ //命中啦~
 							//记录诅咒的类型
 							enemy->set_debuff("curse2",0,f_cur_skill->s_curse_type);
 							//记录诅咒的值
@@ -543,7 +633,7 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<=h){
+					if(random(100)<h){
 						//命中啦 ~
 						//得到法术技能的伤害随即值
 						mofa_a_low = f_cur_skill->query_performs_mofa_attack_low(skill_level);	
@@ -575,7 +665,7 @@ void perform(string name,void|int flag){
 								mofa_defend = enemy->query_equip_add("fengren_defend");
 							break;
 							case "du_mofa_attack":
-								mofa_defend = enemy->query_equip_add("du_defend");
+								mofa_defend = enemy->query_equip_add("dusu_defend");
 							break;
 							default :
 							mofa_defend = 0;
@@ -584,30 +674,28 @@ void perform(string name,void|int flag){
 						mofa_defend += enemy->query_equip_add("all_mofa_defend");
 						//计算装备所有的魔法穿透值
 						mofachuantou_add=this_object()->query_equip_add("mofachuantou_add");
-						//最后获得实际的魔法伤害值
-						fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
-						if(fact_mofa_a<0){
-							fact_mofa_a=1;
-						}
-						fact_mofa_a+=mofachuantou_add;//增加魔法穿透的攻击数值到最重结果中
 						//判断暴击
-						int b = this_object()->query_if_baoji();
+						int b = this_object()->query_if_baoji(enemy);
 						s += "你施放了"+f_cur_skill->query_name_cn()+"(等级"+skill_level+")";
 						s1+=this_object()->query_name_cn()+"对你施放 "+f_cur_skill->query_name_cn()+"(等级"+skill_level+")";
 						if(b){
 							//暴击啦 ~
-							fact_mofa_a=(int)fact_mofa_a*150/100;
+							mofa_a=query_balanced_critical_damage(mofa_a,
+								enemy->query_equip_add("renxing"));
 							s += "，产生了暴击效果！";
 							s1 += "，产生了暴击效果！";
 
 						}
+						//抗性和穿透统一在递减收益公式中结算。
+						fact_mofa_a=query_balanced_magic_damage(mofa_a,
+							mofa_defend,mofachuantou_add);
 
 						//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 						int attack_fact = fact_mofa_a;
 						string absorb_desc = "";
 						if(enemy->query_buff("buff",0)=="absorb"){
-							if((int)enemy->query_buff("buff",1) >= fact_mofa_a){
-								int remain = (int)enemy->query_buff("buff",1) - fact_mofa_a;
+							if((int)enemy->query_buff("buff",1) >= attack_fact){
+								int remain = (int)enemy->query_buff("buff",1) - attack_fact;
 								attack_fact= 0;
 								absorb_desc = "(被吸收)";
 								if(remain <= 0)
@@ -616,14 +704,14 @@ void perform(string name,void|int flag){
 									enemy->set_buff("buff",1,remain);
 							}
 							else{
-								attack_fact = fact_mofa_a - (int)enemy->query_buff("buff",1); 
+								attack_fact -= (int)enemy->query_buff("buff",1);
 								absorb_desc = "("+enemy->query_buff("buff",1)+"点被吸收)";
 								enemy->clean_buff("buff");
 							}
 						}
 						if(enemy->query_buff("buff2",0)=="absorb"){
-							if((int)enemy->query_buff("buff2",1) >= fact_mofa_a){
-								int remain = (int)enemy->query_buff("buff2",1) - fact_mofa_a;
+							if((int)enemy->query_buff("buff2",1) >= attack_fact){
+								int remain = (int)enemy->query_buff("buff2",1) - attack_fact;
 								attack_fact= 0;
 								absorb_desc = "(被吸收)";
 								if(remain <= 0)
@@ -632,7 +720,7 @@ void perform(string name,void|int flag){
 									enemy->set_buff("buff2",1,remain);
 							}
 							else{
-								attack_fact = fact_mofa_a - (int)enemy->query_buff("buff",1); 
+								attack_fact -= (int)enemy->query_buff("buff2",1);
 								absorb_desc = "("+enemy->query_buff("buff2",1)+"点被吸收)";
 								enemy->clean_buff("buff2");
 							}
@@ -716,7 +804,6 @@ void perform(string name,void|int flag){
 				//判断冷却时间
 				int s_phy_damage = f_cur_skill->query_performs_attack(skill_level);
 				int s_weapon_add = f_cur_skill->query_performs_per(skill_level);
-				s_weapon_add += this_object()->query_equip_add("attack_all");//增加其他装备的物理伤害 20241019
 				if(s_cold <= 1){
 					//该技不在表中或者冷却，
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
@@ -731,7 +818,7 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<=h){
+					if(random(100)<h){
 						//命中啦 ~
 						if(this_object()->weapon_type=="double_main")
 							attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,f_cur_skill->query_name());
@@ -770,11 +857,17 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<=h){ //命中啦~
+					if(random(100)<h){ //命中啦~
+						int dot_damage = f_cur_skill->query_performs_attack(skill_level);
+						if(name=="xuehailieshang"){
+							int is_boss = enemy->is("npc") && enemy->_boss;
+							dot_damage = query_xuehai_dot_damage(
+								enemy->query_life_max(),dot_damage,is_boss);
+						}
 						//记录dot技能的名字
 						enemy->set_debuff("dot",0,name);
 						//记录dot的每秒伤害
-						enemy->set_debuff("dot",1,f_cur_skill->query_performs_attack(skill_level));
+						enemy->set_debuff("dot",1,dot_damage);
 						//记录dot剩余时间
 						enemy->set_debuff("dot",2,f_cur_skill->query_s_lasttime(skill_level));
 
@@ -827,7 +920,7 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<=h){ //命中啦~
+					if(random(100)<h){ //命中啦~
 						//记录诅咒的类型
 						enemy->set_debuff("curse",0,f_cur_skill->s_curse_type);
 						//记录诅咒的值
@@ -1012,10 +1105,10 @@ void boss_perform(string name){
 	//怪死亡判断......
 	if(enemy==0)
 		return;
-	object f_cur_skill;//当前使用技能对象
+	object|zero f_cur_skill;//当前使用技能对象
 	string s = "";//面向自己的战斗描述
 	string s1=""; //面向敌人的战斗描述
-	f_cur_skill = (object)MUD_SKILLSD[name];
+	f_cur_skill = MUD_SKILLSD[name];
 	if(f_cur_skill){
 		//首先判断有这种技能
 		//再判断是否有足够的法力施放该技能
@@ -1029,6 +1122,7 @@ void boss_perform(string name){
 			int mofa_a=0; //取得法术攻击的随即值
 			int mofa_defend=0; //敌人的魔法抗性
 			int fact_mofa_a=0; //最终的法术伤害
+			int mofachuantou_add=this_object()->query_equip_add("mofachuantou_add");
 			int myhitte= this_object()->query_if_hitte();
 			//命中啦 ~
 			//得到法术技能的伤害随即值
@@ -1048,7 +1142,8 @@ void boss_perform(string name){
 						if(enemys[i]){
 							if(myhitte<0)
 								myhitte=0;
-							if(random(100)<=myhitte){
+							if(random(100)<myhitte){
+								int target_mofa_a = mofa_a;
 								//计算出相对应的敌人的魔法抗性
 								switch(mofa_type) {
 									case "huo_mofa_attack":
@@ -1061,37 +1156,39 @@ void boss_perform(string name){
 										mofa_defend = enemys[i]->query_equip_add("fengren_defend");
 									break;
 									case "du_mofa_attack":
-										mofa_defend = enemys[i]->query_equip_add("du_defend");
+										mofa_defend = enemys[i]->query_equip_add("dusu_defend");
 									break;
 									default :
 									mofa_defend = 0;
 									break;
 								}
 								mofa_defend += enemys[i]->query_equip_add("all_mofa_defend");
-								//最后获得实际的魔法伤害值
-								fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
 								//判断暴击
-								int b = this_object()->query_if_baoji();
+								int b = this_object()->query_if_baoji(enemys[i]);
 								s1+=this_object()->query_name_cn()+"施放 "+f_cur_skill->query_name_cn();
 								if(b){
 									//暴击啦 ~
-									fact_mofa_a=(int)fact_mofa_a*150/100;
+									target_mofa_a=query_balanced_critical_damage(
+										target_mofa_a,
+										enemys[i]->query_equip_add("renxing"));
 									s1 += "，产生了暴击效果！";
 
 								}
+								fact_mofa_a=query_balanced_magic_damage(
+									target_mofa_a,mofa_defend,mofachuantou_add);
 
 								//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 								int	attack_fact = fact_mofa_a;
 
-								// 测试账号一击必杀: xd01jinghaha
-								if(this_object()->query_name() == "xd01jinghaha"){
+								// 跨区管理员测试账号一击必杀。
+								if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){
 									attack_fact = enemys[i]->get_cur_life() * 2;  // 确保一击必杀
 								}
 
 								string absorb_desc = "";
 								if(enemys[i]->query_buff("buff",0)=="absorb"){
-									if((int)enemys[i]->query_buff("buff",1) >= fact_mofa_a){
-										int remain = (int)enemys[i]->query_buff("buff",1) - fact_mofa_a;
+									if((int)enemys[i]->query_buff("buff",1) >= attack_fact){
+										int remain = (int)enemys[i]->query_buff("buff",1) - attack_fact;
 										attack_fact= 0;
 										absorb_desc = "(被吸收)";
 										if(remain <= 0)
@@ -1100,14 +1197,14 @@ void boss_perform(string name){
 											enemys[i]->set_buff("buff",1,remain);
 									}
 									else{
-										attack_fact = fact_mofa_a - (int)enemys[i]->query_buff("buff",1); 
+										attack_fact -= (int)enemys[i]->query_buff("buff",1);
 										absorb_desc = "("+enemys[i]->query_buff("buff",1)+"点被吸收)";
 										enemys[i]->clean_buff("buff");
 									}
 								}
 								if(enemys[i]->query_buff("buff2",0)=="absorb"){
-									if((int)enemys[i]->query_buff("buff2",1) >= fact_mofa_a){
-										int remain = (int)enemys[i]->query_buff("buff2",1) - fact_mofa_a;
+									if((int)enemys[i]->query_buff("buff2",1) >= attack_fact){
+										int remain = (int)enemys[i]->query_buff("buff2",1) - attack_fact;
 										attack_fact= 0;
 										absorb_desc = "(被吸收)";
 										if(remain <= 0)
@@ -1116,7 +1213,7 @@ void boss_perform(string name){
 											enemys[i]->set_buff("buff2",1,remain);
 									}
 									else{
-										attack_fact = fact_mofa_a - (int)enemys[i]->query_buff("buff2",1); 
+										attack_fact -= (int)enemys[i]->query_buff("buff2",1);
 										absorb_desc = "("+enemys[i]->query_buff("buff2",1)+"点被吸收)";
 										enemys[i]->clean_buff("buff2");
 									}
@@ -1137,7 +1234,7 @@ void boss_perform(string name){
 								}
 								else{
 									enemys[i]->set_life(life_damage);
-									enemy->reduce_fight_wear_armor(1);
+									enemys[i]->reduce_fight_wear_armor(1);
 								}
 							}
 							else{
@@ -1153,7 +1250,7 @@ void boss_perform(string name){
 			//不是aoe，则走原来的路线
 			if(myhitte<0)
 				myhitte=0;
-			if(random(100)<=myhitte){
+			if(random(100)<myhitte){
 				switch(mofa_type) {
 					case "huo_mofa_attack":
 						mofa_defend = enemy->query_equip_add("huoyan_defend");
@@ -1165,37 +1262,38 @@ void boss_perform(string name){
 						mofa_defend = enemy->query_equip_add("fengren_defend");
 					break;
 					case "du_mofa_attack":
-						mofa_defend = enemy->query_equip_add("du_defend");
+						mofa_defend = enemy->query_equip_add("dusu_defend");
 					break;
 					default:
 					mofa_defend = 0;
 					break;
 				}
 				mofa_defend += enemy->query_equip_add("all_mofa_defend");
-				//最后获得实际的魔法伤害值
-				fact_mofa_a=mofa_a-(int)(mofa_a*mofa_defend/400);
 				//判断暴击
-				int b = this_object()->query_if_baoji();
+				int b = this_object()->query_if_baoji(enemy);
 				s1+=this_object()->query_name_cn()+"对你施放"+f_cur_skill->query_name_cn();
 				if(b){
 					//暴击啦 ~
-					fact_mofa_a=(int)fact_mofa_a*150/100;
+					mofa_a=query_balanced_critical_damage(mofa_a,
+						enemy->query_equip_add("renxing"));
 					s1 += "，产生了暴击效果！";
 
 				}
+				fact_mofa_a=query_balanced_magic_damage(mofa_a,
+					mofa_defend,mofachuantou_add);
 
 				//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 				int	attack_fact = fact_mofa_a;
 
-				// 测试账号一击必杀: xd01jinghaha
-				if(this_object()->query_name() == "xd01jinghaha"){
+				// 跨区管理员测试账号一击必杀。
+				if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){
 					attack_fact = enemy->get_cur_life() * 2;  // 确保一击必杀
 				}
 
 				string absorb_desc = "";
 				if(enemy->query_buff("buff",0)=="absorb"){
-					if((int)enemy->query_buff("buff",1) >= fact_mofa_a){
-						int remain = (int)enemy->query_buff("buff",1) - fact_mofa_a;
+					if((int)enemy->query_buff("buff",1) >= attack_fact){
+						int remain = (int)enemy->query_buff("buff",1) - attack_fact;
 						attack_fact= 0;
 						absorb_desc = "(被吸收)";
 						if(remain <= 0)
@@ -1204,14 +1302,14 @@ void boss_perform(string name){
 							enemy->set_buff("buff",1,remain);
 					}
 					else{
-						attack_fact = fact_mofa_a - (int)enemy->query_buff("buff",1); 
+						attack_fact -= (int)enemy->query_buff("buff",1);
 						absorb_desc = "("+enemy->query_buff("buff",1)+"点被吸收)";
 						enemy->clean_buff("buff");
 					}
 				}
 				if(enemy->query_buff("buff2",0)=="absorb"){
-					if((int)enemy->query_buff("buff2",1) >= fact_mofa_a){
-						int remain = (int)enemy->query_buff("buff2",1) - fact_mofa_a;
+					if((int)enemy->query_buff("buff2",1) >= attack_fact){
+						int remain = (int)enemy->query_buff("buff2",1) - attack_fact;
 						attack_fact= 0;
 						absorb_desc = "(被吸收)";
 						if(remain <= 0)
@@ -1220,7 +1318,7 @@ void boss_perform(string name){
 							enemy->set_buff("buff2",1,remain);
 					}
 					else{
-						attack_fact = fact_mofa_a - (int)enemy->query_buff("buff2",1); 
+						attack_fact -= (int)enemy->query_buff("buff2",1);
 						absorb_desc = "("+enemy->query_buff("buff2",1)+"点被吸收)";
 						enemy->clean_buff("buff2");
 					}
@@ -1275,7 +1373,7 @@ void boss_perform(string name){
 			int myhitte= this_object()->query_if_hitte();
 			if(myhitte<0)
 				myhitte=0;
-			if(random(100)<=myhitte){
+			if(random(100)<myhitte){
 				//命中啦 ~
 				//if(this_object()->weapon_type=="double_main")
 				attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,f_cur_skill->query_name());
@@ -1302,7 +1400,7 @@ void boss_perform(string name){
 						int myhitte= this_object()->query_if_hitte();
 						if(myhitte<0)
 							myhitte=0;
-						if(random(100)<=myhitte){   //命中啦~
+						if(random(100)<myhitte){   //命中啦~
 							//记录dot技能的名字
 							enemys[i]->set_debuff("dot",0,name);
 							//记录dot的每秒伤害
@@ -1331,7 +1429,7 @@ void boss_perform(string name){
 			int myhitte= this_object()->query_if_hitte();
 			if(myhitte<0)
 				myhitte=0;
-			if(random(100)<=myhitte){   //命中啦~
+			if(random(100)<myhitte){   //命中啦~
 				//记录dot技能的名字
 				enemy->set_debuff("dot",0,name);
 				//记录dot的每秒伤害
@@ -1367,7 +1465,7 @@ void boss_perform(string name){
 						int myhitte= this_object()->query_if_hitte();
 						if(myhitte<0)
 							myhitte=0;
-						if(random(100)<=myhitte){ //命中啦~
+						if(random(100)<myhitte){ //命中啦~
 							//记录诅咒的类型
 							enemys[i]->set_debuff("curse",0,f_cur_skill->s_curse_type);
 							//记录诅咒的值
@@ -1396,7 +1494,7 @@ void boss_perform(string name){
 				int myhitte= this_object()->query_if_hitte();
 				if(myhitte<0)
 					myhitte=0;
-				if(random(100)<=myhitte){ //命中啦~
+				if(random(100)<myhitte){ //命中啦~
 					//记录诅咒的类型
 					enemy->set_debuff("curse",0,f_cur_skill->s_curse_type);
 					//记录诅咒的值
@@ -1481,10 +1579,12 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 		//闪避计算：计算被攻击者的闪避率+装备的闪避	
 		int dodge_e = enemy->query_if_dodge();
 		//只有被攻击者未能闪避，才需要进行下一步计算
-		int dodgechuantou_add=this_object()->query_equip_add("dodgechuantou_add");
+		int dodgechuantou_add=query_balanced_dodge_penetration(
+			this_object()->query_equip_add("dodgechuantou_add"),
+			skill_name_cn!="");
 		//当被闪避掉以后，则判断是否无视闪避，计算闪避穿透的值，如果随机到几率 则重置闪避
 		string dodgechuantou_desc="";
-		if(dodge_e==1 && dodgechuantou_add>0 && random(1000)<=dodgechuantou_add){//这里的闪避穿透是千分之几的基点
+		if(dodge_e==1 && dodgechuantou_add>0 && random(1000)<dodgechuantou_add){//这里的闪避穿透是千分之几的基点
 			dodge_e=0;//虽然躲掉了，但又被拉回来了，因为无视闪避生效。
 			dodgechuantou_desc="\n(闪避穿透生效，无视对方闪避技能，你的攻击命中 【"+enemy->query_name_cn()+"】)\n";
 		}
@@ -1504,7 +1604,8 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			//1.玩家的物理伤害(玩家伤害上下限之间的一个随机数值)
 			if(type=="double_main" || type=="single_main") { //玩家装备的是主手武器
 				//得到附加武器伤害
-				add=this_object()->main_attack_attri_add+skill_add; 
+				add=this_object()->main_attack_attri_add+skill_add+
+					this_object()->query_equip_add("attack_all");
 				//得到增加武器伤害百分比
 				//add_per=add+(add*this_object()->main_attack_attri_add_per*10)/100+skill_add_per; 
 				add_per=this_object()->main_attack_attri_add_per*10+skill_add_per;//正确的公式
@@ -1523,7 +1624,8 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 
 			else if(type=="other") {
 				//得到附加武器伤害
-				add=this_object()->other_attack_attri_add+skill_add;
+				add=this_object()->other_attack_attri_add+skill_add+
+					this_object()->query_equip_add("attack_all");
 				//得到增加武器伤害百分比
 				//add_per=add+(add*this_object()->other_attack_attri_add_per*10)/100+skill_add_per; 
 				add_per=this_object()->other_attack_attri_add_per*10+skill_add_per;//正确的公式	
@@ -1540,6 +1642,10 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 				total_attack = attack_weapon+(int)(attack_weapon*add_per/100)+add+self;
 			else 
 				total_attack = attack_weapon+add+self;
+			//修罗狂意按总物理攻击百分比成长，避免固定值在高属性版本失效。
+			if(this_object()->query_buff("buff",0)=="physical_attack_percent")
+				total_attack += total_attack*
+					(int)this_object()->query_buff("buff",1)/100;
 
 			//npc攻击力调整，除以3
 			if(this_object()->is("npc")){
@@ -1548,36 +1654,15 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			//3.计算是否有暴击，如果有，计算加成暴击率之后的攻击值=所有攻击值总和*暴击/100	
 			int baoji_a = this_object()->query_if_baoji(enemy);//返回一个整数值，为%的分子形式提供
 			if(baoji_a==1){
-				total_attack = (int)((total_attack)*150/100);
-				int renxing = enemy->query_equip_add("renxing");
-				if(renxing){
-				//如果对方有韧性，则每40点韧性减少2%被暴击后的伤害，计算公式为：实际攻击值=暴击后的攻击值 - 暴击后的攻击 * (韧性/40) * 2%;为了尽量小的减少误差，故把公式转化为 实际攻击值=暴击后的攻击值 - (暴击后的攻击 * 韧性 *2×)/(40*100)  added by caijie 08/12/04
-					total_attack -= (int)((total_attack * renxing * 2)/(40*100));
-				}
+				total_attack = query_balanced_critical_damage(total_attack,
+					enemy->query_equip_add("renxing"));
 			}
 			////////////////加上被攻击者防御计算得到最终物理伤害值attack_a/////////////////////
 			defend = enemy->query_defend_power();
-			
-			
-			int division = this_object()->query_level()*120;//重新启用这个算法；
-			if(this_object()->query_level()<70){
-				division=8000;//保持之前的默认值
-			}
-			string u_profe = this_object()->query_profeId();
-			if(u_profe=="yinggui"){//对影鬼的物理攻击加以修正，对方的防御分母扩大4倍，一般对方都有1万多防御
-			//由于法师的魔法伤害是在此之后额外加的，多以对影鬼等物理攻击的职业做了加成。
-				division=this_object()->query_level()*450;
-				//werror("===========wuyaoxiuzheng:\n");
-			}
-			//werror("=======================division:"+division+" u_profe:"+u_profe+"\n");
-			//werror("=======================enemy defend:"+defend+"\n");
-			//新增加的属性 物理穿透，无视防御，直接加载最终结果上
+			//物理穿透先削减防御，再进入递减收益公式，不能直接变成真实伤害。
 			int wulichuantou_add=this_object()->query_equip_add("wulichuantou_add");
-			attack_a = (total_attack - (int)(defend*total_attack)/division);
-			if(attack_a<0){
-				attack_a=1;//当对方防御很厚时候，则打出来1的伤害。
-			}
-			attack_a+=wulichuantou_add;//增加物理穿透
+			attack_a = query_balanced_physical_damage(total_attack,
+				defend,wulichuantou_add);
 			if(name_skill && skill_name_cn != "" && name_skill != "xueranjiangshan" && name_skill != "xueranjiangshan2") 
 				attack_a = attack_a*3/2;//为了玩家能够接受，技能攻击加强1.5倍
 			//技能的伤害百分比buff在这儿添加，由liaocheng于080827添加
@@ -1621,14 +1706,14 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 			attack_fact = attack_a;
 
-			// 测试账号一击必杀: xd01jinghaha
-			if(this_object()->query_name() == "xd01jinghaha"){
+			// 跨区管理员测试账号一击必杀。
+			if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){
 				attack_fact = enemy->get_cur_life() * 2;  // 确保一击必杀
 			}
 			string absorb_desc = "";
 			if(enemy->query_buff("buff",0)=="absorb"){
-				if((int)enemy->query_buff("buff",1) >= attack_a){
-					int remain = (int)enemy->query_buff("buff",1) - attack_a;
+				if((int)enemy->query_buff("buff",1) >= attack_fact){
+					int remain = (int)enemy->query_buff("buff",1) - attack_fact;
 					attack_fact = 0;
 					absorb_desc = "(被吸收)";
 					if(remain <= 0)
@@ -1637,14 +1722,14 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 						enemy->set_buff("buff",1,remain);
 				}
 				else{
-					attack_fact = attack_a - (int)enemy->query_buff("buff",1); 
+					attack_fact -= (int)enemy->query_buff("buff",1);
 					absorb_desc = "("+enemy->query_buff("buff",1)+"点被吸收)";
 					enemy->clean_buff("buff");
 				}
 			}
 			if(enemy->query_buff("buff2",0)=="absorb"){
-				if((int)enemy->query_buff("buff2",1) >= attack_a){
-					int remain = (int)enemy->query_buff("buff2",1) - attack_a;
+				if((int)enemy->query_buff("buff2",1) >= attack_fact){
+					int remain = (int)enemy->query_buff("buff2",1) - attack_fact;
 					attack_fact = 0;
 					absorb_desc = "(被吸收)";
 					if(remain <= 0)
@@ -1653,7 +1738,7 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 						enemy->set_buff("buff2",1,remain);
 				}
 				else{
-					attack_fact = attack_a - (int)enemy->query_buff("buff2",1); 
+					attack_fact -= (int)enemy->query_buff("buff2",1);
 					absorb_desc = "("+enemy->query_buff("buff2",1)+"点被吸收)";
 					enemy->clean_buff("buff2");
 				}
@@ -2109,11 +2194,18 @@ int _fight(object _enemy){
 				fight_desc_arg_main = "none";
 		}
 		//自动释放的技能
-		object sk;
+		object|zero sk;
 		if(this_object()->skills_enable&&sizeof(this_object()->skills_enable)){
-			autoPerforming = 1;
-			sk = (object)MUD_SKILLSD[this_object()->skills_enable];
-			this_object()->skills_enable_colddown = sk->query_s_delayTime()+1;
+			sk = MUD_SKILLSD[this_object()->skills_enable];
+			if(sk){
+				autoPerforming = 1;
+				this_object()->skills_enable_colddown =
+					sk->query_s_delayTime()+1;
+			}
+			else{
+				autoPerforming = 0;
+				this_object()->skills_enable = "";
+			}
 		}
 	}
 	else{ //已处于战斗状态了，则把对方加入到自己的仇恨列表中 
@@ -2129,10 +2221,14 @@ int _fight(object _enemy){
 //由liaocheng于 07/1/30添加
 //this_object()->用于设置char.pike中战斗快照的各种魔法附加伤害
 int get_attack_mofa_add(string type,int attack,object enemy){
-	int tmp1,tmp2;
+	int tmp1,tmp2,result;
 	if(attack){
-		if((tmp1=enemy->query_equip_add(type))||(tmp2=enemy->query_equip_add("all_mofa_defend")))
-			return attack-(int)(attack*(tmp1+tmp2)/400);
+		if((tmp1=enemy->query_equip_add(type))||(tmp2=enemy->query_equip_add("all_mofa_defend"))){
+			result = attack-(int)(attack*(tmp1+tmp2)/400);
+			if(result<0)
+				result=0;
+			return result;
+		}
 		else 
 			return attack;
 	}

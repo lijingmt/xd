@@ -1818,6 +1818,10 @@ private int can_loot_item(object me, object ob)
 		return 0;
 	if(!ob->is("item") || ob->is("npc"))
 		return 0;
+	// 矿脉和药株是采集源，不是普通掉落。熟练度不足时采集入口会
+	// 跳过它们，拾取入口也必须跳过，避免把“原矿/原药株”捡进背包。
+	if(functionp(ob->query_source_type))
+		return 0;
 	if(functionp(ob->query_item_canGet) && ob->query_item_canGet() != 1)
 		return 0;
 	if(ob->query_name() == "corpse")

@@ -419,7 +419,7 @@ void test_time_and_low_life_guard()
 
 void test_gathering_and_material_cleanup()
 {
-	test_start("挂机识别采集物、大堆叠原料并按保留量自动出售");
+	test_start("挂机按熟练度采集、拒绝拾取原矿并自动出售原料");
 	object player = create_runtime_player(
 		"__testunit_autofight_gathering__");
 	object daemon = (object)(ROOT+
@@ -452,10 +452,26 @@ void test_gathering_and_material_cleanup()
 		valid = valid && material && material->amount >= 2 &&
 			material->max_count == 9999;
 
+		// 锌矿需要15级熟练度。挂机既不能采，也不能把矿脉当掉落捡走。
+		object locked_ore = clone(ROOT+
+			"/gamelib/clone/item/material/xinkuang");
+		locked_ore->move(room);
+		valid = valid && daemon->query_gather_source(player) == 0 &&
+			daemon->query_loot_item(player) == 0;
+		destruct(locked_ore);
+
+		// 甘草同样需要15级熟练度，草药模式也不能绕过门槛拾取药株。
+		player["/plus/autofight_gather_mode"] = "herb";
+		object locked_herb = clone(ROOT+
+			"/gamelib/clone/item/material/cy_gancao");
+		locked_herb->move(room);
+		valid = valid && daemon->query_gather_source(player) == 0 &&
+			daemon->query_loot_item(player) == 0;
+		destruct(locked_herb);
+
 		object herb = clone(ROOT+
 			"/gamelib/clone/item/material/cy_muhudie");
 		herb->move(room);
-		player["/plus/autofight_gather_mode"] = "herb";
 		valid = valid && daemon->query_gather_source(player) == herb;
 
 		material->amount = 350;
@@ -475,7 +491,7 @@ void test_gathering_and_material_cleanup()
 	if(!err && valid)
 		test_pass();
 	else
-		test_fail("自动采集、9999堆叠或原料出售错误: "+error_desc);
+		test_fail("采集门槛、原矿拾取、9999堆叠或原料出售错误: "+error_desc);
 	if(room){
 		foreach(all_inventory(room),object item)
 			if(item != player)

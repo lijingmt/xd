@@ -554,8 +554,8 @@ void test_utility_and_control_runtime()
 		"bingpochanshen":({"human","yushi","curse","speed","2"}),
 		"tianshajianyi":({"human","zhuxian","buff","doub","12"}),
 		"wuyingfenghou":({"human","zhuxian","dot","wuyingfenghou","400"}),
-		"shurakuangyi":({"monst","kuangyao","buff","attack","1200"}),
-		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","420"}),
+		"shurakuangyi":({"monst","kuangyao","buff","physical_attack_percent","20"}),
+		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","50"}),
 		"wanxiangshihun":({"monst","wuyao","dot","wanxiangshihun","400"}),
 		"jiuyouduzhang":({"monst","wuyao","curse","life","30"}),
 		"jiuyouguibu":({"monst","yinggui","buff","dodge","12"}),
@@ -596,11 +596,15 @@ void test_utility_and_control_runtime()
 			mixed effect_value = info[2]=="buff" ?
 				effect_target->query_buff(info[2],1) :
 				effect_target->query_debuff(info[2],1);
+			int expected_effect = (int)info[4];
+			if(skill_name=="xuehailieshang")
+				expected_effect = caster->query_xuehai_dot_damage(
+					enemy->query_life_max(),(int)info[4],0);
 			if(effect_type!=info[3] ||
 			   (skill_name=="taiyixuanguang" &&
 			    effect_value<(int)info[4]) ||
 			   (skill_name!="taiyixuanguang" &&
-			    effect_value!=(int)info[4]))
+			    effect_value!=expected_effect))
 				failed++;
 			if(skill_name=="taiqingjianyu" &&
 			   caster->query_defend_power()!=derived_before+1800)
@@ -613,7 +617,7 @@ void test_utility_and_control_runtime()
 					failed++;
 			}
 			else if(skill_name=="shurakuangyi" &&
-			   caster->query_base_damage()!=derived_before+1200)
+			   caster->query_base_damage()!=derived_before)
 				failed++;
 			else if(skill_name=="liudaozhangmu"){
 				int expected_hitte = derived_before-400;

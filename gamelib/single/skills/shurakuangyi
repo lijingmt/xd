@@ -7,14 +7,14 @@ protected void create(){
 	desc="燃起修罗战意，短时间大幅提高自身物理攻击";
 	s_type="zhudong";
 	s_skill_type="buff";
-	s_curse_type="attack";
+	s_curse_type="physical_attack_percent";
 	s_delayTime=90;
 	s_lasttime=12;
-	performs_attack[1]=1200;
-	performs_attack[2]=1800;
-	performs_attack[3]=2600;
-	performs_attack[4]=3600;
-	performs_attack[5]=4800;
+	performs_attack[1]=20;
+	performs_attack[2]=30;
+	performs_attack[3]=40;
+	performs_attack[4]=50;
+	performs_attack[5]=60;
 	performs_cast[1]=300;
 	performs_cast[2]=360;
 	performs_cast[3]=430;
@@ -27,9 +27,9 @@ protected void create(){
 	performs_level_limit[3]=120;
 	performs_level_limit[4]=140;
 	performs_level_limit[5]=160;
-	performs_desc[1]="12秒内提高1200点物理攻击，消耗法力300点";
-	performs_desc[2]="12秒内提高1800点物理攻击，消耗法力360点";
-	performs_desc[3]="12秒内提高2600点物理攻击，消耗法力430点";
-	performs_desc[4]="12秒内提高3600点物理攻击，消耗法力510点";
-	performs_desc[5]="12秒内提高4800点物理攻击，消耗法力600点";
+	performs_desc[1]="12秒内提高20%物理攻击，消耗法力300点";
+	performs_desc[2]="12秒内提高30%物理攻击，消耗法力360点";
+	performs_desc[3]="12秒内提高40%物理攻击，消耗法力430点";
+	performs_desc[4]="12秒内提高50%物理攻击，消耗法力510点";
+	performs_desc[5]="12秒内提高60%物理攻击，消耗法力600点";
 }
