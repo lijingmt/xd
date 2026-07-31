@@ -28,7 +28,7 @@ int is_room(){
 	return 1;
 }
 //override item类的函数，用来动态调整npc的等级
-int dongtai_npc_start_level=50;
+int dongtai_npc_start_level=70;
 
 
 void add_items(array(string|program) _items){
@@ -45,7 +45,7 @@ void add_items(array(string|program) _items){
 		object|zero t_ob = 0;
 		object|zero ob=0;
 		mixed err=catch{
-			//等级大于50级以上才开启动态NPC
+			//达到70级后才开启动态NPC
 			int fb_status = me ? FBD->query_fb_memebers(me->fb_id,me->query_name()) : 1;//0 为非副本，1为副本
 			//int fb_status = search(fb_arr,this_object()->name);
 			//werror("======fb_status "+fb_status +"\n");
@@ -80,7 +80,7 @@ void reset_items()
 	object me= this_player();
 	if(!me) return;
 	//werror("----reset_items -> player=["+me->name+"]----\n");
-	//等级大于50级以上才开启动态NPC
+	//达到70级后才开启动态NPC
 	int fb_status = FBD->query_fb_memebers(me->fb_id,me->query_name());
 	//werror("======fb_status "+fb_status +"\n");
 	if(me->query_level()>=dongtai_npc_start_level && fb_status == 0){

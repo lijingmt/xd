@@ -1,6 +1,6 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
-inherit WAP_DANYAO;
+inherit WAP_FOOD;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【灵】玉芷浆";
@@ -9,7 +9,6 @@ protected void create(){
 	amount = 1;
 	value=10000;
 	//picture=name;
-	set_danyao_kind("attri_supply");
 	set_item_canEquip(0);
 	set_item_canDrop(1);
 	set_item_canGet(1);
@@ -23,6 +22,7 @@ protected void create(){
 
 	race_limit["human"] = "人类";//阵营限制[阵营名字：阵营中文名字]
 	race_limit["monst"] = "妖魔";
+	race_limit["third"] = "中立";
 	
 	profe_limit["jianxian"] = "剑仙";//职业限制[职业名字：职业中文名字]
 	profe_limit["yushi"] = "羽士";
@@ -30,6 +30,7 @@ protected void create(){
 	profe_limit["kuangyao"] = "狂妖";
 	profe_limit["wuyao"] = "巫妖";
 	profe_limit["yinggui"] = "影鬼";
+	profe_limit["fangshi"] = "方士";
 
 	desc += "阵营限制：";
 	string t_race = "";

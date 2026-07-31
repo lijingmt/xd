@@ -862,14 +862,30 @@ string query_growth_task_guide_room(object player)
 	level = state["level"];
 	race_id = player->query_raceId();
 
-	// 50级以上的普通地图怪会按玩家等级动态刷新。
-	if(level>=50){
+	// 达到70级后，普通地图怪才会按玩家等级动态刷新。
+	if(level>=70){
 		if(race_id=="human")
 			return "plxianjing/zilingxijing";
 		if(race_id=="monst")
 			return "plxianjing/qingyuwulin";
 		return "plxianjing/binghuanyuntai";
 	}
+	if(level>=68)
+		return "klshuanjingwaicheng/heishandong";
+	if(level>=66)
+		return "klshuanjingwaicheng/heiheyuan";
+	if(level>=64)
+		return "penglaihuanjing/liehuochitang";
+	if(level>=62)
+		return "penglaihuanjing/qiushuangshilu";
+	if(level>=59)
+		return "penglaihuanjing/yunyepingyuan";
+	if(level>=55)
+		return "plxianjing/binghuanyuntai";
+	if(level>=53)
+		return "plxianjing/dangyunshijie";
+	if(level>=50)
+		return "liuguangpingyuan/liuguangchalu";
 	if(level<=5){
 		if(race_id=="monst")
 			return "shanyaohaiwan/diwashuikeng";

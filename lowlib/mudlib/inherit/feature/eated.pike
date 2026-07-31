@@ -25,27 +25,31 @@ int eat()
 				if(this_object()->profe_limit[me->query_profeId()]&&sizeof(this_object()->profe_limit[me->query_profeId()])){
 					mapping m = this_object()->add_supplay;
 					if(m&&sizeof(m)){
-						foreach(indices(m),string index){
-							if( (int)m[index] !=0 ){
-								if(index=="life_supply"){//加血
-									if(me->get_cur_life()>=me->query_life_max())
-										return 11;//血够了不用重复吃药加血
-									me->set_life(me->get_cur_life()+(int)m["life_supply"]);
-									if(me->query_life()>me->query_life_max())
-										me->set_life(me->query_life_max());
-									//吃了物品，数量减一
-									this_object()->amount--;
-								}
-								if(index=="mofa_supply"){//加蓝
-									if(me->get_cur_mofa()>=me->query_mofa_max())
-										return 22;//蓝够了不用重复吃药加蓝
-									me->set_mofa(me->get_cur_life()+(int)m["mofa_supply"]);
-									if(me->query_mofa()>me->query_mofa_max())
-										me->set_mofa(me->query_mofa_max());
-									this_object()->amount--;
-								}
-							}
+						int life_supply = (int)m["life_supply"];
+						int mofa_supply = (int)m["mofa_supply"];
+						int can_supply_life = life_supply>0 &&
+							me->get_cur_life()<me->query_life_max();
+						int can_supply_mofa = mofa_supply>0 &&
+							me->get_cur_mofa()<me->query_mofa_max();
+						if(!can_supply_life&&!can_supply_mofa){
+							if(life_supply>0)
+								return 11;//血够了不用重复吃药加血
+							if(mofa_supply>0)
+								return 22;//蓝够了不用重复吃药加蓝
+							return 4;
 						}
+						if(can_supply_life){
+							me->set_life(me->get_cur_life()+life_supply);
+							if(me->query_life()>me->query_life_max())
+								me->set_life(me->query_life_max());
+						}
+						if(can_supply_mofa){
+							me->set_mofa(me->get_cur_mofa()+mofa_supply);
+							if(me->query_mofa()>me->query_mofa_max())
+								me->set_mofa(me->query_mofa_max());
+						}
+						//一件复合药同时恢复生命和法力，也只消耗一份
+						this_object()->amount--;
 						//吃过了，并且吃完了，置标志位
 						if(this_object()->amount<=0)
 							eat_flag=0;

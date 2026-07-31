@@ -69,6 +69,10 @@ void test_runtime_compile()
 		"/gamelib/cmds/get_free_yao.pike",
 		"/gamelib/clone/item/food/xinshouhongyao",
 		"/gamelib/clone/item/water/xinshoulanyao",
+		"/gamelib/clone/item/liandan/lyuzhijiang",
+		"/gamelib/clone/item/liandan/lningchenlu",
+		"/lowlib/mudlib/inherit/feature/eated.pike",
+		"/lowlib/mudlib/inherit/feature/drinked.pike",
 		"/lowlib/wapmud2/cmds/flushview.pike",
 	});
 	int failed = 0;
@@ -144,6 +148,273 @@ void test_all_professions_can_use()
 		test_pass();
 	else
 		test_fail("职业限制或药效错误: "+error_desc);
+}
+
+void test_xiaohuandan_fangshi_compatibility()
+{
+	test_start("方士与旧职业均可正常服用小还丹");
+	array(mapping(string:string)) professions = ({
+		(["race":"third","profession":"fangshi"]),
+		(["race":"human","profession":"jianxian"]),
+	});
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 1;
+	int number = 0;
+	foreach(professions,mapping(string:string) config){
+		number++;
+		object player = create_player("__testunit_xiaohuandan_"+number+
+			"__",config["race"],config["profession"],5);
+		mixed err = catch {
+			object medicine = clone(ROOT+
+				"/gamelib/clone/item/food/xiaohuandan");
+			medicine->move(player);
+			player->set_life(1);
+			set_this_player(player);
+			int before_life = player->query_life();
+			int eat_result = medicine->eat();
+			valid = valid && eat_result == 1 &&
+				player->query_life() == before_life+300;
+		};
+		if(err){
+			valid = 0;
+			error_desc += config["profession"]+": "+describe_error(err);
+		}
+		destroy_player(player);
+	}
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(valid)
+		test_pass();
+	else
+		test_fail("小还丹的阵营、职业或恢复量错误: "+error_desc);
+}
+
+void scan_consumable_catalog(string path,mapping(string:int) stats)
+{
+	array(string)|zero entries = get_dir(path);
+	if(!entries)
+		return;
+	foreach(entries,string entry){
+		string child = path+"/"+entry;
+		if(Stdio.is_dir(child)){
+			scan_consumable_catalog(child,stats);
+			continue;
+		}
+		string source = Stdio.read_file(child);
+		if(!source)
+			continue;
+		if(search(source,"inherit WAP_FOOD")!=-1 ||
+		   search(source,"inherit WAP_WATER")!=-1){
+			stats["instant"]++;
+			if(search(source,"race_limit[\"third\"]")==-1 ||
+			   search(source,"profe_limit[\"fangshi\"]")==-1)
+				stats["missing_fangshi"]++;
+			program|zero compiled = 0;
+			mixed err = catch {
+				compiled = (program)child;
+			};
+			if(err || !compiled){
+				stats["compile_failed"]++;
+				werror("  ✗ 即时恢复药编译失败: %s (%s)\n",child,
+					err ? describe_error(err) : "没有程序对象");
+			}
+			object|zero item;
+			mixed clone_err = catch {
+				item = clone(child);
+			};
+			if(clone_err || !item ||
+			   !item->race_limit["third"] ||
+			   !item->profe_limit["fangshi"] || item->amount<=0 ||
+			   item->eat_flag!=1 ||
+			   ((int)item->add_supplay["life_supply"]<=0 &&
+			    (int)item->add_supplay["mofa_supply"]<=0) ||
+			   (search(source,"inherit WAP_FOOD")!=-1 &&
+			    !functionp(item->eat)) ||
+			   (search(source,"inherit WAP_WATER")!=-1 &&
+			    !functionp(item->drink))){
+				stats["runtime_invalid"]++;
+				werror("  ✗ 即时恢复药运行态错误: %s (%s)\n",child,
+					clone_err ? describe_error(clone_err) : "属性或入口错误");
+			}
+			if(item)
+				destruct(item);
+		}
+		else if(search(source,"inherit WAP_DANYAO")!=-1){
+			stats["buff"]++;
+			if(search(source,"add_supplay[")!=-1 ||
+			   search(source,"race_limit[")!=-1 ||
+			   search(source,"profe_limit[")!=-1 ||
+			   search(source,"eat_flag")!=-1)
+				stats["wrong_base"]++;
+		}
+	}
+}
+
+void test_consumable_catalog()
+{
+	test_start("全量药品目录无遗漏职业限制或错误恢复基类");
+	mapping(string:int) stats = ([
+		"instant":0,
+		"buff":0,
+		"missing_fangshi":0,
+		"compile_failed":0,
+		"runtime_invalid":0,
+		"wrong_base":0,
+	]);
+	array(string) paths = ({
+		"/gamelib/clone/item/food",
+		"/gamelib/clone/item/water",
+		"/gamelib/clone/item/liandan",
+		"/gamelib/clone/item/teyao",
+		"/gamelib/clone/item/home/mature/plant",
+		"/gamelib/clone/item/zongzi",
+		"/gamelib/clone/item/zhongqiuyuebing",
+		"/gamelib/clone/item/other",
+	});
+	foreach(paths,string path)
+		scan_consumable_catalog(ROOT+path,stats);
+	if(stats["instant"]==45 && stats["buff"]>=200 &&
+	   stats["missing_fangshi"]==0 &&
+	   stats["compile_failed"]==0 && stats["runtime_invalid"]==0 &&
+	   stats["wrong_base"]==0)
+		test_pass();
+	else
+		test_fail(sprintf("即时药=%d，增益丹药=%d，漏方士=%d，编译失败=%d，运行态错误=%d，错误基类=%d",
+			stats["instant"],stats["buff"],
+			stats["missing_fangshi"],stats["compile_failed"],
+			stats["runtime_invalid"],stats["wrong_base"]));
+}
+
+void test_dual_supply_single_consumption()
+{
+	test_start("复合恢复药按各自当前值回血回蓝且每次只消耗一份");
+	array(mapping(string:string)) professions = ({
+		(["race":"third","profession":"fangshi"]),
+		(["race":"human","profession":"jianxian"]),
+	});
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 1;
+	int number = 0;
+	foreach(professions,mapping(string:string) config){
+		number++;
+		object player = create_player("__testunit_dual_medicine_"+
+			number+"__",config["race"],config["profession"],10);
+		mixed err = catch {
+			object medicine = clone(ROOT+
+				"/gamelib/clone/item/food/1lifemofa");
+			medicine->amount = 3;
+			medicine->move(player);
+			player->set_life(1);
+			player->set_mofa(1);
+			set_this_player(player);
+			int before_life = player->get_cur_life();
+			int before_mofa = player->get_cur_mofa();
+			int first_result = medicine->eat();
+			valid = valid && first_result==1 &&
+				player->get_cur_life()==before_life+60 &&
+				player->get_cur_mofa()==before_mofa+20 &&
+				medicine->amount==2;
+			player->set_life(player->query_life_max());
+			player->set_mofa(1);
+			int second_result = medicine->eat();
+			valid = valid && second_result==1 &&
+				player->get_cur_life()==player->query_life_max() &&
+				player->get_cur_mofa()==21 && medicine->amount==1;
+		};
+		if(err){
+			valid = 0;
+			error_desc += config["profession"]+": "+describe_error(err);
+		}
+		destroy_player(player);
+	}
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(valid)
+		test_pass();
+	else
+		test_fail("复合药恢复值或消耗数量错误: "+error_desc);
+}
+
+void test_advanced_instant_medicines()
+{
+	test_start("方士与旧职业可使用玉芷浆和凝晨露即时恢复药");
+	array(mapping(string:string)) professions = ({
+		(["race":"third","profession":"fangshi"]),
+		(["race":"human","profession":"jianxian"]),
+	});
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 1;
+	int number = 0;
+	foreach(professions,mapping(string:string) config){
+		number++;
+		object player = create_player("__testunit_advanced_medicine_"+
+			number+"__",config["race"],config["profession"],50);
+		mixed err = catch {
+			object life_medicine = clone(ROOT+
+				"/gamelib/clone/item/liandan/lyuzhijiang");
+			object mana_medicine = clone(ROOT+
+				"/gamelib/clone/item/liandan/lningchenlu");
+			life_medicine->move(player);
+			mana_medicine->move(player);
+			player->set_life(1);
+			player->set_mofa(1);
+			set_this_player(player);
+			int before_life = player->get_cur_life();
+			int before_mofa = player->get_cur_mofa();
+			int eat_result = life_medicine->eat();
+			int drink_result = mana_medicine->drink();
+			int expected_life = before_life+2500;
+			int expected_mofa = before_mofa+3000;
+			if(expected_life>player->query_life_max())
+				expected_life = player->query_life_max();
+			if(expected_mofa>player->query_mofa_max())
+				expected_mofa = player->query_mofa_max();
+			valid = valid && eat_result==1 && drink_result==1 &&
+				player->get_cur_life()==expected_life &&
+				player->get_cur_mofa()==expected_mofa;
+		};
+		if(err){
+			valid = 0;
+			error_desc += config["profession"]+": "+describe_error(err);
+		}
+		destroy_player(player);
+	}
+	object low_player = create_player("__testunit_advanced_medicine_low__",
+		"third","fangshi",49);
+	mixed low_err = catch {
+		object low_life = clone(ROOT+
+			"/gamelib/clone/item/liandan/lyuzhijiang");
+		object low_mana = clone(ROOT+
+			"/gamelib/clone/item/liandan/lningchenlu");
+		low_life->move(low_player);
+		low_mana->move(low_player);
+		low_player->set_life(1);
+		low_player->set_mofa(1);
+		set_this_player(low_player);
+		valid = valid && low_life->eat()==0 && low_mana->drink()==0 &&
+			low_player->get_cur_life()==1 &&
+			low_player->get_cur_mofa()==1;
+	};
+	if(low_err){
+		valid = 0;
+		error_desc += "level 49: "+describe_error(low_err);
+	}
+	destroy_player(low_player);
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(valid)
+		test_pass();
+	else
+		test_fail("高级即时恢复药入口、限制或药效错误: "+error_desc);
 }
 
 void test_starter_grant_once()
@@ -338,6 +609,10 @@ int main()
 	werror("\n========== 新手免费红蓝药测试 ==========\n");
 	test_runtime_compile();
 	test_all_professions_can_use();
+	test_xiaohuandan_fangshi_compatibility();
+	test_consumable_catalog();
+	test_dual_supply_single_consumption();
+	test_advanced_instant_medicines();
 	test_starter_grant_once();
 	test_claim_policy();
 	test_autofight_auto_claim();

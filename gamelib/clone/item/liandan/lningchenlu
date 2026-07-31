@@ -1,10 +1,10 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
-inherit WAP_DANYAO;
+inherit WAP_WATER;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【灵】凝晨露";
-	desc="食用后,立即恢复法力3000点。\n";
+	desc="饮用后，立即恢复法力3000点。\n";
 	unit="瓶";
 	amount = 1;
 	value=10000;
@@ -15,14 +15,13 @@ protected void create(){
 	set_item_canTrade(1);
 	set_item_canSend(1);
 	set_item_canStorage(1);
-	set_danyao_kind("attri_supply");
-	
-	level_limit = 2;//食物食用等级限制
+	level_limit = 50;//饮品饮用等级限制
 
 	add_supplay["mofa_supply"] = 3000;
 
 	race_limit["human"] = "人类";//阵营限制[阵营名字：阵营中文名字]
 	race_limit["monst"] = "妖魔";
+	race_limit["third"] = "中立";
 	
 	profe_limit["jianxian"] = "剑仙";//职业限制[职业名字：职业中文名字]
 	profe_limit["yushi"] = "羽士";
@@ -30,6 +29,7 @@ protected void create(){
 	profe_limit["kuangyao"] = "狂妖";
 	profe_limit["wuyao"] = "巫妖";
 	profe_limit["yinggui"] = "影鬼";
+	profe_limit["fangshi"] = "方士";
 
 	desc += "阵营限制：";
 	string t_race = "";
@@ -61,8 +61,8 @@ protected void create(){
 
 	eat_flag = 1;
 }
-int eat(){
-	int result=::eat();
+int drink(){
+	int result=::drink();
 	if(eat_flag==0){
 		remove();
 	}

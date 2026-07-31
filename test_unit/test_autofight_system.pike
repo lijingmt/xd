@@ -66,6 +66,8 @@ void test_runtime_compile()
 		"/gamelib/single/daemons/autofightd.pike",
 		"/gamelib/cmds/autofight.pike",
 		"/gamelib/cmds/autofightclose.pike",
+		"/gamelib/cmds/viceskill_dig.pike",
+		"/gamelib/cmds/viceskill_gather.pike",
 		"/lowlib/wapmud2/cmds/flushview.pike",
 	});
 	int failed = 0;
@@ -108,6 +110,8 @@ void test_defaults_and_switch()
 			daemon->query_auto_sell_mode(player) == "off" &&
 			daemon->query_auto_sell_level_gap(player) == 5 &&
 			daemon->query_auto_sell_enabled(player) == 0 &&
+			daemon->query_gather_mode(player) == "off" &&
+			daemon->query_material_keep(player) == -1 &&
 			player->query_autofight() == "disable";
 		daemon->start_autofight(player);
 		valid = valid && player->query_autofight() == "enable";
@@ -373,6 +377,106 @@ void test_time_and_low_life_guard()
 	destroy_runtime_player(player);
 }
 
+void test_gathering_and_material_cleanup()
+{
+	test_start("挂机识别采集物、大堆叠原料并按保留量自动出售");
+	object player = create_runtime_player(
+		"__testunit_autofight_gathering__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object dig_command = (object)(ROOT+
+		"/gamelib/cmds/viceskill_dig.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(room),object old_item)
+			destruct(old_item);
+		player->move(room);
+		player->vice_skills["caikuang"] = ({0,0,VICESKILL_UP});
+		player->vice_skills["caiyao"] = ({0,0,VICESKILL_UP});
+		daemon->initialize_player(player);
+		player["/plus/autofight_gather_mode"] = "mine";
+		object first_ore = clone(ROOT+
+			"/gamelib/clone/item/material/tongkuang");
+		first_ore->move(room);
+		valid = daemon->query_gather_source(player) == first_ore;
+		set_this_player(player);
+		dig_command->main("tongkuang 0");
+		object second_ore = clone(ROOT+
+			"/gamelib/clone/item/material/tongkuang");
+		second_ore->move(room);
+		dig_command->main("tongkuang 0");
+		object material = present("tongkuangshi",player);
+		valid = valid && material && material->amount >= 2 &&
+			material->max_count == 9999;
+
+		object herb = clone(ROOT+
+			"/gamelib/clone/item/material/cy_muhudie");
+		herb->move(room);
+		player["/plus/autofight_gather_mode"] = "herb";
+		valid = valid && daemon->query_gather_source(player) == herb;
+
+		material->amount = 350;
+		player["/plus/autofight_material_keep"] = 300;
+		int money_before = player->query_account();
+		mapping sell_result = daemon->perform_auto_sell_material(player);
+		valid = valid && sell_result["count"] == 50 &&
+			sell_result["money"] == 50 && material->amount == 300 &&
+			player->query_account() == money_before+50;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("自动采集、9999堆叠或原料出售错误: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_recovery_skips_unusable_medicine()
+{
+	test_start("挂机跳过阵营职业不符药品并回退到可用药");
+	object player = create_runtime_player(
+		"__testunit_autofight_medicine_limit__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object unusable = clone(ROOT+
+		"/gamelib/clone/item/food/xiaohuandan");
+	object usable = clone(ROOT+
+		"/gamelib/clone/item/food/xinshouhongyao");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		m_delete(unusable->race_limit,"third");
+		m_delete(unusable->profe_limit,"fangshi");
+		unusable->move(player);
+		usable->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_food"] = "xiaohuandan";
+		object selected = daemon->query_recovery_item(player,"life");
+		valid = selected == usable;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("不可用药品过滤或自动回退错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
 void test_duplicate_object_count()
 {
 	test_start("同名堆叠物品序号与自动拾取命令参数一致");
@@ -464,6 +568,28 @@ void test_smart_route_selection()
 			"target":44]),
 		(["level":49,"race":"monst",
 			"path":"fuxishan/fuxidongrukou","target":47]),
+		(["level":50,"race":"third",
+			"path":"liuguangpingyuan/liuguangchalu",
+			"target":50]),
+		(["level":54,"race":"human",
+			"path":"plxianjing/dangyunshijie","target":53]),
+		(["level":57,"race":"monst",
+			"path":"plxianjing/binghuanyuntai","target":55]),
+		(["level":61,"race":"third",
+			"path":"penglaihuanjing/yunyepingyuan",
+			"target":60]),
+		(["level":63,"race":"human",
+			"path":"penglaihuanjing/qiushuangshilu",
+			"target":62]),
+		(["level":65,"race":"monst",
+			"path":"penglaihuanjing/liehuochitang",
+			"target":64]),
+		(["level":67,"race":"third",
+			"path":"klshuanjingwaicheng/heiheyuan",
+			"target":66]),
+		(["level":69,"race":"human",
+			"path":"klshuanjingwaicheng/heishandong",
+			"target":68]),
 		(["level":70,"race":"third",
 			"path":"penglaihuanjing/qiushuangxiaojing",
 			"target":70]),
@@ -555,7 +681,7 @@ void test_smart_target_level_window()
 
 void test_real_route_targets()
 {
-	test_start("46级静态边界与70级动态练级区均有可攻击同级怪");
+	test_start("46、50、58、69级静态区与70级动态区均有可攻击怪");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	object|zero original_player = this_player();
@@ -564,6 +690,18 @@ void test_real_route_targets()
 			"level":46,
 			"path":"waihai/qianhaiguanmucong",
 			"target":44]),
+		(["name":"__testunit_autofight_route_50__",
+			"level":50,
+			"path":"liuguangpingyuan/liuguangchalu",
+			"target":50]),
+		(["name":"__testunit_autofight_route_58__",
+			"level":58,
+			"path":"plxianjing/binghuanyuntai",
+			"target":55]),
+		(["name":"__testunit_autofight_route_69__",
+			"level":69,
+			"path":"klshuanjingwaicheng/heishandong",
+			"target":68]),
 		(["name":"__testunit_autofight_route_70__",
 			"level":70,
 			"path":"penglaihuanjing/qiushuangxiaojing",
@@ -950,6 +1088,8 @@ int main()
 	test_auto_sell_protection_rules();
 	test_auto_sell_settlement();
 	test_time_and_low_life_guard();
+	test_gathering_and_material_cleanup();
+	test_recovery_skips_unusable_medicine();
 	test_duplicate_object_count();
 	test_recovery_selection_checkmarks();
 	test_smart_route_selection();

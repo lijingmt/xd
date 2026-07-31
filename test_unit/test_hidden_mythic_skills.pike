@@ -212,7 +212,7 @@ void test_dynamic_monster_eligibility_runtime()
 	   npc_level>=70 && npc_level<=72 &&
 	   ITEMSD->can_drop_hidden_skill_book(npc_level,1)==1 &&
 	   room_source &&
-	   search(room_source,"dongtai_npc_start_level=50")!=-1 &&
+	   search(room_source,"dongtai_npc_start_level=70")!=-1 &&
 	   search(room_source,"fb_status == 0")!=-1 &&
 	   fbd_source &&
 	   search(fbd_source,

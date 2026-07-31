@@ -1,6 +1,8 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define ITEM_PATH_KUANG ITEM_PATH+"material/"
+#define GATHER_STACK_NUM 9999
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
 //arg = name count
 int main(string|zero arg)
 {
@@ -23,10 +25,6 @@ int main(string|zero arg)
 			m_delete(me["/danyao"],"spec");
 		}
 		if(ob){
-			if(me->if_over_load(ob)){
-				s += "你随身物品已满，无法再存放更多的东西\n\n";
-			}
-			else{
 				array(int) skill = me->vice_skills["caikuang"];
 				int need_lev = KUANGD->query_need_level(name);
 				if(need_lev < 0)
@@ -40,18 +38,27 @@ int main(string|zero arg)
 					}
 					else{
 						string for_log = "";
+						int got_any = 0;
 						mapping(string:int) get_m = KUANGD->query_get_m(name);
 						if(sizeof(get_m) > 0){
 							foreach(indices(get_m),string get_name){
 								int prob = get_m[get_name];
 								if(prob == 100){
 									object get_ob = clone(ITEM_PATH_KUANG+get_name);
-									if(get_ob){
-										int num = random(3)+1;
+								if(get_ob){
+									int num = random(3)+1;
+									get_ob->amount = num;
+									get_ob->max_count = GATHER_STACK_NUM;
+									if(me->if_over_load(get_ob)){
+										s += "背包已满且没有可合并的矿石格，采矿暂停。\n";
+										get_ob->remove();
+									}
+									else{
 										s += "你获得了"+num+"块"+get_ob->query_name_cn()+"\n";
 										for_log += "获得了"+num+"块"+get_ob->query_name_cn();
-										get_ob->amount = num;
 										get_ob->move_player(me->query_name());
+										got_any = 1;
+									}
 									}
 									else
 										s += "矿石突然消失在一片烟雾中......\n";
@@ -59,37 +66,45 @@ int main(string|zero arg)
 								else{
 									if((random(100)+1)<prob){
 										object get_ob = clone(ITEM_PATH_KUANG+get_name);
-										if(get_ob){
+									if(get_ob){
+										get_ob->amount = 1;
+										get_ob->max_count = GATHER_STACK_NUM;
+										if(me->if_over_load(get_ob))
+											get_ob->remove();
+										else{
 											s += "你获得了一颗"+get_ob->query_name_cn()+"\n";
 											for_log += "，一颗"+get_ob->query_name_cn();
-											get_ob->amount = 1;
 											get_ob->move_player(me->query_name());
+											got_any = 1;
+										}
 										}
 										else
 											s += "矿石突然消失在一片烟雾中......\n";
 									}
 								}
 							}
-							if(for_log != "")
-								Stdio.append_file(ROOT+"/log/caikuang.log",now[0..sizeof(now)-2]+":"+me->query_name_cn()+"("+me->query_name()+")："+for_log+"\n");
-							ob->remove();
-							//增加需要刷新此矿的数量
-							string room = ROOMLEVELD->query_room_quick(env->query_name());
-							KUANGD->set_flush_num(name,room);
-							//检查熟练度是否升级
-							if(now_lev < skill[2]){
-								int update_need = (int)(now_lev/5);
-								skill[1]++;
-								if(skill[1]>=update_need){
-									skill[0]++;
-									skill[1]=0;
-									s += "你的采矿熟练度提高到了"+(now_lev+1)+"级\n";
+							if(got_any){
+								AUTOFIGHTD->consolidate_gathered_materials(me);
+								if(for_log != "")
+									Stdio.append_file(ROOT+"/log/caikuang.log",now[0..sizeof(now)-2]+":"+me->query_name_cn()+"("+me->query_name()+")："+for_log+"\n");
+								ob->remove();
+								//增加需要刷新此矿的数量
+								string room = ROOMLEVELD->query_room_quick(env->query_name());
+								KUANGD->set_flush_num(name,room);
+								//检查熟练度是否升级
+								if(now_lev < skill[2]){
+									int update_need = (int)(now_lev/5);
+									skill[1]++;
+									if(skill[1]>=update_need){
+										skill[0]++;
+										skill[1]=0;
+										s += "你的采矿熟练度提高到了"+(now_lev+1)+"级\n";
+									}
 								}
 							}
 						}
 					}
 				}
-			}
 		}
 		else
 			s += "该矿已被别人挖走!\n";

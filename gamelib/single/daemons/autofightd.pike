@@ -7,7 +7,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 4
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
-#define AUTOFIGHT_CONFIG_VERSION 3
+#define AUTOFIGHT_CONFIG_VERSION 4
 
 private array(mapping(string:mixed)) smart_training_routes = ({
 	([
@@ -146,6 +146,70 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"monst":"fuxishan/fuxidongrukou",
 		"third":"huangyuan/yingxielu",
 	]),
+	([
+		"max":52,
+		"level":50,
+		"name":"流光平原历练",
+		"human":"liuguangpingyuan/liuguangchalu",
+		"monst":"liuguangpingyuan/liuguangchalu",
+		"third":"liuguangpingyuan/liuguangchalu",
+	]),
+	([
+		"max":54,
+		"level":53,
+		"name":"蓬莱云石历练",
+		"human":"plxianjing/dangyunshijie",
+		"monst":"plxianjing/dangyunshijie",
+		"third":"plxianjing/dangyunshijie",
+	]),
+	([
+		"max":58,
+		"level":55,
+		"name":"冰幻云台历练",
+		"human":"plxianjing/binghuanyuntai",
+		"monst":"plxianjing/binghuanyuntai",
+		"third":"plxianjing/binghuanyuntai",
+	]),
+	([
+		"max":61,
+		"level":60,
+		"name":"云野平原历练",
+		"human":"penglaihuanjing/yunyepingyuan",
+		"monst":"penglaihuanjing/yunyepingyuan",
+		"third":"penglaihuanjing/yunyepingyuan",
+	]),
+	([
+		"max":63,
+		"level":62,
+		"name":"秋霜石路历练",
+		"human":"penglaihuanjing/qiushuangshilu",
+		"monst":"penglaihuanjing/qiushuangshilu",
+		"third":"penglaihuanjing/qiushuangshilu",
+	]),
+	([
+		"max":65,
+		"level":64,
+		"name":"烈火池塘历练",
+		"human":"penglaihuanjing/liehuochitang",
+		"monst":"penglaihuanjing/liehuochitang",
+		"third":"penglaihuanjing/liehuochitang",
+	]),
+	([
+		"max":67,
+		"level":66,
+		"name":"昆仑幻境历练",
+		"human":"klshuanjingwaicheng/heiheyuan",
+		"monst":"klshuanjingwaicheng/heiheyuan",
+		"third":"klshuanjingwaicheng/heiheyuan",
+	]),
+	([
+		"max":69,
+		"level":68,
+		"name":"幻境深处历练",
+		"human":"klshuanjingwaicheng/heishandong",
+		"monst":"klshuanjingwaicheng/heishandong",
+		"third":"klshuanjingwaicheng/heishandong",
+	]),
 });
 
 protected void create()
@@ -182,6 +246,8 @@ void initialize_player(object me)
 		me["/plus/autofight_sell_armor"] = 1;
 		me["/plus/autofight_sell_accessory"] = 1;
 		me["/plus/autofight_sell_level_gap"] = 5;
+		me["/plus/autofight_gather_mode"] = "off";
+		me["/plus/autofight_material_keep"] = -1;
 	}
 	else
 		sync_daily_limit(me);
@@ -197,6 +263,10 @@ void initialize_player(object me)
 		me["/plus/autofight_sell_armor"] = 1;
 		me["/plus/autofight_sell_accessory"] = 1;
 		me["/plus/autofight_sell_level_gap"] = 5;
+	}
+	if(config_version < 4){
+		me["/plus/autofight_gather_mode"] = "off";
+		me["/plus/autofight_material_keep"] = -1;
 	}
 	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
@@ -325,6 +395,88 @@ int query_auto_rest_enabled(object me)
 		return 0;
 	initialize_player(me);
 	return (int)me["/plus/autofight_auto_rest"] == 1;
+}
+
+string query_gather_mode(object me)
+{
+	string mode;
+	array(string) valid_modes = ({"off","mine","herb","both"});
+	if(!me)
+		return "off";
+	initialize_player(me);
+	mode = (string)me["/plus/autofight_gather_mode"];
+	if(search(valid_modes,mode) == -1)
+		return "off";
+	return mode;
+}
+
+string query_gather_mode_cn(string mode)
+{
+	if(mode == "mine")
+		return "自动采矿";
+	if(mode == "herb")
+		return "自动采药";
+	if(mode == "both")
+		return "采药和采矿";
+	return "关闭";
+}
+
+int query_material_keep(object me)
+{
+	int keep;
+	if(!me)
+		return -1;
+	initialize_player(me);
+	keep = (int)me["/plus/autofight_material_keep"];
+	if(keep != -1 && keep != 0 && keep != 100 &&
+	   keep != 300 && keep != 500)
+		return -1;
+	return keep;
+}
+
+object|zero query_gather_source(object me)
+{
+	object env;
+	string mode;
+	array(object) all;
+	if(!me || me->in_combat)
+		return 0;
+	mode = query_gather_mode(me);
+	if(mode == "off")
+		return 0;
+	env = environment(me);
+	if(!env)
+		return 0;
+	all = all_inventory(env);
+	foreach(all,object source){
+		string source_type;
+		string skill_name;
+		mixed skill;
+		int need_level;
+		if(!source || !functionp(source->query_source_type))
+			continue;
+		source_type = source->query_source_type();
+		if(source_type == "kuang"){
+			if(mode != "mine" && mode != "both")
+				continue;
+			skill_name = "caikuang";
+			need_level = KUANGD->query_need_level(source->query_name());
+		}
+		else if(source_type == "caoyao"){
+			if(mode != "herb" && mode != "both")
+				continue;
+			skill_name = "caiyao";
+			need_level = CAOYAOD->query_need_level(source->query_name());
+		}
+		else
+			continue;
+		skill = me->vice_skills[skill_name];
+		if(!arrayp(skill) || !sizeof(skill))
+			continue;
+		if(need_level >= 0 && (int)skill[0] >= need_level)
+			return source;
+	}
+	return 0;
 }
 
 string query_auto_sell_mode(object me)
@@ -631,6 +783,125 @@ mapping(string:mixed) perform_auto_sell(object me)
 	return result;
 }
 
+private int is_auto_sell_material(object me,object item)
+{
+	string material_type;
+	int keep;
+	if(!me || !item || environment(item) != me)
+		return 0;
+	keep = query_material_keep(me);
+	if(keep < 0 || !item->is("combine_item"))
+		return 0;
+	material_type = item->query_for_material();
+	if(material_type != "duanzao" && material_type != "liandan")
+		return 0;
+	if(item->query_item_canTrade() != 1 || item->value <= 0)
+		return 0;
+	return item->amount > keep;
+}
+
+int consolidate_gathered_materials(object me)
+{
+	mapping(string:object) first_items = ([]);
+	int removed = 0;
+	if(!me)
+		return 0;
+	foreach(all_inventory(me),object item){
+		string material_type;
+		string key;
+		object first;
+		if(!item || !item->is("combine_item"))
+			continue;
+		material_type = item->query_for_material();
+		if(material_type != "duanzao" && material_type != "liandan")
+			continue;
+		key = item->query_name()+"#"+item->query_toVip();
+		first = first_items[key];
+		item->max_count = 9999;
+		if(!first){
+			first_items[key] = item;
+			continue;
+		}
+		int available = 9999-first->amount;
+		if(available <= 0){
+			first_items[key] = item;
+			continue;
+		}
+		if(item->amount <= available){
+			first->amount += item->amount;
+			item->remove();
+			removed++;
+		}
+		else{
+			first->amount = 9999;
+			item->amount -= available;
+			first_items[key] = item;
+		}
+	}
+	return removed;
+}
+
+object|zero query_auto_sell_material(object me)
+{
+	if(!me || query_material_keep(me) < 0)
+		return 0;
+	foreach(all_inventory(me),object item){
+		if(is_auto_sell_material(me,item))
+			return item;
+	}
+	return 0;
+}
+
+int should_auto_sell_material(object me)
+{
+	if(!me || me->in_combat)
+		return 0;
+	return query_auto_sell_material(me) ? 1 : 0;
+}
+
+mapping(string:mixed) perform_auto_sell_material(object me)
+{
+	mapping(string:mixed) result = ([
+		"count":0,
+		"money":0,
+		"name":"",
+	]);
+	object|zero item;
+	int keep;
+	int sell_amount;
+	int money_num;
+	string item_name;
+	string item_path;
+	string now;
+	if(!me || me->in_combat)
+		return result;
+	item = query_auto_sell_material(me);
+	if(!item)
+		return result;
+	keep = query_material_keep(me);
+	sell_amount = item->amount-keep;
+	if(sell_amount <= 0)
+		return result;
+	item_name = item->query_name_cn();
+	item_path = (file_name(item)/"#")[0];
+	money_num = item->value*sell_amount;
+	if(money_num <= 0)
+		money_num = sell_amount;
+	me->add_money(money_num);
+	result["count"] = sell_amount;
+	result["money"] = money_num;
+	result["name"] = item_name;
+	item->amount = keep;
+	if(item->amount <= 0)
+		item->remove();
+	now = ctime(time());
+	Stdio.append_file(ROOT+"/log/autofight_material_sell.log",
+		now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
+		me->query_name()+") 自动出售采集原料 "+item_name+" "+
+		item_path+" 数量"+sell_amount+" 得到"+money_num+"\n");
+	return result;
+}
+
 void start_autofight(object me)
 {
 	if(!me)
@@ -695,7 +966,10 @@ string query_start_block_reason(object me)
 	if(query_time_left(me) <= 0)
 		return sprintf("今天的%d小时自动挂机时间已经用完",
 			query_daily_seconds_for(me)/3600);
+	consolidate_gathered_materials(me);
 	if(query_loot_enabled(me) && me->if_over_easy_load()){
+		if(query_auto_sell_material(me))
+			return "";
 		if(query_auto_sell_enabled(me) &&
 		   sizeof(query_auto_sell_candidates(me)))
 			return "";
@@ -751,7 +1025,7 @@ mapping(string:mixed) query_training_route(object me)
 		return ([]);
 	level = me->query_level();
 	race = me->query_raceId();
-	if(level>=50){
+	if(level>=70){
 		path = "plxianjing/chilingxiaolu";
 		if(race=="monst")
 			path = "plxianjing/chiyuxiaolu";
@@ -1012,10 +1286,18 @@ object|zero query_loot_item(object me)
 	return 0;
 }
 
-private int is_matching_recovery_item(object item, string kind)
+private int is_matching_recovery_item(object me,object item,string kind)
 {
 	mapping supply;
-	if(!item || item->amount <= 0 || item->eat_flag != 1)
+	if(!me || !item || item->amount <= 0 || item->eat_flag != 1)
+		return 0;
+	if(me->query_level() < item->level_limit)
+		return 0;
+	if(!item->race_limit[me->query_raceId()] ||
+	   !sizeof(item->race_limit[me->query_raceId()]))
+		return 0;
+	if(!item->profe_limit[me->query_profeId()] ||
+	   !sizeof(item->profe_limit[me->query_profeId()]))
 		return 0;
 	supply = item->add_supplay;
 	if(!supply || !sizeof(supply))
@@ -1043,12 +1325,12 @@ object|zero query_recovery_item(object me, string kind)
 		if(setting != "auto" && setting != "" &&
 		   item->query_name() != setting)
 			continue;
-		if(is_matching_recovery_item(item,kind))
+		if(is_matching_recovery_item(me,item,kind))
 			return item;
 	}
 	if(setting != "auto" && setting != ""){
 		foreach(all,object item){
-			if(is_matching_recovery_item(item,kind))
+			if(is_matching_recovery_item(me,item,kind))
 				return item;
 		}
 	}

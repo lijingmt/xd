@@ -85,8 +85,10 @@ int main(string|zero arg)
 	object env;
 	object|zero target;
 	object|zero item;
+	object|zero source;
 	mapping route;
 	mapping sell_result;
+	mapping material_sell_result;
 	string reason;
 	string direction;
 	string route_path;
@@ -167,6 +169,28 @@ int main(string|zero arg)
 			write("[查看清包设置:autofight cleanup]\n");
 			return 1;
 		}
+	}
+	if(AUTOFIGHTD->should_auto_sell_material(me)){
+		material_sell_result =
+			AUTOFIGHTD->perform_auto_sell_material(me);
+		if((int)material_sell_result["count"] > 0){
+			write("采集助手已自动出售"+
+				(int)material_sell_result["count"]+"个"+
+				(string)material_sell_result["name"]+"，获得"+
+				MUD_MONEYD->query_store_money_cn(
+					(int)material_sell_result["money"])+"。\n");
+			write("[查看挂机设置:autofight open]\n");
+			return 1;
+		}
+	}
+	source = AUTOFIGHTD->query_gather_source(me);
+	if(source){
+		count = AUTOFIGHTD->query_object_count(source,env);
+		if(source->query_source_type() == "kuang")
+			me->command("viceskill_dig "+source->query_name()+" "+count);
+		else
+			me->command("viceskill_gather "+source->query_name()+" "+count);
+		return 1;
 	}
 	item = AUTOFIGHTD->query_loot_item(me);
 	if(item){

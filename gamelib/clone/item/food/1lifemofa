@@ -23,6 +23,7 @@ protected void create(){
 
 	race_limit["human"] = "人类";//阵营限制[阵营名字：阵营中文名字]
 	race_limit["monst"] = "妖魔";
+	race_limit["third"] = "中立";
 	
 	profe_limit["jianxian"] = "剑仙";//职业限制[职业名字：职业中文名字]
 	profe_limit["yushi"] = "羽士";
@@ -30,6 +31,7 @@ protected void create(){
 	profe_limit["kuangyao"] = "狂妖";
 	profe_limit["wuyao"] = "巫妖";
 	profe_limit["yinggui"] = "影鬼";
+	profe_limit["fangshi"] = "方士";
 
 	desc += "阵营限制：";
 	string t_race = "";

@@ -181,6 +181,8 @@ private void show_settings(object me, string notice)
 	mapping route;
 	int daily_seconds;
 	int vip_level;
+	string gather_mode;
+	int material_keep;
 	AUTOFIGHTD->initialize_player(me);
 	food = (string)me["/plus/autofight_food"];
 	water = (string)me["/plus/autofight_water"];
@@ -189,6 +191,8 @@ private void show_settings(object me, string notice)
 	skill = me->skills_enable;
 	daily_seconds = AUTOFIGHTD->query_daily_seconds_for(me);
 	vip_level = AUTOFIGHTD->query_vip_level(me);
+	gather_mode = AUTOFIGHTD->query_gather_mode(me);
+	material_keep = AUTOFIGHTD->query_material_keep(me);
 	route = AUTOFIGHTD->query_training_route(me);
 	if(food == "" || food == "auto"){
 		food = "自动选择";
@@ -227,7 +231,12 @@ private void show_settings(object me, string notice)
 		AUTOFIGHTD->query_auto_sell_mode_cn(
 			AUTOFIGHTD->query_auto_sell_mode(me))+"\n";
 	out += "区域巡游："+(AUTOFIGHTD->query_roam_enabled(me) ? "开启" : "关闭")+"\n";
-	out += "智能寻路按真实怪物等级选择练级区，并在区内逐图搜索；50级后使用动态同级怪。\n";
+	out += "随路自动采集："+
+		AUTOFIGHTD->query_gather_mode_cn(gather_mode)+"\n";
+	out += "采集原料自动出售："+(material_keep < 0 ? "关闭" :
+		"每种保留"+material_keep+"个")+"\n";
+	out += "智能寻路按真实怪物等级选择练级区，并在区内逐图搜索；50至69级使用固定成长区，70级起使用动态同级怪。\n";
+	out += "开启采集后会优先采集沿途符合熟练度的药草和矿脉；采集原料按9999个一组堆叠，可按保留量自动出售。\n";
 	out += "智能模式优先攻击同级附近、最高不超过自身1级的普通怪；缺药时会脱战、休息并返回练级区。副本、家园和城战地图不会自动传送。\n\n";
 	if(me->query_autofight()=="enable")
 		out += "[停止自动挂机:autofight stop]\n";
@@ -252,6 +261,25 @@ private void show_settings(object me, string notice)
 		"[关闭缺药休整:autofight rest 0]\n" :
 		"[开启缺药休整:autofight rest 1]\n";
 	out += "[高级清包设置:autofight cleanup]\n";
+	out += "\n采药采矿设置：\n";
+	out += selected_prefix(gather_mode == "off")+
+		"[关闭自动采集:autofight gather off]|";
+	out += selected_prefix(gather_mode == "herb")+
+		"[只采药:autofight gather herb]|";
+	out += selected_prefix(gather_mode == "mine")+
+		"[只采矿:autofight gather mine]\n";
+	out += selected_prefix(gather_mode == "both")+
+		"[采药和采矿:autofight gather both]\n";
+	out += selected_prefix(material_keep < 0)+
+		"[不自动卖原料:autofight materialkeep -1]|";
+	out += selected_prefix(material_keep == 500)+
+		"[每种保留500:autofight materialkeep 500]|";
+	out += selected_prefix(material_keep == 300)+
+		"[每种保留300:autofight materialkeep 300]\n";
+	out += selected_prefix(material_keep == 100)+
+		"[每种保留100:autofight materialkeep 100]|";
+	out += selected_prefix(material_keep == 0)+
+		"[采到即卖:autofight materialkeep 0]\n";
 	out += "\n回血食物（未指定时会自动选择）：\n";
 	if(me->query_level()<=NEWBIED->query_newbie_supply_max_level())
 		out += "[新手免费领红蓝药:get_free_yao]\n";
@@ -345,6 +373,29 @@ int main(string|zero arg)
 		show_settings(me,value == "1" ?
 			"缺药休整已开启，补给不足时会前往安全地点恢复。" :
 			"缺药休整已关闭；低血且无药时会安全停止挂机。");
+		return 1;
+	}
+	if(action == "gather"){
+		if(value != "off" && value != "mine" &&
+		   value != "herb" && value != "both"){
+			show_settings(me,"没有这个自动采集选项。");
+			return 1;
+		}
+		me["/plus/autofight_gather_mode"] = value;
+		show_settings(me,"随路自动采集设置已更新。");
+		return 1;
+	}
+	if(action == "materialkeep"){
+		number = (int)value;
+		if(value == "" ||
+		   (number != -1 && number != 0 && number != 100 &&
+		    number != 300 && number != 500)){
+			show_settings(me,"原料保留量选项无效。");
+			return 1;
+		}
+		me["/plus/autofight_material_keep"] = number;
+		show_settings(me,number < 0 ? "采集原料自动出售已关闭。" :
+			"采集原料保留量已更新，超出部分会按商店价格出售。");
 		return 1;
 	}
 	if(action == "cleanup"){

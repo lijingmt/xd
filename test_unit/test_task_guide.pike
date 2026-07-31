@@ -129,6 +129,42 @@ void test_growth_guide_real_teleport()
 	destroy_player(player);
 }
 
+void test_growth_guide_static_dynamic_boundaries()
+{
+	test_start("50至69级固定成长区与70级动态区引导边界正确");
+	array(mapping(string:mixed)) cases = ({
+		(["level":50,"path":"liuguangpingyuan/liuguangchalu"]),
+		(["level":58,"path":"plxianjing/binghuanyuntai"]),
+		(["level":59,"path":"penglaihuanjing/yunyepingyuan"]),
+		(["level":69,"path":"klshuanjingwaicheng/heishandong"]),
+		(["level":70,"path":"plxianjing/binghuanyuntai"]),
+	});
+	string error_desc = "";
+	int valid = 1;
+	int number = 0;
+	foreach(cases,mapping(string:mixed) one){
+		number++;
+		object player = create_player("__testunit_growth_boundary_"+
+			number+"__",(int)one["level"]);
+		mixed err = catch {
+			int accepted = TASKD->accept_growth_task(player);
+			mapping target = TASKD->queryGrowthTaskGuideTarget(player);
+			valid = valid && accepted == 1 &&
+				target["path"] == one["path"] &&
+				Stdio.exist(ROOT+"/gamelib/d/"+(string)one["path"]);
+		};
+		if(err){
+			valid = 0;
+			error_desc += one["level"]+": "+describe_error(err);
+		}
+		destroy_player(player);
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail("固定/动态成长任务引导边界错误: "+error_desc);
+}
+
 void test_fangshi_next_target_and_dungeon_entrance()
 {
 	test_start("方士任务按未完成目标引导且不直飞副本内部");
@@ -367,6 +403,7 @@ int main(int argc,array(string) argv)
 	werror("╚════════════════════════════════════════════════╝\n");
 
 	test_growth_guide_real_teleport();
+	test_growth_guide_static_dynamic_boundaries();
 	test_fangshi_next_target_and_dungeon_entrance();
 	test_old_profession_task_guide_parity();
 	test_combined_accept_and_forged_argument();
