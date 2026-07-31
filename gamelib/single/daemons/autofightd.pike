@@ -7,6 +7,8 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 4
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
+#define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
+#define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
 #define AUTOFIGHT_CONFIG_VERSION 6
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 
@@ -313,6 +315,19 @@ int query_vip_level(object me)
 	if(vip_level > AUTOFIGHT_MAX_VIP_LEVEL)
 		vip_level = AUTOFIGHT_MAX_VIP_LEVEL;
 	return vip_level;
+}
+
+string query_vip_label(int vip_level)
+{
+	string vip_name;
+	if(vip_level <= 0)
+		return "普通玩家";
+	if(vip_level > AUTOFIGHT_MAX_VIP_LEVEL)
+		vip_level = AUTOFIGHT_MAX_VIP_LEVEL;
+	vip_name = VIPD->get_vip_name(vip_level);
+	if(!vip_name || vip_name == "")
+		return "VIP"+vip_level;
+	return "VIP"+vip_level+"（"+vip_name+"）";
 }
 
 int query_daily_seconds_for(object me)
@@ -932,7 +947,7 @@ mapping(string:mixed) perform_auto_sell(object me)
 		now = ctime(time());
 		Stdio.append_file(ROOT+"/log/autofight_sell.log",
 			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
-			me->query_name()+") VIP"+query_vip_level(me)+
+			me->query_name()+") "+query_vip_label(query_vip_level(me))+
 			" 自动出售 "+item_name+" "+item_path+" 得到"+
 			money_num+"\n");
 		item->remove();
@@ -1406,6 +1421,7 @@ void start_autofight(object me)
 	initialize_player(me);
 	me["/tmp/autofight_last_charge"] = time();
 	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/tmp/autofight_previous_room"] = "";
 	me->set_autofight("enable");
 }
 
@@ -1415,6 +1431,7 @@ void stop_autofight(object me)
 		return;
 	me["/tmp/autofight_last_charge"] = 0;
 	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/tmp/autofight_previous_room"] = "";
 	me["/tmp/autofight_resting"] = 0;
 	me->set_autofight("disable");
 }
@@ -1639,6 +1656,7 @@ void record_route(object me,string path)
 		return;
 	me["/tmp/autofight_last_route_time"] = time();
 	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/tmp/autofight_previous_room"] = "";
 	me["/plus/autofight_last_route"] = path;
 }
 
@@ -1674,6 +1692,15 @@ void clear_no_target(object me)
 {
 	if(me)
 		me["/tmp/autofight_no_target_ticks"] = 0;
+}
+
+void record_roam(object me)
+{
+	if(!me)
+		return;
+	me["/tmp/autofight_previous_room"] =
+		query_current_room_path(me);
+	me["/tmp/autofight_no_target_ticks"] = 0;
 }
 
 private int is_valid_target(object me, object ob)
@@ -1896,8 +1923,12 @@ string query_safe_exit(object me)
 	array(string) exits;
 	array(string) safe_exits;
 	string current_path;
-	if(!me || (!query_roam_enabled(me) &&
-	   !query_smart_route_enabled(me)))
+	string previous_room;
+	string room_prefix;
+	if(!me || !query_roam_enabled(me))
+		return "";
+	if((int)me["/tmp/autofight_no_target_ticks"] <
+	   AUTOFIGHT_ROAM_NO_TARGET_TICKS)
 		return "";
 	if(!can_auto_leave_current_room(me))
 		return "";
@@ -1905,10 +1936,13 @@ string query_safe_exit(object me)
 	if(!env || !env->exits || !sizeof(env->exits))
 		return "";
 	current_path = file_name(env);
+	previous_room = (string)me["/tmp/autofight_previous_room"];
+	room_prefix = ROOT+"/gamelib/d/";
 	exits = indices(env->exits);
 	safe_exits = ({});
 	foreach(exits,string direction){
 		string destination;
+		string destination_path;
 		destination = (string)env->exits[direction];
 		if(!destination || destination == "")
 			continue;
@@ -1917,6 +1951,14 @@ string query_safe_exit(object me)
 		if(env->hidden_exits[direction])
 			continue;
 		if(env->guarded_exits[direction])
+			continue;
+		destination_path = (destination/"#")[0];
+		if(has_prefix(destination_path,room_prefix))
+			destination_path =
+				destination_path[sizeof(room_prefix)..];
+		if(previous_room && destination_path == previous_room &&
+		   (int)me["/tmp/autofight_no_target_ticks"] <
+		   AUTOFIGHT_ROAM_BACKTRACK_TICKS)
 			continue;
 		if(is_same_area(current_path,destination))
 			safe_exits += ({direction});

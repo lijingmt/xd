@@ -242,6 +242,7 @@ int main(string|zero arg)
 	}
 	direction = AUTOFIGHTD->query_safe_exit(me);
 	if(direction != ""){
+		AUTOFIGHTD->record_roam(me);
 		me->command("leave "+direction);
 		return 1;
 	}

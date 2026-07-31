@@ -71,6 +71,31 @@ private string selected_prefix(int selected)
 	return selected ? "✓ 已选择 " : "";
 }
 
+private string vip_label(int level)
+{
+	return AUTOFIGHTD->query_vip_label(level);
+}
+
+private void show_vip_plan(object me)
+{
+	string out;
+	int vip_level;
+	vip_level = AUTOFIGHTD->query_vip_level(me);
+	out = "【自动挂机·VIP权益总览】\n";
+	out += "当前等级："+vip_label(vip_level)+"\n";
+	out += "原则：核心挂机免费，VIP提升时长和清包效率；高等级包含低等级全部权益。\n\n";
+	out += "普通玩家：每日8小时；自动战斗、智能寻路、补血补法、缺药休整、拾取、区域巡游、采药采矿及原料出售均可用。\n";
+	out += vip_label(1)+"：每日10小时；普通白装自动出售，满包每次1件；非装备90％触发自动存仓／销毁，每次1组，处理药材和矿材。\n";
+	out += vip_label(2)+"：每日12小时；可处理优良装备，装备90％触发每次2件，可设低3级保护；非装备85％触发每次2组，可自选处理类别。\n";
+	out += vip_label(3)+"：每日14小时；可处理精制装备，装备80％触发每次4件，可取消等级差；非装备80％触发每次4组，可设置材料保留量。\n";
+	out += vip_label(4)+"：每日16小时；装备70％触发每次8件；非装备每次8组，可自选70/80/90％触发线，并设置名称保护和优先处理。\n\n";
+	out += "永久安全保护不因VIP改变：穿戴、任务、技能书、玉石、宝箱、补给、不可交易／丢弃／存储、唯一、特殊来源及高品质物品不会被误处理。\n\n";
+	out += "[高级清包设置:autofight cleanup]\n";
+	out += "[返回挂机设置:autofight open]\n";
+	out += "[返回游戏:look]\n";
+	write(out);
+}
+
 private void show_cleanup_settings(object me,string notice)
 {
 	string out;
@@ -106,7 +131,7 @@ private void show_cleanup_settings(object me,string notice)
 	out = "【VIP挂机·智能清包】\n";
 	if(notice && notice != "")
 		out += notice+"\n\n";
-	out += "当前VIP："+(vip_level > 0 ? "VIP"+vip_level : "普通玩家")+"\n";
+	out += "当前VIP："+vip_label(vip_level)+"\n";
 	out += "背包占用："+backpack_count+"/"+backpack_size+"\n";
 	out += "当前策略："+AUTOFIGHTD->query_auto_sell_mode_cn(mode);
 	if(mode != "off" &&
@@ -126,10 +151,10 @@ private void show_cleanup_settings(object me,string notice)
 		((int)me["/plus/autofight_sell_accessory"] == 1 ?
 			"首饰/饰物" : "")+"\n\n";
 
-	out += "VIP1：装备满包触发，每次1件，可处理普通白装。\n";
-	out += "VIP2：装备90％触发，每次2件，可选含优良装备和3级保护线。\n";
-	out += "VIP3：装备80％触发，每次4件，可选含精制装备和不限等级差。\n";
-	out += "VIP4：装备70％触发，每次8件，自动程度最高。\n\n";
+	out += vip_label(1)+"：装备满包触发，每次1件，可处理普通白装。\n";
+	out += vip_label(2)+"：装备90％触发，每次2件，可选含优良装备和3级保护线。\n";
+	out += vip_label(3)+"：装备80％触发，每次4件，可选含精制装备和不限等级差。\n";
+	out += vip_label(4)+"：装备70％触发，每次8件，自动程度最高。\n\n";
 
 	out += selected_prefix(mode == "off")+
 		"[关闭智能清包:autofight sell off]\n";
@@ -137,34 +162,34 @@ private void show_cleanup_settings(object me,string notice)
 		out += selected_prefix(mode == "normal")+
 			"[仅普通白装:autofight sell normal]\n";
 	else
-		out += "仅普通白装（VIP1解锁）\n";
+		out += "仅普通白装（"+vip_label(1)+"解锁）\n";
 	if(vip_level >= 2)
 		out += selected_prefix(mode == "excellent")+
 			"[普通及优良装备:autofight sell excellent]\n";
 	else
-		out += "普通及优良装备（VIP2解锁）\n";
+		out += "普通及优良装备（"+vip_label(2)+"解锁）\n";
 	if(vip_level >= 3)
 		out += selected_prefix(mode == "refined")+
 			"[普通、优良及精制装备:autofight sell refined]\n";
 	else
-		out += "含精制装备（VIP3解锁）\n";
+		out += "含精制装备（"+vip_label(3)+"解锁）\n";
 
 	out += "\n等级保护选项：\n";
 	if(vip_level >= 1)
 		out += selected_prefix(level_gap == 5)+
 			"[至少低5级才出售:autofight sellgap 5]\n";
 	else
-		out += "至少低5级才出售（VIP1解锁）\n";
+		out += "至少低5级才出售（"+vip_label(1)+"解锁）\n";
 	if(vip_level >= 2)
 		out += selected_prefix(level_gap == 3)+
 			"[至少低3级才出售:autofight sellgap 3]\n";
 	else
-		out += "至少低3级才出售（VIP2解锁）\n";
+		out += "至少低3级才出售（"+vip_label(2)+"解锁）\n";
 	if(vip_level >= 3)
 		out += selected_prefix(level_gap == 0)+
 			"[不限制等级差:autofight sellgap 0]\n";
 	else
-		out += "不限制等级差（VIP3解锁）\n";
+		out += "不限制等级差（"+vip_label(3)+"解锁）\n";
 
 	out += "\n装备类别选项：\n";
 	out += (int)me["/plus/autofight_sell_weapon"] == 1 ?
@@ -195,12 +220,12 @@ private void show_cleanup_settings(object me,string notice)
 		 "开启" : "保留")+"。\n";
 	if(vip_level >= 3)
 		out += "材料保留量：每种保留"+cleanup_keep+"个，超出部分才处理。\n";
-	out += "VIP1：90％触发，药材/矿材，每次存1组。\n";
-	out += "VIP2：85％触发，每次存2组，可选择处理类别。\n";
-	out += "VIP3：80％触发，每次存4组，可设置每种材料保留量。\n";
-	out += "VIP4：70/80/90％可选，每次存8组，可设名称保护和优先处理。\n\n";
+	out += vip_label(1)+"：90％触发，药材/矿材，每次存1组。\n";
+	out += vip_label(2)+"：85％触发，每次存2组，可选择处理类别。\n";
+	out += vip_label(3)+"：80％触发，每次存4组，可设置每种材料保留量。\n";
+	out += vip_label(4)+"：70/80/90％可选，每次存8组，可设名称保护和优先处理。\n\n";
 	if(vip_level < 1)
-		out += "自动存仓和自动销毁（VIP1解锁）；手动预览销毁仍免费。\n";
+		out += "自动存仓和自动销毁（"+vip_label(1)+"解锁）；手动预览销毁仍免费。\n";
 	else{
 		out += store_enabled ?
 			"✓ [关闭自动存仓:autofight storage 0]\n" :
@@ -210,7 +235,7 @@ private void show_cleanup_settings(object me,string notice)
 			"[开启挂机销毁非装备:autofight destroyconfirm]\n";
 	}
 	if(vip_level >= 2){
-		out += "\n处理类别（VIP2）：\n";
+		out += "\n处理类别（"+vip_label(2)+"）：\n";
 		out += AUTOFIGHTD->query_auto_cleanup_category_enabled(me,"herb") ?
 			"✓ [药材：处理:autofight cleantype herb 0]\n" :
 			"[药材：保留:autofight cleantype herb 1]\n";
@@ -222,7 +247,7 @@ private void show_cleanup_settings(object me,string notice)
 			"[其他普通物品：保留:autofight cleantype misc 1]\n";
 	}
 	if(vip_level >= 3){
-		out += "\n每种材料保留量（VIP3）：\n";
+		out += "\n每种材料保留量（"+vip_label(3)+"）：\n";
 		out += selected_prefix(cleanup_keep == 0)+
 			"[不保留:autofight cleankeep 0]|";
 		out += selected_prefix(cleanup_keep == 50)+
@@ -233,7 +258,7 @@ private void show_cleanup_settings(object me,string notice)
 			"[保留300:autofight cleankeep 300]\n";
 	}
 	if(vip_level >= 4){
-		out += "\n触发线（VIP4）：\n";
+		out += "\n触发线（"+vip_label(4)+"）：\n";
 		out += selected_prefix(cleanup_trigger == 70)+
 			"[70％:autofight cleantrigger 70]|";
 		out += selected_prefix(cleanup_trigger == 80)+
@@ -257,7 +282,7 @@ private void show_destroy_confirm(object me)
 	int item_count;
 	if(AUTOFIGHTD->query_vip_level(me) < 1){
 		out = "【挂机销毁非装备】\n";
-		out += "自动销毁由VIP1解锁；普通玩家仍可免费手动预览并确认销毁。\n\n";
+		out += "自动销毁由"+vip_label(1)+"解锁；普通玩家仍可免费手动预览并确认销毁。\n\n";
 		out += "[预览并一键销毁:cleanup_non_equipment]\n";
 		out += "[返回清包设置:autofight cleanup]\n";
 		write(out);
@@ -291,14 +316,15 @@ private void show_cleanup_lists(object me,string notice)
 	array(object) candidates;
 	int shown_count;
 	if(AUTOFIGHTD->query_vip_level(me) < 4){
-		show_cleanup_settings(me,"名称保护和优先处理由VIP4解锁。");
+		show_cleanup_settings(me,
+			"名称保护和优先处理由"+vip_label(4)+"解锁。");
 		return;
 	}
 	protect_names = AUTOFIGHTD->query_auto_cleanup_protect_names(me);
 	force_names = AUTOFIGHTD->query_auto_cleanup_force_names(me);
 	shown = ([]);
 	candidates = AUTOFIGHTD->query_non_equipment_destroy_candidates(me);
-	out = "【VIP4·名称保护／优先处理】\n";
+	out = "【"+vip_label(4)+"·名称保护／优先处理】\n";
 	if(notice && notice != "")
 		out += notice+"\n\n";
 	out += "保护名单（"+sizeof(protect_names)+"/20）："+
@@ -374,9 +400,10 @@ private void show_settings(object me, string notice)
 	out += "今日剩余："+format_time(AUTOFIGHTD->query_time_left(me))+"\n";
 	out += "每日额度："+format_time(daily_seconds);
 	if(vip_level > 0)
-		out += "（VIP"+vip_level+"，每级增加2小时）\n";
+		out += "（"+vip_label(vip_level)+"，每级增加2小时）\n";
 	else
-		out += "（普通玩家；VIP每级增加2小时，VIP4最高16小时）\n";
+		out += "（普通玩家；VIP每级增加2小时，"+
+			vip_label(4)+"最高16小时）\n";
 	out += "低血保护："+AUTOFIGHTD->query_hp_percent(me)+"％\n";
 	out += "低法力补充："+AUTOFIGHTD->query_mana_percent(me)+"％\n";
 	out += "回血食物："+food+"\n";
@@ -409,6 +436,7 @@ private void show_settings(object me, string notice)
 		out += "[停止自动挂机:autofight stop]\n";
 	else
 		out += "[开始自动挂机:autofight start]\n";
+	out += "[查看VIP挂机分级:autofight vip]\n";
 	out += "[生命低于30％补血:autofight hp 30]|";
 	out += "[生命低于50％补血:autofight hp 50]|";
 	out += "[生命低于70％补血:autofight hp 70]\n";
@@ -570,6 +598,10 @@ int main(string|zero arg)
 		show_cleanup_settings(me,"");
 		return 1;
 	}
+	if(action == "vip"){
+		show_vip_plan(me);
+		return 1;
+	}
 	if(action == "destroyconfirm"){
 		show_destroy_confirm(me);
 		return 1;
@@ -581,7 +613,8 @@ int main(string|zero arg)
 		}
 		if(value == "1" && AUTOFIGHTD->query_vip_level(me) < 1){
 			show_cleanup_settings(me,
-				"自动销毁由VIP1解锁；手动预览销毁仍免费。");
+				"自动销毁由"+vip_label(1)+
+				"解锁；手动预览销毁仍免费。");
 			return 1;
 		}
 		me["/plus/autofight_destroy_non_equipment"] =
@@ -597,7 +630,8 @@ int main(string|zero arg)
 			return 1;
 		}
 		if(value == "1" && AUTOFIGHTD->query_vip_level(me) < 1){
-			show_cleanup_settings(me,"自动存仓由VIP1解锁。");
+			show_cleanup_settings(me,
+				"自动存仓由"+vip_label(1)+"解锁。");
 			return 1;
 		}
 		me["/plus/autofight_store_non_equipment"] =
@@ -618,7 +652,8 @@ int main(string|zero arg)
 			return 1;
 		}
 		if(AUTOFIGHTD->query_vip_level(me) < 2){
-			show_cleanup_settings(me,"自选处理类别由VIP2解锁。");
+			show_cleanup_settings(me,
+				"自选处理类别由"+vip_label(2)+"解锁。");
 			return 1;
 		}
 		number = enabled_text == "1" ? 1 : 0;
@@ -634,7 +669,8 @@ int main(string|zero arg)
 	if(action == "cleankeep"){
 		number = (int)value;
 		if(AUTOFIGHTD->query_vip_level(me) < 3){
-			show_cleanup_settings(me,"材料保留量由VIP3解锁。");
+			show_cleanup_settings(me,
+				"材料保留量由"+vip_label(3)+"解锁。");
 			return 1;
 		}
 		if(value == "" ||
@@ -650,7 +686,8 @@ int main(string|zero arg)
 	if(action == "cleantrigger"){
 		number = (int)value;
 		if(AUTOFIGHTD->query_vip_level(me) < 4){
-			show_cleanup_settings(me,"自选背包触发线由VIP4解锁。");
+			show_cleanup_settings(me,
+				"自选背包触发线由"+vip_label(4)+"解锁。");
 			return 1;
 		}
 		if(number != 70 && number != 80 && number != 90){
@@ -678,7 +715,8 @@ int main(string|zero arg)
 			return 1;
 		}
 		if(AUTOFIGHTD->query_vip_level(me) < 4){
-			show_cleanup_settings(me,"名称保护和优先处理由VIP4解锁。");
+			show_cleanup_settings(me,
+				"名称保护和优先处理由"+vip_label(4)+"解锁。");
 			return 1;
 		}
 		selected_item = present(item_name,me);
@@ -738,7 +776,7 @@ int main(string|zero arg)
 		}
 		if(AUTOFIGHTD->query_vip_level(me) < 1){
 			show_cleanup_settings(me,
-				"VIP1起可使用智能清包，当前设置没有改变。");
+				vip_label(1)+"起可使用智能清包，当前设置没有改变。");
 			return 1;
 		}
 		number = enabled_text == "1" ? 1 : 0;

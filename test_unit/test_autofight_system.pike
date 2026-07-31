@@ -183,6 +183,35 @@ void test_vip_daily_limits()
 	destroy_runtime_player(vip_player);
 }
 
+void test_vip_labels_and_plan()
+{
+	test_start("挂机VIP等级名称与统一权益入口");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	string command_source = Stdio.read_file(
+		ROOT+"/gamelib/cmds/autofight.pike");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		valid = daemon->query_vip_label(0) == "普通玩家" &&
+			daemon->query_vip_label(1) == "VIP1（水晶会员）" &&
+			daemon->query_vip_label(2) == "VIP2（黄金会员）" &&
+			daemon->query_vip_label(3) == "VIP3（白金会员）" &&
+			daemon->query_vip_label(4) == "VIP4（钻石会员）" &&
+			command_source &&
+			search(command_source,"自动挂机·VIP权益总览") != -1 &&
+			search(command_source,"查看VIP挂机分级") != -1 &&
+			search(command_source,
+				"核心挂机免费，VIP提升时长和清包效率") != -1;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("VIP名称或统一权益总览错误: "+error_desc);
+}
+
 void test_vip_auto_sell_tiers()
 {
 	test_start("VIP等级递进解锁清包品质、触发线和批量数量");
@@ -1167,6 +1196,163 @@ void test_end_to_end_current_room_fight()
 	destroy_runtime_player(player);
 }
 
+void test_end_to_end_wait_then_resume_fight()
+{
+	test_start("智能寻路空图原地等待且刷怪后恢复攻击");
+	object player = create_runtime_player(
+		"__testunit_autofight_wait_respawn__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/mihuandao/nongwusenlin");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero target;
+	object|zero selected;
+	object|zero original_player = this_player();
+	string error_desc = "";
+	string current_path = "";
+	int wait_valid = 0;
+	int selected_target = 0;
+	int started_combat = 0;
+	int matched_enemy = 0;
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(room),object old_item)
+			destruct(old_item);
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		player["/plus/autofight_roam"] = 0;
+		daemon->start_autofight(player);
+		for(int i = 0;i < 5;i++){
+			foreach(all_inventory(room),object refreshed_item)
+				if(refreshed_item != player)
+					destruct(refreshed_item);
+			flush_command->main(0);
+		}
+		wait_valid = environment(player) == room && !player->in_combat &&
+			daemon->query_safe_exit(player) == "";
+		target = clone(ROOT+
+			"/gamelib/clone/npc/mihuandao/9youdangelang");
+		target->move(room);
+		selected = daemon->query_target(player);
+		selected_target = selected == target;
+		for(int resume_tick = 0;
+		    resume_tick < 3 && !player->in_combat;resume_tick++)
+			flush_command->main(0);
+		current_path = daemon->query_current_room_path(player);
+		started_combat = player->in_combat;
+		matched_enemy = player->query_enemy() &&
+			player->query_enemy()->is("npc") &&
+			environment(player->query_enemy()) == room;
+		valid = wait_valid && selected_target &&
+			environment(player) == room && started_combat && matched_enemy;
+		daemon->stop_autofight(player);
+		player->_clean_fight();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"空图等待、位置保持或刷怪后恢复攻击错误: "
+			"wait=%d selected=%d combat=%d enemy=%d room=%s %s",
+			wait_valid,selected_target,started_combat,matched_enemy,
+			current_path,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_roam_wait_and_backtrack_guard()
+{
+	test_start("区域巡游禁止立即折返并可延迟脱离死路");
+	object player = create_runtime_player(
+		"__testunit_autofight_roam_guard__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+
+		"/gamelib/d/liuguangpingyuan/liuguangchalu");
+	object|zero original_player = this_player();
+	string direction;
+	string back_direction;
+	string delayed_back_direction;
+	string previous_direction;
+	string previous_path;
+	string error_desc = "";
+	object current_room;
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(room),object old_item)
+			destruct(old_item);
+		player->level = 50;
+		player->set_att_by_level();
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 0;
+		player["/plus/autofight_roam"] = 1;
+		daemon->start_autofight(player);
+		valid = daemon->query_safe_exit(player) == "";
+		daemon->record_no_target(player);
+		daemon->record_no_target(player);
+		valid = valid && daemon->query_safe_exit(player) == "";
+		daemon->record_no_target(player);
+		direction = daemon->query_safe_exit(player);
+		previous_path = daemon->query_current_room_path(player);
+		valid = valid && direction != "";
+		if(direction != ""){
+			daemon->record_roam(player);
+			player->command("leave "+direction);
+		}
+		valid = valid &&
+			daemon->query_current_room_path(player) != previous_path;
+		current_room = environment(player);
+		previous_direction = "";
+		foreach(indices(current_room->exits),string candidate_direction){
+			if((string)current_room->exits[candidate_direction] ==
+			   ROOT+"/gamelib/d/"+previous_path)
+				previous_direction = candidate_direction;
+			else
+				current_room->hidden_exits[candidate_direction] = 1;
+		}
+		daemon->record_no_target(player);
+		daemon->record_no_target(player);
+		daemon->record_no_target(player);
+		back_direction = daemon->query_safe_exit(player);
+		valid = valid && previous_direction != "" && back_direction == "";
+		daemon->record_no_target(player);
+		daemon->record_no_target(player);
+		daemon->record_no_target(player);
+		delayed_back_direction = daemon->query_safe_exit(player);
+		valid = valid && delayed_back_direction == previous_direction;
+		daemon->stop_autofight(player);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("巡游等待、折返防抖或死路恢复错误: "+error_desc);
+	if(room)
+		destruct(room);
+	destroy_runtime_player(player);
+}
+
 void test_end_to_end_smart_route_fight()
 {
 	test_start("游戏环境中自动换到同级练级区并开始战斗");
@@ -1428,6 +1614,7 @@ int main()
 	test_runtime_compile();
 	test_defaults_and_switch();
 	test_vip_daily_limits();
+	test_vip_labels_and_plan();
 	test_vip_auto_sell_tiers();
 	test_auto_sell_protection_rules();
 	test_auto_sell_settlement();
@@ -1445,6 +1632,8 @@ int main()
 	test_real_route_targets();
 	test_auto_rest_safety();
 	test_end_to_end_current_room_fight();
+	test_end_to_end_wait_then_resume_fight();
+	test_roam_wait_and_backtrack_guard();
 	test_end_to_end_smart_route_fight();
 	test_end_to_end_auto_rest();
 	test_end_to_end_auto_sell();
