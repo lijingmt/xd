@@ -178,21 +178,74 @@ void test_zero_probability_boundaries()
 
 void test_xuehai_percentage_limits()
 {
-	test_start("血海裂伤按最大生命成长且Boss完整持续最多约3%");
+	test_start("血海裂伤增强至9%-12%且Boss完整持续最多约3%");
 	object player = create_test_player("__testunit_xuehai_formula__");
 	object skill = (object)(ROOT+"/gamelib/single/skills/xuehailieshang");
 	int valid = player && skill &&
-		skill->query_performs_attack(1)==50 &&
-		skill->query_performs_attack(5)==75 &&
-		player->query_xuehai_dot_damage(58000000,50,0)==290000 &&
+		skill->query_performs_attack(1)==75 &&
+		skill->query_performs_attack(5)==100 &&
 		player->query_xuehai_dot_damage(58000000,75,0)==435000 &&
-		player->query_xuehai_dot_damage(58000000,75,1)==145000 &&
-		player->query_xuehai_dot_damage(0,75,0)==1;
+		player->query_xuehai_dot_damage(58000000,100,0)==580000 &&
+		player->query_xuehai_dot_damage(58000000,100,1)==145000 &&
+		player->query_xuehai_dot_damage(0,100,0)==1;
 	if(valid)
 		test_pass();
 	else
-		test_fail("玩家6%-9%或Boss 3%持续伤害边界错误");
+		test_fail("玩家9%-12%或Boss 3%持续伤害边界错误");
 	destroy_test_player(player);
+}
+
+void test_kuangyao_wound_and_dot_priority()
+{
+	test_start("致残重伤按自身生命成长且弱持续伤害不能覆盖强效果");
+	object player = create_test_player("__testunit_wound_formula__");
+	object target = create_test_player("__testunit_wound_target__");
+	object skill = (object)(ROOT+
+		"/gamelib/single/skills/zhicanzhongshang");
+	int valid = player && target && skill &&
+		skill->query_performs_attack(1)==100 &&
+		skill->query_performs_attack(10)==300 &&
+		skill->query_performs_per(1)==20 &&
+		skill->query_performs_per(10)==50 &&
+		player->query_kuangyao_wound_damage(
+			58000000,20,100,58000000,0,0)==116000 &&
+		player->query_kuangyao_wound_damage(
+			58000000,50,300,58000000,1,0)==290000 &&
+		player->query_kuangyao_wound_damage(
+			58000000,50,300,10000000,1,0)==50000 &&
+		player->query_kuangyao_wound_damage(
+			58000000,50,300,58000000,0,1)==145000 &&
+		player->query_kuangyao_wound_damage(
+			7000,20,100,58000000,0,0)==100;
+	if(valid){
+		valid = player->apply_nonstacking_dot(
+			target,"xuehailieshang",1000,12)==1 &&
+			player->apply_nonstacking_dot(
+				target,"zhicanzhongshang",500,10)==0 &&
+			target->query_debuff("dot",0)=="xuehailieshang" &&
+			target->query_debuff("dot",1)==1000 &&
+			target->query_debuff("dot",2)==12 &&
+			player->apply_nonstacking_dot(
+				target,"xuehailieshang",900,12)==0 &&
+			target->query_debuff("dot",1)==1000 &&
+			player->apply_nonstacking_dot(
+				target,"xuehailieshang",1000,12)==1;
+	}
+	if(valid){
+		target->set_debuff("dot",2,1);
+		valid = player->apply_nonstacking_dot(
+			target,"zhicanzhongshang",500,10)==1 &&
+			target->query_debuff("dot",0)=="zhicanzhongshang" &&
+			target->query_debuff("dot",1)==500 &&
+			target->query_debuff("dot",2)==10 &&
+			player->apply_nonstacking_dot(target,"none",0,0)==0;
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail("生命成长、玩家/Boss上限或持续伤害覆盖优先级错误");
+	destroy_test_player(player);
+	destroy_test_player(target);
 }
 
 void test_formula_wiring_contract()
@@ -354,6 +407,7 @@ int main()
 	test_critical_and_dodge_caps();
 	test_zero_probability_boundaries();
 	test_xuehai_percentage_limits();
+	test_kuangyao_wound_and_dot_priority();
 	test_formula_wiring_contract();
 	test_stacked_absorb_shields();
 	test_missing_skill_safety();

@@ -189,6 +189,9 @@ createApp({
             // 全局轻提示
             uiToast: null,
             uiToastTimer: null,
+            // 组队邀请由状态轮询送达，兼容没有持续socket输出的网页连接
+            teamInvite: null,
+            teamInviteBusy: false,
             // 语言选择
             selectedLanguage: localStorage.getItem('userLanguage') || 'chinese_simplified',  // 当前选择的语言
             isInitializing: true  // 初始化标志，防止初始化时触发changeLanguage
@@ -273,6 +276,23 @@ createApp({
                 this.uiToastTimer = null;
             }
             this.uiToast = null;
+        },
+
+        async respondTeamInvite(accepted) {
+            if (!this.teamInvite || this.teamInviteBusy) {
+                return;
+            }
+            const inviter = this.teamInvite.from;
+            this.teamInviteBusy = true;
+            try {
+                await this.sendJsonCommand(
+                    `${accepted ? 'term_ok' : 'term_refuse'} ${inviter}`
+                );
+            } finally {
+                this.teamInvite = null;
+                this.teamInviteBusy = false;
+                await this.fetchPlayerStats();
+            }
         },
 
         isQuickActionActive(command) {
@@ -1667,6 +1687,14 @@ createApp({
                         const wasAutofight = this.playerStats && this.playerStats.autofight;
                         const previousAvatar = this.playerStats && this.playerStats.avatar;
                         this.playerStats = data;
+                        const pendingTeamInvite = data.team_invite;
+                        if (!this.teamInviteBusy && pendingTeamInvite &&
+                            pendingTeamInvite.pending) {
+                            this.teamInvite = pendingTeamInvite;
+                        } else if (!this.teamInviteBusy &&
+                                   (!pendingTeamInvite || !pendingTeamInvite.pending)) {
+                            this.teamInvite = null;
+                        }
                         if (previousAvatar !== data.avatar) {
                             this.playerAvatarFailed = false;
                         }

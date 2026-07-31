@@ -564,7 +564,7 @@ void test_utility_and_control_runtime()
 		"tianshajianyi":({"human","zhuxian","buff","doub","12"}),
 		"wuyingfenghou":({"human","zhuxian","dot","wuyingfenghou","400"}),
 		"shurakuangyi":({"monst","kuangyao","buff","physical_attack_percent","20"}),
-		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","50"}),
+		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","75"}),
 		"wanxiangshihun":({"monst","wuyao","dot","wanxiangshihun","400"}),
 		"jiuyouduzhang":({"monst","wuyao","curse","life","30"}),
 		"jiuyouguibu":({"monst","yinggui","buff","dodge","12"}),

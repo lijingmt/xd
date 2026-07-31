@@ -277,9 +277,15 @@ void fight_die()
 								}
 							}*/
 							
-							if(melevel>=query_level_limit()){
+							int player_level_limit =
+								VIPD->query_player_level_limit(termer);
+							if(melevel>=player_level_limit){
 								string tipsvip = "";
-								tipsvip += "您的等级已经满级了，获取经验为0，赶紧去做其他任务吧\n";
+								tipsvip += "你已达到当前等级上限"+
+									player_level_limit+"级，本次打怪经验为0。"+
+									"有效VIP每提高一级可多突破"+
+									VIP_LEVEL_LIMIT_STEP+"级。\n"+
+									VIPD->get_level_limit_action_links(termer);
 								tell_object(termer,tipsvip);
 								exp_gain = 0;								
 							}
@@ -821,6 +827,16 @@ void fight_die_single(object env)
 				exp_gain = 0;
 			}			
 		}*/
+		int player_level_limit = VIPD->query_player_level_limit(first);
+		if(melevel>=player_level_limit){
+			string tipsvip = "";
+			tipsvip += "你已达到当前等级上限"+player_level_limit+
+				"级，本次打怪经验为0。有效VIP每提高一级可多突破"+
+				VIP_LEVEL_LIMIT_STEP+"级。\n"+
+				VIPD->get_level_limit_action_links(first);
+			tell_object(first,tipsvip);
+			exp_gain = 0;
+		}
 		int szx=0;                                                                                                                  
 		string bs_tips = "";
 		int extra_dh=0;

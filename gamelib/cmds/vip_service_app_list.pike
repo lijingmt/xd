@@ -17,9 +17,13 @@ int main(string|zero arg)
 	if(num>num2) num=num2;
 	for(int i=1;i<=num;i++)
 	{
-		s += "["+vip_name[i]+"("+ YUSHID->get_yushi_for_desc(vip_cost[i]*10) +"):vip_service_app_detail "+(string)i+"]\n";
+		s += "["+vip_name[i]+"·等级上限"+
+			VIPD->query_vip_level_limit(i)+"级("+
+			YUSHID->get_yushi_for_desc(vip_cost[i]*10) +
+			"):vip_service_app_detail "+(string)i+"]\n";
 	}
-	
+	if(!YUSHID->have_enough_yushi(me,vip_cost[1]*10))
+		s += "\n[玉石不足？捐赠获取仙玉:add_szx_fee]\n";
 	s += "\n[返回:vip_service_list.pike]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

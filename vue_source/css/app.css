@@ -1209,6 +1209,61 @@ body {
     padding: var(--space-md);
 }
 
+.team-invite-overlay {
+	z-index: 1320;
+	padding: var(--space-md);
+}
+
+.team-invite-modal {
+	width: min(90vw, 360px);
+	padding: 24px 20px 20px;
+	border: 1px solid rgba(92, 181, 214, 0.55);
+	border-radius: var(--radius-xl);
+	background:
+		radial-gradient(circle at top, rgba(92, 181, 214, 0.2), transparent 50%),
+		var(--bg-card);
+	box-shadow: 0 22px 64px rgba(0, 0, 0, 0.42);
+	text-align: center;
+	animation: newbieCompletionPop 0.25s ease-out;
+}
+
+.team-invite-icon {
+	font-size: 42px;
+	line-height: 1;
+}
+
+.team-invite-kicker {
+	margin-top: 9px;
+	color: var(--primary);
+	font-size: var(--font-sm);
+	font-weight: 700;
+	letter-spacing: 0.12em;
+}
+
+.team-invite-modal h3 {
+	margin: 12px 0 8px;
+	color: var(--text-primary);
+	font-size: var(--font-lg);
+}
+
+.team-invite-modal p {
+	margin: 0;
+	color: var(--text-secondary);
+	font-size: var(--font-sm);
+	line-height: 1.55;
+}
+
+.team-invite-actions {
+	display: grid;
+	grid-template-columns: 0.8fr 1.2fr;
+	gap: 9px;
+	margin-top: 18px;
+}
+
+.team-invite-actions .btn {
+	min-height: 40px;
+}
+
 .newbie-completion-modal {
     position: relative;
     width: min(92vw, 390px);
@@ -7479,5 +7534,65 @@ select:focus-visible {
 @media (min-width: 1340px) {
     .battle-panel.mini-mode {
         width: 560px;
+    }
+}
+
+/* 等级突破提示：始终跟随经验条显示，点击可查看会员分级说明。 */
+.level-cap-badge {
+    flex: 0 0 auto;
+    max-width: 132px;
+    min-height: 24px;
+    padding: 3px 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 238, 183, 0.34);
+    border-radius: 999px;
+    background: rgba(34, 26, 22, 0.28);
+    color: #fff0bb;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.level-cap-badge.active {
+    border-color: rgba(130, 224, 255, 0.58);
+    background: rgba(31, 111, 151, 0.36);
+    color: #d9f6ff;
+}
+
+.level-cap-badge.blocked,
+.level-cap-badge.expired,
+.level-cap-badge.tier-blocked,
+.level-cap-badge.tier-expired {
+    border-color: rgba(255, 166, 111, 0.62);
+    background: rgba(151, 54, 32, 0.42);
+    color: #ffe0c4;
+}
+
+.exp-progress-bar.level-cap-blocked .exp-bar-fill,
+.exp-progress-bar.level-cap-expired .exp-bar-fill,
+.exp-progress-bar.level-cap-tier-blocked .exp-bar-fill,
+.exp-progress-bar.level-cap-tier-expired .exp-bar-fill {
+    background: linear-gradient(90deg, #ff9a62, #d95735);
+}
+
+@media (max-width: 600px) {
+    .exp-progress-bar {
+        gap: 4px;
+    }
+
+    .level-cap-badge {
+        max-width: 104px;
+        min-height: 22px;
+        padding: 2px 6px;
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 370px) {
+    .level-cap-badge {
+        max-width: 82px;
     }
 }

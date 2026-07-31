@@ -10,11 +10,11 @@ protected void create(){
 	s_delayTime=120;
 	s_lasttime=12;
 	// 每个战斗节拍按目标最大生命的万分点结算；Boss 单跳封顶25。
-	performs_attack[1]=50;
-	performs_attack[2]=56;
-	performs_attack[3]=63;
-	performs_attack[4]=69;
-	performs_attack[5]=75;
+	performs_attack[1]=75;
+	performs_attack[2]=81;
+	performs_attack[3]=88;
+	performs_attack[4]=94;
+	performs_attack[5]=100;
 	performs_cast[1]=320;
 	performs_cast[2]=380;
 	performs_cast[3]=450;
@@ -27,9 +27,9 @@ protected void create(){
 	performs_level_limit[3]=120;
 	performs_level_limit[4]=140;
 	performs_level_limit[5]=160;
-	performs_desc[1]="持续期间累计约造成目标6%最大生命真实伤害，Boss最多3%，消耗法力320点";
-	performs_desc[2]="持续期间累计约造成目标6.72%最大生命真实伤害，Boss最多3%，消耗法力380点";
-	performs_desc[3]="持续期间累计约造成目标7.56%最大生命真实伤害，Boss最多3%，消耗法力450点";
-	performs_desc[4]="持续期间累计约造成目标8.28%最大生命真实伤害，Boss最多3%，消耗法力530点";
-	performs_desc[5]="持续期间累计约造成目标9%最大生命真实伤害，Boss最多3%，消耗法力620点";
+	performs_desc[1]="持续期间累计约造成目标9%最大生命真实伤害，Boss最多3%，消耗法力320点";
+	performs_desc[2]="持续期间累计约造成目标9.72%最大生命真实伤害，Boss最多3%，消耗法力380点";
+	performs_desc[3]="持续期间累计约造成目标10.56%最大生命真实伤害，Boss最多3%，消耗法力450点";
+	performs_desc[4]="持续期间累计约造成目标11.28%最大生命真实伤害，Boss最多3%，消耗法力530点";
+	performs_desc[5]="持续期间累计约造成目标12%最大生命真实伤害，Boss最多3%，消耗法力620点";
 }

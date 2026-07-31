@@ -32,7 +32,9 @@ int main(string|zero arg)
 					cost=cost*6/10;
 				}
 				cost_des = YUSHID->get_yushi_for_desc(cost*10);
-				s += "   ["+vip_name[i]+"(" +cost_des +"):vip_service_upgrade_detail "+(string)i+"]\n";
+				s += "   ["+vip_name[i]+"·等级上限"+
+					VIPD->query_vip_level_limit(i)+"级(" +cost_des +
+					"):vip_service_upgrade_detail "+(string)i+"]\n";
 			}
 		}
 		else
@@ -44,6 +46,9 @@ int main(string|zero arg)
 	{
 		s += "[申请:vip_service_app_list.pike ]\n\n";
 	}
+	int next_cost = VIPD->query_level_limit_next_cost(me);
+	if(next_cost>0 && !YUSHID->have_enough_yushi(me,next_cost))
+		s += "[玉石不足？捐赠获取仙玉:add_szx_fee]\n";
 	s += "\n[返回:vip_service_list.pike]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

@@ -1,7 +1,7 @@
 #!/usr/bin/env pike
 /**
  * 七职业每级历练真实测试：
- * - 七职业1-500级无断档
+ * - 七职业1-1000级无断档
  * - 真实同阶击杀、越级边界、职业切换与重复领奖保护
  * - 任务列表、新手引导、HTTP核心命令与NPC死亡链完整接线
  */
@@ -63,7 +63,7 @@ void destroy_player(object|zero player)
 
 void test_all_professions_all_levels()
 {
-	test_start("七职业1至500级动态任务无断档且文案独立");
+	test_start("七职业1至1000级动态任务无断档且文案独立");
 	mapping(string:string) professions = ([
 		"jianxian":"剑仙",
 		"yushi":"羽士",

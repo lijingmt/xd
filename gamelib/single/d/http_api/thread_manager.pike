@@ -76,6 +76,10 @@ constant CORE_COMMANDS = ({
 
     // ========== 组队（多人交互）==========
     "team", "follow", "lead", "dismiss", "recruit",
+    "my_term", "term_assist", "term_ok", "term_refuse",
+    "term_changeleader", "term_kick", "term_leave", "term_release",
+    "term_chat", "fb_entry", "fb_leave", "fb_term_cangku",
+    "fb_items_assign", "fb_assign_confirm",
 
     // ========== 帮派（多人交互）==========
     "set_bang", "set_bang_ask", "leavebang", "betray", "betray2",

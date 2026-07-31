@@ -1757,6 +1757,14 @@ mapping(string:mixed) query_training_route(object me)
 		return ([]);
 	level = me->query_level();
 	race = me->query_raceId();
+	if(level>=ENDGAME_MAP_MIN_LEVEL){
+		return ([
+			"max":MAX_LEVEL,
+			"level":level>MAX_LEVEL ? MAX_LEVEL : level,
+			"name":"九霄界境巅峰历练",
+			"path":"jiuxiaojiejing/jiuxiaotianmen",
+		]);
+	}
 	if(level>=70){
 		path = "plxianjing/chilingxiaolu";
 		if(race=="monst")

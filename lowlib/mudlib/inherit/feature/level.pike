@@ -1,5 +1,6 @@
 #include <globals.h>
 #include <mudlib/include/mudlib.h>
+#include <gamelib/include/gamelib.h>
 //等级
 int level;
 //等级提示
@@ -72,6 +73,7 @@ void query_if_levelup(){
 }
 private void check_level(){
 	int level_next = query_need_exp(); 
+	int level_limit = VIPD->query_player_level_limit(this_object());
 	//int level_last = query_last_exp();
 	//werror("\n**************升级计算判断开始*****************\n");
 	//werror("\n    当前等级="+query_level()+"        \n");
@@ -79,6 +81,18 @@ private void check_level(){
 	//werror("\n    当前显示的经验="+current_exp+"        \n");
 	//werror("\n    上一级需要经验="+level_last+"        \n");
 	//werror("\n    下一级需要经验="+level_next+"        \n");
+	if(level>MAX_LEVEL){
+		level = MAX_LEVEL;
+		this_object()->set_att_by_level();
+		current_exp = 0;
+		levelFlag = 0;
+		return;
+	}
+	if(level>=level_limit){
+		current_exp = 0;
+		levelFlag = 0;
+		return;
+	}
 	if(current_exp>=level_next){
 		//werror("\n    升级了！！     \n");
 		int tmp = current_exp-level_next;
@@ -282,6 +296,8 @@ int add_exp_with_bonus(int base_exp)
 {
 	object me = this_object();
 	int final_exp = base_exp;
+	if(me->query_level()>=VIPD->query_player_level_limit(me))
+		return 0;
 
 	// 检查 HTTP API 经验加成是否启用
 	if(me->is_http_api_user && base_exp > 0) {

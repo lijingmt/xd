@@ -3,6 +3,14 @@
 int main(string path)
 {
 	object me=this_player();
+	if(path && has_prefix(path,"jiuxiaojiejing/") &&
+	   me->query_level()<ENDGAME_MAP_MIN_LEVEL &&
+	   !MANAGERD->is_cross_zone_admin(me->query_name())){
+		write("九霄界境需要达到"+ENDGAME_MAP_MIN_LEVEL+
+			"级后才能进入。\n");
+		me->command("look");
+		return 1;
+	}
 	if(me->if_in_home())//如果玩家是在某个home中
 	{
 		HOMED->clear_user(me);//清除相关的信息 Evan 2008.09.21

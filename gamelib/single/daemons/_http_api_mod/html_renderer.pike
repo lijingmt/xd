@@ -1022,6 +1022,11 @@ mapping query_player_state(object player)
         }
         result["profe"] = profe || "";
 
+		// 网页连接无法直接接收tell_object异步消息，状态轮询返回待处理组队邀请。
+		mapping team_invite = TERMD->query_term_invite(player->query_name());
+		result["team_invite"] = team_invite;
+		result["team_id"] = player->query_term();
+
         // 等级
         int level = 0;
         if(functionp(player->query_level)) {
@@ -1030,6 +1035,58 @@ mapping query_player_state(object player)
             level = player["level"];
         }
         result["level"] = level;
+
+		// 等级突破状态：普通120级封顶，有效VIP每级增加20级。
+		int vip_level = VIPD->query_active_vip_level(player);
+		int level_limit = VIPD->query_vip_level_limit(vip_level);
+		string vip_name = "";
+		string breakthrough_state = "normal";
+		string breakthrough_label = "上限"+level_limit+
+			" · VIP每级+"+VIP_LEVEL_LIMIT_STEP;
+		string breakthrough_message =
+			"普通玩家上限"+NORMAL_MAX_LEVEL+"级；有效VIP每提高一级，"+
+			"等级上限增加"+VIP_LEVEL_LIMIT_STEP+"级。";
+		if(vip_level>0 && VIPD->get_vip_name(vip_level))
+			vip_name = VIPD->get_vip_name(vip_level);
+		if(vip_level>0){
+			breakthrough_state = "active";
+			breakthrough_label = "VIP"+vip_level+" · 上限"+
+				level_limit;
+			breakthrough_message = "当前"+vip_name+"有效，可升级至"+
+				level_limit+"级。会员过期后保留等级，但停止继续升级。";
+		}
+		if(level>=level_limit){
+			breakthrough_state = vip_level>0 ? "tier-blocked" : "blocked";
+			breakthrough_label = vip_level>0 ?
+				"VIP"+vip_level+"已达"+level_limit :
+				"突破受阻 · 需有效VIP";
+			breakthrough_message = vip_level>0 ?
+				"你已达到当前VIP等级上限"+level_limit+
+				"级，提高VIP等级后可继续突破。" :
+				"你已达到普通玩家上限"+NORMAL_MAX_LEVEL+
+				"级，开通有效VIP后才可继续获得升级经验。";
+		}
+		if(level>level_limit){
+			breakthrough_state = vip_level>0 ? "tier-expired" : "expired";
+			breakthrough_label = vip_level>0 ?
+				"当前VIP上限"+level_limit : "VIP已失效 · 重新开通";
+			breakthrough_message = vip_level>0 ?
+				"你的已有等级会保留，但当前VIP等级上限仅为"+
+				level_limit+"级，提高VIP等级后才可继续升级。" :
+				"你的已有等级会保留；当前没有有效VIP，重新开通并恢复足够VIP等级后才可继续升级。";
+		}
+		result["vip_level"] = vip_level;
+		result["vip_name"] = vip_name;
+		result["vip_active"] = vip_level>0 ? 1 : 0;
+		result["vip_end_time"] = vip_level>0 ?
+			(int)player->query_vip_end_time() : 0;
+		result["normal_level_limit"] = NORMAL_MAX_LEVEL;
+		result["vip_level_limit_step"] = VIP_LEVEL_LIMIT_STEP;
+		result["level_limit"] = level_limit;
+		result["level_can_progress"] = level<level_limit ? 1 : 0;
+		result["level_breakthrough_state"] = breakthrough_state;
+		result["level_breakthrough_label"] = breakthrough_label;
+		result["level_breakthrough_message"] = breakthrough_message;
 
         // 自动挂机状态与当日剩余时间
         int autofight = 0;

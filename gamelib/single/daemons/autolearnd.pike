@@ -244,6 +244,7 @@ void do_learn(object user)
 {
 	mapping learnInfo = autoLearnPlayer[user->query_name()];
 	int speed = learnInfo["speed"];         //每分钟获得的经验
+	int level_limit = VIPD->query_player_level_limit(user);
 	learnInfo["time"] = (int)(learnInfo["time"]+1);
 
 	// 使用带加成的经验函数（HTTP API 用户自动获得 50% 加成）
@@ -261,12 +262,15 @@ void do_learn(object user)
 		learnInfo["speed"] = work_out_speed(user->level,learnInfo["type"]);
 		resultDesc += "你的等级提升到了 "+user->query_level()+" 级！\n";
 	}
-	if(learnInfo["time"] >= learnInfo["time_max"] || user->query_level()>=MAX_LEVEL){  //已经完成修炼或者达到满级
+	if(learnInfo["time"] >= learnInfo["time_max"] || user->query_level()>=level_limit){  //已经完成修炼或者达到当前上限
 		learnInfo["state"] = 0;
 		user->wakeup_from_auto_learn();
 		resultDesc = "你已经完成"+ learnInfo["time"] +"分钟修炼过程，获得"+learnInfo["exp"] +"点经验"+api_bonus_tip+"。";
-		if(user->query_level()>=MAX_LEVEL)  //达到满级
-			resultDesc = "你已经在"+ learnInfo["time"] +"分钟修炼过程中达到满级(获得"+learnInfo["exp"] +"点经验)。";
+		if(user->query_level()>=level_limit)  //达到当前普通/VIP等级上限
+			resultDesc = "你已经在"+ learnInfo["time"] +
+				"分钟修炼过程中达到当前等级上限"+level_limit+
+				"级(获得"+learnInfo["exp"] +"点经验)。\n"+
+				VIPD->get_level_limit_action_links(user);
 		user->command("quit"); //将玩家踢下线
 		learnInfo["state_desc"] = resultDesc;           //修改当前状态描述
 	}

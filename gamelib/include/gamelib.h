@@ -121,8 +121,12 @@
 #define DIAOCHAD ((object)(ROOT "/gamelib/single/daemons/diaochad"))
 //附加技能上限
 #define VICESKILL_UP 300
-//玩家等级上限制
-#define MAX_LEVEL 500
+//普通玩家120级封顶；有效VIP每级增加20级，系统安全上限保留到1000级。
+#define NORMAL_MAX_LEVEL 120
+#define VIP_LEVEL_LIMIT_STEP 20
+#define VIP_MAX_LEVEL 4
+#define MAX_LEVEL 1000
+#define ENDGAME_MAP_MIN_LEVEL 990
 //洞穴刷新出口操作
 #define ROOM_FLUSHD ((object)(ROOT "/gamelib/single/daemons/room_flushd"))
 //兑换物品守护模块

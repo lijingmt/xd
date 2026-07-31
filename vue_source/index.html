@@ -307,7 +307,9 @@
                         </div>
                     </div>
                     <!-- 经验进度条 - 横跨整个宽度 -->
-                    <div class="exp-progress-bar" v-if="playerStats && playerStats.exp_need">
+                    <div class="exp-progress-bar"
+                         v-if="playerStats && playerStats.exp_need"
+                         :class="'level-cap-' + (playerStats.level_breakthrough_state || 'normal')">
                         <span class="exp-level-left">Lv.{{ playerStats.level }}</span>
                         <div class="exp-bar-track">
                             <div class="exp-bar-fill"
@@ -318,7 +320,17 @@
                                  :aria-valuenow="playerStats.exp || 0"
                                  :style="{ width: getStatPercent(playerStats.exp, playerStats.exp_need) + '%' }"></div>
                         </div>
-                        <span class="exp-level-right">Lv.{{ playerStats.level + 1 }}</span>
+                        <span class="exp-level-right">
+                            {{ playerStats.level_can_progress ? 'Lv.' + (playerStats.level + 1) : '已封顶' }}
+                        </span>
+                        <button type="button"
+                                class="level-cap-badge"
+                                :class="playerStats.level_breakthrough_state || 'normal'"
+                                :title="playerStats.level_breakthrough_message || '查看等级突破条件'"
+                                :aria-label="playerStats.level_breakthrough_message || '查看等级突破条件'"
+                                @click="sendQuickCommand('vip_service_list')">
+                            {{ playerStats.level_breakthrough_label || '上限120 · VIP每级+20' }}
+                        </button>
                     </div>
                 </div>
                 <div class="header-actions">
@@ -407,6 +419,31 @@
                 <span>{{ uiToast.message }}</span>
                 <button type="button" @click="clearUiToast" aria-label="关闭提示">✕</button>
             </div>
+
+			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->
+			<div class="modal-overlay team-invite-overlay" v-if="teamInvite">
+				<div class="team-invite-modal"
+					 role="dialog"
+					 aria-modal="true"
+					 aria-labelledby="team-invite-title">
+					<div class="team-invite-icon">👥</div>
+					<div class="team-invite-kicker">七星阵邀请</div>
+					<h3 id="team-invite-title">
+						{{ teamInvite.from_name || teamInvite.from }} 邀请你加入队伍
+					</h3>
+					<p>邀请两分钟内有效；同意后会立即建立或加入对方当前队伍。</p>
+					<div class="team-invite-actions">
+						<button class="btn btn-secondary"
+								:disabled="teamInviteBusy"
+								@click="respondTeamInvite(false)">拒绝</button>
+						<button class="btn btn-primary"
+								:disabled="teamInviteBusy"
+								@click="respondTeamInvite(true)">
+							{{ teamInviteBusy ? '处理中…' : '同意组队' }}
+						</button>
+					</div>
+				</div>
+			</div>
 
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
             <main class="game-frame-container"

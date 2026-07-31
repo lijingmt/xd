@@ -131,6 +131,98 @@ int get_vip_state(object player)
 	}
 	return re;
 }
+
+/*
+ * 返回仍在有效期内的会员等级。会员标志和到期时间必须同时有效，
+ * 避免旧存档残留 vip_flag 绕过等级突破限制。
+ */
+int query_active_vip_level(object player)
+{
+	int level = 0;
+	if(!player || !functionp(player->query_vip_flag) ||
+	   !functionp(player->query_vip_end_time))
+		return 0;
+	if(!get_vip_state(player))
+		return 0;
+	level = (int)player->query_vip_flag();
+	if(level<1)
+		return 0;
+	if(level>VIP_MAX_LEVEL)
+		level = VIP_MAX_LEVEL;
+	return level;
+}
+
+//普通玩家120级封顶；每提高一级有效VIP，等级上限增加20级。
+int query_vip_level_limit(int vip_level)
+{
+	if(vip_level<0)
+		vip_level = 0;
+	if(vip_level>VIP_MAX_LEVEL)
+		vip_level = VIP_MAX_LEVEL;
+	return NORMAL_MAX_LEVEL+vip_level*VIP_LEVEL_LIMIT_STEP;
+}
+
+int query_player_level_limit(object player)
+{
+	return query_vip_level_limit(query_active_vip_level(player));
+}
+
+string get_level_limit_des(object player)
+{
+	int vip_level = query_active_vip_level(player);
+	int level_limit = query_vip_level_limit(vip_level);
+	int player_level = player && functionp(player->query_level) ?
+		(int)player->query_level() : 0;
+	string re = "等级突破：普通玩家上限"+NORMAL_MAX_LEVEL+
+		"级，每提高一级有效VIP，上限增加"+
+		VIP_LEVEL_LIMIT_STEP+"级。\n";
+	if(vip_level>0){
+		re += "当前VIP"+vip_level+"有效，当前等级上限为"+
+			level_limit+"级。\n";
+		if(player_level>=level_limit)
+			re += "你已达到当前会员等级上限，提高VIP等级后可继续突破。\n";
+	}
+	else if(player_level>NORMAL_MAX_LEVEL)
+		re += "你已达到的高等级会保留；当前VIP无效，重新开通后才可继续升级。\n";
+	else
+		re += "当前没有有效VIP，达到"+NORMAL_MAX_LEVEL+
+			"级后将停止获得升级经验。\n";
+	return re;
+}
+
+//返回开通、升一档或钻石续费所需的最小碎玉价值，供引导页判断是否显示捐赠入口。
+int query_level_limit_next_cost(object player)
+{
+	int vip_level = query_active_vip_level(player);
+	int cost = 0;
+	if(vip_level<=0)
+		return get_vip_cost(1)*10;
+	if(vip_level<VIP_MAX_LEVEL){
+		cost = get_vip_cost(vip_level+1)-get_vip_cost(vip_level);
+		int state = get_vip_state(player);
+		if(state==2 || state==3)
+			cost = cost*6/10;
+		return cost*10;
+	}
+	return get_vip_cost(vip_level)*9;
+}
+
+string get_level_limit_action_links(object player)
+{
+	int vip_level = query_active_vip_level(player);
+	string re = "";
+	if(vip_level>0){
+		if(vip_level<VIP_MAX_LEVEL)
+			re += "[升级VIP提高等级上限:vip_service_upgrade_list]\n";
+		re += "[续费保持等级突破:vip_service_extend_detail]\n";
+	}
+	else
+		re += "[开通VIP突破等级:vip_service_app_list]\n";
+	int need_yushi = query_level_limit_next_cost(player);
+	if(need_yushi>0 && !YUSHID->have_enough_yushi(player,need_yushi))
+		re += "[玉石不足？捐赠获取仙玉:add_szx_fee]\n";
+	return re;
+}
 /*
 方法描述：得到玩家当前的vip状态对应的描述和链接
     变量：player    需要查询的玩家

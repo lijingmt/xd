@@ -18,8 +18,17 @@ int main(string|zero arg)
 		write(s);
 		return 1;
 	}
+	if(!TERMD->valid_term_invite(me->query_name(),arg)){
+		s += "这条组队邀请不存在或已经过期，请让对方重新邀请。\n";
+		s += "[返回游戏:look]\n";
+		write(s);
+		return 1;
+	}
 	object ob = find_player(arg);
 	if(ob){
+		if(ob->query_term()!="" && ob->query_term()!="noterm" &&
+		   !TERMD->query_termId(ob->query_term()))
+			ob->set_term("noterm");
 		/*if(ob->query_term()!=""&&ob->query_term()!="noterm"){
 			s += "对方已经加入了某个队伍，请返回。\n";
 			s += "[返回游戏:look]\n";
@@ -38,8 +47,16 @@ int main(string|zero arg)
 			}
 			else{
 				//创建成功，创立者加入，被邀请者也要加入队伍操作
-				TERMD->add_termer(tid,me->query_name(),me->query_name_cn());
-				me->set_term(tid);
+				int add_result = TERMD->add_termer(
+					tid,me->query_name(),me->query_name_cn());
+				if(add_result==1){
+					TERMD->clear_term_invite(me->query_name(),arg);
+					s += "你加入了该队伍。\n";
+				}
+				else{
+					TERMD->destory_term(tid,ob->query_name());
+					s += "加入队伍失败，请让对方重新邀请。\n";
+				}
 				s += "[返回游戏:look]\n";
 				write(s);
 				return 1;
@@ -49,6 +66,7 @@ int main(string|zero arg)
 			int tmp = TERMD->add_termer(ob->query_term(),me->query_name(),me->query_name_cn());	
 			switch(tmp){
 				case 1:
+					TERMD->clear_term_invite(me->query_name(),arg);
 					s += "你加入了该队伍。\n";
 					break;
 				case 2:
@@ -65,6 +83,7 @@ int main(string|zero arg)
 		}
 	}
 	else{
+		TERMD->clear_term_invite(me->query_name(),arg);
 		s += "你要加入的队伍不存在。\n";
 		s += "[返回游戏:look]\n";
 		write(s);

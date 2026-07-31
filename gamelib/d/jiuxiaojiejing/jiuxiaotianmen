@@ -1,0 +1,16 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+protected int room_level=4001;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="九霄天门";
+	desc="云海尽头矗立着一座残缺天门，门后星河倒悬，只有接近千级的修行者才能承受此地威压。\n";
+	exits["east"]=ROOT "/gamelib/d/jiuxiaojiejing/xinghedu";
+	exits["south"]=ROOT "/gamelib/d/jiuxiaojiejing/wuxiangyuntai";
+	exits["out"]=ROOT "/gamelib/d/penglaihuanjing/qiushuangxiaojing";
+	add_items(({ROOT "/gamelib/clone/npc/jiuxiaojiejing/999xingheling"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiuxiaojiejing/999yuntianjiang"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiuxiaojiejing/999leijieshou"}));
+}

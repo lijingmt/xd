@@ -10,14 +10,23 @@ int main(string|zero arg)
 	object me = this_player();
 	string c_log = "";
 	string re = "***会员续费***\n\n";
-	int price = (int)arg;//续费价格
 	int state = VIPD->get_vip_state(me);
 	if(state)//如果是会员
 	{
+		int level = me->query_vip_flag();
+		int price = VIPD->get_vip_cost(level)*9/10;
+		if(level<1 || level>VIP_MAX_LEVEL || price<=0){
+			re += "会员续费等级或价格无效，本次没有扣除玉石。\n";
+			re += "[返回会员服务:vip_service_list]\n";
+			write(re);
+			return 1;
+		}
 		int trade_result = BUYD->do_trade(me,price*10,0);//交易是否成功
-		switch(trade_result){
+			switch(trade_result){
 			case 0:
 				re += "你身上的玉石不够！\n";
+				re += "[捐赠获取仙玉:add_szx_fee]\n";
+				re += "[返回会员续费:vip_service_extend_detail]\n";
 				break;
 			case 1:
 				re += "你身上的金钱不够！\n";
@@ -26,7 +35,6 @@ int main(string|zero arg)
 				//re += "你身上的空间不够！\n";
 				break;*/
 			case 2..3:
-				int level = me->query_vip_flag();
 				string vip_name = VIPD->get_vip_name(level);
 				int endTime = VIPD->give_vip_to(me,level);
 				int cost_reb =price*10;

@@ -1,0 +1,15 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ROOM;
+string room_race="third";
+protected int room_level=4002;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="星河古渡";
+	desc="无舟的古渡横跨星河，脚下每一道流光都像一个正在生灭的小世界。\n";
+	exits["west"]=ROOT "/gamelib/d/jiuxiaojiejing/jiuxiaotianmen";
+	exits["south"]=ROOT "/gamelib/d/jiuxiaojiejing/tianleijie";
+	add_items(({ROOT "/gamelib/clone/npc/jiuxiaojiejing/999xingheling"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiuxiaojiejing/999xuwujuling"}));
+	add_items(({ROOT "/gamelib/clone/npc/jiuxiaojiejing/999yuntianjiang"}));
+}

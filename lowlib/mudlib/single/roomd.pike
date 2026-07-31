@@ -166,7 +166,10 @@ object get_npc_level(string orgi_path,int npclevel){
 	///////////////////////////////////////////////////////////
 	if(rtn_ob){
 		//int levelbase = npclevel - 3 + random(6);
-		int levelbase = npclevel + random(3);//怪的等级比自己高6的随机数
+		int levelbase = npclevel + random(3);//普通动态区允许同级至高2级
+		//终局地图保持精确同级，避免999级挂机因刷出1000级目标而跳过。
+		if(npclevel>=ENDGAME_MAP_MIN_LEVEL)
+			levelbase = npclevel;
 		if(levelbase<=1) levelbase=1; //得到上下3级的怪物
 		//werror("===============org monster=["+rtn_ob->name+"] org level=["+rtn_ob->level+"]\n");
 		if(levelbase>=MAX_LEVEL) levelbase=MAX_LEVEL;//最大刷新怪物的等级是MAX_LEVEL级

@@ -15,6 +15,8 @@ int main(string|zero arg)
 	s += "种族："+me->query_race_cn(me->query_raceId())+"\n";
 	s += "职业："+me->query_profe_cn(me->query_profeId())+"\n";
 	s += "等级："+me->query_level()+" 级\n";
+	s += VIPD->get_level_limit_des(me);
+	s += VIPD->get_level_limit_action_links(me);
 	s += "嗑药："+me->query_danyao_effect()+"\n";
 	s += "特效："+me->query_teyao_effect()+"\n";
 	s += "家园特效："+me->query_homeBuff_effect()+"\n";

@@ -16,3 +16,12 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/62piaomiaokuxingzhe"}));
 	add_items(({ROOT "/gamelib/clone/npc/plhuanjing/62youyingqingxiuzhe"}));
 }
+string query_links(){
+	object player=this_player();
+	string tmp="";
+	if(player && player->query_level()>=ENDGAME_MAP_MIN_LEVEL)
+		tmp+="[踏入九霄界境:qge74hye jiuxiaojiejing/jiuxiaotianmen]\n";
+	else if(player)
+		tmp+="九霄界境将在"+ENDGAME_MAP_MIN_LEVEL+"级开放。\n";
+	return tmp;
+}

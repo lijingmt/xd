@@ -12,8 +12,13 @@ int main(string|zero arg)
 	s += "0、享受一个月(30天)部分项目免费使用服务\n";
 	s += "1、已获得会员资格玩家也可以花费一定玉石进行升级服务\n";
 	s += "2、会员期过半之后，申请升级会员,将享受升级价格6折优惠\n";
-	s += "3、会员期间续费可以享受9折优惠\n\n\n";
+	s += "3、会员期间续费可以享受9折优惠\n";
+	s += "4、普通玩家等级上限为"+NORMAL_MAX_LEVEL+"级；有效VIP每提高一级，上限增加"+VIP_LEVEL_LIMIT_STEP+"级\n";
+	s += "   水晶会员"+VIPD->query_vip_level_limit(1)+"级、黄金会员"+VIPD->query_vip_level_limit(2)+"级、白金会员"+VIPD->query_vip_level_limit(3)+"级、钻石会员"+VIPD->query_vip_level_limit(4)+"级\n";
+	s += "   VIP过期或降档不会降低已有等级，但达到当前上限后将停止获得升级经验\n\n";
 
+	s += VIPD->get_level_limit_des(me)+"\n";
+	s += VIPD->get_level_limit_action_links(me)+"\n";
 	s += VIPD->get_vip_state_des(me);
 
 	s += "\n[返回:vip_service_list.pike]\n";

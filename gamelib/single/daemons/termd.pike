@@ -15,6 +15,7 @@
 #include <globals.h>
 #include <wapmud2/include/wapmud2.h>
 #define TERM_NUM 5 //队伍上限5人,以后有可能有不同人数的选择
+#define TERM_INVITE_TIMEOUT 120
 inherit LOW_DAEMON;
 /********************************************************************** 
  队伍内存结构:每创建一个队伍，增加一个临时队伍id，对应id，放置
@@ -31,6 +32,10 @@ private mapping(string:array(string)) termChat=([]);
 //([队伍id:（{物品一，物品二}）])
 //由liaocheng于07/06/20添加，为了boss装备的分配
 private mapping(string:array(object)) termItems=([]);
+
+// HTTP/Vue玩家没有持续socket输出，组队邀请必须在守护进程中暂存，
+// 由状态轮询和“我的队伍”页面共同展示。
+private mapping(string:array(mixed)) termInvites=([]);
 void add_termItems(string termid,object item)
 {
 	if(termItems[termid] == 0)
@@ -132,6 +137,71 @@ protected void create(){
 		termMain=([]);
 	if(termChat==0)
 		termChat=([]);
+	if(termInvites==0)
+		termInvites=([]);
+}
+
+int create_term_invite(string inviter_uid,string target_uid)
+{
+	object inviter;
+	object target;
+	if(!inviter_uid || inviter_uid=="" ||
+	   !target_uid || target_uid=="" || inviter_uid==target_uid)
+		return 0;
+	inviter = find_player(inviter_uid);
+	target = find_player(target_uid);
+	if(!inviter || !target)
+		return 0;
+	if(target->query_term()!="" && target->query_term()!="noterm"){
+		if(query_termId(target->query_term()))
+			return 2;
+		target->set_term("noterm");
+	}
+	termInvites[target_uid] = ({inviter_uid,
+		inviter->query_name_cn(),time()+TERM_INVITE_TIMEOUT});
+	return 1;
+}
+
+mapping query_term_invite(string target_uid)
+{
+	mapping result = ([]);
+	array(mixed) invite;
+	object inviter;
+	object target;
+	if(!target_uid || target_uid=="" || !termInvites[target_uid])
+		return result;
+	invite = termInvites[target_uid];
+	if(sizeof(invite)<3 || (int)invite[2]<time()){
+		m_delete(termInvites,target_uid);
+		return result;
+	}
+	inviter = find_player((string)invite[0]);
+	target = find_player(target_uid);
+	if(!inviter || !target ||
+	   (target->query_term()!="" && target->query_term()!="noterm")){
+		m_delete(termInvites,target_uid);
+		return result;
+	}
+	result["pending"] = 1;
+	result["from"] = (string)invite[0];
+	result["from_name"] = (string)invite[1];
+	result["expires_at"] = (int)invite[2];
+	return result;
+}
+
+int valid_term_invite(string target_uid,string inviter_uid)
+{
+	mapping invite = query_term_invite(target_uid);
+	return invite["pending"] && invite["from"]==inviter_uid;
+}
+
+void clear_term_invite(string target_uid,void|string inviter_uid)
+{
+	if(!target_uid || target_uid=="" || !termInvites[target_uid])
+		return;
+	if(!inviter_uid || inviter_uid=="" ||
+	   (string)termInvites[target_uid][0]==inviter_uid)
+		m_delete(termInvites,target_uid);
 }
 ////////////////队伍基本接口////////////////////////////////////////////
 //	提供队伍基本接口：队伍建立，解除，更新，聊天内容更新
@@ -212,6 +282,8 @@ int destory_term(string termid,string uid){
 						who->set_term("noterm");
 				}
 				m_delete(termMain,termid);
+				if(termChat[termid])
+					m_delete(termChat,termid);
 				//liaocheng 解散后，队伍仓库清空
 				if(termItems[termid])
 					m_delete(termItems,termid);
@@ -604,6 +676,8 @@ private int term_free(string termid){
 						who->set_term("noterm");
 				}
 				m_delete(termMain,termid);
+				if(termChat[termid])
+					m_delete(termChat,termid);
 				//liaocheng 解散后，队伍仓库清空
 				if(termItems[termid])
 					m_delete(termItems,termid);
@@ -643,6 +717,18 @@ void flush_term(string tid){
 					msg += "当前不在线的玩家 "+termMain[tid][userid][0]+" 被移出了队伍。\n";
 					m_delete(termMain[tid],userid);	
 				}
+			}
+			if(!termMain[tid] || sizeof(termMain[tid])==0){
+				m_delete(termMain,tid);
+				if(termChat[tid])
+					m_delete(termChat,tid);
+				if(termItems[tid])
+					m_delete(termItems,tid);
+				return;
+			}
+			if(sizeof(termMain[tid])==1){
+				term_free(tid);
+				return;
 			}
 			//if the term leader is offline, let's next termer be term leader
 			if(term_no_leader){

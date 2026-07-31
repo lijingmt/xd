@@ -4,11 +4,12 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="【伤】致残重伤";
-	desc="残害敌人的身躯，使对方在10秒内持续受到伤害，技能冷却时间为10秒，";
+	desc="残害敌人的身躯，伤害按狂妖自身生命上限成长；不同目标有独立保护上限，技能冷却时间为10秒，";
 	s_type="zhudong";
 	s_skill_type="dot";
 	s_delayTime=10;
 	s_lasttime=10;
+	// 保留旧版固定伤害作为低等级保底。
 	performs_attack[1]=100;
 	performs_attack[2]=120;
 	performs_attack[3]=140;
@@ -19,6 +20,17 @@ protected void create(){
 	performs_attack[8]=240;
 	performs_attack[9]=260;
 	performs_attack[10]=300;
+	// 每个战斗节拍按自身最大生命的万分点结算，完整持续约为2%-5%。
+	performs_per[1]=20;
+	performs_per[2]=23;
+	performs_per[3]=27;
+	performs_per[4]=30;
+	performs_per[5]=33;
+	performs_per[6]=37;
+	performs_per[7]=40;
+	performs_per[8]=43;
+	performs_per[9]=47;
+	performs_per[10]=50;
 	performs_cast[1]=18;
 	performs_cast[2]=20;
 	performs_cast[3]=22;
@@ -31,14 +43,14 @@ protected void create(){
 	performs_cast[10]=36;
 	skill_type+=({"kuangyao"});
 	performs_level_limit[1]=50;
-	performs_desc[1]="10秒内对敌人造成1000点伤害，消耗法力18点";
-	performs_desc[2]="10秒内对敌人造成1200点伤害，消耗法力20点";
-	performs_desc[3]="10秒内对敌人造成1400点伤害，消耗法力22点";
-	performs_desc[4]="10秒内对敌人造成1600点伤害，消耗法力24点";
-	performs_desc[5]="10秒内对敌人造成1800点伤害，消耗法力26点";
-	performs_desc[6]="10秒内对敌人造成2000点伤害，消耗法力28点";
-	performs_desc[7]="10秒内对敌人造成2200点伤害，消耗法力30点";
-	performs_desc[8]="10秒内对敌人造成2400点伤害，消耗法力32点";
-	performs_desc[9]="10秒内对敌人造成2600点伤害，消耗法力34点";
-	performs_desc[10]="10秒内对敌人造成3000点伤害，消耗法力36点";
+	performs_desc[1]="完整持续期间累计约造成自身2%最大生命伤害，消耗法力18点";
+	performs_desc[2]="完整持续期间累计约造成自身2.3%最大生命伤害，消耗法力20点";
+	performs_desc[3]="完整持续期间累计约造成自身2.7%最大生命伤害，消耗法力22点";
+	performs_desc[4]="完整持续期间累计约造成自身3%最大生命伤害，消耗法力24点";
+	performs_desc[5]="完整持续期间累计约造成自身3.3%最大生命伤害，消耗法力26点";
+	performs_desc[6]="完整持续期间累计约造成自身3.7%最大生命伤害，消耗法力28点";
+	performs_desc[7]="完整持续期间累计约造成自身4%最大生命伤害，消耗法力30点";
+	performs_desc[8]="完整持续期间累计约造成自身4.3%最大生命伤害，消耗法力32点";
+	performs_desc[9]="完整持续期间累计约造成自身4.7%最大生命伤害，消耗法力34点";
+	performs_desc[10]="完整持续期间累计约造成自身5%最大生命伤害；普通怪最多目标10%、玩家5%、Boss2.5%，且不低于旧版固定伤害，消耗法力36点";
 }

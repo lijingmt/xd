@@ -11,6 +11,14 @@ int main(string|zero arg)
 	string re = "***会员申请***\n\n";
 	string c_log = "";
 	int level = (int)arg;
+	VIPD->get_vip_state(me);
+	if(level<1 || level>VIP_MAX_LEVEL || !VIPD->get_vip_name(level) ||
+	   VIPD->get_vip_cost(level)<=0){
+		re += "会员等级或价格无效，本次没有扣除玉石。\n";
+		re += "[重新选择会员等级:vip_service_app_list]\n";
+		write(re);
+		return 1;
+	}
 	string vip_name = VIPD->get_vip_name(level);
 	string vip_desc = VIPD->get_vip_desc(level);
 	int vip_cost = VIPD->get_vip_cost(level);
@@ -19,9 +27,11 @@ int main(string|zero arg)
 	}
 	else{
 		int trade_result = BUYD->do_trade(me,vip_cost*10,0);//付款是否成功
-		switch(trade_result){
+			switch(trade_result){
 			case 0:
 				re += "你身上的玉石不够！\n";
+				re += "[捐赠获取仙玉:add_szx_fee]\n";
+				re += "[重新选择会员等级:vip_service_app_list]\n";
 				break;
 			case 1:
 				re += "你身上的金钱不够！\n";
@@ -33,8 +43,10 @@ int main(string|zero arg)
 				int endTime = VIPD->give_vip_to(me,level);
 				string endTimeToShow = TIMESD->get_user_year_month_day(endTime);
 				int cost_reb =vip_cost*10;
-				c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][vip_app][ ]["+vip_name+"][1]["+cost_reb+"][0]\n";
+				c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][vip_app][ ]["+vip_name+"]["+level+"]["+cost_reb+"][0]\n";
 				re += "恭喜，你已经成为"+vip_name+",你的会员资格将在"+endTimeToShow+"过期。\n";
+				re += "你的等级上限已提高到"+
+					VIPD->query_vip_level_limit(level)+"级。\n";
 				re += "[进入会员欢购场:vip_myzone]\n";
 				break;
 			default:
@@ -45,7 +57,7 @@ int main(string|zero arg)
 	if(c_log!=""){
 		Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
 	}
-	re += "[返回:yushi_myzone.pike]\n";
+	re += "[返回会员服务:vip_service_list]\n";
 	re += "[返回游戏:look]\n";
 	write(re);
 	return 1;

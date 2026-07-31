@@ -26,6 +26,9 @@ int main(string|zero arg)
 	{
 		s += VIPD->get_vip_state_des(me);
 	}
+	int next_cost = VIPD->query_level_limit_next_cost(me);
+	if(next_cost>0 && !YUSHID->have_enough_yushi(me,next_cost))
+		s += "[玉石不足？捐赠获取仙玉:add_szx_fee]\n";
 	s += "[返回:vip_service_list.pike]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

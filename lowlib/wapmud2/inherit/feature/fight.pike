@@ -171,6 +171,72 @@ int query_xuehai_dot_damage(int life_max,int basis_points,int is_boss)
 	return result;
 }
 
+// 致残重伤按施法者自身最大生命成长。普通目标最多每跳损失1%，
+// 玩家最多0.5%，Boss最多0.25%，避免高血量狂妖碾压低血量目标。
+int query_kuangyao_wound_damage(int caster_life_max,int basis_points,
+	int base_damage,int target_life_max,int is_player,int is_boss)
+{
+	int result;
+	int scaled_damage;
+	int limit_basis_points = 100;
+	int limit_damage;
+	if(base_damage < 1)
+		base_damage = 1;
+	result = base_damage;
+	if(caster_life_max > 0 && basis_points > 0){
+		scaled_damage = caster_life_max*basis_points/10000;
+		if(scaled_damage > result)
+			result = scaled_damage;
+	}
+	if(is_boss)
+		limit_basis_points = 25;
+	else if(is_player)
+		limit_basis_points = 50;
+	if(target_life_max > 0){
+		limit_damage = target_life_max*limit_basis_points/10000;
+		if(limit_damage < base_damage)
+			limit_damage = base_damage;
+		if(result > limit_damage)
+			result = limit_damage;
+	}
+	if(result < 1)
+		result = 1;
+	return result;
+}
+
+// 全游戏继续保留一个持续伤害槽，按“剩余总伤害”比较；等强技能可刷新，
+// 弱技能不能延长或借用强技能快照，防止低级流血、队友毒伤覆盖强效果。
+int query_dot_should_replace(string current_name,int current_damage,
+	int current_time,string new_name,int new_damage,int new_time)
+{
+	if(new_name=="" || new_name=="none" ||
+	   new_damage <= 0 || new_time <= 0)
+		return 0;
+	if(current_name=="" || current_name=="none" ||
+	   current_damage <= 0 || current_time <= 0)
+		return 1;
+	return new_damage*new_time >= current_damage*current_time;
+}
+
+int apply_nonstacking_dot(object target,string name,int damage,int duration)
+{
+	string current_name;
+	int current_damage;
+	int current_time;
+	if(!target)
+		return 0;
+	current_name = (string)target->query_debuff("dot",0);
+	current_damage = (int)target->query_debuff("dot",1);
+	current_time = (int)target->query_debuff("dot",2);
+	if(!query_dot_should_replace(current_name,current_damage,current_time,
+		name,damage,duration))
+		return 0;
+	target->set_debuff("dot",0,name);
+	target->set_debuff("dot",1,damage);
+	target->set_debuff("dot",2,duration);
+	return 1;
+}
+
 private int killing;
 private int autoPerforming;//自动释放技能第一次标示
 object enemy;
@@ -864,12 +930,17 @@ void perform(string name,void|int flag){
 							dot_damage = query_xuehai_dot_damage(
 								enemy->query_life_max(),dot_damage,is_boss);
 						}
-						//记录dot技能的名字
-						enemy->set_debuff("dot",0,name);
-						//记录dot的每秒伤害
-						enemy->set_debuff("dot",1,dot_damage);
-						//记录dot剩余时间
-						enemy->set_debuff("dot",2,f_cur_skill->query_s_lasttime(skill_level));
+						else if(name=="zhicanzhongshang"){
+							int is_boss = enemy->is("npc") && enemy->_boss;
+							int dot_basis_points =
+								f_cur_skill->query_performs_per(skill_level);
+							dot_damage = query_kuangyao_wound_damage(
+								this_object()->query_life_max(),dot_basis_points,
+								dot_damage,enemy->query_life_max(),
+								enemy->is("player"),is_boss);
+						}
+						int dot_applied = apply_nonstacking_dot(enemy,name,dot_damage,
+							f_cur_skill->query_s_lasttime(skill_level));
 
 						//产生仇恨值,dot的仇恨暂时定为20
 						int hate=(int)(20*skills_hate["test"]/100);
@@ -877,6 +948,10 @@ void perform(string name,void|int flag){
 
 						s += "你施放了"+f_cur_skill->query_name_cn()+"(等级"+skill_level+")";
 						s1 += this_object()->query_name_cn()+"对你施放了"+f_cur_skill->query_name_cn()+"(等级"+skill_level+")";
+						if(!dot_applied){
+							s += "，但目标身上已有更强的持续伤害，未被覆盖。";
+							s1 += "，但你身上已有更强的持续伤害，未被覆盖。";
+						}
 						//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 						skills_level_check(f_cur_skill->query_name());
 						tell_object(this_object(),s+"\n");
@@ -1401,17 +1476,16 @@ void boss_perform(string name){
 						if(myhitte<0)
 							myhitte=0;
 						if(random(100)<myhitte){   //命中啦~
-							//记录dot技能的名字
-							enemys[i]->set_debuff("dot",0,name);
-							//记录dot的每秒伤害
-							enemys[i]->set_debuff("dot",1,f_cur_skill->query_performs_attack());
-							//记录dot剩余时间
-							enemys[i]->set_debuff("dot",2,f_cur_skill->query_s_lasttime());
+							int dot_applied = apply_nonstacking_dot(enemys[i],name,
+								f_cur_skill->query_performs_attack(),
+								f_cur_skill->query_s_lasttime());
 
 							//产生仇恨值,dot的仇恨暂时定为20
 							int hate=(int)(20*skills_hate["test"]/100);
 							enemys[i]->flush_targets(this_object(),hate);
 							s1 += this_object()->query_name_cn()+"施放了"+f_cur_skill->query_name_cn();
+							if(!dot_applied)
+								s1 += "，但已有更强的持续伤害，未被覆盖。";
 							tell_object(enemys[i],s1+"\n");
 
 							//战斗中被攻击者击中，减防具磨损
@@ -1430,18 +1504,17 @@ void boss_perform(string name){
 			if(myhitte<0)
 				myhitte=0;
 			if(random(100)<myhitte){   //命中啦~
-				//记录dot技能的名字
-				enemy->set_debuff("dot",0,name);
-				//记录dot的每秒伤害
-				enemy->set_debuff("dot",1,f_cur_skill->query_performs_attack());
-				//记录dot剩余时间
-				enemy->set_debuff("dot",2,f_cur_skill->query_s_lasttime());
+				int dot_applied = apply_nonstacking_dot(enemy,name,
+					f_cur_skill->query_performs_attack(),
+					f_cur_skill->query_s_lasttime());
 
 				//产生仇恨值,dot的仇恨暂时定为20
 				int hate=(int)(20*skills_hate["test"]/100);
 				enemy->flush_targets(this_object(),hate);
 
 				s1 += this_object()->query_name_cn()+"对你施放了"+f_cur_skill->query_name_cn();
+				if(!dot_applied)
+					s1 += "，但已有更强的持续伤害，未被覆盖。";
 				tell_object(enemy,s1+"\n");
 
 				//战斗中被攻击者击中，减防具磨损

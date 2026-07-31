@@ -13,6 +13,9 @@ int main(string|zero arg)
 	else{
 		object ob = find_player(arg);
 		if(ob){
+			if(ob->query_term()!="" && ob->query_term()!="noterm" &&
+			   !TERMD->query_termId(ob->query_term()))
+				ob->set_term("noterm");
 			if(ob->query_term()!=""&&ob->query_term()!="noterm"){
 				s += "对方已经加入了某个队伍，请返回。\n";
 				s += "[返回游戏:look]\n";
@@ -22,8 +25,14 @@ int main(string|zero arg)
 			if(ob->query_name()==me->query_name())
 				s += "你不能自己邀请自己，请返回。\n";
 			else{
-				tell_object(ob,me->query_name_cn()+"邀请你加入一个队伍，是否同意？\n[同意:term_ok "+me->query_name()+"] [拒绝:term_refuse "+me->query_name()+"]\n");	
-				s += "组队邀请已经发出，请返回等待对方是否愿意加入队伍。\n";
+				int invite_result = TERMD->create_term_invite(
+					me->query_name(),ob->query_name());
+				if(invite_result==1){
+					tell_object(ob,me->query_name_cn()+"邀请你加入一个队伍，是否同意？\n[同意:term_ok "+me->query_name()+"] [拒绝:term_refuse "+me->query_name()+"]\n");
+					s += "组队邀请已经发出；网页玩家会自动弹出邀请，对方也可从队伍页面处理。\n";
+				}
+				else
+					s += "组队邀请发送失败，对方可能已经加入其他队伍。\n";
 			}
 		}
 		else{
