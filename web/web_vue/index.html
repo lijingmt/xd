@@ -4,10 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>仙道</title>
+    <script>
+    // 在样式表加载前恢复字号，避免进入游戏时先大后小的闪动。
+    (function() {
+        var supportedFontSizes = ['small', 'normal', 'large', 'xlarge'];
+        var savedFontSize = 'small';
+        try {
+            savedFontSize = localStorage.getItem('mud_font_size') || 'small';
+        } catch (error) {
+            savedFontSize = 'small';
+        }
+        if (supportedFontSizes.indexOf(savedFontSize) === -1) {
+            savedFontSize = 'small';
+        }
+        document.documentElement.setAttribute('data-font-size', savedFontSize);
+    })();
+    </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785501649639">
-    <link rel="stylesheet" href="css/realm.css?v=v1785501649639">
+    <link rel="stylesheet" href="css/app.css?v=v1785502124100">
+    <link rel="stylesheet" href="css/realm.css?v=v1785502124100">
 </head>
 <body>
     <div id="app">
@@ -340,6 +356,19 @@
                                     <option value="spanish">Español</option>
                                     <option value="russian">Русский</option>
                                     <option value="portuguese">Português</option>
+                                </select>
+                            </div>
+                            <div class="menu-item font-size-item">
+                                <span class="menu-icon" aria-hidden="true">字</span>
+                                <select id="vueFontSizeSelect"
+                                        v-model="fontSize"
+                                        @change="changeFontSize($event)"
+                                        class="menu-select"
+                                        aria-label="游戏字体大小">
+                                    <option value="small">字号：小（默认）</option>
+                                    <option value="normal">字号：标准</option>
+                                    <option value="large">字号：大</option>
+                                    <option value="xlarge">字号：特大</option>
                                 </select>
                             </div>
                             <div class="menu-divider"></div>
@@ -929,10 +958,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785501649639"></script>
-    <script src="js/app.js?v=v1785501649639"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785502124100"></script>
+    <script src="js/app.js?v=v1785502124100"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785501649639"></script>
+    <script src="../includes/translate.js?v=v1785502124100"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

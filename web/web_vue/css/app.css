@@ -5867,6 +5867,31 @@ body {
     --quick-tool-icon-size: 18px;
 }
 
+/* 游戏内容字号由菜单独立控制；默认小字号更适合当前信息密度。 */
+:root {
+    --mud-font-size: 14px;
+    --mud-control-font-size: 13px;
+    --mud-control-min-height: 40px;
+    --mud-control-gap-x: 3px;
+    --mud-control-gap-y: 2px;
+}
+
+:root[data-font-size="normal"] {
+    --mud-font-size: 16px;
+    --mud-control-font-size: 15px;
+}
+
+:root[data-font-size="large"] {
+    --mud-font-size: 18px;
+    --mud-control-font-size: 17px;
+}
+
+:root[data-font-size="xlarge"] {
+    --mud-font-size: 20px;
+    --mud-control-font-size: 19px;
+    --mud-control-min-height: 44px;
+}
+
 [data-theme="dark"] {
     --ux-accent: #8ea1ff;
     --ux-accent-strong: #667be7;
@@ -6432,7 +6457,8 @@ select:focus-visible {
     background: var(--ux-surface-muted);
 }
 
-.language-item {
+.language-item,
+.font-size-item {
     min-height: 48px;
     color: var(--ux-ink);
 }
@@ -6550,22 +6576,23 @@ select:focus-visible {
 .dark-mode .mud-text {
     color: var(--ux-ink);
     font-family: "Noto Sans SC", "PingFang SC", sans-serif;
-    font-size: 16px;
+    font-size: var(--mud-font-size);
 }
 
 .mud-btn {
     display: inline-flex;
-    min-height: 42px;
+    min-height: var(--mud-control-min-height);
     align-items: center;
     justify-content: center;
-    margin: 4px 5px 4px 0;
-    padding: 8px 13px;
+    margin: var(--mud-control-gap-y) var(--mud-control-gap-x)
+        var(--mud-control-gap-y) 0;
+    padding: 6px 11px;
     border: 1px solid var(--ux-line);
     border-radius: 12px;
     background: var(--ux-surface-strong);
     color: var(--ux-ink);
     box-shadow: 0 2px 7px rgba(42, 30, 21, 0.06);
-    font-size: 15px;
+    font-size: var(--mud-control-font-size);
     font-weight: 650;
     line-height: 1.25;
     vertical-align: middle;
@@ -6589,7 +6616,7 @@ select:focus-visible {
 
 .mud-input,
 .mud-confirm-btn {
-    min-height: 42px;
+    min-height: var(--mud-control-min-height);
     height: auto;
 }
 
@@ -6600,7 +6627,7 @@ select:focus-visible {
     border-radius: 11px;
     background: var(--ux-surface-strong);
     color: var(--ux-ink);
-    font-size: 16px;
+    font-size: var(--mud-font-size);
 }
 
 .mud-inline-image {

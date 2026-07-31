@@ -140,6 +140,7 @@ createApp({
             chatChannel: 'pub_channel',  // 当前聊天频道
             chatPollingInterval: null,  // 聊天轮询定时器
             theme: 'classic',  // classic or dark，默认经典模式
+            fontSize: 'small',  // 游戏内容字号，默认使用紧凑的小字号
             playerStats: null,  // 玩家状态信息
             playerAvatarFailed: false,  // 当前头像加载失败时显示文字回退
             statsInterval: null,  // 状态更新定时器
@@ -1624,6 +1625,32 @@ createApp({
             document.body.setAttribute('data-theme', this.theme);
         },
 
+        // 调整游戏内容字号并持久保存
+        changeFontSize(event) {
+            const requestedSize = event && event.target
+                ? event.target.value
+                : this.fontSize;
+            this.fontSize = requestedSize;
+            this.applyFontSize();
+            localStorage.setItem('mud_font_size', this.fontSize);
+            const labels = {
+                small: '小',
+                normal: '标准',
+                large: '大',
+                xlarge: '特大'
+            };
+            this.showUiToast(`游戏字号已调整为${labels[this.fontSize]}`, 'info');
+        },
+
+        // 应用字号；异常或旧版本残留值统一回退到新的小字号默认值
+        applyFontSize() {
+            const supportedSizes = ['small', 'normal', 'large', 'xlarge'];
+            if (!supportedSizes.includes(this.fontSize)) {
+                this.fontSize = 'small';
+            }
+            document.documentElement.setAttribute('data-font-size', this.fontSize);
+        },
+
         // 获取玩家状态
         async fetchPlayerStats() {
             if (!this.txd) return;
@@ -2804,6 +2831,10 @@ createApp({
             this.theme = savedTheme;
         }
         this.applyTheme();
+
+        // 恢复游戏字号；新玩家默认使用更紧凑的 14px。
+        this.fontSize = localStorage.getItem('mud_font_size') || 'small';
+        this.applyFontSize();
 
         // 恢复战斗迷你模式设置
         const savedMiniMode = localStorage.getItem('battle_mini_mode');

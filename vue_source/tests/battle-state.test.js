@@ -18,6 +18,7 @@ let nextBattleState = {
 };
 const sessionValues = new Map();
 const localValues = new Map();
+const documentAttributes = new Map();
 let requestedLoginUrl = '';
 
 const sandbox = {
@@ -31,7 +32,14 @@ const sandbox = {
     crypto: {},
     location: { protocol: 'https:', hostname: 'game.example.com' }
   },
-  document: { hidden: false },
+  document: {
+    hidden: false,
+    documentElement: {
+      setAttribute(name, value) {
+        documentAttributes.set(name, value);
+      }
+    }
+  },
   localStorage: {
     getItem(key) {
       return localValues.get(key) || null;
@@ -82,6 +90,20 @@ client.mudLines = [{
 }];
 
 client.playerStats = { avatar: '/images/h_male2.gif', name_cn: '测试方士' };
+assert.strictEqual(client.fontSize, 'small');
+let fontToast = '';
+client.showUiToast = message => {
+  fontToast = message;
+};
+client.changeFontSize({ target: { value: 'large' } });
+assert.strictEqual(client.fontSize, 'large');
+assert.strictEqual(localValues.get('mud_font_size'), 'large');
+assert.strictEqual(documentAttributes.get('data-font-size'), 'large');
+assert.strictEqual(fontToast, '游戏字号已调整为大');
+client.fontSize = 'unsupported';
+client.applyFontSize();
+assert.strictEqual(client.fontSize, 'small');
+assert.strictEqual(documentAttributes.get('data-font-size'), 'small');
 assert.strictEqual(client.battleDockCollapsed, false);
 client.toggleBattleDock();
 assert.strictEqual(client.battleDockCollapsed, true);
