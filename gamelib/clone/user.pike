@@ -4,7 +4,7 @@
 inherit WAP_USER;
 //用户仓库继承类
 inherit GAMELIB_PACKAGED;
-#define SAVE_TIME 30 //60秒存一次
+#define SAVE_TIME 30 //30秒存一次
 //增加新用户注册时间记录                                                                            
 string user_reg_time;
 
@@ -365,7 +365,8 @@ protected protected protected protected protected void create(){
 	//term = "noterm";
 	picture = "nosex";	
 	living_time=10*60;
-	call_out(save,SAVE_TIME);
+	// 只有定时存档才续排下一次，避免手动 save 叠加多条定时链。
+	call_out(save,SAVE_TIME,1);
 }
 string query_extra_links(void|int count)
 {
@@ -405,13 +406,16 @@ string query_extra_links(void|int count)
 	return returnLinks;
 }
 
-void save(void|int autosave){
+int save_with_result(void|int autosave){
 	object env=environment(this_object());
 	if(this_object()->sid == "5dwap"){
 		//tell_object(this_object(),"欢迎尝试仙道，您现在是游客身份，你的档案将不会被保存，欢迎点击注册一个正式帐号来体验仙道的乐趣。\n[注册帐号:reg_account]\n");
 		this_object()->command("quit");
-		return;
+		return 0;
 	}
+	// 先排好下一次：即使排行榜或文件存档抛异常，定时链也不会永久中断。
+	if(autosave)
+		call_out(save,SAVE_TIME,1);
 	if(env&&!env->is("character")&&!env->is("menu")){
 		last_pos=file_name(env)-ROOT;
 	}
@@ -441,13 +445,19 @@ void save(void|int autosave){
 	*/
 	TOPTEN->try_top(this_object()->query_name(),topname+"("+this_object()->all_fee+")("+this_object()->name+")","捐赠",(int)this_object()->all_fee);
 	//end 更新排行榜数据
-	::save();
-	if(!environment(this_object())){
-		//destruct(this_object());
-		return;
-	}
-	else
-		call_out(save,SAVE_TIME);//改成每分钟存一次，防止丢档案
+	// 界面链接依赖 this_player 与当前地图，是动态缓存，不应持久化。
+	// 关服连接或HTTP定时器上下文下强行序列化会调用 query_links，
+	// 从而使整次玩家存档失败。
+	this_object()->links = 0;
+	this_object()->inventory_links = 0;
+	int save_ok = ::save();
+	// HTTP/Vue 玩家在界面切换时可能短暂不在地图中，不能因此中断存档链。
+	// 玩家对象销毁时 Pike 会自动取消其 call_out。
+	return save_ok;
+}
+
+void save(void|int autosave){
+	save_with_result(autosave);
 }
 void remove(){
 	SUMMOND->player_logout(this_object()->query_name());

@@ -450,11 +450,11 @@ string pikenv_save_object(object ob,void|int save_zero)
 	array a=indices(this);
 	for(int i=0;i<sizeof(a);i++){
 		if(object_variablep(this,a[i])){
-			if(this->`[]){
-				// Pike 9: Use "RAW" parameter to bypass query_ functions
-				// This prevents saving computed values instead of base values
-				if(this->`[](a[i],"RAW")!=0||save_zero)
-					out+=(a[i]+" "+pikenv_encode_value(this->`[](a[i],"RAW"))+"\n");
+			if(functionp(this->query_raw_variable)){
+				// Pike 9: 通过公开方法读原始变量，不触发 query_xxx。
+				mixed raw_value = this->query_raw_variable(a[i]);
+				if(raw_value!=0||save_zero)
+					out+=(a[i]+" "+pikenv_encode_value(raw_value)+"\n");
 			}
 			else{
 				if(this[a[i]]!=0||save_zero)
@@ -486,10 +486,10 @@ string pikenv_save_object_without_inbox(object ob,void|int save_zero)
 	array a=indices(this);
 	for(int i=0;i<sizeof(a);i++){
 		if(object_variablep(this,a[i])){
-			if(this->`[]){
-				// Pike 9: Use "RAW" parameter to bypass query_ functions
-				if(this->`[](a[i],"RAW")!=0||save_zero)
-					out+=(a[i]+" "+pikenv_encode_value(this->`[](a[i],"RAW"))+"\n");
+			if(functionp(this->query_raw_variable)){
+				mixed raw_value = this->query_raw_variable(a[i]);
+				if(raw_value!=0||save_zero)
+					out+=(a[i]+" "+pikenv_encode_value(raw_value)+"\n");
 			}
 			else{
 				if(this[a[i]]!=0||save_zero)

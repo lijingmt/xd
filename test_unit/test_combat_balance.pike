@@ -223,18 +223,28 @@ void test_stacked_absorb_shields()
 	test_start("两层吸收盾按剩余伤害顺序结算且不重复消耗");
 	object|zero caster = 0;
 	object|zero target = 0;
+	object|zero weapon = 0;
 	object room =
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
 		object skill = (object)(ROOT+
-			"/gamelib/single/skills/taixulingyun");
+			"/gamelib/single/skills/xuemoshijie");
 		caster = create_test_player("__testunit_absorb_caster__");
 		target = create_test_player("__testunit_absorb_target__");
 		caster->move(room);
 		target->move(room);
-		caster->skills["taixulingyun"] = ({1,0});
+		weapon = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		weapon->move(caster);
+		caster->wear(weapon);
+		caster->skills["xuemoshijie"] = ({1,0});
+		// 主动物理技能跳过普通命中判定；再将闪避降为0，
+		// 让本用例只验证双盾顺序而不受1%命中波动影响。
+		target->set_debuff("curse",0,"dodge");
+		target->set_debuff("curse",1,1000000);
+		target->set_debuff("curse",2,10);
 		target->set_buff("buff",0,"absorb");
 		target->set_buff("buff",1,1000000000);
 		target->set_buff("buff",2,12);
@@ -243,7 +253,7 @@ void test_stacked_absorb_shields()
 		target->set_buff("buff2",2,12);
 		int life_before = target->get_cur_life();
 		caster->_fight(target);
-		caster->perform("taixulingyun",1);
+		caster->perform("xuemoshijie",1);
 		valid = skill && target->get_cur_life()==life_before &&
 			target->query_buff("buff",1)<1000000000 &&
 			target->query_buff("buff2",1)==1000000000;
@@ -253,11 +263,17 @@ void test_stacked_absorb_shields()
 	if(!err && valid)
 		test_pass();
 	else
-		test_fail("双盾仍重复消费或伤害泄漏: "+error_desc);
+		test_fail("双盾仍重复消费或伤害泄漏: life="+
+			(target ? target->get_cur_life() : 0)+
+			" shield1="+(target ? target->query_buff("buff",1) : 0)+
+			" shield2="+(target ? target->query_buff("buff2",1) : 0)+
+			" "+error_desc);
 	if(caster)
 		caster->_clean_fight();
 	if(target)
 		target->_clean_fight();
+	if(weapon)
+		destruct(weapon);
 	destroy_test_player(caster);
 	destroy_test_player(target);
 }

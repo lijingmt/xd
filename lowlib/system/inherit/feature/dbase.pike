@@ -2,6 +2,13 @@ mapping data=([]);
 mapping data_tmp=([]);
 string tmp;
 
+// 序列化层使用的公开原始变量读取口。旧实现从对象外调用
+// protected `[] 会被 Pike 9 拒绝，随后退回 query_xxx，导致动态界面函数在存档时执行。
+mixed query_raw_variable(string key)
+{
+	return ::`[](key,2);
+}
+
 
 protected mixed `[](string key, void|mixed n)
 {
@@ -149,4 +156,3 @@ void main()
 	write(this_object()["test"]);
 }
 */
-

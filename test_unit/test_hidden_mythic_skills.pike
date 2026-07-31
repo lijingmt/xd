@@ -444,22 +444,31 @@ void test_seven_profession_burst_runtime()
 					failed++;
 			}
 			caster->skills[skill_name] = ({1,0});
+			// 本用例只验证技能伤害、耗蓝与冷却；关闭目标闪避，
+			// 避免正常闪避概率把功能回归误报成随机失败。
+			enemy->set_debuff("curse",0,"dodge");
+			enemy->set_debuff("curse",1,1000000);
+			enemy->set_debuff("curse",2,10);
 			int life_before = enemy->get_cur_life();
 			int mofa_before = caster->get_cur_mofa();
 			caster->_fight(enemy);
 			caster->perform(skill_name,1);
 			if(enemy->get_cur_life()>=life_before ||
 			   caster->get_cur_mofa()>=mofa_before ||
-			   caster->f_skills[skill_name]!=61)
+			   caster->f_skills[skill_name]!=61){
 				failed++;
+				error_desc += profession_id+"首次施放失败; ";
+			}
 			else{
 				int life_after = enemy->get_cur_life();
 				int mofa_after = caster->get_cur_mofa();
 				caster->perform(skill_name,1);
 				if(enemy->get_cur_life()!=life_after ||
 				   caster->get_cur_mofa()!=mofa_after ||
-				   caster->f_skills[skill_name]!=61)
+				   caster->f_skills[skill_name]!=61){
 					failed++;
+					error_desc += profession_id+"冷却拦截失败; ";
+				}
 				else
 					checked++;
 			}

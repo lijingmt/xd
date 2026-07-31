@@ -1565,9 +1565,13 @@ mapping(string:mixed) query_training_route(object me)
 			if(path=="")
 				path = (string)one["third"];
 			if(path=="")
-				path = (string)one["human"];
+			path = (string)one["human"];
 			route = copy_value(one);
 			route["path"] = path;
+			// 50级后的进阶地图已经补齐逐级怪物，界面显示玩家
+			// 当前等级，寻路后也会优先选择同级目标。
+			if(level>=50)
+				route["level"] = level;
 			return route;
 		}
 	}
@@ -1714,7 +1718,7 @@ mapping(string:int) query_target_level_window(object me)
 	maximum_level = me_level+2;
 	minimum_level = 1;
 	if(query_smart_route_enabled(me)){
-		maximum_level = me_level>=50 ? me_level+1 : me_level;
+		maximum_level = me_level;
 		minimum_level = me_level-4;
 		if(minimum_level<1)
 			minimum_level = 1;
@@ -1794,6 +1798,8 @@ object|zero query_target(object me)
 	env = environment(me);
 	if(!env || env->is("peaceful"))
 		return 0;
+	if(me->query_level()<70)
+		MUD_ROOMD->restore_low_level_room_npcs(me);
 	all = all_inventory(env);
 	best_level = -1;
 	foreach(all,object ob){

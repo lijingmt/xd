@@ -248,3 +248,21 @@ int has_virtual_connection(string userid)
     mixed vconn = vconnections[userid];
     return vconn != 0 && vconn != UNDEFINED;
 }
+
+/**
+ * 供安全关服流程取得HTTP/Vue虚拟连接中的真实玩家对象。
+ */
+array(object) query_all_connected_players()
+{
+    array(object) players = ({});
+    foreach(indices(vconnections),string userid) {
+        mixed vconn = vconnections[userid];
+        if(vconn && arrayp(vconn) && sizeof(vconn)>=3) {
+            object player = vconn[2];
+            if(player && functionp(player->query_name) &&
+               search(players,player)==-1)
+                players += ({player});
+        }
+    }
+    return players;
+}

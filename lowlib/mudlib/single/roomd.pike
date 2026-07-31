@@ -50,6 +50,54 @@ protected void create()
 {
 
 }
+
+/**
+ * 低等级玩家进入曾被高等级动态化的共享房间时，把低级原生怪恢复为
+ * 源文件中的等级。只要房间里仍有70级以上玩家就不恢复，避免干扰
+ * 正在进行的高阶战斗。
+ */
+int restore_low_level_room_npcs(object me)
+{
+	object env;
+	int restored;
+	if(!me || me->query_level()>=70)
+		return 0;
+	env = environment(me);
+	if(!env || env->is("peaceful"))
+		return 0;
+	foreach(all_inventory(env),object player){
+		if(player != me && player->is("player") &&
+		   player->query_level()>=70)
+			return 0;
+	}
+	restored = 0;
+	foreach(all_inventory(env),object npc_player){
+		string npc_path;
+		object|zero original_npc = 0;
+		mixed err;
+		if(!npc_player->is("npc") || npc_player->in_combat ||
+		   npc_player->_tasknpc==1 ||
+		   functionp(npc_player->query_summon_type) ||
+		   npc_player->query_level()<70)
+			continue;
+		npc_path = (file_name(npc_player)/"#")[0];
+		err = catch{
+			original_npc = new(npc_path);
+		};
+		if(!err && original_npc && original_npc->is("npc") &&
+		   original_npc->query_level()<70){
+			npc_player->_npcLevel = original_npc->_npcLevel;
+			npc_player->_boss = original_npc->_boss;
+			npc_player->_meritocrat = original_npc->_meritocrat;
+			npc_player->_rare = original_npc->_rare;
+			npc_player->setup_npc();
+			restored++;
+		}
+		if(original_npc)
+			destruct(original_npc);
+	}
+	return restored;
+}
 //获取最大等级限制
 int query_max_level(){
 	return MAX_LEVEL;

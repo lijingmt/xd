@@ -16,4 +16,6 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/liuguangpingyuan/50liuguangjushe"}));
 	add_items(({ROOT "/gamelib/clone/npc/liuguangpingyuan/50liuguangduxie"}));
 	add_items(({ROOT "/gamelib/clone/npc/liuguangpingyuan/50pingyuanxuelang"}));
+	add_items(({ROOT "/gamelib/clone/npc/liuguangpingyuan/51liuguangyinglang"}));
+	add_items(({ROOT "/gamelib/clone/npc/liuguangpingyuan/52liuguangjingjiashou"}));
 }

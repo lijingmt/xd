@@ -52,7 +52,8 @@ int main(string|zero arg){
 			s +="[改名字:mgr_set_name_cn "+player->name+" tmp]\n";
 			//s += "名字："+player->name_cn+" [string:change namecn "+player->name+" ...]\n";
 			//s += "头像开关："+player->name_cn+"(1为开启头像，2关闭) [string:change photo "+player->name+" ...]\n";
-			s += "等级："+player->query_level()+"\n";//+"(输入大于0整数) [string:change level "+player->name+" ...]\n";
+			s += "等级："+player->query_level()+
+				" [修改等级:mgr_set_level "+player->name+" input]\n";
 			//s += "性别："+player->query_gender()+"\n";
 			//s += "年龄："+player->query_age_cn()+"\n";
 			//s += "生命："+player->get_cur_life()+"/"+player->query_life_max()+"\n";
@@ -233,5 +234,4 @@ int set_name_cn(string|zero arg)
 	me->write_view(WAP_VIEWD["/emote"],0,0,s); 
 	return 1; 
 }
-
 

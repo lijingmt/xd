@@ -14,4 +14,5 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/chuanxingui68"}));
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/yingyinkuilei68"}));
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/jianjiaoliedichong68"}));
+	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/wutoufuhun69"}));
 }

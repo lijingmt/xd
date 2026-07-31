@@ -14,4 +14,7 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/plxianjing/55ningleishuiyao"}));
 	add_items(({ROOT "/gamelib/clone/npc/plxianjing/55hunduncangying"}));
 	add_items(({ROOT "/gamelib/clone/npc/plxianjing/55cangyuntujing"}));
+	add_items(({ROOT "/gamelib/clone/npc/plxianjing/56binghuanxuelu"}));
+	add_items(({ROOT "/gamelib/clone/npc/plxianjing/57binghuanleiniao"}));
+	add_items(({ROOT "/gamelib/clone/npc/plxianjing/58binghuanshuangyao"}));
 }

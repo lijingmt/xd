@@ -46,6 +46,36 @@ stop_screen()
 	fi
 }
 
+graceful_shutdown()
+{
+	if ! lsof -tiTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+		return 0
+	fi
+	if ! command -v nc >/dev/null 2>&1; then
+		log "nc is unavailable; refusing an unsafe forced restart"
+		return 1
+	fi
+
+	log "requesting in-game shutdown so online players are saved"
+	(
+		sleep 1
+		printf 'shutdown_safe\r\n'
+		sleep 2
+	) | nc -w 3 "$HOST" "$PORT" >/dev/null 2>&1 || true
+
+	local deadline=$((SECONDS + 30))
+	while (( SECONDS < deadline )); do
+		if ! lsof -tiTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+			log "in-game shutdown completed"
+			return 0
+		fi
+		sleep 1
+	done
+
+	log "in-game shutdown timed out; refusing an unsafe forced restart"
+	return 1
+}
+
 stop_port_processes()
 {
 	local pids
@@ -172,8 +202,10 @@ main()
 {
 	cd "$ROOT_DIR"
 	prepare_environment
+	if ! graceful_shutdown; then
+		fail "in-game shutdown did not confirm all player saves; server was left running"
+	fi
 	stop_screen
-	stop_port_processes
 	check_http_port
 	prepare_logs
 	start_server

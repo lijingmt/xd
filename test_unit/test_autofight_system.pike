@@ -957,24 +957,24 @@ void test_smart_route_selection()
 			"path":"liuguangpingyuan/liuguangchalu",
 			"target":50]),
 		(["level":54,"race":"human",
-			"path":"plxianjing/dangyunshijie","target":53]),
+			"path":"plxianjing/dangyunshijie","target":54]),
 		(["level":57,"race":"monst",
-			"path":"plxianjing/binghuanyuntai","target":55]),
+			"path":"plxianjing/binghuanyuntai","target":57]),
 		(["level":61,"race":"third",
 			"path":"penglaihuanjing/yunyepingyuan",
-			"target":60]),
+			"target":61]),
 		(["level":63,"race":"human",
 			"path":"penglaihuanjing/qiushuangshilu",
-			"target":62]),
+			"target":63]),
 		(["level":65,"race":"monst",
 			"path":"penglaihuanjing/liehuochitang",
-			"target":64]),
+			"target":65]),
 		(["level":67,"race":"third",
 			"path":"klshuanjingwaicheng/heiheyuan",
-			"target":66]),
+			"target":67]),
 		(["level":69,"race":"human",
 			"path":"klshuanjingwaicheng/heishandong",
-			"target":68]),
+			"target":69]),
 		(["level":70,"race":"third",
 			"path":"penglaihuanjing/qiushuangxiaojing",
 			"target":70]),
@@ -1064,59 +1064,112 @@ void test_smart_target_level_window()
 	destroy_runtime_player(player);
 }
 
+void test_level_seventeen_dynamic_room_recovery()
+{
+	test_start("17级共享房间被高阶动态化后恢复原怪并继续攻击");
+	object player = create_runtime_player(
+		"__testunit_autofight_level17_a__");
+	object second_player = create_runtime_player(
+		"__testunit_autofight_level17_b__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+
+		"/gamelib/d/shierxianjing/taoyuantongjiuceng");
+	object|zero npc = 0;
+	object|zero target = 0;
+	string error_desc = "";
+	int valid = 0;
+	int restored_count = 0;
+	mixed err = catch {
+		foreach(all_inventory(room),object old_item)
+			destruct(old_item);
+		player->level = 17;
+		player->set_att_by_level();
+		second_player->level = 17;
+		second_player->set_att_by_level();
+		player->move(room);
+		second_player->move(room);
+		npc = clone(ROOT+
+			"/gamelib/clone/npc/shierxianshan/qingyunshou17");
+		npc->_npcLevel = 70;
+		npc->_boss = 1;
+		npc->_meritocrat = 1;
+		npc->setup_npc_dongtai(player);
+		npc->move(room);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		restored_count = MUD_ROOMD->restore_low_level_room_npcs(player);
+		target = daemon->query_target(player);
+		valid = target && target->query_level() == 17 &&
+			npc->query_level() == 17 &&
+			npc->_boss == 0 && npc->_meritocrat == 0;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else{
+		if(npc)
+			error_desc += " restored="+restored_count+
+				" npc_level="+npc->query_level()+
+				" boss="+npc->_boss+
+				" task="+npc->_tasknpc+
+				" elite="+npc->_meritocrat+
+				" combat="+npc->in_combat+
+				" char="+npc->is("character")+
+				" npc="+npc->is("npc")+
+				" hind="+npc->hind+
+				" life="+npc->get_cur_life()+
+				" npc_type="+npc->query_npc_type()+
+				" me_race="+player->query_raceId()+
+				" npc_race="+npc->query_raceId()+
+				" summon_fn="+functionp(npc->query_summon_type)+
+				" target="+(target ? target->query_name() : "0")+
+				" target_level="+(target ? target->query_level() : 0)+
+				" target_same="+(target==npc);
+		test_fail("17级动态怪污染恢复失败: "+error_desc);
+	}
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player && item != second_player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+	destroy_runtime_player(second_player);
+}
+
 void test_real_route_targets()
 {
-	test_start("20至69级静态区与70级动态区均有可攻击怪");
+	test_start("50至69级逐级有同级怪且70级动态区可攻击");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	object|zero original_player = this_player();
-	array(mapping(string:mixed)) cases = ({
-		(["name":"__testunit_autofight_route_20__",
-			"level":20,
-			"path":"shierxianjing/taoyuantongshijiuceng",
-			"target":20]),
-		(["name":"__testunit_autofight_route_46__",
-			"level":46,
-			"path":"waihai/qianhaiguanmucong",
-			"target":44]),
-		(["name":"__testunit_autofight_route_50__",
-			"level":50,
-			"path":"liuguangpingyuan/liuguangchalu",
-			"target":50]),
-		(["name":"__testunit_autofight_route_58__",
-			"level":58,
-			"path":"plxianjing/binghuanyuntai",
-			"target":55]),
-		(["name":"__testunit_autofight_route_69__",
-			"level":69,
-			"path":"klshuanjingwaicheng/heishandong",
-			"target":68]),
-		(["name":"__testunit_autofight_route_70__",
-			"level":70,
-			"path":"penglaihuanjing/qiushuangxiaojing",
-			"target":70]),
-	});
 	string error_desc = "";
 	int valid = 1;
-	foreach(cases,mapping(string:mixed) one){
-		object player = create_runtime_player((string)one["name"]);
+	for(int route_level=50;route_level<=70;route_level++){
+		object player = create_runtime_player(sprintf(
+			"__testunit_autofight_route_%d__",route_level));
 		object|zero room;
 		mixed err = catch {
-			player->level = (int)one["level"];
+			player->level = route_level;
 			player->set_att_by_level();
+			player->set_raceId("third");
 			set_this_player(player);
-			room = clone(ROOT+"/gamelib/d/"+(string)one["path"]);
+			mapping route = daemon->query_training_route(player);
+			room = clone(ROOT+"/gamelib/d/"+(string)route["path"]);
 			player->move(room);
 			daemon->initialize_player(player);
 			player["/plus/autofight_smart_route"] = 1;
 			object target = daemon->query_target(player);
 			valid = valid && target &&
-				target->query_level() == (int)one["target"];
+				target->query_level() == route_level &&
+				(int)route["level"] == route_level;
 		};
 		if(err){
 			valid = 0;
 			error_desc += sprintf("%d: %s",
-				(int)one["level"],describe_error(err));
+				route_level,describe_error(err));
 		}
 		if(room){
 			foreach(all_inventory(room),object item)
@@ -1719,6 +1772,7 @@ int main()
 	test_recovery_selection_checkmarks();
 	test_smart_route_selection();
 	test_smart_target_level_window();
+	test_level_seventeen_dynamic_room_recovery();
 	test_real_route_targets();
 	test_level_twenty_fangshi_route_recovery();
 	test_auto_rest_safety();

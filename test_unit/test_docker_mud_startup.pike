@@ -216,6 +216,34 @@ void test_fangshi_images_deploy_contract()
 		test_fail("方士图片必须镜像一致、男女有别并部署到容器全部路径");
 }
 
+void test_local_restart_save_contract()
+{
+	test_start("本地重启先执行游戏内全员存档再停止进程");
+	string source = Stdio.read_file(
+		ROOT+"/scripts/restart_with_testunit.sh");
+	int graceful_position = -1;
+	int fail_position = -1;
+	if(source){
+		graceful_position = search(source,
+			"if ! graceful_shutdown; then");
+		fail_position = search(source,
+			"in-game shutdown did not confirm all player saves");
+	}
+	if(source &&
+	   search(source,"printf 'shutdown_safe\\r\\n'")!=-1 &&
+	   search(source,
+		   "requesting in-game shutdown so online players are saved")!=-1 &&
+	   search(source,
+		   "refusing an unsafe forced restart")!=-1 &&
+	   graceful_position!=-1 && fail_position!=-1 &&
+	   graceful_position<fail_position &&
+	   search(source,
+		   "if ! graceful_shutdown; then\n\t\tstop_port_processes") == -1)
+		test_pass();
+	else
+		test_fail("restart必须先通过MUD shutdown保存在线玩家，失败时不得TERM");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -234,6 +262,7 @@ int main()
 	test_stack_order_contract();
 	test_item_sync_contract();
 	test_fangshi_images_deploy_contract();
+	test_local_restart_save_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;

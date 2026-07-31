@@ -86,6 +86,9 @@ void reset_items()
 	if(me->query_level()>=dongtai_npc_start_level && fb_status == 0){
 		MUD_ROOMD->refresh_room_npc_to_currentlevel(me);//动态刷新当前要去的目标房间npclevel 为玩家的等级
 	}
+	else if(me->query_level()<dongtai_npc_start_level){
+		MUD_ROOMD->restore_low_level_room_npcs(me);
+	}
 	
 	////werror("===reset to refresh room npc to current me level\n");
 }
