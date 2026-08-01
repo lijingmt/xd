@@ -14,6 +14,12 @@ int main(string|zero arg)
 	s += "称谓："+WAP_HONERD->query_honer_level_desc(me->honerlv,me->query_raceId())+"\n";
 	s += "种族："+me->query_race_cn(me->query_raceId())+"\n";
 	s += "职业："+me->query_profe_cn(me->query_profeId())+"\n";
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId())){
+		mapping profession_status = PROFESSIONVIPD->query_status(me);
+		s += "职业称号："+(string)profession_status["title"]+"\n";
+		s += "职业外观："+(string)profession_status["style_name"]+"\n";
+		s += "[职业助手:profession_assistant]\n";
+	}
 	s += "等级："+me->query_level()+" 级\n";
 	s += VIPD->get_level_limit_des(me);
 	s += VIPD->get_level_limit_action_links(me);

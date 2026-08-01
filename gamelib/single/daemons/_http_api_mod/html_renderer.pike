@@ -1020,7 +1020,10 @@ mapping query_player_state(object player)
         } else if(player["profeId"]) {
             profe = sprintf("%d", player->profeId);
         }
-        result["profe"] = profe || "";
+		result["profe"] = profe || "";
+		// 新职业助手状态由服务端统一判定，前端只负责展示。
+		result["profession_assistant"] =
+			PROFESSIONVIPD->query_status(player);
 
 		// 网页连接无法直接接收tell_object异步消息，状态轮询返回待处理组队邀请。
 		mapping team_invite = TERMD->query_term_invite(player->query_name());

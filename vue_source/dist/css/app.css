@@ -6498,6 +6498,7 @@ select:focus-visible {
 }
 
 .player-avatar-shell {
+	appearance: none;
     display: grid;
     flex: 0 0 52px;
     place-items: center;
@@ -6513,6 +6514,77 @@ select:focus-visible {
     box-shadow:
         0 8px 18px rgba(25, 14, 10, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.profession-assistant-badge {
+    flex: 0 1 auto;
+    max-width: 150px;
+    min-height: 22px;
+    padding: 2px 7px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    background: rgba(29, 22, 22, 0.22);
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 10px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.profession-assistant-badge.active {
+    border-color: rgba(190, 244, 255, 0.52);
+    background: rgba(55, 124, 145, 0.36);
+    color: #e6fbff;
+}
+
+/* 职业成长外观只渲染光效，不改变人物或战斗数据。 */
+.player-avatar-shell.profession-style-fangshi-1 {
+    box-shadow: 0 0 0 2px rgba(126, 235, 214, 0.38), 0 0 18px rgba(87, 223, 193, 0.42);
+}
+
+.player-avatar-shell.profession-style-fangshi-2 {
+    box-shadow: 0 0 0 2px rgba(132, 191, 255, 0.46), 0 0 22px rgba(88, 147, 255, 0.52);
+    animation: profession-fangshi-breathe 2.8s ease-in-out infinite;
+}
+
+.player-avatar-shell.profession-style-fangshi-3 {
+    border-color: rgba(226, 180, 255, 0.72);
+    background: conic-gradient(from 30deg, rgba(94, 226, 205, 0.4), rgba(126, 145, 255, 0.42), rgba(222, 133, 255, 0.4), rgba(94, 226, 205, 0.4));
+    box-shadow: 0 0 24px rgba(182, 126, 255, 0.62);
+    animation: profession-fangshi-breathe 2.2s ease-in-out infinite;
+}
+
+.player-avatar-shell.profession-style-zhenyue-1 {
+    box-shadow: 0 0 0 2px rgba(197, 160, 105, 0.52), 0 5px 18px rgba(61, 43, 28, 0.52);
+}
+
+.player-avatar-shell.profession-style-zhenyue-2 {
+    border-color: rgba(255, 216, 121, 0.72);
+    box-shadow: 0 0 0 2px rgba(255, 205, 102, 0.42), 0 0 20px rgba(255, 169, 71, 0.5);
+    animation: profession-zhenyue-breathe 3.2s ease-in-out infinite;
+}
+
+.player-avatar-shell.profession-style-zhenyue-3 {
+    border-color: rgba(255, 225, 153, 0.8);
+    background: linear-gradient(145deg, rgba(255, 229, 158, 0.45), rgba(83, 64, 48, 0.52));
+    box-shadow: 0 0 0 2px rgba(255, 219, 132, 0.48), 0 0 26px rgba(255, 184, 79, 0.62);
+    animation: profession-zhenyue-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes profession-fangshi-breathe {
+    50% { filter: saturate(1.25) brightness(1.1); transform: translateY(-1px); }
+}
+
+@keyframes profession-zhenyue-breathe {
+    50% { filter: contrast(1.08) brightness(1.08); transform: scale(1.025); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .player-avatar-shell[class*="profession-style-"] {
+        animation: none;
+    }
 }
 
 .player-avatar-image {
@@ -7077,6 +7149,11 @@ select:focus-visible {
 }
 
 @media (max-width: 600px) {
+	.profession-assistant-badge {
+		max-width: 96px;
+		padding-inline: 5px;
+		font-size: 9px;
+	}
     .modal.auth-modal {
         padding: 24px 20px;
         border-radius: 22px;

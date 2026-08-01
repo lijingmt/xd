@@ -101,6 +101,8 @@
 #define BROADCASTD ((object)(ROOT "/gamelib/single/daemons/broadcastd"))
 //VIP系统
 #define VIPD ((object)(ROOT "/gamelib/single/daemons/vipd"))
+//新职业会员助手（只提供自动化、报告与外观，不改变战斗数值）
+#define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 //赛季角色系统
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
 //召唤系统

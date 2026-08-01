@@ -114,6 +114,8 @@ private void show_vip_plan(object me)
 	out += vip_label(2)+"：每日12小时；可处理优良装备，装备90％触发每次2件，可设低3级保护；非装备85％触发每次2组，可自选处理类别。\n";
 	out += vip_label(3)+"：每日14小时；可处理精制装备，装备80％触发每次4件，可取消等级差；非装备80％触发每次4组，可设置材料保留量。\n";
 	out += vip_label(4)+"：每日16小时；装备70％触发每次8件；非装备每次8组，可自选70/80/90％触发线，并设置名称保护和优先处理。\n\n";
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+		out += "本职业另有公平自动化助手：技能与手动操作永久免费，VIP只开放PVE执行、策略槽和报告。\n[查看职业助手:profession_assistant]\n\n";
 	out += "永久安全保护不因VIP改变：穿戴、任务、技能书、玉石、宝箱、补给、不可交易／丢弃／存储、唯一、特殊来源及高品质物品不会被误处理。\n\n";
 	out += "[高级清包设置:autofight cleanup]\n";
 	out += "[返回挂机设置:autofight open]\n";
@@ -448,6 +450,11 @@ private void show_settings(object me, string notice)
 	out += "回蓝饮品："+water+"\n";
 	out += "自动技能："+skill+"（"+
 		AUTOFIGHTD->query_auto_skill_mode_cn(me)+"）\n";
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+		out += "职业助手："+
+			PROFESSIONVIPD->query_assistant_level_label(
+				PROFESSIONVIPD->query_effective_level(me))+
+			" [设置:profession_assistant]\n";
 	out += "自动拾取："+(AUTOFIGHTD->query_loot_enabled(me) ? "开启" : "关闭")+"\n";
 	out += "智能寻路："+(AUTOFIGHTD->query_smart_route_enabled(me) ?
 		"开启（"+(string)route["name"]+"，约"+

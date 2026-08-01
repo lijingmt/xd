@@ -2,6 +2,7 @@
 #include <wapmud2/include/wapmud2.h>
 
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
+#define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 
 private string format_time(int seconds)
 {
@@ -92,10 +93,12 @@ int main(string|zero arg)
 	mapping storage_result;
 	mapping destroy_result;
 	mapping level_window;
+	mapping profession_result;
 	string reason;
 	string direction;
 	string route_path;
 	string auto_skill;
+	string profession_notice;
 	int count;
 	int left;
 	int visible_monsters;
@@ -135,9 +138,27 @@ int main(string|zero arg)
 		if(AUTOFIGHTD->should_recover_mana(me) &&
 		   use_recovery_item(me,"mana"))
 			return 1;
+		profession_notice = PROFESSIONVIPD->query_monitor_notice(me);
+		if(profession_notice != "")
+			write(profession_notice+"\n");
+		profession_result = PROFESSIONVIPD->try_fangshi_resonance(me);
+		if((int)profession_result["success"] == 1){
+			write("职业助手已在PVE救援条件下发动灵契共鸣。\n");
+			return 1;
+		}
 		auto_skill = AUTOFIGHTD->query_ready_auto_skill(me);
 		if(auto_skill != ""){
+			array(string) profession_skills =
+				PROFESSIONVIPD->query_zhenyue_context_candidates(me);
+			int before_mofa = me->get_cur_mofa();
+			int before_cooldown = me->f_skills ?
+				(int)me->f_skills[auto_skill] : 0;
 			me->perform(auto_skill);
+			if(search(profession_skills,auto_skill) != -1 &&
+			   (me->get_cur_mofa() < before_mofa ||
+			   (me->f_skills &&
+			   (int)me->f_skills[auto_skill] > before_cooldown)))
+				PROFESSIONVIPD->record_zhenyue_action(me,auto_skill);
 			if(!me->in_combat){
 				write("[关闭自动挂机:autofightclose] 今日剩余"+
 					format_time(left)+"\n");
@@ -173,6 +194,14 @@ int main(string|zero arg)
 			write("回蓝药不足，挂机助手正带你前往安全地点休息。\n");
 			return continue_auto_rest(me);
 		}
+	}
+	profession_notice = PROFESSIONVIPD->query_monitor_notice(me);
+	if(profession_notice != "")
+		write(profession_notice+"\n");
+	profession_result = PROFESSIONVIPD->try_out_of_combat_support(me);
+	if((int)profession_result["success"] == 1){
+		write("职业助手已按当前策略补召一只已学灵兽。\n");
+		return 1;
 	}
 	if(AUTOFIGHTD->should_auto_store_non_equipment(me)){
 		storage_result =

@@ -47,6 +47,8 @@ int main(string|zero arg)
 			break;*/
 		case 2..3:
 			me->set_vip_flag(level);
+			if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+				PROFESSIONVIPD->record_membership_state(me);
 			int endTime = me->query_vip_end_time();
 			string vip_name = VIPD->get_vip_name(level);
 			string endTimeToShow = TIMESD->get_user_year_month_day(endTime);

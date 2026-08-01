@@ -13,6 +13,8 @@ int main(string|zero arg)
 	s += VIPD->get_level_limit_des(me)+"\n";
 	s += VIPD->get_level_limit_action_links(me)+"\n";
 	s += VIPD->get_vip_state_des(me);
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+		s += "\n[查看本职业会员助手:profession_assistant]\n";
 	s += "\n[返回:yushi_myzone.pike]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

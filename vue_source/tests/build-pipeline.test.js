@@ -64,6 +64,9 @@ assert(indexSource.includes('class="quick-more-panel"'));
 assert(indexSource.includes('class="player-avatar-shell"'));
 assert(indexSource.includes(':src="playerAvatarUrl"'));
 assert(indexSource.includes('@error="handlePlayerAvatarError"'));
+assert(indexSource.includes("sendQuickCommand('profession_assistant')"));
+assert(indexSource.includes('playerStats?.profession_assistant?.style_class'));
+assert(indexSource.includes('class="profession-assistant-badge"'));
 assert.strictEqual(
   (indexSource.match(/<main\b/g) || []).length,
   (indexSource.match(/<\/main>/g) || []).length
@@ -89,6 +92,9 @@ const cssSource = read('vue_source/css/app.css');
 assert(appSource.includes('pendingTeamInvite.pending'));
 assert(appSource.includes("'term_ok' : 'term_refuse'"));
 assert(cssSource.includes('.team-invite-modal'));
+assert(cssSource.includes('.profession-style-fangshi-3'));
+assert(cssSource.includes('.profession-style-zhenyue-3'));
+assert(cssSource.includes('@media (prefers-reduced-motion: reduce)'));
 assert(appSource.includes('handleNewbieCompletions(data.newbie_completions || [])'));
 assert(appSource.includes('showNextNewbieCompletion()'));
 assert(appSource.includes('dismissNewbieCompletions()'));

@@ -34,7 +34,8 @@ constant CORE_COMMANDS = ({
     "flee", "escape", "run", "surrender",
     "zhaohuan", "zhaohuan_cfm", "summon",  // 召唤（涉及NPC和共享状态）
     "growth_task", "task_guide",  // 职业历练与任务引导传送
-    "autofight", "autofightclose",  // 自动战斗
+	"autofight", "autofightclose",  // 自动战斗
+	"profession_assistant",  // 职业助手会改写配置、召唤物与仙玉
     "flushview", "use_perform",  // 挂机循环与技能会改写敌人/队友共享状态
     "feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
 

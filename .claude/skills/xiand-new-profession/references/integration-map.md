@@ -55,6 +55,38 @@ Neutral professions must deliberately define whether they use both factions'
 facilities/tasks/chat/equipment or a dedicated neutral route. Never rely on a
 two-race `else` branch accidentally granting access.
 
+## Profession VIP and monetization contract
+
+For role-heavy or pet professions, integrate optional automation through
+`gamelib/single/daemons/professionvipd.pike` and the single
+`profession_assistant` command. Do not scatter raw `vip_flag` checks across
+skills, summons, equipment, drops, or combat formulas.
+
+- Core skills, manual casts, manual summons, healing, guarding, equipment,
+  progression and drops stay available without VIP.
+- Read effective membership through `VIPD->query_active_vip_level()`. A stored
+  flag without a future end time is not an active membership.
+- Profession trials may raise only the assistant level. They must not grant the
+  generic VIP flag, AFK hours, level cap, store benefits, stats, drops, cooldown
+  reduction, summon count, or skill power.
+- Automated combat decisions are PVE-only. Reject player targets and
+  player-owned summons at the daemon boundary, even if the UI or command has
+  already checked.
+- Use the same authoritative skill, summon and resonance functions as manual
+  play. Automation cannot bypass resource cost, cooldown, learned-skill checks,
+  action cadence, level caps, or target rules.
+- Tiered configuration slots and toggles persist after expiry or downgrade;
+  inaccessible execution pauses without deleting player choices.
+- Paid cosmetics must be permanent, confirmation-gated, server-priced and
+  stat-neutral. Include reduced-motion UI behavior and verify attributes before
+  and after purchase in TestUnit.
+- Put any profession-assistant command in both HTTP thread-manager mirrors and
+  the global core lock because it may mutate currency, summon registries and
+  shared combat state.
+- Test free/trial/active/expired/downgraded states, PVE/PVP boundaries, duplicate
+  purchase, insufficient currency, level-gated claims, monitor throttling and
+  expiry acknowledgement.
+
 ## Reverse scans
 
 Search for the new profession ID and for old hard-coded sets:

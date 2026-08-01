@@ -22,8 +22,8 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785557598920">
-    <link rel="stylesheet" href="css/realm.css?v=v1785557598920">
+    <link rel="stylesheet" href="css/app.css?v=v1785583466314">
+    <link rel="stylesheet" href="css/realm.css?v=v1785583466314">
 </head>
 <body>
     <div id="app">
@@ -235,8 +235,11 @@
         <template v-if="!showLogin && !showRegister">
             <!-- 顶部状态栏 -->
             <header class="game-header" aria-label="人物状态">
-                <div class="player-avatar-shell"
-                     :title="playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像'">
+                <button type="button"
+                     class="player-avatar-shell"
+                     :class="playerStats?.profession_assistant?.style_class || 'profession-style-none'"
+                     @click="sendQuickCommand(playerStats?.profession_assistant?.supported ? 'profession_assistant' : 'myhp')"
+                     :title="playerStats?.profession_assistant?.supported ? '打开' + playerStats.profession_assistant.name : (playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像')">
                     <img v-if="playerAvatarUrl && !playerAvatarFailed"
                          :src="playerAvatarUrl"
                          :alt="playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像'"
@@ -246,12 +249,20 @@
                           class="player-avatar-fallback"
                           role="img"
                           aria-label="人物头像">{{ playerAvatarFallback }}</span>
-                </div>
+                </button>
                 <div class="player-info">
                     <div class="player-info-line">
                         <span class="player-fullid">{{ loginForm.userid }}</span>
                         <span class="divider">·</span>
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
+                        <button type="button"
+                                v-if="playerStats?.profession_assistant?.supported"
+                                class="profession-assistant-badge"
+                                :class="{ active: playerStats.profession_assistant.level > 0 }"
+                                @click="sendQuickCommand('profession_assistant')"
+                                :title="playerStats.profession_assistant.level_label">
+                            {{ playerStats.profession_assistant.title }} · {{ playerStats.profession_assistant.level > 0 ? '助手' + playerStats.profession_assistant.level : '可试用' }}
+                        </button>
                         <span class="divider" v-if="playerStats && playerStats.name_cn">·</span>
                         <span class="server-info">{{ areaName }}</span>
                         <button type="button"
@@ -976,6 +987,11 @@
                         <button class="quick-tool-btn" @click="sendQuickCommand('game_detail')"><span>⚙️</span>设置</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('vip_service_list')"><span>👑</span>会员</button>
                         <button class="quick-tool-btn"
+                                v-if="playerStats?.profession_assistant?.supported"
+                                @click="sendQuickCommand('profession_assistant')">
+                            <span>{{ playerStats.profe === '方士' ? '🔮' : '🛡️' }}</span>职业助手
+                        </button>
+                        <button class="quick-tool-btn"
                                 :class="{ active: playerStats && playerStats.autofight }"
                                 @click="toggleAutofight">
                             <span>{{ playerStats && playerStats.autofight ? '⏹️' : '▶️' }}</span>
@@ -1022,10 +1038,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785557598920"></script>
-    <script src="js/app.js?v=v1785557598920"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785583466314"></script>
+    <script src="js/app.js?v=v1785583466314"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785557598920"></script>
+    <script src="../includes/translate.js?v=v1785583466314"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

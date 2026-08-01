@@ -5,6 +5,7 @@
 #define CITYD ((object)(ROOT "/gamelib/single/daemons/cityd"))
 #define MANAGERD ((object)(ROOT "/gamelib/single/daemons/managed"))
 #define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
+#define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -1622,6 +1623,9 @@ void perform(string name,void|int flag){
 					tell_object(this_object(),"你施放了"+
 						f_cur_skill->query_name_cn()+"(等级"+skill_level+
 						")，强制吸引了"+enemy->query_name_cn()+"的仇恨。\n");
+					tell_object(this_object(),
+						PROFESSIONVIPD->query_combat_style_effect(
+							this_object(),"taunt"));
 					tell_object(enemy,this_object()->query_name_cn()+
 						"以震山之势锁定了你的攻势。\n");
 					skills_level_check(f_cur_skill->query_name());
@@ -1651,6 +1655,9 @@ void perform(string name,void|int flag){
 						f_cur_skill->query_name_cn()+"(等级"+skill_level+
 						")，为"+guarded+"名同队成员展开了"+shield+
 						"点山河壁。\n");
+					tell_object(this_object(),
+						PROFESSIONVIPD->query_combat_style_effect(
+							this_object(),"guard"));
 					tell_object(enemy,this_object()->query_name_cn()+
 						"展开山河壁护住了队伍。\n");
 					skills_level_check(f_cur_skill->query_name());

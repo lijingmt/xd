@@ -238,6 +238,8 @@ private object create_authorized_summon(object player, string player_name,
 	summon->set_summon_skill_level(skill_level);
 	summon->set_summon_duration(duration);
 	summon->adjust_stats_by_player(player_level, skill_level);
+	// 永久职业外观只修改灵兽名称和描述，所有数值计算已经完成且不变。
+	PROFESSIONVIPD->decorate_summon(player,summon);
 
 	// 移动到主人所在房间
 	summon->move(env);
@@ -255,7 +257,8 @@ private object create_authorized_summon(object player, string player_name,
 	// 广播
 	if(broadcast)
 		tell_room_daemon(env,
-			player->query_name_cn() + "召唤出了" + summon_name + "！\n");
+			player->query_name_cn() + "召唤出了" +
+			summon->query_name_cn() + "！\n");
 
 	return summon;
 }

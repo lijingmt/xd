@@ -95,7 +95,25 @@ guide require real actions and provide direct task navigation where supported.
 Show skill acquisition, team use, current status/resource, cooldown failures,
 level unlocks, and high-level goals in both legacy and Vue paths.
 
-### 7. Validate and review
+### 7. Regenerate versioned handbooks
+
+When player-facing mechanics, balance, progression, acquisition, equipment,
+VIP, tasks, maps, or UI behavior changes, update the appropriate builder:
+
+- `docs/build_xiand_profession_guide.py` for lifecycle, progression, equipment,
+  maps, shared systems, and profession-facing UI.
+- `docs/build_xiand_skill_guide.py` for skills, books, drops, learning rules, and
+  combat balance.
+
+Treat the builder source as authoritative. Run every relevant builder and commit
+both the stable-name Markdown and PDF under `docs/`. Never commit `tmp/pdfs`,
+`__pycache__`, or other render intermediates. Render every changed PDF with
+`pdftoppm`; inspect the cover, every changed section, affected tables, and the
+last page; use `pdfinfo` and text extraction to verify the page count, branch,
+commit baseline, and date. A Desktop copy is a delivery convenience, not the
+versioned source of truth.
+
+### 8. Validate and review
 
 Run the ten independent passes in `references/ten-pass-audit.md`. After every
 Pike change, perform a full restart through the repository restart/TestUnit
@@ -132,5 +150,7 @@ Completion requires all of the following:
 - Vue and legacy UI show the correct identity, skills, status, and guidance.
 - Targeted tests plus full TestUnit pass after a real restart; logs contain no
   compile/runtime errors; both service ports respond.
-- Generated artifacts and runtime data are excluded from the commit; source,
-  tests, skill documentation, and intended assets are committed and pushed.
+- Versioned Markdown/PDF handbooks are regenerated and visually verified when
+  relevant; temporary renders and runtime data are excluded from the commit.
+- Source, tests, skill documentation, intended assets, and current handbooks are
+  committed and pushed.

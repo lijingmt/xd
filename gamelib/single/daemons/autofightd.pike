@@ -310,9 +310,8 @@ int query_vip_level(object me)
 	int vip_level;
 	if(!me)
 		return 0;
-	vip_level = 0;
-	if(functionp(me->query_vip_flag))
-		vip_level = (int)me->query_vip_flag();
+	// 会员标志和到期时间必须同时有效，防止过期存档继续获得挂机额度。
+	vip_level = VIPD->query_active_vip_level(me);
 	if(vip_level < 0)
 		vip_level = 0;
 	if(vip_level > AUTOFIGHT_MAX_VIP_LEVEL)
@@ -661,24 +660,16 @@ private int query_context_skill_ready(object me,string name)
 // 再保护同房间队伍，两个条件都不满足才回到常规高仇恨攻击。
 string query_ready_zhenyue_context_skill(object me)
 {
-	object|zero current_enemy;
 	array(string) names;
 	if(!me || me->query_profeId() != "zhenyue" ||
 	   !me->query_in_combat())
 		return "";
-	current_enemy = me->query_enemy();
-	if(current_enemy && current_enemy->first_target != me){
-		names = ({"zhenhunhou","dizhenhou"});
-		foreach(names,string name)
-			if(query_context_skill_ready(me,name))
-				return name;
-	}
-	if(me->query_buff("team_guard",0) != "absorb"){
-		names = ({"wanshanchaogong","wanshanbugu","shanhebi"});
-		foreach(names,string name)
-			if(query_context_skill_ready(me,name))
-				return name;
-	}
+	// 只由职业助手守护进程决定上下文优先级；守护进程同时校验
+	// 有效档位、开关和PVE目标，PVP永远不会自动接管。
+	names = PROFESSIONVIPD->query_zhenyue_context_candidates(me);
+	foreach(names,string name)
+		if(query_context_skill_ready(me,name))
+			return name;
 	return "";
 }
 

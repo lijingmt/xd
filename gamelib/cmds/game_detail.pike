@@ -15,6 +15,8 @@ int main(string|zero arg)
 	s += "[图片开关:pic_switch_list]\n";
 	s += "[手动存档:save_game]\n";
 	s += "[意见反馈:feedback]\n";
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+		s += "[职业助手:profession_assistant]\n";
 	// 改名字功能：只有无名开头的玩家可以看到
 	string current_name = me->query_name_cn(1);
 	if(search(current_name, "无名") == 0){

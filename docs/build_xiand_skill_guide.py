@@ -493,6 +493,10 @@ def build_skill_guide() -> None:
         ]
     )
     guide.callout(
+        "技能与职业助手公平边界",
+        "方士和镇岳的学习、手动技能、召唤、治疗、嘲讽与护盾永久免费。VIP职业助手只在PVE自动执行人物已经掌握的能力，照常检查法力、冷却、装备、目标和行动回合；面对玩家或玩家召唤物会拒绝自动施放。会员到期只暂停自动化，不删除技能或策略配置。",
+    )
+    guide.callout(
         "拿到隐藏书后的最短路径",
         "先确认人物达到80级且职业匹配 -> 在背包点击“学习” -> 到技能列表确认第一段 -> 准备主手武器、目标和法力 -> 实战积累熟练度，并在100/120/140/160级继续提升阶段。",
         "gold",
@@ -737,6 +741,8 @@ def build_skill_guide() -> None:
             "命中、闪避与暴击边界：lowlib/mudlib/inherit/feature/char.pike",
             "物理/法术平衡回归：test_unit/test_combat_balance.pike",
             "隐藏技能运行时回归：test_unit/test_hidden_mythic_skills.pike",
+            "方士/镇岳职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
+            "职业助手公平边界回归：test_unit/test_profession_vip_assistant.pike",
         ]
     )
     guide.callout(

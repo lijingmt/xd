@@ -50,6 +50,12 @@ object create_runtime_player(string player_name)
 	return player;
 }
 
+void set_active_vip(object player,int level)
+{
+	player->set_vip_flag(level);
+	player->set_vip_end_time(level > 0 ? time()+3600 : 0);
+}
+
 void destroy_runtime_player(object|zero player)
 {
 	if(!player)
@@ -205,12 +211,14 @@ void test_smart_auto_skill_selection()
 
 void test_zhenyue_context_skill_selection()
 {
-	test_start("镇岳智能挂机按失仇恨、缺护盾、稳定输出顺序施放");
+	test_start("镇岳助手仅在有效白金PVE按失仇恨、缺护盾顺序施放");
 	object tank = clone(GAMELIB_USER);
 	object teammate = create_runtime_player(
 		"__testunit_autofight_zhenyue_member__");
-	object enemy = create_runtime_player(
-		"__testunit_autofight_zhenyue_enemy__");
+	object enemy = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object pvp_enemy = create_runtime_player(
+		"__testunit_autofight_zhenyue_pvp_enemy__");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	object room = (object)(ROOT+
@@ -220,6 +228,8 @@ void test_zhenyue_context_skill_selection()
 	string guard = "";
 	string attack = "";
 	string direct_context = "";
+	string free_context = "";
+	string pvp_context = "";
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
@@ -248,14 +258,23 @@ void test_zhenyue_context_skill_selection()
 		daemon->initialize_player(tank);
 		tank->_fight(enemy);
 		enemy->force_target(teammate,1000);
+		free_context = daemon->query_ready_zhenyue_context_skill(tank);
+		set_active_vip(tank,3);
+		PROFESSIONVIPD->initialize_player(tank);
+		PROFESSIONVIPD->set_auto_enabled(tank,1);
+		PROFESSIONVIPD->set_strategy(tank,"team");
 		direct_context = daemon->query_ready_zhenyue_context_skill(tank);
 		taunt = daemon->query_ready_auto_skill(tank);
 		enemy->force_target(tank,1000);
 		guard = daemon->query_ready_auto_skill(tank);
 		tank->apply_team_guard(500,12);
 		attack = daemon->query_ready_auto_skill(tank);
-		valid = taunt == "dizhenhou" && guard == "shanhebi" &&
-			attack == "yueji";
+		tank->_clean_fight();
+		tank->_fight(pvp_enemy);
+		pvp_context = daemon->query_ready_zhenyue_context_skill(tank);
+		valid = free_context == "" && direct_context == "dizhenhou" &&
+			taunt == "dizhenhou" && guard == "shanhebi" &&
+			attack == "yueji" && pvp_context == "";
 	};
 	if(err)
 		error_desc = describe_error(err);
@@ -263,9 +282,10 @@ void test_zhenyue_context_skill_selection()
 		test_pass();
 	else
 		test_fail(sprintf(
-			"嘲讽=%s 直接=%s 护盾=%s 攻击=%s 战斗=%d 敌人=%d 模式=%s "
+			"免费=%s 嘲讽=%s 直接=%s 护盾=%s 攻击=%s PVP=%s 战斗=%d 敌人=%d 模式=%s "
 			"法力=%d/%d 公冷=%d 技能冷却=%d/%d/%d %s",
-			taunt,direct_context,guard,attack,tank->query_in_combat(),
+			free_context,taunt,direct_context,guard,attack,pvp_context,
+			tank->query_in_combat(),
 			tank->query_enemy()==enemy,daemon->query_auto_skill_mode(tank),
 			tank->get_cur_mofa(),tank->query_mofa_max(),tank->timeCold,
 			(int)tank->f_skills["dizhenhou"],
@@ -280,6 +300,7 @@ void test_zhenyue_context_skill_selection()
 	destroy_runtime_player(tank);
 	destroy_runtime_player(teammate);
 	destroy_runtime_player(enemy);
+	destroy_runtime_player(pvp_enemy);
 }
 
 void test_vip_daily_limits()
@@ -296,19 +317,19 @@ void test_vip_daily_limits()
 	mixed err = catch {
 		daemon->initialize_player(normal_player);
 		normal_player["/plus/autofight_time_left"] = 7*60*60;
-		normal_player->set_vip_flag(1);
+		set_active_vip(normal_player,1);
 		valid = daemon->query_daily_seconds_for(normal_player) == 10*60*60 &&
 			daemon->query_time_left(normal_player) == 9*60*60;
-		normal_player->set_vip_flag(4);
+		set_active_vip(normal_player,4);
 		valid = valid &&
 			daemon->query_daily_seconds_for(normal_player) == 16*60*60 &&
 			daemon->query_time_left(normal_player) == 15*60*60;
-		normal_player->set_vip_flag(0);
+		set_active_vip(normal_player,0);
 		valid = valid &&
 			daemon->query_daily_seconds_for(normal_player) == 8*60*60 &&
 			daemon->query_time_left(normal_player) == 7*60*60;
 
-		vip_player->set_vip_flag(4);
+		set_active_vip(vip_player,4);
 		daemon->initialize_player(vip_player);
 		valid = valid &&
 			daemon->query_time_left(vip_player) == 16*60*60;
@@ -350,7 +371,7 @@ void test_vip_quota_exhausted_guidance()
 		normal_player["/plus/autofight_time_left"] = 0;
 		normal_message = daemon->query_quota_exhausted_message(
 			normal_player);
-		vip4_player->set_vip_flag(4);
+		set_active_vip(vip4_player,4);
 		daemon->initialize_player(vip4_player);
 		vip4_player["/plus/autofight_time_left"] = 0;
 		vip4_message = daemon->query_quota_exhausted_message(vip4_player);
@@ -426,14 +447,14 @@ void test_vip_auto_sell_tiers()
 	int valid = 0;
 	mixed err = catch {
 		daemon->initialize_player(player);
-		player->set_vip_flag(1);
+		set_active_vip(player,1);
 		player["/plus/autofight_auto_sell_mode"] = "normal";
 		valid = daemon->query_auto_sell_enabled(player) == 1 &&
 			daemon->query_auto_sell_trigger_percent(player) == 100 &&
 			daemon->query_auto_sell_batch_size(player) == 1 &&
 			daemon->query_auto_sell_mode_requirement("excellent") == 2;
 
-		player->set_vip_flag(2);
+		set_active_vip(player,2);
 		player["/plus/autofight_auto_sell_mode"] = "excellent";
 		player["/plus/autofight_sell_level_gap"] = 3;
 		valid = valid &&
@@ -441,7 +462,7 @@ void test_vip_auto_sell_tiers()
 			daemon->query_auto_sell_trigger_percent(player) == 90 &&
 			daemon->query_auto_sell_batch_size(player) == 2;
 
-		player->set_vip_flag(3);
+		set_active_vip(player,3);
 		player["/plus/autofight_auto_sell_mode"] = "refined";
 		player["/plus/autofight_sell_level_gap"] = 0;
 		valid = valid &&
@@ -449,12 +470,12 @@ void test_vip_auto_sell_tiers()
 			daemon->query_auto_sell_trigger_percent(player) == 80 &&
 			daemon->query_auto_sell_batch_size(player) == 4;
 
-		player->set_vip_flag(4);
+		set_active_vip(player,4);
 		valid = valid &&
 			daemon->query_auto_sell_trigger_percent(player) == 70 &&
 			daemon->query_auto_sell_batch_size(player) == 8;
 
-		player->set_vip_flag(1);
+		set_active_vip(player,1);
 		valid = valid &&
 			daemon->query_auto_sell_enabled(player) == 0;
 	};
@@ -483,7 +504,7 @@ void test_auto_sell_protection_rules()
 	mixed err = catch {
 		player->level = 30;
 		player->set_att_by_level();
-		player->set_vip_flag(4);
+		set_active_vip(player,4);
 		daemon->initialize_player(player);
 		player["/plus/autofight_auto_sell_mode"] = "refined";
 		player["/plus/autofight_sell_level_gap"] = 0;
@@ -562,7 +583,7 @@ void test_auto_sell_settlement()
 	mixed err = catch {
 		player->level = 30;
 		player->set_att_by_level();
-		player->set_vip_flag(4);
+		set_active_vip(player,4);
 		daemon->initialize_player(player);
 		player["/plus/autofight_auto_sell_mode"] = "normal";
 		player["/plus/autofight_sell_level_gap"] = 0;
@@ -808,7 +829,7 @@ void test_vip_non_equipment_cleanup_tiers()
 			!daemon->query_auto_destroy_non_equipment_enabled(player) &&
 			daemon->query_auto_cleanup_trigger_percent(player) == 100;
 
-		player->set_vip_flag(1);
+		set_active_vip(player,1);
 		valid = valid &&
 			daemon->query_auto_store_non_equipment_enabled(player) &&
 			daemon->query_auto_destroy_non_equipment_enabled(player) &&
@@ -818,7 +839,7 @@ void test_vip_non_equipment_cleanup_tiers()
 			daemon->query_auto_cleanup_category_enabled(player,"mine") &&
 			!daemon->query_auto_cleanup_category_enabled(player,"misc");
 
-		player->set_vip_flag(2);
+		set_active_vip(player,2);
 		player["/plus/autofight_cleanup_herb"] = 0;
 		player["/plus/autofight_cleanup_mine"] = 1;
 		player["/plus/autofight_cleanup_misc"] = 1;
@@ -829,14 +850,14 @@ void test_vip_non_equipment_cleanup_tiers()
 			daemon->query_auto_cleanup_category_enabled(player,"mine") &&
 			daemon->query_auto_cleanup_category_enabled(player,"misc");
 
-		player->set_vip_flag(3);
+		set_active_vip(player,3);
 		player["/plus/autofight_cleanup_keep"] = 100;
 		valid = valid &&
 			daemon->query_auto_cleanup_trigger_percent(player) == 80 &&
 			daemon->query_auto_store_batch_size(player) == 4 &&
 			daemon->query_auto_cleanup_process_amount(player,material) == 50;
 
-		player->set_vip_flag(4);
+		set_active_vip(player,4);
 		player["/plus/autofight_cleanup_trigger"] = 90;
 		valid = valid &&
 			daemon->query_auto_cleanup_trigger_percent(player) == 90 &&
@@ -849,7 +870,7 @@ void test_vip_non_equipment_cleanup_tiers()
 				player,material->query_name(),"force") &&
 			daemon->query_auto_cleanup_reject_reason(player,material) == "";
 
-		player->set_vip_flag(0);
+		set_active_vip(player,0);
 		valid = valid &&
 			!daemon->query_auto_store_non_equipment_enabled(player) &&
 			!daemon->query_auto_destroy_non_equipment_enabled(player);
@@ -884,7 +905,7 @@ void test_end_to_end_auto_destroy_non_equipment()
 	int valid = 0;
 	mixed err = catch {
 		player->move(room);
-		player->set_vip_flag(1);
+		set_active_vip(player,1);
 		material->amount = 25;
 		material->move(player);
 		weapon->move(player);
@@ -953,7 +974,7 @@ void test_end_to_end_auto_storage_priority()
 	int packaged_ok = 0;
 	mixed err = catch {
 		player->move(room);
-		player->set_vip_flag(3);
+		set_active_vip(player,3);
 		player->packageLevel = 20;
 		player->packaged_items = ({});
 		material->amount = 250;
@@ -2025,7 +2046,7 @@ void test_end_to_end_auto_sell()
 	mixed err = catch {
 		player->level = 30;
 		player->set_att_by_level();
-		player->set_vip_flag(4);
+		set_active_vip(player,4);
 		player->move(room);
 		set_this_player(player);
 		daemon->initialize_player(player);

@@ -16,6 +16,9 @@ int main(string|zero arg)
 	s += "4、普通玩家等级上限为"+NORMAL_MAX_LEVEL+"级；有效VIP每提高一级，上限增加"+VIP_LEVEL_LIMIT_STEP+"级\n";
 	s += "   水晶会员"+VIPD->query_vip_level_limit(1)+"级、黄金会员"+VIPD->query_vip_level_limit(2)+"级、白金会员"+VIPD->query_vip_level_limit(3)+"级、钻石会员"+VIPD->query_vip_level_limit(4)+"级\n";
 	s += "   VIP过期或降档不会降低已有等级，但达到当前上限后将停止获得升级经验\n\n";
+	s += "5、方士/镇岳职业技能、手动操作和战斗数值永久免费；会员职业助手只提供监控、PVE自动化、策略槽和统计\n";
+	s += "   水晶：监控+1槽；黄金：PVE自动执行+2槽；白金：团队协同+3槽；钻石：自适应策略+4槽\n";
+	s += "   会员到期后技能、等级、外观及配置全部保留，仅自动执行暂停\n\n";
 
 	s += VIPD->get_level_limit_des(me)+"\n";
 	s += VIPD->get_level_limit_action_links(me)+"\n";

@@ -11,6 +11,7 @@ int main(string|zero arg)
 	if(this_player()->query_profeId()=="fangshi"){
 		s += "[召唤灵兽:summon]\n";
 		s += "[方士专属·灵契共鸣:summon list]\n";
+		s += "[灵契助手（技能手动使用永久免费）:profession_assistant]\n";
 	}
 	if(this_player()->query_profeId()=="zhenyue"){
 		if(this_player()->query_buff("team_guard",0)=="absorb")
@@ -18,6 +19,7 @@ int main(string|zero arg)
 				this_player()->query_buff("team_guard",1)+"点，约"+
 				this_player()->query_buff("team_guard",2)+"秒。\n";
 		s += "[镇岳守御路线:newbie_guide roadmap]|[队伍:my_term]\n";
+		s += "[山河守御助手（技能手动使用永久免费）:profession_assistant]\n";
 	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改

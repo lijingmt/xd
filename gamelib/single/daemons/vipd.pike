@@ -312,6 +312,8 @@ int give_vip_to(object player,int level)
 	}
 	player->set_vip_end_time(endTime);
 	player->add_vip_history(endTime,level);
+	if(PROFESSIONVIPD->is_supported_profession(player->query_profeId()))
+		PROFESSIONVIPD->record_membership_state(player);
 	return endTime;
 }
 

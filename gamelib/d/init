@@ -501,6 +501,8 @@ int choice_profe(string arg){
 			s += "好，你选择了方士作为你游戏中中立阵营的职业。\n";
 			s += "方士可以召唤灵兽助战，是强大的召唤师！\n";
 			s += "请点击进入游戏，开始你游戏中的征程吧。\n";
+			s += "职业技能与手动召唤永久免费；进入后可按需领取3天灵契助手试用。\n";
+			s += "[了解职业助手:profession_assistant]\n";
 			//reg_new - 方士随机在人类或妖魔区出生
 			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
@@ -512,6 +514,8 @@ int choice_profe(string arg){
 				me->skills["yueji"]=({1,0});
 			s += "好，你选择了镇岳作为中立阵营的职业。\n";
 			s += "镇岳擅长稳定仇恨、护持队友和承受正面伤害。\n";
+			s += "职业技能与手动守御永久免费；进入后可按需领取3天守御助手试用。\n";
+			s += "[了解职业助手:profession_assistant]\n";
 			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";
@@ -736,6 +740,8 @@ int start(string arg){
 	//end of evan added 2008.07.07
 
 	//初始化玩家VIP状态 added evan 2008.07.17
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+		PROFESSIONVIPD->record_raw_membership_snapshot(me);
 	if(!me->vip_flag)
 		me->vip_flag = 0;
 	else{
@@ -747,6 +753,8 @@ int start(string arg){
 		me->vip_end_time = 0;
 	if(!me->vip_history)
 		me->vip_history = ([]);
+	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
+		PROFESSIONVIPD->initialize_player(me);
 	//end of evan added 2008.07.17
 	 //add by caijie 080923 家园权限标识
 	if(!me->home_rights)	
