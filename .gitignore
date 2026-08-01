@@ -10,6 +10,7 @@ gamelib/clone/item/**/*.o
 # gamelib/data/  # removed to track data files
 data_xiand/u/
 data_xiand/new_users/
+data_xiand/feedback/
 gamelib/clone/convert_count.txt
 data_xiand/topten.s
 gamelib/data/topten.s

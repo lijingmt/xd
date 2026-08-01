@@ -13,6 +13,8 @@ void do_remove(object me)
 void do_login(object me)
 {
 	check_daily(me);
+	// 采纳奖励支持离线审核，玩家下次登录时自动补发且有领取凭据防重。
+	FEEDBACKD->deliver_pending_rewards(me);
 }
 void check_daily(object me)
 {

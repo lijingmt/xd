@@ -394,6 +394,7 @@ private void show_settings(object me, string notice)
 	mapping route;
 	int daily_seconds;
 	int vip_level;
+	int time_left;
 	string gather_mode;
 	int material_keep;
 	AUTOFIGHTD->initialize_player(me);
@@ -405,6 +406,7 @@ private void show_settings(object me, string notice)
 	skill_mode = AUTOFIGHTD->query_auto_skill_mode(me);
 	daily_seconds = AUTOFIGHTD->query_daily_seconds_for(me);
 	vip_level = AUTOFIGHTD->query_vip_level(me);
+	time_left = AUTOFIGHTD->query_time_left(me);
 	gather_mode = AUTOFIGHTD->query_gather_mode(me);
 	material_keep = AUTOFIGHTD->query_material_keep(me);
 	route = AUTOFIGHTD->query_training_route(me);
@@ -424,13 +426,22 @@ private void show_settings(object me, string notice)
 	if(notice && notice != "")
 		out += notice+"\n\n";
 	out += "状态："+(me->query_autofight()=="enable" ? "运行中" : "已停止")+"\n";
-	out += "今日剩余："+format_time(AUTOFIGHTD->query_time_left(me))+"\n";
+	out += "今日剩余："+format_time(time_left)+"\n";
 	out += "每日额度："+format_time(daily_seconds);
 	if(vip_level > 0)
 		out += "（"+vip_label(vip_level)+"，每级增加2小时）\n";
 	else
 		out += "（普通玩家；VIP每级增加2小时，"+
 			vip_label(4)+"最高16小时）\n";
+	if(time_left <= 0){
+		out += "额度提示："+
+			AUTOFIGHTD->query_quota_exhausted_message(me)+"。\n";
+		if(AUTOFIGHTD->can_upgrade_daily_time(me)){
+			out += "[提高VIP等级:vip_service_list]|";
+			out += "[玉石不足可捐款:add_szx_fee]\n";
+		}else
+			out += "[查看最高档挂机权益:autofight vip]\n";
+	}
 	out += "低血保护："+AUTOFIGHTD->query_hp_percent(me)+"％\n";
 	out += "低法力补充："+AUTOFIGHTD->query_mana_percent(me)+"％\n";
 	out += "回血食物："+food+"\n";

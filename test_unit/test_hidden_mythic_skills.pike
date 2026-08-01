@@ -585,6 +585,11 @@ void test_utility_and_control_runtime()
 			caster->move(room);
 			enemy->move(room);
 			caster->skills[skill_name] = ({1,0});
+			// 控制/辅助回归只验证效果本身；关闭正常闪避随机性，
+			// 避免一次闪避把技能功能误报为失效。
+			enemy->set_debuff("curse",0,"dodge");
+			enemy->set_debuff("curse",1,1000000);
+			enemy->set_debuff("curse",2,10);
 			int derived_before = 0;
 			if(skill_name=="taiqingjianyu")
 				derived_before = caster->query_defend_power();

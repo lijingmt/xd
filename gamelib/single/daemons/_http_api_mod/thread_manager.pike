@@ -35,6 +35,7 @@ constant CORE_COMMANDS = ({
     "zhaohuan", "zhaohuan_cfm", "summon",  // 召唤（涉及NPC和共享状态）
     "growth_task", "task_guide",  // 职业历练与任务引导传送
     "autofight", "autofightclose",  // 自动战斗
+    "feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========
     "go", "goto", "go_back", "fly",

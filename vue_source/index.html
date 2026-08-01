@@ -417,7 +417,14 @@
                  aria-live="polite">
                 <span class="ui-toast-dot" aria-hidden="true"></span>
                 <span>{{ uiToast.message }}</span>
-                <button type="button" @click="clearUiToast" aria-label="关闭提示">✕</button>
+                <button v-if="uiToast.actionCommand"
+                        type="button"
+                        class="ui-toast-action"
+                        @click="runUiToastAction">{{ uiToast.actionLabel }}</button>
+                <button type="button"
+                        class="ui-toast-close"
+                        @click="clearUiToast"
+                        aria-label="关闭提示">✕</button>
             </div>
 
 			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->

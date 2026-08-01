@@ -22,8 +22,8 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785538671153">
-    <link rel="stylesheet" href="css/realm.css?v=v1785538671153">
+    <link rel="stylesheet" href="css/app.css?v=v1785542332669">
+    <link rel="stylesheet" href="css/realm.css?v=v1785542332669">
 </head>
 <body>
     <div id="app">
@@ -417,7 +417,14 @@
                  aria-live="polite">
                 <span class="ui-toast-dot" aria-hidden="true"></span>
                 <span>{{ uiToast.message }}</span>
-                <button type="button" @click="clearUiToast" aria-label="关闭提示">✕</button>
+                <button v-if="uiToast.actionCommand"
+                        type="button"
+                        class="ui-toast-action"
+                        @click="runUiToastAction">{{ uiToast.actionLabel }}</button>
+                <button type="button"
+                        class="ui-toast-close"
+                        @click="clearUiToast"
+                        aria-label="关闭提示">✕</button>
             </div>
 
 			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->
@@ -1008,10 +1015,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785538671153"></script>
-    <script src="js/app.js?v=v1785538671153"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785542332669"></script>
+    <script src="js/app.js?v=v1785542332669"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785538671153"></script>
+    <script src="../includes/translate.js?v=v1785542332669"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

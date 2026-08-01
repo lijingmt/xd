@@ -248,6 +248,65 @@ void test_vip_daily_limits()
 	destroy_runtime_player(vip_player);
 }
 
+void test_vip_quota_exhausted_guidance()
+{
+	test_start("挂机额度用完按VIP档位提示升级或最高额度");
+	object normal_player = create_runtime_player(
+		"__testunit_autofight_quota_normal__");
+	object vip4_player = create_runtime_player(
+		"__testunit_autofight_quota_vip4__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	string command_source = Stdio.read_file(
+		ROOT+"/gamelib/cmds/autofight.pike");
+	string api_source = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/http_api_daemon.pike");
+	string vue_source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
+	string normal_message = "";
+	string vip4_message = "";
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		daemon->initialize_player(normal_player);
+		normal_player["/plus/autofight_time_left"] = 0;
+		normal_message = daemon->query_quota_exhausted_message(
+			normal_player);
+		vip4_player->set_vip_flag(4);
+		daemon->initialize_player(vip4_player);
+		vip4_player["/plus/autofight_time_left"] = 0;
+		vip4_message = daemon->query_quota_exhausted_message(vip4_player);
+		valid = daemon->can_upgrade_daily_time(normal_player) == 1 &&
+			daemon->can_upgrade_daily_time(vip4_player) == 0 &&
+			daemon->is_quota_exhausted_reason(
+				normal_player,normal_message) == 1 &&
+			daemon->is_quota_exhausted_reason(
+				normal_player,"死亡或灵魂状态不能开启自动挂机") == 0 &&
+			search(normal_message,"今天的8小时") != -1 &&
+			search(normal_message,"VIP1（水晶会员）") != -1 &&
+			search(normal_message,"10小时") != -1 &&
+			search(vip4_message,"今天的16小时") != -1 &&
+			search(vip4_message,"VIP4（钻石会员）") != -1 &&
+			search(vip4_message,"最高额度") != -1 &&
+			search(vip4_message,"升级至") == -1 &&
+			command_source &&
+			search(command_source,"[提高VIP等级:vip_service_list]") != -1 &&
+			search(command_source,"[玉石不足可捐款:add_szx_fee]") != -1 &&
+			api_source && search(api_source,"quota_exhausted") != -1 &&
+			search(api_source,"can_upgrade_vip") != -1 &&
+			vue_source && search(vue_source,"data.quota_exhausted") != -1 &&
+			search(vue_source,"runUiToastAction") != -1;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("挂机额度提示分级错误: "+normal_message+" / "+
+			vip4_message+" "+error_desc);
+	destroy_runtime_player(normal_player);
+	destroy_runtime_player(vip4_player);
+}
+
 void test_vip_labels_and_plan()
 {
 	test_start("挂机VIP等级名称与统一权益入口");
@@ -1938,6 +1997,7 @@ int main()
 	test_defaults_and_switch();
 	test_smart_auto_skill_selection();
 	test_vip_daily_limits();
+	test_vip_quota_exhausted_guidance();
 	test_vip_labels_and_plan();
 	test_vip_auto_sell_tiers();
 	test_auto_sell_protection_rules();

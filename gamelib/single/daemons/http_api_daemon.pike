@@ -2151,8 +2151,10 @@ void handle_api_autofight(Protocols.HTTP.Server.Request req)
     }
 
     int new_state = 0;
+	int vip_level;
     string current;
     string reason;
+	mapping result;
 
     if(!functionp(player->query_autofight) ||
        !functionp(player->set_autofight)) {
@@ -2167,10 +2169,24 @@ void handle_api_autofight(Protocols.HTTP.Server.Request req)
         reason = AUTOFIGHTD->query_start_block_reason(player);
         if(reason != "") {
             AUTOFIGHTD->stop_autofight(player);
-            send_json(req, ([
+			result = ([
                 "autofight": 0,
                 "message": "无法开启自动挂机："+reason
-            ]));
+			]);
+			if(AUTOFIGHTD->is_quota_exhausted_reason(player,reason)){
+				vip_level = AUTOFIGHTD->query_vip_level(player);
+				result["quota_exhausted"] = 1;
+				result["vip_level"] = vip_level;
+				result["daily_hours"] =
+					AUTOFIGHTD->query_daily_seconds_for(player)/3600;
+				result["can_upgrade_vip"] =
+					AUTOFIGHTD->can_upgrade_daily_time(player);
+				result["upgrade_command"] = vip_level < 4 ?
+					"vip_service_list" : "autofight vip";
+				result["upgrade_label"] = vip_level < 4 ?
+					"提高VIP" : "查看权益";
+			}
+			send_json(req,result);
             return;
         }
         AUTOFIGHTD->start_autofight(player);

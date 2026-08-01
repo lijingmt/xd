@@ -6718,7 +6718,7 @@ select:focus-visible {
     display: grid;
     width: min(calc(100% - 28px), 520px);
     min-height: 48px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
     padding: 10px 10px 10px 14px;
@@ -6744,13 +6744,25 @@ select:focus-visible {
     box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 13%, transparent);
 }
 
-.ui-toast button {
+.ui-toast-close {
     width: 34px;
     height: 34px;
     border: 0;
     border-radius: 9px;
     background: var(--ux-surface-muted);
     color: var(--ux-ink-muted);
+    cursor: pointer;
+}
+
+.ui-toast-action {
+    min-width: 72px;
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 1px solid color-mix(in srgb, var(--ux-accent) 42%, var(--ux-line));
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--ux-accent) 15%, var(--ux-surface-muted));
+    color: var(--ux-accent);
+    font-weight: 700;
     cursor: pointer;
 }
 

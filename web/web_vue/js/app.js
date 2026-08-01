@@ -256,18 +256,31 @@ createApp({
             return `${minutes}分`;
         },
 
-        showUiToast(message, type = 'info') {
+        showUiToast(message, type = 'info', action = null) {
             if (!message) {
                 return;
             }
             if (this.uiToastTimer) {
                 clearTimeout(this.uiToastTimer);
             }
-            this.uiToast = { message, type };
+            this.uiToast = {
+                message,
+                type,
+                actionLabel: action?.label || '',
+                actionCommand: action?.command || ''
+            };
             this.uiToastTimer = setTimeout(() => {
                 this.uiToast = null;
                 this.uiToastTimer = null;
-            }, 4500);
+            }, action ? 9000 : 4500);
+        },
+
+        runUiToastAction() {
+            const command = this.uiToast?.actionCommand || '';
+            this.clearUiToast();
+            if (command) {
+                this.sendQuickCommand(command);
+            }
         },
 
         clearUiToast() {
@@ -1757,9 +1770,16 @@ createApp({
                     // 刷新状态
                     await this.fetchPlayerStats();
                     // 显示提示
+                    const quotaAction = data.quota_exhausted ? {
+                        label: data.upgrade_label ||
+                            (data.can_upgrade_vip ? '提高VIP' : '查看权益'),
+                        command: data.upgrade_command ||
+                            (data.can_upgrade_vip ? 'vip_service_list' : 'autofight vip')
+                    } : null;
                     this.showUiToast(
                         data.message || '自动挂机状态已切换',
-                        data.autofight ? 'success' : 'info'
+                        data.autofight ? 'success' : 'info',
+                        quotaAction
                     );
                 } else {
                     const data = await response.json().catch(() => ({}));

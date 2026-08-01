@@ -137,5 +137,7 @@
 #define IDLE_KICKD ((object)(ROOT "/gamelib/single/daemons/idle_kickd"))
 //HTTP API 守护模块
 #define HTTP_APID ((object)(ROOT "/gamelib/single/daemons/http_api_daemon"))
+//玩家意见反馈、后台审核与采纳奖励模块
+#define FEEDBACKD ((object)(ROOT "/gamelib/single/daemons/feedbackd"))
 
 #endif // _GAMELIB_H_

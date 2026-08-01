@@ -339,6 +339,32 @@ int query_daily_seconds_for(object me)
 		query_vip_level(me)*AUTOFIGHT_VIP_BONUS_SECONDS;
 }
 
+int can_upgrade_daily_time(object me)
+{
+	return query_vip_level(me) < AUTOFIGHT_MAX_VIP_LEVEL;
+}
+
+string query_quota_exhausted_message(object me)
+{
+	int vip_level;
+	int daily_hours;
+	vip_level = query_vip_level(me);
+	daily_hours = query_daily_seconds_for(me)/3600;
+	if(vip_level < AUTOFIGHT_MAX_VIP_LEVEL)
+		return sprintf("今天的%d小时自动挂机时间已经用完；升级至%s可将每日额度提高到%d小时",
+			daily_hours,query_vip_label(vip_level+1),daily_hours+2);
+	return sprintf("今天的%d小时自动挂机时间已经用完；你已是%s，当前为最高额度，请明日登录后再使用",
+		daily_hours,query_vip_label(vip_level));
+}
+
+int is_quota_exhausted_reason(object me,string reason)
+{
+	if(!me || !reason || reason == "")
+		return 0;
+	return query_time_left(me) <= 0 &&
+		reason == query_quota_exhausted_message(me);
+}
+
 void sync_daily_limit(object me)
 {
 	int daily_limit;
@@ -1689,8 +1715,7 @@ string query_start_block_reason(object me)
 	if((int)me["/plus/random_rcd"] > 0)
 		return "请先完成当前的安全验证";
 	if(query_time_left(me) <= 0)
-		return sprintf("今天的%d小时自动挂机时间已经用完",
-			query_daily_seconds_for(me)/3600);
+		return query_quota_exhausted_message(me);
 	consolidate_gathered_materials(me);
 	if(query_loot_enabled(me) && me->if_over_easy_load()){
 		if(query_auto_store_non_equipment_enabled(me) &&
