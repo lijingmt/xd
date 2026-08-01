@@ -2,6 +2,9 @@
  * Vue游戏客户端 - iframe模式 (显示原始HTML)
  */
 const { createApp } = Vue;
+const markClientRaw = typeof Vue.markRaw === 'function'
+    ? Vue.markRaw
+    : value => value;
 
 // SHA-256 哈希函数（支持安全和非安全上下文）
 async function sha256(message) {
@@ -99,6 +102,85 @@ function sha256Fallback(str) {
     return hex(h0) + hex(h1) + hex(h2) + hex(h3) + hex(h4) + hex(h5) + hex(h6) + hex(h7);
 }
 
+/**
+ * 生成一段很小的本地 WAV 音效精灵。避免引入远程音频资源，同时让
+ * Howler 统一处理手机浏览器解锁、并发播放和静音状态。
+ */
+function createGameSoundSpriteDataUri() {
+    const sampleRate = 16000;
+    const totalMs = 2700;
+    const samples = new Float32Array(Math.ceil(sampleRate * totalMs / 1000));
+    const notes = [
+        // 点击确认
+        { start: 0, duration: 110, frequency: 660, volume: 0.18 },
+        // 任务完成
+        { start: 190, duration: 170, frequency: 523.25, volume: 0.2 },
+        { start: 370, duration: 190, frequency: 783.99, volume: 0.2 },
+        // 升级/突破
+        { start: 690, duration: 180, frequency: 440, volume: 0.2 },
+        { start: 850, duration: 180, frequency: 659.25, volume: 0.21 },
+        { start: 1010, duration: 220, frequency: 880, volume: 0.18 },
+        // 稀有掉落
+        { start: 1290, duration: 260, frequency: 987.77, volume: 0.16 },
+        { start: 1480, duration: 270, frequency: 1318.51, volume: 0.17 },
+        { start: 1690, duration: 250, frequency: 1567.98, volume: 0.14 },
+        // 战斗胜利
+        { start: 1990, duration: 250, frequency: 392, volume: 0.19 },
+        { start: 2180, duration: 250, frequency: 523.25, volume: 0.19 },
+        { start: 2370, duration: 280, frequency: 783.99, volume: 0.18 }
+    ];
+
+    for (const note of notes) {
+        const startSample = Math.floor(note.start * sampleRate / 1000);
+        const sampleCount = Math.floor(note.duration * sampleRate / 1000);
+        for (let offset = 0; offset < sampleCount; offset++) {
+            const index = startSample + offset;
+            if (index >= samples.length) break;
+            const progress = offset / Math.max(1, sampleCount - 1);
+            const attack = Math.min(1, progress / 0.08);
+            const release = Math.min(1, (1 - progress) / 0.28);
+            const envelope = attack * release;
+            const time = offset / sampleRate;
+            const fundamental = Math.sin(2 * Math.PI * note.frequency * time);
+            const harmonic = Math.sin(4 * Math.PI * note.frequency * time) * 0.2;
+            samples[index] += (fundamental + harmonic) * note.volume * envelope;
+        }
+    }
+
+    const wav = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(wav);
+    const writeAscii = (offset, value) => {
+        for (let i = 0; i < value.length; i++) {
+            view.setUint8(offset + i, value.charCodeAt(i));
+        }
+    };
+    writeAscii(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeAscii(8, 'WAVE');
+    writeAscii(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeAscii(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+        const value = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(44 + i * 2, Math.round(value * 32767), true);
+    }
+
+    const bytes = new Uint8Array(wav);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return 'data:audio/wav;base64,' + btoa(binary);
+}
+
 createApp({
     data() {
         return {
@@ -154,6 +236,7 @@ createApp({
             htmlMode: false,  // HTML模式：按钮使用href链接（兼容自动浏览器）
             mudLines: [],  // MUD输出行数组
             mudLoading: false,  // MUD加载中状态
+            smoothOutputLoading: false,  // 列表页保留旧内容以便AutoAnimate平滑过渡
             slowLoadingTip: false,  // 慢速加载提示（超过3秒显示）
             loadingTimer: null,  // 加载计时器
             // 战斗系统
@@ -171,6 +254,21 @@ createApp({
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
             combatEffectsEnabled: localStorage.getItem('battle_effects_enabled') !== '0',
+            soundEffectsEnabled: localStorage.getItem('game_sound_enabled') === '1',
+            soundPlayer: null,
+            soundLastPlayedAt: {},
+            confettiInstance: null,
+            confettiCanvas: null,
+            confettiShapeCache: {},
+            effectLastTriggeredAt: {},
+            effectSignatures: {},
+            outputAutoAnimateController: null,
+            toastAutoAnimateController: null,
+            completionAutoAnimateController: null,
+            autoAnimateReadyHandler: null,
+            outputAutoAnimateTimer: null,
+            uiTour: null,
+            uiTourRestoreQuickActions: null,
             // 招式系统
             showPerformsList: false,  // 显示招式列表
             performsData: null,  // 招式数据
@@ -267,7 +365,10 @@ createApp({
                 message,
                 type,
                 actionLabel: action?.label || '',
-                actionCommand: action?.command || ''
+                actionCommand: action?.command || '',
+                actionCallback: typeof action?.callback === 'function'
+                    ? action.callback
+                    : null
             };
             this.uiToastTimer = setTimeout(() => {
                 this.uiToast = null;
@@ -277,8 +378,11 @@ createApp({
 
         runUiToastAction() {
             const command = this.uiToast?.actionCommand || '';
+            const callback = this.uiToast?.actionCallback;
             this.clearUiToast();
-            if (command) {
+            if (typeof callback === 'function') {
+                callback();
+            } else if (command) {
                 this.sendQuickCommand(command);
             }
         },
@@ -289,6 +393,474 @@ createApp({
                 this.uiToastTimer = null;
             }
             this.uiToast = null;
+        },
+
+        prefersReducedMotion() {
+            return typeof window.matchMedia === 'function' &&
+                window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        },
+
+        getMudLineText(line) {
+            if (!line || !Array.isArray(line.segments)) {
+                return line?.type || '';
+            }
+            return line.segments.map(segment => {
+                if (segment.type === 'text' && Array.isArray(segment.parts)) {
+                    return segment.parts.map(part => part.content || '').join('');
+                }
+                return segment.label || segment.alt || segment.cmd || '';
+            }).join('').trim();
+        },
+
+        getMudLineKey(line, index) {
+            const segmentIdentity = Array.isArray(line?.segments)
+                ? line.segments.map(segment =>
+                    `${segment.type || ''}:${segment.cmd || ''}:${segment.name || ''}`
+                ).join('|')
+                : '';
+            return `${index}:${line?.type || ''}:${this.getMudLineText(line).slice(0, 120)}:${segmentIdentity}`;
+        },
+
+        shouldAnimateMudOutputCommand(command) {
+            const value = String(command || '').trim().toLowerCase();
+            return /^(inventory|mytasks|myskills|storage|store|cangku|newbie_guide|profession_assistant)(?:\s|$)/.test(value);
+        },
+
+        initializeAutoAnimate() {
+            const autoAnimate = window.XiandAutoAnimate;
+            if (typeof autoAnimate !== 'function' || !this.$refs) {
+                return;
+            }
+            const bindController = (current, element, options, initiallyEnabled) => {
+                if (!element) return current;
+                if (current?.parent === element) {
+                    return current;
+                }
+                current?.destroy?.();
+                const controller = markClientRaw(autoAnimate(element, options));
+                if (!initiallyEnabled) controller.disable();
+                return controller;
+            };
+
+            this.outputAutoAnimateController = bindController(
+                this.outputAutoAnimateController,
+                this.$refs.mudLinesList,
+                { duration: 180, easing: 'ease-out' },
+                false
+            );
+            this.toastAutoAnimateController = bindController(
+                this.toastAutoAnimateController,
+                this.$refs.uiToastStage,
+                { duration: 170, easing: 'ease-out' },
+                this.combatEffectsEnabled
+            );
+            this.completionAutoAnimateController = bindController(
+                this.completionAutoAnimateController,
+                this.$refs.newbieCompletionStage,
+                { duration: 220, easing: 'ease-in-out' },
+                this.combatEffectsEnabled
+            );
+        },
+
+        scheduleAutoAnimateInitialization() {
+            if (typeof this.$nextTick === 'function') {
+                this.$nextTick(() => this.initializeAutoAnimate());
+            } else {
+                setTimeout(() => this.initializeAutoAnimate(), 0);
+            }
+        },
+
+        prepareMudOutputAnimation(command) {
+            const controller = this.outputAutoAnimateController;
+            if (!controller) return;
+            if (this.outputAutoAnimateTimer) {
+                clearTimeout(this.outputAutoAnimateTimer);
+                this.outputAutoAnimateTimer = null;
+            }
+            if (!this.combatEffectsEnabled ||
+                !this.shouldAnimateMudOutputCommand(command)) {
+                controller.disable();
+                return;
+            }
+            controller.enable();
+            this.outputAutoAnimateTimer = setTimeout(() => {
+                controller.disable();
+                this.outputAutoAnimateTimer = null;
+            }, 650);
+        },
+
+        destroyAutoAnimate() {
+            for (const controller of [
+                this.outputAutoAnimateController,
+                this.toastAutoAnimateController,
+                this.completionAutoAnimateController
+            ]) {
+                controller?.destroy?.();
+            }
+            this.outputAutoAnimateController = null;
+            this.toastAutoAnimateController = null;
+            this.completionAutoAnimateController = null;
+            if (this.outputAutoAnimateTimer) {
+                clearTimeout(this.outputAutoAnimateTimer);
+                this.outputAutoAnimateTimer = null;
+            }
+        },
+
+        initializeSoundPlayer() {
+            if (this.soundPlayer || typeof window.Howl !== 'function') {
+                return this.soundPlayer;
+            }
+            try {
+                this.soundPlayer = markClientRaw(new window.Howl({
+                    src: [createGameSoundSpriteDataUri()],
+                    format: ['wav'],
+                    preload: true,
+                    volume: 0.72,
+                    sprite: {
+                        ui: [0, 140],
+                        quest: [180, 430],
+                        level: [680, 590],
+                        rare: [1280, 670],
+                        victory: [1980, 680]
+                    }
+                }));
+            } catch (error) {
+                console.warn('[游戏音效] 初始化失败:', error);
+                this.soundPlayer = null;
+            }
+            return this.soundPlayer;
+        },
+
+        playGameSound(name, minInterval = 250) {
+            if (!this.soundEffectsEnabled) return false;
+            const now = Date.now();
+            const previous = Number(this.soundLastPlayedAt[name] || 0);
+            if (now - previous < minInterval) return false;
+            const player = this.initializeSoundPlayer();
+            if (!player) return false;
+            try {
+                player.play(name);
+                this.soundLastPlayedAt[name] = now;
+                return true;
+            } catch (error) {
+                console.warn('[游戏音效] 播放失败:', error);
+                return false;
+            }
+        },
+
+        toggleSoundEffects() {
+            this.soundEffectsEnabled = !this.soundEffectsEnabled;
+            localStorage.setItem(
+                'game_sound_enabled',
+                this.soundEffectsEnabled ? '1' : '0'
+            );
+            if (this.soundEffectsEnabled) {
+                this.playGameSound('ui', 0);
+                this.showUiToast('游戏音效已开启，可随时在菜单中关闭', 'info');
+            } else {
+                this.soundPlayer?.stop?.();
+                this.showUiToast('游戏音效已关闭', 'info');
+            }
+        },
+
+        ensureConfettiInstance() {
+            if (this.confettiInstance || typeof window.confetti !== 'function' ||
+                typeof document.createElement !== 'function') {
+                return this.confettiInstance;
+            }
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.className = 'game-celebration-canvas';
+                canvas.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(canvas);
+                this.confettiCanvas = canvas;
+                this.confettiInstance = markClientRaw(window.confetti.create(canvas, {
+                    resize: true,
+                    useWorker: true,
+                    disableForReducedMotion: true
+                }));
+            } catch (error) {
+                console.warn('[庆典特效] Canvas初始化失败，使用兼容模式:', error);
+                this.confettiInstance = markClientRaw(options => window.confetti({
+                    ...options,
+                    disableForReducedMotion: true
+                }));
+            }
+            return this.confettiInstance;
+        },
+
+        getCelebrationPalette() {
+            const profession = String(this.playerStats?.profe || '');
+            if (profession.includes('方士')) {
+                return ['#60e6d2', '#78a8ff', '#c991ff', '#f4e8ff'];
+            }
+            if (profession.includes('镇岳')) {
+                return ['#f1c66d', '#d99045', '#8f6a45', '#fff1b5'];
+            }
+            return ['#f4c95d', '#ef8354', '#6fb1ff', '#fff4cf'];
+        },
+
+        getCelebrationShapes(kind) {
+            if (this.confettiShapeCache[kind]) {
+                return this.confettiShapeCache[kind];
+            }
+            const shapes = [];
+            try {
+                if (kind === 'rare' && typeof window.confetti?.shapeFromText === 'function') {
+                    const profession = String(this.playerStats?.profe || '');
+                    const glyph = profession.includes('方士')
+                        ? '符'
+                        : (profession.includes('镇岳') ? '岳' : '✦');
+                    shapes.push(window.confetti.shapeFromText({ text: glyph, scalar: 1.4 }));
+                    shapes.push('star');
+                } else if (kind === 'level' || kind === 'tutorialComplete') {
+                    shapes.push('star', 'circle');
+                }
+            } catch (error) {
+                console.warn('[庆典特效] 自定义粒子不可用:', error);
+            }
+            this.confettiShapeCache[kind] = shapes;
+            return shapes;
+        },
+
+        shouldTriggerGameFeedback(kind, signature = '', minInterval = 0) {
+            const now = Date.now();
+            const lastTriggered = Number(this.effectLastTriggeredAt[kind] || 0);
+            if (now - lastTriggered < minInterval) return false;
+            const cacheKey = signature ? `${kind}:${signature.slice(0, 160)}` : '';
+            if (cacheKey && now - Number(this.effectSignatures[cacheKey] || 0) < 90000) {
+                return false;
+            }
+            this.effectLastTriggeredAt[kind] = now;
+            if (cacheKey) this.effectSignatures[cacheKey] = now;
+            for (const [key, timestamp] of Object.entries(this.effectSignatures)) {
+                if (now - Number(timestamp) > 120000) delete this.effectSignatures[key];
+            }
+            return true;
+        },
+
+        triggerGameFeedback(kind, signature = '', requestedInterval = null) {
+            const intervals = {
+                quest: 1500,
+                tutorialComplete: 3000,
+                level: 3000,
+                rare: 1500,
+                victory: 10000
+            };
+            const minInterval = requestedInterval === null
+                ? (intervals[kind] || 0)
+                : requestedInterval;
+            if (!this.shouldTriggerGameFeedback(kind, signature, minInterval)) {
+                return false;
+            }
+
+            const soundName = kind === 'tutorialComplete' ? 'quest' : kind;
+            this.playGameSound(soundName, minInterval);
+            if (!this.combatEffectsEnabled || this.prefersReducedMotion()) {
+                return true;
+            }
+            const fire = this.ensureConfettiInstance();
+            if (!fire) return true;
+
+            const colors = this.getCelebrationPalette();
+            const shapes = this.getCelebrationShapes(kind);
+            const base = {
+                colors,
+                origin: { x: 0.5, y: 0.66 },
+                disableForReducedMotion: true,
+                ...(shapes.length ? { shapes } : {})
+            };
+            try {
+                if (kind === 'rare') {
+                    fire({ ...base, particleCount: 72, spread: 82, startVelocity: 42, scalar: 1.05 });
+                    fire({ ...base, particleCount: 45, angle: 60, spread: 55, origin: { x: 0.08, y: 0.72 } });
+                    fire({ ...base, particleCount: 45, angle: 120, spread: 55, origin: { x: 0.92, y: 0.72 } });
+                } else if (kind === 'level' || kind === 'tutorialComplete') {
+                    fire({ ...base, particleCount: 92, spread: 100, startVelocity: 38, scalar: 0.95 });
+                } else if (kind === 'victory') {
+                    fire({ ...base, particleCount: 28, spread: 58, startVelocity: 28, ticks: 130, scalar: 0.72 });
+                } else {
+                    fire({ ...base, particleCount: 38, spread: 64, startVelocity: 28, ticks: 150, scalar: 0.78 });
+                }
+            } catch (error) {
+                console.warn('[庆典特效] 播放失败:', error);
+            }
+            return true;
+        },
+
+        handleNarrativeEffects(lines) {
+            if (!Array.isArray(lines)) return;
+            for (const line of lines) {
+                const text = this.getMudLineText(line);
+                if (!text) continue;
+                const rareReward = /(?:获得|拾取|掉落|爆出|发现).{0,24}(?:隐藏技能|大神技能|神级技能|绝世秘籍|稀有技能书|隐藏技能书)/.test(text);
+                const questComplete = /(?:(?:恭喜你|你已|成功).{0,12}(?:完成|达成).{0,12}(?:任务|试炼|成就)|(?:任务|试炼).{0,12}(?:已完成|完成[！!]))/.test(text);
+                if (rareReward) {
+                    this.triggerGameFeedback('rare', text);
+                } else if (questComplete) {
+                    this.triggerGameFeedback('quest', text);
+                }
+            }
+        },
+
+        promptUiTourOnce() {
+            if (localStorage.getItem('ui_tour_completed_v1') === '1' ||
+                localStorage.getItem('ui_tour_prompted_v1') === '1') {
+                return;
+            }
+            localStorage.setItem('ui_tour_prompted_v1', '1');
+            this.showUiToast('第一次使用新版界面？用一分钟认识人物、任务、技能和挂机入口。', 'info', {
+                label: '开始引导',
+                callback: () => this.startUiTour()
+            });
+        },
+
+        startUiTour() {
+            this.headerMenuOpen = false;
+            const driverFactory = window.driver?.js?.driver;
+            if (typeof driverFactory !== 'function') {
+                this.showUiToast('界面引导资源尚未就绪，请刷新后重试', 'error');
+                return;
+            }
+            this.stopUiTour();
+            this.uiTourRestoreQuickActions = this.quickActionsCollapsed;
+            this.quickActionsCollapsed = false;
+            localStorage.setItem('quickActionsCollapsed', '0');
+
+            this.$nextTick(() => {
+                const professionName = this.playerStats?.profe || '当前职业';
+                const candidates = [
+                    {
+                        element: '[data-tour="player-avatar"]',
+                        popover: {
+                            title: `${professionName}人物入口`,
+                            description: '点击头像可以打开职业助手或人物状态，职业成长外观也会显示在这里。',
+                            side: 'bottom', align: 'start'
+                        }
+                    },
+                    {
+                        element: '[data-tour="player-stats"]',
+                        popover: {
+                            title: '生命、法力与精力',
+                            description: '挂机前重点检查生命与法力；数值会持续更新，无需手动刷新。',
+                            side: 'bottom', align: 'start'
+                        }
+                    },
+                    {
+                        element: '[data-tour="level-progress"]',
+                        popover: {
+                            title: '等级与突破',
+                            description: '这里显示升级进度、当前上限以及VIP突破条件。',
+                            side: 'bottom', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="game-output"]',
+                        popover: {
+                            title: '江湖主界面',
+                            description: '地图、NPC、任务和装备操作都会出现在这里；蓝绿色文字按钮可以直接点击。',
+                            side: 'top', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="scene"]',
+                        popover: {
+                            title: '返回当前场景',
+                            description: '走迷路或查看完功能后，点击“场景”即可重新查看当前位置。',
+                            side: 'top', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="inventory"]',
+                        popover: {
+                            title: '物品与装备',
+                            description: '查看背包、穿戴装备、使用药品，以及整理挂机获得的物品。',
+                            side: 'top', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="skills"]',
+                        popover: {
+                            title: '技能成长',
+                            description: '购买技能书后从这里查看并学习；不同职业会显示各自技能路线。',
+                            side: 'top', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="quests"]',
+                        popover: {
+                            title: '任务追踪',
+                            description: '查看当前可接与进行中的任务，并使用任务引导快速前往目标。',
+                            side: 'top', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="autofight"]',
+                        popover: {
+                            title: '智能挂机',
+                            description: '自动寻路、匹配怪物、休息和吃药；首次开启前请先准备红蓝药。',
+                            side: 'top', align: 'center'
+                        }
+                    },
+                    {
+                        element: '[data-tour="profession-assistant"]',
+                        popover: {
+                            title: `${professionName}职业助手`,
+                            description: '新职业会在这里提供专属成长建议、装备辅助与特色玩法入口。',
+                            side: 'bottom', align: 'start'
+                        }
+                    }
+                ];
+                const steps = candidates.filter(step => document.querySelector(step.element));
+                if (steps.length === 0) {
+                    this.restoreUiTourLayout();
+                    this.showUiToast('当前页面没有可引导的游戏控件', 'error');
+                    return;
+                }
+
+                const tour = markClientRaw(driverFactory({
+                    steps,
+                    showProgress: true,
+                    progressText: '第 {{current}} / {{total}} 步',
+                    nextBtnText: '下一步',
+                    prevBtnText: '上一步',
+                    doneBtnText: '完成',
+                    allowClose: true,
+                    smoothScroll: true,
+                    animate: !this.prefersReducedMotion(),
+                    stagePadding: 7,
+                    stageRadius: 12,
+                    popoverClass: 'xiand-driver-popover',
+                    onDestroyed: () => {
+                        localStorage.setItem('ui_tour_completed_v1', '1');
+                        this.uiTour = null;
+                        this.restoreUiTourLayout();
+                    }
+                }));
+                this.uiTour = tour;
+                this.playGameSound('ui', 0);
+                tour.drive();
+            });
+        },
+
+        restoreUiTourLayout() {
+            if (this.uiTourRestoreQuickActions === null) return;
+            this.quickActionsCollapsed = this.uiTourRestoreQuickActions;
+            localStorage.setItem(
+                'quickActionsCollapsed',
+                this.quickActionsCollapsed ? '1' : '0'
+            );
+            this.uiTourRestoreQuickActions = null;
+        },
+
+        stopUiTour() {
+            const tour = this.uiTour;
+            if (tour?.isActive?.()) {
+                tour.destroy();
+            } else {
+                this.uiTour = null;
+                this.restoreUiTourLayout();
+            }
         },
 
         async respondTeamInvite(accepted) {
@@ -595,6 +1167,7 @@ createApp({
 
                     // 隐藏登录界面
                     this.showLogin = false;
+                    this.scheduleAutoAnimateInitialization();
 
                     // 开始更新玩家状态
                     this.startStatsUpdate();
@@ -1097,6 +1670,9 @@ createApp({
         async sendJsonCommand(cmd, isRetry = false) {
             const isAutofightRefresh = cmd === 'flushview' &&
                 this.playerStats && this.playerStats.autofight;
+            const useSmoothOutputTransition = !isAutofightRefresh &&
+                this.combatEffectsEnabled &&
+                this.shouldAnimateMudOutputCommand(cmd);
             // 拦截复制邀请链接命令 - 直接在前端处理，不发送到服务器
             if (cmd && cmd.startsWith('copy_invite_url:')) {
                 const url = cmd.substring('copy_invite_url:'.length);
@@ -1126,6 +1702,7 @@ createApp({
 
             if (!isAutofightRefresh) {
                 this.mudLoading = true;
+                this.smoothOutputLoading = useSmoothOutputTransition;
                 this.slowLoadingTip = false;
             }
 
@@ -1189,10 +1766,12 @@ createApp({
                         console.log('[sendJsonCommand] 已保存用户信息到sessionStorage:', partition, userid);
                     }
                 }
-                // 更新MUD输出
+                // 更新MUD输出；只在背包/任务/技能等列表页启用平滑重排。
+                this.prepareMudOutputAnimation(cmd);
                 this.mudLines = data.lines || [];
                 console.log('[sendJsonCommand] mudLines数量:', this.mudLines.length);
                 this.handleNewbieCompletions(data.newbie_completions || []);
+                this.handleNarrativeEffects(data.lines || []);
 
                 // 处理复制指令（从后端返回的copy字段）
                 if (data.copy && data.copy.data) {
@@ -1226,6 +1805,7 @@ createApp({
             } finally {
                 if (!isAutofightRefresh) {
                     this.mudLoading = false;
+                    this.smoothOutputLoading = false;
                     this.slowLoadingTip = false;
                     if (this.loadingTimer) {
                         clearTimeout(this.loadingTimer);
@@ -1256,6 +1836,17 @@ createApp({
                 return;
             }
             this.activeNewbieCompletion = this.newbieCompletionQueue.shift();
+            if (this.activeNewbieCompletion?.code === 2) {
+                const kind = this.activeNewbieCompletion.complete
+                    ? 'tutorialComplete'
+                    : 'quest';
+                const signature = [
+                    this.activeNewbieCompletion.step,
+                    this.activeNewbieCompletion.title,
+                    this.activeNewbieCompletion.reward
+                ].join(':');
+                this.triggerGameFeedback(kind, signature);
+            }
         },
 
         dismissNewbieCompletions() {
@@ -1553,6 +2144,7 @@ createApp({
                     data.newbie_completions || []
                 );
                 this.showLogin = false;
+                this.scheduleAutoAnimateInitialization();
 
                 console.log('[重新登录] 成功');
             } catch (e) {
@@ -1699,7 +2291,25 @@ createApp({
                         // 记录之前的 autofight 状态
                         const wasAutofight = this.playerStats && this.playerStats.autofight;
                         const previousAvatar = this.playerStats && this.playerStats.avatar;
+                        const previousLevel = Number(this.playerStats?.level);
                         this.playerStats = data;
+                        const currentLevel = Number(data.level);
+                        if (Number.isFinite(previousLevel) &&
+                            Number.isFinite(currentLevel) &&
+                            currentLevel > previousLevel) {
+                            this.triggerGameFeedback(
+                                'level',
+                                `${previousLevel}->${currentLevel}`
+                            );
+                            this.showUiToast(
+                                currentLevel > 120
+                                    ? `破境成功，人物提升至 ${currentLevel} 级！`
+                                    : `升级成功，人物提升至 ${currentLevel} 级！`,
+                                'info'
+                            );
+                        }
+                        this.scheduleAutoAnimateInitialization();
+                        this.promptUiTourOnce();
                         const pendingTeamInvite = data.team_invite;
                         if (!this.teamInviteBusy && pendingTeamInvite &&
                             pendingTeamInvite.pending) {
@@ -2396,6 +3006,7 @@ createApp({
                 // 战斗胜利
                 if (lineText.match(/战斗胜利|战胜了|击败|获胜/)) {
                     this.addBattleAnimation('victory', null, null);
+                    this.triggerGameFeedback('victory', '', 10000);
                 }
 
                 // 解析敌人状态（HP显示）
@@ -2635,7 +3246,18 @@ createApp({
             localStorage.setItem('battle_effects_enabled', this.combatEffectsEnabled ? '1' : '0');
             if (!this.combatEffectsEnabled) {
                 this.skillAnimations = [];
+                this.confettiInstance?.reset?.();
+                this.outputAutoAnimateController?.disable?.();
+                this.toastAutoAnimateController?.disable?.();
+                this.completionAutoAnimateController?.disable?.();
+            } else {
+                this.toastAutoAnimateController?.enable?.();
+                this.completionAutoAnimateController?.enable?.();
             }
+            this.showUiToast(
+                `视觉特效已${this.combatEffectsEnabled ? '开启' : '关闭'}`,
+                'info'
+            );
         },
 
         /**
@@ -2830,9 +3452,38 @@ createApp({
         }
     },
 
+    beforeUnmount() {
+        this.stopUiTour();
+        this.destroyAutoAnimate();
+        if (this.autoAnimateReadyHandler) {
+            window.removeEventListener(
+                'xiand:auto-animate-ready',
+                this.autoAnimateReadyHandler
+            );
+            this.autoAnimateReadyHandler = null;
+        }
+        this.confettiInstance?.reset?.();
+        this.confettiInstance = null;
+        this.confettiCanvas?.remove?.();
+        this.confettiCanvas = null;
+        this.soundPlayer?.unload?.();
+        this.soundPlayer = null;
+        if (window.vueInstance === this) {
+            window.vueInstance = null;
+        }
+    },
+
     mounted() {
         // 保存实例到全局以便HTML中的onclick调用
         window.vueInstance = this;
+
+        // AutoAnimate 以ES模块加载；兼容模块先后顺序和登录后才出现的游戏DOM。
+        this.autoAnimateReadyHandler = () => this.scheduleAutoAnimateInitialization();
+        window.addEventListener(
+            'xiand:auto-animate-ready',
+            this.autoAnimateReadyHandler
+        );
+        this.scheduleAutoAnimateInitialization();
 
         // 初始化完成后，重置语言切换标志，防止初始化时触发无限循环
         this.$nextTick(() => {
@@ -2963,6 +3614,7 @@ createApp({
             if (this.useJsonMode) {
                 // JSON模式: 加载初始MUD输出
                 this.showLogin = false;
+                this.scheduleAutoAnimateInitialization();
                 this.sendJsonCommand('init');
             } else {
                 // iframe模式: 设置iframe URL

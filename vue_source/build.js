@@ -69,17 +69,28 @@ log('\n3. JS:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'js'), { recursive: true });
 copyFile(path.join(__dirname, 'js', 'app.js'), path.join(distDir, 'js', 'app.js'));
 
-// 4. 复制锁定版本的Vue运行库和许可证
+// 4. 复制锁定版本的浏览器运行库和许可证（生产环境不依赖公共CDN）
 log('\n4. Vendored runtime:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'vendor'), { recursive: true });
-copyFile(
-  path.join(__dirname, 'node_modules', 'vue', 'dist', 'vue.global.prod.js'),
-  path.join(distDir, 'vendor', 'vue.global.prod.js')
-);
-copyFile(
-  path.join(__dirname, 'node_modules', 'vue', 'LICENSE'),
-  path.join(distDir, 'vendor', 'VUE_LICENSE.txt')
-);
+const vendorFiles = [
+  ['vue/dist/vue.global.prod.js', 'vue.global.prod.js'],
+  ['vue/LICENSE', 'VUE_LICENSE.txt'],
+  ['canvas-confetti/dist/confetti.browser.js', 'canvas-confetti.js'],
+  ['canvas-confetti/LICENSE', 'CANVAS_CONFETTI_LICENSE.txt'],
+  ['howler/dist/howler.core.min.js', 'howler.core.min.js'],
+  ['howler/LICENSE.md', 'HOWLER_LICENSE.txt'],
+  ['@formkit/auto-animate/index.min.js', 'auto-animate.min.js'],
+  ['@formkit/auto-animate/LICENSE', 'AUTO_ANIMATE_LICENSE.txt'],
+  ['driver.js/dist/driver.js.iife.js', 'driver.iife.js'],
+  ['driver.js/dist/driver.css', 'driver.css'],
+  ['driver.js/license', 'DRIVER_LICENSE.txt']
+];
+for (const [sourcePath, outputName] of vendorFiles) {
+  copyFile(
+    path.join(__dirname, 'node_modules', sourcePath),
+    path.join(distDir, 'vendor', outputName)
+  );
+}
 
 // 5. 复制favicon
 log('\n5. Favicon:', 'yellow');
@@ -110,7 +121,16 @@ const legacyFiles = [
   path.join('css', 'realm.css'),
   path.join('js', 'app.js'),
   path.join('vendor', 'vue.global.prod.js'),
-  path.join('vendor', 'VUE_LICENSE.txt')
+  path.join('vendor', 'VUE_LICENSE.txt'),
+  path.join('vendor', 'canvas-confetti.js'),
+  path.join('vendor', 'CANVAS_CONFETTI_LICENSE.txt'),
+  path.join('vendor', 'howler.core.min.js'),
+  path.join('vendor', 'HOWLER_LICENSE.txt'),
+  path.join('vendor', 'auto-animate.min.js'),
+  path.join('vendor', 'AUTO_ANIMATE_LICENSE.txt'),
+  path.join('vendor', 'driver.iife.js'),
+  path.join('vendor', 'driver.css'),
+  path.join('vendor', 'DRIVER_LICENSE.txt')
 ];
 for (const relativePath of legacyFiles) {
   const sourcePath = path.join(distDir, relativePath);

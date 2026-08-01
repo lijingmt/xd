@@ -17,8 +17,20 @@ const PORT = Number(process.env.XIAND_VUE_PORT || 3000);
 const API_PORT = Number(process.env.XIAND_HTTP_PORT || 8888);
 const STATIC_ROOT = path.resolve(__dirname);
 const INCLUDES_ROOT = path.resolve(__dirname, '..', 'web', 'includes');
-const VUE_ROOT = path.resolve(__dirname, 'node_modules', 'vue');
 const DEV_BUILD_VERSION = `dev-${Date.now()}`;
+const VENDOR_FILES = new Map([
+  ['/vendor/vue.global.prod.js', 'vue/dist/vue.global.prod.js'],
+  ['/vendor/VUE_LICENSE.txt', 'vue/LICENSE'],
+  ['/vendor/canvas-confetti.js', 'canvas-confetti/dist/confetti.browser.js'],
+  ['/vendor/CANVAS_CONFETTI_LICENSE.txt', 'canvas-confetti/LICENSE'],
+  ['/vendor/howler.core.min.js', 'howler/dist/howler.core.min.js'],
+  ['/vendor/HOWLER_LICENSE.txt', 'howler/LICENSE.md'],
+  ['/vendor/auto-animate.min.js', '@formkit/auto-animate/index.min.js'],
+  ['/vendor/AUTO_ANIMATE_LICENSE.txt', '@formkit/auto-animate/LICENSE'],
+  ['/vendor/driver.iife.js', 'driver.js/dist/driver.js.iife.js'],
+  ['/vendor/driver.css', 'driver.js/dist/driver.css'],
+  ['/vendor/DRIVER_LICENSE.txt', 'driver.js/license']
+]);
 
 // MIME类型
 const mimeTypes = {
@@ -98,10 +110,8 @@ const server = http.createServer((req, res) => {
 
   // /includes/* 映射到网页共享资源，其余文件只允许从vue_source读取。
   let filePath;
-  if (pathname === '/vendor/vue.global.prod.js') {
-    filePath = path.join(VUE_ROOT, 'dist', 'vue.global.prod.js');
-  } else if (pathname === '/vendor/VUE_LICENSE.txt') {
-    filePath = path.join(VUE_ROOT, 'LICENSE');
+  if (VENDOR_FILES.has(pathname)) {
+    filePath = path.join(__dirname, 'node_modules', VENDOR_FILES.get(pathname));
   } else if (pathname.startsWith('/includes/')) {
     filePath = path.resolve(INCLUDES_ROOT, '.' + pathname.slice('/includes'.length));
     if (!isWithinRoot(INCLUDES_ROOT, filePath)) {
