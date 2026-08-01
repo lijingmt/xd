@@ -42,17 +42,19 @@ void test_thread_farm_io()
 		"线程池读取、队列上限或运行态统计异常");
 }
 
-void test_single_writer_source()
+void test_parallel_command_source()
 {
 	string source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/thread_manager.pike");
-	check("游戏对象命令保持账号锁到世界锁的单写顺序",
+	check("核心命令串行且非核心命令进入有界线程池",
 		source && search(source,"Thread.Thread(")==-1 &&
-		search(source,"user_key = user_mutex->lock()")!=-1 &&
+		search(source,"Thread.Farm()")!=-1 &&
+		search(source,"HTTP_PARALLEL_THREAD_LIMIT = 16")!=-1 &&
+		search(source,"execute_parallel_command_job")!=-1 &&
 		search(source,"core_key = core_lock->lock()")!=-1 &&
 		search(source,"execute_world_command_sync")==-1 &&
 		search(source,"execute_command_sync(userid,password,cmd)")!=-1,
-		"仍有临时线程、锁顺序漂移或绕过统一执行入口");
+		"仍有临时线程、核心锁漂移或并行池未接线");
 }
 
 void test_heartbeat_budget_and_metrics()
@@ -118,7 +120,7 @@ int main()
 	werror("\n========== 单进程运行时优化测试 ==========\n");
 	mixed err = catch {
 		test_thread_farm_io();
-		test_single_writer_source();
+		test_parallel_command_source();
 		test_heartbeat_budget_and_metrics();
 		test_save_and_cache_metrics();
 		test_afk_scan_budget_and_auth_boundary();

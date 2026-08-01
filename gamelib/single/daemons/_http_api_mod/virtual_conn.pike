@@ -21,6 +21,7 @@
 
 /** 虚拟连接池: userid -> ({buffer_conn, last_used_time, player_obj}) */
 mapping vconnections = ([ ]);
+Thread.Mutex vconnections_lock = Thread.Mutex();
 
 // ========================================================================
 // BufferConnection 类
@@ -76,7 +77,12 @@ class BufferConnection {
 mixed get_virtual_connection(string userid)
 {
     if(!userid) return 0;
-    return vconnections[userid];
+    object key = vconnections_lock->lock();
+    mixed result = vconnections[userid];
+    if(arrayp(result))
+        result = result + ({});
+    destruct(key);
+    return result;
 }
 
 /**
@@ -85,7 +91,9 @@ mixed get_virtual_connection(string userid)
 void set_virtual_connection(string userid, mixed conn_data)
 {
     if(!userid) return;
+    object key = vconnections_lock->lock();
     vconnections[userid] = conn_data;
+    destruct(key);
 }
 
 /**
@@ -94,10 +102,12 @@ void set_virtual_connection(string userid, mixed conn_data)
 void update_connection_time(string userid)
 {
     if(!userid) return;
+    object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 2) {
         vconn[1] = time();
     }
+    destruct(key);
 }
 
 /**
@@ -109,6 +119,7 @@ object get_player_from_connection(string userid, void|int update_idle_time)
 {
     if(!userid) return 0;
 
+    object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 3) {
         object player = vconn[2];
@@ -117,11 +128,30 @@ object get_player_from_connection(string userid, void|int update_idle_time)
             if(update_idle_time != 0) {
                 vconn[1] = time();
             }
+            destruct(key);
             return player;
         }
         m_delete(vconnections,userid);
     }
+    destruct(key);
     return 0;
+}
+
+/** 仅当快照仍未被请求刷新时认领超时连接。 */
+private int claim_idle_connection(string userid,int expected_last_used,
+    int now,int timeout)
+{
+    int claimed = 0;
+    object key = vconnections_lock->lock();
+    mixed current = vconnections[userid];
+    if(arrayp(current) && sizeof(current)>=3 &&
+       (int)current[1]==expected_last_used &&
+       now-(int)current[1]>timeout){
+        m_delete(vconnections,userid);
+        claimed = 1;
+    }
+    destruct(key);
+    return claimed;
 }
 
 /**
@@ -132,11 +162,19 @@ void cleanup_idle_connections()
     mixed err = catch {
         int timeout = CONN_TIMEOUT;
         int now = time();
-        array users = indices(vconnections);
+        mapping snapshot = ([]);
+        object snapshot_key = vconnections_lock->lock();
+        foreach(indices(vconnections),string snapshot_userid){
+            mixed snapshot_conn = vconnections[snapshot_userid];
+            if(arrayp(snapshot_conn))
+                snapshot[snapshot_userid] = snapshot_conn + ({});
+        }
+        destruct(snapshot_key);
+        array users = indices(snapshot);
         int kicked_count = 0;
 
         foreach(users, string userid) {
-            mixed vconn = vconnections[userid];
+            mixed vconn = snapshot[userid];
             if(arrayp(vconn) && sizeof(vconn) >= 3) {
                 int last_used = vconn[1];
                 object player = vconn[2];
@@ -145,7 +183,8 @@ void cleanup_idle_connections()
                 string name = player && functionp(player->query_name) ? player->query_name() : userid;
 
                 // 检查是否超时
-                if(idle_time > timeout) {
+                if(idle_time > timeout &&
+                   claim_idle_connection(userid,last_used,now,timeout)) {
                     // 记录日志
                     string name_cn = player && functionp(player->query_name_cn) ? player->query_name_cn() : name;
                     int level = player && functionp(player->query_level) ? player->query_level() : 0;
@@ -157,8 +196,6 @@ void cleanup_idle_connections()
                         player->remove();
                     }
 
-                    // 移除虚拟连接
-                    m_delete(vconnections,userid);
                     kicked_count++;
                 }
             }
@@ -208,12 +245,20 @@ void log_idle_kick(string name, string name_cn, int level, int idle_seconds, str
 mapping query_connection_status()
 {
     mapping m = ([ ]);
-    m["active_connections"] = sizeof(vconnections);
+    mapping snapshot = ([]);
+    object key = vconnections_lock->lock();
+    foreach(indices(vconnections),string snapshot_userid){
+        mixed snapshot_conn = vconnections[snapshot_userid];
+        if(arrayp(snapshot_conn))
+            snapshot[snapshot_userid] = snapshot_conn + ({});
+    }
+    destruct(key);
+    m["active_connections"] = sizeof(snapshot);
     m["connections"] = ({});
 
-    array users = indices(vconnections);
+    array users = indices(snapshot);
     foreach(users, string userid) {
-        mixed vconn = vconnections[userid];
+        mixed vconn = snapshot[userid];
         if(vconn && arrayp(vconn) && sizeof(vconn) >= 2) {
             m["connections"] += ({([
                 "userid": userid,
@@ -231,7 +276,9 @@ mapping query_connection_status()
 void remove_virtual_connection(string userid)
 {
     if(!userid) return;
+    object key = vconnections_lock->lock();
     m_delete(vconnections,userid);
+    destruct(key);
 }
 
 /**
@@ -240,8 +287,11 @@ void remove_virtual_connection(string userid)
 int has_virtual_connection(string userid)
 {
     if(!userid) return 0;
+    object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
-    return vconn != 0 && vconn != UNDEFINED;
+    int result = vconn != 0 && vconn != UNDEFINED;
+    destruct(key);
+    return result;
 }
 
 /**
@@ -250,6 +300,7 @@ int has_virtual_connection(string userid)
 array(object) query_all_connected_players()
 {
     array(object) players = ({});
+    object key = vconnections_lock->lock();
     foreach(indices(vconnections),string userid) {
         mixed vconn = vconnections[userid];
         if(vconn && arrayp(vconn) && sizeof(vconn)>=3) {
@@ -259,5 +310,6 @@ array(object) query_all_connected_players()
                 players += ({player});
         }
     }
+    destruct(key);
     return players;
 }

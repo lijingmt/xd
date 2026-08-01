@@ -175,19 +175,16 @@ void execute_queued_command(string userid, string cmd, string request_id)
 
     // 获取主文件的 execute_command 函数
     object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
-    string result = "";
-    mixed err = catch {
-        if(main_daemon && functionp(main_daemon->execute_command)) {
-            result = main_daemon->execute_command(userid, "", cmd);
-        } else {
-            result = "Error: Main daemon not available";
-        }
-    };
+    if(main_daemon && functionp(main_daemon->execute_command_async) &&
+       main_daemon->execute_command_async(userid,"",cmd,
+           finish_queued_command,userid,cmd,request_id))
+        return;
+    finish_queued_command("命令线程池繁忙",userid,cmd,request_id);
+}
 
-    if(err) {
-        http_werror(" Command execution error: %s\n", describe_error(err));
-        result = "命令执行错误";
-    }
+void finish_queued_command(string result,string userid,string cmd,
+    string request_id)
+{
 
     // 存储结果到缓存
     store_request_result(request_id, result);

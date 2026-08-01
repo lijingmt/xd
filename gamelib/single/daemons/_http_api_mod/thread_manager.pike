@@ -1,11 +1,12 @@
 /**
  * ========================================================================
- * HTTP API 线程管理器 - 单进程、单世界写入模型
+ * HTTP API 线程管理器 - 核心串行、非核心并行模型
  * ========================================================================
  *
- * 所有会访问人物、房间、怪物、掉落和存档的命令都经过同一世界锁。
- * 不再为普通命令临时创建 Thread.Thread；可隔离的文件 I/O 统一交给
- * async_iod 的 Pike 9 Thread.Farm。
+ * 参考 txpike9 的命令分类：多人共享世界的核心命令仍由主 Backend
+ * 串行执行；非核心命令进入有界 Thread.Farm。相比每请求临时创建
+ * Thread.Thread，本实现限制线程数和排队数，并保持同一账号串行，
+ * 避免虚拟连接输出交叉。
  *
  * ========================================================================
  */
@@ -14,11 +15,11 @@
 // 常量定义
 // ========================================================================
 
-/** 核心命令列表 - 用于运行指标分类（所有游戏命令均在 Backend 单写） */
+/** 核心命令列表 - 涉及多人共享状态，必须由主 Backend 串行执行。 */
 constant CORE_COMMANDS = ({
     // ========== 登录相关 ==========
-    "gamelib", "register", "init", "check_login", "check_login_new",
-    // "login" 已移除 - 使用线程执行，避免阻塞其他玩家
+    "gamelib", "login", "register", "init", "check_login", "check_login_new",
+    // 登录会创建/替换人物与连接，保持核心串行。
 
     // ========== 战斗相关（多人交互）==========
     "attack", "kill", "hit", "fight", "strike",
@@ -27,12 +28,15 @@ constant CORE_COMMANDS = ({
     "growth_task", "task_guide",  // 职业历练与任务引导传送
 	"autofight", "autofightclose",  // 自动战斗
 	"profession_assistant",  // 职业助手会改写配置、召唤物与仙玉
-    "flushview", "use_perform",  // 挂机循环与技能会改写敌人/队友共享状态
-    "feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
+	"flushview",  // 挂机循环会改写敌人/房间共享状态
+	"npc_kill", "kill_filter", "kill_quick",
+	"feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========
-    "go", "goto", "go_back", "fly",
-    "north", "south", "east", "west", "up", "down", "enter", "exit",
+	"go", "goto", "go_back", "fly",
+	"north", "south", "east", "west", "up", "down", "enter", "exit",
+	"arrive", "ui_select_room", "qge74hye", "waihai_qge74hye",
+	"city_qge74hye", "relife",
 
     // ========== 商店/交易（涉及金币/物品转移）==========
     "buy", "buy_items", "sell", "list", "value",
@@ -85,12 +89,15 @@ constant CORE_COMMANDS = ({
     "master_del",
 
     // ========== 社交（多人交互）==========
-    "married", "marry_divorce",
-    "do_marrage", "do_marriage_yes",
-    "relation",
+	"married", "marry_divorce",
+	"do_marrage", "do_marriage_yes",
+	"relation", "postcity", "lottery_join_in", "random_award",
+	"transfer_to", "catchup_exp_potion",
 
     // ========== 其他 ==========
-	"tell", "game_deal", "txadd", "quit", "save"
+	"tell", "ui_chat", "use_toolbar", "mailbox", "game_deal", "txadd",
+	"quit", "save",
+	"shutdown", "shutdown_safe"
 });
 
 /** 共享系统命令前缀 - 新增子命令也必须进入全局核心锁 */
@@ -98,10 +105,16 @@ constant CORE_COMMAND_PREFIXES = ({
 	"vendue_", "temai_", "term_", "fb_", "viceskill_",
 	// 跨玩家/跨档案写入必须与核心世界状态串行，不能只依赖单账号锁。
 	"bang_", "mail_", "mailbox_", "present_", "sendother",
-	"home_", "trade_", "follow_", "spy_", "spec_", "mgr_", "wiz_"
+	"home_", "trade_", "follow_", "spy_", "spec_", "mgr_", "wiz_",
+	"login_", "chatroom_", "city_", "bz_", "bc_", "msg_", "qqlist_",
+	"door_", "fee_exchange_", "lottery_", "transfer_", "tuiguang_",
+	"gift_", "hb_", "vip_", "yushi_", "yblh_", "yuebing_",
+	"user_package_", "add_", "waigua_"
 });
 
 constant HTTP_SLOW_COMMAND_MS = 500;
+constant HTTP_PARALLEL_THREAD_LIMIT = 16;
+constant HTTP_PARALLEL_PENDING_LIMIT = 512;
 
 // ========================================================================
 // 全局变量
@@ -109,6 +122,9 @@ constant HTTP_SLOW_COMMAND_MS = 500;
 
 /** 核心命令锁 - 保证因果一致性 */
 Thread.Mutex core_lock = Thread.Mutex();
+
+/** 非核心命令复用有界线程池，不按请求无限创建系统线程。 */
+object parallel_command_farm;
 
 /** 同一账号命令锁 - 保护人物状态和虚拟输出连接。 */
 mapping(string:object) user_command_locks =
@@ -128,6 +144,21 @@ int world_max_command_ms = 0;
 int world_last_slow_time = 0;
 string world_last_slow_command = "";
 int world_non_backend_rejected = 0;
+int parallel_pending = 0;
+int parallel_active = 0;
+int parallel_peak_pending = 0;
+int parallel_peak_active = 0;
+int parallel_completed = 0;
+int parallel_failed = 0;
+int parallel_rejected = 0;
+
+void init_parallel_command_farm()
+{
+    if(parallel_command_farm)
+        return;
+    parallel_command_farm = Thread.Farm();
+    parallel_command_farm->set_max_num_threads(HTTP_PARALLEL_THREAD_LIMIT);
+}
 
 // ========================================================================
 // 工具函数
@@ -202,6 +233,54 @@ private void record_world_command_start()
     destruct(key);
 }
 
+private int reserve_parallel_command()
+{
+    int accepted = 0;
+    object key = command_status_lock->lock();
+    if(parallel_pending < HTTP_PARALLEL_PENDING_LIMIT){
+        parallel_pending++;
+        if(parallel_pending > parallel_peak_pending)
+            parallel_peak_pending = parallel_pending;
+        accepted = 1;
+    }
+    else
+        parallel_rejected++;
+    destruct(key);
+    return accepted;
+}
+
+private void start_parallel_command()
+{
+    object key = command_status_lock->lock();
+    parallel_active++;
+    if(parallel_active > parallel_peak_active)
+        parallel_peak_active = parallel_active;
+    destruct(key);
+}
+
+private void finish_parallel_command(int ok)
+{
+    object key = command_status_lock->lock();
+    if(parallel_pending > 0)
+        parallel_pending--;
+    if(parallel_active > 0)
+        parallel_active--;
+    if(ok)
+        parallel_completed++;
+    else
+        parallel_failed++;
+    destruct(key);
+}
+
+private void cancel_parallel_command()
+{
+    object key = command_status_lock->lock();
+    if(parallel_pending > 0)
+        parallel_pending--;
+    parallel_failed++;
+    destruct(key);
+}
+
 private void record_world_command_acquired()
 {
     object key = command_status_lock->lock();
@@ -216,9 +295,9 @@ private void record_world_command_finish(string cmd,int is_core,
 {
     int elapsed_ms = (gethrtime()-started_at)/1000;
     object key = command_status_lock->lock();
-    if(acquired)
+    if(acquired==1)
         world_commands_active = 0;
-    else if(world_commands_waiting > 0)
+    else if(acquired==0 && world_commands_waiting > 0)
         world_commands_waiting--;
     world_command_count++;
     if(is_core)
@@ -239,10 +318,9 @@ private void record_world_command_finish(string cmd,int is_core,
 }
 
 /**
- * 游戏命令统一在主 Backend 单写执行；锁顺序固定为“账号锁 ->
- * 世界锁”，避免人物连接与共享世界状态交叉写入。
+ * 核心命令统一在主 Backend 执行；同一账号及核心世界写入均串行。
  */
-string execute_world_command(string userid,string password,string cmd)
+string execute_core_command(string userid,string password,string cmd)
 {
     object|zero user_mutex = 0;
     object|zero user_key = 0;
@@ -250,12 +328,8 @@ string execute_world_command(string userid,string password,string cmd)
     object|zero main_daemon = 0;
     string result = "错误: 无法找到主执行器";
     int started_at = gethrtime();
-    int core_command = is_core_command(cmd);
     int acquired = 0;
 
-    // 心跳、call_out 与 HTTP 世界命令必须由同一个 Backend 线程写入。
-    // 世界锁只能串行 HTTP 请求，不能保护不持锁的心跳，因此来自任何
-    // 工作线程的游戏命令都必须拒绝，绝不能在该线程里直接执行。
     if(master()->backend_thread()!=this_thread()){
         object status_key = command_status_lock->lock();
         world_non_backend_rejected++;
@@ -279,9 +353,125 @@ string execute_world_command(string userid,string password,string cmd)
         destruct(core_key);
     if(user_key)
         destruct(user_key);
-    record_world_command_finish(cmd,core_command,started_at,acquired);
+    record_world_command_finish(cmd,1,started_at,acquired);
     if(err)
         return "错误: "+describe_error(err);
+    return result;
+}
+
+/**
+ * 在线程池执行非核心命令。工作线程只并发不同账号；同一账号仍使用
+ * 稳定互斥锁，保护人物对象和 BufferConnection 输出。
+ */
+private string execute_parallel_command_job(string userid,string password,
+    string cmd)
+{
+    object|zero user_key = 0;
+    object|zero main_daemon = 0;
+    string result = "错误: 无法找到主执行器";
+    int started_at = gethrtime();
+    int ok = 0;
+
+    mixed err = catch {
+        start_parallel_command();
+        user_key = query_user_command_mutex(userid)->lock();
+        main_daemon = find_object(ROOT+
+            "/gamelib/single/daemons/http_api_daemon.pike");
+        if(main_daemon &&
+           functionp(main_daemon->execute_internal_command_sync)){
+            result = main_daemon->execute_internal_command_sync(
+                userid,password,cmd);
+            ok = 1;
+        }
+    };
+    if(user_key)
+        destruct(user_key);
+    finish_parallel_command(ok && !err);
+    // -1 表示该命令没有进入核心世界等待队列。
+    record_world_command_finish(cmd,0,started_at,-1);
+    if(err)
+        return "错误: "+describe_error(err);
+    return result;
+}
+
+private void deliver_parallel_command(string result,function callback,
+    array extra)
+{
+    mixed err = catch {
+        callback(result,@extra);
+    };
+    if(err)
+        werror("[HTTP_API][PARALLEL_CALLBACK] %s\n",
+            describe_error(err));
+}
+
+private void deliver_parallel_failure(mixed err,function callback,
+    array extra)
+{
+    cancel_parallel_command();
+    mixed callback_err = catch {
+        callback("错误: "+describe_error(err),@extra);
+    };
+    if(callback_err)
+        werror("[HTTP_API][PARALLEL_FAILURE_CALLBACK] %s\n",
+            describe_error(callback_err));
+}
+
+/**
+ * 异步执行命令。核心命令在当前 Backend 立即完成；非核心命令排入
+ * Thread.Farm，Future 回调由 Backend 发送 HTTP 响应。
+ */
+int execute_command_async(string userid,string password,string cmd,
+    function callback,mixed ... extra)
+{
+    object future;
+    mixed err;
+    if(!userid || !cmd || !callback)
+        return 0;
+    if(sizeof(userid)>64 || sizeof(password || "")>128 || sizeof(cmd)>2048)
+        return 0;
+    if(!LOGICALZONED->login_allowed(userid)){
+        callback("{\"error\":\"该逻辑区尚未开放或正在维护\"}",@extra);
+        return 1;
+    }
+    if(is_core_command(cmd)){
+        callback(execute_core_command(userid,password,cmd),@extra);
+        return 1;
+    }
+    init_parallel_command_farm();
+    if(!reserve_parallel_command())
+        return 0;
+    err = catch {
+        future = parallel_command_farm->run(execute_parallel_command_job,
+            userid,password,cmd);
+        future->on_success(deliver_parallel_command,callback,extra);
+        future->on_failure(deliver_parallel_failure,callback,extra);
+    };
+    if(err){
+        cancel_parallel_command();
+        return 0;
+    }
+    return 1;
+}
+
+/** 同步兼容入口；新 HTTP 处理器必须优先使用 execute_command_async。 */
+string execute_parallel_command(string userid,string password,string cmd)
+{
+    object future;
+    string result = "错误: 非核心命令线程池繁忙";
+    mixed err;
+    init_parallel_command_farm();
+    if(!reserve_parallel_command())
+        return result;
+    err = catch {
+        future = parallel_command_farm->run(execute_parallel_command_job,
+            userid,password,cmd);
+        result = future->get();
+    };
+    if(err){
+        cancel_parallel_command();
+        return "错误: "+describe_error(err);
+    }
     return result;
 }
 
@@ -307,7 +497,10 @@ string route_and_execute(string userid, string password, string cmd)
         return "错误: 请求参数过长";
 
     err = catch {
-        result = execute_world_command(userid,password,cmd);
+        if(is_core_command(cmd))
+            result = execute_core_command(userid,password,cmd);
+        else
+            result = execute_parallel_command(userid,password,cmd);
     };
 
     if(err)
@@ -327,14 +520,16 @@ mapping query_thread_status()
     mapping m = ([ ]);
     object key;
 
-    m["mode"] = "single_writer_with_safe_thread_farm";
+    m["mode"] = "core_serial_parallel_commands";
     m["process_model"] = "single_process";
-    m["description"] = "game world commands are serialized; isolated I/O uses Thread.Farm";
+    m["description"] = "core commands serialize on Backend; non-core commands use bounded Thread.Farm";
     m["core_commands"] = sizeof(CORE_COMMANDS);
     m["core_prefixes"] = sizeof(CORE_COMMAND_PREFIXES);
     m["user_command_locks"] = query_user_command_lock_count();
     m["same_user_policy"] = "serialized";
-    m["cross_user_policy"] = "serialized_world_writes";
+    m["cross_user_policy"] = "parallel_for_non_core";
+    m["parallel_thread_limit"] = HTTP_PARALLEL_THREAD_LIMIT;
+    m["parallel_pending_limit"] = HTTP_PARALLEL_PENDING_LIMIT;
     key = command_status_lock->lock();
     m["world_commands_waiting"] = world_commands_waiting;
     m["world_commands_active"] = world_commands_active;
@@ -348,6 +543,13 @@ mapping query_thread_status()
 	m["last_slow_time"] = world_last_slow_time;
 	m["last_slow_command"] = world_last_slow_command;
 	m["non_backend_rejected"] = world_non_backend_rejected;
+    m["parallel_pending"] = parallel_pending;
+    m["parallel_active"] = parallel_active;
+    m["parallel_peak_pending"] = parallel_peak_pending;
+    m["parallel_peak_active"] = parallel_peak_active;
+    m["parallel_completed"] = parallel_completed;
+    m["parallel_failed"] = parallel_failed;
+    m["parallel_rejected"] = parallel_rejected;
     destruct(key);
 
     return m;

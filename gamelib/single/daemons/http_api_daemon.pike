@@ -87,20 +87,28 @@ string http_last_slow_path = "";
 
 /** HTTP API 登录待定标记 - 用于 login_check.pike 检测是否为 HTTP API 模式 */
 mapping(string:int) http_api_login_pending = ([]);
+Thread.Mutex http_api_login_pending_lock = Thread.Mutex();
 
 // 设置 HTTP API 登录标记
 void set_http_api_login_pending(string userid, int value) {
+    object key = http_api_login_pending_lock->lock();
     http_api_login_pending[userid] = value;
+    destruct(key);
 }
 
 // 查询 HTTP API 登录标记
 int query_http_api_login_pending(string userid) {
-    return http_api_login_pending[userid] || 0;
+    object key = http_api_login_pending_lock->lock();
+    int result = http_api_login_pending[userid] || 0;
+    destruct(key);
+    return result;
 }
 
 // 清除 HTTP API 登录标记
 void clear_http_api_login_pending(string userid) {
+    object key = http_api_login_pending_lock->lock();
     m_delete(http_api_login_pending, userid);
+    destruct(key);
 }
 
 // ========================================================================
@@ -130,6 +138,7 @@ int query_exp_bonus_rate() {
 protected void create()
 {
     http_api_start_time = time();
+    init_parallel_command_farm();
     werror("========================================\n");
     werror("[HTTP_API] Daemon Loading...\n");
     werror("[HTTP_API] HTTP_PORT = %d\n", HTTP_PORT);
@@ -424,8 +433,8 @@ string get_room_info(object player)
  * 登录并执行命令 (主入口函数)
  *
  * 线程路由策略:
- * - 所有游戏命令由主 Backend 单写执行。
- * - 只有不接触游戏对象的有界文件 I/O 进入 Thread.Farm。
+ * - 核心共享世界命令由主 Backend 串行执行。
+ * - 非核心命令由有界 Thread.Farm 并行执行，同账号仍串行。
  */
 string execute_command(string userid, string password, string cmd)
 {
@@ -791,7 +800,14 @@ void handle_api(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    string response = execute_command(auth_userid, auth_password, cmd);
+    if(!execute_command_async(auth_userid,auth_password,cmd,
+       finish_handle_api,req,auth_userid))
+        send_json(req,(["error":"命令线程池繁忙，请稍后重试"]),503);
+}
+
+void finish_handle_api(string response,
+    Protocols.HTTP.Server.Request req,string auth_userid)
+{
 
     if(!response) {
         send_json(req, ([ "error": "命令执行失败" ]), 500);
@@ -1148,7 +1164,16 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
         cmd = unhide_command(auth_userid, cmd);
     }
 
-    string response = execute_command(auth_userid, auth_password, cmd);
+    if(!execute_command_async(auth_userid,auth_password,cmd,
+       finish_handle_api_html,req,auth_userid,cmd,client_ip,
+       is_login_attempt))
+        send_html_error(req,"命令线程池繁忙，请稍后重试");
+}
+
+void finish_handle_api_html(string response,
+    Protocols.HTTP.Server.Request req,string auth_userid,string cmd,
+    string client_ip,int is_login_attempt)
+{
 
     if(!response) {
         if(is_login_attempt) record_login_failure(client_ip);
@@ -1178,7 +1203,12 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     resp["data"] = html;
     resp["error"] = 200;
     resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
-    req->response_and_finish(resp);
+    mixed response_err = catch {
+        req->response_and_finish(resp);
+    };
+    if(response_err)
+        http_werror(" async HTML response error: %s\n",
+            describe_error(response_err));
 }
 
 // ========================================================================
@@ -1251,8 +1281,16 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
     // 解码隐藏命令（cmd可能是数字索引）
     string actual_cmd = unhide_command(auth_userid, cmd);
 
-    // 执行命令
-    string response = execute_command(auth_userid, auth_password, actual_cmd);
+    // 非核心命令在线程池执行；完成后回到 Backend 解析并发送响应。
+    if(!execute_command_async(auth_userid,auth_password,actual_cmd,
+       finish_handle_api_json,req,auth_userid,auth_password,cmd))
+        send_json(req,(["error":"命令线程池繁忙，请稍后重试"]),503);
+}
+
+void finish_handle_api_json(string response,
+    Protocols.HTTP.Server.Request req,string auth_userid,
+    string auth_password,string cmd)
+{
     object response_player = get_player_from_connection(auth_userid);
     array(mapping) newbie_completions = ({});
     if(response_player) {
@@ -2311,8 +2349,23 @@ void handle_api_performs(Protocols.HTTP.Server.Request req)
         string auth_userid = auth["userid"];
         string auth_password = auth["password"];
 
-        // 执行 use_perform 命令获取技能列表（xiand使用use_perform）
-        string response = execute_command(auth_userid, auth_password, "use_perform");
+        // use_perform 是账号内查询，交给非核心命令线程池。
+        if(!execute_command_async(auth_userid,auth_password,"use_perform",
+           finish_handle_api_performs,req,auth_userid,auth_password))
+            send_json(req,(["error":"命令线程池繁忙，请稍后重试"]),503);
+    };
+
+    if(err) {
+        werror("[API] /api/performs EXCEPTION: %s\n", describe_error(err));
+        send_json(req, ([ "error": "服务器错误" ]), 500);
+    }
+}
+
+void finish_handle_api_performs(string response,
+    Protocols.HTTP.Server.Request req,string auth_userid,
+    string auth_password)
+{
+    mixed err = catch {
 
         // 生成新的 TXD - 使用存储的明文密码（因为 auth_password 可能是哈希）
         string stored_password = get_user_password(auth_userid);
