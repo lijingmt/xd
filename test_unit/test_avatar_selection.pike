@@ -257,6 +257,27 @@ void test_existing_picture_recovery()
 	destroy_test_player(player);
 }
 
+void test_fangshi_profession_icon()
+{
+	test_start("方士职业图标在首次选择与断点恢复页面均显示");
+	string logo = Stdio.read_file(ROOT+
+		"/images/human_fangshi_logo.png");
+	string web_logo = Stdio.read_file(ROOT+
+		"/web/images/human_fangshi_logo.png");
+	string init_source = Stdio.read_file(ROOT+"/gamelib/d/init");
+	string deploy_source = Stdio.read_file(ROOT+"/restart-docker.sh");
+	string marker = "images/human_fangshi_logo.png";
+	int first = init_source ? search(init_source,marker) : -1;
+	int second = first>=0 ? search(init_source,marker,first+1) : -1;
+	if(logo && web_logo && sizeof(logo)>1000 && logo==web_logo &&
+	   first>=0 && second>first &&
+	   deploy_source &&
+	   search(deploy_source,"\"human_fangshi_logo.png\"")!=-1)
+		test_pass();
+	else
+		test_fail("方士图标资源、两处职业入口或容器复制接线缺失");
+}
+
 int main()
 {
 	werror("\n========================================\n");
@@ -267,6 +288,7 @@ int main()
 	test_missing_sex_runtime();
 	test_state_recovery_and_validation();
 	test_existing_picture_recovery();
+	test_fangshi_profession_icon();
 
 	werror("\n头像选择测试完成: 总计 %d, 通过 %d, 失败 %d\n",
 		test_results["total"],

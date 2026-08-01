@@ -4,6 +4,10 @@
 //城主被攻击需要调用这个程序里的通告模块
 #define CITYD ((object)(ROOT "/gamelib/single/daemons/cityd"))
 #define MANAGERD ((object)(ROOT "/gamelib/single/daemons/managed"))
+#define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
+#define PK_FAST_DECISION_TRIGGER_ROUNDS 90
+#define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
+#define PK_FAST_DECISION_SCALE_MAX 16
 private int tmp_heart_beat;
 private int in_combat;
 private mapping items;
@@ -290,6 +294,428 @@ object query_enemy(){
 		return enemy;
 	return this_object()->get_target();
 }
+
+// 玩家杀戮持续约三分钟后，以当前战斗快照推演最多一千轮。
+// 推演只读取属性，不逐轮修改真实人物，最后仅执行一次正常死亡结算。
+int query_pk_fast_decision_trigger_rounds(){
+	return PK_FAST_DECISION_TRIGGER_ROUNDS;
+}
+
+int query_pk_fast_decision_rounds(){
+	return PK_FAST_DECISION_SIMULATION_ROUNDS;
+}
+
+// 方士灵兽属于主人这一侧；普通NPC不会被误认成玩家PK参与者。
+object query_pk_fast_target_owner(object target){
+	object owner;
+	if(!target || !objectp(target))
+		return 0;
+	if(target->is("player"))
+		return target;
+	owner = SUMMOND->query_combat_credit_owner(target);
+	if(owner && owner!=target && owner->is("player"))
+		return owner;
+	return 0;
+}
+
+// 一侧的仇恨列表只能包含对手及对手的合法灵兽，第三名玩家、普通NPC、
+// 第三方召唤物都会阻止快速决胜，避免把群战错误压成1v1。
+int query_pk_fast_targets_belong_to(object who,object opponent){
+	array(object) targets;
+	if(!who || !opponent)
+		return 0;
+	targets = who->get_all_targets();
+	if(!targets || sizeof(targets)<1)
+		return 0;
+	foreach(targets,object target){
+		if(query_pk_fast_target_owner(target)!=opponent)
+			return 0;
+	}
+	return 1;
+}
+
+mapping query_pk_fast_side_profile(object who){
+	mapping profile = ([]);
+	mapping summons = ([]);
+	int life;
+	int life_max;
+	int physical_raw;
+	int magic_raw;
+	int summon_attack = 0;
+	int summon_heal = 0;
+	int shield = 0;
+	int magic_rate;
+	int magic_element = 0;
+
+	if(!who)
+		return profile;
+	life = who->get_cur_life();
+	life_max = who->query_life_max();
+	if(life_max<1)
+		life_max = 1;
+	if(life<0)
+		life = 0;
+	if(life>life_max)
+		life = life_max;
+
+	if(who->query_buff("buff",0)=="absorb")
+		shield += (int)who->query_buff("buff",1);
+	if(who->query_buff("buff2",0)=="absorb")
+		shield += (int)who->query_buff("buff2",1);
+	if(who->query_buff("team_guard",0)=="absorb")
+		shield += (int)who->query_buff("team_guard",1);
+	if(shield<0)
+		shield = 0;
+	life += shield;
+	life_max += shield;
+
+	// 灵兽的存活、普攻与鹤灵治疗均计入方士这一侧的当前快照。
+	if(who->query_profeId()=="fangshi")
+		summons = SUMMOND->get_player_summons(who->query_name());
+	if(summons && sizeof(summons)){
+		foreach(values(summons),object summon){
+			if(!summon || summon->get_cur_life()<=0 ||
+			   environment(summon)!=environment(who))
+				continue;
+			life += summon->get_cur_life();
+			life_max += summon->query_life_max();
+			summon_attack += (summon->query_low_attack_desc()+
+				summon->query_high_attack_desc())/2;
+			if(summon->query_summon_type()=="heling")
+				summon_heal += (50+who->query_level()*5+
+					summon->query_summon_skill_level()*20)/3;
+		}
+	}
+
+	physical_raw = (who->query_low_attack_desc()+
+		who->query_high_attack_desc())/2+
+		who->query_equip_add("attack_all")+summon_attack;
+	if(who->query_buff("buff",0)=="physical_attack_percent")
+		physical_raw += physical_raw*
+			(int)who->query_buff("buff",1)/100;
+	if(physical_raw<1)
+		physical_raw = 1;
+
+	magic_element = (int)who->query_equip_add("huo_mofa_attack");
+	if((int)who->query_equip_add("bing_mofa_attack")>magic_element)
+		magic_element = (int)who->query_equip_add("bing_mofa_attack");
+	if((int)who->query_equip_add("feng_mofa_attack")>magic_element)
+		magic_element = (int)who->query_equip_add("feng_mofa_attack");
+	if((int)who->query_equip_add("du_mofa_attack")>magic_element)
+		magic_element = (int)who->query_equip_add("du_mofa_attack");
+	magic_rate = search(({"yushi","wuyao","fangshi"}),
+		who->query_profeId())!=-1 ? 7 : 5;
+	magic_raw = who->query_think()*magic_rate/2+
+		who->query_equip_add("mofa_all")+magic_element;
+	if(who->query_buff("buff2",0)=="all_mofa_attack")
+		magic_raw = magic_raw*3/2;
+	if(magic_raw<1)
+		magic_raw = 1;
+
+	profile["life"] = life;
+	profile["life_max"] = life_max;
+	profile["physical_raw"] = physical_raw;
+	profile["magic_raw"] = magic_raw;
+	profile["summon_attack_raw"] = summon_attack;
+	profile["magic_enabled"] = search(({"yushi","wuyao","fangshi"}),
+		who->query_profeId())!=-1;
+	profile["heal"] = (int)who->query_equip_add("rase_life_add")+
+		summon_heal;
+	profile["hit"] = (int)who->query_if_hitte();
+	profile["dodge"] = (int)who->query_phy_dodge();
+	profile["critical"] = (int)who->query_phy_baoji();
+	profile["renxing"] = (int)who->query_equip_add("renxing");
+	profile["physical_penetration"] =
+		(int)who->query_equip_add("wulichuantou_add");
+	profile["magic_penetration"] =
+		(int)who->query_equip_add("mofachuantou_add");
+	return profile;
+}
+
+mapping query_pk_fast_damage_profile(object attacker,object target,
+	mapping attacker_profile,mapping target_profile){
+	mapping result = ([]);
+	int physical_damage;
+	int magic_damage;
+	int summon_damage = 0;
+	int magic_defend;
+	int current_defend;
+	int hit_chance;
+	int critical_chance;
+
+	physical_damage = query_balanced_physical_damage(
+		attacker_profile["physical_raw"],target->query_defend_power(),
+		attacker_profile["physical_penetration"]);
+	magic_defend = (int)target->query_equip_add("huoyan_defend");
+	current_defend = (int)target->query_equip_add("bingshuang_defend");
+	if(current_defend<magic_defend)
+		magic_defend = current_defend;
+	current_defend = (int)target->query_equip_add("fengren_defend");
+	if(current_defend<magic_defend)
+		magic_defend = current_defend;
+	current_defend = (int)target->query_equip_add("dusu_defend");
+	if(current_defend<magic_defend)
+		magic_defend = current_defend;
+	magic_defend += (int)target->query_equip_add("all_mofa_defend");
+	magic_damage = query_balanced_magic_damage(
+		attacker_profile["magic_raw"],magic_defend,
+		attacker_profile["magic_penetration"]);
+	if(attacker_profile["summon_attack_raw"]>0)
+		summon_damage = query_balanced_physical_damage(
+			attacker_profile["summon_attack_raw"],
+			target->query_defend_power(),0);
+
+	if(attacker_profile["magic_enabled"] &&
+	   magic_damage>physical_damage){
+		result["damage"] = magic_damage+summon_damage;
+		result["magic"] = 1;
+		hit_chance = attacker_profile["hit"];
+	}
+	else{
+		result["damage"] = physical_damage;
+		result["magic"] = 0;
+		hit_chance = attacker_profile["hit"]*
+			(100-target_profile["dodge"])/100;
+	}
+	if(hit_chance<5)
+		hit_chance = 5;
+	if(hit_chance>99)
+		hit_chance = 99;
+	critical_chance = attacker_profile["critical"]-
+		target_profile["renxing"]/40;
+	if(critical_chance<0)
+		critical_chance = 0;
+	if(critical_chance>75)
+		critical_chance = 75;
+	result["hit"] = hit_chance;
+	result["critical"] = critical_chance;
+	return result;
+}
+
+int query_pk_fast_score(object who,mapping profile,int sim_life){
+	int life_rate = 0;
+	int score;
+	if(profile["life_max"]>0)
+		life_rate = sim_life*10000/profile["life_max"];
+	score = life_rate*100+
+		profile["effective_damage"]*8+
+		who->query_defend_power()*3+profile["dodge"]*100+
+		profile["heal"]*10+who->query_level()*100;
+	return score;
+}
+
+mapping query_pk_fast_decision_simulation(object target){
+	mapping result = ([]);
+	object me = this_object();
+	object winner;
+	object loser;
+	mapping me_profile;
+	mapping target_profile;
+	mapping me_damage;
+	mapping target_damage;
+	int me_life;
+	int target_life;
+	int used_rounds = 0;
+	int used_scale = 1;
+	int me_rate;
+	int target_rate;
+	int me_score;
+	int target_score;
+
+	if(!target || !target->is("player"))
+		return result;
+	me_profile = query_pk_fast_side_profile(me);
+	target_profile = query_pk_fast_side_profile(target);
+	me_damage = query_pk_fast_damage_profile(
+		me,target,me_profile,target_profile);
+	target_damage = query_pk_fast_damage_profile(
+		target,me,target_profile,me_profile);
+	me_profile["effective_damage"] = me_damage["damage"];
+	target_profile["effective_damage"] = target_damage["damage"];
+	me_life = me_profile["life"];
+	target_life = target_profile["life"];
+
+	for(int round=1;round<=PK_FAST_DECISION_SIMULATION_ROUNDS;round++){
+		int me_round_damage = 0;
+		int target_round_damage = 0;
+		int scale = 1;
+		if(round>800)
+			scale = 16;
+		else if(round>600)
+			scale = 8;
+		else if(round>400)
+			scale = 4;
+		else if(round>200)
+			scale = 2;
+		if(scale>PK_FAST_DECISION_SCALE_MAX)
+			scale = PK_FAST_DECISION_SCALE_MAX;
+		used_scale = scale;
+		used_rounds = round;
+
+		if((round*37+me_profile["physical_raw"])%100<
+		   me_damage["hit"]){
+			me_round_damage = me_damage["damage"]*scale;
+			if((round*53+me_profile["magic_raw"])%100<
+			   me_damage["critical"])
+				me_round_damage = query_balanced_critical_damage(
+					me_round_damage,target_profile["renxing"]);
+		}
+		if((round*37+target_profile["physical_raw"])%100<
+		   target_damage["hit"]){
+			target_round_damage = target_damage["damage"]*scale;
+			if((round*53+target_profile["magic_raw"])%100<
+			   target_damage["critical"])
+				target_round_damage = query_balanced_critical_damage(
+					target_round_damage,me_profile["renxing"]);
+		}
+
+		// 双方伤害同时结算，避免调用者固定获得先手优势。
+		target_life -= me_round_damage;
+		me_life -= target_round_damage;
+		if(me_life<=0 || target_life<=0)
+			break;
+		me_life += me_profile["heal"];
+		target_life += target_profile["heal"];
+		if(me_life>me_profile["life_max"])
+			me_life = me_profile["life_max"];
+		if(target_life>target_profile["life_max"])
+			target_life = target_profile["life_max"];
+	}
+
+	if(me_profile["life_max"]>0)
+		me_rate = me_life*10000/me_profile["life_max"];
+	if(target_profile["life_max"]>0)
+		target_rate = target_life*10000/target_profile["life_max"];
+	me_score = query_pk_fast_score(me,me_profile,me_life);
+	target_score = query_pk_fast_score(target,target_profile,target_life);
+
+	if(me_life>0 && target_life<=0){
+		winner = me;
+		loser = target;
+	}
+	else if(target_life>0 && me_life<=0){
+		winner = target;
+		loser = me;
+	}
+	else if(me_rate>target_rate){
+		winner = me;
+		loser = target;
+	}
+	else if(target_rate>me_rate){
+		winner = target;
+		loser = me;
+	}
+	else if(me_score>target_score){
+		winner = me;
+		loser = target;
+	}
+	else if(target_score>me_score){
+		winner = target;
+		loser = me;
+	}
+	else if(killing){
+		// 完全同分时主动发起杀戮的一方承担风险，且与调用方向无关。
+		winner = target;
+		loser = me;
+	}
+	else if(target->query_killing()){
+		winner = me;
+		loser = target;
+	}
+	else{
+		winner = me;
+		loser = target;
+	}
+
+	result["winner"] = winner;
+	result["loser"] = loser;
+	result["me_life"] = me_life;
+	result["target_life"] = target_life;
+	result["me_rate"] = me_rate;
+	result["target_rate"] = target_rate;
+	result["me_score"] = me_score;
+	result["target_score"] = target_score;
+	result["rounds"] = used_rounds;
+	result["scale"] = used_scale;
+	return result;
+}
+
+int query_pk_fast_decision_ready(object target){
+	object opponent;
+	int opponent_killing;
+	if(!in_combat || !target || !objectp(target) ||
+	   !this_object()->is("player"))
+		return 0;
+	opponent = query_pk_fast_target_owner(target);
+	if(!opponent || opponent==this_object() ||
+	   !opponent->query_in_combat() ||
+	   environment(opponent)!=environment(this_object()) ||
+	   this_object()->get_cur_life()<=0 || opponent->get_cur_life()<=0)
+		return 0;
+	opponent_killing = opponent->query_killing();
+	if(!killing && !opponent_killing)
+		return 0;
+	if(query_pk_fast_target_owner(opponent->query_enemy())!=this_object())
+		return 0;
+	if(!query_pk_fast_targets_belong_to(this_object(),opponent) ||
+	   !query_pk_fast_targets_belong_to(opponent,this_object()))
+		return 0;
+	return 1;
+}
+
+int run_pk_fast_decision(){
+	object opponent;
+	object winner;
+	object loser;
+	mapping result;
+	string msg;
+	if(!query_pk_fast_decision_ready(enemy))
+		return 0;
+	opponent = query_pk_fast_target_owner(enemy);
+	if(!opponent || this_object()["/tmp/pk_fast_decision/running"] ||
+	   opponent["/tmp/pk_fast_decision/running"])
+		return 0;
+	this_object()["/tmp/pk_fast_decision/running"] = 1;
+	opponent["/tmp/pk_fast_decision/running"] = 1;
+	result = query_pk_fast_decision_simulation(opponent);
+	winner = result["winner"];
+	loser = result["loser"];
+	if(!winner || !loser){
+		this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
+		opponent->m_delete_foruser("/tmp/pk_fast_decision/running");
+		return 0;
+	}
+	msg = sprintf("【快速决胜】双方鏖战%d回合，天道按当前气血、攻防、命闪、暴韧、穿透、恢复与灵兽状态推演%d轮，判定%s胜出，%s气血衰竭。\n",
+		PK_FAST_DECISION_TRIGGER_ROUNDS,result["rounds"],
+		winner->query_name_cn(),loser->query_name_cn());
+	tell_object(this_object(),msg);
+	if(opponent && objectp(opponent))
+		tell_object(opponent,msg);
+	loser->set_life(0);
+	loser->fight_die();
+	// 已确认是严格双方战斗，败者死亡后立即结束胜者残留战斗态，
+	// 不必再等下一次心跳清掉已消失的玩家或灵兽目标。
+	if(winner && objectp(winner) && winner->query_in_combat())
+		winner->_clean_fight();
+	if(this_object() && objectp(this_object()))
+		this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
+	if(opponent && objectp(opponent))
+		opponent->m_delete_foruser("/tmp/pk_fast_decision/running");
+	return 1;
+}
+
+int check_pk_fast_decision(){
+	object opponent;
+	if(!query_pk_fast_decision_ready(enemy))
+		return 0;
+	opponent = query_pk_fast_target_owner(enemy);
+	if(!opponent || this_object()->timeCount<
+	   PK_FAST_DECISION_TRIGGER_ROUNDS ||
+	   opponent->timeCount<PK_FAST_DECISION_TRIGGER_ROUNDS)
+		return 0;
+	return run_pk_fast_decision();
+}
+
 private void recover(){
 	if(in_combat) return;
 	//npc战斗以后自动恢复生命
@@ -303,6 +729,7 @@ void _clean_fight(){
 	this_object()->first_fight = 0;
 	this_object()->timeCold = 0;
 	this_object()->eat_timeCold = 0;
+	this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
 	if(this_object()->is("npc")){
 		this_object()->who_fight_npc = "";//重置首次攻击者
 		this_object()->term_who_fight_npc = "";//重置首次攻击者队伍标示          
@@ -2062,6 +2489,8 @@ private void heart_beat_action(){
 	}
 	else{
 		this_object()->timeCount++;
+		if(check_pk_fast_decision())
+			return;
 		if(this_object()->timeCold>0)
 			this_object()->timeCold--;
 		if(this_object()->eat_timeCold>0)

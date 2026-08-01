@@ -24,7 +24,6 @@ object create_player(string name,int level)
 	player->setup_player("third","zhenyue");
 	player->level = level;
 	player->set_att_by_level();
-	player->skills["yueji"] = ({1,0});
 	player->set_mofa(player->query_mofa_max());
 	return player;
 }
@@ -43,26 +42,38 @@ void test_creation_and_growth()
 	test_start("中立建角、身份、初始技能与等级成长");
 	object level_one = create_player("__testunit_zhenyue_one__",1);
 	object level_thirty = create_player("__testunit_zhenyue_thirty__",30);
+	object level_eighty = create_player("__testunit_zhenyue_eighty__",80);
+	object level_one_twenty = create_player(
+		"__testunit_zhenyue_one_twenty__",120);
 	string source = Stdio.read_file(ROOT+"/gamelib/d/init");
-	if(level_one && level_thirty && source &&
+	if(level_one && level_thirty && level_eighty && level_one_twenty &&
+	   source &&
 	   search(source,"[镇岳:choice_profe third/zhenyue]")!=-1 &&
 	   search(source,"valid_professions")!=-1 &&
+	   search(source,"if(me->skills[\"yueji\"]==0)")!=-1 &&
+	   search(source,"me->skills[\"yueji\"]=({1,0});")!=-1 &&
+	   search(source,"me->query_profeId()==\"zhenyue\" && !me->skills[\"yueji\"]")!=-1 &&
 	   search(source,"string race = (string)(me->query_raceId() || \"\")")!=-1 &&
 	   search(source,"else if(race==\"third\")")!=-1 &&
 	   level_one->query_raceId()=="third" &&
 	   level_one->query_profe_cn("zhenyue")=="镇岳" &&
-	   level_one->skills["yueji"] &&
 	   level_one->query_str()==14 && level_one->query_dex()==3 &&
 	   level_one->query_think()==5 &&
 	   level_thirty->query_str()==92 &&
 	   level_thirty->query_dex()==20 &&
 	   level_thirty->query_think()==28 &&
+	   level_eighty->query_str()==14+(int)(79*2.7) &&
+	   level_eighty->query_dex()==3+(int)(79*0.6) &&
+	   level_one_twenty->query_str()==14+(int)(119*2.7) &&
+	   level_one_twenty->query_think()==5+(int)(119*0.8) &&
 	   level_thirty->query_defend_power()>level_thirty->query_str()*3)
 		test_pass();
 	else
 		test_fail("建角接线、身份或1/30级属性不正确");
 	destroy_player(level_one);
 	destroy_player(level_thirty);
+	destroy_player(level_eighty);
+	destroy_player(level_one_twenty);
 }
 
 void test_passive_book_lazy_learning()
@@ -205,6 +216,77 @@ void test_team_guard_edges()
 	else
 		test_fail(sprintf("applied=%d damage=%d/%d: %s",applied,first_damage,second_damage,error_desc));
 	destroy_player(tank); destroy_player(teammate); destroy_player(dead_member); destroy_player(outsider);
+}
+
+void test_all_skill_stages_and_passive_growth()
+{
+	test_start("十五项技能五阶成长、类型与山印高阶读书完整");
+	array(string) skills = ({
+		"yueji","shanyin","zhenyan","hengshanji","dizhenhou",
+		"shanhebi","juyuepo","xuantiedun","yuefanzhen",
+		"zhenyuezhenshen","wanshanbugu","zhenhunhou",
+		"wanshanchaogong","buzhouzhenji","tiandichengbi"
+	});
+	array(string) supported_types = ({"phy","buff","taunt","team_guard"});
+	object player = create_player("__testunit_zhenyue_all_stages__",200);
+	object|zero original_player = this_player();
+	int failed = 0;
+	string failure = "";
+	foreach(skills,string skill_name){
+		object skill = (object)(ROOT+
+			"/gamelib/single/skills/"+skill_name);
+		int previous_attack = 0;
+		int previous_cast = 0;
+		int previous_limit = 0;
+		if(!skill || skill->query_skill_level_max()!=5 ||
+		   search(skill->skill_type,"zhenyue")==-1 ||
+		   search(supported_types,skill->s_skill_type)==-1){
+			failed++;
+			failure += " "+skill_name+"(基础契约)";
+			continue;
+		}
+		for(int stage=1;stage<=5;stage++){
+			int attack = skill->query_performs_attack(stage);
+			int cast = skill->query_performs_cast(stage);
+			int limit = skill->query_performs_level_limit(stage);
+			int delay = skill->query_s_delayTime(stage);
+			if(attack<=previous_attack || limit<=previous_limit ||
+			   delay<0 || (skill->s_type=="zhudong" &&
+			   (cast<=previous_cast || delay<=0))){
+				failed++;
+				failure += sprintf(" %s(阶%d)",skill_name,stage);
+				break;
+			}
+			previous_attack = attack;
+			previous_cast = cast;
+			previous_limit = limit;
+		}
+	}
+	string error_desc = "";
+	mixed err = catch {
+		set_this_player(player);
+		for(int stage=1;stage<=5;stage++){
+			object book = clone(ROOT+
+				"/gamelib/clone/item/book/shanyin"+stage);
+			if(!book || book->read()!=1)
+				failed++;
+			if(book)
+				destruct(book);
+		}
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && failed==0 && player->skills["shanyin"] &&
+	   player->skills["shanyin"][0]==5 && player->query_base_defend()==300)
+		test_pass();
+	else
+		test_fail(sprintf("技能阶位失败=%d:%s %s",
+			failed,failure,error_desc));
+	destroy_player(player);
 }
 
 void test_team_guard_recast_and_team_change()
@@ -359,6 +441,15 @@ void test_profession_quest_chain_and_reward()
 	int completed = 0;
 	int skipped = 0;
 	int continued = 0;
+	int guide_failed = 0;
+	string human_square = Stdio.read_file(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	string monst_square = Stdio.read_file(ROOT+
+		"/gamelib/d/jinaodao/yuhuacunguangchang");
+	for(int taskid=369;taskid<=373;taskid++){
+		if(!TASKD->queryTaskHasGuide(taskid))
+			guide_failed++;
+	}
 	set_this_player(player);
 	task_list = TASKD->query_npc_taskList(player,teacher);
 	wrong_npc = TASKD->get_task(player,369,wrong_teacher);
@@ -381,6 +472,9 @@ void test_profession_quest_chain_and_reward()
 	   TASKD->queryTaskProfe(373)=="镇岳" &&
 	   wrong_npc==7 && accepted==1 && completed==1 &&
 	   skipped==7 && continued==1 &&
+	   guide_failed==0 && human_square && monst_square &&
+	   search(human_square,"zhenyue_teacher")!=-1 &&
+	   search(monst_square,"zhenyue_teacher")!=-1 &&
 	   reward && reward->query_item_canLevel()==20 &&
 	   search(reward->query_item_profeLimit(),"zhenyue")!=-1 &&
 	   reward->query_item_canTrade()==0 &&
@@ -388,8 +482,8 @@ void test_profession_quest_chain_and_reward()
 	   reward->query_item_canStorage()==1)
 		test_pass();
 	else
-		test_fail(sprintf("错误导师=%d 接取=%d 完成=%d 跳过=%d 延续=%d",
-			wrong_npc,accepted,completed,skipped,continued));
+		test_fail(sprintf("错误导师=%d 接取=%d 完成=%d 跳过=%d 延续=%d 引导失败=%d",
+			wrong_npc,accepted,completed,skipped,continued,guide_failed));
 	if(reward) destruct(reward);
 	if(teacher) destruct(teacher);
 	if(wrong_teacher) destruct(wrong_teacher);
@@ -413,6 +507,7 @@ void test_skill_ui_and_perform_authorization()
 	mixed err = catch {
 		player->move(room);
 		enemy->move(room);
+		player->skills["yueji"] = ({1,0});
 		skill_view = player->view_skills();
 		player->toolbar_key = ({(["yueji":1]),(["none":0]),
 			(["none":0]),(["none":0]),(["none":0]),(["none":0])});
@@ -439,6 +534,87 @@ void test_skill_ui_and_perform_authorization()
 		test_fail(sprintf("技能页或施法授权失败=%d: %s",failed,error_desc));
 	destroy_player(player);
 	destroy_player(enemy);
+}
+
+void test_all_active_skill_runtime_contracts()
+{
+	test_start("十四项主动技能逐项消耗、冷却与实效运行验证");
+	array(string) active_skills = ({
+		"yueji","zhenyan","hengshanji","dizhenhou","shanhebi",
+		"juyuepo","xuantiedun","yuefanzhen","zhenyuezhenshen",
+		"wanshanbugu","zhenhunhou","wanshanchaogong",
+		"buzhouzhenji","tiandichengbi"
+	});
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	int failed = 0;
+	string failure = "";
+	foreach(active_skills,string skill_name){
+		object player = create_player(
+			"__testunit_zhenyue_active_"+skill_name+"__",200);
+		object target = create_player(
+			"__testunit_zhenyue_target_"+skill_name+"__",200);
+		object weapon = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		object skill = (object)(ROOT+
+			"/gamelib/single/skills/"+skill_name);
+		int mana_before = 0;
+		int cooldown_after = 0;
+		string effect_type = "";
+		string error_desc = "";
+		mixed err = catch {
+			player->move(room);
+			target->move(room);
+			weapon->move(player);
+			player->wield(weapon);
+			player->skills[skill_name] = ({1,0});
+			player->set_mofa(player->query_mofa_max());
+			player->_fight(target);
+			target->_fight(player);
+			mana_before = player->get_cur_mofa();
+			player->perform(skill_name,1);
+			cooldown_after = player->f_skills[skill_name];
+			effect_type = (string)skill->s_skill_type;
+		};
+		if(err)
+			error_desc = describe_error(err);
+		int effect_ok = 0;
+		if(!err && skill){
+			if(effect_type=="phy")
+				effect_ok = cooldown_after>1;
+			else if(effect_type=="taunt")
+				effect_ok = target->first_target==player;
+			else if(effect_type=="team_guard")
+				effect_ok =
+					player->query_buff("team_guard",0)=="absorb" &&
+					player->query_buff("team_guard",1)>0;
+			else if(effect_type=="buff")
+				effect_ok =
+					player->query_buff("buff",0)==skill->s_curse_type &&
+					player->query_buff("buff",1)>0;
+		}
+		if(err || !skill ||
+		   search(skill->skill_type,"zhenyue")==-1 ||
+		   player->get_cur_mofa()>=mana_before || cooldown_after<=1 ||
+		   !effect_ok){
+			failed++;
+			failure += sprintf(
+				" %s(type=%s mana=%d/%d cold=%d effect=%d err=%s)",
+				skill_name,effect_type,mana_before,
+				player ? player->get_cur_mofa() : -1,
+				cooldown_after,effect_ok,error_desc);
+		}
+		if(player && player->query_in_combat())
+			player->_clean_fight();
+		if(target && target->query_in_combat())
+			target->_clean_fight();
+		destroy_player(player);
+		destroy_player(target);
+	}
+	if(failed==0)
+		test_pass();
+	else
+		test_fail(sprintf("逐技能运行失败=%d:%s",failed,failure));
 }
 
 void test_aoe_target_cleanup()
@@ -510,6 +686,8 @@ void test_purchase_boundary_and_identity_surfaces()
 	string base_source = Stdio.read_file(ROOT+"/lowlib/system/inherit/base.pike");
 	string newbie_source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/newbied.pike");
+	string buy_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/buy_items.pike");
 	string error_desc = "";
 	mixed err = catch {
 		set_this_player(player);
@@ -529,7 +707,9 @@ void test_purchase_boundary_and_identity_surfaces()
 	   source && search(source,"【岳】")!=-1 &&
 	   top_source && search(top_source,"【岳】")!=-1 &&
 	   base_source && search(base_source,"无名镇岳")!=-1 &&
-	   newbie_source && search(newbie_source,"震吼稳住仇恨")!=-1)
+	   newbie_source && search(newbie_source,"震吼稳住仇恨")!=-1 &&
+	   buy_source && search(buy_source,"else if(type == \"zhenyue\")")!=-1 &&
+	   search(buy_source,"[镇岳:buy_items ")!=-1)
 		test_pass();
 	else
 		test_fail("购买边界或镇岳身份文案缺失: "+error_desc);
@@ -544,6 +724,7 @@ int main(int argc,array(string) argv)
 	test_creation_and_growth();
 	test_passive_book_lazy_learning();
 	test_skill_catalog_and_real_learning();
+	test_all_skill_stages_and_passive_growth();
 	test_team_guard_edges();
 	test_team_guard_recast_and_team_change();
 	test_threat_and_balance_contract();
@@ -551,6 +732,7 @@ int main(int argc,array(string) argv)
 	test_original_assets_and_avatar_choices();
 	test_profession_quest_chain_and_reward();
 	test_skill_ui_and_perform_authorization();
+	test_all_active_skill_runtime_contracts();
 	test_aoe_target_cleanup();
 	test_neutral_social_and_faction_boundaries();
 	test_purchase_boundary_and_identity_surfaces();

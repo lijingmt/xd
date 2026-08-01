@@ -365,6 +365,7 @@ int choice_race(string arg){
 			//me->set_raceId(arg);
 			s += "中立之道\n";
 			s += "欢迎加入中立阵营，请您选择职业\n";
+			s += "[imgurl loading:/"+GAME_NAME+"/images/human_fangshi_logo.png]\n";
 			s += "[方士:choice_profe third/fangshi]\n";
 			s += "召唤灵兽，灵动多变\n";
 			s += "- 虎灵：物理攻击型\n";
@@ -613,6 +614,7 @@ int start(string arg){
 		else if(race=="third"){
 			desc += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 			desc += "欢迎回到中立阵营，您尚未选择职业，请您选择：\n";
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/human_fangshi_logo.png]\n";
 			desc += "[方士:choice_profe third/fangshi]\n";
 			desc += "召唤灵兽，灵动多变\n";
 			desc += "[imgurl loading:/"+GAME_NAME+"/images/zhenyue_logo.png]\n";
