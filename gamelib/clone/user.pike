@@ -186,6 +186,8 @@ protected int spy_max_num =10;               //每个玩家可以关注的最大
 int insert_spy_info(string id)
 {
 	int re = 0;
+	if(!LOGICALZONED->can_user_interact(query_name(),id))
+		return 0;
 	if(sizeof(spy_info)<spy_max_num)    //每个玩家最多可以关注spy_max_num个目标
 	{
 		if(!spy_info[id])           //本次添加的玩家未在列表中
@@ -211,6 +213,8 @@ int insert_spy_info(string id)
 int start_spy(string id)
 {
 	int re = 0;
+	if(!LOGICALZONED->can_user_interact(query_name(),id))
+		return 0;
 	if(!is_spied(id))                   //尚未开始关注此人。
 	{   
 		spy_info[id] = time();      //开始关注的时间
@@ -239,17 +243,12 @@ string qurey_spy_info()
 		{
 			if(single=="")
 				continue;
+			if(!LOGICALZONED->can_user_interact(query_name(),single))
+				continue;
 			tmp_user = find_player(single);
 			if(!tmp_user)
 			{
-				array list=users(1);
-				object helper; //随机找个在线的玩家，以调用load_player()来将未在线的玩家载入内存
-				for(int j=0;j<sizeof(list);j++){
-					helper = list[j];
-					if(helper)
-						break;
-				}
-				tmp_user = helper->load_player(single);           //如果此人不在线，则加载。
+				tmp_user = load_player(single); // 使用当前玩家加载，无需依赖其他在线用户。
 				load_flag =1;
 			}
 			if(tmp_user)
@@ -834,7 +833,7 @@ string query_bc_msg()
 		return "";
 	}
 	string tmp = "";
-	string bc_msg = BROADCASTD->bcShow();
+	string bc_msg = BROADCASTD->bcShow(query_name());
 	if(bc_msg&&sizeof(bc_msg))
 		tmp += bc_msg; 
 	return tmp;
@@ -883,7 +882,8 @@ string query_chat_msg()
 		}
 		else{
 			tmp += "[ui_chat ...]\n";
-			tmp += TERMD->query_termChat_ui(me->query_term());
+			tmp += TERMD->query_termChat_ui(
+				me->query_term(),me->query_name());
 			tmp += "[公:ui_select_room pub]|";
 			//tmp += "[交:ui_select_room sale]|";
 			tmp += "队|";
@@ -898,6 +898,11 @@ string query_chat_msg()
 			//tmp += "[交:ui_select_room sale]|";
 			tmp += "[队:ui_select_room term]|";
 			tmp += "帮|";
+			tmp += "[关:ui_select_room close]\n";
+		}
+		else if(!BANGD->bang_allows_user(me->bangid,me->query_name())){
+			tmp += "该帮派当前属于其他逻辑区，隔离期间不可见。\n";
+			tmp += "[公:ui_select_room pub]|[队:ui_select_room term]|帮|";
 			tmp += "[关:ui_select_room close]\n";
 		}
 		else if(BANGD->query_level(me->query_name(),me->bangid) > 1){

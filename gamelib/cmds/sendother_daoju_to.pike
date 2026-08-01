@@ -19,6 +19,10 @@ int main(string|zero arg)
 			write(s);
 			return 1;
 		}
+		else if(!LOGICALZONED->can_interact(player,ob)){
+			write("逻辑分区隔离中，无法向该玩家赠送物品。\n[返回:look]\n");
+			return 1;
+		}
 		else{
 			//goods=present(goods_id,player,user_count); //[sb] is seller
 			//查找玩家身上与name同名的非会员物品 added by caijie 080815

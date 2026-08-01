@@ -18,8 +18,10 @@ int main(string|zero arg)
 		s+= "[发系统消息:wiz_shout2]\n";
 		s+="在线更新脚本[进入:mgr_script]\n";
 		s+="用户数据管理[进入:mgr_usr_data]\n";
-		if(MANAGERD->checkpower(me->query_name())=="admin")
+		if(MANAGERD->checkpower(me->query_name())=="admin"){
 			s += "[玩家意见反馈管理:mgr_feedback]\n";
+			s += "[逻辑新区管理:mgr_logical_zone]\n";
+		}
 		//s+="测试购买空间[进入:user_package_buy_list]\n";
 		s += "[实时在线总数:game_deal manager_user_online allcount not not]\n";
 		s += "[实时在线用户查询管理:game_deal manager_user_online not not not]\n";

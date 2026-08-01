@@ -22,6 +22,12 @@ int main(string|zero arg)
 		write(s);
 		return 1;
 	}
+	if(TERMD->get_term_power(termid,me->query_name())!="leader"){
+		s += "分配失败！只有当前队长可以分配队伍仓库物品。\n";
+		s += "[返回:fb_term_cangku "+termid+" 0]\n";
+		write(s);
+		return 1;
+	}
 	else{
 		if(TERMD->if_have_assigned(termid,item_file,fg,index) == 1){
 			s += "仓库里已经没有此物品。\n";
@@ -30,16 +36,18 @@ int main(string|zero arg)
 			return 1;
 		}
 		object to = find_player(to_id);
-		werror("-----"+to->query_name_cn()+"-----\n");
-		if(!to || to->query_term() != termid){
+		if(!to || !LOGICALZONED->can_interact(me,to) ||
+		   to->query_term() != termid){
 			s += "分配失败！对方不在线或者已经退出了队伍\n";
 			s += "[返回:fb_term_cangku "+termid+" 1]\n";
 			write(s);
 			return 1;
 		}
+		werror("-----"+to->query_name_cn()+"-----\n");
 		object item = clone(item_file);
 		if(item){
 			if(to->if_over_load(item)){
+				destruct(item);
 				s += "分配失败！对方包裹已满\n";
 				s += "[返回:fb_term_cangku "+termid+" 1]\n";
 				write(s);

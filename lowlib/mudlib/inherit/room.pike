@@ -147,6 +147,8 @@ string query_leave(string username){
 	array names = indices(leaveMSG);
 	foreach(names,string name){
 		array t = leaveMSG[name];
+		if(!LOGICALZONED->can_user_interact(username,name))
+			continue;
 		if(t[3][username]) continue;
 		leaveMSG[name][3]+=(<username>);
 		returnString+=t[0]+"向"+(["east":"东","west":"西","north":"北","south":"南"])[t[1]]+"离开。\n";
@@ -156,24 +158,24 @@ string query_leave(string username){
 /*
  * 增加一条信息
 */
-void addRemainMSG(string msg,multiset except){
-		remainMSG+=([gethrtime():({msg,except})]);
+void addRemainMSG(string msg,multiset except,void|string source_id){
+		remainMSG+=([gethrtime():({msg,except,source_id || ""})]);
 }
 /*
  * 整理房间离开信息，删除过期信息
 */
 void trimRemainMSG(){
 	array names = indices(remainMSG);
-		foreach(names,int name){
+		foreach(names,string name){
 			if(name/1000000<time()-LEAVE_TIME){
 				m_delete(remainMSG,name);
 			}
 		}
 	while(sizeof(remainMSG)>2){//最多2条信息
 		array names = indices(remainMSG);
-		int deleteName=0;
+		string deleteName="";
 		int time = 0;
-		foreach(names,int name){
+		foreach(names,string name){
 			if(name>time){
 				deleteName = name;
 			}
@@ -187,6 +189,9 @@ string query_remain_msg(string username){
 	string returnMSG="";
 	array names = indices(remainMSG);
 	foreach(names,int name){
+		if(sizeof(remainMSG[name])>2 && remainMSG[name][2]!="" &&
+		   !LOGICALZONED->can_user_interact(username,remainMSG[name][2]))
+			continue;
 		if(remainMSG[name][1][username]) continue;
 		remainMSG[name][1]+=(<username>);
 		returnMSG+=remainMSG[name][0]+"\n";
@@ -226,7 +231,9 @@ string query_arrive_msg(string username){
 	trimArriveMSG();
 	string returnMSG="";
 	array names = indices(arriveMSG);
-	foreach(names,int name){
+	foreach(names,string name){
+		if(!LOGICALZONED->can_user_interact(username,name))
+			continue;
 		if(arriveMSG[name][2][username]) continue;
 		arriveMSG[name][2]+=(<username>);
 		returnMSG+=arriveMSG[name][0]+"来到了这里。\n";

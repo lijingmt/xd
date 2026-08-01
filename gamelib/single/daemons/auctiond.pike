@@ -91,7 +91,8 @@ array(mapping(string:mixed)) query_my_sale_infos(string saler_id)
 //返回:
 //    异常情况下返回一个长度为空的数组
 //liaocheng于07/3/28修改
-array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_type,int|void orderType)
+array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_type,
+	int|void orderType,string|void viewer_id)
 {
 	int st = time();
 	if(goods_type != 0 &&goods_type != 1 && goods_type != 2 && goods_type != 3 && goods_type != 4 && goods_type != 5)
@@ -108,7 +109,7 @@ array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_typ
 	//else if(orderType == 3)
 	//	orderSql = " order by goods_rare desc";
 
-	string querySql = "select sale_id,goods_name_cn,goods_count,goods_level,cur_value,end_value,convert_count from sale_info where sale_status=0";
+	string querySql = "select sale_id,saler_id,goods_name_cn,goods_count,goods_level,cur_value,end_value,convert_count from sale_info where sale_status=0";
 	if(goods_name_cn == "")
 		goods_name_cn = "all";
 	if(goods_name_cn != "all")
@@ -121,6 +122,15 @@ array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_typ
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
 		array(mapping(string:mixed)) result = db->query(querySql);
+		if(viewer_id && viewer_id!=""){
+			array(mapping(string:mixed)) filtered = ({});
+			for(int i=0;i<sizeof(result);i++){
+				if(LOGICALZONED->can_user_action("auction",viewer_id,
+				   (string)result[i]["saler_id"]))
+					filtered += ({result[i]});
+			}
+			result = filtered;
+		}
 		LOG->append_time("[query_sale_infos("+goods_name_cn+","+goods_type+","+orderType+")] [retSize:"+sizeof(result) + "] [succ] [querySql:"+querySql+"] [" + (time()-st) + "s]");
 		return result;
 	};
@@ -134,7 +144,7 @@ array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_typ
 //描述:获得指定id的拍卖任务的信息
 //参数: id -- 拍卖任务Id
 //liaocheng于07/3/28修改
-mapping(string:mixed) query_sale_info(int id)
+mapping(string:mixed) query_sale_info(int id,void|string viewer_id)
 {
 	mapping(string:mixed) retMap = ([]); 
 
@@ -152,6 +162,10 @@ mapping(string:mixed) query_sale_info(int id)
 		LOG->append_time("[query_sale_info(" + id + ")] [zero_size_map] [fail] [--] [querySql:"+querySql + "]");
 		return ([]);
 	}
+	if(viewer_id && viewer_id!="" && sizeof(retMap) &&
+	   !LOGICALZONED->can_user_action(
+		"auction",viewer_id,(string)retMap["saler_id"]))
+		return ([]);
 	return retMap;
 }
 
@@ -169,6 +183,15 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 {
 	mapping(string:mixed) sale_info = query_sale_info(sale_id);
 	if(!sizeof(sale_info))
+		return 0;
+	// 拆区时尚未结算的旧跨区竞价转为取消：退竞价并返还卖家物品。
+	if(flag==2 && (int)sale_info["buy_flag"] &&
+	   !LOGICALZONED->can_user_action("auction",
+	   (string)sale_info["saler_id"],
+	   (string)sale_info["winner_id"]))
+		flag = 4;
+	if(winner && !LOGICALZONED->can_user_action("auction",
+	   winner->query_name(),(string)sale_info["saler_id"]))
 		return 0;
 	//记录上次竞拍的一些信息
 	string querySql = "";
@@ -527,27 +550,35 @@ private void check_result_info()
 
 //给玩家寄信以提示拍卖行情况
 //liaocheng于07/4/4添加
+private object load_mail_user(string user_name)
+{
+	program user_program = (program)(ROOT+"/gamelib/clone/user.pike");
+	object player;
+	if(!user_program)
+		return 0;
+	player = user_program();
+	player->set_name(user_name);
+	player->set_project("gamelib");
+	if(player->restore())
+		return player;
+	destruct(player);
+	return 0;
+}
+
 void mail_notice(string recver_name,string title,string content)
 {
 	//object sender = find_object("paimaishi");
 	int remove_flag = 0;
 	object to = find_player(recver_name);
 	if(!to){
-		array list=users(1);
-		object helper; //随机找个在线的玩家，以调用load_player()来将未在线的玩家载入内存
-		for(int j=0;j<sizeof(list);j++){
-			helper = list[j];
-			if(helper)
-				break;
-		}
-		to = helper->load_player(recver_name);
+		to = load_mail_user(recver_name);
 		remove_flag = 1;
 	}
 	if(to){
 		to->recieve_mail("paimaishi","仙道拍卖信使",recver_name,to->query_name_cn(),title,content);
 		tell_object(to,"你有新的信件，请即时查收\n");
 	}
-	if(remove_flag)
+	if(remove_flag && to)
 		to->remove();
 }
 

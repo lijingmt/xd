@@ -18,6 +18,8 @@ int main(string|zero arg)
 	}
 	else{
 		to = find_player(arg);
+		if(to && !LOGICALZONED->can_interact(me,to))
+			to = 0;
 		if(to){
 			object env = environment(to);
 			if(env&&!env->is("character")&&!env->is("menu")){

@@ -7,6 +7,8 @@ int main(string|zero arg)
 	if(me["/plus/chatblock"]&&sizeof(me["/plus/chatblock"])){
 		foreach(me["/plus/chatblock"],string uid){
 			if(uid&&sizeof(uid)){
+				if(!LOGICALZONED->can_user_interact(me->query_name(),uid))
+					continue;
 				object who = find_player(uid);
 				if(who){
 					s += who->query_name_cn()+"\n";

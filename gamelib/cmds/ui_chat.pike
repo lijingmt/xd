@@ -39,6 +39,10 @@ int main(string|zero arg)
 			TERMD->add_termChat(me->query_term(),content);
 		}
 		else if(me->roomchatid=="bang"){
+			if(!BANGD->bang_allows_user(me->bangid,me->query_name())){
+				write("该帮派当前属于其他逻辑区，隔离期间不能发言。\n");
+				return 1;
+			}
 			content = me->query_name_cn()+"："+arg;
 			BANGD->add_ui_chat(me->bangid,content);
 		}

@@ -22,10 +22,10 @@ private int resonance_cooldown = 90;
 private int perfect_resonance_cooldown = 120;
 
 // 辅助函数：向房间广播消息
-void tell_room_daemon(object env, string msg){
+void tell_room_daemon(object env, string msg, void|object actor){
 	if(!env)
 		return;
-	foreach(all_inventory(env), object ob){
+	foreach(all_inventory(env,actor), object ob){
 		if(ob && (ob->is("player") || ob->is("npc"))){
 			tell_object(ob, msg);
 		}
@@ -258,7 +258,7 @@ private object create_authorized_summon(object player, string player_name,
 	if(broadcast)
 		tell_room_daemon(env,
 			player->query_name_cn() + "召唤出了" +
-			summon->query_name_cn() + "！\n");
+			summon->query_name_cn() + "！\n",player);
 
 	return summon;
 }
@@ -308,7 +308,8 @@ void dismiss_creature(string player_name, string summon_type){
 	if(summon){
 		object env = environment(summon);
 		if(env){
-			tell_room_daemon(env, summon->query_name_cn() + "化作光芒消失了。\n");
+			tell_room_daemon(env, summon->query_name_cn() +
+				"化作光芒消失了。\n",summon);
 		}
 		destruct(summon);
 	}
@@ -352,7 +353,8 @@ void dismiss_all(string player_name){
 		if(summon){
 			object env = environment(summon);
 			if(env){
-				tell_room_daemon(env, summon->query_name_cn() + "化作光芒消失了。\n");
+				tell_room_daemon(env, summon->query_name_cn() +
+					"化作光芒消失了。\n",summon);
 			}
 			destruct(summon);
 		}
@@ -612,9 +614,10 @@ array(object) get_resonance_members(object player){
 	if(!env || team_id == "" || team_id == "noterm")
 		return members;
 
-	foreach(all_inventory(env), object member){
+	foreach(all_inventory(env,player), object member){
 		if(member == player || !member->is("player") ||
-		   member->query_term() != team_id)
+		   member->query_term() != team_id ||
+		   !LOGICALZONED->can_action("team",player,member))
 			continue;
 		members += ({member});
 	}
@@ -722,10 +725,10 @@ mapping activate_resonance(object player){
 	if(env){
 		if(state["perfect"])
 			tell_room_daemon(env, "虎啸、鹤鸣、龟甲三道灵光交汇，" +
-				player->query_name_cn() + "发动了【三灵共鸣】！\n");
+				player->query_name_cn() + "发动了【三灵共鸣】！\n",player);
 		else
 			tell_room_daemon(env, player->query_name_cn() +
-				"与身边灵兽缔结灵契，发动了【灵契共鸣】！\n");
+				"与身边灵兽缔结灵契，发动了【灵契共鸣】！\n",player);
 	}
 	return result;
 }
@@ -799,6 +802,6 @@ int summon_all_spirits(string player_name, int _duration, int _skill_level){
 	}
 
 	tell_room_daemon(environment(player), player->query_name_cn() +
-		"施展三灵合一，虎、鹤、龟三道灵光同时降临！\n");
+		"施展三灵合一，虎、鹤、龟三道灵光同时降临！\n",player);
 	return sizeof(created_types);
 }

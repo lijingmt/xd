@@ -157,6 +157,11 @@ RUN mkdir -p /app/xiand/data_xiand /app/xiand/gamelib/clone/item && \
 # 复制整个 xiand 项目到容器
 COPY . /app/xiand/
 
+# etc 在运行时会被宿主目录遮蔽，因此保留一份只读首装快照。
+# .dockerignore 已排除活动 xdNN.conf；逻辑区首装配置来自 deploy/logical_zones。
+RUN mkdir -p /app/xiand-bootstrap/etc && \
+    cp -a /app/xiand/gamelib/etc/. /app/xiand-bootstrap/etc/
+
 # 复制前端文件到 Tomcat ROOT
 COPY web /usr/local/tomcat/webapps/ROOT
 
@@ -194,6 +199,31 @@ else
 fi
 
 export GAME_PREFIX GAME_AREA
+
+# 兼容首次在全新生产机上使用 docker compose：空的 etc 挂载会先从镜像快照
+# 初始化，再补入逻辑区种子。已有任何文件均不覆盖，后续重建保持线上配置。
+ETC_RUNTIME_DIR="/app/xiand/gamelib/etc"
+ETC_BOOTSTRAP_DIR="/app/xiand-bootstrap/etc"
+LOGICAL_ZONE_RUNTIME_DIR="${ETC_RUNTIME_DIR}/logical_zones"
+LOGICAL_ZONE_IMAGE_SEED_DIR="/app/xiand/deploy/logical_zones"
+mkdir -p "${ETC_RUNTIME_DIR}" "${LOGICAL_ZONE_RUNTIME_DIR}"
+if [ ! -e "${ETC_RUNTIME_DIR}/regname" ]; then
+    cp -an "${ETC_BOOTSTRAP_DIR}/." "${ETC_RUNTIME_DIR}/"
+fi
+ZONE_CONFIG_FOUND=0
+for ZONE_CONFIG in "${LOGICAL_ZONE_RUNTIME_DIR}"/xd[0-9][0-9].conf; do
+    [ -f "${ZONE_CONFIG}" ] || continue
+    ZONE_CONFIG_FOUND=1
+    break
+done
+if [ "${ZONE_CONFIG_FOUND}" -eq 0 ]; then
+    for ZONE_SEED in "${LOGICAL_ZONE_IMAGE_SEED_DIR}"/xd[0-9][0-9].conf; do
+        [ -f "${ZONE_SEED}" ] || continue
+        cp -pn "${ZONE_SEED}" "${LOGICAL_ZONE_RUNTIME_DIR}/"
+    done
+fi
+chmod 755 "${ETC_RUNTIME_DIR}" "${LOGICAL_ZONE_RUNTIME_DIR}" 2>/dev/null || true
+chmod 644 "${LOGICAL_ZONE_RUNTIME_DIR}"/*.conf 2>/dev/null || true
 
 # 读取 MySQL 配置
 MYSQL_HOST="${MYSQL_HOST:-172.17.0.1}"

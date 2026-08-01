@@ -21,6 +21,12 @@ int main(string|zero arg)
 		write(s);
 		return 1;
 	}
+	if(TERMD->get_term_power(termid,me->query_name())!="leader"){
+		s += "只有当前队长可以分配队伍仓库物品。\n";
+		s += "[返回:fb_term_cangku "+termid+" 0]\n";
+		write(s);
+		return 1;
+	}
 	if(TERMD->if_have_assigned(termid,item_file,fg,index) == 1){
 		s += "仓库里已经没有此物品。\n";
 		s += "[返回:fb_term_cangku "+termid+" 1]\n";
@@ -34,9 +40,12 @@ int main(string|zero arg)
 			s += "你将"+item->query_name_cn()+"分配给：\n";
 			//在这儿加入对帮战特殊幻境出的装的过滤,由liaocheng于08/09/3添加 
 			if(item->query_item_from() == "bangzhan")
-				s += TERMD->query_termers_for_assign_bz(termid,item_file,fg,index);
+				s += TERMD->query_termers_for_assign_bz(
+					termid,item_file,fg,index,me->query_name());
 			else
-				s += TERMD->query_termers_for_assign(termid,item_file,fg,index);
+				s += TERMD->query_termers_for_assign(
+					termid,item_file,fg,index,me->query_name());
+			destruct(item);
 		}
 	}
 	s += "\n[返回:my_term]\n";

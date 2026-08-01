@@ -34,6 +34,10 @@ int main(string|zero arg)
 			s += "您不能填写推荐人，您不是新注册用户或者已经填写过了\n";
 		else{
 			string new_name = area+p_name;//合区后带来的新变化
+			if(!LOGICALZONED->can_user_interact(me->query_name(),new_name)){
+				write("逻辑分区隔离中，不能填写其他区玩家为推荐人。\n[返回:look]\n");
+				return 1;
+			}
 			int load_flg = 0;
 			object presenter = find_player(new_name);
 			if(!presenter){

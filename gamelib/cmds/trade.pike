@@ -18,6 +18,10 @@ int main(string|zero arg)
 		player->write_view(WAP_VIEWD["/trade_nobody"]);
 		return 1;
 	}
+	if(!LOGICALZONED->can_interact(player,ob)){
+		write("逻辑分区隔离中，无法与该玩家交易。\n[返回游戏:look]\n");
+		return 1;
+	}
 	string s = "";
 	if(sscanf(arg,"%s %d %s",user_name,user_count,s)!=3 || !s){
 		arg="trade "+arg+" "+user_count;

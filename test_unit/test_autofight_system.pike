@@ -1642,6 +1642,8 @@ void test_end_to_end_auto_skill_perform()
 		"/lowlib/wapmud2/cmds/flushview.pike");
 	object lingji_skill = (object)(ROOT+
 		"/gamelib/single/skills/lingji");
+	object enemy = clone(ROOT+
+		"/gamelib/clone/npc/jinaodao/shachong1");
 	object|zero weapon;
 	object|zero original_player = this_player();
 	string error_desc = "";
@@ -1651,27 +1653,47 @@ void test_end_to_end_auto_skill_perform()
 	int cold = 0;
 	int entered_combat = 0;
 	int weapon_ready = 0;
+	int life_recovery = 0;
+	int mana_recovery = 0;
+	int resting = 0;
+	int resonance = 0;
+	int active_player = 0;
+	string block_reason = "";
 	int valid = 0;
 	mixed err = catch {
 		player->move(room);
+		enemy->move(room);
+		// 背包满阻断已有独立用例；自动施法场景只保留测试武器。
+		foreach(all_inventory(player),object item)
+			destruct(item);
 		weapon = clone(ROOT+
 			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 		weapon->move(player);
 		player->wear(weapon);
 		weapon_ready = weapon->equiped;
 		player->skills["lingji"] = ({1,0});
+		player->set_life(player->query_life_max());
 		player->set_mofa(player->query_mofa_max());
 		set_this_player(player);
 		daemon->initialize_player(player);
 		player["/plus/autofight_smart_route"] = 0;
 		daemon->set_selected_auto_skill(player,"lingji");
 		daemon->start_autofight(player);
-		flush_command->main(0);
+		// 自动寻敌已有独立端到端用例；这里固定目标，避免房间刷新时序
+		// 让“自动施法”测试随机退化成第二次寻敌测试。
+		player->kill(enemy,0);
 		entered_combat = player->in_combat;
 		before_mofa = player->get_cur_mofa();
 		player->timeCold = 0;
 		player->f_skills["lingji"] = 0;
 		ready_skill = daemon->query_ready_auto_skill(player);
+		set_this_player(player);
+		life_recovery = daemon->should_recover_life(player);
+		mana_recovery = daemon->should_recover_mana(player);
+		resting = daemon->query_is_resting(player);
+		resonance = PROFESSIONVIPD->query_resonance_enabled(player);
+		block_reason = daemon->query_runtime_block_reason(player);
+		active_player = this_player()==player;
 		flush_command->main(0);
 		after_mofa = player->get_cur_mofa();
 		cold = (int)player->f_skills["lingji"];
@@ -1692,8 +1714,11 @@ void test_end_to_end_auto_skill_perform()
 	else
 		test_fail(sprintf(
 			"挂机自动施放技能错误: combat=%d weapon=%d ready=%s "
-			"mofa=%d/%d cold=%d %s",entered_combat,weapon_ready,
-			ready_skill,before_mofa,after_mofa,cold,error_desc));
+			"mofa=%d/%d cold=%d life_recover=%d mana_recover=%d "
+			"rest=%d resonance=%d active=%d block=%s %s",
+			entered_combat,weapon_ready,ready_skill,before_mofa,after_mofa,
+			cold,life_recovery,mana_recovery,resting,resonance,
+			active_player,block_reason,error_desc));
 	if(room){
 		foreach(all_inventory(room),object item)
 			if(item != player)

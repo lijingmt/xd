@@ -10,7 +10,9 @@ int main(string|zero arg)
 		s = "你未加入任何帮派\n";
 	}
 	else{
-		object target = find_player(arg);
+		object|zero target = find_player(arg);
+		if(target && !LOGICALZONED->can_interact(me,target))
+			target = 0;
 		if(target){
 			if(arg==me->query_name()){
 				s+="你不能对自己执行该操作，请返回。\n";

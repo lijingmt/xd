@@ -28,7 +28,8 @@ int main(string|zero arg)
 		s_rtn +="天上可不会掉免费的烧饼~，请输入你的竞价\n";
 	}
 	else{
-		mapping(string:mixed) sale_info = AUCTIOND->query_sale_info(sale_id);
+		mapping(string:mixed) sale_info = AUCTIOND->query_sale_info(
+			sale_id,this_player()->query_name());
 		object ob = clone(sale_info["goods_filename"]);
 		int cur_value = (int)sale_info["cur_value"];
 		int end_value = (int)sale_info["end_value"];
@@ -68,7 +69,6 @@ int main(string|zero arg)
 	this_player()->write_view(WAP_VIEWD["/emote"],0,0,s_rtn);
 	return 1;
 }
-
 
 
 

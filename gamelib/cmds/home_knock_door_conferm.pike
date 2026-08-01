@@ -21,7 +21,10 @@ int main(string|zero arg)
 	string kd_name = "";//敲门玩家的id
 	string result = "";
 	sscanf(arg,"%s %s",kd_name,result);
-	object kn_user = find_player(kd_name);
+	object|zero kn_user = find_player(kd_name);
+	if(kn_user && !LOGICALZONED->can_user_action("home",
+	   me->query_name(),kn_user->query_name()))
+		kn_user = 0;
 	if(!kn_user){
 		msg += "该玩家已经离开\n";
 		msg += "[返回游戏:look]\n";

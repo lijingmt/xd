@@ -5,7 +5,8 @@ int main(string|zero arg)
 {
 	int sale_id = (int)arg;
 	string s_rtn = "";
-	mapping(string:mixed) sale_info = AUCTIOND->query_sale_info(sale_id);
+	mapping(string:mixed) sale_info = AUCTIOND->query_sale_info(
+		sale_id,this_player()->query_name());
 	if(!sizeof(sale_info))
 		s_rtn += "真不凑巧，此物品刚刚已经拍卖出去，或者已经到期了，下次记得动作迅速点\n";
 	else{

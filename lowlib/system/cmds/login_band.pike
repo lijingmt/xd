@@ -1,4 +1,5 @@
 #include <command.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
 	//绑定手机号码：me->mobile,安全码:bandpswd
@@ -23,6 +24,10 @@ int main(string arg)
 				write("error2");
 				return 1;
 			}
+		}
+		if(!LOGICALZONED->login_allowed(game_fg+user_name)){
+			write("error6");
+			return 1;
 		}
 		string user_rtn = user_name;
 		int clone_flag = 0;

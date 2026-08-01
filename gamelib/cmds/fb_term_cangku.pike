@@ -22,7 +22,7 @@ int main(string|zero arg)
 		s += "暂时存放着首领怪掉落的物品，队长可以分配这些物品\n";
 		s += "【注意】：请队长及时分配，仓库的东西将在队伍解散时消失\n";
 		s += "--------\n";
-		s += TERMD->query_termItems(termid,flag);
+		s += TERMD->query_termItems(termid,flag,me->query_name());
 	}
 	s += "\n[返回:my_term]\n";
 	write(s);

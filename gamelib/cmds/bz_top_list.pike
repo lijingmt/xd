@@ -9,6 +9,8 @@ int main(string|zero arg)
 	array(int) top_list = BANGZHAND->get_top_list();
 	if(top_list && sizeof(top_list)){
 		for(int i=0;i<sizeof(top_list);i++){
+			if(!BANGD->bang_allows_user(top_list[i],me->query_name()))
+				continue;
 			string bang_name = BANGD->query_bang_name(top_list[i]);
 			if(bang_name && sizeof(bang_name)){
 				int baqi = BANGZHAND->query_bang_baqi(top_list[i]);

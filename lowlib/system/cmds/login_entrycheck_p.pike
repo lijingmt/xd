@@ -1,9 +1,14 @@
 #include <globals.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
 	string path,user_name,lgpswd,userip;
 	string title = "";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
+		if(!LOGICALZONED->login_allowed(user_name)){
+			write("error2");
+			return 1;
+		}
 		string user=Stdio.read_file(DATA_ROOT+"u/"+user_name[sizeof(user_name)-2..]+"/"+user_name+".o");
 		if(!user){
 			object me = find_player(user_name);
@@ -13,11 +18,10 @@ int main(string arg)
 				//if(pswd && lgpswd==pswd){
 				if(userip&&userip==me->userip&&me->project==path&&me["reconnect"]&&me->reconnect(lgpswd)){
 				//	if(me->project==path&&me["reconnect"]&&me->reconnect(lgpswd)){
-						exec(me,previous_object());
-						destruct(previous_object());
-						write(ret+",null");
-						return 1;
-					}
+					exec(me,previous_object());
+					destruct(previous_object());
+					write(userip+",null");
+					return 1;
 				}
 				else{
 					write("error1");
@@ -28,15 +32,14 @@ int main(string arg)
 				write("error2");
 				return 1;
 			}
-		}
+			}
 		else{
 			object me = find_player(user_name);
-			if(me){
-				string pswd = me->password;
-				if(pswd && lgpswd==pswd){
-					string ret = userip+random(1000000);
-    					set_living_info_name(user_name+"|"+pswd,ret);
-					me->set_userencode(ret);
+				if(me){
+					string pswd = me->password;
+					if(pswd && lgpswd==pswd){
+						string ret = userip+random(1000000);
+						me->set_userencode(ret);
 					if(me->project==path&&me["reconnect"]&&me->reconnect(lgpswd)){
 						exec(me,previous_object());
 						destruct(previous_object());

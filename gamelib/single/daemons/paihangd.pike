@@ -30,6 +30,22 @@ mapping allTypeDesc = ([
 
 array(string) all_type = ({"mark","account","all_fee","home_bi","home_yu","honerpt","lunhuipt"});
 mapping(string:array(mapping(string:mixed))) all_info=([]);
+
+private array(mapping(string:mixed)) filter_toplist_for_zone(
+	array(mapping(string:mixed)) source,string|void viewer_id)
+{
+	array(mapping(string:mixed)) result = ({});
+	if(!source)
+		return result;
+	for(int i=0;i<sizeof(source);i++){
+		string target_id = (string)(source[i]["id"] || source[i]["user_id"] || "");
+		if(!viewer_id || viewer_id=="" ||
+		   (target_id!="" &&
+		    LOGICALZONED->can_user_interact(viewer_id,target_id)))
+			result += ({source[i]});
+	}
+	return result;
+}
 protected void create()
 {
 	mixed err = catch {
@@ -100,12 +116,12 @@ protected void create()
 
 }
 //外部调用接口
-array(mapping(string:mixed)) query_toplist(string type)
+array(mapping(string:mixed)) query_toplist(string type,void|string viewer_id)
 {
 	if(type && sizeof(type))
 	{
 		if(all_info[type] && sizeof(all_info[type]))
-			return all_info[type];
+			return filter_toplist_for_zone(all_info[type],viewer_id);
 		else 
 			return ({});
 	}
@@ -249,17 +265,17 @@ array(mapping(string:mixed)) flush_account_toplist()
 }
 
 //外部获得排行的接口
-array(mapping(string:mixed)) query_mark_toplist()
+array(mapping(string:mixed)) query_mark_toplist(void|string viewer_id)
 {
 	if(mark_toplist && sizeof(mark_toplist))
-		return mark_toplist;
+		return filter_toplist_for_zone(mark_toplist,viewer_id);
 	else 
 		return ({});
 }
-array(mapping(string:mixed)) query_account_toplist()
+array(mapping(string:mixed)) query_account_toplist(void|string viewer_id)
 {
 	if(account_toplist && sizeof(account_toplist))
-		return account_toplist;
+		return filter_toplist_for_zone(account_toplist,viewer_id);
 	else 
 		return ({});
 }
@@ -358,18 +374,18 @@ array(mapping(string:mixed)) flush_home_money_toplist()
 	return result;
 }
 //家园私家小店销量排行（玉石交易）的外部接口 caijie 08/11/18
-array(mapping(string:mixed)) query_home_yushi_toplist()
+array(mapping(string:mixed)) query_home_yushi_toplist(void|string viewer_id)
 {
 	if(home_yushi_toplist && sizeof(home_yushi_toplist))
-		return home_yushi_toplist;
+		return filter_toplist_for_zone(home_yushi_toplist,viewer_id);
 	else 
 		return ({});
 }
 //家园私家小店销量排行（金钱交易）的外部接口 caijie 08/11/18
-array(mapping(string:mixed)) query_home_money_toplist()
+array(mapping(string:mixed)) query_home_money_toplist(void|string viewer_id)
 {
 	if(home_money_toplist && sizeof(home_money_toplist))
-		return home_money_toplist;
+		return filter_toplist_for_zone(home_money_toplist,viewer_id);
 	else 
 		return ({});
 }
@@ -467,6 +483,5 @@ array(mapping(string:mixed)) flush_fee_toplist()
 	werror("=========== result_to_return[0][name_cn] = "+ result_to_return[0]["name_cn"]+" =========\n");
 	return result_to_return;
 }
-
 
 

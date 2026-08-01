@@ -1,4 +1,5 @@
 #include <globals.h>
+#include <gamelib/include/gamelib.h>
 // 检查 HTTP API 登录标记（来自 http_api_daemon）
 int is_http_api_login(string user_name) {
     object http_api_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
@@ -41,6 +42,15 @@ int main(string arg)
 				write(title);
 				return 1;
 			}
+		}
+		object logical_zoned = LOGICALZONED;
+		if(logical_zoned && functionp(logical_zoned->login_allowed) &&
+		   !logical_zoned->login_allowed(user_name)){
+			title += "登录错误！\n";
+			title += "该逻辑区尚未开放或正在维护，请稍后再试。\n";
+			title += "[url 返回:http://"+INDEX_URL+"]\n";
+			write(title);
+			return 1;
 		}
 		string user=Stdio.read_file(DATA_ROOT+"u/"+user_name[sizeof(user_name)-2..]+"/"+user_name+".o");
 	Stdio.append_file("/tmp/xiand_login_debug.log", "user file exists: " + (user?"yes":"no") + "\n");

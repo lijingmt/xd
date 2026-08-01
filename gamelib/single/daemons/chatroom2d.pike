@@ -13,6 +13,7 @@
  ***********************************************************************/
 #include <globals.h>
 #include <wapmud2/include/wapmud2.h>
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 inherit LOW_DAEMON;
 /**********************************************************************
 聊天频道动态处理内存：
@@ -180,6 +181,9 @@ string query_chat_msg(string cid, string look_id){
 						marr -= ({});
 						//得到该条信息发言者的id
 						string defendid = (string)marr[0];
+						if(LOGICALZONED->query_user_zone_id(defendid)!="" &&
+						   !LOGICALZONED->can_user_action("chat",look_id,defendid))
+							flag = 0;
 						//werror("    屏蔽者="+defendid+"\n");
 						//得到该条发言者应该显示出来的信息
 						string contents = (string)marr[1];
@@ -293,6 +297,9 @@ string query_chatroom_msg(string cid, string look_id){
 						marr -= ({});
 						//得到该条信息发言者的id
 						string defendid = (string)marr[0];
+						if(LOGICALZONED->query_user_zone_id(defendid)!="" &&
+						   !LOGICALZONED->can_user_action("chat",look_id,defendid))
+							flag = 0;
 						//werror("    屏蔽者="+defendid+"\n");
 						//得到该条发言者应该显示出来的信息
 						string contents = (string)marr[1];
@@ -327,6 +334,9 @@ string query_chatroom_msg(string cid, string look_id){
 						marr -= ({});
 						//得到该条信息发言者的id
 						string defendid = (string)marr[0];
+						if(LOGICALZONED->query_user_zone_id(defendid)!="" &&
+						   !LOGICALZONED->can_user_action("chat",look_id,defendid))
+							flag = 0;
 						//werror("    屏蔽者="+defendid+"\n");
 						//得到该条发言者应该显示出来的信息
 						string contents = (string)marr[1];

@@ -1,0 +1,13 @@
+# 复制为 xd06.conf；配置在 5 秒内原子生效。
+schema_version=1
+revision=1
+zone_id=xd06
+name=仙道六区
+enabled=1
+registration_open=1
+login_open=1
+isolation=1
+cluster=main
+sort=6
+open_at=0
+notes=首批独立新区；回滚时恢复上一版配置即可

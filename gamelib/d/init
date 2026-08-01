@@ -858,12 +858,15 @@ int start(string arg){
 				me->relife = me->last_pos;
 			}
 		}
+			//房契是家园产权提交点；异常重启后自动修复玩家档案中的 home_path。
+			HOMED->repair_player_home_path(me);
+			HOMED->enforce_user_home_isolation(me);
 		//副本和家园的特殊处理
 		array allPos = me->last_pos/"#";
 		int num = sizeof(allPos);
 		if(num == 2) //表示玩家在副本或者家园中
 		{
-			if(me->inhome_path=="")           //玩家在副本中
+			if(me->inhome_pos=="")            //玩家在副本中
 			{
 				me->last_pos = (me->last_pos/"#")[0];
 				string fb_name = "";
@@ -885,7 +888,10 @@ int start(string arg){
 			}
 			else                              //玩家在家园中
 			{
-				object room = HOMED->query_home_by_masterId(me->inhome_pos);
+				object room;
+				if(LOGICALZONED->can_user_action("home",
+				   me->query_name(),me->inhome_pos))
+					room = HOMED->query_home_by_masterId(me->inhome_pos);
 				if(room){
 					me->move(room);
 					HOMED->add_user(me->query_name());
@@ -893,8 +899,7 @@ int start(string arg){
 				//该玩家在某个home中，但是在这期间，主人将home变卖了，就会进入到这里。
 				else{		
 					me->last_pos = "/gamelib/d/ninggedian/ninggedian";
-					me->inhome_pos =="";//将inhome_pos置空，以免下次登陆再次进入到这里。
-					me->last_pos=me->last_pos-ROOT;
+					me->inhome_pos = "";//将inhome_pos置空，以免下次登陆再次进入到这里。
 					if(me->last_pos){
 						mixed err=catch{
 							(object)(ROOT+me->last_pos);

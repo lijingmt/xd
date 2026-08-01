@@ -70,6 +70,10 @@ int main(string|zero arg)
 			me->write_view(WAP_VIEWD["/tell_notfound"]);
 		}
 		else{
+			if(!LOGICALZONED->can_action("chat",me,ob)){
+				write("逻辑分区隔离中，无法联系该玩家。\n[返回游戏:look]\n");
+				return 1;
+			}
 			if(!me->can_socialize_with(ob))
 			{
 				write("不同阵营的玩家之间不能谈话。\n[返回游戏:look]\n");

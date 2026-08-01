@@ -150,7 +150,7 @@ int setup(string arg){
 }
 #ifndef __NO_ENVIRONMENT__
 void tell_room(object ob, string msg){
-    foreach (all_inventory(ob) - ({ this_object() }),ob)
+    foreach (all_inventory(ob,this_object()) - ({ this_object() }),ob)
         tell_object(ob, msg);
 }
 #endif

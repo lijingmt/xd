@@ -1,5 +1,6 @@
 #include <command.h>
 #include<wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -12,6 +13,11 @@ int main(string|zero arg)
 		load_flag =1;
 	}
 	if(ob){
+		if(!LOGICALZONED->can_interact(me,ob)){
+			if(load_flag) ob->remove();
+			write("逻辑分区隔离中，无法关注该玩家。\n[返回游戏:look]\n");
+			return 1;
+		}
 		s += "我们的探子将在1小时内为您探查"+ob->query_name_cn()+"的行踪，不过需要2碎玉作为报酬。\n";
 		s += "[确认:spy_start_confirm "+ob->query_name()+"]  ";
 		s += "[放弃:popview]\n";

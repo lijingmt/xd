@@ -9,7 +9,7 @@ int main(string|zero arg)
 	array(mapping(string:mixed)) top_list = ({});
 	if(arg=="yushi"){
 		s += "玉石交易|[金币交易:home_shop_sale_paihang money]\n";
-		top_list = PAIHANGD->query_home_yushi_toplist();
+		top_list = PAIHANGD->query_home_yushi_toplist(me->query_name());
 		if(top_list && sizeof(top_list)){
 			for(int i=0;i<sizeof(top_list);i++){
 				string name_cn = top_list[i]["name_cn"];
@@ -17,6 +17,8 @@ int main(string|zero arg)
 				int home_yushi = (int)top_list[i]["home_yu"];
 				//string account_cn = MUD_MONEYD->query_money_for_paihang(account);
 				string homeId = HOMED->query_homeId_by_masterId(Id);
+				if(!LOGICALZONED->can_user_action("home",me->query_name(),Id))
+					continue;
 				//werror("-----yushi="+home_yushi+"----\n");
 				if(name_cn && sizeof(name_cn)&&homeId!=""&&home_yushi){
 					s += (i+1)+"．["+name_cn+"的私家小店:home_view "+homeId+"]("+YUSHID->get_yushi_for_desc(home_yushi)+")\n";//（"+account+"）\n";
@@ -26,7 +28,7 @@ int main(string|zero arg)
 	}
 	else if(arg=="money"){
 		s += "[玉石交易:home_shop_sale_paihang yushi]|金币交易\n";
-		top_list = PAIHANGD->query_home_money_toplist();
+		top_list = PAIHANGD->query_home_money_toplist(me->query_name());
 		if(top_list && sizeof(top_list)){
 			for(int i=0;i<sizeof(top_list);i++){
 				string name_cn = top_list[i]["name_cn"];
@@ -34,6 +36,8 @@ int main(string|zero arg)
 				int home_money = (int)top_list[i]["home_bi"];
 				//string account_cn = MUD_MONEYD->query_money_for_paihang(account);
 				string homeId = HOMED->query_homeId_by_masterId(Id);
+				if(!LOGICALZONED->can_user_action("home",me->query_name(),Id))
+					continue;
 				if(name_cn && sizeof(name_cn)&&homeId!=""&&home_money){
 					s += (i+1)+"．["+name_cn+"的私家小店:home_view "+homeId+"]("+MUD_MONEYD->query_store_money_cn(home_money)+")\n";//（"+account+"）\n";
 				}

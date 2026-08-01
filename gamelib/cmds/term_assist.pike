@@ -12,7 +12,7 @@ int main(string|zero arg)
 	}
 	else{
 		object ob = find_player(arg);
-		if(ob){
+		if(ob && LOGICALZONED->can_interact(me,ob)){
 			if(ob->query_term()!="" && ob->query_term()!="noterm" &&
 			   !TERMD->query_termId(ob->query_term()))
 				ob->set_term("noterm");

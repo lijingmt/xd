@@ -15,7 +15,9 @@ int main(string|zero arg)
 			write(s);
 			return 1;
 		}
-		object who = find_player(arg);
+		object|zero who = find_player(arg);
+		if(who && !LOGICALZONED->can_interact(me,who))
+			who = 0;
 		if(who){
 			s += who->query_name_cn()+"\n";	
 			s += "[发消息:tell "+who->query_name()+"]\n";

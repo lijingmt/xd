@@ -13,6 +13,10 @@ int main(string|zero arg)
 		return 1;
 	}
 	else{
+		if(!LOGICALZONED->can_user_interact(me->query_name(),arg)){
+			write("逻辑分区隔离中，该玩家不可见。\n[返回:present_view]\n");
+			return 1;
+		}
 		int load_flg = 0;
 		object man = find_player(arg);
 		if(!man){

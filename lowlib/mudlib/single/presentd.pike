@@ -4,6 +4,7 @@
 // user_id   |  user_name   |presenter_id|presenter_name| last_mark  |   all_mark
 #include <globals.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 inherit LOW_DAEMON;
 
 #define log_err_file ROOT "/log/presenter_err.log" 
@@ -24,6 +25,8 @@ protected void create()
 //新用户填写推荐人的接口
 int set_my_presenter(string myname,string mynamecn,int mymark,string p_name,string p_namecn)
 {
+	if(!LOGICALZONED->can_user_interact(myname,p_name))
+		return 0;
 	string now=ctime(time());
 	array(mapping(string:mixed)) rtn = ({});
 	string querySql = "select * from presenter_info where user_id='"+myname+"'";
@@ -106,6 +109,9 @@ string query_my_men(object me)
 	if(sizeof(rlt) > 0){
 		for(int i=0;i<sizeof(rlt);i++){
 			if(rlt[i]["user_id"] != "" && rlt[i]["user_name"] != ""){
+				if(!LOGICALZONED->can_user_interact(name,
+				   (string)rlt[i]["user_id"]))
+					continue;
 				rtn_s += "["+rlt[i]["user_name"]+":present_view "+rlt[i]["user_id"]+"]";
 				if((i+1)%2 == 0)
 					rtn_s += "\n";
@@ -199,4 +205,3 @@ void flush_mark(object user)
 	}
 	return;
 }
-

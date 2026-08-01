@@ -86,8 +86,14 @@ void test_core_command_coverage(object httpd)
 		httpd->is_core_command("viceskill_dig ore 0") == 1 &&
 		httpd->is_core_command("flushview") == 1 &&
 		httpd->is_core_command("use_perform yueji") == 1 &&
+		httpd->is_core_command("mail_send_confirm user") == 1 &&
+		httpd->is_core_command("home_buy_shopItem_confirm user") == 1 &&
+		httpd->is_core_command("bang_accept user") == 1 &&
+		httpd->is_core_command("sendother_ok user") == 1 &&
+		httpd->is_core_command("trade_daoju user") == 1 &&
+		httpd->is_core_command("game_deal manager_user_online") == 1 &&
 		httpd->is_core_command("look") == 0;
-	test_result("购买、拍卖、组队和采集共享命令进入核心锁",valid,
+	test_result("购买、拍卖、社交、家园和跨档案命令进入核心锁",valid,
 		"核心命令或前缀覆盖不完整");
 }
 

@@ -293,8 +293,8 @@ void test_stacked_absorb_shields()
 		weapon->move(caster);
 		caster->wear(weapon);
 		caster->skills["xuemoshijie"] = ({1,0});
-		// 主动物理技能跳过普通命中判定；再将闪避降为0，
-		// 让本用例只验证双盾顺序而不受1%命中波动影响。
+		// 将闪避降为0；主动技能仍保留设计上的1%失手，所以若本次
+		// 恰好失手就重置冷却后重试，避免双盾用例被随机命中污染。
 		target->set_debuff("curse",0,"dodge");
 		target->set_debuff("curse",1,1000000);
 		target->set_debuff("curse",2,10);
@@ -306,7 +306,13 @@ void test_stacked_absorb_shields()
 		target->set_buff("buff2",2,12);
 		int life_before = target->get_cur_life();
 		caster->_fight(target);
-		caster->perform("xuemoshijie",1);
+		for(int attempt=0;attempt<5 &&
+		   target->query_buff("buff",1)==1000000000;attempt++){
+			caster->timeCold = 0;
+			caster->f_skills["xuemoshijie"] = 0;
+			caster->set_mofa(caster->query_mofa_max());
+			caster->perform("xuemoshijie",1);
+		}
 		valid = skill && target->get_cur_life()==life_before &&
 			target->query_buff("buff",1)<1000000000 &&
 			target->query_buff("buff2",1)==1000000000;

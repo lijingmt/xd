@@ -11,7 +11,8 @@ void emote(string msg,object self,object target,void|int no_others){
 	tell_object(target,filter(msgs[1],self,target,target));
 	object env=environment(self);
 	if(!no_others&&env&&env->is("room"))
-		env->addRemainMSG(filter(msgs[2],self,target),(<self->name,target->name>));
+		env->addRemainMSG(filter(msgs[2],self,target),
+			(<self->name,target->name>),self->name);
 }
 array(string) expand(string msg){
 	return ({replace(msg,(["$N":"$P","$p":"$n","$L":"$Q","$Q":"$L"])),replace(msg,([])),replace(msg,(["$p":"$n","$L":"$Q"]))});

@@ -6,6 +6,8 @@ int main(string|zero arg)
 	int count;
 	sscanf(arg,"%s %d",name,count);
 	object ob=present(name,environment(this_player()),count);
+	if(ob && !LOGICALZONED->can_action("drop",this_player(),ob))
+		ob = 0;
 	//判断身上物品是否超过60件
 	if(ob&&this_player()->if_over_load(ob)){
 		string tmp = "你的背包已满，无法执行此操作，请返回。\n";       

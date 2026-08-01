@@ -4,7 +4,9 @@ int main(string|zero arg)
 {
 	object me = this_player();
 	string s = "";
-	object ob = find_player(arg);
+	object|zero ob = find_player(arg);
+	if(ob && !LOGICALZONED->can_interact(me,ob))
+		ob = 0;
 	if(ob){
 		s += ob->query_name_cn()+"：\n";
 		s += ob->view_equip();

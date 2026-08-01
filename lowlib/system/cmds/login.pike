@@ -1,4 +1,5 @@
 #include <globals.h>
+#include <gamelib/include/gamelib.h>
 
 int main(string arg)
 {
@@ -17,6 +18,11 @@ int main(string arg)
 			title += "登录错误！\n";
 			title += "您输入的用户名和密码不符合规范，请返回重试。\n";
 			title += "[url 返回:http://"+INDEX_URL+"]\n";
+			write(title);
+			return 1;
+		}
+		if(!LOGICALZONED->login_allowed(user_name)){
+			title += "登录错误！该逻辑区尚未开放或正在维护。\n";
 			write(title);
 			return 1;
 		}

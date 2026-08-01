@@ -10,6 +10,10 @@ int main(string|zero arg)
 	int bangid = 0;
 	int flag = 0;
 	sscanf(arg,"%d %d",bangid,flag);
+	if(!BANGD->bang_allows_user(bangid,me->query_name())){
+		write("逻辑分区隔离中，该帮派不可见。\n[返回游戏:look]\n");
+		return 1;
+	}
 	string race = "monst";
 	string race_cn = "妖魔";
 	if(bangid%2 == 0){
@@ -19,7 +23,8 @@ int main(string|zero arg)
 	s += "<"+BANGD->query_bang_name(bangid)+">：\n";
 	s += "阵营："+race_cn+"\n";
 	s += "帮主："+BANGD->query_root_name_cn(me,bangid)+"\n";
-	s += "人数："+BANGD->query_nums(bangid,"online")+"/"+BANGD->query_nums(bangid,"all")+"\n";
+	s += "人数："+BANGD->query_nums(bangid,"online",me->query_name())+
+		"/"+BANGD->query_nums(bangid,"all",me->query_name())+"\n";
 	s += "帮派简介："+BANGD->query_bang_desc(bangid)+"\n";
 	if(flag == 1)
 		s += "[返回排行:bz_top_list]\n";

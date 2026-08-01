@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 int main(string arg)
 {
 	if(!this_player()->is("npc") &&
@@ -122,6 +123,11 @@ int main(string arg)
 							if(tmp_f[i] != ""){
 								object follower = find_player(tmp_f[i]);
 								if(follower){
+									if(!LOGICALZONED->can_interact(this_player(),follower)){
+										this_player()->follow_me -= ({tmp_f[i]});
+										follower->follow = "_none";
+										continue;
+									}
 									if(environment(follower)==env)
 										follower->command("leave "+arg);
 									else{

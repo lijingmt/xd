@@ -7,13 +7,17 @@ int main(string|zero arg)
 	if(!me->bangid){
 		s = "你还未加入任何帮派\n";
 	}
+	else if(!BANGD->bang_allows_user(me->bangid,me->query_name())){
+		s = "该帮派属于其他逻辑区，当前隔离期间不可访问；合区后会自动恢复。\n";
+	}
 	else{
 		string bang_name = BANGD->query_bang_name(me->bangid);
 		s += "<"+bang_name+">:";
 		s += BANGD->query_level_cn(me->query_name(),me->bangid)+"\n";
 		if(BANGZHAND->if_in_bangzhan(me->bangid))
 		            s += "已参与帮战！(霸气："+BANGZHAND->query_bang_baqi(me->bangid)+")\n";
-		s += BANGD->query_nums(me->bangid,"online")+"在线/"+BANGD->query_nums(me->bangid,"all")+"人\n";
+		s += BANGD->query_nums(me->bangid,"online",me->query_name())+
+			"在线/"+BANGD->query_nums(me->bangid,"all",me->query_name())+"人\n";
 		s += "今日帮派通告：";
 		s += BANGD->query_bang_notice(me->bangid)+"\n";
 		s += "帮派聊天：\n";

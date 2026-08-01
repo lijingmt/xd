@@ -19,7 +19,7 @@ int main(string|zero arg)
 	}
 	int rs;
 	object ob = find_player(arg);
-	if(!ob){
+	if(!ob || !LOGICALZONED->can_interact(me,ob)){
 		s += "该用户不在线，无法进行此操作。\n";
 		s += "[返回游戏:look]\n";
 		write(s);

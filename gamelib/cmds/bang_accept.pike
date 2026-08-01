@@ -14,11 +14,20 @@ int main(string|zero arg)
 	string apply_name = "";
 	int flag = 0;
 	int index;
+	if(!bangid || !BANGD->bang_allows_user(bangid,me->query_name())){
+		write("该帮派当前属于其他逻辑区，隔离期间不可管理。\n[返回:my_bang]\n");
+		return 1;
+	}
 	sscanf(arg,"%s %d %d",apply_name,flag,index);
 	object applyer = find_player(apply_name);
 	if(!applyer){
 		applyer = me->load_player(apply_name);
 		rmflag = 1;
+	}
+	if(!applyer || !BANGD->bang_allows_user(bangid,apply_name)){
+		if(applyer && rmflag) applyer->remove();
+		write("逻辑分区隔离中，该申请已经失效。\n[返回:bang_view_apply]\n");
+		return 1;
 	}
 	if(applyer->bangid != 0){
 		s += "对方已有帮派\n";

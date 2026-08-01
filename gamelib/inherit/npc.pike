@@ -14,11 +14,32 @@ void log_hidden_skill_drop(object book,string owner_type,string owner_name)
 		"|book="+book->query_name()+"\n";
 	Stdio.append_file(ROOT+"/log/hidden_skill_drop.log",log);
 }
+
+void bind_drop_logical_zone(object item,string owner_name)
+{
+	if(item && owner_name && owner_name!="" &&
+	   item->set_item_logical_zone_owner)
+		item->set_item_logical_zone_owner(owner_name);
+}
+
+int can_receive_logical_reward(string owner_name,object player)
+{
+	if(!owner_name || owner_name=="" || !player || !player->query_name)
+		return 0;
+	return LOGICALZONED->can_user_action(
+		"team",owner_name,(string)player->query_name());
+}
+
 void fight_die()
 {
 	object env = environment(this_object());
 	// 灵兽最后一击的经验、任务、掉落和荣誉归属在线主人。
 	enemy = SUMMOND->query_combat_credit_owner(enemy);
+	string logical_drop_owner = "";
+	if(enemy && enemy->is && enemy->is("player"))
+		logical_drop_owner = (string)enemy->query_name();
+	else if(this_object()->who_fight_npc)
+		logical_drop_owner = (string)this_object()->who_fight_npc;
 	//werror("============ name of the room type is "+env->query_room_type()+"==============");
 	//设置刷新起始时间 
 	env->flush_items(this_object());
@@ -88,6 +109,7 @@ void fight_die()
 			}
 		}
 		if(suipian){
+			bind_drop_logical_zone(suipian,logical_drop_owner);
 			suipian->move(environment(this_object()));
 			call_out(suipian->remove,5*60,1);
 		}
@@ -159,7 +181,10 @@ void fight_die()
 		map_term = (mapping)TERMD->query_term_m(term_who);
 		//如果队伍已经解散，直接返回，给玩家个提示，下面的流程就不走了
 		if(map_term&&sizeof(map_term))
-			;
+		{
+			if(logical_drop_owner=="")
+				logical_drop_owner = indices(map_term)[0];
+		}
 		else{
 			//fight_die_single();//团队突然解散，谁也不给	
 			return;
@@ -195,7 +220,9 @@ void fight_die()
 					object termer = find_player(uid);
 					if(termer){
 						//判断是否一个房间，一个房间可以分配
-						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer))
 							t_count++;
 					}
 				}
@@ -226,7 +253,9 @@ void fight_die()
 					int last_exp = 0;
 					if(termer){
 						//判断是否一个房间，一个房间可以分配
-						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer))
 							flag = 1;
 						if(flag){
 
@@ -392,7 +421,9 @@ void fight_die()
 					object termer = find_player(uid);
 					if(termer){
 						//判断是否一个房间，一个房间可以分配
-						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer))
 							t_count++;
 					}
 				}
@@ -409,7 +440,9 @@ void fight_die()
 					object termer = find_player(uid);
 					if(termer){
 						//判断是否一个房间，一个房间可以分配
-						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer))
 							flag = 1;
 					}
 					if(flag){//玩家在同一房间中
@@ -428,6 +461,7 @@ void fight_die()
 		if(ob_hidden&& environment(this_object())){
 			ob_hidden->item_whoCanGet = term_who;
 			ob_hidden->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_hidden,logical_drop_owner);
 			t_w += "天地异象，失落传承现世："+
 				ob_hidden->query_short()+" ！\n";
 			log_hidden_skill_drop(ob_hidden,"team",term_who);
@@ -444,7 +478,9 @@ void fight_die()
 				foreach(indices(map_term),string uid){
 					object termer = find_player(uid);
 					if(termer){						
-						if(environment(this_object())->query_name() == (environment(termer))->query_name()){
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer)){
 							mixed err = catch{
 								specitem_ob = clone(ITEM_PATH+get_specitem);
 							};
@@ -514,7 +550,9 @@ void fight_die()
 					object termer = find_player(uid);
 					if(termer){
 						//判断是否一个房间，一个房间可以分配
-						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer))
 							flag = 1;
 					}
 					if(flag){ //玩家在同一房间中
@@ -555,6 +593,7 @@ void fight_die()
 						normal_ob->amount = VICEDROPD->get_drop_nums();
 						normal_ob->item_whoCanGet = term_who;
 						normal_ob->item_TimewhoCanGet = time();
+						bind_drop_logical_zone(normal_ob,logical_drop_owner);
 						t_w += "掉落了 "+normal_ob->query_short()+" ！\n";
 						call_out(normal_ob->remove,5*60,1);
 						normal_ob->move(environment(this_object()));
@@ -575,6 +614,7 @@ void fight_die()
 						if(spec_ob){
 							spec_ob->item_whoCanGet = term_who;
 							spec_ob->item_TimewhoCanGet = time();
+							bind_drop_logical_zone(spec_ob,logical_drop_owner);
 							t_w += "掉落了 "+spec_ob->query_short()+" ！\n";
 							call_out(spec_ob->remove,5*60,1);
 							spec_ob->move(environment(this_object()));
@@ -609,6 +649,7 @@ void fight_die()
 				//Stdio.append_file(ROOT+"/log/item_drop.log",now[0..sizeof(now)-2]+":team:"+ob->query_name_cn()+"("+ob->query_name()+")\n");
 				ob->item_whoCanGet = term_who;
 				ob->item_TimewhoCanGet = time();
+				bind_drop_logical_zone(ob,logical_drop_owner);
 				t_w += "掉落了 "+ob->query_short()+" ！\n";
 				call_out(ob->remove,5*60,1);
 				ob->move(environment(this_object()));
@@ -617,6 +658,7 @@ void fight_die()
 				//Stdio.append_file(ROOT+"/log/item_spec_drop.log",now[0..sizeof(now)-2]+":team:"+ob_spec->query_name_cn()+"("+ob_spec->query_name()+")\n");
 				ob_spec->item_whoCanGet = term_who;
 				ob_spec->item_TimewhoCanGet = time();
+				bind_drop_logical_zone(ob_spec,logical_drop_owner);
 				t_w += "掉落了 "+ob_spec->query_short()+" ！\n";
 				call_out(ob_spec->remove,5*60,1);
 				ob_spec->move(environment(this_object()));
@@ -624,6 +666,7 @@ void fight_die()
 			if(ob_holiday_spec&& environment(this_object())){
 				ob_holiday_spec->item_whoCanGet = term_who;
 				ob_holiday_spec->item_TimewhoCanGet = time();
+				bind_drop_logical_zone(ob_holiday_spec,logical_drop_owner);
 				t_w += "掉落了 "+ob_holiday_spec->query_short()+" ！\n";
 				call_out(ob_holiday_spec->remove,5*60,1);
 				ob_holiday_spec->move(environment(this_object()));
@@ -631,6 +674,7 @@ void fight_die()
 			if(ob_shi&& environment(this_object())){
 				ob_shi->item_whoCanGet = term_who;
 				ob_shi->item_TimewhoCanGet = time();
+				bind_drop_logical_zone(ob_shi,logical_drop_owner);
 				t_w += "掉落了 "+ob_shi->query_short()+" ！\n";
 				call_out(ob_shi->remove,5*60,1);
 				ob_shi->move(environment(this_object()));
@@ -647,7 +691,9 @@ void fight_die()
 					object termer = find_player(uid);
 					if(termer){
 						//判断是否一个房间，一个房间可以分配
-						if( environment(this_object())->query_name() == (environment(termer))->query_name() )
+						if(environment(this_object())->query_name() ==
+						   environment(termer)->query_name() &&
+						   can_receive_logical_reward(logical_drop_owner,termer))
 							flag = 1;
 					}
 					if(flag){ //玩家在同一房间中
@@ -935,6 +981,7 @@ void fight_die_single(object env)
 					normal_ob->amount = VICEDROPD->get_drop_nums();
 					normal_ob->item_whoCanGet = first->query_name();;
 					normal_ob->item_TimewhoCanGet = time();
+					bind_drop_logical_zone(normal_ob,first->query_name());
 					t += "掉落了 "+normal_ob->query_short()+" ！\n";
 					call_out(normal_ob->remove,5*60,1);
 					normal_ob->move(environment(this_object()));
@@ -955,6 +1002,7 @@ void fight_die_single(object env)
 					if(spec_ob){
 						spec_ob->item_whoCanGet = first->query_name();
 						spec_ob->item_TimewhoCanGet = time();
+						bind_drop_logical_zone(spec_ob,first->query_name());
 						t += "掉落了 "+spec_ob->query_short()+" ！\n";
 						call_out(spec_ob->remove,5*60,1);
 						spec_ob->move(environment(this_object()));
@@ -1002,6 +1050,7 @@ void fight_die_single(object env)
 			//用于掉装保护 2007-0302 by calvin
 			ob->item_whoCanGet = first->query_name();
 			ob->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob,first->query_name());
 			t += "掉落了 "+ob->query_short()+" ！\n";	
 			//t += "物品掉落标示="+ob->item_whoCanGet+"\n";
 			foreach(indices(this_object()->targets),object who)	
@@ -1016,6 +1065,7 @@ void fight_die_single(object env)
 			//用于掉装保护 2007-0302 by calvin
 			ob_shi->item_whoCanGet = first->query_name();
 			ob_shi->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_shi,first->query_name());
 			t += "掉落了 "+ob_shi->query_short()+" ！\n";	
 			//t += "物品掉落标示="+ob->item_whoCanGet+"\n";
 			foreach(indices(this_object()->targets),object who)	
@@ -1027,6 +1077,7 @@ void fight_die_single(object env)
 			string t = "";
 			ob_hidden->item_whoCanGet = first->query_name();
 			ob_hidden->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_hidden,first->query_name());
 			t += "天地异象，失落传承现世："+
 				ob_hidden->query_short()+" ！\n";
 			log_hidden_skill_drop(
@@ -1043,6 +1094,7 @@ void fight_die_single(object env)
 			//用于掉装保护 2007-0302 by calvin
 			ob_spec->item_whoCanGet = first->query_name();
 			ob_spec->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_spec,first->query_name());
 			t += "掉落了 "+ob_spec->query_short()+" ！\n";
 			//t += "物品掉落标示="+ob_spec->item_whoCanGet+"\n";
 			foreach(indices(this_object()->targets),object who)	
@@ -1054,6 +1106,7 @@ void fight_die_single(object env)
 			string t = "";
 			ob_holiday_spec->item_whoCanGet = first->query_name();
 			ob_holiday_spec->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_holiday_spec,first->query_name());
 			t += "掉落了 "+ob_holiday_spec->query_short()+" ！\n";
 			foreach(indices(this_object()->targets),object who)	
 				tell_object(who,t);

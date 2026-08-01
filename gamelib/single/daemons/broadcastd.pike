@@ -44,6 +44,7 @@ inherit LOW_DAEMON;
 private array(array(string)) all_bc_msgs=({});           //存储需要显示的消息列表
 private mapping(string:string) word_map=([]);     //敏感词汇列表
 private string bc_msg = "";                       //当前应该显示的消息
+private string bc_user_id = "";                   //当前消息发布者，用于逻辑区隔离
 private int bc_flag =0;                           //当前是否有尚未显示的消息
 private int bc_count =0;                          //当前消息在队列中的序号
 private int bc_timespace = 30;                     //消息显示间隔时间（单位：秒）
@@ -188,6 +189,7 @@ void bcSwitch()
 		werror("=====all_tmp[7] ="+ all_tmp[7]+"===========\n");
 		werror("=====all_tmp[8] ="+ all_tmp[8]+"===========\n\n\n\n\n\n\n");
 	*/	bc_msg = all_tmp[9]+all_tmp[5]+"说:"+all_tmp[7];//将bc_show替换为最新的信息,同时加上玩家称谓和中文名 *修改 by caijie*
+		bc_user_id = all_tmp[4];
 		bc_count++;//计数器累加
 		all_tmp[2] = MUD_TIMESD->get_mysql_timedesc();//设置该消息的展示时间
 		all_tmp[8] = "1"; //将显示标志位设置为1，即 已经显示过
@@ -221,6 +223,7 @@ void bcClean()
 	}
 	else{
 		bc_msg = "";
+		bc_user_id = "";
 		bc_flag = 0;//改变bcSwitch方法的标志位
 	}
 }
@@ -229,9 +232,10 @@ void bcClean()
 /*
    方法描述：得到bc_msg中的信息，用于页面显示
  */
-string bcShow()
+string bcShow(void|string viewer_id)
 {
-	if(bc_msg)
+	if(bc_msg && (!viewer_id || viewer_id=="" || bc_user_id=="" ||
+	   LOGICALZONED->can_user_action("chat",viewer_id,bc_user_id)))
 		return bc_msg;
 	else
 		return "";

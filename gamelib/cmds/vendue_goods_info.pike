@@ -9,7 +9,8 @@ int main(string|zero arg)
 	sscanf(arg,"%d %d",sale_id,flag);
 	string s = "";
 
-	mapping(string:mixed) sale_info = AUCTIOND->query_sale_info(sale_id);
+	mapping(string:mixed) sale_info = AUCTIOND->query_sale_info(
+		sale_id,this_player()->query_name());
 
 	if(!sizeof(sale_info))
 		s += "真不凑巧，此物品刚刚已经拍卖出去，或者已经到期了，下次记得动作迅速点\n";

@@ -926,7 +926,7 @@ object|zero query_gather_source(object me)
 	env = environment(me);
 	if(!env)
 		return 0;
-	all = all_inventory(env);
+	all = all_inventory(env,me);
 	foreach(all,object source){
 		string source_type;
 		string skill_name;
@@ -2081,7 +2081,8 @@ int query_visible_monster_count(object me)
 	count = 0;
 	foreach(all,object ob){
 		if(ob != me && ob->is("character") && ob->is("npc") &&
-		   ob->hind == 0 && ob->get_cur_life() > 0)
+		   ob->hind == 0 && ob->get_cur_life() > 0 &&
+		   LOGICALZONED->can_action("combat",me,ob))
 			count++;
 	}
 	return count;
@@ -2111,6 +2112,8 @@ private int is_valid_target(object me, object ob)
 	   npc_type == "city_lord")
 		return 0;
 	if(functionp(ob->can_be_attacked) && !ob->can_be_attacked(me))
+		return 0;
+	if(!LOGICALZONED->can_action("combat",me,ob))
 		return 0;
 	me_race = me->query_raceId();
 	npc_race = ob->query_raceId();
@@ -2193,7 +2196,7 @@ object|zero query_loot_item(object me)
 	env = environment(me);
 	if(!env)
 		return 0;
-	all = all_inventory(env);
+	all = all_inventory(env,me);
 	foreach(all,object ob){
 		if(can_loot_item(me,ob))
 			return ob;

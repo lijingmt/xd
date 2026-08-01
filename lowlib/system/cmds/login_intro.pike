@@ -1,5 +1,6 @@
 #include <command.h>
 #include <globals.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
 	string path,user_name,args,userip;
@@ -13,6 +14,11 @@ int main(string arg)
 			title += "登陆过期\n";
 			title += "您的游客登陆已经过期，请返回首页注册帐号。\n";
 			title += "[url 注册帐号:http://"+REG_URL+"]\n";
+			write(title);
+			return 1;
+		}
+		if(!LOGICALZONED->login_allowed(user_name)){
+			title += "该逻辑区尚未开放或正在维护。\n";
 			write(title);
 			return 1;
 		}

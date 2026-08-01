@@ -42,7 +42,8 @@ void taunt_enemies(){
 	array(object) enemies = ({});
 	foreach(all_inventory(env), object ob){
 		if(ob && (ob->is("player") || ob->is("npc")) &&
-		   ob->query_in_combat() && ob != this_object()){
+		   ob->query_in_combat() && ob != this_object() &&
+		   LOGICALZONED->can_action("combat",master,ob)){
 			if(ob->query_enemy() == master || ob->if_in_targets(master)){
 				enemies += ({ob});
 			}

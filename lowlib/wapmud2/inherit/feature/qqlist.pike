@@ -4,6 +4,14 @@ mapping(string:string) groupList=([]);//所有分组信息
 #define NAME 0
 #define NAME_CN 1
 #define GROUP 2
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+
+int qqlist_zone_visible(string user_id)
+{
+	return LOGICALZONED->can_user_interact(
+		this_object()->query_name(),user_id);
+}
+
 string view_user_list(){
 	string data="";
 	array list;
@@ -11,6 +19,8 @@ string view_user_list(){
 	int count = sizeof(users());
 	//data+="在线用户 "+count+" \n";
 	for (list = users(1), j = 0; j < sizeof(list); j++) {
+		if(!qqlist_zone_visible((string)list[j]->query_name()))
+			continue;
 		catch{
 			string gender=list[j]->query_gender();
 			string idle="";
@@ -36,6 +46,8 @@ string view_qqlist()
 		qqlist=({});
 	if(qqlist&&sizeof(qqlist)){
 		for(int i=0;i<sizeof(qqlist);i++){
+			if(!qqlist_zone_visible(qqlist[i][NAME]))
+				continue;
 			object ob=find_player(qqlist[i][NAME]);
 			//将不会列出分过组的用户
 			if(ob){
@@ -106,6 +118,8 @@ string view_qqlist_group(string group)
 	if(qqlist){
 		for(int i=0;i<sizeof(qqlist);i++){
 			if(qqlist[i][GROUP]==group){
+				if(!qqlist_zone_visible(qqlist[i][NAME]))
+					continue;
 				object ob=find_player(qqlist[i][NAME]);
 				if(ob){
 					qqlist[i][NAME_CN]=ob->name_cn;
@@ -167,6 +181,8 @@ string view_qqlist_admin_groups(string arg)
 			return "本组暂无可供选择的好友，请返回并选择添加或转移好友到该组。\n";
 		for(int i=0;i<sizeof(qqlist);i++){
 			if(qqlist[i][GROUP]==arg){
+				if(!qqlist_zone_visible(qqlist[i][NAME]))
+					continue;
 				object ob=find_player(qqlist[i][NAME]);
 				if(ob)
 					qqlist[i][NAME_CN]=ob->name_cn;

@@ -35,7 +35,8 @@ int main(string|zero arg)
 
 //开始获取排行信息
 	//werror("======== hahahah ==========\n");
-	array(mapping(string:mixed)) top_list = PAIHANGD->query_toplist(type);
+	array(mapping(string:mixed)) top_list = PAIHANGD->query_toplist(
+		type,this_player()->query_name());
 	if(top_list && sizeof(top_list)){
 		//werror("===== sizeof(top_list) = "+sizeof(top_list)+"========\n");
 		int listSize = sizeof(top_list);

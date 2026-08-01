@@ -20,6 +20,11 @@ int main(string|zero arg)
 			remove_flag=1;
 		}
 		if(ob){
+			if(!LOGICALZONED->can_action("mail",me,ob)){
+				if(remove_flag) ob->remove();
+				write("逻辑分区隔离中，无法给该玩家发送信件。\n[返回:qqlist]\n");
+				return 1;
+			}
 			//s += "[确定:mail_send_confirm "+me->name+" "+me->name_cn+" "+to+" "+ob->name_cn+" "+subject+" "+body+"]\n";
 			ob->recieve_mail(send,send_cn,to,to_cn,subject,body);
 			if(remove_flag) ob->remove();

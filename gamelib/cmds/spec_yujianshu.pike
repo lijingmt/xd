@@ -35,7 +35,9 @@ int main(string|zero arg)
 				map_term = (mapping)TERMD->query_term_m(me->query_term());
 				if(map_term&&sizeof(map_term)){
 					foreach(indices(map_term),string uid){
-						object termer = find_player(uid);
+						object|zero termer = find_player(uid);
+						if(termer && !LOGICALZONED->can_interact(me,termer))
+							termer = 0;
 						if(termer && termer->query_name() != me->query_name()){
 							object env = environment(termer);
 							s += "["+termer->query_name_cn()+":spec_yujian_to "+uid+"]("+env->query_name_cn()+")\n";

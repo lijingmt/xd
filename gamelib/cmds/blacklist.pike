@@ -22,6 +22,8 @@ int main(string|zero arg)
 				return 1;
 			}
 			ob = find_player(name);
+			if(ob && !LOGICALZONED->can_interact(me,ob))
+				ob = 0;
 			if(ob){
 				if(flag == "add"){
 					if(!sig){
@@ -73,6 +75,8 @@ string query_temp_list(object me)
 	if(me["/tmp/blacklist"]){
 		list = indices(me["/tmp/blacklist"]);		
 		foreach(list,tmp){
+			if(!LOGICALZONED->can_user_interact(me->query_name(),tmp))
+				continue;
 			if(me["/tmp/blacklist/"+tmp])
 				s +=me["/tmp/blacklist/"+tmp]+"[解除临时屏蔽:blacklist "+tmp+" -del 0] [加入永久屏蔽列表:blacklist "+tmp+" -add 1]\n";
 		}
@@ -86,6 +90,8 @@ string query_forever_list(object me)
 	if(me["/plus/blacklist"]){
 		list = indices(me["/plus/blacklist"]);		
 		foreach(list,tmp){
+			if(!LOGICALZONED->can_user_interact(me->query_name(),tmp))
+				continue;
 			if(me["/plus/blacklist/"+tmp])
 				s +=me["/plus/blacklist/"+tmp]+"[解除永久屏蔽:blacklist "+tmp+" -del 1]\n";
 		}

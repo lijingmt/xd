@@ -9,7 +9,10 @@ int main(string|zero arg)
 	if(me->if_in_home())
 		HOMED->clear_user(me);
 	//开始进入自己的家园
-	object room = HOMED->query_home_by_path(arg);
+	object|zero room = HOMED->query_home_by_path(arg);
+	if(room && !LOGICALZONED->can_user_action("home",
+	   me->query_name(),room->query_masterId()))
+		room = 0;
 	if(room){
 		me->set_inhome_pos(room->query_masterId());
 		me->move(room);

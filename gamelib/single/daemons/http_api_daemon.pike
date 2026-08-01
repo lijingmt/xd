@@ -296,7 +296,7 @@ string get_target_info(object player, string target_name)
         return "你处于虚空中。\n[返回:look]";
     }
 
-    array inv = all_inventory(room);
+    array inv = all_inventory(room,player);
     foreach(inv, object ob) {
         if(ob == player) continue;
         string ob_name = functionp(ob->query_name) ? ob->query_name() : "";
@@ -396,7 +396,7 @@ string get_room_info(object player)
         }
     }
 
-    array inv = all_inventory(room);
+    array inv = all_inventory(room,player);
     if(sizeof(inv) > 1) {
         output += "\n\n";
         foreach(inv, object ob) {
@@ -428,6 +428,8 @@ string get_room_info(object player)
  */
 string execute_command(string userid, string password, string cmd)
 {
+    if(!LOGICALZONED->login_allowed(userid))
+        return "{\"error\":\"该逻辑区尚未开放或正在维护\"}";
     // 使用线程管理器路由执行
     return route_and_execute(userid, password, cmd);
 }
@@ -873,7 +875,11 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             string error_msg = "";  // 详细错误信息
 
             // 验证实际用户名长度（不含分区前缀）
-            if(sizeof(actual_user) < 2) {
+            if(!LOGICALZONED->registration_allowed(game_fg)) {
+                http_werror(" VALIDATION FAILED: logical zone is not open: %s\n",game_fg);
+                result = "error2";
+                error_msg = "该区尚未开放注册或正在维护";
+            } else if(sizeof(actual_user) < 2) {
                 http_werror(" VALIDATION FAILED: actual_user_len=%d (need >=2)\n", sizeof(actual_user));
                 result = "error2";
                 error_msg = "用户名过短，最少2个字符";
@@ -1903,32 +1909,10 @@ string process_color_codes(string text)
 
 void handle_api_partitions(Protocols.HTTP.Server.Request req)
 {
-    string area = getenv("GAME_AREA");
-    if(!area || area == "") area = "01";
-    if(search(area, "xd") == 0) area = area[2..];
-
-    int start_area, end_area;
-    if(search(area, "-") > 0) {
-        array(string) parts = area / "-";
-        start_area = (int)parts[0];
-        end_area = (int)parts[1];
-    } else {
-        start_area = (int)area;
-        end_area = start_area;
-    }
-
-    array(mapping) partitions = ({});
-    for(int i = start_area; i <= end_area; i++) {
-        string zone_num = sprintf("%02d", i);
-        partitions += ({([
-            "value": "xd" + zone_num,
-            "label": "原" + i + "区"
-        ])});
-    }
-
     send_json(req, ([
-        "partitions": partitions,
-        "game_area": getenv("GAME_AREA") || "01"
+        "partitions": LOGICALZONED->query_public_partitions(),
+        "game_area": getenv("GAME_AREA") || "01",
+        "logical_zones": LOGICALZONED->query_public_status()
     ]));
 }
 
@@ -2003,11 +1987,12 @@ object|zero query_battle_enemy(object player)
     object|zero enemy_obj = 0;
     if(functionp(player->query_enemy)) {
         enemy_obj = player->query_enemy();
-        if(enemy_obj && environment(enemy_obj) == room)
+        if(enemy_obj && environment(enemy_obj) == room &&
+           LOGICALZONED->can_action("combat",player,enemy_obj))
             return enemy_obj;
     }
 
-    array inv = all_inventory(room);
+    array inv = all_inventory(room,player);
     foreach(inv, object ob) {
         if(ob == player)
             continue;
@@ -2894,7 +2879,7 @@ mapping query_room_info(object player)
         result["room"]["desc"] = room->query_long();
     }
 
-    array inv = all_inventory(room);
+    array inv = all_inventory(room,player);
     foreach(inv, object ob) {
         if(ob != player && functionp(ob->query_short)) {
             string name = ob->query_short();

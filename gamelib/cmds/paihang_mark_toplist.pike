@@ -6,7 +6,8 @@ int main(string|zero arg)
 	string s = "";
 	object me=this_player();
 	s += "综合实力排行榜：\n";
-	array(mapping(string:mixed)) top_list = PAIHANGD->query_mark_toplist();
+	array(mapping(string:mixed)) top_list = PAIHANGD->query_mark_toplist(
+		me->query_name());
 	if(top_list && sizeof(top_list)){
 		for(int i=0;i<sizeof(top_list);i++){
 			string id = top_list[i]["id"];

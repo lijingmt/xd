@@ -12,6 +12,11 @@ data_xiand/
 *.s
 *.o
 
+# 逻辑区是运行时热配置，只通过宿主持久化目录挂载。
+# 镜像只保留 README.md 和 zone.conf.example，避免把某台机器的
+# xdNN.conf 随镜像发布到其他服务器。
+gamelib/etc/logical_zones/xd*.conf
+
 # 游戏物品数据（通过卷映射，不打包到镜像）
 gamelib/clone/item/
 

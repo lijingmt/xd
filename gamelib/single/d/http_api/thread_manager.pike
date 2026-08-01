@@ -99,12 +99,15 @@ constant CORE_COMMANDS = ({
     "relation",
 
     // ========== 其他 ==========
-    "quit", "save"
+	"tell", "game_deal", "txadd", "quit", "save"
 });
 
 /** 共享系统命令前缀 - 新增子命令也必须进入全局核心锁 */
 constant CORE_COMMAND_PREFIXES = ({
-    "vendue_", "temai_", "term_", "fb_", "viceskill_"
+	"vendue_", "temai_", "term_", "fb_", "viceskill_",
+	// 跨玩家/跨档案写入必须与核心世界状态串行，不能只依赖单账号锁。
+	"bang_", "mail_", "mailbox_", "present_", "sendother",
+	"home_", "trade_", "follow_", "spy_", "spec_", "mgr_", "wiz_"
 });
 
 /** 普通命令并行上限；超载请求短暂排队后快速失败，避免无限创建线程。 */

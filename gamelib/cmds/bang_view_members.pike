@@ -14,12 +14,16 @@ int main(string|zero arg)
 	if(!me->bangid){
 		s = "你未加入任何帮派\n";
 	}
+	else if(!BANGD->bang_allows_user(me->bangid,me->query_name())){
+		s = "该帮派当前属于其他逻辑区，隔离期间不可管理。\n";
+	}
 	else{
 		string bang_name = BANGD->query_bang_name(me->bangid);
 		s += "<"+bang_name+">:";
 		s += BANGD->query_level_cn(me->query_name(),me->bangid)+"\n";
 		level = BANGD->query_level(me->query_name(),me->bangid);
-		s += BANGD->query_nums(me->bangid,"online")+"在线/"+BANGD->query_nums(me->bangid,"all")+"人\n";
+		s += BANGD->query_nums(me->bangid,"online",me->query_name())+
+			"在线/"+BANGD->query_nums(me->bangid,"all",me->query_name())+"人\n";
 		//提升
 		if(flag == 1){
 			int rmflag = 0;

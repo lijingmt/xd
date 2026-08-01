@@ -46,6 +46,31 @@ DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 DOCKERFILE="$PROJECT_ROOT/docker/Dockerfile.all"
 VUE_BUILD_SCRIPT="$PROJECT_ROOT/scripts/build/build_vue_frontend.sh"
 
+# 这些文件必须随统一镜像发布；真实 xdNN.conf 则只能从宿主机挂载。
+LOGICAL_ZONE_IMAGE_FILES=(
+    "gamelib/single/daemons/logical_zoned.pike"
+    "gamelib/single/daemons/_logical_zone_mod/config.pike"
+    "gamelib/single/daemons/_logical_zone_mod/identity.pike"
+    "gamelib/single/daemons/_logical_zone_mod/config_loader.pike"
+    "gamelib/single/daemons/_logical_zone_mod/policy.pike"
+    "gamelib/single/daemons/_logical_zone_mod/capabilities.pike"
+    "gamelib/single/daemons/_logical_zone_mod/management.pike"
+    "gamelib/single/daemons/_logical_zone_mod/reconciliation.pike"
+    "gamelib/single/daemons/_home_mod/logical_zone.pike"
+    "gamelib/single/daemons/_home_mod/persistence.pike"
+    "gamelib/cmds/mgr_logical_zone.pike"
+    "gamelib/etc/logical_zones/zone.conf.example"
+    "scripts/logical-zone-admin.sh"
+)
+
+# 首次部署由 restart-docker.sh 复制到宿主持久化目录；它们不是 daemon
+# 直接读取的运行时路径，因此可以安全随发布包保存。
+LOGICAL_ZONE_DEPLOY_FILES=(
+    "deploy/logical_zones/xd01.conf"
+    "deploy/logical_zones/xd02.conf"
+    "deploy/logical_zones/xd03.conf"
+)
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -89,6 +114,57 @@ check_commands() {
             exit 1
         fi
     done
+}
+
+# 镜像构建前检查分区源码和 Docker 忽略规则，避免产出“能启动但不能分区”的镜像。
+validate_logical_zone_build_context() {
+    local relative_path
+
+    for relative_path in "${LOGICAL_ZONE_IMAGE_FILES[@]}"; do
+        if [ ! -s "$PROJECT_ROOT/$relative_path" ]; then
+            print_error "逻辑区构建文件缺失：$relative_path"
+            exit 1
+        fi
+    done
+
+    for relative_path in "${LOGICAL_ZONE_DEPLOY_FILES[@]}"; do
+        if [ ! -s "$PROJECT_ROOT/$relative_path" ]; then
+            print_error "逻辑区首装种子配置缺失：$relative_path"
+            exit 1
+        fi
+    done
+
+    if ! grep -Fxq 'gamelib/etc/logical_zones/xd*.conf' \
+        "$PROJECT_ROOT/.dockerignore"; then
+        print_error ".dockerignore 未排除逻辑区运行时配置 xd*.conf"
+        exit 1
+    fi
+    print_success "逻辑区镜像构建上下文校验通过"
+}
+
+# 构建后从镜像内部反向验证：源码和模板必须存在，真实区服配置不得被烘焙进去。
+verify_logical_zone_image() {
+    local relative_path
+    local image_path
+    local verify_command="set -e;"
+
+    for relative_path in "${LOGICAL_ZONE_IMAGE_FILES[@]}"; do
+        image_path="/app/xiand/$relative_path"
+        verify_command+=" test -s '$image_path';"
+    done
+    for relative_path in "${LOGICAL_ZONE_DEPLOY_FILES[@]}"; do
+        image_path="/app/xiand/$relative_path"
+        verify_command+=" test -s '$image_path';"
+    done
+    verify_command+=" test -s /app/xiand-bootstrap/etc/logical_zones/zone.conf.example;"
+    verify_command+=" if find /app/xiand/gamelib/etc/logical_zones -maxdepth 1 -type f -name 'xd*.conf' | grep -q .; then exit 42; fi"
+
+    if ! docker run --rm --entrypoint /bin/bash xiand-all:latest \
+        -lc "$verify_command"; then
+        print_error "统一镜像的逻辑区文件校验失败，禁止推送"
+        exit 1
+    fi
+    print_success "统一镜像已包含逻辑区代码且未夹带运行时配置"
 }
 
 # 函数：从 Docker 配置获取用户名
@@ -146,6 +222,7 @@ build_image() {
         print_error "统一 Docker 镜像构建失败"
         exit 1
     fi
+    verify_logical_zone_image
 }
 
 # 函数：推送镜像到 Docker Hub
@@ -268,6 +345,8 @@ main() {
         exit 1
     fi
 
+    validate_logical_zone_build_context
+
     print_info "项目根目录：$PROJECT_ROOT"
     echo ""
 
@@ -303,5 +382,7 @@ main() {
     echo ""
 }
 
-# 执行主函数
-main "$@"
+# 执行主函数；被验证脚本 source 时只加载函数，不触发构建和推送。
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    main "$@"
+fi

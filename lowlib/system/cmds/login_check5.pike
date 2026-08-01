@@ -1,4 +1,5 @@
 #include <globals.h>
+#include <gamelib/include/gamelib.h>
 
 // write by zpc 20070706
 
@@ -7,6 +8,10 @@ int main(string arg)
 	string path,user_name,lgpswd,userip;
 	string title = "";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
+		if(!LOGICALZONED->login_allowed(user_name)){
+			write("error2");
+			return 1;
+		}
 		string user=Stdio.read_file(DATA_ROOT+"u/"+user_name[sizeof(user_name)-2..]+"/"+user_name+".o");
 		if(!user){
 			object me = find_player(user_name);

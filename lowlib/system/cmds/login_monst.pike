@@ -1,4 +1,5 @@
 #include <globals.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
 	string path,user_name,lgpswd,userip;
@@ -29,6 +30,13 @@ int main(string arg)
 				write(title);
 				return 1;
 			}
+		}
+		if(!LOGICALZONED->login_allowed(user_name)){
+			title += "登录错误！\n";
+			title += "该逻辑区尚未开放或正在维护，请稍后再试。\n";
+			title += "[url 返回:http://"+INDEX_URL+"]\n";
+			write(title);
+			return 1;
 		}
 		string user=Stdio.read_file(DATA_ROOT+"u/"+user_name[sizeof(user_name)-2..]+"/"+user_name+".o");
 		if(!user){

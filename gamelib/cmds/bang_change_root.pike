@@ -8,6 +8,9 @@ int main(string|zero arg)
 	if(!me->bangid){
 		s = "你未加入任何帮派\n";
 	}
+	else if(!BANGD->bang_allows_user(me->bangid,me->query_name())){
+		s = "该帮派当前属于其他逻辑区，隔离期间不可管理。\n";
+	}
 	else{
 		string bang_name = BANGD->query_bang_name(me->bangid);
 		s += "<"+bang_name+">:";

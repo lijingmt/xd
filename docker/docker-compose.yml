@@ -34,6 +34,8 @@ services:
       # 容器内 /app/xiand/data_xiand -> 宿主机 /usr/local/games/allxd/{GAME_AREA}/data_xiand
       # 所有分区共用同一套只读逻辑物品；默认与 restart-docker.sh 的同步目录一致。
       - /usr/local/games/allxd/${GAME_AREA:-xd01}/data_xiand:/app/xiand/data_xiand
+      # 逻辑区配置与其他 etc 数据必须跨镜像、跨容器重建持久化。
+      - /usr/local/games/allxd/${GAME_AREA:-xd01}/etc:/app/xiand/gamelib/etc
       - ${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}:/app/xiand/gamelib/clone/item
       # 日志输出 - 映射到 allxd/log 目录
       - /usr/local/games/allxd/log/${GAME_AREA:-xd01}:/app/xiand/log
@@ -54,6 +56,7 @@ services:
       - DEBUG=0
       # 游戏区号和日志配置
       - GAME_AREA=${GAME_AREA:-xd01}
+      - GAME_AREAS=${GAME_AREAS:-xd01,xd02,xd03,xd04,xd05}
       # Tomcat 配置
       - TOMCAT_HTTP_PORT=8080
       - TOMCAT_HTTPS_PORT=8443

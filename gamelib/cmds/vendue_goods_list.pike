@@ -22,7 +22,8 @@ int main(string|zero arg)
 		sscanf(goods_tmp,"gd=%s",tmp);
 		goods_name_cn = tmp;
 	}
-	array(mapping(string:mixed)) sale_info = AUCTIOND->query_sale_infos(goods_name_cn,goods_type,orderType);
+	array(mapping(string:mixed)) sale_info = AUCTIOND->query_sale_infos(
+		goods_name_cn,goods_type,orderType,this_player()->query_name());
 
 	if(flag)
 		goods_name_cn = goods_tmp;

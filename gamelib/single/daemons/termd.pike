@@ -16,6 +16,7 @@
 #include <wapmud2/include/wapmud2.h>
 #define TERM_NUM 5 //队伍上限5人,以后有可能有不同人数的选择
 #define TERM_INVITE_TIMEOUT 120
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 inherit LOW_DAEMON;
 /********************************************************************** 
  队伍内存结构:每创建一个队伍，增加一个临时队伍id，对应id，放置
@@ -48,16 +49,19 @@ void add_termItems(string termid,object item)
 void delete_termItems(string termid,int index)
 {
 	//flush_term(termid);
-	if(termMain[termid]&&sizeof(termMain[termid])){
+	if(termMain[termid]&&sizeof(termMain[termid]) && termItems[termid] &&
+	   index>=0 && index<sizeof(termItems[termid])){
 		termItems[termid] -= ({termItems[termid][index]});
 	}
-	if(sizeof(termItems[termid])==0)
+	if(termItems[termid] && sizeof(termItems[termid])==0)
 		m_delete(termItems,termid);
 }
 //查看仓库里物品时调用
-string query_termItems(string tid,int flag)
+string query_termItems(string tid,int flag,void|string viewer_id)
 {
 	string s_rtn = "";
+	if(viewer_id && !can_read_term(tid,viewer_id))
+		return "队伍仓库不可用。\n";
 	//flush_term(tid);
 	if(termMain[tid]&&sizeof(termMain[tid])){
 		array(object) tmp = termItems[tid];
@@ -85,9 +89,11 @@ int if_have_assigned(string tid,string s_file,int fg,int index)
 	if(termMain[tid]&&sizeof(termMain[tid])){
 		array(object) tmp = termItems[tid];
 		if(tmp && sizeof(tmp)){
-			if(index > sizeof(tmp))
+			if(index<0 || index>=sizeof(tmp))
 				return 1;
 			array(string)tmp_str = file_name(tmp[index])/"#";
+			if(sizeof(tmp_str)<2)
+				return 1;
 			if(s_file == tmp_str[0] && fg == (int)tmp_str[1])
 				return 0;
 		}
@@ -96,13 +102,19 @@ int if_have_assigned(string tid,string s_file,int fg,int index)
 }
 
 //分配仓库物品时列出队友列表
-string query_termers_for_assign(string tid,string s_file,int fg,int index)
+string query_termers_for_assign(string tid,string s_file,int fg,int index,
+	void|string viewer_id)
 {
 	string s_rtn = "";
+	if(viewer_id && !can_read_term(tid,viewer_id))
+		return s_rtn;
 	flush_term(tid);
 	if(termMain[tid]&&sizeof(termMain[tid])){
 		//([队伍临时id:([队员id:({队员中文名字,队员权限,队员职业,队员等级,})]),])
 		foreach(indices(termMain[tid]), string uid){
+			if(viewer_id &&
+			   !LOGICALZONED->can_user_interact(viewer_id,uid))
+				continue;
 			object ob = find_player(uid);
 			if(ob){
 				s_rtn += "["+ob->query_name_cn()+":fb_assign_confirm "+ob->query_name()+" "+tid+" "+s_file+" "+fg+" "+index+"]("+ob->query_level()+"级"+ob->query_profe_cn(ob->query_profeId())+")\n";
@@ -113,12 +125,18 @@ string query_termers_for_assign(string tid,string s_file,int fg,int index)
 }
 //分配帮战特殊物品的接口
 //由liaocheng于07/09/03添加
-string query_termers_for_assign_bz(string tid,string s_file,int fg,int index)
+string query_termers_for_assign_bz(string tid,string s_file,int fg,int index,
+	void|string viewer_id)
 {
 	string s_rtn = "";
+	if(viewer_id && !can_read_term(tid,viewer_id))
+		return s_rtn;
 	if(termMain[tid]&&sizeof(termMain[tid])){
 		//([队伍临时id:([队员id:({队员中文名字,队员权限,队员职业,队员等级,})]),])
 		foreach(indices(termMain[tid]), string uid){
+			if(viewer_id &&
+			   !LOGICALZONED->can_user_interact(viewer_id,uid))
+				continue;
 			object ob = find_player(uid);
 			if(ob){
 				if(ob->bangid == BANGZHAND->query_top_bang(1))
@@ -152,6 +170,10 @@ int create_term_invite(string inviter_uid,string target_uid)
 	target = find_player(target_uid);
 	if(!inviter || !target)
 		return 0;
+	if(!LOGICALZONED->can_user_interact(inviter_uid,target_uid)){
+		tell_object(inviter,"逻辑分区隔离中，不能邀请该玩家组队。\n");
+		return 0;
+	}
 	if(target->query_term()!="" && target->query_term()!="noterm"){
 		if(query_termId(target->query_term()))
 			return 2;
@@ -178,6 +200,7 @@ mapping query_term_invite(string target_uid)
 	inviter = find_player((string)invite[0]);
 	target = find_player(target_uid);
 	if(!inviter || !target ||
+	   !LOGICALZONED->can_user_interact(target_uid,(string)invite[0]) ||
 	   (target->query_term()!="" && target->query_term()!="noterm")){
 		m_delete(termInvites,target_uid);
 		return result;
@@ -332,8 +355,28 @@ int query_termId(string tid){
 //----------队伍聊天操作------------
 //返回队伍聊天信息列表，加上聊天指令
 //private protected mapping(string:array(string)) termChat=([]);
-string query_termChat(string tid){
+private string query_term_anchor(string tid)
+{
+	if(!tid || !termMain[tid] || !sizeof(termMain[tid]))
+		return "";
+	foreach(indices(termMain[tid]),string uid)
+		if(termMain[tid][uid] && sizeof(termMain[tid][uid])>1 &&
+		   termMain[tid][uid][1]=="leader")
+			return uid;
+	return indices(termMain[tid])[0];
+}
+
+private int can_read_term(string tid,string viewer_id)
+{
+	string anchor = query_term_anchor(tid);
+	return anchor!="" && viewer_id && termMain[tid][viewer_id] &&
+		LOGICALZONED->can_user_interact(anchor,viewer_id);
+}
+
+string query_termChat(string tid,void|string viewer_id){
 	string results = "";
+	if(viewer_id && !can_read_term(tid,viewer_id))
+		return "队伍信息暂无。\n";
 	if(tid&&sizeof(tid)){
 		if(termChat&&sizeof(termChat)){
 			array(string) tmp = ({});
@@ -363,8 +406,10 @@ string query_termChat(string tid){
 }
 
 //ui上调用的队伍聊天接口
-string query_termChat_ui(string tid){
+string query_termChat_ui(string tid,void|string viewer_id){
 	string results = "";
+	if(viewer_id && !can_read_term(tid,viewer_id))
+		return "队伍信息暂无。\n";
 	if(tid&&sizeof(tid)){
 		if(termChat&&sizeof(termChat)){
 			array(string) tmp = ({});
@@ -407,12 +452,13 @@ string query_termChat_ui(string tid){
 //更新队伍聊天信息列表
 //private protected mapping(string:array(string)) termChat=([]);
 //注意，传来的msg信息中已经带了发言者中文名，这里就不用加了
-int add_termChat(string tid,string msg)
+int add_termChat(string tid,string msg,void|string sender_id)
 {
 	//string now=ctime(time());
 	//Stdio.append_file(ROOT+"/txonline/bangpai.log",now[0..sizeof(now)-2]+":["+tid+"]["+uid+"]:\n"+msg+"\n");
 	int flag = 1;
-	if(tid&&sizeof(tid)&&msg&&sizeof(msg)){
+	if(tid&&sizeof(tid)&&msg&&sizeof(msg) &&
+	   (!sender_id || can_read_term(tid,sender_id))){
 		array tmparr;
 		if(termChat&&sizeof(termChat))
 			tmparr = termChat[tid];
@@ -460,6 +506,8 @@ int add_termChat(string tid,string msg)
 int update_termLeader(string tid, string olduid, string lname, string lname_cn)
 {
 	int flag = 0;
+	if(!LOGICALZONED->can_user_interact(olduid,lname))
+		return 0;
 	if(tid&&sizeof(tid)&&olduid&&sizeof(olduid)&&lname&&sizeof(lname)&&lname_cn&&sizeof(lname_cn)){
 		//更新队列内存文件
 		if(termMain[tid]&&sizeof(termMain[tid])){//判断队列是否存在内存中
@@ -511,6 +559,10 @@ string query_termPower(string tid,string uid){
 int add_termer(string tid, string uid, string uname){
 	if(tid&&sizeof(tid)&&uid&&sizeof(uid)&&uname&&sizeof(uname)){
 		if(termMain[tid]&&sizeof(termMain[tid])){
+			array(string) current_members = indices(termMain[tid]);
+			if(!sizeof(current_members) ||
+			   !LOGICALZONED->can_user_interact(current_members[0],uid))
+				return 4;//逻辑分区不同，拒绝伪造或过期的入队请求
 			if(sizeof(termMain[tid])>=TERM_NUM)
 				return 2;//队伍人数已经5人，无法添加新队员
 			else{
@@ -560,6 +612,8 @@ string query_termList(string tid,string userid){//这里传回调用者id，判�
 			}
 			//调用者是队长或者队员，返回不同带功能连接
 			foreach(indices(termMain[tid]), string uid){
+				if(!LOGICALZONED->can_user_interact(userid,uid))
+					continue;
 				count++;
 				object ob = find_player(uid);
 				if(ob){
@@ -746,12 +800,67 @@ void flush_term(string tid){
 		}
 	}
 }
+
+// 配置热切换后清理旧邀请和跨逻辑区队伍，避免在线合区/拆区遗留引用。
+void enforce_zone_isolation()
+{
+	array(string) invite_targets = indices(termInvites);
+	array(string) team_ids = indices(termMain);
+	int i;
+	for(i=0;i<sizeof(invite_targets);i++){
+		string target_uid = invite_targets[i];
+		array(mixed) invite = termInvites[target_uid];
+		if(!invite || sizeof(invite)<1 ||
+		   !LOGICALZONED->can_user_interact(target_uid,(string)invite[0]))
+			m_delete(termInvites,target_uid);
+	}
+	for(i=0;i<sizeof(team_ids);i++){
+		string tid = team_ids[i];
+		array(string) members;
+		string anchor = "";
+		int j;
+		if(!termMain[tid] || !sizeof(termMain[tid]))
+			continue;
+		members = indices(termMain[tid]);
+		for(j=0;j<sizeof(members);j++){
+			if(termMain[tid][members[j]] &&
+			   sizeof(termMain[tid][members[j]])>1 &&
+			   termMain[tid][members[j]][1]=="leader"){
+				anchor = members[j];
+				break;
+			}
+		}
+		if(anchor=="" && sizeof(members))
+			anchor = members[0];
+		for(j=0;j<sizeof(members);j++){
+			object player;
+			if(LOGICALZONED->can_user_interact(anchor,members[j]))
+				continue;
+			player = find_player(members[j]);
+			if(player){
+				player->set_term("noterm");
+				tell_object(player,"逻辑分区配置已更新，你已安全离开跨区队伍。\n");
+			}
+			m_delete(termMain[tid],members[j]);
+			if(termChat[tid])
+				m_delete(termChat,tid);
+		}
+		if(!termMain[tid] || sizeof(termMain[tid])<=1)
+			term_free(tid);
+		else
+			flush_term(tid);
+	}
+}
 //给所有队伍中的人发一条即时信息
 //private protected mapping(string:mapping(string:array)) termMain=([]);
 void term_tell(string tid,string msg){
 	if(tid&&sizeof(tid)&&msg&&sizeof(msg)){
 		if(termMain[tid]&&sizeof(termMain[tid])){
+			string anchor = query_term_anchor(tid);
 			foreach(indices(termMain[tid]),string uid){
+				if(anchor!="" &&
+				   !LOGICALZONED->can_user_interact(anchor,uid))
+					continue;
 				object ob = find_player(uid);
 				if(ob)
 					tell_object(ob,msg);

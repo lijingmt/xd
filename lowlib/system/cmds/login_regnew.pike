@@ -24,6 +24,10 @@ int main(string arg)
 				return 1;
 			}
 		}
+		if(!LOGICALZONED->registration_allowed(game_fg)){
+			write("error2");
+			return 1;
+		}
 		string user_rtn = user_name;
 		user_name = game_fg+user_name;
 		string user=Stdio.read_file(DATA_ROOT+"u/"+user_name[sizeof(user_name)-2..]+"/"+user_name+".o");

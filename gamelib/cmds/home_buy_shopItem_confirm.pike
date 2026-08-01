@@ -15,15 +15,32 @@ int main(string|zero arg)
 	int shopId = 0;
 	int tradeResult = 0;
 	int timeDelay = 0;
-	string moneyPath = "";
+	int completed = 0;
+	mapping(string:mixed) offer;
+	object item;
 	sscanf(arg,"%s %d %d %d %d",masterId,price,priceFlag,shopId,timeDelay);
+	if(!LOGICALZONED->can_user_action("home",me->query_name(),masterId)){
+		write("逻辑分区隔离中，不能购买该商店的物品。\n[返回游戏:look]\n");
+		return 1;
+	}
+	offer = HOMED->query_shop_purchase_offer(masterId,shopId);
+	if(!(int)offer["ok"]){
+		write((string)offer["message"]+"\n[返回游戏:look]\n");
+		return 1;
+	}
+	price = (int)offer["price"];
+	priceFlag = (int)offer["price_flag"];
+	timeDelay = (int)offer["time_delay"];
+	item = HOMED->get_shop_item(masterId,shopId);
+	if(!item){
+		write("该摊位已经没有物品。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(priceFlag==1){
 		tradeResult = BUYD->do_trade(me,price,0,1);
-		moneyPath = "yushi/suiyu";
 	}
 	else{
 		tradeResult = BUYD->do_trade(me,0,price,1);
-		moneyPath = "money";
 	}
 	switch(tradeResult){
 		case 0:
@@ -36,23 +53,28 @@ int main(string|zero arg)
 			s += "您的背包已满，不能再装下其它的东西\n";
 			break;
 		case 3:
-			object item;
-			item = HOMED->get_shop_item(masterId,shopId);
-			if(item){
-				s += "您成功购买了"+item->query_name_cn()+"\n";
-				HOMED->change_flag(masterId,shopId,2);//改变标志位
-				if(item->is("combine_itme"))
-					me->move_player(me->query_name());
+			if(!HOMED->change_flag(masterId,shopId,2)){
+				if(priceFlag==1)
+					YUSHID->give_yushi(me,price);
 				else
-					item->move(me);
+					me->add_account(price);
+				destruct(item);
+				s += "该物品刚刚已被购买，款项已经退回。\n";
+				break;
 			}
+			s += "您成功购买了"+item->query_name_cn()+"\n";
+			completed = 1;
+			if(item->is("combine_item"))
+				item->move_player(me->query_name());
+			else
+				item->move(me);
 			//记录店主的交易金额，用于销量排行
 			price = (int)(price * (100-HOMED->get_tax(timeDelay))/100);
 			object master;
 			int remove_flag = 0;
 			master = find_player(masterId);
 			if(!master){
-				me->load_player(masterId);
+				master = me->load_player(masterId);
 				remove_flag = 1;
 			}
 			if(master){
@@ -65,6 +87,8 @@ int main(string|zero arg)
 			s += "系统犯晕了，请和管理员联系。\n";
 			break;
 	}
+	if(!completed && item)
+		destruct(item);
 	s += "\n\n";
 	s += "[返回游戏:look]\n";
 	write(s);

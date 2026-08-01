@@ -6,6 +6,7 @@
 #define MANAGERD ((object)(ROOT "/gamelib/single/daemons/managed"))
 #define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -150,7 +151,8 @@ int apply_team_guard_to_group(object caster,int shield,int duration)
 		return applied;
 	foreach(all_inventory(env),object member){
 		if(member==caster || !member->is("player") ||
-		   member->query_term()!=team_id || member->get_cur_life()<=0)
+		   member->query_term()!=team_id || member->get_cur_life()<=0 ||
+		   !LOGICALZONED->can_action("team",caster,member))
 			continue;
 		if(member->apply_team_guard(shield,duration)){
 			applied++;
@@ -1558,7 +1560,9 @@ void perform(string name,void|int flag){
 						if(env && team_id!="" && team_id!="noterm"){
 							foreach(all_inventory(env), object member){
 								if(member==this_object() || !member->is("player") ||
-								   member->query_term()!=team_id)
+								   member->query_term()!=team_id ||
+								   !LOGICALZONED->can_action(
+									"team",this_object(),member))
 									continue;
 
 								int member_life = member->get_cur_life();
@@ -2458,6 +2462,13 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 	}
 }
 private void heart_beat_action(){
+	// 配置热分区后必须在死亡结算和任何伤害前切断跨区旧目标。
+	if(enemy && !LOGICALZONED->can_action("combat",this_object(),enemy)){
+		if(this_object()->if_in_targets(enemy))
+			this_object()->clean_targets(enemy);
+		_clean_fight();
+		return;
+	}
 	//在这儿也添加死亡处理过程，是为了处理由于dot而死亡的情况，dot是在自己的心跳中减去自己的血，
 	//要是血减为零了，则表示自己死亡，但不能在自己的心跳中通过语句this_object()->fight_die()来处
 	//理死亡，这样后台会报错。因此只有在敌人每次心跳时检查自己的血量，然后敌人调用
@@ -2484,6 +2495,12 @@ private void heart_beat_action(){
 	enemy=this_object()->get_target(); //这句位置不对，要琢磨下
 	if(enemy==0){
 		//这个地方必须作处理，否则会出现在战斗状态下无法退出的问题。。。。
+		_clean_fight();
+		return;
+	}
+	else if(!LOGICALZONED->can_action("combat",this_object(),enemy)){
+		if(this_object()->if_in_targets(enemy))
+			this_object()->clean_targets(enemy);
 		_clean_fight();
 		return;
 	}
@@ -2690,6 +2707,11 @@ void set_action(string _action){
 }
 
 int _fight(object _enemy){
+	if(!_enemy || !LOGICALZONED->can_action("combat",this_object(),_enemy)){
+		if(this_object()->is("player"))
+			tell_object(this_object(),"逻辑分区隔离中，不能与该目标交战。\n");
+		return 0;
+	}
 	if(this_object()->hind == 1) 
 		this_object()->hind = 0;
 	if(this_object()->query_buff("spec",0) == "hind"){
@@ -2854,6 +2876,7 @@ int _fight(object _enemy){
 		set_heart_beat(1);
 		tmp_heart_beat=1;
 	}
+	return 1;
 }
 
 //由liaocheng于 07/1/30添加

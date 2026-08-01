@@ -18,6 +18,11 @@ int main(string|zero arg)
 			remove_flag=1;
 		}
 		if(ob){
+			if(!LOGICALZONED->can_interact(this_player(),ob)){
+				if(remove_flag) ob->remove();
+				write("逻辑分区隔离中，无法添加该玩家。\n[返回游戏:look]\n");
+				return 1;
+			}
 			if(ob->sid == "5dwap"){
 				this_player()->write_view(WAP_VIEWD["/qqlist_insert_guest_other"],ob);
 				return 1;

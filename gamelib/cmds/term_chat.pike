@@ -19,7 +19,7 @@ int main(string|zero arg)
 		}
 		else{
 			s += "[刷新:term_chat flush]\n[term_chat ...]\n";
-			s += TERMD->query_termChat(me->query_term());	
+			s += TERMD->query_termChat(me->query_term(),me->query_name());
 		}
 		s+="[返回:my_term]\n";
 		s+="[返回游戏:look]\n";
@@ -42,7 +42,7 @@ int main(string|zero arg)
 		else{
 			//更新聊天信息	
 			s += "[刷新:term_chat flush]\n[term_chat ...]\n";
-			s += TERMD->query_termChat(me->query_term());	
+			s += TERMD->query_termChat(me->query_term(),me->query_name());
 		}
 		s+="[返回:my_term]\n";
 		s+="[返回游戏:look]\n";
@@ -76,7 +76,7 @@ int main(string|zero arg)
 			else{
       			s += "请使用中文、英文字母或者数字。\n";
 				s += "[刷新:term_chat flush]\n[term_chat ...]\n";
-				s += TERMD->query_termChat(me->query_term());	
+				s += TERMD->query_termChat(me->query_term(),me->query_name());
 			}
 			s+="[返回:my_term]\n";
 			s+="[返回游戏:look]\n";
@@ -99,7 +99,7 @@ int main(string|zero arg)
 			else{
    				s += "聊天信息长度不能小于1个字符或者超过70个字符。\n";
 				s += "[刷新:term_chat flush]\n[term_chat ...]\n";
-				s += TERMD->query_termChat(me->query_term());	
+				s += TERMD->query_termChat(me->query_term(),me->query_name());
 			}
 			s+="[返回:my_term]\n";
 			s+="[返回游戏:look]\n";
@@ -125,16 +125,16 @@ int main(string|zero arg)
 			int hour = now_time["hour"];
 			int minute = now_time["min"];
 			arg =me->query_name_cn()+"："+arg;
-			if(TERMD->add_termChat(me->query_term(),arg)){
+			if(TERMD->add_termChat(me->query_term(),arg,me->query_name())){
 				s += "[刷新:term_chat flush]\n[term_chat ...]\n";
-				s += TERMD->query_termChat(me->query_term());	
+				s += TERMD->query_termChat(me->query_term(),me->query_name());
 				string now=ctime(time());
 				Stdio.append_file(ROOT+"/log/term_msg.log",now[0..sizeof(now)-2]+":"+me->name_cn+"("+me->name+"):"+arg+"\n");
 			}
 			else{
 				s += "信息发布失败，请返回重试！\n";
 				s += "[刷新:term_chat flush]\n[term_chat ...]\n";
-				s += TERMD->query_termChat(me->query_term());	
+				s += TERMD->query_termChat(me->query_term(),me->query_name());
 			}
 		}
 	}

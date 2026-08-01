@@ -5,11 +5,19 @@ int main(string|zero arg)
 {
 	object me = this_player();
 	string s = "";
+	if(!me->bangid || !BANGD->bang_allows_user(me->bangid,me->query_name())){
+		write("该帮派当前属于其他逻辑区，隔离期间不可管理。\n[返回:my_bang]\n");
+		return 1;
+	}
 	int level = 0;
 	if(!me->bangid){
 		s = "你未加入任何帮派\n";
 	}
 	else{
+		if(!LOGICALZONED->can_user_interact(me->query_name(),arg)){
+			write("该玩家不在你当前可见的逻辑分区。\n[返回:my_bang]\n");
+			return 1;
+		}
 		string bang_name = BANGD->query_bang_name(me->bangid);
 		s += "<"+bang_name+">：\n";
 		int be = BANGD->set_bang_root(me,arg);

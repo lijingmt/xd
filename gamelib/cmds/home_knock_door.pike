@@ -9,7 +9,10 @@ int main(string|zero arg)
 	string s = "";
 	object room = environment(me);
 	string master_name = room->masterId;
-	object master = find_player(master_name);
+	object|zero master = find_player(master_name);
+	if(master && !LOGICALZONED->can_user_action("home",
+	   me->query_name(),master_name))
+		master = 0;
 	string msg = "";
 	if(!arg){
 		if(!master){

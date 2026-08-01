@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 //arg = player_name ob_name ob_count
 int main(string arg)
 {
@@ -26,7 +27,7 @@ int main(string arg)
 		ob = present(ob_name,me,ob_count);
 	else if(player_name != ""){
 		player = find_player(player_name);
-		if(player){
+		if(player && LOGICALZONED->can_interact(me,player)){
 			ob = present(ob_name,player,ob_count);
 		}
 	}

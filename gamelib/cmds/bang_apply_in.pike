@@ -9,6 +9,10 @@ int main(string|zero arg)
 	string s = "";
 	string content = "";
 	sscanf(arg,"%d %d",bangid,flag);
+	if(!BANGD->bang_allows_user(bangid,me->query_name())){
+		write("逻辑分区隔离中，该帮派不在本区。\n[返回帮派列表:bang_search]\n");
+		return 1;
+	}
 	if(flag == 1){
 		if(me->sid == "5dwap")
 			s += "你是现在游客试玩，无法加入帮派\n";
@@ -26,7 +30,8 @@ int main(string|zero arg)
 	else if(flag == 0){
 		s += "<"+BANGD->query_bang_name(bangid)+">：\n";
 		s += "帮主："+BANGD->query_root_name_cn(me,bangid)+"\n";
-		s += "人数："+BANGD->query_nums(bangid,"online")+"/"+BANGD->query_nums(bangid,"all")+"\n";
+		s += "人数："+BANGD->query_nums(bangid,"online",me->query_name())+
+			"/"+BANGD->query_nums(bangid,"all",me->query_name())+"\n";
 		s += "帮派简介："+BANGD->query_bang_desc(bangid)+"\n";
 		s += "\n[发送入帮申请:bang_apply_in "+bangid+" 1]\n";
 		s += "[返回帮派列表:bang_search]\n";

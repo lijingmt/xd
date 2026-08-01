@@ -22,7 +22,10 @@ string view_exits()
 	object leader;
 	if(tp->follow != "_none"){
 		leader = find_player(tp->follow);
-		if(leader){
+		object logical_zoned = (object)(ROOT+
+			"/gamelib/single/daemons/logical_zoned.pike");
+		if(leader && logical_zoned &&
+		   logical_zoned->can_interact(tp,leader)){
 			follow_f = 1;
 		}
 		else

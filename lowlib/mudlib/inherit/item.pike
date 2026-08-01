@@ -105,6 +105,10 @@ void set_item_canStorage(int a){ item_canStorage= a;}
 string item_playerDesc;//可以增加玩家自己标志的物品
 string item_whoCanGet;//增加玩家打怪掉落物品标示，用于掉装保护 2007-0302 by calvin
 int item_TimewhoCanGet;//增加玩家打怪掉落物品时间控制，用于掉装保护 2007-0302 by calvin
+// 逻辑区归属独立于120秒拾取保护；保护过期不能让其他逻辑区看见或拾取。
+string item_logical_zone_owner;
+void set_item_logical_zone_owner(string owner){item_logical_zone_owner=owner;}
+string query_item_logical_zone_owner(){return item_logical_zone_owner;}
 
 int amount=1;//数量
 int max_count=STACK_NUM;//该种物品每组数量上限

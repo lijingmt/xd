@@ -133,7 +133,12 @@ void del_users()
 void shout(string s)
 {
 	array(object) a=users(1);
+	object speaker=this_player();
+	object zoned=find_object(ROOT+"/gamelib/single/daemons/logical_zoned.pike");
 	for(int i=0;i<sizeof(a);i++){
+		if(speaker&&zoned&&functionp(zoned->can_action)&&
+		   !zoned->can_action("chat",speaker,a[i]))
+			continue;
 		tell_object(a[i],s);
 	}
 }
@@ -746,6 +751,7 @@ string file_name(void|object|program ob)
 }
 int visible(object ob,void|object who)
 {
+	object zoned;
 	if(!ob)
 		return 0;
 	if(!who)
@@ -753,6 +759,9 @@ int visible(object ob,void|object who)
 	if(ob["invisible"]&&ob->invisible(who)){
 		return 0;
 	}
+	zoned=find_object(ROOT+"/gamelib/single/daemons/logical_zoned.pike");
+	if(zoned&&functionp(zoned->is_visible)&&!zoned->is_visible(who,ob))
+		return 0;
 	return 1;
 }
 array(object) _all_inventory(void|object ob,void|object looker)
@@ -833,8 +842,13 @@ void move_object(string|object dest)
 		action_array[o]-=b;
 	}
 	array(object) all=all_inventory(dest);
+	object logical_zoned=find_object(
+		ROOT+"/gamelib/single/daemons/logical_zoned.pike");
 	if(o["init"]){
 		for(int i=0;i<sizeof(all);i++){
+			if(logical_zoned&&functionp(logical_zoned->can_interact)&&
+			   !logical_zoned->can_interact(o,all[i]))
+				continue;
 			if(living(all[i])){
 				command_call(all[i],o["init"]);
 			}
@@ -842,6 +856,9 @@ void move_object(string|object dest)
 	}
 	if(living(o)){
 		for(int i=0;i<sizeof(all);i++){
+			if(logical_zoned&&functionp(logical_zoned->can_interact)&&
+			   !logical_zoned->can_interact(o,all[i]))
+				continue;
 			if(all[i]!=o&&all[i]["init"]){
 				command_call(o,all[i]["init"]);
 			}
@@ -979,6 +996,7 @@ void say(string s,void|object|array(object) except,void|object me)
 	}
 	array(object) a;
 	object o=me;
+	object zoned=find_object(ROOT+"/gamelib/single/daemons/logical_zoned.pike");
 	if(!o){
 		o=this_player();
 	}
@@ -994,6 +1012,9 @@ void say(string s,void|object|array(object) except,void|object me)
 	}
 	a=({environment(o)})+all_inventory(environment(o))+all_inventory(o)-except;
 	for(int i=0;i<sizeof(a);i++){
+		if(o&&a[i]&&zoned&&functionp(zoned->can_action)&&
+		   !zoned->can_action("chat",o,a[i]))
+			continue;
 		tell_object(a[i],s);
 	}
 }

@@ -18,7 +18,7 @@ int summon_skill_level; // 服务端鉴权后的召唤技能等级
 void summon_tell_room(object env, string msg){
 	if(!env)
 		return;
-	foreach(all_inventory(env), object ob){
+	foreach(all_inventory(env,this_object()), object ob){
 		if(ob && (ob->is("player") || ob->is("npc"))){
 			tell_object(ob, msg);
 		}
@@ -145,7 +145,8 @@ int focus_summon_target(object target){
 	if(get_cur_life() <= 0 || !target ||
 	   (!target->is("player") && !target->is("npc")) ||
 	   target->get_cur_life() <= 0 ||
-	   environment(this_object()) != environment(target))
+	   environment(this_object()) != environment(target) ||
+	   !LOGICALZONED->can_action("combat",this_object(),target))
 		return 0;
 
 	int changed = query_enemy() != target;

@@ -65,7 +65,7 @@ int main(string|zero arg)
 		type = value;
 		sscanf(value,"%s %d",type,page);
 		re += "【"+type+"排行榜】\n";
-		array record = TOPTEN->get_top(type,RANGE);
+		array record = TOPTEN->get_top(type,RANGE,me->query_name());
 		string lr = "";
 		for(int i=(page-1)*PAGELEN;i<sizeof(record)&&i<(page-1)*PAGELEN+PAGELEN;i++)
                 {

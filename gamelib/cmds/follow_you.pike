@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 //此指令用于跟随同队的人
 int main(string|zero arg)
 {
@@ -10,6 +11,11 @@ int main(string|zero arg)
 	object ob=present(name,environment(this_player()),count,this_player());
 	if(!ob){
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你跟随的目标不存在！\n");
+		return 1;
+	}
+	else if(!LOGICALZONED->can_interact(this_player(),ob)){
+		this_player()->write_view(WAP_VIEWD["/emote"],0,0,
+			"逻辑分区隔离中，无法跟随该玩家。\n");
 		return 1;
 	}
 	else if(this_player()->follow != "_none"){

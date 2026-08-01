@@ -10,6 +10,7 @@
 #define NAME_NAMECN	DATA_ROOT+"bangpai/name_namecn"
 #define CHAT_NUM 10 //聊天室最多显示的聊天数
 #define SAVE_TIME 1200 //10分钟存档一次
+#define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 inherit LOW_DAEMON;
 
 //系统启动时从/usr/local/games/usrdata5/bangpai/bang_list中读入数据，以建立帮派总表bang_list
@@ -515,7 +516,7 @@ int add_ui_chat(int bangid,string content){
 
 //获得帮内人数
 //第二个参数为"online",返回的是在线的人数；为"all"，返回的是总人数
-int query_nums(int bangid,string flag)
+int query_nums(int bangid,string flag,void|string viewer_id)
 {
 	int online = 0;
 	int all = 0;
@@ -523,12 +524,19 @@ int query_nums(int bangid,string flag)
 		mapping(string:int) members = bang_members[bangid];
 		if(members && sizeof(members)){
 			if(flag == "all"){
-				all = sizeof(members);
+				foreach(indices(members),string mem){
+					if(!viewer_id || viewer_id=="" ||
+					   LOGICALZONED->can_user_interact(viewer_id,mem))
+						all++;
+				}
 				return all;
 			}
 			else if(flag == "online"){
 				foreach(indices(members),string mem){
 					if(sizeof(mem)){
+						if(viewer_id && viewer_id!="" &&
+						   !LOGICALZONED->can_user_interact(viewer_id,mem))
+							continue;
 						object ob = find_player(mem);
 						if(ob)
 							online++;
@@ -555,6 +563,8 @@ string query_bang_members(object viewer,int bangid,int level)
 	mapping(string:int) members = bang_members[bangid];
 	if(members && sizeof(members)){
 		foreach(indices(members),string mem){
+			if(!LOGICALZONED->can_user_interact(viewer->query_name(),mem))
+				continue;
 			object member = find_player(mem);
 			if(member){
 				//玩家在线
@@ -614,7 +624,7 @@ string query_bang_members(object viewer,int bangid,int level)
 
 //查询新的入帮申请信息
 //格式 name_cn:name:level:profe
-string query_bang_apply(int bangid)
+string query_bang_apply(int bangid,void|string viewer_id)
 {
 	string s_rtn = "";
 	array(string) tmp = ({});
@@ -623,6 +633,9 @@ string query_bang_apply(int bangid)
 		for(int i=0;i<sizeof(applys);i++){
 			tmp = applys[i]/":";
 			if(tmp && sizeof(tmp) == 4){
+				if(viewer_id && viewer_id!="" &&
+				   !LOGICALZONED->can_user_interact(viewer_id,tmp[1]))
+					continue;
 				s_rtn += tmp[0]+"("+tmp[2]+"级"+tmp[3]+")申请加入帮派。[通过:bang_accept "+tmp[1]+" 1 "+(i+1)+"] [拒绝:bang_accept "+tmp[1]+" 0 "+(i+1)+"]\n";
 			}
 		}
@@ -669,6 +682,10 @@ void add_bang_apply(int bangid,object applyer)
 //提升某个玩家的帮会等级
 int update_level(object viewer,string target_name,int bangid)
 {
+	if(!viewer || !bang_allows_user(bangid,viewer->query_name()) ||
+	   !LOGICALZONED->can_user_action(
+		"guild",viewer->query_name(),target_name))
+		return 0;
 	int target_level = query_level(target_name,bangid);
 	int viewer_level = query_level(viewer->query_name(),bangid);
 	if(target_level >= viewer_level-1)
@@ -691,6 +708,10 @@ int update_level(object viewer,string target_name,int bangid)
 //降低某个玩家的帮会等级
 int down_level(object viewer,string target_name,int bangid)
 {
+	if(!viewer || !bang_allows_user(bangid,viewer->query_name()) ||
+	   !LOGICALZONED->can_user_action(
+		"guild",viewer->query_name(),target_name))
+		return 0;
 	int target_level = query_level(target_name,bangid);
 	int viewer_level = query_level(viewer->query_name(),bangid);
 	if(target_level >= viewer_level)
@@ -715,6 +736,10 @@ int down_level(object viewer,string target_name,int bangid)
 //开除成员，和权限有关系
 int fire_member(object viewer,string target_name,int bangid)
 {
+	if(!viewer || !bang_allows_user(bangid,viewer->query_name()) ||
+	   !LOGICALZONED->can_user_action(
+		"guild",viewer->query_name(),target_name))
+		return 0;
 	int target_level = query_level(target_name,bangid);
 	int viewer_level = query_level(viewer->query_name(),bangid);
 	if(target_level >= viewer_level)
@@ -741,6 +766,8 @@ void bang_notice(int bangid,string content)
 	mapping(string:int) members = bang_members[bangid];
 	if(members && sizeof(members)){
 		foreach(indices(members),string member){
+			if(!bang_allows_user(bangid,member))
+				continue;
 			object ob = find_player(member);
 			if(ob)
 				tell_object(ob,"<帮派消息>："+content);
@@ -760,6 +787,8 @@ string query_for_root(object root)
 	mapping(string:int) members = bang_members[bangid];
 	if(members && sizeof(members)){
 		foreach(indices(members),string mem){
+			if(!LOGICALZONED->can_user_interact(root->query_name(),mem))
+				continue;
 			object member = find_player(mem);
 			if(member){
 				//玩家在线
@@ -797,6 +826,8 @@ string query_for_root(object root)
 //设置帮主
 int set_bang_root(object old,string new_name)
 {
+	if(!old || !LOGICALZONED->can_user_interact(old->query_name(),new_name))
+		return 2;
 	int bangid = old->bangid;
 	string old_name = old->query_name();
 	mapping(string:int) members = bang_members[bangid];
@@ -917,6 +948,8 @@ string query_bang_list(object player)
 		foreach(indices(bang_list),int bangid){
 			if(bangid == 0)
 				continue;
+			if(!bang_allows_user(bangid,player->query_name()))
+				continue;
 			if(bangid%2 == 1){
 				string bang_name = bang_list[bangid][0];
 				if(flag%2 == 0)
@@ -933,6 +966,8 @@ string query_bang_list(object player)
 		foreach(indices(bang_list),int bangid){
 			if(bangid == 0)
 				continue;
+			if(!bang_allows_user(bangid,player->query_name()))
+				continue;
 			if(bangid%2 == 0){
 				string bang_name = bang_list[bangid][0];
 				if(flag%2 == 0)
@@ -948,6 +983,8 @@ string query_bang_list(object player)
 	else if(prof == "third"){
 		foreach(sort(indices(bang_list)),int bangid){
 			if(bangid == 0)
+				continue;
+			if(!bang_allows_user(bangid,player->query_name()))
 				continue;
 			string bang_name = bang_list[bangid][0];
 			if(flag%2 == 0)
@@ -973,6 +1010,15 @@ string query_root_name(int bangid)
 		}	
 	}
 	return "";
+}
+
+// 帮派归属其帮主所在逻辑区；合区后相同 cluster 会自动重新开放。
+int bang_allows_user(int bangid,string user_id)
+{
+	string root_name = query_root_name(bangid);
+	if(!user_id || user_id=="" || root_name=="")
+		return 0;
+	return LOGICALZONED->can_user_action("guild",user_id,root_name);
 }
 
 //返回帮主姓名
@@ -1030,8 +1076,11 @@ void dismiss_bang(object root)
 			//	ob = root->load_player(member);
 			//	rmflag = 1;
 			//}
-			ob->bangid = 0;
-			tell_object(ob,"帮主解散了帮派\n");
+			if(ob){
+				ob->bangid = 0;
+				if(LOGICALZONED->can_interact(root,ob))
+					tell_object(ob,"帮主解散了帮派\n");
+			}
 			//if(rmflag)
 			//	ob->remove();
 		}

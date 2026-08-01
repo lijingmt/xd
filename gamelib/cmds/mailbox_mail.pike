@@ -23,6 +23,13 @@ int main(string|zero arg)
 		remove_flag=1;
 	}
 	if(ob){
+		if(!LOGICALZONED->can_action("mail",me,ob)){
+			s+="逻辑分区隔离中，无法给该玩家发送信件。\n";
+			if(remove_flag) ob->remove();
+			s+="[返回:qqlist]\n";
+			write(s);
+			return 1;
+		}
 		if(ob["/plus/blacklist/"+me->name]){
 			s+="对方把你加入了屏蔽列表，你无法执行发信操作，请返回。\n";
 			if(remove_flag) ob->remove();

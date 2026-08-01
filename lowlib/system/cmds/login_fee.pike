@@ -1,10 +1,20 @@
 #include <globals.h>
 #include <command.h>
+#include <gamelib/include/gamelib.h>
 int main(string arg)
 {
-	string path,user_name;
-	if(arg&&sscanf(arg,"%s %s",path,user_name)==2)
+	string path,user_name,maintenance_token;
+	string expected_token = getenv("XIAND_MAINTENANCE_TOKEN") || "";
+	if(arg&&sscanf(arg,"%s %s %s",path,user_name,maintenance_token)==3)
 	{
+		if(sizeof(expected_token)<24 || maintenance_token!=expected_token){
+			write("维护登录认证失败。\n");
+			return 1;
+		}
+		if(!LOGICALZONED->login_allowed(user_name)){
+			write("该逻辑区尚未开放或正在维护。\n");
+			return 1;
+		}
 		program u;
 		object m;
 		catch{
@@ -52,4 +62,6 @@ int main(string arg)
 			return 1;
 		}
 	}
+	write("维护登录认证失败。\n");
+	return 1;
 }

@@ -8,6 +8,10 @@ int main(string|zero arg)
 	string s_log = "";
 	string c_log = "";
 	string uid = arg;
+	if(!LOGICALZONED->can_user_interact(me->query_name(),uid)){
+		write("逻辑分区隔离中，无法关注该玩家。\n[返回游戏:look]\n");
+		return 1;
+	}
 	int yushi_level = 1;
 	string yushi_name = "suiyu";
 	int need_yushi = 2;

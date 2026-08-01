@@ -19,6 +19,10 @@ int main(string|zero arg)
 			write(s);
 			return 1;
 		}
+		else if(!LOGICALZONED->can_interact(player,ob)){
+			write("逻辑分区隔离中，无法向该玩家赠送物品。\n[返回:look]\n");
+			return 1;
+		}
 		else{
 			arg="sendother_to "+arg;
 			this_player()->write_view(WAP_VIEWD["/inventory_send_item"],ob,0,arg);

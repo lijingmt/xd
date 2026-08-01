@@ -23,6 +23,7 @@
 # 环境变量：
 #   GAME_AREAS  - 游戏分区列表，逗号分隔（默认：xd01,xd02,xd03,xd04,xd05）
 #   例：GAME_AREAS="xd01,xd02,xd03" ./restart-docker.sh xd01 9001 8888
+#   XIAND_LOGICAL_ZONE_SEED_DIR - 首次部署的逻辑区种子目录（必须为绝对路径）
 # ============================================
 
 set -e
@@ -42,6 +43,7 @@ fi
 
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
+LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
 
 # 八职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 HIDDEN_MYTHIC_SKILL_IDS=(
@@ -140,6 +142,101 @@ check_commands() {
             exit 1
         fi
     done
+}
+
+# 准备逻辑区持久化目录。模板可以自动补齐，真实 xdNN.conf 只有在显式指定
+# XIAND_LOGICAL_ZONE_SEED_DIR 时才初始化，且永不覆盖管理员已经修改的配置。
+prepare_logical_zone_directory() {
+    local source_zone_dir="$1"
+    local target_zone_dir="$2"
+    local metadata
+    local config
+    local config_name
+    local copied=0
+    local existing=0
+
+    if [ -L "$target_zone_dir" ]; then
+        print_error "逻辑区配置目录不能是符号链接：$target_zone_dir"
+        exit 1
+    fi
+    mkdir -p "$target_zone_dir"
+
+    for metadata in README.md zone.conf.example; do
+        if [ -f "$source_zone_dir/$metadata" ] && \
+           [ ! -e "$target_zone_dir/$metadata" ]; then
+            cp -p "$source_zone_dir/$metadata" "$target_zone_dir/$metadata"
+        fi
+    done
+
+    for config in "$target_zone_dir"/*.conf; do
+        [ -f "$config" ] || continue
+        existing=$((existing+1))
+    done
+
+    if [ "$existing" -eq 0 ] && [ -n "$LOGICAL_ZONE_SEED_DIR" ]; then
+        if [[ "$LOGICAL_ZONE_SEED_DIR" != /* ]] || \
+           [ ! -d "$LOGICAL_ZONE_SEED_DIR" ]; then
+            print_error "XIAND_LOGICAL_ZONE_SEED_DIR 必须是已存在的绝对目录"
+            exit 1
+        fi
+        for config in "$LOGICAL_ZONE_SEED_DIR"/xd[0-9][0-9].conf; do
+            [ -f "$config" ] || continue
+            config_name="$(basename "$config")"
+            if [ ! -e "$target_zone_dir/$config_name" ]; then
+                cp -p "$config" "$target_zone_dir/$config_name"
+                copied=$((copied+1))
+            fi
+        done
+        if [ "$copied" -eq 0 ]; then
+            print_error "首次部署未找到任何逻辑区种子配置"
+            exit 1
+        fi
+        print_info "首次部署逻辑区配置完成：新增 ${copied} 份"
+    elif [ "$existing" -gt 0 ]; then
+        print_info "检测到 ${existing} 份线上逻辑区配置，保留原文件且跳过首装种子"
+    fi
+
+    for config in "$target_zone_dir"/*.conf; do
+        [ -e "$config" ] || continue
+        config_name="$(basename "$config")"
+        if [ -L "$config" ] || [ ! -f "$config" ] || \
+           [[ ! "$config_name" =~ ^xd[0-9]{2}\.conf$ ]] || \
+           [ ! -r "$config" ]; then
+            print_error "逻辑区配置文件类型、文件名或权限非法：$config"
+            exit 1
+        fi
+        if [ "$(wc -c < "$config")" -gt 8192 ]; then
+            print_error "逻辑区配置超过 8192 字节：$config"
+            exit 1
+        fi
+    done
+    print_success "逻辑区运行时配置目录已就绪：$target_zone_dir"
+}
+
+# 容器启动后确认 etc 确实来自宿主持久化挂载，并检查分区代码没有漏包。
+verify_logical_zone_runtime_in_container() {
+    local container_name="$1"
+    local mounted
+
+    mounted="$(docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' \
+        "$container_name" 2>/dev/null || true)"
+    if ! grep -Fxq '/app/xiand/gamelib/etc' <<< "$mounted"; then
+        print_error "容器未挂载逻辑区持久化 etc 目录，停止部署"
+        exit 1
+    fi
+
+    if ! docker exec "$container_name" /bin/bash -lc '
+        test -s /app/xiand/gamelib/single/daemons/logical_zoned.pike &&
+        test -s /app/xiand/gamelib/single/daemons/_logical_zone_mod/config_loader.pike &&
+        test -s /app/xiand/gamelib/single/daemons/_logical_zone_mod/reconciliation.pike &&
+        test -s /app/xiand/gamelib/single/daemons/_home_mod/logical_zone.pike &&
+        test -s /app/xiand/gamelib/cmds/mgr_logical_zone.pike &&
+        test -d /app/xiand/gamelib/etc/logical_zones
+    '; then
+        print_error "容器内逻辑区代码或配置挂载校验失败，停止部署"
+        exit 1
+    fi
+    print_success "容器逻辑区代码与持久化配置挂载校验通过"
 }
 
 # 函数：同步镜像外置的游戏物品目录
@@ -535,7 +632,7 @@ prepare_data_directories() {
 
     # 创建 etc 目录: /usr/local/games/allxd/xd01/etc/
     local etc_dir="/usr/local/games/allxd/xd$area_num/etc"
-    local source_etc_dir="/usr/local/games/xiand/gamelib/etc"
+    local source_etc_dir="$PROJECT_ROOT/gamelib/etc"
 
     mkdir -p "$etc_dir"
 
@@ -544,11 +641,16 @@ prepare_data_directories() {
         # 检查目标目录是否为空
         if [ -z "$(ls -A "$etc_dir" 2>/dev/null)" ]; then
             print_info "复制初始化 etc 数据..."
-            cp -r "$source_etc_dir"/* "$etc_dir/" 2>/dev/null || true
+            # logical_zones 单独处理，防止开发机的 xdNN.conf 被意外带到生产。
+            rsync -a --exclude 'logical_zones/' "$source_etc_dir/" "$etc_dir/"
             print_success "已复制初始化 etc 数据"
         else
             print_info "etc 目录已存在数据，跳过复制"
         fi
+
+		# 容器直接挂载此目录；在线修改 .conf 后 MUD 会在 5 秒内热加载。
+		prepare_logical_zone_directory \
+			"$source_etc_dir/logical_zones" "$etc_dir/logical_zones"
     fi
 
     chmod -R 755 "$etc_dir" 2>/dev/null || true
@@ -556,7 +658,9 @@ prepare_data_directories() {
     # 修改权限
     chmod -R 777 "/usr/local/games/allxd/log/xd$area_num" 2>/dev/null || true
     chmod -R 777 "/usr/local/games/allxd/xd$area_num/data_xiand" 2>/dev/null || true
-    chmod -R 777 "/usr/local/games/allxd/xd$area_num/etc" 2>/dev/null || true
+	# etc 包含逻辑区热配置，MUD 只需读取；禁止世界可写，避免隔离策略被篡改。
+	find "$etc_dir" -type d -exec chmod 755 {} + 2>/dev/null || true
+	find "$etc_dir" -type f -exec chmod 644 {} + 2>/dev/null || true
 
     print_success "数据目录权限已修改"
 }
@@ -581,6 +685,7 @@ main() {
     echo ""
     echo "环境变量："
     echo "  GAME_AREAS='xd01,xd02,xd03,xd04,xd05'  # Vue 前端分区列表"
+    echo "  XIAND_LOGICAL_ZONE_SEED_DIR=/path/to/seed # 可选的首装逻辑区配置"
     echo "  DOCKER_USER=用户名                    # Docker Hub 用户名"
     echo ""
     echo "镜像说明："
@@ -695,6 +800,8 @@ main() {
         print_error "容器启动失败"
         exit 1
     fi
+
+    verify_logical_zone_runtime_in_container "xiand-${GAME_AREA}"
 
     print_info "[6/7] 更新Vue前端分区配置..."
     CONTAINER_NAME="xiand-${GAME_AREA}"

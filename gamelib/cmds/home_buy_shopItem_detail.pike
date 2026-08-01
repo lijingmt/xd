@@ -15,7 +15,20 @@ int main(string|zero arg)
 	int priceFlag = 0;//1：玉石 0：黄金
 	int shopId = 0;
 	int timeDelay = 0;
+	mapping(string:mixed) offer;
 	sscanf(arg,"%s %d %d %d %d",masterId,price,priceFlag,shopId,timeDelay);
+	if(!LOGICALZONED->can_user_action("home",me->query_name(),masterId)){
+		write("逻辑分区隔离中，该商店不可见。\n[返回游戏:look]\n");
+		return 1;
+	}
+	offer = HOMED->query_shop_purchase_offer(masterId,shopId);
+	if(!(int)offer["ok"]){
+		write((string)offer["message"]+"\n[返回游戏:look]\n");
+		return 1;
+	}
+	price = (int)offer["price"];
+	priceFlag = (int)offer["price_flag"];
+	timeDelay = (int)offer["time_delay"];
 	object item = HOMED->get_shop_item(masterId,shopId);
 	if(!item){
 		s += "该摊位已经没有物品,请返回\n";
@@ -40,7 +53,8 @@ int main(string|zero arg)
 		s += "[取消:home_shopItem_cancel "+shopId+" 0]\n";
 	}
 	else
-		s += "[购买:home_buy_shopItem_confirm "+arg+"]\n";
+		s += "[购买:home_buy_shopItem_confirm "+masterId+" "+price+" "+
+			priceFlag+" "+shopId+" "+timeDelay+"]\n";
 	s += "[再逛一圈:popview]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

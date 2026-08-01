@@ -59,9 +59,16 @@ mapping(string:int) get_grade_mapping(){
 }
 //鏇存柊vip褰╄壊鍚嶅瓧绯荤粺瀛楀吀
 
-array get_top(string key,int range)
+array get_top(string key,int range,void|string viewer_id)
 {
-	return m_tops[key][..range];
+	array source = m_tops[key] || ({});
+	array result = ({});
+	for(int i=0;i<sizeof(source) && sizeof(result)<=range;i++){
+		if(!viewer_id || viewer_id=="" ||
+		   LOGICALZONED->can_user_interact(viewer_id,(string)source[i][NAME]))
+			result += ({source[i]});
+	}
+	return result;
 }
 
 protected void create()

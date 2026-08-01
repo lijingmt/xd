@@ -428,7 +428,8 @@ private int has_same_room_team(object player)
 		return 0;
 	foreach(all_inventory(env),object member){
 		if(member != player && member->is("player") &&
-		   member->query_term() == team_id && member->get_cur_life() > 0)
+		   member->query_term() == team_id && member->get_cur_life() > 0 &&
+		   LOGICALZONED->can_action("team",player,member))
 			return 1;
 	}
 	return 0;
@@ -449,7 +450,8 @@ private int has_low_life_member(object player,int percent)
 	foreach(all_inventory(env),object member){
 		if(member == player || !member->is("player") ||
 		   member->query_term() != team_id ||
-		   member->query_life_max() <= 0)
+		   member->query_life_max() <= 0 ||
+		   !LOGICALZONED->can_action("team",player,member))
 			continue;
 		if(member->get_cur_life()*100 <= member->query_life_max()*percent)
 			return 1;

@@ -156,11 +156,21 @@ private mapping(string:home) homeDetail = ([]);                              //�
 private mapping(string:string) masterMap=([]);                               //【房间/主人id】 对应表
 private mapping(string:shopRcmList) shopRcmMap=([]);                         //【房间/店铺推荐】 对应表,该表中的店铺为推荐且不过期店铺
 
+// 固定产权区索引：同一物理房号在不同区可独立拥有，合区只改变访问策略。
+private mapping(string:string) homeZoneOwners=([]);                          //【区号@旧地块路径/主人id】
+private mapping(string:array(string)) homePlotOwners=([]);                   //【旧地块路径/各产权区主人】
+private mapping(string:int) homeTransitioning=([]);                          //正在购买/变卖的家园主人
+private int homeZoneIndexErrors = 0;
+private Thread.Mutex homeStateLock = Thread.Mutex();
+
 private mapping(string:mapping(string:object)) existHome = ([]);             //已经在内存中存在的home列表
 private mapping(string:mapping(string:int)) dropMap =([]);                   //养成模块的 掉落清单 格式 (生物名:(掉落物品:掉落几率))
 private mapping(string:array(mixed)) infancyMap = ([]);                      //npc贩卖的种子、矿源、小动物
 
 private mapping(int:int) timeDelay = ([1:0,3:3,7:5,]);		//物品出售期限及对应的所得税
+
+#include "_home_mod/logical_zone.pike"
+#include "_home_mod/persistence.pike"
 
 protected void create(){
 	werror("============== HOMED start  ===============\n");
@@ -170,6 +180,7 @@ protected void create(){
 	init_flat();
 	init_homeMap();
 	init_home();
+	rebuild_home_zone_index();
 	init_dropMap();
 	init_infancy();
 	init_shopRcmMap();
@@ -201,6 +212,8 @@ void init_shopRcmMap(){
 		{
 			shopRcmList shopRcmTmp = shopRcmList();
 			sscanf(map_tmp[i],"%s|%s|%s|%d|%d",path,masterId,masterNameCN,rcmTime,rcmTimeDelay);
+			if(homeDetail[masterId])
+				path = query_home_reference_by_masterId(masterId);
 			shopRcmTmp->path = path;
 			shopRcmTmp->masterId = masterId;
 			shopRcmTmp->masterNameCN = masterNameCN;
@@ -582,7 +595,7 @@ void init_home()
 			homeTmp->shop = init_shop(shop);
 			
 			//以下的属性值通过"home-flat-slot-area"相互关联得到，在detail_home中并没有以下这些值
-			homeListTmp = homeMap[homeId];             //通过homeId得到homeList对象，该对象包括home的基本信息
+			homeListTmp = homeMap[query_home_plot_path(homeId)]; //新旧引用统一到原始地块
 			if(homeListTmp){
 				homeTmp->flatName = homeListTmp->flatName; //该home对应的flat
                 slotName = homeListTmp->slotName;          //该home对应的slot
@@ -693,20 +706,24 @@ string display_homes(string slotName,string flatName,int backFlag)
 	int homeNum = st->homeNum;             //当前公寓(flat)中的房间数
 	string homeName = "";
 	string homePath = GAME_NAME_S + "/" + areaName +"/"+ slotName +"/"+ flatName +"/"; //当前公寓的路径
-	re += " 安置在这里的家有:\n";
+	re += " 安置在这里且当前可见的家有:\n";
 	for(int i=1;i<=homeNum;i++)
 	{
 		homeName = homePath + (string)i;
-		homeList rl = homeMap[homeName];              //home是否被使用的列表
-		if(rl && rl->isUsed){  //如果已被使用，添加进入链接
-			home ro = homeDetail[rl->masterId];   //该home的详细信息
-			re += "【" + ro->customName + "】(" + ro->masterName + "的家)";
-			re += " [进入:home_view "+ homeName +"]\n";
+		array(string) owners = query_visible_home_owners(
+			me->query_name(),homeName);
+		for(int j=0;j<sizeof(owners);j++){
+			home ro = homeDetail[owners[j]];
+			if(ro){
+				re += "【"+query_home_zone_label(owners[j])+"·"+
+					ro->customName+"】("+ro->masterName+"的家)";
+				re += " [进入:home_view "+
+					query_home_reference_by_masterId(owners[j])+"]\n";
+			}
 		}
-		else//未被使用
-		{
-			re += "【" + i +"号房】(空闲)\n";
-		}
+		if(query_native_home_owner(me->query_name(),homeName)=="")
+			re += "【"+query_home_zone_label(me->query_name())+"·"+
+				(string)i+"号房】(空闲)\n";
 	}
 	if(backFlag)//玩家是从某个房间中返回到这个页面的，则要做相关处理，主要是清除玩家在原home中的相关记录
 	{
@@ -724,34 +741,46 @@ string display_homes(string slotName,string flatName,int backFlag)
 */
 void clear_user(object player)
 {
-	object env = environment(this_player());//当前所在房间
-	string areaName = env->query_areaName();
-	string slotName = env->query_slotName();
-	//任务1、将玩家身上的inhome_pos设置为"";
-	player->inhome_pos="";
-	//任务2、将玩家从home的userIn字段中去掉；
-	del_user(player->query_name());
+	object env;
+	string masterId = "";
+	if(!player)
+		return;
+	env = environment(player);
+	if(env && env->query_room_type && env->query_room_type()=="home" &&
+	   env->query_masterId)
+		masterId = (string)env->query_masterId();
+	if(masterId=="" && player->query_inhome_pos)
+		masterId = (string)player->query_inhome_pos();
+	player->set_inhome_pos("");
+	remove_user_from_home(masterId,(string)player->query_name());
 }
 
 //判断某个home中是否没有在线的玩家
+private int clear_stale_home_users(string masterId)
+{
+	home he = homeDetail[masterId];
+	array(string) usersIn;
+	int occupied = 0;
+	if(!he)
+		return 0;
+	usersIn = he->userIn+({});
+	foreach(usersIn,string userId){
+		object user = find_player(userId);
+		object env = user ? environment(user) : 0;
+		if(user && env && env->query_room_type &&
+		   env->query_room_type()=="home" && env->query_masterId &&
+		   env->query_masterId()==masterId)
+			occupied = 1;
+		else
+			remove_user_from_home(masterId,userId);
+	}
+	return occupied ? 0 : 1;
+}
+
 int is_cleared(string homeName)
 {
 	string masterId = query_masterId_by_path(homeName);
-	home he = homeDetail[masterId];
-	array(string) userIn = he->userIn;
-	if(sizeof(userIn)==0)//如果列表为空，则说明home中没有人
-	{
-		return 1;
-	}
-	else
-	{
-		foreach(userIn,string user)
-		{
-			if(find_player(user)) //只要找到一个在线的玩家，则说明home中有人
-			return 0;
-		}
-		return 1;//如果列表中的玩家都不在线，也认为home中没有人
-	}
+	return clear_stale_home_users(masterId);
 }
 /*
    方法描述：通过主人ID，得到家园名 (玩家自定义的名称)
@@ -782,7 +811,12 @@ object query_home_by_path(string path)
  */
 object query_home_by_masterId(string masterId)
 {
-	if (homeDetail[masterId])                                 //该房间已经被使用(防止home变卖之后，玩家从四合院进入时出错)
+	object viewer = this_player();
+	if(viewer && viewer->is && viewer->is("player") &&
+	   !LOGICALZONED->can_user_action("home",
+	   (string)viewer->query_name(),masterId))
+		return 0;
+	if (homeDetail[masterId] && !homeTransitioning[masterId]) //变卖提交期间禁止新访客进入
 	{
 		home he = homeDetail[masterId];                   //home的信息 
 		if(!existHome[masterId])                          //内存中没有该对象,则初始化这个home的所有信息
@@ -846,7 +880,12 @@ object query_home_by_masterId(string masterId)
 //得到家园中的某个房间对象
 object query_room_by_masterId(string masterId,string room_name)
 {
-	if (homeDetail[masterId])                                 //该房间已经被使用(防止home变卖之后，玩家从四合院进入时出错)
+	object viewer = this_player();
+	if(viewer && viewer->is && viewer->is("player") &&
+	   !LOGICALZONED->can_user_action("home",
+	   (string)viewer->query_name(),masterId))
+		return 0;
+	if (homeDetail[masterId] && !homeTransitioning[masterId]) //变卖期间不再返回已失效房间
 	{
 		home he = homeDetail[masterId];                   //home的信息 
 		if(!existHome[masterId])                          //内存中没有该对象
@@ -974,6 +1013,9 @@ object query_room(string roomName,string homeId)
 		{
 			string path = env->query_homeId();
 			string masterId = query_masterId_by_path(path);
+			if(masterId=="" || !LOGICALZONED->can_user_action(
+			   "home",this_player()->query_name(),masterId))
+				return 0;
 			mapping(string:object) allRooms = existHome[masterId];
 			//werror("===== masterId = "+ masterId +"=========\n");
 			if(allRooms){
@@ -998,11 +1040,11 @@ object query_room(string roomName,string homeId)
  */
 string query_masterId_by_path(string path)
 {
-	string re = "";
-	homeList rl = homeMap[path];
-	if(rl)
-		re = rl->masterId;
-	return re;
+	object viewer = this_player();
+	string viewer_id = "";
+	if(viewer && viewer->query_name)
+		viewer_id = (string)viewer->query_name();
+	return query_masterId_by_zone_path(path,viewer_id);
 }
 
 
@@ -1132,19 +1174,22 @@ string query_flat_for_sale(string slotName)
 string query_home_for_sale(string slotName,string flatName)
 {
 	string re = "";
+	object me = this_player();
 	slot st = slotMap[slotName];
 	string areaName = st->areaName;
 	int homeNum = st->homeNum;
 	string homeName = "";
 	string homePath = GAME_NAME_S + "/" + areaName +"/"+ slotName +"/"+ flatName +"/"; 
-	re += " 安置在这里的家有:\n";
+	re += " 你只能购买自己固定产权区的房产："+
+		query_home_zone_label(me->query_name())+"\n";
 	for(int i=1;i<=homeNum;i++)
 	{
 		homeName = homePath + (string)i;
-		homeList rl = homeMap[homeName];
-		if(rl && rl->isUsed){
-			home ro = homeDetail[rl->masterId];
-			re += "【" + ro->customName + "】(" + ro->masterName + "的家)\n";
+		string owner_id = query_native_home_owner(me->query_name(),homeName);
+		if(owner_id!="" && homeDetail[owner_id]){
+			home ro = homeDetail[owner_id];
+			re += "【"+query_home_zone_label(owner_id)+"·"+
+				ro->customName+"】("+ro->masterName+"的家)\n";
 		}
 		else
 		{
@@ -1160,15 +1205,22 @@ string query_home_for_sale(string slotName,string flatName)
    faltName
    slotName
  */
-void build_new_home(string homeName,string flatName,string slotName)
+private int build_new_home_record(object player,string homeName,
+	string flatName,string slotName)
 {
-	int re = 0;
-	object player = this_player();                                               //主人
 	flat ft = flatMap[flatName];                                                 //home对应的flat
 	slot st = slotMap[slotName];                                                 //home对应的slot
+	string homeRef;
+	if(!player || !ft || !st || !homeMap[homeName])
+		return 0;
+	homeRef = home_zone_key(
+		home_zone_id_for_owner(player->query_name()),homeName);
+	if(homeRef=="" || homeDetail[player->query_name()] ||
+	   query_native_home_owner(player->query_name(),homeName)!="")
+		return 0;
 	//homeDetail
 	home he = home();                                                            //家详细信息
-	he->homeId = homeName;
+	he->homeId = homeRef;
 	he->masterId = player->query_name();                                               //主人id
 	he->masterName = player->query_name_cn();                                          //主人姓名
 	he->lv = st->lv;                                                                   //房间等级
@@ -1203,24 +1255,117 @@ void build_new_home(string homeName,string flatName,string slotName)
 	he->dog = "";                                                                      //看门狗信息
 
 
-	homeDetail[player->query_name()] = he;                                            
-	//homeList
-	werror("===========homeName:"+homeName+"\n");
-	homeList hl = homeMap[homeName]; 
-	//if(hl){
-	hl->isUsed = 1;
-	hl->masterId = player->query_name();
-	/*}else{
-		hl= homeList();
-		hl->isUsed = 1;
-		hl->masterId = player->query_name();
-	} */                                                //家使用情况
-	
-	homeMap[homeName] = hl;
+	homeDetail[player->query_name()] = he;
+	if(!add_home_zone_index(he)){
+		m_delete(homeDetail,player->query_name());
+		return 0;
+	}
+	player->set_home_path(homeRef);                                                    //新房使用带产权区的稳定引用
+	return 1;
+}
 
-	//masterMap
-	masterMap[homeName] = player->query_name();                                        //【房间/主人id】 对应表
-	player->set_home_path(homeName);                                                   //改变玩家身上的home_path 字段
+mapping(string:mixed) purchase_home(object player,string homeName,
+	string flatName,string slotName)
+{
+	object state_key;
+	homeList plot;
+	slot st;
+	flat ft;
+	string player_id = "";
+	string old_home_path = "";
+	string home_ref = "";
+	int trade_result = 4;
+	int built = 0;
+	int saved = 0;
+	int yushi = 0;
+	int money = 0;
+	int before_yushi = 0;
+	int before_money = 0;
+	int refund_yushi = 0;
+	int refund_money = 0;
+	int refund_ok = 1;
+	mixed err;
+	if(!player || !player->query_name)
+		return (["ok":0,"code":"invalid_player","message":"玩家资料无效"]);
+	player_id = (string)player->query_name();
+	if(LOGICALZONED->query_user_zone_id(player_id)=="")
+		return (["ok":0,"code":"invalid_zone","message":"账号没有有效产权区"]);
+	if(query_home_plot_path(homeName)!=homeName)
+		return (["ok":0,"code":"invalid_plot","message":"房产链接已经失效"]);
+	plot = homeMap[homeName];
+	st = slotMap[slotName];
+	ft = flatMap[flatName];
+	if(!plot || !st || !ft || plot->slotName!=slotName ||
+	   plot->flatName!=flatName)
+		return (["ok":0,"code":"invalid_plot","message":"房产位置无效"]);
+	state_key = homeStateLock->lock();
+	if(homeDetail[player_id]){
+		destruct(state_key);
+		return (["ok":0,"code":"already_owned","message":"你已经有一处房产了"]);
+	}
+	if(query_native_home_owner(player_id,homeName)!=""){
+		destruct(state_key);
+		return (["ok":0,"code":"plot_taken","message":"该房位刚刚已被本区其他玩家购买"]);
+	}
+	yushi = st->yushi;
+	money = st->money*100;
+	before_yushi = YUSHID->query_all_num(player);
+	before_money = player->query_account();
+	old_home_path = (string)player->query_home_path();
+	err = catch{
+		trade_result = BUYD->do_trade(player,yushi,money);
+		if(trade_result==3 &&
+		   before_yushi-YUSHID->query_all_num(player)==yushi &&
+		   before_money-player->query_account()==money){
+			built = build_new_home_record(player,homeName,flatName,slotName);
+			if(built)
+				saved = store_all_info_unlocked(1);
+		}
+		else if(trade_result==3)
+			trade_result = 4;
+	};
+	if(err || trade_result!=3 || !built || !saved){
+		if(built){
+			home he = homeDetail[player_id];
+			if(he)
+				home_ref = he->homeId;
+			remove_home_zone_index(player_id,home_ref);
+			m_delete(homeDetail,player_id);
+			m_delete(existHome,player_id);
+			player->set_home_path(old_home_path);
+		}
+		refund_yushi = before_yushi-YUSHID->query_all_num(player);
+		refund_money = before_money-player->query_account();
+		if(refund_yushi>0){
+			if(!YUSHID->give_yushi(player,refund_yushi))
+				refund_ok = 0;
+		}
+		if(refund_money>0)
+			player->add_account(refund_money);
+		destruct(state_key);
+		if(!refund_ok){
+			werror("[HOMED-PURCHASE] 严重: 购房失败且玉石退款失败 player=%s plot=%s\n",
+				player_id,homeName);
+			return (["ok":0,"code":"refund_failed",
+				"message":"购房失败且退款异常，请立即联系客服"]);
+		}
+		if(err){
+			werror("[HOMED-PURCHASE] 购房事务异常 player=%s plot=%s error=%s\n",
+				player_id,homeName,describe_error(err));
+			return (["ok":0,"code":"transaction_error",
+				"message":"购房事务失败，款项已退回"]);
+		}
+		if(trade_result==0)
+			return (["ok":0,"code":"yushi","message":"你身上的玉石不够"]);
+		if(trade_result==1)
+			return (["ok":0,"code":"money","message":"你身上的金钱不够"]);
+		return (["ok":0,"code":"commit_failed",
+			"message":"房产保存失败，款项已退回"]);
+	}
+	home_ref = query_home_reference_by_masterId(player_id);
+	destruct(state_key);
+	return (["ok":1,"code":"ok","message":"购房成功","home_ref":home_ref,
+		"yushi":yushi,"money":money]);
 }
 /*
    方法描述：通过slot名得到其对应的area名
@@ -1252,10 +1397,7 @@ int query_money_by_slot(string slotName)
 //判断某个玩家是否已经有房产
 int if_have_home(string playerName)
 {
-	string tmp = search(masterMap,playerName);
-	if(tmp&&tmp!="")
-		return 1;
-	return 0;
+	return homeDetail[playerName] ? 1 : 0;
 }
 
 
@@ -1287,43 +1429,71 @@ string sell_confirm(string homeName,int yushi,int money)
 {
 	string re = "";
 	object me = this_player();
-	if(if_have_home(me->query_name()))//防止用户刷点
-	{
-		mixed tmp = m_delete(homeDetail,me->query_name());//删除房间的详细信息
-		mixed tmp2 = m_delete(masterMap,homeName);//删除masterMap中对应的信息
-		mixed tmp3 = m_delete(existHome,me->query_name());//删除existHome中对应的信息
-		mixed tmp4 = m_delete(shopRcmMap,homeName);   //删除shopRcmMap中对应的信息
-		homeList hl = homeMap[homeName];
-		if(hl->isUsed){
-			hl->isUsed = 0;//修改map_home中的信息，在内存中对应的是homeList这个Mapping。
-			hl->masterId = "";
-		}
-
-		homeMap[homeName] = hl;
-		me->set_home_path(""); //改变玩家身上的home_path字段
-		//支付玉石和钱
-		int  rt = YUSHID->give_yushi(me,yushi);
-		if(rt)
-		{
-			re += "你得到了:\n";
-			re += YUSHID->get_yushi_for_desc(yushi);
-			me->account += money*100;
-			re += "和"+money+"金\n";
-			string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][home_sell]["+homeName+"][][1][-"+yushi+"][0]\n";
-			Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);  
-
-		}
-		else{
-			re = "系统好像有点忙，如果你没有得到玉石和金钱，请与客服联系\n";
+	object state_key;
+	home he;
+	string masterId;
+	string homeRef;
+	string oldHomePath;
+	mapping(string:shopRcmList) removedRcm = ([]);
+	int saved;
+	if(!me)
+		return "玩家资料无效。\n";
+	masterId = (string)me->query_name();
+	state_key = homeStateLock->lock();
+	he = homeDetail[masterId];
+	if(!he){
+		destruct(state_key);
+		return "你现在没有地产。\n";
+	}
+	homeRef = he->homeId;
+	if(query_masterId_by_zone_path(homeName,masterId)!=masterId){
+		destruct(state_key);
+		return "房契信息已经变化，请返回后重新操作。\n";
+	}
+	if(!clear_stale_home_users(masterId)){
+		destruct(state_key);
+		return "你的家中还有访客，暂时不能卖出你的房产。\n";
+	}
+	//价格完全以后端房契为准，忽略链接中可被篡改的旧价格参数。
+	yushi = (int)((float)he->priceYushi-(float)he->priceYushi*DEPR_FEE);
+	money = (int)((float)he->priceMoney-(float)he->priceMoney*DEPR_FEE);
+	oldHomePath = (string)me->query_home_path();
+	homeTransitioning[masterId] = 1;
+	foreach(indices(shopRcmMap),string rcmPath){
+		shopRcmList rcm = shopRcmMap[rcmPath];
+		if(rcm && rcm->masterId==masterId){
+			removedRcm[rcmPath] = rcm;
+			m_delete(shopRcmMap,rcmPath);
 		}
 	}
-	else
-	{
-		re = "你现在没有地产。\n";
-
+	m_delete(homeDetail,masterId);
+	remove_home_zone_index(masterId,homeRef);
+	me->set_home_path("");
+	saved = store_all_info_unlocked(1);
+	if(!saved){
+		homeDetail[masterId] = he;
+		add_home_zone_index(he);
+		foreach(indices(removedRcm),string rcmPath)
+			shopRcmMap[rcmPath] = removedRcm[rcmPath];
+		me->set_home_path(oldHomePath);
+		m_delete(homeTransitioning,masterId);
+		destruct(state_key);
+		return "房产保存失败，系统已保留原房契，请稍后再试。\n";
 	}
-	//支付结束
-	return re;	
+	m_delete(existHome,masterId);
+	m_delete(homeTransitioning,masterId);
+	YUSHID->give_yushi(me,yushi);
+	me->add_account(money*100);
+	destruct(state_key);
+	re += "你得到了:\n";
+	re += YUSHID->get_yushi_for_desc(yushi);
+	re += "和"+money+"金\n";
+	string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+
+		"["+GAME_NAME_S+"]["+masterId+"][home_sell]["+homeRef+
+		"][][1][-"+yushi+"][0]\n";
+	Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+
+		"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+	return re;
 }
 
 
@@ -1339,7 +1509,8 @@ string sell_confirm(string homeName,int yushi,int money)
 int is_master(string homeName)
 {
 	object me = this_player();
-	if(me->query_name() == masterMap[homeName])
+	if(me && me->query_name()==query_masterId_by_zone_path(
+	   homeName,(string)me->query_name()))
 		return 1;
 	return 0;
 }
@@ -1921,23 +2092,64 @@ void add_user(string userId)
 {
 	object player = this_player();                    //当前玩家
 	object room = environment(player);                //进入的home
-	string masterId = room->query_masterId();         //home主人的Id
+	string masterId;
+	if(!player || !room || !room->query_masterId)
+		return;
+	masterId = (string)room->query_masterId();         //home主人的Id
+	if(masterId=="" || homeTransitioning[masterId] || !homeDetail[masterId] ||
+	   !LOGICALZONED->can_user_action("home",userId,masterId)){
+		player->set_inhome_pos("");
+		player->move(ROOT+"/gamelib/d/ninggedian/ninggedian");
+		tell_object(player,"逻辑分区配置已更新，你已安全离开不可访问的家园。\n");
+		return;
+	}
 
 	mapping allRooms = existHome[masterId];
+	if(!allRooms)
+		return;
 	int num = sizeof(ROOMS);                          //home中所有的房间
 	for(int i=0;i<num;i++){
 		string roomName = ROOMS[i];               //遍历所有的房间
 		object roomTmp = allRooms[roomName];      //得到某个房间对象
-		if( search(roomTmp->userIn,userId) == -1) //search的结果为-1,说明userId在这个array中不存在
+		if(roomTmp && search(roomTmp->userIn,userId) == -1) //search的结果为-1,说明userId在这个array中不存在
 		{
 			roomTmp->userIn += ({userId});
 		}
 	}
 	home he = homeDetail[masterId];                   //改变 homeDetail中的信息，用于保存
-	if(search(he->userIn,userId) == -1 )
+	if(he && search(he->userIn,userId) == -1 )
 	{
 		he->userIn += ({userId});
 	}
+}
+
+private void remove_user_from_home(string masterId,string userId)
+{
+	mapping allRooms;
+	home he;
+	if(!masterId || masterId=="" || !userId || userId=="")
+		return;
+	allRooms = existHome[masterId];
+	if(allRooms){
+		for(int i=0;i<sizeof(ROOMS);i++){
+			object roomTmp = allRooms[ROOMS[i]];
+			if(roomTmp)
+				roomTmp->userIn -= ({userId});
+		}
+		for(int i=0;i<sizeof(FUNCTION_ROOMS);i++){
+			object roomTmp = allRooms[FUNCTION_ROOMS[i]];
+			if(roomTmp)
+				roomTmp->userIn -= ({userId});
+		}
+		for(int i=0;i<sizeof(SHOP);i++){
+			object roomTmp = allRooms[SHOP[i]];
+			if(roomTmp)
+				roomTmp->userIn -= ({userId});
+		}
+	}
+	he = homeDetail[masterId];
+	if(he)
+		he->userIn -= ({userId});
 }
 
 //删除玩家在某个房间的记录信息 即 userIn 这个字段
@@ -1945,19 +2157,39 @@ void del_user(string userId)
 {
 	object player = this_player();
 	object room = environment(player);
-	string masterId = room->query_masterId();
+	string masterId = "";
+	if(room && room->query_masterId)
+		masterId = (string)room->query_masterId();
+	if(masterId=="" && player && player->query_inhome_pos)
+		masterId = (string)player->query_inhome_pos();
+	remove_user_from_home(masterId,userId);
+}
 
-	mapping allRooms = existHome[masterId];
-	int num = sizeof(ROOMS);                //home中所有的房间
-	for(int i=0;i<num;i++){
-		object roomTmp;                 //改变所有room中的属性，用于页面显示 
-		string roomName = ROOMS[i];
-		roomTmp = allRooms[roomName];
-		roomTmp->userIn -= ({userId});
+//配置从合区切回隔离时，将仍停留在跨区家园中的在线玩家安全送回凝歌殿。
+int enforce_user_home_isolation(object player)
+{
+	string masterId;
+	object env;
+	if(!player || !player->query_name || !player->query_inhome_pos)
+		return 0;
+	masterId = (string)player->query_inhome_pos();
+	if(masterId==""){
+		env = environment(player);
+		if(env && env->query_room_type && env->query_room_type()=="home" &&
+		   env->query_masterId)
+			masterId = (string)env->query_masterId();
 	}
-	home he = home();                       //改变 homeDetail中的信息，用于保存
-	he = homeDetail[masterId];
-	he->userIn -= ({userId});
+	if(masterId=="")
+		return 0;
+	if(homeDetail[masterId] && LOGICALZONED->can_user_action(
+	   "home",player->query_name(),masterId))
+		return 0;
+	remove_user_from_home(masterId,(string)player->query_name());
+	player->set_inhome_pos("");
+	player->last_pos = "/gamelib/d/ninggedian/ninggedian";
+	player->move(ROOT+"/gamelib/d/ninggedian/ninggedian");
+	tell_object(player,"逻辑分区配置已更新，你已安全离开不可访问的家园。\n");
+	return 1;
 }
 
 //保存门信息 默认只有房主才能进行此操作
@@ -1988,13 +2220,9 @@ void save_dog(string dogInfo,string masterId)
 }
 
 //保存所有的信息
-void store_all_info(void|int fg){
+private int store_all_info_unlocked(int fg){
 	werror("============try to save home map"+fg+"\n");
 	string he_s = "房间名|主人ID|主人名|房间名|房间描述|允许列表|矿石|动物|植物|门信息|看门狗信息|home中玩家|功能房间|飞天小屋目的地|店铺信息"+"\n";
-	if(sizeof(indices(homeDetail)) == 0){
-		werror("============try to save home map, but failed due to the home info is blank and stop saving\n");
-		return;
-	}
 	foreach(sort(indices(homeDetail)),string masterId)
 	{
 		home he = homeDetail[masterId];
@@ -2078,8 +2306,6 @@ void store_all_info(void|int fg){
 		he_s += "|";
 		he_s += "\n";
 	}
-	Stdio.write_file(ROOT+HOME_INFO,he_s);
-	werror("============finished to save home_info"+fg+"\n");
 	//map_home
 	string hem_s = "path|所属地段|所属公寓|使用与否|主人ID"+"\n";
 	foreach(sort(indices(homeMap)),string roomId)
@@ -2095,8 +2321,6 @@ void store_all_info(void|int fg){
 		}
 		hem_s += "\n";
 	}
-	Stdio.write_file(ROOT+ROOM_MAP,hem_s);
-	werror("============finished to save room_map"+fg+"\n");
 	//shop_recommend
 	string her_s = "path|主人ID|主人名称|推荐时间|推荐期限"+"\n";
 	foreach(sort(indices(shopRcmMap)),string homeId)
@@ -2104,11 +2328,28 @@ void store_all_info(void|int fg){
 		shopRcmList tmp = shopRcmMap[homeId];
 		her_s += tmp->path+"|"+tmp->masterId+"|"+tmp->masterNameCN+"|"+tmp->rcmTime+"|"+tmp->rcmTimeDelay+"\n";
 	}
-	Stdio.write_file(ROOT+SHOPRCM_MAP,her_s);
-	werror("============finished to save shomercm"+fg+"\n");
+	if(!atomic_write_home_snapshot(he_s,hem_s,her_s))
+		return 0;
+	werror("[HOMED-SAVE] 家园、地块和推荐店铺快照保存完成 fg=%d\n",fg);
+	return 1;
+}
+
+int store_all_info(void|int fg)
+{
+	object state_key = homeStateLock->lock();
+	int ok = 0;
+	mixed err = catch{
+		ok = store_all_info_unlocked((int)fg);
+	};
+	destruct(state_key);
 	if(!fg)
 		call_out(store_all_info,TIME_SAPCE);
-	
+	if(err){
+		werror("[HOMED-SAVE] 定时保存异常，已保留后续保存调度: %s\n",
+			describe_error(err));
+		return 0;
+	}
+	return ok;
 }
 
 
@@ -2179,6 +2420,9 @@ void give_master_msg(object room,object player,string content)
 	//object sender = find_object("paimaishi");
 	int remove_flag = 0;
 	string recver_name = room->masterId;
+	if(!LOGICALZONED->can_user_action(
+	   "home",player->query_name(),recver_name))
+		return;
 	object to = find_player(recver_name);
 	if(!to){
 		to = player->load_player(recver_name);
@@ -2655,6 +2899,36 @@ int get_pass_time_ob(object me,int ind){
 	return 0;
 }
 
+//返回服务端权威摊位报价，客户端链接中的价格、币种和期限只作展示。
+mapping(string:mixed) query_shop_purchase_offer(string masterId,int shopId)
+{
+	home he = homeDetail[masterId];
+	string shopTmp;
+	array(string) shopInfo;
+	array(string) price;
+	int amount;
+	int delay;
+	if(!he || !he->shop || !he->shop[shopId])
+		return (["ok":0,"message":"该摊位不存在"]);
+	shopTmp = he->shop[shopId];
+	if(shopTmp==DEFAULT_SHOP_S)
+		return (["ok":0,"message":"该摊位没有物品"]);
+	shopInfo = shopTmp/"#";
+	if(sizeof(shopInfo)<6 || shopInfo[4]!="0")
+		return (["ok":0,"message":"该物品已经下架或售出"]);
+	delay = (int)shopInfo[2];
+	if(!has_index(timeDelay,delay))
+		return (["ok":0,"message":"该摊位期限无效"]);
+	if((int)shopInfo[1]+delay*DAY<=time())
+		return (["ok":0,"message":"该物品已经过期"]);
+	price = shopInfo[3]/":";
+	amount = (int)price[0];
+	if(sizeof(price)!=2 || amount<=0 || (price[1]!="0" && price[1]!="1"))
+		return (["ok":0,"message":"该摊位价格无效"]);
+	return (["ok":1,"message":"ok","price":amount,
+		"price_flag":(int)price[1],"time_delay":delay]);
+}
+
 //返回相对应的物品，针对购买者,或者是取消摆摊
 object get_shop_item(string masterId,int ind){
 	home he = homeDetail[masterId];
@@ -2782,17 +3056,31 @@ void flush_shopRcm_list(void|int flag){
 //列出所有推荐的店铺
 string query_shopRcm_list(){
 	string s = "";
+	object viewer = this_player();
+	string viewerId = "";
+	if(viewer && viewer->query_name)
+		viewerId = (string)viewer->query_name();
 	array(string) shopRcmA = indices(shopRcmMap);
 	foreach(shopRcmA,string path){
 		shopRcmList tmp = shopRcmMap[path];
-		s += "["+tmp->masterNameCN+"的私家小店:home_view "+path+"]\n";
+		if(tmp && viewerId!="" && LOGICALZONED->can_user_action(
+		   "home",viewerId,tmp->masterId))
+			s += "["+query_home_zone_label(tmp->masterId)+"·"+
+				tmp->masterNameCN+"的私家小店:home_view "+
+				query_home_reference_by_masterId(tmp->masterId)+"]\n";
 	}
 	return s;
 }
 
 //店铺是否已经推荐 1是，0否
 int if_shop_rcmed(string homeId){
-	if(search(indices(shopRcmMap),homeId)!=-1){
+	object viewer = this_player();
+	string viewerId = viewer && viewer->query_name ?
+		(string)viewer->query_name() : "";
+	string masterId = query_masterId_by_zone_path(homeId,viewerId);
+	string homeRef = masterId!="" ?
+		query_home_reference_by_masterId(masterId) : homeId;
+	if(shopRcmMap[homeRef] || shopRcmMap[homeId]){
 		return 1;
 	}
 	else 
@@ -2801,19 +3089,45 @@ int if_shop_rcmed(string homeId){
 
 //把新推荐的店铺加入到列表中
 void add_shop_recommend(object player,string homeId,int delay){
-	if(!shopRcmMap[homeId]){
+	string homeRef = query_home_reference_by_masterId(player->query_name());
+	if(homeRef!="" && !shopRcmMap[homeRef]){
 		shopRcmList tmp = shopRcmList();
-		tmp->path = homeId;
+		tmp->path = homeRef;
 		tmp->masterId = player->query_name();
 		tmp->masterNameCN = player->query_name_cn();
 		tmp->rcmTime = time();
 		tmp->rcmTimeDelay = delay;
-		shopRcmMap[homeId] = tmp;
+		shopRcmMap[homeRef] = tmp;
 	}
 }
 
 //通过主人Id，得到家园Id
 string query_homeId_by_masterId(string masterId){
-	string tmp = search(masterMap,masterId);
-	return tmp;
+	return query_home_reference_by_masterId(masterId);
+}
+
+// 玩家档案和房契分属不同存档：崩溃后以已提交的 detail_home 自动修复 home_path。
+int repair_player_home_path(object player)
+{
+	string playerId;
+	string currentPath;
+	home he;
+	if(!player || !player->query_name || !player->query_home_path)
+		return 0;
+	playerId = (string)player->query_name();
+	currentPath = (string)player->query_home_path();
+	he = homeDetail[playerId];
+	if(he){
+		if(currentPath=="" ||
+		   query_masterId_by_zone_path(currentPath,playerId)!=playerId){
+			player->set_home_path(he->homeId);
+			return 1;
+		}
+		return 0;
+	}
+	if(currentPath!=""){
+		player->set_home_path("");
+		return 1;
+	}
+	return 0;
 }
