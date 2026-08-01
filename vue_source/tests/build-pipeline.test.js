@@ -16,7 +16,22 @@ const buildSource = read('vue_source/build.js');
 const serveSource = read('vue_source/serve.js');
 const rebuildSource = read('rebuild-image.sh');
 const dockerSource = read('docker/Dockerfile.all');
+const packageJson = JSON.parse(read('vue_source/package.json'));
+const packageLock = JSON.parse(read('vue_source/package-lock.json'));
+const installedVue = JSON.parse(read('vue_source/node_modules/vue/package.json'));
 const manifest = createManifest('test-version');
+
+assert.strictEqual(packageJson.scripts.dev, 'node serve.js');
+assert.strictEqual(packageJson.dependencies.vue, '3.5.40');
+assert.strictEqual(packageLock.packages[''].dependencies.vue, '3.5.40');
+assert.strictEqual(packageLock.packages['node_modules/vue'].version, '3.5.40');
+assert.strictEqual(installedVue.version, '3.5.40');
+for (const removedPackage of ['http-server', 'follow-redirects', 'qs']) {
+  assert(!packageJson.dependencies?.[removedPackage]);
+  assert(!packageJson.devDependencies?.[removedPackage]);
+  assert(!packageLock.packages[`node_modules/${removedPackage}`]);
+  assert(!fs.existsSync(path.join(sourceDir, 'node_modules', removedPackage)));
+}
 
 assert(indexSource.includes('css/app.css?v=BUILD_VERSION'));
 assert(indexSource.includes('css/realm.css?v=BUILD_VERSION'));
@@ -199,7 +214,10 @@ assert(buildSource.includes("path.join(__dirname, 'dist')"));
 
 assert(serveSource.includes("process.env.XIAND_VUE_PORT || 3000"));
 assert(serveSource.includes("process.env.XIAND_HTTP_PORT || 8888"));
-assert(serveSource.includes("data.toString('utf8').replace(/BUILD_VERSION/g"));
+assert(serveSource.includes("const { createManifest } = require('./manifest')"));
+assert(serveSource.includes("pathname === '/manifest.json'"));
+assert(serveSource.includes("pathname === '/vendor/vue.global.prod.js'"));
+assert(serveSource.includes("data.toString('utf8').replace(/BUILD_VERSION/g, DEV_BUILD_VERSION)"));
 assert(serveSource.includes("pathname.startsWith('/includes/')"));
 assert(serveSource.includes('isWithinRoot(STATIC_ROOT, filePath)'));
 

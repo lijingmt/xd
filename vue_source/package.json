@@ -10,9 +10,6 @@
     "clean": "rm -rf dist ../web/web_vue"
   },
   "dependencies": {
-    "vue": "^3.4.0"
-  },
-  "devDependencies": {
-    "http-server": "^14.1.1"
+    "vue": "3.5.40"
   }
 }

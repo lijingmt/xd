@@ -11,11 +11,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { createManifest } = require('./manifest');
 
 const PORT = Number(process.env.XIAND_VUE_PORT || 3000);
 const API_PORT = Number(process.env.XIAND_HTTP_PORT || 8888);
 const STATIC_ROOT = path.resolve(__dirname);
 const INCLUDES_ROOT = path.resolve(__dirname, '..', 'web', 'includes');
+const VUE_ROOT = path.resolve(__dirname, 'node_modules', 'vue');
+const DEV_BUILD_VERSION = `dev-${Date.now()}`;
 
 // MIME类型
 const mimeTypes = {
@@ -83,9 +86,23 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/manifest.json') {
+    const body = JSON.stringify(createManifest(DEV_BUILD_VERSION), null, 2) + '\n';
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(req.method === 'HEAD' ? undefined : body);
+    return;
+  }
+
   // /includes/* 映射到网页共享资源，其余文件只允许从vue_source读取。
   let filePath;
-  if (pathname.startsWith('/includes/')) {
+  if (pathname === '/vendor/vue.global.prod.js') {
+    filePath = path.join(VUE_ROOT, 'dist', 'vue.global.prod.js');
+  } else if (pathname === '/vendor/VUE_LICENSE.txt') {
+    filePath = path.join(VUE_ROOT, 'LICENSE');
+  } else if (pathname.startsWith('/includes/')) {
     filePath = path.resolve(INCLUDES_ROOT, '.' + pathname.slice('/includes'.length));
     if (!isWithinRoot(INCLUDES_ROOT, filePath)) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -115,7 +132,7 @@ const server = http.createServer((req, res) => {
     let body = data;
     // Buffer先转为字符串，再替换统一构建版本占位符。
     if (ext === '.html') {
-      body = data.toString('utf8').replace(/BUILD_VERSION/g, String(Date.now()));
+      body = data.toString('utf8').replace(/BUILD_VERSION/g, DEV_BUILD_VERSION);
     }
 
     res.writeHead(200, {
