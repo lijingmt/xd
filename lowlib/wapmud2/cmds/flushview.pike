@@ -262,7 +262,15 @@ int main(string|zero arg)
 	if(item){
 		count = AUTOFIGHTD->query_object_count(item,env);
 		me->command("get "+item->query_name()+" "+count);
-		return 1;
+		// 拾取命令可能因背包状态、并发拾取或物品自身规则失败。
+		// 失败物若仍留在原房间，短期跳过它并继续寻敌，避免每秒
+		// 重试同一件掉落直至其消失；成功拾取后同一轮即可继续战斗。
+		if(item && environment(item)==env){
+			AUTOFIGHTD->record_failed_loot(me,item);
+			write("该掉落暂时无法拾取，挂机助手会跳过并继续战斗，稍后自动重试。\n");
+		}
+		else
+			AUTOFIGHTD->clear_failed_loot(me);
 	}
 	target = AUTOFIGHTD->query_target(me);
 	if(target){

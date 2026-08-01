@@ -15,7 +15,11 @@ int main(string|zero arg)
 	object ob=present(name,me,count);
 	if(ob && me == environment(ob)){
 		string kind = ob->query_danyao_kind();
-		if(flag == 0){
+		int max_level = ob->query_danyao_max_level();
+		if(max_level>0 && me->query_level()>max_level){
+			s += ob->query_name_cn()+"只供"+max_level+"级及以下玩家追赶等级使用；你已达到"+me->query_level()+"级，无法继续服用。\n";
+		}
+		else if(flag == 0){
 			if(me->query_buff(kind,0) != "none"){
 				if(d_flag==0){
 					s += "你身上已经有此类药的效果，是否仍要食用？食用后会将现在的效果覆盖掉\n";
@@ -28,10 +32,13 @@ int main(string|zero arg)
 			}
 			else{
 				int eat = LIANDAND->eat_danyao(me,ob);
-				//eat_danyao()的返回值1-成功食用，2-特药食用超过限制
+				//eat_danyao()返回1成功、2超过每日次数、3超过药品等级限制
 				if(eat == 2){
 					s += "你已经达到每天的食用次数限制(当前最大次数："+me->query_max_yao()+")，无法再食用此类药品\n";
 					s += me->query_max_yao_info();//会员最大食用药数说明
+				}
+				else if(eat == 3){
+					s += "你的等级已经超过该药品的使用上限，药品没有被消耗。\n";
 				}
 				else if(eat == 1){
 					if(kind == "te_exp" || kind == "te_honer" || kind == "te_luck" || kind == "te_attack" || kind == "te_vice" || kind == "te_defend" || kind =="te_base"){
@@ -54,6 +61,9 @@ int main(string|zero arg)
 			int eat = LIANDAND->eat_danyao(me,ob);
 			if(eat == 2){
 				s += "你已经达到每天的食用次数限制，无法再食用此类药品\n";
+			}
+			else if(eat == 3){
+				s += "你的等级已经超过该药品的使用上限，药品没有被消耗。\n";
 			}
 			else if(eat == 1){
 				if(kind == "te_exp" || kind == "te_honer" || kind == "te_luck" || kind == "te_attack" || kind == "te_vice" || kind == "te_defend" || kind == "te_base"){

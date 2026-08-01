@@ -541,6 +541,8 @@ int choice_profe(string arg){
 		NEWBIED->grant_starter_supplies(me);
 		s += "新手穿衣助手已为你穿好初始装备；以后可从物品页使用一键穿装。\n";
 		s += "新手药箱已放入20颗回春丹和15瓶凝神露；30级前还可按小时免费补领，挂机会自动使用。\n";
+		s += "请到新手补给商店手动领取二倍追光露；20～69级可在店内购买2倍、3倍、5倍追赶经验药，70级起不可购买或服用。\n";
+		s += "[新手补给商店:newbie_shop]\n";
 		s += "[查看新手引导:newbie_guide]\n";
 		me->add_money(20);
 		me->set_user_fee(6000);

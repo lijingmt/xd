@@ -50,12 +50,14 @@ int main(string|zero arg)
 			Stdio.append_file(ROOT+"/log/bandpswd.log",now[0..sizeof(now)-2]+":"+log);
 		}
 		s += "[返回关于安全码:bandpsw_readme]\n";
+		s += "[返回设置:game_detail]\n";
 		s += "[返回游戏:look]\n";
 		write(s);
 		return 1;
 	}
 	s += "输入不正确.绑定手机和安全码都不能为空\n";
 	s += "[返回:bandpsw_change]\n";
+	s += "[返回设置:game_detail]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	return 1;

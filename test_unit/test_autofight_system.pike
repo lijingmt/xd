@@ -77,6 +77,7 @@ void test_runtime_compile()
 		"/gamelib/cmds/cleanup_non_equipment.pike",
 		"/gamelib/cmds/viceskill_dig.pike",
 		"/gamelib/cmds/viceskill_gather.pike",
+		"/gamelib/cmds/get.pike",
 		"/lowlib/wapmud2/cmds/flushview.pike",
 	});
 	int failed = 0;
@@ -1629,6 +1630,75 @@ void test_end_to_end_current_room_fight()
 	destroy_runtime_player(player);
 }
 
+void test_loot_pickup_never_blocks_next_fight()
+{
+	test_start("掉落装备拾取成功或失败都不会卡住后续战斗");
+	object player = create_runtime_player(
+		"__testunit_autofight_loot_continue__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object enemy = clone(ROOT+
+		"/gamelib/clone/npc/kunlunshan/qinyuan1");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(room),object old_item)
+			destruct(old_item);
+		player->move(room);
+		weapon->set_item_canGet(1);
+		weapon->item_whoCanGet = player->query_name();
+		weapon->item_TimewhoCanGet = time();
+		weapon->move(room);
+		enemy->_npcLevel = 9;
+		enemy->setup_npc_dongtai(player);
+		enemy->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 0;
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		valid = environment(weapon) == player &&
+			player->in_combat && player->query_enemy() == enemy;
+		player->_clean_fight();
+		enemy->_clean_fight();
+		weapon->move(room);
+		weapon->item_whoCanGet = player->query_name();
+		weapon->item_TimewhoCanGet = time();
+		daemon->record_failed_loot(player,weapon);
+		valid = valid &&
+			daemon->query_loot_temporarily_suppressed(player,weapon) == 1 &&
+			daemon->query_loot_item(player) == 0;
+		flush_command->main(0);
+		valid = valid && environment(weapon) == room &&
+			player->in_combat && player->query_enemy() == enemy;
+		daemon->stop_autofight(player);
+		player->_clean_fight();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("掉落拾取后的挂机续战状态错误: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
 void test_end_to_end_auto_skill_perform()
 {
 	test_start("挂机战斗中按冷却自动施放已选技能");
@@ -2211,6 +2281,7 @@ int main()
 	test_same_area_unsafe_monster_recovery();
 	test_auto_rest_safety();
 	test_end_to_end_current_room_fight();
+	test_loot_pickup_never_blocks_next_fight();
 	test_end_to_end_auto_skill_perform();
 	test_end_to_end_empty_room_switch();
 	test_roam_wait_and_backtrack_guard();

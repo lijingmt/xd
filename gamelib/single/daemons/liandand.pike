@@ -301,6 +301,9 @@ string query_pf_detail(object player,int p_id)
 //食用丹药时被调用，主要是相关丹药持续时间的操作
 int eat_danyao(object player,object yao)
 {
+	int max_level = yao->query_danyao_max_level();
+	if(max_level>0 && player->query_level()>max_level)
+		return 3;//限级追赶药超过等级后不可再服用
 	string kind = yao->query_danyao_kind(); //丹药大类，如attri_base ...等
 	string type = yao->query_danyao_type(); //丹药效果类型，如str
 	string effect_value = yao->query_effect_value(); //丹药效果值

@@ -13,7 +13,6 @@ protected void create()
 //");
 	WAP_VIEWD["/init"]=WAP_VIEWD["/leave_noway"]=WAP_VIEWD["/look"]=new(MUD_VIEW,
 #"$(player->drain_catch_tell())
-$(player->query_bandpswd_link())
 $(player->query_tips_msg())
 $(env->query_remain_msg(player->name))$(env->query_short())
 $(player->query_bc_msg())
@@ -33,7 +32,6 @@ $(player->query_chat_msg())
 $(env->query_leave(player->name))$(env->query_desc())$(player->query_extra_links())");
 	WAP_VIEWD["/home"]=new(MUD_VIEW,
 #"$(player->drain_catch_tell())
-$(player->query_bandpswd_link())
 $(player->query_tips_msg())
 $(env->query_remain_msg(player->name))$(env->query_short())
 $(player->query_bc_msg())
@@ -273,7 +271,7 @@ $(ob->query_links(arg))
 	WAP_VIEWD["/inventory"]=new(MUD_VIEW,
 #"【装备背包】
 			[一键穿装:auto_equip]
-			[新手免费领红蓝药:get_free_yao]
+			[新手补给商店:newbie_shop]
 			[一键安全销毁非装备:cleanup_non_equipment]
 			$(player->view_inventory_zhuangbei())
 			");

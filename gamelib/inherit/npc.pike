@@ -51,7 +51,7 @@ int grant_kill_experience(object player,int base_exp)
 	if(reward["event_bonus"]>0){
 		if(sizeof(bonus_tips))
 			bonus_tips += "<br>";
-		bonus_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动：额外获得 "+
+		bonus_tips += "<font style=\"color:DARKORANGE\">五一节经验活动（额外增加2倍）：额外获得 "+
 			(string)reward["event_bonus"]+" 点经验值</font>";
 	}
 	if(reward["donation_multiplier"]>1){

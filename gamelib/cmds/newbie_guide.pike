@@ -170,8 +170,8 @@ string render_guide(object player)
 	result += "从地图选择适合等级的区域，点击怪物后开始战斗；怪物会提供经验、金钱和随机装备。\n";
 	result += "新装备先放入背包，再用一键穿装补空位；已有装备不会被自动顶掉。\n";
 	if(player->query_level()<=NEWBIED->query_newbie_supply_max_level())
-		result += "30级前可免费领取新手红蓝药；挂机缺药时会自动尝试领取本小时剩余额度。\n"+
-			"[免费领取红蓝药:get_free_yao]|[挂机设置:autofight open]\n";
+		result += "30级前可免费领取新手红蓝药；挂机缺药时会自动尝试领取本小时剩余额度。1～19级还可手动免费领取一次二倍追光露。\n"+
+			"[新手补给商店:newbie_shop]|[挂机设置:autofight open]\n";
 	result += "挂机助手会按真实怪物等级自动选择练级区、逐图找怪；战斗中会吃药，缺药则前往安全地点休息后继续。\n";
 	result += "[查看地图:map_display]|[查看任务:mytasks]|[每级职业历练:growth_task]|[查看排行榜:look_top]\n";
 

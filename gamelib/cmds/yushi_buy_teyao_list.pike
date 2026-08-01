@@ -18,6 +18,9 @@ int main(string|zero arg)
 	if(type == "exp"){
 		s += "仙丹|[仙酒:yushi_buy_teyao_list honer]|[仙露:yushi_buy_teyao_list luck]|[仙散:yushi_buy_teyao_list san]\n";
 		s += "--------\n";
+		s += "[前往新手补给商店购买追赶药:newbie_shop]\n";
+		s += "追赶药在新手商店领取或购买：1～19级赠送，20～69级玉石购买，70级起不可使用。\n";
+		s += "--------\n";
 		s += "[【特】分神丹:yushi_buy_teyao_detail fenshendan 1 1 exp 0 0](x"+(have_1/1)+")\n";
 		s += "[【特】化神丹:yushi_buy_teyao_detail huashendan 1 5 exp 0 0](x"+(have_1/5)+")\n";
 		s += "[【特】幻神丹:yushi_buy_teyao_detail huanshendan 2 1 exp 0 0](x"+(have_2/1)+")\n";

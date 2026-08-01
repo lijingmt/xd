@@ -17,6 +17,7 @@ int main(string|zero arg)
 	s += "[string rp:...]\n";
 	s += "[submit 确定:set_bandpsw_confirm ...]\n";
 	s += "[重新填写:set_bandpsw]\n";
+	s += "[返回设置:game_detail]\n";
         s += "[返回游戏:look]\n";
 	write(s);
         return 1;

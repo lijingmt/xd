@@ -23,4 +23,9 @@ protected int effect_value = 0;
 void set_effect_value(int a){effect_value=a;}
 int query_effect_value(){return effect_value;}
 
+// 限级追赶药的最高可服用等级；0表示不限制。
+protected int danyao_max_level = 0;
+void set_danyao_max_level(int a){danyao_max_level=a;}
+int query_danyao_max_level(){return danyao_max_level;}
+
 private string initer=((set_item_type("danyao")),"");

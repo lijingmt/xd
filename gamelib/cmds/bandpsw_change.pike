@@ -17,9 +17,9 @@ int main(string|zero arg)
 	s += "确认新安全码\n";
 	s += "[string rp:...]\n";
 	s += "[submit 确定:bandpsw_change_confirm ...]\n";
-	s += "[返回:bandpsw_readme]\n";
+	s += "[返回安全码设置:bandpsw_readme]\n";
 	s += "[重新填写:bandpsw_change]\n";
-
+	s += "[返回设置:game_detail]\n";
         s += "[返回游戏:look]\n";
 	write(s);
         return 1;

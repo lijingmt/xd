@@ -525,7 +525,7 @@ private void show_settings(object me, string notice)
 		"[采到即卖:autofight materialkeep 0]\n";
 	out += "\n回血食物（未指定时会自动选择）：\n";
 	if(me->query_level()<=NEWBIED->query_newbie_supply_max_level())
-		out += "[新手免费领红蓝药:get_free_yao]\n";
+		out += "[新手补给商店:newbie_shop]\n";
 	out += food_auto_prefix+
 		"[自动选择回血食物:autofight food auto]\n";
 	out += view_recovery_items(me,"life");

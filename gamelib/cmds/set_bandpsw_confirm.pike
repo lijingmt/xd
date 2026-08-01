@@ -48,11 +48,13 @@ int main(string|zero arg)
 			log += me->query_name()+"("+me->query_name_cn()+")成功设置安全码为："+psw1+"\n";
 			Stdio.append_file(ROOT+"/log/bandpswd.log",now[0..sizeof(now)-2]+":"+log);
 		}
+		s += "[返回设置:game_detail]\n";
 		s += "[返回游戏:look]\n";
 		write(s);
 		return 1;
 	}
 	s += "输入不正确.绑定手机和安全码都不能为空\n";
+	s += "[返回设置:game_detail]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	return 1;

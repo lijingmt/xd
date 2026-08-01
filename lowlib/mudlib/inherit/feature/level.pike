@@ -327,11 +327,12 @@ int query_donation_exp_multiplier()
 }
 
 /**
- * 统一计算打怪经验：药品和活动先形成总额，捐赠倍数再作用于该总额。
+ * 统一计算打怪经验：药品先加成，活动按历史规则额外增加N倍，
+ * 捐赠经验倍数再作用于上述完整总额。
  * 此函数不修改玩家数据，可供真实奖励和 TestUnit 共用。
  */
 mapping(string:int) calculate_kill_exp_reward(int base_exp,int buff_percent,
-	int event_multiplier,int donation_multiplier)
+	int event_bonus_multiplier,int donation_multiplier)
 {
 	mapping(string:int) reward = ([
 		"base_exp":0,
@@ -347,8 +348,8 @@ mapping(string:int) calculate_kill_exp_reward(int base_exp,int buff_percent,
 		return reward;
 	if(buff_percent<0)
 		buff_percent = 0;
-	if(event_multiplier<1)
-		event_multiplier = 1;
+	if(event_bonus_multiplier<0)
+		event_bonus_multiplier = 0;
 	if(donation_multiplier<1)
 		donation_multiplier = 1;
 	if(donation_multiplier>50)
@@ -356,7 +357,8 @@ mapping(string:int) calculate_kill_exp_reward(int base_exp,int buff_percent,
 	reward["base_exp"] = base_exp;
 	reward["buff_bonus"] = base_exp*buff_percent/100;
 	after_buff = base_exp+reward["buff_bonus"];
-	reward["event_bonus"] = after_buff*(event_multiplier-1);
+	// 历史配置中的“2倍活动”表示额外增加2份，即总计3份。
+	reward["event_bonus"] = after_buff*event_bonus_multiplier;
 	after_event = after_buff+reward["event_bonus"];
 	reward["donation_multiplier"] = donation_multiplier;
 	reward["donation_bonus"] = after_event*(donation_multiplier-1);
@@ -400,10 +402,10 @@ int add_exp_with_bonus(int base_exp)
 
 /** 计算并发放统一的打怪经验，返回每一层加成明细。 */
 mapping(string:int) add_kill_exp_with_bonus(int base_exp,int buff_percent,
-	int event_multiplier)
+	int event_bonus_multiplier)
 {
 	mapping(string:int) reward = calculate_kill_exp_reward(base_exp,
-		buff_percent,event_multiplier,query_donation_exp_multiplier());
+		buff_percent,event_bonus_multiplier,query_donation_exp_multiplier());
 	int actual_exp = add_exp_with_bonus(reward["stacked_exp"]);
 	reward["actual_exp"] = actual_exp;
 	reward["interface_bonus"] = actual_exp-reward["stacked_exp"];

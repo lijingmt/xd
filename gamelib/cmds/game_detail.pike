@@ -7,8 +7,12 @@ int main(string|zero arg)
 	string s = "关于游戏\n";
 	s += "\n";
 	s += "[捐赠获取仙玉:add_szx_fee]\n";
-	s += "[其他玉石相关操作:yushi_do_else]";
-	s += "[关于安全码:bandpsw_readme]\n";
+	s += "[其他玉石相关操作:yushi_do_else]\n";
+	if(me->bandpswd && sizeof(me->bandpswd))
+		s += "[修改安全码:bandpsw_change]\n";
+	else
+		s += "[绑定安全码:set_bandpsw]\n";
+	s += "[安全码说明:bandpsw_readme]\n";
 	//s += "[问卷调查:diaocha_list A 17]\n";
 	//s += "[提交建议:diaocha_advice]\n";
 	s += "[配置快捷键:my_toolbar]\n";

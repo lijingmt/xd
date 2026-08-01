@@ -29,7 +29,7 @@ int main(string|zero arg)
 	}
 
 	result = NEWBIED->claim_newbie_supplies(me);
-	out = "【新手免费红蓝药】\n";
+	out = "【新手补给商店·免费红蓝药】\n";
 	if(result["code"]==1){
 		out += "领取成功：新手回春丹×"+result["red"]+
 			"，新手凝神露×"+result["blue"]+"。\n";
@@ -51,6 +51,7 @@ int main(string|zero arg)
 
 	out += "\n1—10级每小时3次，11—20级2次，21—30级1次；退出重登不会刷新次数。\n";
 	out += "[继续领取:get_free_yao]\n";
+	out += "[返回新手补给商店:newbie_shop]\n";
 	out += "[挂机设置:autofight open]|[查看道具:inventory_daoju]\n";
 	out += "[返回游戏:look]\n";
 	write(out);

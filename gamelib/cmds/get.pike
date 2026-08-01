@@ -5,7 +5,7 @@ int main(string|zero arg)
 	string name=arg;
 	int count;
 	sscanf(arg,"%s %d",name,count);
-	object ob=present(name,environment(this_player()),count);
+	object|zero ob=present(name,environment(this_player()),count);
 	if(ob && !LOGICALZONED->can_action("drop",this_player(),ob))
 		ob = 0;
 	//判断身上物品是否超过60件

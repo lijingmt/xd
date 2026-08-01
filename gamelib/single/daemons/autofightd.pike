@@ -9,6 +9,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
+#define AUTOFIGHT_LOOT_RETRY_SECONDS 30
 #define AUTOFIGHT_CONFIG_VERSION 7
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 
@@ -1729,6 +1730,9 @@ void start_autofight(object me)
 	me["/tmp/autofight_last_charge"] = time();
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
+	me["/tmp/autofight_failed_loot"] = 0;
+	me["/tmp/autofight_failed_loot_room"] = 0;
+	me["/tmp/autofight_failed_loot_retry"] = 0;
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
 }
@@ -1741,6 +1745,9 @@ void stop_autofight(object me)
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
 	me["/tmp/autofight_resting"] = 0;
+	me["/tmp/autofight_failed_loot"] = 0;
+	me["/tmp/autofight_failed_loot_room"] = 0;
+	me["/tmp/autofight_failed_loot_retry"] = 0;
 	me->set_autofight("disable");
 }
 
@@ -2187,6 +2194,42 @@ private int can_loot_item(object me, object ob)
 	return 1;
 }
 
+void clear_failed_loot(object me)
+{
+	if(!me)
+		return;
+	me["/tmp/autofight_failed_loot"] = 0;
+	me["/tmp/autofight_failed_loot_room"] = 0;
+	me["/tmp/autofight_failed_loot_retry"] = 0;
+}
+
+void record_failed_loot(object me,object item)
+{
+	if(!me || !item)
+		return;
+	me["/tmp/autofight_failed_loot"] = item;
+	me["/tmp/autofight_failed_loot_room"] = environment(me);
+	me["/tmp/autofight_failed_loot_retry"] =
+		time()+AUTOFIGHT_LOOT_RETRY_SECONDS;
+}
+
+int query_loot_temporarily_suppressed(object me,object item)
+{
+	object|zero failed;
+	object|zero failed_room;
+	if(!me || !item)
+		return 0;
+	failed = me["/tmp/autofight_failed_loot"];
+	failed_room = me["/tmp/autofight_failed_loot_room"];
+	if(!failed || failed_room!=environment(me) ||
+	   environment(failed)!=environment(me) ||
+	   (int)me["/tmp/autofight_failed_loot_retry"]<=time()){
+		clear_failed_loot(me);
+		return 0;
+	}
+	return failed==item;
+}
+
 object|zero query_loot_item(object me)
 {
 	object env;
@@ -2198,7 +2241,9 @@ object|zero query_loot_item(object me)
 		return 0;
 	all = all_inventory(env,me);
 	foreach(all,object ob){
-		if(can_loot_item(me,ob))
+		if(can_loot_item(me,ob) &&
+		   !query_loot_temporarily_suppressed(me,ob) &&
+		   !me->if_over_load(ob))
 			return ob;
 	}
 	return 0;

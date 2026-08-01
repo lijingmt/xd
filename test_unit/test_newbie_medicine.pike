@@ -67,6 +67,7 @@ void test_runtime_compile()
 		"/gamelib/single/daemons/newbied.pike",
 		"/gamelib/single/daemons/autofightd.pike",
 		"/gamelib/cmds/get_free_yao.pike",
+		"/gamelib/cmds/newbie_shop.pike",
 		"/gamelib/clone/item/food/xinshouhongyao",
 		"/gamelib/clone/item/water/xinshoulanyao",
 		"/gamelib/clone/item/liandan/lyuzhijiang",
@@ -447,6 +448,8 @@ void test_starter_grant_once()
 			first["blue"] == 15 && first_red == 20 &&
 			first_blue == 15 && second["code"] == 2 &&
 			daemon->query_newbie_supply_amount(
+				player,"zhuiguanglu") == 0 &&
+			daemon->query_newbie_supply_amount(
 				player,"xinshouhongyao") == 20 &&
 			daemon->query_newbie_supply_amount(
 				player,"xinshoulanyao") == 15 &&
@@ -595,16 +598,21 @@ void test_integration_wiring()
 		ROOT+"/gamelib/cmds/autofight.pike");
 	string flush_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/cmds/flushview.pike");
+	string shop_source = Stdio.read_file(
+		ROOT+"/gamelib/cmds/newbie_shop.pike");
 	if(init_source && inventory_source && guide_source &&
-	   autofight_source && flush_source &&
+	   autofight_source && flush_source && shop_source &&
 	   search(init_source,
 		"NEWBIED->grant_starter_supplies(me)") != -1 &&
 	   search(inventory_source,
-		"[新手免费领红蓝药:get_free_yao]") != -1 &&
+		"[新手补给商店:newbie_shop]") != -1 &&
 	   search(guide_source,
-		"[免费领取红蓝药:get_free_yao]") != -1 &&
+		"[新手补给商店:newbie_shop]") != -1 &&
 	   search(autofight_source,
-		"[新手免费领红蓝药:get_free_yao]") != -1 &&
+		"[新手补给商店:newbie_shop]") != -1 &&
+	   search(shop_source,"[领取免费红蓝药:get_free_yao]") != -1 &&
+	   search(shop_source,
+		"[免费领取二倍追光露:catchup_exp_potion claim]") != -1 &&
 	   search(flush_source,
 		"query_recovery_item_with_newbie_supply") != -1)
 		test_pass();

@@ -14,6 +14,35 @@ inherit LOW_DAEMON;
 #define NEWBIE_BLUE_PATH ROOT+"/gamelib/clone/item/water/xinshoulanyao"
 #define NEWBIE_RED_ID "xinshouhongyao"
 #define NEWBIE_BLUE_ID "xinshoulanyao"
+#define STARTER_EXP_MAX_LEVEL 19
+#define CATCHUP_EXP_MIN_BUY_LEVEL 20
+#define CATCHUP_EXP_MAX_LEVEL 69
+#define STARTER_EXP_PATH ROOT+"/gamelib/clone/item/teyao/zhuiguanglu"
+#define STARTER_EXP_ID "zhuiguanglu"
+
+mapping(string:mapping(string:mixed)) catchup_exp_potions = ([
+	"zhuiguanglu":([
+		"name":"【追赶】二倍追光露",
+		"multiple":2,
+		"effect":100,
+		"price":3,
+		"path":ROOT+"/gamelib/clone/item/teyao/zhuiguanglu",
+	]),
+	"yaoguanglu":([
+		"name":"【追赶】三倍曜光露",
+		"multiple":3,
+		"effect":200,
+		"price":8,
+		"path":ROOT+"/gamelib/clone/item/teyao/yaoguanglu",
+	]),
+	"xinghelu":([
+		"name":"【追赶】五倍星河露",
+		"multiple":5,
+		"effect":400,
+		"price":20,
+		"path":ROOT+"/gamelib/clone/item/teyao/xinghelu",
+	]),
+]);
 
 mapping(string:mapping(string:mixed)) profession_config = ([
 	"jianxian":([
@@ -123,6 +152,26 @@ int query_newbie_supply_max_level()
 	return NEWBIE_SUPPLY_MAX_LEVEL;
 }
 
+int query_starter_exp_max_level()
+{
+	return STARTER_EXP_MAX_LEVEL;
+}
+
+int query_catchup_exp_min_buy_level()
+{
+	return CATCHUP_EXP_MIN_BUY_LEVEL;
+}
+
+int query_catchup_exp_max_level()
+{
+	return CATCHUP_EXP_MAX_LEVEL;
+}
+
+mapping(string:mapping(string:mixed)) query_catchup_exp_potions()
+{
+	return copy_value(catchup_exp_potions);
+}
+
 mapping(string:int) query_newbie_supply_policy(object player)
 {
 	mapping(string:int) policy = ([
@@ -180,7 +229,18 @@ private int grant_newbie_supply_item(object player,string path,
 	if(err || !item)
 		return 0;
 	item->amount = amount;
-	item->move_player(player->query_name());
+	if(player->if_over_load(item)){
+		destruct(item);
+		return 0;
+	}
+	err = catch {
+		item->move_player(player->query_name());
+	};
+	if(err){
+		if(item)
+			destruct(item);
+		return 0;
+	}
 	after = query_newbie_supply_amount(player,item_name);
 	if(after<=before && item)
 		destruct(item);
@@ -189,6 +249,38 @@ private int grant_newbie_supply_item(object player,string path,
 	if(after>before)
 		return after-before;
 	return 0;
+}
+
+mapping(string:int) grant_starter_exp_potion(object player)
+{
+	mapping(string:int) result = ([
+		"code":0,
+		"exp":0,
+	]);
+	if(!player)
+		return result;
+	if(player->query_level()>STARTER_EXP_MAX_LEVEL){
+		result["code"] = 3;
+		return result;
+	}
+	if((int)player[NEWBIE_SUPPLY_ROOT+"/exp_starter_granted"]){
+		result["code"] = 2;
+		return result;
+	}
+	result["exp"] = grant_newbie_supply_item(player,STARTER_EXP_PATH,
+		STARTER_EXP_ID,1);
+	if(result["exp"]>0){
+		player[NEWBIE_SUPPLY_ROOT+"/exp_starter_granted"] = time();
+		result["code"] = 1;
+	}
+	return result;
+}
+
+int query_starter_exp_potion_granted(object player)
+{
+	if(!player)
+		return 0;
+	return (int)player[NEWBIE_SUPPLY_ROOT+"/exp_starter_granted"] ? 1 : 0;
 }
 
 mapping(string:int) grant_newbie_supplies(object player,int red,int blue)
