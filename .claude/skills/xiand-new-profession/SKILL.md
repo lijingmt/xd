@@ -1,6 +1,6 @@
 ---
 name: xiand-new-profession
-description: Design, implement, audit, balance, test, document, or extend a complete Xiand profession. Use when adding a character class or profession, adding a neutral profession, comparing a new class with legacy classes, creating profession skills/books/equipment/tasks/hidden drops, or checking that a profession works from character creation through high-level play, Vue UI, auto-fight, social systems, restart, and TestUnit validation.
+description: Design, implement, audit, balance, test, document, or extend a complete Xiand profession. Use when adding a character class or profession, adding another profession under the neutral third race, comparing a new class with Fangshi, Zhenyue, or legacy classes, creating profession skills/books/equipment/tasks/hidden drops, or checking that a profession works from character creation through high-level play, Vue UI, auto-fight, social systems, deployment, restart, and TestUnit validation.
 ---
 
 # Xiand New Profession
@@ -8,11 +8,19 @@ description: Design, implement, audit, balance, test, document, or extend a comp
 Build a profession as a complete player lifecycle, not as a collection of skill
 files. Treat active source and runtime behavior under `/usr/local/games/xiand`
 as authoritative. Read `references/integration-map.md` before editing and use
+`references/profession-checklist.md` as the implementation gate. Use
 `references/ten-pass-audit.md` for final review.
 
 ## Non-negotiable contracts
 
 - Choose one stable lowercase ASCII profession ID and one Chinese display name.
+- Treat race and profession as separate axes. The neutral race `third` already
+  contains both Fangshi and Zhenyue; never equate `third` with one profession or
+  let a two-race `else` branch select a neutral profession accidentally.
+- The 2026-08-01 baseline has eight active professions and 24 hidden mythic
+  books. Never hard-code those totals in new generic logic: enumerate the
+  authoritative catalog/pool and test that adding one profession grows every
+  dependent set exactly once.
 - Reuse an existing race only after defining its faction, PvP, facility, chat,
   task, equipment, ranking, and migration behavior.
 - Make creation idempotent: set identity, starter stats, starter skill, starter
@@ -24,9 +32,20 @@ as authoritative. Read `references/integration-map.md` before editing and use
   duplicate, and consumption rules.
 - Every described skill effect must exist in runtime code. Do not promise taunt,
   healing, shielding, group protection, control, or scaling through text alone.
-- Preserve per-book hidden-drop probability when expanding a uniform pool.
+- Give every stateful class mechanic an ownership and cleanup matrix covering
+  move, team change, target change, death, logout, disconnect, expiry, recast,
+  replacement, daemon reload, and stale/dead/cross-room objects.
+- Preserve per-book hidden-drop probability when expanding a uniform pool. In
+  the current one-roll-per-monster design, adding three books means growing both
+  the pool and shared numerator from 24 to 27, not silently diluting old books.
 - Keep generated equipment, normal drops, Boss drops, forge restrictions,
   auto-equip, storage, trade, and item descriptions profession-compatible.
+- Audit profession-limited medicine in `food`, `water`, `liandan`, and `teyao`;
+  a class that can equip gear but cannot consume normal recovery items is not
+  complete.
+- Add the display name, rank tag, default unnamed title, top-list/game-list
+  identity, logo, male/female avatars, both image mirrors, Vue use, and Docker
+  asset copy. Distinct files must contain distinct intended images.
 - Use bounded effects: no permanent invulnerability, unbounded reflection,
   resurrection side effects, arbitrary remote effects, or percent damage without
   player/Boss caps.
@@ -42,18 +61,23 @@ physical, one magical, and one special-role profession. Run:
 
 ```bash
 python3 .claude/skills/xiand-new-profession/scripts/audit_profession.py \
-  fangshi --name-cn 方士
+  zhenyue --name-cn 镇岳 --race third --expect-hidden 3 --require-assets
 ```
 
 Use missing checks as investigation leads; the script is not proof of runtime
-correctness.
+correctness. If a historical class uses a nonstandard image prefix, pass
+`--asset-prefix`; use `--allow-missing AREA` only for a documented generic or
+intentional route, never to hide unfinished integration.
 
 ### 2. Write the class contract
 
 Record the profession ID/name, race, combat role, primary/secondary attributes,
 resource loop, solo loop, team loop, PvP counterplay, equipment policy, skill
-milestones, advanced replacements, and three hidden skills. Define numeric caps
-and failure behavior before implementing mechanics.
+milestones, advanced replacements, three hidden skills, task route, avatar
+policy, auto-fight policy, and VIP-assistant policy. Define numeric caps, effect
+ownership, cleanup triggers, server authority, and failure behavior before
+implementing mechanics. Fill the contract block in
+`references/profession-checklist.md` before writing Pike.
 
 Prefer a distinctive loop with counterplay over inflated coefficients. A tank,
 for example, needs reliable threat, bounded mitigation, a useful solo damage
@@ -77,6 +101,11 @@ Add each milestone as a vertical slice:
 4. Level/profession/prerequisite/duplicate checks.
 5. Runtime effect test and UI visibility.
 
+For passive books, test learning with a cold/uninitialized skill registry. For
+active skills, reject forged use by a character who has not learned the skill.
+For purchases, reject an unknown type/path, cross-profession detail request,
+stale daily selection, and forged client price.
+
 Cover early survival, basic offense, class-defining utility, team contribution,
 midgame growth, level-70 progression, and three level-80+ hidden skills. Use the
 existing five-stage model for new scalable abilities unless a historical format
@@ -84,9 +113,11 @@ requires otherwise.
 
 ### 5. Integrate shared systems
 
-Run the audit script for the new ID, then reverse-scan old profession arrays and
-branches. Check every row in the Shared systems section of the integration map.
-Do not special-case only one shop or one equipment generator.
+Run the audit script for the new ID, then reverse-scan old profession arrays,
+fixed totals, race branches, shop type branches, hidden pools, UI choices, image
+copy lists, medicine restrictions, tests, and documentation builders. Check
+every row in the Shared systems section of the integration map. Do not
+special-case only one shop, one image directory, or one equipment generator.
 
 ### 6. Add player-facing guidance
 
@@ -94,6 +125,9 @@ Expose role and controls during character selection. Make the state-based newbie
 guide require real actions and provide direct task navigation where supported.
 Show skill acquisition, team use, current status/resource, cooldown failures,
 level unlocks, and high-level goals in both legacy and Vue paths.
+Require the level-20 restricted reward, the level-53 chained book route, and the
+continuous growth-task path unless the class contract documents and tests a
+deliberate alternative.
 
 ### 7. Regenerate versioned handbooks
 
@@ -138,6 +172,8 @@ evidence, never completion evidence.
 Completion requires all of the following:
 
 - Character can be created, saved, restored, and migrated.
+- Multiple professions under the selected race remain independently selectable;
+  selecting one never rewrites or inherits another profession accidentally.
 - Starter skill and equipment are granted, equipped, and usable.
 - Books can be acquired and learned through real inventory actions.
 - Solo combat, team role, death, movement, logout, reconnect, auto-fight, and
@@ -147,7 +183,13 @@ Completion requires all of the following:
 - Tasks, maps, home, guild, ranking, chat, transfer, warehouse, dungeon, PvP, VIP,
   feedback, and high-level progression do not reject the profession accidentally.
 - Three hidden books remain drop-only and equally rare per book.
-- Vue and legacy UI show the correct identity, skills, status, and guidance.
+- Stateful mechanics reject dead, stale, cross-room, cross-team, unlearned, and
+  forged inputs and clean every owned effect at all lifecycle boundaries.
+- Vue and legacy UI show the correct identity, skills, status, guidance, logo,
+  and gender avatar; deployment includes the same verified assets.
+- Newbie medicine, ordinary medicine, smart auto-fight, level-gap tasks,
+  profession shop, advanced rotation, and optional PVE-only profession assistant
+  have an explicit pass or documented intentional exclusion.
 - Targeted tests plus full TestUnit pass after a real restart; logs contain no
   compile/runtime errors; both service ports respond.
 - Versioned Markdown/PDF handbooks are regenerated and visually verified when

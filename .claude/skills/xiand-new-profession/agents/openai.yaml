@@ -1,4 +1,4 @@
 interface:
   display_name: "Xiand 新职业全链路"
-  short_description: "从建角到高阶、装备、掉落与运行态验证的职业开发流程"
-  default_prompt: "Use $xiand-new-profession to design, implement, audit, test, and document a complete Xiand profession."
+  short_description: "中立职业从建角到高阶的技能、装备、共享系统与发布检查清单"
+  default_prompt: "Use $xiand-new-profession to implement and verify a complete Xiand profession with the neutral-profession checklist."

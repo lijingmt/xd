@@ -10,7 +10,13 @@
 | Level growth | `lowlib/mudlib/inherit/feature/level.pike` | exact stats at levels 1, 30, 80, 120 |
 | Combat formulas | `lowlib/mudlib/inherit/feature/attack.pike` | damage, defense, hit, dodge, crit boundaries |
 | Login/logout/migration | `gamelib/clone/user.pike`, `gamelib/d/init` | old and new save-shaped users, reconnect twice |
-| Avatar | image assets, avatar command/tests, Vue header | male/female/default fallback |
+| Default and shared identity | `lowlib/system/inherit/base.pike`, `look_top.pike`, `my_games.pike` | unnamed title, top/game lists, logs |
+| Avatar and logo | `images/`, `web/images/`, init/avatar tests, Vue header | male/female/default fallback and distinct bytes |
+| Deployment | `restart-docker.sh`, `rebuild-image.sh`, Vue build scripts | container/Tomcat assets match source |
+
+Current baseline is six legacy professions plus neutral Fangshi and neutral
+Zhenyue. Derive profession totals from authoritative data. Never make array
+length `8`, hidden count `24`, or `third == fangshi` part of generic behavior.
 
 ## Skills and acquisition
 
@@ -22,15 +28,22 @@
 | Book objects | `gamelib/clone/item/book/` |
 | Read enforcement | `lowlib/mudlib/inherit/feature/readed.pike` |
 | Store catalog/UI | `gamelib/data/can_buy_book_list.csv`, `buyd.pike`, `buy_items.pike` |
-| Teacher | `gamelib/clone/npc/*teacher*`, plaza room |
+| Teacher | `gamelib/clone/npc/*teacher*`, both faction plaza rooms |
 | High-level rotation | `gamelib/single/daemons/buyd.pike` and purchase confirmation |
 | Hidden drop | `itemsd.pike`, `gamelib/inherit/npc.pike` |
 | My skills/UI | `gamelib/cmds/myskills.pike`, legacy skills view, Vue parser |
+| Skill factory/registry | `gamelib/single/create_skill.pike`, `MUD_SKILLSD` |
 
 Every skill needs a real effect test. Test insufficient mofa, cooldown, invalid
 target, dead caster/target, duplicate cast, replacement, expiry, and maximum
-stage. Group effects are same-room, living, real-team only unless explicitly
-designed otherwise.
+stage. Test passive learning before the registry is warmed and active-skill use
+by an unlearned character. Group effects are same-room, living, real-team only
+unless explicitly designed otherwise.
+
+When three mythic books are added, update the data-driven pool and shared rate
+together. At the current baseline, 24 books use a shared 24/100000 roll and then
+a uniform 24-way selection, retaining about 1/100000 per book. Never fix the
+pool size in unrelated UI, docs, or tests.
 
 ## Equipment and economy
 
@@ -40,6 +53,7 @@ designed otherwise.
 - Dynamic generation in `itemsd.pike` and `bossdropd.pike`.
 - Ordinary/Boss drop ownership, pickup, inventory capacity, sell, destroy,
   auto-sell, warehouse, trade, send, and forge/fusion.
+- Profession-limited recovery items under `gamelib/clone/item/{food,water,liandan,teyao}`.
 - Money and jade purchase paths, including automatic jade denomination exchange.
 - Task-only and bound items must retain their original restrictions.
 
@@ -54,6 +68,46 @@ HTTP API player state, battle panel, and deployment/build scripts.
 Neutral professions must deliberately define whether they use both factions'
 facilities/tasks/chat/equipment or a dedicated neutral route. Never rely on a
 two-race `else` branch accidentally granting access.
+
+Multiple professions now share race `third`. Audit race helpers independently
+from profession-specific teachers, shops, guides, ranking tags, default names,
+avatars, class mechanics, and VIP assistants. Cross-faction social tests must
+cover both directions and must prove an ordinary human/monster pair remains
+unchanged.
+
+### Recorded Fangshi compatibility exceptions
+
+These explain the only expected static exemptions when Fangshi is used as a
+regression baseline; they are not templates for a new profession.
+
+- `shared_identity`: `look_top.pike` historically uses Fangshi as the `third`
+  fallback instead of naming it in the branch. Its behavior is covered by
+  `test_fangshi_system_parity.pike`. Every additional neutral profession still
+  needs an explicit tag and must not inherit this fallback.
+- `autofight`: Fangshi uses the generic auto-fight path, so the daemon has no
+  Fangshi literal. `test_fangshi_edge_cases.pike::test_fangshi_autofight`
+  covers the route. Add an explicit branch only when the new class mechanic
+  requires one.
+- Assets use the legacy `human_fangshi` prefix; audit them with
+  `--asset-prefix human_fangshi`.
+
+## Stateful role mechanics
+
+For every class-owned object, registry, effect, threat link, team shield, DOT,
+control, summon, or target array, define and test:
+
+- authoritative owner/target/level/duration/strength;
+- weaker/equal/stronger recast behavior;
+- move, team change, target switch, death, logout, disconnect, owner loss,
+  expiry, replacement, daemon reload, and duplicate cleanup;
+- dead/destructed/cross-room/cross-team filtering;
+- PvE, PvP, player-owned summon, Boss, duel, guild-war, and city-war boundaries;
+- reward, PK, threat, and fast-decision attribution.
+
+Zhenyue is the reference for finite personal/team shields, taunt/hate
+multipliers, team-change cleanup, and stale AOE target removal. Fangshi is the
+reference for cloned-object registries, owner cleanup, team healing, and alias
+preservation.
 
 ## Profession VIP and monetization contract
 
@@ -86,15 +140,19 @@ skills, summons, equipment, drops, or combat formulas.
 - Test free/trial/active/expired/downgraded states, PVE/PVP boundaries, duplicate
   purchase, insufficient currency, level-gated claims, monitor throttling and
   expiry acknowledgement.
+- A profession may deliberately have no assistant, but document and test that
+  exclusion. If it has one, add its context selection, manual recommendation,
+  persisted configuration, styles/titles, UI entry, auto-fight integration, and
+  both mirrored HTTP serialization lists as one vertical slice.
 
 ## Reverse scans
 
 Search for the new profession ID and for old hard-coded sets:
 
 ```bash
-rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi' \
+rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue' \
   gamelib lowlib vue_source test_unit
-rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)==[67]|case [1-7]' \
+rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*[678]|case [1-8]|21/100000|24/100000' \
   gamelib lowlib vue_source test_unit
 ```
 
