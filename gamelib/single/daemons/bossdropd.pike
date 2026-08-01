@@ -423,6 +423,16 @@ string get_org_converted_level(string orgitem,int boss_level){
 					writeback = writeback[..last_brace-1] + "    set_item_profeLimit(\"fangshi\");\n" + writeback[last_brace..];
 				}
 			}
+			if(search(writeback, "set_item_profeLimit(\"zhenyue\")") == -1 &&
+			   search(writeback, "set_item_profeLimit") != -1) {
+				int last_brace = search(writeback, "\n}\n");
+				if(last_brace == -1)
+					last_brace = search(writeback, "}\n");
+				if(last_brace != -1)
+					writeback = writeback[..last_brace-1] +
+						"    set_item_profeLimit(\"zhenyue\");\n" +
+						writeback[last_brace..];
+			}
 
 			int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 		werror("=========212 item_name:"+item_name+" write_flag "+write_flag+"\n");
@@ -443,12 +453,14 @@ string get_org_converted_level(string orgitem,int boss_level){
 					//master()->programs[new_item_path]=p;
 					rtn_ob=clone(p);
 
-					// 检查并添加方士职业
+					// 检查并添加中立玩家职业
 					if(rtn_ob) {
 						array(string) profs = rtn_ob->query_item_profeLimit();
 						if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
 							rtn_ob->set_item_profeLimit("fangshi");
 						}
+						if(profs && sizeof(profs) > 0 && search(profs, "zhenyue") == -1)
+							rtn_ob->set_item_profeLimit("zhenyue");
 					}
 				}
 				//werror("$$$$$$$$$$$$$$$$创建新物品结束$$$$$$$$$$$$$$$$$$$$\n");

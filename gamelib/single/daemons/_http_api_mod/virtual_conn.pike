@@ -119,7 +119,7 @@ object get_player_from_connection(string userid, void|int update_idle_time)
             }
             return player;
         }
-        vconnections[userid] = 0;
+        m_delete(vconnections,userid);
     }
     return 0;
 }
@@ -135,9 +135,6 @@ void cleanup_idle_connections()
         array users = indices(vconnections);
         int kicked_count = 0;
 
-        // 调试：每次cleanup都输出日志
-        http_werror("[IDLE_CHECK] Running cleanup, vconnections size=%d, timeout=%d\n", sizeof(vconnections), timeout);
-
         foreach(users, string userid) {
             mixed vconn = vconnections[userid];
             if(arrayp(vconn) && sizeof(vconn) >= 3) {
@@ -145,9 +142,7 @@ void cleanup_idle_connections()
                 object player = vconn[2];
                 int idle_time = now - last_used;
 
-                // 调试：输出每个连接的状态
                 string name = player && functionp(player->query_name) ? player->query_name() : userid;
-                http_werror("[IDLE_CHECK] User %s: idle=%d/%d seconds\n", name, idle_time, timeout);
 
                 // 检查是否超时
                 if(idle_time > timeout) {
@@ -163,7 +158,7 @@ void cleanup_idle_connections()
                     }
 
                     // 移除虚拟连接
-                    vconnections[userid] = 0;
+                    m_delete(vconnections,userid);
                     kicked_count++;
                 }
             }
@@ -236,7 +231,7 @@ mapping query_connection_status()
 void remove_virtual_connection(string userid)
 {
     if(!userid) return;
-    vconnections[userid] = 0;
+    m_delete(vconnections,userid);
 }
 
 /**

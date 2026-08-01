@@ -571,13 +571,22 @@ void handle_request(Protocols.HTTP.Server.Request req)
 
     // http_werror(" %s %s from %s\n", method, path, req->remote_addr || "unknown");
 
-    mixed err = catch {
-        // CORS预检
-        if(method == "OPTIONS") {
-            send_cors(req);
-            return;
-        }
+    if((req->query && sizeof(req->query)>MAX_HTTP_QUERY_SIZE) ||
+       (req->body_raw && sizeof(req->body_raw)>MAX_HTTP_BODY_SIZE) ||
+       (path && sizeof(path)>MAX_HTTP_QUERY_SIZE)){
+        send_json(req,(["error":"Request too large"]),413);
+        record_http_request_timing(method,path,request_started_at);
+        return;
+    }
 
+    // CORS 预检不进入异常捕获块，遵守 Pike catch 内不提前 return 的约束。
+    if(method == "OPTIONS") {
+        send_cors(req);
+        record_http_request_timing(method,path,request_started_at);
+        return;
+    }
+
+    mixed err = catch {
         // API路由分发
         switch(path) {
             case "/api":
@@ -2092,9 +2101,6 @@ mapping query_battle_enemy_state(object enemy_obj)
     enemy_state["hp"] = e_hp;
     enemy_state["hp_max"] = e_hp_max;
     enemy_state["is_dead"] = (e_hp <= 0);
-
-    http_werror(" Enemy %s HP: %d/%d (is_npc=%d)\n",
-               e_name, e_hp, e_hp_max, e_is_npc);
 
     if(!e_is_npc && functionp(enemy_obj->query_userid))
         enemy_state["userid"] = enemy_obj->query_userid();

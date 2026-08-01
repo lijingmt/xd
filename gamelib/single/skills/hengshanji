@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【岳】横山击";
+	desc="横盾震击敌人，以有限伤害制造大量仇恨";
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=8; hate_multiplier=400;
+	performs_attack[1]=45; performs_attack[2]=90; performs_attack[3]=160; performs_attack[4]=255; performs_attack[5]=380;
+	performs_cast[1]=16; performs_cast[2]=24; performs_cast[3]=34; performs_cast[4]=46; performs_cast[5]=60;
+	skill_type+=({"zhenyue"});
+	performs_level_limit[1]=10; performs_level_limit[2]=30; performs_level_limit[3]=50; performs_level_limit[4]=70; performs_level_limit[5]=90;
+	performs_desc[1]="附加45点伤害，产生400%仇恨，消耗法力16点"; performs_desc[2]="附加90点伤害，产生400%仇恨，消耗法力24点"; performs_desc[3]="附加160点伤害，产生400%仇恨，消耗法力34点"; performs_desc[4]="附加255点伤害，产生400%仇恨，消耗法力46点"; performs_desc[5]="附加380点伤害，产生400%仇恨，消耗法力60点";
+}

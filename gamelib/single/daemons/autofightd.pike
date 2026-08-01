@@ -454,6 +454,26 @@ string query_auto_skill_mode_cn(object me)
 	return "关闭";
 }
 
+// 技能守护进程采用惰性注册。重启后，老人物已学技能可能尚未被任何
+// 商店或页面加载；自动挂机必须按受限文件名补载，不能依赖测试顺序。
+object|zero query_auto_skill_object(string name)
+{
+	object|zero skill = 0;
+	mixed err = 0;
+	if(!name || name == "" || search(name,"/") != -1 ||
+	   search(name,"..") != -1)
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill){
+		err = catch {
+			skill = (object)(ROOT+"/gamelib/single/skills/"+name);
+		};
+		if(err)
+			skill = 0;
+	}
+	return skill;
+}
+
 private int query_auto_skill_usable_level(object me,string name)
 {
 	object|zero skill;
@@ -464,7 +484,7 @@ private int query_auto_skill_usable_level(object me,string name)
 	if(!me || !name || name == "" || !me->skills ||
 	   !me->skills[name])
 		return 0;
-	skill = MUD_SKILLSD[name];
+	skill = query_auto_skill_object(name);
 	if(!skill || skill->s_type != "zhudong")
 		return 0;
 	learned_level = (int)me->skills[name][0];
@@ -529,7 +549,7 @@ string query_recommended_auto_skill(object me)
 	best_score = -1;
 	for(int i = 0;i < sizeof(names);i++){
 		name = names[i];
-		skill = MUD_SKILLSD[name];
+		skill = query_auto_skill_object(name);
 		priority = query_auto_attack_skill_priority(skill);
 		if(priority <= 0)
 			continue;
@@ -567,7 +587,7 @@ int set_selected_auto_skill(object me,string name)
 	if(!me || !name || name == "" || !me->skills ||
 	   !me->skills[name])
 		return 0;
-	skill = MUD_SKILLSD[name];
+	skill = query_auto_skill_object(name);
 	if(!skill || skill->s_type != "zhudong")
 		return 0;
 	me["/plus/autofight_skill_mode"] = "manual";
@@ -589,7 +609,7 @@ string ensure_auto_skill(object me)
 	name = (string)me->skills_enable;
 	if(name != "" && me->skills && me->skills[name] &&
 	   query_auto_skill_usable_level(me,name) > 0){
-		skill = MUD_SKILLSD[name];
+		skill = query_auto_skill_object(name);
 		if(skill && skill->s_type == "zhudong")
 			return name;
 	}
@@ -600,7 +620,7 @@ string ensure_auto_skill(object me)
 	name = query_recommended_auto_skill(me);
 	if(name == "")
 		return "";
-	skill = MUD_SKILLSD[name];
+	skill = query_auto_skill_object(name);
 	if(!skill)
 		return "";
 	me->skills_enable = name;
@@ -608,19 +628,79 @@ string ensure_auto_skill(object me)
 	return name;
 }
 
+string query_auto_skill_unready_reason(object me,string name)
+{
+	object|zero skill;
+	int usable_level;
+	int cast;
+	if(!me || !name || name == "" || !me->skills ||
+	   !me->skills[name])
+		return "not_learned";
+	skill = query_auto_skill_object(name);
+	if(!skill)
+		return "missing_skill";
+	usable_level = query_auto_skill_usable_level(me,name);
+	if(usable_level <= 0)
+		return "level_locked";
+	if(me->timeCold != 0)
+		return "global_cooldown";
+	if(me->f_skills && (int)me->f_skills[name] > 1)
+		return "skill_cooldown";
+	cast = skill->query_performs_cast(usable_level);
+	if(cast > me->get_cur_mofa())
+		return "insufficient_mana";
+	return "";
+}
+
+private int query_context_skill_ready(object me,string name)
+{
+	return query_auto_skill_unready_reason(me,name) == "";
+}
+
+// 镇岳智能挂机并非只挑最高伤害：失去仇恨时先震吼，护盾耗尽后
+// 再保护同房间队伍，两个条件都不满足才回到常规高仇恨攻击。
+string query_ready_zhenyue_context_skill(object me)
+{
+	object|zero current_enemy;
+	array(string) names;
+	if(!me || me->query_profeId() != "zhenyue" ||
+	   !me->query_in_combat())
+		return "";
+	current_enemy = me->query_enemy();
+	if(current_enemy && current_enemy->first_target != me){
+		names = ({"zhenhunhou","dizhenhou"});
+		foreach(names,string name)
+			if(query_context_skill_ready(me,name))
+				return name;
+	}
+	if(me->query_buff("team_guard",0) != "absorb"){
+		names = ({"wanshanchaogong","wanshanbugu","shanhebi"});
+		foreach(names,string name)
+			if(query_context_skill_ready(me,name))
+				return name;
+	}
+	return "";
+}
+
 string query_ready_auto_skill(object me)
 {
 	object|zero skill;
 	mapping items;
 	string name;
+	string context_name;
 	int usable_level;
 	int cast;
-	if(!me || !me->in_combat)
+	if(!me || !me->query_in_combat())
 		return "";
+	if(query_auto_skill_mode(me) == "smart"){
+		context_name = query_ready_zhenyue_context_skill(me);
+		if(context_name != "")
+			return context_name;
+	}
 	name = ensure_auto_skill(me);
 	if(name == "")
 		return "";
-	skill = MUD_SKILLSD[name];
+	skill = query_auto_skill_object(name);
 	usable_level = query_auto_skill_usable_level(me,name);
 	if(!skill || usable_level <= 0 || me->timeCold != 0)
 		return "";

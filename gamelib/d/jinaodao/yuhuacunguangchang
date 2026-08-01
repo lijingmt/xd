@@ -13,6 +13,7 @@ protected void create(){
 	exits["north"]=ROOT "/gamelib/d/jinaodao/yuhuacun";
 	add_items(({ROOT "/gamelib/clone/npc/jinaodao/zhaogongming400"}));
 	add_items(({ROOT "/gamelib/clone/npc/fangshi_teacher"}));
+	add_items(({ROOT "/gamelib/clone/npc/zhenyue_teacher.pike"}));
 }
 int is_bedroom()
 {
@@ -45,9 +46,11 @@ string query_links(){
 			tmp+="[设置复活点:set_relife "+cur_pos+"]\n";
 	}
 	// 方士技能学习链接
-	if(player->query_profeId()=="fangshi" || player->query_raceId()=="third"){
+	if(player->query_profeId()=="fangshi"){
 		tmp+="[学习方士技能:buy_items book fangshi]\n";
 	}
+	if(player->query_profeId()=="zhenyue")
+		tmp+="[学习镇岳技能:buy_items book zhenyue]\n";
 	return tmp;
 }
 
@@ -169,6 +172,8 @@ array(string) query_pic_choices(object me)
 	if(sex!="male" && sex!="female")
 		sex = "male";
 	if(raceId=="human" || raceId=="third"){
+		if(raceId=="third" && me->query_profeId()=="zhenyue")
+			choices += ({"zhenyue_"+sex});
 		if(sex=="male"){
 			prefix = "h_male";
 			max_pic = 11;

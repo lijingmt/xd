@@ -22,8 +22,8 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785542332669">
-    <link rel="stylesheet" href="css/realm.css?v=v1785542332669">
+    <link rel="stylesheet" href="css/app.css?v=v1785557598920">
+    <link rel="stylesheet" href="css/realm.css?v=v1785557598920">
 </head>
 <body>
     <div id="app">
@@ -606,6 +606,12 @@
                             <span>{{ battlePlayerFull?.profe || playerStats?.profe || '职业未知' }}</span>
                             <span>{{ battlePlayerFull?.race || playerStats?.race || '阵营未知' }}</span>
                         </div>
+                        <div class="battle-guard-status"
+                             v-if="(battlePlayerFull?.guard_active ?? playerStats?.guard_active)">
+                            <span aria-hidden="true">🛡</span>
+                            <span>山河壁 {{ formatCompactNumber(battlePlayerFull?.guard ?? playerStats?.guard ?? 0) }}</span>
+                            <span>· {{ battlePlayerFull?.guard_time ?? playerStats?.guard_time ?? 0 }}秒</span>
+                        </div>
                     </div>
                     <div class="battle-vs">⚔️</div>
                     <div class="battle-side enemy-side">
@@ -724,6 +730,7 @@
                                 <span class="stat-item">精力: {{ formatCompactNumber(battlePlayerFull.energy || 0) }}</span>
                                 <span class="stat-item">职业: {{ battlePlayerFull.profe || '未知' }}</span>
                                 <span class="stat-item">阵营: {{ battlePlayerFull.race || '未知' }}</span>
+                                <span class="stat-item guard-stat" v-if="battlePlayerFull.guard_active">🛡 山河壁: {{ formatCompactNumber(battlePlayerFull.guard || 0) }} · {{ battlePlayerFull.guard_time || 0 }}秒</span>
                             </div>
                         </div>
                     </div>
@@ -1015,10 +1022,10 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785542332669"></script>
-    <script src="js/app.js?v=v1785542332669"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785557598920"></script>
+    <script src="js/app.js?v=v1785557598920"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785542332669"></script>
+    <script src="../includes/translate.js?v=v1785557598920"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

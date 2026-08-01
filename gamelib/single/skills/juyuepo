@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【岳】巨岳破";
+	desc="借全身重量发动一次稳定的物理重击";
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=12; hate_multiplier=220;
+	performs_attack[1]=100; performs_attack[2]=190; performs_attack[3]=320; performs_attack[4]=490; performs_attack[5]=700;
+	performs_cast[1]=30; performs_cast[2]=42; performs_cast[3]=56; performs_cast[4]=72; performs_cast[5]=90;
+	skill_type+=({"zhenyue"});
+	performs_level_limit[1]=25; performs_level_limit[2]=45; performs_level_limit[3]=65; performs_level_limit[4]=85; performs_level_limit[5]=105;
+	performs_desc[1]="附加100点伤害，产生220%仇恨，消耗法力30点"; performs_desc[2]="附加190点伤害，消耗法力42点"; performs_desc[3]="附加320点伤害，消耗法力56点"; performs_desc[4]="附加490点伤害，消耗法力72点"; performs_desc[5]="附加700点伤害，消耗法力90点";
+}

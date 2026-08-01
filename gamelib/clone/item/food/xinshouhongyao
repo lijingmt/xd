@@ -32,6 +32,7 @@ protected void create()
 	profe_limit["wuyao"] = "巫妖";
 	profe_limit["yinggui"] = "影鬼";
 	profe_limit["fangshi"] = "方士";
+	profe_limit["zhenyue"] = "镇岳";
 
 	eat_flag = 1;
 }

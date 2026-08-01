@@ -8,12 +8,12 @@
 #define VALUE 2
 #define PAGELEN 10
 
-string query_race_tag(string race_id)
+string query_race_tag(string race_id,void|string profession_id)
 {
 	if(race_id == "monst")
 		return "【妖】";
 	if(race_id == "third")
-		return "【方】";
+		return profession_id=="zhenyue" ? "【岳】" : "【方】";
 	return "【仙】";
 }
 
@@ -37,7 +37,7 @@ int main(string|zero arg)
 	//look_top list 等级 1
 	sscanf(arg,"%s %s",act,value);
 	//----------------------
-	string zhenying=query_race_tag(me->query_raceId());
+	string zhenying=query_race_tag(me->query_raceId(),me->query_profeId());
 	string topname = me->query_name_cn()+"("+me->query_level()+"级)"+zhenying;
 
 	TOPTEN->try_top(me->query_name(),topname,"等级",me->query_level());

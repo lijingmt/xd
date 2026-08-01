@@ -16,6 +16,7 @@ protected mapping(string:int) profe_fight=([
 		"wuyao":4,
 		"yinggui":5,
 		"fangshi":6,
+		"zhenyue":7,
 		"humanlike":6,
 		"beast":7,
 		"bird":8,
@@ -61,7 +62,7 @@ string query_fight_desc(string arg) {  //arg 为上面影射表的index中的
 string query_fight_type() {
 	string proId=this_object()->query_profeId();
 	switch(profe_fight[proId]){
-		case 0 .. 6:
+		case 0 .. 7:
 			return("");
 			break;
 		default:
@@ -126,6 +127,33 @@ int query_balanced_magic_damage(int raw_attack,int magic_defend,
 	if(result < 1)
 		result = 1;
 	return result;
+}
+
+// 镇岳的山河壁只作用于自己和同房间、同队、仍存活的玩家。
+int apply_team_guard_to_group(object caster,int shield,int duration)
+{
+	int applied = 0;
+	string team_id;
+	object env;
+	if(!caster || shield<=0 || duration<=0 || caster->get_cur_life()<=0)
+		return 0;
+	if(caster->apply_team_guard(shield,duration))
+		applied++;
+	team_id = caster->query_term();
+	env = environment(caster);
+	if(!env || team_id=="" || team_id=="noterm")
+		return applied;
+	foreach(all_inventory(env),object member){
+		if(member==caster || !member->is("player") ||
+		   member->query_term()!=team_id || member->get_cur_life()<=0)
+			continue;
+		if(member->apply_team_guard(shield,duration)){
+			applied++;
+			tell_object(member,caster->query_name_cn()+
+				"展开山河壁，为你承受接下来的伤害。\n");
+		}
+	}
+	return applied;
 }
 
 // 韧性只削减暴击的额外 50% 部分，不能让暴击伤害低于普通伤害。
@@ -366,6 +394,28 @@ void escape(void|int change){
 	}
 //技能升级系统20070206//////////////////////////////////
 //技能释放接口20070131//////////////////////////////////
+// 技能守护进程采用惰性注册。玩家存档里的技能在服务重启后未必已经被
+// 商店或技能页加载，因此施法入口按受限技能名补载；同时必须先验证玩家
+// 确实学过该技能，防止手工拼接 use_perform 命令越权施放全局已加载技能。
+private object|zero query_learned_skill_object(string name){
+	object|zero skill = 0;
+	mixed load_err = 0;
+	if(!name || name == "" || sizeof(name) > 64 ||
+	   search(name,"/") != -1 || search(name,"..") != -1 ||
+	   !this_object()->skills || !this_object()->skills[name] ||
+	   (int)this_object()->skills[name][0] <= 0)
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill){
+		load_err = catch {
+			skill = (object)(ROOT+"/gamelib/single/skills/"+name);
+		};
+		if(load_err)
+			skill = 0;
+	}
+	return skill;
+}
+
 void perform(string name,void|int flag){
 	//怪死亡判断......
 	if(enemy==0)
@@ -379,8 +429,18 @@ void perform(string name,void|int flag){
 	object|zero f_cur_skill;//当前使用技能对象
 	string s = "";//面向自己的战斗描述
 	string s1=""; //面向敌人的战斗描述
-	if(name&&sizeof(name))
-		f_cur_skill = MUD_SKILLSD[name];
+	if(name&&sizeof(name)){
+		if(!this_object()->skills || !this_object()->skills[name] ||
+		   (int)this_object()->skills[name][0] <= 0){
+			tell_object(this_object(),"你尚未学会该技能。\n");
+			return;
+		}
+		f_cur_skill = query_learned_skill_object(name);
+		if(!f_cur_skill){
+			tell_object(this_object(),"该技能暂时无法载入，请稍后再试。\n");
+			return;
+		}
+	}
 	else
 	{
 		string stmp = "你要施放什么技能？";
@@ -668,7 +728,8 @@ void perform(string name,void|int flag){
 			//判断是物理还是法术技能
 			/*   法术攻击技能     */
 			else if(mofa_type!="phy"&&mofa_type!="dot"&&mofa_type!="curse"&&
-				mofa_type!="buff"&&mofa_type!="heal"){
+				mofa_type!="buff"&&mofa_type!="heal"&&
+				mofa_type!="taunt"&&mofa_type!="team_guard"){
 				//诛仙70技能的法术免疫效果
 				if(enemy->query_buff("70_skill_buff",0)=="bingci"){
 					string stmp = "【仙】冰刺效果，对法术伤害免疫(还余"+enemy->query_buff("70_skill_buff",2)+"s)\n";
@@ -808,6 +869,7 @@ void perform(string name,void|int flag){
 						//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 						skills_level_check(f_cur_skill->query_name());	
 						//生命减取 
+						attack_fact = enemy->absorb_team_guard_damage(attack_fact);
 						int life_damage = enemy->get_cur_life()-attack_fact;
 						if(life_damage<=0){
 							//敌人死亡，则把敌人从仇恨列表中清除
@@ -1116,6 +1178,61 @@ void perform(string name,void|int flag){
 					return;
 				}
 			}
+			/*    镇岳强制仇恨    */
+			else if(f_cur_skill->s_skill_type=="taunt"){
+				if(s_cold<=1){
+					int forced = enemy->force_target(this_object(),
+						f_cur_skill->query_performs_attack(skill_level)+
+						this_object()->query_level()*10);
+					if(!forced){
+						tell_object(this_object(),"当前目标无法被震吼锁定。\n");
+						return;
+					}
+					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
+					this_object()->timeCold = 2;
+					this_object()->f_skills[name] =
+						f_cur_skill->query_s_delayTime(skill_level)+1;
+					tell_object(this_object(),"你施放了"+
+						f_cur_skill->query_name_cn()+"(等级"+skill_level+
+						")，强制吸引了"+enemy->query_name_cn()+"的仇恨。\n");
+					tell_object(enemy,this_object()->query_name_cn()+
+						"以震山之势锁定了你的攻势。\n");
+					skills_level_check(f_cur_skill->query_name());
+					return;
+				}
+				tell_object(this_object(),"该技能还需要"+(s_cold-1)+
+					"秒冷却时间,无法使用。\n");
+				return;
+			}
+			/*    镇岳同房间队伍护盾    */
+			else if(f_cur_skill->s_skill_type=="team_guard"){
+				if(s_cold<=1){
+					int shield = f_cur_skill->query_performs_attack(skill_level)+
+						this_object()->query_str()*2;
+					int guarded = apply_team_guard_to_group(this_object(),shield,
+						f_cur_skill->query_s_lasttime(skill_level));
+					if(guarded<=0){
+						tell_object(this_object(),"当前没有可以获得山河壁的存活目标。\n");
+						return;
+					}
+					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
+					this_object()->timeCold = 2;
+					this_object()->f_skills[name] =
+						f_cur_skill->query_s_delayTime(skill_level)+1;
+					enemy->flush_targets(this_object(),10+shield/10);
+					tell_object(this_object(),"你施放了"+
+						f_cur_skill->query_name_cn()+"(等级"+skill_level+
+						")，为"+guarded+"名同队成员展开了"+shield+
+						"点山河壁。\n");
+					tell_object(enemy,this_object()->query_name_cn()+
+						"展开山河壁护住了队伍。\n");
+					skills_level_check(f_cur_skill->query_name());
+					return;
+				}
+				tell_object(this_object(),"该技能还需要"+(s_cold-1)+
+					"秒冷却时间,无法使用。\n");
+				return;
+			}
 			/*    施放的增益魔法    */
 			else if(f_cur_skill->s_skill_type=="buff"){
 				if(s_cold <= 1){
@@ -1128,7 +1245,9 @@ void perform(string name,void|int flag){
 					//记录buff的值
 					int tmp_int=f_cur_skill->query_performs_attack(skill_level);
 					if(f_cur_skill->s_curse_type == "absorb"){
-						if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"){
+						if(this_object()->query_profeId()=="zhenyue")
+							tmp_int += (int)(this_object()->query_str()*3);
+						else if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"){
 							tmp_int += (int)(this_object()->query_think()*3);
 						}
 						else
@@ -1301,6 +1420,7 @@ void boss_perform(string name){
 								enemys[i]->flush_targets(this_object(),hate);
 
 								//生命减取 
+								attack_fact = enemys[i]->absorb_team_guard_damage(attack_fact);
 								int life_damage = enemys[i]->get_cur_life()-attack_fact;
 								if(life_damage<=0){
 									//敌人死亡，则把敌人从仇恨列表中清除
@@ -1406,6 +1526,7 @@ void boss_perform(string name){
 				enemy->flush_targets(this_object(),hate);
 
 				//生命减取 
+				attack_fact = enemy->absorb_team_guard_damage(attack_fact);
 				int life_damage = enemy->get_cur_life()-attack_fact;
 				if(life_damage<=0){
 					//敌人死亡，则把敌人从仇恨列表中清除
@@ -1756,6 +1877,8 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			if(enemy->query_buff("70_skill_buff",0) == "fanzhuanyiji"){
 				int attack_reflect = attack_a*30/100;
 				attack_a = attack_a - attack_reflect;
+				attack_reflect = this_object()->absorb_team_guard_damage(
+					attack_reflect);
 				int life_left = this_object()->get_cur_life()-attack_reflect;
 				if(life_left<0)
 					life_left = 0;
@@ -1823,6 +1946,9 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			}
 			//在这里产生威胁值
 			int hate=(int)(attack_a*skills_hate["test"]/100);
+			if(name_skill && MUD_SKILLSD[name_skill] &&
+			   functionp(MUD_SKILLSD[name_skill]->query_hate_multiplier))
+				hate = hate*MUD_SKILLSD[name_skill]->query_hate_multiplier()/100;
 			enemy->flush_targets(this_object(),hate);
 			if(!enemy->in_combat)
 				enemy->_fight(this_object());
@@ -1853,6 +1979,7 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 						skills_level_check(name_skill);
 				}
 			}
+			attack_fact = enemy->absorb_team_guard_damage(attack_fact);
 			int life_damage = enemy->get_cur_life()-attack_fact;
 			if(life_damage<=0){
 				//敌人死亡，则把敌人从仇恨列表中清除
@@ -1967,7 +2094,9 @@ private void heart_beat_action(){
 		//如果身上有dot状态
 		if(this_object()->query_debuff("dot",0)!="none"){
 			//掉血
-			int tmp_life=this_object()->get_cur_life()-this_object()->query_debuff("dot",1);
+			int dot_damage = this_object()->absorb_team_guard_damage(
+				this_object()->query_debuff("dot",1));
+			int tmp_life=this_object()->get_cur_life()-dot_damage;
 			if(tmp_life<=0){
 				this_object()->set_life(0);
 				//敌人死亡，则把敌人从仇恨列表中清除
@@ -2269,7 +2398,7 @@ int _fight(object _enemy){
 		//自动释放的技能
 		object|zero sk;
 		if(this_object()->skills_enable&&sizeof(this_object()->skills_enable)){
-			sk = MUD_SKILLSD[this_object()->skills_enable];
+			sk = query_learned_skill_object(this_object()->skills_enable);
 			if(sk){
 				autoPerforming = 1;
 				this_object()->skills_enable_colddown =

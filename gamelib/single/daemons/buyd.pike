@@ -20,7 +20,7 @@ class buy_item
 	string item_type;//[0]物品类别，如：书，肥料，丹药
 	string file;//[1]物品文件名
 	int level;//[2]学习技能等级限制
-	string zhiye;//[3]学习技能职业限制,剑仙:jianxian 羽士:yushi 诛仙:zhuxian 巫妖:wuyao 狂妖:kuangyao 影鬼:yinggui 方士:fangshi 人类:human 妖魔:monst 所有职业:all
+	string zhiye;//[3]学习技能职业限制,剑仙:jianxian 羽士:yushi 诛仙:zhuxian 巫妖:wuyao 狂妖:kuangyao 影鬼:yinggui 方士:fangshi 镇岳:zhenyue 人类:human 妖魔:monst 所有职业:all
 	string name_cn;//[4]技能书的中文名
 	int need_yushi;//[5]需要的碎玉
 	//int yushi_level;
@@ -137,6 +137,13 @@ string buy_items(string item_name,string item_type)
 	object item;
 	string s = "";
 	buy_item tmp = buy_item_list[item_name];
+	if(!tmp)
+		return "商品不存在或已经下架\n";
+	if(tmp->item_type!=item_type)
+		return "商品类别不匹配\n";
+	if(tmp->item_type=="book" && tmp->zhiye!="all" &&
+	   tmp->zhiye!=me->query_profeId())
+		return "只能购买自己职业的技能书\n";
 	int money = (tmp->need_money)*100;//购买物品需要的黄金
 	int yushi = tmp->need_yushi;//购买物品需要的玉石
 	int have_money = me->query_account();//玩家身上带有的金钱
@@ -157,7 +164,9 @@ string buy_items(string item_name,string item_type)
 		item = clone(ITEM_PATH+tmp->file);
 		item_namecn = item->query_name_cn();
 	};
-	if(!err&&item){
+	if(err || !item)
+		return "商品文件暂时不可用，请联系管理员\n";
+	if(item){
 		if(!YUSHID->pay_yushi(me,yushi)){
 			s += "玉石扣除失败，请稍后再试\n";
 			return s;
@@ -181,7 +190,16 @@ string buy_items(string item_name,string item_type)
 //显示物品信息调用接口
 string item_view(string item_name,int need_yushi,int need_money){
 	string s = "";
-	object item_ob = (object)(ITEM_PATH+item_name);
+	object|zero item_ob = 0;
+	mixed load_err = 0;
+	if(!item_name || item_name=="" || sizeof(item_name)>128 ||
+	   search(item_name,"..")!=-1 || item_name[0]=='/')
+		return "商品资料无效\n";
+	load_err = catch {
+		item_ob = (object)(ITEM_PATH+item_name);
+	};
+	if(load_err || !item_ob)
+		return "商品资料暂时不可用，请联系管理员\n";
 	s += item_ob->query_name_cn()+"\n";
 	s += item_ob->query_picture_url()+"\n"+item_ob->query_desc()+"\n";
 	if(item_ob->profe_read_limit||item_ob->level_limit)

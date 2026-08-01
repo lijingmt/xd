@@ -7424,6 +7424,26 @@ select:focus-visible {
     color: #ffd08a;
 }
 
+.battle-guard-status {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    overflow: hidden;
+    color: #9fdcff;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.battle-panel.fullscreen-mode .guard-stat {
+    border-color: rgba(91, 192, 235, 0.45);
+    background: rgba(51, 154, 240, 0.18);
+    color: #b8e7ff;
+}
+
 .battle-panel.fullscreen-mode .combatant-stats {
     margin-top: 7px;
     gap: 5px;

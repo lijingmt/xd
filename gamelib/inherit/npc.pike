@@ -985,7 +985,7 @@ void fight_die_single(object env)
 		object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
 		//掉落宝石 caijie 080807
 		object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),first->query_level());
-		//七职业大神传承，只由70级以上怪物极低概率掉落
+		//八职业大神传承，只由70级以上怪物极低概率掉落
 		object ob_hidden =
 			ITEMSD->get_hidden_skill_book(this_object()->query_level());
 		//end cai 080807

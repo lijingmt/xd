@@ -410,6 +410,8 @@ int is_growth_task_teacher(object player,object npc)
 				npcname=="yuyuan400";
 		case "fangshi":
 			return npcname=="fangshi_teacher";
+		case "zhenyue":
+			return npcname=="zhenyue_teacher";
 	}
 	return 0;
 }
@@ -548,7 +550,7 @@ string query_words(object player,object npc)
 // ------------------------------------------------------------------------
 // 每级职业历练
 //
-// 旧CSV任务只覆盖到68级，并且中间存在等级断档。这里为七个职业提供
+// 旧CSV任务只覆盖到68级，并且中间存在等级断档。这里为八个职业提供
 // 1-MAX_LEVEL每级一次的动态历练，不占用旧任务的10个任务位。
 // 只有击杀与领取等级相差5级以内的真实NPC才会推进，避免刷低级怪领奖。
 // ------------------------------------------------------------------------
@@ -563,6 +565,7 @@ int is_growth_task_profession(string profession_id)
 		case "wuyao":
 		case "yinggui":
 		case "fangshi":
+		case "zhenyue":
 			return 1;
 	}
 	return 0;
@@ -585,6 +588,8 @@ string query_growth_task_profession_name(string profession_id)
 			return "影鬼";
 		case "fangshi":
 			return "方士";
+		case "zhenyue":
+			return "镇岳";
 	}
 	return "未知职业";
 }
@@ -606,6 +611,8 @@ string query_growth_task_base_name(string profession_id)
 			return "影行猎杀";
 		case "fangshi":
 			return "灵契巡游";
+		case "zhenyue":
+			return "镇山守望";
 	}
 	return "职业历练";
 }
@@ -651,6 +658,8 @@ string query_growth_task_flavor(string profession_id)
 			return "潜行猎取同阶目标，在生死一线磨炼身法。";
 		case "fangshi":
 			return "携灵兽巡游同阶区域，以灵契或自身法术平息异动。";
+		case "zhenyue":
+			return "迎战同阶强敌，以稳固仇恨和守势磨炼镇山之躯。";
 	}
 	return "击败同阶敌人，完成本级职业历练。";
 }

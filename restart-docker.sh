@@ -43,7 +43,7 @@ fi
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 
-# 七职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
+# 八职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 HIDDEN_MYTHIC_SKILL_IDS=(
     "wanjianguizong"
     "taiqingjianyu"
@@ -66,6 +66,9 @@ HIDDEN_MYTHIC_SKILL_IDS=(
     "wuyingjuemie"
     "jiuyouguibu"
     "liudaozhangmu"
+    "wanshanchaogong"
+    "buzhouzhenji"
+    "tiandichengbi"
 )
 
 # 从命令行参数或环境变量读取配置
@@ -214,7 +217,7 @@ verify_hidden_mythic_assets_in_container() {
     print_success "容器内 ${#HIDDEN_MYTHIC_SKILL_IDS[@]} 套隐藏秘籍、技能主体和掉落池均已校验"
 }
 
-# 函数：把方士阵营图标和人物头像更新到容器内 Tomcat 的新旧访问路径
+# 函数：把中立阵营职业图标和人物头像更新到容器内 Tomcat 的新旧访问路径
 copy_fangshi_images_to_container() {
     local container_name="$1"
     local app_root="/app/xiand"
@@ -224,6 +227,11 @@ copy_fangshi_images_to_container() {
         "human_fangshi_logo.png"
         "human_fangshi_male.png"
         "human_fangshi_female.png"
+        "zhenyue_logo.png"
+        "zhenyue_male.png"
+        "zhenyue_female.png"
+        "zhenyue_male.gif"
+        "zhenyue_female.gif"
     )
     local image_name
     local source_image

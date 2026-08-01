@@ -195,7 +195,10 @@ void set_item_profeLimit(string s){
 array(string) query_item_profeLimit(){
 	if(sizeof(item_profeLimit) &&
 	   search(item_profeLimit,"fangshi")==-1)
-		return item_profeLimit+({"fangshi"});
+		item_profeLimit += ({"fangshi"});
+	if(sizeof(item_profeLimit) &&
+	   search(item_profeLimit,"zhenyue")==-1)
+		item_profeLimit += ({"zhenyue"});
 	return item_profeLimit;
 }
 

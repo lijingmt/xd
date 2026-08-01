@@ -1,7 +1,7 @@
 #!/usr/bin/env pike
 /**
  * 新手自动穿装助手测试：
- * 建角接线 -> 七职业一级初始装备 -> 最优空位选择 ->
+ * 建角接线 -> 八职业一级初始装备 -> 最优空位选择 ->
  * 现有装备保护 -> 穿戴限制 -> 双手武器冲突 -> 空背包。
  */
 
@@ -119,7 +119,7 @@ void test_ui_and_creation_wiring()
 
 void test_all_professions_starter_equipment()
 {
-	test_start("七个职业一级人物均可自动穿好四件初始装备");
+	test_start("八个职业一级人物均可自动穿好四件初始装备");
 	array(array(string)) professions = ({
 		({"human","jianxian"}),
 		({"human","yushi"}),
@@ -128,6 +128,7 @@ void test_all_professions_starter_equipment()
 		({"monst","wuyao"}),
 		({"monst","yinggui"}),
 		({"third","fangshi"}),
+		({"third","zhenyue"}),
 	});
 	object assistant = load_assistant();
 	int failed = 0;

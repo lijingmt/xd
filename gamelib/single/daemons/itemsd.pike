@@ -98,8 +98,8 @@ private mapping(int:array(string)) item_list = ([]);
 //记录白色装备允许出现属性的映射表
 private mapping(string:array(string)) item_attributes = ([]);
 
-//七职业大神传承仅通过70级以上怪物极低概率掉落。
-//总掉率为21/100000，二十一本等概率，即单本长期均值约1/100000。
+//八职业大神传承仅通过70级以上怪物极低概率掉落。
+//总掉率为24/100000，二十四本等概率，即单本长期均值约1/100000。
 private array(string) hidden_skill_books = ({
 	"book/wanjianguizong",
 	"book/taiqingjianyu",
@@ -122,9 +122,12 @@ private array(string) hidden_skill_books = ({
 	"book/wuyingjuemie",
 	"book/jiuyouguibu",
 	"book/liudaozhangmu",
+	"book/wanshanchaogong",
+	"book/buzhouzhenji",
+	"book/tiandichengbi",
 });
 private int hidden_skill_min_level = 70;
-private int hidden_skill_drop_rate = 21;
+private int hidden_skill_drop_rate = 24;
 
 //用于生成物品文件后缀的映射表,现在暂时未用上
 private mapping(string:int) postfix_map = ([
@@ -1102,13 +1105,14 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			};
 			if(err)
 				rtn_ob=0;
-			// 即使装备已存在，也要检查并添加方士职业
+			// 即使装备已存在，也要检查并添加中立玩家职业
 			if(rtn_ob) {
 				array(string) profs = rtn_ob->query_item_profeLimit();
 				if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
-					// 装备有职业限制但不包含方士，添加方士
 					rtn_ob->set_item_profeLimit("fangshi");
 				}
+				if(profs && sizeof(profs) > 0 && search(profs, "zhenyue") == -1)
+					rtn_ob->set_item_profeLimit("zhenyue");
 			}
 			return (rtn_ob);
 		}
@@ -1409,6 +1413,16 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 							writeback = writeback[..last_brace-1] + "    set_item_profeLimit(\"fangshi\");\n" + writeback[last_brace..];
 						}
 					}
+				}
+				if(search(writeback, "set_item_profeLimit") != -1 &&
+				   search(writeback, "set_item_profeLimit(\"zhenyue\")") == -1) {
+					int last_brace = search(writeback, "\n}\n");
+					if(last_brace == -1)
+						last_brace = search(writeback, "}\n");
+					if(last_brace != -1)
+						writeback = writeback[..last_brace-1] +
+							"    set_item_profeLimit(\"zhenyue\");\n" +
+							writeback[last_brace..];
 				}
 
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);

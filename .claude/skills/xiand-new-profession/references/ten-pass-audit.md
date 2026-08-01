@@ -1,0 +1,31 @@
+# Ten independent review passes
+
+Record evidence and defects separately for every pass. A repeated grep is not a
+new pass.
+
+1. **Creation and persistence** — selection, starter state, save/restore,
+   migration idempotency, invalid arguments, reconnect, death/logout cleanup.
+2. **Attributes and balance** — levels 1/30/80/120+, health/mofa, damage,
+   defense, accuracy, avoidance, criticals, penetration, PvE/PvP/Boss caps.
+3. **Skills and books** — every file loads, all stages, prerequisites,
+   profession/level/duplicate rules, inventory action, consumption and cooldown.
+4. **Class mechanic edge cases** — solo/team, movement, stale objects, leader
+   changes, death, expiry, repeated casts, disconnect, cross-room/cross-team.
+5. **Equipment and economy** — starter/dynamic/Boss gear, wear/remove, forge,
+   sell/store/trade/destroy, capacity, currency conversion and reward abuse.
+6. **Tasks and world progression** — beginner guide, every level band, task NPC,
+   navigation, maps, monster gaps, dungeons, level 70/120+ and hidden drops.
+7. **Social and shared systems** — team, guild, home, ranking, honor, chat,
+   friends, PvP, faction rules, VIP, feedback, admin and offline behavior.
+8. **Frontend and accessibility** — legacy UI and Vue, responsive layout,
+   identity/avatar, actionable errors, battle status, skill animation, refresh,
+   login/session compatibility and request overlap.
+9. **Concurrency, performance, and security** — same-player serialization,
+   shared transaction locks, bounded workers/queues, timeouts, cleanup, heartbeat,
+   rate/body/command limits, malformed and concurrent requests, idle CPU.
+10. **Release proof** — review diff and staged paths, compile historical Pike
+   patterns, targeted tests, full restart/TestUnit, ports, HTTP load, logs, Vue
+   build/test, deployment artifacts, English commit and remote push.
+
+Any failure returns to its owning pass and triggers the relevant regression test.
+Completion means all ten pass after the final code change, not before it.

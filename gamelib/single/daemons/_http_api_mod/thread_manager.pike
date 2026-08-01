@@ -35,6 +35,7 @@ constant CORE_COMMANDS = ({
     "zhaohuan", "zhaohuan_cfm", "summon",  // 召唤（涉及NPC和共享状态）
     "growth_task", "task_guide",  // 职业历练与任务引导传送
     "autofight", "autofightclose",  // 自动战斗
+    "flushview", "use_perform",  // 挂机循环与技能会改写敌人/队友共享状态
     "feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========
@@ -105,6 +106,10 @@ constant CORE_COMMAND_PREFIXES = ({
     "vendue_", "temai_", "term_", "fb_", "viceskill_"
 });
 
+/** 普通命令并行上限；超载请求短暂排队后快速失败，避免无限创建线程。 */
+constant HTTP_PARALLEL_WORKER_LIMIT = 16;
+constant HTTP_WORKER_SLOT_WAIT = 2;
+
 // ========================================================================
 // 全局变量
 // ========================================================================
@@ -115,6 +120,16 @@ Thread.Mutex core_lock = Thread.Mutex();
 /** 同一账号命令锁 - 保护人物状态和虚拟输出连接 */
 mapping(string:object) user_command_locks = ([]);
 Thread.Mutex user_command_lock_table_lock = Thread.Mutex();
+
+/** 有界并发闸门和运行态指标。 */
+Thread.Mutex parallel_worker_lock = Thread.Mutex();
+Thread.Condition parallel_worker_cond = Thread.Condition();
+int parallel_workers_active = 0;
+int parallel_workers_peak = 0;
+int parallel_workers_completed = 0;
+int parallel_workers_rejected = 0;
+int parallel_workers_timed_out = 0;
+int parallel_worker_start_failures = 0;
 
 /** 结果容器类（每个请求独立） */
 class ResultContainer {
@@ -184,6 +199,53 @@ int query_user_command_lock_count()
     return count;
 }
 
+int acquire_parallel_worker_slot()
+{
+    object key;
+    int deadline;
+    int remaining;
+    int acquired = 0;
+
+    key = parallel_worker_lock->lock();
+    deadline = time()+HTTP_WORKER_SLOT_WAIT;
+    remaining = HTTP_WORKER_SLOT_WAIT;
+    while(parallel_workers_active >= HTTP_PARALLEL_WORKER_LIMIT &&
+          remaining > 0){
+        parallel_worker_cond->wait(key,remaining);
+        remaining = deadline-time();
+    }
+    if(parallel_workers_active < HTTP_PARALLEL_WORKER_LIMIT){
+        parallel_workers_active++;
+        if(parallel_workers_active > parallel_workers_peak)
+            parallel_workers_peak = parallel_workers_active;
+        acquired = 1;
+    }
+    else
+        parallel_workers_rejected++;
+    destruct(key);
+    return acquired;
+}
+
+void release_parallel_worker_slot(int completed)
+{
+    object key = parallel_worker_lock->lock();
+    if(parallel_workers_active > 0)
+        parallel_workers_active--;
+    if(completed)
+        parallel_workers_completed++;
+    else
+        parallel_worker_start_failures++;
+    parallel_worker_cond->signal();
+    destruct(key);
+}
+
+void record_parallel_worker_timeout()
+{
+    object key = parallel_worker_lock->lock();
+    parallel_workers_timed_out++;
+    destruct(key);
+}
+
 // ========================================================================
 // 命令执行
 // ========================================================================
@@ -193,13 +255,14 @@ int query_user_command_lock_count()
  */
 void _execute_in_thread(string userid, string password, string cmd, object result_container)
 {
-    object user_mutex;
-    object user_key;
+    object|zero user_mutex = 0;
+    object|zero user_key = 0;
+    object|zero result_key = 0;
     string result = "";
 
-    user_mutex = query_user_command_mutex(userid);
-    user_key = user_mutex->lock();
     mixed err = catch {
+        user_mutex = query_user_command_mutex(userid);
+        user_key = user_mutex->lock();
         object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
         if(main_daemon && functionp(main_daemon->execute_command_sync)) {
             result = main_daemon->execute_command_sync(userid, password, cmd);
@@ -207,18 +270,28 @@ void _execute_in_thread(string userid, string password, string cmd, object resul
             result = "错误: 无法找到主执行器";
         }
     };
-    destruct(user_key);
+    if(user_key)
+        destruct(user_key);
 
     if(err) {
         result = "错误: " + describe_error(err);
     }
 
     // 存储结果并发送信号
-    object key = result_container->mutex->lock();
-    result_container->result = result;
-    result_container->done = 1;
-    destruct(key);
-    result_container->cond->signal();
+    // 结果容器本身异常也不能泄漏并发槽位；调用方会按既定超时返回。
+    mixed result_err = catch {
+        result_key = result_container->mutex->lock();
+        result_container->result = result;
+        result_container->done = 1;
+    };
+    if(result_key)
+        destruct(result_key);
+    if(!result_err)
+        result_container->cond->signal();
+    else
+        werror("[HTTP_THREAD] failed to publish worker result: %s\n",
+            describe_error(result_err));
+    release_parallel_worker_slot(1);
 }
 
 /**
@@ -226,20 +299,25 @@ void _execute_in_thread(string userid, string password, string cmd, object resul
  */
 string execute_core_command(string userid, string password, string cmd)
 {
-    object user_mutex = query_user_command_mutex(userid);
-    object user_key = user_mutex->lock();
-    object core_key = core_lock->lock();
+    object|zero user_mutex = 0;
+    object|zero user_key = 0;
+    object|zero core_key = 0;
     string result = "错误: 无法找到主执行器";
 
     mixed err = catch {
+        user_mutex = query_user_command_mutex(userid);
+        user_key = user_mutex->lock();
+        core_key = core_lock->lock();
         object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
         if(main_daemon && functionp(main_daemon->execute_command_sync)) {
             result = main_daemon->execute_command_sync(userid, password, cmd);
         }
     };
 
-    destruct(core_key);
-    destruct(user_key);
+    if(core_key)
+        destruct(core_key);
+    if(user_key)
+        destruct(user_key);
 
     if(err) {
         return "错误: " + describe_error(err);
@@ -257,11 +335,24 @@ string execute_parallel_command(string userid, string password, string cmd)
     int remaining;
     int timed_out;
     string result;
+    // Thread.Thread 的联合类型在 Pike 9.0.13 此处不能作为局部声明解析。
+    // 线程实例本身是 object，沿用守护进程内通用对象声明方式。
+    object|zero worker = 0;
     // 创建独立的结果容器
     object result_container = ResultContainer();
 
-    // 启动线程执行命令
-    Thread.Thread t = Thread.Thread(_execute_in_thread, userid, password, cmd, result_container);
+    if(!acquire_parallel_worker_slot())
+        return "错误: 系统繁忙，请稍后重试";
+
+    // 只有拿到槽位后才启动线程，任何时刻普通命令线程不超过上限。
+    mixed start_err = catch {
+        worker = Thread.Thread(_execute_in_thread, userid, password, cmd,
+            result_container);
+    };
+    if(start_err || !worker){
+        release_parallel_worker_slot(0);
+        return "错误: 无法启动命令线程";
+    }
 
     // 等待结果（最多30秒）
     object key = result_container->mutex->lock();
@@ -275,8 +366,10 @@ string execute_parallel_command(string userid, string password, string cmd)
     result = result_container->result;
     destruct(key);
 
-    if(timed_out)
+    if(timed_out){
+        record_parallel_worker_timeout();
         return "错误: 命令执行超时";
+    }
     return result;
 }
 
@@ -297,6 +390,9 @@ string route_and_execute(string userid, string password, string cmd)
     string result = "";
     mixed err;
     if(!userid || !cmd) return "错误: 参数无效";
+    if(sizeof(userid) > 64 || sizeof(password || "") > 128 ||
+       sizeof(cmd) > 2048)
+        return "错误: 请求参数过长";
 
     err = catch {
         if(is_core_command(cmd)) {
@@ -323,6 +419,7 @@ string route_and_execute(string userid, string password, string cmd)
 mapping query_thread_status()
 {
     mapping m = ([ ]);
+    object key;
 
     m["mode"] = "parallel";
     m["description"] = "HTTP requests execute in parallel, core commands use mutex lock";
@@ -331,6 +428,15 @@ mapping query_thread_status()
     m["user_command_locks"] = query_user_command_lock_count();
     m["same_user_policy"] = "serialized";
     m["cross_user_policy"] = "parallel_except_core";
+    key = parallel_worker_lock->lock();
+    m["parallel_worker_limit"] = HTTP_PARALLEL_WORKER_LIMIT;
+    m["parallel_workers_active"] = parallel_workers_active;
+    m["parallel_workers_peak"] = parallel_workers_peak;
+    m["parallel_workers_completed"] = parallel_workers_completed;
+    m["parallel_workers_rejected"] = parallel_workers_rejected;
+    m["parallel_workers_timed_out"] = parallel_workers_timed_out;
+    m["parallel_worker_start_failures"] = parallel_worker_start_failures;
+    destruct(key);
 
     return m;
 }

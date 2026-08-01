@@ -21,7 +21,7 @@ string query_words(){
 	if(!me) return ::query_words();
 
 	s += ::query_words();
-	if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
+	if(me->query_profeId() == "fangshi"){
 		s += name_cn + "说道：方士之道，在于召唤灵兽助战。\n";
 		s += "虎灵主攻击，鹤灵主治疗，龟灵主防御。\n";
 		s += "三灵合一，则可发挥最大威力！\n";
@@ -38,7 +38,7 @@ string query_npc_links(void|int count){
 	if(!me)
 		return ::query_npc_links(count);
 
-	if(me->query_profeId() == "fangshi" || me->query_raceId() == "third")
+	if(me->query_profeId() == "fangshi")
 		return ::query_npc_links(count) +
 			"[学习方士技能:buy_items book fangshi]\n";
 	return ::query_npc_links(count);

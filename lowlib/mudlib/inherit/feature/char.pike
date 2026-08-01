@@ -19,6 +19,26 @@ string follow = "";
 //array toolbar = ({
 array(mapping(string:int)) toolbar_key = ({});
 
+// 快捷栏可能早于技能商店被打开；重启后按人物真实已学技能安全补载。
+private object|zero query_toolbar_skill_object(string name)
+{
+	object|zero skill = 0;
+	mixed load_err = 0;
+	if(!name || name=="" || sizeof(name)>64 ||
+	   search(name,"/")!=-1 || search(name,"..")!=-1 ||
+	   !skills || !skills[name] || (int)skills[name][0]<=0)
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill){
+		load_err = catch {
+			skill = (object)(SKILL_PATH+name);
+		};
+		if(load_err)
+			skill = 0;
+	}
+	return skill;
+}
+
 int set_toolbar(string name,int num,int flag)
 {
 	if(name != "" && num<TOOLBAR_NUM){
@@ -59,7 +79,11 @@ string query_toolbar_cn()
 			else{
 				used ++;
 				if(toolbar_key[i][name]==1){
-					s += "["+MUD_SKILLSD[name]->query_name_cn()+":use_toolbar "+i+"]";
+					object|zero toolbar_skill =
+						query_toolbar_skill_object(name);
+					if(!toolbar_skill)
+						break;
+					s += "["+toolbar_skill->query_name_cn()+":use_toolbar "+i+"]";
 					if(i!=TOOLBAR_NUM-1)
 						s += "|";
 					break;
@@ -273,6 +297,7 @@ void clean_debuff(string s){
 protected mapping(string:array(mixed)) buff = ([
 		"buff":({"none",0,0}),
 		"buff2":({"none",0,0}),
+		"team_guard":({"none",0,0}),
 		"attri_base":({"none",0,0}),
 		"attri_vice":({"none",0,0}),
 		"attri_defend":({"none",0,0}),
@@ -311,9 +336,44 @@ void clean_buff(string s){
 	buff[s][2]=0;
 }
 
+// 镇岳的队伍护盾使用独立槽位，不覆盖队友已有的职业增益。
+int apply_team_guard(int shield,int duration){
+	if(shield<=0 || duration<=0 || get_cur_life()<=0)
+		return 0;
+	if(query_buff("team_guard",0)=="absorb" &&
+	   (int)query_buff("team_guard",1)>=shield)
+		return 0;
+	set_buff("team_guard",0,"absorb");
+	set_buff("team_guard",1,shield);
+	set_buff("team_guard",2,duration);
+	return 1;
+}
+
+int absorb_team_guard_damage(int damage){
+	int shield;
+	int absorbed;
+	if(damage<=0 || query_buff("team_guard",0)!="absorb")
+		return damage;
+	shield = (int)query_buff("team_guard",1);
+	if(shield<=0){
+		clean_buff("team_guard");
+		return damage;
+	}
+	absorbed = shield>=damage ? damage : shield;
+	shield -= absorbed;
+	damage -= absorbed;
+	if(shield<=0)
+		clean_buff("team_guard");
+	else
+		set_buff("team_guard",1,shield);
+	tell_object(this_object(),"【岳】山河壁为你吸收了"+absorbed+"点伤害。\n");
+	return damage;
+}
+
 void reset_buff(){
 	clean_buff("buff");
 	clean_buff("buff2");
+	clean_buff("team_guard");
 	clean_buff("attri_base");
 	clean_buff("attri_vice");
 	clean_buff("attri_defend");
@@ -378,14 +438,22 @@ object get_target()
 {
 	int max=0;
 	object|zero tmp_ob=0;
+	array(object) stale_targets=({});
+	object|zero current_room=environment(this_object());
 	if(targets){
-		//轮询仇恨列表，得到最到仇恨第一的目标
+		// 只从同房间存活目标中选择，移动或死亡目标在本轮清理。
 		foreach(indices(targets),object ob) {
-			if(targets[ob]>max){
+			if(!ob || ob->get_cur_life()<=0 || !current_room ||
+			   environment(ob)!=current_room){
+				stale_targets += ({ob});
+			}
+			else if(targets[ob]>max){
 				tmp_ob=ob;
 				max=targets[ob];
 			}
 		}
+		foreach(stale_targets,object stale)
+			m_delete(targets,stale);
 		first_target=tmp_ob;
 		return tmp_ob;
 	}
@@ -394,6 +462,8 @@ object get_target()
 
 array(object) get_all_targets()
 {
+	// 与单目标选择共享清理规则，防止 AOE 继续命中已死亡或已换房目标。
+	get_target();
 	array(object) rtn = sort(indices(targets));
 	if(rtn && sizeof(rtn))
 		return rtn;
@@ -423,8 +493,11 @@ int if_in_targets(object ob)
 //接口，用于清除仇恨列表中的某项
 void clean_targets(object ob)
 {
-	if(ob&&targets[ob])
+	if(ob&&targets[ob]){
 		m_delete(targets,ob);
+		if(first_target==ob)
+			first_target=0;
+	}
 }
 
 //接口，用于显示怪物的目标
@@ -509,8 +582,8 @@ protected mapping(string:string) races=([
 //鱼：fish 两栖动物：amphibian 昆虫：bugs
 string profeId;
 read_write(profeId);
-protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","humanlike","beast","bird","fish","amphibian","bugs","dog"});
-protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
+protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","humanlike","beast","bird","fish","amphibian","bugs","dog"});
+protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇岳","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
 protected mapping(string:string) profes=([
 		profeKindList[0]:profeNameList[0],
 		profeKindList[1]:profeNameList[1],
@@ -525,13 +598,49 @@ protected mapping(string:string) profes=([
 		profeKindList[10]:profeNameList[10],
 		profeKindList[11]:profeNameList[11],
 		profeKindList[12]:profeNameList[12],
-		profeKindList[13]:profeNameList[13]
+		profeKindList[13]:profeNameList[13],
+		profeKindList[14]:profeNameList[14]
 		]);
 ////////////////阵营/////////////////////////////////////////////////
 string query_race_cn(string rid){
 	return races[rid];
 }
-// 中立方士可以使用仙、妖两边的公共设施；老职业仍受本阵营限制。
+
+int query_threat_for(object ob)
+{
+	if(!ob || !targets[ob])
+		return 0;
+	return targets[ob];
+}
+
+int query_max_threat()
+{
+	int result = 0;
+	object|zero current_room = environment(this_object());
+	foreach(indices(targets),object target){
+		if(target && target->get_cur_life()>0 && current_room &&
+		   environment(target)==current_room && targets[target]>result)
+			result = targets[target];
+	}
+	return result;
+}
+
+// 只允许同房间存活角色成为当前目标；在最高仇恨上追加而非写入魔数。
+int force_target(object ob,int bonus)
+{
+	int forced_threat;
+	if(!ob || ob==this_object() || ob->get_cur_life()<=0 ||
+	   !environment(this_object()) ||
+	   environment(ob)!=environment(this_object()))
+		return 0;
+	if(bonus<1)
+		bonus = 1;
+	forced_threat = query_max_threat()+bonus;
+	targets[ob] = forced_threat;
+	first_target = ob;
+	return forced_threat;
+}
+// 中立职业可以使用仙、妖两边的公共设施；老职业仍受本阵营限制。
 int can_use_room_race(string target_race){
 	if(raceId=="third")
 		return target_race=="human" ||
@@ -542,7 +651,7 @@ int can_use_room_race(string target_race){
 int can_change_faction(){
 	return raceId=="human" || raceId=="monst";
 }
-// 方士可与仙、妖两边玩家组队、交易和交流；仙妖之间仍保持敌对隔离。
+// 中立职业可与仙、妖两边玩家组队、交易和交流；仙妖之间仍保持敌对隔离。
 int can_socialize_with(object target){
 	if(!target)
 		return 0;

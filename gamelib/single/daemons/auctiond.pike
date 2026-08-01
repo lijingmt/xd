@@ -27,7 +27,17 @@ protected void create()
 {
 	//	LOG->setFilePre(log_file);
 	LOG = LOG_P(log_file);
-	db=Sql.Sql(dbSql,optionsMap);
+	// SQL 初始化异常的 Pike 回溯会展开连接构造参数，其中
+	// 包含数据库密码。守护进程必须在本地吞掉该异常，仅记录
+	// 脱敏状态；后续拍卖操作仍会在各自的 catch 中尝试重连。
+	mixed db_err = catch {
+		db=Sql.Sql(dbSql,optionsMap);
+	};
+	if(db_err){
+		db = 0;
+		LOG->append_time("[create()] [database unavailable] [fail]");
+		werror("[auctiond] MySQL unavailable; auction service will retry on demand\n");
+	}
 	call_out(time_task,TIME_INTERVAL);
 }
 
@@ -553,4 +563,3 @@ string get_time_desc(int old_time)
 
 	return ret_str;
 }
-

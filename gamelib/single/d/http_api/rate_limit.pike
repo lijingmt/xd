@@ -56,7 +56,7 @@ void ban_ip(string ip, int duration)
 void unban_ip(string ip)
 {
     if(!ip) return;
-    banned_ips[ip] = 0;
+    m_delete(banned_ips,ip);
     http_werror(" Unbanned IP %s\n", ip);
 }
 
@@ -210,7 +210,7 @@ void cleanup_rate_limits()
 
             // 超过5分钟无活动，清理记录
             if(now - last_login > 300 && now - last_register > 300) {
-                rate_limits[ip] = 0;
+                m_delete(rate_limits,ip);
             }
             // 重置计数器（每分钟）
             else if(now - last_login > window) {
@@ -227,7 +227,7 @@ void cleanup_rate_limits()
     foreach(banned, string ip) {
         if(banned_ips[ip] && banned_ips[ip] < now) {
             http_werror(" Unbanning IP: %s\n", ip);
-            banned_ips[ip] = 0;
+            m_delete(banned_ips,ip);
         }
     }
 

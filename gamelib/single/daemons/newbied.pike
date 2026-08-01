@@ -93,6 +93,17 @@ mapping(string:mapping(string:mixed)) profession_config = ([
 		"practice":"summon",
 		"practice_cn":"升到10级，学习虎灵并真正召唤一只虎灵",
 	]),
+	"zhenyue":([
+		"name":"镇岳",
+		"starter":"yueji",
+		"starter_cn":"岳击",
+		"level":5,
+		"book":"book/zhenyan",
+		"book_cn":"【岳】镇岩诀",
+		"skill":"zhenyan",
+		"practice":"active",
+		"practice_cn":"施放镇岩诀，建立第一层稳定守势",
+	]),
 ]);
 
 mapping(string:mixed) query_profession_config(object player)
@@ -567,7 +578,7 @@ mapping(string:mixed) query_step_state(object player)
 			break;
 		case 7:
 			state["title"] = "领取本级职业历练";
-			state["desc"] = "七职业每一级都有历练；领取后击败等级接近自己的怪物。";
+			state["desc"] = "八职业每一级都有历练；领取后击败等级接近自己的怪物。";
 			state["action_label"] = "领取历练";
 			state["action_command"] = "growth_task accept";
 			break;
@@ -609,13 +620,21 @@ mapping(string:mixed) query_step_state(object player)
 			break;
 		case 14:
 			state["title"] = "认识阵营聊天";
-			state["desc"] = "打开聊天频道；方士可使用中立职业开放的跨阵营生活入口。";
+			if(player->query_raceId()=="third")
+				state["desc"] = "打开聊天频道；中立职业可同时查看仙、妖消息，并使用两边公共生活入口。";
+			else
+				state["desc"] = "打开本阵营聊天频道，认识同阵营玩家并留意组队消息。";
 			state["action_label"] = "打开聊天";
 			state["action_command"] = "chatroom_list";
 			break;
 		case 15:
 			state["title"] = "认识七星阵队伍";
-			state["desc"] = "队伍用于协作打怪和进入副本；方士的灵莲铺、鹤灵共鸣也会照顾同房间队友。";
+			if(player->query_profeId()=="fangshi")
+				state["desc"] = "队伍用于协作打怪和进入副本；灵莲铺与鹤灵共鸣会照顾同房间队友。";
+			else if(player->query_profeId()=="zhenyue")
+				state["desc"] = "队伍用于协作打怪和进入副本；震吼稳住仇恨，山河壁只保护同房间存活队友。";
+			else
+				state["desc"] = "队伍用于协作打怪、共享战利品并进入需要多人配合的副本。";
 			state["action_label"] = "打开队伍";
 			state["action_command"] = "my_term";
 			break;

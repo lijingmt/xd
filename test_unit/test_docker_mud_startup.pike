@@ -131,6 +131,7 @@ void test_item_sync_contract()
 		"xuemoshijie","shurakuangyi","xuehailieshang",
 		"huangquanwudu","wanxiangshihun","jiuyouduzhang",
 		"wuyingjuemie","jiuyouguibu","liudaozhangmu",
+		"wanshanchaogong","buzhouzhenji","tiandichengbi",
 	});
 
 	if(source){
@@ -146,7 +147,7 @@ void test_item_sync_contract()
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
-	   hidden_count==21 &&
+	   hidden_count==24 &&
 	   search(source,
 		   "verify_hidden_mythic_assets_in_container")!=-1 &&
 	   search(source,
@@ -159,7 +160,7 @@ void test_item_sync_contract()
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录，并校验huling1及21套隐藏传承");
+		test_fail("item必须同步到实际挂载目录，并校验huling1及24套隐藏传承");
 }
 
 void test_fangshi_images_deploy_contract()
@@ -244,6 +245,23 @@ void test_local_restart_save_contract()
 		test_fail("restart必须先通过MUD shutdown保存在线玩家，失败时不得TERM");
 }
 
+void test_local_restart_stack_contract()
+{
+	test_start("本地开发重启与容器使用相同Pike内部栈");
+	string source = Stdio.read_file(
+		ROOT+"/scripts/restart_with_testunit.sh");
+	if(source &&
+	   search(source,"XIAND_PIKE_STACK_DEPTH:-1000000")!=-1 &&
+	   search(source,"XIAND_PIKE_THREAD_STACK:-67108864")!=-1 &&
+	   search(source,"-s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK'")!=-1 &&
+	   search(source,"PIKE_STACK_DEPTH <= 0")!=-1 &&
+	   search(source,"PIKE_THREAD_STACK <= 0")!=-1 &&
+	   search(source,"Pike stack settings must be positive integers")!=-1)
+		test_pass();
+	else
+		test_fail("本地重启缺少可校验的evaluator栈或64MiB线程栈");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -263,6 +281,7 @@ int main()
 	test_item_sync_contract();
 	test_fangshi_images_deploy_contract();
 	test_local_restart_save_contract();
+	test_local_restart_stack_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;

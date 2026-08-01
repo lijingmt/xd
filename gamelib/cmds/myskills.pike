@@ -12,6 +12,13 @@ int main(string|zero arg)
 		s += "[召唤灵兽:summon]\n";
 		s += "[方士专属·灵契共鸣:summon list]\n";
 	}
+	if(this_player()->query_profeId()=="zhenyue"){
+		if(this_player()->query_buff("team_guard",0)=="absorb")
+			s += "【山河壁】剩余"+
+				this_player()->query_buff("team_guard",1)+"点，约"+
+				this_player()->query_buff("team_guard",2)+"秒。\n";
+		s += "[镇岳守御路线:newbie_guide roadmap]|[队伍:my_term]\n";
+	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改
 	if(this_player()->can_spec == 1){

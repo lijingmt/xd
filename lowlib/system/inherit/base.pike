@@ -124,8 +124,12 @@ string query_name_cn(void|int true_name){
 		if(this_object()["query_raceId"] && this_object()->query_raceId()=="human")
 			return "无名剑客";
 		else if(this_object()["query_raceId"] &&
-			this_object()->query_raceId()=="third")
+			this_object()->query_raceId()=="third"){
+			if(this_object()["query_profeId"] &&
+			   this_object()->query_profeId()=="zhenyue")
+				return "无名镇岳";
 			return "无名方士";
+		}
 		else
 			return "无名妖女";
 	}

@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【神】不周震击";
+	desc="失落的不周重击，在不过度爆发的前提下制造极高仇恨";
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=60; hate_multiplier=600; skill_rare="mythic";
+	performs_attack[1]=1800; performs_attack[2]=2700; performs_attack[3]=3800; performs_attack[4]=5100; performs_attack[5]=6600;
+	performs_cast[1]=300; performs_cast[2]=360; performs_cast[3]=430; performs_cast[4]=510; performs_cast[5]=600;
+	skill_type+=({"zhenyue"});
+	performs_level_limit[1]=80; performs_level_limit[2]=100; performs_level_limit[3]=120; performs_level_limit[4]=140; performs_level_limit[5]=160;
+	performs_desc[1]="附加1800点伤害并产生600%仇恨，消耗法力300点"; performs_desc[2]="附加2700点伤害，消耗法力360点"; performs_desc[3]="附加3800点伤害，消耗法力430点"; performs_desc[4]="附加5100点伤害，消耗法力510点"; performs_desc[5]="附加6600点伤害，消耗法力600点";
+}

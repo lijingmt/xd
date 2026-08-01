@@ -1,0 +1,5 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){ name=object_name(this_object()); name_cn="【岳】万山不孤"; unit="本"; picture=name; desc="高阶同房间队伍护盾\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=500; skill_bname="wanshanbugu"; level_limit=60; profe_read_limit="镇岳"; need_yushi=390; need_money=0; }
+int read(){ int result=::read(); if(read_flag==0) remove(); return result; }

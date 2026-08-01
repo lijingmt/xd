@@ -11,6 +11,13 @@ mapping(int:string) performs_desc=([]);//技能等级描述
 mapping(int:int) performs_level_limit=([]);//技能等级限制
 int effect_value;//70技能特有的字段，用于记录一些效果值
 string skill_rare="";//技能稀有度标记，普通技能为空
+int hate_multiplier=100;//物理技能仇恨倍率，100为普通技能
+
+int query_hate_multiplier(){
+	if(hate_multiplier<1)
+		return 100;
+	return hate_multiplier;
+}
 
 int query_performs_attack(int level){
 	if(!level)

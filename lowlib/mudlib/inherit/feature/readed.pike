@@ -11,6 +11,27 @@ int skill_level = 0;//主动技能书的等级
 int is_book(){
 	return 1;
 }
+
+// 被动书读取技能数值时不能假设技能已被商店或技能页提前注册。
+// 只从书本自身声明的受限技能名补载，避免路径伪造和空对象调用。
+private object|zero query_book_skill_object()
+{
+	object|zero skill = 0;
+	mixed load_err = 0;
+	string name = this_object()->skill_bname;
+	if(!name || name=="" || sizeof(name)>64 ||
+	   search(name,"/")!=-1 || search(name,"..")!=-1)
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill){
+		load_err = catch {
+			skill = (object)(ROOT+"/gamelib/single/skills/"+name);
+		};
+		if(load_err)
+			skill = 0;
+	}
+	return skill;
+}
 //主动技能的学习
 int read(){
 	object me=this_player();
@@ -54,10 +75,14 @@ int read(){
 //被动技能的学习
 int beidong_read(){
 	object me=this_player();
+	object|zero skill_ob = 0;
 	if(me&&me->is_character()){
 		if(me->query_level()>=this_object()->level_limit){//等级符合要求可以学习
 			// 修复：比较职业ID而不是职业名称
 			if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){//职业要求要求可以学习
+				skill_ob = query_book_skill_object();
+				if(!skill_ob)
+					return 0;
 				//如果第一次学习该技能,并且该技能书为1级,可以学习到一级
 				if(me->skills[this_object()->skill_bname]==0){
 					if(this_object()->beidong_level==1){//该被动技能书为1级可以直接学到
@@ -67,9 +92,10 @@ int beidong_read(){
 						int add_skills_value = 0;
 						string buff_type = ""; 
 						//该被动技能在用户技能内存对象中,可以取值
-						cur_book_skills_value = (int)MUD_SKILLSD[this_object()->skill_bname]->query_performs_attack(1);
+						cur_book_skills_value =
+							(int)skill_ob->query_performs_attack(1);
 						//被动技能增加的属性
-						buff_type = (string)MUD_SKILLSD[this_object()->skill_bname]->s_curse_type;
+						buff_type = (string)skill_ob->s_curse_type;
 						//先得到并减去当前等级技能书附加的属性
 						add_skills_value = cur_book_skills_value;
 						//然后将学到的该被动技能等级的属性加到该玩家身上
@@ -120,10 +146,12 @@ int beidong_read(){
 							foreach(sort(indices(m)),string name){
 								if(this_object()->skill_bname==name){
 									//该被动技能在用户技能内存对象中,可以取值
-									cur_user_skills_value = (int)MUD_SKILLSD[name]->query_performs_attack(cur_user_level);
-									cur_book_skills_value = (int)MUD_SKILLSD[name]->query_performs_attack(cur_book_level);
+									cur_user_skills_value =
+										(int)skill_ob->query_performs_attack(cur_user_level);
+									cur_book_skills_value =
+										(int)skill_ob->query_performs_attack(cur_book_level);
 									//被动技能增加的属性
-									buff_type = (string)MUD_SKILLSD[name]->s_curse_type;
+									buff_type = (string)skill_ob->s_curse_type;
 									break;
 								}
 							}
@@ -353,5 +381,4 @@ int zhijia_read()
 		}
 	}
 }
-
 

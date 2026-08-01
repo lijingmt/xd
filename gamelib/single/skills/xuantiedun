@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【岳】玄铁盾";
+	desc="以玄铁之势形成个人护盾，可与山河壁独立共存";
+	s_type="zhudong"; s_skill_type="buff"; s_curse_type="absorb"; s_delayTime=48; s_lasttime=16;
+	performs_attack[1]=500; performs_attack[2]=900; performs_attack[3]=1450; performs_attack[4]=2150; performs_attack[5]=3000;
+	performs_cast[1]=42; performs_cast[2]=56; performs_cast[3]=72; performs_cast[4]=90; performs_cast[5]=110;
+	skill_type+=({"zhenyue"});
+	performs_level_limit[1]=30; performs_level_limit[2]=50; performs_level_limit[3]=70; performs_level_limit[4]=90; performs_level_limit[5]=110;
+	performs_desc[1]="16秒内获得500点基础护盾并受力量加成，消耗法力42点"; performs_desc[2]="获得900点基础护盾，消耗法力56点"; performs_desc[3]="获得1450点基础护盾，消耗法力72点"; performs_desc[4]="获得2150点基础护盾，消耗法力90点"; performs_desc[5]="获得3000点基础护盾，消耗法力110点";
+}

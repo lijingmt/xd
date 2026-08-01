@@ -1117,6 +1117,21 @@ mapping query_player_state(object player)
         result["hp"] = hp;
         result["hp_max"] = hp_max;
 
+        // 镇岳队伍护盾属于独立 buff 槽位。战斗状态轮询直接返回剩余
+        // 吸收量和秒数，让施法者、队友都能看见实际保护效果。
+        int guard = 0;
+        int guard_time = 0;
+        if(functionp(player->query_buff) &&
+           player->query_buff("team_guard", 0) == "absorb") {
+            guard = (int)player->query_buff("team_guard", 1);
+            guard_time = (int)player->query_buff("team_guard", 2);
+            if(guard < 0) guard = 0;
+            if(guard_time < 0) guard_time = 0;
+        }
+        result["guard"] = guard;
+        result["guard_time"] = guard_time;
+        result["guard_active"] = guard > 0 && guard_time > 0 ? 1 : 0;
+
         // 法力值 Mana (xiand 使用 mofa 而不是 qi)
         int mana = 0, mana_max = 0;
         if(functionp(player->get_cur_mofa)) {

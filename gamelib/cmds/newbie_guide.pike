@@ -107,6 +107,32 @@ string query_fangshi_growth_guide(object player)
 	return result;
 }
 
+string query_zhenyue_growth_guide(object player)
+{
+	string result = "";
+	int level = player->query_level();
+
+	result += "【镇岳守御】\n";
+	result += "岳击是初始高仇恨攻击；2级山印永久加防，5级镇岩诀建立个人守势。\n";
+	if(level<15)
+		result += "○ 15级学习地震吼，可靠把当前敌人的最高仇恨转向自己。\n";
+	else if(!player->skills["dizhenhou"])
+		result += "○ 已到15级，可购买地震吼；组队时先吼再稳定攻击。\n";
+	else
+		result += "√ 地震吼会在当前最高仇恨上追加余量，但有18秒冷却。\n";
+	if(level<20)
+		result += "○ 20级解锁山河壁：未组队只护自己，组队只护同房间存活队友。\n";
+	else if(!player->skills["shanhebi"])
+		result += "○ 已到20级，可购买镇岳的核心队伍技能山河壁。\n";
+	else
+		result += "√ 山河壁使用独立护盾，不覆盖队友原有增益，护盾耗尽或到时消失。\n";
+	result += "30级玄铁盾可与山河壁共存；40级岳反震兼顾输出和仇恨；50级镇岳真身扩展生命上限。\n";
+	result += "60级万山不孤强化队伍护盾；70级镇魂吼提供更高仇恨余量。\n";
+	result += "实际等级70以上怪物才可能掉落万山朝拱、不周震击、天地成壁三本大神传承。\n";
+	result += "[购买镇岳技能书:buy_items book zhenyue]|[查看技能:myskills]|[队伍:my_term]\n";
+	return result;
+}
+
 string render_guide(object player)
 {
 	string result = "";
@@ -134,6 +160,8 @@ string render_guide(object player)
 	result += "【2. 技能】已学 "+learned_count+" 项\n";
 	if(player->query_profeId()=="fangshi")
 		result += query_fangshi_growth_guide(player);
+	else if(player->query_profeId()=="zhenyue")
+		result += query_zhenyue_growth_guide(player);
 	else
 		result += "[购买本职业技能书:buy_items book "+
 			player->query_profeId()+"]|[查看技能:myskills]\n";
@@ -155,7 +183,7 @@ string render_guide(object player)
 		result += "|家园系统不限制职业，可在家园区域购置后使用种养、功能房和店铺。\n";
 
 	if(player->query_raceId()=="third")
-		result += "方士为中立职业，可使用仙妖两边的驿站、休息点、仓库、聊天和荣誉商店，也可加入两边帮派；建帮归属由当时所在仙城或妖城决定，但不能转换阵营。\n";
+		result += "中立职业可使用仙妖两边的驿站、休息点、仓库、聊天和荣誉商店，也可加入两边帮派；建帮归属由当时所在仙城或妖城决定，但不能转换阵营。\n";
 
 	result += "--------\n";
 	result += "[返回游戏:look]\n";
@@ -250,6 +278,14 @@ string query_profession_roadmap(string profession)
 				"65级进阶替换书；70级隐藏大神书；75级秘传替换书。\n";
 			result += "[查看召唤与灵契:summon]|[方士技能书:buy_items book fangshi]\n";
 			break;
+		case "zhenyue":
+			result += "镇岳：1级岳击建立仇恨；2级山印永久加防；5级镇岩诀；"+
+				"10级横山击；15级地震吼可靠夺取当前目标；20级山河壁保护同房间队伍。\n";
+			result += "30级玄铁盾与山河壁双层承压；40级岳反震；50级镇岳真身；"+
+				"60级万山不孤；70级镇魂吼，并开始挑战70级隐藏大神书掉落资格怪；"+
+				"80级起可学习三本掉落限定大神传承。\n";
+			result += "[镇岳技能书:buy_items book zhenyue]|[队伍:my_term]\n";
+			break;
 	}
 	return result;
 }
@@ -280,7 +316,7 @@ string render_roadmap(object player)
 
 	result += "【队伍与副本】\n";
 	result += "先建立或加入七星阵队伍，再从副本入口进入；副本战利品进入队伍仓库，由队长及时分配。"+
-		"方士组队治疗只影响同房间队友，没组队时灵治、灵莲铺仍会治疗自己。\n";
+		"方士组队治疗只影响同房间队友；镇岳山河壁也只保护同房间存活队友，没组队时两者都保留自用效果。\n";
 	result += "[队伍:my_term]|[查看地图:map_display]\n\n";
 
 	result += "【帮派、家园与交易】\n";

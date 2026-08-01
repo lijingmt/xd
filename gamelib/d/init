@@ -18,13 +18,11 @@ string query_desc(){
 	// 安全检查：确保 me 存在
 	if(!me) {
 		werror("[init::query_desc] ERROR: this_player() is NULL\n");
-		return "欢迎加入仙道世界！\n[妖魔:choice_race monst]\n[人类:choice_race human]\n";
+		return "欢迎加入仙道世界！\n[妖魔:choice_race monst]\n[人类:choice_race human]\n[中立:choice_race third]\n";
 	}
 
 	// 针对妖族推广07/04/2007 laocheng添加
-	string sid_value = me->sid ? me->sid : "UNDEFINED";
 	array(string) sid_tmp = me->sid ? me->sid/"_" : ({});
-	werror("[init::query_desc] user=%s, sid=%s, sid_tmp_size=%d\n", me->name, sid_value, sizeof(sid_tmp));
 
 		if(sizeof(sid_tmp) == 3 && sid_tmp[0]=="monst" && sid_tmp[1]=="intro")
 	{
@@ -54,7 +52,7 @@ string query_desc(){
 		desc += "金鳌化妖，狂妖巫妖影鬼\n";
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		desc += "[中立:choice_race third]\n";
-		desc += "中立阵营，召唤方士之道\n";
+		desc += "中立阵营，可选召唤方士或守护镇岳\n";
 	}
 	else{
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/logo.png]\n";
@@ -107,7 +105,6 @@ int tieToMobile(string arg)
 		}
 		else{
 			string mobile=arg;
-			werror("tieToMobile mobile=["+mobile+"]\n");
 			if(search(mobile," ")!=-1) {//这里去重，有起名字老是重复2次，中间有空格
 				array(string) t=mobile/" ";
 				if(sizeof(t)==2&&t[0]==t[1]){
@@ -126,7 +123,6 @@ int tieToMobile(string arg)
 
 int tie_yes(string num)
 {
-	werror("tie_yes num=["+num+"]\n");
 	object me =this_player();
 	if(me->mobile && me->mobile != "")
 	{
@@ -152,7 +148,6 @@ string check_mobile(string str)
 	}
 	else
 	{
-		werror("check_mobile 111 str=["+str+"]\n");
 		//check_mobile str=[18612991153 18612991153]
 		if(search(str," ")!=-1) {//这里去重，有起名字老是重复2次，中间有空格
 			array(string) t=str/" ";
@@ -161,9 +156,7 @@ string check_mobile(string str)
 			}
 		}
 		str=replace(str,(["%20":""]));      
-		werror("check_mobile 222 str=["+str+"]\n");
 		//check_mobile 222 str=[18612991153]
-		werror("check_mobile 333 sizeof(str)=["+sizeof(str)+"]\n");
 		//check_mobile 333 sizeof(str)=[11]
 		if(sizeof(str)!=11)
 		{
@@ -187,7 +180,6 @@ int check_password(string arg){
 	}
 	else{
 		string password=arg;
-		werror("======arg:"+arg+"\n");
 		array(string) t_arg=arg/" ";//如果arg有重复的例如：123456 123456
 		if(sizeof(t_arg)==2 && t_arg[0]==t_arg[1])
 			password=t_arg[0];
@@ -290,7 +282,7 @@ int set_password(string arg){
 			{
 				me->password=password;
 				string now=ctime(time());
-				Stdio.append_file(LOG_PATH,"["+now[0..sizeof(now)-2]+"]["+me->name+"]["+me->name_cn+"][设置密码:"+arg+"]\n");
+				Stdio.append_file(LOG_PATH,"["+now[0..sizeof(now)-2]+"]["+me->name+"]["+me->name_cn+"][设置密码成功]\n");
 				write("设置密码成功。\n");
 				me->command("save");
 				write("[返回:look]\n");
@@ -342,7 +334,7 @@ int choice_race(string arg){
 		s += "金鳌化妖，狂妖巫妖影鬼\n";
 		s += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		s += "[中立:choice_race third]\n";
-		s += "中立阵营，召唤方士之道\n";
+		s += "中立阵营，可选召唤方士或守护镇岳\n";
 	}
 	else{
 		if(arg=="human"){
@@ -371,13 +363,16 @@ int choice_race(string arg){
 		}
 		else if(arg=="third"){
 			//me->set_raceId(arg);
-			s += "方士之道\n";
+			s += "中立之道\n";
 			s += "欢迎加入中立阵营，请您选择职业\n";
 			s += "[方士:choice_profe third/fangshi]\n";
 			s += "召唤灵兽，灵动多变\n";
 			s += "- 虎灵：物理攻击型\n";
 			s += "- 鹤灵：治疗辅助型\n";
 			s += "- 龟灵：防御坦克型\n";
+			s += "[imgurl loading:/"+GAME_NAME+"/images/zhenyue_logo.png]\n";
+			s += "[镇岳:choice_profe third/zhenyue]\n";
+			s += "执盾镇山，吸引仇恨并为同队承压\n";
 		}
 		s += "[更换阵营:choice_race]\n";
 	}
@@ -401,13 +396,23 @@ int choice_profe(string arg){
 	else if(me->query_raceId()&&me->query_profeId()){
 		s += "你已经选择过了你的阵营和职业，请直接进入游戏。\n";	
 		//reg_new
-		s += "[进入游戏:start monst]\n";
+		s += "[进入游戏:start "+me->query_raceId()+"]\n";
 		if(!me->mobile || me->mobile == "")
 			s +="[手机绑定:tieToMobile]\n";
 	}
 	else{
 		//初始化新角色职业值
 		array(string) arr = arg/"/";
+		mapping(string:array(string)) valid_professions = ([
+			"human":({"jianxian","yushi","zhuxian"}),
+			"monst":({"kuangyao","wuyao","yinggui"}),
+			"third":({"fangshi","zhenyue"}),
+		]);
+		if(sizeof(arr)!=2 || !valid_professions[arr[0]] ||
+		   search(valid_professions[arr[0]],arr[1])==-1){
+			write("职业选择无效，请重新选择。\n[返回阵营选择:choice_race]\n");
+			return 1;
+		}
 		string u_r = (string)arr[0];
 		string u_p = (string)arr[1];
 		me->set_raceId(u_r);
@@ -500,6 +505,16 @@ int choice_profe(string arg){
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";
 		}
+		else if(u_p=="zhenyue"){
+			me->setup_player("third",u_p);
+			if(me->skills["yueji"]==0)
+				me->skills["yueji"]=({1,0});
+			s += "好，你选择了镇岳作为中立阵营的职业。\n";
+			s += "镇岳擅长稳定仇恨、护持队友和承受正面伤害。\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
 		//添加物品，初级
 		object w = new(ROOT+"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 		if(w){
@@ -580,15 +595,34 @@ int start(string arg){
 	//{
 	if(!me->query_profeId() || me->query_profeId() == ""){
 		string desc = "";
-		me->set_raceId("monst");
-		desc += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
-		desc += "欢迎加入金鳌岛，您尚未选择职业，请您选择：\n";
-		desc += "[狂妖:choice_profe monst/kuangyao]\n";
-		desc += "狂暴凶猛，嗜血如命\n";
-		desc += "[巫妖:choice_profe monst/wuyao]\n";
-		desc += "诡异法术，毒术大师\n";
-		desc += "[影鬼:choice_profe monst/yinggui]\n";
-		desc += "刺杀王者，无影无踪\n";
+		string race = (string)(me->query_raceId() || "");
+		if(race=="human"){
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/human_logo.png]\n";
+			desc += "欢迎回到昆仑山，您尚未选择职业，请您选择：\n";
+			desc += "[剑仙:choice_profe human/jianxian]\n";
+			desc += "[羽士:choice_profe human/yushi]\n";
+			desc += "[诛仙:choice_profe human/zhuxian]\n";
+		}
+		else if(race=="monst"){
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/monst_logo.png]\n";
+			desc += "欢迎回到金鳌岛，您尚未选择职业，请您选择：\n";
+			desc += "[狂妖:choice_profe monst/kuangyao]\n";
+			desc += "[巫妖:choice_profe monst/wuyao]\n";
+			desc += "[影鬼:choice_profe monst/yinggui]\n";
+		}
+		else if(race=="third"){
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
+			desc += "欢迎回到中立阵营，您尚未选择职业，请您选择：\n";
+			desc += "[方士:choice_profe third/fangshi]\n";
+			desc += "召唤灵兽，灵动多变\n";
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/zhenyue_logo.png]\n";
+			desc += "[镇岳:choice_profe third/zhenyue]\n";
+			desc += "执盾镇山，吸引仇恨并为同队承压\n";
+		}
+		else{
+			desc += "角色尚未选择阵营，请先完成阵营选择。\n";
+			desc += "[选择游戏阵营:choice_race]\n";
+		}
 		write(desc);
 		return 1;
 	}
@@ -600,6 +634,8 @@ int start(string arg){
 		if(!me->skills["lingdanshu"])
 			me->skills["lingdanshu"]=({1,0});
 	}
+	if(me->query_profeId()=="zhenyue" && !me->skills["yueji"])
+		me->skills["yueji"]=({1,0});
 
 	//领取标识的初始化
         if(!me->get_gift)                                                                                         

@@ -315,6 +315,10 @@ int is_spied(string id)
 
 
 void set_term(string t){
+	// 队伍护盾只属于施法时的队伍。离队、被踢、解散或加入另一队时
+	// 立即清除，避免短时间把上一支队伍的保护带入新队。
+	if(query_term()!=t && query_buff("team_guard",0)!="none")
+		clean_buff("team_guard");
 	term = t;
 }
 	string query_term(){
@@ -425,7 +429,8 @@ int save_with_result(void|int autosave){
 	if(this_object()->query_raceId()=="monst")
 		zhenying="【妖】";
 	else if(this_object()->query_raceId()=="third")
-		zhenying="【方】";
+		zhenying=this_object()->query_profeId()=="zhenyue" ?
+			"【岳】" : "【方】";
 	string topname = this_object()->query_name_cn()+"("+this_object()->query_level()+"级)"+zhenying;
 	TOPTEN->try_top(this_object()->query_name(),topname,"等级",this_object()->query_level());
 	TOPTEN->try_top(this_object()->query_name(),topname,"富翁",this_object()->query_account());
@@ -540,12 +545,17 @@ void fight_die()
 						int t_count = 0;//sizeof(map_term);
 						foreach(indices(map_term),string uid){
 							object termer = find_player(uid);
-							if(termer){
+							if(termer && environment(enemy) &&
+							   environment(termer)){
 								//判断是否一个房间，一个房间可以分配
-								if( environment(enemy)->query_name() == (environment(termer))->query_name() )
+								if(environment(enemy)==environment(termer))
 									t_count++;
 							}
 						}
+						// 队伍状态可能在死亡回调中变化；没有同房有效成员时
+						// 保持奖励无人领取，但不能让除法异常中断死亡结算。
+						if(t_count<1)
+							t_count = 1;
 						int t_money = gain_honer/t_count;
 						if(t_money<=0)
 							t_money = 1;
@@ -553,9 +563,10 @@ void fight_die()
 						foreach(indices(map_term),string uid){
 							int flag = 0;
 							object termer = find_player(uid);
-							if(termer){
+							if(termer && environment(enemy) &&
+							   environment(termer)){
 								//判断是否一个房间，一个房间可以分配
-								if( environment(enemy)->query_name() == (environment(termer))->query_name() )
+								if(environment(enemy)==environment(termer))
 									flag = 1;
 							}
 							if(flag){//玩家在同一房间中
@@ -584,12 +595,15 @@ void fight_die()
 						int t_count = 0;//sizeof(map_term);
 						foreach(indices(map_term),string uid){
 							object termer = find_player(uid);
-							if(termer){
+							if(termer && environment(enemy) &&
+							   environment(termer)){
 								//判断是否一个房间，一个房间可以分配
-								if( environment(enemy)->query_name() == (environment(termer))->query_name() )
+								if(environment(enemy)==environment(termer))
 									t_count++;
 							}
 						}
+						if(t_count<1)
+							t_count = 1;
 						int t_lunhui = gain_lunhui/t_count;
 						if(t_lunhui<=0){
 							t_lunhui = 1;
@@ -601,9 +615,10 @@ void fight_die()
 						foreach(indices(map_term),string uid){
 							int flag = 0;
 							object termer = find_player(uid);
-							if(termer){
+							if(termer && environment(enemy) &&
+							   environment(termer)){
 								//判断是否一个房间，一个房间可以分配
-								if( environment(enemy)->query_name() == (environment(termer))->query_name() )
+								if(environment(enemy)==environment(termer))
 									flag = 1;
 							}
 							if(flag){//玩家在同一房间中

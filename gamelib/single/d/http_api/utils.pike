@@ -187,6 +187,10 @@ void send_html_error(Protocols.HTTP.Server.Request req, string error_msg)
  */
 void serve_file(Protocols.HTTP.Server.Request req, string path, string type)
 {
+    if(!path || path=="" || sizeof(path)>512 || search(path,"..")!=-1){
+        send_json(req,(["error":"Invalid static path"]),404);
+        return;
+    }
     string fullpath = ROOT + path;
     string data = Stdio.read_file(fullpath);
 

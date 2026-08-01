@@ -2,7 +2,7 @@
 """Build the standalone Xiand all-profession skill handbook.
 
 The handbook is intentionally separate from the equipment/progression guide.
-It reads the current skill objects and skill-book catalog, then gives all 21
+It reads the current skill objects and skill-book catalog, then gives all 24
 drop-only mythic skills a dedicated, stage-by-stage reference.
 """
 
@@ -184,6 +184,24 @@ MYTHIC_SKILLS = [
         "role": "12秒物攻压制",
         "usage": "针对物理Boss和高攻玩家，制造12秒减攻保护窗口。它降低的是物理攻击，对纯法术目标收益较低，也不会让目标停止行动。",
     },
+    {
+        "profession": "zhenyue",
+        "id": "wanshanchaogong",
+        "role": "15秒同房队伍巨盾",
+        "usage": "适合在Boss爆发或队伍血线危险前预先展开。它只保护施法者与同房间、同队伍、存活成员，使用独立守护槽，不覆盖其他职业增益；额度耗尽或到时立即结束。",
+    },
+    {
+        "profession": "zhenyue",
+        "id": "buzhouzhenji",
+        "role": "600%仇恨物理重击",
+        "usage": "用于建立长期首仇并补充坦克输出。高仇恨倍率并不等于六倍最终伤害，仍需有效目标、法力、主手武器和冷却；死亡或离房目标不参与仇恨比较。",
+    },
+    {
+        "profession": "zhenyue",
+        "id": "tiandichengbi",
+        "role": "18秒可耗尽个人巨盾",
+        "usage": "用于坦克自己承接高压阶段。它吸收的是有限额度伤害，不回复已经损失的生命，也不提供无敌、复活或永久反射；应与队伍盾错峰使用。",
+    },
 ]
 
 MYTHIC_THEMES = {
@@ -194,6 +212,7 @@ MYTHIC_THEMES = {
     "wuyao": "黄泉毒御",
     "yinggui": "鬼步绝杀",
     "fangshi": "三灵济世",
+    "zhenyue": "万山守御",
 }
 
 PROF_BY_ID = {item["id"]: item for item in PROFESSIONS}
@@ -257,7 +276,7 @@ class SkillGuideDocTemplate(GuideDocTemplate):
             canvas.drawRightString(
                 PAGE_W - RIGHT_MARGIN,
                 PAGE_H - 8.5 * mm,
-                "二十一本隐藏神技详解",
+                "二十四本隐藏神技详解",
             )
             canvas.line(LEFT_MARGIN, 10 * mm, PAGE_W - RIGHT_MARGIN, 10 * mm)
             canvas.drawCentredString(PAGE_W / 2, 6.5 * mm, f"- {doc.page} -")
@@ -279,10 +298,11 @@ def add_cover(
         ROOT / "images/human_yushi_male.png",
         ROOT / "images/human_fangshi_logo.png",
         ROOT / "images/monst_wuyao_female.png",
+        ROOT / "images/zhenyue_logo.png",
     ]
     icon_table = Table(
         [[Image(str(path), width=24 * mm, height=24 * mm) for path in icon_paths]],
-        colWidths=[34 * mm] * 3,
+        colWidths=[28 * mm] * 4,
         hAlign="CENTER",
     )
     icon_table.setStyle(
@@ -298,7 +318,7 @@ def add_cover(
     story.append(Paragraph("仙道全职业技能专册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-            "七职业技能全索引 · 二十一式隐藏神技 · 2026-07-31平衡版",
+			f"八职业技能全索引 · 二十四式隐藏神技 · {build_date}镇岳版",
             styles["CoverSub"],
         )
     )
@@ -309,7 +329,7 @@ def add_cover(
                 Paragraph(
                     f"当前代码共收录 {skill_count} 个职业技能对象、{book_count} 条职业技能书配置。<br/>"
                     "从技能书获得、背包学习，到熟练度成长与实战连招，一册查清。<br/>"
-                    "七个职业各有 3 本专属隐藏神技，共 21 本极低概率传承。<br/>"
+                    "八个职业各有 3 本专属隐藏神技，共 24 本极低概率传承。<br/>"
                     "等级、法力、伤害、治疗、控制时长与冷却均取自当前技能对象。",
                     ParagraphStyle(
                         "SkillCoverBox",
@@ -365,14 +385,14 @@ def add_cover(
         [
             "# 仙道全职业技能专册",
             "",
-            "七职业技能全索引 · 二十一式隐藏神技 · 2026-07-31平衡版",
+			f"八职业技能全索引 · 二十四式隐藏神技 · {build_date}镇岳版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
             f"- 生成日期：{build_date}",
             f"- 数据规模：{skill_count} 个职业技能对象，{book_count} 条职业技能书配置",
             "",
-            "> 本专册依据当前仓库代码生成，七个职业各有 3 本专属隐藏神技，共 21 本。",
+            "> 本专册依据当前仓库代码生成，八个职业各有 3 本专属隐藏神技，共 24 本。",
             "",
         ]
     )
@@ -467,7 +487,7 @@ def build_skill_guide() -> None:
     guide.bullets(
         [
             "普通技能书主要在职业技能书商店购买；60级以上高级书按职业每天独立轮换2本。",
-            "方士多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。",
+            "方士与镇岳多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。",
             "隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长，不需要重复找5本。",
             "重复学习隐藏书不会消耗原书，可继续交易、寄送或存入仓库。",
         ]
@@ -478,7 +498,7 @@ def build_skill_guide() -> None:
         "gold",
     )
 
-    guide.h1("2. 七职业技能定位速览")
+    guide.h1("2. 八职业技能定位速览")
     guide.h2("2.1 物理、法术与概率结算基线")
     guide.table(
         ["项目", "当前规则", "实战含义"],
@@ -498,7 +518,7 @@ def build_skill_guide() -> None:
         "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。没有采用“攻击×4.8”“12秒掉24%最大生命”或无条件必中等玩家提案。",
         "gold",
     )
-    guide.h2("2.2 七职业定位与隐藏传承")
+    guide.h2("2.2 八职业定位与隐藏传承")
     overview_rows = []
     for profession in PROFESSIONS:
         profession_id = profession["id"]
@@ -523,12 +543,12 @@ def build_skill_guide() -> None:
         compact=True,
     )
     guide.callout(
-        "七脉神传，各有胜场",
-        "剑仙重攻守转换，羽士重控制与护盾，诛仙重暴击斩杀，狂妖重流血强攻，巫妖重毒伤减疗，影鬼重命中博弈，方士重召唤协同与团队治疗。七套传承使用相同的获得与成长门槛，但战斗解法互不相同。",
+        "八脉神传，各有胜场",
+        "剑仙重攻守转换，羽士重控制与护盾，诛仙重暴击斩杀，狂妖重流血强攻，巫妖重毒伤减疗，影鬼重命中博弈，方士重召唤治疗，镇岳重仇恨与队伍守护。八套传承使用相同的获得与成长门槛，但战斗解法互不相同。",
         "gold",
     )
 
-    guide.h1("3. 七职业技能与技能书全索引")
+    guide.h1("3. 八职业技能与技能书全索引")
     guide.paragraph(
         "下列内容由当前技能对象与技能书目录自动生成。普通书显示商店价格，高级书显示每日职业轮换；隐藏书不进入任何商店，因此只出现在技能对象与隐藏神技章节。",
         small=True,
@@ -571,16 +591,16 @@ def build_skill_guide() -> None:
                 small=True,
             )
 
-    guide.h1("4. 二十一式隐藏神技实战全解")
+    guide.h1("4. 二十四式隐藏神技实战全解")
     guide.h2("4.1 掉落、归属与学习规则")
     guide.table(
         ["规则项", "当前实现"],
         [
             ["资格怪物", "被击杀怪物的实际等级必须达到70级；不看玩家等级或地图名称"],
-            ["总掉率", "每只合格怪物21/100000；命中后从21本中等概率选1本"],
+            ["总掉率", "每只合格怪物24/100000；命中后从24本中等概率选1本"],
             ["单本长期均值", "约1/100000；短期可能长期不出，也可能连续掉落"],
             ["掷骰次数", "单人、团队普通怪、团队Boss均按每只怪物恰好掷1次；队员人数不放大掉率"],
-            ["商店限制", "21本均不进入普通书商店、每日高级书商店或师门教学"],
+            ["商店限制", "24本均不进入普通书商店、每日高级书商店或师门教学"],
             ["地面归属", "个人或队伍保护120秒；未拾取物品5分钟后清理"],
             ["流通", "允许拾取、丢弃、交易、寄送与仓库存放；学习时才严格检查职业"],
             ["学习要求", "人物80级且职业匹配；重复学习不消耗书"],
@@ -590,11 +610,11 @@ def build_skill_guide() -> None:
     )
     guide.callout(
         "概率换算",
-        "21本共享21/100000总掉率，不是每本都按21/100000独立判断。因为命中后二十一选一，所以单本长期平均仍约为1/100000。",
+        "24本共享24/100000总掉率，不是每本都按24/100000独立判断。因为命中后二十四选一，所以单本长期平均仍约为1/100000。",
         "gold",
     )
 
-    guide.h2("4.2 二十一本神技横向比较")
+    guide.h2("4.2 二十四本神技横向比较")
     guide.table(
         ["职业", "技能", "定位", "冷却", "80级第一段", "160级第五段"],
         [
@@ -614,7 +634,7 @@ def build_skill_guide() -> None:
 
     section_number = 3
     for profession_id in [
-        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi"
+        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue"
     ]:
         profession = PROF_BY_ID[profession_id]
         guide.h2(
@@ -667,19 +687,24 @@ def build_skill_guide() -> None:
                 "影鬼推荐循环",
                 "六道障目降低敌人命中 -> 九幽鬼步提高自身闪避 -> 无影绝灭抓住窗口刺杀。双重规避仍不是绝对免伤。",
             )
-        else:
+        elif profession_id == "fangshi":
             guide.callout(
                 "方士推荐循环",
                 "物理强敌先用四象封禁减攻；队伍掉血时用万灵朝生；安全窗口用太虚灵陨补爆发。治疗、控制与输出不能在同一冷却里反复使用。",
             )
+        else:
+            guide.callout(
+                "镇岳推荐循环",
+                "敌人未以自己为首要目标时先用地震吼或高仇恨攻击；队伍将承压时展开万山朝拱；自己的危险窗口再开天地成壁，并用不周震击维持长期仇恨。护盾必须错峰，不能当作治疗或无敌。",
+            )
         section_number += 1
 
-    guide.h2("4.10 隐藏书常见问题")
+    guide.h2("4.11 隐藏书常见问题")
     guide.table(
         ["问题", "答案"],
         [
             ["70级玩家为什么没掉？", "资格看怪物实际等级70+，而且单本长期均值仅约1/100000；达到资格不等于必掉。"],
-            ["物理神技为什么点了没伤害？", "剑仙、诛仙、狂妖、影鬼的爆发神技必须先装备主手武器。"],
+            ["物理神技为什么点了没伤害？", "剑仙、诛仙、狂妖、影鬼、镇岳的物理神技必须先装备主手武器。"],
             ["别的职业捡到怎么办？", "可以交易、寄送或存仓库，但不能跨职业学习。"],
             ["为什么80级只看到第一段？", "一本书负责解锁技能；后续阶段仍需熟练度和100/120/140/160级门槛。"],
             ["重复点击会吞书吗？", "已经学会时不会消耗隐藏书。"],
@@ -692,6 +717,9 @@ def build_skill_guide() -> None:
             ["修罗狂意是攻击翻4.8倍吗？", "不是。五段分别提高20%/30%/40%/50%/60%总物攻，持续12秒。"],
             ["血海裂伤12秒会掉24%吗？", "不会。普通目标整段约9%-12%，Boss整段最多约3%，冷却120秒。"],
             ["多个持续伤害可以叠加吗？", "不能。目标仍只有一个持续伤害槽；系统比较剩余总伤害，弱效果不能覆盖强效果，等强效果可以刷新。"],
+            ["万山朝拱会覆盖队友Buff吗？", "不会。它使用独立队伍守护槽，只保护同房间存活队友；弱盾也不会覆盖剩余值更高的强盾。"],
+            ["不周震击是六倍伤害吗？", "不是。600%是仇恨倍率，伤害仍按技能附加值、武器、攻击、防御和穿透正常结算。"],
+            ["天地成壁是无敌吗？", "不是。它只有固定吸收额度和18秒时限，额度耗尽后剩余伤害照常生效。"],
         ],
         [1.7, 4.0],
     )

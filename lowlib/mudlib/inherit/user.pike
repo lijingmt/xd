@@ -121,13 +121,32 @@ void setup_player(string rid, string pid){
 			this_object()->set_think(8);
 			this_object()->set_lunck(0);
 		}
+		else if(pid&&pid=="zhenyue"){
+			kind_cn = "中立";
+			unit = "位";
+			this_object()->set_life(160);
+			this_object()->set_mofa(40);
+			this_object()->set_str(14);
+			this_object()->set_dex(3);
+			this_object()->set_think(5);
+			this_object()->set_lunck(0);
+		}
 	}
 }
 //每次调用reconnect将会传回密码字段进行验证
 int reconnect(string _passwd){
 	return ::reconnect(_passwd);
 }
+
+// 山河壁只在施放时所在战场成立，换房不能把队伍临时护盾带走。
+int move(mixed dest){
+	if(environment(this_object()) && environment(this_object())!=(object)dest &&
+	   this_object()->query_buff("team_guard",0)!="none")
+		this_object()->clean_buff("team_guard");
+	return ::move(dest);
+}
 void remove(){
+	this_object()->clean_buff("team_guard");
 	this_object()->update_online_time();
 	if(this_object()->sid != "5dwap")
 		save();
@@ -142,6 +161,14 @@ int is_player(){
 //为玩家提供了一个1s的心跳，由liaocheng于08/01/20添加                                                             
 private void user_heart_beat()
 {
+	if(this_object()->query_buff("team_guard",0)!="none"){
+		// 底层心跳每2秒触发一次；护盾持续值按玩家看到的秒数保存。
+		int guard_time = this_object()->query_buff("team_guard",2)-2;
+		if(guard_time<=0)
+			this_object()->clean_buff("team_guard");
+		else
+			this_object()->set_buff("team_guard",2,guard_time);
+	}
 	//将技能的冷却由fight.pike移到这儿，由liaocheng于08/01/08添加
 	if(this_object()->f_skills&&sizeof(this_object()->f_skills)){
 		foreach(indices(this_object()->f_skills),string index){

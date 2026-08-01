@@ -22,11 +22,11 @@ int main(string|zero arg)
 		sscanf(arg,"%s %s",item_type,type);
 		s = "您想购买些什么：\n";
 		s += "-------\n";
-		// 如果玩家是方士，只显示方士技能书，不显示职业切换选项
-		if(me->query_profeId() == "fangshi" || me->query_raceId() == "third"){
+		// 技能书商店始终由服务端锁定到人物本职业，避免伪造跨职业购买。
+		if(item_type=="book"){
+			type = me->query_profeId();
 			s += BUYD->get_buy_item_list(item_type,type);
-			if(item_type=="book" && type==me->query_profeId())
-				NEWBIED->record_book_shop(me,type);
+			NEWBIED->record_book_shop(me,type);
 			me->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
 		}
@@ -50,16 +50,17 @@ int main(string|zero arg)
 			s += "[狗豆:buy_items "+item_type+" goudou]|狗粮|[骨头:buy_items "+item_type+" gutou]\n";
 		else if(type=="gutou")
 			s += "[狗豆:buy_items "+item_type+" goudou]|[狗粮:buy_items "+item_type+" gouliang] |骨头\n";
-		if(me->query_profeId() != "fangshi" && me->query_raceId() != "third"){
-			s += BUYD->get_buy_item_list(item_type,type);
-			if(item_type=="book" && type==me->query_profeId())
-				NEWBIED->record_book_shop(me,type);
-		}
+		s += BUYD->get_buy_item_list(item_type,type);
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
 	else {
 		sscanf(arg,"%s %s %s %d %d %d",item_type,type,item_name,yushi,money,flag);
+		if(item_type=="book" && type!=me->query_profeId()){
+			write("只能购买自己职业的技能书。\n[返回:buy_items book "+
+				me->query_profeId()+"]\n[返回游戏:look]\n");
+			return 1;
+		}
 		if(flag==0){
 			s += BUYD->item_view(item_name,yushi,money);
 			s += "[购买:buy_items "+item_type+" "+type+" "+item_name+" "+yushi+" "+money+" 1]\n";

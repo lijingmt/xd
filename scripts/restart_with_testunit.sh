@@ -8,8 +8,11 @@ HTTP_PORT="${XIAND_HTTP_PORT:-8888}"
 SCREEN_NAME="${XIAND_SCREEN_NAME:-xiand-$PORT}"
 TIMEOUT_SECONDS="${XIAND_RESTART_TIMEOUT:-180}"
 GAME_LOG="$ROOT_DIR/log/stderr.$PORT"
+ERROR_LOG="$ROOT_DIR/log/error.$PORT"
 RUNTIME_LOG="$ROOT_DIR/log/restart.$PORT.log"
 PIKE_BIN="${PIKE_BIN:-}"
+PIKE_STACK_DEPTH="${XIAND_PIKE_STACK_DEPTH:-1000000}"
+PIKE_THREAD_STACK="${XIAND_PIKE_THREAD_STACK:-67108864}"
 
 log()
 {
@@ -125,6 +128,13 @@ prepare_environment()
 	if [[ -z "$PIKE_BIN" || ! -x "$PIKE_BIN" ]]; then
 		fail "Pike binary is not executable: ${PIKE_BIN:-not found}"
 	fi
+	if [[ ! "$PIKE_STACK_DEPTH" =~ ^[0-9]+$ ||
+	      ! "$PIKE_THREAD_STACK" =~ ^[0-9]+$ ]]; then
+		fail "Pike stack settings must be positive integers"
+	fi
+	if (( PIKE_STACK_DEPTH <= 0 || PIKE_THREAD_STACK <= 0 )); then
+		fail "Pike stack settings must be positive integers"
+	fi
 	if ! command -v screen >/dev/null 2>&1; then
 		fail "screen command is required"
 	fi
@@ -138,6 +148,14 @@ prepare_logs()
 		mv "$GAME_LOG" "$rotated"
 		gzip -f "$rotated" || true
 	fi
+	# driver 的长期错误日志只在服务完全停止后轮转，避免历史编译栈
+	# 无限追加；压缩归档仍完整保留，便于后续诊断。
+	if [[ -f "$ERROR_LOG" ]] &&
+	   [[ "$(wc -c < "$ERROR_LOG")" -gt 10485760 ]]; then
+		local error_rotated="$ERROR_LOG.$(date +%Y%m%d-%H%M%S).restart"
+		mv "$ERROR_LOG" "$error_rotated"
+		gzip -f "$error_rotated" || true
+	fi
 	: > "$RUNTIME_LOG"
 }
 
@@ -145,7 +163,7 @@ start_server()
 {
 	log "starting Xiand on $HOST:$PORT (HTTP $HTTP_PORT) in screen $SCREEN_NAME"
 	screen -dmS "$SCREEN_NAME" bash -lc \
-		"cd '$ROOT_DIR' && '$PIKE_BIN' '$ROOT_DIR/lowlib/driver.pike' -i '$HOST' -p '$PORT' '$ROOT_DIR/' >> '$RUNTIME_LOG' 2>&1"
+		"cd '$ROOT_DIR' && '$PIKE_BIN' -s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK' '$ROOT_DIR/lowlib/driver.pike' -i '$HOST' -p '$PORT' '$ROOT_DIR/' >> '$RUNTIME_LOG' 2>&1"
 }
 
 wait_for_testunit()

@@ -1,7 +1,7 @@
 #!/usr/bin/env pike
 /**
- * 七职业每级历练真实测试：
- * - 七职业1-1000级无断档
+ * 八职业每级历练真实测试：
+ * - 八职业1-1000级无断档
  * - 真实同阶击杀、越级边界、职业切换与重复领奖保护
  * - 任务列表、新手引导、HTTP核心命令与NPC死亡链完整接线
  */
@@ -63,7 +63,7 @@ void destroy_player(object|zero player)
 
 void test_all_professions_all_levels()
 {
-	test_start("七职业1至1000级动态任务无断档且文案独立");
+	test_start("八职业1至1000级动态任务无断档且文案独立");
 	mapping(string:string) professions = ([
 		"jianxian":"剑仙",
 		"yushi":"羽士",
@@ -72,6 +72,7 @@ void test_all_professions_all_levels()
 		"wuyao":"巫妖",
 		"yinggui":"影鬼",
 		"fangshi":"方士",
+		"zhenyue":"镇岳",
 	]);
 	mapping(string:int) titles = ([]);
 	int checked = 0;
@@ -99,12 +100,12 @@ void test_all_professions_all_levels()
 		}
 	}
 
-	if(checked==7*MAX_LEVEL && failed==0 && sizeof(titles)==7)
+	if(checked==8*MAX_LEVEL && failed==0 && sizeof(titles)==8)
 		test_pass();
 	else
 		test_fail(sprintf(
 			"覆盖=%d/%d，失败=%d，独立标题=%d",
-			checked,7*MAX_LEVEL,failed,sizeof(titles)));
+			checked,8*MAX_LEVEL,failed,sizeof(titles)));
 }
 
 void test_real_kill_and_reward_workflow()
@@ -241,7 +242,7 @@ void test_boundaries_and_profession_lock()
 
 void test_seven_profession_runtime_acceptance()
 {
-	test_start("七职业真实人物均可领取且高等级老人物无需补做旧级");
+	test_start("八职业真实人物均可领取且高等级老人物无需补做旧级");
 	mapping(string:string) races = ([
 		"jianxian":"human",
 		"yushi":"human",
@@ -250,6 +251,7 @@ void test_seven_profession_runtime_acceptance()
 		"wuyao":"monst",
 		"yinggui":"monst",
 		"fangshi":"third",
+		"zhenyue":"third",
 	]);
 	int accepted = 0;
 	int failed = 0;
@@ -271,7 +273,7 @@ void test_seven_profession_runtime_acceptance()
 		destroy_player(player);
 	}
 
-	if(accepted==7 && failed==0)
+	if(accepted==8 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf("领取=%d，失败=%d",accepted,failed));
@@ -324,7 +326,7 @@ void test_profession_teacher_task_lists()
 
 void test_all_profession_mentor_dialogues()
 {
-	test_start("七职业九级导师对话均显示本级历练且过滤高等级任务");
+	test_start("八职业九级导师对话均显示本级历练且过滤高等级任务");
 	mapping(string:array(string)) mentors = ([
 		"jianxian":({"human","kunlunshan/taijizhenren400"}),
 		"yushi":({"human","kunlunshan/yuanshitianzun999"}),
@@ -333,6 +335,7 @@ void test_all_profession_mentor_dialogues()
 		"wuyao":({"monst","jinaodao/tongtianjiaozhu999"}),
 		"yinggui":({"monst","jinaodao/wangtianjun400"}),
 		"fangshi":({"third","fangshi_teacher"}),
+		"zhenyue":({"third","zhenyue_teacher"}),
 	]);
 	array(string) high_level_titles = ({
 		"【特殊】天选之人",
@@ -388,7 +391,7 @@ void test_all_profession_mentor_dialogues()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && checked==7 && failed==0)
+	if(!err && checked==8 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
@@ -502,7 +505,7 @@ void test_ui_and_event_wiring()
 int main(int argc,array(string) argv)
 {
 	werror("\n╔════════════════════════════════════════════════╗\n");
-	werror("║          七职业每级历练完整测试              ║\n");
+	werror("║          八职业每级历练完整测试              ║\n");
 	werror("╚════════════════════════════════════════════════╝\n");
 
 	test_all_professions_all_levels();

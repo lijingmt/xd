@@ -237,10 +237,15 @@ int main(string|zero arg)
 	}
 	target = AUTOFIGHTD->query_target(me);
 	if(target){
-		AUTOFIGHTD->clear_no_target(me);
 		count = AUTOFIGHTD->query_object_count(target,env);
 		me->command("kill "+target->query_name()+" "+count);
-		return 1;
+		// 候选对象仍可能在命令执行前失效、被其他玩家击杀，或被
+		// NPC 自身规则拒绝攻击。只有真实进入战斗后才清空防抖计数；
+		// 否则继续走换图逻辑，避免对同一个无效候选无限重试。
+		if(me->in_combat){
+			AUTOFIGHTD->clear_no_target(me);
+			return 1;
+		}
 	}
 	AUTOFIGHTD->record_no_target(me);
 	if(AUTOFIGHTD->should_route_to_training_area(me)){

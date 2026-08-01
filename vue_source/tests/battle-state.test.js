@@ -8,7 +8,8 @@ let nextBattleState = {
   in_battle: true,
   player: {
     name_cn: '测试方士', hp: 90, hp_max: 100,
-    mana: 70, mana_max: 80, level: 9, profe: '方士', race: '中立'
+    mana: 70, mana_max: 80, level: 9, profe: '镇岳', race: '中立',
+    guard: 1200, guard_time: 10, guard_active: 1
   },
   enemy: {
     name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50,
@@ -201,6 +202,12 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.parseMartialArtsSkill('九幽鬼步'), 'lightness');
   assert.strictEqual(client.extractSkillName('你发动了【三灵共鸣】！'), '三灵共鸣');
   assert.strictEqual(client.parseMartialArtsSkill('三灵共鸣'), 'summon');
+  assert.strictEqual(client.parseMartialArtsSkill('【岳】山河壁'), 'block');
+  assert.strictEqual(client.parseMartialArtsSkill('【岳】地震吼'), 'curse');
+  assert.strictEqual(client.parseMartialArtsSkill('【神】万山朝拱'), 'buff');
+  assert.strictEqual(client.parseMartialArtsSkill('【神】不周震击'), 'fist');
+  assert.strictEqual(client.parseMartialArtsSkill('【神】天地成壁'), 'block');
+  assert.strictEqual(client.getSkillAnimationTarget('block', '你施放了【岳】山河壁。'), 'player');
   assert.strictEqual(client.extractSkillName('你召唤出了虎灵！'), '虎灵');
   assert.strictEqual(client.extractSkillName('你的仙力不够，无法施放【方】灵百雷(等级1)。'), '');
   assert.strictEqual(client.extractSkillName('该技能还需要8秒冷却时间,无法使用。'), '');
@@ -252,6 +259,9 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.battleEnemy.defend, 45);
   assert.strictEqual(client.battlePlayerFull.mana, 70);
   assert.strictEqual(client.battlePlayerFull.mana_max, 80);
+  assert.strictEqual(client.battlePlayerFull.guard, 1200);
+  assert.strictEqual(client.battlePlayerFull.guard_time, 10);
+  assert.strictEqual(client.battlePlayerFull.guard_active, 1);
   assert.strictEqual(client.battleStatusInterval, 1);
   assert.strictEqual(client.battleStatusLoading, false);
 

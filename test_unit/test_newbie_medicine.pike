@@ -1,7 +1,7 @@
 #!/usr/bin/env pike
 /**
  * 新手免费红蓝药测试：
- * 运行时编译 -> 七职业药效 -> 首次赠送防重复 ->
+ * 运行时编译 -> 八职业药效 -> 首次赠送防重复 ->
  * 分级领取与小时限制 -> 挂机缺药自动补领 -> 页面与创建接线。
  */
 
@@ -96,7 +96,7 @@ void test_runtime_compile()
 
 void test_all_professions_can_use()
 {
-	test_start("人妖中立七职业均可使用红蓝药");
+	test_start("人妖中立八职业均可使用红蓝药");
 	array(mapping(string:string)) professions = ({
 		(["race":"human","profession":"jianxian"]),
 		(["race":"human","profession":"yushi"]),
@@ -105,6 +105,7 @@ void test_all_professions_can_use()
 		(["race":"monst","profession":"wuyao"]),
 		(["race":"monst","profession":"yinggui"]),
 		(["race":"third","profession":"fangshi"]),
+		(["race":"third","profession":"zhenyue"]),
 	});
 	object|zero original_player = this_player();
 	string error_desc = "";
@@ -152,9 +153,10 @@ void test_all_professions_can_use()
 
 void test_xiaohuandan_fangshi_compatibility()
 {
-	test_start("方士与旧职业均可正常服用小还丹");
+	test_start("两个中立职业与旧职业均可正常服用小还丹");
 	array(mapping(string:string)) professions = ({
 		(["race":"third","profession":"fangshi"]),
+		(["race":"third","profession":"zhenyue"]),
 		(["race":"human","profession":"jianxian"]),
 	});
 	object|zero original_player = this_player();
@@ -212,6 +214,8 @@ void scan_consumable_catalog(string path,mapping(string:int) stats)
 			if(search(source,"race_limit[\"third\"]")==-1 ||
 			   search(source,"profe_limit[\"fangshi\"]")==-1)
 				stats["missing_fangshi"]++;
+			if(search(source,"profe_limit[\"zhenyue\"]")==-1)
+				stats["missing_zhenyue"]++;
 			program|zero compiled = 0;
 			mixed err = catch {
 				compiled = (program)child;
@@ -227,7 +231,8 @@ void scan_consumable_catalog(string path,mapping(string:int) stats)
 			};
 			if(clone_err || !item ||
 			   !item->race_limit["third"] ||
-			   !item->profe_limit["fangshi"] || item->amount<=0 ||
+			   !item->profe_limit["fangshi"] ||
+			   !item->profe_limit["zhenyue"] || item->amount<=0 ||
 			   item->eat_flag!=1 ||
 			   ((int)item->add_supplay["life_supply"]<=0 &&
 			    (int)item->add_supplay["mofa_supply"]<=0) ||
@@ -260,6 +265,7 @@ void test_consumable_catalog()
 		"instant":0,
 		"buff":0,
 		"missing_fangshi":0,
+		"missing_zhenyue":0,
 		"compile_failed":0,
 		"runtime_invalid":0,
 		"wrong_base":0,
@@ -278,13 +284,15 @@ void test_consumable_catalog()
 		scan_consumable_catalog(ROOT+path,stats);
 	if(stats["instant"]==45 && stats["buff"]>=200 &&
 	   stats["missing_fangshi"]==0 &&
+	   stats["missing_zhenyue"]==0 &&
 	   stats["compile_failed"]==0 && stats["runtime_invalid"]==0 &&
 	   stats["wrong_base"]==0)
 		test_pass();
 	else
-		test_fail(sprintf("即时药=%d，增益丹药=%d，漏方士=%d，编译失败=%d，运行态错误=%d，错误基类=%d",
+		test_fail(sprintf("即时药=%d，增益丹药=%d，漏方士=%d，漏镇岳=%d，编译失败=%d，运行态错误=%d，错误基类=%d",
 			stats["instant"],stats["buff"],
-			stats["missing_fangshi"],stats["compile_failed"],
+			stats["missing_fangshi"],stats["missing_zhenyue"],
+			stats["compile_failed"],
 			stats["runtime_invalid"],stats["wrong_base"]));
 }
 

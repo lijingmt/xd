@@ -1,0 +1,5 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){ name=object_name(this_object()); name_cn="【岳】岳反震"; unit="本"; picture=name; desc="抓住攻势间隙发动高仇恨反震\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=200; skill_bname="yuefanzhen"; level_limit=40; profe_read_limit="镇岳"; need_yushi=45; need_money=2200; }
+int read(){ int result=::read(); if(read_flag==0) remove(); return result; }

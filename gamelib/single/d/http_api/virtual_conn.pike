@@ -103,7 +103,7 @@ void update_connection_time(string userid)
 /**
  * 检查并复用已有的玩家连接
  */
-object get_player_from_connection(string userid)
+object get_player_from_connection(string userid, void|int update_idle_time)
 {
     if(!userid) return 0;
 
@@ -111,10 +111,12 @@ object get_player_from_connection(string userid)
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 3) {
         object player = vconn[2];
         if(player && functionp(player->query_name)) {
-            vconn[1] = time();
+            if(update_idle_time != 0) {
+                vconn[1] = time();
+            }
             return player;
         }
-        vconnections[userid] = 0;
+        m_delete(vconnections,userid);
     }
     return 0;
 }
@@ -132,7 +134,7 @@ void cleanup_idle_connections()
         if(arrayp(vconn) && sizeof(vconn) >= 2) {
             int last_used = vconn[1];
             if(now - last_used > timeout) {
-                vconnections[userid] = 0;
+                m_delete(vconnections,userid);
             }
         }
     }
@@ -168,7 +170,7 @@ mapping query_connection_status()
 void remove_virtual_connection(string userid)
 {
     if(!userid) return;
-    vconnections[userid] = 0;
+    m_delete(vconnections,userid);
 }
 
 /**

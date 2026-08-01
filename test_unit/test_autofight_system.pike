@@ -203,6 +203,85 @@ void test_smart_auto_skill_selection()
 	destroy_runtime_player(player);
 }
 
+void test_zhenyue_context_skill_selection()
+{
+	test_start("镇岳智能挂机按失仇恨、缺护盾、稳定输出顺序施放");
+	object tank = clone(GAMELIB_USER);
+	object teammate = create_runtime_player(
+		"__testunit_autofight_zhenyue_member__");
+	object enemy = create_runtime_player(
+		"__testunit_autofight_zhenyue_enemy__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object|zero weapon = 0;
+	string taunt = "";
+	string guard = "";
+	string attack = "";
+	string direct_context = "";
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		tank->set_name("__testunit_autofight_zhenyue_tank__");
+		tank->name_cn = "镇岳挂机测试";
+		tank->set_project("gamelib");
+		tank->setup("testunit-only");
+		tank->set_raceId("third");
+		tank->set_profeId("zhenyue");
+		tank->setup_player("third","zhenyue");
+		tank->level = 80;
+		tank->set_att_by_level();
+		tank->set_mofa(tank->query_mofa_max());
+		tank->skills["yueji"] = ({5,0});
+		tank->skills["dizhenhou"] = ({4,0});
+		tank->skills["shanhebi"] = ({4,0});
+		weapon = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		weapon->move(tank);
+		tank->wear(weapon);
+		tank->move(room);
+		teammate->move(room);
+		enemy->move(room);
+		tank->set_term("__testunit_autofight_zhenyue_team__");
+		teammate->set_term("__testunit_autofight_zhenyue_team__");
+		daemon->initialize_player(tank);
+		tank->_fight(enemy);
+		enemy->force_target(teammate,1000);
+		direct_context = daemon->query_ready_zhenyue_context_skill(tank);
+		taunt = daemon->query_ready_auto_skill(tank);
+		enemy->force_target(tank,1000);
+		guard = daemon->query_ready_auto_skill(tank);
+		tank->apply_team_guard(500,12);
+		attack = daemon->query_ready_auto_skill(tank);
+		valid = taunt == "dizhenhou" && guard == "shanhebi" &&
+			attack == "yueji";
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"嘲讽=%s 直接=%s 护盾=%s 攻击=%s 战斗=%d 敌人=%d 模式=%s "
+			"法力=%d/%d 公冷=%d 技能冷却=%d/%d/%d %s",
+			taunt,direct_context,guard,attack,tank->query_in_combat(),
+			tank->query_enemy()==enemy,daemon->query_auto_skill_mode(tank),
+			tank->get_cur_mofa(),tank->query_mofa_max(),tank->timeCold,
+			(int)tank->f_skills["dizhenhou"],
+			(int)tank->f_skills["shanhebi"],
+			(int)tank->f_skills["yueji"],
+			daemon->query_auto_skill_unready_reason(tank,"dizhenhou")+"/"+
+			daemon->query_auto_skill_unready_reason(tank,"shanhebi")+"/"+
+			daemon->query_auto_skill_unready_reason(tank,"yueji")+" "+
+			error_desc));
+	if(tank)
+		tank->_clean_fight();
+	destroy_runtime_player(tank);
+	destroy_runtime_player(teammate);
+	destroy_runtime_player(enemy);
+}
+
 void test_vip_daily_limits()
 {
 	test_start("VIP1至VIP4每日额度、当天升级与降级同步");
@@ -2062,6 +2141,7 @@ int main()
 	test_runtime_compile();
 	test_defaults_and_switch();
 	test_smart_auto_skill_selection();
+	test_zhenyue_context_skill_selection();
 	test_vip_daily_limits();
 	test_vip_quota_exhausted_guidance();
 	test_vip_labels_and_plan();
