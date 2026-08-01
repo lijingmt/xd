@@ -195,12 +195,12 @@ createApp({
             registerError: '',
             registerSuccess: false,
             loginForm: {
-                partition: 'tx01',
+                partition: '',
                 userid: '',
                 password: ''
             },
             registerForm: {
-                partition: 'tx01',
+                partition: '',
                 userid: '',
                 password: '',
                 passwordConfirm: '',
@@ -939,6 +939,54 @@ createApp({
             this.registerPasswordVisible = false;
         },
 
+        getPartitionSortValue(partition) {
+            const configuredSort = Number(partition?.sort);
+            if (Number.isFinite(configuredSort)) return configuredSort;
+            const match = String(partition?.value || '').match(/(\d+)$/);
+            return match ? Number(match[1]) : 0;
+        },
+
+        // 无论后端版本如何，都保证新区（最大 sort/区号）排在最前。
+        sortPartitionsNewestFirst(partitions) {
+            if (!Array.isArray(partitions)) return [];
+            return partitions.slice().sort((left, right) => {
+                const sortDifference = this.getPartitionSortValue(right) -
+                    this.getPartitionSortValue(left);
+                if (sortDifference !== 0) return sortDifference;
+                return String(right?.value || '').localeCompare(
+                    String(left?.value || '')
+                );
+            });
+        },
+
+        applyLoadedPartitions(partitions) {
+            this.partitions = this.sortPartitionsNewestFirst(partitions);
+            if (this.partitions.length === 0) return;
+            const savedPartition = sessionStorage.getItem('mud_partition') || '';
+            const loginPartitions = this.partitions.filter(
+                partition => partition.login_open !== 0
+            );
+            const registrationPartitions = this.partitions.filter(
+                partition => partition.registration_open !== 0
+            );
+            const savedExists = loginPartitions.some(
+                partition => partition.value === savedPartition
+            );
+            const firstLoginPartition = (
+                loginPartitions[0] || this.partitions[0]
+            ).value;
+            const firstRegistrationPartition = (
+                registrationPartitions[0] || this.partitions[0]
+            ).value;
+            this.loginForm.partition = savedExists ? savedPartition :
+                firstLoginPartition;
+            const registerExists = registrationPartitions.some(
+                partition => partition.value === this.registerForm.partition
+            );
+            if (!registerExists)
+                this.registerForm.partition = firstRegistrationPartition;
+        },
+
         // 从API加载分区列表
         async loadPartitions() {
             try {
@@ -946,20 +994,16 @@ createApp({
                 if (!response.ok) {
                     console.error('加载分区列表失败:', response.status);
                     // 使用默认分区列表
-                    this.partitions = this.getDefaultPartitions();
+                    this.applyLoadedPartitions(this.getDefaultPartitions());
                     return;
                 }
                 const data = await response.json();
-                this.partitions = data.partitions || [];
-                if (this.partitions.length > 0) {
-                    this.loginForm.partition = this.partitions[0].value;
-                    this.registerForm.partition = this.partitions[0].value;
-                }
+                this.applyLoadedPartitions(data.partitions || []);
                 console.log('已加载分区列表:', this.partitions);
             } catch (e) {
                 console.error('加载分区列表异常:', e);
                 // 使用默认分区列表
-                this.partitions = this.getDefaultPartitions();
+                this.applyLoadedPartitions(this.getDefaultPartitions());
             } finally {
                 this.partitionsLoading = false;
             }
@@ -968,12 +1012,18 @@ createApp({
         // 默认分区列表（API失败时使用）
         getDefaultPartitions() {
             return [
-                { value: 'tx01', label: '原1区' },
-                { value: 'tx02', label: '原2区' },
-                { value: 'tx03', label: '原3区' },
-                { value: 'tx04', label: '原4区' },
-                { value: 'tx05', label: '原5区' },
-                { value: 'tx06', label: '原6区' }
+                {
+                    value: 'xd03', label: '仙道三区', sort: 3,
+                    login_open: 1, registration_open: 1
+                },
+                {
+                    value: 'xd02', label: '仙道二区', sort: 2,
+                    login_open: 1, registration_open: 1
+                },
+                {
+                    value: 'xd01', label: '仙道一区', sort: 1,
+                    login_open: 1, registration_open: 1
+                }
             ];
         },
 

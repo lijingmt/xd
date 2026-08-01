@@ -78,16 +78,17 @@ array(mapping(string:mixed)) query_public_partitions()
 			result += ({([
 				"value":zone_ids[i],
 				"label":(string)zone["name"],
+				"login_open":(int)zone["login_open"],
 				"registration_open":(int)zone["registration_open"],
 				"sort":(int)zone["sort"],
 			])});
 	}
-	// 区号显示顺序属于配置，不依赖文件名；简单稳定排序避免引入额外模块。
+	// 新区优先展示：sort 最大的区排最前，同 sort 时区号大的排最前。
 	for(int left=0;left<sizeof(result);left++)
 		for(int right=left+1;right<sizeof(result);right++)
-			if((int)result[right]["sort"]<(int)result[left]["sort"] ||
+			if((int)result[right]["sort"]>(int)result[left]["sort"] ||
 			   ((int)result[right]["sort"]==(int)result[left]["sort"] &&
-			    (string)result[right]["value"]<(string)result[left]["value"])){
+			    (string)result[right]["value"]>(string)result[left]["value"])){
 				mapping(string:mixed) swap = result[left];
 				result[left] = result[right];
 				result[right] = swap;

@@ -30,6 +30,51 @@ int can_receive_logical_reward(string owner_name,object player)
 		"team",owner_name,(string)player->query_name());
 }
 
+/** 单人和组队共用同一套打怪经验发放与提示。 */
+int grant_kill_experience(object player,int base_exp)
+{
+	int buff_percent;
+	mapping(string:int) reward;
+	int actual_exp;
+	string bonus_tips = "";
+	string interface_tip = "";
+	string message = "";
+	if(!player || base_exp<=0)
+		return 0;
+	buff_percent = (int)player->query_buff("te_exp",1)+
+		(int)player->query_buff("attri_exp",1);
+	reward = player->add_kill_exp_with_bonus(base_exp,buff_percent,2);
+	actual_exp = reward["actual_exp"];
+	if(reward["buff_bonus"]>0)
+		bonus_tips += "<font style=\"color:DARKORANGE\">经验药品加成：额外获得 "+
+			(string)reward["buff_bonus"]+" 点经验值</font>";
+	if(reward["event_bonus"]>0){
+		if(sizeof(bonus_tips))
+			bonus_tips += "<br>";
+		bonus_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动：额外获得 "+
+			(string)reward["event_bonus"]+" 点经验值</font>";
+	}
+	if(reward["donation_multiplier"]>1){
+		if(sizeof(bonus_tips))
+			bonus_tips += "<br>";
+		bonus_tips += "<font style=\"color:DARKORANGE\">捐赠经验倍速："+
+			(string)reward["donation_multiplier"]+
+			"倍，作用于药品和活动加成后的总经验，额外获得 "+
+			(string)reward["donation_bonus"]+" 点经验值</font>";
+	}
+	if(reward["interface_bonus"]>0)
+		interface_tip = "<font style=\"color:GOLD\">【新界面加成+"+
+			(string)reward["interface_bonus"]+"】</font> ";
+	message += interface_tip+"你得到了 "+(string)actual_exp+" 点经验。\n";
+	if(sizeof(bonus_tips))
+		message += "（"+bonus_tips+"）\n";
+	player->query_if_levelup();
+	if(player->query_levelFlag())
+		message += "你的等级提升到了 "+(string)player->query_level()+" 级！\n";
+	tell_object(player,message);
+	return actual_exp;
+}
+
 void fight_die()
 {
 	object env = environment(this_object());
@@ -283,13 +328,6 @@ void fight_die()
 								else//怪高过玩家6级以上
 									last_exp = random(10)+1;//不能一点不得经验，随即给10点经验
 							}
-							//这里添加经验特药的加成，由liaocheng于07/11/21添加
-							//int te_eff = (int)termer->query_buff("te_exp",1);
-							int te_eff = (int)termer->query_buff("te_exp",1)+(int)termer->query_buff("attri_exp",1);
-							if(te_eff){
-								last_exp = last_exp+last_exp*te_eff/100;
-							}
-							///////////////////////////////////////////////////////////////////////////////////////
 							exp_gain = last_exp;
 							//大于20级，必须付费
 							
@@ -318,80 +356,8 @@ void fight_die()
 								tell_object(termer,tipsvip);
 								exp_gain = 0;								
 							}
-							int szx=0;                                                                                                                  
-							string bs_tips = "";
-							int extra_dh=0;
-							if(termer->all_fee>=200 && GAME_AREA=="xd01"){
-								szx = termer->all_fee;
-								if(szx>=200 && szx<400){
-									extra_dh += exp_gain*2;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=400 && szx<600){
-									extra_dh += exp_gain*3;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=600 && szx<800){
-									extra_dh += exp_gain*4;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=800 && szx<1000){
-									extra_dh += exp_gain*5;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=1000 && szx<1200){
-									extra_dh += exp_gain*6;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=1200 && szx<1400){
-									extra_dh += exp_gain*8;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=1400 && szx<1600){
-									extra_dh += exp_gain*10;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=1600 && szx<3200){
-									extra_dh += exp_gain*20;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=3200 && szx<6400){
-									extra_dh += exp_gain*30;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=6400 && szx<12800){
-									extra_dh += exp_gain*40;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-								if(szx>=12800){
-									extra_dh += exp_gain*50;
-									bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
-								}
-							}	
-							
-							extra_dh += exp_gain*2;
-							bs_tips += "<font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";
-							if(exp_gain>0){
-								exp_gain += extra_dh;
-								// 使用带加成的经验函数（HTTP API 用户自动获得 50% 加成）
-								int actual_exp = termer->add_exp_with_bonus(exp_gain);
-								string t = "";
-								// 构建 HTTP API 加成提示
-								string api_tip = "";
-								if(termer->is_http_api_user && actual_exp > exp_gain) {
-									int bonus = actual_exp - exp_gain;
-									api_tip = "<font style=\"color:GOLD\">【新界面加成+"+bonus+"】</font> ";
-								}
-								if(bs_tips&&sizeof(bs_tips))
-									t + api_tip + "你得到了 "+actual_exp+" 点经验。\n（"+bs_tips+")\n";
-								else
-									t + api_tip + "你得到了 "+actual_exp+" 点经验。\n";
-								termer->query_if_levelup();
-								if(termer->query_levelFlag())
-									t += "你的等级提升到了 "+termer->query_level()+" 级！\n";
-								tell_object(termer,t);
-							}
-							///////////////////////////////////////////////////////////////////////////////////////
+							if(exp_gain>0)
+								grant_kill_experience(termer,exp_gain);
 							/*	
 							termer->exp += last_exp;
 							termer->current_exp += last_exp;
@@ -883,84 +849,8 @@ void fight_die_single(object env)
 			tell_object(first,tipsvip);
 			exp_gain = 0;
 		}
-		int szx=0;                                                                                                                  
-		string bs_tips = "";
-		int extra_dh=0;
-		if(first->all_fee>=200){
-			szx = first->all_fee;
-			if(szx>=200 && szx<400){
-				extra_dh += exp_gain*2;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=400 && szx<600){
-				extra_dh += exp_gain*3;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=600 && szx<800){
-				extra_dh += exp_gain*4;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=800 && szx<1000){
-				extra_dh += exp_gain*5;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=1000 && szx<1200){
-				extra_dh += exp_gain*6;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=1200 && szx<1400){
-				extra_dh += exp_gain*8;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=1400 && szx<1600){
-				extra_dh += exp_gain*10;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=1600 && szx<3200){
-				extra_dh += exp_gain*20;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=3200 && szx<6400){
-				extra_dh += exp_gain*30;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=6400 && szx<12800){
-				extra_dh += exp_gain*40;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-			if(szx>=12800){
-				extra_dh += exp_gain*50;
-				bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍，额外获得 "+extra_dh+" 点经验值</font>";	
-			}
-		}
-		extra_dh += exp_gain*2;
-		bs_tips += "<br><font style=\"color:DARKORANGE\">五一节经验双倍活动，经验倍速开启：2倍，额外获得 "+extra_dh+" 点经验值</font>";
-		if(exp_gain>0){
-			//这里添加经验特药的加成，由liaocheng于07/11/21添加
-			//int te_eff = (int)first->query_buff("te_exp",1);
-			int te_eff = (int)first->query_buff("te_exp",1)+(int)first->query_buff("attri_exp",1);
-			if(te_eff){
-				exp_gain = exp_gain+exp_gain*te_eff/100;
-			}
-			exp_gain += extra_dh;
-			// 使用带加成的经验函数（HTTP API 用户自动获得 50% 加成）
-			int actual_exp = first->add_exp_with_bonus(exp_gain);
-			string t = "";
-			// 构建 HTTP API 加成提示
-			string api_tip = "";
-			if(first->is_http_api_user && actual_exp > exp_gain) {
-				int bonus = actual_exp - exp_gain;
-				api_tip = "<font style=\"color:GOLD\">【新界面加成+"+bonus+"】</font> ";
-			}
-			if(bs_tips&&sizeof(bs_tips))
-				t += api_tip + "你得到了 "+actual_exp+" 点经验。\n（"+bs_tips+")\n";
-			else
-				t += api_tip + "你得到了 "+actual_exp+" 点经验。\n";
-			first->query_if_levelup();
-			if(first->query_levelFlag())
-				t += "你的等级提升到了 "+first->query_level()+" 级！\n";
-			tell_object(first,t);
-		}
+		if(exp_gain>0)
+			grant_kill_experience(first,exp_gain);
 		///////////////////////////////////////////////////////////////////////////////////////
 		//直接这个地方掉落物品算法
 		//新副业织布，制皮材料的掉落

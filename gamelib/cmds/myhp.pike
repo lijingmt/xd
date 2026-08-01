@@ -64,46 +64,14 @@ int main(string|zero arg)
 	//	s += "您的游戏时间已经用完，请冲值获得游戏时间。\n";
 */
 	
-	int szx=0;
+	int donation_multiplier = me->query_donation_exp_multiplier();
 	string bs_tips = "";
-	if(me->all_fee>=200){
-		szx = me->all_fee;
-		if(szx>=200 && szx<400){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：2倍</font>";	
-		}
-		if(szx>=400 && szx<600){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：3倍</font>";	
-		}
-		if(szx>=600 && szx<800){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：4倍</font>";	
-		}
-		if(szx>=800 && szx<1000){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：5倍</font>";	
-		}
-		if(szx>=1000 && szx<1200){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：6倍</font>";	
-		}
-		if(szx>=1200 && szx<1400){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：8倍</font>";	
-		}
-		if(szx>=1400 && szx<1600){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：10倍</font>";	
-		}
-		if(szx>=1600 && szx<3200){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：20倍</font>";	
-		}
-		if(szx>=3200 && szx<6400){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：30倍</font>";	
-		}
-		if(szx>=6400 && szx<12800){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：40倍</font>";	
-		}
-		if(szx>=12800 && szx<25600){
-			bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启：50倍</font>";	
-		}
-	}
- 	else
-		bs_tips += "<font style=\"color:DARKORANGE\">经验倍速尚未开启</font>";	
+	if(donation_multiplier>1)
+		bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启："+
+			(string)donation_multiplier+"倍</font>";
+	else
+		bs_tips += "<font style=\"color:DARKORANGE\">经验倍速尚未开启</font>";
+	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠倍数作用于药品和活动加成后的打怪总经验</font>\n";
 	//if(bs_tips&&sizeof(bs_tips)) 
 	
 	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠200元--2倍经验获得</font>\n";

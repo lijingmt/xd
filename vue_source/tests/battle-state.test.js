@@ -102,6 +102,25 @@ client.mudLines = [{
   segments: [{ type: 'button', label: '关闭自动挂机', cmd: 'autofightclose' }]
 }];
 
+const newestFirstPartitions = client.sortPartitionsNewestFirst([
+  { value: 'xd01', label: '仙道一区', sort: 1, login_open: 1, registration_open: 1 },
+  { value: 'xd03', label: '仙道三区', sort: 3, login_open: 1, registration_open: 1 },
+  { value: 'xd04', label: '仙道四区', sort: 4, login_open: 0, registration_open: 0 },
+  { value: 'xd02', label: '仙道二区', sort: 2, login_open: 1, registration_open: 1 }
+]);
+assert.deepStrictEqual(
+  newestFirstPartitions.map(partition => partition.value),
+  ['xd04', 'xd03', 'xd02', 'xd01']
+);
+sessionValues.clear();
+client.applyLoadedPartitions(newestFirstPartitions);
+assert.strictEqual(client.loginForm.partition, 'xd03');
+assert.strictEqual(client.registerForm.partition, 'xd03');
+sessionValues.set('mud_partition', 'xd02');
+client.applyLoadedPartitions(newestFirstPartitions);
+assert.strictEqual(client.loginForm.partition, 'xd02');
+sessionValues.clear();
+
 client.playerStats = { avatar: '/images/h_male2.gif', name_cn: '测试方士' };
 assert.strictEqual(client.fontSize, 'small');
 let fontToast = '';

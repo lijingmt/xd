@@ -52,8 +52,11 @@
                                 v-model="loginForm.partition"
                                 class="form-select"
                                 :disabled="partitionsLoading || isLoggingIn">
-                            <option v-for="p in partitions" :key="p.value" :value="p.value">
-                                {{ p.label }}
+                            <option v-for="p in partitions"
+                                    :key="p.value"
+                                    :value="p.value"
+                                    :disabled="p.login_open === 0">
+                                {{ p.label }}{{ p.login_open === 0 ? '（维护中）' : '' }}
                             </option>
                         </select>
                     </div>
@@ -135,8 +138,11 @@
                             v-model="registerForm.partition"
                             class="form-select"
                             :disabled="partitionsLoading || isRegistering">
-                        <option v-for="p in partitions" :key="p.value" :value="p.value">
-                            {{ p.label }}
+                        <option v-for="p in partitions"
+                                :key="p.value"
+                                :value="p.value"
+                                :disabled="p.registration_open === 0">
+                            {{ p.label }}{{ p.registration_open === 0 ? '（暂停注册）' : '' }}
                         </option>
                     </select>
                 </div>

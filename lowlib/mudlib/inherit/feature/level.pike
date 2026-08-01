@@ -292,6 +292,78 @@ string query_levelUp_need_exp_cn(){
 	return "距离升级还需要 "+need_exp+" 点经验";
 }
 
+/** 根据累计捐赠金额返回打怪经验总倍数。 */
+int query_donation_exp_multiplier_for_fee(int total_fee)
+{
+	if(total_fee>=12800)
+		return 50;
+	if(total_fee>=6400)
+		return 40;
+	if(total_fee>=3200)
+		return 30;
+	if(total_fee>=1600)
+		return 20;
+	if(total_fee>=1400)
+		return 10;
+	if(total_fee>=1200)
+		return 8;
+	if(total_fee>=1000)
+		return 6;
+	if(total_fee>=800)
+		return 5;
+	if(total_fee>=600)
+		return 4;
+	if(total_fee>=400)
+		return 3;
+	if(total_fee>=200)
+		return 2;
+	return 1;
+}
+
+int query_donation_exp_multiplier()
+{
+	object me = this_object();
+	return query_donation_exp_multiplier_for_fee((int)me->all_fee);
+}
+
+/**
+ * 统一计算打怪经验：药品和活动先形成总额，捐赠倍数再作用于该总额。
+ * 此函数不修改玩家数据，可供真实奖励和 TestUnit 共用。
+ */
+mapping(string:int) calculate_kill_exp_reward(int base_exp,int buff_percent,
+	int event_multiplier,int donation_multiplier)
+{
+	mapping(string:int) reward = ([
+		"base_exp":0,
+		"buff_bonus":0,
+		"event_bonus":0,
+		"donation_bonus":0,
+		"donation_multiplier":1,
+		"stacked_exp":0,
+	]);
+	int after_buff;
+	int after_event;
+	if(base_exp<=0)
+		return reward;
+	if(buff_percent<0)
+		buff_percent = 0;
+	if(event_multiplier<1)
+		event_multiplier = 1;
+	if(donation_multiplier<1)
+		donation_multiplier = 1;
+	if(donation_multiplier>50)
+		donation_multiplier = 50;
+	reward["base_exp"] = base_exp;
+	reward["buff_bonus"] = base_exp*buff_percent/100;
+	after_buff = base_exp+reward["buff_bonus"];
+	reward["event_bonus"] = after_buff*(event_multiplier-1);
+	after_event = after_buff+reward["event_bonus"];
+	reward["donation_multiplier"] = donation_multiplier;
+	reward["donation_bonus"] = after_event*(donation_multiplier-1);
+	reward["stacked_exp"] = after_event+reward["donation_bonus"];
+	return reward;
+}
+
 /**
  * 添加经验值（HTTP API 用户自动获得 50% 加成，可配置开关）
  * @param base_exp 基础经验值
@@ -324,6 +396,18 @@ int add_exp_with_bonus(int base_exp)
 	me->exp += final_exp;
 	me->current_exp += final_exp;
 	return final_exp;
+}
+
+/** 计算并发放统一的打怪经验，返回每一层加成明细。 */
+mapping(string:int) add_kill_exp_with_bonus(int base_exp,int buff_percent,
+	int event_multiplier)
+{
+	mapping(string:int) reward = calculate_kill_exp_reward(base_exp,
+		buff_percent,event_multiplier,query_donation_exp_multiplier());
+	int actual_exp = add_exp_with_bonus(reward["stacked_exp"]);
+	reward["actual_exp"] = actual_exp;
+	reward["interface_bonus"] = actual_exp-reward["stacked_exp"];
+	return reward;
 }
 
 //private string initer=(this_object()->add_heart_beat(check_level,5),"");

@@ -127,6 +127,26 @@ void test_runtime_fail_closed(object daemon)
 		"伪造区号可能注册、登录或跨区交互");
 }
 
+void test_public_partition_newest_first(object daemon)
+{
+	array partitions = daemon->query_public_partitions();
+	int valid = sizeof(partitions)>=1;
+	for(int field_index=0;field_index<sizeof(partitions);field_index++)
+		if(!has_index(partitions[field_index],"login_open") ||
+		   !has_index(partitions[field_index],"registration_open"))
+			valid = 0;
+	for(int i=1;i<sizeof(partitions);i++){
+		mapping previous = partitions[i-1];
+		mapping current = partitions[i];
+		if((int)previous["sort"]<(int)current["sort"] ||
+		   ((int)previous["sort"]==(int)current["sort"] &&
+		    (string)previous["value"]<(string)current["value"]))
+			valid = 0;
+	}
+	check("前端公开分区按新区优先并携带开放状态",valid,
+		"新区排序错误或前端无法避开尚未开放的区");
+}
+
 int source_has(string path,string needle)
 {
 	string source = Stdio.read_file(ROOT+path);
@@ -434,6 +454,7 @@ int main()
 	test_deployment_seed_configs(daemon);
 	test_reversible_policy(daemon);
 	test_runtime_fail_closed(daemon);
+	test_public_partition_newest_first(daemon);
 	test_visual_and_combat_boundaries();
 	test_runtime_visual_isolation(daemon);
 	test_drop_zone_ownership(daemon);
