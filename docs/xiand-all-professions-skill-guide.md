@@ -3,7 +3,7 @@
 八职业技能全索引 · 二十四式隐藏神技 · 2026-08-01镇岳版
 
 - 分支：`codex/nightly-full-stack-optimization`
-- 提交基线：`2fb40b78a7`
+- 提交基线：`cf8738c86d`
 - 生成日期：2026-08-01
 - 数据规模：154 个职业技能对象，120 条职业技能书配置
 
@@ -28,6 +28,10 @@
 - 方士与镇岳多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。
 - 隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长，不需要重复找5本。
 - 重复学习隐藏书不会消耗原书，可继续交易、寄送或存入仓库。
+
+> **技能与职业助手公平边界**
+>
+> 方士和镇岳的学习、手动技能、召唤、治疗、嘲讽与护盾永久免费。VIP职业助手只在PVE自动执行人物已经掌握的能力，照常检查法力、冷却、装备、目标和行动回合；面对玩家或玩家召唤物会拒绝自动施放。会员到期只暂停自动化，不删除技能或策略配置。
 
 > **拿到隐藏书后的最短路径**
 >
@@ -1000,7 +1004,9 @@
 - 命中、闪避与暴击边界：lowlib/mudlib/inherit/feature/char.pike
 - 物理/法术平衡回归：test_unit/test_combat_balance.pike
 - 隐藏技能运行时回归：test_unit/test_hidden_mythic_skills.pike
+- 方士/镇岳职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike
+- 职业助手公平边界回归：test_unit/test_profession_vip_assistant.pike
 
 > **版本声明**
 >
-> 本文生成于2026-08-01，分支codex/nightly-full-stack-optimization，提交基线2fb40b78a7。若后续技能数值或掉率发生调整，请重新运行 docs/build_xiand_skill_guide.py 生成专册。
+> 本文生成于2026-08-01，分支codex/nightly-full-stack-optimization，提交基线cf8738c86d。若后续技能数值或掉率发生调整，请重新运行 docs/build_xiand_skill_guide.py 生成专册。
