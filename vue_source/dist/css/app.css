@@ -1209,6 +1209,19 @@ body {
     padding: var(--space-md);
 }
 
+.newbie-completion-stage {
+    position: fixed;
+    z-index: 1300;
+    inset: 0;
+    pointer-events: none;
+}
+
+.newbie-completion-stage .newbie-completion-overlay {
+    position: absolute;
+    z-index: auto;
+    pointer-events: auto;
+}
+
 .team-invite-overlay {
 	z-index: 1320;
 	padding: var(--space-md);
@@ -2055,6 +2068,13 @@ body {
     cursor: pointer;
     transition: background 0.2s;
     font-size: 13px;
+}
+
+.header-dropdown-menu button.menu-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
 }
 
 /* 浅色模式菜单项 */
@@ -6781,14 +6801,21 @@ select:focus-visible {
     background: var(--ux-line);
 }
 
-/* Non-blocking feedback */
-.ui-toast {
+/* Non-blocking feedback; persistent stage lets AutoAnimate handle enter/exit. */
+.ui-toast-stage {
     position: fixed;
     z-index: 7200;
     top: max(110px, calc(env(safe-area-inset-top, 0px) + 96px));
     left: 50%;
-    display: grid;
     width: min(calc(100% - 28px), 520px);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.ui-toast {
+    position: relative;
+    display: grid;
+    width: 100%;
     min-height: 48px;
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
@@ -6800,7 +6827,7 @@ select:focus-visible {
     color: var(--ux-ink);
     box-shadow: var(--ux-shadow);
     font-size: 14px;
-    transform: translateX(-50%);
+    pointer-events: auto;
 }
 
 .ui-toast-dot {
@@ -6856,6 +6883,7 @@ select:focus-visible {
 }
 
 .mud-parent {
+    position: relative;
     width: 100%;
     padding: 0;
     text-align: left;
@@ -6873,6 +6901,28 @@ select:focus-visible {
     padding: 24px 28px 34px;
     color: var(--ux-ink);
     text-align: left;
+}
+
+.mud-parent.smooth-output-loading .mud-child {
+    opacity: 0.72;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+}
+
+.mud-parent.smooth-output-loading::after {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    display: block;
+    padding: 4px 9px;
+    border: 1px solid var(--ux-line);
+    border-radius: 999px;
+    background: var(--ux-surface-strong);
+    color: var(--ux-ink-muted);
+    box-shadow: 0 4px 14px rgba(18, 18, 28, 0.12);
+    content: '更新中…';
+    font-size: 11px;
+    pointer-events: none;
 }
 
 .mud-line {
@@ -7703,5 +7753,79 @@ select:focus-visible {
 @media (max-width: 370px) {
     .level-cap-badge {
         max-width: 82px;
+    }
+}
+
+/* ========================================================================
+   Progressive effects layer: canvas-confetti + Driver.js
+   ======================================================================== */
+.game-celebration-canvas {
+    position: fixed;
+    z-index: 7100;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.driver-popover.xiand-driver-popover {
+    max-width: min(330px, calc(100vw - 28px));
+    border: 1px solid color-mix(in srgb, var(--ux-accent) 42%, var(--ux-line));
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at top right, color-mix(in srgb, var(--ux-accent) 17%, transparent), transparent 48%),
+        var(--ux-surface-strong);
+    color: var(--ux-ink);
+    box-shadow: 0 18px 48px rgba(8, 12, 24, 0.32);
+    font-family: inherit;
+}
+
+.driver-popover.xiand-driver-popover .driver-popover-title {
+    color: var(--ux-ink);
+    font-size: 17px;
+    line-height: 1.35;
+}
+
+.driver-popover.xiand-driver-popover .driver-popover-description,
+.driver-popover.xiand-driver-popover .driver-popover-progress-text {
+    color: var(--ux-ink-muted);
+    font-size: 13px;
+    line-height: 1.58;
+}
+
+.driver-popover.xiand-driver-popover .driver-popover-navigation-btns {
+    gap: 7px;
+}
+
+.driver-popover.xiand-driver-popover button {
+    min-height: 34px;
+    border: 1px solid var(--ux-line);
+    border-radius: 9px;
+    background: var(--ux-surface-muted);
+    color: var(--ux-ink);
+    text-shadow: none;
+}
+
+.driver-popover.xiand-driver-popover .driver-popover-next-btn {
+    border-color: color-mix(in srgb, var(--ux-accent) 50%, var(--ux-line));
+    background: color-mix(in srgb, var(--ux-accent) 18%, var(--ux-surface-muted));
+    color: var(--ux-accent);
+}
+
+.driver-popover.xiand-driver-popover .driver-popover-close-btn {
+    min-width: 32px;
+    color: var(--ux-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-celebration-canvas {
+        display: none !important;
+    }
+
+    .driver-overlay,
+    .driver-popover,
+    .driver-active-element {
+        transition: none !important;
+        animation: none !important;
     }
 }

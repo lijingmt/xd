@@ -1,5 +1,8 @@
 # Vue UI Integration - 部署说明
 
+> 第三方前端特效库的版本、商用许可和分发义务见
+> [`docs/frontend-open-source-license-memo.md`](../docs/frontend-open-source-license-memo.md)。
+
 ## 架构概览
 
 ```

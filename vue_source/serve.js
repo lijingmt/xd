@@ -11,11 +11,26 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { createManifest } = require('./manifest');
 
 const PORT = Number(process.env.XIAND_VUE_PORT || 3000);
 const API_PORT = Number(process.env.XIAND_HTTP_PORT || 8888);
 const STATIC_ROOT = path.resolve(__dirname);
 const INCLUDES_ROOT = path.resolve(__dirname, '..', 'web', 'includes');
+const DEV_BUILD_VERSION = `dev-${Date.now()}`;
+const VENDOR_FILES = new Map([
+  ['/vendor/vue.global.prod.js', 'vue/dist/vue.global.prod.js'],
+  ['/vendor/VUE_LICENSE.txt', 'vue/LICENSE'],
+  ['/vendor/canvas-confetti.js', 'canvas-confetti/dist/confetti.browser.js'],
+  ['/vendor/CANVAS_CONFETTI_LICENSE.txt', 'canvas-confetti/LICENSE'],
+  ['/vendor/howler.core.min.js', 'howler/dist/howler.core.min.js'],
+  ['/vendor/HOWLER_LICENSE.txt', 'howler/LICENSE.md'],
+  ['/vendor/auto-animate.min.js', '@formkit/auto-animate/index.min.js'],
+  ['/vendor/AUTO_ANIMATE_LICENSE.txt', '@formkit/auto-animate/LICENSE'],
+  ['/vendor/driver.iife.js', 'driver.js/dist/driver.js.iife.js'],
+  ['/vendor/driver.css', 'driver.js/dist/driver.css'],
+  ['/vendor/DRIVER_LICENSE.txt', 'driver.js/license']
+]);
 
 // MIME类型
 const mimeTypes = {
@@ -83,9 +98,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/manifest.json') {
+    const body = JSON.stringify(createManifest(DEV_BUILD_VERSION), null, 2) + '\n';
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(req.method === 'HEAD' ? undefined : body);
+    return;
+  }
+
   // /includes/* 映射到网页共享资源，其余文件只允许从vue_source读取。
   let filePath;
-  if (pathname.startsWith('/includes/')) {
+  if (VENDOR_FILES.has(pathname)) {
+    filePath = path.join(__dirname, 'node_modules', VENDOR_FILES.get(pathname));
+  } else if (pathname.startsWith('/includes/')) {
     filePath = path.resolve(INCLUDES_ROOT, '.' + pathname.slice('/includes'.length));
     if (!isWithinRoot(INCLUDES_ROOT, filePath)) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -115,7 +142,7 @@ const server = http.createServer((req, res) => {
     let body = data;
     // Buffer先转为字符串，再替换统一构建版本占位符。
     if (ext === '.html') {
-      body = data.toString('utf8').replace(/BUILD_VERSION/g, String(Date.now()));
+      body = data.toString('utf8').replace(/BUILD_VERSION/g, DEV_BUILD_VERSION);
     }
 
     res.writeHead(200, {

@@ -31,7 +31,10 @@ const sandbox = {
   },
   window: {
     crypto: {},
-    location: { protocol: 'https:', hostname: 'game.example.com' }
+    location: { protocol: 'https:', hostname: 'game.example.com' },
+    matchMedia() {
+      return { matches: false };
+    }
   },
   document: {
     hidden: false,
@@ -62,6 +65,9 @@ const sandbox = {
   },
   console,
   TextEncoder,
+  btoa(value) {
+    return Buffer.from(value, 'binary').toString('base64');
+  },
   URLSearchParams,
   setTimeout,
   clearTimeout,
@@ -82,6 +88,12 @@ const source = fs.readFileSync(
 vm.runInNewContext(source, sandbox, { filename: 'app.js' });
 
 assert(componentOptions, 'Vue component should be registered');
+const soundDataUri = sandbox.createGameSoundSpriteDataUri();
+assert(soundDataUri.startsWith('data:audio/wav;base64,'));
+const soundBytes = Buffer.from(soundDataUri.split(',')[1], 'base64');
+assert.strictEqual(soundBytes.subarray(0, 4).toString('ascii'), 'RIFF');
+assert.strictEqual(soundBytes.subarray(8, 12).toString('ascii'), 'WAVE');
+assert(soundBytes.length > 80000 && soundBytes.length < 100000);
 
 const client = Object.assign(componentOptions.data(), componentOptions.methods);
 client.txd = 'test-token';
@@ -106,6 +118,21 @@ client.applyFontSize();
 assert.strictEqual(client.fontSize, 'small');
 assert.strictEqual(documentAttributes.get('data-font-size'), 'small');
 assert.strictEqual(client.battleDockCollapsed, false);
+assert.strictEqual(client.soundEffectsEnabled, false);
+assert.strictEqual(client.shouldAnimateMudOutputCommand('inventory'), true);
+assert.strictEqual(client.shouldAnimateMudOutputCommand('mytasks active'), true);
+assert.strictEqual(client.shouldAnimateMudOutputCommand('flushview'), false);
+const inventoryLine = {
+  type: 'line',
+  segments: [{ type: 'text', parts: [{ content: '小还丹 x1' }] }]
+};
+assert.notStrictEqual(
+  client.getMudLineKey(inventoryLine, 0),
+  client.getMudLineKey({
+    ...inventoryLine,
+    segments: [{ type: 'text', parts: [{ content: '小还丹 x2' }] }]
+  }, 0)
+);
 client.toggleBattleDock();
 assert.strictEqual(client.battleDockCollapsed, true);
 assert.strictEqual(localValues.get('battle_dock_collapsed'), '1');
@@ -222,6 +249,60 @@ assert.strictEqual(client.playerAvatarFailed, true);
   client.toggleCombatEffects();
   assert.strictEqual(client.combatEffectsEnabled, true);
   assert.strictEqual(localValues.get('battle_effects_enabled'), '1');
+
+  const playedSounds = [];
+  client.initializeSoundPlayer = () => ({
+    play(name) {
+      playedSounds.push(name);
+    },
+    stop() {}
+  });
+  client.toggleSoundEffects();
+  assert.strictEqual(client.soundEffectsEnabled, true);
+  assert.strictEqual(localValues.get('game_sound_enabled'), '1');
+  assert.deepStrictEqual(playedSounds, ['ui']);
+  client.toggleSoundEffects();
+  assert.strictEqual(client.soundEffectsEnabled, false);
+  assert.strictEqual(localValues.get('game_sound_enabled'), '0');
+
+  const narrativeFeedback = [];
+  client.triggerGameFeedback = (kind, signature) => {
+    narrativeFeedback.push({ kind, signature });
+    return true;
+  };
+  client.handleNarrativeEffects([{
+    segments: [{
+      type: 'text',
+      parts: [{ content: '你击败妖王，获得了一本隐藏技能书！' }]
+    }]
+  }, {
+    segments: [{
+      type: 'text',
+      parts: [{ content: '恭喜你成功完成灵息试炼任务！' }]
+    }]
+  }, {
+    segments: [{
+      type: 'text',
+      parts: [{ content: '任务完成后可以回来领取奖励。' }]
+    }]
+  }]);
+  assert.deepStrictEqual(
+    narrativeFeedback.map(item => item.kind),
+    ['rare', 'quest']
+  );
+
+  client.activeNewbieCompletion = null;
+  client.newbieCompletionQueue = [];
+  client.handleNewbieCompletions([{
+    code: 2,
+    step: 3,
+    total: 8,
+    title: '穿戴第一件装备',
+    reward: '小还丹',
+    complete: false
+  }]);
+  assert.strictEqual(client.activeNewbieCompletion.title, '穿戴第一件装备');
+  assert.strictEqual(narrativeFeedback.at(-1).kind, 'quest');
 
   sentCommand = '';
   client.showPerformsList = true;

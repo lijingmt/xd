@@ -22,8 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/app.css?v=v1785583466314">
-    <link rel="stylesheet" href="css/realm.css?v=v1785583466314">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1785586876882">
+    <link rel="stylesheet" href="css/app.css?v=v1785586876882">
+    <link rel="stylesheet" href="css/realm.css?v=v1785586876882">
 </head>
 <body>
     <div id="app">
@@ -234,9 +235,10 @@
         <!-- 游戏主界面 - 使用iframe显示原始HTML -->
         <template v-if="!showLogin && !showRegister">
             <!-- 顶部状态栏 -->
-            <header class="game-header" aria-label="人物状态">
+            <header class="game-header" aria-label="人物状态" data-tour="player-header">
                 <button type="button"
                      class="player-avatar-shell"
+                     data-tour="player-avatar"
                      :class="playerStats?.profession_assistant?.style_class || 'profession-style-none'"
                      @click="sendQuickCommand(playerStats?.profession_assistant?.supported ? 'profession_assistant' : 'myhp')"
                      :title="playerStats?.profession_assistant?.supported ? '打开' + playerStats.profession_assistant.name : (playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像')">
@@ -258,6 +260,7 @@
                         <button type="button"
                                 v-if="playerStats?.profession_assistant?.supported"
                                 class="profession-assistant-badge"
+                                data-tour="profession-assistant"
                                 :class="{ active: playerStats.profession_assistant.level > 0 }"
                                 @click="sendQuickCommand('profession_assistant')"
                                 :title="playerStats.profession_assistant.level_label">
@@ -276,7 +279,7 @@
                         </button>
                     </div>
                     <!-- 玩家状态信息 - 血槽显示 -->
-                    <div class="player-stats" v-if="playerStats">
+                    <div class="player-stats" v-if="playerStats" data-tour="player-stats">
                         <div class="stat-bar"
                              role="progressbar"
                              aria-label="生命"
@@ -320,6 +323,7 @@
                     <!-- 经验进度条 - 横跨整个宽度 -->
                     <div class="exp-progress-bar"
                          v-if="playerStats && playerStats.exp_need"
+                         data-tour="level-progress"
                          :class="'level-cap-' + (playerStats.level_breakthrough_state || 'normal')">
                         <span class="exp-level-left">Lv.{{ playerStats.level }}</span>
                         <div class="exp-bar-track">
@@ -395,6 +399,19 @@
                                 </select>
                             </div>
                             <div class="menu-divider"></div>
+                            <button type="button" class="menu-item" @click="toggleCombatEffects">
+                                <span class="menu-icon">{{ combatEffectsEnabled ? '✨' : '○' }}</span>
+                                <span>视觉特效：{{ combatEffectsEnabled ? '开启' : '关闭' }}</span>
+                            </button>
+                            <button type="button" class="menu-item" @click="toggleSoundEffects">
+                                <span class="menu-icon">{{ soundEffectsEnabled ? '🔊' : '🔇' }}</span>
+                                <span>游戏音效：{{ soundEffectsEnabled ? '开启' : '关闭' }}</span>
+                            </button>
+                            <button type="button" class="menu-item" @click="startUiTour">
+                                <span class="menu-icon">🧭</span>
+                                <span>界面引导</span>
+                            </button>
+                            <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔃</span>
                                 <span>刷新</span>
@@ -421,21 +438,23 @@
                 </div>
             </header>
 
-            <div v-if="uiToast"
-                 class="ui-toast"
-                 :class="'ui-toast-' + uiToast.type"
-                 role="status"
-                 aria-live="polite">
-                <span class="ui-toast-dot" aria-hidden="true"></span>
-                <span>{{ uiToast.message }}</span>
-                <button v-if="uiToast.actionCommand"
-                        type="button"
-                        class="ui-toast-action"
-                        @click="runUiToastAction">{{ uiToast.actionLabel }}</button>
-                <button type="button"
-                        class="ui-toast-close"
-                        @click="clearUiToast"
-                        aria-label="关闭提示">✕</button>
+            <div ref="uiToastStage" class="ui-toast-stage">
+                <div v-if="uiToast"
+                     class="ui-toast"
+                     :class="'ui-toast-' + uiToast.type"
+                     role="status"
+                     aria-live="polite">
+                    <span class="ui-toast-dot" aria-hidden="true"></span>
+                    <span>{{ uiToast.message }}</span>
+                    <button v-if="uiToast.actionCommand || uiToast.actionCallback"
+                            type="button"
+                            class="ui-toast-action"
+                            @click="runUiToastAction">{{ uiToast.actionLabel }}</button>
+                    <button type="button"
+                            class="ui-toast-close"
+                            @click="clearUiToast"
+                            aria-label="关闭提示">✕</button>
+                </div>
             </div>
 
 			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->
@@ -472,11 +491,14 @@
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
                      class="mud-output-container"
+                     data-tour="game-output"
                      :class="{ 'dark-mode': theme === 'dark' }"
                      :aria-busy="mudLoading ? 'true' : 'false'">
-                    <div class="mud-parent" v-if="!mudLoading">
-                        <div class="mud-child">
-                            <div v-for="(line, index) in mudLines" :key="index" class="mud-line">
+                    <div class="mud-parent"
+                         :class="{ 'smooth-output-loading': smoothOutputLoading }"
+                         v-show="!mudLoading || smoothOutputLoading">
+                        <div class="mud-child" ref="mudLinesList">
+                            <div v-for="(line, index) in mudLines" :key="getMudLineKey(line, index)" class="mud-line">
                                 <!-- 空行 -->
                                 <br v-if="line.type === 'empty'">
                                 <!-- 内容行 -->
@@ -538,7 +560,7 @@
                             </div>
                         </div>
                     </div>
-                    <div v-else class="mud-loading">
+                    <div v-if="mudLoading && !smoothOutputLoading" class="mud-loading">
                         <div class="spinner"></div>
                         <div>加载中...</div>
                         <div v-if="slowLoadingTip" class="slow-loading-tip">数据量较大，请耐心等待...</div>
@@ -810,9 +832,10 @@
                 </div>
             </div>
 
-            <!-- 新手任务完成弹窗 -->
-            <div class="modal-overlay newbie-completion-overlay"
-                 v-if="activeNewbieCompletion">
+            <!-- 新手任务完成弹窗：持久舞台供 AutoAnimate 平滑切换队列 -->
+            <div ref="newbieCompletionStage" class="newbie-completion-stage">
+              <div class="modal-overlay newbie-completion-overlay"
+                   v-if="activeNewbieCompletion">
                 <div class="newbie-completion-modal"
                      role="dialog"
                      aria-modal="true"
@@ -866,6 +889,7 @@
                         </button>
                     </div>
                 </div>
+              </div>
             </div>
 
             <!-- 命令输入弹窗 -->
@@ -976,8 +1000,8 @@
                                 aria-label="收起更多功能">✕</button>
                     </div>
                     <div class="quick-more-grid">
-                        <button class="quick-tool-btn" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
-                        <button class="quick-tool-btn" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
+                        <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_term')"><span>👥</span>队伍</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('yushi_change')"><span>💎</span>玉石</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_bang')"><span>🏰</span>帮派</button>
@@ -992,6 +1016,7 @@
                             <span>{{ playerStats.profe === '方士' ? '🔮' : '🛡️' }}</span>职业助手
                         </button>
                         <button class="quick-tool-btn"
+                                data-tour="autofight"
                                 :class="{ active: playerStats && playerStats.autofight }"
                                 @click="toggleAutofight">
                             <span>{{ playerStats && playerStats.autofight ? '⏹️' : '▶️' }}</span>
@@ -1002,6 +1027,7 @@
                 </div>
                 <nav class="quick-primary-nav" aria-label="主要功能">
                     <button class="quick-nav-btn"
+                            data-tour="scene"
                             :class="{ active: isQuickActionActive('look') }"
                             @click="sendQuickCommand('look')">
                         <span class="quick-nav-icon" aria-hidden="true">⌂</span>
@@ -1014,18 +1040,21 @@
                         <span>状态</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-tour="inventory"
                             :class="{ active: isQuickActionActive('inventory') }"
                             @click="sendQuickCommand('inventory')">
                         <span class="quick-nav-icon" aria-hidden="true">▣</span>
                         <span>物品</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-tour="skills"
                             :class="{ active: isQuickActionActive('myskills') }"
                             @click="sendQuickCommand('myskills')">
                         <span class="quick-nav-icon" aria-hidden="true">◇</span>
                         <span>技能</span>
                     </button>
                     <button class="quick-nav-btn quick-more-btn"
+                            data-tour="more-actions"
                             :class="{ active: !quickActionsCollapsed }"
                             @click="toggleQuickActions"
                             :aria-expanded="quickActionsCollapsed ? 'false' : 'true'"
@@ -1038,10 +1067,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785583466314"></script>
-    <script src="js/app.js?v=v1785583466314"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785586876882"></script>
+    <script src="vendor/canvas-confetti.js?v=v1785586876882"></script>
+    <script src="vendor/howler.core.min.js?v=v1785586876882"></script>
+    <script src="vendor/driver.iife.js?v=v1785586876882"></script>
+    <script type="module">
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785586876882';
+    window.XiandAutoAnimate = autoAnimate;
+    window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
+    </script>
+    <script src="js/app.js?v=v1785586876882"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785583466314"></script>
+    <script src="../includes/translate.js?v=v1785586876882"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

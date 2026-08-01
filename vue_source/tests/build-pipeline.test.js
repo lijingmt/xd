@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { compile } = require('@vue/compiler-dom');
 const { createManifest } = require('../manifest');
 
 const sourceDir = path.join(__dirname, '..');
@@ -15,14 +16,69 @@ const indexSource = read('vue_source/index.html');
 const buildSource = read('vue_source/build.js');
 const serveSource = read('vue_source/serve.js');
 const rebuildSource = read('rebuild-image.sh');
+const sharedBuildSource = read('scripts/build/build_vue_frontend.sh');
+const licenseMemo = read('docs/frontend-open-source-license-memo.md');
 const dockerSource = read('docker/Dockerfile.all');
+const packageJson = JSON.parse(read('vue_source/package.json'));
+const packageLock = JSON.parse(read('vue_source/package-lock.json'));
+const installedVue = JSON.parse(read('vue_source/node_modules/vue/package.json'));
 const manifest = createManifest('test-version');
+
+const appTemplateStart = indexSource.indexOf('<div id="app">');
+const appTemplateEnd = indexSource.indexOf('<script src="vendor/vue.global.prod.js');
+assert(appTemplateStart >= 0 && appTemplateEnd > appTemplateStart);
+const templateErrors = [];
+compile(indexSource.slice(appTemplateStart, appTemplateEnd), {
+  comments: true,
+  onError(error) {
+    templateErrors.push(error.message);
+  }
+});
+assert.deepStrictEqual(templateErrors, []);
+
+assert.strictEqual(packageJson.scripts.dev, 'node serve.js');
+assert.strictEqual(packageJson.dependencies.vue, '3.5.40');
+assert.strictEqual(packageLock.packages[''].dependencies.vue, '3.5.40');
+assert.strictEqual(packageLock.packages['node_modules/vue'].version, '3.5.40');
+assert.strictEqual(installedVue.version, '3.5.40');
+const effectDependencies = {
+  'canvas-confetti': '1.9.4',
+  'howler': '2.2.4',
+  '@formkit/auto-animate': '0.10.0',
+  'driver.js': '1.8.0'
+};
+for (const [packageName, version] of Object.entries(effectDependencies)) {
+  assert.strictEqual(packageJson.dependencies[packageName], version);
+  assert.strictEqual(packageLock.packages[''].dependencies[packageName], version);
+  assert.strictEqual(packageLock.packages[`node_modules/${packageName}`].version, version);
+  const installedPackage = JSON.parse(read(`vue_source/node_modules/${packageName}/package.json`));
+  assert.strictEqual(installedPackage.version, version);
+  assert(licenseMemo.includes(packageName));
+  assert(licenseMemo.includes('`' + version + '`'));
+}
+assert(licenseMemo.includes('ISC'));
+assert(licenseMemo.includes('MIT'));
+assert(licenseMemo.includes('可以免费用于 Xiand 的商业运营'));
+assert(licenseMemo.includes('CANVAS_CONFETTI_LICENSE.txt'));
+assert(licenseMemo.includes('DRIVER_LICENSE.txt'));
+for (const removedPackage of ['http-server', 'follow-redirects', 'qs']) {
+  assert(!packageJson.dependencies?.[removedPackage]);
+  assert(!packageJson.devDependencies?.[removedPackage]);
+  assert(!packageLock.packages[`node_modules/${removedPackage}`]);
+  assert(!fs.existsSync(path.join(sourceDir, 'node_modules', removedPackage)));
+}
 
 assert(indexSource.includes('css/app.css?v=BUILD_VERSION'));
 assert(indexSource.includes('css/realm.css?v=BUILD_VERSION'));
 assert(indexSource.includes('js/app.js?v=BUILD_VERSION'));
 assert(indexSource.includes('manifest.json'));
 assert(indexSource.includes('vendor/vue.global.prod.js?v=BUILD_VERSION'));
+assert(indexSource.includes('vendor/canvas-confetti.js?v=BUILD_VERSION'));
+assert(indexSource.includes('vendor/howler.core.min.js?v=BUILD_VERSION'));
+assert(indexSource.includes('vendor/driver.iife.js?v=BUILD_VERSION'));
+assert(indexSource.includes('vendor/driver.css?v=BUILD_VERSION'));
+assert(indexSource.includes("import { autoAnimate } from './vendor/auto-animate.min.js?v=BUILD_VERSION'"));
+assert(!indexSource.includes('cdn.jsdelivr.net'));
 assert(!indexSource.includes('unpkg.com/vue'));
 assert(!indexSource.includes('user-scalable=no'));
 assert(!indexSource.includes('maximum-scale=1.0'));
@@ -61,6 +117,17 @@ assert(!indexSource.includes('battlePlayerFull.spirit'));
 assert(!indexSource.includes('battlePlayerFull.potential'));
 assert(indexSource.includes('class="quick-primary-nav"'));
 assert(indexSource.includes('class="quick-more-panel"'));
+assert(indexSource.includes('data-tour="inventory"'));
+assert(indexSource.includes('data-tour="skills"'));
+assert(indexSource.includes('data-tour="autofight"'));
+assert(indexSource.includes('@click="startUiTour"'));
+assert(indexSource.includes('@click="toggleSoundEffects"'));
+assert(indexSource.includes('ref="mudLinesList"'));
+assert(indexSource.includes(':key="getMudLineKey(line, index)"'));
+assert(indexSource.includes("v-show=\"!mudLoading || smoothOutputLoading\""));
+assert(indexSource.includes("v-if=\"mudLoading && !smoothOutputLoading\""));
+assert(!/v-show="[^"]+"[\s\S]{0,120}<div v-else/.test(indexSource));
+assert(indexSource.includes('ref="newbieCompletionStage"'));
 assert(indexSource.includes('class="player-avatar-shell"'));
 assert(indexSource.includes(':src="playerAvatarUrl"'));
 assert(indexSource.includes('@error="handlePlayerAvatarError"'));
@@ -129,6 +196,16 @@ assert(appSource.includes("combatEffectsEnabled: localStorage.getItem('battle_ef
 assert(appSource.includes('extractSkillName(text)'));
 assert(appSource.includes('getSkillAnimationTarget(skillType, text = \'\')'));
 assert(appSource.includes('toggleCombatEffects()'));
+assert(appSource.includes('toggleSoundEffects()'));
+assert(appSource.includes('createGameSoundSpriteDataUri()'));
+assert(appSource.includes('triggerGameFeedback(kind'));
+assert(appSource.includes('handleNarrativeEffects(lines)'));
+assert(appSource.includes('initializeAutoAnimate()'));
+assert(appSource.includes('shouldAnimateMudOutputCommand(command)'));
+assert(appSource.includes('startUiTour()'));
+assert(appSource.includes("window.driver?.js?.driver"));
+assert(appSource.includes("disableForReducedMotion: true"));
+assert(appSource.includes("useWorker: true"));
 assert(appSource.includes("'heal': 'skill-heal-bloom'"));
 assert(appSource.includes("'summon': 'skill-summon-circle'"));
 assert(appSource.includes("'lightning': 'skill-lightning-strike'"));
@@ -189,17 +266,43 @@ assert(cssSource.includes('@media (min-width: 390px) and (max-width: 600px)'));
 assert(cssSource.includes('@media (min-width: 601px) and (max-width: 1024px)'));
 assert(cssSource.includes('@media (min-width: 1025px) and (pointer: fine)'));
 assert(cssSource.includes('@media (prefers-reduced-motion: reduce)'));
+assert(cssSource.includes('.game-celebration-canvas'));
+assert(cssSource.includes('.driver-popover.xiand-driver-popover'));
+assert(cssSource.includes('.ui-toast-stage'));
 
 assert(buildSource.includes("path.join(__dirname, 'css', 'app.css')"));
 assert(buildSource.includes("path.join(__dirname, 'css', 'realm.css')"));
 assert(buildSource.includes("path.join(__dirname, 'js', 'app.js')"));
 assert(buildSource.includes("'vue.global.prod.js'"));
 assert(buildSource.includes("'VUE_LICENSE.txt'"));
+assert(buildSource.includes("'canvas-confetti.js'"));
+assert(buildSource.includes("'howler.core.min.js'"));
+assert(buildSource.includes("'auto-animate.min.js'"));
+assert(buildSource.includes("'driver.iife.js'"));
+assert(buildSource.includes("'driver.css'"));
 assert(buildSource.includes("path.join(__dirname, 'dist')"));
+for (const vendorAsset of [
+  'canvas-confetti.js',
+  'howler.core.min.js',
+  'auto-animate.min.js',
+  'driver.iife.js',
+  'driver.css'
+]) {
+  assert(sharedBuildSource.includes(vendorAsset));
+}
+assert(sharedBuildSource.includes('npm ci'));
 
 assert(serveSource.includes("process.env.XIAND_VUE_PORT || 3000"));
 assert(serveSource.includes("process.env.XIAND_HTTP_PORT || 8888"));
-assert(serveSource.includes("data.toString('utf8').replace(/BUILD_VERSION/g"));
+assert(serveSource.includes("const { createManifest } = require('./manifest')"));
+assert(serveSource.includes("pathname === '/manifest.json'"));
+assert(serveSource.includes("['/vendor/vue.global.prod.js', 'vue/dist/vue.global.prod.js']"));
+assert(serveSource.includes("['/vendor/canvas-confetti.js', 'canvas-confetti/dist/confetti.browser.js']"));
+assert(serveSource.includes("['/vendor/howler.core.min.js', 'howler/dist/howler.core.min.js']"));
+assert(serveSource.includes("['/vendor/auto-animate.min.js', '@formkit/auto-animate/index.min.js']"));
+assert(serveSource.includes("['/vendor/driver.iife.js', 'driver.js/dist/driver.js.iife.js']"));
+assert(serveSource.includes('VENDOR_FILES.has(pathname)'));
+assert(serveSource.includes("data.toString('utf8').replace(/BUILD_VERSION/g, DEV_BUILD_VERSION)"));
 assert(serveSource.includes("pathname.startsWith('/includes/')"));
 assert(serveSource.includes('isWithinRoot(STATIC_ROOT, filePath)'));
 
