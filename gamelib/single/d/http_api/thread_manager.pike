@@ -26,7 +26,7 @@
 /** 核心命令列表 - 需要因果一致性，主线程执行（多人交互类） */
 constant CORE_COMMANDS = ({
     // ========== 登录相关 ==========
-    "gamenv", "register", "init", "check_login", "check_login_new",
+    "gamelib", "register", "init", "check_login", "check_login_new",
     // "login" 已移除 - 使用线程执行，避免阻塞其他玩家
 
     // ========== 战斗相关（多人交互）==========
@@ -42,7 +42,7 @@ constant CORE_COMMANDS = ({
     "north", "south", "east", "west", "up", "down", "enter", "exit",
 
     // ========== 商店/交易（涉及金币/物品转移）==========
-    "buy", "sell", "list", "value",
+    "buy", "buy_items", "sell", "list", "value",
     "trade",  // 玩家间交易
     "sell_new", "sell_zb_all",  // 拍卖售卖
     "cancel_sell",  // 取消拍卖（物品返回）
@@ -100,12 +100,21 @@ constant CORE_COMMANDS = ({
     "quit", "save"
 });
 
+/** 共享系统命令前缀 - 新增子命令也必须进入全局核心锁 */
+constant CORE_COMMAND_PREFIXES = ({
+    "vendue_", "temai_", "term_", "fb_", "viceskill_"
+});
+
 // ========================================================================
 // 全局变量
 // ========================================================================
 
 /** 核心命令锁 - 保证因果一致性 */
 Thread.Mutex core_lock = Thread.Mutex();
+
+/** 同一账号命令锁 - 保护人物状态和虚拟输出连接 */
+mapping(string:object) user_command_locks = ([]);
+Thread.Mutex user_command_lock_table_lock = Thread.Mutex();
 
 /** 结果容器类（每个请求独立） */
 class ResultContainer {
@@ -124,6 +133,7 @@ class ResultContainer {
  */
 int is_core_command(string cmd)
 {
+    array(string) prefixes;
     if(!cmd) return 1;  // 默认核心
 
     string first_word = cmd;
@@ -134,7 +144,44 @@ int is_core_command(string cmd)
 
     first_word = lower_case(first_word);
 
-    return has_value(CORE_COMMANDS, first_word);
+    if(has_value(CORE_COMMANDS, first_word))
+        return 1;
+    prefixes = CORE_COMMAND_PREFIXES;
+    foreach(prefixes,string prefix){
+        if(has_prefix(first_word,prefix))
+            return 1;
+    }
+    return 0;
+}
+
+/**
+ * 获取指定账号稳定复用的命令锁。
+ */
+object query_user_command_mutex(string userid)
+{
+    object table_key;
+    object mutex;
+
+    userid = lower_case(String.trim_all_whites(userid || ""));
+    if(userid == "")
+        userid = "_anonymous";
+    table_key = user_command_lock_table_lock->lock();
+    if(!objectp(user_command_locks[userid]))
+        user_command_locks[userid] = Thread.Mutex();
+    mutex = user_command_locks[userid];
+    destruct(table_key);
+    return mutex;
+}
+
+int query_user_command_lock_count()
+{
+    object table_key;
+    int count;
+
+    table_key = user_command_lock_table_lock->lock();
+    count = sizeof(user_command_locks);
+    destruct(table_key);
+    return count;
 }
 
 // ========================================================================
@@ -146,15 +193,21 @@ int is_core_command(string cmd)
  */
 void _execute_in_thread(string userid, string password, string cmd, object result_container)
 {
+    object user_mutex;
+    object user_key;
     string result = "";
+
+    user_mutex = query_user_command_mutex(userid);
+    user_key = user_mutex->lock();
     mixed err = catch {
-        object main_daemon = find_object(ROOT + "/gamenv/single/daemons/http_api.pike");
-        if(main_daemon && functionp(main_daemon->execute_internal_command_sync)) {
-            result = main_daemon->execute_internal_command_sync(userid, password, cmd);
+        object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
+        if(main_daemon && functionp(main_daemon->execute_command_sync)) {
+            result = main_daemon->execute_command_sync(userid, password, cmd);
         } else {
             result = "错误: 无法找到主执行器";
         }
     };
+    destruct(user_key);
 
     if(err) {
         result = "错误: " + describe_error(err);
@@ -173,24 +226,26 @@ void _execute_in_thread(string userid, string password, string cmd, object resul
  */
 string execute_core_command(string userid, string password, string cmd)
 {
-    object key = core_lock->lock();
+    object user_mutex = query_user_command_mutex(userid);
+    object user_key = user_mutex->lock();
+    object core_key = core_lock->lock();
+    string result = "错误: 无法找到主执行器";
 
     mixed err = catch {
-        object main_daemon = find_object(ROOT + "/gamenv/single/daemons/http_api.pike");
+        object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
         if(main_daemon && functionp(main_daemon->execute_command_sync)) {
-            string result = main_daemon->execute_command_sync(userid, password, cmd);
-            destruct(key);
-            return result;
+            result = main_daemon->execute_command_sync(userid, password, cmd);
         }
     };
 
-    destruct(key);
+    destruct(core_key);
+    destruct(user_key);
 
     if(err) {
         return "错误: " + describe_error(err);
     }
 
-    return "错误: 无法找到主执行器";
+    return result;
 }
 
 /**
@@ -198,6 +253,10 @@ string execute_core_command(string userid, string password, string cmd)
  */
 string execute_parallel_command(string userid, string password, string cmd)
 {
+    int deadline;
+    int remaining;
+    int timed_out;
+    string result;
     // 创建独立的结果容器
     object result_container = ResultContainer();
 
@@ -206,12 +265,19 @@ string execute_parallel_command(string userid, string password, string cmd)
 
     // 等待结果（最多30秒）
     object key = result_container->mutex->lock();
-    while(result_container->done == 0) {
-        result_container->cond->wait(key, 30);
+    deadline = time()+HTTP_COMMAND_TIMEOUT;
+    remaining = HTTP_COMMAND_TIMEOUT;
+    while(result_container->done == 0 && remaining > 0) {
+        result_container->cond->wait(key, remaining);
+        remaining = deadline-time();
     }
+    timed_out = result_container->done == 0;
+    result = result_container->result;
     destruct(key);
 
-    return result_container->result;
+    if(timed_out)
+        return "错误: 命令执行超时";
+    return result;
 }
 
 // ========================================================================
@@ -228,15 +294,23 @@ string execute_parallel_command(string userid, string password, string cmd)
  */
 string route_and_execute(string userid, string password, string cmd)
 {
+    string result = "";
+    mixed err;
     if(!userid || !cmd) return "错误: 参数无效";
 
-    if(is_core_command(cmd)) {
-        // 核心命令: 获取锁后执行（串行，保证因果一致性）
-        return execute_core_command(userid, password, cmd);
-    } else {
-        // 非核心命令: 直接并行执行（多核）
-        return execute_parallel_command(userid, password, cmd);
-    }
+    err = catch {
+        if(is_core_command(cmd)) {
+            // 核心命令: 同账号锁内再获取全局核心锁。
+            result = execute_core_command(userid, password, cmd);
+        } else {
+            // 普通命令: 执行线程持有账号锁，超时返回也不会提前释放。
+            result = execute_parallel_command(userid, password, cmd);
+        }
+    };
+
+    if(err)
+        return "错误: "+describe_error(err);
+    return result;
 }
 
 // ========================================================================
@@ -253,6 +327,10 @@ mapping query_thread_status()
     m["mode"] = "parallel";
     m["description"] = "HTTP requests execute in parallel, core commands use mutex lock";
     m["core_commands"] = sizeof(CORE_COMMANDS);
+    m["core_prefixes"] = sizeof(CORE_COMMAND_PREFIXES);
+    m["user_command_locks"] = query_user_command_lock_count();
+    m["same_user_policy"] = "serialized";
+    m["cross_user_policy"] = "parallel_except_core";
 
     return m;
 }

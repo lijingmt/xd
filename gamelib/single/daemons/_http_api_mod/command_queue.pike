@@ -29,9 +29,46 @@ mapping request_results = ([ ]);
 object worker_thread;
 int worker_running = 0;
 
+/** 队列调度状态 */
+int queue_tick_count = 0;
+int queue_last_tick = 0;
+int queue_max_user_size = 0;
+
 // ========================================================================
 // 队列管理
 // ========================================================================
+
+void remove_user_request_queue(string userid)
+{
+    if(!userid)
+        return;
+    m_delete(user_request_queues, userid);
+    m_delete(queue_processing, userid);
+}
+
+int query_user_request_queue_size(string userid)
+{
+    mixed queue;
+
+    if(!userid)
+        return 0;
+    queue = user_request_queues[userid];
+    if(!arrayp(queue))
+        return 0;
+    return sizeof(queue);
+}
+
+void store_request_result(string request_id, string result)
+{
+    if(!request_id)
+        return;
+    request_results[request_id] = ({ result || "", time() });
+}
+
+int query_request_result_count()
+{
+    return sizeof(request_results);
+}
 
 /**
  * 启动工作线程
@@ -39,11 +76,13 @@ int worker_running = 0;
 void start_worker_thread()
 {
     if(worker_thread) {
-        http_werror(" Worker thread already running\n");
+        if(HTTP_API_QUEUE_DEBUG)
+            http_werror(" Worker thread already running\n");
         return;
     }
     worker_running = 1;
-    http_werror(" Starting worker thread\n");
+    if(HTTP_API_QUEUE_DEBUG)
+        http_werror(" Starting worker thread\n");
 }
 
 /**
@@ -70,24 +109,38 @@ int enqueue_user_request(string userid, string cmd, string request_id)
     }
 
     queue += ({ ({request_id, cmd, time(), 0}) });
+    user_request_queues[userid] = queue;
+    if(sizeof(queue) > queue_max_user_size)
+        queue_max_user_size = sizeof(queue);
 
-    http_werror(" Enqueued request for %s: cmd=%s, queue_size=%d\n",
-           userid, cmd, sizeof(queue));
+    if(HTTP_API_QUEUE_DEBUG) {
+        http_werror(" Enqueued request for %s: cmd=%s, queue_size=%d\n",
+               userid, cmd, sizeof(queue));
+    }
+
+    if(!queue_processing[userid])
+        call_out(process_user_queues, 0);
 
     return 1;
 }
 
 /**
- * 处理用户请求队列 (定期调用)
+ * 处理用户请求队列
  */
 void process_user_queues()
 {
     int now = time();
     array users = indices(user_request_queues);
 
+    queue_tick_count++;
+    queue_last_tick = now;
+
     foreach(users, string userid) {
         array queue = user_request_queues[userid];
-        if(!arrayp(queue) || sizeof(queue) == 0) continue;
+        if(!arrayp(queue) || sizeof(queue) == 0) {
+            remove_user_request_queue(userid);
+            continue;
+        }
 
         if(queue_processing[userid]) {
             continue;
@@ -101,16 +154,14 @@ void process_user_queues()
                 string request_id = req[0];
                 string cmd = req[1];
 
-                http_werror(" Processing request for %s: %s\n", userid, cmd);
+                if(HTTP_API_QUEUE_DEBUG)
+                    http_werror(" Processing request for %s: %s\n", userid, cmd);
 
                 call_out(execute_queued_command, 0, userid, cmd, request_id);
                 break;
             }
         }
     }
-
-    int interval = QUEUE_CHECK_INTERVAL;
-    call_out(process_user_queues, interval / 1000);
 }
 
 /**
@@ -119,7 +170,8 @@ void process_user_queues()
  */
 void execute_queued_command(string userid, string cmd, string request_id)
 {
-    http_werror(" Executing queued command: %s for %s\n", cmd, userid);
+    if(HTTP_API_QUEUE_DEBUG)
+        http_werror(" Executing queued command: %s for %s\n", cmd, userid);
 
     // 获取主文件的 execute_command 函数
     object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
@@ -138,7 +190,7 @@ void execute_queued_command(string userid, string cmd, string request_id)
     }
 
     // 存储结果到缓存
-    request_results[request_id] = ({result, time()});
+    store_request_result(request_id, result);
 
     // 从队列中移除已完成的请求
     if(user_request_queues[userid]) {
@@ -148,12 +200,19 @@ void execute_queued_command(string userid, string cmd, string request_id)
                 new_queue += ({req});
             }
         }
-        user_request_queues[userid] = new_queue;
+        if(sizeof(new_queue) == 0)
+            remove_user_request_queue(userid);
+        else {
+            user_request_queues[userid] = new_queue;
+            queue_processing[userid] = 0;
+            call_out(process_user_queues, 0);
+        }
+    } else {
+        m_delete(queue_processing, userid);
     }
 
-    queue_processing[userid] = 0;
-
-    http_werror(" Command completed for %s, result_len=%d\n", userid, sizeof(result));
+    if(HTTP_API_QUEUE_DEBUG)
+        http_werror(" Command completed for %s, result_len=%d\n", userid, sizeof(result));
 }
 
 /**
@@ -175,11 +234,11 @@ string|zero get_request_result(string request_id)
     int cache_time = RESULT_CACHE_TIME;
 
     if(time() - result_time > cache_time / 1000) {
-        request_results[request_id] = 0;
+        m_delete(request_results, request_id);
         return UNDEFINED;
     }
 
-    request_results[request_id] = 0;
+    m_delete(request_results, request_id);
     return result;
 }
 
@@ -196,10 +255,13 @@ void cleanup_old_results()
         mixed cached = request_results[id];
         if(cached && arrayp(cached) && sizeof(cached) >= 2) {
             if(now - cached[1] > cache_time / 1000) {
-                request_results[id] = 0;
+                m_delete(request_results, id);
             }
+        } else {
+            m_delete(request_results, id);
         }
     }
+    call_out(cleanup_old_results, RESULT_CLEANUP_INTERVAL);
 }
 
 /**
@@ -211,6 +273,10 @@ mapping query_queue_status()
     m["active_queues"] = sizeof(user_request_queues);
     m["processing"] = sizeof(queue_processing);
     m["cached_results"] = sizeof(request_results);
+    m["dispatch_mode"] = "event_driven";
+    m["tick_count"] = queue_tick_count;
+    m["last_tick"] = queue_last_tick;
+    m["max_user_queue_size"] = queue_max_user_size;
 
     m["queues"] = ({});
     array users = indices(user_request_queues);

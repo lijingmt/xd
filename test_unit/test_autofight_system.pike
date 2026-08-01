@@ -1380,6 +1380,72 @@ void test_level_twenty_fangshi_route_recovery()
 	destroy_runtime_player(player);
 }
 
+void test_same_area_unsafe_monster_recovery()
+{
+	test_start("同区域可见怪全部超限时直达推荐层并恢复战斗");
+	object player = create_runtime_player(
+		"__testunit_autofight_same_area_recovery__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = clone(ROOT+
+		"/gamelib/d/shierxianjing/taoyuantongshijiuceng");
+	object flush_command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object|zero original_player = this_player();
+	string first_path = "";
+	string error_desc = "";
+	int visible_monsters = 0;
+	int unsafe_targets_blocked = 0;
+	int route_requested = 0;
+	int valid = 0;
+	mixed err = catch {
+		player->level = 17;
+		player->set_att_by_level();
+		player->move(room);
+		set_this_player(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		player["/plus/autofight_roam"] = 0;
+		visible_monsters = daemon->query_visible_monster_count(player);
+		unsafe_targets_blocked = daemon->query_target(player) == 0;
+		daemon->record_no_target(player);
+		route_requested =
+			daemon->should_route_to_training_area(player) == 1;
+		daemon->clear_no_target(player);
+		daemon->start_autofight(player);
+		flush_command->main(0);
+		first_path = daemon->query_current_room_path(player);
+		flush_command->main(0);
+		valid = visible_monsters == 4 && unsafe_targets_blocked &&
+			route_requested &&
+			first_path == "shierxianjing/taoyuantongjiuceng" &&
+			player->in_combat && player->query_enemy() &&
+			player->query_enemy()->query_level() == 17;
+		daemon->stop_autofight(player);
+		player->_clean_fight();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"同区域纠偏失败: visible=%d blocked=%d route=%d path=%s combat=%d %s",
+			visible_monsters,unsafe_targets_blocked,route_requested,
+			first_path,player ? player->in_combat : 0,error_desc));
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
 void test_auto_rest_safety()
 {
 	test_start("缺药休整只离开普通地图并使用阵营安全休息点");
@@ -2016,6 +2082,7 @@ int main()
 	test_level_seventeen_dynamic_room_recovery();
 	test_real_route_targets();
 	test_level_twenty_fangshi_route_recovery();
+	test_same_area_unsafe_monster_recovery();
 	test_auto_rest_safety();
 	test_end_to_end_current_room_fight();
 	test_end_to_end_auto_skill_perform();

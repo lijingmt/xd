@@ -74,6 +74,16 @@ Protocols.HTTP.Server.Port http_port;
 /** API只读模式 */
 int api_only_mode = 1;
 
+/** HTTP API启动时间 */
+int http_api_start_time = 0;
+
+/** HTTP 请求性能统计 */
+int http_request_count = 0;
+int http_slow_request_count = 0;
+int http_max_request_ms = 0;
+int http_last_slow_time = 0;
+string http_last_slow_path = "";
+
 /** HTTP API 登录待定标记 - 用于 login_check.pike 检测是否为 HTTP API 模式 */
 mapping(string:int) http_api_login_pending = ([]);
 
@@ -118,6 +128,7 @@ int query_exp_bonus_rate() {
 
 protected void create()
 {
+    http_api_start_time = time();
     werror("========================================\n");
     werror("[HTTP_API] Daemon Loading...\n");
     werror("[HTTP_API] HTTP_PORT = %d\n", HTTP_PORT);
@@ -134,7 +145,7 @@ protected void create()
     call_out(cleanup_idle_connections, 60);
     // 启动队列处理
     call_out(start_worker_thread, 10);
-    call_out(process_user_queues, QUEUE_CHECK_INTERVAL / 1000);
+    call_out(cleanup_old_results, RESULT_CLEANUP_INTERVAL);
 }
 
 void start_server()
@@ -524,10 +535,39 @@ string execute_internal_command_sync(string userid, string password, string cmd)
 // HTTP路由
 // ========================================================================
 
+void record_http_request_timing(string method, string path, int started_at)
+{
+    int elapsed_ms = (gethrtime()-started_at)/1000;
+
+    http_request_count++;
+    if(elapsed_ms > http_max_request_ms)
+        http_max_request_ms = elapsed_ms;
+    if(elapsed_ms >= HTTP_SLOW_REQUEST_MS){
+        http_slow_request_count++;
+        http_last_slow_time = time();
+        http_last_slow_path = (method || "")+" "+(path || "");
+        werror("[HTTP_API][SLOW] %s %s took %d ms\n",
+            method || "",path || "",elapsed_ms);
+    }
+}
+
+mapping query_http_performance_status()
+{
+    return ([
+        "request_count":http_request_count,
+        "slow_request_count":http_slow_request_count,
+        "slow_threshold_ms":HTTP_SLOW_REQUEST_MS,
+        "max_request_ms":http_max_request_ms,
+        "last_slow_time":http_last_slow_time,
+        "last_slow_path":http_last_slow_path,
+    ]);
+}
+
 void handle_request(Protocols.HTTP.Server.Request req)
 {
     string path = req->not_query;
     string method = req->request_type;
+    int request_started_at = gethrtime();
 
     // http_werror(" %s %s from %s\n", method, path, req->remote_addr || "unknown");
 
@@ -574,7 +614,23 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 handle_room(req);
                 break;
             case "/health":
-                mapping m = ([ "status": "ok", "time": time(), "port": HTTP_PORT ]);
+                mapping queue_status = query_queue_status();
+                mapping thread_status = query_thread_status();
+                mapping m = ([
+                    "status":"ok",
+                    "time":time(),
+                    "port":HTTP_PORT,
+                    "uptime":http_api_start_time > 0 ?
+                        time()-http_api_start_time : 0,
+                    "queue":([
+                        "active_queues":queue_status["active_queues"] || 0,
+                        "processing":queue_status["processing"] || 0,
+                        "cached_results":queue_status["cached_results"] || 0,
+                        "dispatch_mode":queue_status["dispatch_mode"] || "unknown",
+                    ]),
+                    "threads":thread_status,
+                    "performance":query_http_performance_status(),
+                ]);
                 send_json(req, m);
                 break;
             case "/":
@@ -608,7 +664,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 }
                 // translate.js 从 http_api 目录提供（始终允许，不受api_only_mode限制）
                 else if(path == "/includes/translate.js") {
-                    serve_file(req, "gamelib/single/d/http_api/translate.js", "application/javascript");
+                    serve_file(req, "gamelib/single/daemons/_http_api_mod/translate.js", "application/javascript");
                 }
                 // 静态资源
                 else if(search(path, "/css/") == 0 || search(path, "/js/") == 0) {
@@ -645,6 +701,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
             }
         }
     }
+    record_http_request_timing(method,path,request_started_at);
 }
 
 // ========================================================================
@@ -2119,6 +2176,55 @@ void handle_api_battle_status(Protocols.HTTP.Server.Request req)
     ]));
 }
 
+mapping execute_autofight_api_action(object player,string action)
+{
+    int new_state = 0;
+    int vip_level;
+    string current;
+    string reason;
+    mapping result;
+
+    AUTOFIGHTD->initialize_player(player);
+    current = player->query_autofight();
+
+    if(action == "on" || (action == "toggle" && current != "enable")) {
+        reason = AUTOFIGHTD->query_start_block_reason(player);
+        if(reason != "") {
+            AUTOFIGHTD->stop_autofight(player);
+            result = ([
+                "autofight":0,
+                "message":"无法开启自动挂机："+reason,
+            ]);
+            if(AUTOFIGHTD->is_quota_exhausted_reason(player,reason)){
+                vip_level = AUTOFIGHTD->query_vip_level(player);
+                result["quota_exhausted"] = 1;
+                result["vip_level"] = vip_level;
+                result["daily_hours"] =
+                    AUTOFIGHTD->query_daily_seconds_for(player)/3600;
+                result["can_upgrade_vip"] =
+                    AUTOFIGHTD->can_upgrade_daily_time(player);
+                result["upgrade_command"] = vip_level < 4 ?
+                    "vip_service_list" : "autofight vip";
+                result["upgrade_label"] = vip_level < 4 ?
+                    "提高VIP" : "查看权益";
+            }
+            return result;
+        }
+        AUTOFIGHTD->start_autofight(player);
+        new_state = 1;
+    } else {
+        AUTOFIGHTD->stop_autofight(player);
+        new_state = 0;
+    }
+
+    return ([
+        "autofight":new_state,
+        "message":new_state ?
+            "自动挂机已开启：智能寻路会选择练级区，并在空图时自动前往相邻地图" :
+            "自动挂机已关闭",
+    ]);
+}
+
 void handle_api_autofight(Protocols.HTTP.Server.Request req)
 {
     if(req->request_type != "POST") {
@@ -2150,11 +2256,10 @@ void handle_api_autofight(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    int new_state = 0;
-	int vip_level;
-    string current;
-    string reason;
-	mapping result;
+    object user_mutex;
+    object user_key;
+    mapping result = ([]);
+    mixed action_err;
 
     if(!functionp(player->query_autofight) ||
        !functionp(player->set_autofight)) {
@@ -2162,46 +2267,20 @@ void handle_api_autofight(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    AUTOFIGHTD->initialize_player(player);
-    current = player->query_autofight();
+    user_mutex = query_user_command_mutex(userid);
+    user_key = user_mutex->lock();
+    action_err = catch {
+        result = execute_autofight_api_action(player,action);
+    };
+    destruct(user_key);
 
-    if(action == "on" || (action == "toggle" && current != "enable")) {
-        reason = AUTOFIGHTD->query_start_block_reason(player);
-        if(reason != "") {
-            AUTOFIGHTD->stop_autofight(player);
-			result = ([
-                "autofight": 0,
-                "message": "无法开启自动挂机："+reason
-			]);
-			if(AUTOFIGHTD->is_quota_exhausted_reason(player,reason)){
-				vip_level = AUTOFIGHTD->query_vip_level(player);
-				result["quota_exhausted"] = 1;
-				result["vip_level"] = vip_level;
-				result["daily_hours"] =
-					AUTOFIGHTD->query_daily_seconds_for(player)/3600;
-				result["can_upgrade_vip"] =
-					AUTOFIGHTD->can_upgrade_daily_time(player);
-				result["upgrade_command"] = vip_level < 4 ?
-					"vip_service_list" : "autofight vip";
-				result["upgrade_label"] = vip_level < 4 ?
-					"提高VIP" : "查看权益";
-			}
-			send_json(req,result);
-            return;
-        }
-        AUTOFIGHTD->start_autofight(player);
-        new_state = 1;
-    } else {
-        AUTOFIGHTD->stop_autofight(player);
-        new_state = 0;
+    if(action_err){
+        http_werror(" Autofight action error: %s\n",
+            describe_error(action_err));
+        send_json(req,(["error":"自动挂机状态切换失败"]),500);
+        return;
     }
-
-    send_json(req, ([
-        "autofight": new_state,
-        "message": new_state ?
-            "自动挂机已开启：智能寻路会选择练级区，并在空图时自动前往相邻地图" :
-            "自动挂机已关闭"
-    ]));
+    send_json(req,result);
 }
 
 /**
@@ -2846,5 +2925,7 @@ mapping query_status()
     m["connections"] = query_connection_status();
     m["queue"] = query_queue_status();
     m["rate_limits"] = query_rate_limit_status();
+    m["threads"] = query_thread_status();
+    m["performance"] = query_http_performance_status();
     return m;
 }

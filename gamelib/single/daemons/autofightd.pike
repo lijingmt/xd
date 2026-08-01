@@ -1936,9 +1936,16 @@ int should_route_to_training_area(object me)
 	if(destination=="")
 		return 0;
 	current = query_current_room_path(me);
-	// 已在推荐练级区内时继续逐图搜索，不反复传回入口房间。
-	if(current==destination || is_same_area(current,destination))
+	if(current==destination)
 		return 0;
+	// 同一区域也可能相差十几层。当前房间明明有怪却全部超出
+	// 安全等级时，直接回到精确推荐层，避免在相邻楼层间随机游走。
+	// 真正的空图仍交给区域巡游，保留原有刷新与防抖行为。
+	if(is_same_area(current,destination)){
+		if(query_visible_monster_count(me)>0 && !query_target(me))
+			return 1;
+		return 0;
+	}
 	return 1;
 }
 

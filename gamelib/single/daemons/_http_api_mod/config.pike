@@ -39,14 +39,23 @@ constant HIDDEN_SIZE = 9999;
 // 请求队列配置
 // ========================================================================
 
-/** 队列检查间隔 (毫秒) */
-constant QUEUE_CHECK_INTERVAL = 100;
-
 /** 每个用户最大队列长度 */
 constant MAX_QUEUE_SIZE = 10;
 
 /** 结果缓存时间 (毫秒) */
 constant RESULT_CACHE_TIME = 5000;
+
+/** 结果缓存清理间隔 (秒) */
+constant RESULT_CLEANUP_INTERVAL = 60;
+
+/** 队列成功路径调试日志 */
+constant HTTP_API_QUEUE_DEBUG = 0;
+
+/** HTTP命令同步等待上限 (秒) */
+constant HTTP_COMMAND_TIMEOUT = 30;
+
+/** 慢请求阈值 (毫秒) */
+constant HTTP_SLOW_REQUEST_MS = 2000;
 
 // ========================================================================
 // 速率限制配置
