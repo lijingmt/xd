@@ -12,6 +12,41 @@ mapping heart_beats;//([object:({interval,left})]);
 mixed fail_str;
 string ROOT;
 
+#define HEART_BEAT_SLICE_MAX_OBJECTS 128
+#define HEART_BEAT_SLICE_BUDGET_US 5000
+#define HEART_BEAT_INTERVAL_US 2000000
+#define RUNTIME_CPU_SAMPLE_CYCLES 5
+#define RUNTIME_CPU_WARNING_PERCENT 70
+#define RUNTIME_BACKEND_WARNING_MS 250
+
+private array(object) heart_beat_cycle_objects = ({});
+private int heart_beat_cycle_position;
+private int heart_beat_cycle_started_at;
+private int heart_beat_expected_at;
+private int heart_beat_cycle_count;
+private int heart_beat_slice_count;
+private int heart_beat_deferred_slice_count;
+private int heart_beat_last_object_count;
+private int heart_beat_last_cycle_ms;
+private int heart_beat_max_cycle_ms;
+private int heart_beat_slow_cycle_count;
+private int heart_beat_last_slice_ms;
+private int heart_beat_max_slice_ms;
+private int backend_last_lag_ms;
+private int backend_max_lag_ms;
+private int backend_lag_warning_count;
+private int runtime_last_cpu_sample_at;
+private int runtime_last_cpu_total_ms;
+private int runtime_cpu_percent;
+private int runtime_cpu_max_percent;
+private int runtime_cpu_warning_streak;
+private int runtime_cpu_warning_count;
+private int save_count;
+private int save_failure_count;
+private int save_slow_count;
+private int save_total_ms;
+private int save_max_ms;
+
 
 //! ��չ�������ӣ����prefix+"/"+s��ָ�����ļ���һ���������ӣ��򷵻ظ÷���������������ļ��������ݹ������
 string expand_symlinks(string s,void|string prefix)
@@ -1359,13 +1394,109 @@ string object_name(void|object ob)
 }
 
 
-private void heart_beat()
+void record_save_timing(int elapsed_ms,int ok)
 {
-	foreach(indices(heart_beats),object ob){
+	if(elapsed_ms < 0)
+		elapsed_ms = 0;
+	save_count++;
+	save_total_ms += elapsed_ms;
+	if(!ok)
+		save_failure_count++;
+	if(elapsed_ms >= 500)
+		save_slow_count++;
+	if(elapsed_ms > save_max_ms)
+		save_max_ms = elapsed_ms;
+}
+
+private void sample_runtime_cpu()
+{
+	mapping usage;
+	int now;
+	int total_cpu_ms;
+	int wall_ms;
+	mixed err = catch {
+		usage = System.getrusage();
+	};
+	if(err || !usage)
+		return;
+	now = gethrtime();
+	total_cpu_ms = (int)usage["utime"]+(int)usage["stime"];
+	if(runtime_last_cpu_sample_at > 0 && now > runtime_last_cpu_sample_at &&
+	   total_cpu_ms >= runtime_last_cpu_total_ms){
+		wall_ms = (now-runtime_last_cpu_sample_at)/1000;
+		if(wall_ms > 0)
+			runtime_cpu_percent =
+				(total_cpu_ms-runtime_last_cpu_total_ms)*100/wall_ms;
+		if(runtime_cpu_percent > runtime_cpu_max_percent)
+			runtime_cpu_max_percent = runtime_cpu_percent;
+		if(runtime_cpu_percent >= RUNTIME_CPU_WARNING_PERCENT){
+			runtime_cpu_warning_streak++;
+			if(runtime_cpu_warning_streak == 3){
+				runtime_cpu_warning_count++;
+				werror("[RUNTIME][CAPACITY] CPU stayed at %d%% or higher\n",
+					runtime_cpu_percent);
+			}
+		}
+		else
+			runtime_cpu_warning_streak = 0;
+	}
+	runtime_last_cpu_sample_at = now;
+	runtime_last_cpu_total_ms = total_cpu_ms;
+}
+
+mapping query_runtime_performance()
+{
+	mapping backend_stats = ([]);
+	mixed err = catch {
+		backend_stats = Pike.DefaultBackend->get_stats();
+	};
+	if(err || !backend_stats)
+		backend_stats = ([]);
+	return ([
+		"process_model":"single_process",
+		"heartbeat_object_budget":HEART_BEAT_SLICE_MAX_OBJECTS,
+		"heartbeat_time_budget_us":HEART_BEAT_SLICE_BUDGET_US,
+		"heartbeat_cycles":heart_beat_cycle_count,
+		"heartbeat_slices":heart_beat_slice_count,
+		"heartbeat_deferred_slices":heart_beat_deferred_slice_count,
+		"heartbeat_last_objects":heart_beat_last_object_count,
+		"heartbeat_last_cycle_ms":heart_beat_last_cycle_ms,
+		"heartbeat_max_cycle_ms":heart_beat_max_cycle_ms,
+		"heartbeat_slow_cycle_count":heart_beat_slow_cycle_count,
+		"heartbeat_last_slice_ms":heart_beat_last_slice_ms,
+		"heartbeat_max_slice_ms":heart_beat_max_slice_ms,
+		"backend_last_lag_ms":backend_last_lag_ms,
+		"backend_max_lag_ms":backend_max_lag_ms,
+		"backend_lag_warning_ms":RUNTIME_BACKEND_WARNING_MS,
+		"backend_lag_warning_count":backend_lag_warning_count,
+		"backend_call_outs":backend_stats["num_call_outs"] || 0,
+		"backend_call_out_bytes":backend_stats["call_out_bytes"] || 0,
+		"cpu_percent":runtime_cpu_percent,
+		"cpu_max_percent":runtime_cpu_max_percent,
+		"cpu_warning_percent":RUNTIME_CPU_WARNING_PERCENT,
+		"cpu_warning_streak":runtime_cpu_warning_streak,
+		"cpu_warning_count":runtime_cpu_warning_count,
+		"capacity_warning":runtime_cpu_warning_streak>=3 ||
+			backend_last_lag_ms>=RUNTIME_BACKEND_WARNING_MS ||
+			heart_beat_last_cycle_ms>=RUNTIME_BACKEND_WARNING_MS,
+		"save_count":save_count,
+		"save_failure_count":save_failure_count,
+		"save_slow_count":save_slow_count,
+		"save_average_ms":save_count ? save_total_ms/save_count : 0,
+		"save_max_ms":save_max_ms,
+	]);
+}
+
+private void heart_beat_slice()
+{
+	int slice_started_at = gethrtime();
+	int processed = 0;
+	while(heart_beat_cycle_position < sizeof(heart_beat_cycle_objects)){
+		object ob = heart_beat_cycle_objects[heart_beat_cycle_position++];
 		if(ob&&ob["heart_beat"]&&heart_beats[ob]){
 			//�����һ��heart_beat��ĳ���������set_heart_beat(0)�ͻ����heart_beats[ob]==0�������
 			heart_beats[ob][1]++;
-			if(heart_beats[ob][1]==heart_beats[ob][0]){
+			if(heart_beats[ob][1]>=heart_beats[ob][0]){
 				heart_beats[ob][1]=0;
 				mixed err=catch{
 					ob->heart_beat();
@@ -1375,8 +1506,53 @@ private void heart_beat()
 				}
 			}
 		}
+		processed++;
+		if(processed>=HEART_BEAT_SLICE_MAX_OBJECTS)
+			break;
+		if(processed%16==0 &&
+		   gethrtime()-slice_started_at>=HEART_BEAT_SLICE_BUDGET_US)
+			break;
 	}
+	heart_beat_last_slice_ms = (gethrtime()-slice_started_at)/1000;
+	if(heart_beat_last_slice_ms > heart_beat_max_slice_ms)
+		heart_beat_max_slice_ms = heart_beat_last_slice_ms;
+	heart_beat_slice_count++;
+	if(heart_beat_cycle_position < sizeof(heart_beat_cycle_objects)){
+		heart_beat_deferred_slice_count++;
+		call_out(heart_beat_slice,0);
+		return;
+	}
+	heart_beat_last_cycle_ms =
+		(gethrtime()-heart_beat_cycle_started_at)/1000;
+	if(heart_beat_last_cycle_ms > heart_beat_max_cycle_ms)
+		heart_beat_max_cycle_ms = heart_beat_last_cycle_ms;
+	if(heart_beat_last_cycle_ms >= RUNTIME_BACKEND_WARNING_MS)
+		heart_beat_slow_cycle_count++;
+	heart_beat_cycle_objects = ({});
+	heart_beat_cycle_position = 0;
+	heart_beat_cycle_count++;
+	if(heart_beat_cycle_count%RUNTIME_CPU_SAMPLE_CYCLES==0)
+		sample_runtime_cpu();
+	heart_beat_expected_at = gethrtime()+HEART_BEAT_INTERVAL_US;
 	call_out(heart_beat,2);
+}
+
+private void heart_beat()
+{
+	int now = gethrtime();
+	if(heart_beat_expected_at > 0 && now > heart_beat_expected_at)
+		backend_last_lag_ms = (now-heart_beat_expected_at)/1000;
+	else
+		backend_last_lag_ms = 0;
+	if(backend_last_lag_ms > backend_max_lag_ms)
+		backend_max_lag_ms = backend_last_lag_ms;
+	if(backend_last_lag_ms >= RUNTIME_BACKEND_WARNING_MS)
+		backend_lag_warning_count++;
+	heart_beat_cycle_objects = indices(heart_beats);
+	heart_beat_last_object_count = sizeof(heart_beat_cycle_objects);
+	heart_beat_cycle_position = 0;
+	heart_beat_cycle_started_at = now;
+	heart_beat_slice();
 }
 
 protected void _destruct(void|object ob)
@@ -1578,5 +1754,6 @@ protected void create(void|string _logfile_prefix)
 	add_constant("os_save",os_save);//�洢����os�κ�Ŀ¼
 	add_constant("os_load",os_load);
 	//	add_constant("file_size",Stdio.file_size);
+	heart_beat_expected_at = gethrtime()+HEART_BEAT_INTERVAL_US;
 	call_out(heart_beat,2);
 }

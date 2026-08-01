@@ -7,6 +7,7 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit LOW_DAEMON;
+#define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 #define TIME_INTERVAL 1800 //半个小时查询任务列表是否更新   
 #define TASK_LIST ROOT "/gamelib/data/task/task_list.csv" //任务列表
 #define TASK_ITEM_LIST ROOT "/gamelib/data/task/task_item_list.csv" //任务物品列表
@@ -117,6 +118,19 @@ protected void create()
 	werror("==========  [TASKD end!]  =========\n");
 }
 
+mapping query_cache_status()
+{
+	return ([
+		"mode":"parsed_startup_snapshot",
+		"tasks":sizeof(taskMap),
+		"grant_indexes":sizeof(grantMap),
+		"check_indexes":sizeof(checkMap),
+		"kill_indexes":sizeof(killMap),
+		"drop_indexes":sizeof(dropItemMap),
+		"task_items":sizeof(taskItemMap),
+	]);
+}
+
 void load(int|void isFirst)
 {
 	werror("===== Item_list start!  =====\n");
@@ -143,7 +157,7 @@ void load(int|void isFirst)
 	killMap = ([]); 
 	dropItemMap = ([]);
 
-	string taskList = Stdio.read_file(TASK_LIST);
+	string taskList = ASYNC_IOD->read_text(TASK_LIST,4*1024*1024);
 	array lines;
 	if(taskList&&sizeof(taskList))
 		// 同时兼容历史CRLF和新任务的LF行尾。
@@ -343,7 +357,7 @@ void load(int|void isFirst)
 void Load_task_item_list()
 {
 	werror("=====  Task_item start!  =====\n");
-	string strTmp = Stdio.read_file(TASK_ITEM_LIST);
+	string strTmp = ASYNC_IOD->read_text(TASK_ITEM_LIST,4*1024*1024);
 	if(strTmp){
 		array(string) lines = strTmp/"\r\n";
 		if(lines&&sizeof(lines)){
@@ -1748,14 +1762,16 @@ object if_in_findTask(object player,string killed_name)
 		log_s += "--at last got :"+rtn_ob->query_name_cn()+"--\n";
 		log_s += "\n------------------------\n";
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/taskdrop.log",now[0..sizeof(now)-2]+":"+log_s);
+		ASYNC_IOD->append_log(ROOT+"/log/taskdrop.log",
+			now[0..sizeof(now)-2]+":"+log_s);
 
 		return rtn_ob;
 	}
 	else{
 		log_s += "\n------------------------\n";
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/taskdrop.log",now[0..sizeof(now)-2]+":"+log_s);
+		ASYNC_IOD->append_log(ROOT+"/log/taskdrop.log",
+			now[0..sizeof(now)-2]+":"+log_s);
 		return 0;
 	}
 }

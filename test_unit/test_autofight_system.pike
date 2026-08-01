@@ -973,6 +973,9 @@ void test_end_to_end_auto_storage_priority()
 	int initial_destroy_ready = 0;
 	int partial_retained = 0;
 	int packaged_ok = 0;
+	int vip_before = 0;
+	int keep_before = 0;
+	int process_before = 0;
 	mixed err = catch {
 		player->move(room);
 		set_active_vip(player,3);
@@ -997,6 +1000,10 @@ void test_end_to_end_auto_storage_priority()
 			daemon->should_auto_destroy_non_equipment(player);
 		valid = initial_store_ready && initial_destroy_ready;
 		daemon->start_autofight(player);
+		vip_before = daemon->query_vip_level(player);
+		keep_before = daemon->query_auto_cleanup_keep(player);
+		process_before =
+			daemon->query_auto_cleanup_process_amount(player,material);
 		flush_command->main(0);
 		partial_retained = environment(material) == player &&
 			material->amount == 100;
@@ -1039,9 +1046,10 @@ void test_end_to_end_auto_storage_priority()
 		test_pass();
 	else
 		test_fail(sprintf(
-			"自动存仓优先级、仓库记录或材料保留量错误: initial_store=%d initial_destroy=%d retained=%d packaged=%d blocked=%d ready=%d removed=%d running=%d %s",
-			initial_store_ready,initial_destroy_ready,partial_retained,
-			packaged_ok,storage_blocked,destroy_ready,material_removed,still_running,
+			"自动存仓优先级、仓库记录或材料保留量错误: initial_store=%d initial_destroy=%d vip=%d keep=%d process=%d retained=%d packaged=%d blocked=%d ready=%d removed=%d running=%d %s",
+			initial_store_ready,initial_destroy_ready,vip_before,
+			keep_before,process_before,partial_retained,packaged_ok,
+			storage_blocked,destroy_ready,material_removed,still_running,
 			error_desc));
 	if(room){
 		foreach(all_inventory(room),object item)
@@ -1285,6 +1293,96 @@ void test_smart_target_level_window()
 			if(item != player)
 				destruct(item);
 		destruct(room);
+	}
+	destroy_runtime_player(player);
+}
+
+void test_large_room_scan_cursor_safety()
+{
+	test_start("超大房间分片累计可见怪且换房后游标立即复位");
+	object player = create_runtime_player(
+		"__testunit_autofight_large_room_scan__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object first_room = clone(ROOT+
+		"/gamelib/d/jinaodao/huangshayuanye");
+	object second_room = clone(ROOT+
+		"/gamelib/d/jinaodao/huangshayuanye");
+	object|zero unsafe_enemy = 0;
+	object|zero matched_enemy = 0;
+	mapping snapshot = ([]);
+	mapping switched_snapshot = ([]);
+	string error_desc = "";
+	int slices = 0;
+	int max_scanned = 0;
+	int valid = 0;
+	mixed err = catch {
+		foreach(all_inventory(first_room),object old_item)
+			destruct(old_item);
+		foreach(all_inventory(second_room),object old_item)
+			destruct(old_item);
+		player->level = 70;
+		player->set_att_by_level();
+		player->move(first_room);
+		// 进入房间会触发正常刷新；进入后再清空才能构造纯大背包场景。
+		foreach(all_inventory(first_room),object spawned)
+			if(spawned!=player)
+				destruct(spawned);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		for(int i=0;i<140;i++){
+			object filler = clone(ROOT+
+				"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+			filler->move(first_room);
+		}
+		unsafe_enemy = clone(ROOT+
+			"/gamelib/clone/npc/kunlunshan/qinyuan1");
+		unsafe_enemy->_npcLevel = 30;
+		unsafe_enemy->setup_npc_dongtai(player);
+		unsafe_enemy->move(first_room);
+		do {
+			snapshot = daemon->query_target_snapshot(player);
+			slices++;
+			if((int)snapshot["scanned"]>max_scanned)
+				max_scanned = (int)snapshot["scanned"];
+		} while(!(int)snapshot["cycle_complete"] && slices<5);
+
+		player->move(second_room);
+		foreach(all_inventory(second_room),object spawned)
+			if(spawned!=player)
+				destruct(spawned);
+		matched_enemy = clone(ROOT+
+			"/gamelib/clone/npc/kunlunshan/qinyuan1");
+		matched_enemy->_npcLevel = 70;
+		matched_enemy->setup_npc_dongtai(player);
+		matched_enemy->move(second_room);
+		switched_snapshot = daemon->query_target_snapshot(player);
+		valid = slices==2 && max_scanned<=128 &&
+			(int)snapshot["visible"]==1 && !snapshot["target"] &&
+			switched_snapshot["target"]==matched_enemy &&
+			(int)switched_snapshot["scanned"]<=128;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"大房间游标错误: slices=%d max=%d visible=%d target=%O "
+			"switched=%O %s",slices,max_scanned,
+			(int)snapshot["visible"],snapshot["target"],
+			switched_snapshot["target"],error_desc));
+	if(first_room){
+		foreach(all_inventory(first_room),object item)
+			if(item!=player)
+				destruct(item);
+		destruct(first_room);
+	}
+	if(second_room){
+		foreach(all_inventory(second_room),object item)
+			if(item!=player)
+				destruct(item);
+		destruct(second_room);
 	}
 	destroy_runtime_player(player);
 }
@@ -2275,6 +2373,7 @@ int main()
 	test_recovery_selection_checkmarks();
 	test_smart_route_selection();
 	test_smart_target_level_window();
+	test_large_room_scan_cursor_safety();
 	test_level_seventeen_dynamic_room_recovery();
 	test_real_route_targets();
 	test_level_twenty_fangshi_route_recovery();

@@ -189,6 +189,8 @@ int restore()
 int save()
 {
 //	return sql_save_object(USERD->db,TABLE,query_name());
+	int save_started_at = gethrtime();
+	int save_result = 0;
 	string name=this_object()->query_name();
 	inventory=({});
 	inventory_data=({});
@@ -212,13 +214,14 @@ int save()
 				"/"+name+".o";
 			string temppath = filepath+".tmp";
 			mkdir(DATA_ROOT+"u/"+name[sizeof(name)-2..]);
-			return atomic_save(filepath,temppath);
+			save_result = atomic_save(filepath,temppath);
 			//mkdir(ROOT+"/"+this_object()->query_project()+"/"+dir+"/"+name[sizeof(name)-2..]);
 			//return save_object(ROOT+"/"+this_object()->query_project()+"/"+dir+"/"+name[sizeof(name)-2..]+"/"+name+".o");
 		}
 		else{
-			return sql_save_object(SQL,TABLE,name);
+			save_result = sql_save_object(SQL,TABLE,name);
 		}
 	}
-	return 0;
+	record_save_timing((gethrtime()-save_started_at)/1000,save_result);
+	return save_result;
 }

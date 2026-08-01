@@ -125,6 +125,18 @@ protected void create()
 {
 	load_all_map();
 }
+mapping query_cache_status()
+{
+	int room_count = 0;
+	foreach(indices(all_map_list),string block)
+		room_count += sizeof(all_map_list[block] || ([]));
+	return ([
+		"mode":"resident_map_index",
+		"blocks":sizeof(all_map_list),
+		"rooms":room_count,
+		"direction_entries":sizeof(all_map),
+	]);
+}
 string get_all_map_list(){
 	string s="";
 	array(string) block_list = indices(all_map_list);

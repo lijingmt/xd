@@ -19,6 +19,14 @@
 mapping hidden_commands = ([ ]);
 mapping hidden_positions = ([ ]);
 
+constant AUTH_PASSWORD_CACHE_TTL = 2;
+constant AUTH_PASSWORD_CACHE_LIMIT = 2048;
+mapping(string:mapping(string:mixed)) auth_password_cache = ([]);
+Thread.Mutex auth_password_cache_lock = Thread.Mutex();
+int auth_password_cache_hits = 0;
+int auth_password_cache_misses = 0;
+int auth_password_cache_rejected = 0;
+
 // 这些函数依赖主文件提供的 includes
 // hidden_commands, hidden_positions 全局变量
 
@@ -184,22 +192,96 @@ int verify_password_hash(string challenge, string password_hash, string stored_p
 /**
  * 获取用户的存储密码
  */
-string get_user_password(string userid)
+private int valid_auth_userid(string userid)
 {
-    if(!userid || sizeof(userid) < 2) {
+    if(!userid || sizeof(userid)<2 || sizeof(userid)>64 ||
+       search(userid,"..")!=-1)
+        return 0;
+    foreach(userid;int index;int one){
+        if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+           (one>='0' && one<='9') || one=='_' || one=='-' || one=='.')
+            continue;
         return 0;
     }
+    return 1;
+}
+
+private string|zero query_cached_user_password(string userid)
+{
+    mapping(string:mixed)|zero entry;
+    string|zero password = 0;
+    object key = auth_password_cache_lock->lock();
+    entry = auth_password_cache[userid];
+    if(entry && (int)entry["expires"]>=time()){
+        password = (string)entry["password"];
+        auth_password_cache_hits++;
+    }
+    else{
+        if(entry)
+            m_delete(auth_password_cache,userid);
+        auth_password_cache_misses++;
+    }
+    destruct(key);
+    return password;
+}
+
+private void cache_user_password(string userid,string password)
+{
+    object key = auth_password_cache_lock->lock();
+    if(sizeof(auth_password_cache)>=AUTH_PASSWORD_CACHE_LIMIT){
+        foreach(indices(auth_password_cache),string one){
+            if((int)auth_password_cache[one]["expires"]<time())
+                m_delete(auth_password_cache,one);
+        }
+    }
+    if(sizeof(auth_password_cache)<AUTH_PASSWORD_CACHE_LIMIT)
+        auth_password_cache[userid] = ([
+            "password":password,
+            "expires":time()+AUTH_PASSWORD_CACHE_TTL,
+        ]);
+    else
+        auth_password_cache_rejected++;
+    destruct(key);
+}
+
+mapping query_auth_cache_status()
+{
+    mapping result;
+    object key = auth_password_cache_lock->lock();
+    result = ([
+        "entries":sizeof(auth_password_cache),
+        "limit":AUTH_PASSWORD_CACHE_LIMIT,
+        "ttl_seconds":AUTH_PASSWORD_CACHE_TTL,
+        "hits":auth_password_cache_hits,
+        "misses":auth_password_cache_misses,
+        "rejected":auth_password_cache_rejected,
+    ]);
+    destruct(key);
+    return result;
+}
+
+string get_user_password(string userid)
+{
+    object|zero active_player;
+    string|zero cached;
+    if(!valid_auth_userid(userid)) {
+        return 0;
+    }
+
+    active_player = get_player_from_connection(userid);
+    if(active_player && functionp(active_player->query_password) &&
+       active_player->query_password()!="")
+        return active_player->query_password();
+
+    cached = query_cached_user_password(userid);
+    if(cached)
+        return cached;
 
     string user_file = ROOT + "/data_xiand/u/" + userid[sizeof(userid)-2..] + "/" + userid + ".o";
     // http_werror(" get_user_password: loading %s\n", user_file);
 
-    if(!Stdio.exist(user_file)) {
-        // http_werror(" User file not found\n");
-        return 0;
-    }
-
     mixed err = catch {
-        string content = Stdio.read_file(user_file);
+        string content = ASYNC_IOD->read_text(user_file,1024*1024);
         if(!content || sizeof(content) == 0) {
             return 0;
         }
@@ -223,6 +305,7 @@ string get_user_password(string userid)
         }
 
         string password = after_quote[0..quote_end - 1];
+        cache_user_password(userid,password);
         // http_werror(" Found password, len=%d\n", sizeof(password));
         return password;
     };

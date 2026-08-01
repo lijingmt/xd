@@ -3,6 +3,8 @@
 
 inherit LOW_DAEMON;
 
+#define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
+
 #define AUTOFIGHT_DAILY_SECONDS (8*60*60)
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 4
@@ -12,6 +14,10 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_LOOT_RETRY_SECONDS 30
 #define AUTOFIGHT_CONFIG_VERSION 7
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
+#define AUTOFIGHT_SCAN_MAX_OBJECTS 128
+
+private int autofight_scan_count;
+private int autofight_scan_deferred_objects;
 
 private array(mapping(string:mixed)) smart_training_routes = ({
 	([
@@ -216,8 +222,112 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 	]),
 });
 
+// 练级路线是启动后只读的配置快照。查询时返回副本，调用者不能改写
+// 守护进程内缓存。
+private mapping(string:mapping(int:mapping(string:mixed)))
+	training_route_cache = ([]);
+
+private void build_training_route_cache()
+{
+	mapping(string:mapping(int:mapping(string:mixed))) next_cache = ([
+		"human":([]),
+		"monst":([]),
+		"third":([]),
+	]);
+	foreach(({"human","monst","third"}),string race){
+		for(int level=1;level<70;level++){
+			foreach(smart_training_routes,mapping(string:mixed) one){
+				if(level>(int)one["max"])
+					continue;
+				mapping(string:mixed) route = copy_value(one);
+				string path = (string)one[race];
+				if(path=="")
+					path = (string)one["third"];
+				if(path=="")
+					path = (string)one["human"];
+				route["path"] = path;
+				if(level>=50)
+					route["level"] = level;
+				next_cache[race][level] = route;
+				break;
+			}
+		}
+	}
+	training_route_cache = next_cache;
+}
+
 protected void create()
 {
+	build_training_route_cache();
+}
+
+mapping query_training_route_cache_status()
+{
+	return ([
+		"mode":"immutable_snapshot",
+		"human":sizeof(training_route_cache["human"] || ([])),
+		"monst":sizeof(training_route_cache["monst"] || ([])),
+		"third":sizeof(training_route_cache["third"] || ([])),
+	]);
+}
+
+mapping query_autofight_performance_status()
+{
+	return ([
+		"scan_count":autofight_scan_count,
+		"scan_object_budget":AUTOFIGHT_SCAN_MAX_OBJECTS,
+		"deferred_objects":autofight_scan_deferred_objects,
+	]);
+}
+
+private array(object) query_bounded_scan_slice(object me,
+	array(object) all,string cursor_key)
+{
+	array(object) result = ({});
+	object env;
+	string room_key;
+	string room_identity;
+	int total;
+	int start;
+	int count;
+	if(!me || !all)
+		return result;
+	env = environment(me);
+	room_key = cursor_key+"_room";
+	room_identity = env ? file_name(env) : "";
+	if((string)me[room_key]!=room_identity){
+		me[cursor_key] = 0;
+		me[room_key] = room_identity;
+	}
+	total = sizeof(all);
+	start = (int)me[cursor_key];
+	if(start<0 || start>=total)
+		start = 0;
+	count = total-start;
+	if(count>AUTOFIGHT_SCAN_MAX_OBJECTS)
+		count = AUTOFIGHT_SCAN_MAX_OBJECTS;
+	if(count>0)
+		result = all[start..start+count-1];
+	if(start+count>=total)
+		me[cursor_key] = 0;
+	else{
+		me[cursor_key] = start+count;
+		autofight_scan_deferred_objects += total-start-count;
+	}
+	return result;
+}
+
+private void reset_scan_state(object me)
+{
+	if(!me)
+		return;
+	foreach(({"/tmp/autofight_scan_cursor",
+		"/tmp/autofight_gather_scan_cursor",
+		"/tmp/autofight_loot_scan_cursor"}),string key){
+		me[key] = 0;
+		me[key+"_room"] = "";
+	}
+	me["/tmp/autofight_scan_visible_total"] = 0;
 }
 
 void initialize_player(object me)
@@ -927,7 +1037,8 @@ object|zero query_gather_source(object me)
 	env = environment(me);
 	if(!env)
 		return 0;
-	all = all_inventory(env,me);
+	all = query_bounded_scan_slice(me,all_inventory(env,me),
+		"/tmp/autofight_gather_scan_cursor");
 	foreach(all,object source){
 		string source_type;
 		string skill_name;
@@ -1253,7 +1364,7 @@ mapping(string:mixed) perform_auto_sell(object me)
 		result["money"] = (int)result["money"]+money_num;
 		result["names"] += ({item_name});
 		now = ctime(time());
-		Stdio.append_file(ROOT+"/log/autofight_sell.log",
+		ASYNC_IOD->append_log(ROOT+"/log/autofight_sell.log",
 			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
 			me->query_name()+") "+query_vip_label(query_vip_level(me))+
 			" 自动出售 "+item_name+" "+item_path+" 得到"+
@@ -1375,7 +1486,7 @@ mapping(string:mixed) perform_auto_sell_material(object me)
 	if(item->amount <= 0)
 		item->remove();
 	now = ctime(time());
-	Stdio.append_file(ROOT+"/log/autofight_material_sell.log",
+	ASYNC_IOD->append_log(ROOT+"/log/autofight_material_sell.log",
 		now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
 		me->query_name()+") 自动出售采集原料 "+item_name+" "+
 		item_path+" 数量"+sell_amount+" 得到"+money_num+"\n");
@@ -1596,7 +1707,7 @@ mapping(string:mixed) perform_non_equipment_destroy(object me,string source)
 		result["item_count"] = (int)result["item_count"]+amount;
 		result["names"] += ({item_name+"×"+amount});
 		now = ctime(time());
-		Stdio.append_file(ROOT+"/log/non_equipment_destroy.log",
+		ASYNC_IOD->append_log(ROOT+"/log/non_equipment_destroy.log",
 			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
 			me->query_name()+") "+source+" 销毁 "+item_name+" "+
 			item_path+" 数量"+amount+"\n");
@@ -1714,7 +1825,7 @@ mapping(string:mixed) perform_auto_store_non_equipment(object me)
 		result["item_count"] = (int)result["item_count"]+amount;
 		result["names"] += ({item_name+"×"+amount});
 		now = ctime(time());
-		Stdio.append_file(ROOT+"/log/autofight_storage.log",
+		ASYNC_IOD->append_log(ROOT+"/log/autofight_storage.log",
 			now[0..sizeof(now)-2]+" "+me->query_name_cn()+"("+
 			me->query_name()+") 自动存仓 "+item_name+" "+item_path+
 			" 数量"+amount+"\n");
@@ -1733,6 +1844,7 @@ void start_autofight(object me)
 	me["/tmp/autofight_failed_loot"] = 0;
 	me["/tmp/autofight_failed_loot_room"] = 0;
 	me["/tmp/autofight_failed_loot_retry"] = 0;
+	reset_scan_state(me);
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
 }
@@ -1748,6 +1860,7 @@ void stop_autofight(object me)
 	me["/tmp/autofight_failed_loot"] = 0;
 	me["/tmp/autofight_failed_loot_room"] = 0;
 	me["/tmp/autofight_failed_loot_retry"] = 0;
+	reset_scan_state(me);
 	me->set_autofight("disable");
 }
 
@@ -1881,22 +1994,13 @@ mapping(string:mixed) query_training_route(object me)
 			"path":path,
 		]);
 	}
-	foreach(smart_training_routes,mapping(string:mixed) one){
-		if(level<=(int)one["max"]){
-			path = (string)one[race];
-			if(path=="")
-				path = (string)one["third"];
-			if(path=="")
-			path = (string)one["human"];
-			route = copy_value(one);
-			route["path"] = path;
-			// 50级后的进阶地图已经补齐逐级怪物，界面显示玩家
-			// 当前等级，寻路后也会优先选择同级目标。
-			if(level>=50)
-				route["level"] = level;
-			return route;
-		}
-	}
+	if(level<1)
+		level = 1;
+	if(!training_route_cache[race])
+		race = "third";
+	route = training_route_cache[race][level];
+	if(route)
+		return copy_value(route);
 	return ([]);
 }
 
@@ -2001,7 +2105,7 @@ private int is_same_area(string current_path, string destination)
 		destination_parts[sizeof(destination_parts)-2];
 }
 
-int should_route_to_training_area(object me)
+int should_route_to_training_area(object me,void|mapping target_snapshot)
 {
 	mapping(string:mixed) route;
 	string current;
@@ -2020,7 +2124,10 @@ int should_route_to_training_area(object me)
 	// 安全等级时，直接回到精确推荐层，避免在相邻楼层间随机游走。
 	// 真正的空图仍交给区域巡游，保留原有刷新与防抖行为。
 	if(is_same_area(current,destination)){
-		if(query_visible_monster_count(me)>0 && !query_target(me))
+		if(target_snapshot && (int)target_snapshot["visible"]>0)
+			return 1;
+		if(!target_snapshot && query_visible_monster_count(me)>0 &&
+		   !query_target(me))
 			return 1;
 		return 0;
 	}
@@ -2137,21 +2244,58 @@ private int is_valid_target(object me, object ob)
 
 object|zero query_target(object me)
 {
+	mapping snapshot = query_target_snapshot(me);
+	return snapshot["target"];
+}
+
+mapping query_target_snapshot(object me)
+{
 	object env;
 	object|zero best;
 	array(object) all;
 	int best_level;
+	int visible;
+	int total;
+	int start;
+	int scan_count;
+	int visible_total;
+	string room_identity;
 	if(!me)
-		return 0;
+		return (["target":0,"visible":0,"scanned":0,"total":0,
+			"deferred":0,"cycle_complete":1]);
 	env = environment(me);
 	if(!env || env->is("peaceful"))
-		return 0;
+		return (["target":0,"visible":0,"scanned":0,"total":0,
+			"deferred":0,"cycle_complete":1]);
 	if(me->query_level()<70)
 		MUD_ROOMD->restore_low_level_room_npcs(me);
 	all = all_inventory(env);
+	total = sizeof(all);
+	room_identity = file_name(env);
+	if((string)me["/tmp/autofight_scan_cursor_room"]!=room_identity){
+		me["/tmp/autofight_scan_cursor"] = 0;
+		me["/tmp/autofight_scan_cursor_room"] = room_identity;
+		me["/tmp/autofight_scan_visible_total"] = 0;
+	}
+	start = (int)me["/tmp/autofight_scan_cursor"];
+	if(start<0 || start>=total)
+		start = 0;
+	if(start==0)
+		me["/tmp/autofight_scan_visible_total"] = 0;
+	scan_count = total-start;
+	if(scan_count>AUTOFIGHT_SCAN_MAX_OBJECTS)
+		scan_count = AUTOFIGHT_SCAN_MAX_OBJECTS;
+	autofight_scan_count++;
+	if(total>start+scan_count)
+		autofight_scan_deferred_objects += total-start-scan_count;
 	best_level = -1;
-	foreach(all,object ob){
+	for(int offset=0;offset<scan_count;offset++){
+		object ob = all[start+offset];
 		int npc_level;
+		if(ob != me && ob->is("character") && ob->is("npc") &&
+		   ob->hind == 0 && ob->get_cur_life() > 0 &&
+		   LOGICALZONED->can_action("combat",me,ob))
+			visible++;
 		if(!is_valid_target(me,ob))
 			continue;
 		npc_level = ob->query_level();
@@ -2160,7 +2304,20 @@ object|zero query_target(object me)
 			best_level = npc_level;
 		}
 	}
-	return best;
+	visible_total = (int)me["/tmp/autofight_scan_visible_total"]+visible;
+	me["/tmp/autofight_scan_visible_total"] = visible_total;
+	if(start+scan_count>=total)
+		me["/tmp/autofight_scan_cursor"] = 0;
+	else
+		me["/tmp/autofight_scan_cursor"] = start+scan_count;
+	return ([
+		"target":best,
+		"visible":visible_total,
+		"scanned":scan_count,
+		"total":total,
+		"deferred":total-start-scan_count,
+		"cycle_complete":start+scan_count>=total,
+	]);
 }
 
 private int can_loot_item(object me, object ob)
@@ -2239,7 +2396,8 @@ object|zero query_loot_item(object me)
 	env = environment(me);
 	if(!env)
 		return 0;
-	all = all_inventory(env,me);
+	all = query_bounded_scan_slice(me,all_inventory(env,me),
+		"/tmp/autofight_loot_scan_cursor");
 	foreach(all,object ob){
 		if(can_loot_item(me,ob) &&
 		   !query_loot_temporarily_suppressed(me,ob) &&

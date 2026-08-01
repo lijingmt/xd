@@ -31,6 +31,7 @@
 inherit LOW_DAEMON;
 
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
+#define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 
 // ========================================================================
 // HTTP API 日志函数 (必须在 include 之前定义)
@@ -423,8 +424,8 @@ string get_room_info(object player)
  * 登录并执行命令 (主入口函数)
  *
  * 线程路由策略:
- * - 因果类命令: 主线程单队列执行 (战斗、交易等)
- * - 非因果命令: 用户独立线程执行 (look、score等，并行不互斥)
+ * - 所有游戏命令由主 Backend 单写执行。
+ * - 只有不接触游戏对象的有界文件 I/O 进入 Thread.Farm。
  */
 string execute_command(string userid, string password, string cmd)
 {
@@ -439,7 +440,7 @@ string execute_command(string userid, string password, string cmd)
 // ========================================================================
 
 /**
- * 同步执行命令 (用于核心命令主线程执行)
+ * 同步执行命令（由线程管理器确认在主 Backend 后调用）
  */
 string execute_command_sync(string userid, string password, string cmd)
 {
@@ -640,6 +641,17 @@ void handle_request(Protocols.HTTP.Server.Request req)
                         "dispatch_mode":queue_status["dispatch_mode"] || "unknown",
                     ]),
                     "threads":thread_status,
+                    "async_io":ASYNC_IOD->query_status(),
+                    "runtime":query_runtime_performance(),
+                    "config_caches":([
+                        "map":MAPD->query_cache_status(),
+                        "task":TASKD->query_cache_status(),
+                        "skill":MUD_SKILLSD->query_cache_status(),
+                        "autofight":AUTOFIGHTD->
+                            query_training_route_cache_status(),
+                    ]),
+                    "autofight_performance":AUTOFIGHTD->
+                        query_autofight_performance_status(),
                     "performance":query_http_performance_status(),
                 ]);
                 send_json(req, m);
@@ -911,7 +923,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                     // 检查用户是否已存在 - 使用 gamelib 路径
                     string user_file_path = ROOT + "/gamelib/u/" + full_username[sizeof(full_username)-2..] + "/" + full_username + ".o";
                     http_werror(" Checking user file: %s\n", user_file_path);
-                    string existing_user = Stdio.read_file(user_file_path);
+                    string existing_user =
+                        ASYNC_IOD->read_text(user_file_path,1024*1024);
 
                     if(existing_user) {
                         // 用户已存在
@@ -2917,6 +2930,9 @@ mapping query_status()
     m["queue"] = query_queue_status();
     m["rate_limits"] = query_rate_limit_status();
     m["threads"] = query_thread_status();
+    m["async_io"] = ASYNC_IOD->query_status();
+    m["runtime"] = query_runtime_performance();
+    m["auth_cache"] = query_auth_cache_status();
     m["performance"] = query_http_performance_status();
     return m;
 }

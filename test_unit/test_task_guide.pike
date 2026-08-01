@@ -391,7 +391,8 @@ void test_ui_and_http_wiring()
 	   task_accept_source &&
 	   search(task_accept_source,"queryTaskGuideLink")!=-1 &&
 	   thread_one && search(thread_one,"\"task_guide\"")!=-1 &&
-	   thread_two && search(thread_two,"\"task_guide\"")!=-1)
+	   thread_two && search(thread_two,
+		"../../daemons/_http_api_mod/thread_manager.pike")!=-1)
 		test_pass();
 	else
 		test_fail("任务引导按钮或HTTP核心命令接线不完整");

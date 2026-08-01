@@ -7,7 +7,7 @@ void add_skill(object ob)
 {
 	unmapped+=({ob});
 }
-protected object`[](mixed key)
+private void flush_unmapped_skills()
 {
 	if(unmapped&&sizeof(unmapped)){
 		foreach(unmapped,object ob){
@@ -20,5 +20,20 @@ protected object`[](mixed key)
 		}
 		unmapped=({});
 	}
+
+}
+protected object`[](mixed key)
+{
+	flush_unmapped_skills();
 	return skills[key];
+}
+
+mapping query_cache_status()
+{
+	flush_unmapped_skills();
+	return ([
+		"mode":"resident_object_index",
+		"skills":sizeof(skills),
+		"pending":sizeof(unmapped),
+	]);
 }

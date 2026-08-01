@@ -1,7 +1,5 @@
 #!/usr/bin/env pike
-/**
- * HTTP API 多线程与事件队列回归测试。
- */
+/** HTTP API 单进程、单写入者与安全 Thread.Farm 回归测试。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -11,6 +9,11 @@ mapping(string:int) test_results = ([
 	"passed":0,
 	"failed":0,
 ]);
+
+void run_non_backend_world_probe(object httpd)
+{
+	httpd->route_and_execute("__testunit_thread_probe__","","look");
+}
 
 void test_result(string name,int passed,string reason)
 {
@@ -72,10 +75,31 @@ void test_same_user_serialization(object httpd)
 	mapping status = httpd->query_thread_status();
 	int valid = first && first == second &&
 		status["same_user_policy"] == "serialized" &&
-		status["cross_user_policy"] == "parallel_except_core" &&
+		status["cross_user_policy"] == "serialized_world_writes" &&
+		status["process_model"] == "single_process" &&
 		(int)status["user_command_locks"] >= 1;
-	test_result("同账号稳定复用命令锁且不同账号保留并行",valid,
-		"账号规范化、锁复用或线程策略状态错误");
+	test_result("同账号稳定复用命令锁且世界写入保持单写",valid,
+		"账号规范化、锁复用或单写策略状态错误");
+}
+
+void test_non_backend_world_rejection(object httpd)
+{
+	mapping before = httpd->query_thread_status();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		object worker = Thread.Thread(run_non_backend_world_probe,httpd);
+		worker->wait();
+		mapping after = httpd->query_thread_status();
+		valid = (int)after["non_backend_rejected"] ==
+			(int)before["non_backend_rejected"]+1 &&
+			(int)after["world_command_count"] ==
+			(int)before["world_command_count"];
+	};
+	if(err)
+		error_desc = describe_error(err);
+	test_result("工作线程游戏命令被门禁拒绝且不触碰世界状态",
+		!err && valid,"非Backend线程仍可能写游戏对象: "+error_desc);
 }
 
 void test_core_command_coverage(object httpd)
@@ -103,39 +127,48 @@ void test_timeout_and_observability_source(object httpd)
 		"/gamelib/single/daemons/_http_api_mod/thread_manager.pike");
 	string daemon_source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
-	int worker_start = search(thread_source,"void _execute_in_thread");
-	int core_start = search(thread_source,"string execute_core_command");
-	string worker_source = "";
-	if(worker_start >= 0 && core_start > worker_start)
-		worker_source = thread_source[worker_start..core_start-1];
 	mapping performance = httpd->query_http_performance_status();
+	mapping runtime = query_runtime_performance();
 	int valid = thread_source && daemon_source &&
-		search(thread_source,"deadline = time()+HTTP_COMMAND_TIMEOUT") != -1 &&
-		search(thread_source,"remaining > 0") != -1 &&
-		search(worker_source,"user_key = user_mutex->lock()") != -1 &&
-		search(worker_source,"destruct(user_key)") != -1 &&
+		search(thread_source,"Thread.Thread(") == -1 &&
+		search(thread_source,"string execute_world_command") != -1 &&
+		search(thread_source,"user_key = user_mutex->lock()") != -1 &&
+		search(thread_source,"core_key = core_lock->lock()") != -1 &&
+		search(thread_source,
+			"master()->backend_thread()!=this_thread()") != -1 &&
+		search(thread_source,"destruct(core_key)") != -1 &&
+		search(thread_source,"record_world_command_finish") != -1 &&
 		search(daemon_source,"record_http_request_timing") != -1 &&
 		search(daemon_source,"\"dispatch_mode\":queue_status") != -1 &&
-		mappingp(performance) && performance["slow_threshold_ms"] == 2000;
-	test_result("超时后台线程保留账号锁且健康检查包含性能指标",valid,
-		"超时可能提前释放账号锁、无限等待或运行态观测接线缺失");
+		mappingp(performance) && performance["slow_threshold_ms"] == 2000 &&
+		mappingp(runtime) && runtime["process_model"]=="single_process";
+	test_result("临时命令线程已移除且命令/Backend指标可观测",valid,
+		"仍在按请求建线程、锁顺序错误或运行态观测接线缺失");
 }
 
 void test_bounded_parallel_workers(object httpd)
 {
 	string source = Stdio.read_file(ROOT+
-		"/gamelib/single/daemons/_http_api_mod/thread_manager.pike");
+		"/gamelib/single/daemons/async_iod.pike");
+	object async_io = (object)(ROOT+
+		"/gamelib/single/daemons/async_iod.pike");
 	mapping status = httpd->query_thread_status();
-	int valid = source && mappingp(status) &&
-		(int)status["parallel_worker_limit"] == 16 &&
-		(int)status["parallel_workers_active"] >= 0 &&
-		(int)status["parallel_workers_active"] <= 16 &&
-		search(source,"if(!acquire_parallel_worker_slot())") != -1 &&
-		search(source,"parallel_workers_rejected++") != -1 &&
-		search(source,"record_parallel_worker_timeout()") != -1 &&
-		search(source,"sizeof(cmd) > 2048") != -1;
-	test_result("普通命令线程有界、超载快速失败且指标可观测",valid,
-		"普通请求仍可能无限建线程，或缺少过载与超时指标");
+	mapping io_status = async_io->query_status();
+	int valid = source && mappingp(status) && mappingp(io_status) &&
+		status["mode"]=="single_writer_with_safe_thread_farm" &&
+		io_status["mode"]=="Thread.Farm" &&
+		(int)io_status["thread_limit"] == 8 &&
+		(int)io_status["read_thread_limit"] == 7 &&
+		(int)io_status["append_thread_limit"] == 1 &&
+		(int)io_status["pending_limit"] == 2048 &&
+		(int)io_status["pending_jobs"] >= 0 &&
+		search(source,"Thread.Farm()") != -1 &&
+		search(source,"future->on_success(callback,@extra)") != -1 &&
+		search(source,"run_async(append_text_job") != -1 &&
+		search(source,"pending_jobs < ASYNC_IO_PENDING_LIMIT") != -1 &&
+		search(source,"ASYNC_IO_APPEND_THREAD_LIMIT 1") != -1;
+	test_result("Pike 9 Thread.Farm仅承载有界安全I/O且指标可观测",valid,
+		"线程池无界、未复用，或游戏命令仍进入并发池");
 }
 
 void test_thread_slot_release_on_all_paths(object httpd)
@@ -144,19 +177,17 @@ void test_thread_slot_release_on_all_paths(object httpd)
 		"/gamelib/single/daemons/_http_api_mod/thread_manager.pike");
 	string legacy = Stdio.read_file(ROOT+
 		"/gamelib/single/d/http_api/thread_manager.pike");
-	int worker_start = search(canonical,"void _execute_in_thread");
-	int core_start = search(canonical,"string execute_core_command");
-	string worker_source = "";
-	if(worker_start>=0 && core_start>worker_start)
-		worker_source = canonical[worker_start..core_start-1];
-	int valid = canonical && legacy && canonical==legacy &&
-		search(worker_source,"mixed result_err = catch")!=-1 &&
-		search(worker_source,"release_parallel_worker_slot(1)")!=-1 &&
-		search(worker_source,"if(user_key)")!=-1 &&
+	int valid = canonical && legacy &&
+		search(legacy,
+			"../../daemons/_http_api_mod/thread_manager.pike")!=-1 &&
+		search(canonical,"Thread.Thread(")==-1 &&
+		search(canonical,"if(core_key)")!=-1 &&
+		search(canonical,"if(user_key)")!=-1 &&
+		search(canonical,"world_commands_waiting--")!=-1 &&
 		search(canonical,"sizeof(userid) > 64")!=-1 &&
 		search(canonical,"sizeof(password || \"\") > 128")!=-1;
-	test_result("异常发布、锁获取和超长输入均不会泄漏线程槽",valid,
-		"结果发布或锁异常仍可能泄漏线程容量，或双目录漂移");
+	test_result("异常、锁获取和超长输入均不会泄漏写入队列",valid,
+		"异常路径可能泄漏计数、输入无界或兼容入口漂移");
 }
 
 void test_registry_cleanup_contract(object httpd)
@@ -230,6 +261,7 @@ int main()
 		test_event_driven_queue_source();
 		test_queue_runtime_contract(httpd);
 		test_same_user_serialization(httpd);
+		test_non_backend_world_rejection(httpd);
 		test_core_command_coverage(httpd);
 		test_timeout_and_observability_source(httpd);
 		test_bounded_parallel_workers(httpd);

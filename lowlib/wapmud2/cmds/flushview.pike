@@ -94,6 +94,7 @@ int main(string|zero arg)
 	mapping destroy_result;
 	mapping level_window;
 	mapping profession_result;
+	mapping target_snapshot;
 	string reason;
 	string direction;
 	string route_path;
@@ -272,7 +273,9 @@ int main(string|zero arg)
 		else
 			AUTOFIGHTD->clear_failed_loot(me);
 	}
-	target = AUTOFIGHTD->query_target(me);
+	target_snapshot = AUTOFIGHTD->query_target_snapshot(me);
+	target = target_snapshot["target"];
+	visible_monsters = (int)target_snapshot["visible"];
 	if(target){
 		count = AUTOFIGHTD->query_object_count(target,env);
 		me->command("kill "+target->query_name()+" "+count);
@@ -284,8 +287,15 @@ int main(string|zero arg)
 			return 1;
 		}
 	}
+	if(!(int)target_snapshot["cycle_complete"]){
+		write("当前房间对象较多，挂机助手已分批扫描"+
+			(int)target_snapshot["scanned"]+"个，剩余"+
+			(int)target_snapshot["deferred"]+
+			"个将在下一轮继续检查。\n");
+		return 1;
+	}
 	AUTOFIGHTD->record_no_target(me);
-	if(AUTOFIGHTD->should_route_to_training_area(me)){
+	if(AUTOFIGHTD->should_route_to_training_area(me,target_snapshot)){
 		route = AUTOFIGHTD->query_training_route(me);
 		route_path = (string)route["path"];
 		AUTOFIGHTD->record_route(me,route_path);
@@ -304,7 +314,6 @@ int main(string|zero arg)
 	}
 	write("[关闭自动挂机:autofightclose] 今日剩余"+
 		format_time(left)+"\n");
-	visible_monsters = AUTOFIGHTD->query_visible_monster_count(me);
 	if(visible_monsters>0){
 		level_window = AUTOFIGHTD->query_target_level_window(me);
 		write("当前地图可见"+visible_monsters+

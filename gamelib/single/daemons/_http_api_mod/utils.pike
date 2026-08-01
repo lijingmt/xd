@@ -185,15 +185,9 @@ void send_html_error(Protocols.HTTP.Server.Request req, string error_msg)
 /**
  * 发送静态文件
  */
-void serve_file(Protocols.HTTP.Server.Request req, string path, string type)
+private void finish_serve_file(string|zero data,
+    Protocols.HTTP.Server.Request req,string type)
 {
-    if(!path || path=="" || sizeof(path)>512 || search(path,"..")!=-1){
-        send_json(req,(["error":"Invalid static path"]),404);
-        return;
-    }
-    string fullpath = ROOT + path;
-    string data = Stdio.read_file(fullpath);
-
     if(!data) {
         mapping m = (["error": "File not found"]);
         send_json(req, m, 404);
@@ -204,7 +198,25 @@ void serve_file(Protocols.HTTP.Server.Request req, string path, string type)
     response["type"] = type;
     response["data"] = data;
     response["extra_heads"] = (["Access-Control-Allow-Origin": "*"]);
-    req->response_and_finish(response);
+    mixed err = catch {
+        req->response_and_finish(response);
+    };
+    if(err)
+        http_werror(" async static response error: %s\n",
+            describe_error(err));
+}
+
+void serve_file(Protocols.HTTP.Server.Request req, string path, string type)
+{
+    if(!path || path=="" || sizeof(path)>512 || search(path,"..")!=-1 ||
+       has_prefix(path,"/")){
+        send_json(req,(["error":"Invalid static path"]),404);
+        return;
+    }
+    string fullpath = combine_path(ROOT,path);
+    if(!ASYNC_IOD->read_text_async(fullpath,8*1024*1024,
+       finish_serve_file,req,type))
+        send_json(req,(["error":"Static file service busy"]),503);
 }
 
 /**

@@ -1,5 +1,6 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
+#define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 //一开始免费10个位置
 //每增加10个位置100g,总共能买9次，放置100个物品
 mapping packaged_goods =([]);
@@ -53,7 +54,10 @@ int packaged(object ob, int user_p_level){
 	}
 	//加入存入仓库的Log
 	string now=ctime(time());
-	Stdio.append_file(ROOT+"/log/package.log",now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+"("+this_object()->query_name()+"):"+ob->name_cn+"("+ob->name+")被存入\n");
+	ASYNC_IOD->append_log(ROOT+"/log/package.log",
+		now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+
+		"("+this_object()->query_name()+"):"+ob->name_cn+
+		"("+ob->name+")被存入\n");
 	return 0;
 }
 string view_packaged_list(){
@@ -106,7 +110,11 @@ object repackaged(string name){
 				packaged_items = packaged_items[1..sizeof(packaged_items)-1];
 				//加入取出仓库的Log
 				string now=ctime(time());
-				Stdio.append_file(ROOT+"/log/package.log",now[0..sizeof(now)-2]+":"+this_object()->query_name_cn()+"("+this_object()->query_name()+"):"+ob->name_cn+"("+ob->name+")被取出\n");
+				ASYNC_IOD->append_log(ROOT+"/log/package.log",
+					now[0..sizeof(now)-2]+":"+
+					this_object()->query_name_cn()+"("+
+					this_object()->query_name()+"):"+ob->name_cn+
+					"("+ob->name+")被取出\n");
 				return ob;
 			}
 			else{
