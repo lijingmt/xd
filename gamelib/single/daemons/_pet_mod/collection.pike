@@ -8,6 +8,75 @@ private mapping(string:mixed) pet_result(int ok,string message)
 	return (["ok":ok,"message":message]);
 }
 
+private void clear_pet_runtime(object player)
+{
+	if(!player)
+		return;
+	player["/tmp/wanling/pet_id"] = 0;
+	player["/tmp/wanling/species"] = 0;
+	player["/tmp/wanling/skill_set"] = 0;
+	player["/tmp/wanling/pet_level"] = 0;
+	player["/tmp/wanling/pet_star"] = 0;
+	player["/tmp/wanling/pet_bond"] = 0;
+	player["/tmp/wanling/pet_evolution"] = 0;
+	player["/tmp/wanling/pet_evolution_name"] = 0;
+	player["/tmp/wanling/pet_attributes"] = 0;
+	player["/tmp/wanling/pet_power"] = 0;
+	player["/tmp/wanling/pet_growth_percent"] = 0;
+	player["/tmp/wanling/pet_pvp_growth_percent"] = 0;
+	player["/tmp/wanling/assist_at"] = 0;
+	player["/tmp/wanling/assist_seq"] = 0;
+	player["/tmp/wanling/recent_assist"] = 0;
+	player["/tmp/wanling/pvp_target"] = 0;
+	player["/tmp/wanling/pvp_charge"] = 0;
+	player["/tmp/wanling/pvp_uses"] = 0;
+}
+
+private void sync_pet_runtime_unlocked(object player,mapping pet,
+	void|int reset_combat)
+{
+	mapping attributes;
+	int star;
+	if(!player || !mappingp(pet))
+		return;
+	star = (int)pet["star"];
+	if(star<1)
+		star = 1;
+	attributes = query_pet_attributes(pet);
+	player["/tmp/wanling/pet_id"] = pet["id"];
+	player["/tmp/wanling/species"] = pet["species"];
+	player["/tmp/wanling/skill_set"] = pet["skill_set"];
+	player["/tmp/wanling/pet_level"] = pet["level"];
+	player["/tmp/wanling/pet_star"] = star;
+	player["/tmp/wanling/pet_bond"] = pet["bond"];
+	player["/tmp/wanling/pet_evolution"] =
+		query_pet_evolution_stage(star);
+	player["/tmp/wanling/pet_evolution_name"] =
+		query_pet_evolution_name(star);
+	player["/tmp/wanling/pet_attributes"] = copy_value(attributes);
+	player["/tmp/wanling/pet_power"] = (int)attributes["power"];
+	player["/tmp/wanling/pet_growth_percent"] =
+		query_pet_growth_percent(pet,0);
+	player["/tmp/wanling/pet_pvp_growth_percent"] =
+		query_pet_growth_percent(pet,1);
+	if(reset_combat){
+		player["/tmp/wanling/assist_at"] = 0;
+		player["/tmp/wanling/recent_assist"] = 0;
+		player["/tmp/wanling/pvp_target"] = 0;
+		player["/tmp/wanling/pvp_charge"] = 0;
+		player["/tmp/wanling/pvp_uses"] = 0;
+	}
+}
+
+void reset_pet_combat_state(object player)
+{
+	if(!player)
+		return;
+	player["/tmp/wanling/pvp_target"] = 0;
+	player["/tmp/wanling/pvp_charge"] = 0;
+	player["/tmp/wanling/pvp_uses"] = 0;
+}
+
 private void add_pet_material_unlocked(mapping record,string material,
 	int amount)
 {
@@ -67,9 +136,15 @@ mapping(string:mixed) query_pet_state(object player)
 		result["message"] = "万灵谱数据校验失败，已停止操作以保护灵宠。";
 	else{
 		int changed = refresh_pet_periods_unlocked(record);
-		if(changed && (int)record["persisted"])
+		if(changed && (int)record["persisted"] &&
+		   !(int)record["migration_pending"])
 			save_pet_record_unlocked(record);
 		result = copy_value(record);
+		m_delete(result,"migration_pending");
+		array enriched_pets = ({});
+		foreach((array)result["pets"],mapping pet)
+			enriched_pets += ({enrich_pet_view(pet)});
+		result["pets"] = enriched_pets;
 		result["ok"] = 1;
 		result["message"] = "";
 		result["character_id"] = player->query_name();
@@ -116,10 +191,7 @@ mapping(string:mixed) choose_starter_pet(object player,string species)
 			add_pet_material_unlocked(record,"bond_token",2);
 			record["revision"] = (int)record["revision"]+1;
 			if(save_pet_record_unlocked(record)){
-				player["/tmp/wanling/pet_id"] = pet["id"];
-				player["/tmp/wanling/species"] = species;
-				player["/tmp/wanling/skill_set"] = 0;
-				player["/tmp/wanling/recent_assist"] = 0;
+				sync_pet_runtime_unlocked(player,pet,1);
 				result["message"] +=
 					"它已设为当前协战伙伴，并获赠12滴灵露与2枚同心叶。";
 			}
@@ -140,6 +212,8 @@ mapping(string:mixed) set_active_pet(object player,string pet_id)
 	object key;
 	if(account_id=="")
 		return result;
+	if(player->query_in_combat && player->query_in_combat())
+		return pet_result(0,"交战中不能更换或暂停协战伙伴。 ");
 	character_id = player->query_name();
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
@@ -149,10 +223,7 @@ mapping(string:mixed) set_active_pet(object player,string pet_id)
 		m_delete(record["active"],character_id);
 		record["revision"] = (int)record["revision"]+1;
 		if(save_pet_record_unlocked(record)){
-			player["/tmp/wanling/pet_id"] = 0;
-			player["/tmp/wanling/species"] = 0;
-			player["/tmp/wanling/skill_set"] = 0;
-			player["/tmp/wanling/recent_assist"] = 0;
+			clear_pet_runtime(player);
 			result = pet_result(1,"当前角色已暂停灵宠协战，图鉴与培养不会丢失。");
 		}
 	}
@@ -177,10 +248,7 @@ mapping(string:mixed) set_active_pet(object player,string pet_id)
 				record["revision"] = (int)record["revision"]+1;
 				if(save_pet_record_unlocked(record)){
 					mapping pet = record["pets"][pet_index];
-					player["/tmp/wanling/pet_id"] = pet_id;
-					player["/tmp/wanling/species"] = pet["species"];
-					player["/tmp/wanling/skill_set"] = pet["skill_set"];
-					player["/tmp/wanling/recent_assist"] = 0;
+					sync_pet_runtime_unlocked(player,pet,1);
 					result = pet_result(1,(string)shanhai_catalog[
 						(string)pet["species"]]["name"]+
 						"已成为当前协战伙伴。");
@@ -241,6 +309,8 @@ mapping(string:mixed) train_pet_level(object player,string pet_id)
 	object key;
 	if(account_id=="")
 		return result;
+	if(player->query_in_combat && player->query_in_combat())
+		return pet_result(0,"交战中不能培养灵宠。 ");
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
 	if(record){
@@ -252,7 +322,8 @@ mapping(string:mixed) train_pet_level(object player,string pet_id)
 			int level = (int)pet["level"];
 			int cost = 2+level/5;
 			if(level>=PET_LEVEL_MAX)
-				result["message"] = "灵宠已经达到30级培养上限。";
+				result["message"] = "灵宠已经达到"+PET_LEVEL_MAX+
+					"级培养上限。";
 			else if((int)record["materials"]["spirit_dew"]<cost)
 				result["message"] = "灵露不足，需要"+cost+"滴。";
 			else{
@@ -260,10 +331,65 @@ mapping(string:mixed) train_pet_level(object player,string pet_id)
 				pet["level"] = level+1;
 				record["revision"] = (int)record["revision"]+1;
 				if(save_pet_record_unlocked(record)){
+					if(record["active"][player->query_name()]==pet_id)
+						sync_pet_runtime_unlocked(player,pet,0);
 					result = pet_result(1,(string)shanhai_catalog[
 						(string)pet["species"]]["name"]+"成长到"+
 						(int)pet["level"]+"级，消耗"+cost+"滴灵露。");
 					result["level"] = pet["level"];
+				}
+			}
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) upgrade_pet_star(object player,string pet_id)
+{
+	mapping result = pet_result(0,"本次升星没有生效。 ");
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(account_id=="")
+		return result;
+	if(player->query_in_combat && player->query_in_combat())
+		return pet_result(0,"交战中不能为灵宠升星。 ");
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		int index = find_pet_index(record["pets"],pet_id);
+		if(index<0)
+			result["message"] = "找不到这只灵宠。";
+		else{
+			mapping pet = record["pets"][index];
+			int star = (int)pet["star"];
+			int cost = query_pet_star_cost(star);
+			int old_evolution = query_pet_evolution_stage(star);
+			if(star>=PET_STAR_MAX)
+				result["message"] = "灵宠已经达到十星圆满。";
+			else if(cost<=0)
+				result["message"] = "当前星级数据异常，已停止操作。";
+			else if((int)record["materials"]["egg_fragment"]<cost)
+				result["message"] = "灵卵残片不足，本次升星需要"+
+					cost+"枚。";
+			else{
+				add_pet_material_unlocked(record,"egg_fragment",-cost);
+				pet["star"] = star+1;
+				record["revision"] = (int)record["revision"]+1;
+				if(save_pet_record_unlocked(record)){
+					int new_star = (int)pet["star"];
+					int new_evolution = query_pet_evolution_stage(new_star);
+					if(record["active"][player->query_name()]==pet_id)
+						sync_pet_runtime_unlocked(player,pet,0);
+					result = pet_result(1,(string)shanhai_catalog[
+						(string)pet["species"]]["name"]+"升至"+new_star+
+						"星，消耗"+cost+"枚灵卵残片。 ");
+					if(new_evolution>old_evolution)
+						result["message"] += "灵契共鸣，进化为"+
+							query_pet_evolution_name(new_star)+"！";
+					result["star"] = new_star;
+					result["evolution"] = new_evolution;
 				}
 			}
 		}
@@ -280,6 +406,8 @@ mapping(string:mixed) deepen_pet_bond(object player,string pet_id)
 	object key;
 	if(account_id=="")
 		return result;
+	if(player->query_in_combat && player->query_in_combat())
+		return pet_result(0,"交战中不能深化灵宠羁绊。 ");
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
 	if(record){
@@ -298,10 +426,13 @@ mapping(string:mixed) deepen_pet_bond(object player,string pet_id)
 				pet["bond"] = bond+1;
 				pet["bond_xp"] = 0;
 				record["revision"] = (int)record["revision"]+1;
-				if(save_pet_record_unlocked(record))
+				if(save_pet_record_unlocked(record)){
+					if(record["active"][player->query_name()]==pet_id)
+						sync_pet_runtime_unlocked(player,pet,0);
 					result = pet_result(1,(string)shanhai_catalog[
 						(string)pet["species"]]["name"]+"与你的羁绊升至"+
 						(int)pet["bond"]+"阶。新的山海小传已经解锁。");
+				}
 			}
 		}
 	}
@@ -317,6 +448,8 @@ mapping(string:mixed) reset_pet_skills(object player,string pet_id)
 	object key;
 	if(account_id=="")
 		return result;
+	if(player->query_in_combat && player->query_in_combat())
+		return pet_result(0,"交战中不能轮换灵纹。 ");
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
 	if(record){
@@ -335,7 +468,7 @@ mapping(string:mixed) reset_pet_skills(object player,string pet_id)
 			record["revision"] = (int)record["revision"]+1;
 			if(save_pet_record_unlocked(record)){
 				if(record["active"][player->query_name()]==pet_id)
-					player["/tmp/wanling/skill_set"] = next_set;
+					sync_pet_runtime_unlocked(player,pet,0);
 				result = pet_result(1,(string)info["name"]+
 					"的三枚灵纹已切换；这是确定轮换，不会随机洗坏。 ");
 				result["skills"] = copy_value(pet["skills"]);
@@ -549,12 +682,7 @@ int reconcile_pet_player_login(object player)
 	string character_id;
 	string pet_id;
 	object key;
-	player["/tmp/wanling/pet_id"] = 0;
-	player["/tmp/wanling/species"] = 0;
-	player["/tmp/wanling/skill_set"] = 0;
-	player["/tmp/wanling/assist_at"] = 0;
-	player["/tmp/wanling/assist_seq"] = 0;
-	player["/tmp/wanling/recent_assist"] = 0;
+	clear_pet_runtime(player);
 	if(account_id=="")
 		return 1;
 	character_id = player->query_name();
@@ -563,13 +691,8 @@ int reconcile_pet_player_login(object player)
 	if(record){
 		pet_id = (string)(record["active"][character_id] || "");
 		int index = find_pet_index(record["pets"],pet_id);
-		if(index>=0){
-			player["/tmp/wanling/pet_id"] = pet_id;
-			player["/tmp/wanling/species"] =
-				record["pets"][index]["species"];
-			player["/tmp/wanling/skill_set"] =
-				record["pets"][index]["skill_set"];
-		}
+		if(index>=0)
+			sync_pet_runtime_unlocked(player,record["pets"][index],1);
 	}
 	destruct(key);
 	// 宠物附属文件损坏时仅关闭万灵入口，不能阻断人物旧存档登录。

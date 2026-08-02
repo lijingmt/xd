@@ -171,7 +171,10 @@ private void show_cleanup_settings(object me,string notice)
 	out += "装备出售触发：背包达到"+
 		AUTOFIGHTD->query_auto_sell_trigger_percent(me)+"％\n";
 	out += "装备单次处理："+AUTOFIGHTD->query_auto_sell_batch_size(me)+"件\n";
-	out += "等级保护：只卖低于人物至少"+level_gap+"级的装备\n";
+	if(level_gap == 0)
+		out += "等级保护：不限制装备与人物等级差（高于自身等级也按品质规则处理）\n";
+	else
+		out += "等级保护：只卖低于人物至少"+level_gap+"级的装备\n";
 	out += "出售类别："+
 		((int)me["/plus/autofight_sell_weapon"] == 1 ? "武器 " : "")+
 		((int)me["/plus/autofight_sell_armor"] == 1 ? "防具 " : "")+

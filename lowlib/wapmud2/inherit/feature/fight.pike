@@ -535,6 +535,7 @@ mapping query_pk_fast_side_profile(object who){
 		(int)who->query_equip_add("wulichuantou_add");
 	profile["magic_penetration"] =
 		(int)who->query_equip_add("mofachuantou_add");
+	profile["pet_score"] = 0;
 	return profile;
 }
 
@@ -606,7 +607,8 @@ int query_pk_fast_score(object who,mapping profile,int sim_life){
 	score = life_rate*100+
 		profile["effective_damage"]*8+
 		who->query_defend_power()*3+profile["dodge"]*100+
-		profile["heal"]*10+who->query_level()*100;
+		profile["heal"]*10+profile["pet_score"]+
+		who->query_level()*100;
 	return score;
 }
 
@@ -619,10 +621,14 @@ mapping query_pk_fast_decision_simulation(object target){
 	mapping target_profile;
 	mapping me_damage;
 	mapping target_damage;
+	mapping me_pet;
+	mapping target_pet;
 	int me_life;
 	int target_life;
 	int used_rounds = 0;
 	int used_scale = 1;
+	int me_pet_triggers = 0;
+	int target_pet_triggers = 0;
 	int me_rate;
 	int target_rate;
 	int me_score;
@@ -636,6 +642,14 @@ mapping query_pk_fast_decision_simulation(object target){
 		me,target,me_profile,target_profile);
 	target_damage = query_pk_fast_damage_profile(
 		target,me,target_profile,me_profile);
+	me_pet = PETD->query_pet_pk_fast_profile(me,target);
+	target_pet = PETD->query_pet_pk_fast_profile(target,me);
+	if(me_pet["active"] && me_pet["type"]=="mofa")
+		me_profile["pet_score"] = (int)me_pet["amount"]*
+			(int)me_pet["remaining_uses"]*2;
+	if(target_pet["active"] && target_pet["type"]=="mofa")
+		target_profile["pet_score"] = (int)target_pet["amount"]*
+			(int)target_pet["remaining_uses"]*2;
 	me_profile["effective_damage"] = me_damage["damage"];
 	target_profile["effective_damage"] = target_damage["damage"];
 	me_life = me_profile["life"];
@@ -644,6 +658,8 @@ mapping query_pk_fast_decision_simulation(object target){
 	for(int round=1;round<=PK_FAST_DECISION_SIMULATION_ROUNDS;round++){
 		int me_round_damage = 0;
 		int target_round_damage = 0;
+		int me_pet_trigger = 0;
+		int target_pet_trigger = 0;
 		int scale = 1;
 		if(round>800)
 			scale = 16;
@@ -674,6 +690,38 @@ mapping query_pk_fast_decision_simulation(object target){
 				target_round_damage = query_balanced_critical_damage(
 					target_round_damage,me_profile["renxing"]);
 		}
+		if(me_pet["active"] && (int)me_pet["remaining_uses"]>0){
+			int first_round = (int)me_pet["charge_required"]-
+				(int)me_pet["charge"];
+			if(first_round<1)
+				first_round = 1;
+			if(round>=first_round &&
+			   (round-first_round)%(int)me_pet["charge_required"]==0 &&
+			   (round-first_round)/(int)me_pet["charge_required"]<
+				(int)me_pet["remaining_uses"])
+				me_pet_trigger = 1;
+		}
+		if(target_pet["active"] &&
+		   (int)target_pet["remaining_uses"]>0){
+			int first_round = (int)target_pet["charge_required"]-
+				(int)target_pet["charge"];
+			if(first_round<1)
+				first_round = 1;
+			if(round>=first_round &&
+			   (round-first_round)%(int)target_pet["charge_required"]==0 &&
+			   (round-first_round)/(int)target_pet["charge_required"]<
+				(int)target_pet["remaining_uses"])
+				target_pet_trigger = 1;
+		}
+		// 灵宠每场最多两次，不随快速推演的加速倍率重复放大。
+		if(me_pet_trigger && me_pet["type"]=="damage")
+			me_round_damage += (int)me_pet["amount"];
+		if(target_pet_trigger && target_pet["type"]=="damage")
+			target_round_damage += (int)target_pet["amount"];
+		if(me_pet_trigger)
+			me_pet_triggers++;
+		if(target_pet_trigger)
+			target_pet_triggers++;
 
 		// 双方伤害同时结算，避免调用者固定获得先手优势。
 		target_life -= me_round_damage;
@@ -682,6 +730,10 @@ mapping query_pk_fast_decision_simulation(object target){
 			break;
 		me_life += me_profile["heal"];
 		target_life += target_profile["heal"];
+		if(me_pet_trigger && me_pet["type"]=="heal")
+			me_life += (int)me_pet["amount"];
+		if(target_pet_trigger && target_pet["type"]=="heal")
+			target_life += (int)target_pet["amount"];
 		if(me_life>me_profile["life_max"])
 			me_life = me_profile["life_max"];
 		if(target_life>target_profile["life_max"])
@@ -743,6 +795,8 @@ mapping query_pk_fast_decision_simulation(object target){
 	result["target_score"] = target_score;
 	result["rounds"] = used_rounds;
 	result["scale"] = used_scale;
+	result["me_pet_triggers"] = me_pet_triggers;
+	result["target_pet_triggers"] = target_pet_triggers;
 	return result;
 }
 
@@ -836,6 +890,8 @@ void _clean_fight(){
 	this_object()->timeCold = 0;
 	this_object()->eat_timeCold = 0;
 	this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
+	if(this_object()->is("player"))
+		PETD->reset_pet_combat_state(this_object());
 	this_object()->clean_tianxiang_star_marks();
 	this_object()->clean_lingyi_medicine_pacts();
 	if(this_object()->is("npc")){
@@ -3144,9 +3200,9 @@ private void heart_beat_action(){
 	}
 	else{
 		this_object()->timeCount++;
-		// 通用万灵是低频数据型PVE协战，不生成NPC，也不进入方士SUMMOND。
+		// 通用万灵不生成NPC；PVE按冷却协战，PVP按回合充能且每场限次。
 		if(this_object()->is("player"))
-			PETD->perform_pet_pve_assist(this_object(),enemy);
+			PETD->perform_pet_combat_assist(this_object(),enemy);
 		if(check_pk_fast_decision())
 			return;
 		if(this_object()->timeCold>0)

@@ -7069,11 +7069,19 @@ select:focus-visible {
 }
 
 .battle-pet-skill {
-    max-width: 72px;
+	display: flex;
+	flex-direction: column;
+	max-width: 72px;
     color: var(--pet-accent);
     font-size: 9px;
     font-weight: 700;
-    text-align: right;
+	text-align: right;
+}
+
+.battle-pet-skill small {
+	color: #dbeafe;
+	font-size: 8px;
+	font-weight: 600;
 }
 
 .battle-pet-cooldown {

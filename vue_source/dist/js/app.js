@@ -3161,10 +3161,32 @@ createApp({
 
         getPetAssistStatus(pet = this.battlePet) {
             if (!pet?.active) return '未随行';
+            if (String(pet.combat_mode || '') === 'pvp') {
+                const required = Math.max(1, Number(
+                    pet.pvp_charge_required || pet.cooldown || 1
+                ));
+                const charge = Math.max(0, Math.min(
+                    required, Number(pet.pvp_charge || 0)
+                ));
+                const maxUses = Math.max(1, Number(pet.pvp_uses_max || 2));
+                const uses = Math.max(0, Math.min(
+                    maxUses, Number(pet.pvp_uses || 0)
+                ));
+                if (uses >= maxUses) return `本场御灵已尽 ${uses}/${maxUses}`;
+                return `御灵充能 ${charge}/${required} · 本场 ${uses}/${maxUses}`;
+            }
             const remaining = Math.max(0, Math.ceil(
                 Number(pet.cooldown_remaining || 0)
             ));
             return remaining > 0 ? `凝聚灵息 ${remaining}秒` : '协战就绪';
+        },
+
+        getPetCultivationLabel(pet = this.battlePet) {
+            if (!pet?.active) return '';
+            const level = Math.max(1, Number(pet.level || 1));
+            const star = Math.max(1, Number(pet.star || 1));
+            const evolution = String(pet.evolution_name || '初生体');
+            return `Lv.${level} · ${star}星${evolution}`;
         },
 
         formatPetAssistMessage(event) {
@@ -3172,17 +3194,19 @@ createApp({
             const skillName = String(event?.skill || '协战');
             const amount = Math.max(0, Number(event?.amount || 0));
             const type = String(event?.type || '');
+            const prefix = String(event?.mode || '') === 'pvp' ?
+                '【御灵交锋】' : '';
             if (amount <= 0) {
-                return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在你身旁`;
+                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在你身旁`;
             }
             if (type === 'damage') {
                 const targetName = String(event?.target_name || '敌人');
-                return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatCompactNumber(amount)}点协战伤害`;
+                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatCompactNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
             }
             if (type === 'mofa') {
-                return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点法力`;
+                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点法力`;
             }
-            return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点生命`;
+            return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点生命`;
         },
 
         syncBattlePetAssist(petAssist) {

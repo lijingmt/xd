@@ -65,6 +65,7 @@ int main()
 	string character_id = "";
 	object|zero legacy = 0;
 	object|zero restored = 0;
+	object|zero original_player = this_player();
 	werror("\n========== 注册账号多人物测试 ==========\n");
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	cleanup_player(account_id);
@@ -191,6 +192,25 @@ int main()
 				"password \"testunit88\"")==-1),
 			"多人物密码没有保持账号级一致");
 
+		object init_room = (object)(ROOT+"/gamelib/d/init");
+		mixed first_entry_err = catch{
+			restored->move(init_room);
+			set_this_player(restored);
+			init_room->choice_profe("third/fangshi");
+			init_room->start("third");
+		};
+		if(original_player)
+			set_this_player(original_player);
+		else
+			set_this_player(this_object());
+		check("新建人物首次进入可真实完成职业初始化并进入出生点",
+			!first_entry_err && restored->query_profeId()=="fangshi" &&
+			restored->query_raceId()=="third" && environment(restored) &&
+			environment(restored)!=init_room,
+			first_entry_err ? describe_error(first_entry_err)+" "+
+				describe_backtrace(first_entry_err) :
+				"职业、阵营或出生点初始化不完整");
+
 		string http_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/http_api_daemon.pike");
 		string account_http_source = Stdio.read_file(ROOT+
@@ -230,6 +250,10 @@ int main()
 		check("多人物后端文件可由真实Pike运行时编译",
 			!sizeof(compile_failures),compile_failures*" | ");
 	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
 	if(err)
 		check("多人物测试运行时无异常",0,
 			describe_error(err)+" "+describe_backtrace(err));

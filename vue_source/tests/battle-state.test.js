@@ -26,10 +26,16 @@ let nextBattleState = {
       active: 1, pet_id: 'pet-001', species: 'dangkang',
       name: '当康', icon: '🐗', family: '土', role: '守护',
       skill: '丰穰守心', cooldown: 30, cooldown_remaining: 18,
+      level: 60, star: 10, bond: 5, evolution: 3,
+      evolution_name: '真形·圆满', power: 18600,
+      growth_percent: 222, pvp_growth_percent: 124,
+      combat_mode: 'pve', pvp_charge: 0, pvp_charge_required: 5,
+      pvp_uses: 0, pvp_uses_max: 2,
       recent_event: {
         id: 'pet-event-001', event_at: 100, name: '当康', icon: '🐗',
         family: '土', role: '守护', skill: '丰穰守心', type: 'heal',
-        amount: 456, target_name: '测试方士', cooldown: 30
+        mode: 'pve', amount: 456, target_name: '测试方士', cooldown: 30,
+        level: 60, star: 10, evolution_name: '真形·圆满', power: 18600
       }
     }
   },
@@ -123,6 +129,8 @@ assert(indexSource.includes('lingyi-revive-status'));
 assert(indexSource.includes('battle-pet-companion-mini'));
 assert(indexSource.includes('battle-pet-companion-full'));
 assert(indexSource.includes('battle-pet-assist-burst'));
+assert(indexSource.includes('getPetCultivationLabel(battlePet)'));
+assert(indexSource.includes("petAssistEffect.mode === 'pvp'"));
 assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
 assert(indexSource.includes("playerStats.profe === '灵医' ? '✚'"));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
@@ -412,6 +420,12 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.battleAoeReport.targets[0].defeated, true);
   assert.strictEqual(client.battleAoeReport.targets[1].revived, true);
   assert.strictEqual(client.battlePet.name, '当康');
+  assert.strictEqual(client.battlePet.star, 10);
+  assert.strictEqual(client.battlePet.power, 18600);
+  assert.strictEqual(
+    client.getPetCultivationLabel(client.battlePet),
+    'Lv.60 · 10星真形·圆满'
+  );
   assert.strictEqual(client.getPetAssistStatus(client.battlePet), '凝聚灵息 18秒');
   assert.strictEqual(client.getPetCooldownPercent(client.battlePet), 40);
   assert.strictEqual(client.petAssistEffect.id, 'pet-event-001');
@@ -430,6 +444,18 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert(client.formatPetAssistMessage({
     name: '当康', icon: '🐗', skill: '丰穰守心', type: 'heal', amount: 0
   }).includes('守护在你身旁'));
+  assert.strictEqual(client.getPetAssistStatus({
+    active: true, combat_mode: 'pvp', pvp_charge: 3,
+    pvp_charge_required: 5, pvp_uses: 1, pvp_uses_max: 2
+  }), '御灵充能 3/5 · 本场 1/2');
+  assert.strictEqual(client.getPetAssistStatus({
+    active: true, combat_mode: 'pvp', pvp_charge: 0,
+    pvp_charge_required: 5, pvp_uses: 2, pvp_uses_max: 2
+  }), '本场御灵已尽 2/2');
+  assert(client.formatPetAssistMessage({
+    name: '毕方', icon: '🔥', skill: '独足炎翎', type: 'damage',
+    mode: 'pvp', amount: 496, target_name: '对手'
+  }).includes('【御灵交锋】'));
   assert.strictEqual(
     componentOptions.computed.hasRecentAoeReport.call(client),
     true

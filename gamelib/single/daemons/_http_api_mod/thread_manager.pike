@@ -19,6 +19,7 @@
 constant CORE_COMMANDS = ({
     // ========== 登录相关 ==========
     "gamelib", "login", "register", "init", "check_login", "check_login_new",
+    "choice_race", "choice_profe", "start", "reguser", "tietomobile",
     // 登录会创建/替换人物与连接，保持核心串行。
 
     // ========== 战斗相关（多人交互）==========
@@ -372,6 +373,9 @@ string execute_core_command(string userid,string password,string cmd)
         destruct(user_key);
     record_world_command_finish(cmd,1,started_at,acquired);
     if(err)
+        werror("[HTTP_API][CORE_COMMAND] %s failed for %s: %s\n%s\n",
+            (cmd/" ")[0],userid,describe_error(err),describe_backtrace(err));
+    if(err)
         return "错误: "+describe_error(err);
     return result;
 }
@@ -406,8 +410,11 @@ private string execute_parallel_command_job(string userid,string password,
     finish_parallel_command(ok && !err);
     // -1 表示该命令没有进入核心世界等待队列。
     record_world_command_finish(cmd,0,started_at,-1);
-    if(err)
+    if(err){
+        werror("[HTTP_API][PARALLEL_COMMAND] %s failed for %s: %s\n%s\n",
+            (cmd/" ")[0],userid,describe_error(err),describe_backtrace(err));
         return "错误: "+describe_error(err);
+    }
     return result;
 }
 

@@ -115,6 +115,9 @@ void test_non_backend_world_rejection(object httpd)
 void test_core_command_coverage(object httpd)
 {
 	int valid = httpd->is_core_command("buy_items book fangshi") == 1 &&
+		httpd->is_core_command("choice_race third") == 1 &&
+		httpd->is_core_command("choice_profe third/fangshi") == 1 &&
+		httpd->is_core_command("start third") == 1 &&
 		httpd->is_core_command("vendue_buy_now 1") == 1 &&
 		httpd->is_core_command("term_future_action") == 1 &&
 		httpd->is_core_command("viceskill_dig ore 0") == 1 &&
@@ -135,7 +138,7 @@ void test_core_command_coverage(object httpd)
 		httpd->is_core_command("look") == 0 &&
 		httpd->is_core_command("score") == 0 &&
 		httpd->is_core_command("paihang_list mark 1") == 0;
-	test_result("购买、拍卖、社交、家园和跨档案命令进入核心锁",valid,
+	test_result("人物初始化、购买、拍卖、社交、家园和跨档案命令进入核心锁",valid,
 		"核心命令或前缀覆盖不完整");
 }
 
@@ -156,6 +159,7 @@ void test_timeout_and_observability_source(object httpd)
 		search(thread_source,
 			"master()->backend_thread()!=this_thread()") != -1 &&
 		search(thread_source,"destruct(core_key)") != -1 &&
+		search(thread_source,"describe_backtrace(err)") != -1 &&
 		search(thread_source,"record_world_command_finish") != -1 &&
 		search(daemon_source,"record_http_request_timing") != -1 &&
 		search(daemon_source,"\"dispatch_mode\":queue_status") != -1 &&
@@ -251,6 +255,8 @@ void test_async_http_command_routes()
 		"/gamelib/single/daemons/_http_api_mod/command_queue.pike");
 	int valid = daemon && queue &&
 		search(daemon,"finish_handle_api_json")!=-1 &&
+		search(daemon,"command_response==\"命令执行错误\"")!=-1 &&
+		search(daemon,"游戏命令执行失败，请重试")!=-1 &&
 		search(daemon,"finish_handle_api_html")!=-1 &&
 		search(daemon,"finish_handle_api_performs")!=-1 &&
 		search(daemon,

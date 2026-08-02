@@ -10,8 +10,9 @@
 
 inherit LOW_DAEMON;
 
-#define PET_RECORD_VERSION 1
-#define PET_LEVEL_MAX 30
+#define PET_RECORD_VERSION 2
+#define PET_LEVEL_MAX 60
+#define PET_STAR_MAX 10
 #define PET_BOND_MAX 5
 #define PET_FILE_MAX_SIZE (4*1024*1024)
 #define PET_STARTER_LEVEL 15
@@ -25,6 +26,7 @@ inherit LOW_DAEMON;
 #define PET_RIFT_EXPIRE_SECONDS 1800
 #define PET_INVITE_EXPIRE_SECONDS 120
 #define PET_ASSIST_COOLDOWN 30
+#define PET_PVP_ASSIST_USES 2
 #define PET_PENDING_REWARD_SECONDS (7*86400)
 #define PET_CACHE_MAX 2048
 
@@ -37,6 +39,7 @@ private mapping(string:mapping(string:mixed)) rift_recruits = ([]);
 private mapping(string:mapping(string:mixed)) duel_invites = ([]);
 
 #include "_pet_mod/catalog.pike"
+#include "_pet_mod/growth.pike"
 #include "_pet_mod/persistence.pike"
 #include "_pet_mod/collection.pike"
 #include "_pet_mod/rift.pike"

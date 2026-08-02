@@ -740,8 +740,8 @@
                     <span class="pet-assist-comet" aria-hidden="true"></span>
                     <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
                     <span class="pet-assist-copy">
-                        <strong>{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
-                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">协战 -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                        <strong>{{ petAssistEffect.mode === 'pvp' ? '御灵交锋·' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
+                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
                         <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
                         <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
                         <small v-else>与你并肩，静候时机</small>
@@ -790,10 +790,10 @@
                              :title="battlePet.name + ' · ' + battlePet.skill + ' · ' + getPetAssistStatus(battlePet)">
                             <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                             <span class="battle-pet-info">
-                                <strong>{{ battlePet.name }}</strong>
+                                <strong>{{ battlePet.name }} · {{ getPetCultivationLabel(battlePet) }}</strong>
                                 <small>{{ getPetAssistStatus(battlePet) }}</small>
                             </span>
-                            <span class="battle-pet-skill">{{ battlePet.skill }}</span>
+                            <span class="battle-pet-skill">{{ battlePet.skill }}<small v-if="battlePet.power">战力{{ formatCompactNumber(battlePet.power) }}</small></span>
                             <span class="battle-pet-cooldown" role="progressbar"
                                   :aria-label="battlePet.name + '协战准备进度'"
                                   :aria-valuenow="getPetCooldownPercent(battlePet)"
@@ -954,8 +954,8 @@
                                  :class="['pet-family-' + getPetFamilyClass(battlePet.family), { 'is-ready': battlePet.cooldown_remaining <= 0 }]">
                                 <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                                 <span class="battle-pet-info">
-                                    <strong>{{ battlePet.name }} · {{ battlePet.role }}</strong>
-                                    <small>{{ battlePet.skill }} · {{ getPetAssistStatus(battlePet) }}</small>
+                                    <strong>{{ battlePet.name }} · {{ battlePet.role }} · {{ getPetCultivationLabel(battlePet) }}</strong>
+                                    <small>{{ battlePet.skill }} · 战力{{ formatCompactNumber(battlePet.power || 0) }} · {{ getPetAssistStatus(battlePet) }}</small>
                                 </span>
                                 <span class="battle-pet-cooldown" role="progressbar"
                                       :aria-label="battlePet.name + '协战准备进度'"

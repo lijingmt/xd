@@ -1,5 +1,6 @@
 #include <wapmud2/include/wapmud2.h>
 #define PRE_LIST_SIZE 5        //页面上显示"这里有xx、xx、xxx等物品"时，"等"前面的物品数目
+#define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
 //int ite_count;                 //用户随身物品格子数目
 /*
 	此文件中主要包括了以下几类方法：
@@ -209,8 +210,18 @@ protected private string view_something_charact(function filter_func,string list
 					}
 					if(items[i]->is("npc"))
 						out+=items[i]->query_mini_picture_url()+"["+items[i]->query_short()+":char_npc "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
-					else
+					else{
 						out+=items[i]->query_mini_user_picture_url()+"["+honerdesc+items[i]->query_short()+bangname+":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
+						mapping pet_presence =
+							PETD->query_pet_room_presence(items[i]);
+						if(pet_presence["active"])
+							out+="　↳ "+(string)pet_presence["icon"]+
+								(string)pet_presence["name"]+" · Lv."+
+								(int)pet_presence["level"]+" · "+
+								(int)pet_presence["star"]+"星"+
+								(string)pet_presence["evolution_name"]+
+								" · 随行灵宠\n";
+					}
 					name_count[items[i]->query_name()]++;
 			}
 		}

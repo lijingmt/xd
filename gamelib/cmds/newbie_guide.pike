@@ -243,7 +243,7 @@ string render_guide(object player)
 	result += "挂机助手会按真实怪物等级自动选择练级区、逐图找怪；战斗中会吃药，缺药则前往安全地点休息后继续。\n";
 	result += "[查看地图:map_display]|[查看任务:mytasks]|[每级职业历练:growth_task]|[查看排行榜:look_top]\n";
 	if(player->query_level()<15)
-		result += "○ 15级开放全职业通用的山海万灵初契；灵宠PVE低频协战，人物PVP停用。\n";
+		result += "○ 15级开放全职业通用的山海万灵初契；灵宠可升级、升星、进化，并有限参与PVE和人物PVP。\n";
 	else
 		result += "√ 已可从当康、鹿蜀、文鳐鱼中选择第一位伙伴，另外两位以后可稳定兑换。\n[山海万灵谱:pet]|[今日修行:daily_cultivation]\n";
 

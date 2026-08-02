@@ -308,6 +308,48 @@ void test_lingyi_heal_profile()
 	cleanup_player(healer);
 }
 
+void configure_test_pet(object player,string species,string opponent_id)
+{
+	player["/tmp/wanling/pet_id"] = player->query_name()+"-pet";
+	player["/tmp/wanling/species"] = species;
+	player["/tmp/wanling/skill_set"] = 0;
+	player["/tmp/wanling/pet_pvp_growth_percent"] = 124;
+	player["/tmp/wanling/pvp_target"] = opponent_id;
+	player["/tmp/wanling/pvp_charge"] = 0;
+	player["/tmp/wanling/pvp_uses"] = 0;
+}
+
+void test_pet_fast_decision_parity()
+{
+	test_start("快速决胜只模拟双方剩余两次御灵且不改写真实充能");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object attacker = create_player("__testunit_pk_pet_a__","zhenyue",80);
+	object defender = create_player("__testunit_pk_pet_b__","zhenyue",80);
+	mapping result = ([]);
+	string error_desc = "";
+	mixed err = catch {
+		configure_test_pet(attacker,"dangkang",defender->query_name());
+		configure_test_pet(defender,"dangkang",attacker->query_name());
+		start_killing(attacker,defender,room);
+		result = attacker->query_pk_fast_decision_simulation(defender);
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && (int)result["me_pet_triggers"]==2 &&
+	   (int)result["target_pet_triggers"]==2 &&
+	   (int)attacker["/tmp/wanling/pvp_charge"]==0 &&
+	   (int)defender["/tmp/wanling/pvp_charge"]==0 &&
+	   (int)attacker["/tmp/wanling/pvp_uses"]==0 &&
+	   (int)defender["/tmp/wanling/pvp_uses"]==0)
+		test_pass();
+	else
+		test_fail("御灵次数、模拟只读或双方对称性失败: "+error_desc+
+			" result="+sprintf("%O",result));
+	cleanup_player(attacker);
+	cleanup_player(defender);
+}
+
 int main(int argc,array(string) argv)
 {
 	werror("\n╔════════════════════════════════════════════════╗\n");
@@ -320,6 +362,7 @@ int main(int argc,array(string) argv)
 	test_fangshi_summon_side();
 	test_tianxiang_magic_profile();
 	test_lingyi_heal_profile();
+	test_pet_fast_decision_parity();
 	werror("\nPVP快速决胜：%d通过，%d失败\n",
 		test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

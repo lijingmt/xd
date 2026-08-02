@@ -275,7 +275,8 @@ string execute_internal_command(object player, string cmd)
     set_this_player(original_this_player);
 
     if(err) {
-        http_werror(" Command error: %s\n", describe_error(err));
+        http_werror(" Command error: %s\n%s\n",describe_error(err),
+            describe_backtrace(err));
         output_buffer += "命令执行错误\n";
     }
 
@@ -502,7 +503,8 @@ string execute_command_sync(string userid, string password, string cmd)
     clear_http_api_login_pending(userid);
 
     if(err) {
-        http_werror(" execute_command_sync error: %s\n", describe_error(err));
+        http_werror(" execute_command_sync error: %s\n%s\n",
+            describe_error(err),describe_backtrace(err));
         return "{\"error\":\"命令执行失败: " + replace(describe_error(err), "\n", " ") + "\"}";
     }
 }
@@ -1313,8 +1315,18 @@ void finish_handle_api_json(string response,
     Protocols.HTTP.Server.Request req,string auth_userid,
     string auth_password,string cmd)
 {
+    string command_response;
     object response_player = get_player_from_connection(auth_userid);
     array(mapping) newbie_completions = ({});
+    command_response = String.trim_all_whites(response || "");
+    // 调度/运行时异常不能伪装成普通MUD文字。返回HTTP错误后，选角页会
+    // 保留已创建人物并允许重试，而不是带着半初始化界面进入游戏。
+    if(has_prefix(command_response,"错误:") ||
+       command_response=="命令执行错误" ||
+       has_prefix(command_response,"{\"error\":")){
+        send_json(req,(["error":"游戏命令执行失败，请重试；若持续出现请联系管理员。"]),500);
+        return;
+    }
     if(response_player) {
         newbie_completions =
             NEWBIED->consume_completion_notices(response_player);

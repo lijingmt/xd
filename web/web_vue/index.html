@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1785708709837">
-    <link rel="stylesheet" href="css/app.css?v=v1785708709837">
-    <link rel="stylesheet" href="css/realm.css?v=v1785708709837">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1785714621935">
+    <link rel="stylesheet" href="css/app.css?v=v1785714621935">
+    <link rel="stylesheet" href="css/realm.css?v=v1785714621935">
 </head>
 <body>
     <div id="app">
@@ -740,8 +740,8 @@
                     <span class="pet-assist-comet" aria-hidden="true"></span>
                     <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
                     <span class="pet-assist-copy">
-                        <strong>{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
-                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">协战 -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                        <strong>{{ petAssistEffect.mode === 'pvp' ? '御灵交锋·' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
+                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
                         <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
                         <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
                         <small v-else>与你并肩，静候时机</small>
@@ -790,10 +790,10 @@
                              :title="battlePet.name + ' · ' + battlePet.skill + ' · ' + getPetAssistStatus(battlePet)">
                             <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                             <span class="battle-pet-info">
-                                <strong>{{ battlePet.name }}</strong>
+                                <strong>{{ battlePet.name }} · {{ getPetCultivationLabel(battlePet) }}</strong>
                                 <small>{{ getPetAssistStatus(battlePet) }}</small>
                             </span>
-                            <span class="battle-pet-skill">{{ battlePet.skill }}</span>
+                            <span class="battle-pet-skill">{{ battlePet.skill }}<small v-if="battlePet.power">战力{{ formatCompactNumber(battlePet.power) }}</small></span>
                             <span class="battle-pet-cooldown" role="progressbar"
                                   :aria-label="battlePet.name + '协战准备进度'"
                                   :aria-valuenow="getPetCooldownPercent(battlePet)"
@@ -954,8 +954,8 @@
                                  :class="['pet-family-' + getPetFamilyClass(battlePet.family), { 'is-ready': battlePet.cooldown_remaining <= 0 }]">
                                 <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                                 <span class="battle-pet-info">
-                                    <strong>{{ battlePet.name }} · {{ battlePet.role }}</strong>
-                                    <small>{{ battlePet.skill }} · {{ getPetAssistStatus(battlePet) }}</small>
+                                    <strong>{{ battlePet.name }} · {{ battlePet.role }} · {{ getPetCultivationLabel(battlePet) }}</strong>
+                                    <small>{{ battlePet.skill }} · 战力{{ formatCompactNumber(battlePet.power || 0) }} · {{ getPetAssistStatus(battlePet) }}</small>
                                 </span>
                                 <span class="battle-pet-cooldown" role="progressbar"
                                       :aria-label="battlePet.name + '协战准备进度'"
@@ -1289,18 +1289,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785708709837"></script>
-    <script src="vendor/canvas-confetti.js?v=v1785708709837"></script>
-    <script src="vendor/howler.core.min.js?v=v1785708709837"></script>
-    <script src="vendor/driver.iife.js?v=v1785708709837"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785714621935"></script>
+    <script src="vendor/canvas-confetti.js?v=v1785714621935"></script>
+    <script src="vendor/howler.core.min.js?v=v1785714621935"></script>
+    <script src="vendor/driver.iife.js?v=v1785714621935"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785708709837';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785714621935';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1785708709837"></script>
+    <script src="js/app.js?v=v1785714621935"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785708709837"></script>
+    <script src="../includes/translate.js?v=v1785714621935"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

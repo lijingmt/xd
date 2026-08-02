@@ -69,8 +69,8 @@ private string render_detail(mapping state,string species)
 	s += "灵属："+(string)info["family"]+" | 定位："+
 		(string)info["role"]+"\n";
 	s += (string)info["origin"]+"\n\n";
-	s += "PVE低频协战："+(string)info["skill"]+
-		"；不参与人物PVP。\n";
+	s += "战斗灵技："+(string)info["skill"]+
+		"。PVE按冷却协战；人物PVP按战斗回合充能，每场最多触发2次，成长收益经过压缩且不能补刀。\n";
 	s += "三套灵纹：\n";
 	foreach((array)info["skill_sets"],array skills)
 		s += "• "+(skills*"、")+"\n";
@@ -82,8 +82,17 @@ private string render_detail(mapping state,string species)
 		}
 	if(owned>=0){
 		mapping pet = state["pets"][owned];
-		s += "\n已收录："+(int)pet["level"]+"级，羁绊"+
-			(int)pet["bond"]+"/5，编号"+pet_short_id((string)pet["id"])+"\n";
+		mapping attributes = pet["attributes"];
+		s += "\n已收录：Lv."+(int)pet["level"]+"/60 · "+
+			(int)pet["star"]+"星 · "+(string)pet["evolution_name"]+
+			" · 羁绊"+(int)pet["bond"]+"/5\n";
+		s += "灵宠战力："+(int)pet["power"]+" | 生命"+
+			(int)attributes["life"]+" | 攻击"+(int)attributes["attack"]+
+			" | 防御"+(int)attributes["defense"]+" | 灵息"+
+			(int)attributes["spirit"]+" | 迅捷"+(int)attributes["speed"]+"\n";
+		s += "PVE成长倍率："+(int)pet["growth_percent"]+
+			"% | PVP压缩倍率："+(int)pet["pvp_growth_percent"]+
+			"% | 编号"+pet_short_id((string)pet["id"])+"\n";
 		s += "当前灵纹："+((array)pet["skills"]*"、")+"\n";
 		s += "灵纹节奏："+((int)pet["skill_set"]==1 ?
 			"轻灵（80%效果/24秒）" : ((int)pet["skill_set"]==2 ?
@@ -91,7 +100,8 @@ private string render_detail(mapping state,string species)
 		s += "已收录外观："+((array)pet["variants"]*"、")+"\n";
 		s += "[设为协战:pet active "+(string)pet["id"]+"] "+
 			"[提升等级:pet level "+(string)pet["id"]+"]\n"+
-			"[深化羁绊:pet bond "+(string)pet["id"]+"] "+
+			"[消耗残片升星:pet star "+(string)pet["id"]+"] "+
+			"[深化羁绊:pet bond "+(string)pet["id"]+"]\n"+
 			"[轮换灵纹:pet reset "+(string)pet["id"]+"]\n"+
 			"[40月华尘解锁星辉异色:pet variant "+
 			(string)pet["id"]+"]\n";
@@ -112,7 +122,7 @@ private string render_materials(mapping state)
 	foreach(indices(state["materials"]),string material)
 		s += "• "+material_name(material)+"："+
 			(int)state["materials"][material]+"\n";
-	s += "\n灵印可稳定换基础灵宠；60残片可任选裂隙异兽稳定孵化；灵纹符按顺序轮换协战节奏；40月华尘可保底解锁星辉异色。\n";
+	s += "\n灵印可稳定换基础灵宠；灵卵残片既可用于1—10星成长，也可用60枚任选裂隙异兽稳定孵化；3/6/9星自动进化。灵纹符按顺序轮换协战节奏；40月华尘可保底解锁星辉异色。\n";
 	s += "[可兑换灵宠:pet catalog]|[返回万灵谱:pet]\n";
 	return s;
 }
@@ -146,7 +156,9 @@ private string render_main(mapping state,object me)
 			mapping info = PETD->query_pet_species(
 				(string)state["pets"][i]["species"]);
 			active_name = (string)info["icon"]+(string)info["name"]+
-				"（"+(int)state["pets"][i]["level"]+"级）";
+				"（Lv."+(int)state["pets"][i]["level"]+" · "+
+				(int)state["pets"][i]["star"]+"星"+
+				(string)state["pets"][i]["evolution_name"]+"）";
 			break;
 		}
 	string boss_species = (string)state["weekly_boss"];
@@ -174,17 +186,19 @@ private string render_main(mapping state,object me)
 		s += "我的伙伴：\n";
 		foreach((array)state["pets"],mapping pet){
 			mapping info = PETD->query_pet_species((string)pet["species"]);
-			s += ((string)pet["id"]==active_id ? "✓ " : "○ ")+
-				(string)info["icon"]+(string)info["name"]+" "+
-				(int)pet["level"]+"级·羁绊"+(int)pet["bond"]+
-				" [详情:pet detail "+(string)pet["species"]+"]\n";
+				s += ((string)pet["id"]==active_id ? "✓ " : "○ ")+
+					(string)info["icon"]+(string)info["name"]+" "+
+					"Lv."+(int)pet["level"]+"·"+(int)pet["star"]+
+					"星"+(string)pet["evolution_name"]+"·战力"+
+					(int)pet["power"]+"·羁绊"+(int)pet["bond"]+
+					" [详情:pet detail "+(string)pet["species"]+"]\n";
 		}
 		s += "[暂停当前协战:pet active none]\n\n";
 	}
 	s += "[今日修行:daily_cultivation]|[万灵裂隙:wanling_rift]|[灵宠论道:pet_duel list]\n";
 	s += "[完整图鉴:pet catalog]|[论道编队:pet team]|[独立材料栏:pet materials]\n";
 	s += "[前往万灵台:wanling_rift gather]\n";
-	s += "\n公平规则：PVE协战每30秒最多触发一次，总贡献受控；人物PVP完全停用。会员不出售战斗专属宠物或属性洗练。\n";
+	s += "\n公平规则：PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。会员不出售战斗专属宠物或属性洗练。\n";
 	if(me->query_profeId()=="fangshi")
 		s += "方士说明：万灵伙伴不占虎灵、鹤灵、龟灵名额，不触发三灵共鸣。\n";
 	s += "[返回游戏:look]\n";
@@ -235,6 +249,8 @@ int main(string|zero arg)
 		message = (string)PETD->set_active_pet(me,parts[1])["message"];
 	else if(parts[0]=="level" && sizeof(parts)>=2)
 		message = (string)PETD->train_pet_level(me,parts[1])["message"];
+	else if(parts[0]=="star" && sizeof(parts)>=2)
+		message = (string)PETD->upgrade_pet_star(me,parts[1])["message"];
 	else if(parts[0]=="bond" && sizeof(parts)>=2)
 		message = (string)PETD->deepen_pet_bond(me,parts[1])["message"];
 	else if(parts[0]=="reset" && sizeof(parts)>=2)

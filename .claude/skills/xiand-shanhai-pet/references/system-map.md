@@ -6,12 +6,15 @@
 - Authority: `gamelib/single/daemons/petd.pike`
 - Modules:
   - `_pet_mod/catalog.pike`: species, roles, elements, skills, balance constants
+  - `_pet_mod/growth.pike`: level/star caps, evolution, five attributes, power,
+    PVE growth and compressed PVP growth
   - `_pet_mod/persistence.pike`: validation, cache, atomic save, corruption rules
   - `_pet_mod/collection.pike`: starter, active assignment, growth, materials,
     hunting, exchange, hatch, cosmetic unlock, login reconciliation
   - `_pet_mod/rift.pike`: teams, rounds, rewards, eggs, pity, weekly choice
   - `_pet_mod/duel.pike`: invitations, standard teams, rewards, anti-farming
-  - `_pet_mod/assist.pike`: bounded PVE profile, runtime effect, battle snapshot
+  - `_pet_mod/assist.pike`: bounded PVE/PVP profiles, runtime effect, room and
+    battle snapshots, fast-decision pet profile
 
 Never bulk-migrate legacy player saves. Merely viewing the pet entry must not
 create the account pet file. If physical pet data exists but cannot validate,
@@ -41,10 +44,11 @@ fail the pet feature closed without blocking character login.
 ## Runtime ownership
 
 Permanent active assignments map physical character IDs to pet IDs. The current
-player object caches only `/tmp/wanling/pet_id`, `species`, `skill_set`,
-`assist_at`, `assist_seq`, and the immutable recent assist event. Clear stale
-visual events when selecting/removing/reconciling a pet. Do not persist combat
-animation state.
+player object caches identity, level, star, bond, evolution, five attributes,
+power, PVE/PVP growth, skill set, PVE cooldown, PVP target/charge/uses, event
+sequence, and the immutable recent assist event under `/tmp/wanling/`. Clear
+combat state when selecting/removing/reconciling a pet and on `_clean_fight()`.
+Do not persist charge, cooldown, targets, or animation state.
 
 ## Validation map
 
@@ -53,9 +57,19 @@ animation state.
 - Build/template: `vue_source/tests/build-pipeline.test.js`
 - Full runtime: `./scripts/restart_with_testunit.sh`
 - Unified artifacts: `./scripts/build/build_vue_frontend.sh`
+- Multi-character bootstrap: `test_unit/test_multi_character_account.pike` and
+  `test_unit/test_http_thread_architecture.pike`
 
 The targeted pet test must cover all professions, read-only legacy behavior,
-unique IDs, duplicate conversion, caps, deterministic skill sets, inventory
-isolation, sibling ownership, hunt anti-repeat, PVE/PVP boundaries, battle
-presence/event identity, full-resource zero-value feedback, rift anti-small-
-account rules, reward idempotency, duel anti-farming, corruption, and wiring.
+unique IDs, duplicate conversion, level/star/bond caps, evolution thresholds,
+deterministic attributes and skill sets, inventory isolation, sibling ownership,
+hunt anti-repeat, PVE cooldown, PVP charge/two-use/no-last-hit rules,
+fast-decision snapshots, battle presence/event identity, full-resource
+zero-value feedback, rift anti-small-account rules, reward idempotency, duel
+anti-farming, corruption, and wiring.
+
+After changing login reconciliation, repeat the real account HTTP chain:
+`/api/account/login` -> `/api/account/characters/create` ->
+`/api/account/characters/select` -> `/api/json` with `bootstrap_command`.
+Require profession initialization to run on the Backend thread and require a
+runtime failure to leave Vue on the recoverable character selector.

@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 山海万灵账号收藏、PVE协战、裂隙与论道完整回归。 */
+/** 山海万灵账号收藏、养成、PVE/PVP协战、裂隙与论道完整回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -197,7 +197,7 @@ void test_collection_growth(object player)
 	PETD->test_add_pet_material(player,"bond_token",20);
 	PETD->test_add_pet_material(player,"skill_rune",3);
 	int growth_ok = 1;
-	for(int i=1;i<30;i++)
+	for(int i=1;i<60;i++)
 		growth_ok = growth_ok && PETD->train_pet_level(player,pet_id)["ok"];
 	mapping level_reject = PETD->train_pet_level(player,pet_id);
 	for(int i=1;i<5;i++)
@@ -211,25 +211,44 @@ void test_collection_growth(object player)
 	array skills2 = copy_value(PETD->query_pet_state(player)["pets"][0]["skills"]);
 	mapping reset3 = PETD->reset_pet_skills(player,pet_id);
 	array skills3 = copy_value(PETD->query_pet_state(player)["pets"][0]["skills"]);
+	PETD->test_add_pet_material(player,"egg_fragment",260);
+	for(int star=1;star<10;star++)
+		growth_ok = growth_ok && PETD->upgrade_pet_star(player,pet_id)["ok"];
+	mapping star_reject = PETD->upgrade_pet_star(player,pet_id);
 	mapping grown = PETD->query_pet_state(player);
 	string skills0_json = Standards.JSON.encode(skills0);
 	string skills1_json = Standards.JSON.encode(skills1);
 	string skills2_json = Standards.JSON.encode(skills2);
 	string skills3_json = Standards.JSON.encode(skills3);
-	check("培养严格封顶30级、五阶羁绊且三套灵纹确定轮换",
-		growth_ok && !level_reject["ok"] && !bond_reject["ok"] &&
-		(int)grown["pets"][0]["level"]==30 &&
+	check("培养严格封顶60级、十星、五阶羁绊且三套灵纹确定轮换",
+		growth_ok && !level_reject["ok"] && !star_reject["ok"] &&
+		!bond_reject["ok"] &&
+		(int)grown["pets"][0]["level"]==60 &&
+		(int)grown["pets"][0]["star"]==10 &&
+		(int)grown["pets"][0]["evolution"]==3 &&
+		grown["pets"][0]["evolution_name"]=="真形·圆满" &&
 		(int)grown["pets"][0]["bond"]==5 &&
 		reset1["ok"] && reset2["ok"] && reset3["ok"] &&
 		skills0_json!=skills1_json && skills1_json!=skills2_json &&
 		skills0_json==skills3_json,
-		"等级/羁绊越界或灵纹出现随机、丢失和非三轮回");
+		"等级/星级/羁绊越界、进化错误或灵纹不是确定三轮回");
+	check("五维属性、战力与PVE/PVP两套成长压缩值确定且完整",
+		mappingp(grown["pets"][0]["attributes"]) &&
+		(int)grown["pets"][0]["attributes"]["life"]>0 &&
+		(int)grown["pets"][0]["attributes"]["attack"]>0 &&
+		(int)grown["pets"][0]["attributes"]["defense"]>0 &&
+		(int)grown["pets"][0]["attributes"]["spirit"]>0 &&
+		(int)grown["pets"][0]["attributes"]["speed"]>0 &&
+		(int)grown["pets"][0]["power"]>0 &&
+		(int)grown["pets"][0]["growth_percent"]==222 &&
+		(int)grown["pets"][0]["pvp_growth_percent"]==124,
+		"属性缺字段、战力无效或PVP没有压缩到完整成长的20%");
 	check("所有培养材料保存在独立材料栏且不污染人物背包",
 		player->packaged_items==inventory_before &&
 		mappingp(grown["materials"]) && sizeof((mapping)grown["materials"])==6,
 		"培养过程改写了人物背包或材料栏字段不完整");
 	string boss_species = PETD->query_rift_boss_species()[0];
-	PETD->test_add_pet_material(player,"egg_fragment",50);
+	PETD->test_add_pet_material(player,"egg_fragment",60);
 	mapping hatched = PETD->hatch_pet_fragments(player,boss_species);
 	mapping hatch_repeat = PETD->hatch_pet_fragments(player,boss_species);
 	mapping after_hatch = PETD->query_pet_state(player);
@@ -292,9 +311,44 @@ void test_same_account_active_pet()
 		"同账号多职业可以建立有奖论道邀请");
 }
 
+void test_legacy_pet_migration()
+{
+	werror("\n【万灵测试】V1旧宠物档案无损迁移\n");
+	string account_id = "xd99testunitpetlegacy";
+	object player = create_test_player(account_id,"human","jianxian");
+	player->level = 50;
+	player->set_att_by_level();
+	player->save_with_result();
+	mapping chosen = PETD->choose_starter_pet(player,"dangkang");
+	string path = pet_file(account_id);
+	mapping legacy = Standards.JSON.decode(Stdio.read_file(path));
+	legacy["version"] = 1;
+	foreach((array)legacy["pets"],mapping pet)
+		m_delete(pet,"star");
+	string legacy_source = Standards.JSON.encode(legacy);
+	Stdio.write_file(path,legacy_source);
+	rm(path+".bak");
+	PETD->drop_test_pet_cache(account_id);
+	mapping migrated = PETD->query_pet_state(player);
+	mapping disk_after_read = Standards.JSON.decode(Stdio.read_file(path));
+	int mutation = PETD->test_add_pet_material(player,"spirit_dew",1);
+	mapping disk_after_write = Standards.JSON.decode(Stdio.read_file(path));
+	check("V1档案读取时补为一星且单纯查看不强制改写磁盘",
+		chosen["ok"] && migrated["ok"] &&
+		(int)migrated["version"]==2 &&
+		(int)migrated["pets"][0]["star"]==1 &&
+		(int)disk_after_read["version"]==1 &&
+		!has_index(disk_after_read["pets"][0],"star"),
+		"旧档案无法读取、星级不是安全默认值或查看触发了批量迁移");
+	check("旧档案下一次真实修改通过原子保存自然升级为V2",
+		mutation && (int)disk_after_write["version"]==2 &&
+		(int)disk_after_write["pets"][0]["star"]==1,
+		"V1内存迁移后无法保存或永久星级字段丢失");
+}
+
 void test_hunt_and_assist(object player,object pvp_target)
 {
-	werror("\n【万灵测试】真实寻迹与低频PVE协战\n");
+	werror("\n【万灵测试】真实寻迹与PVE/PVP御灵协战\n");
 	player->move(test_room);
 	pvp_target->move(test_room);
 	mapping start = PETD->start_pet_hunt(player);
@@ -324,7 +378,8 @@ void test_hunt_and_assist(object player,object pvp_target)
 	mapping assist = PETD->perform_pet_pve_assist(player,first);
 	mapping cooldown = PETD->perform_pet_pve_assist(player,first);
 	mapping presence = PETD->query_pet_battle_presence(player);
-	int expected_max = player->query_life_max()/100;
+	int expected_max = player->query_life_max()*2/100*
+		(int)presence["growth_percent"]/100/2;
 	check("疗愈伙伴30秒低频触发并遵循现有减疗上限规则",
 		assist["ok"] && assist["type"]=="heal" &&
 		(int)assist["amount"]>0 && (int)assist["amount"]<=expected_max &&
@@ -334,22 +389,61 @@ void test_hunt_and_assist(object player,object pvp_target)
 	check("协战事件向战斗小窗提供宠物、技能、冷却和唯一事件编号",
 		presence["active"] && presence["name"]=="当康" &&
 		presence["icon"]!="" && presence["skill"]=="丰穰守心" &&
+		(int)presence["level"]==60 && (int)presence["star"]==10 &&
+		presence["evolution_name"]=="真形·圆满" &&
+		(int)presence["power"]>0 && presence["combat_mode"]=="pve" &&
 		(int)presence["cooldown_remaining"]>0 &&
 		(int)presence["cooldown_remaining"]<=30 &&
 		mappingp(presence["recent_event"]) &&
 		(string)presence["recent_event"]["id"]!="" &&
 		presence["recent_event"]["type"]=="heal" &&
+		presence["recent_event"]["mode"]=="pve" &&
 		(int)presence["recent_event"]["amount"]==(int)assist["amount"],
 		"战斗API无法可靠渲染随行卡片或协战动画");
-	player["/tmp/wanling/assist_at"] = 0;
 	string event_id = (string)presence["recent_event"]["id"];
+	player->set_life(player->query_life_max()/2);
+	player->fight(pvp_target,0,1);
+	if(!pvp_target->query_in_combat())
+		pvp_target->_fight(player);
+	mapping combat_switch = PETD->set_active_pet(player,"none");
+	check("人物交战中不能暂停、更换或培养灵宠以临场套利",
+		!combat_switch["ok"] &&
+		search((string)combat_switch["message"],"交战中")!=-1,
+		"战斗中仍可热切换灵宠或清空御灵次数");
 	int target_before = pvp_target->get_cur_life();
-	mapping pvp = PETD->perform_pet_pve_assist(player,pvp_target);
+	mapping pvp = ([]);
+	int charged = 1;
+	for(int round=1;round<=5;round++){
+		pvp = PETD->perform_pet_combat_assist(player,pvp_target);
+		if(round<5)
+			charged = charged && !pvp["ok"] && pvp["charging"] &&
+				(int)pvp["charge"]==round;
+	}
 	mapping after_pvp_presence = PETD->query_pet_battle_presence(player);
-	check("人物PVP目标完全不会触发通用灵宠协战",
-		!pvp["ok"] && pvp_target->get_cur_life()==target_before &&
-		(string)after_pvp_presence["recent_event"]["id"]==event_id,
-		"灵宠介入人物PVP或改变玩家生命");
+	check("人物PVP按五个有效战斗节拍充能后触发且疗愈宠不伤害对手",
+		charged && pvp["ok"] && pvp["type"]=="heal" &&
+		pvp_target->get_cur_life()==target_before &&
+		player->get_cur_life()>player->query_life_max()/2 &&
+		after_pvp_presence["combat_mode"]=="pvp" &&
+		(int)after_pvp_presence["pvp_uses"]==1 &&
+		(int)after_pvp_presence["pvp_uses_max"]==2 &&
+		mappingp(after_pvp_presence["recent_event"]) &&
+		after_pvp_presence["recent_event"]["mode"]=="pvp" &&
+		after_pvp_presence["recent_event"]["target_name"]==
+			player->query_name_cn() &&
+		(string)after_pvp_presence["recent_event"]["id"]!=event_id,
+		"PVP充能、限次状态、模式事件、治疗目标或角色边界错误");
+	for(int round=1;round<=5;round++)
+		PETD->perform_pet_combat_assist(player,pvp_target);
+	mapping exhausted = PETD->perform_pet_combat_assist(player,pvp_target);
+	check("同一场人物PVP最多触发两次御灵协战",
+		!exhausted["ok"] &&
+		(int)PETD->query_pet_battle_presence(player)["pvp_uses"]==2,
+		"PVP切换目标或继续心跳可绕过每场两次限制");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(pvp_target->query_in_combat())
+		pvp_target->_clean_fight();
 	player->set_life(player->query_life_max());
 	player["/tmp/wanling/assist_at"] = 0;
 	mapping full_life_assist = PETD->perform_pet_pve_assist(player,first);
@@ -359,6 +453,31 @@ void test_hunt_and_assist(object player,object pvp_target)
 		(string)full_life_presence["recent_event"]["id"]!=event_id &&
 		(int)full_life_presence["recent_event"]["amount"]==0,
 		"满生命时宠物完全无反馈、重复事件ID或显示虚假回血");
+	mapping granted_attack = PETD->test_grant_pet_species(player,"bifang");
+	mapping attack_state = PETD->query_pet_state(player);
+	string attack_pet_id = "";
+	foreach((array)attack_state["pets"],mapping pet)
+		if(pet["species"]=="bifang")
+			attack_pet_id = (string)pet["id"];
+	mapping activated_attack = PETD->set_active_pet(player,attack_pet_id);
+	int pvp_life_max = pvp_target->query_life_max();
+	pvp_target->set_life(2);
+	player->fight(pvp_target,0,1);
+	if(!pvp_target->query_in_combat())
+		pvp_target->_fight(player);
+	mapping last_hit_guard = ([]);
+	for(int round=1;round<=5;round++)
+		last_hit_guard = PETD->perform_pet_combat_assist(player,pvp_target);
+	check("强攻宠参与人物PVP但绝不造成最后一击",
+		granted_attack["ok"] && activated_attack["ok"] &&
+		last_hit_guard["ok"] && last_hit_guard["type"]=="damage" &&
+		(int)last_hit_guard["amount"]==1 && pvp_target->get_cur_life()==1,
+		"强攻宠未参与PVP、越过成长上限或直接击杀玩家");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(pvp_target->query_in_combat())
+		pvp_target->_clean_fight();
+	pvp_target->set_life(pvp_life_max);
 	mapping profile = PETD->query_pet_assist_profile(
 		"bifang",1000000,100000,100000,100000);
 	mapping swift = PETD->query_pet_assist_profile(
@@ -372,6 +491,21 @@ void test_hunt_and_assist(object player,object pvp_target)
 		(int)swift["amount"]==1600 && (int)swift["cooldown"]==24 &&
 		(int)steady["amount"]==2300 && (int)steady["cooldown"]==36,
 		"灵纹仅改名字、倍率失控或冷却没有同步调整");
+	mapping pvp_profile = PETD->query_pet_pvp_assist_profile(
+		"bifang",1000000,100000,100000,100000,0,124);
+	check("PVP成长压缩后强攻单次伤害仍受目标生命约0.5%硬上限",
+		pvp_profile["type"]=="damage" &&
+		(int)pvp_profile["amount"]==496 &&
+		(int)pvp_profile["charge_required"]==5 &&
+		(int)pvp_profile["max_uses"]==2,
+		"PVP属性可无限放大、触发过密或次数上限丢失");
+	player["/tmp/wanling/pvp_target"] = "old_opponent";
+	player["/tmp/wanling/pvp_charge"] = 4;
+	mapping fast_profile = PETD->query_pet_pk_fast_profile(
+		player,pvp_target);
+	check("快速决胜切换对手不会继承上一目标的御灵充能",
+		fast_profile["active"] && (int)fast_profile["charge"]==0,
+		"旧对手充能被带入快速决胜并形成抢先触发");
 	player->clean_debuff("curse");
 	foreach(({first,low,second,third}),object npc)
 		if(npc) destruct(npc);
@@ -669,6 +803,7 @@ int main()
 		if(players_ok && test_room){
 			test_catalog_and_all_professions(profession_players);
 			test_collection_growth(profession_players[0]);
+			test_legacy_pet_migration();
 			test_same_account_active_pet();
 			test_hunt_and_assist(profession_players[0],profession_players[1]);
 			test_rift(profession_players[0..2]);

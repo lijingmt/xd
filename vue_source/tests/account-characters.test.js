@@ -166,6 +166,31 @@ assert(!appSource.includes("sessionStorage.getItem('mud_txd') || this.txd"));
   assert.strictEqual(sessionValues.get('mud_txd'), firstTxd);
   assert.strictEqual(client.showLogin, false);
 
+  // 创建后职业初始化若由后端返回500，必须留在选角页并允许重试，
+  // 不能把错误文字当成正常MUD页面覆盖当前人物会话。
+  client.accountToken = 'c'.repeat(64);
+  client.characterLoading = false;
+  client.characterError = '';
+  client.showCharacterSelect = true;
+  client.currentCharacterId = 'xd01firsthero';
+  client.postAccountApi = async path => {
+    assert.strictEqual(path, '/api/account/characters/select');
+    return {
+      txd: secondTxd,
+      character_id: 'xd01secondhero',
+      bootstrap_command: 'choice_profe third/fangshi'
+    };
+  };
+  sandbox.fetch = async () => ({
+    ok: false,
+    status: 500,
+    json: async () => ({ error: '游戏命令执行失败，请重试' })
+  });
+  await client.selectAccountCharacter({ id: 'xd01secondhero' });
+  assert.strictEqual(client.showCharacterSelect, true);
+  assert.strictEqual(client.currentCharacterId, 'xd01firsthero');
+  assert(client.characterError.includes('请重试'));
+
   console.log('account character frontend tests passed');
 })().catch(error => {
   console.error(error);

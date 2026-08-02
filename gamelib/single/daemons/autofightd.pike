@@ -1341,7 +1341,9 @@ string query_auto_sell_reject_reason(object me,object item)
 	if(item_level < 0)
 		return "no_level_requirement";
 	level_gap = query_auto_sell_level_gap(me);
-	if(item_level > me->query_level()-level_gap)
+	// gap=0表示完全关闭等级差过滤，高于人物等级的装备也继续按品质、
+	// 类别和永久保护规则处理；不能把0误解为“至少低0级”。
+	if(level_gap>0 && item_level > me->query_level()-level_gap)
 		return "recent_level";
 	return "";
 }

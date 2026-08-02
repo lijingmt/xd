@@ -615,6 +615,14 @@ void test_auto_sell_protection_rules()
 		valid = valid &&
 			daemon->query_auto_sell_reject_reason(player,item) ==
 			"no_level_requirement";
+		item->set_item_canLevel(50);
+		player["/plus/autofight_sell_level_gap"] = 0;
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) == "";
+		player["/plus/autofight_sell_level_gap"] = 3;
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) ==
+			"recent_level";
 	};
 	if(err)
 		error_desc = describe_error(err);

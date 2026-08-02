@@ -119,6 +119,7 @@ private int valid_pet_instance(mapping one,multiset(string) ids,
 	if(!valid_pet_id(pet_id) || ids[pet_id] ||
 	   !shanhai_catalog[species] || species_seen[species] ||
 	   (int)one["level"]<1 || (int)one["level"]>PET_LEVEL_MAX ||
+	   (int)one["star"]<1 || (int)one["star"]>PET_STAR_MAX ||
 	   (int)one["xp"]<0 || (int)one["bond"]<1 ||
 	   (int)one["bond"]>PET_BOND_MAX || (int)one["bond_xp"]<0 ||
 	   (int)one["skill_set"]<0 || (int)one["skill_set"]>2 ||
@@ -139,6 +140,32 @@ private int valid_pet_instance(mapping one,multiset(string) ids,
 	ids[pet_id] = 1;
 	species_seen[species] = 1;
 	return 1;
+}
+
+/**
+ * V1没有星级字段。迁移只发生在内存，单纯查看旧档案不会写盘；下一次
+ * 真实培养会通过原子保存自然升级为V2。迁移前先限制旧版原有等级上限，
+ * 防止伪造V1数据借新版宽松上限通过校验。
+ */
+private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
+	mapping record,string account_id)
+{
+	mapping upgraded;
+	if((int)record["version"]==PET_RECORD_VERSION)
+		return record;
+	if((int)record["version"]!=1 || record["account_id"]!=account_id ||
+	   !arrayp(record["pets"]))
+		return 0;
+	upgraded = copy_value(record);
+	foreach((array)upgraded["pets"],mixed one){
+		if(!mappingp(one) || (int)one["level"]<1 ||
+		   (int)one["level"]>30)
+			return 0;
+		one["star"] = 1;
+	}
+	upgraded["version"] = PET_RECORD_VERSION;
+	upgraded["migration_pending"] = 1;
+	return upgraded;
 }
 
 private int valid_pet_record(mapping record,string account_id)
@@ -263,8 +290,10 @@ private mapping(string:mixed)|zero decode_pet_file(string path,
 	err = catch{
 		decoded = Standards.JSON.decode(source);
 	};
-	if(err || !mappingp(decoded) ||
-	   !valid_pet_record((mapping)decoded,account_id))
+	if(err || !mappingp(decoded))
+		return 0;
+	decoded = upgrade_pet_record_unlocked((mapping)decoded,account_id);
+	if(!decoded || !valid_pet_record((mapping)decoded,account_id))
 		return 0;
 	decoded["persisted"] = 1;
 	return decoded;
@@ -326,6 +355,7 @@ private int save_pet_record_unlocked(mapping(string:mixed) record)
 		return 0;
 	disk_record = copy_value(record);
 	m_delete(disk_record,"persisted");
+	m_delete(disk_record,"migration_pending");
 	disk_record["version"] = PET_RECORD_VERSION;
 	disk_record["updated_at"] = time();
 	if((int)disk_record["created_at"]<=0)
@@ -357,6 +387,7 @@ private int save_pet_record_unlocked(mapping(string:mixed) record)
 		return 0;
 	}
 	record["persisted"] = 1;
+	m_delete(record,"migration_pending");
 	record["updated_at"] = disk_record["updated_at"];
 	record["created_at"] = disk_record["created_at"];
 	cache_pet_record_unlocked(account_id,record);
@@ -456,6 +487,7 @@ private mapping(string:mixed) make_pet_instance_unlocked(mapping record,
 		"id":pet_id,
 		"species":species,
 		"level":1,
+		"star":1,
 		"xp":0,
 		"bond":1,
 		"bond_xp":0,
