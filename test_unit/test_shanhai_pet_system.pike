@@ -323,6 +323,7 @@ void test_hunt_and_assist(object player,object pvp_target)
 	int npc_before = first->get_cur_life();
 	mapping assist = PETD->perform_pet_pve_assist(player,first);
 	mapping cooldown = PETD->perform_pet_pve_assist(player,first);
+	mapping presence = PETD->query_pet_battle_presence(player);
 	int expected_max = player->query_life_max()/100;
 	check("疗愈伙伴30秒低频触发并遵循现有减疗上限规则",
 		assist["ok"] && assist["type"]=="heal" &&
@@ -330,12 +331,34 @@ void test_hunt_and_assist(object player,object pvp_target)
 		!cooldown["ok"] && first->get_cur_life()==npc_before &&
 		player->get_cur_life()>life_before,
 		"协战忽略冷却、减疗或错误修改NPC生命");
+	check("协战事件向战斗小窗提供宠物、技能、冷却和唯一事件编号",
+		presence["active"] && presence["name"]=="当康" &&
+		presence["icon"]!="" && presence["skill"]=="丰穰守心" &&
+		(int)presence["cooldown_remaining"]>0 &&
+		(int)presence["cooldown_remaining"]<=30 &&
+		mappingp(presence["recent_event"]) &&
+		(string)presence["recent_event"]["id"]!="" &&
+		presence["recent_event"]["type"]=="heal" &&
+		(int)presence["recent_event"]["amount"]==(int)assist["amount"],
+		"战斗API无法可靠渲染随行卡片或协战动画");
 	player["/tmp/wanling/assist_at"] = 0;
+	string event_id = (string)presence["recent_event"]["id"];
 	int target_before = pvp_target->get_cur_life();
 	mapping pvp = PETD->perform_pet_pve_assist(player,pvp_target);
+	mapping after_pvp_presence = PETD->query_pet_battle_presence(player);
 	check("人物PVP目标完全不会触发通用灵宠协战",
-		!pvp["ok"] && pvp_target->get_cur_life()==target_before,
+		!pvp["ok"] && pvp_target->get_cur_life()==target_before &&
+		(string)after_pvp_presence["recent_event"]["id"]==event_id,
 		"灵宠介入人物PVP或改变玩家生命");
+	player->set_life(player->query_life_max());
+	player["/tmp/wanling/assist_at"] = 0;
+	mapping full_life_assist = PETD->perform_pet_pve_assist(player,first);
+	mapping full_life_presence = PETD->query_pet_battle_presence(player);
+	check("生命已满时仍生成零数值陪伴事件但不伪造治疗量",
+		full_life_assist["ok"] && (int)full_life_assist["amount"]==0 &&
+		(string)full_life_presence["recent_event"]["id"]!=event_id &&
+		(int)full_life_presence["recent_event"]["amount"]==0,
+		"满生命时宠物完全无反馈、重复事件ID或显示虚假回血");
 	mapping profile = PETD->query_pet_assist_profile(
 		"bifang",1000000,100000,100000,100000);
 	mapping swift = PETD->query_pet_assist_profile(

@@ -3,6 +3,58 @@
 #ifndef XIAND_PET_ASSIST_PIKE
 #define XIAND_PET_ASSIST_PIKE
 
+/**
+ * 返回战斗小窗需要的轻量陪伴状态。
+ *
+ * 这里只读取人物临时状态和内存图鉴，不读取账号文件，避免每秒战斗
+ * 轮询触发磁盘访问。recent_event 最多保留10秒，客户端按事件ID去重。
+ */
+mapping(string:mixed) query_pet_battle_presence(object player)
+{
+	mapping result = (["active":0]);
+	string species;
+	mapping info;
+	mapping recent;
+	int skill_set;
+	int cooldown;
+	int assisted_at;
+	int remaining;
+	int event_at;
+	if(!player)
+		return result;
+	species = (string)(player["/tmp/wanling/species"] || "");
+	info = shanhai_catalog[species];
+	if(!info)
+		return result;
+	skill_set = (int)player["/tmp/wanling/skill_set"];
+	cooldown = skill_set==1 ? 24 : (skill_set==2 ? 36 : PET_ASSIST_COOLDOWN);
+	assisted_at = (int)player["/tmp/wanling/assist_at"];
+	remaining = assisted_at+cooldown-time();
+	if(remaining<0)
+		remaining = 0;
+	result = ([
+		"active":1,
+		"pet_id":(string)(player["/tmp/wanling/pet_id"] || ""),
+		"species":species,
+		"name":(string)info["name"],
+		"icon":(string)info["icon"],
+		"family":(string)info["family"],
+		"role":(string)info["role"],
+		"skill":(string)info["skill"],
+		"skill_set":skill_set,
+		"cooldown":cooldown,
+		"cooldown_remaining":remaining,
+		"ready_at":assisted_at+cooldown,
+	]);
+	if(mappingp(player["/tmp/wanling/recent_assist"])){
+		recent = player["/tmp/wanling/recent_assist"];
+		event_at = (int)recent["event_at"];
+		if(event_at>0 && event_at<=time()+1 && time()-event_at<=10)
+			result["recent_event"] = copy_value(recent);
+	}
+	return result;
+}
+
 mapping(string:mixed) query_pet_assist_profile(string species,
 	int base_damage,int target_life_max,int player_life_max,
 	int player_mofa_max,void|int skill_set)
@@ -54,6 +106,10 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	mapping result = (["ok":0,"type":"none","amount":0]);
 	string species;
 	mapping info;
+	string target_name;
+	mapping event;
+	int event_seq;
+	int event_at;
 	if(!player || !target || !player->is || !player->is("player") ||
 	   !target->is || !target->is("npc") ||
 	   player->get_cur_life()<=0 || target->get_cur_life()<=0 ||
@@ -114,15 +170,43 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 		}
 	}
 	// 即使当前生命/法力已满也进入冷却，避免每个心跳反复判断和刷屏。
-	player["/tmp/wanling/assist_at"] = time();
+	event_at = time();
+	player["/tmp/wanling/assist_at"] = event_at;
 	result["ok"] = 1;
 	result["amount"] = actual;
+	target_name = target->query_name();
+	if(functionp(target->query_name_cn) && target->query_name_cn()!="")
+		target_name = target->query_name_cn();
+	event_seq = (int)player["/tmp/wanling/assist_seq"]+1;
+	player["/tmp/wanling/assist_seq"] = event_seq;
+	event = ([
+		"id":sprintf("%s-%d-%d-%d",player->query_name(),event_at,event_seq,
+			random(1000000)),
+		"event_at":event_at,
+		"pet_id":(string)(player["/tmp/wanling/pet_id"] || ""),
+		"species":species,
+		"name":(string)info["name"],
+		"icon":(string)info["icon"],
+		"family":(string)info["family"],
+		"role":(string)info["role"],
+		"skill":(string)info["skill"],
+		"type":effect_type,
+		"amount":actual,
+		"target_name":target_name,
+		"cooldown":(int)result["cooldown"],
+		"ready_at":event_at+(int)result["cooldown"],
+	]);
+	player["/tmp/wanling/recent_assist"] = event;
+	result["event"] = copy_value(event);
 	if(actual>0){
 		string unit = effect_type=="damage" ? "点协战伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
 		tell_object(player,"【万灵协战】"+(string)info["name"]+"施展"+
 			(string)info["skill"]+"，带来"+actual+unit+"。\n");
 	}
+	else
+		tell_object(player,"【万灵协战】"+(string)info["name"]+"施展"+
+			(string)info["skill"]+"，守护在你身旁。\n");
 	return result;
 }
 

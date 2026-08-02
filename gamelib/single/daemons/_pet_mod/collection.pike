@@ -119,6 +119,7 @@ mapping(string:mixed) choose_starter_pet(object player,string species)
 				player["/tmp/wanling/pet_id"] = pet["id"];
 				player["/tmp/wanling/species"] = species;
 				player["/tmp/wanling/skill_set"] = 0;
+				player["/tmp/wanling/recent_assist"] = 0;
 				result["message"] +=
 					"它已设为当前协战伙伴，并获赠12滴灵露与2枚同心叶。";
 			}
@@ -151,6 +152,7 @@ mapping(string:mixed) set_active_pet(object player,string pet_id)
 			player["/tmp/wanling/pet_id"] = 0;
 			player["/tmp/wanling/species"] = 0;
 			player["/tmp/wanling/skill_set"] = 0;
+			player["/tmp/wanling/recent_assist"] = 0;
 			result = pet_result(1,"当前角色已暂停灵宠协战，图鉴与培养不会丢失。");
 		}
 	}
@@ -178,6 +180,7 @@ mapping(string:mixed) set_active_pet(object player,string pet_id)
 					player["/tmp/wanling/pet_id"] = pet_id;
 					player["/tmp/wanling/species"] = pet["species"];
 					player["/tmp/wanling/skill_set"] = pet["skill_set"];
+					player["/tmp/wanling/recent_assist"] = 0;
 					result = pet_result(1,(string)shanhai_catalog[
 						(string)pet["species"]]["name"]+
 						"已成为当前协战伙伴。");
@@ -550,6 +553,8 @@ int reconcile_pet_player_login(object player)
 	player["/tmp/wanling/species"] = 0;
 	player["/tmp/wanling/skill_set"] = 0;
 	player["/tmp/wanling/assist_at"] = 0;
+	player["/tmp/wanling/assist_seq"] = 0;
+	player["/tmp/wanling/recent_assist"] = 0;
 	if(account_id=="")
 		return 1;
 	character_id = player->query_name();

@@ -284,6 +284,11 @@ createApp({
             battlePlayerFull: null,  // 玩家完整状态（从API获取）
             battleAoeReport: null,  // 最近一次服务端群攻战果（最后目标死亡后保留10秒）
             battleAoeReportTimer: null,
+            battlePet: null,  // 当前协战宠物的轻量陪伴状态
+            petAssistEffect: null,  // 最近一次宠物协战视觉事件
+            petAssistEffectTimer: null,
+            lastPetAssistEventId: '',  // 服务端事件ID去重，防止每秒轮询重复播放
+            petAssistEventHistory: {},  // 跨人物切换短期去重，避免旧事件重新入场
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
@@ -1224,6 +1229,7 @@ createApp({
                 clearTimeout(this.loadingTimer);
                 this.loadingTimer = null;
             }
+            this.resetPetBattleVisualState();
             return this.characterSessionEpoch;
         },
 
@@ -2414,6 +2420,7 @@ createApp({
             this.gameFrameUrl = '';
             this.playerStats = null;
             this.playerAvatarFailed = false;
+            this.petAssistEventHistory = {};
             this.loginPasswordVisible = false;
             this.clearUiToast();
             this.dismissNewbieCompletions();
@@ -3109,6 +3116,137 @@ createApp({
             }, Math.ceil(remaining * 1000));
         },
 
+        clearPetAssistEffect(clearEventId = false) {
+            if (this.petAssistEffectTimer) {
+                clearTimeout(this.petAssistEffectTimer);
+                this.petAssistEffectTimer = null;
+            }
+            this.petAssistEffect = null;
+            if (clearEventId) this.lastPetAssistEventId = '';
+        },
+
+        resetPetBattleVisualState() {
+            this.clearPetAssistEffect(true);
+            this.battlePet = null;
+        },
+
+        getPetFamilyClass(family) {
+            const familyMap = {
+                '火': 'fire', '水': 'water', '木': 'wood', '土': 'earth',
+                '金': 'metal', '雷': 'lightning', '风': 'wind',
+                '灵': 'spirit', '异': 'mystic'
+            };
+            return familyMap[String(family || '')] || 'spirit';
+        },
+
+        getPetAssistAnimationType(event) {
+            const effectType = String(event?.type || '');
+            if (effectType === 'heal') return 'heal';
+            if (effectType === 'mofa') return 'spirit';
+            const familyMap = {
+                '火': 'fire', '水': 'ice', '木': 'heal', '土': 'block',
+                '金': 'saber', '雷': 'lightning', '风': 'wind',
+                '灵': 'spirit', '异': 'curse'
+            };
+            return familyMap[String(event?.family || '')] || 'generic';
+        },
+
+        getPetCooldownPercent(pet = this.battlePet) {
+            const cooldown = Math.max(1, Number(pet?.cooldown || 0));
+            const remaining = Math.max(0, Math.min(
+                cooldown, Number(pet?.cooldown_remaining || 0)
+            ));
+            return Math.round(((cooldown - remaining) / cooldown) * 100);
+        },
+
+        getPetAssistStatus(pet = this.battlePet) {
+            if (!pet?.active) return '未随行';
+            const remaining = Math.max(0, Math.ceil(
+                Number(pet.cooldown_remaining || 0)
+            ));
+            return remaining > 0 ? `凝聚灵息 ${remaining}秒` : '协战就绪';
+        },
+
+        formatPetAssistMessage(event) {
+            const petName = String(event?.name || '灵宠');
+            const skillName = String(event?.skill || '协战');
+            const amount = Math.max(0, Number(event?.amount || 0));
+            const type = String(event?.type || '');
+            if (amount <= 0) {
+                return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在你身旁`;
+            }
+            if (type === 'damage') {
+                const targetName = String(event?.target_name || '敌人');
+                return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatCompactNumber(amount)}点协战伤害`;
+            }
+            if (type === 'mofa') {
+                return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点法力`;
+            }
+            return `${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点生命`;
+        },
+
+        syncBattlePetAssist(petAssist) {
+            if (!petAssist || Number(petAssist.active || 0) !== 1) {
+                this.battlePet = null;
+                this.clearPetAssistEffect(false);
+                return;
+            }
+            this.battlePet = {
+                ...petAssist,
+                active: true,
+                cooldown: Math.max(1, Number(petAssist.cooldown || 30)),
+                cooldown_remaining: Math.max(
+                    0, Number(petAssist.cooldown_remaining || 0)
+                )
+            };
+
+            const event = petAssist.recent_event;
+            const eventId = String(event?.id || '');
+            if (!eventId || eventId === this.lastPetAssistEventId ||
+                this.petAssistEventHistory[eventId]) return;
+            this.lastPetAssistEventId = eventId;
+            const seenAt = Date.now();
+            this.petAssistEventHistory[eventId] = seenAt;
+            for (const [seenId, timestamp] of Object.entries(
+                this.petAssistEventHistory
+            )) {
+                if (seenAt - Number(timestamp) > 120000) {
+                    delete this.petAssistEventHistory[seenId];
+                }
+            }
+
+            const effect = {
+                ...event,
+                id: eventId,
+                amount: Math.max(0, Number(event.amount || 0)),
+                visualType: this.getPetAssistAnimationType(event),
+                familyClass: this.getPetFamilyClass(event.family)
+            };
+            const message = this.formatPetAssistMessage(effect);
+            this.addBattleLog('pet', message);
+
+            if (!this.combatEffectsEnabled) return;
+            this.clearPetAssistEffect(false);
+            this.petAssistEffect = effect;
+            this.addSkillAnimation(
+                effect.visualType,
+                `${effect.name || '灵宠'}·${effect.skill || '协战'}`,
+                effect.type === 'damage' ? 'enemy' : 'player'
+            );
+            if (effect.amount > 0) {
+                this.addBattleAnimation(
+                    effect.type === 'damage' ? 'damage' : 'heal',
+                    effect.type === 'damage' ? 'enemy' : 'player',
+                    effect.amount
+                );
+            }
+            this.playGameSound('ui', 2200);
+            this.petAssistEffectTimer = setTimeout(() => {
+                this.petAssistEffect = null;
+                this.petAssistEffectTimer = null;
+            }, 2400);
+        },
+
         /**
          * 获取战斗状态（敌我双方）
          */
@@ -3144,6 +3282,7 @@ createApp({
                     if (data.player) {
                         this.battlePlayerFull = data.player;
                     }
+                    this.syncBattlePetAssist(data.player?.pet_assist);
 
                     // 更新敌人状态
                     if (data.enemy) {
@@ -3176,6 +3315,8 @@ createApp({
                         : null;
                     this.battleAnimations = [];
                     this.skillAnimations = [];
+                    this.battlePet = null;
+                    this.clearPetAssistEffect(false);
                     this.stopBattleStatusPolling();
                 }
             } catch (e) {
@@ -3699,6 +3840,7 @@ createApp({
             localStorage.setItem('battle_effects_enabled', this.combatEffectsEnabled ? '1' : '0');
             if (!this.combatEffectsEnabled) {
                 this.skillAnimations = [];
+                this.clearPetAssistEffect(false);
                 this.confettiInstance?.reset?.();
                 this.outputAutoAnimateController?.disable?.();
                 this.toastAutoAnimateController?.disable?.();
@@ -3916,6 +4058,8 @@ createApp({
 
     beforeUnmount() {
         this.clearBattleAoeReport();
+        this.resetPetBattleVisualState();
+        this.petAssistEventHistory = {};
         this.stopUiTour();
         this.destroyAutoAnimate();
         if (this.autoAnimateReadyHandler) {

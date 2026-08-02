@@ -6440,7 +6440,7 @@ body {
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --quick-nav-height: 52px;
     --quick-nav-bottom-offset: 0px;
-    --battle-dock-height: 108px;
+    --battle-dock-height: 138px;
     --quick-icon-size: 18px;
     --quick-label-size: 10px;
     --quick-tool-height: 52px;
@@ -6982,6 +6982,306 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .player-avatar-shell[class*="profession-style-"] {
         animation: none;
+    }
+}
+
+/* ========================================================================
+   山海万灵战斗陪伴层
+   常驻随行卡片使用服务端冷却快照，协战事件按唯一ID播放一次。
+   ======================================================================== */
+.battle-pet-companion,
+.battle-pet-assist-burst {
+    --pet-accent: #8be9fd;
+    --pet-glow: rgba(139, 233, 253, 0.48);
+    --pet-surface: rgba(24, 88, 108, 0.42);
+}
+
+.pet-family-fire { --pet-accent: #ffb36b; --pet-glow: rgba(255, 101, 54, 0.6); --pet-surface: rgba(134, 44, 18, 0.48); }
+.pet-family-water { --pet-accent: #7dd3fc; --pet-glow: rgba(56, 189, 248, 0.56); --pet-surface: rgba(12, 74, 110, 0.5); }
+.pet-family-wood { --pet-accent: #86efac; --pet-glow: rgba(74, 222, 128, 0.55); --pet-surface: rgba(20, 83, 45, 0.5); }
+.pet-family-earth { --pet-accent: #f5d08a; --pet-glow: rgba(217, 164, 65, 0.55); --pet-surface: rgba(104, 73, 26, 0.52); }
+.pet-family-metal { --pet-accent: #e2e8f0; --pet-glow: rgba(203, 213, 225, 0.58); --pet-surface: rgba(71, 85, 105, 0.52); }
+.pet-family-lightning { --pet-accent: #e9d5ff; --pet-glow: rgba(192, 132, 252, 0.64); --pet-surface: rgba(88, 28, 135, 0.5); }
+.pet-family-wind { --pet-accent: #99f6e4; --pet-glow: rgba(45, 212, 191, 0.58); --pet-surface: rgba(17, 94, 89, 0.48); }
+.pet-family-spirit { --pet-accent: #f0abfc; --pet-glow: rgba(232, 121, 249, 0.58); --pet-surface: rgba(112, 26, 117, 0.48); }
+.pet-family-mystic { --pet-accent: #fda4af; --pet-glow: rgba(251, 113, 133, 0.62); --pet-surface: rgba(136, 19, 55, 0.5); }
+
+.battle-pet-companion {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 6px 6px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--pet-accent) 54%, transparent);
+    border-radius: 9px;
+    background:
+        radial-gradient(circle at 10% 0%, var(--pet-glow), transparent 52%),
+        linear-gradient(110deg, var(--pet-surface), rgba(14, 18, 35, 0.72));
+    color: #fff;
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.05);
+}
+
+.battle-pet-avatar {
+    display: grid;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--pet-accent) 70%, transparent);
+    border-radius: 50%;
+    background: rgba(8, 12, 24, 0.62);
+    box-shadow: 0 0 10px var(--pet-glow);
+    font-size: 17px;
+    line-height: 1;
+    animation: petCompanionBreathe 2.8s ease-in-out infinite;
+}
+
+.battle-pet-companion.is-ready .battle-pet-avatar {
+    animation: petCompanionReady 1.4s ease-in-out infinite;
+}
+
+.battle-pet-info {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.battle-pet-info strong,
+.battle-pet-info small,
+.battle-pet-skill {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.battle-pet-info strong {
+    color: var(--pet-accent);
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.battle-pet-info small {
+    color: #e8eef8;
+    font-size: 9px;
+}
+
+.battle-pet-skill {
+    max-width: 72px;
+    color: var(--pet-accent);
+    font-size: 9px;
+    font-weight: 700;
+    text-align: right;
+}
+
+.battle-pet-cooldown {
+    position: absolute;
+    right: 5px;
+    bottom: 2px;
+    left: 5px;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.battle-pet-cooldown > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--pet-accent) 48%, transparent), var(--pet-accent));
+    box-shadow: 0 0 8px var(--pet-glow);
+    transition: width 0.45s ease-out;
+}
+
+.battle-pet-companion-full {
+    width: min(420px, 100%);
+    margin: 6px auto 3px;
+    padding: 7px 10px 10px;
+    gap: 8px;
+    border-radius: 12px;
+}
+
+.battle-pet-companion-full .battle-pet-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+}
+
+.battle-pet-companion-full .battle-pet-info strong { font-size: 12px; }
+.battle-pet-companion-full .battle-pet-info small { font-size: 10px; }
+
+.battle-dock-trigger .battle-dock-pet {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    background: rgba(26, 19, 40, 0.96);
+    box-shadow: 0 0 10px rgba(196, 145, 255, 0.5);
+    font-size: 13px;
+}
+
+.battle-dock-trigger {
+    position: relative;
+}
+
+.battle-pet-assist-burst {
+    position: absolute;
+    z-index: 180;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    width: min(330px, calc(100% - 24px));
+    min-height: 60px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border: 1px solid color-mix(in srgb, var(--pet-accent) 68%, transparent);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 20% 50%, var(--pet-glow), transparent 46%),
+        linear-gradient(105deg, rgba(8, 12, 28, 0.94), var(--pet-surface));
+    box-shadow: 0 0 30px var(--pet-glow), 0 12px 36px rgba(0, 0, 0, 0.38);
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.72);
+    animation: petAssistBurst 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.pet-assist-comet {
+    position: absolute;
+    top: 50%;
+    left: -28%;
+    width: 48%;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--pet-accent));
+    filter: drop-shadow(0 0 7px var(--pet-accent));
+    animation: petAssistComet 0.75s ease-out both;
+}
+
+.pet-assist-avatar {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    width: 45px;
+    height: 45px;
+    flex: 0 0 45px;
+    place-items: center;
+    border: 2px solid var(--pet-accent);
+    border-radius: 50%;
+    background: rgba(8, 12, 24, 0.82);
+    box-shadow: 0 0 22px var(--pet-glow);
+    font-size: 30px;
+    animation: petAssistLeap 0.72s cubic-bezier(0.2, 1.35, 0.5, 1) both;
+}
+
+.pet-assist-copy {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pet-assist-copy strong {
+    overflow: hidden;
+    color: var(--pet-accent);
+    font-size: 13px;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    text-shadow: 0 0 12px var(--pet-glow);
+    white-space: nowrap;
+}
+
+.pet-assist-copy small {
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.battle-panel.fullscreen-mode .battle-pet-assist-burst {
+    position: fixed;
+    top: 50%;
+    width: min(390px, calc(100vw - 36px));
+    min-height: 82px;
+}
+
+.battle-panel.fullscreen-mode .pet-assist-avatar {
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
+    font-size: 38px;
+}
+
+.battle-panel.fullscreen-mode .pet-assist-copy strong { font-size: 16px; }
+.battle-panel.fullscreen-mode .pet-assist-copy small { font-size: 13px; }
+
+.log-pet .log-message {
+    color: #e9d5ff;
+    text-shadow: 0 0 8px rgba(192, 132, 252, 0.28);
+}
+
+@keyframes petCompanionBreathe {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-2px) scale(1.04); }
+}
+
+@keyframes petCompanionReady {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 8px var(--pet-glow); }
+    50% { transform: scale(1.08); box-shadow: 0 0 18px var(--pet-glow); }
+}
+
+@keyframes petAssistBurst {
+    0% { opacity: 0; transform: translate(-65%, -50%) scale(0.7); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    72% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-42%, -54%) scale(1.03); }
+}
+
+@keyframes petAssistComet {
+    0% { opacity: 0; transform: translateX(-35%); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(165%); }
+}
+
+@keyframes petAssistLeap {
+    0% { opacity: 0; transform: translateX(-46px) rotate(-18deg) scale(0.55); }
+    70% { opacity: 1; transform: translateX(4px) rotate(4deg) scale(1.08); }
+    100% { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
+}
+
+@media (max-width: 389px) {
+    :root { --battle-dock-height: 148px; }
+    .battle-pet-skill { display: none; }
+    .battle-pet-companion-mini { grid-template-columns: auto minmax(0, 1fr); }
+    .battle-pet-assist-burst { width: calc(100% - 12px); padding: 7px 9px; }
+    .pet-assist-avatar { width: 38px; height: 38px; flex-basis: 38px; font-size: 25px; }
+    .pet-assist-copy strong { font-size: 11px; }
+    .pet-assist-copy small { font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .battle-pet-avatar,
+    .pet-assist-avatar,
+    .pet-assist-comet,
+    .battle-pet-assist-burst {
+        animation: none !important;
+    }
+
+    .battle-pet-assist-burst {
+        opacity: 1;
+        transform: translate(-50%, -50%);
     }
 }
 

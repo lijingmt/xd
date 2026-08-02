@@ -21,6 +21,16 @@ let nextBattleState = {
         { name: 'wolf', name_cn: '妖狼', damage: 1234, hit: 1, defeated: 1, revived: 0 },
         { name: 'healer', name_cn: '敌方灵医', damage: 888, hit: 1, defeated: 0, revived: 1 }
       ]
+    },
+    pet_assist: {
+      active: 1, pet_id: 'pet-001', species: 'dangkang',
+      name: '当康', icon: '🐗', family: '土', role: '守护',
+      skill: '丰穰守心', cooldown: 30, cooldown_remaining: 18,
+      recent_event: {
+        id: 'pet-event-001', event_at: 100, name: '当康', icon: '🐗',
+        family: '土', role: '守护', skill: '丰穰守心', type: 'heal',
+        amount: 456, target_name: '测试方士', cooldown: 30
+      }
     }
   },
   enemy: {
@@ -110,6 +120,9 @@ assert(indexSource.includes('药契 {{ battlePlayerFull?.medicine_pacts'));
 assert(indexSource.includes('battleAoeReport.targets'));
 assert(indexSource.includes("target.revived ? '复苏'"));
 assert(indexSource.includes('lingyi-revive-status'));
+assert(indexSource.includes('battle-pet-companion-mini'));
+assert(indexSource.includes('battle-pet-companion-full'));
+assert(indexSource.includes('battle-pet-assist-burst'));
 assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
 assert(indexSource.includes("playerStats.profe === '灵医' ? '✚'"));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
@@ -398,6 +411,25 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.battleAoeReport.targets.length, 2);
   assert.strictEqual(client.battleAoeReport.targets[0].defeated, true);
   assert.strictEqual(client.battleAoeReport.targets[1].revived, true);
+  assert.strictEqual(client.battlePet.name, '当康');
+  assert.strictEqual(client.getPetAssistStatus(client.battlePet), '凝聚灵息 18秒');
+  assert.strictEqual(client.getPetCooldownPercent(client.battlePet), 40);
+  assert.strictEqual(client.petAssistEffect.id, 'pet-event-001');
+  assert.strictEqual(client.petAssistEffect.visualType, 'heal');
+  assert.strictEqual(client.lastPetAssistEventId, 'pet-event-001');
+  assert(client.battleLog[0].message.includes('当康'));
+  assert(client.battleLog[0].message.includes('恢复456点生命'));
+  const petLogCount = client.battleLog.length;
+  await client.fetchBattleStatus();
+  assert.strictEqual(client.battleLog.length, petLogCount);
+  client.resetPetBattleVisualState();
+  client.syncBattlePetAssist(nextBattleState.player.pet_assist);
+  assert.strictEqual(client.battlePet.name, '当康');
+  assert.strictEqual(client.petAssistEffect, null);
+  assert.strictEqual(client.battleLog.length, petLogCount);
+  assert(client.formatPetAssistMessage({
+    name: '当康', icon: '🐗', skill: '丰穰守心', type: 'heal', amount: 0
+  }).includes('守护在你身旁'));
   assert.strictEqual(
     componentOptions.computed.hasRecentAoeReport.call(client),
     true

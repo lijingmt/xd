@@ -1161,6 +1161,10 @@ mapping query_player_state(object player)
 		result["lingyi_revive"] = lingyi_revive;
 		result["recent_aoe_report"] = recent_aoe_report;
 
+		// 山海万灵只返回当前人物的轻量陪伴快照和最近一次协战事件。
+		// 该查询不读账号文件，适合战斗状态每秒轮询；客户端按事件ID去重。
+		result["pet_assist"] = PETD->query_pet_battle_presence(player);
+
         // 法力值 Mana (xiand 使用 mofa 而不是 qi)
         int mana = 0, mana_max = 0;
         if(functionp(player->get_cur_mofa)) {

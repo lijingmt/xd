@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xiand Shanhai Pet System"
+  short_description: "Build and validate Xiand pet gameplay and combat visuals"
+  default_prompt: "Use $xiand-shanhai-pet to implement or audit Xiand pet collection, combat assistance, and Vue feedback safely."

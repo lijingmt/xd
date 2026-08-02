@@ -731,6 +731,22 @@
                         <span v-if="skill.name" class="skill-effect-label">{{ skill.name }}</span>
                     </div>
                 </div>
+                <div v-if="combatEffectsEnabled && petAssistEffect && (!battleDockCollapsed || battleFullscreen)"
+                     :key="petAssistEffect.id"
+                     class="battle-pet-assist-burst"
+                     :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass]"
+                     role="status"
+                     :aria-label="formatPetAssistMessage(petAssistEffect)">
+                    <span class="pet-assist-comet" aria-hidden="true"></span>
+                    <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
+                    <span class="pet-assist-copy">
+                        <strong>{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
+                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">协战 -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                        <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                        <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                        <small v-else>与你并肩，静候时机</small>
+                    </span>
+                </div>
                 <button v-if="!battleFullscreen && battleDockCollapsed && !hasRecentAoeReport"
                         type="button"
                         class="battle-dock-trigger"
@@ -738,6 +754,7 @@
                         :title="'展开战斗状态：' + (battleEnemy?.name || '目标识别中')"
                         aria-label="展开战斗状态">
                     <span aria-hidden="true">⚔️</span>
+                    <span v-if="battlePet" class="battle-dock-pet" aria-hidden="true">{{ battlePet.icon }}</span>
                     <span class="battle-dock-percent">{{ getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) }}%</span>
                 </button>
                 <div v-if="hasRecentAoeReport"
@@ -766,6 +783,23 @@
                         <div class="battle-identity">
                             <span class="battle-name">{{ battlePlayerFull?.name_cn || playerStats?.name_cn || loginForm.userid }}</span>
                             <span class="battle-level">Lv.{{ battlePlayerFull?.level ?? playerStats?.level ?? 0 }}</span>
+                        </div>
+                        <div v-if="battlePet"
+                             class="battle-pet-companion battle-pet-companion-mini"
+                             :class="['pet-family-' + getPetFamilyClass(battlePet.family), { 'is-ready': battlePet.cooldown_remaining <= 0 }]"
+                             :title="battlePet.name + ' · ' + battlePet.skill + ' · ' + getPetAssistStatus(battlePet)">
+                            <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
+                            <span class="battle-pet-info">
+                                <strong>{{ battlePet.name }}</strong>
+                                <small>{{ getPetAssistStatus(battlePet) }}</small>
+                            </span>
+                            <span class="battle-pet-skill">{{ battlePet.skill }}</span>
+                            <span class="battle-pet-cooldown" role="progressbar"
+                                  :aria-label="battlePet.name + '协战准备进度'"
+                                  :aria-valuenow="getPetCooldownPercent(battlePet)"
+                                  aria-valuemin="0" aria-valuemax="100">
+                                <span :style="{ width: getPetCooldownPercent(battlePet) + '%' }"></span>
+                            </span>
                         </div>
                         <div class="battle-resource-row">
                             <span class="battle-resource-label hp-label">生命</span>
@@ -899,7 +933,7 @@
                             <div class="battle-animation-layer">
                                 <div v-for="anim in battleAnimations" :key="anim.id" class="battle-animation" :class="getAnimationClass(anim)">
                                     <span class="animation-value" :class="{ 'critical': anim.isCritical }">
-                                        {{ anim.type === 'heal' ? '+' : '-' }}{{ anim.value }}
+                                        {{ anim.type === 'heal' ? '+' : '-' }}{{ formatCompactNumber(anim.value) }}
                                     </span>
                                 </div>
                             </div>
@@ -914,6 +948,21 @@
                                     <span class="battle-level">Lv.{{ battlePlayerFull?.level ?? playerStats?.level ?? 0 }}</span>
                                 </div>
                                 <span class="hp-text-small">{{ formatCompactNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}</span>
+                            </div>
+                            <div v-if="battlePet"
+                                 class="battle-pet-companion battle-pet-companion-full"
+                                 :class="['pet-family-' + getPetFamilyClass(battlePet.family), { 'is-ready': battlePet.cooldown_remaining <= 0 }]">
+                                <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
+                                <span class="battle-pet-info">
+                                    <strong>{{ battlePet.name }} · {{ battlePet.role }}</strong>
+                                    <small>{{ battlePet.skill }} · {{ getPetAssistStatus(battlePet) }}</small>
+                                </span>
+                                <span class="battle-pet-cooldown" role="progressbar"
+                                      :aria-label="battlePet.name + '协战准备进度'"
+                                      :aria-valuenow="getPetCooldownPercent(battlePet)"
+                                      aria-valuemin="0" aria-valuemax="100">
+                                    <span :style="{ width: getPetCooldownPercent(battlePet) + '%' }"></span>
+                                </span>
                             </div>
                             <div class="hp-bar-wrapper-vertical">
                                 <div class="hp-bar-track-vertical">
