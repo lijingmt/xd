@@ -42,8 +42,8 @@ by an unlearned character. Group effects are same-room, living, real-team only
 unless explicitly designed otherwise.
 
 When three mythic books are added, update the data-driven pool and shared rate
-together. At the current baseline, 30 books use a shared 30/100000 roll and then
-a uniform 30-way selection, retaining about 1/100000 per book. Never fix the
+together. At the current baseline, 31 books use a shared 31/100000 roll and then
+a uniform 31-way selection, retaining about 1/100000 per book. Never fix the
 pool size in unrelated UI, docs, or tests.
 
 ## Equipment and economy
@@ -175,7 +175,7 @@ Search for the new profession ID and for old hard-coded sets:
 ```bash
 rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue|tianxiang|lingyi' \
   gamelib lowlib vue_source test_unit
-rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*(6|7|8|9|10)|case [1-9]|21/100000|24/100000|27/100000|30/100000' \
+rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*(6|7|8|9|10)|case [1-9]|21/100000|24/100000|27/100000|30/100000|31/100000' \
   gamelib lowlib vue_source test_unit
 ```
 

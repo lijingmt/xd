@@ -29,7 +29,16 @@ int main(string|zero arg)
 	}
 	if(this_player()->query_profeId()=="lingyi"){
 		int pacts = this_player()->query_lingyi_medicine_pacts();
+		mapping(string:int) revive =
+			this_player()->query_lingyi_auto_revive_status();
 		s += "【药契】"+pacts+"/3（有效治疗刷新20秒；换房、脱战、死亡或离线清空）\n";
+		if(revive["unlocked"])
+			s += "【百炼复苏】已掌握"+revive["mastered"]+
+				"门满段技能，今日"+revive["remaining"]+"/"+
+				revive["maximum"]+"次（自动触发，恢复25%生命/20%仙力）\n";
+		else
+			s += "【百炼复苏】满段技能"+revive["mastered"]+
+				"/5（五段即100%掌握，达标后每日自动复苏1次）\n";
 		s += "[灵医济世路线:newbie_guide roadmap]|[队伍:my_term]\n";
 		s += "[百草助手（技能手动使用永久免费）:profession_assistant]\n";
 	}

@@ -77,6 +77,7 @@ HIDDEN_MYTHIC_SKILL_IDS=(
 	"cixinpudu"
 	"huimingtianlu"
 	"wanmuxinchun"
+	"liuhehuichun"
 )
 
 # 从命令行参数或环境变量读取配置

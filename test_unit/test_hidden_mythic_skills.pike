@@ -3,7 +3,7 @@
  * 十职业隐藏大神传承运行时测试。
  *
  * 覆盖：
- * - 70级怪物门槛、总掉率与三十本等概率池
+ * - 70级怪物门槛、总掉率与三十一本等概率池
  * - 秘籍不进入商店，技能与书籍可运行时加载
  * - 80级与职业限制、背包学习入口、真实读书
  * - 十职业的爆发、群疗、增益、DOT、控制与守护
@@ -70,6 +70,7 @@ mapping(string:array(string)) hidden_skills = ([
 		"cixinpudu",
 		"huimingtianlu",
 		"wanmuxinchun",
+		"liuhehuichun",
 	}),
 ]);
 
@@ -151,7 +152,7 @@ void destroy_player(object|zero player)
 
 void test_drop_contract_runtime()
 {
-	test_start("三十本秘籍单本等概率且仅70级以上怪物掉落");
+	test_start("三十一本秘籍单本等概率且仅70级以上怪物掉落");
 	string csv =
 		Stdio.read_file(ROOT+"/gamelib/data/can_buy_book_list.csv");
 	string npc_source =
@@ -179,14 +180,15 @@ void test_drop_contract_runtime()
 		if(search(actual,book_path)==-1)
 			failed++;
 	}
-	if(ITEMSD->query_hidden_skill_book_count()!=30 ||
+	if(ITEMSD->query_hidden_skill_book_count()!=31 ||
 	   ITEMSD->query_hidden_skill_min_level()!=70 ||
-	   ITEMSD->query_hidden_skill_drop_rate()!=30 ||
+	   ITEMSD->query_hidden_skill_drop_rate()!=31 ||
 	   ITEMSD->can_drop_hidden_skill_book(69,1)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,0)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,1)!=1 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,30)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,31)!=0)
+	   ITEMSD->can_drop_hidden_skill_book(70,31)!=1 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,32)!=0)
 		failed++;
 
 	if(npc_source){
@@ -279,7 +281,7 @@ void test_dynamic_monster_eligibility_runtime()
 
 void test_skill_and_book_config_runtime()
 {
-	test_start("三十项技能与秘籍完整加载且均为五段大神传承");
+	test_start("三十一项技能与秘籍完整加载且均为五段大神传承");
 	int checked = 0;
 	int failed = 0;
 
@@ -321,7 +323,7 @@ void test_skill_and_book_config_runtime()
 		}
 	}
 
-	if(checked==30 && failed==0)
+	if(checked==31 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf("加载=%d, 配置失败=%d",checked,failed));
@@ -329,7 +331,7 @@ void test_skill_and_book_config_runtime()
 
 void test_real_book_learning()
 {
-	test_start("80级职业限制、背包学习入口与三十本真实学习");
+	test_start("80级职业限制、背包学习入口与三十一本真实学习");
 	object|zero low_fangshi = 0;
 	object|zero original_player = this_player();
 	mapping(string:object) players = ([]);
@@ -409,8 +411,8 @@ void test_real_book_learning()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && learned==30 && low_rejected==30 &&
-	   profession_rejected==30 && duplicate_preserved==30 && failed==0)
+	if(!err && learned==31 && low_rejected==31 &&
+	   profession_rejected==31 && duplicate_preserved==31 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
@@ -830,7 +832,7 @@ void test_balance_envelope()
 		}
 	}
 
-	if(resource_checks==150 && failed==0)
+	if(resource_checks==155 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(

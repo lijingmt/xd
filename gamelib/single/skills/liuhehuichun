@@ -1,0 +1,14 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【神】六合回春";
+	desc="失落的灵医大神传承，消耗全部药契治疗并净化同房全部队友";
+	s_type="zhudong"; s_skill_type="heal"; s_delayTime=150;
+	lingyi_heal_scope=2; lingyi_think_scale=6; lingyi_cleanse=1;
+	lingyi_life_cap_percent=35; lingyi_pact_consume=1;
+	performs_attack[1]=1600; performs_attack[2]=2450; performs_attack[3]=3550; performs_attack[4]=4950; performs_attack[5]=6700;
+	performs_cast[1]=380; performs_cast[2]=450; performs_cast[3]=530; performs_cast[4]=620; performs_cast[5]=720;
+	skill_type+=({"lingyi"}); skill_rare="mythic"; performs_level_limit[1]=80; performs_level_limit[2]=100; performs_level_limit[3]=120; performs_level_limit[4]=140; performs_level_limit[5]=160;
+	performs_desc[1]="全队治疗1600+智力×6，每层药契提高15%，净化一项，上限35%生命"; performs_desc[2]="全队治疗2450+智力×6并净化"; performs_desc[3]="全队治疗3550+智力×6并净化"; performs_desc[4]="全队治疗4950+智力×6并净化"; performs_desc[5]="全队治疗6700+智力×6并净化";
+}

@@ -167,12 +167,15 @@ int move(mixed dest){
 		this_object()->clean_tianxiang_star_marks();
 	if(environment(this_object()) && environment(this_object())!=(object)dest)
 		this_object()->clean_lingyi_medicine_pacts();
+	if(environment(this_object()) && environment(this_object())!=(object)dest)
+		this_object()->clear_recent_aoe_battle_report();
 	return ::move(dest);
 }
 void remove(){
 	this_object()->clean_buff("team_guard");
 	this_object()->clean_tianxiang_star_marks();
 	this_object()->clean_lingyi_medicine_pacts();
+	this_object()->clear_recent_aoe_battle_report();
 	this_object()->update_online_time();
 	if(this_object()->sid != "5dwap")
 		save();

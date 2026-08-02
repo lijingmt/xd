@@ -1150,6 +1150,17 @@ mapping query_player_state(object player)
 		result["medicine_pacts"] = medicine_pacts;
 		result["medicine_pacts_max"] = 3;
 
+		// 灵医百炼复苏和最近一次房间群攻战果都由服务端权威生成。
+		// 战果短暂保留，使最后一个目标死亡后小窗仍能展示全部结果。
+		mapping(string:int) lingyi_revive = ([]);
+		mapping(string:mixed) recent_aoe_report = ([]);
+		if(functionp(player->query_lingyi_auto_revive_status))
+			lingyi_revive = player->query_lingyi_auto_revive_status();
+		if(functionp(player->query_recent_aoe_battle_report))
+			recent_aoe_report = player->query_recent_aoe_battle_report();
+		result["lingyi_revive"] = lingyi_revive;
+		result["recent_aoe_report"] = recent_aoe_report;
+
         // 法力值 Mana (xiand 使用 mofa 而不是 qi)
         int mana = 0, mana_max = 0;
         if(functionp(player->get_cur_mofa)) {

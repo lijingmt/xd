@@ -7500,6 +7500,71 @@ select:focus-visible {
     gap: 7px;
 }
 
+.battle-aoe-report {
+    display: grid;
+    width: 100%;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.battle-aoe-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #d9f99d;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.battle-aoe-targets {
+    display: flex;
+    max-height: 58px;
+    flex-wrap: wrap;
+    gap: 4px;
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+.battle-aoe-target {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 6px;
+    border: 1px solid rgba(250, 204, 21, 0.32);
+    border-radius: 999px;
+    background: rgba(120, 53, 15, 0.34);
+    color: #fde68a;
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.battle-aoe-target.defeated {
+    border-color: rgba(74, 222, 128, 0.48);
+    background: rgba(20, 83, 45, 0.46);
+    color: #bbf7d0;
+}
+
+.battle-aoe-target.revived {
+    border-color: rgba(45, 212, 191, 0.5);
+    background: rgba(17, 94, 89, 0.46);
+    color: #99f6e4;
+}
+
+.battle-aoe-target.missed {
+    border-color: rgba(148, 163, 184, 0.34);
+    background: rgba(51, 65, 85, 0.4);
+    color: #cbd5e1;
+}
+
+.lingyi-revive-status {
+    color: #bbf7d0;
+}
+
 .battle-panel.mini-mode .battle-side {
     min-width: 0;
     flex: 1 1 0;

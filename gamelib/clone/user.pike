@@ -489,6 +489,10 @@ void fight_die()
 	me->red_flag=0;
 	// 灵兽最后一击的PK、荣誉与击杀记录归属主人。
 	enemy = SUMMOND->query_combat_credit_owner(enemy);
+	// 灵医百炼复苏必须在任何击杀奖励、死亡惩罚和召唤清理之前判定。
+	// 成功代表人物没有真正死亡，后续死亡流程必须完整跳过。
+	if(me->try_lingyi_auto_revive(enemy))
+		return;
 	// 主人死亡时立即清理全部灵兽，不能继续留场攻击或治疗。
 	SUMMOND->player_death(me->query_name());
 

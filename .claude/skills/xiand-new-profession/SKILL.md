@@ -17,7 +17,7 @@ as authoritative. Read `references/integration-map.md` before editing and use
 - Treat race and profession as separate axes. The neutral race `third` already
   contains Fangshi, Zhenyue, Tianxiang, and Lingyi; never equate `third` with one profession or
   let a two-race `else` branch select a neutral profession accidentally.
-- The post-Lingyi 2026-08-01 baseline has ten active professions and 30 hidden mythic
+- The post-Lingyi 2026-08-02 baseline has ten active professions and 31 hidden mythic
   books. Never hard-code those totals in new generic logic: enumerate the
   authoritative catalog/pool and test that adding one profession grows every
   dependent set exactly once.
@@ -41,7 +41,8 @@ as authoritative. Read `references/integration-map.md` before editing and use
 - Preserve per-book hidden-drop probability when expanding a uniform pool. In
   the current one-roll-per-monster design, adding three books means growing both
   the pool and shared numerator by three, not silently diluting old books. The
-  current ten-profession baseline is 30 books at 30/100000.
+  current ten-profession baseline is 31 books at 31/100000 because Lingyi has
+  one deliberate extra hidden group-heal inheritance.
 - Keep generated equipment, normal drops, Boss drops, forge restrictions,
   auto-equip, storage, trade, and item descriptions profession-compatible.
 - Audit profession-limited medicine in `food`, `water`, `liandan`, and `teyao`;
@@ -81,7 +82,7 @@ intentional route, never to hide unfinished integration.
 
 Record the profession ID/name, race, combat role, primary/secondary attributes,
 resource loop, solo loop, team loop, PvP counterplay, equipment policy, skill
-milestones, advanced replacements, three hidden skills, task route, avatar
+milestones, advanced replacements, declared hidden skills, task route, avatar
 policy, auto-fight policy, and VIP-assistant policy. Define numeric caps, effect
 ownership, cleanup triggers, server authority, and failure behavior before
 implementing mechanics. Fill the contract block in
@@ -115,7 +116,7 @@ For purchases, reject an unknown type/path, cross-profession detail request,
 stale daily selection, and forged client price.
 
 Cover early survival, basic offense, class-defining utility, team contribution,
-midgame growth, level-70 progression, and three level-80+ hidden skills. Use the
+midgame growth, level-70 progression, and the declared level-80+ hidden skills. Use the
 existing five-stage model for new scalable abilities unless a historical format
 requires otherwise.
 
@@ -190,7 +191,8 @@ Completion requires all of the following:
   under the intended policy.
 - Tasks, maps, home, guild, ranking, chat, transfer, warehouse, dungeon, PvP, VIP,
   feedback, and high-level progression do not reject the profession accidentally.
-- Three hidden books remain drop-only and equally rare per book.
+- Every declared hidden book remains drop-only and equally rare per book; a
+  deliberate extra grows both pool and shared numerator and is documented.
 - Stateful mechanics reject dead, stale, cross-room, cross-team, unlearned, and
   forged inputs and clean every owned effect at all lifecycle boundaries.
 - Vue and legacy UI show the correct identity, skills, status, guidance, logo,

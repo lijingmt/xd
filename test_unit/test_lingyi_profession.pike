@@ -105,10 +105,11 @@ void test_creation_growth_and_identity()
 
 void test_catalog_skills_and_real_learning()
 {
-	test_start("十五本可购成长书、十五项技能与真实读书限制");
+	test_start("十六本可购成长书、十七项技能与真实读书限制");
 	array(string) skills = ({"lingzhen","yaoli","huichun","muxi",
-		"qingxin","huxin","lingyu","huayu","yulu","baicaojue",
-		"ganlin","xuming","cixinpudu","huimingtianlu","wanmuxinchun"});
+		"qingxin","huxin","lingyu","huayu","yaowutianluo","yulu",
+		"baicaojue","ganlin","xuming","cixinpudu","huimingtianlu",
+		"wanmuxinchun","liuhehuichun"});
 	object healer = create_player("__testunit_lingyi_books__","lingyi",100);
 	object outsider = create_player("__testunit_lingyi_book_wrong__","fangshi",100);
 	object low = create_player("__testunit_lingyi_book_low__","lingyi",4);
@@ -166,10 +167,10 @@ void test_catalog_skills_and_real_learning()
 		failed++;
 		error_desc = describe_error(read_err);
 	}
-	if(catalog==15 && failed==0)
+	if(catalog==16 && failed==0)
 		test_pass();
 	else
-		test_fail(sprintf("目录=%d/15 失败=%d: %s",catalog,failed,error_desc));
+		test_fail(sprintf("目录=%d/16 失败=%d: %s",catalog,failed,error_desc));
 	destroy_player(healer); destroy_player(outsider); destroy_player(low);
 }
 
@@ -215,7 +216,10 @@ void test_solo_support_and_resource_boundaries()
 		   low->get_cur_mofa()!=before_mofa)
 			failed++;
 	};
-	if(err){ failed++; error_desc = describe_error(err); }
+	if(err){
+		failed++;
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	}
 	if(failed==0)
 		test_pass();
 	else
@@ -406,8 +410,9 @@ void test_pact_lifecycle_cleanup()
 
 void test_hidden_tasks_teacher_equipment_and_medicine()
 {
-	test_start("三本隐藏治疗、任务链、导师、专属装备与恢复品完整");
-	array(string) hidden = ({"cixinpudu","huimingtianlu","wanmuxinchun"});
+	test_start("四本隐藏治疗、任务链、导师、专属装备与恢复品完整");
+	array(string) hidden = ({"cixinpudu","huimingtianlu","wanmuxinchun",
+		"liuhehuichun"});
 	string pool = Stdio.read_file(ROOT+"/gamelib/single/daemons/itemsd.pike");
 	string tasks = Stdio.read_file(ROOT+"/gamelib/data/task/task_list.csv");
 	object teacher = clone(ROOT+"/gamelib/clone/npc/lingyi_teacher.pike");
@@ -429,7 +434,7 @@ void test_hidden_tasks_teacher_equipment_and_medicine()
 			failed++;
 		if(book) destruct(book);
 	}
-	if(!pool || search(pool,"hidden_skill_drop_rate = 30") == -1 ||
+	if(!pool || search(pool,"hidden_skill_drop_rate = 31") == -1 ||
 	   !tasks || search(tasks,"379,n,【特殊】初辨药息") == -1 ||
 	   search(tasks,"383,n,【医】万木回春") == -1 ||
 	   search(tasks,"book/baicaojue:1") == -1 ||
@@ -450,7 +455,7 @@ void test_hidden_tasks_teacher_equipment_and_medicine()
 
 void test_combat_and_mythic_healing_runtime()
 {
-	test_start("战斗内治疗与三本隐藏神技真实结算且隔离外人");
+	test_start("战斗内治疗与四本隐藏神技真实结算且隔离外人");
 	object healer = create_player("__testunit_lingyi_mythic__","lingyi",100);
 	object member = create_player("__testunit_lingyi_mythic_member__","fangshi",100);
 	object outsider = create_player("__testunit_lingyi_mythic_outsider__","fangshi",100);
@@ -467,6 +472,7 @@ void test_combat_and_mythic_healing_runtime()
 		healer->skills["cixinpudu"] = ({1,0});
 		healer->skills["huimingtianlu"] = ({1,0});
 		healer->skills["wanmuxinchun"] = ({1,0});
+		healer->skills["liuhehuichun"] = ({1,0});
 		healer->_fight(npc);
 
 		healer->set_life(healer->query_life_max()*60/100);
@@ -505,6 +511,21 @@ void test_combat_and_mythic_healing_runtime()
 		if(healer->get_cur_life()<=1 ||
 		   healer->query_lingyi_medicine_pacts()!=0 ||
 		   healer->f_skills["huimingtianlu"]!=61)
+			failed++;
+
+		reset_cast(healer,"liuhehuichun");
+		healer->set_life(1); member->set_life(1); outsider->set_life(1);
+		member->set_debuff("curse",0,"life");
+		member->set_debuff("curse",1,20);
+		member->set_debuff("curse",2,10);
+		healer->add_lingyi_medicine_pacts(3);
+		outsider_before = outsider->get_cur_life();
+		healer->perform("liuhehuichun",1);
+		if(healer->get_cur_life()<=1 || member->get_cur_life()<=1 ||
+		   outsider->get_cur_life()!=outsider_before ||
+		   member->query_debuff("curse",0)!="none" ||
+		   healer->query_lingyi_medicine_pacts()!=0 ||
+		   healer->f_skills["liuhehuichun"]!=151)
 			failed++;
 	};
 	if(err){ failed++; error_desc = describe_error(err); }
@@ -571,6 +592,202 @@ void test_autofight_vip_and_pvp_fairness()
 	if(room) destruct(room);
 }
 
+void test_room_aoe_and_battle_report()
+{
+	test_start("药雾天罗群攻全部合法敌人、隔离队友路人并保留战果");
+	object healer = create_player("__testunit_lingyi_aoe__","lingyi",100);
+	object member = create_player("__testunit_lingyi_aoe_member__","fangshi",100);
+	object engaged = create_player("__testunit_lingyi_aoe_enemy__","fangshi",100);
+	object bystander = create_player("__testunit_lingyi_aoe_bystander__","fangshi",100);
+	object npc_one = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object npc_two = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object task_npc = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object room = clone(WAP_ROOM);
+	object other_room = clone(WAP_ROOM);
+	int failed = 0;
+	string error_desc = "";
+	mixed err = catch {
+		healer->set_term("__testunit_lingyi_aoe_team__");
+		member->set_term("__testunit_lingyi_aoe_team__");
+		engaged->set_term("__testunit_lingyi_aoe_enemy_team__");
+		bystander->set_term("__testunit_lingyi_aoe_bystander_team__");
+		healer->move(room); member->move(room); engaged->move(room);
+		bystander->move(room); npc_one->move(room); npc_two->move(room);
+		task_npc->move(room); task_npc->_tasknpc = 1;
+		healer->skills["yaowutianluo"] = ({1,0});
+		healer->set_base_hitte(100000);
+		npc_one->set_life(1);
+		// 第二只怪只验证群攻覆盖，避免普通低级怪被高等级测试人物秒杀后
+		// 测试代码自身读取已析构对象。
+		npc_two->set_base_life(10000000);
+		npc_two->flush_life();
+		npc_two->set_life(npc_two->query_life_max());
+		int member_before = member->get_cur_life();
+		int bystander_before = bystander->get_cur_life();
+		int engaged_before = engaged->get_cur_life();
+		int npc_two_before = npc_two->get_cur_life();
+		int task_npc_before = task_npc->get_cur_life();
+		int mofa_before = healer->get_cur_mofa();
+		healer->_fight(npc_one);
+		engaged->_fight(healer);
+		healer->_fight(engaged);
+		healer->perform("yaowutianluo",1);
+		mapping(string:mixed) report =
+			healer->query_recent_aoe_battle_report();
+		int defeated = 0;
+		int saw_engaged = 0;
+		foreach((array(mapping))report["targets"],mapping target){
+			if(target["defeated"])
+				defeated++;
+			if(target["name"]==engaged->query_name())
+				saw_engaged = 1;
+		}
+		int engaged_damage = engaged_before-engaged->get_cur_life();
+		if(member->get_cur_life()!=member_before ||
+		   bystander->get_cur_life()!=bystander_before ||
+		   engaged_damage<=0 ||
+		   engaged_damage>engaged->query_life_max()*8/100 ||
+		   npc_two->get_cur_life()>=npc_two_before ||
+		   task_npc->get_cur_life()!=task_npc_before ||
+		   !report || report["skill"]!="yaowutianluo" ||
+		   sizeof((array)report["targets"])<3 || defeated<1 ||
+		   !saw_engaged || healer->get_cur_mofa()>=mofa_before ||
+		   healer->f_skills["yaowutianluo"]!=15)
+			failed++;
+		healer->move(other_room);
+		if(sizeof(healer->query_recent_aoe_battle_report())!=0)
+			failed++;
+	};
+	if(err){
+		failed++;
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	}
+	if(failed==0)
+		test_pass();
+	else
+		test_fail(sprintf("群攻或战果快照失败=%d: %s",failed,error_desc));
+	destroy_player(healer); destroy_player(member); destroy_player(engaged);
+	destroy_player(bystander);
+	if(npc_one) destruct(npc_one);
+	if(npc_two) destruct(npc_two);
+	if(task_npc) destruct(task_npc);
+	if(room) destruct(room);
+	if(other_room) destruct(other_room);
+}
+
+void test_mastery_auto_revive_boundaries()
+{
+	test_start("五门满段解锁每日复苏且次数、重登日界、城战与职业边界安全");
+	array(string) mastery = ({"lingzhen","huichun","muxi","qingxin",
+		"huxin","lingyu","huayu","yaowutianluo","yulu","baicaojue",
+		"ganlin","xuming"});
+	object healer = create_player("__testunit_lingyi_revive__","lingyi",120);
+	object outsider = create_player("__testunit_lingyi_revive_wrong__","fangshi",120);
+	object killer = create_player("__testunit_lingyi_revive_killer__","fangshi",120);
+	object monster = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object room = clone(WAP_ROOM);
+	object city = clone(WAP_ROOM);
+	int failed = 0;
+	string error_desc = "";
+	mixed err = catch {
+		city->set_room_type("city");
+		healer->move(room); killer->move(room); outsider->move(room);
+		monster->move(room);
+		for(int i=0;i<4;i++)
+			healer->skills[mastery[i]] = ({5,0});
+		if(healer->query_lingyi_mastered_skill_count()!=4 ||
+		   healer->query_lingyi_auto_revive_max()!=0)
+			failed++;
+		healer->skills[mastery[4]] = ({5,0});
+		outsider->skills[mastery[0]] = ({5,0});
+		if(healer->query_lingyi_mastered_skill_count()!=5 ||
+		   healer->query_lingyi_auto_revive_max()!=1 ||
+		   healer->query_lingyi_auto_revive_remaining()!=1 ||
+		   outsider->query_lingyi_auto_revive_max()!=0)
+			failed++;
+		// _fight()只建立仇恨；真实杀戮命令会把双方标成1。显式设置后才是
+		// 百炼复苏允许消耗次数的PVP死亡，而不是不耗次数的切磋。
+		healer->kill_flag = 1;
+		killer->kill_flag = 1;
+		healer->_fight(killer);
+		killer->_fight(healer);
+		healer->set_life(0);
+		object before_room = environment(healer);
+		healer->fight_die();
+		if(environment(healer)!=before_room || healer->get_cur_life()!=
+		   healer->query_life_max()*25/100 || healer->get_cur_mofa()!=
+		   healer->query_mofa_max()*20/100 ||
+		   healer->query_lingyi_auto_revive_used()!=1 ||
+		   healer->query_lingyi_auto_revive_remaining()!=0 ||
+		   healer->query_in_combat() || killer->if_in_targets(healer))
+			failed++;
+		if(healer->try_lingyi_auto_revive(killer)!=0)
+			failed++;
+		// 模拟跨自然日：只读查询应把旧日已用次数视为0，且不需重登。
+		healer["/plus/lingyi/revive_day_key"] = 0;
+		healer["/plus/lingyi/revive_used"] = 99;
+		if(healer->query_lingyi_auto_revive_used()!=0 ||
+		   healer->query_lingyi_auto_revive_remaining()!=1)
+			failed++;
+		// 普通怪击杀同样属于真实死亡；异常的跨房击杀者不能消耗次数。
+		healer->set_life(0);
+		monster->move(city);
+		if(healer->try_lingyi_auto_revive(monster)!=0 ||
+		   healer->query_lingyi_auto_revive_used()!=0)
+			failed++;
+		monster->move(room);
+		healer->set_life(healer->query_life_max());
+		healer->_fight(monster);
+		monster->_fight(healer);
+		healer->set_life(0);
+		healer->fight_die();
+		if(healer->get_cur_life()!=healer->query_life_max()*25/100 ||
+		   healer->query_lingyi_auto_revive_used()!=1)
+			failed++;
+		// 后续阈值和禁用场景使用一个新的自然日快照。
+		healer["/plus/lingyi/revive_day_key"] = 0;
+		healer["/plus/lingyi/revive_used"] = 99;
+		for(int i=5;i<8;i++)
+			healer->skills[mastery[i]] = ({5,0});
+		if(healer->query_lingyi_auto_revive_max()!=2)
+			failed++;
+		for(int i=8;i<12;i++)
+			healer->skills[mastery[i]] = ({5,0});
+		if(healer->query_lingyi_auto_revive_max()!=3)
+			failed++;
+		// 城战和自杀均不能偷用复苏次数。
+		healer->move(city); killer->move(city);
+		healer->set_life(0);
+		int used_before = healer->query_lingyi_auto_revive_used();
+		if(healer->try_lingyi_auto_revive(killer)!=0 ||
+		   healer->query_lingyi_auto_revive_used()!=used_before)
+			failed++;
+		healer->move(room); killer->move(room);
+		healer->set_life(0);
+		healer->kill_flag = 0; killer->kill_flag = 0;
+		if(healer->try_lingyi_auto_revive(killer)!=0)
+			failed++;
+		healer->kill_flag = 1; killer->kill_flag = 1;
+		healer->set_life(0);
+		healer->sucide = 1;
+		if(healer->try_lingyi_auto_revive(killer)!=0)
+			failed++;
+		healer->sucide = 0;
+	};
+	if(err){
+		failed++;
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	}
+	if(failed==0)
+		test_pass();
+	else
+		test_fail(sprintf("自动复苏边界失败=%d: %s",failed,error_desc));
+	destroy_player(healer); destroy_player(outsider); destroy_player(killer);
+	if(monster) destruct(monster);
+	if(room) destruct(room);
+	if(city) destruct(city);
+}
+
 void test_assets_ui_and_deployment()
 {
 	test_start("原创图标、男女头像、双镜像、Vue状态与容器复制完整");
@@ -594,11 +811,17 @@ void test_assets_ui_and_deployment()
 	}
 	if(!male || !female || !logo || male==female || male==logo || female==logo ||
 	   !vue || search(vue,"medicine_pacts") == -1 ||
+	   search(vue,"battleAoeReport.targets") == -1 ||
+	   search(vue,"lingyi_revive") == -1 ||
 	   !css || search(css,"profession-style-lingyi-3") == -1 ||
+	   search(css,"battle-aoe-target") == -1 ||
 	   !api || search(api,"result[\"medicine_pacts\"]") == -1 ||
+	   search(api,"result[\"lingyi_revive\"]") == -1 ||
+	   search(api,"result[\"recent_aoe_report\"]") == -1 ||
 	   !deploy || search(deploy,"\"cixinpudu\"") == -1 ||
 	   search(deploy,"\"huimingtianlu\"") == -1 ||
-	   search(deploy,"\"wanmuxinchun\"") == -1)
+	   search(deploy,"\"wanmuxinchun\"") == -1 ||
+	   search(deploy,"\"liuhehuichun\"") == -1)
 		failed++;
 	if(failed==0)
 		test_pass();
@@ -621,6 +844,8 @@ int main(int argc,array(string) argv)
 	test_hidden_tasks_teacher_equipment_and_medicine();
 	test_combat_and_mythic_healing_runtime();
 	test_autofight_vip_and_pvp_fairness();
+	test_room_aoe_and_battle_report();
+	test_mastery_auto_revive_boundaries();
 	test_assets_ui_and_deployment();
 	werror("\n灵医测试：%d通过，%d失败\n",
 		test_results["passed"],test_results["failed"]);

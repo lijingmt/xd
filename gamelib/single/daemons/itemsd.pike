@@ -99,7 +99,7 @@ private mapping(int:array(string)) item_list = ([]);
 private mapping(string:array(string)) item_attributes = ([]);
 
 //十职业大神传承仅通过70级以上怪物极低概率掉落。
-//总掉率为30/100000，三十本等概率，即单本长期均值约1/100000。
+//总掉率为31/100000，三十一本等概率，即单本长期均值约1/100000。
 private array(string) hidden_skill_books = ({
 	"book/wanjianguizong",
 	"book/taiqingjianyu",
@@ -131,9 +131,10 @@ private array(string) hidden_skill_books = ({
 	"book/cixinpudu",
 	"book/huimingtianlu",
 	"book/wanmuxinchun",
+	"book/liuhehuichun",
 });
 private int hidden_skill_min_level = 70;
-private int hidden_skill_drop_rate = 30;
+private int hidden_skill_drop_rate = 31;
 
 //用于生成物品文件后缀的映射表,现在暂时未用上
 private mapping(string:int) postfix_map = ([

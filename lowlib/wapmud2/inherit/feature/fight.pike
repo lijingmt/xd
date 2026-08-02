@@ -300,6 +300,18 @@ object query_enemy(){
 	return this_object()->get_target();
 }
 
+// 群攻在调用死亡回调前锁定本次合法施法者，避免多目标原有仇恨顺序
+// 把任务、掉落、荣誉或自动复苏的击杀者记到其他参战者名下。
+int set_aoe_defeat_credit(object attacker){
+	if(!attacker || !objectp(attacker) ||
+	   environment(attacker)!=environment(this_object()) ||
+	   !LOGICALZONED->can_action("combat",attacker,this_object()) ||
+	   !this_object()->if_in_targets(attacker))
+		return 0;
+	enemy = attacker;
+	return 1;
+}
+
 // 玩家杀戮持续约三分钟后，以当前战斗快照推演最多一千轮。
 // 推演只读取属性，不逐轮修改真实人物，最后仅执行一次正常死亡结算。
 int query_pk_fast_decision_trigger_rounds(){
@@ -345,7 +357,7 @@ int query_pk_fast_targets_belong_to(object who,object opponent){
 private int query_lingyi_pk_fast_heal(object who){
 	array(string) names = ({"huichun","qingxin","lingyu","yulu",
 		"ganlin","xuming","cixinpudu","huimingtianlu",
-		"wanmuxinchun"});
+		"wanmuxinchun","liuhehuichun"});
 	int best = 0;
 	if(!who || who->query_profeId()!="lingyi" || !who->skills)
 		return 0;
@@ -1135,6 +1147,262 @@ int perform_support(string name){
 	return 1;
 }
 
+private int is_lingyi_aoe_team_ally(object caster,object candidate){
+	object side = candidate;
+	object owner;
+	string team_id;
+	if(!caster || !candidate)
+		return 0;
+	owner = SUMMOND->query_combat_credit_owner(candidate);
+	if(owner && owner!=candidate)
+		side = owner;
+	if(side==caster)
+		return 1;
+	team_id = caster->query_term();
+	if(team_id=="" || team_id=="noterm" || !side->is("player"))
+		return 0;
+	return side->query_term()==team_id &&
+		LOGICALZONED->can_action("team",caster,side);
+}
+
+// PVP群攻只能扩展到已经和施法者或其同房队友交战的人物。普通“不是队友”
+// 绝不构成伤害路人的授权。
+private int is_lingyi_aoe_engaged_player(object caster,object target){
+	object env = environment(caster);
+	string team_id = caster->query_term();
+	if(!caster || !target || !target->is("player") || !env)
+		return 0;
+	if(caster->if_in_targets(target) || target->if_in_targets(caster))
+		return 1;
+	if(team_id=="" || team_id=="noterm")
+		return 0;
+	foreach(all_inventory(env),object member){
+		if(!member || !member->is("player") ||
+		   member->query_term()!=team_id ||
+		   !LOGICALZONED->can_action("team",caster,member))
+			continue;
+		if(member->if_in_targets(target) || target->if_in_targets(member))
+			return 1;
+	}
+	return 0;
+}
+
+private array(object) query_lingyi_room_aoe_targets(){
+	array(object) result = ({});
+	object caster = this_object();
+	object env = environment(caster);
+	if(caster->query_profeId()!="lingyi" || !env ||
+	   !caster->query_in_combat() || caster->get_cur_life()<=0)
+		return result;
+	foreach(all_inventory(env),object candidate){
+		object owner;
+		object side;
+		if(!candidate || candidate==caster ||
+		   (functionp(candidate->is) && candidate->is("item")) ||
+		   !functionp(candidate->get_cur_life) ||
+		   candidate->get_cur_life()<=0 ||
+		   !LOGICALZONED->can_action("combat",caster,candidate) ||
+		   is_lingyi_aoe_team_ally(caster,candidate))
+			continue;
+		if(functionp(candidate->can_be_attacked) &&
+		   !candidate->can_be_attacked(caster))
+			continue;
+		owner = SUMMOND->query_combat_credit_owner(candidate);
+		side = owner && owner!=candidate ? owner : candidate;
+		// 玩家及玩家拥有的召唤物必须已参与这场战斗。
+		if(side->is("player") &&
+		   !is_lingyi_aoe_engaged_player(caster,side) &&
+		   !caster->if_in_targets(candidate) &&
+		   !candidate->if_in_targets(caster))
+			continue;
+		if(!side->is("player")){
+			string npc_type;
+			if(!candidate->is("npc"))
+				continue;
+			npc_type = candidate->query_npc_type();
+			// 任务人物和城战公共NPC不是练级怪，不能被房间群攻误卷入。
+			if(candidate->_tasknpc || npc_type=="city_keeper" ||
+			   npc_type=="city_guarder" || npc_type=="city_lord")
+				continue;
+		}
+		result += ({candidate});
+	}
+	return result;
+}
+
+// 返回实际纳入结算的目标数。命中、抗性、护盾、仇恨、决斗与死亡奖励仍走
+// 现有服务端规则；每个目标的快照供战斗小窗展示十秒。
+int perform_lingyi_room_aoe(object skill,int skill_level){
+	array(object) targets;
+	object caster = this_object();
+	object env = environment(caster);
+	int raw_low;
+	int raw_high;
+	int raw_base;
+	int penetration;
+	int power_percent;
+	if(!skill || skill_level<=0 || !skill->query_lingyi_room_aoe() ||
+	   caster->query_profeId()!="lingyi" || !env)
+		return 0;
+	targets = query_lingyi_room_aoe_targets();
+	if(!sizeof(targets))
+		return 0;
+	raw_low = skill->query_performs_mofa_attack_low(skill_level);
+	raw_high = skill->query_performs_mofa_attack_high(skill_level);
+	if(raw_high<raw_low)
+		raw_high = raw_low;
+	raw_base = raw_low+random(raw_high-raw_low+1)+
+		caster->query_equip_add(skill->s_skill_type)+
+		caster->query_equip_add("mofa_all")+caster->query_think()*7/2;
+	if(caster->query_buff("buff2",0)=="all_mofa_attack")
+		raw_base = raw_base*3/2;
+	penetration = caster->query_equip_add("mofachuantou_add");
+	power_percent = skill->query_lingyi_aoe_power_percent();
+	caster->begin_recent_aoe_battle_report(
+		skill->query_name(),skill->query_name_cn());
+	foreach(targets,object target){
+		int hit = 0;
+		int defeated = 0;
+		int actual_damage = 0;
+		int target_life;
+		int target_life_max;
+		int level_diff;
+		int hit_rate;
+		int raw_attack;
+		int defend = 0;
+		int damage;
+		string absorb_desc = "";
+		if(!target || environment(target)!=env ||
+		   target->get_cur_life()<=0 ||
+		   !LOGICALZONED->can_action("combat",caster,target))
+			continue;
+		caster->_fight(target);
+		target->_fight(caster);
+		level_diff = target->query_level()-caster->query_level();
+		if(level_diff<0)
+			level_diff = 0;
+		hit_rate = caster->query_if_hitte()-level_diff*5;
+		if(hit_rate<30)
+			hit_rate = 30;
+		if(target->query_buff("70_skill_buff",0)=="bingci"){
+			tell_object(target,"【仙】冰刺令你免疫了"+
+				skill->query_name_cn()+"。\n");
+			caster->record_recent_aoe_battle_target(target,0,0,0);
+			continue;
+		}
+		if(random(100)>=hit_rate){
+			tell_object(target,caster->query_name_cn()+"施放"+
+				skill->query_name_cn()+"，但被你抵抗了。\n");
+			caster->record_recent_aoe_battle_target(target,0,0,0);
+			continue;
+		}
+		hit = 1;
+		raw_attack = raw_base;
+		if(caster->query_if_baoji(target))
+			raw_attack = query_balanced_critical_damage(
+				raw_attack,target->query_equip_add("renxing"));
+		switch(skill->s_skill_type){
+			case "huo_mofa_attack":
+				defend = target->query_equip_add("huoyan_defend");
+			break;
+			case "bing_mofa_attack":
+				defend = target->query_equip_add("bingshuang_defend");
+			break;
+			case "feng_mofa_attack":
+				defend = target->query_equip_add("fengren_defend");
+			break;
+			case "du_mofa_attack":
+				defend = target->query_equip_add("dusu_defend");
+			break;
+		}
+		defend += target->query_equip_add("all_mofa_defend");
+		damage = query_balanced_magic_damage(raw_attack,defend,penetration)*
+			power_percent/100;
+		if(damage<1)
+			damage = 1;
+		target_life = target->get_cur_life();
+		target_life_max = target->query_life_max();
+		if(target->is("player") && damage>target_life_max*8/100)
+			damage = target_life_max*8/100;
+		else if(target->is("npc") && target->_boss &&
+		   damage>target_life_max*2/100)
+			damage = target_life_max*2/100;
+		if(damage<1)
+			damage = 1;
+		if(target->query_buff("buff",0)=="absorb"){
+			int shield = (int)target->query_buff("buff",1);
+			int absorbed = shield>=damage ? damage : shield;
+			damage -= absorbed;
+			shield -= absorbed;
+			absorb_desc = "（护盾吸收"+absorbed+"）";
+			if(shield<=0)
+				target->clean_buff("buff");
+			else
+				target->set_buff("buff",1,shield);
+		}
+		if(target->query_buff("buff2",0)=="absorb"){
+			int shield = (int)target->query_buff("buff2",1);
+			int absorbed = shield>=damage ? damage : shield;
+			damage -= absorbed;
+			shield -= absorbed;
+			absorb_desc += "（护盾吸收"+absorbed+"）";
+			if(shield<=0)
+				target->clean_buff("buff2");
+			else
+				target->set_buff("buff2",1,shield);
+		}
+		damage = target->absorb_team_guard_damage(damage);
+		if(damage<0)
+			damage = 0;
+		actual_damage = damage>target_life ? target_life : damage;
+		if(damage>=target_life){
+			defeated = 1;
+			target->set_life(0);
+			target->set_aoe_defeat_credit(caster);
+		}
+		else
+			target->set_life(target_life-damage);
+		target->flush_targets(caster,damage>0 ? damage : 1);
+		caster->flush_targets(target,damage>0 ? damage : 1);
+		tell_object(target,caster->query_name_cn()+"施放"+
+			skill->query_name_cn()+"，对你造成"+actual_damage+
+			"点伤害"+absorb_desc+"。\n");
+		if(defeated){
+			caster->clean_targets(target);
+			if(target->query_raceId()==caster->query_raceId() &&
+			   target->kill_flag==0 && caster->kill_flag==0){
+				target->set_life(1);
+				target->_clean_fight();
+				caster->_clean_fight();
+				caster->record_recent_aoe_battle_target(
+					target,actual_damage,hit,1);
+			}
+			else if(target->is("player")){
+				target->fight_die();
+				// 百炼复苏会留在原房间且恢复正生命；不能误报为击败。
+				int revived = target && environment(target)==env &&
+					target->get_cur_life()>0;
+				caster->record_recent_aoe_battle_target(
+					target,actual_damage,hit,revived ? 0 : 1,revived);
+			}
+			else{
+				// 普通NPC死亡流程可能直接析构，先保存战果快照。
+				caster->record_recent_aoe_battle_target(
+					target,actual_damage,hit,1);
+				target->fight_die();
+			}
+		}
+		else{
+			caster->record_recent_aoe_battle_target(
+				target,actual_damage,hit,0);
+			target->reduce_fight_wear_armor(1);
+		}
+	}
+	tell_object(caster,"你施放"+skill->query_name_cn()+"，药雾覆盖"+
+		sizeof(targets)+"名合法目标；战斗小窗将保留本次战果。\n");
+	return sizeof(targets);
+}
+
 // 星痕只放大天象自己的爆发法术。普通PVE每层10%，玩家与Boss每层8%，
 // 且无论异常数据如何都只计算三层。
 int query_tianxiang_star_bonus_percent(object target,int marks){
@@ -1250,6 +1518,29 @@ void perform(string name,void|int flag){
 			}
 			if(s_cold < 0)
 				s_cold = 0;
+			// 灵医房间群攻使用独立的合法目标收集，但资源、冷却与熟练度
+			// 仍由统一施法入口结算。没有合法目标时不扣任何资源。
+			if(f_cur_skill->query_lingyi_room_aoe()){
+				if(s_cold>1){
+					tell_object(this_object(),"该技能还需要"+(s_cold-1)+
+						"秒冷却时间,无法使用。\n");
+					return;
+				}
+				int affected = perform_lingyi_room_aoe(
+					f_cur_skill,skill_level);
+				if(affected<=0){
+					tell_object(this_object(),
+						"当前房间没有可由该群体技能攻击的合法目标。\n");
+					return;
+				}
+				this_object()->set_mofa(
+					this_object()->get_cur_mofa()-s_cast);
+				this_object()->timeCold = 2;
+				this_object()->f_skills[name] =
+					f_cur_skill->query_s_delayTime(skill_level)+1;
+				skills_level_check(f_cur_skill->query_name());
+				return;
+			}
 			//首先判断是否是各职业有特殊效果技能，由liaocheng于08/01/16添加
 			if(mofa_type == "spec"){
 				if(s_cold <= 1){

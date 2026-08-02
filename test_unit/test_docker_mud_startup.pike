@@ -133,7 +133,7 @@ void test_item_sync_contract()
 		"wuyingjuemie","jiuyouguibu","liudaozhangmu",
 		"wanshanchaogong","buzhouzhenji","tiandichengbi",
 		"xinghezhuiluo","zhoutianjingzhi","wanxiangxingbi",
-		"cixinpudu","huimingtianlu","wanmuxinchun",
+		"cixinpudu","huimingtianlu","wanmuxinchun","liuhehuichun",
 	});
 
 	if(source){
@@ -149,7 +149,7 @@ void test_item_sync_contract()
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
-	   hidden_count==30 &&
+	   hidden_count==31 &&
 	   search(source,
 		   "verify_hidden_mythic_assets_in_container")!=-1 &&
 	   search(source,
@@ -162,7 +162,7 @@ void test_item_sync_contract()
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录，并校验huling1及30套隐藏传承");
+		test_fail("item必须同步到实际挂载目录，并校验huling1及31套隐藏传承");
 }
 
 void test_neutral_profession_images_deploy_contract()

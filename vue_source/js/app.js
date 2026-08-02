@@ -250,6 +250,8 @@ createApp({
             battleEnemy: null,  // 当前敌人信息 {name, hp, hpMax, level, profe, race, attackLow, attackHigh, defend}
             battleEnemyFull: null,  // 敌人完整状态（从API获取）
             battlePlayerFull: null,  // 玩家完整状态（从API获取）
+            battleAoeReport: null,  // 最近一次服务端群攻战果（最后目标死亡后保留10秒）
+            battleAoeReportTimer: null,
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
@@ -2129,6 +2131,7 @@ createApp({
             this.battleEnemy = null;
             this.battleEnemyFull = null;
             this.battlePlayerFull = null;
+            this.clearBattleAoeReport();
             this.battleAnimations = [];
             this.skillAnimations = [];
             this.battleStatusLoading = false;
@@ -2349,6 +2352,9 @@ createApp({
                         const previousAvatar = this.playerStats && this.playerStats.avatar;
                         const previousLevel = Number(this.playerStats?.level);
                         this.playerStats = data;
+                        // 普通状态轮询也接收服务端短暂保留的群攻战果，覆盖
+                        // 最后一击恰好结束战斗、战斗轮询同时停下的切换窗口。
+                        this.syncBattleAoeReport(data.recent_aoe_report);
                         const currentLevel = Number(data.level);
                         if (Number.isFinite(previousLevel) &&
                             Number.isFinite(currentLevel) &&
@@ -2727,6 +2733,43 @@ createApp({
             }
         },
 
+        clearBattleAoeReport() {
+            if (this.battleAoeReportTimer) {
+                clearTimeout(this.battleAoeReportTimer);
+                this.battleAoeReportTimer = null;
+            }
+            this.battleAoeReport = null;
+        },
+
+        syncBattleAoeReport(report) {
+            const targets = Array.isArray(report?.targets) ? report.targets : [];
+            const remaining = Math.max(0, Number(report?.remaining || 0));
+            if (!targets.length || remaining <= 0) {
+                this.clearBattleAoeReport();
+                return;
+            }
+            if (this.battleAoeReportTimer) {
+                clearTimeout(this.battleAoeReportTimer);
+            }
+            this.battleAoeReport = {
+                skill: report.skill || '',
+                skillName: report.skill_name || '群体技能',
+                targets: targets.map(target => ({
+                    name: target.name_cn || target.name || '未知目标',
+                    hp: Number(target.hp || 0),
+                    hpMax: Number(target.hp_max || 0),
+                    damage: Number(target.damage || 0),
+                    hit: Number(target.hit || 0) === 1,
+                    defeated: Number(target.defeated || 0) === 1,
+                    revived: Number(target.revived || 0) === 1
+                }))
+            };
+            this.battleAoeReportTimer = setTimeout(() => {
+                this.battleAoeReport = null;
+                this.battleAoeReportTimer = null;
+            }, Math.ceil(remaining * 1000));
+        },
+
         /**
          * 获取战斗状态（敌我双方）
          */
@@ -2744,6 +2787,7 @@ createApp({
                 if (!response.ok) return;
 
                 const data = await response.json();
+                this.syncBattleAoeReport(data.player?.recent_aoe_report);
 
                 if (data.in_battle) {
                     if (!this.isInBattle) {
@@ -2784,7 +2828,9 @@ createApp({
                     this.isInBattle = false;
                     this.battleEnemy = null;
                     this.battleEnemyFull = null;
-                    this.battlePlayerFull = null;
+                    this.battlePlayerFull = this.battleAoeReport && data.player
+                        ? data.player
+                        : null;
                     this.battleAnimations = [];
                     this.skillAnimations = [];
                     this.stopBattleStatusPolling();
@@ -3130,7 +3176,7 @@ createApp({
             if (/雷|电|极光|光芒万丈|玄光/.test(value)) return 'lightning';
             if (/火|炎|焰|燎|灼|太阳热线/.test(value)) return 'fire';
             if (/冰|雪|寒|霜|冻/.test(value)) return 'ice';
-            if (/毒|瘴|腐蚀|流血|放血|裂伤|撕裂|灼烧/.test(value)) return 'poison';
+            if (/药雾|毒|瘴|腐蚀|流血|放血|裂伤|撕裂|灼烧/.test(value)) return 'poison';
             if (/诅咒|封印|禁锢|束缚|障目|泥沼|灵咒|缠身|重压|致残/.test(value)) return 'curse';
             if (/轻功|凌波微步|神行百变|灵玄影|幻影残像|鬼踪|飘忽不定|清风身法|九幽鬼步/.test(value)) return 'lightness';
             if (/盾|护体|结界|剑意|神威|狂化|冲动|静心|凝心|灵涌|灵风|山印|镇岩|镇越真身|万山朝拱/.test(value)) return 'buff';
@@ -3486,6 +3532,11 @@ createApp({
     },
 
     computed: {
+        hasRecentAoeReport() {
+            return Array.isArray(this.battleAoeReport?.targets) &&
+                this.battleAoeReport.targets.length > 0;
+        },
+
         playerAvatarUrl() {
             if (!this.playerStats || !this.playerStats.avatar) {
                 return '';
@@ -3515,6 +3566,7 @@ createApp({
     },
 
     beforeUnmount() {
+        this.clearBattleAoeReport();
         this.stopUiTour();
         this.destroyAutoAnimate();
         if (this.autoAnimateReadyHandler) {

@@ -320,8 +320,12 @@ void test_battle_poll_efficiency()
 		search(renderer,"result[\"star_marks\"]")!=-1 &&
 		search(renderer,"query_tianxiang_star_marks")!=-1 &&
 		search(renderer,"result[\"medicine_pacts\"]")!=-1 &&
-		search(renderer,"query_lingyi_medicine_pacts")!=-1;
-	test_result("战斗秒级轮询不刷成功日志且返回镇越护盾/天象星痕/灵医药契状态",valid,
+		search(renderer,"query_lingyi_medicine_pacts")!=-1 &&
+		search(renderer,"result[\"lingyi_revive\"]")!=-1 &&
+		search(renderer,"query_lingyi_auto_revive_status")!=-1 &&
+		search(renderer,"result[\"recent_aoe_report\"]")!=-1 &&
+		search(renderer,"query_recent_aoe_battle_report")!=-1;
+	test_result("战斗秒级轮询不刷成功日志且返回镇越护盾/天象星痕/灵医药契与复苏群攻状态",valid,
 		"战斗状态轮询仍有高频磁盘I/O或职业资源不可观测");
 }
 

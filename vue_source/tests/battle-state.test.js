@@ -11,7 +11,17 @@ let nextBattleState = {
     mana: 70, mana_max: 80, level: 9, profe: '镇越', race: '中立',
     guard: 1200, guard_time: 10, guard_active: 1,
     star_marks: 2, star_marks_max: 3,
-    medicine_pacts: 2, medicine_pacts_max: 3
+    medicine_pacts: 2, medicine_pacts_max: 3,
+    lingyi_revive: {
+      mastered: 8, maximum: 2, used: 1, remaining: 1, unlocked: 1
+    },
+    recent_aoe_report: {
+      skill: 'yaowutianluo', skill_name: '【医】药雾天罗', remaining: 10,
+      targets: [
+        { name: 'wolf', name_cn: '妖狼', damage: 1234, hit: 1, defeated: 1, revived: 0 },
+        { name: 'healer', name_cn: '敌方灵医', damage: 888, hit: 1, defeated: 0, revived: 1 }
+      ]
+    }
   },
   enemy: {
     name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50,
@@ -97,6 +107,9 @@ const indexSource = fs.readFileSync(
 assert(indexSource.includes('十职同行'));
 assert(indexSource.includes('星痕 {{ battlePlayerFull?.star_marks'));
 assert(indexSource.includes('药契 {{ battlePlayerFull?.medicine_pacts'));
+assert(indexSource.includes('battleAoeReport.targets'));
+assert(indexSource.includes("target.revived ? '复苏'"));
+assert(indexSource.includes('lingyi-revive-status'));
 assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
 assert(indexSource.includes("playerStats.profe === '灵医' ? '✚'"));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
@@ -269,6 +282,8 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.parseMartialArtsSkill('【象】九星连珠'), 'wind');
   assert.strictEqual(client.parseMartialArtsSkill('【神】万象星壁'), 'block');
   assert.strictEqual(client.parseMartialArtsSkill('【象】星锁'), 'curse');
+  assert.strictEqual(client.parseMartialArtsSkill('【医】药雾天罗'), 'poison');
+  assert.strictEqual(client.parseMartialArtsSkill('【神】六合回春'), 'heal');
   assert.strictEqual(client.getSkillAnimationTarget('block', '你施放了【越】山河壁。'), 'player');
   assert.strictEqual(client.extractSkillName('你召唤出了虎灵！'), '虎灵');
   assert.strictEqual(client.extractSkillName('你的仙力不够，无法施放【方】灵百雷(等级1)。'), '');
@@ -378,6 +393,15 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.battlePlayerFull.guard, 1200);
   assert.strictEqual(client.battlePlayerFull.guard_time, 10);
   assert.strictEqual(client.battlePlayerFull.guard_active, 1);
+  assert.strictEqual(client.battlePlayerFull.lingyi_revive.remaining, 1);
+  assert.strictEqual(client.battleAoeReport.skill, 'yaowutianluo');
+  assert.strictEqual(client.battleAoeReport.targets.length, 2);
+  assert.strictEqual(client.battleAoeReport.targets[0].defeated, true);
+  assert.strictEqual(client.battleAoeReport.targets[1].revived, true);
+  assert.strictEqual(
+    componentOptions.computed.hasRecentAoeReport.call(client),
+    true
+  );
   assert.strictEqual(client.battleStatusInterval, 1);
   assert.strictEqual(client.battleStatusLoading, false);
 
@@ -392,13 +416,32 @@ assert.strictEqual(client.playerAvatarFailed, true);
 
   nextBattleState = {
     in_battle: false,
-    player: { name: '测试方士', hp: 85, hp_max: 100 }
+    player: {
+      name: '测试方士', hp: 85, hp_max: 100,
+      recent_aoe_report: {
+        skill: 'yaowutianluo', skill_name: '【医】药雾天罗', remaining: 8,
+        targets: [
+          { name: 'wolf', name_cn: '妖狼', damage: 1234, hit: 1, defeated: 1 }
+        ]
+      }
+    }
   };
   await client.fetchBattleStatus();
   assert.strictEqual(client.isInBattle, false);
   assert.strictEqual(client.battleEnemy, null);
   assert.strictEqual(client.battleStatusInterval, null);
   assert.strictEqual(client.battleStatusLoading, false);
+  assert.strictEqual(client.battlePlayerFull.name, '测试方士');
+  assert.strictEqual(client.battleAoeReport.targets[0].name, '妖狼');
+  assert.strictEqual(
+    componentOptions.computed.hasRecentAoeReport.call(client),
+    true
+  );
+  client.clearBattleAoeReport();
+  assert.strictEqual(
+    componentOptions.computed.hasRecentAoeReport.call(client),
+    false
+  );
 
   console.log('✓ Autofight battle panel state transitions passed');
 })().catch(error => {

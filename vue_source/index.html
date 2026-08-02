@@ -491,8 +491,8 @@
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
             <main class="game-frame-container"
                   :class="{
-                      'battle-dock-active': useJsonMode && isInBattle && !battleFullscreen && !battleDockCollapsed,
-                      'battle-dock-collapsed': useJsonMode && isInBattle && !battleFullscreen && battleDockCollapsed
+                      'battle-dock-active': useJsonMode && (isInBattle || hasRecentAoeReport) && !battleFullscreen && (!battleDockCollapsed || hasRecentAoeReport),
+                      'battle-dock-collapsed': useJsonMode && isInBattle && !hasRecentAoeReport && !battleFullscreen && battleDockCollapsed
                   }">
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
@@ -589,9 +589,9 @@
             </main>
 
             <!-- 战斗面板 (JSON模式专用) -->
-            <div v-if="useJsonMode && isInBattle"
+            <div v-if="useJsonMode && (isInBattle || hasRecentAoeReport)"
                  class="battle-panel"
-                 :class="{ 'mini-mode': !battleFullscreen, 'fullscreen-mode': battleFullscreen, 'dock-collapsed': !battleFullscreen && battleDockCollapsed }"
+                 :class="{ 'mini-mode': !battleFullscreen, 'fullscreen-mode': battleFullscreen, 'dock-collapsed': !battleFullscreen && battleDockCollapsed && !hasRecentAoeReport }"
                  aria-live="polite">
                 <!-- 共用技能动画层：迷你停靠栏和战斗详情都能看到，不遮挡点击。 -->
                 <div v-if="combatEffectsEnabled && skillAnimations.length && (!battleDockCollapsed || battleFullscreen)"
@@ -607,7 +607,7 @@
                         <span v-if="skill.name" class="skill-effect-label">{{ skill.name }}</span>
                     </div>
                 </div>
-                <button v-if="!battleFullscreen && battleDockCollapsed"
+                <button v-if="!battleFullscreen && battleDockCollapsed && !hasRecentAoeReport"
                         type="button"
                         class="battle-dock-trigger"
                         @click="toggleBattleDock"
@@ -616,8 +616,28 @@
                     <span aria-hidden="true">⚔️</span>
                     <span class="battle-dock-percent">{{ getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) }}%</span>
                 </button>
+                <div v-if="hasRecentAoeReport"
+                     class="battle-aoe-report"
+                     role="status"
+                     aria-label="最近一次群攻战果">
+                    <div class="battle-aoe-report-header">
+                        <span>☘ {{ battleAoeReport.skillName }}</span>
+                        <span>{{ battleAoeReport.targets.length }}个目标</span>
+                    </div>
+                    <div class="battle-aoe-targets">
+                        <span v-for="(target, index) in battleAoeReport.targets"
+                              :key="target.name + '-' + index"
+                              class="battle-aoe-target"
+                              :class="{ defeated: target.defeated, revived: target.revived, missed: !target.hit }"
+                              :title="target.name + ' · 伤害' + formatCompactNumber(target.damage)">
+                            <span>{{ target.defeated ? '✓' : (target.revived ? '↻' : (target.hit ? '•' : '×')) }}</span>
+                            <span>{{ target.name }}</span>
+                            <span>{{ target.defeated ? '击败' : (target.revived ? '复苏' : (target.hit ? '-' + formatCompactNumber(target.damage) : '抵抗')) }}</span>
+                        </span>
+                    </div>
+                </div>
                 <!-- 迷你模式: 显示敌我核心战斗数据 -->
-                <div v-if="!battleFullscreen && !battleDockCollapsed" class="battle-mini">
+                <div v-if="isInBattle && !battleFullscreen && !battleDockCollapsed" class="battle-mini">
                     <div class="battle-side player-side">
                         <div class="battle-identity">
                             <span class="battle-name">{{ battlePlayerFull?.name_cn || playerStats?.name_cn || loginForm.userid }}</span>
@@ -663,6 +683,12 @@
 							<span>药契 {{ battlePlayerFull?.medicine_pacts ?? playerStats?.medicine_pacts ?? 0 }}/{{ battlePlayerFull?.medicine_pacts_max ?? playerStats?.medicine_pacts_max ?? 3 }}</span>
 							<span>· 20秒内刷新</span>
 						</div>
+						<div class="battle-star-status lingyi-revive-status"
+						     v-if="(battlePlayerFull?.profe || playerStats?.profe) === '灵医'">
+							<span aria-hidden="true">♻</span>
+							<span>复苏 {{ (battlePlayerFull?.lingyi_revive ?? playerStats?.lingyi_revive)?.remaining ?? 0 }}/{{ (battlePlayerFull?.lingyi_revive ?? playerStats?.lingyi_revive)?.maximum ?? 0 }}</span>
+							<span>· 满段{{ (battlePlayerFull?.lingyi_revive ?? playerStats?.lingyi_revive)?.mastered ?? 0 }}门</span>
+						</div>
                     </div>
                     <div class="battle-vs">⚔️</div>
                     <div class="battle-side enemy-side">
@@ -703,7 +729,7 @@
                 </div>
 
                 <!-- 全屏模式: 上下布局显示敌我双方 -->
-                <div v-if="battleFullscreen" class="battle-full">
+                <div v-if="isInBattle && battleFullscreen" class="battle-full">
                     <div class="battle-header">
                         <h4>⚔️ 战斗中</h4>
                         <div class="battle-controls">
@@ -784,6 +810,7 @@
                                 <span class="stat-item guard-stat" v-if="battlePlayerFull.guard_active">🛡 山河壁: {{ formatCompactNumber(battlePlayerFull.guard || 0) }} · {{ battlePlayerFull.guard_time || 0 }}秒</span>
                                 <span class="stat-item star-mark-stat" v-if="battlePlayerFull.profe === '天象'">✦ 星痕: {{ battlePlayerFull.star_marks || 0 }}/{{ battlePlayerFull.star_marks_max || 3 }} · 15秒内刷新</span>
 								<span class="stat-item star-mark-stat medicine-pact-status" v-if="battlePlayerFull.profe === '灵医'">✚ 药契: {{ battlePlayerFull.medicine_pacts || 0 }}/{{ battlePlayerFull.medicine_pacts_max || 3 }} · 20秒内刷新</span>
+								<span class="stat-item star-mark-stat lingyi-revive-status" v-if="battlePlayerFull.profe === '灵医'">♻ 百炼复苏: {{ battlePlayerFull.lingyi_revive?.remaining || 0 }}/{{ battlePlayerFull.lingyi_revive?.maximum || 0 }} · 满段{{ battlePlayerFull.lingyi_revive?.mastered || 0 }}门</span>
                             </div>
                         </div>
                     </div>

@@ -17,7 +17,8 @@ release proof is `docs/lingyi-10-pass-audit.md`.
 - [ ] Solo rotation, team contribution, PvP counterplay, Boss behavior, resource
   loop, equipment policy, and recovery-item policy.
 - [ ] Skill milestones, stage count, passive chain, advanced replacements,
-  level-20 reward, level-53 chain, and three hidden mythic skills.
+  level-20 reward, level-53 chain, and the profession's declared hidden mythic
+  skills (normally three; every deliberate extra must update pool/rate/tests/docs).
 - [ ] Stateful mechanic ownership, numeric caps, server-authoritative inputs,
   and cleanup matrix for move/team/target/death/logout/disconnect/expiry/recast.
 - [ ] Auto-fight behavior, optional profession assistant behavior, free core,
@@ -60,8 +61,15 @@ release proof is `docs/lingyi-10-pass-audit.md`.
   server-owned and serialized consistently to legacy and Vue battle state.
 - [ ] AOE and target arrays purge dead, destructed, cross-room, and current-target
   objects consistently.
+- [ ] Room-wide AOE takes a server snapshot, excludes allies and allied pets,
+  never treats an uninvolved PvP bystander as authorized, caps player/Boss
+  damage, preserves reward credit, and reports every resolved target to Vue.
 - [ ] Team effects require real same-team, same-room, living members and never
   affect outsiders or revive dead players unless explicitly designed.
+- [ ] Death-prevention/revival is checked before rewards, durability/experience
+  loss, summon cleanup, and relocation; consumption precedes restoration; daily
+  persistence, reentry lock, restore ratios, fast-PK, PvE/PvP, suicide, duel,
+  city/guild war, ghost, invalid killer, and reconnect boundaries are tested.
 - [ ] PvP, player-owned pets, Bosses, duels, guild wars, city wars, and long-PK
   fast decisions honor caps and attribution.
 - [ ] Compare one physical, one magical, Fangshi, and Zhenyue regression case.
@@ -83,9 +91,9 @@ release proof is `docs/lingyi-10-pass-audit.md`.
   selected catalog, profession, and server-owned price agree.
 - [ ] Every active profession receives its configured rotation; do not encode a
   stale count such as seven or eight.
-- [ ] The three hidden books require level 80 and profession, allow normal item
+- [ ] Every declared hidden book requires level 80 and profession, allows normal item
   movement, survive duplicate reads, and never appear in any store or teacher.
-- [ ] Hidden pool grows by exactly three and shared numerator grows equally so
+- [ ] Hidden pool grows by the declared count and shared numerator grows equally so
   the current per-book long-run probability remains about 1/100000.
 - [ ] Actual NPC level 70+, one roll per killed monster, team/solo ownership,
   120-second protection, five-minute cleanup, and audit log are preserved.
@@ -159,6 +167,9 @@ release proof is `docs/lingyi-10-pass-audit.md`.
   reduced motion, screen-reader labels, and actionable errors remain usable.
 - [ ] Battle target name, combat state, HP/mofa, effect feedback, skill animation,
   refresh, login/session compatibility, and request-overlap guards work.
+- [ ] Multi-target combat feedback survives the last target's death long enough
+  to show hit, resisted, defeated, and auto-revived outcomes; moving rooms or
+  expiry clears the transient report, and collapsed/mobile docks do not hide it.
 
 ## 8. Automation, VIP, concurrency, and security
 
@@ -173,6 +184,9 @@ release proof is `docs/lingyi-10-pass-audit.md`.
   and reduced-motion compatible.
 - [ ] Player mutations are serialized; shared economy/team/combat mutations use
   the correct global transaction lock; pure reads are the only parallel work.
+- [ ] Battle/status serializers perform pure reads: mastery/revive/resource
+  queries must not lazily load objects, mutate registries, or accept client
+  counters while running on parallel HTTP read paths.
 - [ ] New mutating commands appear in every mirrored HTTP core-command list.
 - [ ] Rate/body/queue/command limits, malformed inputs, duplicate requests,
   timeouts, cleanup, and reconnect are tested.

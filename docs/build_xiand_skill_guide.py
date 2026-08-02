@@ -2,7 +2,7 @@
 """Build the standalone Xiand all-profession skill handbook.
 
 The handbook is intentionally separate from the equipment/progression guide.
-It reads the current skill objects and skill-book catalog, then gives all 30
+It reads the current skill objects and skill-book catalog, then gives all 31
 drop-only mythic skills a dedicated, stage-by-stage reference.
 """
 
@@ -238,6 +238,12 @@ MYTHIC_SKILLS = [
         "role": "群体治疗与逐人净化",
         "usage": "治疗同房同队存活人物并为每名受益目标净化一项负面状态，优先持续伤害，再处理减疗/诅咒、控制与70级诅咒。每名目标治疗上限25%，120秒冷却要求留给复杂团队危机。",
     },
+    {
+        "profession": "lingyi",
+        "id": "liuhehuichun",
+        "role": "药契强化全队治疗与净化",
+        "usage": "治疗自己与同房、同逻辑区、同队的全部存活队友，并为每人净化一项负面状态。施放时消耗全部药契，每层增强15%，每人单次最高恢复35%生命；150秒冷却使它成为团队危机的压轴手段。",
+    },
 ]
 
 MYTHIC_THEMES = {
@@ -314,7 +320,7 @@ class SkillGuideDocTemplate(GuideDocTemplate):
             canvas.drawRightString(
                 PAGE_W - RIGHT_MARGIN,
                 PAGE_H - 8.5 * mm,
-                "三十本隐藏神技详解",
+                "三十一本隐藏神技详解",
             )
             canvas.line(LEFT_MARGIN, 10 * mm, PAGE_W - RIGHT_MARGIN, 10 * mm)
             canvas.drawCentredString(PAGE_W / 2, 6.5 * mm, f"- {doc.page} -")
@@ -357,7 +363,7 @@ def add_cover(
     story.append(Paragraph("仙道全职业技能专册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-			f"十职业技能全索引 · 三十式隐藏神技 · {build_date}灵医版",
+			f"十职业技能全索引 · 三十一式隐藏神技 · {build_date}灵医版",
             styles["CoverSub"],
         )
     )
@@ -368,7 +374,7 @@ def add_cover(
                 Paragraph(
                     f"当前代码共收录 {skill_count} 个职业技能对象、{book_count} 条职业技能书配置。<br/>"
                     "从技能书获得、背包学习，到熟练度成长与实战连招，一册查清。<br/>"
-                    "十个职业各有 3 本专属隐藏神技，共 30 本极低概率传承。<br/>"
+                    "九个职业各有 3 本专属隐藏神技，灵医独有 4 本，共 31 本极低概率传承。<br/>"
                     "等级、法力、伤害、治疗、控制时长与冷却均取自当前技能对象。",
                     ParagraphStyle(
                         "SkillCoverBox",
@@ -424,14 +430,14 @@ def add_cover(
         [
             "# 仙道全职业技能专册",
             "",
-			f"十职业技能全索引 · 三十式隐藏神技 · {build_date}灵医版",
+			f"十职业技能全索引 · 三十一式隐藏神技 · {build_date}灵医版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
             f"- 生成日期：{build_date}",
             f"- 数据规模：{skill_count} 个职业技能对象，{book_count} 条职业技能书配置",
             "",
-            "> 本专册依据当前仓库代码生成，十个职业各有 3 本专属隐藏神技，共 30 本。",
+            "> 本专册依据当前仓库代码生成：九个职业各3本，灵医4本，共31本。",
             "",
         ]
     )
@@ -629,21 +635,22 @@ def build_skill_guide() -> None:
             compact=True,
         )
         if profession_id in mythics_by_prof:
+            hidden_count = len(mythics_by_prof[profession_id])
             guide.paragraph(
-                "本职业的3本隐藏大神书不在上述商店表中，完整阶段数值见第4章。",
+                f"本职业的{hidden_count}本隐藏大神书不在上述商店表中，完整阶段数值见第4章。",
                 small=True,
             )
 
-    guide.h1("4. 三十式隐藏神技实战全解")
+    guide.h1("4. 三十一式隐藏神技实战全解")
     guide.h2("4.1 掉落、归属与学习规则")
     guide.table(
         ["规则项", "当前实现"],
         [
             ["资格怪物", "被击杀怪物的实际等级必须达到70级；不看玩家等级或地图名称"],
-            ["总掉率", "每只合格怪物30/100000；命中后从30本中等概率选1本"],
+            ["总掉率", "每只合格怪物31/100000；命中后从31本中等概率选1本"],
             ["单本长期均值", "约1/100000；短期可能长期不出，也可能连续掉落"],
             ["掷骰次数", "单人、团队普通怪、团队Boss均按每只怪物恰好掷1次；队员人数不放大掉率"],
-            ["商店限制", "30本均不进入普通书商店、每日高级书商店或师门教学"],
+            ["商店限制", "31本均不进入普通书商店、每日高级书商店或师门教学"],
             ["地面归属", "个人或队伍保护120秒；未拾取物品5分钟后清理"],
             ["流通", "允许拾取、丢弃、交易、寄送与仓库存放；学习时才严格检查职业"],
             ["学习要求", "人物80级且职业匹配；重复学习不消耗书"],
@@ -653,11 +660,11 @@ def build_skill_guide() -> None:
     )
     guide.callout(
         "概率换算",
-        "30本共享30/100000总掉率，不是每本都按30/100000独立判断。因为命中后三十选一，所以单本长期平均仍约为1/100000。",
+        "31本共享31/100000总掉率，不是每本都按31/100000独立判断。因为命中后三十一选一，所以单本长期平均仍约为1/100000。",
         "gold",
     )
 
-    guide.h2("4.2 三十本神技横向比较")
+    guide.h2("4.2 三十一本神技横向比较")
     guide.table(
         ["职业", "技能", "定位", "冷却", "80级第一段", "160级第五段"],
         [
@@ -680,8 +687,9 @@ def build_skill_guide() -> None:
         "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi"
     ]:
         profession = PROF_BY_ID[profession_id]
+        skill_count_cn = "四" if profession_id == "lingyi" else "三"
         guide.h2(
-            f"4.{section_number} {profession['name']}三大神技 - {MYTHIC_THEMES[profession_id]}"
+            f"4.{section_number} {profession['name']}{skill_count_cn}大神技 - {MYTHIC_THEMES[profession_id]}"
         )
         for mythic in mythics_by_prof[profession_id]:
             guide.h3(f"{mythic['name']} ({mythic['id']})")
@@ -748,7 +756,7 @@ def build_skill_guide() -> None:
         else:
             guide.callout(
                 "灵医推荐循环",
-                "先以回春、清心、灵愈或甘霖维持队伍并凝成至多三层药契；危急单体用回命天露消耗药契急救，多人同时受伤用慈心普渡，负面状态密集时保留万木新春。所有目标与治疗上限由服务端统一校验。",
+                "先以回春、清心、灵愈或甘霖维持队伍并凝成至多三层药契；危急单体用回命天露急救，多人同时受伤用慈心普渡，复合危机以六合回春消耗药契全队治疗净化。药雾天罗只用于房间合法敌人，PVP不扩散到未参战路人。",
             )
         section_number += 1
 
@@ -779,6 +787,9 @@ def build_skill_guide() -> None:
             ["灵医隐藏群疗会治疗路人吗？", "不会。只治疗自己与同房、同逻辑区、同队伍的存活人物；未组队时只治疗自己。"],
             ["回命天露会无限抬血吗？", "不会。药契最多3层、每层+15%，并且单次治疗最高不超过目标40%生命上限。"],
             ["万木新春一次会清掉所有状态吗？", "不会。每名合法目标每次只按优先级净化一项负面状态。"],
+            ["六合回春会治疗全图吗？", "不会。只治疗自己和同房、同逻辑区、同队存活队友，消耗全部药契，单人上限35%。"],
+            ["药雾天罗会伤害队友或路人吗？", "不会。队友与玩家拥有的召唤物均被排除；PVP只扩展到已与自己或同房队友交战的目标。"],
+            ["百炼复苏的“5个100级技能”怎么算？", "灵医技能为五段制，第五段就是100%掌握。任意5/8/12门白名单技能满段，每日自动复苏次数为1/2/3。"],
         ],
         [1.7, 4.0],
     )
@@ -799,7 +810,7 @@ def build_skill_guide() -> None:
             "方士/镇越/天象/灵医职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
             "职业助手公平边界回归：test_unit/test_profession_vip_assistant.pike",
             "天象星痕、技能与共享系统回归：test_unit/test_tianxiang_profession.pike",
-            "灵医治疗、净化、药契与共享系统回归：test_unit/test_lingyi_profession.pike",
+            "灵医治疗、净化、药契、药雾群攻、百炼复苏与共享系统回归：test_unit/test_lingyi_profession.pike",
             "Vue真实操作与发呆时钟边界：test_unit/test_idle_kick_system.pike",
         ]
     )

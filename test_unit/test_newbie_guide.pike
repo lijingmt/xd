@@ -574,7 +574,9 @@ void test_tutorial_and_roadmaps_render()
 		if(profession=="lingyi" &&
 		   (search(roadmap,"5级回春") == -1 ||
 		    search(roadmap,"70级续命") == -1 ||
-		    search(roadmap,"80级起可学习三本") == -1))
+		    search(roadmap,"46级药雾天罗") == -1 ||
+		    search(roadmap,"百炼复苏") == -1 ||
+		    search(roadmap,"80级起可学习四本") == -1))
 			all_ok = 0;
 		destroy_player(player);
 	}

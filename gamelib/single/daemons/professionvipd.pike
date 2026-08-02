@@ -786,10 +786,10 @@ array(string) query_lingyi_context_candidates(object player)
 	strategy = query_runtime_strategy(player);
 	if(has_afflicted_member(player) &&
 	   (strategy=="cleanse" || strategy=="auto"))
-		names += ({"wanmuxinchun","ganlin","qingxin"});
+		names += ({"liuhehuichun","wanmuxinchun","ganlin","qingxin"});
 	if(has_same_room_team(player) && has_low_life_member(player,75) &&
 	   (strategy=="group" || strategy=="auto"))
-		names += ({"cixinpudu","wanmuxinchun","ganlin","yulu"});
+		names += ({"liuhehuichun","cixinpudu","wanmuxinchun","ganlin","yulu"});
 	if(has_low_life_member(player,70))
 		names += ({"huimingtianlu","xuming","lingyu","qingxin","huichun"});
 	return names;
@@ -802,9 +802,9 @@ string query_lingyi_manual_recommendation(object player)
 	   query_effective_level(player)<1)
 		return "";
 	if(has_afflicted_member(player))
-		names = ({"wanmuxinchun","ganlin","qingxin"});
+		names = ({"liuhehuichun","wanmuxinchun","ganlin","qingxin"});
 	else if(has_same_room_team(player) && has_low_life_member(player,75))
-		names = ({"cixinpudu","ganlin","yulu","lingyu","huichun"});
+		names = ({"liuhehuichun","cixinpudu","ganlin","yulu","lingyu","huichun"});
 	else
 		names = ({"huimingtianlu","xuming","lingyu","qingxin","huichun"});
 	foreach(names,string name)

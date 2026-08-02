@@ -376,10 +376,8 @@ int query_tianxiang_star_marks(){
 	int marks;
 	if(query_profeId()!="tianxiang")
 		return 0;
-	if((int)this_object()["/tmp/tianxiang_star_expire"]<=time()){
-		clean_tianxiang_star_marks();
+	if((int)this_object()["/tmp/tianxiang_star_expire"]<=time())
 		return 0;
-	}
 	marks = (int)this_object()["/tmp/tianxiang_star_marks"];
 	if(marks<0)
 		marks = 0;
@@ -416,10 +414,8 @@ int query_lingyi_medicine_pacts(){
 	int pacts;
 	if(query_profeId()!="lingyi")
 		return 0;
-	if((int)this_object()["/tmp/lingyi_medicine_pact_expire"]<=time()){
-		clean_lingyi_medicine_pacts();
+	if((int)this_object()["/tmp/lingyi_medicine_pact_expire"]<=time())
 		return 0;
-	}
 	pacts = (int)this_object()["/tmp/lingyi_medicine_pacts"];
 	if(pacts<0)
 		pacts = 0;
@@ -449,6 +445,210 @@ int consume_lingyi_medicine_pacts(){
 void clean_lingyi_medicine_pacts(){
 	this_object()->m_delete_foruser("/tmp/lingyi_medicine_pacts");
 	this_object()->m_delete_foruser("/tmp/lingyi_medicine_pact_expire");
+}
+
+// 群攻战果只保存在当前人物对象内，既不写存档，也不接受客户端输入。
+// 技能结束后保留十秒，让战斗小窗在最后一个目标死亡、战斗态清除后仍能展示。
+private mapping(string:mixed) recent_aoe_battle_report = ([]);
+private object|zero recent_aoe_battle_room = 0;
+private int recent_aoe_battle_expire = 0;
+
+void clear_recent_aoe_battle_report(){
+	recent_aoe_battle_report = ([]);
+	recent_aoe_battle_room = 0;
+	recent_aoe_battle_expire = 0;
+}
+
+void begin_recent_aoe_battle_report(string skill_name,string skill_name_cn){
+	if(query_profeId()!="lingyi" || !environment(this_object())){
+		clear_recent_aoe_battle_report();
+		return;
+	}
+	recent_aoe_battle_report = ([
+		"skill":skill_name || "",
+		"skill_name":skill_name_cn || "群体技能",
+		"targets":({}),
+	]);
+	recent_aoe_battle_room = environment(this_object());
+	recent_aoe_battle_expire = time()+10;
+}
+
+void record_recent_aoe_battle_target(object target,int damage,int hit,
+	int defeated,void|int revived){
+	array(mapping) targets;
+	int hp = 0;
+	int hp_max = 0;
+	if(!target || !recent_aoe_battle_report ||
+	   recent_aoe_battle_expire<=time() ||
+	   recent_aoe_battle_room!=environment(this_object()))
+		return;
+	targets = recent_aoe_battle_report["targets"];
+	if(!targets)
+		targets = ({});
+	if(functionp(target->get_cur_life))
+		hp = target->get_cur_life();
+	if(functionp(target->query_life_max))
+		hp_max = target->query_life_max();
+	if(hp<0)
+		hp = 0;
+	targets += ({ ([
+		"name":functionp(target->query_name) ? target->query_name() : "",
+		"name_cn":functionp(target->query_name_cn) ?
+			target->query_name_cn() : "未知目标",
+		"hp":hp,
+		"hp_max":hp_max,
+		"damage":damage>0 ? damage : 0,
+		"hit":hit ? 1 : 0,
+		"defeated":defeated ? 1 : 0,
+		"revived":revived ? 1 : 0,
+	]) });
+	recent_aoe_battle_report["targets"] = targets;
+}
+
+mapping(string:mixed) query_recent_aoe_battle_report(){
+	mapping(string:mixed) result = ([]);
+	array(mapping) targets = ({});
+	if(query_profeId()!="lingyi" || !recent_aoe_battle_report ||
+	   recent_aoe_battle_expire<=time() ||
+	   !recent_aoe_battle_room ||
+	   recent_aoe_battle_room!=environment(this_object()))
+		return result;
+	foreach((array(mapping))recent_aoe_battle_report["targets"],mapping target)
+		targets += ({ target+([]) });
+	result["skill"] = recent_aoe_battle_report["skill"];
+	result["skill_name"] = recent_aoe_battle_report["skill_name"];
+	result["targets"] = targets;
+	result["remaining"] = recent_aoe_battle_expire-time();
+	return result;
+}
+
+private int query_lingyi_revive_day_key(){
+	mapping(string:int) now_time = localtime(time());
+	return ((int)now_time["year"])*1000+(int)now_time["yday"];
+}
+
+// 新职业技能是五段制；达到第五段即为100%掌握。白名单既不接受人物
+// 存档伪造的技能名，也避免HTTP状态只读查询期间按需加载技能对象。
+private array(string) lingyi_mastery_skill_names = ({
+	"lingzhen","yaoli","huichun","muxi","qingxin","huxin",
+	"lingyu","huayu","yaowutianluo","yulu","baicaojue","ganlin",
+	"xuming","cixinpudu","huimingtianlu","wanmuxinchun",
+	"liuhehuichun",
+});
+
+int query_lingyi_mastered_skill_count(){
+	int mastered = 0;
+	if(query_profeId()!="lingyi" || !skills)
+		return 0;
+	foreach(lingyi_mastery_skill_names,string name){
+		mixed learned = skills[name];
+		if(arrayp(learned) && sizeof(learned) && (int)learned[0]>=5)
+			mastered++;
+	}
+	return mastered;
+}
+
+int query_lingyi_auto_revive_max(){
+	int mastered = query_lingyi_mastered_skill_count();
+	if(mastered>=12)
+		return 3;
+	if(mastered>=8)
+		return 2;
+	if(mastered>=5)
+		return 1;
+	return 0;
+}
+
+int query_lingyi_auto_revive_used(){
+	if(query_profeId()!="lingyi" ||
+	   (int)this_object()["/plus/lingyi/revive_day_key"]!=
+	   query_lingyi_revive_day_key())
+		return 0;
+	int used = (int)this_object()["/plus/lingyi/revive_used"];
+	if(used<0)
+		used = 0;
+	return used;
+}
+
+int query_lingyi_auto_revive_remaining(){
+	int remaining = query_lingyi_auto_revive_max()-
+		query_lingyi_auto_revive_used();
+	return remaining>0 ? remaining : 0;
+}
+
+mapping(string:int) query_lingyi_auto_revive_status(){
+	int mastered = query_lingyi_mastered_skill_count();
+	int maximum = query_lingyi_auto_revive_max();
+	int used = query_lingyi_auto_revive_used();
+	return ([
+		"mastered":mastered,
+		"unlock_need":5,
+		"maximum":maximum,
+		"used":used>maximum ? maximum : used,
+		"remaining":maximum>used ? maximum-used : 0,
+		"unlocked":maximum>0 ? 1 : 0,
+	]);
+}
+
+// 只在人物真正进入死亡结算时调用。成功返回1，调用者必须立即停止后续
+// 击杀奖励、经验/耐久惩罚、召唤清理和回城流程。
+int try_lingyi_auto_revive(object killer){
+	object env = environment(this_object());
+	int maximum;
+	int used;
+	int life_restore;
+	int mofa_restore;
+	if(query_profeId()!="lingyi" || !this_object()->is("player") ||
+	   !killer || !objectp(killer) || !env ||
+	   environment(killer)!=env || this_object()->get_cur_life()>0 ||
+	   !LOGICALZONED->can_action("combat",this_object(),killer) ||
+	   this_object()->is("ghost") ||
+	   this_object()->sucide || this_object()["/tmp/lingyi/revive_running"])
+		return 0;
+	if(functionp(env->query_room_type) && env->query_room_type()=="city")
+		return 0;
+	// 切磋只分胜负，不消耗每日复苏次数。
+	if(this_object()->kill_flag==0 && killer->kill_flag==0)
+		return 0;
+	maximum = query_lingyi_auto_revive_max();
+	used = query_lingyi_auto_revive_used();
+	if(maximum<=0 || used>=maximum)
+		return 0;
+	this_object()["/tmp/lingyi/revive_running"] = 1;
+	this_object()["/plus/lingyi/revive_day_key"] =
+		query_lingyi_revive_day_key();
+	// 先消费再恢复；后续任何提示或日志错误都不会复制次数。
+	this_object()["/plus/lingyi/revive_used"] = used+1;
+	this_object()->_clean_fight();
+	if(killer && objectp(killer) && functionp(killer->clean_targets))
+		killer->clean_targets(this_object());
+	life_restore = this_object()->query_life_max()*25/100;
+	mofa_restore = this_object()->query_mofa_max()*20/100;
+	if(life_restore<1)
+		life_restore = 1;
+	if(mofa_restore<1)
+		mofa_restore = 1;
+	this_object()->set_life(life_restore);
+	this_object()->set_mofa(mofa_restore);
+	// 生命恢复完成后先解除重入锁；无连接的测试人物或日志
+	// 文件故障不得把人物卡在“正在复苏”状态。
+	this_object()->m_delete_foruser("/tmp/lingyi/revive_running");
+	catch {
+		foreach(all_inventory(env),object observer){
+			if(observer && functionp(observer->is) && observer->is("player"))
+				tell_object(observer,"【医】"+this_object()->query_name_cn()+
+					"触发百炼复苏，在死亡前稳住生机（今日剩余"+
+					query_lingyi_auto_revive_remaining()+"次）。\n");
+		}
+	};
+	catch {
+		string now = ctime(time());
+		Stdio.append_file(ROOT+"/log/lingyi_revive.log",
+			now[0..sizeof(now)-2]+"|"+this_object()->query_name()+
+			"|killer="+killer->query_name()+"|used="+(used+1)+
+			"|max="+maximum+"\n");
+	};
+	return 1;
 }
 
 void reset_buff(){
