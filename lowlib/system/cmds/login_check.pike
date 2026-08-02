@@ -10,6 +10,40 @@ int is_http_api_login(string user_name) {
     return 0;
 }
 
+// 同一人物从HTTP界面切换到Socket界面时必须先在账号锁内可靠保存，
+// 不能直接destruct在线对象，否则最近装备/仓库状态可能被旧.o覆盖。
+private int safely_remove_http_player(object player,string user_name,
+	object http_api_daemon)
+{
+	object account_key;
+	object connd;
+	int saved = 0;
+	mixed err;
+	if(!player)
+		return 1;
+	account_key = ACCOUNT_CHARACTERD->
+		query_account_runtime_mutex(user_name)->lock();
+	err = catch{
+		if(functionp(player->save_with_result))
+			saved = player->save_with_result();
+	};
+	if(err || !saved){
+		destruct(account_key);
+		return 0;
+	}
+	if(http_api_daemon && functionp(
+	   http_api_daemon->remove_virtual_connection))
+		http_api_daemon->remove_virtual_connection(user_name);
+	connd = find_object(SROOT+"/connd.pike");
+	if(connd && functionp(connd->erase_user))
+		connd->erase_user(player);
+	err = catch{
+		player->remove();
+	};
+	destruct(account_key);
+	return !err;
+}
+
 int main(string arg)
 {
 	string path,user_name,lgpswd,userip;
@@ -65,15 +99,11 @@ int main(string arg)
 						// 用户有虚拟连接（从新界面登录过），现在从老界面登录
 						// 需要清除虚拟连接并重新创建玩家对象
 						Stdio.append_file("/tmp/xiand_login_debug.log", "User has virtual connection, clearing...\n");
-						// 清除虚拟连接
-						if(functionp(http_api_d->remove_virtual_connection))
-							http_api_d->remove_virtual_connection(user_name);
-						// 从 CONND 中移除玩家
-						object connd = find_object(SROOT + "/connd.pike");
-						if(connd && functionp(connd->erase_user))
-							connd->erase_user(me);
-						// 销毁旧玩家对象
-						destruct(me);
+						if(!safely_remove_http_player(me,user_name,http_api_d)){
+							title += "登录切换保存失败，请稍后重试。\n";
+							write(title);
+							return 1;
+						}
 						// 重新创建玩家对象（首次登录流程）
 						program u;
 						object m;
@@ -146,15 +176,11 @@ int main(string arg)
 						// 用户有虚拟连接（从新界面登录过），现在从老界面登录
 						// 需要清除虚拟连接并重新创建玩家对象
 						Stdio.append_file("/tmp/xiand_login_debug.log", "User has virtual connection (with user file), clearing...\n");
-						// 清除虚拟连接
-						if(functionp(http_api_d->remove_virtual_connection))
-							http_api_d->remove_virtual_connection(user_name);
-						// 从 CONND 中移除玩家
-						object connd = find_object(SROOT + "/connd.pike");
-						if(connd && functionp(connd->erase_user))
-							connd->erase_user(me);
-						// 销毁旧玩家对象
-						destruct(me);
+						if(!safely_remove_http_player(me,user_name,http_api_d)){
+							title += "登录切换保存失败，请稍后重试。\n";
+							write(title);
+							return 1;
+						}
 						// 重新创建玩家对象（首次登录流程）
 						program u;
 						object m;
@@ -259,9 +285,10 @@ int main(string arg)
 					me->set_userip(userip);
 					me->set_project(path);
 					Stdio.append_file("/tmp/xiand_login_debug.log", "calling setup...\n");
-					mixed setup_result = catch { me->setup(lgpswd); };
-					Stdio.append_file("/tmp/xiand_login_debug.log", "setup result=" + sprintf("%O", setup_result) + "\n");
-					if(setup_result==0){
+					int setup_ok = 0;
+					mixed setup_result = catch { setup_ok = me->setup(lgpswd); };
+					Stdio.append_file("/tmp/xiand_login_debug.log", "setup result=" + sprintf("%O", setup_result) + " ok=" + setup_ok + "\n");
+					if(setup_result==0 && setup_ok){
 						Stdio.append_file("/tmp/xiand_login_debug.log", "setup success! checking http_api mode...\n");
 						// HTTP API 模式检测：检查全局标记
 						int is_http_api = is_http_api_login(user_name);

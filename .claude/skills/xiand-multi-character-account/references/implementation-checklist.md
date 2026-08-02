@@ -33,7 +33,10 @@ comment, test, and operator-documentation note.
 - [ ] Verify starter skill, gear, auto-equip, medicine, guide, spawn, registration
       time, and save occur through the original profession flow.
 - [ ] Confirm character-local level, skills, equipment, inventory, currency,
-      tasks, home, guild, friends, VIP, storage, and automation after relogin.
+      tasks, home, guild, friends, VIP, personal storage, and automation after
+      relogin.
+- [ ] Keep the shared vault an explicit independent account service; never
+      silently redirect personal-warehouse callers to account scope.
 - [ ] Confirm all current profession pairs appear exactly once in backend and
       Vue catalogs; update slot/product policy explicitly when adding a class.
 
@@ -57,11 +60,37 @@ comment, test, and operator-documentation note.
 
 - [ ] Serialize account manifest creation and password synchronization.
 - [ ] Serialize account-session table changes.
-- [ ] Acquire the stable per-character command mutex before sibling save/remove.
+- [ ] Resolve Socket/JSP, direct TXD, automatic-browser, and HTTP logins through
+      the same configurable account-online guard.
+- [ ] Permit distinct siblings only up to the 1-10 configured limit; always
+      replace an older object for the same physical character ID.
+- [ ] Fall back to one on missing/invalid config and prove both repository default
+      5 and test override 1 in real runtime tests, including periodic eviction of
+      already-online excess characters.
+- [ ] Acquire the stable registration-account command mutex before sibling
+      save/remove, including a first HTTP command that creates the player.
 - [ ] Call `save_with_result()`, not boolean `save()`.
 - [ ] Remove the virtual connection only after successful save.
 - [ ] Do not hold connection-table locks during player save/remove.
 - [ ] Bound account sessions and character slots against resource exhaustion.
+
+## Shared-vault anti-clone transactions
+
+- [ ] Preserve the legacy personal warehouse and its equipment metadata; accept
+      the appended permanent-ID field without changing old withdrawal behavior.
+- [ ] Assign collision-resistant permanent IDs and address transfer commands by
+      ID, never item path/name/index.
+- [ ] Persist pending escrow before removing the source and verify the character
+      save before destination commit.
+- [ ] Recover interrupted transfers by checking the exact ID in the saved `.o`.
+- [ ] Retain withdrawn-ID tombstones and reject duplicate active IDs.
+- [ ] Fail closed on corrupt/missing shared main when `.bak`/`.tmp` exists; do
+      not auto-load a potentially stale shared backup.
+- [ ] Reconcile a player backup that resurrects an item already in shared storage
+      before login registration.
+- [ ] Test duplicate clicks, same-path items, both failpoints, cross-character
+      withdrawal, corrupt-main/valid-backup, stale player backup, capacity, and
+      invalid ownership/path inputs.
 
 ## Vue and rolling deployment
 
@@ -83,7 +112,8 @@ comment, test, and operator-documentation note.
 
 - [ ] Confirm the whole `data_xiand` mount remains persistent and writable.
 - [ ] Do not add or copy an empty `accounts/` seed; allow lazy creation.
-- [ ] Back up and restore `u/` and `accounts/` as one consistency unit.
+- [ ] Back up and restore `u/`, account manifests, and `*.storage.json` as one
+      consistency unit.
 - [ ] Update `docs/multi-character-account.md` for any contract change.
 - [ ] Exclude runtime account JSON, player saves, logs, backups, caches, and test
       artifacts from commits.
@@ -93,6 +123,8 @@ comment, test, and operator-documentation note.
 - [ ] Run `audit_multi_character.py` with zero failures.
 - [ ] Run Vue tests and build.
 - [ ] Run targeted real-save TestUnit assertions with cleanup on every path.
+- [ ] Require the shared-vault/login suite to prove exactly one permanent item ID
+      across personal and shared locations after every recovery path.
 - [ ] Perform safe `./restart.sh`; require all TestUnit files to pass.
 - [ ] Verify ports 13800/8888 and `/health`.
 - [ ] Verify account GET returns 405 and invalid POST token returns 401.

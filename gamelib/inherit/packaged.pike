@@ -101,7 +101,9 @@ object repackaged(string name){
 					}
 					if(ob->is("equip")){
 						int convert_count = 0;
-						if(sizeof(packaged_items[i])==7)
+						// 账号共享宝库会在第8列追加永久物品ID；旧取出流程
+						// 仍必须保留第7列的装备转换次数。
+						if(sizeof(packaged_items[i])>=7)
 							convert_count = (int)packaged_items[i][6];
 						ob->set_convert_count(convert_count);
 					}

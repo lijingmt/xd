@@ -14,9 +14,18 @@ inherit LOW_DAEMON;
 #define ACCOUNT_CHARACTER_DIR DATA_ROOT "accounts"
 #define ACCOUNT_CHARACTER_VERSION 1
 #define ACCOUNT_CHARACTER_LIMIT 10
+#define ACCOUNT_ONLINE_CONFIG ROOT "/gamelib/etc/account_characters.conf"
+#define ACCOUNT_ONLINE_SAFE_DEFAULT 1
+#define ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL 15
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
+private Thread.Mutex account_runtime_lock_table_lock = Thread.Mutex();
+private mapping(string:object) account_runtime_locks =
+	set_weak_flag(([]),Pike.WEAK_VALUES);
+private Thread.Mutex account_online_state_lock = Thread.Mutex();
+private mapping(string:array(object)) account_online_players = ([]);
+private mapping(string:int) test_online_limit_overrides = ([]);
 
 private mapping(string:array(string)) valid_professions = ([
 	"human":({"jianxian","yushi","zhuxian"}),
@@ -46,6 +55,134 @@ private mapping(string:string) profession_names = ([
 int query_character_limit()
 {
 	return ACCOUNT_CHARACTER_LIMIT;
+}
+
+/**
+ * 从版本化配置读取同一注册账号可同时在线的人物数。配置缺失或非法时
+ * 安全回退到单人物；每次人物登录重读，因此修改后无需重启进程。
+ */
+int query_max_online_characters()
+{
+	string source = Stdio.read_file(ACCOUNT_ONLINE_CONFIG);
+	if(!source)
+		return ACCOUNT_ONLINE_SAFE_DEFAULT;
+	foreach(source/"\n",string raw_line){
+		string line = String.trim_all_whites(raw_line);
+		array(string) fields;
+		string raw_value;
+		int configured;
+		if(line=="" || line[0]=='#')
+			continue;
+		fields = line/"=";
+		if(sizeof(fields)!=2 ||
+		   String.trim_all_whites(fields[0])!="max_online_characters")
+			continue;
+		raw_value = String.trim_all_whites(fields[1]);
+		if(raw_value=="")
+			return ACCOUNT_ONLINE_SAFE_DEFAULT;
+		for(int i=0;i<sizeof(raw_value);i++){
+			if(raw_value[i]<'0' || raw_value[i]>'9')
+				return ACCOUNT_ONLINE_SAFE_DEFAULT;
+		}
+		configured = (int)raw_value;
+		if(configured<1 || configured>ACCOUNT_CHARACTER_LIMIT)
+			return ACCOUNT_ONLINE_SAFE_DEFAULT;
+		return configured;
+	}
+	return ACCOUNT_ONLINE_SAFE_DEFAULT;
+}
+
+private int query_account_online_limit(string account_id)
+{
+	int test_limit;
+	object key = account_online_state_lock->lock();
+	test_limit = test_online_limit_overrides[account_id];
+	destruct(key);
+	if(test_limit>0)
+		return test_limit;
+	return query_max_online_characters();
+}
+
+/** 立即按当前配置清理所有已登记账号的超额人物，返回成功退出数量。 */
+int enforce_online_limit_now()
+{
+	array(string) account_ids;
+	int evicted = 0;
+	object state_key = account_online_state_lock->lock();
+	account_ids = indices(account_online_players);
+	destruct(state_key);
+	foreach(account_ids,string account_id){
+		array(object) players = ({});
+		int online_limit;
+		object runtime_key = query_account_runtime_mutex(account_id)->lock();
+		state_key = account_online_state_lock->lock();
+		foreach(account_online_players[account_id] || ({}),object player){
+			if(objectp(player) && !object_in_array(players,player))
+				players += ({player});
+		}
+		destruct(state_key);
+		online_limit = query_account_online_limit(account_id);
+		while(sizeof(players)>online_limit){
+			object oldest = players[0];
+			if(!disconnect_online_character(oldest,"配置上限"))
+				break;
+			players -= ({oldest});
+			evicted++;
+		}
+		state_key = account_online_state_lock->lock();
+		if(sizeof(players))
+			account_online_players[account_id] = players;
+		else
+			m_delete(account_online_players,account_id);
+		destruct(state_key);
+		destruct(runtime_key);
+	}
+	return evicted;
+}
+
+private void check_online_limit_config()
+{
+	enforce_online_limit_now();
+	call_out(check_online_limit_config,
+		ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL);
+}
+
+protected void create()
+{
+	call_out(check_online_limit_config,
+		ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL);
+}
+
+/**
+ * 同一注册账号的所有人物共用运行时锁。HTTP线程、Socket登录切换和
+ * 账号共享仓库都以该锁为最外层边界，避免不同人物并发修改账号资源。
+ */
+object query_account_runtime_mutex(string requested_id)
+{
+	string account_id = query_account_id_for_character(requested_id);
+	object table_key;
+	object mutex;
+	if(!valid_userid(account_id))
+		account_id = requested_id;
+	if(!valid_userid(account_id))
+		account_id = "_invalid_account";
+	else
+		account_id = lower_case(account_id);
+	table_key = account_runtime_lock_table_lock->lock();
+	if(!objectp(account_runtime_locks[account_id]))
+		account_runtime_locks[account_id] = Thread.Mutex();
+	mutex = account_runtime_locks[account_id];
+	destruct(table_key);
+	return mutex;
+}
+
+int query_account_runtime_lock_count()
+{
+	int count;
+	object key = account_runtime_lock_table_lock->lock();
+	count = sizeof(account_runtime_locks);
+	destruct(key);
+	return count;
 }
 
 private int valid_userid(string userid)
@@ -396,6 +533,7 @@ int account_owns_character(string account_id,string character_id)
 	mapping(string:mixed)|zero record;
 	int found = 0;
 	object key;
+	string path;
 	if(!valid_userid(account_id) || !valid_userid(character_id))
 		return 0;
 	key = account_character_lock->lock();
@@ -412,6 +550,13 @@ int account_owns_character(string account_id,string character_id)
 				break;
 			}
 		}
+	}
+	else if(character_id==account_id && !user_file_exists(account_id)){
+		// 新注册默认人物首次setup时物理.o尚未写入；只在账号索引也完全
+		// 不存在时允许。已有但损坏的索引必须继续失败关闭。
+		path = account_file_path(account_id);
+		if(Stdio.file_size(path)<=0 && Stdio.file_size(path+".bak")<=0)
+			found = 1;
 	}
 	destruct(key);
 	return found;
@@ -600,6 +745,167 @@ array(string) query_character_ids(string account_id)
 	}
 	destruct(key);
 	return result;
+}
+
+private int disconnect_online_character(object player,string incoming_id)
+{
+	string player_id;
+	object http_api;
+	object connd;
+	object connection;
+	int saved = 0;
+	mixed err;
+	if(!player || !functionp(player->query_name))
+		return 1;
+	player_id = player->query_name();
+	if(!player_id)
+		return 1;
+	err = catch{
+		if(functionp(player->save_with_result))
+			saved = player->save_with_result();
+	};
+	if(err || !saved){
+		werror("[ACCOUNT_CHARACTERD] 同账号人物切换保存失败: %s\n",
+			player_id);
+		return 0;
+	}
+	catch{
+		if(functionp(player->receive))
+			player->receive(incoming_id=="配置上限" ?
+				"\n账号同时在线上限已调整，当前人物已保存并安全退出。\n" :
+				"\n同一人物重新登录或账号在线人数已满，当前人物已安全退出。\n");
+	};
+	http_api = find_object(ROOT+
+		"/gamelib/single/daemons/http_api_daemon.pike");
+	if(http_api && functionp(http_api->remove_virtual_connection))
+		http_api->remove_virtual_connection(player_id);
+	connd = find_object(SROOT+"/connd.pike");
+	if(connd && functionp(connd->query_conn))
+		connection = connd->query_conn(player);
+	if(connd && functionp(connd->erase_user))
+		connd->erase_user(player);
+	err = catch{
+		player->remove();
+	};
+	if(connection && functionp(connection->set_user))
+		connection->set_user(0);
+	if(connection && functionp(connection->close))
+		connection->close();
+	if(err){
+		werror("[ACCOUNT_CHARACTERD] 同账号旧人物退出异常: %s\n",
+			describe_error(err));
+		return 0;
+	}
+	Stdio.append_file(ROOT+"/log/account_character_login.log",
+		ctime(time())[0..sizeof(ctime(time()))-2]+" account switch "+
+		player_id+" -> "+incoming_id+"\n");
+	return 1;
+}
+
+private int object_in_array(array(object) players,object player)
+{
+	for(int i=0;i<sizeof(players);i++){
+		if(players[i]==player)
+			return 1;
+	}
+	return 0;
+}
+
+/**
+ * 调用方必须已经持有 query_account_runtime_mutex() 返回的账号锁。
+ * 同一人物ID永远只保留一个对象；不同人物可在配置上限内同时在线。
+ * 超过上限时按本daemon记录的登录顺序安全保存并退出最早人物。
+ */
+int prepare_character_login_locked(object incoming)
+{
+	string character_id;
+	string account_id;
+	array(string) character_ids;
+	array(object) tracked = ({});
+	array(object) active = ({});
+	object state_key;
+	int belongs = 0;
+	int online_limit;
+	if(!incoming || !functionp(incoming->query_name) ||
+	   !functionp(incoming->query_account_owner))
+		return 0;
+	character_id = incoming->query_name();
+	account_id = incoming->query_account_owner();
+	// 内部TestUnit/NPC辅助对象历史上会使用下划线名称，它们不属于
+	// 可登录注册账号。真实登录入口本身只接受字母数字，因此直接绕过。
+	if(!valid_userid(character_id) || !valid_userid(account_id))
+		return 1;
+	belongs = account_owns_character(account_id,character_id);
+	if(!belongs)
+		return 0;
+	character_ids = query_character_ids(account_id);
+	state_key = account_online_state_lock->lock();
+	foreach(account_online_players[account_id] || ({}),object player){
+		if(objectp(player) && player!=incoming &&
+		   !object_in_array(tracked,player))
+			tracked += ({player});
+	}
+	destruct(state_key);
+	// daemon重载前已在线的人物可能尚未登记，从living表补齐。
+	for(int i=0;i<sizeof(character_ids);i++){
+		object sibling;
+		sibling = find_player(character_ids[i]);
+		if(sibling && sibling!=incoming &&
+		   !object_in_array(tracked,sibling))
+			tracked += ({sibling});
+	}
+	// 相同人物共用同一个.o文件，无论配置上限多大都禁止双对象在线。
+	for(int i=0;i<sizeof(tracked);i++){
+		object player = tracked[i];
+		if(functionp(player->query_name) &&
+		   player->query_name()==character_id){
+			if(!disconnect_online_character(player,character_id))
+				return 0;
+		}
+		else if(objectp(player))
+			active += ({player});
+	}
+	online_limit = query_account_online_limit(account_id);
+	while(sizeof(active)>=online_limit){
+		object oldest = active[0];
+		if(!disconnect_online_character(oldest,character_id))
+			return 0;
+		active -= ({oldest});
+	}
+	active += ({incoming});
+	state_key = account_online_state_lock->lock();
+	account_online_players[account_id] = active;
+	destruct(state_key);
+	return 1;
+}
+
+array(string) query_active_characters(string requested_id)
+{
+	string account_id = query_account_id_for_character(requested_id);
+	array(string) character_ids = ({});
+	array(object) valid_players = ({});
+	object key = account_online_state_lock->lock();
+	foreach(account_online_players[account_id] || ({}),object player){
+		if(player && objectp(player) && functionp(player->query_name)){
+			valid_players += ({player});
+			character_ids += ({(string)player->query_name()});
+		}
+	}
+	if(sizeof(valid_players))
+		account_online_players[account_id] = valid_players;
+	else
+		m_delete(account_online_players,account_id);
+	destruct(key);
+	return character_ids;
+}
+
+// 兼容旧调用：多人物在线时返回最近进入的那一个。
+string query_active_character(string requested_id)
+{
+	array(string) character_ids = query_active_characters(requested_id);
+	if(!sizeof(character_ids))
+		return "";
+	return character_ids[sizeof(character_ids)-1];
 }
 
 private string prepare_password_temp_unlocked(string userid,
@@ -821,12 +1127,28 @@ void drop_test_account_cache(string account_id)
 	destruct(key);
 }
 
+//只供TestUnit验证配置在单开/多开之间切换，不对游戏命令或HTTP开放。
+void set_test_online_limit(string account_id,int limit)
+{
+	object key;
+	if(search(account_id,"testunit")==-1)
+		return;
+	key = account_online_state_lock->lock();
+	if(limit>=1 && limit<=ACCOUNT_CHARACTER_LIMIT)
+		test_online_limit_overrides[account_id] = limit;
+	else
+		m_delete(test_online_limit_overrides,account_id);
+	destruct(key);
+}
+
 //只供测试清理测试账号索引，不对游戏命令或HTTP API开放。
 void remove_test_account(string account_id)
 {
 	string path;
 	mapping(string:mixed)|zero record;
 	object key;
+	object state_key;
+	object table_key;
 	if(search(account_id,"testunit")==-1)
 		return;
 	key = account_character_lock->lock();
@@ -855,4 +1177,11 @@ void remove_test_account(string account_id)
 	rm(path+".bak.tmp");
 	m_delete(account_cache,account_id);
 	destruct(key);
+	state_key = account_online_state_lock->lock();
+	m_delete(account_online_players,account_id);
+	m_delete(test_online_limit_overrides,account_id);
+	destruct(state_key);
+	table_key = account_runtime_lock_table_lock->lock();
+	m_delete(account_runtime_locks,account_id);
+	destruct(table_key);
 }

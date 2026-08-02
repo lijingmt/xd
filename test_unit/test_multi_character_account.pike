@@ -121,13 +121,23 @@ int main()
 		ACCOUNT_CHARACTERD->drop_test_account_cache(account_id);
 		mapping corrupt_closed = ACCOUNT_CHARACTERD->
 			query_account_characters(account_id);
+		object corrupt_login_probe = clone(GAMELIB_USER);
+		corrupt_login_probe->set_name(account_id);
+		corrupt_login_probe->set_project("gamelib");
+		corrupt_login_probe->restore();
+		object corrupt_login_key = ACCOUNT_CHARACTERD->
+			query_account_runtime_mutex(account_id)->lock();
+		int corrupt_login_denied = !ACCOUNT_CHARACTERD->
+			prepare_character_login_locked(corrupt_login_probe);
+		destruct(corrupt_login_key);
+		destruct(corrupt_login_probe);
 		Stdio.write_file(account_file(account_id),index_source);
 		rm(account_file(account_id)+".bak");
 		ACCOUNT_CHARACTERD->drop_test_account_cache(account_id);
 		check("账号索引优先从有效备份恢复且双重损坏时失败关闭",
 			backup_recovered["ok"] &&
 			sizeof(backup_recovered["characters"])==2 &&
-			!corrupt_closed["ok"],
+			!corrupt_closed["ok"] && corrupt_login_denied,
 			"损坏索引被误当成旧账号或有效备份没有生效");
 
 		mapping duplicate = ACCOUNT_CHARACTERD->create_character(
@@ -188,7 +198,7 @@ int main()
 		string recovery_source = Stdio.read_file(ROOT+
 			"/lowlib/system/cmds/login_band.pike");
 		string vue_source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
-		check("账号接口、令牌授权和旧后端回退同时存在",
+		check("账号接口、令牌授权、多职业共存和旧后端回退同时存在",
 			http_source && account_http_source && recovery_source &&
 			vue_source &&
 			search(http_source,"/api/account/login")!=-1 &&
@@ -200,8 +210,7 @@ int main()
 			search(account_http_source,
 				"请使用POST读取人物档案")!=-1 &&
 			search(account_http_source,
-				"query_user_command_mutex(character_id)")!=-1 &&
-			search(account_http_source,"player->save_with_result()")!=-1 &&
+				"disconnect_account_siblings")==-1 &&
 			search(vue_source,"/api/account/characters?token=")==-1 &&
 			search(recovery_source,"change_account_password(user_ob,psw)")!=-1 &&
 			search(vue_source,"error.status === 404 || error.status === 501")!=-1,

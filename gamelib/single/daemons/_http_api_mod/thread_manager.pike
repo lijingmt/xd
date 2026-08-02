@@ -31,6 +31,7 @@ constant CORE_COMMANDS = ({
 	"flushview",  // 挂机循环会改写敌人/房间共享状态
 	"npc_kill", "kill_filter", "kill_quick",
 	"feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
+	"account_storage",  // 账号共享宝库读取会分配永久物品ID并保存人物
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========
 	"go", "goto", "go_back", "fly",
@@ -109,7 +110,7 @@ constant CORE_COMMAND_PREFIXES = ({
 	"login_", "chatroom_", "city_", "bz_", "bc_", "msg_", "qqlist_",
 	"door_", "fee_exchange_", "lottery_", "transfer_", "tuiguang_",
 	"gift_", "hb_", "vip_", "yushi_", "yblh_", "yuebing_",
-	"user_package_", "add_", "waigua_"
+	"user_package_", "account_storage_", "add_", "waigua_"
 });
 
 constant HTTP_SLOW_COMMAND_MS = 500;
@@ -195,12 +196,19 @@ int is_core_command(string cmd)
  */
 object query_user_command_mutex(string userid)
 {
+	object account_characterd;
     object table_key;
     object mutex;
+	string requested_id = String.trim_all_whites(userid || "");
 
-    userid = lower_case(String.trim_all_whites(userid || ""));
+	userid = lower_case(requested_id);
     if(userid == "")
         userid = "_anonymous";
+	account_characterd = (object)(ROOT+
+		"/gamelib/single/daemons/account_characterd.pike");
+	if(account_characterd && functionp(
+	   account_characterd->query_account_runtime_mutex))
+		return account_characterd->query_account_runtime_mutex(requested_id);
     table_key = user_command_lock_table_lock->lock();
     if(!objectp(user_command_locks[userid]))
         user_command_locks[userid] = Thread.Mutex();
@@ -211,12 +219,18 @@ object query_user_command_mutex(string userid)
 
 int query_user_command_lock_count()
 {
+	object account_characterd;
     object table_key;
     int count;
 
     table_key = user_command_lock_table_lock->lock();
     count = sizeof(user_command_locks);
     destruct(table_key);
+	account_characterd = (object)(ROOT+
+		"/gamelib/single/daemons/account_characterd.pike");
+	if(account_characterd && functionp(
+	   account_characterd->query_account_runtime_lock_count))
+		count += account_characterd->query_account_runtime_lock_count();
     return count;
 }
 
@@ -434,7 +448,9 @@ int execute_command_async(string userid,string password,string cmd,
         callback("{\"error\":\"该逻辑区尚未开放或正在维护\"}",@extra);
         return 1;
     }
-    if(is_core_command(cmd)){
+	// 首次命令会创建人物对象并执行账号单角色在线切换，必须回到主
+	// Backend；登录完成后的安全非核心命令才允许进入线程池。
+	if(!get_player_from_connection(userid,0) || is_core_command(cmd)){
         callback(execute_core_command(userid,password,cmd),@extra);
         return 1;
     }

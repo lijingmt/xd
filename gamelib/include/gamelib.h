@@ -143,6 +143,8 @@
 #define FEEDBACKD ((object)(ROOT "/gamelib/single/daemons/feedbackd"))
 //注册账号与独立人物档案的兼容索引
 #define ACCOUNT_CHARACTERD ((object)(ROOT "/gamelib/single/daemons/account_characterd.pike"))
+//注册账号独立共享宝库（个人仓库保持不变）
+#define ACCOUNT_STORAGED ((object)(ROOT "/gamelib/single/daemons/account_storaged.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 

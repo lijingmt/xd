@@ -233,53 +233,6 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 	send_json(req,result,201);
 }
 
-private int disconnect_account_siblings(string account_id,
-	string selected_id)
-{
-	array(string) character_ids = ACCOUNT_CHARACTERD->
-		query_character_ids(account_id);
-	foreach(character_ids,string character_id){
-		mixed connection;
-		object player;
-		object user_key;
-		if(character_id==selected_id)
-			continue;
-		// 与非核心命令线程池复用同一把人物锁，不能在命令执行中途保存
-		// 或销毁人物对象。
-		user_key = query_user_command_mutex(character_id)->lock();
-		connection = get_virtual_connection(character_id);
-		if(!arrayp(connection) || sizeof(connection)<3){
-			destruct(user_key);
-			continue;
-		}
-		player = connection[2];
-		if(player){
-			int saved = 0;
-			mixed err = catch{
-				if(functionp(player->save_with_result))
-					saved = player->save_with_result();
-			};
-			if(err || !saved){
-				destruct(user_key);
-				http_werror(" account sibling save failed: %s\n",
-					character_id);
-				return 0;
-			}
-			remove_virtual_connection(character_id);
-			err = catch{
-				player->remove();
-			};
-			if(err)
-				http_werror(" account sibling disconnect failed: %s\n",
-					describe_error(err));
-		}
-		else
-			remove_virtual_connection(character_id);
-		destruct(user_key);
-	}
-	return 1;
-}
-
 void handle_api_account_character_select(Protocols.HTTP.Server.Request req)
 {
 	mapping params;
@@ -307,10 +260,6 @@ void handle_api_account_character_select(Protocols.HTTP.Server.Request req)
 	password = get_user_password(character_id);
 	if(!password || password==""){
 		send_json(req,(["error":"人物物理档案不可用"]),409);
-		return;
-	}
-	if(!disconnect_account_siblings(account_id,character_id)){
-		send_json(req,(["error":"当前人物保存失败，请稍后重试"]),503);
 		return;
 	}
 	bootstrap_command = ACCOUNT_CHARACTERD->query_bootstrap_command(

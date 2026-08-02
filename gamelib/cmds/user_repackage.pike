@@ -17,6 +17,7 @@ int main(string|zero arg)
 	int count =0;
 	if(env){
 		if(!arg){
+			s += "[账号共享宝库:account_storage shared]\n";
 			s += "请选择要取出的宝贝。\n";
 			s += me->view_packaged_list()+"\n";
 			//s+="[返回:look]\n";

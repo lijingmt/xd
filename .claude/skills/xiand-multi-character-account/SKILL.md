@@ -1,6 +1,6 @@
 ---
 name: xiand-multi-character-account
-description: Develop, modify, audit, debug, test, document, or deploy Xiand's one-registration-account-to-multiple-independent-characters system. Use when changing account manifests, character slots, profession uniqueness, old-account compatibility, character selection APIs or Vue UI, account-wide password recovery, independent player saves, corrupt-index recovery, deployment persistence, or multi-character TestUnit coverage.
+description: Develop, modify, audit, debug, test, document, or deploy Xiand's one-registration-account-to-multiple-independent-characters system. Use when changing account manifests, character slots, profession uniqueness, old-account compatibility, configurable concurrent-character login, account shared storage, character selection APIs or Vue UI, account-wide password recovery, independent player saves, anti-clone recovery, deployment persistence, or multi-character TestUnit coverage.
 ---
 
 # Xiand Multi-Character Accounts
@@ -20,8 +20,12 @@ change and `references/ten-pass-review.md` before completion.
   character is requested. Create directories lazily under the existing
   persistent `data_xiand` mount.
 - Store every character as a full standard `GAMELIB_USER` `.o` file. Keep level,
-  experience, profession, skills, equipment, inventory, tasks, home, social,
-  VIP, currency, and automation state character-local.
+  experience, profession, skills, equipped items, backpack, personal warehouse,
+  tasks, home, social, VIP, currency, and automation state character-local.
+- Implement optional account sharing only through the independent shared vault
+  daemon and `*.storage.json`; never make the legacy personal warehouse itself
+  account-wide. Move items directly between the two warehouses under a durable
+  pending transaction with permanent item IDs and login-time reconciliation.
 - Keep only registration identity, ownership, login password, and management
   authorization account-wide. Any new shared field needs an explicit migration,
   recovery, concurrency, and privacy contract.
@@ -40,9 +44,14 @@ change and `references/ten-pass-review.md` before completion.
   Continue using the selected character's legacy TXD for game commands. Put
   management tokens in POST bodies and `sessionStorage`, never URLs or durable
   browser storage.
-- Serialize manifest creation and account password changes. When switching Vue
-  characters, acquire the existing per-user command mutex, verify save success,
-  then remove the virtual connection and player object.
+- Serialize manifest creation and account password changes. Resolve every
+  character command mutex to its registration account so sibling HTTP commands
+  cannot race. On every HTTP, Socket/JSP, direct-TXD, or automatic-browser login,
+  enforce `gamelib/etc/account_characters.conf`. Different characters may remain
+  online up to its configured limit, but the same physical character ID must
+  never have two player objects. Save and disconnect the oldest excess object;
+  invalid or missing configuration must safely fall back to one. Recheck the
+  file periodically so lowering the limit also affects already-online accounts.
 - Keep `data_xiand/u` and `data_xiand/accounts` in the same backup, restore,
   permission, container-volume, and disaster-recovery boundary.
 
@@ -77,6 +86,15 @@ validates, fail closed instead of synthesizing a legacy account.
 Never write a manifest before the child `.o` file is safely created. If manifest
 commit fails, remove only the newly created child and its temporary files.
 
+For shared-vault changes, treat the current `*.storage.json` as the sole
+authority. Never automatically load its `.bak` after the main file is missing or
+invalid: an older backup can resurrect already withdrawn equipment. Persist a
+pending record before removing either source copy, save the affected character
+with `save_with_result()`, then commit the destination and a retired-ID
+tombstone. Recovery decides commit or rollback by checking the exact permanent
+item ID in the physical player save. Reconcile stale personal-save backups at
+login before the character becomes active.
+
 ### 4. Change APIs and login compatibility
 
 Authenticate against the registration/default character, then issue a bounded
@@ -101,7 +119,8 @@ pipeline.
 
 ### 6. Validate vertically
 
-Extend `test_unit/test_multi_character_account.pike` and
+Extend `test_unit/test_multi_character_account.pike`,
+`test_unit/test_account_shared_storage.pike`, and
 `vue_source/tests/account-characters.test.js`. Test real `.o` save/restore and
 cleanup, not source strings alone. Cover legacy zero-write listing, child create,
 bootstrap reuse, duplicate/pending rejection, ownership forgery, corrupt main
@@ -144,14 +163,24 @@ change. Never commit runtime manifests, player `.o` files, logs, backups,
 ## Definition of done
 
 - Old accounts and every old login mode work without manifest creation.
+- Every login mode enforces the configured active-character limit. Distinct
+  sibling characters coexist up to that limit; the same character always
+  replaces its former object, and save/reconciliation failure refuses the
+  incoming login. Switching the configuration back to one must safely evict
+  excess online objects within the configured polling interval and is covered by
+  tests.
 - A legacy account creates, initializes, switches, saves, restores, and resumes
   multiple independent profession characters without shared growth state.
+- Personal warehouses remain compatible, while explicit account-shared-vault
+  transfers survive duplicate clicks, interruption, relogin, cross-character
+  access, and stale `.o.bak` restoration without creating a second item ID.
 - Invalid profession pairs, duplicate professions, excess slots, unfinished
   stacking, missing saves, forged ownership, expired tokens, and corrupt indexes
   fail safely with actionable UI messages.
 - All password mutation and recovery paths synchronize every character, caches,
   sessions, live objects, main files, and safe backups.
-- Concurrency cannot save/remove a player during a same-user parallel command.
+- Concurrency cannot save/remove a player during a same-account parallel
+  command, including siblings with different character IDs.
 - Fresh deployments create the accounts directory lazily; existing deployments
   retain manifests across rebuild/restart through the current data volume.
 - The static audit, targeted Vue tests, targeted Pike assertions, full restart,

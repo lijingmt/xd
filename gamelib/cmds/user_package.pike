@@ -10,6 +10,7 @@ int main(string|zero arg)
 	object env=environment(me);
 	if(env){
 		if(!arg){//无参数传入
+			s += "[账号共享宝库:account_storage shared]\n";
 			s += "请选择要存入的物品\n";
 			s += me->view_inventory_zhuangbei_package("user_package",1,0);
 			//s += "[返回:look]\n";

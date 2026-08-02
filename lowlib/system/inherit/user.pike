@@ -157,6 +157,43 @@ void receive_message(string newclass, string msg){
 	receive(msg);
 }
 int setup(string arg){
+	object account_characterd;
+	object account_storaged;
+	object account_runtime_key;
+	object http_api_daemon;
+	int http_login_pending = 0;
+	int account_login_ready = 1;
+	if(functionp(this_object()->query_account_owner)){
+		account_characterd = (object)(ROOT+
+			"/gamelib/single/daemons/account_characterd.pike");
+		http_api_daemon = find_object(ROOT+
+			"/gamelib/single/daemons/http_api_daemon.pike");
+		if(http_api_daemon && functionp(
+		   http_api_daemon->query_http_api_login_pending))
+			http_login_pending = http_api_daemon->
+				query_http_api_login_pending(name);
+		// HTTP首次命令已经持有账号运行锁；Socket/JSP入口在这里补锁。
+		if(account_characterd && !http_login_pending &&
+		   functionp(account_characterd->query_account_runtime_mutex))
+			account_runtime_key = account_characterd->
+				query_account_runtime_mutex(name)->lock();
+		account_storaged = (object)(ROOT+
+			"/gamelib/single/daemons/account_storaged.pike");
+		if(account_storaged && functionp(
+		   account_storaged->reconcile_player_login))
+			account_login_ready = account_storaged->
+				reconcile_player_login(this_object());
+		if(account_login_ready && account_characterd && functionp(
+		   account_characterd->prepare_character_login_locked))
+			account_login_ready = account_characterd->
+				prepare_character_login_locked(this_object());
+	}
+	if(!account_login_ready){
+		if(account_runtime_key)
+			destruct(account_runtime_key);
+		write("同一注册账号的旧人物保存失败，请稍后重试。\n");
+		return 0;
+	}
 	first_login=login_time=update_time=reconnect_time=last_activity_time=time();
     set_heart_beat(1);
     set_living_name(name);
@@ -170,10 +207,12 @@ int setup(string arg){
 	set_this_player(this_object());
 
 	// 踢掉 HTTP API 虚拟连接（如果有）
-	object http_api_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
+	http_api_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
 	if(http_api_daemon && functionp(http_api_daemon->remove_virtual_connection)) {
 		http_api_daemon->remove_virtual_connection(name);
 	}
+	if(account_runtime_key)
+		destruct(account_runtime_key);
 
     return 1;
 }
