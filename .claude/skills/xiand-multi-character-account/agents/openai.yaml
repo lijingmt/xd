@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xiand Multi-Character Accounts"
+  short_description: "Safely evolve Xiand account and character profiles"
+  default_prompt: "Use $xiand-multi-character-account to implement or audit Xiand multi-character account storage safely."
