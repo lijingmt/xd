@@ -411,6 +411,46 @@ void clean_tianxiang_star_marks(){
 	this_object()->m_delete_foruser("/tmp/tianxiang_star_expire");
 }
 
+// 灵医药契是短时、服务端持有的治疗资源。最多三层，二十秒未刷新失效。
+int query_lingyi_medicine_pacts(){
+	int pacts;
+	if(query_profeId()!="lingyi")
+		return 0;
+	if((int)this_object()["/tmp/lingyi_medicine_pact_expire"]<=time()){
+		clean_lingyi_medicine_pacts();
+		return 0;
+	}
+	pacts = (int)this_object()["/tmp/lingyi_medicine_pacts"];
+	if(pacts<0)
+		pacts = 0;
+	if(pacts>3)
+		pacts = 3;
+	return pacts;
+}
+
+int add_lingyi_medicine_pacts(int amount){
+	int pacts;
+	if(query_profeId()!="lingyi" || amount<=0)
+		return 0;
+	pacts = query_lingyi_medicine_pacts()+amount;
+	if(pacts>3)
+		pacts = 3;
+	this_object()["/tmp/lingyi_medicine_pacts"] = pacts;
+	this_object()["/tmp/lingyi_medicine_pact_expire"] = time()+20;
+	return pacts;
+}
+
+int consume_lingyi_medicine_pacts(){
+	int pacts = query_lingyi_medicine_pacts();
+	clean_lingyi_medicine_pacts();
+	return pacts;
+}
+
+void clean_lingyi_medicine_pacts(){
+	this_object()->m_delete_foruser("/tmp/lingyi_medicine_pacts");
+	this_object()->m_delete_foruser("/tmp/lingyi_medicine_pact_expire");
+}
+
 void reset_buff(){
 	clean_buff("buff");
 	clean_buff("buff2");
@@ -623,8 +663,8 @@ protected mapping(string:string) races=([
 //鱼：fish 两栖动物：amphibian 昆虫：bugs
 string profeId;
 read_write(profeId);
-protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","humanlike","beast","bird","fish","amphibian","bugs","dog"});
-protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
+protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","lingyi","humanlike","beast","bird","fish","amphibian","bugs","dog"});
+protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","灵医","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
 protected mapping(string:string) profes=([
 		profeKindList[0]:profeNameList[0],
 		profeKindList[1]:profeNameList[1],
@@ -641,7 +681,8 @@ protected mapping(string:string) profes=([
 		profeKindList[12]:profeNameList[12],
 		profeKindList[13]:profeNameList[13],
 		profeKindList[14]:profeNameList[14],
-		profeKindList[15]:profeNameList[15]
+		profeKindList[15]:profeNameList[15],
+		profeKindList[16]:profeNameList[16]
 		]);
 ////////////////阵营/////////////////////////////////////////////////
 string query_race_cn(string rid){

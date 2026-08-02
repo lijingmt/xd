@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 方士/镇越/天象职业助手的权限、PVE、公平性、支付与接线回归。 */
+/** 方士/镇越/天象/灵医职业助手的权限、PVE、公平性、支付与接线回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -87,6 +87,7 @@ void test_runtime_compile_and_wiring()
 	   search(css_source,"profession-style-fangshi-3")!=-1 &&
 	   search(css_source,"profession-style-zhenyue-3")!=-1 &&
 	   search(css_source,"profession-style-tianxiang-3")!=-1 &&
+	   search(css_source,"profession-style-lingyi-3")!=-1 &&
 	   search(css_source,"prefers-reduced-motion")!=-1)
 		test_pass();
 	else

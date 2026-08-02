@@ -153,6 +153,9 @@ int main(string|zero arg)
 			if(me->query_profeId()=="tianxiang")
 				profession_skills =
 					PROFESSIONVIPD->query_tianxiang_context_candidates(me);
+			else if(me->query_profeId()=="lingyi")
+				profession_skills =
+					PROFESSIONVIPD->query_lingyi_context_candidates(me);
 			else
 				profession_skills =
 					PROFESSIONVIPD->query_zhenyue_context_candidates(me);
@@ -166,6 +169,8 @@ int main(string|zero arg)
 			   (int)me->f_skills[auto_skill] > before_cooldown))){
 				if(me->query_profeId()=="tianxiang")
 					PROFESSIONVIPD->record_tianxiang_action(me,auto_skill);
+				else if(me->query_profeId()=="lingyi")
+					PROFESSIONVIPD->record_lingyi_action(me,auto_skill);
 				else
 					PROFESSIONVIPD->record_zhenyue_action(me,auto_skill);
 			}
@@ -210,7 +215,10 @@ int main(string|zero arg)
 		write(profession_notice+"\n");
 	profession_result = PROFESSIONVIPD->try_out_of_combat_support(me);
 	if((int)profession_result["success"] == 1){
-		write("职业助手已按当前策略补召一只已学灵兽。\n");
+		if(me->query_profeId()=="lingyi")
+			write("百草助手已按当前伤势施放一次已学治疗技能。\n");
+		else
+			write("职业助手已按当前策略补召一只已学灵兽。\n");
 		return 1;
 	}
 	if(AUTOFIGHTD->should_auto_store_non_equipment(me)){

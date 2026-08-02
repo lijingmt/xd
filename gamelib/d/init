@@ -52,7 +52,7 @@ string query_desc(){
 		desc += "金鳌化妖，狂妖巫妖影鬼\n";
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		desc += "[中立:choice_race third]\n";
-		desc += "中立阵营，可选召唤方士、守护镇越或法系天象\n";
+		desc += "中立阵营，可选召唤方士、守护镇越、法系天象或治疗灵医\n";
 	}
 	else{
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/logo.png]\n";
@@ -334,7 +334,7 @@ int choice_race(string arg){
 		s += "金鳌化妖，狂妖巫妖影鬼\n";
 		s += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		s += "[中立:choice_race third]\n";
-		s += "中立阵营，可选召唤方士、守护镇越或法系天象\n";
+		s += "中立阵营，可选召唤方士、守护镇越、法系天象或治疗灵医\n";
 	}
 	else{
 		if(arg=="human"){
@@ -377,6 +377,9 @@ int choice_race(string arg){
 			s += "[imgurl loading:/"+GAME_NAME+"/images/tianxiang_logo.png]\n";
 			s += "[天象:choice_profe third/tianxiang]\n";
 			s += "观星御法，积蓄星痕后引动天象爆发\n";
+			s += "[imgurl loading:/"+GAME_NAME+"/images/lingyi_logo.png]\n";
+			s += "[灵医:choice_profe third/lingyi]\n";
+			s += "灵针济世，智能救急并净化同队伤势\n";
 		}
 		s += "[更换阵营:choice_race]\n";
 	}
@@ -410,7 +413,7 @@ int choice_profe(string arg){
 		mapping(string:array(string)) valid_professions = ([
 			"human":({"jianxian","yushi","zhuxian"}),
 			"monst":({"kuangyao","wuyao","yinggui"}),
-			"third":({"fangshi","zhenyue","tianxiang"}),
+			"third":({"fangshi","zhenyue","tianxiang","lingyi"}),
 		]);
 		if(sizeof(arr)!=2 || !valid_professions[arr[0]] ||
 		   search(valid_professions[arr[0]],arr[1])==-1){
@@ -535,6 +538,18 @@ int choice_profe(string arg){
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";
 		}
+		else if(u_p=="lingyi"){
+			me->setup_player("third",u_p);
+			if(me->skills["lingzhen"]==0)
+				me->skills["lingzhen"]=({1,0});
+			s += "好，你选择了灵医作为中立阵营的职业。\n";
+			s += "灵医擅长智能救急、同队治疗和净化负面状态。\n";
+			s += "未组队时治疗自己；职业技能与手动治疗永久免费。\n";
+			s += "[了解职业助手:profession_assistant]\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
 		//添加物品，初级
 		object w = new(ROOT+"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 		if(w){
@@ -644,6 +659,9 @@ int start(string arg){
 			desc += "[imgurl loading:/"+GAME_NAME+"/images/tianxiang_logo.png]\n";
 			desc += "[天象:choice_profe third/tianxiang]\n";
 			desc += "观星御法，积蓄星痕后引动天象爆发\n";
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/lingyi_logo.png]\n";
+			desc += "[灵医:choice_profe third/lingyi]\n";
+			desc += "灵针济世，智能救急并净化同队伤势\n";
 		}
 		else{
 			desc += "角色尚未选择阵营，请先完成阵营选择。\n";
@@ -664,6 +682,8 @@ int start(string arg){
 		me->skills["yueji"]=({1,0});
 	if(me->query_profeId()=="tianxiang" && !me->skills["xingmang"])
 		me->skills["xingmang"]=({1,0});
+	if(me->query_profeId()=="lingyi" && !me->skills["lingzhen"])
+		me->skills["lingzhen"]=({1,0});
 
 	//领取标识的初始化
         if(!me->get_gift)                                                                                         
@@ -815,6 +835,15 @@ int start(string arg){
 		if(me->skills["guantian"] && me->query_base_think()==0){
 			array tmp_arr = me->skills["guantian"];
 			int val = MUD_SKILLSD["guantian"]->query_performs_attack(
+				(int)tmp_arr[0]);
+			me->set_base_think(val);
+		}
+	}
+	// 修复异常流程中已记录药理、但尚未同步被动智力的灵医角色。
+	if(me->query_profeId() == "lingyi"){
+		if(me->skills["yaoli"] && me->query_base_think()==0){
+			array tmp_arr = me->skills["yaoli"];
+			int val = MUD_SKILLSD["yaoli"]->query_performs_attack(
 				(int)tmp_arr[0]);
 			me->set_base_think(val);
 		}

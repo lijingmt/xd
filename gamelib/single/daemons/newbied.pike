@@ -144,6 +144,17 @@ mapping(string:mapping(string:mixed)) profession_config = ([
 		"practice":"active",
 		"practice_cn":"分别施放星芒与寒辰，观察星痕由一层增加到两层",
 	]),
+	"lingyi":([
+		"name":"灵医",
+		"starter":"lingzhen",
+		"starter_cn":"灵针",
+		"level":5,
+		"book":"book/huichun",
+		"book_cn":"【医】回春",
+		"skill":"huichun",
+		"practice":"active",
+		"practice_cn":"受伤后施放回春；未组队时应治疗自己并凝成药契",
+	]),
 ]);
 
 mapping(string:mixed) query_profession_config(object player)
@@ -688,7 +699,7 @@ mapping(string:mixed) query_step_state(object player)
 			break;
 		case 7:
 			state["title"] = "领取本级职业历练";
-			state["desc"] = "九职业每一级都有历练；领取后击败等级接近自己的怪物。";
+			state["desc"] = "十职业每一级都有历练；领取后击败等级接近自己的怪物。";
 			state["action_label"] = "领取历练";
 			state["action_command"] = "growth_task accept";
 			break;
@@ -745,6 +756,8 @@ mapping(string:mixed) query_step_state(object player)
 				state["desc"] = "队伍用于协作打怪和进入副本；震吼稳住仇恨，山河壁只保护同房间存活队友。";
 			else if(player->query_profeId()=="tianxiang")
 				state["desc"] = "队伍用于协作打怪和进入副本；星锁能为同房间队友创造法术输出窗口，但星痕只属于施法者本人。";
+			else if(player->query_profeId()=="lingyi")
+				state["desc"] = "队伍用于协作打怪和进入副本；灵医只会治疗同房间、同逻辑区的存活队友，未组队时治疗自己。";
 			else
 				state["desc"] = "队伍用于协作打怪、共享战利品并进入需要多人配合的副本。";
 			state["action_label"] = "打开队伍";

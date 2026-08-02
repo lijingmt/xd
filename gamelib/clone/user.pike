@@ -318,6 +318,8 @@ void set_term(string t){
 	// 立即清除，避免短时间把上一支队伍的保护带入新队。
 	if(query_term()!=t && query_buff("team_guard",0)!="none")
 		clean_buff("team_guard");
+	if(query_term()!=t)
+		clean_lingyi_medicine_pacts();
 	term = t;
 }
 	string query_term(){
@@ -432,6 +434,8 @@ int save_with_result(void|int autosave){
 			zhenying="【越】";
 		else if(this_object()->query_profeId()=="tianxiang")
 			zhenying="【象】";
+		else if(this_object()->query_profeId()=="lingyi")
+			zhenying="【医】";
 		else
 			zhenying="【方】";
 	}

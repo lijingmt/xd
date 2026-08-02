@@ -268,6 +268,46 @@ void test_tianxiang_magic_profile()
 	cleanup_player(mage);
 }
 
+void test_lingyi_heal_profile()
+{
+	test_start("灵医快速决胜只折算已学、可支付且受减疗约束的治疗");
+	object healer = create_player("__testunit_pk_lingyi__","lingyi",80);
+	mapping normal = ([]);
+	mapping reduced = ([]);
+	mapping unlearned = ([]);
+	mapping malformed = ([]);
+	string error_desc = "";
+	mixed err = catch {
+		healer->skills["huichun"] = ({1,0});
+		normal = healer->query_pk_fast_side_profile(healer);
+		healer->set_debuff("curse",0,"life");
+		healer->set_debuff("curse",1,1000);
+		healer->set_debuff("curse",2,10);
+		reduced = healer->query_pk_fast_side_profile(healer);
+		healer->clean_debuff("curse");
+		m_delete(healer->skills,"huichun");
+		unlearned = healer->query_pk_fast_side_profile(healer);
+		healer->skills["huichun"] = ({});
+		malformed = healer->query_pk_fast_side_profile(healer);
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && normal["magic_enabled"]==1 &&
+	   normal["profession_heal"]>0 &&
+	   reduced["profession_heal"]>0 &&
+	   reduced["profession_heal"]<=normal["profession_heal"]/10+1 &&
+	   unlearned["profession_heal"]==0 &&
+	   malformed["profession_heal"]==0)
+		test_pass();
+	else
+		test_fail("灵医治疗快照边界未接线: "+error_desc+
+			" normal="+sprintf("%O",normal)+
+			" reduced="+sprintf("%O",reduced)+
+			" unlearned="+sprintf("%O",unlearned)+
+			" malformed="+sprintf("%O",malformed));
+	cleanup_player(healer);
+}
+
 int main(int argc,array(string) argv)
 {
 	werror("\n╔════════════════════════════════════════════════╗\n");
@@ -279,6 +319,7 @@ int main(int argc,array(string) argv)
 	test_non_pk_and_multi_party_boundaries();
 	test_fangshi_summon_side();
 	test_tianxiang_magic_profile();
+	test_lingyi_heal_profile();
 	werror("\nPVP快速决胜：%d通过，%d失败\n",
 		test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

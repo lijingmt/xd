@@ -168,6 +168,33 @@ string query_tianxiang_growth_guide(object player)
 	return result;
 }
 
+string query_lingyi_growth_guide(object player)
+{
+	string result = "";
+	int level = player->query_level();
+	result += "【灵医济世】\n";
+	result += "灵针是初始自卫法术；5级回春会救治自己或同房间同队中生命比例最低者。\n";
+	if(level<5)
+		result += "○ 5级学习回春，先受伤再施放，观察第一层药契。\n";
+	else if(!player->skills["huichun"])
+		result += "○ 已到5级，可购买回春；未组队时它会稳定治疗自己。\n";
+	else
+		result += "√ 回春只选择存活、同房、同区的队友；有效治疗凝成药契，最多三层。\n";
+	if(level<20)
+		result += "○ 20级学习清心，治疗后按持续伤害、诅咒、控制顺序净化一项负面状态。\n";
+	else
+		result += "√ 清心不会复活死者，也不会治疗队外、跨房或跨逻辑区玩家。\n";
+	if(level<50)
+		result += "○ 50级学习玉露，开始承担同房队伍群体治疗。\n";
+	else
+		result += "√ 玉露与60级甘霖会治疗同房存活队友；未组队时仍只治疗自己。\n";
+	result += "70级续命会消耗全部药契，每层提高15%治疗；没有药契也可正常急救。\n";
+	result += "换房、脱战、死亡、掉线或药契超时都会清空层数；普通单体/群体治疗分别受35%/20%生命上限保护。\n";
+	result += "实际等级70以上怪物才可能掉落慈心普渡、回命天露、万木新春三本大神传承。\n";
+	result += "[购买灵医技能书:buy_items book lingyi]|[查看技能:myskills]|[队伍:my_term]|[每级历练:growth_task]\n";
+	return result;
+}
+
 string render_guide(object player)
 {
 	string result = "";
@@ -199,6 +226,8 @@ string render_guide(object player)
 		result += query_zhenyue_growth_guide(player);
 	else if(player->query_profeId()=="tianxiang")
 		result += query_tianxiang_growth_guide(player);
+	else if(player->query_profeId()=="lingyi")
+		result += query_lingyi_growth_guide(player);
 	else
 		result += "[购买本职业技能书:buy_items book "+
 			player->query_profeId()+"]|[查看技能:myskills]\n";
@@ -329,6 +358,11 @@ string query_profession_roadmap(string profession)
 			result += "50级月引；60级星落消耗至多三层星痕形成受控爆发；70级九星连珠，"+
 				"并开始挑战70级隐藏大神书掉落资格怪；80级起可学习三本极低概率掉落的大神传承。\n";
 			result += "[天象技能书:buy_items book tianxiang]|[查看技能:myskills]\n";
+			break;
+		case "lingyi":
+			result += "灵医：1级灵针自卫；5级回春智能救急；20级清心兼顾单体净化；28级护心提高自身容错；35级灵愈强化急救。\n";
+			result += "50级玉露治疗同房队伍；53级完成四段职业任务获得百草诀；60级甘霖群疗并净化；70级续命消耗药契强化急救；80级起可学习三本掉落限定大神传承。\n";
+			result += "[灵医技能书:buy_items book lingyi]|[查看技能:myskills]|[队伍:my_term]\n";
 			break;
 	}
 	return result;

@@ -548,8 +548,8 @@ void test_profession_mapping_simulation() {
 	werror("  【职业映射验证】\n\n");
 
 	// 定义职业映射 (模拟 char.pike 中的映射)
-	array(string) profe_ids = ({"jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang"});
-	array(string) profe_names = ({"剑仙", "羽士", "诛仙", "狂妖", "巫妖", "影鬼", "方士", "镇越", "天象"});
+	array(string) profe_ids = ({"jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi"});
+	array(string) profe_names = ({"剑仙", "羽士", "诛仙", "狂妖", "巫妖", "影鬼", "方士", "镇越", "天象", "灵医"});
 
 	werror("  职业ID → 中文名映射:\n");
 	for(int i = 0; i < sizeof(profe_ids); i++) {

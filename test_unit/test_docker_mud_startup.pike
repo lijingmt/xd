@@ -133,6 +133,7 @@ void test_item_sync_contract()
 		"wuyingjuemie","jiuyouguibu","liudaozhangmu",
 		"wanshanchaogong","buzhouzhenji","tiandichengbi",
 		"xinghezhuiluo","zhoutianjingzhi","wanxiangxingbi",
+		"cixinpudu","huimingtianlu","wanmuxinchun",
 	});
 
 	if(source){
@@ -148,7 +149,7 @@ void test_item_sync_contract()
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
-	   hidden_count==27 &&
+	   hidden_count==30 &&
 	   search(source,
 		   "verify_hidden_mythic_assets_in_container")!=-1 &&
 	   search(source,
@@ -161,12 +162,12 @@ void test_item_sync_contract()
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录，并校验huling1及27套隐藏传承");
+		test_fail("item必须同步到实际挂载目录，并校验huling1及30套隐藏传承");
 }
 
 void test_neutral_profession_images_deploy_contract()
 {
-	test_start("部署中立阵营三职业图标与人物头像到容器全部路径");
+	test_start("部署中立阵营四职业图标与人物头像到容器全部路径");
 	string source =
 		Stdio.read_file(ROOT+"/restart-docker.sh");
 	string source_third =
@@ -197,6 +198,18 @@ void test_neutral_profession_images_deploy_contract()
 		Stdio.read_file(ROOT+"/images/tianxiang_female.png");
 	string tianxiang_web_female =
 		Stdio.read_file(ROOT+"/web/images/tianxiang_female.png");
+	string lingyi_logo =
+		Stdio.read_file(ROOT+"/images/lingyi_logo.png");
+	string lingyi_web_logo =
+		Stdio.read_file(ROOT+"/web/images/lingyi_logo.png");
+	string lingyi_male =
+		Stdio.read_file(ROOT+"/images/lingyi_male.png");
+	string lingyi_web_male =
+		Stdio.read_file(ROOT+"/web/images/lingyi_male.png");
+	string lingyi_female =
+		Stdio.read_file(ROOT+"/images/lingyi_female.png");
+	string lingyi_web_female =
+		Stdio.read_file(ROOT+"/web/images/lingyi_female.png");
 
 	if(source && source_third && web_third &&
 	   source_logo && web_logo &&
@@ -205,6 +218,9 @@ void test_neutral_profession_images_deploy_contract()
 	   tianxiang_logo && tianxiang_web_logo &&
 	   tianxiang_male && tianxiang_web_male &&
 	   tianxiang_female && tianxiang_web_female &&
+	   lingyi_logo && lingyi_web_logo &&
+	   lingyi_male && lingyi_web_male &&
+	   lingyi_female && lingyi_web_female &&
 	   source_third==web_third &&
 	   source_logo==web_logo &&
 	   source_male==web_male &&
@@ -218,6 +234,12 @@ void test_neutral_profession_images_deploy_contract()
 	   tianxiang_logo!=tianxiang_male &&
 	   tianxiang_logo!=tianxiang_female &&
 	   tianxiang_male!=tianxiang_female &&
+	   lingyi_logo==lingyi_web_logo &&
+	   lingyi_male==lingyi_web_male &&
+	   lingyi_female==lingyi_web_female &&
+	   lingyi_logo!=lingyi_male &&
+	   lingyi_logo!=lingyi_female &&
+	   lingyi_male!=lingyi_female &&
 	   search(source,
 		   "\"human_fangshi_logo.png\"")!=-1 &&
 	   search(source,
@@ -227,6 +249,9 @@ void test_neutral_profession_images_deploy_contract()
 	   search(source,"\"tianxiang_logo.png\"")!=-1 &&
 	   search(source,"\"tianxiang_male.png\"")!=-1 &&
 	   search(source,"\"tianxiang_female.png\"")!=-1 &&
+	   search(source,"\"lingyi_logo.png\"")!=-1 &&
+	   search(source,"\"lingyi_male.png\"")!=-1 &&
+	   search(source,"\"lingyi_female.png\"")!=-1 &&
 	   search(source,
 	   "copy_neutral_profession_images_to_container \"$CONTAINER_NAME\"")!=-1 &&
 	   search(source,

@@ -16,6 +16,7 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/fangshi_teacher"}));
 	add_items(({ROOT "/gamelib/clone/npc/zhenyue_teacher.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/tianxiang_teacher.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/lingyi_teacher.pike"}));
 }
 int is_bedroom()
 {
@@ -56,6 +57,8 @@ string query_links(){
 		tmp+="[学习镇越技能:buy_items book zhenyue]\n";
 	if(player->query_profeId()=="tianxiang")
 		tmp+="[学习天象技能:buy_items book tianxiang]\n";
+	if(player->query_profeId()=="lingyi")
+		tmp+="[学习灵医技能:buy_items book lingyi]\n";
 	return tmp;
 }
 void init()
@@ -180,6 +183,8 @@ array(string) query_pic_choices(object me)
 			choices += ({"zhenyue_"+sex});
 		if(raceId=="third" && me->query_profeId()=="tianxiang")
 			choices += ({"tianxiang_"+sex});
+		if(raceId=="third" && me->query_profeId()=="lingyi")
+			choices += ({"lingyi_"+sex});
 		if(sex=="male"){
 			prefix = "h_male";
 			max_pic = 11;

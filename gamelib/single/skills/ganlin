@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】甘霖"; desc="降下甘霖治疗同房间同队成员，并各净化一项负面状态";
+	s_type="zhudong"; s_skill_type="heal"; s_delayTime=36; lingyi_heal_scope=2; lingyi_think_scale=3; lingyi_cleanse=1; lingyi_life_cap_percent=20; lingyi_pact_gain=1;
+	performs_attack[1]=320; performs_attack[2]=540; performs_attack[3]=840; performs_attack[4]=1230; performs_attack[5]=1720;
+	performs_cast[1]=70; performs_cast[2]=92; performs_cast[3]=118; performs_cast[4]=148; performs_cast[5]=182;
+	skill_type+=({"lingyi"}); performs_level_limit[1]=60; performs_level_limit[2]=80; performs_level_limit[3]=100; performs_level_limit[4]=120; performs_level_limit[5]=140;
+	performs_desc[1]="队伍治疗320+智力×3并各净化一项负面状态"; performs_desc[2]="队伍治疗540+智力×3并净化"; performs_desc[3]="队伍治疗840+智力×3并净化"; performs_desc[4]="队伍治疗1230+智力×3并净化"; performs_desc[5]="队伍治疗1720+智力×3并净化";
+}

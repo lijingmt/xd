@@ -367,10 +367,10 @@ void test_hidden_equipment_tasks_and_teacher()
 		set_this_player(original_player);
 	else
 		set_this_player(this_object());
-	if(ITEMSD->query_hidden_skill_book_count()!=27 ||
-	   ITEMSD->query_hidden_skill_drop_rate()!=27 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,27)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,28)!=0 ||
+	if(ITEMSD->query_hidden_skill_book_count()!=30 ||
+	   ITEMSD->query_hidden_skill_drop_rate()!=30 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,30)!=1 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,31)!=0 ||
 	   search(equipment->query_item_profeLimit(),"zhenyue")==-1 ||
 	   !medicine->profe_limit["zhenyue"] ||
 	   !TASKD->is_growth_task_profession("zhenyue") ||

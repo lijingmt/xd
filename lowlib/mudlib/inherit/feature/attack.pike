@@ -11,6 +11,7 @@ protected mapping(string:int) m_profe = ([
 	"fangshi" : 7,
 	"zhenyue" : 15,
 	"tianxiang" : 16,
+	"lingyi" : 17,
 	"humanlike" : 8,
 	"beast" : 9,
 	"bird" : 10,
@@ -68,6 +69,9 @@ float query_phy_dodge(){
 				result = (((float)attribute/60)+(float)equip_add)*0.75;
 			break;
 			case 16://天象
+				result = (((float)attribute/50)+(float)equip_add)*0.75;
+			break;
+			case 17://灵医
 				result = (((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
@@ -138,6 +142,9 @@ float query_phy_hitte(){
 			case 16://天象
 				result = (float)attribute+(float)equip_add+10;
 			break;
+			case 17://灵医
+				result = (float)attribute+(float)equip_add+10;
+			break;
 			case 8://人形 包括人类和妖魔
 				result = (float)attribute+(float)equip_add;
 			break;
@@ -204,6 +211,9 @@ float query_phy_baoji(){
 				result = (5.00+((float)attribute/60)+(float)equip_add)*0.75;
 			break;
 			case 16://天象
+				result = (5.00+(float)equip_add)*0.75;
+			break;
+			case 17://灵医
 				result = (5.00+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
@@ -276,6 +286,9 @@ int query_base_damage(){
 			break;
 			case 16://天象
 				result = str/10;  // 法系职业的普通攻击仅作保底
+			break;
+			case 17://灵医
+				result = str/12;  // 治疗职业的普通攻击仅作保底
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str;
@@ -460,6 +473,9 @@ int query_defend_power(){
 			break;
 			case 16://天象
 				result = str+equip_add;  // 法系标准物理防御成长
+			break;
+			case 17://灵医
+				result = str+equip_add;  // 治疗职业使用法系标准物防
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str+equip_add;

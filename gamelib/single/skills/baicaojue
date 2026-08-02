@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】百草诀"; desc="辨百草生克，以药雾反制强敌";
+	s_type="zhudong"; s_skill_type="du_mofa_attack"; s_delayTime=7;
+	performs_mofa_attack[1]=({170,220}); performs_mofa_attack[2]=({300,390}); performs_mofa_attack[3]=({475,620}); performs_mofa_attack[4]=({700,910}); performs_mofa_attack[5]=({990,1280});
+	performs_cast[1]=42; performs_cast[2]=58; performs_cast[3]=77; performs_cast[4]=99; performs_cast[5]=124;
+	skill_type+=({"lingyi"}); performs_level_limit[1]=53; performs_level_limit[2]=73; performs_level_limit[3]=93; performs_level_limit[4]=113; performs_level_limit[5]=133;
+	performs_desc[1]="造成170至220点毒系伤害"; performs_desc[2]="造成300至390点毒系伤害"; performs_desc[3]="造成475至620点毒系伤害"; performs_desc[4]="造成700至910点毒系伤害"; performs_desc[5]="造成990至1280点毒系伤害";
+}

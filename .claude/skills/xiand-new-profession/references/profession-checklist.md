@@ -4,6 +4,11 @@ Use this as a release gate. Record a source path, runtime test, and observed
 result for every checked item. Mark an item `N/A` only with a written design
 reason and a regression test proving the generic or deliberately excluded path.
 
+The active implementation record for the neutral healer added on 2026-08-01 is
+kept in `docs/lingyi-profession-contract.md`. It is also a filled example of
+this checklist's class-contract gate for future professions. Its completed
+release proof is `docs/lingyi-10-pass-audit.md`.
+
 ## 0. Class contract before code
 
 - [ ] Stable profession ID, Chinese name, race, role tag, and player-facing pitch.
@@ -17,7 +22,7 @@ reason and a regression test proving the generic or deliberately excluded path.
   and cleanup matrix for move/team/target/death/logout/disconnect/expiry/recast.
 - [ ] Auto-fight behavior, optional profession assistant behavior, free core,
   VIP boundary, trial boundary, and stat-neutral cosmetic policy.
-- [ ] Intentional differences from Fangshi, Zhenyue, Tianxiang, and legacy professions.
+- [ ] Intentional differences from Fangshi, Zhenyue, Tianxiang, Lingyi, and legacy professions.
 
 ## 1. Identity, race, creation, and persistence
 
@@ -188,7 +193,7 @@ reason and a regression test proving the generic or deliberately excluded path.
   runtime path is valid and which runtime test proves it.
 - [ ] Dedicated runtime test clones real users, performs real reads/actions, and
   covers the class mechanic plus all failure and cleanup boundaries.
-- [ ] Old-profession, Fangshi, Zhenyue, Tianxiang, shared combat, auto-fight, hidden drop,
+- [ ] Old-profession, Fangshi, Zhenyue, Tianxiang, Lingyi, shared combat, auto-fight, hidden drop,
   equipment, task, persistence, HTTP, Vue, and deployment regressions pass.
 - [ ] Final change is followed by `git diff --check`, targeted tests, real
   restart/full TestUnit, ports 13800/8888, error-log scan, and changed UI build.

@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】花雨"; desc="漫天灵花化作锋芒袭击目标";
+	s_type="zhudong"; s_skill_type="feng_mofa_attack"; s_delayTime=8;
+	performs_mofa_attack[1]=({115,150}); performs_mofa_attack[2]=({210,275}); performs_mofa_attack[3]=({345,450}); performs_mofa_attack[4]=({520,680}); performs_mofa_attack[5]=({750,970});
+	performs_cast[1]=30; performs_cast[2]=43; performs_cast[3]=59; performs_cast[4]=78; performs_cast[5]=100;
+	skill_type+=({"lingyi"}); performs_level_limit[1]=42; performs_level_limit[2]=62; performs_level_limit[3]=82; performs_level_limit[4]=102; performs_level_limit[5]=122;
+	performs_desc[1]="造成115至150点风系伤害"; performs_desc[2]="造成210至275点风系伤害"; performs_desc[3]="造成345至450点风系伤害"; performs_desc[4]="造成520至680点风系伤害"; performs_desc[5]="造成750至970点风系伤害";
+}

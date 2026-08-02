@@ -162,6 +162,7 @@ assert(cssSource.includes('.team-invite-modal'));
 assert(cssSource.includes('.profession-style-fangshi-3'));
 assert(cssSource.includes('.profession-style-zhenyue-3'));
 assert(cssSource.includes('.profession-style-tianxiang-3'));
+assert(cssSource.includes('.profession-style-lingyi-3'));
 assert(cssSource.includes('@media (prefers-reduced-motion: reduce)'));
 assert(appSource.includes('handleNewbieCompletions(data.newbie_completions || [])'));
 assert(appSource.includes('showNextNewbieCompletion()'));

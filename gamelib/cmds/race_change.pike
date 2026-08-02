@@ -7,7 +7,7 @@ int main(string|zero arg)
 	string s = "";
 	string tmp_s = "";
 	if(!me->can_change_faction()){
-		s += "方士、镇越与天象属于中立职业，可以往来仙妖两界，不能转换阵营。\n";
+		s += "方士、镇越、天象与灵医属于中立职业，可以往来仙妖两界，不能转换阵营。\n";
 		s += "[返回游戏:look]\n";
 		write(s);
 		return 1;

@@ -141,6 +141,16 @@ void setup_player(string rid, string pid){
 			this_object()->set_think(13);
 			this_object()->set_lunck(0);
 		}
+		else if(pid&&pid=="lingyi"){
+			kind_cn = "中立";
+			unit = "位";
+			this_object()->set_life(110);
+			this_object()->set_mofa(140);
+			this_object()->set_str(6);
+			this_object()->set_dex(6);
+			this_object()->set_think(14);
+			this_object()->set_lunck(0);
+		}
 	}
 }
 //每次调用reconnect将会传回密码字段进行验证
@@ -155,11 +165,14 @@ int move(mixed dest){
 		this_object()->clean_buff("team_guard");
 	if(environment(this_object()) && environment(this_object())!=(object)dest)
 		this_object()->clean_tianxiang_star_marks();
+	if(environment(this_object()) && environment(this_object())!=(object)dest)
+		this_object()->clean_lingyi_medicine_pacts();
 	return ::move(dest);
 }
 void remove(){
 	this_object()->clean_buff("team_guard");
 	this_object()->clean_tianxiang_star_marks();
+	this_object()->clean_lingyi_medicine_pacts();
 	this_object()->update_online_time();
 	if(this_object()->sid != "5dwap")
 		save();

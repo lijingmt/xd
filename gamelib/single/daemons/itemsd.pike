@@ -98,8 +98,8 @@ private mapping(int:array(string)) item_list = ([]);
 //记录白色装备允许出现属性的映射表
 private mapping(string:array(string)) item_attributes = ([]);
 
-//九职业大神传承仅通过70级以上怪物极低概率掉落。
-//总掉率为27/100000，二十七本等概率，即单本长期均值约1/100000。
+//十职业大神传承仅通过70级以上怪物极低概率掉落。
+//总掉率为30/100000，三十本等概率，即单本长期均值约1/100000。
 private array(string) hidden_skill_books = ({
 	"book/wanjianguizong",
 	"book/taiqingjianyu",
@@ -128,9 +128,12 @@ private array(string) hidden_skill_books = ({
 	"book/xinghezhuiluo",
 	"book/zhoutianjingzhi",
 	"book/wanxiangxingbi",
+	"book/cixinpudu",
+	"book/huimingtianlu",
+	"book/wanmuxinchun",
 });
 private int hidden_skill_min_level = 70;
-private int hidden_skill_drop_rate = 27;
+private int hidden_skill_drop_rate = 30;
 
 //用于生成物品文件后缀的映射表,现在暂时未用上
 private mapping(string:int) postfix_map = ([
@@ -1118,6 +1121,8 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					rtn_ob->set_item_profeLimit("zhenyue");
 				if(profs && sizeof(profs) > 0 && search(profs, "tianxiang") == -1)
 					rtn_ob->set_item_profeLimit("tianxiang");
+				if(profs && sizeof(profs) > 0 && search(profs, "lingyi") == -1)
+					rtn_ob->set_item_profeLimit("lingyi");
 			}
 			return (rtn_ob);
 		}
@@ -1437,6 +1442,16 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					if(last_brace != -1)
 						writeback = writeback[..last_brace-1] +
 							"    set_item_profeLimit(\"tianxiang\");\n" +
+							writeback[last_brace..];
+				}
+				if(search(writeback, "set_item_profeLimit") != -1 &&
+				   search(writeback, "set_item_profeLimit(\"lingyi\")") == -1) {
+					int last_brace = search(writeback, "\n}\n");
+					if(last_brace == -1)
+						last_brace = search(writeback, "}\n");
+					if(last_brace != -1)
+						writeback = writeback[..last_brace-1] +
+							"    set_item_profeLimit(\"lingyi\");\n" +
 							writeback[last_brace..];
 				}
 

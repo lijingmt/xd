@@ -443,6 +443,16 @@ string get_org_converted_level(string orgitem,int boss_level){
 						"    set_item_profeLimit(\"tianxiang\");\n" +
 						writeback[last_brace..];
 			}
+			if(search(writeback, "set_item_profeLimit(\"lingyi\")") == -1 &&
+			   search(writeback, "set_item_profeLimit") != -1) {
+				int last_brace = search(writeback, "\n}\n");
+				if(last_brace == -1)
+					last_brace = search(writeback, "}\n");
+				if(last_brace != -1)
+					writeback = writeback[..last_brace-1] +
+						"    set_item_profeLimit(\"lingyi\");\n" +
+						writeback[last_brace..];
+			}
 
 			int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 		werror("=========212 item_name:"+item_name+" write_flag "+write_flag+"\n");
@@ -473,6 +483,8 @@ string get_org_converted_level(string orgitem,int boss_level){
 							rtn_ob->set_item_profeLimit("zhenyue");
 						if(profs && sizeof(profs) > 0 && search(profs, "tianxiang") == -1)
 							rtn_ob->set_item_profeLimit("tianxiang");
+						if(profs && sizeof(profs) > 0 && search(profs, "lingyi") == -1)
+							rtn_ob->set_item_profeLimit("lingyi");
 					}
 				}
 				//werror("$$$$$$$$$$$$$$$$创建新物品结束$$$$$$$$$$$$$$$$$$$$\n");

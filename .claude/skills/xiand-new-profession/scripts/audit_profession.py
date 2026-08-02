@@ -130,13 +130,29 @@ def referenced_skill(book_text: str) -> str:
     return match.group(1) if match else ""
 
 
-def hidden_books(root: Path, needles: list[str]) -> list[Path]:
+def skill_belongs_to_profession(text: str, profession: str) -> bool:
+    return bool(re.search(
+        r'skill_type\s*\+=\s*\(\{[^}]*"'
+        + re.escape(profession) + r'"', text, re.S))
+
+
+def book_belongs_to_profession(root: Path, text: str, profession: str,
+                               name_cn: str) -> bool:
+    if name_cn and re.search(
+            r'profe_read_limit\s*=\s*"' + re.escape(name_cn) + r'"', text):
+        return True
+    skill = referenced_skill(text)
+    return bool(skill and skill_belongs_to_profession(
+        read_text(root / "gamelib/single/skills" / skill), profession))
+
+
+def hidden_books(root: Path, profession: str, name_cn: str) -> list[Path]:
     results: list[Path] = []
     for path in sorted((root / "gamelib/clone/item/book").glob("*")):
         if not path.is_file():
             continue
         text = read_text(path)
-        if (any(needle and needle in text for needle in needles)
+        if (book_belongs_to_profession(root, text, profession, name_cn)
                 and re.search(r"level_limit\s*=\s*80\b", text)
                 and re.search(r"need_yushi\s*=\s*0\b", text)
                 and re.search(r"need_money\s*=\s*0\b", text)):
@@ -229,15 +245,17 @@ def main() -> int:
     failures += not catalog_ok
 
     skills = [path for path in (root / "gamelib/single/skills").glob("*")
-              if path.is_file() and any(n in read_text(path) for n in needles)]
+              if path.is_file() and skill_belongs_to_profession(
+                  read_text(path), profession)]
     books = [path for path in (root / "gamelib/clone/item/book").glob("*")
-             if path.is_file() and any(n in read_text(path) for n in needles)]
+             if path.is_file() and book_belongs_to_profession(
+                 root, read_text(path), profession, name_cn)]
     runtime_files_ok = bool(skills) and bool(books)
     report("PASS" if runtime_files_ok else "MISS", "runtime_files",
            f"skills={len(skills)} books={len(books)}")
     failures += not runtime_files_ok
 
-    hidden = hidden_books(root, needles)
+    hidden = hidden_books(root, profession, name_cn)
     item_source = read_text(root / "gamelib/single/daemons/itemsd.pike")
     pool, pool_rate = parse_hidden_pool(item_source)
     hidden_names = {path.name for path in hidden}

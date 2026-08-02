@@ -597,6 +597,12 @@ createApp({
             if (profession.includes('镇越')) {
                 return ['#f1c66d', '#d99045', '#8f6a45', '#fff1b5'];
             }
+            if (profession.includes('天象')) {
+                return ['#80b7ff', '#9b8cff', '#67d8ff', '#f0edff'];
+            }
+            if (profession.includes('灵医')) {
+                return ['#70e6b3', '#a7f3d0', '#d6b56c', '#effff7'];
+            }
             return ['#f4c95d', '#ef8354', '#6fb1ff', '#fff4cf'];
         },
 

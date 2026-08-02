@@ -24,6 +24,7 @@ protected mapping(string:int) profe_fight=([
 		"fangshi":6,
 		"zhenyue":7,
 		"tianxiang":6,
+		"lingyi":6,
 		"humanlike":6,
 		"beast":7,
 		"bird":8,
@@ -338,6 +339,90 @@ int query_pk_fast_targets_belong_to(object who,object opponent){
 	return 1;
 }
 
+// 快速决胜只读取灵医当前真实已学治疗，折算为保守的每轮可持续自疗。
+// 折算同时受技能阶段、冷却、当前仙力、单次生命上限和减疗影响；不把
+// 药契当成每轮都可重复消费，也不治疗不存在于1v1快照里的队友。
+private int query_lingyi_pk_fast_heal(object who){
+	array(string) names = ({"huichun","qingxin","lingyu","yulu",
+		"ganlin","xuming","cixinpudu","huimingtianlu",
+		"wanmuxinchun"});
+	int best = 0;
+	if(!who || who->query_profeId()!="lingyi" || !who->skills)
+		return 0;
+	foreach(names,string name){
+		object|zero skill = 0;
+		mixed load_err = 0;
+		int learned_level;
+		int usable_level = 0;
+		int amount;
+		int life_cap;
+		int cooldown;
+		int cast;
+		int mana_casts;
+		int by_cooldown;
+		int by_mana;
+		int sustainable;
+		mapping(int:int) limits;
+		mixed learned = who->skills[name];
+		if(!arrayp(learned) || !sizeof(learned) || (int)learned[0]<=0)
+			continue;
+		load_err = catch {
+			skill = (object)(ROOT+"/gamelib/single/skills/"+name);
+		};
+		if(load_err || !skill || skill->s_skill_type!="heal")
+			continue;
+		learned_level = (int)learned[0];
+		limits = skill->query_performs_level_limit_all();
+		if(!limits || !sizeof(limits))
+			continue;
+		for(int stage=sizeof(limits);stage>0;stage--){
+			if(who->query_level()>=limits[stage]){
+				usable_level = stage;
+				break;
+			}
+		}
+		if(usable_level<=0)
+			continue;
+		if(learned_level>usable_level)
+			learned_level = usable_level;
+		amount = skill->query_performs_attack(learned_level)+
+			who->query_think()*skill->query_lingyi_think_scale();
+		life_cap = who->query_life_max()*
+			skill->query_lingyi_life_cap_percent()/100;
+		if(life_cap>0 && amount>life_cap)
+			amount = life_cap;
+		if(who->query_debuff("curse",0)=="life"){
+			int reduction = (int)who->query_debuff("curse",1);
+			if(reduction<0)
+				reduction = 0;
+			if(reduction>90)
+				reduction = 90;
+			amount = amount*(100-reduction)/100;
+		}
+		if(amount<=0)
+			continue;
+		cooldown = skill->query_s_delayTime(learned_level);
+		if(cooldown<1)
+			cooldown = 1;
+		if(who->f_skills && (int)who->f_skills[name]>cooldown)
+			cooldown = (int)who->f_skills[name];
+		cast = skill->query_performs_cast(learned_level);
+		if(cast<1)
+			cast = 1;
+		mana_casts = who->get_cur_mofa()/cast;
+		if(mana_casts<1)
+			continue;
+		by_cooldown = amount/cooldown;
+		by_mana = amount*mana_casts/200;
+		if(by_cooldown<1 || by_mana<1)
+			continue;
+		sustainable = by_cooldown<by_mana ? by_cooldown : by_mana;
+		if(sustainable>best)
+			best = sustainable;
+	}
+	return best;
+}
+
 mapping query_pk_fast_side_profile(object who){
 	mapping profile = ([]);
 	mapping summons = ([]);
@@ -347,6 +432,7 @@ mapping query_pk_fast_side_profile(object who){
 	int magic_raw;
 	int summon_attack = 0;
 	int summon_heal = 0;
+	int profession_heal = 0;
 	int shield = 0;
 	int magic_rate;
 	int magic_element = 0;
@@ -376,6 +462,8 @@ mapping query_pk_fast_side_profile(object who){
 	// 灵兽的存活、普攻与鹤灵治疗均计入方士这一侧的当前快照。
 	if(who->query_profeId()=="fangshi")
 		summons = SUMMOND->get_player_summons(who->query_name());
+	if(who->query_profeId()=="lingyi")
+		profession_heal = query_lingyi_pk_fast_heal(who);
 	if(summons && sizeof(summons)){
 		foreach(values(summons),object summon){
 			if(!summon || summon->get_cur_life()<=0 ||
@@ -407,7 +495,7 @@ mapping query_pk_fast_side_profile(object who){
 		magic_element = (int)who->query_equip_add("feng_mofa_attack");
 	if((int)who->query_equip_add("du_mofa_attack")>magic_element)
 		magic_element = (int)who->query_equip_add("du_mofa_attack");
-	magic_rate = search(({"yushi","wuyao","fangshi","tianxiang"}),
+	magic_rate = search(({"yushi","wuyao","fangshi","tianxiang","lingyi"}),
 		who->query_profeId())!=-1 ? 7 : 5;
 	magic_raw = who->query_think()*magic_rate/2+
 		who->query_equip_add("mofa_all")+magic_element;
@@ -421,10 +509,11 @@ mapping query_pk_fast_side_profile(object who){
 	profile["physical_raw"] = physical_raw;
 	profile["magic_raw"] = magic_raw;
 	profile["summon_attack_raw"] = summon_attack;
-	profile["magic_enabled"] = search(({"yushi","wuyao","fangshi","tianxiang"}),
+	profile["magic_enabled"] = search(({"yushi","wuyao","fangshi","tianxiang","lingyi"}),
 		who->query_profeId())!=-1;
 	profile["heal"] = (int)who->query_equip_add("rase_life_add")+
-		summon_heal;
+		summon_heal+profession_heal;
+	profile["profession_heal"] = profession_heal;
 	profile["hit"] = (int)who->query_if_hitte();
 	profile["dodge"] = (int)who->query_phy_dodge();
 	profile["critical"] = (int)who->query_phy_baoji();
@@ -735,6 +824,7 @@ void _clean_fight(){
 	this_object()->eat_timeCold = 0;
 	this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
 	this_object()->clean_tianxiang_star_marks();
+	this_object()->clean_lingyi_medicine_pacts();
 	if(this_object()->is("npc")){
 		this_object()->who_fight_npc = "";//重置首次攻击者
 		this_object()->term_who_fight_npc = "";//重置首次攻击者队伍标示          
@@ -832,10 +922,13 @@ void escape(void|int change){
 private object|zero query_learned_skill_object(string name){
 	object|zero skill = 0;
 	mixed load_err = 0;
+	mixed learned = 0;
 	if(!name || name == "" || sizeof(name) > 64 ||
 	   search(name,"/") != -1 || search(name,"..") != -1 ||
-	   !this_object()->skills || !this_object()->skills[name] ||
-	   (int)this_object()->skills[name][0] <= 0)
+	   !this_object()->skills)
+		return 0;
+	learned = this_object()->skills[name];
+	if(!arrayp(learned) || !sizeof(learned) || (int)learned[0]<=0)
 		return 0;
 	skill = MUD_SKILLSD[name];
 	if(!skill){
@@ -846,6 +939,200 @@ private object|zero query_learned_skill_object(string name){
 			skill = 0;
 	}
 	return skill;
+}
+
+private array(object) query_lingyi_heal_targets(int scope){
+	array(object) candidates = ({});
+	array(object) result = ({});
+	object caster = this_object();
+	object env = environment(caster);
+	string team_id = caster->query_term();
+	if(caster->get_cur_life()>0)
+		candidates += ({caster});
+	if(env && team_id!="" && team_id!="noterm"){
+		foreach(all_inventory(env),object member){
+			if(member==caster || !member->is("player") ||
+			   member->query_term()!=team_id || member->get_cur_life()<=0 ||
+			   !LOGICALZONED->can_action("team",caster,member))
+				continue;
+			candidates += ({member});
+		}
+	}
+	if(!sizeof(candidates))
+		return result;
+	if(scope==2)
+		return candidates;
+	object target = candidates[0];
+	foreach(candidates,object member){
+		if(member->get_cur_life()*target->query_life_max() <
+		   target->get_cur_life()*member->query_life_max())
+			target = member;
+	}
+	return ({target});
+}
+
+private string clean_one_lingyi_debuff(object target){
+	array(string) priority = ({"dot","curse","curse2","70_skill_curse"});
+	foreach(priority,string kind){
+		if(target->query_debuff(kind,0)!="none"){
+			target->clean_debuff(kind);
+			return kind;
+		}
+	}
+	return "";
+}
+
+// 返回实际获得治疗或净化的目标数；没有有效收益时不消耗仙力与冷却。
+private int apply_lingyi_heal(object skill,int skill_level){
+	array(object) targets;
+	int scope = skill->query_lingyi_heal_scope();
+	int base_heal;
+	int pacts = 0;
+	int benefited = 0;
+	int total_healed = 0;
+	int has_missing_life = 0;
+	if(this_object()->query_profeId()!="lingyi" ||
+	   this_object()->get_cur_life()<=0 || scope<1 || scope>2)
+		return 0;
+	targets = query_lingyi_heal_targets(scope);
+	foreach(targets,object target){
+		if(target->get_cur_life()<target->query_life_max())
+			has_missing_life = 1;
+	}
+	if(has_missing_life && skill->query_lingyi_pact_consume())
+		pacts = this_object()->consume_lingyi_medicine_pacts();
+	base_heal = skill->query_performs_attack(skill_level)+
+		this_object()->query_think()*skill->query_lingyi_think_scale();
+	if(pacts>0)
+		base_heal = base_heal*(100+pacts*15)/100;
+	foreach(targets,object target){
+		int before = target->get_cur_life();
+		int life_max = target->query_life_max();
+		int amount = base_heal;
+		int cap_percent = skill->query_lingyi_life_cap_percent();
+		string cleaned = "";
+		if(before<=0 || life_max<=0)
+			continue;
+		if(cap_percent>0 && amount>life_max*cap_percent/100)
+			amount = life_max*cap_percent/100;
+		if(target->query_debuff("curse",0)=="life"){
+			int reduce = (int)target->query_debuff("curse",1);
+			if(reduce<0)
+				reduce = 0;
+			if(reduce>90)
+				reduce = 90;
+			amount = amount*(100-reduce)/100;
+		}
+		if(amount<0)
+			amount = 0;
+		if(before+amount>life_max)
+			amount = life_max-before;
+		if(amount>0)
+			target->set_life(before+amount);
+		if(skill->query_lingyi_cleanse())
+			cleaned = clean_one_lingyi_debuff(target);
+		if(amount>0 || cleaned!=""){
+			benefited++;
+			total_healed += amount;
+			if(target!=this_object()){
+				tell_object(target,this_object()->query_name_cn()+"施放"+
+					skill->query_name_cn()+"，为你恢复"+amount+"点生命"+
+					(cleaned!="" ? "并净化一项负面状态" : "")+"。\n");
+			}
+		}
+	}
+	if(total_healed>0 && skill->query_lingyi_pact_gain()>0){
+		int current = this_object()->add_lingyi_medicine_pacts(
+			skill->query_lingyi_pact_gain());
+		tell_object(this_object(),"你凝成药契（"+current+
+			"/3，20秒内有效）。\n");
+	}
+	if(benefited>0){
+		tell_object(this_object(),"你施放"+skill->query_name_cn()+
+			"，令"+benefited+"名目标获得救治，共恢复"+
+			total_healed+"点生命"+
+			(pacts>0 ? "，并消耗"+pacts+"层药契" : "")+"。\n");
+	}
+	return benefited;
+}
+
+private int query_lingyi_usable_level(object skill,string name){
+	mixed learned = this_object()->skills[name];
+	int skill_level;
+	mapping(int:int) limits = skill->query_performs_level_limit_all();
+	int usable = 0;
+	if(!arrayp(learned) || !sizeof(learned))
+		return 0;
+	skill_level = (int)learned[0];
+	if(!limits || !sizeof(limits))
+		return skill_level;
+	for(int i=sizeof(limits);i>0;i--){
+		if(this_object()->query_level()>=limits[i]){
+			usable = i;
+			break;
+		}
+	}
+	if(usable>0 && skill_level>usable)
+		skill_level = usable;
+	return usable>0 ? skill_level : 0;
+}
+
+// 非战斗状态也允许灵医治疗；所有校验与战斗内施放保持一致。
+int perform_support(string name){
+	object|zero skill;
+	int skill_level;
+	int cast;
+	int cold;
+	int applied;
+	if(this_object()->query_in_combat() ||
+	   this_object()->query_profeId()!="lingyi")
+		return 0;
+	if(this_object()->get_cur_life()<=0){
+		tell_object(this_object(),"你已失去意识，无法施放治疗技能。\n");
+		return 0;
+	}
+	skill = query_learned_skill_object(name);
+	if(!skill || skill->s_skill_type!="heal" ||
+	   skill->query_lingyi_heal_scope()<=0){
+		tell_object(this_object(),"该技能不能在非战斗状态施放。\n");
+		return 0;
+	}
+	if(this_object()->query_debuff("curse2",0)=="shenzhishufu"){
+		tell_object(this_object(),"【妖】神之束缚效果，你暂时无法使用技能。\n");
+		return 0;
+	}
+	if(this_object()->timeCold!=0){
+		tell_object(this_object(),"还有"+this_object()->timeCold+
+			"秒法术公共冷却时间。\n");
+		return 0;
+	}
+	skill_level = query_lingyi_usable_level(skill,name);
+	if(skill_level<=0){
+		tell_object(this_object(),"你的等级尚不足以施放该技能。\n");
+		return 0;
+	}
+	cast = skill->query_performs_cast(skill_level);
+	if(cast>this_object()->get_cur_mofa()){
+		tell_object(this_object(),"你的仙力不够，无法施放"+
+			skill->query_name_cn()+"。\n");
+		return 0;
+	}
+	cold = (int)this_object()->f_skills[name];
+	if(cold>1){
+		tell_object(this_object(),"该技能还需要"+(cold-1)+
+			"秒冷却时间。\n");
+		return 0;
+	}
+	applied = apply_lingyi_heal(skill,skill_level);
+	if(applied<=0){
+		tell_object(this_object(),"当前没有需要治疗或净化的有效目标。\n");
+		return 0;
+	}
+	this_object()->set_mofa(this_object()->get_cur_mofa()-cast);
+	this_object()->timeCold = 2;
+	this_object()->f_skills[name] = skill->query_s_delayTime(skill_level)+1;
+	skills_level_check(name);
+	return 1;
 }
 
 // 星痕只放大天象自己的爆发法术。普通PVE每层10%，玩家与Boss每层8%，
@@ -1215,7 +1502,7 @@ void perform(string name,void|int flag){
 						//再加上装备属性带来的法术伤害提升
 						//智力也会提高法伤由liaocheng于07/4/16添加
 						//职业调整 caijie 08/12/03
-						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="fangshi"||this_object()->query_profeId()=="tianxiang"){
+						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="fangshi"||this_object()->query_profeId()=="tianxiang"||this_object()->query_profeId()=="lingyi"){
 							mofa_a += this_object()->query_equip_add(mofa_type)+this_object()->query_equip_add("mofa_all")+(int)(this_object()->query_think()*7/2);
 						}
 						else
@@ -1567,6 +1854,22 @@ void perform(string name,void|int flag){
 			/*    施放的是治疗技能    */
 			else if(f_cur_skill->s_skill_type=="heal"){
 				if(s_cold <= 1){
+					if(this_object()->query_profeId()=="lingyi" &&
+					   f_cur_skill->query_lingyi_heal_scope()>0){
+						int applied = apply_lingyi_heal(f_cur_skill,skill_level);
+						if(applied<=0){
+							tell_object(this_object(),"当前没有需要治疗或净化的有效目标。\n");
+							return;
+						}
+						this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
+						this_object()->timeCold = 2;
+						this_object()->f_skills[name] =
+							f_cur_skill->query_s_delayTime(skill_level)+1;
+						if(enemy)
+							enemy->flush_targets(this_object(),10*applied);
+						skills_level_check(f_cur_skill->query_name());
+						return;
+					}
 					int life_before = this_object()->get_cur_life();
 					int life_limit = this_object()->query_life_max();
 					int base_heal_amount =
@@ -1721,7 +2024,7 @@ void perform(string name,void|int flag){
 					if(f_cur_skill->s_curse_type == "absorb"){
 						if(this_object()->query_profeId()=="zhenyue")
 							tmp_int += (int)(this_object()->query_str()*3);
-						else if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"||this_object()->query_profeId()=="tianxiang"){
+						else if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"||this_object()->query_profeId()=="tianxiang"||this_object()->query_profeId()=="lingyi"){
 							tmp_int += (int)(this_object()->query_think()*3);
 						}
 						else

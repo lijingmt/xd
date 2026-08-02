@@ -2,7 +2,7 @@
 """Build the standalone Xiand all-profession skill handbook.
 
 The handbook is intentionally separate from the equipment/progression guide.
-It reads the current skill objects and skill-book catalog, then gives all 27
+It reads the current skill objects and skill-book catalog, then gives all 30
 drop-only mythic skills a dedicated, stage-by-stage reference.
 """
 
@@ -220,6 +220,24 @@ MYTHIC_SKILLS = [
         "role": "15秒可耗尽个人星壁",
         "usage": "第一段吸收3800+智力×3点伤害，用于给积蓄星痕争取时间。它只有有限额度与15秒时限，不回血、不复活、不免疫；120秒冷却决定它不能覆盖每轮普通战斗。",
     },
+    {
+        "profession": "lingyi",
+        "id": "cixinpudu",
+        "role": "同房同队大治疗",
+        "usage": "用于队伍多人同时掉血的高压窗口。它只治疗施法者与同房间、同逻辑区、同队伍的存活人物，单目标最多恢复其25%生命上限；未组队时就是有上限的强力自疗，不治疗路人也不复活。",
+    },
+    {
+        "profession": "lingyi",
+        "id": "huimingtianlu",
+        "role": "药契强化智能急救",
+        "usage": "自动选择合法目标中生命比例最低者，并消耗全部药契；每层药契提高15%治疗，最多三层，最终单次治疗仍不超过目标40%生命上限。适合先以普通治疗积契，再救治濒危队友。",
+    },
+    {
+        "profession": "lingyi",
+        "id": "wanmuxinchun",
+        "role": "群体治疗与逐人净化",
+        "usage": "治疗同房同队存活人物并为每名受益目标净化一项负面状态，优先持续伤害，再处理减疗/诅咒、控制与70级诅咒。每名目标治疗上限25%，120秒冷却要求留给复杂团队危机。",
+    },
 ]
 
 MYTHIC_THEMES = {
@@ -232,6 +250,7 @@ MYTHIC_THEMES = {
     "fangshi": "三灵济世",
     "zhenyue": "万山守御",
     "tianxiang": "万象星轨",
+    "lingyi": "百草回春",
 }
 
 PROF_BY_ID = {item["id"]: item for item in PROFESSIONS}
@@ -295,7 +314,7 @@ class SkillGuideDocTemplate(GuideDocTemplate):
             canvas.drawRightString(
                 PAGE_W - RIGHT_MARGIN,
                 PAGE_H - 8.5 * mm,
-                "二十七本隐藏神技详解",
+                "三十本隐藏神技详解",
             )
             canvas.line(LEFT_MARGIN, 10 * mm, PAGE_W - RIGHT_MARGIN, 10 * mm)
             canvas.drawCentredString(PAGE_W / 2, 6.5 * mm, f"- {doc.page} -")
@@ -318,10 +337,11 @@ def add_cover(
         ROOT / "images/human_fangshi_logo.png",
         ROOT / "images/zhenyue_logo.png",
         ROOT / "images/tianxiang_logo.png",
+        ROOT / "images/lingyi_logo.png",
     ]
     icon_table = Table(
         [[Image(str(path), width=24 * mm, height=24 * mm) for path in icon_paths]],
-        colWidths=[28 * mm] * 4,
+        colWidths=[24 * mm] * 5,
         hAlign="CENTER",
     )
     icon_table.setStyle(
@@ -337,7 +357,7 @@ def add_cover(
     story.append(Paragraph("仙道全职业技能专册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-			f"九职业技能全索引 · 二十七式隐藏神技 · {build_date}天象版",
+			f"十职业技能全索引 · 三十式隐藏神技 · {build_date}灵医版",
             styles["CoverSub"],
         )
     )
@@ -348,7 +368,7 @@ def add_cover(
                 Paragraph(
                     f"当前代码共收录 {skill_count} 个职业技能对象、{book_count} 条职业技能书配置。<br/>"
                     "从技能书获得、背包学习，到熟练度成长与实战连招，一册查清。<br/>"
-                    "九个职业各有 3 本专属隐藏神技，共 27 本极低概率传承。<br/>"
+                    "十个职业各有 3 本专属隐藏神技，共 30 本极低概率传承。<br/>"
                     "等级、法力、伤害、治疗、控制时长与冷却均取自当前技能对象。",
                     ParagraphStyle(
                         "SkillCoverBox",
@@ -404,14 +424,14 @@ def add_cover(
         [
             "# 仙道全职业技能专册",
             "",
-			f"九职业技能全索引 · 二十七式隐藏神技 · {build_date}天象版",
+			f"十职业技能全索引 · 三十式隐藏神技 · {build_date}灵医版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
             f"- 生成日期：{build_date}",
             f"- 数据规模：{skill_count} 个职业技能对象，{book_count} 条职业技能书配置",
             "",
-            "> 本专册依据当前仓库代码生成，九个职业各有 3 本专属隐藏神技，共 27 本。",
+            "> 本专册依据当前仓库代码生成，十个职业各有 3 本专属隐藏神技，共 30 本。",
             "",
         ]
     )
@@ -506,14 +526,14 @@ def build_skill_guide() -> None:
     guide.bullets(
         [
             "普通技能书主要在职业技能书商店购买；60级以上高级书按职业每天独立轮换2本。",
-            "方士、镇越与天象多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。",
+            "方士、镇越、天象与灵医多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。",
             "隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长，不需要重复找5本。",
             "重复学习隐藏书不会消耗原书，可继续交易、寄送或存入仓库。",
         ]
     )
     guide.callout(
         "技能与职业助手公平边界",
-        "方士、镇越和天象的学习、手动技能、召唤、治疗、嘲讽、护盾与星痕循环永久免费。VIP职业助手只在PVE自动执行人物已经掌握的能力，照常检查法力、冷却、装备、目标和行动回合；面对玩家或玩家召唤物会拒绝自动施放。会员到期只暂停自动化，不删除技能或策略配置。",
+        "方士、镇越、天象和灵医的学习、手动技能、召唤、治疗、嘲讽、护盾、星痕与药契循环永久免费。VIP职业助手只在PVE自动执行人物已经掌握的能力，照常检查法力、冷却、装备、目标和行动回合；面对玩家或玩家召唤物会拒绝自动施放。会员到期只暂停自动化，不删除技能或策略配置。",
     )
     guide.callout(
         "拿到隐藏书后的最短路径",
@@ -521,7 +541,7 @@ def build_skill_guide() -> None:
         "gold",
     )
 
-    guide.h1("2. 九职业技能定位速览")
+    guide.h1("2. 十职业技能定位速览")
     guide.h2("2.1 物理、法术与概率结算基线")
     guide.table(
         ["项目", "当前规则", "实战含义"],
@@ -541,7 +561,7 @@ def build_skill_guide() -> None:
         "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。没有采用“攻击×4.8”“12秒掉24%最大生命”或无条件必中等玩家提案。",
         "gold",
     )
-    guide.h2("2.2 九职业定位与隐藏传承")
+    guide.h2("2.2 十职业定位与隐藏传承")
     overview_rows = []
     for profession in PROFESSIONS:
         profession_id = profession["id"]
@@ -566,12 +586,12 @@ def build_skill_guide() -> None:
         compact=True,
     )
     guide.callout(
-        "九脉神传，各有胜场",
-        "剑仙重攻守转换，羽士重控制与护盾，诛仙重暴击斩杀，狂妖重流血强攻，巫妖重毒伤减疗，影鬼重命中博弈，方士重召唤治疗，镇越重仇恨与队伍守护，天象重元素星痕与受控引爆。九套传承使用相同的获得与成长门槛，但战斗解法互不相同。",
+        "十脉神传，各有胜场",
+        "剑仙重攻守转换，羽士重控制与护盾，诛仙重暴击斩杀，狂妖重流血强攻，巫妖重毒伤减疗，影鬼重命中博弈，方士重召唤治疗，镇越重仇恨与队伍守护，天象重元素星痕与受控引爆，灵医重智能救急、群疗净化与药契节奏。十套传承使用相同的获得与成长门槛，但战斗解法互不相同。",
         "gold",
     )
 
-    guide.h1("3. 九职业技能与技能书全索引")
+    guide.h1("3. 十职业技能与技能书全索引")
     guide.paragraph(
         "下列内容由当前技能对象与技能书目录自动生成。普通书显示商店价格，高级书显示每日职业轮换；隐藏书不进入任何商店，因此只出现在技能对象与隐藏神技章节。",
         small=True,
@@ -614,16 +634,16 @@ def build_skill_guide() -> None:
                 small=True,
             )
 
-    guide.h1("4. 二十七式隐藏神技实战全解")
+    guide.h1("4. 三十式隐藏神技实战全解")
     guide.h2("4.1 掉落、归属与学习规则")
     guide.table(
         ["规则项", "当前实现"],
         [
             ["资格怪物", "被击杀怪物的实际等级必须达到70级；不看玩家等级或地图名称"],
-            ["总掉率", "每只合格怪物27/100000；命中后从27本中等概率选1本"],
+            ["总掉率", "每只合格怪物30/100000；命中后从30本中等概率选1本"],
             ["单本长期均值", "约1/100000；短期可能长期不出，也可能连续掉落"],
             ["掷骰次数", "单人、团队普通怪、团队Boss均按每只怪物恰好掷1次；队员人数不放大掉率"],
-            ["商店限制", "27本均不进入普通书商店、每日高级书商店或师门教学"],
+            ["商店限制", "30本均不进入普通书商店、每日高级书商店或师门教学"],
             ["地面归属", "个人或队伍保护120秒；未拾取物品5分钟后清理"],
             ["流通", "允许拾取、丢弃、交易、寄送与仓库存放；学习时才严格检查职业"],
             ["学习要求", "人物80级且职业匹配；重复学习不消耗书"],
@@ -633,11 +653,11 @@ def build_skill_guide() -> None:
     )
     guide.callout(
         "概率换算",
-        "27本共享27/100000总掉率，不是每本都按27/100000独立判断。因为命中后二十七选一，所以单本长期平均仍约为1/100000。",
+        "30本共享30/100000总掉率，不是每本都按30/100000独立判断。因为命中后三十选一，所以单本长期平均仍约为1/100000。",
         "gold",
     )
 
-    guide.h2("4.2 二十七本神技横向比较")
+    guide.h2("4.2 三十本神技横向比较")
     guide.table(
         ["职业", "技能", "定位", "冷却", "80级第一段", "160级第五段"],
         [
@@ -657,7 +677,7 @@ def build_skill_guide() -> None:
 
     section_number = 3
     for profession_id in [
-        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang"
+        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi"
     ]:
         profession = PROF_BY_ID[profession_id]
         guide.h2(
@@ -720,14 +740,19 @@ def build_skill_guide() -> None:
                 "镇越推荐循环",
                 "敌人未以自己为首要目标时先用地震吼或高仇恨攻击；队伍将承压时展开万山朝拱；自己的危险窗口再开天地成壁，并用不周震击维持长期仇恨。护盾必须错峰，不能当作治疗或无敌。",
             )
-        else:
+        elif profession_id == "tianxiang":
             guide.callout(
                 "天象推荐循环",
                 "先用周天静止压低危险目标命中，或用万象星壁覆盖积蓄窗口；交替施放已学火、冰、风攻击法术积至三星，再用星河坠落引爆。星痕最多三层、十五秒到期，换房、脱战、死亡和掉线都会清空。",
             )
+        else:
+            guide.callout(
+                "灵医推荐循环",
+                "先以回春、清心、灵愈或甘霖维持队伍并凝成至多三层药契；危急单体用回命天露消耗药契急救，多人同时受伤用慈心普渡，负面状态密集时保留万木新春。所有目标与治疗上限由服务端统一校验。",
+            )
         section_number += 1
 
-    guide.h2("4.12 隐藏书常见问题")
+    guide.h2("4.13 隐藏书常见问题")
     guide.table(
         ["问题", "答案"],
         [
@@ -751,6 +776,9 @@ def build_skill_guide() -> None:
             ["天象星痕可以一直存着吗？", "不能。最多3层、15秒；换房、脱战、死亡或掉线都会清空，客户端也不能伪造层数。"],
             ["星河坠落三层就是固定加30%吗？", "普通PVE每层+10%、三层+30%；玩家和Boss每层+8%、三层最多+24%。"],
             ["周天静止能让目标完全不动吗？", "不能。它只在8秒内降低命中，仍需控制命中/抵抗判定，且有120秒冷却。"],
+            ["灵医隐藏群疗会治疗路人吗？", "不会。只治疗自己与同房、同逻辑区、同队伍的存活人物；未组队时只治疗自己。"],
+            ["回命天露会无限抬血吗？", "不会。药契最多3层、每层+15%，并且单次治疗最高不超过目标40%生命上限。"],
+            ["万木新春一次会清掉所有状态吗？", "不会。每名合法目标每次只按优先级净化一项负面状态。"],
         ],
         [1.7, 4.0],
     )
@@ -768,9 +796,10 @@ def build_skill_guide() -> None:
             "命中、闪避与暴击边界：lowlib/mudlib/inherit/feature/char.pike",
             "物理/法术平衡回归：test_unit/test_combat_balance.pike",
             "隐藏技能运行时回归：test_unit/test_hidden_mythic_skills.pike",
-            "方士/镇越/天象职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
+            "方士/镇越/天象/灵医职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
             "职业助手公平边界回归：test_unit/test_profession_vip_assistant.pike",
             "天象星痕、技能与共享系统回归：test_unit/test_tianxiang_profession.pike",
+            "灵医治疗、净化、药契与共享系统回归：test_unit/test_lingyi_profession.pike",
             "Vue真实操作与发呆时钟边界：test_unit/test_idle_kick_system.pike",
         ]
     )

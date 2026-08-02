@@ -10,7 +10,8 @@ let nextBattleState = {
     name_cn: '测试方士', hp: 90, hp_max: 100,
     mana: 70, mana_max: 80, level: 9, profe: '镇越', race: '中立',
     guard: 1200, guard_time: 10, guard_active: 1,
-    star_marks: 2, star_marks_max: 3
+    star_marks: 2, star_marks_max: 3,
+    medicine_pacts: 2, medicine_pacts_max: 3
   },
   enemy: {
     name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50,
@@ -93,9 +94,11 @@ const indexSource = fs.readFileSync(
   path.join(__dirname, '..', 'index.html'),
   'utf8'
 );
-assert(indexSource.includes('九职同行'));
+assert(indexSource.includes('十职同行'));
 assert(indexSource.includes('星痕 {{ battlePlayerFull?.star_marks'));
+assert(indexSource.includes('药契 {{ battlePlayerFull?.medicine_pacts'));
 assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
+assert(indexSource.includes("playerStats.profe === '灵医' ? '✚'"));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
 assert(soundDataUri.startsWith('data:audio/wav;base64,'));
 const soundBytes = Buffer.from(soundDataUri.split(',')[1], 'base64');

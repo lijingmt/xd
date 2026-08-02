@@ -15,8 +15,8 @@
 | Deployment | `restart-docker.sh`, `rebuild-image.sh`, Vue build scripts | container/Tomcat assets match source |
 
 Current baseline is six legacy professions plus neutral Fangshi, neutral
-Zhenyue, and neutral Tianxiang: nine professions in total. Derive profession
-totals from authoritative data. Never make array length `9`, hidden count `27`,
+Zhenyue, neutral Tianxiang, and neutral Lingyi: ten professions in total. Derive profession
+totals from authoritative data. Never make array length `10`, hidden count `30`,
 or `third == fangshi` part of generic behavior.
 
 ## Skills and acquisition
@@ -42,8 +42,8 @@ by an unlearned character. Group effects are same-room, living, real-team only
 unless explicitly designed otherwise.
 
 When three mythic books are added, update the data-driven pool and shared rate
-together. At the current baseline, 27 books use a shared 27/100000 roll and then
-a uniform 27-way selection, retaining about 1/100000 per book. Never fix the
+together. At the current baseline, 30 books use a shared 30/100000 roll and then
+a uniform 30-way selection, retaining about 1/100000 per book. Never fix the
 pool size in unrelated UI, docs, or tests.
 
 ## Equipment and economy
@@ -113,6 +113,13 @@ resource: maximum three star marks, exact expiry/move/combat/death/logout
 cleanup, HTTP/Vue serialization, and separate normal-PVE versus player/Boss
 bonus caps.
 
+Lingyi is the reference for smart healing by life percentage, same-room/team/
+logical-zone filtering, one-at-a-time cleanse priority, no-benefit/no-cost
+casts, bounded anti-heal, dead-caster rejection, short server-owned medicine
+pacts, PVE-only healing automation, and conservative learned-skill healing in
+long-PVP fast decisions. Its active contract and completed review are
+`docs/lingyi-profession-contract.md` and `docs/lingyi-10-pass-audit.md`.
+
 ## Session activity and idle policy
 
 - Mark activity only for real player input and accepted gameplay commands.
@@ -166,9 +173,9 @@ skills, summons, equipment, drops, or combat formulas.
 Search for the new profession ID and for old hard-coded sets:
 
 ```bash
-rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue|tianxiang' \
+rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue|tianxiang|lingyi' \
   gamelib lowlib vue_source test_unit
-rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*[6789]|case [1-9]|21/100000|24/100000|27/100000' \
+rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*(6|7|8|9|10)|case [1-9]|21/100000|24/100000|27/100000|30/100000' \
   gamelib lowlib vue_source test_unit
 ```
 

@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【神】慈心普渡"; desc="失落的灵医大神传承，以慈心普渡同房队伍";
+	s_type="zhudong"; s_skill_type="heal"; s_delayTime=90; lingyi_heal_scope=2; lingyi_think_scale=5; lingyi_life_cap_percent=25;
+	performs_attack[1]=1400; performs_attack[2]=2100; performs_attack[3]=3050; performs_attack[4]=4250; performs_attack[5]=5750;
+	performs_cast[1]=300; performs_cast[2]=360; performs_cast[3]=430; performs_cast[4]=510; performs_cast[5]=600;
+	skill_type+=({"lingyi"}); skill_rare="mythic"; performs_level_limit[1]=80; performs_level_limit[2]=100; performs_level_limit[3]=120; performs_level_limit[4]=140; performs_level_limit[5]=160;
+	performs_desc[1]="队伍治疗1400+智力×5，单目标上限25%生命"; performs_desc[2]="队伍治疗2100+智力×5"; performs_desc[3]="队伍治疗3050+智力×5"; performs_desc[4]="队伍治疗4250+智力×5"; performs_desc[5]="队伍治疗5750+智力×5";
+}

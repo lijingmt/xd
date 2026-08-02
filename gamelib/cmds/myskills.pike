@@ -27,6 +27,12 @@ int main(string|zero arg)
 		s += "[天象星痕路线:newbie_guide roadmap]\n";
 		s += "[观星助手（技能手动使用永久免费）:profession_assistant]\n";
 	}
+	if(this_player()->query_profeId()=="lingyi"){
+		int pacts = this_player()->query_lingyi_medicine_pacts();
+		s += "【药契】"+pacts+"/3（有效治疗刷新20秒；换房、脱战、死亡或离线清空）\n";
+		s += "[灵医济世路线:newbie_guide roadmap]|[队伍:my_term]\n";
+		s += "[百草助手（技能手动使用永久免费）:profession_assistant]\n";
+	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改
 	if(this_player()->can_spec == 1){

@@ -809,6 +809,20 @@ string query_ready_tianxiang_context_skill(object me)
 	return "";
 }
 
+// 灵医智能挂机仅在职业助手已授权的PVE战斗中插入治疗；目标、上限、
+// 净化和药契仍由战斗引擎统一结算，助手不能改变任何技能数值。
+string query_ready_lingyi_context_skill(object me)
+{
+	array(string) names;
+	if(!me || me->query_profeId()!="lingyi" || !me->query_in_combat())
+		return "";
+	names = PROFESSIONVIPD->query_lingyi_context_candidates(me);
+	foreach(names,string name)
+		if(query_context_skill_ready(me,name))
+			return name;
+	return "";
+}
+
 string query_ready_auto_skill(object me)
 {
 	object|zero skill;
@@ -822,6 +836,8 @@ string query_ready_auto_skill(object me)
 	if(query_auto_skill_mode(me) == "smart"){
 		if(me->query_profeId()=="tianxiang")
 			context_name = query_ready_tianxiang_context_skill(me);
+		else if(me->query_profeId()=="lingyi")
+			context_name = query_ready_lingyi_context_skill(me);
 		else
 			context_name = query_ready_zhenyue_context_skill(me);
 		if(context_name != "")

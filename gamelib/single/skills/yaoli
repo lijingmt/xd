@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】药理";
+	desc="参悟药性与灵息，永久提高基础智力";
+	s_type="beidong"; s_skill_type="buff"; s_curse_type="think";
+	performs_attack[1]=8; performs_attack[2]=20; performs_attack[3]=35; performs_attack[4]=55; performs_attack[5]=80;
+	skill_type+=({"lingyi"});
+	performs_level_limit[1]=2; performs_level_limit[2]=18; performs_level_limit[3]=34; performs_level_limit[4]=50; performs_level_limit[5]=66;
+	performs_desc[1]="永久增加8点基础智力"; performs_desc[2]="永久增加20点基础智力"; performs_desc[3]="永久增加35点基础智力"; performs_desc[4]="永久增加55点基础智力"; performs_desc[5]="永久增加80点基础智力";
+}

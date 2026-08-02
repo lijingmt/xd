@@ -18,6 +18,8 @@ string query_race_tag(string race_id,void|string profession_id)
 			return "【越】";
 		if(profession_id=="tianxiang")
 			return "【象】";
+		if(profession_id=="lingyi")
+			return "【医】";
 		return "【方】";
 	}
 	return "【仙】";

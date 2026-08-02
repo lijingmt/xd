@@ -45,7 +45,7 @@ DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
 
-# 九职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
+# 十职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 HIDDEN_MYTHIC_SKILL_IDS=(
     "wanjianguizong"
     "taiqingjianyu"
@@ -74,6 +74,9 @@ HIDDEN_MYTHIC_SKILL_IDS=(
 	"xinghezhuiluo"
 	"zhoutianjingzhi"
 	"wanxiangxingbi"
+	"cixinpudu"
+	"huimingtianlu"
+	"wanmuxinchun"
 )
 
 # 从命令行参数或环境变量读取配置
@@ -337,6 +340,11 @@ copy_neutral_profession_images_to_container() {
 		"tianxiang_female.png"
 		"tianxiang_male.gif"
 		"tianxiang_female.gif"
+		"lingyi_logo.png"
+		"lingyi_male.png"
+		"lingyi_female.png"
+		"lingyi_male.gif"
+		"lingyi_female.gif"
     )
     local image_name
     local source_image

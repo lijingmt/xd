@@ -202,6 +202,9 @@ array(string) query_item_profeLimit(){
 	if(sizeof(item_profeLimit) &&
 	   search(item_profeLimit,"tianxiang")==-1)
 		item_profeLimit += ({"tianxiang"});
+	if(sizeof(item_profeLimit) &&
+	   search(item_profeLimit,"lingyi")==-1)
+		item_profeLimit += ({"lingyi"});
 	return item_profeLimit;
 }
 

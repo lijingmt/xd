@@ -180,6 +180,11 @@ void set_att_by_level(){
 		this_object()->set_dex(5+(int)(level_now*0.8));
 		this_object()->set_think(13+(int)(level_now*2.8));
 	}
+	if(this_object()->query_profeId()=="lingyi"){//灵医 - 中立职业，团队治疗
+		this_object()->set_str(6+(int)(level_now*0.7));
+		this_object()->set_dex(6+(int)(level_now*0.7));
+		this_object()->set_think(14+(int)(level_now*2.5));
+	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());
 	this_object()->set_mofa(this_object()->query_mofa_max());

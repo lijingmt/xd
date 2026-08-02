@@ -14,7 +14,7 @@ int main(string|zero arg)
 	if(me->can_change_faction())
 		s += "[转换阵营:race_change]\n";
 	else
-		s += "中立职业（方士/镇越/天象）可往来仙妖两界，无需转换阵营。\n";
+		s += "中立职业（方士/镇越/天象/灵医）可往来仙妖两界，无需转换阵营。\n";
 	s += "[返回:look]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

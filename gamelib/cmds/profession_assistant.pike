@@ -180,10 +180,15 @@ private string render_panel(object me)
 			s += "[查看当前守御建议:profession_assistant recommend]\n";
 		s += "[查看技能（手动施放永久免费）:myskills]\n";
 	}
-	else{
+	else if(profe == "tianxiang"){
 		if(level >= 1)
 			s += "[查看当前星痕建议:profession_assistant recommend]\n";
 		s += "[查看技能（手动施放永久免费）:myskills]\n";
+	}
+	else if(profe == "lingyi"){
+		if(level >= 1)
+			s += "[查看当前救治建议:profession_assistant recommend]\n";
+		s += "[查看技能与药契（手动治疗永久免费）:myskills]\n";
 	}
 	s += "\n[策略配置槽:profession_assistant slots]\n";
 	s += "[职业成长外观:profession_assistant styles]\n";
@@ -282,9 +287,13 @@ int main(string|zero arg)
 		else s += fail_reason(result)+"\n";
 	}
 	else if(parts[0] == "recommend"){
-		string skill = me->query_profeId()=="tianxiang" ?
-			PROFESSIONVIPD->query_tianxiang_manual_recommendation(me) :
-			PROFESSIONVIPD->query_zhenyue_manual_recommendation(me);
+		string skill = "";
+		if(me->query_profeId()=="tianxiang")
+			skill = PROFESSIONVIPD->query_tianxiang_manual_recommendation(me);
+		else if(me->query_profeId()=="lingyi")
+			skill = PROFESSIONVIPD->query_lingyi_manual_recommendation(me);
+		else
+			skill = PROFESSIONVIPD->query_zhenyue_manual_recommendation(me);
 		if(skill == "")
 			s += "当前没有已学且适合展示的职业技能，请先查看技能学习路线。\n";
 		else{

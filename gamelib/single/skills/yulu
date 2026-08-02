@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】玉露"; desc="治疗自己和同房间同队的全部存活成员；未组队时治疗自己";
+	s_type="zhudong"; s_skill_type="heal"; s_delayTime=24; lingyi_heal_scope=2; lingyi_think_scale=2; lingyi_life_cap_percent=18; lingyi_pact_gain=1;
+	performs_attack[1]=220; performs_attack[2]=400; performs_attack[3]=650; performs_attack[4]=980; performs_attack[5]=1400;
+	performs_cast[1]=45; performs_cast[2]=62; performs_cast[3]=82; performs_cast[4]=105; performs_cast[5]=132;
+	skill_type+=({"lingyi"}); performs_level_limit[1]=50; performs_level_limit[2]=70; performs_level_limit[3]=90; performs_level_limit[4]=110; performs_level_limit[5]=130;
+	performs_desc[1]="同房队伍治疗220+智力×2，单目标不超过18%生命上限"; performs_desc[2]="队伍治疗400+智力×2"; performs_desc[3]="队伍治疗650+智力×2"; performs_desc[4]="队伍治疗980+智力×2"; performs_desc[5]="队伍治疗1400+智力×2";
+}

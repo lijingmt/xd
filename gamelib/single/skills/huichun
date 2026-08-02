@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】回春"; desc="救治自己或同房间同队中生命比例最低者；未组队时治疗自己";
+	s_type="zhudong"; s_skill_type="heal"; s_delayTime=6; lingyi_heal_scope=1; lingyi_think_scale=2; lingyi_life_cap_percent=25; lingyi_pact_gain=1;
+	performs_attack[1]=45; performs_attack[2]=120; performs_attack[3]=240; performs_attack[4]=420; performs_attack[5]=680;
+	performs_cast[1]=8; performs_cast[2]=14; performs_cast[3]=22; performs_cast[4]=32; performs_cast[5]=44;
+	skill_type+=({"lingyi"}); performs_level_limit[1]=5; performs_level_limit[2]=25; performs_level_limit[3]=45; performs_level_limit[4]=65; performs_level_limit[5]=85;
+	performs_desc[1]="智能单体治疗45+智力×2，单次不超过目标25%生命上限"; performs_desc[2]="智能单体治疗120+智力×2"; performs_desc[3]="智能单体治疗240+智力×2"; performs_desc[4]="智能单体治疗420+智力×2"; performs_desc[5]="智能单体治疗680+智力×2";
+}

@@ -1,6 +1,6 @@
 ---
 name: xiand-new-profession
-description: Design, implement, audit, balance, test, document, or extend a complete Xiand profession. Use when adding a character class or profession, adding another profession under the neutral third race, comparing a new class with Fangshi, Zhenyue, Tianxiang, or legacy classes, creating profession skills/books/equipment/tasks/hidden drops, or checking that a profession works from character creation through high-level play, Vue UI, auto-fight, social systems, deployment, restart, and TestUnit validation.
+description: Design, implement, audit, balance, test, document, or extend a complete Xiand profession. Use when adding a character class or profession, adding another profession under the neutral third race, comparing a new class with Fangshi, Zhenyue, Tianxiang, Lingyi, or legacy classes, creating profession skills/books/equipment/tasks/hidden drops, or checking that a profession works from character creation through high-level play, Vue UI, auto-fight, social systems, deployment, restart, and TestUnit validation.
 ---
 
 # Xiand New Profession
@@ -15,9 +15,9 @@ as authoritative. Read `references/integration-map.md` before editing and use
 
 - Choose one stable lowercase ASCII profession ID and one Chinese display name.
 - Treat race and profession as separate axes. The neutral race `third` already
-  contains Fangshi, Zhenyue, and Tianxiang; never equate `third` with one profession or
+  contains Fangshi, Zhenyue, Tianxiang, and Lingyi; never equate `third` with one profession or
   let a two-race `else` branch select a neutral profession accidentally.
-- The 2026-08-01 baseline has nine active professions and 27 hidden mythic
+- The post-Lingyi 2026-08-01 baseline has ten active professions and 30 hidden mythic
   books. Never hard-code those totals in new generic logic: enumerate the
   authoritative catalog/pool and test that adding one profession grows every
   dependent set exactly once.
@@ -41,7 +41,7 @@ as authoritative. Read `references/integration-map.md` before editing and use
 - Preserve per-book hidden-drop probability when expanding a uniform pool. In
   the current one-roll-per-monster design, adding three books means growing both
   the pool and shared numerator by three, not silently diluting old books. The
-  current nine-profession baseline is 27 books at 27/100000.
+  current ten-profession baseline is 30 books at 30/100000.
 - Keep generated equipment, normal drops, Boss drops, forge restrictions,
   auto-equip, storage, trade, and item descriptions profession-compatible.
 - Audit profession-limited medicine in `food`, `water`, `liandan`, and `teyao`;

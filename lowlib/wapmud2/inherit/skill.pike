@@ -14,6 +14,12 @@ string skill_rare="";//技能稀有度标记，普通技能为空
 int hate_multiplier=100;//物理技能仇恨倍率，100为普通技能
 int star_mark_gain=0;//天象法术命中后获得的星痕数
 int star_mark_consume=0;//天象法术命中后是否消耗现有星痕
+int lingyi_heal_scope=0;//灵医治疗范围：0兼容旧治疗，1智能单体，2同房队伍
+int lingyi_think_scale=0;//灵医治疗受智力加成的倍率
+int lingyi_cleanse=0;//是否在治疗后净化一个负面状态
+int lingyi_life_cap_percent=0;//单次对每个目标最多恢复其生命上限百分比
+int lingyi_pact_gain=0;//有效治疗后获得的药契层数
+int lingyi_pact_consume=0;//有效治疗时是否消耗全部药契
 
 int query_hate_multiplier(){
 	if(hate_multiplier<1)
@@ -27,6 +33,30 @@ int query_star_mark_gain(){
 
 int query_star_mark_consume(){
 	return star_mark_consume ? 1 : 0;
+}
+
+int query_lingyi_heal_scope(){
+	return lingyi_heal_scope;
+}
+
+int query_lingyi_think_scale(){
+	return lingyi_think_scale>0 ? lingyi_think_scale : 0;
+}
+
+int query_lingyi_cleanse(){
+	return lingyi_cleanse ? 1 : 0;
+}
+
+int query_lingyi_life_cap_percent(){
+	return lingyi_life_cap_percent>0 ? lingyi_life_cap_percent : 0;
+}
+
+int query_lingyi_pact_gain(){
+	return lingyi_pact_gain>0 ? lingyi_pact_gain : 0;
+}
+
+int query_lingyi_pact_consume(){
+	return lingyi_pact_consume ? 1 : 0;
 }
 
 int query_performs_attack(int level){

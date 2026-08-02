@@ -1,5 +1,5 @@
 /**
- * 方士/镇越/天象职业会员助手。
+ * 方士/镇越/天象/灵医职业会员助手。
  *
  * 会员只提供自动化、配置槽、统计报告和纯外观；职业技能、召唤上限、
  * 技能强度、冷却、消耗、装备、掉落以及手动操作始终不受会员限制。
@@ -15,7 +15,7 @@ inherit LOW_DAEMON;
 #define PROFESSION_STRATEGY_HOLD 60
 #define PROFESSION_PASS_COST 240
 
-private array(string) supported_professions = ({"fangshi","zhenyue","tianxiang"});
+private array(string) supported_professions = ({"fangshi","zhenyue","tianxiang","lingyi"});
 
 int is_supported_profession(string profe)
 {
@@ -30,6 +30,8 @@ string query_assistant_name(string profe)
 		return "山河守御助手";
 	if(profe == "tianxiang")
 		return "观星助手";
+	if(profe == "lingyi")
+		return "百草助手";
 	return "职业助手";
 }
 
@@ -61,6 +63,8 @@ private string query_default_strategy(string profe)
 		return "attack";
 	if(profe == "tianxiang")
 		return "cycle";
+	if(profe == "lingyi")
+		return "rescue";
 	return "solo";
 }
 
@@ -93,6 +97,8 @@ void initialize_player(object player)
 			player["/plus/profession_vip/slot2"] = "heal";
 		else if(profe == "tianxiang")
 			player["/plus/profession_vip/slot2"] = "burst";
+		else if(profe == "lingyi")
+			player["/plus/profession_vip/slot2"] = "group";
 		else
 			player["/plus/profession_vip/slot2"] = "team";
 	}
@@ -101,6 +107,8 @@ void initialize_player(object player)
 			player["/plus/profession_vip/slot3"] = "defense";
 		else if(profe == "tianxiang")
 			player["/plus/profession_vip/slot3"] = "safe";
+		else if(profe == "lingyi")
+			player["/plus/profession_vip/slot3"] = "cleanse";
 		else
 			player["/plus/profession_vip/slot3"] = "boss";
 	}
@@ -246,6 +254,8 @@ array(string) query_valid_strategies(string profe,int include_auto)
 		result = ({"solo","boss","team"});
 	else if(profe == "tianxiang")
 		result = ({"cycle","burst","safe"});
+	else if(profe == "lingyi")
+		result = ({"rescue","group","cleanse"});
 	else
 		return ({});
 	if(include_auto)
@@ -272,6 +282,12 @@ string query_strategy_name(string profe,string strategy)
 		if(strategy == "burst") return "三星爆发";
 		if(strategy == "safe") return "星壁优先";
 		if(strategy == "auto") return "天象自适应";
+	}
+	if(profe == "lingyi"){
+		if(strategy == "rescue") return "急救优先";
+		if(strategy == "group") return "队伍续航";
+		if(strategy == "cleanse") return "净化优先";
+		if(strategy == "auto") return "百草自适应";
 	}
 	return "未知策略";
 }
@@ -481,6 +497,31 @@ private int has_low_life_member(object player,int percent)
 	return 0;
 }
 
+private int has_afflicted_member(object player)
+{
+	array(string) kinds = ({"dot","curse","curse2","70_skill_curse"});
+	array(object) members = ({player});
+	string team_id;
+	object env;
+	if(!player)
+		return 0;
+	team_id = player->query_term();
+	env = environment(player);
+	if(env && team_id!="" && team_id!="noterm"){
+		foreach(all_inventory(env),object member){
+			if(member!=player && member->is("player") &&
+			   member->query_term()==team_id && member->get_cur_life()>0 &&
+			   LOGICALZONED->can_action("team",player,member))
+				members += ({member});
+		}
+	}
+	foreach(members,object member)
+		foreach(kinds,string kind)
+			if(member->query_debuff(kind,0)!="none")
+				return 1;
+	return 0;
+}
+
 private int is_boss_enemy(object player)
 {
 	object|zero enemy;
@@ -518,6 +559,14 @@ string query_runtime_strategy(object player)
 		else if(player->query_tianxiang_star_marks()>=2 ||
 		   is_boss_enemy(player))
 			desired = "burst";
+	}
+	else if(profe == "lingyi"){
+		if(has_afflicted_member(player))
+			desired = "cleanse";
+		else if(has_same_room_team(player) && has_low_life_member(player,75))
+			desired = "group";
+		else
+			desired = "rescue";
 	}
 	changed_at = (int)player["/tmp/profession_vip/strategy_changed"];
 	if(!player["/tmp/profession_vip/runtime_strategy"]){
@@ -727,11 +776,72 @@ void record_tianxiang_action(object player,string skill_name)
 	record_stat(player,"action",1);
 }
 
+array(string) query_lingyi_context_candidates(object player)
+{
+	array(string) names = ({});
+	string strategy;
+	if(!player || player->query_profeId()!="lingyi" ||
+	   !query_auto_enabled(player) || !is_pve_enemy(player))
+		return names;
+	strategy = query_runtime_strategy(player);
+	if(has_afflicted_member(player) &&
+	   (strategy=="cleanse" || strategy=="auto"))
+		names += ({"wanmuxinchun","ganlin","qingxin"});
+	if(has_same_room_team(player) && has_low_life_member(player,75) &&
+	   (strategy=="group" || strategy=="auto"))
+		names += ({"cixinpudu","wanmuxinchun","ganlin","yulu"});
+	if(has_low_life_member(player,70))
+		names += ({"huimingtianlu","xuming","lingyu","qingxin","huichun"});
+	return names;
+}
+
+string query_lingyi_manual_recommendation(object player)
+{
+	array(string) names;
+	if(!player || player->query_profeId()!="lingyi" ||
+	   query_effective_level(player)<1)
+		return "";
+	if(has_afflicted_member(player))
+		names = ({"wanmuxinchun","ganlin","qingxin"});
+	else if(has_same_room_team(player) && has_low_life_member(player,75))
+		names = ({"cixinpudu","ganlin","yulu","lingyu","huichun"});
+	else
+		names = ({"huimingtianlu","xuming","lingyu","qingxin","huichun"});
+	foreach(names,string name)
+		if(player->skills && player->skills[name])
+			return name;
+	return "";
+}
+
+void record_lingyi_action(object player,string skill_name)
+{
+	object|zero skill;
+	if(!player || player->query_profeId()!="lingyi")
+		return;
+	skill = (object)(ROOT+"/gamelib/single/skills/"+skill_name);
+	if(skill && skill->s_skill_type=="heal")
+		record_stat(player,"heal",1);
+	if(skill && skill->query_lingyi_cleanse())
+		record_stat(player,"cleanse",1);
+	record_stat(player,"action",1);
+}
+
 mapping try_out_of_combat_support(object player)
 {
 	if(player && player->query_profeId() == "fangshi" &&
 	   query_auto_enabled(player))
 		return replenish_fangshi(player,1);
+	if(player && player->query_profeId()=="lingyi" &&
+	   query_auto_enabled(player) && !player->query_in_combat() &&
+	   (has_low_life_member(player,70) || has_afflicted_member(player))){
+		string skill = query_lingyi_manual_recommendation(player);
+		int before_mofa = player->get_cur_mofa();
+		if(skill!="" && player->perform_support(skill) &&
+		   player->get_cur_mofa()<before_mofa){
+			record_lingyi_action(player,skill);
+			return (["success":1,"reason":"success","skill":skill]);
+		}
+	}
 	return (["success":0,"reason":"unsupported"]);
 }
 
@@ -767,6 +877,13 @@ string query_monitor_notice(object player)
 		else if(player->get_cur_life()*100 <= player->query_life_max()*45 &&
 		   player->query_buff("buff",0) != "absorb")
 			notice = "观星监控：生命偏低且星壁未生效。";
+	}
+	else if(player->query_profeId()=="lingyi" &&
+	   player->query_in_combat() && is_pve_enemy(player)){
+		if(has_afflicted_member(player))
+			notice = "百草监控：队伍存在可净化的负面状态。";
+		else if(has_low_life_member(player,50))
+			notice = "百草监控：你或同房队友生命已低于50%。";
 	}
 	if(notice != ""){
 		player["/tmp/profession_vip/notice_time"] = now;
@@ -804,6 +921,14 @@ mapping query_style_info(string profe,string style)
 		if(style == "wanxiang") return (["id":style,"name":"万象天穹",
 			"tier":3,"level":80,"cost":200,"class":"profession-style-tianxiang-3"]);
 	}
+	if(profe == "lingyi"){
+		if(style == "qinglu") return (["id":style,"name":"青露药光",
+			"tier":1,"level":20,"cost":60,"class":"profession-style-lingyi-1"]);
+		if(style == "bailian") return (["id":style,"name":"白莲回生",
+			"tier":2,"level":50,"cost":120,"class":"profession-style-lingyi-2"]);
+		if(style == "wanmu") return (["id":style,"name":"万木春辉",
+			"tier":3,"level":80,"cost":200,"class":"profession-style-lingyi-3"]);
+	}
 	return ([]);
 }
 
@@ -815,6 +940,8 @@ array(string) query_style_ids(string profe)
 		return ({"default","xuanyan","jinque","wanshan"});
 	if(profe == "tianxiang")
 		return ({"default","xinghui","yuehuan","wanxiang"});
+	if(profe == "lingyi")
+		return ({"default","qinglu","bailian","wanmu"});
 	return ({});
 }
 
@@ -994,6 +1121,12 @@ string query_growth_title(object player)
 		if(level >= 50) return "星轨观者";
 		if(level >= 20) return "观星术士";
 		return "初识天象";
+	}
+	if(player->query_profeId() == "lingyi"){
+		if(level >= 80) return "万木医圣";
+		if(level >= 50) return "百草灵师";
+		if(level >= 20) return "回春医者";
+		return "初辨药息";
 	}
 	return "";
 }

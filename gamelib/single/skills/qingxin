@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【医】清心"; desc="智能救治最低生命比例目标，并按优先级净化一项负面状态";
+	s_type="zhudong"; s_skill_type="heal"; s_delayTime=16; lingyi_heal_scope=1; lingyi_think_scale=2; lingyi_cleanse=1; lingyi_life_cap_percent=25; lingyi_pact_gain=1;
+	performs_attack[1]=90; performs_attack[2]=190; performs_attack[3]=340; performs_attack[4]=560; performs_attack[5]=860;
+	performs_cast[1]=18; performs_cast[2]=27; performs_cast[3]=39; performs_cast[4]=54; performs_cast[5]=72;
+	skill_type+=({"lingyi"}); performs_level_limit[1]=20; performs_level_limit[2]=40; performs_level_limit[3]=60; performs_level_limit[4]=80; performs_level_limit[5]=100;
+	performs_desc[1]="智能治疗90+智力×2并净化一项负面状态"; performs_desc[2]="智能治疗190+智力×2并净化"; performs_desc[3]="智能治疗340+智力×2并净化"; performs_desc[4]="智能治疗560+智力×2并净化"; performs_desc[5]="智能治疗860+智力×2并净化";
+}

@@ -1,0 +1,5 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){ name=object_name(this_object()); name_cn="【医】药理五级"; unit="本"; picture=name; desc="第五重药理\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=500; skill_bname="yaoli"; level_limit=66; profe_read_limit="灵医"; beidong_level=5; need_yushi=150; need_money=0; }
+int read(){ int result=::beidong_read(); if(read_flag==0) remove(); return result; }

@@ -428,6 +428,8 @@ int is_growth_task_teacher(object player,object npc)
 			return npcname=="zhenyue_teacher";
 		case "tianxiang":
 			return npcname=="tianxiang_teacher";
+		case "lingyi":
+			return npcname=="lingyi_teacher";
 	}
 	return 0;
 }
@@ -583,6 +585,7 @@ int is_growth_task_profession(string profession_id)
 		case "fangshi":
 		case "zhenyue":
 		case "tianxiang":
+		case "lingyi":
 			return 1;
 	}
 	return 0;
@@ -609,6 +612,8 @@ string query_growth_task_profession_name(string profession_id)
 			return "镇越";
 		case "tianxiang":
 			return "天象";
+		case "lingyi":
+			return "灵医";
 	}
 	return "未知职业";
 }
@@ -634,6 +639,8 @@ string query_growth_task_base_name(string profession_id)
 			return "镇山守望";
 		case "tianxiang":
 			return "星轨推演";
+		case "lingyi":
+			return "百草济世";
 	}
 	return "职业历练";
 }
@@ -683,6 +690,8 @@ string query_growth_task_flavor(string profession_id)
 			return "迎战同阶强敌，以稳固仇恨和守势磨炼镇山之躯。";
 		case "tianxiang":
 			return "观测同阶敌手的抗性，以不同法术积蓄并引爆星痕。";
+		case "lingyi":
+			return "观察同阶战局中的伤势，以智能治疗、净化与药契维持生机。";
 	}
 	return "击败同阶敌人，完成本级职业历练。";
 }

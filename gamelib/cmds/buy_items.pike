@@ -31,23 +31,25 @@ int main(string|zero arg)
 			return 1;
 		}
 		if(type == "jianxian")
-			s += "剑仙|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "剑仙|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "yushi")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|羽士|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|羽士|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "zhuxian")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|诛仙|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|诛仙|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "fangshi")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|方士|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|方士|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "zhenyue")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|镇越|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|镇越|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "tianxiang")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|天象\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|天象|[灵医:buy_items "+item_type+" lingyi]\n";
+		else if(type == "lingyi")
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|灵医\n";
 		else if(type == "kuangyao")
-			s += "狂妖|[巫妖:buy_items "+item_type+" wuyao]|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "狂妖|[巫妖:buy_items "+item_type+" wuyao]|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "wuyao")
-			s += "[狂妖:buy_items "+item_type+" kuangyao]|巫妖|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "[狂妖:buy_items "+item_type+" kuangyao]|巫妖|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type == "yinggui")
-			s += "[狂妖:buy_items "+item_type+" kuangyao]|[巫妖:buy_items "+item_type+" wuyao]|影鬼|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]\n";
+			s += "[狂妖:buy_items "+item_type+" kuangyao]|[巫妖:buy_items "+item_type+" wuyao]|影鬼|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]\n";
 		else if(type=="goudou")
 			s += "狗豆|[狗粮:buy_items "+item_type+" gouliang]|[骨头:buy_items "+item_type+" gutou]\n";
 		else if(type=="gouliang")

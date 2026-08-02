@@ -36,12 +36,23 @@ int main(string arg)
 		if(me->in_combat){
 			me->perform(arg);
 			if(me->get_cur_mofa()<before_mofa ||
-			   (me->f_skills && (int)me->f_skills[arg]>before_cold))
+			   (me->f_skills && (int)me->f_skills[arg]>before_cold)){
 				NEWBIED->record_perform(me,arg);
+				if(me->query_profeId()=="lingyi")
+					PROFESSIONVIPD->record_lingyi_action(me,arg);
+			}
 			me->reset_view(WAP_VIEWD["/fight"]);
 			me->write_view();
 		}
 		else{
+			if(me->query_profeId()=="lingyi"){
+				me->perform_support(arg);
+				if(me->get_cur_mofa()<before_mofa ||
+				   (me->f_skills && (int)me->f_skills[arg]>before_cold)){
+					NEWBIED->record_perform(me,arg);
+					PROFESSIONVIPD->record_lingyi_action(me,arg);
+				}
+			}
 			me->reset_view(WAP_VIEWD["/look"]);
 			me->write_view();
 		}

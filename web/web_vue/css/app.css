@@ -6611,6 +6611,24 @@ select:focus-visible {
 	animation: profession-tianxiang-breathe 2.3s ease-in-out infinite;
 }
 
+.player-avatar-shell.profession-style-lingyi-1 {
+	box-shadow: 0 0 0 2px rgba(125, 226, 179, 0.46), 0 0 19px rgba(70, 199, 143, 0.48);
+}
+
+.player-avatar-shell.profession-style-lingyi-2 {
+	border-color: rgba(206, 255, 231, 0.76);
+	background: radial-gradient(circle at 72% 22%, rgba(241, 255, 246, 0.5), rgba(82, 178, 130, 0.34) 40%, rgba(21, 76, 58, 0.48));
+	box-shadow: 0 0 23px rgba(101, 225, 168, 0.58);
+	animation: profession-lingyi-breathe 2.9s ease-in-out infinite;
+}
+
+.player-avatar-shell.profession-style-lingyi-3 {
+	border-color: rgba(228, 255, 235, 0.86);
+	background: conic-gradient(from 20deg, rgba(79, 205, 142, 0.45), rgba(232, 255, 236, 0.5), rgba(108, 208, 176, 0.42), rgba(79, 205, 142, 0.45));
+	box-shadow: 0 0 0 2px rgba(189, 255, 220, 0.5), 0 0 29px rgba(75, 211, 149, 0.68);
+	animation: profession-lingyi-breathe 2.35s ease-in-out infinite;
+}
+
 @keyframes profession-fangshi-breathe {
     50% { filter: saturate(1.25) brightness(1.1); transform: translateY(-1px); }
 }
@@ -6621,6 +6639,14 @@ select:focus-visible {
 
 @keyframes profession-tianxiang-breathe {
 	50% { filter: saturate(1.22) brightness(1.12); transform: translateY(-1px) rotate(0.6deg); }
+}
+
+@keyframes profession-lingyi-breathe {
+	50% { filter: saturate(1.18) brightness(1.13); transform: translateY(-1px) scale(1.018); }
+}
+
+.medicine-pact-status {
+	color: #c9f7dc;
 }
 
 @media (prefers-reduced-motion: reduce) {

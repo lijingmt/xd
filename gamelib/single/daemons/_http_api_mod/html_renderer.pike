@@ -1143,6 +1143,13 @@ mapping query_player_state(object player)
         result["star_marks"] = star_marks;
         result["star_marks_max"] = 3;
 
+		// 灵医药契同样由服务端维护，客户端只能展示。
+		int medicine_pacts = 0;
+		if(functionp(player->query_lingyi_medicine_pacts))
+			medicine_pacts = player->query_lingyi_medicine_pacts();
+		result["medicine_pacts"] = medicine_pacts;
+		result["medicine_pacts_max"] = 3;
+
         // 法力值 Mana (xiand 使用 mofa 而不是 qi)
         int mana = 0, mana_max = 0;
         if(functionp(player->get_cur_mofa)) {
