@@ -3,6 +3,14 @@
 
 #define STORAGE_PAGE_SIZE 8
 
+string account_storage_batch_token(string mode,int revision,
+	array(string) item_ids)
+{
+	object hash = Crypto.SHA256();
+	hash->update(mode+"|"+revision+"|"+(item_ids*"|"));
+	return String.string2hex(hash->digest());
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -15,6 +23,8 @@ int main(string|zero arg)
 	int max_page = 0;
 	int start_index = 0;
 	int end_index = 0;
+	int rendered_items = 0;
+	array(string) page_item_ids = ({});
 
 	if(!result["ok"]){
 		s += (string)(result["message"] || "账号共享仓库暂不可用。")+"\n";
@@ -40,6 +50,7 @@ int main(string|zero arg)
 	s += "当前角色仓库 "+result["personal_used"]+"/"+
 		result["personal_capacity"]+"，账号共享仓库 "+
 		result["used"]+"/"+result["capacity"]+"\n\n";
+	s += "提示：同名装备保留各自属性；批量操作一次最多处理本页8件。\n\n";
 
 	if(mode=="menu"){
 		s += "请选择要做的事：\n";
@@ -61,12 +72,24 @@ int main(string|zero arg)
 			s += "当前角色仓库没有可转入的物品。\n";
 		else{
 			s += "第"+(page+1)+"/"+(max_page+1)+"页\n";
+			rendered_items = 0;
+			page_item_ids = ({});
 			for(int i=start_index;i<=end_index;i++){
 				if(!arrayp(personal[i]) || sizeof(personal[i])<8)
 					continue;
-				s += personal[i][2]+"\n";
+				if(rendered_items)
+					s += "────────────\n";
+				s += "• "+personal[i][2]+" ";
 				s += "[放入账号共享仓库:account_storage_deposit "+
 					personal[i][7]+" "+page+"]\n";
+				page_item_ids += ({(string)personal[i][7]});
+				rendered_items++;
+			}
+			if(rendered_items){
+				s += "\n[本页全部放入（"+rendered_items+
+					"件）:account_storage_batch put "+page+" "+
+					account_storage_batch_token("put",
+					(int)result["revision"],page_item_ids)+"]\n";
 			}
 		}
 		if(page>0)
@@ -92,14 +115,26 @@ int main(string|zero arg)
 			s += "账号共享仓库当前没有物品。\n";
 		else{
 			s += "第"+(page+1)+"/"+(max_page+1)+"页\n";
+			rendered_items = 0;
+			page_item_ids = ({});
 			for(int i=start_index;i<=end_index;i++){
 				mapping item = shared[i];
 				array data = item["data"];
 				if(!arrayp(data) || sizeof(data)<8)
 					continue;
-				s += data[2]+"\n";
+				if(rendered_items)
+					s += "────────────\n";
+				s += "• "+data[2]+" ";
 				s += "[取到当前角色仓库:account_storage_withdraw "+
 					item["id"]+" "+page+"]\n";
+				page_item_ids += ({(string)item["id"]});
+				rendered_items++;
+			}
+			if(rendered_items){
+				s += "\n[本页全部取回（"+rendered_items+
+					"件）:account_storage_batch take "+page+" "+
+					account_storage_batch_token("take",
+					(int)result["revision"],page_item_ids)+"]\n";
 			}
 		}
 		if(page>0)

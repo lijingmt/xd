@@ -181,6 +181,8 @@ int main()
 			(object)(ROOT+"/gamelib/cmds/account_storage_withdraw.pike");
 		object storage_put =
 			(object)(ROOT+"/gamelib/cmds/account_storage_deposit.pike");
+		object storage_batch =
+			(object)(ROOT+"/gamelib/cmds/account_storage_batch.pike");
 		child_player->move(ROOT+"/gamelib/d/kunlunshan/wuge");
 		set_this_player(child_player);
 		storage_ui->main(0);
@@ -205,6 +207,58 @@ int main()
 			ui_returned["used"]==1 &&
 			ui_returned["items"][0]["id"]==item_id,
 			"分页界面或带页码的连续取放没有保持唯一物品");
+		array extra_personal = ({
+			"tiekuangshi","铁矿石","铁矿石",
+			"material/tiekuangshi",0,0,150,
+		});
+		child_player->packaged_items += ({extra_personal});
+		child_player->save_with_result();
+		mapping before_batch_put = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		array batch_personal = before_batch_put["personal_items"];
+		array(string) batch_put_ids = ({});
+		foreach(batch_personal,array personal)
+			batch_put_ids += ({(string)personal[7]});
+		string batch_put_token = storage_ui->account_storage_batch_token(
+			"put",(int)before_batch_put["revision"],batch_put_ids);
+		set_this_player(child_player);
+		storage_batch->main("put 0 "+batch_put_token);
+		mapping after_batch_put = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("本页批量放入逐件事务化转移且不复制物品",
+			after_batch_put["used"]==2 &&
+			!sizeof(child_player->packaged_items),
+			"批量放入后共享仓库或角色仓库数量异常");
+		array stale_page_item = ({
+			"tongkuangshi","铜矿石","铜矿石",
+			"material/tongkuangshi",0,0,150,
+		});
+		child_player->packaged_items += ({stale_page_item});
+		child_player->save_with_result();
+		set_this_player(child_player);
+		storage_batch->main("put 0 "+batch_put_token);
+		mapping after_duplicate_batch = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("重复点击同一批量链接不会继续移动下一批物品",
+			after_duplicate_batch["used"]==2 &&
+			sizeof(child_player->packaged_items)==1,
+			"过期批量令牌未被拦截");
+		array shared_batch_items = after_batch_put["items"];
+		array(string) batch_take_ids = ({});
+		foreach(shared_batch_items,mapping shared_item)
+			batch_take_ids += ({(string)shared_item["id"]});
+		string batch_take_token = storage_ui->account_storage_batch_token(
+			"take",(int)after_batch_put["revision"],batch_take_ids);
+		set_this_player(child_player);
+		storage_batch->main("take 0 "+batch_take_token);
+		mapping after_batch_take = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("本页批量取回按角色容量逐件安全保存",
+			after_batch_take["used"]==0 &&
+			sizeof(child_player->packaged_items)==3,
+			"批量取回后共享仓库或角色仓库数量异常");
+		mapping return_for_recovery = ACCOUNT_STORAGED->
+			transfer_to_shared(child_player,item_id);
 		valid_storage = Stdio.read_file(storage_file(account_id));
 		Stdio.write_file(storage_file(account_id)+".bak",valid_storage);
 		Stdio.write_file(storage_file(account_id),"{broken");
@@ -212,7 +266,8 @@ int main()
 		mapping corrupt_health = ACCOUNT_STORAGED->
 			query_storage_health(account_id);
 		check("共享仓库主文件损坏时不自动恢复旧备份复活装备",
-			put_back["ok"] && !corrupt_health["ok"],
+			put_back["ok"] && return_for_recovery["ok"] &&
+			!corrupt_health["ok"],
 			"过期备份被自动作为权威仓库读取");
 		Stdio.write_file(storage_file(account_id),valid_storage);
 		rm(storage_file(account_id)+".bak");
@@ -314,6 +369,7 @@ int main()
 			"/gamelib/cmds/account_storage.pike",
 			"/gamelib/cmds/account_storage_deposit.pike",
 			"/gamelib/cmds/account_storage_withdraw.pike",
+			"/gamelib/cmds/account_storage_batch.pike",
 			"/lowlib/system/inherit/user.pike",
 			"/lowlib/system/cmds/login_check.pike",
 			"/gamelib/single/daemons/http_api_daemon.pike",

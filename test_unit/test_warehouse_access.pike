@@ -107,8 +107,11 @@ int main()
 		string withdraw_ui =
 			Stdio.read_file(ROOT+
 				"/gamelib/cmds/account_storage_withdraw.pike");
+		string batch_ui =
+			Stdio.read_file(ROOT+
+				"/gamelib/cmds/account_storage_batch.pike");
 		check("共享仓库按操作方向分页且转移后停留在当前列表",
-			shared_ui && deposit_ui && withdraw_ui &&
+			shared_ui && deposit_ui && withdraw_ui && batch_ui &&
 			search(shared_ui,"背包 ↔ 当前角色仓库 ↔ 账号共享仓库")!=-1 &&
 			search(shared_ui,"STORAGE_PAGE_SIZE 8")!=-1 &&
 			search(shared_ui,"放入共享：角色仓库 → 账号共享")!=-1 &&
@@ -116,6 +119,21 @@ int main()
 			search(deposit_ui,"account_storage put ")!=-1 &&
 			search(withdraw_ui,"account_storage take ")!=-1,
 			"操作方向、分页或连续操作入口缺失");
+		check("共享仓库把物品和操作按钮组合显示并分隔条目",
+			shared_ui &&
+			search(shared_ui,"s += \"• \"+personal[i][2]+\" \";")!=-1 &&
+			search(shared_ui,"s += \"• \"+data[2]+\" \";")!=-1 &&
+			search(shared_ui,"s += \"────────────\\n\";")!=-1,
+			"物品与按钮仍分行显示或条目分隔线缺失");
+		check("共享仓库本页批量操作限制八件并拦截重复点击",
+			shared_ui && batch_ui &&
+			search(shared_ui,"本页全部放入（")!=-1 &&
+			search(shared_ui,"本页全部取回（")!=-1 &&
+			search(shared_ui,"同名装备保留各自属性")!=-1 &&
+			search(batch_ui,"STORAGE_PAGE_SIZE 8")!=-1 &&
+			search(batch_ui,"expected_token!=account_storage_batch_token")!=-1 &&
+			search(batch_ui,"重复或过期操作已拦截")!=-1,
+			"批量入口、八件上限或防重复令牌缺失");
 
 		check("新旧人物都至少拥有免费20格仓库",
 			player->query_cangku_size()==20,
