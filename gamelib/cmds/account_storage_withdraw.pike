@@ -4,18 +4,24 @@
 int main(string|zero arg)
 {
 	object me = this_player();
-	string s = "§g账号共享宝库§r\n";
+	string s = "";
+	string item_id = arg || "";
+	int page = 0;
 	mapping result;
-	if(!arg || sizeof(arg)!=64){
-		s += "物品转移参数无效，请刷新仓库后重试。\n";
+	if(arg && sscanf(arg,"%s %d",item_id,page)!=2){
+		item_id = arg;
+		page = 0;
+	}
+	if(page<0)
+		page = 0;
+	if(!item_id || sizeof(item_id)!=64){
+		s += "物品参数已过期，请在刷新后的列表中重新选择。\n";
 	}
 	else{
-		result = ACCOUNT_STORAGED->transfer_to_personal(me,arg);
+		result = ACCOUNT_STORAGED->transfer_to_personal(me,item_id);
 		s += (string)(result["message"] || "转移失败。")+"\n";
 	}
-	s += "[查看共享宝库:account_storage shared]\n";
-	s += "[查看当前人物仓库:account_storage personal]\n";
-	s += "[返回游戏:look]\n";
-	write(s);
+	tell_object(me,s);
+	me->command("account_storage take "+page);
 	return 1;
 }

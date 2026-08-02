@@ -10,7 +10,7 @@ int main(string|zero arg)
 	string tmp_s = "";
 	sscanf(arg,"%s %d",type,pac_size);
 	if(type=="beibao")tmp_s = "背包";
-	if(type=="cangku")tmp_s = "仓库";
+	if(type=="cangku")tmp_s = "当前角色仓库";
 	s += "您已购买的"+tmp_s+"有：\n";
 	s += BUYD->get_pac_replace_list(me,type,pac_size);
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);

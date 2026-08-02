@@ -13,7 +13,7 @@ int main(string|zero arg)
 	int flag = 0;//购买标志，0：查看  1：确定购买  2:放弃购买
 	sscanf(arg,"%s %d %d %d",type,pac_size,need_yushi,flag);
 	if(type=="beibao") tmp_s += "背包";
-	if(type=="cangku") tmp_s += "仓库";
+	if(type=="cangku") tmp_s += "当前角色仓库";
 	if(flag==0){
 		s += "您将花费"+YUSHID->get_yushi_for_desc(need_yushi)+"购买1个"+pac_size+"格的"+tmp_s+"\n\n";
 		s += "[确认购买:user_package_buy_confirm "+type+" "+pac_size+" "+need_yushi+" 1]\n";

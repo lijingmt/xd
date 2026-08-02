@@ -34,7 +34,7 @@ int main(string|zero arg)
 			"[返回游戏:look]\n");
 		return 1;
 	}
-	tell_object(me,"正在前往武阁，抵达后可使用藏宝箱存取物品。\n");
+	tell_object(me,"正在前往武阁，抵达后可选择角色仓库存取或账号共享。\n");
 	me->command("qge74hye "+path);
 	return 1;
 }

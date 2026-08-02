@@ -125,6 +125,7 @@ assert(indexSource.includes('data-tour="skills"'));
 assert(indexSource.includes('data-tour="autofight"'));
 assert(indexSource.includes('data-tour="warehouse"'));
 assert(indexSource.includes("sendQuickCommand('go_warehouse')"));
+assert(indexSource.includes('<span>🧰</span>仓库</button>'));
 assert(indexSource.includes('@click="startUiTour"'));
 assert(indexSource.includes('@click="toggleSoundEffects"'));
 assert(indexSource.includes('ref="mudLinesList"'));

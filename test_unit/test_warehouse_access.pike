@@ -68,13 +68,55 @@ int main()
 			string links = environment(player)->query_links();
 			check(route[0]+"阵营快捷入口抵达可用武阁",
 				search(destination,"/gamelib/d/"+route[2])!=-1 &&
-				search(links,"[存:user_package]")!=-1 &&
-				search(links,"[取:user_repackage]")!=-1,
+				search(links,"[背包存入:user_package]")!=-1 &&
+				search(links,"[取到背包:user_repackage]")!=-1 &&
+				search(links,"[账号共享仓库:account_storage]")!=-1,
 				"目的地="+destination+" 链接="+links);
 		}
 
 		object player = players[0];
 		set_this_player(player);
+		array(string) wuge_files = ({
+			"/gamelib/d/kunlunshan/wuge",
+			"/gamelib/d/jinaodao/wuge",
+			"/gamelib/d/plxianjing/wuge1",
+			"/gamelib/d/plxianjing/wuge2",
+			"/gamelib/d/jadhuanjing/wuge",
+			"/gamelib/d/klshuanjing/wuge",
+		});
+		int wuge_ui_ok = 1;
+		for(int room_index=0;room_index<sizeof(wuge_files);room_index++){
+			string source = Stdio.read_file(ROOT+wuge_files[room_index]);
+			mixed compile_err = catch{
+				compile_file(ROOT+wuge_files[room_index]);
+			};
+			if(compile_err || !source ||
+			   search(source,"当前角色仓库")<0 ||
+			   search(source,"账号共享仓库")<0)
+				wuge_ui_ok = 0;
+		}
+		check("全部六座武阁使用相同且清晰的仓库名称",
+			wuge_ui_ok,
+			"仍有武阁缺少角色仓库或账号共享仓库入口");
+
+		string shared_ui =
+			Stdio.read_file(ROOT+"/gamelib/cmds/account_storage.pike");
+		string deposit_ui =
+			Stdio.read_file(ROOT+
+				"/gamelib/cmds/account_storage_deposit.pike");
+		string withdraw_ui =
+			Stdio.read_file(ROOT+
+				"/gamelib/cmds/account_storage_withdraw.pike");
+		check("共享仓库按操作方向分页且转移后停留在当前列表",
+			shared_ui && deposit_ui && withdraw_ui &&
+			search(shared_ui,"背包 ↔ 当前角色仓库 ↔ 账号共享仓库")!=-1 &&
+			search(shared_ui,"STORAGE_PAGE_SIZE 8")!=-1 &&
+			search(shared_ui,"放入共享：角色仓库 → 账号共享")!=-1 &&
+			search(shared_ui,"取给角色：账号共享 → 角色仓库")!=-1 &&
+			search(deposit_ui,"account_storage put ")!=-1 &&
+			search(withdraw_ui,"account_storage take ")!=-1,
+			"操作方向、分页或连续操作入口缺失");
+
 		check("新旧人物都至少拥有免费20格仓库",
 			player->query_cangku_size()==20,
 			"容量="+player->query_cangku_size());

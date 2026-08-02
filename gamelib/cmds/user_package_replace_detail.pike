@@ -14,7 +14,7 @@ int main(string|zero arg)
 	int flag = 0;//购买标志，0：查看  1：确定购买  2:放弃购买
 	sscanf(arg,"%s %d %d %d",type,pac_size1,pac_size2,need_yushi);
 	if(type=="beibao") tmp_s += "背包";
-	if(type=="cangku") tmp_s += "仓库";
+	if(type=="cangku") tmp_s += "当前角色仓库";
 	s += "请输入您要替换的"+tmp_s+"个数，每个"+tmp_s+"只能替换1个新的"+tmp_s+"，替换成功后会扣除此"+tmp_s+"的差价：\n";
 	s += "[int no:...]\n";
 	s += "[submit 确定:user_package_replace_confirm "+arg+" ...]";

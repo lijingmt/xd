@@ -3,12 +3,12 @@
 int main(string|zero arg)
 {
 	object me = this_player();
-	string s="每次可购买藏宝箱扩充位置10格，花费100金。\n";
+	string s="每次可扩充当前角色仓库10格，花费100金。\n";
 	if(!arg){
 		if(me->packageLevel>90)
-			s += "你已经达到藏宝箱的空间上限，无法再进行购买扩充了。\n";
+			s += "当前角色仓库已经达到空间上限，无法继续扩充。\n";
 		else{
-			s += "你确定要花费100金将你的藏宝箱位置再扩充10格么？\n";		
+			s += "你确定要花费100金扩充10格当前角色仓库吗？\n";
 			s += "[确定购买:user_package_buy yes]\n";
 			s += "[我再考虑一下:user_package_buy no]\n";
 		}
@@ -16,13 +16,13 @@ int main(string|zero arg)
 	else{
 		if(arg=="yes"){
 			if(me->packageLevel>90)
-				s += "你已经达到藏宝箱的空间上限，无法再进行购买扩充了。\n";
+				s += "当前角色仓库已经达到空间上限，无法继续扩充。\n";
 			else{
 				if(me->pay_money(10000)==0)
 					s += "你身上的钱不够支付费用，请返回。\n";
 				else{
 					s += "购买成功！\n你花费"+MUD_MONEYD->query_store_money_cn(10000)+"\n";
-					s += "你的藏宝箱位置已经扩充10格。\n";		
+					s += "当前角色仓库已经扩充10格。\n";
 					me->packageLevel = me->packageLevel+10;
 					me->command("save");
 				}

@@ -16,7 +16,7 @@ int main(string|zero arg)
 	sscanf(arg,"%s %d %d %d %s",type,pac_size1,pac_size2,need_yushi,s_rep_count);
 	sscanf(s_rep_count,"no=%d",rep_count);
 	if(type=="beibao") tmp_s += "背包";
-	if(type=="cangku") tmp_s += "仓库";
+	if(type=="cangku") tmp_s += "当前角色仓库";
 	//werror("------rep_count="+rep_count+"---\n");
 	if(me->package_expand[type][pac_size1]&&rep_count>0&&rep_count<=me->package_expand[type][pac_size1]){
 		int yushi = need_yushi*rep_count;

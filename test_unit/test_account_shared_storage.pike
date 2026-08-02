@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 同账号单角色在线与独立共享宝库防复制回归。 */
+/** 同账号多角色在线与独立共享仓库防复制回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -82,8 +82,9 @@ int main()
 	object|zero root_player = 0;
 	object|zero root_relogin = 0;
 	object|zero child_player = 0;
+	object original_player = this_player();
 	array(object) extra_players = ({});
-	werror("\n========== 账号共享宝库测试 ==========\n");
+	werror("\n========== 账号共享仓库测试 ==========\n");
 	ACCOUNT_STORAGED->remove_test_storage(account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	cleanup_player(account_id);
@@ -100,7 +101,7 @@ int main()
 		mapping initial = ACCOUNT_STORAGED->query_storage(root_player);
 		if(initial["ok"] && sizeof((array)initial["personal_items"]))
 			item_id = (string)initial["personal_items"][0][7];
-		check("读取共享宝库只为旧仓库物品追加永久唯一ID",
+		check("读取共享仓库只为旧仓库物品追加永久唯一ID",
 			initial["ok"] && item_id!="" &&
 			Stdio.file_size(storage_file(account_id))<=0 &&
 			count_personal_id(root_player,item_id)==1,
@@ -150,7 +151,7 @@ int main()
 		mapping normal_out = ACCOUNT_STORAGED->transfer_to_personal(
 			child_player,item_id);
 		mapping final_state = ACCOUNT_STORAGED->query_storage(child_player);
-		check("不同职业人物通过独立共享宝库移动而不是复制物品",
+		check("不同职业角色通过独立共享仓库移动而不是复制物品",
 			normal_in["ok"] && normal_out["ok"] &&
 			final_state["used"]==0 &&
 			count_personal_id(root_player,item_id)==0 &&
@@ -168,11 +169,42 @@ int main()
 			reconcile_player_login(child_player);
 		mapping after_reconcile = ACCOUNT_STORAGED->
 			query_storage(child_player);
-		check("登录恢复旧人物备份时删除共享宝库已有ID的克隆影子",
+		check("登录恢复旧角色备份时删除共享仓库已有ID的克隆影子",
 			put_back["ok"] && reconciled &&
 			after_reconcile["used"]==1 &&
 			count_personal_id(child_player,item_id)==0,
-			"人物旧备份与共享宝库同时保留了相同物品ID");
+			"角色旧备份与共享仓库同时保留了相同物品ID");
+
+		object storage_ui =
+			(object)(ROOT+"/gamelib/cmds/account_storage.pike");
+		object storage_take =
+			(object)(ROOT+"/gamelib/cmds/account_storage_withdraw.pike");
+		object storage_put =
+			(object)(ROOT+"/gamelib/cmds/account_storage_deposit.pike");
+		child_player->move(ROOT+"/gamelib/d/kunlunshan/wuge");
+		set_this_player(child_player);
+		storage_ui->main(0);
+		storage_ui->main("personal");
+		storage_ui->main("shared");
+		storage_ui->main("put 999");
+		storage_ui->main("take 999");
+		storage_take->main(item_id+" 0");
+		mapping ui_taken = ACCOUNT_STORAGED->query_storage(child_player);
+		int ui_taken_personal =
+			count_personal_id(child_player,item_id);
+		storage_put->main(item_id+" 0");
+		mapping ui_returned = ACCOUNT_STORAGED->query_storage(child_player);
+		if(original_player)
+			set_this_player(original_player);
+		else
+			set_this_player(this_object());
+		check("共享仓库新旧入口、分页和连续取放真实运行",
+			ui_taken["used"]==0 &&
+			ui_taken_personal==1 &&
+			count_personal_id(child_player,item_id)==0 &&
+			ui_returned["used"]==1 &&
+			ui_returned["items"][0]["id"]==item_id,
+			"分页界面或带页码的连续取放没有保持唯一物品");
 		valid_storage = Stdio.read_file(storage_file(account_id));
 		Stdio.write_file(storage_file(account_id)+".bak",valid_storage);
 		Stdio.write_file(storage_file(account_id),"{broken");
@@ -292,11 +324,15 @@ int main()
 			if(compile_err)
 				failures += ({file+": "+describe_error(compile_err)});
 		}
-		check("登录守卫与共享宝库文件由真实Pike运行时编译",
+		check("登录守卫与共享仓库文件由真实Pike运行时编译",
 			!sizeof(failures),failures*" | ");
 	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
 	if(err)
-		check("共享宝库测试运行时无异常",0,
+		check("共享仓库测试运行时无异常",0,
 			describe_error(err)+" "+describe_backtrace(err));
 	if(child_player)
 		destruct(child_player);
@@ -313,7 +349,7 @@ int main()
 	if(child_id!="")
 		cleanup_player(child_id);
 	cleanup_player(account_id);
-	werror("账号共享宝库：总计%d，通过%d，失败%d\n",
+	werror("账号共享仓库：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

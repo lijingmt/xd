@@ -4,14 +4,15 @@ int main(string|zero arg)
 {
 	object me = this_player();
 	int pac_size = me->query_cangku_size();
-	string s=me->name_cn+"的藏宝箱"+me->state_packaged(pac_size)+"\n";
+	string s="§g当前角色仓库§r "+me->state_packaged(pac_size)+"\n";
 	string name=arg;
 	int count=0;
 	object env=environment(me);
 	if(env){
 		if(!arg){//无参数传入
-			s += "[账号共享宝库:account_storage shared]\n";
-			s += "请选择要存入的物品\n";
+			s += "正在操作：背包 → 当前角色仓库\n";
+			s += "[需要跨职业转移？进入账号共享仓库:account_storage]\n\n";
+			s += "请选择背包中要存入的物品：\n";
 			s += me->view_inventory_zhuangbei_package("user_package",1,0);
 			//s += "[返回:look]\n";
 			//write(s);
@@ -38,23 +39,25 @@ int main(string|zero arg)
 		if(!ob)
 			s += "你身上并没有这样的非会员物品。\n";
 		else if(ob->equiped)
-			s += "正在身上装备的物品不能存入藏宝箱。\n";
+			s += "正在身上装备的物品不能存入当前角色仓库。\n";
 		else if(ob->query_item_canStorage() == 0)
-			s += "这种类型的物品不能存入藏宝箱。\n";	
+			s += "这种类型的物品不能存入当前角色仓库。\n";
 		else{
 			int err = this_player()->packaged(ob,pac_size);
 			if(err)
-				s += "你的藏宝箱现在只能存放 "+pac_size+" 件宝贝。\n";
+				s += "当前角色仓库已满，最多存放 "+pac_size+" 件物品。\n";
 			else{
-				s += "你在藏宝箱中存入一件"+ob->name_cn+"\n";
+				s += "已将"+ob->name_cn+"从背包存入当前角色仓库。\n";
 				ob->remove();
 			}
 		}
-		s+="[返回:user_package]\n";
+		s+="[继续从背包存入:user_package]\n";
+		s+="[从角色仓库取到背包:user_repackage]\n";
+		s+="[账号共享仓库:account_storage]\n";
 	}
 	else
 		s += "现在你暂时不能进行该操作，请返回。\n";
-	s+="[返回游戏:look]\n";
+	s+="[返回武阁:look]\n";
 	write(s);
 	return 1;
 }

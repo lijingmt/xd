@@ -210,7 +210,8 @@ void test_room_access_runtime()
 	   search(links,"[休息:sleep]")!=-1 &&
 	   search(links,"xianzhen")!=-1 &&
 	   search(links,"yaozhen")!=-1 &&
-	   search(links,"[存:user_package]")!=-1 &&
+	   search(links,"[背包存入:user_package]")!=-1 &&
+	   search(links,"[账号共享仓库:account_storage]")!=-1 &&
 	   stats["wired"]>=100 &&
 	   stats["compiled"]==stats["wired"] &&
 	   stats["compile_failed"]==0 &&

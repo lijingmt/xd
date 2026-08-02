@@ -1,5 +1,5 @@
 /**
- * 注册账号共享宝库。
+ * 注册账号共享仓库。
  *
  * 旧人物仓库 packaged_items 完整保留；只有玩家主动转移的条目进入账号
  * 级独立文件。每个条目使用永久随机ID，跨文件移动经过持久化中转事务，
@@ -257,7 +257,7 @@ private int save_record_unlocked(mapping(string:mixed) record)
 		}
 	};
 	if(err)
-		werror("[ACCOUNT_STORAGED] 共享宝库保存异常: %s\n",
+		werror("[ACCOUNT_STORAGED] 账号共享仓库保存异常: %s\n",
 			describe_error(err));
 	if(!ok){
 		rm(temp_path);
@@ -500,8 +500,8 @@ private int ensure_personal_ids_unlocked(object player,
 }
 
 /**
- * 人物登录时检查旧个人存档备份是否复活了已经转入共享宝库的ID。
- * 共享宝库是该ID的权威所有者，发现重复时只删除个人仓库影子并立即
+ * 角色登录时检查旧个人存档备份是否复活了已经转入共享仓库的ID。
+ * 账号共享仓库是该ID的权威所有者，发现重复时只删除角色仓库影子并立即
  * 保存；共享文件异常则保持不可访问，但不阻断人物正常登录。
  */
 int reconcile_player_login(object player)
@@ -559,7 +559,7 @@ mapping(string:mixed) query_storage(object player)
 {
 	mapping(string:mixed) result = ([
 		"ok":0,
-		"message":"账号共享宝库暂不可用。",
+		"message":"账号共享仓库暂不可用。",
 	]);
 	string account_id = resolve_player_account(player);
 	string character_id;
@@ -571,9 +571,9 @@ mapping(string:mixed) query_storage(object player)
 	storage_key = account_storage_lock->lock();
 	record = load_ready_record_unlocked(account_id);
 	if(!record)
-		result["message"] = "共享宝库数据校验失败，已停止存取以保护装备。";
+		result["message"] = "账号共享仓库数据校验失败，已停止存取以保护装备。";
 	else if(!ensure_personal_ids_unlocked(player,record))
-		result["message"] = "人物仓库存在重复或异常物品标识，已停止操作。";
+		result["message"] = "当前角色仓库存在重复或异常物品标识，已停止操作。";
 	else{
 		result = ([
 			"ok":1,
@@ -609,7 +609,7 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 {
 	mapping(string:mixed) result = ([
 		"ok":0,
-		"message":"转入共享宝库失败。",
+		"message":"将物品放入账号共享仓库失败。",
 	]);
 	string account_id = resolve_player_account(player);
 	string character_id;
@@ -628,11 +628,11 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 	storage_key = account_storage_lock->lock();
 	record = load_ready_record_unlocked(account_id);
 	if(!record)
-		result["message"] = "共享宝库数据异常，已停止存取。";
+		result["message"] = "账号共享仓库数据异常，已停止存取。";
 	else if(!ensure_personal_ids_unlocked(player,record))
-		result["message"] = "人物仓库物品标识异常，已停止转移。";
+		result["message"] = "当前角色仓库物品标识异常，已停止转移。";
 	else if(sizeof((array)record["items"])>=(int)record["capacity"])
-		result["message"] = "账号共享宝库已满。";
+		result["message"] = "账号共享仓库已满。";
 	else{
 		personal = player->packaged_items;
 		for(int i=0;i<sizeof(personal);i++){
@@ -642,7 +642,7 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 			}
 		}
 		if(personal_index<0)
-			result["message"] = "人物仓库中已没有这件物品，请刷新后重试。";
+			result["message"] = "当前角色仓库中已没有这件物品，请刷新后重试。";
 		else if(find_shared_index((array)record["items"],item_id)!=-1)
 			result["message"] = "检测到重复物品标识，已停止转移。";
 		else{
@@ -666,7 +666,7 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 				record["pending"] += ({pending});
 				record["revision"] = (int)record["revision"]+1;
 				if(!save_record_unlocked(record))
-					result["message"] = "共享宝库事务准备失败，物品未移动。";
+					result["message"] = "账号共享仓库事务准备失败，物品未移动。";
 				else{
 					original_personal = copy_value(player->packaged_items);
 					player->packaged_items = remove_array_index(
@@ -678,7 +678,7 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 							record["pending"],find_pending_index(
 								record["pending"],txid));
 						save_record_unlocked(record);
-						result["message"] = "人物仓库保存失败，物品未移动。";
+						result["message"] = "当前角色仓库保存失败，物品未移动。";
 					}
 					else if(test_failpoint=="after_personal_save" &&
 					        search(account_id,"testunit")!=-1){
@@ -695,7 +695,7 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 						if(save_record_unlocked(record)){
 							result = ([
 								"ok":1,
-								"message":"物品已安全转入账号共享宝库。",
+								"message":"物品已安全放入账号共享仓库。",
 								"item_id":item_id,
 								"txid":txid,
 							]);
@@ -722,7 +722,7 @@ mapping(string:mixed) transfer_to_personal(object player,string item_id,
 {
 	mapping(string:mixed) result = ([
 		"ok":0,
-		"message":"转入人物仓库失败。",
+		"message":"将物品取到当前角色仓库失败。",
 	]);
 	string account_id = resolve_player_account(player);
 	string character_id;
@@ -740,15 +740,15 @@ mapping(string:mixed) transfer_to_personal(object player,string item_id,
 	storage_key = account_storage_lock->lock();
 	record = load_ready_record_unlocked(account_id);
 	if(!record)
-		result["message"] = "共享宝库数据异常，已停止存取。";
+		result["message"] = "账号共享仓库数据异常，已停止存取。";
 	else if(!ensure_personal_ids_unlocked(player,record))
-		result["message"] = "人物仓库物品标识异常，已停止转移。";
+		result["message"] = "当前角色仓库物品标识异常，已停止转移。";
 	else if(sizeof(player->packaged_items)>=player->query_cangku_size())
-		result["message"] = "当前人物仓库已满。";
+		result["message"] = "当前角色仓库已满。";
 	else{
 		shared_index = find_shared_index((array)record["items"],item_id);
 		if(shared_index<0)
-			result["message"] = "共享宝库中已没有这件物品，请刷新后重试。";
+			result["message"] = "账号共享仓库中已没有这件物品，请刷新后重试。";
 		else{
 			int duplicate = 0;
 			for(int i=0;i<sizeof(player->packaged_items);i++){
@@ -781,7 +781,7 @@ mapping(string:mixed) transfer_to_personal(object player,string item_id,
 					record["pending"] += ({pending});
 					record["revision"] = (int)record["revision"]+1;
 					if(!save_record_unlocked(record))
-						result["message"] = "共享宝库事务准备失败，物品未移动。";
+						result["message"] = "账号共享仓库事务准备失败，物品未移动。";
 					else{
 						original_personal = copy_value(player->packaged_items);
 						player->packaged_items += ({copy_value(item["data"])});
@@ -793,7 +793,7 @@ mapping(string:mixed) transfer_to_personal(object player,string item_id,
 									record["pending"],txid));
 							record["items"] += ({item});
 							save_record_unlocked(record);
-							result["message"] = "人物仓库保存失败，物品仍在共享宝库。";
+							result["message"] = "当前角色仓库保存失败，物品仍在账号共享仓库。";
 						}
 						else if(test_failpoint=="after_personal_save" &&
 						        search(account_id,"testunit")!=-1){
@@ -809,7 +809,7 @@ mapping(string:mixed) transfer_to_personal(object player,string item_id,
 							if(save_record_unlocked(record)){
 								result = ([
 									"ok":1,
-									"message":"物品已安全转入当前人物仓库。",
+									"message":"物品已安全取到当前角色仓库。",
 									"item_id":item_id,
 									"txid":txid,
 								]);
