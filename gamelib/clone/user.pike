@@ -138,7 +138,7 @@ void set_home_path(string a)
 
 //一开始免费20个位置
 //每增加10个位置100g,总共能买8次，放置100个物品
-int packageLevel;
+int packageLevel = 20;
 
 //add by calvin 20080806
 string bandpswd;//安全码变量

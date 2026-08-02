@@ -123,6 +123,8 @@ assert(indexSource.includes('class="quick-more-panel"'));
 assert(indexSource.includes('data-tour="inventory"'));
 assert(indexSource.includes('data-tour="skills"'));
 assert(indexSource.includes('data-tour="autofight"'));
+assert(indexSource.includes('data-tour="warehouse"'));
+assert(indexSource.includes("sendQuickCommand('go_warehouse')"));
 assert(indexSource.includes('@click="startUiTour"'));
 assert(indexSource.includes('@click="toggleSoundEffects"'));
 assert(indexSource.includes('ref="mudLinesList"'));

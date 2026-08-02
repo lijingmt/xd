@@ -112,11 +112,16 @@ int query_cangku_size()
 {
 	object me = this_object();
 	int pac_size = me->packageLevel;//藏宝箱的初始容量
+	// 老人物与多人物空档案缺失该字段时，仍应拥有免费的20格仓库。
+	if(pac_size<20){
+		pac_size = 20;
+		me->packageLevel = pac_size;
+	}
 	if(!me->package_expand||!me->package_expand["cangku"]){
 		return pac_size;
 	}
 	else if(me->package_expand["cangku"]){
-		array tmp = me->package_expand["cangku"];
+		mapping tmp = me->package_expand["cangku"];
 		int pac_num = sizeof(tmp);//查询背包的种类
 		if(pac_num){
 		//有扩充背包
@@ -478,7 +483,7 @@ string view_inventory_zhuangbei_package(void|string cmd,void|int notShowMoney,vo
 	if(cmd==0)
 		cmd="user_package";
 	string s="";
-	s += view_something_zhuangbei_sell(lambda(object ob){return ob->is("item")&&ob->query_item_canTrade();},cmd,showPrice);
+	s += view_something_zhuangbei_sell(lambda(object ob){return ob->is("item")&&ob->query_item_canStorage();},cmd,showPrice);
 	if(s=="")
 		return "没有可存储的物品。\n";
 	return  s;
@@ -487,7 +492,7 @@ string view_inventory_daoju_package(void|string cmd,void|int notShowMoney,void|i
 	if(cmd==0)
 		cmd="user_package";
 	string s="";
-	s += view_something_daoju_sell(lambda(object ob){return ob->is("item")&&ob->query_item_canTrade();},cmd,showPrice);
+	s += view_something_daoju_sell(lambda(object ob){return ob->is("item")&&ob->query_item_canStorage();},cmd,showPrice);
 	if(s=="")
 		return "没有可存储的物品。\n";
 	return  s;

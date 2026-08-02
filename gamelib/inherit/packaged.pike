@@ -73,6 +73,8 @@ string view_packaged_list(){
 		if(out=="")
 			out="当前没有存储任何物品。";
 	}
+	else
+		out="当前没有存储任何物品。";
 	return out;
 }
 object repackaged(string name){

@@ -19,17 +19,22 @@ int main(string|zero arg)
 			return 1;
 		}
 		sscanf(arg,"%s %d",name,count);
-		//object ob=present(name,this_player(),count);
+		// 序号只统计界面真正展示的可存储、非会员物品；不能直接用
+		// present()，否则同名会员物品会占用序号并误拦普通物品。
 		array(object) all_ob = all_inventory(me);
-		object ob;
-		//查找玩家身上与name同名的非会员物品 added by caijie 080815
+		object|zero ob = 0;
+		int same_index = 0;
 		foreach(all_ob,object each_ob){
-			if(each_ob->query_name()==name&&(!each_ob->query_toVip())){
-				ob = each_ob;
-				break;
+			if(each_ob->query_name()==name &&
+			   !each_ob->query_toVip() &&
+			   each_ob->query_item_canStorage()){
+				if(same_index==count){
+					ob = each_ob;
+					break;
+				}
+				same_index++;
 			}
 		}
-		//add end
 		if(!ob)
 			s += "你身上并没有这样的非会员物品。\n";
 		else if(ob->equiped)
