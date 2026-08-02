@@ -1,0 +1,5 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){ name=object_name(this_object()); name_cn="【象】星锁"; unit="本"; picture=name; desc="短时压低目标法术抗性的星轨封锁\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=180; skill_bname="xingsuo"; level_limit=20; profe_read_limit="天象"; need_yushi=15; need_money=500; }
+int read(){ int result=::read(); if(read_flag==0) remove(); return result; }

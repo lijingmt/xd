@@ -8,6 +8,7 @@ int login_time;
 private int update_time;
 private int reconnect_time;
 private int reconnect_count;
+private int last_activity_time;
 
 /****   添加的代码     ****/      
 //通过链接的频率来滤出外挂的玩家，由liaocheng于2008-10-24添加
@@ -89,7 +90,34 @@ int update_online_time(){
 	return online_time;
 }
 int query_idle(){
-	return time()-reconnect_time;
+	int idle_from = last_activity_time;
+	if(idle_from<=0)
+		idle_from = reconnect_time;
+	if(idle_from<=0)
+		idle_from = time();
+	return time()-idle_from;
+}
+void mark_user_activity(){
+	last_activity_time = time();
+}
+string query_idle_label(){
+	int idle_minutes;
+	int vip_level = 0;
+	int vip_active = 0;
+	if(functionp(this_object()->query_autofight) &&
+	   this_object()->query_autofight()=="enable")
+		return "<挂机中>";
+	idle_minutes = query_idle()/60;
+	if(idle_minutes<=3)
+		return "";
+	if(functionp(this_object()->query_vip_flag))
+		vip_level = (int)this_object()->query_vip_flag();
+	if(vip_level>0 && functionp(this_object()->query_vip_end_time) &&
+	   (int)this_object()->query_vip_end_time()>time())
+		vip_active = 1;
+	if(vip_active)
+		return "<VIP发呆"+idle_minutes+"/120分钟>";
+	return "<发呆"+idle_minutes+"/60分钟>";
 }
 int query_online(){
 	return time()-update_time;
@@ -110,6 +138,7 @@ array(string) query_command_prefix(){
 	return ({COMMAND_PREFIX, SROOT+"/wapmud2/cmds/", ROOT+"/gamelib/cmds/"});
 }
 string process_input(string arg){
+	mark_user_activity();
     if(arg=="flush_filter"){
 	    flush_filter();
 	    return 0;
@@ -128,7 +157,7 @@ void receive_message(string newclass, string msg){
 	receive(msg);
 }
 int setup(string arg){
-	first_login=login_time=update_time=reconnect_time=time();
+	first_login=login_time=update_time=reconnect_time=last_activity_time=time();
     set_heart_beat(1);
     set_living_name(name);
     enable_commands();
@@ -166,6 +195,7 @@ int reconnect(string arg){
 	if(arg&&arg==password){
 		//check_reconnect_delay(); //在这里添加检查频率的方法
 		reconnect_time=time();
+		mark_user_activity();
 		reconnect_count++;
 		remove_call_out(remove);
 

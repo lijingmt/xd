@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【象】星落";
+	desc="引爆现有星痕；每层在普通PVE提高10%伤害，PVP与Boss提高8%";
+	s_type="zhudong"; s_skill_type="huo_mofa_attack"; s_delayTime=18; star_mark_consume=1;
+	performs_mofa_attack[1]=({285,345}); performs_mofa_attack[2]=({488,580}); performs_mofa_attack[3]=({750,884}); performs_mofa_attack[4]=({1070,1252}); performs_mofa_attack[5]=({1450,1690});
+	performs_cast[1]=55; performs_cast[2]=72; performs_cast[3]=93; performs_cast[4]=118; performs_cast[5]=147;
+	skill_type+=({"tianxiang"});
+	performs_level_limit[1]=60; performs_level_limit[2]=80; performs_level_limit[3]=100; performs_level_limit[4]=120; performs_level_limit[5]=140;
+	performs_desc[1]="造成285至345点火系伤害并消耗至多3层星痕，消耗法力55点"; performs_desc[2]="造成488至580点火系伤害并引爆星痕，消耗法力72点"; performs_desc[3]="造成750至884点火系伤害并引爆星痕，消耗法力93点"; performs_desc[4]="造成1070至1252点火系伤害并引爆星痕，消耗法力118点"; performs_desc[5]="造成1450至1690点火系伤害并引爆星痕，消耗法力147点";
+}

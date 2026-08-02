@@ -12,11 +12,21 @@ mapping(int:int) performs_level_limit=([]);//技能等级限制
 int effect_value;//70技能特有的字段，用于记录一些效果值
 string skill_rare="";//技能稀有度标记，普通技能为空
 int hate_multiplier=100;//物理技能仇恨倍率，100为普通技能
+int star_mark_gain=0;//天象法术命中后获得的星痕数
+int star_mark_consume=0;//天象法术命中后是否消耗现有星痕
 
 int query_hate_multiplier(){
 	if(hate_multiplier<1)
 		return 100;
 	return hate_multiplier;
+}
+
+int query_star_mark_gain(){
+	return star_mark_gain>0 ? star_mark_gain : 0;
+}
+
+int query_star_mark_consume(){
+	return star_mark_consume ? 1 : 0;
 }
 
 int query_performs_attack(int level){

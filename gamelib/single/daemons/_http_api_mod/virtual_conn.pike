@@ -102,18 +102,23 @@ void set_virtual_connection(string userid, mixed conn_data)
 void update_connection_time(string userid)
 {
     if(!userid) return;
+    object|zero player = 0;
     object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 2) {
         vconn[1] = time();
+        if(sizeof(vconn)>=3)
+            player = vconn[2];
     }
     destruct(key);
+    if(player && functionp(player->mark_user_activity))
+        player->mark_user_activity();
 }
 
 /**
  * 检查并复用已有的玩家连接
  * @param userid 用户ID
- * @param update_idle_time 是否更新闲置时间（默认1=更新，0=不更新）
+ * @param update_idle_time 是否更新闲置时间（显式1=更新，省略或0=不更新）
  */
 object get_player_from_connection(string userid, void|int update_idle_time)
 {
@@ -124,11 +129,14 @@ object get_player_from_connection(string userid, void|int update_idle_time)
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 3) {
         object player = vconn[2];
         if(player && functionp(player->query_name)) {
-            // 默认更新闲置时间，除非明确传入0
+            // 只有用户主动操作的调用点才显式传1；只读轮询必须传0。
             if(update_idle_time != 0) {
                 vconn[1] = time();
             }
             destruct(key);
+            if(update_idle_time != 0 &&
+               functionp(player->mark_user_activity))
+                player->mark_user_activity();
             return player;
         }
         m_delete(vconnections,userid);
@@ -146,7 +154,7 @@ private int claim_idle_connection(string userid,int expected_last_used,
     mixed current = vconnections[userid];
     if(arrayp(current) && sizeof(current)>=3 &&
        (int)current[1]==expected_last_used &&
-       now-(int)current[1]>timeout){
+       now-(int)current[1]>=timeout){
         m_delete(vconnections,userid);
         claimed = 1;
     }
@@ -160,7 +168,6 @@ private int claim_idle_connection(string userid,int expected_last_used,
 void cleanup_idle_connections()
 {
     mixed err = catch {
-        int timeout = CONN_TIMEOUT;
         int now = time();
         mapping snapshot = ([]);
         object snapshot_key = vconnections_lock->lock();
@@ -179,17 +186,22 @@ void cleanup_idle_connections()
                 int last_used = vconn[1];
                 object player = vconn[2];
                 int idle_time = now - last_used;
+                int timeout = player ?
+                    IDLE_KICKD->query_timeout_for(player) : CONN_TIMEOUT;
 
                 string name = player && functionp(player->query_name) ? player->query_name() : userid;
 
                 // 检查是否超时
-                if(idle_time > timeout &&
+                if(idle_time >= timeout &&
                    claim_idle_connection(userid,last_used,now,timeout)) {
                     // 记录日志
                     string name_cn = player && functionp(player->query_name_cn) ? player->query_name_cn() : name;
                     int level = player && functionp(player->query_level) ? player->query_level() : 0;
+                    int vip_level = player ?
+                        IDLE_KICKD->query_active_vip_level(player) : 0;
 
-                    log_idle_kick(name, name_cn, level, idle_time, "HTTP_API");
+                    log_idle_kick(name, name_cn, level, idle_time,
+                        "HTTP_API",vip_level);
 
                     // 踢出用户
                     if(player && functionp(player->remove)) {
@@ -217,7 +229,8 @@ void cleanup_idle_connections()
 /**
  * 记录踢人日志
  */
-void log_idle_kick(string name, string name_cn, int level, int idle_seconds, string conn_type)
+void log_idle_kick(string name, string name_cn, int level,
+    int idle_seconds, string conn_type,int|void vip_level)
 {
     string now = ctime(time());
     string log_time = now[0..sizeof(now)-2];
@@ -233,8 +246,9 @@ void log_idle_kick(string name, string name_cn, int level, int idle_seconds, str
 
     string idle_min = (string)(idle_seconds / 60);
 
-    string log_msg = sprintf("[%s] %s(%s) %d级 [%s] 空闲%s分钟 被踢下线\n",
-        log_time, name_cn, name, level, conn_type, idle_min);
+    string vip_str = vip_level>0 ? "VIP"+vip_level+" " : "";
+    string log_msg = sprintf("[%s] %s(%s) %d级 %s[%s] 空闲%s分钟 被踢下线\n",
+        log_time, name_cn, name, level, vip_str, conn_type, idle_min);
 
     Stdio.append_file(ROOT+"/log/idle_kick.log."+date_str, log_msg);
 }

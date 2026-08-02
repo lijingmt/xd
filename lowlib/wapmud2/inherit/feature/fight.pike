@@ -23,6 +23,7 @@ protected mapping(string:int) profe_fight=([
 		"yinggui":5,
 		"fangshi":6,
 		"zhenyue":7,
+		"tianxiang":6,
 		"humanlike":6,
 		"beast":7,
 		"bird":8,
@@ -135,7 +136,7 @@ int query_balanced_magic_damage(int raw_attack,int magic_defend,
 	return result;
 }
 
-// 镇岳的山河壁只作用于自己和同房间、同队、仍存活的玩家。
+// 镇越的山河壁只作用于自己和同房间、同队、仍存活的玩家。
 int apply_team_guard_to_group(object caster,int shield,int duration)
 {
 	int applied = 0;
@@ -406,7 +407,7 @@ mapping query_pk_fast_side_profile(object who){
 		magic_element = (int)who->query_equip_add("feng_mofa_attack");
 	if((int)who->query_equip_add("du_mofa_attack")>magic_element)
 		magic_element = (int)who->query_equip_add("du_mofa_attack");
-	magic_rate = search(({"yushi","wuyao","fangshi"}),
+	magic_rate = search(({"yushi","wuyao","fangshi","tianxiang"}),
 		who->query_profeId())!=-1 ? 7 : 5;
 	magic_raw = who->query_think()*magic_rate/2+
 		who->query_equip_add("mofa_all")+magic_element;
@@ -420,7 +421,7 @@ mapping query_pk_fast_side_profile(object who){
 	profile["physical_raw"] = physical_raw;
 	profile["magic_raw"] = magic_raw;
 	profile["summon_attack_raw"] = summon_attack;
-	profile["magic_enabled"] = search(({"yushi","wuyao","fangshi"}),
+	profile["magic_enabled"] = search(({"yushi","wuyao","fangshi","tianxiang"}),
 		who->query_profeId())!=-1;
 	profile["heal"] = (int)who->query_equip_add("rase_life_add")+
 		summon_heal;
@@ -733,6 +734,7 @@ void _clean_fight(){
 	this_object()->timeCold = 0;
 	this_object()->eat_timeCold = 0;
 	this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
+	this_object()->clean_tianxiang_star_marks();
 	if(this_object()->is("npc")){
 		this_object()->who_fight_npc = "";//重置首次攻击者
 		this_object()->term_who_fight_npc = "";//重置首次攻击者队伍标示          
@@ -844,6 +846,20 @@ private object|zero query_learned_skill_object(string name){
 			skill = 0;
 	}
 	return skill;
+}
+
+// 星痕只放大天象自己的爆发法术。普通PVE每层10%，玩家与Boss每层8%，
+// 且无论异常数据如何都只计算三层。
+int query_tianxiang_star_bonus_percent(object target,int marks){
+	int per_mark = 10;
+	if(marks<0)
+		marks = 0;
+	if(marks>3)
+		marks = 3;
+	if(target && (target->is("player") ||
+	   (target->is("npc") && target->_boss)))
+		per_mark = 8;
+	return marks*per_mark;
 }
 
 void perform(string name,void|int flag){
@@ -1199,7 +1215,7 @@ void perform(string name,void|int flag){
 						//再加上装备属性带来的法术伤害提升
 						//智力也会提高法伤由liaocheng于07/4/16添加
 						//职业调整 caijie 08/12/03
-						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="fangshi"){
+						if(this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="fangshi"||this_object()->query_profeId()=="tianxiang"){
 							mofa_a += this_object()->query_equip_add(mofa_type)+this_object()->query_equip_add("mofa_all")+(int)(this_object()->query_think()*7/2);
 						}
 						else
@@ -1242,6 +1258,19 @@ void perform(string name,void|int flag){
 							s += "，产生了暴击效果！";
 							s1 += "，产生了暴击效果！";
 
+						}
+						int consumed_star_marks = 0;
+						if(this_object()->query_profeId()=="tianxiang" &&
+						   f_cur_skill->query_star_mark_consume()){
+							consumed_star_marks =
+								this_object()->consume_tianxiang_star_marks();
+							if(consumed_star_marks>0){
+								mofa_a = mofa_a*(100+
+									query_tianxiang_star_bonus_percent(
+										enemy,consumed_star_marks))/100;
+								s += "，引动"+consumed_star_marks+"层星痕";
+								s1 += "，引动"+consumed_star_marks+"层星痕";
+							}
 						}
 						//抗性和穿透统一在递减收益公式中结算。
 						fact_mofa_a=query_balanced_magic_damage(mofa_a,
@@ -1291,6 +1320,13 @@ void perform(string name,void|int flag){
 						s1 += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+chuantou_desc+"\n";
 						tell_object(this_object(),s);
 						tell_object(enemy,s1);
+						if(this_object()->query_profeId()=="tianxiang" &&
+						   f_cur_skill->query_star_mark_gain()>0){
+							int star_marks = this_object()->add_tianxiang_star_marks(
+								f_cur_skill->query_star_mark_gain());
+							tell_object(this_object(),"你凝聚了星痕（"+
+								star_marks+"/3，15秒内有效）。\n");
+						}
 
 						//产生仇恨值
 						int hate=(int)(fact_mofa_a*skills_hate["test"]/100);
@@ -1610,7 +1646,7 @@ void perform(string name,void|int flag){
 					return;
 				}
 			}
-			/*    镇岳强制仇恨    */
+			/*    镇越强制仇恨    */
 			else if(f_cur_skill->s_skill_type=="taunt"){
 				if(s_cold<=1){
 					int forced = enemy->force_target(this_object(),
@@ -1639,7 +1675,7 @@ void perform(string name,void|int flag){
 					"秒冷却时间,无法使用。\n");
 				return;
 			}
-			/*    镇岳同房间队伍护盾    */
+			/*    镇越同房间队伍护盾    */
 			else if(f_cur_skill->s_skill_type=="team_guard"){
 				if(s_cold<=1){
 					int shield = f_cur_skill->query_performs_attack(skill_level)+
@@ -1685,7 +1721,7 @@ void perform(string name,void|int flag){
 					if(f_cur_skill->s_curse_type == "absorb"){
 						if(this_object()->query_profeId()=="zhenyue")
 							tmp_int += (int)(this_object()->query_str()*3);
-						else if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"){
+						else if(this_object()->query_profeId()=="wuyao"||this_object()->query_profeId()=="yushi"||this_object()->query_profeId()=="fangshi"||this_object()->query_profeId()=="tianxiang"){
 							tmp_int += (int)(this_object()->query_think()*3);
 						}
 						else

@@ -21,6 +21,32 @@
 #define IDLE_TIMEOUT 3600        // 普通用户60分钟踢人
 #define IDLE_TIMEOUT_VIP 7200    // VIP用户120分钟踢人
 
+int query_active_vip_level(object user)
+{
+	int vip_level = 0;
+	if(!user)
+		return 0;
+	mixed err = catch {
+		vip_level = VIPD->query_active_vip_level(user);
+	};
+	if(err || vip_level<1)
+		return 0;
+	return vip_level;
+}
+
+int query_timeout_for(object user)
+{
+	return query_active_vip_level(user)>0 ?
+		IDLE_TIMEOUT_VIP : IDLE_TIMEOUT;
+}
+
+int should_kick_user(object user,int idle_time)
+{
+	if(!user || idle_time<0)
+		return 0;
+	return idle_time>=query_timeout_for(user);
+}
+
 protected void create()
 {
 	// 延迟获取 HTTP API daemon，确保它已加载
@@ -53,17 +79,16 @@ void check_idle_users()
 			int idle_time = user->query_idle();
 			if(idle_time <= 0) continue;
 
-			int vip_flag = user->query_vip_flag();
-			int timeout = (vip_flag && vip_flag > 0) ? IDLE_TIMEOUT_VIP : IDLE_TIMEOUT;
-
+			int vip_level = query_active_vip_level(user);
 			// 空闲时间超过阈值，踢人
-			if(idle_time >= timeout) {
+			if(should_kick_user(user,idle_time)) {
 				string name = user->query_name();
 				string name_cn = user->query_name_cn();
 				int level = user->query_level();
 
 				// 记录日志
-				log_idle_kick(name, name_cn, level, idle_time, "SOCKET");
+				log_idle_kick(name, name_cn, level, idle_time,
+					"SOCKET",vip_level);
 
 				// 踢下线
 				user->remove();
@@ -77,7 +102,8 @@ void check_idle_users()
 }
 
 // 记录踢人日志
-void log_idle_kick(string name, string name_cn, int level, int idle_time, string conn_type)
+void log_idle_kick(string name, string name_cn, int level, int idle_time,
+	string conn_type,int|void vip_level)
 {
 	string now = ctime(time());
 	string log_time = now[0..sizeof(now)-2];
@@ -91,7 +117,7 @@ void log_idle_kick(string name, string name_cn, int level, int idle_time, string
 	string day_str = (day < 10) ? "0"+day : (string)day;
 	string date_str = year+"-"+mon_str+"-"+day_str;
 
-	string vip_str = (conn_type == "SOCKET") ? "" : "VIP用户";
+	string vip_str = vip_level>0 ? "VIP"+vip_level : "";
 	string idle_min = (string)(idle_time / 60);
 
 	string log_msg = sprintf("[%s] %s(%s) %d级 %s%s [%s] 空闲%s分钟 被踢下线\n",

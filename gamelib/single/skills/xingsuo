@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【象】星锁";
+	desc="以星轨封锁目标的法术抗性，效果有命中与时限";
+	s_type="zhudong"; s_skill_type="curse"; s_curse_type="all_mofa_defend"; s_delayTime=20; s_lasttime=8;
+	performs_attack[1]=12; performs_attack[2]=20; performs_attack[3]=28; performs_attack[4]=36; performs_attack[5]=45;
+	performs_cast[1]=22; performs_cast[2]=31; performs_cast[3]=43; performs_cast[4]=58; performs_cast[5]=76;
+	skill_type+=({"tianxiang"});
+	performs_level_limit[1]=20; performs_level_limit[2]=40; performs_level_limit[3]=60; performs_level_limit[4]=80; performs_level_limit[5]=100;
+	performs_desc[1]="8秒内降低12点全系法抗，消耗法力22点"; performs_desc[2]="降低20点全系法抗，消耗法力31点"; performs_desc[3]="降低28点全系法抗，消耗法力43点"; performs_desc[4]="降低36点全系法抗，消耗法力58点"; performs_desc[5]="降低45点全系法抗，消耗法力76点";
+}

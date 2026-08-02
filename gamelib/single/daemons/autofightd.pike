@@ -648,6 +648,8 @@ string query_recommended_auto_skill(object me)
 	int usable_level;
 	int priority;
 	int power;
+	int magic_low;
+	int magic_high;
 	int cast;
 	int score;
 	int best_score;
@@ -670,6 +672,14 @@ string query_recommended_auto_skill(object me)
 		if(cast > me->query_mofa_max())
 			continue;
 		power = skill->query_performs_attack(usable_level);
+		if(skill->s_skill_type == "huo_mofa_attack" ||
+		   skill->s_skill_type == "bing_mofa_attack" ||
+		   skill->s_skill_type == "feng_mofa_attack" ||
+		   skill->s_skill_type == "du_mofa_attack"){
+			magic_low = skill->query_performs_mofa_attack_low(usable_level);
+			magic_high = skill->query_performs_mofa_attack_high(usable_level);
+			power = (magic_low+magic_high)/2;
+		}
 		score = priority*100000000+usable_level*100000+power;
 		if(score > best_score){
 			best_score = score;
@@ -767,7 +777,7 @@ private int query_context_skill_ready(object me,string name)
 	return query_auto_skill_unready_reason(me,name) == "";
 }
 
-// 镇岳智能挂机并非只挑最高伤害：失去仇恨时先震吼，护盾耗尽后
+// 镇越智能挂机并非只挑最高伤害：失去仇恨时先震吼，护盾耗尽后
 // 再保护同房间队伍，两个条件都不满足才回到常规高仇恨攻击。
 string query_ready_zhenyue_context_skill(object me)
 {
@@ -778,6 +788,21 @@ string query_ready_zhenyue_context_skill(object me)
 	// 只由职业助手守护进程决定上下文优先级；守护进程同时校验
 	// 有效档位、开关和PVE目标，PVP永远不会自动接管。
 	names = PROFESSIONVIPD->query_zhenyue_context_candidates(me);
+	foreach(names,string name)
+		if(query_context_skill_ready(me,name))
+			return name;
+	return "";
+}
+
+// 天象智能挂机遵循真实星痕状态：低血量先补星壁，二至三层时按
+// 策略引爆，否则轮换已学且已冷却的生成技能；职业助手不修改数值。
+string query_ready_tianxiang_context_skill(object me)
+{
+	array(string) names;
+	if(!me || me->query_profeId() != "tianxiang" ||
+	   !me->query_in_combat())
+		return "";
+	names = PROFESSIONVIPD->query_tianxiang_context_candidates(me);
 	foreach(names,string name)
 		if(query_context_skill_ready(me,name))
 			return name;
@@ -795,7 +820,10 @@ string query_ready_auto_skill(object me)
 	if(!me || !me->query_in_combat())
 		return "";
 	if(query_auto_skill_mode(me) == "smart"){
-		context_name = query_ready_zhenyue_context_skill(me);
+		if(me->query_profeId()=="tianxiang")
+			context_name = query_ready_tianxiang_context_skill(me);
+		else
+			context_name = query_ready_zhenyue_context_skill(me);
 		if(context_name != "")
 			return context_name;
 	}

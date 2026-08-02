@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 方士/镇岳职业助手的权限、PVE、公平性、支付与接线回归。 */
+/** 方士/镇越/天象职业助手的权限、PVE、公平性、支付与接线回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -85,6 +85,8 @@ void test_runtime_compile_and_wiring()
 	   search(api_source,"PROFESSIONVIPD->query_status(player)")!=-1 &&
 	   search(vue_source,"profession-assistant-badge")!=-1 &&
 	   search(css_source,"profession-style-fangshi-3")!=-1 &&
+	   search(css_source,"profession-style-zhenyue-3")!=-1 &&
+	   search(css_source,"profession-style-tianxiang-3")!=-1 &&
 	   search(css_source,"prefers-reduced-motion")!=-1)
 		test_pass();
 	else
@@ -218,7 +220,7 @@ void test_fangshi_resonance_pve_only()
 
 void test_zhenyue_tier_and_pvp_boundaries()
 {
-	test_start("镇岳免费、黄金、白金与PVP候选技能边界正确");
+	test_start("镇越免费、黄金、白金与PVP候选技能边界正确");
 	object tank = create_player("__testunit_profession_tank__","zhenyue",80);
 	object mate = create_player("__testunit_profession_tank_mate__","fangshi",80);
 	object pvp = create_player("__testunit_profession_tank_pvp__","fangshi",80);
@@ -248,8 +250,49 @@ void test_zhenyue_tier_and_pvp_boundaries()
 	   search(vip2_names,"shanhebi")==-1 &&
 	   search(vip3_names,"shanhebi")!=-1 && sizeof(pvp_names)==0)
 		test_pass();
-	else test_fail("镇岳档位或PVP边界错误: "+error_desc);
+	else test_fail("镇越档位或PVP边界错误: "+error_desc);
 	destroy_player(tank); destroy_player(mate); destroy_player(pvp);
+	if(npc) destruct(npc);
+	if(room) destruct(room);
+}
+
+void test_tianxiang_tier_and_pvp_boundaries()
+{
+	test_start("天象星痕策略只在有效白金PVE执行且不改战斗数值");
+	object mage = create_player("__testunit_profession_mage__","tianxiang",80);
+	object pvp = create_player("__testunit_profession_mage_pvp__","fangshi",80);
+	object npc = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object room = clone(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	array(string) free_names = ({});
+	array(string) pve_names = ({});
+	array(string) pvp_names = ({});
+	int think_before = mage->query_think();
+	int life_before = mage->query_life_max();
+	string error_desc = "";
+	mixed err = catch {
+		mage->skills["xingmang"] = ({1,0});
+		mage->skills["xingluo"] = ({1,0});
+		mage->move(room); pvp->move(room); npc->move(room);
+		mage->_fight(npc);
+		mage->add_tianxiang_star_marks(2);
+		free_names = PROFESSIONVIPD->query_tianxiang_context_candidates(mage);
+		set_active_vip(mage,3);
+		PROFESSIONVIPD->initialize_player(mage);
+		PROFESSIONVIPD->set_auto_enabled(mage,1);
+		PROFESSIONVIPD->set_strategy(mage,"burst");
+		pve_names = PROFESSIONVIPD->query_tianxiang_context_candidates(mage);
+		mage->_clean_fight(); mage->_fight(pvp);
+		pvp_names = PROFESSIONVIPD->query_tianxiang_context_candidates(mage);
+	};
+	if(err) error_desc = describe_error(err);
+	if(!err && sizeof(free_names)==0 && search(pve_names,"xingluo")!=-1 &&
+	   sizeof(pvp_names)==0 && mage->query_think()==think_before &&
+	   mage->query_life_max()==life_before)
+		test_pass();
+	else
+		test_fail("天象档位、PVE/PVP或数值边界错误: "+error_desc);
+	destroy_player(mage); destroy_player(pvp);
 	if(npc) destruct(npc);
 	if(room) destruct(room);
 }
@@ -332,6 +375,7 @@ int main()
 	test_fangshi_auto_replenish();
 	test_fangshi_resonance_pve_only();
 	test_zhenyue_tier_and_pvp_boundaries();
+	test_tianxiang_tier_and_pvp_boundaries();
 	test_style_purchase_is_cosmetic();
 	test_growth_pass_level_claims();
 	test_monitor_throttle_and_expiry_notice();

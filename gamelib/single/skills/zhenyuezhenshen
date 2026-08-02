@@ -2,7 +2,7 @@
 #include <gamelib/include/gamelib.h>
 inherit WAP_SKILL;
 protected void create(){
-	name=object_name(this_object()); name_cn="【岳】镇岳真身";
+	name=object_name(this_object()); name_cn="【越】镇越真身";
 	desc="短时间扩展生命上限，提高承压空间但不直接免疫伤害";
 	s_type="zhudong"; s_skill_type="buff"; s_curse_type="life_max"; s_delayTime=75; s_lasttime=18;
 	performs_attack[1]=900; performs_attack[2]=1500; performs_attack[3]=2300; performs_attack[4]=3300; performs_attack[5]=4500;

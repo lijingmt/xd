@@ -572,9 +572,7 @@ string query_bang_members(object viewer,int bangid,int level)
 				string name_cn = member->query_name_cn();
 				if(!name_namecn[bangid][name])
 					name_namecn[bangid][name]=name_cn;
-				string idle="";
-				if(member->query_idle()/60>3) 
-					idle="<发呆"+member->query_idle()/60+"分钟>";
+				string idle=member->query_idle_label();
 				string postions="";
 				object env = environment(member);
 				postions = (string)env->query_name_cn();

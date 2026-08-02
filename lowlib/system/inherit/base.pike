@@ -127,7 +127,10 @@ string query_name_cn(void|int true_name){
 			this_object()->query_raceId()=="third"){
 			if(this_object()["query_profeId"] &&
 			   this_object()->query_profeId()=="zhenyue")
-				return "无名镇岳";
+				return "无名镇越";
+			if(this_object()["query_profeId"] &&
+			   this_object()->query_profeId()=="tianxiang")
+				return "无名天象";
 			return "无名方士";
 		}
 		else

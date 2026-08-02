@@ -316,9 +316,11 @@ void test_battle_poll_efficiency()
 	int valid = daemon && renderer &&
 		search(daemon," Enemy %s HP:")==-1 &&
 		search(renderer,"result[\"guard_active\"]")!=-1 &&
-		search(renderer,"query_buff(\"team_guard\", 1)")!=-1;
-	test_result("战斗秒级轮询不刷成功日志且返回镇岳护盾状态",valid,
-		"战斗状态轮询仍有高频磁盘I/O或护盾不可观测");
+		search(renderer,"query_buff(\"team_guard\", 1)")!=-1 &&
+		search(renderer,"result[\"star_marks\"]")!=-1 &&
+		search(renderer,"query_tianxiang_star_marks")!=-1;
+	test_result("战斗秒级轮询不刷成功日志且返回镇越护盾/天象星痕状态",valid,
+		"战斗状态轮询仍有高频磁盘I/O或职业资源不可观测");
 }
 
 int main()

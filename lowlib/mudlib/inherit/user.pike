@@ -131,6 +131,16 @@ void setup_player(string rid, string pid){
 			this_object()->set_think(5);
 			this_object()->set_lunck(0);
 		}
+		else if(pid&&pid=="tianxiang"){
+			kind_cn = "中立";
+			unit = "位";
+			this_object()->set_life(90);
+			this_object()->set_mofa(110);
+			this_object()->set_str(7);
+			this_object()->set_dex(5);
+			this_object()->set_think(13);
+			this_object()->set_lunck(0);
+		}
 	}
 }
 //每次调用reconnect将会传回密码字段进行验证
@@ -143,10 +153,13 @@ int move(mixed dest){
 	if(environment(this_object()) && environment(this_object())!=(object)dest &&
 	   this_object()->query_buff("team_guard",0)!="none")
 		this_object()->clean_buff("team_guard");
+	if(environment(this_object()) && environment(this_object())!=(object)dest)
+		this_object()->clean_tianxiang_star_marks();
 	return ::move(dest);
 }
 void remove(){
 	this_object()->clean_buff("team_guard");
+	this_object()->clean_tianxiang_star_marks();
 	this_object()->update_online_time();
 	if(this_object()->sid != "5dwap")
 		save();

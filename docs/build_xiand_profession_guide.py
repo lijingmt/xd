@@ -44,7 +44,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 PDF_PATH = DOCS / "xiand-all-professions-progression-guide.pdf"
 MD_PATH = DOCS / "xiand-all-professions-progression-guide.md"
-DESKTOP_PDF_PATH = Path.home() / "Desktop" / "仙道全职业技能与装备成长手册-方士重点版.pdf"
+DESKTOP_PDF_PATH = Path.home() / "Desktop" / "仙道全职业技能与装备成长手册-九职业天象版.pdf"
 
 PAGE_W, PAGE_H = A4
 LEFT_MARGIN = 14 * mm
@@ -149,11 +149,11 @@ PROFESSIONS = [
         "initial": "生命100 / 法力50 / 力10 / 敏8 / 智8",
         "growth": "力=10+1.5L；敏=5+0.8L；智=12+2.0L",
         "gear": "全属性、智力、法力、生命、防御；按实际技能与队伍补物攻",
-        "identity": "唯一中立职业，虎鹤龟召唤、单体/团队治疗与三灵共鸣并行。",
+        "identity": "中立召唤职业，虎鹤龟召唤、单体/团队治疗与三灵共鸣并行。",
     },
     {
         "id": "zhenyue",
-        "name": "镇岳",
+        "name": "镇越",
         "faction": "中立",
         "role": "守护坦克 / 仇恨控制 / 队伍护盾",
         "starter": "yueji",
@@ -162,6 +162,18 @@ PROFESSIONS = [
         "growth": "力=14+2.7L；敏=3+0.6L；智=5+0.8L",
         "gear": "力量、生命、防御、命中、物攻；组队优先护盾与稳定仇恨",
         "identity": "中立守护坦克，以高防御、倍率仇恨、同房队伍护盾和可耗尽个人盾承担正面压力。",
+    },
+    {
+        "id": "tianxiang",
+        "name": "天象",
+        "faction": "中立",
+        "role": "元素法师 / 星痕爆发 / 法抗控制",
+        "starter": "xingmang",
+        "starter_cn": "星芒",
+        "initial": "生命90 / 法力110 / 力7 / 敏5 / 智13",
+        "growth": "力=7+0.8L；敏=5+0.8L；智=13+2.8L",
+        "gear": "智力、法力、全系法伤、法术穿透；兼顾生命与护盾",
+        "identity": "以火、冰、风法术积蓄至多三层星痕，再用星落受控引爆；兼有个人盾与法抗压制。",
     },
 ]
 
@@ -177,6 +189,7 @@ HIDDEN_SKILLS = {
     "yinggui": ["无影绝灭", "九幽鬼步", "六道障目"],
     "fangshi": ["太虚灵陨", "万灵朝生", "四象封禁"],
     "zhenyue": ["万山朝拱", "不周震击", "天地成壁"],
+    "tianxiang": ["星河坠落", "周天静止", "万象星壁"],
 }
 
 SKILL_TYPE_LABELS = {
@@ -215,14 +228,26 @@ FANGSHI_MILESTONES = [
 ]
 
 ZHENYUE_MILESTONES = [
-    ("创建", "选择中立/镇岳，获得岳击、桃木剑与三件基础防具，并自动补穿空位。"),
+    ("创建", "选择中立/镇越，获得岳击、桃木剑与三件基础防具，并自动补穿空位。"),
     ("10级前", "山引、镇岩、横山击建立防御、基础输出与高倍率仇恨循环。"),
-    ("20级", "完成初镇山门，获得镇岳专属护心挂件。"),
+    ("20级", "完成初镇山门，获得镇越专属护心挂件。"),
     ("15-49级", "地震吼可靠置顶同房存活敌人的仇恨；山河壁为自己和同房存活队友提供独立可耗尽护盾。"),
     ("53级", "背山试阵 -> 冥关承压 -> 五岳定势 -> 万山同守四段职业任务按前置解锁。"),
-    ("60-75级", "每日高级书逐步补齐聚岳破、玄铁盾、岳反震、镇岳真身、万山不孤等强化能力。"),
+    ("60-75级", "每日高级书逐步补齐聚岳破、玄铁盾、岳反震、镇越真身、万山不孤等强化能力。"),
     ("70级", "实际等级70+怪物进入隐藏技能书资格池；智能挂机会按队伍仇恨和护盾状态选技能。"),
     ("80级", "可学习万山朝拱、不周震击、天地成壁；后续阶段门槛为100/120/140/160级。"),
+]
+
+TIANXIANG_MILESTONES = [
+    ("创建", "选择中立/天象，获得星芒、桃木剑与三件基础防具，并自动补穿空位。"),
+    ("2-10级", "观天一级、寒辰与流星形成火冰风三系起手；不同攻击法术命中可刷新并积蓄星痕。"),
+    ("15-20级", "星壁提供可耗尽个人盾；星锁在8秒内降低目标全系法抗。"),
+    ("20级", "完成初观星轨，获得天象专属观星盘。"),
+    ("25-50级", "曜光、天旋、星雨、月引补齐多元素轮换；观天被动分段提高基础智力。"),
+    ("53级", "星轨初明 -> 冥夜定心 -> 五星归位 -> 三星同辉四段任务严格按前置解锁。"),
+    ("60级", "星落成为核心引爆技：消耗至多三层星痕，普通PVE每层+10%，玩家/Boss每层+8%。"),
+    ("66-70级", "观天五级与九星连珠进入每日高级书路线；实际等级70+怪进入隐藏书资格池。"),
+    ("80级", "可学习星河坠落、周天静止、万象星壁；后续阶段门槛为100/120/140/160级。"),
 ]
 
 REALM_PREFIXES = [
@@ -289,7 +314,7 @@ def parse_skills() -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
     skill_dir = ROOT / "gamelib/single/skills"
     prof_pattern = re.compile(
-        r'skill_type\s*\+=\s*\(\{\s*"(jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue)"\s*\}\)'
+        r'skill_type\s*\+=\s*\(\{\s*"(jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue|tianxiang)"\s*\}\)'
     )
     for path in sorted(skill_dir.iterdir()):
         if not path.is_file():
@@ -456,7 +481,7 @@ class GuideDocTemplate(BaseDocTemplate):
             canvas.drawRightString(
                 PAGE_W - RIGHT_MARGIN,
                 PAGE_H - 8.5 * mm,
-                "方士重点版",
+                "九职业天象版",
             )
             canvas.line(LEFT_MARGIN, 10 * mm, PAGE_W - RIGHT_MARGIN, 10 * mm)
             canvas.drawCentredString(PAGE_W / 2, 6.5 * mm, f"- {doc.page} -")
@@ -794,10 +819,10 @@ def build_handbook() -> None:
     # Cover
     story.append(Spacer(1, 18 * mm))
     icon_paths = [
-        ROOT / "images/third_logo.png",
+        ROOT / "images/tianxiang_logo.png",
         ROOT / "images/human_fangshi_male.png",
         ROOT / "images/human_fangshi_logo.png",
-        ROOT / "images/human_fangshi_female.png",
+        ROOT / "images/tianxiang_female.png",
     ]
     icon_cells = [
         Image(str(path), width=18 * mm, height=18 * mm) for path in icon_paths
@@ -817,7 +842,7 @@ def build_handbook() -> None:
     story.append(Paragraph("仙道全职业技能与装备成长手册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-            "从创建人物到千级终局 · 八职业全覆盖 · 方士与镇岳重点版",
+            "从创建人物到千级终局 · 九职业全覆盖 · 方士、镇越与天象重点版",
             styles["CoverSub"],
         )
     )
@@ -884,7 +909,7 @@ def build_handbook() -> None:
         [
             "# 仙道全职业技能与装备成长手册",
             "",
-            "从创建人物到千级终局 · 八职业全覆盖 · 方士与镇岳重点版",
+            "从创建人物到千级终局 · 九职业全覆盖 · 方士、镇越与天象重点版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
@@ -979,7 +1004,7 @@ def build_handbook() -> None:
     )
 
     # 2. Profession matrix
-    guide.h1("2. 八职业选择与属性成长")
+    guide.h1("2. 九职业选择与属性成长")
     guide.paragraph(
         "L 表示“当前等级减1”。创建时的初始属性与升级重算公式同时列出；升级后生命和法力会按公共等级逻辑恢复至上限。"
     )
@@ -1010,7 +1035,8 @@ def build_handbook() -> None:
             ["毒风持续压制", "巫妖", "毒、风、持续伤害和治疗压制均衡。"],
             ["闪避刺杀与影遁", "影鬼", "敏捷成长最高，脱战、冷却重置和第一击爆发鲜明。"],
             ["召唤、治疗与中立自由", "方士", "唯一拥有实体虎鹤龟、团队治疗、共鸣和双阵营公共设施访问。"],
-            ["稳定承伤与保护队友", "镇岳", "高防御成长、可靠仇恨和独立队伍护盾，单人时也有个人盾与稳健输出。"],
+            ["稳定承伤与保护队友", "镇越", "高防御成长、可靠仇恨和独立队伍护盾，单人时也有个人盾与稳健输出。"],
+            ["多元素循环与蓄势爆发", "天象", "火冰风法术积蓄至多三层星痕，兼具个人盾、法抗控制和受控引爆。"],
         ],
         [1.2, 0.9, 3.1],
     )
@@ -1026,7 +1052,7 @@ def build_handbook() -> None:
             ["3. 入包", "打开 inventory", "物品真实进入背包", "购买完成仍未学习"],
             ["4. 学习", "点击书上的“学习”", "等级、职业、前置技能、重复技能", "替换书会删除旧技能键并加入新技能"],
             ["5. 实战", "成功施放技能", "BOSS技能除外；约1/3概率增长熟练度", "显示0%不一定是故障"],
-            ["6. 升段", "熟练度达到门槛", "技能等级+1，熟练度归零", "方士多数技能只有5段；旧职业多数为10段"],
+            ["6. 升段", "熟练度达到门槛", "技能等级+1，熟练度归零", "方士、镇越与天象多为5段；旧职业多数为10段"],
         ],
         [0.75, 1.3, 1.65, 1.45],
     )
@@ -1257,7 +1283,7 @@ def build_handbook() -> None:
     )
     guide.bullets(
         [
-            "二十四本隐藏书共用总掉率24/100000，二十四本等概率，单本长期均值仍约1/100000。",
+            "二十七本隐藏书共用总掉率27/100000，二十七本等概率，单本长期均值仍约1/100000。",
             "资格只看怪物实际等级70+，不看击杀者等级或地图名字。",
             "团队Boss、团队普通怪与单人击杀各自每只怪只掷一次；队伍人数不会放大掉率。",
             "队伍/个人地面归属保护120秒；无人拾取5分钟后清理。",
@@ -1293,10 +1319,10 @@ def build_handbook() -> None:
 
     # 5.12 Zhenyue
     guide.pagebreak()
-    guide.h1("5.12 镇岳重点：中立守护坦克")
+    guide.h1("5.12 镇越重点：中立守护坦克")
     guide.callout(
-        "镇岳不是靠血量膨胀的木桩",
-        "镇岳通过可靠仇恨、同房间队伍护盾和可耗尽个人盾主动承担压力。护盾有额度、持续和冷却，嘲讽只改变存活同房目标的仇恨，不提供无敌、永久反射或远程强控。",
+        "镇越不是靠血量膨胀的木桩",
+        "镇越通过可靠仇恨、同房间队伍护盾和可耗尽个人盾主动承担压力。护盾有额度、持续和冷却，嘲讽只改变存活同房目标的仇恨，不提供无敌、永久反射或远程强控。",
     )
     guide.h2("5.12.1 创建、属性与中立规则")
     guide.table(
@@ -1313,7 +1339,7 @@ def build_handbook() -> None:
     )
     guide.bullets(
         [
-            "创建时选择 race=third、profession=zhenyue；旧账号若已选中立但职业为空，会保留原阵营并重新显示方士/镇岳选择，不再被改成妖族。",
+            "创建时选择 race=third、profession=zhenyue；旧账号若已选中立但职业为空，会保留原阵营并重新显示方士/镇越/天象选择，不再被改成妖族。",
             "可使用仙妖双方公共设施，可跨两边组队、交易、交流和加入帮派；自身仍是中立职业，不能伪装成人类或妖魔职业。",
             "职业商店、导师、技能书读取、任务奖励和装备穿戴均在服务器端校验 zhenyue，伪造前端命令不能购买或学习。",
         ]
@@ -1355,7 +1381,7 @@ def build_handbook() -> None:
     guide.table(
         ["等级", "任务路线", "奖励/作用"],
         [
-            ["20", "初镇山门", "镇岳护心挂件；仅镇岳可穿，禁止交易和寄送"],
+            ["20", "初镇山门", "镇越护心挂件；仅镇越可穿，禁止交易和寄送"],
             ["53", "背山试阵 -> 冥关承压 -> 五岳定势 -> 万山同守", "严格按前置解锁，终点奖励万山不孤技能书"],
             ["80+", "万山朝拱 / 不周震击 / 天地成壁", "队伍巨盾 / 600%仇恨重击 / 可耗尽个人盾"],
         ],
@@ -1363,13 +1389,97 @@ def build_handbook() -> None:
     )
     guide.callout(
         "三本隐藏书仍与其他职业等概率",
-        "全服24本隐藏书共用24/100000总掉率，命中后24本等概率，因此每一本长期均值仍约1/100000。镇岳没有因为新增职业稀释其他职业的单本概率。",
+        "全服27本隐藏书共用27/100000总掉率，命中后27本等概率，因此每一本长期均值仍约1/100000。新增职业没有稀释旧职业单本概率。",
         "gold",
     )
-    guide.h2("5.12.6 镇岳15个技能对象全表")
+    guide.h2("5.12.6 镇越15个技能对象全表")
     guide.table(
         ["技能(内部ID)", "形态", "类别", "角色等级门槛", "冷却", "实际定位"],
         skill_rows(skills_by_prof["zhenyue"]),
+        [1.8, 0.55, 0.95, 1.1, 0.7, 2.5],
+        compact=True,
+    )
+
+    # 5.13 Tianxiang
+    guide.pagebreak()
+    guide.h1("5.13 天象重点：中立星痕法师")
+    guide.callout(
+        "天象不是无条件叠层炮台",
+        "天象用不同攻击法术命中积蓄星痕，最多三层且十五秒未刷新即消散；星落与星河坠落会消耗现有层数。换房、脱战、死亡或掉线均清空，客户端不能提交层数、时限或倍率。",
+    )
+    guide.h2("5.13.1 创建、属性与装备")
+    guide.table(
+        ["阵营", "起手技能", "创建属性", "升级公式", "装备优先级"],
+        [[
+            PROF_BY_ID["tianxiang"]["faction"],
+            PROF_BY_ID["tianxiang"]["starter_cn"],
+            PROF_BY_ID["tianxiang"]["initial"],
+            PROF_BY_ID["tianxiang"]["growth"],
+            PROF_BY_ID["tianxiang"]["gear"],
+        ]],
+        [0.6, 0.8, 1.45, 1.55, 1.8],
+        compact=True,
+    )
+    guide.bullets(
+        [
+            "创建时选择 race=third、profession=tianxiang；排行标签为【象】，默认身份为无名天象。",
+            "可使用中立职业的双阵营公共设施与社交路径，但导师、职业商店、读书、任务奖励和装备限制均独立校验 tianxiang。",
+            "核心装备优先智力、法力、全系法伤与法术穿透；星壁和万象星壁虽随智力成长，仍是有额度和时限的个人盾。",
+        ]
+    )
+    guide.h2("5.13.2 0到高阶里程碑")
+    guide.table(
+        ["阶段", "能力与行动"],
+        [list(row) for row in TIANXIANG_MILESTONES],
+        [0.9, 4.5],
+    )
+    guide.h2("5.13.3 星痕循环与边界")
+    guide.table(
+        ["环节", "规则", "战术价值", "安全边界"],
+        [
+            ["生成", "星芒、寒辰、流星等攻击星术成功命中后+1层", "交替元素并保持施法节奏", "服务端确认命中；最多3层；未学技能不能伪造"],
+            ["维持", "每次有效生成刷新15秒时限", "短暂防守后仍可继续连招", "换房、脱战、死亡、掉线或到期立即清空"],
+            ["引爆", "星落或星河坠落消费至多3层", "选择安全窗口把积蓄转成爆发", "普通PVE每层+10%；玩家和Boss每层+8%，均封顶3层"],
+            ["防护/控制", "星壁吸收伤害；星锁降低全系法抗", "在积蓄前建立生存与穿透窗口", "护盾可耗尽；控制有命中、时限、抵抗和冷却，不生成星痕"],
+            ["挂机", "按护盾、星痕层数和冷却选择已学技能", "自动建立星痕后择机引爆", "仅PVE；照常消耗法力、冷却与行动回合"],
+        ],
+        [0.65, 1.65, 1.55, 2.0],
+        compact=True,
+    )
+    guide.h2("5.13.4 普通与每日高级技能书")
+    guide.h3("普通技能书")
+    guide.table(
+        ["等级", "技能书", "书ID", "价格", "入口"],
+        book_rows(books_by_prof["tianxiang"], advanced=False),
+        [0.45, 1.55, 1.35, 1.2, 1.15],
+        compact=True,
+    )
+    guide.h3("60级以上每日轮换")
+    guide.table(
+        ["等级", "技能书", "书ID", "价格", "入口"],
+        book_rows(books_by_prof["tianxiang"], advanced=True),
+        [0.45, 1.55, 1.35, 1.2, 1.15],
+        compact=True,
+    )
+    guide.h2("5.13.5 专属任务与隐藏传承")
+    guide.table(
+        ["等级", "任务路线", "奖励/作用"],
+        [
+            ["20", "初观星轨", "天象观星盘；仅天象可穿，作为职业成长纪念装备"],
+            ["53", "星轨初明 -> 冥夜定心 -> 五星归位 -> 三星同辉", "严格按前置解锁，终点奖励星落技能书"],
+            ["80+", "星河坠落 / 周天静止 / 万象星壁", "星痕爆发 / 8秒命中压制 / 15秒可耗尽个人巨盾"],
+        ],
+        [0.65, 2.65, 2.6],
+    )
+    guide.callout(
+        "三本隐藏书与旧职业等概率",
+        "全服27本隐藏书共用27/100000总掉率，命中后27本等概率，因此每一本长期均值仍约1/100000。",
+        "gold",
+    )
+    guide.h2("5.13.6 天象15个技能对象全表")
+    guide.table(
+        ["技能(内部ID)", "形态", "类别", "角色等级门槛", "冷却", "实际定位"],
+        skill_rows(skills_by_prof["tianxiang"]),
         [1.8, 0.55, 0.95, 1.1, 0.7, 2.5],
         compact=True,
     )
@@ -1540,7 +1650,7 @@ def build_handbook() -> None:
         ["判断项", "正确规则", "错误理解"],
         [
             ["资格等级", "被击杀怪物实际等级70+", "玩家70级就必定有资格"],
-            ["总掉率", "24/100000，共24本等概率", "每个队员各掷一次"],
+            ["总掉率", "27/100000，共27本等概率", "每个队员各掷一次"],
             ["可学习等级", "人物80级且职业匹配", "捡到即可跨职业学习"],
             ["归属保护", "个人或队伍120秒", "完整5分钟都属于原队伍"],
             ["清理", "无人拾取5分钟后删除", "永久留在地面"],
@@ -1554,7 +1664,7 @@ def build_handbook() -> None:
             [PROF_BY_ID[pid]["name"], *HIDDEN_SKILLS[pid]]
             for pid in [
                 "jianxian", "yushi", "zhuxian", "kuangyao",
-                "wuyao", "yinggui", "fangshi", "zhenyue"
+                "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang"
             ]
         ],
         [0.8, 1.45, 1.45, 1.45],
@@ -1570,7 +1680,7 @@ def build_handbook() -> None:
             ["任务", "mytasks", "经验、金钱、职业饰物与技能书", "优先职业限制和连续任务"],
             ["技能", "buy_items book <职业ID> / myskills", "形成职业循环", "购买后必须在背包学习"],
             ["自动穿装", "auto_equip", "补齐空装备位", "不会替换现有装备，需手工比较升级"],
-            ["队伍", "my_term", "组队打Boss、分担风险", "网页邀请保留120秒并弹窗同意/拒绝；方士治疗、镇岳护盾均要求同房间队伍"],
+            ["队伍", "my_term", "组队打Boss、分担风险", "网页邀请保留120秒并弹窗同意/拒绝；方士治疗、镇越护盾均要求同房间队伍"],
             ["副本", "fb_entry / fb_leave", "固定挑战、团队奖励与掉落分配", "普通副本不使用动态怪，破散之地例外"],
             ["聊天/社交", "chatroom_list / tell / follow", "组织队伍、交易与社区", "中立职业可跨仙妖社交"],
             ["帮派", "my_bang / bang_*", "组织、职位、帮派目标与城池归属", "中立职业可加入两边帮派"],
@@ -1582,7 +1692,7 @@ def build_handbook() -> None:
             ["宝石/转化", "equip_xiangqian_* / convert_equip_*", "定向强化长期装备", "高等级稳定装备再投入"],
             ["高级书", "yushi_buy_hlbook_list", "60级以上职业进阶", "每天检查2本职业独立轮换"],
             ["离线/自动修炼", "自动战斗与 autolearn 区域", "降低重复操作成本", "确保技能、药品和路线与职业匹配"],
-            ["职业助手", "profession_assistant", "方士/镇岳PVE职业循环辅助", "手动技能永久免费；VIP只增加可选自动化，不增加战斗数值"],
+            ["职业助手", "profession_assistant", "方士/镇越/天象PVE职业循环辅助", "手动技能永久免费；VIP只增加可选自动化，不增加战斗数值"],
             ["会员突破", "vip_service_list / myhp", "120级后继续获得打怪经验", "VIP1/2/3/4对应140/160/180/200级；过期后保留等级但停止继续升级"],
             ["意见反馈", "feedback", "提交问题、建议并跟踪审核状态", "采纳后固定奖励100碎玉；后台审核与奖励均防重复"],
         ],
@@ -1609,6 +1719,7 @@ def build_handbook() -> None:
             "当日额度用完后，普通至VIP3会提示下一档会员及新增时长，并提供会员和捐款入口；VIP4钻石已是16小时最高档，只提示次日登录后重置，不再误导升级。",
             "人物自动存档周期为30秒；存档采用临时文件写入、非空校验与备份替换，损坏或空文件可从备份恢复。",
             "重启脚本先执行游戏内安全停服，覆盖Socket与Vue/HTTP在线人物；任一人物保存失败就取消重启，不再直接强杀。",
+			"发呆时间按最后一次真实操作计算：Vue点击命令、战斗和仍在执行的自动挂机会刷新；只轮询状态、房间或战斗小窗不会刷新。普通玩家60分钟、有效VIP120分钟后踢线，在线列表与踢线使用同一口径。",
 			"HTTP普通请求最多16个并行工作线程；同一账号严格串行，购买、交易、组队、采集和施法等共享状态命令再进入全局核心锁。",
 			"HTTP查询、正文、命令和静态路径都有硬边界；超大请求返413，目录穿越被拒绝，数据库初始化异常不再向日志泄露连接密码。",
 			"MUD本地与容器启动统一使用1000000层Pike求值栈、64MiB线程栈和开放系统栈，数值非正时拒绝启动。",
@@ -1630,15 +1741,15 @@ def build_handbook() -> None:
         "清包安全底线",
         "穿戴、任务、技能书、玉石、宝箱、补给、不可交易/丢弃/存储、唯一、特殊来源以及高品质物品受永久保护，不因VIP等级提高而放宽。",
     )
-    guide.h2("8.3 方士/镇岳职业助手与公平付费")
+    guide.h2("8.3 方士/镇越/天象职业助手与公平付费")
     guide.table(
         ["身份/档位", "职业助手能力", "公平边界"],
         [
             ["普通/未启用", "全部技能、召唤、治疗、嘲讽和护盾均可手动使用", "不代替操作，不限制任何职业核心能力"],
             ["一次性3日体验", "仅开放黄金职业助手体验", "不是通用VIP，不附带挂机时长、等级突破或其他会员权益"],
             ["VIP1 水晶", "状态监测、异常提醒、1个策略槽", "只提供信息，不自动施放"],
-            ["VIP2 黄金", "方士PVE自动补灵；镇岳PVE仇恨判断，2个策略槽", "使用真实技能、法力、冷却和行动回合"],
-            ["VIP3 白金", "方士救急共鸣/队伍感知；镇岳队伍守护优先，3个策略槽", "只作用于同房间有效目标，不能替代队伍规则"],
+            ["VIP2 黄金", "方士PVE自动补灵；镇越PVE仇恨判断；天象星痕循环，2个策略槽", "使用真实技能、法力、冷却和行动回合"],
+            ["VIP3 白金", "方士救急共鸣；镇越队伍守护；天象爆发窗口优先，3个策略槽", "只作用于同房间有效目标，不能替代队伍与星痕规则"],
             ["VIP4 钻石", "60秒滞回自动切换策略与详细报告，4个策略槽", "避免频繁抖动；仍不增加技能数值或成功率"],
         ],
         [1.15, 2.75, 2.2],
@@ -1704,7 +1815,7 @@ def build_handbook() -> None:
             ["达到120", "普通身份停止获得升级经验；查看状态页上限提示，按需进入会员或捐款说明"],
             ["VIP突破", "有效VIP1/2/3/4分别可升至140/160/180/200；到期保留已有等级但停止继续升级"],
             ["智能挂机", "确认技能模式、补血补法、路线和清包保护；普通8小时、VIP最高16小时"],
-            ["职业助手", "方士/镇岳手动能力不受会员限制；自动化只在PVE生效，且照常消耗法力、冷却与行动回合"],
+            ["职业助手", "方士/镇越/天象手动能力不受会员限制；自动化只在PVE生效，且照常消耗法力、冷却与行动回合"],
             ["意见反馈", "从feedback提交后能看到编号与待审核状态；被采纳时只领取一次100碎玉"],
             ["九霄终局", "990级才开放五图目录与999级怪；当前标准VIP最高200，因此属于未来/管理验证内容"],
         ],
@@ -1721,12 +1832,15 @@ def build_handbook() -> None:
             ["被动", "灵智魂按29/32/35/38/41顺序学习，属性实际生效"],
             ["任务", "20级三灵初契；53级四段链最终获得三灵合一书"],
             ["装备", "可用旧职业受限装备，但按角色定位补全属性而不是盲追单一稀有度"],
-            ["方士神技", "八职业各3本、共24本专属神技不在任何商店，只走极低概率掉落"],
-            ["镇岳仇恨", "嘲讽只锁定同房间存活敌人；死亡、换房与掉线不会留下有效目标"],
-            ["镇岳护盾", "无队只保护自己；有队只加给同房间存活成员，且不覆盖其他职业Buff"],
-            ["镇岳任务", "20级初镇山门与53级四段任务按导师、职业和前置严格校验"],
+            ["隐藏神技", "九职业各3本、共27本专属神技不在任何商店，只走极低概率掉落"],
+            ["镇越仇恨", "嘲讽只锁定同房间存活敌人；死亡、换房与掉线不会留下有效目标"],
+            ["镇越护盾", "无队只保护自己；有队只加给同房间存活成员，且不覆盖其他职业Buff"],
+            ["镇越任务", "20级初镇山门与53级四段任务按导师、职业和前置严格校验"],
             ["方士助手", "VIP2起只在PVE按配置补灵；VIP3可按队伍危机使用共鸣，不能作用于玩家或玩家召唤物"],
-            ["镇岳助手", "VIP2起只在PVE辅助仇恨；VIP3可优先同房队友护盾，技能资源与冷却照常结算"],
+            ["镇越助手", "VIP2起只在PVE辅助仇恨；VIP3可优先同房队友护盾，技能资源与冷却照常结算"],
+            ["天象星痕", "最多3层、15秒；换房、脱战、死亡、掉线清空，只有服务端确认命中的攻击法术会生成"],
+            ["天象引爆", "星落/星河坠落消耗星痕；普通PVE每层+10%，玩家和Boss每层+8%"],
+            ["天象助手", "只在PVE推荐或自动执行已学技能，不增加星痕上限、伤害系数、法力或冷却优势"],
         ],
         [1.25, 4.1],
     )
@@ -1744,9 +1858,10 @@ def build_handbook() -> None:
             ["为什么70级没掉隐藏书？", "只进入资格池；单本长期均值仍约1/100000，且看怪物实际等级。"],
             ["高级书为什么今天没有？", "每职业每天只轮换2本；第二天或下次刷新再检查。"],
             ["方士为什么没有专属装备套？", "方士已兼容旧职业限制装备，专属高数值套会造成额外强度跃迁。"],
-            ["镇岳护盾为什么没有回血？", "它是有额度和时限的伤害吸收，不是治疗；耗尽后剩余伤害继续结算。"],
-            ["镇岳嘲讽为什么没拉到目标？", "确认目标存活且与镇岳同房间；跨房、死亡目标和自己都不会被强制仇恨。"],
+            ["镇越护盾为什么没有回血？", "它是有额度和时限的伤害吸收，不是治疗；耗尽后剩余伤害继续结算。"],
+            ["镇越嘲讽为什么没拉到目标？", "确认目标存活且与镇越同房间；跨房、死亡目标和自己都不会被强制仇恨。"],
             ["职业助手会不会破坏平衡？", "不会增加属性、技能或成功率；只在PVE按真实资源和冷却自动执行已有能力，PVP强制手动。"],
+            ["我一直操作为什么还显示发呆？", "当前已改为最后真实操作时间：Vue命令会立即刷新；只开页面看状态不会刷新。普通60分钟、有效VIP120分钟后踢线。"],
             ["17级挂机为什么看见怪却不打？", "旧原因是共享房怪物残留70级动态属性；当前版本会自动恢复原始17级怪并继续选怪。"],
             ["挂机空图为什么不打怪？", "开启智能寻路后会在当前练级区巡游，必要时主动切换到匹配等级且有怪的地图。"],
             ["自动挂机会放技能吗？", "会；智能模式按职业和已学阶段选择主动技能，并检查法力、武器与冷却，失败时使用普通攻击。"],
@@ -1773,9 +1888,10 @@ def build_handbook() -> None:
             "掉落与高阶装备：gamelib/single/daemons/itemsd.pike、bossdropd.pike",
             "锻造与熔炼：duanzaod.pike、rongliand.pike、duanzao.csv、ronglian.csv",
             "方士召唤与共鸣：gamelib/cmds/summon.pike、gamelib/single/daemons/summond.pike",
-            "镇岳仇恨与队伍护盾：lowlib/mudlib/inherit/feature/char.pike、lowlib/wapmud2/inherit/feature/fight.pike",
-            "镇岳全链路回归：test_unit/test_zhenyue_profession.pike",
-            "方士/镇岳职业助手与公平付费：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
+            "镇越仇恨与队伍护盾：lowlib/mudlib/inherit/feature/char.pike、lowlib/wapmud2/inherit/feature/fight.pike",
+            "镇越全链路回归：test_unit/test_zhenyue_profession.pike",
+            "天象星痕、法术与全链路回归：lowlib/system/inherit/base.pike、lowlib/wapmud2/inherit/feature/fight.pike、test_unit/test_tianxiang_profession.pike",
+            "方士/镇越/天象职业助手与公平付费：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
             "职业助手运行时与边界回归：test_unit/test_profession_vip_assistant.pike",
             "战斗平衡：lowlib/wapmud2/inherit/feature/fight.pike、lowlib/mudlib/inherit/feature/char.pike",
             "逐级练级路线与共享房恢复：gamelib/single/daemons/autofightd.pike、lowlib/mudlib/single/roomd.pike",
@@ -1785,10 +1901,11 @@ def build_handbook() -> None:
             "组队邀请状态与Vue弹窗：gamelib/single/daemons/termd.pike、http_api_daemon.pike、vue_source/index.html",
             "意见反馈、审核与幂等奖励：gamelib/single/daemons/feedbackd.pike、gamelib/cmds/feedback.pike、mgr_feedback.pike",
             "原子存档与安全重启：lowlib/system/inherit/feature/save.pike、lowlib/system/cmds/shutdown_safe.pike、scripts/restart_with_testunit.sh",
+			"统一发呆时钟与Vue轮询边界：lowlib/system/inherit/user.pike、gamelib/single/daemons/idle_kickd.pike、virtual_conn.pike、test_unit/test_idle_kick_system.pike",
 			"HTTP有界并发、同账号串行与请求安全：gamelib/single/daemons/_http_api_mod/thread_manager.pike、http_api_daemon.pike、test_unit/test_http_thread_architecture.pike",
 			"SQL异常脱敏与安全回归：gamelib/single/daemons/auctiond.pike、test_unit/test_security_hardening.pike",
             "管理员等级操作：gamelib/cmds/mgr_set_level.pike、gamelib/cmds/mgr_usr_data.pike",
-            "重点回归：test_unit/test_combat_balance.pike、test_autofight_system.pike、test_feedback_system.pike、test_player_save_safety.pike、test_admin_level_management.pike",
+            "重点回归：test_unit/test_tianxiang_profession.pike、test_idle_kick_system.pike、test_combat_balance.pike、test_autofight_system.pike、test_feedback_system.pike、test_player_save_safety.pike、test_admin_level_management.pike",
             "任务、副本、家园、帮派、排行与玉石：对应cmds与daemon实现。",
         ]
     )

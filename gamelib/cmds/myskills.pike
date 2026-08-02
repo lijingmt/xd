@@ -18,8 +18,14 @@ int main(string|zero arg)
 			s += "【山河壁】剩余"+
 				this_player()->query_buff("team_guard",1)+"点，约"+
 				this_player()->query_buff("team_guard",2)+"秒。\n";
-		s += "[镇岳守御路线:newbie_guide roadmap]|[队伍:my_term]\n";
+		s += "[镇越守御路线:newbie_guide roadmap]|[队伍:my_term]\n";
 		s += "[山河守御助手（技能手动使用永久免费）:profession_assistant]\n";
+	}
+	if(this_player()->query_profeId()=="tianxiang"){
+		int marks = this_player()->query_tianxiang_star_marks();
+		s += "【星痕】"+marks+"/3（每次生成刷新15秒；换房、脱战、死亡或离线清空）\n";
+		s += "[天象星痕路线:newbie_guide roadmap]\n";
+		s += "[观星助手（技能手动使用永久免费）:profession_assistant]\n";
 	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改

@@ -1,6 +1,6 @@
 ---
 name: xiand-new-profession
-description: Design, implement, audit, balance, test, document, or extend a complete Xiand profession. Use when adding a character class or profession, adding another profession under the neutral third race, comparing a new class with Fangshi, Zhenyue, or legacy classes, creating profession skills/books/equipment/tasks/hidden drops, or checking that a profession works from character creation through high-level play, Vue UI, auto-fight, social systems, deployment, restart, and TestUnit validation.
+description: Design, implement, audit, balance, test, document, or extend a complete Xiand profession. Use when adding a character class or profession, adding another profession under the neutral third race, comparing a new class with Fangshi, Zhenyue, Tianxiang, or legacy classes, creating profession skills/books/equipment/tasks/hidden drops, or checking that a profession works from character creation through high-level play, Vue UI, auto-fight, social systems, deployment, restart, and TestUnit validation.
 ---
 
 # Xiand New Profession
@@ -15,9 +15,9 @@ as authoritative. Read `references/integration-map.md` before editing and use
 
 - Choose one stable lowercase ASCII profession ID and one Chinese display name.
 - Treat race and profession as separate axes. The neutral race `third` already
-  contains both Fangshi and Zhenyue; never equate `third` with one profession or
+  contains Fangshi, Zhenyue, and Tianxiang; never equate `third` with one profession or
   let a two-race `else` branch select a neutral profession accidentally.
-- The 2026-08-01 baseline has eight active professions and 24 hidden mythic
+- The 2026-08-01 baseline has nine active professions and 27 hidden mythic
   books. Never hard-code those totals in new generic logic: enumerate the
   authoritative catalog/pool and test that adding one profession grows every
   dependent set exactly once.
@@ -35,9 +35,13 @@ as authoritative. Read `references/integration-map.md` before editing and use
 - Give every stateful class mechanic an ownership and cleanup matrix covering
   move, team change, target change, death, logout, disconnect, expiry, recast,
   replacement, daemon reload, and stale/dead/cross-room objects.
+- Serialize every server-owned profession resource in both legacy and Vue
+  battle state. Expose only derived display values; never let the client submit
+  stacks, expiry, strength, duration, or target ownership.
 - Preserve per-book hidden-drop probability when expanding a uniform pool. In
   the current one-roll-per-monster design, adding three books means growing both
-  the pool and shared numerator from 24 to 27, not silently diluting old books.
+  the pool and shared numerator by three, not silently diluting old books. The
+  current nine-profession baseline is 27 books at 27/100000.
 - Keep generated equipment, normal drops, Boss drops, forge restrictions,
   auto-equip, storage, trade, and item descriptions profession-compatible.
 - Audit profession-limited medicine in `food`, `water`, `liandan`, and `teyao`;
@@ -46,6 +50,10 @@ as authoritative. Read `references/integration-map.md` before editing and use
 - Add the display name, rank tag, default unnamed title, top-list/game-list
   identity, logo, male/female avatars, both image mirrors, Vue use, and Docker
   asset copy. Distinct files must contain distinct intended images.
+- Treat session activity as a gameplay boundary: real player commands renew
+  activity, read-only HTTP status/battle/room polling does not, active automatic
+  combat may renew activity, and online lists must use the same idle/VIP policy
+  as the kick daemon.
 - Use bounded effects: no permanent invulnerability, unbounded reflection,
   resurrection side effects, arbitrary remote effects, or percent damage without
   player/Boss caps.
@@ -61,7 +69,7 @@ physical, one magical, and one special-role profession. Run:
 
 ```bash
 python3 .claude/skills/xiand-new-profession/scripts/audit_profession.py \
-  zhenyue --name-cn 镇岳 --race third --expect-hidden 3 --require-assets
+  zhenyue --name-cn 镇越 --race third --expect-hidden 3 --require-assets
 ```
 
 Use missing checks as investigation leads; the script is not proof of runtime

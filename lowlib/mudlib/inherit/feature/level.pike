@@ -170,10 +170,15 @@ void set_att_by_level(){
 		this_object()->set_dex(5+(int)(level_now*0.8));
 		this_object()->set_think(12+(int)(level_now*2));
 	}
-	if(this_object()->query_profeId()=="zhenyue"){//镇岳 - 中立职业，团队坦克
+	if(this_object()->query_profeId()=="zhenyue"){//镇越 - 中立职业，团队坦克
 		this_object()->set_str(14+(int)(level_now*2.7));
 		this_object()->set_dex(3+(int)(level_now*0.6));
 		this_object()->set_think(5+(int)(level_now*0.8));
+	}
+	if(this_object()->query_profeId()=="tianxiang"){//天象 - 中立职业，星痕法师
+		this_object()->set_str(7+(int)(level_now*0.8));
+		this_object()->set_dex(5+(int)(level_now*0.8));
+		this_object()->set_think(13+(int)(level_now*2.8));
 	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());

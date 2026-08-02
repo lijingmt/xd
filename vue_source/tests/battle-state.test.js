@@ -8,8 +8,9 @@ let nextBattleState = {
   in_battle: true,
   player: {
     name_cn: '测试方士', hp: 90, hp_max: 100,
-    mana: 70, mana_max: 80, level: 9, profe: '镇岳', race: '中立',
-    guard: 1200, guard_time: 10, guard_active: 1
+    mana: 70, mana_max: 80, level: 9, profe: '镇越', race: '中立',
+    guard: 1200, guard_time: 10, guard_active: 1,
+    star_marks: 2, star_marks_max: 3
   },
   enemy: {
     name: 'test_enemy', name_cn: '测试怪物', hp: 40, hp_max: 50,
@@ -88,6 +89,13 @@ const source = fs.readFileSync(
 vm.runInNewContext(source, sandbox, { filename: 'app.js' });
 
 assert(componentOptions, 'Vue component should be registered');
+const indexSource = fs.readFileSync(
+  path.join(__dirname, '..', 'index.html'),
+  'utf8'
+);
+assert(indexSource.includes('九职同行'));
+assert(indexSource.includes('星痕 {{ battlePlayerFull?.star_marks'));
+assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
 assert(soundDataUri.startsWith('data:audio/wav;base64,'));
 const soundBytes = Buffer.from(soundDataUri.split(',')[1], 'base64');
@@ -248,12 +256,17 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.parseMartialArtsSkill('九幽鬼步'), 'lightness');
   assert.strictEqual(client.extractSkillName('你发动了【三灵共鸣】！'), '三灵共鸣');
   assert.strictEqual(client.parseMartialArtsSkill('三灵共鸣'), 'summon');
-  assert.strictEqual(client.parseMartialArtsSkill('【岳】山河壁'), 'block');
-  assert.strictEqual(client.parseMartialArtsSkill('【岳】地震吼'), 'curse');
+  assert.strictEqual(client.parseMartialArtsSkill('【越】山河壁'), 'block');
+  assert.strictEqual(client.parseMartialArtsSkill('【越】地震吼'), 'curse');
   assert.strictEqual(client.parseMartialArtsSkill('【神】万山朝拱'), 'buff');
   assert.strictEqual(client.parseMartialArtsSkill('【神】不周震击'), 'fist');
   assert.strictEqual(client.parseMartialArtsSkill('【神】天地成壁'), 'block');
-  assert.strictEqual(client.getSkillAnimationTarget('block', '你施放了【岳】山河壁。'), 'player');
+  assert.strictEqual(client.parseMartialArtsSkill('【象】星落'), 'fire');
+  assert.strictEqual(client.parseMartialArtsSkill('【象】寒辰'), 'ice');
+  assert.strictEqual(client.parseMartialArtsSkill('【象】九星连珠'), 'wind');
+  assert.strictEqual(client.parseMartialArtsSkill('【神】万象星壁'), 'block');
+  assert.strictEqual(client.parseMartialArtsSkill('【象】星锁'), 'curse');
+  assert.strictEqual(client.getSkillAnimationTarget('block', '你施放了【越】山河壁。'), 'player');
   assert.strictEqual(client.extractSkillName('你召唤出了虎灵！'), '虎灵');
   assert.strictEqual(client.extractSkillName('你的仙力不够，无法施放【方】灵百雷(等级1)。'), '');
   assert.strictEqual(client.extractSkillName('该技能还需要8秒冷却时间,无法使用。'), '');

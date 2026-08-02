@@ -14,9 +14,10 @@
 | Avatar and logo | `images/`, `web/images/`, init/avatar tests, Vue header | male/female/default fallback and distinct bytes |
 | Deployment | `restart-docker.sh`, `rebuild-image.sh`, Vue build scripts | container/Tomcat assets match source |
 
-Current baseline is six legacy professions plus neutral Fangshi and neutral
-Zhenyue. Derive profession totals from authoritative data. Never make array
-length `8`, hidden count `24`, or `third == fangshi` part of generic behavior.
+Current baseline is six legacy professions plus neutral Fangshi, neutral
+Zhenyue, and neutral Tianxiang: nine professions in total. Derive profession
+totals from authoritative data. Never make array length `9`, hidden count `27`,
+or `third == fangshi` part of generic behavior.
 
 ## Skills and acquisition
 
@@ -41,8 +42,8 @@ by an unlearned character. Group effects are same-room, living, real-team only
 unless explicitly designed otherwise.
 
 When three mythic books are added, update the data-driven pool and shared rate
-together. At the current baseline, 24 books use a shared 24/100000 roll and then
-a uniform 24-way selection, retaining about 1/100000 per book. Never fix the
+together. At the current baseline, 27 books use a shared 27/100000 roll and then
+a uniform 27-way selection, retaining about 1/100000 per book. Never fix the
 pool size in unrelated UI, docs, or tests.
 
 ## Equipment and economy
@@ -107,7 +108,22 @@ control, summon, or target array, define and test:
 Zhenyue is the reference for finite personal/team shields, taunt/hate
 multipliers, team-change cleanup, and stale AOE target removal. Fangshi is the
 reference for cloned-object registries, owner cleanup, team healing, and alias
-preservation.
+preservation. Tianxiang is the reference for a bounded server-owned temporary
+resource: maximum three star marks, exact expiry/move/combat/death/logout
+cleanup, HTTP/Vue serialization, and separate normal-PVE versus player/Boss
+bonus caps.
+
+## Session activity and idle policy
+
+- Mark activity only for real player input and accepted gameplay commands.
+- Do not renew activity from read-only HTTP status, room, or battle polling;
+  otherwise an abandoned browser tab can remain online forever.
+- Automatic combat that is still executing real actions may renew activity.
+- Keep socket and Vue/HTTP timeouts aligned with the authoritative idle daemon.
+- Online-list labels must use the same ordinary/VIP timeout calculation as the
+  kick path and distinguish active automatic combat from idle display.
+- Test exact timeout boundaries, expired VIP, reconnect, stale virtual
+  connections, and a stopped client whose status polling has ceased.
 
 ## Profession VIP and monetization contract
 
@@ -150,9 +166,9 @@ skills, summons, equipment, drops, or combat formulas.
 Search for the new profession ID and for old hard-coded sets:
 
 ```bash
-rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue' \
+rg -n 'jianxian|yushi|zhuxian|kuangyao|wuyao|yinggui|fangshi|zhenyue|tianxiang' \
   gamelib lowlib vue_source test_unit
-rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*[678]|case [1-8]|21/100000|24/100000' \
+rg -n 'human.*monst|monst.*human|sizeof\([^)]*\)[[:space:]]*==[[:space:]]*[6789]|case [1-9]|21/100000|24/100000|27/100000' \
   gamelib lowlib vue_source test_unit
 ```
 

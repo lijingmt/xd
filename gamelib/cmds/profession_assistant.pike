@@ -88,7 +88,7 @@ private string render_styles(object me)
 	string profe = me->query_profeId();
 	string selected = PROFESSIONVIPD->query_selected_style(me);
 	string s = "【职业成长·纯外观】\n\n";
-	s += "所有外观只改变头像光效、灵兽称号或镇岳施法文字，不增加任何属性。\n";
+	s += "所有外观只改变头像光效、灵兽称号或职业施法文字，不增加任何属性。\n";
 	s += "可单独永久购买，也可购买成长外观册后按20/50/80级领取。\n\n";
 	foreach(PROFESSIONVIPD->query_style_ids(profe),string style){
 		mapping info = PROFESSIONVIPD->query_style_info(profe,style);
@@ -175,9 +175,14 @@ private string render_panel(object me)
 			s += "[一键补齐已学灵兽:profession_assistant replenish]\n";
 		s += "[手动召唤与共鸣（永久免费）:summon]\n";
 	}
-	else{
+	else if(profe == "zhenyue"){
 		if(level >= 1)
 			s += "[查看当前守御建议:profession_assistant recommend]\n";
+		s += "[查看技能（手动施放永久免费）:myskills]\n";
+	}
+	else{
+		if(level >= 1)
+			s += "[查看当前星痕建议:profession_assistant recommend]\n";
 		s += "[查看技能（手动施放永久免费）:myskills]\n";
 	}
 	s += "\n[策略配置槽:profession_assistant slots]\n";
@@ -277,9 +282,11 @@ int main(string|zero arg)
 		else s += fail_reason(result)+"\n";
 	}
 	else if(parts[0] == "recommend"){
-		string skill = PROFESSIONVIPD->query_zhenyue_manual_recommendation(me);
+		string skill = me->query_profeId()=="tianxiang" ?
+			PROFESSIONVIPD->query_tianxiang_manual_recommendation(me) :
+			PROFESSIONVIPD->query_zhenyue_manual_recommendation(me);
 		if(skill == "")
-			s += "当前没有已学且适合展示的守御技能，请先查看技能学习路线。\n";
+			s += "当前没有已学且适合展示的职业技能，请先查看技能学习路线。\n";
 		else{
 			object|zero skill_ob = MUD_SKILLSD[skill];
 			string skill_cn = skill_ob ? skill_ob->query_name_cn() : skill;

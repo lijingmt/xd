@@ -45,7 +45,7 @@ DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
 
-# 八职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
+# 九职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 HIDDEN_MYTHIC_SKILL_IDS=(
     "wanjianguizong"
     "taiqingjianyu"
@@ -70,7 +70,10 @@ HIDDEN_MYTHIC_SKILL_IDS=(
     "liudaozhangmu"
     "wanshanchaogong"
     "buzhouzhenji"
-    "tiandichengbi"
+	"tiandichengbi"
+	"xinghezhuiluo"
+	"zhoutianjingzhi"
+	"wanxiangxingbi"
 )
 
 # 从命令行参数或环境变量读取配置
@@ -315,7 +318,7 @@ verify_hidden_mythic_assets_in_container() {
 }
 
 # 函数：把中立阵营职业图标和人物头像更新到容器内 Tomcat 的新旧访问路径
-copy_fangshi_images_to_container() {
+copy_neutral_profession_images_to_container() {
     local container_name="$1"
     local app_root="/app/xiand"
     local tomcat_root="/usr/local/tomcat/webapps/ROOT"
@@ -328,7 +331,12 @@ copy_fangshi_images_to_container() {
         "zhenyue_male.png"
         "zhenyue_female.png"
         "zhenyue_male.gif"
-        "zhenyue_female.gif"
+		"zhenyue_female.gif"
+		"tianxiang_logo.png"
+		"tianxiang_male.png"
+		"tianxiang_female.png"
+		"tianxiang_male.gif"
+		"tianxiang_female.gif"
     )
     local image_name
     local source_image
@@ -346,31 +354,31 @@ copy_fangshi_images_to_container() {
         web_image="$PROJECT_ROOT/web/images/$image_name"
 
         if [ ! -f "$source_image" ] || [ ! -f "$web_image" ]; then
-            print_error "方士图片源文件不完整: $image_name"
+            print_error "中立职业图片源文件不完整: $image_name"
             return 1
         fi
 
         if ! docker cp "$source_image" \
             "$container_name:$app_root/images/$image_name"; then
-            print_error "复制容器项目方士图片失败: $image_name"
+            print_error "复制容器项目中立职业图片失败: $image_name"
             return 1
         fi
 
         if ! docker cp "$web_image" \
             "$container_name:$app_root/web/images/$image_name"; then
-            print_error "复制容器 Web 源方士图片失败: $image_name"
+            print_error "复制容器 Web 源中立职业图片失败: $image_name"
             return 1
         fi
 
         if ! docker cp "$web_image" \
             "$container_name:$tomcat_root/images/$image_name"; then
-            print_error "复制 Web 方士图片失败: $image_name"
+            print_error "复制 Web 中立职业图片失败: $image_name"
             return 1
         fi
 
         if ! docker cp "$source_image" \
             "$container_name:$tomcat_root/xd/images/$image_name"; then
-            print_error "复制游戏方士图片失败: $image_name"
+            print_error "复制游戏中立职业图片失败: $image_name"
             return 1
         fi
 
@@ -382,7 +390,7 @@ copy_fangshi_images_to_container() {
             test -s "$tomcat_root/images/$image_name" ||
            ! docker exec "$container_name" \
             test -s "$tomcat_root/xd/images/$image_name"; then
-            print_error "容器内 Tomcat 方士图片校验失败: $image_name"
+            print_error "容器内 Tomcat 中立职业图片校验失败: $image_name"
             return 1
         fi
     done
@@ -824,8 +832,8 @@ main() {
         print_success "前端文件已复制到容器"
 
         # 更新方士阵营图标和人物头像；游戏使用 /xd/images，Web 使用 /images。
-        if ! copy_fangshi_images_to_container "$CONTAINER_NAME"; then
-            print_error "方士图片部署失败，停止后续部署"
+        if ! copy_neutral_profession_images_to_container "$CONTAINER_NAME"; then
+            print_error "中立职业图片部署失败，停止后续部署"
             exit 1
         fi
 

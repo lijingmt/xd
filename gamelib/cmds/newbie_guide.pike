@@ -112,7 +112,7 @@ string query_zhenyue_growth_guide(object player)
 	string result = "";
 	int level = player->query_level();
 
-	result += "【镇岳守御】\n";
+	result += "【镇越守御】\n";
 	result += "岳击是初始高仇恨攻击；2级山印永久加防，5级镇岩诀建立个人守势。\n";
 	if(level<15)
 		result += "○ 15级学习地震吼，可靠把当前敌人的最高仇恨转向自己。\n";
@@ -123,13 +123,48 @@ string query_zhenyue_growth_guide(object player)
 	if(level<20)
 		result += "○ 20级解锁山河壁：未组队只护自己，组队只护同房间存活队友。\n";
 	else if(!player->skills["shanhebi"])
-		result += "○ 已到20级，可购买镇岳的核心队伍技能山河壁。\n";
+		result += "○ 已到20级，可购买镇越的核心队伍技能山河壁。\n";
 	else
 		result += "√ 山河壁使用独立护盾，不覆盖队友原有增益，护盾耗尽或到时消失。\n";
-	result += "30级玄铁盾可与山河壁共存；40级岳反震兼顾输出和仇恨；50级镇岳真身扩展生命上限。\n";
+	result += "30级玄铁盾可与山河壁共存；40级岳反震兼顾输出和仇恨；50级镇越真身扩展生命上限。\n";
 	result += "60级万山不孤强化队伍护盾；70级镇魂吼提供更高仇恨余量。\n";
 	result += "实际等级70以上怪物才可能掉落万山朝拱、不周震击、天地成壁三本大神传承。\n";
-	result += "[购买镇岳技能书:buy_items book zhenyue]|[查看技能:myskills]|[队伍:my_term]\n";
+	result += "[购买镇越技能书:buy_items book zhenyue]|[查看技能:myskills]|[队伍:my_term]\n";
+	return result;
+}
+
+string query_tianxiang_growth_guide(object player)
+{
+	string result = "";
+	int level = player->query_level();
+
+	result += "【天象观星】\n";
+	result += "星芒是初始火系法术；不同星术命中会凝聚星痕，最多三层，十五秒内有效。\n";
+	if(level<5)
+		result += "○ 5级学习寒辰，用不同元素交替积蓄星痕。\n";
+	else if(!player->skills["hanchen"])
+		result += "○ 已到5级，可购买寒辰并练习第二种星痕生成法术。\n";
+	else
+		result += "√ 已掌握寒辰；星芒、寒辰交替命中会刷新星痕时限。\n";
+	if(level<15)
+		result += "○ 15级学习星壁，获得可耗尽的个人法术护盾。\n";
+	else if(!player->skills["xingbi"])
+		result += "○ 已到15级，可购买星壁提高独行容错。\n";
+	else
+		result += "√ 星壁不生成或消耗星痕，可在积蓄前先建立防护。\n";
+	if(level<20)
+		result += "○ 20级学习星锁，短时削弱目标法术抗性。\n";
+	else
+		result += "√ 星锁有命中、持续与冷却限制，不提供永久减抗。\n";
+	if(level<60)
+		result += "○ 60级学习星落，消耗现有星痕形成核心爆发。\n";
+	else if(!player->skills["xingluo"])
+		result += "○ 已到60级，可在高级技能书轮换中取得星落。\n";
+	else
+		result += "√ 星落在普通PVE每层提高10%，面对玩家或Boss每层提高8%，最多三层。\n";
+	result += "换房、脱战、死亡、掉线或星痕超时都会清空层数，不能预存到下一场战斗。\n";
+	result += "实际等级70以上怪物才可能掉落星河坠落、周天静止、万象星壁三本大神传承。\n";
+	result += "[购买天象技能书:buy_items book tianxiang]|[查看技能:myskills]|[每级历练:growth_task]\n";
 	return result;
 }
 
@@ -162,6 +197,8 @@ string render_guide(object player)
 		result += query_fangshi_growth_guide(player);
 	else if(player->query_profeId()=="zhenyue")
 		result += query_zhenyue_growth_guide(player);
+	else if(player->query_profeId()=="tianxiang")
+		result += query_tianxiang_growth_guide(player);
 	else
 		result += "[购买本职业技能书:buy_items book "+
 			player->query_profeId()+"]|[查看技能:myskills]\n";
@@ -279,12 +316,19 @@ string query_profession_roadmap(string profession)
 			result += "[查看召唤与灵契:summon]|[方士技能书:buy_items book fangshi]\n";
 			break;
 		case "zhenyue":
-			result += "镇岳：1级岳击建立仇恨；2级山印永久加防；5级镇岩诀；"+
+			result += "镇越：1级岳击建立仇恨；2级山印永久加防；5级镇岩诀；"+
 				"10级横山击；15级地震吼可靠夺取当前目标；20级山河壁保护同房间队伍。\n";
-			result += "30级玄铁盾与山河壁双层承压；40级岳反震；50级镇岳真身；"+
+			result += "30级玄铁盾与山河壁双层承压；40级岳反震；50级镇越真身；"+
 				"60级万山不孤；70级镇魂吼，并开始挑战70级隐藏大神书掉落资格怪；"+
 				"80级起可学习三本掉落限定大神传承。\n";
-			result += "[镇岳技能书:buy_items book zhenyue]|[队伍:my_term]\n";
+			result += "[镇越技能书:buy_items book zhenyue]|[队伍:my_term]\n";
+			break;
+		case "tianxiang":
+			result += "天象：1级星芒、5级寒辰、10级流星交替积蓄星痕；星痕最多三层、15秒未刷新会消散；15级星壁提高容错；"+
+				"20级星锁削弱法抗；25级曜光、30级天旋、40级星雨扩展元素循环。\n";
+			result += "50级月引；60级星落消耗至多三层星痕形成受控爆发；70级九星连珠，"+
+				"并开始挑战70级隐藏大神书掉落资格怪；80级起可学习三本极低概率掉落的大神传承。\n";
+			result += "[天象技能书:buy_items book tianxiang]|[查看技能:myskills]\n";
 			break;
 	}
 	return result;
@@ -316,7 +360,7 @@ string render_roadmap(object player)
 
 	result += "【队伍与副本】\n";
 	result += "先建立或加入七星阵队伍，再从副本入口进入；副本战利品进入队伍仓库，由队长及时分配。"+
-		"方士组队治疗只影响同房间队友；镇岳山河壁也只保护同房间存活队友，没组队时两者都保留自用效果。\n";
+		"方士组队治疗只影响同房间队友；镇越山河壁也只保护同房间存活队友，没组队时两者都保留自用效果。\n";
 	result += "[队伍:my_term]|[查看地图:map_display]\n\n";
 
 	result += "【帮派、家园与交易】\n";

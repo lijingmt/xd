@@ -17,13 +17,13 @@ reason and a regression test proving the generic or deliberately excluded path.
   and cleanup matrix for move/team/target/death/logout/disconnect/expiry/recast.
 - [ ] Auto-fight behavior, optional profession assistant behavior, free core,
   VIP boundary, trial boundary, and stat-neutral cosmetic policy.
-- [ ] Intentional differences from Fangshi, Zhenyue, and legacy professions.
+- [ ] Intentional differences from Fangshi, Zhenyue, Tianxiang, and legacy professions.
 
 ## 1. Identity, race, creation, and persistence
 
 - [ ] Real race/profession selection link reaches `setup_player(race, profession)`.
 - [ ] A shared race lists every profession independently; `third` does not imply
-  Fangshi or Zhenyue and a new neutral class cannot overwrite either one.
+  Fangshi, Zhenyue, or Tianxiang and a new neutral class cannot overwrite any of them.
 - [ ] Identity helpers return race/profession IDs and Chinese names without a
   two-race fallback granting the wrong class.
 - [ ] Initial life, mofa, strength, dexterity, think, luck, money, time, room,
@@ -51,6 +51,8 @@ reason and a regression test proving the generic or deliberately excluded path.
 - [ ] Recast weaker/stronger/equal effects has a deliberate tested policy.
 - [ ] Movement, team change, target switch, death, logout, owner loss, expiry,
   daemon reload, and replacement remove or recover state without stale links.
+- [ ] Temporary resource stacks, cap, expiry, consumption, and cleanup are
+  server-owned and serialized consistently to legacy and Vue battle state.
 - [ ] AOE and target arrays purge dead, destructed, cross-room, and current-target
   objects consistently.
 - [ ] Team effects require real same-team, same-room, living members and never
@@ -169,6 +171,9 @@ reason and a regression test proving the generic or deliberately excluded path.
 - [ ] New mutating commands appear in every mirrored HTTP core-command list.
 - [ ] Rate/body/queue/command limits, malformed inputs, duplicate requests,
   timeouts, cleanup, and reconnect are tested.
+- [ ] Real input and accepted gameplay commands renew idle activity; read-only
+  HTTP status/room/battle polling does not; socket and Vue timeouts plus online
+  labels use the same ordinary/active-VIP policy.
 
 ## 9. Documentation and release proof
 
@@ -183,7 +188,7 @@ reason and a regression test proving the generic or deliberately excluded path.
   runtime path is valid and which runtime test proves it.
 - [ ] Dedicated runtime test clones real users, performs real reads/actions, and
   covers the class mechanic plus all failure and cleanup boundaries.
-- [ ] Old-profession, Fangshi, Zhenyue, shared combat, auto-fight, hidden drop,
+- [ ] Old-profession, Fangshi, Zhenyue, Tianxiang, shared combat, auto-fight, hidden drop,
   equipment, task, persistence, HTTP, Vue, and deployment regressions pass.
 - [ ] Final change is followed by `git diff --check`, targeted tests, real
   restart/full TestUnit, ports 13800/8888, error-log scan, and changed UI build.

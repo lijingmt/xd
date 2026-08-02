@@ -52,7 +52,7 @@ string query_desc(){
 		desc += "金鳌化妖，狂妖巫妖影鬼\n";
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		desc += "[中立:choice_race third]\n";
-		desc += "中立阵营，可选召唤方士或守护镇岳\n";
+		desc += "中立阵营，可选召唤方士、守护镇越或法系天象\n";
 	}
 	else{
 		desc += "[imgurl loading:/"+GAME_NAME+"/images/logo.png]\n";
@@ -334,7 +334,7 @@ int choice_race(string arg){
 		s += "金鳌化妖，狂妖巫妖影鬼\n";
 		s += "[imgurl loading:/"+GAME_NAME+"/images/third_logo.png]\n";
 		s += "[中立:choice_race third]\n";
-		s += "中立阵营，可选召唤方士或守护镇岳\n";
+		s += "中立阵营，可选召唤方士、守护镇越或法系天象\n";
 	}
 	else{
 		if(arg=="human"){
@@ -372,8 +372,11 @@ int choice_race(string arg){
 			s += "- 鹤灵：治疗辅助型\n";
 			s += "- 龟灵：防御坦克型\n";
 			s += "[imgurl loading:/"+GAME_NAME+"/images/zhenyue_logo.png]\n";
-			s += "[镇岳:choice_profe third/zhenyue]\n";
+			s += "[镇越:choice_profe third/zhenyue]\n";
 			s += "执盾镇山，吸引仇恨并为同队承压\n";
+			s += "[imgurl loading:/"+GAME_NAME+"/images/tianxiang_logo.png]\n";
+			s += "[天象:choice_profe third/tianxiang]\n";
+			s += "观星御法，积蓄星痕后引动天象爆发\n";
 		}
 		s += "[更换阵营:choice_race]\n";
 	}
@@ -407,7 +410,7 @@ int choice_profe(string arg){
 		mapping(string:array(string)) valid_professions = ([
 			"human":({"jianxian","yushi","zhuxian"}),
 			"monst":({"kuangyao","wuyao","yinggui"}),
-			"third":({"fangshi","zhenyue"}),
+			"third":({"fangshi","zhenyue","tianxiang"}),
 		]);
 		if(sizeof(arr)!=2 || !valid_professions[arr[0]] ||
 		   search(valid_professions[arr[0]],arr[1])==-1){
@@ -512,9 +515,21 @@ int choice_profe(string arg){
 			me->setup_player("third",u_p);
 			if(me->skills["yueji"]==0)
 				me->skills["yueji"]=({1,0});
-			s += "好，你选择了镇岳作为中立阵营的职业。\n";
-			s += "镇岳擅长稳定仇恨、护持队友和承受正面伤害。\n";
+			s += "好，你选择了镇越作为中立阵营的职业。\n";
+			s += "镇越擅长稳定仇恨、护持队友和承受正面伤害。\n";
 			s += "职业技能与手动守御永久免费；进入后可按需领取3天守御助手试用。\n";
+			s += "[了解职业助手:profession_assistant]\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="tianxiang"){
+			me->setup_player("third",u_p);
+			if(me->skills["xingmang"]==0)
+				me->skills["xingmang"]=({1,0});
+			s += "好，你选择了天象作为中立阵营的职业。\n";
+			s += "天象擅长元素法术，并以不同法术积蓄星痕强化爆发。\n";
+			s += "星痕与全部手动技能永久免费；职业助手只提供PVE操作便利。\n";
 			s += "[了解职业助手:profession_assistant]\n";
 			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
@@ -624,8 +639,11 @@ int start(string arg){
 			desc += "[方士:choice_profe third/fangshi]\n";
 			desc += "召唤灵兽，灵动多变\n";
 			desc += "[imgurl loading:/"+GAME_NAME+"/images/zhenyue_logo.png]\n";
-			desc += "[镇岳:choice_profe third/zhenyue]\n";
+			desc += "[镇越:choice_profe third/zhenyue]\n";
 			desc += "执盾镇山，吸引仇恨并为同队承压\n";
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/tianxiang_logo.png]\n";
+			desc += "[天象:choice_profe third/tianxiang]\n";
+			desc += "观星御法，积蓄星痕后引动天象爆发\n";
 		}
 		else{
 			desc += "角色尚未选择阵营，请先完成阵营选择。\n";
@@ -644,6 +662,8 @@ int start(string arg){
 	}
 	if(me->query_profeId()=="zhenyue" && !me->skills["yueji"])
 		me->skills["yueji"]=({1,0});
+	if(me->query_profeId()=="tianxiang" && !me->skills["xingmang"])
+		me->skills["xingmang"]=({1,0});
 
 	//领取标识的初始化
         if(!me->get_gift)                                                                                         
@@ -788,6 +808,15 @@ int start(string arg){
 				MUD_SKILLSD["lingzhihun"]->query_performs_attack(
 					(int)tmp_arr[0]);
 			me->set_base_all(val);
+		}
+	}
+	// 修复早期或异常流程中已记录观天、但尚未同步被动智力的天象角色。
+	if(me->query_profeId() == "tianxiang"){
+		if(me->skills["guantian"] && me->query_base_think()==0){
+			array tmp_arr = me->skills["guantian"];
+			int val = MUD_SKILLSD["guantian"]->query_performs_attack(
+				(int)tmp_arr[0]);
+			me->set_base_think(val);
 		}
 	}
 

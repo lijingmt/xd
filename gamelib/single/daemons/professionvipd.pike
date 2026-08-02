@@ -1,5 +1,5 @@
 /**
- * 方士/镇岳职业会员助手。
+ * 方士/镇越/天象职业会员助手。
  *
  * 会员只提供自动化、配置槽、统计报告和纯外观；职业技能、召唤上限、
  * 技能强度、冷却、消耗、装备、掉落以及手动操作始终不受会员限制。
@@ -15,7 +15,7 @@ inherit LOW_DAEMON;
 #define PROFESSION_STRATEGY_HOLD 60
 #define PROFESSION_PASS_COST 240
 
-private array(string) supported_professions = ({"fangshi","zhenyue"});
+private array(string) supported_professions = ({"fangshi","zhenyue","tianxiang"});
 
 int is_supported_profession(string profe)
 {
@@ -28,6 +28,8 @@ string query_assistant_name(string profe)
 		return "灵契助手";
 	if(profe == "zhenyue")
 		return "山河守御助手";
+	if(profe == "tianxiang")
+		return "观星助手";
 	return "职业助手";
 }
 
@@ -57,6 +59,8 @@ private string query_default_strategy(string profe)
 {
 	if(profe == "fangshi")
 		return "attack";
+	if(profe == "tianxiang")
+		return "cycle";
 	return "solo";
 }
 
@@ -84,12 +88,22 @@ void initialize_player(object player)
 	if(!player["/plus/profession_vip/slot1"])
 		player["/plus/profession_vip/slot1"] =
 			query_default_strategy(profe);
-	if(!player["/plus/profession_vip/slot2"])
-		player["/plus/profession_vip/slot2"] =
-			profe == "fangshi" ? "heal" : "team";
-	if(!player["/plus/profession_vip/slot3"])
-		player["/plus/profession_vip/slot3"] =
-			profe == "fangshi" ? "defense" : "boss";
+	if(!player["/plus/profession_vip/slot2"]){
+		if(profe == "fangshi")
+			player["/plus/profession_vip/slot2"] = "heal";
+		else if(profe == "tianxiang")
+			player["/plus/profession_vip/slot2"] = "burst";
+		else
+			player["/plus/profession_vip/slot2"] = "team";
+	}
+	if(!player["/plus/profession_vip/slot3"]){
+		if(profe == "fangshi")
+			player["/plus/profession_vip/slot3"] = "defense";
+		else if(profe == "tianxiang")
+			player["/plus/profession_vip/slot3"] = "safe";
+		else
+			player["/plus/profession_vip/slot3"] = "boss";
+	}
 	if(!player["/plus/profession_vip/slot4"])
 		player["/plus/profession_vip/slot4"] = "auto";
 	if(!player["/plus/profession_vip/style"])
@@ -230,6 +244,8 @@ array(string) query_valid_strategies(string profe,int include_auto)
 		result = ({"attack","heal","defense"});
 	else if(profe == "zhenyue")
 		result = ({"solo","boss","team"});
+	else if(profe == "tianxiang")
+		result = ({"cycle","burst","safe"});
 	else
 		return ({});
 	if(include_auto)
@@ -250,6 +266,12 @@ string query_strategy_name(string profe,string strategy)
 		if(strategy == "boss") return "首领抗压";
 		if(strategy == "team") return "队伍守御";
 		if(strategy == "auto") return "山河自适应";
+	}
+	if(profe == "tianxiang"){
+		if(strategy == "cycle") return "星痕循环";
+		if(strategy == "burst") return "三星爆发";
+		if(strategy == "safe") return "星壁优先";
+		if(strategy == "auto") return "天象自适应";
 	}
 	return "未知策略";
 }
@@ -490,6 +512,13 @@ string query_runtime_strategy(object player)
 		if(has_same_room_team(player)) desired = "team";
 		else if(is_boss_enemy(player)) desired = "boss";
 	}
+	else if(profe == "tianxiang"){
+		if(player->get_cur_life()*100 <= player->query_life_max()*45)
+			desired = "safe";
+		else if(player->query_tianxiang_star_marks()>=2 ||
+		   is_boss_enemy(player))
+			desired = "burst";
+	}
 	changed_at = (int)player["/tmp/profession_vip/strategy_changed"];
 	if(!player["/tmp/profession_vip/runtime_strategy"]){
 		player["/tmp/profession_vip/runtime_strategy"] = desired;
@@ -634,6 +663,70 @@ void record_zhenyue_action(object player,string skill_name)
 	record_stat(player,"action",1);
 }
 
+array(string) query_tianxiang_context_candidates(object player)
+{
+	array(string) names = ({});
+	string strategy;
+	int marks;
+	if(!player || player->query_profeId() != "tianxiang" ||
+	   !query_auto_enabled(player) || !is_pve_enemy(player))
+		return names;
+	strategy = query_runtime_strategy(player);
+	marks = player->query_tianxiang_star_marks();
+	if(strategy == "safe" &&
+	   player->query_buff("buff",0) != "absorb")
+		names += ({"wanxiangxingbi","xingbi"});
+	if(marks>=2 && strategy == "burst")
+		names += ({"xinghezhuiluo","xingluo"});
+	if(marks<3)
+		names += ({"jiuxinglianzhu","yueyin","xingyu","tianxuan",
+			"yaoguang","liuxing","hanchen","xingmang"});
+	else
+		names += ({"xingluo","xinghezhuiluo"});
+	return names;
+}
+
+string query_tianxiang_manual_recommendation(object player)
+{
+	array(string) names;
+	int marks;
+	if(!player || player->query_profeId() != "tianxiang" ||
+	   query_effective_level(player) < 1)
+		return "";
+	marks = player->query_tianxiang_star_marks();
+	if(player->query_in_combat() && is_pve_enemy(player)){
+		if(player->get_cur_life()*100 <= player->query_life_max()*45 &&
+		   player->query_buff("buff",0) != "absorb")
+			names = ({"wanxiangxingbi","xingbi"});
+		else if(marks>=2)
+			names = ({"xinghezhuiluo","xingluo"});
+		else
+			names = ({"jiuxinglianzhu","yueyin","xingyu","tianxuan",
+				"yaoguang","liuxing","hanchen","xingmang"});
+	}
+	else
+		names = ({"xingbi","xingmang","hanchen"});
+	foreach(names,string name)
+		if(player->skills && player->skills[name])
+			return name;
+	return "";
+}
+
+void record_tianxiang_action(object player,string skill_name)
+{
+	object|zero skill;
+	if(!player || player->query_profeId() != "tianxiang")
+		return;
+	skill = (object)(ROOT+"/gamelib/single/skills/"+skill_name);
+	if(skill && skill->query_star_mark_gain()>0)
+		record_stat(player,"mark",1);
+	if(skill && skill->query_star_mark_consume())
+		record_stat(player,"burst",1);
+	if(skill_name=="xingbi" || skill_name=="wanxiangxingbi")
+		record_stat(player,"guard",1);
+	record_stat(player,"action",1);
+}
+
 mapping try_out_of_combat_support(object player)
 {
 	if(player && player->query_profeId() == "fangshi" &&
@@ -662,9 +755,18 @@ string query_monitor_notice(object player)
 	   player->query_in_combat() && is_pve_enemy(player)){
 		object|zero enemy = player->query_enemy();
 		if(enemy && enemy->first_target != player)
-			notice = "守御监控：敌人仇恨已偏离镇岳。";
+			notice = "守御监控：敌人仇恨已偏离镇越。";
 		else if(has_low_life_member(player,50))
 			notice = "守御监控：你或同房队友生命已低于50%。";
+	}
+	else if(player->query_profeId() == "tianxiang" &&
+	   player->query_in_combat() && is_pve_enemy(player)){
+		int marks = player->query_tianxiang_star_marks();
+		if(marks>=2)
+			notice = "观星监控：当前已有"+marks+"层星痕，可选择星落引爆。";
+		else if(player->get_cur_life()*100 <= player->query_life_max()*45 &&
+		   player->query_buff("buff",0) != "absorb")
+			notice = "观星监控：生命偏低且星壁未生效。";
 	}
 	if(notice != ""){
 		player["/tmp/profession_vip/notice_time"] = now;
@@ -694,6 +796,14 @@ mapping query_style_info(string profe,string style)
 		if(style == "wanshan") return (["id":style,"name":"万山宗师",
 			"tier":3,"level":80,"cost":200,"class":"profession-style-zhenyue-3"]);
 	}
+	if(profe == "tianxiang"){
+		if(style == "xinghui") return (["id":style,"name":"星辉轨迹",
+			"tier":1,"level":20,"cost":60,"class":"profession-style-tianxiang-1"]);
+		if(style == "yuehuan") return (["id":style,"name":"月环星幕",
+			"tier":2,"level":50,"cost":120,"class":"profession-style-tianxiang-2"]);
+		if(style == "wanxiang") return (["id":style,"name":"万象天穹",
+			"tier":3,"level":80,"cost":200,"class":"profession-style-tianxiang-3"]);
+	}
 	return ([]);
 }
 
@@ -703,6 +813,8 @@ array(string) query_style_ids(string profe)
 		return ({"default","lingguang","qinghe","sixiang"});
 	if(profe == "zhenyue")
 		return ({"default","xuanyan","jinque","wanshan"});
+	if(profe == "tianxiang")
+		return ({"default","xinghui","yuehuan","wanxiang"});
 	return ({});
 }
 
@@ -872,10 +984,16 @@ string query_growth_title(object player)
 		return "初窥灵契";
 	}
 	if(player->query_profeId() == "zhenyue"){
-		if(level >= 80) return "镇岳宗师";
+		if(level >= 80) return "镇越宗师";
 		if(level >= 50) return "山河壁垒";
 		if(level >= 20) return "守山之士";
 		return "负岳新人";
+	}
+	if(player->query_profeId() == "tianxiang"){
+		if(level >= 80) return "万象星主";
+		if(level >= 50) return "星轨观者";
+		if(level >= 20) return "观星术士";
+		return "初识天象";
 	}
 	return "";
 }

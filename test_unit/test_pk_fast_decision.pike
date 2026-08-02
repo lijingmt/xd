@@ -248,6 +248,26 @@ void test_fangshi_summon_side()
 	cleanup_player(defender);
 }
 
+void test_tianxiang_magic_profile()
+{
+	test_start("天象作为纯法系进入快速决胜魔法快照");
+	object mage = create_player("__testunit_pk_tianxiang__","tianxiang",80);
+	mapping profile = ([]);
+	string error_desc = "";
+	mixed err = catch {
+		profile = mage->query_pk_fast_side_profile(mage);
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && profile["magic_enabled"]==1 &&
+	   profile["magic_raw"]>profile["physical_raw"])
+		test_pass();
+	else
+		test_fail("天象魔法快照未接线: "+error_desc+
+			" profile="+sprintf("%O",profile));
+	cleanup_player(mage);
+}
+
 int main(int argc,array(string) argv)
 {
 	werror("\n╔════════════════════════════════════════════════╗\n");
@@ -258,6 +278,7 @@ int main(int argc,array(string) argv)
 	test_round_gate_and_real_settlement();
 	test_non_pk_and_multi_party_boundaries();
 	test_fangshi_summon_side();
+	test_tianxiang_magic_profile();
 	werror("\nPVP快速决胜：%d通过，%d失败\n",
 		test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

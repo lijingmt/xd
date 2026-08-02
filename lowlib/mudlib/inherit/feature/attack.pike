@@ -10,6 +10,7 @@ protected mapping(string:int) m_profe = ([
 	"yinggui" : 6,
 	"fangshi" : 7,
 	"zhenyue" : 15,
+	"tianxiang" : 16,
 	"humanlike" : 8,
 	"beast" : 9,
 	"bird" : 10,
@@ -63,8 +64,11 @@ float query_phy_dodge(){
 			case 7://方士
 				result = (((float)attribute/50)+(float)equip_add)*0.75;
 			break;
-			case 15://镇岳
+			case 15://镇越
 				result = (((float)attribute/60)+(float)equip_add)*0.75;
+			break;
+			case 16://天象
+				result = (((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
 				result = ((float)attribute/50)+(float)equip_add;	
@@ -128,8 +132,11 @@ float query_phy_hitte(){
 			case 7://方士
 				result = (float)attribute+(float)equip_add+10;
 			break;
-			case 15://镇岳
+			case 15://镇越
 				result = (float)attribute+(float)equip_add+8;
+			break;
+			case 16://天象
+				result = (float)attribute+(float)equip_add+10;
 			break;
 			case 8://人形 包括人类和妖魔
 				result = (float)attribute+(float)equip_add;
@@ -193,8 +200,11 @@ float query_phy_baoji(){
 			case 7://方士
 				result = (5.00+(float)equip_add)*0.75;
 			break;
-			case 15://镇岳
+			case 15://镇越
 				result = (5.00+((float)attribute/60)+(float)equip_add)*0.75;
+			break;
+			case 16://天象
+				result = (5.00+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
 				result = 5.00+(float)equip_add;
@@ -261,8 +271,11 @@ int query_base_damage(){
 			case 7://方士
 				result = str/8+dex/10;  // 方士自身攻击较弱，主要靠召唤物
 			break;
-			case 15://镇岳
+			case 15://镇越
 				result = str/3;  // 生存优先，基础输出低于纯物理爆发职业
+			break;
+			case 16://天象
+				result = str/10;  // 法系职业的普通攻击仅作保底
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str;
@@ -442,8 +455,11 @@ int query_defend_power(){
 			case 7://方士
 				result = str+equip_add;  // 方士防御中等，类似羽士/巫妖
 			break;
-			case 15://镇岳
-				result = str*4+equip_add;  // 镇岳以力量换取最高基础物防
+			case 15://镇越
+				result = str*4+equip_add;  // 镇越以力量换取最高基础物防
+			break;
+			case 16://天象
+				result = str+equip_add;  // 法系标准物理防御成长
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str+equip_add;

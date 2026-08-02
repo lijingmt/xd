@@ -3,7 +3,7 @@
  * 方士严格审计补全测试：
  * - 守护进程召唤鉴权与真实技能等级
  * - 跨阵营队友保护与主人失去房间后的清理
- * - 八职业高级技能书独立轮换及服务端购买授权
+ * - 九职业高级技能书独立轮换及服务端购买授权
  * - 装备描述、开放说明与治疗技能配置
  */
 
@@ -178,14 +178,14 @@ void test_summon_team_protection_and_orphan_cleanup()
 
 void test_profession_balanced_high_books()
 {
-	test_start("八职业各自轮换两种高级书且只能购买本职业目录");
+	test_start("九职业各自轮换两种高级书且只能购买本职业目录");
 	array(string) professions = ({
 		"jianxian","yushi","zhuxian",
-		"kuangyao","wuyao","yinggui","fangshi","zhenyue",
+		"kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang",
 	});
 	array(string) races = ({
 		"human","human","human",
-		"monst","monst","monst","third","third",
+		"monst","monst","monst","third","third","third",
 	});
 	array(object) players = ({});
 	array(array(string)) selected = ({});

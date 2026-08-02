@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【象】流星";
+	desc="以流星风轨切开敌势，命中后获得一层星痕";
+	s_type="zhudong"; s_skill_type="feng_mofa_attack"; s_delayTime=8; star_mark_gain=1;
+	performs_mofa_attack[1]=({46,62}); performs_mofa_attack[2]=({98,128}); performs_mofa_attack[3]=({176,226}); performs_mofa_attack[4]=({278,352}); performs_mofa_attack[5]=({410,510});
+	performs_cast[1]=12; performs_cast[2]=18; performs_cast[3]=27; performs_cast[4]=38; performs_cast[5]=52;
+	skill_type+=({"tianxiang"});
+	performs_level_limit[1]=10; performs_level_limit[2]=30; performs_level_limit[3]=50; performs_level_limit[4]=70; performs_level_limit[5]=90;
+	performs_desc[1]="造成46至62点风系伤害并凝聚星痕，消耗法力12点"; performs_desc[2]="造成98至128点风系伤害，消耗法力18点"; performs_desc[3]="造成176至226点风系伤害，消耗法力27点"; performs_desc[4]="造成278至352点风系伤害，消耗法力38点"; performs_desc[5]="造成410至510点风系伤害，消耗法力52点";
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env pike
 /**
  * 新手引导测试：
- * 真实动作推进、八职业分支、一次性奖励、装备状态与成长路线。
+ * 真实动作推进、九职业分支、一次性奖励、装备状态与成长路线。
  */
 
 #include <globals.h>
@@ -61,6 +61,7 @@ object create_profession_player(string name,string profession,int level)
 		"yinggui":"monst",
 		"fangshi":"third",
 		"zhenyue":"third",
+		"tianxiang":"third",
 	]);
 	mapping(string:string) starters = ([
 		"jianxian":"qieyunzhan",
@@ -71,6 +72,7 @@ object create_profession_player(string name,string profession,int level)
 		"yinggui":"fuji",
 		"fangshi":"lingdanshu",
 		"zhenyue":"yueji",
+		"tianxiang":"xingmang",
 	]);
 	object player = clone(GAMELIB_USER);
 	string race = races[profession];
@@ -78,7 +80,7 @@ object create_profession_player(string name,string profession,int level)
 	if(!player || !race)
 		return 0;
 	player->set_name(name);
-	player->name_cn = "八职业引导测试";
+	player->name_cn = "九职业引导测试";
 	player->set_project("gamelib");
 	player->setup("testunit-only");
 	player->set_raceId(race);
@@ -380,12 +382,12 @@ void test_automatic_graduation_notice()
 	destroy_player(player);
 }
 
-void test_eight_profession_branches()
+void test_nine_profession_branches()
 {
-	test_start("八职业首本书与职业实战采用各自真实分支");
+	test_start("九职业首本书与职业实战采用各自真实分支");
 	array(string) professions = ({
 		"jianxian","yushi","zhuxian","kuangyao",
-		"wuyao","yinggui","fangshi","zhenyue",
+		"wuyao","yinggui","fangshi","zhenyue","tianxiang",
 	});
 	int all_ok = 1;
 
@@ -421,7 +423,11 @@ void test_eight_profession_branches()
 			all_ok = 0;
 
 		player["/plus/newbie_tutorial/step"] = 20;
-		if(config["practice"]=="active")
+		if(profession=="tianxiang"){
+			player->add_tianxiang_star_marks(2);
+			NEWBIED->record_perform(player,config["skill"]);
+		}
+		else if(config["practice"]=="active")
 			NEWBIED->record_perform(player,config["skill"]);
 		else if(config["practice"]=="passive")
 			NEWBIED->record_kill(player);
@@ -526,10 +532,10 @@ void test_real_action_sources_are_wired()
 
 void test_tutorial_and_roadmaps_render()
 {
-	test_start("分步课程、八职业路线及中立职业高阶特色完整显示");
+	test_start("分步课程、九职业路线及中立职业高阶特色完整显示");
 	array(string) professions = ({
 		"jianxian","yushi","zhuxian","kuangyao",
-		"wuyao","yinggui","fangshi","zhenyue",
+		"wuyao","yinggui","fangshi","zhenyue","tianxiang",
 	});
 	object guide = (object)(ROOT+"/gamelib/cmds/newbie_guide.pike");
 	int all_ok = 1;
@@ -557,6 +563,11 @@ void test_tutorial_and_roadmaps_render()
 		   (search(roadmap,"20级山河壁")==-1 ||
 		    search(roadmap,"15级地震吼")==-1 ||
 		    search(roadmap,"70级隐藏大神书")==-1))
+			all_ok = 0;
+		if(profession=="tianxiang" &&
+		   (search(roadmap,"15秒") == -1 ||
+		    search(roadmap,"星落") == -1 ||
+		    search(roadmap,"70级隐藏大神书") == -1))
 			all_ok = 0;
 		destroy_player(player);
 	}
@@ -603,10 +614,10 @@ int claim_ready_step(object player,int expected_step)
 
 void test_all_professions_complete_twenty_steps()
 {
-	test_start("八职业均可按真实状态连续完成20步并毕业");
+	test_start("九职业均可按真实状态连续完成20步并毕业");
 	array(string) professions = ({
 		"jianxian","yushi","zhuxian","kuangyao",
-		"wuyao","yinggui","fangshi","zhenyue",
+		"wuyao","yinggui","fangshi","zhenyue","tianxiang",
 	});
 	array(string) equipment_paths = ({
 		"/gamelib/clone/item/weapon/1taomujian/1taomujian",
@@ -694,7 +705,11 @@ void test_all_professions_complete_twenty_steps()
 		if(!claim_ready_step(player,19))
 			all_ok = 0;
 
-		if(config["practice"]=="active")
+		if(profession=="tianxiang"){
+			player->add_tianxiang_star_marks(2);
+			NEWBIED->record_perform(player,config["skill"]);
+		}
+		else if(config["practice"]=="active")
 			NEWBIED->record_perform(player,config["skill"]);
 		else if(config["practice"]=="passive")
 			NEWBIED->record_kill(player);
@@ -737,7 +752,7 @@ int main()
 	test_completed_growth_task_does_not_block_tutorial();
 	test_historical_growth_progress_auto_reconciles();
 	test_automatic_graduation_notice();
-	test_eight_profession_branches();
+	test_nine_profession_branches();
 	test_book_funds_are_once_only();
 	test_real_action_sources_are_wired();
 	test_tutorial_and_roadmaps_render();

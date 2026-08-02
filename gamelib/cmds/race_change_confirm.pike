@@ -7,7 +7,7 @@ int main(string|zero arg)
 	string s = "";
 	string tmp_s = "";
 	if(!me->can_change_faction()){
-		s += "方士与镇岳属于中立职业，不能转换阵营，也不会消耗轮回符印。\n";
+		s += "方士、镇越与天象属于中立职业，不能转换阵营，也不会消耗轮回符印。\n";
 		s += "[返回游戏:look]\n";
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;

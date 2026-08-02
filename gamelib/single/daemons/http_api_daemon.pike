@@ -514,6 +514,9 @@ string execute_internal_command_sync(string userid, string password, string cmd)
 {
     // http_werror(" execute_internal_command_sync: %s for %s\n", cmd, userid);
 
+    // 线程池中的非核心命令同样属于用户真实操作；只读轮询不会走这里。
+    update_connection_time(userid);
+
     object player = get_player_from_connection(userid);
     if(!player && password && password != "") {
         // 设置 HTTP API 登录标记（让 login_check 知道这是 HTTP API 模式）
@@ -2001,8 +2004,7 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
     }
 
     string userid = auth["userid"];
-    // 更新闲置时间 - 活跃用户不应被踢出
-    update_connection_time(userid);
+    // 人物状态属于自动轮询，只读请求不能延长在线时间。
     object player = get_player_from_connection(userid, 0);
 
     // 如果虚拟连接池中没有，尝试从 find_player 获取

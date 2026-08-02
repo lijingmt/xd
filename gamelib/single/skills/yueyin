@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【象】月引";
+	desc="牵引月华贯穿目标，命中后获得一层星痕";
+	s_type="zhudong"; s_skill_type="bing_mofa_attack"; s_delayTime=14; star_mark_gain=1;
+	performs_mofa_attack[1]=({210,262}); performs_mofa_attack[2]=({370,452}); performs_mofa_attack[3]=({578,700}); performs_mofa_attack[4]=({840,1008}); performs_mofa_attack[5]=({1160,1380});
+	performs_cast[1]=43; performs_cast[2]=57; performs_cast[3]=74; performs_cast[4]=95; performs_cast[5]=120;
+	skill_type+=({"tianxiang"});
+	performs_level_limit[1]=50; performs_level_limit[2]=70; performs_level_limit[3]=90; performs_level_limit[4]=110; performs_level_limit[5]=130;
+	performs_desc[1]="造成210至262点冰系伤害并凝聚星痕，消耗法力43点"; performs_desc[2]="造成370至452点冰系伤害，消耗法力57点"; performs_desc[3]="造成578至700点冰系伤害，消耗法力74点"; performs_desc[4]="造成840至1008点冰系伤害，消耗法力95点"; performs_desc[5]="造成1160至1380点冰系伤害，消耗法力120点";
+}

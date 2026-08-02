@@ -304,9 +304,7 @@ int main(string|zero arg)
 							for (list = users(1), j = 0; j < sizeof(list); j++) {
 								catch{
 									string gender=list[j]->query_gender();
-									string idle="";
-									if(list[j]->query_idle()/60>3)
-										idle="<发呆"+list[j]->query_idle()/60+"分钟>";
+									string idle=list[j]->query_idle_label();
 									string postions="";
 									object env = environment(list[j]);
 									postions = (string)env->query_name_cn();

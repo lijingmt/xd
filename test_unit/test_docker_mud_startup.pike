@@ -132,6 +132,7 @@ void test_item_sync_contract()
 		"huangquanwudu","wanxiangshihun","jiuyouduzhang",
 		"wuyingjuemie","jiuyouguibu","liudaozhangmu",
 		"wanshanchaogong","buzhouzhenji","tiandichengbi",
+		"xinghezhuiluo","zhoutianjingzhi","wanxiangxingbi",
 	});
 
 	if(source){
@@ -147,7 +148,7 @@ void test_item_sync_contract()
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
-	   hidden_count==24 &&
+	   hidden_count==27 &&
 	   search(source,
 		   "verify_hidden_mythic_assets_in_container")!=-1 &&
 	   search(source,
@@ -160,12 +161,12 @@ void test_item_sync_contract()
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录，并校验huling1及24套隐藏传承");
+		test_fail("item必须同步到实际挂载目录，并校验huling1及27套隐藏传承");
 }
 
-void test_fangshi_images_deploy_contract()
+void test_neutral_profession_images_deploy_contract()
 {
-	test_start("部署方士阵营图标与人物头像到容器全部路径");
+	test_start("部署中立阵营三职业图标与人物头像到容器全部路径");
 	string source =
 		Stdio.read_file(ROOT+"/restart-docker.sh");
 	string source_third =
@@ -184,11 +185,26 @@ void test_fangshi_images_deploy_contract()
 		Stdio.read_file(ROOT+"/images/human_fangshi_female.png");
 	string web_female =
 		Stdio.read_file(ROOT+"/web/images/human_fangshi_female.png");
+	string tianxiang_logo =
+		Stdio.read_file(ROOT+"/images/tianxiang_logo.png");
+	string tianxiang_web_logo =
+		Stdio.read_file(ROOT+"/web/images/tianxiang_logo.png");
+	string tianxiang_male =
+		Stdio.read_file(ROOT+"/images/tianxiang_male.png");
+	string tianxiang_web_male =
+		Stdio.read_file(ROOT+"/web/images/tianxiang_male.png");
+	string tianxiang_female =
+		Stdio.read_file(ROOT+"/images/tianxiang_female.png");
+	string tianxiang_web_female =
+		Stdio.read_file(ROOT+"/web/images/tianxiang_female.png");
 
 	if(source && source_third && web_third &&
 	   source_logo && web_logo &&
 	   source_male && web_male &&
 	   source_female && web_female &&
+	   tianxiang_logo && tianxiang_web_logo &&
+	   tianxiang_male && tianxiang_web_male &&
+	   tianxiang_female && tianxiang_web_female &&
 	   source_third==web_third &&
 	   source_logo==web_logo &&
 	   source_male==web_male &&
@@ -196,14 +212,23 @@ void test_fangshi_images_deploy_contract()
 	   source_logo!=source_male &&
 	   source_logo!=source_female &&
 	   source_male!=source_female &&
+	   tianxiang_logo==tianxiang_web_logo &&
+	   tianxiang_male==tianxiang_web_male &&
+	   tianxiang_female==tianxiang_web_female &&
+	   tianxiang_logo!=tianxiang_male &&
+	   tianxiang_logo!=tianxiang_female &&
+	   tianxiang_male!=tianxiang_female &&
 	   search(source,
 		   "\"human_fangshi_logo.png\"")!=-1 &&
 	   search(source,
 		   "\"human_fangshi_male.png\"")!=-1 &&
 	   search(source,
 		   "\"human_fangshi_female.png\"")!=-1 &&
+	   search(source,"\"tianxiang_logo.png\"")!=-1 &&
+	   search(source,"\"tianxiang_male.png\"")!=-1 &&
+	   search(source,"\"tianxiang_female.png\"")!=-1 &&
 	   search(source,
-		   "copy_fangshi_images_to_container \"$CONTAINER_NAME\"")!=-1 &&
+	   "copy_neutral_profession_images_to_container \"$CONTAINER_NAME\"")!=-1 &&
 	   search(source,
 		   "test -s \"$app_root/images/$image_name\"")!=-1 &&
 	   search(source,
@@ -214,7 +239,7 @@ void test_fangshi_images_deploy_contract()
 		   "test -s \"$tomcat_root/xd/images/$image_name\"")!=-1)
 		test_pass();
 	else
-		test_fail("方士图片必须镜像一致、男女有别并部署到容器全部路径");
+		test_fail("中立职业图片必须镜像一致、男女有别并部署到容器全部路径");
 }
 
 void test_local_restart_save_contract()
@@ -279,7 +304,7 @@ int main()
 	test_pike_version_contract();
 	test_stack_order_contract();
 	test_item_sync_contract();
-	test_fangshi_images_deploy_contract();
+	test_neutral_profession_images_deploy_contract();
 	test_local_restart_save_contract();
 	test_local_restart_stack_contract();
 	print_summary();

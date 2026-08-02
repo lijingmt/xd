@@ -218,7 +218,8 @@ templates["技能等级描述fun_foot"]="}\n";
 				"巫妖":"wuyao",
 				"影鬼":"yinggui",
 				"方士":"fangshi",
-				"镇岳":"zhenyue"
+				"镇越":"zhenyue",
+				"天象":"tianxiang"
 			]);
 			for(int j=0;j<sizeof(arr);j++){
 				writeFile+=replace(templates["技能职业学习限制"],"$1",(string)m[arr[j]]);

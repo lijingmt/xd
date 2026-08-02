@@ -594,7 +594,7 @@ createApp({
             if (profession.includes('方士')) {
                 return ['#60e6d2', '#78a8ff', '#c991ff', '#f4e8ff'];
             }
-            if (profession.includes('镇岳')) {
+            if (profession.includes('镇越')) {
                 return ['#f1c66d', '#d99045', '#8f6a45', '#fff1b5'];
             }
             return ['#f4c95d', '#ef8354', '#6fb1ff', '#fff4cf'];
@@ -610,7 +610,7 @@ createApp({
                     const profession = String(this.playerStats?.profe || '');
                     const glyph = profession.includes('方士')
                         ? '符'
-                        : (profession.includes('镇岳') ? '岳' : '✦');
+                        : (profession.includes('镇越') ? '岳' : '✦');
                     shapes.push(window.confetti.shapeFromText({ text: glyph, scalar: 1.4 }));
                     shapes.push('star');
                 } else if (kind === 'level' || kind === 'tutorialComplete') {
@@ -3104,7 +3104,7 @@ createApp({
         },
 
         /**
-         * 按技能名识别视觉类型，覆盖全部职业、方士灵术和镇岳守势。
+         * 按技能名识别视觉类型，覆盖全部职业、方士灵术、镇越守势和天象星术。
          * @param {string} text - 技能名、技能ID或战斗文本
          * @returns {string|null} 技能类型
          */
@@ -3114,15 +3114,20 @@ createApp({
 
             if (/灵治|灵莲铺|万灵朝生|治疗|回春|恢复/.test(value)) return 'heal';
             if (/召唤|虎灵|鹤灵|龟灵|三灵合一|三灵共鸣|唤小灵|灵契共鸣/.test(value)) return 'summon';
-            if (/山河壁|玄铁盾|万山不孤|天地成壁/.test(value)) return 'block';
-            if (/地震吼|镇魂吼/.test(value)) return 'curse';
+			if (/山河壁|玄铁盾|万山不孤|天地成壁/.test(value)) return 'block';
+			if (/星壁|万象星壁/.test(value)) return 'block';
+			if (/地震吼|镇魂吼/.test(value)) return 'curse';
+			if (/星锁|周天静止/.test(value)) return 'curse';
+			if (/星芒|曜光|星落|星河坠落/.test(value)) return 'fire';
+			if (/寒辰|星雨|月引/.test(value)) return 'ice';
+			if (/流星|天旋|九星连珠/.test(value)) return 'wind';
             if (/雷|电|极光|光芒万丈|玄光/.test(value)) return 'lightning';
             if (/火|炎|焰|燎|灼|太阳热线/.test(value)) return 'fire';
             if (/冰|雪|寒|霜|冻/.test(value)) return 'ice';
             if (/毒|瘴|腐蚀|流血|放血|裂伤|撕裂|灼烧/.test(value)) return 'poison';
             if (/诅咒|封印|禁锢|束缚|障目|泥沼|灵咒|缠身|重压|致残/.test(value)) return 'curse';
             if (/轻功|凌波微步|神行百变|灵玄影|幻影残像|鬼踪|飘忽不定|清风身法|九幽鬼步/.test(value)) return 'lightness';
-            if (/盾|护体|结界|剑意|神威|狂化|冲动|静心|凝心|灵涌|灵风|山印|镇岩|镇岳真身|万山朝拱/.test(value)) return 'buff';
+            if (/盾|护体|结界|剑意|神威|狂化|冲动|静心|凝心|灵涌|灵风|山印|镇岩|镇越真身|万山朝拱/.test(value)) return 'buff';
             if (/风|云|瞬移/.test(value)) return 'wind';
             if (/剑气|剑芒|万剑|剑阵|剑域|神剑|剑光|御剑|剑影|破天一剑/.test(value)) return 'sword-qi';
             if (/刀|斩|刃|切割|伏击|夺命|杀戮|封喉|绝灭/.test(value)) return 'saber';
@@ -3131,7 +3136,8 @@ createApp({
             if (/指|指法/.test(value)) return 'finger';
             if (/拳|冲撞|猛击|重击|打击|岳击|横山击|巨岳破|岳反震|不周震击/.test(value)) return 'fist';
             if (/内力|真气|内功|神功|心法|本能|狂意/.test(value)) return 'inner-power';
-            if (/【方】|灵/.test(value)) return 'spirit';
+			if (/【方】|灵/.test(value)) return 'spirit';
+			if (/【象】|星痕|观天/.test(value)) return 'lightning';
             return null;
         },
 

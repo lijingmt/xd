@@ -1,5 +1,5 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit WAP_BOOK;
-protected void create(){ name=object_name(this_object()); name_cn="【岳】山印三级"; unit="本"; picture=name; desc="将第三重山印炼入筋骨\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=150; skill_bname="shanyin"; level_limit=34; profe_read_limit="镇岳"; beidong_level=3; need_yushi=30; need_money=1500; }
+protected void create(){ name=object_name(this_object()); name_cn="【越】山印三级"; unit="本"; picture=name; desc="将第三重山印炼入筋骨\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=150; skill_bname="shanyin"; level_limit=34; profe_read_limit="镇越"; beidong_level=3; need_yushi=30; need_money=1500; }
 int read(){ int result=::beidong_read(); if(read_flag==0) remove(); return result; }

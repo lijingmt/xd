@@ -336,7 +336,7 @@ void clean_buff(string s){
 	buff[s][2]=0;
 }
 
-// 镇岳的队伍护盾使用独立槽位，不覆盖队友已有的职业增益。
+// 镇越的队伍护盾使用独立槽位，不覆盖队友已有的职业增益。
 int apply_team_guard(int shield,int duration){
 	if(shield<=0 || duration<=0 || get_cur_life()<=0)
 		return 0;
@@ -366,8 +366,49 @@ int absorb_team_guard_damage(int damage){
 		clean_buff("team_guard");
 	else
 		set_buff("team_guard",1,shield);
-	tell_object(this_object(),"【岳】山河壁为你吸收了"+absorbed+"点伤害。\n");
+	tell_object(this_object(),"【越】山河壁为你吸收了"+absorbed+"点伤害。\n");
 	return damage;
+}
+
+// 天象星痕是短时、只存在于当前战斗场景的服务端资源。
+// 最多三层，15秒未刷新即失效；切换房间、离线或战斗结束都会清理。
+int query_tianxiang_star_marks(){
+	int marks;
+	if(query_profeId()!="tianxiang")
+		return 0;
+	if((int)this_object()["/tmp/tianxiang_star_expire"]<=time()){
+		clean_tianxiang_star_marks();
+		return 0;
+	}
+	marks = (int)this_object()["/tmp/tianxiang_star_marks"];
+	if(marks<0)
+		marks = 0;
+	if(marks>3)
+		marks = 3;
+	return marks;
+}
+
+int add_tianxiang_star_marks(int amount){
+	int marks;
+	if(query_profeId()!="tianxiang" || amount<=0)
+		return 0;
+	marks = query_tianxiang_star_marks()+amount;
+	if(marks>3)
+		marks = 3;
+	this_object()["/tmp/tianxiang_star_marks"] = marks;
+	this_object()["/tmp/tianxiang_star_expire"] = time()+15;
+	return marks;
+}
+
+int consume_tianxiang_star_marks(){
+	int marks = query_tianxiang_star_marks();
+	clean_tianxiang_star_marks();
+	return marks;
+}
+
+void clean_tianxiang_star_marks(){
+	this_object()->m_delete_foruser("/tmp/tianxiang_star_marks");
+	this_object()->m_delete_foruser("/tmp/tianxiang_star_expire");
 }
 
 void reset_buff(){
@@ -582,8 +623,8 @@ protected mapping(string:string) races=([
 //鱼：fish 两栖动物：amphibian 昆虫：bugs
 string profeId;
 read_write(profeId);
-protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","humanlike","beast","bird","fish","amphibian","bugs","dog"});
-protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇岳","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
+protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","humanlike","beast","bird","fish","amphibian","bugs","dog"});
+protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
 protected mapping(string:string) profes=([
 		profeKindList[0]:profeNameList[0],
 		profeKindList[1]:profeNameList[1],
@@ -599,7 +640,8 @@ protected mapping(string:string) profes=([
 		profeKindList[11]:profeNameList[11],
 		profeKindList[12]:profeNameList[12],
 		profeKindList[13]:profeNameList[13],
-		profeKindList[14]:profeNameList[14]
+		profeKindList[14]:profeNameList[14],
+		profeKindList[15]:profeNameList[15]
 		]);
 ////////////////阵营/////////////////////////////////////////////////
 string query_race_cn(string rid){

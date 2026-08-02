@@ -3,7 +3,7 @@
 inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【神】万山朝拱";
-	desc="失落的镇岳大神守势，为同房间队伍展开巨量可耗尽护盾";
+	desc="失落的镇越大神守势，为同房间队伍展开巨量可耗尽护盾";
 	s_type="zhudong"; s_skill_type="team_guard"; s_curse_type="absorb"; s_delayTime=120; s_lasttime=15; skill_rare="mythic";
 	performs_attack[1]=4200; performs_attack[2]=6000; performs_attack[3]=8200; performs_attack[4]=10800; performs_attack[5]=13800;
 	performs_cast[1]=320; performs_cast[2]=380; performs_cast[3]=450; performs_cast[4]=530; performs_cast[5]=620;

@@ -1,12 +1,12 @@
 #!/usr/bin/env pike
 /**
- * 八职业隐藏大神传承运行时测试。
+ * 九职业隐藏大神传承运行时测试。
  *
  * 覆盖：
- * - 70级怪物门槛、总掉率与二十四本等概率池
+ * - 70级怪物门槛、总掉率与二十七本等概率池
  * - 秘籍不进入商店，技能与书籍可运行时加载
  * - 80级与职业限制、背包学习入口、真实读书
- * - 八职业的爆发、群疗、增益、DOT、控制与守护
+ * - 九职业的爆发、群疗、增益、DOT、控制与守护
  * - 长冷却、短持续、高法力的平衡边界
  * - 鹤灵不复活主人、灵治进阶后的新手指引
  */
@@ -61,6 +61,11 @@ mapping(string:array(string)) hidden_skills = ([
 		"buzhouzhenji",
 		"tiandichengbi",
 	}),
+	"tianxiang":({
+		"xinghezhuiluo",
+		"zhoutianjingzhi",
+		"wanxiangxingbi",
+	}),
 ]);
 
 mapping(string:string) profession_cn = ([
@@ -71,7 +76,8 @@ mapping(string:string) profession_cn = ([
 	"kuangyao":"狂妖",
 	"wuyao":"巫妖",
 	"yinggui":"影鬼",
-	"zhenyue":"镇岳",
+	"zhenyue":"镇越",
+	"tianxiang":"天象",
 ]);
 
 mapping(string:string) profession_race = ([
@@ -83,6 +89,7 @@ mapping(string:string) profession_race = ([
 	"wuyao":"monst",
 	"yinggui":"monst",
 	"zhenyue":"third",
+	"tianxiang":"third",
 ]);
 
 void test_start(string name)
@@ -137,7 +144,7 @@ void destroy_player(object|zero player)
 
 void test_drop_contract_runtime()
 {
-	test_start("二十四本秘籍单本等概率且仅70级以上怪物掉落");
+	test_start("二十七本秘籍单本等概率且仅70级以上怪物掉落");
 	string csv =
 		Stdio.read_file(ROOT+"/gamelib/data/can_buy_book_list.csv");
 	string npc_source =
@@ -165,14 +172,14 @@ void test_drop_contract_runtime()
 		if(search(actual,book_path)==-1)
 			failed++;
 	}
-	if(ITEMSD->query_hidden_skill_book_count()!=24 ||
+	if(ITEMSD->query_hidden_skill_book_count()!=27 ||
 	   ITEMSD->query_hidden_skill_min_level()!=70 ||
-	   ITEMSD->query_hidden_skill_drop_rate()!=24 ||
+	   ITEMSD->query_hidden_skill_drop_rate()!=27 ||
 	   ITEMSD->can_drop_hidden_skill_book(69,1)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,0)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,1)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,24)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,25)!=0)
+	   ITEMSD->can_drop_hidden_skill_book(70,27)!=1 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,28)!=0)
 		failed++;
 
 	if(npc_source){
@@ -265,7 +272,7 @@ void test_dynamic_monster_eligibility_runtime()
 
 void test_skill_and_book_config_runtime()
 {
-	test_start("二十四项技能与秘籍完整加载且均为五段大神传承");
+	test_start("二十七项技能与秘籍完整加载且均为五段大神传承");
 	int checked = 0;
 	int failed = 0;
 
@@ -307,7 +314,7 @@ void test_skill_and_book_config_runtime()
 		}
 	}
 
-	if(checked==24 && failed==0)
+	if(checked==27 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf("加载=%d, 配置失败=%d",checked,failed));
@@ -315,7 +322,7 @@ void test_skill_and_book_config_runtime()
 
 void test_real_book_learning()
 {
-	test_start("80级职业限制、背包学习入口与二十四本真实学习");
+	test_start("80级职业限制、背包学习入口与二十七本真实学习");
 	object|zero low_fangshi = 0;
 	object|zero original_player = this_player();
 	mapping(string:object) players = ([]);
@@ -395,8 +402,8 @@ void test_real_book_learning()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && learned==24 && low_rejected==24 &&
-	   profession_rejected==24 && duplicate_preserved==24 && failed==0)
+	if(!err && learned==27 && low_rejected==27 &&
+	   profession_rejected==27 && duplicate_preserved==27 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
@@ -411,7 +418,7 @@ void test_real_book_learning()
 
 void test_eight_profession_burst_runtime()
 {
-	test_start("八职业大神爆发真实命中并进入长冷却");
+	test_start("九职业大神爆发真实命中并进入长冷却");
 	mapping(string:string) burst_skills = ([
 		"jianxian":"wanjianguizong",
 		"fangshi":"taixulingyun",
@@ -421,6 +428,7 @@ void test_eight_profession_burst_runtime()
 		"wuyao":"huangquanwudu",
 		"yinggui":"wuyingjuemie",
 		"zhenyue":"buzhouzhenji",
+		"tianxiang":"xinghezhuiluo",
 	]);
 	object room =
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
@@ -452,6 +460,8 @@ void test_eight_profession_burst_runtime()
 					failed++;
 			}
 			caster->skills[skill_name] = ({1,0});
+			if(profession_id=="tianxiang")
+				caster->add_tianxiang_star_marks(3);
 			// 本用例只验证技能伤害、耗蓝与冷却；关闭目标闪避，
 			// 避免正常闪避概率把功能回归误报成随机失败。
 			enemy->set_debuff("curse",0,"dodge");
@@ -478,7 +488,9 @@ void test_eight_profession_burst_runtime()
 			}
 			if(!performed ||
 			   caster->get_cur_mofa()>=mofa_before ||
-			   caster->f_skills[skill_name]!=61){
+			   caster->f_skills[skill_name]!=61 ||
+			   (profession_id=="tianxiang" &&
+			    caster->query_tianxiang_star_marks()!=0)){
 				failed++;
 				error_desc += sprintf(
 					"%s首次施放失败(life=%d/%d,mofa=%d/%d,cold=%d); ",
@@ -510,7 +522,7 @@ void test_eight_profession_burst_runtime()
 		destroy_player(enemy);
 	}
 
-	if(checked==8 && failed==0)
+	if(checked==9 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
@@ -577,7 +589,7 @@ void test_physical_mythic_weapon_gate()
 
 void test_utility_and_control_runtime()
 {
-	test_start("八职业增益、持续伤害、控制与守护均真实生效");
+	test_start("九职业增益、持续伤害、控制与守护均真实生效");
 	object room =
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	int failed = 0;
@@ -597,6 +609,8 @@ void test_utility_and_control_runtime()
 		"jiuyouduzhang":({"monst","wuyao","curse","life","30"}),
 		"jiuyouguibu":({"monst","yinggui","buff","dodge","12"}),
 		"liudaozhangmu":({"monst","yinggui","curse","hitte","400"}),
+		"zhoutianjingzhi":({"third","tianxiang","curse","hitte","18"}),
+		"wanxiangxingbi":({"third","tianxiang","buff","absorb","3800"}),
 	]);
 
 	foreach(sort(indices(cases)),string skill_name){
@@ -654,9 +668,11 @@ void test_utility_and_control_runtime()
 				expected_effect = caster->query_xuehai_dot_damage(
 					enemy->query_life_max(),(int)info[4],0);
 			if(effect_type!=info[3] ||
-			   (skill_name=="taiyixuanguang" &&
+			   ((skill_name=="taiyixuanguang" ||
+			     skill_name=="wanxiangxingbi") &&
 			    effect_value<(int)info[4]) ||
 			   (skill_name!="taiyixuanguang" &&
+			    skill_name!="wanxiangxingbi" &&
 			    effect_value!=expected_effect)){
 				failed++;
 				error_desc += sprintf("%s效果=%O/%O 期望=%s/%d; ",
@@ -807,7 +823,7 @@ void test_balance_envelope()
 		}
 	}
 
-	if(resource_checks==120 && failed==0)
+	if(resource_checks==135 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(

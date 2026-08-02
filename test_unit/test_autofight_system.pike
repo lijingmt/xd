@@ -212,7 +212,7 @@ void test_smart_auto_skill_selection()
 
 void test_zhenyue_context_skill_selection()
 {
-	test_start("镇岳助手仅在有效白金PVE按失仇恨、缺护盾顺序施放");
+	test_start("镇越助手仅在有效白金PVE按失仇恨、缺护盾顺序施放");
 	object tank = clone(GAMELIB_USER);
 	object teammate = create_runtime_player(
 		"__testunit_autofight_zhenyue_member__");
@@ -235,7 +235,7 @@ void test_zhenyue_context_skill_selection()
 	int valid = 0;
 	mixed err = catch {
 		tank->set_name("__testunit_autofight_zhenyue_tank__");
-		tank->name_cn = "镇岳挂机测试";
+		tank->name_cn = "镇越挂机测试";
 		tank->set_project("gamelib");
 		tank->setup("testunit-only");
 		tank->set_raceId("third");
@@ -300,6 +300,65 @@ void test_zhenyue_context_skill_selection()
 		tank->_clean_fight();
 	destroy_runtime_player(tank);
 	destroy_runtime_player(teammate);
+	destroy_runtime_player(enemy);
+	destroy_runtime_player(pvp_enemy);
+}
+
+void test_tianxiang_context_skill_selection()
+{
+	test_start("天象智能挂机按星痕引爆且严格隔离PVP");
+	object mage = clone(GAMELIB_USER);
+	object enemy = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object pvp_enemy = create_runtime_player(
+		"__testunit_autofight_tianxiang_pvp_enemy__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	string free_context = "";
+	string burst_context = "";
+	string ready = "";
+	string pvp_context = "";
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		mage->set_name("__testunit_autofight_tianxiang_mage__");
+		mage->name_cn = "天象挂机测试";
+		mage->set_project("gamelib");
+		mage->setup("testunit-only");
+		mage->set_raceId("third");
+		mage->set_profeId("tianxiang");
+		mage->setup_player("third","tianxiang");
+		mage->level = 80;
+		mage->set_att_by_level();
+		mage->set_mofa(mage->query_mofa_max());
+		mage->skills["xingmang"] = ({1,0});
+		mage->skills["xingluo"] = ({1,0});
+		mage->move(room); enemy->move(room); pvp_enemy->move(room);
+		daemon->initialize_player(mage);
+		mage->_fight(enemy);
+		mage->add_tianxiang_star_marks(2);
+		free_context = daemon->query_ready_tianxiang_context_skill(mage);
+		set_active_vip(mage,3);
+		PROFESSIONVIPD->initialize_player(mage);
+		PROFESSIONVIPD->set_auto_enabled(mage,1);
+		PROFESSIONVIPD->set_strategy(mage,"burst");
+		burst_context = daemon->query_ready_tianxiang_context_skill(mage);
+		ready = daemon->query_ready_auto_skill(mage);
+		mage->_clean_fight(); mage->_fight(pvp_enemy);
+		pvp_context = daemon->query_ready_tianxiang_context_skill(mage);
+		valid = free_context=="" && burst_context=="xingluo" &&
+			ready=="xingluo" && pvp_context=="";
+	};
+	if(err) error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf("免费=%s 爆发=%s 就绪=%s PVP=%s: %s",
+			free_context,burst_context,ready,pvp_context,error_desc));
+	if(mage) mage->_clean_fight();
+	destroy_runtime_player(mage);
 	destroy_runtime_player(enemy);
 	destroy_runtime_player(pvp_enemy);
 }
@@ -2356,6 +2415,7 @@ int main()
 	test_defaults_and_switch();
 	test_smart_auto_skill_selection();
 	test_zhenyue_context_skill_selection();
+	test_tianxiang_context_skill_selection();
 	test_vip_daily_limits();
 	test_vip_quota_exhausted_guidance();
 	test_vip_labels_and_plan();

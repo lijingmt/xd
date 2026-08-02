@@ -13,7 +13,13 @@ string query_race_tag(string race_id,void|string profession_id)
 	if(race_id == "monst")
 		return "【妖】";
 	if(race_id == "third")
-		return profession_id=="zhenyue" ? "【岳】" : "【方】";
+	{
+		if(profession_id=="zhenyue")
+			return "【越】";
+		if(profession_id=="tianxiang")
+			return "【象】";
+		return "【方】";
+	}
 	return "【仙】";
 }
 

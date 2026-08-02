@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1785611025462">
-    <link rel="stylesheet" href="css/app.css?v=v1785611025462">
-    <link rel="stylesheet" href="css/realm.css?v=v1785611025462">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1785631115856">
+    <link rel="stylesheet" href="css/app.css?v=v1785631115856">
+    <link rel="stylesheet" href="css/realm.css?v=v1785631115856">
 </head>
 <body>
     <div id="app">
@@ -36,11 +36,11 @@
                     <div class="auth-brand-copy">
                         <div class="auth-eyebrow">东方幻想 · 多职业世界</div>
                         <h1 id="login-title">仙道</h1>
-                        <p>一念入世，七职同行</p>
+                        <p>一念入世，九职同行</p>
                     </div>
                 </div>
                 <div class="auth-feature-row" aria-label="游戏特色">
-                    <span>七大职业</span>
+                    <span>九大职业</span>
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
@@ -651,6 +651,12 @@
                             <span>山河壁 {{ formatCompactNumber(battlePlayerFull?.guard ?? playerStats?.guard ?? 0) }}</span>
                             <span>· {{ battlePlayerFull?.guard_time ?? playerStats?.guard_time ?? 0 }}秒</span>
                         </div>
+                        <div class="battle-star-status"
+                             v-if="(battlePlayerFull?.profe || playerStats?.profe) === '天象'">
+                            <span aria-hidden="true">✦</span>
+                            <span>星痕 {{ battlePlayerFull?.star_marks ?? playerStats?.star_marks ?? 0 }}/{{ battlePlayerFull?.star_marks_max ?? playerStats?.star_marks_max ?? 3 }}</span>
+                            <span>· 15秒内刷新</span>
+                        </div>
                     </div>
                     <div class="battle-vs">⚔️</div>
                     <div class="battle-side enemy-side">
@@ -770,6 +776,7 @@
                                 <span class="stat-item">职业: {{ battlePlayerFull.profe || '未知' }}</span>
                                 <span class="stat-item">阵营: {{ battlePlayerFull.race || '未知' }}</span>
                                 <span class="stat-item guard-stat" v-if="battlePlayerFull.guard_active">🛡 山河壁: {{ formatCompactNumber(battlePlayerFull.guard || 0) }} · {{ battlePlayerFull.guard_time || 0 }}秒</span>
+                                <span class="stat-item star-mark-stat" v-if="battlePlayerFull.profe === '天象'">✦ 星痕: {{ battlePlayerFull.star_marks || 0 }}/{{ battlePlayerFull.star_marks_max || 3 }} · 15秒内刷新</span>
                             </div>
                         </div>
                     </div>
@@ -1019,7 +1026,7 @@
                         <button class="quick-tool-btn"
                                 v-if="playerStats?.profession_assistant?.supported"
                                 @click="sendQuickCommand('profession_assistant')">
-                            <span>{{ playerStats.profe === '方士' ? '🔮' : '🛡️' }}</span>职业助手
+                            <span>{{ playerStats.profe === '方士' ? '🔮' : (playerStats.profe === '天象' ? '✦' : '🛡️') }}</span>职业助手
                         </button>
                         <button class="quick-tool-btn"
                                 data-tour="autofight"
@@ -1073,18 +1080,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785611025462"></script>
-    <script src="vendor/canvas-confetti.js?v=v1785611025462"></script>
-    <script src="vendor/howler.core.min.js?v=v1785611025462"></script>
-    <script src="vendor/driver.iife.js?v=v1785611025462"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785631115856"></script>
+    <script src="vendor/canvas-confetti.js?v=v1785631115856"></script>
+    <script src="vendor/howler.core.min.js?v=v1785631115856"></script>
+    <script src="vendor/driver.iife.js?v=v1785631115856"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785611025462';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785631115856';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1785611025462"></script>
+    <script src="js/app.js?v=v1785631115856"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785611025462"></script>
+    <script src="../includes/translate.js?v=v1785631115856"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

@@ -123,15 +123,26 @@ mapping(string:mapping(string:mixed)) profession_config = ([
 		"practice_cn":"升到10级，学习虎灵并真正召唤一只虎灵",
 	]),
 	"zhenyue":([
-		"name":"镇岳",
+		"name":"镇越",
 		"starter":"yueji",
 		"starter_cn":"岳击",
 		"level":5,
 		"book":"book/zhenyan",
-		"book_cn":"【岳】镇岩诀",
+		"book_cn":"【越】镇岩诀",
 		"skill":"zhenyan",
 		"practice":"active",
 		"practice_cn":"施放镇岩诀，建立第一层稳定守势",
+	]),
+	"tianxiang":([
+		"name":"天象",
+		"starter":"xingmang",
+		"starter_cn":"星芒",
+		"level":5,
+		"book":"book/hanchen",
+		"book_cn":"【象】寒辰",
+		"skill":"hanchen",
+		"practice":"active",
+		"practice_cn":"分别施放星芒与寒辰，观察星痕由一层增加到两层",
 	]),
 ]);
 
@@ -463,8 +474,15 @@ void record_perform(object player,string skill)
 		return;
 	if(skill==config["starter"])
 		record_action(player,"starter_perform");
-	if(config["practice"]=="active" && skill==config["skill"])
-		record_action(player,"profession_practice");
+	if(config["practice"]=="active"){
+		if(player->query_profeId()=="tianxiang"){
+			if((skill=="xingmang" || skill=="hanchen") &&
+			   player->query_tianxiang_star_marks()>=2)
+				record_action(player,"profession_practice");
+		}
+		else if(skill==config["skill"])
+			record_action(player,"profession_practice");
+	}
 }
 
 void record_kill(object player)
@@ -670,7 +688,7 @@ mapping(string:mixed) query_step_state(object player)
 			break;
 		case 7:
 			state["title"] = "领取本级职业历练";
-			state["desc"] = "八职业每一级都有历练；领取后击败等级接近自己的怪物。";
+			state["desc"] = "九职业每一级都有历练；领取后击败等级接近自己的怪物。";
 			state["action_label"] = "领取历练";
 			state["action_command"] = "growth_task accept";
 			break;
@@ -725,6 +743,8 @@ mapping(string:mixed) query_step_state(object player)
 				state["desc"] = "队伍用于协作打怪和进入副本；灵莲铺与鹤灵共鸣会照顾同房间队友。";
 			else if(player->query_profeId()=="zhenyue")
 				state["desc"] = "队伍用于协作打怪和进入副本；震吼稳住仇恨，山河壁只保护同房间存活队友。";
+			else if(player->query_profeId()=="tianxiang")
+				state["desc"] = "队伍用于协作打怪和进入副本；星锁能为同房间队友创造法术输出窗口，但星痕只属于施法者本人。";
 			else
 				state["desc"] = "队伍用于协作打怪、共享战利品并进入需要多人配合的副本。";
 			state["action_label"] = "打开队伍";

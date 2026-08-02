@@ -1,12 +1,12 @@
 #!/usr/bin/env pike
-/** 镇岳从建角、技能书、坦克机制到隐藏掉落的运行时测试。 */
+/** 镇越从建角、技能书、坦克机制到隐藏掉落的运行时测试。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 
 mapping(string:int) test_results = (["total":0,"passed":0,"failed":0]);
 
-void test_start(string name){ test_results["total"]++; werror("\n[镇岳全链路 %d] %s\n",test_results["total"],name); }
+void test_start(string name){ test_results["total"]++; werror("\n[镇越全链路 %d] %s\n",test_results["total"],name); }
 void test_pass(){ test_results["passed"]++; werror("  ✓ 通过\n"); }
 void test_fail(string reason){ test_results["failed"]++; werror("  ✗ 失败: %s\n",reason); }
 
@@ -16,7 +16,7 @@ object create_player(string name,int level)
 	if(!player)
 		return 0;
 	player->set_name(name);
-	player->name_cn = "镇岳测试人物";
+	player->name_cn = "镇越测试人物";
 	player->set_project("gamelib");
 	player->setup("testunit-only");
 	player->set_raceId("third");
@@ -48,7 +48,7 @@ void test_creation_and_growth()
 	string source = Stdio.read_file(ROOT+"/gamelib/d/init");
 	if(level_one && level_thirty && level_eighty && level_one_twenty &&
 	   source &&
-	   search(source,"[镇岳:choice_profe third/zhenyue]")!=-1 &&
+	   search(source,"[镇越:choice_profe third/zhenyue]")!=-1 &&
 	   search(source,"valid_professions")!=-1 &&
 	   search(source,"if(me->skills[\"yueji\"]==0)")!=-1 &&
 	   search(source,"me->skills[\"yueji\"]=({1,0});")!=-1 &&
@@ -56,7 +56,7 @@ void test_creation_and_growth()
 	   search(source,"string race = (string)(me->query_raceId() || \"\")")!=-1 &&
 	   search(source,"else if(race==\"third\")")!=-1 &&
 	   level_one->query_raceId()=="third" &&
-	   level_one->query_profe_cn("zhenyue")=="镇岳" &&
+	   level_one->query_profe_cn("zhenyue")=="镇越" &&
 	   level_one->query_str()==14 && level_one->query_dex()==3 &&
 	   level_one->query_think()==5 &&
 	   level_thirty->query_str()==92 &&
@@ -355,7 +355,7 @@ void test_hidden_equipment_tasks_and_teacher()
 		object skill = (object)(ROOT+"/gamelib/single/skills/"+name);
 		object book = clone(ROOT+"/gamelib/clone/item/book/"+name);
 		if(!skill || !book || skill->skill_rare!="mythic" ||
-		   book->level_limit!=80 || book->profe_read_limit!="镇岳" ||
+		   book->level_limit!=80 || book->profe_read_limit!="镇越" ||
 		   search(csv,"book/"+name)!=-1)
 			failed++;
 		if(book)
@@ -367,15 +367,15 @@ void test_hidden_equipment_tasks_and_teacher()
 		set_this_player(original_player);
 	else
 		set_this_player(this_object());
-	if(ITEMSD->query_hidden_skill_book_count()!=24 ||
-	   ITEMSD->query_hidden_skill_drop_rate()!=24 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,24)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,25)!=0 ||
+	if(ITEMSD->query_hidden_skill_book_count()!=27 ||
+	   ITEMSD->query_hidden_skill_drop_rate()!=27 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,27)!=1 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,28)!=0 ||
 	   search(equipment->query_item_profeLimit(),"zhenyue")==-1 ||
 	   !medicine->profe_limit["zhenyue"] ||
 	   !TASKD->is_growth_task_profession("zhenyue") ||
 	   search(TASKD->query_growth_task_title("zhenyue",80),"镇山守望")==-1 ||
-	   search(links,"[学习镇岳技能:buy_items book zhenyue]")==-1)
+	   search(links,"[学习镇越技能:buy_items book zhenyue]")==-1)
 		failed++;
 	if(failed==0)
 		test_pass();
@@ -468,8 +468,8 @@ void test_profession_quest_chain_and_reward()
 	if(search(task_list,"初镇山门")!=-1 &&
 	   search(task_list,"背山试阵")!=-1 &&
 	   search(task_list,"冥关承压")==-1 &&
-	   TASKD->queryTaskProfe(369)=="镇岳" &&
-	   TASKD->queryTaskProfe(373)=="镇岳" &&
+	   TASKD->queryTaskProfe(369)=="镇越" &&
+	   TASKD->queryTaskProfe(373)=="镇越" &&
 	   wrong_npc==7 && accepted==1 && completed==1 &&
 	   skipped==7 && continued==1 &&
 	   guide_failed==0 && human_square && monst_square &&
@@ -650,7 +650,7 @@ void test_aoe_target_cleanup()
 
 void test_neutral_social_and_faction_boundaries()
 {
-	test_start("中立镇岳可跨阵营组队交流但不能伪装转换阵营");
+	test_start("中立镇越可跨阵营组队交流但不能伪装转换阵营");
 	object tank = create_player("__testunit_zhenyue_social__",20);
 	object human = create_player("__testunit_zhenyue_human__",20);
 	object monst = create_player("__testunit_zhenyue_monst__",20);
@@ -675,7 +675,7 @@ void test_neutral_social_and_faction_boundaries()
 
 void test_purchase_boundary_and_identity_surfaces()
 {
-	test_start("购买类型/路径边界与镇岳身份展示安全");
+	test_start("购买类型/路径边界与镇越身份展示安全");
 	object player = create_player("__testunit_zhenyue_purchase__",80);
 	object|zero original_player = this_player();
 	string forged = "";
@@ -704,22 +704,22 @@ void test_purchase_boundary_and_identity_surfaces()
 	if(!err && search(forged,"类别不匹配")!=-1 &&
 	   search(missing,"暂时不可用")!=-1 &&
 	   search(traversal,"资料无效")!=-1 &&
-	   source && search(source,"【岳】")!=-1 &&
-	   top_source && search(top_source,"【岳】")!=-1 &&
-	   base_source && search(base_source,"无名镇岳")!=-1 &&
+	   source && search(source,"【越】")!=-1 &&
+	   top_source && search(top_source,"【越】")!=-1 &&
+	   base_source && search(base_source,"无名镇越")!=-1 &&
 	   newbie_source && search(newbie_source,"震吼稳住仇恨")!=-1 &&
 	   buy_source && search(buy_source,"else if(type == \"zhenyue\")")!=-1 &&
-	   search(buy_source,"[镇岳:buy_items ")!=-1)
+	   search(buy_source,"[镇越:buy_items ")!=-1)
 		test_pass();
 	else
-		test_fail("购买边界或镇岳身份文案缺失: "+error_desc);
+		test_fail("购买边界或镇越身份文案缺失: "+error_desc);
 	destroy_player(player);
 }
 
 int main(int argc,array(string) argv)
 {
 	werror("\n╔════════════════════════════════════════════════╗\n");
-	werror("║             镇岳职业全链路测试                ║\n");
+	werror("║             镇越职业全链路测试                ║\n");
 	werror("╚════════════════════════════════════════════════╝\n");
 	test_creation_and_growth();
 	test_passive_book_lazy_learning();
@@ -736,6 +736,6 @@ int main(int argc,array(string) argv)
 	test_aoe_target_cleanup();
 	test_neutral_social_and_faction_boundaries();
 	test_purchase_boundary_and_identity_surfaces();
-	werror("\n镇岳测试：%d通过，%d失败\n",test_results["passed"],test_results["failed"]);
+	werror("\n镇越测试：%d通过，%d失败\n",test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;
 }

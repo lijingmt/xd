@@ -1120,7 +1120,7 @@ mapping query_player_state(object player)
         result["hp"] = hp;
         result["hp_max"] = hp_max;
 
-        // 镇岳队伍护盾属于独立 buff 槽位。战斗状态轮询直接返回剩余
+        // 镇越队伍护盾属于独立 buff 槽位。战斗状态轮询直接返回剩余
         // 吸收量和秒数，让施法者、队友都能看见实际保护效果。
         int guard = 0;
         int guard_time = 0;
@@ -1134,6 +1134,14 @@ mapping query_player_state(object player)
         result["guard"] = guard;
         result["guard_time"] = guard_time;
         result["guard_active"] = guard > 0 && guard_time > 0 ? 1 : 0;
+
+        // 天象星痕由服务端维护。前端只读取层数，不能自行生成或消费。
+        int star_marks = 0;
+        if(functionp(player->query_tianxiang_star_marks)) {
+            star_marks = player->query_tianxiang_star_marks();
+        }
+        result["star_marks"] = star_marks;
+        result["star_marks_max"] = 3;
 
         // 法力值 Mana (xiand 使用 mofa 而不是 qi)
         int mana = 0, mana_max = 0;

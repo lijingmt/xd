@@ -2,7 +2,7 @@
 #include <gamelib/include/gamelib.h>
 inherit WAP_SKILL;
 protected void create(){
-	name=object_name(this_object()); name_cn="【岳】山印";
+	name=object_name(this_object()); name_cn="【越】山印";
 	desc="将守山印炼入筋骨，永久提高基础防御";
 	s_type="beidong"; s_skill_type="buff"; s_curse_type="defend";
 	performs_attack[1]=20; performs_attack[2]=60; performs_attack[3]=120; performs_attack[4]=200; performs_attack[5]=300;

@@ -149,8 +149,13 @@ int main(string|zero arg)
 		}
 		auto_skill = AUTOFIGHTD->query_ready_auto_skill(me);
 		if(auto_skill != ""){
-			array(string) profession_skills =
-				PROFESSIONVIPD->query_zhenyue_context_candidates(me);
+			array(string) profession_skills = ({});
+			if(me->query_profeId()=="tianxiang")
+				profession_skills =
+					PROFESSIONVIPD->query_tianxiang_context_candidates(me);
+			else
+				profession_skills =
+					PROFESSIONVIPD->query_zhenyue_context_candidates(me);
 			int before_mofa = me->get_cur_mofa();
 			int before_cooldown = me->f_skills ?
 				(int)me->f_skills[auto_skill] : 0;
@@ -158,8 +163,12 @@ int main(string|zero arg)
 			if(search(profession_skills,auto_skill) != -1 &&
 			   (me->get_cur_mofa() < before_mofa ||
 			   (me->f_skills &&
-			   (int)me->f_skills[auto_skill] > before_cooldown)))
-				PROFESSIONVIPD->record_zhenyue_action(me,auto_skill);
+			   (int)me->f_skills[auto_skill] > before_cooldown))){
+				if(me->query_profeId()=="tianxiang")
+					PROFESSIONVIPD->record_tianxiang_action(me,auto_skill);
+				else
+					PROFESSIONVIPD->record_zhenyue_action(me,auto_skill);
+			}
 			if(!me->in_combat){
 				write("[关闭自动挂机:autofightclose] 今日剩余"+
 					format_time(left)+"\n");

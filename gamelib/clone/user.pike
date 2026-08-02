@@ -427,9 +427,14 @@ int save_with_result(void|int autosave){
 	string zhenying="【仙】";
 	if(this_object()->query_raceId()=="monst")
 		zhenying="【妖】";
-	else if(this_object()->query_raceId()=="third")
-		zhenying=this_object()->query_profeId()=="zhenyue" ?
-			"【岳】" : "【方】";
+	else if(this_object()->query_raceId()=="third"){
+		if(this_object()->query_profeId()=="zhenyue")
+			zhenying="【越】";
+		else if(this_object()->query_profeId()=="tianxiang")
+			zhenying="【象】";
+		else
+			zhenying="【方】";
+	}
 	string topname = this_object()->query_name_cn()+"("+this_object()->query_level()+"级)"+zhenying;
 	TOPTEN->try_top(this_object()->query_name(),topname,"等级",this_object()->query_level());
 	TOPTEN->try_top(this_object()->query_name(),topname,"富翁",this_object()->query_account());
