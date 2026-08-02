@@ -1,0 +1,4 @@
+interface:
+  display_name: "前端宽松许可审查"
+  short_description: "Audit frontend libraries for permissive commercial-use licenses"
+  default_prompt: "Use $frontend-permissive-license to audit this frontend dependency before adding or upgrading it."
