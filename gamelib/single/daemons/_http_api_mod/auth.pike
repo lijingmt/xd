@@ -244,6 +244,16 @@ private void cache_user_password(string userid,string password)
     destruct(key);
 }
 
+void invalidate_user_password_cache(string userid)
+{
+    object key;
+    if(!userid)
+        return;
+    key = auth_password_cache_lock->lock();
+    m_delete(auth_password_cache,userid);
+    destruct(key);
+}
+
 mapping query_auth_cache_status()
 {
     mapping result;

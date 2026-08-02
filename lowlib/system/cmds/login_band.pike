@@ -47,8 +47,13 @@ int main(string arg)
 			if(user_ob->mobile==regmobile){
 				if(user_ob->bandpswd==bandpswd){
 					string psw = "hYEfdf"+(string)random(100000);
-					user_ob->set_password(psw);
-					user_ob->command("save");
+					mapping changed = ACCOUNT_CHARACTERD->
+						change_account_password(user_ob,psw);
+					if(!changed["ok"]){
+						user_ob->remove();
+						write("error6");
+						return 1;
+					}
 					user_ob->remove();
 					write("bandok");
 					return 1;

@@ -14,10 +14,8 @@ int main(string arg)
 {
 	string path,user_name,lgpswd,userip;
 	string title = "";
-	Stdio.append_file("/tmp/xiand_login_debug.log", "login_check called with arg=["+arg+"]\n");
 	title += "=玩家登录=\n";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
-		Stdio.append_file("/tmp/xiand_login_debug.log", "sscanf: path=["+path+"] user=["+user_name+"] pswd=["+lgpswd+"] ip=["+userip+"]\n");
 		if(!path || !user_name || !lgpswd || !userip){
 			title += "登录错误！\n";
 			title += "您输入的用户名和密码不符合规范，请返回重试。\n";
@@ -214,17 +212,14 @@ int main(string arg)
 				array(string) usr_content=user/"\n";
 				Stdio.append_file("/tmp/xiand_login_debug.log", "usr_content size=" + sizeof(usr_content) + "\n");
 				foreach(usr_content,string strCompare){
-					Stdio.append_file("/tmp/xiand_login_debug.log", "checking line: [" + strCompare + "]\n");
 					if((strCompare/" ")[0]=="password"){
 						Stdio.append_file("/tmp/xiand_login_debug.log", "found password line!\n");
 						if( (strCompare/" ")[1] ){
 							string pswdTmp = (strCompare/" ")[1];
 							pswd =(pswdTmp/"\"")[1];
-							Stdio.append_file("/tmp/xiand_login_debug.log", "extracted password: [" + pswd + "]\n");
 						}
 					}
 				}
-				Stdio.append_file("/tmp/xiand_login_debug.log", "final pswd=[" + (pswd?pswd:"NULL") + "] lgpswd=[" + lgpswd + "]\n");
 				if(!pswd){
 					title += "登录错误！\n";
 					//title += "您输入的用户名和密码认证失败，是否需要找回密码？\n";
@@ -301,7 +296,8 @@ int main(string arg)
 					return 1;
 				}
 				else{
-					Stdio.append_file("/tmp/xiand_login_debug.log", "password mismatch! pswd=["+pswd+"] lgpswd=["+lgpswd+"]\n");
+					Stdio.append_file("/tmp/xiand_login_debug.log",
+						"password mismatch for user="+user_name+"\n");
 				}
 			}
 		}

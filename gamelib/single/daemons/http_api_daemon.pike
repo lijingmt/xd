@@ -64,6 +64,7 @@ void http_werror(string fmt, mixed ... args)
 #include "_http_api_mod/thread_manager.pike"
 #include "_http_api_mod/html_renderer.pike"
 #include "_http_api_mod/rate_limit.pike"
+#include "_http_api_mod/account_characters.pike"
 
 // ========================================================================
 // 全局变量
@@ -613,6 +614,21 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/challenge":
                 handle_api_challenge(req);
                 break;
+            case "/api/account/login":
+                handle_api_account_login(req);
+                break;
+            case "/api/account/characters":
+                handle_api_account_characters(req);
+                break;
+            case "/api/account/characters/create":
+                handle_api_account_character_create(req);
+                break;
+            case "/api/account/characters/select":
+                handle_api_account_character_select(req);
+                break;
+            case "/api/account/logout":
+                handle_api_account_logout(req);
+                break;
             case "/api/status":
                 handle_api_status(req);
                 break;
@@ -665,6 +681,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
                     "autofight_performance":AUTOFIGHTD->
                         query_autofight_performance_status(),
                     "performance":query_http_performance_status(),
+                    "account_sessions":query_account_session_status(),
                 ]);
                 send_json(req, m);
                 break;
@@ -830,7 +847,6 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
 {
     http_werror("========== handle_api_html called! ==========\n");
     mapping params = get_params(req);
-    http_werror("  params: %O\n", params);
     string txd = url_decode(params["txd"]);
     string userid = params["userid"];
     string password = params["password"];
@@ -843,7 +859,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     // 注册命令处理 - 直接实现注册逻辑（xiand没有login_regnew命令）
     if(search(cmd, "login_regnew ") == 0) {
         http_werror("=== REGISTER REQUEST ===\n");
-        http_werror(" RAW CMD: %s\n", cmd);
+		// 注册命令包含明文密码，禁止写入任何运行日志。
 
         if(check_register_rate_limit(client_ip)) {
             http_werror(" RATE LIMIT EXCEEDED for IP: %s\n", client_ip);
@@ -939,8 +955,10 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                     error_msg = "用户名只能包含字母和数字";
                 } else {
                     // full_username已在上面定义: game_fg + actual_user
-                    // 检查用户是否已存在 - 使用 gamelib 路径
-                    string user_file_path = ROOT + "/gamelib/u/" + full_username[sizeof(full_username)-2..] + "/" + full_username + ".o";
+                    // 与登录、原子存档统一使用 data_xiand，严禁覆盖已有旧人物。
+                    string user_file_path = DATA_ROOT + "u/" +
+                        full_username[sizeof(full_username)-2..] + "/" +
+                        full_username + ".o";
                     http_werror(" Checking user file: %s\n", user_file_path);
                     string existing_user =
                         ASYNC_IOD->read_text(user_file_path,1024*1024);
@@ -1072,7 +1090,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                 }
             }
 
-            http_werror(" Registration result: %s, error_msg: %s\n", result, error_msg);
+            http_werror(" Registration completed: success=%d error=%s\n",
+                search(result || "","error")!=0,error_msg || "");
 
             // 返回注册结果 - 格式: result 或 result,error_msg
             string response_data = result;

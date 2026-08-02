@@ -130,6 +130,8 @@ void send_json(Protocols.HTTP.Server.Request req, mapping data, void|int code)
         response["error"] = (int)(code || 200);
         response["extra_heads"] = ([ ]);
         response["extra_heads"]["Access-Control-Allow-Origin"] = "*";
+		// 游戏JSON包含TXD或短期账号令牌，禁止浏览器和中间缓存持久化。
+		response["extra_heads"]["Cache-Control"] = "no-store";
         req->response_and_finish(response);
     };
 

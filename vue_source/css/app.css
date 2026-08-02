@@ -1204,6 +1204,269 @@ body {
     animation: slideUp 0.3s ease;
 }
 
+/* ============================================
+   注册账号多人物档案
+   ============================================ */
+.character-overlay {
+    padding: max(12px, env(safe-area-inset-top)) 12px
+        max(12px, env(safe-area-inset-bottom));
+}
+
+.character-modal {
+    position: relative;
+    width: min(94vw, 760px);
+    max-width: 760px;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 22px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(222, 178, 91, 0.16), transparent 34%),
+        var(--bg-card);
+}
+
+.character-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.character-heading h2 {
+    margin: 4px 0 2px;
+    color: var(--text-primary);
+    font-size: clamp(22px, 4vw, 30px);
+}
+
+.character-heading p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+}
+
+.character-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.character-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.character-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 84px;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.16s ease, border-color 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.character-card:hover:not(:disabled),
+.character-card:focus-visible {
+    transform: translateY(-1px);
+    border-color: var(--primary);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+}
+
+.character-card.current {
+    border-color: var(--success);
+    box-shadow: inset 0 0 0 1px rgba(72, 187, 120, 0.22);
+}
+
+.character-card.pending {
+    border-style: dashed;
+}
+
+.character-card.unavailable {
+    border-color: var(--danger);
+    opacity: 0.58;
+}
+
+.character-card:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.character-card-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: rgba(222, 178, 91, 0.14);
+    font-size: 24px;
+}
+
+.character-card-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.character-card-main strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: var(--font-md);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.character-card-main span,
+.character-card-main small {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: var(--font-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.character-card-state {
+    color: var(--primary);
+    font-size: var(--font-xs);
+    font-weight: 700;
+}
+
+.character-add {
+    border-style: dashed;
+    background: transparent;
+}
+
+.character-create-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.character-create-copy span {
+    color: var(--text-secondary);
+    font-size: var(--font-xs);
+    line-height: 1.5;
+}
+
+.profession-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.profession-choice {
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 60px;
+    padding: 9px 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.profession-choice.selected {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.profession-choice.unavailable {
+    opacity: 0.48;
+    cursor: not-allowed;
+}
+
+.profession-choice-icon {
+    font-size: 22px;
+    text-align: center;
+}
+
+.profession-choice > span:nth-child(2) {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.profession-choice small {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profession-choice em {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.character-create-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.character-create-actions .btn {
+    width: auto;
+    min-width: 112px;
+}
+
+.character-message {
+    margin-top: 12px;
+}
+
+.character-loading {
+    margin-top: 10px;
+    color: var(--text-secondary);
+    font-size: var(--font-xs);
+    text-align: center;
+}
+
+.character-footer {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 14px;
+}
+
+@media (max-width: 620px) {
+    .character-modal {
+        width: min(96vw, 430px);
+        padding: 17px 14px;
+    }
+
+    .character-grid,
+    .profession-choice-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .character-card {
+        min-height: 74px;
+        padding: 10px;
+    }
+}
+
 .newbie-completion-overlay {
     z-index: 1300;
     padding: var(--space-md);

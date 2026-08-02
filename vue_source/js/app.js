@@ -187,6 +187,33 @@ createApp({
             showLogin: true,
             headerMenuOpen: false,
             showRegister: false,
+            showCharacterSelect: false,
+            characterSelectCanCancel: false,
+            characterCreateOpen: false,
+            characterLoading: false,
+            characterCreating: false,
+            characterError: '',
+            accountToken: '',
+            accountId: '',
+            currentCharacterId: '',
+            accountCharacters: [],
+            accountCharacterLimit: 10,
+            characterForm: {
+                race_id: '',
+                profession_id: ''
+            },
+            professionOptions: [
+                { race_id: 'human', profession_id: 'jianxian', name: '剑仙', race: '人类', icon: '⚔️', desc: '重甲长剑，正面强攻' },
+                { race_id: 'human', profession_id: 'yushi', name: '羽士', race: '人类', icon: '🌩️', desc: '元素法术，远程爆发' },
+                { race_id: 'human', profession_id: 'zhuxian', name: '诛仙', race: '人类', icon: '🗡️', desc: '灵动剑术，迅捷连击' },
+                { race_id: 'monst', profession_id: 'kuangyao', name: '狂妖', race: '妖魔', icon: '🩸', desc: '狂暴近战，持续撕裂' },
+                { race_id: 'monst', profession_id: 'wuyao', name: '巫妖', race: '妖魔', icon: '☠️', desc: '毒术诅咒，法系压制' },
+                { race_id: 'monst', profession_id: 'yinggui', name: '影鬼', race: '妖魔', icon: '🌑', desc: '潜影刺杀，高速闪避' },
+                { race_id: 'third', profession_id: 'fangshi', name: '方士', race: '中立', icon: '🐯', desc: '三灵召唤，攻守治疗' },
+                { race_id: 'third', profession_id: 'zhenyue', name: '镇越', race: '中立', icon: '🛡️', desc: '团队坦克，守御承伤' },
+                { race_id: 'third', profession_id: 'tianxiang', name: '天象', race: '中立', icon: '🌠', desc: '星痕法术，元素爆发' },
+                { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' }
+            ],
             isLoggingIn: false,
             isRegistering: false,
             loginPasswordVisible: false,
@@ -1161,6 +1188,270 @@ createApp({
             }
         },
 
+        persistAccountSession() {
+            if (this.accountToken) {
+                sessionStorage.setItem('mud_account_token', this.accountToken);
+                sessionStorage.setItem('mud_account_id', this.accountId);
+            }
+        },
+
+        clearAccountSession() {
+            sessionStorage.removeItem('mud_account_token');
+            sessionStorage.removeItem('mud_account_id');
+            this.accountToken = '';
+            this.accountId = '';
+            this.accountCharacters = [];
+            this.accountCharacterLimit = 10;
+            this.characterCreateOpen = false;
+            this.characterError = '';
+        },
+
+        applyAccountData(data) {
+            this.accountId = data.account_id || this.accountId;
+            this.accountCharacters = Array.isArray(data.characters) ? data.characters : [];
+            this.accountCharacterLimit = Number(data.limit || 10);
+            if (data.token) {
+                this.accountToken = data.token;
+            }
+            this.persistAccountSession();
+        },
+
+        async postAccountApi(path, body) {
+            const response = await fetch(this.apiBase + path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body || {})
+            });
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (error) {
+                data = {};
+            }
+            if (!response.ok || data.error) {
+                const apiError = new Error(data.error || ('HTTP ' + response.status));
+                apiError.status = response.status;
+                throw apiError;
+            }
+            return data;
+        },
+
+        async completeCharacterLogin(
+            txd, characterId, command = 'init', prefetchedData = null
+        ) {
+            let data = prefetchedData;
+            if (!data) {
+                const params = new URLSearchParams({ txd, cmd: command });
+                const response = await fetch(this.apiBase + '/api/json?' + params.toString());
+                data = await response.json().catch(() => ({}));
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || ('人物登录失败: HTTP ' + response.status));
+                }
+            }
+            this.txd = data.txd || txd;
+            this.currentCharacterId = characterId;
+            sessionStorage.setItem('mud_txd', this.txd);
+            sessionStorage.setItem('mud_character_id', characterId);
+            sessionStorage.setItem('mud_partition', this.loginForm.partition);
+            sessionStorage.setItem('mud_userid', this.loginForm.userid);
+            this.saveGameBaseUrl();
+            this.updateUrlWithTxd();
+            this.mudLines = data.lines || [];
+            this.handleNewbieCompletions(data.newbie_completions || []);
+            this.showLogin = false;
+            this.showRegister = false;
+            this.showCharacterSelect = false;
+            this.characterCreateOpen = false;
+            this.characterError = '';
+            this.scheduleAutoAnimateInitialization();
+            this.startStatsUpdate();
+        },
+
+        async selectAccountCharacter(character) {
+            if (!character || !character.id || !this.accountToken || this.characterLoading) {
+                return;
+            }
+            this.characterLoading = true;
+            this.characterError = '';
+            if (this.autofightInterval) {
+                clearInterval(this.autofightInterval);
+                this.autofightInterval = null;
+            }
+            try {
+                const selected = await this.postAccountApi('/api/account/characters/select', {
+                    token: this.accountToken,
+                    character_id: character.id
+                });
+                this.playerStats = null;
+                await this.completeCharacterLogin(
+                    selected.txd,
+                    selected.character_id,
+                    selected.bootstrap_command || 'init'
+                );
+            } catch (error) {
+                this.characterError = error.message || '进入人物失败';
+                if (error.status === 401) {
+                    this.clearAccountSession();
+                    this.showCharacterSelect = false;
+                    this.showLogin = true;
+                    this.loginError = '账号会话已过期，请重新登录';
+                }
+            } finally {
+                this.characterLoading = false;
+            }
+        },
+
+        async refreshAccountCharacters() {
+            if (!this.accountToken) return false;
+            this.characterLoading = true;
+            this.characterError = '';
+            try {
+                // 令牌只放请求体，避免出现在URL、代理访问日志或历史记录中。
+                const data = await this.postAccountApi('/api/account/characters', {
+                    token: this.accountToken
+                });
+                this.applyAccountData(data);
+                return true;
+            } catch (error) {
+                this.characterError = error.message;
+                if (error.status === 401) this.clearAccountSession();
+                return false;
+            } finally {
+                this.characterLoading = false;
+            }
+        },
+
+        openCharacterCreator() {
+            if (this.accountCharacters.length >= this.accountCharacterLimit) {
+                this.characterError = `人物档案已达到${this.accountCharacterLimit}个上限`;
+                return;
+            }
+            this.characterForm.race_id = '';
+            this.characterForm.profession_id = '';
+            this.characterError = '';
+            this.characterCreateOpen = true;
+        },
+
+        chooseNewProfession(option) {
+            if (this.accountCharacters.some(
+                character => character.profession_id === option.profession_id
+            )) {
+                this.characterError = `已经拥有${option.name}人物`;
+                return;
+            }
+            this.characterForm.race_id = option.race_id;
+            this.characterForm.profession_id = option.profession_id;
+            this.characterError = '';
+        },
+
+        async createAccountCharacter() {
+            if (!this.characterForm.profession_id || this.characterCreating) {
+                this.characterError = '请先选择一个尚未创建的职业';
+                return;
+            }
+            this.characterCreating = true;
+            this.characterError = '';
+            try {
+                const created = await this.postAccountApi('/api/account/characters/create', {
+                    token: this.accountToken,
+                    race_id: this.characterForm.race_id,
+                    profession_id: this.characterForm.profession_id
+                });
+                await this.refreshAccountCharacters();
+                const newId = created.character && created.character.id;
+                const character = this.accountCharacters.find(one => one.id === newId);
+                this.characterCreateOpen = false;
+                if (character) await this.selectAccountCharacter(character);
+            } catch (error) {
+                this.characterError = error.message || '创建人物失败';
+                if (error.status === 401) {
+                    this.clearAccountSession();
+                    this.showCharacterSelect = false;
+                    this.showLogin = true;
+                }
+            } finally {
+                this.characterCreating = false;
+            }
+        },
+
+        async authenticateAccountFromCurrentTxd() {
+            const credentials = this.decodeCredentialsFromTxd(this.txd);
+            if (!credentials) return false;
+            try {
+                const data = await this.postAccountApi('/api/account/login', {
+                    userid: credentials.userid,
+                    password: credentials.password
+                });
+                this.applyAccountData(data);
+                return true;
+            } catch (error) {
+                return false;
+            }
+        },
+
+        async openCharacterCenter() {
+            this.headerMenuOpen = false;
+            this.characterSelectCanCancel = Boolean(this.txd);
+            this.characterError = '';
+            if (!this.accountToken) {
+                const authenticated = await this.authenticateAccountFromCurrentTxd();
+                if (!authenticated) {
+                    this.showUiToast('请退出后使用注册账号密码登录，再管理人物档案', 'warning');
+                    return;
+                }
+            }
+            let loaded = await this.refreshAccountCharacters();
+            // sessionStorage 中的12小时令牌可能已过期；当前人物TXD仍有效时，
+            // 同一次点击自动重新认证，不让玩家看见一次“无反应”。
+            if (!loaded && !this.accountToken && this.txd) {
+                const authenticated = await this.authenticateAccountFromCurrentTxd();
+                if (authenticated) loaded = await this.refreshAccountCharacters();
+            }
+            if (!loaded) {
+                this.showUiToast(this.characterError || '人物档案暂时不可用', 'error');
+                return;
+            }
+            this.stopStatsUpdate();
+            this.stopBattleStatusPolling();
+            this.stopChatPolling();
+            if (this.autofightInterval) {
+                clearInterval(this.autofightInterval);
+                this.autofightInterval = null;
+            }
+            this.showLogin = false;
+            this.showRegister = false;
+            this.showCharacterSelect = true;
+        },
+
+        cancelCharacterCenter() {
+            if (!this.characterSelectCanCancel || !this.txd) return;
+            this.showCharacterSelect = false;
+            this.characterCreateOpen = false;
+            this.characterError = '';
+            this.startStatsUpdate();
+            if (this.isInBattle) this.startBattleStatusPolling();
+            if (this.playerStats?.autofight) this.checkAutofight();
+        },
+
+        async doLegacyLogin(fullUserid, password) {
+            const params = new URLSearchParams({
+                userid: fullUserid,
+                password,
+                cmd: 'init'
+            });
+            const response = await fetch(this.apiBase + '/api/json?' + params.toString());
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.error) {
+                throw new Error(data.error || '用户名或密码错误');
+            }
+            await this.completeCharacterLogin(
+                data.txd || this.encodeTxd(fullUserid, password),
+                fullUserid,
+                'init',
+                data
+            );
+        },
+
         async doLogin() {
             if (!this.loginForm.userid || !this.loginForm.password) {
                 this.loginError = '请输入账号和密码';
@@ -1170,112 +1461,36 @@ createApp({
             this.loginError = '';
             try {
                 const fullUserid = this.loginForm.partition + this.loginForm.userid;
-
-                // 使用明文密码（不再使用challenge哈希）
-                const plainPassword = this.loginForm.password;
-
-                if (this.useJsonMode) {
-                    // JSON模式: 使用 /api/json 接口登录
-                    const params = new URLSearchParams({
+                let accountData;
+                try {
+                    accountData = await this.postAccountApi('/api/account/login', {
                         userid: fullUserid,
-                        password: plainPassword,
-                        cmd: 'init'
+                        password: this.loginForm.password
                     });
-
-                    const response = await fetch(this.apiBase + '/api/json?' + params.toString(), {
-                        method: 'GET'
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            this.loginError = '用户名或密码错误';
-                        } else {
-                            this.loginError = '登录失败: HTTP ' + response.status;
-                        }
+                } catch (error) {
+                    // 滚动部署到旧后端时保持原Vue直登协议可用。
+                    if (error.status === 404 || error.status === 501) {
+                        await this.doLegacyLogin(fullUserid, this.loginForm.password);
                         return;
                     }
-
-                    const data = await response.json();
-                    if (data.error) {
-                        this.loginError = data.error || '登录失败';
-                        return;
-                    }
-
-                    // 登录成功，生成 txd 用于后续请求
-                    this.txd = this.encodeTxd(fullUserid, this.loginForm.password);
-                    // 如果响应中有新的txd，使用它
-                    if (data.txd) {
-                        this.txd = data.txd;
-                    }
-                    sessionStorage.setItem('mud_txd', this.txd);
-                    sessionStorage.setItem('mud_partition', this.loginForm.partition);
-                    sessionStorage.setItem('mud_userid', this.loginForm.userid);
-
-                    // 保存当前域名到后端
-                    this.saveGameBaseUrl();
-
-                    // 更新URL以包含txd参数（便于书签/分享）
-                    this.updateUrlWithTxd();
-
-                    // 更新MUD输出
-                    this.mudLines = data.lines || [];
-                    this.handleNewbieCompletions(
-                        data.newbie_completions || []
-                    );
-
-                    // 隐藏登录界面
-                    this.showLogin = false;
-                    this.scheduleAutoAnimateInitialization();
-
-                    // 开始更新玩家状态
-                    this.startStatsUpdate();
-                } else {
-                    // iframe模式: 使用 /api/html 接口
-                    const params = new URLSearchParams({
-                        userid: fullUserid,
-                        password: passwordHash,
-                        challenge: challenge,
-                        cmd: 'look'
-                    });
-
-                    const response = await fetch(this.apiBase + '/api/html?' + params.toString(), {
-                        method: 'GET'
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            this.loginError = '用户名或密码错误';
-                        } else {
-                            this.loginError = '登录失败: HTTP ' + response.status;
-                        }
-                        return;
-                    }
-
-                    // 检查响应是否包含错误
-                    const text = await response.text();
-                    if (text.includes('登录错误') || text.includes('用户名不存在')) {
-                        this.loginError = '用户名或密码错误';
-                        return;
-                    }
-
-                    // 登录成功，生成 txd 用于后续请求
-                    this.txd = this.encodeTxd(fullUserid, this.loginForm.password);
-                    sessionStorage.setItem('mud_txd', this.txd);
-                    sessionStorage.setItem('mud_partition', this.loginForm.partition);
-                    sessionStorage.setItem('mud_userid', this.loginForm.userid);
-
-                    // 更新URL以包含txd参数（便于书签/分享）
-                    this.updateUrlWithTxd();
-
-                    // 设置iframe URL
-                    this.gameFrameUrl = this.getGameFrameUrl();
-                    this.showLogin = false;
-
-                    // 开始更新玩家状态
-                    this.startStatsUpdate();
+                    throw error;
                 }
-            } catch (e) {
-                this.loginError = '连接失败: ' + e.message;
+                this.applyAccountData(accountData);
+                this.showLogin = false;
+                this.showRegister = false;
+                if (this.accountCharacters.length === 1) {
+                    // 先保留选角遮罩；若物理档案临时不可用，错误仍有可见承载页，
+                    // 成功进入后 completeCharacterLogin 会自动关闭。
+                    this.characterSelectCanCancel = false;
+                    this.showCharacterSelect = true;
+                    await this.selectAccountCharacter(this.accountCharacters[0]);
+                } else {
+                    this.characterSelectCanCancel = false;
+                    this.showCharacterSelect = true;
+                }
+            } catch (error) {
+                this.loginError = error.message || '登录失败';
+                this.showLogin = true;
             } finally {
                 this.isLoggingIn = false;
             }
@@ -2110,10 +2325,18 @@ createApp({
 
         // 退出登录
         doLogout() {
+            const accountToken = this.accountToken;
+            if (accountToken) {
+                this.postAccountApi('/api/account/logout', { token: accountToken })
+                    .catch(() => {});
+            }
             sessionStorage.removeItem('mud_txd');
             sessionStorage.removeItem('mud_partition');
             sessionStorage.removeItem('mud_userid');
+            sessionStorage.removeItem('mud_character_id');
+            this.clearAccountSession();
             this.txd = '';
+            this.currentCharacterId = '';
             this.gameFrameUrl = '';
             this.playerStats = null;
             this.playerAvatarFailed = false;
@@ -2138,6 +2361,8 @@ createApp({
             this.stopBattleStatusPolling();
             // 清理聊天轮询定时器
             this.stopChatPolling();
+            this.showCharacterSelect = false;
+            this.characterSelectCanCancel = false;
             this.showLogin = true;
         },
 
@@ -2406,6 +2631,7 @@ createApp({
 
         // 开始定时更新玩家状态
         startStatsUpdate() {
+            this.stopStatsUpdate();
             this.fetchPlayerStats();
             // 每2秒更新一次（后端已用Thread异步，不会阻塞）
             this.statsInterval = setInterval(() => {
@@ -2464,7 +2690,7 @@ createApp({
         },
 
         async runAutofightTick() {
-            if (!this.txd || this.autofightTickInFlight) {
+            if (!this.txd || this.showCharacterSelect || this.autofightTickInFlight) {
                 return;
             }
             if (this.useJsonMode && this.mudLoading) {
@@ -3680,7 +3906,7 @@ createApp({
             if (document.visibilityState === 'visible') {
                 console.log('[页面恢复] 刷新状态并检查自动战斗');
                 // 页面回到前台，立即刷新状态
-                this.fetchPlayerStats();
+                if (!this.showCharacterSelect) this.fetchPlayerStats();
                 // 如果自动战斗定时器存在，确保它继续运行
                 if (this.autofightInterval && this.playerStats && this.playerStats.autofight) {
                     console.log('[自动战斗] 确认定时器运行中');
@@ -3699,6 +3925,9 @@ createApp({
         // 尝试从 sessionStorage 恢复分区和用户名（txd已经在前面处理）
         const savedPartition = sessionStorage.getItem('mud_partition');
         const savedUser = sessionStorage.getItem('mud_userid');
+        this.accountToken = sessionStorage.getItem('mud_account_token') || '';
+        this.accountId = sessionStorage.getItem('mud_account_id') || '';
+        this.currentCharacterId = sessionStorage.getItem('mud_character_id') || '';
 
         // 自动登录条件：有txd且（来自URL 或 有保存的用户信息）
         if (savedTxd && (txdFromUrl || savedUser)) {

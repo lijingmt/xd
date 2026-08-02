@@ -8,6 +8,20 @@ inherit GAMELIB_PACKAGED;
 //增加新用户注册时间记录                                                                            
 string user_reg_time;
 
+//多人物账号归属。旧人物没有此字段时，其人物ID本身就是注册账号ID。
+//等级、技能、装备、任务、VIP和家园仍保存在每个独立人物档案中。
+string account_owner;
+void set_account_owner(string userid)
+{
+	account_owner = userid;
+}
+string query_account_owner()
+{
+	if(account_owner && sizeof(account_owner))
+		return account_owner;
+	return query_name();
+}
+
 //推荐人标示，由liaocheng于07/08/23添加，用于人推人系统
 int all_mark;//总的积分
 int cur_mark;//当前积分

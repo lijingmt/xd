@@ -238,8 +238,115 @@
             </div>
         </div>
 
+        <!-- 注册账号下的人物档案选择；旧账号只有一个人物时会自动进入。 -->
+        <div class="modal-overlay auth-overlay character-overlay"
+             v-if="showCharacterSelect">
+            <div class="modal character-modal"
+                 role="dialog"
+                 aria-labelledby="character-select-title">
+                <div class="character-heading">
+                    <div>
+                        <div class="auth-eyebrow">一个账号 · 独立成长档案</div>
+                        <h2 id="character-select-title">选择人物</h2>
+                        <p>{{ accountCharacters.length }} / {{ accountCharacterLimit }} 个档案</p>
+                    </div>
+                    <button v-if="characterSelectCanCancel"
+                            type="button"
+                            class="character-close"
+                            @click="cancelCharacterCenter"
+                            aria-label="返回当前人物">✕</button>
+                </div>
+
+                <div class="character-grid" v-if="!characterCreateOpen">
+                    <button v-for="character in accountCharacters"
+                            :key="character.id"
+                            type="button"
+                            class="character-card"
+                            :class="{
+                                current: character.id === currentCharacterId,
+                                pending: !character.ready,
+                                unavailable: character.available === 0
+                            }"
+                            @click="selectAccountCharacter(character)"
+                            :disabled="characterLoading || character.available === 0">
+                        <span class="character-card-icon" aria-hidden="true">
+                            {{ professionOptions.find(option => option.profession_id === character.profession_id)?.icon || '🧭' }}
+                        </span>
+                        <span class="character-card-main">
+                            <strong>{{ character.name_cn }}</strong>
+                            <span>{{ character.race_name }} · {{ character.profession_name }}</span>
+                            <small>Lv.{{ character.level }} · 档案 {{ character.slot }}</small>
+                        </span>
+                        <span class="character-card-state">
+                            {{ character.available === 0 ? '待恢复' : (character.id === currentCharacterId ? '当前' : (character.ready ? '进入' : '完成创建')) }}
+                        </span>
+                    </button>
+                    <button type="button"
+                            class="character-card character-add"
+                            @click="openCharacterCreator"
+                            :disabled="characterLoading || accountCharacters.length >= accountCharacterLimit">
+                        <span class="character-card-icon" aria-hidden="true">＋</span>
+                        <span class="character-card-main">
+                            <strong>创建新职业人物</strong>
+                            <span>每个职业可建立一个独立档案</span>
+                            <small>原人物和旧登录方式保持不变</small>
+                        </span>
+                    </button>
+                </div>
+
+                <div class="character-create" v-else>
+                    <div class="character-create-copy">
+                        <strong>选择新人物职业</strong>
+                        <span>创建后将调用原有职业流程，自动发放对应初始技能、装备和新手物资。</span>
+                    </div>
+                    <div class="profession-choice-grid">
+                        <button v-for="option in professionOptions"
+                                :key="option.profession_id"
+                                type="button"
+                                class="profession-choice"
+                                :class="{
+                                    selected: characterForm.profession_id === option.profession_id,
+                                    unavailable: accountCharacters.some(character => character.profession_id === option.profession_id)
+                                }"
+                                :disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"
+                                @click="chooseNewProfession(option)">
+                            <span class="profession-choice-icon">{{ option.icon }}</span>
+                            <span><strong>{{ option.name }}</strong><small>{{ option.race }} · {{ option.desc }}</small></span>
+                            <em v-if="accountCharacters.some(character => character.profession_id === option.profession_id)">已有</em>
+                        </button>
+                    </div>
+                    <div class="character-create-actions">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                @click="characterCreateOpen = false; characterError = ''"
+                                :disabled="characterCreating">返回档案</button>
+                        <button type="button"
+                                class="btn btn-primary"
+                                @click="createAccountCharacter"
+                                :disabled="characterCreating || !characterForm.profession_id">
+                            {{ characterCreating ? '创建中...' : '创建并进入' }}
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="characterError"
+                     class="message message-error character-message"
+                     role="alert">{{ characterError }}</div>
+                <div v-if="characterLoading" class="character-loading">正在读取人物档案...</div>
+                <div class="character-footer" v-if="!characterCreateOpen">
+                    <button v-if="characterSelectCanCancel"
+                            type="button"
+                            class="auth-text-action primary"
+                            @click="cancelCharacterCenter">返回当前人物</button>
+                    <button type="button"
+                            class="auth-text-action"
+                            @click="doLogout">退出注册账号</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 游戏主界面 - 使用iframe显示原始HTML -->
-        <template v-if="!showLogin && !showRegister">
+        <template v-if="!showLogin && !showRegister && !showCharacterSelect">
             <!-- 顶部状态栏 -->
             <header class="game-header" aria-label="人物状态" data-tour="player-header">
                 <button type="button"
@@ -416,6 +523,10 @@
                             <button type="button" class="menu-item" @click="startUiTour">
                                 <span class="menu-icon">🧭</span>
                                 <span>界面引导</span>
+                            </button>
+                            <button type="button" class="menu-item" @click="openCharacterCenter">
+                                <span class="menu-icon">👥</span>
+                                <span>人物档案 / 切换职业</span>
                             </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">

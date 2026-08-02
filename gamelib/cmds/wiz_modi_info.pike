@@ -13,7 +13,7 @@ int main(string|zero arg)
 	if(arg){
 		sscanf(arg,"%s %s %s",per_name,uid,new_per);
 
-		werror("----arg = "+arg+"-----\n");
+		// 管理员改密参数包含新密码，禁止输出原始命令。
 		object user = find_player(uid);
 		if(!user){
 			mixed err = catch{
@@ -58,9 +58,14 @@ int main(string|zero arg)
 			}
 			else if("password"==per_name)
 			{
-				m_log += user->query_password();
-				user->set_password(new_per);
-				m_log += " 修改为 "+ user->query_password();
+				m_log += "[已隐藏]";
+				mapping changed = ACCOUNT_CHARACTERD->
+					change_account_password(user,new_per);
+				if(!changed["ok"]){
+					write((string)changed["message"]+"\n");
+					return 1;
+				}
+				m_log += " 修改为 [已隐藏]";
 			}
 			else if("mobile"==per_name)
 			{

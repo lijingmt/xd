@@ -280,11 +280,16 @@ int set_password(string arg){
 			}
 			if(flag)
 			{
-				me->password=password;
-				string now=ctime(time());
-				Stdio.append_file(LOG_PATH,"["+now[0..sizeof(now)-2]+"]["+me->name+"]["+me->name_cn+"][设置密码成功]\n");
-				write("设置密码成功。\n");
-				me->command("save");
+				mapping changed = ACCOUNT_CHARACTERD->
+					change_account_password(me,password);
+				if(changed["ok"]){
+					string now=ctime(time());
+					Stdio.append_file(LOG_PATH,"["+now[0..sizeof(now)-2]+"]["+me->name+"]["+me->name_cn+"][设置密码成功][账号同步人物数"+changed["updated"]+"]\n");
+					write((string)changed["message"]+"\n");
+					me->command("save");
+				}
+				else
+					write((string)changed["message"]+"\n");
 				write("[返回:look]\n");
 			}
 			else
