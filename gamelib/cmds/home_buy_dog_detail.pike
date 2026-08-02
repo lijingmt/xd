@@ -28,6 +28,7 @@ int main(string|zero arg)
 	}
 	sscanf(arg,"%s %d",name,need_money);
 	object dog = (object)(NPC_PATH+name);
+	s += "【家园守宅犬】此处购买继续使用旧家园数据，与账号万灵谱互不迁移。\n";
 	s += dog->query_name_cn()+"\n";
 	s += dog->query_picture_url()+"\n";
 	s += dog->query_desc()+"\n";

@@ -1,6 +1,6 @@
 ---
 name: xiand-multi-character-account
-description: Develop, modify, audit, debug, test, document, or deploy Xiand's one-registration-account-to-multiple-independent-characters system. Use when changing account manifests, character slots, profession uniqueness, old-account compatibility, configurable concurrent-character login, account shared storage, character selection APIs or Vue UI, account-wide password recovery, independent player saves, anti-clone recovery, deployment persistence, or multi-character TestUnit coverage.
+description: Develop, modify, audit, debug, test, document, or deploy Xiand's one-registration-account-to-multiple-independent-characters system. Use when changing account manifests, character slots, profession uniqueness, old-account compatibility, configurable concurrent-character login, account shared storage, account shared paid-recharge wallets, character selection APIs or Vue UI, account-wide password recovery, independent player saves, anti-clone recovery, deployment persistence, or multi-character TestUnit coverage.
 ---
 
 # Xiand Multi-Character Accounts
@@ -21,7 +21,11 @@ change and `references/ten-pass-review.md` before completion.
   persistent `data_xiand` mount.
 - Store every character as a full standard `GAMELIB_USER` `.o` file. Keep level,
   experience, profession, skills, equipped items, backpack, personal warehouse,
-  tasks, home, social, VIP, currency, and automation state character-local.
+  tasks, home, social, reward currency, and automation state character-local.
+- Store future paid recharge value in an independent account wallet. Keep old
+  physical jade and free rewards character-local; consume those first and only
+  use the shared paid balance for the shortage. Synchronize account cumulative
+  recharge entitlements from the wallet without bulk-migrating old inventory.
 - Implement optional account sharing only through the independent shared vault
   daemon and `*.storage.json`; never make the legacy personal warehouse itself
   account-wide. Move items directly between the two warehouses under a durable
@@ -95,6 +99,13 @@ tombstone. Recovery decides commit or rollback by checking the exact permanent
 item ID in the physical player save. Reconcile stale personal-save backups at
 login before the character becomes active.
 
+For shared paid-recharge changes, treat `*.wallet.json` as the account source of
+truth. Serialize all credits, debits, and refunds; persist a bounded audit trail;
+require administrator authorization and a two-step random idempotency key for
+manual credits; and fail closed instead of loading a stale balance backup.
+Wallet corruption may disable wallet use but must not lock the character out of
+the game. Never expose a generic client command that can mint currency.
+
 ### 4. Change APIs and login compatibility
 
 Authenticate against the registration/default character, then issue a bounded
@@ -120,7 +131,8 @@ pipeline.
 ### 6. Validate vertically
 
 Extend `test_unit/test_multi_character_account.pike`,
-`test_unit/test_account_shared_storage.pike`, and
+`test_unit/test_account_shared_storage.pike`,
+`test_unit/test_account_recharge_wallet.pike`, and
 `vue_source/tests/account-characters.test.js`. Test real `.o` save/restore and
 cleanup, not source strings alone. Cover legacy zero-write listing, child create,
 bootstrap reuse, duplicate/pending rejection, ownership forgery, corrupt main
@@ -174,6 +186,10 @@ change. Never commit runtime manifests, player `.o` files, logs, backups,
 - Personal warehouses remain compatible, while explicit account-shared-vault
   transfers survive duplicate clicks, interruption, relogin, cross-character
   access, and stale `.o.bak` restoration without creating a second item ID.
+- Future paid recharge is shared once per registration account, while old and
+  free jade remains character-local. Concurrent siblings cannot overspend or
+  duplicate the balance, and a repeated administrator confirmation cannot
+  credit or gift twice.
 - Invalid profession pairs, duplicate professions, excess slots, unfinished
   stacking, missing saves, forged ownership, expired tokens, and corrupt indexes
   fail safely with actionable UI messages.

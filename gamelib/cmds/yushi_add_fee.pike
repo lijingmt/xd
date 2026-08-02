@@ -9,6 +9,17 @@ int main(string|zero arg)
 	//con->write("yushi_add_fee "+fee+" "+yushi_level+" "+spec_fg+"\n");
 	//50 2 szx = 充值50元，获得类型为2的仙缘玉50个（1元=1仙缘玉）
 	object me = this_player();
+	// 旧实现可被普通玩家直接输入命令调用。跨游戏兑换已经改为守护
+	// 接口，现金充值统一走有流水的账号共享 txadd；这里只保留管理员
+	// 维护兼容，阻止客户端自行铸造玉石。
+	if(!me || MANAGERD->checkpower(me->query_name())!="admin"){
+		Stdio.append_file(ROOT+"/log/fee_log/addfee_error.log",
+			ctime(time())[0..sizeof(ctime(time()))-2]+
+			":blocked legacy yushi_add_fee user="+
+			(me ? me->query_name() : "unknown")+"\n");
+		write("旧充值接口已停用，请使用管理后台账号共享充值。\n");
+		return 1;
+	}
 	object yushi; 
 	int fee = 0;
 	int yushi_level = 1;

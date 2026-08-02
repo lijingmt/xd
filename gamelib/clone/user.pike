@@ -403,7 +403,7 @@ string query_extra_links(void|int count)
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
 	string topten= "[排行榜:look_top]\t";
-	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[帮派:my_bang]|[江湖:my_games]|[传送:userlist]\n[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[万灵:pet]|[帮派:my_bang]|[江湖:my_games]\n[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	if(me->query_autofight()=="enable")
 		returnLinks = "[停止自动挂机:autofightclose]\n"+returnLinks;
 	else

@@ -145,6 +145,9 @@
 #define ACCOUNT_CHARACTERD ((object)(ROOT "/gamelib/single/daemons/account_characterd.pike"))
 //注册账号独立共享宝库（个人仓库保持不变）
 #define ACCOUNT_STORAGED ((object)(ROOT "/gamelib/single/daemons/account_storaged.pike"))
+//账号级山海万灵图鉴、培养、裂隙与灵宠论道
+#define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+#define ACCOUNT_WALLETD ((object)(ROOT "/gamelib/single/daemons/account_walletd.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 

@@ -159,6 +159,8 @@ void receive_message(string newclass, string msg){
 int setup(string arg){
 	object account_characterd;
 	object account_storaged;
+	object account_walletd;
+	object petd;
 	object account_runtime_key;
 	object http_api_daemon;
 	int http_login_pending = 0;
@@ -183,6 +185,17 @@ int setup(string arg){
 		   account_storaged->reconcile_player_login))
 			account_login_ready = account_storaged->
 				reconcile_player_login(this_object());
+		account_walletd = (object)(ROOT+
+			"/gamelib/single/daemons/account_walletd.pike");
+		if(account_login_ready && account_walletd && functionp(
+		   account_walletd->reconcile_player_login))
+			account_login_ready = account_walletd->
+				reconcile_player_login(this_object());
+		petd = (object)(ROOT+
+			"/gamelib/single/daemons/petd.pike");
+		if(account_login_ready && petd && functionp(
+		   petd->reconcile_pet_player_login))
+			petd->reconcile_pet_player_login(this_object());
 		if(account_login_ready && account_characterd && functionp(
 		   account_characterd->prepare_character_login_locked))
 			account_login_ready = account_characterd->

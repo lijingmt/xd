@@ -196,8 +196,13 @@ createApp({
             accountToken: '',
             accountId: '',
             currentCharacterId: '',
+            // 每次选角/退出都会递增。旧人物尚未返回的挂机与轮询响应
+            // 只能完成自己的网络请求，不能再覆盖新人物的会话和界面。
+            characterSessionEpoch: 0,
             accountCharacters: [],
             accountCharacterLimit: 10,
+            accountSharedRechargeBalance: 0,
+            accountSharedRechargeAvailable: true,
             characterForm: {
                 race_id: '',
                 profession_id: ''
@@ -452,7 +457,7 @@ createApp({
 
         shouldAnimateMudOutputCommand(command) {
             const value = String(command || '').trim().toLowerCase();
-            return /^(inventory|mytasks|myskills|storage|store|cangku|newbie_guide|profession_assistant)(?:\s|$)/.test(value);
+            return /^(inventory|mytasks|myskills|storage|store|cangku|newbie_guide|profession_assistant|pet|pet_hunt|pet_duel|daily_cultivation|wanling_rift)(?:\s|$)/.test(value);
         },
 
         initializeAutoAnimate() {
@@ -1202,14 +1207,39 @@ createApp({
             this.accountId = '';
             this.accountCharacters = [];
             this.accountCharacterLimit = 10;
+            this.accountSharedRechargeBalance = 0;
+            this.accountSharedRechargeAvailable = true;
             this.characterCreateOpen = false;
             this.characterError = '';
+        },
+
+        invalidateCharacterSessionRequests() {
+            this.characterSessionEpoch += 1;
+            this.autofightTickInFlight = false;
+            this.battleStatusLoading = false;
+            this.mudLoading = false;
+            this.smoothOutputLoading = false;
+            this.slowLoadingTip = false;
+            if (this.loadingTimer) {
+                clearTimeout(this.loadingTimer);
+                this.loadingTimer = null;
+            }
+            return this.characterSessionEpoch;
+        },
+
+        isCharacterSessionCurrent(epoch) {
+            return epoch === this.characterSessionEpoch;
         },
 
         applyAccountData(data) {
             this.accountId = data.account_id || this.accountId;
             this.accountCharacters = Array.isArray(data.characters) ? data.characters : [];
             this.accountCharacterLimit = Number(data.limit || 10);
+            this.accountSharedRechargeBalance = Math.max(
+                0, Number(data.shared_recharge_balance || 0)
+            );
+            this.accountSharedRechargeAvailable =
+                data.shared_recharge_available !== 0;
             if (data.token) {
                 this.accountToken = data.token;
             }
@@ -1237,16 +1267,24 @@ createApp({
         },
 
         async completeCharacterLogin(
-            txd, characterId, command = 'init', prefetchedData = null
+            txd, characterId, command = 'init', prefetchedData = null,
+            expectedEpoch = this.characterSessionEpoch
         ) {
             let data = prefetchedData;
             if (!data) {
                 const params = new URLSearchParams({ txd, cmd: command });
                 const response = await fetch(this.apiBase + '/api/json?' + params.toString());
                 data = await response.json().catch(() => ({}));
+                if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
                 if (!response.ok || data.error) {
                     throw new Error(data.error || ('人物登录失败: HTTP ' + response.status));
                 }
+            }
+            if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
+            const credentials = this.decodeCredentialsFromTxd(txd);
+            if (data.userid && credentials &&
+                data.userid.toLowerCase() !== credentials.userid.toLowerCase()) {
+                throw new Error('人物会话响应不匹配，请重新选择人物');
             }
             this.txd = data.txd || txd;
             this.currentCharacterId = characterId;
@@ -1265,6 +1303,7 @@ createApp({
             this.characterError = '';
             this.scheduleAutoAnimateInitialization();
             this.startStatsUpdate();
+            return true;
         },
 
         async selectAccountCharacter(character) {
@@ -1273,6 +1312,7 @@ createApp({
             }
             this.characterLoading = true;
             this.characterError = '';
+            const expectedEpoch = this.invalidateCharacterSessionRequests();
             if (this.autofightInterval) {
                 clearInterval(this.autofightInterval);
                 this.autofightInterval = null;
@@ -1286,9 +1326,12 @@ createApp({
                 await this.completeCharacterLogin(
                     selected.txd,
                     selected.character_id,
-                    selected.bootstrap_command || 'init'
+                    selected.bootstrap_command || 'init',
+                    null,
+                    expectedEpoch
                 );
             } catch (error) {
+                if (!this.isCharacterSessionCurrent(expectedEpoch)) return;
                 this.characterError = error.message || '进入人物失败';
                 if (error.status === 401) {
                     this.clearAccountSession();
@@ -1297,7 +1340,8 @@ createApp({
                     this.loginError = '账号会话已过期，请重新登录';
                 }
             } finally {
-                this.characterLoading = false;
+                if (this.isCharacterSessionCurrent(expectedEpoch))
+                    this.characterLoading = false;
             }
         },
 
@@ -1677,10 +1721,12 @@ createApp({
             if (!this.txd) return;
 
             const baseUrl = window.location.protocol + '//' + window.location.host;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
 
             try {
                 const params = new URLSearchParams({
-                    txd: this.txd,
+                    txd: requestTxd,
                     url: baseUrl
                 });
 
@@ -1688,7 +1734,8 @@ createApp({
                     method: 'POST'
                 });
 
-                if (response.ok) {
+                if (response.ok &&
+                    this.isCharacterSessionCurrent(requestEpoch)) {
                     console.log('游戏基础URL已保存:', baseUrl);
                 }
             } catch (e) {
@@ -1797,12 +1844,16 @@ createApp({
         async loadChatMessages() {
             // 只在聊天室打开时才加载
             if (!this.txd || !this.showChatRoom) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
 
             try {
-                const url = `${this.apiBase}/api/chat/messages?txd=${encodeURIComponent(this.txd)}&channel=${encodeURIComponent(this.chatChannel)}`;
+                const url = `${this.apiBase}/api/chat/messages?txd=${encodeURIComponent(requestTxd)}&channel=${encodeURIComponent(this.chatChannel)}`;
                 const response = await fetch(url);
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 if (response.ok) {
                     const data = await response.json();
+                    if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                     if (data.messages) {
                         // 更新消息列表
                         this.chatMessages = data.messages;
@@ -1829,6 +1880,9 @@ createApp({
         async sendChat() {
             const msg = this.chatInput.trim();
             if (!msg) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
+            if (!requestTxd) return;
 
             // 通过API发送消息
             try {
@@ -1836,12 +1890,13 @@ createApp({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
-                        txd: this.txd,
+                        txd: requestTxd,
                         channel: this.chatChannel,
                         message: msg
                     })
                 });
 
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 if (response.ok) {
                     this.chatInput = '';
                     // 立即刷新消息
@@ -1941,6 +1996,9 @@ createApp({
 
         // JSON模式: 发送命令并获取结构化数据
         async sendJsonCommand(cmd, isRetry = false) {
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
+            if (!requestTxd) return;
             const isAutofightRefresh = cmd === 'flushview' &&
                 this.playerStats && this.playerStats.autofight;
             const useSmoothOutputTransition = !isAutofightRefresh &&
@@ -1982,22 +2040,25 @@ createApp({
             // 3秒后显示慢速加载提示
             if (!isAutofightRefresh) {
                 this.loadingTimer = setTimeout(() => {
-                    if (this.mudLoading) {
+                    if (this.isCharacterSessionCurrent(requestEpoch) &&
+                        this.mudLoading) {
                         this.slowLoadingTip = true;
                     }
                 }, 3000);
             }
             try {
-                const url = `${this.apiBase}/api/json?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent(cmd)}`;
+                const url = `${this.apiBase}/api/json?txd=${encodeURIComponent(requestTxd)}&cmd=${encodeURIComponent(cmd)}`;
 
                 const response = await fetch(url);
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.log('[sendJsonCommand] 响应状态:', response.status);
 
                 if (!response.ok) {
                     // 401 表示未授权（会话已过期），尝试重新登录并重试命令
                     if (response.status === 401 && !isRetry) {
                         console.log('[会话过期] 尝试重新登录并重试命令...');
-                        await this.relogin();
+                        await this.relogin(requestTxd, requestEpoch);
+                        if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                         // 重新登录成功后重试原始命令
                         if (!this.showLogin) {
                             return this.sendJsonCommand(cmd, true);
@@ -2006,13 +2067,15 @@ createApp({
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const data = await response.json();
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
 
                 if (data.error) {
                     console.error('命令执行错误:', data.error);
                     // 如果是认证错误，尝试重新登录并重试命令
                     if ((data.error.includes('认证') || data.error.includes('登录') || data.error.includes('未登录')) && !isRetry) {
                         console.log('[会话过期] 尝试重新登录并重试命令...');
-                        await this.relogin();
+                        await this.relogin(requestTxd, requestEpoch);
+                        if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                         // 重新登录成功后重试原始命令
                         if (!this.showLogin) {
                             return this.sendJsonCommand(cmd, true);
@@ -2020,6 +2083,12 @@ createApp({
                     }
                     this.showUiToast(data.error || '命令执行失败，请稍后重试', 'error');
                     return;
+                }
+                const requestCredentials = this.decodeCredentialsFromTxd(requestTxd);
+                if (data.userid && requestCredentials &&
+                    data.userid.toLowerCase() !==
+                    requestCredentials.userid.toLowerCase()) {
+                    throw new Error('人物会话响应不匹配');
                 }
                 // 更新txd（可能已变化）
                 if (data.txd) {
@@ -2064,11 +2133,13 @@ createApp({
                 // 处理邀请链接占位符 - 动态生成URL
                 this.processInviteLinkPlaceholder();
             } catch (e) {
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.error('JSON命令执行失败:', e);
                 // 网络错误也尝试重新登录并重试
                 if ((e.message.includes('401') || e.message.includes('Unauthorized')) && !isRetry) {
                     console.log('[会话过期] 尝试重新登录并重试命令...');
-                    await this.relogin();
+                    await this.relogin(requestTxd, requestEpoch);
+                    if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                     // 重新登录成功后重试原始命令
                     if (!this.showLogin) {
                         return this.sendJsonCommand(cmd, true);
@@ -2076,7 +2147,8 @@ createApp({
                 }
                 this.showUiToast('连接暂时中断，请检查网络后重试', 'error');
             } finally {
-                if (!isAutofightRefresh) {
+                if (!isAutofightRefresh &&
+                    this.isCharacterSessionCurrent(requestEpoch)) {
                     this.mudLoading = false;
                     this.smoothOutputLoading = false;
                     this.slowLoadingTip = false;
@@ -2325,6 +2397,7 @@ createApp({
 
         // 退出登录
         doLogout() {
+            this.invalidateCharacterSessionRequests();
             const accountToken = this.accountToken;
             if (accountToken) {
                 this.postAccountApi('/api/account/logout', { token: accountToken })
@@ -2337,6 +2410,7 @@ createApp({
             this.clearAccountSession();
             this.txd = '';
             this.currentCharacterId = '';
+            this.characterLoading = false;
             this.gameFrameUrl = '';
             this.playerStats = null;
             this.playerAvatarFailed = false;
@@ -2367,10 +2441,13 @@ createApp({
         },
 
         // 自动重新登录（当会话过期时）
-        async relogin() {
+        async relogin(
+            expectedTxd = this.txd || sessionStorage.getItem('mud_txd'),
+            expectedEpoch = this.characterSessionEpoch
+        ) {
             let savedPartition = sessionStorage.getItem('mud_partition') || '';
             let savedUser = sessionStorage.getItem('mud_userid') || '';
-            const savedTxd = sessionStorage.getItem('mud_txd');
+            const savedTxd = expectedTxd;
             const credentials = this.decodeCredentialsFromTxd(savedTxd);
             let fullUserid = '';
             let password = '';
@@ -2390,8 +2467,9 @@ createApp({
 
             if (!savedTxd || !fullUserid || !password) {
                 // 没有保存的登录信息，显示登录界面
-                this.showLogin = true;
-                return;
+                if (this.isCharacterSessionCurrent(expectedEpoch))
+                    this.showLogin = true;
+                return false;
             }
 
             try {
@@ -2406,14 +2484,20 @@ createApp({
                 });
 
                 const response = await fetch(this.apiBase + '/api/json?' + params.toString());
+                if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
 
                 if (!response.ok) {
                     throw new Error('登录失败: HTTP ' + response.status);
                 }
 
                 const data = await response.json();
+                if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
                 if (data.error) {
                     throw new Error(data.error);
+                }
+                if (data.userid && data.userid.toLowerCase() !==
+                    fullUserid.toLowerCase()) {
+                    throw new Error('人物会话响应不匹配');
                 }
 
                 // 重新登录成功
@@ -2431,13 +2515,16 @@ createApp({
                 this.scheduleAutoAnimateInitialization();
 
                 console.log('[重新登录] 成功');
+                return true;
             } catch (e) {
+                if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
                 console.error('[重新登录] 失败:', e);
                 // 重新登录失败，显示登录界面
                 this.dismissNewbieCompletions();
                 this.showLogin = true;
                 this.loginForm.partition = savedPartition;
                 this.loginForm.userid = savedUser;
+                return false;
             }
         },
 
@@ -2566,11 +2653,15 @@ createApp({
         // 获取玩家状态
         async fetchPlayerStats() {
             if (!this.txd) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
 
             try {
-                const response = await fetch(`${this.apiBase}/api/status?txd=${encodeURIComponent(this.txd)}`);
+                const response = await fetch(`${this.apiBase}/api/status?txd=${encodeURIComponent(requestTxd)}`);
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 if (response.ok) {
                     const data = await response.json();
+                    if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                     if (!data.error) {
                         // 记录之前的 autofight 状态
                         const wasAutofight = this.playerStats && this.playerStats.autofight;
@@ -2650,6 +2741,8 @@ createApp({
         // 切换自动战斗
         async toggleAutofight() {
             if (!this.txd) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
 
             try {
                 const response = await fetch(`${this.apiBase}/api/autofight`, {
@@ -2658,13 +2751,15 @@ createApp({
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     body: new URLSearchParams({
-                        txd: this.txd,
+                        txd: requestTxd,
                         action: 'toggle'
                     })
                 });
 
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 if (response.ok) {
                     const data = await response.json();
+                    if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                     // 刷新状态
                     await this.fetchPlayerStats();
                     // 显示提示
@@ -2752,6 +2847,8 @@ createApp({
             if (!this.txd) {
                 throw new Error('未登录');
             }
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
 
             try {
                 // 1. 发送异步请求
@@ -2759,16 +2856,20 @@ createApp({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
-                        txd: this.txd,
+                        txd: requestTxd,
                         cmd: cmd
                     })
                 });
+                if (!this.isCharacterSessionCurrent(requestEpoch))
+                    throw new Error('人物会话已切换');
 
                 if (!asyncResp.ok) {
                     // 401 会话过期，尝试重新登录并重试
                     if (asyncResp.status === 401 && !isRetry) {
                         console.log('[Async] 会话过期，尝试重新登录并重试...');
-                        await this.relogin();
+                        await this.relogin(requestTxd, requestEpoch);
+                        if (!this.isCharacterSessionCurrent(requestEpoch))
+                            throw new Error('人物会话已切换');
                         if (!this.showLogin) {
                             return this.sendAsyncCommand(cmd, timeout, true);
                         }
@@ -2777,12 +2878,16 @@ createApp({
                 }
 
                 const asyncData = await asyncResp.json();
+                if (!this.isCharacterSessionCurrent(requestEpoch))
+                    throw new Error('人物会话已切换');
 
                 if (asyncData.error) {
                     // 认证错误，尝试重新登录并重试
                     if ((asyncData.error.includes('认证') || asyncData.error.includes('登录') || asyncData.error.includes('未登录')) && !isRetry) {
                         console.log('[Async] 会话过期，尝试重新登录并重试...');
-                        await this.relogin();
+                        await this.relogin(requestTxd, requestEpoch);
+                        if (!this.isCharacterSessionCurrent(requestEpoch))
+                            throw new Error('人物会话已切换');
                         if (!this.showLogin) {
                             return this.sendAsyncCommand(cmd, timeout, true);
                         }
@@ -2801,14 +2906,20 @@ createApp({
                 const startTime = Date.now();
                 while (Date.now() - startTime < timeout) {
                     await new Promise(resolve => setTimeout(resolve, 100)); // 100ms轮询间隔
+                    if (!this.isCharacterSessionCurrent(requestEpoch))
+                        throw new Error('人物会话已切换');
 
-                    const resultResp = await fetch(`${this.apiBase}/api/result?request_id=${encodeURIComponent(requestId)}&txd=${encodeURIComponent(this.txd)}`);
+                    const resultResp = await fetch(`${this.apiBase}/api/result?request_id=${encodeURIComponent(requestId)}&txd=${encodeURIComponent(requestTxd)}`);
+                    if (!this.isCharacterSessionCurrent(requestEpoch))
+                        throw new Error('人物会话已切换');
 
                     if (!resultResp.ok) {
                         // 401 会话过期，尝试重新登录并重试
                         if (resultResp.status === 401 && !isRetry) {
                             console.log('[Async] 会话过期，尝试重新登录并重试...');
-                            await this.relogin();
+                            await this.relogin(requestTxd, requestEpoch);
+                            if (!this.isCharacterSessionCurrent(requestEpoch))
+                                throw new Error('人物会话已切换');
                             if (!this.showLogin) {
                                 return this.sendAsyncCommand(cmd, timeout, true);
                             }
@@ -2827,7 +2938,9 @@ createApp({
                             // 认证错误，尝试重新登录并重试
                             if ((resultData.error.includes('认证') || resultData.error.includes('登录') || resultData.error.includes('未登录')) && !isRetry) {
                                 console.log('[Async] 会话过期，尝试重新登录并重试...');
-                                await this.relogin();
+                                await this.relogin(requestTxd, requestEpoch);
+                                if (!this.isCharacterSessionCurrent(requestEpoch))
+                                    throw new Error('人物会话已切换');
                                 if (!this.showLogin) {
                                     return this.sendAsyncCommand(cmd, timeout, true);
                                 }
@@ -3007,12 +3120,16 @@ createApp({
                 return;
             }
 
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
             this.battleStatusLoading = true;
             try {
-                const response = await fetch(`${this.apiBase}/api/battle_status?txd=${encodeURIComponent(this.txd)}`);
+                const response = await fetch(`${this.apiBase}/api/battle_status?txd=${encodeURIComponent(requestTxd)}`);
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 if (!response.ok) return;
 
                 const data = await response.json();
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 this.syncBattleAoeReport(data.player?.recent_aoe_report);
 
                 if (data.in_battle) {
@@ -3062,9 +3179,11 @@ createApp({
                     this.stopBattleStatusPolling();
                 }
             } catch (e) {
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.error('[战斗] 获取战斗状态失败:', e);
             } finally {
-                this.battleStatusLoading = false;
+                if (this.isCharacterSessionCurrent(requestEpoch))
+                    this.battleStatusLoading = false;
             }
         },
 
@@ -3626,9 +3745,10 @@ createApp({
         async openPerformsList() {
             this.performsLoading = true;
             this.showPerformsList = true;
+            const requestEpoch = this.characterSessionEpoch;
 
             try {
-                const txd = sessionStorage.getItem('mud_txd') || this.txd;
+                const txd = this.txd;
                 if (!txd) {
                     alert('请先登录');
                     this.showPerformsList = false;
@@ -3637,6 +3757,7 @@ createApp({
 
                 const response = await fetch(`${this.apiBase}/api/performs?txd=${encodeURIComponent(txd)}`);
                 const data = await response.json();
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
 
                 if (data.error) {
                     console.error('获取招式列表失败:', data.error);
@@ -3649,6 +3770,7 @@ createApp({
                     this.performsData = data;
                 }
             } catch (e) {
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.error('获取招式列表失败:', e);
                 this.performsData = {
                     performs: [],
@@ -3656,7 +3778,8 @@ createApp({
                     message: '网络错误'
                 };
             } finally {
-                this.performsLoading = false;
+                if (this.isCharacterSessionCurrent(requestEpoch))
+                    this.performsLoading = false;
             }
         },
 

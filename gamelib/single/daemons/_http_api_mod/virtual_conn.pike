@@ -79,8 +79,17 @@ mixed get_virtual_connection(string userid)
     if(!userid) return 0;
     object key = vconnections_lock->lock();
     mixed result = vconnections[userid];
-    if(arrayp(result))
-        result = result + ({});
+    if(arrayp(result)){
+        if(sizeof(result)>=3 && objectp(result[2]) &&
+           functionp(result[2]->query_name) &&
+           lower_case((string)result[2]->query_name())!=
+           lower_case(userid)){
+            m_delete(vconnections,userid);
+            result = 0;
+        }
+        else
+            result = result + ({});
+    }
     destruct(key);
     return result;
 }
@@ -91,6 +100,14 @@ mixed get_virtual_connection(string userid)
 void set_virtual_connection(string userid, mixed conn_data)
 {
     if(!userid) return;
+    if(!arrayp(conn_data) || sizeof(conn_data)<3 ||
+       !objectp(conn_data[2]) ||
+       !functionp(conn_data[2]->query_name) ||
+       lower_case((string)conn_data[2]->query_name())!=lower_case(userid)){
+        http_werror(" Refused mismatched virtual connection for %s\n",
+            userid);
+        return;
+    }
     object key = vconnections_lock->lock();
     vconnections[userid] = conn_data;
     destruct(key);
@@ -128,7 +145,8 @@ object get_player_from_connection(string userid, void|int update_idle_time)
     mixed vconn = vconnections[userid];
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 3) {
         object player = vconn[2];
-        if(player && functionp(player->query_name)) {
+        if(player && functionp(player->query_name) &&
+           lower_case((string)player->query_name())==lower_case(userid)) {
             // 只有用户主动操作的调用点才显式传1；只读轮询必须传0。
             if(update_idle_time != 0) {
                 vconn[1] = time();

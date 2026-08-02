@@ -17,6 +17,7 @@
 | Account/character daemon | `gamelib/single/daemons/account_characterd.pike` |
 | Concurrent-character limit | `gamelib/etc/account_characters.conf` |
 | Account shared-vault daemon | `gamelib/single/daemons/account_storaged.pike` |
+| Account shared recharge daemon | `gamelib/single/daemons/account_walletd.pike` |
 | All-mode login guard | `lowlib/system/inherit/user.pike` |
 | HTTP account command mutex | `gamelib/single/daemons/_http_api_mod/thread_manager.pike` |
 | HTTP account sessions/routes | `gamelib/single/daemons/_http_api_mod/account_characters.pike` |
@@ -52,6 +53,13 @@ the first successful deposit:
 
 ```text
 data_xiand/accounts/bc/xd01abc.storage.json
+```
+
+Future paid recharge is another independent account file, created lazily on the
+first successful new recharge:
+
+```text
+data_xiand/accounts/bc/xd01abc.wallet.json
 ```
 
 The manifest contains identity and initialization intent, not gameplay state:
@@ -100,10 +108,12 @@ exists and its saved `account_owner` matches the manifest account.
 | Equipped items and backpack | Character | Complete independent save |
 | Personal warehouse | Character | Legacy `packaged_items`; unchanged |
 | Shared vault | Account | Explicit transfer only; independent JSON authority |
-| Currency and materials | Character | Do not share implicitly |
+| Old/free currency and materials | Character | Do not share implicitly |
+| Future paid recharge balance | Account | Separate wallet; physical jade first |
 | Tasks and newbie guide | Character | Initialized by original profession flow |
 | Home, guild, team, friends | Character | Existing systems key by character ID |
-| VIP and automation | Character | Current design intentionally independent |
+| Cumulative recharge entitlement | Account | Wallet total reconciles on login |
+| Timed VIP and automation settings | Character | Current design intentionally independent |
 
 If a future product requirement shares VIP, wallet, mobile, security code, or
 entitlements, design an account-level source of truth first. Do not synchronize
@@ -202,6 +212,9 @@ the same ID already exists in shared storage.
   ID against the saved character.
 - Shared main missing/invalid while `.bak` or `.tmp` exists: fail closed. Never
   auto-restore a stale shared backup because it could clone withdrawn gear.
+- Wallet main missing/invalid while `.bak` or `.tmp` exists: disable wallet
+  credit/debit/refund without blocking character login. Never auto-restore an
+  older balance that may predate a completed spend.
 - Interrupted deposit/withdrawal: exact-ID recovery leaves the item in one
   authoritative location. Never infer identity from item path, name, or array
   position.
@@ -227,6 +240,10 @@ the same ID already exists in shared storage.
 - Keep shared-vault transactions bounded, validate every item path/ID, and never
   reacquire the account mutex from code already executing under the HTTP account
   command mutex.
+- Keep wallet transactions and cache bounded. Serialize every balance mutation,
+  require expiring random idempotent administrator confirmations with a bounded
+  durable receipt table, and never grant a bonus twice when the same request is
+  retried.
 - Preserve logical-zone isolation because generated IDs retain the registration
   account's first four characters.
 
@@ -244,7 +261,8 @@ data_xiand/u/
 data_xiand/accounts/
 ```
 
-This includes both `<account>.json` and `<account>.storage.json`. Restoring only
+This includes `<account>.json`, `<account>.storage.json`, and
+`<account>.wallet.json`. Restoring only
 one side can produce missing character cards, orphan `.o` files, or inconsistent
 pending vault transfers. Never copy runtime manifests into the image or Git
 repository.

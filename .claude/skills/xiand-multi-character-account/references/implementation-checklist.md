@@ -37,6 +37,8 @@ comment, test, and operator-documentation note.
       relogin.
 - [ ] Keep the shared vault an explicit independent account service; never
       silently redirect personal-warehouse callers to account scope.
+- [ ] Keep old/free jade character-local and future paid recharge in an explicit
+      account wallet; verify physical-first mixed payment and no bulk migration.
 - [ ] Confirm all current profession pairs appear exactly once in backend and
       Vue catalogs; update slot/product policy explicitly when adding a class.
 
@@ -92,6 +94,25 @@ comment, test, and operator-documentation note.
       withdrawal, corrupt-main/valid-backup, stale player backup, capacity, and
       invalid ownership/path inputs.
 
+## Shared paid-recharge transactions
+
+- [ ] Resolve a selected character to its verified registration owner before
+      reading or mutating the wallet.
+- [ ] Require administrator authorization, a second confirmation, and a random
+      idempotency key; reject a reused key with different parameters.
+- [ ] Serialize and atomically persist credit, debit, and refund with bounded
+      validated transactions and cache.
+- [ ] Consume character physical jade first, then exactly the shared shortage;
+      test two sibling characters spending the same wallet.
+- [ ] Keep free/reward jade character-local and show shared balance explicitly in
+      the account selector.
+- [ ] Fail closed on corrupt wallet main when any balance artifact exists; never
+      restore a stale backup automatically and never block character login.
+- [ ] Synchronize cumulative recharge entitlement to online siblings and on
+      offline login without lowering old values.
+- [ ] Close every raw client minting command and test duplicate confirmation,
+      mismatched request ID, corruption, rollback, and audit log fields.
+
 ## Vue and rolling deployment
 
 - [ ] Edit `vue_source` and rebuild; never patch only `dist` or `web/web_vue`.
@@ -114,6 +135,7 @@ comment, test, and operator-documentation note.
 - [ ] Do not add or copy an empty `accounts/` seed; allow lazy creation.
 - [ ] Back up and restore `u/`, account manifests, and `*.storage.json` as one
       consistency unit.
+- [ ] Include `*.wallet.json` in the same data-root backup and restore boundary.
 - [ ] Update `docs/multi-character-account.md` for any contract change.
 - [ ] Exclude runtime account JSON, player saves, logs, backups, caches, and test
       artifacts from commits.

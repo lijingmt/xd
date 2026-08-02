@@ -242,6 +242,10 @@ string render_guide(object player)
 			"[新手补给商店:newbie_shop]|[挂机设置:autofight open]\n";
 	result += "挂机助手会按真实怪物等级自动选择练级区、逐图找怪；战斗中会吃药，缺药则前往安全地点休息后继续。\n";
 	result += "[查看地图:map_display]|[查看任务:mytasks]|[每级职业历练:growth_task]|[查看排行榜:look_top]\n";
+	if(player->query_level()<15)
+		result += "○ 15级开放全职业通用的山海万灵初契；灵宠PVE低频协战，人物PVP停用。\n";
+	else
+		result += "√ 已可从当康、鹿蜀、文鳐鱼中选择第一位伙伴，另外两位以后可稳定兑换。\n[山海万灵谱:pet]|[今日修行:daily_cultivation]\n";
 
 	result += "【4. 队伍、聊天与家园】\n";
 	result += "[队伍:my_term]|[聊天:chatroom_list]";
@@ -399,6 +403,9 @@ string render_roadmap(object player)
 	result += "先建立或加入七星阵队伍，再从副本入口进入；副本战利品进入队伍仓库，由队长及时分配。"+
 		"方士组队治疗只影响同房间队友；镇越山河壁也只保护同房间存活队友，没组队时两者都保留自用效果。\n";
 	result += "[队伍:my_term]|[查看地图:map_display]\n\n";
+	result += "【山海万灵】\n";
+	result += "15级起所有职业都可缔结灵宠。万灵裂隙需要3—5人，但破阵、守御、疗愈、封印均可由任何职业选择；灵宠论道采用三宠标准属性。\n";
+	result += "[万灵谱:pet]|[今日修行:daily_cultivation]|[万灵裂隙:wanling_rift]\n\n";
 
 	result += "【帮派、家园与交易】\n";
 	result += "10级后可了解帮派申请与建帮；家园可发展功能房、种养、狗狗和私家小店。"+

@@ -36,6 +36,9 @@ int main(string|zero arg){
 		}
 		else
 		{
+			mapping wallet_status = ACCOUNT_WALLETD->query_wallet(player);
+			string account_owner = functionp(player->query_account_owner) ?
+				(string)player->query_account_owner() : player->name;
 			//列出用户状态：禁言，封号现在就两种
 			if(remove_flag)
 				s += "用户状态：离线\n";
@@ -47,6 +50,7 @@ int main(string|zero arg){
 			}
 			s += "-------------------\n";
 			s += "账号："+player->name+"\n";
+			s += "注册账号归属："+account_owner+"\n";
 			s += "密码："+player->password+"\n";//" [string:change password "+player->name+" ...]\n";
 			s += "名字："+player->name_cn+"\n";//" [string:change namecn "+player->name+" ...]\n";
 			s +="[改名字:mgr_set_name_cn "+player->name+" tmp]\n";
@@ -66,7 +70,13 @@ int main(string|zero arg){
 			s += "-------------------\n";
 			//con->write("yushi_add_fee "+fee+" "+yushi_level+" "+spec_fg+"\n");
 			//50 2 szx = 充值50元，获得类型为2的仙缘玉50个（1元=1仙缘玉）
-			s += "[给此用户在线直接充值:txadd "+uid+"]\n";
+			if(wallet_status["ok"])
+				s += "账号共享充值余额："+
+					YUSHID->get_yushi_for_desc(
+						(int)wallet_status["balance"])+"\n";
+			else
+				s += "账号共享充值钱包：数据异常，已停止入账和消费\n";
+			s += "[给注册账号共享充值:txadd "+uid+"]\n";
 			s += "-------------------\n";
 			//s += "【通宝历史数额】："+player->history_tongbao+" (输入大于等于0的整数)[string:change history_tb "+player->name+" ...]\n";
 			//int qhs_count = check_need_item(player,"qhs");
@@ -234,4 +244,3 @@ int set_name_cn(string|zero arg)
 	me->write_view(WAP_VIEWD["/emote"],0,0,s); 
 	return 1; 
 }
-

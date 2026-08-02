@@ -102,6 +102,14 @@ void revoke_account_sessions_for(string account_id)
 	destruct(key);
 }
 
+private void attach_account_wallet_status(mapping result,string account_id)
+{
+	mapping wallet = ACCOUNT_WALLETD->query_account_wallet(account_id);
+	result["shared_recharge_available"] = wallet["ok"] ? 1 : 0;
+	result["shared_recharge_balance"] = wallet["ok"] ?
+		(int)wallet["balance"] : 0;
+}
+
 mapping query_account_session_status()
 {
 	mapping result;
@@ -168,6 +176,7 @@ void handle_api_account_login(Protocols.HTTP.Server.Request req)
 		send_json(req,(["error":"账号人物档案不可用"]),409);
 		return;
 	}
+	attach_account_wallet_status(account_data,account_id);
 	token = create_account_session(account_id);
 	if(token==""){
 		send_json(req,(["error":"账号会话繁忙，请稍后再试"]),503);
@@ -199,6 +208,7 @@ void handle_api_account_characters(Protocols.HTTP.Server.Request req)
 			"账号人物档案不可用"]),409);
 		return;
 	}
+	attach_account_wallet_status(result,account_id);
 	result["expires_in"] = ACCOUNT_SESSION_TTL;
 	send_json(req,result);
 }

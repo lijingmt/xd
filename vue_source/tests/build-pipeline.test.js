@@ -126,6 +126,8 @@ assert(indexSource.includes('data-tour="autofight"'));
 assert(indexSource.includes('data-tour="warehouse"'));
 assert(indexSource.includes("sendQuickCommand('go_warehouse')"));
 assert(indexSource.includes('<span>🧰</span>仓库</button>'));
+assert(indexSource.includes("sendQuickCommand('pet')"));
+assert(indexSource.includes('<span>🐾</span>万灵</button>'));
 assert(indexSource.includes('@click="startUiTour"'));
 assert(indexSource.includes('@click="toggleSoundEffects"'));
 assert(indexSource.includes('ref="mudLinesList"'));
@@ -210,6 +212,15 @@ assert(appSource.includes('triggerGameFeedback(kind'));
 assert(appSource.includes('handleNarrativeEffects(lines)'));
 assert(appSource.includes('initializeAutoAnimate()'));
 assert(appSource.includes('shouldAnimateMudOutputCommand(command)'));
+for (const petCommand of [
+  'pet',
+  'pet_hunt',
+  'pet_duel',
+  'daily_cultivation',
+  'wanling_rift'
+]) {
+  assert(appSource.includes(petCommand));
+}
 assert(appSource.includes('startUiTour()'));
 assert(appSource.includes("window.driver?.js?.driver"));
 assert(appSource.includes("disableForReducedMotion: true"));

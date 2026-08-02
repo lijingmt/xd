@@ -132,8 +132,8 @@ int query_degrade_num(object player,int rarelevel)
 	return num_rtn;
 }
 
-//得到玩家所有的玉石(换算成碎玉)之后的数目
-int query_all_num(object player)
+//得到当前人物背包玉石折算成碎玉后的数目，不包含账号充值钱包。
+int query_physical_all_num(object player)
 {
 	int re = 0;
 	int tmp = 0;//每种玉的个数；
@@ -152,6 +152,13 @@ int query_all_num(object player)
 		}
 	}
 	return re;
+}
+
+// 可消费总额 = 当前人物旧有/奖励玉石 + 注册账号未来充值共享余额。
+int query_all_num(object player)
+{
+	return query_physical_all_num(player)+
+		ACCOUNT_WALLETD->query_balance(player);
 }
 /* 判断玩家全部玉石折合碎玉后的总价值是否足够支付。
  * 支付时无需预先手动打碎或合成玉石。
@@ -177,6 +184,40 @@ int pay_yushi(object player,int num)
 
 	if(num == 0)
 		return 1;
+
+	int physical_total = query_physical_all_num(player);
+	// 当前人物自己的旧玉石/奖励玉石优先使用；不足部分才从账号共享
+	// 充值钱包扣除。旧玉石不迁移，多个职业也不会各复制一份余额。
+	if(physical_total < num)
+	{
+		int wallet_need = num-physical_total;
+		int removed_value = 0;
+		if(!ACCOUNT_WALLETD->debit_recharge(
+		   player,wallet_need,"yushi_purchase"))
+			return 0;
+		for(int m=1;m<6;m++)
+		{
+			int have = query_yushi_num(player,m);
+			if(have<=0)
+				continue;
+			int removed = player->remove_combine_item(
+				get_yushi_name(m),have);
+			if(removed>0)
+				removed_value += removed*rarelevel_value[m];
+			if(removed!=have)
+			{
+				if(removed_value>0)
+					give_yushi(player,removed_value);
+				if(!ACCOUNT_WALLETD->refund_recharge(
+				   player,wallet_need,"yushi_purchase_rollback"))
+					werror("[YUSHID] 共享充值余额回滚失败: %s %d\n",
+						player->query_name(),wallet_need);
+				return 0;
+			}
+		}
+		tell_object(player,"已优先使用当前人物玉石，不足部分从账号共享充值余额扣除。\n");
+		return 1;
+	}
 
 	mapping(int:int) my_num = ([]);//玩家各种玉石的数目列表
 	mapping(int:int) remove_num = ([]);//实际需要扣除的各种玉石
@@ -317,6 +358,10 @@ string query_yushi_cn(object player)
 			}
 		}
 	}
+	int shared_balance = ACCOUNT_WALLETD->query_balance(player);
+	if(shared_balance>0)
+		s_rtn += "账号共享充值余额："+
+			get_yushi_for_desc(shared_balance)+"\n";
 return s_rtn;
 }
 //获得一定数量玉石的描述性语言

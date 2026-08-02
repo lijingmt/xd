@@ -24,11 +24,14 @@ evidence in each pass instead of treating one successful test as proof for all.
    guide, spawn, registration side effects, save/relogin, and future profession
    catalog growth.
 6. **Independent gameplay state** — Compare two characters' level, skills,
-   inventory, wallet, tasks, home, social IDs, guild/team, personal storage, VIP,
+   inventory, reward currency, tasks, home, social IDs, guild/team, personal storage, VIP,
    auto-fight, drops, death, and high-level progression for accidental sharing.
    Then separately trace shared-vault deposit/withdrawal, permanent IDs, pending
    recovery, duplicate clicks, same-path items, corrupt files, and stale player
-   backup restoration to prove no equipment clone or loss.
+   backup restoration to prove no equipment clone or loss. Finally trace the
+   account paid wallet across sibling purchases, physical-first mixed payments,
+   duplicate admin confirmation, corrupt main/valid backup, entitlement sync,
+   and free-reward grants to prove no balance clone, double credit, or leakage.
 7. **Vue and device UX** — Test one/many profiles, create/select/cancel/logout,
    expired token, unavailable save, failed request, refresh, URL TXD login,
    polling pause/resume, autofight, focus, scrolling, phone/tablet/desktop, and

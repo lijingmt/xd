@@ -61,10 +61,14 @@ client.applyAccountData({
   token: 'a'.repeat(64),
   account_id: 'xd01legacy',
   limit: 10,
+  shared_recharge_available: 1,
+  shared_recharge_balance: 12345,
   characters: [{ id: 'xd01legacy', profession_id: 'jianxian' }]
 });
 assert.strictEqual(client.accountId, 'xd01legacy');
 assert.strictEqual(client.accountCharacters.length, 1);
+assert.strictEqual(client.accountSharedRechargeAvailable, true);
+assert.strictEqual(client.accountSharedRechargeBalance, 12345);
 assert.strictEqual(sessionValues.get('mud_account_token'), 'a'.repeat(64));
 assert.strictEqual(sessionValues.get('mud_account_id'), 'xd01legacy');
 
@@ -80,18 +84,90 @@ assert.strictEqual(client.characterForm.profession_id, 'fangshi');
 
 client.clearAccountSession();
 assert.strictEqual(client.accountToken, '');
+assert.strictEqual(client.accountSharedRechargeBalance, 0);
+assert.strictEqual(client.accountSharedRechargeAvailable, true);
 assert.strictEqual(sessionValues.has('mud_account_token'), false);
 
 assert(indexSource.includes('v-if="showCharacterSelect"'));
 assert(indexSource.includes('@click="openCharacterCenter"'));
 assert(indexSource.includes('@click="createAccountCharacter"'));
 assert(indexSource.includes('!showRegister && !showCharacterSelect'));
+assert(indexSource.includes('注册账号共享充值余额'));
+assert(indexSource.includes('人物赠送玉石仍各自独立'));
 assert(cssSource.includes('.character-modal'));
+assert(cssSource.includes('.character-wallet'));
 assert(cssSource.includes('.profession-choice-grid'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
 assert(appSource.includes('error.status === 404 || error.status === 501'));
+assert(appSource.includes('characterSessionEpoch'));
+assert(appSource.includes('invalidateCharacterSessionRequests'));
+assert(!appSource.includes("sessionStorage.getItem('mud_txd') || this.txd"));
 
-console.log('account character frontend tests passed');
+(async () => {
+  const firstTxd = client.encodeTxd('xd01firsthero', 'test88');
+  const secondTxd = client.encodeTxd('xd01secondhero', 'test88');
+  client.txd = firstTxd;
+  client.currentCharacterId = 'xd01firsthero';
+  client.playerStats = { autofight: true };
+  client.mudLines = [{ marker: 'first-before-switch' }];
+
+  let resolveOldAutofight = null;
+  sandbox.fetch = () => new Promise(resolve => {
+    resolveOldAutofight = resolve;
+  });
+  const oldAutofightRequest = client.sendJsonCommand('flushview');
+  while (!resolveOldAutofight) await Promise.resolve();
+
+  client.invalidateCharacterSessionRequests();
+  client.txd = secondTxd;
+  client.currentCharacterId = 'xd01secondhero';
+  client.mudLines = [{ marker: 'second-after-switch' }];
+  sessionValues.set('mud_txd', secondTxd);
+  resolveOldAutofight({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      userid: 'xd01firsthero',
+      txd: firstTxd,
+      lines: [{ marker: 'stale-first-response' }]
+    })
+  });
+  await oldAutofightRequest;
+  assert.strictEqual(client.txd, secondTxd);
+  assert.strictEqual(client.currentCharacterId, 'xd01secondhero');
+  assert.strictEqual(client.mudLines[0].marker, 'second-after-switch');
+
+  // 自动重登必须使用发起失败请求时捕获的人物TXD；浏览器缓存即使已
+  // 切到另一个职业，也不能把旧命令重放给新人物。
+  client.txd = firstTxd;
+  client.currentCharacterId = 'xd01firsthero';
+  client.showLogin = false;
+  const reloginEpoch = client.characterSessionEpoch;
+  sessionValues.set('mud_txd', secondTxd);
+  let reloginUrl = '';
+  sandbox.fetch = async url => {
+    reloginUrl = String(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        userid: 'xd01firsthero', txd: firstTxd, lines: []
+      })
+    };
+  };
+  const relogged = await client.relogin(firstTxd, reloginEpoch);
+  const reloginParams = new URL(reloginUrl, 'https://game.example.com').searchParams;
+  assert.strictEqual(relogged, true);
+  assert.strictEqual(reloginParams.get('userid'), 'xd01firsthero');
+  assert.strictEqual(client.txd, firstTxd);
+  assert.strictEqual(sessionValues.get('mud_txd'), firstTxd);
+  assert.strictEqual(client.showLogin, false);
+
+  console.log('account character frontend tests passed');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

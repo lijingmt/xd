@@ -151,7 +151,11 @@ int fetch_fee(object player,int id,string from_game)
 		if(err){
 			return -1;
 		}
-		player->command("yushi_add_fee "+ante_fee+" 1");
+		// 跨游戏兑换属于当前人物领取的旧式游戏币，不进入注册账号
+		// 现金充值钱包。直接调用守护接口，禁止再经过可输入的充值命令。
+		if(!YUSHID->give_yushi(player,ante_fee))
+			return -1;
+		player->all_fee += ante_fee;
 		//出入量刷新
 		if(amount_m[from_game]){
 			amount_m[from_game]->in_amount += ante_fee;

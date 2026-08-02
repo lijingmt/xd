@@ -7,6 +7,7 @@
 #define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+#define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -3143,6 +3144,9 @@ private void heart_beat_action(){
 	}
 	else{
 		this_object()->timeCount++;
+		// 通用万灵是低频数据型PVE协战，不生成NPC，也不进入方士SUMMOND。
+		if(this_object()->is("player"))
+			PETD->perform_pet_pve_assist(this_object(),enemy);
 		if(check_pk_fast_decision())
 			return;
 		if(this_object()->timeCold>0)

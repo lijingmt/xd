@@ -1254,6 +1254,60 @@ body {
     cursor: pointer;
 }
 
+.character-wallet {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid rgba(222, 178, 91, 0.32);
+    border-radius: var(--radius-md);
+    background: rgba(222, 178, 91, 0.1);
+    color: var(--text-primary);
+}
+
+.character-wallet.unavailable {
+    border-color: rgba(229, 62, 62, 0.36);
+    background: rgba(229, 62, 62, 0.08);
+}
+
+.character-wallet-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--bg-primary);
+    font-weight: 800;
+}
+
+.character-wallet-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.character-wallet-copy strong {
+    font-size: var(--font-sm);
+}
+
+.character-wallet-copy small {
+    color: var(--text-secondary);
+    font-size: var(--font-xs);
+    line-height: 1.35;
+}
+
+.character-wallet em {
+    color: var(--primary);
+    font-size: var(--font-sm);
+    font-style: normal;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
 .character-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1464,6 +1518,19 @@ body {
     .character-card {
         min-height: 74px;
         padding: 10px;
+    }
+
+    .character-wallet {
+        grid-template-columns: 30px minmax(0, 1fr);
+    }
+
+    .character-wallet-icon {
+        width: 30px;
+        height: 30px;
+    }
+
+    .character-wallet em {
+        grid-column: 2;
     }
 }
 

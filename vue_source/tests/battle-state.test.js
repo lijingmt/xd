@@ -211,7 +211,7 @@ assert.strictEqual(client.playerAvatarFailed, true);
       json: async () => ({ txd: autoLoginTxd, lines: [] })
     };
   };
-  await client.relogin();
+  await client.relogin(autoLoginTxd, client.characterSessionEpoch);
   const restoredParams = new URL(requestedLoginUrl).searchParams;
   assert.strictEqual(restoredParams.get('userid'), 'xd01autolog');
   assert.strictEqual(restoredParams.get('password'), 'yz12zy');

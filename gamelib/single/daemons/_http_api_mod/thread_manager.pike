@@ -32,6 +32,8 @@ constant CORE_COMMANDS = ({
 	"npc_kill", "kill_filter", "kill_quick",
 	"feedback", "mgr_feedback",  // 反馈提交、审核及玉石奖励
 	"account_storage",  // 账号共享宝库读取会分配永久物品ID并保存人物
+	"pet", "pet_hunt", "pet_duel", "daily_cultivation",
+	"wanling_rift", "wanling_join",  // 账号图鉴、跨玩家论道与裂隙状态
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========
 	"go", "goto", "go_back", "fly",
@@ -110,7 +112,8 @@ constant CORE_COMMAND_PREFIXES = ({
 	"login_", "chatroom_", "city_", "bz_", "bc_", "msg_", "qqlist_",
 	"door_", "fee_exchange_", "lottery_", "transfer_", "tuiguang_",
 	"gift_", "hb_", "vip_", "yushi_", "yblh_", "yuebing_",
-	"user_package_", "account_storage_", "add_", "waigua_"
+	"user_package_", "account_storage_", "pet_", "wanling_",
+	"add_", "waigua_"
 });
 
 constant HTTP_SLOW_COMMAND_MS = 500;

@@ -257,6 +257,19 @@
                             aria-label="返回当前人物">✕</button>
                 </div>
 
+                <div class="character-wallet"
+                     :class="{ unavailable: !accountSharedRechargeAvailable }">
+                    <span class="character-wallet-icon" aria-hidden="true">玉</span>
+                    <span class="character-wallet-copy">
+                        <strong>注册账号共享充值余额</strong>
+                        <small v-if="accountSharedRechargeAvailable">
+                            账号下所有职业共同消费；人物赠送玉石仍各自独立
+                        </small>
+                        <small v-else>钱包数据异常，当前已安全停止共享消费</small>
+                    </span>
+                    <em>{{ formatCompactNumber(accountSharedRechargeBalance) }} 碎玉</em>
+                </div>
+
                 <div class="character-grid" v-if="!characterCreateOpen">
                     <button v-for="character in accountCharacters"
                             :key="character.id"
@@ -1161,6 +1174,7 @@
                         <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
                         <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_term')"><span>👥</span>队伍</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('pet')"><span>🐾</span>万灵</button>
                         <button class="quick-tool-btn" data-tour="warehouse" @click="sendQuickCommand('go_warehouse')"><span>🧰</span>仓库</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('yushi_change')"><span>💎</span>玉石</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_bang')"><span>🏰</span>帮派</button>

@@ -13,6 +13,7 @@ REQUIRED_FILES = (
     "gamelib/single/daemons/account_characterd.pike",
     "gamelib/etc/account_characters.conf",
     "gamelib/single/daemons/account_storaged.pike",
+    "gamelib/single/daemons/account_walletd.pike",
     "gamelib/single/daemons/_http_api_mod/account_characters.pike",
     "gamelib/single/daemons/_http_api_mod/thread_manager.pike",
     "gamelib/single/daemons/_http_api_mod/auth.pike",
@@ -26,12 +27,15 @@ REQUIRED_FILES = (
     "gamelib/cmds/account_storage.pike",
     "gamelib/cmds/account_storage_deposit.pike",
     "gamelib/cmds/account_storage_withdraw.pike",
+    "gamelib/cmds/txadd.pike",
+    "gamelib/cmds/yushi_add_fee.pike",
     "vue_source/js/app.js",
     "vue_source/index.html",
     "vue_source/css/app.css",
     "vue_source/tests/account-characters.test.js",
     "test_unit/test_multi_character_account.pike",
     "test_unit/test_account_shared_storage.pike",
+    "test_unit/test_account_recharge_wallet.pike",
     "docs/multi-character-account.md",
     "docker/docker-compose.yml",
     "restart-docker.sh",
@@ -71,6 +75,7 @@ def main() -> int:
     daemon = sources["gamelib/single/daemons/account_characterd.pike"]
     account_config = sources["gamelib/etc/account_characters.conf"]
     storage = sources["gamelib/single/daemons/account_storaged.pike"]
+    wallet = sources["gamelib/single/daemons/account_walletd.pike"]
     api = sources[
         "gamelib/single/daemons/_http_api_mod/account_characters.pike"
     ]
@@ -88,11 +93,14 @@ def main() -> int:
     storage_view = sources["gamelib/cmds/account_storage.pike"]
     storage_deposit = sources["gamelib/cmds/account_storage_deposit.pike"]
     storage_withdraw = sources["gamelib/cmds/account_storage_withdraw.pike"]
+    txadd = sources["gamelib/cmds/txadd.pike"]
+    legacy_recharge = sources["gamelib/cmds/yushi_add_fee.pike"]
     vue = sources["vue_source/js/app.js"]
     html = sources["vue_source/index.html"]
     css = sources["vue_source/css/app.css"]
     pike_test = sources["test_unit/test_multi_character_account.pike"]
     storage_test = sources["test_unit/test_account_shared_storage.pike"]
+    wallet_test = sources["test_unit/test_account_recharge_wallet.pike"]
     vue_test = sources["vue_source/tests/account-characters.test.js"]
     compose = sources["docker/docker-compose.yml"]
     restart_docker = sources["restart-docker.sh"]
@@ -138,6 +146,30 @@ def main() -> int:
         require(storage, marker, "shared storage daemon", failures)
 
     for marker in (
+        'account_id+".wallet.json"',
+        "credit_recharge_once",
+        "debit_recharge",
+        "refund_recharge",
+        "ACCOUNT_WALLET_MAX_TRANSACTIONS",
+        "ACCOUNT_WALLET_CACHE_LIMIT",
+        'Stdio.file_size(path+".bak")>0',
+        "reconcile_player_login",
+    ):
+        require(wallet, marker, "shared recharge wallet", failures)
+    for marker in (
+        "MANAGERD->checkpower",
+        "确认共享充值",
+        "credit_recharge_once",
+    ):
+        require(txadd, marker, "admin shared recharge", failures)
+    require(
+        legacy_recharge,
+        "MANAGERD->checkpower",
+        "legacy recharge authorization",
+        failures,
+    )
+
+    for marker in (
         "query_account_runtime_mutex(requested_id)",
         "!get_player_from_connection(userid,0)",
         '"account_storage"',
@@ -151,7 +183,7 @@ def main() -> int:
     ):
         require(login_user, marker, "all-mode login guard", failures)
 
-    require(storage_view, "账号共享宝库", "shared storage UI", failures)
+    require(storage_view, "账号共享仓库", "shared storage UI", failures)
     require(storage_deposit, "transfer_to_shared", "shared deposit command", failures)
     require(storage_withdraw, "transfer_to_personal", "shared withdraw command", failures)
 
@@ -184,6 +216,7 @@ def main() -> int:
         "Crypto.Random.random_string(32)",
         "请使用POST读取人物档案",
         "account_owns_character(account_id,character_id)",
+        "shared_recharge_balance",
     ):
         require(api, marker, "account API", failures)
     if "disconnect_account_siblings" in api:
@@ -200,6 +233,7 @@ def main() -> int:
         "authenticateAccountFromCurrentTxd",
         "error.status === 404 || error.status === 501",
         "if (!this.showCharacterSelect) this.fetchPlayerStats()",
+        "accountSharedRechargeBalance",
     ):
         require(vue, marker, "Vue account flow", failures)
 
@@ -208,7 +242,9 @@ def main() -> int:
 
     require(html, 'v-if="showCharacterSelect"', "selector HTML", failures)
     require(html, "人物档案 / 切换职业", "in-game entry", failures)
+    require(html, "注册账号共享充值余额", "shared recharge UI", failures)
     require(css, ".character-modal", "selector CSS", failures)
+    require(css, ".character-wallet", "shared recharge CSS", failures)
     require(css, "@media (max-width: 620px)", "mobile selector CSS", failures)
 
     for marker in (
@@ -220,7 +256,7 @@ def main() -> int:
     ):
         require(pike_test, marker, "Pike regression", failures)
     for marker in (
-        "账号共享宝库测试",
+        "账号共享仓库测试",
         '"after_personal_save"',
         "reconcile_player_login(child_player)",
         "共享仓库主文件损坏时不自动恢复旧备份复活装备",
@@ -230,6 +266,15 @@ def main() -> int:
         "配置切回一时热检查安全保存并清退四个超额人物",
     ):
         require(storage_test, marker, "shared storage regression", failures)
+    for marker in (
+        "多职业账号共享充值钱包测试",
+        "重复确认幂等且冲突、过期请求失败关闭",
+        "历史人物玉石不迁移也不复制给其他职业",
+        "两个职业消费同一余额且人物玉石优先混合扣除",
+        "同账号两个职业并发扣款只能有一个消耗共享余额",
+        "钱包损坏时不从旧备份复活余额并停止入账消费",
+    ):
+        require(wallet_test, marker, "shared recharge regression", failures)
     require(vue_test, "account character frontend tests passed", "Vue regression", failures)
 
     if "/app/xiand/data_xiand" not in compose:
