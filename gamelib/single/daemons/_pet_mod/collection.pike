@@ -26,6 +26,8 @@ private void clear_pet_runtime(object player)
 	player["/tmp/wanling/pet_pvp_growth_percent"] = 0;
 	player["/tmp/wanling/pet_name"] = 0;
 	player["/tmp/wanling/pet_polarity"] = 0;
+	player["/tmp/wanling/pet_equipment_bonus"] = 0;
+	player["/tmp/wanling/imprinted_skill"] = 0;
 	player["/tmp/wanling/assist_at"] = 0;
 	player["/tmp/wanling/assist_seq"] = 0;
 	player["/tmp/wanling/recent_assist"] = 0;
@@ -66,6 +68,13 @@ private void sync_pet_runtime_unlocked(object player,mapping pet,
 		(string)pet["fusion"]["name"] :
 		(string)shanhai_catalog[(string)pet["species"]]["name"];
 	player["/tmp/wanling/pet_polarity"] = query_pet_polarity(pet);
+	player["/tmp/wanling/pet_equipment_bonus"] = mappingp(
+		pet["equipment_bonus"]) ?
+		copy_value((mapping)pet["equipment_bonus"]) :
+		empty_pet_equipment_bonus();
+	player["/tmp/wanling/imprinted_skill"] =
+		mappingp(pet["imprinted_skill"]) ?
+		copy_value((mapping)pet["imprinted_skill"]) : 0;
 	if(reset_combat){
 		player["/tmp/wanling/assist_at"] = 0;
 		player["/tmp/wanling/recent_assist"] = 0;
@@ -149,8 +158,9 @@ mapping(string:mixed) query_pet_state(object player)
 		result = copy_value(record);
 		m_delete(result,"migration_pending");
 		array enriched_pets = ({});
-		foreach((array)result["pets"],mapping pet)
-			enriched_pets += ({enrich_pet_view(pet)});
+		foreach((array)record["pets"],mapping pet)
+			enriched_pets += ({enrich_pet_view(
+				enrich_pet_equipment_view_unlocked(record,pet))});
 		result["pets"] = enriched_pets;
 		result["ok"] = 1;
 		result["message"] = "";
@@ -191,7 +201,23 @@ mapping(string:mixed) choose_starter_pet(object player,string species)
 	else{
 		result = acquire_pet_unlocked(record,species,"starter");
 		if(result["ok"]){
-			mapping pet = result["pet"];
+			int pet_index = find_pet_index(record["pets"],
+				(string)result["pet"]["id"]);
+			mapping pet = pet_index>=0 ? record["pets"][pet_index] : ([]);
+			array starter_gear = pet_index>=0 ?
+				grant_starter_pet_gear_unlocked(record,pet) : ({});
+			if(sizeof(starter_gear)!=3){
+				result = pet_result(0,
+					"初契装备建立失败，本次灵契没有生效。");
+				if(pet_index>=0)
+					record["pets"] -= ({pet});
+			}
+			else
+				result["pet"] = copy_value(pet);
+		}
+		if(result["ok"]){
+			mapping pet = record["pets"][find_species_index(record["pets"],
+				species)];
 			record["starter_claimed"] = 1;
 			record["active"][character_id] = pet["id"];
 			add_pet_material_unlocked(record,"spirit_dew",12);
@@ -200,7 +226,7 @@ mapping(string:mixed) choose_starter_pet(object player,string species)
 			if(save_pet_record_unlocked(record)){
 				sync_pet_runtime_unlocked(player,pet,1);
 				result["message"] +=
-					"它已设为当前协战伙伴，并获赠12滴灵露与2枚同心叶。";
+					"它已设为当前协战伙伴，并获赠初契三件套、12滴灵露与2枚同心叶。";
 			}
 			else
 				result = pet_result(0,"万灵谱保存失败，本次灵契没有生效。");
@@ -625,6 +651,114 @@ mapping(string:mixed) record_pet_hunt_kill(object player,object npc)
 	return result;
 }
 
+/**
+ * 真实NPC死亡时给当前协战宠物增加独立历练并自动连续升级。
+ *
+ * 历练不读取人物经验、经验药或VIP经验倍率，避免付费倍率放大宠物战力；
+ * 同一只死亡NPC按宠物ID去重，使同账号多角色各自携带不同宠物时仍可成长。
+ */
+mapping(string:mixed) record_pet_combat_xp(object player,object npc)
+{
+	mapping result = (["ok":0,"xp_gain":0,"levels_gained":0]);
+	string account_id = resolve_pet_account(player);
+	string character_id;
+	string pet_id;
+	mapping(string:mixed)|zero record;
+	mapping credited_pets;
+	object key;
+	int player_level;
+	int npc_level;
+	int effective_level;
+	int is_dungeon = 0;
+	int is_boss = 0;
+	int xp_gain;
+	if(account_id=="" || !player || !npc || !npc->is ||
+	   !npc->is("npc") ||
+	   SUMMOND->query_combat_credit_owner(npc)!=npc)
+		return result;
+	player_level = player->query_level();
+	npc_level = npc->query_level();
+	if(player_level<PET_STARTER_LEVEL || npc_level<1 ||
+	   player_level-npc_level>5)
+		return result;
+	if(npc->query_npc_type &&
+	   search(({"city_keeper","city_guarder","city_lord"}),
+		(string)npc->query_npc_type())!=-1)
+		return result;
+	if((string)(player->fb_id || "")!="" &&
+	   FBD->query_fb_memebers((string)player->fb_id,
+		player->query_name()))
+		is_dungeon = 1;
+	if((int)(npc->_boss || 0)>0)
+		is_boss = 1;
+	effective_level = npc_level;
+	if(effective_level>player_level+5)
+		effective_level = player_level+5;
+	xp_gain = 15+effective_level;
+	if(is_dungeon && is_boss)
+		xp_gain *= 4;
+	else if(is_boss)
+		xp_gain *= 3;
+	else if(is_dungeon)
+		xp_gain *= 2;
+	character_id = player->query_name();
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record && (int)record["starter_claimed"]){
+		pet_id = (string)(record["active"][character_id] || "");
+		int index = find_pet_index(record["pets"],pet_id);
+		credited_pets = mappingp(npc["/tmp/wanling/xp_pet_ids"]) ?
+			npc["/tmp/wanling/xp_pet_ids"] : ([]);
+		if(index>=0 && !credited_pets[pet_id] &&
+		   (int)record["pets"][index]["level"]<PET_LEVEL_MAX){
+			mapping pet = record["pets"][index];
+			xp_gain = xp_gain*(100+
+				query_pet_equipment_xp_bonus_unlocked(record,pet))/100;
+			int old_level = (int)pet["level"];
+			int level = old_level;
+			int xp = (int)pet["xp"]+xp_gain;
+			int need = query_pet_level_xp_need(level);
+			while(level<PET_LEVEL_MAX && need>0 && xp>=need){
+				xp -= need;
+				level++;
+				need = query_pet_level_xp_need(level);
+			}
+			if(level>=PET_LEVEL_MAX)
+				xp = 0;
+			pet["level"] = level;
+			pet["xp"] = xp;
+			record["revision"] = (int)record["revision"]+1;
+			if(save_pet_record_unlocked(record)){
+				credited_pets[pet_id] = 1;
+				npc["/tmp/wanling/xp_pet_ids"] = credited_pets;
+				sync_pet_runtime_unlocked(player,pet,0);
+				result["ok"] = 1;
+				result["xp_gain"] = xp_gain;
+				result["old_level"] = old_level;
+				result["level"] = level;
+				result["levels_gained"] = level-old_level;
+				result["xp"] = xp;
+				result["xp_need"] = need;
+				if(level>old_level){
+					string pet_name = mappingp(pet["fusion"]) &&
+						(string)pet["fusion"]["name"]!="" ?
+						(string)pet["fusion"]["name"] :
+						(string)shanhai_catalog[
+							(string)pet["species"]]["name"];
+					string progress = level>=PET_LEVEL_MAX ?
+						"已达到满级" : "当前历练 "+xp+"/"+need;
+					tell_object(player,"【灵宠自动成长】"+pet_name+
+						"从Lv."+old_level+"升至Lv."+level+
+						"（连升"+(level-old_level)+"级），"+
+						progress+"。\n[查看万灵谱:pet]\n");
+				}
+			}
+		}
+	}
+	destruct(key);
+	return result;
+}
+
 private mapping(string:mixed) record_pet_pve_fragment_unlocked(
 	object player,object npc,int forced_roll)
 {
@@ -838,6 +972,10 @@ private mapping(string:mixed) make_fusion_child_unlocked(mapping record,
 		(forced_polarity==1 ? "yang" : (random(2) ? "yang" : "yin"));
 	child["level"] = (int)first["level"]>(int)second["level"] ?
 		(int)first["level"] : (int)second["level"];
+	child["xp"] = (int)first["xp"]>(int)second["xp"] ?
+		(int)first["xp"] : (int)second["xp"];
+	if((int)child["level"]>=PET_LEVEL_MAX)
+		child["xp"] = 0;
 	child["star"] = (int)first["star"]>(int)second["star"] ?
 		(int)first["star"] : (int)second["star"];
 	child["bond"] = (int)first["bond"]>(int)second["bond"] ?

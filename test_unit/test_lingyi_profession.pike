@@ -594,10 +594,14 @@ void test_autofight_vip_and_pvp_fairness()
 
 void test_room_aoe_and_battle_report()
 {
-	test_start("药雾天罗群攻全部合法敌人、隔离队友路人并保留战果");
+	test_start("药雾天罗可定制玩家阵营且永久保护队友好友与路人");
 	object healer = create_player("__testunit_lingyi_aoe__","lingyi",100);
 	object member = create_player("__testunit_lingyi_aoe_member__","fangshi",100);
 	object engaged = create_player("__testunit_lingyi_aoe_enemy__","fangshi",100);
+	object same_faction = create_player(
+		"__testunit_lingyi_aoe_same__","fangshi",100);
+	object friend_player = create_player(
+		"__testunit_lingyi_aoe_friend__","fangshi",100);
 	object bystander = create_player("__testunit_lingyi_aoe_bystander__","fangshi",100);
 	object npc_one = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
 	object npc_two = clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
@@ -607,11 +611,17 @@ void test_room_aoe_and_battle_report()
 	int failed = 0;
 	string error_desc = "";
 	mixed err = catch {
+		engaged->set_raceId("human");
+		friend_player->set_raceId("human");
+		healer->qqlist_insert(friend_player->query_name(),"");
 		healer->set_term("__testunit_lingyi_aoe_team__");
 		member->set_term("__testunit_lingyi_aoe_team__");
 		engaged->set_term("__testunit_lingyi_aoe_enemy_team__");
+		same_faction->set_term("__testunit_lingyi_aoe_same_team__");
+		friend_player->set_term("__testunit_lingyi_aoe_friend_team__");
 		bystander->set_term("__testunit_lingyi_aoe_bystander_team__");
 		healer->move(room); member->move(room); engaged->move(room);
+		same_faction->move(room); friend_player->move(room);
 		bystander->move(room); npc_one->move(room); npc_two->move(room);
 		task_npc->move(room); task_npc->_tasknpc = 1;
 		healer->skills["yaowutianluo"] = ({1,0});
@@ -625,34 +635,80 @@ void test_room_aoe_and_battle_report()
 		int member_before = member->get_cur_life();
 		int bystander_before = bystander->get_cur_life();
 		int engaged_before = engaged->get_cur_life();
+		int same_faction_before = same_faction->get_cur_life();
+		int friend_before = friend_player->get_cur_life();
 		int npc_two_before = npc_two->get_cur_life();
 		int task_npc_before = task_npc->get_cur_life();
 		int mofa_before = healer->get_cur_mofa();
 		healer->_fight(npc_one);
 		engaged->_fight(healer);
 		healer->_fight(engaged);
+		same_faction->_fight(healer);
+		healer->_fight(same_faction);
+		friend_player->_fight(healer);
+		healer->_fight(friend_player);
 		healer->perform("yaowutianluo",1);
 		mapping(string:mixed) report =
 			healer->query_recent_aoe_battle_report();
 		int defeated = 0;
 		int saw_engaged = 0;
+		int saw_same_faction = 0;
+		int saw_friend = 0;
 		foreach((array(mapping))report["targets"],mapping target){
 			if(target["defeated"])
 				defeated++;
 			if(target["name"]==engaged->query_name())
 				saw_engaged = 1;
+			if(target["name"]==same_faction->query_name())
+				saw_same_faction = 1;
+			if(target["name"]==friend_player->query_name())
+				saw_friend = 1;
 		}
 		int engaged_damage = engaged_before-engaged->get_cur_life();
 		if(member->get_cur_life()!=member_before ||
 		   bystander->get_cur_life()!=bystander_before ||
+		   same_faction->get_cur_life()!=same_faction_before ||
+		   friend_player->get_cur_life()!=friend_before ||
 		   engaged_damage<=0 ||
 		   engaged_damage>engaged->query_life_max()*8/100 ||
 		   npc_two->get_cur_life()>=npc_two_before ||
 		   task_npc->get_cur_life()!=task_npc_before ||
 		   !report || report["skill"]!="yaowutianluo" ||
 		   sizeof((array)report["targets"])<3 || defeated<1 ||
-		   !saw_engaged || healer->get_cur_mofa()>=mofa_before ||
+		   !saw_engaged || saw_same_faction || saw_friend ||
+		   healer->get_cur_mofa()>=mofa_before ||
 		   healer->f_skills["yaowutianluo"]!=15)
+			failed++;
+
+		// 切换为允许中立、禁止仙阵营后，下一次施放应立即
+		// 改变玩家目标；好友和队友仍不可被配置绕过。
+		PROFESSIONVIPD->set_lingyi_aoe_target_enabled(healer,"human",0);
+		PROFESSIONVIPD->set_lingyi_aoe_target_enabled(healer,"third",1);
+		int engaged_after_first = engaged->get_cur_life();
+		int same_after_first = same_faction->get_cur_life();
+		int friend_after_first = friend_player->get_cur_life();
+		int member_after_first = member->get_cur_life();
+		int npc_two_after_first = npc_two->get_cur_life();
+		healer->timeCold = 0;
+		healer->f_skills["yaowutianluo"] = 0;
+		healer->set_mofa(healer->query_mofa_max());
+		healer->perform("yaowutianluo",1);
+		mapping(string:mixed) custom_report =
+			healer->query_recent_aoe_battle_report();
+		int custom_saw_human = 0;
+		int custom_saw_third = 0;
+		foreach((array(mapping))custom_report["targets"],mapping target){
+			if(target["name"]==engaged->query_name())
+				custom_saw_human = 1;
+			if(target["name"]==same_faction->query_name())
+				custom_saw_third = 1;
+		}
+		if(engaged->get_cur_life()!=engaged_after_first ||
+		   same_faction->get_cur_life()>=same_after_first ||
+		   friend_player->get_cur_life()!=friend_after_first ||
+		   member->get_cur_life()!=member_after_first ||
+		   npc_two->get_cur_life()>=npc_two_after_first ||
+		   custom_saw_human || !custom_saw_third)
 			failed++;
 		healer->move(other_room);
 		if(sizeof(healer->query_recent_aoe_battle_report())!=0)
@@ -667,6 +723,7 @@ void test_room_aoe_and_battle_report()
 	else
 		test_fail(sprintf("群攻或战果快照失败=%d: %s",failed,error_desc));
 	destroy_player(healer); destroy_player(member); destroy_player(engaged);
+	destroy_player(same_faction); destroy_player(friend_player);
 	destroy_player(bystander);
 	if(npc_one) destruct(npc_one);
 	if(npc_two) destruct(npc_two);

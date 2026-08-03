@@ -20,7 +20,7 @@ int lingyi_cleanse=0;//是否在治疗后净化一个负面状态
 int lingyi_life_cap_percent=0;//单次对每个目标最多恢复其生命上限百分比
 int lingyi_pact_gain=0;//有效治疗后获得的药契层数
 int lingyi_pact_consume=0;//有效治疗时是否消耗全部药契
-int lingyi_room_aoe=0;//灵医房间群攻：只由服务端筛选合法非队友目标
+int lingyi_room_aoe=0;//灵医房间群攻：阵营可配置，服务端永久排除队友、好友与路人
 int lingyi_aoe_power_percent=0;//房间群攻相对普通法术的伤害倍率
 
 int query_hate_multiplier(){

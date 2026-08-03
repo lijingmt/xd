@@ -74,6 +74,99 @@ private string pet_display_name(mapping pet,mapping info)
 	return (string)info["name"];
 }
 
+private string pet_gear_attributes(mapping gear)
+{
+	array(string) parts = ({});
+	mapping attributes = mappingp(gear["attributes"]) ?
+		gear["attributes"] : ([]);
+	mapping(string:string) names = (["life":"生命","attack":"攻击",
+		"defense":"防御","spirit":"灵息","speed":"迅捷"]);
+	foreach(({"life","attack","defense","spirit","speed"}),
+	   string attribute)
+		if((int)attributes[attribute]>0)
+			parts += ({names[attribute]+"+"+(int)attributes[attribute]+"%"});
+	if((int)gear["xp_bonus_percent"]>0)
+		parts += ({"历练+"+(int)gear["xp_bonus_percent"]+"%"});
+	return sizeof(parts) ? parts*"、" : "无附加属性";
+}
+
+private string render_pet_gear(mapping gear_state,string pet_id)
+{
+	if(!gear_state["ok"])
+		return (string)gear_state["message"]+"\n[返回万灵谱:pet]\n";
+	mapping pet = gear_state["pet"];
+	mapping slots = gear_state["slots"];
+	string s = "§g【灵宠装备】§r\n\n";
+	s += "兽铠、灵饰、灵核完全独立于人物背包，只增强当前灵宠；灵核还承载主人技能拓印。\n";
+	s += "装备栏 "+sizeof((array)gear_state["gear_inventory"])+"/"+
+		(int)gear_state["inventory_max"]+"\n\n";
+	foreach(({"beast_armor","spirit_charm","spirit_core"}),string slot){
+		mapping slot_info = slots[slot];
+		mapping equipped = mappingp(pet["equipment_details"][slot]) ?
+			pet["equipment_details"][slot] : ([]);
+		s += (string)slot_info["icon"]+" "+(string)slot_info["name"]+"：";
+		if(sizeof(equipped))
+			s += (string)equipped["quality_name"]+"·"+
+				(string)equipped["name"]+"（"+
+				pet_gear_attributes(equipped)+"） "+
+				"[卸下:pet gearunequip "+pet_id+" "+slot+"]\n";
+		else
+			s += "未穿戴\n";
+		foreach((array)gear_state["gear_inventory"],mapping gear)
+			if((string)gear["slot"]==slot &&
+			   (string)(gear["equipped_by"] || "")=="")
+				s += "  • "+(string)gear["quality_name"]+"·"+
+					(string)gear["name"]+" Lv."+
+					(int)gear["level_requirement"]+"（"+
+					pet_gear_attributes(gear)+"） "+
+					"[穿戴:pet gearequip "+pet_id+" "+
+					(string)gear["id"]+"] "+
+					"[分解:pet geardismantle "+pet_id+" "+
+					(string)gear["id"]+"]\n";
+	}
+	s += "\n凝炼消耗5灵印，品质概率：凡品70% / 良品22% / 珍品7% / 神品1%。\n";
+	s += "[凝炼兽铠:pet gearforge "+pet_id+" beast_armor] "+
+		"[凝炼灵饰:pet gearforge "+pet_id+" spirit_charm] "+
+		"[凝炼灵核:pet gearforge "+pet_id+" spirit_core]\n";
+	s += "[学习主人技能:pet skill "+pet_id+"]|[返回宠物:pet detail "+
+		(string)pet["species"]+"]|[返回万灵谱:pet]\n";
+	return s;
+}
+
+private string render_pet_imprint(mapping state,string pet_id,object me)
+{
+	mapping pet = find_state_pet(state,pet_id);
+	string s = "§m【灵技拓印】§r\n\n";
+	if(!sizeof(pet))
+		return "找不到这只灵宠。\n[返回万灵谱:pet]\n";
+	s += "灵宠20级且穿戴灵核后，可学习当前角色真实掌握的主动攻击或治疗技能。\n";
+	s += "拓印保留技能名称与战斗表现，但效果按灵宠属性、冷却和PVE/PVP安全上限结算，不复制人物技能数值。\n\n";
+	if(mappingp(pet["imprinted_skill"])){
+		mapping skill = pet["imprinted_skill"];
+		s += "当前：拓印·"+(string)skill["name_cn"]+"（"+
+			((string)skill["effect"]=="heal" ? "治疗" : "攻击")+
+			"，习得时"+(int)skill["level"]+"级） "+
+			"[遗忘:pet forget "+pet_id+"]\n\n";
+	}
+	else
+		s += "当前：尚未拓印；第一次免费。\n\n";
+	array candidates = PETD->query_pet_imprint_skill_candidates(me);
+	if(!sizeof(candidates))
+		s += "当前角色还没有可拓印的主动攻击或治疗技能。\n";
+	else{
+		s += "可学习：\n";
+		foreach(candidates,mapping candidate)
+			s += "• "+(string)candidate["name_cn"]+" Lv."+
+				(int)candidate["level"]+" · "+
+				((string)candidate["effect"]=="heal" ? "治疗" : "攻击")+
+				" [拓印:pet imprint "+pet_id+" "+
+				(string)candidate["name"]+"]\n";
+	}
+	s += "\n替换已有技能消耗1枚灵纹符；卸下灵核前必须先遗忘拓印。\n";
+	s += "[灵宠装备:pet gear "+pet_id+"]|[返回万灵谱:pet]\n";
+	return s;
+}
+
 private string render_detail(mapping state,string species,object me)
 {
 	mapping info = PETD->query_pet_species(species);
@@ -112,6 +205,11 @@ private string render_detail(mapping state,string species,object me)
 		s += "已收录：Lv."+(int)pet["level"]+"/60 · "+
 			(int)pet["star"]+"星 · "+(string)pet["evolution_name"]+
 			" · 羁绊"+(int)pet["bond"]+"/5\n";
+		if((int)pet["level"]>=PETD->query_pet_level_max())
+			s += "战斗历练：已满级；继续战斗不会囤积溢出经验。\n";
+		else
+			s += "战斗历练："+(int)pet["xp"]+"/"+
+				(int)pet["xp_need"]+"（协战击败合适等级怪物会自动连续升级）\n";
 		s += "灵宠战力："+(int)pet["power"]+" | 生命"+
 			(int)attributes["life"]+" | 攻击"+(int)attributes["attack"]+
 			" | 防御"+(int)attributes["defense"]+" | 灵息"+
@@ -120,14 +218,20 @@ private string render_detail(mapping state,string species,object me)
 			"% | PVP压缩倍率："+(int)pet["pvp_growth_percent"]+
 			"% | 编号"+pet_short_id((string)pet["id"])+"\n";
 		s += "当前灵纹："+((array)pet["skills"]*"、")+"\n";
+		if(mappingp(pet["imprinted_skill"]))
+			s += "拓印灵技："+(string)pet["imprinted_skill"]["name_cn"]+
+				"（"+((string)pet["imprinted_skill"]["effect"]=="heal" ?
+				"治疗" : "攻击")+"）\n";
+		else
+			s += "拓印灵技：未学习（灵宠20级开放）\n";
 		s += "灵纹节奏："+((int)pet["skill_set"]==1 ?
 			"轻灵（80%效果/24秒）" : ((int)pet["skill_set"]==2 ?
 			"厚积（115%效果/36秒）" : "均衡（100%效果/30秒）"))+"\n";
 		s += "已收录外观："+((array)pet["variants"]*"、")+"\n";
 		s += "[设为协战:pet active "+(string)pet["id"]+"] "+
-			"[提升1级:pet level "+(string)pet["id"]+"]\n";
+			"[灵露加速1级:pet level "+(string)pet["id"]+"]\n";
 		if(VIPD->query_active_vip_level(me)>=2)
-			s += "[连续提升10级:pet level10 "+(string)pet["id"]+"]（"+
+			s += "[灵露连续加速10级:pet level10 "+(string)pet["id"]+"]（"+
 				vip_label(2)+"）\n";
 		else
 			s += "连续提升10级（"+vip_label(2)+"解锁）"+
@@ -136,6 +240,8 @@ private string render_detail(mapping state,string species,object me)
 			"[消耗残片升星:pet star "+(string)pet["id"]+"] "+
 			"[深化羁绊:pet bond "+(string)pet["id"]+"]\n"+
 			"[轮换灵纹:pet reset "+(string)pet["id"]+"]\n"+
+			"[灵宠装备:pet gear "+(string)pet["id"]+"] "+
+			"[学习主人技能:pet skill "+(string)pet["id"]+"]\n"+
 			"[40月华尘解锁星辉异色:pet variant "+
 			(string)pet["id"]+"]\n";
 	}
@@ -286,6 +392,7 @@ private string render_main(mapping state,object me)
 	string s = "§g【山海万灵谱】§r\n\n";
 	s += "账号共享收藏："+(int)state["collection_count"]+"/"+
 		(int)state["catalog_total"]+" | 当前协战："+active_name+"\n";
+	s += "出战灵宠会从合适等级的真实怪物获得历练并自动连续升级；灵露可用于加速培养。\n";
 	s += "本周裂隙："+(string)boss["icon"]+(string)boss["name"]+
 		" | 周胜场 "+(int)state["weekly"]["rift_wins"]+"/3"+
 		" | 完整灵卵保底 "+(int)state["rift_pity"]+"/30\n";
@@ -375,6 +482,16 @@ int main(string|zero arg)
 		write(render_detail(state,parts[1],me));
 		return 1;
 	}
+	if(parts[0]=="gear" && sizeof(parts)>=2){
+		PETD->claim_pet_starter_gear(me,parts[1]);
+		write(render_pet_gear(PETD->query_pet_equipment_state(me,
+			parts[1]),parts[1]));
+		return 1;
+	}
+	if(parts[0]=="skill" && sizeof(parts)>=2){
+		write(render_pet_imprint(state,parts[1],me));
+		return 1;
+	}
 	if(sizeof(parts)>=2){
 		foreach((array)state["pets"],mapping pet)
 			if((string)pet["id"]==parts[1]){
@@ -402,6 +519,18 @@ int main(string|zero arg)
 		message = (string)PETD->hatch_pet_fragments(me,parts[1])["message"];
 	else if(parts[0]=="variant" && sizeof(parts)>=2)
 		message = (string)PETD->unlock_pet_dust_variant(me,parts[1])["message"];
+	else if(parts[0]=="gearequip" && sizeof(parts)>=3)
+		message = (string)PETD->equip_pet_gear(me,parts[1],parts[2])["message"];
+	else if(parts[0]=="gearunequip" && sizeof(parts)>=3)
+		message = (string)PETD->unequip_pet_gear(me,parts[1],parts[2])["message"];
+	else if(parts[0]=="gearforge" && sizeof(parts)>=3)
+		message = (string)PETD->forge_pet_gear(me,parts[2])["message"];
+	else if(parts[0]=="geardismantle" && sizeof(parts)>=3)
+		message = (string)PETD->dismantle_pet_gear(me,parts[2])["message"];
+	else if(parts[0]=="imprint" && sizeof(parts)>=3)
+		message = (string)PETD->imprint_pet_skill(me,parts[1],parts[2])["message"];
+	else if(parts[0]=="forget" && sizeof(parts)>=2)
+		message = (string)PETD->forget_pet_imprinted_skill(me,parts[1])["message"];
 	else if(parts[0]=="fuse" && sizeof(parts)>=3){
 		mapping fusion_result = PETD->fuse_pets(me,parts[1],parts[2]);
 		write((string)fusion_result["message"]+
@@ -428,6 +557,17 @@ int main(string|zero arg)
 		return 1;
 	}
 	write(message+"\n");
+	if(search(({"gearequip","gearunequip","gearforge","geardismantle"}),
+	   parts[0])!=-1 && sizeof(parts)>=2){
+		write("[继续整理灵宠装备:pet gear "+parts[1]+"]|"+
+			"[返回万灵谱:pet]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(search(({"imprint","forget"}),parts[0])!=-1 && sizeof(parts)>=2){
+		state = PETD->query_pet_state(me);
+		write(render_pet_imprint(state,parts[1],me));
+		return 1;
+	}
 	if(return_species!="")
 		write("[继续培养当前宠物:pet detail "+return_species+"]|");
 	write("[返回万灵谱:pet]|[返回游戏:look]\n");

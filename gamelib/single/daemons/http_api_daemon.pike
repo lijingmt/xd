@@ -65,6 +65,7 @@ void http_werror(string fmt, mixed ... args)
 #include "_http_api_mod/html_renderer.pike"
 #include "_http_api_mod/rate_limit.pike"
 #include "_http_api_mod/account_characters.pike"
+#include "_http_api_mod/equipment_panel.pike"
 
 // ========================================================================
 // 全局变量
@@ -633,6 +634,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 break;
             case "/api/status":
                 handle_api_status(req);
+                break;
+            case "/api/equipment_panel":
+                handle_api_equipment_panel(req);
                 break;
             case "/api/autofight":
                 handle_api_autofight(req);

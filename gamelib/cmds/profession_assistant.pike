@@ -132,6 +132,31 @@ private string render_pass(object me)
 	return s;
 }
 
+private string render_lingyi_aoe_targets(object me)
+{
+	mapping(string:int) targets =
+		PROFESSIONVIPD->query_lingyi_aoe_target_races(me);
+	mapping(string:string) labels = ([
+		"human":"仙阵营",
+		"monst":"妖阵营",
+		"third":"中立阵营",
+	]);
+	string s = "【药雾天罗·阵营目标】\n\n";
+	s += "此设置只筛选已参战的玩家及其召唤物；普通野怪仍按正常战斗规则命中。\n";
+	s += "队友、好友、同账号角色和未参战路人永久保护，不受下列开关影响。\n\n";
+	foreach(({"human","monst","third"}),string race_id){
+		int enabled = (int)targets[race_id];
+		s += (enabled ? "✓ " : "○ ")+(string)labels[race_id]+
+			"："+(enabled ? "可攻击" : "不攻击")+" "+
+			"[切换为"+(enabled ? "不攻击" : "可攻击")+
+			":profession_assistant aoe_target "+race_id+" "+
+			(enabled ? "0" : "1")+"]\n";
+	}
+	s += "\n配置保存在当前角色档案，下次施放立即生效。\n";
+	s += "\n[返回职业助手:profession_assistant]\n[返回游戏:look]\n";
+	return s;
+}
+
 private string render_panel(object me)
 {
 	string profe = me->query_profeId();
@@ -188,6 +213,7 @@ private string render_panel(object me)
 	else if(profe == "lingyi"){
 		if(level >= 1)
 			s += "[查看当前救治建议:profession_assistant recommend]\n";
+		s += "[群攻阵营目标设置:profession_assistant aoe_targets]\n";
 		s += "[查看技能与药契（手动治疗永久免费）:myskills]\n";
 	}
 	s += "\n[策略配置槽:profession_assistant slots]\n";
@@ -261,6 +287,20 @@ int main(string|zero arg)
 		if(PROFESSIONVIPD->set_resonance_enabled(me,(int)parts[1]))
 			s += "自动灵契共鸣设置已保存；仅在PVE救援需要时触发。\n";
 		else s += "白金级方士职业助手才可开启自动共鸣。\n";
+	}
+	else if(parts[0] == "aoe_targets" && me->query_profeId()=="lingyi"){
+		write(render_lingyi_aoe_targets(me));
+		return 1;
+	}
+	else if(parts[0] == "aoe_target" && sizeof(parts) >= 3 &&
+	   me->query_profeId()=="lingyi"){
+		if(PROFESSIONVIPD->set_lingyi_aoe_target_enabled(me,
+		   parts[1],(int)parts[2])){
+			me->save();
+			write(render_lingyi_aoe_targets(me));
+			return 1;
+		}
+		s += "阵营目标参数无效，配置未改变。\n";
 	}
 	else if(parts[0] == "slots"){
 		write(render_slots(me));

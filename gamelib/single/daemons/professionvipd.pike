@@ -405,6 +405,41 @@ int query_resonance_enabled(object player)
 		(int)player["/plus/profession_vip/resonance"] == 1;
 }
 
+// 药雾天罗的阵营白名单是灵医基础战斗设置，不受VIP限制。
+// 默认继承旧行为：可攻击仙、妖玩家，保护同为中立的玩家。
+mapping(string:int) query_lingyi_aoe_target_races(object player)
+{
+	mapping(string:int) result = (["human":1,"monst":1,"third":0]);
+	mixed raw;
+	if(!player || player->query_profeId() != "lingyi")
+		return result;
+	raw = player["/plus/lingyi/aoe_target_races"];
+	if(mappingp(raw))
+		foreach(indices(result),string race_id)
+			result[race_id] = (int)raw[race_id] ? 1 : 0;
+	return result;
+}
+
+int query_lingyi_aoe_target_enabled(object player,string race_id)
+{
+	if(!player || player->query_profeId() != "lingyi" ||
+	   search(({"human","monst","third"}),race_id) == -1)
+		return 0;
+	return (int)query_lingyi_aoe_target_races(player)[race_id];
+}
+
+int set_lingyi_aoe_target_enabled(object player,string race_id,int enabled)
+{
+	mapping(string:int) targets;
+	if(!player || player->query_profeId() != "lingyi" ||
+	   search(({"human","monst","third"}),race_id) == -1)
+		return 0;
+	targets = query_lingyi_aoe_target_races(player);
+	targets[race_id] = enabled ? 1 : 0;
+	player["/plus/lingyi/aoe_target_races"] = targets;
+	return 1;
+}
+
 private string query_stats_month()
 {
 	mapping now_time = localtime(time());

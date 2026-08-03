@@ -257,6 +257,12 @@ createApp({
             fontSize: 'small',  // 游戏内容字号，默认使用紧凑的小字号
             playerStats: null,  // 玩家状态信息
             playerAvatarFailed: false,  // 当前头像加载失败时显示文字回退
+            showEquipmentPanel: false,
+            equipmentPanelLoading: false,
+            equipmentPanelError: '',
+            equipmentPanel: null,
+            equipmentSelectedSlot: 'armor_head',
+            equipmentActionBusy: '',
             statsInterval: null,  // 状态更新定时器
             autofightInterval: null,  // 自动战斗定时器
             autofightTickInFlight: false,  // 防止慢请求造成挂机指令重叠
@@ -1225,6 +1231,10 @@ createApp({
             this.mudLoading = false;
             this.smoothOutputLoading = false;
             this.slowLoadingTip = false;
+            this.showEquipmentPanel = false;
+            this.equipmentPanel = null;
+            this.equipmentPanelError = '';
+            this.equipmentActionBusy = '';
             if (this.loadingTimer) {
                 clearTimeout(this.loadingTimer);
                 this.loadingTimer = null;
@@ -1670,6 +1680,90 @@ createApp({
                     this.$refs.commandInputRef.focus();
                 }
             });
+        },
+
+        async openEquipmentPanel() {
+            this.showEquipmentPanel = true;
+            await this.fetchEquipmentPanel();
+        },
+
+        closeEquipmentPanel() {
+            this.showEquipmentPanel = false;
+            this.equipmentActionBusy = '';
+        },
+
+        cleanEquipmentName(value) {
+            return String(value || '')
+                .replace(/§[0-9a-zA-Z]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+
+        getEquipmentCandidates(slot) {
+            const candidates = this.equipmentPanel?.candidates?.[slot];
+            if (!Array.isArray(candidates)) return [];
+            return candidates.filter(item => item && !item.equipped);
+        },
+
+        async fetchEquipmentPanel() {
+            if (!this.txd) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
+            this.equipmentPanelLoading = true;
+            this.equipmentPanelError = '';
+            try {
+                const response = await fetch(
+                    `${this.apiBase}/api/equipment_panel?txd=${encodeURIComponent(requestTxd)}`
+                );
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    data = {};
+                }
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+                this.equipmentPanel = data;
+                const selectedExists = data.slots?.[this.equipmentSelectedSlot];
+                if (!selectedExists) {
+                    const equippedSlots = Object.keys(data.equipped || {});
+                    this.equipmentSelectedSlot = equippedSlots[0] ||
+                        data.slot_order?.[0] || 'armor_head';
+                }
+            } catch (error) {
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                this.equipmentPanelError = error.message || '装备栏读取失败';
+            } finally {
+                if (this.isCharacterSessionCurrent(requestEpoch)) {
+                    this.equipmentPanelLoading = false;
+                }
+            }
+        },
+
+        async runEquipmentAction(item) {
+            if (!item?.action_cmd || this.equipmentActionBusy) return;
+            this.equipmentActionBusy = item.id;
+            const wasEquipped = !!item.equipped;
+            try {
+                await this.sendJsonCommand(item.action_cmd);
+                await Promise.all([
+                    this.fetchEquipmentPanel(),
+                    this.fetchPlayerStats()
+                ]);
+                const refreshed = Object.values(
+                    this.equipmentPanel?.candidates || {}
+                ).flat().find(candidate => candidate?.id === item.id);
+                const changed = wasEquipped ? !refreshed?.equipped :
+                    !!refreshed?.equipped;
+                this.showUiToast(changed ?
+                    `${this.cleanEquipmentName(item.name_cn)}已${wasEquipped ? '卸下' : '穿戴'}` :
+                    '换装未生效，请查看游戏提示确认等级、职业或属性条件',
+                    changed ? 'info' : 'error');
+            } finally {
+                this.equipmentActionBusy = '';
+            }
         },
 
         // 显示聊天输入框 - 改为打开聊天室视图
@@ -4053,6 +4147,14 @@ createApp({
         hasRecentAoeReport() {
             return Array.isArray(this.battleAoeReport?.targets) &&
                 this.battleAoeReport.targets.length > 0;
+        },
+
+        headerPet() {
+            const pet = this.playerStats?.pet_assist;
+            if (!pet || Number(pet.active || 0) !== 1) {
+                return null;
+            }
+            return pet;
         },
 
         playerAvatarUrl() {

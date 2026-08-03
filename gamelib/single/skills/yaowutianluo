@@ -3,11 +3,11 @@
 inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【医】药雾天罗";
-	desc="散开药雾，同时侵袭同房间全部合法非队友目标；不会伤及队友或未参战路人";
+	desc="散开药雾，侵袭同房间合法敌人；可定制攻击仙、妖、中立阵营，不伤队友好友与路人";
 	s_type="zhudong"; s_skill_type="du_mofa_attack"; s_delayTime=14;
 	is_aoe=1; lingyi_room_aoe=1; lingyi_aoe_power_percent=55;
 	performs_mofa_attack[1]=({80,105}); performs_mofa_attack[2]=({145,190}); performs_mofa_attack[3]=({230,300}); performs_mofa_attack[4]=({340,440}); performs_mofa_attack[5]=({480,620});
 	performs_cast[1]=42; performs_cast[2]=58; performs_cast[3]=76; performs_cast[4]=98; performs_cast[5]=124;
 	skill_type+=({"lingyi"}); performs_level_limit[1]=46; performs_level_limit[2]=66; performs_level_limit[3]=86; performs_level_limit[4]=106; performs_level_limit[5]=126;
-	performs_desc[1]="按55%法术倍率群攻房间合法敌人；玩家单次上限8%生命，首领2%"; performs_desc[2]="群攻伤害145至190并受智力、抗性与护盾结算"; performs_desc[3]="群攻伤害230至300"; performs_desc[4]="群攻伤害340至440"; performs_desc[5]="群攻伤害480至620";
+	performs_desc[1]="按55%法术倍率群攻敌人；玩家阵营可在百草助手定制，玩家上限8%生命，首领2%"; performs_desc[2]="群攻伤害145至190并受智力、抗性与护盾结算"; performs_desc[3]="群攻伤害230至300"; performs_desc[4]="群攻伤害340至440"; performs_desc[5]="群攻伤害480至620";
 }

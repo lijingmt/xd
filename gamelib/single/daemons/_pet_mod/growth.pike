@@ -8,6 +8,16 @@ int query_pet_star_max()
 	return PET_STAR_MAX;
 }
 
+/** 当前等级升到下一级所需的独立战斗历练；满级不再累计。 */
+int query_pet_level_xp_need(int current_level)
+{
+	if(current_level<1)
+		current_level = 1;
+	if(current_level>=PET_LEVEL_MAX)
+		return 0;
+	return 100+current_level*25;
+}
+
 int query_pet_star_cost(int current_star)
 {
 	if(current_star<1 || current_star>=PET_STAR_MAX)
@@ -91,6 +101,14 @@ int query_pet_growth_percent(mapping pet,void|int pvp)
 	result = 100+(level-1)+(star-1)*4+(bond-1)*3+evolution*5;
 	if(mappingp(pet["fusion"]))
 		result += (int)pet["fusion"]["growth_bonus"];
+	if(mappingp(pet["equipment_bonus"])){
+		int gear_growth = 0;
+		foreach(({"life","attack","defense","spirit","speed"}),
+		   string attribute)
+			gear_growth += (int)pet["equipment_bonus"][attribute];
+		// 三槽装备只提供温和的PVE成长；进入PVP后还会再压缩到20%。
+		result += gear_growth/2;
+	}
 	if(pvp)
 		result = 100+(result-100)*20/100;
 	return result;
@@ -137,12 +155,17 @@ mapping(string:int) query_pet_attributes(mapping pet)
 		evolution*50;
 	foreach(indices(base),string attribute){
 		int percent = 100;
+		int equipment_percent = 100;
 		if(mappingp(pet["fusion"]) &&
 		   mappingp(pet["fusion"]["attribute_percent"]))
 			percent = (int)pet["fusion"]["attribute_percent"][attribute];
 		if(percent<100)
 			percent = 100;
-		result[attribute] = base[attribute]*scale/100*percent/100;
+		if(mappingp(pet["equipment_bonus"]))
+			equipment_percent +=
+				(int)pet["equipment_bonus"][attribute];
+		result[attribute] = base[attribute]*scale/100*percent/100*
+			equipment_percent/100;
 	}
 	power = result["life"]/10+result["attack"]*3+
 		result["defense"]*3+result["spirit"]*3+
@@ -155,9 +178,25 @@ private mapping(string:mixed) enrich_pet_view(mapping pet)
 {
 	mapping result = copy_value(pet);
 	int star = (int)result["star"];
+	int level = (int)result["level"];
+	int xp = (int)result["xp"];
+	int xp_need;
 	if(star<1)
 		star = 1;
+	if(level<1)
+		level = 1;
+	if(level>PET_LEVEL_MAX)
+		level = PET_LEVEL_MAX;
+	if(xp<0)
+		xp = 0;
+	xp_need = query_pet_level_xp_need(level);
 	result["star"] = star;
+	result["level"] = level;
+	result["xp"] = level>=PET_LEVEL_MAX ? 0 : xp;
+	result["xp_need"] = xp_need;
+	result["xp_progress_percent"] = level>=PET_LEVEL_MAX ? 100 :
+		(xp_need>0 && xp<xp_need ? xp*100/xp_need : 100);
+	result["level_max"] = PET_LEVEL_MAX;
 	result["evolution"] = query_pet_evolution_stage(star);
 	result["evolution_name"] = query_pet_evolution_name(star);
 	result["attributes"] = query_pet_attributes(result);

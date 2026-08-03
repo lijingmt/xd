@@ -366,8 +366,8 @@
                      class="player-avatar-shell"
                      data-tour="player-avatar"
                      :class="playerStats?.profession_assistant?.style_class || 'profession-style-none'"
-                     @click="sendQuickCommand(playerStats?.profession_assistant?.supported ? 'profession_assistant' : 'myhp')"
-                     :title="playerStats?.profession_assistant?.supported ? '打开' + playerStats.profession_assistant.name : (playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像')">
+                     @click="openEquipmentPanel"
+                     :title="playerStats && playerStats.name_cn ? '查看' + playerStats.name_cn + '的装备' : '查看人物装备'">
                     <img v-if="playerAvatarUrl && !playerAvatarFailed"
                          :src="playerAvatarUrl"
                          :alt="playerStats && playerStats.name_cn ? playerStats.name_cn + '的头像' : '人物头像'"
@@ -377,6 +377,20 @@
                           class="player-avatar-fallback"
                           role="img"
                           aria-label="人物头像">{{ playerAvatarFallback }}</span>
+                </button>
+                <button v-if="headerPet"
+                        type="button"
+                        class="header-pet-companion"
+                        :class="'pet-family-' + getPetFamilyClass(headerPet.family)"
+                        @click="sendQuickCommand('pet')"
+                        :title="headerPet.name + ' · ' + getPetCultivationLabel(headerPet) + ' · 点击打开万灵谱'"
+                        :aria-label="'随行灵宠' + headerPet.name + '，' + getPetCultivationLabel(headerPet) + '，点击打开万灵谱'">
+                    <span class="header-pet-icon" aria-hidden="true">{{ headerPet.icon || '🐾' }}</span>
+                    <span class="header-pet-rank" aria-hidden="true">★{{ headerPet.star || 1 }}</span>
+                    <span class="header-pet-copy">
+                        <strong>{{ headerPet.name }}</strong>
+                        <small>{{ getPetCultivationLabel(headerPet) }}</small>
+                    </span>
                 </button>
                 <div class="player-info">
                     <div class="player-info-line">
@@ -1110,6 +1124,118 @@
                     </div>
                 </div>
               </div>
+            </div>
+
+            <!-- 点击人物头像打开的响应式身体部位换装面板 -->
+            <div class="modal-overlay equipment-panel-overlay"
+                 v-if="showEquipmentPanel"
+                 @click.self="closeEquipmentPanel">
+                <section class="equipment-panel-modal"
+                         role="dialog"
+                         aria-modal="true"
+                         aria-labelledby="equipment-panel-title">
+                    <header class="equipment-panel-header">
+                        <div>
+                            <small>人物外观 · 快速换装</small>
+                            <h2 id="equipment-panel-title">{{ equipmentPanel?.player?.name_cn || '我的装备' }}</h2>
+                            <p v-if="equipmentPanel?.player">
+                                Lv.{{ equipmentPanel.player.level }} · {{ equipmentPanel.player.profession }}
+                            </p>
+                        </div>
+                        <button type="button"
+                                class="equipment-panel-close"
+                                @click="closeEquipmentPanel"
+                                aria-label="关闭装备面板">✕</button>
+                    </header>
+
+                    <div v-if="equipmentPanelLoading" class="equipment-panel-state">
+                        正在整理装备栏...
+                    </div>
+                    <div v-else-if="equipmentPanelError" class="equipment-panel-state error" role="alert">
+                        {{ equipmentPanelError }}
+                        <button type="button" @click="fetchEquipmentPanel">重试</button>
+                    </div>
+                    <div v-else-if="equipmentPanel" class="equipment-panel-body">
+                        <div class="equipment-figure-stage" aria-label="人物装备部位">
+                            <div class="equipment-human-silhouette" aria-hidden="true">
+                                <span class="equipment-human-head"></span>
+                                <span class="equipment-human-body"></span>
+                                <span class="equipment-human-arm left"></span>
+                                <span class="equipment-human-arm right"></span>
+                                <span class="equipment-human-leg left"></span>
+                                <span class="equipment-human-leg right"></span>
+                            </div>
+                            <div class="equipment-slot-grid">
+                                <button v-for="slot in equipmentPanel.slot_order"
+                                        :key="slot"
+                                        type="button"
+                                        class="equipment-slot-card"
+                                        :class="{
+                                            selected: equipmentSelectedSlot === slot,
+                                            filled: !!equipmentPanel.equipped[slot]
+                                        }"
+                                        @click="equipmentSelectedSlot = slot">
+                                    <span class="equipment-slot-icon">{{ equipmentPanel.slots[slot]?.icon || '装' }}</span>
+                                    <span class="equipment-slot-copy">
+                                        <small>{{ equipmentPanel.slots[slot]?.label || slot }}</small>
+                                        <strong>{{ cleanEquipmentName(equipmentPanel.equipped[slot]?.name_cn) || '空' }}</strong>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <aside class="equipment-choice-panel">
+                            <div class="equipment-choice-title">
+                                <span>{{ equipmentPanel.slots[equipmentSelectedSlot]?.icon || '装' }}</span>
+                                <div>
+                                    <small>当前选择</small>
+                                    <h3>{{ equipmentPanel.slots[equipmentSelectedSlot]?.label || '装备位' }}</h3>
+                                </div>
+                            </div>
+                            <article v-if="equipmentPanel.equipped[equipmentSelectedSlot]"
+                                     class="equipment-current-item">
+                                <small>已穿戴</small>
+                                <strong>{{ cleanEquipmentName(equipmentPanel.equipped[equipmentSelectedSlot].name_cn) }}</strong>
+                                <span>需求 Lv.{{ equipmentPanel.equipped[equipmentSelectedSlot].level_requirement || 0 }}</span>
+                                <button type="button"
+                                        class="equipment-action-btn secondary"
+                                        :disabled="!!equipmentActionBusy"
+                                        @click="runEquipmentAction(equipmentPanel.equipped[equipmentSelectedSlot])">
+                                    {{ equipmentActionBusy === equipmentPanel.equipped[equipmentSelectedSlot].id ? '处理中...' : '卸下' }}
+                                </button>
+                            </article>
+                            <div v-else class="equipment-current-empty">这个部位还没有装备</div>
+
+                            <div class="equipment-candidate-heading">
+                                <strong>背包可替换装备</strong>
+                                <small>{{ getEquipmentCandidates(equipmentSelectedSlot).length }} 件</small>
+                            </div>
+                            <div class="equipment-candidate-list">
+                                <article v-for="item in getEquipmentCandidates(equipmentSelectedSlot)"
+                                         :key="item.id"
+                                         class="equipment-candidate-item">
+                                    <div>
+                                        <strong>{{ cleanEquipmentName(item.name_cn) }}</strong>
+                                        <small>需求 Lv.{{ item.level_requirement || 0 }} · 品阶 {{ item.rare_level || 0 }}</small>
+                                    </div>
+                                    <button type="button"
+                                            class="equipment-action-btn"
+                                            :disabled="!!equipmentActionBusy"
+                                            @click="runEquipmentAction(item)">
+                                        {{ equipmentActionBusy === item.id ? '处理中...' : '穿戴' }}
+                                    </button>
+                                </article>
+                                <div v-if="getEquipmentCandidates(equipmentSelectedSlot).length === 0"
+                                     class="equipment-candidate-empty">
+                                    背包中没有这个部位的备用装备
+                                </div>
+                            </div>
+                            <p class="equipment-safety-note">
+                                等级、职业、属性和宝石上限仍由游戏服务器校验；替换后原装备会安全回到背包。
+                            </p>
+                        </aside>
+                    </div>
+                </section>
             </div>
 
             <!-- 命令输入弹窗 -->

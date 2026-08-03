@@ -62,6 +62,7 @@ private mapping(string:mixed) empty_pet_record(string account_id)
 		"updated_at":0,
 		"starter_claimed":0,
 		"pets":({}),
+		"gear_inventory":({}),
 		"materials":empty_pet_materials(),
 		"active":([]),
 		"duel_teams":([]),
@@ -147,6 +148,75 @@ private int valid_pet_fusion(mapping fusion)
 	return 1;
 }
 
+private int valid_pet_gear(mapping gear,multiset(string) ids)
+{
+	string gear_id;
+	mapping attributes;
+	if(!mappingp(gear))
+		return 0;
+	gear_id = (string)gear["id"];
+	attributes = gear["attributes"];
+	if(!valid_pet_id(gear_id) || ids[gear_id] ||
+	   search(({"beast_armor","spirit_charm","spirit_core"}),
+		(string)gear["slot"])==-1 ||
+	   !stringp(gear["name"]) || sizeof((string)gear["name"])<1 ||
+	   sizeof((string)gear["name"])>40 ||
+	   (int)gear["quality"]<1 || (int)gear["quality"]>4 ||
+	   !stringp(gear["quality_name"]) ||
+	   sizeof((string)gear["quality_name"])>20 ||
+	   (int)gear["level_requirement"]<1 ||
+	   (int)gear["level_requirement"]>PET_LEVEL_MAX ||
+	   !mappingp(attributes) ||
+	   (int)gear["xp_bonus_percent"]<0 ||
+	   (int)gear["xp_bonus_percent"]>8 ||
+	   !stringp(gear["source"]) || sizeof((string)gear["source"])>40 ||
+	   (int)gear["acquired_at"]<=0)
+		return 0;
+	foreach(({"life","attack","defense","spirit","speed"}),
+	   string attribute)
+		if(!intp(attributes[attribute]) ||
+		   (int)attributes[attribute]<0 ||
+		   (int)attributes[attribute]>8)
+			return 0;
+	ids[gear_id] = 1;
+	return 1;
+}
+
+private int valid_pet_imprinted_skill(mixed raw_skill)
+{
+	mapping skill;
+	string name;
+	if(!raw_skill)
+		return 1;
+	if(!mappingp(raw_skill))
+		return 0;
+	skill = raw_skill;
+	name = (string)skill["name"];
+	if(!name || sizeof(name)<1 || sizeof(name)>64 ||
+	   search(name,"/")!=-1 || search(name,"..")!=-1 ||
+	   !stringp(skill["name_cn"]) ||
+	   sizeof((string)skill["name_cn"])<1 ||
+	   sizeof((string)skill["name_cn"])>80 ||
+	   search(({"damage","heal"}),(string)skill["effect"])==-1 ||
+	   (int)skill["level"]<1 || (int)skill["level"]>100 ||
+	   !valid_pet_userid((string)skill["source_character"]) ||
+	   (int)skill["learned_at"]<=0)
+		return 0;
+	return 1;
+}
+
+private int valid_pet_equipment_bonus(mapping bonus)
+{
+	if(!mappingp(bonus) || sizeof(bonus)!=5)
+		return 0;
+	foreach(({"life","attack","defense","spirit","speed"}),
+	   string attribute)
+		if(!intp(bonus[attribute]) || (int)bonus[attribute]<0 ||
+		   (int)bonus[attribute]>24)
+			return 0;
+	return 1;
+}
+
 private int valid_pet_instance(mapping one,multiset(string) ids,
 	multiset(string) species_seen)
 {
@@ -164,11 +234,16 @@ private int valid_pet_instance(mapping one,multiset(string) ids,
 	   !shanhai_catalog[species] || species_seen[species] ||
 	   (int)one["level"]<1 || (int)one["level"]>PET_LEVEL_MAX ||
 	   (int)one["star"]<1 || (int)one["star"]>PET_STAR_MAX ||
-	   (int)one["xp"]<0 || (int)one["bond"]<1 ||
+	   (int)one["xp"]<0 || (int)one["xp"]>1000000000 ||
+	   (int)one["bond"]<1 ||
 	   (int)one["bond"]>PET_BOND_MAX || (int)one["bond_xp"]<0 ||
 	   (int)one["skill_set"]<0 || (int)one["skill_set"]>2 ||
 	   !arrayp(skills) || sizeof(skills)!=3 ||
 	   !arrayp(variants) || sizeof(variants)<1 || sizeof(variants)>12 ||
+	   !mappingp(one["equipment"]) ||
+	   sizeof((mapping)one["equipment"])>3 ||
+	   !valid_pet_equipment_bonus(one["equipment_bonus"]) ||
+	   !valid_pet_imprinted_skill(one["imprinted_skill"]) ||
 	   !stringp(one["source"]) || sizeof((string)one["source"])>40 ||
 	   (int)one["acquired_at"]<=0)
 		return 0;
@@ -191,9 +266,9 @@ private int valid_pet_instance(mapping one,multiset(string) ids,
 }
 
 /**
- * V1没有星级字段。迁移只发生在内存，单纯查看旧档案不会写盘；下一次
- * 真实培养会通过原子保存自然升级为V2。迁移前先限制旧版原有等级上限，
- * 防止伪造V1数据借新版宽松上限通过校验。
+ * V1没有星级字段，V1/V2没有宠物装备与灵技拓印字段。迁移只发生在
+ * 内存，单纯查看旧档案不会写盘；下一次真实培养会通过原子保存自然
+ * 升级为V3。迁移前先限制V1原有等级上限，防止伪造旧数据借新版通过。
  */
 private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
 	mapping record,string account_id)
@@ -201,16 +276,26 @@ private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
 	mapping upgraded;
 	if((int)record["version"]==PET_RECORD_VERSION)
 		return record;
-	if((int)record["version"]!=1 || record["account_id"]!=account_id ||
+	int old_version = (int)record["version"];
+	if(search(({1,2}),old_version)==-1 ||
+	   record["account_id"]!=account_id ||
 	   !arrayp(record["pets"]))
 		return 0;
 	upgraded = copy_value(record);
 	foreach((array)upgraded["pets"],mixed one){
 		if(!mappingp(one) || (int)one["level"]<1 ||
-		   (int)one["level"]>30)
+		   (old_version==1 && (int)one["level"]>30))
 			return 0;
-		one["star"] = 1;
+		if(old_version==1)
+			one["star"] = 1;
+		one["equipment"] = ([]);
+		one["equipment_bonus"] = (["life":0,"attack":0,
+			"defense":0,"spirit":0,"speed":0]);
+		one["imprinted_skill"] = 0;
 	}
+	upgraded["gear_inventory"] = ({});
+	if(!mappingp(upgraded["daily"]))
+		return 0;
 	upgraded["version"] = PET_RECORD_VERSION;
 	upgraded["migration_pending"] = 1;
 	return upgraded;
@@ -224,11 +309,15 @@ private int valid_pet_record(mapping record,string account_id)
 	mapping duel_teams;
 	mapping pending_rewards;
 	mapping rewarded;
+	array gear_inventory;
 	multiset(string) ids = (<>);
 	multiset(string) species_seen = (<>);
+	multiset(string) gear_ids = (<>);
+	multiset(string) equipped_gear_ids = (<>);
 	if(!mappingp(record) || record["account_id"]!=account_id ||
 	   (int)record["version"]!=PET_RECORD_VERSION ||
-	   !arrayp(record["pets"]) || !mappingp(record["materials"]) ||
+	   !arrayp(record["pets"]) || !arrayp(record["gear_inventory"]) ||
+	   !mappingp(record["materials"]) ||
 	   !mappingp(record["active"]) || !mappingp(record["duel_teams"]) ||
 	   !mappingp(record["daily"]) || !mappingp(record["weekly"]) ||
 	   !mappingp(record["season"]) ||
@@ -241,7 +330,9 @@ private int valid_pet_record(mapping record,string account_id)
 	duel_teams = record["duel_teams"];
 	pending_rewards = record["pending_rift_rewards"];
 	rewarded = record["rewarded_sessions"];
+	gear_inventory = record["gear_inventory"];
 	if(sizeof(pets)>sizeof(shanhai_catalog) || sizeof(rewarded)>256 ||
+	   sizeof(gear_inventory)>PET_GEAR_INVENTORY_MAX ||
 	   sizeof(pending_rewards)>32 || sizeof(active)>10 ||
 	   sizeof(duel_teams)>10 || (int)record["revision"]<0 ||
 	   ((int)record["starter_claimed"]!=0 &&
@@ -250,6 +341,42 @@ private int valid_pet_record(mapping record,string account_id)
 	foreach(pets,mixed one){
 		if(!mappingp(one) ||
 		   !valid_pet_instance((mapping)one,ids,species_seen))
+			return 0;
+	}
+	foreach(gear_inventory,mixed raw_gear)
+		if(!mappingp(raw_gear) ||
+		   ids[(string)raw_gear["id"]] ||
+		   !valid_pet_gear((mapping)raw_gear,gear_ids))
+			return 0;
+	foreach(pets,mixed raw_pet){
+		mapping pet = raw_pet;
+		mapping calculated = (["life":0,"attack":0,"defense":0,
+			"spirit":0,"speed":0]);
+		foreach((mapping)pet["equipment"];string slot;mixed raw_gear_id){
+			string gear_id = (string)raw_gear_id;
+			mapping gear = ([]);
+			if(search(({"beast_armor","spirit_charm","spirit_core"}),
+			   slot)==-1 || !stringp(raw_gear_id) ||
+			   !gear_ids[gear_id] || equipped_gear_ids[gear_id])
+				return 0;
+			foreach(gear_inventory,mixed candidate)
+				if((string)candidate["id"]==gear_id){
+					gear = candidate;
+					break;
+				}
+			if(!sizeof(gear) || (string)gear["slot"]!=slot)
+				return 0;
+			equipped_gear_ids[gear_id] = 1;
+			foreach(indices(calculated),string attribute)
+				calculated[attribute] = (int)calculated[attribute]+
+					(int)gear["attributes"][attribute];
+		}
+		foreach(indices(calculated),string attribute)
+			if((int)calculated[attribute]!=
+			   (int)pet["equipment_bonus"][attribute])
+				return 0;
+		if(pet["imprinted_skill"] &&
+		   !(string)(pet["equipment"]["spirit_core"] || ""))
 			return 0;
 	}
 	foreach(indices(empty_pet_materials()),string material){
@@ -502,6 +629,8 @@ private string new_pet_id_unlocked(mapping record)
 	multiset(string) used = (<>);
 	foreach((array)record["pets"],mapping pet)
 		used[(string)pet["id"]] = 1;
+	foreach((array)record["gear_inventory"],mapping gear)
+		used[(string)gear["id"]] = 1;
 	foreach(indices((mapping)record["rewarded_sessions"]),string session_id)
 		used[session_id] = 1;
 	for(int attempt=0;attempt<30;attempt++){
@@ -549,6 +678,10 @@ private mapping(string:mixed) make_pet_instance_unlocked(mapping record,
 		"skill_set":0,
 		"skills":copy_value(info["skill_sets"][0]),
 		"variants":({"原生"}),
+		"equipment":([]),
+		"equipment_bonus":(["life":0,"attack":0,"defense":0,
+			"spirit":0,"speed":0]),
+		"imprinted_skill":0,
 		"source":source,
 		"acquired_at":time(),
 	]);

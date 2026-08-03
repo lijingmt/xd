@@ -27,7 +27,27 @@ private mapping(string:mixed) query_runtime_pet(object player)
 	result["star"] = (int)player["/tmp/wanling/pet_star"];
 	result["bond"] = (int)player["/tmp/wanling/pet_bond"];
 	result["skill_set"] = (int)player["/tmp/wanling/skill_set"];
+	result["imprinted_skill"] = mappingp(player[
+		"/tmp/wanling/imprinted_skill"]) ?
+		copy_value((mapping)player["/tmp/wanling/imprinted_skill"]) : 0;
 	return result;
+}
+
+private string query_pet_active_skill_name(object player,mapping info)
+{
+	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	if((string)(imprint["name_cn"] || "")!="")
+		return "拓印·"+(string)imprint["name_cn"];
+	return (string)info["skill"];
+}
+
+private string query_pet_imprinted_effect(object player)
+{
+	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	string effect = (string)(imprint["effect"] || "");
+	return search(({"damage","heal"}),effect)!=-1 ? effect : "";
 }
 
 mapping(string:mixed) query_pet_room_presence(object player)
@@ -52,6 +72,8 @@ mapping(string:mixed) query_pet_room_presence(object player)
 		"evolution_name":(string)(player[
 			"/tmp/wanling/pet_evolution_name"] || "初生体"),
 		"power":(int)player["/tmp/wanling/pet_power"],
+		"skill":query_pet_active_skill_name(player,info),
+		"native_skill":(string)info["skill"],
 	]);
 }
 
@@ -98,7 +120,12 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		"family":(string)info["family"],
 		"polarity":(string)(player["/tmp/wanling/pet_polarity"] || ""),
 		"role":(string)info["role"],
-		"skill":(string)info["skill"],
+		"skill":query_pet_active_skill_name(player,info),
+		"native_skill":(string)info["skill"],
+		"imprinted_skill":mappingp(player[
+			"/tmp/wanling/imprinted_skill"]) ?
+			copy_value((mapping)player[
+				"/tmp/wanling/imprinted_skill"]) : 0,
 		"skill_set":skill_set,
 		"level":(int)player["/tmp/wanling/pet_level"],
 		"star":(int)player["/tmp/wanling/pet_star"],
@@ -142,7 +169,8 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 
 mapping(string:mixed) query_pet_assist_profile(string species,
 	int base_damage,int target_life_max,int player_life_max,
-	int player_mofa_max,void|int skill_set,void|int growth_percent)
+	int player_mofa_max,void|int skill_set,void|int growth_percent,
+	void|string imprinted_effect)
 {
 	mapping info = shanhai_catalog[species];
 	int amount_percent = 100;
@@ -166,7 +194,8 @@ mapping(string:mixed) query_pet_assist_profile(string species,
 		growth_percent = 250;
 	result["cooldown"] = cooldown;
 	string role = (string)info["role"];
-	if(role=="强攻" || role=="迅捷"){
+	if(imprinted_effect=="damage" ||
+	   (imprinted_effect!="heal" && (role=="强攻" || role=="迅捷"))){
 		int amount = base_damage*2/100*amount_percent/100*
 			growth_percent/100;
 		int cap = target_life_max*2/1000*growth_percent/100;
@@ -176,7 +205,7 @@ mapping(string:mixed) query_pet_assist_profile(string species,
 		result["type"] = "damage";
 		result["amount"] = amount;
 	}
-	else if(role=="灵息"){
+	else if(imprinted_effect!="heal" && role=="灵息"){
 		int amount = player_mofa_max*2/100*amount_percent/100*
 			growth_percent/100;
 		if(amount<1) amount = 1;
@@ -195,7 +224,8 @@ mapping(string:mixed) query_pet_assist_profile(string species,
 
 mapping(string:mixed) query_pet_pvp_assist_profile(string species,
 	int base_damage,int target_life_max,int player_life_max,
-	int player_mofa_max,void|int skill_set,void|int growth_percent)
+	int player_mofa_max,void|int skill_set,void|int growth_percent,
+	void|string imprinted_effect)
 {
 	mapping info = shanhai_catalog[species];
 	int amount_percent = 100;
@@ -215,7 +245,8 @@ mapping(string:mixed) query_pet_pvp_assist_profile(string species,
 	if(growth_percent>130)
 		growth_percent = 130;
 	string role = (string)info["role"];
-	if(role=="强攻" || role=="迅捷"){
+	if(imprinted_effect=="damage" ||
+	   (imprinted_effect!="heal" && (role=="强攻" || role=="迅捷"))){
 		int amount = base_damage*8/100*amount_percent/100*
 			growth_percent/100;
 		int cap = target_life_max*4/1000*growth_percent/100;
@@ -225,7 +256,7 @@ mapping(string:mixed) query_pet_pvp_assist_profile(string species,
 		result["type"] = "damage";
 		result["amount"] = amount;
 	}
-	else if(role=="灵息"){
+	else if(imprinted_effect!="heal" && role=="灵息"){
 		int amount = player_mofa_max/100*amount_percent/100*
 			growth_percent/100;
 		if(amount<1) amount = 1;
@@ -279,7 +310,8 @@ private mapping(string:mixed) create_pet_assist_event(object player,
 		"icon":(string)info["icon"],
 		"family":(string)info["family"],
 		"role":(string)info["role"],
-		"skill":(string)info["skill"],
+		"skill":query_pet_active_skill_name(player,info),
+		"native_skill":(string)info["skill"],
 		"mode":mode,
 		"type":effect_type,
 		"amount":actual,
@@ -315,7 +347,8 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 		target->query_life_max(),player->query_life_max(),
 		player->query_mofa_max(),
 		(int)player["/tmp/wanling/skill_set"],
-		(int)player["/tmp/wanling/pet_growth_percent"]);
+		(int)player["/tmp/wanling/pet_growth_percent"],
+		query_pet_imprinted_effect(player));
 	if((int)player["/tmp/wanling/assist_at"]+
 	   (int)result["cooldown"]>time())
 		return (["ok":0,"type":"none","amount":0]);
@@ -366,13 +399,13 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 		string unit = effect_type=="damage" ? "点协战伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
 		tell_object(player,"【万灵协战】"+
-			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			(string)info["skill"]+"，带来"+actual+unit+"。\n");
+		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
+			query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"。\n");
 	}
 	else
 		tell_object(player,"【万灵协战】"+
-			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			(string)info["skill"]+"，守护在你身旁。\n");
+		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
+			query_pet_active_skill_name(player,info)+"，守护在你身旁。\n");
 	return result;
 }
 
@@ -441,7 +474,8 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 		player->query_base_damage(),target->query_life_max(),
 		player->query_life_max(),player->query_mofa_max(),
 		(int)player["/tmp/wanling/skill_set"],
-		(int)player["/tmp/wanling/pet_pvp_growth_percent"]);
+		(int)player["/tmp/wanling/pet_pvp_growth_percent"],
+		query_pet_imprinted_effect(player));
 	string effect_type = (string)result["type"];
 	int amount = (int)result["amount"];
 	int actual = 0;
@@ -490,18 +524,18 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 		string unit = effect_type=="damage" ? "点御灵伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
 		tell_object(player,"【御灵交锋】"+
-			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			(string)info["skill"]+"，带来"+actual+unit+"（本场"+
+		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
+			query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"（本场"+
 			(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
 		tell_object(target_owner,"【御灵交锋】"+player->query_name_cn()+
 			"的"+(string)(player["/tmp/wanling/pet_name"] ||
-				info["name"])+"施展"+(string)info["skill"]+
+				info["name"])+"施展"+query_pet_active_skill_name(player,info)+
 			"。\n");
 	}
 	else
 		tell_object(player,"【御灵交锋】"+
-			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			(string)info["skill"]+"，与你并肩守住战局（本场"+
+		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
+			query_pet_active_skill_name(player,info)+"，与你并肩守住战局（本场"+
 			(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
 	return result;
 }
@@ -550,7 +584,8 @@ mapping(string:mixed) query_pet_pk_fast_profile(object player,object target)
 		player->query_base_damage(),target->query_life_max(),
 		player->query_life_max(),player->query_mofa_max(),
 		(int)player["/tmp/wanling/skill_set"],
-		(int)player["/tmp/wanling/pet_pvp_growth_percent"]);
+		(int)player["/tmp/wanling/pet_pvp_growth_percent"],
+		query_pet_imprinted_effect(player));
 	profile["active"] = 1;
 	profile["remaining_uses"] = PET_PVP_ASSIST_USES-uses;
 	required = (int)profile["charge_required"];

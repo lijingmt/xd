@@ -416,27 +416,44 @@ void test_physical_penetration_reaches_real_life_damage()
 		pierced_target->set_base_life(1000000000);
 		plain_target->flush_life();
 		pierced_target->flush_life();
-		plain->set_mofa(plain->query_mofa_max());
-		pierced->set_mofa(pierced->query_mofa_max());
-		int plain_life = plain_target->get_cur_life();
-		int pierced_life = pierced_target->get_cur_life();
 		plain->_fight(plain_target);
 		pierced->_fight(pierced_target);
-		plain->perform("fuji",1);
-		pierced->perform("fuji",1);
-		plain_damage = plain_life-plain_target->get_cur_life();
-		pierced_damage = pierced_life-pierced_target->get_cur_life();
+		// 游戏规则将技能命中封顶为99%；测试在有限次数内重试首个命中，
+		// 避免1%的正常未命中把穿透结算回归误报为失败。
+		for(int plain_attempt=0;plain_attempt<10 &&
+			plain_damage==0;plain_attempt++){
+			plain->timeCold = 0;
+			plain->f_skills["fuji"] = 0;
+			plain->set_mofa(plain->query_mofa_max());
+			int plain_life = plain_target->get_cur_life();
+			plain->perform("fuji",1);
+			plain_damage = plain_life-plain_target->get_cur_life();
+		}
+		for(int pierced_attempt=0;pierced_attempt<10 &&
+			pierced_damage==0;pierced_attempt++){
+			pierced->timeCold = 0;
+			pierced->f_skills["fuji"] = 0;
+			pierced->set_mofa(pierced->query_mofa_max());
+			int pierced_life = pierced_target->get_cur_life();
+			pierced->perform("fuji",1);
+			pierced_damage = pierced_life-pierced_target->get_cur_life();
+		}
 		// 山河壁吸收后，战斗正文必须显示实际扣血0；穿透数字只标注
 		// 已计入基础伤害，不能再让玩家误认为护盾外还应额外扣血。
 		pierced->drain_catch_tell(0,10);
-		pierced->timeCold = 0;
-		pierced->f_skills["fuji"] = 0;
-		pierced->set_mofa(pierced->query_mofa_max());
 		pierced_target->apply_team_guard(1000000000,12);
-		pierced_life = pierced_target->get_cur_life();
-		pierced->perform("fuji",1);
-		shielded_damage = pierced_life-pierced_target->get_cur_life();
-		shielded_message = pierced->drain_catch_tell(0,10);
+		for(int shield_attempt=0;shield_attempt<10 &&
+			search(shielded_message,"0点实际伤害")==-1;
+			shield_attempt++){
+			pierced->timeCold = 0;
+			pierced->f_skills["fuji"] = 0;
+			pierced->set_mofa(pierced->query_mofa_max());
+			int pierced_life = pierced_target->get_cur_life();
+			pierced->perform("fuji",1);
+			shielded_damage = pierced_life-
+				pierced_target->get_cur_life();
+			shielded_message = pierced->drain_catch_tell(0,10);
+		}
 		valid = plain->query_equip_add("wulichuantou_add")==0 &&
 			pierced->query_equip_add("wulichuantou_add")==6000 &&
 			plain_damage>0 && pierced_damage-plain_damage==9000 &&

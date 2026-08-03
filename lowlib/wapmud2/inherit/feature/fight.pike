@@ -1224,6 +1224,55 @@ private int is_lingyi_aoe_team_ally(object caster,object candidate){
 		LOGICALZONED->can_action("team",caster,side);
 }
 
+private int has_lingyi_aoe_friend_entry(object owner,string target_name){
+	if(!owner || !target_name || target_name=="" || !arrayp(owner->qqlist))
+		return 0;
+	foreach((array)owner->qqlist,mixed raw_friend)
+		if(arrayp(raw_friend) && sizeof((array)raw_friend)>=1 &&
+		   (string)raw_friend[0]==target_name)
+			return 1;
+	return 0;
+}
+
+// 好友和同注册账号角色始终受保护，且同时覆盖这些
+// 玩家拥有的召唤物。阵营是独立的可配置攻击白名单。
+private int is_lingyi_aoe_social_ally(object caster,object candidate){
+	object side = candidate;
+	object owner;
+	if(!caster || !candidate)
+		return 0;
+	owner = SUMMOND->query_combat_credit_owner(candidate);
+	if(owner && owner!=candidate)
+		side = owner;
+	if(!side || !side->is || !side->is("player"))
+		return 0;
+	if(side==caster)
+		return 1;
+	if(functionp(side->query_account_owner) &&
+	   functionp(caster->query_account_owner) &&
+	   (string)side->query_account_owner()!="" &&
+	   side->query_account_owner()==caster->query_account_owner())
+		return 1;
+	return has_lingyi_aoe_friend_entry(caster,side->query_name()) ||
+		has_lingyi_aoe_friend_entry(side,caster->query_name());
+}
+
+// 阵营选项只限制玩家及其召唤物；野怪仍遵循原有PVE目标规则。
+private int is_lingyi_aoe_player_race_allowed(object caster,
+	object candidate){
+	object side = candidate;
+	object owner;
+	if(!caster || !candidate)
+		return 0;
+	owner = SUMMOND->query_combat_credit_owner(candidate);
+	if(owner && owner!=candidate)
+		side = owner;
+	if(!side || !side->is || !side->is("player"))
+		return 1;
+	return PROFESSIONVIPD->query_lingyi_aoe_target_enabled(caster,
+		side->query_raceId());
+}
+
 // PVP群攻只能扩展到已经和施法者或其同房队友交战的人物。普通“不是队友”
 // 绝不构成伤害路人的授权。
 private int is_lingyi_aoe_engaged_player(object caster,object target){
@@ -1268,6 +1317,10 @@ private array(object) query_lingyi_room_aoe_targets(){
 			continue;
 		owner = SUMMOND->query_combat_credit_owner(candidate);
 		side = owner && owner!=candidate ? owner : candidate;
+		if(is_lingyi_aoe_social_ally(caster,side))
+			continue;
+		if(!is_lingyi_aoe_player_race_allowed(caster,side))
+			continue;
 		// 玩家及玩家拥有的召唤物必须已参与这场战斗。
 		if(side->is("player") &&
 		   !is_lingyi_aoe_engaged_player(caster,side) &&
@@ -1335,7 +1388,10 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		string absorb_desc = "";
 		if(!target || environment(target)!=env ||
 		   target->get_cur_life()<=0 ||
-		   !LOGICALZONED->can_action("combat",caster,target))
+		   !LOGICALZONED->can_action("combat",caster,target) ||
+		   is_lingyi_aoe_team_ally(caster,target) ||
+		   is_lingyi_aoe_social_ally(caster,target) ||
+		   !is_lingyi_aoe_player_race_allowed(caster,target))
 			continue;
 		caster->_fight(target);
 		target->_fight(caster);

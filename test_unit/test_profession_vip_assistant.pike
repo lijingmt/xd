@@ -366,6 +366,37 @@ void test_monitor_throttle_and_expiry_notice()
 	destroy_player(legacy);
 }
 
+void test_lingyi_aoe_target_configuration()
+{
+	test_start("灵医群攻阵营白名单免费、持久且拒绝非法参数");
+	object healer = create_player("__testunit_lingyi_aoe_config__",
+		"lingyi",50);
+	object outsider = create_player("__testunit_lingyi_aoe_config_wrong__",
+		"fangshi",50);
+	mapping(string:int) defaults =
+		PROFESSIONVIPD->query_lingyi_aoe_target_races(healer);
+	int changed = PROFESSIONVIPD->set_lingyi_aoe_target_enabled(
+		healer,"third",1);
+	int disabled = PROFESSIONVIPD->set_lingyi_aoe_target_enabled(
+		healer,"human",0);
+	mapping(string:int) current =
+		PROFESSIONVIPD->query_lingyi_aoe_target_races(healer);
+	int invalid = PROFESSIONVIPD->set_lingyi_aoe_target_enabled(
+		healer,"unknown",1);
+	int wrong_profession = PROFESSIONVIPD->set_lingyi_aoe_target_enabled(
+		outsider,"third",1);
+	if(defaults["human"]==1 && defaults["monst"]==1 &&
+	   defaults["third"]==0 && changed==1 && disabled==1 &&
+	   current["human"]==0 && current["monst"]==1 &&
+	   current["third"]==1 && invalid==0 && wrong_profession==0 &&
+	   PROFESSIONVIPD->query_effective_level(healer)==0)
+		test_pass();
+	else
+		test_fail("阵营默认值、切换、职业边界或免费性错误");
+	destroy_player(healer);
+	destroy_player(outsider);
+}
+
 int main()
 {
 	werror("\n========== 新职业会员助手测试 ==========\n");
@@ -380,6 +411,7 @@ int main()
 	test_style_purchase_is_cosmetic();
 	test_growth_pass_level_claims();
 	test_monitor_throttle_and_expiry_notice();
+	test_lingyi_aoe_target_configuration();
 	werror("\n职业助手测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);
 	return test_results["failed"] == 0 ? 0 : 1;

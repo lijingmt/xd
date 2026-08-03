@@ -248,8 +248,8 @@ void test_collection_growth(object player)
 		(int)grown["pets"][0]["attributes"]["spirit"]>0 &&
 		(int)grown["pets"][0]["attributes"]["speed"]>0 &&
 		(int)grown["pets"][0]["power"]>0 &&
-		(int)grown["pets"][0]["growth_percent"]==222 &&
-		(int)grown["pets"][0]["pvp_growth_percent"]==124,
+		(int)grown["pets"][0]["growth_percent"]==227 &&
+		(int)grown["pets"][0]["pvp_growth_percent"]==125,
 		"属性缺字段、战力无效或PVP没有压缩到完整成长的20%");
 	check("所有培养材料保存在独立材料栏且不污染人物背包",
 		player->packaged_items==inventory_before &&
@@ -343,13 +343,13 @@ void test_legacy_pet_migration()
 	mapping disk_after_write = Standards.JSON.decode(Stdio.read_file(path));
 	check("V1档案读取时补为一星且单纯查看不强制改写磁盘",
 		chosen["ok"] && migrated["ok"] &&
-		(int)migrated["version"]==2 &&
+		(int)migrated["version"]==3 &&
 		(int)migrated["pets"][0]["star"]==1 &&
 		(int)disk_after_read["version"]==1 &&
 		!has_index(disk_after_read["pets"][0],"star"),
 		"旧档案无法读取、星级不是安全默认值或查看触发了批量迁移");
-	check("旧档案下一次真实修改通过原子保存自然升级为V2",
-		mutation && (int)disk_after_write["version"]==2 &&
+	check("旧档案下一次真实修改通过原子保存自然升级为V3",
+		mutation && (int)disk_after_write["version"]==3 &&
 		(int)disk_after_write["pets"][0]["star"]==1,
 		"V1内存迁移后无法保存或永久星级字段丢失");
 }
@@ -391,6 +391,7 @@ void test_hunt_and_assist(object player,object pvp_target)
 	mapping assist = PETD->perform_pet_pve_assist(player,first);
 	mapping cooldown = PETD->perform_pet_pve_assist(player,first);
 	mapping presence = PETD->query_pet_battle_presence(player);
+	mapping header_state = HTTP_APID->query_player_state(player);
 	int expected_max = player->query_life_max()*2/100*
 		(int)presence["growth_percent"]/100/2;
 	check("疗愈伙伴30秒低频触发并遵循现有减疗上限规则",
@@ -399,7 +400,7 @@ void test_hunt_and_assist(object player,object pvp_target)
 		!cooldown["ok"] && first->get_cur_life()==npc_before &&
 		player->get_cur_life()>life_before,
 		"协战忽略冷却、减疗或错误修改NPC生命");
-	check("协战事件向战斗小窗提供宠物、技能、冷却和唯一事件编号",
+	check("协战事件向战斗小窗和Header提供宠物、技能与唯一事件编号",
 		presence["active"] && presence["name"]=="当康" &&
 		presence["icon"]!="" && presence["skill"]=="丰穰守心" &&
 		(int)presence["level"]==60 && (int)presence["star"]==10 &&
@@ -411,8 +412,12 @@ void test_hunt_and_assist(object player,object pvp_target)
 		(string)presence["recent_event"]["id"]!="" &&
 		presence["recent_event"]["type"]=="heal" &&
 		presence["recent_event"]["mode"]=="pve" &&
-		(int)presence["recent_event"]["amount"]==(int)assist["amount"],
-		"战斗API无法可靠渲染随行卡片或协战动画");
+		(int)presence["recent_event"]["amount"]==(int)assist["amount"] &&
+		mappingp(header_state["pet_assist"]) &&
+		header_state["pet_assist"]["active"] &&
+		header_state["pet_assist"]["name"]=="当康" &&
+		(int)header_state["pet_assist"]["star"]==10,
+		"状态API无法可靠渲染Header随行卡片或战斗协战动画");
 	string event_id = (string)presence["recent_event"]["id"];
 	player->set_life(player->query_life_max()/2);
 	player->fight(pvp_target,0,1);
@@ -578,6 +583,163 @@ void test_solo_pve_fragment_channels()
 		"每日上限可绕过或材料数量与账号计数不一致");
 	foreach(({normal,low,miss,boss,dungeon_boss,extra}),object npc)
 		if(npc) destruct(npc);
+}
+
+void test_pet_auto_combat_growth()
+{
+	werror("\n【万灵测试】真实战斗历练自动连续升级\n");
+	object player = create_test_player("xd99testunitpetxp","third",
+		"fangshi");
+	player->level = 50;
+	player->set_att_by_level();
+	PETD->choose_starter_pet(player,"dangkang");
+	object normal = make_npc(player,50);
+	mapping first = PETD->record_pet_combat_xp(player,normal);
+	mapping repeated = PETD->record_pet_combat_xp(player,normal);
+	object low = make_npc(player,44);
+	mapping low_gain = PETD->record_pet_combat_xp(player,low);
+	mapping after_normal = PETD->query_pet_state(player);
+	check("同级真实怪提供独立历练且同一死亡、低六级怪不能重复刷",
+		first["ok"] && (int)first["xp_gain"]==65 &&
+		!repeated["ok"] && !low_gain["ok"] &&
+		(int)after_normal["pets"][0]["level"]==1 &&
+		(int)after_normal["pets"][0]["xp"]==65 &&
+		(int)after_normal["pets"][0]["xp_need"]==125,
+		"历练公式、同怪去重、等级差限制或进度视图错误");
+
+	player->fb_id = "testunit/pet_xp";
+	FBD->add_fb_members(player->fb_id,player->query_name());
+	object dungeon_boss = make_npc(player,55);
+	dungeon_boss->_boss = 1;
+	mapping boss_gain = PETD->record_pet_combat_xp(player,dungeon_boss);
+	FBD->delete_fb_members(player->fb_id,player->query_name());
+	player->fb_id = "";
+	mapping grown = PETD->query_pet_state(player);
+	PETD->drop_test_pet_cache(player->query_name());
+	mapping restored = PETD->query_pet_state(player);
+	check("副本首领历练可一次连续升级并同步当前协战运行时",
+		boss_gain["ok"] && (int)boss_gain["xp_gain"]==282 &&
+		(int)boss_gain["levels_gained"]==2 &&
+		(int)grown["pets"][0]["level"]==3 &&
+		(int)grown["pets"][0]["xp"]==72 &&
+		(int)grown["pets"][0]["xp_need"]==175 &&
+		(int)player["/tmp/wanling/pet_level"]==3,
+		"首领/副本加成、连续扣除阈值或运行时属性未同步");
+	check("自动成长通过账号万灵谱原子保存且重载后进度不回档",
+		restored["ok"] && (int)restored["pets"][0]["level"]==3 &&
+		(int)restored["pets"][0]["xp"]==72 &&
+		(int)restored["pets"][0]["xp_progress_percent"]==41,
+		"等级或剩余历练只在内存生效、重载后丢失");
+	foreach(({normal,low,dungeon_boss}),object npc)
+		if(npc) destruct(npc);
+}
+
+void test_pet_equipment_and_skill_imprint()
+{
+	werror("\n【万灵测试】灵宠三槽装备与主人技能拓印\n");
+	object player = create_test_player("xd99testunitpetgear","third",
+		"lingyi");
+	player->level = 50;
+	player->set_att_by_level();
+	array inventory_before = copy_value(player->packaged_items);
+	mapping chosen = PETD->choose_starter_pet(player,"wenyaoyu");
+	mapping state = PETD->query_pet_state(player);
+	mapping pet = find_pet_species(state,"wenyaoyu");
+	string pet_id = (string)pet["id"];
+	mapping gear_state = PETD->query_pet_equipment_state(player,pet_id);
+	check("初契自动建立并穿戴兽铠、灵饰、灵核且不占人物背包",
+		chosen["ok"] && gear_state["ok"] &&
+		sizeof((array)gear_state["gear_inventory"])==3 &&
+		sizeof((mapping)gear_state["pet"]["equipment_details"])==3 &&
+		(int)gear_state["pet"]["equipment_bonus"]["life"]==2 &&
+		(int)gear_state["pet"]["equipment_bonus"]["attack"]==2 &&
+		(int)gear_state["pet"]["equipment_bonus"]["spirit"]==3 &&
+		player->packaged_items==inventory_before,
+		"初契装备缺槽、派生属性错误或污染人物背包");
+
+	player->skills["huichun"] = ({25,0});
+	player->skills["b_nuhou"] = ({100,0});
+	mapping too_early = PETD->imprint_pet_skill(player,pet_id,"huichun");
+	PETD->test_add_pet_material(player,"spirit_dew",100);
+	int trained = 1;
+	for(int level=1;level<20;level++)
+		trained = trained && PETD->train_pet_level(player,pet_id)["ok"];
+	array candidates = PETD->query_pet_imprint_skill_candidates(player);
+	int has_heal = 0;
+	int has_injected = 0;
+	foreach(candidates,mapping candidate){
+		if((string)candidate["name"]=="huichun")
+			has_heal = 1;
+		if((string)candidate["name"]=="b_nuhou")
+			has_injected = 1;
+	}
+	mapping imprinted = PETD->imprint_pet_skill(player,pet_id,"huichun");
+	mapping core_locked = PETD->unequip_pet_gear(player,pet_id,
+		"spirit_core");
+	check("灵技只接受20级后真实学会的主动技能并拒绝注入技能",
+		!too_early["ok"] && trained && has_heal && !has_injected &&
+		imprinted["ok"] && !core_locked["ok"],
+		"等级、技能来源过滤或承载灵核保护失效");
+
+	player->move(test_room);
+	player->set_life(player->query_life_max()/2);
+	player["/tmp/wanling/assist_at"] = 0;
+	object npc = make_npc(player,50);
+	int life_before = player->get_cur_life();
+	mapping assist = PETD->perform_pet_pve_assist(player,npc);
+	mapping presence = PETD->query_pet_battle_presence(player);
+	check("灵息型文鳐鱼拓印回春后按宠物安全公式治疗且显示拓印技能",
+		assist["ok"] && assist["type"]=="heal" &&
+		(int)assist["amount"]>0 && player->get_cur_life()>life_before &&
+		search((string)presence["skill"],"拓印·")==0 &&
+		presence["native_skill"]=="夜渡回澜" &&
+		mappingp(presence["imprinted_skill"]),
+		"拓印直接沿用原定位、没有治疗或战斗小窗技能名错误");
+
+	mapping forgotten = PETD->forget_pet_imprinted_skill(player,pet_id);
+	mapping core_removed = PETD->unequip_pet_gear(player,pet_id,
+		"spirit_core");
+	gear_state = PETD->query_pet_equipment_state(player,pet_id);
+	string core_id = "";
+	foreach((array)gear_state["gear_inventory"],mapping gear)
+		if((string)gear["slot"]=="spirit_core")
+			core_id = (string)gear["id"];
+	mapping core_restored = PETD->equip_pet_gear(player,pet_id,core_id);
+	PETD->test_grant_pet_species(player,"dangkang");
+	mapping second_state = PETD->query_pet_state(player);
+	mapping second_pet = find_pet_species(second_state,"dangkang");
+	mapping shared_reject = PETD->equip_pet_gear(player,
+		(string)second_pet["id"],core_id);
+	check("遗忘后可卸装重穿且同一件宠物装备不能被两宠共享",
+		forgotten["ok"] && core_removed["ok"] && core_restored["ok"] &&
+		!shared_reject["ok"],
+		"技能残留锁死灵核、重穿失败或装备引用可被复制");
+
+	PETD->test_add_pet_material(player,"spirit_mark",5);
+	mapping before_forge = PETD->query_pet_state(player);
+	mapping forged = PETD->forge_pet_gear(player,"beast_armor");
+	mapping after_forge = PETD->query_pet_equipment_state(player,pet_id);
+	string forged_id = forged["ok"] ? (string)forged["gear"]["id"] : "";
+	int quality = forged["ok"] ? (int)forged["gear"]["quality"] : 0;
+	mapping dismantled = PETD->dismantle_pet_gear(player,forged_id);
+	mapping after_dismantle = PETD->query_pet_state(player);
+	check("灵印凝炼与闲置装备分解形成守恒闭环并通过原子存档",
+		forged["ok"] && sizeof((array)after_forge["gear_inventory"])==4 &&
+		(int)before_forge["materials"]["spirit_mark"]==5 &&
+		dismantled["ok"] &&
+		(int)after_dismantle["materials"]["spirit_mark"]==quality*2 &&
+		sizeof((array)after_dismantle["gear_inventory"])==3,
+		"凝炼未扣材料、分解未返还或装备栏数量不守恒");
+
+	PETD->drop_test_pet_cache(player->query_account_owner());
+	mapping restored = PETD->query_pet_state(player);
+	check("V3装备、派生属性与空拓印状态重载后完整一致",
+		restored["ok"] && (int)restored["version"]==3 &&
+		sizeof((array)restored["gear_inventory"])==3 &&
+		sizeof((mapping)find_pet_species(restored,"wenyaoyu")["equipment"])==3 &&
+		!find_pet_species(restored,"wenyaoyu")["imprinted_skill"],
+		"宠物装备或技能状态仅保存在内存");
+	if(npc) destruct(npc);
 }
 
 void test_pet_batch_growth_and_fusion()
@@ -921,16 +1083,36 @@ void test_corruption_and_wiring()
 		"/gamelib/cmds/home_buy_dog_detail.pike");
 	string user_source = Stdio.read_file(ROOT+"/gamelib/clone/user.pike");
 	string vue_source = Stdio.read_file(ROOT+"/vue_source/index.html");
+	string vue_app_source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
+	string vue_css_source = Stdio.read_file(ROOT+"/vue_source/css/app.css");
+	string equipment_api_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/equipment_panel.pike");
 	check("通用灵宠不克隆NPC、不登记SUMMOND且旧家园守宅犬数据零迁移",
 		pet_source && search(pet_modules,"clone(")==-1 &&
 		search(pet_modules,"register_summon")==-1 &&
 		dog_source && home_source && search(dog_source,"PETD")==-1 &&
 		search(home_source,"PETD")==-1,
 		"万灵系统与方士召唤槽或旧家园犬产生数据耦合");
-	check("旧文字入口与Vue快捷入口均能发现万灵谱",
+	check("旧文字入口、Vue快捷入口与Header随行宠物均接入万灵谱",
 		user_source && search(user_source,"[万灵:pet]")!=-1 &&
-		vue_source && search(vue_source,"sendQuickCommand('pet')")!=-1,
-		"至少一个客户端没有万灵入口");
+		vue_source && search(vue_source,"sendQuickCommand('pet')")!=-1 &&
+		search(vue_source,"header-pet-companion")!=-1 &&
+		vue_app_source && search(vue_app_source,"headerPet()")!=-1 &&
+		search(vue_app_source,"playerStats?.pet_assist")!=-1 &&
+		vue_css_source && search(vue_css_source,
+			".header-pet-companion")!=-1,
+		"客户端没有万灵入口或Header未显示当前随行宠物");
+	check("头像装备面板使用只读结构接口并复用服务器换装命令校验",
+		equipment_api_source &&
+		search(equipment_api_source,"all_inventory(player)")!=-1 &&
+		search(equipment_api_source,"action_cmd")!=-1 &&
+		search(equipment_api_source,"player->wear(")==-1 &&
+		search(equipment_api_source,"player->wield(")==-1 &&
+		search(vue_source,"@click=\"openEquipmentPanel\"")!=-1 &&
+		search(vue_source,"equipment-human-silhouette")!=-1 &&
+		search(vue_app_source,"/api/equipment_panel")!=-1 &&
+		search(vue_css_source,".equipment-panel-overlay")!=-1,
+		"头像入口、身体槽位、只读接口或原有命令安全边界未接通");
 }
 
 void cleanup_all()
@@ -983,6 +1165,8 @@ int main()
 			 test_same_account_active_pet();
 			test_hunt_and_assist(profession_players[0],profession_players[1]);
 			test_solo_pve_fragment_channels();
+			test_pet_auto_combat_growth();
+			test_pet_equipment_and_skill_imprint();
 			test_pet_batch_growth_and_fusion();
 			test_rift(profession_players[0..2]);
 			// 上一项特意清理了前三个账号的宠物数据；重新初契供反刷和论道。

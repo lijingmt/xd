@@ -131,6 +131,12 @@ assert(indexSource.includes('battle-pet-companion-full'));
 assert(indexSource.includes('battle-pet-assist-burst'));
 assert(indexSource.includes('getPetCultivationLabel(battlePet)'));
 assert(indexSource.includes("petAssistEffect.mode === 'pvp'"));
+assert(indexSource.includes('v-if="headerPet"'));
+assert(indexSource.includes('class="header-pet-companion"'));
+assert(indexSource.includes("@click=\"sendQuickCommand('pet')\""));
+assert(indexSource.includes('@click="openEquipmentPanel"'));
+assert(indexSource.includes('equipment-human-silhouette'));
+assert(indexSource.includes('getEquipmentCandidates(equipmentSelectedSlot)'));
 assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
 assert(indexSource.includes("playerStats.profe === '灵医' ? '✚'"));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
@@ -166,7 +172,33 @@ client.applyLoadedPartitions(newestFirstPartitions);
 assert.strictEqual(client.loginForm.partition, 'xd02');
 sessionValues.clear();
 
-client.playerStats = { avatar: '/images/h_male2.gif', name_cn: '测试方士' };
+client.playerStats = {
+  avatar: '/images/h_male2.gif', name_cn: '测试方士',
+  pet_assist: {
+    active: 1, name: '当康', icon: '🐗', family: '土',
+    level: 60, star: 10, evolution_name: '真形·圆满'
+  }
+};
+const headerPet = componentOptions.computed.headerPet.call(client);
+assert.strictEqual(headerPet.name, '当康');
+assert.strictEqual(client.getPetCultivationLabel(headerPet), 'Lv.60 · 10星真形·圆满');
+client.playerStats.pet_assist = { active: 0 };
+assert.strictEqual(componentOptions.computed.headerPet.call(client), null);
+client.playerStats.pet_assist = headerPet;
+assert.strictEqual(client.showEquipmentPanel, false);
+assert.strictEqual(client.cleanEquipmentName('§g【优良】法杖§r'), '【优良】法杖');
+client.equipmentPanel = {
+  candidates: {
+    armor_head: [
+      { id: 'helm#0', equipped: true },
+      { id: 'helm#1', equipped: false }
+    ]
+  }
+};
+assert.deepStrictEqual(
+  client.getEquipmentCandidates('armor_head').map(item => item.id),
+  ['helm#1']
+);
 assert.strictEqual(client.fontSize, 'small');
 let fontToast = '';
 client.showUiToast = message => {
