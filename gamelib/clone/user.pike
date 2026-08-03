@@ -507,6 +507,9 @@ void fight_die()
 	// 成功代表人物没有真正死亡，后续死亡流程必须完整跳过。
 	if(me->try_lingyi_auto_revive(enemy))
 		return;
+	// 灵医职业复苏优先；未触发时才判定隐藏鸾鸟的账号级回生羽。
+	if(PETD->try_pet_owner_revive(me,enemy))
+		return;
 	// 主人死亡时立即清理全部灵兽，不能继续留场攻击或治疗。
 	SUMMOND->player_death(me->query_name());
 

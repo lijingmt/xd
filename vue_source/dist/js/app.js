@@ -3229,7 +3229,7 @@ createApp({
 
         getPetAssistAnimationType(event) {
             const effectType = String(event?.type || '');
-            if (effectType === 'heal') return 'heal';
+            if (effectType === 'heal' || effectType === 'revive') return 'heal';
             if (effectType === 'mofa') return 'spirit';
             const familyMap = {
                 '火': 'fire', '水': 'ice', '木': 'heal', '土': 'block',
@@ -3249,6 +3249,12 @@ createApp({
 
         getPetAssistStatus(pet = this.battlePet) {
             if (!pet?.active) return '未随行';
+            const revive = pet.owner_revive || null;
+            const reviveStatus = Number(revive?.enabled || 0) === 1 ?
+                (Number(revive?.remaining || 0) > 0 ?
+                    '回生羽可用' : '回生羽今日已用') : '';
+            const withRevive = status => reviveStatus ?
+                `${reviveStatus} · ${status}` : status;
             if (String(pet.combat_mode || '') === 'pvp') {
                 const required = Math.max(1, Number(
                     pet.pvp_charge_required || pet.cooldown || 1
@@ -3260,8 +3266,10 @@ createApp({
                 const uses = Math.max(0, Math.min(
                     maxUses, Number(pet.pvp_uses || 0)
                 ));
-                if (uses >= maxUses) return `本场御灵已尽 ${uses}/${maxUses}`;
-                return `御灵充能 ${charge}/${required} · 本场 ${uses}/${maxUses}`;
+                if (uses >= maxUses) {
+                    return withRevive(`本场御灵已尽 ${uses}/${maxUses}`);
+                }
+                return withRevive(`御灵充能 ${charge}/${required} · 本场 ${uses}/${maxUses}`);
             }
             const remaining = Math.max(0, Math.ceil(
                 Number(pet.cooldown_remaining || 0)
@@ -3274,8 +3282,8 @@ createApp({
                 '强攻': ['攻势蓄力', '强攻就绪'],
                 '迅捷': ['伺机协战', '迅捷就绪']
             }[role] || ['协战蓄势', '协战就绪'];
-            return remaining > 0 ?
-                `${roleStatus[0]} ${remaining}秒` : roleStatus[1];
+            return withRevive(remaining > 0 ?
+                `${roleStatus[0]} ${remaining}秒` : roleStatus[1]);
         },
 
         getPetCultivationLabel(pet = this.battlePet) {
@@ -3293,6 +3301,10 @@ createApp({
             const type = String(event?.type || '');
             const prefix = String(event?.mode || '') === 'pvp' ?
                 '【御灵交锋】' : '';
+            if (type === 'revive') {
+                const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
+                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatCompactNumber(amount)}点生命与${this.formatCompactNumber(mofaAmount)}点法力`;
+            }
             if (amount <= 0) {
                 return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在你身旁`;
             }

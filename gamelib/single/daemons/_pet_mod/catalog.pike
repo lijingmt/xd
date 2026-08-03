@@ -154,6 +154,16 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 			({"云雨应时","应时而动","龙翼镇潮"}),
 		}),
 	]),
+	"luanniao":([
+		"name":"鸾鸟","icon":"🕊️","family":"灵","role":"疗愈",
+		"origin":"女床山五采瑞鸟，古籍记其现世象征安宁；本作以守护灵契作原创演绎。",
+		"skill":"回生羽","boss":0,"exchange":0,"hidden":1,
+		"skill_sets":({
+			({"回生羽","五采安魂","鸾音护命"}),
+			({"回生羽","女床清鸣","灵羽回光"}),
+			({"回生羽","瑞羽守契","长空归心"}),
+		}),
+	]),
 ]);
 
 private array(string) starter_species = ({

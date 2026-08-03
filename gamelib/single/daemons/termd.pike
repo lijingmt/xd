@@ -18,6 +18,21 @@
 #define TERM_INVITE_TIMEOUT 120
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 inherit LOW_DAEMON;
+
+// 组队经验先提高全队共享池，再按同房合法队员数分配。
+// 五人上限与TERM_NUM一致；非法人数不获得额外加成。
+int query_team_exp_pool_percent(int member_count)
+{
+	if(member_count==2)
+		return 120;
+	if(member_count==3)
+		return 140;
+	if(member_count==4)
+		return 160;
+	if(member_count==5)
+		return 200;
+	return 100;
+}
 /********************************************************************** 
  队伍内存结构:每创建一个队伍，增加一个临时队伍id，对应id，放置
  该队列中队员的一些固定信息，可以在队列信息中查阅，至于队员所在房间

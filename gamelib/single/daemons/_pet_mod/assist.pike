@@ -158,6 +158,22 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		result["cooldown_remaining"] = required-charge;
 		result["ready_at"] = 0;
 	}
+	if(species==PET_HIDDEN_LUAN_SPECIES){
+		string revive_day_key = (string)(player[
+			"/tmp/wanling/owner_revive_day_key"] || "");
+		int revive_used = revive_day_key==current_pet_day_key() ?
+			(int)player["/tmp/wanling/owner_revive_used"] : 0;
+		if(revive_used<0)
+			revive_used = 0;
+		if(revive_used>1)
+			revive_used = 1;
+		result["owner_revive"] = ([
+			"enabled":1,"skill":"回生羽","maximum":1,
+			"used":revive_used,"remaining":1-revive_used,
+			"life_percent":PET_OWNER_REVIVE_LIFE_PERCENT,
+			"mofa_percent":PET_OWNER_REVIVE_MOFA_PERCENT,
+		]);
+	}
 	if(mappingp(player["/tmp/wanling/recent_assist"])){
 		recent = player["/tmp/wanling/recent_assist"];
 		event_at = (int)recent["event_at"];
@@ -558,6 +574,100 @@ mapping(string:mixed) perform_pet_combat_assist(object player,object target)
 	if(result["ok"])
 		DAILYGOALD->record_pet_assist(player);
 	return result;
+}
+
+/**
+ * 隐藏鸾鸟的回生羽只在主人真正进入死亡结算时判定。灵医的职业
+ * 复苏在user.pike中先判定；只有职业复苏未触发时才会消耗这一次
+ * 账号级每日保命。成功返回1时，调用者必须立即中止后续死亡流程。
+ */
+int try_pet_owner_revive(object player,object killer)
+{
+	object env;
+	string account_id;
+	string character_id;
+	mapping(string:mixed)|zero record;
+	object key;
+	int consumed = 0;
+	int life_restore;
+	int mofa_restore;
+	mapping info;
+	mapping event;
+	if(!player || !player->is || !player->is("player") ||
+	   (string)(player["/tmp/wanling/species"] || "")!=
+		PET_HIDDEN_LUAN_SPECIES || !killer || !objectp(killer) ||
+	   player->get_cur_life()>0 || player->is("ghost") ||
+	   player->sucide || player["/tmp/wanling/owner_revive_running"])
+		return 0;
+	env = environment(player);
+	if(!env || environment(killer)!=env ||
+	   !LOGICALZONED->can_action("combat",player,killer))
+		return 0;
+	if(functionp(env->query_room_type) && env->query_room_type()=="city")
+		return 0;
+	// 双方都没有击杀标记时只是友好切磋，不消耗稀有次数。
+	if(functionp(killer->is) && killer->is("player") &&
+	   player->kill_flag==0 && killer->kill_flag==0)
+		return 0;
+	account_id = resolve_pet_account(player);
+	character_id = player->query_name();
+	if(account_id=="")
+		return 0;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		refresh_pet_periods_unlocked(record);
+		string active_id = (string)(record["active"][character_id] || "");
+		int pet_index = find_pet_index(record["pets"],active_id);
+		if(pet_index>=0 &&
+		   (string)record["pets"][pet_index]["species"]==
+			PET_HIDDEN_LUAN_SPECIES &&
+		   !(int)record["daily"]["owner_revive"]){
+			record["daily"]["owner_revive"] = 1;
+			record["revision"] = (int)record["revision"]+1;
+			consumed = save_pet_record_unlocked(record);
+		}
+	}
+	destruct(key);
+	if(!consumed)
+		return 0;
+	player["/tmp/wanling/owner_revive_running"] = 1;
+	player["/tmp/wanling/owner_revive_day_key"] = current_pet_day_key();
+	player["/tmp/wanling/owner_revive_used"] = 1;
+	player->_clean_fight();
+	if(killer && objectp(killer) && functionp(killer->clean_targets))
+		killer->clean_targets(player);
+	life_restore = player->query_life_max()*
+		PET_OWNER_REVIVE_LIFE_PERCENT/100;
+	mofa_restore = player->query_mofa_max()*
+		PET_OWNER_REVIVE_MOFA_PERCENT/100;
+	if(life_restore<1)
+		life_restore = 1;
+	if(mofa_restore<1)
+		mofa_restore = 1;
+	player->set_life(life_restore);
+	player->set_mofa(mofa_restore);
+	player->m_delete_foruser("/tmp/wanling/owner_revive_running");
+	info = shanhai_catalog[PET_HIDDEN_LUAN_SPECIES];
+	event = create_pet_assist_event(player,player,info,
+		functionp(killer->is) && killer->is("player") ? "pvp" : "pve",
+		"revive",life_restore,0);
+	event["skill"] = (string)info["skill"];
+	event["mofa_amount"] = mofa_restore;
+	event["daily_remaining"] = 0;
+	player["/tmp/wanling/recent_assist"] = copy_value(event);
+	catch {
+		foreach(all_inventory(env),object observer)
+			if(observer && functionp(observer->is) && observer->is("player"))
+				tell_object(observer,"【回生羽】"+
+					player->query_name_cn()+
+					"的鸾鸟燃起五采灵羽，在死亡前唤回主人（今日已使用）。\n");
+	};
+	ASYNC_IOD->append_log(ROOT+"/log/pet_owner_revive.log",
+		time()+"|"+account_id+"|"+character_id+"|killer="+
+		killer->query_name()+"|life="+life_restore+"|mofa="+
+		mofa_restore+"\n");
+	return 1;
 }
 
 /** 快速决胜读取的剩余PVP宠物能力，只取人物临时快照，不访问磁盘。 */

@@ -68,13 +68,14 @@ private mapping(string:mixed) empty_pet_record(string account_id)
 		"duel_teams":([]),
 		"daily_key":"",
 		"daily":(["hunt":0,"rift":0,"pve_fragments":0,
-			"opponents":({})]),
+			"owner_revive":0,"opponents":({})]),
 		"weekly_key":"",
 		"weekly":(["rift_wins":0,"choice_claimed":0]),
 		"season_key":"",
 		"season":(["wins":0,"losses":0,"draws":0]),
 		"rift_pity":0,
 		"fusion_pity":0,
+		"hidden_luan_pity":0,
 		"pending_rift_rewards":([]),
 		"rewarded_sessions":([]),
 		"persisted":0,
@@ -266,9 +267,10 @@ private int valid_pet_instance(mapping one,multiset(string) ids,
 }
 
 /**
- * V1没有星级字段，V1/V2没有宠物装备与灵技拓印字段。迁移只发生在
- * 内存，单纯查看旧档案不会写盘；下一次真实培养会通过原子保存自然
- * 升级为V3。迁移前先限制V1原有等级上限，防止伪造旧数据借新版通过。
+ * V1没有星级字段，V1/V2没有宠物装备与灵技拓印字段，V1—V3
+ * 没有隐藏鸾鸟保底与主人复活字段。迁移只发生在内存，单纯查看
+ * 旧档案不会写盘；下一次真实培养会通过原子保存自然升级为V4。
+ * 迁移前先限制V1原有等级上限，防止伪造旧数据借新版通过。
  */
 private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
 	mapping record,string account_id)
@@ -277,7 +279,7 @@ private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
 	if((int)record["version"]==PET_RECORD_VERSION)
 		return record;
 	int old_version = (int)record["version"];
-	if(search(({1,2}),old_version)==-1 ||
+	if(search(({1,2,3}),old_version)==-1 ||
 	   record["account_id"]!=account_id ||
 	   !arrayp(record["pets"]))
 		return 0;
@@ -288,14 +290,19 @@ private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
 			return 0;
 		if(old_version==1)
 			one["star"] = 1;
-		one["equipment"] = ([]);
-		one["equipment_bonus"] = (["life":0,"attack":0,
-			"defense":0,"spirit":0,"speed":0]);
-		one["imprinted_skill"] = 0;
+		if(old_version<=2){
+			one["equipment"] = ([]);
+			one["equipment_bonus"] = (["life":0,"attack":0,
+				"defense":0,"spirit":0,"speed":0]);
+			one["imprinted_skill"] = 0;
+		}
 	}
-	upgraded["gear_inventory"] = ({});
+	if(old_version<=2)
+		upgraded["gear_inventory"] = ({});
 	if(!mappingp(upgraded["daily"]))
 		return 0;
+	upgraded["daily"]["owner_revive"] = 0;
+	upgraded["hidden_luan_pity"] = 0;
 	upgraded["version"] = PET_RECORD_VERSION;
 	upgraded["migration_pending"] = 1;
 	return upgraded;
@@ -415,6 +422,9 @@ private int valid_pet_record(mapping record,string account_id)
 	   (int)record["daily"]["pve_fragments"]<0 ||
 	   (int)record["daily"]["pve_fragments"]>
 		PET_PVE_FRAGMENT_DAILY_CAP ||
+	   !intp(record["daily"]["owner_revive"]) ||
+	   ((int)record["daily"]["owner_revive"]!=0 &&
+	    (int)record["daily"]["owner_revive"]!=1) ||
 	   (int)record["weekly"]["rift_wins"]<0 ||
 	   (int)record["weekly"]["rift_wins"]>1000 ||
 	   ((int)record["weekly"]["choice_claimed"]!=0 &&
@@ -425,7 +435,10 @@ private int valid_pet_record(mapping record,string account_id)
 	   (int)record["rift_pity"]<0 || (int)record["rift_pity"]>1000)
 		return 0;
 	if((int)record["fusion_pity"]<0 ||
-	   (int)record["fusion_pity"]>5)
+	   (int)record["fusion_pity"]>5 ||
+	   !intp(record["hidden_luan_pity"]) ||
+	   (int)record["hidden_luan_pity"]<0 ||
+	   (int)record["hidden_luan_pity"]>=PET_HIDDEN_LUAN_PITY)
 		return 0;
 	foreach((array)record["daily"]["opponents"],mixed opponent)
 		if(!stringp(opponent) || !valid_pet_userid((string)opponent))
@@ -585,7 +598,7 @@ private int refresh_pet_periods_unlocked(mapping record,void|int at_time)
 	if((string)record["daily_key"]!=day_key){
 		record["daily_key"] = day_key;
 		record["daily"] = (["hunt":0,"rift":0,"pve_fragments":0,
-			"opponents":({})]);
+			"owner_revive":0,"opponents":({})]);
 		changed = 1;
 	}
 	if((string)record["weekly_key"]!=week_key){

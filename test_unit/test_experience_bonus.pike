@@ -102,13 +102,27 @@ void test_real_award_path(object player)
 void test_single_team_wiring()
 {
 	string source = Stdio.read_file(ROOT+"/gamelib/inherit/npc.pike") || "";
-	int first_call = search(source,"grant_kill_experience(termer,exp_gain)");
+	int first_call = search(source,"grant_kill_experience(termer,exp_gain,");
 	int second_call = search(source,"grant_kill_experience(first,exp_gain)");
 	int valid = first_call!=-1 && second_call!=-1 &&
+		search(source,"【组队经验池+")!=-1 &&
 		search(source,"extra_dh")==-1 &&
 		search(source,"GAME_AREA==\"xd01\"")==-1;
 	check("组队和单人共用统一经验入口且所有逻辑区一致",valid,
 		"仍残留基础经验叠加旧公式或按物理区区别计算");
+}
+
+void test_team_pool_percentages()
+{
+	int valid = TERMD->query_team_exp_pool_percent(1)==100 &&
+		TERMD->query_team_exp_pool_percent(2)==120 &&
+		TERMD->query_team_exp_pool_percent(3)==140 &&
+		TERMD->query_team_exp_pool_percent(4)==160 &&
+		TERMD->query_team_exp_pool_percent(5)==200 &&
+		TERMD->query_team_exp_pool_percent(0)==100 &&
+		TERMD->query_team_exp_pool_percent(6)==100;
+	check("组队经验池2至5人加成可见且边界安全",valid,
+		"组队经验池应为120%/140%/160%/200%");
 }
 
 int main()
@@ -124,6 +138,7 @@ int main()
 	test_multiplier_semantics_and_edges(player);
 	test_real_award_path(player);
 	test_single_team_wiring();
+	test_team_pool_percentages();
 	destruct(player);
 	werror("\n经验加成：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);

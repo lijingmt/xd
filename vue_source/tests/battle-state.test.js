@@ -493,6 +493,15 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.getPetAssistStatus({
     active: true, role: '强攻', cooldown_remaining: 6
   }), '攻势蓄力 6秒');
+  assert.strictEqual(client.getPetAssistStatus({
+    active: true, role: '疗愈', cooldown_remaining: 0,
+    owner_revive: { enabled: 1, remaining: 1 }
+  }), '回生羽可用 · 疗愈就绪');
+  assert(client.formatPetAssistMessage({
+    name: '鸾鸟', icon: '🕊️', skill: '回生羽', type: 'revive',
+    amount: 1500, mofa_amount: 600
+  }).includes('死里回生'));
+  assert.strictEqual(client.getPetAssistAnimationType({ type: 'revive' }), 'heal');
   assert(client.formatPetAssistMessage({
     name: '毕方', icon: '🔥', skill: '独足炎翎', type: 'damage',
     mode: 'pvp', amount: 496, target_name: '对手'

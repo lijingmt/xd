@@ -34,6 +34,19 @@ private void clear_pet_runtime(object player)
 	player["/tmp/wanling/pvp_target"] = 0;
 	player["/tmp/wanling/pvp_charge"] = 0;
 	player["/tmp/wanling/pvp_uses"] = 0;
+	player["/tmp/wanling/owner_revive_day_key"] = 0;
+	player["/tmp/wanling/owner_revive_used"] = 0;
+}
+
+private void sync_pet_owner_revive_runtime_unlocked(object player,
+	mapping record)
+{
+	if(!player || !mappingp(record) || !mappingp(record["daily"]))
+		return;
+	player["/tmp/wanling/owner_revive_day_key"] =
+		(string)record["daily_key"];
+	player["/tmp/wanling/owner_revive_used"] =
+		(int)record["daily"]["owner_revive"];
 }
 
 private void sync_pet_runtime_unlocked(object player,mapping pet,
@@ -166,7 +179,12 @@ mapping(string:mixed) query_pet_state(object player)
 		result["message"] = "";
 		result["character_id"] = player->query_name();
 		result["starter_level"] = PET_STARTER_LEVEL;
-		result["catalog_total"] = sizeof(shanhai_catalog);
+		int catalog_total = 0;
+		foreach(shanhai_catalog;string catalog_species;mapping catalog_info)
+			if(!(int)catalog_info["hidden"] ||
+			   find_species_index(record["pets"],catalog_species)>=0)
+				catalog_total++;
+		result["catalog_total"] = catalog_total;
 		result["collection_count"] = sizeof((array)record["pets"]);
 		result["weekly_boss"] = query_weekly_boss_species();
 	}
@@ -225,6 +243,7 @@ mapping(string:mixed) choose_starter_pet(object player,string species)
 			record["revision"] = (int)record["revision"]+1;
 			if(save_pet_record_unlocked(record)){
 				sync_pet_runtime_unlocked(player,pet,1);
+				sync_pet_owner_revive_runtime_unlocked(player,record);
 				result["message"] +=
 					"它已设为当前协战伙伴，并获赠初契三件套、12滴灵露与2枚同心叶。";
 			}
@@ -279,9 +298,10 @@ mapping(string:mixed) set_active_pet(object player,string pet_id)
 					m_delete(record["active"],occupied_by);
 				record["active"][character_id] = pet_id;
 				record["revision"] = (int)record["revision"]+1;
-				if(save_pet_record_unlocked(record)){
-					mapping pet = record["pets"][pet_index];
-					sync_pet_runtime_unlocked(player,pet,1);
+					if(save_pet_record_unlocked(record)){
+						mapping pet = record["pets"][pet_index];
+						sync_pet_runtime_unlocked(player,pet,1);
+						sync_pet_owner_revive_runtime_unlocked(player,record);
 					result = pet_result(1,(string)shanhai_catalog[
 						(string)pet["species"]]["name"]+
 						"已成为当前协战伙伴。");
@@ -837,10 +857,103 @@ private mapping(string:mixed) record_pet_pve_fragment_unlocked(
 	return result;
 }
 
+/**
+ * 70级以上真实首领的账号级隐藏灵契。世界首领0.02%，副本首领
+ * 0.05%，每500次合格首领必定收录。同一NPC对同一账号只结算
+ * 一次；兑换、残片孵化和融合均无法绕过这条获取链。
+ */
+private mapping(string:mixed) record_hidden_luan_drop_unlocked(
+	object player,object npc,int forced_roll)
+{
+	mapping result = (["ok":0,"eligible":0,"dropped":0,"chance":0,
+		"pity":0,"pity_max":PET_HIDDEN_LUAN_PITY]);
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	mapping credited_accounts;
+	object key;
+	int is_dungeon = 0;
+	int chance;
+	int roll;
+	if(account_id=="" || !npc || !npc->is || !npc->is("npc") ||
+	   SUMMOND->query_combat_credit_owner(npc)!=npc ||
+	   (int)(npc->_boss || 0)<=0 || npc->query_level()<70 ||
+	   player->query_level()<70 ||
+	   player->query_level()-npc->query_level()>5)
+		return result;
+	if(npc->query_npc_type &&
+	   search(({"city_keeper","city_guarder","city_lord"}),
+		(string)npc->query_npc_type())!=-1)
+		return result;
+	if((string)(player->fb_id || "")!="" &&
+	   FBD->query_fb_memebers((string)player->fb_id,
+		player->query_name()))
+		is_dungeon = 1;
+	chance = is_dungeon ? PET_HIDDEN_LUAN_DUNGEON_CHANCE :
+		PET_HIDDEN_LUAN_WORLD_CHANCE;
+	result["eligible"] = 1;
+	result["chance"] = chance;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		credited_accounts = mappingp(npc["/tmp/wanling/hidden_accounts"]) ?
+			npc["/tmp/wanling/hidden_accounts"] : ([]);
+		if(find_species_index(record["pets"],PET_HIDDEN_LUAN_SPECIES)>=0){
+			result["ok"] = 1;
+			result["owned"] = 1;
+			result["pity"] = (int)record["hidden_luan_pity"];
+		}
+		else if((int)record["starter_claimed"] &&
+		   !credited_accounts[account_id]){
+			int next_pity = (int)record["hidden_luan_pity"]+1;
+			roll = forced_roll>=0 ? forced_roll : random(10000);
+			if(next_pity>=PET_HIDDEN_LUAN_PITY || roll<chance){
+				string source = is_dungeon ? "hidden_dungeon_boss" :
+					"hidden_world_boss";
+				if(next_pity>=PET_HIDDEN_LUAN_PITY)
+					source += "_pity";
+				mapping acquired = acquire_pet_unlocked(record,
+					PET_HIDDEN_LUAN_SPECIES,source);
+				if(acquired["ok"]){
+					record["hidden_luan_pity"] = 0;
+					result["dropped"] = 1;
+					result["pet"] = copy_value(acquired["pet"]);
+				}
+				else
+					next_pity = (int)record["hidden_luan_pity"];
+			}
+			if(!result["dropped"])
+				record["hidden_luan_pity"] = next_pity;
+			record["revision"] = (int)record["revision"]+1;
+			if(save_pet_record_unlocked(record)){
+				credited_accounts[account_id] = 1;
+				npc["/tmp/wanling/hidden_accounts"] = credited_accounts;
+				result["ok"] = 1;
+				result["pity"] = (int)record["hidden_luan_pity"];
+				if(result["dropped"]){
+					tell_object(player,"【隐藏灵契】首领消散时落下一枚五采灵羽，鸾鸟以回生羽与你缔结灵契！\n[查看万灵谱:pet]\n");
+					ASYNC_IOD->append_log(ROOT+"/log/pet_hidden_drop.log",
+						time()+"|"+account_id+"|"+player->query_name()+
+						"|"+(is_dungeon ? "dungeon" : "world")+
+						"|roll="+roll+"|pity="+next_pity+"\n");
+				}
+			}
+			else{
+				result["ok"] = 0;
+				result["dropped"] = 0;
+				m_delete(result,"pet");
+			}
+		}
+	}
+	destruct(key);
+	return result;
+}
+
 /** 普通同级怪、副本怪和BOSS都可独立产出残片，并按账号设置每日上限。 */
 mapping(string:mixed) record_pet_pve_kill(object player,object npc)
 {
-	return record_pet_pve_fragment_unlocked(player,npc,-1);
+	mapping result = record_pet_pve_fragment_unlocked(player,npc,-1);
+	result["hidden_pet"] = record_hidden_luan_drop_unlocked(player,npc,-1);
+	return result;
 }
 
 mapping(string:mixed) test_record_pet_pve_kill(object player,object npc,
@@ -851,6 +964,36 @@ mapping(string:mixed) test_record_pet_pve_kill(object player,object npc,
 	   forced_roll>99)
 		return (["ok":0,"dropped":0]);
 	return record_pet_pve_fragment_unlocked(player,npc,forced_roll);
+}
+
+mapping(string:mixed) test_record_hidden_luan_drop(object player,object npc,
+	int forced_roll)
+{
+	string account_id = resolve_pet_account(player);
+	if(search(account_id,"testunit")==-1 || forced_roll<0 ||
+	   forced_roll>9999)
+		return (["ok":0,"dropped":0]);
+	return record_hidden_luan_drop_unlocked(player,npc,forced_roll);
+}
+
+int test_set_hidden_luan_pity(object player,int pity)
+{
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	int ok = 0;
+	if(search(account_id,"testunit")==-1 || pity<0 ||
+	   pity>=PET_HIDDEN_LUAN_PITY)
+		return 0;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		record["hidden_luan_pity"] = pity;
+		record["revision"] = (int)record["revision"]+1;
+		ok = save_pet_record_unlocked(record);
+	}
+	destruct(key);
+	return ok;
 }
 
 private int pet_is_referenced_unlocked(mapping record,string pet_id)
@@ -885,6 +1028,11 @@ private mapping(string:mixed) pet_fusion_preview_unlocked(mapping record,
 	}
 	mapping first = record["pets"][first_index];
 	mapping second = record["pets"][second_index];
+	if((string)first["species"]==PET_HIDDEN_LUAN_SPECIES ||
+	   (string)second["species"]==PET_HIDDEN_LUAN_SPECIES){
+		result["message"] = "隐藏灵契鸾鸟不能作为合成材料。";
+		return result;
+	}
 	string first_polarity = query_pet_polarity(first);
 	string second_polarity = query_pet_polarity(second);
 	int generation = query_fusion_generation(first);
@@ -1239,10 +1387,13 @@ int reconcile_pet_player_login(object player)
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
 	if(record){
+		refresh_pet_periods_unlocked(record);
 		pet_id = (string)(record["active"][character_id] || "");
 		int index = find_pet_index(record["pets"],pet_id);
-		if(index>=0)
+		if(index>=0){
 			sync_pet_runtime_unlocked(player,record["pets"][index],1);
+			sync_pet_owner_revive_runtime_unlocked(player,record);
+		}
 	}
 	destruct(key);
 	// 宠物附属文件损坏时仅关闭万灵入口，不能阻断人物旧存档登录。

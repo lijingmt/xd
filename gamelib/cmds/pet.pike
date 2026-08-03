@@ -44,6 +44,8 @@ private string render_catalog(mapping state)
 	mapping catalog = PETD->query_pet_catalog();
 	foreach(sort(indices(catalog)),string species){
 		mapping info = catalog[species];
+		if((int)info["hidden"] && !owned[species])
+			continue;
 		s += owned[species] ? "✓ " : "○ ";
 		s += (string)info["icon"]+(string)info["name"]+" · "+
 			(string)info["role"]+" · "+
@@ -171,8 +173,16 @@ private string render_detail(mapping state,string species,object me)
 {
 	mapping info = PETD->query_pet_species(species);
 	string s;
+	int owned = -1;
+	for(int i=0;i<sizeof((array)state["pets"]);i++)
+		if(state["pets"][i]["species"]==species){
+			owned = i;
+			break;
+		}
 	if(!sizeof(info))
 		return "万灵谱中没有这种异兽。\n[返回图鉴:pet catalog]\n";
+	if((int)info["hidden"] && owned<0)
+		return "这页万灵谱仍被五采灵羽遮蔽，尚未与你建立灵契。\n[返回图鉴:pet catalog]\n";
 	s = "【"+(string)info["icon"]+(string)info["name"]+"】\n\n";
 	s += "灵属："+(string)info["family"]+" | 定位："+
 		(string)info["role"]+" | 阴阳："+
@@ -184,12 +194,6 @@ private string render_detail(mapping state,string species,object me)
 	s += "三套灵纹：\n";
 	foreach((array)info["skill_sets"],array skills)
 		s += "• "+(skills*"、")+"\n";
-	int owned = -1;
-	for(int i=0;i<sizeof((array)state["pets"]);i++)
-		if(state["pets"][i]["species"]==species){
-			owned = i;
-			break;
-		}
 	if(owned>=0){
 		mapping pet = state["pets"][owned];
 		mapping attributes = pet["attributes"];
@@ -218,6 +222,8 @@ private string render_detail(mapping state,string species,object me)
 			"% | PVP压缩倍率："+(int)pet["pvp_growth_percent"]+
 			"% | 编号"+pet_short_id((string)pet["id"])+"\n";
 		s += "当前灵纹："+((array)pet["skills"]*"、")+"\n";
+		if(species=="luanniao")
+			s += "隐藏天赋：回生羽会在主人真正死亡时自动触发；灵医职业复苏优先，账号每日1次，复活后恢复15%生命与10%法力，切磋和自杀不消耗。\n";
 		if(mappingp(pet["imprinted_skill"]))
 			s += "拓印灵技："+(string)pet["imprinted_skill"]["name_cn"]+
 				"（"+((string)pet["imprinted_skill"]["effect"]=="heal" ?
@@ -303,6 +309,8 @@ private string render_fusion(mapping state,object me,string first_id,
 		s += "第一步：选择第一只灵宠。\n";
 		foreach((array)state["pets"],mapping pet){
 			mapping info = PETD->query_pet_species((string)pet["species"]);
+			if((int)info["hidden"])
+				continue;
 			s += "• "+(string)info["icon"]+pet_display_name(pet,info)+
 				" · "+(string)pet["polarity_name"]+"属 · Lv."+
 				(int)pet["level"]+"·"+(int)pet["star"]+"星 "+
@@ -326,6 +334,8 @@ private string render_fusion(mapping state,object me,string first_id,
 					continue;
 				mapping info = PETD->query_pet_species(
 					(string)pet["species"]);
+				if((int)info["hidden"])
+					continue;
 				s += "• "+(string)info["icon"]+
 					pet_display_name(pet,info)+" · "+
 					(string)pet["polarity_name"]+"属 · Lv."+
@@ -392,6 +402,9 @@ private string render_main(mapping state,object me)
 	string s = "§g【山海万灵谱】§r\n\n";
 	s += "账号共享收藏："+(int)state["collection_count"]+"/"+
 		(int)state["catalog_total"]+" | 当前协战："+active_name+"\n";
+	if(find_state_pet(state,active_id)["species"]=="luanniao")
+		s += "回生羽："+((int)state["daily"]["owner_revive"] ?
+			"今日已使用" : "今日可触发1次")+"\n";
 	s += "出战灵宠会从合适等级的真实怪物获得历练并自动连续升级；灵露可用于加速培养。\n";
 	s += "本周裂隙："+(string)boss["icon"]+(string)boss["name"]+
 		" | 周胜场 "+(int)state["weekly"]["rift_wins"]+"/3"+

@@ -31,13 +31,15 @@ int can_receive_logical_reward(string owner_name,object player)
 }
 
 /** 单人和组队共用同一套打怪经验发放与提示。 */
-int grant_kill_experience(object player,int base_exp)
+int grant_kill_experience(object player,int base_exp,void|int team_count,
+	void|int team_pool_percent)
 {
 	int buff_percent;
 	mapping(string:int) reward;
 	int actual_exp;
 	string bonus_tips = "";
 	string interface_tip = "";
+	string team_tip = "";
 	string message = "";
 	if(!player || base_exp<=0)
 		return 0;
@@ -65,6 +67,13 @@ int grant_kill_experience(object player,int base_exp)
 	if(reward["interface_bonus"]>0)
 		interface_tip = "<font style=\"color:GOLD\">【新界面加成+"+
 			(string)reward["interface_bonus"]+"】</font> ";
+	if(team_count>1 && team_pool_percent>100)
+		team_tip = "<font style=\"color:MEDIUMSEAGREEN\">【组队经验池+"+
+			(string)(team_pool_percent-100)+"%】"+(string)team_count+
+			"名有效同房队员共享"+(string)team_pool_percent+
+			"%基础经验，本人份额已计入下方结果。</font>";
+	if(sizeof(team_tip))
+		message += team_tip+"\n";
 	message += interface_tip+"你得到了 "+(string)actual_exp+" 点经验。\n";
 	if(sizeof(bonus_tips))
 		message += "（"+bonus_tips+"）\n";
@@ -274,20 +283,9 @@ void fight_die()
 				if(t_count<=0)
 					t_count = 1;
 				//得到真正经验值，应该和房间队员人数挂钩
-				switch(t_count){
-					case 2:
-						exp_gain = exp_gain*6/5;
-						break;
-					case 3:
-						exp_gain = exp_gain*7/5;
-						break;
-					case 4:
-						exp_gain = exp_gain*8/5;
-						break;
-					case 5:
-						exp_gain = exp_gain*2;
-						break;
-				}
+				int team_pool_percent =
+					TERMD->query_team_exp_pool_percent(t_count);
+				exp_gain = exp_gain*team_pool_percent/100;
 				//每个人应得到初始经验值为 经验值/队伍人数
 				int fact_exp = exp_gain/t_count;
 				if(fact_exp<=0)
@@ -360,7 +358,8 @@ void fight_die()
 								exp_gain = 0;								
 							}
 							if(exp_gain>0)
-								grant_kill_experience(termer,exp_gain);
+								grant_kill_experience(termer,exp_gain,
+									t_count,team_pool_percent);
 							/*	
 							termer->exp += last_exp;
 							termer->current_exp += last_exp;

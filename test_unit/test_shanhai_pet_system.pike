@@ -153,13 +153,15 @@ void test_catalog_and_all_professions(array(object) players)
 	mapping catalog = PETD->query_pet_catalog();
 	array(string) starters = PETD->query_starter_species();
 	array(string) bosses = PETD->query_rift_boss_species();
-	int valid_catalog = sizeof(catalog)==15 && sizeof(starters)==3 &&
+	int valid_catalog = sizeof(catalog)==16 && sizeof(starters)==3 &&
 		sizeof(bosses)==5;
 	foreach(catalog;string species;mapping info)
 		valid_catalog = valid_catalog && sizeof((array)info["skill_sets"])==3 &&
 			sizeof((array)info["skill_sets"][0])==3 &&
 			(string)info["name"]!="" && (string)info["origin"]!="";
-	check("15种异兽、3只初契、5只轮替首领和三套灵纹完整",
+	valid_catalog = valid_catalog && (int)catalog["luanniao"]["hidden"]==1 &&
+		(string)catalog["luanniao"]["skill"]=="回生羽";
+	check("15种公开异兽、1只隐藏鸾鸟、3只初契与5只轮替首领完整",
 		valid_catalog,"图鉴数量、文化小传或灵纹配置不完整");
 
 	object first = players[0];
@@ -343,15 +345,41 @@ void test_legacy_pet_migration()
 	mapping disk_after_write = Standards.JSON.decode(Stdio.read_file(path));
 	check("V1档案读取时补为一星且单纯查看不强制改写磁盘",
 		chosen["ok"] && migrated["ok"] &&
-		(int)migrated["version"]==3 &&
+		(int)migrated["version"]==4 &&
 		(int)migrated["pets"][0]["star"]==1 &&
 		(int)disk_after_read["version"]==1 &&
 		!has_index(disk_after_read["pets"][0],"star"),
 		"旧档案无法读取、星级不是安全默认值或查看触发了批量迁移");
-	check("旧档案下一次真实修改通过原子保存自然升级为V3",
-		mutation && (int)disk_after_write["version"]==3 &&
+	check("旧档案下一次真实修改通过原子保存自然升级为V4",
+		mutation && (int)disk_after_write["version"]==4 &&
 		(int)disk_after_write["pets"][0]["star"]==1,
 		"V1内存迁移后无法保存或永久星级字段丢失");
+	// 生产中的V3档案已经包含宠物装备与灵技拓印，V4迁移只能补新字段，
+	// 不能像V1/V2迁移那样重建装备栏。
+	mapping legacy_v3 = copy_value(disk_after_write);
+	legacy_v3["version"] = 3;
+	m_delete(legacy_v3,"hidden_luan_pity");
+	m_delete(legacy_v3["daily"],"owner_revive");
+	string gear_before_v3 = Standards.JSON.encode(
+		legacy_v3["gear_inventory"]);
+	Stdio.write_file(path,Standards.JSON.encode(legacy_v3));
+	rm(path+".bak");
+	PETD->drop_test_pet_cache(account_id);
+	mapping migrated_v3 = PETD->query_pet_state(player);
+	mapping disk_after_v3_read = Standards.JSON.decode(
+		Stdio.read_file(path));
+	int v3_mutation = PETD->test_add_pet_material(player,"spirit_dew",1);
+	mapping disk_after_v3_write = Standards.JSON.decode(
+		Stdio.read_file(path));
+	check("V3装备档案只读迁移到V4时完整保留装备且下一次修改才落盘",
+		migrated_v3["ok"] && (int)migrated_v3["version"]==4 &&
+		(int)disk_after_v3_read["version"]==3 && v3_mutation &&
+		(int)disk_after_v3_write["version"]==4 &&
+		Standards.JSON.encode(disk_after_v3_write["gear_inventory"])==
+			gear_before_v3 &&
+		(int)disk_after_v3_write["daily"]["owner_revive"]==0 &&
+		(int)disk_after_v3_write["hidden_luan_pity"]==0,
+		"升级V4时提前写盘、清空V3装备或遗漏新字段");
 }
 
 void test_hunt_and_assist(object player,object pvp_target)
@@ -733,8 +761,8 @@ void test_pet_equipment_and_skill_imprint()
 
 	PETD->drop_test_pet_cache(player->query_account_owner());
 	mapping restored = PETD->query_pet_state(player);
-	check("V3装备、派生属性与空拓印状态重载后完整一致",
-		restored["ok"] && (int)restored["version"]==3 &&
+	check("V4装备、派生属性与空拓印状态重载后完整一致",
+		restored["ok"] && (int)restored["version"]==4 &&
 		sizeof((array)restored["gear_inventory"])==3 &&
 		sizeof((mapping)find_pet_species(restored,"wenyaoyu")["equipment"])==3 &&
 		!find_pet_species(restored,"wenyaoyu")["imprinted_skill"],
@@ -1024,6 +1052,147 @@ void test_duel(object challenger,object target)
 		"标准化模拟器依赖人物装备或运行时战斗对象");
 }
 
+void test_hidden_luan_owner_revive()
+{
+	werror("\n【万灵测试】隐藏鸾鸟与回生羽复活主人\n");
+	string account_id = "xd99testunitpetluan";
+	object player = create_test_player(account_id,"human","jianxian");
+	player->level = 70;
+	player->set_att_by_level();
+	player->save_with_result();
+	mapping chosen = PETD->choose_starter_pet(player,"dangkang");
+	mapping before = PETD->query_pet_state(player);
+	object normal = make_npc(player,70);
+	mapping normal_drop = PETD->test_record_hidden_luan_drop(player,
+		normal,0);
+	object first_boss = make_npc(player,70);
+	first_boss->_boss = 1;
+	mapping missed = PETD->test_record_hidden_luan_drop(player,
+		first_boss,9999);
+	check("隐藏图鉴未收录前不泄露总数且只接受70级以上真实首领",
+		chosen["ok"] && (int)before["catalog_total"]==15 &&
+		!normal_drop["eligible"] && missed["ok"] &&
+		missed["eligible"] && !missed["dropped"] &&
+		(int)missed["pity"]==1,
+		"普通怪可掉隐藏宠、公开图鉴提前泄露或首领保底未累计");
+
+	int pity_set = PETD->test_set_hidden_luan_pity(player,499);
+	object pity_boss = make_npc(player,70);
+	pity_boss->_boss = 1;
+	mapping guaranteed = PETD->test_record_hidden_luan_drop(player,
+		pity_boss,9999);
+	mapping collected = PETD->query_pet_state(player);
+	mapping luan = find_pet_species(collected,"luanniao");
+	check("第500次合格首领无视随机值保底完整鸾鸟并重置账号计数",
+		pity_set && guaranteed["ok"] && guaranteed["dropped"] &&
+		sizeof(luan) && (string)luan["source"]=="hidden_world_boss_pity" &&
+		(int)collected["hidden_luan_pity"]==0 &&
+		(int)collected["catalog_total"]==16,
+		"隐藏掉率无保底、生成残片而非完整宠物或收录后图鉴未解锁");
+
+	mapping attack_grant = PETD->test_grant_pet_species(player,"bifang");
+	mapping with_attack = PETD->query_pet_state(player);
+	mapping attack_pet = find_pet_species(with_attack,"bifang");
+	mapping activated = PETD->set_active_pet(player,(string)luan["id"]);
+	mapping fusion = PETD->query_pet_fusion_preview(player,
+		(string)luan["id"],(string)attack_pet["id"]);
+	check("隐藏鸾鸟可正常设为协战但不能被阴阳合成永久销毁",
+		attack_grant["ok"] && activated["ok"] && !fusion["ok"] &&
+		search((string)fusion["message"],"不能作为合成材料")!=-1,
+		"隐藏宠物无法出战或可被融合导致复活能力丢失/继承");
+
+	player->move(test_room);
+	object duel_killer = create_test_player(
+		"xd99testunitpetluankiller","monst","yinggui");
+	duel_killer->level = 70;
+	duel_killer->set_att_by_level();
+	duel_killer->move(test_room);
+	player->set_life(0);
+	player->set_mofa(0);
+	player->kill_flag = 0;
+	duel_killer->kill_flag = 0;
+	int duel_reject = PETD->try_pet_owner_revive(player,duel_killer);
+	object away_room = clone(ROOT+"/gamelib/d/wanling/wanlingtai");
+	duel_killer->move(away_room);
+	player->kill_flag = 1;
+	duel_killer->kill_flag = 1;
+	int cross_room_reject = PETD->try_pet_owner_revive(player,duel_killer);
+	duel_killer->move(test_room);
+	player->sucide = 1;
+	int suicide_reject = PETD->try_pet_owner_revive(player,duel_killer);
+	mapping before_real_death = PETD->query_pet_state(player);
+	check("切磋、跨房间与自杀均不会误触发或消耗回生羽",
+		!duel_reject && !cross_room_reject && !suicide_reject &&
+		!(int)before_real_death["daily"]["owner_revive"],
+		"非真实死亡路径消耗了账号每日保命次数");
+
+	player->sucide = 0;
+	player->kill_flag = 1;
+	object killer = make_npc(player,70);
+	player->set_life(0);
+	player->set_mofa(0);
+	int expected_life = player->query_life_max()*15/100;
+	int expected_mofa = player->query_mofa_max()*10/100;
+	if(expected_life<1) expected_life = 1;
+	if(expected_mofa<1) expected_mofa = 1;
+	int revived = PETD->try_pet_owner_revive(player,killer);
+	mapping after_revive = PETD->query_pet_state(player);
+	mapping presence = PETD->query_pet_battle_presence(player);
+	check("回生羽在真实死亡结算前复活主人并恢复15%生命与10%法力",
+		revived && player->get_cur_life()==expected_life &&
+		player->get_cur_mofa()==expected_mofa &&
+		(int)after_revive["daily"]["owner_revive"]==1 &&
+		mappingp(presence["owner_revive"]) &&
+		(int)presence["owner_revive"]["remaining"]==0 &&
+		mappingp(presence["recent_event"]) &&
+		presence["recent_event"]["type"]=="revive" &&
+		presence["recent_event"]["skill"]=="回生羽",
+		"恢复比例、永久次数、战斗小窗事件或技能名称错误");
+
+	player->set_life(0);
+	player->set_mofa(0);
+	int repeated = PETD->try_pet_owner_revive(player,killer);
+	PETD->drop_test_pet_cache(account_id);
+	mapping reloaded = PETD->query_pet_state(player);
+	check("同账号每日只能复活一次且重载宠物档案后仍不能重复触发",
+		!repeated && player->get_cur_life()==0 &&
+		(int)reloaded["daily"]["owner_revive"]==1,
+		"同日重复死亡或清缓存可复制回生羽次数");
+	player->set_life(player->query_life_max());
+	player->set_mofa(player->query_mofa_max());
+
+	object healer = create_test_player(
+		"xd99testunitpetluanhealer","third","lingyi");
+	healer->level = 120;
+	healer->set_att_by_level();
+	healer->move(test_room);
+	PETD->choose_starter_pet(healer,"lushu");
+	PETD->test_grant_pet_species(healer,"luanniao");
+	mapping healer_state = PETD->query_pet_state(healer);
+	mapping healer_luan = find_pet_species(healer_state,"luanniao");
+	PETD->set_active_pet(healer,(string)healer_luan["id"]);
+	foreach(({"lingzhen","huichun","muxi","qingxin","huxin"}),
+	   string mastery_skill)
+		healer->skills[mastery_skill] = ({5,0});
+	healer->kill_flag = 1;
+	duel_killer->kill_flag = 1;
+	healer->_fight(duel_killer);
+	duel_killer->_fight(healer);
+	healer->set_life(0);
+	healer->fight_die();
+	mapping healer_after = PETD->query_pet_state(healer);
+	check("灵医百炼复苏真实触发时优先保命且不消耗鸾鸟每日次数",
+		healer->get_cur_life()==healer->query_life_max()*25/100 &&
+		healer->query_lingyi_auto_revive_used()==1 &&
+		!(int)healer_after["daily"]["owner_revive"],
+		"死亡链顺序只存在于源码文字或双重消耗两种复活次数");
+	if(away_room) destruct(away_room);
+	if(normal) destruct(normal);
+	if(first_boss) destruct(first_boss);
+	if(pity_boss) destruct(pity_boss);
+	if(killer) destruct(killer);
+}
+
 void test_corruption_and_wiring()
 {
 	werror("\n【万灵测试】损坏保护、命令接线与旧系统隔离\n");
@@ -1093,6 +1262,16 @@ void test_corruption_and_wiring()
 		dog_source && home_source && search(dog_source,"PETD")==-1 &&
 		search(home_source,"PETD")==-1,
 		"万灵系统与方士召唤槽或旧家园犬产生数据耦合");
+	int lingyi_revive_pos = search(user_source,
+		"try_lingyi_auto_revive(enemy)");
+	int pet_revive_pos = search(user_source,
+		"PETD->try_pet_owner_revive(me,enemy)");
+	int summon_cleanup_pos = search(user_source,
+		"SUMMOND->player_death(me->query_name())");
+	check("主人死亡链固定为灵医复苏、鸾鸟回生、召唤清理与死亡惩罚",
+		lingyi_revive_pos!=-1 && pet_revive_pos>lingyi_revive_pos &&
+		summon_cleanup_pos>pet_revive_pos,
+		"隐藏宠物抢占灵医特色或复活发生在死亡惩罚之后");
 	check("旧文字入口、Vue快捷入口与Header随行宠物均接入万灵谱",
 		user_source && search(user_source,"[万灵:pet]")!=-1 &&
 		vue_source && search(vue_source,"sendQuickCommand('pet')")!=-1 &&
@@ -1168,6 +1347,7 @@ int main()
 			test_pet_auto_combat_growth();
 			test_pet_equipment_and_skill_imprint();
 			test_pet_batch_growth_and_fusion();
+			test_hidden_luan_owner_revive();
 			test_rift(profession_players[0..2]);
 			// 上一项特意清理了前三个账号的宠物数据；重新初契供反刷和论道。
 			for(int i=0;i<3;i++){

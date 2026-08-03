@@ -608,7 +608,8 @@ int try_lingyi_auto_revive(object killer){
 	if(functionp(env->query_room_type) && env->query_room_type()=="city")
 		return 0;
 	// 切磋只分胜负，不消耗每日复苏次数。
-	if(this_object()->kill_flag==0 && killer->kill_flag==0)
+	if(functionp(killer->is) && killer->is("player") &&
+	   this_object()->kill_flag==0 && killer->kill_flag==0)
 		return 0;
 	maximum = query_lingyi_auto_revive_max();
 	used = query_lingyi_auto_revive_used();
