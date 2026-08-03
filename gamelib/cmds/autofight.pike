@@ -110,10 +110,10 @@ private void show_vip_plan(object me)
 	out += "当前等级："+vip_label(vip_level)+"\n";
 	out += "原则：核心挂机免费，VIP提升时长和清包效率；高等级包含低等级全部权益。\n\n";
 	out += "普通玩家：每日8小时；自动战斗、智能寻路、补血补法、缺药休整、拾取、区域巡游、采药采矿及原料出售均可用。\n";
-	out += vip_label(1)+"：每日10小时；普通白装自动出售，满包每次1件；非装备90％触发自动存仓／销毁，每次1组，处理药材和矿材。\n";
-	out += vip_label(2)+"：每日12小时；可处理优良装备，装备90％触发每次2件，可设低3级保护；非装备85％触发每次2组，可自选处理类别。\n";
-	out += vip_label(3)+"：每日14小时；可处理精制装备，装备80％触发每次4件，可取消等级差；非装备80％触发每次4组，可设置材料保留量。\n";
-	out += vip_label(4)+"：每日16小时；装备70％触发每次8件；非装备每次8组，可自选70/80/90％触发线，并设置名称保护和优先处理。\n\n";
+	out += vip_label(1)+"：每日10小时；背包满时一次卖完符合规则的普通白装；非装备90％触发自动存仓／销毁，每次1组，处理药材和矿材。\n";
+	out += vip_label(2)+"：每日12小时；可处理优良装备，装备90％触发并一次清完，可设低3级保护；非装备85％触发每次2组，可自选处理类别。\n";
+	out += vip_label(3)+"：每日14小时；可处理精制装备，装备80％触发并一次清完，可取消等级差；非装备80％触发每次4组，可设置材料保留量。\n";
+	out += vip_label(4)+"：每日16小时；装备70％触发并一次清完；非装备每次8组，可自选70/80/90％触发线，并设置名称保护和优先处理。\n\n";
 	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
 		out += "本职业另有公平自动化助手：技能与手动操作永久免费，VIP只开放PVE执行、策略槽和报告。\n[查看职业助手:profession_assistant]\n\n";
 	out += "永久安全保护不因VIP改变：穿戴、任务、技能书、玉石、宝箱、补给、不可交易／丢弃／存储、唯一、特殊来源及高品质物品不会被误处理。\n\n";
@@ -170,7 +170,9 @@ private void show_cleanup_settings(object me,string notice)
 		out += "\n";
 	out += "装备出售触发：背包达到"+
 		AUTOFIGHTD->query_auto_sell_trigger_percent(me)+"％\n";
-	out += "装备单次处理："+AUTOFIGHTD->query_auto_sell_batch_size(me)+"件\n";
+	out += "当前可自动出售："+
+		AUTOFIGHTD->query_auto_sell_batch_size(me)+
+		"件（达到触发线后一次清完）\n";
 	if(level_gap == 0)
 		out += "等级保护：不限制装备与人物等级差（高于自身等级也按品质规则处理）\n";
 	else
@@ -181,10 +183,10 @@ private void show_cleanup_settings(object me,string notice)
 		((int)me["/plus/autofight_sell_accessory"] == 1 ?
 			"首饰/饰物" : "")+"\n\n";
 
-	out += vip_label(1)+"：装备满包触发，每次1件，可处理普通白装。\n";
-	out += vip_label(2)+"：装备90％触发，每次2件，可选含优良装备和3级保护线。\n";
-	out += vip_label(3)+"：装备80％触发，每次4件，可选含精制装备和不限等级差。\n";
-	out += vip_label(4)+"：装备70％触发，每次8件，自动程度最高。\n\n";
+	out += vip_label(1)+"：装备满包触发，一次清完符合规则的普通白装。\n";
+	out += vip_label(2)+"：装备90％触发，一次清完，可选含优良装备和3级保护线。\n";
+	out += vip_label(3)+"：装备80％触发，一次清完，可选含精制装备和不限等级差。\n";
+	out += vip_label(4)+"：装备70％触发，一次清完，自动程度最高。\n\n";
 
 	out += selected_prefix(mode == "off")+
 		"[关闭智能清包:autofight sell off]\n";
