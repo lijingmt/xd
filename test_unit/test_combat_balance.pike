@@ -70,23 +70,29 @@ void cleanup_test_player_file(string userid)
 
 void test_diminishing_damage_formulas()
 {
-	test_start("物理与法术防御采用递减收益且超高防御不归零");
+	test_start("物理法术递减减伤且穿透提供等量无视防御伤害");
 	object player = create_test_player("__testunit_combat_formula__");
 	int valid = player &&
 		player->query_balanced_physical_damage(10000,0,0)==10000 &&
 		player->query_balanced_physical_damage(10000,10000,0)==5000 &&
-		player->query_balanced_physical_damage(10000,10000,999999)==7142 &&
+		player->query_balanced_physical_damage(10000,10000,3000)==8000 &&
+		player->query_balanced_physical_damage(10000,10000,999999)==11000 &&
 		player->query_balanced_physical_damage(10000,1000000,0)==99 &&
+		player->query_balanced_physical_damage(10000,1000000,999999)==6099 &&
 		player->query_balanced_magic_damage(10000,0,0)==10000 &&
 		player->query_balanced_magic_damage(10000,400,0)==5000 &&
-		player->query_balanced_magic_damage(10000,400,999999)==7142 &&
+		player->query_balanced_magic_damage(10000,400,3000)==8000 &&
+		player->query_balanced_magic_damage(10000,400,999999)==11000 &&
 		player->query_balanced_magic_damage(10000,40000,0)==99 &&
+		player->query_balanced_magic_damage(10000,40000,999999)==6099 &&
+		player->query_balanced_penetration_damage(10000,3000)==3000 &&
+		player->query_balanced_penetration_damage(10000,999999)==6000 &&
 		player->query_balanced_physical_damage(0,-1,-1)==1 &&
 		player->query_balanced_magic_damage(0,-1,-1)==1;
 	if(valid)
 		test_pass();
 	else
-		test_fail("递减防御、60%穿透封顶或极值保护不符合预期");
+		test_fail("递减防御、无视防御穿透或60%攻击封顶不符合预期");
 	destroy_test_player(player);
 }
 
@@ -121,9 +127,11 @@ void test_damage_formula_properties()
 				current_physical<=previous_physical &&
 				current_magic>=1 && current_magic<=previous_magic &&
 				penetrated_physical>=current_physical &&
-				penetrated_physical<=raw_values[i] &&
+				penetrated_physical<=raw_values[i]+
+					raw_values[i]*60/100 &&
 				penetrated_magic>=current_magic &&
-				penetrated_magic<=raw_values[i];
+				penetrated_magic<=raw_values[i]+
+					raw_values[i]*60/100;
 			previous_physical = current_physical;
 			previous_magic = current_magic;
 		}
