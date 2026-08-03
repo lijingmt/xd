@@ -46,7 +46,9 @@ private string render_catalog(mapping state)
 		mapping info = catalog[species];
 		s += owned[species] ? "✓ " : "○ ";
 		s += (string)info["icon"]+(string)info["name"]+" · "+
-			(string)info["role"];
+			(string)info["role"]+" · "+
+			PETD->query_pet_polarity_name(
+				PETD->query_pet_species_polarity(species))+"属";
 		if((int)info["boss"])
 			s += " · 裂隙契约";
 		else if((int)info["exchange"])
@@ -59,7 +61,20 @@ private string render_catalog(mapping state)
 	return s;
 }
 
-private string render_detail(mapping state,string species)
+private string vip_label(int level)
+{
+	string name = VIPD->get_vip_name(level);
+	return "VIP"+level+"（"+(name && name!="" ? name : "会员")+"）";
+}
+
+private string pet_display_name(mapping pet,mapping info)
+{
+	if(mappingp(pet["fusion"]) && (string)pet["fusion"]["name"]!="")
+		return (string)pet["fusion"]["name"];
+	return (string)info["name"];
+}
+
+private string render_detail(mapping state,string species,object me)
 {
 	mapping info = PETD->query_pet_species(species);
 	string s;
@@ -67,7 +82,9 @@ private string render_detail(mapping state,string species)
 		return "万灵谱中没有这种异兽。\n[返回图鉴:pet catalog]\n";
 	s = "【"+(string)info["icon"]+(string)info["name"]+"】\n\n";
 	s += "灵属："+(string)info["family"]+" | 定位："+
-		(string)info["role"]+"\n";
+		(string)info["role"]+" | 阴阳："+
+		PETD->query_pet_polarity_name(
+			PETD->query_pet_species_polarity(species))+"属\n";
 	s += (string)info["origin"]+"\n\n";
 	s += "战斗灵技："+(string)info["skill"]+
 		"。PVE按冷却协战；人物PVP按战斗回合充能，每场最多触发2次，成长收益经过压缩且不能补刀。\n";
@@ -83,7 +100,16 @@ private string render_detail(mapping state,string species)
 	if(owned>=0){
 		mapping pet = state["pets"][owned];
 		mapping attributes = pet["attributes"];
-		s += "\n已收录：Lv."+(int)pet["level"]+"/60 · "+
+		s += "\n契名："+pet_display_name(pet,info)+"\n";
+		s += "阴阳："+(string)pet["polarity_name"]+"属\n";
+		if(mappingp(pet["fusion"])){
+			mapping fusion = pet["fusion"];
+			s += "融合："+(string)fusion["quality_name"]+" · 第"+
+				(int)fusion["generation"]+"代 · 成长增益+"+
+				(int)fusion["growth_bonus"]+"%\n";
+			s += "灵脉："+((array)fusion["traits"]*"、")+"\n";
+		}
+		s += "已收录：Lv."+(int)pet["level"]+"/60 · "+
 			(int)pet["star"]+"星 · "+(string)pet["evolution_name"]+
 			" · 羁绊"+(int)pet["bond"]+"/5\n";
 		s += "灵宠战力："+(int)pet["power"]+" | 生命"+
@@ -99,7 +125,14 @@ private string render_detail(mapping state,string species)
 			"厚积（115%效果/36秒）" : "均衡（100%效果/30秒）"))+"\n";
 		s += "已收录外观："+((array)pet["variants"]*"、")+"\n";
 		s += "[设为协战:pet active "+(string)pet["id"]+"] "+
-			"[提升等级:pet level "+(string)pet["id"]+"]\n"+
+			"[提升1级:pet level "+(string)pet["id"]+"]\n";
+		if(VIPD->query_active_vip_level(me)>=2)
+			s += "[连续提升10级:pet level10 "+(string)pet["id"]+"]（"+
+				vip_label(2)+"）\n";
+		else
+			s += "连续提升10级（"+vip_label(2)+"解锁）"+
+				"[升级会员:vip_service_list]\n";
+		s +=
 			"[消耗残片升星:pet star "+(string)pet["id"]+"] "+
 			"[深化羁绊:pet bond "+(string)pet["id"]+"]\n"+
 			"[轮换灵纹:pet reset "+(string)pet["id"]+"]\n"+
@@ -123,6 +156,7 @@ private string render_materials(mapping state)
 		s += "• "+material_name(material)+"："+
 			(int)state["materials"][material]+"\n";
 	s += "\n灵印可稳定换基础灵宠；灵卵残片既可用于1—10星成长，也可用60枚任选裂隙异兽稳定孵化；3/6/9星自动进化。灵纹符按顺序轮换协战节奏；40月华尘可保底解锁星辉异色。\n";
+	s += "\n残片来源：每日寻迹稳定获得2枚；普通同级怪4%、副本怪12%、首领30%、副本首领50%概率获得1枚，战斗掉落按账号每日最多12枚；组队裂隙仍有最高综合效率、周奖励与完整灵卵保底。\n";
 	s += "[可兑换灵宠:pet catalog]|[返回万灵谱:pet]\n";
 	return s;
 }
@@ -137,12 +171,97 @@ private string render_team(mapping state,object me)
 		mapping info = PETD->query_pet_species((string)pet["species"]);
 		int selected = search(team,(string)pet["id"])!=-1;
 		s += selected ? "✓ " : "○ ";
-		s += (string)info["icon"]+(string)info["name"]+" "+
+		s += (string)info["icon"]+pet_display_name(pet,info)+" "+
 			(selected ? "[移出:pet teamtoggle " : "[加入:pet teamtoggle ")+
 			(string)pet["id"]+"]\n";
 	}
 	s += "\n当前已选 "+sizeof(team)+"/3。\n";
 	s += "[寻找论道对手:pet_duel list]|[返回万灵谱:pet]\n";
+	return s;
+}
+
+private mapping find_state_pet(mapping state,string pet_id)
+{
+	foreach((array)state["pets"],mapping pet)
+		if((string)pet["id"]==pet_id)
+			return pet;
+	return ([]);
+}
+
+private string render_fusion(mapping state,object me,string first_id,
+	string second_id)
+{
+	string s = "§m【阴阳灵契合成】§r\n\n";
+	s += "仅一阴一阳、不同种类的灵宠可以合成。成功时两只原宠合为一只随机契名、阴阳、品质、灵脉与属性结构的新宠，并继承双方最高等级、星级和羁绊；失败时原宠完整保留。\n\n";
+	if(first_id==""){
+		s += "第一步：选择第一只灵宠。\n";
+		foreach((array)state["pets"],mapping pet){
+			mapping info = PETD->query_pet_species((string)pet["species"]);
+			s += "• "+(string)info["icon"]+pet_display_name(pet,info)+
+				" · "+(string)pet["polarity_name"]+"属 · Lv."+
+				(int)pet["level"]+"·"+(int)pet["star"]+"星 "+
+				"[选择:pet fusion "+(string)pet["id"]+"]\n";
+		}
+	}
+	else if(second_id==""){
+		mapping first = find_state_pet(state,first_id);
+		if(!sizeof(first))
+			s += "第一只灵宠已经不存在，请重新选择。\n";
+		else{
+			mapping first_info = PETD->query_pet_species(
+				(string)first["species"]);
+			s += "已选："+(string)first_info["icon"]+
+				pet_display_name(first,first_info)+"（"+
+				(string)first["polarity_name"]+"属）\n\n";
+			s += "第二步：选择相反阴阳的灵宠。\n";
+			foreach((array)state["pets"],mapping pet){
+				if((string)pet["id"]==first_id ||
+				   (string)pet["polarity"]==(string)first["polarity"])
+					continue;
+				mapping info = PETD->query_pet_species(
+					(string)pet["species"]);
+				s += "• "+(string)info["icon"]+
+					pet_display_name(pet,info)+" · "+
+					(string)pet["polarity_name"]+"属 · Lv."+
+					(int)pet["level"]+"·"+(int)pet["star"]+"星 "+
+					"[选择:pet fusion "+first_id+" "+
+					(string)pet["id"]+"]\n";
+			}
+		}
+	}
+	else{
+		mapping preview = PETD->query_pet_fusion_preview(me,first_id,
+			second_id);
+		if(!preview["ok"])
+			s += (string)preview["message"]+"\n";
+		else{
+			mapping first = preview["first"];
+			mapping second = preview["second"];
+			mapping first_info = PETD->query_pet_species(
+				(string)first["species"]);
+			mapping second_info = PETD->query_pet_species(
+				(string)second["species"]);
+			s += "合成双方："+(string)first_info["icon"]+
+				pet_display_name(first,first_info)+"（"+
+				(string)first["polarity_name"]+"） × "+
+				(string)second_info["icon"]+
+				pet_display_name(second,second_info)+"（"+
+				(string)second["polarity_name"]+"）\n";
+			s += "成功率："+(int)preview["success_chance"]+
+				"% | 失败积累："+(int)preview["pity"]+"/5 | 新灵契：第"+
+				(int)preview["generation"]+"代\n";
+			s += "成功消耗10灵印；失败消耗"+
+				(int)preview["failure_cost"]+"灵印且两只原宠不消失。";
+			if(VIPD->query_active_vip_level(me)>=3)
+				s += " VIP3（白金会员）失败保护已生效。";
+			else
+				s += " [VIP3失败返还一半灵印:vip_service_list]";
+			s += "\n\n§y成功会把两只原宠不可逆地合为一只新宠。§r\n";
+			s += "[确认阴阳合成:pet fuse "+first_id+" "+
+				second_id+"]\n";
+		}
+	}
+	s += "\n[重新选择:pet fusion]|[返回万灵谱:pet]\n";
 	return s;
 }
 
@@ -155,7 +274,8 @@ private string render_main(mapping state,object me)
 		if(state["pets"][i]["id"]==active_id){
 			mapping info = PETD->query_pet_species(
 				(string)state["pets"][i]["species"]);
-			active_name = (string)info["icon"]+(string)info["name"]+
+			active_name = (string)info["icon"]+
+				pet_display_name(state["pets"][i],info)+
 				"（Lv."+(int)state["pets"][i]["level"]+" · "+
 				(int)state["pets"][i]["star"]+"星"+
 				(string)state["pets"][i]["evolution_name"]+"）";
@@ -172,6 +292,9 @@ private string render_main(mapping state,object me)
 	s += "灵印："+(int)state["materials"]["spirit_mark"]+
 		" | 灵露："+(int)state["materials"]["spirit_dew"]+
 		" | 灵卵残片："+(int)state["materials"]["egg_fragment"]+"\n\n";
+	s += "今日战斗残片："+(int)state["daily"]["pve_fragments"]+"/"+
+		PETD->query_pet_pve_fragment_daily_cap()+
+		"（普通怪、副本与首领均可获得）\n\n";
 	if(sizeof((mapping)state["pending_rift_rewards"]))
 		s += "★ 有"+sizeof((mapping)state["pending_rift_rewards"])+
 			"份裂隙个人奖励等待领取（资格保留7天）。\n"+
@@ -187,7 +310,7 @@ private string render_main(mapping state,object me)
 		foreach((array)state["pets"],mapping pet){
 			mapping info = PETD->query_pet_species((string)pet["species"]);
 				s += ((string)pet["id"]==active_id ? "✓ " : "○ ")+
-					(string)info["icon"]+(string)info["name"]+" "+
+					(string)info["icon"]+pet_display_name(pet,info)+" "+
 					"Lv."+(int)pet["level"]+"·"+(int)pet["star"]+
 					"星"+(string)pet["evolution_name"]+"·战力"+
 					(int)pet["power"]+"·羁绊"+(int)pet["bond"]+
@@ -195,8 +318,10 @@ private string render_main(mapping state,object me)
 		}
 		s += "[暂停当前协战:pet active none]\n\n";
 	}
-	s += "[今日修行:daily_cultivation]|[万灵裂隙:wanling_rift]|[灵宠论道:pet_duel list]\n";
+	s += "[单人每日寻迹:pet_hunt]|[今日修行:daily_cultivation]|[万灵裂隙:wanling_rift]\n";
+	s += "[灵宠论道:pet_duel list]\n";
 	s += "[完整图鉴:pet catalog]|[论道编队:pet team]|[独立材料栏:pet materials]\n";
+	s += "[阴阳灵契合成:pet fusion]（失败保留原宠）\n";
 	s += "[前往万灵台:wanling_rift gather]\n";
 	s += "\n公平规则：PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。会员不出售战斗专属宠物或属性洗练。\n";
 	if(me->query_profeId()=="fangshi")
@@ -211,6 +336,7 @@ int main(string|zero arg)
 	mapping state;
 	array(string) parts;
 	string message = "";
+	string return_species = "";
 	if(!me)
 		return 0;
 	state = PETD->query_pet_state(me);
@@ -239,9 +365,22 @@ int main(string|zero arg)
 		write(render_team(state,me));
 		return 1;
 	}
-	if(parts[0]=="detail" && sizeof(parts)>=2){
-		write(render_detail(state,parts[1]));
+	if(parts[0]=="fusion"){
+		write(render_fusion(state,me,
+			sizeof(parts)>=2 ? parts[1] : "",
+			sizeof(parts)>=3 ? parts[2] : ""));
 		return 1;
+	}
+	if(parts[0]=="detail" && sizeof(parts)>=2){
+		write(render_detail(state,parts[1],me));
+		return 1;
+	}
+	if(sizeof(parts)>=2){
+		foreach((array)state["pets"],mapping pet)
+			if((string)pet["id"]==parts[1]){
+				return_species = (string)pet["species"];
+				break;
+			}
 	}
 	if(parts[0]=="choose" && sizeof(parts)>=2)
 		message = (string)PETD->choose_starter_pet(me,parts[1])["message"];
@@ -249,6 +388,8 @@ int main(string|zero arg)
 		message = (string)PETD->set_active_pet(me,parts[1])["message"];
 	else if(parts[0]=="level" && sizeof(parts)>=2)
 		message = (string)PETD->train_pet_level(me,parts[1])["message"];
+	else if(parts[0]=="level10" && sizeof(parts)>=2)
+		message = (string)PETD->train_pet_levels(me,parts[1],10)["message"];
 	else if(parts[0]=="star" && sizeof(parts)>=2)
 		message = (string)PETD->upgrade_pet_star(me,parts[1])["message"];
 	else if(parts[0]=="bond" && sizeof(parts)>=2)
@@ -261,6 +402,12 @@ int main(string|zero arg)
 		message = (string)PETD->hatch_pet_fragments(me,parts[1])["message"];
 	else if(parts[0]=="variant" && sizeof(parts)>=2)
 		message = (string)PETD->unlock_pet_dust_variant(me,parts[1])["message"];
+	else if(parts[0]=="fuse" && sizeof(parts)>=3){
+		mapping fusion_result = PETD->fuse_pets(me,parts[1],parts[2]);
+		write((string)fusion_result["message"]+
+			"\n[继续阴阳合成:pet fusion]|[返回万灵谱:pet]|[返回游戏:look]\n");
+		return 1;
+	}
 	else if(parts[0]=="teamtoggle" && sizeof(parts)>=2){
 		array(string) team = state["duel_teams"][me->query_name()] || ({});
 		int index = search(team,parts[1]);
@@ -280,6 +427,9 @@ int main(string|zero arg)
 		write("未知的万灵操作。\n[返回万灵谱:pet]\n");
 		return 1;
 	}
-	write(message+"\n[返回万灵谱:pet]\n[返回游戏:look]\n");
+	write(message+"\n");
+	if(return_species!="")
+		write("[继续培养当前宠物:pet detail "+return_species+"]|");
+	write("[返回万灵谱:pet]|[返回游戏:look]\n");
 	return 1;
 }

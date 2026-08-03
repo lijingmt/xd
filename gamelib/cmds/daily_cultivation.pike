@@ -30,13 +30,18 @@ int main(string|zero arg)
 			"当前目标：升到15级开启万灵初契。\n[每级职业历练:growth_task]\n\n";
 	}
 	s += "1. 今日灵宠寻迹："+hunt_progress(hunt)+"\n";
+	s += "   单人完成固定获得2灵印、8灵露、2灵卵残片、1同心叶。\n";
 	if(hunt<4)
 		s += "[开始/继续寻迹:pet_hunt]|[寻找同级怪物:map_display]\n";
 	s += "2. 今日万灵裂隙："+
 		((int)state["daily"]["rift"] ? "✓ 已完成" : "待完成")+"\n";
 	s += "[一键发布招募:wanling_rift recruit]|[查看裂隙:wanling_rift]\n";
 	s += "3. 今日灵宠论道：不同对手 "+duel_count+"/3\n";
-	s += "[寻找同房对手:pet_duel list]\n\n";
+	s += "[寻找同房对手:pet_duel list]\n";
+	s += "4. 普通战斗残片："+
+		(int)state["daily"]["pve_fragments"]+"/"+
+		PETD->query_pet_pve_fragment_daily_cap()+
+		"（普通怪、副本怪与首领均可掉落）\n\n";
 	s += "【本周目标】\n";
 	s += (string)boss["icon"]+(string)boss["name"]+"裂隙："+
 		(int)state["weekly"]["rift_wins"]+"/3\n";

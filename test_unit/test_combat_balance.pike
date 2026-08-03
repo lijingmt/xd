@@ -355,6 +355,122 @@ void test_stacked_absorb_shields()
 	destroy_test_player(target);
 }
 
+void test_physical_penetration_reaches_real_life_damage()
+{
+	test_start("物理穿透从装备属性进入真实技能扣血而非仅面板显示");
+	object|zero plain = 0;
+	object|zero pierced = 0;
+	object|zero plain_target = 0;
+	object|zero pierced_target = 0;
+	object|zero plain_weapon = 0;
+	object|zero pierced_weapon = 0;
+	object room =
+		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	string error_desc = "";
+	string shielded_message = "";
+	int plain_damage = 0;
+	int pierced_damage = 0;
+	int shielded_damage = 0;
+	int valid = 0;
+	mixed err = catch {
+		plain = create_test_player("__testunit_penetration_plain__");
+		pierced = create_test_player("__testunit_penetration_pierced__");
+		plain_target = create_test_player("__testunit_penetration_target_a__");
+		pierced_target = create_test_player("__testunit_penetration_target_b__");
+		plain->set_profeId("yinggui");
+		pierced->set_profeId("yinggui");
+		plain->setup_player("monst","yinggui");
+		pierced->setup_player("monst","yinggui");
+		plain->set_att_by_level();
+		pierced->set_att_by_level();
+		plain->move(room);
+		pierced->move(room);
+		plain_target->move(room);
+		pierced_target->move(room);
+		plain_weapon = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		pierced_weapon = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		plain_weapon->set_attack_power(10000);
+		plain_weapon->set_attack_power_limit(10000);
+		pierced_weapon->set_attack_power(10000);
+		pierced_weapon->set_attack_power_limit(10000);
+		pierced_weapon->set_wulichuantou_add(6000);
+		plain_weapon->move(plain);
+		pierced_weapon->move(pierced);
+		plain->wield(plain_weapon);
+		pierced->wield(pierced_weapon);
+		plain->skills["fuji"] = ({1,0});
+		pierced->skills["fuji"] = ({1,0});
+		plain->set_debuff("curse",0,"doub");
+		plain->set_debuff("curse",1,1000000);
+		plain->set_debuff("curse",2,10);
+		pierced->set_debuff("curse",0,"doub");
+		pierced->set_debuff("curse",1,1000000);
+		pierced->set_debuff("curse",2,10);
+		plain_target->set_base_dodge(-1000000);
+		pierced_target->set_base_dodge(-1000000);
+		plain_target->set_base_defend(50000);
+		pierced_target->set_base_defend(50000);
+		plain_target->set_base_life(1000000000);
+		pierced_target->set_base_life(1000000000);
+		plain_target->flush_life();
+		pierced_target->flush_life();
+		plain->set_mofa(plain->query_mofa_max());
+		pierced->set_mofa(pierced->query_mofa_max());
+		int plain_life = plain_target->get_cur_life();
+		int pierced_life = pierced_target->get_cur_life();
+		plain->_fight(plain_target);
+		pierced->_fight(pierced_target);
+		plain->perform("fuji",1);
+		pierced->perform("fuji",1);
+		plain_damage = plain_life-plain_target->get_cur_life();
+		pierced_damage = pierced_life-pierced_target->get_cur_life();
+		// 山河壁吸收后，战斗正文必须显示实际扣血0；穿透数字只标注
+		// 已计入基础伤害，不能再让玩家误认为护盾外还应额外扣血。
+		pierced->drain_catch_tell(0,10);
+		pierced->timeCold = 0;
+		pierced->f_skills["fuji"] = 0;
+		pierced->set_mofa(pierced->query_mofa_max());
+		pierced_target->apply_team_guard(1000000000,12);
+		pierced_life = pierced_target->get_cur_life();
+		pierced->perform("fuji",1);
+		shielded_damage = pierced_life-pierced_target->get_cur_life();
+		shielded_message = pierced->drain_catch_tell(0,10);
+		valid = plain->query_equip_add("wulichuantou_add")==0 &&
+			pierced->query_equip_add("wulichuantou_add")==6000 &&
+			plain_damage>0 && pierced_damage-plain_damage==9000 &&
+			shielded_damage==0 &&
+			search(shielded_message,"0点实际伤害")!=-1 &&
+			search(shielded_message,
+				"物理穿透计入基础伤害 9000")!=-1;
+	};
+	if(err)
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("物理穿透真实扣血或护盾后显示错误: 普通="+
+			plain_damage+" 穿透="+pierced_damage+" 护盾后="+
+			shielded_damage+" 文本="+shielded_message+" "+error_desc);
+	if(plain)
+		plain->_clean_fight();
+	if(pierced)
+		pierced->_clean_fight();
+	if(plain_target)
+		plain_target->_clean_fight();
+	if(pierced_target)
+		pierced_target->_clean_fight();
+	if(plain_weapon)
+		destruct(plain_weapon);
+	if(pierced_weapon)
+		destruct(pierced_weapon);
+	destroy_test_player(plain);
+	destroy_test_player(pierced);
+	destroy_test_player(plain_target);
+	destroy_test_player(pierced_target);
+}
+
 void test_missing_skill_safety()
 {
 	test_start("失效技能和陈旧自动技能不会中断战斗循环");
@@ -461,6 +577,7 @@ int main()
 	test_kuangyao_wound_and_dot_priority();
 	test_formula_wiring_contract();
 	test_stacked_absorb_shields();
+	test_physical_penetration_reaches_real_life_damage();
 	test_missing_skill_safety();
 	test_cross_zone_admin_security();
 	werror("\n战斗平衡测试完成！总计: %d, 通过: %d, 失败: %d\n",

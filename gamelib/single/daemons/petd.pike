@@ -10,6 +10,8 @@
 
 inherit LOW_DAEMON;
 
+#define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
+
 #define PET_RECORD_VERSION 2
 #define PET_LEVEL_MAX 60
 #define PET_STAR_MAX 10
@@ -29,6 +31,7 @@ inherit LOW_DAEMON;
 #define PET_PVP_ASSIST_USES 2
 #define PET_PENDING_REWARD_SECONDS (7*86400)
 #define PET_CACHE_MAX 2048
+#define PET_PVE_FRAGMENT_DAILY_CAP 12
 
 private Thread.Mutex pet_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) pet_cache = ([]);

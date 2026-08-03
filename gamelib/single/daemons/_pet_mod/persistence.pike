@@ -66,12 +66,14 @@ private mapping(string:mixed) empty_pet_record(string account_id)
 		"active":([]),
 		"duel_teams":([]),
 		"daily_key":"",
-		"daily":(["hunt":0,"rift":0,"opponents":({})]),
+		"daily":(["hunt":0,"rift":0,"pve_fragments":0,
+			"opponents":({})]),
 		"weekly_key":"",
 		"weekly":(["rift_wins":0,"choice_claimed":0]),
 		"season_key":"",
 		"season":(["wins":0,"losses":0,"draws":0]),
 		"rift_pity":0,
+		"fusion_pity":0,
 		"pending_rift_rewards":([]),
 		"rewarded_sessions":([]),
 		"persisted":0,
@@ -101,6 +103,48 @@ private string current_pet_season_key(void|int at_time)
 {
 	mapping now = localtime(at_time || time());
 	return (now["year"]+1900)+"-"+two_digit(now["mon"]+1);
+}
+
+private int valid_pet_fusion(mapping fusion)
+{
+	mapping attributes;
+	array parents;
+	array traits;
+	if(!mappingp(fusion))
+		return 0;
+	attributes = fusion["attribute_percent"];
+	parents = fusion["parents"];
+	traits = fusion["traits"];
+	if(!stringp(fusion["name"]) || sizeof((string)fusion["name"])<1 ||
+	   sizeof((string)fusion["name"])>40 ||
+	   search(({"yin","yang"}),(string)fusion["polarity"])==-1 ||
+	   (int)fusion["quality"]<1 || (int)fusion["quality"]>4 ||
+	   !stringp(fusion["quality_name"]) ||
+	   sizeof((string)fusion["quality_name"])>20 ||
+	   (int)fusion["generation"]<1 ||
+	   (int)fusion["generation"]>3 ||
+	   (int)fusion["growth_bonus"]<3 ||
+	   (int)fusion["growth_bonus"]>12 ||
+	   !mappingp(attributes) || !arrayp(parents) ||
+	   sizeof(parents)!=2 || !arrayp(traits) || sizeof(traits)!=2 ||
+	   (int)fusion["created_at"]<=0)
+		return 0;
+	foreach(({"life","attack","defense","spirit","speed"}),
+	   string attribute)
+		if(!intp(attributes[attribute]) ||
+		   (int)attributes[attribute]<102 ||
+		   (int)attributes[attribute]>118)
+			return 0;
+	foreach(parents,mixed species)
+		if(!stringp(species) || !shanhai_catalog[(string)species])
+			return 0;
+	if((string)parents[0]==(string)parents[1])
+		return 0;
+	foreach(traits,mixed trait)
+		if(!stringp(trait) || sizeof((string)trait)<1 ||
+		   sizeof((string)trait)>40)
+			return 0;
+	return 1;
 }
 
 private int valid_pet_instance(mapping one,multiset(string) ids,
@@ -137,6 +181,10 @@ private int valid_pet_instance(mapping one,multiset(string) ids,
 		if(!stringp(variant_name) || sizeof((string)variant_name)>40)
 			return 0;
 	}
+	if(has_index(one,"fusion") && one["fusion"] &&
+	   (!mappingp(one["fusion"]) ||
+	    !valid_pet_fusion((mapping)one["fusion"])))
+		return 0;
 	ids[pet_id] = 1;
 	species_seen[species] = 1;
 	return 1;
@@ -237,6 +285,9 @@ private int valid_pet_record(mapping record,string account_id)
 	   (int)record["daily"]["hunt"]>4 ||
 	   (int)record["daily"]["rift"]<0 ||
 	   (int)record["daily"]["rift"]>1 ||
+	   (int)record["daily"]["pve_fragments"]<0 ||
+	   (int)record["daily"]["pve_fragments"]>
+		PET_PVE_FRAGMENT_DAILY_CAP ||
 	   (int)record["weekly"]["rift_wins"]<0 ||
 	   (int)record["weekly"]["rift_wins"]>1000 ||
 	   ((int)record["weekly"]["choice_claimed"]!=0 &&
@@ -245,6 +296,9 @@ private int valid_pet_record(mapping record,string account_id)
 	   (int)record["season"]["losses"]<0 ||
 	   (int)record["season"]["draws"]<0 ||
 	   (int)record["rift_pity"]<0 || (int)record["rift_pity"]>1000)
+		return 0;
+	if((int)record["fusion_pity"]<0 ||
+	   (int)record["fusion_pity"]>5)
 		return 0;
 	foreach((array)record["daily"]["opponents"],mixed opponent)
 		if(!stringp(opponent) || !valid_pet_userid((string)opponent))
@@ -403,7 +457,8 @@ private int refresh_pet_periods_unlocked(mapping record,void|int at_time)
 	int now = at_time || time();
 	if((string)record["daily_key"]!=day_key){
 		record["daily_key"] = day_key;
-		record["daily"] = (["hunt":0,"rift":0,"opponents":({})]);
+		record["daily"] = (["hunt":0,"rift":0,"pve_fragments":0,
+			"opponents":({})]);
 		changed = 1;
 	}
 	if((string)record["weekly_key"]!=week_key){

@@ -89,6 +89,8 @@ int query_pet_growth_percent(mapping pet,void|int pvp)
 		bond = PET_BOND_MAX;
 	evolution = query_pet_evolution_stage(star);
 	result = 100+(level-1)+(star-1)*4+(bond-1)*3+evolution*5;
+	if(mappingp(pet["fusion"]))
+		result += (int)pet["fusion"]["growth_bonus"];
 	if(pvp)
 		result = 100+(result-100)*20/100;
 	return result;
@@ -133,8 +135,15 @@ mapping(string:int) query_pet_attributes(mapping pet)
 	evolution = query_pet_evolution_stage(star);
 	scale = 100+(level-1)*8+(star-1)*25+(bond-1)*20+
 		evolution*50;
-	foreach(indices(base),string attribute)
-		result[attribute] = base[attribute]*scale/100;
+	foreach(indices(base),string attribute){
+		int percent = 100;
+		if(mappingp(pet["fusion"]) &&
+		   mappingp(pet["fusion"]["attribute_percent"]))
+			percent = (int)pet["fusion"]["attribute_percent"][attribute];
+		if(percent<100)
+			percent = 100;
+		result[attribute] = base[attribute]*scale/100*percent/100;
+	}
 	power = result["life"]/10+result["attack"]*3+
 		result["defense"]*3+result["spirit"]*3+
 		result["speed"]*2;
@@ -155,6 +164,9 @@ private mapping(string:mixed) enrich_pet_view(mapping pet)
 	result["power"] = (int)result["attributes"]["power"];
 	result["growth_percent"] = query_pet_growth_percent(result,0);
 	result["pvp_growth_percent"] = query_pet_growth_percent(result,1);
+	result["polarity"] = query_pet_polarity(result);
+	result["polarity_name"] = query_pet_polarity_name(
+		(string)result["polarity"]);
 	return result;
 }
 

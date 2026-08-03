@@ -33,6 +33,25 @@ int query_skill_training_level_max(string name)
 	return level_max-1;
 }
 
+// f_skills 保存的是“剩余秒数+1”。统一在这里转换，避免技能列表、
+// 战斗技能页和详情页分别计算时把整分钟冷却多显示一分钟。
+private string query_skill_cooldown_text(string name)
+{
+	int coldtime_sec;
+	int coldtime_min;
+	if(!name || !this_object()->f_skills ||
+	   (int)this_object()->f_skills[name]<=1)
+		return "";
+	coldtime_sec = (int)this_object()->f_skills[name]-1;
+	if(coldtime_sec>=60){
+		coldtime_min = coldtime_sec/60;
+		if(coldtime_sec%60>0)
+			coldtime_min++;
+		return "("+coldtime_min+"m)";
+	}
+	return "("+coldtime_sec+"s)";
+}
+
 string view_skills()
 {
 	mapping m=this_object()->skills;
@@ -50,16 +69,7 @@ string view_skills()
 				out+="□";
 			}
 			//技能冷却信息
-			string coldtime_s = "";
-			if(this_object()->f_skills[name]>1){
-				int coldtime_sec = this_object()->f_skills[name]-1;
-				int coldtime_min = coldtime_sec/60;
-				if(coldtime_min>1){
-					coldtime_s = "("+(coldtime_min+1)+"m)";
-				}
-				else
-					coldtime_s = "("+(coldtime_sec+1)+"s)";
-			}
+			string coldtime_s = query_skill_cooldown_text(name);
 
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec" || skill->s_skill_type == "70_spec")
 				out+="["+skill->query_name_cn()+":skill_detail "+name+"]";
@@ -98,16 +108,7 @@ string view_skills_mud(string cmds)
 				out+="□";
 			}
 			//技能冷却信息
-			string coldtime_s = "";
-			if(this_object()->f_skills[name]>1){
-				int coldtime_sec = this_object()->f_skills[name]-1;
-				int coldtime_min = coldtime_sec/60;
-				if(coldtime_min>1){
-					coldtime_s = "("+(coldtime_min+1)+"m)";
-				}
-				else
-					coldtime_s = "("+(coldtime_sec+1)+"s)";
-			}
+			string coldtime_s = query_skill_cooldown_text(name);
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec" || skill->s_skill_type == "70_spec")
 				out+="["+skill->query_name_cn()+":"+cmds+" "+name+"]";
 			else if(skill->s_type=="zhudong"&&m[name][0]<skill_level_max)
@@ -165,6 +166,7 @@ string view_performs(string name)
 {
 	string out="";
 	object|zero cur_skill = query_owned_skill_object(name);
+	string coldtime_s = query_skill_cooldown_text(name);
 	if(!cur_skill)
 		return "你要查看的技能不存在。";
 
@@ -181,6 +183,8 @@ string view_performs(string name)
 			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级)\n";
 		else if(cur_skill->s_type=="beidong")
 			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级/5级)\n";
+		if(coldtime_s!="")
+			out += "当前冷却："+coldtime_s+"\n";
 		out += cur_skill->query_picture_url()+"\n";
 		if(cur_skill->s_type=="zhudong")
 			out+="主动技能，";
@@ -236,15 +240,7 @@ string view_use_performs()
 			if(e==name)
 				out+="□";
 			//技能冷却信息
-			string coldtime_s = "";
-			if(this_object()->f_skills[name]>1){
-				int coldtime_sec = this_object()->f_skills[name]-1;
-				int coldtime_min = coldtime_sec/60;
-				if(coldtime_min>1)
-					coldtime_s = "("+(coldtime_min+1)+"m)";
-				else
-					coldtime_s = "("+(coldtime_sec+1)+"s)";
-			}
+			string coldtime_s = query_skill_cooldown_text(name);
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec")
 				out+="["+skill->query_name_cn()+":use_perform "+name+"]";
 			else if(m[name][0]<skill_level_max)

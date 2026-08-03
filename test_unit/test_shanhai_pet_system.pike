@@ -122,6 +122,14 @@ object make_npc(object player,int level)
 	return npc;
 }
 
+mapping find_pet_species(mapping state,string species)
+{
+	foreach((array)state["pets"],mapping pet)
+		if((string)pet["species"]==species)
+			return pet;
+	return ([]);
+}
+
 mapping run_rift(array(object) players,int correct)
 {
 	mapping state = ([]);
@@ -351,6 +359,7 @@ void test_hunt_and_assist(object player,object pvp_target)
 	werror("\n【万灵测试】真实寻迹与PVE/PVP御灵协战\n");
 	player->move(test_room);
 	pvp_target->move(test_room);
+	mapping hunt_before = PETD->query_pet_state(player);
 	mapping start = PETD->start_pet_hunt(player);
 	object first = make_npc(player,45);
 	object low = make_npc(player,44);
@@ -365,7 +374,11 @@ void test_hunt_and_assist(object player,object pvp_target)
 	check("寻迹只认三只合适等级的不同真实NPC且同一死亡不可重复计数",
 		start["ok"] && hit1["ok"] && !repeated["ok"] &&
 		!low_hit["ok"] && hit2["ok"] && hit3["completed"] &&
-		(int)state["daily"]["hunt"]==4,
+		(int)state["daily"]["hunt"]==4 &&
+		(int)state["materials"]["egg_fragment"]==
+			(int)hunt_before["materials"]["egg_fragment"]+2 &&
+		(int)state["materials"]["spirit_dew"]==
+			(int)hunt_before["materials"]["spirit_dew"]+8,
 		"重复死亡、低级怪或点击页面增加了寻迹进度");
 
 	player->set_life(player->query_life_max()/2);
@@ -509,6 +522,169 @@ void test_hunt_and_assist(object player,object pvp_target)
 	player->clean_debuff("curse");
 	foreach(({first,low,second,third}),object npc)
 		if(npc) destruct(npc);
+}
+
+void test_solo_pve_fragment_channels()
+{
+	werror("\n【万灵测试】单人普通怪、副本与首领残片渠道\n");
+	object player = create_test_player("xd99testunitpetpve","human",
+		"jianxian");
+	player->level = 50;
+	player->set_att_by_level();
+	PETD->choose_starter_pet(player,"dangkang");
+	object normal = make_npc(player,50);
+	mapping normal_drop = PETD->test_record_pet_pve_kill(player,normal,0);
+	mapping repeated = PETD->test_record_pet_pve_kill(player,normal,0);
+	object low = make_npc(player,44);
+	mapping low_drop = PETD->test_record_pet_pve_kill(player,low,0);
+	object miss = make_npc(player,50);
+	mapping missed = PETD->test_record_pet_pve_kill(player,miss,99);
+	object boss = make_npc(player,50);
+	boss->_boss = 1;
+	mapping boss_drop = PETD->test_record_pet_pve_kill(player,boss,29);
+	player->fb_id = "testunit/pet_fragment";
+	FBD->add_fb_members(player->fb_id,player->query_name());
+	object dungeon_boss = make_npc(player,50);
+	dungeon_boss->_boss = 1;
+	mapping dungeon_drop = PETD->test_record_pet_pve_kill(player,
+		dungeon_boss,49);
+	FBD->delete_fb_members(player->fb_id,player->query_name());
+	player->fb_id = "";
+	check("普通同级怪、副本首领和野外首领均可单人获得残片",
+		normal_drop["dropped"] && boss_drop["dropped"] &&
+		dungeon_drop["dropped"] &&
+		(int)normal_drop["chance"]==4 &&
+		(int)boss_drop["chance"]==30 &&
+		(int)dungeon_drop["chance"]==50,
+		"普通怪或副本/BOSS概率渠道未接入真实战斗奖励");
+	check("同一怪物按账号去重、低六级怪无收益且概率落空不发残片",
+		!repeated["dropped"] && !low_drop["dropped"] &&
+		missed["ok"] && !missed["dropped"],
+		"重复死亡、低级碾压或未命中概率仍增加残片");
+	for(int i=0;i<9;i++){
+		object one = make_npc(player,50);
+		PETD->test_record_pet_pve_kill(player,one,0);
+		destruct(one);
+	}
+	mapping capped = PETD->query_pet_state(player);
+	object extra = make_npc(player,50);
+	mapping after_cap = PETD->test_record_pet_pve_kill(player,extra,0);
+	mapping capped_after = PETD->query_pet_state(player);
+	check("挂机和副本战斗残片按账号每日封顶12枚",
+		(int)capped["daily"]["pve_fragments"]==12 &&
+		(int)capped["materials"]["egg_fragment"]==12 &&
+		!after_cap["dropped"] &&
+		(int)capped_after["materials"]["egg_fragment"]==12,
+		"每日上限可绕过或材料数量与账号计数不一致");
+	foreach(({normal,low,miss,boss,dungeon_boss,extra}),object npc)
+		if(npc) destruct(npc);
+}
+
+void test_pet_batch_growth_and_fusion()
+{
+	werror("\n【万灵测试】VIP批量培养与阴阳灵契合成事务\n");
+	object player = create_test_player("xd99testunitpetfusion","third",
+		"fangshi");
+	player->level = 50;
+	player->set_att_by_level();
+	PETD->choose_starter_pet(player,"dangkang");
+	PETD->test_grant_pet_species(player,"jiao");
+	PETD->test_grant_pet_species(player,"bifang");
+	PETD->test_add_pet_material(player,"spirit_dew",1000);
+	PETD->test_add_pet_material(player,"spirit_mark",100);
+	mapping before = PETD->query_pet_state(player);
+	mapping dangkang = find_pet_species(before,"dangkang");
+	mapping jiao = find_pet_species(before,"jiao");
+	mapping bifang = find_pet_species(before,"bifang");
+	player->set_vip_flag(0);
+	player->set_vip_end_time(0);
+	mapping denied = PETD->train_pet_levels(player,(string)jiao["id"],10);
+	mapping denied_state = PETD->query_pet_state(player);
+	player->set_vip_flag(2);
+	player->set_vip_end_time(time()+3600);
+	mapping trained = PETD->train_pet_levels(player,(string)jiao["id"],10);
+	mapping trained_state = PETD->query_pet_state(player);
+	check("普通玩家保留单级培养，VIP2可在一次原子保存中安全提升10级",
+		!denied["ok"] &&
+		(int)find_pet_species(denied_state,"jiao")["level"]==1 &&
+		trained["ok"] && (int)trained["trained"]==10 &&
+		(int)find_pet_species(trained_state,"jiao")["level"]==11,
+		"VIP门槛、批量成本循环或培养等级不正确");
+	mapping same_polarity = PETD->query_pet_fusion_preview(player,
+		(string)dangkang["id"],(string)jiao["id"]);
+	mapping active_reject = PETD->query_pet_fusion_preview(player,
+		(string)dangkang["id"],(string)bifang["id"]);
+	check("同阴/同阳不能合成且出战宠物不能被消耗",
+		!same_polarity["ok"] && !active_reject["ok"] &&
+		PETD->query_pet_species_polarity("dangkang")=="yin" &&
+		PETD->query_pet_species_polarity("bifang")=="yang",
+		"阴阳规则或出战引用保护失效");
+	PETD->set_active_pet(player,"none");
+	player->set_vip_flag(0);
+	player->set_vip_end_time(0);
+	mapping pre_failure = PETD->query_pet_state(player);
+	mapping failure = PETD->test_fuse_pets(player,(string)dangkang["id"],
+		(string)bifang["id"],0,2,0);
+	mapping after_failure = PETD->query_pet_state(player);
+	check("合成失败只消耗灵印、完整保留两只原宠并增加失败积累",
+		failure["ok"] && !failure["success"] &&
+		sizeof((array)after_failure["pets"])==3 &&
+		(int)after_failure["materials"]["spirit_mark"]==
+			(int)pre_failure["materials"]["spirit_mark"]-10 &&
+		(int)after_failure["fusion_pity"]==1,
+		"失败路径误删宠物、材料账不平或保底未增加");
+	player->set_vip_flag(3);
+	player->set_vip_end_time(time()+3600);
+	mapping vip_before = PETD->query_pet_state(player);
+	mapping vip_failure = PETD->test_fuse_pets(player,
+		(string)dangkang["id"],(string)bifang["id"],0,3,1);
+	mapping vip_after = PETD->query_pet_state(player);
+	check("VIP3只提供失败灵印保护，不改变宠物和成功率",
+		vip_failure["ok"] && !vip_failure["success"] &&
+		(int)vip_after["materials"]["spirit_mark"]==
+			(int)vip_before["materials"]["spirit_mark"]-5 &&
+		sizeof((array)vip_after["pets"])==3 &&
+		(int)vip_after["fusion_pity"]==2,
+		"VIP失败保护影响战斗属性、成功结果或返还数量错误");
+	for(int i=0;i<3;i++)
+		PETD->test_fuse_pets(player,(string)dangkang["id"],
+			(string)bifang["id"],0,3,i%2);
+	mapping pity_state = PETD->query_pet_state(player);
+	mapping pity_preview = PETD->query_pet_fusion_preview(player,
+		(string)dangkang["id"],(string)bifang["id"]);
+	check("连续失败五次后的下一次阴阳合成为100%保底",
+		(int)pity_state["fusion_pity"]==5 &&
+		pity_preview["ok"] &&
+		(int)pity_preview["success_chance"]==100,
+		"失败积累封顶后仍可能无限连续失败");
+	mapping success_before = PETD->query_pet_state(player);
+	mapping success = PETD->test_fuse_pets(player,(string)dangkang["id"],
+		(string)bifang["id"],1,4,1);
+	mapping success_after = PETD->query_pet_state(player);
+	mapping child = mappingp(success["pet"]) ? success["pet"] : ([]);
+	check("成功合成原子消耗两宠生成一只唯一随机结构宠并继承成长",
+		success["ok"] && success["success"] &&
+		sizeof((array)success_after["pets"])==2 &&
+		find_pet_species(success_after,"dangkang")["id"]!=dangkang["id"] &&
+		find_pet_species(success_after,"bifang")["id"]!=bifang["id"] &&
+		mappingp(child["fusion"]) &&
+		(int)child["fusion"]["quality"]==4 &&
+		(string)child["fusion"]["polarity"]=="yang" &&
+		(int)child["level"]>=1 && (int)success_after["fusion_pity"]==0 &&
+		(int)success_after["materials"]["spirit_mark"]==
+			(int)success_before["materials"]["spirit_mark"]-10,
+		"成功路径数量、旧ID删除、随机结构或继承字段错误");
+	mapping duplicate_attempt = PETD->test_fuse_pets(player,
+		(string)dangkang["id"],(string)bifang["id"],1,4,1);
+	mapping duplicate_state = PETD->query_pet_state(player);
+	PETD->drop_test_pet_cache(player->query_account_owner());
+	mapping disk_state = PETD->query_pet_state(player);
+	check("旧宠ID不能二次消费且融合宠原子落盘后可完整恢复",
+		!duplicate_attempt["ok"] &&
+		sizeof((array)duplicate_state["pets"])==2 &&
+		disk_state["ok"] && sizeof((array)disk_state["pets"])==2 &&
+		mappingp(find_pet_species(disk_state,(string)child["species"])["fusion"]),
+		"重复合成产生克隆、材料重复扣除或融合档案无法恢复");
 }
 
 void test_rift(array(object) players)
@@ -709,7 +885,7 @@ void test_corruption_and_wiring()
 
 	array(string) commands = ({
 		"pet","daily_cultivation","pet_hunt","wanling_join",
-		"wanling_rift","pet_duel",
+		"wanling_rift","pet_duel","sell_equipment_batch",
 	});
 	int compile_ok = 1;
 	foreach(commands,string command){
@@ -725,7 +901,7 @@ void test_corruption_and_wiring()
 	};
 	object httpd = (object)(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
-	check("六个命令、万灵台和HTTP核心串行路由全部接通",
+	check("宠物、批量卖装命令、万灵台和HTTP核心串行路由全部接通",
 		compile_ok && !room_err && room_program && httpd &&
 		httpd->is_core_command("pet choose dangkang")==1 &&
 		httpd->is_core_command("wanling_rift action break")==1 &&
@@ -804,8 +980,10 @@ int main()
 			test_catalog_and_all_professions(profession_players);
 			test_collection_growth(profession_players[0]);
 			test_legacy_pet_migration();
-			test_same_account_active_pet();
+			 test_same_account_active_pet();
 			test_hunt_and_assist(profession_players[0],profession_players[1]);
+			test_solo_pve_fragment_channels();
+			test_pet_batch_growth_and_fusion();
 			test_rift(profession_players[0..2]);
 			// 上一项特意清理了前三个账号的宠物数据；重新初契供反刷和论道。
 			for(int i=0;i<3;i++){

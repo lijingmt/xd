@@ -191,6 +191,33 @@ int is_valid_pet_species(string species)
 	return !!shanhai_catalog[species];
 }
 
+string query_pet_species_polarity(string species)
+{
+	string family;
+	if(!shanhai_catalog[species])
+		return "";
+	family = (string)shanhai_catalog[species]["family"];
+	if(search(({"水","木","土","灵"}),family)!=-1)
+		return "yin";
+	return "yang";
+}
+
+string query_pet_polarity(mapping pet)
+{
+	if(!mappingp(pet))
+		return "";
+	if(mappingp(pet["fusion"]) &&
+	   search(({"yin","yang"}),
+		(string)pet["fusion"]["polarity"])!=-1)
+		return (string)pet["fusion"]["polarity"];
+	return query_pet_species_polarity((string)pet["species"]);
+}
+
+string query_pet_polarity_name(string polarity)
+{
+	return polarity=="yin" ? "阴" : (polarity=="yang" ? "阳" : "未定");
+}
+
 string query_weekly_boss_species(void|int at_time)
 {
 	int now = at_time || time();
@@ -221,6 +248,11 @@ int query_pet_fragment_hatch_cost()
 int query_pet_cosmetic_dust_cost()
 {
 	return PET_COSMETIC_DUST_COST;
+}
+
+int query_pet_pve_fragment_daily_cap()
+{
+	return PET_PVE_FRAGMENT_DAILY_CAP;
 }
 
 #endif

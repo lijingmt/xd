@@ -36,7 +36,11 @@ int main(string arg)
 			if(tmp[tmp_name]==1){
 				//若配置的是技能
 				me->perform(tmp_name);
-				me->reset_view(WAP_VIEWD["/fight"]);
+				// 脱战类技能施放后不能继续渲染已失效的战斗页。
+				if(me->in_combat)
+					me->reset_view(WAP_VIEWD["/fight"]);
+				else
+					me->reset_view(WAP_VIEWD["/look"]);
 				me->write_view();
 				return 1;
 			}
@@ -150,6 +154,14 @@ int main(string arg)
 			}
 		}
 		else{
+			if(tmp[tmp_name]==1){
+				if(me->f_skills && (int)me->f_skills[tmp_name]>1)
+					tell_object(me,"该技能还需要"+
+						((int)me->f_skills[tmp_name]-1)+
+						"秒冷却时间，当前不在战斗中。\n");
+				else
+					tell_object(me,"当前不在战斗中，无法施放该技能。\n");
+			}
 			me->reset_view(WAP_VIEWD["/look"]);
 			me->write_view();
 			return 0;

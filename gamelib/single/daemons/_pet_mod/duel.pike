@@ -10,7 +10,9 @@ private mapping(string:mixed) normalized_duel_pet(mapping pet,int borrowed)
 	return ([
 		"id":borrowed ? "borrowed-"+species : (string)pet["id"],
 		"species":species,
-		"name":(string)info["name"],
+		"name":mappingp(pet["fusion"]) &&
+			(string)pet["fusion"]["name"]!="" ?
+			(string)pet["fusion"]["name"] : (string)info["name"],
 		"role":(string)info["role"],
 		"family":(string)info["family"],
 		"skills":copy_value(pet["skills"] || info["skill_sets"][0]),

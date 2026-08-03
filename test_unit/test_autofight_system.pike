@@ -1913,6 +1913,9 @@ void test_end_to_end_auto_skill_perform()
 	mixed err = catch {
 		player->move(room);
 		enemy->move(room);
+		// 直接clone的NPC不会经过ROOMD刷新流程，测试必须显式补满生命；
+		// 否则战斗引擎会正确地把它判定为已死亡目标并拒绝施法。
+		enemy->set_life(enemy->query_life_max());
 		// 背包满阻断已有独立用例；自动施法场景只保留测试武器。
 		foreach(all_inventory(player),object item)
 			destruct(item);
@@ -2363,6 +2366,73 @@ void test_end_to_end_auto_sell()
 	destroy_runtime_player(player);
 }
 
+void test_vip_one_click_safe_sell_command()
+{
+	test_start("VIP1一键安全卖装先预览再一次清完且永久保护穿戴装备");
+	object player = create_runtime_player(
+		"__testunit_autofight_sell_command__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object command = (object)(ROOT+
+		"/gamelib/cmds/sell_equipment_batch.pike");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	int count_free = -1;
+	int count_preview = -1;
+	int count_done = -1;
+	int enabled = -1;
+	int candidates = -1;
+	string equipped_reason = "";
+	mixed err = catch {
+		player->level = 30;
+		player->set_att_by_level();
+		daemon->initialize_player(player);
+		player["/plus/autofight_auto_sell_mode"] = "normal";
+		player["/plus/autofight_sell_level_gap"] = 5;
+		for(int i=0;i<12;i++){
+			object item = clone(ROOT+
+				"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+			item->move(player);
+		}
+		object equipped = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		equipped->equiped = 1;
+		equipped->move(player);
+		set_this_player(player);
+		set_active_vip(player,0);
+		command->main("confirm");
+		count_free = sizeof(all_inventory(player));
+		valid = count_free==13;
+		set_active_vip(player,1);
+		enabled = daemon->query_auto_sell_enabled(player);
+		candidates = sizeof(daemon->query_auto_sell_candidates(player));
+		equipped_reason = daemon->query_auto_sell_reject_reason(player,
+			equipped);
+		command->main(0);
+		count_preview = sizeof(all_inventory(player));
+		valid = valid && count_preview==13;
+		command->main("confirm");
+		count_done = sizeof(all_inventory(player));
+		valid = valid && count_done==1 &&
+			environment(equipped)==player && equipped->equiped;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("VIP门槛、确认预览、全量出售或穿戴保护错误: "+
+			error_desc+sprintf(" free=%d preview=%d done=%d enabled=%d candidates=%d equipped=%s",
+				count_free,count_preview,count_done,enabled,candidates,
+				equipped_reason));
+	destroy_runtime_player(player);
+}
+
 void test_integration_wiring()
 {
 	test_start("HTTP状态、前端入口、防重入与每日重置完整接线");
@@ -2470,6 +2540,7 @@ int main()
 	test_end_to_end_smart_route_fight();
 	test_end_to_end_auto_rest();
 	test_end_to_end_auto_sell();
+	test_vip_one_click_safe_sell_command();
 	test_integration_wiring();
 	werror("\n自动挂机测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],

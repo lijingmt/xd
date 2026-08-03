@@ -24,6 +24,8 @@ private void clear_pet_runtime(object player)
 	player["/tmp/wanling/pet_power"] = 0;
 	player["/tmp/wanling/pet_growth_percent"] = 0;
 	player["/tmp/wanling/pet_pvp_growth_percent"] = 0;
+	player["/tmp/wanling/pet_name"] = 0;
+	player["/tmp/wanling/pet_polarity"] = 0;
 	player["/tmp/wanling/assist_at"] = 0;
 	player["/tmp/wanling/assist_seq"] = 0;
 	player["/tmp/wanling/recent_assist"] = 0;
@@ -59,6 +61,11 @@ private void sync_pet_runtime_unlocked(object player,mapping pet,
 		query_pet_growth_percent(pet,0);
 	player["/tmp/wanling/pet_pvp_growth_percent"] =
 		query_pet_growth_percent(pet,1);
+	player["/tmp/wanling/pet_name"] = mappingp(pet["fusion"]) &&
+		(string)pet["fusion"]["name"]!="" ?
+		(string)pet["fusion"]["name"] :
+		(string)shanhai_catalog[(string)pet["species"]]["name"];
+	player["/tmp/wanling/pet_polarity"] = query_pet_polarity(pet);
 	if(reset_combat){
 		player["/tmp/wanling/assist_at"] = 0;
 		player["/tmp/wanling/recent_assist"] = 0;
@@ -301,16 +308,22 @@ mapping(string:mixed) set_pet_duel_team(object player,array(string) pet_ids)
 	return result;
 }
 
-mapping(string:mixed) train_pet_level(object player,string pet_id)
+mapping(string:mixed) train_pet_levels(object player,string pet_id,
+	int requested)
 {
 	mapping result = pet_result(0,"本次培养没有生效。");
 	string account_id = resolve_pet_account(player);
 	mapping(string:mixed)|zero record;
 	object key;
+	if(requested<1 || requested>10)
+		return pet_result(0,"每次只能培养1级或连续培养10级。");
 	if(account_id=="")
 		return result;
 	if(player->query_in_combat && player->query_in_combat())
 		return pet_result(0,"交战中不能培养灵宠。 ");
+	if(requested>1 && VIPD->query_active_vip_level(player)<2)
+		return pet_result(0,"连续培养10级需要VIP2（黄金会员）；"+
+			"普通培养1级仍可使用。");
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
 	if(record){
@@ -320,29 +333,65 @@ mapping(string:mixed) train_pet_level(object player,string pet_id)
 		else{
 			mapping pet = record["pets"][index];
 			int level = (int)pet["level"];
-			int cost = 2+level/5;
+			int start_level = level;
+			int total_cost = 0;
+			int trained = 0;
+			int available = (int)record["materials"]["spirit_dew"];
+			int next_cost = 2+level/5;
 			if(level>=PET_LEVEL_MAX)
 				result["message"] = "灵宠已经达到"+PET_LEVEL_MAX+
 					"级培养上限。";
-			else if((int)record["materials"]["spirit_dew"]<cost)
-				result["message"] = "灵露不足，需要"+cost+"滴。";
 			else{
-				add_pet_material_unlocked(record,"spirit_dew",-cost);
-				pet["level"] = level+1;
-				record["revision"] = (int)record["revision"]+1;
-				if(save_pet_record_unlocked(record)){
-					if(record["active"][player->query_name()]==pet_id)
-						sync_pet_runtime_unlocked(player,pet,0);
-					result = pet_result(1,(string)shanhai_catalog[
-						(string)pet["species"]]["name"]+"成长到"+
-						(int)pet["level"]+"级，消耗"+cost+"滴灵露。");
-					result["level"] = pet["level"];
+				while(trained<requested && level<PET_LEVEL_MAX){
+					next_cost = 2+level/5;
+					if(total_cost+next_cost>available)
+						break;
+					total_cost += next_cost;
+					level++;
+					trained++;
+				}
+				if(trained<=0)
+					result["message"] = "灵露不足，下一次培养需要"+
+						next_cost+"滴。";
+				else{
+					add_pet_material_unlocked(record,"spirit_dew",-total_cost);
+					pet["level"] = level;
+					record["revision"] = (int)record["revision"]+1;
+					if(save_pet_record_unlocked(record)){
+						if(record["active"][player->query_name()]==pet_id)
+							sync_pet_runtime_unlocked(player,pet,0);
+						string pet_name = (string)shanhai_catalog[
+							(string)pet["species"]]["name"];
+						if(mappingp(pet["fusion"]) &&
+						   (string)pet["fusion"]["name"]!="")
+							pet_name = (string)pet["fusion"]["name"];
+						if(requested==1)
+							result = pet_result(1,pet_name+"成长到"+
+								level+"级，消耗"+total_cost+"滴灵露。");
+						else{
+							result = pet_result(1,pet_name+"从"+start_level+
+								"级成长到"+level+"级，共提升"+trained+
+								"级，消耗"+total_cost+"滴灵露。");
+							if(trained<requested)
+								result["message"] += level>=PET_LEVEL_MAX ?
+									"已达到培养上限。" :
+									"剩余灵露不足，已在安全档位停止。";
+						}
+						result["level"] = pet["level"];
+						result["trained"] = trained;
+						result["cost"] = total_cost;
+					}
 				}
 			}
 		}
 	}
 	destruct(key);
 	return result;
+}
+
+mapping(string:mixed) train_pet_level(object player,string pet_id)
+{
+	return train_pet_levels(player,pet_id,1);
 }
 
 mapping(string:mixed) upgrade_pet_star(object player,string pet_id)
@@ -553,8 +602,8 @@ mapping(string:mixed) record_pet_hunt_kill(object player,object npc)
 			record["daily"]["hunt"] = progress;
 			if(progress==4){
 				add_pet_material_unlocked(record,"spirit_mark",2);
-				add_pet_material_unlocked(record,"spirit_dew",6);
-				add_pet_material_unlocked(record,"egg_fragment",1);
+				add_pet_material_unlocked(record,"spirit_dew",8);
+				add_pet_material_unlocked(record,"egg_fragment",2);
 				add_pet_material_unlocked(record,"bond_token",1);
 				result["completed"] = 1;
 			}
@@ -565,7 +614,7 @@ mapping(string:mixed) record_pet_hunt_kill(object player,object npc)
 				result["ok"] = 1;
 				result["progress"] = progress-1;
 				if(result["completed"])
-					tell_object(player,"【万灵寻迹完成】获得2枚灵印、6滴灵露、1枚灵卵残片和1枚同心叶。\n[查看今日修行:daily_cultivation]\n");
+					tell_object(player,"【万灵寻迹完成】获得2枚灵印、8滴灵露、2枚灵卵残片和1枚同心叶。\n[查看今日修行:daily_cultivation]\n");
 				else
 					tell_object(player,"【万灵寻迹】线索进度 "+
 						(progress-1)+"/3。\n");
@@ -574,6 +623,369 @@ mapping(string:mixed) record_pet_hunt_kill(object player,object npc)
 	}
 	destruct(key);
 	return result;
+}
+
+private mapping(string:mixed) record_pet_pve_fragment_unlocked(
+	object player,object npc,int forced_roll)
+{
+	mapping result = (["ok":0,"dropped":0,"chance":0,
+		"source":"普通怪物","daily_cap":PET_PVE_FRAGMENT_DAILY_CAP]);
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	mapping credited_accounts;
+	object key;
+	int chance = 4;
+	int is_dungeon = 0;
+	int is_boss = 0;
+	int roll;
+	if(account_id=="" || !npc || !npc->is || !npc->is("npc") ||
+	   SUMMOND->query_combat_credit_owner(npc)!=npc ||
+	   player->query_level()<PET_STARTER_LEVEL ||
+	   player->query_level()-npc->query_level()>5)
+		return result;
+	if(npc->query_npc_type &&
+	   search(({"city_keeper","city_guarder","city_lord"}),
+		(string)npc->query_npc_type())!=-1)
+		return result;
+	if((string)(player->fb_id || "")!="" &&
+	   FBD->query_fb_memebers((string)player->fb_id,
+		player->query_name()))
+		is_dungeon = 1;
+	if((int)(npc->_boss || 0)>0)
+		is_boss = 1;
+	if(is_dungeon && is_boss){
+		chance = 50;
+		result["source"] = "副本首领";
+	}
+	else if(is_boss){
+		chance = 30;
+		result["source"] = "首领";
+	}
+	else if(is_dungeon){
+		chance = 12;
+		result["source"] = "副本怪物";
+	}
+	result["chance"] = chance;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		refresh_pet_periods_unlocked(record);
+		credited_accounts = mappingp(npc["/tmp/wanling/pve_accounts"]) ?
+			npc["/tmp/wanling/pve_accounts"] : ([]);
+		if(!credited_accounts[account_id] &&
+		   (int)record["starter_claimed"] &&
+		   (int)record["daily"]["pve_fragments"]<
+			PET_PVE_FRAGMENT_DAILY_CAP){
+			credited_accounts[account_id] = 1;
+			npc["/tmp/wanling/pve_accounts"] = credited_accounts;
+			roll = forced_roll>=0 ? forced_roll : random(100);
+			if(roll<chance){
+				add_pet_material_unlocked(record,"egg_fragment",1);
+				record["daily"]["pve_fragments"] =
+					(int)record["daily"]["pve_fragments"]+1;
+				record["revision"] = (int)record["revision"]+1;
+				if(save_pet_record_unlocked(record)){
+					result["ok"] = 1;
+					result["dropped"] = 1;
+					result["daily"] =
+						(int)record["daily"]["pve_fragments"];
+					tell_object(player,"【万灵残片】从"+
+						(string)result["source"]+"身上发现1枚灵卵残片（今日战斗获取 "+
+						(int)result["daily"]+"/"+
+						PET_PVE_FRAGMENT_DAILY_CAP+"）。\n");
+				}
+			}
+			else
+				result["ok"] = 1;
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+/** 普通同级怪、副本怪和BOSS都可独立产出残片，并按账号设置每日上限。 */
+mapping(string:mixed) record_pet_pve_kill(object player,object npc)
+{
+	return record_pet_pve_fragment_unlocked(player,npc,-1);
+}
+
+mapping(string:mixed) test_record_pet_pve_kill(object player,object npc,
+	int forced_roll)
+{
+	string account_id = resolve_pet_account(player);
+	if(search(account_id,"testunit")==-1 || forced_roll<0 ||
+	   forced_roll>99)
+		return (["ok":0,"dropped":0]);
+	return record_pet_pve_fragment_unlocked(player,npc,forced_roll);
+}
+
+private int pet_is_referenced_unlocked(mapping record,string pet_id)
+{
+	foreach((mapping)record["active"];string active_character;
+	   mixed active_id)
+		if((string)active_id==pet_id)
+			return 1;
+	foreach((mapping)record["duel_teams"];string duel_character;
+	   mixed raw_team)
+		if(arrayp(raw_team) && search((array)raw_team,pet_id)!=-1)
+			return 1;
+	return 0;
+}
+
+private int query_fusion_generation(mapping pet)
+{
+	if(mappingp(pet["fusion"]))
+		return (int)pet["fusion"]["generation"];
+	return 0;
+}
+
+private mapping(string:mixed) pet_fusion_preview_unlocked(mapping record,
+	string first_id,string second_id,int vip_level)
+{
+	mapping result = pet_result(0,"这两只灵宠暂时不能合成。");
+	int first_index = find_pet_index(record["pets"],first_id);
+	int second_index = find_pet_index(record["pets"],second_id);
+	if(first_id==second_id || first_index<0 || second_index<0){
+		result["message"] = "请选择两只不同且属于本账号的灵宠。";
+		return result;
+	}
+	mapping first = record["pets"][first_index];
+	mapping second = record["pets"][second_index];
+	string first_polarity = query_pet_polarity(first);
+	string second_polarity = query_pet_polarity(second);
+	int generation = query_fusion_generation(first);
+	int second_generation = query_fusion_generation(second);
+	if(second_generation>generation)
+		generation = second_generation;
+	generation++;
+	if(first_polarity==second_polarity){
+		result["message"] = "灵宠合成必须一阴一阳；当前两只均为"+
+			query_pet_polarity_name(first_polarity)+"属。";
+		return result;
+	}
+	if(generation>3){
+		result["message"] = "三代融合灵契已经稳定，不能继续合成。";
+		return result;
+	}
+	if(pet_is_referenced_unlocked(record,first_id) ||
+	   pet_is_referenced_unlocked(record,second_id)){
+		result["message"] = "出战中或论道编队中的灵宠不能合成，请先取消协战并移出编队。";
+		return result;
+	}
+	int star_bonus = (int)first["star"]+(int)second["star"];
+	int success_chance;
+	if(star_bonus>20)
+		star_bonus = 20;
+	if((int)record["fusion_pity"]>=5)
+		success_chance = 100;
+	else{
+		success_chance = 55+star_bonus+
+			(int)record["fusion_pity"]*8;
+		if(success_chance>90)
+			success_chance = 90;
+	}
+	result = pet_result(1,"阴阳灵契可以合成。");
+	result["first"] = enrich_pet_view(first);
+	result["second"] = enrich_pet_view(second);
+	result["success_chance"] = success_chance;
+	result["success_cost"] = 10;
+	result["failure_cost"] = vip_level>=3 ? 5 : 10;
+	result["generation"] = generation;
+	result["pity"] = (int)record["fusion_pity"];
+	return result;
+}
+
+mapping(string:mixed) query_pet_fusion_preview(object player,
+	string first_id,string second_id)
+{
+	mapping result = pet_result(0,"合成预览暂不可用。");
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(account_id=="")
+		return result;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record)
+		result = pet_fusion_preview_unlocked(record,first_id,second_id,
+			VIPD->query_active_vip_level(player));
+	destruct(key);
+	return result;
+}
+
+private mapping(string:mixed) make_fusion_child_unlocked(mapping record,
+	mapping first,mapping second,int generation,int forced_quality,
+	int forced_polarity)
+{
+	array parents = ({first,second});
+	int anchor_index = random(2);
+	mapping anchor = parents[anchor_index];
+	mapping other = parents[1-anchor_index];
+	mapping child = make_pet_instance_unlocked(record,
+		(string)anchor["species"],"yin-yang-fusion");
+	int quality = forced_quality;
+	int quality_roll;
+	array(string) quality_names = ({"","灵契","玄契","天契","神契"});
+	string polarity;
+	if(!sizeof(child))
+		return ([]);
+	if(quality<1 || quality>4){
+		quality_roll = random(100);
+		quality = quality_roll<5 ? 4 :
+			(quality_roll<20 ? 3 : (quality_roll<50 ? 2 : 1));
+	}
+	polarity = forced_polarity==0 ? "yin" :
+		(forced_polarity==1 ? "yang" : (random(2) ? "yang" : "yin"));
+	child["level"] = (int)first["level"]>(int)second["level"] ?
+		(int)first["level"] : (int)second["level"];
+	child["star"] = (int)first["star"]>(int)second["star"] ?
+		(int)first["star"] : (int)second["star"];
+	child["bond"] = (int)first["bond"]>(int)second["bond"] ?
+		(int)first["bond"] : (int)second["bond"];
+	child["skill_set"] = random(2) ? (int)anchor["skill_set"] :
+		(int)other["skill_set"];
+	child["skills"] = ({
+		(string)anchor["skills"][0],
+		(string)other["skills"][1],
+		random(2) ? (string)anchor["skills"][2] :
+			(string)other["skills"][2],
+	});
+	array combined_variants = ({});
+	multiset(string) variant_seen = (<>);
+	foreach((array)first["variants"]+(array)second["variants"],
+	   mixed raw_variant){
+		string variant_name = (string)raw_variant;
+		if(!variant_seen[variant_name]){
+			variant_seen[variant_name] = 1;
+			combined_variants += ({variant_name});
+		}
+	}
+	child["variants"] = combined_variants;
+	if(sizeof((array)child["variants"])>12)
+		child["variants"] = child["variants"][0..11];
+	mapping(string:int) percentages = ([]);
+	foreach(({"life","attack","defense","spirit","speed"}),
+	   string attribute)
+		percentages[attribute] = 100+quality*2+random(quality*2+1);
+	child["fusion"] = ([
+		"name":quality_names[quality]+"·"+
+			(string)shanhai_catalog[(string)first["species"]]["name"]+
+			"×"+(string)shanhai_catalog[(string)second["species"]]["name"],
+		"polarity":polarity,
+		"quality":quality,
+		"quality_name":quality_names[quality],
+		"generation":generation,
+		"growth_bonus":quality*3,
+		"attribute_percent":percentages,
+		"parents":({(string)first["species"],
+			(string)second["species"]}),
+		"traits":({query_pet_polarity_name(query_pet_polarity(first))+
+			"脉承继",query_pet_polarity_name(query_pet_polarity(second))+
+			"脉共鸣"}),
+		"created_at":time(),
+	]);
+	return child;
+}
+
+private mapping(string:mixed) fuse_pets_locked(object player,
+	string first_id,string second_id,int forced_success,
+	int forced_quality,int forced_polarity)
+{
+	mapping result = pet_result(0,"本次阴阳合成没有生效。");
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	int vip_level;
+	if(account_id=="")
+		return result;
+	if(player->query_in_combat && player->query_in_combat())
+		return pet_result(0,"交战中不能进行灵宠合成。");
+	vip_level = VIPD->query_active_vip_level(player);
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		mapping preview = pet_fusion_preview_unlocked(record,first_id,
+			second_id,vip_level);
+		if(!preview["ok"])
+			result = preview;
+		else if((int)record["materials"]["spirit_mark"]<
+		   (int)preview["success_cost"])
+			result["message"] = "灵印不足；开始合成需要准备10枚灵印。";
+		else{
+			int first_index = find_pet_index(record["pets"],first_id);
+			int second_index = find_pet_index(record["pets"],second_id);
+			mapping first = record["pets"][first_index];
+			mapping second = record["pets"][second_index];
+			int won = forced_success>=0 ? forced_success :
+				random(100)<(int)preview["success_chance"];
+			if(won){
+				mapping child = make_fusion_child_unlocked(record,first,
+					second,(int)preview["generation"],forced_quality,
+					forced_polarity);
+				if(!sizeof(child))
+					result["message"] = "新灵契生成失败，材料和原宠均未变化。";
+				else{
+					array kept = ({});
+					foreach((array)record["pets"],mapping pet)
+						if((string)pet["id"]!=first_id &&
+						   (string)pet["id"]!=second_id)
+							kept += ({pet});
+					record["pets"] = kept+({child});
+					add_pet_material_unlocked(record,"spirit_mark",-10);
+					record["fusion_pity"] = 0;
+					record["revision"] = (int)record["revision"]+1;
+					if(save_pet_record_unlocked(record)){
+						result = pet_result(1,"阴阳相合成功，诞生"+
+							(string)child["fusion"]["name"]+"！两只原灵宠的最高等级、星级与羁绊已经继承。");
+						result["success"] = 1;
+						result["pet"] = enrich_pet_view(child);
+					}
+				}
+			}
+			else{
+				int failure_cost = (int)preview["failure_cost"];
+				add_pet_material_unlocked(record,"spirit_mark",-failure_cost);
+				record["fusion_pity"] = (int)record["fusion_pity"]+1;
+				if((int)record["fusion_pity"]>5)
+					record["fusion_pity"] = 5;
+				record["revision"] = (int)record["revision"]+1;
+				if(save_pet_record_unlocked(record)){
+					result = pet_result(1,"阴阳合成未能稳定，两只原灵宠完整保留；消耗"+
+						failure_cost+"枚灵印，失败积累提升到"+
+						(int)record["fusion_pity"]+"/5。"+
+						(vip_level>=3 ? "VIP3失败保护已返还一半灵印。" : ""));
+					result["success"] = 0;
+					result["pity"] = (int)record["fusion_pity"];
+				}
+			}
+			if(result["ok"])
+				ASYNC_IOD->append_log(ROOT+"/log/pet_fusion.log",
+					time()+"|"+account_id+"|"+player->query_name()+"|"+
+					(result["success"] ? "success" : "failure")+"|"+
+					first_id+"|"+second_id+"\n");
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) fuse_pets(object player,string first_id,
+	string second_id)
+{
+	return fuse_pets_locked(player,first_id,second_id,-1,0,-1);
+}
+
+mapping(string:mixed) test_fuse_pets(object player,string first_id,
+	string second_id,int forced_success,int forced_quality,
+	int forced_polarity)
+{
+	string account_id = resolve_pet_account(player);
+	if(search(account_id,"testunit")==-1 ||
+	   search(({0,1}),forced_success)==-1 || forced_quality<1 ||
+	   forced_quality>4 || search(({0,1}),forced_polarity)==-1)
+		return pet_result(0,"测试入口拒绝。");
+	return fuse_pets_locked(player,first_id,second_id,forced_success,
+		forced_quality,forced_polarity);
 }
 
 mapping(string:mixed) exchange_pet(object player,string species)

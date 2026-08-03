@@ -43,7 +43,8 @@ mapping(string:mixed) query_pet_room_presence(object player)
 		return result;
 	return ([
 		"active":1,
-		"name":(string)info["name"],
+		"name":(string)(player["/tmp/wanling/pet_name"] ||
+			info["name"]),
 		"icon":(string)info["icon"],
 		"role":(string)info["role"],
 		"level":(int)player["/tmp/wanling/pet_level"],
@@ -91,9 +92,11 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		"active":1,
 		"pet_id":(string)(player["/tmp/wanling/pet_id"] || ""),
 		"species":species,
-		"name":(string)info["name"],
+		"name":(string)(player["/tmp/wanling/pet_name"] ||
+			info["name"]),
 		"icon":(string)info["icon"],
 		"family":(string)info["family"],
+		"polarity":(string)(player["/tmp/wanling/pet_polarity"] || ""),
 		"role":(string)info["role"],
 		"skill":(string)info["skill"],
 		"skill_set":skill_set,
@@ -271,7 +274,8 @@ private mapping(string:mixed) create_pet_assist_event(object player,
 		"event_at":event_at,
 		"pet_id":(string)(player["/tmp/wanling/pet_id"] || ""),
 		"species":(string)(player["/tmp/wanling/species"] || ""),
-		"name":(string)info["name"],
+		"name":(string)(player["/tmp/wanling/pet_name"] ||
+			info["name"]),
 		"icon":(string)info["icon"],
 		"family":(string)info["family"],
 		"role":(string)info["role"],
@@ -361,11 +365,13 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	if(actual>0){
 		string unit = effect_type=="damage" ? "点协战伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
-		tell_object(player,"【万灵协战】"+(string)info["name"]+"施展"+
+		tell_object(player,"【万灵协战】"+
+			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
 			(string)info["skill"]+"，带来"+actual+unit+"。\n");
 	}
 	else
-		tell_object(player,"【万灵协战】"+(string)info["name"]+"施展"+
+		tell_object(player,"【万灵协战】"+
+			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
 			(string)info["skill"]+"，守护在你身旁。\n");
 	return result;
 }
@@ -483,15 +489,18 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	if(actual>0){
 		string unit = effect_type=="damage" ? "点御灵伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
-		tell_object(player,"【御灵交锋】"+(string)info["name"]+"施展"+
+		tell_object(player,"【御灵交锋】"+
+			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
 			(string)info["skill"]+"，带来"+actual+unit+"（本场"+
 			(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
 		tell_object(target_owner,"【御灵交锋】"+player->query_name_cn()+
-			"的"+(string)info["name"]+"施展"+(string)info["skill"]+
+			"的"+(string)(player["/tmp/wanling/pet_name"] ||
+				info["name"])+"施展"+(string)info["skill"]+
 			"。\n");
 	}
 	else
-		tell_object(player,"【御灵交锋】"+(string)info["name"]+"施展"+
+		tell_object(player,"【御灵交锋】"+
+			(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
 			(string)info["skill"]+"，与你并肩守住战局（本场"+
 			(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
 	return result;

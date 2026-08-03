@@ -42,3 +42,10 @@ int query_s_lasttime(int level){
 	}
 	return l_time;
 }
+
+// 旧职业中仍有一批技能直接继承 MUD_SKILL，而不是 WAP_SKILL。
+// 新职业可选能力必须在根技能上提供安全默认值，否则统一施法入口
+// 探测能力时会把旧技能当作 NULL 函数调用。
+int query_lingyi_room_aoe(){
+	return 0;
+}

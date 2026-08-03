@@ -1,6 +1,7 @@
 #include <wapmud2/include/wapmud2.h>
 #define PRE_LIST_SIZE 5        //页面上显示"这里有xx、xx、xxx等物品"时，"等"前面的物品数目
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
 //int ite_count;                 //用户随身物品格子数目
 /*
 	此文件中主要包括了以下几类方法：
@@ -473,8 +474,15 @@ string view_inventory_zhuangbei_sell(void|string cmd,void|int notShowMoney,void|
 	s += view_something_zhuangbei_sell(lambda(object ob){return ob->is("item")&&ob->query_item_canTrade();},cmd,showPrice);
 	if(s=="")
 		return "你身上没什么东西可出售的。\n";
-	else
+	else{
 		s = mymoney + myyushi + s;
+		if(AUTOFIGHTD->query_vip_level(this_player())>=1)
+			s += "\n[VIP一键安全卖装:sell_equipment_batch]\n"+
+				"按当前智能清包品质、类别和等级保护规则预览；已穿戴、任务、绑定、锻造、镶嵌和珍贵装备永久保护。\n";
+		else
+			s += "\nVIP1（水晶会员）解锁一键安全卖装。"+
+				"[查看会员:vip_service_list]\n";
+	}
 	return  s;
 }
 string view_inventory_daoju_sell(void|string cmd,void|int notShowMoney,void|int showPrice){
