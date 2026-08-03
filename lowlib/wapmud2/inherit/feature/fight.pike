@@ -94,24 +94,29 @@ private int defend = 0;
 //////////////////////////////////////////
 
 // 统一的伤害结算辅助接口。防御/抗性采用递减收益，避免高属性版本中
-// 线性减伤直接把伤害压成 1；穿透最多削减目标 60% 的防御属性。
+// 线性减伤直接把伤害压成1。穿透恢复为独立的无视防御伤害，但单次
+// 最多取原始攻击的60%，防止BT装备上的极端旧数值绕过全部平衡规则。
+int query_balanced_penetration_damage(int raw_attack,int penetration)
+{
+	int penetration_limit;
+	if(raw_attack <= 0 || penetration <= 0)
+		return 0;
+	penetration_limit = raw_attack*60/100;
+	if(penetration > penetration_limit)
+		penetration = penetration_limit;
+	return penetration;
+}
+
 int query_balanced_physical_damage(int raw_attack,int defend_power,
 	int penetration)
 {
-	int penetration_limit;
-	int effective_defend;
 	int result;
 	if(raw_attack <= 0)
 		return 1;
 	if(defend_power < 0)
 		defend_power = 0;
-	if(penetration < 0)
-		penetration = 0;
-	penetration_limit = defend_power*60/100;
-	if(penetration > penetration_limit)
-		penetration = penetration_limit;
-	effective_defend = defend_power-penetration;
-	result = raw_attack*raw_attack/(raw_attack+effective_defend);
+	result = raw_attack*raw_attack/(raw_attack+defend_power);
+	result += query_balanced_penetration_damage(raw_attack,penetration);
 	if(result < 1)
 		result = 1;
 	return result;
@@ -120,20 +125,13 @@ int query_balanced_physical_damage(int raw_attack,int defend_power,
 int query_balanced_magic_damage(int raw_attack,int magic_defend,
 	int penetration)
 {
-	int penetration_limit;
-	int effective_defend;
 	int result;
 	if(raw_attack <= 0)
 		return 1;
 	if(magic_defend < 0)
 		magic_defend = 0;
-	if(penetration < 0)
-		penetration = 0;
-	penetration_limit = magic_defend*60/100;
-	if(penetration > penetration_limit)
-		penetration = penetration_limit;
-	effective_defend = magic_defend-penetration;
-	result = raw_attack*400/(400+effective_defend);
+	result = raw_attack*400/(400+magic_defend);
+	result += query_balanced_penetration_damage(raw_attack,penetration);
 	if(result < 1)
 		result = 1;
 	return result;
@@ -2981,7 +2979,7 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			}
 			////////////////加上被攻击者防御计算得到最终物理伤害值attack_a/////////////////////
 			defend = enemy->query_defend_power();
-			//物理穿透先削减防御，再进入递减收益公式，不能直接变成真实伤害。
+			//物理穿透作为有上限的无视防御伤害，由统一公式结算。
 			int wulichuantou_add=this_object()->query_equip_add("wulichuantou_add");
 			attack_a = query_balanced_physical_damage(total_attack,
 				defend,wulichuantou_add);

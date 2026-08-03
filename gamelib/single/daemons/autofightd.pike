@@ -246,7 +246,10 @@ private void build_training_route_cache()
 				if(path=="")
 					path = (string)one["human"];
 				route["path"] = path;
-				if(level>=50)
+				// 50级后多数路线随玩家等级提升，但不能把地图真实的
+				// 最低怪物等级向下覆盖。典型边界是59级进入60级云野：
+				// 推荐等级必须保持60，否则安全窗口会把整张图过滤掉。
+				if(level>=50 && level>(int)route["level"])
 					route["level"] = level;
 				next_cache[race][level] = route;
 				break;
@@ -1189,14 +1192,12 @@ int query_auto_sell_trigger_percent(object me)
 
 int query_auto_sell_batch_size(object me)
 {
-	int vip_level = query_vip_level(me);
-	if(vip_level >= 4)
-		return 8;
-	if(vip_level == 3)
-		return 4;
-	if(vip_level == 2)
-		return 2;
-	return 1;
+	if(!me)
+		return 0;
+	// 保留这个查询接口给旧页面使用，但自动出售不再人为切成1/2/4/8件。
+	// 背包容量天然限定了单次工作量，符合规则的低级装备应一次清完，
+	// 避免清了8件就返回战斗、下一次拾取时又被满包卡住。
+	return sizeof(query_auto_sell_candidates(me));
 }
 
 int query_auto_sell_level_gap(object me)
@@ -1389,12 +1390,12 @@ mapping(string:mixed) perform_auto_sell(object me)
 		"names":({}),
 	]);
 	array(object) candidates;
-	int batch_size;
 	if(!me || !query_auto_sell_enabled(me) || me->in_combat)
 		return result;
 	candidates = query_auto_sell_candidates(me);
-	batch_size = query_auto_sell_batch_size(me);
-	for(int i = 0;i < sizeof(candidates) && i < batch_size;i++){
+	// 候选列表是单次只读快照；逐件出售前仍重新校验永久保护规则，
+	// 即使处理中物品状态发生变化，也不会误卖受保护装备。
+	for(int i = 0;i < sizeof(candidates);i++){
 		object item = candidates[i];
 		string item_name;
 		string item_path;
@@ -2207,9 +2208,11 @@ void record_roam(object me)
 
 mapping(string:int) query_target_level_window(object me)
 {
+	mapping(string:mixed) route;
 	int me_level;
 	int minimum_level;
 	int maximum_level;
+	int route_level;
 	if(!me)
 		return (["minimum":1,"maximum":1]);
 	me_level = me->query_level();
@@ -2217,6 +2220,12 @@ mapping(string:int) query_target_level_window(object me)
 	minimum_level = 1;
 	if(query_smart_route_enabled(me)){
 		maximum_level = me_level;
+		route = query_training_route(me);
+		route_level = (int)route["level"];
+		// 59级的固定路线位于60级怪区。只接受推荐路线恰好高1级的
+		// 边界，不把智能挂机普遍放宽成可随意越级攻击。
+		if(route_level == me_level+1)
+			maximum_level = route_level;
 		minimum_level = me_level-4;
 		if(minimum_level<1)
 			minimum_level = 1;

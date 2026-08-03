@@ -68,11 +68,11 @@ private int doub_add=0;//附加暴击
 int query_doub_add(){ return doub_add;}
 void set_doub_add(int a){ doub_add=a;}
 //新属性2024//////////////////////////////////
-private int wulichuantou_add=0;//物理穿透优先削减目标防御，单次最多削减60%
+private int wulichuantou_add=0;//物理穿透转为有上限的无视防御伤害
 int query_wulichuantou_add(){ return wulichuantou_add;}
 void set_wulichuantou_add(int a){ wulichuantou_add=a;}
 
-private int mofachuantou_add=0;//法术穿透优先削减目标抗性，单次最多削减60%
+private int mofachuantou_add=0;//法术穿透转为有上限的无视防御伤害
 int query_mofachuantou_add(){ return mofachuantou_add;}
 void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 

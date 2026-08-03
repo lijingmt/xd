@@ -498,7 +498,7 @@ void test_vip_labels_and_plan()
 
 void test_vip_auto_sell_tiers()
 {
-	test_start("VIP等级递进解锁清包品质、触发线和批量数量");
+	test_start("VIP等级递进解锁清包品质、触发线和等级保护");
 	object player = create_runtime_player(
 		"__testunit_autofight_sell_tiers__");
 	object daemon = (object)(ROOT+
@@ -511,7 +511,6 @@ void test_vip_auto_sell_tiers()
 		player["/plus/autofight_auto_sell_mode"] = "normal";
 		valid = daemon->query_auto_sell_enabled(player) == 1 &&
 			daemon->query_auto_sell_trigger_percent(player) == 100 &&
-			daemon->query_auto_sell_batch_size(player) == 1 &&
 			daemon->query_auto_sell_mode_requirement("excellent") == 2;
 
 		set_active_vip(player,2);
@@ -519,21 +518,18 @@ void test_vip_auto_sell_tiers()
 		player["/plus/autofight_sell_level_gap"] = 3;
 		valid = valid &&
 			daemon->query_auto_sell_enabled(player) == 1 &&
-			daemon->query_auto_sell_trigger_percent(player) == 90 &&
-			daemon->query_auto_sell_batch_size(player) == 2;
+			daemon->query_auto_sell_trigger_percent(player) == 90;
 
 		set_active_vip(player,3);
 		player["/plus/autofight_auto_sell_mode"] = "refined";
 		player["/plus/autofight_sell_level_gap"] = 0;
 		valid = valid &&
 			daemon->query_auto_sell_enabled(player) == 1 &&
-			daemon->query_auto_sell_trigger_percent(player) == 80 &&
-			daemon->query_auto_sell_batch_size(player) == 4;
+			daemon->query_auto_sell_trigger_percent(player) == 80;
 
 		set_active_vip(player,4);
 		valid = valid &&
-			daemon->query_auto_sell_trigger_percent(player) == 70 &&
-			daemon->query_auto_sell_batch_size(player) == 8;
+			daemon->query_auto_sell_trigger_percent(player) == 70;
 
 		set_active_vip(player,1);
 		valid = valid &&
@@ -1260,6 +1256,9 @@ void test_smart_route_selection()
 			"path":"plxianjing/dangyunshijie","target":54]),
 		(["level":57,"race":"monst",
 			"path":"plxianjing/binghuanyuntai","target":57]),
+		(["level":59,"race":"third",
+			"path":"penglaihuanjing/yunyepingyuan",
+			"target":60]),
 		(["level":61,"race":"third",
 			"path":"penglaihuanjing/yunyepingyuan",
 			"target":61]),
@@ -1316,6 +1315,9 @@ void test_smart_target_level_window()
 	string error_desc = "";
 	int smart_level = 0;
 	int manual_level = 0;
+	mapping(string:int) transition_window = ([]);
+	mapping(string:int) stable_window = ([]);
+	mapping(string:mixed) transition_route = ([]);
 	int valid = 0;
 	mixed err = catch {
 		foreach(all_inventory(room),object old_item)
@@ -1345,7 +1347,19 @@ void test_smart_target_level_window()
 		object manual_target = daemon->query_target(player);
 		if(manual_target)
 			manual_level = manual_target->query_level();
-		valid = smart_target == matched && manual_target == high;
+		player["/plus/autofight_smart_route"] = 1;
+		player->level = 59;
+		transition_window = daemon->query_target_level_window(player);
+		transition_route = daemon->query_training_route(player);
+		player->level = 60;
+		stable_window = daemon->query_target_level_window(player);
+		valid = smart_target == matched && manual_target == high &&
+			transition_window["minimum"] == 55 &&
+			transition_window["maximum"] == 60 &&
+			transition_route["level"] == 60 &&
+			transition_route["path"] ==
+				"penglaihuanjing/yunyepingyuan" &&
+			stable_window["maximum"] == 60;
 	};
 	if(err)
 		error_desc = describe_error(err);
@@ -1531,13 +1545,14 @@ void test_level_seventeen_dynamic_room_recovery()
 
 void test_real_route_targets()
 {
-	test_start("50至69级逐级有同级怪且70级动态区可攻击");
+	test_start("50至70级逐级有安全目标且59级可衔接60级怪");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	object|zero original_player = this_player();
 	string error_desc = "";
 	int valid = 1;
 	for(int route_level=50;route_level<=70;route_level++){
+		int expected_target_level = route_level == 59 ? 60 : route_level;
 		object player = create_runtime_player(sprintf(
 			"__testunit_autofight_route_%d__",route_level));
 		object|zero room;
@@ -1553,8 +1568,8 @@ void test_real_route_targets()
 			player["/plus/autofight_smart_route"] = 1;
 			object target = daemon->query_target(player);
 			valid = valid && target &&
-				target->query_level() == route_level &&
-				(int)route["level"] == route_level;
+				target->query_level() == expected_target_level &&
+				(int)route["level"] == expected_target_level;
 		};
 		if(err){
 			valid = 0;
@@ -2290,7 +2305,7 @@ void test_end_to_end_auto_rest()
 
 void test_end_to_end_auto_sell()
 {
-	test_start("游戏挂机循环在VIP4阈值自动批量清包并继续运行");
+	test_start("游戏挂机循环一次清完全部合规低级装备并继续运行");
 	object player = create_runtime_player(
 		"__testunit_autofight_sell_e2e__");
 	object daemon = (object)(ROOT+
@@ -2322,7 +2337,7 @@ void test_end_to_end_auto_sell()
 		daemon->start_autofight(player);
 		flush_command->main(0);
 		after_count = sizeof(all_inventory(player));
-		valid = before_count-after_count == 8 &&
+		valid = before_count > 8 && after_count == 0 &&
 			player->query_autofight() == "enable" &&
 			!player->in_combat;
 		daemon->stop_autofight(player);

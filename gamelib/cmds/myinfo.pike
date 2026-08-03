@@ -71,8 +71,10 @@ int main(string|zero arg)
 	s += "毒系法术抗性："+(int)(me->query_equip_add("dusu_defend")+me->query_equip_add("all_mofa_defend"))+"\n";
 	s += "附加物理伤害："+(int)(me->query_equip_add("attack_all"))+"\n";
 	s += "全系法术伤害："+(int)(me->query_equip_add("mofa_all"))+"\n";
-	s += "附加物理穿透："+(int)(me->query_equip_add("wulichuantou_add"))+"\n";
-	s += "附加法术穿透："+(int)(me->query_equip_add("mofachuantou_add"))+"\n";
+	s += "附加物理穿透（无视防御伤害）："+
+		(int)(me->query_equip_add("wulichuantou_add"))+"\n";
+	s += "附加法术穿透（无视防御伤害）："+
+		(int)(me->query_equip_add("mofachuantou_add"))+"\n";
 	s += "附加闪避穿透："+
 		sprintf("%0.2f",(float)me->query_equip_add("dodgechuantou_add")/10.0)+
 		"%（普攻最高40%，物理技能最高60%）\n";
