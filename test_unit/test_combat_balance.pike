@@ -58,6 +58,16 @@ void destroy_test_player(object|zero player)
 		destruct(player);
 }
 
+void cleanup_test_player_file(string userid)
+{
+	string path = DATA_ROOT+"u/"+userid[sizeof(userid)-2..]+"/"+
+		userid+".o";
+	rm(path);
+	rm(path+".tmp");
+	rm(path+".bak");
+	rm(path+".bak.tmp");
+}
+
 void test_diminishing_damage_formulas()
 {
 	test_start("物理与法术防御采用递减收益且超高防御不归零");
@@ -375,6 +385,26 @@ void test_cross_zone_admin_security()
 	test_start("jinghaha与mumu215跨区可管理且相似后缀不能越权");
 	object manager = (object)(ROOT+
 		"/gamelib/single/daemons/managed.pike");
+	string child_id = "xd99jinghahac2a1b2c3d4";
+	string forged_child_id = "xd99jinghahac2f1e2d3c4";
+	object|zero child = 0;
+	object|zero forged_child = 0;
+	int child_saved = 0;
+	int forged_child_saved = 0;
+	cleanup_test_player_file(child_id);
+	cleanup_test_player_file(forged_child_id);
+	child = create_test_player(child_id);
+	forged_child = create_test_player(forged_child_id);
+	if(child){
+		child->set_account_owner("xd99jinghaha");
+		child_saved = child->save_with_result();
+	}
+	if(forged_child){
+		forged_child->set_account_owner("xd99evilowner");
+		forged_child_saved = forged_child->save_with_result();
+	}
+	destroy_test_player(child);
+	destroy_test_player(forged_child);
 	int valid = manager &&
 		manager->is_cross_zone_admin("jinghaha")==1 &&
 		manager->is_cross_zone_admin("mumu215")==1 &&
@@ -393,7 +423,12 @@ void test_cross_zone_admin_security()
 		manager->is_cross_zone_admin("xd01jinghaha119")==0 &&
 		manager->is_cross_zone_admin("1234mumu215")==0 &&
 		manager->checkpower("xd01eviljinghaha")=="nopower" &&
-		manager->checkpower("zz01mumu215")=="nopower";
+		manager->checkpower("zz01mumu215")=="nopower" &&
+		child_saved && forged_child_saved &&
+		manager->is_cross_zone_admin(child_id)==1 &&
+		manager->checkpower(child_id)=="admin" &&
+		manager->is_cross_zone_admin(forged_child_id)==0 &&
+		manager->checkpower(forged_child_id)=="nopower";
 	string source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/managed.pike");
 	valid = valid && source &&
@@ -403,6 +438,8 @@ void test_cross_zone_admin_security()
 		test_pass();
 	else
 		test_fail("跨区管理员识别或防后缀越权边界错误");
+	cleanup_test_player_file(child_id);
+	cleanup_test_player_file(forged_child_id);
 }
 
 int main()

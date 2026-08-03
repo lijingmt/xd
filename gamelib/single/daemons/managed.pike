@@ -13,9 +13,9 @@ mapping(string:string) manager_mem = ([]);//管理员列表([id:权限]) 权限�
 mapping(string:array) unlogin_mem = ([]);//封号列表([id:({中文名，封号起始时间，封号期限，})])
 mapping(string:array) unchat_mem = ([]);//禁言列表([id:({中文名，禁言起始时间，禁言期限，})])
 
-// 固定管理员账号在新旧区服共用权限。只接受“xd/tx+两位数字+完整账号”
-// 的登录ID，不能用任意前缀或后缀模糊匹配，避免伪造区服标识越权。
-int is_cross_zone_admin(string userid)
+// 固定管理员注册账号在新旧区服共用权限。只接受“xd/tx+两位数字+
+// 完整账号”的登录ID，不能用任意前缀或后缀模糊匹配。
+private int is_cross_zone_admin_id(string userid)
 {
 	string account;
 	string zone_prefix;
@@ -37,6 +37,31 @@ int is_cross_zone_admin(string userid)
 		return 0;
 	account = userid[4..];
 	return account=="jinghaha" || account=="mumu215";
+}
+
+// 多人物的物理角色ID不能靠截断名称推导归属，必须读取在线人物或服务端
+// 持久档案中的 account_owner。这样同注册账号继承权限，伪造相似后缀无效。
+private string query_permission_account(string userid)
+{
+	string account_id;
+	if(!userid || userid=="")
+		return "";
+	account_id = ACCOUNT_CHARACTERD->
+		query_account_id_for_character(userid);
+	if(account_id && account_id!="")
+		return account_id;
+	return userid;
+}
+
+int is_cross_zone_admin(string userid)
+{
+	string account_id;
+	if(is_cross_zone_admin_id(userid))
+		return 1;
+	account_id = query_permission_account(userid);
+	if(account_id==userid)
+		return 0;
+	return is_cross_zone_admin_id(account_id);
 }
 
 
@@ -360,7 +385,8 @@ string query_user_deal_status(string mid,string userid){
 //返回admin为权限最高管理员，assist为辅助管理员，只能增加操作，不能解封
 string checkpower(string userid) 
 {
-	if(is_cross_zone_admin(userid))
+	string account_id;
+	if(is_cross_zone_admin_id(userid))
 		return "admin";
 	if(manager_mem&&sizeof(manager_mem))
 	{
@@ -368,6 +394,20 @@ string checkpower(string userid)
 		{
 			if(userid==id){
 				string power = (string)manager_mem[id];	
+				if(power&&sizeof(power))
+					return power;
+			}
+		}
+	}
+	account_id = query_permission_account(userid);
+	if(account_id!=userid && is_cross_zone_admin_id(account_id))
+		return "admin";
+	if(account_id!=userid && manager_mem&&sizeof(manager_mem))
+	{
+		foreach(sort(indices(manager_mem)),string id)
+		{
+			if(account_id==id){
+				string power = (string)manager_mem[id];
 				if(power&&sizeof(power))
 					return power;
 			}
