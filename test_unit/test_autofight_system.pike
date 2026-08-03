@@ -2384,6 +2384,8 @@ void test_vip_one_click_safe_sell_command()
 	int enabled = -1;
 	int candidates = -1;
 	string equipped_reason = "";
+	string free_entry = "";
+	string vip_entry = "";
 	mixed err = catch {
 		player->level = 30;
 		player->set_att_by_level();
@@ -2401,14 +2403,19 @@ void test_vip_one_click_safe_sell_command()
 		equipped->move(player);
 		set_this_player(player);
 		set_active_vip(player,0);
+		free_entry = player->view_inventory_batch_sell_entry();
 		command->main("confirm");
 		count_free = sizeof(all_inventory(player));
-		valid = count_free==13;
+		valid = count_free==13 &&
+			search(free_entry,"vip_service_list") != -1;
 		set_active_vip(player,1);
+		vip_entry = player->view_inventory_batch_sell_entry();
 		enabled = daemon->query_auto_sell_enabled(player);
 		candidates = sizeof(daemon->query_auto_sell_candidates(player));
 		equipped_reason = daemon->query_auto_sell_reject_reason(player,
 			equipped);
+		valid = valid &&
+			search(vip_entry,"sell_equipment_batch") != -1;
 		command->main(0);
 		count_preview = sizeof(all_inventory(player));
 		valid = valid && count_preview==13;
@@ -2427,9 +2434,9 @@ void test_vip_one_click_safe_sell_command()
 		test_pass();
 	else
 		test_fail("VIP门槛、确认预览、全量出售或穿戴保护错误: "+
-			error_desc+sprintf(" free=%d preview=%d done=%d enabled=%d candidates=%d equipped=%s",
+			error_desc+sprintf(" free=%d preview=%d done=%d enabled=%d candidates=%d equipped=%s free_entry=%s vip_entry=%s",
 				count_free,count_preview,count_done,enabled,candidates,
-				equipped_reason));
+				equipped_reason,free_entry,vip_entry));
 	destroy_runtime_player(player);
 }
 
@@ -2461,10 +2468,13 @@ void test_integration_wiring()
 		ROOT+"/lowlib/wapmud2/cmds/disable_autoSkills.pike");
 	string inventory_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/single/viewd.pike");
+	string inventory_feature_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/inherit/feature/inventory.pike");
 	if(api_source && renderer_source && vue_source && index_source &&
 	   daily_source && kill_source && leave_source && user_source &&
 	   autofight_source && autofight_daemon_source && flush_source &&
 	   set_skill_source && disable_skill_source && inventory_source &&
+	   inventory_feature_source &&
 	   search(api_source,"AUTOFIGHTD->start_autofight(player)") != -1 &&
 	   search(renderer_source,"result[\"autofight_time_left\"]") != -1 &&
 	   search(renderer_source,"result[\"autofight_daily_limit\"]") != -1 &&
@@ -2495,7 +2505,12 @@ void test_integration_wiring()
 	   search(flush_source,"perform_auto_sell(me)") != -1 &&
 	   search(flush_source,"perform_auto_store_non_equipment") != -1 &&
 	   search(flush_source,"perform_non_equipment_destroy") != -1 &&
-	   search(inventory_source,"一键安全销毁非装备") != -1)
+	   search(inventory_source,"一键安全销毁非装备") != -1 &&
+	   search(inventory_source,"view_inventory_batch_sell_entry") != -1 &&
+	   search(inventory_feature_source,
+		"[一键安全卖装:sell_equipment_batch]") != -1 &&
+	   search(inventory_feature_source,
+		"[一键安全卖装（VIP1）:vip_service_list]") != -1)
 		test_pass();
 	else
 		test_fail("API、Vue、每日重置或防外挂豁免缺少接线");

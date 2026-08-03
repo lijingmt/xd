@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1785717114669">
-    <link rel="stylesheet" href="css/app.css?v=v1785717114669">
-    <link rel="stylesheet" href="css/realm.css?v=v1785717114669">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1785758089958">
+    <link rel="stylesheet" href="css/app.css?v=v1785758089958">
+    <link rel="stylesheet" href="css/realm.css?v=v1785758089958">
 </head>
 <body>
     <div id="app">
@@ -300,8 +300,8 @@
                             :disabled="characterLoading || accountCharacters.length >= accountCharacterLimit">
                         <span class="character-card-icon" aria-hidden="true">＋</span>
                         <span class="character-card-main">
-                            <strong>创建新职业人物</strong>
-                            <span>每个职业可建立一个独立档案</span>
+                            <strong>创建新人物</strong>
+                            <span>同职业可重复创建，账号最多 {{ accountCharacterLimit }} 个档案</span>
                             <small>原人物和旧登录方式保持不变</small>
                         </span>
                     </button>
@@ -318,14 +318,14 @@
                                 type="button"
                                 class="profession-choice"
                                 :class="{
-                                    selected: characterForm.profession_id === option.profession_id,
-                                    unavailable: accountCharacters.some(character => character.profession_id === option.profession_id)
+                                    selected: characterForm.profession_id === option.profession_id
                                 }"
-                                :disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"
                                 @click="chooseNewProfession(option)">
                             <span class="profession-choice-icon">{{ option.icon }}</span>
                             <span><strong>{{ option.name }}</strong><small>{{ option.race }} · {{ option.desc }}</small></span>
-                            <em v-if="accountCharacters.some(character => character.profession_id === option.profession_id)">已有</em>
+                            <em v-if="accountCharacters.some(character => character.profession_id === option.profession_id)">
+                                已建 {{ accountCharacters.filter(character => character.profession_id === option.profession_id).length }} 个
+                            </em>
                         </button>
                     </div>
                     <div class="character-create-actions">
@@ -1295,18 +1295,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785717114669"></script>
-    <script src="vendor/canvas-confetti.js?v=v1785717114669"></script>
-    <script src="vendor/howler.core.min.js?v=v1785717114669"></script>
-    <script src="vendor/driver.iife.js?v=v1785717114669"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785758089958"></script>
+    <script src="vendor/canvas-confetti.js?v=v1785758089958"></script>
+    <script src="vendor/howler.core.min.js?v=v1785758089958"></script>
+    <script src="vendor/driver.iife.js?v=v1785758089958"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785717114669';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785758089958';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1785717114669"></script>
+    <script src="js/app.js?v=v1785758089958"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785717114669"></script>
+    <script src="../includes/translate.js?v=v1785758089958"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

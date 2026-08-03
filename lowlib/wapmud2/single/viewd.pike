@@ -273,6 +273,7 @@ $(ob->query_links(arg))
 			[一键穿装:auto_equip]
 			[新手补给商店:newbie_shop]
 			[一键安全销毁非装备:cleanup_non_equipment]
+			$(player->view_inventory_batch_sell_entry())
 			$(player->view_inventory_zhuangbei())
 			");
 	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,

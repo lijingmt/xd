@@ -141,17 +141,17 @@ int main()
 			!corrupt_closed["ok"] && corrupt_login_denied,
 			"损坏索引被误当成旧账号或有效备份没有生效");
 
-		mapping duplicate = ACCOUNT_CHARACTERD->create_character(
+		mapping pending_same = ACCOUNT_CHARACTERD->create_character(
 			account_id,"third","fangshi");
 		mapping pending_other = ACCOUNT_CHARACTERD->create_character(
 			account_id,"third","tianxiang");
 		mapping invalid = ACCOUNT_CHARACTERD->create_character(
 			account_id,"human","fangshi");
-		check("同账号同职业不能重复占用档案",
-			!duplicate["ok"] && !pending_other["ok"] &&
-			search((string)duplicate["message"],"已经拥有")!=-1 &&
+		check("待初始化人物阻止连续占用空白档案",
+			!pending_same["ok"] && !pending_other["ok"] &&
+			search((string)pending_same["message"],"待创建")!=-1 &&
 			search((string)pending_other["message"],"待创建")!=-1,
-			"待初始化人物仍可重复或连续创建");
+			"待初始化人物仍可连续创建");
 		check("伪造阵营职业组合被服务端拒绝",
 			!invalid["ok"],"非法职业组合通过校验");
 
@@ -210,6 +210,26 @@ int main()
 			first_entry_err ? describe_error(first_entry_err)+" "+
 				describe_backtrace(first_entry_err) :
 				"职业、阵营或出生点初始化不完整");
+
+		int initialized_saved = restored->save_with_result();
+		mapping repeated = ACCOUNT_CHARACTERD->create_character(
+			account_id,"third","fangshi");
+		mapping repeated_list = ACCOUNT_CHARACTERD->
+			query_account_characters(account_id);
+		int fangshi_count = 0;
+		foreach((array)(repeated_list["characters"] || ({})),
+			mapping summary){
+			if(summary["profession_id"]=="fangshi")
+				fangshi_count++;
+		}
+		check("同账号可重复创建同职业且只保留十人物总上限",
+			initialized_saved && repeated["ok"] &&
+			repeated_list["ok"] &&
+			sizeof((array)repeated_list["characters"])==3 &&
+			fangshi_count==2 &&
+			ACCOUNT_CHARACTERD->query_character_limit()==10,
+			(string)(repeated["message"] ||
+				"重复职业创建或总上限错误"));
 
 		string http_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/http_api_daemon.pike");

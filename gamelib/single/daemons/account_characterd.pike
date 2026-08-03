@@ -645,21 +645,15 @@ mapping(string:mixed) create_character(string requested_id,
 		result["message"] = "人物档案已达到"+
 			ACCOUNT_CHARACTER_LIMIT+"个上限。";
 	else{
-		int duplicate = 0;
 		int unfinished = 0;
 		foreach((array)record["characters"],mapping entry){
 			mapping summary = profile_summary_unlocked(account_id,entry);
-			if(summary["profession_id"]==profession_id){
-				duplicate = 1;
+			if(!(int)summary["ready"]){
+				unfinished = 1;
 				break;
 			}
-			if(!(int)summary["ready"])
-				unfinished = 1;
 		}
-		if(duplicate)
-			result["message"] = "该账号已经拥有"+
-				(profession_names[profession_id] || profession_id)+"人物。";
-		else if(unfinished)
+		if(unfinished)
 			result["message"] =
 				"请先进入并完成已有待创建人物的职业初始化。";
 		else{

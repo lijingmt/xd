@@ -75,7 +75,9 @@ assert.strictEqual(sessionValues.get('mud_account_id'), 'xd01legacy');
 client.chooseNewProfession(
   client.professionOptions.find(option => option.profession_id === 'jianxian')
 );
-assert(client.characterError.includes('已经拥有'));
+assert.strictEqual(client.characterError, '');
+assert.strictEqual(client.characterForm.race_id, 'human');
+assert.strictEqual(client.characterForm.profession_id, 'jianxian');
 client.chooseNewProfession(
   client.professionOptions.find(option => option.profession_id === 'fangshi')
 );
@@ -94,6 +96,8 @@ assert(indexSource.includes('@click="createAccountCharacter"'));
 assert(indexSource.includes('!showRegister && !showCharacterSelect'));
 assert(indexSource.includes('注册账号共享充值余额'));
 assert(indexSource.includes('人物赠送玉石仍各自独立'));
+assert(indexSource.includes('同职业可重复创建'));
+assert(!indexSource.includes(':disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"'));
 assert(cssSource.includes('.character-modal'));
 assert(cssSource.includes('.character-wallet'));
 assert(cssSource.includes('.profession-choice-grid'));

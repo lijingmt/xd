@@ -297,6 +297,12 @@ string have_player(){
 
 ////////////////////// ================     (四) 【玩家查看自己物品】   Start  ===================///////////////////
 // 1、查看随身物品
+//装备背包快捷入口：VIP1以上直接预览安全出售，未解锁时进入会员说明。
+string view_inventory_batch_sell_entry(){
+	if(AUTOFIGHTD->query_vip_level(this_player())>=1)
+		return "[一键安全卖装:sell_equipment_batch]\n";
+	return "[一键安全卖装（VIP1）:vip_service_list]\n";
+}
 //查看随身物品-装备
 string view_inventory_zhuangbei(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)

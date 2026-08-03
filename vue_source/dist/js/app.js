@@ -1383,12 +1383,6 @@ createApp({
         },
 
         chooseNewProfession(option) {
-            if (this.accountCharacters.some(
-                character => character.profession_id === option.profession_id
-            )) {
-                this.characterError = `已经拥有${option.name}人物`;
-                return;
-            }
             this.characterForm.race_id = option.race_id;
             this.characterForm.profession_id = option.profession_id;
             this.characterError = '';
@@ -1396,7 +1390,7 @@ createApp({
 
         async createAccountCharacter() {
             if (!this.characterForm.profession_id || this.characterCreating) {
-                this.characterError = '请先选择一个尚未创建的职业';
+                this.characterError = '请先选择一个职业';
                 return;
             }
             this.characterCreating = true;
