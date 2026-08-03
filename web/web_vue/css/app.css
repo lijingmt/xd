@@ -8017,6 +8017,169 @@ select:focus-visible {
     cursor: pointer;
 }
 
+/* 灵宠升级不占正文空间；连续跨级合并为一张可点击成长卡。 */
+.pet-level-up-stage {
+    position: fixed;
+    z-index: 7150;
+    top: max(174px, calc(env(safe-area-inset-top, 0px) + 150px));
+    left: 50%;
+    width: min(calc(100% - 32px), 390px);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.pet-level-up-card {
+    position: relative;
+    display: grid;
+    width: 100%;
+    min-height: 82px;
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+    padding: 12px 14px;
+    border: 1px solid rgba(250, 204, 21, 0.62);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 18% 50%, rgba(253, 230, 138, 0.28), transparent 34%),
+        linear-gradient(135deg, rgba(55, 35, 24, 0.97), rgba(26, 42, 52, 0.97));
+    color: #fff7d6;
+    box-shadow: 0 16px 42px rgba(8, 12, 24, 0.38),
+        inset 0 0 26px rgba(250, 204, 21, 0.08);
+    text-align: left;
+    cursor: pointer;
+    pointer-events: auto;
+    animation: petLevelUpEnter 0.42s cubic-bezier(0.2, 0.9, 0.28, 1.18),
+        petLevelUpGlow 1.8s ease-in-out infinite;
+}
+
+.pet-level-up-aura {
+    position: absolute;
+    top: 50%;
+    left: 42px;
+    width: 72px;
+    height: 72px;
+    border: 1px solid rgba(253, 230, 138, 0.56);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: petLevelUpAura 1.25s ease-out infinite;
+}
+
+.pet-level-up-icon {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 54px;
+    height: 54px;
+    place-items: center;
+    border: 1px solid rgba(255, 245, 190, 0.62);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 24px rgba(250, 204, 21, 0.34);
+    font-size: 30px;
+}
+
+.pet-level-up-copy {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.pet-level-up-copy strong {
+    overflow: hidden;
+    color: #fde68a;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pet-level-up-copy span {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.pet-level-up-copy small {
+    color: #d8f3ff;
+    font-size: 11px;
+}
+
+.pet-level-up-action {
+    position: relative;
+    z-index: 1;
+    padding: 5px 8px;
+    border: 1px solid rgba(253, 230, 138, 0.42);
+    border-radius: 999px;
+    color: #fde68a;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+@keyframes petLevelUpEnter {
+    from {
+        opacity: 0;
+        transform: translateY(-16px) scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes petLevelUpGlow {
+    50% {
+        border-color: rgba(125, 211, 252, 0.72);
+        box-shadow: 0 18px 46px rgba(8, 12, 24, 0.42),
+            0 0 28px rgba(125, 211, 252, 0.16);
+    }
+}
+
+@keyframes petLevelUpAura {
+    from {
+        opacity: 0.82;
+        transform: translate(-50%, -50%) scale(0.62);
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.28);
+    }
+}
+
+@media (max-width: 480px) {
+    .pet-level-up-stage {
+        top: max(150px, calc(env(safe-area-inset-top, 0px) + 132px));
+        width: calc(100% - 20px);
+    }
+
+    .pet-level-up-card {
+        min-height: 72px;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 9px 10px;
+        border-radius: 15px;
+    }
+
+    .pet-level-up-icon {
+        width: 46px;
+        height: 46px;
+        font-size: 25px;
+    }
+
+    .pet-level-up-copy span {
+        font-size: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pet-level-up-card,
+    .pet-level-up-aura {
+        animation: none !important;
+    }
+}
+
 /* Content readability */
 .game-frame-container {
     min-height: calc(100dvh - 96px);

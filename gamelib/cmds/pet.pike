@@ -399,6 +399,7 @@ private string render_main(mapping state,object me)
 		}
 	string boss_species = (string)state["weekly_boss"];
 	mapping boss = PETD->query_pet_species(boss_species);
+	mapping guidance = PETD->query_pet_growth_guidance(me);
 	string s = "§g【山海万灵谱】§r\n\n";
 	s += "账号共享收藏："+(int)state["collection_count"]+"/"+
 		(int)state["catalog_total"]+" | 当前协战："+active_name+"\n";
@@ -415,6 +416,13 @@ private string render_main(mapping state,object me)
 	s += "今日战斗残片："+(int)state["daily"]["pve_fragments"]+"/"+
 		PETD->query_pet_pve_fragment_daily_cap()+
 		"（普通怪、副本与首领均可获得）\n\n";
+	if(guidance["ok"] && sizeof((array)guidance["suggestions"])){
+		mapping next = guidance["suggestions"][0];
+		s += "§y【成长助手·下一步】§r "+(string)next["title"]+"\n"+
+			(string)next["detail"]+"\n["+(string)next["action_label"]+
+			":"+(string)next["action_command"]+"]|"+
+			"[查看完整建议:pet guide]\n\n";
+	}
 	if(sizeof((mapping)state["pending_rift_rewards"]))
 		s += "★ 有"+sizeof((mapping)state["pending_rift_rewards"])+
 			"份裂隙个人奖励等待领取（资格保留7天）。\n"+
@@ -450,6 +458,29 @@ private string render_main(mapping state,object me)
 	return s;
 }
 
+private string render_growth_guide(object me)
+{
+	mapping guidance = PETD->query_pet_growth_guidance(me);
+	string s = "§y【万灵成长助手】§r\n\n";
+	if(!guidance["ok"])
+		return (string)guidance["message"]+"\n[返回万灵谱:pet]\n";
+	s += "助手只读取当前账号状态，不会自动消耗材料；建议会随领取、出战、等级、装备、技能和日周进度实时变化。\n\n";
+	for(int i=0;i<sizeof((array)guidance["suggestions"]);i++){
+		mapping suggestion = guidance["suggestions"][i];
+		s += (i==0 ? "★ 首要" : "○ 备选")+" · "+
+			(string)suggestion["phase"]+"｜"+
+			(string)suggestion["title"]+"\n"+
+			(string)suggestion["detail"]+"\n";
+		if((int)suggestion["target"]>1)
+			s += "进度："+(int)suggestion["current"]+"/"+
+				(int)suggestion["target"]+"\n";
+		s += "["+(string)suggestion["action_label"]+":"+
+			(string)suggestion["action_command"]+"]\n\n";
+	}
+	s += "[刷新建议:pet guide]|[返回万灵谱:pet]|[返回游戏:look]\n";
+	return s;
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -479,6 +510,10 @@ int main(string|zero arg)
 	}
 	if(parts[0]=="materials"){
 		write(render_materials(state));
+		return 1;
+	}
+	if(parts[0]=="guide"){
+		write(render_growth_guide(me));
 		return 1;
 	}
 	if(parts[0]=="team"){

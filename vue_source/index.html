@@ -601,6 +601,26 @@
                 </div>
             </div>
 
+            <div v-if="petLevelUpEffect"
+                 class="pet-level-up-stage"
+                 role="status"
+                 aria-live="polite">
+                <button type="button"
+                        class="pet-level-up-card"
+                        @click="openPetLevelUpEffect"
+                        :aria-label="`${petLevelUpEffect.name}从${petLevelUpEffect.fromLevel}级提升到${petLevelUpEffect.toLevel}级，点击查看`">
+                    <span class="pet-level-up-aura" aria-hidden="true"></span>
+                    <span class="pet-level-up-icon" aria-hidden="true">{{ petLevelUpEffect.icon }}</span>
+                    <span class="pet-level-up-copy">
+                        <strong>灵光跃迁 · {{ petLevelUpEffect.name }}</strong>
+                        <span>Lv.{{ petLevelUpEffect.fromLevel }} → Lv.{{ petLevelUpEffect.toLevel }}</span>
+                        <small v-if="petLevelUpEffect.levelsGained > 1">连续提升 {{ petLevelUpEffect.levelsGained }} 级</small>
+                        <small v-else>伙伴成长，战力同步提升</small>
+                    </span>
+                    <span class="pet-level-up-action">查看</span>
+                </button>
+            </div>
+
 			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->
 			<div class="modal-overlay team-invite-overlay" v-if="teamInvite">
 				<div class="team-invite-modal"

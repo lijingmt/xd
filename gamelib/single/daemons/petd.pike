@@ -56,6 +56,7 @@ private mapping(string:mapping(string:mixed)) duel_invites = ([]);
 #include "_pet_mod/rift.pike"
 #include "_pet_mod/duel.pike"
 #include "_pet_mod/assist.pike"
+#include "_pet_mod/guidance.pike"
 
 protected void create()
 {

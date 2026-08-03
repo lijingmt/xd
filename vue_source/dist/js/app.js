@@ -295,6 +295,8 @@ createApp({
             petAssistEffectTimer: null,
             lastPetAssistEventId: '',  // 服务端事件ID去重，防止每秒轮询重复播放
             petAssistEventHistory: {},  // 跨人物切换短期去重，避免旧事件重新入场
+            petLevelUpEffect: null,  // 同一只随行宠物等级提高时的合并成长提示
+            petLevelUpEffectTimer: null,
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
@@ -438,6 +440,66 @@ createApp({
                 this.uiToastTimer = null;
             }
             this.uiToast = null;
+        },
+
+        clearPetLevelUpEffect() {
+            if (this.petLevelUpEffectTimer) {
+                clearTimeout(this.petLevelUpEffectTimer);
+                this.petLevelUpEffectTimer = null;
+            }
+            this.petLevelUpEffect = null;
+        },
+
+        handlePetLevelChange(previousPet, currentPet) {
+            if (!previousPet || !currentPet ||
+                Number(previousPet.active || 0) !== 1 ||
+                Number(currentPet.active || 0) !== 1 ||
+                String(previousPet.pet_id || '') === '' ||
+                String(previousPet.pet_id || '') !== String(currentPet.pet_id || '')) {
+                return false;
+            }
+            const fromLevel = Number(previousPet.level);
+            const toLevel = Number(currentPet.level);
+            if (!Number.isFinite(fromLevel) || !Number.isFinite(toLevel) ||
+                toLevel <= fromLevel) {
+                return false;
+            }
+            const name = String(currentPet.name || '灵宠');
+            const icon = String(currentPet.icon || '🐾');
+            const levelsGained = toLevel - fromLevel;
+            const message = `${name} ${fromLevel}级 → ${toLevel}级${levelsGained > 1 ? `，连升${levelsGained}级` : ''}`;
+            const signature = `pet:${currentPet.pet_id}:${fromLevel}->${toLevel}`;
+            this.triggerGameFeedback('petLevel', signature, 800);
+            this.clearPetLevelUpEffect();
+            if (!this.combatEffectsEnabled || this.prefersReducedMotion()) {
+                this.showUiToast(`灵宠成长：${message}`, 'info', {
+                    label: '查看万灵谱',
+                    command: 'pet'
+                });
+                return true;
+            }
+            this.petLevelUpEffect = {
+                id: signature,
+                name,
+                icon,
+                fromLevel,
+                toLevel,
+                levelsGained,
+                command: currentPet.species
+                    ? `pet detail ${currentPet.species}`
+                    : 'pet'
+            };
+            this.petLevelUpEffectTimer = setTimeout(() => {
+                this.petLevelUpEffect = null;
+                this.petLevelUpEffectTimer = null;
+            }, 3800);
+            return true;
+        },
+
+        openPetLevelUpEffect() {
+            const command = this.petLevelUpEffect?.command || 'pet';
+            this.clearPetLevelUpEffect();
+            this.sendQuickCommand(command);
         },
 
         prefersReducedMotion() {
@@ -664,7 +726,8 @@ createApp({
                         : (profession.includes('镇越') ? '岳' : '✦');
                     shapes.push(window.confetti.shapeFromText({ text: glyph, scalar: 1.4 }));
                     shapes.push('star');
-                } else if (kind === 'level' || kind === 'tutorialComplete') {
+                } else if (kind === 'level' || kind === 'petLevel' ||
+                           kind === 'tutorialComplete') {
                     shapes.push('star', 'circle');
                 }
             } catch (error) {
@@ -695,6 +758,7 @@ createApp({
                 quest: 1500,
                 tutorialComplete: 3000,
                 level: 3000,
+                petLevel: 800,
                 rare: 1500,
                 victory: 10000
             };
@@ -705,7 +769,9 @@ createApp({
                 return false;
             }
 
-            const soundName = kind === 'tutorialComplete' ? 'quest' : kind;
+            const soundName = kind === 'tutorialComplete'
+                ? 'quest'
+                : (kind === 'petLevel' ? 'level' : kind);
             this.playGameSound(soundName, minInterval);
             if (!this.combatEffectsEnabled || this.prefersReducedMotion()) {
                 return true;
@@ -726,7 +792,8 @@ createApp({
                     fire({ ...base, particleCount: 72, spread: 82, startVelocity: 42, scalar: 1.05 });
                     fire({ ...base, particleCount: 45, angle: 60, spread: 55, origin: { x: 0.08, y: 0.72 } });
                     fire({ ...base, particleCount: 45, angle: 120, spread: 55, origin: { x: 0.92, y: 0.72 } });
-                } else if (kind === 'level' || kind === 'tutorialComplete') {
+                } else if (kind === 'level' || kind === 'petLevel' ||
+                           kind === 'tutorialComplete') {
                     fire({ ...base, particleCount: 92, spread: 100, startVelocity: 38, scalar: 0.95 });
                 } else if (kind === 'victory') {
                     fire({ ...base, particleCount: 28, spread: 58, startVelocity: 28, ticks: 130, scalar: 0.72 });
@@ -1240,6 +1307,7 @@ createApp({
                 this.loadingTimer = null;
             }
             this.resetPetBattleVisualState();
+            this.clearPetLevelUpEffect();
             return this.characterSessionEpoch;
         },
 
@@ -2761,7 +2829,9 @@ createApp({
                         // 记录之前的 autofight 状态
                         const wasAutofight = this.playerStats && this.playerStats.autofight;
                         const previousAvatar = this.playerStats && this.playerStats.avatar;
+                        const previousPet = this.playerStats && this.playerStats.pet_assist;
                         const previousLevel = Number(this.playerStats?.level);
+                        this.handlePetLevelChange(previousPet, data.pet_assist);
                         this.playerStats = data;
                         // 普通状态轮询也接收服务端短暂保留的群攻战果，覆盖
                         // 最后一击恰好结束战斗、战斗轮询同时停下的切换窗口。
@@ -3974,6 +4044,7 @@ createApp({
             if (!this.combatEffectsEnabled) {
                 this.skillAnimations = [];
                 this.clearPetAssistEffect(false);
+                this.clearPetLevelUpEffect();
                 this.confettiInstance?.reset?.();
                 this.outputAutoAnimateController?.disable?.();
                 this.toastAutoAnimateController?.disable?.();
@@ -4200,6 +4271,7 @@ createApp({
     beforeUnmount() {
         this.clearBattleAoeReport();
         this.resetPetBattleVisualState();
+        this.clearPetLevelUpEffect();
         this.petAssistEventHistory = {};
         this.stopUiTour();
         this.destroyAutoAnimate();

@@ -166,11 +166,19 @@ void test_catalog_and_all_professions(array(object) players)
 
 	object first = players[0];
 	mapping read_only = PETD->query_pet_state(first);
+	mapping early_guide = PETD->query_pet_growth_guidance(first);
 	mapping too_early = PETD->choose_starter_pet(first,"dangkang");
 	check("旧账号读取与14级误点都不创建宠物附属文件",
 		read_only["ok"] && !too_early["ok"] &&
 		Stdio.file_size(pet_file(first->query_name()))<=0,
 		"只读兼容路径写盘或提前领取成功");
+	check("成长助手在初契开放前只推荐安全升级路径",
+		early_guide["ok"] &&
+		sizeof((array)early_guide["suggestions"])==1 &&
+		(string)early_guide["suggestions"][0]["phase"]=="初契" &&
+		(string)early_guide["suggestions"][0]["action_command"]==
+			"autofight open",
+		"未到15级时误导玩家领取或建议没有直达挂机设置");
 
 	array(string) choices = ({"dangkang","lushu","wenyaoyu"});
 	int all_ok = 1;
@@ -185,6 +193,15 @@ void test_catalog_and_all_professions(array(object) players)
 			is_hex_pet_id((string)state["pets"][0]["id"]) &&
 			state["active"][players[i]->query_name()]==state["pets"][0]["id"];
 	}
+	mapping starter_guide = PETD->query_pet_growth_guidance(first);
+	check("初契后成长助手优先每日寻迹且最多返回三项只读建议",
+		starter_guide["ok"] &&
+		sizeof((array)starter_guide["suggestions"])>=1 &&
+		sizeof((array)starter_guide["suggestions"])<=3 &&
+		(string)starter_guide["suggestions"][0]["action_command"]==
+			"pet_hunt" &&
+		(int)PETD->query_pet_state(first)["daily"]["hunt"]==0,
+		"助手排序错误、建议过多或只读查询意外启动了寻迹");
 	check("人、妖、中立阵营现有全部十职业均可在15级后独立完成初契",
 		all_ok,"至少一个职业被职业判断、存档或唯一ID拦截");
 }
@@ -634,6 +651,18 @@ void test_pet_auto_combat_growth()
 		(int)after_normal["pets"][0]["xp"]==65 &&
 		(int)after_normal["pets"][0]["xp_need"]==125,
 		"历练公式、同怪去重、等级差限制或进度视图错误");
+	player->_fight(normal);
+	normal->_fight(player);
+	mapping combat_guide = PETD->query_pet_growth_guidance(player);
+	player->_clean_fight();
+	normal->_clean_fight();
+	check("交战中的成长助手只建议查看战况且不诱导非法培养",
+		combat_guide["ok"] &&
+		sizeof((array)combat_guide["suggestions"])==1 &&
+		(string)combat_guide["suggestions"][0]["phase"]=="协战" &&
+		(string)combat_guide["suggestions"][0]["action_command"]=="attack" &&
+		(int)PETD->query_pet_state(player)["pets"][0]["xp"]==65,
+		"交战时仍推荐换宠、培养或只读查询改变了历练");
 
 	player->fb_id = "testunit/pet_xp";
 	FBD->add_fb_members(player->fb_id,player->query_name());
@@ -1281,6 +1310,14 @@ void test_corruption_and_wiring()
 		vue_css_source && search(vue_css_source,
 			".header-pet-companion")!=-1,
 		"客户端没有万灵入口或Header未显示当前随行宠物");
+	check("万灵成长助手与灵宠跨级感知已接入命令、状态和响应式前端",
+		pet_source && search(pet_modules,"query_pet_growth_guidance")!=-1 &&
+		search(Stdio.read_file(ROOT+"/gamelib/cmds/pet.pike") || "",
+			"render_growth_guide")!=-1 &&
+		search(vue_source,"pet-level-up-stage")!=-1 &&
+		search(vue_app_source,"handlePetLevelChange(previousPet")!=-1 &&
+		search(vue_css_source,"@keyframes petLevelUpEnter")!=-1,
+		"成长建议、直达入口、升级状态差分或视觉层没有完整接通");
 	check("头像装备面板使用只读结构接口并复用服务器换装命令校验",
 		equipment_api_source &&
 		search(equipment_api_source,"all_inventory(player)")!=-1 &&

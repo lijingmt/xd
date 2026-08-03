@@ -139,6 +139,8 @@ assert(indexSource.includes('equipment-human-silhouette'));
 assert(indexSource.includes('getEquipmentCandidates(equipmentSelectedSlot)'));
 assert(indexSource.includes("playerStats.profe === '天象' ? '✦'"));
 assert(indexSource.includes("playerStats.profe === '灵医' ? '✚'"));
+assert(indexSource.includes('class="pet-level-up-stage"'));
+assert(indexSource.includes('@click="openPetLevelUpEffect"'));
 const soundDataUri = sandbox.createGameSoundSpriteDataUri();
 assert(soundDataUri.startsWith('data:audio/wav;base64,'));
 const soundBytes = Buffer.from(soundDataUri.split(',')[1], 'base64');
@@ -185,6 +187,37 @@ assert.strictEqual(client.getPetCultivationLabel(headerPet), 'Lv.60 · 10星真�
 client.playerStats.pet_assist = { active: 0 };
 assert.strictEqual(componentOptions.computed.headerPet.call(client), null);
 client.playerStats.pet_assist = headerPet;
+const petLevelFeedback = [];
+client.triggerGameFeedback = (kind, signature, interval) => {
+  petLevelFeedback.push({ kind, signature, interval });
+  return true;
+};
+assert.strictEqual(client.handlePetLevelChange({
+  active: 1, pet_id: 'pet-growth-1', species: 'dangkang',
+  name: '当康', icon: '🐗', level: 18
+}, {
+  active: 1, pet_id: 'pet-growth-1', species: 'dangkang',
+  name: '当康', icon: '🐗', level: 21
+}), true);
+assert.strictEqual(client.petLevelUpEffect.name, '当康');
+assert.strictEqual(client.petLevelUpEffect.fromLevel, 18);
+assert.strictEqual(client.petLevelUpEffect.toLevel, 21);
+assert.strictEqual(client.petLevelUpEffect.levelsGained, 3);
+assert.strictEqual(client.petLevelUpEffect.command, 'pet detail dangkang');
+assert.strictEqual(petLevelFeedback[0].kind, 'petLevel');
+assert.strictEqual(petLevelFeedback[0].interval, 800);
+assert.strictEqual(client.handlePetLevelChange({
+  active: 1, pet_id: 'pet-growth-1', level: 21
+}, {
+  active: 1, pet_id: 'pet-growth-1', level: 21
+}), false);
+assert.strictEqual(client.handlePetLevelChange({
+  active: 1, pet_id: 'pet-growth-1', level: 21
+}, {
+  active: 1, pet_id: 'pet-growth-2', level: 22
+}), false);
+client.clearPetLevelUpEffect();
+assert.strictEqual(client.petLevelUpEffect, null);
 assert.strictEqual(client.showEquipmentPanel, false);
 assert.strictEqual(client.cleanEquipmentName('§g【优良】法杖§r'), '【优良】法杖');
 client.equipmentPanel = {
