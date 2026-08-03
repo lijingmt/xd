@@ -8,6 +8,7 @@
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+#define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -964,6 +965,8 @@ void escape(void|int change){
 	void skills_level_check(string sname){
 		if(MUD_SKILLSD[sname]->boss_skill == 1)
 			return;
+		if(this_object()->is("player"))
+			DAILYGOALD->record_skill(this_object());
 		int cur_skills_level_limit = 10;
 		if(MUD_SKILLSD[sname]->query_skill_level_max)
 			cur_skills_level_limit =

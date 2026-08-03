@@ -880,6 +880,7 @@ mapping claim_growth_task(object player)
 	get_money = query_growth_task_money(level);
 	player->add_account(get_money);
 	player->query_if_levelup();
+	DAILYGOALD->record_task_completion(player);
 
 	result["code"] = 6;
 	result["level"] = level;
@@ -1492,6 +1493,7 @@ int clearTask(object player,int taskid)
 			werror("-----I am going to set GET_ONCE_DAY!----\n");
 			player->get_once_day[taskid]=1;
 		}
+		DAILYGOALD->record_task_completion(player);
 		return 1;
 	}
 	return 0;
@@ -1696,6 +1698,7 @@ int if_in_killTask(object player,string killed_name,int|void killed_level)
 	task tmp_task;
 	array(int) task_array = killMap[killed_name];
 	NEWBIED->record_kill(player);
+	DAILYGOALD->record_kill(player,killed_level);
 	growth_result = record_growth_task_kill(player,killed_level);
 	if(!player["/taskd/Cont"])
 		player["/taskd/Cont"]=([]);

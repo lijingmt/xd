@@ -28,6 +28,8 @@
 #define TASKD ((object)(ROOT "/gamelib/single/daemons/taskd"))
 //新手分步引导守护模块
 #define NEWBIED ((object)(ROOT "/gamelib/single/daemons/newbied"))
+//每日签到、真实行为目标与活跃度奖励
+#define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
 //拍卖行守护模块
 #define AUCTIOND ((object)(ROOT "/gamelib/single/daemons/auctiond"))
 //房间等级守护模块

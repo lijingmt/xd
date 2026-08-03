@@ -462,7 +462,7 @@ createApp({
 
         shouldAnimateMudOutputCommand(command) {
             const value = String(command || '').trim().toLowerCase();
-            return /^(inventory|mytasks|myskills|storage|store|cangku|newbie_guide|profession_assistant|pet|pet_hunt|pet_duel|daily_cultivation|wanling_rift)(?:\s|$)/.test(value);
+            return /^(inventory|mytasks|myskills|storage|store|cangku|newbie_guide|profession_assistant|pet|pet_hunt|pet_duel|daily|daily_cultivation|wanling_rift)(?:\s|$)/.test(value);
         },
 
         initializeAutoAnimate() {
@@ -3178,7 +3178,16 @@ createApp({
             const remaining = Math.max(0, Math.ceil(
                 Number(pet.cooldown_remaining || 0)
             ));
-            return remaining > 0 ? `凝聚灵息 ${remaining}秒` : '协战就绪';
+            const role = String(pet.role || '');
+            const roleStatus = {
+                '守护': ['守护蓄势', '守护就绪'],
+                '疗愈': ['疗愈蓄势', '疗愈就绪'],
+                '灵息': ['凝聚灵息', '灵息就绪'],
+                '强攻': ['攻势蓄力', '强攻就绪'],
+                '迅捷': ['伺机协战', '迅捷就绪']
+            }[role] || ['协战蓄势', '协战就绪'];
+            return remaining > 0 ?
+                `${roleStatus[0]} ${remaining}秒` : roleStatus[1];
         },
 
         getPetCultivationLabel(pet = this.battlePet) {

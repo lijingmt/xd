@@ -53,6 +53,7 @@ int main(string|zero arg)
 		(int)state["catalog_total"]+"，灵印 "+
 		(int)state["materials"]["spirit_mark"]+"/30（可稳定换一只基础灵宠）。\n";
 	s += "[查看图鉴与下一目标:pet catalog]|[万灵谱:pet]\n";
+	s += "[每日签到与活跃目标:daily]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	return 1;

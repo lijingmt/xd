@@ -87,6 +87,7 @@ int main(string|zero arg)
 								}
 							}
 							if(got_any){
+								DAILYGOALD->record_gather(me);
 								AUTOFIGHTD->consolidate_gathered_materials(me);
 								if(for_log != "")
 									Stdio.append_file(ROOT+"/log/caiyao.log",now[0..sizeof(now)-2]+":"+me->query_name_cn()+"("+me->query_name()+")："+for_log+"\n");

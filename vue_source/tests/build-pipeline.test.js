@@ -134,6 +134,9 @@ assert(indexSource.includes("sendQuickCommand('go_warehouse')"));
 assert(indexSource.includes('<span>🧰</span>仓库</button>'));
 assert(indexSource.includes("sendQuickCommand('pet')"));
 assert(indexSource.includes('<span>🐾</span>万灵</button>'));
+assert(indexSource.includes("sendQuickCommand('daily')"));
+assert(indexSource.includes("playerStats?.daily_goal?.claimable"));
+assert(indexSource.includes("'🎁' : '📅'"));
 assert(indexSource.includes('@click="startUiTour"'));
 assert(indexSource.includes('@click="toggleSoundEffects"'));
 assert(indexSource.includes('ref="mudLinesList"'));
@@ -227,6 +230,7 @@ for (const petCommand of [
   'pet',
   'pet_hunt',
   'pet_duel',
+  'daily',
   'daily_cultivation',
   'wanling_rift'
 ]) {

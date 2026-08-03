@@ -426,7 +426,7 @@ assert.strictEqual(client.playerAvatarFailed, true);
     client.getPetCultivationLabel(client.battlePet),
     'Lv.60 · 10星真形·圆满'
   );
-  assert.strictEqual(client.getPetAssistStatus(client.battlePet), '凝聚灵息 18秒');
+  assert.strictEqual(client.getPetAssistStatus(client.battlePet), '守护蓄势 18秒');
   assert.strictEqual(client.getPetCooldownPercent(client.battlePet), 40);
   assert.strictEqual(client.petAssistEffect.id, 'pet-event-001');
   assert.strictEqual(client.petAssistEffect.visualType, 'heal');
@@ -452,6 +452,15 @@ assert.strictEqual(client.playerAvatarFailed, true);
     active: true, combat_mode: 'pvp', pvp_charge: 0,
     pvp_charge_required: 5, pvp_uses: 2, pvp_uses_max: 2
   }), '本场御灵已尽 2/2');
+  assert.strictEqual(client.getPetAssistStatus({
+    active: true, role: '灵息', cooldown_remaining: 8
+  }), '凝聚灵息 8秒');
+  assert.strictEqual(client.getPetAssistStatus({
+    active: true, role: '疗愈', cooldown_remaining: 0
+  }), '疗愈就绪');
+  assert.strictEqual(client.getPetAssistStatus({
+    active: true, role: '强攻', cooldown_remaining: 6
+  }), '攻势蓄力 6秒');
   assert(client.formatPetAssistMessage({
     name: '毕方', icon: '🔥', skill: '独足炎翎', type: 'damage',
     mode: 'pvp', amount: 496, target_name: '对手'

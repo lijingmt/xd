@@ -500,14 +500,21 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 mapping(string:mixed) perform_pet_combat_assist(object player,object target)
 {
 	object owner;
+	mapping result;
 	if(!player || !target || !target->is)
 		return (["ok":0,"type":"none","amount":0]);
 	if(target->is("player"))
-		return perform_pet_pvp_assist(player,target);
-	owner = SUMMOND->query_combat_credit_owner(target);
-	if(owner && owner!=target && owner->is && owner->is("player"))
-		return perform_pet_pvp_assist(player,target);
-	return perform_pet_pve_assist(player,target);
+		result = perform_pet_pvp_assist(player,target);
+	else{
+		owner = SUMMOND->query_combat_credit_owner(target);
+		if(owner && owner!=target && owner->is && owner->is("player"))
+			result = perform_pet_pvp_assist(player,target);
+		else
+			result = perform_pet_pve_assist(player,target);
+	}
+	if(result["ok"])
+		DAILYGOALD->record_pet_assist(player);
+	return result;
 }
 
 /** 快速决胜读取的剩余PVP宠物能力，只取人物临时快照，不访问磁盘。 */
