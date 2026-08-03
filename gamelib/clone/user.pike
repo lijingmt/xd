@@ -22,6 +22,22 @@ string query_account_owner()
 	return query_name();
 }
 
+//无论玩家通过幻境按钮、传送、复活还是管理命令离开，
+//只要真正从副本房间移到普通房间，就统一清理副本成员状态。
+int move(mixed dest)
+{
+	object old_env = environment(this_object());
+	object new_env;
+	int old_was_fb = old_env &&
+		FBD->is_fb_room_path(file_name(old_env));
+	int moved = ::move(dest);
+	new_env = environment(this_object());
+	if(moved && old_was_fb && old_env!=new_env &&
+	   (!new_env || !FBD->is_fb_room_path(file_name(new_env))))
+		FBD->detach_fb_member(this_object());
+	return moved;
+}
+
 //推荐人标示，由liaocheng于07/08/23添加，用于人推人系统
 int all_mark;//总的积分
 int cur_mark;//当前积分
@@ -404,6 +420,9 @@ string query_extra_links(void|int count)
 	}
 	string topten= "[排行榜:look_top]\t";
 	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[万灵:pet]|[帮派:my_bang]|[江湖:my_games]\n[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	if(env && FBD->is_fb_room_path(file_name(env)))
+		returnLinks = "【幻境安全通道】[紧急离开幻境:fb_leave]\n"+
+			returnLinks;
 	if(me->query_autofight()=="enable")
 		returnLinks = "[停止自动挂机:autofightclose]\n"+returnLinks;
 	else

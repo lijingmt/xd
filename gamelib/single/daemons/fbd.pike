@@ -14,6 +14,10 @@ private mapping(string:array(object)) fb_map = ([]);
 //副本名:（{房间1的文件名，房间2的文件名....}）
 private mapping(string:array(string)) fb_room = ([]);
 
+//副本内部房间路径:副本名。地图飞行、重登恢复和紧急脱离
+//共用这份反向索引，避免玩家进入未绑定队伍的公共基础房间。
+private mapping(string:string) fb_room_name = ([]);
+
 //走出副本后回到的地图，一般在副本入口处,副本名:离开后的地图文件
 private mapping(string:string) fb_leave = ([]);
 
@@ -25,14 +29,32 @@ protected void create()
 	fb_leave = ([]);
 	fb_members = ([]);
 	fb_map = ([]);
+	fb_room_name = ([]);
 	load_csv();
 	call_out(flush_fb_map,FLUSH_TIME);
+}
+
+private string normalize_fb_room_path(string|zero room_path)
+{
+	string prefix;
+	if(!room_path || room_path=="")
+		return "";
+	room_path = (room_path/"#")[0];
+	prefix = ROOT+"/gamelib/d/";
+	if(has_prefix(room_path,prefix))
+		return room_path[sizeof(prefix)..];
+	if(has_prefix(room_path,"/gamelib/d/"))
+		return room_path[sizeof("/gamelib/d/")..];
+	if(has_prefix(room_path,"gamelib/d/"))
+		return room_path[sizeof("gamelib/d/")..];
+	return room_path;
 }
 
 void load_csv()
 {
 	werror("==========  [FBD start!]  =========\n");
 	fb_room = ([]);
+	fb_room_name = ([]);
 	string fbData = Stdio.read_file(FUBEN_CSV);
 	array(string) lines = fbData/"\r\n";
 	if(lines && sizeof(lines)){
@@ -49,6 +71,7 @@ void load_csv()
 						fb_room[fb_name] = ({room});
 					else
 						fb_room[fb_name] += ({room});
+					fb_room_name[normalize_fb_room_path(room)] = fb_name;
 				}
 				fb_leave[fb_name] = columns[2];
 			}
@@ -97,9 +120,35 @@ object query_fb_room(string room_name,int room_num,string team_id,int flag)
 		}
 	}
 	array(object) rooms = fb_map[fb_id];
-	if(room_num<sizeof(rooms)){
+	if(rooms && room_num>=0 && room_num<sizeof(rooms)){
 		return (object)rooms[room_num];
 	}
+	return 0;
+}
+
+//从基础程序路径或带 #序号的克隆路径反查副本名。
+string query_fb_name_by_room_path(string|zero room_path)
+{
+	string normalized = normalize_fb_room_path(room_path);
+	if(normalized!="" && fb_room_name[normalized])
+		return fb_room_name[normalized];
+	return "";
+}
+
+int is_fb_room_path(string|zero room_path)
+{
+	return query_fb_name_by_room_path(room_path)!="";
+}
+
+string query_fb_name_by_id(string|zero fb_id)
+{
+	array(string) parts;
+	if(!fb_id || fb_id=="")
+		return "";
+	parts = fb_id/"/";
+	if(sizeof(parts)==2 && fb_room[parts[1]])
+		return parts[1];
+	return "";
 }
 
 //玩家进入副本时，fb_members要加入此玩家的id
@@ -117,6 +166,19 @@ void delete_fb_members(string fb_id,string player_name)
 	if(fb_members[fb_id] && fb_members[fb_id][player_name])
 		m_delete(fb_members[fb_id],player_name);
 }
+
+//玩家通过飞行、复活或其他非 fb_leave 路径离开时也要解绑，
+//否则副本成员表和动态怪判定会长期残留。
+void detach_fb_member(object player)
+{
+	string old_fb_id;
+	if(!player)
+		return;
+	old_fb_id = (string)(player->fb_id || "");
+	if(old_fb_id!="")
+		delete_fb_members(old_fb_id,player->query_name());
+	player->fb_id = 0;
+}
 //查阅玩家是否在副本里面，判断副本不打开动态npc的条件
 int query_fb_memebers(string|zero fb_id,string player_name){
 	//werror("=======query fb status\n");
@@ -126,10 +188,10 @@ int query_fb_memebers(string|zero fb_id,string player_name){
 	return 0;
 }
 //获得玩家离开时的应该回到的地图文件,如congxianzhen/congxianzhen
-string query_fb_leave_room(string fb_name)
+string query_fb_leave_room(string|zero fb_name)
 {
 	string s_rtn = "";
-	if(fb_leave[fb_name])
+	if(fb_name && fb_leave[fb_name])
 		s_rtn = fb_leave[fb_name];
 	return s_rtn;
 }

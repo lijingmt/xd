@@ -2236,6 +2236,26 @@ mapping(string:int) query_target_level_window(object me)
 	]);
 }
 
+//“可见怪物”必须是挂机真正可以考虑攻击的野怪单位。
+//方士三灵虽然继承 NPC，但它们是玩家随从；若计入可见怪数，
+//只剩三灵的空图就会被误判为“有怪但不安全”并阻断换图。
+private int is_visible_autofight_monster(object me,object ob)
+{
+	if(!me || !ob || ob==me)
+		return 0;
+	if(!ob->is("character") || !ob->is("npc"))
+		return 0;
+	if(ob->hind!=0 || ob->get_cur_life()<=0)
+		return 0;
+	if(functionp(ob->query_summon_type))
+		return 0;
+	if(functionp(ob->can_be_attacked) && !ob->can_be_attacked(me))
+		return 0;
+	if(!LOGICALZONED->can_action("combat",me,ob))
+		return 0;
+	return 1;
+}
+
 int query_visible_monster_count(object me)
 {
 	object env;
@@ -2249,9 +2269,7 @@ int query_visible_monster_count(object me)
 	all = all_inventory(env);
 	count = 0;
 	foreach(all,object ob){
-		if(ob != me && ob->is("character") && ob->is("npc") &&
-		   ob->hind == 0 && ob->get_cur_life() > 0 &&
-		   LOGICALZONED->can_action("combat",me,ob))
+		if(is_visible_autofight_monster(me,ob))
 			count++;
 	}
 	return count;
@@ -2266,23 +2284,13 @@ private int is_valid_target(object me, object ob)
 	int npc_level;
 	int minimum_level;
 	int maximum_level;
-	if(!me || !ob || ob == me)
-		return 0;
-	if(!ob->is("character") || !ob->is("npc"))
-		return 0;
-	if(ob->hind != 0 || ob->get_cur_life() <= 0)
+	if(!is_visible_autofight_monster(me,ob))
 		return 0;
 	if(ob->_boss || ob->_tasknpc)
-		return 0;
-	if(functionp(ob->query_summon_type))
 		return 0;
 	npc_type = ob->query_npc_type();
 	if(npc_type == "city_keeper" || npc_type == "city_guarder" ||
 	   npc_type == "city_lord")
-		return 0;
-	if(functionp(ob->can_be_attacked) && !ob->can_be_attacked(me))
-		return 0;
-	if(!LOGICALZONED->can_action("combat",me,ob))
 		return 0;
 	me_race = me->query_raceId();
 	npc_race = ob->query_raceId();
@@ -2347,9 +2355,7 @@ mapping query_target_snapshot(object me)
 	for(int offset=0;offset<scan_count;offset++){
 		object ob = all[start+offset];
 		int npc_level;
-		if(ob != me && ob->is("character") && ob->is("npc") &&
-		   ob->hind == 0 && ob->get_cur_life() > 0 &&
-		   LOGICALZONED->can_action("combat",me,ob))
+		if(is_visible_autofight_monster(me,ob))
 			visible++;
 		if(!is_valid_target(me,ob))
 			continue;

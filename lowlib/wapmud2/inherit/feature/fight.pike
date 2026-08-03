@@ -946,8 +946,13 @@ void escape(void|int change){
 		enemy->clean_targets(this_object());
 		_clean_fight();
 		object env=environment(this_object());
-		if(sizeof(env->exits)){
+		if(env && sizeof(env->exits)){
 			this_object()->command("leave "+indices(env->exits)[random(sizeof(env->exits))]);
+		}
+		else if(env && !this_object()->is("npc") &&
+		   functionp(env->query_room_type) && env->query_room_type()=="fb"){
+			tell_object(this_object(),"此处没有普通出口，幻境安全通道已开启。\n");
+			this_object()->command("fb_leave");
 		}
 		return;
 	}

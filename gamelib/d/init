@@ -926,6 +926,22 @@ int start(string arg){
 			//房契是家园产权提交点；异常重启后自动修复玩家档案中的 home_path。
 			HOMED->repair_player_home_path(me);
 			HOMED->enforce_user_home_isolation(me);
+		//旧版地图飞行可能把玩家保存在没有 #克隆号的副本
+		//基础房间。重登时不再仅靠 # 判断，而是用 fb.csv 反查并
+		//统一送回入口，同时清理可能残留的副本成员状态。
+		string saved_fb_name = FBD->query_fb_name_by_room_path(me->last_pos);
+		if(saved_fb_name!=""){
+			string saved_fb_leave = FBD->query_fb_leave_room(saved_fb_name);
+			if(saved_fb_leave==""){
+				if(me->query_raceId()=="monst")
+					saved_fb_leave = "jinaodao/yuhuacunguangchang";
+				else
+					saved_fb_leave = "congxianzhen/congxianzhenguangchang";
+			}
+			FBD->detach_fb_member(me);
+			me->inhome_pos = "";
+			me->last_pos = "/gamelib/d/"+saved_fb_leave;
+		}
 		//副本和家园的特殊处理
 		array allPos = me->last_pos/"#";
 		int num = sizeof(allPos);

@@ -142,7 +142,9 @@ string get_all_map_list(){
 	array(string) block_list = indices(all_map_list);
 	foreach(block_list,string block){
 		foreach(indices(all_map_list[block]),string name_cn ){
-			s+="["+block+"|"+name_cn+":qge74hye "+all_map_list[block][name_cn]+"]\n";
+			string room_path = all_map_list[block][name_cn];
+			if(!FBD->is_fb_room_path(room_path))
+				s+="["+block+"|"+name_cn+":qge74hye "+room_path+"]\n";
 		}
 		
 	}
@@ -152,7 +154,8 @@ string get_all_kinds_map(){
 	string s="";
 	array(string) block_list = sort(indices(all_map_list));
 	foreach(block_list,string block){
-		if(pinyin_to_cn[block]){
+		if(pinyin_to_cn[block] && all_map_list[block] &&
+		   sizeof(all_map_list[block])){
 			object me = this_player();
 			int vip_level = me->query_vip_flag() || 0;
 			int level = me->query_level();
@@ -192,9 +195,12 @@ string get_all_kinds_map(){
 }
 string get_sub_map_list(string block){
 	string s="";
+	if(!all_map_list[block])
+		return s;
 	foreach(indices(all_map_list[block]),string name_cn ){
-		if(name_cn!="")
-		s+="[飞到："+name_cn+":qge74hye "+all_map_list[block][name_cn]+"]\n";
+		string room_path = all_map_list[block][name_cn];
+		if(name_cn!="" && !FBD->is_fb_room_path(room_path))
+			s+="[飞到："+name_cn+":qge74hye "+room_path+"]\n";
 	}
 	return s;
 }
@@ -206,13 +212,16 @@ void load_all_map(){
 		if(!sub_map_index_list) continue;
 		foreach(sub_map_index_list,string realroom){
 			object ob;
+			string room_path = block+"/"+realroom;
+			if(FBD->is_fb_room_path(room_path))
+				continue;
 			werror("=======try to load room:"+realroom+"\n");
 			mixed err=catch{
 				ob = (object)(ROOT + "/gamelib/d/"+block+"/"+realroom);
 			};
 			if(err)werror("=======try to load room error:"+realroom+"\n");
 			if(ob){
-				sub_map[ob->name_cn] = block+"/"+realroom;
+				sub_map[ob->name_cn] = room_path;
 				werror("=======load map:"+ob->name_cn + ":"+sub_map[ob->name_cn]+"\n");
 			}
 		}
