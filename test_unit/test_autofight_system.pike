@@ -528,8 +528,14 @@ void test_vip_auto_sell_tiers()
 			daemon->query_auto_sell_trigger_percent(player) == 80;
 
 		set_active_vip(player,4);
+		player["/plus/autofight_auto_sell_mode"] = "huanhua";
 		valid = valid &&
-			daemon->query_auto_sell_trigger_percent(player) == 70;
+			daemon->query_auto_sell_trigger_percent(player) == 70 &&
+			daemon->query_auto_sell_enabled(player) == 1 &&
+			daemon->query_auto_sell_mode_requirement("huanhua") == 4 &&
+			daemon->query_auto_sell_quality_limit("huanhua") == 7 &&
+			daemon->query_auto_sell_mode_cn("huanhua") ==
+			"普通至幻化装备（高风险）";
 
 		set_active_vip(player,1);
 		valid = valid &&
@@ -562,15 +568,20 @@ void test_auto_sell_protection_rules()
 		player->set_att_by_level();
 		set_active_vip(player,4);
 		daemon->initialize_player(player);
-		player["/plus/autofight_auto_sell_mode"] = "refined";
+		player["/plus/autofight_auto_sell_mode"] = "huanhua";
 		player["/plus/autofight_sell_level_gap"] = 0;
 		item->move(player);
-		item->set_item_rareLevel(4);
+		item->set_item_rareLevel(7);
 		valid = daemon->query_auto_sell_reject_reason(player,item) == "";
 
-		item->set_item_rareLevel(5);
+		item->set_item_rareLevel(8);
 		valid = valid &&
-			daemon->query_auto_sell_reject_reason(player,item) != "";
+			daemon->query_auto_sell_reject_reason(player,item) == "rare";
+		item->set_item_rareLevel(7);
+		player["/plus/autofight_auto_sell_mode"] = "refined";
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) == "quality";
+		player["/plus/autofight_auto_sell_mode"] = "huanhua";
 		item->set_item_rareLevel(0);
 		item->equiped = 1;
 		valid = valid &&
@@ -628,6 +639,55 @@ void test_auto_sell_protection_rules()
 		test_fail("自动出售保护规则错误: "+error_desc);
 	if(gem)
 		destruct(gem);
+	destroy_runtime_player(player);
+}
+
+void test_vip4_huanhua_auto_sell_confirmation()
+{
+	test_start("VIP4幻化自动出售必须二次确认且低VIP不能越权");
+	object player = create_runtime_player(
+		"__testunit_autofight_huanhua_confirm__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object command = (object)(ROOT+"/gamelib/cmds/autofight.pike");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	string first_mode = "";
+	string confirmed_mode = "";
+	string denied_mode = "";
+	int valid = 0;
+	mixed err = catch {
+		set_this_player(player);
+		daemon->initialize_player(player);
+		set_active_vip(player,4);
+		player["/plus/autofight_auto_sell_mode"] = "refined";
+		command->main("sell huanhua");
+		first_mode = (string)player["/plus/autofight_auto_sell_mode"];
+		valid = first_mode == "refined";
+		command->main("sellconfirm huanhua");
+		confirmed_mode =
+			(string)player["/plus/autofight_auto_sell_mode"];
+		valid = valid &&
+			confirmed_mode == "huanhua";
+		set_active_vip(player,3);
+		player["/plus/autofight_auto_sell_mode"] = "refined";
+		command->main("sellconfirm huanhua");
+		denied_mode = (string)player["/plus/autofight_auto_sell_mode"];
+		valid = valid &&
+			denied_mode == "refined";
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("幻化档二次确认或VIP边界错误: first="+
+			first_mode+" confirmed="+confirmed_mode+" denied="+
+			denied_mode+" "+error_desc);
 	destroy_runtime_player(player);
 }
 
@@ -2529,6 +2589,7 @@ int main()
 	test_vip_labels_and_plan();
 	test_vip_auto_sell_tiers();
 	test_auto_sell_protection_rules();
+	test_vip4_huanhua_auto_sell_confirmation();
 	test_auto_sell_settlement();
 	test_time_and_low_life_guard();
 	test_gathering_and_material_cleanup();

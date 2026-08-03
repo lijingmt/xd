@@ -1121,7 +1121,7 @@ string query_auto_sell_mode(object me)
 {
 	string mode;
 	array(string) valid_modes = ({
-		"off","normal","excellent","refined",
+		"off","normal","excellent","refined","huanhua",
 	});
 	if(!me)
 		return "off";
@@ -1140,6 +1140,8 @@ string query_auto_sell_mode_cn(string mode)
 		return "普通及优良装备";
 	if(mode == "refined")
 		return "普通、优良及精制装备";
+	if(mode == "huanhua")
+		return "普通至幻化装备（高风险）";
 	return "关闭";
 }
 
@@ -1151,6 +1153,8 @@ int query_auto_sell_mode_requirement(string mode)
 		return 2;
 	if(mode == "refined")
 		return 3;
+	if(mode == "huanhua")
+		return 4;
 	return 0;
 }
 
@@ -1160,6 +1164,8 @@ int query_auto_sell_quality_limit(string mode)
 		return 2;
 	if(mode == "refined")
 		return 4;
+	if(mode == "huanhua")
+		return 7;
 	return 0;
 }
 
@@ -1330,12 +1336,13 @@ string query_auto_sell_reject_reason(object me,object item)
 		return "converted";
 	if(has_auto_sell_protected_gem(item))
 		return "socketed";
+	// 空觉及以上始终是硬保护线，即使未来增加更高VIP档也不能越过。
+	if(item->query_item_rareLevel() >= 8)
+		return "rare";
 	mode = query_auto_sell_mode(me);
 	if(item->query_item_rareLevel() >
 	   query_auto_sell_quality_limit(mode))
 		return "quality";
-	if(item->query_item_rareLevel() >= 5)
-		return "rare";
 	if(!is_auto_sell_category_enabled(me,item))
 		return "category";
 	item_level = item->query_item_canLevel();
