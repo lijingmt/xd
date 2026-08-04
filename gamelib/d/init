@@ -1046,6 +1046,8 @@ int start(string arg){
 				me->move(ROOT+me->last_pos);
 		}
 	}
+	// 登录后恢复仍有效的限时活动席位；服务器重启中的战斗场次会安全取消。
+	TIMED_EVENTD->restore_player(me);
 	me->command("look");
 	return 1;
 }

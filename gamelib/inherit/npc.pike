@@ -89,6 +89,9 @@ void fight_die()
 	object env = environment(this_object());
 	// 灵兽最后一击的经验、任务、掉落和荣誉归属在线主人。
 	enemy = SUMMOND->query_combat_credit_owner(enemy);
+	// 限时活动怪由活动状态机结算，禁止普通经验、任务与掉落重复发放。
+	if(TIMED_EVENTD->handle_event_npc_death(this_object(),enemy))
+		return;
 	string logical_drop_owner = "";
 	if(enemy && enemy->is && enemy->is("player"))
 		logical_drop_owner = (string)enemy->query_name();

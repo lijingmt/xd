@@ -1166,6 +1166,7 @@ mapping query_player_state(object player)
 		result["pet_assist"] = PETD->query_pet_battle_presence(player);
 		// 每日摘要保持纯读取；跨日时返回虚拟空状态，不在轮询线程改档。
 		result["daily_goal"] = DAILYGOALD->query_summary(player);
+		result["timed_event"] = TIMED_EVENTD->query_player_status(player);
 
         // 法力值 Mana (xiand 使用 mofa 而不是 qi)
         int mana = 0, mana_max = 0;

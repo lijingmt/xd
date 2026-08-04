@@ -46,6 +46,13 @@ private mapping(string:mapping(string:string)) all_map = ([]);
 	map=([当前房间英文名:(["east":向东方向的第1个房间-向东方向的第1个房间-...-向东方向的第5个房间,"west":"...","south":"...","north":"..."]),...]);
 */
 mapping(string:mapping(string:string)) all_map_list= ([]);
+private int is_hidden_map_room_path(string room_path)
+{
+	return FBD->is_fb_room_path(room_path) ||
+		has_prefix(room_path,"timed_event/") ||
+		has_prefix(room_path,"/gamelib/d/timed_event/") ||
+		has_prefix(room_path,ROOT+"/gamelib/d/timed_event/");
+}
 mapping(string:string) pinyin_to_cn = ([
 	"dongxue":"洞穴",
 	"beihai":"北海",
@@ -143,7 +150,7 @@ string get_all_map_list(){
 	foreach(block_list,string block){
 		foreach(indices(all_map_list[block]),string name_cn ){
 			string room_path = all_map_list[block][name_cn];
-			if(!FBD->is_fb_room_path(room_path))
+			if(!is_hidden_map_room_path(room_path))
 				s+="["+block+"|"+name_cn+":qge74hye "+room_path+"]\n";
 		}
 		
@@ -199,7 +206,7 @@ string get_sub_map_list(string block){
 		return s;
 	foreach(indices(all_map_list[block]),string name_cn ){
 		string room_path = all_map_list[block][name_cn];
-		if(name_cn!="" && !FBD->is_fb_room_path(room_path))
+		if(name_cn!="" && !is_hidden_map_room_path(room_path))
 			s+="[飞到："+name_cn+":qge74hye "+room_path+"]\n";
 	}
 	return s;
@@ -213,7 +220,7 @@ void load_all_map(){
 		foreach(sub_map_index_list,string realroom){
 			object ob;
 			string room_path = block+"/"+realroom;
-			if(FBD->is_fb_room_path(room_path))
+			if(is_hidden_map_room_path(room_path))
 				continue;
 			werror("=======try to load room:"+realroom+"\n");
 			mixed err=catch{

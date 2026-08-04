@@ -337,6 +337,9 @@ createApp({
             // 组队邀请由状态轮询送达，兼容没有持续socket输出的网页连接
             teamInvite: null,
             teamInviteBusy: false,
+            // 每日限时玩法在集结期只弹出一次；服务端状态仍可从“更多”随时进入。
+            timedEventInvite: null,
+            timedEventInviteBusy: false,
             // 语言选择
             selectedLanguage: localStorage.getItem('userLanguage') || 'chinese_simplified',  // 当前选择的语言
             isInitializing: true  // 初始化标志，防止初始化时触发changeLanguage
@@ -996,6 +999,70 @@ createApp({
                 this.teamInviteBusy = false;
                 await this.fetchPlayerStats();
             }
+        },
+
+        timedEventSeenKey(invite) {
+            const character = this.currentCharacterId || this.txd || 'guest';
+            return `timed_event_seen:${character}:${invite?.popup_id || ''}`;
+        },
+
+        markTimedEventInviteSeen(invite = this.timedEventInvite) {
+            if (!invite?.popup_id) return;
+            try {
+                sessionStorage.setItem(this.timedEventSeenKey(invite), '1');
+            } catch (e) {
+                // 禁用会话存储的隐私浏览器仍可正常参加，只是不持久记忆关闭状态。
+            }
+        },
+
+        syncTimedEventInvite(status) {
+            if (!status || status.phase !== 'signup' || status.joined ||
+                !status.eligible || !status.popup_id) {
+                if (!this.timedEventInviteBusy) this.timedEventInvite = null;
+                return;
+            }
+            let seen = false;
+            try {
+                seen = sessionStorage.getItem(this.timedEventSeenKey(status)) === '1';
+            } catch (e) {
+                seen = false;
+            }
+            if (!seen) {
+                const isNewInvite = this.timedEventInvite?.popup_id !== status.popup_id;
+                this.timedEventInvite = { ...this.timedEventInvite, ...status };
+                if (isNewInvite) this.playGameSound('rare', 180);
+            }
+        },
+
+        formatTimedEventRemaining(seconds) {
+            const safeSeconds = Math.max(0, Number(seconds) || 0);
+            const minutes = Math.floor(safeSeconds / 60);
+            const remainder = Math.floor(safeSeconds % 60);
+            return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+        },
+
+        closeTimedEventInvite() {
+            this.markTimedEventInviteSeen();
+            this.timedEventInvite = null;
+        },
+
+        openTimedEventDetails() {
+            this.markTimedEventInviteSeen();
+            this.timedEventInvite = null;
+            this.sendQuickCommand('timed_event');
+        },
+
+        enterTimedEvent() {
+            if (!this.timedEventInvite || this.timedEventInviteBusy) return;
+            const invite = this.timedEventInvite;
+            this.timedEventInviteBusy = true;
+            this.markTimedEventInviteSeen(invite);
+            this.timedEventInvite = null;
+            this.sendQuickCommand(invite.command || `timed_event join ${invite.event_id}`);
+            window.setTimeout(() => {
+                this.timedEventInviteBusy = false;
+                this.fetchPlayerStats();
+            }, 800);
         },
 
         isQuickActionActive(command) {
@@ -2833,6 +2900,7 @@ createApp({
                         const previousLevel = Number(this.playerStats?.level);
                         this.handlePetLevelChange(previousPet, data.pet_assist);
                         this.playerStats = data;
+                        this.syncTimedEventInvite(data.timed_event);
                         // 普通状态轮询也接收服务端短暂保留的群攻战果，覆盖
                         // 最后一击恰好结束战斗、战斗轮询同时停下的切换窗口。
                         this.syncBattleAoeReport(data.recent_aoe_report);

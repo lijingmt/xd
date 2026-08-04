@@ -1602,6 +1602,140 @@ body {
 	min-height: 40px;
 }
 
+.timed-event-overlay {
+    z-index: 1330;
+    padding: var(--space-md);
+}
+
+.timed-event-modal {
+    position: relative;
+    width: min(92vw, 390px);
+    max-height: calc(100dvh - 28px);
+    overflow-y: auto;
+    padding: 30px 22px 20px;
+    border: 1px solid rgba(222, 178, 91, 0.62);
+    border-radius: var(--radius-xl);
+    background:
+        radial-gradient(circle at 50% -8%, rgba(222, 178, 91, 0.28), transparent 45%),
+        linear-gradient(150deg, rgba(34, 52, 73, 0.98), rgba(15, 22, 34, 0.98));
+    box-shadow: 0 26px 80px rgba(0, 0, 0, 0.52);
+    color: #eef5fb;
+    text-align: center;
+    animation: newbieCompletionPop 0.28s ease-out;
+}
+
+.timed-event-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.72);
+    cursor: pointer;
+}
+
+.timed-event-orbit {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 10px;
+    border: 1px solid rgba(222, 178, 91, 0.6);
+    border-radius: 50%;
+    animation: timedEventOrbit 12s linear infinite;
+}
+
+.timed-event-orbit::before,
+.timed-event-orbit::after {
+    content: '';
+    position: absolute;
+    inset: 15px;
+    border: 1px solid rgba(97, 189, 218, 0.55);
+    border-radius: 50%;
+}
+
+.timed-event-orbit::after {
+    inset: 29px;
+    background: #deb25b;
+    box-shadow: 0 0 22px rgba(222, 178, 91, 0.88);
+}
+
+.timed-event-orbit span {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #72c8de;
+    box-shadow: 0 0 10px rgba(114, 200, 222, 0.82);
+}
+
+.timed-event-orbit span:nth-child(1) { top: -4px; left: 34px; }
+.timed-event-orbit span:nth-child(2) { right: 5px; bottom: 10px; }
+.timed-event-orbit span:nth-child(3) { left: 5px; bottom: 10px; }
+
+.timed-event-kicker {
+    color: #deb25b;
+    font-size: var(--font-xs);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+}
+
+.timed-event-modal h3 {
+    margin: 9px 0 8px;
+    color: #fff7df;
+    font-size: calc(var(--font-xl) + 2px);
+}
+
+.timed-event-modal p {
+    margin: 0;
+    color: rgba(238, 245, 251, 0.76);
+    font-size: var(--font-sm);
+    line-height: 1.65;
+}
+
+.timed-event-countdown {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 18px 0;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.timed-event-countdown small { color: rgba(238, 245, 251, 0.66); }
+.timed-event-countdown strong {
+    color: #fff0bd;
+    font-size: var(--font-xl);
+    font-variant-numeric: tabular-nums;
+}
+
+.timed-event-actions {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 9px;
+}
+
+.timed-event-actions .btn { min-height: 42px; }
+.timed-event-fairness {
+    display: block;
+    margin-top: 12px;
+    color: rgba(238, 245, 251, 0.52);
+}
+
+@keyframes timedEventOrbit {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .timed-event-modal,
+    .timed-event-orbit { animation: none; }
+}
+
 .newbie-completion-modal {
     position: relative;
     width: min(92vw, 390px);
@@ -9442,6 +9576,7 @@ body {
 .chat-room,
 .invite-modal,
 .team-invite-modal,
+.timed-event-modal,
 .newbie-completion-modal {
     max-width: calc(100vw - 24px);
     max-height: calc(100dvh - 24px);

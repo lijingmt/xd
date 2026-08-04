@@ -9,6 +9,7 @@
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
 #define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
+#define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -930,6 +931,10 @@ void _clean_fight(){
 }
 //private void escape(void|int change){
 void escape(void|int change){
+	// 限时秘境没有普通逃跑出口；PVP逃离必须按认输结算，PVE使用撤离按钮。
+	if(this_object()->is("player") &&
+	   TIMED_EVENTD->block_event_escape(this_object()))
+		return;
 	if(this_object()->get_cur_life()>0&&enemy->get_cur_life()>0){
 		if(this_object()->query_debuff("70_skill_curse",0) == "baofengfeixue"){
 			tell_object(this_object(),"【妖】暴风飞雪效果，你无法逃跑。\n");
