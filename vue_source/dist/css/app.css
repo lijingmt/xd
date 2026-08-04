@@ -9258,3 +9258,572 @@ select:focus-visible {
         animation: none !important;
     }
 }
+
+/* ========================================================================
+   Six-tier responsive shell (2026-08)
+   One sizing system now owns the app shell, readable column, header,
+   drawers, dialogs, battle dock and bottom navigation across every device.
+   ======================================================================== */
+:root {
+    --ui-shell-width: min(100%, 720px);
+    --ui-reading-max: 680px;
+    --ui-content-gutter: 18px;
+    --ui-header-reserve: 104px;
+    --ui-more-columns: 5;
+    --ui-battle-max: 560px;
+    --ui-battle-reserve: 150px;
+    --ui-shell-radius: 0px;
+    --battle-dock-height: var(--ui-battle-reserve);
+}
+
+html {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-padding-top: var(--ui-header-reserve);
+    scroll-padding-bottom: calc(var(--quick-nav-height) + var(--safe-bottom) + 16px);
+}
+
+body {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 100%;
+    min-width: 0;
+    overflow: visible;
+    overscroll-behavior-y: auto;
+}
+
+#app {
+    width: var(--ui-shell-width);
+    max-width: none;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    border-radius: var(--ui-shell-radius);
+    overflow: visible;
+}
+
+.game-header,
+.game-frame-container,
+.mud-output-container,
+.mud-parent,
+.mud-child {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.game-frame-container {
+    flex: 1 0 auto;
+    height: auto;
+    min-height: calc(100dvh - var(--ui-header-reserve));
+    overflow: visible;
+}
+
+.mud-output-container,
+.mud-output-container.dark-mode {
+    height: auto;
+    min-height: calc(100dvh - var(--ui-header-reserve) - var(--quick-nav-height));
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+.mud-parent,
+.mud-child {
+    height: auto;
+    overflow: visible;
+}
+
+.mud-child {
+    width: 100%;
+    max-width: var(--ui-reading-max);
+    padding-right: var(--ui-content-gutter);
+    padding-left: var(--ui-content-gutter);
+}
+
+.mud-line,
+.mud-text,
+.mud-input-group,
+.mud-cmd-input {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.mud-input-group,
+.mud-cmd-input {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+}
+
+.mud-btn,
+.mud-url,
+.mud-confirm-btn,
+.mud-form-submit-btn {
+    max-width: 100%;
+    height: auto;
+    overflow-wrap: anywhere;
+    text-align: center;
+    white-space: normal;
+}
+
+.mud-input {
+    max-width: 100% !important;
+    min-width: 0;
+}
+
+.mud-inline-image,
+.game-frame {
+    max-width: 100%;
+}
+
+.quick-actions,
+[data-theme="classic"] .quick-actions,
+[data-theme="dark"] .quick-actions,
+[data-theme="light"] .quick-actions {
+    width: var(--ui-shell-width);
+    max-width: none;
+}
+
+.quick-primary-nav {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+}
+
+.quick-more-panel {
+    max-height: calc(
+        100dvh - var(--ui-header-reserve) - var(--quick-nav-height) -
+        var(--safe-bottom) - 24px
+    );
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.battle-panel.mini-mode.dock-collapsed {
+    right: max(0px, calc((100vw - var(--ui-shell-width)) / 2));
+}
+
+.quick-more-grid {
+    grid-template-columns: repeat(var(--ui-more-columns), minmax(0, 1fr));
+}
+
+.quick-tool-btn,
+.quick-nav-btn {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header-dropdown-menu {
+    width: min(280px, calc(100vw - 16px));
+    max-height: calc(100dvh - var(--ui-header-reserve) - 12px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.modal-overlay {
+    max-width: 100vw;
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.modal,
+.modal.auth-modal,
+.character-modal,
+.chat-room,
+.invite-modal,
+.team-invite-modal,
+.newbie-completion-modal {
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.ui-toast-stage {
+    top: calc(env(safe-area-inset-top, 0px) + var(--ui-header-reserve) + 8px);
+    max-width: calc(100vw - 16px);
+}
+
+.pet-level-up-stage {
+    top: calc(env(safe-area-inset-top, 0px) + var(--ui-header-reserve) + 64px);
+    max-width: calc(100vw - 16px);
+}
+
+.battle-panel.mini-mode {
+    width: min(var(--ui-battle-max), calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: min(44dvh, 280px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.battle-panel.fullscreen-mode {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding:
+        max(10px, env(safe-area-inset-top, 0px))
+        max(10px, env(safe-area-inset-right, 0px))
+        max(10px, env(safe-area-inset-bottom, 0px))
+        max(10px, env(safe-area-inset-left, 0px));
+    overflow: auto;
+}
+
+/* Viewport tier 1/6: compact phones, 320-359 CSS px. */
+@media (max-width: 359px) {
+    :root {
+        --ui-shell-width: 100%;
+        --ui-reading-max: 100%;
+        --ui-content-gutter: 10px;
+        --ui-header-reserve: 136px;
+        --ui-more-columns: 4;
+        --ui-battle-max: calc(100vw - 8px);
+        --ui-battle-reserve: 218px;
+        --quick-nav-height: 48px;
+        --quick-icon-size: 17px;
+        --quick-label-size: 9px;
+        --quick-tool-height: 48px;
+        --quick-tool-icon-size: 17px;
+    }
+
+    body { padding: 0; }
+
+    #app {
+        border: 0;
+        border-radius: 0;
+    }
+
+    .game-header {
+        top: 0;
+        display: grid;
+        min-height: 0;
+        grid-template-columns: 40px 34px minmax(0, 1fr) 40px;
+        align-items: center;
+        gap: 5px;
+        padding: max(8px, env(safe-area-inset-top, 0px)) 7px 7px;
+        border-radius: 0;
+    }
+
+    .player-avatar-shell { grid-column: 1; width: 40px; height: 40px; flex-basis: 40px; }
+    .header-pet-companion { grid-column: 2; width: 34px; height: 34px; flex-basis: 34px; padding: 1px; }
+    .header-pet-icon { width: 28px; height: 28px; flex-basis: 28px; font-size: 18px; }
+    .player-info { grid-column: 3; gap: 4px; }
+    .header-actions { grid-column: 4; width: 40px; flex-basis: 40px; }
+    .header-btn { width: 40px; height: 40px; border-radius: 12px; }
+
+    .game-header:not(.has-header-pet) {
+        grid-template-columns: 40px minmax(0, 1fr) 40px;
+    }
+
+    .game-header:not(.has-header-pet) .player-info { grid-column: 2; }
+    .game-header:not(.has-header-pet) .header-actions { grid-column: 3; }
+
+    .player-fullid,
+    .profession-assistant-badge,
+    .player-info-line .divider {
+        display: none;
+    }
+
+    .player-info-line { gap: 3px; }
+    .player-info-line .player-name-cn { max-width: 74px; font-size: 11px; }
+    .player-info-line .server-info { max-width: 48px; padding: 1px 4px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .player-info-line .autofight-status-text { max-width: 78px; padding: 1px 4px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .player-stats { gap: 3px; }
+    .stat-bar { grid-template-columns: auto minmax(18px, 1fr); gap: 2px; }
+    .stat-label { font-size: 8px; }
+    .stat-value { display: none; }
+
+    .exp-progress-bar {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 3px;
+        margin-top: 2px;
+    }
+
+    .exp-level-left,
+    .exp-level-right { font-size: 9px; }
+
+    .level-cap-badge {
+        grid-column: 1 / -1;
+        width: 100%;
+        max-width: none;
+        min-height: 20px;
+        padding: 2px 5px;
+        font-size: 8px;
+    }
+
+    .mud-child { padding-top: 14px; padding-bottom: 24px; }
+    .mud-btn { min-height: 40px; padding: 7px 9px; }
+
+    .quick-actions { bottom: 0; padding-right: 4px; padding-left: 4px; border-radius: 0; }
+    .quick-more-panel { right: 4px; left: 4px; padding: 9px 7px; }
+    .quick-more-grid { gap: 5px; }
+    .quick-tool-btn { padding: 3px 2px; }
+
+    .battle-panel.mini-mode {
+        bottom: calc(var(--quick-nav-height) + var(--safe-bottom) + 4px);
+        width: calc(100vw - 8px);
+        max-height: min(46dvh, 250px);
+        padding: 7px;
+    }
+
+    .battle-panel.mini-mode .battle-mini {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        gap: 5px;
+    }
+
+    .battle-mini-controls {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .battle-panel.mini-mode .battle-name { max-width: 78px; }
+    .battle-panel.mini-mode .hp-text,
+    .battle-panel.mini-mode .neili-text { min-width: 38px; font-size: 9px; }
+    .battle-meta,
+    .battle-guard-status,
+    .battle-star-status { font-size: 9px; }
+}
+
+/* Viewport tier 2/6: mainstream phones, 360-430 CSS px. */
+@media (min-width: 360px) and (max-width: 430px) {
+    :root {
+        --ui-shell-width: 100%;
+        --ui-reading-max: 100%;
+        --ui-content-gutter: 14px;
+        --ui-header-reserve: 112px;
+        --ui-more-columns: 4;
+        --ui-battle-max: calc(100vw - 12px);
+        --ui-battle-reserve: 194px;
+        --quick-nav-height: 50px;
+        --quick-icon-size: 18px;
+        --quick-label-size: 10px;
+        --quick-tool-height: 50px;
+        --quick-tool-icon-size: 18px;
+    }
+
+    body { padding: 0; }
+
+    #app {
+        border: 0;
+        border-radius: 0;
+    }
+
+    .game-header {
+        top: 0;
+        display: grid;
+        min-height: 0;
+        grid-template-columns: 44px 38px minmax(0, 1fr) 42px;
+        align-items: center;
+        gap: 6px;
+        padding: max(9px, env(safe-area-inset-top, 0px)) 9px 8px;
+        border-radius: 0;
+    }
+
+    .player-avatar-shell { grid-column: 1; width: 44px; height: 44px; flex-basis: 44px; }
+    .header-pet-companion { grid-column: 2; width: 38px; height: 38px; flex-basis: 38px; padding: 2px; }
+    .header-pet-icon { width: 30px; height: 30px; flex-basis: 30px; font-size: 20px; }
+    .player-info { grid-column: 3; gap: 5px; }
+    .header-actions { grid-column: 4; width: 42px; flex-basis: 42px; }
+    .header-btn { width: 42px; height: 42px; border-radius: 13px; }
+
+    .game-header:not(.has-header-pet) {
+        grid-template-columns: 44px minmax(0, 1fr) 42px;
+    }
+
+    .game-header:not(.has-header-pet) .player-info { grid-column: 2; }
+    .game-header:not(.has-header-pet) .header-actions { grid-column: 3; }
+
+    .player-info-line { gap: 4px; }
+    .player-fullid { max-width: 88px; font-size: 11px; }
+    .player-info-line .player-name-cn { max-width: 72px; font-size: 11px; }
+    .profession-assistant-badge { display: none; }
+    .player-info-line .divider { display: none; }
+    .player-info-line .server-info { padding: 1px 5px; font-size: 9px; }
+    .player-info-line .autofight-status-text { max-width: 92px; padding: 1px 5px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .player-stats { gap: 4px; }
+    .stat-bar { gap: 2px; }
+    .stat-label { font-size: 9px; }
+    .stat-value { max-width: 34px; font-size: 8px; }
+
+    .exp-progress-bar { gap: 3px; margin-top: 3px; }
+    .level-cap-badge { max-width: 78px; padding: 2px 4px; font-size: 8px; }
+    .mud-child { padding-top: 16px; padding-bottom: 26px; }
+    .mud-btn { min-height: 42px; padding: 8px 10px; }
+
+    .quick-actions { bottom: 0; padding-right: 6px; padding-left: 6px; border-radius: 0; }
+    .quick-more-panel { right: 6px; left: 6px; padding: 10px 8px; }
+
+    .battle-panel.mini-mode {
+        bottom: calc(var(--quick-nav-height) + var(--safe-bottom) + 6px);
+        width: calc(100vw - 12px);
+        max-height: min(44dvh, 244px);
+    }
+
+    .battle-panel.mini-mode .battle-mini {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        gap: 6px;
+    }
+
+    .battle-mini-controls {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .battle-panel.mini-mode .battle-name { max-width: 96px; }
+}
+
+/* Viewport tier 3/6: large phones, foldables and narrow landscape, 431-767 CSS px. */
+@media (min-width: 431px) and (max-width: 767px) {
+    :root {
+        --ui-shell-width: min(100%, 720px);
+        --ui-reading-max: 680px;
+        --ui-content-gutter: 18px;
+        --ui-header-reserve: 102px;
+        --ui-more-columns: 5;
+        --ui-battle-max: min(620px, calc(100vw - 16px));
+        --ui-battle-reserve: 158px;
+        --quick-nav-height: 52px;
+        --quick-tool-height: 50px;
+    }
+
+    .game-header { min-height: 96px; padding-right: 14px; padding-left: 14px; }
+    .player-fullid { max-width: 120px; }
+    .profession-assistant-badge { max-width: 100px; }
+    .quick-more-grid { gap: 7px; }
+    .battle-panel.mini-mode { width: min(620px, calc(100vw - 16px)); }
+}
+
+/* Viewport tier 4/6: tablets and iPad split view, 768-1023 CSS px. */
+@media (min-width: 768px) and (max-width: 1023px) {
+    :root {
+        --ui-shell-width: min(calc(100% - 20px), 920px);
+        --ui-reading-max: 820px;
+        --ui-content-gutter: 28px;
+        --ui-header-reserve: 100px;
+        --ui-more-columns: 6;
+        --ui-battle-max: 700px;
+        --ui-battle-reserve: 148px;
+        --ui-shell-radius: 20px;
+        --quick-nav-height: 54px;
+        --quick-tool-height: 52px;
+        --quick-nav-bottom-offset: 10px;
+    }
+
+    html { overflow-y: scroll; scrollbar-gutter: stable both-edges; }
+    body { padding: 10px 0; }
+    #app { min-height: calc(100dvh - 20px); border: 1px solid var(--ux-line); }
+    .game-header { top: 10px; min-height: 94px; border-radius: 19px 19px 0 0; }
+    .quick-actions { bottom: 10px; border: 1px solid var(--ux-line); border-radius: 0 0 19px 19px; }
+    .header-pet-companion { max-width: 150px; flex-basis: 150px; }
+    .player-fullid,
+    .player-info-line .player-name-cn { max-width: 28%; }
+    .stat-value { max-width: 72px; }
+    .quick-more-panel { padding: 14px; }
+    .quick-tool-btn { min-height: 52px; }
+    .battle-panel.mini-mode { width: min(700px, calc(100vw - 32px)); }
+}
+
+/* Viewport tier 5/6: laptops and ordinary PC browser windows, 1024-1439 CSS px. */
+@media (min-width: 1024px) and (max-width: 1439px) {
+    :root {
+        --ui-shell-width: min(calc(100% - 32px), 1080px);
+        --ui-reading-max: 900px;
+        --ui-content-gutter: 36px;
+        --ui-header-reserve: 94px;
+        --ui-more-columns: 8;
+        --ui-battle-max: 720px;
+        --ui-battle-reserve: 142px;
+        --ui-shell-radius: 22px;
+        --quick-nav-height: 48px;
+        --quick-tool-height: 48px;
+        --quick-nav-bottom-offset: 16px;
+    }
+
+    html { overflow-y: scroll; scrollbar-gutter: stable both-edges; }
+    body { padding: 16px 0; }
+    #app { min-height: calc(100dvh - 32px); border: 1px solid var(--ux-line); }
+    .game-header { top: 16px; min-height: 90px; border-radius: 21px 21px 0 0; }
+    .quick-actions { bottom: 16px; border: 1px solid var(--ux-line); border-radius: 0 0 21px 21px; }
+    .header-pet-companion { max-width: 168px; flex-basis: 168px; }
+    .player-fullid,
+    .player-info-line .player-name-cn { max-width: 220px; }
+    .stat-value { max-width: 88px; }
+    .mud-child { padding-top: 28px; padding-bottom: 38px; }
+    .quick-more-panel { padding: 15px; }
+    .quick-more-grid { gap: 8px; }
+    .quick-tool-btn { flex-direction: row; gap: 6px; padding: 6px 8px; }
+    .quick-tool-btn span { flex: 0 0 auto; }
+    .battle-panel.mini-mode { width: min(720px, calc(100vw - 48px)); }
+}
+
+/* Viewport tier 6/6: wide desktop and external monitors, 1440 CSS px and above. */
+@media (min-width: 1440px) {
+    :root {
+        --ui-shell-width: min(calc(100% - 48px), 1280px);
+        --ui-reading-max: 1000px;
+        --ui-content-gutter: 42px;
+        --ui-header-reserve: 94px;
+        --ui-more-columns: 8;
+        --ui-battle-max: 760px;
+        --ui-battle-reserve: 142px;
+        --ui-shell-radius: 24px;
+        --quick-nav-height: 48px;
+        --quick-tool-height: 48px;
+        --quick-nav-bottom-offset: 20px;
+    }
+
+    html { overflow-y: scroll; scrollbar-gutter: stable both-edges; }
+    body { padding: 20px 0; }
+    #app { min-height: calc(100dvh - 40px); border: 1px solid var(--ux-line); }
+    .game-header { top: 20px; min-height: 90px; padding-right: 22px; padding-left: 22px; border-radius: 23px 23px 0 0; }
+    .quick-actions { bottom: 20px; border: 1px solid var(--ux-line); border-radius: 0 0 23px 23px; }
+    .header-pet-companion { max-width: 184px; flex-basis: 184px; }
+    .player-fullid,
+    .player-info-line .player-name-cn { max-width: 260px; }
+    .stat-value { max-width: 104px; }
+    .mud-child { padding-top: 32px; padding-bottom: 42px; }
+    .quick-more-panel { padding: 16px 18px; }
+    .quick-more-grid { gap: 9px; }
+    .quick-tool-btn { min-height: 48px; flex-direction: row; gap: 7px; padding: 7px 10px; }
+    .quick-tool-btn span { flex: 0 0 auto; }
+    .battle-panel.mini-mode { width: min(760px, calc(100vw - 64px)); }
+}
+
+/* Short landscape screens keep all controls reachable without covering text. */
+@media (orientation: landscape) and (max-height: 600px) {
+    :root {
+        --ui-header-reserve: 76px;
+        --ui-battle-reserve: 126px;
+        --quick-nav-height: 46px;
+    }
+
+    .game-header {
+        min-height: 70px;
+        padding-top: max(6px, env(safe-area-inset-top, 0px));
+        padding-bottom: 6px;
+    }
+
+    .player-avatar-shell { width: 40px; height: 40px; flex-basis: 40px; }
+    .header-pet-companion { width: 38px; height: 38px; flex-basis: 38px; padding: 2px; }
+    .header-pet-copy { display: none; }
+    .header-pet-icon { width: 30px; height: 30px; flex-basis: 30px; }
+    .quick-more-panel { max-height: calc(100dvh - 92px); }
+    .battle-panel.mini-mode { max-height: min(42dvh, 180px); }
+}

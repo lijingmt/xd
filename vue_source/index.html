@@ -361,7 +361,10 @@
         <!-- 游戏主界面 - 使用iframe显示原始HTML -->
         <template v-if="!showLogin && !showRegister && !showCharacterSelect">
             <!-- 顶部状态栏 -->
-            <header class="game-header" aria-label="人物状态" data-tour="player-header">
+            <header class="game-header"
+                    :class="{ 'has-header-pet': !!headerPet }"
+                    aria-label="人物状态"
+                    data-tour="player-header">
                 <button type="button"
                      class="player-avatar-shell"
                      data-tour="player-avatar"

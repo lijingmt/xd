@@ -6,7 +6,7 @@
     "dev": "node serve.js",
     "build": "node build.js",
     "build:prod": "node build.js",
-    "test": "node tests/build-pipeline.test.js && node tests/battle-state.test.js && node tests/account-characters.test.js",
+    "test": "node tests/build-pipeline.test.js && node tests/battle-state.test.js && node tests/account-characters.test.js && node tests/responsive-layout.test.js",
     "clean": "rm -rf dist ../web/web_vue"
   },
   "dependencies": {
