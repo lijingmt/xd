@@ -352,6 +352,18 @@ int main()
 			extra_login_ok && sizeof(five_online)==5 &&
 			!objectp(child_player) && objectp(root_relogin),
 			"默认五人物上限没有准确执行");
+		mapping forced_logout = ACCOUNT_CHARACTERD->
+			query_recent_forced_logout(child_id);
+		check("在线上限清退留下短时拦截标记阻止旧标签页自动重登",
+			(int)forced_logout["forced_logout"]==1 &&
+			(string)forced_logout["reason"]=="online_limit_reached" &&
+			(int)forced_logout["online_limit"]==5,
+			sprintf("forced=%O",forced_logout));
+		ACCOUNT_CHARACTERD->clear_recent_forced_logout(child_id);
+		check("人物中心明确选择后可清除自动重登拦截",
+			!(int)ACCOUNT_CHARACTERD->
+				query_recent_forced_logout(child_id)["forced_logout"],
+			"清除后仍被判定为上限清退");
 
 		ACCOUNT_CHARACTERD->set_test_online_limit(account_id,1);
 		int evicted_for_single = ACCOUNT_CHARACTERD->
@@ -382,6 +394,15 @@ int main()
 		}
 		check("登录守卫与共享仓库文件由真实Pike运行时编译",
 			!sizeof(failures),failures*" | ");
+		string http_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/http_api_daemon.pike");
+		string select_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/_http_api_mod/account_characters.pike");
+		check("HTTP轮询拒绝被清退人物且明确选角可恢复进入",
+			search(http_source,"query_recent_forced_logout")!=-1 &&
+			search(http_source,"send_json(req,forced_logout,409)")!=-1 &&
+			search(select_source,"clear_recent_forced_logout")!=-1,
+			"HTTP 409拦截或明确选角清除链路缺失");
 	};
 	if(original_player)
 		set_this_player(original_player);

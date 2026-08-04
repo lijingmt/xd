@@ -17,6 +17,7 @@ inherit LOW_DAEMON;
 #define ACCOUNT_ONLINE_CONFIG ROOT "/gamelib/etc/account_characters.conf"
 #define ACCOUNT_ONLINE_SAFE_DEFAULT 1
 #define ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL 15
+#define ACCOUNT_FORCED_LOGOUT_TTL 600
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
@@ -26,6 +27,7 @@ private mapping(string:object) account_runtime_locks =
 private Thread.Mutex account_online_state_lock = Thread.Mutex();
 private mapping(string:array(object)) account_online_players = ([]);
 private mapping(string:int) test_online_limit_overrides = ([]);
+private mapping(string:mapping(string:mixed)) recent_forced_logouts = ([]);
 
 private mapping(string:array(string)) valid_professions = ([
 	"human":({"jianxian","yushi","zhuxian"}),
@@ -142,7 +144,17 @@ int enforce_online_limit_now()
 
 private void check_online_limit_config()
 {
+	int now = time();
+	object key;
 	enforce_online_limit_now();
+	key = account_online_state_lock->lock();
+	foreach(indices(recent_forced_logouts),string character_id){
+		mapping forced = recent_forced_logouts[character_id];
+		if(!mappingp(forced) ||
+		   now-(int)forced["timestamp"]>ACCOUNT_FORCED_LOGOUT_TTL)
+			m_delete(recent_forced_logouts,character_id);
+	}
+	destruct(key);
 	call_out(check_online_limit_config,
 		ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL);
 }
@@ -744,16 +756,22 @@ array(string) query_character_ids(string account_id)
 private int disconnect_online_character(object player,string incoming_id)
 {
 	string player_id;
+	string account_id;
 	object http_api;
 	object connd;
 	object connection;
 	int saved = 0;
+	int online_limit = 1;
 	mixed err;
 	if(!player || !functionp(player->query_name))
 		return 1;
 	player_id = player->query_name();
 	if(!player_id)
 		return 1;
+	account_id = functionp(player->query_account_owner) ?
+		player->query_account_owner() : player_id;
+	if(valid_userid(account_id))
+		online_limit = query_account_online_limit(account_id);
 	err = catch{
 		if(functionp(player->save_with_result))
 			saved = player->save_with_result();
@@ -762,6 +780,25 @@ private int disconnect_online_character(object player,string incoming_id)
 		werror("[ACCOUNT_CHARACTERD] 同账号人物切换保存失败: %s\n",
 			player_id);
 		return 0;
+	}
+	// 同一人物重连属于会话替换，不设拦截标记；只有被账号在线上限
+	// 清退的人物才阻止旧标签页凭缓存TXD自动登录，避免多个职业轮流互踢。
+	if(player_id!=incoming_id){
+		string marker_id = lower_case(player_id);
+		mapping(string:mixed) forced = ([
+			"error":incoming_id=="配置上限" ?
+				"账号同时在线上限已调整，当前人物已安全退出，请重新选择人物。" :
+				"同账号在线人物已达到上限，当前人物已安全退出，请重新选择人物。",
+			"forced_logout":1,
+			"reason":incoming_id=="配置上限" ?
+				"online_limit_changed" : "online_limit_reached",
+			"incoming_character":incoming_id=="配置上限" ? "" : incoming_id,
+			"online_limit":online_limit,
+			"timestamp":time(),
+		]);
+		object state_key = account_online_state_lock->lock();
+		recent_forced_logouts[marker_id] = forced;
+		destruct(state_key);
 	}
 	catch{
 		if(functionp(player->receive))
@@ -794,6 +831,40 @@ private int disconnect_online_character(object player,string incoming_id)
 		ctime(time())[0..sizeof(ctime(time()))-2]+" account switch "+
 		player_id+" -> "+incoming_id+"\n");
 	return 1;
+}
+
+/**
+ * 返回人物最近一次因账号在线上限被清退的原因。标记只在短时间内存在，
+ * 用于阻断旧浏览器标签页的自动重登；玩家从人物中心明确选择后会清除。
+ */
+mapping(string:mixed) query_recent_forced_logout(string character_id)
+{
+	mapping(string:mixed) result = ([]);
+	object key;
+	if(!valid_userid(character_id))
+		return result;
+	character_id = lower_case(character_id);
+	key = account_online_state_lock->lock();
+	if(mappingp(recent_forced_logouts[character_id])){
+		mapping(string:mixed) forced = recent_forced_logouts[character_id];
+		if(time()-(int)forced["timestamp"]>ACCOUNT_FORCED_LOGOUT_TTL)
+			m_delete(recent_forced_logouts,character_id);
+		else
+			result = copy_value(forced);
+	}
+	destruct(key);
+	return result;
+}
+
+void clear_recent_forced_logout(string character_id)
+{
+	object key;
+	if(!valid_userid(character_id))
+		return;
+	character_id = lower_case(character_id);
+	key = account_online_state_lock->lock();
+	m_delete(recent_forced_logouts,character_id);
+	destruct(key);
 }
 
 private int object_in_array(array(object) players,object player)
@@ -1172,6 +1243,12 @@ void remove_test_account(string account_id)
 	m_delete(account_cache,account_id);
 	destruct(key);
 	state_key = account_online_state_lock->lock();
+	if(record){
+		foreach((array)record["characters"],mapping entry)
+			m_delete(recent_forced_logouts,(string)entry["id"]);
+	}
+	else
+		m_delete(recent_forced_logouts,account_id);
 	m_delete(account_online_players,account_id);
 	m_delete(test_online_limit_overrides,account_id);
 	destruct(state_key);

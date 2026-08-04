@@ -108,6 +108,8 @@ assert(appSource.includes("'/api/account/characters/select'"));
 assert(appSource.includes('error.status === 404 || error.status === 501'));
 assert(appSource.includes('characterSessionEpoch'));
 assert(appSource.includes('invalidateCharacterSessionRequests'));
+assert(appSource.includes('handleForcedCharacterLogout'));
+assert(appSource.includes('response.status === 409 && data.forced_logout'));
 assert(!appSource.includes("sessionStorage.getItem('mud_txd') || this.txd"));
 
 (async () => {
@@ -194,6 +196,49 @@ assert(!appSource.includes("sessionStorage.getItem('mud_txd') || this.txd"));
   assert.strictEqual(client.showCharacterSelect, true);
   assert.strictEqual(client.currentCharacterId, 'xd01firsthero');
   assert(client.characterError.includes('请重试'));
+
+  // 达到账号同时在线上限后，被清退标签页必须停在人物中心，不能
+  // flushview自动重登并继续清退同账号下另一个正在玩的职业。
+  client.accountToken = 'd'.repeat(64);
+  client.txd = firstTxd;
+  client.currentCharacterId = 'xd01firsthero';
+  client.playerStats = { autofight: true };
+  client.statsInterval = 11;
+  client.autofightInterval = 12;
+  client.battleStatusInterval = 13;
+  client.chatPollingInterval = 14;
+  client.showLogin = false;
+  client.showCharacterSelect = false;
+  sessionValues.set('mud_txd', firstTxd);
+  sessionValues.set('mud_character_id', 'xd01firsthero');
+  let forcedLogoutRequests = 0;
+  sandbox.fetch = async () => {
+    forcedLogoutRequests += 1;
+    return {
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: '同账号在线人物已达到上限，当前人物已安全退出，请重新选择人物。',
+        forced_logout: 1,
+        reason: 'online_limit_reached',
+        online_limit: 5
+      })
+    };
+  };
+  await client.sendJsonCommand('flushview');
+  assert.strictEqual(forcedLogoutRequests, 1);
+  assert.strictEqual(client.txd, '');
+  assert.strictEqual(client.currentCharacterId, '');
+  assert.strictEqual(client.accountToken, 'd'.repeat(64));
+  assert.strictEqual(client.showCharacterSelect, true);
+  assert.strictEqual(client.showLogin, false);
+  assert.strictEqual(client.statsInterval, null);
+  assert.strictEqual(client.autofightInterval, null);
+  assert.strictEqual(client.battleStatusInterval, null);
+  assert.strictEqual(client.chatPollingInterval, null);
+  assert.strictEqual(sessionValues.has('mud_txd'), false);
+  assert.strictEqual(sessionValues.has('mud_character_id'), false);
+  assert(client.characterError.includes('重新选择人物'));
 
   console.log('account character frontend tests passed');
 })().catch(error => {

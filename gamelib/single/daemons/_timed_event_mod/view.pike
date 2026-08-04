@@ -114,6 +114,9 @@ private string query_event_page(object player)
 	mapping player_state = normalize_player_event_state(player);
 	out += "天衡令："+(string)player_state["tianheng_tokens"]+
 		"　九曜令："+(string)player_state["jiuyao_tokens"]+"\n\n";
+	string badges = query_event_badges(player_state);
+	if(badges!="")
+		out += "活动徽记："+badges+"\n\n";
 	foreach(({EVENT_TIANHENG,EVENT_JIUYAO}),string event_id){
 		mapping config = query_event_config(event_id);
 		mapping window = query_event_window(event_id,time());
@@ -137,6 +140,7 @@ private string query_event_page(object player)
 		out += "你已在"+query_event_name((string)active["event_id"])+
 			"中。[返回活动场地:timed_event return]\n";
 	out += "所有奖励均为游戏内经验、金币和玩法令牌；VIP不增加战斗数值或入场次数。\n";
+	out += "[令牌兑换商店:timed_event shop]\n";
 	out += "[返回:look]\n";
 	return out;
 }

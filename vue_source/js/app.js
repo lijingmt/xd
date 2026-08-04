@@ -1378,6 +1378,42 @@ createApp({
             return this.characterSessionEpoch;
         },
 
+        handleForcedCharacterLogout(data = {}) {
+            const message = data.error ||
+                '当前人物已因账号在线上限安全退出，请从人物中心重新选择。';
+            this.invalidateCharacterSessionRequests();
+            this.stopStatsUpdate();
+            this.stopBattleStatusPolling();
+            this.stopChatPolling();
+            if (this.autofightInterval) {
+                clearInterval(this.autofightInterval);
+                this.autofightInterval = null;
+            }
+            sessionStorage.removeItem('mud_txd');
+            sessionStorage.removeItem('mud_character_id');
+            this.txd = '';
+            this.currentCharacterId = '';
+            this.playerStats = null;
+            this.mudLines = [];
+            this.isInBattle = false;
+            this.battleEnemy = null;
+            this.battleEnemyFull = null;
+            this.battlePlayerFull = null;
+            this.clearBattleAoeReport();
+            this.battleAnimations = [];
+            this.skillAnimations = [];
+            this.showChatRoom = false;
+            this.characterLoading = false;
+            this.characterSelectCanCancel = false;
+            this.showRegister = false;
+            this.showCharacterSelect = Boolean(this.accountToken);
+            this.showLogin = !this.accountToken;
+            this.characterError = message;
+            if (!this.accountToken) this.loginError = message;
+            this.showUiToast(message, 'warning');
+            return true;
+        },
+
         isCharacterSessionCurrent(epoch) {
             return epoch === this.characterSessionEpoch;
         },
@@ -1427,6 +1463,10 @@ createApp({
                 const response = await fetch(this.apiBase + '/api/json?' + params.toString());
                 data = await response.json().catch(() => ({}));
                 if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return false;
+                }
                 if (!response.ok || data.error) {
                     throw new Error(data.error || ('人物登录失败: HTTP ' + response.status));
                 }
@@ -2282,6 +2322,12 @@ createApp({
                 if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.log('[sendJsonCommand] 响应状态:', response.status);
 
+                const data = await response.json().catch(() => ({}));
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return;
+                }
                 if (!response.ok) {
                     // 401 表示未授权（会话已过期），尝试重新登录并重试命令
                     if (response.status === 401 && !isRetry) {
@@ -2293,10 +2339,8 @@ createApp({
                             return this.sendJsonCommand(cmd, true);
                         }
                     }
-                    throw new Error(`HTTP ${response.status}`);
+                    throw new Error(data.error || `HTTP ${response.status}`);
                 }
-                const data = await response.json();
-                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
 
                 if (data.error) {
                     console.error('命令执行错误:', data.error);
@@ -2715,13 +2759,16 @@ createApp({
 
                 const response = await fetch(this.apiBase + '/api/json?' + params.toString());
                 if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
-
-                if (!response.ok) {
-                    throw new Error('登录失败: HTTP ' + response.status);
-                }
-
-                const data = await response.json();
+                const data = await response.json().catch(() => ({}));
                 if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return false;
+                }
+                if (!response.ok) {
+                    throw new Error(data.error ||
+                        ('登录失败: HTTP ' + response.status));
+                }
                 if (data.error) {
                     throw new Error(data.error);
                 }
@@ -2889,9 +2936,13 @@ createApp({
             try {
                 const response = await fetch(`${this.apiBase}/api/status?txd=${encodeURIComponent(requestTxd)}`);
                 if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                const data = await response.json().catch(() => ({}));
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return;
+                }
                 if (response.ok) {
-                    const data = await response.json();
-                    if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                     if (!data.error) {
                         // 记录之前的 autofight 状态
                         const wasAutofight = this.playerStats && this.playerStats.autofight;

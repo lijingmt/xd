@@ -1306,6 +1306,15 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
         return;
     }
 
+    // 达到同账号在线上限后，旧标签页仍会携带缓存TXD持续flushview。
+    // 明确返回409，禁止它自动重登并反过来清退另一个正在玩的职业。
+    mapping forced_logout = ACCOUNT_CHARACTERD->
+        query_recent_forced_logout(auth_userid);
+    if((int)forced_logout["forced_logout"]){
+        send_json(req,forced_logout,409);
+        return;
+    }
+
     // 解码隐藏命令（cmd可能是数字索引）
     string actual_cmd = unhide_command(auth_userid, cmd);
 
@@ -2048,7 +2057,12 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
     }
 
     if(!player) {
-        send_json(req, ([ "error": "玩家未登录" ]), 401);
+        mapping forced_logout = ACCOUNT_CHARACTERD->
+            query_recent_forced_logout(userid);
+        if((int)forced_logout["forced_logout"])
+            send_json(req,forced_logout,409);
+        else
+            send_json(req, ([ "error": "玩家未登录" ]), 401);
         return;
     }
 

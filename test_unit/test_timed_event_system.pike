@@ -56,6 +56,83 @@ void test_runtime_compile()
 	check("守护进程、房间、首领与命令均由真实Pike运行时编译",ok,details);
 }
 
+void test_token_exchange_shop()
+{
+	object player = create_player("__testunit_timed_shop__");
+	mapping state = ([
+		"tianheng_tokens":20,
+		"jiuyao_tokens":150,
+		"last_entry":([]),
+		"claims":([]),
+		"badges":([]),
+	]);
+	string page;
+	string insufficient;
+	string gold_result;
+	string item_result;
+	string badge_result;
+	string duplicate_badge;
+	int money_before;
+	int badge_balance;
+	object|zero material = 0;
+	player["/plus/timed_event"] = state;
+	player->set_account(0);
+	page = TIMED_EVENTD->handle_command(player,"shop","");
+	check("令牌商店同时展示补给、锻造材料和永久徽记",
+		search(page,"天衡传音符")!=-1 &&
+		search(page,"天衡免战符")!=-1 &&
+		search(page,"绑定紫水晶")!=-1 &&
+		search(page,"九曜镇渊徽记")!=-1,"商店目录不完整");
+	insufficient = TIMED_EVENTD->handle_command(
+		player,"exchange","th_jingang");
+	check("令牌不足时不发物品也不扣余额",
+		search(insufficient,"不足")!=-1 &&
+		(int)state["tianheng_tokens"]==20,
+		sprintf("balance=%d",(int)state["tianheng_tokens"]));
+	money_before = player->query_account();
+	gold_result = TIMED_EVENTD->handle_command(
+		player,"exchange","th_gold");
+	check("金币补给即时到账并只扣一枚天衡令",
+		search(gold_result,"兑换成功")!=-1 &&
+		player->query_account()==money_before+10000 &&
+		(int)state["tianheng_tokens"]==19,"金币或令牌数错误");
+	item_result = TIMED_EVENTD->handle_command(
+		player,"exchange","th_xuanhuang");
+	foreach(all_inventory(player),object one){
+		if(one && functionp(one->query_name) &&
+		   one->query_name()=="xuanhuangshi"){
+			material = one;
+			break;
+		}
+	}
+	check("兑换锻造材料进入包袱且强制人物绑定",
+		search(item_result,"兑换成功")!=-1 && material &&
+		material->query_item_canDrop()==0 &&
+		material->query_item_canTrade()==0 &&
+		material->query_item_canSend()==0 &&
+		material->query_item_canStorage()==1 &&
+		(int)state["tianheng_tokens"]==7,
+		"材料未到账、未绑定或扣费错误");
+	badge_result = TIMED_EVENTD->handle_command(
+		player,"exchange","jy_badge");
+	badge_balance = (int)state["jiuyao_tokens"];
+	duplicate_badge = TIMED_EVENTD->handle_command(
+		player,"exchange","jy_badge");
+	check("永久徽记只能兑换一次且重复操作不扣令牌",
+		search(badge_result,"兑换成功")!=-1 &&
+		(int)state["badges"]["jiuyao_guardian"]==1 &&
+		badge_balance==50 &&
+		(int)state["jiuyao_tokens"]==badge_balance &&
+		search(duplicate_badge,"不能重复兑换")!=-1,
+		sprintf("first=%O duplicate=%O balance=%d badges=%O",
+			badge_result,duplicate_badge,
+			(int)state["jiuyao_tokens"],state["badges"]));
+	if(material)
+		destruct(material);
+	if(player)
+		destruct(player);
+}
+
 void test_schedule_and_timezone()
 {
 	int now = time();
@@ -236,6 +313,7 @@ int main()
 	werror("\n========== 每日限时原创玩法测试 ==========\n");
 	test_runtime_compile();
 	test_schedule_and_timezone();
+	test_token_exchange_shop();
 	test_original_game_rules();
 	test_room_teleport_guard_and_npc();
 	test_wiring_and_public_status();

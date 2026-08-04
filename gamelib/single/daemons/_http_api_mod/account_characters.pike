@@ -274,6 +274,9 @@ void handle_api_account_character_select(Protocols.HTTP.Server.Request req)
 	}
 	bootstrap_command = ACCOUNT_CHARACTERD->query_bootstrap_command(
 		account_id,character_id);
+	// 人物中心点击属于玩家明确选择，允许重新进入此前因在线上限被
+	// 清退的人物；后台轮询和旧标签页则仍会被/api/json拒绝。
+	ACCOUNT_CHARACTERD->clear_recent_forced_logout(character_id);
 	send_json(req,([
 		"ok":1,
 		"account_id":account_id,
