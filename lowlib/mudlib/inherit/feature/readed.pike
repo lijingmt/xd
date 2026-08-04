@@ -41,6 +41,10 @@ int read(){
 			// 之前比较 profe_read_limit(如"fangshi") 与 query_profe_cn()(如"方士") 会失败
 			if(this_object()->profe_read_limit==me->query_profeId() || this_object()->profe_read_limit==me->query_profe_cn(me->query_profeId())){ //职业要求要求可以学习
 				if(me->skills[this_object()->skill_bname]==0){
+					// 主动技能的高阶直升书不能在基础技能尚未学习时被
+					// 误当成一级书消耗。召唤二阶等普通进阶书仍保持逐级学习。
+					if(this_object()->skill_level>1)
+						return 5;
 					me->skills[this_object()->skill_bname]=({1,0});
 					this_object()->read_flag = 0;
 					return 1;//成功学习了该新技能
@@ -54,7 +58,10 @@ int read(){
 					int diff = skill_level - cur_level;
 					if(diff<1)
 						return 6;//同级不能学习
-					else if (diff==1){
+					else if (diff==1 ||
+						(this_object()->skill_level>=11 && cur_level>=1)){
+						// 旧职业的11级突破书按人物等级解锁。历史玩家可能
+						// 因熟练度未练满停在1—9级；满足人物等级后允许追赶。
 						me->skills[this_object()->skill_bname]=({skill_level,0});
 						this_object()->read_flag = 0;
 						return 1;//成功学习了技能熟练度超过10级以上的技能
@@ -381,4 +388,3 @@ int zhijia_read()
 		}
 	}
 }
-

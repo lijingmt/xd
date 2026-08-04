@@ -2,8 +2,8 @@
 """Build the standalone Xiand all-profession skill handbook.
 
 The handbook is intentionally separate from the equipment/progression guide.
-It reads the current skill objects and skill-book catalog, then gives all 31
-drop-only mythic skills a dedicated, stage-by-stage reference.
+It reads the current skill objects and skill-book catalog, then documents the
+31 legacy mythic skills and all 70 account-bound ancient inheritances.
 """
 
 from __future__ import annotations
@@ -47,7 +47,10 @@ from build_xiand_profession_guide import (
     build_styles,
     git_value,
     parse_books,
+    parse_ancient_skills,
     parse_skills,
+    mythic_runtime_cooldown,
+    mythic_runtime_summary,
     register_fonts,
     skill_rows,
 )
@@ -62,7 +65,7 @@ MYTHIC_SKILLS = [
         "profession": "jianxian",
         "id": "wanjianguizong",
         "role": "高额武器物理爆发",
-        "usage": "定位为剑仙的单体决胜技，施放时必须装备主手武器。建议先以破阵剑意削弱防御，再在安全窗口集中剑势；60秒冷却决定它更适合关键目标，而不是普通怪轮流点放。",
+        "usage": "定位为剑仙的单体决胜技，施放时必须装备主手武器。建议先以破阵剑意削弱防御，再在安全窗口集中剑势；50秒冷却决定它更适合关键目标，而不是普通怪轮流点放。",
     },
     {
         "profession": "jianxian",
@@ -80,7 +83,7 @@ MYTHIC_SKILLS = [
         "profession": "yushi",
         "id": "jiutianleiyin",
         "role": "风系单体爆发",
-        "usage": "定位为羽士的风系单体斩杀。先用冰魄缠身降低敌人攻频，或用太乙玄光稳住自身，再对Boss和高威胁目标释放；60秒内无法反复施放。",
+        "usage": "定位为羽士的风系单体斩杀。先用冰魄缠身降低敌人攻频，或用太乙玄光稳住自身，再对Boss和高威胁目标释放；50秒内无法反复施放。",
     },
     {
         "profession": "yushi",
@@ -110,7 +113,7 @@ MYTHIC_SKILLS = [
         "profession": "zhuxian",
         "id": "wuyingfenghou",
         "role": "12秒追杀伤害",
-        "usage": "适合Boss长战和残血追击，先挂上12秒持续伤害，再开启剑意并衔接爆发。持续伤害不会替代正面输出，也不能在120秒冷却内重复刷新。",
+        "usage": "适合Boss长战和残血追击，先挂上12秒持续伤害，再开启剑意并衔接爆发。持续伤害不会替代正面输出，也不能在90秒冷却内重复刷新。",
     },
     {
         "profession": "kuangyao",
@@ -128,7 +131,7 @@ MYTHIC_SKILLS = [
         "profession": "kuangyao",
         "id": "xuehailieshang",
         "role": "12秒流血伤害",
-        "usage": "先制造12秒流血，再以修罗狂意强化后续物理攻击，适合高血量目标和持久战。完整持续对普通目标约造成9%至12%最大生命真实伤害，Boss最多3%；弱持续伤害不会覆盖它。",
+        "usage": "先制造12秒流血，再以修罗狂意强化后续物理攻击，适合高血量目标和持久战。完整持续对普通目标约造成10.8%至14.4%最大生命真实伤害，Boss最多3%；弱持续伤害不会覆盖它。",
     },
     {
         "profession": "wuyao",
@@ -206,19 +209,19 @@ MYTHIC_SKILLS = [
         "profession": "tianxiang",
         "id": "xinghezhuiluo",
         "role": "消耗星痕的火系爆发",
-        "usage": "定位为天象的隐藏决胜技，第一段基础伤害3000至3800。它消耗至多三层服务端星痕；普通PVE每层提高10%，玩家和Boss每层提高8%。60秒冷却和十五秒星痕时限要求先积蓄、再选择安全窗口引爆。",
+        "usage": "定位为天象的隐藏决胜技，第一段基础伤害3000至3800。它消耗至多三层服务端星痕；普通PVE每层提高10%，玩家和Boss每层提高8%。50秒冷却和十五秒星痕时限要求先积蓄、再选择安全窗口引爆。",
     },
     {
         "profession": "tianxiang",
         "id": "zhoutianjingzhi",
         "role": "8秒命中压制控制",
-        "usage": "第一段在8秒内降低18点命中，适合覆盖敌方爆发窗口。效果需要通过控制命中与抵抗判定，不永久叠加，也不会让目标完全停止行动；120秒冷却要求谨慎选择目标。",
+        "usage": "第一段在8秒内降低18点命中，适合覆盖敌方爆发窗口。效果需要通过控制命中与抵抗判定，不永久叠加，也不会让目标完全停止行动；90秒冷却要求谨慎选择目标。",
     },
     {
         "profession": "tianxiang",
         "id": "wanxiangxingbi",
         "role": "15秒可耗尽个人星壁",
-        "usage": "第一段吸收3800+智力×3点伤害，用于给积蓄星痕争取时间。它只有有限额度与15秒时限，不回血、不复活、不免疫；120秒冷却决定它不能覆盖每轮普通战斗。",
+        "usage": "第一段吸收3800+智力×3点伤害，并至少形成8%最大生命护盾，用于给积蓄星痕争取时间。它只有有限额度与15秒时限，不回血、不复活、不免疫；75秒冷却决定它不能覆盖每轮普通战斗。",
     },
     {
         "profession": "lingyi",
@@ -236,13 +239,13 @@ MYTHIC_SKILLS = [
         "profession": "lingyi",
         "id": "wanmuxinchun",
         "role": "群体治疗与逐人净化",
-        "usage": "治疗同房同队存活人物并为每名受益目标净化一项负面状态，优先持续伤害，再处理减疗/诅咒、控制与70级诅咒。每名目标治疗上限25%，120秒冷却要求留给复杂团队危机。",
+        "usage": "治疗同房同队存活人物并为每名受益目标净化一项负面状态，优先持续伤害，再处理减疗/诅咒、控制与70级诅咒。每名目标治疗上限25%，75秒冷却要求留给复杂团队危机。",
     },
     {
         "profession": "lingyi",
         "id": "liuhehuichun",
         "role": "药契强化全队治疗与净化",
-        "usage": "治疗自己与同房、同逻辑区、同队的全部存活队友，并为每人净化一项负面状态。施放时消耗全部药契，每层增强15%，每人单次最高恢复35%生命；150秒冷却使它成为团队危机的压轴手段。",
+        "usage": "治疗自己与同房、同逻辑区、同队的全部存活队友，并为每人净化一项负面状态。施放时消耗全部药契，每层增强15%，每人单次最高恢复35%生命；75秒冷却使它成为团队危机的压轴手段。",
     },
 ]
 
@@ -273,6 +276,12 @@ def parse_mythic_details() -> list[dict[str, object]]:
         name_match = re.search(r'name_cn\s*=\s*"([^"]+)"', source)
         desc_match = re.search(r'desc\s*=\s*"([^"]+)"', source)
         cooldown_match = re.search(r"s_delayTime\s*=\s*(\d+)", source)
+        type_match = re.search(r's_skill_type\s*=\s*"([^"]+)"', source)
+        curse_match = re.search(r's_curse_type\s*=\s*"([^"]+)"', source)
+        skill_type = type_match.group(1) if type_match else ""
+        curse_type = curse_match.group(1) if curse_match else ""
+        raw_cooldown = int(cooldown_match.group(1)) if cooldown_match else 0
+        cooldown = mythic_runtime_cooldown(skill_type, raw_cooldown)
         stage_rows: list[list[str]] = []
         for stage in range(1, 6):
             level_match = re.search(
@@ -283,15 +292,27 @@ def parse_mythic_details() -> list[dict[str, object]]:
             )
             if not level_match or not stage_match:
                 raise RuntimeError(f"Missing stage {stage} in mythic skill {skill_id}")
-            stage_rows.append(
-                [str(stage), level_match.group(1), stage_match.group(1)]
-            )
+            stage_desc = stage_match.group(1)
+            if skill_type == "phy" or skill_type not in {
+                "dot", "curse", "buff", "heal", "taunt", "team_guard"
+            }:
+                stage_desc += f"；总攻势按{135 + stage * 5}%结算"
+            elif skill_type == "dot" and skill_id != "xuehailieshang":
+                stage_desc += f"；每节拍至少继承{5 + stage}%自身攻势，玩家与首领有封顶"
+            elif skill_type in {"heal", "team_guard"} or (
+                skill_type == "buff" and curse_type == "absorb"
+            ):
+                stage_desc += f"；高属性时至少按生命上限{6 + stage * 2}%生效"
+            elif skill_type in {"buff", "curse"} and curse_type in {"attack", "defend"}:
+                stage_desc += f"；高属性时至少影响当前属性{18 + stage * 4}%"
+            stage_rows.append([str(stage), level_match.group(1), stage_desc])
         result.append(
             {
                 **config,
                 "name": name_match.group(1) if name_match else skill_id,
                 "desc": desc_match.group(1) if desc_match else "",
-                "cooldown": int(cooldown_match.group(1)) if cooldown_match else 0,
+                "cooldown": cooldown,
+                "runtime": mythic_runtime_summary(skill_type, curse_type, skill_id),
                 "stages": stage_rows,
             }
         )
@@ -320,7 +341,7 @@ class SkillGuideDocTemplate(GuideDocTemplate):
             canvas.drawRightString(
                 PAGE_W - RIGHT_MARGIN,
                 PAGE_H - 8.5 * mm,
-                "三十一本隐藏神技详解",
+                "一百零一式隐藏传承详解",
             )
             canvas.line(LEFT_MARGIN, 10 * mm, PAGE_W - RIGHT_MARGIN, 10 * mm)
             canvas.drawCentredString(PAGE_W / 2, 6.5 * mm, f"- {doc.page} -")
@@ -363,7 +384,7 @@ def add_cover(
     story.append(Paragraph("仙道全职业技能专册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-			f"十职业技能全索引 · 三十一式隐藏神技 · {build_date}灵医版",
+			f"十职业技能全索引 · 31式旧世神技 + 70式太古传承 · {build_date}版",
             styles["CoverSub"],
         )
     )
@@ -374,7 +395,7 @@ def add_cover(
                 Paragraph(
                     f"当前代码共收录 {skill_count} 个职业技能对象、{book_count} 条职业技能书配置。<br/>"
                     "从技能书获得、背包学习，到熟练度成长与实战连招，一册查清。<br/>"
-                    "九个职业各有 3 本专属隐藏神技，灵医独有 4 本，共 31 本极低概率传承。<br/>"
+                    "旧池保留31本可流通神技；新池每职业7本，共70本拾取即账号绑定的太古传承。<br/>"
                     "等级、法力、伤害、治疗、控制时长与冷却均取自当前技能对象。",
                     ParagraphStyle(
                         "SkillCoverBox",
@@ -430,14 +451,14 @@ def add_cover(
         [
             "# 仙道全职业技能专册",
             "",
-			f"十职业技能全索引 · 三十一式隐藏神技 · {build_date}灵医版",
+			f"十职业技能全索引 · 31式旧世神技 + 70式太古传承 · {build_date}版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
             f"- 生成日期：{build_date}",
             f"- 数据规模：{skill_count} 个职业技能对象，{book_count} 条职业技能书配置",
             "",
-            "> 本专册依据当前仓库代码生成：九个职业各3本，灵医4本，共31本。",
+            "> 本专册依据当前仓库代码生成：旧池31本保持可流通；新池每职业7本，共70本拾取即账号绑定。",
             "",
         ]
     )
@@ -475,6 +496,7 @@ def build_skill_guide() -> None:
     books = parse_books()
     skills = parse_skills()
     mythics = parse_mythic_details()
+    ancients = parse_ancient_skills()
     books_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
     skills_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
     mythics_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
@@ -510,7 +532,7 @@ def build_skill_guide() -> None:
         commit,
         build_date,
         len(skills),
-        len(books),
+        len(books) + len(mythics) + len(ancients),
     )
     add_toc(story, styles)
 
@@ -533,8 +555,8 @@ def build_skill_guide() -> None:
         [
             "普通技能书主要在职业技能书商店购买；60级以上高级书按职业每天独立轮换2本。",
             "方士、镇越、天象与灵医多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。",
-            "隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长，不需要重复找5本。",
-            "重复学习隐藏书不会消耗原书，可继续交易、寄送或存入仓库。",
+            "旧31本隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长。",
+            "旧隐藏书可继续交易、寄送或存入仓库；新70本太古书拾取即账号绑定，禁止所有跨人物流通。",
         ]
     )
     guide.callout(
@@ -564,7 +586,7 @@ def build_skill_guide() -> None:
     )
     guide.callout(
         "平衡调整原则",
-        "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。没有采用“攻击×4.8”“12秒掉24%最大生命”或无条件必中等玩家提案。",
+        "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。旧31式神技已统一接入总攻势倍率、最大生命保底或当前属性百分比，并保留PVP/Boss硬上限；没有采用无条件必中或无限比例伤害。",
         "gold",
     )
     guide.h2("2.2 十职业定位与隐藏传承")
@@ -700,7 +722,7 @@ def build_skill_guide() -> None:
                 [0.8, 1.15, 4.0],
             )
             guide.paragraph(
-                f"固定冷却：{mythic['cooldown']}秒。学习书要求：人物80级、职业为{profession['name']}。",
+                f"实战冷却：{mythic['cooldown']}秒。{mythic['runtime']}。学习书要求：人物80级、职业为{profession['name']}。",
                 small=True,
             )
         if profession_id == "jianxian":
@@ -725,7 +747,7 @@ def build_skill_guide() -> None:
             )
             guide.callout(
                 "狂妖最新精确边界",
-                "致残重伤保留旧固定伤害下限，并按狂妖自身最大生命成长，十段完整持续约为2%至5%；普通怪、玩家、Boss的目标生命保护上限分别为10%、5%、2.5%。血海裂伤整段对普通目标约为目标最大生命9%至12%，Boss最多3%。持续伤害不叠加，按剩余总伤害保留更强效果。",
+                "致残重伤保留旧固定伤害下限，并按狂妖自身最大生命成长，十段完整持续约为2%至5%；普通怪、玩家、Boss的目标生命保护上限分别为10%、5%、2.5%。血海裂伤整段对普通目标约为目标最大生命10.8%至14.4%，Boss最多3%。持续伤害不叠加，按剩余总伤害保留更强效果。",
                 "gold",
             )
         elif profession_id == "wuyao":
@@ -760,7 +782,7 @@ def build_skill_guide() -> None:
             )
         section_number += 1
 
-    guide.h2("4.13 隐藏书常见问题")
+    guide.h2("4.13 旧隐藏书常见问题")
     guide.table(
         ["问题", "答案"],
         [
@@ -776,14 +798,14 @@ def build_skill_guide() -> None:
             ["太乙玄光是回血吗？", "不是，它在20秒内提供固定额度的伤害吸收盾。"],
             ["主动物理技能现在必中吗？", "不是。技能跳过普攻命中判定，但仍可能被闪避；闪避穿透最高60%，保留反制空间。"],
             ["修罗狂意是攻击翻4.8倍吗？", "不是。五段分别提高20%/30%/40%/50%/60%总物攻，持续12秒。"],
-            ["血海裂伤12秒会掉24%吗？", "不会。普通目标整段约9%-12%，Boss整段最多约3%，冷却120秒。"],
+            ["血海裂伤12秒会掉24%吗？", "不会。普通目标整段约10.8%-14.4%，Boss整段最多约3%，冷却90秒。"],
             ["多个持续伤害可以叠加吗？", "不能。目标仍只有一个持续伤害槽；系统比较剩余总伤害，弱效果不能覆盖强效果，等强效果可以刷新。"],
             ["万山朝拱会覆盖队友Buff吗？", "不会。它使用独立队伍守护槽，只保护同房间存活队友；弱盾也不会覆盖剩余值更高的强盾。"],
             ["不周震击是六倍伤害吗？", "不是。600%是仇恨倍率，伤害仍按技能附加值、武器、攻击、防御和穿透正常结算。"],
             ["天地成壁是无敌吗？", "不是。它只有固定吸收额度和18秒时限，额度耗尽后剩余伤害照常生效。"],
             ["天象星痕可以一直存着吗？", "不能。最多3层、15秒；换房、脱战、死亡或掉线都会清空，客户端也不能伪造层数。"],
             ["星河坠落三层就是固定加30%吗？", "普通PVE每层+10%、三层+30%；玩家和Boss每层+8%、三层最多+24%。"],
-            ["周天静止能让目标完全不动吗？", "不能。它只在8秒内降低命中，仍需控制命中/抵抗判定，且有120秒冷却。"],
+            ["周天静止能让目标完全不动吗？", "不能。它只在8秒内降低命中，仍需控制命中/抵抗判定，且有90秒冷却。"],
             ["灵医隐藏群疗会治疗路人吗？", "不会。只治疗自己与同房、同逻辑区、同队伍的存活人物；未组队时只治疗自己。"],
             ["回命天露会无限抬血吗？", "不会。药契最多3层、每层+15%，并且单次治疗最高不超过目标40%生命上限。"],
             ["万木新春一次会清掉所有状态吗？", "不会。每名合法目标每次只按优先级净化一项负面状态。"],
@@ -794,7 +816,41 @@ def build_skill_guide() -> None:
         [1.7, 4.0],
     )
 
-    guide.h1("5. 灵宠天生技能与主人技能拓印")
+    guide.h1("5. 七十式太古绑定传承")
+    guide.callout(
+        "十职业各七式，越强越稀有",
+        "太古传承使用独立掉落池：实际等级90级以上怪物才有资格；70式总权重390、分母125000000，总概率约为旧31本隐藏池的1/100。七个品阶权重依次为12/9/7/5/3/2/1。",
+        "gold",
+    )
+    guide.table(
+        ["职业", "太古传承", "品阶色", "技能类型", "固定冷却"],
+        [
+            [
+                PROF_BY_ID[str(item["profession"])]["name"],
+                f'{item["name"]} ({item["id"]})',
+                str(item["tier_color"]),
+                str(item["type"]),
+                f'{item["cooldown"]}秒',
+            ]
+            for item in ancients
+        ],
+        [0.55, 2.0, 0.55, 1.0, 0.65],
+        compact=True,
+    )
+    guide.table(
+        ["规则", "太古传承实现"],
+        [
+            ["拾取归属", "首次拾取绑定注册账号；已绑定书不能由其他账号拾取"],
+            ["禁止流通", "不可丢弃、交易、赠送、个人仓库存放或共享宝库存放"],
+            ["学习门槛", "人物90级且职业匹配；阶段门槛90/115/140/165/190"],
+            ["视觉标记", "技能名按品阶使用七种特殊色；施放时播放太古专属动画"],
+            ["同房可见", "人物和灵宠释放技能都会向同房、同逻辑区可见玩家广播UI显化；广播不改变战斗数值"],
+            ["兼容旧池", "旧31本隐藏书的掉率、交易、寄送、仓库和学习规则完全不变"],
+        ],
+        [1.0, 4.5],
+    )
+
+    guide.h1("6. 灵宠天生技能与主人技能拓印")
     guide.table(
         ["技能类型", "获得与使用", "材料与安全边界"],
         [
@@ -813,19 +869,22 @@ def build_skill_guide() -> None:
         "gold",
     )
 
-    guide.h1("6. 数据来源与版本声明")
+    guide.h1("7. 数据来源与版本声明")
     guide.bullets(
         [
             "职业技能对象与五段数值：gamelib/single/skills/",
             "普通与每日轮换技能书：gamelib/data/can_buy_book_list.csv",
             "隐藏书物品及学习限制：gamelib/clone/item/book/",
             "隐藏书掉落池与概率：gamelib/single/daemons/itemsd.pike",
+            "太古技能目录、品阶与独立掉率：gamelib/single/daemons/ancient_skilld.pike",
+            "太古书绑定与禁流通：gamelib/inherit/ancient_hidden_book.pike",
             "单人、团队与Boss掉落归属：gamelib/inherit/npc.pike",
             "技能学习与重复书处理：lowlib/mudlib/inherit/feature/readed.pike",
             "技能实战与熟练度：lowlib/wapmud2/inherit/feature/fight.pike",
             "命中、闪避与暴击边界：lowlib/mudlib/inherit/feature/char.pike",
             "物理/法术平衡回归：test_unit/test_combat_balance.pike",
             "隐藏技能运行时回归：test_unit/test_hidden_mythic_skills.pike",
+            "太古70技能与经济安全回归：test_unit/test_ancient_hidden_skills.pike、test_unit/test_rare_economy_safety.pike",
             "方士/镇越/天象/灵医职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
             "职业助手公平边界回归：test_unit/test_profession_vip_assistant.pike",
             "天象星痕、技能与共享系统回归：test_unit/test_tianxiang_profession.pike",

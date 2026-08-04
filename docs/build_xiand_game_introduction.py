@@ -46,6 +46,7 @@ from build_xiand_profession_guide import (
     HandbookBuilder,
     build_styles,
     git_value,
+    parse_ancient_skills,
     parse_books,
     parse_skills,
     register_fonts,
@@ -227,6 +228,7 @@ def build_game_introduction() -> None:
     styles = build_styles()
     skills = parse_skills()
     books = parse_books()
+    ancients = parse_ancient_skills()
     branch = os.environ.get(
         "XIAND_DOC_RELEASE_BRANCH",
         git_value("rev-parse", "--abbrev-ref", "HEAD"),
@@ -255,7 +257,7 @@ def build_game_introduction() -> None:
         commit,
         build_date,
         len(skills),
-        len(books),
+        len(books) + 31 + len(ancients),
     )
     guide.pagebreak()
 
@@ -382,6 +384,9 @@ def build_game_introduction() -> None:
             "成功施放技能才有机会增长熟练度，失败施放、资源不足或非法目标不会获得进度。",
             "十职业合计拥有31本极稀有隐藏大神技能书，只从实际等级70级以上怪物的资格池掉落，不在商店出售。",
             "隐藏技能按80/100/120/140/160级阶段成长，确保获得神技后仍有长期培养空间。",
+            "旧31式神技已适配高属性版本：攻击按总攻势成长，治疗/护盾按最大生命保底，攻防增减益按当前属性成长，并对PVP和Boss设置硬上限。",
+            "另有每职业7本、共70本太古传承：实际等级90+怪物才有极低概率掉落，总池约比旧隐藏池再低100倍。",
+            "太古书首次拾取即账号绑定且不可流通，按品阶使用特殊颜色；人物与灵宠施放技能时，同房可见玩家都会看到UI显化。",
         ]
     )
     guide.h2("3.2 组队与 PVP")
@@ -412,6 +417,9 @@ def build_game_introduction() -> None:
     guide.h2("4.1 高阶装备境界")
     guide.paragraph(
         "71级以上动态掉落会进入欲界、色界、无色界、离三界、破虚境、渡劫境等装备境界。境界影响名字前缀与属性倍率，玩家仍需结合职业限制、主属性、装备位和真实技能循环判断价值。"
+    )
+    guide.paragraph(
+        "新生成的随机装备必须带真实等级，不再产生新的无等级装备；玩家已经持有的旧装备与存档数据保持原样，不做批量改写。"
     )
     guide.callout(
         "自动清包的底线",

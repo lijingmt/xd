@@ -196,20 +196,20 @@ void test_zero_probability_boundaries()
 
 void test_xuehai_percentage_limits()
 {
-	test_start("血海裂伤增强至9%-12%且Boss完整持续最多约3%");
+	test_start("血海裂伤增强至10.8%-14.4%且Boss完整持续最多约3%");
 	object player = create_test_player("__testunit_xuehai_formula__");
 	object skill = (object)(ROOT+"/gamelib/single/skills/xuehailieshang");
 	int valid = player && skill &&
-		skill->query_performs_attack(1)==75 &&
-		skill->query_performs_attack(5)==100 &&
-		player->query_xuehai_dot_damage(58000000,75,0)==435000 &&
-		player->query_xuehai_dot_damage(58000000,100,0)==580000 &&
-		player->query_xuehai_dot_damage(58000000,100,1)==145000 &&
-		player->query_xuehai_dot_damage(0,100,0)==1;
+		skill->query_performs_attack(1)==90 &&
+		skill->query_performs_attack(5)==120 &&
+		player->query_xuehai_dot_damage(58000000,90,0)==522000 &&
+		player->query_xuehai_dot_damage(58000000,120,0)==696000 &&
+		player->query_xuehai_dot_damage(58000000,120,1)==145000 &&
+		player->query_xuehai_dot_damage(0,120,0)==1;
 	if(valid)
 		test_pass();
 	else
-		test_fail("玩家9%-12%或Boss 3%持续伤害边界错误");
+		test_fail("玩家10.8%-14.4%或Boss 3%持续伤害边界错误");
 	destroy_test_player(player);
 }
 

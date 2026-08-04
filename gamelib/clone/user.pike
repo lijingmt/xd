@@ -28,6 +28,8 @@ int move(mixed dest)
 {
 	object old_env = environment(this_object());
 	object new_env;
+	if(TIMED_EVENTD->guard_player_move(this_object(),dest))
+		return 0;
 	int old_was_fb = old_env &&
 		FBD->is_fb_room_path(file_name(old_env));
 	int moved = ::move(dest);
@@ -419,7 +421,7 @@ string query_extra_links(void|int count)
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
 	string topten= "[排行榜:look_top]\t";
-	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[万灵:pet]|[帮派:my_bang]|[江湖:my_games]\n[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[万灵:pet]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	if(env && FBD->is_fb_room_path(file_name(env)))
 		returnLinks = "【幻境安全通道】[紧急离开幻境:fb_leave]\n"+
 			returnLinks;
@@ -454,7 +456,8 @@ int save_with_result(void|int autosave){
 	// 先排好下一次：即使排行榜或文件存档抛异常，定时链也不会永久中断。
 	if(autosave)
 		call_out(save,SAVE_TIME,1);
-	if(env&&!env->is("character")&&!env->is("menu")){
+	if(env&&!env->is("character")&&!env->is("menu")&&
+	   !TIMED_EVENTD->is_event_room(env)){
 		last_pos=file_name(env)-ROOT;
 	}
 	string now=ctime(time());
@@ -522,6 +525,9 @@ void fight_die()
 	me->red_flag=0;
 	// 灵兽最后一击的PK、荣誉与击杀记录归属主人。
 	enemy = SUMMOND->query_combat_credit_owner(enemy);
+	// 限时活动死亡由活动状态机原子结算；不触发普通复活、掉级、耐久或荣誉流程。
+	if(TIMED_EVENTD->handle_player_defeat(me,enemy))
+		return;
 	// 灵医百炼复苏必须在任何击杀奖励、死亡惩罚和召唤清理之前判定。
 	// 成功代表人物没有真正死亡，后续死亡流程必须完整跳过。
 	if(me->try_lingyi_auto_revive(enemy))

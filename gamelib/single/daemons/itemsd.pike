@@ -554,6 +554,45 @@ object get_hidden_skill_book(int npclevel)
 		hidden_skill_books[random(sizeof(hidden_skill_books))];
 	return clone(ITEM_PATH+item_name);
 }
+
+int query_ancient_skill_book_count()
+{
+	return sizeof(ANCIENT_SKILLD->query_all_skill_ids());
+}
+
+int query_ancient_skill_min_level()
+{
+	return ANCIENT_SKILLD->query_minimum_npc_level();
+}
+
+int query_ancient_skill_drop_denominator()
+{
+	return ANCIENT_SKILLD->query_drop_denominator();
+}
+
+int query_ancient_skill_total_weight()
+{
+	return ANCIENT_SKILLD->query_total_drop_weight();
+}
+
+int can_drop_ancient_skill_book(int npclevel,int roll)
+{
+	if(npclevel<query_ancient_skill_min_level())
+		return 0;
+	return roll>=1 && roll<=query_ancient_skill_total_weight();
+}
+
+object get_ancient_skill_book(int npclevel)
+{
+	int roll = random(query_ancient_skill_drop_denominator())+1;
+	string item_name;
+	if(!can_drop_ancient_skill_book(npclevel,roll))
+		return 0;
+	item_name = ANCIENT_SKILLD->query_weighted_book(roll);
+	if(item_name=="")
+		return 0;
+	return clone(ITEM_PATH+item_name);
+}
 //外部接口，由fight_die()调用，为世界掉落装备的的接口
 object get_worlddrop_item(int npclevel,int playerlevel)
 {
@@ -1112,6 +1151,11 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 			};
 			if(err)
 				rtn_ob=0;
+			// 生产映射目录可能残留旧版本生成的-1模板。保留原文件供
+			// 老装备按原数据加载，但普通新掉落实例必须恢复真实等级。
+			if(rtn_ob && !flag_no_level && target_item_level>0 &&
+			   rtn_ob->query_item_canLevel()<0)
+				rtn_ob->set_item_canLevel(target_item_level);
 			// 即使装备已存在，也要检查并添加中立玩家职业
 			if(rtn_ob) {
 				array(string) profs = rtn_ob->query_item_profeLimit();
@@ -1156,8 +1200,9 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 					//werror("============821writeback+=orgfilelines[k] "+orgfilelines[k]+" index:"+search(orgfilelines[k],"set_attack_power_limit")+"\n");
 					// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 					if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
-						if(random(10000)<=1 || flag_no_level == 1){
-							//万分之2的几率出现无等级需求的装备
+						if(flag_no_level == 1){
+							// 只兼容旧无等级装备明确传入-1后的炼化；普通掉落、
+							// 神秘商店和熔炼不再随机生成无等级装备。
 							writeback+="    set_item_canLevel(-1);\n"; //设置新物品的的穿戴等级
 						}else{
 							writeback+="    set_item_canLevel("+target_item_level+");\n"; //设置新物品的的穿戴等级

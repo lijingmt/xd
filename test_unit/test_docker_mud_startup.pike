@@ -150,6 +150,12 @@ void test_item_sync_contract()
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
 	   hidden_count==31 &&
+	   search(source,"load_ancient_hidden_skill_ids")!=-1 &&
+	   search(source,"ANCIENT_SKILL_CATALOG")!=-1 &&
+	   search(source,"ANCIENT_HIDDEN_SKILL_IDS")!=-1 &&
+	   search(source,"-ne 70")!=-1 &&
+	   search(source,"缺少太古隐藏秘籍")!=-1 &&
+	   search(source,"ancient_skilld.pike")!=-1 &&
 	   search(source,
 		   "verify_hidden_mythic_assets_in_container")!=-1 &&
 	   search(source,
@@ -162,7 +168,7 @@ void test_item_sync_contract()
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录，并校验huling1及31套隐藏传承");
+		test_fail("item必须同步到实际挂载目录，并校验huling1、31套原隐藏传承及70套太古传承");
 }
 
 void test_neutral_profession_images_deploy_contract()

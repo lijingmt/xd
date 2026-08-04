@@ -211,7 +211,8 @@ void test_drop_contract_runtime()
 	}
 	if(!npc_source ||
 	   sizeof(npc_source/"get_hidden_skill_book")!=3 ||
-	   sizeof(npc_source/"log_hidden_skill_drop")!=4 ||
+	   sizeof(npc_source/"get_ancient_skill_book")!=3 ||
+	   sizeof(npc_source/"log_hidden_skill_drop")!=6 ||
 	   search(npc_source,"/log/hidden_skill_drop.log")==-1 ||
 	   !team_drop_source ||
 	   team_hidden_call==-1 ||
@@ -495,9 +496,12 @@ void test_damage_profession_burst_runtime()
 				caster->timeCold = 0;
 				caster->set_mofa(caster->query_mofa_max());
 			}
+			object skill = (object)(ROOT+
+				"/gamelib/single/skills/"+skill_name);
+			int expected_cooldown = skill->query_s_delayTime(1)+1;
 			if(!performed ||
 			   caster->get_cur_mofa()>=mofa_before ||
-			   caster->f_skills[skill_name]!=61 ||
+			   caster->f_skills[skill_name]!=expected_cooldown ||
 			   (profession_id=="tianxiang" &&
 			    caster->query_tianxiang_star_marks()!=0)){
 				failed++;
@@ -513,7 +517,7 @@ void test_damage_profession_burst_runtime()
 				caster->perform(skill_name,1);
 				if(enemy->get_cur_life()!=life_after ||
 				   caster->get_cur_mofa()!=mofa_after ||
-				   caster->f_skills[skill_name]!=61){
+				   caster->f_skills[skill_name]!=expected_cooldown){
 					failed++;
 					error_desc += profession_id+"冷却拦截失败; ";
 				}
@@ -608,12 +612,12 @@ void test_utility_and_control_runtime()
 		"taiqingjianyu":({"human","jianxian","buff","defend","1800"}),
 		"pozhenjianyi":({"human","jianxian","curse","defend","1200"}),
 		"taiyixuanguang":({"human","yushi","buff","absorb","4500"}),
-		"sixiangfengjin":({"third","fangshi","curse","attack","1200"}),
+		"sixiangfengjin":({"third","fangshi","curse","physical_damage_percent","18"}),
 		"bingpochanshen":({"human","yushi","curse","speed","2"}),
 		"tianshajianyi":({"human","zhuxian","buff","doub","12"}),
 		"wuyingfenghou":({"human","zhuxian","dot","wuyingfenghou","400"}),
 		"shurakuangyi":({"monst","kuangyao","buff","physical_attack_percent","20"}),
-		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","75"}),
+		"xuehailieshang":({"monst","kuangyao","dot","xuehailieshang","90"}),
 		"wanxiangshihun":({"monst","wuyao","dot","wanxiangshihun","400"}),
 		"jiuyouduzhang":({"monst","wuyao","curse","life","30"}),
 		"jiuyouguibu":({"monst","yinggui","buff","dodge","12"}),
@@ -770,14 +774,24 @@ void test_mythic_group_heal_runtime()
 		member->set_debuff("curse",1,50);
 		member->set_debuff("curse",2,10);
 		caster->skills["wanlingchaosheng"] = ({1,0});
+		object heal_skill = (object)(ROOT+
+			"/gamelib/single/skills/wanlingchaosheng");
+		int caster_heal = caster->query_rare_vital_floor(
+			heal_skill,1,caster->query_life_max());
+		int member_heal = caster->query_rare_vital_floor(
+			heal_skill,1,member->query_life_max());
+		if(caster_heal<3500)
+			caster_heal=3500;
+		if(member_heal<3500)
+			member_heal=3500;
 		caster->_fight(outsider);
 		caster->perform("wanlingchaosheng",1);
 
-		if(caster->get_cur_life()!=3600 ||
-		   member->get_cur_life()!=1850 ||
+		if(caster->get_cur_life()!=100+caster_heal ||
+		   member->get_cur_life()!=100+member_heal/2 ||
 		   dead_member->get_cur_life()!=0 ||
 		   outsider->get_cur_life()!=100 ||
-		   caster->f_skills["wanlingchaosheng"]!=91)
+		   caster->f_skills["wanlingchaosheng"]!=76)
 			failed++;
 	};
 	if(err)
@@ -798,16 +812,53 @@ void test_mythic_group_heal_runtime()
 
 void test_balance_envelope()
 {
-	test_start("大神技能保持五段成长、长冷却且各职业裸装法力可施放");
+	test_start("三十一式神技五段成长、高属性倍率与受控冷却完整");
 	int failed = 0;
 	int resource_checks = 0;
 	foreach(sort(indices(hidden_skills)),string profession_id){
 		foreach(hidden_skills[profession_id],string skill_name){
 			object skill = (object)(ROOT+
 				"/gamelib/single/skills/"+skill_name);
-			if(skill->query_s_delayTime(1)<60 ||
+			int effective_cooldown=skill->query_s_delayTime(1);
+			int vital_cooldown_limit =
+				skill->s_skill_type=="team_guard" ? 90 : 75;
+			if(skill->skill_rare!="mythic" ||
+			   effective_cooldown<50 ||
 			   skill->query_performs_cast(1)<300 ||
-			   skill->query_performs_level_limit(1)!=80)
+			   skill->query_performs_level_limit(1)!=80 ||
+			   search(skill->query_performs_desc(1),"实战冷却")==-1)
+				failed++;
+			if(skill->query_is_rare_direct_damage() &&
+			   (skill->query_rare_power_percent(1)!=140 ||
+			    skill->query_rare_power_percent(5)!=160 ||
+			    effective_cooldown>50))
+				failed++;
+			if(skill->s_skill_type=="dot" && skill_name!="xuehailieshang" &&
+			   (skill->query_rare_dot_power_percent(1)!=6 ||
+			    skill->query_rare_dot_power_percent(5)!=10 ||
+			    effective_cooldown>90))
+				failed++;
+			if((skill->s_skill_type=="heal" ||
+			    skill->s_skill_type=="team_guard" ||
+			    (skill->s_skill_type=="buff" &&
+			     skill->s_curse_type=="absorb")) &&
+			   (skill->query_rare_vital_percent(1)!=8 ||
+			    skill->query_rare_vital_percent(5)!=16 ||
+			    effective_cooldown>vital_cooldown_limit))
+				failed++;
+			if(skill->s_skill_type=="buff" && effective_cooldown>75)
+				failed++;
+			if((skill->s_skill_type=="dot" ||
+			    skill->s_skill_type=="curse" ||
+			    skill->s_skill_type=="team_guard") &&
+			   effective_cooldown>90)
+				failed++;
+			if((skill->s_skill_type=="buff" ||
+			    skill->s_skill_type=="curse") &&
+			   (skill->s_curse_type=="attack" ||
+			    skill->s_curse_type=="defend") &&
+			   (skill->query_rare_control_percent(1)!=22 ||
+			    skill->query_rare_control_percent(5)!=38))
 				failed++;
 			if((skill->s_skill_type=="curse" ||
 			    skill->s_skill_type=="dot") &&
@@ -896,6 +947,82 @@ void test_crane_and_guide_regressions()
 	destroy_player(player);
 }
 
+void test_bt_attribute_rare_scaling_envelope()
+{
+	test_start("旧大神传承适配百万攻防且保持太古强度梯度与PVP封顶");
+	object formula = create_player(
+		"__testunit_mythic_bt_formula__","human","jianxian",200);
+	object old_direct = (object)(ROOT+
+		"/gamelib/single/skills/wanjianguizong");
+	object old_dot = (object)(ROOT+
+		"/gamelib/single/skills/wuyingfenghou");
+	object old_heal = (object)(ROOT+
+		"/gamelib/single/skills/cixinpudu");
+	object old_control = (object)(ROOT+
+		"/gamelib/single/skills/pozhenjianyi");
+	object old_shield = (object)(ROOT+
+		"/gamelib/single/skills/taiyixuanguang");
+	object old_xuehai = (object)(ROOT+
+		"/gamelib/single/skills/xuehailieshang");
+	object old_seal = (object)(ROOT+
+		"/gamelib/single/skills/sixiangfengjin");
+	object ancient_low = (object)(ROOT+
+		"/gamelib/single/skills/taixujianhen");
+	object ancient_high = (object)(ROOT+
+		"/gamelib/single/skills/hongmengyijian");
+	object ancient_dot = (object)(ROOT+
+		"/gamelib/single/skills/wuxiangjianxin");
+	object ancient_heal = (object)(ROOT+
+		"/gamelib/single/skills/hongmenghuisheng");
+	object normal = (object)(ROOT+
+		"/gamelib/single/skills/huichun");
+	int valid = formula && old_direct && old_dot && old_heal && old_control &&
+		old_shield && old_xuehai && old_seal && ancient_low && ancient_high &&
+		ancient_dot && ancient_heal && normal &&
+		old_direct->query_rare_power_percent(1)==140 &&
+		old_direct->query_rare_power_percent(5)==160 &&
+		ancient_low->query_rare_power_percent(1)==159 &&
+		ancient_low->query_rare_power_percent(5)==183 &&
+		ancient_high->query_rare_power_percent(5)==201 &&
+		old_heal->query_rare_vital_percent(1)==8 &&
+		old_heal->query_rare_vital_percent(5)==16 &&
+		ancient_heal->query_rare_vital_percent(5)==22 &&
+		old_direct->query_s_delayTime(1)==50 &&
+		old_shield->query_s_delayTime(1)==75 &&
+		old_dot->query_s_delayTime(1)==90 &&
+		formula->query_rare_direct_damage(
+			old_direct,30000000,58000000,1,0)==17400000 &&
+		formula->query_rare_direct_damage(
+			ancient_high,30000000,58000000,1,0)==22040000 &&
+		formula->query_rare_direct_damage(
+			old_direct,30000000,100000000,0,1)==5000000 &&
+		formula->query_rare_direct_damage(
+			old_direct,0,58000000,1,0)==0 &&
+		formula->query_rare_dot_damage(
+			old_dot,5,1000,1000000,58000000,1,0)==100000 &&
+		formula->query_rare_dot_damage(
+			old_dot,5,1000,100000000,58000000,1,0)==232000 &&
+		formula->query_rare_dot_damage(
+			ancient_dot,5,1000,100000000,58000000,1,0)==319000 &&
+		formula->query_rare_vital_floor(
+			old_heal,5,58000000)==9280000 &&
+		formula->query_rare_vital_floor(
+			ancient_heal,5,58000000)==12760000 &&
+		formula->query_rare_control_floor(
+			old_control,5,1000000,4800)==380000 &&
+		formula->query_physical_damage_after_percent_curse(
+			1000000,old_seal->query_performs_attack(5))==650000 &&
+		old_xuehai->query_performs_attack(1)==90 &&
+		old_xuehai->query_performs_attack(5)==120 &&
+		normal->query_rare_power_percent(5)==100 &&
+		normal->query_rare_vital_percent(5)==0;
+	if(valid)
+		test_pass();
+	else
+		test_fail("稀有倍率、生命成长、控制快照、冷却或封顶不符合梯度");
+	destroy_player(formula);
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -916,6 +1043,7 @@ void run_tests()
 	test_mythic_group_heal_runtime();
 	test_balance_envelope();
 	test_crane_and_guide_regressions();
+	test_bt_attribute_rare_scaling_envelope();
 	print_summary();
 }
 

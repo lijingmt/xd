@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1785806076572">
-    <link rel="stylesheet" href="css/app.css?v=v1785806076572">
-    <link rel="stylesheet" href="css/realm.css?v=v1785806076572">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1785830847094">
+    <link rel="stylesheet" href="css/app.css?v=v1785830847094">
+    <link rel="stylesheet" href="css/realm.css?v=v1785830847094">
 </head>
 <body>
     <div id="app">
@@ -40,7 +40,7 @@
                     </div>
                 </div>
                 <div class="auth-feature-row" aria-label="游戏特色">
-                    <span>九大职业</span>
+                    <span>十大职业</span>
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
@@ -397,19 +397,9 @@
                 </button>
                 <div class="player-info">
                     <div class="player-info-line">
-                        <span class="player-fullid">{{ loginForm.userid }}</span>
-                        <span class="divider">·</span>
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
-                        <button type="button"
-                                v-if="playerStats?.profession_assistant?.supported"
-                                class="profession-assistant-badge"
-                                data-tour="profession-assistant"
-                                :class="{ active: playerStats.profession_assistant.level > 0 }"
-                                @click="sendQuickCommand('profession_assistant')"
-                                :title="playerStats.profession_assistant.level_label">
-                            {{ playerStats.profession_assistant.title }} · {{ playerStats.profession_assistant.level > 0 ? '助手' + playerStats.profession_assistant.level : '可试用' }}
-                        </button>
-                        <span class="divider" v-if="playerStats && playerStats.name_cn">·</span>
+                        <span class="header-level-chip" v-if="playerStats">Lv.{{ playerStats.level }}</span>
+                        <span class="header-profession-chip" v-if="playerStats?.profe">{{ playerStats.profe }}</span>
                         <span class="server-info">{{ areaName }}</span>
                         <button type="button"
                                 class="autofight-status-text"
@@ -417,8 +407,8 @@
                                 @click="toggleAutofight"
                                 :title="playerStats && playerStats.autofight ? '点击停止自动挂机' : '点击开始自动挂机'">
                             {{ playerStats && playerStats.autofight
-                                ? '● 挂机中 ' + formatAutofightTime(playerStats.autofight_time_left)
-                                : '▷ 自动挂机' }}
+                                ? '● ' + formatAutofightTime(playerStats.autofight_time_left)
+                                : '▷ 挂机' }}
                         </button>
                     </div>
                     <!-- 玩家状态信息 - 血槽显示 -->
@@ -487,7 +477,7 @@
                                 :title="playerStats.level_breakthrough_message || '查看等级突破条件'"
                                 :aria-label="playerStats.level_breakthrough_message || '查看等级突破条件'"
                                 @click="sendQuickCommand('vip_service_list')">
-                            {{ playerStats.level_breakthrough_label || '上限120 · VIP每级+20' }}
+                            {{ playerStats.level_can_progress ? 'VIP↑' : '突破' }}
                         </button>
                     </div>
                 </div>
@@ -558,6 +548,13 @@
                                 <span class="menu-icon">👥</span>
                                 <span>人物档案 / 切换职业</span>
                             </button>
+                            <button type="button"
+                                    v-if="playerStats?.profession_assistant?.supported"
+                                    class="menu-item"
+                                    @click="sendQuickCommand('profession_assistant'); headerMenuOpen = false;">
+                                <span class="menu-icon">🧭</span>
+                                <span>{{ playerStats.profession_assistant.title }} · 职业助手</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔃</span>
@@ -624,6 +621,36 @@
                 </button>
             </div>
 
+            <!-- 非参战旁观者也能看见同房间人物与灵宠的施法表现。 -->
+            <div v-if="useJsonMode && !isInBattle && !hasRecentAoeReport && combatEffectsEnabled && skillAnimations.length"
+                 class="room-skill-manifestation-stage"
+                 aria-hidden="true">
+                <div v-for="skill in skillAnimations"
+                     :key="skill.id"
+                     class="skill-effect-container skill-target-room">
+                    <div class="skill-effect" :class="getSkillAnimationClass(skill.type)">
+                        <span :class="getSkillIconClass(skill.type)">{{ getSkillIcon(skill.type) }}</span>
+                    </div>
+                    <span v-if="skill.name" class="skill-effect-label">{{ skill.name }}</span>
+                </div>
+            </div>
+            <div v-if="useJsonMode && !isInBattle && !hasRecentAoeReport && combatEffectsEnabled && petAssistEffect"
+                 :key="petAssistEffect.id"
+                 class="room-pet-manifestation battle-pet-assist-burst"
+                 :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass]"
+                 role="status"
+                 :aria-label="formatPetAssistMessage(petAssistEffect)">
+                <span class="pet-assist-comet" aria-hidden="true"></span>
+                <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
+                <span class="pet-assist-copy">
+                    <strong>{{ petAssistEffect.owner_name ? petAssistEffect.owner_name + '的' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
+                    <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-else>灵宠显化，陪伴主人作战</small>
+                </span>
+            </div>
+
 			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->
 			<div class="modal-overlay team-invite-overlay" v-if="teamInvite">
 				<div class="team-invite-modal"
@@ -646,8 +673,48 @@
 							{{ teamInviteBusy ? '处理中…' : '同意组队' }}
 						</button>
 					</div>
-				</div>
 			</div>
+			</div>
+
+            <!-- 十分钟集结期专属通道；每个人物每场仅主动弹出一次 -->
+            <div class="modal-overlay timed-event-overlay"
+                 v-if="timedEventInvite"
+                 @click.self="closeTimedEventInvite">
+                <div class="timed-event-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="timed-event-invite-title">
+                    <button type="button"
+                            class="timed-event-close"
+                            @click="closeTimedEventInvite"
+                            aria-label="暂不参加">✕</button>
+                    <div class="timed-event-orbit" aria-hidden="true">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <div class="timed-event-kicker">今日限时秘境正在集结</div>
+                    <h3 id="timed-event-invite-title">{{ timedEventInvite.name }}</h3>
+                    <p v-if="timedEventInvite.event_id === 'tianheng'">
+                        随机镜域一对一，移动触发配对；一次落败即结算，不存在多人围攻。
+                    </p>
+                    <p v-else>
+                        九宫追猎巡游首领，协力封闭曜脉，改变敌人的行进路线。
+                    </p>
+                    <div class="timed-event-countdown">
+                        <small>距离封闭入口</small>
+                        <strong>{{ formatTimedEventRemaining(timedEventInvite.remaining) }}</strong>
+                    </div>
+                    <div class="timed-event-actions">
+                        <button class="btn btn-secondary"
+                                @click="openTimedEventDetails">规则与奖励</button>
+                        <button class="btn btn-primary"
+                                :disabled="timedEventInviteBusy"
+                                @click="enterTimedEvent">
+                            {{ timedEventInviteBusy ? '进入中…' : '进入集结台' }}
+                        </button>
+                    </div>
+                    <small class="timed-event-fairness">VIP 不增加属性、奖励倍率或每日次数</small>
+                </div>
+            </div>
 
             <!-- 游戏内容: iframe模式 (vue-ui-2) 或 JSON渲染模式 (vue-ui-3) -->
             <main class="game-frame-container"
@@ -1377,6 +1444,11 @@
                         </button>
                         <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
                         <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn"
+                                :class="{ active: playerStats?.timed_event?.active }"
+                                @click="sendQuickCommand('timed_event')">
+                            <span>{{ playerStats?.timed_event?.phase === 'signup' ? '⏳' : '⚖️' }}</span>限时玩法
+                        </button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_term')"><span>👥</span>队伍</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('pet')"><span>🐾</span>万灵</button>
                         <button class="quick-tool-btn" data-tour="warehouse" @click="sendQuickCommand('go_warehouse')"><span>🧰</span>仓库</button>
@@ -1444,18 +1516,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1785806076572"></script>
-    <script src="vendor/canvas-confetti.js?v=v1785806076572"></script>
-    <script src="vendor/howler.core.min.js?v=v1785806076572"></script>
-    <script src="vendor/driver.iife.js?v=v1785806076572"></script>
+    <script src="vendor/vue.global.prod.js?v=v1785830847094"></script>
+    <script src="vendor/canvas-confetti.js?v=v1785830847094"></script>
+    <script src="vendor/howler.core.min.js?v=v1785830847094"></script>
+    <script src="vendor/driver.iife.js?v=v1785830847094"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785806076572';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1785830847094';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1785806076572"></script>
+    <script src="js/app.js?v=v1785830847094"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1785806076572"></script>
+    <script src="../includes/translate.js?v=v1785830847094"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

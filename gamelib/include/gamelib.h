@@ -9,6 +9,8 @@
 #define GAMELIB_NPC ROOT "/gamelib/inherit/npc"
 #define GAMELIB_MASTER ROOT "/gamelib/inherit/master"
 #define GAMELIB_ROOM ROOT "/gamelib/inherit/room"
+#define GAMELIB_ANCIENT_SKILL ROOT "/gamelib/inherit/ancient_hidden_skill.pike"
+#define GAMELIB_ANCIENT_BOOK ROOT "/gamelib/inherit/ancient_hidden_book.pike"
 //用户仓库系统
 #define GAMELIB_PACKAGED ROOT "/gamelib/inherit/packaged"
 //表情系统
@@ -22,6 +24,8 @@
 #define LOG_P ((program)(ROOT "/gamelib/single/daemons/log"))
 //物品随即生成模块
 #define ITEMSD ((object)(ROOT "/gamelib/single/daemons/itemsd"))
+//十职业太古隐藏传承配置、权重与通用成长
+#define ANCIENT_SKILLD ((object)(ROOT "/gamelib/single/daemons/ancient_skilld.pike"))
 //排行榜系统
 #define TOPTEN ((object)(ROOT "/gamelib/single/daemons/topten"))
 //任务守护模块
@@ -152,5 +156,7 @@
 #define ACCOUNT_WALLETD ((object)(ROOT "/gamelib/single/daemons/account_walletd.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+//每日限时原创玩法：天衡绝境（PVP）与九曜镇渊（PVE）
+#define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 
 #endif // _GAMELIB_H_

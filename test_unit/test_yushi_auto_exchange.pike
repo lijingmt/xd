@@ -211,8 +211,10 @@ void test_purchase_commands_compile()
 		}
 	}
 	if(!list_source ||
-	   search(list_source,"int fee = 1000000000;") == -1 ||
-	   search(list_source,"need_amount = 10;") == -1)
+	   search(list_source,"type==2 ? 30 : 10") == -1 ||
+	   search(list_source,"YUSHID->pay_yushi(me,need_amount)") == -1 ||
+	   search(list_source,"1000000000") != -1 ||
+	   search(list_source,"pay_money") != -1)
 		failed++;
 
 	if(failed == 0)

@@ -454,6 +454,78 @@ void test_skill_file_correspondence() {
 	}
 }
 
+object create_learning_player(string name,string profession)
+{
+	object player = clone(GAMELIB_USER);
+	player->set_name(name);
+	player->name_cn = "突破学习测试";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId(search(({"kuangyao","wuyao","yinggui"}),profession)!=-1 ?
+		"yao" : "human");
+	player->set_profeId(profession);
+	player->setup_player(player->query_raceId(),profession);
+	player->level = 86;
+	return player;
+}
+
+// 历史玩家不应被要求把1—9级熟练度重新练到10级，人物等级达到后
+// 11级突破书直接追赶；未学基础技能时仍不能吞掉高阶书。
+void test_capstone_catchup_runtime()
+{
+	test_start("86级旧职业可从任意已学等级追赶11级突破技能");
+	array(mapping(string:string)) cases = ({
+		(["book":"bengliechongzhuang11","skill":"bengliechongzhuang","profession":"kuangyao"]),
+		(["book":"fengmozhen11","skill":"fengmozhen","profession":"zhuxian"]),
+		(["book":"jilu11","skill":"jilu","profession":"yinggui"]),
+		(["book":"liejiajianfeng11","skill":"liejiajianfeng","profession":"jianxian"]),
+		(["book":"ningxinjue11","skill":"ningxinjue","profession":"yushi"]),
+		(["book":"yaoshujiejie11","skill":"yaoshujiejie","profession":"wuyao"]),
+	});
+	object|zero original_player = this_player();
+	array(string) failures = ({});
+	foreach(cases,mapping item){
+		object player = create_learning_player(
+			"__testunit_learn_"+(string)item["profession"]+"__",
+			(string)item["profession"]);
+		object book = clone(ROOT+"/gamelib/clone/item/book/"+
+			(string)item["book"]);
+		player->skills[(string)item["skill"]] = ({3,17});
+		set_this_player(player);
+		mixed err = catch {
+			int result = book->read();
+			if(result!=1 || (int)player->skills[(string)item["skill"]][0]!=11)
+				failures += ({(string)item["book"]+"未追赶到11级"});
+		};
+		if(err)
+			failures += ({(string)item["book"]+":"+describe_error(err)});
+		if(book)
+			destruct(book);
+		destruct(player);
+	}
+	// 没有基础技能时返回5且书仍存在，防止新人物误吞高阶技能书。
+	object player = create_learning_player(
+		"__testunit_learn_no_base__","jianxian");
+	object book = clone(ROOT+
+		"/gamelib/clone/item/book/liejiajianfeng11");
+	set_this_player(player);
+	int no_base_result = book->read();
+	if(no_base_result!=5 || !book ||
+	   player->skills["liejiajianfeng"])
+		failures += ({"未学基础技能时高阶书保护失效"});
+	if(book)
+		destruct(book);
+	destruct(player);
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(!sizeof(failures))
+		test_pass();
+	else
+		test_fail(failures*" | ");
+}
+
 // 主测试运行函数
 void run_tests()
 {
@@ -472,6 +544,7 @@ void run_tests()
 	test_learning_scenarios();
 	test_skill_book_file_integrity();
 	test_skill_file_correspondence();
+	test_capstone_catchup_runtime();
 
 	// 打印测试结果汇总
 	print_summary();

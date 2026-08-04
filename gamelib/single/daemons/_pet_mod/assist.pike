@@ -342,6 +342,49 @@ private mapping(string:mixed) create_pet_assist_event(object player,
 	]);
 }
 
+// 灵宠结算仍只在主人线程内完成；同房间广播只是客户端可识别的视觉事件。
+// 主人和直接PVP对手已有完整战报，这里排除他们以避免重复动画。
+private void broadcast_pet_skill_to_room(object player,object|zero direct_player,
+	mapping event)
+{
+	object env;
+	string message;
+	string amount_desc = "";
+	if(!player || !mappingp(event))
+		return;
+	env = environment(player);
+	if(!env)
+		return;
+	if((int)event["amount"]>0){
+		if(event["type"]=="damage")
+			amount_desc = "，对"+(string)event["target_name"]+"造成"+
+				(int)event["amount"]+"点"+
+				(event["mode"]=="pvp" ? "御灵" : "协战")+"伤害";
+		else if(event["type"]=="mofa")
+			amount_desc = "，为主人恢复"+(int)event["amount"]+"点法力";
+		else if(event["type"]=="revive")
+			amount_desc = "，在死亡前为主人恢复"+
+				(int)event["amount"]+"点生命，并恢复"+
+				(int)event["mofa_amount"]+"点法力";
+		else
+			amount_desc = "，为主人恢复"+(int)event["amount"]+"点生命";
+	}
+	else
+		amount_desc = "，守护在主人身旁";
+	message = "【灵宠显化】"+player->query_name_cn()+"的"+
+		(string)(event["icon"] || "🐾")+(string)event["name"]+
+		"施展「"+(string)event["skill"]+"」"+amount_desc+"。\n";
+	catch {
+		foreach(all_inventory(env),object observer){
+			if(!observer || observer==player || observer==direct_player ||
+			   !observer->is || !observer->is("player") ||
+			   !LOGICALZONED->is_visible(observer,player))
+				continue;
+			tell_object(observer,message);
+		}
+	};
+}
+
 mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 {
 	mapping result = (["ok":0,"type":"none","amount":0]);
@@ -411,6 +454,7 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 		actual,(int)result["cooldown"]);
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
 	result["event"] = copy_value(event);
+	broadcast_pet_skill_to_room(player,0,event);
 	if(actual>0){
 		string unit = effect_type=="damage" ? "点协战伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
@@ -536,6 +580,7 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	event["pvp_uses_max"] = PET_PVP_ASSIST_USES;
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
 	result["event"] = copy_value(event);
+	broadcast_pet_skill_to_room(player,target_owner,event);
 	if(actual>0){
 		string unit = effect_type=="damage" ? "点御灵伤害" :
 			(effect_type=="mofa" ? "点法力" : "点生命");
@@ -656,13 +701,9 @@ int try_pet_owner_revive(object player,object killer)
 	event["mofa_amount"] = mofa_restore;
 	event["daily_remaining"] = 0;
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
-	catch {
-		foreach(all_inventory(env),object observer)
-			if(observer && functionp(observer->is) && observer->is("player"))
-				tell_object(observer,"【回生羽】"+
-					player->query_name_cn()+
-					"的鸾鸟燃起五采灵羽，在死亡前唤回主人（今日已使用）。\n");
-	};
+	tell_object(player,"【回生羽】你的鸾鸟燃起五采灵羽，"+
+		"在死亡前将你唤回（今日已使用）。\n");
+	broadcast_pet_skill_to_room(player,0,event);
 	ASYNC_IOD->append_log(ROOT+"/log/pet_owner_revive.log",
 		time()+"|"+account_id+"|"+character_id+"|killer="+
 		killer->query_name()+"|life="+life_restore+"|mofa="+

@@ -150,6 +150,21 @@ assert(
   html.includes(":class=\"{ 'has-header-pet': !!headerPet }\""),
   'header must compact cleanly when the current character has no active pet'
 );
+assert(
+  responsiveCss.includes('Compact status header v3') &&
+  responsiveCss.includes('grid-template-columns: 44px 38px minmax(0, 1fr) 38px') &&
+  responsiveCss.includes('@media (min-width: 360px) and (max-width: 430px)') &&
+  responsiveCss.includes('@media (min-width: 431px) and (max-width: 767px)') &&
+  responsiveCss.includes('@media (min-width: 768px)'),
+  'compact header must adapt across the six viewport tiers'
+);
+assert(
+  !html.includes('class="player-fullid"') &&
+  !html.includes('class="profession-assistant-badge"') &&
+  html.includes('class="header-level-chip"') &&
+  html.includes('class="header-profession-chip"'),
+  'header must keep core identity while moving verbose controls into the menu'
+);
 
 assert(
   packageJson.scripts.test.includes('node tests/responsive-layout.test.js'),

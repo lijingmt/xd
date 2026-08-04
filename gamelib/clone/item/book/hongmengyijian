@@ -1,0 +1,3 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_ANCIENT_BOOK;

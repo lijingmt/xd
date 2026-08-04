@@ -43,6 +43,11 @@ int main(string|zero arg)
 	if( ob && !ob->is("npc") && flag==1){
 		if(ob->query_item_canGet()==1)
 		{
+			if(functionp(ob->bind_to_account) &&
+			   !ob->bind_to_account(this_player())){
+				write("这件账号绑定物品不属于当前注册账号，无法拾取。\n");
+				return 1;
+			}
 			if(this_player()->query_term()!=""&&this_player()->query_term()!="noterm")
 				if(TERMD->query_termId((string)this_player()->query_term()))
 					//团队公告谁获得了什么物品

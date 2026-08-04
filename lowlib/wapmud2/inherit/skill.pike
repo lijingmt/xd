@@ -22,6 +22,105 @@ int lingyi_pact_gain=0;//有效治疗后获得的药契层数
 int lingyi_pact_consume=0;//有效治疗时是否消耗全部药契
 int lingyi_room_aoe=0;//灵医房间群攻：阵营可配置，服务端永久排除队友、好友与路人
 int lingyi_aoe_power_percent=0;//房间群攻相对普通法术的伤害倍率
+int rare_tier=0;//太古传承品阶；旧大神传承保持0
+
+int query_rare_tier(){
+	return rare_tier>0 ? rare_tier : 0;
+}
+
+// 高属性版本的稀有技能使用总攻势倍率，而不是继续依赖几千点固定值。
+// 旧大神传承最高160%，太古传承随品阶最高201%，维持稀有度梯度。
+int query_rare_power_percent(int level){
+	if(level<1)
+		level=1;
+	if(level>5)
+		level=5;
+	if(skill_rare=="ancient")
+		return 150+level*6+query_rare_tier()*3;
+	if(skill_rare=="mythic")
+		return 135+level*5;
+	return 100;
+}
+
+// 治疗和护盾按生命上限提供最低收益；实际数值仍受原技能上限、减疗、
+// 护盾消耗和冷却约束。
+int query_rare_vital_percent(int level){
+	if(level<1)
+		level=1;
+	if(level>5)
+		level=5;
+	if(skill_rare=="ancient")
+		return 8+level*2+(query_rare_tier()+1)/2;
+	if(skill_rare=="mythic")
+		return 6+level*2;
+	return 0;
+}
+
+// 攻防类增减益以施法瞬间的真实属性为基准，防止百万攻防版本中固定值失效。
+int query_rare_control_percent(int level){
+	if(level<1)
+		level=1;
+	if(level>5)
+		level=5;
+	if(skill_rare=="ancient")
+		return 22+level*4+query_rare_tier();
+	if(skill_rare=="mythic")
+		return 18+level*4;
+	return 0;
+}
+
+// DOT 每节拍仅取自身攻势的一部分，并由战斗层继续执行玩家/Boss封顶。
+int query_rare_dot_power_percent(int level){
+	if(level<1)
+		level=1;
+	if(level>5)
+		level=5;
+	if(skill_rare=="ancient")
+		return 7+level+(query_rare_tier()+1)/2;
+	if(skill_rare=="mythic")
+		return 5+level;
+	return 0;
+}
+
+int query_rare_direct_pvp_cap_percent(){
+	if(skill_rare=="ancient")
+		return 38;
+	if(skill_rare=="mythic")
+		return 30;
+	return 0;
+}
+
+int query_rare_direct_boss_cap_percent(){
+	if(skill_rare=="ancient")
+		return 7;
+	if(skill_rare=="mythic")
+		return 5;
+	return 0;
+}
+
+int query_is_rare_direct_damage(){
+	if(skill_rare=="")
+		return 0;
+	if(s_skill_type=="phy")
+		return 1;
+	return search(({"dot","curse","buff","heal","taunt","team_guard"}),
+		s_skill_type)==-1;
+}
+
+// 旧大神传承缩短过时的超长冷却，但仍明显长于普通技能。
+int query_s_delayTime(int level){
+	int delay = ::query_s_delayTime(level);
+	if(skill_rare!="mythic")
+		return delay;
+	if(query_is_rare_direct_damage() && delay>50)
+		return 50;
+	if((s_skill_type=="buff" || s_skill_type=="heal") && delay>75)
+		return 75;
+	if((s_skill_type=="dot" || s_skill_type=="curse" ||
+	   s_skill_type=="team_guard") && delay>90)
+		return 90;
+	return delay;
+}
 
 int query_hate_multiplier(){
 	if(hate_multiplier<1)
@@ -114,12 +213,30 @@ int query_performs_mofa_attack_low(int level){
 		return 0;
 }
 string query_performs_desc(int level){
+	string result;
 	if(!level)
 		return "";
 	if(performs_desc&&sizeof(performs_desc))
-		return (string)performs_desc[level];
+		result = (string)performs_desc[level];
 	else
 		return "";
+	if(skill_rare=="mythic" || skill_rare=="ancient"){
+		if(query_is_rare_direct_damage())
+			result += sprintf("；总攻势按%d%%结算",query_rare_power_percent(level));
+		else if(s_skill_type=="dot" && name!="xuehailieshang")
+			result += sprintf("；每节拍至少继承%d%%自身攻势，玩家与首领有封顶",
+				query_rare_dot_power_percent(level));
+		else if(s_skill_type=="heal" || s_skill_type=="team_guard" ||
+		   (s_skill_type=="buff" && s_curse_type=="absorb"))
+			result += sprintf("；高属性时至少按生命上限%d%%生效",
+				query_rare_vital_percent(level));
+		else if((s_skill_type=="buff" || s_skill_type=="curse") &&
+		   (s_curse_type=="defend" || s_curse_type=="attack"))
+			result += sprintf("；高属性时至少影响当前属性%d%%",
+				query_rare_control_percent(level));
+		result += sprintf("；实战冷却%d秒",query_s_delayTime(level));
+	}
+	return result;
 }
 int query_performs_level_limit(int level){
 	if(!level)

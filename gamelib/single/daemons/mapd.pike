@@ -38,6 +38,22 @@ private int get_level_fee(int level) {
     return 10000000;
 }
 
+// 地图目录和幻境直飞共用服务端费用计算，客户端不能自行指定费用。
+int query_player_fly_fee(object me)
+{
+	int vip_level;
+	int vip_fee;
+	int level_fee;
+	if(!me)
+		return 0;
+	vip_level = me->query_vip_flag() || 0;
+	vip_fee = vip_fly_fee_config[vip_level];
+	level_fee = get_level_fee(me->query_level());
+	if(vip_fee==0 || level_fee<vip_fee)
+		return level_fee;
+	return vip_fee;
+}
+
 // 最终费用 = min(VIP费用, 等级费用)，取两者中较低的
 // ====================================================
 
@@ -46,6 +62,13 @@ private mapping(string:mapping(string:string)) all_map = ([]);
 	map=([当前房间英文名:(["east":向东方向的第1个房间-向东方向的第1个房间-...-向东方向的第5个房间,"west":"...","south":"...","north":"..."]),...]);
 */
 mapping(string:mapping(string:string)) all_map_list= ([]);
+private int is_hidden_map_room_path(string room_path)
+{
+	return FBD->is_fb_room_path(room_path) ||
+		has_prefix(room_path,"timed_event/") ||
+		has_prefix(room_path,"/gamelib/d/timed_event/") ||
+		has_prefix(room_path,ROOT+"/gamelib/d/timed_event/");
+}
 mapping(string:string) pinyin_to_cn = ([
 	"dongxue":"洞穴",
 	"beihai":"北海",
@@ -143,7 +166,7 @@ string get_all_map_list(){
 	foreach(block_list,string block){
 		foreach(indices(all_map_list[block]),string name_cn ){
 			string room_path = all_map_list[block][name_cn];
-			if(!FBD->is_fb_room_path(room_path))
+			if(!is_hidden_map_room_path(room_path))
 				s+="["+block+"|"+name_cn+":qge74hye "+room_path+"]\n";
 		}
 		
@@ -157,7 +180,6 @@ string get_all_kinds_map(){
 		if(pinyin_to_cn[block] && all_map_list[block] &&
 		   sizeof(all_map_list[block])){
 			object me = this_player();
-			int vip_level = me->query_vip_flag() || 0;
 			int level = me->query_level();
 			if(block=="jiuxiaojiejing" &&
 			   level<ENDGAME_MAP_MIN_LEVEL &&
@@ -167,24 +189,7 @@ string get_all_kinds_map(){
 				continue;
 			}
 
-			// 计算VIP费用
-			int vip_fee = vip_fly_fee_config[vip_level];
-
-			// 计算等级费用
-			int level_fee = get_level_fee(level);
-
-			// 两者取其最少
-			int fee;
-			if(vip_fee == 0) {
-				// VIP配置为0表示非会员，使用等级费用
-				fee = level_fee;
-			} else if(vip_fee < level_fee) {
-				// VIP费用更低，使用VIP费用
-				fee = vip_fee;
-			} else {
-				// 等级费用更低，使用等级费用
-				fee = level_fee;
-			}
+			int fee = query_player_fly_fee(me);
 
 			string fee_cn = MUD_MONEYD->query_store_money_cn(fee);
 			s+="[支付"+fee_cn+"飞到 "+pinyin_to_cn[block]+":map_display "+block+" "+fee+"]\n";
@@ -199,7 +204,7 @@ string get_sub_map_list(string block){
 		return s;
 	foreach(indices(all_map_list[block]),string name_cn ){
 		string room_path = all_map_list[block][name_cn];
-		if(name_cn!="" && !FBD->is_fb_room_path(room_path))
+		if(name_cn!="" && !is_hidden_map_room_path(room_path))
 			s+="[飞到："+name_cn+":qge74hye "+room_path+"]\n";
 	}
 	return s;
@@ -213,7 +218,7 @@ void load_all_map(){
 		foreach(sub_map_index_list,string realroom){
 			object ob;
 			string room_path = block+"/"+realroom;
-			if(FBD->is_fb_room_path(room_path))
+			if(is_hidden_map_room_path(room_path))
 				continue;
 			werror("=======try to load room:"+realroom+"\n");
 			mixed err=catch{
