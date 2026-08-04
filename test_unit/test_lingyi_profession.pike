@@ -634,6 +634,7 @@ void test_room_aoe_and_battle_report()
 		npc_two->flush_life();
 		npc_two->set_life(npc_two->query_life_max());
 		string npc_one_name = npc_one->query_name();
+		string npc_two_name = npc_two->query_name();
 		int member_before = member->get_cur_life();
 		int bystander_before = bystander->get_cur_life();
 		int engaged_before = engaged->get_cur_life();
@@ -656,10 +657,18 @@ void test_room_aoe_and_battle_report()
 		int saw_same_faction = 0;
 		int saw_friend = 0;
 		int saw_npc_one = 0;
+		int saw_npc_two = 0;
 		int npc_one_outcome_valid = 0;
+		int engaged_outcome_valid = 0;
+		int npc_two_outcome_valid = 0;
+		int npc_two_hit = -1;
 		foreach((array(mapping))report["targets"],mapping target){
-			if(target["name"]==engaged->query_name())
+			if(target["name"]==engaged->query_name()){
 				saw_engaged = 1;
+				engaged_outcome_valid =
+					((int)target["hit"] && (int)target["damage"]>0) ||
+					(!(int)target["hit"] && !(int)target["damage"]);
+			}
 			if(target["name"]==same_faction->query_name())
 				saw_same_faction = 1;
 			if(target["name"]==friend_player->query_name())
@@ -671,15 +680,24 @@ void test_room_aoe_and_battle_report()
 					((int)target["hit"] && (int)target["defeated"]) ||
 					(!(int)target["hit"] && !(int)target["defeated"]);
 			}
+			if(target["name"]==npc_two_name){
+				saw_npc_two = 1;
+				npc_two_hit = (int)target["hit"];
+				npc_two_outcome_valid =
+					((int)target["hit"] && (int)target["damage"]>0) ||
+					(!(int)target["hit"] && !(int)target["damage"]);
+			}
 		}
 		int engaged_damage = engaged_before-engaged->get_cur_life();
 		if(member->get_cur_life()!=member_before ||
 		   bystander->get_cur_life()!=bystander_before ||
 		   same_faction->get_cur_life()!=same_faction_before ||
 		   friend_player->get_cur_life()!=friend_before ||
-		   engaged_damage<=0 ||
+		   !engaged_outcome_valid ||
 		   engaged_damage>engaged->query_life_max()*8/100 ||
-		   npc_two->get_cur_life()>=npc_two_before ||
+		   !saw_npc_two || !npc_two_outcome_valid || npc_two_hit<0 ||
+		   (npc_two_hit && npc_two->get_cur_life()>=npc_two_before) ||
+		   (!npc_two_hit && npc_two->get_cur_life()!=npc_two_before) ||
 		   task_npc->get_cur_life()!=task_npc_before ||
 		   !report || report["skill"]!="yaowutianluo" ||
 		   sizeof((array)report["targets"])<3 || !saw_npc_one ||
@@ -706,17 +724,28 @@ void test_room_aoe_and_battle_report()
 			healer->query_recent_aoe_battle_report();
 		int custom_saw_human = 0;
 		int custom_saw_third = 0;
+		int custom_third_hit = -1;
+		int custom_npc_hit = -1;
 		foreach((array(mapping))custom_report["targets"],mapping target){
 			if(target["name"]==engaged->query_name())
 				custom_saw_human = 1;
-			if(target["name"]==same_faction->query_name())
+			if(target["name"]==same_faction->query_name()){
 				custom_saw_third = 1;
+				custom_third_hit = (int)target["hit"];
+			}
+			if(target["name"]==npc_two_name)
+				custom_npc_hit = (int)target["hit"];
 		}
 		if(engaged->get_cur_life()!=engaged_after_first ||
-		   same_faction->get_cur_life()>=same_after_first ||
+		   (custom_third_hit &&
+			same_faction->get_cur_life()>=same_after_first) ||
+		   (!custom_third_hit &&
+			same_faction->get_cur_life()!=same_after_first) ||
 		   friend_player->get_cur_life()!=friend_after_first ||
 		   member->get_cur_life()!=member_after_first ||
-		   npc_two->get_cur_life()>=npc_two_after_first ||
+		   (custom_npc_hit && npc_two->get_cur_life()>=npc_two_after_first) ||
+		   (!custom_npc_hit && npc_two->get_cur_life()!=npc_two_after_first) ||
+		   custom_third_hit<0 || custom_npc_hit<0 ||
 		   custom_saw_human || !custom_saw_third)
 			failed++;
 		healer->move(other_room);

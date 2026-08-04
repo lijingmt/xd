@@ -107,7 +107,7 @@ constant CORE_COMMANDS = ({
 
 /** 共享系统命令前缀 - 新增子命令也必须进入全局核心锁 */
 constant CORE_COMMAND_PREFIXES = ({
-	"vendue_", "temai_", "term_", "fb_", "viceskill_",
+	"vendue_", "temai_", "term_", "fb_", "viceskill_", "artisan",
 	// 跨玩家/跨档案写入必须与核心世界状态串行，不能只依赖单账号锁。
 	"bang_", "mail_", "mailbox_", "present_", "sendother",
 	"home_", "trade_", "follow_", "spy_", "spec_", "mgr_", "wiz_",

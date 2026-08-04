@@ -50,9 +50,15 @@ int main(string|zero arg)
 									object get_ob = clone(ITEM_PATH_KUANG+get_name);
 								if(get_ob){
 									int num = random(3)+1;
+									string gathered_name = get_ob->query_name_cn();
 									get_ob->amount = num;
 									get_ob->max_count = GATHER_STACK_NUM;
-									if(me->if_over_load(get_ob)){
+									if(ARTISAND->store_gathered_material(me,get_ob)>0){
+										s += "你采得"+num+gathered_name+"，已收入材料囊\n";
+										for_log += "获得了"+num+gathered_name;
+										got_any = 1;
+									}
+									else if(me->if_over_load(get_ob)){
 										s += "背包已满且没有可合并的草药格，采药暂停。\n";
 										get_ob->remove();
 									}
@@ -68,11 +74,17 @@ int main(string|zero arg)
 								}
 								else{
 									if((random(100)+1)<prob){
-										object get_ob = clone(ITEM_PATH_KUANG+get_name);
+									object get_ob = clone(ITEM_PATH_KUANG+get_name);
 									if(get_ob){
+										string gathered_name = get_ob->query_name_cn();
 										get_ob->amount = 1;
 										get_ob->max_count = GATHER_STACK_NUM;
-										if(me->if_over_load(get_ob))
+										if(ARTISAND->store_gathered_material(me,get_ob)>0){
+											s += "你采得一颗"+gathered_name+"，已收入材料囊\n";
+											for_log += "，一颗"+gathered_name;
+											got_any = 1;
+										}
+										else if(me->if_over_load(get_ob))
 											get_ob->remove();
 										else{
 											s += "你获得了一颗"+get_ob->query_name_cn()+"\n";
@@ -95,16 +107,10 @@ int main(string|zero arg)
 								//增加需要刷新此草药的数量
 								CAOYAOD->set_flush_num(name);
 								//检查熟练度是否升级
-								if(now_lev < skill[2]){
-									int update_need = (int)(now_lev/5);
-									if(now_count>=update_need){
-										skill[0]++;
-										skill[1]=0;
-										s += "你的采药技能熟练度提高到了"+(now_lev+1)+"级\n";
-									}
-									else
-										skill[1]++;
-								}
+								mapping progress = ARTISAND->advance_proficiency(me,"caiyao",1);
+								if((int)progress["new_level"]>now_lev)
+									s += "你的采药技能熟练度提高到了"+
+										(string)progress["new_level"]+"级\n";
 							}
 						}
 					}

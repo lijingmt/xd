@@ -73,15 +73,10 @@ int main(string|zero arg)
 					s += "你得到["+get_item->query_name_cn()+":inv_other "+s_file+"]\n";
 					//检查熟练度是否升级
 					int now_lev = skill[0];
-					if(now_lev<skill[2]){
-						int update_need = (int)(now_lev/5);
-						skill[1]++;
-						if(skill[1]>=update_need){
-							skill[0]++;
-							skill[1]=0;
-							s += "你的锻造熟练度提高到了"+(now_lev+1)+"级\n";
-						}
-					}
+					mapping progress = ARTISAND->advance_proficiency(me,"duanzao",1);
+					if((int)progress["new_level"]>now_lev)
+						s += "你的锻造熟练度提高到了"+
+							(string)progress["new_level"]+"级\n";
 					if(yushi_flag != 0){ //扣除相应的宝石
 						me->remove_combine_item(yushi_name,1);
 					}

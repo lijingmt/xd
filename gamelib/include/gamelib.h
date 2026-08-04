@@ -58,6 +58,8 @@
 #define CAIFENGD ((object)(ROOT "/gamelib/single/daemons/caifengd"))
 //新副业制甲守护模块
 #define ZHIJIAD ((object)(ROOT "/gamelib/single/daemons/zhijiad"))
+//百工复兴：材料囊、熟练度、大师专精与安全制造事务
+#define ARTISAND ((object)(ROOT "/gamelib/single/daemons/artisand.pike"))
 //配方守护模块
 #define PEIFANGD ((object)(ROOT "/gamelib/single/daemons/peifangd"))
 //副本守护模块

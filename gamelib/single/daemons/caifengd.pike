@@ -107,6 +107,7 @@ string query_produce_info(int id)
 			s_rtn += ob->query_name_cn()+"\n";
 			s_rtn += ob->query_desc()+"\n";
 			s_rtn += ob->query_content()+"\n";
+			destruct(ob);
 		}
 	}
 	return s_rtn;
@@ -134,24 +135,22 @@ int query_item_level(int p_id)
 	return lev;
 }
 
+string query_recipe_type(int p_id)
+{
+	caifeng tmp = caifeng_m[p_id];
+	if(tmp)
+		return tmp->type;
+	return "";
+}
+
 //获得已学配方的信息
 string query_peifang(object player,string type)
 {
 	string s_rtn = "";
 	string can = "";
 	string cannot = "";
-	player->material_m = ([]);
+	ARTISAND->refresh_material_cache(player);
 	player->baoshi_add = ([]);
-	array(object) all_obj = all_inventory(player);
-	//得到玩家身上材料个数的映射表
-	foreach(all_obj,object ob){
-		if(ob->is_combine_item() && (ob->query_for_material() == "caifeng"||ob->query_for_material() == "caifeng/zhijia")){
-			if(player->material_m[ob->query_name()] == 0)
-				player->material_m[ob->query_name()] = ob->amount;
-			else
-				player->material_m[ob->query_name()] += ob->amount;
-		}
-	}
 	if(type !="" && sizeof(player["/caifeng/"+type])>0){
 		foreach(indices(player["/caifeng/"+type]),int p_id){
 			caifeng tmp = caifeng_m[p_id];
@@ -174,6 +173,8 @@ int can_make_num(object player,int p_id)
 	int count = 0;
 	int num2 = 0;
 	caifeng tmp1 = caifeng_m[p_id];
+	if(!tmp1 || !sizeof(tmp1->get_m))
+		return 0;
 	flush_material_m(player);
 	foreach(indices(tmp1->get_m),string name){
 		array tmp_arr = tmp1->get_m[name];
@@ -216,6 +217,7 @@ string query_material_detail(object player,int p_id)
 string query_pf_detail(object player,int p_id)
 {	
 	string s_rtn = "";
+	flush_material_m(player);
 	s_rtn += query_produce_info(p_id);
 	s_rtn += query_material_detail(player,p_id);
 	return s_rtn;
@@ -225,18 +227,8 @@ string query_pf_detail(object player,int p_id)
 string query_can_caifeng(object player,string type)
 {
 	string s_rtn = "";
-	player->material_m = ([]);
+	ARTISAND->refresh_material_cache(player);
 	player->baoshi_add = ([]);
-	array(object) all_obj = all_inventory(player);
-	//得到玩家身上材料个数的映射表
-	foreach(all_obj,object ob){
-		if(ob->is_combine_item() && (ob->query_for_material() == "caifeng" || ob->query_for_material() == "moxian")){
-			if(player->material_m[ob->query_name()] == 0)
-				player->material_m[ob->query_name()] = ob->amount;
-			else
-				player->material_m[ob->query_name()] += ob->amount;
-		}
-	}
 	if(type != "" && sizeof(player["/caifeng/"+type])>0){
 		foreach(indices(player["/caifeng/"+type]),int p_id){
 			caifeng tmp = caifeng_m[p_id];
@@ -266,16 +258,6 @@ mapping(string:array) query_get_m(int p_id)
 //刷新玩家拥有的裁缝材料表
 void flush_material_m(object player)
 {
-	player->material_m = ([]);
-	array(object) all_obj = all_inventory(player);
-	//得到玩家身上材料个数的映射表
-	foreach(all_obj,object ob){
-		if(ob->is_combine_item() && (ob->query_for_material() == "caifeng" || ob->query_for_material() == "moxian")){
-			if(player->material_m[ob->query_name()] == 0)
-				player->material_m[ob->query_name()] = ob->amount;
-			else
-				player->material_m[ob->query_name()] += ob->amount;
-		}
-	}
+	ARTISAND->refresh_material_cache(player);
 	return;
 }

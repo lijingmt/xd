@@ -44,7 +44,7 @@ int main(string|zero arg)
 			s += "熟练度："+now_lev+"/"+max_lev+"\n";
 			s += "[制造:viceskill_zhijia_pf head]\n";
 		}
-		s += "[遗忘此技能:viceskill_giveup "+skill_name+" 0]\n";
+		s += "[百工坊:artisan]|[材料囊:artisan pouch]\n";
 	}
 	else 
 		s += "你不会此技能，或者你有非法的操作，请联系管理员\n";

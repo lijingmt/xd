@@ -13,6 +13,20 @@ mapping(string:int) test_results = ([
 	"failed":0,
 ]);
 
+string player_file(string userid)
+{
+	return DATA_ROOT+"u/"+userid[sizeof(userid)-2..]+"/"+userid+".o";
+}
+
+void cleanup_player_files(string userid)
+{
+	string path = player_file(userid);
+	rm(path);
+	rm(path+".tmp");
+	rm(path+".bak");
+	rm(path+".bak.tmp");
+}
+
 void test_start(string name)
 {
 	test_results["total"]++;
@@ -34,6 +48,7 @@ void test_fail(string reason)
 object create_player(string name,string race_id,
 	string profession_id,int level)
 {
+	cleanup_player_files(name);
 	object player = clone(GAMELIB_USER);
 	if(!player)
 		return 0;
@@ -53,11 +68,14 @@ object create_player(string name,string race_id,
 
 void destroy_player(object|zero player)
 {
+	string userid = "";
 	if(!player)
 		return;
+	userid = player->query_name();
 	foreach(all_inventory(player),object item)
 		destruct(item);
 	destruct(player);
+	cleanup_player_files(userid);
 }
 
 void test_honor_runtime()

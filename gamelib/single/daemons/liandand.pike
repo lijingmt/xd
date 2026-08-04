@@ -117,6 +117,7 @@ string query_produce_info(int id)
 			s_rtn += ob->query_name_cn()+"\n";
 			s_rtn += ob->query_desc()+"\n";
 			//s_rtn += ob->query_content()+"\n";
+			destruct(ob);
 		}
 	}
 	return s_rtn;
@@ -144,6 +145,14 @@ int query_item_level(int p_id)
 	return lev;
 }
 
+string query_recipe_type(int p_id)
+{
+	liandan tmp = liandan_m[p_id];
+	if(tmp)
+		return tmp->type;
+	return "";
+}
+
 //获得已学配方的信息
 string query_peifang(object player,string type)
 {
@@ -151,17 +160,7 @@ string query_peifang(object player,string type)
 	string can = "";
 	string cannot = "";
 	int flag = 0;
-	player->material_m = ([]);
-	array(object) all_obj = all_inventory(player);
-	//得到玩家身上材料个数的映射表
-	foreach(all_obj,object ob){
-		if(ob->is_combine_item() && ob->query_for_material() == "liandan"){
-			if(player->material_m[ob->query_name()] == 0)
-				player->material_m[ob->query_name()] = ob->amount;
-			else
-				player->material_m[ob->query_name()] += ob->amount;
-		}
-	}
+	ARTISAND->refresh_material_cache(player);
 	if(type == "attri_base" && sizeof(player["/liandan/attri_base"])>0){
 		foreach(indices(player["/liandan/attri_base"]),int p_id){
 			liandan tmp = liandan_m[p_id];
@@ -240,6 +239,19 @@ string query_peifang(object player,string type)
 			}
 		}
 	}
+	else if(type == "attri_supply" &&
+	   sizeof(player["/liandan/attri_supply"])>0){
+		foreach(indices(player["/liandan/attri_supply"]),int p_id){
+			liandan tmp = liandan_m[p_id];
+			if(tmp){
+				int num = can_make_num(player,p_id);
+				if(num>0)
+					can += "["+tmp->name_cn+":viceskill_pf_detail liandan "+p_id+" 1 none]("+num+")\n";
+				else
+					cannot += "["+tmp->name_cn+":viceskill_pf_detail liandan "+p_id+" 0 none]\n";
+			}
+		}
+	}
 	s_rtn = can+cannot;
 	return s_rtn;
 }
@@ -250,6 +262,8 @@ int can_make_num(object player,int p_id)
 	int count = 0;
 	int num2 = 0;
 	liandan tmp1 = liandan_m[p_id];
+	if(!tmp1 || !sizeof(tmp1->get_m))
+		return 0;
 	flush_material_m(player);
 	foreach(indices(tmp1->get_m),string name){
 		array tmp_arr = tmp1->get_m[name];
@@ -292,6 +306,7 @@ string query_material_detail(object player,int p_id)
 string query_pf_detail(object player,int p_id)
 {	
 	string s_rtn = "";
+	flush_material_m(player);
 	s_rtn += query_produce_info(p_id);
 	//s_rtn += "--------\n";
 	s_rtn += query_material_detail(player,p_id);
@@ -368,16 +383,6 @@ mapping(string:array) query_get_m(int p_id)
 //刷新玩家拥有的炼丹材料表
 void flush_material_m(object player)
 {
-	player->material_m = ([]);
-	array(object) all_obj = all_inventory(player);
-	//得到玩家身上材料个数的映射表
-	foreach(all_obj,object ob){
-		if(ob->is_combine_item() && ob->query_for_material() == "liandan"){
-			if(player->material_m[ob->query_name()] == 0)
-				player->material_m[ob->query_name()] = ob->amount;
-			else
-				player->material_m[ob->query_name()] += ob->amount;
-		}
-	}
+	ARTISAND->refresh_material_cache(player);
 	return;
 }

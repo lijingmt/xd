@@ -15,24 +15,35 @@ int main(string|zero arg)
 			s += "[［副手武器］:viceskill_duanzao_list s_weapon]\n";
 			s += "[［双手武器］:viceskill_duanzao_list d_weapon]\n";
 			s += "[［防具］:viceskill_duanzao_list armor]\n";
+			s += "[［高阶通用武器］:viceskill_duanzao_list weapon]\n";
 		}
 		else if(arg == "s_weapon"){
 			s += "[［主手武器］:viceskill_duanzao_list m_weapon]\n";
 			s += "［副手武器］\n";
 			s += "[［双手武器］:viceskill_duanzao_list d_weapon]\n";
 			s += "[［防具］:viceskill_duanzao_list armor]\n";
+			s += "[［高阶通用武器］:viceskill_duanzao_list weapon]\n";
 		}
 		else if(arg == "d_weapon"){
 			s += "[［主手武器］:viceskill_duanzao_list m_weapon]\n";
 			s += "[［副手武器］:viceskill_duanzao_list s_weapon]\n";
 			s += "［双手武器］\n";
 			s += "[［防具］:viceskill_duanzao_list armor]\n";
+			s += "[［高阶通用武器］:viceskill_duanzao_list weapon]\n";
 		}
 		else if(arg == "armor"){
 			s += "[［主手武器］:viceskill_duanzao_list m_weapon]\n";
 			s += "[［副手武器］:viceskill_duanzao_list s_weapon]\n";
 			s += "[［双手武器］:viceskill_duanzao_list d_weapon]\n";
 			s += "［防具］\n";
+			s += "[［高阶通用武器］:viceskill_duanzao_list weapon]\n";
+		}
+		else if(arg == "weapon"){
+			s += "[［主手武器］:viceskill_duanzao_list m_weapon]\n";
+			s += "[［副手武器］:viceskill_duanzao_list s_weapon]\n";
+			s += "[［双手武器］:viceskill_duanzao_list d_weapon]\n";
+			s += "[［防具］:viceskill_duanzao_list armor]\n";
+			s += "［高阶通用武器］\n";
 		}
 		s += "--------\n";
 		s += DUANZAOD->query_can_duanzao(me,arg);

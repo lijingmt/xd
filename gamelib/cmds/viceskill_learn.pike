@@ -7,13 +7,16 @@ int main(string|zero arg)
 	object me=this_player();
 	string skill_name = "";
 	int flag = 0;
+	int valid_skill = 0;
 	sscanf(arg,"%s %d",skill_name,flag);
 	if(me->vice_skills==0)
 		me->vice_skills=([]);
-	if(me->vice_skills[skill_name] != 0)
+	ARTISAND->initialize_player(me);
+	valid_skill = ARTISAND->is_valid_skill(skill_name);
+	if(!valid_skill)
+		s += "没有这种可以学习的百工技能。\n";
+	else if(me->vice_skills[skill_name] != 0)
 		s += "你已经学会了这种技能\n";
-	else if(sizeof(me->vice_skills) >= 2)
-		s += "你现在没有精力来学习更多的技能\n";
 	else{
 		if(flag == 0){
 			if(skill_name == "caikuang"){
@@ -46,6 +49,7 @@ int main(string|zero arg)
 				s += "可以把各种皮革做成坚韧的皮甲装备\n";
 				s += "学费：10金\n";
 			}
+			s += "百工新规：基础手艺可以全部学习；熟练度达到210后，可在百工坊选择一项大师专精。\n";
 			s += "[学习:viceskill_learn "+skill_name+" 1]\n";
 		}
 		else if(flag == 1){
@@ -54,11 +58,16 @@ int main(string|zero arg)
 				s += "穷小子还想来骗手艺，努力赚够钱了再来找我吧\n";
 			}
 			else{
+				mapping old_vice_skills = copy_value(me->vice_skills);
+				mixed old_recipe_data = copy_value(me["/"+skill_name]);
+				int old_account = me->query_account();
+				int learned = 0;
 				me->del_account(1000);
 				if(skill_name == "caikuang"){
 					me->vice_skills[skill_name]=({1,0,VICESKILL_UP});
 					s = "学习成功！\n";
 					s += "你获得了新的技能：采矿\n";
+					learned = 1;
 				}
 				else if(skill_name == "duanzao"){
 					me->vice_skills[skill_name]=({1,0,VICESKILL_UP});
@@ -66,13 +75,16 @@ int main(string|zero arg)
 					me["/duanzao/m_weapon"] = ([]);
 					me["/duanzao/s_weapon"] = ([]);
 					me["/duanzao/armor"] = ([]);
+					me["/duanzao/weapon"] = ([]);
 					s = "学习成功！\n";
 					s += "你获得了新的技能：锻造\n";
+					learned = 1;
 				}
 				else if(skill_name == "caiyao"){
 					me->vice_skills[skill_name]=({1,0,VICESKILL_UP});
 					s = "学习成功！\n";
 					s += "你获得了新的技能：采药\n";
+					learned = 1;
 				}
 				else if(skill_name == "liandan"){
 					me->vice_skills[skill_name]=({1,0,VICESKILL_UP});
@@ -82,8 +94,10 @@ int main(string|zero arg)
 					me["/liandan/attri_attack"] = ([]);
 					me["/liandan/spec"] = ([]);
 					me["/liandan/normal"] = ([]);
+					me["/liandan/attri_supply"] = ([]);
 					s = "学习成功！\n";
 					s += "你获得了新的技能：炼丹\n";
+					learned = 1;
 				}
 				else if(skill_name == "caifeng"){
 					me->vice_skills[skill_name]=({1,0,VICESKILL_UP});
@@ -96,6 +110,7 @@ int main(string|zero arg)
 					me["/caifeng/other"] = ([]);
 					s = "学习成功！\n";
 					s += "你获得了新的技能：裁缝\n";
+					learned = 1;
 				}
 				else if(skill_name == "zhijia"){
 					me->vice_skills[skill_name]=({1,0,VICESKILL_UP});
@@ -107,6 +122,18 @@ int main(string|zero arg)
 					me["/zhijia/shoes"] = ([]);
 					s = "学习成功！\n";
 					s += "你获得了新的技能：制甲\n";
+					learned = 1;
+				}
+				if(!learned || !functionp(me->save_with_result) ||
+				   !me->save_with_result()){
+					me->vice_skills = old_vice_skills;
+					me["/"+skill_name] = old_recipe_data;
+					me->set_account(old_account);
+					s = "学习存档失败，学费与技能变更已经回滚，请稍后重试。\n";
+				}
+				else{
+					s += "基础手艺不再占用二选二名额。\n";
+					s += "[前往百工坊:artisan]\n";
 				}
 			}
 		}
