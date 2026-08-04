@@ -6,6 +6,10 @@ int main(string|zero arg)
 {
 	string s = "请选择你要加入的魔线，每种魔线只能加入一根。\n";
 	object me=this_player();
+	ARTISAND->initialize_player(me);
+	ARTISAND->refresh_material_cache(me);
+	if(!mappingp(me->baoshi_add))
+		me->baoshi_add = ([]);
 	array(object) all_obj = all_inventory(me);
 	int p_id = (int)arg;
 	foreach(all_obj,object ob){

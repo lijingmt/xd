@@ -4,6 +4,7 @@
 int main(string|zero arg)
 {
 	string s = "";
+	ARTISAND->initialize_player(this_player());
 	NEWBIED->record_action(this_player(),"skills");
 	if(this_player()->home_path&&this_player()->home_path!="")
 		s += "[传送回家:home_return "+this_player()->home_path+"]\n";
@@ -118,8 +119,8 @@ int main(string|zero arg)
 	}
 	//if(this_player()->vice_skills==0)
 	//	this_player()->vice_skills = ([]);
+	s += "辅助技能：[百工坊:artisan]\n";
 	if(sizeof(this_player()->vice_skills) > 0){
-		s += "辅助技能：\n";
 		array(int) vice_tmp = ({});
 		if(this_player()->vice_skills["caikuang"]){
 			vice_tmp = this_player()->vice_skills["caikuang"];

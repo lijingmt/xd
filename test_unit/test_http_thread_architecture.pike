@@ -121,6 +121,8 @@ void test_core_command_coverage(object httpd)
 		httpd->is_core_command("vendue_buy_now 1") == 1 &&
 		httpd->is_core_command("term_future_action") == 1 &&
 		httpd->is_core_command("viceskill_dig ore 0") == 1 &&
+		httpd->is_core_command("artisan deposit") == 1 &&
+		httpd->is_core_command("artisan_master_craft duanzao 120") == 1 &&
 		httpd->is_core_command("flushview") == 1 &&
 		httpd->is_core_command("use_perform yueji") == 0 &&
 		httpd->is_core_command("mail_send_confirm user") == 1 &&

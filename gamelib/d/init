@@ -722,6 +722,8 @@ int start(string arg){
 		me->baoshi_add=([]);
 	if(me->ronglian_list == 0)
 		me->ronglian_list=([]);
+	// 百工字段按访问即补齐，旧人物熟练度和配方原样保留。
+	ARTISAND->initialize_player(me);
 	me["/danyao"]=([]);
 	me["/homeBuff"]=([]);
 	//加载还有效果的特药，由liaocheng于07/11/21添加

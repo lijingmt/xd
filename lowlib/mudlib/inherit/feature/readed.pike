@@ -243,6 +243,8 @@ int duanzao_read()
 	object me = this_player();
 	object peifang = this_object();
 	string type = peifang->query_peifang_type();
+	if(!mappingp(me["/duanzao/"+type]))
+		me["/duanzao/"+type] = ([]);
 	if(me->vice_skills["duanzao"] == 0)
 		return 8; //不会锻造技能
 	else{
@@ -292,6 +294,15 @@ int duanzao_read()
 					else
 						return 11;//已学过此配方
 				}
+				else if(type == "weapon"){
+					if(me["/duanzao/weapon"][p_id] == 0){
+						me["/duanzao/weapon"][p_id]=1;
+						peifang->read_flag = 0;
+						return 1;//学习成功
+					}
+					else
+						return 11;//已学过此配方
+				}
 			}
 		}
 	}
@@ -303,6 +314,8 @@ int liandan_read()
 	object me = this_player();
 	object peifang = this_object();
 	string type = peifang->query_peifang_type();
+	if(!mappingp(me["/liandan/"+type]))
+		me["/liandan/"+type] = ([]);
 	if(me->vice_skills["liandan"] == 0)
 		return 8; //不会炼丹技能
 	else{
@@ -334,6 +347,8 @@ int caifeng_read()
 	object me = this_player();
 	object peifang = this_object();
 	string type = peifang->query_peifang_type();
+	if(!mappingp(me["/caifeng/"+type]))
+		me["/caifeng/"+type] = ([]);
 	if(me->vice_skills["caifeng"] == 0)
 		return 8; //不会裁缝技能
 	else{
@@ -364,6 +379,8 @@ int zhijia_read()
 	object me = this_player();
 	object peifang = this_object();
 	string type = peifang->query_peifang_type();
+	if(!mappingp(me["/zhijia/"+type]))
+		me["/zhijia/"+type] = ([]);
 	if(me->vice_skills["zhijia"] == 0)
 		return 8; //不会制甲技能
 	else{

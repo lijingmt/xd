@@ -47,9 +47,15 @@ int main(string|zero arg)
 									object get_ob = clone(ITEM_PATH_KUANG+get_name);
 								if(get_ob){
 									int num = random(3)+1;
+									string gathered_name = get_ob->query_name_cn();
 									get_ob->amount = num;
 									get_ob->max_count = GATHER_STACK_NUM;
-									if(me->if_over_load(get_ob)){
+									if(ARTISAND->store_gathered_material(me,get_ob)>0){
+										s += "你采得"+num+"块"+gathered_name+"，已收入材料囊\n";
+										for_log += "获得了"+num+"块"+gathered_name;
+										got_any = 1;
+									}
+									else if(me->if_over_load(get_ob)){
 										s += "背包已满且没有可合并的矿石格，采矿暂停。\n";
 										get_ob->remove();
 									}
@@ -65,11 +71,17 @@ int main(string|zero arg)
 								}
 								else{
 									if((random(100)+1)<prob){
-										object get_ob = clone(ITEM_PATH_KUANG+get_name);
+									object get_ob = clone(ITEM_PATH_KUANG+get_name);
 									if(get_ob){
+										string gathered_name = get_ob->query_name_cn();
 										get_ob->amount = 1;
 										get_ob->max_count = GATHER_STACK_NUM;
-										if(me->if_over_load(get_ob))
+										if(ARTISAND->store_gathered_material(me,get_ob)>0){
+											s += "你采得一颗"+gathered_name+"，已收入材料囊\n";
+											for_log += "，一颗"+gathered_name;
+											got_any = 1;
+										}
+										else if(me->if_over_load(get_ob))
 											get_ob->remove();
 										else{
 											s += "你获得了一颗"+get_ob->query_name_cn()+"\n";
@@ -93,15 +105,10 @@ int main(string|zero arg)
 								string room = ROOMLEVELD->query_room_quick(env->query_name());
 								KUANGD->set_flush_num(name,room);
 								//检查熟练度是否升级
-								if(now_lev < skill[2]){
-									int update_need = (int)(now_lev/5);
-									skill[1]++;
-									if(skill[1]>=update_need){
-										skill[0]++;
-										skill[1]=0;
-										s += "你的采矿熟练度提高到了"+(now_lev+1)+"级\n";
-									}
-								}
+								mapping progress = ARTISAND->advance_proficiency(me,"caikuang",1);
+								if((int)progress["new_level"]>now_lev)
+									s += "你的采矿熟练度提高到了"+
+										(string)progress["new_level"]+"级\n";
 							}
 						}
 					}

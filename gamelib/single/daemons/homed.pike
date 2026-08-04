@@ -1940,15 +1940,10 @@ string if_have_viceskill(string lifeType,object me){
 	//有技能
 		array(int) skill = me->vice_skills[type];
 		int now_lev = skill[0];
-		if(now_lev < skill[2]){
-			int update_need = (int)(now_lev/5);
-			skill[1]++;
-			if(skill[1]>=update_need){
-				skill[0]++;
-				skill[1]=0;
-				s += "你的采矿熟练度提高到了"+(now_lev+1)+"级\n";
-			}
-		}
+		mapping progress = ARTISAND->advance_proficiency(me,type,1);
+		if((int)progress["new_level"]>now_lev)
+			s += "你的"+ARTISAND->query_skill_name_cn(type)+
+				"熟练度提高到了"+(string)progress["new_level"]+"级\n";
 	}
 	return s;
 }
