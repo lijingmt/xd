@@ -35,6 +35,7 @@ constant CORE_COMMANDS = ({
 	"account_storage",  // 账号共享宝库读取会分配永久物品ID并保存人物
 	"pet", "pet_hunt", "pet_duel", "daily", "daily_cultivation",
 	"wanling_rift", "wanling_join",  // 账号图鉴、跨玩家论道与裂隙状态
+	"timed_event",  // 活动报名、战斗与令牌兑换会修改人物及共享场景状态
 
     // ========== 移动相关（可能触发战斗/NPC交互）==========
 	"go", "goto", "go_back", "fly",

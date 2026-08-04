@@ -238,6 +238,8 @@ private mapping normalize_player_event_state(object player)
 		state["last_entry"] = ([]);
 	if(!mappingp(state["claims"]))
 		state["claims"] = ([]);
+	if(!mappingp(state["badges"]))
+		state["badges"] = ([]);
 	if((int)state["tianheng_tokens"]<0)
 		state["tianheng_tokens"] = 0;
 	if((int)state["jiuyao_tokens"]<0)

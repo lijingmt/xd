@@ -28,6 +28,7 @@ private mapping(string:int) announced_signup = ([]);
 #include "_timed_event_mod/config.pike"
 #include "_timed_event_mod/persistence.pike"
 #include "_timed_event_mod/runtime.pike"
+#include "_timed_event_mod/shop.pike"
 #include "_timed_event_mod/pvp.pike"
 #include "_timed_event_mod/pve.pike"
 #include "_timed_event_mod/view.pike"

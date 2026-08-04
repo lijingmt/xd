@@ -98,6 +98,12 @@ string handle_command(object player,string action,string value)
 	claim_all_pending(player);
 	if(!action || action=="")
 		return query_event_page(player);
+	if(action=="shop")
+		return query_event_shop_page(player);
+	if(action=="confirm")
+		return query_event_shop_confirm_page(player,value);
+	if(action=="exchange")
+		return exchange_event_shop_item(player,value);
 	if(action=="join")
 		return join_event(player,value);
 	session = query_session_for_user_id(player->query_name(),1);
