@@ -15,6 +15,7 @@ protected void create()
 		return;
 	}
 	ancient_tier = (int)config["tier"];
+	rare_tier = ancient_tier;
 	name_cn = ANCIENT_SKILLD->query_colored_name(name);
 	desc = "失落的"+(string)config["profession_cn"]+
 		"太古传承，拾取后账号绑定且不可交易";

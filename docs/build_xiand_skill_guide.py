@@ -49,6 +49,8 @@ from build_xiand_profession_guide import (
     parse_books,
     parse_ancient_skills,
     parse_skills,
+    mythic_runtime_cooldown,
+    mythic_runtime_summary,
     register_fonts,
     skill_rows,
 )
@@ -63,7 +65,7 @@ MYTHIC_SKILLS = [
         "profession": "jianxian",
         "id": "wanjianguizong",
         "role": "高额武器物理爆发",
-        "usage": "定位为剑仙的单体决胜技，施放时必须装备主手武器。建议先以破阵剑意削弱防御，再在安全窗口集中剑势；60秒冷却决定它更适合关键目标，而不是普通怪轮流点放。",
+        "usage": "定位为剑仙的单体决胜技，施放时必须装备主手武器。建议先以破阵剑意削弱防御，再在安全窗口集中剑势；50秒冷却决定它更适合关键目标，而不是普通怪轮流点放。",
     },
     {
         "profession": "jianxian",
@@ -81,7 +83,7 @@ MYTHIC_SKILLS = [
         "profession": "yushi",
         "id": "jiutianleiyin",
         "role": "风系单体爆发",
-        "usage": "定位为羽士的风系单体斩杀。先用冰魄缠身降低敌人攻频，或用太乙玄光稳住自身，再对Boss和高威胁目标释放；60秒内无法反复施放。",
+        "usage": "定位为羽士的风系单体斩杀。先用冰魄缠身降低敌人攻频，或用太乙玄光稳住自身，再对Boss和高威胁目标释放；50秒内无法反复施放。",
     },
     {
         "profession": "yushi",
@@ -111,7 +113,7 @@ MYTHIC_SKILLS = [
         "profession": "zhuxian",
         "id": "wuyingfenghou",
         "role": "12秒追杀伤害",
-        "usage": "适合Boss长战和残血追击，先挂上12秒持续伤害，再开启剑意并衔接爆发。持续伤害不会替代正面输出，也不能在120秒冷却内重复刷新。",
+        "usage": "适合Boss长战和残血追击，先挂上12秒持续伤害，再开启剑意并衔接爆发。持续伤害不会替代正面输出，也不能在90秒冷却内重复刷新。",
     },
     {
         "profession": "kuangyao",
@@ -129,7 +131,7 @@ MYTHIC_SKILLS = [
         "profession": "kuangyao",
         "id": "xuehailieshang",
         "role": "12秒流血伤害",
-        "usage": "先制造12秒流血，再以修罗狂意强化后续物理攻击，适合高血量目标和持久战。完整持续对普通目标约造成9%至12%最大生命真实伤害，Boss最多3%；弱持续伤害不会覆盖它。",
+        "usage": "先制造12秒流血，再以修罗狂意强化后续物理攻击，适合高血量目标和持久战。完整持续对普通目标约造成10.8%至14.4%最大生命真实伤害，Boss最多3%；弱持续伤害不会覆盖它。",
     },
     {
         "profession": "wuyao",
@@ -207,19 +209,19 @@ MYTHIC_SKILLS = [
         "profession": "tianxiang",
         "id": "xinghezhuiluo",
         "role": "消耗星痕的火系爆发",
-        "usage": "定位为天象的隐藏决胜技，第一段基础伤害3000至3800。它消耗至多三层服务端星痕；普通PVE每层提高10%，玩家和Boss每层提高8%。60秒冷却和十五秒星痕时限要求先积蓄、再选择安全窗口引爆。",
+        "usage": "定位为天象的隐藏决胜技，第一段基础伤害3000至3800。它消耗至多三层服务端星痕；普通PVE每层提高10%，玩家和Boss每层提高8%。50秒冷却和十五秒星痕时限要求先积蓄、再选择安全窗口引爆。",
     },
     {
         "profession": "tianxiang",
         "id": "zhoutianjingzhi",
         "role": "8秒命中压制控制",
-        "usage": "第一段在8秒内降低18点命中，适合覆盖敌方爆发窗口。效果需要通过控制命中与抵抗判定，不永久叠加，也不会让目标完全停止行动；120秒冷却要求谨慎选择目标。",
+        "usage": "第一段在8秒内降低18点命中，适合覆盖敌方爆发窗口。效果需要通过控制命中与抵抗判定，不永久叠加，也不会让目标完全停止行动；90秒冷却要求谨慎选择目标。",
     },
     {
         "profession": "tianxiang",
         "id": "wanxiangxingbi",
         "role": "15秒可耗尽个人星壁",
-        "usage": "第一段吸收3800+智力×3点伤害，用于给积蓄星痕争取时间。它只有有限额度与15秒时限，不回血、不复活、不免疫；120秒冷却决定它不能覆盖每轮普通战斗。",
+        "usage": "第一段吸收3800+智力×3点伤害，并至少形成8%最大生命护盾，用于给积蓄星痕争取时间。它只有有限额度与15秒时限，不回血、不复活、不免疫；75秒冷却决定它不能覆盖每轮普通战斗。",
     },
     {
         "profession": "lingyi",
@@ -237,13 +239,13 @@ MYTHIC_SKILLS = [
         "profession": "lingyi",
         "id": "wanmuxinchun",
         "role": "群体治疗与逐人净化",
-        "usage": "治疗同房同队存活人物并为每名受益目标净化一项负面状态，优先持续伤害，再处理减疗/诅咒、控制与70级诅咒。每名目标治疗上限25%，120秒冷却要求留给复杂团队危机。",
+        "usage": "治疗同房同队存活人物并为每名受益目标净化一项负面状态，优先持续伤害，再处理减疗/诅咒、控制与70级诅咒。每名目标治疗上限25%，75秒冷却要求留给复杂团队危机。",
     },
     {
         "profession": "lingyi",
         "id": "liuhehuichun",
         "role": "药契强化全队治疗与净化",
-        "usage": "治疗自己与同房、同逻辑区、同队的全部存活队友，并为每人净化一项负面状态。施放时消耗全部药契，每层增强15%，每人单次最高恢复35%生命；150秒冷却使它成为团队危机的压轴手段。",
+        "usage": "治疗自己与同房、同逻辑区、同队的全部存活队友，并为每人净化一项负面状态。施放时消耗全部药契，每层增强15%，每人单次最高恢复35%生命；75秒冷却使它成为团队危机的压轴手段。",
     },
 ]
 
@@ -274,6 +276,12 @@ def parse_mythic_details() -> list[dict[str, object]]:
         name_match = re.search(r'name_cn\s*=\s*"([^"]+)"', source)
         desc_match = re.search(r'desc\s*=\s*"([^"]+)"', source)
         cooldown_match = re.search(r"s_delayTime\s*=\s*(\d+)", source)
+        type_match = re.search(r's_skill_type\s*=\s*"([^"]+)"', source)
+        curse_match = re.search(r's_curse_type\s*=\s*"([^"]+)"', source)
+        skill_type = type_match.group(1) if type_match else ""
+        curse_type = curse_match.group(1) if curse_match else ""
+        raw_cooldown = int(cooldown_match.group(1)) if cooldown_match else 0
+        cooldown = mythic_runtime_cooldown(skill_type, raw_cooldown)
         stage_rows: list[list[str]] = []
         for stage in range(1, 6):
             level_match = re.search(
@@ -284,15 +292,27 @@ def parse_mythic_details() -> list[dict[str, object]]:
             )
             if not level_match or not stage_match:
                 raise RuntimeError(f"Missing stage {stage} in mythic skill {skill_id}")
-            stage_rows.append(
-                [str(stage), level_match.group(1), stage_match.group(1)]
-            )
+            stage_desc = stage_match.group(1)
+            if skill_type == "phy" or skill_type not in {
+                "dot", "curse", "buff", "heal", "taunt", "team_guard"
+            }:
+                stage_desc += f"；总攻势按{135 + stage * 5}%结算"
+            elif skill_type == "dot" and skill_id != "xuehailieshang":
+                stage_desc += f"；每节拍至少继承{5 + stage}%自身攻势，玩家与首领有封顶"
+            elif skill_type in {"heal", "team_guard"} or (
+                skill_type == "buff" and curse_type == "absorb"
+            ):
+                stage_desc += f"；高属性时至少按生命上限{6 + stage * 2}%生效"
+            elif skill_type in {"buff", "curse"} and curse_type in {"attack", "defend"}:
+                stage_desc += f"；高属性时至少影响当前属性{18 + stage * 4}%"
+            stage_rows.append([str(stage), level_match.group(1), stage_desc])
         result.append(
             {
                 **config,
                 "name": name_match.group(1) if name_match else skill_id,
                 "desc": desc_match.group(1) if desc_match else "",
-                "cooldown": int(cooldown_match.group(1)) if cooldown_match else 0,
+                "cooldown": cooldown,
+                "runtime": mythic_runtime_summary(skill_type, curse_type, skill_id),
                 "stages": stage_rows,
             }
         )
@@ -566,7 +586,7 @@ def build_skill_guide() -> None:
     )
     guide.callout(
         "平衡调整原则",
-        "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。没有采用“攻击×4.8”“12秒掉24%最大生命”或无条件必中等玩家提案。",
+        "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。旧31式神技已统一接入总攻势倍率、最大生命保底或当前属性百分比，并保留PVP/Boss硬上限；没有采用无条件必中或无限比例伤害。",
         "gold",
     )
     guide.h2("2.2 十职业定位与隐藏传承")
@@ -702,7 +722,7 @@ def build_skill_guide() -> None:
                 [0.8, 1.15, 4.0],
             )
             guide.paragraph(
-                f"固定冷却：{mythic['cooldown']}秒。学习书要求：人物80级、职业为{profession['name']}。",
+                f"实战冷却：{mythic['cooldown']}秒。{mythic['runtime']}。学习书要求：人物80级、职业为{profession['name']}。",
                 small=True,
             )
         if profession_id == "jianxian":
@@ -727,7 +747,7 @@ def build_skill_guide() -> None:
             )
             guide.callout(
                 "狂妖最新精确边界",
-                "致残重伤保留旧固定伤害下限，并按狂妖自身最大生命成长，十段完整持续约为2%至5%；普通怪、玩家、Boss的目标生命保护上限分别为10%、5%、2.5%。血海裂伤整段对普通目标约为目标最大生命9%至12%，Boss最多3%。持续伤害不叠加，按剩余总伤害保留更强效果。",
+                "致残重伤保留旧固定伤害下限，并按狂妖自身最大生命成长，十段完整持续约为2%至5%；普通怪、玩家、Boss的目标生命保护上限分别为10%、5%、2.5%。血海裂伤整段对普通目标约为目标最大生命10.8%至14.4%，Boss最多3%。持续伤害不叠加，按剩余总伤害保留更强效果。",
                 "gold",
             )
         elif profession_id == "wuyao":
@@ -778,14 +798,14 @@ def build_skill_guide() -> None:
             ["太乙玄光是回血吗？", "不是，它在20秒内提供固定额度的伤害吸收盾。"],
             ["主动物理技能现在必中吗？", "不是。技能跳过普攻命中判定，但仍可能被闪避；闪避穿透最高60%，保留反制空间。"],
             ["修罗狂意是攻击翻4.8倍吗？", "不是。五段分别提高20%/30%/40%/50%/60%总物攻，持续12秒。"],
-            ["血海裂伤12秒会掉24%吗？", "不会。普通目标整段约9%-12%，Boss整段最多约3%，冷却120秒。"],
+            ["血海裂伤12秒会掉24%吗？", "不会。普通目标整段约10.8%-14.4%，Boss整段最多约3%，冷却90秒。"],
             ["多个持续伤害可以叠加吗？", "不能。目标仍只有一个持续伤害槽；系统比较剩余总伤害，弱效果不能覆盖强效果，等强效果可以刷新。"],
             ["万山朝拱会覆盖队友Buff吗？", "不会。它使用独立队伍守护槽，只保护同房间存活队友；弱盾也不会覆盖剩余值更高的强盾。"],
             ["不周震击是六倍伤害吗？", "不是。600%是仇恨倍率，伤害仍按技能附加值、武器、攻击、防御和穿透正常结算。"],
             ["天地成壁是无敌吗？", "不是。它只有固定吸收额度和18秒时限，额度耗尽后剩余伤害照常生效。"],
             ["天象星痕可以一直存着吗？", "不能。最多3层、15秒；换房、脱战、死亡或掉线都会清空，客户端也不能伪造层数。"],
             ["星河坠落三层就是固定加30%吗？", "普通PVE每层+10%、三层+30%；玩家和Boss每层+8%、三层最多+24%。"],
-            ["周天静止能让目标完全不动吗？", "不能。它只在8秒内降低命中，仍需控制命中/抵抗判定，且有120秒冷却。"],
+            ["周天静止能让目标完全不动吗？", "不能。它只在8秒内降低命中，仍需控制命中/抵抗判定，且有90秒冷却。"],
             ["灵医隐藏群疗会治疗路人吗？", "不会。只治疗自己与同房、同逻辑区、同队伍的存活人物；未组队时只治疗自己。"],
             ["回命天露会无限抬血吗？", "不会。药契最多3层、每层+15%，并且单次治疗最高不超过目标40%生命上限。"],
             ["万木新春一次会清掉所有状态吗？", "不会。每名合法目标每次只按优先级净化一项负面状态。"],

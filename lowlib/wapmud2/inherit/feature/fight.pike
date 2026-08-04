@@ -138,6 +138,182 @@ int query_balanced_magic_damage(int raw_attack,int magic_defend,
 	return result;
 }
 
+// 稀有直伤对玩家和Boss保留单次生命百分比封顶；普通怪不封顶，避免
+// 高等级玩家刷低级怪时反而被强制刮痧。
+int query_rare_direct_damage(object skill,int damage,int target_life_max,
+	int is_player,int is_boss)
+{
+	int cap_percent = 0;
+	int damage_cap;
+	if(damage<1)
+		return damage;
+	if(!skill || target_life_max<1)
+		return damage;
+	if(is_player && functionp(skill->query_rare_direct_pvp_cap_percent))
+		cap_percent = skill->query_rare_direct_pvp_cap_percent();
+	else if(is_boss && functionp(skill->query_rare_direct_boss_cap_percent))
+		cap_percent = skill->query_rare_direct_boss_cap_percent();
+	if(cap_percent<=0)
+		return damage;
+	damage_cap = target_life_max*cap_percent/100;
+	if(damage_cap<1)
+		damage_cap=1;
+	return damage>damage_cap ? damage_cap : damage;
+}
+
+int query_rare_vital_floor(object skill,int skill_level,int life_max)
+{
+	int percent;
+	if(!skill || life_max<=0 ||
+	   !functionp(skill->query_rare_vital_percent))
+		return 0;
+	percent = skill->query_rare_vital_percent(skill_level);
+	if(percent<=0)
+		return 0;
+	return life_max*percent/100;
+}
+
+int query_rare_control_floor(object skill,int skill_level,int current_value,
+	int base_value)
+{
+	int percent;
+	int scaled;
+	if(base_value<0)
+		base_value=0;
+	if(!skill || current_value<=0 ||
+	   !functionp(skill->query_rare_control_percent))
+		return base_value;
+	percent = skill->query_rare_control_percent(skill_level);
+	scaled = current_value*percent/100;
+	return scaled>base_value ? scaled : base_value;
+}
+
+// 旧大神DOT每跳最多为玩家0.4%、Boss 0.2%；太古传承分别为
+// 0.55%和0.25%。普通怪每跳最多2%，但永不削弱技能原始固定值。
+int query_rare_dot_damage(object skill,int skill_level,int base_damage,
+	int offense,int target_life_max,int is_player,int is_boss)
+{
+	int percent;
+	int result;
+	int cap_basis_points = 200;
+	int cap_damage;
+	if(base_damage<1)
+		base_damage=1;
+	result=base_damage;
+	if(!skill || offense<=0 ||
+	   !functionp(skill->query_rare_dot_power_percent))
+		return result;
+	percent=skill->query_rare_dot_power_percent(skill_level);
+	if(offense*percent/100>result)
+		result=offense*percent/100;
+	if(skill->skill_rare=="ancient"){
+		if(is_player)
+			cap_basis_points=55;
+		else if(is_boss)
+			cap_basis_points=25;
+	}
+	else if(skill->skill_rare=="mythic"){
+		if(is_player)
+			cap_basis_points=40;
+		else if(is_boss)
+			cap_basis_points=20;
+	}
+	else
+		return base_damage;
+	if(target_life_max>0){
+		cap_damage=target_life_max*cap_basis_points/10000;
+		if(cap_damage<base_damage)
+			cap_damage=base_damage;
+		if(result>cap_damage)
+			result=cap_damage;
+	}
+	return result;
+}
+
+int query_physical_damage_after_percent_curse(int raw_attack,int reduction)
+{
+	if(raw_attack<1)
+		return 1;
+	if(reduction<0)
+		reduction=0;
+	if(reduction>60)
+		reduction=60;
+	return raw_attack*(100-reduction)/100;
+}
+
+private int query_rare_physical_offense(object caster)
+{
+	int result;
+	int old_curse;
+	int base_multiplier = 1;
+	if(!caster)
+		return 0;
+	result=(caster->query_low_attack_desc()+
+		caster->query_high_attack_desc())/2+
+		caster->query_equip_add("attack_all");
+	// 重复施放减攻时先还原同一诅咒槽的旧值，避免新快照基于已经
+	// 被削弱的攻击继续缩水；双持描述会计算两份人物基础攻击。
+	if(caster->query_debuff("curse",0)=="attack"){
+		old_curse=(int)caster->query_debuff("curse",1);
+		if(caster->query_equip_damage("base_main")>0 &&
+		   caster->query_equip_damage("base_other")>0)
+			base_multiplier=2;
+		result += old_curse*base_multiplier;
+	}
+	if(result<1)
+		result=1;
+	return result;
+}
+
+private int query_rare_defense_snapshot(object target)
+{
+	int result;
+	if(!target)
+		return 0;
+	result=target->query_defend_power();
+	if(target->query_buff("buff",0)=="defend")
+		result-=(int)target->query_buff("buff",1);
+	if(target->query_debuff("curse",0)=="defend")
+		result+=(int)target->query_debuff("curse",1);
+	if(result<0)
+		result=0;
+	return result;
+}
+
+private int query_rare_magic_offense(object caster)
+{
+	int element;
+	int current;
+	int result;
+	if(!caster)
+		return 0;
+	element=caster->query_equip_add("huo_mofa_attack");
+	current=caster->query_equip_add("bing_mofa_attack");
+	if(current>element)
+		element=current;
+	current=caster->query_equip_add("feng_mofa_attack");
+	if(current>element)
+		element=current;
+	current=caster->query_equip_add("du_mofa_attack");
+	if(current>element)
+		element=current;
+	result=element+caster->query_equip_add("mofa_all")+
+		caster->query_think()*7/2;
+	if(result<1)
+		result=1;
+	return result;
+}
+
+private int query_rare_dot_offense(object caster)
+{
+	if(!caster)
+		return 0;
+	if(search(({"jianxian","zhuxian","kuangyao","yinggui","zhenyue"}),
+		caster->query_profeId())!=-1)
+		return query_rare_physical_offense(caster);
+	return query_rare_magic_offense(caster);
+}
+
 // 镇越的山河壁只作用于自己和同房间、同队、仍存活的玩家。
 int apply_team_guard_to_group(object caster,int shield,int duration)
 {
@@ -525,6 +701,11 @@ mapping query_pk_fast_side_profile(object who){
 	if(who->query_buff("buff",0)=="physical_attack_percent")
 		physical_raw += physical_raw*
 			(int)who->query_buff("buff",1)/100;
+	if(who->query_debuff("curse",0)=="physical_damage_percent"){
+		int reduce = (int)who->query_debuff("curse",1);
+		physical_raw=query_physical_damage_after_percent_curse(
+			physical_raw,reduce);
+	}
 	if(physical_raw<1)
 		physical_raw = 1;
 
@@ -1116,10 +1297,13 @@ private int apply_lingyi_heal(object skill,int skill_level){
 		int before = target->get_cur_life();
 		int life_max = target->query_life_max();
 		int amount = base_heal;
+		int rare_floor = query_rare_vital_floor(skill,skill_level,life_max);
 		int cap_percent = skill->query_lingyi_life_cap_percent();
 		string cleaned = "";
 		if(before<=0 || life_max<=0)
 			continue;
+		if(rare_floor>amount)
+			amount=rare_floor;
 		if(cap_percent>0 && amount>life_max*cap_percent/100)
 			amount = life_max*cap_percent/100;
 		if(target->query_debuff("curse",0)=="life"){
@@ -2020,9 +2204,18 @@ void perform(string name,void|int flag){
 								s1 += "，引动"+consumed_star_marks+"层星痕";
 							}
 						}
+						int rare_power_percent = 100;
+						if(functionp(f_cur_skill->query_rare_power_percent))
+							rare_power_percent=
+								f_cur_skill->query_rare_power_percent(skill_level);
+						if(this_object()->is("player") && rare_power_percent>100)
+							mofa_a=mofa_a*rare_power_percent/100;
 						//抗性和穿透统一在递减收益公式中结算。
 						fact_mofa_a=query_balanced_magic_damage(mofa_a,
 							mofa_defend,mofachuantou_add);
+						fact_mofa_a=query_rare_direct_damage(f_cur_skill,
+							fact_mofa_a,enemy->query_life_max(),
+							enemy->is("player"),enemy->is("npc") && enemy->_boss);
 
 						//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 						int attack_fact = fact_mofa_a;
@@ -2165,9 +2358,11 @@ void perform(string name,void|int flag){
 					if(random(100)<h){
 						//命中啦 ~
 						if(this_object()->weapon_type=="double_main")
-							attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,f_cur_skill->query_name());
+							attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,
+								f_cur_skill->query_name(),skill_level);
 						else if(this_object()->weapon_type=="single_main"||this_object()->weapon_type=="both")
-							attack(s_phy_damage,s_weapon_add,"single_main",s_name_cn,f_cur_skill->query_name());
+							attack(s_phy_damage,s_weapon_add,"single_main",s_name_cn,
+								f_cur_skill->query_name(),skill_level);
 					}
 					else{
 						//未命中	
@@ -2218,6 +2413,14 @@ void perform(string name,void|int flag){
 								this_object()->query_life_max(),dot_basis_points,
 								dot_damage,enemy->query_life_max(),
 								enemy->is("player"),is_boss);
+						}
+						else if(functionp(
+						   f_cur_skill->query_rare_dot_power_percent) &&
+						   f_cur_skill->query_rare_dot_power_percent(skill_level)>0){
+							dot_damage=query_rare_dot_damage(f_cur_skill,skill_level,
+								dot_damage,query_rare_dot_offense(this_object()),
+								enemy->query_life_max(),enemy->is("player"),
+								enemy->is("npc") && enemy->_boss);
 						}
 						int dot_applied = apply_nonstacking_dot(enemy,name,dot_damage,
 							f_cur_skill->query_s_lasttime(skill_level));
@@ -2278,10 +2481,20 @@ void perform(string name,void|int flag){
 					if(h<30)
 						h=30;
 					if(random(100)<h){ //命中啦~
+						int curse_value =
+							f_cur_skill->query_performs_attack(skill_level);
+						if(f_cur_skill->s_curse_type=="defend")
+							curse_value=query_rare_control_floor(f_cur_skill,
+								skill_level,query_rare_defense_snapshot(enemy),
+								curse_value);
+						else if(f_cur_skill->s_curse_type=="attack")
+							curse_value=query_rare_control_floor(f_cur_skill,
+								skill_level,query_rare_physical_offense(enemy),
+								curse_value);
 						//记录诅咒的类型
 						enemy->set_debuff("curse",0,f_cur_skill->s_curse_type);
 						//记录诅咒的值
-						enemy->set_debuff("curse",1,f_cur_skill->query_performs_attack(skill_level));
+						enemy->set_debuff("curse",1,curse_value);
 						//记录诅咒的持续时间
 						enemy->set_debuff("curse",2,f_cur_skill->query_s_lasttime(skill_level));
 
@@ -2345,6 +2558,10 @@ void perform(string name,void|int flag){
 					int base_heal_amount =
 						f_cur_skill->query_performs_attack(skill_level);
 					int heal_amount = base_heal_amount;
+					int rare_self_heal = query_rare_vital_floor(f_cur_skill,
+						skill_level,life_limit);
+					if(rare_self_heal>heal_amount)
+						heal_amount=rare_self_heal;
 					if(this_object()->query_debuff("curse",0)=="life"){
 						int heal_reduce = this_object()->query_debuff("curse",1);
 						if(heal_reduce < 0)
@@ -2381,6 +2598,10 @@ void perform(string name,void|int flag){
 									continue;
 								int member_limit = member->query_life_max();
 								int member_heal = base_heal_amount;
+								int rare_member_heal = query_rare_vital_floor(
+									f_cur_skill,skill_level,member_limit);
+								if(rare_member_heal>member_heal)
+									member_heal=rare_member_heal;
 								if(member->query_debuff("curse",0)=="life"){
 									int member_reduce =
 										member->query_debuff("curse",1);
@@ -2457,6 +2678,10 @@ void perform(string name,void|int flag){
 				if(s_cold<=1){
 					int shield = f_cur_skill->query_performs_attack(skill_level)+
 						this_object()->query_str()*2;
+					int rare_shield = query_rare_vital_floor(f_cur_skill,
+						skill_level,this_object()->query_life_max());
+					if(rare_shield>shield)
+						shield=rare_shield;
 					int guarded = apply_team_guard_to_group(this_object(),shield,
 						f_cur_skill->query_s_lasttime(skill_level));
 					if(guarded<=0){
@@ -2507,7 +2732,14 @@ void perform(string name,void|int flag){
 						}
 						else
 							tmp_int += (int)(this_object()->query_think()*3/2);
+						int rare_shield = query_rare_vital_floor(f_cur_skill,
+							skill_level,this_object()->query_life_max());
+						if(rare_shield>tmp_int)
+							tmp_int=rare_shield;
 					}
+					else if(f_cur_skill->s_curse_type == "defend")
+						tmp_int=query_rare_control_floor(f_cur_skill,skill_level,
+							query_rare_defense_snapshot(this_object()),tmp_int);
 					this_object()->set_buff("buff",1,tmp_int);
 					//记录buff的持续时间
 					this_object()->set_buff("buff",2,f_cur_skill->query_s_lasttime(skill_level));
@@ -2994,10 +3226,12 @@ void boss_perform(string name){
 
 
 //战斗核心算法,普通攻击或者施放物理攻击技能时调用的接口
-private void attack(int skill_add,int skill_add_per,string type,string skill_name_cn,void|string name_skill){
+private void attack(int skill_add,int skill_add_per,string type,
+	string skill_name_cn,void|string name_skill,void|int rare_skill_level){
 	if(enemy==0){
 		return;
 	}
+	object|zero rare_skill = 0;
 	string fight_action_desc="";
 	//本次攻击成功后的最终伤害值
 	int attack_a = 0;
@@ -3095,6 +3329,22 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 			if(this_object()->query_buff("buff",0)=="physical_attack_percent")
 				total_attack += total_attack*
 					(int)this_object()->query_buff("buff",1)/100;
+			if(name_skill && rare_skill_level && this_object()->is("player")){
+				rare_skill=MUD_SKILLSD[name_skill];
+				if(rare_skill && functionp(rare_skill->query_rare_power_percent)){
+					int rare_power_percent =
+						rare_skill->query_rare_power_percent(rare_skill_level);
+					if(rare_power_percent>100)
+						total_attack=total_attack*rare_power_percent/100;
+				}
+			}
+			if(this_object()->query_debuff("curse",0)==
+			   "physical_damage_percent"){
+				int damage_reduce =
+					(int)this_object()->query_debuff("curse",1);
+				total_attack=query_physical_damage_after_percent_curse(
+					total_attack,damage_reduce);
+			}
 
 			//npc攻击力调整，除以3
 			if(this_object()->is("npc")){
@@ -3154,6 +3404,10 @@ private void attack(int skill_add,int skill_add_per,string type,string skill_nam
 				attack_dusu_add += attack_dusu_add/2;
 
 			attack_a += attack_huoyan_add+attack_bingshuang_add+attack_fengren_add+attack_dusu_add;
+			if(rare_skill)
+				attack_a=query_rare_direct_damage(rare_skill,attack_a,
+					enemy->query_life_max(),enemy->is("player"),
+					enemy->is("npc") && enemy->_boss);
 			//现在的attack_a就是最终的伤害值
 			if (attack_a<=0)
 				attack_a=random(5);

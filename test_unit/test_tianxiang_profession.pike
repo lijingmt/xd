@@ -326,7 +326,7 @@ void test_shield_curse_and_hidden_balance()
 			object skill = (object)(ROOT+"/gamelib/single/skills/"+skill_name);
 			object book = clone(ROOT+"/gamelib/clone/item/book/"+skill_name);
 			if(!skill || !book || skill->skill_rare!="mythic" ||
-			   skill->query_s_delayTime(1)<60 ||
+			   skill->query_s_delayTime(1)<50 ||
 			   skill->query_performs_cast(1)<300 ||
 			   book->level_limit!=80 || book->profe_read_limit!="天象" ||
 			   search(csv,"book/"+skill_name)!=-1)

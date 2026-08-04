@@ -336,6 +336,34 @@ def match_one(pattern: str, source: str, default: str = "") -> str:
     return clean_text(found.group(1)) if found else default
 
 
+def mythic_runtime_cooldown(skill_type: str, raw_cooldown: int) -> int:
+    """Mirror skill.pike's effective cooldown policy for legacy mythic skills."""
+    direct_exclusions = {"dot", "curse", "buff", "heal", "taunt", "team_guard"}
+    if skill_type == "phy" or skill_type not in direct_exclusions:
+        return min(raw_cooldown, 50)
+    if skill_type in {"buff", "heal"}:
+        return min(raw_cooldown, 75)
+    if skill_type in {"dot", "curse", "team_guard"}:
+        return min(raw_cooldown, 90)
+    return raw_cooldown
+
+
+def mythic_runtime_summary(skill_type: str, curse_type: str, skill_id: str) -> str:
+    """Describe the high-stat floors applied centrally by the combat runtime."""
+    direct_exclusions = {"dot", "curse", "buff", "heal", "taunt", "team_guard"}
+    if skill_type == "phy" or skill_type not in direct_exclusions:
+        return "高属性版按140%-160%总攻势结算；PVP/Boss单次最多30%/5%目标生命"
+    if skill_type == "dot" and skill_id != "xuehailieshang":
+        return "每节拍至少继承6%-10%自身攻势；PVP/Boss每跳最多0.4%/0.2%目标生命"
+    if skill_type in {"heal", "team_guard"} or (
+        skill_type == "buff" and curse_type == "absorb"
+    ):
+        return "高属性版至少按目标最大生命8%-16%治疗或形成护盾"
+    if skill_type in {"buff", "curse"} and curse_type in {"attack", "defend"}:
+        return "高属性版至少影响施放瞬间真实属性的22%-38%"
+    return "保留原机制，并使用旧大神传承的缩短冷却"
+
+
 def parse_skills() -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
     skill_dir = ROOT / "gamelib/single/skills"
@@ -358,16 +386,27 @@ def parse_skills() -> list[dict[str, object]]:
                 r"performs_level_limit\[(\d+)\]\s*=\s*(\d+)", source
             )
         ]
+        skill_type = match_one(r's_skill_type\s*=\s*"([^"]+)"', source)
+        curse_type = match_one(r's_curse_type\s*=\s*"([^"]+)"', source)
+        rarity = match_one(r'skill_rare\s*=\s*"([^"]+)"', source)
+        raw_cooldown_text = match_one(r"s_delayTime\s*=\s*(\d+)", source)
+        raw_cooldown = int(raw_cooldown_text or 0)
+        cooldown = raw_cooldown
+        desc = match_one(r'desc\s*=\s*"([^"]*)"', source)
+        if rarity == "mythic":
+            cooldown = mythic_runtime_cooldown(skill_type, raw_cooldown)
+            desc = f"{desc}；{mythic_runtime_summary(skill_type, curse_type, path.name)}"
         result.append(
             {
                 "profession": prof_match.group(1),
                 "id": path.name,
                 "name": match_one(r'name_cn\s*=\s*"([^"]+)"', source, path.name),
                 "mode": match_one(r's_type\s*=\s*"([^"]+)"', source),
-                "type": match_one(r's_skill_type\s*=\s*"([^"]+)"', source),
-                "cooldown": match_one(r"s_delayTime\s*=\s*(\d+)", source),
+                "type": skill_type,
+                "cooldown": str(cooldown) if cooldown else "",
                 "gates": gates,
-                "desc": match_one(r'desc\s*=\s*"([^"]*)"', source),
+                "desc": desc,
+                "rare": rarity,
             }
         )
     result.extend(parse_ancient_skills())
@@ -1365,9 +1404,9 @@ def build_handbook() -> None:
     guide.table(
         ["技能", "角色", "门槛", "平衡限制"],
         [
-            ["太虚灵陨", "风系巨额爆发", "人物80级；技能阶段80/100/120/140/160", "60秒冷却"],
-            ["万灵朝生", "同房间存活队伍大治疗", "人物80级；技能阶段80/100/120/140/160", "90秒冷却；不复活"],
-            ["四象封禁", "短时压制物理攻击", "人物80级；技能阶段80/100/120/140/160", "持续不超过12秒；120秒冷却"],
+            ["太虚灵陨", "风系巨额爆发", "人物80级；技能阶段80/100/120/140/160", "140%-160%总攻势；50秒冷却"],
+            ["万灵朝生", "同房间存活队伍大治疗", "人物80级；技能阶段80/100/120/140/160", "8%-16%生命保底；75秒冷却；不复活"],
+            ["四象封禁", "短时压制物理攻击", "人物80级；技能阶段80/100/120/140/160", "削减18%-35%最终物攻；90秒冷却"],
         ],
         [1.05, 1.65, 2.1, 1.5],
     )
@@ -1382,8 +1421,8 @@ def build_handbook() -> None:
         ]
     )
     guide.callout(
-        "狂妖三神技已按高属性版本重做",
-        "血魔噬界五段为武器伤害+60%/70%/80%/90%/100%，并附加3600/4900/6500/8500/11200物理伤害；修罗狂意12秒提高20%至60%总物攻；血海裂伤完整持续对普通目标累计约9%/9.72%/10.56%/11.28%/12%最大生命真实伤害，对Boss整段最多约3%。致残重伤改为按狂妖自身最大生命成长；所有持续伤害按剩余总伤害保留更强效果，不叠加。",
+        "三十一式神技已按高属性版本整体重做",
+        "即时攻击五段按140%至160%总攻势结算；治疗与护盾至少按8%至16%最大生命生效；固定攻防增减益改为22%至38%当前真实属性；普通持续神技每跳至少继承6%至10%自身攻势，并受PVP与Boss封顶。血海裂伤整段对普通目标约10.8%至14.4%最大生命真实伤害，对Boss整段最多约3%。所有持续伤害按剩余总伤害保留更强效果，不叠加。",
         "gold",
     )
     guide.h2("5.10 方士装备策略")
@@ -1613,7 +1652,7 @@ def build_handbook() -> None:
         [
             ["智能单疗", "自己+同房同区同队存活人物中选最低生命比例", "回春、清心、灵愈、续命、回命天露", "无队只选自己；不治疗路人、异房或死亡人物"],
             ["群疗", "治疗自己及同房同区同队存活人物", "玉露、甘霖、慈心普渡、万木新春", "普通群疗单次每人最多20%生命；隐藏群疗最多25%"],
-            ["大神群疗", "六合回春消耗全部药契，每层+15%，对每人净化一项", "团队多人同时危急时压轴", "只覆盖同房同区同队存活人物；每人上限35%；150秒冷却"],
+            ["大神群疗", "六合回春消耗全部药契，每层+15%，对每人净化一项", "团队多人同时危急时压轴", "只覆盖同房同区同队存活人物；每人上限35%；75秒冷却"],
             ["净化", "每名目标一次只移除一项，优先DOT，再处理减疗/诅咒、控制和70级诅咒", "清心、甘霖、万木新春", "先按当前减疗结算治疗，再移除对应负面状态"],
             ["药契", "有效治疗获得，最多3层，每次获得刷新20秒", "续命、回命天露消耗全部层数；每层提高15%治疗", "换房、换队、脱战、死亡、离线、断线或到期清空"],
             ["治疗上限", "普通智能单疗最高35%；隐藏单疗最高40%", "高智力与高血量环境仍保持有界", "减疗异常最高按90%计算；没有有效治疗/净化不扣法力与冷却"],

@@ -489,7 +489,7 @@ void test_combat_and_mythic_healing_runtime()
 		healer->perform("cixinpudu",1);
 		if(healer->get_cur_life()<=1 || member->get_cur_life()<=1 ||
 		   outsider->get_cur_life()!=outsider_before ||
-		   healer->f_skills["cixinpudu"]!=91)
+		   healer->f_skills["cixinpudu"]!=76)
 			failed++;
 
 		reset_cast(healer,"wanmuxinchun");
@@ -500,7 +500,7 @@ void test_combat_and_mythic_healing_runtime()
 		healer->perform("wanmuxinchun",1);
 		if(member->get_cur_life()<=1 ||
 		   member->query_debuff("dot",0)!="none" ||
-		   healer->f_skills["wanmuxinchun"]!=121)
+		   healer->f_skills["wanmuxinchun"]!=76)
 			failed++;
 
 		reset_cast(healer,"huimingtianlu");
@@ -525,7 +525,7 @@ void test_combat_and_mythic_healing_runtime()
 		   outsider->get_cur_life()!=outsider_before ||
 		   member->query_debuff("curse",0)!="none" ||
 		   healer->query_lingyi_medicine_pacts()!=0 ||
-		   healer->f_skills["liuhehuichun"]!=151)
+		   healer->f_skills["liuhehuichun"]!=76)
 			failed++;
 	};
 	if(err){ failed++; error_desc = describe_error(err); }
