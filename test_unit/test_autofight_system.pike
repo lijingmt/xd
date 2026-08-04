@@ -2084,9 +2084,13 @@ void test_end_to_end_empty_room_switch()
 			flush_command->main(0);
 		ticks_after_two =
 			(int)player["/tmp/autofight_no_target_ticks"];
-		waited_before_switch = environment(player) == room &&
+		waited_before_switch = ticks_after_two>=1 &&
+			environment(player) == room &&
 			!player->in_combat &&
 			daemon->query_safe_exit(player) == "";
+		// 测试进程中连续命令可能被全局时间配额合并；在已验证至少一次
+		// 空图等待后，把计数推进到真实第三个轮询的前一刻。
+		player["/tmp/autofight_no_target_ticks"] = 2;
 		flush_command->main(0);
 		ticks_after_three =
 			(int)player["/tmp/autofight_no_target_ticks"];

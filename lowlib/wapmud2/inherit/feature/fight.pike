@@ -166,6 +166,33 @@ int apply_team_guard_to_group(object caster,int shield,int duration)
 	return applied;
 }
 
+// 玩家成功施法后向同一逻辑区、同一房间的旁观玩家发送轻量事件文案。
+// 这条消息只驱动客户端表现，不参与命中、伤害、治疗、仇恨或掉落结算。
+private void broadcast_room_skill_manifestation(object skill,object|zero target,
+	int skill_level,string effect_desc)
+{
+	object caster = this_object();
+	object env = environment(caster);
+	string target_desc = "";
+	if(!caster || !skill || !env || !caster->is || !caster->is("player"))
+		return;
+	if(target && target!=caster && environment(target)==env &&
+	   functionp(target->query_name_cn))
+		target_desc = "，目标为"+target->query_name_cn();
+	catch {
+		foreach(all_inventory(env),object observer){
+			if(!observer || observer==caster || observer==target ||
+			   !observer->is || !observer->is("player") ||
+			   !LOGICALZONED->is_visible(observer,caster))
+				continue;
+			tell_object(observer,"【战技显化】"+caster->query_name_cn()+
+				"施放「"+skill->query_name_cn()+"」（等级"+skill_level+
+				"）"+target_desc+
+				(effect_desc!="" ? "，"+effect_desc : "")+"。\n");
+		}
+	};
+}
+
 // 韧性只削减暴击的额外 50% 部分，不能让暴击伤害低于普通伤害。
 int query_balanced_critical_damage(int raw_attack,int renxing)
 {
@@ -1212,6 +1239,8 @@ int perform_support(string name){
 	this_object()->set_mofa(this_object()->get_cur_mofa()-cast);
 	this_object()->timeCold = 2;
 	this_object()->f_skills[name] = skill->query_s_delayTime(skill_level)+1;
+	broadcast_room_skill_manifestation(skill,this_object(),skill_level,
+		"治疗灵光在房间中绽放");
 	skills_level_check(name);
 	return 1;
 }
@@ -1671,6 +1700,8 @@ void perform(string name,void|int flag){
 				this_object()->timeCold = 2;
 				this_object()->f_skills[name] =
 					f_cur_skill->query_s_delayTime(skill_level)+1;
+				broadcast_room_skill_manifestation(f_cur_skill,0,skill_level,
+					"群体法术覆盖了战场");
 				skills_level_check(f_cur_skill->query_name());
 				return;
 			}
@@ -1840,6 +1871,8 @@ void perform(string name,void|int flag){
 						tell_object(this_object(),s+"\n");
 						this_object()->command("look");
 					}
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"战技气息扩散开来");
 					return;
 				}
 				else{
@@ -1873,6 +1906,8 @@ void perform(string name,void|int flag){
 					//产生仇恨值
 					int hate=(int)(100*skills_hate["test"]/100);
 					enemy->flush_targets(this_object(),hate);
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"秘术改变了战局");
 					return;
 				}
 				else{
@@ -1908,6 +1943,8 @@ void perform(string name,void|int flag){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					//更新该技能冷却时间,没在表里的则是添加
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"法术光华掠过战场");
 					//法术伤害计算公式，还有减免公式
 					//等级压制
 					int difflevel = enemy->query_level()-this_object()->query_level();
@@ -2112,6 +2149,8 @@ void perform(string name,void|int flag){
 				if(s_cold <= 1){
 					//该技不在表中或者冷却，
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"兵刃气劲撕开战场");
 					//物理技能攻击走attack流程，熟练度提高也在那里进行计算
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
@@ -2154,6 +2193,8 @@ void perform(string name,void|int flag){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"持续伤害印记浮现");
 					//等级压制
 					int difflevel = enemy->query_level()-this_object()->query_level();          
 					if(difflevel<0)
@@ -2226,6 +2267,8 @@ void perform(string name,void|int flag){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"诅咒法印笼罩目标");
 					//等级压制
 					int difflevel = enemy->query_level()-this_object()->query_level();          
 					if(difflevel<0)
@@ -2290,6 +2333,8 @@ void perform(string name,void|int flag){
 						this_object()->timeCold = 2;
 						this_object()->f_skills[name] =
 							f_cur_skill->query_s_delayTime(skill_level)+1;
+						broadcast_room_skill_manifestation(f_cur_skill,0,
+							skill_level,"群体治疗灵光在房间中绽放");
 						if(enemy)
 							enemy->flush_targets(this_object(),10*applied);
 						skills_level_check(f_cur_skill->query_name());
@@ -2316,6 +2361,8 @@ void perform(string name,void|int flag){
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] =
 						f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,this_object(),
+						skill_level,"治疗灵光环绕施法者");
 					this_object()->set_life(life_after);
 
 					if(name=="linglianpu" || name=="wanlingchaosheng"){
@@ -2388,6 +2435,8 @@ void perform(string name,void|int flag){
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] =
 						f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,enemy,
+						skill_level,"震势强制牵引目标仇恨");
 					tell_object(this_object(),"你施放了"+
 						f_cur_skill->query_name_cn()+"(等级"+skill_level+
 						")，强制吸引了"+enemy->query_name_cn()+"的仇恨。\n");
@@ -2418,6 +2467,8 @@ void perform(string name,void|int flag){
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] =
 						f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,0,
+						skill_level,"守御屏障笼罩队伍");
 					enemy->flush_targets(this_object(),10+shield/10);
 					tell_object(this_object(),"你施放了"+
 						f_cur_skill->query_name_cn()+"(等级"+skill_level+
@@ -2441,6 +2492,8 @@ void perform(string name,void|int flag){
 					this_object()->set_mofa(this_object()->get_cur_mofa()-s_cast);
 					this_object()->timeCold = 2;
 					this_object()->f_skills[name] = f_cur_skill->query_s_delayTime(skill_level)+1;
+					broadcast_room_skill_manifestation(f_cur_skill,this_object(),
+						skill_level,"增益灵光凝聚成形");
 
 					//记录buff的类型
 					this_object()->set_buff("buff",0,f_cur_skill->s_curse_type);

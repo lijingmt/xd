@@ -626,12 +626,14 @@ void test_room_aoe_and_battle_report()
 		task_npc->move(room); task_npc->_tasknpc = 1;
 		healer->skills["yaowutianluo"] = ({1,0});
 		healer->set_base_hitte(100000);
+		npc_one->set_name("__testunit_lingyi_aoe_defeat_target__");
 		npc_one->set_life(1);
 		// 第二只怪只验证群攻覆盖，避免普通低级怪被高等级测试人物秒杀后
 		// 测试代码自身读取已析构对象。
 		npc_two->set_base_life(10000000);
 		npc_two->flush_life();
 		npc_two->set_life(npc_two->query_life_max());
+		string npc_one_name = npc_one->query_name();
 		int member_before = member->get_cur_life();
 		int bystander_before = bystander->get_cur_life();
 		int engaged_before = engaged->get_cur_life();
@@ -650,19 +652,25 @@ void test_room_aoe_and_battle_report()
 		healer->perform("yaowutianluo",1);
 		mapping(string:mixed) report =
 			healer->query_recent_aoe_battle_report();
-		int defeated = 0;
 		int saw_engaged = 0;
 		int saw_same_faction = 0;
 		int saw_friend = 0;
+		int saw_npc_one = 0;
+		int npc_one_outcome_valid = 0;
 		foreach((array(mapping))report["targets"],mapping target){
-			if(target["defeated"])
-				defeated++;
 			if(target["name"]==engaged->query_name())
 				saw_engaged = 1;
 			if(target["name"]==same_faction->query_name())
 				saw_same_faction = 1;
 			if(target["name"]==friend_player->query_name())
 				saw_friend = 1;
+			if(target["name"]==npc_one_name){
+				saw_npc_one = 1;
+				// 服务端命中率依法封顶99%；1%闪避不是测试失败。
+				npc_one_outcome_valid =
+					((int)target["hit"] && (int)target["defeated"]) ||
+					(!(int)target["hit"] && !(int)target["defeated"]);
+			}
 		}
 		int engaged_damage = engaged_before-engaged->get_cur_life();
 		if(member->get_cur_life()!=member_before ||
@@ -674,7 +682,8 @@ void test_room_aoe_and_battle_report()
 		   npc_two->get_cur_life()>=npc_two_before ||
 		   task_npc->get_cur_life()!=task_npc_before ||
 		   !report || report["skill"]!="yaowutianluo" ||
-		   sizeof((array)report["targets"])<3 || defeated<1 ||
+		   sizeof((array)report["targets"])<3 || !saw_npc_one ||
+		   !npc_one_outcome_valid ||
 		   !saw_engaged || saw_same_faction || saw_friend ||
 		   healer->get_cur_mofa()>=mofa_before ||
 		   healer->f_skills["yaowutianluo"]!=15)

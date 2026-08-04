@@ -3437,23 +3437,119 @@ createApp({
             const skillName = String(event?.skill || '协战');
             const amount = Math.max(0, Number(event?.amount || 0));
             const type = String(event?.type || '');
+            const observer = Boolean(event?.observer);
+            const ownerPrefix = observer && event?.owner_name ?
+                `${String(event.owner_name)}的` : '';
+            const recipient = observer ? '主人' : '你';
             const prefix = String(event?.mode || '') === 'pvp' ?
                 '【御灵交锋】' : '';
             if (type === 'revive') {
                 const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
-                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatCompactNumber(amount)}点生命与${this.formatCompactNumber(mofaAmount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatCompactNumber(amount)}点生命与${this.formatCompactNumber(mofaAmount)}点法力`;
             }
             if (amount <= 0) {
-                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在你身旁`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在${recipient}身旁`;
             }
             if (type === 'damage') {
                 const targetName = String(event?.target_name || '敌人');
-                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatCompactNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatCompactNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
             }
             if (type === 'mofa') {
-                return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatCompactNumber(amount)}点法力`;
             }
-            return `${prefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为你恢复${this.formatCompactNumber(amount)}点生命`;
+            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatCompactNumber(amount)}点生命`;
+        },
+
+        showPetAssistEffect(event, eventId = '', addToBattleLog = true) {
+            const resolvedId = String(eventId || event?.id ||
+                `room-pet-${Date.now()}-${Math.random()}`);
+            if (!event || this.petAssistEventHistory[resolvedId]) return;
+            const seenAt = Date.now();
+            this.lastPetAssistEventId = resolvedId;
+            this.petAssistEventHistory[resolvedId] = seenAt;
+            for (const [seenId, timestamp] of Object.entries(
+                this.petAssistEventHistory
+            )) {
+                if (seenAt - Number(timestamp) > 120000) {
+                    delete this.petAssistEventHistory[seenId];
+                }
+            }
+
+            const effect = {
+                ...event,
+                id: resolvedId,
+                amount: Math.max(0, Number(event.amount || 0)),
+                visualType: this.getPetAssistAnimationType(event),
+                familyClass: this.getPetFamilyClass(event.family)
+            };
+            if (addToBattleLog) {
+                this.addBattleLog('pet', this.formatPetAssistMessage(effect));
+            }
+            if (!this.combatEffectsEnabled) return;
+            this.clearPetAssistEffect(false);
+            this.petAssistEffect = effect;
+            this.addSkillAnimation(
+                effect.visualType,
+                `${effect.name || '灵宠'}·${effect.skill || '协战'}`,
+                effect.observer ? 'room' : (effect.type === 'damage' ? 'enemy' : 'player')
+            );
+            if (effect.amount > 0 && !effect.observer) {
+                this.addBattleAnimation(
+                    effect.type === 'damage' ? 'damage' : 'heal',
+                    effect.type === 'damage' ? 'enemy' : 'player',
+                    effect.amount
+                );
+            }
+            this.playGameSound('ui', 2200);
+            this.petAssistEffectTimer = setTimeout(() => {
+                this.petAssistEffect = null;
+                this.petAssistEffectTimer = null;
+            }, 2400);
+        },
+
+        parseRoomPetManifestation(text) {
+            const source = String(text || '').trim();
+            const match = source.match(
+                /^【灵宠显化】(.{1,24})的(.+?)施展「([^」]+)」(.+?)[。！!]?$/
+            );
+            if (!match) return null;
+            const token = Array.from(String(match[2] || '🐾灵宠'));
+            let icon = token.shift() || '🐾';
+            if (token[0] === '\uFE0F') {
+                icon += token.shift();
+            }
+            const detail = String(match[4] || '');
+            const damage = detail.match(/对(.+?)造成(\d+)点(?:御灵|协战)伤害/);
+            const mofa = detail.match(/恢复(\d+)点法力/);
+            const life = detail.match(/恢复(\d+)点生命/);
+            let type = 'guard';
+            let amount = 0;
+            if (damage) {
+                type = 'damage';
+                amount = Number(damage[2] || 0);
+            } else if (/死亡前/.test(detail)) {
+                type = 'revive';
+                amount = Number(life?.[1] || 0);
+            } else if (mofa) {
+                type = 'mofa';
+                amount = Number(mofa[1] || 0);
+            } else if (life) {
+                type = 'heal';
+                amount = Number(life[1] || 0);
+            }
+            return {
+                observer: true,
+                owner_name: match[1],
+                icon,
+                name: token.join('') || '灵宠',
+                skill: match[3],
+                mode: /御灵/.test(detail) ? 'pvp' : 'pve',
+                type,
+                amount,
+                mofa_amount: type === 'revive' ? Number(mofa?.[1] || 0) : 0,
+                target_name: damage?.[1] || match[1],
+                family: ''
+            };
         },
 
         syncBattlePetAssist(petAssist) {
@@ -3475,47 +3571,7 @@ createApp({
             const eventId = String(event?.id || '');
             if (!eventId || eventId === this.lastPetAssistEventId ||
                 this.petAssistEventHistory[eventId]) return;
-            this.lastPetAssistEventId = eventId;
-            const seenAt = Date.now();
-            this.petAssistEventHistory[eventId] = seenAt;
-            for (const [seenId, timestamp] of Object.entries(
-                this.petAssistEventHistory
-            )) {
-                if (seenAt - Number(timestamp) > 120000) {
-                    delete this.petAssistEventHistory[seenId];
-                }
-            }
-
-            const effect = {
-                ...event,
-                id: eventId,
-                amount: Math.max(0, Number(event.amount || 0)),
-                visualType: this.getPetAssistAnimationType(event),
-                familyClass: this.getPetFamilyClass(event.family)
-            };
-            const message = this.formatPetAssistMessage(effect);
-            this.addBattleLog('pet', message);
-
-            if (!this.combatEffectsEnabled) return;
-            this.clearPetAssistEffect(false);
-            this.petAssistEffect = effect;
-            this.addSkillAnimation(
-                effect.visualType,
-                `${effect.name || '灵宠'}·${effect.skill || '协战'}`,
-                effect.type === 'damage' ? 'enemy' : 'player'
-            );
-            if (effect.amount > 0) {
-                this.addBattleAnimation(
-                    effect.type === 'damage' ? 'damage' : 'heal',
-                    effect.type === 'damage' ? 'enemy' : 'player',
-                    effect.amount
-                );
-            }
-            this.playGameSound('ui', 2200);
-            this.petAssistEffectTimer = setTimeout(() => {
-                this.petAssistEffect = null;
-                this.petAssistEffectTimer = null;
-            }, 2400);
+            this.showPetAssistEffect(event, eventId, true);
         },
 
         /**
@@ -3798,8 +3854,6 @@ createApp({
          * @param {Array} newLines - 新的MUD输出行
          */
         parseBattleActions(newLines) {
-            if (!this.isInBattle) return;
-
             for (const line of newLines) {
                 if (!line.segments) continue;
 
@@ -3818,9 +3872,16 @@ createApp({
                 const isButtonOnly = line.segments.length === 1 && line.segments[0].type === 'button';
                 if (isButtonOnly) continue;
 
-                // 把所有战斗文本记录到日志
+                const roomPetEvent = this.parseRoomPetManifestation(lineText);
+                if (roomPetEvent) {
+                    this.showPetAssistEffect(roomPetEvent, '', this.isInBattle);
+                    continue;
+                }
+
+                // 把玩家自己战斗中的文本记录到日志；旁观事件只驱动轻量动画。
                 const trimmedText = lineText.trim();
-                if (trimmedText.length > 0 && trimmedText.length < 200) {
+                if (this.isInBattle && trimmedText.length > 0 &&
+                    trimmedText.length < 200) {
                     this.addBattleLog('info', trimmedText);
                 }
 
@@ -3828,10 +3889,13 @@ createApp({
                 // 普通文字被误判；同时显示真实技能名。
                 const skillName = this.extractSkillName(lineText);
                 if (skillName) {
-                    const skillType = this.parseMartialArtsSkill(skillName) || 'generic';
+                    const skillType = /太古|鸿蒙/.test(lineText) ? 'ancient' :
+                        (this.parseMartialArtsSkill(skillName) || 'generic');
                     const skillTarget = this.getSkillAnimationTarget(skillType, lineText);
                     this.addSkillAnimation(skillType, skillName, skillTarget);
                 }
+
+                if (!this.isInBattle) continue;
 
                 // 解析特殊战斗状态
                 if (lineText.match(/躲过.*攻击|闪避.*招式|身法.*避开/)) {
@@ -3897,6 +3961,7 @@ createApp({
                 return '';
             }
             const patterns = [
+                /(?:施展了?|施放了?|使出了?|发动了?)「([^」]+)」/,
                 /(?:施展了?|施放了?|使出了?|发动了?|祭起了?)(【[^】]+】(?:[^（(，,。！!\n]+)?|[\u3400-\u9fff·]{2,18})(?=[（(，,。！!\s])/,
                 /召唤出了?(【[^】]+】(?:[^（(，,。！!\n]+)?|[\u3400-\u9fff·]{2,18})(?=[（(，,。！!\s])/
             ];
@@ -3920,6 +3985,8 @@ createApp({
         parseMartialArtsSkill(text) {
             const value = String(text || '');
             if (!value) return null;
+
+            if (/太古|鸿蒙/.test(value)) return 'ancient';
 
             if (/灵治|灵莲铺|万灵朝生|治疗|回春|恢复/.test(value)) return 'heal';
             if (/召唤|虎灵|鹤灵|龟灵|三灵合一|三灵共鸣|唤小灵|灵契共鸣/.test(value)) return 'summon';
@@ -3952,6 +4019,7 @@ createApp({
 
         getSkillAnimationTarget(skillType, text = '') {
             const value = String(text || '');
+            if (/【战技显化】|【灵宠显化】/.test(value)) return 'room';
             const playerCast = /你(?:紧握.*?)?(?:施展|施放|使出|发动|祭起|召唤)/.test(value);
             const affectsPlayer = /对你|为你恢复|你的这次攻击/.test(value);
             const selfTypes = ['heal', 'summon', 'buff', 'inner-power', 'lightness', 'dodge', 'block'];
@@ -3986,7 +4054,7 @@ createApp({
                 'saber': 750, 'critical': 800, 'dodge': 550, 'block': 650,
                 'poison': 1300, 'heal': 1200, 'summon': 1350, 'buff': 1100,
                 'curse': 1100, 'lightning': 900, 'fire': 1000, 'ice': 1100,
-                'wind': 950, 'spirit': 1100, 'generic': 900
+                'wind': 950, 'spirit': 1100, 'ancient': 1800, 'generic': 900
             }[skillType] || 900;
 
             setTimeout(() => {
@@ -4006,7 +4074,8 @@ createApp({
                 'buff': 'skill-buff-aura', 'curse': 'skill-curse-seal',
                 'lightning': 'skill-lightning-strike', 'fire': 'skill-fire-burst',
                 'ice': 'skill-ice-crystal', 'wind': 'skill-wind-sweep',
-                'spirit': 'skill-spirit-orbit', 'generic': 'skill-generic-cast'
+                'spirit': 'skill-spirit-orbit', 'ancient': 'skill-ancient-awakening',
+                'generic': 'skill-generic-cast'
             };
             return classMap[skillType] || 'skill-generic-cast';
         },
@@ -4018,7 +4087,8 @@ createApp({
                 'saber': '🗡️', 'critical': '💥', 'dodge': '💫', 'block': '🛡️',
                 'poison': '☠️', 'heal': '🪷', 'summon': '🌀', 'buff': '🔆',
                 'curse': '🔮', 'lightning': '⚡', 'fire': '🔥', 'ice': '❄️',
-                'wind': '🌪️', 'spirit': '☯️', 'generic': '✦'
+                'wind': '🌪️', 'spirit': '☯️', 'ancient': '𖤓',
+                'generic': '✦'
             };
             return iconMap[skillType] || '✦';
         },
@@ -4035,7 +4105,8 @@ createApp({
                 'buff': 'buff-aura-icon', 'curse': 'curse-seal-icon',
                 'lightning': 'lightning-strike-icon', 'fire': 'fire-burst-icon',
                 'ice': 'ice-crystal-icon', 'wind': 'wind-sweep-icon',
-                'spirit': 'spirit-orbit-icon', 'generic': 'generic-cast-icon'
+                'spirit': 'spirit-orbit-icon', 'ancient': 'ancient-awakening-icon',
+                'generic': 'generic-cast-icon'
             };
             return classMap[skillType] || 'generic-cast-icon';
         },

@@ -40,7 +40,7 @@
                     </div>
                 </div>
                 <div class="auth-feature-row" aria-label="游戏特色">
-                    <span>九大职业</span>
+                    <span>十大职业</span>
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
@@ -397,19 +397,9 @@
                 </button>
                 <div class="player-info">
                     <div class="player-info-line">
-                        <span class="player-fullid">{{ loginForm.userid }}</span>
-                        <span class="divider">·</span>
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
-                        <button type="button"
-                                v-if="playerStats?.profession_assistant?.supported"
-                                class="profession-assistant-badge"
-                                data-tour="profession-assistant"
-                                :class="{ active: playerStats.profession_assistant.level > 0 }"
-                                @click="sendQuickCommand('profession_assistant')"
-                                :title="playerStats.profession_assistant.level_label">
-                            {{ playerStats.profession_assistant.title }} · {{ playerStats.profession_assistant.level > 0 ? '助手' + playerStats.profession_assistant.level : '可试用' }}
-                        </button>
-                        <span class="divider" v-if="playerStats && playerStats.name_cn">·</span>
+                        <span class="header-level-chip" v-if="playerStats">Lv.{{ playerStats.level }}</span>
+                        <span class="header-profession-chip" v-if="playerStats?.profe">{{ playerStats.profe }}</span>
                         <span class="server-info">{{ areaName }}</span>
                         <button type="button"
                                 class="autofight-status-text"
@@ -417,8 +407,8 @@
                                 @click="toggleAutofight"
                                 :title="playerStats && playerStats.autofight ? '点击停止自动挂机' : '点击开始自动挂机'">
                             {{ playerStats && playerStats.autofight
-                                ? '● 挂机中 ' + formatAutofightTime(playerStats.autofight_time_left)
-                                : '▷ 自动挂机' }}
+                                ? '● ' + formatAutofightTime(playerStats.autofight_time_left)
+                                : '▷ 挂机' }}
                         </button>
                     </div>
                     <!-- 玩家状态信息 - 血槽显示 -->
@@ -487,7 +477,7 @@
                                 :title="playerStats.level_breakthrough_message || '查看等级突破条件'"
                                 :aria-label="playerStats.level_breakthrough_message || '查看等级突破条件'"
                                 @click="sendQuickCommand('vip_service_list')">
-                            {{ playerStats.level_breakthrough_label || '上限120 · VIP每级+20' }}
+                            {{ playerStats.level_can_progress ? 'VIP↑' : '突破' }}
                         </button>
                     </div>
                 </div>
@@ -558,6 +548,13 @@
                                 <span class="menu-icon">👥</span>
                                 <span>人物档案 / 切换职业</span>
                             </button>
+                            <button type="button"
+                                    v-if="playerStats?.profession_assistant?.supported"
+                                    class="menu-item"
+                                    @click="sendQuickCommand('profession_assistant'); headerMenuOpen = false;">
+                                <span class="menu-icon">🧭</span>
+                                <span>{{ playerStats.profession_assistant.title }} · 职业助手</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="refreshFrame(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔃</span>
@@ -622,6 +619,36 @@
                     </span>
                     <span class="pet-level-up-action">查看</span>
                 </button>
+            </div>
+
+            <!-- 非参战旁观者也能看见同房间人物与灵宠的施法表现。 -->
+            <div v-if="useJsonMode && !isInBattle && !hasRecentAoeReport && combatEffectsEnabled && skillAnimations.length"
+                 class="room-skill-manifestation-stage"
+                 aria-hidden="true">
+                <div v-for="skill in skillAnimations"
+                     :key="skill.id"
+                     class="skill-effect-container skill-target-room">
+                    <div class="skill-effect" :class="getSkillAnimationClass(skill.type)">
+                        <span :class="getSkillIconClass(skill.type)">{{ getSkillIcon(skill.type) }}</span>
+                    </div>
+                    <span v-if="skill.name" class="skill-effect-label">{{ skill.name }}</span>
+                </div>
+            </div>
+            <div v-if="useJsonMode && !isInBattle && !hasRecentAoeReport && combatEffectsEnabled && petAssistEffect"
+                 :key="petAssistEffect.id"
+                 class="room-pet-manifestation battle-pet-assist-burst"
+                 :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass]"
+                 role="status"
+                 :aria-label="formatPetAssistMessage(petAssistEffect)">
+                <span class="pet-assist-comet" aria-hidden="true"></span>
+                <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
+                <span class="pet-assist-copy">
+                    <strong>{{ petAssistEffect.owner_name ? petAssistEffect.owner_name + '的' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
+                    <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-else>灵宠显化，陪伴主人作战</small>
+                </span>
             </div>
 
 			<!-- 网页玩家的组队邀请通过状态轮询到达，避免tell_object消息丢失 -->

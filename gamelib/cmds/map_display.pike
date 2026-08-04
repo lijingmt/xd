@@ -12,6 +12,11 @@ int main(string|zero arg)
 		s += env->query_picture_url();
 		s += MAPD->query_map(env);
 		s += MAPD->get_all_kinds_map();
+		s += "\n§5【幻境安全直达】§r\n";
+		foreach(FBD->query_safe_fb_catalog(),mapping entry)
+			s += "[飞【幻境】"+(string)entry["name"]+
+				":fb_fly "+(string)entry["id"]+"]\n";
+		s += "直达公共入口；进入后仍按队伍创建独立幻境。\n";
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
@@ -34,6 +39,8 @@ int main(string|zero arg)
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
+	// 兼容旧链接中的费用参数，但实际扣费始终由服务端重新计算。
+	fee = MAPD->query_player_fly_fee(me);
 	if(me->pay_money(fee)==0){
 		s += "你身上的钱不够支付飞行费用，请返回。\n";
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);

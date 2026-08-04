@@ -4720,7 +4720,24 @@ body {
 .skill-ice-crystal { animation: ice-crystal-effect 1.1s ease-out forwards; }
 .skill-wind-sweep { animation: wind-sweep-effect 0.95s ease-out forwards; }
 .skill-spirit-orbit { animation: spirit-orbit-effect 1.1s ease-out forwards; }
+.skill-ancient-awakening { animation: ancient-awakening-effect 1.8s cubic-bezier(0.16, 0.88, 0.24, 1) forwards; }
 .skill-generic-cast { animation: generic-cast-effect 0.9s ease-out forwards; }
+
+@keyframes ancient-awakening-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.16) rotate(-160deg); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.35) rotate(-18deg); }
+    48% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(12deg); }
+    78% { opacity: 0.92; transform: translate(-50%, -62%) scale(1.75) rotate(185deg); }
+    100% { opacity: 0; transform: translate(-50%, -105%) scale(3.1) rotate(360deg); }
+}
+
+.ancient-awakening-icon {
+    display: block;
+    color: #fff4b8;
+    font-size: 88px;
+    text-shadow: 0 0 8px #fff, 0 0 24px #e879f9, 0 0 48px #38bdf8;
+    filter: drop-shadow(0 0 28px rgba(244, 114, 182, 0.94));
+}
 
 @keyframes heal-bloom-effect {
     0% { opacity: 0; transform: translate(-50%, 10%) scale(0.35); }
@@ -7596,6 +7613,51 @@ select:focus-visible {
     --pet-surface: rgba(24, 88, 108, 0.42);
 }
 
+/* 同房间旁观表现固定在内容上方，不占布局、不拦截地图和文字操作。 */
+.room-skill-manifestation-stage {
+    position: fixed;
+    z-index: 1180;
+    top: calc(env(safe-area-inset-top, 0px) + var(--ui-header-reserve) + 54px);
+    left: 50%;
+    width: min(620px, calc(100vw - 24px));
+    height: 210px;
+    overflow: hidden;
+    border-radius: 22px;
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.room-skill-manifestation-stage .skill-effect-container,
+.room-skill-manifestation-stage .skill-effect-container.skill-target-room {
+    top: 50%;
+    left: 50%;
+}
+
+.room-skill-manifestation-stage .skill-effect-label {
+    top: 38px;
+    border-color: rgba(216, 180, 254, 0.62);
+    background: rgba(16, 12, 32, 0.92);
+    box-shadow: 0 0 22px rgba(168, 85, 247, 0.3);
+}
+
+.room-pet-manifestation.battle-pet-assist-burst {
+    position: fixed;
+    z-index: 1190;
+    top: calc(env(safe-area-inset-top, 0px) + var(--ui-header-reserve) + 146px);
+    width: min(360px, calc(100vw - 28px));
+}
+
+@media (max-width: 480px) {
+    .room-skill-manifestation-stage {
+        top: calc(env(safe-area-inset-top, 0px) + var(--ui-header-reserve) + 30px);
+        height: 170px;
+    }
+
+    .room-pet-manifestation.battle-pet-assist-burst {
+        top: calc(env(safe-area-inset-top, 0px) + var(--ui-header-reserve) + 112px);
+    }
+}
+
 .pet-family-fire { --pet-accent: #ffb36b; --pet-glow: rgba(255, 101, 54, 0.6); --pet-surface: rgba(134, 44, 18, 0.48); }
 .pet-family-water { --pet-accent: #7dd3fc; --pet-glow: rgba(56, 189, 248, 0.56); --pet-surface: rgba(12, 74, 110, 0.5); }
 .pet-family-wood { --pet-accent: #86efac; --pet-glow: rgba(74, 222, 128, 0.55); --pet-surface: rgba(20, 83, 45, 0.5); }
@@ -9961,4 +10023,225 @@ body {
     .header-pet-icon { width: 30px; height: 30px; flex-basis: 30px; }
     .quick-more-panel { max-height: calc(100dvh - 92px); }
     .battle-panel.mini-mode { max-height: min(42dvh, 180px); }
+}
+
+/* ========================================================================
+   Compact status header v3
+   Four stable zones (avatar / pet / vital summary / menu) prevent long IDs,
+   profession assistants and VIP copy from pushing controls off narrow screens.
+   ======================================================================== */
+.game-header {
+    display: grid;
+    min-height: 78px;
+    grid-template-columns: 44px 38px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 7px;
+    padding: max(7px, env(safe-area-inset-top, 0px)) 10px 7px;
+}
+
+.game-header:not(.has-header-pet) {
+    grid-template-columns: 44px minmax(0, 1fr) 38px;
+}
+
+.game-header:not(.has-header-pet) .player-info { grid-column: 2; }
+.game-header:not(.has-header-pet) .header-actions { grid-column: 3; }
+
+.player-avatar-shell {
+    grid-column: 1;
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+}
+
+.header-pet-companion {
+    grid-column: 2;
+    width: 36px;
+    max-width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    padding: 1px;
+    border-radius: 50%;
+}
+
+.header-pet-icon {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+    font-size: 20px;
+}
+
+.header-pet-copy { display: none; }
+.header-pet-rank { display: block; }
+
+.player-info {
+    grid-column: 3;
+    width: 100%;
+    gap: 3px;
+}
+
+.player-info-line {
+    gap: 4px;
+    min-height: 18px;
+}
+
+.player-info-line .player-name-cn {
+    flex: 0 1 auto;
+    max-width: 28%;
+    color: var(--ux-header-ink);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.header-level-chip,
+.header-profession-chip,
+.player-info-line .server-info,
+.player-info-line .autofight-status-text {
+    flex: 0 0 auto;
+    min-height: 18px;
+    padding: 1px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    background: rgba(14, 18, 28, 0.2);
+    color: var(--ux-header-ink);
+    font-size: 9px;
+    line-height: 14px;
+    white-space: nowrap;
+}
+
+.header-level-chip { color: #ffe4a3; font-weight: 800; }
+.header-profession-chip { color: #d9f5ff; }
+.player-info-line .autofight-status-text { margin-left: auto; }
+
+.player-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.stat-bar {
+    grid-template-columns: auto minmax(18px, 1fr) auto;
+    gap: 3px;
+}
+
+.stat-label,
+.stat-value { font-size: 8px; }
+.stat-value { max-width: 46px; }
+.bar-container { min-width: 18px; height: 5px; }
+
+.exp-progress-bar { gap: 4px; }
+.exp-level-left { display: none; }
+.exp-level-right { font-size: 8px; }
+.exp-bar-track { height: 4px; }
+.level-cap-badge {
+    min-width: 34px;
+    max-width: 40px;
+    min-height: 17px;
+    padding: 1px 4px;
+    font-size: 8px;
+}
+
+.header-actions {
+    grid-column: 4;
+    width: 38px;
+    flex-basis: 38px;
+}
+
+.header-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 17px;
+}
+
+@media (max-width: 359px) {
+    :root { --ui-header-reserve: 84px; }
+    .game-header {
+        min-height: 78px;
+        grid-template-columns: 38px 32px minmax(0, 1fr) 34px;
+        gap: 4px;
+        padding-right: 6px;
+        padding-left: 6px;
+    }
+    .game-header:not(.has-header-pet) { grid-template-columns: 38px minmax(0, 1fr) 34px; }
+    .player-avatar-shell { width: 36px; height: 36px; flex-basis: 36px; }
+    .header-pet-companion { width: 31px; max-width: 31px; height: 31px; flex-basis: 31px; }
+    .header-pet-icon { width: 27px; height: 27px; flex-basis: 27px; font-size: 17px; }
+    .header-actions,
+    .header-btn { width: 34px; }
+    .header-btn { height: 34px; }
+    .header-profession-chip { display: none; }
+    .player-info-line .player-name-cn { max-width: 36%; font-size: 10px; }
+    .player-info-line .server-info { display: none; }
+    .player-info-line .autofight-status-text { max-width: 61px; overflow: hidden; text-overflow: ellipsis; }
+    .stat-value { display: none; }
+    .stat-bar { grid-template-columns: auto minmax(12px, 1fr); }
+    .exp-level-right { display: none; }
+}
+
+@media (min-width: 360px) and (max-width: 430px) {
+    :root { --ui-header-reserve: 86px; }
+    .game-header { min-height: 80px; }
+    .player-info-line .player-name-cn { max-width: 32%; }
+    .stat-value { max-width: 38px; }
+}
+
+@media (min-width: 431px) and (max-width: 767px) {
+    :root { --ui-header-reserve: 88px; }
+    .game-header {
+        min-height: 82px;
+        grid-template-columns: 46px 40px minmax(0, 1fr) 40px;
+        gap: 9px;
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+    .game-header:not(.has-header-pet) { grid-template-columns: 46px minmax(0, 1fr) 40px; }
+    .player-avatar-shell { width: 44px; height: 44px; flex-basis: 44px; }
+    .header-pet-companion { width: 38px; max-width: 38px; height: 38px; flex-basis: 38px; }
+    .player-info-line .player-name-cn { max-width: 34%; font-size: 13px; }
+    .stat-label,
+    .stat-value { font-size: 9px; }
+}
+
+@media (min-width: 768px) {
+    :root { --ui-header-reserve: 86px; }
+    .game-header {
+        min-height: 80px;
+        grid-template-columns: 48px 42px minmax(0, 1fr) 42px;
+        gap: 11px;
+        padding: max(9px, env(safe-area-inset-top, 0px)) 18px 9px;
+    }
+    .game-header:not(.has-header-pet) { grid-template-columns: 48px minmax(0, 1fr) 42px; }
+    .player-avatar-shell { width: 46px; height: 46px; flex-basis: 46px; }
+    .header-pet-companion { width: 40px; max-width: 40px; height: 40px; flex-basis: 40px; }
+    .header-pet-icon { width: 34px; height: 34px; flex-basis: 34px; font-size: 23px; }
+    .player-info-line .player-name-cn { max-width: 220px; font-size: 14px; }
+    .header-level-chip,
+    .header-profession-chip,
+    .player-info-line .server-info,
+    .player-info-line .autofight-status-text { font-size: 10px; }
+    .stat-label,
+    .stat-value { font-size: 9px; }
+    .bar-container { height: 6px; }
+    .header-actions,
+    .header-btn { width: 42px; }
+    .header-btn { height: 42px; }
+}
+
+@media (min-width: 1440px) {
+    :root { --ui-header-reserve: 88px; }
+    .game-header { min-height: 82px; padding-right: 24px; padding-left: 24px; }
+    .player-info { max-width: 900px; }
+    .player-stats { max-width: 760px; }
+    .exp-progress-bar { max-width: 760px; }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+    :root { --ui-header-reserve: 70px; }
+    .game-header { min-height: 64px; padding-top: max(4px, env(safe-area-inset-top, 0px)); padding-bottom: 4px; }
+    .player-stats { display: none; }
+    .player-info { gap: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skill-ancient-awakening,
+    .ancient-awakening-icon { animation: none !important; }
 }

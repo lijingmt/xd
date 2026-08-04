@@ -26,6 +26,9 @@ void tell_room_daemon(object env, string msg, void|object actor){
 	if(!env)
 		return;
 	foreach(all_inventory(env,actor), object ob){
+		if(actor && ob && ob->is("player") &&
+		   !LOGICALZONED->is_visible(ob,actor))
+			continue;
 		if(ob && (ob->is("player") || ob->is("npc"))){
 			tell_object(ob, msg);
 		}

@@ -429,6 +429,8 @@ void fight_die()
 		//在Boss/普通怪分支前只抽取一次，确保队伍击杀Boss也不会漏掉。
 		object ob_hidden =
 			ITEMSD->get_hidden_skill_book(this_object()->query_level());
+		object ob_ancient =
+			ITEMSD->get_ancient_skill_book(this_object()->query_level());
 		if(ob_hidden&& environment(this_object())){
 			ob_hidden->item_whoCanGet = term_who;
 			ob_hidden->item_TimewhoCanGet = time();
@@ -438,6 +440,16 @@ void fight_die()
 			log_hidden_skill_drop(ob_hidden,"team",term_who);
 			call_out(ob_hidden->remove,5*60,1);
 			ob_hidden->move(environment(this_object()));
+		}
+		if(ob_ancient&& environment(this_object())){
+			ob_ancient->item_whoCanGet = term_who;
+			ob_ancient->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_ancient,logical_drop_owner);
+			t_w += "§b太古星门开启，账号绑定传承现世：§r"+
+				ob_ancient->query_short()+" ！\n";
+			log_hidden_skill_drop(ob_ancient,"ancient-team",term_who);
+			call_out(ob_ancient->remove,5*60,1);
+			ob_ancient->move(environment(this_object()));
 		}
 		if(this_object()->_boss){
 			//boss掉落////////////////////////////////////////////////////////
@@ -934,6 +946,8 @@ void fight_die_single(object env)
 		//十职业大神传承，只由70级以上怪物极低概率掉落
 		object ob_hidden =
 			ITEMSD->get_hidden_skill_book(this_object()->query_level());
+		object ob_ancient =
+			ITEMSD->get_ancient_skill_book(this_object()->query_level());
 		//end cai 080807
 
 		//节日特殊掉落
@@ -984,6 +998,20 @@ void fight_die_single(object env)
 				tell_object(who,t);
 			call_out(ob_hidden->remove,5*60,1);
 			ob_hidden->move(environment(this_object()));
+		}
+		if(ob_ancient && environment(this_object())){
+			string t = "";
+			ob_ancient->item_whoCanGet = first->query_name();
+			ob_ancient->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_ancient,first->query_name());
+			t += "§b太古星门开启，账号绑定传承现世：§r"+
+				ob_ancient->query_short()+" ！\n";
+			log_hidden_skill_drop(
+				ob_ancient,"ancient-player",first->query_name());
+			foreach(indices(this_object()->targets),object who)
+				tell_object(who,t);
+			call_out(ob_ancient->remove,5*60,1);
+			ob_ancient->move(environment(this_object()));
 		}
 		if(ob_spec&& environment(this_object())){
 			//Stdio.append_file(ROOT+"/log/item_spec_drop.log",now[0..sizeof(now)-2]+":"+first->query_name_cn()+"("+first->query_name()+"):"+ob_spec->query_name_cn()+"("+ob_spec->query_name()+")\n");

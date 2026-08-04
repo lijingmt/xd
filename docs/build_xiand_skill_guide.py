@@ -2,8 +2,8 @@
 """Build the standalone Xiand all-profession skill handbook.
 
 The handbook is intentionally separate from the equipment/progression guide.
-It reads the current skill objects and skill-book catalog, then gives all 31
-drop-only mythic skills a dedicated, stage-by-stage reference.
+It reads the current skill objects and skill-book catalog, then documents the
+31 legacy mythic skills and all 70 account-bound ancient inheritances.
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ from build_xiand_profession_guide import (
     build_styles,
     git_value,
     parse_books,
+    parse_ancient_skills,
     parse_skills,
     register_fonts,
     skill_rows,
@@ -320,7 +321,7 @@ class SkillGuideDocTemplate(GuideDocTemplate):
             canvas.drawRightString(
                 PAGE_W - RIGHT_MARGIN,
                 PAGE_H - 8.5 * mm,
-                "三十一本隐藏神技详解",
+                "一百零一式隐藏传承详解",
             )
             canvas.line(LEFT_MARGIN, 10 * mm, PAGE_W - RIGHT_MARGIN, 10 * mm)
             canvas.drawCentredString(PAGE_W / 2, 6.5 * mm, f"- {doc.page} -")
@@ -363,7 +364,7 @@ def add_cover(
     story.append(Paragraph("仙道全职业技能专册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-			f"十职业技能全索引 · 三十一式隐藏神技 · {build_date}灵医版",
+			f"十职业技能全索引 · 31式旧世神技 + 70式太古传承 · {build_date}版",
             styles["CoverSub"],
         )
     )
@@ -374,7 +375,7 @@ def add_cover(
                 Paragraph(
                     f"当前代码共收录 {skill_count} 个职业技能对象、{book_count} 条职业技能书配置。<br/>"
                     "从技能书获得、背包学习，到熟练度成长与实战连招，一册查清。<br/>"
-                    "九个职业各有 3 本专属隐藏神技，灵医独有 4 本，共 31 本极低概率传承。<br/>"
+                    "旧池保留31本可流通神技；新池每职业7本，共70本拾取即账号绑定的太古传承。<br/>"
                     "等级、法力、伤害、治疗、控制时长与冷却均取自当前技能对象。",
                     ParagraphStyle(
                         "SkillCoverBox",
@@ -430,14 +431,14 @@ def add_cover(
         [
             "# 仙道全职业技能专册",
             "",
-			f"十职业技能全索引 · 三十一式隐藏神技 · {build_date}灵医版",
+			f"十职业技能全索引 · 31式旧世神技 + 70式太古传承 · {build_date}版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
             f"- 生成日期：{build_date}",
             f"- 数据规模：{skill_count} 个职业技能对象，{book_count} 条职业技能书配置",
             "",
-            "> 本专册依据当前仓库代码生成：九个职业各3本，灵医4本，共31本。",
+            "> 本专册依据当前仓库代码生成：旧池31本保持可流通；新池每职业7本，共70本拾取即账号绑定。",
             "",
         ]
     )
@@ -475,6 +476,7 @@ def build_skill_guide() -> None:
     books = parse_books()
     skills = parse_skills()
     mythics = parse_mythic_details()
+    ancients = parse_ancient_skills()
     books_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
     skills_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
     mythics_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
@@ -510,7 +512,7 @@ def build_skill_guide() -> None:
         commit,
         build_date,
         len(skills),
-        len(books),
+        len(books) + len(mythics) + len(ancients),
     )
     add_toc(story, styles)
 
@@ -533,8 +535,8 @@ def build_skill_guide() -> None:
         [
             "普通技能书主要在职业技能书商店购买；60级以上高级书按职业每天独立轮换2本。",
             "方士、镇越、天象与灵医多数技能配置5段；老职业很多技能保留10段，但以技能对象实际配置为准。",
-            "隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长，不需要重复找5本。",
-            "重复学习隐藏书不会消耗原书，可继续交易、寄送或存入仓库。",
+            "旧31本隐藏大神技能只需获得并成功学习1本，后续80/100/120/140/160级阶段依靠熟练度成长。",
+            "旧隐藏书可继续交易、寄送或存入仓库；新70本太古书拾取即账号绑定，禁止所有跨人物流通。",
         ]
     )
     guide.callout(
@@ -760,7 +762,7 @@ def build_skill_guide() -> None:
             )
         section_number += 1
 
-    guide.h2("4.13 隐藏书常见问题")
+    guide.h2("4.13 旧隐藏书常见问题")
     guide.table(
         ["问题", "答案"],
         [
@@ -794,7 +796,41 @@ def build_skill_guide() -> None:
         [1.7, 4.0],
     )
 
-    guide.h1("5. 灵宠天生技能与主人技能拓印")
+    guide.h1("5. 七十式太古绑定传承")
+    guide.callout(
+        "十职业各七式，越强越稀有",
+        "太古传承使用独立掉落池：实际等级90级以上怪物才有资格；70式总权重390、分母125000000，总概率约为旧31本隐藏池的1/100。七个品阶权重依次为12/9/7/5/3/2/1。",
+        "gold",
+    )
+    guide.table(
+        ["职业", "太古传承", "品阶色", "技能类型", "固定冷却"],
+        [
+            [
+                PROF_BY_ID[str(item["profession"])]["name"],
+                f'{item["name"]} ({item["id"]})',
+                str(item["tier_color"]),
+                str(item["type"]),
+                f'{item["cooldown"]}秒',
+            ]
+            for item in ancients
+        ],
+        [0.55, 2.0, 0.55, 1.0, 0.65],
+        compact=True,
+    )
+    guide.table(
+        ["规则", "太古传承实现"],
+        [
+            ["拾取归属", "首次拾取绑定注册账号；已绑定书不能由其他账号拾取"],
+            ["禁止流通", "不可丢弃、交易、赠送、个人仓库存放或共享宝库存放"],
+            ["学习门槛", "人物90级且职业匹配；阶段门槛90/115/140/165/190"],
+            ["视觉标记", "技能名按品阶使用七种特殊色；施放时播放太古专属动画"],
+            ["同房可见", "人物和灵宠释放技能都会向同房、同逻辑区可见玩家广播UI显化；广播不改变战斗数值"],
+            ["兼容旧池", "旧31本隐藏书的掉率、交易、寄送、仓库和学习规则完全不变"],
+        ],
+        [1.0, 4.5],
+    )
+
+    guide.h1("6. 灵宠天生技能与主人技能拓印")
     guide.table(
         ["技能类型", "获得与使用", "材料与安全边界"],
         [
@@ -813,19 +849,22 @@ def build_skill_guide() -> None:
         "gold",
     )
 
-    guide.h1("6. 数据来源与版本声明")
+    guide.h1("7. 数据来源与版本声明")
     guide.bullets(
         [
             "职业技能对象与五段数值：gamelib/single/skills/",
             "普通与每日轮换技能书：gamelib/data/can_buy_book_list.csv",
             "隐藏书物品及学习限制：gamelib/clone/item/book/",
             "隐藏书掉落池与概率：gamelib/single/daemons/itemsd.pike",
+            "太古技能目录、品阶与独立掉率：gamelib/single/daemons/ancient_skilld.pike",
+            "太古书绑定与禁流通：gamelib/inherit/ancient_hidden_book.pike",
             "单人、团队与Boss掉落归属：gamelib/inherit/npc.pike",
             "技能学习与重复书处理：lowlib/mudlib/inherit/feature/readed.pike",
             "技能实战与熟练度：lowlib/wapmud2/inherit/feature/fight.pike",
             "命中、闪避与暴击边界：lowlib/mudlib/inherit/feature/char.pike",
             "物理/法术平衡回归：test_unit/test_combat_balance.pike",
             "隐藏技能运行时回归：test_unit/test_hidden_mythic_skills.pike",
+            "太古70技能与经济安全回归：test_unit/test_ancient_hidden_skills.pike、test_unit/test_rare_economy_safety.pike",
             "方士/镇越/天象/灵医职业助手：gamelib/single/daemons/professionvipd.pike、gamelib/cmds/profession_assistant.pike",
             "职业助手公平边界回归：test_unit/test_profession_vip_assistant.pike",
             "天象星痕、技能与共享系统回归：test_unit/test_tianxiang_profession.pike",

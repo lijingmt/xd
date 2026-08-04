@@ -66,6 +66,7 @@ void test_runtime_compile_and_reverse_index()
 		"/gamelib/single/daemons/fbd.pike",
 		"/gamelib/single/daemons/mapd.pike",
 		"/gamelib/cmds/map_display.pike",
+		"/gamelib/cmds/fb_fly.pike",
 		"/gamelib/cmds/qge74hye.pike",
 		"/gamelib/cmds/fb_entry.pike",
 		"/gamelib/cmds/fb_leave.pike",
@@ -102,6 +103,56 @@ void test_runtime_compile_and_reverse_index()
 			destruct(item);
 		destruct(cloned_room);
 	}
+}
+
+void test_safe_dungeon_fly_catalog()
+{
+	test_start("幻境按钮只飞公共入口且费用完全由服务端计算");
+	object command_ob = (object)(ROOT+"/gamelib/cmds/fb_fly.pike");
+	string map_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/map_display.pike");
+	object player = create_player(
+		"__testunit_fb_safe_fly__",86,"human","jianxian");
+	object start_room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object|zero original_player = this_player();
+	mapping entry = FBD->query_safe_fb_entrance("bawangmoku");
+	array(mapping(string:string)) catalog = FBD->query_safe_fb_catalog();
+	string current_path = "";
+	string error_desc = "";
+	int fee = MAPD->query_player_fly_fee(player);
+	int before;
+	int valid = 0;
+	mixed err = catch {
+		player->move(start_room);
+		player->set_account(fee+5000);
+		before = player->query_account();
+		set_this_player(player);
+		command_ob->main("../bwmk/mowangchaoxue");
+		int rejected_uncharged = player->query_account()==before &&
+			environment(player)==start_room;
+		command_ob->main("bawangmoku");
+		if(environment(player))
+			current_path = (file_name(environment(player))/"#")[0];
+		valid = sizeof(entry)>0 && sizeof(catalog)>=1 &&
+			rejected_uncharged && player->query_account()==before-fee &&
+			has_suffix(current_path,"/gamelib/d/bawangbao/zhuzunge") &&
+			!FBD->is_fb_room_path(current_path) && !player->fb_id &&
+			map_source &&
+			search(map_source,
+				"fee = MAPD->query_player_fly_fee(me)")!=-1;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("安全直达验证失败: "+error_desc);
+	destroy_player(player);
 }
 
 void test_team_instance_identity()
@@ -326,6 +377,7 @@ int main()
 	test_runtime_compile_and_reverse_index();
 	test_team_instance_identity();
 	test_map_filter_and_legacy_redirect();
+	test_safe_dungeon_fly_catalog();
 	test_emergency_leave_and_move_cleanup();
 	test_summons_do_not_block_autofight();
 	test_relogin_and_ui_safety_wiring();

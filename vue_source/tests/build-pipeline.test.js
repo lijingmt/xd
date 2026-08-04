@@ -150,7 +150,8 @@ assert(indexSource.includes(':src="playerAvatarUrl"'));
 assert(indexSource.includes('@error="handlePlayerAvatarError"'));
 assert(indexSource.includes("sendQuickCommand('profession_assistant')"));
 assert(indexSource.includes('playerStats?.profession_assistant?.style_class'));
-assert(indexSource.includes('class="profession-assistant-badge"'));
+assert(indexSource.includes("playerStats.profession_assistant.title }} · 职业助手"));
+assert(!indexSource.includes('class="profession-assistant-badge"'));
 assert.strictEqual(
   (indexSource.match(/<main\b/g) || []).length,
   (indexSource.match(/<\/main>/g) || []).length
@@ -196,6 +197,9 @@ assert(indexSource.includes('@click="openPetLevelUpEffect"'));
 assert(cssSource.includes('.ui-toast-action'));
 assert(cssSource.includes('.pet-level-up-card'));
 assert(cssSource.includes('@keyframes petLevelUpEnter'));
+assert(cssSource.includes('.room-skill-manifestation-stage'));
+assert(cssSource.includes('.room-pet-manifestation.battle-pet-assist-burst'));
+assert(cssSource.includes('@keyframes ancient-awakening-effect'));
 assert(appSource.includes('isQuickActionActive(command)'));
 assert(appSource.includes('quickActionsCollapsed: true'));
 assert(appSource.includes('playerAvatarFailed: false'));
@@ -224,6 +228,9 @@ assert(appSource.includes('handlePetLevelChange(previousPet, data.pet_assist)'))
 assert(appSource.includes('clearPetLevelUpEffect()'));
 assert(appSource.includes('lastPetAssistEventId'));
 assert(appSource.includes('formatPetAssistMessage(event)'));
+assert(appSource.includes('parseRoomPetManifestation(text)'));
+assert(appSource.includes('showPetAssistEffect(event'));
+assert(appSource.includes("'ancient': 'skill-ancient-awakening'"));
 assert(appSource.includes('getPetCultivationLabel(pet = this.battlePet)'));
 assert(appSource.includes("combat_mode || '') === 'pvp'"));
 assert(appSource.includes('toggleSoundEffects()'));

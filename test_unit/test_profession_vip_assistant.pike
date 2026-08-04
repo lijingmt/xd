@@ -83,7 +83,7 @@ void test_runtime_compile_and_wiring()
 	if(failed==0 && thread_source && api_source && vue_source && css_source &&
 	   search(thread_source,"\"profession_assistant\"")!=-1 &&
 	   search(api_source,"PROFESSIONVIPD->query_status(player)")!=-1 &&
-	   search(vue_source,"profession-assistant-badge")!=-1 &&
+	   search(vue_source,"playerStats.profession_assistant.title }} · 职业助手")!=-1 &&
 	   search(css_source,"profession-style-fangshi-3")!=-1 &&
 	   search(css_source,"profession-style-zhenyue-3")!=-1 &&
 	   search(css_source,"profession-style-tianxiang-3")!=-1 &&

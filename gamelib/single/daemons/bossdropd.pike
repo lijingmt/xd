@@ -122,12 +122,9 @@ string get_org_converted_level(string orgitem,int boss_level){
 			for(int k=0; k<sizelines; k++) {
 				// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 				if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
-					if(random(10000)<=1){
-						//万分之2的几率出现无等级需求的装备
-						writeback+="    set_item_canLevel(-1);\n"; //设置新物品的的穿戴等级
-					}else{
-						writeback+="    set_item_canLevel("+boss_level+");\n"; //设置新物品的的穿戴等级
-					}
+					// 停止新产出无等级需求装备。玩家已经持有的-1装备
+					// 及其存档不迁移，Boss新生成装备统一使用Boss等级。
+					writeback+="    set_item_canLevel("+boss_level+");\n";
 					
 					int aocao_num=random(3)+1;//生成1-3的数字
 					if(random(1000)<2)	aocao_num=4;	

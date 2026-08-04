@@ -80,6 +80,36 @@ HIDDEN_MYTHIC_SKILL_IDS=(
 	"liuhehuichun"
 )
 
+# 太古隐藏传承以服务端目录为唯一事实来源，部署脚本不维护第二份70项名单。
+ANCIENT_SKILL_CATALOG="$PROJECT_ROOT/gamelib/single/daemons/ancient_skilld.pike"
+ANCIENT_HIDDEN_SKILL_IDS=()
+
+load_ancient_hidden_skill_ids() {
+    local catalog_entry
+    local skill_id
+
+    if [ ! -s "$ANCIENT_SKILL_CATALOG" ]; then
+        print_error "太古隐藏传承目录缺失：$ANCIENT_SKILL_CATALOG"
+        exit 1
+    fi
+
+    ANCIENT_HIDDEN_SKILL_IDS=()
+    while IFS= read -r catalog_entry; do
+        skill_id="${catalog_entry#\"}"
+        skill_id="${skill_id%%|*}"
+        ANCIENT_HIDDEN_SKILL_IDS+=("$skill_id")
+    done < <(grep -oE '"[a-z0-9]+\|[^"]+"' "$ANCIENT_SKILL_CATALOG")
+
+    if [ "${#ANCIENT_HIDDEN_SKILL_IDS[@]}" -ne 70 ]; then
+        print_error "太古隐藏传承目录应包含70个技能，实际为${#ANCIENT_HIDDEN_SKILL_IDS[@]}个"
+        exit 1
+    fi
+    if printf '%s\n' "${ANCIENT_HIDDEN_SKILL_IDS[@]}" | sort | uniq -d | grep -q .; then
+        print_error "太古隐藏传承目录存在重复技能ID"
+        exit 1
+    fi
+}
+
 # 从命令行参数或环境变量读取配置
 # 优先级：命令行参数 > 环境变量 > 默认值
 GAME_AREA_INPUT="${1:-${GAME_AREA:-xd01}}"
@@ -257,6 +287,8 @@ sync_item_directory() {
         exit 1
     fi
 
+    load_ancient_hidden_skill_ids
+
     if [[ "$shared_item_dir" != /* ]]; then
         print_error "共享 item 目录必须是绝对路径: $shared_item_dir"
         exit 1
@@ -288,8 +320,15 @@ sync_item_directory() {
         fi
     done
 
+    for skill_id in "${ANCIENT_HIDDEN_SKILL_IDS[@]}"; do
+        if [ ! -s "$shared_item_dir/book/$skill_id" ]; then
+            print_error "物品同步校验失败，缺少太古隐藏秘籍: $shared_item_dir/book/$skill_id"
+            exit 1
+        fi
+    done
+
     chmod -R 755 "$shared_item_dir" 2>/dev/null || true
-    print_success "游戏物品同步完成，并已校验 ${#HIDDEN_MYTHIC_SKILL_IDS[@]} 本隐藏秘籍"
+    print_success "游戏物品同步完成，并已校验31本原隐藏秘籍与70本太古隐藏秘籍"
 }
 
 # 函数：验证运行镜像与外挂 item 目录中的隐藏技能资源完全一致
@@ -318,7 +357,31 @@ verify_hidden_mythic_assets_in_container() {
         fi
     done
 
-    print_success "容器内 ${#HIDDEN_MYTHIC_SKILL_IDS[@]} 套隐藏秘籍、技能主体和掉落池均已校验"
+	if [ "${#ANCIENT_HIDDEN_SKILL_IDS[@]}" -ne 70 ]; then
+		load_ancient_hidden_skill_ids
+	fi
+	for skill_id in "${ANCIENT_HIDDEN_SKILL_IDS[@]}"; do
+		if ! docker exec "$container_name" \
+			test -s "/app/xiand/gamelib/clone/item/book/$skill_id"; then
+			print_error "容器太古隐藏秘籍校验失败: book/$skill_id"
+			return 1
+		fi
+
+		if ! docker exec "$container_name" \
+			test -s "/app/xiand/gamelib/single/skills/$skill_id"; then
+			print_error "容器太古技能主体校验失败: skills/$skill_id；请先重建并推送最新镜像"
+			return 1
+		fi
+
+		if ! docker exec "$container_name" \
+			grep -Fq "\"$skill_id|" \
+			/app/xiand/gamelib/single/daemons/ancient_skilld.pike; then
+			print_error "容器太古传承目录校验失败: $skill_id；请先重建并推送最新镜像"
+			return 1
+		fi
+	done
+
+    print_success "容器内31套原隐藏传承与70套太古隐藏传承均已校验"
 }
 
 # 函数：把中立阵营职业图标和人物头像更新到容器内 Tomcat 的新旧访问路径

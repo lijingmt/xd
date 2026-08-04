@@ -376,6 +376,44 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.extractSkillName('该技能还需要8秒冷却时间,无法使用。'), '');
   assert.strictEqual(client.getSkillAnimationTarget('wind', '你施展御风剑气，对妖狼造成伤害'), 'enemy');
 
+  client.isInBattle = false;
+  client.skillAnimations = [];
+  client.parseBattleActions([{
+    segments: [{
+      type: 'text',
+      parts: [{ content: '【战技显化】太虚真人施放「【太古·7】鸿蒙一剑」（等级1），目标为妖狼，战技气息扩散开来。' }]
+    }]
+  }]);
+  assert.strictEqual(client.skillAnimations.length, 1);
+  assert.strictEqual(client.skillAnimations[0].type, 'ancient');
+  assert.strictEqual(client.skillAnimations[0].name, '鸿蒙一剑');
+  assert.strictEqual(client.skillAnimations[0].target, 'room');
+  const roomPet = client.parseRoomPetManifestation(
+    '【灵宠显化】太虚真人的🐗当康施展「丰穰守心」，对妖狼造成321点协战伤害。'
+  );
+  assert.strictEqual(roomPet.owner_name, '太虚真人');
+  assert.strictEqual(roomPet.name, '当康');
+  assert.strictEqual(roomPet.type, 'damage');
+  assert.strictEqual(roomPet.amount, 321);
+  assert(client.formatPetAssistMessage(roomPet).includes('太虚真人的🐗 当康'));
+  const roomRevive = client.parseRoomPetManifestation(
+    '【灵宠显化】太虚真人的🕊️鸾鸟施展「回生羽」，在死亡前为主人恢复1500点生命，并恢复600点法力。'
+  );
+  assert.strictEqual(roomRevive.type, 'revive');
+  assert.strictEqual(roomRevive.icon, '🕊️');
+  assert.strictEqual(roomRevive.name, '鸾鸟');
+  assert.strictEqual(roomRevive.mofa_amount, 600);
+  client.parseBattleActions([{
+    segments: [{
+      type: 'text',
+      parts: [{ content: '【灵宠显化】太虚真人的🐗当康施展「丰穰守心」，对妖狼造成321点协战伤害。' }]
+    }]
+  }]);
+  assert.strictEqual(client.petAssistEffect.observer, true);
+  assert.strictEqual(client.petAssistEffect.name, '当康');
+  assert.strictEqual(client.petAssistEffect.visualType, 'generic');
+  client.isInBattle = true;
+
   client.toggleCombatEffects();
   assert.strictEqual(client.combatEffectsEnabled, false);
   assert.strictEqual(localValues.get('battle_effects_enabled'), '0');

@@ -370,6 +370,7 @@ def parse_skills() -> list[dict[str, object]]:
                 "desc": match_one(r'desc\s*=\s*"([^"]*)"', source),
             }
         )
+    result.extend(parse_ancient_skills())
     result.sort(
         key=lambda r: (
             PROF_ORDER[str(r["profession"])],
@@ -377,6 +378,67 @@ def parse_skills() -> list[dict[str, object]]:
             str(r["id"]),
         )
     )
+    return result
+
+
+def parse_ancient_skills() -> list[dict[str, object]]:
+    """Parse the 70 account-bound ancient skills from their authoritative daemon."""
+    source = (ROOT / "gamelib/single/daemons/ancient_skilld.pike").read_text(
+        encoding="utf-8"
+    )
+    skill_block = re.search(
+        r"profession_skills\s*=\s*\(\[(.*?)\]\);", source, re.S
+    )
+    type_block = re.search(
+        r"profession_types\s*=\s*\(\[(.*?)\]\);", source, re.S
+    )
+    weight_match = re.search(r"tier_drop_weights\s*=\s*\(\{([^}]*)\}\)", source)
+    denominator_match = re.search(r"drop_denominator\s*=\s*(\d+)", source)
+    level_match = re.search(r"minimum_npc_level\s*=\s*(\d+)", source)
+    if not all((skill_block, type_block, weight_match, denominator_match, level_match)):
+        raise RuntimeError("Unable to parse ancient skill daemon")
+
+    skill_groups: dict[str, list[tuple[str, str]]] = {}
+    type_groups: dict[str, list[str]] = {}
+    for profession, body in re.findall(
+        r'"([a-z]+)"\s*:\s*\(\{(.*?)\}\)', skill_block.group(1), re.S
+    ):
+        skill_groups[profession] = re.findall(r'"([^"|]+)\|([^"]+)"', body)
+    for profession, body in re.findall(
+        r'"([a-z]+)"\s*:\s*\(\{(.*?)\}\)', type_block.group(1), re.S
+    ):
+        type_groups[profession] = re.findall(r'"([^"]+)"', body)
+
+    weights = [int(value) for value in re.findall(r"\d+", weight_match.group(1))]
+    denominator = int(denominator_match.group(1))
+    minimum_level = int(level_match.group(1))
+    colors = ["青", "蓝", "紫", "靛", "绯", "金", "曜金"]
+    result: list[dict[str, object]] = []
+    for profession in PROF_ORDER:
+        entries = skill_groups.get(profession, [])
+        types = type_groups.get(profession, [])
+        if len(entries) != 7 or len(types) != 7 or len(weights) != 7:
+            raise RuntimeError(f"Ancient skill configuration incomplete: {profession}")
+        for index, ((skill_id, name), skill_type) in enumerate(zip(entries, types)):
+            tier = index + 1
+            result.append(
+                {
+                    "profession": profession,
+                    "id": skill_id,
+                    "name": f"【太古·{tier}】{name}",
+                    "mode": "zhudong",
+                    "type": skill_type,
+                    "cooldown": str(65 + tier * 5),
+                    "gates": [90, 115, 140, 165, 190],
+                    "desc": "拾取即账号绑定、不可交易的太古传承；同房玩家可看到施法显化",
+                    "ancient": True,
+                    "tier": tier,
+                    "tier_color": colors[index],
+                    "weight": weights[index],
+                    "drop_denominator": denominator,
+                    "minimum_npc_level": minimum_level,
+                }
+            )
     return result
 
 
@@ -880,7 +942,7 @@ def build_handbook() -> None:
                 Paragraph(
                     f"覆盖 {len(PROFESSIONS)} 职业 / {len(skills)} 个职业技能对象 / 全部职业技能书路线<br/>"
                     "装备掉落、锻造、熔炼、宝石、转化、动态怪、隐藏大神技能<br/>"
-                    "任务、副本、队伍、VIP突破、自动挂机、九霄界境与玉石经济",
+                    "含31式旧世神技与70式账号绑定太古传承；覆盖任务、副本、队伍、VIP突破与玉石经济",
                     ParagraphStyle(
                         "CoverBox",
                         parent=styles["Body"],
@@ -1785,6 +1847,36 @@ def build_handbook() -> None:
         ],
         [0.7, 1.15, 1.15, 1.15, 1.15],
     )
+    ancient_skills = parse_ancient_skills()
+    ancient_by_prof: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for ancient in ancient_skills:
+        ancient_by_prof[str(ancient["profession"])].append(ancient)
+    guide.h2("7.5 七十式太古绑定传承")
+    guide.callout(
+        "比旧隐藏书再稀有约一百倍",
+        "太古传承只由实际等级90级以上怪物触发独立掉落判定。70式总权重390，分母125000000；总池概率约为旧31本隐藏池的1/100。每职业固定7式，品阶1至7权重依次为12/9/7/5/3/2/1，越高阶越稀有。",
+        "gold",
+    )
+    guide.table(
+        ["职业", "七式太古传承（由常见到极稀有）"],
+        [
+            [
+                PROF_BY_ID[pid]["name"],
+                " / ".join(str(item["name"]) for item in ancient_by_prof[pid]),
+            ]
+            for pid in PROF_ORDER
+        ],
+        [0.75, 4.8],
+        compact=True,
+    )
+    guide.bullets(
+        [
+            "太古书首次拾取即绑定注册账号；同一账号可持有和学习，但不能丢弃、交易、赠送或存入个人/共享仓库。",
+            "学习门槛为人物90级且职业匹配；五段成长门槛为90/115/140/165/190级。",
+            "技能名按七个品阶使用特殊颜色；太古技能释放时使用专属前端动画，同房间可见玩家都会收到显化提示。",
+            "旧31本隐藏书继续保持原掉率、原流通与原学习规则，新太古池不稀释旧池。",
+        ]
+    )
 
     # 8. Shared systems
     guide.h1("8. 覆盖全职业的公共玩法")
@@ -1973,7 +2065,7 @@ def build_handbook() -> None:
             ["被动", "灵智魂按29/32/35/38/41顺序学习，属性实际生效"],
             ["任务", "20级三灵初契；53级四段链最终获得三灵合一书"],
             ["装备", "可用旧职业受限装备，但按角色定位补全属性而不是盲追单一稀有度"],
-            ["隐藏神技", "九个职业各3本、灵医4本，共31本专属神技不在任何商店，只走极低概率掉落"],
+            ["隐藏神技", "旧池31本保持原规则；另有每职业7本、共70本拾取即账号绑定的太古传承，实际等级90+怪极低概率独立掉落"],
             ["镇越仇恨", "嘲讽只锁定同房间存活敌人；死亡、换房与掉线不会留下有效目标"],
             ["镇越护盾", "无队只保护自己；有队只加给同房间存活成员，且不覆盖其他职业Buff"],
             ["镇越任务", "20级初镇山门与53级四段任务按导师、职业和前置严格校验"],
@@ -2005,7 +2097,8 @@ def build_handbook() -> None:
             ["药雾天罗为什么没打到房间里某个玩家？", "先在百草助手检查该玩家的仙/妖/中立阵营开关。PVP只命中已参战目标；队友、好友、同账号角色和未参战路人始终排除。"],
             ["为什么召唤不齐？", "确认人物等级上限、已学虎鹤龟技能、同类型未重复、召唤未死亡/过期。"],
             ["为什么装备穿不上？", "检查背包位置、可装备、等级、职业、力敏智、装备位和黄水玉总量。"],
-            ["为什么70级没掉隐藏书？", "只进入资格池；单本长期均值仍约1/100000，且看怪物实际等级。"],
+            ["为什么70级没掉隐藏书？", "70级只进入旧31本资格池，单本长期均值约1/100000；新太古书要求怪物实际等级90+，且总池约再低100倍。"],
+            ["太古技能书为什么不能交易？", "新70本在拾取时绑定注册账号，并禁用丢弃、交易、赠送和仓库存取；这是与旧31本可流通隐藏书并存的独立规则。"],
             ["高级书为什么今天没有？", "每职业每天只轮换2本；第二天或下次刷新再检查。"],
             ["方士为什么没有专属装备套？", "方士已兼容旧职业限制装备，专属高数值套会造成额外强度跃迁。"],
             ["镇越护盾为什么没有回血？", "它是有额度和时限的伤害吸收，不是治疗；耗尽后剩余伤害继续结算。"],

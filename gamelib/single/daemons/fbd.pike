@@ -21,6 +21,17 @@ private mapping(string:string) fb_room_name = ([]);
 //走出副本后回到的地图，一般在副本入口处,副本名:离开后的地图文件
 private mapping(string:string) fb_leave = ([]);
 
+// 安全入口目录的展示名；未知新副本回退到配置ID，不影响旧CSV兼容。
+private mapping(string:string) fb_display_name = ([
+	"mingfu":"冥府","duwuguiyu":"毒雾鬼域","youlan":"幽澜秘境",
+	"lvxie":"绿血深渊","jiaolong":"蛟龙巢穴","bawangmoku":"霸王魔窟",
+	"lingranzhiyan_h":"灵燃之焰（仙）","hunfeizhijing_h":"魂飞之井（仙）",
+	"posanzhidi_h":"魄散之眼（仙）","lingranzhiyan_m":"灵燃之焰（妖）",
+	"hunfeizhijing_m":"魂飞之井（妖）","posanzhidi_m":"魄散之眼（妖）",
+	"huyaodong":"狐妖洞","youanzhaoze":"幽暗沼泽",
+	"yunshuixianjing":"云水仙境","yunraotiangong":"云绕天宫",
+]);
+
 //副本id:([玩家1id:1，玩家2id:1...])，此mapping记录了当前在副本中的玩家id
 private mapping(string:mapping(string:int)) fb_members = ([]);
 
@@ -194,6 +205,28 @@ string query_fb_leave_room(string|zero fb_name)
 	if(fb_name && fb_leave[fb_name])
 		s_rtn = fb_leave[fb_name];
 	return s_rtn;
+}
+
+mapping(string:string) query_safe_fb_entrance(string|zero fb_name)
+{
+	if(!fb_name || fb_name=="" || !fb_room[fb_name] || !fb_leave[fb_name])
+		return ([]);
+	return ([
+		"id":fb_name,
+		"name":fb_display_name[fb_name] || fb_name,
+		"path":fb_leave[fb_name],
+	]);
+}
+
+array(mapping(string:string)) query_safe_fb_catalog()
+{
+	array(mapping(string:string)) result = ({});
+	foreach(sort(indices(fb_room)),string fb_name){
+		mapping(string:string) entry = query_safe_fb_entrance(fb_name);
+		if(sizeof(entry))
+			result += ({entry});
+	}
+	return result;
 }
 
 void flush_fb_map()
