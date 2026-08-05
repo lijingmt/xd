@@ -369,6 +369,31 @@ void test_wanxiangguiyi_task_grants_ultimate()
 		test_fail("万象归一任务未正确配置");
 }
 
+void test_level20_task_award_item()
+{
+	test_start("20 级无相任务奖励【宝】无相灵符（与灵医药囊对称）");
+	string csv = Stdio.read_file(ROOT+"/gamelib/data/task/task_list.csv");
+	int valid_csv = csv &&
+		search(csv,"taskaward/wuxianglingfu:1")!=-1;
+	// 物品对象能加载、绑定 wuxiang、加三系对称属性
+	object|zero item = 0;
+	int valid_item = 0;
+	mixed err = catch {
+		item = clone(ROOT+"/gamelib/clone/item/taskaward/wuxianglingfu");
+		valid_item = item &&
+			item->query_name_cn() == "【宝】无相灵符" &&
+			item->query_item_canTrade() == 0 &&
+			item->query_item_canSend() == 0 &&
+			search(item->query_item_profeLimit(),"wuxiang") != -1;
+	};
+	if(item)
+		destruct(item);
+	if(valid_csv && valid_item)
+		test_pass();
+	else
+		test_fail("20 级任务奖励物品未正确配置");
+}
+
 void test_all_books_in_catalog()
 {
 	test_start("无相书在 can_buy_book_list.csv 中均有对应条目");
@@ -748,6 +773,7 @@ int main()
 	test_task_and_newbie_recognize_wuxiang();
 	test_initial_equipment_granted();
 	test_wanxiangguiyi_task_grants_ultimate();
+	test_level20_task_award_item();
 	test_static_audit_zero_misses();
 	test_unlock_missing_lists_specifics();
 	test_book_learning_cross_profession_rejected();
