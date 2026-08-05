@@ -72,6 +72,11 @@ mapping(string:array(string)) hidden_skills = ([
 		"wanmuxinchun",
 		"liuhehuichun",
 	}),
+	"wuxiang":({
+		"wuxiangguixu",
+		"wuxianghunyuan",
+		"wuxiangwuji",
+	}),
 ]);
 
 mapping(string:string) profession_cn = ([
@@ -85,6 +90,7 @@ mapping(string:string) profession_cn = ([
 	"zhenyue":"镇越",
 	"tianxiang":"天象",
 	"lingyi":"灵医",
+	"wuxiang":"无相",
 ]);
 
 mapping(string:string) profession_race = ([
@@ -180,15 +186,15 @@ void test_drop_contract_runtime()
 		if(search(actual,book_path)==-1)
 			failed++;
 	}
-	if(ITEMSD->query_hidden_skill_book_count()!=31 ||
+	if(ITEMSD->query_hidden_skill_book_count()!=34 ||
 	   ITEMSD->query_hidden_skill_min_level()!=70 ||
-	   ITEMSD->query_hidden_skill_drop_rate()!=31 ||
+	   ITEMSD->query_hidden_skill_drop_rate()!=34 ||
 	   ITEMSD->can_drop_hidden_skill_book(69,1)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,0)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,1)!=1 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,30)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,31)!=1 ||
-	   ITEMSD->can_drop_hidden_skill_book(70,32)!=0)
+	   ITEMSD->can_drop_hidden_skill_book(70,34)!=1 ||
+	   ITEMSD->can_drop_hidden_skill_book(70,35)!=0)
 		failed++;
 
 	if(npc_source){
@@ -324,7 +330,7 @@ void test_skill_and_book_config_runtime()
 		}
 	}
 
-	if(checked==31 && failed==0)
+	if(checked==34 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf("加载=%d, 配置失败=%d",checked,failed));
@@ -412,8 +418,8 @@ void test_real_book_learning()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && learned==31 && low_rejected==31 &&
-	   profession_rejected==31 && duplicate_preserved==31 && failed==0)
+	if(!err && learned==34 && low_rejected==34 &&
+	   profession_rejected==34 && duplicate_preserved==34 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(
@@ -883,7 +889,7 @@ void test_balance_envelope()
 		}
 	}
 
-	if(resource_checks==155 && failed==0)
+	if(resource_checks==170 && failed==0)
 		test_pass();
 	else
 		test_fail(sprintf(

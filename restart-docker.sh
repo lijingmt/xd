@@ -45,7 +45,8 @@ DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
 
-# 十职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
+# 十一职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
+# 无相的 3 本隐藏书（归墟/混元/无极）在账号解锁该职业后才生效，仍走同一池子。
 HIDDEN_MYTHIC_SKILL_IDS=(
     "wanjianguizong"
     "taiqingjianyu"
@@ -78,6 +79,9 @@ HIDDEN_MYTHIC_SKILL_IDS=(
 	"huimingtianlu"
 	"wanmuxinchun"
 	"liuhehuichun"
+	"wuxiangguixu"
+	"wuxianghunyuan"
+	"wuxiangwuji"
 )
 
 # 太古隐藏传承以服务端目录为唯一事实来源，部署脚本不维护第二份70项名单。

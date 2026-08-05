@@ -151,6 +151,18 @@ void setup_player(string rid, string pid){
 			this_object()->set_think(14);
 			this_object()->set_lunck(0);
 		}
+		else if(pid&&pid=="wuxiang"){
+			// 无相：隐藏全职业。85% 专精均值，三系对称成长；解锁条件见 gamelib/d/init。
+			// 「无相心法」被动让最高属性的一半继续贡献其他属性，但不参与装备/技能前置。
+			kind_cn = "中立";
+			unit = "位";
+			this_object()->set_life(120);
+			this_object()->set_mofa(80);
+			this_object()->set_str(8);
+			this_object()->set_dex(8);
+			this_object()->set_think(8);
+			this_object()->set_lunck(0);
+		}
 	}
 }
 //每次调用reconnect将会传回密码字段进行验证

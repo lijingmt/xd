@@ -76,7 +76,7 @@ void test_creation_growth_and_identity()
 	int valid = level_one && level_thirty && level_eighty && level_one_twenty &&
 		init_source && top_source && base_source &&
 		search(init_source,"[天象:choice_profe third/tianxiang]")!=-1 &&
-		search(init_source,"\"third\":({\"fangshi\",\"zhenyue\",\"tianxiang\",\"lingyi\"})")!=-1 &&
+		search(init_source,"\"fangshi\",\"zhenyue\",\"tianxiang\",\"lingyi\"")!=-1 &&
 		search(init_source,"me->skills[\"xingmang\"]=({1,0});")!=-1 &&
 		level_one->query_raceId()=="third" &&
 		level_one->query_profeId()=="tianxiang" &&

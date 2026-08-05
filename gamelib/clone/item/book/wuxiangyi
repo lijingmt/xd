@@ -1,0 +1,5 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){ name=object_name(this_object()); name_cn="【无】无相医"; unit="本"; picture=name; desc="无相回血术，效率约为方士的 70%\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=130; skill_bname="wuxiangyi"; level_limit=6; profe_read_limit="无相"; need_yushi=2; need_money=130; }
+int read(){ int result=::read(); if(read_flag==0) remove(); return result; }

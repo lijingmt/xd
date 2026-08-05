@@ -36,6 +36,7 @@ protected protected protected void create(){
 	profe_limit["zhenyue"] = "镇越";
 	profe_limit["tianxiang"] = "天象";
 	profe_limit["lingyi"] = "灵医";
+	profe_limit["wuxiang"] = "无相";
 
 	desc += "阵营限制：";
 	string t_race = "";

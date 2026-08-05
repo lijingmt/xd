@@ -864,8 +864,8 @@ protected mapping(string:string) races=([
 //鱼：fish 两栖动物：amphibian 昆虫：bugs
 string profeId;
 read_write(profeId);
-protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","lingyi","humanlike","beast","bird","fish","amphibian","bugs","dog"});
-protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","灵医","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
+protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","lingyi","wuxiang","humanlike","beast","bird","fish","amphibian","bugs","dog"});
+protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","灵医","无相","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
 protected mapping(string:string) profes=([
 		profeKindList[0]:profeNameList[0],
 		profeKindList[1]:profeNameList[1],
@@ -883,7 +883,8 @@ protected mapping(string:string) profes=([
 		profeKindList[13]:profeNameList[13],
 		profeKindList[14]:profeNameList[14],
 		profeKindList[15]:profeNameList[15],
-		profeKindList[16]:profeNameList[16]
+		profeKindList[16]:profeNameList[16],
+		profeKindList[17]:profeNameList[17]
 		]);
 ////////////////阵营/////////////////////////////////////////////////
 string query_race_cn(string rid){

@@ -185,6 +185,12 @@ void set_att_by_level(){
 		this_object()->set_dex(6+(int)(level_now*0.7));
 		this_object()->set_think(14+(int)(level_now*2.5));
 	}
+	if(this_object()->query_profeId()=="wuxiang"){//无相 - 隐藏全职业，三系对称成长
+		// 85% 专精均值：力量/敏捷/智力三系对称，每级 +1.5；保留 8 点起步
+		this_object()->set_str(8+(int)(level_now*1.5));
+		this_object()->set_dex(8+(int)(level_now*1.5));
+		this_object()->set_think(8+(int)(level_now*1.5));
+	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());
 	this_object()->set_mofa(this_object()->query_mofa_max());

@@ -16,6 +16,7 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/zhenyue_teacher.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/tianxiang_teacher.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/lingyi_teacher.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/wuxiang_teacher.pike"}));
 }
 int is_bedroom()
 {

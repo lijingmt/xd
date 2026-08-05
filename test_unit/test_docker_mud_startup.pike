@@ -134,6 +134,7 @@ void test_item_sync_contract()
 		"wanshanchaogong","buzhouzhenji","tiandichengbi",
 		"xinghezhuiluo","zhoutianjingzhi","wanxiangxingbi",
 		"cixinpudu","huimingtianlu","wanmuxinchun","liuhehuichun",
+		"wuxiangguixu","wuxianghunyuan","wuxiangwuji",
 	});
 
 	if(source){
@@ -149,7 +150,7 @@ void test_item_sync_contract()
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
 		   "$shared_item_dir/book/huling1")!=-1 &&
-	   hidden_count==31 &&
+	   hidden_count==34 &&
 	   search(source,"load_ancient_hidden_skill_ids")!=-1 &&
 	   search(source,"ANCIENT_SKILL_CATALOG")!=-1 &&
 	   search(source,"ANCIENT_HIDDEN_SKILL_IDS")!=-1 &&
@@ -168,7 +169,7 @@ void test_item_sync_contract()
 	   sync_position<run_position)
 		test_pass();
 	else
-		test_fail("item必须同步到实际挂载目录，并校验huling1、31套原隐藏传承及70套太古传承");
+		test_fail("item必须同步到实际挂载目录，并校验huling1、34套原隐藏传承及70套太古传承");
 }
 
 void test_neutral_profession_images_deploy_contract()

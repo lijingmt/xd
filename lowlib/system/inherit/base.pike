@@ -134,6 +134,9 @@ string query_name_cn(void|int true_name){
 			if(this_object()["query_profeId"] &&
 			   this_object()->query_profeId()=="lingyi")
 				return "无名灵医";
+			if(this_object()["query_profeId"] &&
+			   this_object()->query_profeId()=="wuxiang")
+				return "无名无相";
 			return "无名方士";
 		}
 		else
