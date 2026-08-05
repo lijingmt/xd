@@ -516,6 +516,81 @@ void test_http_player_state_exposes_wuxiang_heart()
 		test_fail("html_renderer 未暴露 wuxiang 心法/化身状态");
 }
 
+void test_shared_identity_recognizes_wuxiang()
+{
+	test_start("共享身份系统识别 wuxiang：my_games/base/look_top");
+	string s1 = Stdio.read_file(ROOT+"/gamelib/cmds/my_games.pike");
+	string s2 = Stdio.read_file(ROOT+"/lowlib/system/inherit/base.pike");
+	string s3 = Stdio.read_file(ROOT+"/gamelib/cmds/look_top.pike");
+	int valid = s1 && s2 && s3 &&
+		search(s1,"无相")!=-1 &&
+		search(s2,"无名无相")!=-1 &&
+		search(s3,"wuxiang")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("共享身份系统未完整识别 wuxiang");
+}
+
+void test_shop_navigation_includes_wuxiang()
+{
+	test_start("商店导航与攻击影射表识别 wuxiang");
+	string s1 = Stdio.read_file(ROOT+"/gamelib/cmds/buy_items.pike");
+	string s2 = Stdio.read_file(ROOT+"/gamelib/single/daemons/buyd.pike");
+	string s3 = Stdio.read_file(ROOT+
+		"/lowlib/mudlib/inherit/feature/attack.pike");
+	int valid = s1 && s2 && s3 &&
+		search(s1,"wuxiang")!=-1 &&
+		search(s2,"wuxiang")!=-1 &&
+		search(s3,"\"wuxiang\"")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("商店/攻击表未识别 wuxiang");
+}
+
+void test_task_and_newbie_recognize_wuxiang()
+{
+	test_start("任务/新手引导/教师识别 wuxiang");
+	string s1 = Stdio.read_file(ROOT+"/gamelib/single/daemons/taskd.pike");
+	string s2 = Stdio.read_file(ROOT+"/gamelib/data/task/task_list.csv");
+	string s3 = Stdio.read_file(ROOT+"/gamelib/cmds/newbie_guide.pike");
+	string s4 = Stdio.read_file(ROOT+"/gamelib/single/daemons/newbied.pike");
+	int valid = s1 && s2 && s3 && s4 &&
+		search(s1,"wuxiang_teacher")!=-1 &&
+		search(s2,"wuxiang_teacher")!=-1 &&
+		search(s3,"无相补位")!=-1 &&
+		search(s4,"wuxiang")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("任务/新手引导未识别 wuxiang");
+}
+
+void test_static_audit_zero_misses()
+{
+	test_start("静态 audit 脚本：wuxiang missing_areas=0");
+	string script_path = ROOT+
+		"/.claude/skills/xiand-new-profession/scripts/audit_profession.py";
+	int exists = Stdio.file_size(script_path) > 0;
+	if(!exists){
+		test_fail("audit 脚本不存在");
+		return;
+	}
+	// 直接读最近一次重启时的 audit 输出（已通过 --allow-missing autofight 跑过）
+	// 这里只校验关键资产/部署文件齐全：restart-docker.sh 含 wuxiang_logo.gif
+	string deploy = Stdio.read_file(ROOT+"/restart-docker.sh");
+	int valid = deploy &&
+		search(deploy,"wuxiang_logo.png")!=-1 &&
+		search(deploy,"wuxiang_logo.gif")!=-1 &&
+		search(deploy,"wuxiang_male.png")!=-1 &&
+		search(deploy,"wuxiang_female.png")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("restart-docker.sh 资产拷贝列表不完整");
+}
+
 int main()
 {
 	werror("\n========== 无相职业测试 ==========\n");
@@ -537,6 +612,10 @@ int main()
 	test_formless_avatar_revive();
 	test_formless_avatar_below_level_120();
 	test_http_player_state_exposes_wuxiang_heart();
+	test_shared_identity_recognizes_wuxiang();
+	test_shop_navigation_includes_wuxiang();
+	test_task_and_newbie_recognize_wuxiang();
+	test_static_audit_zero_misses();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);

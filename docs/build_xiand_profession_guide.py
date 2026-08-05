@@ -468,6 +468,9 @@ def parse_ancient_skills() -> list[dict[str, object]]:
     for profession in PROF_ORDER:
         entries = skill_groups.get(profession, [])
         types = type_groups.get(profession, [])
+        # 隐藏职业（如无相）不进入太古传承池；只跳过、不强制要求 7 个。
+        if not entries and not types:
+            continue
         if len(entries) != 7 or len(types) != 7 or len(weights) != 7:
             raise RuntimeError(f"Ancient skill configuration incomplete: {profession}")
         for index, ((skill_id, name), skill_type) in enumerate(zip(entries, types)):

@@ -413,6 +413,12 @@ copy_neutral_profession_images_to_container() {
 		"lingyi_female.png"
 		"lingyi_male.gif"
 		"lingyi_female.gif"
+		"wuxiang_logo.png"
+		"wuxiang_male.png"
+		"wuxiang_female.png"
+		"wuxiang_logo.gif"
+		"wuxiang_male.gif"
+		"wuxiang_female.gif"
     )
     local image_name
     local source_image

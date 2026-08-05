@@ -155,6 +155,17 @@ mapping(string:mapping(string:mixed)) profession_config = ([
 		"practice":"active",
 		"practice_cn":"受伤后施放回春；未组队时应治疗自己并凝成药契",
 	]),
+	"wuxiang":([
+		"name":"无相",
+		"starter":"wuxiangquan",
+		"starter_cn":"无相拳",
+		"level":5,
+		"book":"book/wuxiangjue",
+		"book_cn":"【无】无相诀",
+		"skill":"wuxiangjue",
+		"practice":"active",
+		"practice_cn":"先吃无相拳拉怪，5级学无相诀后用法术收尾，观察心法把最高项的一半叠加到另外两系",
+	]),
 ]);
 
 mapping(string:mixed) query_profession_config(object player)

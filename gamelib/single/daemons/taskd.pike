@@ -430,6 +430,8 @@ int is_growth_task_teacher(object player,object npc)
 			return npcname=="tianxiang_teacher";
 		case "lingyi":
 			return npcname=="lingyi_teacher";
+		case "wuxiang":
+			return npcname=="wuxiang_teacher";
 	}
 	return 0;
 }
@@ -586,6 +588,7 @@ int is_growth_task_profession(string profession_id)
 		case "zhenyue":
 		case "tianxiang":
 		case "lingyi":
+		case "wuxiang":
 			return 1;
 	}
 	return 0;

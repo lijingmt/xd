@@ -197,6 +197,27 @@ string query_lingyi_growth_guide(object player)
 	return result;
 }
 
+string query_wuxiang_growth_guide(object player)
+{
+	string result = "";
+	int level = player->query_level();
+	result += "【无相补位】\n";
+	result += "无相拳是入门近战；5级无相诀补法术输出；10级无相医让自己能扛线。\n";
+	if(level<15)
+		result += "○ 15级无相盾、20级无相吼提供短时减伤与全属性爆发。\n";
+	else
+		result += "√ 无相盾吸收一次伤害；无相吼使全属性短时上升，配合心法爆发。\n";
+	if(level<35)
+		result += "○ 30/35级解锁无相剑/无相焰，进入双系轮转。\n";
+	else
+		result += "√ 物理与法术双修；同房群攻用无相焰覆盖敌对目标。\n";
+	result += "无相心法：力量/敏捷/智力的最高项会按 50% 加成另外两系，单次结算生效，不写入存档。\n";
+	result += "120级解锁无相化身：每天一次免疫致命伤，恢复25%生命；自杀、切磋、城战不触发。\n";
+	result += "实际等级70以上怪物才可能掉落无相·归墟/混元/无极三本大神传承。\n";
+	result += "[购买无相技能书:buy_items book wuxiang]|[查看技能:myskills]|[队伍:my_term]|[每级历练:growth_task]\n";
+	return result;
+}
+
 string render_guide(object player)
 {
 	string result = "";
@@ -230,6 +251,8 @@ string render_guide(object player)
 		result += query_tianxiang_growth_guide(player);
 	else if(player->query_profeId()=="lingyi")
 		result += query_lingyi_growth_guide(player);
+	else if(player->query_profeId()=="wuxiang")
+		result += query_wuxiang_growth_guide(player);
 	else
 		result += "[购买本职业技能书:buy_items book "+
 			player->query_profeId()+"]|[查看技能:myskills]\n";
@@ -370,6 +393,13 @@ string query_profession_roadmap(string profession)
 			result += "46级药雾天罗群攻敌对目标，并可定制攻击仙、妖、中立玩家；50级玉露治疗同房队伍；53级完成四段职业任务获得百草诀；60级甘霖群疗并净化；70级续命消耗药契强化急救；80级起可学习四本掉落限定大神传承。\n";
 			result += "任意五门技能满段解锁百炼复苏，八门/十二门时每日次数提升到2/3次。\n";
 			result += "[灵医技能书:buy_items book lingyi]|[查看技能:myskills]|[队伍:my_term]\n";
+			break;
+		case "wuxiang":
+			result += "无相：1级无相拳、5级无相诀、10级无相医兼顾近战法术治疗三系；15级无相盾、20级无相吼提供短时容错与爆发。\n";
+			result += "30/35级无相剑/焰形成物法双修；40级无相净解一项负面；50级无相壁是团队短盾；55级无相唤出弱版灵兽；60级无相雨群体回血。\n";
+			result += "70/85级无相击/灭是高阶物法输出；100级万象归一短时爆发；120级无相化身每日免疫一次致命伤。\n";
+			result += "无相心法让最高属性的一半加成另外两系；实际等级70以上怪物才可能掉落归墟/混元/无极三本大神传承。\n";
+			result += "[无相技能书:buy_items book wuxiang]|[查看技能:myskills]|[队伍:my_term]\n";
 			break;
 	}
 	return result;

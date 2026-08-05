@@ -43,6 +43,24 @@ int main(string|zero arg)
 		s += "[灵医济世路线:newbie_guide roadmap]|[队伍:my_term]\n";
 		s += "[百草助手（技能手动使用永久免费）:profession_assistant]\n";
 	}
+	if(this_player()->query_profeId()=="wuxiang"){
+		// 无相心法：展示当前最高项；无相化身：120 级后显示今日剩余次数
+		int s_v = this_player()->get_cur_str();
+		int d_v = this_player()->get_cur_dex();
+		int t_v = this_player()->get_cur_think();
+		string highest = s_v>=d_v && s_v>=t_v ? "力量" :
+			(d_v>=s_v && d_v>=t_v ? "敏捷" : "智力");
+		s += "【无相心法】当前最高项："+highest+
+			"（结算时其 50% 加成另外两系；不入存档、不参与装备门槛）\n";
+		if(this_player()->query_level() >= 120){
+			int used = this_player()->query_wuxiang_avatar_used();
+			s += "【无相化身】今日剩余 "+(1-used)+
+				"/1 次（致命伤自动恢复 25% 生命；自杀/切磋/城战不触发）\n";
+		}
+		else
+			s += "【无相化身】120 级解锁：每日一次免疫致命伤\n";
+		s += "[无相补位路线:newbie_guide roadmap]|[队伍:my_term]\n";
+	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改
 	if(this_player()->can_spec == 1){
