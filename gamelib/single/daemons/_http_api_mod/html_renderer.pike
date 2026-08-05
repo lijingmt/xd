@@ -1260,6 +1260,37 @@ mapping query_player_state(object player)
             ]) });
         }
         result["active_buffs"] = active_buffs;
+
+        // 无相专属：心法 + 化身状态。前端用于战斗小窗标签展示。
+        if(player->query_profeId() == "wuxiang"){
+            // 找出当前三系最高项给前端展示
+            int s = (int)player->query_str();
+            int d = (int)player->query_dex();
+            int t = (int)player->query_think();
+            string highest = s>=d && s>=t ? "力量" :
+                d>=s && d>=t ? "敏捷" : "智力";
+            result["wuxiang_heart_highest"] = highest;
+            // 化身次数（120 级后才有）
+            if((int)player->query_level() >= 120){
+                int avatar_used = 0;
+                mixed used_val = player["/plus/wuxiang/avatar_used"];
+                if(used_val)
+                    avatar_used = (int)used_val;
+                string day_key = "";
+                mixed dk = player["/plus/wuxiang/avatar_day_key"];
+                if(dk)
+                    day_key = (string)dk;
+                string today = "";
+                mixed avatar_fn = player->query_wuxiang_avatar_day_key;
+                if(functionp(avatar_fn))
+                    today = player->query_wuxiang_avatar_day_key();
+                result["wuxiang_avatar"] = ([
+                    "unlocked":1,
+                    "used_today":(day_key==today ? avatar_used : 0),
+                    "remaining_today":(day_key==today ? (1-avatar_used) : 1),
+                ]);
+            }
+        }
     };
 
     if(err) {

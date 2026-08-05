@@ -652,6 +652,103 @@ int try_lingyi_auto_revive(object killer){
 	return 1;
 }
 
+// 无相心法（被动）：基于基础三系属性，让最高项的 50%
+// 加成给非最高项。仅在结算（query_str/dex/think）时即时计算；不写入 base_save、
+// 不参与装备穿戴门槛、不参与技能前置。最高项本身不加成，避免超过专精职业上限。
+int query_wuxiang_heart_bonus(string attr){
+	int s_v;
+	int d_v;
+	int t_v;
+	int highest;
+	int current;
+	if(!functionp(this_object()->query_profeId) ||
+	   this_object()->query_profeId()!="wuxiang")
+		return 0;
+	s_v = _str > 0 ? _str : 0;
+	d_v = _dex > 0 ? _dex : 0;
+	t_v = _think > 0 ? _think : 0;
+	highest = s_v;
+	if(d_v > highest)
+		highest = d_v;
+	if(t_v > highest)
+		highest = t_v;
+	if(highest <= 0)
+		return 0;
+	if(attr=="str")
+		current = s_v;
+	else if(attr=="dex")
+		current = d_v;
+	else if(attr=="think")
+		current = t_v;
+	else
+		return 0;
+	if(current >= highest)
+		return 0;
+	return highest/2;
+}
+string query_wuxiang_avatar_day_key()
+{
+	string now = ctime(time());
+	string mon = now[4..6];
+	string day = now[8..9];
+	if(day[0]==' ')
+		day = day[1..];
+	return mon+day;
+}
+int query_wuxiang_avatar_used()
+{
+	string day_key = query_wuxiang_avatar_day_key();
+	if((string)this_object()["/plus/wuxiang/avatar_day_key"] != day_key)
+		return 0;
+	return (int)this_object()["/plus/wuxiang/avatar_used"];
+}
+int try_wuxiang_avatar_revive(object killer){
+	object env = environment(this_object());
+	int life_restore;
+	if(query_profeId()!="wuxiang" || !this_object()->is("player") ||
+	   !killer || !objectp(killer) || !env ||
+	   environment(killer)!=env || this_object()->get_cur_life()>0 ||
+	   !LOGICALZONED->can_action("combat",this_object(),killer) ||
+	   this_object()->is("ghost") ||
+	   this_object()->sucide || this_object()["/tmp/wuxiang/avatar_running"])
+		return 0;
+	if((int)this_object()->query_level() < 120)
+		return 0;
+	if(functionp(env->query_room_type) && env->query_room_type()=="city")
+		return 0;
+	if(functionp(killer->is) && killer->is("player") &&
+	   this_object()->kill_flag==0 && killer->kill_flag==0)
+		return 0;
+	if(query_wuxiang_avatar_used() >= 1)
+		return 0;
+	this_object()["/tmp/wuxiang/avatar_running"] = 1;
+	this_object()["/plus/wuxiang/avatar_day_key"] =
+		query_wuxiang_avatar_day_key();
+	this_object()["/plus/wuxiang/avatar_used"] =
+		query_wuxiang_avatar_used()+1;
+	this_object()->_clean_fight();
+	if(killer && objectp(killer) && functionp(killer->clean_targets))
+		killer->clean_targets(this_object());
+	life_restore = this_object()->query_life_max()*25/100;
+	if(life_restore<1)
+		life_restore = 1;
+	this_object()->set_life(life_restore);
+	this_object()->m_delete_foruser("/tmp/wuxiang/avatar_running");
+	catch {
+		foreach(all_inventory(env),object observer){
+			if(observer && functionp(observer->is) && observer->is("player"))
+				tell_object(observer,"【无】"+this_object()->query_name_cn()+
+					"触发无相化身，在死亡前化险为夷（今日已用完）。\n");
+		};
+	};
+	catch {
+		string now = ctime(time());
+		Stdio.append_file(ROOT+"/log/wuxiang_avatar.log",
+			now[0..sizeof(now)-2]+"|"+this_object()->query_name()+
+			"|killer="+killer->query_name()+"\n");
+	};
+	return 1;
+}
 void reset_buff(){
 	clean_buff("buff");
 	clean_buff("buff2");
@@ -1192,7 +1289,7 @@ int query_str(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_str()+query_base_all();
+	return result+query_base_str()+query_base_all()+query_wuxiang_heart_bonus("str");
 }
 void set_think(int think){
 	_think = think;
@@ -1220,7 +1317,7 @@ int query_think(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_think()+query_base_all();
+	return result+query_base_think()+query_base_all()+query_wuxiang_heart_bonus("think");
 }
 void set_dex(int dex){
 	_dex = dex;
@@ -1248,7 +1345,7 @@ int query_dex(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_dex()+query_base_all();
+	return result+query_base_dex()+query_base_all()+query_wuxiang_heart_bonus("dex");
 }
 //add by calvin 0409/////////////////////////////////////////
 //被动技能增加的属性的永久快照 防御力defend,命中hitte,爆击baoji,闪避dodge

@@ -247,6 +247,24 @@ MYTHIC_SKILLS = [
         "role": "药契强化全队治疗与净化",
         "usage": "治疗自己与同房、同逻辑区、同队的全部存活队友，并为每人净化一项负面状态。施放时消耗全部药契，每层增强15%，每人单次最高恢复35%生命；75秒冷却使它成为团队危机的压轴手段。",
     },
+    {
+        "profession": "wuxiang",
+        "id": "wuxiangguixu",
+        "role": "无相心法极效·短时全属性爆发",
+        "usage": "主动激发心法，使无相获得最高项 50% 加成其他两系的额外效果叠加到 60%；适合 Boss 关键阶段爆发。120 秒冷却确保它只在战斗高潮使用。",
+    },
+    {
+        "profession": "wuxiang",
+        "id": "wuxianghunyuan",
+        "role": "双倍暴击物理连击",
+        "usage": "无相版连击强化，单段伤害低于剑仙的剑意类爆发但附带双倍暴击概率；80 级解锁后可在常规轮转中作为爆发技能。",
+    },
+    {
+        "profession": "wuxiang",
+        "id": "wuxiangwuji",
+        "role": "群体回血 + 净化",
+        "usage": "覆盖同房同队的回血并附带按优先级解一项负面；治疗强度低于灵医的六合回春但胜在无相单角色补位万金油。",
+    },
 ]
 
 MYTHIC_THEMES = {
@@ -260,6 +278,7 @@ MYTHIC_THEMES = {
     "zhenyue": "万山守御",
     "tianxiang": "万象星轨",
     "lingyi": "百草回春",
+    "wuxiang": "无相万象",
 }
 
 PROF_BY_ID = {item["id"]: item for item in PROFESSIONS}
@@ -365,6 +384,7 @@ def add_cover(
         ROOT / "images/zhenyue_logo.png",
         ROOT / "images/tianxiang_logo.png",
         ROOT / "images/lingyi_logo.png",
+        ROOT / "images/wuxiang_logo.png",
     ]
     icon_table = Table(
         [[Image(str(path), width=24 * mm, height=24 * mm) for path in icon_paths]],
@@ -710,6 +730,8 @@ def build_skill_guide() -> None:
     ]:
         profession = PROF_BY_ID[profession_id]
         skill_count_cn = "四" if profession_id == "lingyi" else "三"
+        if profession_id == "wuxiang":
+            skill_count_cn = "三"
         guide.h2(
             f"4.{section_number} {profession['name']}{skill_count_cn}大神技 - {MYTHIC_THEMES[profession_id]}"
         )

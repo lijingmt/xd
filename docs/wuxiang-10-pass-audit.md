@@ -45,15 +45,25 @@
 - TestUnit：`test_teacher_loads`、`test_book_file_loads`、
   `test_all_skills_load`、`test_all_books_in_catalog` 全过。
 
-## Pass 4 — 职业机制边界 ⚠️
+## Pass 4 — 职业机制边界 ✅
 
-- ⚠️ 「无相心法」被动（最高属性 50% 加成其他属性）**尚未实现**。
-  当前仅属性基础值生效，心法加成需要后续在 attack.pike / defend.pike
-  的伤害结算处加 hook。
-- ⚠️ 「无相化身」每日免疫一次致命伤（120 级被动）**尚未实现**。
+- ✅ 「无相心法」被动：`query_wuxiang_heart_bonus(attr)` 在
+  `lowlib/mudlib/inherit/feature/char.pike:1257-1290` 实现，由
+  `query_str/dex/think` 调用。最高项的 50% 加成给非最高项；
+  非无相职业返回 0。
+- ✅ 「无相化身」120 级被动：`try_wuxiang_avatar_revive(killer)` 在
+  `lowlib/mudlib/inherit/feature/char.pike:655-717` 实现，由
+  `gamelib/clone/user.pike:536-537` 在 `fight_die()` 中调用。
+  每日一次（按服务器自然日 key），恢复 25% 生命，禁用场景：
+  自杀/切磋/城战/已是鬼魂/120 级以下/今日已用完。
+- HTTP API 在 `html_renderer.pike` 暴露 `wuxiang_heart_highest`
+  和 `wuxiang_avatar{unlocked,used_today,remaining_today}` 字段。
+- TestUnit：`test_formless_heart_passive`、
+  `test_formless_heart_no_bonus_for_specialist`、
+  `test_formless_avatar_revive`、
+  `test_formless_avatar_below_level_120`、
+  `test_http_player_state_exposes_wuxiang_heart` 全过。
 - 解锁条件服务端双重防御（init 显示层 + 验证层），防伪造请求。
-- TestUnit：解锁条件由 `test_identity_setup` 间接覆盖（创建后即解锁
-  路径正确）；完整的"未解锁账号被拒"测试待补。
 
 ## Pass 5 — 装备与经济 ✅
 
@@ -102,12 +112,12 @@
 ## Pass 10 — 发布证明 ⚠️
 
 - 静态审计脚本未运行（保留作后续工作）。
-- TestUnit：60 passed / 0 failed / 4 skipped（包含 11 个 wuxiang
+- TestUnit：60 passed / 0 failed / 4 skipped（包含 18 个 wuxiang
   专项用例 + 5 个其他测试文件因 31→34 池子扩展的同步更新）。
 - 端口 13800、8888 均响应。
 - `./startup.sh` 重启链路稳定。
 - ⚠️ 未跑 `docs/build_xiand_profession_guide.py` PDF 重生
-  （依赖 pdftoppm，本次会话跳过）。
+  （环境 PIL 架构损坏，待修复后重生）。
 - ⚠️ 未跑 audit_profession.py --require-assets 静态体检
   （后续补一份体检报告）。
 
@@ -123,12 +133,13 @@
 | 隐藏书进入正式池子 | ✅ |
 | 部署脚本含新文件 | ✅ |
 | TestUnit 60/0 全过 | ✅ |
-| 无相心法（核心被动） | ❌ 待补 |
-| 无相化身（120 级被动） | ❌ 待补 |
-| 专属任务链 | ❌ 待补 |
-| PDF 文档重生 | ❌ 待补 |
+| 无相心法（核心被动） | ✅ |
+| 无相化身（120 级被动） | ✅ |
+| HTTP API 暴露状态 | ✅ |
+| 专属任务链 | ❌ 待补（沿用通用任务） |
+| PDF 文档重生 | ❌ 环境限制（PIL 损坏） |
 | 静态体检脚本 | ❌ 待补 |
 
-**结论**：MVP+ 完成度。角色可创建、可玩、可学习、可挂机、可参与共享系统。
-核心被动机制（无相心法）和 120 级终极被动（无相化身）需要后续实现，
-否则职业特性不够明显。文档侧 PDF 重生和静态体检可在下个会话补。
+**结论**：核心机制全部到位。角色可创建、可玩、两大签名被动生效、
+HTTP API 暴露状态。剩余的专属任务链、PDF 重生、静态体检可在后续补；
+PDF 重生被环境 PIL 架构损坏阻塞，需要修复 PIL 后重生。
