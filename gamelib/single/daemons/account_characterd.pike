@@ -32,7 +32,7 @@ private mapping(string:mapping(string:mixed)) recent_forced_logouts = ([]);
 private mapping(string:array(string)) valid_professions = ([
 	"human":({"jianxian","yushi","zhuxian"}),
 	"monst":({"kuangyao","wuyao","yinggui"}),
-	"third":({"fangshi","zhenyue","tianxiang","lingyi"}),
+	"third":({"fangshi","zhenyue","tianxiang","lingyi","wuxiang"}),
 ]);
 
 private mapping(string:string) race_names = ([
@@ -57,6 +57,75 @@ private mapping(string:string) profession_names = ([
 int query_character_limit()
 {
 	return ACCOUNT_CHARACTER_LIMIT;
+}
+
+// 无相解锁判定：账号下 10 个基础职业均至少有一个角色达到 120 级。
+// 输入是 query_account_characters 的返回值，避免重复查询。
+// 同一函数被 gamelib/d/init 的 query_wuxiang_unlocked_for 和
+// create_character 共用，保证两条创建路径判定一致。
+private array(string) wuxiang_required_professions = ({
+	"jianxian","yushi","zhuxian",
+	"kuangyao","wuyao","yinggui",
+	"fangshi","zhenyue","tianxiang","lingyi",
+});
+
+int query_wuxiang_unlocked_from_summary(mapping(string:mixed) data)
+{
+	mapping(string:int) prof_max_level;
+	array(mapping(string:mixed)) characters;
+	if(!data || (int)data["ok"] != 1)
+		return 0;
+	characters = (array(mapping(string:mixed)))data["characters"];
+	if(!characters || sizeof(characters) == 0)
+		return 0;
+	prof_max_level = ([]);
+	foreach(characters, mapping entry){
+		string prof = (string)entry["profession_id"];
+		int lvl = (int)entry["level"];
+		if(prof && lvl >= 120 &&
+		   (!prof_max_level[prof] || lvl > prof_max_level[prof]))
+			prof_max_level[prof] = lvl;
+	}
+	foreach(wuxiang_required_professions, string p)
+		if(!prof_max_level[p])
+			return 0;
+	return 1;
+}
+
+string query_wuxiang_missing_from_summary(mapping(string:mixed) data)
+{
+	mapping(string:int) prof_max_level;
+	array(mapping(string:mixed)) characters;
+	array(string) missing = ({});
+	mapping(string:string) cn_names = ([
+		"jianxian":"剑仙","yushi":"羽士","zhuxian":"诛仙",
+		"kuangyao":"狂妖","wuyao":"巫妖","yinggui":"影鬼",
+		"fangshi":"方士","zhenyue":"镇越","tianxiang":"天象",
+		"lingyi":"灵医",
+	]);
+	if(!data || (int)data["ok"] != 1)
+		return "剑仙、羽士、诛仙、狂妖、巫妖、影鬼、方士、镇越、天象、灵医（账号查询失败）";
+	characters = (array(mapping(string:mixed)))data["characters"];
+	prof_max_level = ([]);
+	if(characters)
+		foreach(characters, mapping entry){
+			string prof = (string)entry["profession_id"];
+			int lvl = (int)entry["level"];
+			if(prof && (!prof_max_level[prof] || lvl > prof_max_level[prof]))
+				prof_max_level[prof] = lvl;
+		}
+	foreach(wuxiang_required_professions, string p){
+		int lvl = prof_max_level[p];
+		if(lvl >= 120)
+			continue;
+		if(lvl > 0)
+			missing += ({ cn_names[p]+"（"+lvl+"/120）" });
+		else
+			missing += ({ cn_names[p]+"（未创建）" });
+	}
+	if(sizeof(missing) == 0)
+		return "";
+	return missing*"、";
 }
 
 /**
@@ -644,6 +713,16 @@ mapping(string:mixed) create_character(string requested_id,
 	if(!valid_profession_pair(race_id,profession_id)){
 		result["message"] = "阵营与职业组合无效。";
 		return result;
+	}
+	// 无相是隐藏职业：除了阵营/职业组合合法，还要求账号下 10 个基础职业
+	// 均至少有一个角色达到 120 级。未达标时返回具体缺口，方便前端展示。
+	if(profession_id=="wuxiang" && account_id!=""){
+		mapping wu_data = query_account_characters(account_id);
+		if(!(int)wu_data["ok"] || !query_wuxiang_unlocked_from_summary(wu_data)){
+			string missing = query_wuxiang_missing_from_summary(wu_data);
+			result["message"] = "【无相·未解锁】需要账号下 10 个职业均达到 120 级。当前缺口："+missing;
+			return result;
+		}
 	}
 	if(!valid_userid(account_id)){
 		result["message"] = "账号无效。";
