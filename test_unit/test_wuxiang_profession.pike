@@ -348,6 +348,37 @@ void test_all_books_in_catalog()
 		test_fail("缺书："+missing_ids);
 }
 
+void test_hidden_pool_extended()
+{
+	test_start("隐藏池扩展为 34 本且含无相 3 本（pool 与分子同步）");
+	object itemsd = (object)(ROOT+"/gamelib/single/daemons/itemsd.pike");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		int count = itemsd->query_hidden_skill_book_count();
+		int rate = itemsd->query_hidden_skill_drop_rate();
+		// 池子和分子必须同步：34 本对应 34/100000
+		valid = count == 34 && rate == 34;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	// 验证 3 本无相隐藏书都在池子里
+	int found = 0;
+	if(!err)
+		for(int i = 0; i < (itemsd ? itemsd->query_hidden_skill_book_count() : 0); i++){
+			string b = itemsd->query_hidden_skill_book(i);
+			if(search(b,"wuxiang") != -1)
+				found++;
+		}
+	if(!err && valid && found == 3)
+		test_pass();
+	else
+		test_fail(sprintf("隐藏池错误: count=%d rate=%d found=%d %s",
+			itemsd ? itemsd->query_hidden_skill_book_count() : -1,
+			itemsd ? itemsd->query_hidden_skill_drop_rate() : -1,
+			found,error_desc));
+}
+
 int main()
 {
 	werror("\n========== 无相职业测试 ==========\n");
@@ -363,6 +394,7 @@ int main()
 	test_vue_profession_list_includes_wuxiang();
 	test_all_skills_load();
 	test_all_books_in_catalog();
+	test_hidden_pool_extended();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);
