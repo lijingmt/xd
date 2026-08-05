@@ -63,6 +63,7 @@ object create_profession_player(string name,string profession,int level)
 		"zhenyue":"third",
 		"tianxiang":"third",
 		"lingyi":"third",
+		"wuxiang":"third",
 	]);
 	mapping(string:string) starters = ([
 		"jianxian":"qieyunzhan",
@@ -75,6 +76,7 @@ object create_profession_player(string name,string profession,int level)
 		"zhenyue":"yueji",
 		"tianxiang":"xingmang",
 		"lingyi":"lingzhen",
+		"wuxiang":"wuxiangquan",
 	]);
 	object player = clone(GAMELIB_USER);
 	string race = races[profession];

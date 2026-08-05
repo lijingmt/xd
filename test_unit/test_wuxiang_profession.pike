@@ -288,10 +288,16 @@ void test_vue_profession_list_includes_wuxiang()
 
 void test_all_skills_load()
 {
-	test_start("无相全部 8 个技能文件加载且 skill_type 含 wuxiang");
+	test_start("无相全部 14 个技能文件加载且 skill_type 含 wuxiang");
 	array(string) skill_ids = ({
+		// 8 个原技能
 		"wuxiangquan","wuxiangjue","wuxiangyi","wuxiangdun",
-		"wuxianghou","wuxiangjian","wuxiangyan","wanxiangguiyi",
+		"wuxianghou","wuxiangjian","wuxiangyan",
+		// 6 个补齐技能
+		"wuxiangjing","wuxiangbi","wuxianghuan",
+		"wuxiangyu","wuxiangji","wuxiangmie",
+		// 终极
+		"wanxiangguiyi",
 	});
 	int loaded = 0;
 	int failed = 0;
@@ -306,7 +312,6 @@ void test_all_skills_load()
 			failed_ids += sid+" ";
 		}
 		else{
-			// 不要 destruct：技能对象是 MUD_SKILLSD 缓存共享的，会影响后续测试。
 			if(search(sk->skill_type,"wuxiang") != -1)
 				loaded++;
 			else{
@@ -319,6 +324,49 @@ void test_all_skills_load()
 		test_pass();
 	else
 		test_fail(sprintf("加载失败 %d/%d：%s",failed,sizeof(skill_ids),failed_ids));
+}
+
+void test_initial_equipment_granted()
+{
+	test_start("无相创建时获得无相袍和无相剑");
+	object player = create_runtime_player("__testunit_wuxiang_eq__");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		int found_pao = 0;
+		int found_jian = 0;
+		foreach(all_inventory(player), object item){
+			if(!item || !functionp(item->query_name))
+				continue;
+			string n = (string)item->query_name();
+			if(search(n,"wuxiangpao")!=-1)
+				found_pao = 1;
+			if(search(n,"wuxiangjian")!=-1)
+				found_jian = 1;
+		}
+		valid = found_pao && found_jian;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("初始装备未授予: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_wanxiangguiyi_task_grants_ultimate()
+{
+	test_start("万象归一任务存在并奖励终极技能书");
+	string csv = Stdio.read_file(ROOT+"/gamelib/data/task/task_list.csv");
+	int valid = csv &&
+		search(csv,"万象归一")!=-1 &&
+		search(csv,"wuxiang_teacher")!=-1 &&
+		search(csv,"book/wanxiangguiyi")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("万象归一任务未正确配置");
 }
 
 void test_all_books_in_catalog()
@@ -615,6 +663,8 @@ int main()
 	test_shared_identity_recognizes_wuxiang();
 	test_shop_navigation_includes_wuxiang();
 	test_task_and_newbie_recognize_wuxiang();
+	test_initial_equipment_granted();
+	test_wanxiangguiyi_task_grants_ultimate();
 	test_static_audit_zero_misses();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],

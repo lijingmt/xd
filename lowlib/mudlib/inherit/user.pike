@@ -154,6 +154,8 @@ void setup_player(string rid, string pid){
 		else if(pid&&pid=="wuxiang"){
 			// 无相：隐藏全职业。85% 专精均值，三系对称成长；解锁条件见 gamelib/d/init。
 			// 「无相心法」被动让最高属性的一半继续贡献其他属性，但不参与装备/技能前置。
+			object|zero wx_pao;
+			object|zero wx_jian;
 			kind_cn = "中立";
 			unit = "位";
 			this_object()->set_life(120);
@@ -162,6 +164,15 @@ void setup_player(string rid, string pid){
 			this_object()->set_dex(8);
 			this_object()->set_think(8);
 			this_object()->set_lunck(0);
+			// 初始装备：无相袍 + 无相剑。平庸属性，1 级可穿。
+			// 不在 setup 阶段直接 wear/wield，避免装备限制异常中断 setup。
+			// 物品 move 到背包即可，玩家用 auto_equip 后续穿。
+			catch { wx_pao = new(ROOT+"/gamelib/clone/item/armor/wuxiangpao/wuxiangpao"); };
+			if(wx_pao)
+				catch { wx_pao->move(this_object()); };
+			catch { wx_jian = new(ROOT+"/gamelib/clone/item/weapon/wuxiangjian/wuxiangjian"); };
+			if(wx_jian)
+				catch { wx_jian->move(this_object()); };
 		}
 	}
 }
