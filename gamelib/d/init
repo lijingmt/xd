@@ -363,6 +363,50 @@ int query_wuxiang_unlocked_for(object me){
 	return 1;
 }
 
+// 返回未达 120 级的职业中文名清单，用于解锁失败时给玩家具体提示。
+// 空字符串表示已解锁。
+string query_wuxiang_missing_for(object me){
+	mapping(string:mixed) account_data;
+	array(mapping(string:mixed)) characters;
+	mapping(string:int) prof_max_level;
+	array(string) missing = ({});
+	if(!me)
+		return "剑仙、羽士、诛仙、狂妖、巫妖、影鬼、方士、镇越、天象、灵医";
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(
+		(string)me->query_name());
+	if(!account_data || (int)account_data["ok"] != 1)
+		return "剑仙、羽士、诛仙、狂妖、巫妖、影鬼、方士、镇越、天象、灵医（账号查询失败）";
+	characters = (array(mapping(string:mixed)))account_data["characters"];
+	prof_max_level = ([]);
+	if(characters)
+		foreach(characters, mapping entry){
+			string prof = (string)entry["profession_id"];
+			int lvl = (int)entry["level"];
+			if(prof && (!prof_max_level[prof] || lvl > prof_max_level[prof]))
+				prof_max_level[prof] = lvl;
+		}
+	// 按固定顺序列出未达 120 的职业，让玩家清楚还差什么
+	mapping(string:string) cn_names = ([
+		"jianxian":"剑仙","yushi":"羽士","zhuxian":"诛仙",
+		"kuangyao":"狂妖","wuyao":"巫妖","yinggui":"影鬼",
+		"fangshi":"方士","zhenyue":"镇越","tianxiang":"天象",
+		"lingyi":"灵医",
+	]);
+	foreach(({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui",
+		"fangshi","zhenyue","tianxiang","lingyi"}), string p){
+		int lvl = prof_max_level[p];
+		if(lvl >= 120)
+			continue;
+		if(lvl > 0)
+			missing += ({ cn_names[p]+"（"+lvl+"/120）" });
+		else
+			missing += ({ cn_names[p]+"（未创建）" });
+	}
+	if(sizeof(missing) == 0)
+		return "";
+	return missing*"、";
+}
+
 int choice_race(string arg){
 	object me = this_player();
 	string s = "";
@@ -422,11 +466,15 @@ int choice_race(string arg){
 			s += "[imgurl loading:/"+GAME_NAME+"/images/lingyi_logo.png]\n";
 			s += "[灵医:choice_profe third/lingyi]\n";
 			s += "灵针济世，智能救急并净化同队伤势\n";
-			// 无相：隐藏全职业，仅在账号下 10 个职业均达 120 级时显示。
+			// 无相：始终展示；点击未解锁会弹窗给出具体缺哪些职业、当前最高等级。
+			s += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 			if(query_wuxiang_unlocked_for(me)){
-				s += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 				s += "[无相:choice_profe third/wuxiang]\n";
-				s += "（隐藏）全能补位，机制傻瓜，技能池广；需要账号下全部 10 个职业达到 120 级解锁\n";
+				s += "（已解锁）全能补位，机制傻瓜，技能池广\n";
+			}
+			else{
+				s += "[无相（未解锁）:choice_profe third/wuxiang]\n";
+				s += "（隐藏）需要账号下全部 10 个职业达到 120 级；点击查看具体缺口\n";
 			}
 		}
 		s += "[更换阵营:choice_race]\n";
@@ -458,10 +506,8 @@ int choice_profe(string arg){
 	else{
 		//初始化新角色职业值
 		array(string) arr = arg/"/";
-		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi"});
-		// 无相解锁校验也走服务端，防止伪造请求绕过显示层。
-		if(query_wuxiang_unlocked_for(me))
-			third_pool += ({"wuxiang"});
+		// 无相始终在候选池里：未解锁时下面会拦截并给出具体缺口。
+		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang"});
 		mapping(string:array(string)) valid_professions = ([
 			"human":({"jianxian","yushi","zhuxian"}),
 			"monst":({"kuangyao","wuyao","yinggui"}),
@@ -472,9 +518,13 @@ int choice_profe(string arg){
 			write("职业选择无效，请重新选择。\n[返回阵营选择:choice_race]\n");
 			return 1;
 		}
-		// 双重防御：即便显示和映射都过了，wuxiang 再校验一次解锁条件。
+		// 无相解锁：未达标时给出具体缺口（哪个职业、当前等级/未创建），让玩家清楚差什么。
 		if((string)arr[1]=="wuxiang" && !query_wuxiang_unlocked_for(me)){
-			write("无相需要账号下全部 10 个职业达到 120 级才能选择。\n[返回阵营选择:choice_race]\n");
+			string missing = query_wuxiang_missing_for(me);
+			write("【无相·未解锁】无相是隐藏全职业，需要账号下 10 个职业均达到 120 级。\n");
+			write("当前缺口："+missing+"\n");
+			write("提示：把账号下任意一个对应职业的角色练到 120 级即可推进进度。\n");
+			write("[返回阵营选择:choice_race]\n");
 			return 1;
 		}
 		string u_r = (string)arr[0];
@@ -732,10 +782,14 @@ int start(string arg){
 			desc += "[imgurl loading:/"+GAME_NAME+"/images/lingyi_logo.png]\n";
 			desc += "[灵医:choice_profe third/lingyi]\n";
 			desc += "灵针济世，智能救急并净化同队伤势\n";
+			desc += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 			if(query_wuxiang_unlocked_for(me)){
-				desc += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 				desc += "[无相:choice_profe third/wuxiang]\n";
-				desc += "（隐藏）全职业补位，需账号下 10 职业均达 120 级\n";
+				desc += "（已解锁）全职业补位\n";
+			}
+			else{
+				desc += "[无相（未解锁）:choice_profe third/wuxiang]\n";
+				desc += "（隐藏）需账号下 10 职业均达 120 级；点击查看具体缺口\n";
 			}
 		}
 		else{

@@ -306,6 +306,34 @@ void test_lingyi_profession_avatars()
 	destroy_test_player(female);
 }
 
+void test_wuxiang_profession_avatars()
+{
+	test_start("无相原创男女头像在两侧广场均列为首选");
+	object yuhua = (object)(ROOT+
+		"/gamelib/d/jinaodao/yuhuacunguangchang");
+	object congxian = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object male = create_test_player("third","male");
+	object female = create_test_player("third","female");
+	male->set_profeId("wuxiang");
+	female->set_profeId("wuxiang");
+	array(string) yuhua_male = yuhua->query_pic_choices(male);
+	array(string) congxian_male = congxian->query_pic_choices(male);
+	array(string) yuhua_female = yuhua->query_pic_choices(female);
+	array(string) congxian_female = congxian->query_pic_choices(female);
+	if(sizeof(yuhua_male)==12 && sizeof(congxian_male)==12 &&
+	   sizeof(yuhua_female)==13 && sizeof(congxian_female)==13 &&
+	   yuhua_male[0]=="wuxiang_male" &&
+	   congxian_male[0]=="wuxiang_male" &&
+	   yuhua_female[0]=="wuxiang_female" &&
+	   congxian_female[0]=="wuxiang_female")
+		test_pass();
+	else
+		test_fail("无相专属头像未在两侧广场按性别安全接入");
+	destroy_test_player(male);
+	destroy_test_player(female);
+}
+
 int main()
 {
 	werror("\n========================================\n");
@@ -318,6 +346,7 @@ int main()
 	test_existing_picture_recovery();
 	test_fangshi_profession_icon();
 	test_lingyi_profession_avatars();
+	test_wuxiang_profession_avatars();
 
 	werror("\n头像选择测试完成: 总计 %d, 通过 %d, 失败 %d\n",
 		test_results["total"],

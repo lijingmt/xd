@@ -186,6 +186,8 @@ array(string) query_pic_choices(object me)
 			choices += ({"tianxiang_"+sex});
 		if(raceId=="third" && me->query_profeId()=="lingyi")
 			choices += ({"lingyi_"+sex});
+		if(raceId=="third" && me->query_profeId()=="wuxiang")
+			choices += ({"wuxiang_"+sex});
 		if(sex=="male"){
 			prefix = "h_male";
 			max_pic = 11;

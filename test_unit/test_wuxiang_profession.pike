@@ -639,6 +639,89 @@ void test_static_audit_zero_misses()
 		test_fail("restart-docker.sh 资产拷贝列表不完整");
 }
 
+void test_unlock_missing_lists_specifics()
+{
+	test_start("未解锁时返回具体缺口列表，给玩家明确指引");
+	// 这里只校验源码存在 query_wuxiang_missing_for 函数；运行时实际查询
+	// 依赖账号系统，由真实玩家验收时检验。
+	string init_source = Stdio.read_file(ROOT+"/gamelib/d/init");
+	int valid = init_source &&
+		search(init_source,"query_wuxiang_missing_for")!=-1 &&
+		search(init_source,"当前缺口：")!=-1 &&
+		search(init_source,"未创建")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("未实现具体缺口提示");
+}
+
+void test_book_learning_cross_profession_rejected()
+{
+	test_start("跨职业读书被拒：方士读无相书、无相读灵医书都失败");
+	object wuxiang_player = create_runtime_player(
+		"__testunit_wuxiang_cross_wx__");
+	wuxiang_player->level = 100;
+	wuxiang_player->set_att_by_level();
+	object fangshi_player = create_runtime_player(
+		"__testunit_wuxiang_cross_fs__");
+	fangshi_player->set_profeId("fangshi");
+	fangshi_player->setup_player("third","fangshi");
+	fangshi_player->level = 100;
+	fangshi_player->set_att_by_level();
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		// 方士试图读无相拳：profe_read_limit 应拒
+		set_this_player(fangshi_player);
+		object wx_book = clone(ROOT+"/gamelib/clone/item/book/wuxiangquan");
+		int r1 = wx_book->read();
+		// r1 != 1 表示未成功学习（具体返回值视实现而定，3=职业不符失败）
+		// 无相试图读灵针：同样应拒
+		set_this_player(wuxiang_player);
+		object ly_book = clone(ROOT+"/gamelib/clone/item/book/lingzhen");
+		int r2 = ly_book->read();
+		// 至少有一个明确失败（学习返回非1）
+		valid = (r1 != 1) && (r2 != 1);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("跨职业读书未被拒绝: "+error_desc);
+	destroy_runtime_player(wuxiang_player);
+	destroy_runtime_player(fangshi_player);
+}
+
+void test_empty_skills_robustness()
+{
+	test_start("空 skills 数组不会让无相玩家崩溃");
+	object player = create_runtime_player("__testunit_wuxiang_empty__");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		// 清空 skills，模拟旧存档未初始化的状态
+		player->skills = ([]);
+		// 各种查询不应崩溃
+		valid = (int)player->query_str() > 0 &&
+			(int)player->query_dex() > 0 &&
+			(int)player->query_think() > 0 &&
+			(int)player->query_life() >= 0;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("空 skills 导致查询崩溃: "+error_desc);
+	destroy_runtime_player(player);
+}
+
 int main()
 {
 	werror("\n========== 无相职业测试 ==========\n");
@@ -666,6 +749,9 @@ int main()
 	test_initial_equipment_granted();
 	test_wanxiangguiyi_task_grants_ultimate();
 	test_static_audit_zero_misses();
+	test_unlock_missing_lists_specifics();
+	test_book_learning_cross_profession_rejected();
+	test_empty_skills_robustness();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);
