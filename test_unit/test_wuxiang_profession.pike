@@ -233,6 +233,121 @@ void test_default_unnamed_title()
 		test_fail("base.pike 未识别 wuxiang 无名头衔: "+error_desc);
 }
 
+void test_recovery_items_allow_wuxiang()
+{
+	test_start("恢复品（food/water/liandan/teyao）白名单含无相");
+	int matched = 0;
+	int failed = 0;
+	foreach(({"food","water","liandan","teyao"}), string cat){
+		string dir = ROOT+"/gamelib/clone/item/"+cat;
+		array(string)|zero files = get_dir(dir);
+		if(!files)
+			continue;
+		foreach(files, string fname){
+			string path = dir+"/"+fname;
+			// 跳过子目录（如 liandan/christmas/）。
+			mixed st = file_stat(path);
+			if(!st || !st->isreg)
+				continue;
+			string source = Stdio.read_file(path);
+			if(!source)
+				continue;
+			// 文件如果列了 lingyi 就必须也列 wuxiang，确保新职业能正常吃药。
+			if(search(source,"profe_limit[\"lingyi\"]")!=-1){
+				matched++;
+				if(search(source,"profe_limit[\"wuxiang\"]")==-1){
+					werror("    缺 wuxiang: %s\n",path);
+					failed++;
+				}
+			}
+		}
+	}
+	if(matched > 0 && failed == 0)
+		test_pass();
+	else
+		test_fail(sprintf("恢复品白名单缺 wuxiang：matched=%d failed=%d",
+			matched,failed));
+}
+
+void test_vue_profession_list_includes_wuxiang()
+{
+	test_start("Vue 角色选择页 profession 列表含无相");
+	string source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
+	string error_desc = "";
+	int valid = 0;
+	if(!source)
+		error_desc = "无法读取 app.js";
+	else
+		valid = search(source,"profession_id: 'wuxiang'")!=-1 &&
+			search(source,"name: '无相'")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("Vue 职业列表未含 wuxiang: "+error_desc);
+}
+
+void test_all_skills_load()
+{
+	test_start("无相全部 8 个技能文件加载且 skill_type 含 wuxiang");
+	array(string) skill_ids = ({
+		"wuxiangquan","wuxiangjue","wuxiangyi","wuxiangdun",
+		"wuxianghou","wuxiangjian","wuxiangyan","wanxiangguiyi",
+	});
+	int loaded = 0;
+	int failed = 0;
+	string failed_ids = "";
+	foreach(skill_ids, string sid){
+		object|zero sk = 0;
+		mixed err = catch {
+			sk = (object)(ROOT+"/gamelib/single/skills/"+sid);
+		};
+		if(err || !sk){
+			failed++;
+			failed_ids += sid+" ";
+		}
+		else{
+			// 不要 destruct：技能对象是 MUD_SKILLSD 缓存共享的，会影响后续测试。
+			if(search(sk->skill_type,"wuxiang") != -1)
+				loaded++;
+			else{
+				failed++;
+				failed_ids += sid+"(no wuxiang tag) ";
+			}
+		}
+	}
+	if(failed == 0 && loaded == sizeof(skill_ids))
+		test_pass();
+	else
+		test_fail(sprintf("加载失败 %d/%d：%s",failed,sizeof(skill_ids),failed_ids));
+}
+
+void test_all_books_in_catalog()
+{
+	test_start("无相书在 can_buy_book_list.csv 中均有对应条目");
+	array(string) book_ids = ({
+		"wuxiangquan","wuxiangjue","wuxiangyi","wuxiangdun",
+		"wuxianghou","wuxiangjian","wuxiangyan",
+	});
+	string csv = Stdio.read_file(ROOT+
+		"/gamelib/data/can_buy_book_list.csv");
+	int missing = 0;
+	string missing_ids = "";
+	if(!csv){
+		test_fail("无法读取 can_buy_book_list.csv");
+		return;
+	}
+	foreach(book_ids, string bid){
+		if(search(csv,"book/"+bid)==-1){
+			missing++;
+			missing_ids += bid+" ";
+		}
+	}
+	if(missing == 0)
+		test_pass();
+	else
+		test_fail("缺书："+missing_ids);
+}
+
 int main()
 {
 	werror("\n========== 无相职业测试 ==========\n");
@@ -244,6 +359,10 @@ int main()
 	test_book_file_loads();
 	test_teacher_loads();
 	test_default_unnamed_title();
+	test_recovery_items_allow_wuxiang();
+	test_vue_profession_list_includes_wuxiang();
+	test_all_skills_load();
+	test_all_books_in_catalog();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);

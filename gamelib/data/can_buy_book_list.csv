@@ -185,3 +185,9 @@ book,book/ganlin,60,lingyi,【医】甘霖,230,0,2
 book,book/yaoli5,66,lingyi,【医】药理五级,490,0,2
 book,book/xuming,70,lingyi,【医】续命,590,0,2
 book,book/wuxiangquan,1,wuxiang,【无】无相拳,2,30,
+book,book/wuxiangjue,5,wuxiang,【无】无相诀,4,80,
+book,book/wuxiangyi,10,wuxiang,【无】无相医,8,150,
+book,book/wuxiangdun,15,wuxiang,【无】无相盾,12,250,
+book,book/wuxianghou,20,wuxiang,【无】无相吼,15,400,
+book,book/wuxiangjian,30,wuxiang,【无】无相剑,25,900,
+book,book/wuxiangyan,35,wuxiang,【无】无相焰,30,1300,

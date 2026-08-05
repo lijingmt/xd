@@ -217,7 +217,8 @@ createApp({
                 { race_id: 'third', profession_id: 'fangshi', name: '方士', race: '中立', icon: '🐯', desc: '三灵召唤，攻守治疗' },
                 { race_id: 'third', profession_id: 'zhenyue', name: '镇越', race: '中立', icon: '🛡️', desc: '团队坦克，守御承伤' },
                 { race_id: 'third', profession_id: 'tianxiang', name: '天象', race: '中立', icon: '🌠', desc: '星痕法术，元素爆发' },
-                { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' }
+                { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' },
+                { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位，需账号下 10 职业均达 120 级解锁' }
             ],
             isLoggingIn: false,
             isRegistering: false,
