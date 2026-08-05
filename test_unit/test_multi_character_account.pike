@@ -222,12 +222,12 @@ int main()
 			if(summary["profession_id"]=="fangshi")
 				fangshi_count++;
 		}
-		check("同账号可重复创建同职业且只保留十人物总上限",
+		check("同账号可重复创建同职业且只保留二十人物总上限",
 			initialized_saved && repeated["ok"] &&
 			repeated_list["ok"] &&
 			sizeof((array)repeated_list["characters"])==3 &&
 			fangshi_count==2 &&
-			ACCOUNT_CHARACTERD->query_character_limit()==10,
+			ACCOUNT_CHARACTERD->query_character_limit()==20,
 			(string)(repeated["message"] ||
 				"重复职业创建或总上限错误"));
 
