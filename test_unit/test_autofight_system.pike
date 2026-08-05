@@ -2814,6 +2814,122 @@ void test_auto_buff_eats_across_kinds()
 	destroy_runtime_player(player);
 }
 
+void test_auto_buff_preview_matches_selection()
+{
+	test_start("开关开启时 preview 与 perform 选择一致");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_preview__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object exp_item = clone(ROOT+
+		"/gamelib/clone/item/teyao/huanshendan");
+	object base_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		exp_item->move(player);
+		base_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		array(mapping(string:mixed)) preview =
+			daemon->query_auto_buff_preview(player);
+		// 应只列出背包里有候选的 kind：te_exp 与 attri_base。
+		int has_te_exp = 0;
+		int has_attri_base = 0;
+		int has_others = 0;
+		foreach(preview, mapping entry){
+			if((string)entry["kind"] == "te_exp")
+				has_te_exp = (string)entry["name_cn"] ==
+					exp_item->query_name_cn();
+			else if((string)entry["kind"] == "attri_base")
+				has_attri_base = (string)entry["name_cn"] ==
+					base_item->query_name_cn();
+			else
+				has_others = 1;
+		}
+		valid = sizeof(preview) == 2 && has_te_exp && has_attri_base &&
+			!has_others;
+		// 关闭开关后 preview 应为空。
+		player["/plus/autofight_buff"] = 0;
+		array(mapping(string:mixed)) empty_preview =
+			daemon->query_auto_buff_preview(player);
+		valid = valid && sizeof(empty_preview) == 0;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("preview 列表与候选不符: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_query_status_lists_active_danyao_buffs()
+{
+	test_start("query_status 输出激活中的丹药 buff 名称和剩余分钟");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_status__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object base_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	string status_text = "";
+	mixed err = catch {
+		base_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		set_this_player(player);
+		// 直接触发一次自动嗑药，写入 buff 槽位与名称缓存。
+		daemon->perform_auto_buff(player);
+		// query_status 应在 "游荡中/交战中" 后追加 "\n特效：<name>(N分钟)"
+		status_text = player->query_status();
+		valid = search(status_text,"特效：") != -1 &&
+			search(status_text,"巨力丹") != -1 &&
+			search(status_text,"分钟)") != -1;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("query_status 未显示激活中的 buff: "+error_desc+
+			" status="+status_text);
+	destroy_runtime_player(player);
+}
+
+void test_player_state_exposes_active_buffs()
+{
+	test_start("battle_status player.active_buffs 暴露激活中的丹药");
+	string renderer_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
+	string error_desc = "";
+	int valid = 0;
+	if(!renderer_source)
+		error_desc = "无法读取 html_renderer.pike";
+	else
+		valid = search(renderer_source,"active_buffs") != -1 &&
+			search(renderer_source,"remain_min") != -1 &&
+			search(renderer_source,"attri_base") != -1 &&
+			search(renderer_source,"te_exp") != -1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("renderer 未输出 active_buffs: "+error_desc);
+}
+
 void test_auto_buff_includes_te_danyao()
 {
 	test_start("开关开启时按效果服用商城特药 te_* 并尊重每日次数");
@@ -3000,6 +3116,9 @@ int main()
 	test_auto_buff_skips_occupied_slot();
 	test_auto_buff_skips_level_capped();
 	test_auto_buff_eats_across_kinds();
+	test_auto_buff_preview_matches_selection();
+	test_query_status_lists_active_danyao_buffs();
+	test_player_state_exposes_active_buffs();
 	test_auto_buff_includes_te_danyao();
 	test_autofight_buff_command_toggle();
 	test_flushview_invokes_auto_buff();

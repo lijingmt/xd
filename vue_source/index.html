@@ -452,6 +452,16 @@
                             </div>
                             <span class="stat-value">{{ formatCompactNumber(playerStats.energy) }}</span>
                         </div>
+                        <!-- 当前生效的丹药/特药 buff：名称 + 剩余分钟 -->
+                        <div class="active-buffs"
+                             v-if="playerStats && playerStats.active_buffs && playerStats.active_buffs.length > 0">
+                            <span v-for="buff in playerStats.active_buffs"
+                                  :key="buff.kind"
+                                  class="active-buff-chip"
+                                  :title="buff.name_cn + ' 还剩 ' + buff.remain_min + ' 分钟'">
+                                🔆{{ buff.name_cn }}<span class="active-buff-time">({{ buff.remain_min }}m)</span>
+                            </span>
+                        </div>
                     </div>
                     <!-- 经验进度条 - 横跨整个宽度 -->
                     <div class="exp-progress-bar"

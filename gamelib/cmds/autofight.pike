@@ -14,6 +14,19 @@ private string format_time(int seconds)
 	return hours+"小时"+minutes+"分钟";
 }
 
+private string format_buff_duration(int seconds)
+{
+	int minutes;
+	if(seconds <= 0)
+		return "0分钟";
+	minutes = seconds/60;
+	if(minutes < 60)
+		return minutes+"分钟";
+	if(minutes%60 == 0)
+		return (minutes/60)+"小时";
+	return (minutes/60)+"小时"+(minutes%60)+"分钟";
+}
+
 string view_recovery_items(object me, string kind)
 {
 	array(object) all;
@@ -507,6 +520,22 @@ private void show_settings(object me, string notice)
 		"每种保留"+material_keep+"个")+"\n";
 	out += "自动嗑状态药："+(AUTOFIGHTD->query_auto_buff_enabled(me) ?
 		"开启" : "关闭")+"\n";
+	if(AUTOFIGHTD->query_auto_buff_enabled(me)){
+		array(mapping(string:mixed)) preview =
+			AUTOFIGHTD->query_auto_buff_preview(me);
+		if(sizeof(preview) > 0){
+			out += "  下次脱战会自动服用：\n";
+			foreach(preview, mapping entry){
+				out += "    ["+(string)entry["kind_cn"]+"] "+
+					(string)entry["name_cn"]+"（+"+
+					(int)entry["value"]+"，"+
+					format_buff_duration((int)entry["duration"])+
+					"）\n";
+			}
+		}
+		else
+			out += "  背包暂无可自动服用的状态药；放入常规丹药或商城特药后即可生效。\n";
+	}
 	out += "智能寻路按真实怪物等级选择练级区，并在区内逐图搜索；50至69级使用固定成长区，70级起使用动态同级怪。\n";
 	out += "开启采集后会优先采集沿途符合熟练度的药草和矿脉；采集原料按9999个一组堆叠，可按保留量自动出售。\n";
 	out += "开启自动嗑状态药后，挂机脱战时按效果最强的丹药自动服用常规 buff 与商城特药（力量/攻击/防御/副属性/幸运/荣誉/经验 共 14 类槽位），不覆盖已有 buff；特药受每日次数限制，到上限自动停。\n";

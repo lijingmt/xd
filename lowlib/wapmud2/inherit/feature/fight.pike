@@ -4047,6 +4047,14 @@ string query_fighting_msg(){
 string query_status(){
 	string s = "";
 	string more = "\n";
+	string buff_line = "";
+	string buff_kind;
+	array(string) buff_kinds = ({
+		"attri_base","attri_attack","attri_defend","attri_vice",
+		"attri_luck","attri_honer","attri_exp",
+		"te_base","te_attack","te_defend","te_vice",
+		"te_luck","te_honer","te_exp",
+	});
 	if(this_object()->red_flag && environment(this_object())->query_room_type()=="city")
 		more = "(可杀戮)\n";
 	if(this_object()->in_combat && enemy){
@@ -4057,6 +4065,31 @@ string query_status(){
 	}
 	else
 		s += "游荡中";
+	// 显示当前激活的丹药/特药 buff 名称和剩余时间，让玩家在战斗小窗里直接看到生效中的特效。
+	foreach(buff_kinds, string kind){
+		string buff_name = "";
+		int remain_min;
+		if(this_object()->query_buff(kind,0) == "none")
+			continue;
+		remain_min = (int)this_object()->query_buff(kind,2);
+		if(remain_min <= 0)
+			continue;
+		if(has_prefix(kind,"te_")){
+			mixed te = this_object()["/teyao/"+kind];
+			if(arrayp(te) && sizeof(te) >= 4)
+				buff_name = (string)te[3];
+		}
+		else{
+			buff_name = (string)this_object()["/danyao/"+kind];
+		}
+		if(buff_name == "")
+			continue;
+		if(buff_line != "")
+			buff_line += " ";
+		buff_line += buff_name+"("+remain_min+"分钟)";
+	}
+	if(buff_line != "")
+		s += "\n特效："+buff_line;
 	return s+more;
 }
 /*	void attack_notify(object who){
