@@ -12,9 +12,19 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
 #define AUTOFIGHT_LOOT_RETRY_SECONDS 30
-#define AUTOFIGHT_CONFIG_VERSION 7
+#define AUTOFIGHT_CONFIG_VERSION 8
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
+
+private array(string) auto_buff_kinds = ({
+	"attri_base",
+	"attri_attack",
+	"attri_defend",
+	"attri_vice",
+	"attri_luck",
+	"attri_honer",
+	"attri_exp",
+});
 
 private int autofight_scan_count;
 private int autofight_scan_deferred_objects;
@@ -375,6 +385,7 @@ void initialize_player(object me)
 		me["/plus/autofight_cleanup_protect_names"] = "";
 		me["/plus/autofight_cleanup_force_names"] = "";
 		me["/plus/autofight_skill_mode"] = "smart";
+		me["/plus/autofight_buff"] = 0;
 	}
 	else
 		sync_daily_limit(me);
@@ -409,6 +420,8 @@ void initialize_player(object me)
 	}
 	if(config_version < 7)
 		me["/plus/autofight_skill_mode"] = "smart";
+	if(config_version < 8)
+		me["/plus/autofight_buff"] = 0;
 	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
 			AUTOFIGHT_CONFIG_VERSION;
@@ -897,6 +910,72 @@ int query_auto_rest_enabled(object me)
 		return 0;
 	initialize_player(me);
 	return (int)me["/plus/autofight_auto_rest"] == 1;
+}
+
+int query_auto_buff_enabled(object me)
+{
+	if(!me)
+		return 0;
+	initialize_player(me);
+	return (int)me["/plus/autofight_buff"] == 1;
+}
+
+mapping(string:mixed) perform_auto_buff(object me)
+{
+	mapping(string:mixed) result;
+	result = (["eaten":({})]);
+	if(!me)
+		return result;
+	initialize_player(me);
+	if((int)me["/plus/autofight_buff"] != 1)
+		return result;
+	// 只覆盖 attri_* 七类常规 buff 丹药，te_*/spec 由玩家手动控制。
+	// 已有同类 buff 不覆盖，等级超限的追赶药跳过。
+	foreach(auto_buff_kinds, string kind){
+		object|zero best;
+		int best_value;
+		int best_duration;
+		int count_index;
+		string best_name;
+		string best_name_cn;
+		if(me->query_buff(kind, 0) != "none")
+			continue;
+		foreach(all_inventory(me), object item){
+			int max_level;
+			int value;
+			int duration;
+			if(!item || item->amount <= 0)
+				continue;
+			if(!functionp(item->query_danyao_kind))
+				continue;
+			if(item->query_danyao_kind() != kind)
+				continue;
+			max_level = (int)item->query_danyao_max_level();
+			if(max_level > 0 && me->query_level() > max_level)
+				continue;
+			value = (int)item->query_effect_value();
+			duration = (int)item->query_danyao_timedelay();
+			if(!best || value > best_value ||
+			   (value == best_value && duration > best_duration)){
+				best = item;
+				best_value = value;
+				best_duration = duration;
+			}
+		}
+		if(!best)
+			continue;
+		// 吃药前缓存名称：amount 减到 0 时物品会被销毁，之后再访问会报错。
+		best_name = best->query_name();
+		best_name_cn = best->query_name_cn();
+		// present(name, me, n) 是 0-indexed：第一件同名物品传 0。
+		count_index = query_object_count(best, me);
+		// flag=1 强制覆盖现有 buff 的确认提示，跳过交互。
+		me->command("viceskill_eat_danyao "+best_name+" "+
+			count_index+" 1 0");
+		if(me->query_buff(kind, 0) != "none")
+			result["eaten"] += ({ best_name_cn });
+	}
+	return result;
 }
 
 int query_auto_destroy_non_equipment_enabled(object me)

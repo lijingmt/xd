@@ -505,8 +505,11 @@ private void show_settings(object me, string notice)
 		AUTOFIGHTD->query_gather_mode_cn(gather_mode)+"\n";
 	out += "采集原料自动出售："+(material_keep < 0 ? "关闭" :
 		"每种保留"+material_keep+"个")+"\n";
+	out += "自动嗑状态药："+(AUTOFIGHTD->query_auto_buff_enabled(me) ?
+		"开启" : "关闭")+"\n";
 	out += "智能寻路按真实怪物等级选择练级区，并在区内逐图搜索；50至69级使用固定成长区，70级起使用动态同级怪。\n";
 	out += "开启采集后会优先采集沿途符合熟练度的药草和矿脉；采集原料按9999个一组堆叠，可按保留量自动出售。\n";
+	out += "开启自动嗑状态药后，挂机脱战时按效果最强的丹药自动服用 attri_* 七类常规 buff（力量/攻击/防御/副属性/幸运/荣誉/经验），不覆盖已有 buff，不消耗商城特药。\n";
 	out += "智能模式优先攻击同级附近、最高不超过自身1级的普通怪；缺药时会脱战、休息并返回练级区。副本、家园和城战地图不会自动传送。\n\n";
 	if(me->query_autofight()=="enable")
 		out += "[停止自动挂机:autofight stop]\n";
@@ -531,6 +534,9 @@ private void show_settings(object me, string notice)
 	out += AUTOFIGHTD->query_auto_rest_enabled(me) ?
 		"[关闭缺药休整:autofight rest 0]\n" :
 		"[开启缺药休整:autofight rest 1]\n";
+	out += AUTOFIGHTD->query_auto_buff_enabled(me) ?
+		"[关闭自动嗑状态药:autofight buff 0]\n" :
+		"[开启自动嗑状态药:autofight buff 1]\n";
 	out += "[高级清包设置:autofight cleanup]\n";
 	out += "[预览并一键销毁非装备:cleanup_non_equipment]\n";
 	out += "\n采药采矿设置：\n";
@@ -626,6 +632,13 @@ int main(string|zero arg)
 	if(action == "loot"){
 		me["/plus/autofight_loot"] = value == "1" ? 1 : 0;
 		show_settings(me,"自动拾取设置已更新。");
+		return 1;
+	}
+	if(action == "buff"){
+		me["/plus/autofight_buff"] = value == "1" ? 1 : 0;
+		show_settings(me,value == "1" ?
+			"已开启自动嗑状态药，挂机脱战时按效果最强的丹药自动服用常规 buff。" :
+			"已关闭自动嗑状态药。");
 		return 1;
 	}
 	if(action == "roam"){
