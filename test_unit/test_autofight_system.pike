@@ -2814,6 +2814,56 @@ void test_auto_buff_eats_across_kinds()
 	destroy_runtime_player(player);
 }
 
+void test_auto_buff_includes_te_danyao()
+{
+	test_start("开关开启时按效果服用商城特药 te_* 并尊重每日次数");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_teyao__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object exp_item = clone(ROOT+
+		"/gamelib/clone/item/teyao/huanshendan");
+	object honer_item = clone(ROOT+
+		"/gamelib/clone/item/teyao/nuhuojiu");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		exp_item->move(player);
+		honer_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		valid = player->query_buff("te_exp",0) != "none" &&
+			player->query_buff("te_honer",0) != "none" &&
+			sizeof((array)result["eaten"]) == 2;
+		// 把 te_exp 每日次数填满，下一 tick 不再尝试吃同 kind。
+		if(!player["/plus/daily/teyao_map"])
+			player["/plus/daily/teyao_map"] = ([]);
+		player["/plus/daily/teyao_map"]["te_exp"] =
+			(int)player->query_max_yao();
+		// 先把 te_exp 槽位清掉，否则会因槽位已满被自然跳过。
+		player->set_buff("te_exp",0,"none");
+		player->set_buff("te_exp",2,0);
+		mapping result2 = daemon->perform_auto_buff(player);
+		// te_exp 每日上限已满，result2 不应再次报告吃 te_exp；但 te_honer 槽位
+		// 已被前一次 tick 占用，所以也不应再次出现，整体 eaten 为空。
+		valid = valid && sizeof((array)result2["eaten"]) == 0;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("商城特药 te_* 处理错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
 void test_autofight_buff_command_toggle()
 {
 	test_start("autofight buff 0/1 命令分支正确切换开关");
@@ -2950,6 +3000,7 @@ int main()
 	test_auto_buff_skips_occupied_slot();
 	test_auto_buff_skips_level_capped();
 	test_auto_buff_eats_across_kinds();
+	test_auto_buff_includes_te_danyao();
 	test_autofight_buff_command_toggle();
 	test_flushview_invokes_auto_buff();
 	test_integration_wiring();

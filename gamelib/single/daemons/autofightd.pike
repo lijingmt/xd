@@ -24,6 +24,14 @@ private array(string) auto_buff_kinds = ({
 	"attri_luck",
 	"attri_honer",
 	"attri_exp",
+	// 商城特药（每日次数受 query_max_yao() 限制），玩家显式开启挂机嗑药时一并代吃。
+	"te_base",
+	"te_attack",
+	"te_defend",
+	"te_vice",
+	"te_luck",
+	"te_honer",
+	"te_exp",
 });
 
 private int autofight_scan_count;
@@ -929,8 +937,8 @@ mapping(string:mixed) perform_auto_buff(object me)
 	initialize_player(me);
 	if((int)me["/plus/autofight_buff"] != 1)
 		return result;
-	// 只覆盖 attri_* 七类常规 buff 丹药，te_*/spec 由玩家手动控制。
-	// 已有同类 buff 不覆盖，等级超限的追赶药跳过。
+	// 覆盖 attri_* 与 te_* 共十四类 buff 丹药；spec 因 sucide 会自杀，永远不自动吃。
+	// 已有同类 buff 不覆盖；等级超限的追赶药跳过；te_* 每日次数到达上限后跳过。
 	foreach(auto_buff_kinds, string kind){
 		object|zero best;
 		int best_value;
@@ -938,8 +946,16 @@ mapping(string:mixed) perform_auto_buff(object me)
 		int count_index;
 		string best_name;
 		string best_name_cn;
+		mapping teyao_map;
 		if(me->query_buff(kind, 0) != "none")
 			continue;
+		// te_* 每日次数预检，避免每 tick 跑空命令并刷出错误提示。
+		if(has_prefix(kind,"te_")){
+			teyao_map = me["/plus/daily/teyao_map"];
+			if(mappingp(teyao_map) &&
+			   (int)teyao_map[kind] >= (int)me->query_max_yao())
+				continue;
+		}
 		foreach(all_inventory(me), object item){
 			int max_level;
 			int value;
