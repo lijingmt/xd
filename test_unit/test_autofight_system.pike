@@ -123,9 +123,11 @@ void test_defaults_and_switch()
 			daemon->query_gather_mode(player) == "off" &&
 			daemon->query_material_keep(player) == -1 &&
 			daemon->query_auto_destroy_non_equipment_enabled(player) == 0 &&
+			daemon->query_auto_buff_enabled(player) == 0 &&
+			player["/plus/autofight_buff"] == 0 &&
 			player->query_autofight() == "disable";
 			valid = valid &&
-				player["/plus/autofight_config_version"] == 7 &&
+				player["/plus/autofight_config_version"] == 8 &&
 				player["/plus/autofight_skill_mode"] == "smart" &&
 				daemon->query_auto_skill_mode(player) == "smart" &&
 				player["/plus/autofight_store_non_equipment"] == 0 &&
@@ -2561,14 +2563,19 @@ void test_integration_wiring()
 	   search(autofight_source,"cleanup_non_equipment") != -1 &&
 	   search(autofight_source,"自动存仓") != -1 &&
 	   search(autofight_source,"智能推荐攻击技能") != -1 &&
+	   search(autofight_source,"自动嗑状态药") != -1 &&
+	   search(autofight_source,"autofight buff 1") != -1 &&
 	   search(autofight_daemon_source,
 		"query_recommended_auto_skill") != -1 &&
+	   search(autofight_daemon_source,"query_auto_buff_enabled") != -1 &&
+	   search(autofight_daemon_source,"perform_auto_buff") != -1 &&
 	   search(flush_source,"query_ready_auto_skill(me)") != -1 &&
 	   search(set_skill_source,"autofight_skill_mode\"] = \"manual\"") != -1 &&
 	   search(disable_skill_source,"autofight_skill_mode\"] = \"off\"") != -1 &&
 	   search(flush_source,"perform_auto_sell(me)") != -1 &&
 	   search(flush_source,"perform_auto_store_non_equipment") != -1 &&
 	   search(flush_source,"perform_non_equipment_destroy") != -1 &&
+	   search(flush_source,"perform_auto_buff") != -1 &&
 	   search(inventory_source,"一键安全销毁非装备") != -1 &&
 	   search(inventory_source,"view_inventory_batch_sell_entry") != -1 &&
 	   search(inventory_feature_source,
@@ -2578,6 +2585,488 @@ void test_integration_wiring()
 		test_pass();
 	else
 		test_fail("API、Vue、每日重置或防外挂豁免缺少接线");
+}
+
+void test_auto_buff_config_migration()
+{
+	test_start("老存档迁移到 autofight_buff 默认关闭");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_migrate__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		// 模拟老存档：已初始化、版本号 7、没有 autofight_buff 字段
+		player["/plus/autofight_initialized"] = 1;
+		player["/plus/autofight_config_version"] = 7;
+		m_delete(player,"/plus/autofight_buff");
+		daemon->initialize_player(player);
+		valid = player["/plus/autofight_buff"] == 0 &&
+			player["/plus/autofight_config_version"] == 8 &&
+			daemon->query_auto_buff_enabled(player) == 0;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("老存档迁移未补齐 autofight_buff: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_buff_disabled_no_op()
+{
+	test_start("开关关闭时 perform_auto_buff 不消耗丹药");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_disabled__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object buff_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		buff_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 0;
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		valid = sizeof((array)result["eaten"]) == 0 &&
+			buff_item->amount > 0 &&
+			player->query_buff("attri_base",0) == "none";
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("开关关闭时仍消耗物品: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_buff_picks_highest_effect()
+{
+	test_start("同类丹药按 effect_value 最高优先服用");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_highest__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object weak = clone(ROOT+
+		"/gamelib/clone/item/liandan/miehundan");
+	object strong = clone(ROOT+
+		"/gamelib/clone/item/liandan/minghundan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	int strong_value;
+	mixed err = catch {
+		strong_value = (int)strong->query_effect_value();
+		weak->move(player);
+		strong->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		// 两颗都是 attri_attack/attack；冥魂丹 effect_value=50 > 灭魂丹 10
+		// strong 被消耗后对象可能已销毁，所以 effect_value 必须在吃之前缓存。
+		valid = player->query_buff("attri_attack",0) == "attack" &&
+			(int)player->query_buff("attri_attack",1) == strong_value &&
+			weak->amount > 0;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("未选最高 effect_value 的丹药: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_buff_skips_occupied_slot()
+{
+	test_start("已有同类 buff 时不覆盖");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_occupied__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object buff_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	int original_value;
+	mixed err = catch {
+		buff_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		// 预先占用 attri_base 槽位
+		player->set_buff("attri_base",0,"str");
+		player->set_buff("attri_base",1,999);
+		player->set_buff("attri_base",2,30);
+		original_value = (int)player->query_buff("attri_base",1);
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		valid = sizeof((array)result["eaten"]) == 0 &&
+			buff_item->amount > 0 &&
+			(int)player->query_buff("attri_base",1) == original_value;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("覆盖了已有 buff: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_buff_skips_level_capped()
+{
+	test_start("超过等级上限的追赶药不会被自动消耗");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_levelcap__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object catchup = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		catchup->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		// 玩家 50 级，丹药 max_level=10
+		player->level = 50;
+		player->set_att_by_level();
+		catchup->set_danyao_max_level(10);
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		valid = sizeof((array)result["eaten"]) == 0 &&
+			catchup->amount > 0 &&
+			player->query_buff("attri_base",0) == "none";
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("误吞了等级超限的追赶药: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_buff_eats_across_kinds()
+{
+	test_start("一次 tick 内补齐多个互不冲突的 buff 槽位");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_multi__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object base_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object defend_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/jingangdan");
+	object exp_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/lhuanshendan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		base_item->move(player);
+		defend_item->move(player);
+		exp_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		valid = sizeof((array)result["eaten"]) == 3 &&
+			player->query_buff("attri_base",0) != "none" &&
+			player->query_buff("attri_defend",0) != "none" &&
+			player->query_buff("attri_exp",0) != "none";
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("多 buff 一次补齐失败: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_auto_buff_preview_matches_selection()
+{
+	test_start("开关开启时 preview 与 perform 选择一致");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_preview__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object exp_item = clone(ROOT+
+		"/gamelib/clone/item/teyao/huanshendan");
+	object base_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		exp_item->move(player);
+		base_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		array(mapping(string:mixed)) preview =
+			daemon->query_auto_buff_preview(player);
+		// 应只列出背包里有候选的 kind：te_exp 与 attri_base。
+		int has_te_exp = 0;
+		int has_attri_base = 0;
+		int has_others = 0;
+		foreach(preview, mapping entry){
+			if((string)entry["kind"] == "te_exp")
+				has_te_exp = (string)entry["name_cn"] ==
+					exp_item->query_name_cn();
+			else if((string)entry["kind"] == "attri_base")
+				has_attri_base = (string)entry["name_cn"] ==
+					base_item->query_name_cn();
+			else
+				has_others = 1;
+		}
+		valid = sizeof(preview) == 2 && has_te_exp && has_attri_base &&
+			!has_others;
+		// 关闭开关后 preview 应为空。
+		player["/plus/autofight_buff"] = 0;
+		array(mapping(string:mixed)) empty_preview =
+			daemon->query_auto_buff_preview(player);
+		valid = valid && sizeof(empty_preview) == 0;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("preview 列表与候选不符: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_query_status_lists_active_danyao_buffs()
+{
+	test_start("query_status 输出激活中的丹药 buff 名称和剩余分钟");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_status__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object base_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	string status_text = "";
+	mixed err = catch {
+		base_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		set_this_player(player);
+		// 直接触发一次自动嗑药，写入 buff 槽位与名称缓存。
+		daemon->perform_auto_buff(player);
+		// query_status 应在 "游荡中/交战中" 后追加 "\n特效：<name>(N分钟)"
+		status_text = player->query_status();
+		valid = search(status_text,"特效：") != -1 &&
+			search(status_text,"巨力丹") != -1 &&
+			search(status_text,"分钟)") != -1;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("query_status 未显示激活中的 buff: "+error_desc+
+			" status="+status_text);
+	destroy_runtime_player(player);
+}
+
+void test_player_state_exposes_active_buffs()
+{
+	test_start("battle_status player.active_buffs 暴露激活中的丹药");
+	string renderer_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
+	string error_desc = "";
+	int valid = 0;
+	if(!renderer_source)
+		error_desc = "无法读取 html_renderer.pike";
+	else
+		valid = search(renderer_source,"active_buffs") != -1 &&
+			search(renderer_source,"remain_min") != -1 &&
+			search(renderer_source,"attri_base") != -1 &&
+			search(renderer_source,"te_exp") != -1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("renderer 未输出 active_buffs: "+error_desc);
+}
+
+void test_auto_buff_includes_te_danyao()
+{
+	test_start("开关开启时按效果服用商城特药 te_* 并尊重每日次数");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_teyao__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object exp_item = clone(ROOT+
+		"/gamelib/clone/item/teyao/huanshendan");
+	object honer_item = clone(ROOT+
+		"/gamelib/clone/item/teyao/nuhuojiu");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		exp_item->move(player);
+		honer_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_buff"] = 1;
+		set_this_player(player);
+		mapping result = daemon->perform_auto_buff(player);
+		valid = player->query_buff("te_exp",0) != "none" &&
+			player->query_buff("te_honer",0) != "none" &&
+			sizeof((array)result["eaten"]) == 2;
+		// 把 te_exp 每日次数填满，下一 tick 不再尝试吃同 kind。
+		if(!player["/plus/daily/teyao_map"])
+			player["/plus/daily/teyao_map"] = ([]);
+		player["/plus/daily/teyao_map"]["te_exp"] =
+			(int)player->query_max_yao();
+		// 先把 te_exp 槽位清掉，否则会因槽位已满被自然跳过。
+		player->set_buff("te_exp",0,"none");
+		player->set_buff("te_exp",2,0);
+		mapping result2 = daemon->perform_auto_buff(player);
+		// te_exp 每日上限已满，result2 不应再次报告吃 te_exp；但 te_honer 槽位
+		// 已被前一次 tick 占用，所以也不应再次出现，整体 eaten 为空。
+		valid = valid && sizeof((array)result2["eaten"]) == 0;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("商城特药 te_* 处理错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_autofight_buff_command_toggle()
+{
+	test_start("autofight buff 0/1 命令分支正确切换开关");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_cmd__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object cmd = (object)(ROOT+"/gamelib/cmds/autofight.pike");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	mixed err = catch {
+		daemon->initialize_player(player);
+		set_this_player(player);
+		cmd->main("buff 1");
+		valid = player["/plus/autofight_buff"] == 1 &&
+			daemon->query_auto_buff_enabled(player) == 1;
+		cmd->main("buff 0");
+		valid = valid && player["/plus/autofight_buff"] == 0 &&
+			daemon->query_auto_buff_enabled(player) == 0;
+		// 非法参数保持当前值
+		cmd->main("buff 2");
+		valid = valid && player["/plus/autofight_buff"] == 0;
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("autofight buff 命令分支错误: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_flushview_invokes_auto_buff()
+{
+	test_start("flushview 脱战时按开关调用 perform_auto_buff");
+	object player = create_runtime_player(
+		"__testunit_autofight_buff_flush__");
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object flush_cmd = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/flushview.pike");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/huangshayuanye");
+	object buff_item = clone(ROOT+
+		"/gamelib/clone/item/liandan/julidan");
+	object|zero original_player = this_player();
+	string error_desc = "";
+	int valid = 0;
+	int item_consumed;
+	mixed err = catch {
+		player->move(room);
+		buff_item->move(player);
+		daemon->initialize_player(player);
+		player["/plus/autofight_smart_route"] = 0;
+		player["/plus/autofight_loot"] = 0;
+		player["/plus/autofight_buff"] = 1;
+		daemon->start_autofight(player);
+		set_this_player(player);
+		flush_cmd->main(0);
+		// 第一次 tick 应已触发自动吃药；item 被消耗后对象可能销毁，用
+		// present 检查更稳。
+		item_consumed = !present("julidan",player);
+		valid = player->query_buff("attri_base",0) != "none" &&
+			item_consumed;
+		daemon->stop_autofight(player);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("flushview 未触发自动嗑状态药: "+error_desc);
+	if(room){
+		foreach(all_inventory(room),object item)
+			if(item != player)
+				destruct(item);
+		destruct(room);
+	}
+	destroy_runtime_player(player);
 }
 
 int main()
@@ -2621,6 +3110,18 @@ int main()
 	test_end_to_end_auto_rest();
 	test_end_to_end_auto_sell();
 	test_vip_one_click_safe_sell_command();
+	test_auto_buff_config_migration();
+	test_auto_buff_disabled_no_op();
+	test_auto_buff_picks_highest_effect();
+	test_auto_buff_skips_occupied_slot();
+	test_auto_buff_skips_level_capped();
+	test_auto_buff_eats_across_kinds();
+	test_auto_buff_preview_matches_selection();
+	test_query_status_lists_active_danyao_buffs();
+	test_player_state_exposes_active_buffs();
+	test_auto_buff_includes_te_danyao();
+	test_autofight_buff_command_toggle();
+	test_flushview_invokes_auto_buff();
 	test_integration_wiring();
 	werror("\n自动挂机测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],

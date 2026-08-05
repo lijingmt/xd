@@ -221,6 +221,12 @@ int main(string|zero arg)
 			write("职业助手已按当前策略补召一只已学灵兽。\n");
 		return 1;
 	}
+	if(AUTOFIGHTD->query_auto_buff_enabled(me)){
+		mapping buff_result = AUTOFIGHTD->perform_auto_buff(me);
+		array(string) eaten_names = (array(string))buff_result["eaten"];
+		if(sizeof(eaten_names) > 0)
+			write("挂机助手已自动服用状态药："+eaten_names*"、"+"。\n");
+	}
 	if(AUTOFIGHTD->should_auto_store_non_equipment(me)){
 		storage_result =
 			AUTOFIGHTD->perform_auto_store_non_equipment(me);

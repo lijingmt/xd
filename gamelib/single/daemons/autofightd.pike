@@ -12,9 +12,27 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
 #define AUTOFIGHT_LOOT_RETRY_SECONDS 30
-#define AUTOFIGHT_CONFIG_VERSION 7
+#define AUTOFIGHT_CONFIG_VERSION 8
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
+
+private array(string) auto_buff_kinds = ({
+	"attri_base",
+	"attri_attack",
+	"attri_defend",
+	"attri_vice",
+	"attri_luck",
+	"attri_honer",
+	"attri_exp",
+	// 商城特药（每日次数受 query_max_yao() 限制），玩家显式开启挂机嗑药时一并代吃。
+	"te_base",
+	"te_attack",
+	"te_defend",
+	"te_vice",
+	"te_luck",
+	"te_honer",
+	"te_exp",
+});
 
 private int autofight_scan_count;
 private int autofight_scan_deferred_objects;
@@ -375,6 +393,7 @@ void initialize_player(object me)
 		me["/plus/autofight_cleanup_protect_names"] = "";
 		me["/plus/autofight_cleanup_force_names"] = "";
 		me["/plus/autofight_skill_mode"] = "smart";
+		me["/plus/autofight_buff"] = 0;
 	}
 	else
 		sync_daily_limit(me);
@@ -409,6 +428,8 @@ void initialize_player(object me)
 	}
 	if(config_version < 7)
 		me["/plus/autofight_skill_mode"] = "smart";
+	if(config_version < 8)
+		me["/plus/autofight_buff"] = 0;
 	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
 			AUTOFIGHT_CONFIG_VERSION;
@@ -897,6 +918,132 @@ int query_auto_rest_enabled(object me)
 		return 0;
 	initialize_player(me);
 	return (int)me["/plus/autofight_auto_rest"] == 1;
+}
+
+int query_auto_buff_enabled(object me)
+{
+	if(!me)
+		return 0;
+	initialize_player(me);
+	return (int)me["/plus/autofight_buff"] == 1;
+}
+
+// 选择某 kind 槽位下一次会被自动服用的丹药。返回 0 表示该槽位本轮不会触发：
+// 可能因为槽位已有 buff、背包无候选丹药、等级超限、或 te_* 已达每日上限。
+// 调用方负责缓存名称：吃下后 amount 归零，物品对象会被销毁。
+private object|zero select_best_buff_danyao(object me, string kind)
+{
+	object|zero best;
+	int best_value;
+	int best_duration;
+	mapping teyao_map;
+	if(me->query_buff(kind, 0) != "none")
+		return 0;
+	if(has_prefix(kind,"te_")){
+		teyao_map = me["/plus/daily/teyao_map"];
+		if(mappingp(teyao_map) &&
+		   (int)teyao_map[kind] >= (int)me->query_max_yao())
+			return 0;
+	}
+	foreach(all_inventory(me), object item){
+		int max_level;
+		int value;
+		int duration;
+		if(!item || item->amount <= 0)
+			continue;
+		if(!functionp(item->query_danyao_kind))
+			continue;
+		if(item->query_danyao_kind() != kind)
+			continue;
+		max_level = (int)item->query_danyao_max_level();
+		if(max_level > 0 && me->query_level() > max_level)
+			continue;
+		value = (int)item->query_effect_value();
+		duration = (int)item->query_danyao_timedelay();
+		if(!best || value > best_value ||
+		   (value == best_value && duration > best_duration)){
+			best = item;
+			best_value = value;
+			best_duration = duration;
+		}
+	}
+	return best;
+}
+
+// 预览开关开启后、下一次脱战 tick 会自动服用的丹药。用于 autofight open 设置页展示，
+// 让玩家在勾选开关时就能看到接下来哪些丹药会被消耗、对应什么属性。
+array(mapping(string:mixed)) query_auto_buff_preview(object me)
+{
+	array(mapping(string:mixed)) preview = ({});
+	mapping(string:string) kind_labels = ([
+		"attri_base":"力量/敏捷/悟性",
+		"attri_attack":"伤害",
+		"attri_defend":"防御/生命",
+		"attri_vice":"副属性",
+		"attri_luck":"幸运",
+		"attri_honer":"荣誉",
+		"attri_exp":"经验",
+		"te_base":"力量/敏捷/悟性（特）",
+		"te_attack":"伤害（特）",
+		"te_defend":"防御/生命（特）",
+		"te_vice":"副属性（特）",
+		"te_luck":"幸运（特）",
+		"te_honer":"荣誉（特）",
+		"te_exp":"经验（特）",
+	]);
+	if(!me)
+		return preview;
+	initialize_player(me);
+	if((int)me["/plus/autofight_buff"] != 1)
+		return preview;
+	foreach(auto_buff_kinds, string kind){
+		object|zero best = select_best_buff_danyao(me, kind);
+		if(!best)
+			continue;
+		preview += ({
+			([
+				"kind":kind,
+				"kind_cn":kind_labels[kind] || kind,
+				"name_cn":best->query_name_cn(),
+				"value":(int)best->query_effect_value(),
+				"duration":(int)best->query_danyao_timedelay(),
+			]),
+		});
+	}
+	return preview;
+}
+
+mapping(string:mixed) perform_auto_buff(object me)
+{
+	mapping(string:mixed) result;
+	result = (["eaten":({})]);
+	if(!me)
+		return result;
+	initialize_player(me);
+	if((int)me["/plus/autofight_buff"] != 1)
+		return result;
+	// 覆盖 attri_* 与 te_* 共十四类 buff 丹药；spec 因 sucide 会自杀，永远不自动吃。
+	// 已有同类 buff 不覆盖；等级超限的追赶药跳过；te_* 每日次数到达上限后跳过。
+	foreach(auto_buff_kinds, string kind){
+		object|zero best;
+		int count_index;
+		string best_name;
+		string best_name_cn;
+		best = select_best_buff_danyao(me, kind);
+		if(!best)
+			continue;
+		// 吃药前缓存名称：amount 减到 0 时物品会被销毁，之后再访问会报错。
+		best_name = best->query_name();
+		best_name_cn = best->query_name_cn();
+		// present(name, me, n) 是 0-indexed：第一件同名物品传 0。
+		count_index = query_object_count(best, me);
+		// flag=1 强制覆盖现有 buff 的确认提示，跳过交互。
+		me->command("viceskill_eat_danyao "+best_name+" "+
+			count_index+" 1 0");
+		if(me->query_buff(kind, 0) != "none")
+			result["eaten"] += ({ best_name_cn });
+	}
+	return result;
 }
 
 int query_auto_destroy_non_equipment_enabled(object me)

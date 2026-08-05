@@ -1226,6 +1226,40 @@ mapping query_player_state(object player)
             lunhuipt = player["lunhuipt"];
         }
         result["lunhuipt"] = lunhuipt;
+
+        // 当前生效的丹药/特药 buff：让前端战斗小窗能直接显示生效中的特效名称与剩余分钟。
+        // 服务端读 buff[kind][0/2] 与 /danyao/、/teyao/ 名称缓存，前端只负责展示。
+        array(mapping(string:mixed)) active_buffs = ({});
+        array(string) buff_kinds = ({
+            "attri_base","attri_attack","attri_defend","attri_vice",
+            "attri_luck","attri_honer","attri_exp",
+            "te_base","te_attack","te_defend","te_vice",
+            "te_luck","te_honer","te_exp",
+        });
+        foreach(buff_kinds, string bkind){
+            if(player->query_buff(bkind,0) == "none")
+                continue;
+            int remain_min = (int)player->query_buff(bkind,2);
+            if(remain_min <= 0)
+                continue;
+            string buff_name = "";
+            if(has_prefix(bkind,"te_")){
+                mixed te = player["/teyao/"+bkind];
+                if(te && arrayp(te) && sizeof(te) >= 4)
+                    buff_name = (string)te[3];
+            }
+            else{
+                buff_name = (string)player["/danyao/"+bkind];
+            }
+            if(buff_name == "")
+                continue;
+            active_buffs += ({ ([
+                "kind":bkind,
+                "name_cn":buff_name,
+                "remain_min":remain_min,
+            ]) });
+        }
+        result["active_buffs"] = active_buffs;
     };
 
     if(err) {
