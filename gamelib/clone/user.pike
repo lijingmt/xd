@@ -532,6 +532,9 @@ void fight_die()
 	// 成功代表人物没有真正死亡，后续死亡流程必须完整跳过。
 	if(me->try_lingyi_auto_revive(enemy))
 		return;
+	// 无相化身（120 级被动）：每日一次免疫致命伤，必须在召唤清理前判定。
+	if(me->try_wuxiang_avatar_revive(enemy))
+		return;
 	// 灵医职业复苏优先；未触发时才判定隐藏鸾鸟的账号级回生羽。
 	if(PETD->try_pet_owner_revive(me,enemy))
 		return;
