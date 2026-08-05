@@ -3946,6 +3946,13 @@ createApp({
                     this.addSkillAnimation(skillType, skillName, skillTarget);
                 }
 
+                // 丹药服用触发 buff 光效（挂机自动嗑药、手动吃丹药都触发）。
+                // 必须放在 isInBattle 早退之前，否则脱战挂机时不会播放。
+                const danyaoEatMatch = lineText.match(/你(?:食用|阅读)了([^。。\n]+?)(?:[。\n]|$)/);
+                if (danyaoEatMatch && danyaoEatMatch[1]) {
+                    this.addSkillAnimation('buff', danyaoEatMatch[1].trim(), 'player');
+                }
+
                 if (!this.isInBattle) continue;
 
                 // 解析特殊战斗状态
