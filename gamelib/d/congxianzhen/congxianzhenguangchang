@@ -63,15 +63,7 @@ string query_links(){
 		tmp+="[学习天象技能:buy_items book tianxiang]\n";
 	if(player->query_profeId()=="lingyi")
 		tmp+="[学习灵医技能:buy_items book lingyi]\n";
-	tmp+="[⚔ 归墟境（硬Boss）:boss_enter guixujing]\n";
-	tmp+="[⚔ 万象林（硬Boss）:boss_enter wanxianglin]\n";
-	tmp+="——试炼兑换——\n";
-	tmp+="[灵石(10武勋):shilian_duihuan 10 lingshi]\n";
-	tmp+="[经验丹(50武勋):shilian_duihuan 50 dan]\n";
-	tmp+="[蓝装(30武勋):shilian_duihuan 30 blue90]\n";
-	tmp+="[紫装(80武勋):shilian_duihuan 80 purple110]\n";
-	tmp+="[金装(200武勋):shilian_duihuan 200 gold110]\n";
-	tmp+="[隐藏书(500武勋):shilian_duihuan 500 hidden]\n";
+	tmp+="[🏛 试炼中心:trial_center]\n";
 	return tmp;
 }
 void init()
