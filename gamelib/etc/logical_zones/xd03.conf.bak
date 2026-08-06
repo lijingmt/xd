@@ -1,0 +1,12 @@
+schema_version=1
+revision=4
+zone_id=xd03
+name=仙道三区
+enabled=1
+registration_open=1
+login_open=1
+isolation=1
+cluster=main
+sort=3
+open_at=0
+notes=本地三区；已与一区、二区在线合区互通

@@ -11,7 +11,7 @@ int main(string|zero arg)
 		return 0;
 	string s = "";
 	s += "═══ 试炼中心 ═══\n\n";
-	s += "【团队硬 Boss】需 3 人以上队伍挑战，伤害极高。\n";
+	s += "【团队硬 Boss】需 4 人以上队伍挑战，伤害极高。\n";
 	s += "坦克（镇越）拉仇恨、灵医持续治疗、输出在安全位攻击。\n\n";
 	s += "[⚔ 归墟境（归墟魔君）:boss_enter guixujing]\n";
 	s += "[⚔ 万象林（万象妖皇）:boss_enter wanxianglin]\n";

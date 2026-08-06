@@ -1771,7 +1771,7 @@ void perform(string name,void|int flag){
 	if(enemy->is && enemy->is("npc") &&
 	   functionp(enemy->is_team_required_boss) &&
 	   enemy->is_team_required_boss()){
-		int min_size = 3;
+		int min_size = 4;
 		int alive_count = 0;
 		if(functionp(enemy->query_team_required_min_size))
 			min_size = (int)enemy->query_team_required_min_size();
@@ -3276,7 +3276,7 @@ private void attack(int skill_add,int skill_add_per,string type,
 	// Boss reset_targets + _clean_fight 离场，防止单人硬吃硬 Boss。
 	if(functionp(this_object()->is_team_required_boss) &&
 	   this_object()->is_team_required_boss()){
-		int min_size = 3;
+		int min_size = 4;
 		int alive = 0;
 		if(functionp(this_object()->query_team_required_min_size))
 			min_size = (int)this_object()->query_team_required_min_size();
@@ -3874,7 +3874,7 @@ int _fight(object _enemy){
 	if(_enemy->is("npc") &&
 	   functionp(_enemy->is_team_required_boss) &&
 	   _enemy->is_team_required_boss()){
-		int min_size = 3;
+		int min_size = 4;
 		int alive = 0;
 		if(functionp(_enemy->query_team_required_min_size))
 			min_size = (int)_enemy->query_team_required_min_size();

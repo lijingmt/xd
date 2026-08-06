@@ -574,7 +574,7 @@ void set_team_required_boss(int flag){
 
 int query_team_required_min_size(){
     if(_team_required_min_size<1)
-        return 3;
+        return 4;
     return _team_required_min_size;
 }
 

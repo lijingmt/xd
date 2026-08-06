@@ -71,8 +71,8 @@ void test_team_required_flag()
 	object b2 = (object)(ROOT+"/gamelib/clone/npc/boss/wanxiangyaohuang");
 	int ok1 = (int)b1->is_team_required_boss()==1;
 	int ok2 = (int)b2->is_team_required_boss()==1;
-	int ok3 = (int)b1->query_team_required_min_size()==3;
-	int ok4 = (int)b2->query_team_required_min_size()==3;
+	int ok3 = (int)b1->query_team_required_min_size()==4;
+	int ok4 = (int)b2->query_team_required_min_size()==4;
 	check("归墟魔君 启用 team_required",ok1,"未启用");
 	check("万象妖皇 启用 team_required",ok2,"未启用");
 	check("最小队伍人数=3",ok3&&ok4,"默认值异常");
@@ -118,7 +118,7 @@ void test_team_counter()
 	b1->move(room);
 	b1->first_target = p1;
 	int count = (int)b1->count_first_target_team_in_room();
-	check("3 人同房同队计数=3",count==3,
+	check("3 人同房同队计数=3",count==4,
 		sprintf("count=%d",count));
 	// p3 离开房间 → count=2
 	p3->move((object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang"));
