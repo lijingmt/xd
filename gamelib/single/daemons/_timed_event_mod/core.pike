@@ -41,9 +41,21 @@ private string join_event(object player,string event_id)
 		return "请先结束当前战斗再进入。\n[返回:look]\n";
 	existing = query_session_for_user_id(player->query_name(),1);
 	if(existing){
-		restore_player(player);
-		player->command("look");
-		return "";
+		mapping participant = existing["participants"][player->query_name()];
+		if(!mappingp(participant) || (int)participant["alive"]==0){
+			// 修复：被淘汰的玩家清除旧记录，允许正常登录
+			m_delete(existing["participants"],player->query_name());
+			save_event_state();
+		}else{
+			if(!restore_player(player)){
+				// restore_player 失败时的安全处理
+				m_delete(existing["participants"],player->query_name());
+				save_event_state();
+			}else{
+				player->command("look");
+				return "";
+			}
+		}
 	}
 	if(player_already_entered(player,event_id,(string)window["date"]))
 		return "你今天已经参加过本玩法，明日可再次挑战。\n[返回:timed_event]\n";

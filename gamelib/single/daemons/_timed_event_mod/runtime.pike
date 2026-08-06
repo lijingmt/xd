@@ -4,11 +4,21 @@ private mapping|zero query_session_for_user_id(string user_id,void|int active_on
 	foreach(indices(sessions),string session_key){
 		mapping session = sessions[session_key];
 		mapping participants = session["participants"];
-		string phase = (string)session["phase"];
-		if(!mappingp(participants) || !mappingp(participants[user_id]))
+		mapping participant;
+		string phase;
+		if(!mappingp(participants))
 			continue;
-		if(active_only && phase!="signup" && phase!="battle")
+		participant = participants[user_id];
+		if(!mappingp(participant))
 			continue;
+		if(active_only){
+			phase = (string)session["phase"];
+			if(phase!="signup" && phase!="battle")
+				continue;
+			// 修复：被淘汰的玩家（alive=0）不应被视为活跃参与者
+			if((int)participant["alive"]==0)
+				continue;
+		}
 		if(!best || (int)session["created_at"]>(int)best["created_at"])
 			best = session;
 	}
