@@ -68,20 +68,25 @@ int main(string|zero arg)
 		}
 	}
 	// 发放奖励
+	int give_count = 0;
+	int fail_count = 0;
 	if(type=="lingshi"){
-		// 灵石 = 游戏内金币（add_money）
 		me->add_money(amount*10000);
 		write("兑换成功：获得 金币×"+(amount*10000)+"\n");
 	} else if(type=="dan"){
 		for(int i=0;i<amount*5;i++){
-			mixed e = catch {
-				object ob = clone(ROOT+"/gamelib/clone/item/teyao/huashendan");
-				if(ob) ob->move(me);
-			};
+			object ob;
+			mixed e = catch { ob = clone(ROOT+"/gamelib/clone/item/teyao/huashendan"); };
+			if(ob && ob->move(me)==1)
+				give_count++;
+			else{
+				fail_count++;
+				if(ob) destruct(ob);
+			}
 		}
-		write("兑换成功：获得 【特】幻神丹×"+(amount*5)+"\n");
+		write("兑换成功：获得 【特】幻神丹×"+give_count+
+			(fail_count>0?"（"+fail_count+"个因背包满未发放）":"")+"\n");
 	} else if(type=="feed"){
-		// 灵兽饲料用 金币 替代（玩家可去商店购买）
 		me->add_money(amount*5000);
 		write("兑换成功：获得 金币×"+(amount*5000)+"（可购买灵兽饲料）\n");
 	} else if(type=="hidden"){
@@ -91,14 +96,18 @@ int main(string|zero arg)
 		});
 		for(int i=0;i<amount;i++){
 			string pick = books[random(sizeof(books))];
-			mixed err = catch {
-				object ob = clone(ROOT+"/gamelib/clone/item/book/"+pick);
-				if(ob) ob->move(me);
-			};
+			object ob;
+			mixed err = catch { ob = clone(ROOT+"/gamelib/clone/item/book/"+pick); };
+			if(ob && ob->move(me)==1)
+				give_count++;
+			else{
+				fail_count++;
+				if(ob) destruct(ob);
+			}
 		}
-		write("兑换成功：获得 "+amount+" 本随机太极/无相隐藏传承\n");
+		write("兑换成功：获得 "+give_count+" 本随机隐藏传承"+
+			(fail_count>0?"（"+fail_count+"本因背包满未发放）":"")+"\n");
 	} else {
-		// 装备箱：发实际存在的高级装备
 		mapping(string:string) gear_paths = ([
 			"blue90":   "armor/30aofachangpao/30aofachangpao",
 			"purple110":"armor/30fumozhanjia/30fumozhanjia",
@@ -110,12 +119,17 @@ int main(string|zero arg)
 			return 1;
 		}
 		for(int i=0;i<amount;i++){
-			mixed e = catch {
-				object ob = clone(ROOT+"/gamelib/clone/item/"+path);
-				if(ob) ob->move(me);
-			};
+			object ob;
+			mixed e = catch { ob = clone(ROOT+"/gamelib/clone/item/"+path); };
+			if(ob && ob->move(me)==1)
+				give_count++;
+			else{
+				fail_count++;
+				if(ob) destruct(ob);
+			}
 		}
-		write("兑换成功：获得 "+exchanges[type]["name"]+" ×"+amount+"\n");
+		write("兑换成功：获得 "+exchanges[type]["name"]+" ×"+give_count+
+			(fail_count>0?"（"+fail_count+"件因背包满未发放）":"")+"\n");
 	}
 	me->command("save");
 	return 1;

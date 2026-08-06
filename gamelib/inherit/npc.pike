@@ -468,17 +468,29 @@ void fight_die()
 						if(termer && environment(termer)==environment(this_object()) &&
 						   termer->get_cur_life()>0 &&
 						   can_receive_logical_reward(logical_drop_owner,termer)){
-							object wuxun_ob;
-							mixed e = catch {
-								wuxun_ob = clone(ROOT+
-									"/gamelib/clone/item/other/shilianwuxun");
-							};
-							if(!e && wuxun_ob){
-								wuxun_ob->amount = wuxun_per_member;
-								wuxun_ob->move(termer);
-								tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
-									wuxun_per_member+"。\n");
+							// 先尝试合并到已有的武勋堆叠
+							int merged = 0;
+							foreach(all_inventory(termer),object existing){
+								if(existing && existing->query_name()=="shilianwuxun" &&
+								   (int)existing->amount>0){
+									existing->amount = (int)existing->amount+wuxun_per_member;
+									merged = 1;
+									break;
+								}
 							}
+							if(!merged){
+								object wuxun_ob;
+								mixed e = catch {
+									wuxun_ob = clone(ROOT+
+										"/gamelib/clone/item/other/shilianwuxun");
+								};
+								if(!e && wuxun_ob){
+									wuxun_ob->amount = wuxun_per_member;
+									wuxun_ob->move(termer);
+								}
+							}
+							tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
+								wuxun_per_member+"。\n");
 						}
 					}
 				}
