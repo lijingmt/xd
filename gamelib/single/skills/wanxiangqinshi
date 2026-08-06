@@ -7,8 +7,8 @@ protected void create(){
 	name_cn="万象侵蚀";
 	desc="万象妖皇的混合攻击，附带持续伤害";
 	s_type="zhudong"; s_skill_type="all_mofa_attack"; s_delayTime=3;
-	performs_mofa_attack[1]=({700000,900000}); performs_mofa_attack[2]=({1000000,1300000}); performs_mofa_attack[3]=({1500000,2000000});
-	performs_attack[1]=400000; performs_attack[2]=600000; performs_attack[3]=800000;
+	performs_mofa_attack[1]=({80000,120000}); performs_mofa_attack[2]=({120000,160000}); performs_mofa_attack[3]=({160000,200000});
+	performs_attack[1]=50000; performs_attack[2]=80000; performs_attack[3]=100000;
 	performs_cast[1]=20; performs_cast[2]=20; performs_cast[3]=20;
 	skill_type+=({"boss"});
 	performs_level_limit[1]=1; performs_level_limit[2]=2; performs_level_limit[3]=3;

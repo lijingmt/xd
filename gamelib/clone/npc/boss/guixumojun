@@ -17,14 +17,14 @@ protected void create(){
 	set_profeId("humanlike");
 	picture="1";
 	_npcLevel=120;
-	set_base_str(500000);
-	set_base_dex(100000);
-	set_base_think(50000);
-	set_base_life(5000000000);
+	set_base_str(5000);
+	set_base_dex(5000);
+	set_base_think(3000);
+	set_base_life(300000000);
 	this_object()->query_life_max();
 	set_base_baoji(20);
 	set_base_hitte(200);
-	set_base_dodge(8);
+	set_base_dodge(50);
 	setup_npc();
 	// 给 Boss 一个固定攻击技能，确保伤害稳定可控
 	if(this_object()->skills)

@@ -16,14 +16,14 @@ protected void create(){
 	set_profeId("humanlike");
 	picture="1";
 	_npcLevel=110;
-	set_base_str(350000);
-	set_base_dex(80000);
-	set_base_think(200000);
-	set_base_life(4000000000);
+	set_base_str(4000);
+	set_base_dex(5000);
+	set_base_think(4000);
+	set_base_life(250000000);
 	this_object()->query_life_max();
 	set_base_baoji(25);
 	set_base_hitte(220);
-	set_base_dodge(15);
+	set_base_dodge(45);
 	setup_npc();
 	if(this_object()->skills)
 		this_object()->skills=([]);
