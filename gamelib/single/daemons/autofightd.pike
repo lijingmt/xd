@@ -2083,6 +2083,12 @@ int charge_time(object me)
 	elapsed = now-last;
 	if(elapsed <= 0)
 		return query_time_left(me);
+	// 如果距上次扣费超过 60 秒，说明玩家离线/浏览器休眠/网络断开，
+	// 这段时间没有实际挂机（没杀怪没涨经验），不应消耗每日时间。
+	if(elapsed > 60){
+		me["/tmp/autofight_last_charge"] = now;
+		return query_time_left(me);
+	}
 	left = query_time_left(me)-elapsed;
 	if(left < 0)
 		left = 0;
