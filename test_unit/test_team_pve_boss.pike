@@ -251,6 +251,23 @@ void test_boss_rooms_connected()
 		search(congxian,"wanxianglin")!=-1,"反向出口缺失");
 }
 
+void test_boss_skill_levels_valid()
+{
+	werror("\n[测试13] Boss 技能等级不超过技能定义的最大等级（3）\n");
+	object b1 = (object)(ROOT+"/gamelib/clone/npc/boss/guixumojun");
+	object b2 = (object)(ROOT+"/gamelib/clone/npc/boss/wanxiangyaohuang");
+	if(!b1 || !b2 || !b1->skills || !b2->skills){
+		check("Boss 技能加载",0,"前置失败");
+		return;
+	}
+	int lvl1 = (int)(b1->skills["guixumojiji"] && b1->skills["guixumojiji"][0]);
+	int lvl2 = (int)(b2->skills["wanxiangqinshi"] && b2->skills["wanxiangqinshi"][0]);
+	check("归墟魔君技能等级<=3",lvl1>0 && lvl1<=3,
+		sprintf("lvl=%d",lvl1));
+	check("万象妖皇技能等级<=3",lvl2>0 && lvl2<=3,
+		sprintf("lvl=%d",lvl2));
+}
+
 void test_bosses_have_wuxun_drop_count()
 {
 	werror("\n[测试12] Boss 死亡武勋数量配置正确\n");
@@ -276,7 +293,8 @@ int main()
 		test_exchanger_npc_in_both_plazas();
 		test_duihuan_command_complete();
 		test_boss_rooms_connected();
-		test_bosses_have_wuxun_drop_count();
+		test_boss_skill_levels_valid();
+	test_bosses_have_wuxun_drop_count();
 	};
 	if(err)
 		check("测试无异常",0,

@@ -27,7 +27,7 @@ protected void create(){
 	setup_npc();
 	if(this_object()->skills)
 		this_object()->skills=([]);
-	this_object()->skills=(["wanxiangqinshi":({5,0})]);
+	this_object()->skills=(["wanxiangqinshi":({3,0})]);
 	this_object()->skills_enable="wanxiangqinshi";
 	set_heart_beat(1);
 }

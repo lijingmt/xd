@@ -29,7 +29,7 @@ protected void create(){
 	// 给 Boss 一个固定攻击技能，确保伤害稳定可控
 	if(this_object()->skills)
 		this_object()->skills=([]);
-	this_object()->skills=(["guixumojiji":({5,0})]);
+	this_object()->skills=(["guixumojiji":({3,0})]);
 	this_object()->skills_enable="guixumojiji";
 	set_heart_beat(1);
 }

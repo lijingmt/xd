@@ -68,31 +68,23 @@ int main(string|zero arg)
 		}
 	}
 	// 发放奖励
-	object reward;
 	if(type=="lingshi"){
-		// 灵石（仙玉）直接加到账号
-		for(int i=0;i<amount*100;i++){
-			object ob = new(ROOT+"/gamelib/clone/item/other/lingshi");
-			if(ob){
-				ob->move(me);
-			}
-		}
-		write("兑换成功：获得 灵石×"+(amount*100)+"\n");
+		// 灵石 = 游戏内金币（add_money）
+		me->add_money(amount*10000);
+		write("兑换成功：获得 金币×"+(amount*10000)+"\n");
 	} else if(type=="dan"){
 		for(int i=0;i<amount*5;i++){
-			object ob = new(ROOT+"/gamelib/clone/item/teyao/huashendan");
-			if(ob) ob->move(me);
+			mixed e = catch {
+				object ob = clone(ROOT+"/gamelib/clone/item/teyao/huashendan");
+				if(ob) ob->move(me);
+			};
 		}
-		write("兑换成功：获得 经验丹【灵】×"+(amount*5)+"\n");
+		write("兑换成功：获得 【特】幻神丹×"+(amount*5)+"\n");
 	} else if(type=="feed"){
-		for(int i=0;i<amount*10;i++){
-			object ob = new(ROOT+"/gamelib/clone/item/other/pet_feed");
-			if(ob) ob->move(me);
-			else break;
-		}
-		write("兑换成功：获得 灵兽饲料×"+(amount*10)+"\n");
+		// 灵兽饲料用 金币 替代（玩家可去商店购买）
+		me->add_money(amount*5000);
+		write("兑换成功：获得 金币×"+(amount*5000)+"（可购买灵兽饲料）\n");
 	} else if(type=="hidden"){
-		// 随机一本太极/无相隐藏书
 		array(string) books = ({
 			"taijiguixu","taijihunyuan","taijiwuji",
 			"wuxiangguixu","wuxianghunyuan","wuxiangwuji"
@@ -104,13 +96,13 @@ int main(string|zero arg)
 				if(ob) ob->move(me);
 			};
 		}
-		write("兑换成功：获得 "+amount+" 本随机隐藏传承\n");
+		write("兑换成功：获得 "+amount+" 本随机太极/无相隐藏传承\n");
 	} else {
-		// 装备箱：发 bossdrop 高级装备模板
+		// 装备箱：发实际存在的高级装备
 		mapping(string:string) gear_paths = ([
-			"blue90":   "bossdrop/34qingyunhuwan",
-			"purple110":"bossdrop/30shanguangshoutai",
-			"gold110":  "bossdrop/30aofachangpao",
+			"blue90":   "armor/30aofachangpao/30aofachangpao",
+			"purple110":"armor/30fumozhanjia/30fumozhanjia",
+			"gold110":  "armor/38binglingtoushi/38binglingtoushi",
 		]);
 		string path = gear_paths[type];
 		if(!path || path==""){
