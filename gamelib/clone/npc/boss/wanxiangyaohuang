@@ -16,10 +16,10 @@ protected void create(){
 	set_profeId("humanlike");
 	picture="1";
 	_npcLevel=110;
-	set_base_str(17500);
-	set_base_dex(7000);
-	set_base_think(11000);
-	set_base_life(40000000);
+	set_base_str(350000);
+	set_base_dex(80000);
+	set_base_think(200000);
+	set_base_life(4000000000);
 	this_object()->query_life_max();
 	set_base_baoji(25);
 	set_base_hitte(220);

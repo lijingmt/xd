@@ -54,13 +54,13 @@ void test_boss_attributes_hard_enough()
 		check("Boss 加载失败",0,"前置测试失败");
 		return;
 	}
-	check("归墟魔君 HP≥500000",(int)b1->query_life_max()>=50000000,
+	check("归墟魔君 HP≥500000",(int)b1->query_life_max()>=5000000000,
 		sprintf("HP=%d",(int)b1->query_life_max()));
-	check("归墟魔君 力量≥5500",(int)b1->query_base_str()>=27500,
+	check("归墟魔君 力量≥5500",(int)b1->query_base_str()>=500000,
 		sprintf("str=%d",(int)b1->query_base_str()));
-	check("万象妖皇 HP≥400000",(int)b2->query_life_max()>=40000000,
+	check("万象妖皇 HP≥400000",(int)b2->query_life_max()>=4000000000,
 		sprintf("HP=%d",(int)b2->query_life_max()));
-	check("万象妖皇 力量≥3500",(int)b2->query_base_str()>=17500,
+	check("万象妖皇 力量≥3500",(int)b2->query_base_str()>=350000,
 		sprintf("str=%d",(int)b2->query_base_str()));
 }
 
