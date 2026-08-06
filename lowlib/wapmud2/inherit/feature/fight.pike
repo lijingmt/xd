@@ -3839,6 +3839,37 @@ int _fight(object _enemy){
 			tell_object(this_object(),"逻辑分区隔离中，不能与该目标交战。\n");
 		return 0;
 	}
+	// 团队硬 Boss 门控：玩家攻击 Boss 前，检查 Boss 是否要求最低队伍人数。
+	// 不足时拒绝进入战斗，防止单人把 Boss 当沙袋刷。
+	if(_enemy->is("npc") &&
+	   functionp(_enemy->is_team_required_boss) &&
+	   _enemy->is_team_required_boss()){
+		int min_size = 3;
+		int alive = 0;
+		if(functionp(_enemy->query_team_required_min_size))
+			min_size = (int)_enemy->query_team_required_min_size();
+		// 计算当前玩家的队伍在同房存活人数
+		string tid = (string)this_object()->query_term();
+		if(tid && tid!="noterm" && tid!=""){
+			object room = environment(this_object());
+			if(room){
+				foreach(all_inventory(room),object ob){
+					if(ob && ob->is && ob->is("player") &&
+					   (string)ob->query_term()==tid &&
+					   ob->get_cur_life()>0)
+						alive++;
+				}
+			}
+		}
+		if(alive < min_size){
+			if(this_object()->is("player"))
+				tell_object(this_object(),
+					"【试炼】"+_enemy->query_name_cn()+
+					"周围的结界排斥着你：硬 Boss 需 "+
+					min_size+" 人以上队伍才能挑战。\n");
+			return 0;
+		}
+	}
 	if(this_object()->hind == 1) 
 		this_object()->hind = 0;
 	if(this_object()->query_buff("spec",0) == "hind"){
