@@ -727,12 +727,10 @@ def build_skill_guide() -> None:
 
     section_number = 3
     for profession_id in [
-        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi"
+        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi", "wuxiang"
     ]:
         profession = PROF_BY_ID[profession_id]
         skill_count_cn = "四" if profession_id == "lingyi" else "三"
-        if profession_id == "wuxiang":
-            skill_count_cn = "三"
         guide.h2(
             f"4.{section_number} {profession['name']}{skill_count_cn}大神技 - {MYTHIC_THEMES[profession_id]}"
         )
@@ -798,10 +796,16 @@ def build_skill_guide() -> None:
                 "天象推荐循环",
                 "先用周天静止压低危险目标命中，或用万象星壁覆盖积蓄窗口；交替施放已学火、冰、风攻击法术积至三星，再用星河坠落引爆。星痕最多三层、十五秒到期，换房、脱战、死亡和掉线都会清空。",
             )
-        else:
+        elif profession_id == "lingyi":
             guide.callout(
                 "灵医推荐循环",
                 "先以回春、清心、灵愈或甘霖维持队伍并凝成至多三层药契；危急单体用回命天露急救，多人同时受伤用慈心普渡，复合危机以六合回春消耗药契全队治疗净化。药雾天罗的仙、妖、中立玩家目标可在百草助手分别开关，队友好友与路人仍永久保护。",
+            )
+        elif profession_id == "wuxiang":
+            guide.callout(
+                "无相推荐循环",
+                "归墟常驻提升心法加成到 60%；混元作为无相灭的强化版在 Boss 阶段穿插双倍暴击；无极覆盖同房同队群疗并按优先级解一项负面。三者均为 80 级以上无相才能学习，单本掉率约 1/100000，不会被其它职业读。",
+                "gold",
             )
         section_number += 1
 
