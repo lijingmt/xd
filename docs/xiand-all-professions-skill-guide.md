@@ -2,8 +2,8 @@
 
 十二职业技能全索引 · 34式旧世神技 + 70式太古传承 · 2026-08-06版
 
-- 分支：`feature/wuxiang-finishing`
-- 提交基线：`f6df692bc3`
+- 分支：`feature/team-pve-bosses`
+- 提交基线：`6a4d3a5678`
 - 生成日期：2026-08-06
 - 数据规模：290 个职业技能对象，278 条职业技能书配置
 
@@ -1583,4 +1583,4 @@
 
 > **版本声明**
 >
-> 本文生成于2026-08-06，分支feature/wuxiang-finishing，提交基线f6df692bc3。若后续技能数值或掉率发生调整，请重新运行 docs/build_xiand_skill_guide.py 生成专册。
+> 本文生成于2026-08-06，分支feature/team-pve-bosses，提交基线6a4d3a5678。若后续技能数值或掉率发生调整，请重新运行 docs/build_xiand_skill_guide.py 生成专册。
