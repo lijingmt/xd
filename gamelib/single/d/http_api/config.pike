@@ -69,16 +69,16 @@ constant MAX_HTTP_BODY_SIZE = 65536;
 constant RATE_LIMIT_WINDOW = 60;
 
 /** 每分钟最多登录尝试次数 */
-constant MAX_LOGIN_ATTEMPTS = 5;
+constant MAX_LOGIN_ATTEMPTS = 20;
 
 /** 每分钟最多注册尝试次数 */
-constant MAX_REGISTER_ATTEMPTS = 3;
+constant MAX_REGISTER_ATTEMPTS = 5;
 
 /** 连续失败多少次后锁定 */
-constant MAX_FAILED_LOGINS = 3;
+constant MAX_FAILED_LOGINS = 15;
 
 /** 锁定时长 (秒) */
-constant LOCKOUT_DURATION = 300;
+constant LOCKOUT_DURATION = 120;
 
 /** 密码失败追踪窗口 (秒) */
 constant PASSWORD_FAIL_WINDOW = 300;

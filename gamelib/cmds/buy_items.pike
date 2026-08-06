@@ -45,7 +45,9 @@ int main(string|zero arg)
 		else if(type == "lingyi")
 			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|灵医|[无相:buy_items "+item_type+" wuxiang]\n";
 		else if(type == "wuxiang")
-			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]|无相\n";
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]|无相|[太极:buy_items "+item_type+" taiji]\n";
+		else if(type == "taiji")
+			s += "[剑仙:buy_items "+item_type+" jianxian]|[羽士:buy_items "+item_type+" yushi]|[诛仙:buy_items "+item_type+" zhuxian]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]|[无相:buy_items "+item_type+" wuxiang]|太极\n";
 		else if(type == "kuangyao")
 			s += "狂妖|[巫妖:buy_items "+item_type+" wuyao]|[影鬼:buy_items "+item_type+" yinggui]|[方士:buy_items "+item_type+" fangshi]|[镇越:buy_items "+item_type+" zhenyue]|[天象:buy_items "+item_type+" tianxiang]|[灵医:buy_items "+item_type+" lingyi]|[无相:buy_items "+item_type+" wuxiang]\n";
 		else if(type == "wuyao")

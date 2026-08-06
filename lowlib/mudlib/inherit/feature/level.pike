@@ -191,6 +191,12 @@ void set_att_by_level(){
 		this_object()->set_dex(8+(int)(level_now*1.5));
 		this_object()->set_think(8+(int)(level_now*1.5));
 	}
+	if(this_object()->query_profeId()=="taiji"){//太极 - 无相之上 30% 强度，三系对称
+		// 比 无相(8+1.5L) 强 30%：起点 10、每级 +2.0；120 级达到 248（vs 无相 186）
+		this_object()->set_str(10+(int)(level_now*2.0));
+		this_object()->set_dex(10+(int)(level_now*2.0));
+		this_object()->set_think(10+(int)(level_now*2.0));
+	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());
 	this_object()->set_mofa(this_object()->query_mofa_max());

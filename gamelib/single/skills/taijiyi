@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【极】太极医"; picture="taijiyi_logo";
+	desc="太极回血术，效率约为方士的 70%";
+	s_type="zhudong"; s_skill_type="mofa_heal"; s_delayTime=3;
+	performs_mofa_attack[1]=({65,104}); performs_mofa_attack[2]=({156,208}); performs_mofa_attack[3]=({286,364}); performs_mofa_attack[4]=({494,598}); performs_mofa_attack[5]=({728,884});
+	performs_cast[1]=6; performs_cast[2]=10; performs_cast[3]=15; performs_cast[4]=22; performs_cast[5]=30;
+	skill_type+=({"taiji"});
+	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
+	performs_desc[1]="恢复50至80点生命，消耗法力6点"; performs_desc[2]="恢复120至160点生命，消耗法力10点"; performs_desc[3]="恢复220至280点生命，消耗法力15点"; performs_desc[4]="恢复380至460点生命，消耗法力22点"; performs_desc[5]="恢复560至680点生命，消耗法力30点";
+}

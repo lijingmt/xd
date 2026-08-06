@@ -1291,6 +1291,26 @@ mapping query_player_state(object player)
                 ]);
             }
         }
+
+        // 太极专属：心法 + 自复活 + 队友复活状态。前端用于战斗小窗标签展示。
+        if(player->query_profeId() == "taiji"){
+            int s = (int)player->query_str();
+            int d = (int)player->query_dex();
+            int t = (int)player->query_think();
+            string highest = s>=d && s>=t ? "力量" :
+                d>=s && d>=t ? "敏捷" : "智力";
+            result["taiji_heart_highest"] = highest;
+            int self_remain = player->query_taiji_self_revive_remaining();
+            result["taiji_self_revive"] = ([
+                "ready":(self_remain<=0 ? 1 : 0),
+                "remaining":self_remain,
+            ]);
+            int team_remain = player->query_taiji_team_revive_remaining_cast(player);
+            result["taiji_team_revive"] = ([
+                "ready":(team_remain<=0 ? 1 : 0),
+                "remaining":team_remain,
+            ]);
+        }
     };
 
     if(err) {

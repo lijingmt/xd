@@ -49,15 +49,17 @@ vm.runInNewContext(appSource, sandbox, { filename: 'app.js' });
 assert(componentOptions, 'Vue component should register');
 const client = Object.assign(componentOptions.data(), componentOptions.methods);
 
-assert.strictEqual(client.professionOptions.length, 11);
+assert.strictEqual(client.professionOptions.length, 12);
 assert.deepStrictEqual(
   [...new Set(client.professionOptions.map(option => option.profession_id))].length,
-  11
+  12
 );
 assert(client.professionOptions.some(option => option.profession_id === 'fangshi'));
 assert(client.professionOptions.some(option => option.profession_id === 'lingyi'));
 assert(client.professionOptions.some(option => option.profession_id === 'wuxiang'));
+assert(client.professionOptions.some(option => option.profession_id === 'taiji'));
 assert.strictEqual(client.wuxiangUnlocked, false);
+assert.strictEqual(client.taijiUnlocked, false);
 
 client.applyAccountData({
   token: 'a'.repeat(64),

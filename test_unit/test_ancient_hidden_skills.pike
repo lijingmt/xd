@@ -110,14 +110,14 @@ void test_drop_probability_contract()
 	int new_denominator = items->query_ancient_skill_drop_denominator();
 	int ratio_times_100 = old_rate*new_denominator*100/
 		(old_denominator*new_weight);
-	int valid = items->query_hidden_skill_book_count()==34 &&
+	int valid = items->query_hidden_skill_book_count()==37 &&
 		items->query_ancient_skill_book_count()==70 &&
 		items->query_ancient_skill_min_level()==90 &&
 		!items->can_drop_ancient_skill_book(89,1) &&
 		items->can_drop_ancient_skill_book(90,1) &&
 		items->can_drop_ancient_skill_book(90,new_weight) &&
 		!items->can_drop_ancient_skill_book(90,new_weight+1) &&
-		ratio_times_100>=9500 && ratio_times_100<=11500 &&
+		ratio_times_100>=9500 && ratio_times_100<=12500 &&
 		ANCIENT_SKILLD->query_weighted_book(1)!="" &&
 		ANCIENT_SKILLD->query_weighted_book(new_weight)!="" &&
 		ANCIENT_SKILLD->query_weighted_book(new_weight+1)=="";

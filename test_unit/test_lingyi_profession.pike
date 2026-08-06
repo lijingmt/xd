@@ -434,7 +434,7 @@ void test_hidden_tasks_teacher_equipment_and_medicine()
 			failed++;
 		if(book) destruct(book);
 	}
-	if(!pool || search(pool,"hidden_skill_drop_rate = 34") == -1 ||
+	if(!pool || search(pool,"hidden_skill_drop_rate = 37") == -1 ||
 	   !tasks || search(tasks,"379,n,【特殊】初辨药息") == -1 ||
 	   search(tasks,"383,n,【医】万木回春") == -1 ||
 	   search(tasks,"book/baicaojue:1") == -1 ||

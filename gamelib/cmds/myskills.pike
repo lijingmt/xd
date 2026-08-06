@@ -61,6 +61,33 @@ int main(string|zero arg)
 			s += "【无相化身】120 级解锁：每日一次免疫致命伤\n";
 		s += "[无相补位路线:newbie_guide roadmap]|[队伍:my_term]\n";
 	}
+	if(this_player()->query_profeId()=="taiji"){
+		// 太极心法：65% 加成；生生不息：自复活 5 分钟冷却；复阴：主动复活队友
+		int s_v = this_player()->get_cur_str();
+		int d_v = this_player()->get_cur_dex();
+		int t_v = this_player()->get_cur_think();
+		string highest = s_v>=d_v && s_v>=t_v ? "力量" :
+			(d_v>=s_v && d_v>=t_v ? "敏捷" : "智力");
+		s += "【太极心法】当前最高项："+highest+
+			"（结算时其 65% 加成另外两系；vs 无相 50%）\n";
+		int self_remain = this_player()->query_taiji_self_revive_remaining();
+		if(self_remain > 0){
+			int min = self_remain/60;
+			int sec = self_remain%60;
+			s += "【太极·生生不息】自复活冷却还剩 "+min+" 分 "+sec+" 秒\n";
+		}
+		else
+			s += "【太极·生生不息】就绪（致命伤自动复活，恢复 30% 生命）\n";
+		int team_remain = this_player()->query_taiji_team_revive_remaining_cast(this_player());
+		if(team_remain > 0){
+			int min = team_remain/60;
+			int sec = team_remain%60;
+			s += "【太极·复阴】队友复活冷却还剩 "+min+" 分 "+sec+" 秒\n";
+		}
+		else
+			s += "【太极·复阴】就绪（[复活队友:taiji_fuyin] 复活同房同队鬼魂）\n";
+		s += "[太极补位路线:newbie_guide roadmap]|[队伍:my_term]\n";
+	}
 	//增加特殊技能链接
 	//由liaocheng于07/5/8修改
 	if(this_player()->can_spec == 1){

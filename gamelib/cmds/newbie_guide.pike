@@ -218,6 +218,28 @@ string query_wuxiang_growth_guide(object player)
 	return result;
 }
 
+string query_taiji_growth_guide(object player)
+{
+	string result = "";
+	int level = player->query_level();
+	result += "【太极·生死轮转】\n";
+	result += "太极拳是入门近战；5级太极诀补法术输出；10级太极医让自己能扛线。\n";
+	if(level<15)
+		result += "○ 15级太极盾、20级太极吼提供短时减伤与全属性爆发。\n";
+	else
+		result += "√ 太极盾吸收一次伤害；太极吼使全属性短时上升，配合心法爆发。\n";
+	if(level<35)
+		result += "○ 30/35级解锁太极剑/焰，进入双系轮转。\n";
+	else
+		result += "√ 物理与法术双修；同房群攻用太极焰覆盖敌对目标。\n";
+	result += "太极心法：力量/敏捷/智力的最高项会按 65% 加成另外两系（vs 无相 50%），即时结算。\n";
+	result += "太极·生生不息：致命伤自动复活，恢复 30% 生命，5 分钟冷却（PVP 也可触发）。\n";
+	result += "太极·复阴：通过命令 taiji_fuyin <队友名> 主动复活同房同队的鬼魂队友，独立 5 分钟冷却。\n";
+	result += "实际等级70以上怪物才可能掉落太极·归墟/混元/无极三本大神传承。\n";
+	result += "[购买太极技能书:buy_items book taiji]|[查看技能:myskills]|[队伍:my_term]|[复活队友:taiji_fuyin]|[每级历练:growth_task]\n";
+	return result;
+}
+
 string render_guide(object player)
 {
 	string result = "";
@@ -253,6 +275,8 @@ string render_guide(object player)
 		result += query_lingyi_growth_guide(player);
 	else if(player->query_profeId()=="wuxiang")
 		result += query_wuxiang_growth_guide(player);
+	else if(player->query_profeId()=="taiji")
+		result += query_taiji_growth_guide(player);
 	else
 		result += "[购买本职业技能书:buy_items book "+
 			player->query_profeId()+"]|[查看技能:myskills]\n";
@@ -401,7 +425,16 @@ string query_profession_roadmap(string profession)
 			result += "无相心法让最高属性的一半加成另外两系；实际等级70以上怪物才可能掉落归墟/混元/无极三本大神传承。\n";
 			result += "[无相技能书:buy_items book wuxiang]|[查看技能:myskills]|[队伍:my_term]\n";
 			break;
-	}
+	
+
+		case "taiji":
+			result += "太极：1级太极拳、5级太极诀、10级太极医兼顾近战法术治疗三系；比无相综合实力强 30%。\n";
+			result += "15级太极盾、20级太极吼、30/35级太极剑/焰、40级太极净、50级太极壁、55级太极唤、60级太极雨、70/85级太极击/灭。\n";
+			result += "100级太极归真短时爆发；太极心法让最高属性的 65% 加成另外两系。\n";
+			result += "太极·生生不息：致命伤自动复活，恢复 30% 生命，5 分钟冷却（PVP 可触发）。\n";
+			result += "太极·复阴：主动复活同房同队鬼魂队友，独立 5 分钟冷却。\n";
+			result += "[太极技能书:buy_items book taiji]|[查看技能:myskills]|[队伍:my_term]|[复活队友:taiji_fuyin]\n";
+			break;}
 	return result;
 }
 

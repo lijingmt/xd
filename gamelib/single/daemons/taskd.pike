@@ -589,6 +589,7 @@ int is_growth_task_profession(string profession_id)
 		case "tianxiang":
 		case "lingyi":
 		case "wuxiang":
+		case "taiji":
 			return 1;
 	}
 	return 0;

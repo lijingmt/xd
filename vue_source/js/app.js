@@ -204,6 +204,7 @@ createApp({
             accountSharedRechargeBalance: 0,
             accountSharedRechargeAvailable: true,
             wuxiangUnlocked: false,
+            taijiUnlocked: false,
             characterForm: {
                 race_id: '',
                 profession_id: ''
@@ -219,7 +220,8 @@ createApp({
                 { race_id: 'third', profession_id: 'zhenyue', name: '镇越', race: '中立', icon: '🛡️', desc: '团队坦克，守御承伤' },
                 { race_id: 'third', profession_id: 'tianxiang', name: '天象', race: '中立', icon: '🌠', desc: '星痕法术，元素爆发' },
                 { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' },
-                { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位，需账号下 10 职业均达 120 级解锁' }
+                { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位，需账号下 10 职业均达 120 级解锁' },
+                { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转，可复活自己和队友；需账号下 10 职+无相均达 200 级解锁' }
             ],
             isLoggingIn: false,
             isRegistering: false,
@@ -1430,6 +1432,7 @@ createApp({
             this.accountSharedRechargeAvailable =
                 data.shared_recharge_available !== 0;
             this.wuxiangUnlocked = data.wuxiang_unlocked === true;
+            this.taijiUnlocked = data.taiji_unlocked === true;
             if (data.token) {
                 this.accountToken = data.token;
             }
@@ -4433,13 +4436,16 @@ createApp({
         },
 
         visibleProfessionOptions() {
-            // 无相未解锁时整体隐藏入口，避免玩家点击后才看到具体缺口。
-            if (this.wuxiangUnlocked) {
-                return this.professionOptions;
-            }
-            return this.professionOptions.filter(
-                (option) => option.profession_id !== 'wuxiang'
-            );
+            // 无相/太极未解锁时分别隐藏对应入口，避免玩家点击后才看到具体缺口。
+            return this.professionOptions.filter((option) => {
+                if (option.profession_id === 'wuxiang' && !this.wuxiangUnlocked) {
+                    return false;
+                }
+                if (option.profession_id === 'taiji' && !this.taijiUnlocked) {
+                    return false;
+                }
+                return true;
+            });
         },
 
         headerPet() {

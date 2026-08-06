@@ -36,6 +36,7 @@ protected void create()
 	profe_limit["tianxiang"] = "天象";
 	profe_limit["lingyi"] = "灵医";
 	profe_limit["wuxiang"] = "无相";
+	profe_limit["taiji"] = "太极";
 
 	eat_flag = 1;
 }

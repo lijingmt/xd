@@ -407,6 +407,82 @@ string query_wuxiang_missing_for(object me){
 	return missing*"、";
 }
 
+// 太极解锁判定：账号下 10 个基础职业 + 无相，均至少有一个角色达到 200 级。
+int query_taiji_unlocked_for(object me){
+	mapping(string:mixed) account_data;
+	array(mapping(string:mixed)) characters;
+	mapping(string:int) prof_max_level;
+	array(string) required_professions;
+	if(!me || !functionp(me->query_name))
+		return 0;
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(
+		(string)me->query_name());
+	if(!account_data || (int)account_data["ok"] != 1)
+		return 0;
+	characters = (array(mapping(string:mixed)))account_data["characters"];
+	if(!characters || sizeof(characters) == 0)
+		return 0;
+	required_professions = ({
+		"jianxian","yushi","zhuxian",
+		"kuangyao","wuyao","yinggui",
+		"fangshi","zhenyue","tianxiang","lingyi",
+		"wuxiang",
+	});
+	prof_max_level = ([]);
+	foreach(characters, mapping entry){
+		string prof = (string)entry["profession_id"];
+		int lvl = (int)entry["level"];
+		if(prof && lvl >= 200 &&
+		   (!prof_max_level[prof] || lvl > prof_max_level[prof]))
+			prof_max_level[prof] = lvl;
+	}
+	foreach(required_professions, string p)
+		if(!prof_max_level[p])
+			return 0;
+	return 1;
+}
+
+string query_taiji_missing_for(object me){
+	mapping(string:mixed) account_data;
+	array(mapping(string:mixed)) characters;
+	mapping(string:int) prof_max_level;
+	array(string) missing = ({});
+	if(!me)
+		return "剑仙、羽士、诛仙、狂妖、巫妖、影鬼、方士、镇越、天象、灵医、无相";
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(
+		(string)me->query_name());
+	if(!account_data || (int)account_data["ok"] != 1)
+		return "剑仙、羽士、诛仙、狂妖、巫妖、影鬼、方士、镇越、天象、灵医、无相（账号查询失败）";
+	characters = (array(mapping(string:mixed)))account_data["characters"];
+	prof_max_level = ([]);
+	if(characters)
+		foreach(characters, mapping entry){
+			string prof = (string)entry["profession_id"];
+			int lvl = (int)entry["level"];
+			if(prof && (!prof_max_level[prof] || lvl > prof_max_level[prof]))
+				prof_max_level[prof] = lvl;
+		}
+	mapping(string:string) cn_names = ([
+		"jianxian":"剑仙","yushi":"羽士","zhuxian":"诛仙",
+		"kuangyao":"狂妖","wuyao":"巫妖","yinggui":"影鬼",
+		"fangshi":"方士","zhenyue":"镇越","tianxiang":"天象",
+		"lingyi":"灵医","wuxiang":"无相",
+	]);
+	foreach(({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui",
+		"fangshi","zhenyue","tianxiang","lingyi","wuxiang"}), string p){
+		int lvl = prof_max_level[p];
+		if(lvl >= 200)
+			continue;
+		if(lvl > 0)
+			missing += ({ cn_names[p]+"（"+lvl+"/200）" });
+		else
+			missing += ({ cn_names[p]+"（未创建）" });
+	}
+	if(sizeof(missing) == 0)
+		return "";
+	return missing*"、";
+}
+
 int choice_race(string arg){
 	object me = this_player();
 	string s = "";
@@ -472,6 +548,12 @@ int choice_race(string arg){
 				s += "[无相:choice_profe third/wuxiang]\n";
 				s += "（已解锁）全能补位，机制傻瓜，技能池广\n";
 			}
+			// 太极：无相之上的隐藏职业，需要 10 职+无相均达 200 级。
+			if(query_taiji_unlocked_for(me)){
+				s += "[imgurl loading:/"+GAME_NAME+"/images/taiji_logo.png]\n";
+				s += "[太极:choice_profe third/taiji]\n";
+				s += "（已解锁）生死轮转，可复活自己和队友\n";
+			}
 		}
 		s += "[更换阵营:choice_race]\n";
 	}
@@ -503,7 +585,7 @@ int choice_profe(string arg){
 		//初始化新角色职业值
 		array(string) arr = arg/"/";
 		// 无相始终在候选池里：未解锁时下面会拦截并给出具体缺口。
-		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang"});
+		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji"});
 		mapping(string:array(string)) valid_professions = ([
 			"human":({"jianxian","yushi","zhuxian"}),
 			"monst":({"kuangyao","wuyao","yinggui"}),
@@ -520,6 +602,15 @@ int choice_profe(string arg){
 			write("【无相·未解锁】无相是隐藏全职业，需要账号下 10 个职业均达到 120 级。\n");
 			write("当前缺口："+missing+"\n");
 			write("提示：把账号下任意一个对应职业的角色练到 120 级即可推进进度。\n");
+			write("[返回阵营选择:choice_race]\n");
+			return 1;
+		}
+		// 太极解锁：账号下 10 职业与无相均需达到 200 级。
+		if((string)arr[1]=="taiji" && !query_taiji_unlocked_for(me)){
+			string missing = query_taiji_missing_for(me);
+			write("【太极·未解锁】太极是无相之上的隐藏职业，需要账号下 10 职业与无相均达到 200 级。\n");
+			write("当前缺口："+missing+"\n");
+			write("提示：把账号下对应职业的角色练到 200 级即可推进进度。\n");
 			write("[返回阵营选择:choice_race]\n");
 			return 1;
 		}
@@ -670,6 +761,19 @@ int choice_profe(string arg){
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";
 		}
+		else if(u_p=="taiji"){
+			// 太极：无相之上的隐藏职业。服务端再次校验解锁条件，防伪造。
+			me->setup_player("third",u_p);
+			if(me->skills["taijiquan"]==0)
+				me->skills["taijiquan"]=({1,0});
+			s += "好，你选择了太极作为中立阵营的最高隐藏职业。\n";
+			s += "太极是生死轮转的化身，可被动复活自己，亦可主动复活同房队友；\n";
+			s += "比无相综合实力再强 30%，心法加成 65%。\n";
+			s += "从 1 级开始正常成长；后续技能通过教师与掉落获取。\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
 		//添加物品，初级
 		object w = new(ROOT+"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 		if(w){
@@ -787,6 +891,11 @@ int start(string arg){
 				desc += "[无相:choice_profe third/wuxiang]\n";
 				desc += "（已解锁）全职业补位\n";
 			}
+			if(query_taiji_unlocked_for(me)){
+				desc += "[imgurl loading:/"+GAME_NAME+"/images/taiji_logo.png]\n";
+				desc += "[太极:choice_profe third/taiji]\n";
+				desc += "（已解锁）生死轮转\n";
+			}
 		}
 		else{
 			desc += "角色尚未选择阵营，请先完成阵营选择。\n";
@@ -815,6 +924,8 @@ int start(string arg){
 		me->skills["lingzhen"]=({1,0});
 	if(me->query_profeId()=="wuxiang" && !me->skills["wuxiangquan"])
 		me->skills["wuxiangquan"]=({1,0});
+	if(me->query_profeId()=="taiji" && !me->skills["taijiquan"])
+		me->skills["taijiquan"]=({1,0});
 
 	//领取标识的初始化
         if(!me->get_gift)                                                                                         

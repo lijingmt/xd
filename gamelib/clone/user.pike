@@ -535,6 +535,9 @@ void fight_die()
 	// 无相化身（120 级被动）：每日一次免疫致命伤，必须在召唤清理前判定。
 	if(me->try_wuxiang_avatar_revive(enemy))
 		return;
+	// 太极·生生不息（被动自复活）：5 分钟冷却，PVP 可触发。
+	if(me->try_taiji_self_revive(enemy))
+		return;
 	// 灵医职业复苏优先；未触发时才判定隐藏鸾鸟的账号级回生羽。
 	if(PETD->try_pet_owner_revive(me,enemy))
 		return;

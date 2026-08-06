@@ -166,6 +166,17 @@ mapping(string:mapping(string:mixed)) profession_config = ([
 		"practice":"active",
 		"practice_cn":"先吃无相拳拉怪，5级学无相诀后用法术收尾，观察心法把最高项的一半叠加到另外两系",
 	]),
+	"taiji":([
+		"name":"太极",
+		"starter":"taijiquan",
+		"starter_cn":"太极拳",
+		"level":5,
+		"book":"book/taijijue",
+		"book_cn":"【极】太极诀",
+		"skill":"taijijue",
+		"practice":"active",
+		"practice_cn":"先吃太极拳拉怪，5级学太极诀后用法术收尾；心法比无相更强，最高项的 65% 加成另外两系",
+	]),
 ]);
 
 mapping(string:mixed) query_profession_config(object player)

@@ -423,19 +423,19 @@ void test_all_books_in_catalog()
 
 void test_hidden_pool_extended()
 {
-	test_start("隐藏池扩展为 34 本且含无相 3 本（pool 与分子同步）");
+	test_start("隐藏池扩展为 37 本且含无相 3 本（pool 与分子同步）");
 	object itemsd = (object)(ROOT+"/gamelib/single/daemons/itemsd.pike");
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
 		int count = itemsd->query_hidden_skill_book_count();
 		int rate = itemsd->query_hidden_skill_drop_rate();
-		// 池子和分子必须同步：34 本对应 34/100000
-		valid = count == 34 && rate == 34;
+		// 池子和分子必须同步：37 本对应 37/100000（31 baseline + 3 无相 + 3 太极）
+		valid = count == 37 && rate == 37;
 	};
 	if(err)
 		error_desc = describe_error(err);
-	// 验证 3 本无相隐藏书都在池子里
+	// 验证 3 本无相隐藏书都在池子里（池子扩到 37 后仍然只有 3 本无相）
 	int found = 0;
 	if(!err)
 		for(int i = 0; i < (itemsd ? itemsd->query_hidden_skill_book_count() : 0); i++){
@@ -693,7 +693,7 @@ void test_locked_button_hidden_from_ui()
 		search(account_char_src,"result[\"wuxiang_unlocked\"]")!=-1 &&
 		search(vue_source_js,"wuxiangUnlocked")!=-1 &&
 		search(vue_source_js,"visibleProfessionOptions")!=-1 &&
-		search(vue_source_js,"option.profession_id !== 'wuxiang'")!=-1 &&
+		search(vue_source_js,"!this.wuxiangUnlocked")!=-1 &&
 		search(vue_html,"visibleProfessionOptions")!=-1;
 	if(valid)
 		test_pass();

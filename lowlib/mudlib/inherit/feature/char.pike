@@ -686,6 +686,41 @@ int query_wuxiang_heart_bonus(string attr){
 		return 0;
 	return highest/2;
 }
+
+// 太极心法（被动）：基于基础三系属性，让最高项的 65% 加成给非最高项
+// （vs 无相 50%）。同样只在结算时即时计算，不参与装备/技能前置。
+int query_taiji_heart_bonus(string attr){
+	int s_v;
+	int d_v;
+	int t_v;
+	int highest;
+	int current;
+	if(!functionp(this_object()->query_profeId) ||
+	   this_object()->query_profeId()!="taiji")
+		return 0;
+	s_v = _str > 0 ? _str : 0;
+	d_v = _dex > 0 ? _dex : 0;
+	t_v = _think > 0 ? _think : 0;
+	highest = s_v;
+	if(d_v > highest)
+		highest = d_v;
+	if(t_v > highest)
+		highest = t_v;
+	if(highest <= 0)
+		return 0;
+	if(attr=="str")
+		current = s_v;
+	else if(attr=="dex")
+		current = d_v;
+	else if(attr=="think")
+		current = t_v;
+	else
+		return 0;
+	if(current >= highest)
+		return 0;
+	// 65% 加成 = highest*65/100，对 200 时为 130（vs 无相 100）。
+	return highest*65/100;
+}
 string query_wuxiang_avatar_day_key()
 {
 	string now = ctime(time());
@@ -748,6 +783,140 @@ int try_wuxiang_avatar_revive(object killer){
 			"|killer="+killer->query_name()+"\n");
 	};
 	return 1;
+}
+
+// === 太极·生生不息（被动自复活）===
+// 5 分钟冷却（timestamp），致命伤自动触发，恢复 30% 生命。
+// PVP 可触发（与无相化身不同，太极的 PVP 豁免更宽：仅自杀/已是鬼魂/城内不触发）。
+int query_taiji_self_revive_cooldown(){ return 300; }  // 5 分钟
+int query_taiji_self_revive_remaining(){
+	int last = (int)this_object()["/plus/taiji/self_revive_at"];
+	if(last <= 0)
+		return 0;
+	int elapsed = time() - last;
+	int cd = query_taiji_self_revive_cooldown();
+	if(elapsed >= cd)
+		return 0;
+	return cd - elapsed;
+}
+int try_taiji_self_revive(object killer){
+	object env = environment(this_object());
+	int life_restore;
+	if(query_profeId()!="taiji" || !this_object()->is("player") ||
+	   !killer || !objectp(killer) || !env ||
+	   environment(killer)!=env || this_object()->get_cur_life()>0 ||
+	   !LOGICALZONED->can_action("combat",this_object(),killer) ||
+	   this_object()->is("ghost") ||
+	   this_object()->sucide || this_object()["/tmp/taiji/self_revive_running"])
+		return 0;
+	if((int)this_object()->query_level() < 1)
+		return 0;
+	if(functionp(env->query_room_type) && env->query_room_type()=="city")
+		return 0;
+	// 5 分钟冷却（timestamp 而非 day-key，与无相化身每日刷新不同）
+	if(query_taiji_self_revive_remaining() > 0)
+		return 0;
+	this_object()["/tmp/taiji/self_revive_running"] = 1;
+	this_object()["/plus/taiji/self_revive_at"] = time();
+	this_object()->_clean_fight();
+	if(killer && objectp(killer) && functionp(killer->clean_targets))
+		killer->clean_targets(this_object());
+	life_restore = this_object()->query_life_max()*30/100;
+	if(life_restore<1)
+		life_restore = 1;
+	this_object()->set_life(life_restore);
+	this_object()->m_delete_foruser("/tmp/taiji/self_revive_running");
+	catch {
+		foreach(all_inventory(env),object observer){
+			if(observer && functionp(observer->is) && observer->is("player"))
+				tell_object(observer,"【极】"+this_object()->query_name_cn()+
+					"触发太极·生生不息，在死亡边缘逆转重生（5 分钟内不能再触发）。\n");
+		};
+	};
+	catch {
+		string now = ctime(time());
+		Stdio.append_file(ROOT+"/log/taiji_revive.log",
+			now[0..sizeof(now)-2]+"|self|"+this_object()->query_name()+
+			"|killer="+killer->query_name()+"\n");
+	};
+	return 1;
+}
+
+// === 太极·复阴（主动复活同房同队鬼魂队友）===
+// 由 taiji_fuyin 命令调用。独立 5 分钟冷却（与自复活互不干扰）。
+int query_taiji_team_revive_cooldown(){ return 300; }
+int query_taiji_team_revive_remaining(){
+	int last = (int)this_object()["/plus/taiji/team_revive_at"];
+	if(last <= 0)
+		return 0;
+	int elapsed = time() - last;
+	int cd = query_taiji_team_revive_cooldown();
+	if(elapsed >= cd)
+		return 0;
+	return cd - elapsed;
+}
+int try_taiji_team_revive(object caster, object target){
+	object env_c;
+	object env_t;
+	string team_c;
+	string team_t;
+	int life_restore;
+	if(!caster || !target || !objectp(caster) || !objectp(target))
+		return 0;
+	if(caster->query_profeId()!="taiji" || !caster->is("player"))
+		return 0;
+	if(!target->is("player") || !target->is("ghost"))
+		return 0;
+	env_c = environment(caster);
+	env_t = environment(target);
+	if(!env_c || env_c != env_t)
+		return 0;
+	// 必须是同队伍
+	team_c = (string)caster->query_term();
+	team_t = (string)target->query_term();
+	if(team_c == "noterm" || team_c != team_t)
+		return 0;
+	// 不能复活自己（自复活走 try_taiji_self_revive）
+	if(caster == target)
+		return 0;
+	if(query_taiji_team_revive_remaining_cast(caster) > 0)
+		return 0;
+	// 标记冷却、恢复生命、清除鬼魂状态
+	caster["/plus/taiji/team_revive_at"] = time();
+	life_restore = target->query_life_max()*50/100;
+	if(life_restore<1)
+		life_restore = 1;
+	catch { target->set_life(life_restore); };
+	catch { target->m_delete_foruser("is_ghost"); };
+	catch { target->relife(); };
+	catch {
+		foreach(all_inventory(env_c),object observer){
+			if(observer && functionp(observer->is) && observer->is("player"))
+				tell_object(observer,"【极】"+caster->query_name_cn()+
+					"施展太极·复阴，"+target->query_name_cn()+
+					"自幽冥归来（5 分钟内不能再施）。\n");
+		};
+	};
+	catch {
+		string now = ctime(time());
+		Stdio.append_file(ROOT+"/log/taiji_revive.log",
+			now[0..sizeof(now)-2]+"|team|caster="+caster->query_name()+
+			"|target="+target->query_name()+"\n");
+	};
+	return 1;
+}
+int query_taiji_team_revive_remaining_cast(object caster){
+	int last;
+	if(!caster)
+		return 0;
+	last = (int)caster["/plus/taiji/team_revive_at"];
+	if(last <= 0)
+		return 0;
+	int elapsed = time() - last;
+	int cd = query_taiji_team_revive_cooldown();
+	if(elapsed >= cd)
+		return 0;
+	return cd - elapsed;
 }
 void reset_buff(){
 	clean_buff("buff");
@@ -961,8 +1130,8 @@ protected mapping(string:string) races=([
 //鱼：fish 两栖动物：amphibian 昆虫：bugs
 string profeId;
 read_write(profeId);
-protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","lingyi","wuxiang","humanlike","beast","bird","fish","amphibian","bugs","dog"});
-protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","灵医","无相","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
+protected array(string) profeKindList=({"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji","humanlike","beast","bird","fish","amphibian","bugs","dog"});
+protected array(string) profeNameList=({"剑仙","羽士","诛仙","狂妖","巫妖","影鬼","方士","镇越","天象","灵医","无相","太极","人形","野兽","飞禽","鱼","两栖动物","昆虫","狗"});
 protected mapping(string:string) profes=([
 		profeKindList[0]:profeNameList[0],
 		profeKindList[1]:profeNameList[1],
@@ -981,7 +1150,8 @@ protected mapping(string:string) profes=([
 		profeKindList[14]:profeNameList[14],
 		profeKindList[15]:profeNameList[15],
 		profeKindList[16]:profeNameList[16],
-		profeKindList[17]:profeNameList[17]
+		profeKindList[17]:profeNameList[17],
+		profeKindList[18]:profeNameList[18]
 		]);
 ////////////////阵营/////////////////////////////////////////////////
 string query_race_cn(string rid){
@@ -1289,7 +1459,7 @@ int query_str(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_str()+query_base_all()+query_wuxiang_heart_bonus("str");
+	return result+query_base_str()+query_base_all()+query_wuxiang_heart_bonus("str")+query_taiji_heart_bonus("str");
 }
 void set_think(int think){
 	_think = think;
@@ -1317,7 +1487,7 @@ int query_think(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_think()+query_base_all()+query_wuxiang_heart_bonus("think");
+	return result+query_base_think()+query_base_all()+query_wuxiang_heart_bonus("think")+query_taiji_heart_bonus("think");
 }
 void set_dex(int dex){
 	_dex = dex;
@@ -1345,7 +1515,7 @@ int query_dex(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_dex()+query_base_all()+query_wuxiang_heart_bonus("dex");
+	return result+query_base_dex()+query_base_all()+query_wuxiang_heart_bonus("dex")+query_taiji_heart_bonus("dex");
 }
 //add by calvin 0409/////////////////////////////////////////
 //被动技能增加的属性的永久快照 防御力defend,命中hitte,爆击baoji,闪避dodge

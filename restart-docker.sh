@@ -82,6 +82,9 @@ HIDDEN_MYTHIC_SKILL_IDS=(
 	"wuxiangguixu"
 	"wuxianghunyuan"
 	"wuxiangwuji"
+	"taijiguixu"
+	"taijihunyuan"
+	"taijiwuji"
 )
 
 # 太古隐藏传承以服务端目录为唯一事实来源，部署脚本不维护第二份70项名单。

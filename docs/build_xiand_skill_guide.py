@@ -280,6 +280,7 @@ MYTHIC_THEMES = {
     "tianxiang": "万象星轨",
     "lingyi": "百草回春",
     "wuxiang": "无相万象",
+    "taiji": "太极生死",
 }
 
 PROF_BY_ID = {item["id"]: item for item in PROFESSIONS}
@@ -405,7 +406,7 @@ def add_cover(
     story.append(Paragraph("仙道全职业技能专册", styles["CoverTitle"]))
     story.append(
         Paragraph(
-			f"十一职业技能全索引 · 34式旧世神技 + 70式太古传承 · {build_date}版",
+			f"十二职业技能全索引 · 34式旧世神技 + 70式太古传承 · {build_date}版",
             styles["CoverSub"],
         )
     )
@@ -472,7 +473,7 @@ def add_cover(
         [
             "# 仙道全职业技能专册",
             "",
-			f"十一职业技能全索引 · 34式旧世神技 + 70式太古传承 · {build_date}版",
+			f"十二职业技能全索引 · 34式旧世神技 + 70式太古传承 · {build_date}版",
             "",
             f"- 分支：`{branch}`",
             f"- 提交基线：`{commit}`",
@@ -590,7 +591,7 @@ def build_skill_guide() -> None:
         "gold",
     )
 
-    guide.h1("2. 十一职业技能定位速览")
+    guide.h1("2. 十二职业技能定位速览")
     guide.h2("2.1 物理、法术与概率结算基线")
     guide.table(
         ["项目", "当前规则", "实战含义"],
@@ -610,7 +611,7 @@ def build_skill_guide() -> None:
         "物理系通过递减防御、主动物理技能加成和分档闪避穿透改善高属性版本体验；法系继续受抗性公式制约。旧34式神技已统一接入总攻势倍率、最大生命保底或当前属性百分比，并保留PVP/Boss硬上限；没有采用无条件必中或无限比例伤害。",
         "gold",
     )
-    guide.h2("2.2 十一职业定位与隐藏传承")
+    guide.h2("2.2 十二职业定位与隐藏传承")
     overview_rows = []
     for profession in PROFESSIONS:
         profession_id = profession["id"]
@@ -640,7 +641,7 @@ def build_skill_guide() -> None:
         "gold",
     )
 
-    guide.h1("3. 十一职业技能与技能书全索引")
+    guide.h1("3. 十二职业技能与技能书全索引")
     guide.paragraph(
         "下列内容由当前技能对象与技能书目录自动生成。普通书显示商店价格，高级书显示每日职业轮换；隐藏书不进入任何商店，因此只出现在技能对象与隐藏神技章节。",
         small=True,
@@ -727,7 +728,7 @@ def build_skill_guide() -> None:
 
     section_number = 3
     for profession_id in [
-        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi", "wuxiang"
+        "jianxian", "yushi", "zhuxian", "kuangyao", "wuyao", "yinggui", "fangshi", "zhenyue", "tianxiang", "lingyi", "wuxiang", "taiji"
     ]:
         profession = PROF_BY_ID[profession_id]
         skill_count_cn = "四" if profession_id == "lingyi" else "三"
@@ -845,7 +846,7 @@ def build_skill_guide() -> None:
 
     guide.h1("5. 七十式太古绑定传承")
     guide.callout(
-        "十一职业各七式，越强越稀有",
+        "十二职业各七式，越强越稀有",
         "太古传承使用独立掉落池：实际等级90级以上怪物才有资格；70式总权重390、分母125000000，总概率约为旧34本隐藏池的1/100。七个品阶权重依次为12/9/7/5/3/2/1。",
         "gold",
     )

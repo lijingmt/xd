@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【极】太极盾"; picture="taijidun_logo";
+	desc="太极短时减伤盾，10 秒内吸收一次伤害";
+	s_type="zhudong"; s_skill_type="buff_shield"; s_delayTime=3;
+	performs_attack[1]=104; performs_attack[2]=260; performs_attack[3]=520; performs_attack[4]=910; performs_attack[5]=1430;
+	performs_cast[1]=8; performs_cast[2]=14; performs_cast[3]=22; performs_cast[4]=32; performs_cast[5]=44;
+	skill_type+=({"taiji"});
+	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
+	performs_desc[1]="生成80点护盾，消耗法力8点"; performs_desc[2]="生成200点护盾，消耗法力14点"; performs_desc[3]="生成400点护盾，消耗法力22点"; performs_desc[4]="生成700点护盾，消耗法力32点"; performs_desc[5]="生成1100点护盾，消耗法力44点";
+}

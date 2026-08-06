@@ -174,6 +174,30 @@ void setup_player(string rid, string pid){
 			if(wx_jian)
 				catch { wx_jian->move(this_object()); };
 		}
+		else if(pid&&pid=="taiji"){
+			// 太极：无相之上的最高隐藏职业。比无相综合实力强 30%。
+			// 「太极心法」被动让最高项的 65% 加成另外两系（vs 无相 50%）；
+			// 「太极生生不息」被动复活：致命伤恢复 30% 生命，5 分钟冷却，PVP 可触发；
+			// 「太极复阴」主动复活同房同队鬼魂队友：恢复 50% 生命，独立 5 分钟冷却。
+			object|zero tj_pao;
+			object|zero tj_jian;
+			kind_cn = "中立";
+			unit = "位";
+			// 30% > 无相：life 156/mofa 104/三系各 10（向下取整）。
+			this_object()->set_life(156);
+			this_object()->set_mofa(104);
+			this_object()->set_str(10);
+			this_object()->set_dex(10);
+			this_object()->set_think(10);
+			this_object()->set_lunck(0);
+			// 初始装备：太极袍 + 太极剑。平庸属性，1 级可穿，可销毁/可丢弃/可交易。
+			catch { tj_pao = new(ROOT+"/gamelib/clone/item/armor/taijipao/taijipao"); };
+			if(tj_pao)
+				catch { tj_pao->move(this_object()); };
+			catch { tj_jian = new(ROOT+"/gamelib/clone/item/weapon/taijijian/taijijian"); };
+			if(tj_jian)
+				catch { tj_jian->move(this_object()); };
+		}
 	}
 }
 //每次调用reconnect将会传回密码字段进行验证
