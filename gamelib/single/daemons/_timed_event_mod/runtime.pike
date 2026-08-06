@@ -294,10 +294,13 @@ private int player_already_entered(object player,string event_id,string date)
 	}
 	foreach(values(sessions),mapping session)
 		if((string)session["event_id"]==event_id &&
-		   (string)session["date"]==date &&
-		   mappingp(session["participants"][(string)player->query_name()]) &&
-		   (string)session["phase"]!="signup")
-			return 1;
+		   (string)session["date"]==date){
+			mapping participant = session["participants"][(string)player->query_name()];
+			// 修复：检查参与者是否存在且未被淘汰
+			if(mappingp(participant) && (int)participant["alive"]==1 &&
+			   (string)session["phase"]!="signup")
+				return 1;
+		}
 	return 0;
 }
 
