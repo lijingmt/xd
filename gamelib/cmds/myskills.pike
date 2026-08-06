@@ -8,8 +8,6 @@ int main(string|zero arg)
 	NEWBIED->record_action(this_player(),"skills");
 	if(this_player()->home_path&&this_player()->home_path!="")
 		s += "[传送回家:home_return "+this_player()->home_path+"]\n";
-	s += "[⚔ 团队硬 Boss·归墟境（需3人队伍）:boss_enter guixujing]\n";
-	s += "[⚔ 团队硬 Boss·万象林（需3人队伍）:boss_enter wanxianglin]\n";
 	s += this_player()->view_skills();
 	if(this_player()->query_profeId()=="fangshi"){
 		s += "[召唤灵兽:summon]\n";
