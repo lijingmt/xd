@@ -118,7 +118,7 @@ void test_team_counter()
 	b1->move(room);
 	b1->first_target = p1;
 	int count = (int)b1->count_first_target_team_in_room();
-	check("3 人同房同队计数=3",count==4,
+	check("3 人同房同队计数=3",count==3,
 		sprintf("count=%d",count));
 	// p3 离开房间 → count=2
 	p3->move((object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang"));
