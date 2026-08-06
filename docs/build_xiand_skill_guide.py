@@ -3,7 +3,8 @@
 
 The handbook is intentionally separate from the equipment/progression guide.
 It reads the current skill objects and skill-book catalog, then documents the
-31 legacy mythic skills and all 70 account-bound ancient inheritances.
+34 legacy mythic skills (31 baseline + 3 Wuxiang hidden books) and all 70
+account-bound ancient inheritances.
 """
 
 from __future__ import annotations
