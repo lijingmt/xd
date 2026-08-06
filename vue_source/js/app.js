@@ -1431,8 +1431,8 @@ createApp({
             );
             this.accountSharedRechargeAvailable =
                 data.shared_recharge_available !== 0;
-            this.wuxiangUnlocked = data.wuxiang_unlocked === true;
-            this.taijiUnlocked = data.taiji_unlocked === true;
+            this.wuxiangUnlocked = !!data.wuxiang_unlocked;
+            this.taijiUnlocked = !!data.taiji_unlocked;
             if (data.token) {
                 this.accountToken = data.token;
             }
