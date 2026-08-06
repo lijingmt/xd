@@ -1766,6 +1766,36 @@ void perform(string name,void|int flag){
 		tell_object(this_object(),"当前没有有效的战斗目标，技能未施放。\n");
 		return;
 	}
+	// 团队硬 Boss 门控（perform 路径）：防止已进入战斗的玩家在队伍人数
+	// 不足时继续用技能打 Boss。与 _fight() 入口的门控配套。
+	if(enemy->is && enemy->is("npc") &&
+	   functionp(enemy->is_team_required_boss) &&
+	   enemy->is_team_required_boss()){
+		int min_size = 3;
+		int alive_count = 0;
+		if(functionp(enemy->query_team_required_min_size))
+			min_size = (int)enemy->query_team_required_min_size();
+		string tid = (string)this_object()->query_term();
+		if(tid && tid!="noterm" && tid!=""){
+			object room = environment(this_object());
+			if(room){
+				foreach(all_inventory(room),object ob){
+					if(ob && ob->is && ob->is("player") &&
+					   (string)ob->query_term()==tid &&
+					   ob->get_cur_life()>0)
+						alive_count++;
+				}
+			}
+		}
+		if(alive_count < min_size){
+			tell_object(this_object(),
+				"【试炼】"+enemy->query_name_cn()+
+				"周围的结界排斥着你：硬 Boss 需 "+
+				min_size+" 人以上队伍才能挑战。\n");
+			this_object()->_clean_fight();
+			return;
+		}
+	}
 	if(enemy && environment(this_object())==environment(enemy)){
 		if(enemy->first_fight == 0 || !enemy->in_combat){
 			enemy->_fight(this_object());
