@@ -436,8 +436,16 @@ int restore_player(object player)
 	if(!session)
 		return 0;
 	participant = session["participants"][player->query_name()];
-	if(!mappingp(participant) || !(int)participant["alive"])
+	if(!mappingp(participant)){
+		werror("[timed_event] restore_player failed: %s not in session participants\n",
+			player->query_name());
 		return 0;
+	}
+	if(!(int)participant["alive"]){
+		werror("[timed_event] restore_player failed: %s is eliminated (alive=0), cleaning up stale record\n",
+			player->query_name());
+		return 0;
+	}
 	participant["disconnected_at"] = 0;
 	node = (string)participant["room_node"];
 	if(node=="")

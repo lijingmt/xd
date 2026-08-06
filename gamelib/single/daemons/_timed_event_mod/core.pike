@@ -44,11 +44,15 @@ private string join_event(object player,string event_id)
 		mapping participant = existing["participants"][player->query_name()];
 		if(!mappingp(participant) || (int)participant["alive"]==0){
 			// 修复：被淘汰的玩家清除旧记录，允许正常登录
+			werror("[timed_event] join_event: %s found in session but alive=0 or invalid, cleaning stale record\n",
+				player->query_name());
 			m_delete(existing["participants"],player->query_name());
 			save_event_state();
 		}else{
 			if(!restore_player(player)){
 				// restore_player 失败时的安全处理
+				werror("[timed_event] join_event: restore_player failed for %s, cleaning stale record\n",
+					player->query_name());
 				m_delete(existing["participants"],player->query_name());
 				save_event_state();
 			}else{
