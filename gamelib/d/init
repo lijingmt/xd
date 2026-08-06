@@ -466,15 +466,11 @@ int choice_race(string arg){
 			s += "[imgurl loading:/"+GAME_NAME+"/images/lingyi_logo.png]\n";
 			s += "[灵医:choice_profe third/lingyi]\n";
 			s += "灵针济世，智能救急并净化同队伤势\n";
-			// 无相：始终展示；点击未解锁会弹窗给出具体缺哪些职业、当前最高等级。
-			s += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
+			// 无相：仅在已解锁时展示按钮，未解锁完全隐藏入口（避免点击后才报错）。
 			if(query_wuxiang_unlocked_for(me)){
+				s += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 				s += "[无相:choice_profe third/wuxiang]\n";
 				s += "（已解锁）全能补位，机制傻瓜，技能池广\n";
-			}
-			else{
-				s += "[无相（未解锁）:choice_profe third/wuxiang]\n";
-				s += "（隐藏）需要账号下全部 10 个职业达到 120 级；点击查看具体缺口\n";
 			}
 		}
 		s += "[更换阵营:choice_race]\n";
@@ -541,6 +537,10 @@ int choice_profe(string arg){
 		}
 		
 		newuser(me->query_name());
+		// 同 start()：choice_profe 路径也要给 skills 做 NULL 防御，避免
+		// 克隆/迁移出来的档案没有 skills mapping 时索引抛错。
+		if(!mappingp(me->skills))
+			me->skills = ([]);
 		if(u_p=="jianxian"){
 			me->setup_player("human",u_p);
 			if(me->skills["qieyunzhan"]==0)
@@ -782,14 +782,10 @@ int start(string arg){
 			desc += "[imgurl loading:/"+GAME_NAME+"/images/lingyi_logo.png]\n";
 			desc += "[灵医:choice_profe third/lingyi]\n";
 			desc += "灵针济世，智能救急并净化同队伤势\n";
-			desc += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 			if(query_wuxiang_unlocked_for(me)){
+				desc += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 				desc += "[无相:choice_profe third/wuxiang]\n";
 				desc += "（已解锁）全职业补位\n";
-			}
-			else{
-				desc += "[无相（未解锁）:choice_profe third/wuxiang]\n";
-				desc += "（隐藏）需账号下 10 职业均达 120 级；点击查看具体缺口\n";
 			}
 		}
 		else{
@@ -801,6 +797,10 @@ int start(string arg){
 	}
 
 	// 修复早期方士角色的无效初始技能，并补发可用的一级技能
+	// 同时给所有职业的入门技能做 NULL 防御：克隆出来的最小档案或老存档可能
+	// 没把 skills 初始化成 mapping，直接索引会抛 "Indexing the NULL value"。
+	if(!mappingp(me->skills))
+		me->skills = ([]);
 	if(me->query_profeId()=="fangshi"){
 		if(me->skills["lingshu"])
 			m_delete(me->skills,"lingshu");
@@ -942,6 +942,9 @@ int start(string arg){
 		me->pic_flag = ([]);
 		me->pic_flag["scene"] = me->pic_flag["item"] = me->pic_flag["character"] = me->pic_flag["decrate"] = "open";
 	}
+	// 老账号迁移：补齐后加的"skill"开关，默认打开
+	if(!me->pic_flag["skill"])
+		me->pic_flag["skill"] = "open";
 
 
 

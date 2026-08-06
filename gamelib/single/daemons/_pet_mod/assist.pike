@@ -601,6 +601,115 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	return result;
 }
 
+/**
+ * 山海万灵的「基础灵攻」：每回合（每次心跳）都可触发的免费小技能，
+ * 与主灵技冷却相互独立，目的是让宠物在长战中持续可见地参与。
+ * 输出量按主灵技比例折算（约 5%），不消耗任何资源、不计入 PVP 充能、
+ * 不与每日目标/排行榜统计相关，避免被用来刷数据。
+ */
+private int basic_attack_message_throttle_sec = 3;
+
+string query_pet_basic_attack_name(string species)
+{
+	mapping info;
+	if(!species || species=="")
+		return "";
+	info = shanhai_catalog[species];
+	if(!info)
+		return "";
+	return (string)(info["basic_attack"] || "灵爪");
+}
+
+mapping(string:mixed) perform_pet_basic_assist(object player,object target)
+{
+	mapping result = (["ok":0,"type":"none","amount":0]);
+	string species;
+	mapping info;
+	mapping profile;
+	string effect_type;
+	int amount;
+	int actual;
+	int message_throttle;
+	int now;
+	if(!player || !target || !player->is || !player->is("player") ||
+	   !target->is || !target->is("npc") ||
+	   player->get_cur_life()<=0 || target->get_cur_life()<=0 ||
+	   environment(player)!=environment(target) ||
+	   !LOGICALZONED->can_action("combat",player,target) ||
+	   SUMMOND->query_combat_credit_owner(target)!=target)
+		return result;
+	// PVE 专属：基础灵攻不参与 PVP，避免破坏 PVP 充能平衡。
+	if(target->is("player"))
+		return result;
+	species = (string)(player["/tmp/wanling/species"] || "");
+	info = shanhai_catalog[species];
+	if(!info)
+		return result;
+	// 取主灵技档位，再按 5% 折算成基础灵攻。
+	profile = query_pet_assist_profile(species,player->query_base_damage(),
+		target->query_life_max(),player->query_life_max(),
+		player->query_mofa_max(),
+		(int)player["/tmp/wanling/skill_set"],
+		(int)player["/tmp/wanling/pet_growth_percent"],
+		query_pet_imprinted_effect(player));
+	effect_type = (string)profile["type"];
+	amount = (int)profile["amount"];
+	if(amount<=0 || effect_type=="none")
+		return result;
+	amount = amount/20;
+	if(amount<1)
+		amount = 1;
+	actual = 0;
+	if(effect_type=="damage" && target->get_cur_life()>1){
+		actual = amount;
+		if(actual>=target->get_cur_life())
+			actual = target->get_cur_life()-1;
+		if(actual>0){
+			target->set_life(target->get_cur_life()-actual);
+			target->flush_targets(player,actual);
+			player->flush_targets(target,actual);
+		}
+	}
+	else if(effect_type=="mofa"){
+		int before = player->get_cur_mofa();
+		int after = before+amount;
+		if(after>player->query_mofa_max())
+			after = player->query_mofa_max();
+		if(after>before){
+			player->set_mofa(after);
+			actual = after-before;
+		}
+	}
+	else if(effect_type=="heal"){
+		int before = player->get_cur_life();
+		amount = apply_pet_heal_reduction(player,amount);
+		int after = before+amount;
+		if(after>player->query_life_max())
+			after = player->query_life_max();
+		if(after>before){
+			player->set_life(after);
+			actual = after-before;
+		}
+	}
+	now = time();
+	// 聊天节流：每 N 秒最多发一次提示，伤害仍每 tick 结算。
+	message_throttle = (int)player["/tmp/wanling/basic_msg_at"];
+	result["ok"] = 1;
+	result["type"] = effect_type;
+	result["amount"] = actual;
+	result["skill_name"] = query_pet_basic_attack_name(species);
+	if(actual>0 && now>=message_throttle){
+		string unit = effect_type=="damage" ? "点协战伤害" :
+			(effect_type=="mofa" ? "点法力" : "点生命");
+		tell_object(player,"【万灵·"+
+			(string)(player["/tmp/wanling/pet_name"] || info["name"])+
+			"·"+result["skill_name"]+"】带来"+actual+unit+"。\n");
+		player["/tmp/wanling/basic_msg_at"] = now+
+			basic_attack_message_throttle_sec;
+	}
+	return result;
+}
+
 mapping(string:mixed) perform_pet_combat_assist(object player,object target)
 {
 	object owner;

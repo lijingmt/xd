@@ -2,7 +2,7 @@
 #include <gamelib/include/gamelib.h>
 inherit WAP_SKILL;
 protected void create(){
-	name=object_name(this_object()); name_cn="【无】无相诀";
+	name=object_name(this_object()); name_cn="【无】无相诀"; picture="wuxiangjue_logo";
 	desc="无相入门法术，单体内息化风攻击";
 	s_type="zhudong"; s_skill_type="feng_mofa_attack"; s_delayTime=3;
 	performs_mofa_attack[1]=({12,18}); performs_mofa_attack[2]=({30,42}); performs_mofa_attack[3]=({58,78}); performs_mofa_attack[4]=({96,126}); performs_mofa_attack[5]=({145,190});

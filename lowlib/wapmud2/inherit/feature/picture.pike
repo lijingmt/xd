@@ -21,7 +21,7 @@ string query_picture_url(void|string pic_name)
 		return "[imgurl picture:"+"/"+GAME_NAME+"/images/"+pic_name+".gif]";
 	}
 	if(picture&&picture!=""){
-		if((flags["scene"]=="open"&&ob->is("room"))||(flags["item"]=="open"&&ob->is("item")||flags["character"]=="open"&&ob->is("character")))
+		if((flags["scene"]=="open"&&ob->is("room"))||(flags["item"]=="open"&&ob->is("item")||flags["character"]=="open"&&ob->is("character"))||(flags["skill"]=="open"&&ob->is("skill")))
 			return "[imgurl picture:"+"/"+GAME_NAME+"/images/"+picture+".gif]";
 	}
 	return "";
@@ -35,7 +35,7 @@ string query_mini_picture_url(void|string pic_name)
 		return "[miniimg minipicture:"+"/"+GAME_NAME+"/images/"+pic_name+".gif]";
 	}
 	if(picture&&picture!=""){
-		if((flags["scene"]=="open"&&ob->is("room"))||(flags["item"]=="open"&&ob->is("item")||flags["character"]=="open"&&ob->is("character")))
+		if((flags["scene"]=="open"&&ob->is("room"))||(flags["item"]=="open"&&ob->is("item")||flags["character"]=="open"&&ob->is("character"))||(flags["skill"]=="open"&&ob->is("skill")))
 			return "[miniimg minipicture:"+"/"+GAME_NAME+"/images/"+picture+".gif]";
 	}
 	return "";

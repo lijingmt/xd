@@ -11,6 +11,11 @@ new pass.
 3. **Skills and books** — every file loads, cold-registry passive learning,
    unlearned active rejection, all stages, prerequisites, profession/level/
    duplicate rules, inventory action, consumption, shops, teacher and cooldown.
+   Skill icons: each player-facing skill has `picture="<skill>_logo"` set, asset
+   exists in both `images/` and `web/images/` as both PNG and GIF, and
+   `query_picture_url()` emits `[imgurl ...]` when `pic_flag["skill"]=="open"` and
+   `""` when closed. Hidden mythic books have covers at `<book>.{png,gif}` if
+   their `picture=name`.
 4. **Class mechanic edge cases** — server-owned inputs, solo/team, weaker and
    stronger recasts, movement, target/team changes, stale objects, leader
    changes, death, expiry, repeated casts, disconnect, reload, cross-room/team,

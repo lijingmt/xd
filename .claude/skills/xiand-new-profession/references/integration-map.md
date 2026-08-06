@@ -26,6 +26,7 @@ or `third == fangshi` part of generic behavior.
 | Skill definitions | `gamelib/single/skills/` |
 | Skill engine | `lowlib/wapmud2/inherit/feature/fight.pike` |
 | Skill caps/proficiency | `lowlib/wapmud2/inherit/skill.pike`, `feature/skills.pike` |
+| Skill icons (picture field) | `lowlib/wapmud2/inherit/feature/picture.pike`, `is_skill()` on skill base |
 | Book objects | `gamelib/clone/item/book/` |
 | Read enforcement | `lowlib/mudlib/inherit/feature/readed.pike` |
 | Store catalog/UI | `gamelib/data/can_buy_book_list.csv`, `buyd.pike`, `buy_items.pike` |
@@ -45,6 +46,35 @@ When three mythic books are added, update the data-driven pool and shared rate
 together. At the current baseline, 31 books use a shared 31/100000 roll and then
 a uniform 31-way selection, retaining about 1/100000 per book. Never fix the
 pool size in unrelated UI, docs, or tests.
+
+### Skill icons (added 2026-08-04, baseline wuxiang)
+
+Skills display a 60x60 icon in `skill_detail` view (`lowlib/wapmud2/inherit/feature/skills.pike:188`)
+through `query_picture_url()`. The skill base exposes `is_skill()` so
+`picture.pike:24` accepts `flags["skill"]=="open"` as a fourth type alongside
+`scene`/`item`/`character`/`decrate`. Adding a new profession with skill icons
+requires:
+
+1. **Generate assets**: 60x60 PNG + GIF, both `images/<skill>_logo.{png,gif}` and
+   `web/images/<skill>_logo.{png,gif}`. Style: dark navy outer ring + multi-ring
+   gold ornate border + class-colored inner circle + central white Chinese
+   character glyph + gold accent dots at N/S/E/W. Use ImageMagick `magick -draw`
+   with `roundrectangle x1,y1 x2,y2 rx,ry` (needs **two** radius numbers). For
+   CJK glyphs on macOS, font path is `/System/Library/Fonts/STHeiti Medium.ttc`.
+   **Common bug**: when layering an ornate border, use `fill none -stroke ...`
+   only. A `fill <color> -draw "circle 30,30 30,2"` will paint a 28-radius disc
+   and overwrite the glyph.
+2. **Set picture field**: in each `gamelib/single/skills/<skill>` file, append
+   `picture="<skill>_logo";` right after `name_cn="..."`. Naming convention is
+   `<skill_id>_logo` to avoid collision with book covers that use
+   `picture=name` (book id without suffix).
+3. **pic_flag migration**: `gamelib/d/init` defaults new accounts to
+   `pic_flag["skill"]="open"` and backfills the key for old accounts on login.
+4. **UI toggle**: `gamelib/cmds/pic_switch_list.pike` exposes the switch, and
+   `pic_switch_confirm.pike` `all` includes it. `SWICTH` constant is 5.
+5. **Test**: every new skill needs a `picture=` source check + asset existence
+   check in both `images/` and `web/images/` for both `png` and `gif`. See
+   `test_unit/test_wuxiang_skill_icons.pike` for the full pattern.
 
 ## Equipment and economy
 

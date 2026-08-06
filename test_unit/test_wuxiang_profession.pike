@@ -680,6 +680,27 @@ void test_unlock_missing_lists_specifics()
 		test_fail("未实现具体缺口提示");
 }
 
+void test_locked_button_hidden_from_ui()
+{
+	test_start("未解锁时创建界面隐藏无相入口（不再展示未解锁按钮）");
+	string init_source = Stdio.read_file(ROOT+"/gamelib/d/init");
+	string account_char_src = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/account_characterd.pike");
+	string vue_source_js = Stdio.read_file(ROOT+"/vue_source/js/app.js");
+	string vue_html = Stdio.read_file(ROOT+"/vue_source/index.html");
+	int valid =
+		search(init_source,"无相（未解锁）")==-1 &&
+		search(account_char_src,"result[\"wuxiang_unlocked\"]")!=-1 &&
+		search(vue_source_js,"wuxiangUnlocked")!=-1 &&
+		search(vue_source_js,"visibleProfessionOptions")!=-1 &&
+		search(vue_source_js,"option.profession_id !== 'wuxiang'")!=-1 &&
+		search(vue_html,"visibleProfessionOptions")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("未解锁入口仍可见或前端过滤逻辑缺失");
+}
+
 void test_book_learning_cross_profession_rejected()
 {
 	test_start("跨职业读书被拒：方士读无相书、无相读灵医书都失败");
@@ -776,6 +797,7 @@ int main()
 	test_level20_task_award_item();
 	test_static_audit_zero_misses();
 	test_unlock_missing_lists_specifics();
+	test_locked_button_hidden_from_ui();
 	test_book_learning_cross_profession_rejected();
 	test_empty_skills_robustness();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",

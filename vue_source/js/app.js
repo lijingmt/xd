@@ -203,6 +203,7 @@ createApp({
             accountCharacterLimit: 10,
             accountSharedRechargeBalance: 0,
             accountSharedRechargeAvailable: true,
+            wuxiangUnlocked: false,
             characterForm: {
                 race_id: '',
                 profession_id: ''
@@ -1428,6 +1429,7 @@ createApp({
             );
             this.accountSharedRechargeAvailable =
                 data.shared_recharge_available !== 0;
+            this.wuxiangUnlocked = data.wuxiang_unlocked === true;
             if (data.token) {
                 this.accountToken = data.token;
             }
@@ -4428,6 +4430,16 @@ createApp({
         hasRecentAoeReport() {
             return Array.isArray(this.battleAoeReport?.targets) &&
                 this.battleAoeReport.targets.length > 0;
+        },
+
+        visibleProfessionOptions() {
+            // 无相未解锁时整体隐藏入口，避免玩家点击后才看到具体缺口。
+            if (this.wuxiangUnlocked) {
+                return this.professionOptions;
+            }
+            return this.professionOptions.filter(
+                (option) => option.profession_id !== 'wuxiang'
+            );
         },
 
         headerPet() {

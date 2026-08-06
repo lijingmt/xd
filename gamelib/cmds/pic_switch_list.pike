@@ -1,6 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
-#define SWICTH 4 //图片开关的数量
+#define SWICTH 5 //图片开关的数量
 
 //图片开关UI调用指令
 
@@ -30,6 +30,13 @@ int main(string|zero arg)
 	}
 	else{
 		s += "[打开人物微缩头像:pic_switch_confirm character open]\n";
+	}
+	if(flagTmp["skill"]=="open"){
+		s += "[关闭技能图标:pic_switch_confirm skill close]\n";
+		swt_num ++;
+	}
+	else{
+		s += "[打开技能图标:pic_switch_confirm skill open]\n";
 	}
 	if(flagTmp["decrate"]=="open"){
 		s += "[关闭装饰点缀:pic_switch_confirm decrate close]\n";

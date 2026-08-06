@@ -3,6 +3,13 @@
 inherit MUD_SKILL;
 inherit WAP_F_VIEW_PICTURE;
 mapping(int:int) performs_attack=([]);//物理技能伤害
+
+// 让 picture.pike 的 query_picture_url 把技能当作"skill"类型展示图标。
+// base.pike 的 is() 会自动派发到本方法。
+int is_skill()
+{
+	return 1;
+}
 mapping(int:int) performs_per=([]);//物理技能伤害增加百分比
 mapping(int:int) performs_cast=([]);//技能耗费法力
 array(string) skill_type=({});

@@ -604,6 +604,8 @@ mapping(string:mixed) query_account_characters(string requested_id)
 			"limit":ACCOUNT_CHARACTER_LIMIT,
 			"legacy_only":(int)record["legacy_only"],
 		]);
+		// 给前端用于隐藏未解锁的隐藏职业入口（无相），避免玩家点击后才报错。
+		result["wuxiang_unlocked"] = query_wuxiang_unlocked_from_summary(result);
 	}
 	destruct(key);
 	return result;

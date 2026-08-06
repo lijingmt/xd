@@ -2,7 +2,7 @@
 #include <gamelib/include/gamelib.h>
 inherit WAP_SKILL;
 protected void create(){
-	name=object_name(this_object()); name_cn="【无】无相壁";
+	name=object_name(this_object()); name_cn="【无】无相壁"; picture="wuxiangbi_logo";
 	desc="团队短盾，同房同队每人吸收一次伤害";
 	s_type="zhudong"; s_skill_type="buff"; s_delayTime=4;
 	performs_attack[1]=120; performs_attack[2]=300; performs_attack[3]=550; performs_attack[4]=900; performs_attack[5]=1400;

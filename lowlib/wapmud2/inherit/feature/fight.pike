@@ -3592,8 +3592,12 @@ private void heart_beat_action(){
 	else{
 		this_object()->timeCount++;
 		// 通用万灵不生成NPC；PVE按冷却协战，PVP按回合充能且每场限次。
-		if(this_object()->is("player"))
+		if(this_object()->is("player")){
 			PETD->perform_pet_combat_assist(this_object(),enemy);
+			// 山海万灵基础灵攻：每回合（每心跳）都可触发的免费小技能，
+			// 与主灵技冷却独立，仅 PVE 生效，提供宠物持续参与感。
+			PETD->perform_pet_basic_assist(this_object(),enemy);
+		}
 		if(check_pk_fast_decision())
 			return;
 		if(this_object()->timeCold>0)

@@ -313,7 +313,7 @@
                         <span>创建后将调用原有职业流程，自动发放对应初始技能、装备和新手物资。</span>
                     </div>
                     <div class="profession-choice-grid">
-                        <button v-for="option in professionOptions"
+                        <button v-for="option in visibleProfessionOptions"
                                 :key="option.profession_id"
                                 type="button"
                                 class="profession-choice"

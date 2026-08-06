@@ -51,6 +51,11 @@ as authoritative. Read `references/integration-map.md` before editing and use
 - Add the display name, rank tag, default unnamed title, top-list/game-list
   identity, logo, male/female avatars, both image mirrors, Vue use, and Docker
   asset copy. Distinct files must contain distinct intended images.
+- Every player-facing skill gets a 60x60 icon. Set `picture="<skill>_logo"` in
+  the skill file, generate PNG+GIF into both `images/` and `web/images/`, and
+  verify via `query_picture_url()` and `view_performs()`. The display is gated
+  by `pic_flag["skill"]=="open"` (default for new and old accounts). See
+  `references/integration-map.md` § Skills and acquisition for the full recipe.
 - Treat session activity as a gameplay boundary: real player commands renew
   activity, read-only HTTP status/battle/room polling does not, active automatic
   combat may renew activity, and online lists must use the same idle/VIP policy

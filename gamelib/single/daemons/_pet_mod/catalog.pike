@@ -7,7 +7,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"dangkang":([
 		"name":"当康","icon":"🐗","family":"土","role":"守护",
 		"origin":"钦山瑞兽，形似有牙之豕；古籍记其现世为丰穰之兆。",
-		"skill":"丰穰守心","boss":0,"exchange":1,
+		"skill":"丰穰守心","basic_attack":"獠牙拱","boss":0,"exchange":1,
 		"skill_sets":({
 			({"丰穰守心","厚土相护","谷熟无忧"}),
 			({"丰穰守心","山野寻踪","安仓定念"}),
@@ -17,7 +17,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"lushu":([
 		"name":"鹿蜀","icon":"🦓","family":"木","role":"疗愈",
 		"origin":"招摇山瑞兽，马身白首、虎文赤尾，以和鸣与亲缘见称。",
-		"skill":"和鸣回春","boss":0,"exchange":1,
+		"skill":"和鸣回春","basic_attack":"蹄声踏","boss":0,"exchange":1,
 		"skill_sets":({
 			({"和鸣回春","赤尾安神","同心相守"}),
 			({"和鸣回春","白首清音","林息绵长"}),
@@ -27,7 +27,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"wenyaoyu":([
 		"name":"文鳐鱼","icon":"🐟","family":"水","role":"灵息",
 		"origin":"泰器山异鱼，鱼身鸟翼、白首赤喙，夜间飞渡西海与东海。",
-		"skill":"夜渡回澜","boss":0,"exchange":1,
+		"skill":"夜渡回澜","basic_attack":"赤喙啄","boss":0,"exchange":1,
 		"skill_sets":({
 			({"夜渡回澜","苍文聚灵","鸾音引潮"}),
 			({"夜渡回澜","双海巡游","飞翼逐浪"}),
@@ -37,7 +37,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"bifang":([
 		"name":"毕方","icon":"🔥","family":"火","role":"强攻",
 		"origin":"一足神鸟，青羽赤文；其火性在万灵裂隙中化为试炼。",
-		"skill":"独足炎翎","boss":0,"exchange":1,
+		"skill":"独足炎翎","basic_attack":"焰羽掠","boss":0,"exchange":1,
 		"skill_sets":({
 			({"独足炎翎","青焰掠空","赤文灼阵"}),
 			({"独足炎翎","离火照夜","单翼回旋"}),
@@ -47,7 +47,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"zheng":([
 		"name":"狰","icon":"🐆","family":"金","role":"强攻",
 		"origin":"章莪山异兽，赤豹之形，五尾一角，鸣声如击石。",
-		"skill":"击石裂锋","boss":0,"exchange":1,
+		"skill":"击石裂锋","basic_attack":"赤影扑","boss":0,"exchange":1,
 		"skill_sets":({
 			({"击石裂锋","五尾连袭","独角破势"}),
 			({"击石裂锋","赤影伏击","金声镇胆"}),
@@ -57,7 +57,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"mengji":([
 		"name":"孟极","icon":"🐈","family":"金","role":"迅捷",
 		"origin":"北山异兽，形似豹而身有文，善于潜伏与辨察先机。",
-		"skill":"伏影先机","boss":0,"exchange":1,
+		"skill":"伏影先机","basic_attack":"潜影袭","boss":0,"exchange":1,
 		"skill_sets":({
 			({"伏影先机","雪纹疾步","静息藏踪"}),
 			({"伏影先机","豹跃追风","先声夺隙"}),
@@ -67,7 +67,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"huan":([
 		"name":"讙","icon":"🐱","family":"木","role":"守护",
 		"origin":"翼望山异兽，野猫之形，独目三尾，以奇声御凶。",
-		"skill":"百声御凶","boss":0,"exchange":1,
+		"skill":"百声御凶","basic_attack":"伏啸震","boss":0,"exchange":1,
 		"skill_sets":({
 			({"百声御凶","独目照邪","三尾结界"}),
 			({"百声御凶","异响清心","翼望守夜"}),
@@ -77,7 +77,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"jiuyihu":([
 		"name":"九尾狐","icon":"🦊","family":"灵","role":"灵息",
 		"origin":"青丘九尾灵狐，善察人心与虚实；本作只采用古籍意象原创演绎。",
-		"skill":"青丘灵梦","boss":1,"exchange":0,
+		"skill":"青丘灵梦","basic_attack":"灵尾缠","boss":1,"exchange":0,
 		"skill_sets":({
 			({"青丘灵梦","九尾流光","月下听心"}),
 			({"青丘灵梦","幻境回响","灵狐引路"}),
@@ -87,7 +87,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"jiao":([
 		"name":"狡","icon":"🐕","family":"土","role":"守护",
 		"origin":"玉山异兽，犬形豹文而具角，古籍亦记其出现与丰穰相应。",
-		"skill":"玉山镇守","boss":0,"exchange":1,
+		"skill":"玉山镇守","basic_attack":"守吠冲","boss":0,"exchange":1,
 		"skill_sets":({
 			({"玉山镇守","豹文护阵","灵角定心"}),
 			({"玉山镇守","丰年之兆","犬影巡山"}),
@@ -97,7 +97,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"chenghuang":([
 		"name":"乘黄","icon":"🦌","family":"灵","role":"疗愈",
 		"origin":"白民之国瑞兽，狐形而背生角，传说乘之可以延年。",
-		"skill":"延年清辉","boss":0,"exchange":1,
+		"skill":"延年清辉","basic_attack":"灵光抚","boss":0,"exchange":1,
 		"skill_sets":({
 			({"延年清辉","背角流霞","白民长歌"}),
 			({"延年清辉","瑞步生风","清辉护命"}),
@@ -107,7 +107,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"tiangou":([
 		"name":"天狗","icon":"🐺","family":"金","role":"守护",
 		"origin":"阴山异兽，狸形白首，古籍记其声与御凶之能。",
-		"skill":"白首辟凶","boss":0,"exchange":1,
+		"skill":"白首辟凶","basic_attack":"吞月咬","boss":0,"exchange":1,
 		"skill_sets":({
 			({"白首辟凶","阴山巡夜","警声破妄"}),
 			({"白首辟凶","灵嗅追迹","守门伏邪"}),
@@ -117,7 +117,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"kui":([
 		"name":"夔","icon":"🐂","family":"雷","role":"强攻",
 		"origin":"流波山雷兽，苍身如牛而独足，出入水则风雨、声如雷。",
-		"skill":"流波震雷","boss":1,"exchange":0,
+		"skill":"流波震雷","basic_attack":"雷震踏","boss":1,"exchange":0,
 		"skill_sets":({
 			({"流波震雷","独足撼海","苍雷惊潮"}),
 			({"流波震雷","风雨同来","雷音破阵"}),
@@ -127,7 +127,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"yingzhao":([
 		"name":"英招","icon":"🐎","family":"风","role":"迅捷",
 		"origin":"槐江山神兽，马身人面、虎文鸟翼，巡游四海。",
-		"skill":"四海巡风","boss":1,"exchange":0,
+		"skill":"四海巡风","basic_attack":"风驰踏","boss":1,"exchange":0,
 		"skill_sets":({
 			({"四海巡风","虎文振翼","槐江越阵"}),
 			({"四海巡风","天门疾驰","羽影连环"}),
@@ -137,7 +137,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"qiongqi":([
 		"name":"穷奇","icon":"🐅","family":"异","role":"强攻",
 		"origin":"山海古籍中的凶兽之一，本作将其化为可封印、可理解的裂隙强敌。",
-		"skill":"逆风裂界","boss":1,"exchange":0,
+		"skill":"逆风裂界","basic_attack":"凶噬扑","boss":1,"exchange":0,
 		"skill_sets":({
 			({"逆风裂界","凶纹怒啸","穷途反击"}),
 			({"逆风裂界","异兽威压","破序之爪"}),
@@ -147,7 +147,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"yinglong":([
 		"name":"应龙","icon":"🐉","family":"水","role":"灵息",
 		"origin":"大荒有翼之龙，通水泽与云雨；在裂隙轮替中象征秩序重归。",
-		"skill":"云雨应时","boss":1,"exchange":0,
+		"skill":"云雨应时","basic_attack":"龙爪攫","boss":1,"exchange":0,
 		"skill_sets":({
 			({"云雨应时","翼龙行水","大荒回澜"}),
 			({"云雨应时","苍云布泽","雨师同律"}),
@@ -157,7 +157,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"luanniao":([
 		"name":"鸾鸟","icon":"🕊️","family":"灵","role":"疗愈",
 		"origin":"女床山五采瑞鸟，古籍记其现世象征安宁；本作以守护灵契作原创演绎。",
-		"skill":"回生羽","boss":0,"exchange":0,"hidden":1,
+		"skill":"回生羽","basic_attack":"灵翼拂","boss":0,"exchange":0,"hidden":1,
 		"skill_sets":({
 			({"回生羽","五采安魂","鸾音护命"}),
 			({"回生羽","女床清鸣","灵羽回光"}),
@@ -173,6 +173,11 @@ private array(string) starter_species = ({
 private array(string) rift_boss_species = ({
 	"kui","yingzhao","qiongqi","yinglong","jiuyihu",
 });
+
+array(string) query_all_species()
+{
+	return indices(shanhai_catalog);
+}
 
 array(string) query_starter_species()
 {

@@ -98,6 +98,27 @@ release proof is `docs/lingyi-10-pass-audit.md`.
 - [ ] Actual NPC level 70+, one roll per killed monster, team/solo ownership,
   120-second protection, five-minute cleanup, and audit log are preserved.
 
+### 3a. Skill icons (added 2026-08-04)
+
+- [ ] Every player-facing skill file sets `picture="<skill_id>_logo";` next to
+  `name_cn=...` (no suffix collisions with book covers that use `picture=name`).
+- [ ] 60x60 PNG + GIF generated in **both** `images/<skill>_logo.{png,gif}` and
+  `web/images/<skill>_logo.{png,gif}`. Verify with `identify` and file size.
+- [ ] Icon design follows the dark-navy + multi-ring gold border + class-colored
+  inner + central CJK glyph style established by `wuxiang_logo.png` and the 16
+  wuxiang skill icons. Use strokes for borders — never full-radius `fill circle`.
+- [ ] Book covers (48x64) for mythic hidden books exist at `images/<book>.{png,gif}`
+  and `web/images/<book>.{png,gif}` when the book file uses `picture=name`.
+- [ ] `pic_flag["skill"]` defaults to `"open"` for new accounts in `gamelib/d/init`
+  and old accounts are migrated on login.
+- [ ] `gamelib/cmds/pic_switch_list.pike` exposes the skill toggle and
+  `pic_switch_confirm.pike` includes `skill` in its `all` action.
+- [ ] TestUnit verifies: each skill file's `picture=` field, asset presence in
+  both image directories and both formats, `is("skill")==1`, `query_picture_url`
+  emits `[imgurl picture:.../<skill>_logo.gif]` when open and `""` when closed,
+  and `view_performs(...)` output contains the icon URL. See
+  `test_unit/test_wuxiang_skill_icons.pike`.
+
 ## 4. Equipment, items, economy, and rewards
 
 - [ ] Starter weapon/armor exist, match slots and restrictions, auto-equip
