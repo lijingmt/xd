@@ -332,7 +332,7 @@ sync_item_directory() {
     done
 
     chmod -R 755 "$shared_item_dir" 2>/dev/null || true
-    print_success "游戏物品同步完成，并已校验31本原隐藏秘籍与70本太古隐藏秘籍"
+    print_success "游戏物品同步完成，并已校验${#HIDDEN_MYTHIC_SKILL_IDS[@]}本原隐藏秘籍与${#ANCIENT_HIDDEN_SKILL_IDS[@]}本太古隐藏秘籍"
 }
 
 # 函数：验证运行镜像与外挂 item 目录中的隐藏技能资源完全一致
@@ -385,7 +385,7 @@ verify_hidden_mythic_assets_in_container() {
 		fi
 	done
 
-    print_success "容器内31套原隐藏传承与70套太古隐藏传承均已校验"
+    print_success "容器内${#HIDDEN_MYTHIC_SKILL_IDS[@]}套原隐藏传承与${#ANCIENT_HIDDEN_SKILL_IDS[@]}套太古隐藏传承均已校验"
 }
 
 # 函数：把中立阵营职业图标和人物头像更新到容器内 Tomcat 的新旧访问路径

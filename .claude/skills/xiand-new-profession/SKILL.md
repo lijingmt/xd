@@ -15,10 +15,10 @@ as authoritative. Read `references/integration-map.md` before editing and use
 
 - Choose one stable lowercase ASCII profession ID and one Chinese display name.
 - Treat race and profession as separate axes. The neutral race `third` already
-  contains Fangshi, Zhenyue, Tianxiang, and Lingyi; never equate `third` with one profession or
+  contains Fangshi, Zhenyue, Tianxiang, Lingyi, and Wuxiang; never equate `third` with one profession or
   let a two-race `else` branch select a neutral profession accidentally.
-- The post-Lingyi 2026-08-02 baseline has ten active professions and 31 hidden mythic
-  books. Never hard-code those totals in new generic logic: enumerate the
+- The post-Wuxiang 2026-08-05 baseline has eleven active professions and 34 hidden mythic
+  books (31 baseline + 3 Wuxiang). Never hard-code those totals in new generic logic: enumerate the
   authoritative catalog/pool and test that adding one profession grows every
   dependent set exactly once.
 - Reuse an existing race only after defining its faction, PvP, facility, chat,
