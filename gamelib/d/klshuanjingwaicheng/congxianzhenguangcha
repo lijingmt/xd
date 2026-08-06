@@ -6,7 +6,7 @@ protected int room_level=10000;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="从仙镇广场";
-	desc="\n";
+	desc="\n广场一角隐约有试炼的气息，可直达万象林挑战硬 Boss。\n";
 	exits["south"]=ROOT "/gamelib/d/klshuanjingwaicheng/xiaomuwu";
 	exits["north"]=ROOT "/gamelib/d/klshuanjingwaicheng/shanshulin";
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/wutoufuhun65"}));
@@ -14,4 +14,12 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/chuanxingui65"}));
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/yingyinkuilei65"}));
 	add_items(({ROOT "/gamelib/clone/npc/klshuanjingwaicheng/jianjiaoliedichong65"}));
+}
+string query_links(){
+	object player=this_player();
+	if(!player) return "";
+	string tmp="";
+	tmp+="[⚔ 团队硬 Boss·归墟境（需3人队伍）:boss_enter guixujing]\n";
+	tmp+="[⚔ 团队硬 Boss·万象林（需3人队伍）:boss_enter wanxianglin]\n";
+	return tmp;
 }
