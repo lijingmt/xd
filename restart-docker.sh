@@ -422,6 +422,12 @@ copy_neutral_profession_images_to_container() {
 		"wuxiang_logo.gif"
 		"wuxiang_male.gif"
 		"wuxiang_female.gif"
+		"taiji_logo.png"
+		"taiji_male.png"
+		"taiji_female.png"
+		"taiji_logo.gif"
+		"taiji_male.gif"
+		"taiji_female.gif"
     )
     local image_name
     local source_image

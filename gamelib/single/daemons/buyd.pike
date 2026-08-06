@@ -20,7 +20,7 @@ class buy_item
 	string item_type;//[0]物品类别，如：书，肥料，丹药
 	string file;//[1]物品文件名
 	int level;//[2]学习技能等级限制
-	string zhiye;//[3]学习技能职业限制,剑仙:jianxian 羽士:yushi 诛仙:zhuxian 巫妖:wuyao 狂妖:kuangyao 影鬼:yinggui 方士:fangshi 镇越:zhenyue 天象:tianxiang 灵医:lingyi 无相:wuxiang 人类:human 妖魔:monst 所有职业:all
+	string zhiye;//[3]学习技能职业限制,剑仙:jianxian 羽士:yushi 诛仙:zhuxian 巫妖:wuyao 狂妖:kuangyao 影鬼:yinggui 方士:fangshi 镇越:zhenyue 天象:tianxiang 灵医:lingyi 无相:wuxiang 太极:taiji 人类:human 妖魔:monst 所有职业:all
 	string name_cn;//[4]技能书的中文名
 	int need_yushi;//[5]需要的碎玉
 	//int yushi_level;

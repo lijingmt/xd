@@ -13,6 +13,7 @@ protected mapping(string:int) m_profe = ([
 	"tianxiang" : 16,
 	"lingyi" : 17,
 	"wuxiang" : 18,
+	"taiji" : 19,
 	"humanlike" : 8,
 	"beast" : 9,
 	"bird" : 10,
