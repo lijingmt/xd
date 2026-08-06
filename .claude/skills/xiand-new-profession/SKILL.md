@@ -9,7 +9,10 @@ Build a profession as a complete player lifecycle, not as a collection of skill
 files. Treat active source and runtime behavior under `/usr/local/games/xiand`
 as authoritative. Read `references/integration-map.md` before editing and use
 `references/profession-checklist.md` as the implementation gate. Use
-`references/ten-pass-audit.md` for final review.
+`references/ten-pass-audit.md` for final review. Read
+`references/common-pitfalls.md` before coding — it catalogs the specific bugs
+hit while shipping Wuxiang (account, save, Vue, deploy, pet, ImageMagick)
+so you can recognize the symptoms and skip the wrong paths.
 
 ## Non-negotiable contracts
 
