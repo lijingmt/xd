@@ -21,5 +21,11 @@ string query_links(){
 	string tmp="";
 	tmp+="[⚔ 团队硬 Boss·归墟境（需3人队伍）:boss_enter guixujing]\n";
 	tmp+="[⚔ 团队硬 Boss·万象林（需3人队伍）:boss_enter wanxianglin]\n";
+	tmp+="[试炼武勋·兑换灵石:shilian_duihuan 10 lingshi]\n";
+	tmp+="[试炼武勋·兑换经验丹:shilian_duihuan 50 dan]\n";
+	tmp+="[试炼武勋·兑换蓝装:shilian_duihuan 30 blue90]\n";
+	tmp+="[试炼武勋·兑换紫装:shilian_duihuan 80 purple110]\n";
+	tmp+="[试炼武勋·兑换金装:shilian_duihuan 200 gold110]\n";
+	tmp+="[试炼武勋·兑换隐藏书:shilian_duihuan 500 hidden]\n";
 	return tmp;
 }
