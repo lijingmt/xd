@@ -6,7 +6,7 @@ protected void create(){
 	name=object_name(this_object());
 	name_cn="万象林";
 	desc="一片扭曲的密林，枝叶间洒下五彩光斑，深处隐约有妖气涌动。\n"+
-		"此处为团队硬 Boss「万象妖皇」的栖息之地，需 3 人以上队伍挑战。\n";
+		"此处为团队硬 Boss「万象妖皇」的栖息之地，需 4 人以上队伍挑战。\n";
 	exits["west"]=ROOT "/gamelib/d/congxianzhen/congxianzhenguangchang";
 	add_items(({ROOT "/gamelib/clone/npc/boss/wanxiangyaohuang"}));
 }
@@ -16,4 +16,21 @@ int is_bedroom()
 }
 int is_peaceful(){
 	return 0;
+}
+void reset_items(){
+	int boss_count=0;
+	array(object) extras=({});
+	foreach(all_inventory(this_object()),object ob){
+		if(ob && ob->is && ob->is("npc") &&
+		   functionp(ob->is_team_required_boss) &&
+		   ob->is_team_required_boss()){
+			boss_count++;
+			if(boss_count>1)
+				extras+=({ob});
+		}
+	}
+	foreach(extras,object extra){
+		catch { extra->remove(); };
+	}
+	::reset_items();
 }
