@@ -3264,6 +3264,10 @@ private void attack(int skill_add,int skill_add_per,string type,
 						catch { ob->receive(gate_msg); };
 				}
 			}
+			Stdio.append_file(ROOT+"/log/team_pve_gate.log",
+				ctime(time())[0..sizeof(ctime(time()))-2]+
+				" "+this_object()->query_name()+
+				" disengaged: alive="+alive+"/"+min_size+"\n");
 			this_object()->reset_targets();
 			this_object()->_clean_fight();
 			return;

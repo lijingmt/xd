@@ -484,13 +484,36 @@ void fight_die()
 									wuxun_ob = clone(ROOT+
 										"/gamelib/clone/item/other/shilianwuxun");
 								};
-								if(!e && wuxun_ob){
+								if(e || !wuxun_ob){
+									// clone 失败：记录日志，不能假装给玩家发了
+									Stdio.append_file(ROOT+"/log/team_pve_error.log",
+										ctime(time())[0..sizeof(ctime(time()))-2]+
+										" wuxun clone failed for "+uid+
+										": "+(e?describe_error(e):"null clone")+"\n");
+								}
+								else{
 									wuxun_ob->amount = wuxun_per_member;
-									wuxun_ob->move(termer);
+									if(wuxun_ob->move(termer)!=1){
+										// move 失败（背包满等）
+										Stdio.append_file(ROOT+"/log/team_pve_error.log",
+											ctime(time())[0..sizeof(ctime(time()))-2]+
+											" wuxun move failed for "+uid+
+											" (inventory full?)\n");
+										destruct(wuxun_ob);
+										tell_object(termer,"【试炼】背包已满，试炼武勋 ×"+
+											wuxun_per_member+" 未能放入，请腾出空间后再挑战。\n");
+									}
+									else{
+										tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
+											wuxun_per_member+"。\n");
+									}
 								}
 							}
-							tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
-								wuxun_per_member+"。\n");
+							else{
+								// 合并成功
+								tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
+									wuxun_per_member+"。\n");
+							}
 						}
 					}
 				}

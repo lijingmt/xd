@@ -70,6 +70,7 @@ int main(string|zero arg)
 	// 发放奖励
 	int give_count = 0;
 	int fail_count = 0;
+	int clone_err_count = 0;
 	if(type=="lingshi"){
 		me->add_money(amount*10000);
 		write("兑换成功：获得 金币×"+(amount*10000)+"\n");
@@ -77,15 +78,23 @@ int main(string|zero arg)
 		for(int i=0;i<amount*5;i++){
 			object ob;
 			mixed e = catch { ob = clone(ROOT+"/gamelib/clone/item/teyao/huashendan"); };
-			if(ob && ob->move(me)==1)
+			if(e || !ob){
+				clone_err_count++;
+				Stdio.append_file(ROOT+"/log/team_pve_error.log",
+					ctime(time())[0..sizeof(ctime(time()))-2]+
+					" duihuan clone huashendan failed: "+
+					(e?describe_error(e):"null")+"\n");
+			}
+			else if(ob->move(me)==1)
 				give_count++;
 			else{
 				fail_count++;
-				if(ob) destruct(ob);
+				destruct(ob);
 			}
 		}
 		write("兑换成功：获得 【特】幻神丹×"+give_count+
-			(fail_count>0?"（"+fail_count+"个因背包满未发放）":"")+"\n");
+			(fail_count>0?"（"+fail_count+"个因背包满未发放）":"")+
+			(clone_err_count>0?"（"+clone_err_count+"个因系统错误未发放）":"")+"\n");
 	} else if(type=="feed"){
 		me->add_money(amount*5000);
 		write("兑换成功：获得 金币×"+(amount*5000)+"（可购买灵兽饲料）\n");
@@ -98,15 +107,23 @@ int main(string|zero arg)
 			string pick = books[random(sizeof(books))];
 			object ob;
 			mixed err = catch { ob = clone(ROOT+"/gamelib/clone/item/book/"+pick); };
-			if(ob && ob->move(me)==1)
+			if(err || !ob){
+				clone_err_count++;
+				Stdio.append_file(ROOT+"/log/team_pve_error.log",
+					ctime(time())[0..sizeof(ctime(time()))-2]+
+					" duihuan clone book "+pick+" failed: "+
+					(err?describe_error(err):"null")+"\n");
+			}
+			else if(ob->move(me)==1)
 				give_count++;
 			else{
 				fail_count++;
-				if(ob) destruct(ob);
+				destruct(ob);
 			}
 		}
 		write("兑换成功：获得 "+give_count+" 本随机隐藏传承"+
-			(fail_count>0?"（"+fail_count+"本因背包满未发放）":"")+"\n");
+			(fail_count>0?"（"+fail_count+"本因背包满未发放）":"")+
+			(clone_err_count>0?"（"+clone_err_count+"本因系统错误未发放）":"")+"\n");
 	} else {
 		mapping(string:string) gear_paths = ([
 			"blue90":   "armor/30aofachangpao/30aofachangpao",
@@ -121,7 +138,14 @@ int main(string|zero arg)
 		for(int i=0;i<amount;i++){
 			object ob;
 			mixed e = catch { ob = clone(ROOT+"/gamelib/clone/item/"+path); };
-			if(ob && ob->move(me)==1)
+			if(e || !ob){
+				clone_err_count++;
+				Stdio.append_file(ROOT+"/log/team_pve_error.log",
+					ctime(time())[0..sizeof(ctime(time()))-2]+
+					" duihuan clone "+path+" failed: "+
+					(e?describe_error(e):"null")+"\n");
+			}
+			else if(ob->move(me)==1)
 				give_count++;
 			else{
 				fail_count++;
@@ -129,7 +153,8 @@ int main(string|zero arg)
 			}
 		}
 		write("兑换成功：获得 "+exchanges[type]["name"]+" ×"+give_count+
-			(fail_count>0?"（"+fail_count+"件因背包满未发放）":"")+"\n");
+			(fail_count>0?"（"+fail_count+"件因背包满未发放）":"")+
+			(clone_err_count>0?"（"+clone_err_count+"件因系统错误未发放）":"")+"\n");
 	}
 	me->command("save");
 	return 1;
