@@ -6,7 +6,7 @@ protected int room_level=3;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="羽化村广场";
-	desc="\n";
+	desc="\n广场一角站着一位试炼仙官，西北方向隐约可见归墟境的入口。\n";
 	exits["east"]=ROOT "/gamelib/d/jinaodao/canzharonglu";
 	exits["south"]=ROOT "/gamelib/d/jinaodao/chucuntulu";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/daocaoxiaodian";
