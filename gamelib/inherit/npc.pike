@@ -452,6 +452,37 @@ void fight_die()
 			ob_ancient->move(environment(this_object()));
 		}
 		if(this_object()->_boss){
+			// 团队硬 Boss 必掉试炼武勋：归墟魔君 5 个、万象妖皇 4 个；
+			// 其他 Boss 不掉（保持原行为）。每个同房同队成员各得一份。
+			if(functionp(this_object()->is_team_required_boss) &&
+			   this_object()->is_team_required_boss()){
+				int wuxun_per_member = 4;
+				string boss_name = this_object()->query_name();
+				if(boss_name=="guixumojun")
+					wuxun_per_member = 5;
+				else if(boss_name=="wanxiangyaohuang")
+					wuxun_per_member = 4;
+				if(wuxun_per_member>0 && mappingp(map_term)){
+					foreach(indices(map_term),string uid){
+						object termer = find_player(uid);
+						if(termer && environment(termer)==environment(this_object()) &&
+						   termer->get_cur_life()>0 &&
+						   can_receive_logical_reward(logical_drop_owner,termer)){
+							object wuxun_ob;
+							mixed e = catch {
+								wuxun_ob = clone(ROOT+
+									"/gamelib/clone/item/other/shilianwuxun");
+							};
+							if(!e && wuxun_ob){
+								wuxun_ob->amount = wuxun_per_member;
+								wuxun_ob->move(termer);
+								tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
+									wuxun_per_member+"。\n");
+							}
+						}
+					}
+				}
+			}
 			//boss掉落////////////////////////////////////////////////////////
 			//玩家100%获取的boss特殊物品，如霸王魔窟boss的霸王徽记
 			//由liaocheng于07/12/11添加

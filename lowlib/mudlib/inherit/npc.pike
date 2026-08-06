@@ -19,6 +19,10 @@ int _meritocrat;//是否精英怪
 read_write(_meritocrat);
 int _boss;//是否boss怪
 read_write(_boss);
+int _team_required_boss;//是否需要 3 人以上队伍才能挑战的硬 Boss
+read_write(_team_required_boss);
+int _team_required_min_size;//最少队伍人数，默认 3
+read_write(_team_required_min_size);
 int _rare;//是否稀有怪
 read_write(_rare);
 int _domestication;//是否可以驯服
@@ -554,4 +558,54 @@ int query_level(){
 		else
 			return "不明";
 	}
+
+// === 团队挑战硬 Boss 的辅助接口 ===
+// 由 Boss NPC 在 create() 中调用 set_team_required_boss(1) 启用。
+// 启用后，fight.pike 在 attack() 进入时校验 first_target 的队伍人数；
+// 不足最小值时 Boss 直接 reset_targets 并离场，避免被单人单挑。
+
+int is_team_required_boss(){
+    return _team_required_boss==1;
+}
+
+void set_team_required_boss(int flag){
+    _team_required_boss = flag;
+}
+
+int query_team_required_min_size(){
+    if(_team_required_min_size<1)
+        return 3;
+    return _team_required_min_size;
+}
+
+void set_team_required_min_size(int n){
+    if(n<1) n = 1;
+    if(n>10) n = 10;
+    _team_required_min_size = n;
+}
+
+// 计算当前房间内属于 first_target 队伍且存活的玩家数量。
+// 用于 team_required_boss 的准入校验。
+int count_first_target_team_in_room(){
+    object room;
+    object first;
+    string team_id;
+    int alive = 0;
+    first = this_object()->first_target;
+    if(!first || !functionp(first->query_term))
+        return 0;
+    team_id = (string)first->query_term();
+    if(team_id=="" || team_id=="noterm")
+        return 0;
+    room = environment(this_object());
+    if(!room)
+        return 0;
+    foreach(all_inventory(room),object ob){
+        if(ob && ob->is && ob->is("player") &&
+           (string)ob->query_term()==team_id &&
+           ob->get_cur_life()>0)
+            alive++;
+    }
+    return alive;
+}
 

@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+// 归墟魔君必杀技：纯物理 2500-3500，对非坦克约 1.5 倍
+protected void create(){
+	name=object_name(this_object());
+	name_cn="归墟魔击";
+	desc="归墟魔君的纯物理一击，对非坦克玩家约 1.5 倍伤害";
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=4;
+	performs_attack[1]=4000; performs_attack[2]=5000; performs_attack[3]=6000;
+	performs_cast[1]=20; performs_cast[2]=20; performs_cast[3]=20;
+	skill_type+=({"boss"});
+	performs_level_limit[1]=1; performs_level_limit[2]=2; performs_level_limit[3]=3;
+	performs_desc[1]="造成约 4000 点物理伤害";
+	performs_desc[2]="造成约 5000 点物理伤害";
+	performs_desc[3]="造成约 6000 点物理伤害";
+}

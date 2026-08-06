@@ -17,5 +17,5 @@ protected void create(){
 	set_item_canTrade(1);
 	set_item_canSend(1);
 	set_item_canStorage(1);
-	set_equip_attack(7);
+	set_attack_power(7);
 }

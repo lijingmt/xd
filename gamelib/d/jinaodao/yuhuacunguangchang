@@ -11,6 +11,7 @@ protected void create(){
 	exits["south"]=ROOT "/gamelib/d/jinaodao/chucuntulu";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/daocaoxiaodian";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/yuhuacun";
+	exits["northwest"]=ROOT "/gamelib/d/jinaodao/guixujing";
 	add_items(({ROOT "/gamelib/clone/npc/jinaodao/zhaogongming400"}));
 	add_items(({ROOT "/gamelib/clone/npc/fangshi_teacher"}));
 	add_items(({ROOT "/gamelib/clone/npc/zhenyue_teacher.pike"}));
@@ -18,6 +19,7 @@ protected void create(){
 	add_items(({ROOT "/gamelib/clone/npc/lingyi_teacher.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/wuxiang_teacher.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/taiji_teacher.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/shilian_xianguan.pike"}));
 }
 int is_bedroom()
 {

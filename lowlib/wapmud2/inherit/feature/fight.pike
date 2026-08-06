@@ -2581,6 +2581,17 @@ void perform(string name,void|int flag){
 					broadcast_room_skill_manifestation(f_cur_skill,this_object(),
 						skill_level,"治疗灵光环绕施法者");
 					this_object()->set_life(life_after);
+					// 自疗产生仇恨：以 5:1 比例把治疗量计入当前敌人的仇恨表，
+					// 让自我治疗者（如方士/无相/太极）在团队 PVE 中需要关注
+					// 仇恨控制；对单人 PVE 无影响（自己就是唯一目标）。
+					// 灵医群疗已有 10:1 在 apply_lingyi_heal 路径处理，这里
+					// 不重复加。
+					if(enemy && functionp(enemy->flush_targets)){
+						int healed_amount = life_after - life_before;
+						if(healed_amount>0)
+							catch { enemy->flush_targets(this_object(),
+								healed_amount/5); };
+					}
 
 					if(name=="linglianpu" || name=="wanlingchaosheng"){
 						string team_id = this_object()->query_term();
@@ -3230,6 +3241,33 @@ private void attack(int skill_add,int skill_add_per,string type,
 	string skill_name_cn,void|string name_skill,void|int rare_skill_level){
 	if(enemy==0){
 		return;
+	}
+	// team_required Boss 门控：first_target 队伍同房存活人数不足时，
+	// Boss reset_targets + _clean_fight 离场，防止单人硬吃硬 Boss。
+	if(functionp(this_object()->is_team_required_boss) &&
+	   this_object()->is_team_required_boss()){
+		int min_size = 3;
+		int alive = 0;
+		if(functionp(this_object()->query_team_required_min_size))
+			min_size = (int)this_object()->query_team_required_min_size();
+		if(functionp(this_object()->count_first_target_team_in_room))
+			alive = (int)this_object()->count_first_target_team_in_room();
+		if(alive < min_size){
+			object gate_room = environment(this_object());
+			string gate_msg = "【试炼】"+this_object()->query_name_cn()+
+				"环视四周，未见足额挑战者，化作流光隐去。"+
+				"（硬 Boss 需 "+min_size+" 人以上队伍挑战）\n";
+			if(gate_room){
+				foreach(all_inventory(gate_room),object ob){
+					if(ob && ob->is && ob->is("player") &&
+					   functionp(ob->receive))
+						catch { ob->receive(gate_msg); };
+				}
+			}
+			this_object()->reset_targets();
+			this_object()->_clean_fight();
+			return;
+		}
 	}
 	object|zero rare_skill = 0;
 	string fight_action_desc="";
