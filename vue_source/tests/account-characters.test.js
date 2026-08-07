@@ -14,7 +14,7 @@ const sandbox = {
   },
   window: {
     crypto: {},
-    location: { protocol: 'https:', hostname: 'game.example.com' },
+    location: { protocol: 'https:', hostname: 'game.example.com', href: 'https://game.example.com/' },
     matchMedia() { return { matches: false }; }
   },
   document: { documentElement: { setAttribute() {} } },
@@ -27,6 +27,7 @@ const sandbox = {
   console,
   TextEncoder,
   URLSearchParams,
+  URL,
   btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
   setTimeout,
   clearTimeout,
@@ -244,6 +245,58 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   // sessionStorage 不再清除（自动浏览器共享修复）；只验证 Vue 状态和定时器被清空
   assert.strictEqual(client.txd, '');
   assert(client.characterError.includes('重新选择人物'));
+
+  // 角色直达书签：copyCharacterBookmarkUrl 应生成 ?userid=&char= 格式的 URL，
+  // 仅当当前在线角色就是目标角色时才附上 txd（避免把 A 角色的 txd 误塞到 B 角色的书签里）。
+  client.accountId = 'xd01abc';
+  client.currentCharacterId = 'xd01firsthero';
+  client.txd = firstTxd;
+  // 测试环境没有真实 DOM/clipboard，stub 掉通知和剪贴板写
+  client.showNotification = () => {};
+  let copiedUrl = '';
+  sandbox.navigator = {
+    clipboard: {
+      writeText: async (text) => { copiedUrl = text; }
+    }
+  };
+  // 当前在线 A，复制 B 的书签：不应带 txd
+  await client.copyCharacterBookmarkUrl('xd01abcc2a8f31e20');
+  const bookmarkUrl = new URL(copiedUrl, 'https://game.example.com');
+  assert.strictEqual(bookmarkUrl.searchParams.get('userid'), 'xd01abc');
+  assert.strictEqual(bookmarkUrl.searchParams.get('char'), 'xd01abcc2a8f31e20');
+  assert.strictEqual(bookmarkUrl.searchParams.get('txd'), null,
+    '复制其他角色书签时不应附上当前角色的 txd');
+  // 当前在线 A，复制 A 的书签：应附上 txd（同角色 txd 可立即进入）
+  await client.copyCharacterBookmarkUrl('xd01firsthero');
+  const selfBookmarkUrl = new URL(copiedUrl, 'https://game.example.com');
+  assert.strictEqual(selfBookmarkUrl.searchParams.get('userid'), 'xd01abc');
+  assert.strictEqual(selfBookmarkUrl.searchParams.get('char'), 'xd01firsthero');
+  assert.strictEqual(selfBookmarkUrl.searchParams.get('txd'), firstTxd,
+    '复制当前角色书签应附上 txd 以支持立即进入');
+
+  // doLogin 书签逻辑的静态契约：源码必须包含 preselectedUserid 优先级判断和 char 匹配。
+  // 完整端到端流程（account/login + characters/select + completeCharacterLogin）依赖
+  // 现有 selectAccountCharacter 测试覆盖，这里只验证新逻辑的源码存在性。
+  assert(appSource.includes('preselectedUserid'),
+    'app.js 应包含 preselectedUserid 状态字段');
+  assert(appSource.includes('preselectedCharacterId'),
+    'app.js 应包含 preselectedCharacterId 状态字段');
+  assert(appSource.includes("urlParams.get('userid')"),
+    'app.js 应从 URL 读取 userid 参数');
+  assert(appSource.includes("urlParams.get('char')"),
+    'app.js 应从 URL 读取 char 参数');
+  assert(appSource.includes('const bookmarkMatch = (!userInput || userInput === this.preselectedUserid)'),
+    'app.js 应在 doLogin 中实现书签角色匹配逻辑');
+
+  // 静态契约：UI 和源码必须包含书签相关结构和逻辑
+  assert(indexSource.includes('character-card-wrap'),
+    'index.html 应使用 character-card-wrap 包裹卡片以承载复制书签按钮');
+  assert(indexSource.includes('character-bookmark-btn'),
+    'index.html 应在每个角色卡片上提供复制书签按钮');
+  assert(indexSource.includes('copyCharacterBookmarkUrl(character.id)'),
+    'index.html 应把复制按钮绑定到 copyCharacterBookmarkUrl');
+  assert(cssSource.includes('.character-bookmark-btn'),
+    'app.css 应为复制书签按钮提供样式');
 
   console.log('account character frontend tests passed');
 })().catch(error => {

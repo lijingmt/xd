@@ -271,29 +271,37 @@
                 </div>
 
                 <div class="character-grid" v-if="!characterCreateOpen">
-                    <button v-for="character in accountCharacters"
-                            :key="character.id"
-                            type="button"
-                            class="character-card"
-                            :class="{
-                                current: character.id === currentCharacterId,
-                                pending: !character.ready,
-                                unavailable: character.available === 0
-                            }"
-                            @click="selectAccountCharacter(character)"
-                            :disabled="characterLoading || character.available === 0">
-                        <span class="character-card-icon" aria-hidden="true">
-                            {{ professionOptions.find(option => option.profession_id === character.profession_id)?.icon || '🧭' }}
-                        </span>
-                        <span class="character-card-main">
-                            <strong>{{ character.name_cn }}</strong>
-                            <span>{{ character.race_name }} · {{ character.profession_name }}</span>
-                            <small>Lv.{{ character.level }} · 档案 {{ character.slot }}</small>
-                        </span>
-                        <span class="character-card-state">
-                            {{ character.available === 0 ? '待恢复' : (character.id === currentCharacterId ? '当前' : (character.ready ? '进入' : '完成创建')) }}
-                        </span>
-                    </button>
+                    <div v-for="character in accountCharacters"
+                         :key="character.id"
+                         class="character-card-wrap">
+                        <button type="button"
+                                class="character-card"
+                                :class="{
+                                    current: character.id === currentCharacterId,
+                                    pending: !character.ready,
+                                    unavailable: character.available === 0
+                                }"
+                                @click="selectAccountCharacter(character)"
+                                :disabled="characterLoading || character.available === 0">
+                            <span class="character-card-icon" aria-hidden="true">
+                                {{ professionOptions.find(option => option.profession_id === character.profession_id)?.icon || '🧭' }}
+                            </span>
+                            <span class="character-card-main">
+                                <strong>{{ character.name_cn }}</strong>
+                                <span>{{ character.race_name }} · {{ character.profession_name }}</span>
+                                <small>Lv.{{ character.level }} · 档案 {{ character.slot }}</small>
+                            </span>
+                            <span class="character-card-state">
+                                {{ character.available === 0 ? '待恢复' : (character.id === currentCharacterId ? '当前' : (character.ready ? '进入' : '完成创建')) }}
+                            </span>
+                        </button>
+                        <button type="button"
+                                class="character-bookmark-btn"
+                                @click.stop="copyCharacterBookmarkUrl(character.id)"
+                                :disabled="characterLoading"
+                                aria-label="复制本角色直达书签"
+                                title="复制直达书签：auto-browser 存为快捷入口即可一键进入本角色">📋</button>
+                    </div>
                     <button type="button"
                             class="character-card character-add"
                             @click="openCharacterCreator"
