@@ -196,6 +196,10 @@ createApp({
             accountToken: '',
             accountId: '',
             currentCharacterId: '',
+            // 书签直达：从 URL ?userid=&char= 读出，跨会话长期有效
+            // （txd 一旦过期就回登录表单，重新输密码后自动选回这个角色）
+            preselectedUserid: '',
+            preselectedCharacterId: '',
             // 每次选角/退出都会递增。旧人物尚未返回的挂机与轮询响应
             // 只能完成自己的网络请求，不能再覆盖新人物的会话和界面。
             characterSessionEpoch: 0,
@@ -1694,14 +1698,20 @@ createApp({
         },
 
         async doLogin() {
-            if (!this.loginForm.userid || !this.loginForm.password) {
-                this.loginError = '请输入账号和密码';
+            // 书签直达：若 URL 带 ?userid=xxx 且用户没手动改过表单的 userid，
+            // 用 URL 的完整账号 ID 跳过分区下拉拼接。
+            // 用户在表单里输了 userid 就以表单为准（允许覆盖书签账号）。
+            const userInput = (this.loginForm.userid || '').trim();
+            const fullUserid = userInput
+                ? (this.loginForm.partition + userInput)
+                : (this.preselectedUserid || '');
+            if (!fullUserid || !this.loginForm.password) {
+                this.loginError = !fullUserid ? '请输入账号和密码' : '请输入密码';
                 return;
             }
             this.isLoggingIn = true;
             this.loginError = '';
             try {
-                const fullUserid = this.loginForm.partition + this.loginForm.userid;
                 let accountData;
                 try {
                     accountData = await this.postAccountApi('/api/account/login', {
@@ -1719,7 +1729,17 @@ createApp({
                 this.applyAccountData(accountData);
                 this.showLogin = false;
                 this.showRegister = false;
-                if (this.accountCharacters.length === 1) {
+                // 书签直达：登录成功后若 preselectedCharacterId 在角色列表里，
+                // 跳过选角界面直接进入该角色。找不到则降级到原有流程。
+                const bookmarkMatch = (!userInput || userInput === this.preselectedUserid)
+                    && this.preselectedCharacterId
+                    ? this.accountCharacters.find(c => c.id === this.preselectedCharacterId)
+                    : null;
+                if (bookmarkMatch) {
+                    this.characterSelectCanCancel = false;
+                    this.showCharacterSelect = true;
+                    await this.selectAccountCharacter(bookmarkMatch);
+                } else if (this.accountCharacters.length === 1) {
                     // 先保留选角遮罩；若物理档案临时不可用，错误仍有可见承载页，
                     // 成功进入后 completeCharacterLogin 会自动关闭。
                     this.characterSelectCanCancel = false;
@@ -1766,11 +1786,19 @@ createApp({
         },
 
         // 更新URL以包含txd参数（便于书签/分享）
+        // 同时持久化 char 参数：txd 过期后用户重新登录仍能自动选回该角色。
         updateUrlWithTxd() {
             if (!this.txd) return;
 
             const url = new URL(window.location.href);
             url.searchParams.set('txd', this.txd);
+            if (this.currentCharacterId) {
+                url.searchParams.set('char', this.currentCharacterId);
+            }
+            // 书签直达：若有 preselectedUserid 也持久化，使刷新后书签账号不丢
+            if (this.preselectedUserid) {
+                url.searchParams.set('userid', this.preselectedUserid);
+            }
 
             const newUrl = url.toString();
 
@@ -1801,6 +1829,43 @@ createApp({
                 try {
                     document.execCommand('copy');
                     this.showNotification('登录链接已复制，可跨设备使用');
+                } catch (e) {
+                    this.showNotification('复制失败，请手动复制URL');
+                }
+                document.body.removeChild(textArea);
+            }
+        },
+
+        // 复制某个角色的"直达书签"URL到剪贴板。
+        // 书签含 userid+char（长期有效）+ 当前 txd（仅当此角色已在线时附上，方便立即进入）。
+        // auto-browser 用户每个角色存一个书签，打开就直接进入对应角色。
+        async copyCharacterBookmarkUrl(characterId) {
+            if (!characterId || !this.accountId) {
+                this.showNotification('角色信息缺失，无法复制书签');
+                return;
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.delete('txd');  // 先清，避免把别的角色的 txd 误带
+            url.searchParams.set('userid', this.accountId);
+            url.searchParams.set('char', characterId);
+            // 仅当当前在线角色就是书签目标角色时，才附上 txd（同角色 txd 才能直接进入）
+            if (this.txd && this.currentCharacterId === characterId) {
+                url.searchParams.set('txd', this.txd);
+            }
+            const bookmarkUrl = url.toString();
+            try {
+                await navigator.clipboard.writeText(bookmarkUrl);
+                this.showNotification('角色书签已复制：auto-browser 存为快捷入口即可直达本角色');
+            } catch (err) {
+                const textArea = document.createElement('textarea');
+                textArea.value = bookmarkUrl;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    this.showNotification('角色书签已复制：auto-browser 存为快捷入口即可直达本角色');
                 } catch (e) {
                     this.showNotification('复制失败，请手动复制URL');
                 }
@@ -4549,6 +4614,8 @@ createApp({
         const urlParams = new URLSearchParams(window.location.search);
         const refParam = urlParams.get('ref');
         const txdParam = urlParams.get('txd');
+        const useridParam = urlParams.get('userid');
+        const charParam = urlParams.get('char');
 
         // 检测HTML模式（兼容自动浏览器）
         const modeParam = urlParams.get('mode');
@@ -4564,6 +4631,18 @@ createApp({
             console.log('推荐码已保存到localStorage');
         } else {
             console.log('未检测到推荐码参数');
+        }
+
+        // 角色直达书签：?userid=xd01abc&char=xxx
+        // 长期有效，跨会话可用；txd 失效后用户重新输密码即可自动选回这个角色。
+        // 这里只存id，不预填表单：登录表单的分区+账号拼接由 doLogin 用 preselectedUserid 覆盖。
+        if (useridParam) {
+            this.preselectedUserid = useridParam;
+            console.log('检测到书签账号:', useridParam);
+        }
+        if (charParam) {
+            this.preselectedCharacterId = charParam;
+            console.log('检测到书签角色:', charParam);
         }
 
         // 保存URL中的txd（优先级最高）
