@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786080641007">
-    <link rel="stylesheet" href="css/app.css?v=v1786080641007">
-    <link rel="stylesheet" href="css/realm.css?v=v1786080641007">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786081243459">
+    <link rel="stylesheet" href="css/app.css?v=v1786081243459">
+    <link rel="stylesheet" href="css/realm.css?v=v1786081243459">
 </head>
 <body>
     <div id="app">
@@ -44,11 +44,10 @@
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
-                <div class="auth-form">
+                <form class="auth-form" @submit.prevent="doLogin">
                     <div class="form-group">
                         <label for="login-partition">分区</label>
                         <select id="login-partition"
-                                name="partition"
                                 v-model="loginForm.partition"
                                 class="form-select"
                                 :disabled="partitionsLoading || isLoggingIn">
@@ -63,26 +62,22 @@
                     <div class="form-group">
                         <label for="login-userid">账号</label>
                         <input id="login-userid"
-                               name="username"
                                type="text"
                                v-model.trim="loginForm.userid"
                                placeholder="输入账号"
                                autocomplete="username"
                                autocapitalize="none"
                                spellcheck="false"
-                               @keyup.enter="doLogin"
                                :disabled="isLoggingIn">
                     </div>
                     <div class="form-group">
                         <label for="login-password">密码</label>
                         <div class="password-field">
                             <input id="login-password"
-                                   name="password"
                                    :type="loginPasswordVisible ? 'text' : 'password'"
                                    v-model="loginForm.password"
                                    placeholder="输入密码"
                                    autocomplete="current-password"
-                                   @keyup.enter="doLogin"
                                    :disabled="isLoggingIn">
                             <button type="button"
                                     class="password-toggle"
@@ -92,15 +87,14 @@
                             </button>
                         </div>
                     </div>
-                    <button type="button"
+                    <button type="submit"
                             class="btn btn-primary btn-block auth-submit"
                             aria-label="登录游戏"
-                            @click="doLogin"
                             :disabled="isLoggingIn">
                         <span v-if="!isLoggingIn">🎮 登录游戏</span>
                         <span v-else class="loading">登录中...</span>
                     </button>
-                </div>
+                </form>
                 <div v-if="loginError"
                      class="message message-error auth-message"
                      role="alert"
@@ -1534,18 +1528,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786080641007"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786080641007"></script>
-    <script src="vendor/howler.core.min.js?v=v1786080641007"></script>
-    <script src="vendor/driver.iife.js?v=v1786080641007"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786081243459"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786081243459"></script>
+    <script src="vendor/howler.core.min.js?v=v1786081243459"></script>
+    <script src="vendor/driver.iife.js?v=v1786081243459"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786080641007';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786081243459';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786080641007"></script>
+    <script src="js/app.js?v=v1786081243459"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786080641007"></script>
+    <script src="../includes/translate.js?v=v1786081243459"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
