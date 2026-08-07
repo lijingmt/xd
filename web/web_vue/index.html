@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786027240899">
-    <link rel="stylesheet" href="css/app.css?v=v1786027240899">
-    <link rel="stylesheet" href="css/realm.css?v=v1786027240899">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786062774286">
+    <link rel="stylesheet" href="css/app.css?v=v1786062774286">
+    <link rel="stylesheet" href="css/realm.css?v=v1786062774286">
 </head>
 <body>
     <div id="app">
@@ -362,7 +362,7 @@
         <template v-if="!showLogin && !showRegister && !showCharacterSelect">
             <!-- 顶部状态栏 -->
             <header class="game-header"
-                    :class="{ 'has-header-pet': !!headerPet }"
+                    :class="{ 'has-header-pet': !!headerPet, 'header-collapsed': headerCollapsed }"
                     aria-label="人物状态"
                     data-tour="player-header">
                 <button type="button"
@@ -492,6 +492,13 @@
                     </div>
                 </div>
                 <div class="header-actions">
+                    <!-- 折叠/展开按钮 -->
+                    <button class="header-btn header-collapse-btn"
+                            @click="toggleHeaderCollapsed"
+                            :title="headerCollapsed ? '展开头部' : '折叠头部'"
+                            aria-label="折叠或展开头部">
+                        {{ headerCollapsed ? '▼' : '▲' }}
+                    </button>
                     <!-- 菜单按钮 -->
                     <div class="header-menu-container">
                         <button class="header-btn menu-btn"
@@ -1526,18 +1533,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786027240899"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786027240899"></script>
-    <script src="vendor/howler.core.min.js?v=v1786027240899"></script>
-    <script src="vendor/driver.iife.js?v=v1786027240899"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786062774286"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786062774286"></script>
+    <script src="vendor/howler.core.min.js?v=v1786062774286"></script>
+    <script src="vendor/driver.iife.js?v=v1786062774286"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786027240899';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786062774286';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786027240899"></script>
+    <script src="js/app.js?v=v1786062774286"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786027240899"></script>
+    <script src="../includes/translate.js?v=v1786062774286"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

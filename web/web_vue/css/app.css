@@ -10276,3 +10276,49 @@ body {
     .skill-ancient-awakening,
     .ancient-awakening-icon { animation: none !important; }
 }
+
+/* === 折叠头部 === */
+.header-collapse-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: rgba(255,255,255,0.8);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+    transition: background 0.2s;
+}
+.header-collapse-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* 折叠状态：隐藏状态栏、经验条、buff、宠物信息 */
+.game-header.header-collapsed {
+    padding: 6px 12px;
+    min-height: auto;
+}
+.game-header.header-collapsed .player-stats,
+.game-header.header-collapsed .exp-progress-bar,
+.game-header.header-collapsed .active-buffs,
+.game-header.header-collapsed .header-pet-companion {
+    display: none !important;
+}
+.game-header.header-collapsed .player-info {
+    gap: 0;
+}
+.game-header.header-collapsed .game-header {
+    min-height: 44px;
+}
+
+/* 小屏自动折叠（< 480px 且用户未手动设置过） */
+@media (max-width: 479px) {
+    .game-header:not(.header-collapsed) .player-stats .stat-bar:nth-child(n+3) {
+        display: none;
+    }
+}

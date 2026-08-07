@@ -362,7 +362,7 @@
         <template v-if="!showLogin && !showRegister && !showCharacterSelect">
             <!-- 顶部状态栏 -->
             <header class="game-header"
-                    :class="{ 'has-header-pet': !!headerPet }"
+                    :class="{ 'has-header-pet': !!headerPet, 'header-collapsed': headerCollapsed }"
                     aria-label="人物状态"
                     data-tour="player-header">
                 <button type="button"
@@ -492,6 +492,13 @@
                     </div>
                 </div>
                 <div class="header-actions">
+                    <!-- 折叠/展开按钮 -->
+                    <button class="header-btn header-collapse-btn"
+                            @click="toggleHeaderCollapsed"
+                            :title="headerCollapsed ? '展开头部' : '折叠头部'"
+                            aria-label="折叠或展开头部">
+                        {{ headerCollapsed ? '▼' : '▲' }}
+                    </button>
                     <!-- 菜单按钮 -->
                     <div class="header-menu-container">
                         <button class="header-btn menu-btn"
