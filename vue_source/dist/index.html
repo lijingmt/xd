@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786062774286">
-    <link rel="stylesheet" href="css/app.css?v=v1786062774286">
-    <link rel="stylesheet" href="css/realm.css?v=v1786062774286">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786063410112">
+    <link rel="stylesheet" href="css/app.css?v=v1786063410112">
+    <link rel="stylesheet" href="css/realm.css?v=v1786063410112">
 </head>
 <body>
     <div id="app">
@@ -395,6 +395,14 @@
                         <small>{{ getPetCultivationLabel(headerPet) }}</small>
                     </span>
                 </button>
+                <!-- 折叠/展开按钮：放在头像和信息之间 -->
+                <button type="button"
+                        class="header-collapse-btn"
+                        @click="toggleHeaderCollapsed"
+                        :title="headerCollapsed ? '展开头部' : '折叠头部'"
+                        aria-label="折叠或展开头部">
+                    {{ headerCollapsed ? '▸' : '▾' }}
+                </button>
                 <div class="player-info">
                     <div class="player-info-line">
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
@@ -492,13 +500,6 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <!-- 折叠/展开按钮 -->
-                    <button class="header-btn header-collapse-btn"
-                            @click="toggleHeaderCollapsed"
-                            :title="headerCollapsed ? '展开头部' : '折叠头部'"
-                            aria-label="折叠或展开头部">
-                        {{ headerCollapsed ? '▼' : '▲' }}
-                    </button>
                     <!-- 菜单按钮 -->
                     <div class="header-menu-container">
                         <button class="header-btn menu-btn"
@@ -1533,18 +1534,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786062774286"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786062774286"></script>
-    <script src="vendor/howler.core.min.js?v=v1786062774286"></script>
-    <script src="vendor/driver.iife.js?v=v1786062774286"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786063410112"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786063410112"></script>
+    <script src="vendor/howler.core.min.js?v=v1786063410112"></script>
+    <script src="vendor/driver.iife.js?v=v1786063410112"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786062774286';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786063410112';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786062774286"></script>
+    <script src="js/app.js?v=v1786063410112"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786062774286"></script>
+    <script src="../includes/translate.js?v=v1786063410112"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

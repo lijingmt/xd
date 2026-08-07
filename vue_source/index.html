@@ -395,6 +395,14 @@
                         <small>{{ getPetCultivationLabel(headerPet) }}</small>
                     </span>
                 </button>
+                <!-- 折叠/展开按钮：放在头像和信息之间 -->
+                <button type="button"
+                        class="header-collapse-btn"
+                        @click="toggleHeaderCollapsed"
+                        :title="headerCollapsed ? '展开头部' : '折叠头部'"
+                        aria-label="折叠或展开头部">
+                    {{ headerCollapsed ? '▸' : '▾' }}
+                </button>
                 <div class="player-info">
                     <div class="player-info-line">
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
@@ -492,13 +500,6 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <!-- 折叠/展开按钮 -->
-                    <button class="header-btn header-collapse-btn"
-                            @click="toggleHeaderCollapsed"
-                            :title="headerCollapsed ? '展开头部' : '折叠头部'"
-                            aria-label="折叠或展开头部">
-                        {{ headerCollapsed ? '▼' : '▲' }}
-                    </button>
                     <!-- 菜单按钮 -->
                     <div class="header-menu-container">
                         <button class="header-btn menu-btn"

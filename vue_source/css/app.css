@@ -10280,22 +10280,25 @@ body {
 /* === 折叠头部 === */
 .header-collapse-btn {
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.15);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
     border: none;
-    color: rgba(255,255,255,0.8);
-    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 4px;
+    margin-left: 4px;
     transition: background 0.2s;
+    align-self: flex-start;
+    margin-top: 2px;
 }
 .header-collapse-btn:hover {
-    background: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.9);
 }
 
 /* 折叠状态：隐藏状态栏、经验条、buff、宠物信息 */
