@@ -1146,7 +1146,7 @@ array(string) query_auto_cleanup_force_names(object me)
 
 string query_auto_cleanup_name_mode(object me,string item_name)
 {
-	if(!me || query_vip_level(me) < 4 || !item_name)
+	if(!me || !item_name)
 		return "normal";
 	if(search(query_auto_cleanup_protect_names(me),item_name) != -1)
 		return "protect";
@@ -1159,7 +1159,7 @@ int set_auto_cleanup_name_mode(object me,string item_name,string mode)
 {
 	array(string) protect_names;
 	array(string) force_names;
-	if(!me || query_vip_level(me) < 4 || !item_name || item_name == "" ||
+	if(!me || !item_name || item_name == "" ||
 	   search(item_name,",") != -1 || search(item_name," ") != -1)
 		return 0;
 	if(mode != "normal" && mode != "protect" && mode != "force")
@@ -1785,13 +1785,11 @@ string query_auto_cleanup_reject_reason(object me,object item)
 	if(query_vip_level(me) < 1)
 		return "vip_required";
 	item_name = item->query_name();
-	if(query_vip_level(me) >= 4 &&
-	   query_auto_cleanup_name_mode(me,item_name) == "protect")
+	if(query_auto_cleanup_name_mode(me,item_name) == "protect")
 		return "protected_list";
 	if(query_auto_cleanup_process_amount(me,item) <= 0)
 		return "keep_amount";
-	if(query_vip_level(me) >= 4 &&
-	   query_auto_cleanup_name_mode(me,item_name) == "force")
+	if(query_auto_cleanup_name_mode(me,item_name) == "force")
 		return "";
 	category = query_auto_cleanup_category(item);
 	if(!query_auto_cleanup_category_enabled(me,category))
