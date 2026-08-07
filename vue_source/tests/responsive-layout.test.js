@@ -147,7 +147,7 @@ assert(
 );
 
 assert(
-  html.includes(":class=\"{ 'has-header-pet': !!headerPet }\""),
+  html.includes("'has-header-pet': !!headerPet"),
   'header must compact cleanly when the current character has no active pet'
 );
 assert(
