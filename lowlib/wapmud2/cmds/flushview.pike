@@ -113,6 +113,14 @@ int main(string|zero arg)
 	}
 	AUTOFIGHTD->initialize_player(me);
 	left = AUTOFIGHTD->charge_time(me);
+	{
+		string quota_warn = AUTOFIGHTD->maybe_quota_warning(me);
+		if(quota_warn != "")
+			write(quota_warn+"\n");
+		string dura_warn = AUTOFIGHTD->maybe_durability_warning(me);
+		if(dura_warn != "")
+			write(dura_warn+"\n");
+	}
 	reason = AUTOFIGHTD->query_runtime_block_reason(me);
 	if(reason != ""){
 		stop_with_reason(me,reason);

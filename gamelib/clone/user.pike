@@ -523,6 +523,9 @@ void fight_die()
 	int my_level = me->query_level();
 	object env =environment(me);//城战中加入，要是城战，装备耐久将会损耗很小
 	me->red_flag=0;
+	// 挂机中死亡：累计死亡循环计数（5 分钟窗口内 3 次将被自动停止）
+	if(functionp(me->query_autofight) && me->query_autofight()=="enable")
+		AUTOFIGHTD->record_afk_death(me);
 	// 灵兽最后一击的PK、荣誉与击杀记录归属主人。
 	enemy = SUMMOND->query_combat_credit_owner(enemy);
 	// 限时活动死亡由活动状态机原子结算；不触发普通复活、掉级、耐久或荣誉流程。

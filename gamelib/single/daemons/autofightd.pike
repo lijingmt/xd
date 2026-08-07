@@ -11,7 +11,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
-#define AUTOFIGHT_LOOT_RETRY_SECONDS 30
+#define AUTOFIGHT_LOOT_RETRY_SECONDS 10
 #define AUTOFIGHT_CONFIG_VERSION 8
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
@@ -539,6 +539,85 @@ int query_time_left(object me)
 		return 0;
 	initialize_player(me);
 	return (int)me["/plus/autofight_time_left"];
+}
+
+// 装备耐久预警：任何一件已装备物品耐久 < 10% 时每 60 秒提醒一次，
+// 不强制停止（玩家可能就是想消耗完再换）。state 在 /tmp/autofight_dura_warn_time。
+string maybe_durability_warning(object me)
+{
+	int now;
+	int last_warn;
+	mixed equip_mixed;
+	mapping equip;
+	string low_name;
+	int low_ratio;
+	if(!me)
+		return "";
+	// 没装备查询接口直接跳过（防止对未实现接口的对象报错）
+	if(!functionp(me->query_equip))
+		return "";
+	now = time();
+	last_warn = (int)me["/tmp/autofight_dura_warn_time"];
+	if(now-last_warn < 60)
+		return "";
+	// 用 catch 包裹，避免任何装备对象的异常影响挂机主循环
+	equip_mixed = catch { equip = me->query_equip(); };
+	if(equip_mixed || !mappingp(equip) || sizeof(equip)==0)
+		return "";
+	low_name = "";
+	low_ratio = 100;
+	foreach(indices(equip),string slot){
+		object ob = equip[slot];
+		int cur;
+		int max;
+		int ratio;
+		string name_cn;
+		if(!objectp(ob))
+			continue;
+		// 没耐久接口的物品（任务物品/戒指项链等）跳过
+		if(!functionp(ob->query_item_cur_dura))
+			continue;
+		cur = (int)ob->query_item_cur_dura();
+		max = (int)ob->item_dura;
+		if(max <= 0)
+			continue;
+		ratio = cur*100/max;
+		if(ratio >= 10 || ratio >= low_ratio)
+			continue;
+		low_ratio = ratio;
+		name_cn = "";
+		if(functionp(ob->query_name_cn))
+			name_cn = (string)ob->query_name_cn();
+		if(name_cn == "" && functionp(ob->query_name))
+			name_cn = (string)ob->query_name();
+		low_name = name_cn;
+	}
+	if(low_name == "")
+		return "";
+	me["/tmp/autofight_dura_warn_time"] = now;
+	return "⚠️ 装备【"+low_name+"】耐久仅剩"+(string)low_ratio+"%，即将损坏";
+}
+
+string maybe_quota_warning(object me)
+{
+	int left;
+	int warned;
+	if(!me)
+		return "";
+	left = query_time_left(me);
+	warned = (int)me["/tmp/autofight_quota_warned"];
+	if(left > 0 && left <= 60 && warned < 2){
+		me["/tmp/autofight_quota_warned"] = 2;
+		return "⚠️ 挂机时间将在 1 分钟内用完，请尽快处理手头事务";
+	}
+	if(left > 60 && left <= 300 && warned < 1){
+		me["/tmp/autofight_quota_warned"] = 1;
+		return "⚠️ 挂机时间将在 5 分钟内用完";
+	}
+	// 时间被补充（VIP 升级 / 次日刷新）→ 重置警告，下次到点能再提
+	if(left > 300 && warned > 0)
+		me["/tmp/autofight_quota_warned"] = 0;
+	return "";
 }
 
 int query_hp_percent(object me)
@@ -2043,6 +2122,9 @@ void start_autofight(object me)
 	me["/tmp/autofight_failed_loot"] = 0;
 	me["/tmp/autofight_failed_loot_room"] = 0;
 	me["/tmp/autofight_failed_loot_retry"] = 0;
+	me["/tmp/autofight_first_death_time"] = 0;
+	me["/tmp/autofight_death_count"] = 0;
+	me["/tmp/autofight_quota_warned"] = 0;
 	reset_scan_state(me);
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
@@ -2081,9 +2163,11 @@ int charge_time(object me)
 	elapsed = now-last;
 	if(elapsed <= 0)
 		return query_time_left(me);
-	// 如果距上次扣费超过 60 秒，说明玩家离线/浏览器休眠/网络断开，
+	// 如果距上次扣费超过 30 秒，说明玩家离线/浏览器后台节流/网络断开，
 	// 这段时间没有实际挂机（没杀怪没涨经验），不应消耗每日时间。
-	if(elapsed > 60){
+	// 收紧自原 60 秒：手机锁屏 / 切 app 后 setInterval 被节流到 ~1Hz，
+	// 60 秒阈值仍然会缓慢烧份额；30 秒更接近"真实挂机"的节奏。
+	if(elapsed > 30){
 		me["/tmp/autofight_last_charge"] = now;
 		return query_time_left(me);
 	}
@@ -2135,7 +2219,70 @@ string query_start_block_reason(object me)
 
 string query_runtime_block_reason(object me)
 {
+	string death_loop;
+	if(!me)
+		return query_start_block_reason(me);
+	death_loop = query_death_loop_block_reason(me);
+	if(death_loop != "")
+		return death_loop;
 	return query_start_block_reason(me);
+}
+
+// 死亡循环保护：5 分钟窗口内累计死亡 N 次判定为循环（卡复活点回挂机点
+// 又被打死）。VIP 自动复活（百炼复苏/灵契共鸣）让循环几乎不中断，但装备
+// 耐久会持续掉，玩家可能挂机半小时回来发现装备全坏。这里在 fight_die
+// 里累计，在 query_runtime_block_reason 里拦截。
+private int death_loop_window_seconds() { return 300; }   // 5 分钟
+private int death_loop_threshold() { return 3; }          // 3 次死亡
+
+void record_afk_death(object me)
+{
+	int now;
+	int first;
+	int count;
+	if(!me || !functionp(me->query_autofight) ||
+	   me->query_autofight() != "enable")
+		return;
+	now = time();
+	first = (int)me["/tmp/autofight_first_death_time"];
+	count = (int)me["/tmp/autofight_death_count"];
+	// 窗口外重置
+	if(first <= 0 || now-first > death_loop_window_seconds()){
+		me["/tmp/autofight_first_death_time"] = now;
+		me["/tmp/autofight_death_count"] = 1;
+		return;
+	}
+	count += 1;
+	me["/tmp/autofight_death_count"] = count;
+}
+
+string query_death_loop_block_reason(object me)
+{
+	int now;
+	int first;
+	int count;
+	if(!me)
+		return "";
+	now = time();
+	first = (int)me["/tmp/autofight_first_death_time"];
+	count = (int)me["/tmp/autofight_death_count"];
+	if(first <= 0 || count < death_loop_threshold())
+		return "";
+	// 窗口内死亡次数达到阈值
+	if(now-first <= death_loop_window_seconds())
+		return "5分钟内死亡"+(string)count+"次，自动停止以防死亡循环（装备耐久会持续损耗）";
+	// 窗口已过，清空
+	me["/tmp/autofight_first_death_time"] = 0;
+	me["/tmp/autofight_death_count"] = 0;
+	return "";
+}
+
+void reset_afk_death_counter(object me)
+{
+	if(!me)
+		return;
+	me["/tmp/autofight_first_death_time"] = 0;
+	me["/tmp/autofight_death_count"] = 0;
 }
 
 int should_recover_life(object me)

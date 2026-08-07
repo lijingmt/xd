@@ -113,6 +113,8 @@
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 //赛季角色系统
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
+//自动挂机系统
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
 //召唤系统
 #define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
 //召唤物公共基类

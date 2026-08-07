@@ -3190,7 +3190,14 @@ createApp({
         },
 
         async runAutofightTick() {
-            if (!this.txd || this.showCharacterSelect || this.autofightTickInFlight) {
+            // txd 过期 → 401 → relogin 失败 → showLogin=true。此时若不拦，
+            // 下一秒 tick 还是会 sendJsonCommand → 又 401 → 又 throw，
+            // 每秒循环报错。relogin 失败时主动停 interval，等用户重新登录。
+            if (!this.txd || this.showLogin || this.showCharacterSelect || this.autofightTickInFlight) {
+                if (this.showLogin && this.autofightInterval) {
+                    clearInterval(this.autofightInterval);
+                    this.autofightInterval = null;
+                }
                 return;
             }
             if (this.useJsonMode && this.mudLoading) {
@@ -4764,8 +4771,18 @@ createApp({
                 if (!this.showCharacterSelect && this.txd) {
                     this.fetchPlayerStats();
                     if (this.playerStats && this.playerStats.autofight) {
-                        this.sendJsonCommand('flushview');
+                        // 重启可能被暂停的挂机心跳并立刻 tick 一次
+                        this.checkAutofight();
+                        this.runAutofightTick();
                     }
+                }
+            } else if (document.visibilityState === 'hidden') {
+                // 后台/锁屏：浏览器会把 setInterval 节流到 ~1Hz 甚至更慢，
+                // 但每次 flushview 仍按真实时间扣份额。主动暂停 interval，
+                // 服务端 30s gap 容差会自动停止扣费，回到前台再恢复。
+                if (this.autofightInterval) {
+                    clearInterval(this.autofightInterval);
+                    this.autofightInterval = null;
                 }
             }
         });
