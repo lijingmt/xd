@@ -744,7 +744,13 @@ prepare_data_directories() {
             rsync -a --exclude 'logical_zones/' "$source_etc_dir/" "$etc_dir/"
             print_success "已复制初始化 etc 数据"
         else
-            print_info "etc 目录已存在数据，跳过复制"
+            print_info "etc 目录已存在数据，跳过整体复制"
+            for conf_file in account_characters.conf; do
+                if [ -f "$source_etc_dir/$conf_file" ]; then
+                    cp -f "$source_etc_dir/$conf_file" "$etc_dir/$conf_file"
+                    print_info "已同步配置文件: $conf_file"
+                fi
+            done
         fi
 
 		# 容器直接挂载此目录；在线修改 .conf 后 MUD 会在 5 秒内热加载。
