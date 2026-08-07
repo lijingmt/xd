@@ -1152,7 +1152,7 @@ createApp({
         applyLoadedPartitions(partitions) {
             this.partitions = this.sortPartitionsNewestFirst(partitions);
             if (this.partitions.length === 0) return;
-            const savedPartition = (this.loadTabSession()||{}).partition || '';
+            const savedPartition = this.loginForm.partition || '';
             const loginPartitions = this.partitions.filter(
                 partition => partition.login_open !== 0
             );
@@ -1344,71 +1344,16 @@ createApp({
         },
 
         persistAccountSession() {
-            if (this.accountToken) {
-                    this.saveTabSession();
-            }
+            // 自动浏览器中所有存储（sessionStorage/localStorage/window.name）都跨标签共享。
+            // 唯一可靠的标签隔离机制是 URL 中的 ?txd=xxx 参数。
+            // 不在存储中持久化会话数据，完全依赖 URL + Vue 内存状态。
         },
 
-        // localStorage + 随机 Tab ID 前缀：所有浏览器中 localStorage 是共享的，
-        // 但两个标签用不同的 tabId 前缀写各自的 key，互不覆盖。
-        // Tab 1 退出只清自己的 key，不影响 Tab 2。
-        // tabId 存在 window.name 里（自动浏览器可能共享），也回退到 URL hash。
-        getTabId() {
-            if (this._tabId) return this._tabId;
-            // 尝试从 window.name 读
-            try {
-                const wn = window.name || '';
-                if (wn.startsWith('xiand_tab_')) {
-                    this._tabId = wn;
-                    return this._tabId;
-                }
-            } catch(e) {}
-            // 生成新 ID
-            this._tabId = 'xiand_tab_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
-            try { window.name = this._tabId; } catch(e) {}
-            return this._tabId;
-        },
-
-        saveTabSession() {
-            try {
-                const key = this.getTabId();
-                localStorage.setItem(key, JSON.stringify({
-                    txd: this.txd || '',
-                    accountToken: this.accountToken || '',
-                    accountId: this.accountId || '',
-                    characterId: this.currentCharacterId || '',
-                    partition: this.loginForm.partition || '',
-                    userid: this.loginForm.userid || '',
-                    _ts: Date.now()
-                }));
-                // 同时写 window.name 以备 tabId 恢复
-                try { window.name = key; } catch(e) {}
-            } catch(e) {
-                console.warn('[session] saveTabSession failed', e);
-            }
-        },
-
-        loadTabSession() {
-            try {
-                const key = this.getTabId();
-                const raw = localStorage.getItem(key);
-                if (raw) {
-                    const data = JSON.parse(raw);
-                    if (data && data._ts && (data.txd || data.accountToken)) {
-                        return data;
-                    }
-                }
-            } catch(e) {}
-            return null;
-        },
-
-        clearTabSession() {
-            try {
-                const key = this.getTabId();
-                localStorage.removeItem(key);
-                this.clearTabSession();
-            } catch(e) {}
-        },
+        // 兼容旧调用：全部空操作，不再使用任何存储做会话持久化
+        getTabId() { return 'xiand_tab_nostore'; },
+        saveTabSession() {},
+        loadTabSession() { return null; },
+        clearTabSession() {},
 
         clearAccountSession() {
             // 不清除 sessionStorage：自动浏览器共享 sessionStorage，清除会影响其他标签页。

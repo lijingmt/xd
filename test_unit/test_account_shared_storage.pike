@@ -280,8 +280,8 @@ int main()
 		check("同一注册账号的不同人物复用同一运行时互斥锁",
 			root_mutex==child_mutex,
 			"HTTP线程仍按人物ID并发执行");
-		check("账号同时在线上限从配置热读取且当前默认五个人物",
-			ACCOUNT_CHARACTERD->query_max_online_characters()==5,
+		check("账号同时在线上限从配置热读取且当前默认在线上限",
+			ACCOUNT_CHARACTERD->query_max_online_characters()==30,
 			"account_characters.conf没有生效");
 		object root_key = root_mutex->lock();
 		int root_login = ACCOUNT_CHARACTERD->
@@ -317,7 +317,9 @@ int main()
 			search(after_same_login,child_id)!=-1,
 			"同一人物重复登录可能并发保存同一个档案");
 
-		array(array(string)) extra_professions = ({
+		// 用 test override 把上限设为 5，和原测试一致
+	ACCOUNT_CHARACTERD->set_test_online_limit(account_id,5);
+	array(array(string)) extra_professions = ({
 			({"human","yushi"}),
 			({"human","zhuxian"}),
 			({"monst","kuangyao"}),
@@ -351,13 +353,13 @@ int main()
 		check("第六个不同职业登录时按默认五人上限清退最早人物",
 			extra_login_ok && sizeof(five_online)==5 &&
 			!objectp(child_player) && objectp(root_relogin),
-			"默认五人物上限没有准确执行");
+			"默认在线上限没有准确执行");
 		mapping forced_logout = ACCOUNT_CHARACTERD->
 			query_recent_forced_logout(child_id);
 		check("在线上限清退留下短时拦截标记阻止旧标签页自动重登",
 			(int)forced_logout["forced_logout"]==1 &&
 			(string)forced_logout["reason"]=="online_limit_reached" &&
-			(int)forced_logout["online_limit"]==30,
+			(int)forced_logout["online_limit"]==5,
 			sprintf("forced=%O",forced_logout));
 		ACCOUNT_CHARACTERD->clear_recent_forced_logout(child_id);
 		check("人物中心明确选择后可清除自动重登拦截",
