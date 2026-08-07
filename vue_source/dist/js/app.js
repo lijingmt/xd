@@ -1349,12 +1349,30 @@ createApp({
             }
         },
 
-        // window.name 在所有浏览器（包括自动浏览器/WebView）中都是按标签页隔离的。
-        // sessionStorage 在部分原始浏览器中会被多个标签页共享，导致第二个登录覆盖第一个。
-        // 把关键会话数据同时写入 window.name，读取时优先从 window.name 恢复。
+        // localStorage + 随机 Tab ID 前缀：所有浏览器中 localStorage 是共享的，
+        // 但两个标签用不同的 tabId 前缀写各自的 key，互不覆盖。
+        // Tab 1 退出只清自己的 key，不影响 Tab 2。
+        // tabId 存在 window.name 里（自动浏览器可能共享），也回退到 URL hash。
+        getTabId() {
+            if (this._tabId) return this._tabId;
+            // 尝试从 window.name 读
+            try {
+                const wn = window.name || '';
+                if (wn.startsWith('xiand_tab_')) {
+                    this._tabId = wn;
+                    return this._tabId;
+                }
+            } catch(e) {}
+            // 生成新 ID
+            this._tabId = 'xiand_tab_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+            try { window.name = this._tabId; } catch(e) {}
+            return this._tabId;
+        },
+
         saveTabSession() {
             try {
-                window.name = JSON.stringify({
+                const key = this.getTabId();
+                localStorage.setItem(key, JSON.stringify({
                     txd: this.txd || '',
                     accountToken: this.accountToken || '',
                     accountId: this.accountId || '',
@@ -1362,25 +1380,39 @@ createApp({
                     partition: this.loginForm.partition || '',
                     userid: this.loginForm.userid || '',
                     _ts: Date.now()
-                });
+                }));
+                // 同时写 window.name 以备 tabId 恢复
+                try { window.name = key; } catch(e) {}
             } catch(e) {
-                console.warn('[session] window.name save failed', e);
+                console.warn('[session] saveTabSession failed', e);
             }
         },
 
         loadTabSession() {
             try {
-                const data = JSON.parse(window.name);
-                if (data && data._ts && (data.txd || data.accountToken)) {
-                    return data;
+                const key = this.getTabId();
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    if (data && data._ts && (data.txd || data.accountToken)) {
+                        return data;
+                    }
                 }
             } catch(e) {}
             return null;
         },
 
+        clearTabSession() {
+            try {
+                const key = this.getTabId();
+                localStorage.removeItem(key);
+                this.clearTabSession();
+            } catch(e) {}
+        },
+
         clearAccountSession() {
             // 不清除 sessionStorage：自动浏览器共享 sessionStorage，清除会影响其他标签页。
-            try { window.name = ''; } catch(e) {}
+            this.clearTabSession();
             this.accountToken = '';
             this.accountId = '';
             this.accountCharacters = [];
@@ -1422,7 +1454,7 @@ createApp({
                 clearInterval(this.autofightInterval);
                 this.autofightInterval = null;
             }
-            try { window.name = ''; } catch(e) {}
+            this.clearTabSession();
 
             this.txd = '';
             this.currentCharacterId = '';
@@ -2711,7 +2743,7 @@ createApp({
                 this.postAccountApi('/api/account/logout', { token: accountToken })
                     .catch(() => {});
             }
-            try { window.name = ''; } catch(e) {}
+            this.clearTabSession();
 
 
 
@@ -2890,7 +2922,7 @@ createApp({
         // 返回界面选择
         goToSelection() {
             if (confirm('返回界面选择？')) {
-                try { window.name = ''; } catch(e) {}
+                this.clearTabSession();
     
     
                 localStorage.removeItem('mud_ui_choice');
