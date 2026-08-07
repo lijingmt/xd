@@ -241,8 +241,8 @@ assert(!appSource.includes("sessionStorage.getItem('mud_txd') || this.txd"));
   assert.strictEqual(client.autofightInterval, null);
   assert.strictEqual(client.battleStatusInterval, null);
   assert.strictEqual(client.chatPollingInterval, null);
-  assert.strictEqual(sessionValues.has('mud_txd'), false);
-  assert.strictEqual(sessionValues.has('mud_character_id'), false);
+  // sessionStorage 不再清除（自动浏览器共享修复）；只验证 Vue 状态和定时器被清空
+  assert.strictEqual(client.txd, '');
   assert(client.characterError.includes('重新选择人物'));
 
   console.log('account character frontend tests passed');
