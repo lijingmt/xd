@@ -300,6 +300,13 @@ createApp({
             battleAoeReport: null,  // 最近一次服务端群攻战果（最后目标死亡后保留10秒）
             battleAoeReportTimer: null,
             battlePet: null,  // 当前协战宠物的轻量陪伴状态
+            // 战斗数值跳动反馈：'up' / 'down' / ''，600ms 后自动清空
+            playerHpFlash: '',
+            playerManaFlash: '',
+            enemyHpFlash: '',
+            _playerHpFlashTimer: null,
+            _playerManaFlashTimer: null,
+            _enemyHpFlashTimer: null,
             petAssistEffect: null,  // 最近一次宠物协战视觉事件
             petAssistEffectTimer: null,
             lastPetAssistEventId: '',  // 服务端事件ID去重，防止每秒轮询重复播放
@@ -368,7 +375,13 @@ createApp({
                     this.adjustContainerHeight();
                 }
             });
-        }
+        },
+        // 战斗数值跳动反馈：HP/MP 变化时短暂染色 + 触发扣血红闪
+        'battlePlayerFull.hp'(newVal, oldVal) { this.flashBattleStat('playerHp', newVal, oldVal); },
+        'playerStats.hp'(newVal, oldVal) { this.flashBattleStat('playerHp', newVal, oldVal); },
+        'battlePlayerFull.mana'(newVal, oldVal) { this.flashBattleStat('playerMana', newVal, oldVal); },
+        'playerStats.mana'(newVal, oldVal) { this.flashBattleStat('playerMana', newVal, oldVal); },
+        'battleEnemy.hp'(newVal, oldVal) { this.flashBattleStat('enemyHp', newVal, oldVal); }
     },
 
     methods: {
@@ -401,6 +414,37 @@ createApp({
             const digits = Math.abs(compact) >= 100 ? 0 :
                 (Math.abs(compact) >= 10 ? 1 : 2);
             return compact.toFixed(digits).replace(/\.?0+$/, '') + unit.label;
+        },
+
+        // 迷你战斗小窗专用：零小数 + 加"千"档，避免"1.23万/1.23万"挤在一起。
+        // 全屏模式仍用 formatCompactNumber 保留精度。
+        formatMiniNumber(value) {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return '0';
+            const absolute = Math.abs(number);
+            const sign = number < 0 ? '-' : '';
+            if (absolute < 1000) return sign + Math.round(absolute).toString();
+            // 千档用 floor，避免 9999 被四舍五入成"10千"
+            if (absolute < 10000) return sign + Math.floor(absolute / 1000) + '千';
+            if (absolute < 1e8) return sign + Math.round(absolute / 1e4) + '万';
+            if (absolute < 1e12) return sign + Math.round(absolute / 1e8) + '亿';
+            return sign + Math.round(absolute / 1e12) + '万亿';
+        },
+
+        // HP/MP 变化时短暂染色，扣血/扣蓝触发 .damage-taken 红闪。
+        // key 为 'playerHp' / 'playerMana' / 'enemyHp'，对应 data 字段 + 定时器。
+        flashBattleStat(key, newVal, oldVal) {
+            const next = Number(newVal);
+            const prev = Number(oldVal);
+            if (!Number.isFinite(next) || !Number.isFinite(prev)) return;
+            if (next === prev) return;
+            const stateField = key + 'Flash';
+            const timerField = '_' + key + 'FlashTimer';
+            this[stateField] = next < prev ? 'down' : 'up';
+            if (this[timerField]) clearTimeout(this[timerField]);
+            this[timerField] = setTimeout(() => {
+                this[stateField] = '';
+            }, 650);
         },
 
         formatAutofightTime(value) {

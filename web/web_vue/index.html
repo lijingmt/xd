@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786104276494">
-    <link rel="stylesheet" href="css/app.css?v=v1786104276494">
-    <link rel="stylesheet" href="css/realm.css?v=v1786104276494">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786108249651">
+    <link rel="stylesheet" href="css/app.css?v=v1786108249651">
+    <link rel="stylesheet" href="css/realm.css?v=v1786108249651">
 </head>
 <body>
     <div id="app">
@@ -923,7 +923,7 @@
                                 <strong>{{ battlePet.name }} · {{ getPetCultivationLabel(battlePet) }}</strong>
                                 <small>{{ getPetAssistStatus(battlePet) }}</small>
                             </span>
-                            <span class="battle-pet-skill">{{ battlePet.skill }}<small v-if="battlePet.power">战力{{ formatCompactNumber(battlePet.power) }}</small></span>
+                            <span class="battle-pet-skill">{{ battlePet.skill }}<small v-if="battlePet.power">战力{{ formatMiniNumber(battlePet.power) }}</small></span>
                             <span class="battle-pet-cooldown" role="progressbar"
                                   :aria-label="battlePet.name + '协战准备进度'"
                                   :aria-valuenow="getPetCooldownPercent(battlePet)"
@@ -934,19 +934,27 @@
                         <div class="battle-resource-row">
                             <span class="battle-resource-label hp-label">生命</span>
                             <div class="hp-bar-container">
-                                <div class="hp-bar-fill player-hp" :style="{ width: getStatPercent(battlePlayerFull?.hp ?? playerStats?.hp, battlePlayerFull?.hp_max ?? playerStats?.hp_max) + '%' }"></div>
+                                <div class="hp-bar-fill player-hp"
+                                     :class="['mini-bar', { 'damage-taken': playerHpFlash === 'down', 'heal-up': playerHpFlash === 'up', 'low-hp': getStatPercent(battlePlayerFull?.hp ?? playerStats?.hp, battlePlayerFull?.hp_max ?? playerStats?.hp_max) < 30 }]"
+                                     :style="{ width: getStatPercent(battlePlayerFull?.hp ?? playerStats?.hp, battlePlayerFull?.hp_max ?? playerStats?.hp_max) + '%' }"></div>
                             </div>
-                            <span class="hp-text" :title="(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) + '/' + (battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0)">
-                                {{ formatCompactNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}
+                            <span class="hp-text"
+                                  :class="{ 'flash-up': playerHpFlash === 'up', 'flash-down': playerHpFlash === 'down' }"
+                                  :title="(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) + '/' + (battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0)">
+                                {{ formatMiniNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatMiniNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}
                             </span>
                         </div>
                         <div class="battle-resource-row">
                             <span class="battle-resource-label mana-label">法力</span>
                             <div class="neili-bar-container">
-                                <div class="neili-bar-fill player-neili" :style="{ width: getStatPercent(battlePlayerFull?.mana ?? playerStats?.mana, battlePlayerFull?.mana_max ?? playerStats?.mana_max) + '%' }"></div>
+                                <div class="neili-bar-fill player-neili"
+                                     :class="['mini-bar', { 'damage-taken': playerManaFlash === 'down', 'heal-up': playerManaFlash === 'up' }]"
+                                     :style="{ width: getStatPercent(battlePlayerFull?.mana ?? playerStats?.mana, battlePlayerFull?.mana_max ?? playerStats?.mana_max) + '%' }"></div>
                             </div>
-                            <span class="neili-text" :title="(battlePlayerFull?.mana ?? playerStats?.mana ?? 0) + '/' + (battlePlayerFull?.mana_max ?? playerStats?.mana_max ?? 0)">
-                                {{ formatCompactNumber(battlePlayerFull?.mana ?? playerStats?.mana ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.mana_max ?? playerStats?.mana_max ?? 0) }}
+                            <span class="neili-text"
+                                  :class="{ 'flash-up': playerManaFlash === 'up', 'flash-down': playerManaFlash === 'down' }"
+                                  :title="(battlePlayerFull?.mana ?? playerStats?.mana ?? 0) + '/' + (battlePlayerFull?.mana_max ?? playerStats?.mana_max ?? 0)">
+                                {{ formatMiniNumber(battlePlayerFull?.mana ?? playerStats?.mana ?? 0) }}/{{ formatMiniNumber(battlePlayerFull?.mana_max ?? playerStats?.mana_max ?? 0) }}
                             </span>
                         </div>
                         <div class="battle-meta">
@@ -956,7 +964,7 @@
                         <div class="battle-guard-status"
                              v-if="(battlePlayerFull?.guard_active ?? playerStats?.guard_active)">
                             <span aria-hidden="true">🛡</span>
-                            <span>山河壁 {{ formatCompactNumber(battlePlayerFull?.guard ?? playerStats?.guard ?? 0) }}</span>
+                            <span>山河壁 {{ formatMiniNumber(battlePlayerFull?.guard ?? playerStats?.guard ?? 0) }}</span>
                             <span>· {{ battlePlayerFull?.guard_time ?? playerStats?.guard_time ?? 0 }}秒</span>
                         </div>
                         <div class="battle-star-status"
@@ -987,10 +995,14 @@
                         <div class="battle-resource-row">
                             <span class="battle-resource-label hp-label">生命</span>
                             <div class="hp-bar-container">
-                                <div class="hp-bar-fill enemy-hp" :style="{ width: getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) + '%' }"></div>
+                                <div class="hp-bar-fill enemy-hp"
+                                     :class="['mini-bar', { 'damage-taken': enemyHpFlash === 'down', 'heal-up': enemyHpFlash === 'up' }]"
+                                     :style="{ width: getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) + '%' }"></div>
                             </div>
-                            <span class="hp-text" :title="(battleEnemy?.hp ?? '?') + '/' + (battleEnemy?.hpMax ?? '?')">
-                                {{ battleEnemy ? formatCompactNumber(battleEnemy.hp) : '?' }}/{{ battleEnemy ? formatCompactNumber(battleEnemy.hpMax) : '?' }}
+                            <span class="hp-text"
+                                  :class="{ 'flash-up': enemyHpFlash === 'up', 'flash-down': enemyHpFlash === 'down' }"
+                                  :title="(battleEnemy?.hp ?? '?') + '/' + (battleEnemy?.hpMax ?? '?')">
+                                {{ battleEnemy ? formatMiniNumber(battleEnemy.hp) : '?' }}/{{ battleEnemy ? formatMiniNumber(battleEnemy.hpMax) : '?' }}
                             </span>
                         </div>
                         <div class="battle-meta">
@@ -998,8 +1010,8 @@
                             <span v-if="battleEnemy?.race">{{ battleEnemy.race }}</span>
                         </div>
                         <div class="battle-meta battle-power" v-if="battleEnemy?.attack !== undefined || battleEnemy?.defend !== undefined">
-                            <span>攻 {{ formatCompactNumber(battleEnemy?.attackLow ?? battleEnemy?.attack ?? 0) }}<template v-if="battleEnemy?.attackHigh !== undefined && battleEnemy.attackHigh !== battleEnemy.attackLow">-{{ formatCompactNumber(battleEnemy.attackHigh) }}</template></span>
-                            <span>防 {{ formatCompactNumber(battleEnemy?.defend ?? 0) }}</span>
+                            <span>攻 {{ formatMiniNumber(battleEnemy?.attackLow ?? battleEnemy?.attack ?? 0) }}<template v-if="battleEnemy?.attackHigh !== undefined && battleEnemy.attackHigh !== battleEnemy.attackLow">-{{ formatMiniNumber(battleEnemy.attackHigh) }}</template></span>
+                            <span>防 {{ formatMiniNumber(battleEnemy?.defend ?? 0) }}</span>
                         </div>
                     </div>
                     <div class="battle-mini-controls">
@@ -1542,18 +1554,18 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786104276494"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786104276494"></script>
-    <script src="vendor/howler.core.min.js?v=v1786104276494"></script>
-    <script src="vendor/driver.iife.js?v=v1786104276494"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786108249651"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786108249651"></script>
+    <script src="vendor/howler.core.min.js?v=v1786108249651"></script>
+    <script src="vendor/driver.iife.js?v=v1786108249651"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786104276494';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786108249651';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786104276494"></script>
+    <script src="js/app.js?v=v1786108249651"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786104276494"></script>
+    <script src="../includes/translate.js?v=v1786108249651"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

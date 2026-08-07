@@ -191,6 +191,10 @@ assert(appSource.includes('dismissNewbieCompletions()'));
 assert(appSource.includes('this.dismissNewbieCompletions();'));
 assert(appSource.includes('getStatPercent(current, maximum)'));
 assert(appSource.includes('formatCompactNumber(value)'));
+assert(appSource.includes('formatMiniNumber(value)'),
+  'mini-mode formatter must exist for tight display without decimals');
+assert(appSource.includes('flashBattleStat(key, newVal, oldVal)'),
+  'HP/MP change watcher must exist for damage-flash animation');
 assert(appSource.includes("showUiToast(message, type = 'info', action = null)"));
 assert(appSource.includes('runUiToastAction()'));
 assert(appSource.includes('data.quota_exhausted'));

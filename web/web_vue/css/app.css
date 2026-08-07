@@ -2293,6 +2293,17 @@ body {
     max-width: 60%;
 }
 
+/* PC 端无宠物时收紧头部：让玩家信息扩展占满原本留给宠物按钮的位置，
+   避免头像和操作区之间留下一片空白。窄屏在媒体查询里已单独处理。 */
+.game-header:not(.has-header-pet) .player-info {
+    flex: 1 1 auto;
+    max-width: none;
+    margin-left: 4px;
+}
+.game-header:not(.has-header-pet) .header-collapse-btn {
+    margin-right: 0;
+}
+
 .player-name {
     font-size: 14px;
     font-weight: bold;
@@ -3753,6 +3764,102 @@ body {
     height: 100%;
     transition: width 0.3s ease-out;
     border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 迷你战斗条：扫光 + 扣血红闪 + 加血绿闪 + 低血脉冲 */
+.hp-bar-fill.mini-bar,
+.neili-bar-fill.mini-bar {
+    position: relative;
+    overflow: hidden;
+}
+
+/* 扫光：条上始终有一条斜纹从左到右流动，体现"战斗中" */
+.hp-bar-fill.mini-bar::after,
+.neili-bar-fill.mini-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 80%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.35) 50%,
+        transparent 100%
+    );
+    transform: skewX(-20deg);
+    animation: battle-bar-shimmer 2.4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes battle-bar-shimmer {
+    0%   { left: -80%; }
+    100% { left: 160%; }
+}
+
+/* 扣血/扣蓝：bar 整体短暂转红/暗，再淡回原色 */
+.hp-bar-fill.mini-bar.damage-taken,
+.neili-bar-fill.mini-bar.damage-taken {
+    animation: battle-bar-damage 0.65s ease-out;
+}
+
+@keyframes battle-bar-damage {
+    0%   { filter: brightness(1.6) saturate(2) hue-rotate(-30deg); transform: scaleX(1); }
+    20%  { filter: brightness(2) saturate(2.5) hue-rotate(-50deg); transform: scaleX(1.04); }
+    100% { filter: brightness(1) saturate(1) hue-rotate(0deg); transform: scaleX(1); }
+}
+
+/* 加血/加蓝：bar 短暂变亮带绿色 */
+.hp-bar-fill.mini-bar.heal-up,
+.neili-bar-fill.mini-bar.heal-up {
+    animation: battle-bar-heal 0.55s ease-out;
+}
+
+@keyframes battle-bar-heal {
+    0%   { filter: brightness(1.5) drop-shadow(0 0 4px rgba(140, 240, 140, 0.8)); }
+    100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+}
+
+/* 低血量（< 30%）：bar 持续脉冲提醒危险 */
+.hp-bar-fill.mini-bar.low-hp {
+    animation: battle-bar-low-hp 1.1s ease-in-out infinite;
+}
+
+@keyframes battle-bar-low-hp {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+    50%      { filter: brightness(1.5) drop-shadow(0 0 4px rgba(255, 80, 80, 0.9)); }
+}
+
+/* 数字跳变：上升染绿、下降染红，0.65s 淡回 */
+.hp-text.flash-up,
+.neili-text.flash-up {
+    animation: battle-number-up 0.65s ease-out;
+}
+.hp-text.flash-down,
+.neili-text.flash-down {
+    animation: battle-number-down 0.65s ease-out;
+}
+
+@keyframes battle-number-up {
+    0%   { color: #7CFC8A; transform: translateY(-1px); text-shadow: 0 0 4px rgba(140, 240, 140, 0.8); }
+    100% { color: #aaa;    transform: translateY(0);    text-shadow: none; }
+}
+
+@keyframes battle-number-down {
+    0%   { color: #FF6B6B; transform: translateY(1px); text-shadow: 0 0 4px rgba(255, 100, 100, 0.9); }
+    100% { color: #aaa;    transform: translateY(0);   text-shadow: none; }
+}
+
+/* 用户偏好减少动效时关掉扫光和脉冲 */
+@media (prefers-reduced-motion: reduce) {
+    .hp-bar-fill.mini-bar::after,
+    .neili-bar-fill.mini-bar::after { animation: none; display: none; }
+    .hp-bar-fill.mini-bar.low-hp { animation: none; }
+    .hp-text.flash-up, .hp-text.flash-down,
+    .neili-text.flash-up, .neili-text.flash-down { animation: none; }
 }
 
 .player-hp {
