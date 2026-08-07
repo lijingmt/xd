@@ -4496,6 +4496,10 @@ createApp({
     },
 
     beforeUnmount() {
+        if (this.backgroundHeartbeatTimer) {
+            clearTimeout(this.backgroundHeartbeatTimer);
+            this.backgroundHeartbeatTimer = null;
+        }
         this.clearBattleAoeReport();
         this.resetPetBattleVisualState();
         this.clearPetLevelUpEffect();
@@ -4630,18 +4634,40 @@ createApp({
         // 加载分区列表
         this.loadPartitions();
 
-        // 添加页面可见性监听（用于移动端后台恢复）
+        // 页面可见性监听：后台标签恢复时立即刷新
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                console.log('[页面恢复] 刷新状态并检查自动战斗');
-                // 页面回到前台，立即刷新状态
-                if (!this.showCharacterSelect) this.fetchPlayerStats();
-                // 如果自动战斗定时器存在，确保它继续运行
-                if (this.autofightInterval && this.playerStats && this.playerStats.autofight) {
-                    console.log('[自动战斗] 确认定时器运行中');
+                console.log('[页面恢复] 刷新状态');
+                if (!this.showCharacterSelect && this.txd) {
+                    this.fetchPlayerStats();
+                    if (this.playerStats && this.playerStats.autofight) {
+                        this.sendJsonCommand('flushview');
+                    }
                 }
             }
         });
+
+        // 后台保活心跳：即使标签在后台也每 25 秒发一个轻量请求，
+        // 防止服务端虚拟连接被 cleanup_idle_connections 清理。
+        // 用 setTimeout 链而非 setInterval，避免后台节流积压。
+        this.backgroundHeartbeat = () => {
+            if (!this.txd) return;
+            // sendBeacon 在后台也能可靠发送（浏览器 API 设计如此）
+            if (navigator.sendBeacon) {
+                const url = this.apiBase + '/api/json?txd=' +
+                    encodeURIComponent(this.txd) + '&cmd=look';
+                navigator.sendBeacon(url);
+            } else {
+                // 回退：普通 fetch（后台可能被节流，但有总比没有好）
+                fetch(this.apiBase + '/api/json?txd=' +
+                    encodeURIComponent(this.txd) + '&cmd=look')
+                    .catch(() => {});
+            }
+            this.backgroundHeartbeatTimer = setTimeout(
+                this.backgroundHeartbeat, 25000);
+        };
+        this.backgroundHeartbeatTimer = setTimeout(
+            this.backgroundHeartbeat, 25000);
 
         // 点击外部关闭菜单
         document.addEventListener('click', (e) => {
