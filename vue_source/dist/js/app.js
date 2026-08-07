@@ -203,6 +203,8 @@ createApp({
             accountCharacterLimit: 10,
             accountSharedRechargeBalance: 0,
             accountSharedRechargeAvailable: true,
+            wuxiangUnlocked: false,
+            taijiUnlocked: false,
             characterForm: {
                 race_id: '',
                 profession_id: ''
@@ -217,7 +219,9 @@ createApp({
                 { race_id: 'third', profession_id: 'fangshi', name: '方士', race: '中立', icon: '🐯', desc: '三灵召唤，攻守治疗' },
                 { race_id: 'third', profession_id: 'zhenyue', name: '镇越', race: '中立', icon: '🛡️', desc: '团队坦克，守御承伤' },
                 { race_id: 'third', profession_id: 'tianxiang', name: '天象', race: '中立', icon: '🌠', desc: '星痕法术，元素爆发' },
-                { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' }
+                { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' },
+                { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位，需账号下 10 职业均达 120 级解锁' },
+                { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转，可复活自己和队友；需账号下 10 职+无相均达 200 级解锁' }
             ],
             isLoggingIn: false,
             isRegistering: false,
@@ -282,6 +286,7 @@ createApp({
             battleMiniMode: true,  // 迷你模式：只显示HP条
             battleFullscreen: false,  // 全屏模式：遮住整个页面
             battleDockCollapsed: false,  // 收起为屏幕边缘的小按钮，不遮挡正文
+            headerCollapsed: false,  // 折叠头部状态栏
             battleShowLog: false,  // 显示战斗日志
             battleLog: [],  // 战斗日志条目
             battleAnimations: [],  // 当前显示的战斗动画
@@ -1427,6 +1432,8 @@ createApp({
             );
             this.accountSharedRechargeAvailable =
                 data.shared_recharge_available !== 0;
+            this.wuxiangUnlocked = !!data.wuxiang_unlocked;
+            this.taijiUnlocked = !!data.taiji_unlocked;
             if (data.token) {
                 this.accountToken = data.token;
             }
@@ -3946,6 +3953,13 @@ createApp({
                     this.addSkillAnimation(skillType, skillName, skillTarget);
                 }
 
+                // 丹药服用触发 buff 光效（挂机自动嗑药、手动吃丹药都触发）。
+                // 必须放在 isInBattle 早退之前，否则脱战挂机时不会播放。
+                const danyaoEatMatch = lineText.match(/你(?:食用|阅读)了([^。。\n]+?)(?:[。\n]|$)/);
+                if (danyaoEatMatch && danyaoEatMatch[1]) {
+                    this.addSkillAnimation('buff', danyaoEatMatch[1].trim(), 'player');
+                }
+
                 if (!this.isInBattle) continue;
 
                 // 解析特殊战斗状态
@@ -4221,6 +4235,11 @@ createApp({
             localStorage.setItem('battle_dock_collapsed', this.battleDockCollapsed ? '1' : '0');
         },
 
+        toggleHeaderCollapsed() {
+            this.headerCollapsed = !this.headerCollapsed;
+            localStorage.setItem('header_collapsed', this.headerCollapsed ? '1' : '0');
+        },
+
         /**
          * 切换战斗日志显示
          */
@@ -4422,6 +4441,19 @@ createApp({
                 this.battleAoeReport.targets.length > 0;
         },
 
+        visibleProfessionOptions() {
+            // 无相/太极未解锁时分别隐藏对应入口，避免玩家点击后才看到具体缺口。
+            return this.professionOptions.filter((option) => {
+                if (option.profession_id === 'wuxiang' && !this.wuxiangUnlocked) {
+                    return false;
+                }
+                if (option.profession_id === 'taiji' && !this.taijiUnlocked) {
+                    return false;
+                }
+                return true;
+            });
+        },
+
         headerPet() {
             const pet = this.playerStats?.pet_assist;
             if (!pet || Number(pet.active || 0) !== 1) {
@@ -4558,6 +4590,9 @@ createApp({
 
         // 恢复战斗状态栏折叠设置；展开时采用不遮挡正文的停靠布局
         this.battleDockCollapsed = localStorage.getItem('battle_dock_collapsed') === '1';
+        // 小屏自动折叠头部
+        this.headerCollapsed = localStorage.getItem('header_collapsed') === '1' ||
+            (window.innerWidth < 480 && !localStorage.getItem('header_collapsed'));
 
         // 恢复快捷菜单折叠状态
         const savedQuickActionsCollapsed = localStorage.getItem('quickActionsCollapsed');
