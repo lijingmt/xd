@@ -1347,12 +1347,43 @@ createApp({
             if (this.accountToken) {
                 sessionStorage.setItem('mud_account_token', this.accountToken);
                 sessionStorage.setItem('mud_account_id', this.accountId);
+                this.saveTabSession();
             }
+        },
+
+        // window.name 在所有浏览器（包括自动浏览器/WebView）中都是按标签页隔离的。
+        // sessionStorage 在部分原始浏览器中会被多个标签页共享，导致第二个登录覆盖第一个。
+        // 把关键会话数据同时写入 window.name，读取时优先从 window.name 恢复。
+        saveTabSession() {
+            try {
+                window.name = JSON.stringify({
+                    txd: this.txd || '',
+                    accountToken: this.accountToken || '',
+                    accountId: this.accountId || '',
+                    characterId: this.currentCharacterId || '',
+                    partition: this.loginForm.partition || '',
+                    userid: this.loginForm.userid || '',
+                    _ts: Date.now()
+                });
+            } catch(e) {
+                console.warn('[session] window.name save failed', e);
+            }
+        },
+
+        loadTabSession() {
+            try {
+                const data = JSON.parse(window.name);
+                if (data && data._ts && (data.txd || data.accountToken)) {
+                    return data;
+                }
+            } catch(e) {}
+            return null;
         },
 
         clearAccountSession() {
             sessionStorage.removeItem('mud_account_token');
             sessionStorage.removeItem('mud_account_id');
+            try { window.name = ''; } catch(e) {}
             this.accountToken = '';
             this.accountId = '';
             this.accountCharacters = [];
@@ -1395,6 +1426,7 @@ createApp({
                 this.autofightInterval = null;
             }
             sessionStorage.removeItem('mud_txd');
+            try { window.name = ''; } catch(e) {}
             sessionStorage.removeItem('mud_character_id');
             this.txd = '';
             this.currentCharacterId = '';
@@ -1487,6 +1519,7 @@ createApp({
             this.txd = data.txd || txd;
             this.currentCharacterId = characterId;
             sessionStorage.setItem('mud_txd', this.txd);
+            this.saveTabSession();
             sessionStorage.setItem('mud_character_id', characterId);
             sessionStorage.setItem('mud_partition', this.loginForm.partition);
             sessionStorage.setItem('mud_userid', this.loginForm.userid);
@@ -2374,6 +2407,7 @@ createApp({
                 if (data.txd) {
                     this.txd = data.txd;
                     sessionStorage.setItem('mud_txd', this.txd);
+                    this.saveTabSession();
                 }
                 // 保存userid到sessionStorage（用于URL登录后保存用户信息）
                 if (data.userid && !sessionStorage.getItem('mud_userid')) {
@@ -2684,6 +2718,7 @@ createApp({
                     .catch(() => {});
             }
             sessionStorage.removeItem('mud_txd');
+            try { window.name = ''; } catch(e) {}
             sessionStorage.removeItem('mud_partition');
             sessionStorage.removeItem('mud_userid');
             sessionStorage.removeItem('mud_character_id');
@@ -2787,6 +2822,7 @@ createApp({
                 // 重新登录成功
                 this.txd = data.txd || this.encodeTxd(fullUserid, password);
                 sessionStorage.setItem('mud_txd', this.txd);
+                this.saveTabSession();
                 sessionStorage.setItem('mud_partition', savedPartition);
                 sessionStorage.setItem('mud_userid', savedUser);
 
@@ -2863,6 +2899,7 @@ createApp({
         goToSelection() {
             if (confirm('返回界面选择？')) {
                 sessionStorage.removeItem('mud_txd');
+            try { window.name = ''; } catch(e) {}
                 sessionStorage.removeItem('mud_partition');
                 sessionStorage.removeItem('mud_userid');
                 localStorage.removeItem('mud_ui_choice');
@@ -4557,16 +4594,34 @@ createApp({
             console.log('未检测到推荐码参数');
         }
 
-        // 保存URL中的txd（优先于sessionStorage）
+        // 保存URL中的txd（优先级最高）
+        // 其次从 window.name 恢复（自动浏览器中 window.name 按标签页隔离，
+        // 而 sessionStorage 会被多个标签页共享）
+        // 最后从 sessionStorage 恢复（标准浏览器兼容）
         let savedTxd = null;
-        let txdFromUrl = false;  // 标记txd是否来自URL
+        let txdFromUrl = false;
+        let txdFromWindowName = false;
         if (txdParam) {
             savedTxd = txdParam;
             txdFromUrl = true;
             console.log('检测到URL中的txd参数，将用于自动登录');
         } else {
-            // 尝试从 sessionStorage 恢复登录状态
-            savedTxd = sessionStorage.getItem('mud_txd');
+            // 优先从 window.name 恢复（自动浏览器友好）
+            const tabData = this.loadTabSession();
+            if (tabData && tabData.txd) {
+                savedTxd = tabData.txd;
+                txdFromWindowName = true;
+                // 同时恢复账号会话
+                this.accountToken = tabData.accountToken || '';
+                this.accountId = tabData.accountId || '';
+                this.currentCharacterId = tabData.characterId || '';
+                this.loginForm.partition = tabData.partition || 'tx01';
+                this.loginForm.userid = tabData.userid || '';
+                console.log('[mounted] 从 window.name 恢复会话（自动浏览器兼容）');
+            } else {
+                // 回退到 sessionStorage（标准浏览器）
+                savedTxd = sessionStorage.getItem('mud_txd');
+            }
         }
 
         // 从localStorage恢复主题设置
@@ -4627,15 +4682,20 @@ createApp({
             }
         });
 
-        // 尝试从 sessionStorage 恢复分区和用户名（txd已经在前面处理）
-        const savedPartition = sessionStorage.getItem('mud_partition');
-        const savedUser = sessionStorage.getItem('mud_userid');
-        this.accountToken = sessionStorage.getItem('mud_account_token') || '';
-        this.accountId = sessionStorage.getItem('mud_account_id') || '';
-        this.currentCharacterId = sessionStorage.getItem('mud_character_id') || '';
+        // 如果不是从 window.name 恢复的，才从 sessionStorage 恢复账号信息
+        if (!txdFromWindowName) {
+            const savedPartition = sessionStorage.getItem('mud_partition');
+            const savedUser = sessionStorage.getItem('mud_userid');
+            this.accountToken = sessionStorage.getItem('mud_account_token') || '';
+            this.accountId = sessionStorage.getItem('mud_account_id') || '';
+            this.currentCharacterId = sessionStorage.getItem('mud_character_id') || '';
+        }
 
-        // 自动登录条件：有txd且（来自URL 或 有保存的用户信息）
-        if (savedTxd && (txdFromUrl || savedUser)) {
+        const savedPartition = this.loginForm.partition;
+        const savedUser = this.loginForm.userid;
+
+        // 自动登录条件：有txd且（来自URL 或 window.name 或 有保存的用户信息）
+        if (savedTxd && (txdFromUrl || txdFromWindowName || savedUser)) {
             // 有保存的登录信息或URL中有txd，自动恢复
             this.txd = savedTxd;
             this.loginForm.partition = savedPartition || 'tx01';
