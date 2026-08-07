@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="破石屋";
 	desc="\n";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/huangshagang";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying4"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying15"}));
 }
