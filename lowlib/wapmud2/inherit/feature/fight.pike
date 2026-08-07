@@ -1089,6 +1089,17 @@ private void recover(){
 	//npc战斗以后自动恢复生命
 	this_object()->life=this_object()->life_max;
 }
+
+// DOT 击杀的延迟死亡结算。DOT 在自身心跳里把血量减到 0 时，不能直接
+// 调用 this_object()->fight_die()（后台报错）；通常由敌人心跳在下次
+// 检测到 get_cur_life()<=0 时结算。但若敌人已离场（换区/下线/被清目标），
+// 没人会触发死亡，留下零血怪。此函数由 call_out 在心跳外触发，作为兜底。
+// HP>0 表示期间已通过其它路径复活（如百炼复苏），不再重复触发死亡流程。
+private void dot_death(){
+	if(!this_object()) return;
+	if(this_object()->get_cur_life()>0) return;
+	this_object()->fight_die();
+}
 void _clean_fight(){
 	//werror("\n----"+this_object()->query_name_cn()+"呼叫_clean_fight()开始----\n");
 	in_combat=0;
@@ -3669,6 +3680,9 @@ private void heart_beat_action(){
 			// 山海万灵基础灵攻：每回合（每心跳）都可触发的免费小技能，
 			// 与主灵技冷却独立，仅 PVE 生效，提供宠物持续参与感。
 			PETD->perform_pet_basic_assist(this_object(),enemy);
+			// 灵医百草助手常态化：未挂机时也按 PVE 上下文自动施法。
+			// 挂机模式下 flushview 周期已处理，函数内部会跳过避免重复。
+			PROFESSIONVIPD->try_lingyi_active_combat_assist(this_object());
 		}
 		if(check_pk_fast_decision())
 			return;
@@ -3710,7 +3724,14 @@ private void heart_beat_action(){
 			if(tmp_life<=0){
 				this_object()->set_life(0);
 				//敌人死亡，则把敌人从仇恨列表中清除
-				enemy->clean_targets(this_object());
+				if(enemy && objectp(enemy))
+					enemy->clean_targets(this_object());
+				//自身心跳不能直接 fight_die（后台报错）。多数情况下一次
+				// 敌人心跳会检测到 0 血并触发 fight_die；但敌人若已离场
+				// （换区/下线/换目标），没人触发就会留下零血怪。call_out
+				// 兜底，dot_death 内会再校验 HP，复活时不重复触发。
+				if(zero_type(find_call_out(dot_death)))
+					call_out(dot_death,0);
 				return;
 			}
 			else {
