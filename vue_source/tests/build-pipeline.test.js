@@ -85,11 +85,8 @@ assert(!indexSource.includes('maximum-scale=1.0'));
 assert(indexSource.includes('viewport-fit=cover'));
 assert(indexSource.includes('class="modal auth-modal"'));
 
-
-assert.strictEqual(
-  (indexSource.match(/@keyup\.enter="doLogin"/g) || []).length,
-  2
-);
+assert(indexSource.includes('<form class="auth-form" @submit.prevent="doLogin">'));
+assert(indexSource.includes('type="submit"'));
 
 
 assert(indexSource.includes('autocomplete="current-password"'));
