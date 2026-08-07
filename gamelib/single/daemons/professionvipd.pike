@@ -882,10 +882,12 @@ mapping try_out_of_combat_support(object player)
 	return (["success":0,"reason":"unsupported"]);
 }
 
-// 灵医百草助手常态化：玩家在 PVE 战斗中（无论是否开启挂机）按当前伤势
-// 自动施法。挂机模式下由 flushview 周期统一处理，这里跳过避免重复；
-// 仅在玩家未挂机时由心跳触发，使"自动化、解放双手"的描述名副其实。
-// PVP 永不接管：query_lingyi_context_candidates 内 is_pve_enemy 已守卫。
+// 灵医百草助手常态化：玩家在 PVE 战斗中（无论是否开启挂机）按 smart 策略
+// 自动施法。直接复用 query_ready_auto_skill：先看伤势需不需要治疗/净化，
+// 不需要就 fallback 到攻击技能，与挂机模式行为一致。
+// 不再因为"开了挂机就跳过"——若挂机本身有 bug，常态化仍能兜底；技能冷却
+// 自然防止双施法。PVP 永不接管：query_lingyi_context_candidates 内
+// is_pve_enemy 已守卫，攻击技能由 ensure_auto_skill 选也只针对当前 enemy。
 mapping try_lingyi_active_combat_assist(object player)
 {
 	string chosen;
@@ -894,11 +896,9 @@ mapping try_lingyi_active_combat_assist(object player)
 	if(!player || player->query_profeId() != "lingyi" ||
 	   !query_auto_enabled(player) || !player->query_in_combat())
 		return (["success":0,"reason":"unsupported"]);
-	if(functionp(player->query_autofight) &&
-	   player->query_autofight() == "enable")
-		return (["success":0,"reason":"autofight_active"]);
-	// 复用 autofightd 的就绪检查：已学、有等级、无冷却、魔法够
-	chosen = AUTOFIGHTD->query_ready_lingyi_context_skill(player);
+	// 复用 autofightd 的完整 smart 选招：伤势候选 → 攻击 fallback，
+	// 含已学/等级/冷却/魔法/武器等就绪校验。返回 "" 表示本次无技能可放。
+	chosen = AUTOFIGHTD->query_ready_auto_skill(player);
 	if(chosen == "")
 		return (["success":0,"reason":"no_ready_skill"]);
 	before_mofa = player->get_cur_mofa();
