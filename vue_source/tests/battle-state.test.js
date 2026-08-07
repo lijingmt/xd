@@ -59,6 +59,7 @@ const sandbox = {
   },
   window: {
     crypto: {},
+    name: '',
     location: { protocol: 'https:', hostname: 'game.example.com' },
     matchMedia() {
       return { matches: false };
@@ -169,7 +170,7 @@ sessionValues.clear();
 client.applyLoadedPartitions(newestFirstPartitions);
 assert.strictEqual(client.loginForm.partition, 'xd03');
 assert.strictEqual(client.registerForm.partition, 'xd03');
-sessionValues.set('mud_partition', 'xd02');
+sandbox.window.name = JSON.stringify({partition:'xd02',txd:'test',_ts:Date.now()});
 client.applyLoadedPartitions(newestFirstPartitions);
 assert.strictEqual(client.loginForm.partition, 'xd02');
 sessionValues.clear();
@@ -288,7 +289,7 @@ assert.strictEqual(client.playerAvatarFailed, true);
   );
 
   sessionValues.clear();
-  sessionValues.set('mud_txd', autoLoginTxd);
+  sandbox.window.name = JSON.stringify({txd:autoLoginTxd,_ts:Date.now()});
   client.showLogin = true;
   sandbox.fetch = async url => {
     requestedLoginUrl = url;
