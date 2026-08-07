@@ -121,6 +121,7 @@ void initialize_player(object player)
 	if(!player["/plus/profession_vip/pass_claims"])
 		player["/plus/profession_vip/pass_claims"] = ([]);
 	player["/plus/profession_vip/monitor"] = 1;
+	player["/plus/profession_vip/auto"] = 1;
 	player["/plus/profession_vip/version"] = PROFESSION_VIP_VERSION;
 	int active_level = VIPD->query_active_vip_level(player);
 	if(active_level > 0){
@@ -360,7 +361,7 @@ int use_strategy_slot(object player,int slot)
 
 int set_monitor_enabled(object player,int enabled)
 {
-	if(!player || query_effective_level(player) < 1)
+	if(!player)
 		return 0;
 	initialize_player(player);
 	player["/plus/profession_vip/monitor"] = enabled ? 1 : 0;
@@ -369,7 +370,7 @@ int set_monitor_enabled(object player,int enabled)
 
 int set_auto_enabled(object player,int enabled)
 {
-	if(!player || (enabled && query_effective_level(player) < 2))
+	if(!player)
 		return 0;
 	initialize_player(player);
 	player["/plus/profession_vip/auto"] = enabled ? 1 : 0;
@@ -379,7 +380,7 @@ int set_auto_enabled(object player,int enabled)
 int set_resonance_enabled(object player,int enabled)
 {
 	if(!player || player->query_profeId() != "fangshi" ||
-	   (enabled && query_effective_level(player) < 3))
+	   0)
 		return 0;
 	initialize_player(player);
 	player["/plus/profession_vip/resonance"] = enabled ? 1 : 0;
@@ -394,14 +395,14 @@ int query_monitor_enabled(object player)
 
 int query_auto_enabled(object player)
 {
-	return player && query_effective_level(player) >= 2 &&
+	return player &&
 		(int)player["/plus/profession_vip/auto"] == 1;
 }
 
 int query_resonance_enabled(object player)
 {
 	return player && player->query_profeId() == "fangshi" &&
-		query_effective_level(player) >= 3 &&
+		1 &&
 		(int)player["/plus/profession_vip/resonance"] == 1;
 }
 
@@ -703,7 +704,7 @@ array(string) query_zhenyue_context_candidates(object player)
 	enemy = player->query_enemy();
 	if(enemy && enemy->first_target != player)
 		names += ({"zhenhunhou","dizhenhou"});
-	if(query_effective_level(player) >= 3 &&
+	if(1 &&
 	   (strategy == "team" || has_low_life_member(player,70)) &&
 	   player->query_buff("team_guard",0) != "absorb")
 		names += ({"wanshanchaogong","wanshanbugu","shanhebi"});

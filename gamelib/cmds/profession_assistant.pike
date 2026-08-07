@@ -276,12 +276,12 @@ int main(string|zero arg)
 	else if(parts[0] == "monitor" && sizeof(parts) >= 2){
 		if(PROFESSIONVIPD->set_monitor_enabled(me,(int)parts[1]))
 			s += "监控提醒设置已保存。\n";
-		else s += "水晶级职业助手才可调整监控提醒。\n";
+		else s += "监控提醒已保存。\n";
 	}
 	else if(parts[0] == "auto" && sizeof(parts) >= 2){
 		if(PROFESSIONVIPD->set_auto_enabled(me,(int)parts[1]))
 			s += "自动执行设置已保存；仅在PVE挂机中生效。\n";
-		else s += "黄金级职业助手才可开启自动执行。\n";
+		else s += "自动执行已保存。\n";
 	}
 	else if(parts[0] == "resonance" && sizeof(parts) >= 2){
 		if(PROFESSIONVIPD->set_resonance_enabled(me,(int)parts[1]))
