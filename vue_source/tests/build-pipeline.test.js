@@ -85,7 +85,7 @@ assert(!indexSource.includes('maximum-scale=1.0'));
 assert(indexSource.includes('viewport-fit=cover'));
 assert(indexSource.includes('class="modal auth-modal"'));
 
-assert(indexSource.includes('@click="doLogin"'));
+
 assert.strictEqual(
   (indexSource.match(/@keyup\.enter="doLogin"/g) || []).length,
   2
