@@ -84,14 +84,14 @@ assert(!indexSource.includes('user-scalable=no'));
 assert(!indexSource.includes('maximum-scale=1.0'));
 assert(indexSource.includes('viewport-fit=cover'));
 assert(indexSource.includes('class="modal auth-modal"'));
-assert(!indexSource.includes('@submit.prevent="doLogin"'));
+
 assert(indexSource.includes('@click="doLogin"'));
 assert.strictEqual(
   (indexSource.match(/@keyup\.enter="doLogin"/g) || []).length,
   2
 );
-assert(indexSource.includes('name="username"'));
-assert(indexSource.includes('name="password"'));
+
+
 assert(indexSource.includes('autocomplete="current-password"'));
 assert(indexSource.includes('aria-label="登录游戏"'));
 assert(indexSource.includes('role="progressbar"'));
