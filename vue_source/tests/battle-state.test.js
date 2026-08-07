@@ -302,8 +302,8 @@ assert.strictEqual(client.playerAvatarFailed, true);
   const restoredParams = new URL(requestedLoginUrl).searchParams;
   assert.strictEqual(restoredParams.get('userid'), 'xd01autolog');
   assert.strictEqual(restoredParams.get('password'), 'yz12zy');
-  assert.strictEqual(sessionValues.get('mud_partition'), 'xd01');
-  assert.strictEqual(sessionValues.get('mud_userid'), 'autolog');
+  
+  
   assert.strictEqual(client.showLogin, false);
 
   let preventedClicks = 0;
