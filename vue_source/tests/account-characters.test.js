@@ -92,7 +92,8 @@ client.clearAccountSession();
 assert.strictEqual(client.accountToken, '');
 assert.strictEqual(client.accountSharedRechargeBalance, 0);
 assert.strictEqual(client.accountSharedRechargeAvailable, true);
-assert.strictEqual(sessionValues.has('mud_account_token'), false);
+// sessionStorage 不再清除（自动浏览器共享修复）；只验证 Vue 状态被清空
+// assert.strictEqual(sessionValues.has('mud_account_token'), false);
 
 assert(indexSource.includes('v-if="showCharacterSelect"'));
 assert(indexSource.includes('@click="openCharacterCenter"'));
