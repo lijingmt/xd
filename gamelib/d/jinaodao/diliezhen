@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="地烈阵";
 	desc="\n";
 	exits["south"]=ROOT "/gamelib/d/jinaodao/shijuehuanzhen";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/sanxian10"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/daoshi10"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/xiuzhenshi10"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/lishi10"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/luopojianxian10"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/bingsizhuxian10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong55"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun55"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike55"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe55"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi55"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying55"}));
 }

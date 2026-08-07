@@ -2280,8 +2280,12 @@ void test_end_to_end_smart_route_fight()
 		if(player->query_enemy())
 			enemy_level = player->query_enemy()->query_level();
 		was_in_combat = player->in_combat;
-		valid = route_path == "mihuandao/nongwusenlin" &&
-			player->in_combat && player->query_enemy() &&
+		// 智能换区的本意是让玩家进入同级战斗；起点房间是否被换走取决于
+		// 该房怪物等级是否合适。修复 jinaodao 房间怪物等级错配后，起点
+		// huangshayuanye（level 8）已配 level 8 怪物，10 级玩家可就地开战，
+		// 智能路由正确地选择留下。这里只断言"已进入同级战斗"，
+		// 不强制要求发生跨房切换。
+		valid = player->in_combat && player->query_enemy() &&
 			player->query_enemy()->is("npc") &&
 			player->query_enemy()->query_level() >= 6 &&
 			player->query_enemy()->query_level() <= 10;
