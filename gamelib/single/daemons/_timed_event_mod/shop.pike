@@ -1,9 +1,12 @@
 private mapping(string:mapping(string:mixed)) event_shop_catalog()
 {
+	// 注意：money 类商品的 amount 单位是 _account（银），100 银 = 1 金。
+	// "兑换10000金币" 的描述对应 amount=1,000,000（即 10000*100），
+	// 否则玩家只会看到 100 金，与描述严重不符。
 	return ([
 		"th_gold":(["name":"天衡金囊","desc":"兑换10000金币。",
 			"token_key":"tianheng_tokens","cost":1,"kind":"money",
-			"amount":10000]),
+			"amount":1000000]),
 		"th_herald":(["name":"天衡传音符","desc":"一张绑定千里传音符。",
 			"token_key":"tianheng_tokens","cost":3,"kind":"item",
 			"item_path":"/gamelib/clone/item/other/qianlichuanyinfu"]),
@@ -21,7 +24,7 @@ private mapping(string:mapping(string:mixed)) event_shop_catalog()
 			"badge_id":"tianheng_veteran"]),
 		"jy_gold":(["name":"九曜金囊","desc":"兑换10000金币。",
 			"token_key":"jiuyao_tokens","cost":1,"kind":"money",
-			"amount":10000]),
+			"amount":1000000]),
 		"jy_xuanhuang":(["name":"绑定玄黄石","desc":"用于锻造的绑定玄黄石。",
 			"token_key":"jiuyao_tokens","cost":8,"kind":"item",
 			"item_path":"/gamelib/clone/item/material/xuanhuangshi"]),

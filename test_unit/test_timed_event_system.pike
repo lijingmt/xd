@@ -94,7 +94,7 @@ void test_token_exchange_shop()
 		player,"exchange","th_gold");
 	check("金币补给即时到账并只扣一枚天衡令",
 		search(gold_result,"兑换成功")!=-1 &&
-		player->query_account()==money_before+10000 &&
+		player->query_account()==money_before+1000000 &&
 		(int)state["tianheng_tokens"]==19,"金币或令牌数错误");
 	item_result = TIMED_EVENTD->handle_command(
 		player,"exchange","th_xuanhuang");
