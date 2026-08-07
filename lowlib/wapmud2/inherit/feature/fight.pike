@@ -3680,6 +3680,9 @@ private void heart_beat_action(){
 			// 山海万灵基础灵攻：每回合（每心跳）都可触发的免费小技能，
 			// 与主灵技冷却独立，仅 PVE 生效，提供宠物持续参与感。
 			PETD->perform_pet_basic_assist(this_object(),enemy);
+			// 灵医百草助手常态化：未挂机时也按 PVE 上下文自动施法。
+			// 挂机模式下 flushview 周期已处理，函数内部会跳过避免重复。
+			PROFESSIONVIPD->try_lingyi_active_combat_assist(this_object());
 		}
 		if(check_pk_fast_decision())
 			return;

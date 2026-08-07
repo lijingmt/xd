@@ -280,7 +280,7 @@ int main(string|zero arg)
 	}
 	else if(parts[0] == "auto" && sizeof(parts) >= 2){
 		if(PROFESSIONVIPD->set_auto_enabled(me,(int)parts[1]))
-			s += "自动执行设置已保存；仅在PVE挂机中生效。\n";
+			s += "自动执行设置已保存；PVE战斗中均会自动施法（含挂机与非挂机）。\n";
 		else s += "黄金级职业助手才可开启自动执行。\n";
 	}
 	else if(parts[0] == "resonance" && sizeof(parts) >= 2){

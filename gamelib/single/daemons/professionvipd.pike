@@ -9,6 +9,8 @@
 
 inherit LOW_DAEMON;
 
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
+
 #define PROFESSION_VIP_VERSION 1
 #define PROFESSION_TRIAL_SECONDS 259200
 #define PROFESSION_TRIAL_LEVEL 2
@@ -878,6 +880,34 @@ mapping try_out_of_combat_support(object player)
 		}
 	}
 	return (["success":0,"reason":"unsupported"]);
+}
+
+// 灵医百草助手常态化：玩家在 PVE 战斗中（无论是否开启挂机）按当前伤势
+// 自动施法。挂机模式下由 flushview 周期统一处理，这里跳过避免重复；
+// 仅在玩家未挂机时由心跳触发，使"自动化、解放双手"的描述名副其实。
+// PVP 永不接管：query_lingyi_context_candidates 内 is_pve_enemy 已守卫。
+mapping try_lingyi_active_combat_assist(object player)
+{
+	string chosen;
+	int before_mofa;
+	int before_cooldown;
+	if(!player || player->query_profeId() != "lingyi" ||
+	   !query_auto_enabled(player) || !player->query_in_combat())
+		return (["success":0,"reason":"unsupported"]);
+	if(functionp(player->query_autofight) &&
+	   player->query_autofight() == "enable")
+		return (["success":0,"reason":"autofight_active"]);
+	// 复用 autofightd 的就绪检查：已学、有等级、无冷却、魔法够
+	chosen = AUTOFIGHTD->query_ready_lingyi_context_skill(player);
+	if(chosen == "")
+		return (["success":0,"reason":"no_ready_skill"]);
+	before_mofa = player->get_cur_mofa();
+	before_cooldown = player->f_skills ? (int)player->f_skills[chosen] : 0;
+	player->perform(chosen);
+	if(player->get_cur_mofa() < before_mofa ||
+	   (player->f_skills && (int)player->f_skills[chosen] > before_cooldown))
+		record_lingyi_action(player,chosen);
+	return (["success":1,"reason":"success","skill":chosen]);
 }
 
 string query_monitor_notice(object player)
