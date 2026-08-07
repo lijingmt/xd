@@ -68,11 +68,13 @@ int main(string|zero arg)
 		}
 	}
 	// 发放奖励
+	// 注意：add_money/add_account 的单位是 _account（银），100 银 = 1 金。
+	// 文本"金币×N"对应 N 金 = N*100 银，因此代码用 N*100 调用。
 	int give_count = 0;
 	int fail_count = 0;
 	int clone_err_count = 0;
 	if(type=="lingshi"){
-		me->add_money(amount*10000);
+		me->add_money(amount*1000000);
 		write("兑换成功：获得 金币×"+(amount*10000)+"\n");
 	} else if(type=="dan"){
 		for(int i=0;i<amount*5;i++){
@@ -96,7 +98,7 @@ int main(string|zero arg)
 			(fail_count>0?"（"+fail_count+"个因背包满未发放）":"")+
 			(clone_err_count>0?"（"+clone_err_count+"个因系统错误未发放）":"")+"\n");
 	} else if(type=="feed"){
-		me->add_money(amount*5000);
+		me->add_money(amount*500000);
 		write("兑换成功：获得 金币×"+(amount*5000)+"（可购买灵兽饲料）\n");
 	} else if(type=="hidden"){
 		array(string) books = ({
