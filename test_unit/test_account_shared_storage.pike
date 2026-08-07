@@ -357,7 +357,7 @@ int main()
 		check("在线上限清退留下短时拦截标记阻止旧标签页自动重登",
 			(int)forced_logout["forced_logout"]==1 &&
 			(string)forced_logout["reason"]=="online_limit_reached" &&
-			(int)forced_logout["online_limit"]==5,
+			(int)forced_logout["online_limit"]==30,
 			sprintf("forced=%O",forced_logout));
 		ACCOUNT_CHARACTERD->clear_recent_forced_logout(child_id);
 		check("人物中心明确选择后可清除自动重登拦截",
