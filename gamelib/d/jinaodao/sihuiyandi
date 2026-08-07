@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="死灰岩地";
 	desc="\n";
 	exits["south"]=ROOT "/gamelib/d/jinaodao/jiaotupingyuan";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying1"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying15"}));
 }

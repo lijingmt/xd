@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="飞沙谷";
 	desc="\n";
 	exits["east"]=ROOT "/gamelib/d/jinaodao/huangshagang";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong5"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun5"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike5"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe5"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi5"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying5"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi15"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying15"}));
 }
