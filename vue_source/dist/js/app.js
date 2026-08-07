@@ -1152,7 +1152,7 @@ createApp({
         applyLoadedPartitions(partitions) {
             this.partitions = this.sortPartitionsNewestFirst(partitions);
             if (this.partitions.length === 0) return;
-            const savedPartition = sessionStorage.getItem('mud_partition') || '';
+            const savedPartition = (this.loadTabSession()||{}).partition || '';
             const loginPartitions = this.partitions.filter(
                 partition => partition.login_open !== 0
             );
@@ -1345,9 +1345,7 @@ createApp({
 
         persistAccountSession() {
             if (this.accountToken) {
-                sessionStorage.setItem('mud_account_token', this.accountToken);
-                sessionStorage.setItem('mud_account_id', this.accountId);
-                this.saveTabSession();
+                    this.saveTabSession();
             }
         },
 
@@ -1425,7 +1423,7 @@ createApp({
                 this.autofightInterval = null;
             }
             try { window.name = ''; } catch(e) {}
-            sessionStorage.removeItem('mud_character_id');
+
             this.txd = '';
             this.currentCharacterId = '';
             this.playerStats = null;
@@ -1516,11 +1514,10 @@ createApp({
             }
             this.txd = data.txd || txd;
             this.currentCharacterId = characterId;
-            sessionStorage.setItem('mud_txd', this.txd);
             this.saveTabSession();
-            sessionStorage.setItem('mud_character_id', characterId);
-            sessionStorage.setItem('mud_partition', this.loginForm.partition);
-            sessionStorage.setItem('mud_userid', this.loginForm.userid);
+
+
+
             this.saveGameBaseUrl();
             this.updateUrlWithTxd();
             this.mudLines = data.lines || [];
@@ -2404,17 +2401,16 @@ createApp({
                 // 更新txd（可能已变化）
                 if (data.txd) {
                     this.txd = data.txd;
-                    sessionStorage.setItem('mud_txd', this.txd);
                     this.saveTabSession();
                 }
                 // 保存userid到sessionStorage（用于URL登录后保存用户信息）
-                if (data.userid && !sessionStorage.getItem('mud_userid')) {
+                if (data.userid && !(this.loadTabSession()||{}).userid) {
                     const partitionMatch = data.userid.match(/^([a-z]+\d+)/);
                     if (partitionMatch) {
                         const partition = partitionMatch[1];
                         const userid = data.userid.substring(partition.length);
-                        sessionStorage.setItem('mud_partition', partition);
-                        sessionStorage.setItem('mud_userid', userid);
+
+
                         this.loginForm.partition = partition;
                         this.loginForm.userid = userid;
                         console.log('[sendJsonCommand] 已保存用户信息到sessionStorage:', partition, userid);
@@ -2716,9 +2712,9 @@ createApp({
                     .catch(() => {});
             }
             try { window.name = ''; } catch(e) {}
-            sessionStorage.removeItem('mud_partition');
-            sessionStorage.removeItem('mud_userid');
-            sessionStorage.removeItem('mud_character_id');
+
+
+
             this.clearAccountSession();
             this.txd = '';
             this.currentCharacterId = '';
@@ -2755,11 +2751,11 @@ createApp({
 
         // 自动重新登录（当会话过期时）
         async relogin(
-            expectedTxd = this.txd || sessionStorage.getItem('mud_txd'),
+            expectedTxd = this.txd || (this.loadTabSession()||{}).txd,
             expectedEpoch = this.characterSessionEpoch
         ) {
-            let savedPartition = sessionStorage.getItem('mud_partition') || '';
-            let savedUser = sessionStorage.getItem('mud_userid') || '';
+            let savedPartition = (this.loadTabSession()||{}).partition || '';
+            let savedUser = (this.loadTabSession()||{}).userid || '';
             const savedTxd = expectedTxd;
             const credentials = this.decodeCredentialsFromTxd(savedTxd);
             let fullUserid = '';
@@ -2818,10 +2814,9 @@ createApp({
 
                 // 重新登录成功
                 this.txd = data.txd || this.encodeTxd(fullUserid, password);
-                sessionStorage.setItem('mud_txd', this.txd);
                 this.saveTabSession();
-                sessionStorage.setItem('mud_partition', savedPartition);
-                sessionStorage.setItem('mud_userid', savedUser);
+
+
 
                 // 更新 MUD 输出
                 this.mudLines = data.lines || [];
@@ -2896,8 +2891,8 @@ createApp({
         goToSelection() {
             if (confirm('返回界面选择？')) {
                 try { window.name = ''; } catch(e) {}
-                sessionStorage.removeItem('mud_partition');
-                sessionStorage.removeItem('mud_userid');
+    
+    
                 localStorage.removeItem('mud_ui_choice');
                 localStorage.removeItem('mud_ui_choice_time');
                 window.location.href = '../pc.jsp?ui=back';
@@ -4683,8 +4678,9 @@ createApp({
         if (!txdFromWindowName) {
             // 自动浏览器中 sessionStorage 被共享，不从这里恢复账号会话。
             // 只从 sessionStorage 恢复非敏感的 UI 偏好（分区/用户名仅用于预填登录框）。
-            const savedPartition = sessionStorage.getItem('mud_partition');
-            const savedUser = sessionStorage.getItem('mud_userid');
+            const tabData2 = this.loadTabSession() || {};
+            const savedPartition = tabData2.partition || '';
+            const savedUser = tabData2.userid || '';
             this.loginForm.partition = savedPartition || this.loginForm.partition;
             this.loginForm.userid = savedUser || this.loginForm.userid;
         }
@@ -4703,9 +4699,9 @@ createApp({
 
             // 如果txd来自URL，保存到sessionStorage以便后续使用
             if (txdFromUrl) {
-                sessionStorage.setItem('mud_txd', savedTxd);
+                this.saveTabSession();
                 if (savedPartition) {
-                    sessionStorage.setItem('mud_partition', savedPartition);
+    
                 }
                 console.log('[mounted] URL中的txd已保存到sessionStorage');
             }
