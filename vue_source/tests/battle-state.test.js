@@ -170,7 +170,7 @@ sessionValues.clear();
 client.applyLoadedPartitions(newestFirstPartitions);
 assert.strictEqual(client.loginForm.partition, 'xd03');
 assert.strictEqual(client.registerForm.partition, 'xd03');
-sandbox.window.name = JSON.stringify({partition:'xd02',txd:'test',_ts:Date.now()});
+sandbox.window.name = ''; client._tabId = 'xiand_tab_test1'; localValues.set('xiand_tab_test1', JSON.stringify({partition:'xd02',txd:'test',_ts:Date.now()}));
 client.applyLoadedPartitions(newestFirstPartitions);
 assert.strictEqual(client.loginForm.partition, 'xd02');
 sessionValues.clear();
@@ -289,7 +289,7 @@ assert.strictEqual(client.playerAvatarFailed, true);
   );
 
   sessionValues.clear();
-  sandbox.window.name = JSON.stringify({txd:autoLoginTxd,_ts:Date.now()});
+  sandbox.window.name = ''; client._tabId = 'xiand_tab_test2'; localValues.set('xiand_tab_test2', JSON.stringify({txd:autoLoginTxd,_ts:Date.now()}));
   client.showLogin = true;
   sandbox.fetch = async url => {
     requestedLoginUrl = url;
