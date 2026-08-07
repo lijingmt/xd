@@ -15,7 +15,10 @@ int main(string|zero arg)
 	int can = GIFTD->if_can_take(me->query_name(),gift_name);
 	if(can == 1){
 		if(gift_name == "money"){
-			me->account += num;
+			// num 的单位是 _account（银）：与 MUD_MONEYD->query_other_money_cn
+			// 保持一致。直接写 me->account 会落到一个与 query_account() 读取
+			// 的 _account 字段无关的旁路字段，必须走 add_account 才会真正到账。
+			me->add_account(num);
 			GIFTD->flush_gift_m(me->query_name(),gift_name,num);
 			s += "领取成功！\n你得到了"+MUD_MONEYD->query_other_money_cn(num)+"\n";
 			s_log += me->query_name_cn()+"("+me->query_name()+") 领取了"+MUD_MONEYD->query_other_money_cn(num)+"\n";
