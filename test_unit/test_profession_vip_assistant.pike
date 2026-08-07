@@ -132,18 +132,21 @@ void test_trial_preserved_for_active_member()
 
 void test_slots_expiry_and_persistence()
 {
-	test_start("策略槽保存、配置保留和VIP取消后仍可执行");
+	test_start("策略槽按档位开放且过期后配置保留、执行暂停");
 	object player = create_player("__testunit_profession_slots__","zhenyue",60);
 	set_active_vip(player,2);
 	PROFESSIONVIPD->initialize_player(player);
 	int save2 = PROFESSIONVIPD->save_strategy_slot(player,2,"team");
+	int save3 = PROFESSIONVIPD->save_strategy_slot(player,3,"boss");
 	string slot2 = PROFESSIONVIPD->query_strategy_slot(player,2);
 	PROFESSIONVIPD->set_auto_enabled(player,1);
 	player->set_vip_end_time(time()-1);
+	int expired_level = PROFESSIONVIPD->query_effective_level(player);
 	int expired_auto = PROFESSIONVIPD->query_auto_enabled(player);
-	if(save2==1 && slot2=="team" &&
+	int expired_use = PROFESSIONVIPD->use_strategy_slot(player,2);
+	if(save2==1 && save3==0 && slot2=="team" &&
 	   PROFESSIONVIPD->query_strategy_slot(player,2)=="team" &&
-	   expired_auto==1)
+	   expired_level==0 && expired_auto==0 && expired_use==0)
 		test_pass();
 	else test_fail("槽位档位、过期暂停或配置持久化错误");
 	destroy_player(player);

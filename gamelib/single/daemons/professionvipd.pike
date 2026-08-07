@@ -121,7 +121,6 @@ void initialize_player(object player)
 	if(!player["/plus/profession_vip/pass_claims"])
 		player["/plus/profession_vip/pass_claims"] = ([]);
 	player["/plus/profession_vip/monitor"] = 1;
-	player["/plus/profession_vip/auto"] = 1;
 	player["/plus/profession_vip/version"] = PROFESSION_VIP_VERSION;
 	int active_level = VIPD->query_active_vip_level(player);
 	if(active_level > 0){
@@ -361,7 +360,7 @@ int use_strategy_slot(object player,int slot)
 
 int set_monitor_enabled(object player,int enabled)
 {
-	if(!player)
+	if(!player || query_effective_level(player) < 1)
 		return 0;
 	initialize_player(player);
 	player["/plus/profession_vip/monitor"] = enabled ? 1 : 0;
@@ -370,7 +369,7 @@ int set_monitor_enabled(object player,int enabled)
 
 int set_auto_enabled(object player,int enabled)
 {
-	if(!player)
+	if(!player || (enabled && query_effective_level(player) < 2))
 		return 0;
 	initialize_player(player);
 	player["/plus/profession_vip/auto"] = enabled ? 1 : 0;
@@ -395,7 +394,7 @@ int query_monitor_enabled(object player)
 
 int query_auto_enabled(object player)
 {
-	return player &&
+	return player && query_effective_level(player) >= 2 &&
 		(int)player["/plus/profession_vip/auto"] == 1;
 }
 

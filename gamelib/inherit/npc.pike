@@ -492,9 +492,8 @@ void fight_die()
 										": "+(e?describe_error(e):"null clone")+"\n");
 								}
 								else{
-									wuxun_ob->amount = wuxun_per_member;
+									// move first, THEN set amount — move() 可能重置 amount
 									if(wuxun_ob->move(termer)!=1){
-										// move 失败（背包满等）
 										Stdio.append_file(ROOT+"/log/team_pve_error.log",
 											ctime(time())[0..sizeof(ctime(time()))-2]+
 											" wuxun move failed for "+uid+
@@ -504,6 +503,7 @@ void fight_die()
 											wuxun_per_member+" 未能放入，请腾出空间后再挑战。\n");
 									}
 									else{
+										wuxun_ob->amount = wuxun_per_member;
 										tell_object(termer,"【试炼】你获得 试炼武勋 ×"+
 											wuxun_per_member+"。\n");
 									}
