@@ -4830,37 +4830,6 @@ body {
 .spirit-orbit-icon { filter: drop-shadow(0 0 22px rgba(185, 132, 255, 0.95)); }
 .generic-cast-icon { filter: drop-shadow(0 0 18px rgba(255, 226, 153, 0.9)); }
 
-/* 自动嗑状态药 / 手动吃药生效时，战斗小窗里的当前 buff 标签 */
-.active-buffs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
-    padding: 0 4px;
-}
-.active-buff-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    background: linear-gradient(135deg, rgba(255, 222, 112, 0.18), rgba(255, 184, 78, 0.14));
-    border: 1px solid rgba(255, 222, 112, 0.55);
-    border-radius: 8px;
-    color: #ffe9a8;
-    font-size: 11px;
-    line-height: 1.4;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    animation: buff-chip-pulse 2.4s ease-in-out infinite;
-}
-.active-buff-chip .active-buff-time {
-    margin-left: 3px;
-    color: rgba(255, 233, 168, 0.7);
-    font-size: 10px;
-}
-@keyframes buff-chip-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 222, 112, 0); }
-    50% { box-shadow: 0 0 8px 1px rgba(255, 222, 112, 0.45); }
-}
-
 @media (max-width: 600px) {
     .skill-effect-container.skill-target-player { left: 25%; }
     .skill-effect-container.skill-target-enemy { left: 69%; }
@@ -10275,53 +10244,4 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .skill-ancient-awakening,
     .ancient-awakening-icon { animation: none !important; }
-}
-
-/* === 折叠头部 === */
-.header-collapse-btn {
-    flex-shrink: 0;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: rgba(255,255,255,0.6);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 4px;
-    transition: background 0.2s;
-    align-self: flex-start;
-    margin-top: 2px;
-}
-.header-collapse-btn:hover {
-    background: rgba(255,255,255,0.25);
-    color: rgba(255,255,255,0.9);
-}
-
-/* 折叠状态：隐藏状态栏、经验条、buff、宠物信息 */
-.game-header.header-collapsed {
-    padding: 6px 12px;
-    min-height: auto;
-}
-.game-header.header-collapsed .player-stats,
-.game-header.header-collapsed .exp-progress-bar,
-.game-header.header-collapsed .active-buffs,
-.game-header.header-collapsed .header-pet-companion {
-    display: none !important;
-}
-.game-header.header-collapsed .player-info {
-    gap: 0;
-}
-.game-header.header-collapsed .game-header {
-    min-height: 44px;
-}
-
-/* 小屏自动折叠（< 480px 且用户未手动设置过） */
-@media (max-width: 479px) {
-    .game-header:not(.header-collapsed) .player-stats .stat-bar:nth-child(n+3) {
-        display: none;
-    }
 }
