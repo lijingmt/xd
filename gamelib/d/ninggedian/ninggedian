@@ -30,10 +30,10 @@ string query_links(){
 		string cur_pos=file_name(env)-ROOT;
 		if(player->relife){
 			if(player->relife!=cur_pos)
-				tmp+="[设置复活点:relife "+cur_pos+"]\n";
+				tmp+="[设置复活点:set_relife "+cur_pos+"]\n";
 		}
 		else
-			tmp+="[设置复活点:relife "+cur_pos+"]\n";
+			tmp+="[设置复活点:set_relife "+cur_pos+"]\n";
 	}
 	tmp+="[店铺推荐:home_shop_recommend]\n";
 	tmp+= "[拍卖行:home_paimaihang_entry]\n";
