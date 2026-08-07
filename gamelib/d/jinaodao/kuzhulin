@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="枯竹林";
 	desc="\n";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/huangshayuanye";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong2"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun2"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike2"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe2"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi2"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying2"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying10"}));
 }

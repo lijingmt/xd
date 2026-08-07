@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="松木丘陵";
 	desc="\n";
 	exits["south"]=ROOT "/gamelib/d/jinaodao/huangshayuanye";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi1"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying1"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong9"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun9"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike9"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe9"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi9"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying9"}));
 }

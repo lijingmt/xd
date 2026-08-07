@@ -8,10 +8,10 @@ protected void create(){
 	name_cn="花岗岩堆";
 	desc="\n";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/heiyankou";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi4"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying4"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong25"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun25"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike25"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe25"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi25"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying25"}));
 }

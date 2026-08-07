@@ -10,10 +10,10 @@ protected void create(){
 	exits["east"]=ROOT "/gamelib/d/jinaodao/yinandongxuewuceng";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/yinandongxuesanceng";
 	desc+="[走出洞穴:qge74hye "+"jinaodao/yinandongxuerukou"+"]\n";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong9"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun9"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike9"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe9"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi9"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying9"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong45"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun45"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike45"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe45"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi45"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying45"}));
 }

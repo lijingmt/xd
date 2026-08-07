@@ -11,10 +11,10 @@ protected void create(){
 	exits["south"]=ROOT "/gamelib/d/jinaodao/poshiwu";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/feishagu";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/liushakeng";
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong3"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun3"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike3"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe3"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi3"}));
-	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying3"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/shachong10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/youhun10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/tianxianjiaocike10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/duwuhuoshe10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/huangshaxiyi10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/yeying10"}));
 }
