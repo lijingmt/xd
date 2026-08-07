@@ -227,7 +227,7 @@ int main()
 			repeated_list["ok"] &&
 			sizeof((array)repeated_list["characters"])==3 &&
 			fangshi_count==2 &&
-			ACCOUNT_CHARACTERD->query_character_limit()==20,
+			ACCOUNT_CHARACTERD->query_character_limit()==30,
 			(string)(repeated["message"] ||
 				"重复职业创建或总上限错误"));
 
