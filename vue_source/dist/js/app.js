@@ -1381,8 +1381,7 @@ createApp({
         },
 
         clearAccountSession() {
-            sessionStorage.removeItem('mud_account_token');
-            sessionStorage.removeItem('mud_account_id');
+            // 不清除 sessionStorage：自动浏览器共享 sessionStorage，清除会影响其他标签页。
             try { window.name = ''; } catch(e) {}
             this.accountToken = '';
             this.accountId = '';
@@ -1425,7 +1424,6 @@ createApp({
                 clearInterval(this.autofightInterval);
                 this.autofightInterval = null;
             }
-            sessionStorage.removeItem('mud_txd');
             try { window.name = ''; } catch(e) {}
             sessionStorage.removeItem('mud_character_id');
             this.txd = '';
@@ -2717,7 +2715,6 @@ createApp({
                 this.postAccountApi('/api/account/logout', { token: accountToken })
                     .catch(() => {});
             }
-            sessionStorage.removeItem('mud_txd');
             try { window.name = ''; } catch(e) {}
             sessionStorage.removeItem('mud_partition');
             sessionStorage.removeItem('mud_userid');
@@ -2898,8 +2895,7 @@ createApp({
         // 返回界面选择
         goToSelection() {
             if (confirm('返回界面选择？')) {
-                sessionStorage.removeItem('mud_txd');
-            try { window.name = ''; } catch(e) {}
+                try { window.name = ''; } catch(e) {}
                 sessionStorage.removeItem('mud_partition');
                 sessionStorage.removeItem('mud_userid');
                 localStorage.removeItem('mud_ui_choice');
@@ -4619,8 +4615,9 @@ createApp({
                 this.loginForm.userid = tabData.userid || '';
                 console.log('[mounted] 从 window.name 恢复会话（自动浏览器兼容）');
             } else {
-                // 回退到 sessionStorage（标准浏览器）
-                savedTxd = sessionStorage.getItem('mud_txd');
+                // 不从 sessionStorage 恢复 txd：自动浏览器中 sessionStorage 被多标签共享，
+                // 可能拿到另一个标签页的 txd 导致"变成第一个账号"。
+                // 只靠 URL 参数和 window.name 两个按标签隔离的机制。
             }
         }
 
@@ -4684,11 +4681,12 @@ createApp({
 
         // 如果不是从 window.name 恢复的，才从 sessionStorage 恢复账号信息
         if (!txdFromWindowName) {
+            // 自动浏览器中 sessionStorage 被共享，不从这里恢复账号会话。
+            // 只从 sessionStorage 恢复非敏感的 UI 偏好（分区/用户名仅用于预填登录框）。
             const savedPartition = sessionStorage.getItem('mud_partition');
             const savedUser = sessionStorage.getItem('mud_userid');
-            this.accountToken = sessionStorage.getItem('mud_account_token') || '';
-            this.accountId = sessionStorage.getItem('mud_account_id') || '';
-            this.currentCharacterId = sessionStorage.getItem('mud_character_id') || '';
+            this.loginForm.partition = savedPartition || this.loginForm.partition;
+            this.loginForm.userid = savedUser || this.loginForm.userid;
         }
 
         const savedPartition = this.loginForm.partition;
