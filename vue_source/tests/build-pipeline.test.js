@@ -85,8 +85,14 @@ assert(!indexSource.includes('maximum-scale=1.0'));
 assert(indexSource.includes('viewport-fit=cover'));
 assert(indexSource.includes('class="modal auth-modal"'));
 
-assert(indexSource.includes('<form class="auth-form" @submit.prevent="doLogin">'));
-assert(indexSource.includes('type="submit"'));
+assert(indexSource.includes('<div class="auth-form">'));
+assert(indexSource.includes('@click="doLogin"'));
+assert(indexSource.includes('@keyup.enter="doLogin"'));
+assert(indexSource.includes('@click="doRegister"'));
+assert(indexSource.includes('@keyup.enter="doRegister"'));
+assert(!indexSource.includes('<form class="auth-form"'));
+assert(!indexSource.includes('name="username"'));
+assert(!indexSource.includes('name="password"'));
 
 
 assert(indexSource.includes('autocomplete="current-password"'));

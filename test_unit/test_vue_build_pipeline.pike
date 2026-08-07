@@ -127,8 +127,13 @@ void test_auto_browser_login_contract()
 		Stdio.read_file(ROOT+"/vue_source/js/app.js");
 
 	if(index_source && app_source &&
-	   search(index_source,"@submit.prevent=\"doLogin\"")!=-1 &&
-	   search(index_source,"type=\"submit\"")!=-1 &&
+	   search(index_source,"<div class=\"auth-form\">")!=-1 &&
+	   search(index_source,"@click=\"doLogin\"")!=-1 &&
+	   search(index_source,"@keyup.enter=\"doLogin\"")!=-1 &&
+	   search(index_source,"type=\"button\"")!=-1 &&
+	   search(index_source,"name=\"username\"")==-1 &&
+	   search(index_source,"name=\"password\"")==-1 &&
+	   search(index_source,"<form class=\"auth-form\"")==-1 &&
 	   search(index_source,
 		"@click=\"handleMudButtonClick($event, segment.cmd)\"")!=-1 &&
 	   search(index_source,

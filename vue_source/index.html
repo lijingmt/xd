@@ -44,7 +44,7 @@
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
-                <form class="auth-form" @submit.prevent="doLogin">
+                <div class="auth-form">
                     <div class="form-group">
                         <label for="login-partition">分区</label>
                         <select id="login-partition"
@@ -68,6 +68,7 @@
                                autocomplete="username"
                                autocapitalize="none"
                                spellcheck="false"
+                               @keyup.enter="doLogin"
                                :disabled="isLoggingIn">
                     </div>
                     <div class="form-group">
@@ -78,6 +79,7 @@
                                    v-model="loginForm.password"
                                    placeholder="输入密码"
                                    autocomplete="current-password"
+                                   @keyup.enter="doLogin"
                                    :disabled="isLoggingIn">
                             <button type="button"
                                     class="password-toggle"
@@ -87,14 +89,15 @@
                             </button>
                         </div>
                     </div>
-                    <button type="submit"
+                    <button type="button"
                             class="btn btn-primary btn-block auth-submit"
                             aria-label="登录游戏"
+                            @click="doLogin"
                             :disabled="isLoggingIn">
                         <span v-if="!isLoggingIn">🎮 登录游戏</span>
                         <span v-else class="loading">登录中...</span>
                     </button>
-                </form>
+                </div>
                 <div v-if="loginError"
                      class="message message-error auth-message"
                      role="alert"
@@ -125,7 +128,7 @@
                         <h2 id="register-title">创建新账号</h2>
                     </div>
                 </div>
-                <form class="auth-form" @submit.prevent="doRegister">
+                <div class="auth-form">
                 <div class="form-group">
                     <label for="register-partition">分区</label>
                     <select id="register-partition"
@@ -150,6 +153,7 @@
                            autocomplete="username"
                            autocapitalize="none"
                            spellcheck="false"
+                           @keyup.enter="doRegister"
                            :disabled="isRegistering">
                 </div>
                 <div class="form-group">
@@ -161,6 +165,7 @@
                                placeholder="2-12位英文或数字"
                                maxlength="12"
                                autocomplete="new-password"
+                               @keyup.enter="doRegister"
                                :disabled="isRegistering">
                         <button type="button"
                                 class="password-toggle"
@@ -199,13 +204,14 @@
                         </button>
                     </div>
                 </div>
-                <button type="submit"
+                <button type="button"
                         class="btn btn-primary btn-block auth-submit"
+                        @click="doRegister"
                         :disabled="isRegistering">
                     <span v-if="!isRegistering">创建账号</span>
                     <span v-else class="loading">正在创建...</span>
                 </button>
-                </form>
+                </div>
                 <div v-if="registerError"
                      class="message message-error auth-message"
                      role="alert"
