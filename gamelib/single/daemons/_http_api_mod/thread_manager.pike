@@ -134,6 +134,7 @@ Thread.Mutex core_lock = Thread.Mutex();
 
 /** 纯响应任务复用有界线程池，不按请求无限创建系统线程。 */
 object parallel_command_farm;
+Thread.Mutex parallel_command_farm_init_lock = Thread.Mutex();
 
 /** Backend 世界命令按账号公平轮转；同账号重复挂机刷新会合并。 */
 mapping(string:array(mapping)) world_user_queues = ([]);
@@ -176,10 +177,17 @@ int parallel_rejected = 0;
 
 void init_parallel_command_farm()
 {
+    object init_key;
     if(parallel_command_farm)
         return;
-    parallel_command_farm = Thread.Farm();
-    parallel_command_farm->set_max_num_threads(HTTP_PARALLEL_THREAD_LIMIT);
+    init_key = parallel_command_farm_init_lock->lock();
+    if(!parallel_command_farm){
+        object new_farm = Thread.Farm();
+        new_farm->set_max_num_threads(
+            HTTP_PARALLEL_THREAD_LIMIT);
+        parallel_command_farm = new_farm;
+    }
+    destruct(init_key);
 }
 
 string query_command_name(string cmd)

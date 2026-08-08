@@ -80,10 +80,13 @@ void test_pagination_snapshot(object player)
 		player->cache_view_page_snapshot();
 	}
 	mapping status=player->query_view_page_snapshot_status();
-	check("分页快照按账号限量且有30分钟时效",
-		(int)status["entries"]<=4 && (int)status["limit"]==4 &&
+	check("多标签页分页快照保留且受总内存上限约束",
+		player->query_view_page_snapshot(snapshot_id) &&
+		(int)status["entries"]<=16 && (int)status["limit"]==16 &&
 		(int)status["ttl_seconds"]==30*60 &&
-		(int)status["max_bytes"]==512*1024,
+		(int)status["max_bytes"]==512*1024 &&
+		(int)status["total_bytes"]<=(int)status["total_bytes_limit"] &&
+		(int)status["total_bytes_limit"]==2*1024*1024,
 		sprintf("status=%O",status));
 }
 
@@ -242,6 +245,27 @@ void test_overflow_limits()
 		sprintf("status=%O",status));
 }
 
+void test_server_scheduler_resilience()
+{
+	string source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	mapping status=AUTOFIGHTD->query_autofight_performance_status();
+	check("超过128名挂机用户时同一秒分片推进完整轮次",
+		source && search(source,"server_autofight_cycle_remaining")!=-1 &&
+		search(source,"call_out(run_server_autofight_tick,"+
+			"queue_backoff ? 1 : 0)")!=-1 &&
+		search(source,"server_autofight_cursor--")!=-1 &&
+		search(source,"server_autofight_cycle_remaining++")!=-1 &&
+		(int)status["server_scan_budget"]==128,
+		"调度器仍会推迟128名后的玩家或在队列满时固定饿死尾部玩家");
+	check("挂机世界命令超时后用独立请求号自愈且拒绝迟到回调",
+		source && search(source,"server_autofight_inflight_started")!=-1 &&
+		search(source,"next_server_autofight_request_id")!=-1 &&
+		search(source,"server_autofight_inflight[userid]==request_id")!=-1 &&
+		(int)status["server_inflight_timeout_seconds"]==30,
+		"在途命令丢失后可能永久停止挂机或迟到回调覆盖新请求");
+}
+
 int main()
 {
 	object|zero original_player=this_player();
@@ -256,6 +280,7 @@ int main()
 		test_balancing_and_no_target_reroute(player);
 		test_pressure_refresh_policy(player);
 		test_overflow_limits();
+		test_server_scheduler_resilience();
 	};
 	if(err)
 		check("测试运行时无异常",0,

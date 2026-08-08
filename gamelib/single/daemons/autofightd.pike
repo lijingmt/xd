@@ -17,6 +17,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
 #define AUTOFIGHT_SERVER_TICK_SECONDS 1
 #define AUTOFIGHT_SERVER_SCAN_BUDGET 128
+#define AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT 30
 #define AUTOFIGHT_FINAL_VIEW_SECONDS 30
 #define AUTOFIGHT_VIEW_MAX_BYTES (512*1024)
 #define AUTOFIGHT_PUBLIC_ROOM_CAPACITY 4
@@ -59,11 +60,13 @@ private int autofight_pressure_refills;
 // 世界队列。玩家/战斗对象绝不进入工作线程。
 private mapping(string:int) server_autofight_epochs = ([]);
 private mapping(string:int) server_autofight_inflight = ([]);
+private mapping(string:int) server_autofight_inflight_started = ([]);
 private mapping(string:mapping(string:mixed)) server_autofight_views = ([]);
 private mapping(string:int) server_autofight_ordered = ([]);
 private array(string) server_autofight_order = ({});
 private int server_autofight_cursor;
 private int next_server_autofight_epoch;
+private int next_server_autofight_request_id;
 private int next_server_autofight_view_sequence;
 private string server_autofight_view_generation;
 private int server_autofight_tick_scheduled;
@@ -73,6 +76,8 @@ private int server_autofight_coalesced;
 private int server_autofight_rejected;
 private int server_autofight_oversized_views;
 private int server_autofight_cleanup_scheduled;
+private int server_autofight_cycle_remaining;
+private int server_autofight_inflight_timeouts;
 
 private string normalize_server_autofight_userid(string userid)
 {
@@ -111,6 +116,7 @@ private void reset_server_autofight_order_if_idle()
 	server_autofight_order = ({});
 	server_autofight_ordered = ([]);
 	server_autofight_cursor = 0;
+	server_autofight_cycle_remaining = 0;
 }
 
 private void schedule_server_autofight_view_cleanup()
@@ -176,15 +182,18 @@ private void record_server_autofight_view(string userid,string output,
 }
 
 private void finish_server_autofight_tick(string output,string userid,
-	int epoch)
+	int epoch,int request_id)
 {
 	object me;
 	int active;
 	int matched;
 	userid = normalize_server_autofight_userid(userid);
-	matched = server_autofight_inflight[userid]==epoch;
-	if(matched)
+	matched = server_autofight_epochs[userid]==epoch &&
+		server_autofight_inflight[userid]==request_id;
+	if(matched){
 		m_delete(server_autofight_inflight,userid);
+		m_delete(server_autofight_inflight_started,userid);
+	}
 	// stop_autofight 可能在本次 flushview 内发生。只要确实是当前在途
 	// 命令，仍保留最后一帧；旧 epoch 的迟到回调则必须丢弃。
 	if(!matched)
@@ -203,33 +212,52 @@ private void run_server_autofight_tick()
 {
 	int examined = 0;
 	int scheduled = 0;
+	int queue_backoff = 0;
 	int total;
 	server_autofight_tick_scheduled = 0;
-	server_autofight_ticks++;
-	if(server_autofight_ticks%60==0)
-		compact_server_autofight_order();
+	if(server_autofight_cycle_remaining<=0){
+		server_autofight_ticks++;
+		if(server_autofight_ticks%60==0 ||
+		   sizeof(server_autofight_order)>
+		   sizeof(server_autofight_epochs)*2+
+		   AUTOFIGHT_SERVER_SCAN_BUDGET)
+			compact_server_autofight_order();
+		server_autofight_cycle_remaining=sizeof(server_autofight_order);
+	}
 	total = sizeof(server_autofight_order);
-	while(examined<total && scheduled<AUTOFIGHT_SERVER_SCAN_BUDGET){
+	if(server_autofight_cycle_remaining>total)
+		server_autofight_cycle_remaining=total;
+	while(examined<total && server_autofight_cycle_remaining>0 &&
+	   scheduled<AUTOFIGHT_SERVER_SCAN_BUDGET){
 		object me;
 		string userid;
+		int request_id;
 		if(server_autofight_cursor>=total)
 			server_autofight_cursor = 0;
 		userid = server_autofight_order[server_autofight_cursor];
 		server_autofight_cursor++;
 		examined++;
+		server_autofight_cycle_remaining--;
 		if(!server_autofight_epochs[userid])
 			continue;
 		scheduled++;
 		int epoch = server_autofight_epochs[userid];
 		if(server_autofight_inflight[userid]){
-			server_autofight_coalesced++;
-			continue;
+			if(time()-(int)server_autofight_inflight_started[userid]<
+			   AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT){
+				server_autofight_coalesced++;
+				continue;
+			}
+			m_delete(server_autofight_inflight,userid);
+			m_delete(server_autofight_inflight_started,userid);
+			server_autofight_inflight_timeouts++;
 		}
 		me = HTTP_APID->get_player_from_connection(userid,0);
 		if(!me || !functionp(me->query_autofight) ||
 		   me->query_autofight()!="enable"){
 			m_delete(server_autofight_epochs,userid);
 			m_delete(server_autofight_inflight,userid);
+			m_delete(server_autofight_inflight_started,userid);
 			deactivate_server_autofight_view(userid);
 			continue;
 		}
@@ -237,16 +265,40 @@ private void run_server_autofight_tick()
 		// 必须保留这一语义，否则被系统冻结的后台标签会在1-2小时后
 		// 被空闲清理误踢；挂机关闭或额度耗尽后此保活自然停止。
 		HTTP_APID->update_connection_time(userid);
-		server_autofight_inflight[userid] = epoch;
+		next_server_autofight_request_id++;
+		if(next_server_autofight_request_id<=0)
+			next_server_autofight_request_id=1;
+		request_id=next_server_autofight_request_id;
+		server_autofight_inflight[userid] = request_id;
+		server_autofight_inflight_started[userid] = time();
 		if(HTTP_APID->enqueue_world_command(userid,"","flushview",
-		   finish_server_autofight_tick,({userid,epoch})))
+		   finish_server_autofight_tick,({userid,epoch,request_id})))
 			server_autofight_enqueued++;
 		else{
 			m_delete(server_autofight_inflight,userid);
+			m_delete(server_autofight_inflight_started,userid);
 			server_autofight_rejected++;
+			// 全局世界队列满时保留当前游标和本轮额度。否则每轮都从
+			// 同一批用户开始，会让容量之后的后台玩家永久饥饿。
+			server_autofight_cursor--;
+			if(server_autofight_cursor<0)
+				server_autofight_cursor=total-1;
+			server_autofight_cycle_remaining++;
+			queue_backoff=1;
+			break;
 		}
 	}
-	schedule_server_autofight_tick();
+	if(server_autofight_cycle_remaining>0 &&
+	   sizeof(server_autofight_epochs)>0){
+		server_autofight_tick_scheduled=1;
+		// 正常分片仍在同一秒完成；只有全局世界队列已满时退避一秒，
+		// 避免零延迟重试形成忙循环反过来拖死主线程。
+		call_out(run_server_autofight_tick,queue_backoff ? 1 : 0);
+	}
+	else{
+		server_autofight_cycle_remaining=0;
+		schedule_server_autofight_tick();
+	}
 }
 
 void ensure_server_autofight_tick(object me)
@@ -271,6 +323,7 @@ void ensure_server_autofight_tick(object me)
 		server_autofight_order += ({userid});
 	}
 	m_delete(server_autofight_inflight,userid);
+	m_delete(server_autofight_inflight_started,userid);
 	m_delete(server_autofight_views,userid);
 	schedule_server_autofight_tick();
 }
@@ -285,6 +338,7 @@ void cancel_server_autofight_tick(object me)
 		return;
 	m_delete(server_autofight_epochs,userid);
 	m_delete(server_autofight_inflight,userid);
+	m_delete(server_autofight_inflight_started,userid);
 	deactivate_server_autofight_view(userid);
 	reset_server_autofight_order_if_idle();
 }
@@ -867,6 +921,9 @@ mapping query_autofight_performance_status()
 		"server_scan_budget":AUTOFIGHT_SERVER_SCAN_BUDGET,
 		"server_active_users":sizeof(server_autofight_epochs),
 		"server_inflight":sizeof(server_autofight_inflight),
+		"server_inflight_timeout_seconds":AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT,
+		"server_inflight_timeouts":server_autofight_inflight_timeouts,
+		"server_cycle_remaining":server_autofight_cycle_remaining,
 		"server_ticks":server_autofight_ticks,
 		"server_enqueued":server_autofight_enqueued,
 		"server_inflight_skipped":server_autofight_coalesced,

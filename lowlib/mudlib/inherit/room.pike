@@ -144,20 +144,28 @@ int refresh_autofight_normal_npcs(object me,int active_players,
 			continue;
 		err=catch{
 			ob=new(one[0]);
+			if(!is_autofight_normal_spawn(ob)){
+				if(ob)
+					destruct(ob);
+				ob=0;
+			}
+			if(ob && me->query_level()>=dongtai_npc_start_level &&
+			   me->query_level()<ENDGAME_MAP_MIN_LEVEL){
+				ob->_npcLevel=me->query_level();
+				ob->setup_npc_dongtai(me);
+			}
+			if(ob && ob->move(this_object())!=1){
+				destruct(ob);
+				ob=0;
+			}
 		};
-		if(err || !is_autofight_normal_spawn(ob)){
+		if(err || !ob){
 			if(ob)
 				destruct(ob);
 			continue;
 		}
-		if(me->query_level()>=dongtai_npc_start_level &&
-		   me->query_level()<ENDGAME_MAP_MIN_LEVEL){
-			ob->_npcLevel=me->query_level();
-			ob->setup_npc_dongtai(me);
-		}
 		one[1]=ob;
 		one[3]=time();
-		ob->move(this_object());
 		spawned++;
 	}
 	return spawned;

@@ -1435,6 +1435,8 @@ string sell_confirm(string homeName,int yushi,int money)
 	string homeRef;
 	string oldHomePath;
 	mapping(string:shopRcmList) removedRcm = ([]);
+	mapping(int:int) before_yushi;
+	int before_money;
 	int saved;
 	if(!me)
 		return "玩家资料无效。\n";
@@ -1454,10 +1456,22 @@ string sell_confirm(string homeName,int yushi,int money)
 		destruct(state_key);
 		return "你的家中还有访客，暂时不能卖出你的房产。\n";
 	}
+	if(sizeof(query_function_room_transaction(me))){
+		destruct(state_key);
+		return "上一笔家园交易正在恢复，请重新登录后再试。\n";
+	}
 	//价格完全以后端房契为准，忽略链接中可被篡改的旧价格参数。
 	yushi = (int)((float)he->priceYushi-(float)he->priceYushi*DEPR_FEE);
 	money = (int)((float)he->priceMoney-(float)he->priceMoney*DEPR_FEE);
 	oldHomePath = (string)me->query_home_path();
+	set_function_room_transaction(me,(["action":"sell_home",
+		"home":homeRef,"yushi":yushi,"money":money*100,
+		"phase":"prepared"]));
+	if(!save_function_room_player(me)){
+		set_function_room_transaction(me,([]));
+		destruct(state_key);
+		return "人物存档失败，房契没有变化，请稍后再试。\n";
+	}
 	homeTransitioning[masterId] = 1;
 	foreach(indices(shopRcmMap),string rcmPath){
 		shopRcmList rcm = shopRcmMap[rcmPath];
@@ -1477,13 +1491,36 @@ string sell_confirm(string homeName,int yushi,int money)
 			shopRcmMap[rcmPath] = removedRcm[rcmPath];
 		me->set_home_path(oldHomePath);
 		m_delete(homeTransitioning,masterId);
+		set_function_room_transaction(me,([]));
+		save_function_room_player(me);
 		destruct(state_key);
 		return "房产保存失败，系统已保留原房契，请稍后再试。\n";
 	}
 	m_delete(existHome,masterId);
 	m_delete(homeTransitioning,masterId);
-	YUSHID->give_yushi(me,yushi);
-	me->add_account(money*100);
+	before_yushi=query_player_yushi_counts(me);
+	before_money=me->query_account();
+	if(!YUSHID->give_yushi(me,yushi)){
+		destruct(state_key);
+		return "房产已经安全卖出，退款将在重新登录时补发。\n";
+	}
+	if(money>0)
+		me->add_account(money*100);
+	set_function_room_transaction(me,(["action":"sell_home",
+		"home":homeRef,"yushi":yushi,"money":money*100,
+		"phase":"payout_committed"]));
+	if(!save_function_room_player(me)){
+		rollback_function_room_yushi_gain(me,before_yushi);
+		if(me->query_account()>before_money)
+			me->del_account(me->query_account()-before_money);
+		set_function_room_transaction(me,(["action":"sell_home",
+			"home":homeRef,"yushi":yushi,"money":money*100,
+			"phase":"prepared"]));
+		destruct(state_key);
+		return "房产已经安全卖出，退款将在重新登录时补发。\n";
+	}
+	set_function_room_transaction(me,([]));
+	save_function_room_player(me);
 	destruct(state_key);
 	re += "你得到了:\n";
 	re += YUSHID->get_yushi_for_desc(yushi);
@@ -1596,7 +1633,11 @@ string query_function_room_for_sale(string kind){
 int if_have_function_room(string roomName)
 {
 	int re = 0;
+	if(!is_function_room_name(roomName))
+		return 0;
 	object env = environment(this_player());//当前所在房间
+	if(!env || !functionp(env->query_functionRoom))
+		return 0;
 	array(string) allFuncRoom = env->query_functionRoom();
 	for(int i=0;i<sizeof(allFuncRoom);i++){
 		if(allFuncRoom[i] == roomName)
@@ -1625,64 +1666,322 @@ mapping(string:mixed) query_function_room_offer(string roomName)
 	int buy_money=(int)f_room->query_priceMoney();
 	return (["room":roomName,"buy_yushi":buy_yushi,
 		"buy_money":buy_money,
+		"level_limit":(int)f_room->query_level_limit(),
+		"name_cn":(string)f_room->query_name_cn(),
 		"sell_yushi":(int)((float)buy_yushi-
 			(float)buy_yushi*DEPR_FEE),
 		"sell_money":(int)((float)buy_money-
 			(float)buy_money*DEPR_FEE)]);
 }
+
+private int has_function_room_unlocked(string masterId,string roomName)
+{
+	home he=homeDetail[masterId];
+	return he && search(he->functionRoom || ({}),roomName)!=-1;
+}
+
+private int add_function_room_unlocked(string masterId,string roomName)
+{
+	home he=homeDetail[masterId];
+	mapping allRooms=existHome[masterId];
+	if(!he || !allRooms || !is_function_room_name(roomName) ||
+	   has_function_room_unlocked(masterId,roomName))
+		return 0;
+	foreach(sort(indices(allRooms)),string room_id){
+		object one=allRooms[room_id];
+		if(!one)
+			return 0;
+	}
+	foreach(sort(indices(allRooms)),string room_id){
+		object one=allRooms[room_id];
+		one->functionRoom+=({roomName});
+	}
+	he->functionRoom+=({roomName});
+	return 1;
+}
+
+private int remove_function_room_unlocked(string masterId,string roomName)
+{
+	home he=homeDetail[masterId];
+	mapping allRooms=existHome[masterId];
+	if(!he || !allRooms || !is_function_room_name(roomName) ||
+	   !has_function_room_unlocked(masterId,roomName))
+		return 0;
+	foreach(sort(indices(allRooms)),string room_id){
+		object one=allRooms[room_id];
+		if(!one)
+			return 0;
+	}
+	foreach(sort(indices(allRooms)),string room_id){
+		object one=allRooms[room_id];
+		one->functionRoom-=({roomName});
+	}
+	he->functionRoom-=({roomName});
+	return 1;
+}
+
+private mapping query_function_room_transaction(object player)
+{
+	mapping transaction;
+	if(!player)
+		return ([]);
+	transaction=player["/plus/home_function_room_transaction"];
+	return mappingp(transaction) ? transaction : ([]);
+}
+
+private void set_function_room_transaction(object player,mapping transaction)
+{
+	player["/plus/home_function_room_transaction"]=transaction;
+}
+
+private int save_function_room_player(object player)
+{
+	return player && functionp(player->save_with_result) &&
+		player->save_with_result();
+}
+
+private mapping(int:int) query_player_yushi_counts(object player)
+{
+	mapping(int:int) result=([]);
+	for(int level=1;level<=5;level++)
+		result[level]=YUSHID->query_yushi_num(player,level);
+	return result;
+}
+
+private int rollback_function_room_yushi_gain(object player,
+	mapping(int:int) before)
+{
+	int ok=1;
+	for(int level=1;level<=5;level++){
+		int added=YUSHID->query_yushi_num(player,level)-
+			(int)before[level];
+		if(added<=0)
+			continue;
+		mapping removal=player->remove_combine_item_transaction(
+			YUSHID->get_yushi_name(level),added);
+		if(!(int)removal["ok"] || (int)removal["removed"]!=added)
+			ok=0;
+	}
+	return ok;
+}
+
+private int refund_function_room_payment(object player,int before_wallet,
+	int before_physical,int before_money,string request_id)
+{
+	int ok=1;
+	int physical_spent=before_physical-YUSHID->query_physical_all_num(player);
+	int money_spent=before_money-player->query_account();
+	if(request_id!=""){
+		if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(player,
+		   request_id,"home_function_room_rollback"))
+			ok=0;
+	}
+	else{
+		int wallet_spent=before_wallet-
+			ACCOUNT_WALLETD->query_balance(player);
+		if(wallet_spent>0 && !ACCOUNT_WALLETD->refund_recharge(player,
+		   wallet_spent,"home_function_room_rollback"))
+			ok=0;
+	}
+	if(physical_spent>0 && !YUSHID->give_yushi(player,physical_spent))
+		ok=0;
+	if(money_spent>0)
+		player->add_account(money_spent);
+	return ok;
+}
+
+private object|zero give_function_room_gift(object player,string roomName)
+{
+	object|zero gift=0;
+	if(roomName!="feitianxiaowu")
+		return 0;
+	mixed err=catch{
+		gift=clone(ITEM_PATH+"/home/others/chuansongshenfu");
+	};
+	if(err || !gift || player->if_over_load(gift) ||
+	   gift->move(player)!=1 || environment(gift)!=player){
+		if(gift)
+			destruct(gift);
+		return 0;
+	}
+	return gift;
+}
+
+mapping(string:mixed) purchase_function_room(object player,string roomName)
+{
+	mapping(string:mixed) result=(["ok":0,"code":"failed",
+		"message":"功能房购买失败，请稍后重试"]);
+	mapping(string:mixed) offer=query_function_room_offer(roomName);
+	object state_key;
+	object env;
+	object|zero gift=0;
+	string masterId;
+	string request_id;
+	int yushi;
+	int money;
+	int before_wallet;
+	int before_physical;
+	int before_money;
+	if(!player || !sizeof(offer))
+		return result;
+	masterId=(string)player->query_name();
+	env=environment(player);
+	if(!env || !functionp(env->query_masterId) ||
+	   (string)env->query_masterId()!=masterId)
+		return (["ok":0,"code":"not_owner",
+			"message":"你不是家园主人，或者不在自己的家园中"]);
+	state_key=homeStateLock->lock();
+	if(sizeof(query_function_room_transaction(player))){
+		destruct(state_key);
+		return (["ok":0,"code":"pending",
+			"message":"上一笔功能房交易正在恢复，请重新登录后再试"]);
+	}
+	if(!homeDetail[masterId] || !existHome[masterId]){
+		destruct(state_key);
+		return result;
+	}
+	if(has_function_room_unlocked(masterId,roomName)){
+		destruct(state_key);
+		return (["ok":0,"code":"exists","message":"家园中已经有这个房间"]);
+	}
+	if(sizeof(homeDetail[masterId]->functionRoom || ({}))-
+	   (int)homeDetail[masterId]->lv>=4){
+		destruct(state_key);
+		return (["ok":0,"code":"limit",
+			"message":"你所拥有的功能房间数量已达到上限"]);
+	}
+	if((int)homeDetail[masterId]->lv<(int)offer["level_limit"]){
+		destruct(state_key);
+		return (["ok":0,"code":"level","message":"家园等级不足"]);
+	}
+	if(roomName=="feitianxiaowu" && player->if_over_easy_load()){
+		destruct(state_key);
+		return (["ok":0,"code":"inventory",
+			"message":"请先清理一个背包格，用于领取随房附赠的传送神符"]);
+	}
+	yushi=(int)offer["buy_yushi"];
+	money=(int)offer["buy_money"]*100;
+	if(!YUSHID->have_enough_yushi(player,yushi)){
+		destruct(state_key);
+		return (["ok":0,"code":"yushi","message":"你身上的玉石不够"]);
+	}
+	if(player->query_account()<money){
+		destruct(state_key);
+		return (["ok":0,"code":"money","message":"你身上的金钱不够"]);
+	}
+	request_id=ACCOUNT_WALLETD->new_recharge_request_id();
+	before_wallet=ACCOUNT_WALLETD->query_balance(player);
+	before_physical=YUSHID->query_physical_all_num(player);
+	before_money=player->query_account();
+	set_function_room_transaction(player,(["action":"buy","room":roomName,
+		"yushi":yushi,"money":money,"phase":"prepared",
+		"request_id":request_id]));
+	if(!save_function_room_player(player)){
+		set_function_room_transaction(player,([]));
+		destruct(state_key);
+		return (["ok":0,"code":"save","message":"人物存档失败，本次没有扣费"]);
+	}
+	// 先提交房屋快照。若此后进程退出，prepared 凭据会在登录时
+	// 幂等补扣；绝不能先持久化共享钱包扣款再留下一个不存在的房间。
+	if(!add_function_room_unlocked(masterId,roomName) ||
+	   !store_all_info_unlocked(1)){
+		if(has_function_room_unlocked(masterId,roomName)){
+			remove_function_room_unlocked(masterId,roomName);
+			store_all_info_unlocked(1);
+		}
+		set_function_room_transaction(player,([]));
+		save_function_room_player(player);
+		destruct(state_key);
+		return (["ok":0,"code":"commit",
+			"message":"功能房保存失败，本次没有扣费"]);
+	}
+	if(!YUSHID->pay_yushi_once(player,yushi,request_id)){
+		if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(player,
+		   request_id,"home_function_room_payment_failed")){
+			destruct(state_key);
+			return (["ok":0,"code":"pending",
+				"message":"扣款状态正在恢复，请重新登录后再试"]);
+		}
+		remove_function_room_unlocked(masterId,roomName);
+		int payment_home_rolled_back=store_all_info_unlocked(1);
+		if(payment_home_rolled_back)
+			set_function_room_transaction(player,([]));
+		else
+			add_function_room_unlocked(masterId,roomName);
+		save_function_room_player(player);
+		destruct(state_key);
+		return (["ok":0,"code":"yushi",
+			"message":"玉石扣款失败，功能房没有生效"]);
+	}
+	if(money>0)
+		player->del_account(money);
+	set_function_room_transaction(player,(["action":"buy","room":roomName,
+		"yushi":yushi,"money":money,"phase":"payment_committed",
+		"request_id":request_id]));
+	if(!save_function_room_player(player)){
+		int rollback_saved;
+		if(!refund_function_room_payment(player,before_wallet,
+		   before_physical,before_money,request_id)){
+			set_function_room_transaction(player,(["action":"buy",
+				"room":roomName,"yushi":yushi,"money":money,
+				"phase":"prepared","request_id":request_id]));
+			destruct(state_key);
+			return (["ok":0,"code":"pending",
+				"message":"扣款状态正在恢复，请重新登录后再试"]);
+		}
+		remove_function_room_unlocked(masterId,roomName);
+		rollback_saved=store_all_info_unlocked(1);
+		if(rollback_saved)
+			set_function_room_transaction(player,([]));
+		else{
+			add_function_room_unlocked(masterId,roomName);
+			set_function_room_transaction(player,(["action":"buy",
+				"room":roomName,"yushi":yushi,"money":money,
+				"phase":"prepared","request_id":request_id]));
+		}
+		save_function_room_player(player);
+		destruct(state_key);
+		return (["ok":0,"code":"save",
+			"message":"人物存档失败，功能房和费用已经回滚"]);
+	}
+	if(roomName=="feitianxiaowu"){
+		gift=give_function_room_gift(player,roomName);
+		if(!gift){
+			destruct(state_key);
+			return (["ok":0,"code":"pending",
+				"message":"功能房已经保存，赠品将在重新登录时补发"]);
+		}
+	}
+	set_function_room_transaction(player,(["action":"buy","room":roomName,
+		"yushi":yushi,"money":money,"phase":"home_committed",
+		"request_id":request_id]));
+	if(!save_function_room_player(player)){
+		if(gift)
+			destruct(gift);
+		destruct(state_key);
+		return (["ok":0,"code":"pending",
+			"message":"功能房已经保存，交易将在重新登录时完成"]);
+	}
+	// 先清钱包幂等收据，再清人物恢复标记。若钱包落盘失败，磁盘上的
+	// home_committed 会在下次登录继续重试，不会永久占用 64 个收据槽。
+	if(!ACCOUNT_WALLETD->forget_debit_recharge_once(player,request_id)){
+		destruct(state_key);
+		return (["ok":0,"code":"pending",
+			"message":"功能房已经保存，扣款凭据将在重新登录时清理"]);
+	}
+	set_function_room_transaction(player,([]));
+	int cleared=save_function_room_player(player);
+	destruct(state_key);
+	return (["ok":cleared,"code":cleared ? "ok" : "pending",
+		"message":cleared ? "功能房购买成功" :
+		"功能房已经保存，交易标记将在重新登录时清理",
+		"yushi":yushi,"money":money]);
+}
 //添加功能房间
 int add_function_room(string roomName)
 {
-	int re = 0;
-	if(!is_function_room_name(roomName))
-		return 0;
-	object room = environment(this_player());                  //当前所在房间
-	if(!room)
-		return 0;
-	string masterId = room->query_masterId();                  //房间主人ID
-	if(masterId!=this_player()->query_name())
-		return 0;
-	array(string) functionRooms = room->query_functionRoom(); //已有的功能房间
-	
-	int num = sizeof(functionRooms);
-	if(search(functionRooms,roomName) == -1)                        //如果该home中没有这个需要添加的room
-	{
-		//任务1、修改这个home中每个room的functionRooms属性
-		mapping allRooms = existHome[masterId];            //得到这个home中的所有room
-		if(allRooms){
-			home he = homeDetail[masterId];
-			if(!he)
-				return 0;
-			foreach(sort(indices(allRooms)),string room)    //修复所有room的functionRooms属性
-			{
-				object tmp = allRooms[room];
-				tmp->functionRoom+=({roomName});
-			}
-			//任务2、修改homeDetail中相关的信息
-			he->functionRoom += ({roomName});
-			//任务3、如果添加的是"飞天小屋"，则要赠送一颗"传送神符"。
-			if(roomName =="feitianxiaowu")
-			{
-
-				string path = ITEM_PATH + "/home/others/chuansongshenfu";
-				object|zero chuansongshenfu = 0;
-				mixed err = catch{
-					chuansongshenfu = clone(path);
-				};
-				if(!err && chuansongshenfu){
-					chuansongshenfu->move_player(this_player()->query_name());           //得到物品
-				}
-			}
-			return 1;//添加成功
-		}
-		else
-		{
-			return 0;//出错了，请与客服联系（在这里，就会出现扣了玉，但是没加上房间的情况，这种可能一般是不会出现的）
-		}
-	}
-	else{
-		return 0;//已经有该功能房间，不用重复添加
-	}
+	mapping result=purchase_function_room(this_player(),roomName);
+	return (int)result["ok"];
 }
 
 string set_fly_target(object me,object room)
@@ -2554,6 +2853,8 @@ string get_sell_functionroom_list(string kind){
 	s += get_kind_links(kind,"home_functionroom_remind");
 	if(count){
 		for(int i=0;i<count;i++){
+			if(!is_function_room_name(allFuncRoom[i]))
+				continue;
 			object f_room = (object)(ROOM_PATH+"function/"+allFuncRoom[i]);
 			if(f_room->query_buff_kind()==kind){
 				s += "["+f_room->query_name_cn()+":home_functionroom_sell_detail "+allFuncRoom[i]+"]\n";
@@ -2572,80 +2873,417 @@ string get_sell_functionroom_list(string kind){
 
 //变卖功能房间信息
 string query_sell_functionroom_info(string room_name){
-	object me = this_player();
 	string s = "";
-	object f_room = (object)(ROOM_PATH+"function/"+room_name);
-	int yushi = f_room->query_priceYushi();
-	yushi = (int)(yushi - yushi*DEPR_FEE);
-	s += "\n 确认要变卖"+ f_room->query_name_cn() +"吗？\n";
+	mapping(string:mixed) offer=query_function_room_offer(room_name);
+	if(!sizeof(offer))
+		return "该功能房资料无效，请返回重新选择。\n";
+	int yushi = (int)offer["sell_yushi"];
+	s += "\n 确认要变卖"+(string)offer["name_cn"]+"吗？\n";
 	s += "变卖将会得到"+ YUSHID->get_yushi_for_desc(yushi)+"\n\n";
 	s += "[确认:home_sell_functionroom_confirm "+room_name+ " "+ yushi + " 0]\n";
 	s += "[取消:look]\n";
 	return s;
 }
 //确认“变卖”后后的相关操作
+mapping(string:mixed) sell_function_room_transaction(object player,
+	string roomName)
+{
+	mapping(string:mixed) offer=query_function_room_offer(roomName);
+	object state_key;
+	object env;
+	string masterId;
+	int yushi;
+	int money;
+	int before_money;
+	mapping(int:int) before_yushi;
+	if(!player || !sizeof(offer) || roomName=="feitianxiaowu")
+		return (["ok":0,"code":"invalid","message":"该功能房不能变卖"]);
+	masterId=(string)player->query_name();
+	env=environment(player);
+	if(!env || !functionp(env->query_masterId) ||
+	   (string)env->query_masterId()!=masterId)
+		return (["ok":0,"code":"not_owner",
+			"message":"你不是家园主人，或者不在自己的家园中"]);
+	state_key=homeStateLock->lock();
+	if(sizeof(query_function_room_transaction(player))){
+		destruct(state_key);
+		return (["ok":0,"code":"pending",
+			"message":"上一笔功能房交易正在恢复，请重新登录后再试"]);
+	}
+	if(!has_function_room_unlocked(masterId,roomName)){
+		destruct(state_key);
+		return (["ok":0,"code":"missing","message":"你没有这个功能房"]);
+	}
+	yushi=(int)offer["sell_yushi"];
+	money=(int)offer["sell_money"]*100;
+	set_function_room_transaction(player,(["action":"sell","room":roomName,
+		"yushi":yushi,"money":money,"phase":"prepared"]));
+	if(!save_function_room_player(player)){
+		set_function_room_transaction(player,([]));
+		destruct(state_key);
+		return (["ok":0,"code":"save","message":"人物存档失败，房契没有变化"]);
+	}
+	if(!remove_function_room_unlocked(masterId,roomName) ||
+	   !store_all_info_unlocked(1)){
+		if(!has_function_room_unlocked(masterId,roomName))
+			add_function_room_unlocked(masterId,roomName);
+		store_all_info_unlocked(1);
+		set_function_room_transaction(player,([]));
+		save_function_room_player(player);
+		destruct(state_key);
+		return (["ok":0,"code":"commit","message":"房产保存失败，原功能房已经保留"]);
+	}
+	before_yushi=query_player_yushi_counts(player);
+	before_money=player->query_account();
+	if(!YUSHID->give_yushi(player,yushi) ||
+	   YUSHID->query_physical_all_num(player)-
+	   (before_yushi[1]+before_yushi[2]*10+before_yushi[3]*100+
+	    before_yushi[4]*1000+before_yushi[5]*10000)!=yushi){
+		rollback_function_room_yushi_gain(player,before_yushi);
+		add_function_room_unlocked(masterId,roomName);
+		int restored=store_all_info_unlocked(1);
+		if(restored)
+			set_function_room_transaction(player,([]));
+		else{
+			remove_function_room_unlocked(masterId,roomName);
+			set_function_room_transaction(player,(["action":"sell",
+				"room":roomName,"yushi":yushi,"money":money,
+				"phase":"prepared"]));
+		}
+		save_function_room_player(player);
+		destruct(state_key);
+		return (["ok":0,"code":"payout","message":"退款发放失败，原功能房已经恢复"]);
+	}
+	if(money>0)
+		player->add_account(money);
+	set_function_room_transaction(player,(["action":"sell","room":roomName,
+		"yushi":yushi,"money":money,"phase":"payout_committed"]));
+	if(!save_function_room_player(player)){
+		rollback_function_room_yushi_gain(player,before_yushi);
+		if(player->query_account()>before_money)
+			player->del_account(player->query_account()-before_money);
+		add_function_room_unlocked(masterId,roomName);
+		int restored=store_all_info_unlocked(1);
+		if(restored)
+			set_function_room_transaction(player,([]));
+		else{
+			remove_function_room_unlocked(masterId,roomName);
+			set_function_room_transaction(player,(["action":"sell",
+				"room":roomName,"yushi":yushi,"money":money,
+				"phase":"prepared"]));
+		}
+		save_function_room_player(player);
+		destruct(state_key);
+		return (["ok":0,"code":"save",
+			"message":"人物存档失败，退款和功能房变更已经回滚"]);
+	}
+	set_function_room_transaction(player,([]));
+	save_function_room_player(player);
+	destruct(state_key);
+	string c_log="["+MUD_TIMESD->get_mysql_timedesc()+"]-["+
+		GAME_NAME_S+"]["+masterId+"][home_sell]["+roomName+
+		"][][1][-"+yushi+"][0]\n";
+	mixed log_err=catch{
+		Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+
+			"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+	};
+	if(log_err)
+		werror("[HOME_AUDIT] append failed: %s\n",describe_error(log_err));
+	return (["ok":1,"code":"ok","message":"功能房变卖成功",
+		"yushi":yushi,"money":money]);
+}
+
+int reconcile_function_room_transaction(object player)
+{
+	mapping transaction=query_function_room_transaction(player);
+	mapping(string:mixed) offer;
+	object state_key;
+	object|zero gift=0;
+	string action;
+	string phase;
+	string roomName;
+	string masterId;
+	string request_id;
+	int yushi;
+	int money;
+	if(!player || !sizeof(transaction))
+		return 1;
+	action=(string)transaction["action"];
+	phase=(string)transaction["phase"];
+	roomName=(string)transaction["room"];
+	request_id=(string)(transaction["request_id"] || "");
+	masterId=(string)player->query_name();
+	if(action=="sell_home"){
+		string homeRef=(string)(transaction["home"] || "");
+		yushi=(int)transaction["yushi"];
+		money=(int)transaction["money"];
+		if(homeRef=="" || yushi<0 || yushi>1000000000 ||
+		   money<0 || money>2000000000 ||
+		   (phase!="prepared" && phase!="payout_committed")){
+			set_function_room_transaction(player,([]));
+			return save_function_room_player(player);
+		}
+		state_key=homeStateLock->lock();
+		if(homeDetail[masterId]){
+			if(phase=="payout_committed" ||
+			   (string)homeDetail[masterId]->homeId!=homeRef){
+				werror("[HOME_AUDIT] whole-home sale state mismatch: %s %s %s\n",
+					masterId,phase,homeRef);
+				destruct(state_key);
+				return 0;
+			}
+			// prepared 且房契仍在，说明删除快照没有提交，无需退款。
+			set_function_room_transaction(player,([]));
+			int home_sale_cancelled=save_function_room_player(player);
+			destruct(state_key);
+			return home_sale_cancelled;
+		}
+		if(phase=="prepared"){
+			mapping(int:int) before_home_yushi=
+				query_player_yushi_counts(player);
+			int before_home_money=player->query_account();
+			if(!YUSHID->give_yushi(player,yushi)){
+				destruct(state_key);
+				return 0;
+			}
+			if(money>0)
+				player->add_account(money);
+			player->set_home_path("");
+			set_function_room_transaction(player,(["action":"sell_home",
+				"home":homeRef,"yushi":yushi,"money":money,
+				"phase":"payout_committed"]));
+			if(!save_function_room_player(player)){
+				rollback_function_room_yushi_gain(player,
+					before_home_yushi);
+				if(player->query_account()>before_home_money)
+					player->del_account(player->query_account()-
+						before_home_money);
+				set_function_room_transaction(player,transaction);
+				destruct(state_key);
+				return 0;
+			}
+		}
+		player->set_home_path("");
+		set_function_room_transaction(player,([]));
+		int home_sale_recovered=save_function_room_player(player);
+		destruct(state_key);
+		return home_sale_recovered;
+	}
+	offer=query_function_room_offer(roomName);
+	if(!sizeof(offer) || (action!="buy" && action!="sell")){
+		set_function_room_transaction(player,([]));
+		return save_function_room_player(player);
+	}
+	state_key=homeStateLock->lock();
+	if(!homeDetail[masterId] || !existHome[masterId]){
+		werror("[HOME_AUDIT] pending function room transaction has no home: %s %s %s\n",
+			masterId,action,roomName);
+		destruct(state_key);
+		return 0;
+	}
+	if(action=="buy"){
+		yushi=(int)offer["buy_yushi"];
+		money=(int)offer["buy_money"]*100;
+		if(phase=="home_committed"){
+			if(!has_function_room_unlocked(masterId,roomName)){
+				if(!add_function_room_unlocked(masterId,roomName)){
+					destruct(state_key);
+					return 0;
+				}
+				if(!store_all_info_unlocked(1)){
+					remove_function_room_unlocked(masterId,roomName);
+					destruct(state_key);
+					return 0;
+				}
+			}
+			if(request_id!="" &&
+			   !ACCOUNT_WALLETD->forget_debit_recharge_once(player,
+			   request_id)){
+				// 保留磁盘中的 home_committed；当前内存也恢复标记，
+				// 使同一次登录重试仍保持失败关闭。
+				set_function_room_transaction(player,transaction);
+				destruct(state_key);
+				return 0;
+			}
+			set_function_room_transaction(player,([]));
+			int committed_saved=save_function_room_player(player);
+			destruct(state_key);
+			return committed_saved;
+		}
+		if(phase!="prepared" && phase!="payment_committed"){
+			set_function_room_transaction(player,([]));
+			int cleared_saved=save_function_room_player(player);
+			destruct(state_key);
+			return cleared_saved;
+		}
+		if(phase=="prepared" && !has_function_room_unlocked(
+		   masterId,roomName)){
+			if(request_id!="" &&
+			   !ACCOUNT_WALLETD->rollback_debit_recharge_once(player,
+			   request_id,"home_function_room_orphan_rollback")){
+				destruct(state_key);
+				return 0;
+			}
+			set_function_room_transaction(player,([]));
+			int orphan_saved=save_function_room_player(player);
+			destruct(state_key);
+			return orphan_saved;
+		}
+		if(!has_function_room_unlocked(masterId,roomName)){
+			if(!add_function_room_unlocked(masterId,roomName)){
+				destruct(state_key);
+				return 0;
+			}
+			if(!store_all_info_unlocked(1)){
+				remove_function_room_unlocked(masterId,roomName);
+				destruct(state_key);
+				return 0;
+			}
+		}
+		if(request_id==""){
+			request_id=ACCOUNT_WALLETD->new_recharge_request_id();
+			transaction=(["action":"buy","room":roomName,
+				"yushi":yushi,"money":money,"phase":phase,
+				"request_id":request_id]);
+			set_function_room_transaction(player,transaction);
+			if(!save_function_room_player(player)){
+				destruct(state_key);
+				return 0;
+			}
+		}
+		if(phase=="prepared"){
+			if(player->query_account()<money){
+				if(request_id!="" &&
+				   !ACCOUNT_WALLETD->rollback_debit_recharge_once(
+				   player,request_id,
+				   "home_function_room_money_rollback")){
+					destruct(state_key);
+					return 0;
+				}
+				remove_function_room_unlocked(masterId,roomName);
+				if(!store_all_info_unlocked(1)){
+					add_function_room_unlocked(masterId,roomName);
+					destruct(state_key);
+					return 0;
+				}
+				set_function_room_transaction(player,([]));
+				int insufficient_saved=save_function_room_player(player);
+				destruct(state_key);
+				return insufficient_saved;
+			}
+			int before_wallet=ACCOUNT_WALLETD->query_balance(player);
+			int before_physical=YUSHID->query_physical_all_num(player);
+			int before_money=player->query_account();
+			if(!YUSHID->pay_yushi_once(player,yushi,request_id)){
+				if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(
+				   player,request_id,
+				   "home_function_room_recovery_failed")){
+					destruct(state_key);
+					return 0;
+				}
+				remove_function_room_unlocked(masterId,roomName);
+				if(!store_all_info_unlocked(1)){
+					add_function_room_unlocked(masterId,roomName);
+					destruct(state_key);
+					return 0;
+				}
+				set_function_room_transaction(player,([]));
+				int pay_failed_saved=save_function_room_player(player);
+				destruct(state_key);
+				return pay_failed_saved;
+			}
+			if(money>0)
+				player->del_account(money);
+			set_function_room_transaction(player,(["action":"buy",
+				"room":roomName,"yushi":yushi,"money":money,
+				"phase":"payment_committed",
+				"request_id":request_id]));
+			if(!save_function_room_player(player)){
+				refund_function_room_payment(player,before_wallet,
+					before_physical,before_money,request_id);
+				set_function_room_transaction(player,transaction);
+				destruct(state_key);
+				return 0;
+			}
+		}
+		if(roomName=="feitianxiaowu"){
+			gift=give_function_room_gift(player,roomName);
+			if(!gift){
+				destruct(state_key);
+				return 0;
+			}
+		}
+		set_function_room_transaction(player,(["action":"buy",
+			"room":roomName,"yushi":yushi,"money":money,
+			"phase":"home_committed","request_id":request_id]));
+		if(!save_function_room_player(player)){
+			if(gift)
+				destruct(gift);
+			destruct(state_key);
+			return 0;
+		}
+		if(!ACCOUNT_WALLETD->forget_debit_recharge_once(player,
+		   request_id)){
+			destruct(state_key);
+			return 0;
+		}
+		set_function_room_transaction(player,([]));
+		int recovered_saved=save_function_room_player(player);
+		destruct(state_key);
+		return recovered_saved;
+	}
+	yushi=(int)offer["sell_yushi"];
+	money=(int)offer["sell_money"]*100;
+	if(phase=="payout_committed"){
+		if(has_function_room_unlocked(masterId,roomName) &&
+		   (!remove_function_room_unlocked(masterId,roomName) ||
+		    !store_all_info_unlocked(1))){
+			if(!has_function_room_unlocked(masterId,roomName))
+				add_function_room_unlocked(masterId,roomName);
+			destruct(state_key);
+			return 0;
+		}
+		set_function_room_transaction(player,([]));
+		int payout_saved=save_function_room_player(player);
+		destruct(state_key);
+		return payout_saved;
+	}
+	if(phase!="prepared" ||
+	   has_function_room_unlocked(masterId,roomName)){
+		set_function_room_transaction(player,([]));
+		int sell_cleared=save_function_room_player(player);
+		destruct(state_key);
+		return sell_cleared;
+	}
+	mapping(int:int) before_yushi=query_player_yushi_counts(player);
+	int before_money=player->query_account();
+	if(!YUSHID->give_yushi(player,yushi)){
+		destruct(state_key);
+		return 0;
+	}
+	if(money>0)
+		player->add_account(money);
+	set_function_room_transaction(player,(["action":"sell",
+		"room":roomName,"yushi":yushi,"money":money,
+		"phase":"payout_committed"]));
+	if(!save_function_room_player(player)){
+		rollback_function_room_yushi_gain(player,before_yushi);
+		if(player->query_account()>before_money)
+			player->del_account(player->query_account()-before_money);
+		set_function_room_transaction(player,transaction);
+		destruct(state_key);
+		return 0;
+	}
+	set_function_room_transaction(player,([]));
+	save_function_room_player(player);
+	destruct(state_key);
+	return 1;
+}
+
 int sell_function_room(string roomName,int yushi,int money)
 {
-	int re = 0;
-	object me = this_player();
-	object room = environment(me);                  //当前所在房间
-	if(!me || !room || !is_function_room_name(roomName) ||
-	   roomName=="feitianxiaowu")
-		return 0;
-	string masterId = room->query_masterId();                  //房间主人ID
-	if(masterId!=me->query_name())
-		return 0;
-	mapping(string:mixed) offer=query_function_room_offer(roomName);
-	if(!sizeof(offer))
-		return 0;
-	yushi=(int)offer["sell_yushi"];
-	money=(int)offer["sell_money"];
-	array(string) functionRooms = room->query_functionRoom(); //已有的功能房间
-	
-	int num = sizeof(functionRooms);
-	if(search(functionRooms,roomName)!=-1)                        //如果该home中有这个room
-	{
-		//任务1、修改这个home中每个room的functionRooms属性
-		mapping allRooms = existHome[masterId];            //得到这个home中的所有room
-		if(allRooms){
-			home he = homeDetail[masterId];
-			if(!he)
-				return 0;
-			foreach(sort(indices(allRooms)),string room)    //修复所有room的functionRooms属性
-			{
-				object tmp = allRooms[room];
-				tmp->functionRoom -= ({roomName});
-			}
-			//任务2、修改homeDetail中相关的信息
-			he->functionRoom -= ({roomName});
-			//支付玉石和钱
-			int  rt = YUSHID->give_yushi(me,yushi);
-			if(rt)
-			{
-				if(money){
-					me->add_account(money*100);
-				}
-				string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][home_sell]["+roomName+"][][1][-"+yushi+"][0]\n";
-				mixed log_err=catch{
-					Stdio.append_file(ROOT+"/log/stat/consume/"+
-						GAME_NAME_S+"_consume_"+
-						MUD_TIMESD->get_year_month_day()+".log",c_log);
-				};
-				if(log_err)
-					werror("[HOME_AUDIT] append failed: %s\n",
-						describe_error(log_err));
-
-			}
-			return 1;//删除成功
-		}
-		else
-		{
-			return 0;//出错了，请与客服联系（在这里，就会出现扣了玉，但是没加上房间的情况，这种可能一般是不会出现的）
-		}
-	}
-	else{
-		return 0;//没有该功能房间，不能删除
-	}
+	mapping result=sell_function_room_transaction(this_player(),roomName);
+	return (int)result["ok"];
 }
 //add end
 //获得家园位置的闻之描述

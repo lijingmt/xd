@@ -204,6 +204,7 @@ void test_timeout_and_observability_source(object httpd)
 		search(thread_source,"Thread.Thread(") == -1 &&
 		search(thread_source,"string execute_core_command") != -1 &&
 		search(thread_source,"Thread.Farm()") != -1 &&
+		search(thread_source,"parallel_command_farm_init_lock") != -1 &&
 		search(thread_source,"execute_parallel_command_job") == -1 &&
 		search(renderer_source,"button_grade_snapshot") != -1 &&
 		search(renderer_source,"refresh_button_grade_snapshot") != -1 &&

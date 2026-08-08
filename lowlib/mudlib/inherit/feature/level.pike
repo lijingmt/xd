@@ -345,7 +345,14 @@ int query_donation_exp_multiplier_for_fee(int total_fee)
 int query_donation_exp_multiplier()
 {
 	object me = this_object();
-	return query_donation_exp_multiplier_for_fee((int)me->all_fee);
+	int total_fee = (int)me->all_fee;
+	object walletd = ACCOUNT_WALLETD;
+	if(walletd && functionp(walletd->query_total_recharge_fee)){
+		int account_fee = walletd->query_total_recharge_fee(me);
+		if(account_fee>total_fee)
+			total_fee = account_fee;
+	}
+	return query_donation_exp_multiplier_for_fee(total_fee);
 }
 
 /**

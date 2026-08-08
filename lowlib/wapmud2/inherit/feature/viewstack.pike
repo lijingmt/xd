@@ -1,8 +1,9 @@
 #include <globals.h>
 #include <wapmud2/include/wapmud2.h>
 #define VIEW_PAGE_SNAPSHOT_TTL (30*60)
-#define VIEW_PAGE_SNAPSHOT_LIMIT 4
+#define VIEW_PAGE_SNAPSHOT_LIMIT 16
 #define VIEW_PAGE_SNAPSHOT_MAX_BYTES (512*1024)
+#define VIEW_PAGE_SNAPSHOT_TOTAL_BYTES (2*1024*1024)
 private function|zero init_view=0;
 private mixed init_view_arg;
 private array(mixed) viewstack=({});
@@ -14,6 +15,20 @@ mapping query_spliter(){
 	return spliter;
 }
 
+private int query_view_page_snapshot_bytes()
+{
+	int total=0;
+	foreach(indices(view_page_snapshots),string snapshot_id){
+		mapping snapshot=view_page_snapshots[snapshot_id];
+		if(!snapshot)
+			continue;
+		total+=sizeof((string)(snapshot["header"] || ""));
+		total+=sizeof((string)(snapshot["text"] || ""));
+		total+=sizeof((string)(snapshot["footer"] || ""));
+	}
+	return total;
+}
+
 private void cleanup_view_page_snapshots()
 {
 	int now=time();
@@ -23,7 +38,8 @@ private void cleanup_view_page_snapshots()
 		if(!snapshot || (int)snapshot["expires"]<now)
 			m_delete(view_page_snapshots,snapshot_ids[i]);
 	}
-	while(sizeof(view_page_snapshots)>VIEW_PAGE_SNAPSHOT_LIMIT){
+	while(sizeof(view_page_snapshots)>VIEW_PAGE_SNAPSHOT_LIMIT ||
+	   query_view_page_snapshot_bytes()>VIEW_PAGE_SNAPSHOT_TOTAL_BYTES){
 		string oldest_id="";
 		int oldest_serial=0;
 		snapshot_ids=indices(view_page_snapshots);
@@ -45,9 +61,12 @@ private void cleanup_view_page_snapshots()
 // 的“下一页”仍从这里读取生成链接时的完整快照。
 string cache_view_page_snapshot()
 {
+	string header=(string)(spliter["header"] || "");
 	string text=(string)spliter["text"];
+	string footer=(string)(spliter["footer"] || "");
 	string snapshot_id;
-	if(!text || text=="" || sizeof(text)>VIEW_PAGE_SNAPSHOT_MAX_BYTES)
+	if(!text || text=="" || sizeof(header)+sizeof(text)+sizeof(footer)>
+	   VIEW_PAGE_SNAPSHOT_MAX_BYTES)
 		return "";
 	cleanup_view_page_snapshots();
 	view_page_snapshot_serial++;
@@ -55,14 +74,14 @@ string cache_view_page_snapshot()
 		view_page_snapshot_serial=1;
 	snapshot_id=sprintf("%d-%d",time(),view_page_snapshot_serial);
 	view_page_snapshots[snapshot_id]=([
-		"header":(string)(spliter["header"] || ""),
+		"header":header,
 		"text":text,
-		"footer":(string)(spliter["footer"] || ""),
+		"footer":footer,
 		"expires":time()+VIEW_PAGE_SNAPSHOT_TTL,
 		"serial":view_page_snapshot_serial,
 	]);
 	cleanup_view_page_snapshots();
-	return snapshot_id;
+	return view_page_snapshots[snapshot_id] ? snapshot_id : "";
 }
 
 mapping|zero query_view_page_snapshot(string snapshot_id)
@@ -91,6 +110,8 @@ mapping query_view_page_snapshot_status()
 		"limit":VIEW_PAGE_SNAPSHOT_LIMIT,
 		"ttl_seconds":VIEW_PAGE_SNAPSHOT_TTL,
 		"max_bytes":VIEW_PAGE_SNAPSHOT_MAX_BYTES,
+		"total_bytes":query_view_page_snapshot_bytes(),
+		"total_bytes_limit":VIEW_PAGE_SNAPSHOT_TOTAL_BYTES,
 	]);
 }
 void push_view(function f,mixed...args){
