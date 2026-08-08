@@ -853,6 +853,12 @@ main() {
     MYSQL_PORT="${MYSQL_PORT:-3306}"
     if [ -z "${MYSQL_PASSWORD:-}" ]; then
         print_error "MYSQL_PASSWORD 必须通过环境变量或受限权限的 .env 提供"
+        echo ""
+        echo "首次部署请执行："
+        echo "  cd $PROJECT_ROOT"
+        echo "  cp .env.example .env"
+        echo "  chmod 600 .env"
+        echo "  vi .env  # 填写 MYSQL_PASSWORD 后重新运行本脚本"
         exit 1
     fi
 
