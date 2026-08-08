@@ -3,6 +3,24 @@
 #include <gamelib/include/gamelib.h>
 #define ITEM ROOT "/gamelib/clone/item/"
 #define log_file ROOT "/log/presenter.log" 
+private mapping(string:array(int)) present_catalog = ([
+	"liandan/xingjundan":({10,0,10}),
+	"liandan/zijindan":({40,0,10}),
+	"liandan/huishendan":({60,0,10}),
+	"liandan/yanmingdan":({80,0,10}),
+	"liandan/huihundan":({100,0,10}),
+	"liandan/fanyuanlu":({10,0,10}),
+	"liandan/hunyuanlu":({40,0,10}),
+	"liandan/guiyuanlu":({60,0,10}),
+	"liandan/jiuzhuanxianlinglu":({80,0,10}),
+	"liandan/linghualu":({100,0,10}),
+	"material/xuanhuangshi":({20,0,1}),
+	"material/maoyanshi":({60,0,1}),
+	"material/xiehupo":({100,0,1}),
+	"material/yufeicui":({140,0,1}),
+	"material/jingangzuan":({180,0,1}),
+	"material/zishuijing":({220,0,1}),
+]);
 //arg = type name mark_need money num flag
 //name为文件; flag为0表示察看，为1表示购买
 int main(string|zero arg)
@@ -16,7 +34,17 @@ int main(string|zero arg)
 	int num = 0;
 	int flag = 0;
 	string producer_info = "";
-	sscanf(arg,"%s %s %d %d %d %d",type,filename,mark_need,money,num,flag);
+	if(!arg || sscanf(arg,"%s %s %d %d %d %d",type,filename,
+	   mark_need,money,num,flag)!=6 || type!="other" ||
+	   !present_catalog[filename] || (flag!=0 && flag!=1)){
+		write("兑换参数无效，本次没有扣除或发放物品。\n"+
+			"[返回:present_equip_view other]\n[返回游戏:look]\n");
+		return 1;
+	}
+	array(int) product=present_catalog[filename];
+	mark_need=product[0];
+	money=product[1];
+	num=product[2];
 	object ob;
 	mixed err=catch{
 		ob = clone(ITEM+filename);
@@ -51,6 +79,7 @@ int main(string|zero arg)
 				}
 				else
 					ob->move(me);
+				ob = 0;
 				s += "你获得了"+ob_name+"x"+num+"\n";
 				string now=ctime(time());
 				string log_s = me->query_name_cn()+"("+me->query_name()+")消耗掉"+mark_need+"点积分，因为兑换了"+ob_name+"x"+num+"\n";
@@ -60,6 +89,8 @@ int main(string|zero arg)
 	}
 	else 
 		s += "没有这样的物品\n";
+	if(ob)
+		destruct(ob);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	s += "\n[返回:present_equip_view "+type+"]\n";
 	s += "[返回游戏:look]\n";

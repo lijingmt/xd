@@ -68,11 +68,11 @@ private int continue_auto_rest(object me)
 		return 1;
 	}
 	AUTOFIGHTD->finish_auto_rest(me);
-	route = AUTOFIGHTD->query_training_route(me);
+	route = AUTOFIGHTD->query_balanced_training_route(me);
 	route_path = (string)route["path"];
 	if(AUTOFIGHTD->query_smart_route_enabled(me) && route_path!=""){
 		AUTOFIGHTD->record_route(me,route_path);
-		me->command("qge74hye "+route_path);
+		AUTOFIGHTD->move_to_training_route(me,route);
 		AUTOFIGHTD->start_autofight(me);
 		return 1;
 	}
@@ -327,12 +327,12 @@ int main(string|zero arg)
 	}
 	AUTOFIGHTD->record_no_target(me);
 	if(AUTOFIGHTD->should_route_to_training_area(me,target_snapshot)){
-		route = AUTOFIGHTD->query_training_route(me);
+		route = AUTOFIGHTD->query_balanced_training_route(me,1);
 		route_path = (string)route["path"];
 		AUTOFIGHTD->record_route(me,route_path);
 		write("挂机助手正在寻找"+(string)route["name"]+
 			"（约"+(int)route["level"]+"级怪）。\n");
-		me->command("qge74hye "+route_path);
+		AUTOFIGHTD->move_to_training_route(me,route);
 		AUTOFIGHTD->start_autofight(me);
 		return 1;
 	}

@@ -7,6 +7,33 @@
 //   need_xx 需要的星星个数
 //   need_money 需要的金钱数
 //   flag  购买标识，1为徽记确认购买，2为G币确认购买，0为查看物品详情
+private mapping(string:array(mixed)) bx_offers=([
+	"weapon/29bingliedao":({"weapon",80,300000}),
+	"weapon/29bingcibishou":({"weapon",60,300000}),
+	"weapon/29bingyansiliezhe":({"weapon",120,300000}),
+	"weapon/29lingguangzhang":({"weapon",120,300000}),
+	"weapon/49xueyueshenjian":({"weapon",160,500000}),
+	"weapon/49binglongzhiya":({"weapon",120,500000}),
+	"weapon/49wannianhanbingfu":({"weapon",240,500000}),
+	"weapon/49huanxuezhang":({"weapon",240,500000}),
+	"weapon/69hanlengjian":({"weapon",240,700000}),
+	"weapon/69hanbingci":({"weapon",240,700000}),
+	"weapon/69hanbingshuangjian":({"weapon",480,700000}),
+	"weapon/69bingyuelingzhang":({"weapon",480,700000}),
+	"jewelry/29bingleixianglian":({"shipin",60,200000}),
+	"jewelry/29bingrongpifeng":({"shipin",60,200000}),
+	"jewelry/29binglongdiaoxiang":({"shipin",60,200000}),
+	"jewelry/29bingjingzhihuan":({"shipin",60,200000}),
+	"jewelry/49shuanghandiaozhui":({"shipin",120,400000}),
+	"jewelry/49xuewupifeng":({"shipin",120,400000}),
+	"jewelry/49bingxuenvshenxiang":({"shipin",120,400000}),
+	"jewelry/49xingmangzhihuan":({"shipin",120,400000}),
+	"jewelry/69hanyexianjie":({"shipin",360,600000}),
+	"jewelry/69hanyepifeng":({"shipin",360,600000}),
+	"jewelry/69hanfeixianglian":({"shipin",360,600000}),
+	"jewelry/69hanfeishouzhuo":({"shipin",360,600000})
+]);
+
 int main(string|zero arg)
 {
 	string s = "这里的东西都带着冬天的气息\n";
@@ -18,7 +45,16 @@ int main(string|zero arg)
 	int need_xx = 0;
 	int need_money = 0;
 	int flag = 0;
-	sscanf(arg,"%s %s %d %d %d",type,item_name,need_xx,need_money,flag);
+	if(!arg || sscanf(arg,"%s %s %d %d %d",type,item_name,need_xx,
+	   need_money,flag)!=5 || !bx_offers[item_name]){
+		write("兑换参数无效，该物品不在圣诞兑换目录中。\n"+
+			"[返回游戏:look]\n");
+		return 1;
+	}
+	array(mixed) offer=bx_offers[item_name];
+	type=(string)offer[0];
+	need_xx=(int)offer[1];
+	need_money=(int)offer[2];
 	if(flag == 0){
 		object item;
 		mixed err = catch{

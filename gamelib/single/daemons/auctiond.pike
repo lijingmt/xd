@@ -470,6 +470,96 @@ array(mapping(string:mixed)) query_getback_as_buyer(string player_id)
 	}
 }
 
+private int valid_getback_player_id(string player_id)
+{
+	if(!player_id || sizeof(player_id)<1 || sizeof(player_id)>64)
+		return 0;
+	for(int i=0;i<sizeof(player_id);i++){
+		int ch=player_id[i];
+		if(!((ch>='a' && ch<='z') || (ch>='A' && ch<='Z') ||
+		   (ch>='0' && ch<='9') || ch=='_'))
+			return 0;
+	}
+	return 1;
+}
+
+private string query_getback_kind(mapping(string:mixed) row,
+	string player_id)
+{
+	int flag=(int)row["rltflag"];
+	if((string)row["saler_id"]==player_id){
+		if(flag==0 || flag==3)
+			return "item";
+		if(flag==2)
+			return "money";
+	}
+	if((string)row["buyer_id"]==player_id){
+		if(flag==1)
+			return "money";
+		if(flag==2)
+			return "item";
+	}
+	return "";
+}
+
+// 领取内容只从 result_info 读取。客户端链接中的文件名、数量和金额
+// 仅为旧版显示参数，绝不能作为实际发奖依据。
+mapping(string:mixed) query_getback_offer(string player_id,int id,
+	string expected_kind)
+{
+	array(mapping(string:mixed)) rows=({});
+	string kind;
+	string querySql;
+	if(id<=0 || !valid_getback_player_id(player_id) ||
+	   (expected_kind!="item" && expected_kind!="money"))
+		return (["ok":0,"code":"invalid"]);
+	querySql="select * from result_info where id="+id+
+		" and fetch_status=0 and (saler_id='"+player_id+
+		"' or buyer_id='"+player_id+"')";
+	mixed err=catch{
+		if(!db)
+			db=Sql.Sql(dbSql,optionsMap);
+		rows=db->query(querySql);
+	};
+	if(err)
+		return (["ok":0,"code":"service"]);
+	if(sizeof(rows)!=1)
+		return (["ok":0,"code":"unavailable"]);
+	kind=query_getback_kind(rows[0],player_id);
+	if(kind!=expected_kind)
+		return (["ok":0,"code":"wrong_kind"]);
+	mapping(string:mixed) offer=copy_value(rows[0]);
+	offer["ok"]=1;
+	offer["kind"]=kind;
+	return offer;
+}
+
+mapping(string:mixed) claim_getback(string player_id,int id,
+	string expected_kind)
+{
+	mapping(string:mixed) offer=query_getback_offer(player_id,id,
+		expected_kind);
+	array(mapping(string:mixed)) changed=({});
+	string updateSql;
+	if(!(int)offer["ok"])
+		return offer;
+	updateSql="update result_info set fetch_status=1 where id="+id+
+		" and fetch_status=0 and (saler_id='"+player_id+
+		"' or buyer_id='"+player_id+"')";
+	mixed err=catch{
+		db->query(updateSql);
+		changed=db->query("select row_count() as changed");
+	};
+	if(err)
+		return (["ok":0,"code":"service"]);
+	if(sizeof(changed)!=1 || (int)changed[0]["changed"]!=1)
+		return (["ok":0,"code":"unavailable"]);
+	LOG->append_time("[claim_getback("+player_id+","+id+","+
+		expected_kind+")] [succ]");
+	return offer;
+}
+
+// 旧接口只保留给历史内部代码；玩家领取命令必须使用上面的归属校验接口。
 //此接口将result_info中id 的fetch_status置为1，当然首先是要判断它，以免重复被取回
 //liaocheng于07/4/3添加
 int finish_getback(int id)

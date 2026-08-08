@@ -86,6 +86,8 @@ int http_slow_request_count = 0;
 int http_max_request_ms = 0;
 int http_last_slow_time = 0;
 string http_last_slow_path = "";
+int pagination_snapshot_created;
+int pagination_snapshot_missing;
 
 /** HTTP API 登录待定标记 - 用于 login_check.pike 检测是否为 HTTP API 模式 */
 mapping(string:int) http_api_login_pending = ([]);
@@ -111,6 +113,27 @@ void clear_http_api_login_pending(string userid) {
     object key = http_api_login_pending_lock->lock();
     m_delete(http_api_login_pending, userid);
     destruct(key);
+}
+
+void record_pagination_snapshot_created()
+{
+    pagination_snapshot_created++;
+}
+
+void record_pagination_snapshot_miss()
+{
+    pagination_snapshot_missing++;
+    if(pagination_snapshot_missing%64==0)
+        werror("[HTTP_API][PAGINATION] snapshot_missing=%d snapshot_created=%d\n",
+            pagination_snapshot_missing,pagination_snapshot_created);
+}
+
+mapping query_pagination_status()
+{
+    return ([
+        "snapshots_created":pagination_snapshot_created,
+        "snapshot_missing":pagination_snapshot_missing,
+    ]);
 }
 
 // ========================================================================
@@ -665,6 +688,8 @@ void handle_request(Protocols.HTTP.Server.Request req)
                         query_autofight_performance_status(),
                     "performance":query_http_performance_status(),
                     "account_sessions":query_account_session_status(),
+                    "command_tokens":query_hidden_command_status(),
+                    "pagination":query_pagination_status(),
                 ]);
                 if(!send_json_mapping_async(req,m,200))
                     send_json(req,m);
@@ -3220,6 +3245,8 @@ mapping query_status()
     m["async_io"] = ASYNC_IOD->query_status();
     m["runtime"] = query_runtime_performance();
     m["auth_cache"] = query_auth_cache_status();
+    m["command_tokens"] = query_hidden_command_status();
+    m["pagination"] = query_pagination_status();
     m["performance"] = query_http_performance_status();
     return m;
 }

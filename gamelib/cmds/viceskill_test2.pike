@@ -8,6 +8,10 @@ int main(string|zero arg)
 {
 	string s = "";
 	object me=this_player();
+	if(!me || MANAGERD->checkpower(me->query_name())!="admin"){
+		write("该调试命令仅限管理员使用。\n[返回游戏:look]\n");
+		return 1;
+	}
 	object ob;
 	foreach(caoyao,string name){
 		ob = clone(ITEM_PATH_KUANG+name);

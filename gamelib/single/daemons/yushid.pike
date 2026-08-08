@@ -15,6 +15,51 @@ protected void create()
 
 }
 
+/*
+ * 合玉/拆玉审计日志。日志是交易旁路：任何日志系统异常只能写入
+ * stderr，不能影响已经完成或被拒绝的玩家交易。
+ *
+ * source/target 的 requested 与 actual 分开记录，用于识别部分完成；
+ * invariant 会同时核对玉石价值守恒和实际手续费扣减。
+ */
+void append_conversion_audit(object player,string action,string status,
+	string reason,int source_level,int source_requested,int source_actual,
+	int target_level,int target_requested,int target_actual,int fee,
+	int account_before)
+{
+	mixed err=catch{
+		string player_id=player ? (string)player->query_name() : "unknown";
+		player_id=replace(player_id,(["\t":"_","\r":"_","\n":"_"]));
+		string source_name=source_level>=1 && source_level<=5 ?
+			get_yushi_name(source_level) : "unknown";
+		string target_name=target_level>=1 && target_level<=5 ?
+			get_yushi_name(target_level) : "unknown";
+		int source_value=source_level>=1 && source_level<=5 ?
+			source_actual*get_yushi_value(source_level) : 0;
+		int target_value=target_level>=1 && target_level<=5 ?
+			target_actual*get_yushi_value(target_level) : 0;
+		int account_after=player ? (int)player->query_account() : 0;
+		string invariant=(source_value==target_value &&
+			account_before-account_after==fee) ? "ok" : "violation";
+		string line=sprintf(
+			"%d\tevent=yushi_conversion\tplayer=%s\taction=%s\tstatus=%s"
+			"\treason=%s\tsource_level=%d\tsource=%s"
+			"\tsource_requested=%d\tsource_actual=%d"
+			"\ttarget_level=%d\ttarget=%s"
+			"\ttarget_requested=%d\ttarget_actual=%d"
+			"\tsource_value=%d\ttarget_value=%d\tfee=%d"
+			"\taccount_before=%d\taccount_after=%d\tinvariant=%s\n",
+			time(),player_id,action,status,reason,source_level,source_name,
+			source_requested,source_actual,target_level,target_name,
+			target_requested,target_actual,source_value,target_value,fee,
+			account_before,account_after,invariant);
+		Stdio.append_file(ROOT+"/log/fee_log/yushi_change-"+
+			MUD_TIMESD->get_year_month()+".log",line);
+	};
+	if(err)
+		werror("[YUSHI_AUDIT] append failed: %s\n",describe_error(err));
+}
+
 
 string query_can_update(object player)
 {

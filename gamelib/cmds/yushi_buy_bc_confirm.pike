@@ -3,6 +3,10 @@
 #ifndef ITEM_PATH
 #define ITEM_PATH ROOT "/gamelib/clone/item/other/"
 #endif
+private mapping(string:array(int)) shenfu_catalog = ([
+	"qianlichuanyinfu":({2,1}),
+	"mianzhanfu":({1,5}),
+]);
 //实现玉石购买千里音符
 //arg =   name       yushi_rareLevel    need_amount       buy_num
 //     宝石文件名    所需玉石的稀有度   玉石的个数  购买的个数
@@ -18,8 +22,16 @@ int main(string|zero arg)
 	string s = "";
 	string s_log = "";
 	string c_log = "";//统计使用的日志 evan added 2008.07.10
-	sscanf(arg,"%s %d %d %s",bc_name,rarelevel,need_amount,s_buy_num);
-	sscanf(s_buy_num,"no=%d",buy_num);
+	if(!arg || sscanf(arg,"%s %d %d %s",bc_name,rarelevel,
+	   need_amount,s_buy_num)!=4 || sscanf(s_buy_num,"no=%d",buy_num)!=1 ||
+	   !shenfu_catalog[bc_name]){
+		write("商品参数无效，本次没有扣除或发放物品。\n"+
+			"[返回:yushi_buy_shenfu_list]\n[返回游戏:look]\n");
+		return 1;
+	}
+	array(int) product=shenfu_catalog[bc_name];
+	rarelevel=product[0];
+	need_amount=product[1];
 	object bc;
 	string need_yushi = YUSHID->get_yushi_name(rarelevel);
 	int yushi_value = YUSHID->get_yushi_value(rarelevel);
@@ -42,7 +54,11 @@ int main(string|zero arg)
 	*/
 	//必要的判断
 	int res_num = BROADCASTD->query_num(bc_name);
-	if(bc_name=="qianlichuanyinfu" && (buy_num<1 || buy_num>res_num))
+	if(buy_num<1 || buy_num>50)
+		s += "输入有误！购买个数必须在1到50之间\n";
+	else if(bc_name=="mianzhanfu" && me->query_raceId()!="monst")
+		s += "只有妖魔才有权利购买免战符\n";
+	else if(bc_name=="qianlichuanyinfu" && buy_num>res_num)
 		s += "输入有误！千里传音符只剩下"+res_num+"张了，购买个数必须在1到"+res_num+"之间\n";
 	else if(can_num<=0 || can_num<buy_num)
 		s += "身上玉石不够，你无法购买指定数目的神符\n";
@@ -55,11 +71,13 @@ int main(string|zero arg)
 			bc->amount = buy_num;
 			if(me->if_over_load(bc)){
 				s += "你的随身物品已满，无法再装下更多\n";
+				destruct(bc);
 			}
 			else{
 				int cost_reb = need_amount*buy_num*yushi_value;
 				if(!YUSHID->pay_yushi(me,cost_reb)){
 					s += "玉石扣除失败，请稍后再试\n";
+					destruct(bc);
 				}
 				else{
 					s += "交易成功，你获得了"+bc->query_short()+"\n";

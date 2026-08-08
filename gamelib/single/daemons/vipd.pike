@@ -362,6 +362,29 @@ int get_goods_price(string name)
 {
 	return goods_price_map[name];
 }
+
+// 会员商品路径、等级和价格必须来自服务端目录，不能信任确认链接参数。
+int is_free_good(string name,int level)
+{
+	if(level<1 || level>VIP_MAX_LEVEL || !vip_free_list[level])
+		return 0;
+	return has_value(vip_free_list[level],name);
+}
+
+int is_off_good(string name,int level)
+{
+	if(level<1 || level>VIP_MAX_LEVEL || !vip_off_list[level])
+		return 0;
+	return has_value(vip_off_list[level],name);
+}
+
+int query_off_good_price(string name,int level)
+{
+	if(!is_off_good(name,level) || !goods_price_map[name] ||
+	   !vip_off_map[level])
+		return -1;
+	return goods_price_map[name]*vip_off_map[level]/10;
+}
 /*
 方法描述：得到会员【等级\名称】列表
  */
@@ -466,7 +489,7 @@ string display_off_goods(string sub,int lv)
 int if_can_get_freely(object player,object goods,int lv)
 {
 	int re = 4;
-	int mylv = player->query_vip_flag(); 
+	int mylv = query_active_vip_level(player);
 	int vip_max_yao=player->query_max_yao();     
 	if(!mylv)                                  //不是会员
 		return 0;
@@ -534,7 +557,7 @@ string if_can_get_freely_desc(int state,int lv,string name)
 int if_can_get_offly(object player,object goods,int lv)
 {
 	int re = 4;
-	int mylv = player->query_vip_flag(); 
+	int mylv = query_active_vip_level(player);
 	int vip_max_yao=player->query_max_yao();     
 	if(!mylv)                                  //不是会员
 		return 0;

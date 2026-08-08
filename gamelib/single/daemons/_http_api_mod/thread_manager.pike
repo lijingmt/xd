@@ -96,6 +96,7 @@ constant CORE_COMMANDS = ({
 	"married", "marry_divorce",
 	"do_marrage", "do_marriage_yes",
 	"relation", "postcity", "lottery_join_in", "random_award",
+	"qianyuanzhutong",
 	"transfer_to", "catchup_exp_potion",
 
     // ========== 其他 ==========
@@ -112,9 +113,9 @@ constant CORE_COMMAND_PREFIXES = ({
 	"home_", "trade_", "follow_", "spy_", "spec_", "mgr_", "wiz_",
 	"login_", "chatroom_", "city_", "bz_", "bc_", "msg_", "qqlist_",
 	"door_", "fee_exchange_", "lottery_", "transfer_", "tuiguang_",
-	"gift_", "hb_", "vip_", "yushi_", "yblh_", "yuebing_",
-	"user_package_", "account_storage_", "pet_", "wanling_",
-	"add_", "waigua_"
+	"dubo_", "gift_", "hb_", "vip_", "yushi_", "yblh_", "yuebing_",
+	"user_package_", "account_storage_", "pet_", "wanling_", "shzzh_",
+	"add_", "waigua_", "test_", "bx_get_"
 });
 
 constant HTTP_SLOW_COMMAND_MS = 500;

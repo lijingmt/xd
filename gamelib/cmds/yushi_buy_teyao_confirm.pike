@@ -1,6 +1,27 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define TEYAO_PATH ROOT "/gamelib/clone/item/teyao/"
+private mapping(string:array(int)) teyao_catalog = ([
+	"fenshendan":({1,1,0,0}),
+	"huashendan":({1,5,0,0}),
+	"huanshendan":({2,1,0,0}),
+	"yingzhiwan":({1,5,5,1}),
+	"ningliwan":({1,5,5,1}),
+	"lingtuwan":({1,5,5,1}),
+	"guqidan":({1,5,5,1}),
+	"nuhuojiu":({1,2,0,0}),
+	"lieyanjiu":({2,1,0,0}),
+	"tianhuojiu":({2,2,0,0}),
+	"liuxianglu":({1,2,0,0}),
+	"xiannvlu":({2,1,0,0}),
+	"shennvlu":({2,2,0,0}),
+	"jinyulu":({2,7,0,0}),
+	"huoninglu":({1,8,0,0}),
+	"fengxilu":({1,8,0,0}),
+	"bingrongsan":({1,8,0,0}),
+	"duxiaosan":({1,8,0,0}),
+	"wuweisan":({2,4,0,0}),
+]);
 //确认玉石购买的某药品
 //arg =   name       yushi_rareLevel    need_amount       buy_num
 //     药品文件名    所需玉石的稀有度   玉石的个数  购买的个数
@@ -18,7 +39,18 @@ int main(string|zero arg)
 	string s = "";
 	string s_log = "";
 	string c_log = "";//统计使用的日志 evan added 2008.07.10
-	sscanf(arg,"%s %d %d %d %d %s",teyao_name,rarelevel,need_amount,need_money,flag,s_buy_num);
+	if(!arg || sscanf(arg,"%s %d %d %d %d %s",teyao_name,rarelevel,
+	   need_amount,need_money,flag,s_buy_num)!=6 ||
+	   !teyao_catalog[teyao_name]){
+		write("商品参数无效，本次没有扣除或发放物品。\n"+
+			"[返回:yushi_buy_teyao_list exp]\n[返回游戏:look]\n");
+		return 1;
+	}
+	array(int) product=teyao_catalog[teyao_name];
+	rarelevel=product[0];
+	need_amount=product[1];
+	need_money=product[2];
+	flag=product[3];
 	if(flag==0)
 		sscanf(s_buy_num,"no=%d",buy_num);
 	else buy_num = 1;
@@ -65,7 +97,6 @@ int main(string|zero arg)
 				write(s);
 				return 1;
 			}
-			me->get_once_day[teyao_name] = 1;
 		}
 		mixed err;
 		err=catch{
@@ -75,11 +106,13 @@ int main(string|zero arg)
 			teyao->amount = buy_num;
 			if(me->if_over_load(teyao)){
 				s += "你的随身物品已满，无法再装下更多\n";
+				destruct(teyao);
 			}
 			else{
 				int cost_reb = need_amount*buy_num*yushi_value;
 				if(!YUSHID->pay_yushi(me,cost_reb)){
 					s += "玉石扣除失败，请稍后再试\n";
+					destruct(teyao);
 				}
 				else{
 					me->del_account(need_money);
@@ -90,6 +123,8 @@ int main(string|zero arg)
 					//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','teyao','"+cost+"','"+teyao_name+"',"+buy_num+",'"+teyao_namecn+"',"+cost_reb+");\n";
 					c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][teyao]["+teyao_name+"]["+teyao_namecn+"]["+buy_num+"]["+cost_reb+"]["+flag+"]\n";
 					teyao->move_player(me->query_name());
+					if(flag==1)
+						me->get_once_day[teyao_name] = 1;
 				}
 			}
 		}

@@ -14,7 +14,18 @@ int main(string|zero arg)
 	int money = 0;
 	string s ="";
 	string c_log = "";//统计用的日志
-	sscanf(arg,"%s %d %d",roomName,yushi,money);
+	if(!arg || sscanf(arg,"%s %d %d",roomName,yushi,money)!=3){
+		write("购买参数无效。\n[返回:popview]\n[返回游戏:look]\n");
+		return 1;
+	}
+	mapping(string:mixed) offer=HOMED->query_function_room_offer(roomName);
+	if(!sizeof(offer)){
+		write("该功能房不在服务端目录中。\n"+
+			"[返回:popview]\n[返回游戏:look]\n");
+		return 1;
+	}
+	yushi=(int)offer["buy_yushi"];
+	money=(int)offer["buy_money"];
 	object room;
 	if(HOMED->if_can_buy_functionroom(me->query_name())){
 		//达到购买数量上限
@@ -62,7 +73,13 @@ int main(string|zero arg)
 							}
 						}
 						else//添加失败
-							s +="系统有点累了，你的房间并没有添加成功，如有疑问，请与客服联系\n";
+						{
+							if(yushi_t)
+								YUSHID->give_yushi(me,yushi_t);
+							if(money_t)
+								me->add_account(money_t);
+							s +="系统有点累了，你的房间并没有添加成功，费用已经退回\n";
+						}
 						break;
 					default:
 						s += "系统犯晕了，请和管理员联系。\n";

@@ -7,9 +7,20 @@ int main(string|zero arg)
 	object me = this_player();
 	string goods_path= "";
 	int lv = 0;
-	int price = 0;
+	int requested_price = 0;
 	string re = "";
-	sscanf(arg,"%s %d %d",goods_path,lv,price);
+	if(!arg || sscanf(arg,"%s %d %d",goods_path,lv,requested_price)!=3 ||
+	   !VIPD->is_off_good(goods_path,lv)){
+		write("该物品不在会员折扣目录中。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
+	int price=VIPD->query_off_good_price(goods_path,lv);
+	if(price<0){
+		write("会员商品价格异常，请联系管理员。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
 	array(string) tmp = ({});
 	string type = "baoshi";                        //默认的物品类型
 	tmp = goods_path/"/";                          //得到文件所在目录，也就是物品的分类
@@ -17,7 +28,15 @@ int main(string|zero arg)
 	{
 		type=tmp[0];
 	}
-	object goods = clone(ITEM_PATH+goods_path);   //得到商品的相关信息
+	object goods;
+	mixed err=catch{
+		goods=clone(ITEM_PATH+goods_path);
+	};
+	if(err || !goods){
+		write("物品生成失败，请稍后再试。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
 	string goods_name = goods->query_name();
 	goods->set_toVip(1);	
 	string goods_namecn = goods->query_name_cn();
@@ -39,8 +58,16 @@ int main(string|zero arg)
 				break;
 			case 3:
 				goods->move_player(me->query_name());
+				goods=0;
 				string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][vip_off]["+goods_name+"]["+goods_namecn+"][1]["+price+"][0]\n";
-				Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+				mixed log_err=catch{
+					Stdio.append_file(ROOT+"/log/stat/consume/"+
+						GAME_NAME_S+"_consume_"+
+						MUD_TIMESD->get_year_month_day()+".log",c_log);
+				};
+				if(log_err)
+					werror("[VIP_AUDIT] append failed: %s\n",
+						describe_error(log_err));
 				re += "恭喜，你已经获得了"+ goods_namecn +"\n";
 				break;
 			default:
@@ -52,6 +79,8 @@ int main(string|zero arg)
 	{
 		re += VIPD->if_can_get_offly_desc(result,lv,goods_namecn);
 	}
+	if(goods)
+		destruct(goods);
 
 	re += "[继续购买:vip_myzone_off_list "+ type +" "+ lv +"]\n";
 	re += "[返回游戏:look]\n";

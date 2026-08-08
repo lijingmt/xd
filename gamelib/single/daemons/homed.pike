@@ -1604,12 +1604,44 @@ int if_have_function_room(string roomName)
 	}
 	return re;
 }
+
+int is_function_room_name(string roomName)
+{
+	return roomName && has_value(FUNCTION_ROOMS,roomName);
+}
+
+// 功能房买入价和折旧退款只能来自服务端房间模板。
+mapping(string:mixed) query_function_room_offer(string roomName)
+{
+	if(!is_function_room_name(roomName))
+		return ([]);
+	object f_room;
+	mixed err=catch{
+		f_room=(object)(ROOM_PATH+"function/"+roomName);
+	};
+	if(err || !f_room)
+		return ([]);
+	int buy_yushi=(int)f_room->query_priceYushi();
+	int buy_money=(int)f_room->query_priceMoney();
+	return (["room":roomName,"buy_yushi":buy_yushi,
+		"buy_money":buy_money,
+		"sell_yushi":(int)((float)buy_yushi-
+			(float)buy_yushi*DEPR_FEE),
+		"sell_money":(int)((float)buy_money-
+			(float)buy_money*DEPR_FEE)]);
+}
 //添加功能房间
 int add_function_room(string roomName)
 {
 	int re = 0;
+	if(!is_function_room_name(roomName))
+		return 0;
 	object room = environment(this_player());                  //当前所在房间
+	if(!room)
+		return 0;
 	string masterId = room->query_masterId();                  //房间主人ID
+	if(masterId!=this_player()->query_name())
+		return 0;
 	array(string) functionRooms = room->query_functionRoom(); //已有的功能房间
 	
 	int num = sizeof(functionRooms);
@@ -1618,13 +1650,15 @@ int add_function_room(string roomName)
 		//任务1、修改这个home中每个room的functionRooms属性
 		mapping allRooms = existHome[masterId];            //得到这个home中的所有room
 		if(allRooms){
+			home he = homeDetail[masterId];
+			if(!he)
+				return 0;
 			foreach(sort(indices(allRooms)),string room)    //修复所有room的functionRooms属性
 			{
 				object tmp = allRooms[room];
 				tmp->functionRoom+=({roomName});
 			}
 			//任务2、修改homeDetail中相关的信息
-			home he = homeDetail[masterId];
 			he->functionRoom += ({roomName});
 			//任务3、如果添加的是"飞天小屋"，则要赠送一颗"传送神符"。
 			if(roomName =="feitianxiaowu")
@@ -2555,7 +2589,17 @@ int sell_function_room(string roomName,int yushi,int money)
 	int re = 0;
 	object me = this_player();
 	object room = environment(me);                  //当前所在房间
+	if(!me || !room || !is_function_room_name(roomName) ||
+	   roomName=="feitianxiaowu")
+		return 0;
 	string masterId = room->query_masterId();                  //房间主人ID
+	if(masterId!=me->query_name())
+		return 0;
+	mapping(string:mixed) offer=query_function_room_offer(roomName);
+	if(!sizeof(offer))
+		return 0;
+	yushi=(int)offer["sell_yushi"];
+	money=(int)offer["sell_money"];
 	array(string) functionRooms = room->query_functionRoom(); //已有的功能房间
 	
 	int num = sizeof(functionRooms);
@@ -2564,23 +2608,32 @@ int sell_function_room(string roomName,int yushi,int money)
 		//任务1、修改这个home中每个room的functionRooms属性
 		mapping allRooms = existHome[masterId];            //得到这个home中的所有room
 		if(allRooms){
+			home he = homeDetail[masterId];
+			if(!he)
+				return 0;
 			foreach(sort(indices(allRooms)),string room)    //修复所有room的functionRooms属性
 			{
 				object tmp = allRooms[room];
 				tmp->functionRoom -= ({roomName});
 			}
 			//任务2、修改homeDetail中相关的信息
-			home he = homeDetail[masterId];
 			he->functionRoom -= ({roomName});
 			//支付玉石和钱
 			int  rt = YUSHID->give_yushi(me,yushi);
 			if(rt)
 			{
 				if(money){
-					me->account += money*100;
+					me->add_account(money*100);
 				}
 				string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][home_sell]["+roomName+"][][1][-"+yushi+"][0]\n";
-				Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);  
+				mixed log_err=catch{
+					Stdio.append_file(ROOT+"/log/stat/consume/"+
+						GAME_NAME_S+"_consume_"+
+						MUD_TIMESD->get_year_month_day()+".log",c_log);
+				};
+				if(log_err)
+					werror("[HOME_AUDIT] append failed: %s\n",
+						describe_error(log_err));
 
 			}
 			return 1;//删除成功
