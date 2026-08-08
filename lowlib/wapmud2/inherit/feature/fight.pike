@@ -3798,6 +3798,15 @@ private void heart_beat_action(){
 	}
 	if(!in_combat)
 		return;
+	// enemy 可能在心跳间隙被析构（DOT call_out fight_die、他人抢杀、
+	// cleanup 等），此时 in_combat 还是 1 但 enemy 已经是 0。
+	// 没有 NULL 守卫会让 enemy->name 抛 "Indexing the NULL value"，
+	// 整个 heart_beat_action 中断，怪物既不死玩家也不出手 —— 玩家看
+	// 到的就是"零血怪"和"挂不了级"。
+	if(!enemy || !objectp(enemy)){
+		_clean_fight();
+		return;
+	}
 	string cmd,arg;
 	if(action&&sscanf(action,"%s %s",cmd,arg)==0)
 		cmd=action;
@@ -3944,9 +3953,14 @@ int _fight(object _enemy){
 				CITYD->notice_update(notice);
 			}		
 			//组队记录
-			this_object()->term_who_fight_npc = enemy->query_term();
-			//谁先开始的攻击，掉落物品属于谁
-			this_object()->who_fight_npc = enemy->query_name();
+			// enemy 可能在 kill() 流程中被析构（召唤物 kill 链路尤其常见），
+			// 此时 enemy->query_term() 会因为 enemy 为 0 而抛
+			// "Attempt to call the NULL-value"。先校验再取。
+			if(enemy && objectp(enemy)){
+				this_object()->term_who_fight_npc = enemy->query_term();
+				//谁先开始的攻击，掉落物品属于谁
+				this_object()->who_fight_npc = enemy->query_name();
+			}
 		}
 		//敌人的仇恨列表中加入自己
 		this_object()->flush_targets(enemy,1); //初始仇恨值为1
