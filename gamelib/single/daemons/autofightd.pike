@@ -81,6 +81,7 @@ private int server_autofight_inflight_timeouts;
 
 private string normalize_server_autofight_userid(string userid)
 {
+	// 与 HTTP 虚拟连接池使用同一规范键，兼容含大写字母的老账号。
 	return lower_case(String.trim_all_whites(userid || ""));
 }
 

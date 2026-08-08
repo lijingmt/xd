@@ -113,7 +113,7 @@
 
 ## Pass 10 — 发布证明 ✅
 
-- 静态审计脚本：`audit_profession.py wuxiang --require-assets --allow-missing autofight`
+- 静态审计脚本：`python3 scripts/audit_profession.py wuxiang --name-cn 无相 --race third --expect-hidden 3 --require-assets --allow-missing autofight`
   结果 `SUMMARY missing_areas=0`，全部 PASS。
 - TestUnit：60 passed / 0 failed / 4 skipped（包含 22 个 wuxiang
   专项用例 + 5 个其他测试文件因 31→34 池子扩展的同步更新）。

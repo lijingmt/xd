@@ -703,7 +703,8 @@ void test_server_driven_autofight()
 
 	object httpd = HTTP_APID;
 	object player = clone(GAMELIB_USER);
-	string userid = "xd01testunitauditafk";
+	// 老账号可能包含大写字母；虚拟连接池键与挂机调度键必须完全一致。
+	string userid = "xd01TestUnitAuditAFK";
 	player->set_name(userid);
 	player->set_password("testunit-afk");
 	player->set_project("gamelib");
@@ -712,8 +713,13 @@ void test_server_driven_autofight()
 	player->setup_player("human","jianxian");
 	player->move(ROOT+"/gamelib/d/kunlunshan/wuge");
 	httpd->set_virtual_connection(userid,({0,time(),player}));
+	check("HTTP虚拟连接池对混合大小写账号使用同一规范键",
+		httpd->has_virtual_connection(userid)==1 &&
+		httpd->has_virtual_connection(lower_case(userid))==1 &&
+		httpd->get_player_from_connection(lower_case(userid),0)==player,
+		"大小写变体未命中同一虚拟连接");
 	AUTOFIGHTD->start_autofight(player);
-	check("开启挂机后注册服务端全局调度",
+	check("混合大小写账号开启挂机后注册服务端全局调度",
 		AUTOFIGHTD->query_server_autofight_tick_active(player)==1,
 		"服务端调度未激活");
 	int before = AUTOFIGHTD->query_time_left(player);

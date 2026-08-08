@@ -648,16 +648,15 @@ void test_task_and_newbie_recognize_wuxiang()
 
 void test_static_audit_zero_misses()
 {
-	test_start("静态 audit 脚本：wuxiang missing_areas=0");
-	string script_path = ROOT+
-		"/.claude/skills/xiand-new-profession/scripts/audit_profession.py";
+	test_start("静态 audit 脚本随生产镜像发布");
+	string script_path = ROOT + "/scripts/audit_profession.py";
 	int exists = Stdio.file_size(script_path) > 0;
 	if(!exists){
 		test_fail("audit 脚本不存在");
 		return;
 	}
-	// 直接读最近一次重启时的 audit 输出（已通过 --allow-missing autofight 跑过）
-	// 这里只校验关键资产/部署文件齐全：restart-docker.sh 含 wuxiang_logo.gif
+	// 完整 missing_areas 审计在发布前通过 Python 执行；生产 TestUnit
+	// 只校验审计工具已随镜像发布，以及关键资产部署契约仍然齐全。
 	string deploy = Stdio.read_file(ROOT+"/restart-docker.sh");
 	int valid = deploy &&
 		search(deploy,"wuxiang_logo.png")!=-1 &&

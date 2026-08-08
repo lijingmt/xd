@@ -23,6 +23,11 @@
 mapping vconnections = ([ ]);
 Thread.Mutex vconnections_lock = Thread.Mutex();
 
+private string normalize_virtual_connection_userid(string userid)
+{
+    return lower_case(String.trim_all_whites(userid || ""));
+}
+
 // ========================================================================
 // BufferConnection 类
 // ========================================================================
@@ -76,7 +81,8 @@ class BufferConnection {
  */
 mixed get_virtual_connection(string userid)
 {
-    if(!userid) return 0;
+    userid = normalize_virtual_connection_userid(userid);
+    if(userid=="") return 0;
     object key = vconnections_lock->lock();
     mixed result = vconnections[userid];
     if(arrayp(result)){
@@ -99,7 +105,8 @@ mixed get_virtual_connection(string userid)
  */
 void set_virtual_connection(string userid, mixed conn_data)
 {
-    if(!userid) return;
+    userid = normalize_virtual_connection_userid(userid);
+    if(userid=="") return;
     if(!arrayp(conn_data) || sizeof(conn_data)<3 ||
        !objectp(conn_data[2]) ||
        !functionp(conn_data[2]->query_name) ||
@@ -118,7 +125,8 @@ void set_virtual_connection(string userid, mixed conn_data)
  */
 void update_connection_time(string userid)
 {
-    if(!userid) return;
+    userid = normalize_virtual_connection_userid(userid);
+    if(userid=="") return;
     object|zero player = 0;
     object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
@@ -139,7 +147,8 @@ void update_connection_time(string userid)
  */
 object get_player_from_connection(string userid, void|int update_idle_time)
 {
-    if(!userid) return 0;
+    userid = normalize_virtual_connection_userid(userid);
+    if(userid=="") return 0;
 
     object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
@@ -307,7 +316,8 @@ mapping query_connection_status()
  */
 void remove_virtual_connection(string userid)
 {
-    if(!userid) return;
+    userid = normalize_virtual_connection_userid(userid);
+    if(userid=="") return;
     object key = vconnections_lock->lock();
     m_delete(vconnections,userid);
     destruct(key);
@@ -318,7 +328,8 @@ void remove_virtual_connection(string userid)
  */
 int has_virtual_connection(string userid)
 {
-    if(!userid) return 0;
+    userid = normalize_virtual_connection_userid(userid);
+    if(userid=="") return 0;
     object key = vconnections_lock->lock();
     mixed vconn = vconnections[userid];
     int result = vconn != 0 && vconn != UNDEFINED;

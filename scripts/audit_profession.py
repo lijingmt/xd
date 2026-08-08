@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only static coverage audit for a Xiand profession ID."""
+"""Project-level read-only coverage audit for a Xiand profession ID."""
 
 from __future__ import annotations
 

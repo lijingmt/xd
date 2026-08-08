@@ -77,7 +77,7 @@ summary. Preserve runtime data and unrelated user changes. Compare at least one
 physical, one magical, and one special-role profession. Run:
 
 ```bash
-python3 .claude/skills/xiand-new-profession/scripts/audit_profession.py \
+python3 scripts/audit_profession.py \
   zhenyue --name-cn 镇越 --race third --expect-hidden 3 --require-assets
 ```
 

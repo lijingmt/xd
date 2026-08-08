@@ -117,7 +117,8 @@ void test_route_pool_integrity(object player)
 	array(string) failures=({});
 	for(int level=1;level<=70;level++)
 		levels+=({level});
-	levels+=({99,500,989,990,999});
+	// 生产反馈覆盖97/101级混合大小写老账号，显式锁住两个等级路线。
+	levels+=({97,99,101,500,989,990,999});
 	for(int i=0;i<sizeof(races);i++){
 		for(int j=0;j<sizeof(levels);j++){
 			player->set_raceId(races[i]);
