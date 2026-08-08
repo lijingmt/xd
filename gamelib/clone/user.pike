@@ -520,6 +520,8 @@ int save_with_result(void|int autosave){
 	// 从而使整次玩家存档失败。
 	this_object()->links = 0;
 	this_object()->inventory_links = 0;
+	if(YUSHID && functionp(YUSHID->prepare_wallet_payment_player_save))
+		YUSHID->prepare_wallet_payment_player_save(this_object());
 	int save_ok = ::save();
 	// HTTP/Vue 玩家在界面切换时可能短暂不在地图中，不能因此中断存档链。
 	// 玩家对象销毁时 Pike 会自动取消其 call_out。
@@ -1060,6 +1062,85 @@ int remove_combine_item(string name,int count)
 		}
 	}
 	return i;
+}
+
+// 复数物品事务扣除：记录每个堆叠的精确变化，后续发奖或存档失败时
+// 可以恢复原堆叠，而不是用等价物补偿造成面额或物品形态漂移。
+mapping(string:mixed) remove_combine_item_transaction(string name,int count)
+{
+	mapping(string:mixed) state=(["ok":0,"removed":0,"changes":({})]);
+	array(mapping(string:mixed)) changes=({});
+	int remaining=count;
+	if(!name || name=="" || count<=0)
+		return state;
+	foreach(all_inventory(this_object()),object item){
+		int available;
+		int take;
+		mapping(string:mixed) change;
+		if(remaining<=0)
+			break;
+		if(!item || !item->is_combine_item() || item->query_name()!=name)
+			continue;
+		available=(int)item->amount;
+		if(available<=0)
+			continue;
+		take=available;
+		if(take>remaining)
+			take=remaining;
+		change=(["object":item,"path":(file_name(item)/"#")[0],
+			"amount":take,"max_count":(int)item->max_count,
+			"removed":0]);
+		if(take>=available){
+			change["removed"]=1;
+			item->remove();
+		}
+		else
+			item->amount=available-take;
+		changes+=({change});
+		remaining-=take;
+	}
+	state["changes"]=changes;
+	state["removed"]=count-remaining;
+	if(remaining>0){
+		rollback_combine_item_transaction(state);
+		return (["ok":0,"removed":0,"changes":({})]);
+	}
+	state["ok"]=1;
+	return state;
+}
+
+int rollback_combine_item_transaction(mapping(string:mixed) state)
+{
+	int restored_ok=1;
+	array changes;
+	if(!mappingp(state) || !arrayp(state["changes"]))
+		return 0;
+	changes=state["changes"];
+	foreach(changes,mapping change){
+		object item=change["object"];
+		if((int)change["removed"]){
+			mixed err=catch{ item=clone((string)change["path"]); };
+			if(err || !item){
+				restored_ok=0;
+				continue;
+			}
+			item->amount=(int)change["amount"];
+			item->max_count=(int)change["max_count"];
+			if(item->move(this_object())!=1 ||
+			   environment(item)!=this_object()){
+				destruct(item);
+				restored_ok=0;
+			}
+		}
+		else if(item)
+			item->amount=(int)item->amount+(int)change["amount"];
+		else
+			restored_ok=0;
+	}
+	if(!restored_ok)
+		werror("[USER] combine item rollback incomplete player=%s\n",
+			query_name());
+	return restored_ok;
 }
 string query_danyao_effect()
 {

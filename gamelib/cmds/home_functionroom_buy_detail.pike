@@ -3,8 +3,8 @@
 #define FUNCTIONROOM_PATH ROOT "/gamelib/d/home/template/function/"
 int main(string|zero arg)
 {
-	object me = this_player();
 	string roomName = arg;
+	mapping(string:mixed) offer=HOMED->query_function_room_offer(roomName);
 	int yushi = 0;
 	int money = 0;
 	string s = "";
@@ -18,12 +18,14 @@ int main(string|zero arg)
 		return 1;
 	}
 	*/
-	mixed err = catch{
-		room = (object)(FUNCTIONROOM_PATH + roomName);
-	};
+	mixed err;
+	if(sizeof(offer))
+		err = catch{ room = (object)(FUNCTIONROOM_PATH + roomName); };
+	else
+		err = ({"invalid function room"});
 	if(!err && room){
-		yushi = room->query_priceYushi();
-		money = room->query_priceMoney();
+		yushi = (int)offer["buy_yushi"];
+		money = (int)offer["buy_money"];
 		s += room->query_name_cn()+"\n";
 		s += room->query_picture_url()+"\n";
 		s += room->query_desc();

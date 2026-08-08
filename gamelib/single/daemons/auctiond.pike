@@ -12,8 +12,12 @@ object LOG;
 #define TIME_INTERVAL 1200 //每20分钟检查一下拍卖行的情况
 #define FETCH_TIME 604800 //领取时间期限为7天  
 #define VENDUE_TIME 54000 //拍卖时间为15小时
+#define GETBACK_ACTIVE_CLAIM_TTL 120
 
 Sql.Sql db;
+private Thread.Mutex getback_claim_lock = Thread.Mutex();
+private mapping(int:string) active_getback_claims = ([]);
+private mapping(int:int) active_getback_claim_started = ([]);
 //#define GAME_NAME		"xd"//游戏区名
 //string dbSql = "mysql://root:password@game_database:22334/"+GAME_NAME; //远程数据库服务器
 // 从环境变量读取数据库密码
@@ -435,7 +439,9 @@ array(mapping(string:mixed)) query_getback_as_saler(string player_id)
 	//                    2.拍卖成功 rltflag==2
 	//                    3.取消拍卖 rltflag==3
 	array(mapping(string:mixed)) rtn = ({});
-	string querySql = "select * from result_info where saler_id='"+player_id+"' and fetch_status=0";
+	if(!valid_getback_player_id(player_id))
+		return rtn;
+	string querySql = "select * from result_info where saler_id='"+player_id+"' and fetch_status in (0,3)";
 	mixed catchResult = catch{
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
@@ -456,7 +462,9 @@ array(mapping(string:mixed)) query_getback_as_buyer(string player_id)
 	//卖主取回东西的可能有:竞拍失败 rltflag==1
 	//                     竞拍成功 rltflag==2
 	array(mapping(string:mixed)) rtn = ({});
-	string querySql = "select * from result_info where buyer_id='"+player_id+"' and fetch_status=0";
+	if(!valid_getback_player_id(player_id))
+		return rtn;
+	string querySql = "select * from result_info where buyer_id='"+player_id+"' and fetch_status in (0,3)";
 	mixed catchResult = catch{
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
@@ -502,10 +510,19 @@ private string query_getback_kind(mapping(string:mixed) row,
 	return "";
 }
 
-// 领取内容只从 result_info 读取。客户端链接中的文件名、数量和金额
-// 仅为旧版显示参数，绝不能作为实际发奖依据。
-mapping(string:mixed) query_getback_offer(string player_id,int id,
-	string expected_kind)
+int valid_getback_goods_path(string goods_filename)
+{
+	if(!goods_filename ||
+	   !has_prefix(goods_filename,ROOT+"/gamelib/clone/item/") ||
+	   search(goods_filename,"..")!=-1 ||
+	   search(goods_filename,"#")!=-1 ||
+	   search(goods_filename,"\0")!=-1)
+		return 0;
+	return 1;
+}
+
+private mapping(string:mixed) query_getback_offer_status(
+	string player_id,int id,string expected_kind,string status_sql)
 {
 	array(mapping(string:mixed)) rows=({});
 	string kind;
@@ -514,7 +531,7 @@ mapping(string:mixed) query_getback_offer(string player_id,int id,
 	   (expected_kind!="item" && expected_kind!="money"))
 		return (["ok":0,"code":"invalid"]);
 	querySql="select * from result_info where id="+id+
-		" and fetch_status=0 and (saler_id='"+player_id+
+		" and fetch_status "+status_sql+" and (saler_id='"+player_id+
 		"' or buyer_id='"+player_id+"')";
 	mixed err=catch{
 		if(!db)
@@ -534,29 +551,179 @@ mapping(string:mixed) query_getback_offer(string player_id,int id,
 	return offer;
 }
 
-mapping(string:mixed) claim_getback(string player_id,int id,
+// 领取内容只从 result_info 读取。客户端链接中的文件名、数量和金额
+// 仅为旧版显示参数，绝不能作为实际发奖依据。
+mapping(string:mixed) query_getback_offer(string player_id,int id,
 	string expected_kind)
 {
-	mapping(string:mixed) offer=query_getback_offer(player_id,id,
-		expected_kind);
+	return query_getback_offer_status(player_id,id,expected_kind,
+		"in (0,3)");
+}
+
+mapping(string:mixed) prepare_getback_claim(string player_id,int id,
+	string expected_kind,int has_saved_receipt)
+{
+	mapping(string:mixed) offer;
 	array(mapping(string:mixed)) changed=({});
+	object claim_key;
+	int fetch_status;
 	string updateSql;
-	if(!(int)offer["ok"])
+	claim_key=getback_claim_lock->lock();
+	if(active_getback_claims[id]){
+		if(time()-(int)active_getback_claim_started[id]<
+		   GETBACK_ACTIVE_CLAIM_TTL){
+			destruct(claim_key);
+			return (["ok":0,"code":"pending"]);
+		}
+		m_delete(active_getback_claims,id);
+		m_delete(active_getback_claim_started,id);
+	}
+	offer=query_getback_offer_status(player_id,id,expected_kind,
+		"in (0,3)");
+	if(!(int)offer["ok"]){
+		destruct(claim_key);
 		return offer;
+	}
+	fetch_status=(int)offer["fetch_status"];
+	if(fetch_status==3 && has_saved_receipt){
+		active_getback_claims[id]=player_id+"|"+expected_kind;
+		active_getback_claim_started[id]=time();
+		offer["saved_receipt"]=1;
+		destruct(claim_key);
+		return offer;
+	}
+	if(fetch_status!=0 && fetch_status!=3){
+		destruct(claim_key);
+		return (["ok":0,"code":"unavailable"]);
+	}
+	if(fetch_status==0){
+		updateSql="update result_info set fetch_status=3 where id="+id+
+			" and fetch_status=0 and (saler_id='"+player_id+
+			"' or buyer_id='"+player_id+"')";
+	}
+	mixed err=catch{
+		if(fetch_status==0){
+			db->query(updateSql);
+			changed=db->query("select row_count() as changed");
+		}
+	};
+	if(err){
+		destruct(claim_key);
+		return (["ok":0,"code":"service"]);
+	}
+	if(fetch_status==0 &&
+	   (sizeof(changed)!=1 || (int)changed[0]["changed"]!=1)){
+		destruct(claim_key);
+		return (["ok":0,"code":"unavailable"]);
+	}
+	active_getback_claims[id]=player_id+"|"+expected_kind;
+	active_getback_claim_started[id]=time();
+	offer["saved_receipt"]=has_saved_receipt ? 1 : 0;
+	destruct(claim_key);
+	LOG->append_time("[prepare_getback_claim("+player_id+","+id+","+
+		expected_kind+")] [succ]");
+	return offer;
+}
+
+int complete_getback_claim(string player_id,int id,string expected_kind)
+{
+	array(mapping(string:mixed)) changed=({});
+	object claim_key=getback_claim_lock->lock();
+	string updateSql;
+	int ok=0;
+	if(active_getback_claims[id]!=player_id+"|"+expected_kind){
+		destruct(claim_key);
+		return 0;
+	}
 	updateSql="update result_info set fetch_status=1 where id="+id+
-		" and fetch_status=0 and (saler_id='"+player_id+
+		" and fetch_status=3 and (saler_id='"+player_id+
 		"' or buyer_id='"+player_id+"')";
 	mixed err=catch{
 		db->query(updateSql);
 		changed=db->query("select row_count() as changed");
 	};
-	if(err)
-		return (["ok":0,"code":"service"]);
-	if(sizeof(changed)!=1 || (int)changed[0]["changed"]!=1)
-		return (["ok":0,"code":"unavailable"]);
-	LOG->append_time("[claim_getback("+player_id+","+id+","+
-		expected_kind+")] [succ]");
-	return offer;
+	if(!err && sizeof(changed)==1 && (int)changed[0]["changed"]==1)
+		ok=1;
+	m_delete(active_getback_claims,id);
+	m_delete(active_getback_claim_started,id);
+	destruct(claim_key);
+	if(ok)
+		LOG->append_time("[complete_getback_claim("+player_id+","+id+
+			","+expected_kind+")] [succ]");
+	return ok;
+}
+
+int release_getback_claim(string player_id,int id,string expected_kind)
+{
+	array(mapping(string:mixed)) changed=({});
+	object claim_key=getback_claim_lock->lock();
+	string updateSql;
+	int ok=0;
+	if(active_getback_claims[id]!=player_id+"|"+expected_kind){
+		destruct(claim_key);
+		return 0;
+	}
+	updateSql="update result_info set fetch_status=0 where id="+id+
+		" and fetch_status=3 and (saler_id='"+player_id+
+		"' or buyer_id='"+player_id+"')";
+	mixed err=catch{
+		db->query(updateSql);
+		changed=db->query("select row_count() as changed");
+	};
+	if(!err && sizeof(changed)==1 && (int)changed[0]["changed"]==1)
+		ok=1;
+	m_delete(active_getback_claims,id);
+	m_delete(active_getback_claim_started,id);
+	destruct(claim_key);
+	if(!ok)
+		werror("[AUCTIOND] release claim failed player=%s id=%d kind=%s\n",
+			player_id,id,expected_kind);
+	return ok;
+}
+
+// 人物奖励已落盘后，DB 可能已经完成为 1，也可能仍停在预留态 3。
+// 登录后的再次点击用人物收据收尾，避免“奖励安全到账但清理存档失败”
+// 时收据永久残留。状态 0 不在这里推进，防止未预留记录被越级完成。
+int reconcile_getback_claim(string player_id,int id,string expected_kind)
+{
+	mapping(string:mixed) offer;
+	array(mapping(string:mixed)) changed=({});
+	object claim_key=getback_claim_lock->lock();
+	int fetch_status;
+	int ok=0;
+	offer=query_getback_offer_status(player_id,id,expected_kind,
+		"in (1,3)");
+	if(!(int)offer["ok"]){
+		destruct(claim_key);
+		return 0;
+	}
+	fetch_status=(int)offer["fetch_status"];
+	if(fetch_status==1)
+		ok=1;
+	else if(fetch_status==3){
+		string updateSql="update result_info set fetch_status=1 where id="+
+			id+" and fetch_status=3 and (saler_id='"+player_id+
+			"' or buyer_id='"+player_id+"')";
+		mixed err=catch{
+			db->query(updateSql);
+			changed=db->query("select row_count() as changed");
+		};
+		if(!err && sizeof(changed)==1 &&
+		   (int)changed[0]["changed"]==1)
+			ok=1;
+	}
+	if(ok){
+		m_delete(active_getback_claims,id);
+		m_delete(active_getback_claim_started,id);
+	}
+	destruct(claim_key);
+	return ok;
+}
+
+mapping(string:mixed) claim_getback(string player_id,int id,
+	string expected_kind)
+{
+	return (["ok":0,"code":"transaction_required"]);
 }
 
 // 旧接口只保留给历史内部代码；玩家领取命令必须使用上面的归属校验接口。

@@ -33,6 +33,13 @@ string wallet_file(string account_id)
 		account_id+".wallet.json";
 }
 
+string account_file(string account_id)
+{
+	return DATA_ROOT+"accounts/"+
+		account_id[sizeof(account_id)-2..]+"/"+
+		account_id+".json";
+}
+
 void cleanup_player(string userid)
 {
 	string path = player_file(userid);
@@ -92,8 +99,12 @@ int main()
 	mixed err = catch{
 		root_player = create_saved_player(account_id,password,
 			"human","jianxian");
-		root_player->set_all_fee(20);
+		root_player->set_all_fee(200);
 		root_player->save_with_result();
+		check("旧单人物账号无需预先存在分职业索引",
+			Stdio.file_size(account_file(account_id))<=0 &&
+			root_player->query_donation_exp_multiplier()==2,
+			"旧人物在账号索引迁移前无法保留历史捐赠权益");
 		mapping created = ACCOUNT_CHARACTERD->create_character(
 			account_id,"third","fangshi");
 		if(created["ok"])
@@ -115,6 +126,12 @@ int main()
 		check("老账号查询和人物管理不会提前创建钱包文件",
 			empty_balance==0 && Stdio.file_size(wallet_path)<=0,
 			"只读兼容路径写入了共享钱包文件");
+		child_player->set_all_fee(0);
+		ACCOUNT_WALLETD->drop_test_cache(account_id);
+		check("无共享钱包文件的老账号也继承主人物历史捐赠倍数",
+			child_player->query_donation_exp_multiplier()==2 &&
+			Stdio.file_size(wallet_path)<=0,
+			"副职业没有读取账号内旧人物的历史累计捐赠");
 
 		int raw_before = YUSHID->query_physical_all_num(root_player);
 		mixed raw_err = catch{
@@ -169,11 +186,25 @@ int main()
 
 		int child_paid = YUSHID->pay_yushi(child_player,120);
 		int root_paid = YUSHID->pay_yushi(root_player,10);
+		int child_payment_saved=child_player->save_with_result();
+		int root_payment_saved=root_player->save_with_result();
+		int child_payment_finalized=YUSHID->
+			complete_wallet_payment_player_save(child_player);
+		int root_payment_finalized=YUSHID->
+			complete_wallet_payment_player_save(root_player);
+		if(child_payment_finalized)
+			child_player->save_with_result();
+		if(root_payment_finalized)
+			root_player->save_with_result();
 		check("两个职业消费同一余额且人物玉石优先混合扣除",
-			child_paid && root_paid &&
+			child_paid && root_paid && child_payment_saved &&
+			root_payment_saved && child_payment_finalized &&
+			root_payment_finalized &&
 			ACCOUNT_WALLETD->query_balance(root_player)==377 &&
 			ACCOUNT_WALLETD->query_balance(child_player)==377 &&
-			YUSHID->query_physical_all_num(root_player)==0,
+			YUSHID->query_physical_all_num(root_player)==0 &&
+			!sizeof(child_player["/plus/yushi_wallet_payment"] || ([])) &&
+			!sizeof(root_player["/plus/yushi_wallet_payment"] || ([])),
 			"共享扣款、串行余额或混合支付错误");
 
 		give_physical_yushi(child_player,11);
@@ -184,9 +215,12 @@ int main()
 
 		int root_reconciled = ACCOUNT_WALLETD->
 			reconcile_player_login(root_player);
+		child_player->set_all_fee(0);
+		check("账号累计捐赠直接决定所有职业的打怪经验倍数",
+			child_player->query_donation_exp_multiplier()==2,
+			"子职业仍只读取自己人物档案中的累计捐赠");
 		check("累计充值权益同步到在线职业并在其他职业登录时对账",
-			root_reconciled && root_player->query_all_fee()==70 &&
-			child_player->query_all_fee()==70,
+			root_reconciled && root_player->query_all_fee()==250,
 			"账号累计充值权益没有同步");
 
 		mapping wallet = ACCOUNT_WALLETD->query_wallet(root_player);
@@ -194,10 +228,56 @@ int main()
 		check("充值和两个职业消费均有持久化审计流水",
 			wallet["ok"] && wallet["revision"]==3 &&
 			sizeof(transactions)==3 &&
+			sizeof((mapping)wallet["debit_requests"])==0 &&
 			transactions[0]["type"]=="recharge" &&
 			transactions[1]["type"]=="spend" &&
 			transactions[2]["type"]=="spend",
 			"钱包流水或修订号不完整");
+
+		string debit_request=ACCOUNT_WALLETD->new_recharge_request_id();
+		mapping debit_first=ACCOUNT_WALLETD->debit_recharge_once(
+			child_player,50,"testunit_idempotent",debit_request);
+		mapping debit_duplicate=ACCOUNT_WALLETD->debit_recharge_once(
+			child_player,50,"testunit_idempotent",debit_request);
+		int rollback_first=ACCOUNT_WALLETD->rollback_debit_recharge_once(
+			child_player,debit_request,"testunit_idempotent_rollback");
+		int rollback_duplicate=ACCOUNT_WALLETD->rollback_debit_recharge_once(
+			child_player,debit_request,"testunit_idempotent_rollback");
+		check("跨存档共享钱包扣款可重试且回滚只执行一次",
+			debit_first["ok"] && !debit_first["duplicate"] &&
+			debit_duplicate["ok"] && debit_duplicate["duplicate"] &&
+			rollback_first && rollback_duplicate &&
+			ACCOUNT_WALLETD->query_balance(root_player)==377,
+			"幂等扣款发生重复扣除或重复退款");
+
+		string pay_request=ACCOUNT_WALLETD->new_recharge_request_id();
+		int pay_first=YUSHID->pay_yushi_once(child_player,20,pay_request);
+		// 模拟共享钱包已落盘、人物档案仍是扣款前状态的进程退出。
+		give_physical_yushi(child_player,11);
+		int pay_recovered=YUSHID->pay_yushi_once(
+			child_player,20,pay_request);
+		int pay_rolled_back=ACCOUNT_WALLETD->rollback_debit_recharge_once(
+			child_player,pay_request,"testunit_payment_rollback");
+		check("人物存档退出重试不会重复扣除共享钱包",
+			pay_first && pay_recovered && pay_rolled_back &&
+			YUSHID->query_physical_all_num(child_player)==0 &&
+			ACCOUNT_WALLETD->query_balance(root_player)==377,
+			"人物与钱包跨存档恢复发生双扣或少扣");
+
+		string crash_request=ACCOUNT_WALLETD->new_recharge_request_id();
+		child_player["/plus/yushi_wallet_payment"]=(
+			["phase":"prepared","request_id":crash_request,
+			 "wallet_amount":10,"total_amount":10,
+			 "created_at":time()]);
+		int crash_marker_saved=child_player->save_with_result();
+		mapping crash_debit=ACCOUNT_WALLETD->debit_recharge_once(
+			child_player,10,"yushi_purchase",crash_request);
+		int crash_recovered=YUSHID->reconcile_wallet_payment(child_player);
+		check("钱包已扣而人物奖励未落盘的退出窗口自动退款",
+			crash_marker_saved && crash_debit["ok"] && crash_recovered &&
+			ACCOUNT_WALLETD->query_balance(root_player)==377 &&
+			!sizeof(child_player["/plus/yushi_wallet_payment"] || ([])),
+			"prepared 恢复凭据没有回滚共享钱包扣款");
 
 		concurrent_debit_results = ({});
 		object debit_one = Thread.Thread(run_concurrent_debit,
@@ -242,6 +322,10 @@ int main()
 			ROOT+"/gamelib/cmds/yushi_add_fee.pike") || "";
 		string api_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/account_characters.pike") || "";
+		string user_source = Stdio.read_file(ROOT+
+			"/gamelib/clone/user.pike") || "";
+		string yushid_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/yushid.pike") || "";
 		string vue_source = Stdio.read_file(ROOT+
 			"/vue_source/index.html") || "";
 		check("管理充值有权限、二次确认、幂等钱包且旧铸币入口封闭",
@@ -255,6 +339,14 @@ int main()
 			search(api_source,"shared_recharge_balance")!=-1 &&
 			search(vue_source,"注册账号共享充值余额")!=-1,
 			"多职业平台没有向玩家说明余额归属");
+		check("人物存档不跨账号索引与钱包锁清理凭据",
+			search(user_source,"prepare_wallet_payment_player_save")!=-1 &&
+			search(user_source,"complete_wallet_payment_player_save")==-1 &&
+			search(yushid_source,
+				"commit_wallet_payment_after_command")!=-1 &&
+			search(yushid_source,
+				"complete_wallet_payment_player_save(player)")!=-1,
+			"任意存档路径仍可能形成 account-wallet-account 锁环");
 
 		array(string) compile_paths = ({
 			"/gamelib/single/daemons/account_walletd.pike",

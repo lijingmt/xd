@@ -16,11 +16,14 @@ inherit LOW_DAEMON;
 #define ACCOUNT_WALLET_MAX_TRANSACTIONS 200
 #define ACCOUNT_WALLET_MAX_FILE_SIZE (512*1024)
 #define ACCOUNT_WALLET_CACHE_LIMIT 1024
+#define ACCOUNT_LEGACY_FEE_CACHE_TTL 300
 #define ACCOUNT_WALLET_REQUEST_TTL 1800
 #define ACCOUNT_WALLET_MAX_REQUESTS 256
+#define ACCOUNT_WALLET_MAX_DEBIT_REQUESTS 64
 
 private Thread.Mutex account_wallet_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_wallet_cache = ([]);
+private mapping(string:mapping(string:int)) account_legacy_fee_cache = ([]);
 
 private void cache_wallet_unlocked(string account_id,mapping record)
 {
@@ -90,8 +93,22 @@ private mapping(string:mixed) empty_wallet(string account_id)
 		"updated_at":0,
 		"transactions":({}),
 		"recharge_requests":([]),
+		"debit_requests":([]),
 		"persisted":0,
 	]);
+}
+
+private int valid_debit_receipt(string request_id,mapping receipt)
+{
+	if(!valid_wallet_txid(request_id) || !mappingp(receipt) ||
+	   !valid_wallet_userid((string)receipt["character_id"]) ||
+	   !intp(receipt["amount"]) || (int)receipt["amount"]<=0 ||
+	   (int)receipt["amount"]>ACCOUNT_WALLET_MAX_BALANCE ||
+	   !intp(receipt["created_at"]) ||
+	   (int)receipt["created_at"]<=0 ||
+	   !valid_wallet_text((string)(receipt["reason"] || ""),128))
+		return 0;
+	return 1;
 }
 
 private int valid_recharge_receipt(string request_id,mapping receipt)
@@ -143,6 +160,7 @@ private int valid_wallet_record(mapping record,string account_id)
 {
 	array transactions;
 	mapping recharge_requests;
+	mapping debit_requests;
 	if(!mappingp(record) || record["account_id"]!=account_id ||
 	   (int)record["version"]!=ACCOUNT_WALLET_VERSION ||
 	   !intp(record["revision"]) || (int)record["revision"]<0 ||
@@ -152,13 +170,17 @@ private int valid_wallet_record(mapping record,string account_id)
 	   (int)record["total_recharge_fee"]<0 ||
 	   (int)record["total_recharge_fee"]>ACCOUNT_WALLET_MAX_BALANCE ||
 	   !arrayp(record["transactions"]) ||
-	   !mappingp(record["recharge_requests"]))
+	   !mappingp(record["recharge_requests"]) ||
+	   !mappingp(record["debit_requests"]))
 		return 0;
 	transactions = record["transactions"];
 	recharge_requests = record["recharge_requests"];
+	debit_requests = record["debit_requests"];
 	if(sizeof(transactions)>ACCOUNT_WALLET_MAX_TRANSACTIONS)
 		return 0;
 	if(sizeof(recharge_requests)>ACCOUNT_WALLET_MAX_REQUESTS)
+		return 0;
+	if(sizeof(debit_requests)>ACCOUNT_WALLET_MAX_DEBIT_REQUESTS)
 		return 0;
 	foreach(transactions,mixed one)
 		if(!mappingp(one) || !valid_wallet_transaction((mapping)one))
@@ -167,6 +189,11 @@ private int valid_wallet_record(mapping record,string account_id)
 		if(!mappingp(recharge_requests[request_id]) ||
 		   !valid_recharge_receipt(request_id,
 			(mapping)recharge_requests[request_id]))
+			return 0;
+	foreach(indices(debit_requests),string request_id)
+		if(!mappingp(debit_requests[request_id]) ||
+		   !valid_debit_receipt(request_id,
+			(mapping)debit_requests[request_id]))
 			return 0;
 	return 1;
 }
@@ -182,6 +209,9 @@ private mapping(string:mixed)|zero decode_wallet_file(string path,
 		return 0;
 	source = Stdio.read_file(path);
 	err = catch{ decoded = Standards.JSON.decode(source); };
+	// v1 早期钱包没有幂等消费凭据；缺字段等价于空集合。
+	if(!err && mappingp(decoded) && !mappingp(decoded["debit_requests"]))
+		decoded["debit_requests"] = ([]);
 	if(err || !mappingp(decoded) ||
 	   !valid_wallet_record((mapping)decoded,account_id))
 		return 0;
@@ -278,6 +308,23 @@ private string resolve_player_account(object player)
 	return account_id;
 }
 
+// 仅供已经完成登录校验的只读权益热路径使用。充值、消费和退款继续
+// 使用上面的严格归属检查，不能以此入口改变钱包余额。
+private string resolve_player_account_for_entitlement(object player)
+{
+	string character_id;
+	string account_id;
+	if(!player || !functionp(player->query_name) ||
+	   !functionp(player->query_account_owner))
+		return "";
+	character_id=(string)player->query_name();
+	account_id=(string)player->query_account_owner();
+	if(!valid_wallet_userid(character_id) ||
+	   !valid_wallet_userid(account_id))
+		return "";
+	return account_id;
+}
+
 string new_recharge_request_id()
 {
 	return sprintf("%010d",time())+
@@ -369,6 +416,25 @@ private int query_existing_account_fee(string account_id)
 	return result;
 }
 
+// 调用方已持有 account_wallet_lock。
+private int query_legacy_account_fee_unlocked(string account_id)
+{
+	mapping(string:int)|zero cached_fee=
+		account_legacy_fee_cache[account_id];
+	if(cached_fee && (int)cached_fee["expires_at"]>time())
+		return (int)cached_fee["fee"];
+	int legacy_fee=query_existing_account_fee(account_id);
+	if(!account_legacy_fee_cache[account_id] &&
+	   sizeof(account_legacy_fee_cache)>=ACCOUNT_WALLET_CACHE_LIMIT){
+		array(string) cached_ids=indices(account_legacy_fee_cache);
+		if(sizeof(cached_ids))
+			m_delete(account_legacy_fee_cache,cached_ids[0]);
+	}
+	account_legacy_fee_cache[account_id]=(["fee":legacy_fee,
+		"expires_at":time()+ACCOUNT_LEGACY_FEE_CACHE_TTL]);
+	return legacy_fee;
+}
+
 private void sync_online_recharge_total(object target,string account_id,
 	int total_fee)
 {
@@ -444,6 +510,53 @@ int query_balance(object player)
 {
 	mapping status = query_wallet(player);
 	return status["ok"] ? (int)status["balance"] : 0;
+}
+
+// 打怪热路径只读取已缓存/已持久化的账号累计充值；钱包不存在或损坏
+// 时安全回退到人物自身 all_fee，不改变旧单人物账号语义。
+int query_total_recharge_fee(object player)
+{
+	string account_id;
+	int personal_fee = 0;
+	int total_fee;
+	int legacy_fee;
+	mapping(string:mixed)|zero record;
+	mapping(string:int)|zero cached_fee;
+	object key;
+	if(player && functionp(player->query_all_fee))
+		personal_fee = (int)player->query_all_fee();
+	account_id = resolve_player_account_for_entitlement(player);
+	if(account_id=="")
+		return personal_fee;
+	key = account_wallet_lock->lock();
+	// 热路径不复制最多 200 条钱包流水。已缓存钱包只读累计值；没有
+	// 钱包的旧账号则直接命中短期历史权益缓存，避免每次击杀 stat 文件。
+	if(account_wallet_cache[account_id])
+		total_fee=(int)account_wallet_cache[account_id][
+			"total_recharge_fee"];
+	else{
+		cached_fee=account_legacy_fee_cache[account_id];
+		if(cached_fee && (int)cached_fee["expires_at"]>time()){
+			total_fee=(int)cached_fee["fee"];
+			destruct(key);
+			return total_fee>personal_fee ? total_fee : personal_fee;
+		}
+		record = load_wallet_unlocked(account_id);
+		if(record)
+			total_fee = (int)record["total_recharge_fee"];
+	}
+	if(total_fee<=0 && (record || account_wallet_cache[account_id])){
+		// 旧账号在共享钱包上线前只有各人物档案中的 all_fee。
+		// 钱包尚无累计值时低频聚合一次账号人物，避免在打怪热路径
+		// 每次扫描磁盘，同时确保副职业继承主职业的历史捐赠权益。
+		legacy_fee=query_legacy_account_fee_unlocked(account_id);
+		if(legacy_fee>total_fee)
+			total_fee = legacy_fee;
+	}
+	destruct(key);
+	if(total_fee>personal_fee)
+		return total_fee;
+	return personal_fee;
 }
 
 mapping(string:mixed) credit_recharge_once(object player,int fee,
@@ -582,6 +695,143 @@ int debit_recharge(object player,int amount,string reason)
 	return 1;
 }
 
+// 跨人物/家园等多存档事务使用的幂等扣款。相同 request_id 只扣一次，
+// 调用方完成自己的持久化后再 forget；失败回滚则使用 rollback。
+mapping(string:mixed) debit_recharge_once(object player,int amount,
+	string reason,string request_id)
+{
+	string account_id = resolve_player_account(player);
+	string character_id;
+	mapping(string:mixed)|zero record;
+	mapping receipt;
+	object key;
+	if(account_id=="" || amount<=0 ||
+	   !valid_wallet_txid(request_id) ||
+	   !valid_wallet_text(reason || "",128))
+		return (["ok":0,"message":"共享充值扣款参数无效"]);
+	character_id = player->query_name();
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"共享充值钱包数据异常"]);
+	}
+	receipt = record["debit_requests"][request_id];
+	if(receipt){
+		int matched = receipt["character_id"]==character_id &&
+			(int)receipt["amount"]==amount && receipt["reason"]==reason;
+		mapping result = ([
+			"ok":matched,
+			"duplicate":matched,
+			"amount":matched ? amount : 0,
+			"balance":(int)record["balance"],
+			"message":matched ? "" : "共享充值扣款请求编号冲突",
+		]);
+		destruct(key);
+		return result;
+	}
+	if(sizeof((mapping)record["debit_requests"])>=
+	   ACCOUNT_WALLET_MAX_DEBIT_REQUESTS){
+		destruct(key);
+		return (["ok":0,"message":"账号待确认扣款过多，请稍后重试"]);
+	}
+	if((int)record["balance"]<amount){
+		destruct(key);
+		return (["ok":0,"message":"共享充值余额不足"]);
+	}
+	record["balance"] = (int)record["balance"]-amount;
+	record["revision"] = (int)record["revision"]+1;
+	record["debit_requests"][request_id] = ([
+		"character_id":character_id,
+		"amount":amount,
+		"reason":reason,
+		"created_at":time(),
+	]);
+	append_transaction(record,"spend",character_id,amount,0,"system",
+		reason,request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return (["ok":0,"message":"共享充值钱包保存失败，本次未扣款"]);
+	}
+	int balance = (int)record["balance"];
+	destruct(key);
+	log_wallet(account_id,character_id,"spend_once",amount,balance,"system");
+	return (["ok":1,"duplicate":0,"amount":amount,
+		"balance":balance,"message":""]);
+}
+
+int rollback_debit_recharge_once(object player,string request_id,
+	string reason)
+{
+	string account_id = resolve_player_account(player);
+	string character_id;
+	mapping(string:mixed)|zero record;
+	mapping receipt;
+	object key;
+	if(account_id=="" || !valid_wallet_txid(request_id) ||
+	   !valid_wallet_text(reason || "",128))
+		return 0;
+	character_id = player->query_name();
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return 0;
+	}
+	receipt = record["debit_requests"][request_id];
+	if(!receipt){
+		destruct(key);
+		return 1;
+	}
+	if(receipt["character_id"]!=character_id ||
+	   (int)record["balance"]>ACCOUNT_WALLET_MAX_BALANCE-
+	   (int)receipt["amount"]){
+		destruct(key);
+		return 0;
+	}
+	int amount = (int)receipt["amount"];
+	record["balance"] = (int)record["balance"]+amount;
+	record["revision"] = (int)record["revision"]+1;
+	m_delete(record["debit_requests"],request_id);
+	append_transaction(record,"refund",character_id,amount,0,"system",
+		reason,request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return 0;
+	}
+	int balance = (int)record["balance"];
+	destruct(key);
+	log_wallet(account_id,character_id,"rollback_once",amount,balance,
+		"system");
+	return 1;
+}
+
+int forget_debit_recharge_once(object player,string request_id)
+{
+	string account_id = resolve_player_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(account_id=="" || !valid_wallet_txid(request_id))
+		return 0;
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return 0;
+	}
+	if(!record["debit_requests"][request_id]){
+		destruct(key);
+		return 1;
+	}
+	m_delete(record["debit_requests"],request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return 0;
+	}
+	destruct(key);
+	return 1;
+}
+
 int refund_recharge(object player,int amount,string reason)
 {
 	string account_id = resolve_player_account(player);
@@ -639,6 +889,7 @@ void drop_test_cache(string account_id)
 		return;
 	key = account_wallet_lock->lock();
 	m_delete(account_wallet_cache,account_id);
+	m_delete(account_legacy_fee_cache,account_id);
 	destruct(key);
 }
 
@@ -655,5 +906,6 @@ void remove_test_wallet(string account_id)
 	rm(path+".bak");
 	rm(path+".bak.tmp");
 	m_delete(account_wallet_cache,account_id);
+	m_delete(account_legacy_fee_cache,account_id);
 	destruct(key);
 }

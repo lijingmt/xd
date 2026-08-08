@@ -160,6 +160,8 @@ int setup(string arg){
 	object account_characterd;
 	object account_storaged;
 	object account_walletd;
+	object yushid;
+	object homed;
 	object petd;
 	object account_runtime_key;
 	object http_api_daemon;
@@ -191,6 +193,17 @@ int setup(string arg){
 		   account_walletd->reconcile_player_login))
 			account_login_ready = account_walletd->
 				reconcile_player_login(this_object());
+		yushid = (object)(ROOT+
+			"/gamelib/single/daemons/yushid.pike");
+		if(account_login_ready && yushid && functionp(
+		   yushid->reconcile_wallet_payment))
+			account_login_ready = yushid->
+				reconcile_wallet_payment(this_object());
+		homed = (object)(ROOT+"/gamelib/single/daemons/homed.pike");
+		if(account_login_ready && homed && functionp(
+		   homed->reconcile_function_room_transaction))
+			account_login_ready = homed->
+				reconcile_function_room_transaction(this_object());
 		petd = (object)(ROOT+
 			"/gamelib/single/daemons/petd.pike");
 		if(account_login_ready && petd && functionp(
@@ -204,7 +217,7 @@ int setup(string arg){
 	if(!account_login_ready){
 		if(account_runtime_key)
 			destruct(account_runtime_key);
-		write("同一注册账号的旧人物保存失败，请稍后重试。\n");
+		write("账号共享数据或待完成交易恢复失败，请稍后重试。\n");
 		return 0;
 	}
 	first_login=login_time=update_time=reconnect_time=last_activity_time=time();

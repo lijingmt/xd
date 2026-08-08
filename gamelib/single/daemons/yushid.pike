@@ -214,6 +214,124 @@ int have_enough_yushi(object player,int num)
 		return 0;
 	return query_all_num(player) >= num;
 }
+
+private mapping query_pending_wallet_payment(object player)
+{
+	mapping payment;
+	if(!player)
+		return ([]);
+	payment=player["/plus/yushi_wallet_payment"];
+	return mappingp(payment) ? payment : ([]);
+}
+
+private void set_pending_wallet_payment(object player,mapping payment)
+{
+	player["/plus/yushi_wallet_payment"]=payment;
+}
+
+private int valid_wallet_payment_request(string request_id)
+{
+	if(!request_id || sizeof(request_id)!=64)
+		return 0;
+	for(int i=0;i<sizeof(request_id);i++){
+		int one=request_id[i];
+		if((one>='0' && one<='9') || (one>='a' && one<='f'))
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+// user.save_with_result 在真正序列化前调用。charged 只有内存态，
+// 这里把它与调用方刚发放的商品/权益一起写成 committed。
+void prepare_wallet_payment_player_save(object player)
+{
+	mapping payment=query_pending_wallet_payment(player);
+	if(sizeof(payment) && payment["phase"]=="charged"){
+		payment["phase"]="committed";
+		set_pending_wallet_payment(player,payment);
+	}
+}
+
+// 玩家与奖励已经原子写入后，共享钱包幂等凭据才可删除。
+// 这个步骤只能由延迟提交回调或登录恢复调用，不能嵌在任意人物存档
+// 里面，否则账号索引正在保存时会形成 account -> wallet -> account 锁环。
+// 返回 1 表示人物还需要补写一次，以清除 committed 标记。
+int complete_wallet_payment_player_save(object player)
+{
+	mapping payment=query_pending_wallet_payment(player);
+	string request_id=(string)(payment["request_id"] || "");
+	if(!sizeof(payment) || payment["phase"]!="committed")
+		return 0;
+	if(!valid_wallet_payment_request(request_id) ||
+	   !ACCOUNT_WALLETD->forget_debit_recharge_once(player,request_id))
+		return 0;
+	set_pending_wallet_payment(player,([]));
+	return 1;
+}
+
+private void commit_wallet_payment_after_command(object player,
+	string request_id)
+{
+	mapping payment;
+	if(!player)
+		return;
+	payment=query_pending_wallet_payment(player);
+	if((string)payment["request_id"]!=request_id ||
+	   (payment["phase"]!="charged" && payment["phase"]!="committed"))
+		return;
+	if(payment["phase"]=="charged" &&
+	   (!functionp(player->save_with_result) ||
+	    !player->save_with_result())){
+		werror("[YUSHID] 共享钱包购买延迟提交失败: %s %s\n",
+			player->query_name(),request_id);
+		return;
+	}
+	// 第一份人物存档已经同时包含奖励和 committed 凭据。先清理钱包
+	// 收据，再补写人物标记；任一步退出都能由 committed 登录恢复重试。
+	if(!complete_wallet_payment_player_save(player)){
+		werror("[YUSHID] 共享钱包购买凭据清理失败: %s %s\n",
+			player->query_name(),request_id);
+		return;
+	}
+	if(!player->save_with_result())
+		werror("[YUSHID] 共享钱包购买标记清理存档失败: %s %s\n",
+			player->query_name(),request_id);
+}
+
+int reconcile_wallet_payment(object player)
+{
+	mapping payment=query_pending_wallet_payment(player);
+	string phase;
+	string request_id;
+	if(!sizeof(payment))
+		return 1;
+	phase=(string)payment["phase"];
+	request_id=(string)(payment["request_id"] || "");
+	if(!valid_wallet_payment_request(request_id)){
+		werror("[YUSHID] 玩家共享钱包购买凭据损坏: %s\n",
+			player ? player->query_name() : "unknown");
+		return 0;
+	}
+	if(phase=="prepared"){
+		if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(player,
+		   request_id,"yushi_purchase_crash_rollback"))
+			return 0;
+	}
+	else if(phase=="committed"){
+		if(!ACCOUNT_WALLETD->forget_debit_recharge_once(player,
+		   request_id))
+			return 0;
+	}
+	else{
+		werror("[YUSHID] 玩家共享钱包购买阶段无效: %s %s\n",
+			player->query_name(),phase);
+		return 0;
+	}
+	set_pending_wallet_payment(player,([]));
+	return functionp(player->save_with_result) &&
+		player->save_with_result();
+}
 /*
    方法描述：扣出玩家身上的玉石
        变量：player    玩家
@@ -224,6 +342,7 @@ int have_enough_yushi(object player,int num)
  */
 int pay_yushi(object player,int num)
 {
+	array(mapping(string:mixed)) removals=({});
 	if(num < 0 || !have_enough_yushi(player,num))//如果玉石不够支付，直接返回失败
 		return 0;
 
@@ -236,30 +355,56 @@ int pay_yushi(object player,int num)
 	if(physical_total < num)
 	{
 		int wallet_need = num-physical_total;
-		int removed_value = 0;
-		if(!ACCOUNT_WALLETD->debit_recharge(
-		   player,wallet_need,"yushi_purchase"))
+		string request_id;
+		if(sizeof(query_pending_wallet_payment(player)))
 			return 0;
+		request_id=ACCOUNT_WALLETD->new_recharge_request_id();
+		set_pending_wallet_payment(player,(["phase":"prepared",
+			"request_id":request_id,"wallet_amount":wallet_need,
+			"total_amount":num,"created_at":time()]));
+		if(!functionp(player->save_with_result) ||
+		   !player->save_with_result()){
+			set_pending_wallet_payment(player,([]));
+			return 0;
+		}
+		mapping debit=ACCOUNT_WALLETD->debit_recharge_once(player,
+			wallet_need,"yushi_purchase",request_id);
+		if(!(int)debit["ok"]){
+			set_pending_wallet_payment(player,([]));
+			player->save_with_result();
+			return 0;
+		}
 		for(int m=1;m<6;m++)
 		{
 			int have = query_yushi_num(player,m);
 			if(have<=0)
 				continue;
-			int removed = player->remove_combine_item(
-				get_yushi_name(m),have);
-			if(removed>0)
-				removed_value += removed*rarelevel_value[m];
+			mapping(string:mixed) removal=
+				player->remove_combine_item_transaction(
+					get_yushi_name(m),have);
+			int removed=(int)removal["removed"];
+			if(removal["ok"])
+				removals+=({removal});
 			if(removed!=have)
 			{
-				if(removed_value>0)
-					give_yushi(player,removed_value);
-				if(!ACCOUNT_WALLETD->refund_recharge(
-				   player,wallet_need,"yushi_purchase_rollback"))
+				for(int r=sizeof(removals)-1;r>=0;r--)
+					player->rollback_combine_item_transaction(
+						removals[r]);
+				if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(
+				   player,request_id,"yushi_purchase_rollback"))
 					werror("[YUSHID] 共享充值余额回滚失败: %s %d\n",
 						player->query_name(),wallet_need);
+				else{
+					set_pending_wallet_payment(player,([]));
+					player->save_with_result();
+				}
 				return 0;
 			}
 		}
+		mapping payment=query_pending_wallet_payment(player);
+		payment["phase"]="charged";
+		set_pending_wallet_payment(player,payment);
+		call_out(commit_wallet_payment_after_command,0,player,request_id);
 		tell_object(player,"已优先使用当前人物玉石，不足部分从账号共享充值余额扣除。\n");
 		return 1;
 	}
@@ -312,9 +457,17 @@ int pay_yushi(object player,int num)
 		if(remove_num[m] > 0)
 		{
 			string yushi = get_yushi_name(m);
-			int re_num = player->remove_combine_item(yushi,remove_num[m]);
-			if(re_num != remove_num[m])
+			mapping(string:mixed) removal=
+				player->remove_combine_item_transaction(
+					yushi,remove_num[m]);
+			if(!(int)removal["ok"] ||
+			   (int)removal["removed"]!=remove_num[m]){
+				for(int r=sizeof(removals)-1;r>=0;r--)
+					player->rollback_combine_item_transaction(
+						removals[r]);
 				return 0;
+			}
+			removals+=({removal});
 		}
 	}
 
@@ -323,6 +476,52 @@ int pay_yushi(object player,int num)
 		give_yushi(player,change);
 		tell_object(player,"系统已自动兑换玉石，并找回"+get_yushi_for_desc(change)+"。\n");
 	}
+	return 1;
+}
+
+// 需要跨多个存档提交的购买使用此入口。只有涉及共享充值钱包时才
+// 使用 request_id 幂等扣款；纯人物玉石仍走上面的历史兑换算法。
+int pay_yushi_once(object player,int num,string request_id)
+{
+	array(mapping(string:mixed)) removals=({});
+	if(num<0)
+		return 0;
+	if(num==0)
+		return 1;
+	int physical_total=query_physical_all_num(player);
+	if(physical_total>=num)
+		return pay_yushi(player,num);
+	int wallet_need=num-physical_total;
+	mapping debit=ACCOUNT_WALLETD->debit_recharge_once(player,
+		wallet_need,"home_function_room_purchase",request_id);
+	if(!(int)debit["ok"])
+		return 0;
+	for(int level=1;level<6;level++){
+		int have=query_yushi_num(player,level);
+		if(have<=0)
+			continue;
+		mapping(string:mixed) removal=
+			player->remove_combine_item_transaction(
+				get_yushi_name(level),have);
+		if((int)removal["ok"])
+			removals+=({removal});
+		if(!(int)removal["ok"] || (int)removal["removed"]!=have){
+			int rollback_ok=1;
+			for(int index=sizeof(removals)-1;index>=0;index--)
+				if(!player->rollback_combine_item_transaction(
+				   removals[index]))
+					rollback_ok=0;
+			if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(
+			   player,request_id,"home_function_room_payment_failed"))
+				rollback_ok=0;
+			if(!rollback_ok)
+				werror("[YUSHID] 功能房幂等支付回滚失败: %s %d\n",
+					player->query_name(),num);
+			return 0;
+		}
+	}
+	tell_object(player,
+		"已优先使用当前人物玉石，不足部分从账号共享充值余额扣除。\n");
 	return 1;
 }
 
