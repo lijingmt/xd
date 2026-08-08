@@ -634,19 +634,28 @@ void test_server_driven_autofight()
 		frontend && search(frontend,"visibilityState === 'hidden'")==-1 &&
 		search(frontend,"服务端主 Backend 推进")!=-1,
 		"visibilitychange 仍会清除挂机计时器");
-	check("前端不再用 setInterval 驱动 flushview",
-		frontend && search(frontend,"this.runAutofightTick();\n                    }, 1000")==-1,
-		"挂机仍依赖浏览器定时器");
+	check("前端定时器只拉取快照、不再驱动 flushview",
+		frontend && search(frontend,"/api/autofight_view?")!=-1 &&
+		search(frontend,"sendJsonCommand('flushview')")==-1,
+		"挂机画面仍执行世界命令或缺少快照接口");
 	check("服务端挂机调度和轻量 ping 路由存在",
 		daemon && http &&
 		search(daemon,"run_server_autofight_tick")!=-1 &&
-		search(daemon,
-			"execute_core_command(userid,\"\",\"flushview\")")!=-1 &&
+		search(daemon,"execute_core_command(")!=-1 &&
+		search(daemon,"userid,\"\",\"flushview\"")!=-1 &&
 		search(daemon,"query_password(),\"flushview\"")==-1 &&
 		search(http,"case \"/api/ping\"")!=-1 &&
 		search(frontend,"/api/ping?txd=")!=-1 &&
 		search(frontend,"&cmd=look';")==-1,
 		"后台推进或无副作用保活缺失");
+	check("服务端缓存挂机画面并通过只读接口返回",
+		daemon && http &&
+		search(daemon,"record_server_autofight_view")!=-1 &&
+		search(daemon,"query_server_autofight_view")!=-1 &&
+		search(daemon,"query_server_autofight_view_generation")!=-1 &&
+		search(http,"case \"/api/autofight_view\"")!=-1 &&
+		search(http,"parse_mud_to_json(output,txd,userid)")!=-1,
+		"挂机输出仍被丢弃或只读画面接口未接线");
 
 	object httpd = HTTP_APID;
 	object player = clone(GAMELIB_USER);

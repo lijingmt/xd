@@ -272,8 +272,10 @@ createApp({
             equipmentSelectedSlot: 'armor_head',
             equipmentActionBusy: '',
             statsInterval: null,  // 状态更新定时器
-            autofightInterval: null,  // 自动战斗定时器
-            autofightTickInFlight: false,  // 防止慢请求造成挂机指令重叠
+            autofightInterval: null,  // 挂机画面同步定时器（不推进战斗）
+            autofightTickInFlight: false,  // 防止慢请求造成画面同步重叠
+            autofightViewSequence: 0,  // 服务端挂机画面版本，防止重复渲染
+            autofightViewGeneration: '',  // 服务端重启后允许序号从头同步
             lastCommand: 'look',  // 上一次执行的命令，默认是look
             pendingRequests: {},  // 正在进行的异步请求
             useAsyncMode: false,  // 是否使用异步模式（同步更快，无轮询开销）
@@ -1419,6 +1421,8 @@ createApp({
         invalidateCharacterSessionRequests() {
             this.characterSessionEpoch += 1;
             this.autofightTickInFlight = false;
+            this.autofightViewSequence = 0;
+            this.autofightViewGeneration = '';
             this.battleStatusLoading = false;
             this.mudLoading = false;
             this.smoothOutputLoading = false;
@@ -3190,20 +3194,82 @@ createApp({
         },
 
         async runAutofightTick() {
-            // 自动挂机由服务端主 Backend 推进。保留此方法供旧调用兼容，
-            // 这里只刷新展示状态，不再让浏览器计时器决定是否继续战斗。
-            if (!this.txd || this.showLogin || this.showCharacterSelect) return;
-            await this.fetchPlayerStats();
+            // 自动挂机由服务端主 Backend 推进；这里仅拉取已经生成的画面。
+            // 浏览器隐藏/节流只会延后显示，绝不会暂停打怪。
+            if (!this.txd || this.showLogin || this.showCharacterSelect ||
+                this.autofightTickInFlight) return;
+            if (typeof document !== 'undefined' && document.hidden) return;
+            if (this.useJsonMode && this.mudLoading) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
+            this.autofightTickInFlight = true;
+            try {
+                const params = new URLSearchParams({
+                    txd: requestTxd,
+                    after: String(this.autofightViewSequence || 0),
+                    generation: this.autofightViewGeneration || ''
+                });
+                const response = await fetch(
+                    `${this.apiBase}/api/autofight_view?${params.toString()}`
+                );
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                const data = await response.json().catch(() => ({}));
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return;
+                }
+                // 会话恢复由状态轮询统一处理，画面同步失败不能反向影响挂机。
+                if (!response.ok || data.error) return;
+                const generation = String(data.generation || '');
+                if (data.unchanged) {
+                    if (generation &&
+                        generation !== this.autofightViewGeneration) {
+                        this.autofightViewGeneration = generation;
+                        this.autofightViewSequence = 0;
+                    }
+                    return;
+                }
+                const requestCredentials = this.decodeCredentialsFromTxd(requestTxd);
+                if (data.userid && requestCredentials &&
+                    data.userid.toLowerCase() !==
+                    requestCredentials.userid.toLowerCase()) return;
+                const sequence = Number(data.sequence || 0);
+                if (!Number.isFinite(sequence) ||
+                    !generation || (generation === this.autofightViewGeneration &&
+                    sequence <= this.autofightViewSequence)) return;
+                this.autofightViewGeneration = generation;
+                this.autofightViewSequence = sequence;
+                const lines = Array.isArray(data.lines) ? data.lines : [];
+                this.prepareMudOutputAnimation('flushview');
+                this.mudLines = lines;
+                this.handleNarrativeEffects(lines);
+                await this.checkBattleStatus(true);
+                this.parseBattleActions(lines);
+                this.handleCopyCommands(lines);
+                this.processInviteLinkPlaceholder();
+            } catch (e) {
+                if (this.isCharacterSessionCurrent(requestEpoch))
+                    console.error('[挂机画面] 同步失败:', e);
+            } finally {
+                if (this.isCharacterSessionCurrent(requestEpoch))
+                    this.autofightTickInFlight = false;
+            }
         },
 
         // 检查并启动/停止自动战斗
         checkAutofight() {
-            // 服务端负责挂机 tick；前端只清理旧版本可能遗留的 interval。
             if (this.autofightInterval) {
                 clearInterval(this.autofightInterval);
                 this.autofightInterval = null;
             }
             this.autofightTickInFlight = false;
+            if (!this.playerStats || !this.playerStats.autofight) return;
+            // 此 interval 只同步画面，服务端挂机不依赖它。
+            this.runAutofightTick();
+            this.autofightInterval = setInterval(() => {
+                this.runAutofightTick();
+            }, 1000);
         },
 
         // ====================================================================
@@ -4730,9 +4796,11 @@ createApp({
         // 页面可见性只影响 UI 刷新，不再暂停或恢复自动挂机。
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                console.log('[页面恢复] 刷新状态');
+                console.log('[页面恢复] 刷新状态和挂机画面');
                 if (!this.showCharacterSelect && this.txd) {
                     this.fetchPlayerStats();
+                    if (this.playerStats?.autofight)
+                        this.runAutofightTick();
                 }
             }
         });
