@@ -3190,57 +3190,20 @@ createApp({
         },
 
         async runAutofightTick() {
-            // txd 过期 → 401 → relogin 失败 → showLogin=true。此时若不拦，
-            // 下一秒 tick 还是会 sendJsonCommand → 又 401 → 又 throw，
-            // 每秒循环报错。relogin 失败时主动停 interval，等用户重新登录。
-            if (!this.txd || this.showLogin || this.showCharacterSelect || this.autofightTickInFlight) {
-                if (this.showLogin && this.autofightInterval) {
-                    clearInterval(this.autofightInterval);
-                    this.autofightInterval = null;
-                }
-                return;
-            }
-            if (this.useJsonMode && this.mudLoading) {
-                return;
-            }
-            if (!this.useJsonMode && this.frameLoading) {
-                return;
-            }
-            this.autofightTickInFlight = true;
-            try {
-                if (this.useJsonMode) {
-                    await this.sendJsonCommand('flushview');
-                } else {
-                    const url = `${this.apiBase}/api/html?txd=${encodeURIComponent(this.txd)}&cmd=${encodeURIComponent('flushview')}`;
-                    const iframe = this.$refs.gameFrame;
-                    if (iframe) {
-                        this.frameLoading = true;
-                        iframe.src = url;
-                    }
-                }
-            } finally {
-                this.autofightTickInFlight = false;
-            }
+            // 自动挂机由服务端主 Backend 推进。保留此方法供旧调用兼容，
+            // 这里只刷新展示状态，不再让浏览器计时器决定是否继续战斗。
+            if (!this.txd || this.showLogin || this.showCharacterSelect) return;
+            await this.fetchPlayerStats();
         },
 
         // 检查并启动/停止自动战斗
         checkAutofight() {
-            if (this.playerStats && this.playerStats.autofight) {
-                // 开启自动战斗 - 每秒执行 flushview 命令
-                if (!this.autofightInterval) {
-                    this.autofightInterval = setInterval(() => {
-                        this.runAutofightTick();
-                    }, 1000);  // 1秒执行一次
-                    this.runAutofightTick();
-                }
-            } else {
-                // 关闭自动战斗
-                if (this.autofightInterval) {
-                    clearInterval(this.autofightInterval);
-                    this.autofightInterval = null;
-                }
-                this.autofightTickInFlight = false;
+            // 服务端负责挂机 tick；前端只清理旧版本可能遗留的 interval。
+            if (this.autofightInterval) {
+                clearInterval(this.autofightInterval);
+                this.autofightInterval = null;
             }
+            this.autofightTickInFlight = false;
         },
 
         // ====================================================================
@@ -4764,25 +4727,12 @@ createApp({
         // 加载分区列表
         this.loadPartitions();
 
-        // 页面可见性监听：后台标签恢复时立即刷新
+        // 页面可见性只影响 UI 刷新，不再暂停或恢复自动挂机。
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 console.log('[页面恢复] 刷新状态');
                 if (!this.showCharacterSelect && this.txd) {
                     this.fetchPlayerStats();
-                    if (this.playerStats && this.playerStats.autofight) {
-                        // 重启可能被暂停的挂机心跳并立刻 tick 一次
-                        this.checkAutofight();
-                        this.runAutofightTick();
-                    }
-                }
-            } else if (document.visibilityState === 'hidden') {
-                // 后台/锁屏：浏览器会把 setInterval 节流到 ~1Hz 甚至更慢，
-                // 但每次 flushview 仍按真实时间扣份额。主动暂停 interval，
-                // 服务端 30s gap 容差会自动停止扣费，回到前台再恢复。
-                if (this.autofightInterval) {
-                    clearInterval(this.autofightInterval);
-                    this.autofightInterval = null;
                 }
             }
         });
@@ -4791,17 +4741,15 @@ createApp({
         // 防止服务端虚拟连接被 cleanup_idle_connections 清理。
         // 用 setTimeout 链而非 setInterval，避免后台节流积压。
         this.backgroundHeartbeat = () => {
-            if (!this.txd) return;
-            // sendBeacon 在后台也能可靠发送（浏览器 API 设计如此）
-            if (navigator.sendBeacon) {
-                const url = this.apiBase + '/api/json?txd=' +
-                    encodeURIComponent(this.txd) + '&cmd=look';
-                navigator.sendBeacon(url);
-            } else {
-                // 回退：普通 fetch（后台可能被节流，但有总比没有好）
-                fetch(this.apiBase + '/api/json?txd=' +
-                    encodeURIComponent(this.txd) + '&cmd=look')
-                    .catch(() => {});
+            if (this.txd) {
+                const url = this.apiBase + '/api/ping?txd=' +
+                    encodeURIComponent(this.txd);
+                // sendBeacon 在后台也能可靠发送（浏览器 API 设计如此）
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(url);
+                } else {
+                    fetch(url, { keepalive: true }).catch(() => {});
+                }
             }
             this.backgroundHeartbeatTimer = setTimeout(
                 this.backgroundHeartbeat, 25000);

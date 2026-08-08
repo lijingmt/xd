@@ -16,6 +16,10 @@ int main(string|zero arg)
 	int canLevel = 0;//物品的穿戴等级
 	int convert_cost = 0;//属性转化需要的玉石数
 	int add_cost = 0;//增加属性需要的玉石数
+	if(!me || !arg || String.trim_all_whites(arg)==""){
+		write("请选择要炼化的装备。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
+		return 1;
+	}
 	sscanf(arg,"%s %d",item_name,flag);
 	array(object) all_obj = all_inventory(me);
 	foreach(all_obj,object ob){

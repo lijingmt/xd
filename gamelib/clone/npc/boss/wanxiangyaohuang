@@ -1,7 +1,7 @@
 #include <gamelib/include/gamelib.h>
 inherit GAMELIB_NPC;
 // 团队硬 Boss 2：万象妖皇。位置：万象林。
-// 设计目标：混合物法 Boss，HP 22 万、攻击 1800-2800。
+// 设计目标：混合物法 Boss，HP 2.5 亿、三系基础属性 4000+。
 // 必杀技每 25 秒一次：万象侵蚀 给全房挂 12 秒 DOT（每 3 秒 800）。
 // 灵医需要净化 + 群疗双线操作。
 protected void create(){

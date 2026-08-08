@@ -10,10 +10,6 @@ protected void create(){
 	exits["west"]=ROOT "/gamelib/d/congxianzhen/congxianzhenguangchang";
 	add_items(({ROOT "/gamelib/clone/npc/boss/wanxiangyaohuang"}));
 }
-int is_bedroom()
-{
-	return 1;
-}
 int is_peaceful(){
 	return 0;
 }

@@ -5,14 +5,80 @@
 // 类型：lingshi/blue90/dan/purple110/feed/gold110/hidden
 
 mapping(string:mapping) exchanges = ([
-	"lingshi":(["cost":10,"name":"灵石×100"]),
-	"blue90":(["cost":30,"name":"90级蓝色装备箱"]),
-	"dan":(["cost":50,"name":"经验丹【灵】×5"]),
-	"purple110":(["cost":80,"name":"110级紫色装备箱"]),
-	"feed":(["cost":100,"name":"灵兽饲料×10"]),
-	"gold110":(["cost":200,"name":"110级金色装备箱"]),
+	"lingshi":(["cost":10,"name":"金币×10000"]),
+	"blue90":(["cost":30,"name":"90级蓝色装备"]),
+	"dan":(["cost":50,"name":"【特】化神丹×5"]),
+	"purple110":(["cost":80,"name":"110级紫色装备"]),
+	"feed":(["cost":100,"name":"金币×5000（可购买灵兽饲料）"]),
+	"gold110":(["cost":200,"name":"110级金色装备"]),
 	"hidden":(["cost":500,"name":"太极/无相隐藏书随机1本"]),
 ]);
+
+private int query_wuxun_count(object me)
+{
+	int total = 0;
+	foreach(all_inventory(me),object item)
+		if(item && item->query_name()=="shilianwuxun")
+			total += (int)item->amount;
+	return total;
+}
+
+private int consume_wuxun(object me,int amount)
+{
+	int remaining = amount;
+	foreach(all_inventory(me),object item){
+		if(remaining<=0)
+			break;
+		if(!item || item->query_name()!="shilianwuxun")
+			continue;
+		int current = (int)item->amount;
+		if(current<=remaining){
+			remaining -= current;
+			item->amount = 0;
+			destruct(item);
+		}
+		else{
+			item->amount = current-remaining;
+			remaining = 0;
+		}
+	}
+	return remaining==0;
+}
+
+private void rollback_rewards(array(object) rewards)
+{
+	foreach(rewards,object item)
+		if(item)
+			destruct(item);
+}
+
+private object|zero create_reward(string type)
+{
+	if(type=="dan")
+		return clone(ROOT+"/gamelib/clone/item/teyao/huashendan");
+	if(type=="hidden"){
+		array(string) books = ({
+			"taijiguixu","taijihunyuan","taijiwuji",
+			"wuxiangguixu","wuxianghunyuan","wuxiangwuji"
+		});
+		return clone(ROOT+"/gamelib/clone/item/book/"+
+			books[random(sizeof(books))]);
+	}
+	mapping(string:mapping(string:int)) gear = ([
+		"blue90":(["level":90,"attributes":4]),
+		"purple110":(["level":110,"attributes":5]),
+		"gold110":(["level":110,"attributes":7]),
+	]);
+	if(!gear[type])
+		return 0;
+	int level = (int)gear[type]["level"];
+	string raw_name = ITEMSD->get_itemname_on_level(level);
+	if(!raw_name || raw_name=="")
+		return 0;
+	// 90/110 级装备以 73 级模板生成，并按目标等级增量换算属性。
+	return ITEMSD->get_convert_item(raw_name,
+		(int)gear[type]["attributes"],73,level);
+}
 
 int main(string|zero arg)
 {
@@ -29,7 +95,7 @@ int main(string|zero arg)
 	}
 	int amount;
 	string type;
-	if(sscanf(arg,"%d %s",amount,type)!=2 || amount<1){
+	if(sscanf(arg,"%d %s",amount,type)!=2 || amount<1 || amount>100){
 		write("参数无效。\n");
 		return 1;
 	}
@@ -43,121 +109,50 @@ int main(string|zero arg)
 		return 1;
 	}
 	// 检查武勋数量
-	int have = 0;
-	foreach(all_inventory(me),object item){
-		if(item && item->query_name()=="shilianwuxun")
-			have += (int)item->amount;
-	}
+	int have = query_wuxun_count(me);
 	if(have < total_cost){
 		write("你的试炼武勋不够。需要 "+total_cost+"，当前 "+have+"。\n");
 		return 1;
 	}
-	// 扣除武勋
-	int remaining = total_cost;
-	foreach(all_inventory(me),object item){
-		if(remaining<=0) break;
-		if(!item || item->query_name()!="shilianwuxun") continue;
-		int cur = (int)item->amount;
-		if(cur<=remaining){
-			remaining -= cur;
-			item->amount = 0;
-			destruct(item);
-		} else {
-			item->amount = cur-remaining;
-			remaining = 0;
-		}
-	}
-	// 发放奖励
+	// 先完整创建并交付奖励，任何一步失败都回滚；确认成功后才扣武勋。
 	// 注意：add_money/add_account 的单位是 _account（银），100 银 = 1 金。
 	// 文本"金币×N"对应 N 金 = N*100 银，因此代码用 N*100 调用。
-	int give_count = 0;
-	int fail_count = 0;
-	int clone_err_count = 0;
-	if(type=="lingshi"){
-		me->add_money(amount*1000000);
-		write("兑换成功：获得 金币×"+(amount*10000)+"\n");
-	} else if(type=="dan"){
-		for(int i=0;i<amount*5;i++){
-			object ob;
-			mixed e = catch { ob = clone(ROOT+"/gamelib/clone/item/teyao/huashendan"); };
-			if(e || !ob){
-				clone_err_count++;
-				Stdio.append_file(ROOT+"/log/team_pve_error.log",
-					ctime(time())[0..sizeof(ctime(time()))-2]+
-					" duihuan clone huashendan failed: "+
-					(e?describe_error(e):"null")+"\n");
-			}
-			else if(ob->move(me)==1)
-				give_count++;
-			else{
-				fail_count++;
-				destruct(ob);
-			}
-		}
-		write("兑换成功：获得 【特】幻神丹×"+give_count+
-			(fail_count>0?"（"+fail_count+"个因背包满未发放）":"")+
-			(clone_err_count>0?"（"+clone_err_count+"个因系统错误未发放）":"")+"\n");
-	} else if(type=="feed"){
-		me->add_money(amount*500000);
-		write("兑换成功：获得 金币×"+(amount*5000)+"（可购买灵兽饲料）\n");
-	} else if(type=="hidden"){
-		array(string) books = ({
-			"taijiguixu","taijihunyuan","taijiwuji",
-			"wuxiangguixu","wuxianghunyuan","wuxiangwuji"
-		});
-		for(int i=0;i<amount;i++){
-			string pick = books[random(sizeof(books))];
-			object ob;
-			mixed err = catch { ob = clone(ROOT+"/gamelib/clone/item/book/"+pick); };
-			if(err || !ob){
-				clone_err_count++;
-				Stdio.append_file(ROOT+"/log/team_pve_error.log",
-					ctime(time())[0..sizeof(ctime(time()))-2]+
-					" duihuan clone book "+pick+" failed: "+
-					(err?describe_error(err):"null")+"\n");
-			}
-			else if(ob->move(me)==1)
-				give_count++;
-			else{
-				fail_count++;
-				destruct(ob);
-			}
-		}
-		write("兑换成功：获得 "+give_count+" 本随机隐藏传承"+
-			(fail_count>0?"（"+fail_count+"本因背包满未发放）":"")+
-			(clone_err_count>0?"（"+clone_err_count+"本因系统错误未发放）":"")+"\n");
-	} else {
-		mapping(string:string) gear_paths = ([
-			"blue90":   "armor/30aofachangpao/30aofachangpao",
-			"purple110":"armor/30fumozhanjia/30fumozhanjia",
-			"gold110":  "armor/38binglingtoushi/38binglingtoushi",
-		]);
-		string path = gear_paths[type];
-		if(!path || path==""){
-			write("未知装备类型。\n");
+	int reward_money = type=="lingshi" ? amount*1000000 : amount*500000;
+	if(type=="lingshi" || type=="feed"){
+		me->add_money(reward_money);
+		if(!consume_wuxun(me,total_cost)){
+			me->del_account(reward_money);
+			write("兑换状态发生变化，本次未扣武勋、未发奖励。\n");
 			return 1;
 		}
-		for(int i=0;i<amount;i++){
-			object ob;
-			mixed e = catch { ob = clone(ROOT+"/gamelib/clone/item/"+path); };
-			if(e || !ob){
-				clone_err_count++;
-				Stdio.append_file(ROOT+"/log/team_pve_error.log",
-					ctime(time())[0..sizeof(ctime(time()))-2]+
-					" duihuan clone "+path+" failed: "+
-					(e?describe_error(e):"null")+"\n");
-			}
-			else if(ob->move(me)==1)
-				give_count++;
-			else{
-				fail_count++;
-				if(ob) destruct(ob);
-			}
-		}
-		write("兑换成功：获得 "+exchanges[type]["name"]+" ×"+give_count+
-			(fail_count>0?"（"+fail_count+"件因背包满未发放）":"")+
-			(clone_err_count>0?"（"+clone_err_count+"件因系统错误未发放）":"")+"\n");
 	}
+	else{
+		int reward_count = type=="dan" ? amount*5 : amount;
+		array(object) rewards = ({});
+		mixed reward_err;
+		for(int i=0;i<reward_count;i++){
+			object reward;
+			reward_err = catch { reward = create_reward(type); };
+			if(reward_err || !reward || me->if_over_load(reward) ||
+			   reward->move(me)!=1){
+				if(reward)
+					destruct(reward);
+				rollback_rewards(rewards);
+				write("兑换失败：奖励生成或背包空间不足，本次没有扣除武勋。\n");
+				return 1;
+			}
+			rewards += ({reward});
+		}
+		if(!consume_wuxun(me,total_cost)){
+			rollback_rewards(rewards);
+			write("兑换状态发生变化，本次未扣武勋、未发奖励。\n");
+			return 1;
+		}
+	}
+	if(amount==1)
+		write("兑换成功：获得 "+exchanges[type]["name"]+"\n");
+	else
+		write("兑换成功：获得 "+exchanges[type]["name"]+" ×"+amount+"\n");
 	me->command("save");
 	return 1;
 }

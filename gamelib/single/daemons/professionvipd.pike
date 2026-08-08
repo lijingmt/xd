@@ -894,7 +894,8 @@ mapping try_lingyi_active_combat_assist(object player)
 	int before_mofa;
 	int before_cooldown;
 	if(!player || player->query_profeId() != "lingyi" ||
-	   !query_auto_enabled(player) || !player->query_in_combat())
+	   !query_auto_enabled(player) || !player->query_in_combat() ||
+	   !is_pve_enemy(player))
 		return (["success":0,"reason":"unsupported"]);
 	// 复用 autofightd 的完整 smart 选招：伤势候选 → 攻击 fallback，
 	// 含已学/等级/冷却/魔法/武器等就绪校验。返回 "" 表示本次无技能可放。

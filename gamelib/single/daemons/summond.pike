@@ -160,6 +160,31 @@ int query_authorized_skill_level(object player, string skill_name){
 }
 
 /**
+ * 校验存活召唤物与主人的职业、技能授权是否仍然匹配。
+ * 方士沿用三灵技能；无相/太极只允许各自的阴阳灵兽。
+ */
+private int is_authorized_summon_owner(object player,string summon_type){
+	string skill_name;
+	if(!player || !summon_type || !player->skills)
+		return 0;
+	if(summon_type=="balanced_spirit"){
+		if(player->query_profeId()=="wuxiang")
+			skill_name = "wuxianghuan";
+		else if(player->query_profeId()=="taiji")
+			skill_name = "taijihuan";
+		else
+			return 0;
+	}
+	else{
+		if(player->query_profeId()!="fangshi")
+			return 0;
+		skill_name = query_summon_skill_name(player,summon_type);
+	}
+	return skill_name!="" &&
+		query_authorized_skill_level(player,skill_name)>0;
+}
+
+/**
  * 单只召唤持续时间完全由服务端真实技能等级计算。
  */
 int query_single_summon_duration(int skill_level){
@@ -187,7 +212,8 @@ int query_all_spirits_duration(int skill_level){
  * 召唤类型白名单。
  */
 int is_valid_summon_type(string summon_type){
-	return search(({"huling","heling","guiling"}),summon_type) != -1;
+	return search(({"huling","heling","guiling","balanced_spirit"}),
+		summon_type) != -1;
 }
 
 /**
@@ -228,6 +254,10 @@ private object create_authorized_summon(object player, string player_name,
 			summon_file = ROOT "/gamelib/clone/npc/summon/guiling";
 			summon_name = "灵龟神兽";
 			break;
+		case "balanced_spirit":
+			summon_file = ROOT "/gamelib/clone/npc/summon/huling";
+			summon_name = "阴阳灵兽";
+			break;
 		default:
 			return 0;
 	}
@@ -237,6 +267,7 @@ private object create_authorized_summon(object player, string player_name,
 		return 0;
 
 	// 设置召唤物属性
+	summon->set_summon_type(summon_type);
 	summon->set_master(player_name);
 	summon->set_summon_skill_level(skill_level);
 	summon->set_summon_duration(duration);
@@ -263,6 +294,49 @@ private object create_authorized_summon(object player, string player_name,
 			player->query_name_cn() + "召唤出了" +
 			summon->query_name_cn() + "！\n",player);
 
+	return summon;
+}
+
+/**
+ * 无相/太极的五分钟弱版灵兽。职业、技能名与真实已学等级都由守护进程
+ * 重新验证，施法层传入的等级和持续时间不能放大召唤物。
+ */
+object summon_balanced_spirit(string player_name,string skill_name){
+	object player;
+	object summon;
+	string expected_skill;
+	int skill_level;
+	int scaled_level;
+	if(!player_name || !skill_name)
+		return 0;
+	player = find_player(player_name);
+	if(!player)
+		return 0;
+	if(player->query_profeId()=="wuxiang")
+		expected_skill = "wuxianghuan";
+	else if(player->query_profeId()=="taiji")
+		expected_skill = "taijihuan";
+	else
+		return 0;
+	if(skill_name!=expected_skill || !player->skills ||
+	   !player->skills[expected_skill])
+		return 0;
+	skill_level = query_authorized_skill_level(player,expected_skill);
+	if(skill_level<=0)
+		return 0;
+	summon = create_authorized_summon(player,player_name,
+		"balanced_spirit",300,skill_level,0);
+	if(!summon)
+		return 0;
+	// 使用半数人物等级生成，明确低于方士专精虎灵。
+	scaled_level = player->query_level()/2;
+	if(scaled_level<1)
+		scaled_level = 1;
+	summon->adjust_stats_by_player(scaled_level,skill_level);
+	summon->name_cn = player->query_profeId()=="taiji" ?
+		"太极阴阳灵兽" : "无相阴阳灵兽";
+	tell_room_daemon(environment(player),player->query_name_cn()+
+		"唤出了一只"+summon->query_name_cn()+"助战！\n",player);
 	return summon;
 }
 
@@ -390,8 +464,8 @@ int register_existing_summon(string player_name, string summon_type,
 		return 0;
 
 	object player = find_player(player_name);
-	if(!player || player->query_profeId() != "fangshi" ||
-	   !environment(player))
+	if(!player || !environment(player) ||
+	   !is_authorized_summon_owner(player,summon_type))
 		return 0;
 
 	get_current_summon_count(player_name);
@@ -433,7 +507,7 @@ object query_combat_credit_owner(object actor){
 	   actor->query_profeId() != "beast")
 		return actor;
 	object owner = find_player(owner_name);
-	if(!owner || owner->query_profeId() != "fangshi")
+	if(!is_authorized_summon_owner(owner,summon_name))
 		return actor;
 	return owner;
 }

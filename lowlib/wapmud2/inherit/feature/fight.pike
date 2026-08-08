@@ -1098,6 +1098,9 @@ private void recover(){
 private void dot_death(){
 	if(!this_object()) return;
 	if(this_object()->get_cur_life()>0) return;
+	// 其它攻击路径若已完成死亡结算，会先清除战斗状态；此时延迟
+	// call_out 只能退出，不能再次执行掉级、耐久和掉落流程。
+	if(!this_object()->query_in_combat()) return;
 	this_object()->fight_die();
 }
 void _clean_fight(){
@@ -1190,16 +1193,24 @@ void escape(void|int change){
 //熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 //而且，防止超出技能等级上限而溢出
 	void skills_level_check(string sname){
-		if(MUD_SKILLSD[sname]->boss_skill == 1)
+		object skill;
+		if(!sname || !this_object()->skills ||
+		   !this_object()->skills[sname])
+			return;
+		skill = MUD_SKILLSD[sname];
+		if(!skill)
+			return;
+		if(skill->boss_skill == 1)
 			return;
 		if(this_object()->is("player"))
 			DAILYGOALD->record_skill(this_object());
 		int cur_skills_level_limit = 10;
-		if(MUD_SKILLSD[sname]->query_skill_level_max)
+		if(skill->query_skill_level_max)
 			cur_skills_level_limit =
-				(int)MUD_SKILLSD[sname]->query_skill_level_max();
+				(int)skill->query_skill_level_max();
 		//当前该用户该技能等级的熟练度大于该技能本身该等级的熟练度，则升级该用户的该技能等级
-		if( this_object()->skills[sname][1]>=MUD_SKILLSD[sname]->performs_shuliandu[this_object()->skills[sname][0]] ){
+		if(this_object()->skills[sname][1]>=
+		   skill->performs_shuliandu[this_object()->skills[sname][0]]){
 			//当前技能等级设定上限为10级
 			if(this_object()->skills[sname][0]<cur_skills_level_limit){
 				this_object()->skills[sname][0]++;
@@ -1279,6 +1290,155 @@ private string clean_one_lingyi_debuff(object target){
 		}
 	}
 	return "";
+}
+
+// 无相/太极净化严格按技能说明处理：持续伤害、治疗压制、控制、
+// 70级诅咒，最后才清理普通属性诅咒；每次最多清理一项。
+string clean_one_balanced_debuff(object target){
+	if(!target)
+		return "";
+	if(target->query_debuff("dot",0)!="none"){
+		target->clean_debuff("dot");
+		return "dot";
+	}
+	if(target->query_debuff("curse",0)=="life"){
+		target->clean_debuff("curse");
+		return "heal_suppression";
+	}
+	if(target->query_debuff("curse2",0)!="none"){
+		target->clean_debuff("curse2");
+		return "control";
+	}
+	if(target->query_debuff("70_skill_curse",0)!="none"){
+		target->clean_debuff("70_skill_curse");
+		return "70_skill_curse";
+	}
+	if(target->query_debuff("curse",0)!="none"){
+		target->clean_debuff("curse");
+		return "curse";
+	}
+	return "";
+}
+
+private int is_balanced_profession_skill(object skill){
+	string profe = this_object()->query_profeId();
+	if(!skill || (profe!="wuxiang" && profe!="taiji"))
+		return 0;
+	return search(skill->skill_type,profe)!=-1;
+}
+
+private array(object) query_balanced_team_targets(){
+	array(object) result = ({});
+	object caster = this_object();
+	object env = environment(caster);
+	string team_id = caster->query_term();
+	if(caster->get_cur_life()>0)
+		result += ({caster});
+	if(!env || team_id=="" || team_id=="noterm")
+		return result;
+	foreach(all_inventory(env),object member){
+		if(!member || member==caster || !member->is("player") ||
+		   member->query_term()!=team_id || member->get_cur_life()<=0 ||
+		   !LOGICALZONED->can_action("team",caster,member))
+			continue;
+		result += ({member});
+	}
+	return result;
+}
+
+private int heal_balanced_target(object target,int amount){
+	int before;
+	int life_max;
+	if(!target || amount<=0 || target->get_cur_life()<=0)
+		return 0;
+	before = target->get_cur_life();
+	life_max = target->query_life_max();
+	if(before>=life_max)
+		return 0;
+	if(target->query_debuff("curse",0)=="life"){
+		int reduce = (int)target->query_debuff("curse",1);
+		if(reduce<0)
+			reduce = 0;
+		if(reduce>90)
+			reduce = 90;
+		amount = amount*(100-reduce)/100;
+	}
+	if(amount<1)
+		return 0;
+	if(before+amount>life_max)
+		amount = life_max-before;
+	target->set_life(before+amount);
+	return amount;
+}
+
+// 只应用效果，不扣仙力和冷却；统一施法入口会在确认至少一项效果成功后结算。
+private int apply_balanced_support_skill(object skill,int skill_level){
+	string kind;
+	int amount;
+	int duration;
+	int benefited = 0;
+	if(!is_balanced_profession_skill(skill) || skill_level<=0)
+		return 0;
+	kind = skill->s_skill_type;
+	duration = skill->query_s_lasttime(skill_level);
+	if(kind=="balanced_shield"){
+		amount = skill->query_performs_attack(skill_level);
+		if(amount<=0 || duration<=0 ||
+		   (this_object()->query_buff("buff",0)=="absorb" &&
+		   (int)this_object()->query_buff("buff",1)>=amount))
+			return 0;
+		this_object()->set_buff("buff",0,"absorb");
+		this_object()->set_buff("buff",1,amount);
+		this_object()->set_buff("buff",2,duration);
+		return 1;
+	}
+	if(kind=="balanced_attr")
+		return this_object()->apply_balanced_attr_percent(
+			skill->query_performs_attack(skill_level),duration);
+	if(kind=="balanced_heart")
+		return this_object()->apply_balanced_heart_boost(10,duration);
+	if(kind=="balanced_cleanse")
+		return clean_one_balanced_debuff(this_object())!="";
+	if(kind=="balanced_team_guard")
+		return apply_team_guard_to_group(this_object(),
+			skill->query_performs_attack(skill_level),duration);
+	if(kind=="balanced_summon")
+		return SUMMOND->summon_balanced_spirit(this_object()->query_name(),
+			skill->query_name()) ? 1 : 0;
+	if(kind=="balanced_self_heal"){
+		int low = skill->query_performs_mofa_attack_low(skill_level);
+		int high = skill->query_performs_mofa_attack_high(skill_level);
+		if(high<low)
+			high = low;
+		amount = low+random(high-low+1);
+		return heal_balanced_target(this_object(),amount)>0;
+	}
+	if(kind=="balanced_team_heal" || kind=="balanced_wuji"){
+		if(kind=="balanced_team_heal"){
+			int low = skill->query_performs_mofa_attack_low(skill_level);
+			int high = skill->query_performs_mofa_attack_high(skill_level);
+			if(high<low)
+				high = low;
+			amount = low+random(high-low+1);
+		}
+		else
+			amount = skill->query_performs_attack(skill_level);
+		foreach(query_balanced_team_targets(),object member){
+			int healed = heal_balanced_target(member,amount);
+			string cleaned = kind=="balanced_wuji" ?
+				clean_one_balanced_debuff(member) : "";
+			if(healed>0 || cleaned!=""){
+				benefited++;
+				if(member!=this_object())
+					tell_object(member,this_object()->query_name_cn()+
+						"施放"+skill->query_name_cn()+"，为你恢复"+
+						healed+"点生命"+
+						(cleaned!="" ? "并净化一项负面状态" : "")+"。\n");
+			}
+		}
+		return benefited;
+	}
+	return 0;
 }
 
 // 返回实际获得治疗或净化的目标数；没有有效收益时不消耗仙力与冷却。
@@ -1576,23 +1736,62 @@ private array(object) query_lingyi_room_aoe_targets(){
 	return result;
 }
 
+// 隐藏职业群攻只能命中已经进入施法者仇恨表的目标，不扫描房间扩大战斗，
+// 因而不会把路人、任务NPC、好友或同队玩家卷入。
+private array(object) query_balanced_aoe_targets(){
+	array(object) result = ({});
+	array(object) candidates;
+	object caster = this_object();
+	object env = environment(caster);
+	if(!env || !caster->query_in_combat() || caster->get_cur_life()<=0)
+		return result;
+	candidates = caster->get_all_targets();
+	if(!candidates)
+		return result;
+	foreach(candidates,object candidate){
+		string npc_type;
+		if(!candidate || candidate==caster || environment(candidate)!=env ||
+		   candidate->get_cur_life()<=0 ||
+		   !LOGICALZONED->can_action("combat",caster,candidate) ||
+		   is_lingyi_aoe_team_ally(caster,candidate) ||
+		   is_lingyi_aoe_social_ally(caster,candidate))
+			continue;
+		if(functionp(candidate->can_be_attacked) &&
+		   !candidate->can_be_attacked(caster))
+			continue;
+		if(candidate->is("npc")){
+			npc_type = candidate->query_npc_type();
+			if(candidate->_tasknpc || npc_type=="city_keeper" ||
+			   npc_type=="city_guarder" || npc_type=="city_lord")
+				continue;
+		}
+		result += ({candidate});
+	}
+	return result;
+}
+
 // 返回实际纳入结算的目标数。命中、抗性、护盾、仇恨、决斗与死亡奖励仍走
 // 现有服务端规则；每个目标的快照供战斗小窗展示十秒。
 int perform_lingyi_room_aoe(object skill,int skill_level){
 	array(object) targets;
 	object caster = this_object();
 	object env = environment(caster);
+	int balanced;
 	int raw_low;
 	int raw_high;
 	int raw_base;
 	int penetration;
 	int power_percent;
-	if(!skill || skill_level<=0 ||
-	   !functionp(skill->query_lingyi_room_aoe) ||
-	   !skill->query_lingyi_room_aoe() ||
-	   caster->query_profeId()!="lingyi" || !env)
+	if(!skill || skill_level<=0 || !env)
 		return 0;
-	targets = query_lingyi_room_aoe_targets();
+	balanced = skill->s_skill_type=="balanced_aoe" &&
+		is_balanced_profession_skill(skill);
+	if(!balanced && (!functionp(skill->query_lingyi_room_aoe) ||
+	   !skill->query_lingyi_room_aoe() ||
+	   caster->query_profeId()!="lingyi"))
+		return 0;
+	targets = balanced ? query_balanced_aoe_targets() :
+		query_lingyi_room_aoe_targets();
 	if(!sizeof(targets))
 		return 0;
 	raw_low = skill->query_performs_mofa_attack_low(skill_level);
@@ -1601,7 +1800,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		raw_high = raw_low;
 	raw_base = raw_low+random(raw_high-raw_low+1)+
 		caster->query_equip_add(skill->s_skill_type)+
-		caster->query_equip_add("mofa_all")+caster->query_think()*7/2;
+		caster->query_equip_add("mofa_all")+
+		caster->query_think()*(balanced ? 5 : 7)/2;
 	if(caster->query_buff("buff2",0)=="all_mofa_attack")
 		raw_base = raw_base*3/2;
 	penetration = caster->query_equip_add("mofachuantou_add");
@@ -1625,7 +1825,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		   !LOGICALZONED->can_action("combat",caster,target) ||
 		   is_lingyi_aoe_team_ally(caster,target) ||
 		   is_lingyi_aoe_social_ally(caster,target) ||
-		   !is_lingyi_aoe_player_race_allowed(caster,target))
+		   (!balanced &&
+		   !is_lingyi_aoe_player_race_allowed(caster,target)))
 			continue;
 		caster->_fight(target);
 		target->_fight(caster);
@@ -1906,8 +2107,9 @@ void perform(string name,void|int flag){
 				s_cold = 0;
 			// 灵医房间群攻使用独立的合法目标收集，但资源、冷却与熟练度
 			// 仍由统一施法入口结算。没有合法目标时不扣任何资源。
-			if(functionp(f_cur_skill->query_lingyi_room_aoe) &&
-			   f_cur_skill->query_lingyi_room_aoe()){
+			if((functionp(f_cur_skill->query_lingyi_room_aoe) &&
+			   f_cur_skill->query_lingyi_room_aoe()) ||
+			   mofa_type=="balanced_aoe"){
 				if(s_cold>1){
 					tell_object(this_object(),"该技能还需要"+(s_cold-1)+
 						"秒冷却时间,无法使用。\n");
@@ -1928,6 +2130,76 @@ void perform(string name,void|int flag){
 				broadcast_room_skill_manifestation(f_cur_skill,0,skill_level,
 					"群体法术覆盖了战场");
 				skills_level_check(f_cur_skill->query_name());
+				return;
+			}
+			// 无相/太极辅助技能采用明确白名单，不再落入“未知类型即法术攻击”
+			// 的旧兜底。只有真实产生效果后才结算法力、公共冷却和技能冷却。
+			if(search(({"balanced_shield","balanced_attr",
+			   "balanced_heart","balanced_cleanse","balanced_team_guard",
+			   "balanced_summon","balanced_self_heal",
+			   "balanced_team_heal","balanced_wuji"}),mofa_type)!=-1){
+				if(s_cold>1){
+					tell_object(this_object(),"该技能还需要"+(s_cold-1)+
+						"秒冷却时间,无法使用。\n");
+					return;
+				}
+				int benefited = apply_balanced_support_skill(
+					f_cur_skill,skill_level);
+				if(benefited<=0){
+					tell_object(this_object(),
+						"当前没有可由该技能产生有效收益的目标。\n");
+					return;
+				}
+				this_object()->set_mofa(
+					this_object()->get_cur_mofa()-s_cast);
+				this_object()->timeCold = 2;
+				this_object()->f_skills[name] =
+					f_cur_skill->query_s_delayTime(skill_level)+1;
+				broadcast_room_skill_manifestation(f_cur_skill,0,skill_level,
+					"阴阳灵光改变了战局");
+				if(enemy && functionp(enemy->flush_targets))
+					enemy->flush_targets(this_object(),10*benefited);
+				tell_object(this_object(),"你施放了"+
+					f_cur_skill->query_name_cn()+"(等级"+skill_level+
+					")，令"+benefited+"个目标获得效果。\n");
+				skills_level_check(f_cur_skill->query_name());
+				return;
+			}
+			// 混元是两段物理连击；每段使用一半技能面板值并各自判定暴击，
+			// 总面板不被重复放大。第二段不重复增加熟练度。
+			if(mofa_type=="balanced_combo"){
+				if(s_cold>1){
+					tell_object(this_object(),"该技能还需要"+(s_cold-1)+
+						"秒冷却时间,无法使用。\n");
+					return;
+				}
+				mapping items = this_object()->query_equip();
+				if(!items["single_main_weapon"] &&
+				   !items["double_main_weapon"]){
+					tell_object(this_object(),
+						"该技能需要装备主手武器才能施放。\n");
+					return;
+				}
+				int combo_damage =
+					f_cur_skill->query_performs_attack(skill_level)/2;
+				if(combo_damage<1)
+					combo_damage = 1;
+				string weapon_slot = this_object()->weapon_type=="double_main" ?
+					"double_main" : "single_main";
+				string combo_name = f_cur_skill->query_name_cn()+
+					"(等级"+skill_level+")";
+				this_object()->set_mofa(
+					this_object()->get_cur_mofa()-s_cast);
+				this_object()->timeCold = 2;
+				this_object()->f_skills[name] =
+					f_cur_skill->query_s_delayTime(skill_level)+1;
+				broadcast_room_skill_manifestation(f_cur_skill,enemy,skill_level,
+					"两道混元劲接连迸发");
+				attack(combo_damage,0,weapon_slot,combo_name,
+					f_cur_skill->query_name(),skill_level);
+				if(enemy && environment(enemy)==environment(this_object()) &&
+				   enemy->get_cur_life()>0)
+					attack(combo_damage,0,weapon_slot,combo_name);
 				return;
 			}
 			//首先判断是否是各职业有特殊效果技能，由liaocheng于08/01/16添加
@@ -3953,11 +4225,11 @@ int _fight(object _enemy){
 				CITYD->notice_update(notice);
 			}		
 			//组队记录
-			// enemy 可能在 kill() 流程中被析构（召唤物 kill 链路尤其常见），
-			// 此时 enemy->query_term() 会因为 enemy 为 0 而抛
-			// "Attempt to call the NULL-value"。先校验再取。
+			// enemy 可能在 kill() 链路中被析构；召唤物还会攻击
+			// 没有 query_term() 接口的普通 NPC。对象和可选接口都要校验。
 			if(enemy && objectp(enemy)){
-				this_object()->term_who_fight_npc = enemy->query_term();
+				this_object()->term_who_fight_npc =
+					functionp(enemy->query_term) ? enemy->query_term() : "";
 				//谁先开始的攻击，掉落物品属于谁
 				this_object()->who_fight_npc = enemy->query_name();
 			}

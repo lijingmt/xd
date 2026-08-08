@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【无】无相盾"; picture="wuxiangdun_logo";
 	desc="无相短时减伤盾，10 秒内吸收一次伤害";
-	s_type="zhudong"; s_skill_type="buff_shield"; s_delayTime=3;
+	s_type="zhudong"; s_skill_type="balanced_shield"; s_delayTime=3; s_lasttime=10;
 	performs_attack[1]=80; performs_attack[2]=200; performs_attack[3]=400; performs_attack[4]=700; performs_attack[5]=1100;
 	performs_cast[1]=8; performs_cast[2]=14; performs_cast[3]=22; performs_cast[4]=32; performs_cast[5]=44;
 	skill_type+=({"wuxiang"});

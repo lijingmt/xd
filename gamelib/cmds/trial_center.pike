@@ -23,12 +23,13 @@ int main(string|zero arg)
 			wuxun += (int)item->amount;
 	}
 	s += "——试炼兑换——（当前武勋："+wuxun+"）\n";
-	s += "[灵石(10武勋):shilian_duihuan 10 lingshi]\n";
-	s += "[蓝装(30武勋):shilian_duihuan 30 blue90]\n";
-	s += "[经验丹(50武勋):shilian_duihuan 50 dan]\n";
-	s += "[紫装(80武勋):shilian_duihuan 80 purple110]\n";
-	s += "[金装(200武勋):shilian_duihuan 200 gold110]\n";
-	s += "[隐藏书(500武勋):shilian_duihuan 500 hidden]\n";
+	s += "[金币×10000(10武勋):shilian_duihuan 1 lingshi]\n";
+	s += "[90级蓝装(30武勋):shilian_duihuan 1 blue90]\n";
+	s += "[化神丹×5(50武勋):shilian_duihuan 1 dan]\n";
+	s += "[110级紫装(80武勋):shilian_duihuan 1 purple110]\n";
+	s += "[饲料金币(100武勋):shilian_duihuan 1 feed]\n";
+	s += "[110级金装(200武勋):shilian_duihuan 1 gold110]\n";
+	s += "[隐藏书(500武勋):shilian_duihuan 1 hidden]\n";
 	s += "\n[返回游戏:look]\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;

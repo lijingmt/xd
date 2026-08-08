@@ -76,10 +76,11 @@ void test_initial_stats_stronger_than_wuxiang()
 	wuxiang->set_raceId("third");
 	wuxiang->set_profeId("wuxiang");
 	wuxiang->setup_player("third","wuxiang");
-	int tj_str = (int)taiji->query_str();
-	int wx_str = (int)wuxiang->query_str();
+	int tj_str = (int)taiji->get_cur_str();
+	int wx_str = (int)wuxiang->get_cur_str();
 	// 太极三系基线 10 vs 无相 8（30% 强）
-	int valid = tj_str==10 && wx_str==8;
+	int valid = tj_str==10 && wx_str==8 &&
+		taiji->query_str()==16 && wuxiang->query_str()==12;
 	if(valid) test_pass();
 	else test_fail(sprintf("太极 str=%d 无相 str=%d",tj_str,wx_str));
 	destruct(taiji);
@@ -104,16 +105,18 @@ void test_growth_at_120()
 
 void test_starter_skill_granted()
 {
-	test_start("太极门入门技能 taijiquan 在创建时自动发放");
-	object player = create_runtime_player("__testunit_taiji_skill__");
-	if(player->skills["taijiquan"]==0)
-		player->skills["taijiquan"]=({1,0});
-	int valid = player->skills["taijiquan"] &&
-		sizeof((array)player->skills["taijiquan"]) >= 1 &&
-		(int)player->skills["taijiquan"][0] >= 1;
+	test_start("太极创建分支真实发放 taijiquan，测试不篡改技能状态");
+	string init_src = Stdio.read_file(ROOT+"/gamelib/d/init");
+	int branch = init_src ? search(init_src,"else if(u_p==\"taiji\")") : -1;
+	int next_branch = branch>=0 ? search(init_src,"//添加物品，初级",branch) : -1;
+	string taiji_branch = branch>=0 && next_branch>branch ?
+		init_src[branch..next_branch-1] : "";
+	int valid = taiji_branch!="" &&
+		search(taiji_branch,"me->setup_player(\"third\",u_p);")!=-1 &&
+		search(taiji_branch,"me->skills[\"taijiquan\"]==0")!=-1 &&
+		search(taiji_branch,"me->skills[\"taijiquan\"]=({1,0});")!=-1;
 	if(valid) test_pass();
-	else test_fail("入门技能未发放");
-	destruct(player);
+	else test_fail("太极创建分支未原子完成职业初始化和入门技能发放");
 }
 
 void test_skill_files_load()
@@ -276,6 +279,73 @@ void test_team_revive_independent_cooldown()
 	destruct(player);
 }
 
+void test_team_revive_runtime()
+{
+	test_start("复阴：真实清除鬼魂状态、恢复生命后才进入冷却");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/guixujing");
+	object caster = create_runtime_player("__testunit_taiji_caster__");
+	object target = clone(GAMELIB_USER);
+	target->set_name("__testunit_taiji_ghost__");
+	target->set_project("gamelib");
+	target->set_raceId("third");
+	target->set_profeId("lingyi");
+	target->setup_player("third","lingyi");
+	foreach(all_inventory(target),object item)
+		destruct(item);
+	caster->set_term("__testunit_taiji_team__");
+	target->set_term("__testunit_taiji_team__");
+	caster->move(room);
+	target->move(room);
+	target->set_life(0);
+	target->ghost();
+	int revived = caster->try_taiji_team_revive(caster,target);
+	int valid = revived==1 && target->get_cur_life()>0 &&
+		!target->is("ghost") &&
+		caster->query_taiji_team_revive_remaining_cast(caster)>0;
+	if(valid) test_pass();
+	else test_fail(sprintf("revived=%d life=%d ghost=%d cooldown=%d",
+		revived,target->get_cur_life(),target->is("ghost"),
+		caster->query_taiji_team_revive_remaining_cast(caster)));
+	foreach(all_inventory(room),object item)
+		if(item!=caster && item!=target)
+			destruct(item);
+	destruct(caster);
+	destruct(target);
+	destruct(room);
+}
+
+void test_team_revive_rejects_empty_team()
+{
+	test_start("复阴：两个未组队玩家不能利用空队伍标识互相复活");
+	object room = clone(ROOT+"/gamelib/d/jinaodao/guixujing");
+	object caster = create_runtime_player("__testunit_taiji_noteam__");
+	object target = clone(GAMELIB_USER);
+	target->set_name("__testunit_taiji_noteam_ghost__");
+	target->set_project("gamelib");
+	target->set_raceId("third");
+	target->set_profeId("lingyi");
+	target->setup_player("third","lingyi");
+	foreach(all_inventory(target),object item)
+		destruct(item);
+	caster->set_term("");
+	target->set_term("");
+	caster->move(room);
+	target->move(room);
+	target->set_life(0);
+	target->ghost();
+	int revived = caster->try_taiji_team_revive(caster,target);
+	if(revived==0 && target->is("ghost"))
+		test_pass();
+	else
+		test_fail("空 team id 被误判为同队");
+	foreach(all_inventory(room),object item)
+		if(item!=caster && item!=target)
+			destruct(item);
+	destruct(caster);
+	destruct(target);
+	destruct(room);
+}
+
 void test_taiji_fuyin_command_exists()
 {
 	test_start("taiji_fuyin 命令文件存在且可被解析");
@@ -288,15 +358,28 @@ void test_taiji_fuyin_command_exists()
 
 void test_unlock_helpers_correct()
 {
-	test_start("解锁辅助函数要求 10 职+无相均达 200 级");
-	// 静态检查源码：account_characterd.pike 和 init.pike 都有 taiji_required
-	string daemon_src = Stdio.read_file(ROOT+
+	test_start("解锁辅助函数真实要求 10 职+无相均达 200 级");
+	object accountd = (object)(ROOT+
 		"/gamelib/single/daemons/account_characterd.pike");
 	string init_src = Stdio.read_file(ROOT+"/gamelib/d/init");
-	int valid =
-		search(daemon_src,"taiji_required_professions")!=-1 &&
-		search(daemon_src,"lvl >= 200")!=-1 &&
-		search(daemon_src,"query_taiji_unlocked_from_summary")!=-1 &&
+	array(string) required = ({
+		"jianxian","yushi","zhuxian","kuangyao","wuyao","yinggui",
+		"fangshi","zhenyue","tianxiang","lingyi","wuxiang",
+	});
+	array(mapping(string:mixed)) exact = ({});
+	foreach(required,string profession)
+		exact += ({(["profession_id":profession,"level":200])});
+	mapping(string:mixed) unlocked = (["ok":1,"characters":exact]);
+	mapping(string:mixed) short_level = copy_value(unlocked);
+	((array)short_level["characters"])[10]["level"] = 199;
+	mapping(string:mixed) missing_profession = copy_value(unlocked);
+	missing_profession["characters"] =
+		((array)missing_profession["characters"])[..9];
+	int valid = accountd->query_taiji_unlocked_from_summary(unlocked)==1 &&
+		accountd->query_taiji_unlocked_from_summary(short_level)==0 &&
+		accountd->query_taiji_unlocked_from_summary(missing_profession)==0 &&
+		search(accountd->query_taiji_missing_from_summary(short_level),
+			"无相（199/200）")!=-1 &&
 		search(init_src,"query_taiji_unlocked_for")!=-1 &&
 		search(init_src,"lvl >= 200")!=-1;
 	if(valid) test_pass();
@@ -411,6 +494,8 @@ int main()
 		test_heart_bonus_65_percent();
 		test_self_revive_5min_cooldown();
 		test_team_revive_independent_cooldown();
+		test_team_revive_rejects_empty_team();
+		test_team_revive_runtime();
 		test_taiji_fuyin_command_exists();
 		test_unlock_helpers_correct();
 		test_create_path_blocks_locked();

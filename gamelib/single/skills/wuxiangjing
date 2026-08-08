@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【无】无相净"; picture="wuxiangjing_logo";
 	desc="无相净化，按优先级解一项负面状态（持续伤害→治疗压制→控制→70级诅咒）";
-	s_type="zhudong"; s_skill_type="curse"; s_delayTime=4;
+	s_type="zhudong"; s_skill_type="balanced_cleanse"; s_delayTime=4;
 	performs_attack[1]=8; performs_attack[2]=14; performs_attack[3]=22; performs_attack[4]=30; performs_attack[5]=40;
 	performs_cast[1]=8; performs_cast[2]=14; performs_cast[3]=22; performs_cast[4]=30; performs_cast[5]=40;
 	skill_type+=({"wuxiang"});

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【极】太极唤"; picture="taijihuan_logo";
 	desc="召唤弱版灵兽助战 5 分钟";
-	s_type="zhudong"; s_skill_type="summon"; s_delayTime=4;
+	s_type="zhudong"; s_skill_type="balanced_summon"; s_delayTime=4;
 	performs_attack[1]=65; performs_attack[2]=156; performs_attack[3]=299; performs_attack[4]=494; performs_attack[5]=754;
 	performs_cast[1]=20; performs_cast[2]=30; performs_cast[3]=45; performs_cast[4]=60; performs_cast[5]=80;
 	skill_type+=({"taiji"});

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【极】太极剑"; picture="taijijian_logo";
 	desc="太极进阶近战剑法";
-	s_type="zhudong"; s_skill_type="wuxing_attack"; s_delayTime=3;
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=3;
 	performs_attack[1]=39; performs_attack[2]=97; performs_attack[3]=201; performs_attack[4]=305; performs_attack[5]=468;
 	performs_cast[1]=5; performs_cast[2]=9; performs_cast[3]=14; performs_cast[4]=21; performs_cast[5]=30;
 	skill_type+=({"taiji"});

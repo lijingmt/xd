@@ -271,34 +271,21 @@ private int player_already_entered(object player,string event_id,string date)
 {
 	mapping state;
 	mapping last_entry;
-	mapping participant;
 	if(!player)
 		return 1;
 	// HTTP /api/status 会调用此路径，必须保持纯读取，不能在轮询线程补档。
 	state = player[PLAYER_EVENT_ROOT];
 	last_entry = mappingp(state) && mappingp(state["last_entry"]) ?
 		state["last_entry"] : ([]);
-	if((string)last_entry[event_id]==date){
-		// 修复：检查玩家是否在该场次被淘汰（alive=0）
-		// 如果已被淘汰，允许再次参加
-		foreach(values(sessions),mapping session)
-			if((string)session["event_id"]==event_id &&
-			   (string)session["date"]==date){
-				participant = session["participants"][(string)player->query_name()];
-				if(mappingp(participant) && (int)participant["alive"]==0){
-					// 玩家被淘汰，忽略 last_entry 记录
-					return 0;
-				}
-			}
+	// 淘汰记录不能继续把玩家当作活跃会话，但今日资格仍已消费。
+	// 否则同日多场次或未来调整日程后可重复领取参与奖励。
+	if((string)last_entry[event_id]==date)
 		return 1;
-	}
 	foreach(values(sessions),mapping session)
 		if((string)session["event_id"]==event_id &&
 		   (string)session["date"]==date){
 			mapping participant = session["participants"][(string)player->query_name()];
-			// 修复：检查参与者是否存在且未被淘汰
-			if(mappingp(participant) && (int)participant["alive"]==1 &&
-			   (string)session["phase"]!="signup")
+			if(mappingp(participant) && (string)session["phase"]!="signup")
 				return 1;
 		}
 	return 0;

@@ -16,8 +16,11 @@
 // 全局变量 - 命令隐藏系统
 // ========================================================================
 
-mapping hidden_commands = ([ ]);
-mapping hidden_positions = ([ ]);
+constant HIDDEN_COMMAND_TTL = 30*60;
+constant HIDDEN_COMMAND_LIMIT = 100000;
+mapping(string:mapping(string:mixed)) hidden_command_tokens = ([]);
+Thread.Mutex hidden_command_lock = Thread.Mutex();
+int hidden_command_created;
 
 constant AUTH_PASSWORD_CACHE_TTL = 2;
 constant AUTH_PASSWORD_CACHE_LIMIT = 2048;
@@ -332,60 +335,92 @@ string get_user_password(string userid)
 // 命令隐藏系统
 // ========================================================================
 
-/**
- * 隐藏命令：将明文命令存储到数组，返回数字索引
- */
-string hide_command(string userid, string cmd)
+private void cleanup_hidden_command_tokens_locked()
 {
-    if(!userid || !cmd) return "0";
-
-    if(!hidden_commands[userid]) {
-        hidden_commands[userid] = allocate(HIDDEN_SIZE);
-        hidden_positions[userid] = 0;
+    int now = time();
+    foreach(indices(hidden_command_tokens),string token) {
+        mapping entry = hidden_command_tokens[token];
+        if(!entry || (int)entry["expires"] < now)
+            m_delete(hidden_command_tokens,token);
     }
-
-    array(string) cmds = hidden_commands[userid];
-    int pos = hidden_positions[userid];
-
-    if(pos >= HIDDEN_SIZE) {
-        pos = 0;
+    while(sizeof(hidden_command_tokens) >= HIDDEN_COMMAND_LIMIT) {
+        string oldest_token = "";
+        int oldest_created = now+1;
+        foreach(indices(hidden_command_tokens),string token) {
+            mapping entry = hidden_command_tokens[token];
+            if(entry && (int)entry["created"] < oldest_created) {
+                oldest_token = token;
+                oldest_created = (int)entry["created"];
+            }
+        }
+        if(oldest_token == "")
+            break;
+        m_delete(hidden_command_tokens,oldest_token);
     }
-
-    cmds[pos] = cmd;
-    hidden_positions[userid] = pos + 1;
-
-    // http_werror(" hide_command: userid=%s, cmd=%s, index=%d\n", userid, cmd, pos);
-    return (string)pos;
 }
 
 /**
- * 解码命令：将数字索引转换为实际命令
+ * 隐藏命令：为每个页面动作创建不可变、不可预测且绑定账号的令牌。
  */
-string unhide_command(string userid, string index_str)
+string hide_command(string userid, string cmd)
 {
-    if(!userid || !index_str) return "look";
+    string token;
+    object key;
+    if(!userid || !cmd)
+        return "c_invalid";
+    key = hidden_command_lock->lock();
+    hidden_command_created++;
+    if(hidden_command_created%256 == 0 ||
+       sizeof(hidden_command_tokens) >= HIDDEN_COMMAND_LIMIT)
+        cleanup_hidden_command_tokens_locked();
+    do {
+        token = "c_"+String.string2hex(Crypto.Random.random_string(24));
+    } while(hidden_command_tokens[token]);
+    hidden_command_tokens[token] = ([
+        "userid":userid,
+        "cmd":cmd,
+        "created":time(),
+        "expires":time()+HIDDEN_COMMAND_TTL,
+    ]);
+    destruct(key);
+    return token;
+}
 
-    int index;
-
-    if(!sscanf(index_str, "%d", index)) {
-        return index_str;
+/**
+ * 解码命令令牌；输入框可在令牌后附加用户输入内容。
+ */
+string unhide_command(string userid, string token_input)
+{
+    string token;
+    string input = "";
+    string result;
+    mapping entry;
+    object key;
+    int space_pos;
+    if(!userid || !token_input)
+        return "look";
+    token = token_input;
+    space_pos = search(token_input," ");
+    if(space_pos > 0) {
+        token = token_input[0..space_pos-1];
+        input = token_input[space_pos+1..];
     }
-
-    if(!hidden_commands[userid]) {
-        // http_werror(" unhide_command: no commands for userid=%s\n", userid);
+    if(!has_prefix(token,"c_"))
+        return token_input;
+    key = hidden_command_lock->lock();
+    entry = hidden_command_tokens[token];
+    if(!entry || (string)entry["userid"] != userid ||
+       (int)entry["expires"] < time()) {
+        if(entry && (int)entry["expires"] < time())
+            m_delete(hidden_command_tokens,token);
+        destruct(key);
         return "look";
     }
-
-    array(string) cmds = hidden_commands[userid];
-
-    if(index < 0 || index >= sizeof(cmds) || !cmds[index]) {
-        // http_werror(" unhide_command: invalid index=%d for userid=%s\n", index, userid);
-        return "look";
-    }
-
-    string cmd = cmds[index];
-    // http_werror(" unhide_command: userid=%s, index=%d, cmd=%s\n", userid, index, cmd);
-    return cmd;
+    result = (string)entry["cmd"];
+    destruct(key);
+    if(input != "")
+        result += " "+input;
+    return result;
 }
 
 /**
@@ -393,9 +428,14 @@ string unhide_command(string userid, string index_str)
  */
 void clear_hidden_commands(string userid)
 {
-    if(hidden_commands[userid]) {
-        hidden_commands[userid] = 0;
-        hidden_positions[userid] = 0;
-        // http_werror(" clear_hidden_commands: userid=%s\n", userid);
+    object key;
+    if(!userid)
+        return;
+    key = hidden_command_lock->lock();
+    foreach(indices(hidden_command_tokens),string token) {
+        mapping entry = hidden_command_tokens[token];
+        if(entry && (string)entry["userid"] == userid)
+            m_delete(hidden_command_tokens,token);
     }
+    destruct(key);
 }

@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【无】无相剑"; picture="wuxiangjian_logo";
 	desc="无相进阶近战剑法";
-	s_type="zhudong"; s_skill_type="wuxing_attack"; s_delayTime=3;
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=3;
 	performs_attack[1]=30; performs_attack[2]=75; performs_attack[3]=155; performs_attack[4]=235; performs_attack[5]=360;
 	performs_cast[1]=5; performs_cast[2]=9; performs_cast[3]=14; performs_cast[4]=21; performs_cast[5]=30;
 	skill_type+=({"wuxiang"});

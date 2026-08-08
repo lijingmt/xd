@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【无】无相吼"; picture="wuxianghou_logo";
 	desc="无相战吼，自身全属性临时提升";
-	s_type="zhudong"; s_skill_type="buff_self"; s_delayTime=3;
+	s_type="zhudong"; s_skill_type="balanced_attr"; s_delayTime=3; s_lasttime=30;
 	performs_attack[1]=5; performs_attack[2]=8; performs_attack[3]=12; performs_attack[4]=16; performs_attack[5]=20;
 	performs_cast[1]=10; performs_cast[2]=18; performs_cast[3]=28; performs_cast[4]=40; performs_cast[5]=55;
 	skill_type+=({"wuxiang"});

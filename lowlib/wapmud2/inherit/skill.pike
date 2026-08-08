@@ -110,7 +110,11 @@ int query_is_rare_direct_damage(){
 		return 0;
 	if(s_skill_type=="phy")
 		return 1;
-	return search(({"dot","curse","buff","heal","taunt","team_guard"}),
+	return search(({"dot","curse","buff","heal","taunt","team_guard",
+		"balanced_shield","balanced_attr","balanced_heart",
+		"balanced_cleanse","balanced_team_guard","balanced_summon",
+		"balanced_self_heal","balanced_team_heal","balanced_wuji",
+		"balanced_combo"}),
 		s_skill_type)==-1;
 }
 

@@ -141,10 +141,12 @@ string query_gift_info(string user_name)
 	return s_rtn;
 }
 
-//用于判断是否能够领取奖品，防止玩家刷
-int if_can_take(string user_name,string gift_name)
+//查询尚未领取的服务端权威数量；客户端提交的数量不能作为发奖依据。
+int query_gift_remaining(string user_name,string gift_name)
 {
 	int can = 0;
+	if(!user_name || user_name=="" || !gift_name || gift_name=="")
+		return 0;
 	if(gift_m[user_name] && sizeof(gift_m[user_name])){
 		gift_list tmpGift = gift_m[user_name];
 		if(tmpGift->gifts_info[gift_name]){
@@ -156,19 +158,30 @@ int if_can_take(string user_name,string gift_name)
 			}
 		}
 	}
-	if(can >0)
-		can = 1;
 	return can;
+}
+
+//用于判断是否能够领取奖品，防止玩家刷
+int if_can_take(string user_name,string gift_name)
+{
+	return query_gift_remaining(user_name,gift_name)>0;
 }
 
 //当玩家领取物品后将刷新信息
 void flush_gift_m(string user_name,string gift_name,int num)
 {
+	if(num<=0)
+		return;
 	if(gift_m[user_name] && sizeof(gift_m[user_name])){
 		gift_list tmpGift = gift_m[user_name];
 		if(tmpGift->gifts_info[gift_name]){
 			array(mixed) tmp_arr = tmpGift->gifts_info[gift_name];
 			if(sizeof(tmp_arr) == 3){
+				int remaining = (int)tmp_arr[1]-(int)tmp_arr[2];
+				if(remaining<=0)
+					return;
+				if(num>remaining)
+					num=remaining;
 				tmp_arr[2] += num;
 			}
 		}

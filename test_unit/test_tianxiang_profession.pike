@@ -246,6 +246,17 @@ void test_real_star_rotation_and_unlearned_gate()
 	object room = clone(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	array(string) generators = ({"xingmang","hanchen","liuxing"});
 	int failed = 0;
+	int marks_after_generators = -1;
+	int target_life_before_burst = -1;
+	int target_life_after_burst = -1;
+	int caster_mofa_before_burst = -1;
+	int caster_mofa_after_burst = -1;
+	int marks_after_burst = -1;
+	int burst_cooldown = -1;
+	int unlearned_life_before = -1;
+	int unlearned_life_after = -1;
+	int unlearned_mofa_before = -1;
+	int unlearned_mofa_after = -1;
 	string error_desc = "";
 	mixed err = catch {
 		caster->move(room);
@@ -260,12 +271,19 @@ void test_real_star_rotation_and_unlearned_gate()
 			caster->f_skills[skill_name] = 0;
 			caster->perform(skill_name,1);
 		}
-		if(caster->query_tianxiang_star_marks()!=3)
+		marks_after_generators = caster->query_tianxiang_star_marks();
+		if(marks_after_generators!=3)
 			failed++;
 		int life_before = target->get_cur_life();
 		int mofa_before = caster->get_cur_mofa();
+		target_life_before_burst = life_before;
+		caster_mofa_before_burst = mofa_before;
 		caster->timeCold = 0;
 		caster->perform("xingluo",1);
+		target_life_after_burst = target->get_cur_life();
+		caster_mofa_after_burst = caster->get_cur_mofa();
+		marks_after_burst = caster->query_tianxiang_star_marks();
+		burst_cooldown = caster->f_skills["xingluo"];
 		if(target->get_cur_life()>=life_before ||
 		   caster->get_cur_mofa()>=mofa_before ||
 		   caster->query_tianxiang_star_marks()!=0 ||
@@ -279,7 +297,11 @@ void test_real_star_rotation_and_unlearned_gate()
 		caster->f_skills["hanchen"] = 0;
 		life_before = target->get_cur_life();
 		mofa_before = caster->get_cur_mofa();
+		unlearned_life_before = life_before;
+		unlearned_mofa_before = mofa_before;
 		caster->perform("hanchen",1);
+		unlearned_life_after = target->get_cur_life();
+		unlearned_mofa_after = caster->get_cur_mofa();
 		if(target->get_cur_life()!=life_before ||
 		   caster->get_cur_mofa()!=mofa_before)
 			failed++;
@@ -288,7 +310,13 @@ void test_real_star_rotation_and_unlearned_gate()
 	if(!err && failed==0)
 		test_pass();
 	else
-		test_fail(sprintf("真实星痕循环失败=%d: %s",failed,error_desc));
+		test_fail(sprintf("真实星痕循环失败=%d marks=%d/%d "
+			"life=%d/%d mofa=%d/%d cold=%d unlearned=%d/%d,%d/%d: %s",
+			failed,marks_after_generators,marks_after_burst,
+			target_life_before_burst,target_life_after_burst,
+			caster_mofa_before_burst,caster_mofa_after_burst,
+			burst_cooldown,unlearned_life_before,unlearned_life_after,
+			unlearned_mofa_before,unlearned_mofa_after,error_desc));
 	destroy_player(caster);
 	destroy_player(target);
 	if(room) destruct(room);

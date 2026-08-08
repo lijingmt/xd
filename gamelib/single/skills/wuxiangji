@@ -4,7 +4,7 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【无】无相击"; picture="wuxiangji_logo";
 	desc="高阶物理近战";
-	s_type="zhudong"; s_skill_type="wuxing_attack"; s_delayTime=4;
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=4;
 	performs_attack[1]=80; performs_attack[2]=200; performs_attack[3]=400; performs_attack[4]=700; performs_attack[5]=1100;
 	performs_cast[1]=12; performs_cast[2]=20; performs_cast[3]=30; performs_cast[4]=42; performs_cast[5]=55;
 	skill_type+=({"wuxiang"});

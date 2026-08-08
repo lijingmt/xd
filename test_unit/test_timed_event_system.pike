@@ -261,10 +261,19 @@ void test_real_pvp_flow()
 			first->query_in_combat() && second->query_in_combat();
 		settled = TIMED_EVENTD->handle_player_defeat(second,first) &&
 			environment(first)==normal && environment(second)==normal &&
-			!(int)TIMED_EVENTD->query_player_status(first)["active"];
+			!(int)TIMED_EVENTD->query_player_status(first)["joined"];
 	};
 	if(err)
 		error_desc = describe_error(err)+" "+describe_backtrace(err);
+	else if(!paired || !settled)
+		error_desc = sprintf(
+			"session=%O paired=%d settled=%d same_room=%d combat=%d/%d env=%O/%O status=%O",
+			session_key,paired,settled,
+			environment(first)==environment(second),
+			first->query_in_combat(),second->query_in_combat(),
+			environment(first) && file_name(environment(first)),
+			environment(second) && file_name(environment(second)),
+			TIMED_EVENTD->query_player_status(first));
 	check("天衡真实流程完成候场、随机镜域交战与一次死亡结算",
 		!err && paired && settled,error_desc);
 	if(session_key!="")
@@ -297,10 +306,17 @@ void test_real_pve_flow()
 		if(boss)
 			settled = TIMED_EVENTD->handle_event_npc_death(boss,player) &&
 				environment(player)==normal &&
-				!(int)TIMED_EVENTD->query_player_status(player)["active"];
+				!(int)TIMED_EVENTD->query_player_status(player)["joined"];
 	};
 	if(err)
 		error_desc = describe_error(err)+" "+describe_backtrace(err);
+	else if(!reached_boss || !settled)
+		error_desc = sprintf(
+			"session=%O reached=%d settled=%d boss=%O player_env=%O boss_env=%O status=%O",
+			session_key,reached_boss,settled,boss && file_name(boss),
+			environment(player) && file_name(environment(player)),
+			boss && environment(boss) && file_name(environment(boss)),
+			TIMED_EVENTD->query_player_status(player));
 	check("九曜真实流程完成九宫移动、巡游首领发现与胜利结算",
 		!err && reached_boss && settled,error_desc);
 	if(session_key!="")

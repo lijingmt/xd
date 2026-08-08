@@ -3,7 +3,7 @@
  * 团队硬 Boss 回归测试
  *
  * 覆盖：
- * - Boss NPC 文件加载、属性正确（HP 500k/400k，攻击 5500/3500）
+ * - Boss NPC 文件加载、属性正确（HP 3亿/2.5亿）
  * - is_team_required_boss / set_team_required_boss 接口可用
  * - count_first_target_team_in_room 计数正确
  * - 治疗产生仇恨 hook（自疗路径）
@@ -32,6 +32,45 @@ void check(string name,int valid,string reason)
 	}
 }
 
+object create_gate_player(string name,string profession)
+{
+	object player = clone(GAMELIB_USER);
+	player->set_name(name);
+	player->name_cn = "Boss门槛测试人物";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId("third");
+	player->set_profeId(profession);
+	player->setup_player("third",profession);
+	player->level = 120;
+	player->set_att_by_level();
+	player->flush_life();
+	return player;
+}
+
+void destroy_room_inventory(object room)
+{
+	if(!room)
+		return;
+	foreach(all_inventory(room),object ob)
+		destruct(ob);
+	destruct(room);
+}
+
+int count_team_bosses(object room)
+{
+	int count = 0;
+	if(!room)
+		return 0;
+	foreach(all_inventory(room),object ob){
+		if(ob && ob->is("npc") &&
+		   functionp(ob->is_team_required_boss) &&
+		   ob->is_team_required_boss())
+			count++;
+	}
+	return count;
+}
+
 void test_boss_files_load()
 {
 	werror("[测试1] 2 个硬 Boss NPC 与必杀技能文件可加载\n");
@@ -47,18 +86,18 @@ void test_boss_files_load()
 
 void test_boss_attributes_hard_enough()
 {
-	werror("\n[测试2] Boss 属性够硬（HP 500k/400k，攻击 5500/3500+）\n");
+	werror("\n[测试2] Boss 属性够硬（HP 3亿/2.5亿）\n");
 	object b1 = (object)(ROOT+"/gamelib/clone/npc/boss/guixumojun");
 	object b2 = (object)(ROOT+"/gamelib/clone/npc/boss/wanxiangyaohuang");
 	if(!b1 || !b2){
 		check("Boss 加载失败",0,"前置测试失败");
 		return;
 	}
-	check("归墟魔君 HP≥500000",(int)b1->query_life_max()>=300000000,
+	check("归墟魔君 HP≥3亿",(int)b1->query_life_max()>=300000000,
 		sprintf("HP=%d",(int)b1->query_life_max()));
 	check("归墟魔君 力量≥5500",(int)b1->query_base_str()>=5000,
 		sprintf("str=%d",(int)b1->query_base_str()));
-	check("万象妖皇 HP≥400000",(int)b2->query_life_max()>=250000000,
+	check("万象妖皇 HP≥2.5亿",(int)b2->query_life_max()>=250000000,
 		sprintf("HP=%d",(int)b2->query_life_max()));
 	check("万象妖皇 力量≥3500",(int)b2->query_base_str()>=4000,
 		sprintf("str=%d",(int)b2->query_base_str()));
@@ -75,15 +114,14 @@ void test_team_required_flag()
 	int ok4 = (int)b2->query_team_required_min_size()==4;
 	check("归墟魔君 启用 team_required",ok1,"未启用");
 	check("万象妖皇 启用 team_required",ok2,"未启用");
-	check("最小队伍人数=3",ok3&&ok4,"默认值异常");
+	check("最小队伍人数=4",ok3&&ok4,"默认值异常");
 }
 
 void test_team_counter()
 {
 	werror("\n[测试4] count_first_target_team_in_room 计数正确\n");
-	object room = (object)(ROOT+
-		"/gamelib/d/jinaodao/yuhuacunguangchang");
-	object b1 = (object)(ROOT+"/gamelib/clone/npc/boss/guixumojun");
+	object room = clone(WAP_ROOM);
+	object b1 = clone(ROOT+"/gamelib/clone/npc/boss/guixumojun");
 	if(!b1 || !room){
 		check("前置",0,"加载失败");
 		return;
@@ -129,6 +167,57 @@ void test_team_counter()
 	if(p1) destruct(p1);
 	if(p2) destruct(p2);
 	if(p3) destruct(p3);
+	if(b1) destruct(b1);
+	if(room) destruct(room);
+}
+
+void test_team_gate_and_reset_runtime()
+{
+	werror("\n[测试5] 真实四人门槛与房间重置不倍增\n");
+	object room = clone(WAP_ROOM);
+	object boss = clone(ROOT+"/gamelib/clone/npc/boss/guixumojun");
+	object p1 = create_gate_player("__testunit_boss_gate_1__","taiji");
+	object p2 = create_gate_player("__testunit_boss_gate_2__","wuxiang");
+	object p3 = create_gate_player("__testunit_boss_gate_3__","lingyi");
+	object p4 = create_gate_player("__testunit_boss_gate_4__","zhenyue");
+	int three_blocked = 0;
+	int four_allowed = 0;
+	string error_desc = "";
+	mixed err = catch {
+		foreach(({p1,p2,p3,p4}),object player)
+			player->set_term("__testunit_boss_gate_team__");
+		p1->move(room); p2->move(room); p3->move(room); boss->move(room);
+		three_blocked = p1->_fight(boss)==0 && !p1->query_in_combat();
+		p4->move(room);
+		four_allowed = p1->_fight(boss)==1 && p1->query_in_combat();
+	};
+	if(err)
+		error_desc = describe_error(err);
+	check("3人被拒绝、4人可真实进入 Boss 战斗",
+		!err && three_blocked && four_allowed,
+		sprintf("three=%d four=%d %s",three_blocked,four_allowed,
+			error_desc));
+	if(p1 && p1->query_in_combat())
+		p1->_clean_fight();
+	foreach(({p1,p2,p3,p4}),object player)
+		if(player) destruct(player);
+	if(boss) destruct(boss);
+	if(room) destruct(room);
+
+	object reset_room = clone(ROOT+"/gamelib/d/jinaodao/guixujing");
+	int initial = count_team_bosses(reset_room);
+	object extra = clone(ROOT+"/gamelib/clone/npc/boss/guixumojun");
+	extra->move(reset_room);
+	int duplicated = count_team_bosses(reset_room);
+	reset_room->reset_items();
+	int after_first = count_team_bosses(reset_room);
+	reset_room->reset_items();
+	int after_second = count_team_bosses(reset_room);
+	check("Boss 房连续 reset 只保留一只服务端 Boss",
+		initial==1 && duplicated==2 && after_first==1 && after_second==1,
+		sprintf("count=%d/%d/%d/%d",initial,duplicated,
+			after_first,after_second));
+	destroy_room_inventory(reset_room);
 }
 
 void test_self_heal_threat_hook()
@@ -214,6 +303,29 @@ void test_duihuan_command_complete()
 	check("兑换项 feed(100)",search(src,"\"feed\"")!=-1,"");
 	check("兑换项 gold110(200)",search(src,"\"gold110\"")!=-1,"");
 	check("兑换项 hidden(500)",search(src,"\"hidden\"")!=-1,"");
+	string menu = Stdio.read_file(ROOT+"/gamelib/cmds/trial_center.pike");
+	string npc = Stdio.read_file(ROOT+
+		"/gamelib/clone/npc/shilian_xianguan.pike");
+	check("所有兑换链接只兑换一份，避免成本再次相乘",
+		menu && npc &&
+		search(menu,"shilian_duihuan 10 lingshi")==-1 &&
+		search(menu,"shilian_duihuan 1 lingshi")!=-1 &&
+		search(npc,"shilian_duihuan 500 hidden")==-1 &&
+		search(npc,"shilian_duihuan 1 hidden")!=-1,
+		"页面仍把单价当成数量传入");
+	check("装备兑换按标称目标等级和品质生成",
+		search(src,"get_itemname_on_level(level)")!=-1 &&
+		search(src,"get_convert_item(raw_name")!=-1 &&
+		search(src,"\"level\":90")!=-1 &&
+		search(src,"\"level\":110")!=-1,
+		"仍在发放低等级固定白装");
+	check("奖励完整交付后才扣武勋",
+		search(src,"rollback_rewards(rewards)")!=-1 &&
+		search(src,"if(!consume_wuxun(me,total_cost))")!=-1,
+		"缺少失败回滚或延迟扣款");
+	check("装备和丹药兑换在移动前执行背包容量检查",
+		search(src,"me->if_over_load(reward)")!=-1,
+		"move() 本身不检查背包容量，满包仍可塞入奖励");
 }
 
 void test_boss_rooms_connected()
@@ -231,6 +343,9 @@ void test_boss_rooms_connected()
 		r1->query_name_cn());
 	check("万象林 name_cn 正确",r2->query_name_cn()=="万象林",
 		r2->query_name_cn());
+	check("两处硬 Boss 战场不被误标为可睡眠卧室",
+		!r1->is("bedroom") && !r2->is("bedroom"),
+		"玩家仍可在 Boss 房使用 sleep");
 	// 出口
 	mapping exits1 = r1->query_exits();
 	mapping exits2 = r2->query_exits();
@@ -286,6 +401,7 @@ int main()
 		test_boss_attributes_hard_enough();
 		test_team_required_flag();
 		test_team_counter();
+		test_team_gate_and_reset_runtime();
 		test_self_heal_threat_hook();
 		test_team_required_gate_in_attack();
 		test_wuxun_drop_on_boss_death();

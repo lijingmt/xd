@@ -16,6 +16,18 @@ int main(string|zero arg)
 		write("战斗中无法传送。\n");
 		return 1;
 	}
+	object current_room = environment(me);
+	string current_path = current_room ? file_name(current_room) : "";
+	array(string) entry_rooms = ({
+		ROOT+"/gamelib/d/jinaodao/yuhuacunguangchang",
+		ROOT+"/gamelib/d/jadhuanjingwaicheng/yuhuacunguangchang",
+		ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang",
+		ROOT+"/gamelib/d/klshuanjingwaicheng/congxianzhenguangcha",
+	});
+	if(search(entry_rooms,current_path)==-1){
+		write("只能从两族主城广场的试炼中心进入团队 Boss。\n");
+		return 1;
+	}
 	string dest = "";
 	if(arg=="guixujing")
 		dest = ROOT+"/gamelib/d/jinaodao/guixujing";

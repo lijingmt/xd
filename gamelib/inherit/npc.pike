@@ -456,7 +456,7 @@ void fight_die()
 			// 其他 Boss 不掉（保持原行为）。每个同房同队成员各得一份。
 			if(functionp(this_object()->is_team_required_boss) &&
 			   this_object()->is_team_required_boss()){
-				int wuxun_per_member = 4;
+				int wuxun_per_member = 0;
 				string boss_name = this_object()->query_name();
 				if(boss_name=="guixumojun")
 					wuxun_per_member = 5;
@@ -490,6 +490,11 @@ void fight_die()
 										ctime(time())[0..sizeof(ctime(time()))-2]+
 										" wuxun clone failed for "+uid+
 										": "+(e?describe_error(e):"null clone")+"\n");
+								}
+								else if(termer->if_over_load(wuxun_ob)){
+									destruct(wuxun_ob);
+									tell_object(termer,"【试炼】背包已满，试炼武勋 ×"+
+										wuxun_per_member+" 未能放入，请腾出空间后再挑战。\n");
 								}
 								else{
 									// move first, THEN set amount — move() 可能重置 amount

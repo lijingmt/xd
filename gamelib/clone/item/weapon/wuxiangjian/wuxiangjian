@@ -19,4 +19,5 @@ picture="wuxiang_logo";
 	set_item_canSend(1);
 	set_item_canStorage(1);
 	set_attack_power(8);
+	set_speed_power(3);
 }

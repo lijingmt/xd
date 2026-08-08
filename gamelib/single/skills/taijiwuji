@@ -3,8 +3,8 @@
 inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【神】太极·无极"; picture="taijiwuji_logo"; desc="太极大神传承·无极：实战冷却极长的群体回血+净化";
-	s_type="zhudong"; s_skill_type="buff"; s_delayTime=80;
-	performs_attack[1]=390; performs_attack[2]=650; performs_attack[3]=1040; performs_attack[4]=1560; performs_attack[5]=2210;
+	s_type="zhudong"; s_skill_type="balanced_wuji"; s_delayTime=80;
+	performs_attack[1]=156; performs_attack[2]=390; performs_attack[3]=741; performs_attack[4]=1170; performs_attack[5]=1716;
 	performs_cast[1]=320; performs_cast[2]=380; performs_cast[3]=450; performs_cast[4]=530; performs_cast[5]=620;
 	skill_type+=({"taiji"}); skill_rare="mythic";
 	performs_level_limit[1]=80; performs_level_limit[2]=100; performs_level_limit[3]=120; performs_level_limit[4]=140; performs_level_limit[5]=160;

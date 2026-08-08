@@ -15,6 +15,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_CONFIG_VERSION 8
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
+#define AUTOFIGHT_SERVER_TICK_SECONDS 1
 
 private array(string) auto_buff_kinds = ({
 	"attri_base",
@@ -36,6 +37,76 @@ private array(string) auto_buff_kinds = ({
 
 private int autofight_scan_count;
 private int autofight_scan_deferred_objects;
+private mapping(string:int) server_autofight_epochs = ([]);
+private int next_server_autofight_epoch;
+
+private void run_server_autofight_tick(string userid,int epoch)
+{
+	object me;
+	if(!server_autofight_epochs[userid] ||
+	   server_autofight_epochs[userid] != epoch)
+		return;
+	me = HTTP_APID->get_player_from_connection(userid,0);
+	if(!me || !functionp(me->query_autofight) ||
+	   me->query_autofight() != "enable"){
+		m_delete(server_autofight_epochs,userid);
+		return;
+	}
+	// 浏览器只负责展示状态。挂机推进始终由主 Backend 执行，继续复用
+	// HTTP 核心命令的账号锁和世界锁，避免后台标签页计时器被节流后停战。
+	// 此处已确认虚拟连接存在，不把可逆密码继续传入内部调用栈。
+	mixed err = catch {
+		HTTP_APID->execute_core_command(userid,"","flushview");
+	};
+	if(err)
+		werror("[AUTOFIGHT] server tick failed for %s: %s\n",
+			userid,describe_error(err));
+	if(server_autofight_epochs[userid] == epoch &&
+	   me && functionp(me->query_autofight) &&
+	   me->query_autofight() == "enable")
+		call_out(run_server_autofight_tick,
+			AUTOFIGHT_SERVER_TICK_SECONDS,userid,epoch);
+}
+
+void ensure_server_autofight_tick(object me)
+{
+	string userid;
+	int epoch;
+	if(!me || !functionp(me->query_name))
+		return;
+	userid = (string)me->query_name();
+	if(userid == "" || server_autofight_epochs[userid])
+		return;
+	if(!HTTP_APID || !functionp(HTTP_APID->has_virtual_connection) ||
+	   !HTTP_APID->has_virtual_connection(userid))
+		return;
+	next_server_autofight_epoch++;
+	if(next_server_autofight_epoch <= 0)
+		next_server_autofight_epoch = 1;
+	epoch = next_server_autofight_epoch;
+	server_autofight_epochs[userid] = epoch;
+	call_out(run_server_autofight_tick,
+		AUTOFIGHT_SERVER_TICK_SECONDS,userid,epoch);
+}
+
+void cancel_server_autofight_tick(object me)
+{
+	string userid;
+	if(!me || !functionp(me->query_name))
+		return;
+	userid = (string)me->query_name();
+	if(userid != "")
+		m_delete(server_autofight_epochs,userid);
+}
+
+int query_server_autofight_tick_active(object me)
+{
+	string userid;
+	if(!me || !functionp(me->query_name))
+		return 0;
+	userid = (string)me->query_name();
+	return userid != "" && server_autofight_epochs[userid] > 0;
+}
 
 private array(mapping(string:mixed)) smart_training_routes = ({
 	([
@@ -575,10 +646,10 @@ string maybe_durability_warning(object me)
 		if(!objectp(ob))
 			continue;
 		// 没耐久接口的物品（任务物品/戒指项链等）跳过
-		if(!functionp(ob->query_item_cur_dura))
+		if(!functionp(ob->query_item_dura))
 			continue;
-		cur = (int)ob->query_item_cur_dura();
-		max = (int)ob->item_dura;
+		cur = (int)ob->item_cur_dura;
+		max = (int)ob->query_item_dura();
 		if(max <= 0)
 			continue;
 		ratio = cur*100/max;
@@ -2128,12 +2199,14 @@ void start_autofight(object me)
 	reset_scan_state(me);
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
+	ensure_server_autofight_tick(me);
 }
 
 void stop_autofight(object me)
 {
 	if(!me)
 		return;
+	cancel_server_autofight_tick(me);
 	me["/tmp/autofight_last_charge"] = 0;
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
@@ -2163,14 +2236,10 @@ int charge_time(object me)
 	elapsed = now-last;
 	if(elapsed <= 0)
 		return query_time_left(me);
-	// 如果距上次扣费超过 30 秒，说明玩家离线/浏览器后台节流/网络断开，
-	// 这段时间没有实际挂机（没杀怪没涨经验），不应消耗每日时间。
-	// 收紧自原 60 秒：手机锁屏 / 切 app 后 setInterval 被节流到 ~1Hz，
-	// 60 秒阈值仍然会缓慢烧份额；30 秒更接近"真实挂机"的节奏。
-	if(elapsed > 30){
-		me["/tmp/autofight_last_charge"] = now;
-		return query_time_left(me);
-	}
+	// 主 Backend 持续推进挂机；若事件循环短时拥塞，最多补扣 30 秒，
+	// 不能再利用 31 秒以上的间隔永久跳过每日挂机时长扣减。
+	if(elapsed > 30)
+		elapsed = 30;
 	left = query_time_left(me)-elapsed;
 	if(left < 0)
 		left = 0;

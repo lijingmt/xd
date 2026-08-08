@@ -3,10 +3,10 @@
 inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【神】无相·归墟"; picture="wuxiangguixu_logo"; desc="无相大神传承·归墟：实战冷却极长，激发无相心法极效";
-	s_type="zhudong"; s_skill_type="buff"; s_delayTime=90;
-	performs_attack[1]=300; performs_attack[2]=500; performs_attack[3]=800; performs_attack[4]=1200; performs_attack[5]=1700;
+	s_type="zhudong"; s_skill_type="balanced_heart"; s_delayTime=90; s_lasttime=30;
+	performs_attack[1]=10; performs_attack[2]=10; performs_attack[3]=10; performs_attack[4]=10; performs_attack[5]=10;
 	performs_cast[1]=400; performs_cast[2]=480; performs_cast[3]=560; performs_cast[4]=650; performs_cast[5]=750;
 	skill_type+=({"wuxiang"}); skill_rare="mythic";
 	performs_level_limit[1]=80; performs_level_limit[2]=100; performs_level_limit[3]=120; performs_level_limit[4]=140; performs_level_limit[5]=160;
-	performs_desc[1]="一阶：全属性+10%，30秒（实战冷却 90秒）"; performs_desc[2]="二阶：全属性+12%，30秒"; performs_desc[3]="三阶：全属性+14%，30秒"; performs_desc[4]="四阶：全属性+16%，30秒"; performs_desc[5]="五阶：全属性+18%，30秒";
+	performs_desc[1]="一阶：心法加成50%提升至60%，持续30秒"; performs_desc[2]="二阶：心法加成50%提升至60%，持续30秒"; performs_desc[3]="三阶：心法加成50%提升至60%，持续30秒"; performs_desc[4]="四阶：心法加成50%提升至60%，持续30秒"; performs_desc[5]="五阶：心法加成50%提升至60%，持续30秒";
 }

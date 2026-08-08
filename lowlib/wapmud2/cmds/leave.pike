@@ -1,11 +1,15 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
-int main(string arg)
+int main(string|zero arg)
 {
-	if(!this_player()->is("npc") &&
-	   this_player()->query_autofight()=="disable"){
-		object me = this_player();
+	object me = this_player();
+	// 登录阶段的 LOW_USER 没有 DBASE 路径存储；它仍能解析到本命令，
+	// 所以必须在访问 /tmp/atk_ctime 以及房间出口前确认是完整游戏角色。
+	if(!me || !stringp(arg) || sizeof(arg)==0 ||
+	   !functionp(me->m_delete_foruser) || !functionp(me->query_level))
+		return 0;
+	if(!me->is("npc") && me->query_autofight()=="disable"){
 		//leave操作，也触发外挂监控，不然太猖獗
 		if(!me["/tmp/atk_ctime"])
 			me["/tmp/atk_ctime"] = (System.Time()->usec_full)/1000;
@@ -85,7 +89,9 @@ int main(string arg)
 		}
 	}
 
-	object env=environment(this_player());
+	object env=environment(me);
+	if(!env || !mappingp(env->exits))
+		return 0;
 	if(env->exits[arg]&&!env->closed_exits[arg]&&!(env->hidden_exits[arg]&&!present(env->hidden_exits[arg],this_player()))){
 		object guarder;
 		if(!(env->guarded_exits[arg] &&

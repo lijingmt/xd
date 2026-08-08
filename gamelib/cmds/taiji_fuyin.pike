@@ -32,10 +32,12 @@ int main(string|zero arg)
 		array(string) candidates = ({});
 		if(env){
 			team_c = (string)me->query_term();
-			foreach(all_inventory(env),object ob){
-				if(ob && ob->is("player") && ob->is("ghost") &&
+			if(team_c!="" && team_c!="noterm"){
+				foreach(all_inventory(env),object ob){
+					if(ob && ob->is("player") && ob->is("ghost") &&
 				   (string)ob->query_term()==team_c && ob!=me)
-					candidates += ({(string)ob->query_name()});
+						candidates += ({(string)ob->query_name()});
+				}
 			}
 		}
 		if(sizeof(candidates)==0){
@@ -69,7 +71,7 @@ int main(string|zero arg)
 	}
 	team_c = (string)me->query_term();
 	team_t = (string)target->query_term();
-	if(team_c=="noterm" || team_c != team_t){
+	if(team_c=="" || team_c=="noterm" || team_c != team_t){
 		write(target->query_name_cn()+"和你不在同一队伍。\n");
 		return 1;
 	}

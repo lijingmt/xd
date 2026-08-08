@@ -268,10 +268,22 @@ string execute_internal_command(object player, string cmd)
         // http_werror(" command() executed\n");
     };
 
-    // 获取命令输出
+    // 在恢复 this_player/连接前完成输出兜底；房间描述依赖当前玩家
+    // 上下文，过早恢复会让 query_desc() 收到 NULL this_player。
     string output_buffer = buffer_conn->get_output();
 
-    // 恢复原始连接
+    mixed fallback_err;
+    if(!err && sizeof(output_buffer) == 0) {
+        fallback_err = catch {
+            if((first_word == "look" || first_word == "l") &&
+               sizeof(target_arg) > 0)
+                output_buffer = get_target_info(player, target_arg);
+            else
+                output_buffer = get_room_info(player);
+        };
+    }
+
+    // 无论命令或兜底是否异常，都恢复原始连接和 this_player。
     connd->set_conn(player, original_conn);
     set_this_player(original_this_player);
 
@@ -280,17 +292,10 @@ string execute_internal_command(object player, string cmd)
             describe_backtrace(err));
         output_buffer += "命令执行错误\n";
     }
-
-    // http_werror(" Captured output: %d bytes\n", sizeof(output_buffer));
-
-    // 如果没有捕获到输出，生成默认输出
-    if(sizeof(output_buffer) == 0) {
-        if((first_word == "look" || first_word == "l") && sizeof(target_arg) > 0) {
-            output_buffer = get_target_info(player, target_arg);
-        } else {
-            output_buffer = get_room_info(player);
-        }
-        // http_werror(" Generated output: %d bytes\n", sizeof(output_buffer));
+    if(fallback_err) {
+        http_werror(" Command fallback error: %s\n%s\n",
+            describe_error(fallback_err),describe_backtrace(fallback_err));
+        output_buffer += "命令执行错误\n";
     }
 
     return output_buffer;
@@ -634,6 +639,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 break;
             case "/api/status":
                 handle_api_status(req);
+                break;
+            case "/api/ping":
+                handle_api_ping(req);
                 break;
             case "/api/equipment_panel":
                 handle_api_equipment_panel(req);
@@ -1182,15 +1190,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
         }
     }
 
-    // 解码命令
-    int hidden_index;
-    string input;
-    if(sscanf(cmd, "%d %s", hidden_index, input) == 2) {
-        string base_cmd = unhide_command(auth_userid, (string)hidden_index);
-        cmd = base_cmd + " " + input;
-    } else {
-        cmd = unhide_command(auth_userid, cmd);
-    }
+    // 解码不可变命令令牌；输入框后缀由 unhide_command 统一拼接。
+    cmd = unhide_command(auth_userid, cmd);
 
     if(!execute_command_async(auth_userid,auth_password,cmd,
        finish_handle_api_html,req,auth_userid,cmd,client_ip,
@@ -2066,8 +2067,44 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
         return;
     }
 
+    if(functionp(player->query_autofight) &&
+       player->query_autofight() == "enable")
+        AUTOFIGHTD->ensure_server_autofight_tick(player);
+
     mapping result = query_player_state(player);
     send_json(req, result);
+}
+
+/**
+ * 轻量保活接口：只更新 HTTP 虚拟连接时间，不执行 MUD 命令、不生成页面。
+ */
+void handle_api_ping(Protocols.HTTP.Server.Request req)
+{
+    mapping params = get_params(req);
+    string txd = url_decode(params["txd"]);
+    mapping auth;
+    object player;
+    string userid;
+
+    if(!txd || txd == "" || txd == " ") {
+        send_json(req, ([ "error": "需要认证信息：txd" ]), 400);
+        return;
+    }
+    auth = decode_txd(txd);
+    if(!auth) {
+        send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
+        return;
+    }
+    userid = (string)auth["userid"];
+    player = get_player_from_connection(userid,1);
+    if(!player) {
+        send_json(req, ([ "error": "玩家未登录" ]), 401);
+        return;
+    }
+    if(functionp(player->query_autofight) &&
+       player->query_autofight() == "enable")
+        AUTOFIGHTD->ensure_server_autofight_tick(player);
+    send_json(req, ([ "ok":1, "timestamp":time() ]));
 }
 
 /**

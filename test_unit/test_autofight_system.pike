@@ -2050,7 +2050,8 @@ void test_end_to_end_empty_room_switch()
 		"__testunit_autofight_empty_switch__");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
-	object room = clone(ROOT+"/gamelib/d/mihuandao/nongwusenlin");
+	object room = clone(ROOT+
+		"/gamelib/d/penglaihuanjing/qiushuangxiaojing");
 	object flush_command = (object)(ROOT+
 		"/lowlib/wapmud2/cmds/flushview.pike");
 	object|zero target;
@@ -2069,6 +2070,8 @@ void test_end_to_end_empty_room_switch()
 	int matched_enemy = 0;
 	int valid = 0;
 	mixed err = catch {
+		player->level = 70;
+		player->set_att_by_level();
 		room->hidden_exits["south"] = 1;
 		room->hidden_exits["west"] = 1;
 		room->hidden_exits["north"] = 1;
@@ -2100,12 +2103,15 @@ void test_end_to_end_empty_room_switch()
 		switched_room = environment(player);
 		current_path = daemon->query_current_room_path(player);
 		switched = switched_room && switched_room != room &&
-			current_path == "mihuandao/lvyinshanqiu";
+			has_prefix(current_path,"penglaihuanjing/");
 		player["/tmp/autofight_last_route_time"] = time()-20;
 		stayed_in_training_area =
 			daemon->should_route_to_training_area(player) == 0;
 		target = clone(ROOT+
 			"/gamelib/clone/npc/mihuandao/10xiongmengeyu");
+		target->_npcLevel = 70;
+		target->setup_npc_dongtai(player);
+		target->set_life(target->query_life_max());
 		target->move(switched_room);
 		for(int resume_tick = 0;resume_tick < 3 &&
 		    !player->in_combat;resume_tick++)

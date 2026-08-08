@@ -1,7 +1,7 @@
 #include <gamelib/include/gamelib.h>
 inherit GAMELIB_NPC;
 // 团队硬 Boss 1：归墟魔君。位置：归墟境。
-// 设计目标：纯物理硬 Boss，HP 28 万、攻击 2500-3500。
+// 设计目标：纯物理硬 Boss，HP 3 亿、基础力量 5000。
 // 镇越用 dizhenhou 强制 first_target 拉住，dps 在背后输出，
 // 灵医群疗维持 tank 生命，灵医注意仇恨（10:1 已存在）。
 // 必杀技每 20 秒一次：归墟魔击 全房 AOE 5000。

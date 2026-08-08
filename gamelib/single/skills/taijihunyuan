@@ -3,7 +3,7 @@
 inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【神】太极·混元"; picture="taijihunyuan_logo"; desc="太极大神传承·混元：实战冷却极长的物理连击强化";
-	s_type="zhudong"; s_skill_type="buff"; s_delayTime=75;
+	s_type="zhudong"; s_skill_type="balanced_combo"; s_delayTime=75;
 	performs_attack[1]=390; performs_attack[2]=650; performs_attack[3]=1040; performs_attack[4]=1560; performs_attack[5]=2210;
 	performs_cast[1]=350; performs_cast[2]=420; performs_cast[3]=500; performs_cast[4]=590; performs_cast[5]=690;
 	skill_type+=({"taiji"}); skill_rare="mythic";

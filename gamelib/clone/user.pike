@@ -22,6 +22,27 @@ string query_account_owner()
 	return query_name();
 }
 
+// 复活点必须是地图内、源码明确暴露 set_relife 链接的卧室。
+// 既用于设置命令，也用于清理历史上可能被伪造的存档路径。
+int is_valid_relife_path(string path)
+{
+	string source;
+	object room;
+	mixed err;
+	if(!path || path=="" || search(path,"/gamelib/d/")!=0 ||
+	   search(path,"..")!=-1 || search(path,"#")!=-1)
+		return 0;
+	source = Stdio.read_file(ROOT+path);
+	if(!source || search(source,"[设置复活点:set_relife ")==-1)
+		return 0;
+	err=catch {
+		room=(object)(ROOT+path);
+	};
+	if(err || !room || !functionp(room->is_bedroom) || !room->is_bedroom())
+		return 0;
+	return 1;
+}
+
 //无论玩家通过幻境按钮、传送、复活还是管理命令离开，
 //只要真正从副本房间移到普通房间，就统一清理副本成员状态。
 int move(mixed dest)
@@ -523,9 +544,6 @@ void fight_die()
 	int my_level = me->query_level();
 	object env =environment(me);//城战中加入，要是城战，装备耐久将会损耗很小
 	me->red_flag=0;
-	// 挂机中死亡：累计死亡循环计数（5 分钟窗口内 3 次将被自动停止）
-	if(functionp(me->query_autofight) && me->query_autofight()=="enable")
-		AUTOFIGHTD->record_afk_death(me);
 	// 灵兽最后一击的PK、荣誉与击杀记录归属主人。
 	enemy = SUMMOND->query_combat_credit_owner(enemy);
 	// 限时活动死亡由活动状态机原子结算；不触发普通复活、掉级、耐久或荣誉流程。
@@ -544,6 +562,9 @@ void fight_die()
 	// 灵医职业复苏优先；未触发时才判定隐藏鸾鸟的账号级回生羽。
 	if(PETD->try_pet_owner_revive(me,enemy))
 		return;
+	// 所有免死/活动复活均未触发，只有真实死亡才累计挂机死亡循环。
+	if(functionp(me->query_autofight) && me->query_autofight()=="enable")
+		AUTOFIGHTD->record_afk_death(me);
 	// 主人死亡时立即清理全部灵兽，不能继续留场攻击或治疗。
 	SUMMOND->player_death(me->query_name());
 
@@ -811,15 +832,18 @@ void fight_die()
 			}
 		}
 	}
-	//如果设置了复活点，从复活点复活，否则从默认阵营复活地复活
-	if(me->relife){
+	//如果设置了合法复活点则移动；路径无效或移动失败时必须回退默认广场。
+	int moved_to_relife = 0;
+	if(me->relife && me->is_valid_relife_path(me->relife)){
 		mixed err=catch{
-			(object)(ROOT+me->relife);
+			moved_to_relife = me->move(ROOT+me->relife);
 		};
-		if(!err)
-			me->move(ROOT+me->relife);
+		if(err)
+			moved_to_relife = 0;
 	}
-	else{
+	if(!moved_to_relife){
+		if(me->relife)
+			me->relife = "";
 		//没有复活点，从默认阵营复活地复活
 		if(me->query_raceId()=="human")
 			me->last_pos="/gamelib/d/congxianzhen/congxianzhenguangchang";

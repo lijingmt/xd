@@ -76,6 +76,12 @@ float query_phy_dodge(){
 			case 17://灵医
 				result = (((float)attribute/50)+(float)equip_add)*0.75;
 			break;
+			case 18://无相
+				result = (((float)attribute/50)+(float)equip_add)*0.75;
+			break;
+			case 19://太极
+				result = (((float)attribute/50)+(float)equip_add)*0.75;
+			break;
 			case 8://人形 包括人类和妖魔
 				result = ((float)attribute/50)+(float)equip_add;	
 			break;
@@ -145,6 +151,12 @@ float query_phy_hitte(){
 				result = (float)attribute+(float)equip_add+10;
 			break;
 			case 17://灵医
+				result = (float)attribute+(float)equip_add+10;
+			break;
+			case 18://无相
+				result = (float)attribute+(float)equip_add+10;
+			break;
+			case 19://太极
 				result = (float)attribute+(float)equip_add+10;
 			break;
 			case 8://人形 包括人类和妖魔
@@ -217,6 +229,12 @@ float query_phy_baoji(){
 			break;
 			case 17://灵医
 				result = (5.00+(float)equip_add)*0.75;
+			break;
+			case 18://无相
+				result = (5.00+((float)attribute/50)+(float)equip_add)*0.75;
+			break;
+			case 19://太极
+				result = (5.00+((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
 				result = 5.00+(float)equip_add;
@@ -291,6 +309,12 @@ int query_base_damage(){
 			break;
 			case 17://灵医
 				result = str/12;  // 治疗职业的普通攻击仅作保底
+			break;
+			case 18://无相
+				result = str/2+dex/2;  // 三系均衡隐藏职业
+			break;
+			case 19://太极
+				result = str/2+dex/2;  // 同公式，由更高属性保持约 30% 优势
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str;
@@ -478,6 +502,12 @@ int query_defend_power(){
 			break;
 			case 17://灵医
 				result = str+equip_add;  // 治疗职业使用法系标准物防
+			break;
+			case 18://无相
+				result = str*2+equip_add;  // 均衡职业物防
+			break;
+			case 19://太极
+				result = str*2+equip_add;  // 同公式，由更高属性保持约 30% 优势
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str+equip_add;

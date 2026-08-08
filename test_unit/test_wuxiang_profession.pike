@@ -89,9 +89,12 @@ void test_initial_stats()
 	mixed err = catch {
 		// life_max 由 str*10+base+level*50 公式动态计算，初始 set_life 会被
 		// set_att_by_level 覆盖；这里只校验三系基础属性。
-		valid = (int)player->query_str() == 8 &&
-			(int)player->query_dex() == 8 &&
-			(int)player->query_think() == 8;
+		valid = (int)player->get_cur_str() == 8 &&
+			(int)player->get_cur_dex() == 8 &&
+			(int)player->get_cur_think() == 8 &&
+			(int)player->query_str() == 12 &&
+			(int)player->query_dex() == 12 &&
+			(int)player->query_think() == 12;
 	};
 	if(err)
 		error_desc = describe_error(err);
@@ -114,9 +117,12 @@ void test_level_growth()
 		player->level = 30;
 		player->set_att_by_level();
 		// 公式：8 + floor((30-1)*1.5) = 8 + floor(43.5) = 8 + 43 = 51
-		valid = (int)player->query_str() == 51 &&
-			(int)player->query_dex() == 51 &&
-			(int)player->query_think() == 51;
+		valid = (int)player->get_cur_str() == 51 &&
+			(int)player->get_cur_dex() == 51 &&
+			(int)player->get_cur_think() == 51 &&
+			(int)player->query_str() == 76 &&
+			(int)player->query_dex() == 76 &&
+			(int)player->query_think() == 76;
 	};
 	if(err)
 		error_desc = describe_error(err);

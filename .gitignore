@@ -1,6 +1,10 @@
 log/
 db_bak/
 db_log/
+tmp/
+**/__pycache__/
+*.py[cod]
+.claude/scheduled_tasks.lock
 core.1096
 # gamelib/clone/item/ - track system files, ignore player-crafted files
 gamelib/clone/item/**/*.o

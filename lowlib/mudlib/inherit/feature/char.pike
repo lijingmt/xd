@@ -453,6 +453,10 @@ private mapping(string:mixed) recent_aoe_battle_report = ([]);
 private object|zero recent_aoe_battle_room = 0;
 private int recent_aoe_battle_expire = 0;
 
+private int can_record_recent_aoe_battle(){
+	return search(({"lingyi","wuxiang","taiji"}),query_profeId())!=-1;
+}
+
 void clear_recent_aoe_battle_report(){
 	recent_aoe_battle_report = ([]);
 	recent_aoe_battle_room = 0;
@@ -460,7 +464,7 @@ void clear_recent_aoe_battle_report(){
 }
 
 void begin_recent_aoe_battle_report(string skill_name,string skill_name_cn){
-	if(query_profeId()!="lingyi" || !environment(this_object())){
+	if(!can_record_recent_aoe_battle() || !environment(this_object())){
 		clear_recent_aoe_battle_report();
 		return;
 	}
@@ -508,7 +512,7 @@ void record_recent_aoe_battle_target(object target,int damage,int hit,
 mapping(string:mixed) query_recent_aoe_battle_report(){
 	mapping(string:mixed) result = ([]);
 	array(mapping) targets = ({});
-	if(query_profeId()!="lingyi" || !recent_aoe_battle_report ||
+	if(!can_record_recent_aoe_battle() || !recent_aoe_battle_report ||
 	   recent_aoe_battle_expire<=time() ||
 	   !recent_aoe_battle_room ||
 	   recent_aoe_battle_room!=environment(this_object()))
@@ -655,12 +659,76 @@ int try_lingyi_auto_revive(object killer){
 // 无相心法（被动）：基于基础三系属性，让最高项的 50%
 // 加成给非最高项。仅在结算（query_str/dex/think）时即时计算；不写入 base_save、
 // 不参与装备穿戴门槛、不参与技能前置。最高项本身不加成，避免超过专精职业上限。
+int query_balanced_heart_boost_percent(){
+	int expires = (int)this_object()["/tmp/balanced/heart_expires"];
+	int boost;
+	if(expires<=time()){
+		this_object()->m_delete_foruser("/tmp/balanced/heart_boost");
+		this_object()->m_delete_foruser("/tmp/balanced/heart_expires");
+		return 0;
+	}
+	boost = (int)this_object()["/tmp/balanced/heart_boost"];
+	if(boost<0)
+		return 0;
+	if(boost>10)
+		return 10;
+	return boost;
+}
+
+int apply_balanced_heart_boost(int boost,int duration){
+	string profe = query_profeId();
+	if((profe!="wuxiang" && profe!="taiji") || boost<=0 || duration<=0)
+		return 0;
+	if(boost>10)
+		boost = 10;
+	this_object()["/tmp/balanced/heart_boost"] = boost;
+	this_object()["/tmp/balanced/heart_expires"] = time()+duration;
+	return 1;
+}
+
+int query_balanced_attr_percent(){
+	int expires = (int)this_object()["/tmp/balanced/attr_expires"];
+	int percent;
+	if(expires<=time()){
+		this_object()->m_delete_foruser("/tmp/balanced/attr_percent");
+		this_object()->m_delete_foruser("/tmp/balanced/attr_expires");
+		return 0;
+	}
+	percent = (int)this_object()["/tmp/balanced/attr_percent"];
+	if(percent<0)
+		return 0;
+	if(percent>40)
+		return 40;
+	return percent;
+}
+
+int apply_balanced_attr_percent(int percent,int duration){
+	string profe = query_profeId();
+	if((profe!="wuxiang" && profe!="taiji") || percent<=0 || duration<=0)
+		return 0;
+	if(percent>40)
+		percent = 40;
+	if(query_balanced_attr_percent()>percent)
+		return 0;
+	this_object()["/tmp/balanced/attr_percent"] = percent;
+	this_object()["/tmp/balanced/attr_expires"] = time()+duration;
+	return 1;
+}
+
+int query_balanced_attr_bonus(int current){
+	int percent = query_balanced_attr_percent();
+	if(current<=0 || percent<=0)
+		return 0;
+	return current*percent/100;
+}
+
 int query_wuxiang_heart_bonus(string attr){
 	int s_v;
 	int d_v;
 	int t_v;
 	int highest;
 	int current;
+	int heart_percent = 50+query_balanced_heart_boost_percent();
 	if(!functionp(this_object()->query_profeId) ||
 	   this_object()->query_profeId()!="wuxiang")
 		return 0;
@@ -674,6 +742,10 @@ int query_wuxiang_heart_bonus(string attr){
 		highest = t_v;
 	if(highest <= 0)
 		return 0;
+	// 隐藏职业升级时三项基础值同步；完全相等时必须让心法生效，
+	// 否则无相从 1 级到满级都永远得到 0 加成。
+	if(s_v==d_v && d_v==t_v)
+		return highest*heart_percent/100;
 	if(attr=="str")
 		current = s_v;
 	else if(attr=="dex")
@@ -684,7 +756,7 @@ int query_wuxiang_heart_bonus(string attr){
 		return 0;
 	if(current >= highest)
 		return 0;
-	return highest/2;
+	return highest*heart_percent/100;
 }
 
 // 太极心法（被动）：基于基础三系属性，让最高项的 65% 加成给非最高项
@@ -695,6 +767,7 @@ int query_taiji_heart_bonus(string attr){
 	int t_v;
 	int highest;
 	int current;
+	int heart_percent = 65+query_balanced_heart_boost_percent();
 	if(!functionp(this_object()->query_profeId) ||
 	   this_object()->query_profeId()!="taiji")
 		return 0;
@@ -708,6 +781,9 @@ int query_taiji_heart_bonus(string attr){
 		highest = t_v;
 	if(highest <= 0)
 		return 0;
+	// 太极同样是三项同步成长；完全相等时按对称心法结算三项。
+	if(s_v==d_v && d_v==t_v)
+		return highest*heart_percent/100;
 	if(attr=="str")
 		current = s_v;
 	else if(attr=="dex")
@@ -718,8 +794,7 @@ int query_taiji_heart_bonus(string attr){
 		return 0;
 	if(current >= highest)
 		return 0;
-	// 65% 加成 = highest*65/100，对 200 时为 130（vs 无相 100）。
-	return highest*65/100;
+	return highest*heart_percent/100;
 }
 string query_wuxiang_avatar_day_key()
 {
@@ -874,21 +949,24 @@ int try_taiji_team_revive(object caster, object target){
 	// 必须是同队伍
 	team_c = (string)caster->query_term();
 	team_t = (string)target->query_term();
-	if(team_c == "noterm" || team_c != team_t)
+	if(team_c == "" || team_c == "noterm" || team_c != team_t)
 		return 0;
 	// 不能复活自己（自复活走 try_taiji_self_revive）
 	if(caster == target)
 		return 0;
 	if(query_taiji_team_revive_remaining_cast(caster) > 0)
 		return 0;
-	// 标记冷却、恢复生命、清除鬼魂状态
-	caster["/plus/taiji/team_revive_at"] = time();
+	// 先恢复目标并验证状态，成功后才消费冷却。
 	life_restore = target->query_life_max()*50/100;
 	if(life_restore<1)
 		life_restore = 1;
-	catch { target->set_life(life_restore); };
-	catch { target->m_delete_foruser("is_ghost"); };
-	catch { target->relife(); };
+	mixed revive_err = catch {
+		target->set_life(life_restore);
+		target->relive();
+	};
+	if(revive_err || target->get_cur_life()<1 || target->is("ghost"))
+		return 0;
+	caster["/plus/taiji/team_revive_at"] = time();
 	catch {
 		foreach(all_inventory(env_c),object observer){
 			if(observer && functionp(observer->is) && observer->is("player"))
@@ -1459,7 +1537,9 @@ int query_str(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_str()+query_base_all()+query_wuxiang_heart_bonus("str")+query_taiji_heart_bonus("str");
+	result += query_base_str()+query_base_all()+
+		query_wuxiang_heart_bonus("str")+query_taiji_heart_bonus("str");
+	return result+query_balanced_attr_bonus(result);
 }
 void set_think(int think){
 	_think = think;
@@ -1487,7 +1567,9 @@ int query_think(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_think()+query_base_all()+query_wuxiang_heart_bonus("think")+query_taiji_heart_bonus("think");
+	result += query_base_think()+query_base_all()+
+		query_wuxiang_heart_bonus("think")+query_taiji_heart_bonus("think");
+	return result+query_balanced_attr_bonus(result);
 }
 void set_dex(int dex){
 	_dex = dex;
@@ -1515,7 +1597,9 @@ int query_dex(){
 		if(result<0)
 			result=0;
 	}
-	return result+query_base_dex()+query_base_all()+query_wuxiang_heart_bonus("dex")+query_taiji_heart_bonus("dex");
+	result += query_base_dex()+query_base_all()+
+		query_wuxiang_heart_bonus("dex")+query_taiji_heart_bonus("dex");
+	return result+query_balanced_attr_bonus(result);
 }
 //add by calvin 0409/////////////////////////////////////////
 //被动技能增加的属性的永久快照 防御力defend,命中hitte,爆击baoji,闪避dodge
