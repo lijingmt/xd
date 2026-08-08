@@ -18,6 +18,10 @@ int main(string|zero arg)
 	int yushi,money;
 	//int need_yushi = 0;
 	//int need_money = 0;
+	if(!me || !arg || String.trim_all_whites(arg)==""){
+		write("请选择要购买的物品。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(sscanf(arg,"%s %s %s %d %d %d",item_type,type,item_name,yushi,money,flag)!=6){
 		sscanf(arg,"%s %s",item_type,type);
 		s = "您想购买些什么：\n";

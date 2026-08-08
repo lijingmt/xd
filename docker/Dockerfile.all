@@ -113,6 +113,7 @@ RUN dnf install -y \
     gdbm-libs \
     sqlite-libs \
     zlib \
+    curl \
     socat \
     tzdata && \
     ldconfig && \
@@ -231,9 +232,13 @@ MYSQL_PORT="${MYSQL_PORT:-3306}"
 MYSQL_USER="${MYSQL_USER:-root}"
 MYSQL_PASSWORD="${MYSQL_PASSWORD:-Happy888888}"
 
-# 创建必要目录
-mkdir -p /app/xiand/log /var/lib/mysql /tmp
+# 创建必要目录。db_log 在 .dockerignore 中，不会随镜像复制；注册和每日
+# 统计写入前必须显式创建，避免注册初始化被日志异常中断。
+mkdir -p /app/xiand/log /app/xiand/db_log/reg_new \
+    /app/xiand/db_log/daily_user /var/lib/mysql /tmp
 chmod 777 /app/xiand/log /var/lib/mysql
+chmod 777 /app/xiand/db_log /app/xiand/db_log/reg_new \
+    /app/xiand/db_log/daily_user
 chmod -R 777 /app/xiand/data_xiand 2>/dev/null || true
 # 创建日志文件
 touch /tmp/xiand_login_debug.log /tmp/socat.log /tmp/socat_3306.log
@@ -288,7 +293,7 @@ RUN chmod +x /app/start-unified.sh
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD pike -e 'exit(0);' || exit 1
+    CMD curl -fsS --max-time 5 http://127.0.0.1:8888/health >/dev/null || exit 1
 
 # 启动脚本
 CMD ["/app/start-unified.sh"]

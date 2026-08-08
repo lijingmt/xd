@@ -238,6 +238,8 @@ int main()
 		string recovery_source = Stdio.read_file(ROOT+
 			"/lowlib/system/cmds/login_band.pike");
 		string vue_source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
+		string user_count_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/user_countd.pike");
 		check("账号接口、令牌授权、多职业共存和旧后端回退同时存在",
 			http_source && account_http_source && recovery_source &&
 			vue_source &&
@@ -255,10 +257,18 @@ int main()
 			search(recovery_source,"change_account_password(user_ob,psw)")!=-1 &&
 			search(vue_source,"error.status === 404 || error.status === 501")!=-1,
 			"新接口安全边界或滚动部署兼容缺失");
+		check("注册统计目录缺失时自动创建且写入失败不再中断初始化",
+			user_count_source &&
+			search(user_count_source,"append_database_log")!=-1 &&
+			search(user_count_source,"Stdio.mkdirhier(directory)")!=-1 &&
+			search(user_count_source,
+				"[USER_COUNTD] %s log append failed")!=-1,
+			"注册/每日统计仍可能因db_log目录缺失抛出异常");
 
 		array(string) compile_files = ({
 			"/gamelib/single/daemons/account_characterd.pike",
 			"/gamelib/single/daemons/http_api_daemon.pike",
+			"/gamelib/single/daemons/user_countd.pike",
 			"/gamelib/clone/user.pike",
 		});
 		array(string) compile_failures = ({});

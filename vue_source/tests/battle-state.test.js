@@ -9,6 +9,7 @@ let nextBattleState = {
   player: {
     name_cn: '测试方士', hp: 90, hp_max: 100,
     mana: 70, mana_max: 80, level: 9, profe: '镇越', race: '中立',
+    autofight: 1,
     guard: 1200, guard_time: 10, guard_active: 1,
     star_marks: 2, star_marks_max: 3,
     medicine_pacts: 2, medicine_pacts_max: 3,
@@ -114,6 +115,7 @@ const source = fs.readFileSync(
   path.join(__dirname, '..', 'js', 'app.js'),
   'utf8'
 );
+assert(source.includes('无论挂机此刻是否已在后台结束'));
 vm.runInNewContext(source, sandbox, { filename: 'app.js' });
 
 assert(componentOptions, 'Vue component should be registered');
@@ -505,9 +507,35 @@ assert.strictEqual(client.playerAvatarFailed, true);
   client.sendJsonCommand = async command => {
     sentCommand = command;
   };
+  let autofightViewFetches = 0;
+  sandbox.fetch = async url => {
+    autofightViewFetches += 1;
+    assert(String(url).includes('/api/autofight_view?'));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        generation: 'test-generation',
+        sequence: 1,
+        active: 1,
+        lines: [],
+        refresh: nextBattleState
+      })
+    };
+  };
   await client.runAutofightTick();
-  assert.strictEqual(sentCommand, 'flushview');
+  assert.strictEqual(sentCommand, '');
+  assert.strictEqual(autofightViewFetches, 1);
+  assert.strictEqual(client.autofightViewGeneration, 'test-generation');
+  assert.strictEqual(client.autofightViewSequence, 1);
+  assert.strictEqual(client.isInBattle, true);
+  assert.strictEqual(client.battleStatusInterval, null);
   assert.strictEqual(client.autofightTickInFlight, false);
+
+  sandbox.document.hidden = true;
+  await client.runAutofightTick();
+  assert.strictEqual(autofightViewFetches, 1);
+  sandbox.document.hidden = false;
 
   sandbox.fetch = async () => ({
     ok: true,
@@ -595,7 +623,7 @@ assert.strictEqual(client.playerAvatarFailed, true);
     componentOptions.computed.hasRecentAoeReport.call(client),
     true
   );
-  assert.strictEqual(client.battleStatusInterval, 1);
+  assert.strictEqual(client.battleStatusInterval, null);
   assert.strictEqual(client.battleStatusLoading, false);
 
   nextBattleState = {

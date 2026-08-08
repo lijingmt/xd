@@ -19,8 +19,12 @@
 constant HIDDEN_COMMAND_TTL = 30*60;
 constant HIDDEN_COMMAND_LIMIT = 100000;
 mapping(string:mapping(string:mixed)) hidden_command_tokens = ([]);
+mapping(string:mapping(string:int)) hidden_command_user_tokens = ([]);
+mapping(int:string) hidden_command_order = ([]);
 Thread.Mutex hidden_command_lock = Thread.Mutex();
 int hidden_command_created;
+int hidden_command_next_serial;
+int hidden_command_oldest_serial = 1;
 
 constant AUTH_PASSWORD_CACHE_TTL = 2;
 constant AUTH_PASSWORD_CACHE_LIMIT = 2048;
@@ -335,28 +339,49 @@ string get_user_password(string userid)
 // 命令隐藏系统
 // ========================================================================
 
+private void remove_hidden_command_token_locked(string token)
+{
+    mapping entry = hidden_command_tokens[token];
+    if(!entry)
+        return;
+    string userid = (string)entry["userid"];
+    int serial = (int)entry["serial"];
+    mapping(string:int) user_tokens = hidden_command_user_tokens[userid];
+    m_delete(hidden_command_tokens,token);
+    if(serial>0)
+        m_delete(hidden_command_order,serial);
+    if(user_tokens) {
+        m_delete(user_tokens,token);
+        if(!sizeof(user_tokens))
+            m_delete(hidden_command_user_tokens,userid);
+    }
+}
+
+private void reset_hidden_command_order_if_empty_locked()
+{
+    if(sizeof(hidden_command_tokens))
+        return;
+    hidden_command_order = ([]);
+    hidden_command_next_serial = 0;
+    hidden_command_oldest_serial = 1;
+}
+
 private void cleanup_hidden_command_tokens_locked()
 {
     int now = time();
-    foreach(indices(hidden_command_tokens),string token) {
-        mapping entry = hidden_command_tokens[token];
-        if(!entry || (int)entry["expires"] < now)
-            m_delete(hidden_command_tokens,token);
-    }
-    while(sizeof(hidden_command_tokens) >= HIDDEN_COMMAND_LIMIT) {
-        string oldest_token = "";
-        int oldest_created = now+1;
-        foreach(indices(hidden_command_tokens),string token) {
-            mapping entry = hidden_command_tokens[token];
-            if(entry && (int)entry["created"] < oldest_created) {
-                oldest_token = token;
-                oldest_created = (int)entry["created"];
-            }
-        }
-        if(oldest_token == "")
+    // 令牌过期顺序与创建顺序一致。只向前推进游标，避免达到上限后
+    // 每创建一个页面动作都全表扫描十万条记录。
+    while(hidden_command_oldest_serial<=hidden_command_next_serial) {
+        string token = hidden_command_order[hidden_command_oldest_serial];
+        mapping entry = token && hidden_command_tokens[token];
+        if(entry && (int)entry["expires"]>=now &&
+           sizeof(hidden_command_tokens)<HIDDEN_COMMAND_LIMIT)
             break;
-        m_delete(hidden_command_tokens,oldest_token);
+        if(token)
+            remove_hidden_command_token_locked(token);
+        hidden_command_oldest_serial++;
     }
+    reset_hidden_command_order_if_empty_locked();
 }
 
 /**
@@ -376,12 +401,21 @@ string hide_command(string userid, string cmd)
     do {
         token = "c_"+String.string2hex(Crypto.Random.random_string(24));
     } while(hidden_command_tokens[token]);
+    hidden_command_next_serial++;
     hidden_command_tokens[token] = ([
         "userid":userid,
         "cmd":cmd,
         "created":time(),
         "expires":time()+HIDDEN_COMMAND_TTL,
+        "serial":hidden_command_next_serial,
     ]);
+    hidden_command_order[hidden_command_next_serial] = token;
+    mapping(string:int) user_tokens = hidden_command_user_tokens[userid];
+    if(!user_tokens) {
+        user_tokens = ([]);
+        hidden_command_user_tokens[userid] = user_tokens;
+    }
+    user_tokens[token] = 1;
     destruct(key);
     return token;
 }
@@ -412,7 +446,8 @@ string unhide_command(string userid, string token_input)
     if(!entry || (string)entry["userid"] != userid ||
        (int)entry["expires"] < time()) {
         if(entry && (int)entry["expires"] < time())
-            m_delete(hidden_command_tokens,token);
+            remove_hidden_command_token_locked(token);
+        reset_hidden_command_order_if_empty_locked();
         destruct(key);
         return "look";
     }
@@ -432,10 +467,9 @@ void clear_hidden_commands(string userid)
     if(!userid)
         return;
     key = hidden_command_lock->lock();
-    foreach(indices(hidden_command_tokens),string token) {
-        mapping entry = hidden_command_tokens[token];
-        if(entry && (string)entry["userid"] == userid)
-            m_delete(hidden_command_tokens,token);
-    }
+    mapping(string:int) user_tokens = hidden_command_user_tokens[userid];
+    foreach(indices(user_tokens || ([])),string token)
+        remove_hidden_command_token_locked(token);
+    reset_hidden_command_order_if_empty_locked();
     destruct(key);
 }

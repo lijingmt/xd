@@ -47,7 +47,10 @@ int main(string|zero arg)
 	if(!arg)
 		arg = "start";
 	//look_top list 等级 1
-	sscanf(arg,"%s %s",act,value);
+	if(sscanf(arg,"%s %s",act,value)!=2){
+		act = "start";
+		value = "";
+	}
 	//----------------------
 	string zhenying=query_race_tag(me->query_raceId(),me->query_profeId());
 	string topname = me->query_name_cn()+"("+me->query_level()+"级)"+zhenying;
@@ -73,9 +76,12 @@ int main(string|zero arg)
 	{
 		case "list":
 		string type;
-		int page;
+		int page = 1;
 		type = value;
-		sscanf(value,"%s %d",type,page);
+		if(!value || sscanf(value,"%s %d",type,page)!=2 || page<1){
+			re += "排行榜参数无效。\n[返回上级:look_top]\n";
+			break;
+		}
 		re += "【"+type+"排行榜】\n";
 		array record = TOPTEN->get_top(type,RANGE,me->query_name());
 		string lr = "";

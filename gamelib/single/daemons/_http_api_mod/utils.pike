@@ -118,21 +118,33 @@ mapping get_params(Protocols.HTTP.Server.Request req)
 // ========================================================================
 
 /**
+ * 发送已经在线程池编码完成的JSON字符串。
+ */
+void send_encoded_json(Protocols.HTTP.Server.Request req,string json,
+    void|int code)
+{
+    mixed err = catch {
+        mapping response = ([ ]);
+        response["type"] = "application/json";
+        response["data"] = json || "{}";
+        response["error"] = (int)(code || 200);
+        response["extra_heads"] = ([ ]);
+        response["extra_heads"]["Access-Control-Allow-Origin"] = "*";
+        response["extra_heads"]["Cache-Control"] = "no-store";
+        req->response_and_finish(response);
+    };
+    if(err)
+        http_werror(" send_encoded_json error: %s\n",describe_error(err));
+}
+
+/**
  * 发送JSON响应
  */
 void send_json(Protocols.HTTP.Server.Request req, mapping data, void|int code)
 {
     mixed err = catch {
         string json = Standards.JSON.encode(data);
-        mapping response = ([ ]);
-        response["type"] = "application/json";
-        response["data"] = json;
-        response["error"] = (int)(code || 200);
-        response["extra_heads"] = ([ ]);
-        response["extra_heads"]["Access-Control-Allow-Origin"] = "*";
-		// 游戏JSON包含TXD或短期账号令牌，禁止浏览器和中间缓存持久化。
-		response["extra_heads"]["Cache-Control"] = "no-store";
-        req->response_and_finish(response);
+        send_encoded_json(req,json,code);
     };
 
     if(err) {

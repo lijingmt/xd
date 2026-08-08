@@ -179,7 +179,7 @@ void execute_queued_command(string userid, string cmd, string request_id)
        main_daemon->execute_command_async(userid,"",cmd,
            finish_queued_command,userid,cmd,request_id))
         return;
-    finish_queued_command("命令线程池繁忙",userid,cmd,request_id);
+    finish_queued_command("命令队列繁忙",userid,cmd,request_id);
 }
 
 void finish_queued_command(string result,string userid,string cmd,

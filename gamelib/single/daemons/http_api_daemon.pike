@@ -141,6 +141,7 @@ protected void create()
 {
     http_api_start_time = time();
     init_parallel_command_farm();
+    refresh_button_grade_snapshot();
     werror("========================================\n");
     werror("[HTTP_API] Daemon Loading...\n");
     werror("[HTTP_API] HTTP_PORT = %d\n", HTTP_PORT);
@@ -440,9 +441,8 @@ string get_room_info(object player)
 /**
  * 登录并执行命令 (主入口函数)
  *
- * 线程路由策略:
- * - 核心共享世界命令由主 Backend 串行执行。
- * - 非核心命令由有界 Thread.Farm 并行执行，同账号仍串行。
+ * 线程路由策略：所有人物/世界命令只允许在主 Backend 执行；
+ * Thread.Farm 仅处理已经快照化的文本解析和 JSON 编码。
  */
 string execute_command(string userid, string password, string cmd)
 {
@@ -515,44 +515,10 @@ string execute_command_sync(string userid, string password, string cmd)
     }
 }
 
-/**
- * 同步执行内部命令 (供用户线程调用)
- * 支持创建玩家对象（如果不存在）
- */
+/** 旧测试/内部兼容入口；仍强制走 Backend 世界命令门禁。 */
 string execute_internal_command_sync(string userid, string password, string cmd)
 {
-    // http_werror(" execute_internal_command_sync: %s for %s\n", cmd, userid);
-
-    // 线程池中的非核心命令同样属于用户真实操作；只读轮询不会走这里。
-    update_connection_time(userid);
-
-    object player = get_player_from_connection(userid);
-    if(!player && password && password != "") {
-        // 设置 HTTP API 登录标记（让 login_check 知道这是 HTTP API 模式）
-        set_http_api_login_pending(userid, 1);
-
-        // 生成 session ID
-        string session_id = sprintf("%d", time());
-
-        // 调用 login_check 进行完整登录
-        string login_arg = sprintf("gamelib %s %s %s", userid, password, session_id);
-        object login_cmd = load_object(ROOT + "/lowlib/system/cmds/login_check.pike");
-        if(login_cmd) {
-            login_cmd->main(login_arg);
-        }
-
-        // 清除登录标记
-        clear_http_api_login_pending(userid);
-
-        // 从虚拟连接池获取登录后的玩家
-        player = get_player_from_connection(userid);
-    }
-
-    if(!player) {
-        return "{\"error\":\"未登录\"}";
-    }
-
-    return execute_internal_command(player, cmd);
+    return execute_core_command(userid,password,cmd);
 }
 
 // ========================================================================
@@ -649,6 +615,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/autofight":
                 handle_api_autofight(req);
                 break;
+            case "/api/autofight_view":
+                handle_api_autofight_view(req);
+                break;
             case "/api/async":
                 handle_api_async(req);
                 break;
@@ -697,7 +666,8 @@ void handle_request(Protocols.HTTP.Server.Request req)
                     "performance":query_http_performance_status(),
                     "account_sessions":query_account_session_status(),
                 ]);
-                send_json(req, m);
+                if(!send_json_mapping_async(req,m,200))
+                    send_json(req,m);
                 break;
             case "/":
                 if(api_only_mode) {
@@ -836,7 +806,7 @@ void handle_api(Protocols.HTTP.Server.Request req)
 
     if(!execute_command_async(auth_userid,auth_password,cmd,
        finish_handle_api,req,auth_userid))
-        send_json(req,(["error":"命令线程池繁忙，请稍后重试"]),503);
+        send_json(req,(["error":"命令队列繁忙，请稍后重试"]),503);
 }
 
 void finish_handle_api(string response,
@@ -1193,10 +1163,27 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     // 解码不可变命令令牌；输入框后缀由 unhide_command 统一拼接。
     cmd = unhide_command(auth_userid, cmd);
 
+    // 滚动部署期间旧页面仍会每秒提交 flushview。服务端调度已开启时
+    // 直接复用最近画面，避免同一人物被新旧调度各推进一次。
+    if(query_command_name(cmd)=="flushview"){
+        object cached_player = get_player_from_connection(auth_userid,0);
+        if(cached_player &&
+           AUTOFIGHTD->query_server_autofight_tick_active(cached_player)){
+            mapping cached_view =
+                AUTOFIGHTD->query_server_autofight_view(cached_player);
+            string cached_output = (string)cached_view["output"];
+            if(cached_output!=""){
+                finish_handle_api_html(cached_output,req,auth_userid,cmd,
+                    client_ip,is_login_attempt);
+                return;
+            }
+        }
+    }
+
     if(!execute_command_async(auth_userid,auth_password,cmd,
        finish_handle_api_html,req,auth_userid,cmd,client_ip,
        is_login_attempt))
-        send_html_error(req,"命令线程池繁忙，请稍后重试");
+        send_html_error(req,"命令队列繁忙，请稍后重试");
 }
 
 void finish_handle_api_html(string response,
@@ -1319,48 +1306,39 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
     // 解码隐藏命令（cmd可能是数字索引）
     string actual_cmd = unhide_command(auth_userid, cmd);
 
-    // 非核心命令在线程池执行；完成后回到 Backend 解析并发送响应。
+    // 兼容仍在运行的旧前端：服务端挂机已接管后，旧 flushview 请求
+    // 只读取最近画面，不能再次推进战斗。
+    if(query_command_name(actual_cmd)=="flushview"){
+        object cached_player = get_player_from_connection(auth_userid,0);
+        if(cached_player &&
+           AUTOFIGHTD->query_server_autofight_tick_active(cached_player)){
+            mapping cached_view =
+                AUTOFIGHTD->query_server_autofight_view(cached_player);
+            string cached_output = (string)cached_view["output"];
+            if(cached_output!=""){
+                finish_handle_api_json(cached_output,req,auth_userid,
+                    auth_password,cmd);
+                return;
+            }
+        }
+    }
+
+    // 所有人物命令进入公平Backend队列；完成后并行解析纯响应。
     if(!execute_command_async(auth_userid,auth_password,actual_cmd,
        finish_handle_api_json,req,auth_userid,auth_password,cmd))
-        send_json(req,(["error":"命令线程池繁忙，请稍后重试"]),503);
+        send_json(req,(["error":"命令队列繁忙，请稍后重试"]),503);
 }
 
-void finish_handle_api_json(string response,
-    Protocols.HTTP.Server.Request req,string auth_userid,
-    string auth_password,string cmd)
+string build_command_json_response_job(string response,string new_txd,
+    string auth_userid,string cmd,array(mapping) newbie_completions,
+    mapping refresh_snapshot)
 {
-    string command_response;
-    object response_player = get_player_from_connection(auth_userid);
-    array(mapping) newbie_completions = ({});
-    command_response = String.trim_all_whites(response || "");
-    // 调度/运行时异常不能伪装成普通MUD文字。返回HTTP错误后，选角页会
-    // 保留已创建人物并允许重试，而不是带着半初始化界面进入游戏。
-    if(has_prefix(command_response,"错误:") ||
-       command_response=="命令执行错误" ||
-       has_prefix(command_response,"{\"error\":")){
-        send_json(req,(["error":"游戏命令执行失败，请重试；若持续出现请联系管理员。"]),500);
-        return;
-    }
-    if(response_player) {
-        newbie_completions =
-            NEWBIED->consume_completion_notices(response_player);
-    }
-
-    // 生成新的 TXD - 使用存储的明文密码（因为 auth_password 可能是哈希）
-    string stored_password = get_user_password(auth_userid);
-    string new_txd = generate_txd(auth_userid, stored_password || auth_password);
-
-    // 解析MUD输出为结构化数据
     array(mapping) lines = parse_mud_to_json(response, new_txd, auth_userid);
-
-    // 检测复制命令
     string copy_data;
     string copy_type;
     if(search(response, "COPY_CODE:") != -1) {
-        // 提取复制数据 - 只提取到行尾或UI按钮前
         sscanf(response, "%*sCOPY_CODE:%[^[ \n\r]", copy_data);
         copy_type = "code";
-        // 从lines中移除这一行
         lines = filter(lines, lambda(mapping m) {
             string text = get_line_text(m);
             return search(text, "COPY_CODE:") == -1;
@@ -1375,7 +1353,6 @@ void finish_handle_api_json(string response,
         });
     }
 
-    // 构建响应
     mapping json_result = ([
         "lines": lines,
         "userid": auth_userid,
@@ -1384,16 +1361,54 @@ void finish_handle_api_json(string response,
         "timestamp": time()
     ]);
 
-    // 如果有复制数据，添加到响应中
     if(copy_data && sizeof(copy_data) > 0 && copy_type) {
         json_result->copy = (["type":copy_type, "data":copy_data]);
     }
     if(sizeof(newbie_completions) > 0) {
         json_result->newbie_completions = newbie_completions;
     }
+    if(mappingp(refresh_snapshot) && sizeof(refresh_snapshot)>0)
+        json_result->refresh = refresh_snapshot;
+    return Standards.JSON.encode(json_result);
+}
 
-    // 返回JSON格式
-    send_json(req, json_result);
+void finish_handle_api_json(string response,
+    Protocols.HTTP.Server.Request req,string auth_userid,
+    string auth_password,string cmd)
+{
+    string command_response;
+    object response_player = get_player_from_connection(auth_userid);
+    array(mapping) newbie_completions = ({});
+    mapping refresh_snapshot = ([]);
+    string stored_password;
+    string new_txd;
+
+    command_response = String.trim_all_whites(response || "");
+    // 调度/运行时异常不能伪装成普通MUD文字。返回HTTP错误后，选角页会
+    // 保留已创建人物并允许重试，而不是带着半初始化界面进入游戏。
+    if(has_prefix(command_response,"错误:") ||
+       command_response=="命令执行错误" ||
+       has_prefix(command_response,"{\"error\":")){
+        send_json(req,(["error":"游戏命令执行失败，请重试；若持续出现请联系管理员。"]),500);
+        return;
+    }
+    if(response_player) {
+        newbie_completions =
+            NEWBIED->consume_completion_notices(response_player);
+        if(query_command_name(cmd)=="flushview")
+            refresh_snapshot = query_autofight_refresh_snapshot(
+                response_player);
+    }
+
+    // TXD 格式与生成逻辑保持不变；只把纯文本解析和JSON编码放到线程池。
+    stored_password = get_user_password(auth_userid);
+    new_txd = generate_txd(auth_userid,stored_password || auth_password);
+
+    if(!send_json_builder_async(req,build_command_json_response_job,({
+        response,new_txd,auth_userid,cmd,newbie_completions,
+        refresh_snapshot
+    }),200))
+        send_json(req,(["error":"响应线程池繁忙，请稍后重试"]),503);
 }
 
 /**
@@ -2068,7 +2083,8 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
     }
 
     mapping result = query_player_state(player);
-    send_json(req, result);
+    if(!send_json_mapping_async(req,result,200))
+        send_json(req,result);
 }
 
 /**
@@ -2098,6 +2114,92 @@ void handle_api_ping(Protocols.HTTP.Server.Request req)
         return;
     }
     send_json(req, ([ "ok":1, "timestamp":time() ]));
+}
+
+string build_autofight_view_json_job(string output,string txd,
+    string userid,mapping metadata,mapping refresh_snapshot)
+{
+    array(mapping) lines = ({});
+    mapping result = copy_value(metadata || ([]));
+    if(output!="")
+        lines = parse_mud_to_json(output,txd,userid);
+    result["lines"] = lines;
+    result["userid"] = userid;
+    result["refresh"] = refresh_snapshot || ([]);
+    result["timestamp"] = time();
+    return Standards.JSON.encode(result);
+}
+
+/**
+ * 读取服务端统一调度的挂机画面。该接口不执行 MUD 命令、不推进战斗；
+ * 文本解析与 JSON 编码进入响应线程池。
+ */
+void handle_api_autofight_view(Protocols.HTTP.Server.Request req)
+{
+    mapping params = get_params(req);
+    string txd = url_decode(params["txd"]);
+    mapping auth;
+    mapping snapshot;
+    mapping forced_logout;
+    mapping refresh_snapshot;
+    mapping metadata;
+    object player;
+    string userid;
+    string output;
+    string after_generation;
+    string generation;
+    int after_sequence;
+    int sequence;
+
+    if(!txd || txd=="" || txd==" "){
+        send_json(req,(["error":"需要认证信息：txd"]),400);
+        return;
+    }
+    auth = decode_txd(txd);
+    if(!auth){
+        send_json(req,(["error":"TXD认证信息无效"]),401);
+        return;
+    }
+    userid = (string)auth["userid"];
+    player = get_player_from_connection(userid,0);
+    if(!player){
+        forced_logout = ACCOUNT_CHARACTERD->
+            query_recent_forced_logout(userid);
+        if((int)forced_logout["forced_logout"])
+            send_json(req,forced_logout,409);
+        else
+            send_json(req,(["error":"玩家未登录"]),401);
+        return;
+    }
+
+    AUTOFIGHTD->initialize_player(player);
+    after_sequence = (int)params["after"];
+    after_generation = (string)params["generation"];
+    generation = AUTOFIGHTD->query_server_autofight_view_generation();
+    snapshot = AUTOFIGHTD->query_server_autofight_view(player);
+    sequence = (int)snapshot["sequence"];
+    refresh_snapshot = query_autofight_refresh_snapshot(player);
+    metadata = ([
+        "sequence":sequence,
+        "generation":generation,
+        "updated_at":(int)snapshot["updated_at"],
+        "active":functionp(player->query_autofight) &&
+            player->query_autofight()=="enable" ? 1 : 0,
+    ]);
+    if(sequence<=0 || (generation==after_generation &&
+       sequence<=after_sequence)){
+        metadata["unchanged"] = 1;
+        metadata["refresh"] = refresh_snapshot;
+        metadata["timestamp"] = time();
+        if(!send_json_mapping_async(req,metadata,200))
+            send_json(req,metadata);
+        return;
+    }
+    output = (string)snapshot["output"];
+    if(!send_json_builder_async(req,build_autofight_view_json_job,({
+        output,txd,userid,metadata,refresh_snapshot
+    }),200))
+        send_json(req,(["error":"响应线程池繁忙，请稍后重试"]),503);
 }
 
 /**
@@ -2226,6 +2328,35 @@ mapping query_battle_enemy_state(object enemy_obj)
 }
 
 /**
+ * 挂机命令完成后一次性生成只读战斗快照，替代浏览器紧接着再发一条
+ * /api/battle_status 请求。快照仍在 Backend 读取，线程池只做后续
+ * 文本解析和 JSON 编码。
+ */
+mapping query_autofight_refresh_snapshot(object player)
+{
+    mapping snapshot = ([]);
+    mapping player_state;
+    object|zero enemy_obj = 0;
+    int in_battle = 0;
+
+    if(!player)
+        return snapshot;
+    player_state = query_player_state(player);
+    snapshot["player"] = player_state;
+    if(functionp(player->query_in_combat))
+        in_battle = player->query_in_combat();
+    snapshot["in_battle"] = in_battle ? 1 : 0;
+    if(in_battle){
+        enemy_obj = query_battle_enemy(player);
+        if(enemy_obj)
+            snapshot["enemy"] = query_battle_enemy_state(enemy_obj);
+        else
+            snapshot["enemy"] = 0;
+    }
+    return snapshot;
+}
+
+/**
  * 获取战斗状态 API
  * 返回玩家和敌人的状态信息
  */
@@ -2269,21 +2400,25 @@ void handle_api_battle_status(Protocols.HTTP.Server.Request req)
 
     if(!in_combat) {
         // 不在战斗中
-        send_json(req, ([
+        mapping idle_result = ([
             "in_battle": false,
             "player": player_state
-        ]));
+        ]);
+        if(!send_json_mapping_async(req,idle_result,200))
+            send_json(req,idle_result);
         return;
     }
 
     // 获取当前房间和战斗核心维护的真实敌人
     object room = environment(player);
     if(!room) {
-        send_json(req, ([
+        mapping roomless_result = ([
             "in_battle": true,
             "player": player_state,
             "enemy": 0
-        ]));
+        ]);
+        if(!send_json_mapping_async(req,roomless_result,200))
+            send_json(req,roomless_result);
         return;
     }
 
@@ -2292,11 +2427,13 @@ void handle_api_battle_status(Protocols.HTTP.Server.Request req)
         enemy_state = query_battle_enemy_state(enemy_obj);
 
     // http_werror(" battle_status response: in_battle=%d, enemy=%O\n", 1, enemy_obj ? enemy_state : 0);
-    send_json(req, ([
+    mapping battle_result = ([
         "in_battle": true,
         "player": player_state,
         "enemy": enemy_obj ? enemy_state : 0
-    ]));
+    ]);
+    if(!send_json_mapping_async(req,battle_result,200))
+        send_json(req,battle_result);
 }
 
 mapping execute_autofight_api_action(object player,string action)
@@ -2430,10 +2567,10 @@ void handle_api_performs(Protocols.HTTP.Server.Request req)
         string auth_userid = auth["userid"];
         string auth_password = auth["password"];
 
-        // use_perform 是账号内查询，交给非核心命令线程池。
+        // use_perform 同样进入 Backend 世界命令队列。
         if(!execute_command_async(auth_userid,auth_password,"use_perform",
            finish_handle_api_performs,req,auth_userid,auth_password))
-            send_json(req,(["error":"命令线程池繁忙，请稍后重试"]),503);
+            send_json(req,(["error":"命令队列繁忙，请稍后重试"]),503);
     };
 
     if(err) {
@@ -2916,8 +3053,24 @@ void handle_api_chat_send(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    execute_command(userid, password, "ui_chat " + message);
+    if(sizeof(message)>1800){
+        send_json(req,(["error":"消息内容过长"]),400);
+        return;
+    }
+    if(!execute_command_async(userid,password,"ui_chat "+message,
+       finish_handle_api_chat_send,req,channel,message))
+        send_json(req,(["error":"命令队列繁忙，请稍后重试"]),503);
+}
 
+void finish_handle_api_chat_send(string response,
+    Protocols.HTTP.Server.Request req,string channel,string message)
+{
+    string command_response = String.trim_all_whites(response || "");
+    if(has_prefix(command_response,"错误:") ||
+       has_prefix(command_response,"{\"error\":")){
+        send_json(req,(["error":"消息发送失败，请稍后重试"]),500);
+        return;
+    }
     send_json(req, ([
         "success": 1,
         "channel": channel,

@@ -13,6 +13,26 @@ string dbSql2 = "mysql://root:password@gamelog_database:22334/gamelog";
 mapping optionsMap = ([]);
 object obt;
 
+private int append_database_log(string kind,string source)
+{
+	string directory;
+	string path;
+	int ok = 0;
+	mixed err;
+	if(kind!="daily_user" && kind!="reg_new")
+		return 0;
+	directory = ROOT+"/db_log/"+kind;
+	path = directory+"/"+MUD_TIMESD->get_year_month_day();
+	err = catch {
+		Stdio.mkdirhier(directory);
+		if(Stdio.is_dir(directory))
+			ok = Stdio.append_file(path,source) ? 1 : 0;
+	};
+	if(err || !ok)
+		werror("[USER_COUNTD] %s log append failed\n",kind);
+	return ok;
+}
+
 protected void create()
 {
 	//db=Sql.Sql(dbSql,optionsMap);
@@ -138,11 +158,12 @@ void entry_record(object me)
 		   if(c_log != ""){
 			   Stdio.append_file(ROOT+"/log/stat/daily/"+area+"_daily_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
 		   }
-		   Stdio.append_file(ROOT+"/db_log/daily_user/"+MUD_TIMESD->get_year_month_day(),querySql+";\n");
+		   append_database_log("daily_user",querySql+";\n");
 	};
 	if(catchResult)
 	{
-		Stdio.append_file(ROOT+"/db_log/daily_user/"+MUD_TIMESD->get_year_month_day(),intodbs+"|"+(obt->usec_full-st)/1000+"ms insert wrong!\n");
+		append_database_log("daily_user",intodbs+"|"+
+			(obt->usec_full-st)/1000+"ms insert wrong!\n");
 	}
 	//db操作结束
 }
@@ -189,14 +210,15 @@ void reg_new(object me)
 		string c_log = "";//统计使用的日志 evan added 2008.07.10
 		querySql = "insert into xd_reg_info (m_key,mid,game_id,user_id,log_time,ap_info) values ('"+m_key+"','"+m_mid+"','"+area+"','"+id+"','"+day_login_time+"','"+guest+"');";
 		//c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+area+"]["+ id +"]["+m_key+"]\n";
-		Stdio.append_file(ROOT+"/db_log/reg_new/"+MUD_TIMESD->get_year_month_day(),querySql+"\n");
+		append_database_log("reg_new",querySql+"\n");
 		//if(c_log != ""){
 		//	Stdio.append_file(ROOT+"/log/stat/reg/"+area+"_reg_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
 		//}
 	};
 	if(catchResult)
 	{
-		Stdio.append_file(ROOT+"/db_log/reg_new/"+MUD_TIMESD->get_year_month_day(),intodbs+"|"+(obt->usec_full-st)/1000+"ms insert wrong!\n");
+		append_database_log("reg_new",intodbs+"|"+
+			(obt->usec_full-st)/1000+"ms insert wrong!\n");
 	}
 	//db操作结束
 }

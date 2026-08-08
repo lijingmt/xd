@@ -6,6 +6,18 @@
 
 mapping(string:int) test_results = (["total":0,"passed":0,"failed":0]);
 
+void generate_hidden_token_probe(object httpd,string user,int worker,
+	int count,mapping generated,object result_lock)
+{
+	for(int i=0;i<count;i++){
+		string cmd = sprintf("_explorer inventory %d",worker*1000+i);
+		string token = httpd->hide_command(user,cmd);
+		object key = result_lock->lock();
+		generated[token] = cmd;
+		destruct(key);
+	}
+}
+
 string audit_player_file(string userid)
 {
 	return DATA_ROOT+"u/"+userid[sizeof(userid)-2..]+"/"+userid+".o";
@@ -36,24 +48,48 @@ void check(string name,int valid,string detail)
 void test_changed_files_compile()
 {
 	array(string) files = ({
+		"/gamelib/clone/npc/shilian_xianguan.pike",
+		"/gamelib/clone/npc/taiji_teacher.pike",
 		"/gamelib/cmds/shilian_duihuan.pike",
 		"/gamelib/cmds/boss_enter.pike",
+		"/gamelib/cmds/buy_items.pike",
 		"/gamelib/cmds/set_relife.pike",
 		"/gamelib/cmds/gift_take.pike",
 		"/gamelib/cmds/look.pike",
+		"/gamelib/cmds/look_top.pike",
+		"/gamelib/cmds/my_games.pike",
+		"/gamelib/cmds/myskills.pike",
+		"/gamelib/cmds/newbie_guide.pike",
+		"/gamelib/cmds/profession_assistant.pike",
 		"/gamelib/cmds/convert_equip_detail.pike",
+		"/gamelib/cmds/taiji_fuyin.pike",
+		"/gamelib/cmds/trial_center.pike",
 		"/gamelib/inherit/npc.pike",
+		"/gamelib/single/create_skill.pike",
 		"/gamelib/clone/item/weapon/taijijian/taijijian",
 		"/gamelib/clone/item/weapon/wuxiangjian/wuxiangjian",
+		"/gamelib/single/daemons/account_characterd.pike",
 		"/gamelib/single/daemons/autofightd.pike",
+		"/gamelib/single/daemons/buyd.pike",
 		"/gamelib/single/daemons/http_api_daemon.pike",
 		"/gamelib/single/daemons/giftd.pike",
+		"/gamelib/single/daemons/itemsd.pike",
+		"/gamelib/single/daemons/newbied.pike",
+		"/gamelib/single/daemons/taskd.pike",
 		"/gamelib/single/daemons/timed_eventd.pike",
 		"/gamelib/single/daemons/professionvipd.pike",
 		"/gamelib/single/daemons/summond.pike",
 		"/gamelib/clone/user.pike",
 		"/lowlib/mudlib/inherit/feature/attack.pike",
 		"/lowlib/mudlib/inherit/feature/char.pike",
+		"/lowlib/mudlib/inherit/feature/level.pike",
+		"/lowlib/mudlib/inherit/npc.pike",
+		"/lowlib/mudlib/inherit/user.pike",
+		"/lowlib/system/cmds/set_filter.pike",
+		"/lowlib/system/inherit/base.pike",
+		"/lowlib/system/inherit/feature/cmds.pike",
+		"/lowlib/wapmud2/cmds/_explorer.pike",
+		"/lowlib/wapmud2/cmds/flushview.pike",
 		"/lowlib/wapmud2/inherit/feature/fight.pike",
 		"/lowlib/wapmud2/inherit/skill.pike",
 		"/lowlib/wapmud2/cmds/leave.pike",
@@ -504,6 +540,15 @@ void test_server_authoritative_reward_and_relife()
 		convert && search(convert,"!me || !arg ||")!=-1 &&
 		search(convert,"sscanf(arg")>search(convert,"!me || !arg ||"),
 		"NULL 参数仍先进入 sscanf");
+	string buy_items = Stdio.read_file(ROOT+"/gamelib/cmds/buy_items.pike");
+	string look_top = Stdio.read_file(ROOT+"/gamelib/cmds/look_top.pike");
+	check("商店和排行榜畸形参数不会进入 sscanf 或负页索引",
+		buy_items && look_top &&
+		search(buy_items,"!me || !arg ||")!=-1 &&
+		search(buy_items,"sscanf(arg")>search(buy_items,"!me || !arg ||") &&
+		search(look_top,"sscanf(arg,\"%s %s\",act,value)!=2")!=-1 &&
+		search(look_top,"page<1")!=-1,
+		"冷门入口仍可由NULL或无效页码触发运行时异常");
 }
 
 void test_trial_reward_exchange_runtime()
@@ -623,45 +668,65 @@ void test_timed_event_daily_entry_contract()
 		"淘汰状态绕过了 last_entry 的每日资格锁");
 }
 
-void test_client_driven_autofight()
+void test_server_driven_autofight()
 {
 	string frontend = Stdio.read_file(ROOT+"/vue_source/js/app.js");
 	string daemon = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	string http = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
-	check("前端恢复每秒执行一次 flushview",
-		frontend && search(frontend,"sendJsonCommand('flushview')")!=-1 &&
-		search(frontend,"}, 1000);  // 1秒执行一次")!=-1,
-		"flushview 不再由浏览器 1 秒定时器驱动");
-	check("隐藏标签页暂停 flushview，恢复可见后立即重启",
+	check("浏览器只同步服务端挂机画面，不再推进世界命令",
+		frontend && search(frontend,"/api/autofight_view?")!=-1 &&
+		search(frontend,"sendJsonCommand('flushview')")==-1 &&
+		search(frontend,"this.applyBattleStatusData(data.refresh, true)")!=-1,
+		"浏览器仍在执行 flushview 或画面缺少同刻战斗快照");
+	check("隐藏标签页只暂停画面，恢复可见后立即同步",
 		frontend && search(frontend,"visibilityState === 'hidden'")!=-1 &&
 		search(frontend,"clearInterval(this.autofightInterval)")!=-1 &&
 		search(frontend,"visibilityState === 'visible'")!=-1 &&
-		search(frontend,"this.checkAutofight();")!=-1,
-		"页面隐藏/恢复的旧版调度边界缺失");
-	check("服务端不再为每个玩家常驻调度 flushview",
+		search(frontend,"服务端全局调度器继续挂机")!=-1,
+		"后台仍可能暂停真实挂机或前台恢复不同步");
+	check("服务端使用单一调度器和公平有界队列推进原 flushview",
 		daemon && http &&
-		search(daemon,"run_server_autofight_tick")==-1 &&
-		search(daemon,"ensure_server_autofight_tick")==-1 &&
-		search(http,"case \"/api/autofight_view\"")==-1 &&
+		search(daemon,"run_server_autofight_tick")!=-1 &&
+		search(daemon,"single_global_callout")!=-1 &&
+		search(daemon,"cleanup_server_autofight_views")!=-1 &&
+		search(daemon,"HTTP_APID->update_connection_time(userid)")!=-1 &&
+		search(daemon,"enqueue_world_command(userid,\"\",\"flushview\"")!=-1 &&
+		search(daemon,"execute_core_command")==-1 &&
+		search(http,"case \"/api/autofight_view\"")!=-1 &&
+		search(http,"query_server_autofight_tick_active(cached_player)")!=-1 &&
+		search(http,"旧 flushview 请求")!=-1 &&
 		search(http,"case \"/api/ping\"")!=-1 &&
 		search(frontend,"/api/ping?txd=")!=-1,
-		"服务端挂机 tick 或画面快照接口仍残留");
+		"挂机仍依赖每玩家计时器、绕过公平队列或缺少只读画面接口");
 
+	object httpd = HTTP_APID;
 	object player = clone(GAMELIB_USER);
-	player->set_name("xd01testunitauditafk");
+	string userid = "xd01testunitauditafk";
+	player->set_name(userid);
+	player->set_password("testunit-afk");
 	player->set_project("gamelib");
 	player->set_raceId("human");
 	player->set_profeId("jianxian");
 	player->setup_player("human","jianxian");
+	player->move(ROOT+"/gamelib/d/kunlunshan/wuge");
+	httpd->set_virtual_connection(userid,({0,time(),player}));
 	AUTOFIGHTD->start_autofight(player);
+	check("开启挂机后注册服务端全局调度",
+		AUTOFIGHTD->query_server_autofight_tick_active(player)==1,
+		"服务端调度未激活");
 	int before = AUTOFIGHTD->query_time_left(player);
 	player["/tmp/autofight_last_charge"] = time()-31;
 	int after = AUTOFIGHTD->charge_time(player);
-	check("页面未执行超过30秒时不补扣挂机额度",
+	check("事件循环长停顿不一次性补扣超过30秒额度",
 		after==before,
 		sprintf("before=%d after=%d",before,after));
+	AUTOFIGHTD->stop_autofight(player);
+	check("关闭挂机立即注销服务端调度",
+		AUTOFIGHTD->query_server_autofight_tick_active(player)==0,
+		"关闭后调度仍活跃");
+	httpd->remove_virtual_connection(userid);
 	destruct(player);
 }
 
@@ -669,6 +734,8 @@ void test_immutable_hidden_commands()
 {
 	object httpd = HTTP_APID;
 	string user = "xd01testunittoken";
+	string auth_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/auth.pike");
 	string first = httpd->hide_command(user,"_explorer inventory 2");
 	string second = httpd->hide_command(user,"look sword");
 	check("隐藏命令使用独立随机令牌",
@@ -686,6 +753,28 @@ void test_immutable_hidden_commands()
 	check("隐藏命令令牌绑定账号",
 		httpd->unhide_command("xd01another",first)=="look",
 		"其他账号可复用令牌");
+	check("令牌回收按序号推进且按账号清理",
+		auth_source &&
+		search(auth_source,"mapping(int:string) hidden_command_order")!=-1 &&
+		search(auth_source,"hidden_command_oldest_serial")!=-1 &&
+		search(auth_source,"hidden_command_user_tokens[userid]")!=-1 &&
+		search(auth_source,"foreach(indices(hidden_command_tokens)")==-1,
+		"高频页面动作仍会全表扫描令牌缓存");
+	mapping generated = ([]);
+	object result_lock = Thread.Mutex();
+	array(object) workers = ({});
+	for(int worker=0;worker<8;worker++)
+		workers += ({Thread.Thread(generate_hidden_token_probe,httpd,user,
+			worker,16,generated,result_lock)});
+	foreach(workers,object worker)
+		worker->wait();
+	int concurrent_valid = sizeof(generated)==128;
+	foreach(indices(generated),string token)
+		if(httpd->unhide_command(user,token)!=(string)generated[token])
+			concurrent_valid = 0;
+	check("背包翻页令牌并发生成后仍各自对应原命令",
+		concurrent_valid,
+		sprintf("期望128个独立令牌，实际%d",sizeof(generated)));
 	httpd->clear_hidden_commands(user);
 }
 
@@ -767,7 +856,7 @@ int main()
 		"\n");
 	mixed err = catch {
 		test_changed_files_compile();
-		test_client_driven_autofight();
+		test_server_driven_autofight();
 		test_immutable_hidden_commands();
 		test_hidden_profession_combat_formulas();
 		test_hidden_skill_contract_runtime();
