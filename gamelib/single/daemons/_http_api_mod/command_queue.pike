@@ -104,7 +104,7 @@ int enqueue_user_request(string userid, string cmd, string request_id)
     int max_size = MAX_QUEUE_SIZE;
 
     if(sizeof(queue) >= max_size) {
-        http_werror(" Queue full for user %s\n", userid);
+        http_werror(" Queue full\n");
         return 0;
     }
 
@@ -114,8 +114,7 @@ int enqueue_user_request(string userid, string cmd, string request_id)
         queue_max_user_size = sizeof(queue);
 
     if(HTTP_API_QUEUE_DEBUG) {
-        http_werror(" Enqueued request for %s: cmd=%s, queue_size=%d\n",
-               userid, cmd, sizeof(queue));
+        http_werror(" Enqueued request: queue_size=%d\n",sizeof(queue));
     }
 
     if(!queue_processing[userid])
@@ -155,7 +154,7 @@ void process_user_queues()
                 string cmd = req[1];
 
                 if(HTTP_API_QUEUE_DEBUG)
-                    http_werror(" Processing request for %s: %s\n", userid, cmd);
+                    http_werror(" Processing queued request\n");
 
                 call_out(execute_queued_command, 0, userid, cmd, request_id);
                 break;
@@ -171,7 +170,7 @@ void process_user_queues()
 void execute_queued_command(string userid, string cmd, string request_id)
 {
     if(HTTP_API_QUEUE_DEBUG)
-        http_werror(" Executing queued command: %s for %s\n", cmd, userid);
+        http_werror(" Executing queued command\n");
 
     // 获取主文件的 execute_command 函数
     object main_daemon = find_object(ROOT + "/gamelib/single/daemons/http_api_daemon.pike");
@@ -209,7 +208,7 @@ void finish_queued_command(string result,string userid,string cmd,
     }
 
     if(HTTP_API_QUEUE_DEBUG)
-        http_werror(" Command completed for %s, result_len=%d\n", userid, sizeof(result));
+        http_werror(" Command completed, result_len=%d\n",sizeof(result));
 }
 
 /**

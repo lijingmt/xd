@@ -14,20 +14,15 @@ void accept_callback()
 	Stdio.File ob=port->accept();
 	if(!ob)
 		return;
-	Stdio.append_file("/tmp/xiand_conn_debug.log", "accept_callback: got connection\n");
 	mixed err;
 	err=catch{
 		program u=lib_master->connect();
-		Stdio.append_file("/tmp/xiand_conn_debug.log", "accept_callback: u="+sprintf("%O", u)+"\n");
 		object user_obj=u();
-		Stdio.append_file("/tmp/xiand_conn_debug.log", "accept_callback: user_obj="+sprintf("%O", user_obj)+"\n");
 		CONN(ob,user_obj);
-		Stdio.append_file("/tmp/xiand_conn_debug.log", "accept_callback: CONN called\n");
 	};
-	if(err){
-		Stdio.append_file("/tmp/xiand_conn_debug.log", "accept_callback: ERROR="+sprintf("%O", err)+"\n");
-	}
-} 
+	if(err)
+		lib_master->handle_error(err);
+}
 
 object efuns;
 class pikenv_master{
@@ -126,13 +121,40 @@ class pikenv_master{
 		return ob;
 	}
 	*/
+	private string redact_error_text(string source)
+	{
+		if(!source)
+			return "";
+		string result = "";
+		foreach(source/"\n",string line){
+			string lowered = lower_case(line);
+			if(search(lowered,"login_regnew")!=-1 ||
+			   search(lowered,"login_check")!=-1 ||
+			   search(lowered,"login_entrycheck")!=-1 ||
+			   search(lowered,"login_fee")!=-1 ||
+			   search(lowered,"login_band")!=-1 ||
+			   search(lowered,"login_desc2")!=-1 ||
+			   search(lowered,"login_pv")!=-1 ||
+			   search(lowered,"login_regtotal")!=-1 ||
+			   search(lowered,"login_tongji")!=-1 ||
+			   search(lowered,"mysql://")!=-1 ||
+			   search(lowered,"password=")!=-1 ||
+			   search(lowered,"password\"")!=-1)
+				result += "[REDACTED sensitive error context]\n";
+			else
+				result += line+"\n";
+		}
+		return result;
+	}
+
 	void handle_error(array(mixed)|object trace,void|string header)
 	{
 		if(header=="WARNING") return;
 		if(header==0)
 			header="ERROR";
 		if(mixed x=catch {
-			string log_msg = "\n-----"+String.trim_all_whites(ctime(time()))+"-----\n"+header+": *"+describe_backtrace(trace);
+			string log_msg = "\n-----"+String.trim_all_whites(ctime(time()))+"-----\n"+
+				redact_error_text(header+": *"+describe_backtrace(trace));
 			werror(log_msg);
 			log->write(log_msg);
 		}) {
@@ -152,10 +174,8 @@ class pikenv_master{
 					log->write("%O\n", x);
 					}
 					};
-					werror("Original error:\n"
-						"%O\n", trace);
-					log->write("Original error:\n"
-						"%O\n", trace);
+					werror("Original error could not be formatted safely.\n");
+					log->write("Original error could not be formatted safely.\n");
 					}) {
 				werror("sprintf() failed to write error.\n");
 			}

@@ -2,9 +2,23 @@
 #include <gamelib/include/gamelib.h>
 int main(string arg)
 {
-	string path,user_name,lgpswd,userip;
+	string path,user_name,lgpswd,userip,forwarded_ip;
 	string title = "";
-	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
+	int parsed = arg ? sscanf(arg,"%s %s %s %s %s",path,user_name,
+		lgpswd,userip,forwarded_ip) : 0;
+	if(parsed!=5 && arg){
+		forwarded_ip = "";
+		parsed = sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip);
+	}
+	if(parsed==4 || parsed==5){
+		if(path!="gamelib"){
+			write("error2");
+			return 1;
+		}
+		if(!authentication_rate_limit_allowed(forwarded_ip)){
+			write("error2");
+			return 1;
+		}
 		if(!LOGICALZONED->login_allowed(user_name)){
 			write("error2");
 			return 1;

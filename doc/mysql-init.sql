@@ -226,23 +226,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- --------------------------------------------------------
 -- Database User for Docker Container
 -- --------------------------------------------------------
--- Create user for Docker container access
--- IMPORTANT: Change 'Happy888888' to a secure password in production!
-
--- For Docker bridge network (172.17.0.1)
-CREATE USER IF NOT EXISTS 'xiandao'@'172.17.0.1' IDENTIFIED BY 'Happy888888';
-GRANT ALL PRIVILEGES ON `xd01`.* TO 'xiandao'@'172.17.0.1' WITH GRANT OPTION;
-
--- For Docker custom network (172.18.0.0/16)
-CREATE USER IF NOT EXISTS 'xiandao'@'172.18.%' IDENTIFIED BY 'Happy888888';
-GRANT ALL PRIVILEGES ON `xd01`.* TO 'xiandao'@'172.18.%' WITH GRANT OPTION;
-
--- For localhost access
-CREATE USER IF NOT EXISTS 'xiandao'@'localhost' IDENTIFIED BY 'Happy888888';
-GRANT ALL PRIVILEGES ON `xd01`.* TO 'xiandao'@'localhost' WITH GRANT OPTION;
-
--- Flush privileges
-FLUSH PRIVILEGES;
+-- Credential-bearing user provisioning is intentionally omitted.
+-- Run scripts/setup-mysql-docker-access.sh with MYSQL_PASSWORD supplied
+-- through the protected deployment environment.
 
 -- --------------------------------------------------------
 -- Verification

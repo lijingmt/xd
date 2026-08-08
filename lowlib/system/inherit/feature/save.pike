@@ -29,6 +29,24 @@ protected void atomic_save_error(string msg)
 	werror("[ATOMIC_SAVE] "+msg+"\n");
 }
 
+protected int promote_recovered_save(string source,string filepath)
+{
+	string recoverypath = filepath+".recover.tmp";
+	int promoted = 0;
+	mixed err = catch{
+		rm(recoverypath);
+		if(Stdio.cp(source,recoverypath) &&
+		   Stdio.file_size(recoverypath)>0 && mv(recoverypath,filepath))
+			promoted = 1;
+	};
+	if(err || !promoted){
+		rm(recoverypath);
+		atomic_save_error("recovery promotion failed");
+		return 0;
+	}
+	return 1;
+}
+
 protected int atomic_save(string filepath,string temppath)
 {
 	string basedir;
@@ -40,7 +58,7 @@ protected int atomic_save(string filepath,string temppath)
 	int backup_size;
 	mixed err;
 	if(!filepath || !temppath){
-		atomic_save_error("invalid filepath or temppath");
+		atomic_save_error("invalid save path");
 		return 0;
 	}
 	basedir = dirname(filepath);
@@ -56,11 +74,11 @@ protected int atomic_save(string filepath,string temppath)
 		rm(temppath);
 		rm(backuptemppath);
 		if(!save_object(temppath))
-			atomic_save_error("write temp failed filepath="+filepath);
+			atomic_save_error("write temp failed");
 		else{
 			tmp_size = Stdio.file_size(temppath);
 			if(tmp_size<=0)
-				atomic_save_error("temp file empty filepath="+filepath);
+				atomic_save_error("temp file empty");
 			else{
 				live_size = Stdio.file_size(filepath);
 				if(live_size>0){
@@ -69,28 +87,27 @@ protected int atomic_save(string filepath,string temppath)
 					};
 					backup_size = Stdio.file_size(backuptemppath);
 					if(backup_err || backup_size!=live_size)
-						atomic_save_error("backup failed filepath="+filepath);
+						atomic_save_error("backup failed");
 					else if(!mv(backuptemppath,backuppath))
-						atomic_save_error("backup rename failed filepath="+filepath);
+						atomic_save_error("backup rename failed");
 					else if(!mv(temppath,filepath))
-						atomic_save_error("replace failed filepath="+filepath);
+						atomic_save_error("replace failed");
 					else if(Stdio.file_size(filepath)<=0)
-						atomic_save_error("saved file empty filepath="+filepath);
+						atomic_save_error("saved file empty");
 					else
 						ok = 1;
 				}
 				else if(!mv(temppath,filepath))
-					atomic_save_error("initial replace failed filepath="+filepath);
+					atomic_save_error("initial replace failed");
 				else if(Stdio.file_size(filepath)<=0)
-					atomic_save_error("initial saved file empty filepath="+filepath);
+					atomic_save_error("initial saved file empty");
 				else
 					ok = 1;
 			}
 		}
 	};
 	if(err){
-		atomic_save_error("exception during save filepath="+filepath+
-			" error="+describe_backtrace(err));
+		atomic_save_error("exception during save");
 		rm(temppath);
 		rm(backuptemppath);
 		return 0;
@@ -140,13 +157,15 @@ int restore()
 		string temppath = filepath+".tmp";
 		if(Stdio.file_size(filepath)<=0 &&
 		   Stdio.file_size(backuppath)>0){
-			atomic_save_log("restore backup filepath="+filepath);
 			succ=restore_object(backuppath);
+			if(succ && promote_recovered_save(backuppath,filepath))
+				atomic_save_log("restore backup promoted");
 		}
 		else if(Stdio.file_size(filepath)<=0 &&
 			Stdio.file_size(temppath)>0){
-			atomic_save_log("restore temp filepath="+filepath);
 			succ=restore_object(temppath);
+			if(succ && promote_recovered_save(temppath,filepath))
+				atomic_save_log("restore temp promoted");
 		}
 		else
 			succ=restore_object(filepath);
@@ -166,8 +185,6 @@ int restore()
 				filename = "~/gamelib"+(filename/"/gamelib")[1];
 			// pikenv_path already returns absolute path, no need for expand_symlinks
 			string final_path=pikenv_path(filename);
-			Stdio.append_file("/tmp/xiand_login_debug.log", sprintf("inventory[%d]: orig=%s\n  after_check=%s\n  final_path=%s\n",
-				i, inventory[i], filename, final_path));
 			// Use catch to handle missing items gracefully
 			mixed err = catch {
 				object ob=clone(final_path);
@@ -178,9 +195,8 @@ int restore()
 					ob->move(this_object());
 				}
 			};
-			if(err){
-				Stdio.append_file("/tmp/xiand_login_debug.log", "clone failed for: "+final_path+" - "+sprintf("%O", err[0])+"\n");
-			}
+			if(err)
+				atomic_save_log("inventory restore skipped index="+i);
 		}
 		inventory=0;
 	}

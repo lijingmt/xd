@@ -1,16 +1,32 @@
 #include <globals.h> 
 #include <command.h>
 #include <gamelib/include/gamelib.h>
+
 int main(string arg)
 {
-	string path,user_name,args,userip,game_fg;//add by qianglee 0125
+	string path,user_name,args,userip,game_fg,forwarded_ip;//add by qianglee 0125
 	string title = "";
-    	if(arg&&(sscanf(arg,"%s %s %s %s %s",path,user_name,args,userip,game_fg)==5)){
+	int parsed = arg ? sscanf(arg,"%s %s %s %s %s %s",path,user_name,
+		args,userip,game_fg,forwarded_ip) : 0;
+	if(parsed!=6 && arg){
+		forwarded_ip = "";
+		parsed = sscanf(arg,"%s %s %s %s %s",path,user_name,args,
+			userip,game_fg);
+	}
+	if(parsed==5 || parsed==6){
 		if(!user_name || !args || !userip){
 			write("error2");
 			return 1;
 		}
 		else if( sizeof(user_name)<2 || sizeof(args)<2 ){
+			write("error2");
+			return 1;
+		}
+		if(path!="gamelib"){
+			write("error2");
+			return 1;
+		}
+		if(!registration_rate_limit_allowed(forwarded_ip)){
 			write("error2");
 			return 1;
 		}

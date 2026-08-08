@@ -1172,6 +1172,32 @@ object find_player(string name)
 	return ob;
 }
 
+private string connection_rate_limit_ip(void|string forwarded_ip)
+{
+	object player = this_player();
+	object connection = CONND->query_conn(player);
+	string ip = "";
+	if(connection && functionp(connection->query_remote_ip))
+		ip = connection->query_remote_ip();
+	// 仅本机JSP代理可提供真实来源IP；外部Socket不能用参数伪造限流键。
+	if((ip=="127.0.0.1" || ip=="::1") && forwarded_ip &&
+	   forwarded_ip!="")
+		ip = forwarded_ip;
+	return ip;
+}
+
+int registration_rate_limit_allowed(void|string forwarded_ip)
+{
+	string ip = connection_rate_limit_ip(forwarded_ip);
+	return CONND->registration_attempt_allowed(ip);
+}
+
+int authentication_rate_limit_allowed(void|string forwarded_ip)
+{
+	string ip = connection_rate_limit_ip(forwarded_ip);
+	return CONND->authentication_attempt_allowed(ip);
+}
+
 
 
 int str_is_excepted(string str)
@@ -1192,7 +1218,7 @@ int command(string|function str,void|object this)//XXX:Execute the command 'str'
 {
 	if(this==0)
 		this=previous_object();
-	if(str==0)
+	if(str==0 || !objectp(this))
 		return 0;
 	if(!living(this)){
 		if(!str_is_excepted(str))
@@ -1227,6 +1253,8 @@ int command(string|function str,void|object this)//XXX:Execute the command 'str'
 		}
 	}
 	else{
+		if(!objectp(this))
+			return 0;
 		if(action_map[this]==0){
 			action_map[this]=([]);
 		}
@@ -1238,9 +1266,13 @@ int command(string|function str,void|object this)//XXX:Execute the command 'str'
 					fail_str=0;
 					return 0;
 				}
+				if(!objectp(this))
+					return 0;
 			}
 		}
 		else{
+			if(!objectp(this))
+				return 0;
 			action_verb=cmd;
 			if(action_array[this]==0){
 				action_array[this]=({});

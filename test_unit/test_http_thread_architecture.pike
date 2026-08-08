@@ -216,7 +216,9 @@ void test_timeout_and_observability_source(object httpd)
 		search(thread_source,
 			"master()->backend_thread()!=this_thread()") != -1 &&
 		search(thread_source,"destruct(core_key)") != -1 &&
-		search(thread_source,"describe_backtrace(err)") != -1 &&
+		search(thread_source,
+			"[HTTP_API][CORE_COMMAND]") != -1 &&
+		search(thread_source,"describe_backtrace(err)") == -1 &&
 		search(thread_source,"record_world_command_finish") != -1 &&
 		search(daemon_source,"record_http_request_timing") != -1 &&
 		search(daemon_source,"\"dispatch_mode\":queue_status") != -1 &&

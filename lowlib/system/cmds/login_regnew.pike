@@ -1,6 +1,30 @@
 #include <globals.h> 
 #include <command.h>
 #include <gamelib/include/gamelib.h>
+
+private void append_registration_log(string source)
+{
+	string directory = ROOT+"/log/stat/reg";
+	mixed err = catch {
+		Stdio.mkdirhier(directory);
+		Stdio.append_file(directory+"/"+GAME_NAME_S+"_reg_"+
+			MUD_TIMESD->get_year_month_day()+".log",source);
+	};
+	if(err)
+		werror("[login_regnew] registration audit append failed\n");
+}
+
+private string safe_registration_log_field(string value)
+{
+	if(!value)
+		return "";
+	value = replace(value,(["\r":" ","\n":" ","\0":"",
+		"[":"{","]":"}"]));
+	if(sizeof(value)>512)
+		value = value[..511];
+	return value;
+}
+
 int main(string arg)
 {
 	string path,user_name,args,userip,game_fg,m_key,ip,ua;//add by qianglee 0125
@@ -13,6 +37,14 @@ int main(string arg)
 			return 1;
 		}
 		else if( sizeof(user_name)<2 || sizeof(args)<2 ){
+			write("error2");
+			return 1;
+		}
+		if(path!="gamelib"){
+			write("error2");
+			return 1;
+		}
+		if(!registration_rate_limit_allowed(ip)){
 			write("error2");
 			return 1;
 		}
@@ -62,11 +94,15 @@ int main(string arg)
 						me->move(LOW_VOID_OB);
 					destruct(previous_object());
 					//注册成功，返回
-					string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+game_fg+"]["+ user_name +"]["+m_key+"]["+ip+"]["+ua+"]\n";
+					string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+
+						"["+safe_registration_log_field(game_fg)+"]"+
+						"["+safe_registration_log_field(user_name)+"]"+
+						"["+safe_registration_log_field(m_key)+"]"+
+						"["+safe_registration_log_field(ip)+"]"+
+						"["+safe_registration_log_field(ua)+"]\n";
 					//string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+game_fg+"]["+ user_name +"]["+m_key+"]\n";
-					if(c_log != ""){
-						Stdio.append_file(ROOT+"/log/stat/reg/"+GAME_NAME_S+"_reg_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
-					}
+					if(c_log != "")
+						append_registration_log(c_log);
 
 
 					write(user_rtn+","+args);

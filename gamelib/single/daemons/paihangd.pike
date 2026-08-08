@@ -11,10 +11,10 @@ inherit LOW_DAEMON;
 #define TOP_DAY 10 //取10天内的数据
 //#define UPDATE_TIME 20 //更新时间间隔为40秒 测试用
 Sql.Sql db;
-//string dbSql = "mysql://root:password@gamelog_database:22334/xd_game_db";
-// 从环境变量读取数据库密码
-string mysql_password = getenv("MYSQL_PASSWORD") || "Happy888888";
-string dbSql = "mysql://root:"+mysql_password+"@127.0.0.1/xd";
+// 数据库口令只允许从运行环境注入，禁止源码默认值。
+string mysql_password = getenv("MYSQL_PASSWORD") || "";
+string dbSql = mysql_password!="" ?
+	"mysql://root:"+mysql_password+"@127.0.0.1/xd" : "";
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
 mapping optionsMapOfFee = ([]);
@@ -30,6 +30,32 @@ mapping allTypeDesc = ([
 
 array(string) all_type = ({"mark","account","all_fee","home_bi","home_yu","honerpt","lunhuipt"});
 mapping(string:array(mapping(string:mixed))) all_info=([]);
+private int last_database_warning;
+
+private int ensure_database()
+{
+	if(db)
+		return 1;
+	if(dbSql==""){
+		if(time()-last_database_warning>=600){
+			werror("[paihangd] MYSQL_PASSWORD is not configured\n");
+			last_database_warning = time();
+		}
+		return 0;
+	}
+	mixed err = catch {
+		db=Sql.Sql(dbSql,optionsMap);
+	};
+	if(err || !db){
+		db = 0;
+		if(time()-last_database_warning>=600){
+			werror("[paihangd] MySQL unavailable\n");
+			last_database_warning = time();
+		}
+		return 0;
+	}
+	return 1;
+}
 
 private array(mapping(string:mixed)) filter_toplist_for_zone(
 	array(mapping(string:mixed)) source,string|void viewer_id)
@@ -48,13 +74,7 @@ private array(mapping(string:mixed)) filter_toplist_for_zone(
 }
 protected void create()
 {
-	mixed err = catch {
-		db=Sql.Sql(dbSql,optionsMap);
-	};
-	if(err) {
-		werror("[paihangd] MySQL连接失败: %s\n", describe_error(err));
-		db = 0;  // 标记为不可用
-	}
+	ensure_database();
 	obt= System.Time();
 
 	// 只有在 MySQL 可用时才更新排行榜
@@ -131,6 +151,8 @@ array(mapping(string:mixed)) query_toplist(string type,void|string viewer_id)
 //更新排行信息的接口
 void update_toplist(string type,int fg)
 {
+	if(search(all_type,type)==-1)
+		return;
 	all_info[type] = flush_toplist(type);
 	if(!fg)
 		call_out(update_toplist,UPDATE_TIME,type,0);
@@ -140,6 +162,8 @@ void update_toplist(string type,int fg)
 array(mapping(string:mixed)) flush_toplist(string type)
 {
 	array(mapping(string:mixed)) result = ({});
+	if(search(all_type,type)==-1 || !ensure_database())
+		return result;
 	mapping(string:int) limit_time = localtime(time()-3600*24*TOP_DAY);
 	int limit_mday = limit_time["mday"];
 	string day = limit_mday+"";
@@ -166,7 +190,7 @@ array(mapping(string:mixed)) flush_toplist(string type)
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"："+querySql+" in query_mark_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_toplist failed\n");
 		return ({});
 	}
 	return result;
@@ -197,19 +221,16 @@ array(mapping(string:mixed)) flush_mark_toplist()
 
 	int now_year = now_time["year"]+1900;
 	
-	db=Sql.Sql(dbSql,optionsMap);
 	string time_limit = now_year+"-"+mon;
 	
 	string querySql = "select distinct id,name_cn,level,bangid,raceId,profeId,mark from xd_daily_user where area='"+GAME_NAME_S+"' and day_login_time like '"+time_limit+"%'and name_cn != \"\" order by mark desc limit 50;";
 	mixed catchResult = catch {  
-		if(!db)
-			db=Sql.Sql(dbSql,optionsMap);
 		result = db->query(querySql);
 	};
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"："+querySql+" in query_mark_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_mark_toplist failed\n");
 		return ({});
 	}
 	//db操作结束
@@ -230,6 +251,8 @@ void update_account_toplist(int fg)
 array(mapping(string:mixed)) flush_account_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
+	if(!ensure_database())
+		return result;
 
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
@@ -245,19 +268,16 @@ array(mapping(string:mixed)) flush_account_toplist()
 	
 	int now_year = now_time["year"]+1900;
 	
-	db=Sql.Sql(dbSql,optionsMap);
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct id,name_cn,level,bangid,raceId,profeId,account from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by account desc limit 50;";
 	mixed catchResult = catch {  
-		if(!db)
-			db=Sql.Sql(dbSql,optionsMap);
 		result = db->query(querySql);
 		//werror("----"+querySql+"----\n");
 	};
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"："+querySql+" in query_account_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_account_toplist failed\n");
 		return ({});
 	}
 	//db操作结束
@@ -293,6 +313,8 @@ void update_home_yushi_toplist(int fg)
 array(mapping(string:mixed)) flush_home_yushi_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
+	if(!ensure_database())
+		return result;
 
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
@@ -308,19 +330,16 @@ array(mapping(string:mixed)) flush_home_yushi_toplist()
 	
 	int now_year = now_time["year"]+1900;
 	
-	db=Sql.Sql(dbSql,optionsMap);
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct id,name_cn,home_yu from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by home_yu desc limit 50;";
 	mixed catchResult = catch {  
-		if(!db)
-			db=Sql.Sql(dbSql,optionsMap);
 		result = db->query(querySql);
 		//werror("----"+querySql+"----\n");
 	};
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"："+querySql+" in query_home_yushi_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_home_yushi_toplist failed\n");
 		return ({});
 	}
 	//db操作结束
@@ -340,6 +359,8 @@ void update_home_money_toplist(int fg)
 array(mapping(string:mixed)) flush_home_money_toplist()
 {
 	array(mapping(string:mixed)) result = ({});
+	if(!ensure_database())
+		return result;
 
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
@@ -355,19 +376,16 @@ array(mapping(string:mixed)) flush_home_money_toplist()
 	
 	int now_year = now_time["year"]+1900;
 	
-	db=Sql.Sql(dbSql,optionsMap);
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct id,name_cn,home_yu from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by home_bi desc limit 50;";
 	mixed catchResult = catch {  
-		if(!db)
-			db=Sql.Sql(dbSql,optionsMap);
 		result = db->query(querySql);
 		//werror("----"+querySql+"----\n");
 	};
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"："+querySql+" in query_home_yushi_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_home_money_toplist failed\n");
 		return ({});
 	}
 	//db操作结束
@@ -393,8 +411,6 @@ array(mapping(string:mixed)) query_home_money_toplist(void|string viewer_id)
 array(mapping(string:mixed)) fee_toplist=({});
 array(mapping(string:mixed)) query_fee_toplist()
 {
-	werror("============i am here =========\n");
-	werror("========= sizeof(fee_toplist) = "+sizeof(fee_toplist)+" =========\n");
 	if(fee_toplist && sizeof(fee_toplist))
 		return fee_toplist;
 	else 
@@ -412,8 +428,9 @@ void update_fee_toplist(int fg)
 //捐赠排行查询
 array(mapping(string:mixed)) flush_fee_toplist()
 {
-	werror("============i am in =========\n");
 	array(mapping(string:mixed)) result = ({});
+	if(!ensure_database())
+		return result;
 
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
@@ -428,30 +445,25 @@ array(mapping(string:mixed)) flush_fee_toplist()
 	
 	int now_year = now_time["year"]+1900;
 	
-	db = Sql.Sql(dbSql,optionsMap);
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct(user_id),SUM(amount) from wap_szx where game_id = '"+ GAME_NAME_S+"' group by user_id order by SUM(amount) desc limit 100;";
-	werror("============ querySql = "+querySql+" =========\n");
 	mixed catchResult = catch {  
-		if(!db)
-			db=Sql.Sql(dbSql,optionsMap);
 		result = db->query(querySql);
 		//werror("----"+querySql+"----\n");
 	};
 	if(catchResult)
 	{
 		string now=ctime(time());
-		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+"："+querySql+" in query_home_yushi_toplist wrong!\n");
+		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_fee_toplist failed\n");
 		return ({});
 	}
-	werror("=========== sizeof(result) = "+ sizeof(result)+" =========\n");
-	werror("=========== result[0][user_id] = "+ result[0]["user_id"]+" =========\n");
+	if(!result || !sizeof(result))
+		return ({});
 	//db操作结束
 	//通过uid得到中文名,得到最后的返回值
 	array(mapping(string:mixed)) result_to_return = ({});
 	int j = 0;
 	for(int i=0;i<sizeof(result);i++){
-		werror("===== rururirurururu ======\n");
 		string user_id = result[i]["user_id"];
 		object user = find_player(user_id);
 		if(!user){ //如果当前要操作的玩家不在线，则加载                                                                     
@@ -462,16 +474,14 @@ array(mapping(string:mixed)) flush_fee_toplist()
 				if(helper)
 					break;
 			}
-			user = helper->load_player(user_id);
+			if(helper)
+				user = helper->load_player(user_id);
 		}
 		if(user){
 			string name_cn = user->query_name_cn();
-			werror("===== name_cn = "+ name_cn +"========\n");
 			if(name_cn && sizeof(name_cn)){
-				werror("===== i am in ini in ini nin========\n");
 				mapping(string:mixed) tmp=([]);
 				tmp["name_cn"] = name_cn;
-				werror("=====tmp[name_cn] = "+ tmp["name_cn"] +" ======\n");
 				result_to_return += ({tmp});
 				j++;
 			}
@@ -479,9 +489,5 @@ array(mapping(string:mixed)) flush_fee_toplist()
 				break;
 		}
 	}
-	werror("=========== sizeof(result_to_return) = "+ sizeof(result_to_return)+" =========\n");
-	werror("=========== result_to_return[0][name_cn] = "+ result_to_return[0]["name_cn"]+" =========\n");
 	return result_to_return;
 }
-
-

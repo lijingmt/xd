@@ -30,23 +30,38 @@ protected void create()
 	load_csv();
 }
 
+private array(string) parse_drop_column(string source)
+{
+	array(string) result = ({});
+	if(!source)
+		return result;
+	foreach(source/"|",string value){
+		value = String.trim_all_whites(value);
+		if(value!="")
+			result += ({value});
+	}
+	return result;
+}
 
 void load_csv()
 {
 	werror("==========  [BOSSDROPD start!]  =========\n");
 	bossdrop_m = ([]);
 	string bossdropData = Stdio.read_file(BOSSDROP_CSV);
-	array(string) lines = bossdropData/"\r\n";
+	array(string) lines = replace(bossdropData,"\r","")/"\n";
 	if(lines && sizeof(lines)){
 		lines = lines-({""});
 		foreach(lines,string eachline){
 			droplist tmpBossdrop = droplist();
 			array(string) columns = eachline/",";
 			if(sizeof(columns) >= 4){
-				string boss_name = columns[0];
-				tmpBossdrop->item_arr = columns[1]/"|";
-				tmpBossdrop->other_arr = columns[2]/"|";
-				tmpBossdrop->spec_item = columns[3];
+				string boss_name = String.trim_all_whites(columns[0]);
+				tmpBossdrop->item_arr = parse_drop_column(columns[1]);
+				tmpBossdrop->other_arr = parse_drop_column(columns[2]);
+				string spec_item = String.trim_all_whites(columns[3]);
+				if(spec_item=="and" || spec_item=="end")
+					spec_item = "";
+				tmpBossdrop->spec_item = spec_item;
 				if(bossdrop_m[boss_name] == 0)
 					bossdrop_m[boss_name] = tmpBossdrop;
 			}

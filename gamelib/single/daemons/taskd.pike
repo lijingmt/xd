@@ -1734,8 +1734,6 @@ int if_in_killTask(object player,string killed_name,int|void killed_level)
 //判断是否掉落任务物品,由npc.pike->fight_die()调用
 object if_in_findTask(object player,string killed_name)
 {
-	string log_s = "";
-	int prop = 0; //掉落任务物品的几率
 	object|zero rtn_ob = 0;
 	array(object) items_drop = ({});
 	array(int) item_task_list = ({});
@@ -1753,7 +1751,6 @@ object if_in_findTask(object player,string killed_name)
 		return 0;
 	//对于每种可掉落的任务物品与玩家的任务列表进行比对，从而得出应该掉落的物品
 	foreach(indices(killed_m),string task_item){
-		log_s += "--now the task_item ="+task_item+"--";
 		//获得与任务物品相关的任务列表,实际上只有一个元素
 		item_task_list = dropItemMap[task_item];
 		if(!item_task_list)
@@ -1762,16 +1759,13 @@ object if_in_findTask(object player,string killed_name)
 		array(int) task_have = ({});
 		task_have = copy_value(player_task_list & item_task_list);
 		if(task_have&&sizeof(task_have)){
-			log_s += "--the player had the task: "+task_have[0]+"--";
 			//此时就得到了掉落物品的名字
 			tmp_task = taskMap[task_have[0]];
 			if(tmp_task){
 				if(count_MyItem(player,task_item)<tmp_task->find_map[task_item]){
 					string itemname = pathMap[task_item];
-					log_s += "--so the task item name = "+itemname+"--";
 					object tmp_ob = ITEMSD->get_task_item(itemname,killed_m[task_item]);
 					if(tmp_ob){
-						log_s += "--and we drop it--";
 						items_drop += ({tmp_ob});
 					}
 					continue;
@@ -1784,21 +1778,10 @@ object if_in_findTask(object player,string killed_name)
 	if(items_drop&&sizeof(items_drop)){
 		int num = random(sizeof(items_drop));
 		rtn_ob = items_drop[num];
-		log_s += "--at last got :"+rtn_ob->query_name_cn()+"--\n";
-		log_s += "\n------------------------\n";
-		string now=ctime(time());
-		ASYNC_IOD->append_log(ROOT+"/log/taskdrop.log",
-			now[0..sizeof(now)-2]+":"+log_s);
-
 		return rtn_ob;
 	}
-	else{
-		log_s += "\n------------------------\n";
-		string now=ctime(time());
-		ASYNC_IOD->append_log(ROOT+"/log/taskdrop.log",
-			now[0..sizeof(now)-2]+":"+log_s);
+	else
 		return 0;
-	}
 }
 
 string split(string pathname)

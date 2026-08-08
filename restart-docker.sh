@@ -41,6 +41,13 @@ if [ ! -f "$PROJECT_ROOT/docker/docker-compose.yml" ]; then
     fi
 fi
 
+XIAND_ENV_FILE="${XIAND_ENV_FILE:-$PROJECT_ROOT/.env}"
+if [ -f "$XIAND_ENV_FILE" ]; then
+    set -a
+    . "$XIAND_ENV_FILE"
+    set +a
+fi
+
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
@@ -601,7 +608,7 @@ initialize_game_database() {
     command -v mysql &> /dev/null || mysql_cmd="mariadb"
 
     # 尝试创建数据库
-    if $mysql_cmd -u root -pHappy888888 -e "CREATE DATABASE IF NOT EXISTS \`${db_name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" 2>/dev/null; then
+    if MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" -u "$MYSQL_USER" -e "CREATE DATABASE IF NOT EXISTS \`${db_name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" 2>/dev/null; then
         print_success "数据库 '${db_name}' 已创建"
     else
         print_warning "无法创建数据库（MySQL 可能不可用或凭证错误）"
@@ -610,10 +617,10 @@ initialize_game_database() {
     # 检查数据库是否为空，如果为空则导入 xd.sql
     local sql_script="${PROJECT_ROOT}/xd.sql"
     if [ -f "$sql_script" ]; then
-        TABLE_COUNT=$($mysql_cmd -u root -pHappy888888 -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${db_name}';" 2>/dev/null || echo "0")
+        TABLE_COUNT=$(MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" -u "$MYSQL_USER" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${db_name}';" 2>/dev/null || echo "0")
         if [ "$TABLE_COUNT" -eq 0 ]; then
             print_info "数据库 '${db_name}' 为空，正在导入 xd.sql..."
-            if $mysql_cmd -u root -pHappy888888 "$db_name" < "$sql_script" 2>/dev/null; then
+            if MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" -u "$MYSQL_USER" "$db_name" < "$sql_script" 2>/dev/null; then
                 print_success "数据库 '${db_name}' 导入成功"
             else
                 print_warning "数据库 '${db_name}' 导入失败"
@@ -639,8 +646,7 @@ prepare_game_directories() {
     mkdir -p "${log_path}" 2>/dev/null || print_warning "无法创建目录 ${log_path}"
 
     # 设置权限
-    chmod 777 "${game_path}" "${log_path}" 2>/dev/null || true
-    chmod -R 777 "${log_path}" 2>/dev/null || true
+    chmod 750 "${game_path}" "${log_path}" 2>/dev/null || true
 
     print_success "游戏数据目录已准备就绪"
 }
@@ -743,7 +749,8 @@ prepare_data_directories() {
         print_error "房间等级目录同步失败，停止部署"
         exit 1
     fi
-    chmod -R 777 "$data_dir" 2>/dev/null || true
+    find "$data_dir" -type d -exec chmod 700 {} + 2>/dev/null || true
+    find "$data_dir" -type f -exec chmod 600 {} + 2>/dev/null || true
     print_success "已创建用户数据目录: u/ 和 bangpai/"
 
     # 创建日志目录: /usr/local/games/allxd/log/xd01/
@@ -758,6 +765,7 @@ prepare_data_directories() {
         "stat/online"             # countd.pike: 在线统计
         "stat/consume"            # 各种消费统计
         "stat/daily"              # user_countd.pike: 每日统计
+        "stat/reg"                # 注册审计
         "stat/money_consume"      # 金币消费统计
         "fee_log"                 # 费用日志
         "home"                    # 家园日志
@@ -766,6 +774,8 @@ prepare_data_directories() {
         "push"                    # push 推送日志
         "daily"                   # 每日日志
         "month"                   # 月度日志
+        "db_log/daily_user"       # 脱敏统计 SQL 审计
+        "db_log/reg_new"          # 注册 SQL 审计
     )
 
     for subdir in "${log_subdirs[@]}"; do
@@ -786,7 +796,7 @@ prepare_data_directories() {
         done
     fi
 
-    chmod 755 "$log_dir"
+    chmod 750 "$log_dir"
 
     # 创建 etc 目录: /usr/local/games/allxd/xd01/etc/
     local etc_dir="/usr/local/games/allxd/xd$area_num/etc"
@@ -820,8 +830,10 @@ prepare_data_directories() {
     chmod -R 755 "$etc_dir" 2>/dev/null || true
 
     # 修改权限
-    chmod -R 777 "/usr/local/games/allxd/log/xd$area_num" 2>/dev/null || true
-    chmod -R 777 "/usr/local/games/allxd/xd$area_num/data_xiand" 2>/dev/null || true
+	find "/usr/local/games/allxd/log/xd$area_num" -type d -exec chmod 750 {} + 2>/dev/null || true
+	find "/usr/local/games/allxd/log/xd$area_num" -type f -exec chmod 640 {} + 2>/dev/null || true
+	find "/usr/local/games/allxd/xd$area_num/data_xiand" -type d -exec chmod 700 {} + 2>/dev/null || true
+	find "/usr/local/games/allxd/xd$area_num/data_xiand" -type f -exec chmod 600 {} + 2>/dev/null || true
 	# etc 包含逻辑区热配置，MUD 只需读取；禁止世界可写，避免隔离策略被篡改。
 	find "$etc_dir" -type d -exec chmod 755 {} + 2>/dev/null || true
 	find "$etc_dir" -type f -exec chmod 644 {} + 2>/dev/null || true
@@ -835,6 +847,14 @@ main() {
     echo -e "${BLUE}║   xiand Docker 启动脚本             ║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
     echo ""
+
+    MYSQL_USER="${MYSQL_USER:-root}"
+    MYSQL_HOST="${MYSQL_HOST:-172.17.0.1}"
+    MYSQL_PORT="${MYSQL_PORT:-3306}"
+    if [ -z "${MYSQL_PASSWORD:-}" ]; then
+        print_error "MYSQL_PASSWORD 必须通过环境变量或受限权限的 .env 提供"
+        exit 1
+    fi
 
     # 显示使用说明
     echo "用法："
@@ -928,12 +948,6 @@ main() {
         docker rm -f "xiand-$GAME_AREA" 2>/dev/null || true
     fi
 
-    # 兼容旧的容器名称
-    if docker ps -a --filter "name=^xiand$" --format "{{.Names}}" 2>/dev/null | grep -q "^xiand$"; then
-        print_info "清理旧的 xiand 容器..."
-        docker rm -f xiand 2>/dev/null || true
-    fi
-
     print_info "[5/6] 启动统一容器 (Pike MUD + Tomcat)..."
 
     # 使用统一镜像
@@ -943,6 +957,9 @@ main() {
         --name "xiand-${GAME_AREA}" \
         --memory=6g \
         --memory-swap=16g \
+        --log-driver json-file \
+        --log-opt max-size=50m \
+        --log-opt max-file=5 \
         --ulimit stack=-1:-1 \
         --ulimit nofile=65535:65535 \
         --add-host=host.docker.internal:host-gateway \
@@ -952,10 +969,16 @@ main() {
         -p "$((TOMCAT_HTTP_PORT + 443)):8443" \
         -e GAME_AREA="$GAME_AREA" \
         -e GAME_AREAS="$GAME_AREAS" \
+        -e MYSQL_HOST="$MYSQL_HOST" \
+        -e MYSQL_PORT="$MYSQL_PORT" \
+        -e MYSQL_USER="$MYSQL_USER" \
+        -e MYSQL_PASSWORD \
+        -e XIAND_HEALTH_TOKEN \
         -v /usr/local/games/allxd/${GAME_AREA}/data_xiand:/app/xiand/data_xiand \
         -v /usr/local/games/allxd/${GAME_AREA}/etc:/app/xiand/gamelib/etc \
         -v "${SHARED_ITEM_DIR}:/app/xiand/gamelib/clone/item" \
         -v /usr/local/games/allxd/log/${GAME_AREA}:/app/xiand/log \
+        -v /usr/local/games/allxd/log/${GAME_AREA}/db_log:/app/xiand/db_log \
         "${docker_image}" >/dev/null 2>&1
 
     if [ $? -eq 0 ]; then
@@ -995,7 +1018,6 @@ main() {
 
         # 创建 /tmp 目录和必要的日志文件
         docker exec "${CONTAINER_NAME}" mkdir -p /tmp 2>/dev/null || true
-        docker exec "${CONTAINER_NAME}" touch /tmp/xiand_login_debug.log 2>/dev/null || true
 
         # 使用sed替换分区列表
         # 替换 getDefaultPartitions 函数返回的分区列表

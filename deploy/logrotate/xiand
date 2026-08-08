@@ -1,0 +1,17 @@
+/usr/local/games/allxd/log/*/*.log
+/usr/local/games/allxd/log/*/*/*/*.log
+/usr/local/games/allxd/log/*/error.?????
+/usr/local/games/allxd/log/*/stderr.?????
+/usr/local/games/allxd/log/*/db_log/*/*
+{
+    daily
+    maxsize 50M
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su root root
+    create 0640 root root
+}

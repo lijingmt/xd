@@ -4,14 +4,25 @@ inherit LOW_DAEMON;
 
 #define TIME_UNIT 600 //每10分钟统计一次在线数据
 Sql.Sql db;
-string dbSql = "mysql://root:password@gamelog_database:22334/xd_game_db";//这个db里记录是5,6区的日登录数据
+string dbSql = "";//旧统计库已停用，禁止在源码保留连接凭证。
 
 Sql.Sql db2;
-string dbSql2 = "mysql://root:password@gamelog_database:22334/gamelog";
+string dbSql2 = "";
 
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
 object obt;
+
+private string safe_audit_field(string value)
+{
+	if(!value)
+		return "";
+	value = replace(value,(["\\":"\\\\","'":"''","\r":" ",
+		"\n":" ","\0":"","|":"/"]));
+	if(sizeof(value)>4096)
+		value = value[..4095];
+	return value;
+}
 
 private int append_database_log(string kind,string source)
 {
@@ -52,7 +63,6 @@ void entry_record(object me)
 	string area = GAME_NAME_S;//xdX
 	string id = me->query_name();
 	string name_cn = me->query_name_cn();
-	string pswd = me->password;
 	string m_key = me->user_mkey;
 	string sex = me->sex;
 	string raceId = me->query_raceId();
@@ -104,11 +114,25 @@ void entry_record(object me)
 	string intodbs = "";
 	int all_fee = me->all_fee;//玩家捐赠的总记录
 	float lunhuipt = me->lunhuipt;//玩家轮回值
+	day_login_time = safe_audit_field(day_login_time);
+	area = safe_audit_field(area);
+	id = safe_audit_field(id);
+	name_cn = safe_audit_field(name_cn);
+	m_key = safe_audit_field(m_key);
+	sex = safe_audit_field(sex);
+	raceId = safe_audit_field(raceId);
+	profeId = safe_audit_field(profeId);
+	user_pic = safe_audit_field(user_pic);
+	skills = safe_audit_field(skills);
+	vice_skills = safe_audit_field(vice_skills);
+	relife = safe_audit_field(relife);
+	last_pos = safe_audit_field(last_pos);
+	sid = safe_audit_field(sid);
 	intodbs += day_login_time+"|";
 	intodbs += area+"|";
 	intodbs += id+"|";
 	intodbs += name_cn+"|";
-	intodbs += pswd+"|";
+	intodbs += "[REDACTED]|";
 	intodbs += m_key+"|";
 	intodbs += sex+"|";
 	intodbs += raceId+"|";
@@ -146,13 +170,8 @@ void entry_record(object me)
 		   string querySql = "";
 		   //if(!db)
 		   //db=Sql.Sql(dbSql,optionsMap);
-		   querySql = "insert xd_daily_user (day_login_time,area,id,name_cn,pswd,m_key,sex,raceId,profeId,user_pic,account,level,current_exp,bangid,str,think,dex,life_max,mofa_max,skills,can_spec,vice_skills,honerlv,killcount,honerpt,first_login,online_time,relife,last_pos,packageLevel,sid,mark,home_yu,home_bi,all_fee,lunhuipt) values ('"+day_login_time+"','"+area+"','"+id+"','"+name_cn+"','"+pswd+"','"+m_key+"','"+sex+"','"+raceId+"','"+profeId+"','"+user_pic+"',"+account+","+level+","+current_exp+","+bangid+","+str+","+think+","+dex+","+life_max+","+mofa_max+",'"+skills+"',"+can_spec+",'"+vice_skills+"',"+honerlv+","+killcount+","+honerpt+","+first_login+","+online_time+",'"+relife+"','"+last_pos+"',"+packageLevel+",'"+sid+"',"+mark+","+home_yu+","+home_bi+","+all_fee+","+lunhuipt+")";
+		   querySql = "insert xd_daily_user (day_login_time,area,id,name_cn,pswd,m_key,sex,raceId,profeId,user_pic,account,level,current_exp,bangid,str,think,dex,life_max,mofa_max,skills,can_spec,vice_skills,honerlv,killcount,honerpt,first_login,online_time,relife,last_pos,packageLevel,sid,mark,home_yu,home_bi,all_fee,lunhuipt) values ('"+day_login_time+"','"+area+"','"+id+"','"+name_cn+"','','"+m_key+"','"+sex+"','"+raceId+"','"+profeId+"','"+user_pic+"',"+account+","+level+","+current_exp+","+bangid+","+str+","+think+","+dex+","+life_max+","+mofa_max+",'"+skills+"',"+can_spec+",'"+vice_skills+"',"+honerlv+","+killcount+","+honerpt+","+first_login+","+online_time+",'"+relife+"','"+last_pos+"',"+packageLevel+",'"+sid+"',"+mark+","+home_yu+","+home_bi+","+all_fee+","+lunhuipt+")";
 		   //db->query(querySql);
-		/*
-		string querySql = "";
-		querySql = "insert xd_daily_user (day_login_time,area,id,name_cn,pswd,m_key,sex,raceId,profeId,user_pic,account,level,current_exp,bangid,str,think,dex,life_max,mofa_max,skills,can_spec,vice_skills,honerlv,killcount,honerpt,first_login,online_time,relife,last_pos,packageLevel,sid) values ('"+day_login_time+"','"+area+"','"+id+"','"+name_cn+"','"+pswd+"','"+m_key+"','"+sex+"','"+raceId+"','"+profeId+"','"+user_pic+"',"+account+","+level+","+current_exp+","+bangid+","+str+","+think+","+dex+","+life_max+","+mofa_max+",'"+skills+"',"+can_spec+",'"+vice_skills+"',"+honerlv+","+killcount+","+honerpt+","+first_login+","+online_time+",'"+relife+"','"+last_pos+"',"+packageLevel+",'"+sid+"')";
-		Stdio.append_file(ROOT+"/db_log/daily_user/"+MUD_TIMESD->get_year_month_day(),querySql+"\n");
-		*/
 		   string c_log = "";//统计使用的日志 evan added 2008.07.16
 		   c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+area+"]["+ id +"]["+sid+"]["+m_key+"]\n";
 		   if(c_log != ""){
@@ -175,7 +194,6 @@ void reg_new(object me)
 	string day_login_time = MUD_TIMESD->get_mysql_timedesc();
 	string user_reg_time = me->user_reg_time;
 	string id = me->query_name();
-	string pswd = me->password;
 	string area = GAME_NAME_S;
 	string raceId = me->query_raceId();
 	string profeId = me->query_profeId();
@@ -185,11 +203,19 @@ void reg_new(object me)
 	string m_key = me->user_mkey;//购买者推广渠道的m_key
 	string m_mid = "";//购买者推广渠道的m_key
 	string mobile = "";//购买者手机号
+	day_login_time = safe_audit_field(day_login_time);
+	user_reg_time = safe_audit_field(user_reg_time);
+	id = safe_audit_field(id);
+	area = safe_audit_field(area);
+	raceId = safe_audit_field(raceId);
+	profeId = safe_audit_field(profeId);
+	sid = safe_audit_field(sid);
+	m_key = safe_audit_field(m_key);
 	string intodbs = "";
 	intodbs += day_login_time+"|";
 	intodbs += user_reg_time+"|";
 	intodbs += id+"|";
-	intodbs += pswd+"|";
+	intodbs += "[REDACTED]|";
 	intodbs += area+"|";
 	intodbs += raceId+"|";
 	intodbs += profeId+"|";
@@ -199,15 +225,7 @@ void reg_new(object me)
 	//db 操作
 	int st =  obt->usec_full;
 	mixed catchResult = catch {
-		/*
-		   string querySql = "";
-		   if(!db2)
-		   db2=Sql.Sql(dbSql2,optionsMap);
-		   querySql = "insert into spread_infos(m_key,mid,game_id,user_id,log_time,ap_info) values ('"+m_key+"','"+m_mid+"','"+area+"','"+id+"','"+day_login_time+"','"+guest+"')";
-		   db2->query(querySql);
-		 */
 		string querySql = "";
-		string c_log = "";//统计使用的日志 evan added 2008.07.10
 		querySql = "insert into xd_reg_info (m_key,mid,game_id,user_id,log_time,ap_info) values ('"+m_key+"','"+m_mid+"','"+area+"','"+id+"','"+day_login_time+"','"+guest+"');";
 		//c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+area+"]["+ id +"]["+m_key+"]\n";
 		append_database_log("reg_new",querySql+"\n");

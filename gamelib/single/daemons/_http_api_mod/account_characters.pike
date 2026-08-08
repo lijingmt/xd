@@ -140,7 +140,8 @@ void handle_api_account_login(Protocols.HTTP.Server.Request req)
 	string account_id;
 	string stored_password;
 	string token;
-	string client_ip = req->remote_addr || "unknown";
+	string client_ip = normalize_http_client_ip(
+		req->remote_addr || "unknown");
 	mapping account_data;
 	if(req->request_type!="POST"){
 		send_json(req,(["error":"请使用POST登录账号"]),405);

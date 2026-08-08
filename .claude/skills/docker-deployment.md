@@ -237,7 +237,7 @@ tail -f /usr/local/games/allxd/log/xd01/error.log
 | `MYSQL_HOST` | 172.17.0.1 | MySQL 主机 |
 | `MYSQL_PORT` | 3306 | MySQL 端口 |
 | `MYSQL_USER` | root | MySQL 用户 |
-| `MYSQL_PASSWORD` | Happy888888 | MySQL 密码 |
+| `MYSQL_PASSWORD` | 无（必填） | MySQL 密码；通过受限权限的 `.env` 或环境变量提供 |
 | `MYSQL_DATABASE` | {GAME_AREA} | MySQL 数据库名 |
 | `MUD_PORT` | 13800 | MUD 服务端口 |
 | `DEBUG` | 0 | 调试模式 |
@@ -332,14 +332,19 @@ sudo firewall-cmd --reload
 ### 手动初始化（如需要）
 
 ```bash
+# 从受限权限的环境文件加载，不要把口令写入命令历史
+set -a
+source /usr/local/games/xiand/.env
+set +a
+
 # 创建数据库
-mysql -u root -pHappy888888 -e "CREATE DATABASE IF NOT EXISTS xd01 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+MYSQL_PWD="$MYSQL_PASSWORD" mysql -u root -e "CREATE DATABASE IF NOT EXISTS xd01 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
 
 # 导入 SQL
-mysql -u root -pHappy888888 xd01 < /usr/local/games/xiand/xd.sql
+MYSQL_PWD="$MYSQL_PASSWORD" mysql -u root xd01 < /usr/local/games/xiand/xd.sql
 
 # 验证
-mysql -u root -pHappy888888 -e "USE xd01; SHOW TABLES;"
+MYSQL_PWD="$MYSQL_PASSWORD" mysql -u root -e "USE xd01; SHOW TABLES;"
 ```
 
 ---
@@ -454,7 +459,7 @@ systemctl status mariadb
 systemctl status mysqld
 
 # 2. 测试连接
-mysql -u root -pHappy888888 -e "SHOW DATABASES;"
+MYSQL_PWD="$MYSQL_PASSWORD" mysql -u root -e "SHOW DATABASES;"
 
 # 3. 检查防火墙
 sudo firewall-cmd --list-all
@@ -718,7 +723,9 @@ pike -e "write(sprintf(\"Pike version: %s\\n\", __VERSION__));"
 
 # 测试 MySQL 连接
 pike -e "
-object sql = Sql.sql(\"mysql://root:Happy888888@172.17.0.1/xd01\");
+string password = getenv(\"MYSQL_PASSWORD\");
+if (!password || !sizeof(password)) error(\"MYSQL_PASSWORD is required\\n\");
+object sql = Sql.sql(sprintf(\"mysql://root:%s@172.17.0.1/xd01\", password));
 write(\"MySQL connected\\n\");
 "
 ```
@@ -995,7 +1002,7 @@ docker run -d \
 tar -czf xiand-xd01-backup-$(date +%Y%m%d).tar.gz /usr/local/games/allxd/xd01/
 
 # 备份数据库
-mysqldump -u root -pHappy888888 xd01 > xiand-xd01-db-$(date +%Y%m%d).sql
+MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u root xd01 > xiand-xd01-db-$(date +%Y%m%d).sql
 
 # 自动备份脚本
 cat > /usr/local/games/xiand/backup.sh << 'EOF'
@@ -1003,8 +1010,9 @@ cat > /usr/local/games/xiand/backup.sh << 'EOF'
 BACKUP_DIR="/usr/local/games/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
+test -n "$MYSQL_PASSWORD" || { echo "MYSQL_PASSWORD is required" >&2; exit 1; }
 tar -czf $BACKUP_DIR/xiand-xd01-$DATE.tar.gz /usr/local/games/allxd/xd01/
-mysqldump -u root -pHappy888888 xd01 > $BACKUP_DIR/xiand-xd01-db-$DATE.sql
+MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u root xd01 > $BACKUP_DIR/xiand-xd01-db-$DATE.sql
 # 保留最近 7 天的备份
 find $BACKUP_DIR -name "xiand-xd01-*" -mtime +7 -delete
 EOF
@@ -1053,7 +1061,7 @@ docker stats xiand-xd01
 - [ ] 查看容器日志：`docker logs xiand-xd01`
 - [ ] 检查目录权限：`ls -la /usr/local/games/allxd/xd01/`
 - [ ] 检查端口占用：`netstat -tlnp | grep 9001`
-- [ ] 测试数据库连接：`mysql -u root -pHappy888888 -e "SHOW DATABASES;"`
+- [ ] 测试数据库连接：`MYSQL_PWD="$MYSQL_PASSWORD" mysql -u root -e "SHOW DATABASES;"`
 - [ ] 检查防火墙：`sudo firewall-cmd --list-all`
 - [ ] 检查磁盘空间：`df -h`
 - [ ] 检查内存使用：`free -h`
