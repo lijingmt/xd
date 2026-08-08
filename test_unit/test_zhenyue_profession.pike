@@ -717,6 +717,102 @@ void test_purchase_boundary_and_identity_surfaces()
 	destroy_player(player);
 }
 
+void test_physical_damage_and_broken_weapon_boundary()
+{
+	test_start("镇越物理实战伤害与零耐久武器边界");
+	object normal = create_player("__testunit_zhenyue_damage_normal__",120);
+	object broken = create_player("__testunit_zhenyue_damage_broken__",120);
+	object normal_target = create_player(
+		"__testunit_zhenyue_damage_target_a__",1);
+	object broken_target = create_player(
+		"__testunit_zhenyue_damage_target_b__",1);
+	object normal_weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object broken_weapon = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	int normal_damage = 0;
+	int broken_damage = 0;
+	int normal_weapon_attack = 0;
+	int broken_weapon_attack = 0;
+	string error_desc = "";
+	mixed err = catch {
+		normal->set_str(30000);
+		broken->set_str(30000);
+		normal->set_base_hitte(100000);
+		broken->set_base_hitte(100000);
+		normal_target->set_base_dodge(-1000000);
+		broken_target->set_base_dodge(-1000000);
+		normal_target->set_base_life(1000000000);
+		broken_target->set_base_life(1000000000);
+		normal_target->flush_life();
+		broken_target->flush_life();
+		normal->move(room);
+		broken->move(room);
+		normal_target->move(room);
+		broken_target->move(room);
+		normal_weapon->set_attack_power(300000);
+		normal_weapon->set_attack_power_limit(300000);
+		broken_weapon->set_attack_power(300000);
+		broken_weapon->set_attack_power_limit(300000);
+		normal_weapon->item_cur_dura = 200;
+		broken_weapon->item_cur_dura = 200;
+		normal_weapon->move(normal);
+		broken_weapon->move(broken);
+		normal->wield(normal_weapon);
+		broken->wield(broken_weapon);
+		broken_weapon->item_cur_dura = 0;
+		normal_weapon_attack = normal->query_equip_add("base_attack_main");
+		broken_weapon_attack = broken->query_equip_add("base_attack_main");
+		normal->skills["yueji"] = ({1,0});
+		broken->skills["yueji"] = ({1,0});
+		normal->_fight(normal_target);
+		broken->_fight(broken_target);
+		for(int attempt=0;attempt<10 && normal_damage==0;attempt++){
+			normal->timeCold = 0;
+			normal->f_skills["yueji"] = 0;
+			normal->set_mofa(normal->query_mofa_max());
+			int life_before = normal_target->get_cur_life();
+			normal->perform("yueji",1);
+			normal_damage = life_before-normal_target->get_cur_life();
+		}
+		for(int attempt=0;attempt<10 && broken_damage==0;attempt++){
+			broken->timeCold = 0;
+			broken->f_skills["yueji"] = 0;
+			broken->set_mofa(broken->query_mofa_max());
+			int life_before = broken_target->get_cur_life();
+			broken->perform("yueji",1);
+			broken_damage = life_before-broken_target->get_cur_life();
+		}
+	};
+	if(err)
+		error_desc = describe_error(err)+" "+describe_backtrace(err);
+	if(!err && normal->query_base_damage()==broken->query_base_damage() &&
+	   normal_weapon_attack==300000 && broken_weapon_attack==0 &&
+	   normal_damage>200000 && broken_damage>0 && broken_damage<50000 &&
+	   normal_damage>broken_damage*10)
+		test_pass();
+	else
+		test_fail(sprintf("base=%d/%d equip=%d/%d damage=%d/%d %s",
+			normal ? normal->query_base_damage() : -1,
+			broken ? broken->query_base_damage() : -1,
+			normal_weapon_attack,broken_weapon_attack,
+			normal_damage,broken_damage,error_desc));
+	if(normal && normal->query_in_combat())
+		normal->_clean_fight();
+	if(broken && broken->query_in_combat())
+		broken->_clean_fight();
+	if(normal_target && normal_target->query_in_combat())
+		normal_target->_clean_fight();
+	if(broken_target && broken_target->query_in_combat())
+		broken_target->_clean_fight();
+	destroy_player(normal);
+	destroy_player(broken);
+	destroy_player(normal_target);
+	destroy_player(broken_target);
+}
+
 int main(int argc,array(string) argv)
 {
 	werror("\n╔════════════════════════════════════════════════╗\n");
@@ -737,6 +833,7 @@ int main(int argc,array(string) argv)
 	test_aoe_target_cleanup();
 	test_neutral_social_and_faction_boundaries();
 	test_purchase_boundary_and_identity_surfaces();
+	test_physical_damage_and_broken_weapon_boundary();
 	werror("\n镇越测试：%d通过，%d失败\n",test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;
 }

@@ -623,60 +623,45 @@ void test_timed_event_daily_entry_contract()
 		"淘汰状态绕过了 last_entry 的每日资格锁");
 }
 
-void test_server_driven_autofight()
+void test_client_driven_autofight()
 {
 	string frontend = Stdio.read_file(ROOT+"/vue_source/js/app.js");
 	string daemon = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	string http = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
-	check("隐藏标签页不再主动停止挂机",
-		frontend && search(frontend,"visibilityState === 'hidden'")==-1 &&
-		search(frontend,"服务端主 Backend 推进")!=-1,
-		"visibilitychange 仍会清除挂机计时器");
-	check("前端定时器只拉取快照、不再驱动 flushview",
-		frontend && search(frontend,"/api/autofight_view?")!=-1 &&
-		search(frontend,"sendJsonCommand('flushview')")==-1,
-		"挂机画面仍执行世界命令或缺少快照接口");
-	check("服务端挂机调度和轻量 ping 路由存在",
+	check("前端恢复每秒执行一次 flushview",
+		frontend && search(frontend,"sendJsonCommand('flushview')")!=-1 &&
+		search(frontend,"}, 1000);  // 1秒执行一次")!=-1,
+		"flushview 不再由浏览器 1 秒定时器驱动");
+	check("隐藏标签页暂停 flushview，恢复可见后立即重启",
+		frontend && search(frontend,"visibilityState === 'hidden'")!=-1 &&
+		search(frontend,"clearInterval(this.autofightInterval)")!=-1 &&
+		search(frontend,"visibilityState === 'visible'")!=-1 &&
+		search(frontend,"this.checkAutofight();")!=-1,
+		"页面隐藏/恢复的旧版调度边界缺失");
+	check("服务端不再为每个玩家常驻调度 flushview",
 		daemon && http &&
-		search(daemon,"run_server_autofight_tick")!=-1 &&
-		search(daemon,"execute_core_command(")!=-1 &&
-		search(daemon,"userid,\"\",\"flushview\"")!=-1 &&
-		search(daemon,"query_password(),\"flushview\"")==-1 &&
+		search(daemon,"run_server_autofight_tick")==-1 &&
+		search(daemon,"ensure_server_autofight_tick")==-1 &&
+		search(http,"case \"/api/autofight_view\"")==-1 &&
 		search(http,"case \"/api/ping\"")!=-1 &&
-		search(frontend,"/api/ping?txd=")!=-1 &&
-		search(frontend,"&cmd=look';")==-1,
-		"后台推进或无副作用保活缺失");
-	check("服务端缓存挂机画面并通过只读接口返回",
-		daemon && http &&
-		search(daemon,"record_server_autofight_view")!=-1 &&
-		search(daemon,"query_server_autofight_view")!=-1 &&
-		search(daemon,"query_server_autofight_view_generation")!=-1 &&
-		search(http,"case \"/api/autofight_view\"")!=-1 &&
-		search(http,"parse_mud_to_json(output,txd,userid)")!=-1,
-		"挂机输出仍被丢弃或只读画面接口未接线");
+		search(frontend,"/api/ping?txd=")!=-1,
+		"服务端挂机 tick 或画面快照接口仍残留");
 
-	object httpd = HTTP_APID;
 	object player = clone(GAMELIB_USER);
-	string userid = "xd01testunitauditafk";
-	player->set_name(userid);
-	player->set_password("testunit-afk");
+	player->set_name("xd01testunitauditafk");
 	player->set_project("gamelib");
 	player->set_raceId("human");
 	player->set_profeId("jianxian");
 	player->setup_player("human","jianxian");
-	player->move(ROOT+"/gamelib/d/kunlunshan/wuge");
-	httpd->set_virtual_connection(userid,({0,time(),player}));
 	AUTOFIGHTD->start_autofight(player);
-	check("HTTP人物开启挂机后注册服务端 tick",
-		AUTOFIGHTD->query_server_autofight_tick_active(player)==1,
-		"服务端调度未激活");
-	AUTOFIGHTD->stop_autofight(player);
-	check("关闭挂机立即取消服务端 tick",
-		AUTOFIGHTD->query_server_autofight_tick_active(player)==0,
-		"关闭后调度仍活跃");
-	httpd->remove_virtual_connection(userid);
+	int before = AUTOFIGHTD->query_time_left(player);
+	player["/tmp/autofight_last_charge"] = time()-31;
+	int after = AUTOFIGHTD->charge_time(player);
+	check("页面未执行超过30秒时不补扣挂机额度",
+		after==before,
+		sprintf("before=%d after=%d",before,after));
 	destruct(player);
 }
 
@@ -782,7 +767,7 @@ int main()
 		"\n");
 	mixed err = catch {
 		test_changed_files_compile();
-		test_server_driven_autofight();
+		test_client_driven_autofight();
 		test_immutable_hidden_commands();
 		test_hidden_profession_combat_formulas();
 		test_hidden_skill_contract_runtime();
