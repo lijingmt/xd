@@ -216,6 +216,10 @@ int main(string arg)
 	string name;
 	int pos,ppos;
 	array(string) hide=({});
+	// arg 可能为 0（被误路由到 _explorer 时），sscanf(0,...) 会抛
+	// "Bad argument 1 to sscanf"。
+	if(!arg || !stringp(arg) || sizeof(arg)==0)
+		return 1;
 	if(sscanf(arg,"%s %d %d",name,pos,ppos)!=3)
 		if(sscanf(arg,"%s %d",name,pos)!=2)
 			name=arg;
