@@ -8,8 +8,12 @@ int main(string|zero arg)
 	string goods_path= "";
 	int lv = 0;
 	string re = "";
-	string s_log = "";
-	sscanf(arg,"%s %d",goods_path,lv);
+	if(!arg || sscanf(arg,"%s %d",goods_path,lv)!=2 ||
+	   !VIPD->is_free_good(goods_path,lv)){
+		write("该物品不在会员免费目录中。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
 	array(string) tmp = ({});
 	string type = "baoshi";                        //默认的物品类型
 	tmp = goods_path/"/";                          //得到文件所在目录，也就是物品的分类
@@ -17,7 +21,15 @@ int main(string|zero arg)
 	{
 		type=tmp[0];
 	}
-	object goods = clone(ITEM_PATH+goods_path);
+	object goods;
+	mixed err=catch{
+		goods=clone(ITEM_PATH+goods_path);
+	};
+	if(err || !goods){
+		write("物品生成失败，请稍后再试。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
 	string goods_name = goods->query_name();
 	goods->set_toVip(1);	
 	string goods_namecn = goods->query_name_cn();
@@ -25,9 +37,18 @@ int main(string|zero arg)
 	if(result ==4)//可以获得物品
 	{
 		goods->move_player(me->query_name());
+		goods=0;
 		string s_log = me->query_name_cn()+"("+me->query_name()+")获得免费物品"+goods_namecn+"("+goods_name+")\n";
-		Stdio.append_file(ROOT+"/log/get_vip_free_item.log",MUD_TIMESD->get_mysql_timedesc()+":"+s_log);
+		mixed log_err=catch{
+			Stdio.append_file(ROOT+"/log/get_vip_free_item.log",
+				MUD_TIMESD->get_mysql_timedesc()+":"+s_log);
+		};
+		if(log_err)
+			werror("[VIP_AUDIT] append failed: %s\n",
+				describe_error(log_err));
 	}
+	if(goods)
+		destruct(goods);
 	re += VIPD->if_can_get_freely_desc(result,lv,goods_namecn);
 
 	re += "[继续领取:vip_myzone_free_list "+ type +" "+ lv +"]\n";

@@ -8,10 +8,22 @@ int main(string|zero arg)
 	string item_name = "";
 	int index;
 	int range;
-	int item_level;
-	int type;
-	sscanf(arg,"%s %d %d %d %d",item_name,index,range,item_level,type);
+	int requested_level;
+	int requested_type;
 	string s = "";
+	if(!arg || sscanf(arg,"%s %d %d %d %d",item_name,index,range,
+	   requested_level,requested_type)!=5){
+		write("交易参数无效。\n[返回:dubo_items_list]\n[返回游戏:look]\n");
+		return 1;
+	}
+	mapping(string:mixed) offer=DUBOD->query_dubo_offer(index,range);
+	if(!sizeof(offer) || offer["name"]!=item_name){
+		write("交易失败！没有此物品或者物品已经售完\n"+
+			"[返回:dubo_items_list "+range+"]\n[返回游戏:look]\n");
+		return 1;
+	}
+	int item_level=(int)offer["price"];
+	int type=(int)offer["type"];
 	//string s_log = me->query_name_cn()+"("+me->query_name()+"):";
 	string s_log = "";
 	int need_xianyuan = 0;
@@ -24,8 +36,6 @@ int main(string|zero arg)
 		s += "交易失败！你身上没有足够的玉石\n";
 	else if(me->if_over_easy_load())
 		s += "交易失败！你的随身物品已满\n";
-	else if(!DUBOD->can_dubo_num(item_name,index,range))
-		s += "交易失败！没有此物品或者物品已经售完\n";
 	else{
 		//交易成功
 		int luck = 3000+me->query_lunck();
@@ -60,23 +70,29 @@ int main(string|zero arg)
 			}
 			if(!YUSHID->pay_yushi(me,item_level)){
 				s += "交易失败！玉石扣除失败，请稍后再试\n";
+				destruct(get_item);
 			}
 			else{
 				DUBOD->set_dubo_num(item_name,index,range);
 				s += "交易成功！你获得了"+get_item->query_short()+"\n";
-				string consume_time = MUD_TIMESD->get_mysql_timedesc();
 				int cost_reb = item_level;
-				//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','dubo','"+cost+"','"+get_item->query_name()+"',"+get_item_num+",'"+get_item_cn+"',"+item_level+");\n";
 				 string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][dubo]["+get_item->query_name()+"]["+get_item_cn+"][1]["+cost_reb+"][0]\n";
-				Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
 				if(get_item->is_combine_item()==1)
 					get_item->move_player(me->query_name());
 				else
 					get_item->move(me);
-				string now=ctime(time());
-				//Stdio.append_file(ROOT+"/log/fee_log/yushi_use-"+MUD_TIMESD->get_year_month_day()+".log",s_log);
+				mixed log_err=catch{
+					Stdio.append_file(ROOT+"/log/stat/consume/"+
+						GAME_NAME_S+"_consume_"+
+						MUD_TIMESD->get_year_month_day()+".log",c_log);
+				};
+				if(log_err)
+					werror("[DUBO_AUDIT] append failed: %s\n",
+						describe_error(log_err));
 			}
 		}
+		else
+			s += "交易失败！目标物品暂时无法生成\n";
 	}
 	s += "[返回:dubo_items_list "+range+"]\n";
 	s += "[返回游戏:look]\n";

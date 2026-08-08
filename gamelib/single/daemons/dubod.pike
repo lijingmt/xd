@@ -77,7 +77,7 @@ string query_dubo_items(int range)
 {
 	string s_rtn = "";
 	mapping(int:array) range_m = ([1:items1_10,2:items11_20,3:items21_30,4:items31_40,5:items41_50,6:items51_60]);
-	if(range>=1 || range<=6){
+	if(range>=1 && range<=6){
 		array(array(mixed)) items_tmp = range_m[range];
 		if(items_tmp && sizeof(items_tmp)){
 			for(int i=0;i<sizeof(items_tmp);i++){
@@ -97,18 +97,51 @@ string query_dubo_items(int range)
 	return s_rtn;
 }
 
+// 返回服务端权威的赌装库存、价格和类型；确认命令不得信任链接参数。
+mapping(string:mixed) query_dubo_offer(int index,int range)
+{
+	mapping(int:array) range_m=([1:items1_10,2:items11_20,
+		3:items21_30,4:items31_40,5:items41_50,6:items51_60]);
+	if(range<1 || range>6)
+		return ([]);
+	array(array(mixed)) items_tmp=range_m[range];
+	if(!items_tmp || index<0 || index>=sizeof(items_tmp))
+		return ([]);
+	array(mixed) item_arr=items_tmp[index];
+	if(!item_arr || sizeof(item_arr)<3 || (int)item_arr[2]<=0)
+		return ([]);
+	string item_name=(string)item_arr[0];
+	object item;
+	mixed err=catch{
+		item=(object)(ITEM_PATH+item_name);
+	};
+	if(err || !item)
+		return ([]);
+	int type=0;
+	int price=0;
+	if(item->is_combine_item()==1 &&
+	   (item->query_for_material()=="baoshi" ||
+	    item->query_for_material()=="moxian")){
+		price=(int)item->query_item_level();
+		type=1;
+	}
+	else
+		price=(int)item->query_item_canLevel();
+	if(price<=half_price*10 && price>=half_price*10-9)
+		price=price/2;
+	if(price<=0)
+		price=1;
+	return (["name":item_name,"index":index,"range":range,
+		"count":(int)item_arr[2],"price":price,"type":type]);
+}
+
 //查看指定的可供赌博的物品个数
 int can_dubo_num(string item_name,int index,int range)
 {
-	int num = 0;
-	mapping(int:array) range_m = ([1:items1_10,2:items11_20,3:items21_30,4:items31_40,5:items41_50,6:items51_60]);
-	array(array(mixed)) items_tmp = range_m[range];
-	if(items_tmp && sizeof(items_tmp)){
-		array item_arr = items_tmp[index];
-		if(item_name == item_arr[0])
-			num = (int)item_arr[2];
-	}
-	return num;
+	mapping(string:mixed) offer=query_dubo_offer(index,range);
+	if(!sizeof(offer) || offer["name"]!=item_name)
+		return 0;
+	return (int)offer["count"];
 }
 
 //玩家赌博过后，设置可供赌博物品的个数
@@ -116,7 +149,7 @@ void set_dubo_num(string item_name,int index,int range)
 {
 	mapping(int:array) range_m = ([1:items1_10,2:items11_20,3:items21_30,4:items31_40,5:items41_50,6:items51_60]);
 	array(array(mixed)) items_tmp = range_m[range];
-	if(items_tmp && sizeof(items_tmp)){
+	if(items_tmp && index>=0 && index<sizeof(items_tmp)){
 		array item_arr = items_tmp[index];
 		if(item_name == item_arr[0]){
 			int num = (int)item_arr[2];

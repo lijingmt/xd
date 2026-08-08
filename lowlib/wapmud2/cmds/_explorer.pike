@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 #define PAGESIZE 6000
 #define BYTESPERLINK 100
 
@@ -44,6 +45,29 @@ mapping load_bytes(string name,int pos,int len)
 			}
 		}
 	}
+	else if(who=="_snapshot"){
+		object player=this_player();
+		if(player!=0 && functionp(player->query_view_page_snapshot)){
+			mapping snapshot=player->query_view_page_snapshot(fun);
+			if(snapshot){
+				string whole=(string)snapshot["text"];
+				header=(string)snapshot["header"];
+				footer=(string)snapshot["footer"];
+				if(whole){
+					int whole_size=sizeof(whole);
+					for(int j=whole_size-1;j>=0;j--){
+						if(whole[j]=='\n'||whole[j]==' '||whole[j]=='\r')
+							whole=whole[0..j-1];
+						else
+							break;
+					}
+					text=whole[pos..pos+len-1];
+				}
+			}
+			else if(functionp(HTTP_APID->record_pagination_snapshot_miss))
+				HTTP_APID->record_pagination_snapshot_miss();
+		}
+	}
 	else if(who=="_env"){
 		object env=environment(previous_object());
 		if(env!=0){
@@ -71,14 +95,16 @@ mapping load_bytes(string name,int pos,int len)
 			}
 		}
 	}
+	if(!text)
+		return 0;
 	return (["header":header,"text":text,"footer":footer]);
 }
 
 int view_file(string name,int pos,int ppos)
 {
 	string text;
-	string header;
-	string footer;
+	string header="";
+	string footer="";
 	int len;
 	int i;
 	int last_pos;
@@ -90,6 +116,7 @@ int view_file(string name,int pos,int ppos)
 	int eol=0;
 	int maxlen;
 	int should_sub=0;
+	string page_name=name;
 	mapping m=load_bytes(name,pos,PAGESIZE);
 	if(m){
 		text=m["text"]+"\n";
@@ -146,8 +173,20 @@ int view_file(string name,int pos,int ppos)
 		text=text[0..len-1];
 		//中部内容
 		write(text+"\n");
-		if(!eof)
-			write("[下一页:_explorer "+name+" "+(pos+len)+" "+ppos+"]\n");
+		if(!eof){
+			if(pos==0 && name=="_player/spliter"){
+				object player=this_player();
+				if(player && functionp(player->cache_view_page_snapshot)){
+					string snapshot_id=player->cache_view_page_snapshot();
+					if(snapshot_id!=""){
+						page_name="_snapshot/"+snapshot_id;
+						if(functionp(HTTP_APID->record_pagination_snapshot_created))
+							HTTP_APID->record_pagination_snapshot_created();
+					}
+				}
+			}
+			write("[下一页:_explorer "+page_name+" "+(pos+len)+" "+ppos+"]\n");
+		}
 	}
 	if(pos!=0){
 		if(pos>PAGESIZE){
@@ -205,7 +244,7 @@ int view_file(string name,int pos,int ppos)
 		last_pos=pos-i;
 		if(last_pos==1||last_pos==-1)
 			last_pos=0;
-		write("[上一页:_explorer "+name+" "+last_pos+" "+ppos+"]\n");
+		write("[上一页:_explorer "+page_name+" "+last_pos+" "+ppos+"]\n");
 	}
 	//尾部信息
 	write(footer);

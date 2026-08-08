@@ -1,12 +1,97 @@
 #include <globals.h>
 #include <wapmud2/include/wapmud2.h>
+#define VIEW_PAGE_SNAPSHOT_TTL (30*60)
+#define VIEW_PAGE_SNAPSHOT_LIMIT 4
+#define VIEW_PAGE_SNAPSHOT_MAX_BYTES (512*1024)
 private function|zero init_view=0;
 private mixed init_view_arg;
 private array(mixed) viewstack=({});
 private mapping spliter=([]);
+private mapping(string:mapping(string:mixed)) view_page_snapshots=([]);
+private int view_page_snapshot_serial;
 private int combat_flag=1;
 mapping query_spliter(){
 	return spliter;
+}
+
+private void cleanup_view_page_snapshots()
+{
+	int now=time();
+	array(string) snapshot_ids=indices(view_page_snapshots);
+	for(int i=0;i<sizeof(snapshot_ids);i++){
+		mapping snapshot=view_page_snapshots[snapshot_ids[i]];
+		if(!snapshot || (int)snapshot["expires"]<now)
+			m_delete(view_page_snapshots,snapshot_ids[i]);
+	}
+	while(sizeof(view_page_snapshots)>VIEW_PAGE_SNAPSHOT_LIMIT){
+		string oldest_id="";
+		int oldest_serial=0;
+		snapshot_ids=indices(view_page_snapshots);
+		for(int i=0;i<sizeof(snapshot_ids);i++){
+			mapping snapshot=view_page_snapshots[snapshot_ids[i]];
+			int serial=(int)snapshot["serial"];
+			if(oldest_id=="" || serial<oldest_serial){
+				oldest_id=snapshot_ids[i];
+				oldest_serial=serial;
+			}
+		}
+		if(oldest_id=="")
+			break;
+		m_delete(view_page_snapshots,oldest_id);
+	}
+}
+
+// 分页内容必须独立于不断变化的 spliter。挂机每秒刷新视图时，旧页面
+// 的“下一页”仍从这里读取生成链接时的完整快照。
+string cache_view_page_snapshot()
+{
+	string text=(string)spliter["text"];
+	string snapshot_id;
+	if(!text || text=="" || sizeof(text)>VIEW_PAGE_SNAPSHOT_MAX_BYTES)
+		return "";
+	cleanup_view_page_snapshots();
+	view_page_snapshot_serial++;
+	if(view_page_snapshot_serial<=0)
+		view_page_snapshot_serial=1;
+	snapshot_id=sprintf("%d-%d",time(),view_page_snapshot_serial);
+	view_page_snapshots[snapshot_id]=([
+		"header":(string)(spliter["header"] || ""),
+		"text":text,
+		"footer":(string)(spliter["footer"] || ""),
+		"expires":time()+VIEW_PAGE_SNAPSHOT_TTL,
+		"serial":view_page_snapshot_serial,
+	]);
+	cleanup_view_page_snapshots();
+	return snapshot_id;
+}
+
+mapping|zero query_view_page_snapshot(string snapshot_id)
+{
+	mapping snapshot;
+	if(!snapshot_id || snapshot_id=="")
+		return 0;
+	snapshot=view_page_snapshots[snapshot_id];
+	if(!snapshot || (int)snapshot["expires"]<time()){
+		if(snapshot)
+			m_delete(view_page_snapshots,snapshot_id);
+		return 0;
+	}
+	return ([
+		"header":(string)snapshot["header"],
+		"text":(string)snapshot["text"],
+		"footer":(string)snapshot["footer"],
+	]);
+}
+
+mapping query_view_page_snapshot_status()
+{
+	cleanup_view_page_snapshots();
+	return ([
+		"entries":sizeof(view_page_snapshots),
+		"limit":VIEW_PAGE_SNAPSHOT_LIMIT,
+		"ttl_seconds":VIEW_PAGE_SNAPSHOT_TTL,
+		"max_bytes":VIEW_PAGE_SNAPSHOT_MAX_BYTES,
+	]);
 }
 void push_view(function f,mixed...args){
 	viewstack=({({f,args})})+viewstack;

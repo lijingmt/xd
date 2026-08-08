@@ -1,105 +1,157 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-#define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/" 
-//最终合成玉石所调用的指令
-//arg =         yushi_name            rarelevel                      num
-//        打碎后得到的玉石文件名   得到的玉石的稀有度      玩家指定的被打碎玉石的个数
+#define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
+
+// 最终打碎玉石所调用的指令
+// arg = yushi_name rarelevel num
 int main(string|zero arg)
 {
-	string s = "";
-	string s_log = "";
-	string yushi_name = "";
-	string s_num = "";
-	int num = 0;
-	int rarelevel = 0;
-	sscanf(arg,"%s %d %s",yushi_name,rarelevel,s_num);
-	sscanf(s_num,"no=%d",num);
-	object me = this_player();
-	int can_num = YUSHID->query_degrade_num(me,rarelevel);
-	string yushi_namecn = YUSHID->get_yushi_namecn(rarelevel);
-	string need_namecn = YUSHID->get_yushi_namecn(rarelevel+1);
-	if(num <= 0 || num > 5)
+	string s="";
+	string yushi_name="";
+	string s_num="";
+	int num=0;
+	int rarelevel=0;
+	object me=this_player();
+	int account_before=(int)me->query_account();
+	if(!arg || sscanf(arg,"%s %d %s",yushi_name,rarelevel,s_num)!=3 ||
+	   sscanf(s_num,"no=%d",num)!=1 || rarelevel<1 || rarelevel>4 ||
+	   yushi_name!=YUSHID->get_yushi_name(rarelevel)){
+		YUSHID->append_conversion_audit(me,"split","rejected",
+			"invalid_parameters",0,0,0,0,0,0,0,account_before);
+		write("打碎参数无效，本次没有扣除或发放玉石。\n"+
+			"[返回:yushi_myzone.pike]\n[返回游戏:look]\n");
+		return 1;
+	}
+
+	int can_num=YUSHID->query_degrade_num(me,rarelevel);
+	string need_namecn=YUSHID->get_yushi_namecn(rarelevel+1);
+	string need_yushi=YUSHID->get_yushi_name(rarelevel+1);
+	string audit_status="rejected";
+	string audit_reason="unknown";
+	int source_actual=0;
+	int target_actual=0;
+	int fee=0;
+
+	if(num<=0 || num>5){
 		s += "输入有误，请重新输入,你的输入必须是1到5之间的数字\n";
-	else if(can_num <= 0)
+		audit_reason="invalid_count";
+	}
+	else if(can_num<=0){
 		s += "打碎失败！你没有足够的"+need_namecn+"\n";
-	else if(num > can_num)
+		audit_reason="insufficient_material";
+	}
+	else if(num>can_num){
 		s += "打碎失败！你没有你所指定数目的"+need_namecn+"\n";
+		audit_reason="insufficient_material";
+	}
 	else{
-		//扣减玩家对应材料
-		string need_yushi = YUSHID->get_yushi_name(rarelevel+1);
-		//int need_num = me->remove_combine_item(need_yushi,num);
-		if(num){
-		//扣除成功
-			s_log += me->query_name_cn()+"("+me->query_name()+") 打算打碎("+num+")"+need_yushi+",结果为:";
+		int full_groups=num*10/30;
+		int remainder=(num*10)%30;
+
+		// 每3块高一级玉石打碎为30块低一级玉石，手续费3000。
+		for(int k=1;k<=full_groups;k++){
 			object new_yushi;
-			int i = num*10/30;//得到完整的组数
-			int j = (num*10)%30;//得到不足一组的个数
-			mixed err;
-			for(int k=1;k<=i;k++){
-				err=catch{
-					new_yushi = clone(YUSHI_PATH+yushi_name);
-				};
-				if(!err && new_yushi){
-					if(me->if_over_easy_load()){
-						s += "打碎失败！你的随身物品已满\n";
-						s_log += "打碎失败！随身物品已满";
-						break;
-					}
-					else if(me->query_account()<3000){
-						s += "打碎失败！你已无法支付所需费用\n";
-						s_log += "打碎失败！无足够的费用";
-						break;
-					}
-					else{
-						new_yushi->amount = 30;
-						me->del_account(3000);
-						me->remove_combine_item(need_yushi,3);
-						s += "打碎成功！你获得了"+new_yushi->query_short()+"\n";
-						s_log += " 将(3)"+need_yushi+"打碎获得(30)"+yushi_name+",";
-						new_yushi->move_player(me->query_name());
-					}
-				}
+			mixed err=catch{
+				new_yushi=clone(YUSHI_PATH+
+					YUSHID->get_yushi_name(rarelevel));
+			};
+			if(err || !new_yushi){
+				s += "打碎失败！目标玉石暂时无法生成\n";
+				if(audit_reason=="unknown") audit_reason="clone_failed";
+				break;
 			}
-			if(j>0){
-				int money = 1000;
-				err=catch{
-					new_yushi = clone(YUSHI_PATH+yushi_name);
-				};
-				if(j>10) money = 2000;
-				if(!err && new_yushi){
-					new_yushi->amount = j;
-					if(me->if_over_load(new_yushi)){
-						s += "打碎失败！你的随身物品已满\n";
-						s_log += "打碎失败！随身物品已满";
-					}
-					else if(me->query_account()<money){
-						s += "打碎失败！你已无法支付所需费用\n";
-						s_log += "打碎失败！随身物品已满";
+			new_yushi->amount=30;
+			if(me->if_over_load(new_yushi)){
+				s += "打碎失败！你的随身物品已满\n";
+				if(audit_reason=="unknown") audit_reason="inventory_full";
+				destruct(new_yushi);
+				break;
+			}
+			if(me->query_account()<3000){
+				s += "打碎失败！你已无法支付所需费用\n";
+				if(audit_reason=="unknown") audit_reason="insufficient_fee";
+				destruct(new_yushi);
+				break;
+			}
+			int removed=me->remove_combine_item(need_yushi,3);
+			source_actual+=removed;
+			if(removed!=3){
+				destruct(new_yushi);
+				s += "打碎失败！玉石扣除异常，请稍后重试\n";
+				if(audit_reason=="unknown") audit_reason="remove_mismatch";
+				break;
+			}
+			me->del_account(3000);
+			fee+=3000;
+			target_actual+=30;
+			s += "打碎成功！你获得了"+new_yushi->query_short()+"\n";
+			new_yushi->move_player(me->query_name());
+		}
+
+		// 剩余1或2块分别打碎为10或20块，手续费1000或2000。
+		if(remainder>0){
+			int need_count=remainder>10 ? 2 : 1;
+			int money=need_count*1000;
+			object new_yushi;
+			mixed err=catch{
+				new_yushi=clone(YUSHI_PATH+
+					YUSHID->get_yushi_name(rarelevel));
+			};
+			if(err || !new_yushi){
+				s += "打碎失败！目标玉石暂时无法生成\n";
+				if(audit_reason=="unknown") audit_reason="clone_failed";
+			}
+			else{
+				new_yushi->amount=remainder;
+				if(me->if_over_load(new_yushi)){
+					s += "打碎失败！你的随身物品已满\n";
+					if(audit_reason=="unknown")
+						audit_reason="inventory_full";
+					destruct(new_yushi);
+				}
+				else if(me->query_account()<money){
+					s += "打碎失败！你已无法支付所需费用\n";
+					if(audit_reason=="unknown")
+						audit_reason="insufficient_fee";
+					destruct(new_yushi);
+				}
+				else{
+					int removed=me->remove_combine_item(
+						need_yushi,need_count);
+					source_actual+=removed;
+					if(removed!=need_count){
+						destruct(new_yushi);
+						s += "打碎失败！玉石扣除异常，请稍后重试\n";
+						if(audit_reason=="unknown")
+							audit_reason="remove_mismatch";
 					}
 					else{
 						me->del_account(money);
-						me->remove_combine_item(need_yushi,1);
-						s += "打碎成功！你获得了"+new_yushi->query_short()+"\n";
-						if(j>10)
-							s_log += " 将(2)"+need_yushi+"打碎获得("+j+")"+yushi_name+",";
-						else
-							s_log += " 将(1)"+need_yushi+"打碎获得("+j+")"+yushi_name+",";
+						fee+=money;
+						target_actual+=remainder;
+						s += "打碎成功！你获得了"+
+							new_yushi->query_short()+"\n";
 						new_yushi->move_player(me->query_name());
 					}
 				}
-
-			}
-			if(s_log != ""){
-				string now=ctime(time());
-				Stdio.append_file(ROOT+"/log/fee_log/yushi_change-"+MUD_TIMESD->get_year_month()+".log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 			}
 		}
-		else
-			s += "材料扣除有误！！\n";
+
+		if(source_actual==num && target_actual==num*10){
+			audit_status="success";
+			audit_reason="ok";
+		}
+		else if(source_actual>0 || target_actual>0){
+			audit_status="partial";
+			if(audit_reason=="unknown") audit_reason="incomplete";
+		}
 	}
+
+	YUSHID->append_conversion_audit(me,"split",audit_status,audit_reason,
+		rarelevel+1,num>0 ? num : 0,source_actual,rarelevel,
+		num>0 ? num*10 : 0,target_actual,fee,account_before);
 	s += "\n[返回:yushi_myzone.pike]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
-	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;
 }

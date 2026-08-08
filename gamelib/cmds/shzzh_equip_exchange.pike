@@ -7,6 +7,37 @@
 //   need_huiji 需要的徽记个数
 //   need_money 需要的金钱数
 //   flag  购买标识，1为徽记确认购买，2为G币确认购买，0为查看物品详情
+private mapping(string:array(mixed)) shzzh_offers=([
+	"jewelry/9xingfukou":({"9ji",400,"shizizhang1"}),
+	"jewelry/9xingfushouhuan":({"9ji",400,"shizizhang1"}),
+	"jewelry/9xingfujingshi":({"9ji",400,"shizizhang1"}),
+	"jewelry/9xingfupifeng":({"9ji",400,"shizizhang1"}),
+	"jewelry/19jixiangkou":({"19ji",340,"shizizhang2"}),
+	"jewelry/19jixiangshouhuan":({"19ji",340,"shizizhang2"}),
+	"jewelry/19jixiangjingshi":({"19ji",340,"shizizhang2"}),
+	"jewelry/19jixiangpifeng":({"19ji",340,"shizizhang2"}),
+	"jewelry/29ruyikou":({"29ji",280,"shizizhang3"}),
+	"jewelry/29ruyishouhuan":({"29ji",280,"shizizhang3"}),
+	"jewelry/29ruyijingshi":({"29ji",280,"shizizhang3"}),
+	"jewelry/29ruyipifeng":({"29ji",280,"shizizhang3"}),
+	"jewelry/39tuanyuankou":({"39ji",240,"shizizhang4"}),
+	"jewelry/39tuanyuanshouhuan":({"39ji",240,"shizizhang4"}),
+	"jewelry/39tuanyuanjingshi":({"39ji",240,"shizizhang4"}),
+	"jewelry/39tuanyuanpifeng":({"39ji",240,"shizizhang4"}),
+	"jewelry/49reqingkou":({"49ji",180,"shizizhang5"}),
+	"jewelry/49reqingshouhuan":({"49ji",180,"shizizhang5"}),
+	"jewelry/49reqingjingshi":({"49ji",180,"shizizhang5"}),
+	"jewelry/49reqingpifeng":({"49ji",180,"shizizhang5"}),
+	"jewelry/59hemeikou":({"59ji",100,"shizizhang6"}),
+	"jewelry/59hemeishouhuan":({"59ji",100,"shizizhang6"}),
+	"jewelry/59hemeijingshi":({"59ji",100,"shizizhang6"}),
+	"jewelry/59hemeipifeng":({"59ji",100,"shizizhang6"}),
+	"jewelry/69xiangyunkou":({"69ji",60,"shizizhang7"}),
+	"jewelry/69xiangyunshouhuan":({"69ji",60,"shizizhang7"}),
+	"jewelry/69xiangyunjingshi":({"69ji",60,"shizizhang7"}),
+	"jewelry/69xiangyunpifeng":({"69ji",60,"shizizhang7"})
+]);
+
 int main(string|zero arg)
 {
 	string s = "国庆限量版饰品，先到先得～\n\n";
@@ -18,7 +49,16 @@ int main(string|zero arg)
 	int need_money = 0;
 	string need_name = "";
 	int flag = 0;
-	sscanf(arg,"%s %s %d %s %d",type,item_name,need_huiji,need_name,flag);
+	if(!arg || sscanf(arg,"%s %s %d %s %d",type,item_name,need_huiji,
+	   need_name,flag)!=5 || !shzzh_offers[item_name]){
+		write("兑换参数无效，该物品不在十字章兑换目录中。\n"+
+			"[返回游戏:look]\n");
+		return 1;
+	}
+	array(mixed) offer=shzzh_offers[item_name];
+	type=(string)offer[0];
+	need_huiji=(int)offer[1];
+	need_name=(string)offer[2];
 	if(flag == 0){
 		object item;
 		mixed err = catch{

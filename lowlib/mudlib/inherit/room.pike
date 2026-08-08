@@ -29,6 +29,23 @@ int is_room(){
 }
 //override item类的函数，用来动态调整npc的等级
 int dongtai_npc_start_level=70;
+private int last_autofight_pressure_check;
+
+private int is_autofight_normal_spawn(object ob)
+{
+	string npc_type;
+	if(!ob || !ob->is("npc"))
+		return 0;
+	if(ob->_boss || ob->_tasknpc || ob->_meritocrat || ob->_rare)
+		return 0;
+	if(functionp(ob->query_summon_type))
+		return 0;
+	npc_type=ob->query_npc_type();
+	if(npc_type=="city_keeper" || npc_type=="city_guarder" ||
+	   npc_type=="city_lord")
+		return 0;
+	return 1;
+}
 
 
 void add_items(array(string|program) _items){
@@ -62,9 +79,107 @@ void add_items(array(string|program) _items){
 		//动态调整npc等级
 		//werror("===========add items npc:"+file_name(ob)+"\n");
 		//({内存唯一副本，内存中的拷贝，该物件刷新时间，当前时间})
-		items+=({({((program)s),ob,ob->_flushtime,time()})});
+		items+=({({((program)s),ob,ob->_flushtime,time(),
+			is_autofight_normal_spawn(ob)})});
 		ob->move(this_object());
 	}
+}
+
+// 只对自动挂机指定练级房开放：人数越多，原有普通怪槽位越快补齐。
+// 不增加房间原始槽位总量，也不加速 Boss、精英、任务或召唤单位。
+mapping query_autofight_pressure_policy(int active_players,
+	void|int overflow_room)
+{
+	int enabled=1;
+	int refresh_seconds=90;
+	int budget=1;
+	if(active_players<2 && !overflow_room)
+		enabled=0;
+	if(active_players>=3){
+		refresh_seconds=75;
+		budget=2;
+	}
+	if(active_players>=4){
+		refresh_seconds=60;
+		budget=3;
+	}
+	return ([
+		"enabled":enabled,
+		"refresh_seconds":refresh_seconds,
+		"budget":budget,
+	]);
+}
+
+int query_autofight_pressure_check_ready()
+{
+	return time()-last_autofight_pressure_check>=15;
+}
+
+int refresh_autofight_normal_npcs(object me,int active_players,
+	void|int overflow_room)
+{
+	mapping policy;
+	int refresh_seconds;
+	int budget;
+	int spawned=0;
+	if(!me || this_object()->is("peaceful"))
+		return 0;
+	policy=query_autofight_pressure_policy(active_players,overflow_room);
+	if(!(int)policy["enabled"])
+		return 0;
+	if(!query_autofight_pressure_check_ready())
+		return 0;
+	last_autofight_pressure_check=time();
+	refresh_seconds=(int)policy["refresh_seconds"];
+	budget=(int)policy["budget"];
+	for(int i=0;i<sizeof(items) && spawned<budget;i++){
+		array one=items[i];
+		object ob;
+		mixed err;
+		if(!one || sizeof(one)<5 || one[1] || !(int)one[4])
+			continue;
+		if((int)one[2]<=refresh_seconds || (int)one[2]>5*60)
+			continue;
+		if(time()-(int)one[3]<refresh_seconds)
+			continue;
+		err=catch{
+			ob=new(one[0]);
+		};
+		if(err || !is_autofight_normal_spawn(ob)){
+			if(ob)
+				destruct(ob);
+			continue;
+		}
+		if(me->query_level()>=dongtai_npc_start_level &&
+		   me->query_level()<ENDGAME_MAP_MIN_LEVEL){
+			ob->_npcLevel=me->query_level();
+			ob->setup_npc_dongtai(me);
+		}
+		one[1]=ob;
+		one[3]=time();
+		ob->move(this_object());
+		spawned++;
+	}
+	return spawned;
+}
+
+mapping query_autofight_spawn_status()
+{
+	int normal_slots=0;
+	int alive_normal=0;
+	for(int i=0;i<sizeof(items);i++){
+		array one=items[i];
+		if(!one || sizeof(one)<5 || !(int)one[4])
+			continue;
+		normal_slots++;
+		if(one[1])
+			alive_normal++;
+	}
+	return ([
+		"normal_slots":normal_slots,
+		"alive_normal":alive_normal,
+		"last_pressure_check":last_autofight_pressure_check,
+	]);
 }
 /*
 此方法重构override了底层的reset times，每次用户进入房间，都会调用这个方法检查房间的npc

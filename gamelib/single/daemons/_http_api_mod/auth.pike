@@ -25,6 +25,10 @@ Thread.Mutex hidden_command_lock = Thread.Mutex();
 int hidden_command_created;
 int hidden_command_next_serial;
 int hidden_command_oldest_serial = 1;
+int hidden_command_missing;
+int hidden_command_expired;
+int hidden_command_wrong_user;
+int hidden_command_rejected;
 
 constant AUTH_PASSWORD_CACHE_TTL = 2;
 constant AUTH_PASSWORD_CACHE_LIMIT = 2048;
@@ -445,8 +449,19 @@ string unhide_command(string userid, string token_input)
     entry = hidden_command_tokens[token];
     if(!entry || (string)entry["userid"] != userid ||
        (int)entry["expires"] < time()) {
+        hidden_command_rejected++;
+        if(!entry)
+            hidden_command_missing++;
+        else if((int)entry["expires"] < time())
+            hidden_command_expired++;
+        else
+            hidden_command_wrong_user++;
         if(entry && (int)entry["expires"] < time())
             remove_hidden_command_token_locked(token);
+        if(hidden_command_rejected%128==0)
+            werror("[HTTP_API][COMMAND_TOKEN] rejected=%d missing=%d expired=%d wrong_user=%d\n",
+                hidden_command_rejected,hidden_command_missing,
+                hidden_command_expired,hidden_command_wrong_user);
         reset_hidden_command_order_if_empty_locked();
         destruct(key);
         return "look";
@@ -455,6 +470,24 @@ string unhide_command(string userid, string token_input)
     destruct(key);
     if(input != "")
         result += " "+input;
+    return result;
+}
+
+mapping query_hidden_command_status()
+{
+    mapping result;
+    object key = hidden_command_lock->lock();
+    result = ([
+        "entries":sizeof(hidden_command_tokens),
+        "limit":HIDDEN_COMMAND_LIMIT,
+        "ttl_seconds":HIDDEN_COMMAND_TTL,
+        "created":hidden_command_created,
+        "rejected":hidden_command_rejected,
+        "missing":hidden_command_missing,
+        "expired":hidden_command_expired,
+        "wrong_user":hidden_command_wrong_user,
+    ]);
+    destruct(key);
     return result;
 }
 

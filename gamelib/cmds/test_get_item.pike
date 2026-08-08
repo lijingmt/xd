@@ -6,6 +6,10 @@ int main(string|zero arg)
 	string s = "";
 	object me=this_player();
 	object ob ;
+	if(!me || MANAGERD->checkpower(me->query_name())!="admin"){
+		write("该调试命令仅限管理员使用。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(!arg){
 		s += "请输入框中输入你想得到的物品文件名,\n";
 		s += "在输入的文件名前面按种类加上相对应的目录,\n";

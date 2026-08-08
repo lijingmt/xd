@@ -8,7 +8,12 @@ int main(string|zero arg)
 	string goods_name = "";
 	int lv = 0;
 	string s = "";
-	sscanf(arg,"%s %d",goods_name,lv);
+	if(!arg || sscanf(arg,"%s %d",goods_name,lv)!=2 ||
+	   !VIPD->is_free_good(goods_name,lv)){
+		write("该物品不在会员免费目录中。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
 	array(string) tmp = ({});
 	string type = "baoshi";                        //默认的物品类型
 	tmp = goods_name/"/";                          //得到文件所在目录，也就是物品的分类

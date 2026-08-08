@@ -7,9 +7,15 @@ int main(string|zero arg)
 	object me = this_player();
 	string goods_name = "";//物品文件名
 	int lv = 0;//需要的会员等级
-	int price = 0;//该等级下本物品的价格
+	int requested_price = 0;//仅为兼容旧链接；实际价格由服务端目录计算
 	string s = "";
-	sscanf(arg,"%s %d %d",goods_name,lv,price);
+	if(!arg || sscanf(arg,"%s %d %d",goods_name,lv,requested_price)!=3 ||
+	   !VIPD->is_off_good(goods_name,lv)){
+		write("该物品不在会员折扣目录中。\n"+
+			"[返回:vip_myzone]\n[返回游戏:look]\n");
+		return 1;
+	}
+	int price=VIPD->query_off_good_price(goods_name,lv);
 	array(string) tmp = ({});
 	string type = "baoshi";                         //默认的物品类型
 	tmp = goods_name/"/";                           //得到文件所在目录，也就是物品的分类

@@ -6,7 +6,7 @@ int main(string|zero arg)
 	string s = "";
 	string s_log = "";
 	object me=this_player();
-	if(arg){
+	if(arg=="teyao/tenongqiaokeli"){
 		if(me->get_gift){
 			s += "领取失败！今天你已经领取过了\n";
 		}
@@ -52,7 +52,7 @@ int main(string|zero arg)
 		}
 	}
 	else
-		s += "暂无\n";
+		s += "奖励参数无效，本次没有发放物品。\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	//s += "\n[返回游戏:look]\n";
 	//write(s);

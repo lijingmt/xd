@@ -19,6 +19,13 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_SERVER_SCAN_BUDGET 128
 #define AUTOFIGHT_FINAL_VIEW_SECONDS 30
 #define AUTOFIGHT_VIEW_MAX_BYTES (512*1024)
+#define AUTOFIGHT_PUBLIC_ROOM_CAPACITY 4
+#define AUTOFIGHT_DYNAMIC_ROOM_CAPACITY 1
+#define AUTOFIGHT_OVERFLOW_ROOM_CAPACITY 4
+#define AUTOFIGHT_OVERFLOW_MAX_PER_POOL 8
+#define AUTOFIGHT_OVERFLOW_GLOBAL_LIMIT 64
+#define AUTOFIGHT_OVERFLOW_IDLE_SECONDS (10*60)
+#define AUTOFIGHT_OVERFLOW_CLEANUP_SECONDS 60
 
 private array(string) auto_buff_kinds = ({
 	"attri_base",
@@ -40,6 +47,14 @@ private array(string) auto_buff_kinds = ({
 
 private int autofight_scan_count;
 private int autofight_scan_deferred_objects;
+private mapping(string:array(mapping(string:mixed))) autofight_overflow_rooms=([]);
+private int autofight_overflow_room_count;
+private int autofight_overflow_created;
+private int autofight_overflow_destroyed;
+private int autofight_overflow_limit_fallbacks;
+private int autofight_overflow_cleanup_scheduled;
+private int autofight_training_reroutes;
+private int autofight_pressure_refills;
 // 浏览器只读取画面；一个全局调度器把原有 flushview 命令交给 HTTP
 // 世界队列。玩家/战斗对象绝不进入工作线程。
 private mapping(string:int) server_autofight_epochs = ([]);
@@ -314,7 +329,7 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"level":1,
 		"name":"初入仙途",
 		"human":"congxianzhen/shangshanlu",
-		"monst":"jinaodao/chucuntulu",
+		"monst":"minglingzhihai/minglingqianhai",
 		"third":"congxianzhen/shangshanlu",
 	]),
 	([
@@ -322,7 +337,7 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"level":3,
 		"name":"村外试炼",
 		"human":"congxianzhen/xiaoshouxueyiceng",
-		"monst":"jinaodao/qianshakeng",
+		"monst":"shanyaohaiwan/miwusenlin",
 		"third":"huanyecun/huanyecun",
 	]),
 	([
@@ -330,7 +345,7 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"level":6,
 		"name":"营地试炼",
 		"human":"kunlunshan/piaohuaxi",
-		"monst":"jinaodao/wanmuyuan",
+		"monst":"kulougang/kuguchalu",
 		"third":"liehuoying/liehuonan",
 	]),
 	([
@@ -338,7 +353,7 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"level":9,
 		"name":"迷雾试炼",
 		"human":"kunlunshan/pubudongxuesanceng",
-		"monst":"jinaodao/xiangshudongsiceng",
+		"monst":"mihuandao/nongwusenlin",
 		"third":"mihuandao/nongwusenlin",
 	]),
 	([
@@ -346,7 +361,8 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"level":11,
 		"name":"初阶修行",
 		"human":"kunlunshan/xiuxian",
-		"monst":"jinaodao/fenghouzhen",
+		"monst":"jinaodao/qianshakeng",
+		"monst_level":10,
 		"third":"kunlunshan/xiuxian",
 	]),
 	([
@@ -354,7 +370,8 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 		"level":14,
 		"name":"炼体修行",
 		"human":"kunlunshan/lianshen",
-		"monst":"jinaodao/hongshazhen",
+		"monst":"jinaodao/duanmulin",
+		"monst_level":15,
 		"third":"kunlunshan/lianshen",
 	]),
 	([
@@ -511,6 +528,275 @@ private array(mapping(string:mixed)) smart_training_routes = ({
 	]),
 });
 
+// 每条推荐路线配 3-6 个等级等价的公共房间。这里只改变去哪一间房，
+// 不改变怪物属性、战斗、经验或掉落公式。
+private mapping(string:array(string)) training_route_pools = ([
+	"congxianzhen/shangshanlu":({
+		"congxianzhen/shangshanlu","congxianzhen/dashanshu",
+		"congxianzhen/dashuyin","congxianzhen/shanshulin",
+		"congxianzhen/shanshulinxiaolu","congxianzhen/suishizilu",
+	}),
+	"minglingzhihai/minglingqianhai":({
+		"minglingzhihai/minglingqianhai","minglingzhihai/qianhaigou",
+		"minglingzhihai/shenhaigou","minglingzhihai/wucaijiaoshi",
+		"minglingzhihai/youanhaidi","minglingzhihai/minglinganyong",
+	}),
+	"congxianzhen/xiaoshouxueyiceng":({
+		"congxianzhen/xiaoshouxueyiceng","congxianzhen/xiaoshouxueerceng",
+		"congxianzhen/didihu","congxianzhen/shifu",
+		"congxianzhen/wuyaoyingrukou","congxianzhen/yanbi",
+	}),
+	"shanyaohaiwan/miwusenlin":({
+		"shanyaohaiwan/miwusenlin","shanyaohaiwan/miwuxiaolu",
+		"shanyaohaiwan/miwupubu","shanyaohaiwan/miwuduanya",
+		"shanyaohaiwan/diwashuikeng","shanyaohaiwan/jujiaoshi",
+	}),
+	"huanyecun/huanyecun":({
+		"huanyecun/huanyecun","huanyecun/baishizilu",
+		"huanyecun/baiyuchanglang","huanyecun/baizhousenlin",
+		"huanyecun/chuizhoupubu","huanyecun/huanyeduanqiao",
+	}),
+	"kunlunshan/piaohuaxi":({
+		"kunlunshan/heiheyuan","kunlunshan/huaxuepingyuan",
+		"kunlunshan/kunlunshanjiao","kunlunshan/mangyuan",
+		"kunlunshan/qiancaohai","kunlunshan/piaohuaxi",
+	}),
+	"kulougang/kuguchalu":({
+		"kulougang/kuguchalu","kulougang/baigudui",
+		"kulougang/feiqimaolu","kulougang/guhuncaowu",
+		"kulougang/heishuihe","kulougang/huianmiwu",
+	}),
+	"liehuoying/liehuonan":({
+		"liehuoying/liehuonan","liehuoying/huolongqiao",
+		"liehuoying/liehuobeishao","liehuoying/liehuodongshao",
+		"liehuoying/liehuohuijin","liehuoying/liehuoyan",
+	}),
+	"kunlunshan/pubudongxuesanceng":({
+		"kunlunshan/pubudongxuesanceng",
+		"kunlunshan/pubudongxuesiceng",
+		"kunlunshan/heiseyanxuesiceng",
+	}),
+	"mihuandao/nongwusenlin":({
+		"mihuandao/nongwusenlin","mihuandao/fangcaoxiaolu",
+		"mihuandao/huancaihu","mihuandao/lvyinshanqiu",
+		"mihuandao/mihuancun","mihuandao/mihuanduanya",
+	}),
+	"kunlunshan/xiuxian":({
+		"kunlunshan/xiuxian","kunlunshan/canyunjing",
+		"kunlunshan/liuyunjing","kunlunshan/xiushu",
+	}),
+	"jinaodao/qianshakeng":({
+		"jinaodao/qianshakeng","jinaodao/feituidu",
+		"jinaodao/huangshagang","jinaodao/huangtupo",
+		"jinaodao/kuzhulin",
+	}),
+	"kunlunshan/lianshen":({
+		"kunlunshan/lianshen","kunlunshan/lianjin",
+		"kunlunshan/lianjing","kunlunshan/lianqi",
+	}),
+	"jinaodao/duanmulin":({
+		"jinaodao/duanmulin","jinaodao/feishagu",
+		"jinaodao/heihuilindi","jinaodao/heiyankou",
+		"jinaodao/jiaotupingyuan","jinaodao/liushakeng",
+	}),
+	"shierxianjing/taoyuantongjiuceng":({
+		"shierxianjing/taoyuantongjiuceng",
+		"shierxianjing/taoyuantongshiceng",
+		"shierxianjing/taoyuantongshiyiceng",
+		"shierxianjing/taoyuantongshierceng",
+	}),
+	"wugongdong/xieduhe":({
+		"wugongdong/xieduhe","wugongdong/chongpidui",
+		"wugongdong/duxiepubu","wugongdong/huachongdong",
+		"wugongdong/tuipidixue",
+	}),
+	"shierxianjing/taoyuantongshijiuceng":({
+		"shierxianjing/taoyuantongshijiuceng",
+		"shierxianjing/taoyuantongershiceng",
+		"shierxianjing/lingxiadongyiceng",
+		"shierxianjing/luojiadongyiceng",
+		"shierxianjing/magudongyiceng",
+		"shierxianjing/erxianfeng",
+	}),
+	"wugongdong/rongchongfang":({
+		"wugongdong/rongchongfang","wugongdong/baizuguodao",
+		"wugongdong/chongshidijiao","wugongdong/darongdong",
+		"wugongdong/dongcedongxue","wugongdong/duxiehukou",
+	}),
+	"shierxianjing/magudongshisanceng":({
+		"shierxianjing/magudongshisanceng",
+		"shierxianjing/magudongshisiceng",
+		"shierxianjing/magudongshiwuceng",
+		"shierxianjing/lingxiadongshisanceng",
+	}),
+	"wugongdong/wugongshenyuan":({
+		"wugongdong/wugongshenyuan","wugongdong/duheyuan",
+		"wugongdong/fuhuashi",
+	}),
+	"plshuige/qingyuntai":({
+		"plshuige/qingyuntai","plshuige/yunwuxukong4",
+		"plshuige/yunwuxukong5","plshuige/yunwuxukong6",
+	}),
+	"plshuige/liexiandao":({
+		"plshuige/liexiandao","plshuige/yunzhongta4",
+		"plshuige/yunzhongta5","plshuige/yunzhongta6",
+	}),
+	"liangjinghu/yinhuxuanqiao":({
+		"liangjinghu/yinhuxuanqiao","liangjinghu/chaoyanglu",
+		"liangjinghu/hanshuichi","liangjinghu/huayushuixie",
+		"liangjinghu/jinghuaan","liangjinghu/jinghubei",
+	}),
+	"plshuige/mianyunti":({
+		"plshuige/mianyunti","plshuige/luoyunpo",
+		"plshuige/yunwuxukong13","plshuige/yunwuxukong14",
+		"plshuige/yunwuxukong15","plshuige/yunwuxukong16",
+	}),
+	"plshuige/yunpulu":({
+		"plshuige/yunpulu","plshuige/yinyulu",
+		"plshuige/yunzhongta13","plshuige/yunzhongta14",
+		"plshuige/yunzhongta15","plshuige/yunzhongta16",
+	}),
+	"liangjinghu/huayaotingyuan15":({
+		"liangjinghu/huayaotingyuan15","liangjinghu/huayaotingyuan16",
+		"liangjinghu/huayaotingyuan17","liangjinghu/hehuamigong15",
+		"liangjinghu/hehuamigong16","liangjinghu/hehuamigong17",
+	}),
+	"xiqiwaicheng/nanchengqiangjiao":({
+		"xiqiwaicheng/nanchengqiangjiao","xiqiwaicheng/qixinglou",
+		"xiqiwaicheng/shunqiangdao","xiqiwaicheng/xiandiken",
+		"xiqiwaicheng/xiqinanchenglou",
+	}),
+	"chaogewaicheng/chaogedongnanlou":({
+		"chaogewaicheng/chaogedongnanlou","chaogewaicheng/chaogexinanlou",
+		"chaogewaicheng/chenghedao","chaogewaicheng/chengheshuikou",
+		"chaogewaicheng/donghuchenghe","chaogewaicheng/dongnanchengqiang",
+	}),
+	"muye/xicezhanhao":({
+		"muye/xicezhanhao","muye/dongcezhanhao",
+		"muye/jiaotulu","muye/zhoubingshaoka",
+	}),
+	"xiqiwaicheng/huanhuashuitai":({
+		"xiqiwaicheng/huanhuashuitai","xiqiwaicheng/huixinghuayuan",
+		"xiqiwaicheng/xiqilinyindao","xiqiwaicheng/yingtiantai",
+		"xiqiwaicheng/zheyanglu",
+	}),
+	"chaogewaicheng/eluanshihetan":({
+		"chaogewaicheng/eluanshihetan","chaogewaicheng/hebaomu",
+		"chaogewaicheng/hegu","chaogewaicheng/huiyingu",
+		"chaogewaicheng/tuanliuhehan","chaogewaicheng/yanxilu",
+	}),
+	"muye/guzhandao":({
+		"muye/guzhandao","muye/bubingying","muye/chengtubiandao",
+		"muye/chongyandao","muye/guoshandao","muye/huanghean",
+	}),
+	"muye/poyaozhen9":({
+		"muye/poyaozhen9","muye/poyaozhen10",
+		"muye/poyaozhen11","muye/poyaozhen12",
+	}),
+	"muye/fuluying9":({
+		"muye/fuluying9","muye/fuluying10",
+		"muye/fuluying11","muye/fuluying12",
+	}),
+	"muye/hexiyandong10":({
+		"muye/hexiyandong10","muye/hexiyandong11",
+		"muye/hexiyandong12","muye/hexiyandong13",
+	}),
+	"waihai/lingyicheng":({
+		"waihai/lingyicheng","waihai/lingyixiaolu",
+		"waihai/lvzaoqiantan","waihai/lvzaoshentan",
+		"waihai/shanhuhouhai","waihai/shanhuqianhai",
+	}),
+	"waihai/qianhaiguanmucong":({
+		"waihai/qianhaiguanmucong","waihai/lingyidongchukou",
+		"waihai/qianhaigouzhongceng",
+	}),
+	"yandigu/xiaoshilu":({
+		"yandigu/xiaoshilu","yandigu/douranting",
+		"yandigu/fangzongwanlu","yandigu/fangzongxiaojing",
+		"yandigu/konglinghe","yandigu/konglinghegu",
+	}),
+	"fuxishan/fuxidongrukou":({
+		"fuxishan/fuxidongrukou","fuxishan/fuxidongyiceng",
+		"fuxishan/fuxidongerceng","fuxishan/fuxidongsanceng",
+		"fuxishan/fuxidongsiceng","fuxishan/fuxihe",
+	}),
+	"huangyuan/yingxielu":({
+		"huangyuan/yingxielu","huangyuan/jigutulu",
+		"huangyuan/jinsegulu","huangyuan/mingqiutonglu",
+	}),
+	"liuguangpingyuan/liuguangchalu":({
+		"liuguangpingyuan/liuguangchalu","liuguangpingyuan/baixuejing",
+		"yandigu/bieguchanglu","fuxishan/fuxihoushan",
+		"bishuitan/bishuichalu",
+	}),
+	"plxianjing/dangyunshijie":({
+		"plxianjing/dangyunshijie","plxianjing/dangyunshiqiao",
+		"plxianjing/biboyang","plxianjing/binghuanbudao",
+		"plxianjing/binghuanchanglu","plxianjing/binghuanyunwu",
+	}),
+	"plxianjing/binghuanyuntai":({
+		"plxianjing/binghuanyuntai","plxianjing/binghuanxiaoxi",
+		"plxianjing/ningxuehu","plxianjing/ningxuepubu",
+		"plxianjing/ningxuewanlu","plxianjing/qinglianhuachi",
+	}),
+	"penglaihuanjing/yunyepingyuan":({
+		"penglaihuanjing/yunyepingyuan","penglaihuanjing/duanyeya",
+		"penglaihuanjing/sifangqiao","penglaihuanjing/yeyulin",
+		"penglaihuanjing/yulinglu","penglaihuanjing/yunshuipubu",
+	}),
+	"penglaihuanjing/qiushuangshilu":({
+		"penglaihuanjing/qiushuangshilu","penglaihuanjing/hongyeyuan",
+		"penglaihuanjing/jinyeyuan","penglaihuanjing/liushuangpubu",
+		"penglaihuanjing/luoshuanghu","penglaihuanjing/luoshuangya",
+	}),
+	"penglaihuanjing/liehuochitang":({
+		"penglaihuanjing/liehuochitang","penglaihuanjing/bamianqiao",
+		"penglaihuanjing/lierigaotai","penglaihuanjing/lieyanchanglu",
+		"penglaihuanjing/lieyanhu","penglaihuanjing/lieyanpingyuan",
+	}),
+	"klshuanjingwaicheng/heiheyuan":({
+		"klshuanjingwaicheng/heiheyuan","klshuanjingwaicheng/chishuiyuan",
+		"klshuanjingwaicheng/didihu","klshuanjingwaicheng/heiseyanxue",
+		"klshuanjingwaicheng/shifu",
+	}),
+	"klshuanjingwaicheng/heishandong":({
+		"klshuanjingwaicheng/heishandong","klshuanjingwaicheng/dashanshu",
+		"klshuanjingwaicheng/dashuyin","klshuanjingwaicheng/heichao",
+		"klshuanjingwaicheng/shendidong",
+	}),
+	"plxianjing/chilingxiaolu":({
+		"plxianjing/chilingxiaolu","plxianjing/chilingguanghuan",
+		"plxianjing/chilingxijing","plxianjing/chilingxiliu",
+		"plxianjing/chilingyunrao","plxianjing/chilingyuntai",
+	}),
+	"plxianjing/chiyuxiaolu":({
+		"plxianjing/chiyuxiaolu","plxianjing/chiyuguanghuan",
+		"plxianjing/chiyuxijing","plxianjing/chiyuxiliu",
+		"plxianjing/chiyuyunrao","plxianjing/chiyuyuntai",
+	}),
+	"penglaihuanjing/qiushuangxiaojing":({
+		"penglaihuanjing/qiushuangxiaojing","penglaihuanjing/hongyeyuan",
+		"penglaihuanjing/jinyeyuan","penglaihuanjing/liushuangpubu",
+		"penglaihuanjing/luoshuanghu","penglaihuanjing/luoshuangya",
+	}),
+	"jiuxiaojiejing/jiuxiaotianmen":({
+		"jiuxiaojiejing/jiuxiaotianmen","jiuxiaojiejing/xinghedu",
+		"jiuxiaojiejing/wuxiangyuntai",
+	}),
+]);
+
+private mapping(string:mixed) attach_training_route_pool(
+	mapping(string:mixed) route)
+{
+	string path=(string)route["path"];
+	array(string) paths=training_route_pools[path];
+	if(!paths || !sizeof(paths))
+		paths=({path});
+	route["paths"]=copy_value(paths);
+	route["pool_key"]=path;
+	return route;
+}
+
 // 练级路线是启动后只读的配置快照。查询时返回副本，调用者不能改写
 // 守护进程内缓存。
 private mapping(string:mapping(int:mapping(string:mixed)))
@@ -535,6 +821,9 @@ private void build_training_route_cache()
 				if(path=="")
 					path = (string)one["human"];
 				route["path"] = path;
+				if((int)one[race+"_level"]>0)
+					route["level"]=(int)one[race+"_level"];
+				route = attach_training_route_pool(route);
 				// 50级后多数路线随玩家等级提升，但不能把地图真实的
 				// 最低怪物等级向下覆盖。典型边界是59级进入60级云野：
 				// 推荐等级必须保持60，否则安全窗口会把整张图过滤掉。
@@ -559,6 +848,8 @@ mapping query_training_route_cache_status()
 {
 	return ([
 		"mode":"immutable_snapshot",
+		"pool_mode":"least_loaded_stable",
+		"pool_count":sizeof(training_route_pools),
 		"human":sizeof(training_route_cache["human"] || ([])),
 		"monst":sizeof(training_route_cache["monst"] || ([])),
 		"third":sizeof(training_route_cache["third"] || ([])),
@@ -583,6 +874,14 @@ mapping query_autofight_performance_status()
 		"server_oversized_views":server_autofight_oversized_views,
 		"server_cached_views":sizeof(server_autofight_views),
 		"server_cleanup_scheduled":server_autofight_cleanup_scheduled,
+		"training_pool_count":sizeof(training_route_pools),
+		"training_reroutes":autofight_training_reroutes,
+		"pressure_refills":autofight_pressure_refills,
+		"overflow_rooms":autofight_overflow_room_count,
+		"overflow_created":autofight_overflow_created,
+		"overflow_destroyed":autofight_overflow_destroyed,
+		"overflow_limit_fallbacks":autofight_overflow_limit_fallbacks,
+		"overflow_global_limit":AUTOFIGHT_OVERFLOW_GLOBAL_LIMIT,
 	]);
 }
 
@@ -2423,6 +2722,8 @@ void start_autofight(object me)
 
 void stop_autofight(object me)
 {
+	object env;
+	string return_path;
 	if(!me)
 		return;
 	cancel_server_autofight_tick(me);
@@ -2435,6 +2736,16 @@ void stop_autofight(object me)
 	me["/tmp/autofight_failed_loot_retry"] = 0;
 	reset_scan_state(me);
 	me->set_autofight("disable");
+	// 停止挂机后不把玩家困在无出口的临时分流房。战斗中不强制移动，
+	// 等战斗结束后仍可手动飞行，空实例也会由定时清理器回收。
+	env=environment(me);
+	if(env && (int)env["/tmp/autofight_overflow"]==1 && !me->in_combat){
+		return_path=(string)env["/tmp/autofight_overflow_path"];
+		if(return_path!=""){
+			me->move(ROOT+"/gamelib/d/"+return_path);
+			me->reset_view();
+		}
+	}
 }
 
 int charge_time(object me)
@@ -2616,12 +2927,12 @@ mapping(string:mixed) query_training_route(object me)
 	level = me->query_level();
 	race = me->query_raceId();
 	if(level>=ENDGAME_MAP_MIN_LEVEL){
-		return ([
+		return attach_training_route_pool(([
 			"max":MAX_LEVEL,
 			"level":level>MAX_LEVEL ? MAX_LEVEL : level,
 			"name":"九霄界境巅峰历练",
 			"path":"jiuxiaojiejing/jiuxiaotianmen",
-		]);
+		]));
 	}
 	if(level>=70){
 		path = "plxianjing/chilingxiaolu";
@@ -2629,12 +2940,12 @@ mapping(string:mixed) query_training_route(object me)
 			path = "plxianjing/chiyuxiaolu";
 		else if(race=="third")
 			path = "penglaihuanjing/qiushuangxiaojing";
-		return ([
+		return attach_training_route_pool(([
 			"max":MAX_LEVEL,
 			"level":level>MAX_LEVEL ? MAX_LEVEL : level,
 			"name":"动态同级历练",
 			"path":path,
-		]);
+		]));
 	}
 	if(level<1)
 		level = 1;
@@ -2644,6 +2955,108 @@ mapping(string:mixed) query_training_route(object me)
 	if(route)
 		return copy_value(route);
 	return ([]);
+}
+
+array(string) query_training_route_paths(object me)
+{
+	mapping(string:mixed) route=query_training_route(me);
+	array(string) paths=(array(string))route["paths"];
+	if(!paths)
+		return ({});
+	return copy_value(paths);
+}
+
+private int query_training_room_capacity(object me)
+{
+	if(me && me->query_level()>=70 &&
+	   me->query_level()<ENDGAME_MAP_MIN_LEVEL)
+		return AUTOFIGHT_DYNAMIC_ROOM_CAPACITY;
+	return AUTOFIGHT_PUBLIC_ROOM_CAPACITY;
+}
+
+private int query_stable_training_offset(object me,int size)
+{
+	string userid;
+	int value=0;
+	if(!me || size<=0)
+		return 0;
+	userid=(string)me->query_name();
+	for(int i=0;i<sizeof(userid);i++)
+		value=(value+userid[i]*(i+1))%size;
+	return value;
+}
+
+private mapping(string:int) query_public_training_occupancy()
+{
+	mapping(string:int) occupancy=([]);
+	array(object) players=users(1);
+	for(int i=0;i<sizeof(players);i++){
+		object env;
+		string path;
+		if(!players[i])
+			continue;
+		env=environment(players[i]);
+		if(!env || (int)env["/tmp/autofight_overflow"]==1)
+			continue;
+		path=query_current_room_path(players[i]);
+		if(path!="")
+			occupancy[path]=(int)occupancy[path]+1;
+	}
+	return occupancy;
+}
+
+mapping(string:mixed) query_balanced_training_route(object me,
+	void|int avoid_current)
+{
+	mapping(string:mixed) route=query_training_route(me);
+	mapping(string:int) occupancy;
+	array(string) paths;
+	string current;
+	string selected="";
+	int capacity;
+	int min_count=-1;
+	int all_full=1;
+	int offset;
+	if(!route || !sizeof(route))
+		return ([]);
+	paths=(array(string))route["paths"];
+	if(!paths || !sizeof(paths))
+		return route;
+	occupancy=query_public_training_occupancy();
+	current=query_current_room_path(me);
+	capacity=query_training_room_capacity(me);
+	offset=query_stable_training_offset(me,sizeof(paths));
+	for(int i=0;i<sizeof(paths);i++){
+		string candidate=paths[(offset+i)%sizeof(paths)];
+		int count=(int)occupancy[candidate];
+		if(avoid_current && sizeof(paths)>1 && candidate==current)
+			continue;
+		if(count<capacity)
+			all_full=0;
+		if(min_count<0 || count<min_count){
+			selected=candidate;
+			min_count=count;
+		}
+	}
+	if(selected=="")
+		selected=(string)route["path"];
+	route["path"]=selected;
+	route["selected_occupancy"]=(int)occupancy[selected];
+	route["capacity"]=capacity;
+	route["all_full"]=all_full;
+	route["pool_size"]=sizeof(paths);
+	return route;
+}
+
+private int is_training_pool_path(mapping(string:mixed) route,string path)
+{
+	array(string) paths;
+	if(!route || !path || path=="")
+		return 0;
+	paths=(array(string))route["paths"];
+	if(!paths)
+		return path==(string)route["path"];
+	return search(paths,path)!=-1;
 }
 
 string query_current_room_path(object me)
@@ -2661,6 +3074,272 @@ string query_current_room_path(object me)
 	if(has_prefix(path,prefix))
 		return path[sizeof(prefix)..];
 	return path;
+}
+
+private int count_players_in_training_room(object room)
+{
+	array(object) all;
+	int count=0;
+	if(!room)
+		return 0;
+	all=all_inventory(room);
+	for(int i=0;i<sizeof(all);i++){
+		if(all[i] && all[i]->is("player") && !all[i]->is("npc"))
+			count++;
+	}
+	return count;
+}
+
+private int count_active_autofight_players_in_room(object room)
+{
+	array(object) all;
+	int count=0;
+	if(!room)
+		return 0;
+	all=all_inventory(room);
+	for(int i=0;i<sizeof(all);i++){
+		if(all[i] && all[i]->is("player") && !all[i]->is("npc") &&
+		   functionp(all[i]->query_autofight) &&
+		   all[i]->query_autofight()=="enable")
+			count++;
+	}
+	return count;
+}
+
+private int evacuate_inactive_overflow_players(object room,string path)
+{
+	array(object) all;
+	int moved=0;
+	if(!room || !path || path=="")
+		return 0;
+	all=all_inventory(room);
+	for(int i=0;i<sizeof(all);i++){
+		if(!all[i] || !all[i]->is("player") || all[i]->is("npc") ||
+		   all[i]->in_combat)
+			continue;
+		if(functionp(all[i]->query_autofight) &&
+		   all[i]->query_autofight()=="enable")
+			continue;
+		all[i]->move(ROOT+"/gamelib/d/"+path);
+		all[i]->reset_view();
+		moved++;
+	}
+	return moved;
+}
+
+private string query_overflow_pool_key(object me,
+	mapping(string:mixed) route)
+{
+	string key=(string)route["pool_key"];
+	if(key=="")
+		key=(string)route["path"];
+	// 70-989 级房间会把普通怪动态到进入者等级，必须按等级隔离，
+	// 避免不同等级玩家共享实例时互相刷出不合适的目标。
+	if(me && me->query_level()>=70 &&
+	   me->query_level()<ENDGAME_MAP_MIN_LEVEL)
+		key+="#level"+(string)me->query_level();
+	return key;
+}
+
+private int query_overflow_capacity(object me)
+{
+	if(me && me->query_level()>=70 &&
+	   me->query_level()<ENDGAME_MAP_MIN_LEVEL)
+		return 1;
+	return AUTOFIGHT_OVERFLOW_ROOM_CAPACITY;
+}
+
+private void schedule_overflow_cleanup()
+{
+	if(autofight_overflow_cleanup_scheduled ||
+	   autofight_overflow_room_count<=0)
+		return;
+	autofight_overflow_cleanup_scheduled=1;
+	call_out(cleanup_autofight_overflow_rooms,
+		AUTOFIGHT_OVERFLOW_CLEANUP_SECONDS);
+}
+
+private void destroy_autofight_overflow_room(object room)
+{
+	array(object) all;
+	if(!room)
+		return;
+	all=all_inventory(room);
+	for(int i=0;i<sizeof(all);i++)
+		if(all[i])
+			destruct(all[i]);
+	destruct(room);
+}
+
+private void cleanup_autofight_overflow_rooms()
+{
+	int now=time();
+	array(string) pool_keys=indices(autofight_overflow_rooms);
+	autofight_overflow_cleanup_scheduled=0;
+	for(int i=0;i<sizeof(pool_keys);i++){
+		array(mapping(string:mixed)) entries=
+			autofight_overflow_rooms[pool_keys[i]] || ({});
+		array(mapping(string:mixed)) kept=({});
+		for(int j=0;j<sizeof(entries);j++){
+			object room=entries[j]["room"];
+			int player_count=count_players_in_training_room(room);
+			int active_count=count_active_autofight_players_in_room(room);
+			if(room && active_count>0){
+				entries[j]["last_used"]=now;
+				kept+=({entries[j]});
+				continue;
+			}
+			if(room && player_count>0){
+				evacuate_inactive_overflow_players(room,
+					(string)entries[j]["path"]);
+				player_count=count_players_in_training_room(room);
+				if(player_count>0){
+					kept+=({entries[j]});
+					continue;
+				}
+			}
+			if(room && now-(int)entries[j]["last_used"]<
+			   AUTOFIGHT_OVERFLOW_IDLE_SECONDS){
+				kept+=({entries[j]});
+				continue;
+			}
+			if(room)
+				destroy_autofight_overflow_room(room);
+			if(autofight_overflow_room_count>0)
+				autofight_overflow_room_count--;
+			autofight_overflow_destroyed++;
+		}
+		if(sizeof(kept))
+			autofight_overflow_rooms[pool_keys[i]]=kept;
+		else
+			m_delete(autofight_overflow_rooms,pool_keys[i]);
+	}
+	schedule_overflow_cleanup();
+}
+
+private object|zero query_or_create_overflow_room(object me,
+	mapping(string:mixed) route)
+{
+	string pool_key=query_overflow_pool_key(me,route);
+	string path;
+	array(mapping(string:mixed)) entries=
+		autofight_overflow_rooms[pool_key] || ({});
+	int capacity=query_overflow_capacity(me);
+	object room;
+	mixed err;
+	for(int i=0;i<sizeof(entries);i++){
+		object room=entries[i]["room"];
+		if(room && count_players_in_training_room(room)<capacity){
+			entries[i]["last_used"]=time();
+			return room;
+		}
+	}
+	if(sizeof(entries)>=AUTOFIGHT_OVERFLOW_MAX_PER_POOL ||
+	   autofight_overflow_room_count>=AUTOFIGHT_OVERFLOW_GLOBAL_LIMIT){
+		autofight_overflow_limit_fallbacks++;
+		return 0;
+	}
+	path=(string)route["path"];
+	err=catch{
+		room=clone(ROOT+"/gamelib/d/"+path);
+	};
+	if(err || !room)
+		return 0;
+	room["/tmp/autofight_overflow"]=1;
+	room["/tmp/autofight_overflow_path"]=path;
+	room->exits=([]);
+	room->closed_exits=([]);
+	room->opened_exits=([]);
+	room->hidden_exits=([]);
+	room->guarded_exits=([]);
+	room->name_cn=(string)room->name_cn+"·挂机分流";
+	room->desc="这里是自动挂机按负载临时开辟的独立修炼空间。\n";
+	entries+=({([
+		"room":room,
+		"path":path,
+		"created":time(),
+		"last_used":time(),
+	])});
+	autofight_overflow_rooms[pool_key]=entries;
+	autofight_overflow_room_count++;
+	autofight_overflow_created++;
+	schedule_overflow_cleanup();
+	return room;
+}
+
+int move_to_training_route(object me,mapping(string:mixed) route)
+{
+	string path;
+	object|zero room=0;
+	object env;
+	if(!me || !route || !sizeof(route) || me->in_combat)
+		return 0;
+	path=(string)route["path"];
+	if(path=="")
+		return 0;
+	if((int)route["all_full"]==1)
+		room=query_or_create_overflow_room(me,route);
+	if(!room){
+		me->command("qge74hye "+path);
+		if(query_current_room_path(me)==path){
+			autofight_training_reroutes++;
+			return 1;
+		}
+		return 0;
+	}
+	if(me->if_in_home())
+		HOMED->clear_user(me);
+	env=environment(me);
+	if(env && !env->is("character") && !env->is("menu"))
+		me->last_pos=file_name(env)-ROOT;
+	me->m_delete_foruser("/tmp/tour_pos");
+	me->move(room);
+	me->reset_view();
+	me->command("look");
+	if(environment(me)==room){
+		autofight_training_reroutes++;
+		return 1;
+	}
+	return 0;
+}
+
+mapping query_autofight_overflow_status()
+{
+	return ([
+		"rooms":autofight_overflow_room_count,
+		"pools":sizeof(autofight_overflow_rooms),
+		"global_limit":AUTOFIGHT_OVERFLOW_GLOBAL_LIMIT,
+		"per_pool_limit":AUTOFIGHT_OVERFLOW_MAX_PER_POOL,
+		"idle_seconds":AUTOFIGHT_OVERFLOW_IDLE_SECONDS,
+		"created":autofight_overflow_created,
+		"destroyed":autofight_overflow_destroyed,
+		"limit_fallbacks":autofight_overflow_limit_fallbacks,
+	]);
+}
+
+private int maybe_refresh_training_room_npcs(object me,object env)
+{
+	mapping(string:mixed) route;
+	string current;
+	int overflow_room;
+	int active_players;
+	int spawned;
+	if(!me || !env || !functionp(env->refresh_autofight_normal_npcs))
+		return 0;
+	if(functionp(env->query_autofight_pressure_check_ready) &&
+	   !env->query_autofight_pressure_check_ready())
+		return 0;
+	overflow_room=(int)env["/tmp/autofight_overflow"]==1;
+	route=query_training_route(me);
+	current=query_current_room_path(me);
+	if(!overflow_room && !is_training_pool_path(route,current))
+		return 0;
+	active_players=count_players_in_training_room(env);
+	spawned=env->refresh_autofight_normal_npcs(me,active_players,
+		overflow_room);
+	if(spawned>0)
+		autofight_pressure_refills+=spawned;
+	return spawned;
 }
 
 int can_auto_leave_current_room(object me)
@@ -2750,6 +3429,7 @@ private int is_same_area(string current_path, string destination)
 int should_route_to_training_area(object me,void|mapping target_snapshot)
 {
 	mapping(string:mixed) route;
+	object env;
 	string current;
 	string destination;
 	if(!me || !query_smart_route_enabled(me) ||
@@ -2760,8 +3440,18 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 	if(destination=="")
 		return 0;
 	current = query_current_room_path(me);
-	if(current==destination)
+	env=environment(me);
+	if(env && (int)env["/tmp/autofight_overflow"]==1)
 		return 0;
+	if(is_training_pool_path(route,current)){
+		if(target_snapshot && (int)target_snapshot["visible"]>0)
+			return 1;
+		if(!target_snapshot && query_visible_monster_count(me)>0 &&
+		   !query_target(me))
+			return 1;
+		return (int)me["/tmp/autofight_no_target_ticks"]>=
+			AUTOFIGHT_ROAM_NO_TARGET_TICKS;
+	}
 	// 同一区域也可能相差十几层。当前房间明明有怪却全部超出
 	// 安全等级时，直接回到精确推荐层，避免在相邻楼层间随机游走。
 	// 真正的空图仍交给区域巡游，保留原有刷新与防抖行为。
@@ -2771,7 +3461,8 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 		if(!target_snapshot && query_visible_monster_count(me)>0 &&
 		   !query_target(me))
 			return 1;
-		return 0;
+		return (int)me["/tmp/autofight_no_target_ticks"]>=
+			AUTOFIGHT_ROAM_NO_TARGET_TICKS;
 	}
 	return 1;
 }
@@ -2927,6 +3618,7 @@ mapping query_target_snapshot(object me)
 			"deferred":0,"cycle_complete":1]);
 	if(me->query_level()<70)
 		MUD_ROOMD->restore_low_level_room_npcs(me);
+	maybe_refresh_training_room_npcs(me,env);
 	all = all_inventory(env);
 	total = sizeof(all);
 	room_identity = file_name(env);

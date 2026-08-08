@@ -1,6 +1,16 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define YUSHI_PATH ROOT "/gamelib/clone/item/yushi/"
+private mapping(string:array(int)) baoshi_catalog = ([
+	"ganlanshi":({2,1}),
+	"lvsongshi":({2,3}),
+	"jianjingshi":({2,5}),
+	"qingjinshi":({2,10}),
+	"binglanyushi":({2,3}),
+	"zijinyushi":({2,5}),
+	"huposhi":({2,1}),
+	"cuijinshi":({2,3}),
+]);
 //确认玉石购买的某宝石
 //arg =   name       yushi_rareLevel    need_amount       buy_num
 //     宝石文件名    所需玉石的稀有度   玉石的个数  购买的个数
@@ -18,7 +28,18 @@ int main(string|zero arg)
 	string s = "";
 	string s_log = "";
 	string c_log = "";//统计使用的日志 evan added 2008.07.10
-	sscanf(arg,"%s %d %d %d %d %s",yushi_name,rarelevel,need_amount,need_money,flag,s_buy_num);
+	if(!arg || sscanf(arg,"%s %d %d %d %d %s",yushi_name,rarelevel,
+	   need_amount,need_money,flag,s_buy_num)!=6 ||
+	   !baoshi_catalog[yushi_name]){
+		write("商品参数无效，本次没有扣除或发放物品。\n"+
+			"[返回:yushi_buy_baoshi_list ronglian]\n[返回游戏:look]\n");
+		return 1;
+	}
+	array(int) product=baoshi_catalog[yushi_name];
+	rarelevel=product[0];
+	need_amount=product[1];
+	need_money=0;
+	flag=0;
 	if(flag==0)
 		sscanf(s_buy_num,"no=%d",buy_num);
 	else buy_num = 1;
@@ -55,11 +76,13 @@ int main(string|zero arg)
 			yushi->amount = buy_num;
 			if(me->if_over_load(yushi)){
 				s += "你的随身物品已满，无法再装下更多\n";
+				destruct(yushi);
 			}
 			else{
 				int cost_reb = need_amount*buy_num*yushi_value;
 				if(!YUSHID->pay_yushi(me,cost_reb)){
 					s += "玉石扣除失败，请稍后再试\n";
+					destruct(yushi);
 				}
 				else{
 					me->del_account(need_money);

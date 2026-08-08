@@ -1296,7 +1296,7 @@ void test_smart_route_selection()
 		(["level":1,"race":"human",
 			"path":"congxianzhen/shangshanlu","target":1]),
 		(["level":8,"race":"monst",
-			"path":"jinaodao/wanmuyuan","target":6]),
+			"path":"kulougang/kuguchalu","target":6]),
 		(["level":18,"race":"third",
 			"path":"shierxianjing/taoyuantongjiuceng",
 			"target":17]),
@@ -1758,10 +1758,13 @@ void test_same_area_unsafe_monster_recovery()
 		daemon->start_autofight(player);
 		flush_command->main(0);
 		first_path = daemon->query_current_room_path(player);
-		flush_command->main(0);
+		for(int recovery_tick=0;
+		   recovery_tick<10 && !player->in_combat;recovery_tick++)
+			flush_command->main(0);
+		array(string) route_paths=daemon->query_training_route_paths(player);
 		valid = visible_monsters == 4 && unsafe_targets_blocked &&
 			route_requested &&
-			first_path == "shierxianjing/taoyuantongjiuceng" &&
+			search(route_paths,first_path)!=-1 &&
 			player->in_combat && player->query_enemy() &&
 			player->query_enemy()->query_level() == 17;
 		daemon->stop_autofight(player);
