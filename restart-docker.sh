@@ -338,6 +338,59 @@ sync_item_directory() {
     print_success "游戏物品同步完成，并已校验${#HIDDEN_MYTHIC_SKILL_IDS[@]}本原隐藏秘籍与${#ANCIENT_HIDDEN_SKILL_IDS[@]}本太古隐藏秘籍"
 }
 
+# 将仓库中的房间等级目录增量合并到持久化挂载。已有路径保持线上值，
+# 只补齐新地图条目；使用同目录临时文件和原子替换避免中断时留下半行。
+sync_room_level_catalog() {
+    local source_catalog="$1"
+    local target_catalog="$2"
+    local target_dir
+    local temp_catalog
+    local level
+    local room_path
+    local room_name
+    local added=0
+
+    if [ ! -s "$source_catalog" ]; then
+        print_error "房间等级源目录缺失：$source_catalog"
+        return 1
+    fi
+    target_dir="$(dirname "$target_catalog")"
+    mkdir -p "$target_dir"
+    temp_catalog="$(mktemp "$target_dir/.room_level.merge.XXXXXX")"
+    if [ -f "$target_catalog" ]; then
+        cp -p "$target_catalog" "$temp_catalog"
+    else
+        cp -p "$source_catalog" "$temp_catalog"
+        added="$(wc -l < "$source_catalog")"
+        chmod 666 "$temp_catalog"
+        mv -f "$temp_catalog" "$target_catalog"
+        print_success "房间等级目录已同步：新增 ${added} 条，已有路径保持不变"
+        return 0
+    fi
+
+    while IFS='|' read -r level room_path room_name; do
+        [ -n "$level" ] && [ -n "$room_path" ] && [ -n "$room_name" ] || \
+            continue
+        if ! [[ "$level" =~ ^[0-9]+$ ]] || \
+           ! [[ "$room_path" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
+            print_error "房间等级源目录存在非法条目：$room_path"
+            rm -f "$temp_catalog"
+            return 1
+        fi
+        # 只以部署前的目标为判断基准，使源目录中同一路径的历史多级
+        # 条目能成组补齐；已有线上路径仍完全不改。
+        if ! grep -Fq "|${room_path}|" "$target_catalog"; then
+            printf '%s|%s|%s\n' "$level" "$room_path" "$room_name" \
+                >> "$temp_catalog"
+            added=$((added+1))
+        fi
+    done < "$source_catalog"
+
+    chmod 666 "$temp_catalog"
+    mv -f "$temp_catalog" "$target_catalog"
+    print_success "房间等级目录已同步：新增 ${added} 条，已有路径保持不变"
+}
+
 # 函数：验证运行镜像与外挂 item 目录中的隐藏技能资源完全一致
 verify_hidden_mythic_assets_in_container() {
     local container_name="$1"
@@ -684,6 +737,12 @@ prepare_data_directories() {
     local data_dir="/usr/local/games/allxd/xd$area_num/data_xiand"
     mkdir -p "$data_dir/u"
     mkdir -p "$data_dir/bangpai"
+    if ! sync_room_level_catalog \
+       "$PROJECT_ROOT/data_xiand/room_level.log" \
+       "$data_dir/room_level.log"; then
+        print_error "房间等级目录同步失败，停止部署"
+        exit 1
+    fi
     chmod -R 777 "$data_dir" 2>/dev/null || true
     print_success "已创建用户数据目录: u/ 和 bangpai/"
 

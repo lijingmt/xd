@@ -46,11 +46,14 @@ void test_parallel_command_source()
 {
 	string source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/thread_manager.pike");
-	check("核心命令串行且非核心命令进入有界线程池",
+	check("世界命令公平串行且纯响应进入有界线程池",
 		source && search(source,"Thread.Thread(")==-1 &&
 		search(source,"Thread.Farm()")!=-1 &&
 		search(source,"HTTP_PARALLEL_THREAD_LIMIT = 16")!=-1 &&
-		search(source,"execute_parallel_command_job")!=-1 &&
+		search(source,"execute_parallel_command_job")==-1 &&
+		search(source,"execute_parallel_json_job")!=-1 &&
+		search(source,"enqueue_world_command")!=-1 &&
+		search(source,"world_ready_order")!=-1 &&
 		search(source,"core_key = core_lock->lock()")!=-1 &&
 		search(source,"execute_world_command_sync")==-1 &&
 		search(source,"execute_command_sync(userid,password,cmd)")!=-1,

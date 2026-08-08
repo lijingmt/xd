@@ -319,6 +319,40 @@ void test_local_restart_stack_contract()
 		test_fail("本地重启缺少可校验的evaluator栈或64MiB线程栈");
 }
 
+void test_real_healthcheck_and_runtime_contracts()
+{
+	test_start("容器健康检查访问真实HTTP且运行时静态契约可见");
+	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string ignore = Stdio.read_file(ROOT+"/.dockerignore");
+	if(dockerfile && ignore &&
+	   search(dockerfile,"curl -fsS --max-time 5")!=-1 &&
+	   search(dockerfile,"http://127.0.0.1:8888/health")!=-1 &&
+	   search(dockerfile,"CMD pike -e 'exit(0);'")==-1 &&
+	   search(dockerfile,"/app/xiand/db_log/reg_new")!=-1 &&
+	   search(dockerfile,"/app/xiand/db_log/daily_user")!=-1 &&
+	   search(ignore,"!docker/Dockerfile.all")!=-1 &&
+	   search(ignore,"!docker/docker-compose.yml")!=-1)
+		test_pass();
+	else
+		test_fail("健康检查仍可能假阳性、db_log未初始化或镜像TestUnit缺少静态文件");
+}
+
+void test_room_catalog_deploy_contract()
+{
+	test_start("部署原子增量同步持久化房间等级目录");
+	string source = Stdio.read_file(ROOT+"/restart-docker.sh");
+	if(source &&
+	   search(source,"sync_room_level_catalog()")!=-1 &&
+	   search(source,"$PROJECT_ROOT/data_xiand/room_level.log")!=-1 &&
+	   search(source,"$data_dir/room_level.log")!=-1 &&
+	   search(source,"grep -Fq \"|${room_path}|\"")!=-1 &&
+	   search(source,"mktemp \"$target_dir/.room_level.merge.XXXXXX\"")!=-1 &&
+	   search(source,"mv -f \"$temp_catalog\" \"$target_catalog\"")!=-1)
+		test_pass();
+	else
+		test_fail("新地图目录未增量同步、会覆盖线上值或更新不具原子性");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -339,6 +373,8 @@ int main()
 	test_neutral_profession_images_deploy_contract();
 	test_local_restart_save_contract();
 	test_local_restart_stack_contract();
+	test_real_healthcheck_and_runtime_contracts();
+	test_room_catalog_deploy_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;

@@ -24,6 +24,11 @@ void run_non_backend_world_probe(object httpd)
 	httpd->route_and_execute("__testunit_thread_probe__","","attack target");
 }
 
+void record_world_queue_probe(string output,mapping result,string key)
+{
+	result[key] = (int)result[key]+1;
+}
+
 void test_result(string name,int passed,string reason)
 {
 	test_results["total"]++;
@@ -85,11 +90,52 @@ void test_same_user_serialization(object httpd)
 	mapping status = httpd->query_thread_status();
 	int valid = first && first == second &&
 		status["same_user_policy"] == "serialized" &&
-		status["cross_user_policy"] == "parallel_for_non_core" &&
+		status["cross_user_policy"] ==
+			"round_robin_world_parallel_render" &&
 		status["process_model"] == "single_process" &&
 		(int)status["user_command_locks"] >= 1;
-	test_result("同账号串行且不同账号非核心命令可并行",valid,
+	test_result("同账号串行且不同账号世界命令公平轮转",valid,
 		"账号规范化、锁复用或跨账号并行策略状态错误");
+}
+
+void test_world_queue_coalescing_and_causal_order(object httpd)
+{
+	string userid = "XD01TestUnitWorldQueue";
+	mapping callback_result = ([]);
+	mapping before = httpd->query_thread_status();
+	int first = httpd->enqueue_world_command(userid,"","flushview",
+		record_world_queue_probe,({callback_result,"first"}));
+	int merged = httpd->enqueue_world_command(
+		lower_case(userid),"","flushview",record_world_queue_probe,
+		({callback_result,"merged"}));
+	int merged_size = httpd->query_world_user_queue_size(userid);
+	int middle = httpd->enqueue_world_command(userid,"","look",
+		record_world_queue_probe,({callback_result,"middle"}));
+	int trailing = httpd->enqueue_world_command(userid,"","flushview",
+		record_world_queue_probe,({callback_result,"trailing"}));
+	int ordered_size = httpd->query_world_user_queue_size(userid);
+	httpd->remove_world_user_queue(lower_case(userid));
+	int look_first = httpd->enqueue_world_command(userid,"","look",
+		record_world_queue_probe,({callback_result,"look_first"}));
+	int look_merged = httpd->enqueue_world_command(userid,"","look",
+		record_world_queue_probe,({callback_result,"look_merged"}));
+	int look_size = httpd->query_world_user_queue_size(userid);
+	httpd->remove_world_user_queue(userid);
+	mapping after = httpd->query_thread_status();
+	int valid = first==1 && merged==1 && middle==1 && trailing==1 &&
+		look_first==1 && look_merged==1 && look_size==1 &&
+		merged_size==1 && ordered_size==3 &&
+		httpd->query_world_user_queue_size(userid)==0 &&
+		(int)after["world_pending_commands"]==
+			(int)before["world_pending_commands"] &&
+		(int)after["world_pending_callbacks"]==
+			(int)before["world_pending_callbacks"] &&
+		(int)after["world_coalesced_refreshes"]==
+			(int)before["world_coalesced_refreshes"]+1 &&
+		(int)after["world_coalesced_looks"]==
+			(int)before["world_coalesced_looks"]+1;
+	test_result("重复刷新/查看只在队尾合并且不跨越中间命令",valid,
+		"刷新合并破坏命令因果顺序、账号规范化或清理计数错误");
 }
 
 void test_non_backend_world_rejection(object httpd)
@@ -150,13 +196,21 @@ void test_timeout_and_observability_source(object httpd)
 		"/gamelib/single/daemons/_http_api_mod/thread_manager.pike");
 	string daemon_source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
+	string renderer_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
 	mapping performance = httpd->query_http_performance_status();
 	mapping runtime = query_runtime_performance();
-	int valid = thread_source && daemon_source &&
+	int valid = thread_source && daemon_source && renderer_source &&
 		search(thread_source,"Thread.Thread(") == -1 &&
 		search(thread_source,"string execute_core_command") != -1 &&
 		search(thread_source,"Thread.Farm()") != -1 &&
-		search(thread_source,"execute_parallel_command_job") != -1 &&
+		search(thread_source,"execute_parallel_command_job") == -1 &&
+		search(renderer_source,"button_grade_snapshot") != -1 &&
+		search(renderer_source,"refresh_button_grade_snapshot") != -1 &&
+		search(renderer_source,"object topten = find_object(ROOT +") == -1 &&
+		search(thread_source,"execute_parallel_json_job") != -1 &&
+		search(thread_source,"enqueue_world_command") != -1 &&
+		search(thread_source,"call_out(process_world_command_queue,0)") != -1 &&
 		search(thread_source,"core_key = core_lock->lock()") != -1 &&
 		search(thread_source,
 			"master()->backend_thread()!=this_thread()") != -1 &&
@@ -167,7 +221,7 @@ void test_timeout_and_observability_source(object httpd)
 		search(daemon_source,"\"dispatch_mode\":queue_status") != -1 &&
 		mappingp(performance) && performance["slow_threshold_ms"] == 2000 &&
 		mappingp(runtime) && runtime["process_model"]=="single_process";
-	test_result("有界命令线程池及核心Backend门禁可观测",valid,
+	test_result("世界命令Backend门禁和并行响应池均可观测",valid,
 		"仍在按请求建线程、核心门禁错误或观测接线缺失");
 }
 
@@ -180,9 +234,11 @@ void test_bounded_parallel_workers(object httpd)
 	mapping status = httpd->query_thread_status();
 	mapping io_status = async_io->query_status();
 	int valid = source && mappingp(status) && mappingp(io_status) &&
-		status["mode"]=="core_serial_parallel_commands" &&
+		status["mode"]=="deferred_world_parallel_render" &&
 		(int)status["parallel_thread_limit"]==16 &&
-		(int)status["parallel_pending_limit"]==512 &&
+		(int)status["parallel_pending_limit"]==128 &&
+		(int)status["world_pending_limit"]==512 &&
+		(int)status["world_per_user_limit"]==8 &&
 		(int)status["parallel_pending"]>=0 &&
 		io_status["mode"]=="Thread.Farm" &&
 		(int)io_status["thread_limit"] == 8 &&
@@ -195,7 +251,7 @@ void test_bounded_parallel_workers(object httpd)
 		search(source,"run_async(append_text_job") != -1 &&
 		search(source,"pending_jobs < ASYNC_IO_PENDING_LIMIT") != -1 &&
 		search(source,"ASYNC_IO_APPEND_THREAD_LIMIT 1") != -1;
-	test_result("命令与I/O均使用有界Pike 9 Thread.Farm",valid,
+	test_result("纯响应与I/O均使用有界Pike 9 Thread.Farm",valid,
 		"线程池无界、未复用或运行指标缺失");
 }
 
@@ -209,14 +265,17 @@ void test_thread_slot_release_on_all_paths(object httpd)
 		search(legacy,
 			"../../daemons/_http_api_mod/thread_manager.pike")!=-1 &&
 		search(canonical,"Thread.Thread(")==-1 &&
-		search(canonical,"HTTP_PARALLEL_PENDING_LIMIT = 512")!=-1 &&
+		search(canonical,"HTTP_PARALLEL_PENDING_LIMIT = 128")!=-1 &&
+		search(canonical,"HTTP_WORLD_PENDING_LIMIT = 512")!=-1 &&
+		search(canonical,"HTTP_WORLD_PER_USER_LIMIT = 8")!=-1 &&
 		search(canonical,"reserve_parallel_command()")!=-1 &&
 		search(canonical,"cancel_parallel_command()")!=-1 &&
 		search(canonical,"if(core_key)")!=-1 &&
 		search(canonical,"if(user_key)")!=-1 &&
 		search(canonical,"world_commands_waiting--")!=-1 &&
-		search(canonical,"sizeof(userid) > 64")!=-1 &&
-		search(canonical,"sizeof(password || \"\") > 128")!=-1;
+		search(canonical,"sizeof(userid)>64")!=-1 &&
+		search(canonical,"sizeof(password || \"\")>128")!=-1 &&
+		search(canonical,"sizeof(queue)>=HTTP_WORLD_PER_USER_LIMIT")!=-1;
 	test_result("异常、锁获取和超长输入均不会泄漏写入队列",valid,
 		"异常路径可能泄漏计数、输入无界或兼容入口漂移");
 }
@@ -332,7 +391,10 @@ void test_battle_poll_efficiency()
 		search(renderer,"result[\"lingyi_revive\"]")!=-1 &&
 		search(renderer,"query_lingyi_auto_revive_status")!=-1 &&
 		search(renderer,"result[\"recent_aoe_report\"]")!=-1 &&
-		search(renderer,"query_recent_aoe_battle_report")!=-1;
+		search(renderer,"query_recent_aoe_battle_report")!=-1 &&
+		search(daemon,"case \"/api/autofight_view\"")!=-1 &&
+		search(daemon,"build_autofight_view_json_job")!=-1 &&
+		search(daemon,"query_autofight_refresh_snapshot")!=-1;
 	test_result("战斗秒级轮询不刷成功日志且返回镇越护盾/天象星痕/灵医药契与复苏群攻状态",valid,
 		"战斗状态轮询仍有高频磁盘I/O或职业资源不可观测");
 }
@@ -348,6 +410,7 @@ int main()
 		test_event_driven_queue_source();
 		test_queue_runtime_contract(httpd);
 		test_same_user_serialization(httpd);
+		test_world_queue_coalescing_and_causal_order(httpd);
 		test_non_backend_world_rejection(httpd);
 		test_core_command_coverage(httpd);
 		test_timeout_and_observability_source(httpd);

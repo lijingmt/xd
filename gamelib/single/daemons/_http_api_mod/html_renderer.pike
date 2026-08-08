@@ -15,6 +15,27 @@
 // 主HTML生成
 // ========================================================================
 
+// JSON解析会在响应线程池执行。动态排行榜配色只能由 Backend 定期
+// 快照，工作线程只读已完成的不可变 mapping，不能 find_object 后调用守护进程。
+mapping(string:int) button_grade_snapshot = ([]);
+
+void refresh_button_grade_snapshot()
+{
+    mapping(string:int) fresh = ([]);
+    mixed err = catch {
+        object topten = find_object(ROOT+
+            "/gamelib/single/daemons/topten");
+        if(topten && functionp(topten->get_grade_mapping)) {
+            mapping grades = topten->get_grade_mapping();
+            if(mappingp(grades))
+                fresh = copy_value(grades);
+        }
+    };
+    if(!err)
+        button_grade_snapshot = fresh;
+    call_out(refresh_button_grade_snapshot,60);
+}
+
 /**
  * 将MUD响应转换为HTML格式 (用于iframe显示)
  */
@@ -519,20 +540,17 @@ string get_button_css_class(string link_name)
         primary_key_map["【玉】玄天宝玉"] = btn_xuan;
         primary_key_map["神秘商店"] = btn_darkorange;
 
-        // VIP 等级颜色 (从 TOPTEN 获取)
-        object topten = find_object(ROOT + "/gamelib/single/daemons/topten");
-        if(topten && functionp(topten->get_grade_mapping)) {
-            mapping(string:int) grade_mapping = topten->get_grade_mapping();
-            foreach(grade_mapping; string index; int n) {
-                if(n == 1) {
-                    primary_key_map[index] = btn_green2;
-                } else if(n == 2) {
-                    primary_key_map[index] = btn_darkorange;
-                } else if(n == 3) {
-                    primary_key_map[index] = btn_orange;
-                } else if(n == 4) {
-                    primary_key_map[index] = btn_purple;
-                }
+        // VIP 等级颜色来自 Backend 定时生成的不可变快照。
+        mapping(string:int) grade_mapping = button_grade_snapshot;
+        foreach(grade_mapping; string index; int n) {
+            if(n == 1) {
+                primary_key_map[index] = btn_green2;
+            } else if(n == 2) {
+                primary_key_map[index] = btn_darkorange;
+            } else if(n == 3) {
+                primary_key_map[index] = btn_orange;
+            } else if(n == 4) {
+                primary_key_map[index] = btn_purple;
             }
         }
 

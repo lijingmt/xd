@@ -38,8 +38,11 @@ vue_source/node_modules/
 # 编译产物
 dist/
 
-# Docker 相关（避免递归）
-docker/
+# Docker 运行时静态契约需要随镜像进入 TestUnit；只保留构建与编排文件，
+# 其余 Docker 辅助内容继续排除。
+docker/*
+!docker/Dockerfile.all
+!docker/docker-compose.yml
 
 # 脚本输出
 *.pid
