@@ -4,6 +4,13 @@ int main(string|zero arg)
 {
 	string name=arg;
 	int count;
+	// arg 可能为 0（command_hook 偶发误路由时），sscanf(0,...) 会抛
+	// "Bad argument 1 to sscanf"。look/查看类命令不应触发 get，但
+	// 历史线上日志显示 command_hook 在某些情况下把命令路由到了 get。
+	if(!arg || !stringp(arg) || sizeof(arg)==0){
+		write("你要捡起什么物品？\n[返回:look]\n");
+		return 1;
+	}
 	sscanf(arg,"%s %d",name,count);
 	object|zero ob=present(name,environment(this_player()),count);
 	if(ob && !LOGICALZONED->can_action("drop",this_player(),ob))
