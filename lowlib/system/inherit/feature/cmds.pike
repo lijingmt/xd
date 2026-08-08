@@ -3,6 +3,10 @@ int command_hook(string arg)
     string cmd_path;
     object cobj;
     string verb =query_verb();
+	// 玩家发空命令（回车 / flushview 内部触发的空 command()）
+	// 时 verb 可能是 0，sizeof(0) 会抛 "Bad argument 1 to sizeof"。
+	if(!verb || !stringp(verb) || sizeof(verb)==0)
+		return 0;
 	object env=environment(this_object());
 	array(string) room_cmds=({});
 	if(env&&env["query_command_prefix"]){
