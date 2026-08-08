@@ -2,9 +2,16 @@
 
 int main(string arg)
 {
-	string path,user_name,queryCmd,queryData;
-        if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,queryCmd,queryData)==4))
+	string path,user_name,maintenance_token,queryCmd,queryData;
+	string expected_token = getenv("XIAND_MAINTENANCE_TOKEN") || "";
+        if(arg&&(sscanf(arg,"%s %s %s %s %s",path,user_name,
+		maintenance_token,queryCmd,queryData)==5))
         {
+		if(path!="gamelib" || sizeof(expected_token)<24 ||
+		   maintenance_token!=expected_token || sizeof(queryData)!=8){
+			write("error");
+			return 1;
+		}
 		if(!user_name)
 		{
 			write("error");
@@ -23,6 +30,12 @@ int main(string arg)
 			}
 			else
 			{
+				write("error");
+				return 1;
+			}
+		}
+		for(int n=0;n<sizeof(queryData);n++){
+			if(queryData[n]<'0' || queryData[n]>'9'){
 				write("error");
 				return 1;
 			}
@@ -138,5 +151,4 @@ string decodeStr(string strSrc)
 		return "error";
 	return reslut;
 }
-
 

@@ -100,6 +100,164 @@ void test_database_error_redaction()
 		"SQL 初始化仍可能让含密码的异常回溯逃出");
 }
 
+void test_auction_sql_parameters()
+{
+	string source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/auctiond.pike");
+	int valid = source &&
+		search(source,"like :GOODS_PATTERN")!=-1 &&
+		search(source,"db->query(querySql,queryParams)")!=-1 &&
+		search(source,"where saler_id=:PLAYER_ID")!=-1 &&
+		search(source,"where buyer_id=:PLAYER_ID")!=-1 &&
+		search(source,"status_sql!=\"in (0,3)\"")!=-1;
+	check("拍卖搜索、上架与领取身份均使用SQL参数绑定",valid,
+		"拍卖数据库仍存在可拼接的玩家输入");
+}
+
+void test_legacy_login_entry_guards()
+{
+	array(string) files = ({
+		"login.pike","login_check.pike","login_check5.pike",
+		"login_check_intro.pike","login_entrycheck_p.pike",
+		"login_fee.pike","login_fee_xd.pike","login_intro.pike",
+		"login_monst.pike","login_regnew.pike","login_regnew_p.pike",
+		"login_band.pike",
+	});
+	int valid = 1;
+	foreach(files,string file){
+		string source = Stdio.read_file(ROOT+"/lowlib/system/cmds/"+file);
+		if(!source || search(source,"path!=\"gamelib\"")==-1)
+			valid = 0;
+	}
+	string connd = Stdio.read_file(ROOT+"/lowlib/connd.pike");
+	string conn = Stdio.read_file(ROOT+"/lowlib/conn.pike");
+	string driver = Stdio.read_file(ROOT+"/lowlib/driver.pike");
+	valid = valid && connd && conn && driver &&
+		search(connd,"registration_attempt_allowed")!=-1 &&
+		search(connd,"authentication_attempt_allowed")!=-1 &&
+		search(connd,"MAX_REGISTRATION_RATE_KEYS")!=-1 &&
+		search(connd,"if(ip==\"127.0.0.1\" || ip==\"::1\")") == -1 &&
+		search(conn,"query_remote_ip")!=-1 &&
+		search(Stdio.read_file(ROOT+
+			"/lowlib/system/cmds/login_regnew.pike"),
+			"safe_registration_log_field")!=-1 &&
+		search(driver,"REDACTED sensitive error context")!=-1;
+	array(string) admin_files = ({"login_desc2.pike","login_pv.pike",
+		"login_regtotal.pike","login_tongji.pike"});
+	foreach(admin_files,string file){
+		string source = Stdio.read_file(ROOT+"/lowlib/system/cmds/"+file);
+		if(!source || search(source,"XIAND_MAINTENANCE_TOKEN")==-1 ||
+		   search(source,"path!=\"gamelib\"")==-1)
+			valid = 0;
+	}
+	string login_check = Stdio.read_file(ROOT+
+		"/lowlib/system/cmds/login_check.pike");
+	valid = valid && login_check &&
+		search(login_check,"authentication_rate_limit_allowed")!=-1;
+	check("旧式登录只加载gamelib并按真实连接IP限制注册",valid,
+		"旧式登录路径、注册限流或异常脱敏缺失");
+}
+
+void test_runtime_debug_logs_removed()
+{
+	array(string) files = ({
+		"/lowlib/driver.pike",
+		"/lowlib/system/master.pike",
+		"/lowlib/system/cmds/login_check.pike",
+		"/lowlib/system/inherit/feature/save.pike",
+		"/gamelib/single/daemons/_http_api_mod/command_queue.pike",
+		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike",
+		"/restart-docker.sh",
+	});
+	int valid = 1;
+	foreach(files,string file){
+		string source = Stdio.read_file(ROOT+file);
+		if(!source || search(source,"xiand_login_debug.log")!=-1 ||
+		   search(source,"xiand_conn_debug.log")!=-1)
+			valid = 0;
+	}
+	string queue = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/command_queue.pike");
+	string renderer = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
+	valid = valid && queue && renderer &&
+		search(queue,"Enqueued request for %s: cmd=%s")==-1 &&
+		search(renderer,"response_to_html called! cmd=%s")==-1;
+	string taskd = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/taskd.pike");
+	valid = valid && taskd && search(taskd,"taskdrop.log")==-1;
+	check("登录连接与任务掉落成功路径不再高频写调试日志",valid,
+		"仍存在无界高频调试日志");
+}
+
+void test_bossdrop_sentinels()
+{
+	object bossdropd = (object)(ROOT+
+		"/gamelib/single/daemons/bossdropd.pike");
+	int valid = bossdropd &&
+		bossdropd->get_bossdrop_specitem("choulounianshou")=="" &&
+		bossdropd->get_bossdrop_specitem("xueduchongwang")=="" &&
+		bossdropd->get_bossdrop_specitem("liubimojun")==
+			"bossdrop/bawanghuiji";
+	check("Boss掉落正确区分特殊物品与and/end哨兵",valid,
+		"CSV哨兵仍会被当成物品路径");
+}
+
+void test_health_and_deployment_secrets()
+{
+	string daemon = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/http_api_daemon.pike");
+	string accounts = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/account_characters.pike");
+	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string dockerignore = Stdio.read_file(ROOT+"/.dockerignore");
+	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
+	string auction = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/auctiond.pike");
+	string ranking = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/paihangd.pike");
+	object httpd = (object)(ROOT+
+		"/gamelib/single/daemons/http_api_daemon.pike");
+	int valid = daemon && accounts && dockerfile && dockerignore && restart &&
+		auction && ranking &&
+		httpd &&
+		httpd->normalize_http_client_ip("127.0.0.1:54321")=="127.0.0.1" &&
+		httpd->normalize_http_client_ip("[::1]:54321")=="::1" &&
+		search(daemon,"configured_health_token")!=-1 &&
+		search(daemon,"detailed_health")!=-1 &&
+		search(daemon,"sizeof(configured_health_token)>=24")!=-1 &&
+		search(daemon,"string normalize_http_client_ip")!=-1 &&
+		search(daemon,"string client_ip = normalize_http_client_ip")!=-1 &&
+		search(accounts,"normalize_http_client_ip")!=-1 &&
+		search(dockerfile,"MYSQL_PASSWORD is required")!=-1 &&
+		search(dockerignore,".env")!=-1 &&
+		search(restart,"-e MYSQL_PASSWORD ")!=-1 &&
+		search(restart,"-e MYSQL_PASSWORD=\"$MYSQL_PASSWORD\"")==-1 &&
+		search(restart,"--log-opt max-size=50m")!=-1 &&
+		search(auction,"getenv(\"MYSQL_PASSWORD\") || \"\"")!=-1 &&
+		search(ranking,"getenv(\"MYSQL_PASSWORD\") || \"\"")!=-1;
+	check("详细健康指标受保护且数据库口令无源码默认值",valid,
+		"健康指标或部署凭证仍有暴露面");
+}
+
+void test_log_policy_and_atomic_recovery()
+{
+	string policy = Stdio.read_file(ROOT+"/deploy/logrotate/xiand");
+	string save = Stdio.read_file(ROOT+
+		"/lowlib/system/inherit/feature/save.pike");
+	string users = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/user_countd.pike");
+	int valid = policy && save && users &&
+		search(policy,"maxsize 50M")!=-1 &&
+		search(policy,"rotate 14")!=-1 &&
+		search(save,"promote_recovered_save")!=-1 &&
+		search(save,"restore backup promoted")!=-1 &&
+		search(users,"me->password")==-1 &&
+		search(users,"[REDACTED]")!=-1;
+	check("日志有轮转策略且原子备份恢复后会自愈主档",valid,
+		"日志增长、凭证审计或存档恢复自愈缺失");
+}
+
 int main()
 {
 	werror("\n========== Xiand安全加固测试 ==========\n");
@@ -108,6 +266,12 @@ int main()
 	test_purchase_path_guards();
 	test_http_request_guards();
 	test_database_error_redaction();
+	test_auction_sql_parameters();
+	test_legacy_login_entry_guards();
+	test_runtime_debug_logs_removed();
+	test_bossdrop_sentinels();
+	test_health_and_deployment_secrets();
+	test_log_policy_and_atomic_recovery();
 	werror("\n安全加固：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
 	return results["failed"]==0 ? 0 : 1;

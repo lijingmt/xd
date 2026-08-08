@@ -10,7 +10,7 @@ inherit LOW_DAEMON;
 #define log_err_file ROOT "/log/presenter_err.log" 
 #define log_file ROOT "/log/presenter.log" 
 Sql.Sql db;
-string dbSql = "mysql://root:password@game_database:22334/"+DATABASE_NAME;
+string dbSql = "";//旧推荐人数据库已停用。
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
 object obt;

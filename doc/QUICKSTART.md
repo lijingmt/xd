@@ -84,7 +84,7 @@ mysql> source /path/to/doc/mysql-init.sql;
 This creates:
 - Database `xd01` with UTF-8 support
 - All required tables
-- Docker user `xiandao` with password `Happy888888`
+- Docker user `xiandao` with a password supplied outside the repository
 
 #### Step 2: Configure Environment Variables
 
@@ -94,10 +94,10 @@ Create `.env` file in `docker/` directory:
 MYSQL_HOST=172.17.0.1
 MYSQL_PORT=3306
 MYSQL_USER=xiandao
-MYSQL_PASSWORD=Happy888888
+MYSQL_PASSWORD=<set-a-strong-secret>
 ```
 
-**Security Note:** Change `Happy888888` to a secure password in production!
+**Security Note:** keep the real password only in a mode-600 `.env` or secret manager.
 
 ### Multiple Game Instances
 

@@ -46,10 +46,16 @@ private int safely_remove_http_player(object player,string user_name,
 
 int main(string arg)
 {
-	string path,user_name,lgpswd,userip;
+	string path,user_name,lgpswd,userip,forwarded_ip;
 	string title = "";
 	title += "=玩家登录=\n";
-	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
+	int parsed = arg ? sscanf(arg,"%s %s %s %s %s",path,user_name,
+		lgpswd,userip,forwarded_ip) : 0;
+	if(parsed!=5 && arg){
+		forwarded_ip = "";
+		parsed = sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip);
+	}
+	if(parsed==4 || parsed==5){
 		if(!path || !user_name || !lgpswd || !userip){
 			title += "登录错误！\n";
 			title += "您输入的用户名和密码不符合规范，请返回重试。\n";
@@ -61,6 +67,17 @@ int main(string arg)
 			title += "登录错误！\n";
 			title += "您输入的用户名和密码不符合规范，请返回重试。\n";
 			title += "[url 返回:http://"+INDEX_URL+"]\n";
+			write(title);
+			return 1;
+		}
+		if(path!="gamelib"){
+			title += "登录错误！\n";
+			write(title);
+			return 1;
+		}
+		if(!is_http_api_login(user_name) &&
+		   !authentication_rate_limit_allowed(forwarded_ip)){
+			title += "登录尝试过于频繁，请稍后重试。\n";
 			write(title);
 			return 1;
 		}
@@ -85,7 +102,6 @@ int main(string arg)
 			return 1;
 		}
 		string user=Stdio.read_file(DATA_ROOT+"u/"+user_name[sizeof(user_name)-2..]+"/"+user_name+".o");
-	Stdio.append_file("/tmp/xiand_login_debug.log", "user file exists: " + (user?"yes":"no") + "\n");
 		if(!user){
 			object me = find_player(user_name);
 			//内存里有，也是正常登陆，可以登入游戏
@@ -98,7 +114,6 @@ int main(string arg)
 					   && http_api_d->has_virtual_connection(user_name)) {
 						// 用户有虚拟连接（从新界面登录过），现在从老界面登录
 						// 需要清除虚拟连接并重新创建玩家对象
-						Stdio.append_file("/tmp/xiand_login_debug.log", "User has virtual connection, clearing...\n");
 						if(!safely_remove_http_player(me,user_name,http_api_d)){
 							title += "登录切换保存失败，请稍后重试。\n";
 							write(title);
@@ -127,9 +142,6 @@ int main(string arg)
 								me->move(LOW_VOID_OB);
 							}
 							destruct(previous_object());
-							Stdio.append_file("/tmp/xiand_login_debug.log", "Recreated player after clearing virtual connection\n");
-						} else {
-							Stdio.append_file("/tmp/xiand_login_debug.log", "setup failed after clearing virtual connection\n");
 						}
 					}
 					else if(is_http_api_login(user_name)) {
@@ -175,7 +187,6 @@ int main(string arg)
 					   && http_api_d->has_virtual_connection(user_name)) {
 						// 用户有虚拟连接（从新界面登录过），现在从老界面登录
 						// 需要清除虚拟连接并重新创建玩家对象
-						Stdio.append_file("/tmp/xiand_login_debug.log", "User has virtual connection (with user file), clearing...\n");
 						if(!safely_remove_http_player(me,user_name,http_api_d)){
 							title += "登录切换保存失败，请稍后重试。\n";
 							write(title);
@@ -204,9 +215,6 @@ int main(string arg)
 								me->move(LOW_VOID_OB);
 							}
 							destruct(previous_object());
-							Stdio.append_file("/tmp/xiand_login_debug.log", "Recreated player after clearing virtual connection (with user file)\n");
-						} else {
-							Stdio.append_file("/tmp/xiand_login_debug.log", "setup failed after clearing virtual connection (with user file)\n");
 						}
 					}
 					else if(is_http_api_login(user_name)) {
@@ -236,10 +244,8 @@ int main(string arg)
 				//有这个用户，但是用户不在线，这里需要找到该用户档案中的密码字段并对比lgpswd
 				string pswd;
 				array(string) usr_content=user/"\n";
-				Stdio.append_file("/tmp/xiand_login_debug.log", "usr_content size=" + sizeof(usr_content) + "\n");
 				foreach(usr_content,string strCompare){
 					if((strCompare/" ")[0]=="password"){
-						Stdio.append_file("/tmp/xiand_login_debug.log", "found password line!\n");
 						if( (strCompare/" ")[1] ){
 							string pswdTmp = (strCompare/" ")[1];
 							pswd =(pswdTmp/"\"")[1];
@@ -263,37 +269,27 @@ int main(string arg)
 					return 1;
 				}
 				if(pswd && lgpswd==pswd){
-					Stdio.append_file("/tmp/xiand_login_debug.log", "password matches! creating user object...\n");
 					program u;
 					object m;
 					catch{
 						m=(object)(ROOT+"/"+path+"/master.pike");
-						Stdio.append_file("/tmp/xiand_login_debug.log", "master.m=" + sprintf("%O", m) + "\n");
 					};
 					if(m){
 						u=m->connect();
-						Stdio.append_file("/tmp/xiand_login_debug.log", "u from master=" + sprintf("%O", u) + "\n");
 					}
 					if(!u){
 						u=(program)(ROOT+"/"+path+"/clone/user.pike");
-						Stdio.append_file("/tmp/xiand_login_debug.log", "u from file=" + sprintf("%O", u) + "\n");
 					}
-					Stdio.append_file("/tmp/xiand_login_debug.log", "about to call me=u()...\n");
 					me=u();
-					Stdio.append_file("/tmp/xiand_login_debug.log", "user object created: me=" + sprintf("%O", me) + "\n");
 					me->set_name(user_name);
 					me->set_userip(userip);
 					me->set_project(path);
-					Stdio.append_file("/tmp/xiand_login_debug.log", "calling setup...\n");
 					int setup_ok = 0;
 					mixed setup_result = catch { setup_ok = me->setup(lgpswd); };
-					Stdio.append_file("/tmp/xiand_login_debug.log", "setup result=" + sprintf("%O", setup_result) + " ok=" + setup_ok + "\n");
 					if(setup_result==0 && setup_ok){
-						Stdio.append_file("/tmp/xiand_login_debug.log", "setup success! checking http_api mode...\n");
 						// HTTP API 模式检测：检查全局标记
 						int is_http_api = is_http_api_login(user_name);
 						if(is_http_api) {
-							Stdio.append_file("/tmp/xiand_login_debug.log", "HTTP API mode: skipping exec, using virtual connection\n");
 							// 标记玩家为 HTTP API 用户（用于经验加成等）
 							me->is_http_api_user = 1;
 							// HTTP API 模式：不调用 exec()，将玩家添加到虚拟连接池
@@ -305,32 +301,21 @@ int main(string arg)
 								me->move(LOW_VOID_OB);
 							}
 						} else {
-							Stdio.append_file("/tmp/xiand_login_debug.log", "Socket mode: calling exec...\n");
 							// Socket 模式：重置 HTTP API 标记，正常调用 exec()
 							me->is_http_api_user = 0;
 							exec(me,previous_object());
 							if(environment(me)==0){
 								me->move(LOW_VOID_OB);
 							}
-							Stdio.append_file("/tmp/xiand_login_debug.log", "destruct previous_object...\n");
 							destruct(previous_object());
 						}
-						Stdio.append_file("/tmp/xiand_login_debug.log", "login complete!\n");
-					}
-					else{
-						Stdio.append_file("/tmp/xiand_login_debug.log", "setup failed!\n");
 					}
 					return 1;
-				}
-				else{
-					Stdio.append_file("/tmp/xiand_login_debug.log",
-						"password mismatch for user="+user_name+"\n");
 				}
 			}
 		}
 	}
 	else{
-		Stdio.append_file("/tmp/xiand_login_debug.log", "sscanf failed or arg is empty\n");
 		title += "登陆错误！\n";
 		title += "[url 返回:http://"+INDEX_URL+"]\n";
 	}

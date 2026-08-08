@@ -38,7 +38,7 @@ inherit LOW_DAEMON;
 // ========================================================================
 
 /** HTTP API 调试开关：1=启用日志(werror输出), 0=关闭日志 */
-constant HTTP_API_DEBUG = 1;
+constant HTTP_API_DEBUG = 0;
 
 /**
  * HTTP API 专用日志函数 - 根据调试开关输出
@@ -47,9 +47,40 @@ constant HTTP_API_DEBUG = 1;
  */
 void http_werror(string fmt, mixed ... args)
 {
-    if(HTTP_API_DEBUG) {
+    string lowered = lower_case(fmt || "");
+    int important = search(lowered," error")!=-1 ||
+        search(lowered,"exception")!=-1 ||
+        search(lowered,"fatal")!=-1 ||
+        search(lowered,"unavailable")!=-1 ||
+        search(lowered,"failed to")!=-1;
+    if(HTTP_API_DEBUG || important) {
         werror("[HTTP_API]" + sprintf(fmt, @args));
     }
+}
+
+/**
+ * Protocols.HTTP 的 remote_addr 使用 "IP 端口" 格式。限流和本机授权
+ * 必须丢弃临时源端口，否则每次新建连接都会得到一个新的限流键。
+ */
+string normalize_http_client_ip(string address)
+{
+    string trimmed = String.trim_all_whites(address || "");
+    if(trimmed=="")
+        return "unknown";
+    array(string) parts = trimmed / " ";
+    string ip = parts[0];
+    if(sizeof(ip)>=2 && ip[0]=='['){
+        int bracket = search(ip,"]");
+        if(bracket>1)
+            ip = ip[1..bracket-1];
+    }
+    else{
+        string host = "";
+        int port = 0;
+        if(sscanf(ip,"%s:%d",host,port)==2 && search(host,":")==-1)
+            ip = host;
+    }
+    return ip;
 }
 
 // ========================================================================
@@ -226,8 +257,6 @@ void set_api_only_mode(int mode)
  */
 string execute_system_command(string cmd)
 {
-    http_werror(" execute_system: %s\n", cmd);
-
     string output = "";
     array args = cmd / " ";
     string cmd_name = args[0];
@@ -312,13 +341,11 @@ string execute_internal_command(object player, string cmd)
     set_this_player(original_this_player);
 
     if(err) {
-        http_werror(" Command error: %s\n%s\n",describe_error(err),
-            describe_backtrace(err));
+        http_werror(" Command error\n");
         output_buffer += "命令执行错误\n";
     }
     if(fallback_err) {
-        http_werror(" Command fallback error: %s\n%s\n",
-            describe_error(fallback_err),describe_backtrace(fallback_err));
+        http_werror(" Command fallback error\n");
         output_buffer += "命令执行错误\n";
     }
 
@@ -532,9 +559,8 @@ string execute_command_sync(string userid, string password, string cmd)
     clear_http_api_login_pending(userid);
 
     if(err) {
-        http_werror(" execute_command_sync error: %s\n%s\n",
-            describe_error(err),describe_backtrace(err));
-        return "{\"error\":\"命令执行失败: " + replace(describe_error(err), "\n", " ") + "\"}";
+        http_werror(" execute_command_sync error\n");
+        return "{\"error\":\"命令执行失败\"}";
     }
 }
 
@@ -660,37 +686,45 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 handle_room(req);
                 break;
             case "/health":
-                mapping queue_status = query_queue_status();
-                mapping thread_status = query_thread_status();
                 mapping m = ([
                     "status":"ok",
                     "time":time(),
-                    "port":HTTP_PORT,
-                    "uptime":http_api_start_time > 0 ?
-                        time()-http_api_start_time : 0,
-                    "queue":([
+                ]);
+                string configured_health_token =
+                    getenv("XIAND_HEALTH_TOKEN") || "";
+                string supplied_health_token =
+                    req->request_headers["x-xiand-health-token"] || "";
+                int detailed_health = sizeof(configured_health_token)>=24 &&
+                    supplied_health_token==configured_health_token;
+                if(detailed_health){
+                    mapping queue_status = query_queue_status();
+                    mapping thread_status = query_thread_status();
+                    m["port"] = HTTP_PORT;
+                    m["uptime"] = http_api_start_time > 0 ?
+                        time()-http_api_start_time : 0;
+                    m["queue"] = ([
                         "active_queues":queue_status["active_queues"] || 0,
                         "processing":queue_status["processing"] || 0,
                         "cached_results":queue_status["cached_results"] || 0,
                         "dispatch_mode":queue_status["dispatch_mode"] || "unknown",
-                    ]),
-                    "threads":thread_status,
-                    "async_io":ASYNC_IOD->query_status(),
-                    "runtime":query_runtime_performance(),
-                    "config_caches":([
+                    ]);
+                    m["threads"] = thread_status;
+                    m["async_io"] = ASYNC_IOD->query_status();
+                    m["runtime"] = query_runtime_performance();
+                    m["config_caches"] = ([
                         "map":MAPD->query_cache_status(),
                         "task":TASKD->query_cache_status(),
                         "skill":MUD_SKILLSD->query_cache_status(),
                         "autofight":AUTOFIGHTD->
                             query_training_route_cache_status(),
-                    ]),
-                    "autofight_performance":AUTOFIGHTD->
-                        query_autofight_performance_status(),
-                    "performance":query_http_performance_status(),
-                    "account_sessions":query_account_session_status(),
-                    "command_tokens":query_hidden_command_status(),
-                    "pagination":query_pagination_status(),
-                ]);
+                    ]);
+                    m["autofight_performance"] = AUTOFIGHTD->
+                        query_autofight_performance_status();
+                    m["performance"] = query_http_performance_status();
+                    m["account_sessions"] = query_account_session_status();
+                    m["command_tokens"] = query_hidden_command_status();
+                    m["pagination"] = query_pagination_status();
+                }
                 if(!send_json_mapping_async(req,m,200))
                     send_json(req,m);
                 break;
@@ -860,10 +894,11 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     string userid = params["userid"];
     string password = params["password"];
     string cmd = params["cmd"];
-    http_werror("  cmd=%s userid=%s\n", cmd || "none", userid || "none");
+    http_werror(" handle_api_html request received\n");
     if(!cmd || cmd == "") cmd = "look";
 
-    string client_ip = req->remote_addr || "unknown";
+    string client_ip = normalize_http_client_ip(
+        req->remote_addr || "unknown");
 
     // 注册命令处理 - 直接实现注册逻辑（xiand没有login_regnew命令）
     if(search(cmd, "login_regnew ") == 0) {
@@ -895,10 +930,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             http_werror(" sscanf JSP format result: %d\n", parse_result);
         }
 
-        http_werror(" projname=%s, user=%s, pswd_len=%d, sid=%s, game_pre=%s\n",
-                    projname || "", user_name || "", sizeof(pswd), sid || "", game_pre || "");
-        http_werror(" m_key=%s, userip=%s, userua=%s, challenge=%s\n",
-                    m_key || "", userip || "", userua || "", challenge || "");
+        http_werror(" registration fields parsed: count=%d, password_len=%d\n",
+                    parse_result,sizeof(pswd));
 
         if(parse_result >= 3) {
             // 解析用户名和分区前缀
@@ -931,7 +964,11 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             string error_msg = "";  // 详细错误信息
 
             // 验证实际用户名长度（不含分区前缀）
-            if(!LOGICALZONED->registration_allowed(game_fg)) {
+            if(projname!="gamelib") {
+                http_werror(" VALIDATION FAILED: invalid project\n");
+                result = "error2";
+                error_msg = "注册入口无效";
+            } else if(!LOGICALZONED->registration_allowed(game_fg)) {
                 http_werror(" VALIDATION FAILED: logical zone is not open: %s\n",game_fg);
                 result = "error2";
                 error_msg = "该区尚未开放注册或正在维护";
@@ -1053,7 +1090,6 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                         http_werror("  Initializing basic fields...\n");
                                         if(!me->sid) {
                                             me->sid = sid || "tmpUser";
-                                            http_werror("  Initialized sid: %s\n", sid || "tmpUser");
                                         }
 
                                         http_werror(" Step 5: Calling setup()...\n");

@@ -19,10 +19,10 @@ private Thread.Mutex getback_claim_lock = Thread.Mutex();
 private mapping(int:string) active_getback_claims = ([]);
 private mapping(int:int) active_getback_claim_started = ([]);
 //#define GAME_NAME		"xd"//游戏区名
-//string dbSql = "mysql://root:password@game_database:22334/"+GAME_NAME; //远程数据库服务器
-// 从环境变量读取数据库密码
-string mysql_password = getenv("MYSQL_PASSWORD") || "Happy888888";
-string dbSql = "mysql://root:"+mysql_password+"@127.0.0.1/"+GAME_AREA;
+// 数据库口令只允许从运行环境注入，禁止源码默认值。
+string mysql_password = getenv("MYSQL_PASSWORD") || "";
+string dbSql = mysql_password!="" ?
+	"mysql://root:"+mysql_password+"@127.0.0.1/"+GAME_AREA : "";
 
 //mapping optionsMap = (["mysql_charset_name":"gb2312"]);
 mapping optionsMap = ([]);
@@ -35,9 +35,10 @@ protected void create()
 	// 包含数据库密码。守护进程必须在本地吞掉该异常，仅记录
 	// 脱敏状态；后续拍卖操作仍会在各自的 catch 中尝试重连。
 	mixed db_err = catch {
-		db=Sql.Sql(dbSql,optionsMap);
+		if(dbSql!="")
+			db=Sql.Sql(dbSql,optionsMap);
 	};
-	if(db_err){
+	if(db_err || !db){
 		db = 0;
 		LOG->append_time("[create()] [database unavailable] [fail]");
 		werror("[auctiond] MySQL unavailable; auction service will retry on demand\n");
@@ -69,17 +70,21 @@ private void time_task()
 array(mapping(string:mixed)) query_my_sale_infos(string saler_id)
 {
 	int st = time();
-	string querySql = "select sale_id,goods_filename,goods_name_cn,goods_count,goods_level,cur_value,end_value,iopen_time,convert_count from sale_info where sale_status = 0 and saler_id='"+saler_id+"' order by iopen_time desc";
+	if(!valid_getback_player_id(saler_id))
+		return ({});
+	string querySql = "select sale_id,goods_filename,goods_name_cn,goods_count,goods_level,cur_value,end_value,iopen_time,convert_count from sale_info where sale_status = 0 and saler_id=:SALER_ID order by iopen_time desc";
 	mixed catchResult = catch {  
 	if(!db)
 		db=Sql.Sql(dbSql,optionsMap);
-	array(mapping(string:mixed)) result = db->query(querySql);
+	array(mapping(string:mixed)) result = db->query(querySql,
+		([":SALER_ID":saler_id]));
 	LOG->append_time("[query_my_sale_infos(" + saler_id + ")] [retSize:" + sizeof(result) + "] [succ] [" + (time()-st) + "s]");
 	return result;
 	};
 	if(catchResult)
 	{
-		LOG->append_time("[query_my_sale_infos(" + saler_id + ")] [zero_size_array] [fail] [querySql:"+querySql+"] ["+ (time()-st) + "s]");
+		LOG->append_time("[query_my_sale_infos] [zero_size_array] [fail] ["+
+			(time()-st)+"s]");
 		return ({});
 	}
 }
@@ -114,10 +119,14 @@ array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_typ
 	//	orderSql = " order by goods_rare desc";
 
 	string querySql = "select sale_id,saler_id,goods_name_cn,goods_count,goods_level,cur_value,end_value,convert_count from sale_info where sale_status=0";
+	mapping queryParams = ([]);
 	if(goods_name_cn == "")
 		goods_name_cn = "all";
 	if(goods_name_cn != "all")
-		querySql += " and goods_name_cn like '%"+goods_name_cn+"%'";
+	{
+		querySql += " and goods_name_cn like :GOODS_PATTERN";
+		queryParams[":GOODS_PATTERN"] = "%"+goods_name_cn+"%";
+	}
 		//querySql += " and instr(Hex(goods_name_cn), Hex('"+goods_name_cn+"'))>0";
 	if(goods_type)
 		querySql += " and goods_type="+goods_type;
@@ -125,7 +134,7 @@ array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_typ
 	mixed catchResult = catch {  
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
-		array(mapping(string:mixed)) result = db->query(querySql);
+		array(mapping(string:mixed)) result = db->query(querySql,queryParams);
 		if(viewer_id && viewer_id!=""){
 			array(mapping(string:mixed)) filtered = ({});
 			for(int i=0;i<sizeof(result);i++){
@@ -135,12 +144,16 @@ array(mapping(string:mixed)) query_sale_infos(string goods_name_cn,int goods_typ
 			}
 			result = filtered;
 		}
-		LOG->append_time("[query_sale_infos("+goods_name_cn+","+goods_type+","+orderType+")] [retSize:"+sizeof(result) + "] [succ] [querySql:"+querySql+"] [" + (time()-st) + "s]");
+		LOG->append_time("[query_sale_infos(type="+goods_type+",order="+
+			orderType+")] [retSize:"+sizeof(result)+"] [succ] ["+
+			(time()-st)+"s]");
 		return result;
 	};
 	if(catchResult)
 	{
-		LOG->append_time("[query_sale_infos("+goods_name_cn+","+goods_type+","+orderType+")] [zero_size_array] [fail] [querySql:"+querySql+"] ["+ (time()-st) + "s]");
+		LOG->append_time("[query_sale_infos(type="+goods_type+",order="+
+			orderType+")] [zero_size_array] [fail] ["+
+			(time()-st)+"s]");
 		return ({});
 	}
 }
@@ -214,39 +227,44 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 		string loser_id = sale_info["winner_id"];
 		string loser_name = sale_info["winner_name"];
 		int value_back = (int)sale_info["cur_value"];
-		querySql = "insert into result_info (sale_id,rltflag,fetch_status,buyer_id,goods,count,money,dead_time,convert_count) values ("+sale_id+",1,0,'"+loser_id+"','"+sale_info["goods_filename"]+"',"+sale_info["goods_count"]+","+value_back+","+(time()+FETCH_TIME)+","+sale_info["convert_count"]+")";
+		querySql = "insert into result_info (sale_id,rltflag,fetch_status,buyer_id,goods,count,money,dead_time,convert_count) values (:SALE_ID,1,0,:BUYER_ID,:GOODS,:GOODS_COUNT,:MONEY,:DEAD_TIME,:CONVERT_COUNT)";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
+			db->query(querySql,([":SALE_ID":sale_id,":BUYER_ID":loser_id,
+				":GOODS":sale_info["goods_filename"],
+				":GOODS_COUNT":sale_info["goods_count"],":MONEY":value_back,
+				":DEAD_TIME":time()+FETCH_TIME,
+				":CONVERT_COUNT":sale_info["convert_count"]]));
 
 			//发信通知玩家
 			title = "竞价失败\n";
 			content = "你对"+sale_info["goods_name_cn"]+"的竞价被超过了，或者卖主取消了拍卖，请即时来拍卖行领回你的竞价，若7日内未领取，你的竞价将被充公\n";
 			mail_notice(loser_id,title,content);
 
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info refund bidder] [succ]");
 		};
 		if(catchResult)
 		{
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info refund bidder] [fail]");
 		}
 	}
 	if(flag == 0){
 		//竞价
 		//则把目前竞价者更新到sale_info数据库里
-		querySql = "update sale_info set cur_value="+value+",winner_id='"+winner_id+"',winner_name='"+winner_name+"'";
+		querySql = "update sale_info set cur_value=:VALUE,winner_id=:WINNER_ID,winner_name=:WINNER_NAME";
 		if(!(int)sale_info["buy_flag"])
 			querySql +=",buy_flag=1";
-		querySql +=" where sale_id="+sale_id;
+		querySql +=" where sale_id=:SALE_ID";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			db->query(querySql,([":VALUE":value,":WINNER_ID":winner_id,
+				":WINNER_NAME":winner_name,":SALE_ID":sale_id]));
+			LOG->append_time("[reset_sale_info bid] [succ]");
 		};
 		if(catchResult){
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info bid] [fail]");
 		}
 		return 1;
 	}
@@ -269,31 +287,37 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 			fees = 1;
 		value_now = value_now - fees;
 
-		querySql = "insert into result_info (sale_id,rltflag,fetch_status,saler_id,goods,count,money,dead_time,convert_count) values("+sale_id+",2,0,'"+saler_id+"','"+goods_name+"',"+goods_count+","+value_now+","+(time()+FETCH_TIME)+","+convert_count+")";
+		querySql = "insert into result_info (sale_id,rltflag,fetch_status,saler_id,goods,count,money,dead_time,convert_count) values(:SALE_ID,2,0,:SALER_ID,:GOODS,:GOODS_COUNT,:MONEY,:DEAD_TIME,:CONVERT_COUNT)";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
+			db->query(querySql,([":SALE_ID":sale_id,":SALER_ID":saler_id,
+				":GOODS":goods_name,":GOODS_COUNT":goods_count,
+				":MONEY":value_now,":DEAD_TIME":time()+FETCH_TIME,
+				":CONVERT_COUNT":convert_count]));
 			//发信通知玩家
 			title = "拍卖成功\n";
 			content = "你的"+sale_info["goods_name_cn"]+"已经售出，请即时来拍卖行领回你的金钱，若7日内未领取，你的金钱将被充公\n";
 			mail_notice(saler_id,title,content);
 
-			LOG->append_time("for saler:reset_sale_info("+winner_id+","+sale_id+","+value_now+","+flag+") [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info reward saler] [succ]");
 		};
 		if(catchResult){
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value_now+","+flag+") [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info reward saler] [fail]");
 		}
 
 		//将物品返给竞价胜利者
 		if(flag == 2){
 			winner_id = sale_info["winner_id"];
 		}
-		querySql = "insert into result_info (sale_id,rltflag,fetch_status,buyer_id,goods,count,dead_time,convert_count) values("+sale_id+",2,0,'"+winner_id+"','"+goods_name+"',"+goods_count+","+(time()+FETCH_TIME)+","+convert_count+")";
+		querySql = "insert into result_info (sale_id,rltflag,fetch_status,buyer_id,goods,count,dead_time,convert_count) values(:SALE_ID,2,0,:BUYER_ID,:GOODS,:GOODS_COUNT,:DEAD_TIME,:CONVERT_COUNT)";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
+			db->query(querySql,([":SALE_ID":sale_id,":BUYER_ID":winner_id,
+				":GOODS":goods_name,":GOODS_COUNT":goods_count,
+				":DEAD_TIME":time()+FETCH_TIME,
+				":CONVERT_COUNT":convert_count]));
 			if(flag == 2){
 				//发信通知玩家
 				title = "竞拍成功\n";
@@ -301,22 +325,23 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 				mail_notice(winner_id,title,content);
 
 			}
-			LOG->append_time("for winner:reset_sale_info("+winner_id+","+sale_id+","+value_now+","+flag+") [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info reward buyer] [succ]");
 		};
 		if(catchResult){
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value_now+","+flag+") [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info reward buyer] [fail]");
 		}
 
 		//最后将sale_info的单子结束竞拍
-		querySql = "update sale_info set cur_value="+value_now+",winner_id='"+winner_id+"',winner_name='"+winner_name+"',sale_status=1 where sale_id="+sale_id;
+		querySql = "update sale_info set cur_value=:VALUE,winner_id=:WINNER_ID,winner_name=:WINNER_NAME,sale_status=1 where sale_id=:SALE_ID";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value_now+","+flag+")] [void] [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			db->query(querySql,([":VALUE":value_now,":WINNER_ID":winner_id,
+				":WINNER_NAME":winner_name,":SALE_ID":sale_id]));
+			LOG->append_time("[reset_sale_info close sale] [succ]");
 		};
 		if(catchResult){
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value_now+","+flag+")] [void] [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info close sale] [fail]");
 		}
 		return 2;
 	}
@@ -335,11 +360,14 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 			else 
 				rltflag = 3;
 		//物品返回给卖主
-		querySql = "insert into result_info (sale_id,rltflag,fetch_status,saler_id,goods,count,dead_time,convert_count) values("+sale_id+","+rltflag+",0,'"+saler_id+"','"+goods_name+"',"+goods_count+","+(time()+FETCH_TIME)+","+convert_count+")";
+		querySql = "insert into result_info (sale_id,rltflag,fetch_status,saler_id,goods,count,dead_time,convert_count) values(:SALE_ID,:RESULT_FLAG,0,:SALER_ID,:GOODS,:GOODS_COUNT,:DEAD_TIME,:CONVERT_COUNT)";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
+			db->query(querySql,([":SALE_ID":sale_id,":RESULT_FLAG":rltflag,
+				":SALER_ID":saler_id,":GOODS":goods_name,
+				":GOODS_COUNT":goods_count,":DEAD_TIME":time()+FETCH_TIME,
+				":CONVERT_COUNT":convert_count]));
 			if(flag == 3){
 				//发信通知玩家
 				title = "拍卖失败\n";
@@ -347,21 +375,21 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 				mail_notice(saler_id,title,content);
 
 			}
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info return item] [succ]");
 		};
 		if(catchResult){
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info return item] [fail]");
 		}
 		//更新sale_info中的相应项
-		querySql = "update sale_info set sale_status=1 where sale_id="+sale_id;
+		querySql = "update sale_info set sale_status=1 where sale_id=:SALE_ID";
 		catchResult = catch {  
 			if(!db)
 				db=Sql.Sql(dbSql,optionsMap);
-			db->query(querySql);
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [succ] [querySql:"+querySql+"] ["+(time())+"]");
+			db->query(querySql,([":SALE_ID":sale_id]));
+			LOG->append_time("[reset_sale_info cancel sale] [succ]");
 		};
 		if(catchResult){
-			LOG->append_time("reset_sale_info("+winner_id+","+sale_id+","+value+","+flag+")] [void] [fail] [querySql:"+querySql+"] ["+(time())+"]");
+			LOG->append_time("[reset_sale_info cancel sale] [fail]");
 		}
 		return 3;
 	}
@@ -379,7 +407,6 @@ int add_new_sale_info(object saler,object goods,int start_value,int end_value)
 {
 	//return 0;
 
-	werror("================== i am in !  ======================\n");
 	string saler_id = saler->query_name();
 	string saler_name = saler->query_name_cn();
 	string goods_filename = file_name(goods);
@@ -413,20 +440,33 @@ int add_new_sale_info(object saler,object goods,int start_value,int end_value)
 	else
 		goods_level = (int)goods->level_limit;
 
-	string querySql = "insert into sale_info (saler_id,saler_name,goods_filename,goods_name_cn,goods_count,goods_type,goods_level,cur_value,end_value,open_time,iopen_time,close_time,sale_status,buy_flag,convert_count) values ('"+saler_id+"','"+saler_name+"','"+goods_filename+"','"+goods_name_cn+"',"+goods_count+","+goods_type+","+goods_level+","+start_value+","+end_value+",now(),"+time()+","+(time()+VENDUE_TIME)+",0,0,"+convert_count+")";
+	string querySql = "insert into sale_info (saler_id,saler_name,goods_filename,goods_name_cn,goods_count,goods_type,goods_level,cur_value,end_value,open_time,iopen_time,close_time,sale_status,buy_flag,convert_count) values (:SALER_ID,:SALER_NAME,:GOODS_FILENAME,:GOODS_NAME_CN,:GOODS_COUNT,:GOODS_TYPE,:GOODS_LEVEL,:START_VALUE,:END_VALUE,now(),:OPEN_TIME,:CLOSE_TIME,0,0,:CONVERT_COUNT)";
+	mapping queryParams = ([
+		":SALER_ID":saler_id,
+		":SALER_NAME":saler_name,
+		":GOODS_FILENAME":goods_filename,
+		":GOODS_NAME_CN":goods_name_cn,
+		":GOODS_COUNT":goods_count,
+		":GOODS_TYPE":goods_type,
+		":GOODS_LEVEL":goods_level,
+		":START_VALUE":start_value,
+		":END_VALUE":end_value,
+		":OPEN_TIME":time(),
+		":CLOSE_TIME":time()+VENDUE_TIME,
+		":CONVERT_COUNT":convert_count,
+	]);
 	mixed catchResult = catch{
 		if(!db){
 			db=Sql.Sql(dbSql,optionsMap);
 		}
-		db->query(querySql);
+		db->query(querySql,queryParams);
 		//从玩家身上移出物品
 		goods->remove();	
-		LOG->append_time("[add_new_sale_info("+saler_id+","+goods_name_cn+","+start_value+","+end_value+")] [succ] [--] [querySql:"+querySql + "]");
-		werror("----"+querySql+"----\n");
+		LOG->append_time("[add_new_sale_info] [succ]");
 		return 1;
 	};
 	if(catchResult){
-		LOG->append_time("[add_new_sale_info("+saler_id+","+goods_name_cn+","+start_value+","+end_value+")] [fail] [--] [querySql:"+querySql + "]");
+		LOG->append_time("[add_new_sale_info] [fail]");
 		return 0;
 	}
 }
@@ -441,16 +481,16 @@ array(mapping(string:mixed)) query_getback_as_saler(string player_id)
 	array(mapping(string:mixed)) rtn = ({});
 	if(!valid_getback_player_id(player_id))
 		return rtn;
-	string querySql = "select * from result_info where saler_id='"+player_id+"' and fetch_status in (0,3)";
+	string querySql = "select * from result_info where saler_id=:PLAYER_ID and fetch_status in (0,3)";
 	mixed catchResult = catch{
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
-		rtn = db->query(querySql);
-		LOG->append_time("[query_getback_as_saler("+player_id+")] [succ] [querySql:"+querySql+"] [size:"+sizeof(rtn)+"]");
+		rtn = db->query(querySql,([":PLAYER_ID":player_id]));
+		LOG->append_time("[query_getback_as_saler] [succ] [size:"+sizeof(rtn)+"]");
 		return rtn;
 	};
 	if(catchResult){
-		LOG->append_time("[query_getback_as_saler("+player_id+")] [fail] [querySql:"+querySql+"] [size:"+sizeof(rtn)+"]");
+		LOG->append_time("[query_getback_as_saler] [fail]");
 		return ({});
 	}
 }
@@ -464,16 +504,16 @@ array(mapping(string:mixed)) query_getback_as_buyer(string player_id)
 	array(mapping(string:mixed)) rtn = ({});
 	if(!valid_getback_player_id(player_id))
 		return rtn;
-	string querySql = "select * from result_info where buyer_id='"+player_id+"' and fetch_status in (0,3)";
+	string querySql = "select * from result_info where buyer_id=:PLAYER_ID and fetch_status in (0,3)";
 	mixed catchResult = catch{
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
-		rtn = db->query(querySql);
-		LOG->append_time("[query_getback_as_buyer("+player_id+")] [succ] [querySql:"+querySql+"] [size:"+sizeof(rtn)+"]");
+		rtn = db->query(querySql,([":PLAYER_ID":player_id]));
+		LOG->append_time("[query_getback_as_buyer] [succ] [size:"+sizeof(rtn)+"]");
 		return rtn;
 	};
 	if(catchResult){
-		LOG->append_time("[query_getback_as_buyer("+player_id+")] [fail] [querySql:"+querySql+"] [size:"+sizeof(rtn)+"]");
+		LOG->append_time("[query_getback_as_buyer] [fail]");
 		return ({});
 	}
 }
@@ -528,15 +568,16 @@ private mapping(string:mixed) query_getback_offer_status(
 	string kind;
 	string querySql;
 	if(id<=0 || !valid_getback_player_id(player_id) ||
-	   (expected_kind!="item" && expected_kind!="money"))
+	   (expected_kind!="item" && expected_kind!="money") ||
+	   (status_sql!="in (0,3)" && status_sql!="in (1,3)"))
 		return (["ok":0,"code":"invalid"]);
-	querySql="select * from result_info where id="+id+
-		" and fetch_status "+status_sql+" and (saler_id='"+player_id+
-		"' or buyer_id='"+player_id+"')";
+	querySql="select * from result_info where id=:RESULT_ID"+
+		" and fetch_status "+status_sql+
+		" and (saler_id=:PLAYER_ID or buyer_id=:PLAYER_ID)";
 	mixed err=catch{
 		if(!db)
 			db=Sql.Sql(dbSql,optionsMap);
-		rows=db->query(querySql);
+		rows=db->query(querySql,([":RESULT_ID":id,":PLAYER_ID":player_id]));
 	};
 	if(err)
 		return (["ok":0,"code":"service"]);
@@ -597,13 +638,14 @@ mapping(string:mixed) prepare_getback_claim(string player_id,int id,
 		return (["ok":0,"code":"unavailable"]);
 	}
 	if(fetch_status==0){
-		updateSql="update result_info set fetch_status=3 where id="+id+
-			" and fetch_status=0 and (saler_id='"+player_id+
-			"' or buyer_id='"+player_id+"')";
+		updateSql="update result_info set fetch_status=3 where id=:RESULT_ID"+
+			" and fetch_status=0 and (saler_id=:PLAYER_ID"+
+			" or buyer_id=:PLAYER_ID)";
 	}
 	mixed err=catch{
 		if(fetch_status==0){
-			db->query(updateSql);
+			db->query(updateSql,
+				([":RESULT_ID":id,":PLAYER_ID":player_id]));
 			changed=db->query("select row_count() as changed");
 		}
 	};
@@ -635,11 +677,12 @@ int complete_getback_claim(string player_id,int id,string expected_kind)
 		destruct(claim_key);
 		return 0;
 	}
-	updateSql="update result_info set fetch_status=1 where id="+id+
-		" and fetch_status=3 and (saler_id='"+player_id+
-		"' or buyer_id='"+player_id+"')";
+	updateSql="update result_info set fetch_status=1 where id=:RESULT_ID"+
+		" and fetch_status=3 and (saler_id=:PLAYER_ID"+
+		" or buyer_id=:PLAYER_ID)";
 	mixed err=catch{
-		db->query(updateSql);
+		db->query(updateSql,
+			([":RESULT_ID":id,":PLAYER_ID":player_id]));
 		changed=db->query("select row_count() as changed");
 	};
 	if(!err && sizeof(changed)==1 && (int)changed[0]["changed"]==1)
@@ -663,11 +706,12 @@ int release_getback_claim(string player_id,int id,string expected_kind)
 		destruct(claim_key);
 		return 0;
 	}
-	updateSql="update result_info set fetch_status=0 where id="+id+
-		" and fetch_status=3 and (saler_id='"+player_id+
-		"' or buyer_id='"+player_id+"')";
+	updateSql="update result_info set fetch_status=0 where id=:RESULT_ID"+
+		" and fetch_status=3 and (saler_id=:PLAYER_ID"+
+		" or buyer_id=:PLAYER_ID)";
 	mixed err=catch{
-		db->query(updateSql);
+		db->query(updateSql,
+			([":RESULT_ID":id,":PLAYER_ID":player_id]));
 		changed=db->query("select row_count() as changed");
 	};
 	if(!err && sizeof(changed)==1 && (int)changed[0]["changed"]==1)
@@ -701,11 +745,12 @@ int reconcile_getback_claim(string player_id,int id,string expected_kind)
 	if(fetch_status==1)
 		ok=1;
 	else if(fetch_status==3){
-		string updateSql="update result_info set fetch_status=1 where id="+
-			id+" and fetch_status=3 and (saler_id='"+player_id+
-			"' or buyer_id='"+player_id+"')";
+		string updateSql="update result_info set fetch_status=1"+
+			" where id=:RESULT_ID and fetch_status=3"+
+			" and (saler_id=:PLAYER_ID or buyer_id=:PLAYER_ID)";
 		mixed err=catch{
-			db->query(updateSql);
+			db->query(updateSql,
+				([":RESULT_ID":id,":PLAYER_ID":player_id]));
 			changed=db->query("select row_count() as changed");
 		};
 		if(!err && sizeof(changed)==1 &&

@@ -8,6 +8,10 @@ int main(string arg)
 	string path,user_name,lgpswd,userip;
 	string title = "";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
+		if(path!="gamelib"){
+			write("error2");
+			return 1;
+		}
 		if(!LOGICALZONED->login_allowed(user_name)){
 			write("error2");
 			return 1;

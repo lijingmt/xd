@@ -153,7 +153,8 @@ RUN mkdir -p /app/xiand /var/lib/mysql && \
 
 # 创建数据目录挂载点（用于卷映射）
 RUN mkdir -p /app/xiand/data_xiand /app/xiand/gamelib/clone/item && \
-    chmod 777 /app/xiand/data_xiand /app/xiand/gamelib/clone/item
+    chmod 700 /app/xiand/data_xiand && \
+    chmod 755 /app/xiand/gamelib/clone/item
 
 # 复制整个 xiand 项目到容器
 COPY . /app/xiand/
@@ -174,7 +175,7 @@ RUN mkdir -p /usr/local/tomcat/webapps/ROOT/xd/images && \
 # 设置权限
 RUN chmod -R 755 /usr/local/tomcat/webapps/ROOT && \
     chmod +x /app/xiand/docker/docker-startup.sh 2>/dev/null || true && \
-    chmod 777 /app/xiand
+    chmod 755 /app/xiand
 
 # 工作目录
 WORKDIR /app/xiand
@@ -230,18 +231,26 @@ chmod 644 "${LOGICAL_ZONE_RUNTIME_DIR}"/*.conf 2>/dev/null || true
 MYSQL_HOST="${MYSQL_HOST:-172.17.0.1}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
 MYSQL_USER="${MYSQL_USER:-root}"
-MYSQL_PASSWORD="${MYSQL_PASSWORD:-Happy888888}"
+MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"
+if [ -z "${MYSQL_PASSWORD}" ]; then
+    echo "MYSQL_PASSWORD is required" >&2
+    exit 1
+fi
 
 # 创建必要目录。db_log 在 .dockerignore 中，不会随镜像复制；注册和每日
 # 统计写入前必须显式创建，避免注册初始化被日志异常中断。
-mkdir -p /app/xiand/log /app/xiand/db_log/reg_new \
+umask 027
+mkdir -p /app/xiand/log /app/xiand/log/stat/reg \
+    /app/xiand/log/stat/daily /app/xiand/db_log/reg_new \
     /app/xiand/db_log/daily_user /var/lib/mysql /tmp
-chmod 777 /app/xiand/log /var/lib/mysql
-chmod 777 /app/xiand/db_log /app/xiand/db_log/reg_new \
+chmod 750 /app/xiand/log /app/xiand/log/stat \
+    /app/xiand/log/stat/reg /app/xiand/log/stat/daily
+chmod 700 /app/xiand/db_log /app/xiand/db_log/reg_new \
     /app/xiand/db_log/daily_user
-chmod -R 777 /app/xiand/data_xiand 2>/dev/null || true
-# 创建日志文件
-touch /tmp/xiand_login_debug.log /tmp/socat.log /tmp/socat_3306.log
+find /app/xiand/data_xiand -type d -exec chmod 700 {} + 2>/dev/null || true
+find /app/xiand/data_xiand -type f -exec chmod 600 {} + 2>/dev/null || true
+# 创建基础设施日志文件
+touch /tmp/socat.log /tmp/socat_3306.log
 
 # 启动 socat 来将 Unix socket 转发到 TCP MySQL
 rm -f /tmp/.mysql_sock /var/lib/mysql/mysql.sock /run/mysqld/mysqld.sock 2>/dev/null || true

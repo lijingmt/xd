@@ -74,6 +74,7 @@
 <%
   String user = request.getParameter("usid");
   String pswd = request.getParameter("pswd");
+  String clientIp = request.getRemoteAddr();
   String g_key = "";
   g_key=user+"|"+pswd;
   
@@ -118,7 +119,7 @@
 				InputStream reader1 = socket1.getInputStream();
 				OutputStream writer1 = socket1.getOutputStream();
 				String sid2 = (String)session.getId();
-				send(writer1,("login_entrycheck_p "+projname+" "+area+""+user+" "+pswd+" "+sid2).getBytes());
+				send(writer1,("login_entrycheck_p "+projname+" "+area+""+user+" "+pswd+" "+sid2+" "+clientIp).getBytes());
 				send(writer1,"flush_filter".getBytes());
 				socket1.shutdownOutput();
 
@@ -146,7 +147,7 @@
 
 				String sid3 = (String)session.getId();
 
-				send(writer2,("login_regnew_p "+projname+" "+user+" "+pswd+" "+sid3+" "+area).getBytes());
+				send(writer2,("login_regnew_p "+projname+" "+user+" "+pswd+" "+sid3+" "+area+" "+clientIp).getBytes());
 				send(writer2,"flush_filter".getBytes());
 				socket2.shutdownOutput();
 

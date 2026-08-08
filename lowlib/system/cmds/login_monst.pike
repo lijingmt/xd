@@ -6,6 +6,10 @@ int main(string arg)
 	string title = "";
 	title += "=玩家登录=\n";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,lgpswd,userip)==4)){
+		if(path!="gamelib"){
+			write("登录错误！\n");
+			return 1;
+		}
 		if(!path || !user_name || !lgpswd || !userip){
 			title += "登录错误！\n";
 			title += "您输入的用户名和密码不符合规范，请返回重试。\n";

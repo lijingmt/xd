@@ -120,7 +120,7 @@ MySQL Docker 网络访问权限配置
 Docker 容器现在可以使用以下凭证连接 MySQL:
   • 主机: 172.17.0.1 (Docker 网关)
   • 用户: root
-  • 密码: Happy888888
+  • 密码: 通过 `MYSQL_PASSWORD` 环境变量提供
 ```
 
 ### 步骤 2：手动配置（可选）
@@ -134,13 +134,13 @@ mysql -u root -p
 
 ```sql
 -- 为 Docker 网关创建用户
-CREATE USER IF NOT EXISTS 'root'@'172.17.0.1' IDENTIFIED BY 'Happy888888';
+CREATE USER IF NOT EXISTS 'root'@'172.17.0.1' IDENTIFIED BY '<set-a-strong-secret>';
 
 -- 授予所有权限
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'172.17.0.1' WITH GRANT OPTION;
 
 -- 为 Docker 桥接网络创建用户
-CREATE USER IF NOT EXISTS 'root'@'172.18.%' IDENTIFIED BY 'Happy888888';
+CREATE USER IF NOT EXISTS 'root'@'172.18.%' IDENTIFIED BY '<set-a-strong-secret>';
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'172.18.%' WITH GRANT OPTION;
 
 -- 刷新权限
@@ -154,7 +154,7 @@ SELECT user, host FROM mysql.user WHERE user='root';
 
 ```bash
 # 测试 MySQL 连接
-mysql -h 172.17.0.1 -u root -pHappy888888 -e "SHOW DATABASES;"
+mysql -h 172.17.0.1 -u root -p -e "SHOW DATABASES;"
 ```
 
 ---
@@ -225,7 +225,7 @@ ls -la /run/mysqld/mysqld.sock
 docker exec -it xiand-xd01 bash
 
 # 通过 socket 连接 MySQL
-mysql -S /tmp/.mysql_sock -u root -pHappy888888 -e "SHOW DATABASES;"
+mysql -S /tmp/.mysql_sock -u root -p -e "SHOW DATABASES;"
 ```
 
 **成功输出：**
@@ -247,7 +247,7 @@ mysql -S /tmp/.mysql_sock -u root -pHappy888888 -e "SHOW DATABASES;"
 docker exec -it xiand-xd01 bash
 
 # 通过 TCP 连接 MySQL
-mysql -h 172.17.0.1 -u root -pHappy888888 -e "SHOW DATABASES;"
+mysql -h 172.17.0.1 -u root -p -e "SHOW DATABASES;"
 ```
 
 ### 测试 3：Pike 程序测试
@@ -258,7 +258,7 @@ docker exec -it xiand-xd01 bash
 
 # 使用 Pike 测试 MySQL 连接
 pike -e "
-object db = Sql.sql('mysql://root:Happy888888@xd01');
+object db = Sql.sql('mysql://root:<password-from-environment>@xd01');
 write('MySQL 连接成功！\\n');
 array tables = db->list_tables('xd01');
 write('数据库表数量: ' + sizeof(tables) + '\\n');
@@ -467,10 +467,10 @@ docker exec xiand-xd01 bash -c "
 docker exec xiand-xd01 ps aux | grep socat
 
 # 测试 MySQL 连接（容器内）
-docker exec xiand-xd01 mysql -S /tmp/.mysql_sock -u root -pHappy888888 -e "SHOW DATABASES;"
+docker exec -it xiand-xd01 mysql -S /tmp/.mysql_sock -u root -p -e "SHOW DATABASES;"
 
 # 测试 MySQL 连接（宿主机）
-mysql -h 172.17.0.1 -u root -pHappy888888 -e "SHOW DATABASES;"
+mysql -h 172.17.0.1 -u root -p -e "SHOW DATABASES;"
 
 # 查看 socat 日志
 docker exec xiand-xd01 cat /tmp/socat.log
@@ -498,4 +498,4 @@ docker exec xiand-xd01 bash -c "pkill socat && sleep 1 && /app/xiand/start_mysql
 | MySQL 端口 | 3306 |
 | Socket 路径 | /tmp/.mysql_sock |
 | 默认用户 | root |
-| 默认密码 | Happy888888 |
+| 默认密码 | 无；必须通过环境变量提供 |

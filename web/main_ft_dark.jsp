@@ -124,12 +124,12 @@ if(first_login){
 	///////新手注册/////////////////
 	if(_reg!=null&&_reg.equals("1")){
 		String _sid = (String)request.getParameter("_sid");
-		send(writer,("login_check "+projname+" "+userid+" "+passwd+" "+_sid).getBytes("UTF-8"));
+		send(writer,("login_check "+projname+" "+userid+" "+passwd+" "+_sid+" "+request.getRemoteAddr()).getBytes("UTF-8"));
 	}
 	else{
 		//////////老用户登录////////////////
 		String userSessionID = (String)isession.getId();
-		send(writer,("login_check "+projname+" "+userid+" "+passwd+" "+userSessionID).getBytes("UTF-8"));
+		send(writer,("login_check "+projname+" "+userid+" "+passwd+" "+userSessionID+" "+request.getRemoteAddr()).getBytes("UTF-8"));
 	}
 }
 else{

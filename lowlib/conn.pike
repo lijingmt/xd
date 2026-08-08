@@ -15,6 +15,31 @@ object query_filter()
 {
 	return filter;//EFUNSD->player_filter[user];
 }
+
+string query_remote_ip()
+{
+	if(!conn)
+		return "";
+	string address = conn->query_address();
+	if(!address || address=="")
+		return "";
+	array(string) parts = String.trim_all_whites(address)/" ";
+	if(!sizeof(parts))
+		return "";
+	string ip = parts[0];
+	if(sizeof(ip)>=2 && ip[0]=='['){
+		int bracket = search(ip,"]");
+		if(bracket>1)
+			ip = ip[1..bracket-1];
+	}
+	else{
+		string host = "";
+		int port = 0;
+		if(sscanf(ip,"%s:%d",host,port)==2 && search(host,":")==-1)
+			ip = host;
+	}
+	return ip;
+}
 //该write方法其实调用filter进行转换，如果设置了filter的时候
 int write(string s)
 {

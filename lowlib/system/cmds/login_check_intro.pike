@@ -8,6 +8,10 @@ int main(string arg)
 	title += "=娓稿璇曠帺=\n";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,args,userip)==4))
 	{
+		if(path!="gamelib"){
+			write("登录过期\n");
+			return 1;
+		}
 		if(!user_name || !args || !userip)
 		{
 			title += "登录过期\n";

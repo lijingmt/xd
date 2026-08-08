@@ -1,5 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
+
 int main(string arg)
 {
 	//绑定手机号码：me->mobile,安全码:bandpswd
@@ -9,6 +10,10 @@ int main(string arg)
 	string title = "";
 	//send(writer,("login_band "+projname+" "+user+" "+regmobile+" "+bandpswd+" "+game_pre).getBytes());
 	if(arg&&(sscanf(arg,"%s %s %s %s %s",path,user_name,regmobile,bandpswd,game_fg)==5)){
+		if(path!="gamelib" || !registration_rate_limit_allowed()){
+			write("error2");
+			return 1;
+		}
 		if(!user_name || !regmobile || !bandpswd){
 			write("error2");
 			return 1;

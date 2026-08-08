@@ -595,10 +595,9 @@ string execute_core_command(string userid,string password,string cmd)
         destruct(user_key);
     record_world_command_finish(cmd,is_core_command(cmd),started_at,acquired);
     if(err)
-        werror("[HTTP_API][CORE_COMMAND] %s failed for %s: %s\n%s\n",
-            (cmd/" ")[0],userid,describe_error(err),describe_backtrace(err));
+        werror("[HTTP_API][CORE_COMMAND] %s failed\n",(cmd/" ")[0]);
     if(err)
-        return "错误: "+describe_error(err);
+        return "错误: 命令执行失败";
     return result;
 }
 

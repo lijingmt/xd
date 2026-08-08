@@ -8,6 +8,10 @@ int main(string arg)
 	title += "=游客试玩=\n";
 	if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,args,userip)==4))
 	{
+		if(path!="gamelib"){
+			write("登陆过期\n");
+			return 1;
+		}
 		//检查用户名，密码的有效性
 		if(!user_name || !args || !userip)
 		{

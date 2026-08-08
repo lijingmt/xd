@@ -1,4 +1,5 @@
 log/
+.env
 db_bak/
 db_log/
 tmp/

@@ -2,9 +2,16 @@
 
 int main(string arg)
 {
-	string path,user_name;
-        if(arg&&(sscanf(arg,"%s %s",path,user_name)==2))
+	string path,user_name,maintenance_token;
+	string expected_token = getenv("XIAND_MAINTENANCE_TOKEN") || "";
+        if(arg&&(sscanf(arg,"%s %s %s",path,user_name,
+		maintenance_token)==3))
         {
+		if(path!="gamelib" || sizeof(expected_token)<24 ||
+		   maintenance_token!=expected_token){
+			write("error");
+			return 1;
+		}
 		if(!user_name)
 		{
 			write("error");

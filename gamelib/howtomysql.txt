@@ -19,11 +19,11 @@ mysql -u root -p
 #### 2. 创建 Docker 网络用户并授权
 
 ```sql
--- 为 Docker 容器网络创建 root 用户（密码：Happy888888）
-CREATE USER IF NOT EXISTS 'root'@'172.18.%' IDENTIFIED BY 'Happy888888';
+-- 为 Docker 容器网络创建 root 用户（口令必须由安全环境注入）
+CREATE USER IF NOT EXISTS 'root'@'172.18.%' IDENTIFIED BY '<set-a-strong-secret>';
 
 -- 或者为所有 Docker 网络创建用户
-CREATE USER IF NOT EXISTS 'root'@'172.17.0.1' IDENTIFIED BY 'Happy888888';
+CREATE USER IF NOT EXISTS 'root'@'172.17.0.1' IDENTIFIED BY '<set-a-strong-secret>';
 
 -- 授予所有权限
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'172.18.%' WITH GRANT OPTION;
@@ -50,10 +50,10 @@ SELECT user, host FROM mysql.user WHERE user='root';
 
 ```bash
 # 方式 1：通过 Docker 网关
-mysql -h 172.17.0.1 -u root -pHappy888888
+mysql -h 172.17.0.1 -u root -p
 
 # 方式 2：通过 socat 转发的 Unix socket
-mysql -S /tmp/.mysql_sock -u root -pHappy888888
+mysql -S /tmp/.mysql_sock -u root -p
 ```
 
 ### 验证连接
@@ -61,5 +61,5 @@ mysql -S /tmp/.mysql_sock -u root -pHappy888888
 ```bash
 # 在容器内测试
 docker exec -it xiand-xd01 bash
-mysql -h 172.17.0.1 -u root -pHappy888888 -e "SHOW DATABASES;"
+mysql -h 172.17.0.1 -u root -p -e "SHOW DATABASES;"
 ```

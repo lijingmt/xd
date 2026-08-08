@@ -2,9 +2,22 @@
 
 int main(string arg)
 {
-	string path,user_name,queryData;
-        if(arg&&(sscanf(arg,"%s %s %s",path,user_name,queryData)==3))
+	string path,user_name,maintenance_token,queryData;
+	string expected_token = getenv("XIAND_MAINTENANCE_TOKEN") || "";
+        if(arg&&(sscanf(arg,"%s %s %s %s",path,user_name,
+		maintenance_token,queryData)==4))
         {
+		if(path!="gamelib" || sizeof(expected_token)<24 ||
+		   maintenance_token!=expected_token || sizeof(queryData)!=8){
+			write("error");
+			return 1;
+		}
+		for(int n=0;n<sizeof(queryData);n++){
+			if(queryData[n]<'0' || queryData[n]>'9'){
+				write("error");
+				return 1;
+			}
+		}
 		if(!user_name)
 		{
 			write("error");

@@ -115,12 +115,16 @@ check_http_port()
 
 prepare_environment()
 {
+	umask 027
 	if [[ -f "$ROOT_DIR/.env" ]]; then
 		set -a
 		source "$ROOT_DIR/.env"
 		set +a
 	fi
-	export MYSQL_PASSWORD="${MYSQL_PASSWORD:-Happy888888}"
+	if [[ -z "${MYSQL_PASSWORD:-}" ]]; then
+		fail "MYSQL_PASSWORD must be provided through the environment or .env"
+	fi
+	export MYSQL_PASSWORD
 
 	if [[ -z "$PIKE_BIN" ]]; then
 		PIKE_BIN="$(command -v pike || true)"
@@ -143,6 +147,7 @@ prepare_environment()
 prepare_logs()
 {
 	mkdir -p "$ROOT_DIR/log"
+	chmod 750 "$ROOT_DIR/log"
 	if [[ -f "$GAME_LOG" ]]; then
 		local rotated="$GAME_LOG.$(date +%Y%m%d-%H%M%S).restart"
 		mv "$GAME_LOG" "$rotated"
@@ -157,6 +162,8 @@ prepare_logs()
 		gzip -f "$error_rotated" || true
 	fi
 	: > "$RUNTIME_LOG"
+	touch "$GAME_LOG" "$ERROR_LOG"
+	chmod 640 "$RUNTIME_LOG" "$GAME_LOG" "$ERROR_LOG"
 }
 
 start_server()

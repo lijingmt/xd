@@ -8,9 +8,14 @@
 
 # 配置
 MYSQL_USER="root"
-MYSQL_PASSWORD="Happy888888"
+MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"
 DOCKER_NETWORK="172.17.0.1"
 MYSQL_HOST="localhost"
+
+if [ -z "$MYSQL_PASSWORD" ]; then
+    echo "错误：请通过 MYSQL_PASSWORD 环境变量提供数据库密码" >&2
+    exit 1
+fi
 
 echo "======================================"
 echo "MySQL Docker 网络访问权限配置"
@@ -18,9 +23,9 @@ echo "======================================"
 echo ""
 
 # 检查 MySQL 是否运行
-if ! mysqladmin -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" ping -h "$MYSQL_HOST" &>/dev/null; then
+if ! MYSQL_PWD="$MYSQL_PASSWORD" mysqladmin -u "$MYSQL_USER" ping -h "$MYSQL_HOST" &>/dev/null; then
     # 尝试使用 mariadb-admin
-    if ! command -v mariadb-admin &>/dev/null || ! mariadb-admin -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" ping -h "$MYSQL_HOST" &>/dev/null; then
+    if ! command -v mariadb-admin &>/dev/null || ! MYSQL_PWD="$MYSQL_PASSWORD" mariadb-admin -u "$MYSQL_USER" ping -h "$MYSQL_HOST" &>/dev/null; then
         echo "❌ 错误：无法连接到 MySQL/MariaDB"
         echo "   请确保 MySQL/MariaDB 正在运行且用户名/密码正确"
         echo ""
@@ -43,7 +48,7 @@ fi
 
 # 执行授权
 echo "正在配置权限..."
-$MYSQL_CMD -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -h "$MYSQL_HOST" << EOF
+MYSQL_PWD="$MYSQL_PASSWORD" $MYSQL_CMD -u "$MYSQL_USER" -h "$MYSQL_HOST" << EOF
 -- 为 Docker 容器创建或更新 root 用户
 CREATE USER IF NOT EXISTS '$MYSQL_USER'@'$DOCKER_NETWORK' IDENTIFIED BY '$MYSQL_PASSWORD';
 
@@ -68,14 +73,13 @@ if [ $? -eq 0 ]; then
     echo "✅ MySQL 权限配置完成"
     echo "======================================"
     echo ""
-    echo "Docker 容器现在可以使用以下凭证连接 MySQL:"
+echo "Docker 容器现在可以使用已配置的凭证连接 MySQL:"
     echo "  • 主机: 172.17.0.1 (Docker 网关)"
     echo "  • 用户: $MYSQL_USER"
-    echo "  • 密码: $MYSQL_PASSWORD"
     echo ""
     echo "测试连接："
     echo "  docker exec -it xiand-xd01 bash"
-    echo "  mysql -h 172.17.0.1 -u $MYSQL_USER -p$MYSQL_PASSWORD -e \"SHOW DATABASES;\""
+    echo "  mysql -h 172.17.0.1 -u $MYSQL_USER -p -e \"SHOW DATABASES;\""
     echo ""
 else
     echo ""
