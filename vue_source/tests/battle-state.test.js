@@ -496,85 +496,18 @@ assert.strictEqual(client.playerAvatarFailed, true);
   client.isInBattle = false;
   client.battleStatusInterval = null;
 
-  const originalCheckBattleStatus = client.checkBattleStatus;
-  const originalPrepareMudOutputAnimation = client.prepareMudOutputAnimation;
-  const originalHandleNarrativeEffects = client.handleNarrativeEffects;
-  const originalParseBattleActions = client.parseBattleActions;
-  const originalHandleCopyCommands = client.handleCopyCommands;
-  const originalProcessInviteLinkPlaceholder = client.processInviteLinkPlaceholder;
-  let autofightViewUrl = '';
-  let forcedBattleCheck = false;
   client.showLogin = false;
   client.showCharacterSelect = false;
   client.useJsonMode = true;
   client.mudLoading = false;
   client.playerStats = { autofight: 1 };
-  client.autofightViewSequence = 0;
-  client.autofightViewGeneration = '';
-  client.prepareMudOutputAnimation = () => {};
-  client.handleNarrativeEffects = () => {};
-  client.parseBattleActions = () => {};
-  client.handleCopyCommands = () => {};
-  client.processInviteLinkPlaceholder = () => {};
-  client.checkBattleStatus = async force => {
-    forcedBattleCheck = force;
-  };
-  sandbox.fetch = async url => {
-    autofightViewUrl = String(url);
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        generation: 'server-run-1',
-        sequence: 7,
-        lines: [{
-          segments: [{
-            type: 'text',
-            parts: [{ content: '你对妖狼发动攻击，造成128点伤害。' }]
-          }]
-        }]
-      })
-    };
+  sentCommand = '';
+  client.sendJsonCommand = async command => {
+    sentCommand = command;
   };
   await client.runAutofightTick();
-  assert(autofightViewUrl.includes('/api/autofight_view?'));
-  assert(autofightViewUrl.includes('after=0'));
-  assert(autofightViewUrl.includes('generation='));
-  assert.strictEqual(client.autofightViewGeneration, 'server-run-1');
-  assert.strictEqual(client.autofightViewSequence, 7);
-  assert.strictEqual(
-    client.mudLines[0].segments[0].parts[0].content,
-    '你对妖狼发动攻击，造成128点伤害。'
-  );
-  assert.strictEqual(forcedBattleCheck, true);
+  assert.strictEqual(sentCommand, 'flushview');
   assert.strictEqual(client.autofightTickInFlight, false);
-  sandbox.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      generation: 'server-run-2',
-      sequence: 1,
-      lines: [{
-        segments: [{
-          type: 'text',
-          parts: [{ content: '服务端重启后继续战斗。' }]
-        }]
-      }]
-    })
-  });
-  await client.runAutofightTick();
-  assert.strictEqual(client.autofightViewGeneration, 'server-run-2');
-  assert.strictEqual(client.autofightViewSequence, 1);
-  assert.strictEqual(
-    client.mudLines[0].segments[0].parts[0].content,
-    '服务端重启后继续战斗。'
-  );
-  client.checkBattleStatus = originalCheckBattleStatus;
-  client.prepareMudOutputAnimation = originalPrepareMudOutputAnimation;
-  client.handleNarrativeEffects = originalHandleNarrativeEffects;
-  client.parseBattleActions = originalParseBattleActions;
-  client.handleCopyCommands = originalHandleCopyCommands;
-  client.processInviteLinkPlaceholder = originalProcessInviteLinkPlaceholder;
 
   sandbox.fetch = async () => ({
     ok: true,

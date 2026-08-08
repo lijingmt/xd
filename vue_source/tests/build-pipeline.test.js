@@ -177,12 +177,11 @@ assert(indexSource.includes('playerStats.level_can_progress'));
 
 const appSource = read('vue_source/js/app.js');
 const cssSource = read('vue_source/css/app.css');
-assert(appSource.includes('服务端主 Backend 推进'));
 assert(appSource.includes("'/api/ping?txd='"));
 assert(appSource.includes("document.visibilityState === 'visible'"));
-assert(!appSource.includes("document.visibilityState === 'hidden'"));
-assert(appSource.includes('/api/autofight_view?'));
-assert(!appSource.includes("sendJsonCommand('flushview')"));
+assert(appSource.includes("document.visibilityState === 'hidden'"));
+assert(!appSource.includes('/api/autofight_view?'));
+assert(appSource.includes("sendJsonCommand('flushview')"));
 assert(/setInterval\s*\(\s*\(\)\s*=>\s*\{[\s\S]{0,120}runAutofightTick/.test(appSource));
 assert(appSource.includes('clearInterval(this.autofightInterval)'));
 assert(appSource.includes('pendingTeamInvite.pending'));

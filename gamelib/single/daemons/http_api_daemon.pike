@@ -649,9 +649,6 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/autofight":
                 handle_api_autofight(req);
                 break;
-            case "/api/autofight_view":
-                handle_api_autofight_view(req);
-                break;
             case "/api/async":
                 handle_api_async(req);
                 break;
@@ -2070,10 +2067,6 @@ void handle_api_status(Protocols.HTTP.Server.Request req)
         return;
     }
 
-    if(functionp(player->query_autofight) &&
-       player->query_autofight() == "enable")
-        AUTOFIGHTD->ensure_server_autofight_tick(player);
-
     mapping result = query_player_state(player);
     send_json(req, result);
 }
@@ -2104,82 +2097,7 @@ void handle_api_ping(Protocols.HTTP.Server.Request req)
         send_json(req, ([ "error": "玩家未登录" ]), 401);
         return;
     }
-    if(functionp(player->query_autofight) &&
-       player->query_autofight() == "enable")
-        AUTOFIGHTD->ensure_server_autofight_tick(player);
     send_json(req, ([ "ok":1, "timestamp":time() ]));
-}
-
-/**
- * 读取服务端挂机 tick 已生成的最新画面。
- * 该接口不执行 MUD 命令、不推进战斗，也不更新玩家闲置时间。
- */
-void handle_api_autofight_view(Protocols.HTTP.Server.Request req)
-{
-    mapping params = get_params(req);
-    string txd = url_decode(params["txd"]);
-    mapping auth;
-    mapping snapshot;
-    mapping forced_logout;
-    object player;
-    string userid;
-    string output;
-    string after_generation;
-    string generation;
-    int after_sequence;
-    int sequence;
-    array(mapping) lines = ({});
-
-    if(!txd || txd == "" || txd == " ") {
-        send_json(req, ([ "error": "需要认证信息：txd" ]), 400);
-        return;
-    }
-    auth = decode_txd(txd);
-    if(!auth) {
-        send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
-        return;
-    }
-    userid = (string)auth["userid"];
-    player = get_player_from_connection(userid,0);
-    if(!player) {
-        forced_logout = ACCOUNT_CHARACTERD->
-            query_recent_forced_logout(userid);
-        if((int)forced_logout["forced_logout"])
-            send_json(req,forced_logout,409);
-        else
-            send_json(req, ([ "error": "玩家未登录" ]), 401);
-        return;
-    }
-
-    after_sequence = (int)params["after"];
-    after_generation = (string)params["generation"];
-    generation = AUTOFIGHTD->query_server_autofight_view_generation();
-    snapshot = AUTOFIGHTD->query_server_autofight_view(player);
-    sequence = (int)snapshot["sequence"];
-    if(sequence <= 0 || (generation == after_generation &&
-       sequence <= after_sequence)) {
-        send_json(req, ([
-            "lines":lines,
-            "userid":userid,
-            "sequence":sequence,
-            "generation":generation,
-            "unchanged":1,
-            "timestamp":time(),
-        ]));
-        return;
-    }
-    output = (string)snapshot["output"];
-    if(output != "")
-        lines = parse_mud_to_json(output,txd,userid);
-    send_json(req, ([
-        "lines":lines,
-        "userid":userid,
-        "sequence":sequence,
-        "generation":generation,
-        "updated_at":(int)snapshot["updated_at"],
-        "active":(int)snapshot["active"],
-        "timestamp":time(),
-    ]));
 }
 
 /**

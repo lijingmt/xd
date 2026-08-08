@@ -15,8 +15,6 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_CONFIG_VERSION 8
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
-#define AUTOFIGHT_SERVER_TICK_SECONDS 1
-#define AUTOFIGHT_FINAL_VIEW_SECONDS 30
 
 private array(string) auto_buff_kinds = ({
 	"attri_base",
@@ -38,147 +36,6 @@ private array(string) auto_buff_kinds = ({
 
 private int autofight_scan_count;
 private int autofight_scan_deferred_objects;
-private mapping(string:int) server_autofight_epochs = ([]);
-private mapping(string:mapping(string:mixed)) server_autofight_views = ([]);
-private int next_server_autofight_epoch;
-private int next_server_autofight_view_sequence;
-private string server_autofight_view_generation;
-
-private void expire_server_autofight_view(string userid,int sequence)
-{
-	mapping(string:mixed) snapshot;
-	if(!userid || userid == "")
-		return;
-	snapshot = server_autofight_views[userid];
-	if(snapshot && (int)snapshot["sequence"] == sequence &&
-	   !(int)snapshot["active"])
-		m_delete(server_autofight_views,userid);
-}
-
-private void record_server_autofight_view(string userid,string output,
-	int epoch,int active)
-{
-	int sequence;
-	if(!userid || userid == "" || !output || output == "" ||
-	   has_prefix(output,"错误:"))
-		return;
-	next_server_autofight_view_sequence++;
-	if(next_server_autofight_view_sequence <= 0)
-		next_server_autofight_view_sequence = 1;
-	sequence = next_server_autofight_view_sequence;
-	server_autofight_views[userid] = ([
-		"output":output,
-		"sequence":sequence,
-		"updated_at":time(),
-		"epoch":epoch,
-		"active":active,
-	]);
-	// 自动停止发生在 flushview 内部。保留最后一帧，让浏览器能显示
-	// 停止原因；重新开启会产生新 sequence，不会被旧清理任务误删。
-	if(!active)
-		call_out(expire_server_autofight_view,
-			AUTOFIGHT_FINAL_VIEW_SECONDS,userid,sequence);
-}
-
-private void run_server_autofight_tick(string userid,int epoch)
-{
-	object me;
-	string view_output;
-	int active;
-	mixed err;
-	if(!server_autofight_epochs[userid] ||
-	   server_autofight_epochs[userid] != epoch)
-		return;
-	me = HTTP_APID->get_player_from_connection(userid,0);
-	if(!me || !functionp(me->query_autofight) ||
-	   me->query_autofight() != "enable"){
-		m_delete(server_autofight_epochs,userid);
-		m_delete(server_autofight_views,userid);
-		return;
-	}
-	// 浏览器只负责展示状态。挂机推进始终由主 Backend 执行，继续复用
-	// HTTP 核心命令的账号锁和世界锁，避免后台标签页计时器被节流后停战。
-	// 此处已确认虚拟连接存在，不把可逆密码继续传入内部调用栈。
-	view_output = "";
-	err = catch {
-		view_output = HTTP_APID->execute_core_command(
-			userid,"","flushview");
-	};
-	if(err)
-		werror("[AUTOFIGHT] server tick failed for %s: %s\n",
-			userid,describe_error(err));
-	active = server_autofight_epochs[userid] == epoch &&
-		me && functionp(me->query_autofight) &&
-		me->query_autofight() == "enable";
-	if(!err)
-		record_server_autofight_view(userid,view_output,epoch,active);
-	if(active)
-		call_out(run_server_autofight_tick,
-			AUTOFIGHT_SERVER_TICK_SECONDS,userid,epoch);
-}
-
-void ensure_server_autofight_tick(object me)
-{
-	string userid;
-	int epoch;
-	if(!me || !functionp(me->query_name))
-		return;
-	userid = (string)me->query_name();
-	if(userid == "" || server_autofight_epochs[userid])
-		return;
-	if(!HTTP_APID || !functionp(HTTP_APID->has_virtual_connection) ||
-	   !HTTP_APID->has_virtual_connection(userid))
-		return;
-	next_server_autofight_epoch++;
-	if(next_server_autofight_epoch <= 0)
-		next_server_autofight_epoch = 1;
-	epoch = next_server_autofight_epoch;
-	m_delete(server_autofight_views,userid);
-	server_autofight_epochs[userid] = epoch;
-	call_out(run_server_autofight_tick,
-		AUTOFIGHT_SERVER_TICK_SECONDS,userid,epoch);
-}
-
-void cancel_server_autofight_tick(object me)
-{
-	string userid;
-	if(!me || !functionp(me->query_name))
-		return;
-	userid = (string)me->query_name();
-	if(userid != ""){
-		m_delete(server_autofight_epochs,userid);
-		m_delete(server_autofight_views,userid);
-	}
-}
-
-int query_server_autofight_tick_active(object me)
-{
-	string userid;
-	if(!me || !functionp(me->query_name))
-		return 0;
-	userid = (string)me->query_name();
-	return userid != "" && server_autofight_epochs[userid] > 0;
-}
-
-mapping(string:mixed) query_server_autofight_view(object me)
-{
-	string userid;
-	mapping(string:mixed) snapshot;
-	if(!me || !functionp(me->query_name))
-		return ([]);
-	userid = (string)me->query_name();
-	if(userid == "")
-		return ([]);
-	snapshot = server_autofight_views[userid];
-	if(!snapshot)
-		return ([]);
-	return copy_value(snapshot);
-}
-
-string query_server_autofight_view_generation()
-{
-	return server_autofight_view_generation;
-}
 
 private array(mapping(string:mixed)) smart_training_routes = ({
 	([
@@ -422,8 +279,6 @@ private void build_training_route_cache()
 
 protected void create()
 {
-	server_autofight_view_generation = sprintf("%d-%d",
-		time(),random(1000000000));
 	build_training_route_cache();
 }
 
@@ -2273,14 +2128,12 @@ void start_autofight(object me)
 	reset_scan_state(me);
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
-	ensure_server_autofight_tick(me);
 }
 
 void stop_autofight(object me)
 {
 	if(!me)
 		return;
-	cancel_server_autofight_tick(me);
 	me["/tmp/autofight_last_charge"] = 0;
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
@@ -2310,10 +2163,12 @@ int charge_time(object me)
 	elapsed = now-last;
 	if(elapsed <= 0)
 		return query_time_left(me);
-	// 主 Backend 持续推进挂机；若事件循环短时拥塞，最多补扣 30 秒，
-	// 不能再利用 31 秒以上的间隔永久跳过每日挂机时长扣减。
-	if(elapsed > 30)
-		elapsed = 30;
+	// 如果距上次扣费超过 30 秒，说明玩家离线/浏览器后台节流/网络断开，
+	// 这段时间没有实际挂机（没杀怪没涨经验），不应消耗每日时间。
+	if(elapsed > 30){
+		me["/tmp/autofight_last_charge"] = now;
+		return query_time_left(me);
+	}
 	left = query_time_left(me)-elapsed;
 	if(left < 0)
 		left = 0;
