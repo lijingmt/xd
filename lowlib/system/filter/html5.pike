@@ -45,7 +45,7 @@ string net_dead()
 {
 	//werror("\n555555555555555555555 html5.pike net_dead call 555555555555555555555555555555\n");
 	//out+="</html>";
-	out+="</body></html>";
+	out+="<script src=\"includes/game-number-format.js\"></script></body></html>";
 	input=({});
 	string o=out;
 	out="";

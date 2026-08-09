@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786204036167">
-    <link rel="stylesheet" href="css/app.css?v=v1786204036167">
-    <link rel="stylesheet" href="css/realm.css?v=v1786204036167">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786235223703">
+    <link rel="stylesheet" href="css/app.css?v=v1786235223703">
+    <link rel="stylesheet" href="css/realm.css?v=v1786235223703">
 </head>
 <body>
     <div id="app">
@@ -267,7 +267,9 @@
                         </small>
                         <small v-else>钱包数据异常，当前已安全停止共享消费</small>
                     </span>
-                    <em>{{ formatCompactNumber(accountSharedRechargeBalance) }} 碎玉</em>
+                    <em :title="'精确值：' + formatExactGameNumber(accountSharedRechargeBalance)">
+                        {{ formatGameNumber(accountSharedRechargeBalance) }} 碎玉
+                    </em>
                 </div>
 
                 <div class="character-grid" v-if="!characterCreateOpen">
@@ -440,7 +442,8 @@
                                 <div class="bar-fill hp-bar"
                                      :style="{ width: getStatPercent(playerStats.hp, playerStats.hp_max) + '%' }"></div>
                             </div>
-                            <span class="stat-value">{{ formatCompactNumber(playerStats.hp) }}</span>
+                            <span class="stat-value"
+                                  :title="'精确值：' + formatExactGameNumber(playerStats.hp)">{{ formatGameNumber(playerStats.hp) }}</span>
                         </div>
                         <div class="stat-bar"
                              role="progressbar"
@@ -453,7 +456,8 @@
                                 <div class="bar-fill mana-bar"
                                      :style="{ width: getStatPercent(playerStats.mana, playerStats.mana_max) + '%' }"></div>
                             </div>
-                            <span class="stat-value">{{ formatCompactNumber(playerStats.mana) }}</span>
+                            <span class="stat-value"
+                                  :title="'精确值：' + formatExactGameNumber(playerStats.mana)">{{ formatGameNumber(playerStats.mana) }}</span>
                         </div>
                         <div class="stat-bar"
                              role="progressbar"
@@ -466,7 +470,8 @@
                                 <div class="bar-fill energy-bar"
                                      :style="{ width: Math.min(100, Math.max(0, Number(playerStats.energy) || 0)) + '%' }"></div>
                             </div>
-                            <span class="stat-value">{{ formatCompactNumber(playerStats.energy) }}</span>
+                            <span class="stat-value"
+                                  :title="'精确值：' + formatExactGameNumber(playerStats.energy)">{{ formatGameNumber(playerStats.energy) }}</span>
                         </div>
                         <!-- 当前生效的丹药/特药 buff：名称 + 剩余分钟 -->
                         <div class="active-buffs"
@@ -566,6 +571,10 @@
                                 <span class="menu-icon">{{ soundEffectsEnabled ? '🔊' : '🔇' }}</span>
                                 <span>游戏音效：{{ soundEffectsEnabled ? '开启' : '关闭' }}</span>
                             </button>
+                            <button type="button" class="menu-item" @click="toggleCompactGameNumbers">
+                                <span class="menu-icon">{{ compactGameNumbers ? '万' : '123' }}</span>
+                                <span>数值显示：{{ compactGameNumbers ? '中文缩写' : '精确数值' }}</span>
+                            </button>
                             <button type="button" class="menu-item" @click="startUiTour">
                                 <span class="menu-icon">🧭</span>
                                 <span>界面引导</span>
@@ -615,7 +624,7 @@
                      role="status"
                      aria-live="polite">
                     <span class="ui-toast-dot" aria-hidden="true"></span>
-                    <span>{{ uiToast.message }}</span>
+                    <span v-html="renderGameText(uiToast.message)"></span>
                     <button v-if="uiToast.actionCommand || uiToast.actionCallback"
                             type="button"
                             class="ui-toast-action"
@@ -670,9 +679,9 @@
                 <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
                 <span class="pet-assist-copy">
                     <strong>{{ petAssistEffect.owner_name ? petAssistEffect.owner_name + '的' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
-                    <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
-                    <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
-                    <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                    <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatGameNumber(petAssistEffect.amount) }}</small>
+                    <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
+                    <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
                     <small v-else>灵宠显化，陪伴主人作战</small>
                 </span>
             </div>
@@ -778,7 +787,7 @@
                                            @click="handleMudButtonClick($event, segment.cmd)"
                                            :class="segment.class"
                                            class="mud-btn"
-                                           v-html="segment.label"></a>
+                                           v-html="renderGameText(segment.label, true)"></a>
                                         <!-- 输入框 -->
                                         <span v-else-if="segment.type === 'input'" class="mud-input-group">
                                             <input :type="segment.isPassword ? 'password' : 'text'"
@@ -799,7 +808,8 @@
                                            href="#"
                                            @click.prevent="submitForm(segment)"
                                            :class="segment.class"
-                                           class="mud-btn mud-form-submit-btn">{{ segment.label }}</a>
+                                           class="mud-btn mud-form-submit-btn"
+                                           v-html="renderGameText(segment.label)"></a>
                                         <!-- 命令输入框 -->
                                         <span v-else-if="segment.type === 'cmd-input'" class="mud-cmd-input">
                                             <input type="text"
@@ -814,7 +824,8 @@
                                         <a v-else-if="segment.type === 'url-link'"
                                            :href="segment.url"
                                            target="_top"
-                                           class="mud-btn mud-url">{{ segment.text }}</a>
+                                           class="mud-btn mud-url"
+                                           v-html="renderGameText(segment.text)"></a>
                                     </template>
                                 </template>
                             </div>
@@ -871,9 +882,9 @@
                     <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
                     <span class="pet-assist-copy">
                         <strong>{{ petAssistEffect.mode === 'pvp' ? '御灵交锋·' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
-                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatCompactNumber(petAssistEffect.amount) }}</small>
-                        <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
-                        <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatCompactNumber(petAssistEffect.amount) }}</small>
+                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatGameNumber(petAssistEffect.amount) }}</small>
+                        <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
+                        <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
                         <small v-else>与你并肩，静候时机</small>
                     </span>
                 </div>
@@ -900,10 +911,10 @@
                               :key="target.name + '-' + index"
                               class="battle-aoe-target"
                               :class="{ defeated: target.defeated, revived: target.revived, missed: !target.hit }"
-                              :title="target.name + ' · 伤害' + formatCompactNumber(target.damage)">
+                              :title="target.name + ' · 精确伤害' + formatExactGameNumber(target.damage)">
                             <span>{{ target.defeated ? '✓' : (target.revived ? '↻' : (target.hit ? '•' : '×')) }}</span>
                             <span>{{ target.name }}</span>
-                            <span>{{ target.defeated ? '击败' : (target.revived ? '复苏' : (target.hit ? '-' + formatCompactNumber(target.damage) : '抵抗')) }}</span>
+                            <span>{{ target.defeated ? '击败' : (target.revived ? '复苏' : (target.hit ? '-' + formatGameNumber(target.damage) : '抵抗')) }}</span>
                         </span>
                     </div>
                 </div>
@@ -1053,7 +1064,7 @@
                                     <span class="combatant-name enemy-name">{{ battleEnemy?.name || '目标识别中' }}</span>
                                     <span class="battle-level" v-if="battleEnemy?.level !== undefined">Lv.{{ battleEnemy.level }}</span>
                                 </div>
-                                <span class="hp-text-small">{{ formatCompactNumber(battleEnemy?.hp ?? 0) }}/{{ formatCompactNumber(battleEnemy?.hpMax ?? 0) }}</span>
+                                <span class="hp-text-small">{{ formatGameNumber(battleEnemy?.hp ?? 0) }}/{{ formatGameNumber(battleEnemy?.hpMax ?? 0) }}</span>
                             </div>
                             <div class="hp-bar-wrapper-vertical">
                                 <div class="hp-bar-track-vertical">
@@ -1063,8 +1074,8 @@
                             <div class="combatant-stats enemy-detail-stats" v-if="battleEnemyFull">
                                 <span class="stat-item">职业: {{ battleEnemyFull.profe || '怪物' }}</span>
                                 <span class="stat-item" v-if="battleEnemyFull.race">阵营: {{ battleEnemyFull.race }}</span>
-                                <span class="stat-item">攻击: {{ formatCompactNumber(battleEnemyFull.attack_low ?? battleEnemyFull.attack ?? 0) }}<template v-if="battleEnemyFull.attack_high !== undefined && battleEnemyFull.attack_high !== battleEnemyFull.attack_low">-{{ formatCompactNumber(battleEnemyFull.attack_high) }}</template></span>
-                                <span class="stat-item">防御: {{ formatCompactNumber(battleEnemyFull.defend || 0) }}</span>
+                                <span class="stat-item">攻击: {{ formatGameNumber(battleEnemyFull.attack_low ?? battleEnemyFull.attack ?? 0) }}<template v-if="battleEnemyFull.attack_high !== undefined && battleEnemyFull.attack_high !== battleEnemyFull.attack_low">-{{ formatGameNumber(battleEnemyFull.attack_high) }}</template></span>
+                                <span class="stat-item">防御: {{ formatGameNumber(battleEnemyFull.defend || 0) }}</span>
                             </div>
                         </div>
 
@@ -1075,7 +1086,7 @@
                             <div class="battle-animation-layer">
                                 <div v-for="anim in battleAnimations" :key="anim.id" class="battle-animation" :class="getAnimationClass(anim)">
                                     <span class="animation-value" :class="{ 'critical': anim.isCritical }">
-                                        {{ anim.type === 'heal' ? '+' : '-' }}{{ formatCompactNumber(anim.value) }}
+                                        {{ anim.type === 'heal' ? '+' : '-' }}{{ formatGameNumber(anim.value) }}
                                     </span>
                                 </div>
                             </div>
@@ -1089,7 +1100,7 @@
                                     <span class="combatant-name player-name">{{ battlePlayerFull?.name_cn || playerStats?.name_cn || loginForm.userid }}</span>
                                     <span class="battle-level">Lv.{{ battlePlayerFull?.level ?? playerStats?.level ?? 0 }}</span>
                                 </div>
-                                <span class="hp-text-small">{{ formatCompactNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatCompactNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}</span>
+                                <span class="hp-text-small">{{ formatGameNumber(battlePlayerFull?.hp ?? playerStats?.hp ?? 0) }}/{{ formatGameNumber(battlePlayerFull?.hp_max ?? playerStats?.hp_max ?? 0) }}</span>
                             </div>
                             <div v-if="battlePet"
                                  class="battle-pet-companion battle-pet-companion-full"
@@ -1097,7 +1108,7 @@
                                 <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                                 <span class="battle-pet-info">
                                     <strong>{{ battlePet.name }} · {{ battlePet.role }} · {{ getPetCultivationLabel(battlePet) }}</strong>
-                                    <small>{{ battlePet.skill }} · 战力{{ formatCompactNumber(battlePet.power || 0) }} · {{ getPetAssistStatus(battlePet) }}</small>
+                                    <small>{{ battlePet.skill }} · 战力{{ formatGameNumber(battlePet.power || 0) }} · {{ getPetAssistStatus(battlePet) }}</small>
                                 </span>
                                 <span class="battle-pet-cooldown" role="progressbar"
                                       :aria-label="battlePet.name + '协战准备进度'"
@@ -1118,11 +1129,11 @@
                                 </div>
                             </div>
                             <div class="combatant-stats player-detail-stats" v-if="battlePlayerFull">
-                                <span class="stat-item">法力: {{ formatCompactNumber(battlePlayerFull.mana || 0) }}/{{ formatCompactNumber(battlePlayerFull.mana_max || 0) }}</span>
-                                <span class="stat-item">精力: {{ formatCompactNumber(battlePlayerFull.energy || 0) }}</span>
+                                <span class="stat-item">法力: {{ formatGameNumber(battlePlayerFull.mana || 0) }}/{{ formatGameNumber(battlePlayerFull.mana_max || 0) }}</span>
+                                <span class="stat-item">精力: {{ formatGameNumber(battlePlayerFull.energy || 0) }}</span>
                                 <span class="stat-item">职业: {{ battlePlayerFull.profe || '未知' }}</span>
                                 <span class="stat-item">阵营: {{ battlePlayerFull.race || '未知' }}</span>
-                                <span class="stat-item guard-stat" v-if="battlePlayerFull.guard_active">🛡 山河壁: {{ formatCompactNumber(battlePlayerFull.guard || 0) }} · {{ battlePlayerFull.guard_time || 0 }}秒</span>
+                                <span class="stat-item guard-stat" v-if="battlePlayerFull.guard_active">🛡 山河壁: {{ formatGameNumber(battlePlayerFull.guard || 0) }} · {{ battlePlayerFull.guard_time || 0 }}秒</span>
                                 <span class="stat-item star-mark-stat" v-if="battlePlayerFull.profe === '天象'">✦ 星痕: {{ battlePlayerFull.star_marks || 0 }}/{{ battlePlayerFull.star_marks_max || 3 }} · 15秒内刷新</span>
 								<span class="stat-item star-mark-stat medicine-pact-status" v-if="battlePlayerFull.profe === '灵医'">✚ 药契: {{ battlePlayerFull.medicine_pacts || 0 }}/{{ battlePlayerFull.medicine_pacts_max || 3 }} · 20秒内刷新</span>
 								<span class="stat-item star-mark-stat lingyi-revive-status" v-if="battlePlayerFull.profe === '灵医'">♻ 百炼复苏: {{ battlePlayerFull.lingyi_revive?.remaining || 0 }}/{{ battlePlayerFull.lingyi_revive?.maximum || 0 }} · 满段{{ battlePlayerFull.lingyi_revive?.mastered || 0 }}门</span>
@@ -1165,7 +1176,7 @@
                             >
                                 <span class="perform-name">{{ perform.name_cn }}</span>
                                 <span class="perform-cost" v-if="perform.neili_cost > 0">
-                                    ⚡ {{ perform.neili_cost }}
+                                    ⚡ {{ formatGameNumber(perform.neili_cost) }}
                                 </span>
                                 <span class="perform-req" v-if="perform.level_req > 0">
                                     需Lv.{{ perform.level_req }}
@@ -1186,7 +1197,7 @@
                         <div class="battle-log-list">
                             <div v-for="(log, index) in battleLog" :key="index" class="battle-log-item" :class="'log-' + log.type">
                                 <span class="log-time">{{ log.timestamp }}</span>
-                                <span class="log-message">{{ log.message }}</span>
+                                <span class="log-message" v-html="renderGameText(log.message)"></span>
                             </div>
                             <div v-if="battleLog.length === 0" class="battle-log-empty">暂无战斗记录</div>
                         </div>
@@ -1224,7 +1235,7 @@
                     </h3>
                     <div class="newbie-completion-reward">
                         <span>🎁</span>
-                        <span>{{ activeNewbieCompletion.reward }}</span>
+                        <span v-html="renderGameText(activeNewbieCompletion.reward)"></span>
                     </div>
                     <div class="newbie-completion-next"
                          v-if="activeNewbieCompletion.code === 4">
@@ -1554,18 +1565,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786204036167"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786204036167"></script>
-    <script src="vendor/howler.core.min.js?v=v1786204036167"></script>
-    <script src="vendor/driver.iife.js?v=v1786204036167"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786235223703"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786235223703"></script>
+    <script src="vendor/howler.core.min.js?v=v1786235223703"></script>
+    <script src="vendor/driver.iife.js?v=v1786235223703"></script>
+    <script src="../includes/game-number-format.js?v=v1786235223703" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786204036167';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786235223703';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786204036167"></script>
+    <script src="js/app.js?v=v1786235223703"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786204036167"></script>
+    <script src="../includes/translate.js?v=v1786235223703"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

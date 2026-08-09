@@ -360,6 +360,7 @@ createApp({
             timedEventInviteBusy: false,
             // 语言选择
             selectedLanguage: localStorage.getItem('userLanguage') || 'chinese_simplified',  // 当前选择的语言
+            compactGameNumbers: localStorage.getItem('compact_game_numbers') !== '0',
             isInitializing: true  // 初始化标志，防止初始化时触发changeLanguage
         };
     },
@@ -396,41 +397,62 @@ createApp({
             return Math.min(100, Math.max(0, value / max * 100));
         },
 
-        formatCompactNumber(value) {
+        formatGameNumber(value, options = {}) {
+            const settings = {
+                ...options,
+                compact: this.compactGameNumbers
+            };
+            if (typeof GameNumberFormat !== 'undefined') {
+                return GameNumberFormat.formatNumber(value, settings);
+            }
             const number = Number(value);
-            if (!Number.isFinite(number)) {
-                return '0';
-            }
-            const absolute = Math.abs(number);
-            const units = [
-                { value: 1e16, label: '京' },
-                { value: 1e12, label: '万亿' },
-                { value: 1e8, label: '亿' },
-                { value: 1e4, label: '万' }
-            ];
-            const unit = units.find(item => absolute >= item.value);
-            if (!unit) {
-                return Math.round(number).toLocaleString('zh-CN');
-            }
-            const compact = number / unit.value;
-            const digits = Math.abs(compact) >= 100 ? 0 :
-                (Math.abs(compact) >= 10 ? 1 : 2);
-            return compact.toFixed(digits).replace(/\.?0+$/, '') + unit.label;
+            return Number.isFinite(number) ? number.toLocaleString('zh-CN') : '0';
         },
 
-        // 迷你战斗小窗专用：零小数 + 加"千"档，避免"1.23万/1.23万"挤在一起。
-        // 全屏模式仍用 formatCompactNumber 保留精度。
-        formatMiniNumber(value) {
+        formatExactGameNumber(value) {
+            if (typeof GameNumberFormat !== 'undefined') {
+                return GameNumberFormat.formatExactNumber(value);
+            }
             const number = Number(value);
-            if (!Number.isFinite(number)) return '0';
-            const absolute = Math.abs(number);
-            const sign = number < 0 ? '-' : '';
-            if (absolute < 1000) return sign + Math.round(absolute).toString();
-            // 千档用 floor，避免 9999 被四舍五入成"10千"
-            if (absolute < 10000) return sign + Math.floor(absolute / 1000) + '千';
-            if (absolute < 1e8) return sign + Math.round(absolute / 1e4) + '万';
-            if (absolute < 1e12) return sign + Math.round(absolute / 1e8) + '亿';
-            return sign + Math.round(absolute / 1e12) + '万亿';
+            return Number.isFinite(number) ? number.toLocaleString('zh-CN') : '0';
+        },
+
+        renderGameText(value, allowHtml = false) {
+            if (value === null || value === undefined) return '';
+            if (typeof GameNumberFormat !== 'undefined') {
+                return GameNumberFormat.formatText(value, {
+                    compact: this.compactGameNumbers,
+                    allowHtml: allowHtml
+                });
+            }
+            const text = String(value);
+            if (allowHtml) return text;
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        },
+
+        toggleCompactGameNumbers() {
+            this.compactGameNumbers = !this.compactGameNumbers;
+            if (typeof GameNumberFormat !== 'undefined') {
+                GameNumberFormat.setCompactEnabled(this.compactGameNumbers);
+            } else {
+                localStorage.setItem('compact_game_numbers', this.compactGameNumbers ? '1' : '0');
+            }
+            if (!this.useJsonMode) this.refreshFrame();
+        },
+
+        // 保留旧方法名，历史组件也统一走 GameNumberFormat。
+        formatCompactNumber(value) {
+            return this.formatGameNumber(value);
+        },
+
+        // 迷你战斗小窗限制小数位，单位与全局规则保持一致。
+        formatMiniNumber(value) {
+            return this.formatGameNumber(value, { maxFractionDigits: 0 });
         },
 
         // HP/MP 变化时短暂染色，扣血/扣蓝触发 .damage-taken 红闪。
@@ -2685,8 +2707,8 @@ createApp({
                         inSpan = false;
                     }
                 } else if (part.type === 'text') {
-                    // 解析 [imgurl picture:...] 格式为图片
-                    html += this.parseInlineImages(part.content);
+                    // 先统一缩写展示数值，再解析 [imgurl picture:...] 图片。
+                    html += this.parseInlineImages(this.renderGameText(part.content, true));
                 }
             }
             if (inSpan) html += '</span>';
@@ -2735,10 +2757,23 @@ createApp({
             if (!text) return '';
             // 匹配 [label:command argument] 格式
             // command 后面可能有空格和参数
-            return text.replace(/\[([^\]]+?):([^\]]+?)\s+([^\]]+)\]/g, (match, label, command, arg) => {
-                // 创建可点击的链接按钮
-                return `<span class="chat-link" data-command="${command} ${arg}" onclick="handleChatLinkClick(this)">${label}</span>`;
-            });
+            const source = String(text);
+            const pattern = /\[([^\]]+?):([^\]]+?)\s+([^\]]+)\]/g;
+            let html = '';
+            let lastIndex = 0;
+            let match;
+            while ((match = pattern.exec(source)) !== null) {
+                html += this.renderGameText(source.slice(lastIndex, match.index));
+                const commandValue = `${match[2]} ${match[3]}`
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                html += `<span class="chat-link" data-command="${commandValue}" onclick="handleChatLinkClick(this)">${this.renderGameText(match[1])}</span>`;
+                lastIndex = match.index + match[0].length;
+            }
+            html += this.renderGameText(source.slice(lastIndex));
+            return html;
         },
 
         // JSON模式: 提交输入框
@@ -3665,19 +3700,19 @@ createApp({
                 '【御灵交锋】' : '';
             if (type === 'revive') {
                 const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatCompactNumber(amount)}点生命与${this.formatCompactNumber(mofaAmount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatGameNumber(amount)}点生命与${this.formatGameNumber(mofaAmount)}点法力`;
             }
             if (amount <= 0) {
                 return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在${recipient}身旁`;
             }
             if (type === 'damage') {
                 const targetName = String(event?.target_name || '敌人');
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatCompactNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatGameNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
             }
             if (type === 'mofa') {
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatCompactNumber(amount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点法力`;
             }
-            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatCompactNumber(amount)}点生命`;
+            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点生命`;
         },
 
         showPetAssistEffect(event, eventId = '', addToBattleLog = true) {

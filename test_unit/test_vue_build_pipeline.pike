@@ -161,6 +161,51 @@ void test_docker_copy_contract()
 		test_fail("Dockerfile未复制正式前端目录");
 }
 
+void test_game_number_format_contract()
+{
+	test_start("新旧网页统一使用中文数值格式器");
+	string formatter = Stdio.read_file(
+		ROOT+"/web/includes/game-number-format.js");
+	string index_source = Stdio.read_file(
+		ROOT+"/vue_source/index.html");
+	string app_source = Stdio.read_file(
+		ROOT+"/vue_source/js/app.js");
+	string html5_source = Stdio.read_file(
+		ROOT+"/lowlib/system/filter/html5.pike");
+	string html6_source = Stdio.read_file(
+		ROOT+"/lowlib/system/filter/html6.pike");
+	string html6_dark_source = Stdio.read_file(
+		ROOT+"/lowlib/system/filter/html6_dark.pike");
+	string html6_copy_source = Stdio.read_file(
+		ROOT+"/lowlib/system/filter/html6 copy.pike");
+
+	if(formatter && index_source && app_source &&
+	   html5_source && html6_source &&
+	   html6_dark_source && html6_copy_source &&
+	   search(formatter,"compact_game_numbers")!=-1 &&
+	   search(formatter,"formatExactNumber")!=-1 &&
+	   search(formatter,"data-number-format")!=-1 &&
+	   search(formatter,"万亿")!=-1 &&
+	   search(formatter,"穰")!=-1 &&
+	   search(index_source,
+		"data-auto-format=\"false\"")!=-1 &&
+	   search(index_source,
+		"renderGameText(segment.label, true)")!=-1 &&
+	   search(app_source,
+		"formatGameNumber(value, options = {})")!=-1 &&
+	   search(html5_source,
+		"includes/game-number-format.js")!=-1 &&
+	   search(html6_source,
+		"includes/game-number-format.js")!=-1 &&
+	   search(html6_dark_source,
+		"includes/game-number-format.js")!=-1 &&
+	   search(html6_copy_source,
+		"includes/game-number-format.js")!=-1)
+		test_pass();
+	else
+		test_fail("格式器、Vue出口或旧HTML过滤器接入不完整");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -179,6 +224,7 @@ int main()
 	test_manifest_contract();
 	test_auto_browser_login_contract();
 	test_docker_copy_contract();
+	test_game_number_format_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;

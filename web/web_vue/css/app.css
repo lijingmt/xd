@@ -2611,6 +2611,13 @@ body {
     text-align: center;
 }
 
+/* 统一中文缩写数值：保持一行，悬停可查看精确值。 */
+.game-number-compact {
+    white-space: nowrap;
+    cursor: help;
+    font-variant-numeric: tabular-nums;
+}
+
 /* 菜单分隔线 */
 .menu-divider {
     height: 1px;
