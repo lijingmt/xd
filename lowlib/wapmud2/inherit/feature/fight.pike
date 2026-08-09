@@ -1094,14 +1094,26 @@ private void recover(){
 // 调用 this_object()->fight_die()（后台报错）；通常由敌人心跳在下次
 // 检测到 get_cur_life()<=0 时结算。但若敌人已离场（换区/下线/被清目标），
 // 没人会触发死亡，留下零血怪。此函数由 call_out 在心跳外触发，作为兜底。
-// HP>0 表示期间已通过其它路径复活（如百炼复苏），不再重复触发死亡流程。
+//
+// 普通 NPC 的死亡流程会同步 remove()，因此已由其它攻击路径结算的对象
+// 不可能再执行到这里。NPC 在 call_out 前被清掉战斗状态，恰恰是必须继续
+// 结算的零血残留场景。玩家对象死亡后仍会留在游戏中，才需要保留脱战保护，
+// 避免重复掉级、耐久和荣誉结算。
+int resolve_deferred_zero_life(){
+	object actor=this_object();
+	if(!actor || actor->get_cur_life()>0)
+		return 0;
+	if(actor->is("npc")){
+		if(!environment(actor))
+			return 0;
+	}
+	else if(!actor->query_in_combat())
+		return 0;
+	actor->fight_die();
+	return 1;
+}
 private void dot_death(){
-	if(!this_object()) return;
-	if(this_object()->get_cur_life()>0) return;
-	// 其它攻击路径若已完成死亡结算，会先清除战斗状态；此时延迟
-	// call_out 只能退出，不能再次执行掉级、耐久和掉落流程。
-	if(!this_object()->query_in_combat()) return;
-	this_object()->fight_die();
+	resolve_deferred_zero_life();
 }
 void _clean_fight(){
 	//werror("\n----"+this_object()->query_name_cn()+"呼叫_clean_fight()开始----\n");
@@ -1432,7 +1444,7 @@ private int apply_balanced_support_skill(object skill,int skill_level){
 				if(member!=this_object())
 					tell_object(member,this_object()->query_name_cn()+
 						"施放"+skill->query_name_cn()+"，为你恢复"+
-						healed+"点生命"+
+						format_game_number(healed)+"点生命"+
 						(cleaned!="" ? "并净化一项负面状态" : "")+"。\n");
 			}
 		}
@@ -1498,7 +1510,8 @@ private int apply_lingyi_heal(object skill,int skill_level){
 			total_healed += amount;
 			if(target!=this_object()){
 				tell_object(target,this_object()->query_name_cn()+"施放"+
-					skill->query_name_cn()+"，为你恢复"+amount+"点生命"+
+					skill->query_name_cn()+"，为你恢复"+
+					format_game_number(amount)+"点生命"+
 					(cleaned!="" ? "并净化一项负面状态" : "")+"。\n");
 			}
 		}
@@ -1512,7 +1525,7 @@ private int apply_lingyi_heal(object skill,int skill_level){
 	if(benefited>0){
 		tell_object(this_object(),"你施放"+skill->query_name_cn()+
 			"，令"+benefited+"名目标获得救治，共恢复"+
-			total_healed+"点生命"+
+			format_game_number(total_healed)+"点生命"+
 			(pacts>0 ? "，并消耗"+pacts+"层药契" : "")+"。\n");
 	}
 	return benefited;
@@ -1886,7 +1899,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			int absorbed = shield>=damage ? damage : shield;
 			damage -= absorbed;
 			shield -= absorbed;
-			absorb_desc = "（护盾吸收"+absorbed+"）";
+			absorb_desc = "（护盾吸收"+
+				format_game_number(absorbed)+"）";
 			if(shield<=0)
 				target->clean_buff("buff");
 			else
@@ -1897,7 +1911,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			int absorbed = shield>=damage ? damage : shield;
 			damage -= absorbed;
 			shield -= absorbed;
-			absorb_desc += "（护盾吸收"+absorbed+"）";
+			absorb_desc += "（护盾吸收"+
+				format_game_number(absorbed)+"）";
 			if(shield<=0)
 				target->clean_buff("buff2");
 			else
@@ -1917,7 +1932,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		target->flush_targets(caster,damage>0 ? damage : 1);
 		caster->flush_targets(target,damage>0 ? damage : 1);
 		tell_object(target,caster->query_name_cn()+"施放"+
-			skill->query_name_cn()+"，对你造成"+actual_damage+
+			skill->query_name_cn()+"，对你造成"+
+			format_game_number(actual_damage)+
 			"点伤害"+absorb_desc+"。\n");
 		if(defeated){
 			caster->clean_targets(target);
@@ -2545,7 +2561,8 @@ void perform(string name,void|int flag){
 							}
 							else{
 								attack_fact -= (int)enemy->query_buff("buff",1);
-								absorb_desc = "("+enemy->query_buff("buff",1)+"点被吸收)";
+								absorb_desc = "("+format_game_number(
+									(int)enemy->query_buff("buff",1))+"点被吸收)";
 								enemy->clean_buff("buff");
 							}
 						}
@@ -2561,17 +2578,24 @@ void perform(string name,void|int flag){
 							}
 							else{
 								attack_fact -= (int)enemy->query_buff("buff2",1);
-								absorb_desc = "("+enemy->query_buff("buff2",1)+"点被吸收)";
+								absorb_desc = "("+format_game_number(
+									(int)enemy->query_buff("buff2",1))+"点被吸收)";
 								enemy->clean_buff("buff2");
 							}
 						}
 						//如果魔法穿透大于零，则要在前端提示给玩家
 						string chuantou_desc = "";
 						if(mofachuantou_add>0){
-							chuantou_desc = "【"+mofachuantou_add+" 点法术穿透】";
+							chuantou_desc = "【"+
+								format_game_number(mofachuantou_add)+
+								" 点法术穿透】";
 						}
-						s += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+chuantou_desc+"\n";
-						s1 += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+chuantou_desc+"\n";
+						string damage_desc =
+							format_game_number(fact_mofa_a);
+						s += "造成了 "+damage_desc+" 点伤害！"+
+							absorb_desc+chuantou_desc+"\n";
+						s1 += "造成了 "+damage_desc+" 点伤害！"+
+							absorb_desc+chuantou_desc+"\n";
 						tell_object(this_object(),s);
 						tell_object(enemy,s1);
 						if(this_object()->query_profeId()=="tianxiang" &&
@@ -2951,7 +2975,7 @@ void perform(string name,void|int flag){
 					enemy->flush_targets(this_object(),hate);
 					s += "你施放了"+f_cur_skill->query_name_cn()+
 						"(等级"+skill_level+")，恢复了"+
-						(life_after-life_before)+"点生命。";
+						format_game_number(life_after-life_before)+"点生命。";
 					s1 += this_object()->query_name_cn()+"施放了"+
 						f_cur_skill->query_name_cn()+"(等级"+
 						skill_level+")。";
@@ -3021,7 +3045,8 @@ void perform(string name,void|int flag){
 					enemy->flush_targets(this_object(),10+shield/10);
 					tell_object(this_object(),"你施放了"+
 						f_cur_skill->query_name_cn()+"(等级"+skill_level+
-						")，为"+guarded+"名同队成员展开了"+shield+
+						")，为"+guarded+"名同队成员展开了"+
+						format_game_number(shield)+
 						"点山河壁。\n");
 					tell_object(this_object(),
 						PROFESSIONVIPD->query_combat_style_effect(
@@ -3203,7 +3228,9 @@ void boss_perform(string name){
 									}
 									else{
 										attack_fact -= (int)enemys[i]->query_buff("buff",1);
-										absorb_desc = "("+enemys[i]->query_buff("buff",1)+"点被吸收)";
+										absorb_desc = "("+format_game_number(
+											(int)enemys[i]->query_buff("buff",1))+
+											"点被吸收)";
 										enemys[i]->clean_buff("buff");
 									}
 								}
@@ -3219,11 +3246,15 @@ void boss_perform(string name){
 									}
 									else{
 										attack_fact -= (int)enemys[i]->query_buff("buff2",1);
-										absorb_desc = "("+enemys[i]->query_buff("buff2",1)+"点被吸收)";
+										absorb_desc = "("+format_game_number(
+											(int)enemys[i]->query_buff("buff2",1))+
+											"点被吸收)";
 										enemys[i]->clean_buff("buff2");
 									}
 								}
-								s1 += "对你造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+"\n";
+								s1 += "对你造成了 "+
+									format_game_number(fact_mofa_a)+
+									" 点伤害！"+absorb_desc+"\n";
 								tell_object(enemys[i],s1);
 
 								//产生仇恨值
@@ -3309,7 +3340,8 @@ void boss_perform(string name){
 					}
 					else{
 						attack_fact -= (int)enemy->query_buff("buff",1);
-						absorb_desc = "("+enemy->query_buff("buff",1)+"点被吸收)";
+						absorb_desc = "("+format_game_number(
+							(int)enemy->query_buff("buff",1))+"点被吸收)";
 						enemy->clean_buff("buff");
 					}
 				}
@@ -3325,11 +3357,13 @@ void boss_perform(string name){
 					}
 					else{
 						attack_fact -= (int)enemy->query_buff("buff2",1);
-						absorb_desc = "("+enemy->query_buff("buff2",1)+"点被吸收)";
+						absorb_desc = "("+format_game_number(
+							(int)enemy->query_buff("buff2",1))+"点被吸收)";
 						enemy->clean_buff("buff2");
 					}
 				}
-				s1 += "造成了 " +fact_mofa_a+ " 点伤害！"+absorb_desc+"\n";
+				s1 += "造成了 "+format_game_number(fact_mofa_a)+
+					" 点伤害！"+absorb_desc+"\n";
 				tell_object(enemy,s1);
 
 				//产生仇恨值
@@ -3747,7 +3781,8 @@ private void attack(int skill_add,int skill_add_per,string type,
 				if(life_left<0)
 					life_left = 0;
 				this_object()->set_life(life_left);
-				reflect_desc = "("+attack_reflect+"被反弹)";
+				reflect_desc = "("+
+					format_game_number(attack_reflect)+"被反弹)";
 			}
 			//再在这儿加入武器附加的魔法伤害(如+3火焰伤害)
 			attack_huoyan_add = get_attack_mofa_add("huoyan_defend",this_object()->huo_add,enemy);
@@ -3787,7 +3822,8 @@ private void attack(int skill_add,int skill_add_per,string type,
 				}
 				else{
 					attack_fact -= (int)enemy->query_buff("buff",1);
-					absorb_desc = "("+enemy->query_buff("buff",1)+"点被吸收)";
+					absorb_desc = "("+format_game_number(
+						(int)enemy->query_buff("buff",1))+"点被吸收)";
 					enemy->clean_buff("buff");
 				}
 			}
@@ -3803,7 +3839,8 @@ private void attack(int skill_add,int skill_add_per,string type,
 				}
 				else{
 					attack_fact -= (int)enemy->query_buff("buff2",1);
-					absorb_desc = "("+enemy->query_buff("buff2",1)+"点被吸收)";
+					absorb_desc = "("+format_game_number(
+						(int)enemy->query_buff("buff2",1))+"点被吸收)";
 					enemy->clean_buff("buff2");
 				}
 			}
@@ -3811,11 +3848,12 @@ private void attack(int skill_add,int skill_add_per,string type,
 			string chuantou_desc = "";
 			if(wulichuantou_damage>0){
 				chuantou_desc = "【物理穿透计入基础伤害 "+
-					wulichuantou_damage+"】";
+					format_game_number(wulichuantou_damage)+"】";
 			}
 			// 山河壁也必须在播报最终伤害前结算。旧顺序先显示
 			// attack_a、后扣护盾，容易让玩家看到“有伤害”但气血不变。
 			attack_fact = enemy->absorb_team_guard_damage(attack_fact);
+			string attack_fact_desc = format_game_number(attack_fact);
 			//在这里产生威胁值
 			int hate=(int)(attack_fact*skills_hate["test"]/100);
 			if(name_skill && MUD_SKILLSD[name_skill] &&
@@ -3827,25 +3865,25 @@ private void attack(int skill_add,int skill_add_per,string type,
 			////////////////////////战斗描述///////////////////////////////////////////////
 			if(baoji_a==1) {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					skills_level_check(name_skill);
 				}
 			}
 			else {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//tell_object(enemy,this_object()->query_name_cn()+"紧握"+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_fact+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					if(name_skill != "xueranjiangshan")
 						skills_level_check(name_skill);
@@ -4072,19 +4110,21 @@ private void heart_beat_action(){
 		return;
 	// enemy 可能在心跳间隙被析构（DOT call_out fight_die、他人抢杀、
 	// cleanup 等），此时 in_combat 还是 1 但 enemy 已经是 0。
-	// 没有 NULL 守卫会让 enemy->name 抛 "Indexing the NULL value"，
+	// 使用一次性局部快照，避免守卫之后全局 enemy 又被异步清空。
+	object action_enemy=enemy;
+	// 没有 NULL 守卫会让目标字段访问抛 "Indexing the NULL value"，
 	// 整个 heart_beat_action 中断，怪物既不死玩家也不出手 —— 玩家看
 	// 到的就是"零血怪"和"挂不了级"。
-	if(!enemy || !objectp(enemy)){
+	if(!action_enemy || !objectp(action_enemy)){
 		_clean_fight();
 		return;
 	}
 	string cmd,arg;
 	if(action&&sscanf(action,"%s %s",cmd,arg)==0)
 		cmd=action;
-	if(!present(enemy->name,environment(this_object()),0,this_object())){
-		if(this_object()->if_in_targets(enemy))
-			this_object()->clean_targets(enemy);
+	if(!present(action_enemy,environment(this_object()),0,this_object())){
+		if(this_object()->if_in_targets(action_enemy))
+			this_object()->clean_targets(action_enemy);
 	}
 	else if(cmd=="escape"){ 
 		escape();
@@ -4442,11 +4482,13 @@ int fight(string|object _enemy,int count,int flag){
 		string s = "";
 		if(in_combat&&enemy!=0){
 			//这里的生命显示
-			s += "生命:"+this_object()->get_cur_life()+" | 法力:"+this_object()->get_cur_mofa()+"\n";
+			s += "生命:"+format_game_number(this_object()->get_cur_life())+
+				" | 法力:"+format_game_number(this_object()->get_cur_mofa())+"\n";
 			//s += "生命:"+(this_object()->get_cur_life()==0?1:this_object()->get_cur_life())+" | 法力:"+this_object()->get_cur_mofa()+"\n";
 			s += "--------\n";
 			//s += "对方生命:"+(enemy->get_cur_life()==0?1:enemy->get_cur_life())+" | 对方目标:"+enemy->get_target_name()+"\n";
-			s += "对方生命:"+enemy->get_cur_life()+" | 对方目标:"+enemy->get_target_name()+"\n";
+			s += "对方生命:"+format_game_number(enemy->get_cur_life())+
+				" | 对方目标:"+enemy->get_target_name()+"\n";
 			s += "--------\n";
 		}
 		return s;

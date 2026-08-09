@@ -49,12 +49,12 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 	actual_exp = reward["actual_exp"];
 	if(reward["buff_bonus"]>0)
 		bonus_tips += "<font style=\"color:DARKORANGE\">经验药品加成：额外获得 "+
-			(string)reward["buff_bonus"]+" 点经验值</font>";
+			format_game_number(reward["buff_bonus"])+" 点经验值</font>";
 	if(reward["event_bonus"]>0){
 		if(sizeof(bonus_tips))
 			bonus_tips += "<br>";
 		bonus_tips += "<font style=\"color:DARKORANGE\">五一节经验活动（额外增加2倍）：额外获得 "+
-			(string)reward["event_bonus"]+" 点经验值</font>";
+			format_game_number(reward["event_bonus"])+" 点经验值</font>";
 	}
 	if(reward["donation_multiplier"]>1){
 		if(sizeof(bonus_tips))
@@ -62,7 +62,7 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 		bonus_tips += "<font style=\"color:DARKORANGE\">捐赠经验倍速："+
 			(string)reward["donation_multiplier"]+
 			"倍，作用于药品和活动加成后的总经验，额外获得 "+
-			(string)reward["donation_bonus"]+" 点经验值</font>";
+			format_game_number(reward["donation_bonus"])+" 点经验值</font>";
 	}
 	if(reward["interface_bonus"]>0)
 		interface_tip = "<font style=\"color:GOLD\">【新界面加成+"+
@@ -74,7 +74,8 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 			"%基础经验，本人份额已计入下方结果。</font>";
 	if(sizeof(team_tip))
 		message += team_tip+"\n";
-	message += interface_tip+"你得到了 "+(string)actual_exp+" 点经验。\n";
+	message += interface_tip+"你得到了 "+format_game_number(actual_exp)+
+		" 点经验。\n";
 	if(sizeof(bonus_tips))
 		message += "（"+bonus_tips+"）\n";
 	player->query_if_levelup();

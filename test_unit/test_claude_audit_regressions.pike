@@ -820,9 +820,12 @@ void test_other_runtime_regressions()
 		profession && search(profession,
 		"!player->query_in_combat() ||\n\t   !is_pve_enemy(player)")!=-1,
 		"PVP 仍可能被自动选招接管");
-	check("DOT 延迟死亡不会重复结算已清战斗目标",
-		fight && search(fight,"if(!this_object()->query_in_combat()) return;")!=-1,
-		"缺少重复死亡保护");
+	check("DOT 延迟死亡允许已脱战零血 NPC 收尾且仍保护玩家",
+		fight &&
+		search(fight,"if(actor->is(\"npc\")){")!=-1 &&
+		search(fight,"else if(!actor->query_in_combat())")!=-1 &&
+		search(fight,"actor->fight_die();")!=-1,
+		"NPC 脱战后仍可能跳过死亡，或玩家缺少重复死亡保护");
 	check("挂机死亡次数在所有免死判定之后记录",
 		death && search(death,"try_pet_owner_revive") <
 		search(death,"record_afk_death"),

@@ -47,6 +47,95 @@ private int save_slow_count;
 private int save_total_ms;
 private int save_max_ms;
 
+private array(int) game_number_unit_values = ({
+	10000,
+	100000000,
+	1000000000000,
+	10000000000000000,
+	100000000000000000000,
+	1000000000000000000000000,
+	10000000000000000000000000000,
+});
+private array(string) game_number_unit_labels = ({
+	"万","亿","万亿","京","垓","秭","穰",
+});
+
+// 将玩家可见的大数按中文习惯缩写。这里只改变展示字符串，
+// 不参与属性、战斗、经验或货币计算。
+private string format_game_number_scaled(int scaled,int digits)
+{
+	int factor = 1;
+	int whole = 0;
+	int fraction = 0;
+	if(digits==1)
+		factor = 10;
+	else if(digits==2)
+		factor = 100;
+	whole = scaled/factor;
+	fraction = scaled%factor;
+	if(digits==0 || fraction==0)
+		return (string)whole;
+	if(digits==1)
+		return (string)whole+"."+(string)fraction;
+	if(fraction%10==0)
+		return (string)whole+"."+(string)(fraction/10);
+	return (string)whole+"."+sprintf("%02d",fraction);
+}
+
+string format_game_number(int value)
+{
+	int negative = 0;
+	int absolute_value = value;
+	int unit_index = -1;
+	int unit_value = 1;
+	int digits = 0;
+	int factor = 1;
+	int scaled = 0;
+	string result = "";
+
+	if(value<0){
+		negative = 1;
+		absolute_value = -value;
+	}
+	if(absolute_value<10000)
+		return (string)value;
+
+	for(int i=sizeof(game_number_unit_values)-1;i>=0;i--){
+		if(absolute_value>=game_number_unit_values[i]){
+			unit_index = i;
+			break;
+		}
+	}
+	if(unit_index<0)
+		return (string)value;
+
+	while(unit_index<sizeof(game_number_unit_values)){
+		unit_value = game_number_unit_values[unit_index];
+		if(absolute_value>=unit_value*100)
+			digits = 0;
+		else if(absolute_value>=unit_value*10)
+			digits = 1;
+		else
+			digits = 2;
+		factor = 1;
+		if(digits==1)
+			factor = 10;
+		else if(digits==2)
+			factor = 100;
+		scaled = (absolute_value*factor+unit_value/2)/unit_value;
+		if(scaled<10000*factor ||
+		   unit_index==sizeof(game_number_unit_values)-1)
+			break;
+		unit_index++;
+	}
+
+	result = format_game_number_scaled(scaled,digits)+
+		game_number_unit_labels[unit_index];
+	if(negative)
+		result = "-"+result;
+	return result;
+}
+
 
 //! ��չ�������ӣ����prefix+"/"+s��ָ�����ļ���һ���������ӣ��򷵻ظ÷���������������ļ��������ݹ������
 string expand_symlinks(string s,void|string prefix)

@@ -148,6 +148,26 @@ void test_auction_failure_is_non_destructive()
 		"拍卖失败仍可能扣费或容器会带错误凭证启动");
 }
 
+void test_auction_commands_compile()
+{
+	array(string) files=get_dir(ROOT+"/gamelib/cmds")||({});
+	array(string) invalid=({});
+	int checked=0;
+	foreach(files,string file){
+		if(search(file,"vendue")!=0 || !has_suffix(file,".pike"))
+			continue;
+		checked++;
+		mixed err=catch {
+			compile_file(ROOT+"/gamelib/cmds/"+file);
+		};
+		if(err)
+			invalid+=({file});
+	}
+	check("全部拍卖命令均能在运行时编译",
+		checked>0 && !sizeof(invalid),
+		"无法编译: "+(invalid*", "));
+}
+
 void test_legacy_login_entry_guards()
 {
 	array(string) files = ({
@@ -302,6 +322,7 @@ int main()
 	test_database_error_redaction();
 	test_auction_sql_parameters();
 	test_auction_failure_is_non_destructive();
+	test_auction_commands_compile();
 	test_legacy_login_entry_guards();
 	test_runtime_debug_logs_removed();
 	test_bossdrop_sentinels();
