@@ -265,18 +265,42 @@ ln -sf /tmp/.mysql_sock /run/mysqld/mysqld.sock 2>/dev/null || true
 
 # 初始化数据库
 DB_NAME="${GAME_PREFIX}"
-mariadb -h ${MYSQL_HOST} -P ${MYSQL_PORT} -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" 2>/dev/null || true
+if ! MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
+    -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" \
+    -e "SELECT 1" >/dev/null 2>&1; then
+    echo "MySQL authentication failed; refusing to start Xiand" >&2
+    exit 1
+fi
+if ! MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
+    -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" \
+    -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" \
+    >/dev/null 2>&1; then
+    echo "MySQL database initialization failed; refusing to start Xiand" >&2
+    exit 1
+fi
 
 # 检查数据库是否为空，如果为空则导入 xd.sql
-TABLE_COUNT=$(mariadb -h ${MYSQL_HOST} -P ${MYSQL_PORT} -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" 2>/dev/null || echo "0")
+if ! TABLE_COUNT=$(MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
+    -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" -N -B \
+    -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" \
+    2>/dev/null); then
+    echo "MySQL schema check failed; refusing to start Xiand" >&2
+    exit 1
+fi
 if [ "$TABLE_COUNT" -eq 0 ]; then
     echo "数据库 ${DB_NAME} 为空，正在导入 xd.sql..."
     if [ -f /app/xiand/xd.sql ]; then
-        mariadb -h ${MYSQL_HOST} -P ${MYSQL_PORT} -u ${MYSQL_USER} -p${MYSQL_PASSWORD} "${DB_NAME}" < /app/xiand/xd.sql 2>/dev/null && \
-        echo "✓ 数据库导入成功" || \
-        echo "✗ 数据库导入失败"
+        if MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
+            -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" \
+            "${DB_NAME}" < /app/xiand/xd.sql 2>/dev/null; then
+            echo "✓ 数据库导入成功"
+        else
+            echo "✗ 数据库导入失败，拒绝启动 Xiand" >&2
+            exit 1
+        fi
     else
-        echo "⚠ xd.sql 文件不存在，跳过导入"
+        echo "xd.sql 文件不存在，拒绝启动 Xiand" >&2
+        exit 1
     fi
 else
     echo "数据库 ${DB_NAME} 已有 ${TABLE_COUNT} 张表，跳过导入"

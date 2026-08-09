@@ -406,6 +406,10 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 int add_new_sale_info(object saler,object goods,int start_value,int end_value)
 {
 	//return 0;
+	if(dbSql==""){
+		LOG->append_time("[add_new_sale_info] [database unavailable] [fail]");
+		return 0;
+	}
 
 	string saler_id = saler->query_name();
 	string saler_name = saler->query_name_cn();
@@ -466,6 +470,8 @@ int add_new_sale_info(object saler,object goods,int start_value,int end_value)
 		return 1;
 	};
 	if(catchResult){
+		// 丢弃失效连接，下次上架才会真正重连。
+		db=0;
 		LOG->append_time("[add_new_sale_info] [fail]");
 		return 0;
 	}

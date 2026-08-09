@@ -114,6 +114,40 @@ void test_auction_sql_parameters()
 		"拍卖数据库仍存在可拼接的玩家输入");
 }
 
+void test_auction_failure_is_non_destructive()
+{
+	string vendue = Stdio.read_file(ROOT+
+		"/gamelib/cmds/vendue_confirm.pike");
+	string auction = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/auctiond.pike");
+	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
+	int add_start = auction ? search(auction,
+		"int add_new_sale_info(") : -1;
+	int add_end = auction ? search(auction,
+		"array(mapping(string:mixed)) query_getback_as_saler",add_start) : -1;
+	string add_source = "";
+	if(add_start>=0 && add_end>add_start)
+		add_source = auction[add_start..add_end-1];
+	int sale_call = vendue ? search(vendue,
+		"int sale_added = AUCTIOND->add_new_sale_info") : -1;
+	int fee_charge = vendue ? search(vendue,
+		"me->del_account(fee)",sale_call) : -1;
+	int valid = vendue && auction && dockerfile && restart &&
+		sale_call>=0 && fee_charge>sale_call &&
+		search(vendue,"if(sale_added==1)")!=-1 &&
+		search(vendue,"本次未扣手续费，物品也未移除")!=-1 &&
+		add_source!="" &&
+		search(add_source,"[add_new_sale_info] [database unavailable]")!=-1 &&
+		search(add_source,"db=0;")!=-1 &&
+		search(dockerfile,"MySQL authentication failed")!=-1 &&
+		search(dockerfile,"-p${MYSQL_PASSWORD}")==-1 &&
+		search(restart,"SELECT 1")!=-1 &&
+		search(restart,"MySQL 认证失败")!=-1;
+	check("拍卖失败不扣费且部署拒绝错误MySQL凭证",valid,
+		"拍卖失败仍可能扣费或容器会带错误凭证启动");
+}
+
 void test_legacy_login_entry_guards()
 {
 	array(string) files = ({
@@ -267,6 +301,7 @@ int main()
 	test_http_request_guards();
 	test_database_error_redaction();
 	test_auction_sql_parameters();
+	test_auction_failure_is_non_destructive();
 	test_legacy_login_entry_guards();
 	test_runtime_debug_logs_removed();
 	test_bossdrop_sentinels();

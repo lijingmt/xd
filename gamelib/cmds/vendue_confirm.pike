@@ -85,13 +85,17 @@ int main(string|zero arg)
 				if(me->query_account()<fee)
 					s += "你身上的钱不够付手续费~，努力赚钱后再来试试\n";
 				else{
-					me->del_account(fee);
-					if(AUCTIOND->add_new_sale_info(me,ob,start_value,end_value)){
+					int sale_added = AUCTIOND->add_new_sale_info(
+						me,ob,start_value,end_value);
+					if(sale_added==1){
+						// 只有拍卖记录写入成功后才扣费；
+						// 数据库故障不得让玩家承担手续费。
+						me->del_account(fee);
 						s += "已成功接受你的拍卖!\n";
 						s += "收取了你 "+MUD_MONEYD->query_other_money_cn(fee)+" 的手续费\n";
 					}
 					else
-						s +="无法接受你的拍卖要求,请和管理员联系\n";
+						s +="拍卖服务暂时不可用，本次未扣手续费，物品也未移除，请稍后重试\n";
 				}
 			}
 		}

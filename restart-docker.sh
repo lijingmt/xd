@@ -607,26 +607,48 @@ initialize_game_database() {
     local mysql_cmd="mysql"
     command -v mysql &> /dev/null || mysql_cmd="mariadb"
 
+    # 使用与容器相同的 TCP 路径验证认证，避免本机 socket
+    # 能登录、但 Docker 网段账号密码不同时误判为可用。
+    if ! MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" \
+        -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" \
+        -N -B -e "SELECT 1" >/dev/null 2>&1; then
+        print_error "MySQL 认证失败，拒绝启动拍卖/排行数据库不可用的容器"
+        return 1
+    fi
+
     # 尝试创建数据库
-    if MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" -u "$MYSQL_USER" -e "CREATE DATABASE IF NOT EXISTS \`${db_name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" 2>/dev/null; then
+    if MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" \
+        -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" \
+        -e "CREATE DATABASE IF NOT EXISTS \`${db_name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" 2>/dev/null; then
         print_success "数据库 '${db_name}' 已创建"
     else
-        print_warning "无法创建数据库（MySQL 可能不可用或凭证错误）"
+        print_error "无法创建数据库 '${db_name}'"
+        return 1
     fi
 
     # 检查数据库是否为空，如果为空则导入 xd.sql
     local sql_script="${PROJECT_ROOT}/xd.sql"
     if [ -f "$sql_script" ]; then
-        TABLE_COUNT=$(MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" -u "$MYSQL_USER" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${db_name}';" 2>/dev/null || echo "0")
-        if [ "$TABLE_COUNT" -eq 0 ]; then
+        local table_count
+        if ! table_count=$(MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" \
+            -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -N -B \
+            -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${db_name}';" \
+            2>/dev/null); then
+            print_error "无法检查数据库 '${db_name}'"
+            return 1
+        fi
+        if [ "$table_count" -eq 0 ]; then
             print_info "数据库 '${db_name}' 为空，正在导入 xd.sql..."
-            if MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" -u "$MYSQL_USER" "$db_name" < "$sql_script" 2>/dev/null; then
+            if MYSQL_PWD="$MYSQL_PASSWORD" "$mysql_cmd" \
+                -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" \
+                "$db_name" < "$sql_script" 2>/dev/null; then
                 print_success "数据库 '${db_name}' 导入成功"
             else
-                print_warning "数据库 '${db_name}' 导入失败"
+                print_error "数据库 '${db_name}' 导入失败"
+                return 1
             fi
         else
-            print_info "数据库 '${db_name}' 已有 ${TABLE_COUNT} 张表，跳过导入"
+            print_info "数据库 '${db_name}' 已有 ${table_count} 张表，跳过导入"
         fi
     else
         print_warning "SQL 文件不存在: $sql_script"
