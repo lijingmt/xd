@@ -8,6 +8,7 @@ PIKE_BIN="${PIKE_BIN:-}"
 PIKE_STACK_DEPTH="${XIAND_PIKE_STACK_DEPTH:-1000000}"
 PIKE_THREAD_STACK="${XIAND_PIKE_THREAD_STACK:-67108864}"
 AREA_NAME="${GAME_AREA:-xd01}"
+LAUNCHER="${XIAND_MAP_WORKER_LAUNCHER:-screen}"
 TRAFFIC_MODE="shadow"
 STARTING_CLUSTER=0
 STARTED_SESSIONS=()
@@ -83,9 +84,11 @@ load_environment()
 	# only a deployment default and must not silently retarget an apply/stop to
 	# another area or replace a one-shot credential.
 	local inherited_game_area="${GAME_AREA:-}"
+	local inherited_area_name="${XIAND_MAP_WORKER_AREA_NAME:-}"
 	local inherited_mysql_password="${MYSQL_PASSWORD:-}"
 	local inherited_worker_token="${XIAND_WORKER_TOKEN:-}"
 	local inherited_active_ack="${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}"
+	local inherited_launcher="${XIAND_MAP_WORKER_LAUNCHER:-}"
 	umask 027
 	if [[ -f "$ROOT_DIR/.env" ]]; then
 		set -a
@@ -93,13 +96,22 @@ load_environment()
 		set +a
 	fi
 	[[ -z "$inherited_game_area" ]] || GAME_AREA="$inherited_game_area"
+	[[ -z "$inherited_area_name" ]] ||
+		XIAND_MAP_WORKER_AREA_NAME="$inherited_area_name"
 	[[ -z "$inherited_mysql_password" ]] ||
 		MYSQL_PASSWORD="$inherited_mysql_password"
 	[[ -z "$inherited_worker_token" ]] ||
 		XIAND_WORKER_TOKEN="$inherited_worker_token"
 	[[ -z "$inherited_active_ack" ]] ||
 		XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$inherited_active_ack"
-	AREA_NAME="${GAME_AREA:-xd01}"
+	[[ -z "$inherited_launcher" ]] ||
+		XIAND_MAP_WORKER_LAUNCHER="$inherited_launcher"
+	AREA_NAME="${XIAND_MAP_WORKER_AREA_NAME:-${GAME_AREA:-xd01}}"
+	[[ "$AREA_NAME" =~ ^[A-Za-z0-9_-]{1,48}$ ]] ||
+		fail "map-worker area name contains unsupported characters"
+	LAUNCHER="${XIAND_MAP_WORKER_LAUNCHER:-screen}"
+	[[ "$LAUNCHER" == "screen" || "$LAUNCHER" == "background" ]] ||
+		fail "XIAND_MAP_WORKER_LAUNCHER must be screen or background"
 	[[ -n "${MYSQL_PASSWORD:-}" ]] || fail "MYSQL_PASSWORD is required"
 	local worker_token="${XIAND_WORKER_TOKEN:-}"
 	[[ ${#worker_token} -ge 32 ]] ||
@@ -109,7 +121,9 @@ load_environment()
 	fi
 	[[ -x "$PIKE_BIN" ]] || fail "Pike binary is not executable"
 	command -v python3 >/dev/null 2>&1 || fail "python3 is required"
-	command -v screen >/dev/null 2>&1 || fail "screen is required"
+	if [[ "$LAUNCHER" == "screen" ]]; then
+		command -v screen >/dev/null 2>&1 || fail "screen is required"
+	fi
 	command -v lsof >/dev/null 2>&1 || fail "lsof is required"
 	command -v nc >/dev/null 2>&1 || fail "nc is required for safe shutdown"
 }
@@ -133,15 +147,15 @@ required = {
 }
 if set(config) != required:
     raise SystemExit("config keys do not match schema v2")
-if config["schema_version"] != 2:
+if type(config["schema_version"]) is not int or config["schema_version"] != 2:
     raise SystemExit("unsupported schema_version")
-if config["enabled"] not in (0, 1):
+if type(config["enabled"]) is not int or config["enabled"] not in (0, 1):
     raise SystemExit("enabled must be 0 or 1")
 if config["traffic_mode"] not in ("shadow", "active"):
     raise SystemExit("traffic_mode must be shadow or active")
-if not 1 <= config["worker_count"] <= 16:
+if type(config["worker_count"]) is not int or not 1 <= config["worker_count"] <= 16:
     raise SystemExit("worker_count must be 1..16")
-if not 10 <= config["worker_capacity"] <= 10000:
+if type(config["worker_capacity"]) is not int or not 10 <= config["worker_capacity"] <= 10000:
     raise SystemExit("worker_capacity must be 10..10000")
 if config["placement"] != "load_aware_rendezvous":
     raise SystemExit("unsupported placement")
@@ -150,7 +164,7 @@ ports = [
     config["worker_http_base_port"],
     config["worker_mud_base_port"], config["gateway_port"],
 ]
-if any(not isinstance(port, int) or not 1024 <= port <= 65535 for port in ports):
+if any(type(port) is not int or not 1024 <= port <= 65535 for port in ports):
     raise SystemExit("ports must be 1024..65535")
 if config["worker_http_base_port"] + config["worker_count"] - 1 > 65535:
     raise SystemExit("worker HTTP port range overflows")
@@ -185,11 +199,25 @@ validate_gateway_code()
 		"$ROOT_DIR/tools/map_workers/test_gateway.py"
 	python3 -m unittest discover -s "$ROOT_DIR/tools/map_workers" \
 		-p 'test_*.py'
+	bash "$ROOT_DIR/tools/map_workers/test_startup.sh"
+	bash "$ROOT_DIR/tools/map_workers/test_bootstrap.sh"
 }
 
 session_exists()
 {
+	[[ "$LAUNCHER" == "screen" ]] || return 1
 	screen -ls 2>/dev/null | grep -Fq ".$1"
+}
+
+launch_detached()
+{
+	local session_name="$1"
+	local command_line="$2"
+	if [[ "$LAUNCHER" == "screen" ]]; then
+		screen -dmS "$session_name" bash -lc "$command_line"
+	else
+		nohup bash -lc "$command_line" </dev/null >/dev/null 2>&1 &
+	fi
 }
 
 runtime_process_running()
@@ -287,6 +315,73 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 PY
 }
 
+cluster_health()
+{
+	local worker_count coordinator_http worker_http_base worker_mud_base
+	local gateway_port traffic_mode coordinator_mud
+	local topology_values
+	[[ -f "$(topology_file)" ]] || fail "running topology is missing"
+	topology_values="$(python3 - "$(topology_file)" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    topology = json.load(handle)
+keys = (
+    "worker_count", "coordinator_http_port", "worker_http_base_port",
+    "worker_mud_base_port", "coordinator_mud_port", "gateway_port",
+    "traffic_mode",
+)
+print("\t".join(str(topology[key]) for key in keys))
+PY
+)"
+	IFS=$'\t' read -r worker_count coordinator_http worker_http_base \
+		worker_mud_base coordinator_mud gateway_port traffic_mode \
+		<<< "$topology_values"
+
+	runtime_process_running coordinator || fail "coordinator process is down"
+	runtime_process_running gateway || fail "gateway controller is down"
+	port_is_listening "$coordinator_http" || fail "coordinator HTTP port is down"
+	port_is_listening "$coordinator_mud" || fail "coordinator MUD port is down"
+	if [[ "$traffic_mode" == "active" ]]; then
+		port_is_listening "$gateway_port" || fail "active gateway port is down"
+	fi
+	for (( index=1; index<=worker_count; index++ )); do
+		local worker_id
+		worker_id="$(printf 'w%02d' "$index")"
+		runtime_process_running "$worker_id" || fail "$worker_id process is down"
+		port_is_listening "$((worker_http_base + index - 1))" ||
+			fail "$worker_id HTTP port is down"
+		port_is_listening "$((worker_mud_base + index - 1))" ||
+			fail "$worker_id MUD port is down"
+	done
+
+	python3 - "http://127.0.0.1:$coordinator_http" "$worker_count" <<'PY'
+import json
+import os
+import sys
+import urllib.request
+
+request = urllib.request.Request(
+    sys.argv[1] + "/internal/map-worker",
+    data=b'{"action":"status"}',
+    headers={
+        "Content-Type": "application/json",
+        "X-Xiand-Worker-Token": os.environ["XIAND_WORKER_TOKEN"],
+    },
+    method="POST",
+)
+with urllib.request.urlopen(request, timeout=3) as response:
+    status = json.loads(response.read().decode("utf-8"))
+nodes = status.get("nodes", [])
+expected = int(sys.argv[2])
+if not status.get("ok") or len(nodes) != expected:
+    raise SystemExit("coordinator worker inventory is incomplete")
+if not all(node.get("healthy") for node in nodes):
+    raise SystemExit("coordinator reports an unhealthy worker")
+PY
+	log "cluster health is good: mode=$traffic_mode workers=$worker_count"
+}
+
 cleanup_partial_start()
 {
 	local status=$?
@@ -327,7 +422,7 @@ start_pike_node()
 	if session_exists "$screen_name"; then
 		fail "screen session already exists: $screen_name"
 	fi
-	screen -dmS "$screen_name" bash -lc \
+	launch_detached "$screen_name" \
 		"cd '$ROOT_DIR' && umask 027 && echo \$\$ > '$process_pid_file' && export XIAND_NODE_ROLE='$role' XIAND_WORKER_ID='$worker_id' XIAND_HTTP_HOST='127.0.0.1' XIAND_HTTP_PORT='$http_port' XIAND_RUN_TESTUNIT=0 XIAND_MAP_WORKER_SHADOW='$shadow_flag' && exec '$PIKE_BIN' -s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK' '$ROOT_DIR/lowlib/driver.pike' -i 127.0.0.1 -p '$mud_port' '$ROOT_DIR/' >> '$run_dir/runtime.$worker_id.log' 2>&1"
 	STARTED_SESSIONS+=("$screen_name")
 	STARTED_NODE_IDS+=("$worker_id")
@@ -422,7 +517,7 @@ start_gateway_controller()
 			fail "gateway port $gateway_port is already occupied"
 	fi
 	[[ ! -f "$gateway_pid_file" ]] || rm "$gateway_pid_file"
-	screen -dmS "$gateway_session" bash -lc \
+	launch_detached "$gateway_session" \
 		"cd '$ROOT_DIR' && umask 027 && export XIAND_WORKERS='$endpoints' XIAND_COORDINATOR_URL='http://127.0.0.1:$coordinator_http' XIAND_GATEWAY_HOST='0.0.0.0' XIAND_GATEWAY_PORT='$gateway_port' XIAND_WORKER_CAPACITY='$capacity' XIAND_MAP_WORKER_SHADOW='$shadow_flag' XIAND_GATEWAY_PID_FILE='$gateway_pid_file' XIAND_GATEWAY_LOCK_FILE='$run_dir/gateway.controller.lock' && exec python3 '$ROOT_DIR/tools/map_workers/gateway.py' >> '$run_dir/gateway.log' 2>&1"
 	STARTED_SESSIONS+=("$gateway_session")
 	STARTED_NODE_IDS+=("gateway")
@@ -687,6 +782,9 @@ main()
 		status)
 			cluster_status
 			;;
+		health)
+			cluster_health
+			;;
 		start)
 			start_cluster
 			;;
@@ -707,7 +805,7 @@ main()
 			fi
 			;;
 		*)
-			fail "usage: $0 {validate|status|start|stop|recover-gateway|apply}"
+			fail "usage: $0 {validate|status|health|start|stop|recover-gateway|apply}"
 			;;
 	esac
 }

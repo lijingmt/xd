@@ -309,9 +309,9 @@ void test_registration_and_deployment_contracts()
 		source_has("/docker/docker-compose.yml",
 			"/etc:/app/xiand/gamelib/etc") &&
 		source_has("/docker/Dockerfile.all","/app/xiand-bootstrap/etc") &&
-		source_has("/docker/Dockerfile.all",
+		source_has("/docker/start-unified.sh",
 			"LOGICAL_ZONE_IMAGE_SEED_DIR") &&
-		source_has("/docker/Dockerfile.all","ZONE_CONFIG_FOUND") &&
+		source_has("/docker/start-unified.sh","zone_config_found") &&
 		Stdio.exist(ROOT+"/deploy/logical_zones/xd01.conf") &&
 		Stdio.exist(ROOT+"/deploy/logical_zones/xd02.conf") &&
 		Stdio.exist(ROOT+"/deploy/logical_zones/xd03.conf") &&

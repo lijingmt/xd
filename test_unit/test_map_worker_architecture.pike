@@ -602,7 +602,7 @@ int main()
 			source_has("/scripts/map_worker_cluster.sh",
 				"inherited_active_ack"),
 			".env可能覆盖运维显式指定的区服或一次性凭证");
-		check("集群状态与重复apply使用受校验PID和监听端口而非screen外观",
+			check("集群状态与重复apply使用受校验PID和监听端口而非screen外观",
 			source_has("/scripts/map_worker_cluster.sh",
 				"runtime_process_running") &&
 			source_has("/scripts/map_worker_cluster.sh",
@@ -618,6 +618,37 @@ int main()
 				source_has("/scripts/map_worker_cluster.sh",
 					"XIAND_GATEWAY_LOCK_FILE"),
 				"screen会话消失时可能误报停止并重复启动同一端口");
+			check("本地screen与容器background两种启动器共用PID栅栏",
+				source_has("/scripts/map_worker_cluster.sh",
+					"XIAND_MAP_WORKER_LAUNCHER must be screen or background") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"launch_detached()") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"nohup bash -lc") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"[[ \"$LAUNCHER\" == \"screen\" ]] || return 1") &&
+				source_has("/docker/start-unified.sh",
+					"XIAND_MAP_WORKER_LAUNCHER=background"),
+				"容器缺少screen时worker无法启动或脱离进程失去PID校验");
+			check("worker健康失败只允许整组熔断回旧主进程",
+				source_has("/scripts/map_worker_cluster.sh","cluster_health()") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"coordinator reports an unhealthy worker") &&
+				source_has("/docker/start-unified.sh",
+					"latch_active_fallback \"worker-health-failure\"") &&
+				source_has("/docker/start-unified.sh",
+					"if ! stop_cluster_safely; then") &&
+				source_has("/docker/start-unified.sh",
+					"persistent worker fallback latch found") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"tools/map_workers/test_startup.sh") &&
+				source_has("/tools/map_workers/test_startup.sh",
+					"latch stop legacy mode:legacy-fallback") &&
+				source_has("/tools/map_workers/test_startup.sh",
+					"must fail closed when worker shutdown is unproven") &&
+				!source_has("/tools/map_workers/gateway.py",
+					"legacy_fallback_proxy"),
+				"单请求重放到旧主进程可能造成装备、货币和战斗结果双写");
 			check("编排变更单实例执行且全程固定同一代配置快照",
 				source_has("/scripts/map_worker_cluster.sh",
 					"acquire_orchestrator_lock") &&
@@ -688,6 +719,12 @@ int main()
 				"test_recovery_waits_for_inflight_request_before_inventory") &&
 			source_has("/scripts/map_worker_cluster.sh",
 				"python3 -m unittest discover") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"tools/map_workers/test_startup.sh") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"tools/map_workers/test_bootstrap.sh") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"topology_values=\"$(python3 -") &&
 			source_has("/scripts/map_worker_cluster.sh",
 				"recover-gateway") &&
 			source_has("/scripts/map_worker_cluster.sh",

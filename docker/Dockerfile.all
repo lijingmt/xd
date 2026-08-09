@@ -114,7 +114,12 @@ RUN dnf install -y \
     sqlite-libs \
     zlib \
     curl \
+    openssl \
     socat \
+    python3 \
+    lsof \
+    nmap-ncat \
+    procps-ng \
     tzdata && \
     ldconfig && \
     dnf clean all
@@ -181,151 +186,15 @@ RUN chmod -R 755 /usr/local/tomcat/webapps/ROOT && \
 WORKDIR /app/xiand
 
 # 暴露端口
-EXPOSE 13800 8080 8443
+EXPOSE 13800 8888 8080 8443
 
-# 创建统一的启动脚本
-RUN cat > /app/start-unified.sh << 'EOF'
-#!/bin/bash
-set -e
-
-export PATH="/usr/local/pike9/bin:${PATH}"
-
-# 解析游戏区号
-GAME_AREA_INPUT="${GAME_AREA:-xd01}"
-if [[ $GAME_AREA_INPUT =~ ^xd ]]; then
-    GAME_PREFIX="$GAME_AREA_INPUT"
-    GAME_AREA="${GAME_AREA_INPUT#xd}"
-else
-    GAME_PREFIX="xd${GAME_AREA_INPUT}"
-    GAME_AREA="$GAME_AREA_INPUT"
-fi
-
-export GAME_PREFIX GAME_AREA
-
-# 兼容首次在全新生产机上使用 docker compose：空的 etc 挂载会先从镜像快照
-# 初始化，再补入逻辑区种子。已有任何文件均不覆盖，后续重建保持线上配置。
-ETC_RUNTIME_DIR="/app/xiand/gamelib/etc"
-ETC_BOOTSTRAP_DIR="/app/xiand-bootstrap/etc"
-LOGICAL_ZONE_RUNTIME_DIR="${ETC_RUNTIME_DIR}/logical_zones"
-LOGICAL_ZONE_IMAGE_SEED_DIR="/app/xiand/deploy/logical_zones"
-mkdir -p "${ETC_RUNTIME_DIR}" "${LOGICAL_ZONE_RUNTIME_DIR}"
-if [ ! -e "${ETC_RUNTIME_DIR}/regname" ]; then
-    cp -an "${ETC_BOOTSTRAP_DIR}/." "${ETC_RUNTIME_DIR}/"
-fi
-ZONE_CONFIG_FOUND=0
-for ZONE_CONFIG in "${LOGICAL_ZONE_RUNTIME_DIR}"/xd[0-9][0-9].conf; do
-    [ -f "${ZONE_CONFIG}" ] || continue
-    ZONE_CONFIG_FOUND=1
-    break
-done
-if [ "${ZONE_CONFIG_FOUND}" -eq 0 ]; then
-    for ZONE_SEED in "${LOGICAL_ZONE_IMAGE_SEED_DIR}"/xd[0-9][0-9].conf; do
-        [ -f "${ZONE_SEED}" ] || continue
-        cp -pn "${ZONE_SEED}" "${LOGICAL_ZONE_RUNTIME_DIR}/"
-    done
-fi
-chmod 755 "${ETC_RUNTIME_DIR}" "${LOGICAL_ZONE_RUNTIME_DIR}" 2>/dev/null || true
-chmod 644 "${LOGICAL_ZONE_RUNTIME_DIR}"/*.conf 2>/dev/null || true
-
-# 读取 MySQL 配置
-MYSQL_HOST="${MYSQL_HOST:-172.17.0.1}"
-MYSQL_PORT="${MYSQL_PORT:-3306}"
-MYSQL_USER="${MYSQL_USER:-root}"
-MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"
-if [ -z "${MYSQL_PASSWORD}" ]; then
-    echo "MYSQL_PASSWORD is required" >&2
-    exit 1
-fi
-
-# 创建必要目录。db_log 在 .dockerignore 中，不会随镜像复制；注册和每日
-# 统计写入前必须显式创建，避免注册初始化被日志异常中断。
-umask 027
-mkdir -p /app/xiand/log /app/xiand/log/stat/reg \
-    /app/xiand/log/stat/daily /app/xiand/db_log/reg_new \
-    /app/xiand/db_log/daily_user /var/lib/mysql /tmp
-chmod 750 /app/xiand/log /app/xiand/log/stat \
-    /app/xiand/log/stat/reg /app/xiand/log/stat/daily
-chmod 700 /app/xiand/db_log /app/xiand/db_log/reg_new \
-    /app/xiand/db_log/daily_user
-find /app/xiand/data_xiand -type d -exec chmod 700 {} + 2>/dev/null || true
-find /app/xiand/data_xiand -type f -exec chmod 600 {} + 2>/dev/null || true
-# 创建基础设施日志文件
-touch /tmp/socat.log /tmp/socat_3306.log
-
-# 启动 socat 来将 Unix socket 转发到 TCP MySQL
-rm -f /tmp/.mysql_sock /var/lib/mysql/mysql.sock /run/mysqld/mysqld.sock 2>/dev/null || true
-mkdir -p /run/mysqld
-socat UNIX-LISTEN:/tmp/.mysql_sock,fork,reuseaddr,mode=666 TCP:${MYSQL_HOST}:${MYSQL_PORT} > /tmp/socat.log 2>&1 &
-# 启动 socat 将容器内 127.0.0.1:3306 转发到宿主机 MySQL
-socat TCP-LISTEN:3306,fork,reuseaddr,bind=127.0.0.1 TCP:${MYSQL_HOST}:${MYSQL_PORT} > /tmp/socat_3306.log 2>&1 &
-sleep 1
-# 创建多个 socket 符号链接以兼容不同的连接路径
-ln -sf /tmp/.mysql_sock /var/lib/mysql/mysql.sock 2>/dev/null || true
-ln -sf /tmp/.mysql_sock /run/mysqld/mysqld.sock 2>/dev/null || true
-
-# 初始化数据库
-DB_NAME="${GAME_PREFIX}"
-if ! MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
-    -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" \
-    -e "SELECT 1" >/dev/null 2>&1; then
-    echo "MySQL authentication failed; refusing to start Xiand" >&2
-    exit 1
-fi
-if ! MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
-    -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" \
-    -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" \
-    >/dev/null 2>&1; then
-    echo "MySQL database initialization failed; refusing to start Xiand" >&2
-    exit 1
-fi
-
-# 检查数据库是否为空，如果为空则导入 xd.sql
-if ! TABLE_COUNT=$(MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
-    -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" -N -B \
-    -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';" \
-    2>/dev/null); then
-    echo "MySQL schema check failed; refusing to start Xiand" >&2
-    exit 1
-fi
-if [ "$TABLE_COUNT" -eq 0 ]; then
-    echo "数据库 ${DB_NAME} 为空，正在导入 xd.sql..."
-    if [ -f /app/xiand/xd.sql ]; then
-        if MYSQL_PWD="${MYSQL_PASSWORD}" mariadb \
-            -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -u "${MYSQL_USER}" \
-            "${DB_NAME}" < /app/xiand/xd.sql 2>/dev/null; then
-            echo "✓ 数据库导入成功"
-        else
-            echo "✗ 数据库导入失败，拒绝启动 Xiand" >&2
-            exit 1
-        fi
-    else
-        echo "xd.sql 文件不存在，拒绝启动 Xiand" >&2
-        exit 1
-    fi
-else
-    echo "数据库 ${DB_NAME} 已有 ${TABLE_COUNT} 张表，跳过导入"
-fi
-
-# 启动Pike MUD
-echo "启动Pike MUD (区号: ${GAME_PREFIX})..."
-cd /app/xiand
-# 设置系统栈和 Pike 内部栈，防止启动期编译大量对象时栈溢出
-ulimit -s unlimited
-pike -s1000000 -ss67108864 /app/xiand/lowlib/driver.pike -i 0.0.0.0 -p 13800 /app/xiand/ > /app/xiand/log/pike.log 2>&1 &
-PIKE_PID=$!
-echo "✓ Pike MUD 已启动 (PID: $PIKE_PID)"
-
-sleep 10
-
-
-# 启动Tomcat
-exec /usr/local/tomcat/bin/catalina.sh run
-EOF
-
-RUN chmod +x /app/start-unified.sh
+# 容器入口同时管理旧主进程、worker 集群、熔断回退和 Tomcat。
+COPY docker/start-unified.sh /app/start-unified.sh
+RUN chmod +x /app/start-unified.sh \
+    /app/xiand/scripts/map_worker_cluster.sh
 
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -fsS --max-time 5 http://127.0.0.1:8888/health >/dev/null || exit 1
 
 # 启动脚本

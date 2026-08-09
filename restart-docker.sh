@@ -42,11 +42,40 @@ if [ ! -f "$PROJECT_ROOT/docker/docker-compose.yml" ]; then
 fi
 
 XIAND_ENV_FILE="${XIAND_ENV_FILE:-$PROJECT_ROOT/.env}"
+RESOLVED_XIAND_ENV_FILE="$XIAND_ENV_FILE"
+INHERITED_MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"
+INHERITED_XIAND_WORKER_TOKEN="${XIAND_WORKER_TOKEN:-}"
+INHERITED_XIAND_MAP_WORKER_ENABLED="${XIAND_MAP_WORKER_ENABLED:-}"
+INHERITED_XIAND_MAP_WORKER_TRAFFIC_MODE="${XIAND_MAP_WORKER_TRAFFIC_MODE:-}"
+INHERITED_XIAND_MAP_WORKER_COUNT="${XIAND_MAP_WORKER_COUNT:-}"
+INHERITED_XIAND_MAP_WORKER_CAPACITY="${XIAND_MAP_WORKER_CAPACITY:-}"
+INHERITED_XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}"
 if [ -f "$XIAND_ENV_FILE" ]; then
     set -a
     . "$XIAND_ENV_FILE"
     set +a
 fi
+XIAND_ENV_FILE="$RESOLVED_XIAND_ENV_FILE"
+[[ -z "$INHERITED_MYSQL_PASSWORD" ]] ||
+    MYSQL_PASSWORD="$INHERITED_MYSQL_PASSWORD"
+[[ -z "$INHERITED_XIAND_WORKER_TOKEN" ]] ||
+    XIAND_WORKER_TOKEN="$INHERITED_XIAND_WORKER_TOKEN"
+[[ -z "$INHERITED_XIAND_MAP_WORKER_ENABLED" ]] ||
+    XIAND_MAP_WORKER_ENABLED="$INHERITED_XIAND_MAP_WORKER_ENABLED"
+[[ -z "$INHERITED_XIAND_MAP_WORKER_TRAFFIC_MODE" ]] ||
+    XIAND_MAP_WORKER_TRAFFIC_MODE="$INHERITED_XIAND_MAP_WORKER_TRAFFIC_MODE"
+[[ -z "$INHERITED_XIAND_MAP_WORKER_COUNT" ]] ||
+    XIAND_MAP_WORKER_COUNT="$INHERITED_XIAND_MAP_WORKER_COUNT"
+[[ -z "$INHERITED_XIAND_MAP_WORKER_CAPACITY" ]] ||
+    XIAND_MAP_WORKER_CAPACITY="$INHERITED_XIAND_MAP_WORKER_CAPACITY"
+[[ -z "$INHERITED_XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK" ]] ||
+    XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$INHERITED_XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK"
+
+XIAND_MAP_WORKER_ENABLED="${XIAND_MAP_WORKER_ENABLED:-1}"
+XIAND_MAP_WORKER_TRAFFIC_MODE="${XIAND_MAP_WORKER_TRAFFIC_MODE:-shadow}"
+XIAND_MAP_WORKER_COUNT="${XIAND_MAP_WORKER_COUNT:-3}"
+XIAND_MAP_WORKER_CAPACITY="${XIAND_MAP_WORKER_CAPACITY:-100}"
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}"
 
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
@@ -154,7 +183,8 @@ elif [[ $GAME_AREA_INPUT =~ ^[0-9]+(-[0-9]+)?$ ]]; then
         GAME_AREA=$(printf "xd%02d" "${GAME_AREA#xd}")
     fi
 else
-    GAME_AREA="xd01"
+	echo "[ERROR] GAME_AREA 必须是 xdNN、NN 或 xdNN-NN 格式" >&2
+	exit 1
 fi
 
 # 提取数字部分作为 AREA（用于某些地方需要纯数字或范围）
@@ -182,6 +212,87 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+prepare_map_worker_runtime() {
+    local config_dir="/usr/local/games/allxd/${GAME_AREA}/data_xiand/map_workers"
+    local config_file="$config_dir/config.json"
+    local worker_token
+    XIAND_ENV_FILE="$XIAND_ENV_FILE" \
+    XIAND_MAP_WORKER_CONFIG="$config_file" \
+    XIAND_MAP_WORKER_ENABLED="$XIAND_MAP_WORKER_ENABLED" \
+    XIAND_MAP_WORKER_TRAFFIC_MODE="$XIAND_MAP_WORKER_TRAFFIC_MODE" \
+    XIAND_MAP_WORKER_COUNT="$XIAND_MAP_WORKER_COUNT" \
+    XIAND_MAP_WORKER_CAPACITY="$XIAND_MAP_WORKER_CAPACITY" \
+    XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK" \
+        "$PROJECT_ROOT/scripts/bootstrap_map_worker_runtime.sh"
+
+    if [ -n "$INHERITED_XIAND_WORKER_TOKEN" ]; then
+        XIAND_WORKER_TOKEN="$INHERITED_XIAND_WORKER_TOKEN"
+    else
+        XIAND_WORKER_TOKEN="$(awk -F= '
+            $1 == "XIAND_WORKER_TOKEN" {
+                print substr($0,index($0,"=")+1)
+                exit
+            }
+        ' "$XIAND_ENV_FILE")"
+    fi
+    worker_token="${XIAND_WORKER_TOKEN:-}"
+    if [ "$XIAND_MAP_WORKER_ENABLED" = "1" ] && [ "${#worker_token}" -lt 32 ]; then
+        print_error "XIAND_WORKER_TOKEN 生成失败或长度不足32位"
+        exit 1
+    fi
+    if [ ! -s "$config_file" ] || [ -L "$config_file" ]; then
+        print_error "worker配置未安全持久化到宿主机：$config_file"
+        exit 1
+    fi
+    chmod 700 "$config_dir"
+    chmod 600 "$config_file"
+    export XIAND_WORKER_TOKEN XIAND_MAP_WORKER_ENABLED
+    export XIAND_MAP_WORKER_TRAFFIC_MODE XIAND_MAP_WORKER_COUNT
+    export XIAND_MAP_WORKER_CAPACITY XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK
+    print_success "worker配置已持久化到宿主机：$config_file"
+}
+
+verify_map_worker_runtime_in_container() {
+    local container_name="$1"
+    local deadline=$((SECONDS + 240))
+    local runtime_mode=""
+    while (( SECONDS < deadline )); do
+        if ! docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null | grep -q true; then
+            print_error "容器在worker启动验证期间退出：$container_name"
+            docker logs --tail 120 "$container_name" 2>/dev/null || true
+            return 1
+        fi
+        runtime_mode="$(docker exec "$container_name" \
+            sh -c 'cat /app/xiand/data_xiand/map_workers/runtime-mode 2>/dev/null' \
+            2>/dev/null || true)"
+        case "$runtime_mode" in
+            shadow|active)
+                if docker exec \
+                    -e XIAND_MAP_WORKER_LAUNCHER=background \
+                    -e XIAND_MAP_WORKER_AREA_NAME="$GAME_AREA" \
+                    "$container_name" \
+                    /app/xiand/scripts/map_worker_cluster.sh health \
+                    >/dev/null 2>&1; then
+                    print_success "容器worker运行验证通过：$runtime_mode"
+                    return 0
+                fi
+                ;;
+            legacy-main|legacy-fallback|shadow-degraded)
+                if docker exec "$container_name" \
+                    curl -fsS --max-time 3 http://127.0.0.1:8888/health \
+                    >/dev/null 2>&1; then
+                    print_success "容器已安全运行于旧主进程模式：$runtime_mode"
+                    return 0
+                fi
+                ;;
+        esac
+        sleep 2
+    done
+    print_error "240秒内未完成worker/旧主进程运行验证"
+    docker logs --tail 120 "$container_name" 2>/dev/null || true
+    return 1
 }
 
 # 函数：检查必要的命令
@@ -953,6 +1064,7 @@ main() {
     print_info "[2/5] 准备游戏数据目录..."
     prepare_game_directories "$GAME_AREA"
     prepare_data_directories
+	prepare_map_worker_runtime
 
     print_info "[3/5] 拉取 Docker 镜像..."
     pull_docker_images
@@ -981,7 +1093,7 @@ main() {
     # 使用统一镜像
     local docker_image="${DOCKER_USER}/xiand-all:latest"
 
-    docker run -d \
+    if docker run -d \
         --name "xiand-${GAME_AREA}" \
         --memory=6g \
         --memory-swap=16g \
@@ -1002,14 +1114,18 @@ main() {
         -e MYSQL_USER="$MYSQL_USER" \
         -e MYSQL_PASSWORD \
         -e XIAND_HEALTH_TOKEN \
+        -e XIAND_WORKER_TOKEN \
+        -e XIAND_MAP_WORKER_ENABLED \
+        -e XIAND_MAP_WORKER_TRAFFIC_MODE \
+        -e XIAND_MAP_WORKER_COUNT \
+        -e XIAND_MAP_WORKER_CAPACITY \
+        -e XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK \
         -v /usr/local/games/allxd/${GAME_AREA}/data_xiand:/app/xiand/data_xiand \
         -v /usr/local/games/allxd/${GAME_AREA}/etc:/app/xiand/gamelib/etc \
         -v "${SHARED_ITEM_DIR}:/app/xiand/gamelib/clone/item" \
         -v /usr/local/games/allxd/log/${GAME_AREA}:/app/xiand/log \
         -v /usr/local/games/allxd/log/${GAME_AREA}/db_log:/app/xiand/db_log \
-        "${docker_image}" >/dev/null 2>&1
-
-    if [ $? -eq 0 ]; then
+        "${docker_image}" >/dev/null 2>&1; then
         print_success "容器已启动"
     else
         print_error "容器启动失败"
@@ -1017,6 +1133,7 @@ main() {
     fi
 
     verify_logical_zone_runtime_in_container "xiand-${GAME_AREA}"
+    verify_map_worker_runtime_in_container "xiand-${GAME_AREA}"
 
     print_info "[6/7] 更新Vue前端分区配置..."
     CONTAINER_NAME="xiand-${GAME_AREA}"

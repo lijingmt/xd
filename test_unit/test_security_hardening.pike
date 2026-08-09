@@ -121,6 +121,7 @@ void test_auction_failure_is_non_destructive()
 	string auction = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/auctiond.pike");
 	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string docker_startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
 	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
 	int add_start = auction ? search(auction,
 		"int add_new_sale_info(") : -1;
@@ -133,15 +134,16 @@ void test_auction_failure_is_non_destructive()
 		"int sale_added = AUCTIOND->add_new_sale_info") : -1;
 	int fee_charge = vendue ? search(vendue,
 		"me->del_account(fee)",sale_call) : -1;
-	int valid = vendue && auction && dockerfile && restart &&
+	int valid = vendue && auction && dockerfile && docker_startup && restart &&
 		sale_call>=0 && fee_charge>sale_call &&
 		search(vendue,"if(sale_added==1)")!=-1 &&
 		search(vendue,"本次未扣手续费，物品也未移除")!=-1 &&
 		add_source!="" &&
 		search(add_source,"[add_new_sale_info] [database unavailable]")!=-1 &&
 		search(add_source,"db=0;")!=-1 &&
-		search(dockerfile,"MySQL authentication failed")!=-1 &&
+		search(docker_startup,"MySQL authentication failed")!=-1 &&
 		search(dockerfile,"-p${MYSQL_PASSWORD}")==-1 &&
+		search(docker_startup,"-p${MYSQL_PASSWORD}")==-1 &&
 		search(restart,"SELECT 1")!=-1 &&
 		search(restart,"MySQL 认证失败")!=-1;
 	check("拍卖失败不扣费且部署拒绝错误MySQL凭证",valid,
@@ -264,6 +266,7 @@ void test_health_and_deployment_secrets()
 	string accounts = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/account_characters.pike");
 	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string docker_startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
 	string dockerignore = Stdio.read_file(ROOT+"/.dockerignore");
 	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
 	string auction = Stdio.read_file(ROOT+
@@ -272,7 +275,8 @@ void test_health_and_deployment_secrets()
 		"/gamelib/single/daemons/paihangd.pike");
 	object httpd = (object)(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
-	int valid = daemon && accounts && dockerfile && dockerignore && restart &&
+	int valid = daemon && accounts && dockerfile && docker_startup &&
+		dockerignore && restart &&
 		auction && ranking &&
 		httpd &&
 		httpd->normalize_http_client_ip("127.0.0.1:54321")=="127.0.0.1" &&
@@ -283,7 +287,7 @@ void test_health_and_deployment_secrets()
 		search(daemon,"string normalize_http_client_ip")!=-1 &&
 		search(daemon,"string client_ip = normalize_http_client_ip")!=-1 &&
 		search(accounts,"normalize_http_client_ip")!=-1 &&
-		search(dockerfile,"MYSQL_PASSWORD is required")!=-1 &&
+		search(docker_startup,"MYSQL_PASSWORD is required")!=-1 &&
 		search(dockerignore,".env")!=-1 &&
 		search(restart,"-e MYSQL_PASSWORD ")!=-1 &&
 		search(restart,"-e MYSQL_PASSWORD=\"$MYSQL_PASSWORD\"")==-1 &&

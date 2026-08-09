@@ -60,14 +60,11 @@ void test_pike_stack_contract()
 {
 	test_start("镜像内MUD使用放大的Pike内部栈");
 	string source =
-		Stdio.read_file(ROOT+"/docker/Dockerfile.all");
-	string command =
-		"pike -s1000000 -ss67108864 "+
-		"/app/xiand/lowlib/driver.pike";
-
+		Stdio.read_file(ROOT+"/docker/start-unified.sh");
 	if(source &&
 	   search(source,"ulimit -s unlimited")!=-1 &&
-	   search(source,command)!=-1)
+	   search(source,"pike -s1000000 -ss67108864")!=-1 &&
+	   search(source,"\"$ROOT_DIR/lowlib/driver.pike\"")!=-1)
 		test_pass();
 	else
 		test_fail("MUD启动命令缺少系统栈、evaluator栈或64MiB线程栈");
@@ -99,7 +96,7 @@ void test_stack_order_contract()
 {
 	test_start("堆栈设置先于Pike MUD启动");
 	string source =
-		Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+		Stdio.read_file(ROOT+"/docker/start-unified.sh");
 	int ulimit_position = -1;
 	int pike_position = -1;
 
@@ -139,7 +136,7 @@ void test_item_sync_contract()
 
 	if(source){
 		sync_position = search(source,"\n    sync_item_directory\n");
-		run_position = search(source,"\n    docker run -d");
+		run_position = search(source,"\n    if docker run -d");
 		foreach(hidden_ids,string skill_id)
 			if(search(source,"\""+skill_id+"\"")!=-1)
 				hidden_count++;
@@ -324,17 +321,98 @@ void test_real_healthcheck_and_runtime_contracts()
 	test_start("容器健康检查访问真实HTTP且运行时静态契约可见");
 	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
 	string ignore = Stdio.read_file(ROOT+"/.dockerignore");
-	if(dockerfile && ignore &&
+	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
+	if(dockerfile && ignore && startup &&
 	   search(dockerfile,"curl -fsS --max-time 5")!=-1 &&
 	   search(dockerfile,"http://127.0.0.1:8888/health")!=-1 &&
 	   search(dockerfile,"CMD pike -e 'exit(0);'")==-1 &&
-	   search(dockerfile,"/app/xiand/db_log/reg_new")!=-1 &&
-	   search(dockerfile,"/app/xiand/db_log/daily_user")!=-1 &&
+	   search(startup,"\"$ROOT_DIR/db_log/reg_new\"")!=-1 &&
+	   search(startup,"\"$ROOT_DIR/db_log/daily_user\"")!=-1 &&
 	   search(ignore,"!docker/Dockerfile.all")!=-1 &&
-	   search(ignore,"!docker/docker-compose.yml")!=-1)
+	   search(ignore,"!docker/docker-compose.yml")!=-1 &&
+	   search(ignore,"!docker/start-unified.sh")!=-1 &&
+	   search(ignore,"!.env.example")!=-1 &&
+	   search(dockerfile,
+		   "COPY docker/start-unified.sh /app/start-unified.sh")!=-1 &&
+	   search(startup,"chmod 700 \"$ROOT_DIR/db_log\"")!=-1)
 		test_pass();
 	else
 		test_fail("健康检查仍可能假阳性、db_log未初始化或镜像TestUnit缺少静态文件");
+}
+
+void test_worker_docker_start_chain_contract()
+{
+	test_start("restart-all到容器的3-worker启动链完整");
+	string wrapper = Stdio.read_file(ROOT+"/restart-all-docker.sh");
+	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
+	string compose = Stdio.read_file(ROOT+"/docker/docker-compose.yml");
+	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
+	string bootstrap = Stdio.read_file(
+		ROOT+"/scripts/bootstrap_map_worker_runtime.sh");
+	if(wrapper && restart && compose && dockerfile && startup && bootstrap &&
+	   search(wrapper,"exec \"$SCRIPT_DIR/restart-docker.sh\"")!=-1 &&
+	   search(wrapper,"xd01-02 2002 2003")!=-1 &&
+	   search(restart,"prepare_map_worker_runtime")!=-1 &&
+	   search(restart,
+		   "/usr/local/games/allxd/${GAME_AREA}/data_xiand/map_workers")!=-1 &&
+	   search(restart,"bootstrap_map_worker_runtime.sh")!=-1 &&
+	   search(restart,"-e XIAND_WORKER_TOKEN")!=-1 &&
+	   search(restart,"-e XIAND_MAP_WORKER_COUNT")!=-1 &&
+	   search(restart,"verify_map_worker_runtime_in_container")!=-1 &&
+	   search(compose,"XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}")!=-1 &&
+	   search(compose,"XIAND_WORKER_TOKEN=${XIAND_WORKER_TOKEN}")!=-1 &&
+	   search(dockerfile,"python3")!=-1 &&
+	   search(dockerfile,"openssl")!=-1 &&
+	   search(dockerfile,"nmap-ncat")!=-1 &&
+	   search(dockerfile,"procps-ng")!=-1 &&
+	   search(startup,"XIAND_MAP_WORKER_LAUNCHER=background")!=-1 &&
+	   search(startup,
+		   "[[ \"$MAP_WORKER_CONFIG\" == \"$MAP_WORKER_DIR/config.json\" ]]")!=-1 &&
+	   search(startup,"\"$MAP_WORKER_SCRIPT\" apply")!=-1 &&
+	   search(startup,"start_shadow_authority")!=-1 &&
+	   search(startup,"start_active_authority")!=-1 &&
+	   search(bootstrap,"XIAND_MAP_WORKER_COUNT:-3")!=-1 &&
+	   search(bootstrap,"chmod 600 \"$CONFIG_FILE\"")!=-1)
+		test_pass();
+	else
+		test_fail("worker配置未持久化、环境未传入容器或入口未实际apply 3-worker");
+}
+
+void test_worker_failure_legacy_fallback_contract()
+{
+	test_start("worker故障全局熔断并持久回退旧主进程");
+	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
+	string cluster = Stdio.read_file(ROOT+"/scripts/map_worker_cluster.sh");
+	int latch_position = -1;
+	int stop_position = -1;
+	int legacy_position = -1;
+	if(startup){
+		latch_position = search(startup,
+			"latch_active_fallback \"worker-health-failure\"");
+		stop_position = search(startup,"if ! stop_cluster_safely; then",
+			latch_position);
+		legacy_position = search(startup,"start_legacy_main",stop_position);
+	}
+	if(startup && cluster && latch_position!=-1 && stop_position!=-1 &&
+	   legacy_position!=-1 && latch_position<stop_position &&
+	   stop_position<legacy_position &&
+	   search(startup,"FALLBACK_LATCH=")!=-1 &&
+	   search(startup,"persistent worker fallback latch found")!=-1 &&
+	   search(startup,"health_failures >= 3")!=-1 &&
+	   search(startup,"if probe_output=\"$(XIAND_MAP_WORKER_CONFIG=")!=-1 &&
+	   search(startup,"map-worker-monitor.log")!=-1 &&
+	   search(startup,
+		   "worker cluster could not prove safe shutdown")!=-1 &&
+	   search(startup,
+		   "legacy main ports are still occupied after worker shutdown")!=-1 &&
+	   search(startup,"printf 'shutdown_safe\\r\\n'")!=-1 &&
+	   search(cluster,"cluster_health()")!=-1 &&
+	   search(cluster,"coordinator reports an unhealthy worker")!=-1 &&
+	   search(cluster,"runtime_process_running \"$worker_id\"")!=-1)
+		test_pass();
+	else
+		test_fail("active故障可能双写、自动反复切换或未在原端口恢复旧主进程");
 }
 
 void test_room_catalog_deploy_contract()
@@ -375,6 +453,8 @@ int main()
 	test_local_restart_stack_contract();
 	test_real_healthcheck_and_runtime_contracts();
 	test_room_catalog_deploy_contract();
+	test_worker_docker_start_chain_contract();
+	test_worker_failure_legacy_fallback_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;
