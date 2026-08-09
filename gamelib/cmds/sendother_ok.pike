@@ -9,6 +9,10 @@ int main(string|zero arg)
 	string type;
 	object player=this_player();
 	object goods;
+	if(MAP_WORKERD->distributed_mode_enabled()){
+		write("多 worker 试运行暂未开放玩家直赠；旧确认链接已安全失效。\n[返回:look]\n");
+		return 1;
+	}
 	if(sscanf(arg,"%s %d %s %s",user_name,user_count,goods_id,type)==4){
 		object ob=present(user_name,environment(player));
 		if(!ob)

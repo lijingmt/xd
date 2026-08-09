@@ -104,14 +104,15 @@ int is_event_room(object room)
 private int internal_move_player(object player,object room)
 {
 	int moved;
+	mixed move_err;
 	if(!player || !room)
 		return 0;
 	player["/tmp/timed_event_move_bypass"] = 1;
-	moved = player->move(room);
+	move_err = catch { moved = player->move(room); };
 	player->m_delete_foruser("/tmp/timed_event_move_bypass");
-	if(moved && functionp(player->reset_view))
+	if(!move_err && moved && functionp(player->reset_view))
 		player->reset_view();
-	return moved && environment(player)==room;
+	return !move_err && moved && environment(player)==room;
 }
 
 int guard_player_move(object player,mixed destination)

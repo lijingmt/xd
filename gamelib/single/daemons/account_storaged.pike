@@ -20,6 +20,18 @@ inherit LOW_DAEMON;
 private Thread.Mutex account_storage_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_storage_cache = ([]);
 
+/** Authenticated map-worker ingress only: discard cross-process stale state. */
+void invalidate_worker_account_cache(string account_id)
+{
+	object key;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !valid_account_or_character_id(account_id))
+		return;
+	key = account_storage_lock->lock();
+	m_delete(account_storage_cache,account_id);
+	destruct(key);
+}
+
 private int valid_hex_id(string value)
 {
 	if(!value || sizeof(value)!=64)

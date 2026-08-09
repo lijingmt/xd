@@ -270,33 +270,55 @@ int complete_wallet_payment_player_save(object player)
 	return 1;
 }
 
-private void commit_wallet_payment_after_command(object player,
+private int commit_wallet_payment_after_command(object player,
 	string request_id)
 {
 	mapping payment;
 	if(!player)
-		return;
+		return 0;
 	payment=query_pending_wallet_payment(player);
 	if((string)payment["request_id"]!=request_id ||
 	   (payment["phase"]!="charged" && payment["phase"]!="committed"))
-		return;
+		return 1;
 	if(payment["phase"]=="charged" &&
 	   (!functionp(player->save_with_result) ||
 	    !player->save_with_result())){
 		werror("[YUSHID] 共享钱包购买延迟提交失败: %s %s\n",
 			player->query_name(),request_id);
-		return;
+		return 0;
 	}
 	// 第一份人物存档已经同时包含奖励和 committed 凭据。先清理钱包
 	// 收据，再补写人物标记；任一步退出都能由 committed 登录恢复重试。
 	if(!complete_wallet_payment_player_save(player)){
 		werror("[YUSHID] 共享钱包购买凭据清理失败: %s %s\n",
 			player->query_name(),request_id);
-		return;
+		return 0;
 	}
-	if(!player->save_with_result())
+	if(!player->save_with_result()){
 		werror("[YUSHID] 共享钱包购买标记清理存档失败: %s %s\n",
 			player->query_name(),request_id);
+		return 0;
+	}
+	return 1;
+}
+
+// 多 worker 下不能让 call_out 在网关释放账号锁之后继续写共享钱包。
+// HTTP 请求尾部会在完整命令（包括商品/权益发放）返回后同步调用本入口，
+// 并且网关要等 request done 凭证后才允许同账号进入另一个 worker。
+int finalize_wallet_payment_after_worker_request(object player)
+{
+	mapping payment;
+	string request_id;
+	if(MAP_WORKERD->query_node_role()!="worker" || !player)
+		return 1;
+	payment=query_pending_wallet_payment(player);
+	if(!sizeof(payment) ||
+	   (payment["phase"]!="charged" && payment["phase"]!="committed"))
+		return 1;
+	request_id=(string)(payment["request_id"] || "");
+	if(!valid_wallet_payment_request(request_id))
+		return 0;
+	return commit_wallet_payment_after_command(player,request_id);
 }
 
 int reconcile_wallet_payment(object player)
@@ -404,7 +426,10 @@ int pay_yushi(object player,int num)
 		mapping payment=query_pending_wallet_payment(player);
 		payment["phase"]="charged";
 		set_pending_wallet_payment(player,payment);
-		call_out(commit_wallet_payment_after_command,0,player,request_id);
+		// 单进程保留历史的命令后提交时序；worker 由 HTTP 请求尾部在
+		// 网关账号锁内同步提交，禁止脱锁延迟回写共享余额。
+		if(MAP_WORKERD->query_node_role()!="worker")
+			call_out(commit_wallet_payment_after_command,0,player,request_id);
 		tell_object(player,"已优先使用当前人物玉石，不足部分从账号共享充值余额扣除。\n");
 		return 1;
 	}

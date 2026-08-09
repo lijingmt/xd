@@ -1,0 +1,1059 @@
+#!/usr/bin/env pike
+/** Map-worker placement, fencing, migration and admin safety regression tests. */
+
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+
+mapping(string:int) results = (["total":0,"passed":0,"failed":0]);
+
+void check(string name,int valid,string reason)
+{
+	results["total"]++;
+	werror("\n[地图Worker %d] %s\n",results["total"],name);
+	if(valid){
+		results["passed"]++;
+		werror("  ✓ 通过\n");
+	}
+	else{
+		results["failed"]++;
+		werror("  ✗ 失败: %s\n",reason);
+	}
+}
+
+int source_has(string path,string needle)
+{
+	string source = Stdio.read_file(ROOT+path);
+	return source && search(source,needle)!=-1;
+}
+
+int main()
+{
+	program daemon_program = (program)(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike");
+	object daemon = daemon_program();
+	string prefix = "t"+(string)time()+(string)random(100000);
+	array(string) worker_ids = ({prefix+"w1",prefix+"w2",prefix+"w3"});
+	array(mapping) registrations = ({});
+	mapping placement;
+	mapping lease;
+	mapping handoff;
+	mapping committed;
+	mapping status;
+	string source_worker;
+	string target_worker;
+	string source_affinity = "test/source/"+prefix;
+	string target_affinity = "testtarget"+prefix;
+	string target_room_path = "/gamelib/d/"+target_affinity+"/room";
+	string userid = "xd98"+prefix;
+	string target_user = "xd98"+prefix+"to";
+	string request_id = prefix+"handoff";
+	string message_id = prefix+"message";
+	string transaction_id = prefix+"escrow";
+	string item_id =
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+	string item_digest =
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+	string error_desc = "";
+	int valid;
+
+	werror("\n========== 地图 Worker 架构测试 ==========\n");
+	mixed err = catch {
+		check("普通地图按一级目录归属，动态实例才可细分",
+			daemon->query_affinity_key(
+				ROOT+"/gamelib/d/wugongdong/wugongchao#12","")==
+				"wugongdong" &&
+				daemon->query_affinity_key(
+					"/gamelib/d/home/template/main","xd98home1")==
+					"home:xd98home1" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/timed_event/event_room#2",
+				"tianheng|2026-08-09|group1")==
+				"timed_event:tianheng:2026-08-09:group1" &&
+			daemon->query_affinity_key("../../etc/passwd","")=="",
+			"静态房间被拆分、实例未分片或路径穿越未拒绝");
+
+		mapping restored_validation = daemon->validate_control_plane_snapshot(([
+			"version":1,
+			"affinity_assignments":([
+				"wugongdong":(["worker_id":"w01","epoch":2,
+					"weight":10,"assigned_at":time()]),
+				"../bad":(["worker_id":"w02","epoch":1,"weight":1]),
+			]),
+			"player_leases":([
+				"xd98orphan":(["worker_id":"w01","affinity":"wugongdong",
+					"epoch":3,"state":"frozen","expires_at":time()+60,
+					"updated_at":time()]),
+			]),
+			"handoffs":(["restore-mismatch":([
+				"userid":"xd98missing","source_worker":"w01",
+				"target_worker":"w02","source_epoch":1,"target_epoch":2,
+				"target_affinity":"wugongdong","state":"committed",
+				"created_at":time(),"expires_at":time()+60,
+				"committed_at":time(),
+			])]),"envelopes":([]),
+			"escrow_transactions":([
+				"restoretx1":(["from_user":"xd98from","to_user":"xd98to",
+					"item":(["item_id":item_id,"digest":item_digest,"amount":1]),
+					"state":"funded","created_at":time(),"expires_at":0]),
+				"restoretx2":(["from_user":"xd98from","to_user":"xd98to2",
+					"item":(["item_id":item_id,"digest":item_digest,"amount":1]),
+					"state":"reserved","created_at":time(),
+					"expires_at":time()+60]),
+			]),"pk_sessions":([]),
+		]));
+		mapping restored_snapshot = restored_validation["snapshot"];
+		check("控制面恢复逐字段校验并丢弃路径穿越与孤立冻结租约",
+			restored_validation["ok"] &&
+			(int)restored_validation["discarded"]==4 &&
+			sizeof((mapping)restored_snapshot["affinity_assignments"])==1 &&
+			sizeof((mapping)restored_snapshot["player_leases"])==0 &&
+			sizeof((mapping)restored_snapshot["handoffs"])==0 &&
+			sizeof((mapping)restored_snapshot["escrow_transactions"])==1,
+			"损坏快照可能恢复伪造地图归属或永久冻结人物");
+		check("控制面主文件损坏时仅从已验证备份恢复且串行持久化",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"restored control plane from backup") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"control_persist_lock->lock()") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"!control_restored_from_backup") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"backup_temp_path = path+\".bak.tmp\"") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"backup_size==live_size") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"mv(backup_temp_path,backup_path)"),
+			"损坏主快照可能覆盖唯一好备份或并发写同一临时文件");
+		check("控制面容量预算与恢复上限一致且耐久消息确认同步落盘",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_MAX_CONTROL_BYTES = 64*1024*1024") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"control plane exceeds durable size budget") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_MAX_ESCROW_BYTES = 4096") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"original_message = copy_value(message)"),
+			"运行时可能接受重启后无法恢复的快照，或提前确认未落盘消息");
+		mapping incomplete_v2 = daemon->validate_control_plane_snapshot(([
+			"version":2,"counts":(["affinity_assignments":1,
+				"player_leases":0,"handoffs":0,"envelopes":0,
+				"escrow_transactions":1,"pk_sessions":0]),
+			"affinity_assignments":([]),"player_leases":([]),
+			"handoffs":([]),"envelopes":([]),
+			"escrow_transactions":([]),"pk_sessions":([]),
+		]));
+		check("新版控制快照字段或托管记录被截断时整代拒绝",
+			!incomplete_v2["ok"] &&
+			incomplete_v2["code"]=="incomplete_snapshot" &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"snapshot[\"counts\"]"),
+			"可解析的残缺JSON可能静默清空人物租约或装备托管");
+
+		for(int index=0;index<sizeof(worker_ids);index++){
+			mapping registered = daemon->register_worker(worker_ids[index],
+				"http://127.0.0.1:"+(19001+index),100,
+				prefix+"incarnation"+index);
+			registrations += ({registered});
+		}
+		check("只接受受限回环端点并给每次进程化身代数",
+			registrations[0]["ok"] && registrations[1]["ok"] &&
+			registrations[2]["ok"] &&
+			(int)registrations[0]["generation"]==1 &&
+			!daemon->register_worker(prefix+"bad",
+				"http://192.168.1.205:19009",100,prefix+"badinc")["ok"],
+			"worker 注册未限制端点、数量或 generation");
+
+		mapping catalog = daemon->assign_catalog(1);
+		status = daemon->query_status();
+		mapping(string:int) counts = ([]);
+		mapping(string:int) weights = ([]);
+		foreach((array)status["placements"],mapping one){
+			string owner = (string)one["worker_id"];
+			if(has_value(worker_ids,owner)){
+				counts[owner]++;
+				weights[owner] += (int)one["weight"];
+			}
+		}
+		valid = catalog["ok"] && (int)catalog["catalog_size"]>=60;
+		foreach(worker_ids,string worker_id)
+			if(counts[worker_id]<1 || weights[worker_id]<1)
+				valid = 0;
+		check("约2693个房间按目录权重分布到3个worker",
+			valid,"冷启动目录未覆盖所有worker或地图目录缺失");
+
+		placement = daemon->assign_affinity(source_affinity,3,1);
+		source_worker = (string)placement["worker_id"];
+		mapping sticky = daemon->assign_affinity(source_affinity,999,0);
+		check("活跃地图使用粘性归属且普通请求不触发搬迁",
+			placement["ok"] && sticky["ok"] && sticky["sticky"] &&
+			sticky["worker_id"]==source_worker &&
+			sticky["epoch"]==placement["epoch"],
+			"权重变化造成无授权地图迁移");
+		check("新地图owner和人物epoch必须同步落盘后才对网关可见",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"New routing authority is usable only after") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"A lease is the equipment single-owner fence") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"Inventory recovery is also an ownership grant") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"control_persist_failed"),
+			"协调器崩溃可能遗忘已经允许加载人物装备的owner/epoch");
+
+		mapping missing_route = daemon->query_player_route(userid);
+		lease = daemon->acquire_player_lease(userid,source_worker,
+			source_affinity,0);
+		check("人物租约包含worker、affinity和单调epoch",
+			missing_route["code"]=="lease_missing" && lease["ok"] &&
+			lease["worker_id"]==source_worker &&
+			lease["affinity"]==source_affinity && (int)lease["epoch"]>=1,
+			"首登被误判为过期恢复，或人物可能同时被多个worker持有");
+		mapping batch_bad = daemon->renew_player_leases_batch(source_worker,
+			(int)registrations[member_array(source_worker,worker_ids)]["generation"],
+			({(["userid":userid,"epoch":lease["epoch"],
+				"affinity":target_affinity])}));
+		mapping batch_ok = daemon->renew_player_leases_batch(source_worker,
+			(int)registrations[member_array(source_worker,worker_ids)]["generation"],
+			({(["userid":userid,"epoch":lease["epoch"],
+				"affinity":source_affinity])}));
+		check("后台挂机人物由worker心跳批量续租且地图不匹配时失败关闭",
+			batch_bad["code"]=="stale_lease" && batch_ok["ok"] &&
+			(int)batch_ok["renewed"]==1 &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"handle_map_worker_local_live_leases") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"local_user_request_running(userid)") &&
+			source_has("/tools/map_workers/gateway.py",
+				"_renew_live_player_leases(worker_id, generation)") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_live_player_leases_renew_after_generation_ack_before_control"),
+			"后台挂机无浏览器请求时租约可能过期，或错误owner被静默续租");
+
+		int source_index = member_array(source_worker,worker_ids);
+		string premature_worker = worker_ids[(source_index+1)%sizeof(worker_ids)];
+		mapping rebound = daemon->rebind_player_lease(userid,source_worker,
+			(int)lease["epoch"],source_affinity);
+		mapping bad_rebind = daemon->rebind_player_lease(userid,
+			premature_worker,(int)lease["epoch"],source_affinity);
+		check("同worker移动只在人物epoch与地图owner一致时更新租约",
+			rebound["ok"] && rebound["affinity"]==source_affinity &&
+			bad_rebind["code"]=="affinity_owner_mismatch" &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"The room move already happened") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_same_worker_completed_move_rebinds_lease_affinity") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_full_recovery_rebinds_same_worker_affinity_mismatch") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_unreconstructable_dynamic_room_never_crosses_workers"),
+			"同进程地图切换可能留下旧租约，或把动态实例复制到另一进程");
+		daemon->set_worker_draining(source_worker,1);
+		mapping premature_takeover = daemon->acquire_player_lease(userid,
+			premature_worker,source_affinity,0);
+		daemon->set_worker_draining(source_worker,0);
+		check("节点暂时不可用也不能抢占尚未过期的人物租约",
+			premature_takeover["code"]=="lease_owned" &&
+			premature_takeover["owner"]==source_worker &&
+			(int)premature_takeover["epoch"]==(int)lease["epoch"],
+			"网络分区时第二个worker可能提前加载同一人物和装备");
+			check("租约过期也不作为跨worker抢占与删除防重墓碑的证明",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"an ordinary acquire may only reopen the same logical worker") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"Expired player leases are durable fencing tombstones") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_expired_lease_reopens_only_on_its_previous_worker"),
+				"超时长命令可能和新worker同时写人物档案或装备");
+			mapping gc_begin = daemon->begin_lease_reconciliation(prefix+"gc");
+			mapping gc_add = daemon->add_lease_reconciliation_users(prefix+"gc",
+				({userid,target_user}));
+			mapping gc_commit = daemon->commit_lease_reconciliation(prefix+"gc");
+			check("过期租约仅在停流后的全worker盘点中分块安全回收",
+				gc_begin["ok"] && gc_add["ok"] && gc_commit["ok"] &&
+				source_has("/gamelib/single/daemons/map_workerd.pike",
+					"lease_reconciliation_live_users") &&
+				source_has("/gamelib/single/daemons/map_workerd.pike",
+					"query_local_player_userids") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+					"map_worker_local_players") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+					"Epoch entries with no living object") &&
+				source_has("/gamelib/single/daemons/map_workerd.pike",
+					"normalize_room_location((string)lease[\"arrival_room_path\"])") &&
+				source_has("/tools/map_workers/gateway.py",
+					"_prune_reconciled_tombstones(sorted(recovered))") &&
+				source_has("/tools/map_workers/test_gateway.py",
+					"test_reconciled_lease_gc_uploads_bounded_inventory_chunks"),
+				"长期运行可能耗尽租约/会话放置容量，或误删仍持有装备的旧owner");
+		check("长时间运行会定期停流盘点后回收首登session和过期租约",
+			source_has("/tools/map_workers/gateway.py",
+				"XIAND_MAP_WORKER_LEASE_GC_SECONDS") &&
+			source_has("/tools/map_workers/gateway.py",
+				"_run_lease_gc_once") &&
+			source_has("/tools/map_workers/gateway.py",
+				"intentionally leaves routing paused") &&
+			source_has("/.env.example",
+				"XIAND_MAP_WORKER_LEASE_GC_SECONDS=3600") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_failed_periodic_lease_gc_keeps_routing_paused"),
+			"运行期间首登session与防重墓碑会持续累积直到容量耗尽");
+
+			daemon->heartbeat_worker(source_worker,
+			(int)registrations[source_index]["generation"],([
+				"active_players":1000,"active_rooms":1000,
+				"pending_commands":100000,"heartbeat_ms":600000,
+			]));
+		mapping target_placement = daemon->assign_affinity(
+			target_affinity,1,1);
+		target_worker = (string)target_placement["worker_id"];
+		check("实时负载会把新地图避开严重拥塞worker",
+			target_placement["ok"] && target_worker!=source_worker,
+			"新地图仍被放到拥塞worker");
+
+		string drift_user = userid+"drift";
+		string drift_affinity = "drift"+prefix;
+		string drift_room = "/gamelib/d/"+drift_affinity+"/room";
+		string drift_request = request_id+"drift";
+		mapping drift_placement = daemon->assign_affinity(
+			drift_affinity,1,1);
+		string drift_target = (string)drift_placement["worker_id"];
+		mapping drift_lease = daemon->acquire_player_lease(drift_user,
+			source_worker,source_affinity,0);
+		mapping drift_prepare = daemon->begin_handoff(drift_user,source_worker,
+			(int)drift_lease["epoch"],drift_affinity,drift_room,drift_request);
+		daemon->set_worker_draining(drift_target,1);
+		mapping moved_placement = daemon->assign_affinity(
+			drift_affinity,1,1);
+		daemon->set_worker_draining(drift_target,0);
+		mapping moved_commit = daemon->commit_handoff(
+			drift_request,drift_target);
+		mapping drift_abort = daemon->abort_handoff(
+			drift_request,source_worker);
+		check("迁移prepare期间target地图改归属时禁止提交旧worker",
+			drift_placement["ok"] && drift_target!=source_worker &&
+			drift_lease["ok"] && drift_prepare["ok"] &&
+			moved_placement["ok"] &&
+			moved_placement["worker_id"]!=drift_target &&
+			moved_commit["code"]=="target_affinity_moved" &&
+			drift_abort["ok"] &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"active_affinities[(string)handoff[\"target_affinity\"]]"),
+			"重均衡竞态可能把人物提交到已不拥有目标地图的worker");
+
+		handoff = daemon->begin_handoff(userid,source_worker,
+			(int)lease["epoch"],target_affinity,target_room_path,request_id);
+		mapping frozen = daemon->query_player_route(userid);
+		mapping frozen_reacquire = daemon->acquire_player_lease(userid,
+			source_worker,source_affinity,(int)lease["epoch"]);
+		mapping handoff_collision = daemon->begin_handoff(userid,source_worker,
+			(int)lease["epoch"],target_affinity,target_room_path+"other",
+			request_id);
+		mapping wrong_commit = daemon->commit_handoff(request_id,source_worker);
+		check("迁移prepare冻结源租约，冻结期不能重获且幂等ID绑定参数",
+			handoff["ok"] && handoff["state"]=="prepared" &&
+			frozen["state"]=="frozen" &&
+			frozen["handoff_request_id"]==request_id &&
+			frozen_reacquire["code"]=="lease_frozen" &&
+			handoff_collision["code"]=="idempotency_conflict" &&
+			!wrong_commit["ok"],
+			"冻结租约被重开、迁移ID碰撞或目标worker可被伪造");
+
+		daemon->set_worker_draining(target_worker,1);
+		mapping unavailable_commit = daemon->commit_handoff(
+			request_id,target_worker);
+		daemon->set_worker_draining(target_worker,0);
+		committed = daemon->commit_handoff(request_id,target_worker);
+		mapping route_after = daemon->query_player_route(userid);
+		mapping replayed = daemon->commit_handoff(request_id,target_worker);
+		mapping wrong_arrival_ack = daemon->acknowledge_player_arrival(userid,
+			target_worker,(int)lease["epoch"]+1,source_affinity);
+		mapping arrival_ack = daemon->acknowledge_player_arrival(userid,
+			target_worker,(int)lease["epoch"]+1,target_affinity);
+		mapping route_arrived = daemon->query_player_route(userid);
+		check("迁移commit原子切换worker和epoch且重试幂等",
+			unavailable_commit["code"]=="target_unavailable" &&
+			committed["ok"] && route_after["worker_id"]==target_worker &&
+			(int)route_after["epoch"]==(int)lease["epoch"]+1 &&
+			route_after["state"]=="active" &&
+			route_after["arrival_room_path"]==target_room_path &&
+			wrong_arrival_ack["code"]=="arrival_fence_failed" &&
+			arrival_ack["ok"] && !route_arrived["arrival_room_path"] &&
+			replayed["ok"] &&
+			replayed["replayed"],
+			"迁移可能出现双活、旧epoch复用或重试失败");
+
+		string retry_user = userid+"retry";
+		string retry_request = request_id+"retry";
+		mapping retry_lease = daemon->acquire_player_lease(retry_user,
+			source_worker,source_affinity,0);
+		mapping retry_prepare = daemon->begin_handoff(retry_user,source_worker,
+			(int)retry_lease["epoch"],target_affinity,target_room_path,
+			retry_request);
+		mapping retry_abort = daemon->abort_handoff(retry_request,source_worker);
+		mapping retry_reprepare = daemon->begin_handoff(retry_user,source_worker,
+			(int)retry_lease["epoch"],target_affinity,target_room_path,
+			retry_request);
+		mapping retry_route = daemon->query_player_route(retry_user);
+		check("已终止的同一迁移幂等键仅在精确源租约复核后可安全重备",
+			retry_lease["ok"] && retry_prepare["ok"] && retry_abort["ok"] &&
+			retry_reprepare["ok"] && retry_reprepare["state"]=="prepared" &&
+			retry_route["state"]=="frozen" &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_handoff_target_or_state_drift_is_rejected_before_source_release"),
+			"过期/改道prepare可能在释放源人物后才被发现，造成移动丢失或重复加载");
+		daemon->abort_handoff(retry_request,source_worker);
+
+		mapping message_payload = (["text":"test","source_name":"测试者"]);
+		mapping message = daemon->publish_envelope(message_id,"tell",userid,
+			target_user,message_payload);
+		mapping message_replay = daemon->publish_envelope(message_id,"tell",userid,
+			target_user,message_payload);
+		mapping message_collision = daemon->publish_envelope(message_id,"tell",
+			userid,target_user,(["text":"different"]));
+		array polled = daemon->poll_envelopes(target_user,20);
+		array concurrently_polled = daemon->poll_envelopes(target_user,20);
+		mapping acked = daemon->acknowledge_envelope(message_id,target_user,
+			(int)polled[0]["delivery_epoch"]);
+		mapping ack_replay = daemon->acknowledge_envelope(message_id,target_user,
+			(int)polled[0]["delivery_epoch"]);
+		check("跨worker消息绑定幂等参数、领取租约、delivery epoch和ACK",
+			message["ok"] && message_replay["replayed"] &&
+			message_collision["code"]=="idempotency_conflict" &&
+			sizeof(polled)==1 && polled[0]["message_id"]==message_id &&
+			sizeof(concurrently_polled)==0 && acked["ok"] &&
+			ack_replay["replayed"] &&
+			sizeof(daemon->poll_envelopes(target_user,20))==0,
+			"消息可能ID碰撞、并发重复领取、旧epoch ACK或串收件人");
+
+		mapping escrow = daemon->create_escrow(transaction_id,userid,target_user,
+			(["item_id":item_id,"amount":1,"digest":item_digest]));
+		mapping escrow_collision = daemon->create_escrow(transaction_id,userid,
+			target_user+"x",(["item_id":item_id,"amount":1,
+			"digest":item_digest]));
+		mapping duplicate_item = daemon->create_escrow(transaction_id+"other",
+			userid,target_user,(["item_id":item_id,"amount":1,
+			"digest":item_digest]));
+		mapping wrong_digest = daemon->advance_escrow(transaction_id,userid,
+			"reserved","funded",
+			"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+		mapping funded = daemon->advance_escrow(transaction_id,userid,
+			"reserved","funded",item_digest);
+		mapping unsafe_cancel = daemon->advance_escrow(transaction_id,userid,
+			"funded","cancelled",item_digest);
+		mapping forged = daemon->advance_escrow(transaction_id,userid,
+			"funded","delivered",item_digest);
+		mapping delivered = daemon->advance_escrow(transaction_id,target_user,
+			"funded","delivered",item_digest);
+		mapping delivery_replay = daemon->advance_escrow(transaction_id,target_user,
+			"funded","delivered",item_digest);
+		mapping forged_replay = daemon->advance_escrow(transaction_id,userid,
+			"funded","delivered",item_digest);
+		check("装备托管绑定事务内容且禁止出资后取消、越权及重复领取",
+			escrow["ok"] &&
+			escrow_collision["code"]=="idempotency_conflict" &&
+			duplicate_item["code"]=="item_already_escrowed" &&
+			wrong_digest["code"]=="item_digest_mismatch" &&
+			funded["ok"] && unsafe_cancel["code"]=="invalid_state" &&
+			!forged["ok"] &&
+			delivered["ok"] && delivery_replay["replayed"],
+			"装备可能事务碰撞、资金态丢失、越权领取或重复领取");
+		check("装备托管的创建与每次状态跃迁均同步落盘后才确认",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"An equipment reservation is not acknowledged until durable") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"escrow_transactions[transaction_id] = original_tx"),
+			"协调器崩溃可能遗忘已扣除或已交付装备的事务状态");
+		check("已完成装备事务的幂等重放仍校验领取者",
+			!forged_replay["ok"] && forged_replay["code"]==
+				"escrow_fence_failed",
+			"非接收者可借幂等重放伪造领取成功");
+		check("拍卖命令与超时结算在所有worker间共用唯一串行锁",
+			source_has("/tools/map_workers/gateway.py",
+				"self._auction_lock = threading.Lock()") &&
+			source_has("/tools/map_workers/gateway.py",
+				"pool.gameplay_command_lock(game_command)") &&
+			source_has("/tools/map_workers/gateway.py",
+				"local_auction_tick") &&
+			source_has("/gamelib/single/daemons/auctiond.pike",
+				"run_map_worker_scheduled_task") &&
+			source_has("/gamelib/single/daemons/auctiond.pike",
+				"MAP_WORKERD->local_control_lease_valid()") &&
+			source_has("/gamelib/single/daemons/auctiond.pike",
+				"if(!MAP_WORKERD->distributed_mode_enabled())") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_only_auction_commands_use_cluster_global_command_lock"),
+			"多进程可能同时结算同一拍卖并重复退款或发放装备");
+
+		mapping pk = daemon->create_pk_session(prefix+"pk",userid,target_user);
+		mapping pk_replay = daemon->create_pk_session(prefix+"pk",userid,target_user);
+		mapping pk_collision = daemon->create_pk_session(prefix+"pk",userid,
+			target_user+"other");
+		check("跨地图PK聚合控制面原语具备幂等与碰撞栅栏",
+			pk["ok"] && pk["state"]=="gathering" &&
+			pk["worker_id"]!="" && pk["worker_id"]==pk_replay["worker_id"] &&
+			has_prefix((string)pk["affinity"],"pk:") &&
+			pk_collision["code"]=="idempotency_conflict",
+			"PK仍可能跨进程直接修改双方战斗对象");
+
+		mapping denied_config = daemon->admin_set_cluster_config(
+			"xd98ordinary",1,3,100);
+		check("worker开关、扩容、排空和重均衡只向管理员开放",
+			!denied_config["ok"] &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"MANAGERD->checkpower") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"rebalance confirm") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"search(arg,\"active\")!=-1") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"运行期排空/重均衡只能由持有内部令牌") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"query_node_role()!=\"gateway\"") &&
+			source_has("/gamelib/d/manager_room","mgr_map_workers") &&
+			source_has("/gamelib/cmds/game_deal.pike","mgr_map_workers"),
+			"管理面可能越权或缺少安全确认入口");
+
+		mapping config = daemon->query_cluster_config();
+		mapping example_config = Standards.JSON.decode(Stdio.read_file(ROOT+
+			"/deploy/map_workers/config.example.json"));
+		check("试运行默认关闭、默认3个worker且登录/逻辑区源码未改",
+			!(int)example_config["enabled"] &&
+			(int)example_config["schema_version"]==2 &&
+			(string)example_config["traffic_mode"]=="shadow" &&
+			(int)example_config["worker_count"]==3 &&
+			(int)config["worker_count"]>=1 && (int)config["worker_count"]<=16 &&
+			(string)config["placement"]=="load_aware_rendezvous" &&
+			(string)config["traffic_mode"]=="shadow" &&
+			!source_has("/gamelib/single/daemons/map_workerd.pike",
+				"login_allowed(") &&
+			!source_has("/gamelib/single/daemons/map_workerd.pike",
+				"set_account_owner"),
+			"试运行可能自动开启或侵入账号/逻辑区登录");
+
+		check("编排器仅绑定回环内部端口且保留单进程回退",
+			source_has("/tools/map_workers/gateway.py",
+				"parsed.hostname not in") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/config.pike",
+				"return \"127.0.0.1\"") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"http_listen_port, http_listen_host") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"XIAND_HTTP_HOST='127.0.0.1'") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"stop standalone/old cluster explicitly") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"normal restart script remains the rollback path") &&
+			source_has("/tools/map_workers/gateway.py",
+				"def do_HEAD(self)") &&
+			source_has("/gamelib/single/daemons/testunitd.pike",
+				"SKIP distributed node role"),
+			"内部RPC可能外露、抢占现网端口或多节点重复跑TestUnit");
+
+		check("worker不重复预启动全局定时daemon，shadow不接流量且active需隔离机确认",
+			source_has("/lowlib/system/master.pike",
+				"Map-worker node skipping eager daemon") &&
+			source_has("/lowlib/system/master.pike",
+				"int map_worker_node = node_role==\"gateway\" ||") &&
+			source_has("/lowlib/system/master.pike",
+				"A map worker must not eagerly start another copy") &&
+				source_has("/tools/map_workers/gateway.py",
+					"shadow controller ready") &&
+				source_has("/tools/map_workers/gateway.py",
+					"if not self._shadow:") &&
+				source_has("/tools/map_workers/test_gateway.py",
+					"test_shadow_controller_never_runs_auction_settlement") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK") &&
+			source_has("/tools/map_workers/gateway.py",
+				"def active_trial_authorized()") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_direct_active_gateway_requires_isolated_trial_acknowledgement") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"isolated-test-server-only") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"shadow（不接玩家流量）"),
+			"后台开关可能直接切走生产流量或重复运行全局定时任务");
+
+		check("编排启动失败会清理本次节点且缩容后仍按已启动拓扑安全停止",
+			source_has("/scripts/map_worker_cluster.sh",
+				"cleanup_partial_start") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"STARTED_SESSIONS") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"topology.json") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"topology_value worker_count") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"nc is required for safe shutdown") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"terminate_runtime_process") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"refusing to force-kill") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"gateway.pid"),
+			"半启动节点可能残留、缩容后旧worker可能未保存就被遗忘");
+		check("显式环境变量优先于.env，避免编排命令误操作其他区服",
+			source_has("/scripts/map_worker_cluster.sh",
+				"inherited_game_area") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"inherited_mysql_password") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"inherited_worker_token") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"inherited_active_ack"),
+			".env可能覆盖运维显式指定的区服或一次性凭证");
+		check("集群状态与重复apply使用受校验PID和监听端口而非screen外观",
+			source_has("/scripts/map_worker_cluster.sh",
+				"runtime_process_running") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"cluster_processes_running") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"ps -p \"$pid\" -o command=") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"port_is_listening \"$http_port\"") &&
+			source_has("/tools/map_workers/gateway.py",
+				"class GatewayProcessClaim") &&
+			source_has("/tools/map_workers/gateway.py",
+				"fcntl.LOCK_EX | fcntl.LOCK_NB") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"XIAND_GATEWAY_LOCK_FILE"),
+				"screen会话消失时可能误报停止并重复启动同一端口");
+			check("编排变更单实例执行且全程固定同一代配置快照",
+				source_has("/scripts/map_worker_cluster.sh",
+					"acquire_orchestrator_lock") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"another map-worker apply/stop/recovery is running") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"config.$$.snapshot.json") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"One mutation uses one immutable config generation"),
+				"并发apply/stop或启动中改配置可能混用两代worker数与端口");
+
+		check("worker探测失败停止续心跳并由TTL自动摘除死节点",
+			source_has("/tools/map_workers/gateway.py",
+				"if metrics is None:") &&
+			source_has("/tools/map_workers/gateway.py",
+				"_monitor_worker(worker_id)") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_HEARTBEAT_TTL = 20"),
+			"失联worker可能被伪心跳维持健康并继续接收地图");
+
+		check("网络分区先自隔离卸载玩家且恢复前逐角色核对owner和epoch",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_LOCAL_CONTROL_TTL = 15") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"mark_local_control_isolated") &&
+			source_has("/gamelib/clone/user.pike",
+				"save_with_result(void|int autosave,void|int worker_fenced_save)") &&
+			source_has("/gamelib/clone/user.pike",
+				"query_local_player_epoch(query_name())<1") &&
+			source_has("/gamelib/clone/user.pike",
+				"discard_stale_worker_copy") &&
+			source_has("/gamelib/clone/user.pike",
+				"SUMMOND->player_logout(query_name())") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"enforce_map_worker_control_fence") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"CONTROL_FENCE_DEFER") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"local_user_request_running") &&
+			source_has("/tools/map_workers/gateway.py",
+				"_reconcile_recovered_worker") &&
+			source_has("/tools/map_workers/gateway.py",
+				"local_control_heartbeat") &&
+			source_has("/tools/map_workers/gateway.py",
+				"cannot prove this exact generation") &&
+			source_has("/tools/map_workers/gateway.py",
+				"An empty local inventory is not proof of coordinator authority") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"Public traffic only consumes the current capability") &&
+			source_has("/tools/map_workers/gateway.py",
+				"local_discard") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_recovered_worker_discards_copy_owned_by_new_epoch_elsewhere") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_duplicate_live_player_copies_are_discarded_without_saving") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_empty_recovery_cannot_resume_without_coordinator_generation_ack") &&
+			source_has("/tools/map_workers/gateway.py",
+				"disk snapshot remains authoritative"),
+			"旧worker可能恢复接流量后覆盖新owner的玩家或装备档案");
+
+		check("恢复盘点会暂停新请求并等待在途事务完成",
+			source_has("/tools/map_workers/gateway.py",
+				"while self._active_requests") &&
+			source_has("/tools/map_workers/gateway.py",
+				"self._pause_routing()") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_recovery_waits_for_inflight_request_before_inventory") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"python3 -m unittest discover") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"recover-gateway") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"worker inventory reconciliation"),
+			"恢复对账可能与玩家写操作并发或部署前漏跑网关测试");
+		check("代理超时后按请求ID暂停全部新流量直到worker明确完成",
+			source_has("/tools/map_workers/gateway.py",
+				"X-Xiand-Request-Id") &&
+			source_has("/tools/map_workers/gateway.py",
+				"quarantine_uncertain_request") &&
+			source_has("/tools/map_workers/gateway.py",
+				"local_request_status") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"begin_local_gateway_request") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_MAX_LOCAL_REQUESTS = 65536") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/utils.pike",
+				"finish_http_response") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/utils.pike",
+				"complete_local_gateway_request(request_id)") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/utils.pike",
+				"X-Xiand-Request-Accepted") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"A completed/expired request record must never leave") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"if(request_id!=\"\" && !running)") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"local_inflight") &&
+			source_has("/tools/map_workers/gateway.py",
+				"pool.ensure_routing_ready()") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_request_queued_on_transaction_lock_rechecks_routing_gate") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_prefence_rejection_does_not_create_false_uncertain_request") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_invalid_internal_rpc_json_is_a_controlled_routing_failure") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_worker_response_does_not_duplicate_gateway_owned_headers") &&
+			source_has("/tools/map_workers/gateway.py",
+				"partial recovery is not") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_failed_generation_recovery_keeps_global_routing_paused"),
+			"网关断线可能释放事务锁，而worker仍在发放装备或结算拍卖");
+
+		check("共享账号的仓库钱包写操作按服务端权威owner串行",
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"resolve_account") &&
+			source_has("/tools/map_workers/gateway.py",
+				"account_id = pool.resolve_account(userid)") &&
+			source_has("/tools/map_workers/gateway.py",
+				"cannot resolve account owner") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_shared_account_lock_identity_is_resolved_authoritatively"),
+			"子角色首次并发可能绕过主账号事务锁并复制共享装备");
+		check("共享账号切换worker时强制失效全部账号级进程缓存",
+			source_has("/tools/map_workers/gateway.py",
+				"X-Xiand-Account-Cache-Token") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"accept_local_account_cache_token") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"accept_local_player_account_owner") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"invalidate_worker_account_cache(account_owner)") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"map_worker_player_account_authorized") &&
+			source_has("/gamelib/single/daemons/account_storaged.pike",
+				"void invalidate_worker_account_cache") &&
+			source_has("/gamelib/single/daemons/account_walletd.pike",
+				"void invalidate_worker_account_cache") &&
+			source_has("/gamelib/single/daemons/account_characterd.pike",
+				"void invalidate_worker_account_cache") &&
+			source_has("/gamelib/single/daemons/_pet_mod/persistence.pike",
+				"void invalidate_worker_account_cache") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"PETD->invalidate_worker_account_cache(account_owner)") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_account_cache_capability_changes_only_when_worker_changes"),
+			"不同worker可能用旧缓存覆盖共享装备或充值余额");
+		check("共享钱包命令后提交仍处于账号锁与请求完成栅栏内",
+			source_has("/gamelib/single/daemons/yushid.pike",
+				"finalize_wallet_payment_after_worker_request") &&
+			source_has("/gamelib/single/daemons/yushid.pike",
+				"MAP_WORKERD->query_node_role()!=\"worker\"") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/utils.pike",
+					"retry_finish_http_response") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/utils.pike",
+					"publish done even if the client has") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/utils.pike",
+				"request_status[\"state\"]==\"running\"") &&
+			source_has("/tools/map_workers/gateway.py",
+				"_wait_for_request_done") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_request_done_fence_waits_through_running_state") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_request_done_fence_fails_closed_on_unknown_status"),
+			"延迟钱包回调可能在账号切到另一worker后用旧缓存覆盖余额");
+
+		check("跨地图移动在move_object前阻断并由网关串行存档迁移后重放",
+			source_has("/gamelib/clone/user.pike",
+				"guard_local_player_move") &&
+			source_has("/gamelib/clone/user.pike",
+				"TIMED_EVENTD->guard_player_move(this_object(),dest)") &&
+			source_has("/gamelib/clone/user.pike",
+				"MAP_WORKER_REDIRECT_ERROR+\" dynamic room denied") &&
+			source_has("/gamelib/clone/user.pike",
+				"暂不支持队伍跨节点移动") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"TERMD is still process-local") &&
+			!source_has("/gamelib/clone/user.pike",
+				"last_pos = room_path;") &&
+			source_has("/lowlib/wapmud2/cmds/leave.pike",
+				"if(!this_player()->move(dest))") &&
+			source_has("/lowlib/wapmud2/cmds/leave.pike",
+				"query_local_move_redirect") &&
+			source_has("/lowlib/wapmud2/cmds/leave.pike",
+				"detach_worker_move_followers") &&
+			source_has("/lowlib/wapmud2/cmds/leave.pike",
+				"自动跟随已安全解除") &&
+			source_has("/gamelib/clone/user.pike",
+				"void detach_worker_follow_links()") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"player->detach_worker_follow_links()") &&
+			source_has("/tools/map_workers/gateway.py",
+				"with pool.user_lock(userid, account_id)") &&
+			source_has("/tools/map_workers/gateway.py",
+				"local_release") &&
+			source_has("/tools/map_workers/gateway.py",
+				"handoff_commit") &&
+			source_has("/tools/map_workers/gateway.py",
+				"epoch=source_epoch") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"stale_local_epoch") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"retire_worker_copy_after_save") &&
+			source_has("/gamelib/clone/user.pike",
+				"consume_worker_summon_handoff") &&
+			source_has("/gamelib/single/daemons/summond.pike",
+				"snapshot_worker_handoff") &&
+			source_has("/gamelib/single/daemons/summond.pike",
+				"Absolute expiry prevents") &&
+			source_has("/test_unit/test_fangshi_summon_edges.pike",
+				"test_worker_handoff_preserves_expiry_and_hp_ratio") &&
+			!source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"player->remove();") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"complete_map_worker_arrival") &&
+			source_has("/gamelib/clone/user.pike",
+				"complete_static_worker_arrival") &&
+			source_has("/gamelib/clone/user.pike",
+				"if(worker_move_guard==2)") &&
+				source_has("/gamelib/single/daemons/map_workerd.pike",
+					"Suppress a saved old last_pos") &&
+				source_has("/gamelib/single/daemons/map_workerd.pike",
+					"pending_arrival = normalize_room_location") &&
+				source_has("/gamelib/single/daemons/map_workerd.pike",
+					"lease[\"arrival_epoch\"] = epoch") &&
+				source_has("/gamelib/clone/user.pike",
+				"complete_same_worker_static_redirect") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"local_redirect_complete") &&
+			source_has("/gamelib/clone/user.pike",
+				"move_err = catch { moved = ::move(ROOT+room_path); }") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"player->complete_static_worker_arrival") &&
+			!source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"output = execute_internal_command(player,\"start\")") &&
+				source_has("/tools/map_workers/gateway.py",
+					"X-Xiand-Arrival-Room") &&
+				source_has("/tools/map_workers/gateway.py",
+					"pool.reconciliation_pending(userid)") &&
+				source_has("/tools/map_workers/gateway.py",
+					"require_settled=True") &&
+				source_has("/tools/map_workers/gateway.py",
+					"command_may_have_run") &&
+				source_has("/tools/map_workers/gateway.py",
+					"pre-command arrival remains pending") &&
+				source_has("/tools/map_workers/gateway.py",
+					"coordinator arrival acknowledgement failed") &&
+				source_has("/tools/map_workers/test_gateway.py",
+					"test_dynamic_clone_room_move_fails_closed_without_arrival_path") &&
+				source_has("/tools/map_workers/test_gateway.py",
+					"test_migration_delivery_plan_distinguishes_old_and_current_commands"),
+			"跨worker行走可能先移动、并发双活或未提交就加载目标人物");
+
+		check("动态家园副本与活动移动失败不会提交半状态或残留绕过标志",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"owner affinity, never to the visitor's") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"query_timed_event_session") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"query_player_affinity(player)") &&
+			source_has("/gamelib/single/daemons/homed.pike",
+				"Move first, then commit home membership") &&
+			source_has("/gamelib/single/daemons/homed.pike",
+				"add_user((string)player->query_name(),player)") &&
+			source_has("/gamelib/cmds/home_view.pike",
+				"HOMED->move_user_to_home(me,room)") &&
+			source_has("/gamelib/cmds/home_visit.pike",
+				"HOMED->move_user_to_home(me,room)") &&
+			source_has("/gamelib/cmds/home_return.pike",
+				"HOMED->move_user_to_home(me,room)") &&
+			source_has("/gamelib/cmds/fb_entry.pike",
+				"if(next_fb_id==\"\")") &&
+			source_has("/gamelib/cmds/fb_entry.pike",
+				"environment(me)!=room") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/runtime.pike",
+				"move_err = catch { moved = player->move(room); }") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/runtime.pike",
+				"m_delete_foruser(\"/tmp/timed_event_move_bypass\")"),
+			"跨节点拒绝动态房间时可能丢失旧位置、污染成员表或永久绕过移动栅栏");
+
+		check("死亡复活与挂机定时器产生的后台移动无需浏览器刷新也会收敛",
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"handle_map_worker_local_pending_routes") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"handle_map_worker_local_arrival") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"accept_local_player_account_owner") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"accept_local_account_cache_token") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"complete_map_worker_arrival(player,userid)") &&
+			source_has("/tools/map_workers/gateway.py",
+				"_run_async_handoff_scheduler") &&
+			source_has("/tools/map_workers/gateway.py",
+				"require_settled=True") &&
+			source_has("/tools/map_workers/gateway.py",
+				"self._background_arrivals[userid]") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_background_arrival_uses_internal_cache_and_epoch_capabilities") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_timer_move_reconciles_under_lease_and_keeps_failed_arrival") &&
+			source_has("/tools/map_workers/test_gateway.py",
+				"test_completed_public_arrival_clears_background_retry"),
+			"后台移动可能永久滞留旧worker、依赖标签页刷新或恢复共享账号旧缓存");
+
+		check("传送费用、目标与队伍身份均由服务端权威校验",
+			source_has("/gamelib/cmds/transfer_to.pike",
+				"transfer_destination_allowed") &&
+			source_has("/gamelib/cmds/transfer_to.pike",
+				"yushi_type!=1 || need_num!=1") &&
+			source_has("/gamelib/cmds/transfer_to.pike",
+				"Program.inherits(object_program(transfer),transfer_base)") &&
+			source_has("/gamelib/cmds/transfer_to.pike",
+				"remove_combine_item_transaction") &&
+			source_has("/gamelib/cmds/transfer_to.pike",
+				"rollback_combine_item_transaction") &&
+			source_has("/gamelib/cmds/city_qge74hye.pike",
+				"allowed_city_route") &&
+			source_has("/gamelib/cmds/postcity.pike",
+				"path = ROOT + me->relife") &&
+			source_has("/gamelib/cmds/spec_yujian_to.pike",
+				"to->query_term()!=me->query_term()") &&
+			source_has("/gamelib/cmds/spec_yujian_to.pike",
+				"me->get_cur_mofa()<300") &&
+			!source_has("/gamelib/cmds/spec_yujian_to.pike",
+				"object room = clone(path)"),
+			"可伪造客户端链接实现免费飞行、越级目的地或飞向非队友");
+
+		check("传送和家园移动先确认成功再提交位置、成员与冷却副作用",
+			source_has("/gamelib/cmds/qge74hye.pike",
+				"int was_in_home = me->if_in_home()") &&
+			source_has("/gamelib/cmds/qge74hye.pike",
+				"if(move_err || !moved)") &&
+			source_has("/gamelib/cmds/home_return_to_flat.pike",
+				"flatPath!=(string)old_room->query_flatPath()") &&
+			source_has("/gamelib/cmds/home_return_to_flat.pike",
+				"HOMED->clear_user(me)") &&
+			source_has("/gamelib/cmds/home_enter.pike",
+				"HOMED->move_user_to_home(me,room)") &&
+			source_has("/gamelib/cmds/home_move.pike",
+				"HOMED->move_user_to_home(me,room)") &&
+			source_has("/gamelib/single/daemons/homed.pike",
+				"else\n\t\t\tclear_user(me);") &&
+			source_has("/gamelib/cmds/waihai_qge74hye.pike",
+				"path!=\"waihai/wenshuidai\"") &&
+			source_has("/gamelib/cmds/waihai_qge74hye.pike",
+				"is_valid_relife_path"),
+			"移动被拒绝时可能先清家园、写冷却、改last_pos或接受伪造复活路径");
+
+		check("挂机分流与城池热更新不会把在线人物跨worker临时搬运",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"local_worker_owns_room") &&
+			source_has("/gamelib/single/daemons/autofightd.pike",
+				"Let qge74hye") &&
+			source_has("/gamelib/single/daemons/autofightd.pike",
+				"environment(me)!=room") &&
+			source_has("/gamelib/single/daemons/cityd.pike",
+				"worker-local staging room") &&
+			source_has("/gamelib/single/daemons/cityd.pike",
+				"staged object return failed") &&
+			source_has("/gamelib/cmds/wiz_update.pike",
+				"多 worker 模式禁止单节点热更新") &&
+			source_has("/gamelib/cmds/wiz_summon.pike",
+				"目标当前无法安全跨地图召唤") &&
+			source_has("/gamelib/cmds/wiz_goto.pike",
+				"目标房间当前无法安全到达"),
+			"临时房、热更新或管理员命令可能绕开人物租约并留下双活/半状态");
+
+		check("未完成双人物事务前active关闭直赠交易且单进程保留旧行为",
+			source_has("/gamelib/cmds/sendother.pike",
+				"多 worker 试运行暂未开放玩家直赠") &&
+			source_has("/gamelib/cmds/sendother_ok.pike",
+				"旧确认链接已安全失效") &&
+			source_has("/gamelib/cmds/sendother_daoju_to.pike",
+				"distributed_mode_enabled") &&
+			source_has("/gamelib/cmds/trade.pike",
+				"防止装备和银两复制") &&
+			source_has("/gamelib/cmds/trade_daoju.pike",
+				"防止道具和银两复制") &&
+			source_has("/gamelib/cmds/sendother_to.pike",
+				"ob=find_player(user_name)") &&
+			source_has("/gamelib/cmds/trade.pike",
+				"ob=find_player(user_name)") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"队伍同步和世界广播尚未通过验收"),
+			"双人物存档缺少原子提交时可能在崩溃或并发确认中复制装备/货币");
+
+			check("账号会话API固定主worker且token维护与人物写操作互斥",
+			source_has("/tools/map_workers/gateway.py",
+				"if account_api_path(self.path):") &&
+			source_has("/tools/map_workers/gateway.py",
+				"account_context = pool.account_management_lock()") &&
+			source_has("/tools/map_workers/gateway.py",
+				"pool.primary,") &&
+				source_has("/tools/map_workers/test_gateway.py",
+					"test_token_only_account_maintenance_waits_for_character_write") &&
+				source_has("/tools/map_workers/test_gateway.py",
+					"test_conflicting_valid_identity_fields_are_rejected") &&
+				source_has("/tools/map_workers/gateway.py",
+					"gameplay token owner mismatch"),
+			"账号登录会话可能分散到多进程或与角色写操作并发");
+
+		check("worker公开HTTP必须经回环网关且内部RPC不会被公网反代",
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"map_worker_gateway_request_authorized") &&
+			source_has("/tools/map_workers/gateway.py",
+				"public_path_allowed") &&
+			source_has("/tools/map_workers/gateway.py",
+				"not key.lower().startswith(\"x-xiand-\")") &&
+			source_has("/tools/map_workers/gateway.py",
+				"class BoundedThreadingHTTPServer") &&
+			source_has("/tools/map_workers/gateway.py",
+				"daemon_threads = False") &&
+			source_has("/tools/map_workers/gateway.py",
+				"XIAND_GATEWAY_MAX_REQUESTS"),
+			"外部可伪造worker租约头或访问内部控制面");
+		check("内部RPC拒绝日志只记录长度和匹配结果、不泄露令牌内容",
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"configured_len=%d supplied_len=%d") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"req->get_ip()") &&
+			!source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"configured=%s"),
+			"认证诊断可能把worker密钥写进日志");
+	};
+	if(err)
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	if(err)
+		check("运行时无异常",0,error_desc);
+	// The test registers synthetic nodes, placements and leases. Keep all of
+	// that state inside this disposable instance so a successful TestUnit run
+	// cannot pollute the live standalone MAP_WORKERD singleton.
+	destruct(daemon);
+
+	werror("地图 Worker：总计%d，通过%d，失败%d\n",
+		results["total"],results["passed"],results["failed"]);
+	return results["failed"]==0 ? 0 : 1;
+}

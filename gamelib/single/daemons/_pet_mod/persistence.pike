@@ -700,6 +700,17 @@ private mapping(string:mixed) make_pet_instance_unlocked(mapping record,
 	]);
 }
 
+/** Authenticated map-worker ingress only: discard cross-process stale state. */
+void invalidate_worker_account_cache(string account_id)
+{
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !valid_pet_userid(account_id))
+		return;
+	object key = pet_lock->lock();
+	m_delete(pet_cache,account_id);
+	destruct(key);
+}
+
 void drop_test_pet_cache(string account_id)
 {
 	if(search(account_id,"testunit")==-1)

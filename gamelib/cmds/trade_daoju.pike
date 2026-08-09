@@ -10,6 +10,10 @@ int main(string|zero arg)
 	int user_count,amount;
 	object player=this_player();
 	object goods;
+	if(MAP_WORKERD->distributed_mode_enabled()){
+		write("多 worker 试运行暂未开放玩家面对面交易，请使用拍卖行；此限制用于防止道具和银两复制。\n[返回:look]\n");
+		return 1;
+	}
 	sscanf(arg,"%s %d",user_name,user_count);
 	object ob=present(user_name,environment(player),user_count);
 	if(!ob)

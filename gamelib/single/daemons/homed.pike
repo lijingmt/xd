@@ -727,10 +727,14 @@ string display_homes(string slotName,string flatName,int backFlag)
 	}
 	if(backFlag)//玩家是从某个房间中返回到这个页面的，则要做相关处理，主要是清除玩家在原home中的相关记录
 	{
-		clear_user(me); //清除相关记录
 		//将玩家move到对应的slot中
 		string slotPath = ROOT + "/gamelib/d/home/" +GAME_NAME_S + "/" + areaName +"/"+ slotName;
-		me->move(slotPath); 
+		int moved;
+		mixed move_err = catch { moved = me->move(slotPath); };
+		if(move_err || !moved)
+			re += "离开家园失败，请稍后重试。\n";
+		else
+			clear_user(me);
 	}
 	return re;
 }
@@ -753,6 +757,37 @@ void clear_user(object player)
 		masterId = (string)player->query_inhome_pos();
 	player->set_inhome_pos("");
 	remove_user_from_home(masterId,(string)player->query_name());
+}
+
+/**
+ * Move first, then commit home membership. A distributed worker can reject a
+ * dynamic instance which belongs to another process; that failure must leave
+ * the player's old home marker and membership untouched.
+ */
+int move_user_to_home(object player,object room)
+{
+	object old_room;
+	string old_master = "";
+	string target_master;
+	int moved;
+	mixed move_err;
+	if(!player || !room || !room->query_masterId)
+		return 0;
+	old_room = environment(player);
+	if(old_room && old_room->query_room_type &&
+	   old_room->query_room_type()=="home" && old_room->query_masterId)
+		old_master = (string)old_room->query_masterId();
+	if(old_master=="" && player->query_inhome_pos)
+		old_master = (string)player->query_inhome_pos();
+	target_master = (string)room->query_masterId();
+	move_err = catch { moved = player->move(room); };
+	if(move_err || !moved || environment(player)!=room)
+		return 0;
+	if(old_master!="" && old_master!=target_master)
+		remove_user_from_home(old_master,(string)player->query_name());
+	player->set_inhome_pos(target_master);
+	add_user((string)player->query_name(),player);
+	return 1;
 }
 
 //判断某个home中是否没有在线的玩家
@@ -2416,12 +2451,15 @@ string reset_home_desc(string desc)
 }
 //添加玩家在某个房间的记录信息 即 userIn 这个字段
 //userId 
-void add_user(string userId)
+void add_user(string userId,void|object explicitPlayer)
 {
-	object player = this_player();                    //当前玩家
-	object room = environment(player);                //进入的home
+	object player = explicitPlayer || this_player();  //当前玩家
+	object room;
 	string masterId;
-	if(!player || !room || !room->query_masterId)
+	if(!player)
+		return;
+	room = environment(player);                       //进入的home
+	if(!room || !room->query_masterId)
 		return;
 	masterId = (string)room->query_masterId();         //home主人的Id
 	if(masterId=="" || homeTransitioning[masterId] || !homeDetail[masterId] ||
@@ -2498,6 +2536,8 @@ int enforce_user_home_isolation(object player)
 {
 	string masterId;
 	object env;
+	int moved;
+	mixed move_err;
 	if(!player || !player->query_name || !player->query_inhome_pos)
 		return 0;
 	masterId = (string)player->query_inhome_pos();
@@ -2512,10 +2552,13 @@ int enforce_user_home_isolation(object player)
 	if(homeDetail[masterId] && LOGICALZONED->can_user_action(
 	   "home",player->query_name(),masterId))
 		return 0;
+	move_err = catch { moved = player->move(
+		ROOT+"/gamelib/d/ninggedian/ninggedian"); };
+	if(move_err || !moved)
+		return 0;
 	remove_user_from_home(masterId,(string)player->query_name());
 	player->set_inhome_pos("");
 	player->last_pos = "/gamelib/d/ninggedian/ninggedian";
-	player->move(ROOT+"/gamelib/d/ninggedian/ninggedian");
 	tell_object(player,"逻辑分区配置已更新，你已安全离开不可访问的家园。\n");
 	return 1;
 }

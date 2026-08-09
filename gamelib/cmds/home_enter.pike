@@ -5,12 +5,16 @@ int main(string|zero arg)
 	object me = this_player();
 	object env = environment(this_player());
 	string s = "";
-	if(env->query_room_type() == "home")//防止玩家使用"返回"按钮带来的错误
+	if(env && env->query_room_type &&
+	   env->query_room_type() == "home")//防止玩家使用"返回"按钮带来的错误
 	{ 
 		string homeId = env->query_homeId();
 		object room = HOMED->query_room(arg,homeId);
 		if(room){
-			me->move(room);
+			if(!HOMED->move_user_to_home(me,room)){
+				write("家园房间暂时无法到达。\n[确定:look]\n");
+				return 1;
+			}
 			me->reset_view(WAP_VIEWD["/home"]);                                                                      
 			me->write_view();
 			return 1;

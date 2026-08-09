@@ -1343,6 +1343,17 @@ mapping(string:mixed) change_account_password(object current,
 	return result;
 }
 
+/** Authenticated map-worker ingress only: discard cross-process stale state. */
+void invalidate_worker_account_cache(string account_id)
+{
+	object key;
+	if(MAP_WORKERD->query_node_role()!="worker" || !valid_userid(account_id))
+		return;
+	key = account_character_lock->lock();
+	m_delete(account_cache,account_id);
+	destruct(key);
+}
+
 //只供测试模拟进程重载后的磁盘读取，不对游戏命令或HTTP API开放。
 void drop_test_account_cache(string account_id)
 {

@@ -97,6 +97,7 @@ string normalize_http_client_ip(string address)
 #include "_http_api_mod/rate_limit.pike"
 #include "_http_api_mod/account_characters.pike"
 #include "_http_api_mod/equipment_panel.pike"
+#include "_http_api_mod/map_worker_rpc.pike"
 
 // ========================================================================
 // 全局变量
@@ -110,6 +111,8 @@ int api_only_mode = 1;
 
 /** HTTP API启动时间 */
 int http_api_start_time = 0;
+int http_listen_port = HTTP_PORT;
+string http_listen_host = "0.0.0.0";
 
 /** HTTP 请求性能统计 */
 int http_request_count = 0;
@@ -194,11 +197,13 @@ int query_exp_bonus_rate() {
 protected void create()
 {
     http_api_start_time = time();
+    http_listen_port = query_configured_http_port();
+    http_listen_host = query_configured_http_host();
     init_parallel_command_farm();
     refresh_button_grade_snapshot();
     werror("========================================\n");
     werror("[HTTP_API] Daemon Loading...\n");
-    werror("[HTTP_API] HTTP_PORT = %d\n", HTTP_PORT);
+    werror("[HTTP_API] HTTP_PORT = %d\n", http_listen_port);
     werror("[HTTP_API] HTTP_API_DEBUG = %d\n", HTTP_API_DEBUG);
     werror("[HTTP_API] EXP_BONUS_ENABLED = %d\n", HTTP_API_EXP_BONUS_ENABLED);
     werror("[HTTP_API] EXP_BONUS_RATE = %d%%\n", HTTP_API_EXP_BONUS_RATE);
@@ -213,6 +218,9 @@ protected void create()
     // 启动队列处理
     call_out(start_worker_thread, 10);
     call_out(cleanup_old_results, RESULT_CLEANUP_INTERVAL);
+    // Distributed workers self-fence before the coordinator can reassign an
+    // expired owner. Standalone servers return immediately in this check.
+    call_out(enforce_map_worker_control_fence, 2);
 }
 
 void start_server()
@@ -223,16 +231,19 @@ void start_server()
         return;
     }
 
-    werror("[HTTP_API] Creating HTTP.Server.Port on 0.0.0.0:%d\n", HTTP_PORT);
+    werror("[HTTP_API] Creating HTTP.Server.Port on %s:%d\n",
+        http_listen_host,http_listen_port);
     mixed err = catch {
-        http_port = Protocols.HTTP.Server.Port(handle_request, HTTP_PORT, "0.0.0.0");
+        http_port = Protocols.HTTP.Server.Port(handle_request,
+            http_listen_port, http_listen_host);
     };
 
     if(err) {
         werror("[HTTP_API] ERROR starting server: %O\n", err);
     } else {
-        werror("[HTTP_API] Successfully started on port %d\n", HTTP_PORT);
-        werror("[HTTP_API] Listening on http://0.0.0.0:%d\n", HTTP_PORT);
+        werror("[HTTP_API] Successfully started on port %d\n", http_listen_port);
+        werror("[HTTP_API] Listening on http://%s:%d\n",
+            http_listen_host,http_listen_port);
         werror("[HTTP_API] API Endpoints available:\n");
         werror("[HTTP_API]   - GET  /health\n");
         werror("[HTTP_API]   - GET  /api/partitions\n");
@@ -502,6 +513,96 @@ string execute_command(string userid, string password, string cmd)
     return route_and_execute(userid, password, cmd);
 }
 
+/** Complete one durable cross-worker arrival instead of replaying movement. */
+private mapping complete_map_worker_arrival(object player,string userid)
+{
+    mapping arrival = MAP_WORKERD->query_local_player_arrival(userid);
+    object room;
+    string affinity;
+    string output = "";
+    int saved;
+    mixed err;
+    if(!(int)arrival["ok"])
+        return (["handled":0]);
+    room = environment(player);
+    affinity = room ? MAP_WORKERD->query_affinity_key(file_name(room),"") : "";
+    if(room && room->is("menu")){
+        if(!functionp(player->complete_static_worker_arrival) ||
+           !player->complete_static_worker_arrival(
+                (string)arrival["room_path"])){
+            remove_virtual_connection(userid);
+            MAP_WORKERD->clear_local_player_arrival(userid);
+            if(functionp(player->discard_stale_worker_copy))
+                player->discard_stale_worker_copy();
+            else
+                destruct(player);
+            return (["handled":1,
+                "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
+        }
+        room = environment(player);
+        affinity = room ? MAP_WORKERD->query_affinity_key(file_name(room),"") : "";
+    }
+    if(affinity!=(string)arrival["affinity"]){
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_player_arrival(userid);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+        return (["handled":1,
+            "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
+    }
+    if(functionp(player->consume_worker_summon_handoff) &&
+       !player->consume_worker_summon_handoff()){
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_player_arrival(userid);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+        return (["handled":1,
+            "output":"{\"error\":\"跨地图召唤状态落盘失败，请重试\"}"]);
+    }
+    output = execute_internal_command(player,"look");
+    err = catch { saved = player->save_with_result(0); };
+    if(err || !saved){
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_player_arrival(userid);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+        return (["handled":1,
+            "output":"{\"error\":\"跨地图到达存档失败，请重试\"}"]);
+    }
+    MAP_WORKERD->clear_local_player_arrival(userid);
+    return (["handled":1,"output":output]);
+}
+
+/** A newly loaded player must match the gateway's authoritative account lock. */
+private int map_worker_player_account_authorized(object player,string userid)
+{
+    string expected;
+    string actual;
+    if(MAP_WORKERD->query_node_role()!="worker")
+        return 1;
+    expected = MAP_WORKERD->query_local_player_account_owner(userid);
+    actual = player && functionp(player->query_account_owner) ?
+        lower_case((string)player->query_account_owner()) : "";
+    return expected!="" && actual==expected;
+}
+
+private string discard_map_worker_account_mismatch(object player,string userid)
+{
+    remove_virtual_connection(userid);
+    MAP_WORKERD->clear_local_player_epoch(userid);
+    if(player && functionp(player->discard_stale_worker_copy))
+        player->discard_stale_worker_copy();
+    else if(player)
+        destruct(player);
+    return "{\"error\":\"账号归属校验失败，请重试\"}";
+}
+
 // ========================================================================
 // 同步版本的命令执行函数 (供线程管理器调用)
 // ========================================================================
@@ -520,6 +621,14 @@ string execute_command_sync(string userid, string password, string cmd)
         // 检查是否已有虚拟连接
         object player = get_player_from_connection(userid);
         if(player) {
+            if(!map_worker_player_account_authorized(player,userid))
+                return discard_map_worker_account_mismatch(player,userid);
+            mapping arrival = complete_map_worker_arrival(player,userid);
+            if((int)arrival["handled"])
+                return (string)arrival["output"];
+            if(functionp(player->consume_worker_summon_handoff) &&
+               !player->consume_worker_summon_handoff())
+                return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
             return execute_internal_command(player, cmd);
         }
 
@@ -551,6 +660,17 @@ string execute_command_sync(string userid, string password, string cmd)
         if(!player) {
             return "{\"error\":\"登录失败\"}";
         }
+
+        if(!map_worker_player_account_authorized(player,userid))
+            return discard_map_worker_account_mismatch(player,userid);
+
+        mapping arrival = complete_map_worker_arrival(player,userid);
+        if((int)arrival["handled"])
+            return (string)arrival["output"];
+
+        if(functionp(player->consume_worker_summon_handoff) &&
+           !player->consume_worker_summon_handoff())
+            return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
 
         return execute_internal_command(player, cmd);
     };
@@ -607,6 +727,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
     string path = req->not_query;
     string method = req->request_type;
     int request_started_at = gethrtime();
+    string map_worker_request_id = "";
 
     // http_werror(" %s %s from %s\n", method, path, req->remote_addr || "unknown");
 
@@ -616,6 +737,32 @@ void handle_request(Protocols.HTTP.Server.Request req)
         send_json(req,(["error":"Request too large"]),413);
         record_http_request_timing(method,path,request_started_at);
         return;
+    }
+
+    if(path!="/internal/map-worker" &&
+       !map_worker_gateway_request_authorized(req)){
+        send_json(req,(["error":"worker gateway authorization required"]),403);
+        record_http_request_timing(method,path,request_started_at);
+        return;
+    }
+
+    if(path!="/internal/map-worker" &&
+       MAP_WORKERD->query_node_role()=="worker"){
+        map_worker_request_id = lower_case(String.trim_all_whites(
+            req->request_headers["x-xiand-request-id"] || ""));
+        mapping request_begin = MAP_WORKERD->begin_local_gateway_request(
+            map_worker_request_id,
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-lease-userid"] || "")),
+            (int)(req->request_headers["x-xiand-lease-epoch"] || "0"),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-command-kind"] || "general")));
+        if(!(int)request_begin["ok"]){
+            send_json(req,(["error":"worker request fence rejected",
+                "code":request_begin["code"]]),409);
+            record_http_request_timing(method,path,request_started_at);
+            return;
+        }
     }
 
     // CORS 预检不进入异常捕获块，遵守 Pike catch 内不提前 return 的约束。
@@ -628,6 +775,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
     mixed err = catch {
         // API路由分发
         switch(path) {
+            case "/internal/map-worker":
+                handle_map_worker_rpc(req);
+                break;
             case "/api":
                 handle_api(req);
                 break;
@@ -699,7 +849,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 if(detailed_health){
                     mapping queue_status = query_queue_status();
                     mapping thread_status = query_thread_status();
-                    m["port"] = HTTP_PORT;
+                    m["port"] = http_listen_port;
                     m["uptime"] = http_api_start_time > 0 ?
                         time()-http_api_start_time : 0;
                     m["queue"] = ([
@@ -724,6 +874,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
                     m["account_sessions"] = query_account_session_status();
                     m["command_tokens"] = query_hidden_command_status();
                     m["pagination"] = query_pagination_status();
+                    m["map_workers"] = MAP_WORKERD->query_status();
                 }
                 if(!send_json_mapping_async(req,m,200))
                     send_json(req,m);
@@ -1149,7 +1300,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             resp["data"] = html;
             resp["error"] = 200;
             resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
-            req->response_and_finish(resp);
+            finish_http_response(req,resp);
             return;
         }
 
@@ -1281,7 +1432,7 @@ void finish_handle_api_html(string response,
     resp["error"] = 200;
     resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
     mixed response_err = catch {
-        req->response_and_finish(resp);
+        finish_http_response(req,resp);
     };
     if(response_err)
         http_werror(" async HTML response error: %s\n",
@@ -2971,7 +3122,7 @@ void handle_api_result(Protocols.HTTP.Server.Request req)
         resp["data"] = html;
         resp["error"] = 200;
         resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
-        req->response_and_finish(resp);
+        finish_http_response(req,resp);
     }
 }
 

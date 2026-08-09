@@ -49,10 +49,38 @@ int move(mixed dest)
 {
 	object old_env = environment(this_object());
 	object new_env;
-	if(TIMED_EVENTD->guard_player_move(this_object(),dest))
-		return 0;
 	int old_was_fb = old_env &&
 		FBD->is_fb_room_path(file_name(old_env));
+	// 玩法权限必须先于 worker 路由判断。否则一个本应被活动守卫
+	// 拒绝的目标，可能被误当成跨 worker 到达而绕过入口规则。
+	if(TIMED_EVENTD->guard_player_move(this_object(),dest))
+		return 0;
+	// In worker mode a cross-affinity move is fenced before move_object().
+	// Static-room redirects report logical success so the original command
+	// completes durable costs/cooldowns on the sole source object. The gateway
+	// then saves and retires it before loading the target copy. Dynamic clone
+	// rooms have no reconstructable path yet and therefore fail closed.
+	int worker_move_guard = MAP_WORKERD->guard_local_player_move(
+		this_object(),dest);
+	if(worker_move_guard==2)
+		return 1;
+	if(worker_move_guard==3){
+		tell_object(this_object(),
+			"多 worker 试运行暂不支持队伍跨节点移动，请先离队后重试。\n");
+		return 0;
+	}
+	if(worker_move_guard==1){
+		mapping redirect = MAP_WORKERD->query_local_move_redirect(query_name());
+		if(!mappingp(redirect) || !(int)redirect["ok"] ||
+		   (string)redirect["target_room_path"]==""){
+			MAP_WORKERD->clear_local_move_redirect(query_name());
+			error(MAP_WORKER_REDIRECT_ERROR+" dynamic room denied\n");
+		}
+		if(old_was_fb &&
+		   !FBD->is_fb_room_path((string)redirect["target_room_path"]))
+			FBD->detach_fb_member(this_object());
+		return 1;
+	}
 	int moved = ::move(dest);
 	new_env = environment(this_object());
 	if(moved && old_was_fb && old_env!=new_env &&
@@ -76,6 +104,58 @@ int kill_flag;
 int get_gift;//获得活动赠送物品的标识，1=已领取，0=未领取，每天一次刷新
 mapping(string:int) get_once_day=([]);//记录每天领一次的物品领取情况
 string last_pos;//最后登陆房间记录
+// One-shot non-item state for a fenced cross-worker arrival. Equipment and
+// inventory remain exclusively inside the atomic player save.
+mapping worker_summon_handoff=([]);
+
+/**
+ * Complete one coordinator-fenced static-room arrival without replaying the
+ * init room's `start` command.  Replaying `start` would run login, daily and
+ * timed-event side effects twice when an already-online character crosses a
+ * worker boundary.
+ *
+ * This deliberately bypasses only this class' cross-affinity move guard.  It
+ * is callable solely while this exact userid/epoch/room arrival capability is
+ * installed locally by the authenticated loopback gateway.
+ */
+int complete_static_worker_arrival(string room_path)
+{
+	object current_room = environment(this_object());
+	mapping arrival = MAP_WORKERD->query_local_player_arrival(query_name());
+	int moved;
+	mixed move_err;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !current_room || !current_room->is("menu") ||
+	   !(int)arrival["ok"] ||
+	   (string)arrival["room_path"]!=room_path)
+		return 0;
+	move_err = catch { moved = ::move(ROOT+room_path); };
+	if(move_err || !moved)
+		return 0;
+	return 1;
+}
+
+/**
+ * Finish a redirect whose coordinator placement resolves back to this same
+ * worker. The original command already completed its durable costs exactly
+ * once, so only the inherited room move may run here; replaying the command
+ * would charge items, mana or cooldowns twice.
+ */
+int complete_same_worker_static_redirect(string room_path)
+{
+	mapping redirect = MAP_WORKERD->query_local_move_redirect(query_name());
+	int moved;
+	mixed move_err;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !(int)redirect["ok"] || room_path=="" ||
+	   (string)redirect["target_room_path"]!=room_path)
+		return 0;
+	move_err = catch { moved = ::move(ROOT+room_path); };
+	if(move_err || !moved)
+		return 0;
+	MAP_WORKERD->clear_local_move_redirect(query_name());
+	return 1;
+}
 string term;//队伍标志
 string chatid;//聊天频道标志
 int honerpt;//荣誉值
@@ -467,8 +547,18 @@ string query_extra_links(void|int count)
 	return returnLinks;
 }
 
-int save_with_result(void|int autosave){
+int save_with_result(void|int autosave,void|int worker_fenced_save){
 	object env=environment(this_object());
+	// A worker which lost its loopback control lease must never overwrite a
+	// character that the coordinator may later recover elsewhere. The control
+	// fence is allowed one final atomic save before destroying the stale copy.
+	if(MAP_WORKERD->query_node_role()=="worker" && !worker_fenced_save &&
+	   (!MAP_WORKERD->local_control_lease_valid() ||
+	    MAP_WORKERD->query_local_player_epoch(query_name())<1)){
+		werror("[MAP_WORKER][SAVE_FENCE] blocked userid=%s\n",
+			this_object()->query_name() || "unknown");
+		return 0;
+	}
 	if(this_object()->sid == "5dwap"){
 		//tell_object(this_object(),"欢迎尝试仙道，您现在是游客身份，你的档案将不会被保存，欢迎点击注册一个正式帐号来体验仙道的乐趣。\n[注册帐号:reg_account]\n");
 		this_object()->command("quit");
@@ -528,9 +618,84 @@ int save_with_result(void|int autosave){
 	return save_ok;
 }
 
+int prepare_worker_summon_handoff(){
+	if(MAP_WORKERD->query_node_role()!="worker")
+		return 1;
+	if(mappingp(worker_summon_handoff) && sizeof(worker_summon_handoff))
+		return 0;
+	worker_summon_handoff = SUMMOND->snapshot_worker_handoff(this_object());
+	return 1;
+}
+
+void cancel_worker_summon_handoff(){
+	worker_summon_handoff = ([]);
+}
+
+/** Clear and save the capability before materializing any target summons. */
+int consume_worker_summon_handoff(){
+	mapping snapshot;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !mappingp(worker_summon_handoff) || !sizeof(worker_summon_handoff))
+		return 1;
+	snapshot = copy_value(worker_summon_handoff);
+	worker_summon_handoff = ([]);
+	if(!save_with_result(0)){
+		worker_summon_handoff = snapshot;
+		return 0;
+	}
+	SUMMOND->restore_worker_handoff(this_object(),snapshot);
+	return 1;
+}
+
 void save(void|int autosave){
 	save_with_result(autosave);
 }
+/** Drop an isolated stale copy without executing any persistence hook. */
+void discard_stale_worker_copy(){
+	catch { SUMMOND->player_logout(query_name()); };
+	foreach(all_inventory(this_object()),object ob)
+		if(ob)
+			destruct(ob);
+	destruct(this_object());
+}
+
+/** Every cross-worker transport, not only ordinary exits, drops local follow links. */
+void detach_worker_follow_links(){
+	object old_env = environment(this_object());
+	if(arrayp(follow_me)){
+		foreach(follow_me,mixed raw_name){
+			string follower_name = stringp(raw_name) ? (string)raw_name : "";
+			object follower = follower_name!="" ? find_player(follower_name) : 0;
+			if(follower && environment(follower)==old_env){
+				follower->follow = "_none";
+				tell_object(follower,
+					"目标跨越了地图节点，自动跟随已安全解除。\n");
+			}
+		}
+		follow_me = ({});
+	}
+	if(follow && follow!="_none"){
+		object followed = find_player((string)follow);
+		if(followed && arrayp(followed->follow_me))
+			followed->follow_me -= ({query_name()});
+		follow = "_none";
+	}
+}
+
+/**
+ * Retire the source worker's already-saved in-memory copy during handoff.
+ * Do not call the normal remove() path here: that path saves again and emits
+ * gameplay logout/team/summon side effects even though the character remains
+ * online on the destination worker.
+ */
+void retire_worker_copy_after_save(){
+	catch { SUMMOND->player_logout(query_name()); };
+	foreach(all_inventory(this_object()),object ob)
+		if(ob)
+			destruct(ob);
+	destruct(this_object());
+}
+
 void remove(){
 	SUMMOND->player_logout(this_object()->query_name());
 	if(term && term != "noterm"){

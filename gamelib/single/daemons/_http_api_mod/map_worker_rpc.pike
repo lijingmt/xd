@@ -1,0 +1,905 @@
+/** Internal loopback RPC for map-worker coordination and local handoff. */
+
+private int map_worker_rpc_authorized(Protocols.HTTP.Server.Request req)
+{
+    string configured = getenv("XIAND_WORKER_TOKEN") || "";
+    string supplied = req->request_headers["x-xiand-worker-token"] || "";
+    string remote_address = req->remote_addr || "";
+    if(remote_address=="" && functionp(req->get_ip))
+        remote_address = (string)req->get_ip();
+    string client_ip = normalize_http_client_ip(remote_address);
+    int authorized = sizeof(configured)>=32 && supplied==configured &&
+        (client_ip=="127.0.0.1" || client_ip=="::1");
+    if(!authorized)
+        werror("[MAP_WORKER_RPC] denied configured_len=%d supplied_len=%d "+
+            "token_match=%d client_ip=%s\n",sizeof(configured),sizeof(supplied),
+            supplied==configured,client_ip);
+    return authorized;
+}
+
+private int map_worker_coordinator_role()
+{
+    string role = MAP_WORKERD->query_node_role();
+    return role=="gateway" || role=="standalone";
+}
+
+/** Every public request reaching a worker must come through the loopback gateway. */
+private int map_worker_gateway_request_authorized(
+    Protocols.HTTP.Server.Request req)
+{
+    string role = MAP_WORKERD->query_node_role();
+    string routed_worker;
+    string routed_user;
+    string arrival_room;
+    string account_owner;
+    string account_cache_token;
+    int routed_epoch;
+    int cache_changed;
+    object local_player;
+    mapping epoch_result;
+    if(role!="worker")
+        return 1;
+    routed_worker = lower_case(String.trim_all_whites(
+        req->request_headers["x-xiand-lease-worker"] || ""));
+    routed_user = lower_case(String.trim_all_whites(
+        req->request_headers["x-xiand-lease-userid"] || ""));
+    routed_epoch = (int)(req->request_headers["x-xiand-lease-epoch"] || "0");
+    if(!map_worker_rpc_authorized(req) ||
+       routed_worker!=MAP_WORKERD->query_local_worker_id())
+        return 0;
+    // Public traffic only consumes the current capability; it never renews it.
+    // Renewal is reserved for local_control_heartbeat after coordinator ACK.
+    if(!MAP_WORKERD->local_control_lease_valid())
+        return 0;
+    if((routed_user=="" && routed_epoch!=0) ||
+       (routed_user!="" && routed_epoch<1))
+        return 0;
+    account_owner = lower_case(String.trim_all_whites(
+        req->request_headers["x-xiand-account-owner"] || ""));
+    account_cache_token = lower_case(String.trim_all_whites(
+        req->request_headers["x-xiand-account-cache-token"] || ""));
+    if((account_owner=="")!=(account_cache_token==""))
+        return 0;
+    if(account_owner!=""){
+        cache_changed = MAP_WORKERD->accept_local_account_cache_token(
+            account_owner,account_cache_token);
+        if(cache_changed<0)
+            return 0;
+        if(cache_changed){
+            if(functionp(ACCOUNT_STORAGED->invalidate_worker_account_cache))
+                ACCOUNT_STORAGED->invalidate_worker_account_cache(account_owner);
+            if(functionp(ACCOUNT_WALLETD->invalidate_worker_account_cache))
+                ACCOUNT_WALLETD->invalidate_worker_account_cache(account_owner);
+            if(functionp(ACCOUNT_CHARACTERD->invalidate_worker_account_cache))
+                ACCOUNT_CHARACTERD->invalidate_worker_account_cache(account_owner);
+            if(functionp(PETD->invalidate_worker_account_cache))
+                PETD->invalidate_worker_account_cache(account_owner);
+        }
+    }
+    if(routed_user!=""){
+        if(account_owner=="")
+            return 0;
+        local_player = find_player(routed_user);
+        if(local_player && functionp(local_player->query_account_owner) &&
+           lower_case((string)local_player->query_account_owner())!=account_owner)
+            return 0;
+        epoch_result = MAP_WORKERD->accept_local_player_epoch(
+            routed_user,routed_epoch,local_player ? 1 : 0);
+        if(!(int)epoch_result["ok"])
+            return 0;
+        epoch_result = MAP_WORKERD->accept_local_player_account_owner(
+            routed_user,routed_epoch,account_owner);
+        if(!(int)epoch_result["ok"])
+            return 0;
+        arrival_room = String.trim_all_whites(
+            req->request_headers["x-xiand-arrival-room"] || "");
+        if(arrival_room!=""){
+            epoch_result = MAP_WORKERD->install_local_player_arrival(
+                routed_user,routed_epoch,arrival_room);
+            if(!(int)epoch_result["ok"])
+                return 0;
+        }
+    }
+    return 1;
+}
+
+private string map_worker_player_affinity(object player)
+{
+    return MAP_WORKERD->query_player_affinity(player);
+}
+
+/** Include epoch-owned living objects even when they have no CONND entry. */
+private array(object) map_worker_local_players()
+{
+    array(object) result = ({});
+    mapping(object:int) seen = ([]);
+    foreach(users(1),object player)
+        if(player && !seen[player] && functionp(player->query_name)){
+            seen[player] = 1;
+            result += ({player});
+        }
+    foreach(MAP_WORKERD->query_local_player_userids(),string userid){
+        object player = get_player_from_connection(userid,0);
+        if(!player)
+            player = find_player(userid);
+        if(player && !seen[player] && functionp(player->query_name)){
+            seen[player] = 1;
+            result += ({player});
+        }
+    }
+    return result;
+}
+
+private void handle_map_worker_local_route(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    object player = get_player_from_connection(userid,0);
+    if(!player)
+        player = find_player(userid);
+    if(!player){
+        send_json(req,(["ok":0,"code":"player_not_local"]),404);
+        return;
+    }
+    object room = environment(player);
+    mapping redirect = MAP_WORKERD->query_local_move_redirect(userid);
+    string account_id = functionp(player->query_account_owner) ?
+        lower_case((string)player->query_account_owner()) : userid;
+    send_json(req,([
+        "ok":1,
+        "userid":userid,
+        "account_id":account_id,
+        "worker_id":MAP_WORKERD->query_local_worker_id(),
+        "lease_epoch":MAP_WORKERD->query_local_player_epoch(userid),
+        "affinity":map_worker_player_affinity(player),
+        "room_path":room ? file_name(room)-ROOT : "",
+        "in_combat":(int)player->in_combat,
+        "handoff_safe":!(int)player->in_combat,
+        "move_redirect":(int)redirect["ok"] ? redirect : 0,
+    ]));
+}
+
+/**
+ * List only already-fenced player moves.  The gateway uses this for moves
+ * produced by heartbeat/autofight code when no browser request exists to run
+ * the normal post-response reconciliation path.
+ */
+private void handle_map_worker_local_pending_routes(
+    Protocols.HTTP.Server.Request req)
+{
+    array(mapping(string:mixed)) pending = ({});
+    foreach(map_worker_local_players(),object player){
+        string userid;
+        mapping redirect;
+        string account_id;
+        if(sizeof(pending)>=128 || !player || !functionp(player->query_name))
+            break;
+        userid = lower_case((string)player->query_name());
+        redirect = MAP_WORKERD->query_local_move_redirect(userid);
+        if(!(int)redirect["ok"] || (int)player->in_combat)
+            continue;
+        account_id = functionp(player->query_account_owner) ?
+            lower_case((string)player->query_account_owner()) : userid;
+        pending += ({([
+            "userid":userid,
+            "account_id":account_id,
+            "lease_epoch":MAP_WORKERD->query_local_player_epoch(userid),
+            "source_affinity":redirect["source_affinity"],
+            "target_affinity":redirect["target_affinity"],
+            "target_room_path":redirect["target_room_path"],
+        ])});
+    }
+    send_json(req,(["ok":1,"pending":pending,"count":sizeof(pending)]));
+}
+
+/**
+ * Return a bounded page of exact live-player capabilities for coordinator
+ * renewal.  Pending moves still belong to their source affinity until the
+ * gateway durably completes the handoff, so they must not be reported as if
+ * the target lease had already committed.
+ */
+private void handle_map_worker_local_live_leases(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    mapping(string:mapping(string:mixed)) live = ([]);
+    array(string) userids;
+    array(mapping(string:mixed)) leases = ({});
+    int offset = max(0,(int)params["offset"]);
+    int limit = max(1,min(128,(int)(params["limit"] || 128)));
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       !MAP_WORKERD->local_control_lease_valid()){
+        send_json(req,(["ok":0,"code":"worker_control_fenced"]),409);
+        return;
+    }
+    foreach(map_worker_local_players(),object player){
+        string userid;
+        string affinity;
+        string account_id;
+        int epoch;
+        mapping redirect;
+        if(!player || !functionp(player->query_name))
+            continue;
+        userid = lower_case((string)player->query_name());
+        // A public command already renewed this exact lease before entering
+        // the worker. Do not race its response-tail handoff from the monitor.
+        if(MAP_WORKERD->local_user_request_running(userid))
+            continue;
+        epoch = MAP_WORKERD->query_local_player_epoch(userid);
+        redirect = MAP_WORKERD->query_local_move_redirect(userid);
+        affinity = (int)redirect["ok"] ?
+            (string)redirect["source_affinity"] :
+            map_worker_player_affinity(player);
+        account_id = functionp(player->query_account_owner) ?
+            lower_case((string)player->query_account_owner()) : userid;
+        if(userid=="" || account_id=="" || epoch<1 || affinity==""){
+            send_json(req,(["ok":0,"code":"invalid_live_player",
+                "userid":userid]),409);
+            return;
+        }
+        if(mappingp(live[userid])){
+            send_json(req,(["ok":0,"code":"duplicate_live_player",
+                "userid":userid]),409);
+            return;
+        }
+        live[userid] = (["userid":userid,"account_id":account_id,
+            "epoch":epoch,"affinity":affinity]);
+    }
+    userids = sort(indices(live));
+    if(offset>sizeof(userids)){
+        send_json(req,(["ok":0,"code":"invalid_live_lease_offset"]),409);
+        return;
+    }
+    for(int index=offset;
+        index<sizeof(userids) && sizeof(leases)<limit;index++)
+        leases += ({live[userids[index]]});
+    int next_offset = offset+sizeof(leases);
+    send_json(req,(["ok":1,"leases":leases,"count":sizeof(leases),
+        "next_offset":next_offset,
+        "done":next_offset>=sizeof(userids) ? 1 : 0]));
+}
+
+private void discard_map_worker_internal_arrival(string userid,object player)
+{
+    remove_virtual_connection(userid);
+    MAP_WORKERD->clear_local_player_epoch(userid);
+    if(player){
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+    }
+}
+
+/**
+ * Materialize a committed background handoff without a client password or
+ * command replay.  The loopback token, exact epoch, account owner and cache
+ * capability are all required before the sole disk snapshot is restored.
+ */
+private void handle_map_worker_local_arrival(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    string room_path = String.trim_all_whites(
+        (string)(params["room_path"] || ""));
+    string account_owner = lower_case(String.trim_all_whites(
+        (string)(params["account_owner"] || "")));
+    string cache_token = lower_case(String.trim_all_whites(
+        (string)(params["account_cache_token"] || "")));
+    int epoch = (int)params["epoch"];
+    object player;
+    object master;
+    program user_program;
+    string password;
+    int setup_ok;
+    int cache_changed;
+    mapping result;
+    mapping arrival_result;
+    mixed setup_err;
+    mixed load_err;
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       !MAP_WORKERD->local_control_lease_valid() ||
+       userid=="" || account_owner=="" || epoch<1 || room_path==""){
+        send_json(req,(["ok":0,"code":"invalid_local_arrival"]),409);
+        return;
+    }
+    player = get_player_from_connection(userid,0);
+    if(!player)
+        player = find_player(userid);
+    if(player){
+        object room = environment(player);
+        string actual_path = room ? file_name(room)-ROOT : "";
+        string actual_owner = functionp(player->query_account_owner) ?
+            lower_case((string)player->query_account_owner()) : userid;
+        if(MAP_WORKERD->query_local_player_epoch(userid)==epoch &&
+           actual_path==room_path && actual_owner==account_owner){
+            send_json(req,(["ok":1,"replayed":1,"userid":userid,
+                "room_path":room_path]));
+            return;
+        }
+        send_json(req,(["ok":0,"code":"live_player_conflict"]),409);
+        return;
+    }
+    result = MAP_WORKERD->accept_local_player_epoch(userid,epoch,0);
+    if(!(int)result["ok"]){
+        send_json(req,result,409);
+        return;
+    }
+    result = MAP_WORKERD->accept_local_player_account_owner(
+        userid,epoch,account_owner);
+    if(!(int)result["ok"]){
+        MAP_WORKERD->clear_local_player_epoch(userid);
+        send_json(req,result,409);
+        return;
+    }
+    cache_changed = MAP_WORKERD->accept_local_account_cache_token(
+        account_owner,cache_token);
+    if(cache_changed<0){
+        MAP_WORKERD->clear_local_player_epoch(userid);
+        send_json(req,(["ok":0,"code":"invalid_account_cache_token"]),409);
+        return;
+    }
+    if(cache_changed){
+        if(functionp(ACCOUNT_STORAGED->invalidate_worker_account_cache))
+            ACCOUNT_STORAGED->invalidate_worker_account_cache(account_owner);
+        if(functionp(ACCOUNT_WALLETD->invalidate_worker_account_cache))
+            ACCOUNT_WALLETD->invalidate_worker_account_cache(account_owner);
+        if(functionp(ACCOUNT_CHARACTERD->invalidate_worker_account_cache))
+            ACCOUNT_CHARACTERD->invalidate_worker_account_cache(account_owner);
+        if(functionp(PETD->invalidate_worker_account_cache))
+            PETD->invalidate_worker_account_cache(account_owner);
+    }
+    result = MAP_WORKERD->install_local_player_arrival(
+        userid,epoch,room_path);
+    if(!(int)result["ok"]){
+        MAP_WORKERD->clear_local_player_epoch(userid);
+        send_json(req,result,409);
+        return;
+    }
+    password = get_user_password(userid);
+    load_err = catch { master=(object)(ROOT+"/gamelib/master.pike"); };
+    if(!load_err && master && functionp(master->connect))
+        user_program = master->connect();
+    if(!user_program)
+        user_program = (program)(ROOT+"/gamelib/clone/user.pike");
+    if(password!="" && user_program){
+        player = user_program();
+        player->set_name(userid);
+        player->set_userip("127.0.0.1");
+        player->set_project("gamelib");
+        set_http_api_login_pending(userid,1);
+        setup_err = catch { setup_ok = player->setup(password); };
+        clear_http_api_login_pending(userid);
+    }
+    if(setup_err || !setup_ok || !player){
+        discard_map_worker_internal_arrival(userid,player);
+        send_json(req,(["ok":0,"code":"player_restore_failed"]),500);
+        return;
+    }
+    player->is_http_api_user = 1;
+    set_virtual_connection(userid,({0,time(),player}));
+    if(!map_worker_player_account_authorized(player,userid)){
+        discard_map_worker_internal_arrival(userid,player);
+        send_json(req,(["ok":0,"code":"account_owner_mismatch"]),409);
+        return;
+    }
+    arrival_result = complete_map_worker_arrival(player,userid);
+    player = get_player_from_connection(userid,0);
+    if(!(int)arrival_result["handled"] || !player || !environment(player) ||
+       file_name(environment(player))-ROOT!=room_path ||
+       (int)MAP_WORKERD->query_local_player_arrival(userid)["ok"]){
+        discard_map_worker_internal_arrival(userid,player);
+        send_json(req,(["ok":0,"code":"arrival_materialize_failed"]),500);
+        return;
+    }
+    send_json(req,(["ok":1,"userid":userid,"epoch":epoch,
+        "room_path":room_path,
+        "affinity":map_worker_player_affinity(player)]));
+}
+
+private void handle_map_worker_local_inventory(
+    Protocols.HTTP.Server.Request req)
+{
+    array(mapping(string:mixed)) players = ({});
+    foreach(map_worker_local_players(),object player){
+        string userid = functionp(player->query_name) ?
+            lower_case((string)player->query_name()) : "";
+        string affinity = map_worker_player_affinity(player);
+        string account_id = functionp(player->query_account_owner) ?
+            lower_case((string)player->query_account_owner()) : userid;
+        if(userid!=""){
+            if(affinity=="")
+                affinity = "session:recovery:"+userid;
+            players += ({(["userid":userid,"affinity":affinity,
+                "account_id":account_id,
+                "lease_epoch":MAP_WORKERD->query_local_player_epoch(userid),
+                "in_combat":(int)player->in_combat])});
+        }
+    }
+    // local_inventory is called only after local_inflight proved zero while
+    // gateway routing is paused. Epoch entries with no living object can then
+    // be removed without hiding an in-flight login from reconciliation.
+    foreach(MAP_WORKERD->query_local_player_userids(),string userid){
+        object player = get_player_from_connection(userid,0);
+        if(!player)
+            player = find_player(userid);
+        if(!player)
+            MAP_WORKERD->clear_local_player_epoch(userid);
+    }
+    send_json(req,(["ok":1,"players":players,
+        "worker_id":MAP_WORKERD->query_local_worker_id()]));
+}
+
+private void handle_map_worker_local_status(
+    Protocols.HTTP.Server.Request req)
+{
+    mapping thread_status = query_thread_status();
+    mapping runtime_status = query_runtime_performance();
+    mapping(string:int) occupied_rooms = ([]);
+    array(object) local_players = map_worker_local_players();
+    foreach(local_players,object player){
+        object room = environment(player);
+        if(room)
+            occupied_rooms[file_name(room)] = 1;
+    }
+    send_json(req,([
+        "ok":1,
+        "worker_id":MAP_WORKERD->query_local_worker_id(),
+        "active_players":sizeof(local_players),
+        "active_rooms":sizeof(occupied_rooms),
+        "pending_commands":(int)thread_status["world_pending_commands"],
+        "heartbeat_ms":(int)runtime_status["heartbeat_last_cycle_ms"],
+        "control":MAP_WORKERD->query_local_control_status(),
+    ]));
+}
+
+private void handle_map_worker_local_release(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    string expected_affinity = (string)(params["affinity"] || "");
+    int expected_epoch = (int)params["epoch"];
+    object player = get_player_from_connection(userid,0);
+    if(!player)
+        player = find_player(userid);
+    if(!player){
+        // Idempotent retry after a successful release.
+        send_json(req,(["ok":1,"released":1,"replayed":1]));
+        return;
+    }
+    if((int)player->in_combat){
+        send_json(req,(["ok":0,"code":"player_in_combat"]),409);
+        return;
+    }
+    if(expected_epoch<1 ||
+       MAP_WORKERD->query_local_player_epoch(userid)!=expected_epoch){
+        send_json(req,(["ok":0,"code":"stale_local_epoch"]),409);
+        return;
+    }
+    string actual_affinity = map_worker_player_affinity(player);
+    if(expected_affinity!="" && actual_affinity!=expected_affinity){
+        send_json(req,(["ok":0,"code":"affinity_changed",
+            "affinity":actual_affinity]),409);
+        return;
+    }
+    if(functionp(player->detach_worker_follow_links))
+        player->detach_worker_follow_links();
+    if(functionp(player->prepare_worker_summon_handoff) &&
+       !player->prepare_worker_summon_handoff()){
+        send_json(req,(["ok":0,"code":"summon_handoff_pending"]),409);
+        return;
+    }
+    int saved = 0;
+    mixed save_err = catch {
+        if(functionp(player->save_with_result))
+            saved = player->save_with_result(0);
+        else{
+            player->save();
+            saved = 1;
+        }
+    };
+    if(save_err || !saved){
+        if(functionp(player->cancel_worker_summon_handoff))
+            player->cancel_worker_summon_handoff();
+        send_json(req,(["ok":0,"code":"save_failed"]),500);
+        return;
+    }
+    remove_virtual_connection(userid);
+    MAP_WORKERD->clear_local_move_redirect(userid);
+    MAP_WORKERD->clear_local_player_epoch(userid);
+    if(functionp(player->retire_worker_copy_after_save))
+        player->retire_worker_copy_after_save();
+    else
+        destruct(player);
+    send_json(req,(["ok":1,"released":1,"affinity":actual_affinity]));
+}
+
+/** Remove a stale split-brain copy without saving any character or item. */
+private void handle_map_worker_local_discard(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    int expected_epoch = (int)params["epoch"];
+    int actual_epoch = MAP_WORKERD->query_local_player_epoch(userid);
+    object player = get_player_from_connection(userid,0);
+    if(!player)
+        player = find_player(userid);
+    if(expected_epoch>0 && actual_epoch!=expected_epoch){
+        send_json(req,(["ok":0,"code":"stale_local_epoch",
+            "epoch":actual_epoch]),409);
+        return;
+    }
+    remove_virtual_connection(userid);
+    MAP_WORKERD->clear_local_move_redirect(userid);
+    MAP_WORKERD->clear_local_player_epoch(userid);
+    if(player){
+        werror("[MAP_WORKER][STALE_DISCARD] userid=%s epoch=%d\n",
+            userid,actual_epoch);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+    }
+    send_json(req,(["ok":1,"discarded":1,"replayed":!player]));
+}
+
+private void handle_map_worker_local_epoch(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    int epoch = (int)params["epoch"];
+    object player = get_player_from_connection(userid,0);
+    mapping result;
+    if(!player)
+        player = find_player(userid);
+    if(!player){
+        send_json(req,(["ok":0,"code":"player_not_local"]),404);
+        return;
+    }
+    result = MAP_WORKERD->accept_local_player_epoch(userid,epoch,0);
+    send_json(req,result,(int)result["ok"] ? 200 : 409);
+}
+
+private void handle_map_worker_local_redirect_complete(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    string room_path = String.trim_all_whites(
+        (string)(params["room_path"] || ""));
+    int expected_epoch = (int)params["epoch"];
+    object player = get_player_from_connection(userid,0);
+    if(!player)
+        player = find_player(userid);
+    if(!player || expected_epoch<1 ||
+       MAP_WORKERD->query_local_player_epoch(userid)!=expected_epoch ||
+       !functionp(player->complete_same_worker_static_redirect) ||
+       !player->complete_same_worker_static_redirect(room_path)){
+        send_json(req,(["ok":0,"code":"local_redirect_failed"]),409);
+        return;
+    }
+    send_json(req,(["ok":1,"userid":userid,"room_path":room_path]));
+}
+
+private void handle_map_worker_local_control_resume(
+    Protocols.HTTP.Server.Request req)
+{
+    foreach(map_worker_local_players(),object player){
+        string userid = functionp(player->query_name) ?
+            lower_case((string)player->query_name()) : "";
+        if(userid=="" || MAP_WORKERD->query_local_player_epoch(userid)<1){
+            send_json(req,(["ok":0,"code":"unreconciled_local_player"]),409);
+            return;
+        }
+    }
+    mapping result = MAP_WORKERD->resume_local_control();
+    send_json(req,result,(int)result["ok"] ? 200 : 409);
+}
+
+/**
+ * A worker fences itself before coordinator heartbeat expiry. It makes one
+ * last atomic save, then destroys every local copy; a failed save is never
+ * followed by a second write which could overwrite a recovered character.
+ */
+void enforce_map_worker_control_fence()
+{
+    call_out(enforce_map_worker_control_fence,2);
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       MAP_WORKERD->local_control_lease_valid())
+        return;
+    int newly_isolated = MAP_WORKERD->mark_local_control_isolated();
+    array(object) local_players = map_worker_local_players();
+    if(newly_isolated)
+        werror("[MAP_WORKER][CONTROL_FENCE] worker=%s players=%d\n",
+            MAP_WORKERD->query_local_worker_id(),sizeof(local_players));
+    foreach(local_players,object player){
+        string userid;
+        int saved;
+        mixed save_err;
+        if(!player || !functionp(player->query_name))
+            continue;
+        userid = lower_case((string)player->query_name());
+        if(MAP_WORKERD->local_user_request_running(userid)){
+            werror("[MAP_WORKER][CONTROL_FENCE_DEFER] userid=%s request=running\n",
+                userid);
+            continue;
+        }
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_move_redirect(userid);
+        save_err = catch {
+            if(functionp(player->save_with_result))
+                saved = player->save_with_result(0,1);
+        };
+        MAP_WORKERD->clear_local_player_epoch(userid);
+        if(!save_err && saved){
+            if(functionp(player->retire_worker_copy_after_save))
+                player->retire_worker_copy_after_save();
+            else
+                destruct(player);
+        }
+        else{
+            werror("[MAP_WORKER][P0_SAVE_FAILED] userid=%s error=%O\n",
+                userid,save_err);
+            if(functionp(player->discard_stale_worker_copy))
+                player->discard_stale_worker_copy();
+            else
+                destruct(player);
+        }
+    }
+}
+
+void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
+{
+    mapping params;
+    string action;
+    mapping result;
+    if(!map_worker_rpc_authorized(req)){
+        send_json(req,(["ok":0,"code":"forbidden"]),403);
+        return;
+    }
+    params = get_params(req);
+    action = lower_case(String.trim_all_whites(
+        (string)(params["action"] || "status")));
+
+    if(action=="local_route"){
+        handle_map_worker_local_route(req,params);
+        return;
+    }
+    if(action=="local_status"){
+        handle_map_worker_local_status(req);
+        return;
+    }
+    if(action=="local_pending_routes"){
+        handle_map_worker_local_pending_routes(req);
+        return;
+    }
+    if(action=="local_live_leases"){
+        handle_map_worker_local_live_leases(req,params);
+        return;
+    }
+    if(action=="local_arrival"){
+        handle_map_worker_local_arrival(req,params);
+        return;
+    }
+    if(action=="local_inventory"){
+        handle_map_worker_local_inventory(req);
+        return;
+    }
+    if(action=="local_release"){
+        handle_map_worker_local_release(req,params);
+        return;
+    }
+    if(action=="local_discard"){
+        handle_map_worker_local_discard(req,params);
+        return;
+    }
+    if(action=="local_epoch"){
+        handle_map_worker_local_epoch(req,params);
+        return;
+    }
+    if(action=="local_control_resume"){
+        handle_map_worker_local_control_resume(req);
+        return;
+    }
+    if(action=="local_control_heartbeat"){
+        MAP_WORKERD->note_local_control_heartbeat();
+        result = MAP_WORKERD->query_local_control_status();
+        result["ok"] = (int)result["control_lease_valid"];
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_auction_tick"){
+        int ticked = functionp(AUCTIOND->run_map_worker_scheduled_task) &&
+            AUCTIOND->run_map_worker_scheduled_task();
+        send_json(req,(["ok":ticked ? 1 : 0,
+            "code":ticked ? "" : "auction_tick_rejected"]),
+            ticked ? 200 : 409);
+        return;
+    }
+    if(action=="local_request_status"){
+        result = MAP_WORKERD->query_local_gateway_request(
+            (string)params["request_id"]);
+        send_json(req,result,(int)result["ok"] ? 200 : 404);
+        return;
+    }
+    if(action=="local_inflight"){
+        array running = MAP_WORKERD->query_local_running_requests();
+        send_json(req,(["ok":1,"running":running,
+            "count":sizeof(running)]));
+        return;
+    }
+    if(action=="local_assignments"){
+        result = MAP_WORKERD->update_local_assignments(
+            mappingp(params["owners"]) ? params["owners"] : ([]),
+            (int)params["generation"]);
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_assignment"){
+        result = MAP_WORKERD->update_local_assignment(
+            (string)params["affinity"],(string)params["worker_id"],
+            (int)params["generation"]);
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_redirect_clear"){
+        MAP_WORKERD->clear_local_move_redirect((string)params["userid"]);
+        send_json(req,(["ok":1]));
+        return;
+    }
+    if(action=="local_redirect_complete"){
+        handle_map_worker_local_redirect_complete(req,params);
+        return;
+    }
+    if(!map_worker_coordinator_role()){
+        send_json(req,(["ok":0,"code":"not_coordinator"]),409);
+        return;
+    }
+
+    switch(action){
+        case "status":
+            result = MAP_WORKERD->query_status();
+            result["ok"] = 1;
+            break;
+        case "register":
+            result = MAP_WORKERD->register_worker(
+                (string)params["worker_id"],(string)params["endpoint"],
+                (int)params["capacity"],(string)params["incarnation"]);
+            break;
+        case "heartbeat":
+            result = MAP_WORKERD->heartbeat_worker(
+                (string)params["worker_id"],(int)params["generation"],
+                mappingp(params["metrics"]) ? params["metrics"] : ([]));
+            break;
+        case "drain":
+            result = MAP_WORKERD->set_worker_draining(
+                (string)params["worker_id"],(int)params["draining"]);
+            break;
+        case "assign_catalog":
+            result = MAP_WORKERD->assign_catalog((int)params["force"]);
+            break;
+        case "assign_room":
+            result = MAP_WORKERD->assign_room((string)params["room_path"],
+                (string)(params["instance_key"] || ""));
+            break;
+        case "assign_affinity":
+            result = MAP_WORKERD->assign_affinity((string)params["affinity"],
+                (int)params["weight"],(int)params["force"]);
+            break;
+        case "route":
+            result = MAP_WORKERD->query_player_route((string)params["userid"]);
+            break;
+        case "resolve_account":
+            {
+                string requested_user = lower_case(String.trim_all_whites(
+                    (string)(params["userid"] || "")));
+                string account_id = ACCOUNT_CHARACTERD->
+                    query_account_id_for_character(requested_user);
+                if(account_id && account_id!="")
+                    result = (["ok":1,"userid":requested_user,
+                        "account_id":lower_case(account_id)]);
+                else
+                    result = (["ok":0,"code":"account_not_resolved"]);
+            }
+            break;
+        case "lease_acquire":
+            result = MAP_WORKERD->acquire_player_lease(
+                (string)params["userid"],(string)params["worker_id"],
+                (string)params["affinity"],(int)params["expected_epoch"]);
+            break;
+        case "lease_renew":
+            result = MAP_WORKERD->renew_player_lease(
+                (string)params["userid"],(string)params["worker_id"],
+                (int)params["epoch"]);
+            break;
+        case "lease_renew_batch":
+            result = MAP_WORKERD->renew_player_leases_batch(
+                (string)params["worker_id"],(int)params["generation"],
+                arrayp(params["leases"]) ? (array)params["leases"] : ({}));
+            break;
+        case "lease_rebind":
+            result = MAP_WORKERD->rebind_player_lease(
+                (string)params["userid"],(string)params["worker_id"],
+                (int)params["epoch"],(string)params["affinity"]);
+            break;
+        case "lease_recover":
+            result = MAP_WORKERD->recover_player_lease(
+                (string)params["userid"],(string)params["worker_id"],
+                (string)params["affinity"]);
+            break;
+        case "lease_reconcile_begin":
+            result = MAP_WORKERD->begin_lease_reconciliation(
+                (string)params["reconciliation_id"]);
+            break;
+        case "lease_reconcile_add":
+            result = MAP_WORKERD->add_lease_reconciliation_users(
+                (string)params["reconciliation_id"],
+                arrayp(params["users"]) ? (array)params["users"] : ({}));
+            break;
+        case "lease_reconcile_commit":
+            result = MAP_WORKERD->commit_lease_reconciliation(
+                (string)params["reconciliation_id"]);
+            break;
+        case "arrival_ack":
+            result = MAP_WORKERD->acknowledge_player_arrival(
+                (string)params["userid"],(string)params["worker_id"],
+                (int)params["epoch"],(string)params["affinity"]);
+            break;
+        case "handoff_begin":
+            result = MAP_WORKERD->begin_handoff(
+                (string)params["userid"],(string)params["source_worker"],
+                (int)params["source_epoch"],(string)params["target_affinity"],
+                (string)params["target_room_path"],
+                (string)params["request_id"]);
+            break;
+        case "handoff_commit":
+            result = MAP_WORKERD->commit_handoff(
+                (string)params["request_id"],(string)params["target_worker"]);
+            break;
+        case "handoff_abort":
+            result = MAP_WORKERD->abort_handoff(
+                (string)params["request_id"],(string)params["source_worker"]);
+            break;
+        case "envelope_publish":
+            result = MAP_WORKERD->publish_envelope(
+                (string)params["message_id"],(string)params["kind"],
+                (string)(params["source_user"] || ""),
+                (string)params["target_user"],
+                mappingp(params["payload"]) ? params["payload"] : ([]));
+            break;
+        case "envelope_poll":
+            result = (["ok":1,"messages":MAP_WORKERD->poll_envelopes(
+                (string)params["target_user"],(int)params["limit"])]);
+            break;
+        case "envelope_ack":
+            result = MAP_WORKERD->acknowledge_envelope(
+                (string)params["message_id"],(string)params["target_user"],
+                (int)params["delivery_epoch"]);
+            break;
+        case "escrow_create":
+            result = MAP_WORKERD->create_escrow(
+                (string)params["transaction_id"],(string)params["from_user"],
+                (string)params["to_user"],mappingp(params["item"]) ?
+                params["item"] : ([]));
+            break;
+        case "escrow_advance":
+            result = MAP_WORKERD->advance_escrow(
+                (string)params["transaction_id"],(string)params["actor"],
+                (string)params["expected_state"],(string)params["next_state"],
+                (string)params["proof_digest"]);
+            break;
+        case "pk_create":
+            result = MAP_WORKERD->create_pk_session(
+                (string)params["session_id"],(string)params["first_user"],
+                (string)params["second_user"]);
+            break;
+        default:
+            result = (["ok":0,"code":"unknown_action"]);
+            break;
+    }
+    send_json(req,result,(int)result["ok"] ? 200 : 409);
+}

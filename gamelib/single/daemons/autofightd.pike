@@ -3264,9 +3264,14 @@ private int evacuate_inactive_overflow_players(object room,string path)
 		if(functionp(all[i]->query_autofight) &&
 		   all[i]->query_autofight()=="enable")
 			continue;
-		all[i]->move(ROOT+"/gamelib/d/"+path);
-		all[i]->reset_view();
-		moved++;
+		int moved_one;
+		mixed move_err = catch {
+			moved_one = all[i]->move(ROOT+"/gamelib/d/"+path);
+		};
+		if(!move_err && moved_one){
+			all[i]->reset_view();
+			moved++;
+		}
 	}
 	return moved;
 }
@@ -3365,12 +3370,17 @@ private object|zero query_or_create_overflow_room(object me,
 	mapping(string:mixed) route)
 {
 	string pool_key=query_overflow_pool_key(me,route);
-	string path;
+	string path=(string)route["path"];
 	array(mapping(string:mixed)) entries=
 		autofight_overflow_rooms[pool_key] || ({});
 	int capacity=query_overflow_capacity(me);
 	object room;
 	mixed err;
+	// A clone has no reconstructable cross-worker arrival path. Let qge74hye
+	// migrate the player to the static owner first; that owner may then split.
+	if(path=="" || !MAP_WORKERD->local_worker_owns_room(
+	   ROOT+"/gamelib/d/"+path))
+		return 0;
 	for(int i=0;i<sizeof(entries);i++){
 		object room=entries[i]["room"];
 		if(room && count_players_in_training_room(room)<capacity){
@@ -3383,7 +3393,6 @@ private object|zero query_or_create_overflow_room(object me,
 		autofight_overflow_limit_fallbacks++;
 		return 0;
 	}
-	path=(string)route["path"];
 	err=catch{
 		room=clone(ROOT+"/gamelib/d/"+path);
 	};
@@ -3431,13 +3440,17 @@ int move_to_training_route(object me,mapping(string:mixed) route)
 		}
 		return 0;
 	}
-	if(me->if_in_home())
-		HOMED->clear_user(me);
 	env=environment(me);
+	int was_in_home=me->if_in_home();
+	int moved;
+	mixed move_err=catch { moved=me->move(room); };
+	if(move_err || !moved || environment(me)!=room)
+		return 0;
+	if(was_in_home)
+		HOMED->clear_user(me);
 	if(env && !env->is("character") && !env->is("menu"))
 		me->last_pos=file_name(env)-ROOT;
 	me->m_delete_foruser("/tmp/tour_pos");
-	me->move(room);
 	me->reset_view();
 	me->command("look");
 	if(environment(me)==room){

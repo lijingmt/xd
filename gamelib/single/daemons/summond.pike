@@ -451,6 +451,104 @@ mapping get_player_summons(string player_name){
 }
 
 /**
+ * Capture only reconstructable summon state for a fenced worker handoff.
+ * Objects themselves never cross a process boundary. Absolute expiry prevents
+ * retries or a slow migration from extending duration, and HP is restored as
+ * a ratio against server-recomputed attributes rather than trusting old stats.
+ */
+mapping(string:mapping(string:int)) snapshot_worker_handoff(object player){
+	mapping(string:mapping(string:int)) snapshot = ([]);
+	string player_name;
+	object env;
+	if(!player || !functionp(player->query_name) || !environment(player))
+		return snapshot;
+	player_name = (string)player->query_name();
+	env = environment(player);
+	foreach(sort(indices(get_player_summons(player_name))),string summon_type){
+		object summon = active_summons[player_name] &&
+			active_summons[player_name][summon_type];
+		int remaining;
+		int life_max;
+		if(!is_valid_summon_type(summon_type) || !summon ||
+		   environment(summon)!=env || summon->get_cur_life()<=0 ||
+		   !functionp(summon->query_summon_remaining))
+			continue;
+		remaining = (int)summon->query_summon_remaining();
+		life_max = max(1,(int)summon->query_life_max());
+		if(remaining<1)
+			continue;
+		snapshot[summon_type] = ([
+			"expires_at":time()+remaining,
+			"life":max(1,(int)summon->get_cur_life()),
+			"life_max":life_max,
+		]);
+	}
+	return snapshot;
+}
+
+/** Restore one-shot handoff data after the player has reached its fenced room. */
+int restore_worker_handoff(object player,mapping snapshot){
+	string player_name;
+	int restored;
+	if(!player || !environment(player) || !mappingp(snapshot) ||
+	   sizeof(snapshot)>4)
+		return 0;
+	player_name = (string)player->query_name();
+	foreach(sort(indices(snapshot)),mixed raw_type){
+		string summon_type = stringp(raw_type) ? (string)raw_type : "";
+		mapping state = snapshot[raw_type];
+		string skill_name = "";
+		int skill_level;
+		int remaining;
+		int max_duration;
+		int old_life;
+		int old_life_max;
+		object summon;
+		if(!is_valid_summon_type(summon_type) || !mappingp(state))
+			continue;
+		if(summon_type=="balanced_spirit"){
+			if(player->query_profeId()=="wuxiang")
+				skill_name = "wuxianghuan";
+			else if(player->query_profeId()=="taiji")
+				skill_name = "taijihuan";
+			max_duration = 300;
+		}
+		else
+			skill_name = query_summon_skill_name(player,summon_type);
+		skill_level = query_authorized_skill_level(player,skill_name);
+		if(skill_level<1)
+			continue;
+		if(max_duration<1)
+			max_duration = query_single_summon_duration(skill_level);
+		remaining = min(max_duration,(int)state["expires_at"]-time());
+		// The summon base class intentionally clamps duration to 60 seconds.
+		// Dropping a nearly expired summon is safer than extending it on travel.
+		if(remaining<60)
+			continue;
+		old_life = (int)state["life"];
+		old_life_max = (int)state["life_max"];
+		if(old_life<1 || old_life_max<1 || old_life>old_life_max)
+			continue;
+		summon = create_authorized_summon(player,player_name,
+			summon_type,remaining,skill_level,0);
+		if(!summon)
+			continue;
+		if(summon_type=="balanced_spirit"){
+			int scaled_level = max(1,(int)player->query_level()/2);
+			summon->adjust_stats_by_player(scaled_level,skill_level);
+			summon->name_cn = player->query_profeId()=="taiji" ?
+				"太极阴阳灵兽" : "无相阴阳灵兽";
+		}
+		int new_life_max = max(1,(int)summon->query_life_max());
+		int restored_life = max(1,min(new_life_max,
+			new_life_max*old_life/old_life_max));
+		summon->set_life(restored_life);
+		restored++;
+	}
+	return restored;
+}
+
+/**
  * 守护进程热更新后，存活灵兽可从心跳恢复登记。
  * 同类型已有有效对象时拒绝后到对象，避免产生双灵兽。
  */

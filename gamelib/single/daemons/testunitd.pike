@@ -101,6 +101,11 @@ mapping get_status()
 
 protected void create()
 {
+	string node_role = lower_case(getenv("XIAND_NODE_ROLE") || "standalone");
+	if(node_role!="standalone" && getenv("XIAND_RUN_TESTUNIT")!="1"){
+		werror("[TESTUNITD] SKIP distributed node role=%s\n",node_role);
+		return;
+	}
 	werror("[TESTUNITD] 单元测试守护进程启动\n");
 	call_out(run_all_tests, 3);
 }

@@ -160,6 +160,9 @@
 #define ACCOUNT_WALLETD ((object)(ROOT "/gamelib/single/daemons/account_walletd.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+
+#define MAP_WORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define MAP_WORKER_REDIRECT_ERROR "[MAP_WORKER_REDIRECT]"
 //每日限时原创玩法：天衡绝境（PVP）与九曜镇渊（PVE）
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 

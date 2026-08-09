@@ -25,6 +25,19 @@ private Thread.Mutex account_wallet_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_wallet_cache = ([]);
 private mapping(string:mapping(string:int)) account_legacy_fee_cache = ([]);
 
+/** Authenticated map-worker ingress only: discard cross-process stale state. */
+void invalidate_worker_account_cache(string account_id)
+{
+	object key;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !valid_wallet_userid(account_id))
+		return;
+	key = account_wallet_lock->lock();
+	m_delete(account_wallet_cache,account_id);
+	m_delete(account_legacy_fee_cache,account_id);
+	destruct(key);
+}
+
 private void cache_wallet_unlocked(string account_id,mapping record)
 {
 	if(!account_wallet_cache[account_id] &&

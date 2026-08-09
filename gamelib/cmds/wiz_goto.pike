@@ -27,12 +27,22 @@ int main(string|zero arg)
 		return 1;
 	}
 	if(ob->is_room){
-		me->move(ob);
+		int moved;
+		mixed move_err=catch { moved=me->move(ob); };
+		if(move_err || !moved){
+			write("目标房间当前无法安全到达。\n");
+			return 1;
+		}
 		write("%O \n",ob);
 	}
 	else
 		if(environment(ob)){
-			me->move(environment(ob));
+			int moved;
+			mixed move_err=catch { moved=me->move(environment(ob)); };
+			if(move_err || !moved){
+				write("目标所在位置当前无法安全到达。\n");
+				return 1;
+			}
 			write("%O \n",environment(ob));
 		}
 	return 1;

@@ -1,6 +1,33 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+
+// A follower cannot be commanded after the leader object has been retired on
+// another worker. Clear both sides explicitly instead of leaving a permanent
+// ghost-follow relation; players may follow again after they meet on one node.
+void detach_worker_move_followers(object leader,object old_env)
+{
+	if(!leader)
+		return;
+	if(arrayp(leader->follow_me)){
+		foreach(leader->follow_me,string follower_name){
+			object follower = find_player(follower_name);
+			if(follower && environment(follower)==old_env){
+				follower->follow = "_none";
+				tell_object(follower,"目标跨越了地图节点，自动跟随已安全解除。\n");
+			}
+		}
+		leader->follow_me = ({});
+	}
+	if(leader->follow && leader->follow!="_none"){
+		object followed = find_player((string)leader->follow);
+		if(followed && arrayp(followed->follow_me))
+			followed->follow_me -= ({(string)leader->query_name()});
+		leader->follow = "_none";
+	}
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -120,7 +147,15 @@ int main(string|zero arg)
 						env->addLeaveInfo(this_player());
 						env->deleteArriveInfo(this_player()->name);
 					}
-					this_player()->move(dest);
+					if(!this_player()->move(dest))
+						return 1;
+					// 跨 worker 的静态移动此刻只是事务内逻辑成功；
+					// arrive、跟随等房间副作用必须等目标对象落地后再发生。
+					if(MAP_WORKERD->query_local_move_redirect(
+					   this_player()->query_name())["ok"]){
+						detach_worker_move_followers(this_player(),env);
+						return 1;
+					}
 					this_player()->command("arrive");
 					//自动跟随在这里添加,liaocheng于07/09/21                
 					array(string) tmp_f = this_player()->follow_me;         

@@ -48,11 +48,21 @@ int main(string|zero arg)
 		//desc+="[进入【幻境】冥府:fb_entry mingfu 0 0]\n";
 		object room = FBD->query_fb_room(room_name,room_num,team_id,flag);
 		if(room){
-			if(flag == 0)
-				me->fb_id = team_id+"/"+room_name;
-			FBD->add_fb_members(me->fb_id,me->query_name());
+			string next_fb_id = flag==0 ? team_id+"/"+room_name :
+				(string)(me->fb_id || "");
+			if(next_fb_id==""){
+				write("副本身份已经失效，请先返回入口后重新进入。\n[确定:fb_leave "+room_name+"]\n");
+				return 1;
+			}
+			int moved;
+			mixed move_err = catch { moved = me->move(room); };
+			if(move_err || !moved || environment(me)!=room){
+				write("该副本当前位于其他地图节点，请稍后重试。\n[返回:look]\n");
+				return 1;
+			}
+			me->fb_id = next_fb_id;
+			FBD->add_fb_members(next_fb_id,me->query_name());
 			me->inhome_pos="";//由于家园和副本会把玩家的last_pos这个字段设置为类似的结构，所以，进入副本之后，就要清空玩家在家园中的标志，以此来区分 副本 和 家园；Evan 2008.9.22
-			me->move(room);
 			me->reset_view();
 			me->command("look");
 			return 1;
