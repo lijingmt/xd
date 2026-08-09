@@ -70,7 +70,10 @@ void test_heartbeat_budget_and_metrics()
 		search(source,"HEART_BEAT_SLICE_BUDGET_US 5000")!=-1 &&
 		search(source,"call_out(heart_beat_slice,0)")!=-1 &&
 		search(source,"System.getrusage()")!=-1 &&
+		search(source,"int query_runtime_capacity_warning()")!=-1 &&
 		mappingp(status) && status["process_model"]=="single_process" &&
+		query_runtime_capacity_warning()==
+			(int)status["capacity_warning"] &&
 		(int)status["heartbeat_object_budget"]==128 &&
 		(int)status["cpu_warning_percent"]==70,
 		"心跳仍整批执行，或Backend/CPU阈值指标未接线");
@@ -113,8 +116,32 @@ void test_afk_scan_budget_and_auth_boundary()
 		search(source,"query_bounded_scan_slice")!=-1 &&
 		search(source,"\"cycle_complete\"")!=-1 &&
 		(int)afk["scan_object_budget"]==128 &&
+		(int)afk["server_normal_dispatch_budget"]==16 &&
+		(int)afk["server_pressure_dispatch_budget"]==8 &&
+		(int)afk["server_severe_dispatch_budget"]==4 &&
+		httpd->query_world_pending_command_count()>=0 &&
 		httpd->get_user_password("../etc/passwd")==0,
 		"挂机大房间仍可能单轮遍历无界，或账号路径边界失效");
+}
+
+void test_hot_path_debug_logging_removed()
+{
+	string npc = Stdio.read_file(ROOT+"/lowlib/mudlib/inherit/npc.pike");
+	string roomd = Stdio.read_file(ROOT+
+		"/lowlib/mudlib/single/roomd.pike");
+	string itemsd = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/itemsd.pike");
+	string chat = Stdio.read_file(ROOT+"/gamelib/cmds/ui_chat.pike");
+	check("动态怪、掉落、房间刷新和聊天热路径不再同步写调试日志",
+		npc && roomd && itemsd && chat &&
+		search(npc,"=========plus_add") == -1 &&
+		search(npc,"player->query_defend_power() ") == -1 &&
+		search(roomd,"============first_player ") == -1 &&
+		search(roomd,"============78 npc_path ") == -1 &&
+		search(itemsd,"above 73 level will randomly") == -1 &&
+		search(itemsd,"=========get_item_name_prefix level:") == -1 &&
+		search(chat,"werror(") == -1,
+		"生产高频调试或聊天内容仍会同步写 stderr");
 }
 
 int main()
@@ -127,6 +154,7 @@ int main()
 		test_heartbeat_budget_and_metrics();
 		test_save_and_cache_metrics();
 		test_afk_scan_budget_and_auth_boundary();
+		test_hot_path_debug_logging_removed();
 	};
 	if(err){
 		error_desc = describe_error(err)+"\n"+describe_backtrace(err);

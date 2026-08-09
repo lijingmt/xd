@@ -1565,6 +1565,13 @@ private void sample_runtime_cpu()
 	runtime_last_cpu_total_ms = total_cpu_ms;
 }
 
+int query_runtime_capacity_warning()
+{
+	return runtime_cpu_warning_streak>=3 ||
+		backend_last_lag_ms>=RUNTIME_BACKEND_WARNING_MS ||
+		heart_beat_last_cycle_ms>=RUNTIME_BACKEND_WARNING_MS;
+}
+
 mapping query_runtime_performance()
 {
 	mapping backend_stats = ([]);
@@ -1597,9 +1604,7 @@ mapping query_runtime_performance()
 		"cpu_warning_percent":RUNTIME_CPU_WARNING_PERCENT,
 		"cpu_warning_streak":runtime_cpu_warning_streak,
 		"cpu_warning_count":runtime_cpu_warning_count,
-		"capacity_warning":runtime_cpu_warning_streak>=3 ||
-			backend_last_lag_ms>=RUNTIME_BACKEND_WARNING_MS ||
-			heart_beat_last_cycle_ms>=RUNTIME_BACKEND_WARNING_MS,
+		"capacity_warning":query_runtime_capacity_warning(),
 		"save_count":save_count,
 		"save_failure_count":save_failure_count,
 		"save_slow_count":save_slow_count,

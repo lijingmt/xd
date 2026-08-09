@@ -17,6 +17,11 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
 #define AUTOFIGHT_SERVER_TICK_SECONDS 1
 #define AUTOFIGHT_SERVER_SCAN_BUDGET 128
+#define AUTOFIGHT_SERVER_NORMAL_DISPATCH_BUDGET 16
+#define AUTOFIGHT_SERVER_PRESSURE_DISPATCH_BUDGET 8
+#define AUTOFIGHT_SERVER_SEVERE_DISPATCH_BUDGET 4
+#define AUTOFIGHT_SERVER_PRESSURE_PENDING 32
+#define AUTOFIGHT_SERVER_SEVERE_PENDING 64
 #define AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT 30
 #define AUTOFIGHT_FINAL_VIEW_SECONDS 30
 #define AUTOFIGHT_VIEW_MAX_BYTES (512*1024)
@@ -78,11 +83,54 @@ private int server_autofight_oversized_views;
 private int server_autofight_cleanup_scheduled;
 private int server_autofight_cycle_remaining;
 private int server_autofight_inflight_timeouts;
+private int server_autofight_inflight_backlog_protected;
+private int server_autofight_last_dispatch_budget =
+	AUTOFIGHT_SERVER_NORMAL_DISPATCH_BUDGET;
+private int server_autofight_last_world_pending;
+private int server_autofight_last_pressure_level;
+private int server_autofight_pressure_evaluations;
+private int server_autofight_severe_pressure_evaluations;
+private int server_autofight_throttled_batches;
 
 private string normalize_server_autofight_userid(string userid)
 {
 	// 与 HTTP 虚拟连接池使用同一规范键，兼容含大写字母的老账号。
 	return lower_case(String.trim_all_whites(userid || ""));
+}
+
+int query_server_autofight_dispatch_budget_for(int world_pending,
+	int capacity_warning)
+{
+	if(world_pending>=AUTOFIGHT_SERVER_SEVERE_PENDING)
+		return AUTOFIGHT_SERVER_SEVERE_DISPATCH_BUDGET;
+	if(world_pending>=AUTOFIGHT_SERVER_PRESSURE_PENDING ||
+	   capacity_warning)
+		return AUTOFIGHT_SERVER_PRESSURE_DISPATCH_BUDGET;
+	return AUTOFIGHT_SERVER_NORMAL_DISPATCH_BUDGET;
+}
+
+private int query_server_autofight_dispatch_budget()
+{
+	int budget;
+	int pressure_level = 0;
+	int world_pending = 0;
+	if(HTTP_APID &&
+	   functionp(HTTP_APID->query_world_pending_command_count))
+		world_pending = HTTP_APID->query_world_pending_command_count();
+	budget = query_server_autofight_dispatch_budget_for(world_pending,
+		query_runtime_capacity_warning());
+	if(budget==AUTOFIGHT_SERVER_SEVERE_DISPATCH_BUDGET)
+		pressure_level = 2;
+	else if(budget==AUTOFIGHT_SERVER_PRESSURE_DISPATCH_BUDGET)
+		pressure_level = 1;
+	server_autofight_last_dispatch_budget = budget;
+	server_autofight_last_world_pending = world_pending;
+	server_autofight_last_pressure_level = pressure_level;
+	if(pressure_level>0)
+		server_autofight_pressure_evaluations++;
+	if(pressure_level>1)
+		server_autofight_severe_pressure_evaluations++;
+	return budget;
 }
 
 private void schedule_server_autofight_tick()
@@ -213,7 +261,10 @@ private void run_server_autofight_tick()
 {
 	int examined = 0;
 	int scheduled = 0;
+	int dispatched = 0;
+	int dispatch_budget = query_server_autofight_dispatch_budget();
 	int queue_backoff = 0;
+	int throttle_backoff = 0;
 	int total;
 	server_autofight_tick_scheduled = 0;
 	if(server_autofight_cycle_remaining<=0){
@@ -229,7 +280,8 @@ private void run_server_autofight_tick()
 	if(server_autofight_cycle_remaining>total)
 		server_autofight_cycle_remaining=total;
 	while(examined<total && server_autofight_cycle_remaining>0 &&
-	   scheduled<AUTOFIGHT_SERVER_SCAN_BUDGET){
+	   scheduled<AUTOFIGHT_SERVER_SCAN_BUDGET &&
+	   dispatched<dispatch_budget){
 		object me;
 		string userid;
 		int request_id;
@@ -244,8 +296,17 @@ private void run_server_autofight_tick()
 		scheduled++;
 		int epoch = server_autofight_epochs[userid];
 		if(server_autofight_inflight[userid]){
-			if(time()-(int)server_autofight_inflight_started[userid]<
-			   AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT){
+			int inflight_age = time()-
+				(int)server_autofight_inflight_started[userid];
+			int queued = 0;
+			if(inflight_age>=AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT &&
+			   HTTP_APID &&
+			   functionp(HTTP_APID->query_world_user_queue_size))
+				queued = HTTP_APID->query_world_user_queue_size(userid);
+			if(inflight_age<AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT || queued>0){
+				if(inflight_age>=AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT &&
+				   queued>0)
+					server_autofight_inflight_backlog_protected++;
 				server_autofight_coalesced++;
 				continue;
 			}
@@ -273,8 +334,10 @@ private void run_server_autofight_tick()
 		server_autofight_inflight[userid] = request_id;
 		server_autofight_inflight_started[userid] = time();
 		if(HTTP_APID->enqueue_world_command(userid,"","flushview",
-		   finish_server_autofight_tick,({userid,epoch,request_id})))
+		   finish_server_autofight_tick,({userid,epoch,request_id}))){
 			server_autofight_enqueued++;
+			dispatched++;
+		}
 		else{
 			m_delete(server_autofight_inflight,userid);
 			m_delete(server_autofight_inflight_started,userid);
@@ -289,12 +352,17 @@ private void run_server_autofight_tick()
 			break;
 		}
 	}
+	if(dispatched>=dispatch_budget && server_autofight_cycle_remaining>0){
+		throttle_backoff=1;
+		server_autofight_throttled_batches++;
+	}
 	if(server_autofight_cycle_remaining>0 &&
 	   sizeof(server_autofight_epochs)>0){
 		server_autofight_tick_scheduled=1;
-		// 正常分片仍在同一秒完成；只有全局世界队列已满时退避一秒，
-		// 避免零延迟重试形成忙循环反过来拖死主线程。
-		call_out(run_server_autofight_tick,queue_backoff ? 1 : 0);
+		// 扫描分片可在同一秒继续；实际入队达到本秒预算，或世界队列已满
+		// 时退避一秒。游标和本轮额度均保留，避免尾部玩家饥饿。
+		call_out(run_server_autofight_tick,
+			(queue_backoff || throttle_backoff) ? 1 : 0);
 	}
 	else{
 		server_autofight_cycle_remaining=0;
@@ -920,10 +988,28 @@ mapping query_autofight_performance_status()
 		"server_scheduler":"single_global_callout",
 		"server_tick_seconds":AUTOFIGHT_SERVER_TICK_SECONDS,
 		"server_scan_budget":AUTOFIGHT_SERVER_SCAN_BUDGET,
+		"server_normal_dispatch_budget":
+			AUTOFIGHT_SERVER_NORMAL_DISPATCH_BUDGET,
+		"server_pressure_dispatch_budget":
+			AUTOFIGHT_SERVER_PRESSURE_DISPATCH_BUDGET,
+		"server_severe_dispatch_budget":
+			AUTOFIGHT_SERVER_SEVERE_DISPATCH_BUDGET,
+		"server_last_dispatch_budget":server_autofight_last_dispatch_budget,
+		"server_pressure_pending":AUTOFIGHT_SERVER_PRESSURE_PENDING,
+		"server_severe_pending":AUTOFIGHT_SERVER_SEVERE_PENDING,
+		"server_last_world_pending":server_autofight_last_world_pending,
+		"server_last_pressure_level":server_autofight_last_pressure_level,
+		"server_pressure_evaluations":
+			server_autofight_pressure_evaluations,
+		"server_severe_pressure_evaluations":
+			server_autofight_severe_pressure_evaluations,
+		"server_throttled_batches":server_autofight_throttled_batches,
 		"server_active_users":sizeof(server_autofight_epochs),
 		"server_inflight":sizeof(server_autofight_inflight),
 		"server_inflight_timeout_seconds":AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT,
 		"server_inflight_timeouts":server_autofight_inflight_timeouts,
+		"server_inflight_backlog_protected":
+			server_autofight_inflight_backlog_protected,
 		"server_cycle_remaining":server_autofight_cycle_remaining,
 		"server_ticks":server_autofight_ticks,
 		"server_enqueued":server_autofight_enqueued,

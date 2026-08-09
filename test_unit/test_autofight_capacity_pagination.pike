@@ -251,20 +251,32 @@ void test_server_scheduler_resilience()
 	string source=Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	mapping status=AUTOFIGHTD->query_autofight_performance_status();
-	check("超过128名挂机用户时同一秒分片推进完整轮次",
+	check("挂机调度按拥塞分级限速且公平保留轮转位置",
 		source && search(source,"server_autofight_cycle_remaining")!=-1 &&
-		search(source,"call_out(run_server_autofight_tick,"+
-			"queue_backoff ? 1 : 0)")!=-1 &&
+		search(source,"dispatched<dispatch_budget")!=-1 &&
+		search(source,"queue_backoff || throttle_backoff")!=-1 &&
 		search(source,"server_autofight_cursor--")!=-1 &&
 		search(source,"server_autofight_cycle_remaining++")!=-1 &&
-		(int)status["server_scan_budget"]==128,
-		"调度器仍会推迟128名后的玩家或在队列满时固定饿死尾部玩家");
+		(int)status["server_scan_budget"]==128 &&
+		(int)status["server_normal_dispatch_budget"]==16 &&
+		(int)status["server_pressure_dispatch_budget"]==8 &&
+		(int)status["server_severe_dispatch_budget"]==4 &&
+		has_index(status,"server_last_pressure_level") &&
+		(int)status["server_pressure_evaluations"]>=0 &&
+		(int)status["server_severe_pressure_evaluations"]>=0 &&
+		AUTOFIGHTD->query_server_autofight_dispatch_budget_for(0,0)==16 &&
+		AUTOFIGHTD->query_server_autofight_dispatch_budget_for(31,1)==8 &&
+		AUTOFIGHTD->query_server_autofight_dispatch_budget_for(32,0)==8 &&
+		AUTOFIGHTD->query_server_autofight_dispatch_budget_for(64,0)==4,
+		"调度器限速边界、指标或尾部公平游标失效");
 	check("挂机世界命令超时后用独立请求号自愈且拒绝迟到回调",
 		source && search(source,"server_autofight_inflight_started")!=-1 &&
 		search(source,"next_server_autofight_request_id")!=-1 &&
 		search(source,"server_autofight_inflight[userid]==request_id")!=-1 &&
+		search(source,"query_world_user_queue_size(userid)")!=-1 &&
+		search(source,"queued>0")!=-1 &&
 		(int)status["server_inflight_timeout_seconds"]==30,
-		"在途命令丢失后可能永久停止挂机或迟到回调覆盖新请求");
+		"排队超过30秒仍可能重复入队，或迟到回调覆盖新请求");
 }
 
 int main()

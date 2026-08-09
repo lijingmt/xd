@@ -278,6 +278,15 @@ int query_world_user_queue_size(string userid)
     return sizeof(queue);
 }
 
+/**
+ * 供同一 Backend 上的调度器做轻量拥塞判断。
+ * 这里只返回整数快照，不复制队列，也不把游戏对象交给工作线程。
+ */
+int query_world_pending_command_count()
+{
+    return world_pending_commands;
+}
+
 int enqueue_world_command(string userid,string password,string cmd,
     function callback,array extra)
 {
