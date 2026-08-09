@@ -8,41 +8,44 @@ int main(string|zero arg)
 	s += "[［人物状态］:myhp]\n";
 	s += "[［武器装备］:mytools]\n";
 	
-	s += "攻击强度："+me->query_low_attack_desc()+"-"+me->query_high_attack_desc()+"\n";
-	s += "防御强度："+me->query_defend_power()+"\n";
+	s += "攻击强度："+format_game_number(me->query_low_attack_desc())+
+		"-"+format_game_number(me->query_high_attack_desc())+"\n";
+	s += "防御强度："+format_game_number(me->query_defend_power())+"\n";
 	
-	s += "生命力："+me->get_cur_life()+"/"+me->query_life_max()+"\n";
-	s += "法力值："+me->get_cur_mofa()+"/"+me->query_mofa_max()+"\n";
+	s += "生命力："+format_game_number(me->get_cur_life())+"/"+
+		format_game_number(me->query_life_max())+"\n";
+	s += "法力值："+format_game_number(me->get_cur_mofa())+"/"+
+		format_game_number(me->query_mofa_max())+"\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "力量："+me->get_cur_str();
+	s += "力量："+format_game_number(me->get_cur_str());
 	int tmp = me->query_equip_add("str")+me->query_equip_add("all")+me->query_danyao_add("attri_base","str")+me->query_danyao_add("te_base","str")+me->query_danyao_add("home_base","str");
 	if(tmp)
-		s += "＋"+tmp+"\n";
+		s += "＋"+format_game_number(tmp)+"\n";
 	else
 		s += "\n";
 	
-	s += "敏捷："+me->get_cur_dex();
+	s += "敏捷："+format_game_number(me->get_cur_dex());
 	tmp = me->query_equip_add("dex")+me->query_equip_add("all")+me->query_danyao_add("attri_base","dex")+me->query_danyao_add("te_base","dex")+me->query_danyao_add("home_base","dex");
 	if(tmp)
-		s += "＋"+tmp+"\n";
+		s += "＋"+format_game_number(tmp)+"\n";
 	else
 		s += "\n";
 
-	s += "智力："+me->get_cur_think();
+	s += "智力："+format_game_number(me->get_cur_think());
 	tmp = me->query_equip_add("think")+me->query_equip_add("all")+me->query_danyao_add("attri_base","think")+me->query_danyao_add("te_base","think")+me->query_danyao_add("home_base","think") ;
 	if(tmp)
-		s += "＋"+tmp+"\n";
+		s += "＋"+format_game_number(tmp)+"\n";
 	else
 		s += "\n";
 	
 	tmp = me->query_equip_add("renxing");
 	if(tmp){
-		s += "韧性：+"+tmp+"\n";
+		s += "韧性：+"+format_game_number(tmp)+"\n";
 	}
 
-	s += "幸运："+me->query_lunck(); 
+	s += "幸运："+format_game_number(me->query_lunck());
 	if(me->query_equip_add("lunck")>0)
-		s += "＋"+me->query_equip_add("lunck")+"\n";
+		s += "＋"+format_game_number(me->query_equip_add("lunck"))+"\n";
 	else
 		s += "\n";
 	////////////////////////////////////////////////////////////////////////////////
@@ -65,16 +68,18 @@ int main(string|zero arg)
 	else
 		s += "\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "火系法术抗性："+(int)(me->query_equip_add("huoyan_defend")+me->query_equip_add("all_mofa_defend"))+"\n";
-	s += "冰系法术抗性："+(int)(me->query_equip_add("bingshuang_defend")+me->query_equip_add("all_mofa_defend"))+"\n";
-	s += "风系法术抗性："+(int)(me->query_equip_add("fengren_defend")+me->query_equip_add("all_mofa_defend"))+"\n";
-	s += "毒系法术抗性："+(int)(me->query_equip_add("dusu_defend")+me->query_equip_add("all_mofa_defend"))+"\n";
-	s += "附加物理伤害："+(int)(me->query_equip_add("attack_all"))+"\n";
-	s += "全系法术伤害："+(int)(me->query_equip_add("mofa_all"))+"\n";
+	s += "火系法术抗性："+format_game_number((int)(me->query_equip_add("huoyan_defend")+me->query_equip_add("all_mofa_defend")))+"\n";
+	s += "冰系法术抗性："+format_game_number((int)(me->query_equip_add("bingshuang_defend")+me->query_equip_add("all_mofa_defend")))+"\n";
+	s += "风系法术抗性："+format_game_number((int)(me->query_equip_add("fengren_defend")+me->query_equip_add("all_mofa_defend")))+"\n";
+	s += "毒系法术抗性："+format_game_number((int)(me->query_equip_add("dusu_defend")+me->query_equip_add("all_mofa_defend")))+"\n";
+	s += "附加物理伤害："+
+		format_game_number((int)me->query_equip_add("attack_all"))+"\n";
+	s += "全系法术伤害："+
+		format_game_number((int)me->query_equip_add("mofa_all"))+"\n";
 	s += "附加物理穿透（无视防御伤害）："+
-		(int)(me->query_equip_add("wulichuantou_add"))+"\n";
+		format_game_number((int)me->query_equip_add("wulichuantou_add"))+"\n";
 	s += "附加法术穿透（无视防御伤害）："+
-		(int)(me->query_equip_add("mofachuantou_add"))+"\n";
+		format_game_number((int)me->query_equip_add("mofachuantou_add"))+"\n";
 	s += "附加闪避穿透："+
 		sprintf("%0.2f",(float)me->query_equip_add("dodgechuantou_add")/10.0)+
 		"%（普攻最高40%，物理技能最高60%）\n";

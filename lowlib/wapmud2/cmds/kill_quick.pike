@@ -203,12 +203,19 @@ int main(string arg)
 			}
 			s+="──────────\n";
 			if(me->get_cur_life()<me->life_max*3/10)
-				s += "<font style=\"color:red\">生命 "+me->get_cur_life()+"/"+me->life_max+"</font>\n";
+				s += "<font style=\"color:red\">生命 "+
+					format_game_number(me->get_cur_life())+"/"+
+					format_game_number(me->life_max)+"</font>\n";
 			else if(me->get_cur_life()<me->life_max*6/10)
-				s += "<font style=\"color:Orange\">生命 "+me->get_cur_life()+"/"+me->life_max+"</font>\n";
+				s += "<font style=\"color:Orange\">生命 "+
+					format_game_number(me->get_cur_life())+"/"+
+					format_game_number(me->life_max)+"</font>\n";
 			else
-				s += "<font style=\"color:Orange\">生命 "+me->get_cur_life()+"/"+me->life_max+"</font>\n";
-			s += "法力 "+me->get_cur_mofa()+"/"+me->mofa_max+"\n";
+				s += "<font style=\"color:Orange\">生命 "+
+					format_game_number(me->get_cur_life())+"/"+
+					format_game_number(me->life_max)+"</font>\n";
+			s += "法力 "+format_game_number(me->get_cur_mofa())+"/"+
+				format_game_number(me->mofa_max)+"\n";
 			s += "精力 "+me->query_jingli()+"\n"; 
 			s+="──────────\n";
 		}

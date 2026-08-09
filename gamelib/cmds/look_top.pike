@@ -87,7 +87,11 @@ int main(string|zero arg)
 		string lr = "";
 		for(int i=(page-1)*PAGELEN;i<sizeof(record)&&i<(page-1)*PAGELEN+PAGELEN;i++)
                 {
-                        lr += sprintf("第%d名|%s\n",i+1,record[i][NAMECN]);
+			string record_value = type=="等级" || type=="捐赠" ?
+				(string)record[i][VALUE] :
+				format_game_number((int)record[i][VALUE]);
+			lr += sprintf("第%d名|%s|%s：%s\n",i+1,
+				record[i][NAMECN],type,record_value);
                 }
  		if(lr&&sizeof(lr)){
 			re += lr;

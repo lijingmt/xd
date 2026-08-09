@@ -231,7 +231,9 @@ string query_npc_status(int player_level){
 		if(diff>=5)
 			return s + "生命：？\n法力：？";
 		else
-			return s + "生命："+this_object()->get_cur_life()+"\n法力："+this_object()->get_cur_mofa();
+			return s+"生命："+
+				format_game_number(this_object()->get_cur_life())+
+				"\n法力："+format_game_number(this_object()->get_cur_mofa());
 	}
 	return s += "生命：？\n法力：？";
 }

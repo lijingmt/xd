@@ -120,7 +120,7 @@ void npc_level_define(){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
 			////////////////////////////////////////////////////	
-			case 7://人形 包括人类和妖魔
+			case 8://人形 包括人类和妖魔
 				{
 					//初始值
 					_str = 3;//力量
@@ -144,7 +144,7 @@ void npc_level_define(){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 8://野兽
+			case 9://野兽
 				{
 					//初始值
 					_str = 6;//力量
@@ -168,7 +168,7 @@ void npc_level_define(){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 9://飞禽
+			case 10://飞禽
 				{
 					//初始值
 					_str = 3;//力量
@@ -192,7 +192,7 @@ void npc_level_define(){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 10://鱼
+			case 11://鱼
 				{
 					//初始值
 					_str = 3;//力量
@@ -215,7 +215,7 @@ void npc_level_define(){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 11://两栖动物
+			case 12://两栖动物
 				{
 					//初始值
 					_str = 3;//力量
@@ -238,7 +238,7 @@ void npc_level_define(){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 12://虫类
+			case 13://虫类
 				{
 					//初始值
 					_str = 3;//力量
@@ -264,7 +264,7 @@ void npc_level_define(){
 				break;
 				////////////////////////////////////////////////////	
 				/*
-			case 13://看门狗
+			case 14://看门狗
 				{
 					_costom_npc_life = 3000;
 					_str = 30;
@@ -350,7 +350,7 @@ void npc_level_define_dongtai(object player){
 		int i_profe = m_profe[u_profe];
 		switch(i_profe){
 			////////////////////////////////////////////////////	
-			case 7://人形 包括人类和妖魔
+			case 8://人形 包括人类和妖魔
 				{
 					//初始值
 					_str = 3;//力量
@@ -374,7 +374,7 @@ void npc_level_define_dongtai(object player){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 8://野兽
+			case 9://野兽
 				{
 					//初始值
 					_str = 6;//力量
@@ -398,7 +398,7 @@ void npc_level_define_dongtai(object player){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 9://飞禽
+			case 10://飞禽
 				{
 					//初始值
 					_str = 3;//力量
@@ -422,7 +422,7 @@ void npc_level_define_dongtai(object player){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 10://鱼
+			case 11://鱼
 				{
 					//初始值
 					_str = 3;//力量
@@ -445,7 +445,7 @@ void npc_level_define_dongtai(object player){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 11://两栖动物
+			case 12://两栖动物
 				{
 					//初始值
 					_str = 3;//力量
@@ -468,7 +468,7 @@ void npc_level_define_dongtai(object player){
 				}
 				break;
 				////////////////////////////////////////////////////	
-			case 12://虫类
+			case 13://虫类
 				{
 					//初始值
 					_str = 3;//力量
@@ -494,7 +494,7 @@ void npc_level_define_dongtai(object player){
 				break;
 				////////////////////////////////////////////////////	
 				/*
-			case 13://看门狗
+			case 14://看门狗
 				{
 					_costom_npc_life = 3000;
 					_str = 30;
@@ -608,4 +608,3 @@ int count_first_target_team_in_room(){
     }
     return alive;
 }
-

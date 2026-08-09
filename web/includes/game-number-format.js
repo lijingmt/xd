@@ -126,7 +126,10 @@
             digits = preferredDigits(scaled, settings.maxFractionDigits);
             rounded = Number(scaled.toFixed(digits));
         }
-        var compactValue = rounded.toFixed(digits).replace(/\.?0+$/, '');
+        var compactValue = rounded.toFixed(digits);
+        if (compactValue.indexOf('.') !== -1) {
+            compactValue = compactValue.replace(/0+$/, '').replace(/\.$/, '');
+        }
         return {
             display: compactValue + UNITS[unitIndex].label,
             exact: exact,

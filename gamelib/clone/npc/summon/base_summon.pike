@@ -142,7 +142,7 @@ void check_duration(){
  * 强制灵兽聚焦主人的当前目标。
  */
 int focus_summon_target(object target){
-	if(get_cur_life() <= 0 || !target ||
+	if(get_cur_life() <= 0 || !target || !objectp(target) ||
 	   (!target->is("player") && !target->is("npc")) ||
 	   target->get_cur_life() <= 0 ||
 	   environment(this_object()) != environment(target) ||
@@ -150,7 +150,14 @@ int focus_summon_target(object target){
 		return 0;
 
 	int changed = query_enemy() != target;
-	this_object()->kill(target,0);
+	// 主人和目标都未改变时，不要每次心跳重复进入 kill/_fight。
+	// 重复开战既会无意义累加对方仇恨，也会放大对象离场竞态。
+	if((changed || !query_in_combat()) &&
+	   !this_object()->kill(target,0))
+		return 0;
+	if(!target || !objectp(target) || target->get_cur_life()<=0 ||
+	   environment(this_object())!=environment(target))
+		return 0;
 	this_object()->reset_targets();
 	this_object()->flush_targets(target,100);
 	this_object()->enemy = target;

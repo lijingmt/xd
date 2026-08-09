@@ -33,18 +33,24 @@ int main(string|zero arg)
 		rst = "帮派：<"+rst+">*"+BANGD->query_level_cn(me->query_name(),me->bangid)+"\n";
 		s += rst;
 	}
-	s += "经验值："+me->current_exp+"\n";
-	s += "升级所需经验："+me->query_levelUp_need_exp()+"\n";
-	s += "生命值："+me->get_cur_life()+"/"+me->query_life_max()+"\n";
-	s += "法力值："+me->get_cur_mofa()+"/"+me->query_mofa_max()+"\n";
-	s += "精力值："+me->query_jingli()+"\n"; 
+	s += "经验值："+format_game_number(me->current_exp)+"\n";
+	s += "升级所需经验："+
+		format_game_number(me->query_levelUp_need_exp())+"\n";
+	s += "生命值："+format_game_number(me->get_cur_life())+"/"+
+		format_game_number(me->query_life_max())+"\n";
+	s += "法力值："+format_game_number(me->get_cur_mofa())+"/"+
+		format_game_number(me->query_mofa_max())+"\n";
+	s += "精力值："+format_game_number(me->query_jingli())+"\n";
 	if(me->query_raceId()=="human")
-		s += "仙气："+me->honerpt+"("+me->killcount+")\n";
+		s += "仙气："+format_game_number(me->honerpt)+"("+
+			format_game_number(me->killcount)+")\n";
 	else if(me->query_raceId()=="monst")
-		s += "妖气："+me->honerpt+"("+me->killcount+")\n";
+		s += "妖气："+format_game_number(me->honerpt)+"("+
+			format_game_number(me->killcount)+")\n";
 	else if(me->query_raceId()=="third")
-		s += "灵气："+me->honerpt+"("+me->killcount+")\n";
-	s += "轮回值："+me->lunhuipt+"\n";
+		s += "灵气："+format_game_number(me->honerpt)+"("+
+			format_game_number(me->killcount)+")\n";
+	s += "轮回值："+format_game_number(me->lunhuipt)+"\n";
 
 
 /*

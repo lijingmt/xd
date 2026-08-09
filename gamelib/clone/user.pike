@@ -803,7 +803,8 @@ void fight_die()
 						t += "等级降了1级\n";
 					}
 					else if(del_result==2){
-						t += "同时损失"+drop_exp+"点经验\n";
+						t += "同时损失"+format_game_number(drop_exp)+
+							"点经验\n";
 					}
 				}
 			}

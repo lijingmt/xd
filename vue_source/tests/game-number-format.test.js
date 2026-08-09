@@ -9,6 +9,8 @@ assert.strictEqual(formatter.formatNumber(9999), '9,999');
 assert.strictEqual(formatter.formatNumber(10000), '1万');
 assert.strictEqual(formatter.formatNumber(12345), '1.23万');
 assert.strictEqual(formatter.formatNumber(124000), '12.4万');
+assert.strictEqual(formatter.formatNumber(1000000), '100万');
+assert.strictEqual(formatter.formatNumber(3898800), '390万');
 assert.strictEqual(formatter.formatNumber(2100000000), '21亿');
 assert.strictEqual(formatter.formatNumber(99999999), '1亿');
 assert.strictEqual(formatter.formatNumber(5858319000000), '5.86万亿');
