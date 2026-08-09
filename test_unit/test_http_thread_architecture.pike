@@ -109,6 +109,7 @@ void test_world_queue_coalescing_and_causal_order(object httpd)
 		lower_case(userid),"","flushview",record_world_queue_probe,
 		({callback_result,"merged"}));
 	int merged_size = httpd->query_world_user_queue_size(userid);
+	int pending_after_merge = httpd->query_world_pending_command_count();
 	int middle = httpd->enqueue_world_command(userid,"","look",
 		record_world_queue_probe,({callback_result,"middle"}));
 	int trailing = httpd->enqueue_world_command(userid,"","flushview",
@@ -125,7 +126,10 @@ void test_world_queue_coalescing_and_causal_order(object httpd)
 	int valid = first==1 && merged==1 && middle==1 && trailing==1 &&
 		look_first==1 && look_merged==1 && look_size==1 &&
 		merged_size==1 && ordered_size==3 &&
+		pending_after_merge==(int)before["world_pending_commands"]+1 &&
 		httpd->query_world_user_queue_size(userid)==0 &&
+		httpd->query_world_pending_command_count()==
+			(int)before["world_pending_commands"] &&
 		(int)after["world_pending_commands"]==
 			(int)before["world_pending_commands"] &&
 		(int)after["world_pending_callbacks"]==

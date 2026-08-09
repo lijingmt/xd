@@ -506,8 +506,6 @@ void npc_level_define_dongtai(object player){
 		}
 
 		int plus_add = (int) pow(player->query_defend_power(),0.3);//根据玩家防御度增加npc的强度
-		werror("=========plus_add "+plus_add+"\n");
-		werror("=========player->query_defend_power() "+player->query_defend_power()+"\n");
 		if(npcLevel < 100){
 			plus_add = 1;
 		}

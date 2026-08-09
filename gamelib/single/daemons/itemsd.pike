@@ -682,8 +682,7 @@ object get_spec_item(int npclevel,int playerlevel,int playerluck)
 			if(npclevel > 73){//如果动态npc的等级超过73，则说明没有可用的技能书掉落了，则随机任何一个以前的技能书等级，掉落技能书
 				itemlevel = random(74);
 				//got_it=100000;//测试用，未来要屏蔽掉
-				werror("=========above 73 level will randomly generate the itemlevel:"+itemlevel+"\n");
-			}		
+			}
 		}
 	}
 	if((random(100000)+1)<=got_it) {
@@ -1016,9 +1015,7 @@ string get_item_name_prefix(int level, void|object ob){
 			ret="超凡境-";
 			break;
 	};
-	werror("=========get_item_name_prefix level:"+level+"\n");
 	if(ob && level == -1){
-		werror("=========get_item_name_prefix 870 ob name cn:"+ob->query_name_cn()+"\n");
 		// 按优先级从高到低检测，避免匹配到错误的境界
 		if(search(ob->query_name_cn(), "大道境-") !=-1)
 			ret="大道境-";

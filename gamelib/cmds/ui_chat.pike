@@ -3,7 +3,6 @@
 int main(string|zero arg)
 {
 	object me = this_player();
-		werror("ui_chat begin\n");
 	if(arg){
 
 		if(search(arg," ")!=-1) {//?????????????2???????
@@ -13,19 +12,14 @@ int main(string|zero arg)
 			}
 		} 
 		//by calvin 2007-08-31
-		werror("ui_chat original="+arg+"\n");
         arg = TIPSD->check_words(arg);
-		werror("ui_chat check_words="+arg+"\n");
 		arg = filter_msg(arg);
-		werror("ui_chat filter_msg="+arg+"\n");
 		if(sizeof(arg) > 40)
 			arg = arg[0..39];
-		werror("ui_chat cat="+arg+"\n");
 		//arg = filter_msg(arg);
 		string content = "";
 		if(me->roomchatid=="pub"){ 
 			content = me->query_name()+"|["+me->query_name_cn()+":ui_char "+me->query_name()+"]："+arg;
-		werror("ui_chat content="+arg+"\n");
 			RACECHATD->add_chat_msg(
 				me->query_raceId(),"pub_channel",content);
 		}
