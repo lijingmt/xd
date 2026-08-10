@@ -361,13 +361,32 @@ void test_worker_docker_start_chain_contract()
 	string env_setup = Stdio.read_file(
 		ROOT+"/scripts/setup_deploy_env.sh");
 	string env_example = Stdio.read_file(ROOT+"/.env.example");
+	string deploy_config = Stdio.read_file(
+		ROOT+"/deploy/map_workers/config.json");
+	string config_sync = Stdio.read_file(
+		ROOT+"/scripts/sync_map_worker_deploy_config.sh");
+	int preflight_call = restart ?
+		search(restart,"\n    preflight_map_worker_deploy_config\n") : -1;
+	int stop_call = restart ?
+		search(restart,"\n    stop_existing_container_safely\n") : -1;
 	if(wrapper && restart && compose && dockerfile && startup && bootstrap &&
-	   env_setup && env_example &&
+	   env_setup && env_example && deploy_config && config_sync &&
 	   search(wrapper,"exec \"$SCRIPT_DIR/restart-docker.sh\"")!=-1 &&
 	   search(wrapper,"xd01-02 2002 2003")!=-1 &&
 	   search(wrapper,"\"$@\"")!=-1 &&
+	   search(wrapper,"XIAND_MAP_WORKER_DEPLOY_CONFIG")!=-1 &&
+	   search(deploy_config,"\"traffic_mode\": \"active\"")!=-1 &&
+	   search(deploy_config,"\"worker_count\": 5")!=-1 &&
+	   search(config_sync,"deploy config keys do not match schema v2")!=-1 &&
+	   search(config_sync,"deploy config exceeds 64 KiB")!=-1 &&
+	   search(config_sync,"mv -f \"$temporary\" \"$TARGET_CONFIG\"")!=-1 &&
 	   search(restart,"--workers")!=-1 &&
 	   search(restart,"XIAND_MAP_WORKER_COUNT_OVERRIDE")!=-1 &&
+	   search(restart,"sync_map_worker_deploy_config.sh")!=-1 &&
+	   search(restart,"preflight_map_worker_deploy_config")!=-1 &&
+	   search(restart,"Git worker配置预检失败，旧容器保持运行")!=-1 &&
+	   search(restart,"宿主worker配置路径不安全，旧容器保持运行")!=-1 &&
+	   preflight_call!=-1 && stop_call!=-1 && preflight_call<stop_call &&
 	   search(restart,"\"$ENV_SETUP_SCRIPT\" \"$XIAND_ENV_FILE\"")!=-1 &&
 	   search(restart,"stop_existing_container_safely")!=-1 &&
 	   search(restart,"map_worker_cluster.sh stop")!=-1 &&

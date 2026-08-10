@@ -877,6 +877,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 if(detailed_health){
                     mapping queue_status = query_queue_status();
                     mapping thread_status = query_thread_status();
+                    string health_node_role = MAP_WORKERD->query_node_role();
                     m["port"] = http_listen_port;
                     m["uptime"] = http_api_start_time > 0 ?
                         time()-http_api_start_time : 0;
@@ -889,15 +890,28 @@ void handle_request(Protocols.HTTP.Server.Request req)
                     m["threads"] = thread_status;
                     m["async_io"] = ASYNC_IOD->query_status();
                     m["runtime"] = query_runtime_performance();
-                    m["config_caches"] = ([
-                        "map":MAPD->query_cache_status(),
-                        "task":TASKD->query_cache_status(),
-                        "skill":MUD_SKILLSD->query_cache_status(),
-                        "autofight":AUTOFIGHTD->
-                            query_training_route_cache_status(),
-                    ]);
-                    m["autofight_performance"] = AUTOFIGHTD->
-                        query_autofight_performance_status();
+                    // The coordinator owns routing only. Loading gameplay
+                    // daemons merely to serve monitoring previously blocked
+                    // its public gateway for several seconds after startup.
+                    if(health_node_role!="gateway"){
+                        m["config_caches"] = ([
+                            "map":MAPD->query_cache_status(),
+                            "task":TASKD->query_cache_status(),
+                            "skill":MUD_SKILLSD->query_cache_status(),
+                            "autofight":AUTOFIGHTD->
+                                query_training_route_cache_status(),
+                        ]);
+                        m["autofight_performance"] = AUTOFIGHTD->
+                            query_autofight_performance_status();
+                    }
+                    else{
+                        m["config_caches"] = ([
+                            "mode":"not_collected_on_gateway",
+                        ]);
+                        m["autofight_performance"] = ([
+                            "mode":"not_collected_on_gateway",
+                        ]);
+                    }
                     m["performance"] = query_http_performance_status();
                     m["account_sessions"] = query_account_session_status();
                     m["command_tokens"] = query_hidden_command_status();

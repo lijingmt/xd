@@ -13,6 +13,7 @@ unset XIAND_MAP_WORKER_COUNT
 unset XIAND_MAP_WORKER_COUNT_OVERRIDE
 unset XIAND_MAP_WORKER_CAPACITY
 unset XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK
+unset XIAND_MAP_WORKER_DEPLOY_CONFIG
 
 cleanup()
 {
@@ -170,5 +171,75 @@ XIAND_MAP_WORKER_CONFIG="$ACTIVE_ROOT/map_workers/config.json" \
 XIAND_MAP_WORKER_TRAFFIC_MODE=active \
 XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
 	"$ROOT_DIR/scripts/bootstrap_map_worker_runtime.sh" >/dev/null
+
+# The production wrapper's reviewed Git config replaces the host config
+# atomically, while preserving independent circuit-breaker state.
+SYNC_ROOT="$TEST_ROOT/deploy-sync"
+SYNC_TARGET="$SYNC_ROOT/map_workers/config.json"
+mkdir -p "$SYNC_ROOT/map_workers"
+printf '%s\n' 'fallback-fixture' > "$SYNC_ROOT/map_workers/fallback-latched"
+XIAND_MAP_WORKER_DEPLOY_CONFIG="$ROOT_DIR/deploy/map_workers/config.json" \
+XIAND_MAP_WORKER_CONFIG="$SYNC_TARGET" \
+	"$ROOT_DIR/scripts/sync_map_worker_deploy_config.sh" >/dev/null
+[[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["traffic_mode"])' "$SYNC_TARGET")" == "active" ]]
+[[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["worker_count"])' "$SYNC_TARGET")" == "5" ]]
+[[ "$(file_mode "$SYNC_TARGET")" == "600" ]]
+[[ -f "$SYNC_ROOT/map_workers/fallback-latched" ]]
+
+# A one-shot worker count override remains available after Git config sync.
+XIAND_ENV_FILE="$SYNC_ROOT/.env" \
+XIAND_MAP_WORKER_CONFIG="$SYNC_TARGET" \
+XIAND_MAP_WORKER_COUNT_OVERRIDE=7 \
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
+	"$ROOT_DIR/scripts/bootstrap_map_worker_runtime.sh" >/dev/null
+[[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["traffic_mode"])' "$SYNC_TARGET")" == "active" ]]
+[[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["worker_count"])' "$SYNC_TARGET")" == "7" ]]
+
+# Invalid or symlinked Git inputs fail before replacing the last valid target.
+VALID_SYNC_CHECKSUM="$(config_checksum "$SYNC_TARGET")"
+INVALID_SYNC_SOURCE="$SYNC_ROOT/invalid.json"
+printf '%s\n' '{"schema_version":2,"enabled":1}' > "$INVALID_SYNC_SOURCE"
+if XIAND_MAP_WORKER_DEPLOY_CONFIG="$INVALID_SYNC_SOURCE" \
+   XIAND_MAP_WORKER_CONFIG="$SYNC_TARGET" \
+	"$ROOT_DIR/scripts/sync_map_worker_deploy_config.sh" >/dev/null 2>&1; then
+	echo "invalid Git worker config was accepted" >&2
+	exit 1
+fi
+[[ "$(config_checksum "$SYNC_TARGET")" == "$VALID_SYNC_CHECKSUM" ]]
+
+OVERSIZED_SYNC_SOURCE="$SYNC_ROOT/oversized.json"
+python3 - "$OVERSIZED_SYNC_SOURCE" <<'PY'
+import pathlib
+import sys
+pathlib.Path(sys.argv[1]).write_text(" " * 65537, encoding="utf-8")
+PY
+if XIAND_MAP_WORKER_DEPLOY_CONFIG="$OVERSIZED_SYNC_SOURCE" \
+   XIAND_MAP_WORKER_CONFIG="$SYNC_TARGET" \
+	"$ROOT_DIR/scripts/sync_map_worker_deploy_config.sh" >/dev/null 2>&1; then
+	echo "oversized Git worker config was accepted" >&2
+	exit 1
+fi
+[[ "$(config_checksum "$SYNC_TARGET")" == "$VALID_SYNC_CHECKSUM" ]]
+ln -s "$ROOT_DIR/deploy/map_workers/config.json" "$SYNC_ROOT/config-link.json"
+if XIAND_MAP_WORKER_DEPLOY_CONFIG="$SYNC_ROOT/config-link.json" \
+   XIAND_MAP_WORKER_CONFIG="$SYNC_TARGET" \
+	"$ROOT_DIR/scripts/sync_map_worker_deploy_config.sh" >/dev/null 2>&1; then
+	echo "symlinked Git worker config was accepted" >&2
+	exit 1
+fi
+[[ "$(config_checksum "$SYNC_TARGET")" == "$VALID_SYNC_CHECKSUM" ]]
+
+# restart-docker performs the same validation against a temporary target
+# before stopping the live container.
+RESTART_SOURCE="$(sed -n '1,420p' "$ROOT_DIR/restart-docker.sh")"
+[[ "$RESTART_SOURCE" == *"preflight_map_worker_deploy_config"* ]]
+[[ "$RESTART_SOURCE" == *"Git worker配置预检失败，旧容器保持运行"* ]]
+[[ "$RESTART_SOURCE" == *"宿主worker配置路径不安全，旧容器保持运行"* ]]
+PREFLIGHT_CALL_LINE="$(grep -n '^    preflight_map_worker_deploy_config$' \
+	"$ROOT_DIR/restart-docker.sh" | tail -1 | cut -d: -f1)"
+STOP_CALL_LINE="$(grep -n '^    stop_existing_container_safely$' \
+	"$ROOT_DIR/restart-docker.sh" | tail -1 | cut -d: -f1)"
+[[ -n "$PREFLIGHT_CALL_LINE" && -n "$STOP_CALL_LINE" ]]
+[[ "$PREFLIGHT_CALL_LINE" -lt "$STOP_CALL_LINE" ]]
 
 echo "map worker bootstrap tests passed"

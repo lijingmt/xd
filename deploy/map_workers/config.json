@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "enabled": 1,
+  "traffic_mode": "active",
+  "worker_count": 5,
+  "worker_capacity": 100,
+  "placement": "load_aware_rendezvous",
+  "coordinator_http_port": 18880,
+  "worker_http_base_port": 18881,
+  "worker_mud_base_port": 14801,
+  "gateway_port": 8888
+}

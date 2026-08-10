@@ -20,6 +20,8 @@
 #   ./restart-docker.sh xd01 9001 8888     # 指定区号、端口、API端口
 #   ./restart-docker.sh xd02 9002 8889     # xd02 区，端口 9002，API 8889
 #   ./restart-docker.sh xd01 9001 8888 --workers 5
+#   XIAND_MAP_WORKER_DEPLOY_CONFIG=deploy/map_workers/config.json \
+#       ./restart-docker.sh xd01-02 2002 2003
 #
 # 环境变量：
 #   GAME_AREAS  - 游戏分区列表，逗号分隔（默认：xd01,xd02,xd03,xd04,xd05）
@@ -268,10 +270,79 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+preflight_map_worker_deploy_config() {
+    local deploy_config="${XIAND_MAP_WORKER_DEPLOY_CONFIG:-}"
+    local preflight_dir
+    local preflight_config
+    local desired_values
+    local desired_enabled
+    local desired_traffic_mode
+    local desired_worker_count
+    local desired_worker_capacity
+    local live_config_dir="/usr/local/games/allxd/${GAME_AREA}/data_xiand/map_workers"
+    local live_config="$live_config_dir/config.json"
+    [ -n "$deploy_config" ] || return 0
+    if [ -L "$live_config_dir" ] || [ -L "$live_config" ] ||
+       { [ -e "$live_config" ] && [ ! -f "$live_config" ]; }; then
+        print_error "宿主worker配置路径不安全，旧容器保持运行：$live_config"
+        return 1
+    fi
+    preflight_dir="$(mktemp -d)"
+    preflight_config="$preflight_dir/config.json"
+    if ! XIAND_MAP_WORKER_DEPLOY_CONFIG="$deploy_config" \
+         XIAND_MAP_WORKER_CONFIG="$preflight_config" \
+            "$PROJECT_ROOT/scripts/sync_map_worker_deploy_config.sh" \
+            >/dev/null; then
+        rmdir "$preflight_dir" 2>/dev/null || true
+        print_error "Git worker配置预检失败，旧容器保持运行"
+        return 1
+    fi
+    desired_values="$(python3 - "$preflight_config" <<'PY'
+import json
+import sys
+config = json.load(open(sys.argv[1], encoding="utf-8"))
+print("\t".join(str(config[key]) for key in
+                ("enabled", "traffic_mode", "worker_count", "worker_capacity")))
+PY
+)"
+    unlink "$preflight_config"
+    rmdir "$preflight_dir"
+    IFS=$'\t' read -r desired_enabled desired_traffic_mode \
+        desired_worker_count desired_worker_capacity <<< "$desired_values"
+    XIAND_MAP_WORKER_ENABLED="$desired_enabled"
+    XIAND_MAP_WORKER_TRAFFIC_MODE="$desired_traffic_mode"
+    XIAND_MAP_WORKER_COUNT="$desired_worker_count"
+    XIAND_MAP_WORKER_CAPACITY="$desired_worker_capacity"
+    if [ -n "$XIAND_MAP_WORKER_COUNT_OVERRIDE" ]; then
+        XIAND_MAP_WORKER_COUNT="$XIAND_MAP_WORKER_COUNT_OVERRIDE"
+    fi
+    if [ "$desired_traffic_mode" = "active" ]; then
+        XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only
+    fi
+    print_success "Git worker配置预检通过：mode=$desired_traffic_mode workers=$XIAND_MAP_WORKER_COUNT"
+}
+
 prepare_map_worker_runtime() {
     local config_dir="/usr/local/games/allxd/${GAME_AREA}/data_xiand/map_workers"
     local config_file="$config_dir/config.json"
+    local deploy_config="${XIAND_MAP_WORKER_DEPLOY_CONFIG:-}"
     local worker_token
+    local actual_values
+    local actual_enabled
+    local actual_traffic_mode
+    local actual_worker_count
+    local actual_worker_capacity
+    if [ -n "$deploy_config" ]; then
+        XIAND_MAP_WORKER_DEPLOY_CONFIG="$deploy_config" \
+        XIAND_MAP_WORKER_CONFIG="$config_file" \
+            "$PROJECT_ROOT/scripts/sync_map_worker_deploy_config.sh"
+        if [ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["traffic_mode"])' "$config_file")" = "active" ]; then
+            # A reviewed, version-controlled active config is the explicit
+            # deployment acknowledgement. The persistent fallback latch still
+            # takes precedence inside the container.
+            XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only
+        fi
+    fi
     XIAND_ENV_FILE="$XIAND_ENV_FILE" \
     XIAND_MAP_WORKER_CONFIG="$config_file" \
     XIAND_MAP_WORKER_ENABLED="$XIAND_MAP_WORKER_ENABLED" \
@@ -281,6 +352,24 @@ prepare_map_worker_runtime() {
     XIAND_MAP_WORKER_CAPACITY="$XIAND_MAP_WORKER_CAPACITY" \
     XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK" \
         "$PROJECT_ROOT/scripts/bootstrap_map_worker_runtime.sh"
+
+    actual_values="$(python3 - "$config_file" <<'PY'
+import json
+import sys
+config = json.load(open(sys.argv[1], encoding="utf-8"))
+print("\t".join(str(config[key]) for key in
+                ("enabled", "traffic_mode", "worker_count", "worker_capacity")))
+PY
+)"
+    IFS=$'\t' read -r actual_enabled actual_traffic_mode \
+        actual_worker_count actual_worker_capacity <<< "$actual_values"
+    XIAND_MAP_WORKER_ENABLED="$actual_enabled"
+    XIAND_MAP_WORKER_TRAFFIC_MODE="$actual_traffic_mode"
+    XIAND_MAP_WORKER_COUNT="$actual_worker_count"
+    XIAND_MAP_WORKER_CAPACITY="$actual_worker_capacity"
+    if [ "$actual_traffic_mode" = "active" ] && [ -n "$deploy_config" ]; then
+        XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only
+    fi
 
     if [ -n "$INHERITED_XIAND_WORKER_TOKEN" ]; then
         XIAND_WORKER_TOKEN="$INHERITED_XIAND_WORKER_TOKEN"
@@ -1122,6 +1211,7 @@ main() {
 
     # 检查必要命令
     check_commands
+    preflight_map_worker_deploy_config
 
     # 获取 Docker 用户名
     if [ -z "$DOCKER_USER" ]; then

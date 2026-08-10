@@ -622,6 +622,36 @@ int main()
 			source_has("/docker/docker-compose.yml",
 				"XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}"),
 			"一键重启可能忽略worker数量、覆盖其他后台配置或偏离默认3个");
+		check("生产一键脚本会校验并同步Git worker配置到宿主持久卷",
+			source_has("/restart-all-docker.sh",
+				"XIAND_MAP_WORKER_DEPLOY_CONFIG") &&
+			source_has("/restart-docker.sh",
+				"sync_map_worker_deploy_config.sh") &&
+			source_has("/restart-docker.sh",
+				"preflight_map_worker_deploy_config") &&
+			source_has("/restart-docker.sh",
+				"Git worker配置预检失败，旧容器保持运行") &&
+			source_has("/scripts/sync_map_worker_deploy_config.sh",
+				"deploy config keys do not match schema v2") &&
+			source_has("/scripts/sync_map_worker_deploy_config.sh",
+				"deploy config exceeds 64 KiB") &&
+			source_has("/scripts/sync_map_worker_deploy_config.sh",
+				"mv -f \"$temporary\" \"$TARGET_CONFIG\"") &&
+			source_has("/restart-docker.sh",
+				"宿主worker配置路径不安全，旧容器保持运行") &&
+			source_has("/deploy/map_workers/config.json",
+				"\"traffic_mode\": \"active\"") &&
+			source_has("/deploy/map_workers/config.json",
+				"\"worker_count\": 5"),
+			"生产配置可能未同步、校验失败后覆盖有效配置或未启用5个worker");
+		string restart_source = Stdio.read_file(ROOT+"/restart-docker.sh");
+		int preflight_call = restart_source ? search(restart_source,
+			"\n    preflight_map_worker_deploy_config\n") : -1;
+		int stop_call = restart_source ? search(restart_source,
+			"\n    stop_existing_container_safely\n") : -1;
+		check("生产worker配置在停止旧容器之前完成预检",
+			preflight_call!=-1 && stop_call!=-1 && preflight_call<stop_call,
+			"无效Git配置可能先停止仍可服务的旧容器");
 		check("显式环境变量优先于.env，避免编排命令误操作其他区服",
 			source_has("/scripts/map_worker_cluster.sh",
 				"inherited_game_area") &&
@@ -1169,6 +1199,16 @@ int main()
 			!source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
 				"configured=%s"),
 			"认证诊断可能把worker密钥写进日志");
+		check("coordinator详细健康检查不懒加载游戏世界daemon",
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"health_node_role!=\"gateway\"") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"not_collected_on_gateway") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"Loading gameplay") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"public gateway"),
+			"监控可能在启动后加载地图/任务/技能/挂机daemon并阻塞公网gateway");
 	};
 	if(err)
 		error_desc = describe_error(err)+"\n"+describe_backtrace(err);

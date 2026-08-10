@@ -169,6 +169,9 @@ string response_to_html(string response, string userid, string cmd,
     html += "<script>\n";
     html += "function submitInput(inputId,txd){var input=document.getElementById(inputId);if(!input)return;var value=encodeURIComponent(input.value);var url='/api/html?txd='+txd+'&cmd='+value;window.location.href=url}\n";
     html += "function submitCmdInput(inputId,hiddenCmd,txd){var input=document.getElementById(inputId);if(!input)return;var value=encodeURIComponent(input.value);var url='/api/html?txd='+txd+'&cmd='+hiddenCmd+' '+value;window.location.href=url}\n";
+    html += "function postMudCommand(txd,cmd){var form=document.createElement('form');form.method='post';form.action='/api/html';var auth=document.createElement('input');auth.type='hidden';auth.name='txd';auth.value=txd;form.appendChild(auth);var action=document.createElement('input');action.type='hidden';action.name='cmd';action.value=cmd;form.appendChild(action);document.body.appendChild(form);form.submit()}\n";
+    html += "function submitMudForm(button){var formId=button.getAttribute('data-mud-submit');var inputs=document.querySelectorAll('[data-mud-form=\"'+formId+'\"]');var fields=[];for(var i=0;i<inputs.length;i++){fields.push(inputs[i].getAttribute('data-mud-name')+'='+inputs[i].value)}var cmd=button.getAttribute('data-mud-cmd');if(fields.length)cmd+=' '+fields.join('&');postMudCommand(button.getAttribute('data-mud-txd'),cmd)}\n";
+    html += "function submitPendingMudForm(formId){var button=document.querySelector('[data-mud-submit=\"'+formId+'\"]');if(button)submitMudForm(button)}\n";
     // 翻译语言切换函数 - 支持队列机制和postMessage通信
     html += "console.log('[Iframe Debug] Script loaded');window.pendingLanguage=null;window.changeLanguage=function(lang){console.log('[Iframe Debug] changeLanguage called:',lang);if(typeof translate!=='undefined'&&translate.changeLanguage){console.log('[Iframe Debug] Calling translate.changeLanguage');translate.changeLanguage(lang);window.pendingLanguage=null;window.parent.postMessage({type:'changeLanguage',lang:lang},'*')}else{window.pendingLanguage=lang;console.log('[Iframe Debug] Translate not loaded yet, pending:',lang)}};\n";
     // 监听来自父窗口的语言切换消息
@@ -228,6 +231,9 @@ string response_to_html(string response, string userid, string cmd,
 string parse_mud_content_to_html(string response, string txd, string userid)
 {
     string html = "";
+    string active_form_id = "";
+    int active_form_submitted = 0;
+    int form_serial = 0;
     if(!response) response = "";
 
 
@@ -302,20 +308,41 @@ string parse_mud_content_to_html(string response, string txd, string userid)
                 if(search(part, "[") == 0 && part[-1] == ']') {
                     string content = part[1..<1];
                     string var_name, default_val, width, type;
+                    string submit_label, submit_cmd;
 
                     // 输入框格式 [类型 变量名:...] 或 [变量名:默认值...宽度]
                     if(sscanf(content, "%s %s:..*%s...*%s", type, var_name, default_val, width) == 4 ||
                        sscanf(content, "%s:..*%s...*%s", var_name, default_val, width) == 3) {
-                        html += format_html_input(var_name, default_val, width, txd, userid, (type == "passwd"));
+                        if(active_form_id=="" || active_form_submitted){
+                            form_serial++;
+                            active_form_id = "mud_form_"+(string)form_serial;
+                            active_form_submitted = 0;
+                        }
+                        html += format_html_input(var_name, default_val, width,
+                            txd, userid, (type == "passwd"),active_form_id);
                     }
-                    // submit按钮 [submit 确定:command ...] - HTTP API中跳过不渲染
-                    // WAP系统用submit按钮提交前面的输入框，但HTTP API中输入框自带Enter提交
-                    else if(has_prefix(content, "submit ")) {
-                        // 跳过不渲染任何内容
+                    // WAP表单的submit必须带上前面所有具名输入框。旧实现
+                    // 丢弃了按钮，并把回车输入误当成完整命令，导致购买等
+                    // 页面只能输入数量却无法提交。
+                    else if(sscanf(content,"submit %s:%s ...",
+                        submit_label,submit_cmd)==2) {
+                        if(active_form_id!=""){
+                            html += format_html_form_submit(submit_label,
+                                submit_cmd,active_form_id,txd,userid);
+                            // 连续submit是同一组输入的备选动作（例如推荐人
+                            // 原二区/原三区/新区），都必须复用这组字段。
+                            active_form_submitted = 1;
+                        }
                     }
                     else if(sscanf(content, "%s %s:...", type, var_name) == 2) {
                         int is_passwd = (type == "passwd" || type == "password");
-                        html += format_html_input(var_name, "", "", txd, userid, is_passwd);
+                        if(active_form_id=="" || active_form_submitted){
+                            form_serial++;
+                            active_form_id = "mud_form_"+(string)form_serial;
+                            active_form_submitted = 0;
+                        }
+                        html += format_html_input(var_name, "", "", txd,
+                            userid, is_passwd,active_form_id);
                     }
                     else if(search(content, ":") > 0 && content[-4..] == ":...") {
                         int colon_pos = search(content, ":");
@@ -672,16 +699,23 @@ string format_html_button(string label, string cmd, string txd, string userid)
                    txd, hidden_cmd, css_class, label_formatted);
 }
 
+string format_html_attribute(string value)
+{
+    return replace(value || "",(["&":"&amp;","\"":"&quot;",
+        "'":"&#39;","<":"&lt;",">":"&gt;"]));
+}
+
 /**
  * 格式化HTML输入框
  */
-string format_html_input(string name, string default_val, string width, string txd, string userid, int is_passwd)
+string format_html_input(string name, string default_val, string width,
+    string txd, string userid, int is_passwd,string form_id)
 {
     string size = (sizeof(width) > 0) ? width : "20";
     string value = (sizeof(default_val) > 0) ? default_val : "";
     string input_type = is_passwd ? "password" : "text";
 
-    string input_id = "input_" + name + "_" + (random(9000) + 1000);
+    string input_id = "input_"+form_id+"_"+name;
 
     // 检查主题模式
     string border_color, input_bg, text_color;
@@ -702,9 +736,26 @@ string format_html_input(string name, string default_val, string width, string t
     }
 
     return sprintf("<input type='%s' id='%s' size='%s' value='%s' placeholder='%s' " +
+                   "data-mud-form='%s' data-mud-name='%s' " +
                    "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;' " +
-                   "onkeypress='if(event.key==\"Enter\"){submitInput(\"%s\", \"%s\");return false;}'>",
-                   input_type, input_id, size, value, name, border_color, input_bg, text_color, input_id, txd);
+                   "onkeypress='if(event.key==\"Enter\"){submitPendingMudForm(\"%s\");return false;}'>",
+                   input_type, format_html_attribute(input_id),
+                   format_html_attribute(size),format_html_attribute(value),
+                   format_html_attribute(name),format_html_attribute(form_id),
+                   format_html_attribute(name),border_color,input_bg,text_color,
+                   format_html_attribute(form_id));
+}
+
+string format_html_form_submit(string label,string cmd,string form_id,
+    string txd,string userid)
+{
+    string css_class = get_button_css_class(label);
+    string hidden_cmd = hide_command(userid,cmd);
+    return sprintf("<button type='button' data-mud-submit='%s' " +
+        "data-mud-cmd='%s' data-mud-txd='%s' " +
+        "onclick='submitMudForm(this);return false;' class='%s'>%s</button>",
+        format_html_attribute(form_id),format_html_attribute(hidden_cmd),
+        format_html_attribute(txd),css_class,format_text(label));
 }
 
 /**
