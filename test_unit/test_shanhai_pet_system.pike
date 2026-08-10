@@ -1311,7 +1311,7 @@ void test_corruption_and_wiring()
 		summon_cleanup_pos>pet_revive_pos,
 		"隐藏宠物抢占灵医特色或复活发生在死亡惩罚之后");
 	check("旧文字入口、Vue快捷入口与Header随行宠物均接入万灵谱",
-		user_source && search(user_source,"[万灵:pet]")!=-1 &&
+		user_source && search(user_source,"[共享宠物:pet]")!=-1 &&
 		vue_source && search(vue_source,"sendQuickCommand('pet')")!=-1 &&
 		search(vue_source,"header-pet-companion")!=-1 &&
 		vue_app_source && search(vue_app_source,"headerPet()")!=-1 &&

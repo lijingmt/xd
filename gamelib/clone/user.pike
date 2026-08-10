@@ -658,7 +658,7 @@ string query_extra_links(void|int count)
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
 	string topten= "[排行榜:look_top]\t";
-	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[万灵:pet]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[共享宠物:pet]|[本命灵伴:spirit_companion]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	if(env && FBD->is_fb_room_path(file_name(env)))
 		returnLinks = "【幻境安全通道】[紧急离开幻境:fb_leave]\n"+
 			returnLinks;
@@ -691,7 +691,9 @@ int save_with_result(void|int autosave,void|int worker_fenced_save){
 	if(MAP_WORKERD->query_node_role()=="worker" && !worker_fenced_save &&
 	   (!MAP_WORKERD->local_control_lease_valid() ||
 	    MAP_WORKERD->query_local_player_epoch(query_name())<1) &&
-	   !MAP_WORKERD->local_user_request_save_fence_valid(query_name())){
+	   !MAP_WORKERD->local_user_request_save_fence_valid(query_name()) &&
+	   !MAP_WORKERD->consume_local_account_character_save_fence(
+		query_account_owner(),query_name())){
 		werror("[MAP_WORKER][SAVE_FENCE] blocked userid=%s\n",
 			this_object()->query_name() || "unknown");
 		return 0;
@@ -863,8 +865,9 @@ void fight_die()
 	// 太极·生生不息（被动自复活）：5 分钟冷却，PVP 可触发。
 	if(me->try_taiji_self_revive(enemy))
 		return;
-	// 灵医职业复苏优先；未触发时才判定隐藏鸾鸟的账号级回生羽。
-	if(PETD->try_pet_owner_revive(me,enemy))
+	// 只有当前携带共享宠物时，隐藏鸾鸟的账号级回生羽才参与死亡判定。
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(me)=="shared" &&
+	   PETD->try_pet_owner_revive(me,enemy))
 		return;
 	// 所有免死/活动复活均未触发，只有真实死亡才累计挂机死亡循环。
 	if(functionp(me->query_autofight) && me->query_autofight()=="enable")
@@ -1341,7 +1344,7 @@ string query_tips_msg()
 }
 int remove_combine_item(string name,int count)
 {
-	if(!count){
+	if(!name || name=="" || count<=0){
 		return 0;
 	}
 	object me = this_object();

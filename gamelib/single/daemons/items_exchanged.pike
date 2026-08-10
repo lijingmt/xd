@@ -76,3 +76,18 @@ string query_equip_list(string zhenying,string type,string cmds){
 	//werror("----s="+s+"----\n");
 	return s;
 }
+
+mapping(string:mixed) query_exchange_offer(string zhenying,string type,
+	string filename)
+{
+	item offer;
+	if(!filename || filename=="" || search(filename,"..")!=-1 ||
+	   search(filename,"/")!=-1)
+		return (["ok":0]);
+	offer=exchange_item_list[filename];
+	if(!offer || offer->zhenying!=zhenying || offer->type!=type ||
+	   !offer->need_name || offer->need_name=="" || offer->need_num<=0)
+		return (["ok":0]);
+	return (["ok":1,"need_name":offer->need_name,
+		"need_num":offer->need_num,"name_cn":offer->name_cn]);
+}

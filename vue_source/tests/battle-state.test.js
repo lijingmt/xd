@@ -134,9 +134,12 @@ assert(indexSource.includes('battle-pet-companion-full'));
 assert(indexSource.includes('battle-pet-assist-burst'));
 assert(indexSource.includes('getPetCultivationLabel(battlePet)'));
 assert(indexSource.includes("petAssistEffect.mode === 'pvp'"));
-assert(indexSource.includes('v-if="headerPet"'));
+assert(indexSource.includes('v-if="headerPetSlots"'));
+assert(indexSource.includes('v-for="slot in headerPetSlots"'));
 assert(indexSource.includes('class="header-pet-companion"'));
 assert(indexSource.includes("@click=\"sendQuickCommand('pet')\""));
+assert(indexSource.includes("@click=\"sendQuickCommand('spirit_companion')\""));
+assert(indexSource.includes("'pet-system-' + (battlePet.system || 'shared')"));
 assert(indexSource.includes('@click="openEquipmentPanel"'));
 assert(indexSource.includes('equipment-human-silhouette'));
 assert(indexSource.includes('getEquipmentCandidates(equipmentSelectedSlot)'));
@@ -187,6 +190,26 @@ client.playerStats = {
 const headerPet = componentOptions.computed.headerPet.call(client);
 assert.strictEqual(headerPet.name, '当康');
 assert.strictEqual(client.getPetCultivationLabel(headerPet), 'Lv.60 · 10星真形·圆满');
+client.playerStats.pet_slots = {
+  battle_source: 'personal',
+  shared: {
+    active: 1, battle_active: 0, system: 'shared', command: 'pet',
+    name: '当康', level: 60, star: 10, evolution_name: '真形·圆满'
+  },
+  personal: {
+    active: 1, battle_active: 1, system: 'personal',
+    command: 'spirit_companion', name: '青原狸', level: 12,
+    evolution_name: '本命契约'
+  }
+};
+const dualPetSlots = componentOptions.computed.headerPetSlots.call(client);
+assert.strictEqual(dualPetSlots.length, 2);
+assert.strictEqual(dualPetSlots[0].command, 'pet');
+assert.strictEqual(dualPetSlots[1].command, 'spirit_companion');
+assert.strictEqual(dualPetSlots[1].battle_active, 1);
+assert.strictEqual(client.getPetCultivationLabel(dualPetSlots[1]), 'Lv.12 · 本命契约');
+assert(client.getPetSlotTitle(dualPetSlots[0]).includes('收藏待命'));
+assert(client.getPetSlotTitle(dualPetSlots[1]).includes('当前出战'));
 client.playerStats.pet_assist = { active: 0 };
 assert.strictEqual(componentOptions.computed.headerPet.call(client), null);
 client.playerStats.pet_assist = headerPet;
@@ -219,6 +242,18 @@ assert.strictEqual(client.handlePetLevelChange({
 }, {
   active: 1, pet_id: 'pet-growth-2', level: 22
 }), false);
+client.clearPetLevelUpEffect();
+assert.strictEqual(client.handlePetLevelChange({
+  active: 1, system: 'personal', pet_id: 'spirit-growth-1',
+  name: '青原狸', level: 11
+}, {
+  active: 1, system: 'personal', pet_id: 'spirit-growth-1',
+  name: '青原狸', level: 12
+}), true);
+assert.strictEqual(
+  client.petLevelUpEffect.command,
+  'spirit_companion detail spirit-growth-1'
+);
 client.clearPetLevelUpEffect();
 assert.strictEqual(client.petLevelUpEffect, null);
 assert.strictEqual(client.showEquipmentPanel, false);

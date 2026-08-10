@@ -10,15 +10,13 @@ int main(string|zero arg)
 	int user_count,amount;
 	object player=this_player();
 	object goods;
-	if(MAP_WORKERD->distributed_mode_enabled()){
-		write("多 worker 试运行暂未开放玩家面对面交易，请使用拍卖行；此限制用于防止装备和银两复制。\n[返回:look]\n");
+	if(!arg || arg==""){
+		player->write_view(WAP_VIEWD["/trade_nobody"]);
 		return 1;
 	}
 	sscanf(arg,"%s %d",user_name,user_count);
-	object ob=present(user_name,environment(player),user_count);
-	if(!ob)
-	    ob=find_player(user_name);
-	if(!ob){
+	object ob=present(user_name,environment(player));
+	if(!ob || ob==player || !PLAYER_TRANSFERD->same_local_room(player,ob)){
 		player->write_view(WAP_VIEWD["/trade_nobody"]);
 		return 1;
 	}
@@ -37,29 +35,19 @@ int main(string|zero arg)
 	string goods_name;
 	int goods_count=0;
 	sscanf(s,"%s %d",goods_name,goods_count);
-	if(sscanf(arg,"%s buy agree",tmp)==1 || sscanf(arg,"%s buy cancel",tmp)==1) 
+	if(search(arg," buyagree_")!=-1 || search(arg," buycancel_")!=-1 ||
+	   sscanf(arg,"%s buy agree",tmp)==1 ||
+	   sscanf(arg,"%s buy cancel",tmp)==1)
 	{
 		//goods=present(goods_name,ob,goods_count); //[sb] is seller
 		//查找玩家身上与name同名的非会员物品 added by caijie 080815
-		array(object) all_ob = all_inventory(ob);
-		foreach(all_ob,object each_ob){
-			if(each_ob->query_name()==goods_name&&(!each_ob->query_toVip())){
-				goods = each_ob;
-				break;
-			}
-		}
+		goods=PLAYER_TRANSFERD->query_owned_item(ob,goods_name,goods_count);
 		//add end
 	}
 	else {
 	    //goods=present(goods_name,player,goods_count); //[sb] is purchaser
 		//查找玩家身上与name同名的非会员物品 added by caijie 080815
-		array(object) all_ob = all_inventory(player);
-		foreach(all_ob,object each_ob){
-			if(each_ob->query_name()==goods_name&&(!each_ob->query_toVip())){
-				goods = each_ob;
-				break;
-			}
-		}
+		goods=PLAYER_TRANSFERD->query_owned_item(player,goods_name,goods_count);
 		//add end
 	}
 	if(!goods){
@@ -98,6 +86,13 @@ int main(string|zero arg)
 		//seller agree
 		//会员物品不能交易 evan added 2008.7.25
 		if(!goods->query_toVip()){
+			mapping(string:mixed) offer=PLAYER_TRANSFERD->create_trade_offer(
+				player,ob,goods_name,goods_count,amount);
+			if(!(int)offer["ok"]){
+				write((string)offer["message"]+"\n[返回游戏:look]\n");
+				return 1;
+			}
+			string offer_token=(string)offer["token"];
 			arg="trade "+ob->name+" "+user_count+" "+goods_name+" "+goods_count+" with silver "+amount;
 			player->reset_view();
 			player->write_view(WAP_VIEWD["/trade_wait"],ob);
@@ -108,7 +103,7 @@ int main(string|zero arg)
 					t_desc+=goods->query_content();
 				else
 					t_desc+=goods->query_desc();
-				tell_object(ob,player->name_cn+"想卖给你"+goods->query_short()+"：\n"+t_desc+"\n出价："+MUD_MONEYD->query_store_money_cn(amount)+"\n"+"[确认交易:"+arg+" buy agree]\n[取消交易:"+arg+" buy cancel]\n");
+				tell_object(ob,player->name_cn+"想卖给你"+goods->query_short()+"：\n"+t_desc+"\n出价："+MUD_MONEYD->query_store_money_cn(amount)+"\n"+"[确认交易:"+arg+" buyagree_"+offer_token+"]\n[取消交易:"+arg+" buycancel_"+offer_token+"]\n");
 			}
 			else{
 				string tmp = "该物品不能交易，请返回。\n";
@@ -132,55 +127,23 @@ int main(string|zero arg)
 	    player->write_view_tmp(WAP_VIEWD["/trade_cancel"]);
 		return 1;
 	}
-	if(flag=="buy agree"){
+	if(has_prefix(flag || "","buyagree_")){
 		//the purchaser agree this
 		player->pop_view();
-		if(player->trade_money_judge(amount)==0){
-			player->write_view(WAP_VIEWD["/trade_fail_afford"]);
-			tell_object(ob,"对方没有足够的金钱，交易失败，请返回。\n");
-			return 1;
-		}
-		if(!goods){
-			player->pop_view();
-			player->write_view(WAP_VIEWD["/trade_fail_nogoods"]);
-			tell_object(ob,"交易物品不在你身上，请返回。\n");
-			return 1;
-		}
-		if(goods->equiped){
-			player->write_view(WAP_VIEWD["/trade_fail_equip"]);
-			tell_object(ob,"请先卸载身上要交易的物品!\n");
-			return 1;
-		}
-		//判断身上物品是否超过60件
-		if(this_player()->if_over_load(goods)){
-			string tmp = "你背包已满，无法执行此操作，请返回。\n";       
-			tmp+="[返回:look]\n";
-			write(tmp);
-			return 1;
-		}
-		if(player->pay_money(amount)==0){
-			tell_object(player,"你没有足够的金钱，交易失败，请返回。\n");
-			tell_object(ob,"对方没有足够的金钱，交易失败，请返回。\n");
-			return 1;
-		}
-		else{
+		mapping(string:mixed) transaction=PLAYER_TRANSFERD->execute_trade(
+			player,ob,goods_name,goods_count,amount,flag[9..]);
+		if((int)transaction["ok"]){
 			player->write_view(WAP_VIEWD["/trade_success"]);
 			tell_object(ob,"交易成功!\n");
-			int goods_num=1;
-			if(goods->is("combine_item")){
-				goods_num = goods->amount;
-				goods->move_player(player->query_name());
-			}
-			else
-				goods->move(player);
-			ob->add_money(amount);
-			string now=ctime(time());
-			object env = environment(player);
-			Stdio.append_file(ROOT+"/log/trade.log",now[0..sizeof(now)-2]+":"+ob->name_cn+"("+ob->name+") 在"+env->query_name_cn()+" sell ("+goods_num+")"+goods_name+" to "+player->name_cn+"("+player->name+") with "+amount+" silver\n");
 			return 1;
 		}
+		string failure=(string)transaction["message"];
+		write(failure+"\n[返回:look]\n");
+		tell_object(ob,"交易未完成："+failure+"\n");
+		return 1;
 	}
-	if(flag=="buy cancel"){
+	if(has_prefix(flag || "","buycancel_")){
+		PLAYER_TRANSFERD->cancel_trade_offer(flag[10..],ob,player);
 		player->write_view(WAP_VIEWD["/trade_cancel"]);		
 		tell_object(ob,"对方拒绝了本次交易!\n");
 		return 1;

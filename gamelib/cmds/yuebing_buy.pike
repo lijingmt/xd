@@ -9,7 +9,12 @@ int main(string|zero arg)
 	object me=this_player();
 	string name = "";
 	int flag = 0;
-	sscanf(arg,"%s %d",name,flag);
+	if(!arg || sscanf(arg,"%s %d",name,flag)!=2 ||
+	   search(({"lianrong","danhuang","zaoni","dousha","wuren"}),name)==-1 ||
+	   (flag!=0 && flag!=1)){
+		write("商品不存在。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(flag == 0){
 		object ob = (object)(YUEBING+name);
 		if(ob){

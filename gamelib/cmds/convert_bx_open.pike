@@ -11,10 +11,17 @@ int main(string|zero arg)
 	int bx_count= 0;
 
 	string desc="";
-	sscanf(arg,"%s %d",bx_name,bx_count);
+	if(!arg || sscanf(arg,"%s %d",bx_name,bx_count)!=2 ||
+	   bx_name!="jinsibaoshidai" || bx_count<0){
+		write("打开参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
 	object bx = present(bx_name,me,bx_count);
-	if(bx)
+	if(bx && (file_name(bx)/"#")[0]==ITEM_PATH+"baoxiang/jinsibaoshidai")
 	{
+		string box_name_cn=(string)bx->query_name_cn();
+		// 先消耗真实宝石袋，防止奖励发放后异常导致重复开启。
+		bx->remove();
 		string spec_yushi_name="";
 		object spec_yushi;           //特殊玉石
 		string s_log = "";
@@ -31,16 +38,15 @@ int main(string|zero arg)
 		};
 		if(!err && spec_yushi){
 			spec_yushi->amount = 1;
-			s_log = me->query_name_cn()+"("+me->query_name()+") 打开"+bx->query_name_cn()+"时获得"+ spec_yushi->query_short()+"\n";
+			s_log = me->query_name_cn()+"("+me->query_name()+") 打开"+box_name_cn+"时获得"+ spec_yushi->query_short()+"\n";
 			Stdio.append_file(ROOT+"/log/fee_log/bx_addfee.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 			desc += spec_yushi->query_short()+"\n";
 			spec_yushi->move_player(me->query_name());
 		}
 		else{
-			s_log = me->query_name_cn()+"("+me->query_name()+") convert_bx_open error! 开启"+bx->query_name_cn()+"时获取"+spec_yushi->query_name_cn()+"失败\n";
+			s_log = me->query_name_cn()+"("+me->query_name()+") convert_bx_open error! 开启宝石袋时获取奖励失败\n";
 			Stdio.append_file(ROOT+"/log/fee_log/bx_addfee_error.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 		}
-		bx->remove();
 	}
 	else
 		desc += "你身上没有这件物品！\n";

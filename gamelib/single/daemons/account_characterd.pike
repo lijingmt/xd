@@ -749,6 +749,7 @@ private int create_empty_character_unlocked(string account_id,
 {
 	object player;
 	int saved = 0;
+	int save_capability;
 	mixed err = catch{
 		player = clone(GAMELIB_USER);
 		player->set_name(character_id);
@@ -757,10 +758,21 @@ private int create_empty_character_unlocked(string account_id,
 		player->set_userip("account-character");
 		player->set_account_owner(account_id);
 		player->sid = "account-character";
+		if(MAP_WORKERD->query_node_role()=="worker"){
+			mapping capability = MAP_WORKERD->
+				prepare_local_account_character_save(account_id,character_id);
+			if(!(int)capability["ok"])
+				error("account character save capability rejected: "+
+					(string)(capability["code"] || "unknown")+"\n");
+			save_capability = 1;
+		}
 		// user->save() 是兼容旧调用方的 void 包装；需要结果时必须走
 		// 游戏现有的 save_with_result()，否则成功写盘也会被当成失败。
 		saved = player->save_with_result();
 	};
+	if(save_capability)
+		MAP_WORKERD->clear_local_account_character_save(account_id,
+			character_id);
 	if(player)
 		destruct(player);
 	if(err){

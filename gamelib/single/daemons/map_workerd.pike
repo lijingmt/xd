@@ -76,6 +76,7 @@ private mapping(string:mapping(string:mixed)) local_player_arrivals = ([]);
 private mapping(string:string) local_account_cache_tokens = ([]);
 private mapping(string:mapping(string:mixed)) local_requests = ([]);
 private mapping(string:string) local_running_request_by_user = ([]);
+private mapping(string:string) local_running_request_by_account = ([]);
 private mapping(string:mixed) local_online_snapshot = ([]);
 private int local_online_snapshot_at;
 private int local_assignment_generation;
@@ -787,8 +788,11 @@ private string strip_room_root(string room_path)
 
 /**
  * Static rooms use their top-level map directory as an affinity group.
- * Dynamic homes/dungeons/events may supply an instance key so separate
- * instances can be spread without splitting one shared room.
+ * Dynamic dungeons/events may supply an instance key so separate instances
+ * can be spread without splitting one shared room. All homes intentionally
+ * share one affinity because HOMED owns one global marketplace/property
+ * snapshot; spreading homes across processes would allow stale snapshots to
+ * overwrite each other.
  */
 string query_affinity_key(string room_path,void|string instance_key)
 {
@@ -804,12 +808,16 @@ string query_affinity_key(string room_path,void|string instance_key)
 	block = normalize_token(parts[0],64);
 	if(block=="")
 		return "";
+	// 家园商户、地契和杂货 NPC 都在凝阁殿。它们与家园共用
+	// HOMED 的一份全局快照，因此必须归属同一个一致性域。
+	if(block=="home" || block=="ninggedian")
+		return "home";
 	// Timed-event session keys historically use `event|date|group`. Convert
 	// only that server-owned separator into the affinity token alphabet; all
 	// remaining unsafe input is still rejected by normalize_token().
 	instance = normalize_token(replace(instance_key || "","|",":"),96);
 	if(instance!="" &&
-	   (block=="home" || block=="timed_event" ||
+	   (block=="timed_event" ||
 	   has_prefix(block,"fb_") || has_suffix(block,"_fb")))
 		return block+":"+instance;
 	return block;
@@ -1020,7 +1028,7 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	void|int admin_target_epoch,void|int admin_fee,
 	void|string admin_recharge_request_id,void|string admin_item_path,
 	void|int admin_item_count,void|string admin_item_request_id,
-	void|string admin_capability)
+	void|string admin_capability,void|string account_owner)
 {
 	object key;
 	mapping existing;
@@ -1033,6 +1041,7 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	admin_target_worker = normalize_worker_id(admin_target_worker || "");
 	admin_capability = lower_case(String.trim_all_whites(
 		admin_capability || ""));
+	account_owner = normalize_userid(account_owner || "");
 	admin_recharge_request_id = lower_case(String.trim_all_whites(
 		admin_recharge_request_id || ""));
 	admin_item_path = String.trim_all_whites(admin_item_path || "");
@@ -1093,13 +1102,27 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 			return (["ok":0,"code":"user_request_running"]);
 		}
 	}
+	if(kind=="account" && account_owner!="" &&
+	   local_running_request_by_account[account_owner]!=""){
+		string running_id = local_running_request_by_account[account_owner];
+		mapping running = local_requests[running_id];
+		if(!mappingp(running) || (string)running["state"]!="running" ||
+		   (string)running["kind"]!="account" ||
+		   (string)running["account_owner"]!=account_owner)
+			m_delete(local_running_request_by_account,account_owner);
+		else{
+			destruct(key);
+			return (["ok":0,"code":"account_request_running"]);
+		}
+	}
 	if(sizeof(local_requests)>=MAP_WORKER_MAX_LOCAL_REQUESTS){
 		destruct(key);
 		return (["ok":0,"code":"local_request_limit"]);
 	}
 	local_requests[request_id] = (["request_id":request_id,
 		"userid":userid,"epoch":epoch,"kind":kind,"state":"running",
-		"started_at":time(),"expires_at":time()+MAP_WORKER_LOCAL_REQUEST_TTL]);
+		"account_owner":account_owner,"started_at":time(),
+		"expires_at":time()+MAP_WORKER_LOCAL_REQUEST_TTL]);
 	if(admin_operation){
 		local_requests[request_id]["admin_target_userid"] =
 			admin_target_userid;
@@ -1124,8 +1147,134 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	}
 	if(userid!="")
 		local_running_request_by_user[userid] = request_id;
+	if(kind=="account" && account_owner!="")
+		local_running_request_by_account[account_owner] = request_id;
 	destruct(key);
 	return (["ok":1,"request_id":request_id]);
+}
+
+/**
+ * Bind one account-management request to one not-yet-routed child archive.
+ * The capability is consumed by the first exact save-fence check; it cannot
+ * authorize a sibling, an ordinary gameplay save or a later request.
+ */
+mapping(string:mixed) prepare_local_account_character_save(
+	string account_owner,string userid)
+{
+	object key;
+	string request_id;
+	mapping request;
+	account_owner = normalize_userid(account_owner);
+	userid = normalize_userid(userid);
+	if(node_role!="worker" || account_owner=="" || userid=="" ||
+	   userid==account_owner || !has_prefix(userid,account_owner+"c"))
+		return (["ok":0,"code":"invalid_account_character_save"]);
+	key = local_route_lock->lock();
+	request_id = local_running_request_by_account[account_owner];
+	request = local_requests[request_id];
+	if(!mappingp(request) || (string)request["state"]!="running" ||
+	   (string)request["kind"]!="account" ||
+	   (string)request["account_owner"]!=account_owner){
+		werror("[MAP_WORKER][ACCOUNT_SAVE_CAPABILITY] rejected account=%s "+
+			"userid=%s request=%s state=%s kind=%s owner=%s\n",
+			account_owner,userid,request_id || "",
+			mappingp(request) ? (string)request["state"] : "missing",
+			mappingp(request) ? (string)request["kind"] : "missing",
+			mappingp(request) ? (string)request["account_owner"] : "missing");
+		if(request_id!="")
+			m_delete(local_running_request_by_account,account_owner);
+		destruct(key);
+		return (["ok":0,"code":"account_request_missing"]);
+	}
+	string bound_userid = stringp(
+		request["account_character_save_userid"]) ?
+		(string)request["account_character_save_userid"] : "";
+	if(stringp(request["account_character_save_consumed_userid"])){
+		destruct(key);
+		return (["ok":0,"code":"account_character_save_already_consumed"]);
+	}
+	if(bound_userid==userid){
+		destruct(key);
+		return (["ok":1,"request_id":request_id,"userid":userid,
+			"replayed":1]);
+	}
+	if(bound_userid!=""){
+		werror("[MAP_WORKER][ACCOUNT_SAVE_CAPABILITY] collision account=%s "+
+			"bound=%s requested=%s request=%s\n",account_owner,
+			bound_userid,userid,request_id);
+		destruct(key);
+		return (["ok":0,"code":"account_character_save_already_bound"]);
+	}
+	request["account_character_save_userid"] = userid;
+	destruct(key);
+	return (["ok":1,"request_id":request_id,"userid":userid]);
+}
+
+private int local_account_character_save_capability_matches(mapping request,
+	string account_owner,string userid)
+{
+	return mappingp(request) && account_owner!="" && userid!="" &&
+		userid!=account_owner && has_prefix(userid,account_owner+"c") &&
+		(string)request["state"]=="running" &&
+		(string)request["kind"]=="account" &&
+		(string)request["account_owner"]==account_owner &&
+		!stringp(request["account_character_save_consumed_userid"]) &&
+		(string)request["account_character_save_userid"]==userid;
+}
+
+int test_local_account_character_save_capability(mapping request,
+	string account_owner,string userid)
+{
+	return local_account_character_save_capability_matches(request,
+		normalize_userid(account_owner),normalize_userid(userid));
+}
+
+/** Consume the exact one-shot child-archive save capability. */
+int consume_local_account_character_save_fence(string account_owner,
+	string userid)
+{
+	object key;
+	string request_id;
+	mapping request;
+	int valid;
+	account_owner = normalize_userid(account_owner);
+	userid = normalize_userid(userid);
+	if(node_role!="worker" || account_owner=="" || userid=="")
+		return 0;
+	key = local_route_lock->lock();
+	request_id = local_running_request_by_account[account_owner];
+	request = local_requests[request_id];
+	valid = request_id!="" &&
+		local_account_character_save_capability_matches(request,
+			account_owner,userid);
+	if(valid){
+		request["account_character_save_consumed_userid"] = userid;
+		m_delete(request,"account_character_save_userid");
+	}
+	destruct(key);
+	return valid;
+}
+
+void clear_local_account_character_save(string account_owner,string userid)
+{
+	object key;
+	string request_id;
+	mapping request;
+	account_owner = normalize_userid(account_owner);
+	userid = normalize_userid(userid);
+	if(account_owner=="" || userid=="")
+		return;
+	key = local_route_lock->lock();
+	request_id = local_running_request_by_account[account_owner];
+	request = local_requests[request_id];
+	if(mappingp(request) &&
+	   (string)request["account_character_save_userid"]==userid){
+		// Even an aborted reservation is terminal for this request. A retry
+		// must enter through a fresh gateway request id and account fence.
+		request["account_character_save_consumed_userid"] = userid;
+		m_delete(request,"account_character_save_userid");
+	}
+	destruct(key);
 }
 
 mapping(string:mixed) query_local_running_admin_target(string userid,
@@ -1168,12 +1317,20 @@ void complete_local_gateway_request(string request_id)
 		if((string)request["userid"]!="" &&
 		   local_running_request_by_user[(string)request["userid"]]==request_id)
 			m_delete(local_running_request_by_user,(string)request["userid"]);
+		if((string)request["account_owner"]!="" &&
+		   local_running_request_by_account[
+			(string)request["account_owner"]]==request_id)
+			m_delete(local_running_request_by_account,
+				(string)request["account_owner"]);
 	}
 	// Defensive repair for a record removed by recovery/expiry before a late
 	// response callback reaches this function.
 	foreach(indices(local_running_request_by_user),string running_user)
 		if(local_running_request_by_user[running_user]==request_id)
 			m_delete(local_running_request_by_user,running_user);
+	foreach(indices(local_running_request_by_account),string running_account)
+		if(local_running_request_by_account[running_account]==request_id)
+			m_delete(local_running_request_by_account,running_account);
 	destruct(key);
 }
 
@@ -1892,9 +2049,9 @@ private string player_instance_hint(object player,object room,string room_path)
 	string normalized = strip_room_root(room_path);
 	string block = sizeof(normalized/"/") ? (normalized/"/")[0] : "";
 	string term = "";
-	// A visitor belongs to the home's owner affinity, never to the visitor's
-	// own home path. Otherwise recovery can report the same room under two
-	// owners and discard the valid live player as a split-brain copy.
+	// Keep the server-owned home identity hint for recovery metadata. The
+	// affinity function deliberately collapses every home to the single
+	// "home" consistency domain owned by HOMED's persistence worker.
 	if(block=="home"){
 		if(room && functionp(room->query_masterId) &&
 		   (string)room->query_masterId()!="")
@@ -3682,6 +3839,12 @@ private void cleanup_expired_state()
 				if(local_userid!="" &&
 				   local_running_request_by_user[local_userid]==local_request_id)
 					m_delete(local_running_request_by_user,local_userid);
+				string local_account =
+					(string)local_request["account_owner"];
+				if(local_account!="" &&
+				   local_running_request_by_account[local_account]==
+					local_request_id)
+					m_delete(local_running_request_by_account,local_account);
 				m_delete(local_requests,local_request_id);
 			}
 		}

@@ -546,15 +546,18 @@ createApp({
             }
             const name = String(currentPet.name || '灵宠');
             const icon = String(currentPet.icon || '🐾');
+            const personal = String(currentPet.system || '') === 'personal';
+            const systemName = personal ? '本命灵伴' : '灵宠';
+            const systemCommand = personal ? 'spirit_companion' : 'pet';
             const levelsGained = toLevel - fromLevel;
             const message = `${name} ${fromLevel}级 → ${toLevel}级${levelsGained > 1 ? `，连升${levelsGained}级` : ''}`;
             const signature = `pet:${currentPet.pet_id}:${fromLevel}->${toLevel}`;
             this.triggerGameFeedback('petLevel', signature, 800);
             this.clearPetLevelUpEffect();
             if (!this.combatEffectsEnabled || this.prefersReducedMotion()) {
-                this.showUiToast(`灵宠成长：${message}`, 'info', {
-                    label: '查看万灵谱',
-                    command: 'pet'
+                this.showUiToast(`${systemName}成长：${message}`, 'info', {
+                    label: personal ? '查看本命灵伴' : '查看万灵谱',
+                    command: systemCommand
                 });
                 return true;
             }
@@ -565,9 +568,11 @@ createApp({
                 fromLevel,
                 toLevel,
                 levelsGained,
-                command: currentPet.species
-                    ? `pet detail ${currentPet.species}`
-                    : 'pet'
+                command: personal
+                    ? `spirit_companion detail ${currentPet.pet_id}`
+                    : (currentPet.species
+                        ? `pet detail ${currentPet.species}`
+                        : systemCommand)
             };
             this.petLevelUpEffectTimer = setTimeout(() => {
                 this.petLevelUpEffect = null;
@@ -1941,6 +1946,36 @@ createApp({
                 }
                 document.body.removeChild(textArea);
             }
+        },
+
+        // 在独立标签打开指定人物的长期入口。绝不携带当前人物的 txd，
+        // 否则新标签会先重复登录当前人物并把原标签挤下线。
+        openAccountCharacterInNewTab(characterId) {
+            if (!characterId || !this.accountId) {
+                this.showNotification('角色信息缺失，无法打开新标签');
+                return;
+            }
+            const url = new URL(window.location.href);
+            ['txd', '_txd', '_user', '_pswd', 'user', 'pswd', 'password']
+                .forEach(name => url.searchParams.delete(name));
+            url.searchParams.set('userid', this.accountId);
+            url.searchParams.set('char', characterId);
+            // 先打开空白页，再切断 opener 后导航；目标页面从未获得访问
+            // 原标签的机会，同时保留可靠的“弹窗被拦截”检测。
+            const opened = window.open('about:blank', '_blank');
+            if (!opened) {
+                this.showNotification('浏览器阻止了新标签，请允许弹窗后重试');
+                return;
+            }
+            try {
+                opened.opener = null;
+                opened.location.replace(url.toString());
+            } catch (error) {
+                if (typeof opened.close === 'function') opened.close();
+                this.showNotification('新标签打开失败，请重试');
+                return;
+            }
+            this.showNotification('新标签已打开，登录后会直接进入所选角色');
         },
 
         // 显示通知消息
@@ -3682,9 +3717,25 @@ createApp({
         getPetCultivationLabel(pet = this.battlePet) {
             if (!pet?.active) return '';
             const level = Math.max(1, Number(pet.level || 1));
+            if (String(pet.system || '') === 'personal') {
+                return `Lv.${level} · 本命契约`;
+            }
             const star = Math.max(1, Number(pet.star || 1));
             const evolution = String(pet.evolution_name || '初生体');
             return `Lv.${level} · ${star}星${evolution}`;
+        },
+
+        getPetSlotTitle(slot) {
+            if (!slot) return '';
+            const personal = String(slot.system || '') === 'personal';
+            const systemName = personal ? '本命灵伴' : '共享宠物';
+            const destination = personal ? '本命灵伴界面' : '山海万灵谱';
+            if (Number(slot.active || 0) !== 1) {
+                return `${systemName}尚未契约，点击打开${destination}`;
+            }
+            const state = Number(slot.battle_active || 0) === 1 ?
+                '当前出战' : '收藏待命';
+            return `${systemName}·${slot.name} · ${this.getPetCultivationLabel(slot)} · ${state}，点击打开${destination}`;
         },
 
         formatPetAssistMessage(event) {
@@ -4662,6 +4713,22 @@ createApp({
                 return null;
             }
             return pet;
+        },
+
+        headerPetSlots() {
+            const slots = this.playerStats?.pet_slots;
+            if (slots?.shared && slots?.personal) {
+                return [slots.shared, slots.personal].map((slot, index) => ({
+                    ...slot,
+                    system: slot.system || (index === 0 ? 'shared' : 'personal'),
+                    command: slot.command || (index === 0 ? 'pet' : 'spirit_companion')
+                }));
+            }
+            const legacy = this.playerStats?.pet_assist;
+            if (!legacy || Number(legacy.active || 0) !== 1) {
+                return null;
+            }
+            return [{ ...legacy, system: 'shared', command: 'pet', battle_active: 1 }];
         },
 
         playerAvatarUrl() {

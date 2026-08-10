@@ -1670,14 +1670,41 @@ int can_equip(object ob)
 	return re;
 }
 
+// 炼化玉石费用的唯一权威公式；保持历史数值不变。
+int query_convert_equip_yushi_cost(object item)
+{
+	int level;
+	if(!item || !item->query_item_canLevel)
+		return 0;
+	level=(int)item->query_item_canLevel();
+	switch(level){
+		case 1..10: return 2;
+		case 11..20: return 4;
+		case 21..30: return 6;
+		case 31..40: return 8;
+		default: return 10;
+	}
+}
+
 
 
 //购买物品的接口
 //由caijie添加于2008/6/24
+private int buy_inventory_amount(object player,string item_name)
+{
+	int amount;
+	foreach(all_inventory(player),object one)
+		if(one && one->query_name()==item_name)
+			amount+=one->is("combine_item") ? (int)one->amount : 1;
+	return amount;
+}
+
 string buy_items(object item,void|int yushi,void|int yushi_level,int money)
 {
 	object me = this_player();
 	string s = "";
+	if(!me || !item || yushi<0 || money<0 || me->if_over_load(item))
+		return "商品无效或背包已满\n";
 	int have_money = me->query_account();
 	if(have_money<money){
 		s += "黄金不够\n";
@@ -1694,13 +1721,41 @@ string buy_items(object item,void|int yushi,void|int yushi_level,int money)
 			s += "玉石不够\n";
 			return s;
 		}
+		int before_wallet=ACCOUNT_WALLETD->query_balance(me);
+		int before_physical=YUSHID->query_physical_all_num(me);
 		if(!YUSHID->pay_yushi(me,yushi_value)){
 			s += "玉石扣除失败，请稍后再试\n";
 			return s;
 		}
+		me->del_account(money);
+		int amount=item->is("combine_item") ? (int)item->amount : 1;
+		string bought_name=(string)item->query_name();
+		int before=buy_inventory_amount(me,bought_name);
+		int delivered;
+		if(item->is("combine_item")){
+			item->move_player((string)me->query_name());
+			delivered=buy_inventory_amount(me,bought_name)-
+				before==amount;
+		}
+		else
+			delivered=item->move(me)==1 && environment(item)==me;
+		if(!delivered){
+			if(money)
+				me->add_account(money);
+			if(!YUSHID->rollback_yushi_payment(me,before_wallet,
+			   before_physical,"item_purchase_delivery_failed"))
+				return "商品发放和退款异常，请立即联系客服\n";
+			return "商品发放失败，费用已退回\n";
+		}
+		s += "购买成功！\n";
+		return s;
 	}
 	me->del_account(money);
-	item->move(me);
+	if(item->move(me)!=1 || environment(item)!=me){
+		if(money)
+			me->add_account(money);
+		return "商品发放失败，费用已退回\n";
+	}
 	s += "购买成功！\n";
 	return s;
 }

@@ -789,7 +789,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             lower_case(String.trim_all_whites(
                 req->request_headers["x-xiand-admin-item-request"] || "")),
             lower_case(String.trim_all_whites(
-                req->request_headers["x-xiand-admin-capability"] || "")));
+                req->request_headers["x-xiand-admin-capability"] || "")),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-account-owner"] || "")));
         if(!(int)request_begin["ok"]){
             send_json(req,(["error":"worker request fence rejected",
                 "code":request_begin["code"]]),409);

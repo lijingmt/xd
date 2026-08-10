@@ -5,9 +5,17 @@
 #define ITEM_PATH ROOT+"/gamelib/clone/item/"
 #endif
 
+private int inventory_amount(object player,string name)
+{
+	int amount;
+	foreach(all_inventory(player),object one)
+		if(one && one->query_name()==name)
+			amount+=one->is("combine_item") ? (int)one->amount : 1;
+	return amount;
+}
+
 int main(string|zero arg){
 	object me = this_player();
-	object item;
 	string s = "";
 	string s_log = "";//打log
 	int have_zongzi = 0;//记录玩家是否有的粽子
@@ -59,8 +67,15 @@ int main(string|zero arg){
 			}
 		}
 		else {
-			sscanf(arg,"%s %d %d %d",zz_name,need_count,get_count,ex_type);
+			if(sscanf(arg,"%s %d %d %d",zz_name,need_count,get_count,ex_type)!=4){
+				write("兑换参数无效。\n[返回游戏:look]\n");
+				return 1;
+			}
 			int i = search(zz,zz_name);
+			if(i<0){
+				write("兑换物品无效。\n[返回游戏:look]\n");
+				return 1;
+			}
 			if(need_count==0){
 				object zz_ob = (object)(ITEM_PATH+"zongzi/"+zz_name);
 				s += zz_ob->query_name_cn()+"\n";
@@ -85,44 +100,72 @@ int main(string|zero arg){
 				}
 			}
 			else {
+				string get_zz_name="";
+				if(ex_type==1 && i%3!=2){
+					need_count=10;
+					get_count=1;
+					get_zz_name=zz[i+1];
+				}
+				else if(ex_type==2 && i%3==0){
+					need_count=100;
+					get_count=1;
+					get_zz_name=zz[i+2];
+				}
+				else if(ex_type==3 && i%3!=0){
+					need_count=1;
+					get_count=10;
+					get_zz_name=zz[i-1];
+				}
+				else if(ex_type==4 && i%3==2){
+					need_count=1;
+					get_count=100;
+					get_zz_name=zz[i-2];
+				}
+				else{
+					write("兑换规则无效。\n[返回游戏:look]\n");
+					return 1;
+				}
 				if(zz_tmp[zz_name]&&zz_tmp[zz_name]>=need_count){
-					string get_zz_name = "";
-					if(ex_type==1){
-						get_zz_name = zz[i+1];
-					}
-					else if(ex_type==2){
-						get_zz_name = zz[i+2];
-					}
-					else if(ex_type==3){
-						get_zz_name = zz[i-1];
-					}
-					else if(ex_type==4){
-						get_zz_name = zz[i-2];
-					}
-					if(get_count==100){
-						for(int j=0;j<5;j++){
-							mixed err=catch{
-								item = clone(ITEM_PATH+"zongzi/"+get_zz_name);
-							};
-							if(!err){
-								item->amount = 20;
-								item->move(me);
-							}
-						}
-						s += "兑换成功，祝你端午节玩得愉快^_^\n";
-					}
-					else {
+					int before_reward=inventory_amount(me,get_zz_name);
+					array(object) rewards=({});
+					int reward_stacks=(get_count==100 ? 5 : 1);
+					int reward_amount=(get_count==100 ? 20 : get_count);
+					for(int j=0;j<reward_stacks;j++){
+						object reward;
 						mixed err=catch{
-							item = clone(ITEM_PATH+"zongzi/"+get_zz_name);
+							reward=clone(ITEM_PATH+"zongzi/"+get_zz_name);
 						};
-						if(!err){
-							item->amount = get_count;
-							item->move(me);
+						if(err || !reward){
+							foreach(rewards,object made)
+								destruct(made);
+							write("兑换奖励暂时不可用。\n[返回游戏:look]\n");
+							return 1;
 						}
-						s += "兑换成功，祝你端午节玩得愉快^_^\n";
+						reward->amount=reward_amount;
+						rewards+=({reward});
 					}
-					me->remove_combine_item(zz_name,need_count);
-					s_log += me->query_name_cn()+"("+me->query_name()+") 花费"+need_count+"个"+zz[i-1]+"换取"+get_count+"个"+zz_name+"\n";
+					mapping(string:mixed) removal=
+						me->remove_combine_item_transaction(zz_name,need_count);
+					if(!(int)removal["ok"]){
+						foreach(rewards,object made)
+							destruct(made);
+						write("兑换材料扣除失败。\n[返回游戏:look]\n");
+						return 1;
+					}
+					foreach(rewards,object reward)
+						reward->move_player(me->query_name());
+					if(inventory_amount(me,get_zz_name)-before_reward!=get_count){
+						int added=inventory_amount(me,get_zz_name)-before_reward;
+						if(added>0)
+							me->remove_combine_item_transaction(get_zz_name,added);
+						me->rollback_combine_item_transaction(removal);
+						write("兑换奖励发放失败，材料已退回。\n[返回游戏:look]\n");
+						return 1;
+					}
+					s += "兑换成功，祝你端午节玩得愉快^_^\n";
+					s_log += me->query_name_cn()+"("+me->query_name()+") 花费"+
+						need_count+"个"+zz_name+"换取"+get_count+"个"+
+						get_zz_name+"\n";
 					string now=ctime(time());
 					Stdio.append_file(ROOT+"/log/hyq_exchange.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 				}

@@ -407,9 +407,14 @@ private string render_main(mapping state,object me)
 	string boss_species = (string)state["weekly_boss"];
 	mapping boss = PETD->query_pet_species(boss_species);
 	mapping guidance = PETD->query_pet_growth_guidance(me);
-	string s = "§g【山海万灵谱】§r\n\n";
-	s += "账号共享收藏："+(int)state["collection_count"]+"/"+
+	string s = "§g【共享宠物·山海万灵谱】§r\n\n";
+	string battle_source = SPIRIT_COMPANIOND->query_pet_battle_source(me);
+	s += "共享宠物收藏："+(int)state["collection_count"]+"/"+
 		(int)state["catalog_total"]+" | 当前协战："+active_name+"\n";
+	s += "当前战斗位："+(battle_source=="shared" ?
+		"§g共享宠物§r" : "§5本命灵伴§r")+"\n";
+	if(battle_source!="shared" && active_id!="")
+		s += "[携带共享宠物:pet carry]\n";
 	if(find_state_pet(state,active_id)["species"]=="luanniao")
 		s += "回生羽："+((int)state["daily"]["owner_revive"] ?
 			"今日已使用" : "今日可触发1次")+"\n";
@@ -461,6 +466,7 @@ private string render_main(mapping state,object me)
 	s += "[完整图鉴:pet catalog]|[论道编队:pet team]|[独立材料栏:pet materials]\n";
 	s += "[阴阳灵契合成:pet fusion]（失败保留原宠）\n";
 	s += "[前往万灵台:wanling_rift gather]\n";
+	s += "[本命灵伴:spirit_companion]（角色独立收集与培养）\n";
 	s += "\n公平规则：PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。会员不出售战斗专属宠物或属性洗练。\n";
 	if(me->query_profeId()=="fangshi")
 		s += "方士说明：万灵伙伴不占虎灵、鹤灵、龟灵名额，不触发三灵共鸣。\n";
@@ -559,6 +565,9 @@ int main(string|zero arg)
 	}
 	if(parts[0]=="choose" && sizeof(parts)>=2)
 		message = (string)PETD->choose_starter_pet(me,parts[1])["message"];
+	else if(parts[0]=="carry")
+		message = (string)SPIRIT_COMPANIOND->set_pet_battle_source(
+			me,"shared")["message"];
 	else if(parts[0]=="active" && sizeof(parts)>=2)
 		message = (string)PETD->set_active_pet(me,parts[1])["message"];
 	else if(parts[0]=="level" && sizeof(parts)>=2)

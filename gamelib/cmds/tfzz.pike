@@ -45,6 +45,10 @@ int main(string|zero arg){
 			}
 		}
 		else {
+			if(!zz_tmp[arg] || search(zz,arg)==-1){
+				write("你身上没有这种粽子。\n[返回游戏:look]\n");
+				return 1;
+			}
 			if(me->get_once_day["zongzi"]==1){
 				s += "一天只能投放一次，您今天已经投放过了\n";
 				s += "[返回游戏:look]\n";
@@ -52,9 +56,14 @@ int main(string|zero arg){
 				return 1;
 			}
 			object zz_ob = (object)(ITEM_PATH+"zongzi/"+arg);
+			mapping(string:mixed) removal=
+				me->remove_combine_item_transaction(arg,1);
+			if(!(int)removal["ok"]){
+				write("粽子扣除失败，本次没有投放。\n[返回游戏:look]\n");
+				return 1;
+			}
 			s += "您投放了1个"+zz_ob->query_name_cn()+"\n";
 			s += "\n";
-			me->remove_combine_item(arg,1);
 			me->get_once_day["zongzi"]=1;
 			int ran = random(100);
 			if(ran>=0&&ran<40){
@@ -82,7 +91,6 @@ int main(string|zero arg){
 					};
 					if(!err){
 						item->move(me);
-						me->remove_combine_item(arg,1);
 						s += "你手边多了一本["+item->query_name_cn()+":inv "+item->query_name()+" 0]\n";
 						s_log = me->query_name_cn()+"投放一个"+zz_ob->query_name_cn()+"得到"+item->query_name_cn()+"\n";
 						string now=ctime(time());
@@ -95,7 +103,6 @@ int main(string|zero arg){
 					};
 					if(!err){
 						item->move(me);
-						me->remove_combine_item(arg,1);
 						s += "你手边多了一本["+item->query_name_cn()+":inv "+item->query_name()+" 0]\n";
 						s_log = me->query_name_cn()+"投放一个"+zz_ob->query_name_cn()+"得到"+item->query_name_cn()+"\n";
 						string now=ctime(time());

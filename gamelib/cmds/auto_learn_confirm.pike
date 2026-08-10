@@ -9,7 +9,30 @@ int main(string|zero arg)
 	string typeDes = "";  //类型描述
 	int time = 0;          //时间
 	int yushi = 0;         //需要扣除的玉石
-	sscanf(arg,"%s %d %d",type,time,yushi);
+	int fields=arg ? sscanf(arg,"%s %d %d",type,time,yushi) : 0;
+	if((fields!=2 && fields!=3) ||
+	   (type!="xiuchan" && type!="dazuo") ||
+	   (fields==3 && (yushi<=0 || yushi>100000))){
+		write("修炼参数无效。\n[返回:look]\n");
+		return 1;
+	}
+	if(me->query_level()>=70){
+		write("你已经到达70级了，不能进行该项操作。\n[返回:look]\n");
+		return 1;
+	}
+	int saved_time=(type=="xiuchan" ?
+		(int)me->query_auto_learn_xiuchan() :
+		(int)me->query_auto_learn_dazuo());
+	if(fields==2){
+		yushi=0;
+		time=saved_time;
+	}
+	else
+		time=saved_time+yushi*(type=="xiuchan" ? 3 : 12);
+	if(time<5){
+		write("剩余修炼时间不足5分钟，本次没有扣除玉石。\n[返回:look]\n");
+		return 1;
+	}
 	if(type == "xiuchan"){
 		typeDes = "修禅";
 	}

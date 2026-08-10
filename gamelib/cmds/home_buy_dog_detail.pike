@@ -26,7 +26,12 @@ int main(string|zero arg)
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
-	sscanf(arg,"%s %d",name,need_money);
+	if(!arg || sscanf(arg,"%s %d",name,need_money)!=2 ||
+	   name!="vice_npc/huoyunquan"){
+		write("看门狗商品无效。\n[返回游戏:look]\n");
+		return 1;
+	}
+	need_money=80;
 	object dog = (object)(NPC_PATH+name);
 	s += "【家园守宅犬】此处购买继续使用旧家园数据，与账号万灵谱互不迁移。\n";
 	s += dog->query_name_cn()+"\n";

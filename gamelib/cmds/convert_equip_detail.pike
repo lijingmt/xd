@@ -46,26 +46,7 @@ int main(string|zero arg)
 			s += "清零成功！(^0^)\n";
 		rareLevel = item->query_item_rareLevel();
 		canLevel = item->query_item_canLevel();
-		//确定转化需要的玉石数
-		switch(canLevel){
-			case 1..10:
-				convert_cost = 2;
-				break;
-			case 11..20:
-				convert_cost = 4;
-				break;
-			case 21..30:
-				convert_cost = 6;
-				break;
-			case 31..40:
-				convert_cost = 8;
-				break;
-			case 41..49:
-				convert_cost = 10;
-				break;
-			default:
-				convert_cost = 10;
-		}
+		convert_cost=ITEMSD->query_convert_equip_yushi_cost(item);
 		//得到增加属性需要消耗的玉石数
 		add_cost = convert_cost;
 		/*

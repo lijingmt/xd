@@ -7,7 +7,22 @@ int main(string|zero arg)
 	string item_name = "";
 	string item_type = "";
 	int item_cost = 0;
-	sscanf(arg,"%s %s %d",item_name,item_type,item_cost);
+	if(!arg || sscanf(arg,"%s %s %d",item_name,item_type,item_cost)!=3){
+		write("炼化参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
+	object item;
+	foreach(all_inventory(me),object candidate)
+		if(candidate && candidate->query_name()==item_name &&
+		   ITEMSD->can_equip(candidate)){
+			item=candidate;
+			break;
+		}
+	if(!item || (string)item->query_item_type()!=item_type){
+		write("你身上没有这件装备。\n[返回游戏:look]\n");
+		return 1;
+	}
+	item_cost=ITEMSD->query_convert_equip_yushi_cost(item);
 
 	string s = "*** 会员优惠 ***\n";
 	mapping(int:int) vip_off_list = VIPD->get_vip_off_map();

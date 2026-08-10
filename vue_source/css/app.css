@@ -1358,14 +1358,42 @@ body {
     /* 按钮放在卡片右上角，避开"档案 X"小字；点 @click.stop 防止触发卡片进入 */
 }
 
+.character-new-tab-btn {
+    position: absolute;
+    top: 6px;
+    right: 42px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 9px;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.65;
+    transition: opacity 0.15s ease, transform 0.15s ease,
+        border-color 0.15s ease;
+    z-index: 2;
+}
+
 .character-bookmark-btn:hover:not(:disabled),
-.character-bookmark-btn:focus-visible {
+.character-bookmark-btn:focus-visible,
+.character-new-tab-btn:hover:not(:disabled),
+.character-new-tab-btn:focus-visible {
     opacity: 1;
     transform: scale(1.08);
     border-color: var(--primary);
 }
 
 .character-bookmark-btn:disabled {
+    cursor: wait;
+    opacity: 0.4;
+}
+
+.character-new-tab-btn:disabled {
     cursor: wait;
     opacity: 0.4;
 }
@@ -10476,5 +10504,170 @@ body {
 @media (max-width: 479px) {
     .game-header:not(.header-collapsed) .player-stats .stat-bar:nth-child(n+3) {
         display: none;
+    }
+}
+
+/* === 双宠位：共享宠物 / 本命灵伴 === */
+.game-header.has-header-pet {
+    grid-template-columns: 44px 66px minmax(0, 1fr) 38px;
+}
+
+.header-pet-slots {
+    grid-column: 2;
+    display: grid;
+    width: 66px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    gap: 4px;
+}
+
+.header-pet-slots .header-pet-companion {
+    grid-column: auto;
+    width: 31px;
+    max-width: 31px;
+    height: 31px;
+    flex-basis: 31px;
+    padding: 1px;
+    overflow: visible;
+}
+
+.header-pet-slots .header-pet-icon {
+    width: 27px;
+    height: 27px;
+    flex-basis: 27px;
+    font-size: 17px;
+}
+
+.header-pet-system,
+.header-pet-state {
+    position: absolute;
+    z-index: 2;
+    display: grid;
+    min-width: 14px;
+    height: 14px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 999px;
+    background: rgba(31, 23, 40, 0.92);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.header-pet-system { top: -5px; left: -4px; }
+.header-pet-state { right: -4px; bottom: -5px; }
+
+.header-pet-companion.pet-system-personal,
+.battle-pet-companion.pet-system-personal {
+    --pet-accent: #d9b8ff;
+    --pet-glow: rgba(164, 102, 255, 0.58);
+    --pet-surface: rgba(78, 37, 119, 0.72);
+}
+
+.header-pet-companion.pet-system-shared {
+    --pet-accent: #bdeec9;
+    --pet-glow: rgba(82, 196, 112, 0.46);
+    --pet-surface: rgba(35, 99, 58, 0.68);
+}
+
+.header-pet-companion.is-empty {
+    filter: saturate(0.45);
+    opacity: 0.62;
+}
+
+.header-pet-companion.is-battle-active {
+    opacity: 1;
+    outline: 2px solid var(--pet-accent);
+    outline-offset: 1px;
+    box-shadow: 0 0 14px var(--pet-glow);
+}
+
+.header-pet-companion.is-battle-active .header-pet-state {
+    border-color: #fff2a8;
+    background: #9b6414;
+    color: #fff7cf;
+}
+
+.game-header.header-collapsed .header-pet-slots {
+    display: none !important;
+}
+
+@media (max-width: 359px) {
+    .game-header.has-header-pet {
+        grid-template-columns: 38px 56px minmax(0, 1fr) 34px;
+    }
+    .header-pet-slots { width: 56px; gap: 2px; }
+    .header-pet-slots .header-pet-companion {
+        width: 27px;
+        max-width: 27px;
+        height: 27px;
+        flex-basis: 27px;
+    }
+    .header-pet-slots .header-pet-icon {
+        width: 23px;
+        height: 23px;
+        flex-basis: 23px;
+        font-size: 15px;
+    }
+    .header-pet-system,
+    .header-pet-state { min-width: 12px; height: 12px; font-size: 7px; }
+}
+
+@media (min-width: 360px) and (max-width: 430px) {
+    .game-header.has-header-pet {
+        grid-template-columns: 42px 60px minmax(0, 1fr) 38px;
+    }
+    .header-pet-slots { width: 60px; gap: 2px; }
+    .header-pet-slots .header-pet-companion {
+        width: 29px;
+        max-width: 29px;
+        height: 29px;
+        flex-basis: 29px;
+    }
+    .header-pet-slots .header-pet-icon {
+        width: 25px;
+        height: 25px;
+        flex-basis: 25px;
+        font-size: 16px;
+    }
+}
+
+@media (min-width: 431px) {
+    .game-header.has-header-pet {
+        grid-template-columns: 46px 72px minmax(0, 1fr) 40px;
+    }
+    .header-pet-slots { width: 72px; gap: 4px; }
+    .header-pet-slots .header-pet-companion {
+        width: 34px;
+        max-width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+    }
+    .header-pet-slots .header-pet-icon {
+        width: 30px;
+        height: 30px;
+        flex-basis: 30px;
+        font-size: 19px;
+    }
+}
+
+@media (min-width: 768px) {
+    .game-header.has-header-pet {
+        grid-template-columns: 48px 76px minmax(0, 1fr) 42px;
+    }
+    .header-pet-slots { width: 76px; }
+    .header-pet-slots .header-pet-companion {
+        width: 36px;
+        max-width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+    }
+    .header-pet-slots .header-pet-icon {
+        width: 32px;
+        height: 32px;
+        flex-basis: 32px;
+        font-size: 20px;
     }
 }

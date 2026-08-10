@@ -498,7 +498,11 @@ int pay_yushi(object player,int num)
 
 	if(change > 0)
 	{
-		give_yushi(player,change);
+		if(!give_yushi(player,change)){
+			for(int r=sizeof(removals)-1;r>=0;r--)
+				player->rollback_combine_item_transaction(removals[r]);
+			return 0;
+		}
 		tell_object(player,"系统已自动兑换玉石，并找回"+get_yushi_for_desc(change)+"。\n");
 	}
 	return 1;
@@ -560,29 +564,97 @@ int pay_yushi_once(object player,int num,string request_id)
  */
 int give_yushi(object player,int num)
 {
-	//werror("==== num = "+num+"======\n");
-	mapping(int:int) all_yushi = ([]);//需要添加的玉石列表
-	string yushi = "";//需要添加的玉石名
-	string yushiPath = "";//玉石的路径
-	for(int i=1;i<6;i++)
-	{
-		all_yushi[i] = num%10;
-		num = num/10;
-		if(!num) break;
+	mapping(int:int) all_yushi=([]);
+	mapping(int:int) before=([]);
+	array(object) created=({});
+	int remaining=num;
+	if(!player || !player->query_name || num<0 || num>20000000)
+		return 0;
+	if(num==0)
+		return 1;
+	for(int level=1;level<5;level++){
+		all_yushi[level]=remaining%10;
+		remaining=remaining/10;
 	}
-	for(int m=1;m<6;m++)//按列表添加石头
-	{
-		//werror("==== m = "+m+"======\n");
-		if(all_yushi[m])//如果该类玉石数目不为0
-		{
-			yushi = get_yushi_name(m);//得到此类玉石的文件名
-			yushiPath = ITEM_PATH +"yushi/" + yushi;
-			object yushiNew = clone(yushiPath);
-			yushiNew->amount=all_yushi[m];
-			yushiNew->move_player(player->query_name());
+	all_yushi[5]=remaining;
+	for(int level=1;level<6;level++)
+		before[level]=query_yushi_num(player,level);
+	for(int level=1;level<6;level++){
+		int level_amount=all_yushi[level];
+		while(level_amount>0){
+			object yushi_new;
+			mixed err=catch{
+				yushi_new=clone(ITEM_PATH+"yushi/"+get_yushi_name(level));
+			};
+			if(err || !yushi_new)
+				break;
+			int chunk=level_amount;
+			if(chunk>(int)yushi_new->max_count)
+				chunk=(int)yushi_new->max_count;
+			if(chunk<=0){
+				destruct(yushi_new);
+				break;
+			}
+			yushi_new->amount=chunk;
+			created+=({yushi_new});
+			yushi_new->move_player((string)player->query_name());
+			level_amount-=chunk;
 		}
+		if(level_amount>0)
+			break;
 	}
-	return 1;
+	int exact=1;
+	for(int level=1;level<6;level++)
+		if(query_yushi_num(player,level)-before[level]!=all_yushi[level])
+			exact=0;
+	if(exact)
+		return 1;
+	// 任一面额发放失败时撤销本次已经增加的数量，避免部分到账后重试。
+	for(int level=1;level<6;level++){
+		int added=query_yushi_num(player,level)-before[level];
+		if(added>0)
+			player->remove_combine_item_transaction(get_yushi_name(level),added);
+	}
+	foreach(created,object created_item)
+		if(created_item && environment(created_item)!=player)
+			destruct(created_item);
+	werror("[YUSHID] give_yushi rolled back player=%s num=%d\n",
+		(string)player->query_name(),num);
+	return 0;
+}
+
+// 撤销本次 pay_yushi()：人物实体玉按实际差额退回，共享充值钱包按
+// 幂等 request_id 原路撤销，禁止把共享充值余额错误转换成可交易实体玉。
+int rollback_yushi_payment(object player,int before_wallet,
+	int before_physical,string reason)
+{
+	mapping payment;
+	string request_id="";
+	int ok=1;
+	int physical_spent;
+	int wallet_spent;
+	if(!player || before_wallet<0 || before_physical<0)
+		return 0;
+	payment=query_pending_wallet_payment(player);
+	if(sizeof(payment))
+		request_id=(string)(payment["request_id"] || "");
+	physical_spent=before_physical-query_physical_all_num(player);
+	if(physical_spent>0 && !give_yushi(player,physical_spent))
+		ok=0;
+	if(request_id!=""){
+		if(!ACCOUNT_WALLETD->rollback_debit_recharge_once(player,request_id,
+		   reason || "yushi_payment_rollback"))
+			ok=0;
+		else
+			set_pending_wallet_payment(player,([]));
+	}
+	else{
+		wallet_spent=before_wallet-ACCOUNT_WALLETD->query_balance(player);
+		if(wallet_spent>0 && !ACCOUNT_WALLETD->refund_recharge(player,
+		   wallet_spent,reason || "yushi_payment_rollback"))
+			ok=0;
+	}
+	return ok;
 }
 //获得玩家拥有某种玉石的个数，购买物品时调用
 int query_yushi_num(object player,int rarelevel)

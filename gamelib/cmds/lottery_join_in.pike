@@ -12,8 +12,12 @@ int main(string|zero arg)
 		lv = (int)arg;
 	else
 		lv = LOTTERYD->get_random_lottery_level();
+	if(lv<1 || lv>5){
+		write("抽奖级别无效。\n[返回游戏:look]\n");
+		return 1;
+	}
 	int need_num = LOTTERYD->get_lottery_award_price(lv);
-	if(!lv){
+	if(need_num<=0 || need_num>100000){
 		s += "操作失败！奖项已全部抽完，请等待下次抽奖\n";
 	}
 	else if(!YUSHID->have_enough_yushi(me,need_num)){
@@ -23,6 +27,13 @@ int main(string|zero arg)
 		s += "操作失败！此级别的奖品已被抽完，请等待下一轮或选择其他级别的奖项\n";
 	}
 	else{
+		// 先按服务端奖项价格扣费；返玉结果随后原额返还，避免先发奖后扣费。
+		int before_wallet=ACCOUNT_WALLETD->query_balance(me);
+		int before_physical=YUSHID->query_physical_all_num(me);
+		if(!YUSHID->pay_yushi(me,need_num)){
+			write("操作失败！玉石状态已经变化，本次没有抽奖\n");
+			return 1;
+		}
 		int luck_num = LOTTERYD->get_lottery_award_luck_num(lv);
 		int get_num = LOTTERYD->player_get_num(me,lv);
 		int remove_fg = -1;//0 返回玉石; 1 中奖; 2 特药奖励
@@ -36,8 +47,15 @@ int main(string|zero arg)
 			int r = random(100);
 			int yu_r = 30;//返玉概率
 			if(r<yu_r){
-				s += "作为鼓励，"+need_num+"碎玉返还于你\n";
-				remove_fg = 0;
+				if(YUSHID->rollback_yushi_payment(me,before_wallet,
+				   before_physical,"lottery_jade_return")){
+					s += "作为鼓励，本次支付的"+need_num+"碎玉已原路返还\n";
+					remove_fg = 0;
+				}
+				else{
+					s += "返还暂时失败，请联系客服核对本次抽奖日志\n";
+					remove_fg = 1;
+				}
 			}
 			//对不同等奖有一定机率获得特药奖励 cai 080806
 			else {
@@ -103,11 +121,7 @@ int main(string|zero arg)
 					s += "操作失败！看来奖品出了点问题\n";
 			}
 		}
-		//扣除玩家身上的玉石
-		if(remove_fg){
-			cost_reb = need_num;
-			YUSHID->pay_yushi(me,need_num);
-		}
+		cost_reb = remove_fg ? need_num : 0;
 		string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][lottery]["+award_name+"]["+award_namecn+"]["+award_num+"]["+cost_reb+"]["+log_flag+"]\n";
 		Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
 	}

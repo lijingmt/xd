@@ -1207,9 +1207,27 @@ mapping query_player_state(object player)
 		result["lingyi_revive"] = lingyi_revive;
 		result["recent_aoe_report"] = recent_aoe_report;
 
-		// 山海万灵只返回当前人物的轻量陪伴快照和最近一次协战事件。
-		// 该查询不读账号文件，适合战斗状态每秒轮询；客户端按事件ID去重。
-		result["pet_assist"] = PETD->query_pet_battle_presence(player);
+		// 共享宠物/本命灵伴同时提供只读卡位，但旧客户端的
+		// pet_assist仍只返回当前唯一战斗位，不会渲染或结算双宠。
+		string pet_battle_source =
+			SPIRIT_COMPANIOND->query_pet_battle_source(player);
+		mapping shared_pet_presence = PETD->query_pet_battle_presence(player);
+		mapping personal_pet_presence =
+			SPIRIT_COMPANIOND->query_spirit_companion_presence(player);
+		shared_pet_presence["system"] = "shared";
+		shared_pet_presence["system_label"] = "共享";
+		shared_pet_presence["command"] = "pet";
+		shared_pet_presence["battle_active"] =
+			pet_battle_source=="shared" ? 1 : 0;
+		personal_pet_presence["battle_active"] =
+			pet_battle_source=="personal" ? 1 : 0;
+		result["pet_slots"] = ([
+			"battle_source":pet_battle_source,
+			"shared":shared_pet_presence,
+			"personal":personal_pet_presence,
+		]);
+		result["pet_assist"] = pet_battle_source=="personal" ?
+			personal_pet_presence : shared_pet_presence;
 		// 每日摘要保持纯读取；跨日时返回虚拟空状态，不在轮询线程改档。
 		result["daily_goal"] = DAILYGOALD->query_summary(player);
 		result["timed_event"] = TIMED_EVENTD->query_player_status(player);

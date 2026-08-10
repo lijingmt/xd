@@ -274,6 +274,27 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   assert.strictEqual(selfBookmarkUrl.searchParams.get('txd'), firstTxd,
     '复制当前角色书签应附上 txd 以支持立即进入');
 
+  let openedUrl = '';
+  let openedTarget = '';
+  const popup = {
+    opener: {},
+    location: { replace: (url) => { openedUrl = url; } }
+  };
+  sandbox.window.open = (url, target) => {
+    assert.strictEqual(url, 'about:blank');
+    openedTarget = target;
+    return popup;
+  };
+  client.openAccountCharacterInNewTab('xd01abcc2a8f31e20');
+  assert.strictEqual(openedTarget, '_blank');
+  assert.strictEqual(popup.opener, null,
+    '导航前必须切断 opener，避免新标签反向控制原页面');
+  const newTabUrl = new URL(openedUrl, 'https://game.example.com');
+  assert.strictEqual(newTabUrl.searchParams.get('userid'), 'xd01abc');
+  assert.strictEqual(newTabUrl.searchParams.get('char'), 'xd01abcc2a8f31e20');
+  assert.strictEqual(newTabUrl.searchParams.get('txd'), null,
+    '新标签不得携带当前角色 txd，否则会把原标签挤下线');
+
   // doLogin 书签逻辑的静态契约：源码必须包含 preselectedUserid 优先级判断和 char 匹配。
   // 完整端到端流程（account/login + characters/select + completeCharacterLogin）依赖
   // 现有 selectAccountCharacter 测试覆盖，这里只验证新逻辑的源码存在性。
@@ -295,8 +316,12 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
     'index.html 应在每个角色卡片上提供复制书签按钮');
   assert(indexSource.includes('copyCharacterBookmarkUrl(character.id)'),
     'index.html 应把复制按钮绑定到 copyCharacterBookmarkUrl');
+  assert(indexSource.includes('openAccountCharacterInNewTab(character.id)'),
+    'index.html 应提供不会重复当前人物登录的新标签入口');
   assert(cssSource.includes('.character-bookmark-btn'),
     'app.css 应为复制书签按钮提供样式');
+  assert(cssSource.includes('.character-new-tab-btn'),
+    'app.css 应为新标签人物入口提供样式');
 
   console.log('account character frontend tests passed');
 })().catch(error => {

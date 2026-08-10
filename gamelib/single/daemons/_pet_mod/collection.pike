@@ -192,6 +192,23 @@ mapping(string:mixed) query_pet_state(object player)
 	return result;
 }
 
+/** 本命灵伴共鸣只读入口：不刷新日周周期，也不触发共享宠物写盘。 */
+int query_shared_pet_collection_count_read_only(object player)
+{
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	int count = 0;
+	object key;
+	if(account_id=="")
+		return 0;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record)
+		count = sizeof((array)record["pets"]);
+	destruct(key);
+	return count;
+}
+
 mapping(string:mixed) choose_starter_pet(object player,string species)
 {
 	mapping result = pet_result(0,"新手灵契没有生效。");
@@ -621,6 +638,8 @@ mapping(string:mixed) start_pet_hunt(object player)
 mapping(string:mixed) record_pet_hunt_kill(object player,object npc)
 {
 	mapping result = (["ok":0,"completed":0]);
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared")
+		return result;
 	string account_id = resolve_pet_account(player);
 	mapping(string:mixed)|zero record;
 	object key;
@@ -682,6 +701,8 @@ mapping(string:mixed) record_pet_hunt_kill(object player,object npc)
 mapping(string:mixed) record_pet_combat_xp(object player,object npc)
 {
 	mapping result = (["ok":0,"xp_gain":0,"levels_gained":0]);
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared")
+		return result;
 	string account_id = resolve_pet_account(player);
 	string character_id;
 	string pet_id;
@@ -786,6 +807,8 @@ private mapping(string:mixed) record_pet_pve_fragment_unlocked(
 {
 	mapping result = (["ok":0,"dropped":0,"chance":0,
 		"source":"普通怪物","daily_cap":PET_PVE_FRAGMENT_DAILY_CAP]);
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared")
+		return result;
 	string account_id = resolve_pet_account(player);
 	mapping(string:mixed)|zero record;
 	mapping credited_accounts;
@@ -869,6 +892,8 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 {
 	mapping result = (["ok":0,"eligible":0,"dropped":0,"chance":0,
 		"pity":0,"pity_max":PET_HIDDEN_LUAN_PITY]);
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared")
+		return result;
 	string account_id = resolve_pet_account(player);
 	mapping(string:mixed)|zero record;
 	mapping credited_accounts;

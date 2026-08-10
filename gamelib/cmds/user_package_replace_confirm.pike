@@ -13,12 +13,25 @@ int main(string|zero arg)
 	int pac_size2 = 0;//替换后的背包大小
 	int need_yushi = 0;//所需要的玉石
 	int rep_count = 0;//购买标志，0：查看  1：确定购买  2:放弃购买
-	sscanf(arg,"%s %d %d %d %s",type,pac_size1,pac_size2,need_yushi,s_rep_count);
+	if(!arg || sscanf(arg,"%s %d %d %d %s",type,pac_size1,pac_size2,need_yushi,s_rep_count)!=5 ||
+	   (type!="beibao" && type!="cangku")){
+		write("替换参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
 	sscanf(s_rep_count,"no=%d",rep_count);
+	int old_price=BUYD->query_pac_price(type,pac_size1);
+	int new_price=BUYD->query_pac_price(type,pac_size2);
+	need_yushi=new_price-old_price;
+	if(old_price<=0 || new_price<=0 || need_yushi<=0 || rep_count<=0 || rep_count>50){
+		write("替换规格或数量无效。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(type=="beibao") tmp_s += "背包";
 	if(type=="cangku") tmp_s += "当前角色仓库";
 	//werror("------rep_count="+rep_count+"---\n");
-	if(me->package_expand[type][pac_size1]&&rep_count>0&&rep_count<=me->package_expand[type][pac_size1]){
+	if(me->package_expand && me->package_expand[type] &&
+	   me->package_expand[type][pac_size1] &&
+	   rep_count<=me->package_expand[type][pac_size1]){
 		int yushi = need_yushi*rep_count;
 		int buy_result = BUYD->do_trade(me,yushi,0);
 		switch(buy_result){

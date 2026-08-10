@@ -58,13 +58,61 @@ int main()
 
 	werror("\n========== 地图 Worker 架构测试 ==========\n");
 	mixed err = catch {
-		check("普通地图按一级目录归属，动态实例才可细分",
+		mapping account_save_capability = ([
+			"state":"running","kind":"account",
+			"account_owner":"xd98accountowner",
+			"account_character_save_userid":"xd98accountownerc1a2b3c4d5",
+		]);
+		check("新角色首次存档能力严格绑定账号、本次请求和唯一子档案",
+			daemon->test_local_account_character_save_capability(
+				account_save_capability,"xd98accountowner",
+				"xd98accountownerc1a2b3c4d5") &&
+			!daemon->test_local_account_character_save_capability(
+				account_save_capability,"xd98accountowner",
+				"xd98accountownerc2ffffffff") &&
+			!daemon->test_local_account_character_save_capability(
+				account_save_capability,"xd98otheraccount",
+				"xd98accountownerc1a2b3c4d5") &&
+			!daemon->test_local_account_character_save_capability(([
+				"state":"running","kind":"account",
+				"account_owner":"xd98accountowner",
+				"account_character_save_userid":"xd98victim",
+			]),"xd98accountowner","xd98victim") &&
+			!daemon->test_local_account_character_save_capability(([
+				"state":"running","kind":"account",
+				"account_owner":"xd98accountowner",
+			]),"xd98accountowner","xd98accountownerc1a2b3c4d5") &&
+			!daemon->test_local_account_character_save_capability(([
+				"state":"running","kind":"account",
+				"account_owner":"xd98accountowner",
+				"account_character_save_userid":
+					"xd98accountownerc1a2b3c4d5",
+				"account_character_save_consumed_userid":
+					"xd98accountownerc1a2b3c4d5",
+			]),"xd98accountowner","xd98accountownerc1a2b3c4d5") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"if(bound_userid==userid)") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"stringp(\n\t\trequest[\"account_character_save_userid\"])") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"account_character_save_already_consumed") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"has_prefix(userid,account_owner+\"c\")") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"account_character_save_consumed_userid\"] = userid") &&
+			source_has("/gamelib/clone/user.pike",
+				"consume_local_account_character_save_fence"),
+			"无租约新档可能越权保存兄弟人物、复用能力或继续被保存栅栏误拒");
+
+		check("普通地图按一级目录归属，全局家园不分片",
 			daemon->query_affinity_key(
 				ROOT+"/gamelib/d/wugongdong/wugongchao#12","")==
 				"wugongdong" &&
 				daemon->query_affinity_key(
 					"/gamelib/d/home/template/main","xd98home1")==
-					"home:xd98home1" &&
+					"home" &&
+				daemon->query_affinity_key(
+					"/gamelib/d/ninggedian/qianxuehu","")=="home" &&
 			daemon->query_affinity_key(
 				"/gamelib/d/timed_event/event_room#2",
 				"tianheng|2026-08-09|group1")==
@@ -728,7 +776,11 @@ int main()
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"if(monitor_err){") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
-				"pike_gateway_monitor_worker(worker_id)") &&
+				"pike_gateway_monitor_all_workers()") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_monitor_farm->run(") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_set_worker_reachable(worker_id,0)") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"MAP_WORKER_HEARTBEAT_TTL = 20"),
 			"失联worker可能被伪心跳维持健康并继续接收地图");
@@ -747,7 +799,15 @@ int main()
 			source_has("/gamelib/single/daemons/homed.pike",
 				"local_worker_owns_room") &&
 			source_has("/gamelib/single/daemons/homed.pike",
-				"if(!home_persistence_owner())"),
+					"if(!home_persistence_owner())") &&
+			source_has("/gamelib/single/daemons/homed.pike",
+					"rejected shared snapshot mutation on non-owner worker") &&
+			daemon->query_affinity_key(
+				"/gamelib/d/home/worker_owner_probe","")=="home" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/home/template/main","owner_a")=="home" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/home/template/main","owner_b")=="home",
 			"不同worker可能以各自过期缓存互相覆盖全局家园文件");
 
 			check("并发新地图placement按generation串行发布到全部worker",
@@ -1036,7 +1096,9 @@ int main()
 
 		check("动态家园副本与活动移动失败不会提交半状态或残留绕过标志",
 			source_has("/gamelib/single/daemons/map_workerd.pike",
-				"owner affinity, never to the visitor's") &&
+				"affinity function deliberately collapses every home") &&
+			daemon->query_affinity_key(
+				"/gamelib/d/home/template/main","visitor_a")=="home" &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"query_timed_event_session") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
@@ -1149,24 +1211,36 @@ int main()
 				"目标房间当前无法安全到达"),
 			"临时房、热更新或管理员命令可能绕开人物租约并留下双活/半状态");
 
-		check("未完成双人物事务前active关闭直赠交易且单进程保留旧行为",
-			source_has("/gamelib/cmds/sendother.pike",
-				"多 worker 试运行暂未开放玩家直赠") &&
+		check("同房间双账号事务开放直赠交易且跨worker请求失败关闭",
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"same_local_room") &&
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"trylock()") &&
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"save_player(seller)") &&
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"save_player(buyer)") &&
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"create_gift_offer") &&
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"create_trade_offer") &&
+			source_has("/gamelib/single/daemons/player_transferd.pike",
+				"offer[\"item\"]==query_owned_item") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_player_transfer_target") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_lock_user_pair(userid,account_id") &&
 			source_has("/gamelib/cmds/sendother_ok.pike",
-				"旧确认链接已安全失效") &&
-			source_has("/gamelib/cmds/sendother_daoju_to.pike",
-				"distributed_mode_enabled") &&
+				"PLAYER_TRANSFERD->execute_gift") &&
 			source_has("/gamelib/cmds/trade.pike",
-				"防止装备和银两复制") &&
-			source_has("/gamelib/cmds/trade_daoju.pike",
-				"防止道具和银两复制") &&
-			source_has("/gamelib/cmds/sendother_to.pike",
-				"ob=find_player(user_name)") &&
-			source_has("/gamelib/cmds/trade.pike",
-				"ob=find_player(user_name)") &&
+				"PLAYER_TRANSFERD->execute_trade") &&
+			!source_has("/gamelib/cmds/sendother_to.pike",
+				"find_player(user_name)") &&
+			!source_has("/gamelib/cmds/trade.pike",
+				"find_player(user_name)") &&
 			source_has("/gamelib/cmds/mgr_map_workers.pike",
-				"面对面赠送/交易仍保持关闭"),
-			"双人物存档缺少原子提交时可能在崩溃或并发确认中复制装备/货币");
+				"跨房间或跨 Worker 仍失败关闭"),
+			"双账号锁、双档案结算或同房间边界不完整");
 
 			check("账号会话API固定主worker且token维护与人物写操作互斥",
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",

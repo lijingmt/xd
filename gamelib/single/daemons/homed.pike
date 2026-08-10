@@ -1329,10 +1329,12 @@ mapping(string:mixed) purchase_home(object player,string homeName,
 	int yushi = 0;
 	int money = 0;
 	int before_yushi = 0;
+	int before_wallet = 0;
+	int before_physical = 0;
 	int before_money = 0;
-	int refund_yushi = 0;
 	int refund_money = 0;
 	int refund_ok = 1;
+	int player_saved = 0;
 	mixed err;
 	if(!player || !player->query_name)
 		return (["ok":0,"code":"invalid_player","message":"玩家资料无效"]);
@@ -1359,6 +1361,8 @@ mapping(string:mixed) purchase_home(object player,string homeName,
 	yushi = st->yushi;
 	money = st->money*100;
 	before_yushi = YUSHID->query_all_num(player);
+	before_wallet = ACCOUNT_WALLETD->query_balance(player);
+	before_physical = YUSHID->query_physical_all_num(player);
 	before_money = player->query_account();
 	old_home_path = (string)player->query_home_path();
 	err = catch{
@@ -1367,7 +1371,11 @@ mapping(string:mixed) purchase_home(object player,string homeName,
 		   before_yushi-YUSHID->query_all_num(player)==yushi &&
 		   before_money-player->query_account()==money){
 			built = build_new_home_record(player,homeName,flatName,slotName);
+			// 先落盘人物的扣款和房契引用，再发布全局房产。
+			// 两步之间崩溃最多待补偿，不会保留未扣款的免费房产。
 			if(built)
+				player_saved=save_function_room_player(player);
+			if(built && player_saved)
 				saved = store_all_info_unlocked(1);
 		}
 		else if(trade_result==3)
@@ -1383,14 +1391,15 @@ mapping(string:mixed) purchase_home(object player,string homeName,
 			m_delete(existHome,player_id);
 			player->set_home_path(old_home_path);
 		}
-		refund_yushi = before_yushi-YUSHID->query_all_num(player);
 		refund_money = before_money-player->query_account();
-		if(refund_yushi>0){
-			if(!YUSHID->give_yushi(player,refund_yushi))
-				refund_ok = 0;
-		}
+		if(before_yushi>YUSHID->query_all_num(player) &&
+		   !YUSHID->rollback_yushi_payment(player,before_wallet,
+		   before_physical,"home_purchase_rollback"))
+			refund_ok = 0;
 		if(refund_money>0)
 			player->add_account(refund_money);
+		if(!save_function_room_player(player))
+			refund_ok = 0;
 		destruct(state_key);
 		if(!refund_ok){
 			werror("[HOMED-PURCHASE] 严重: 购房失败且玉石退款失败 player=%s plot=%s\n",
@@ -2418,6 +2427,23 @@ string query_infancy(string infancyType)
 	return re;
 }
 
+mapping(string:mixed) query_infancy_offer(string infancy_path)
+{
+	if(!infancy_path || infancy_path=="" || search(infancy_path,"..")!=-1 ||
+	   infancy_path[0]=='/')
+		return (["ok":0]);
+	foreach(indices(infancyMap),string infancy_name){
+		array info=infancyMap[infancy_name];
+		if(sizeof(info)>=4 && info[0]==infancy_path &&
+		   (int)info[2]>=0 && (int)info[3]>=0 &&
+		   ((int)info[2]>0 || (int)info[3]>0))
+			return (["ok":1,"path":info[0],"type":info[1],
+				"yushi":(int)info[2],"money":(int)info[3],
+				"name_cn":infancy_name]);
+	}
+	return (["ok":0]);
+}
+
 //为家园重命名
 string reset_home_name(string name)
 {
@@ -2606,6 +2632,10 @@ void save_dog(string dogInfo,string masterId)
 
 //保存所有的信息
 private int store_all_info_unlocked(int fg){
+	if(!home_persistence_owner()){
+		werror("[HOMED-SAVE] rejected shared snapshot mutation on non-owner worker\n");
+		return 0;
+	}
 	werror("============try to save home map"+fg+"\n");
 	string he_s = "房间名|主人ID|主人名|房间名|房间描述|允许列表|矿石|动物|植物|门信息|看门狗信息|home中玩家|功能房间|飞天小屋目的地|店铺信息"+"\n";
 	foreach(sort(indices(homeDetail)),string masterId)
@@ -3532,9 +3562,471 @@ void save_shopItem(string masterId,void|string shopInfo,int ind){
 	he->shop[ind] = shopInfo;
 }
 
+private int valid_shop_item_path(string item_path)
+{
+	if(!item_path || item_path=="" || sizeof(item_path)>180 ||
+	   search(item_path,"..")!=-1 || search(item_path,"#")!=-1 ||
+	   item_path[0]=='/' || search(item_path,"//")!=-1)
+		return 0;
+	return 1;
+}
+
+private string shop_listing_token(string listing)
+{
+	object hash=Crypto.SHA256();
+	hash->update(listing || "");
+	return String.string2hex(hash->digest());
+}
+
+// 服务端原子创建摊位：价格、期限、物品路径和库存均以实际对象为准。
+mapping(string:mixed) create_shop_listing(object player,int price_flag,
+	string item_name,int count,int delay,int price,int ind)
+{
+	object state_key;
+	object item;
+	home he;
+	string master_id;
+	string item_path;
+	string old_shop;
+	mapping(string:mixed) removal;
+	int combine_item;
+	int saved;
+	if(!player || !player->query_name || !item_name || item_name=="" ||
+	   (price_flag!=0 && price_flag!=1) || count<=0 || count>20 ||
+	   !has_index(timeDelay,delay) || price<=0 || price>20000000 || ind<=0)
+		return (["ok":0,"message":"摆摊参数无效"]);
+	master_id=(string)player->query_name();
+	state_key=homeStateLock->lock();
+	he=homeDetail[master_id];
+	if(!he || !he->shop || !has_index(he->shop,ind) ||
+	   he->shop[ind]!=DEFAULT_SHOP_S){
+		destruct(state_key);
+		return (["ok":0,"message":"该摊位不存在或已经被占用"]);
+	}
+	foreach(all_inventory(player),object candidate){
+		if(candidate && candidate->query_name()==item_name &&
+		   !candidate->query_toVip()){
+			item=candidate;
+			break;
+		}
+	}
+	if(!item || (!item->is("combine_item") && count!=1)){
+		destruct(state_key);
+		return (["ok":0,"message":"物品数量或类型无效"]);
+	}
+	combine_item=(int)item->is("combine_item");
+	item_path=(file_name(item)/"#")[0];
+	if(!has_prefix(item_path,ITEM_PATH) ||
+	   !valid_shop_item_path(item_path[sizeof(ITEM_PATH)..])){
+		destruct(state_key);
+		return (["ok":0,"message":"该物品不能摆摊"]);
+	}
+	item_path=item_path[sizeof(ITEM_PATH)..];
+	if(combine_item){
+		removal=player->remove_combine_item_transaction(item_name,count);
+		if(!(int)removal["ok"]){
+			destruct(state_key);
+			return (["ok":0,"message":"你身上的物品数量不足"]);
+		}
+	}
+	else
+		item->remove();
+	// 必须先把“来源背包已经扣除”落盘，再创建摊位。反向顺序在崩溃时
+	// 会让旧人物档案仍持有物品、家园档案又持有同一份库存。
+	if(!save_function_room_player(player)){
+		if(combine_item)
+			player->rollback_combine_item_transaction(removal);
+		else{
+			mixed save_restore_err=catch{ item=clone(ITEM_PATH+item_path); };
+			if(!save_restore_err && item)
+				item->move(player);
+		}
+		destruct(state_key);
+		return (["ok":0,"message":"人物存档失败，物品没有上架"]);
+	}
+	old_shop=he->shop[ind];
+	he->shop[ind]=item_path+"#"+time()+"#"+delay+"#"+price+":"+
+		price_flag+"#0#"+count+"#";
+	saved=store_all_info_unlocked(1);
+	if(!saved){
+		he->shop[ind]=old_shop;
+		if(combine_item)
+			player->rollback_combine_item_transaction(removal);
+		else{
+			mixed restore_err=catch{ item=clone(ITEM_PATH+item_path); };
+			if(!restore_err && item)
+				item->move(player);
+		}
+		if(!save_function_room_player(player))
+			werror("[HOME-SHOP] 严重: 上架失败后人物物品恢复落盘失败 player=%s ind=%d\n",
+				master_id,ind);
+		destruct(state_key);
+		return (["ok":0,"message":"摆摊保存失败，物品已退回"]);
+	}
+	destruct(state_key);
+	return (["ok":1,"message":"摆摊成功","item_path":item_path]);
+}
+
+private int shop_inventory_amount(object player,string item_name)
+{
+	int amount;
+	if(!player || !item_name || item_name=="")
+		return 0;
+	foreach(all_inventory(player),object item){
+		if(!item || item->query_name()!=item_name || item->query_toVip())
+			continue;
+		amount+=item->is("combine_item") ? (int)item->amount : 1;
+	}
+	return amount;
+}
+
+// 取消摆摊只能由摊主本人执行。先持久化清空摊位，再精确发还物品；
+// 发还失败则恢复原摊位，避免重复点击同时从摊位和背包生成物品。
+mapping(string:mixed) cancel_shop_listing(object player,int ind)
+{
+	object state_key;
+	object item;
+	home he;
+	string master_id;
+	string old_shop;
+	string item_name;
+	string item_name_cn;
+	array(string) shop;
+	int amount;
+	int before;
+	int combine;
+	int granted;
+	if(!player || !player->query_name || ind<=0)
+		return (["ok":0,"message":"取消参数无效"]);
+	master_id=(string)player->query_name();
+	state_key=homeStateLock->lock();
+	he=homeDetail[master_id];
+	if(!he || !he->shop || !has_index(he->shop,ind)){
+		destruct(state_key);
+		return (["ok":0,"message":"该摊位不存在"]);
+	}
+	old_shop=he->shop[ind];
+	shop=old_shop/"#";
+	if(old_shop==DEFAULT_SHOP_S || sizeof(shop)<6 || shop[4]!="0" ||
+	   !valid_shop_item_path(shop[0]) || (int)shop[5]<=0 ||
+	   (int)shop[5]>20){
+		destruct(state_key);
+		return (["ok":0,"message":"该物品已经下架、售出或可领取"]);
+	}
+	amount=(int)shop[5];
+	mixed load_err=catch{ item=clone(ITEM_PATH+shop[0]); };
+	if(!load_err && item && item->is("combine_item"))
+		item->amount=amount;
+	if(load_err || !item || (!item->is("combine_item") && amount!=1) ||
+	   player->if_over_load(item)){
+		if(item) destruct(item);
+		destruct(state_key);
+		return (["ok":0,"message":"物品资料异常或你的背包已满"]);
+	}
+	item_name=(string)item->query_name();
+	item_name_cn=(string)item->query_name_cn();
+	combine=(int)item->is("combine_item");
+	before=shop_inventory_amount(player,item_name);
+	he->shop[ind]=DEFAULT_SHOP_S;
+	if(!store_all_info_unlocked(1)){
+		he->shop[ind]=old_shop;
+		destruct(item);
+		destruct(state_key);
+		return (["ok":0,"message":"取消保存失败，请稍后重试"]);
+	}
+	if(combine){
+		item->amount=amount;
+		item->move_player(master_id);
+		granted=shop_inventory_amount(player,item_name)-before==amount;
+	}
+	else
+		granted=item->move(player)==1 && environment(item)==player;
+	if(granted && !save_function_room_player(player))
+		granted=0;
+	if(!granted){
+		if(combine){
+			mapping removed=player->remove_combine_item_transaction(
+				item_name,amount);
+			if(!(int)removed["ok"])
+				werror("[HOME-SHOP] 严重: 取消失败后无法撤销背包物品 player=%s ind=%d\n",
+					master_id,ind);
+		}
+		else if(item && environment(item)==player)
+			item->remove();
+		else if(item)
+			destruct(item);
+		he->shop[ind]=old_shop;
+		if(!store_all_info_unlocked(1) || !save_function_room_player(player))
+			werror("[HOME-SHOP] 严重: 取消发还失败且摊位恢复落盘失败 player=%s ind=%d\n",
+				master_id,ind);
+		destruct(state_key);
+		return (["ok":0,"message":"物品发还失败，摊位已恢复"]);
+	}
+	destruct(state_key);
+	return (["ok":1,"message":"取消成功","item_name":item_name,
+		"item_name_cn":item_name_cn,"amount":amount]);
+}
+
+private int rollback_shop_payment(object buyer,int before_wallet,
+	int before_physical,int before_money)
+{
+	int ok=1;
+	if(!buyer)
+		return 0;
+	if(!YUSHID->rollback_yushi_payment(buyer,before_wallet,before_physical,
+	   "home_shop_rollback"))
+		ok=0;
+	int money_spent=before_money-(int)buyer->query_account();
+	if(money_spent>0)
+		buyer->add_account(money_spent);
+	return ok;
+}
+
+// 私家摊位购买的唯一写入口。客户端价格完全忽略；买家扣费先落盘，
+// 随后才把摊位标记为售出，最后发放并再次保存买家。任何普通失败都会
+// 同时恢复摊位、支付和背包；进程级故障也只能造成待补偿损失，不能铸币
+// 或复制物品。
+mapping(string:mixed) purchase_shop_listing(object buyer,string master_id,
+	int ind,string expected_listing_token)
+{
+	object state_key;
+	object item;
+	home he;
+	string old_shop;
+	string sold_shop;
+	string item_name;
+	string item_name_cn;
+	array(string) shop;
+	array(string) price_info;
+	int amount;
+	int combine;
+	int price;
+	int price_flag;
+	int delay;
+	int trade_result;
+	int before_amount;
+	int before_wallet;
+	int before_physical;
+	int before_money;
+	int delivered;
+	int rollback_ok=1;
+	if(!buyer || !buyer->query_name || !master_id || master_id=="" ||
+	   master_id==(string)buyer->query_name() || ind<=0 ||
+	   !expected_listing_token || sizeof(expected_listing_token)!=64)
+		return (["ok":0,"code":"invalid","message":"不能购买自己的摊位或参数无效"]);
+	state_key=homeStateLock->lock();
+	he=homeDetail[master_id];
+	if(!he || !he->shop || !has_index(he->shop,ind)){
+		destruct(state_key);
+		return (["ok":0,"code":"missing","message":"该摊位不存在"]);
+	}
+	old_shop=he->shop[ind];
+	if(shop_listing_token(old_shop)!=expected_listing_token){
+		destruct(state_key);
+		return (["ok":0,"code":"stale","message":"摊位商品已变化，请重新查看后购买"]);
+	}
+	shop=old_shop/"#";
+	if(old_shop==DEFAULT_SHOP_S || sizeof(shop)<6 || shop[4]!="0" ||
+	   !valid_shop_item_path(shop[0]) || (int)shop[5]<=0 ||
+	   (int)shop[5]>20){
+		destruct(state_key);
+		return (["ok":0,"code":"sold","message":"该物品已经下架或售出"]);
+	}
+	delay=(int)shop[2];
+	price_info=shop[3]/":";
+	if(!has_index(timeDelay,delay) || (int)shop[1]+delay*DAY<=time() ||
+	   sizeof(price_info)!=2 || (int)price_info[0]<=0 ||
+	   (int)price_info[0]>20000000 ||
+	   (price_info[1]!="0" && price_info[1]!="1")){
+		destruct(state_key);
+		return (["ok":0,"code":"offer","message":"该摊位报价无效或已经过期"]);
+	}
+	price=(int)price_info[0];
+	price_flag=(int)price_info[1];
+	amount=(int)shop[5];
+	mixed load_err=catch{ item=clone(ITEM_PATH+shop[0]); };
+	if(load_err || !item || (!item->is("combine_item") && amount!=1)){
+		if(item) destruct(item);
+		destruct(state_key);
+		return (["ok":0,"code":"item","message":"摊位物品资料异常"]);
+	}
+	combine=(int)item->is("combine_item");
+	if(combine)
+		item->amount=amount;
+	if(buyer->if_over_load(item)){
+		destruct(item);
+		destruct(state_key);
+		return (["ok":0,"code":"inventory","message":"你的背包已满"]);
+	}
+	item_name=(string)item->query_name();
+	item_name_cn=(string)item->query_name_cn();
+	before_amount=shop_inventory_amount(buyer,item_name);
+	before_wallet=ACCOUNT_WALLETD->query_balance(buyer);
+	before_physical=YUSHID->query_physical_all_num(buyer);
+	before_money=(int)buyer->query_account();
+	trade_result=price_flag==1 ? BUYD->do_trade(buyer,price,0,1) :
+		BUYD->do_trade(buyer,0,price,1);
+	if(trade_result!=3){
+		destruct(item);
+		destruct(state_key);
+		if(trade_result==0)
+			return (["ok":0,"code":"yushi","message":"你身上的玉石不够"]);
+		if(trade_result==1)
+			return (["ok":0,"code":"money","message":"你身上的金钱不够"]);
+		if(trade_result==2)
+			return (["ok":0,"code":"inventory","message":"你的背包已满"]);
+		return (["ok":0,"code":"payment","message":"支付失败，请稍后重试"]);
+	}
+	if(!save_function_room_player(buyer)){
+		rollback_ok=rollback_shop_payment(buyer,before_wallet,before_physical,
+			before_money) && save_function_room_player(buyer);
+		destruct(item);
+		destruct(state_key);
+		return (["ok":0,"code":"buyer_save","message":rollback_ok ?
+			"人物存档失败，费用已经退回" : "退款保存异常，请立即联系客服"]);
+	}
+	shop[4]="2";
+	sold_shop=shop[0]+"#"+shop[1]+"#"+shop[2]+"#"+shop[3]+"#2#"+
+		shop[5]+"#";
+	he->shop[ind]=sold_shop;
+	if(!store_all_info_unlocked(1)){
+		he->shop[ind]=old_shop;
+		rollback_ok=rollback_shop_payment(buyer,before_wallet,before_physical,
+			before_money) && save_function_room_player(buyer);
+		destruct(item);
+		destruct(state_key);
+		return (["ok":0,"code":"home_save","message":rollback_ok ?
+			"摊位保存失败，费用已经退回" : "退款保存异常，请立即联系客服"]);
+	}
+	if(combine){
+		item->move_player((string)buyer->query_name());
+		delivered=shop_inventory_amount(buyer,item_name)-before_amount==amount;
+	}
+	else
+		delivered=item->move(buyer)==1 && environment(item)==buyer;
+	if(delivered && save_function_room_player(buyer)){
+		destruct(state_key);
+		return (["ok":1,"code":"committed","message":"购买成功",
+			"item_name":item_name,"item_name_cn":item_name_cn,
+			"amount":amount,"price":price,"price_flag":price_flag,
+			"net_price":price*(100-get_tax(delay))/100]);
+	}
+	// 普通发放/保存失败：撤掉本次新增物品、恢复未售状态并全额退款。
+	if(combine){
+		int added=shop_inventory_amount(buyer,item_name)-before_amount;
+		if(added>0){
+			mapping removed=buyer->remove_combine_item_transaction(item_name,added);
+			if(!(int)removed["ok"])
+				rollback_ok=0;
+		}
+	}
+	else if(item && environment(item)==buyer)
+		item->remove();
+	else if(item)
+		destruct(item);
+	he->shop[ind]=old_shop;
+	if(!store_all_info_unlocked(1))
+		rollback_ok=0;
+	if(!rollback_shop_payment(buyer,before_wallet,before_physical,before_money) ||
+	   !save_function_room_player(buyer))
+		rollback_ok=0;
+	if(!rollback_ok)
+		werror("[HOME-SHOP] 严重: 购买回滚不完整 buyer=%s seller=%s ind=%d\n",
+			(string)buyer->query_name(),master_id,ind);
+	destruct(state_key);
+	return (["ok":0,"code":"delivery","message":rollback_ok ?
+		"物品发放失败，摊位和费用已经恢复" : "交易恢复异常，请立即联系客服"]);
+}
+
+mapping(string:mixed) purchase_infancy(object buyer,string infancy_path,
+	int count,int payment_kind)
+{
+	mapping(string:mixed) offer=query_infancy_offer(infancy_path);
+	object item;
+	string item_name;
+	string item_name_cn;
+	string item_unit;
+	int unit_price;
+	int yushi_cost;
+	int money_cost;
+	int before_wallet;
+	int before_physical;
+	int before_money;
+	int before_amount;
+	int trade_result;
+	int delivered;
+	int rollback_ok=1;
+	if(!buyer || !(int)offer["ok"] || count<1 || count>20 ||
+	   (payment_kind!=1 && payment_kind!=2))
+		return (["ok":0,"code":"invalid","message":"商品或购买参数无效"]);
+	unit_price=payment_kind==1 ? (int)offer["yushi"] :
+		(int)offer["money"];
+	if(unit_price<=0)
+		return (["ok":0,"code":"payment","message":"该支付方式不可用"]);
+	yushi_cost=payment_kind==1 ? unit_price*count : 0;
+	money_cost=payment_kind==2 ? unit_price*count*100 : 0;
+	mixed load_err=catch{
+		item=clone(ROOT+"/gamelib/clone/item/home/infancy/"+infancy_path);
+		item->set_amount(count);
+	};
+	if(load_err || !item || !item->is("combine_item") ||
+	   buyer->if_over_load(item)){
+		if(item) destruct(item);
+		return (["ok":0,"code":"item","message":"商品资料异常或你的背包已满"]);
+	}
+	item_name=(string)item->query_name();
+	item_name_cn=(string)item->query_name_cn();
+	item_unit=(string)item->query_unit();
+	before_amount=shop_inventory_amount(buyer,item_name);
+	before_wallet=ACCOUNT_WALLETD->query_balance(buyer);
+	before_physical=YUSHID->query_physical_all_num(buyer);
+	before_money=(int)buyer->query_account();
+	trade_result=BUYD->do_trade(buyer,yushi_cost,money_cost,1);
+	if(trade_result!=3){
+		destruct(item);
+		if(trade_result==0)
+			return (["ok":0,"code":"yushi","message":"你身上的玉石不够"]);
+		if(trade_result==1)
+			return (["ok":0,"code":"money","message":"你身上的金钱不够"]);
+		if(trade_result==2)
+			return (["ok":0,"code":"inventory","message":"你的背包已满"]);
+		return (["ok":0,"code":"payment","message":"支付失败，请稍后重试"]);
+	}
+	if(!save_function_room_player(buyer)){
+		rollback_ok=rollback_shop_payment(buyer,before_wallet,before_physical,
+			before_money) && save_function_room_player(buyer);
+		destruct(item);
+		return (["ok":0,"code":"save","message":rollback_ok ?
+			"人物存档失败，费用已经退回" : "退款保存异常，请立即联系客服"]);
+	}
+	item->move_player((string)buyer->query_name());
+	delivered=shop_inventory_amount(buyer,item_name)-before_amount==count;
+	if(delivered && save_function_room_player(buyer))
+		return (["ok":1,"code":"committed","message":"购买成功",
+			"item_name":item_name,"item_name_cn":item_name_cn,
+			"unit":item_unit,"count":count,"yushi_cost":yushi_cost,
+			"money_cost":money_cost]);
+	int added=shop_inventory_amount(buyer,item_name)-before_amount;
+	if(added>0){
+		mapping removed=buyer->remove_combine_item_transaction(item_name,added);
+		if(!(int)removed["ok"])
+			rollback_ok=0;
+	}
+	if(!rollback_shop_payment(buyer,before_wallet,before_physical,before_money) ||
+	   !save_function_room_player(buyer))
+		rollback_ok=0;
+	if(!rollback_ok)
+		werror("[HOME-SHOP] 严重: 幼年体购买回滚不完整 buyer=%s item=%s count=%d\n",
+			(string)buyer->query_name(),infancy_path,count);
+	return (["ok":0,"code":"delivery","message":rollback_ok ?
+		"商品发放失败，费用已经退回" : "交易恢复异常，请立即联系客服"]);
+}
+
 //列出可领取的物品
 string get_past_time_items(string masterId){
 	home he = homeDetail[masterId];
+	if(!he || !he->shop)
+		return "您目前并没有物品寄存在这里\n";
 	mapping shopList = he->shop;
 	int num = sizeof(shopList);
 	array shopId = indices(shopList);
@@ -3545,9 +4037,15 @@ string get_past_time_items(string masterId){
 		string shop_s = shopList[ind];
 		if(shop_s!=DEFAULT_SHOP_S){
 			array shopInfo = shop_s/"#";
+			if(sizeof(shopInfo)<6 || !valid_shop_item_path(shopInfo[0]) ||
+			   (int)shopInfo[5]<=0 || (int)shopInfo[5]>20)
+				continue;
 			string sellStatus = shopInfo[4];
 			if(sellStatus=="1"){
-				object item = (object)(ITEM_PATH+shopInfo[0]);
+				object item;
+				mixed item_err=catch{ item=(object)(ITEM_PATH+shopInfo[0]); };
+				if(item_err || !item)
+					continue;
 				/*
 				if(time_s==""){
 					s += "存放在此的"+item->query_name_cn()+"超过了7天已经被系统自动回收\n";
@@ -3559,9 +4057,16 @@ string get_past_time_items(string masterId){
 			}
 			else if(sellStatus=="2"){
 				//金钱或玉
-				array price = shopInfo[3]/":"; 
+				array price = shopInfo[3]/":";
+				if(sizeof(price)!=2 || !has_index(timeDelay,(int)shopInfo[2]) ||
+				   (price[1]!="0" && price[1]!="1") || (int)price[0]<=0 ||
+				   (int)price[0]>20000000)
+					continue;
 				int tax = get_tax((int)shopInfo[2]);
-				object item = (object)(ITEM_PATH+shopInfo[0]);
+				object item;
+				mixed item_err=catch{ item=(object)(ITEM_PATH+shopInfo[0]); };
+				if(item_err || !item)
+					continue;
 				int getYu = (int)price[0]*(100-tax)/100;
 				if(price[1]=="1"){
 					s += "您出售"+item->query_name_cn()+"获得"+YUSHID->get_yushi_for_desc((int)price[0])+"扣除"+tax+"%的所得税，您可[领取"+YUSHID->get_yushi_for_desc(getYu)+":home_get_pass_time_item "+ind+"]\n";
@@ -3581,69 +4086,160 @@ string get_past_time_items(string masterId){
 
 //获得要领取的物品
 int get_pass_time_ob(object me,int ind){
-	string masterId = me->query_name();
-	home he = homeDetail[masterId];
-	mapping shopList = he->shop;
+	object state_key;
+	string masterId;
+	home he;
+	string shopTmp;
+	array(string) shop;
+	string sellStatus;
+	string oldShop;
 	string s_log = "";
 	string c_log = "";
 	string itemName = "";
-	int yushiToRecord = 0;
-	int moneyToRecord = 0;
-	if(sizeof(shopList)){
-		string shopTmp = shopList[ind];
-		if(shopTmp!=DEFAULT_SHOP_S){
-			object item;
-			array shop = shopTmp/"#";
-			string now=ctime(time());
-			string sellStatus = shop[4];
-			mixed err = catch{
-				item = clone(ITEM_PATH+shop[0]);
-			};
-			if(!err&&item){
-				itemName = item->query_name_cn();
-			}
-			if(sellStatus=="1"){
-				if(!err&&item){
-					s_log += masterId+"领回"+item->query_name_cn()+"数量："+shop[5];
-					Stdio.append_file(ROOT+"/log/home/passtime_item.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
-					if(item->is("combine_item")){
-						item->amount = (int)shop[5];
-						item->move_player(masterId);
-						return 1;
-					}
-					else {
-						item->move(me);
-						return 1;
-					}
-				}
-			}
-			else if(sellStatus=="2"){
-				int tax = get_tax((int)shop[2]);
-				array price = shop[3]/":";
-				int getYu = (int)price[0]*(100-tax)/100;
-				if(price[1]=="1"){
-					int getResult = YUSHID->give_yushi(me,getYu);
-					yushiToRecord = (int)price[0] - getYu;
-					if(getResult){
-						s_log = masterId+"领回"+YUSHID->give_yushi(me,getYu);
-						Stdio.append_file(ROOT+"/log/home/passtime_item.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
-						c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][home_shop_sell][]["+itemName+"][1]["+ yushiToRecord  +"][0]\n";
-						Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log); 
-					}
-					return getResult;
-				}
-				else if(price[1]=="0"){
-					me->account += getYu;
-					moneyToRecord = (int)price[0] - getYu;
-					s_log = masterId+"领回"+shop[5]+"银";
-					Stdio.append_file(ROOT+"/log/home/passtime_item.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
-					c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][home_shop_sell][]["+itemName+"][1]["+ moneyToRecord  +"][0]\n";
-					Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_money_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
-					return 1;
-				}
-			}
+	string itemId = "";
+	int amount;
+	int tax;
+	int gross;
+	int net;
+	int currency;
+	int granted;
+	int grant_rolled_back=1;
+	int before_item_amount;
+	int before_money;
+	int return_combine;
+	mapping(int:int) before_yushi=([]);
+	string now=ctime(time());
+	if(!me || !me->query_name || ind<=0)
+		return 0;
+	masterId=(string)me->query_name();
+	state_key=homeStateLock->lock();
+	he=homeDetail[masterId];
+	if(!he || !he->shop || !has_index(he->shop,ind)){
+		destruct(state_key);
+		return 0;
+	}
+	shopTmp=he->shop[ind];
+	shop=shopTmp/"#";
+	if(shopTmp==DEFAULT_SHOP_S || sizeof(shop)<6 ||
+	   !valid_shop_item_path(shop[0])){
+		destruct(state_key);
+		return 0;
+	}
+	sellStatus=shop[4];
+	amount=(int)shop[5];
+	if((sellStatus!="1" && sellStatus!="2") || amount<=0 || amount>20){
+		destruct(state_key);
+		return 0;
+	}
+	if(sellStatus=="2"){
+		array(string) price=shop[3]/":";
+		if(sizeof(price)!=2 || !has_index(timeDelay,(int)shop[2]) ||
+		   (price[1]!="0" && price[1]!="1") || (int)price[0]<=0 ||
+		   (int)price[0]>20000000){
+			destruct(state_key);
+			return 0;
+		}
+		gross=(int)price[0];
+		currency=(int)price[1];
+		tax=get_tax((int)shop[2]);
+		net=gross*(100-tax)/100;
+	}
+	oldShop=shopTmp;
+	he->shop[ind]=DEFAULT_SHOP_S;
+	if(!store_all_info_unlocked(1)){
+		he->shop[ind]=oldShop;
+		destruct(state_key);
+		return 0;
+	}
+	destruct(state_key);
+	object item;
+	mixed err=catch{ item=clone(ITEM_PATH+shop[0]); };
+	if(!err && item)
+		itemName=(string)item->query_name_cn();
+	if(sellStatus=="1" && !err && item){
+		itemId=(string)item->query_name();
+		return_combine=(int)item->is("combine_item");
+		if(!item->is("combine_item") && amount!=1){
+			destruct(item);
+			item=0;
+		}
+		if(item && return_combine){
+			before_item_amount=shop_inventory_amount(me,itemId);
+			item->amount=amount;
+			item->move_player(masterId);
+			granted=shop_inventory_amount(me,itemId)-
+				before_item_amount==amount;
+		}
+		else if(item && item->move(me)==1 && environment(item)==me)
+			granted=1;
+		if(granted){
+			s_log=masterId+"领回"+itemName+"数量："+amount;
+			Stdio.append_file(ROOT+"/log/home/passtime_item.log",
+				now[0..sizeof(now)-2]+":"+s_log+"\n");
 		}
 	}
+	else if(sellStatus=="2"){
+		if(item)
+			destruct(item);
+		if(currency==1){
+			before_yushi=query_player_yushi_counts(me);
+			granted=YUSHID->give_yushi(me,net);
+		}
+		else{
+			before_money=(int)me->query_account();
+			me->add_account(net);
+			granted=1;
+		}
+		if(granted){
+			s_log=masterId+"领回"+(currency==1 ? YUSHID->get_yushi_for_desc(net) :
+				MUD_MONEYD->query_store_money_cn(net));
+			Stdio.append_file(ROOT+"/log/home/passtime_item.log",
+				now[0..sizeof(now)-2]+":"+s_log+"\n");
+			c_log="["+MUD_TIMESD->get_mysql_timedesc()+"]-["+GAME_NAME_S+"]["+
+				me->query_name()+"][home_shop_sell][]["+itemName+"][1]["+
+				(gross-net)+"][0]\n";
+			Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+
+				(currency==1 ? "_consume_" : "_money_consume_")+
+				MUD_TIMESD->get_year_month_day()+".log",c_log);
+		}
+	}
+	if(granted && save_function_room_player(me))
+		return 1;
+	if(granted && sellStatus=="1"){
+		if(return_combine){
+			mapping removed=me->remove_combine_item_transaction(
+				itemId,amount);
+			grant_rolled_back=(int)removed["ok"];
+		}
+		else if(item && environment(item)==me)
+			item->remove();
+		else
+			grant_rolled_back=0;
+	}
+	else if(granted && sellStatus=="2"){
+		if(currency==1)
+			grant_rolled_back=rollback_function_room_yushi_gain(me,
+				before_yushi);
+		else if((int)me->query_account()-before_money==net)
+			me->del_account(net);
+		else
+			grant_rolled_back=0;
+	}
+	// 发放失败时恢复可领取状态；不会再次发放已成功的款项。
+	state_key=homeStateLock->lock();
+	he=homeDetail[masterId];
+	if(he && he->shop && has_index(he->shop,ind) &&
+	   he->shop[ind]==DEFAULT_SHOP_S){
+		he->shop[ind]=oldShop;
+		if(!store_all_info_unlocked(1))
+			grant_rolled_back=0;
+	}
+	if(!save_function_room_player(me))
+		grant_rolled_back=0;
+	if(!grant_rolled_back)
+		werror("[HOME-SHOP] 严重: 领取失败回滚不完整 player=%s ind=%d\n",
+			masterId,ind);
+	destruct(state_key);
 	return 0;
 }
 
@@ -3662,7 +4258,9 @@ mapping(string:mixed) query_shop_purchase_offer(string masterId,int shopId)
 	if(shopTmp==DEFAULT_SHOP_S)
 		return (["ok":0,"message":"该摊位没有物品"]);
 	shopInfo = shopTmp/"#";
-	if(sizeof(shopInfo)<6 || shopInfo[4]!="0")
+	if(sizeof(shopInfo)<6 || shopInfo[4]!="0" ||
+	   !valid_shop_item_path(shopInfo[0]) ||
+	   (int)shopInfo[5]<=0 || (int)shopInfo[5]>20)
 		return (["ok":0,"message":"该物品已经下架或售出"]);
 	delay = (int)shopInfo[2];
 	if(!has_index(timeDelay,delay))
@@ -3671,28 +4269,42 @@ mapping(string:mixed) query_shop_purchase_offer(string masterId,int shopId)
 		return (["ok":0,"message":"该物品已经过期"]);
 	price = shopInfo[3]/":";
 	amount = (int)price[0];
-	if(sizeof(price)!=2 || amount<=0 || (price[1]!="0" && price[1]!="1"))
+	if(sizeof(price)!=2 || amount<=0 || amount>20000000 ||
+	   (price[1]!="0" && price[1]!="1"))
 		return (["ok":0,"message":"该摊位价格无效"]);
 	return (["ok":1,"message":"ok","price":amount,
-		"price_flag":(int)price[1],"time_delay":delay]);
+		"price_flag":(int)price[1],"time_delay":delay,
+		"item_amount":(int)shopInfo[5],
+		"listing_token":shop_listing_token(shopTmp)]);
 }
 
 //返回相对应的物品，针对购买者,或者是取消摆摊
-object get_shop_item(string masterId,int ind){
+object get_shop_item(string masterId,int ind,void|string expected_listing){
 	home he = homeDetail[masterId];
+	if(!he || !he->shop || ind<=0)
+		return 0;
 	mapping shopList = he->shop;
 	if(sizeof(shopList)){
 		string shopTmp = shopList[ind];
+		if(expected_listing &&
+		   shop_listing_token(shopTmp)!=expected_listing)
+			return 0;
 		if(shopTmp!=DEFAULT_SHOP_S){
 			object item;
 			array shop = shopTmp/"#";
-			if(shop[4]=="0"){
+			if(sizeof(shop)>=6 && shop[4]=="0" &&
+			   valid_shop_item_path(shop[0]) &&
+			   (int)shop[5]>0 && (int)shop[5]<=20){
 				mixed err = catch{
 					item = clone(ITEM_PATH+shop[0]);
 				};
 				if(!err&&item){
 					if(item->is("combine_item")){
 						item->amount = (int)shop[5];
+					}
+					else if((int)shop[5]!=1){
+						destruct(item);
+						return 0;
 					}
 					return item;
 				}
@@ -3703,19 +4315,40 @@ object get_shop_item(string masterId,int ind){
 }
 
 //改变标志位
-int change_flag(string masterId,int shopId,int flag){
-	if(if_have_shopLicense(masterId)){
-		home he = homeDetail[masterId];
-		mapping shopList = he->shop;
-		string shopTmp = shopList[shopId];
-		if(shopTmp!=DEFAULT_SHOP_S){
-			array shopInfo = shopTmp/"#";
-			shopInfo[4]=flag;
-			he->shop[shopId] = shopInfo[0]+"#"+shopInfo[1]+"#"+shopInfo[2]+"#"+shopInfo[3]+"#"+shopInfo[4]+"#"+shopInfo[5]+"#";
-			return 1;
-		}
+int change_flag(string masterId,int shopId,int flag,string expected_listing){
+	object state_key;
+	home he;
+	string shop_tmp;
+	string old_shop;
+	array(string) shop_info;
+	if(flag!=2)
+		return 0;
+	state_key=homeStateLock->lock();
+	he=homeDetail[masterId];
+	if(!he || !he->shop || !has_index(he->shop,shopId)){
+		destruct(state_key);
+		return 0;
 	}
-	return 0;
+	shop_tmp=he->shop[shopId];
+	shop_info=shop_tmp/"#";
+	if(!expected_listing || expected_listing=="" ||
+	   shop_tmp!=expected_listing || shop_tmp==DEFAULT_SHOP_S ||
+	   sizeof(shop_info)<6 ||
+	   shop_info[4]!="0" || !valid_shop_item_path(shop_info[0])){
+		destruct(state_key);
+		return 0;
+	}
+	old_shop=shop_tmp;
+	shop_info[4]=(string)flag;
+	he->shop[shopId]=shop_info[0]+"#"+shop_info[1]+"#"+shop_info[2]+"#"+
+		shop_info[3]+"#"+shop_info[4]+"#"+shop_info[5]+"#";
+	if(!store_all_info_unlocked(1)){
+		he->shop[shopId]=old_shop;
+		destruct(state_key);
+		return 0;
+	}
+	destruct(state_key);
+	return 1;
 }
 
 

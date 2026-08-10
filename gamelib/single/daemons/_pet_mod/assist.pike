@@ -829,7 +829,8 @@ mapping(string:mixed) query_pet_pk_fast_profile(object player,object target)
 	int uses;
 	int charge;
 	int required;
-	if(!player || !target || !target->is || !target->is("player") ||
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared" ||
+	   !player || !target || !target->is || !target->is("player") ||
 	   environment(player)!=environment(target))
 		return result;
 	species = (string)(player["/tmp/wanling/species"] || "");

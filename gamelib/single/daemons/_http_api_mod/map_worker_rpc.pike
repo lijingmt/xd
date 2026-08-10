@@ -575,7 +575,7 @@ private void handle_map_worker_local_arrival(
                (string)pending_arrival["room_path"]==room_path)
                 MAP_WORKERD->clear_local_player_arrival(userid);
             send_json(req,(["ok":1,"replayed":1,"userid":userid,
-                "room_path":room_path,
+                "epoch":epoch,"room_path":room_path,
                 "affinity":map_worker_player_affinity(player)]));
             return;
         }

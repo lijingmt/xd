@@ -11,7 +11,16 @@ int main(string|zero arg)
 	int pac_size = 0;//要扩充的大小
 	int need_yushi = 0;//所需要的玉石
 	int flag = 0;//购买标志，0：查看  1：确定购买  2:放弃购买
-	sscanf(arg,"%s %d %d %d",type,pac_size,need_yushi,flag);
+	if(!arg || sscanf(arg,"%s %d %d %d",type,pac_size,need_yushi,flag)!=4 ||
+	   (type!="beibao" && type!="cangku") || flag<0 || flag>2){
+		write("扩充参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
+	need_yushi=BUYD->query_pac_price(type,pac_size);
+	if(need_yushi<=0){
+		write("该容量规格已经下架。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(type=="beibao") tmp_s += "背包";
 	if(type=="cangku") tmp_s += "当前角色仓库";
 	if(flag==0){
@@ -23,6 +32,8 @@ int main(string|zero arg)
 		s += "那您考虑好了再来吧~\n";
 	}
 	else if(flag==1){
+		if(!me->package_expand)
+			me->package_expand=([]);
 		if(!me->package_expand[type]){
 			me->package_expand[type] = ([]);
 		}

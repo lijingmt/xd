@@ -155,14 +155,18 @@
 #define ACCOUNT_CHARACTERD ((object)(ROOT "/gamelib/single/daemons/account_characterd.pike"))
 //注册账号独立共享宝库（个人仓库保持不变）
 #define ACCOUNT_STORAGED ((object)(ROOT "/gamelib/single/daemons/account_storaged.pike"))
-//账号级山海万灵图鉴、培养、裂隙与灵宠论道
+//账号共享宠物：山海万灵图鉴、培养、裂隙与灵宠论道
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+//角色独立的本命灵伴；数据只进入该角色.o档案
+#define SPIRIT_COMPANIOND ((object)(ROOT "/gamelib/single/daemons/spirit_companiond.pike"))
 #define ACCOUNT_WALLETD ((object)(ROOT "/gamelib/single/daemons/account_walletd.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 
 #define MAP_WORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
 #define MAP_WORKER_REDIRECT_ERROR "[MAP_WORKER_REDIRECT]"
+//同房间、同 Worker 的玩家赠送与面对面交易事务
+#define PLAYER_TRANSFERD ((object)(ROOT "/gamelib/single/daemons/player_transferd.pike"))
 //每日限时原创玩法：天衡绝境（PVP）与九曜镇渊（PVE）
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 

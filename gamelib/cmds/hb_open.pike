@@ -16,9 +16,15 @@ int main(string|zero arg)
     string s="";
     string s_log="";//普通的log
     string fee_log="";//花费的统计log
-    sscanf(arg,"%s %d %d %d",hb_name,hb_count,open_type,need_num);
+    if(!arg || sscanf(arg,"%s %d %d %d",hb_name,hb_count,open_type,need_num)!=4 ||
+       hb_name!="hongbao" || hb_count<0 || open_type<0 || open_type>3 ||
+       need_num!=(open_type==0 ? 0 : 1)){
+	write("打开参数无效。\n[返回游戏:look]\n");
+	return 1;
+    }
     object hb = present(hb_name,me,hb_count);
-    if(hb)
+    string hb_path = hb ? (file_name(hb)/"#")[0] : "";
+    if(hb && hb_path==ITEM_PATH+"baoxiang/hongbao")
     {
 	int ran_item = 0;//开出装备的几率
 	int attr_num = 0;//开出装备属性个数范围的下限
@@ -83,8 +89,7 @@ int main(string|zero arg)
 		break;
 	}
 	if(open_type > 0){
-	    int have_num = YUSHID->query_yushi_num(me,open_type);
-	    if(!have_num || have_num < need_num){
+	    if(!YUSHID->have_enough_yushi(me,cost_reb)){
 		s += "打开失败！你没有足够的玉石。\n";
 		s += "\n[返回:inventory_daoju]\n";
 		s += "[返回游戏:look]\n";
@@ -104,13 +109,13 @@ int main(string|zero arg)
 	object yingyao;//影药
 	object spec;//特殊物品
 	string yushi_name = YUSHID->get_yushi_name(open_type);
-	//扣除玉石
-	if(open_type){
-	    if(yushi_name && need_num){
-		me->remove_combine_item(yushi_name,need_num);
-	    }
+	// 服务端按打开档位扣费；红包先消耗，奖励随后发放，避免异常重试重复领奖。
+	if(open_type && !YUSHID->pay_yushi(me,cost_reb)){
+	    s += "打开失败！你没有足够的玉石。\n";
+	    s += "\n[返回:inventory_daoju]\n[返回游戏:look]\n";
+	    write(s);
+	    return 1;
 	}
-	//扣除红包
 	hb->remove();
 	//获得金钱
 	if(get_money){

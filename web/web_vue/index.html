@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786238320632">
-    <link rel="stylesheet" href="css/app.css?v=v1786238320632">
-    <link rel="stylesheet" href="css/realm.css?v=v1786238320632">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786404222135">
+    <link rel="stylesheet" href="css/app.css?v=v1786404222135">
+    <link rel="stylesheet" href="css/realm.css?v=v1786404222135">
 </head>
 <body>
     <div id="app">
@@ -303,6 +303,12 @@
                                 :disabled="characterLoading"
                                 aria-label="复制本角色直达书签"
                                 title="复制直达书签：auto-browser 存为快捷入口即可一键进入本角色">📋</button>
+                        <button type="button"
+                                class="character-new-tab-btn"
+                                @click.stop="openAccountCharacterInNewTab(character.id)"
+                                :disabled="characterLoading"
+                                aria-label="在新标签登录本角色"
+                                title="在新标签登录本角色，不会重复登录当前角色">↗</button>
                     </div>
                     <button type="button"
                             class="character-card character-add"
@@ -372,7 +378,7 @@
         <template v-if="!showLogin && !showRegister && !showCharacterSelect">
             <!-- 顶部状态栏 -->
             <header class="game-header"
-                    :class="{ 'has-header-pet': !!headerPet, 'header-collapsed': headerCollapsed }"
+                    :class="{ 'has-header-pet': !!headerPetSlots, 'header-collapsed': headerCollapsed }"
                     aria-label="人物状态"
                     data-tour="player-header">
                 <button type="button"
@@ -391,20 +397,27 @@
                           role="img"
                           aria-label="人物头像">{{ playerAvatarFallback }}</span>
                 </button>
-                <button v-if="headerPet"
-                        type="button"
-                        class="header-pet-companion"
-                        :class="'pet-family-' + getPetFamilyClass(headerPet.family)"
-                        @click="sendQuickCommand('pet')"
-                        :title="headerPet.name + ' · ' + getPetCultivationLabel(headerPet) + ' · 点击打开万灵谱'"
-                        :aria-label="'随行灵宠' + headerPet.name + '，' + getPetCultivationLabel(headerPet) + '，点击打开万灵谱'">
-                    <span class="header-pet-icon" aria-hidden="true">{{ headerPet.icon || '🐾' }}</span>
-                    <span class="header-pet-rank" aria-hidden="true">★{{ headerPet.star || 1 }}</span>
-                    <span class="header-pet-copy">
-                        <strong>{{ headerPet.name }}</strong>
-                        <small>{{ getPetCultivationLabel(headerPet) }}</small>
-                    </span>
-                </button>
+                <div v-if="headerPetSlots"
+                     class="header-pet-slots"
+                     aria-label="共享宠物与本命灵伴卡位">
+                    <button v-for="slot in headerPetSlots"
+                            :key="slot.system"
+                            type="button"
+                            class="header-pet-companion"
+                            :class="[
+                                'pet-family-' + getPetFamilyClass(slot.family),
+                                'pet-system-' + slot.system,
+                                { 'is-battle-active': Number(slot.battle_active || 0) === 1,
+                                  'is-empty': Number(slot.active || 0) !== 1 }
+                            ]"
+                            @click="sendQuickCommand(slot.command)"
+                            :title="getPetSlotTitle(slot)"
+                            :aria-label="getPetSlotTitle(slot)">
+                        <span class="header-pet-system" aria-hidden="true">{{ slot.system === 'personal' ? '命' : '共' }}</span>
+                        <span class="header-pet-icon" aria-hidden="true">{{ slot.icon || (slot.system === 'personal' ? '✦' : '🐾') }}</span>
+                        <span class="header-pet-state" aria-hidden="true">{{ Number(slot.active || 0) !== 1 ? '未' : (Number(slot.battle_active || 0) === 1 ? '战' : '藏') }}</span>
+                    </button>
+                </div>
                 <!-- 折叠/展开按钮：放在头像和信息之间 -->
                 <button type="button"
                         class="header-collapse-btn"
@@ -925,9 +938,9 @@
                             <span class="battle-name">{{ battlePlayerFull?.name_cn || playerStats?.name_cn || loginForm.userid }}</span>
                             <span class="battle-level">Lv.{{ battlePlayerFull?.level ?? playerStats?.level ?? 0 }}</span>
                         </div>
-                        <div v-if="battlePet"
-                             class="battle-pet-companion battle-pet-companion-mini"
-                             :class="['pet-family-' + getPetFamilyClass(battlePet.family), { 'is-ready': battlePet.cooldown_remaining <= 0 }]"
+                            <div v-if="battlePet"
+                                 class="battle-pet-companion battle-pet-companion-mini"
+                             :class="['pet-family-' + getPetFamilyClass(battlePet.family), 'pet-system-' + (battlePet.system || 'shared'), { 'is-ready': battlePet.cooldown_remaining <= 0 }]"
                              :title="battlePet.name + ' · ' + battlePet.skill + ' · ' + getPetAssistStatus(battlePet)">
                             <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                             <span class="battle-pet-info">
@@ -1104,7 +1117,7 @@
                             </div>
                             <div v-if="battlePet"
                                  class="battle-pet-companion battle-pet-companion-full"
-                                 :class="['pet-family-' + getPetFamilyClass(battlePet.family), { 'is-ready': battlePet.cooldown_remaining <= 0 }]">
+                             :class="['pet-family-' + getPetFamilyClass(battlePet.family), 'pet-system-' + (battlePet.system || 'shared'), { 'is-ready': battlePet.cooldown_remaining <= 0 }]">
                                 <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
                                 <span class="battle-pet-info">
                                     <strong>{{ battlePet.name }} · {{ battlePet.role }} · {{ getPetCultivationLabel(battlePet) }}</strong>
@@ -1499,7 +1512,8 @@
                             <span>{{ playerStats?.timed_event?.phase === 'signup' ? '⏳' : '⚖️' }}</span>限时玩法
                         </button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_term')"><span>👥</span>队伍</button>
-                        <button class="quick-tool-btn" @click="sendQuickCommand('pet')"><span>🐾</span>万灵</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('pet')"><span>🐾</span>共享宠物</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('spirit_companion')"><span>✦</span>本命灵伴</button>
                         <button class="quick-tool-btn" data-tour="warehouse" @click="sendQuickCommand('go_warehouse')"><span>🧰</span>仓库</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('yushi_change')"><span>💎</span>玉石</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_bang')"><span>🏰</span>帮派</button>
@@ -1565,19 +1579,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786238320632"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786238320632"></script>
-    <script src="vendor/howler.core.min.js?v=v1786238320632"></script>
-    <script src="vendor/driver.iife.js?v=v1786238320632"></script>
-    <script src="../includes/game-number-format.js?v=v1786238320632" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786404222135"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786404222135"></script>
+    <script src="vendor/howler.core.min.js?v=v1786404222135"></script>
+    <script src="vendor/driver.iife.js?v=v1786404222135"></script>
+    <script src="../includes/game-number-format.js?v=v1786404222135" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786238320632';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786404222135';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786238320632"></script>
+    <script src="js/app.js?v=v1786404222135"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786238320632"></script>
+    <script src="../includes/translate.js?v=v1786404222135"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

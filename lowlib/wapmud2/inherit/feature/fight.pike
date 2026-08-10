@@ -8,6 +8,7 @@
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+#define SPIRIT_COMPANIOND ((object)(ROOT "/gamelib/single/daemons/spirit_companiond.pike"))
 #define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
@@ -850,13 +851,23 @@ mapping query_pk_fast_decision_simulation(object target){
 		me,target,me_profile,target_profile);
 	target_damage = query_pk_fast_damage_profile(
 		target,me,target_profile,me_profile);
-	me_pet = PETD->query_pet_pk_fast_profile(me,target);
-	target_pet = PETD->query_pet_pk_fast_profile(target,me);
-	if(me_pet["active"] && me_pet["type"]=="mofa")
-		me_profile["pet_score"] = (int)me_pet["amount"]*
+	me_pet = SPIRIT_COMPANIOND->query_pet_battle_source(me)=="personal" ?
+		SPIRIT_COMPANIOND->query_spirit_companion_pk_fast_profile(me,target) :
+		PETD->query_pet_pk_fast_profile(me,target);
+	target_pet = SPIRIT_COMPANIOND->query_pet_battle_source(target)==
+		"personal" ?
+		SPIRIT_COMPANIOND->query_spirit_companion_pk_fast_profile(target,me) :
+		PETD->query_pet_pk_fast_profile(target,me);
+	if(me_pet["active"] && (me_pet["type"]=="mofa" ||
+	   me_pet["secondary_type"]=="mofa"))
+		me_profile["pet_score"] = (int)(me_pet["secondary_type"]=="mofa" ?
+			me_pet["secondary_amount"] : me_pet["amount"])*
 			(int)me_pet["remaining_uses"]*2;
-	if(target_pet["active"] && target_pet["type"]=="mofa")
-		target_profile["pet_score"] = (int)target_pet["amount"]*
+	if(target_pet["active"] && (target_pet["type"]=="mofa" ||
+	   target_pet["secondary_type"]=="mofa"))
+		target_profile["pet_score"] = (int)(
+			target_pet["secondary_type"]=="mofa" ?
+			target_pet["secondary_amount"] : target_pet["amount"])*
 			(int)target_pet["remaining_uses"]*2;
 	me_profile["effective_damage"] = me_damage["damage"];
 	target_profile["effective_damage"] = target_damage["damage"];
@@ -940,8 +951,12 @@ mapping query_pk_fast_decision_simulation(object target){
 		target_life += target_profile["heal"];
 		if(me_pet_trigger && me_pet["type"]=="heal")
 			me_life += (int)me_pet["amount"];
+		if(me_pet_trigger && me_pet["secondary_type"]=="heal")
+			me_life += (int)me_pet["secondary_amount"];
 		if(target_pet_trigger && target_pet["type"]=="heal")
 			target_life += (int)target_pet["amount"];
+		if(target_pet_trigger && target_pet["secondary_type"]=="heal")
+			target_life += (int)target_pet["secondary_amount"];
 		if(me_life>me_profile["life_max"])
 			me_life = me_profile["life_max"];
 		if(target_life>target_profile["life_max"])
@@ -1126,6 +1141,8 @@ void _clean_fight(){
 	this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
 	if(this_object()->is("player"))
 		PETD->reset_pet_combat_state(this_object());
+	if(this_object()->is("player"))
+		SPIRIT_COMPANIOND->reset_spirit_companion_combat_state(this_object());
 	this_object()->clean_tianxiang_star_marks();
 	this_object()->clean_lingyi_medicine_pacts();
 	if(this_object()->is("npc")){
@@ -3984,12 +4001,16 @@ private void heart_beat_action(){
 	}
 	else{
 		this_object()->timeCount++;
-		// 通用万灵不生成NPC；PVE按冷却协战，PVP按回合充能且每场限次。
+		// 共享宠物与本命灵伴共用唯一战斗位，不能叠加协战。
 		if(this_object()->is("player")){
-			PETD->perform_pet_combat_assist(this_object(),enemy);
-			// 山海万灵基础灵攻：每回合（每心跳）都可触发的免费小技能，
-			// 与主灵技冷却独立，仅 PVE 生效，提供宠物持续参与感。
-			PETD->perform_pet_basic_assist(this_object(),enemy);
+			if(SPIRIT_COMPANIOND->query_pet_battle_source(
+			   this_object())=="personal")
+				SPIRIT_COMPANIOND->perform_spirit_companion_combat_assist(
+					this_object(),enemy);
+			else{
+				PETD->perform_pet_combat_assist(this_object(),enemy);
+				PETD->perform_pet_basic_assist(this_object(),enemy);
+			}
 			// 灵医百草助手常态化：未挂机时也按 PVE 上下文自动施法。
 			// 挂机模式下 flushview 周期已处理，函数内部会跳过避免重复。
 			PROFESSIONVIPD->try_lingyi_active_combat_assist(this_object());

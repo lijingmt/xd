@@ -169,6 +169,49 @@ int main()
 			same_after["deliver"] && same_after["replace"],
 			"跨worker移动可能漏到达、双执行或返回旧画面");
 
+		mapping arrival_proof = (["ok":1,"userid":"xd01hero",
+			"epoch":7,"affinity":"wugongdong",
+			"room_path":"/gamelib/d/wugongdong/wugongchao"]);
+		check("后台到达用完整可信回执清凭证且拒绝任一字段漂移",
+			httpd->test_pike_gateway_arrival_proof(arrival_proof,
+				"xd01hero",7,"wugongdong",
+				"/gamelib/d/wugongdong/wugongchao") &&
+			!httpd->test_pike_gateway_arrival_proof(arrival_proof,
+				"xd01other",7,"wugongdong",
+				"/gamelib/d/wugongdong/wugongchao") &&
+			!httpd->test_pike_gateway_arrival_proof(arrival_proof,
+				"xd01hero",8,"wugongdong",
+				"/gamelib/d/wugongdong/wugongchao") &&
+			source_has(gateway,
+				"pike_gateway_acknowledge_arrival_proof(userid,worker_id") &&
+			source_has(rpc,"\"epoch\":epoch,\"room_path\":room_path"),
+			"重复local_route探针可能在懒加载时超时，或伪回执清除错误epoch");
+
+		check("健康心跳与慢维护分线程且各Worker并行有界探测",
+			source_has(gateway,"pike_gateway_monitor_farm = Thread.Farm()") &&
+			source_has(gateway,"set_max_num_threads(worker_count)") &&
+			source_has(gateway,"pike_gateway_monitor_all_workers()") &&
+			source_has(gateway,"pike_gateway_maintenance_loop") &&
+			source_has(gateway,
+				"pike_gateway_maintenance_thread = Thread.Thread(") &&
+			source_has(gateway,
+				"pike_gateway_last_monitor_completed_at"),
+			"到达重试、社交或在线快照可能串行阻塞全部Worker控制心跳");
+
+		check("并行探测遇到Worker重启时原子发布generation并丢弃旧结果",
+			httpd->test_pike_gateway_monitor_generation_current(7,7) &&
+			!httpd->test_pike_gateway_monitor_generation_current(7,8) &&
+			!httpd->test_pike_gateway_monitor_generation_current(0,0) &&
+			source_has(gateway,
+				"mapping(string:int) next_generations = ([])") &&
+			source_has(gateway,
+				"pike_gateway_generations = next_generations") &&
+			source_has(gateway,
+				"pike_gateway_monitor_generation_current(generation") &&
+			source_has(gateway,
+				"concurrent successful global recovery supersedes"),
+			"旧generation的迟到探测可能把已经恢复的健康Worker再次标成失联");
+
 		check("Gateway嵌入coordinator且不再启动Python常驻进程",
 			source_has(daemon,"#include \"_http_api_mod/pike_gateway.pike\"") &&
 			source_has(daemon,"call_out(init_pike_gateway, 1)") &&

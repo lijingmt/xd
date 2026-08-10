@@ -23,7 +23,9 @@ private multiset(string) pike_gateway_hop_headers = (<
 
 private Protocols.HTTP.Server.Port pike_gateway_public_port;
 private object pike_gateway_request_farm;
+private object pike_gateway_monitor_farm;
 private object pike_gateway_controller_thread;
+private object pike_gateway_maintenance_thread;
 private Thread.Mutex pike_gateway_state_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_identity_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_account_resolver_lock = Thread.Mutex();
@@ -73,6 +75,8 @@ private int pike_gateway_failed_requests;
 private int pike_gateway_rejected_requests;
 private int pike_gateway_started_at;
 private int pike_gateway_last_monitor_at;
+private int pike_gateway_last_monitor_completed_at;
+private int pike_gateway_last_online_publish_at;
 private int pike_gateway_last_handoff_at;
 private int pike_gateway_last_auction_at;
 private int pike_gateway_last_social_at;
@@ -275,6 +279,37 @@ private int pike_gateway_team_mutation_command(string command)
 		"term_leave","term_release","term_changeleader"}),verb);
 }
 
+/** Commands whose final mutation can touch two live character archives. */
+private mapping(string:string) pike_gateway_player_transfer_target(
+	string command,string actor_userid)
+{
+	array(string) parts=(command || "")/" ";
+	string verb;
+	string target_userid;
+	parts-=({""});
+	if(sizeof(parts)<2)
+		return ([]);
+	verb=lower_case(parts[0]);
+	if(!has_value(({"trade","trade_daoju","sendother","sendother_to",
+	   "sendother_daoju","sendother_daoju_to","sendother_ok"}),verb))
+		return ([]);
+	target_userid=lower_case(String.trim_all_whites(parts[1]));
+	if(!pike_gateway_valid_userid(target_userid) ||
+	   target_userid==lower_case(actor_userid || ""))
+		return ([]);
+	return (["userid":target_userid,
+		"account_id":pike_gateway_resolve_account(target_userid),
+		"kind":"player_transfer"]);
+}
+
+private int pike_gateway_same_player_transfer_target(mapping first,
+	mapping second)
+{
+	return mappingp(first) && mappingp(second) && sizeof(first) &&
+		sizeof(second) && (string)first["userid"]==(string)second["userid"] &&
+		(string)first["account_id"]==(string)second["account_id"];
+}
+
 private mapping(string:mixed) pike_gateway_admin_recharge_target(
 	string command)
 {
@@ -455,6 +490,18 @@ mapping test_pike_gateway_migration_plan(string source_worker,
 	mapping migration,int before_command)
 {
 	return pike_gateway_migration_plan(source_worker,migration,before_command);
+}
+
+int test_pike_gateway_arrival_proof(mapping proof,string userid,int epoch,
+	string affinity,string room_path)
+{
+	return pike_gateway_arrival_proof_matches(proof,userid,epoch,affinity,
+		room_path);
+}
+
+int test_pike_gateway_monitor_generation_current(int observed,int current)
+{
+	return pike_gateway_monitor_generation_current(observed,current);
 }
 
 string test_pike_gateway_registration(string command)
@@ -895,6 +942,19 @@ private void pike_gateway_set_worker_reachable(string worker_id,int reachable)
 	destruct(key);
 }
 
+private int pike_gateway_worker_generation(string worker_id)
+{
+	object key = pike_gateway_state_lock->lock();
+	int generation = pike_gateway_generations[worker_id];
+	destruct(key);
+	return generation;
+}
+
+private int pike_gateway_monitor_generation_current(int observed,int current)
+{
+	return observed>0 && observed==current;
+}
+
 private void pike_gateway_observe_account_response(string path,
 	string request_token,mapping response)
 {
@@ -1044,6 +1104,7 @@ private void pike_gateway_quarantine_uncertain(string worker_id,
 
 private void pike_gateway_register_all()
 {
+	mapping(string:int) next_generations = ([]);
 	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 		mapping result = MAP_WORKERD->register_worker(worker_id,
 			"http://127.0.0.1:"+(string)pike_gateway_worker_ports[worker_id],
@@ -1051,8 +1112,14 @@ private void pike_gateway_register_all()
 			"pike-gateway-"+pike_gateway_controller_nonce+"-"+worker_id);
 		if(!(int)result["ok"])
 			error("cannot register worker "+worker_id+"\n");
-		pike_gateway_generations[worker_id] = (int)result["generation"];
+		next_generations[worker_id] = (int)result["generation"];
 	}
+	// register_worker changes the coordinator generation one worker at a time.
+	// Publish the matching local view only after the complete registration pass
+	// succeeds, so parallel monitors never observe a half-old/half-new mapping.
+	object key = pike_gateway_state_lock->lock();
+	pike_gateway_generations = next_generations;
+	destruct(key);
 }
 
 private void pike_gateway_sync_catalog_unlocked()
@@ -1585,6 +1652,34 @@ private void pike_gateway_acknowledge_arrival(string userid,string worker_id,
 		error("coordinator arrival acknowledgement failed\n");
 }
 
+private int pike_gateway_arrival_proof_matches(mapping proof,string userid,
+	int epoch,string affinity,string room_path)
+{
+	return mappingp(proof) && (int)proof["ok"] &&
+		(string)proof["userid"]==userid &&
+		(int)proof["epoch"]==epoch &&
+		(string)proof["affinity"]==affinity &&
+		(string)proof["room_path"]==room_path;
+}
+
+/**
+ * local_arrival already returned a trusted loopback proof after restoring,
+ * moving and saving the exact epoch-owned player. Do not issue a redundant
+ * local_route RPC here: under lazy-load pressure that second probe can time
+ * out, retain the durable arrival and turn browser polling into a retry storm.
+ */
+private void pike_gateway_acknowledge_arrival_proof(string userid,
+	string worker_id,int epoch,string affinity,string room_path,mapping proof)
+{
+	if(!pike_gateway_arrival_proof_matches(proof,userid,epoch,affinity,
+	   room_path))
+		error("worker arrival proof mismatch\n");
+	mapping acknowledged = MAP_WORKERD->acknowledge_player_arrival(userid,
+		worker_id,epoch,affinity);
+	if(!(int)acknowledged["ok"])
+		error("coordinator arrival acknowledgement failed\n");
+}
+
 private mixed pike_gateway_reconcile(string userid,string source_worker,
 	int source_epoch,string leased_affinity,int require_settled)
 {
@@ -1803,6 +1898,7 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 	string registration_user = "";
 	string command_kind = "general";
 	mapping admin_target = ([]);
+	mapping player_transfer_target = ([]);
 	mapping proxied;
 	object user_key;
 	object auction_key;
@@ -1895,6 +1991,30 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				game_command = confirmed_command;
 				admin_target = confirmed_target;
 			}
+			player_transfer_target=pike_gateway_player_transfer_target(
+				game_command,userid);
+			if(sizeof(player_transfer_target) && !sizeof(admin_target)){
+				// Upgrade the actor-only gateway fence to stable two-account
+				// ownership before the worker touches the counterparty archive.
+				destruct(user_key);
+				user_key=0;
+				all_account_keys=pike_gateway_lock_user_pair(userid,account_id,
+					(string)player_transfer_target["userid"],
+					(string)player_transfer_target["account_id"]);
+				pike_gateway_ensure_routing_ready();
+				route=pike_gateway_materialize_route_arrival(userid,account_id,
+					pike_gateway_route_user(userid));
+				string confirmed_command=pike_gateway_resolve_routed_command(
+					(string)route["worker_id"],userid,(int)route["epoch"],
+					pike_gateway_extract_command(params));
+				mapping confirmed_target=
+					pike_gateway_player_transfer_target(confirmed_command,userid);
+				if(!pike_gateway_same_player_transfer_target(
+				   player_transfer_target,confirmed_target))
+					error("player transfer target changed during lock upgrade\n");
+				game_command=confirmed_command;
+				player_transfer_target=confirmed_target;
+			}
 			if(pike_gateway_auction_command(game_command))
 				auction_key = pike_gateway_auction_lock->lock();
 			if(pike_gateway_team_mutation_command(game_command)){
@@ -1905,8 +2025,9 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			}
 			command_kind = sizeof(admin_target) ?
 				(string)admin_target["kind"] :
+				(sizeof(player_transfer_target) ? "player_transfer" :
 				(pike_gateway_auction_command(game_command) ?
-				"auction" : "gameplay");
+				"auction" : "gameplay"));
 			string worker_id = (string)route["worker_id"];
 			int epoch = (int)route["epoch"];
 			string leased_affinity = (string)route["affinity"];
@@ -2285,7 +2406,7 @@ private void pike_gateway_monitor_worker(string worker_id)
 {
 	mapping metrics;
 	mapping heartbeat;
-	int generation = pike_gateway_generations[worker_id];
+	int generation = pike_gateway_worker_generation(worker_id);
 	mixed monitor_err = catch {
 		metrics = pike_gateway_collect_worker_metrics(worker_id);
 		if(generation<1)
@@ -2293,14 +2414,22 @@ private void pike_gateway_monitor_worker(string worker_id)
 		heartbeat = MAP_WORKERD->heartbeat_worker(worker_id,generation,metrics);
 		if((string)heartbeat["code"]=="stale_generation"){
 			object recovery_key = pike_gateway_recovery_lock->lock();
-			pike_gateway_pause_routing();
-			mixed recovery_err = catch {
-				pike_gateway_register_all();
-				pike_gateway_sync_catalog();
-				pike_gateway_recover_local_players();
-			};
-			if(!recovery_err)
-				pike_gateway_resume_routing();
+			mixed recovery_err;
+			// A preceding monitor may already have completed the global
+			// generation recovery while this job waited for the mutex. In that
+			// case this old heartbeat result is superseded and must not register
+			// every worker a second time.
+			if(pike_gateway_monitor_generation_current(generation,
+			   pike_gateway_worker_generation(worker_id))){
+				pike_gateway_pause_routing();
+				recovery_err = catch {
+					pike_gateway_register_all();
+					pike_gateway_sync_catalog();
+					pike_gateway_recover_local_players();
+				};
+				if(!recovery_err)
+					pike_gateway_resume_routing();
+			}
 			destruct(recovery_key);
 			if(recovery_err)
 				error(describe_error(recovery_err));
@@ -2332,7 +2461,11 @@ private void pike_gateway_monitor_worker(string worker_id)
 			}
 		}
 	};
-	if(monitor_err){
+	// A concurrent successful global recovery supersedes every result obtained
+	// with the old generation. Do not let its late error mark the new worker
+	// generation unreachable.
+	if(monitor_err && pike_gateway_monitor_generation_current(generation,
+	   pike_gateway_worker_generation(worker_id))){
 		pike_gateway_set_worker_reachable(worker_id,0);
 		object key = pike_gateway_state_lock->lock();
 		pike_gateway_last_error = "monitor "+worker_id+": "+
@@ -2347,6 +2480,38 @@ private void pike_gateway_monitor_worker(string worker_id)
 		if(has_prefix(pike_gateway_last_error,prefix))
 			pike_gateway_last_error = "";
 		destruct(key);
+	}
+}
+
+/**
+ * Worker control heartbeats are independent control-plane operations. Run one
+ * bounded monitor job per worker so a slow map process cannot make healthy
+ * siblings wait serially long enough to lose their own control leases.
+ */
+private void pike_gateway_monitor_all_workers()
+{
+	array(object) futures = ({});
+	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+		mixed schedule_err = catch {
+			futures += ({pike_gateway_monitor_farm->run(
+				pike_gateway_monitor_worker,worker_id)});
+		};
+		if(schedule_err){
+			pike_gateway_set_worker_reachable(worker_id,0);
+			object key = pike_gateway_state_lock->lock();
+			pike_gateway_last_error = "monitor schedule "+worker_id+": "+
+				describe_error(schedule_err);
+			destruct(key);
+		}
+	}
+	foreach(futures,object future){
+		mixed monitor_err = catch { future->get(); };
+		if(monitor_err){
+			object key = pike_gateway_state_lock->lock();
+			pike_gateway_last_error = "monitor farm: "+
+				describe_error(monitor_err);
+			destruct(key);
+		}
 	}
 }
 
@@ -2422,8 +2587,8 @@ private void pike_gateway_deliver_background_arrival(string userid,
 	if((string)confirmed["arrival_room"]!=room_path ||
 	   (string)result["affinity"]!=(string)confirmed["affinity"])
 		error("background arrival route mismatch\n");
-	pike_gateway_acknowledge_arrival(userid,worker_id,epoch,
-		(string)confirmed["affinity"],room_path);
+	pike_gateway_acknowledge_arrival_proof(userid,worker_id,epoch,
+		(string)confirmed["affinity"],room_path,result);
 	confirmed = pike_gateway_confirmed_route(userid,worker_id,epoch);
 	if((string)confirmed["arrival_room"]!="")
 		error("background arrival remains pending\n");
@@ -2750,14 +2915,43 @@ private void pike_gateway_controller_loop()
 				pike_gateway_shadow ? "shadow" : "active",
 				sizeof(pike_gateway_worker_ports));
 		}
-		pike_gateway_resolve_uncertain_requests();
 		int now = time();
 		if(now-pike_gateway_last_monitor_at>=5){
 			pike_gateway_last_monitor_at = now;
-			foreach(sort(indices(pike_gateway_worker_ports)),string worker_id)
-				pike_gateway_monitor_worker(worker_id);
-			pike_gateway_publish_online_snapshot();
+			pike_gateway_monitor_all_workers();
+			object key = pike_gateway_state_lock->lock();
+			pike_gateway_last_monitor_completed_at = time();
+			destruct(key);
 		}
+		sleep(0.25);
+	}
+}
+
+/**
+ * Potentially slow arrival, social, snapshot and recovery work must never
+ * share the heartbeat loop. One maintenance thread preserves their existing
+ * ordering while the monitor farm continues renewing worker control leases.
+ */
+private void pike_gateway_maintenance_loop()
+{
+	while(!pike_gateway_stop){
+		if(!pike_gateway_controller_ready){
+			sleep(0.25);
+			continue;
+		}
+		pike_gateway_resolve_uncertain_requests();
+		int now = time();
+		int publish_online;
+		object publish_key = pike_gateway_state_lock->lock();
+		if(pike_gateway_last_monitor_completed_at>
+		   pike_gateway_last_online_publish_at){
+			pike_gateway_last_online_publish_at =
+				pike_gateway_last_monitor_completed_at;
+			publish_online = 1;
+		}
+		destruct(publish_key);
+		if(publish_online)
+			pike_gateway_publish_online_snapshot();
 		if(pike_gateway_routing_ready &&
 		   now-pike_gateway_last_handoff_at>=1){
 			pike_gateway_last_handoff_at = now;
@@ -2831,10 +3025,14 @@ void init_pike_gateway()
 	pike_gateway_request_farm = Thread.Farm();
 	pike_gateway_request_farm->set_max_num_threads(
 		min(64,max(8,pike_gateway_max_requests)));
+	pike_gateway_monitor_farm = Thread.Farm();
+	pike_gateway_monitor_farm->set_max_num_threads(worker_count);
 	pike_gateway_started_at = time();
 	pike_gateway_enabled = 1;
 	pike_gateway_controller_thread = Thread.Thread(
 		pike_gateway_controller_loop);
+	pike_gateway_maintenance_thread = Thread.Thread(
+		pike_gateway_maintenance_loop);
 	werror("[PIKE_GATEWAY] embedded controller starting; mode=%s workers=%d\n",
 		pike_gateway_shadow ? "shadow" : "active",worker_count);
 }

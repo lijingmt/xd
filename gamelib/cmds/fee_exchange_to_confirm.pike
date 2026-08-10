@@ -11,8 +11,11 @@ int main(string|zero arg)
 	string to_user = "";
 	string s = "";
 	string arg_tail = "";
-	werror("----"+arg+"----\n");
-	sscanf(arg,"%d %s tn=%s fe=%d",fg,to_game,to_user,ante_fee);
+	if(!arg || sscanf(arg,"%d %s tn=%s fe=%d",fg,to_game,to_user,ante_fee)!=4 ||
+	   (fg!=0 && fg!=1) || to_game!="qp0" || ante_fee<=0 || ante_fee>100){
+		write("兑换参数无效。\n[返回:fee_exchange_to_list]\n[返回游戏:look]\n");
+		return 1;
+	}
 	sscanf(arg,"%d %s",fg,arg_tail);
 	to_user = filter_msg(to_user);
 	if(sizeof(to_user)<2 || sizeof(to_user)>11 || check_name(to_user) == 0)
@@ -26,8 +29,12 @@ int main(string|zero arg)
 	}
 	else{
 		int ante_real = ante_fee*10;
-		if(YUSHID->query_yushi_num(me,2)<ante_fee)
+		if(YUSHID->query_yushi_num(me,2)<ante_fee){
 			s += "你身上没有这么多的玉石\n";
+			tell_object(me,s);
+			me->command("fee_exchange_to_detail "+to_game);
+			return 1;
+		}
 		if(ante_fee>100)
 			s += "每个玩家每天只能兑换100个仙缘玉\n------\n";
 		else{
@@ -43,13 +50,30 @@ int main(string|zero arg)
 				s += "[重新输入:fee_exchange_to_detail "+to_game+"]\n";
 			}
 			else{
+				int old_once=(int)me->get_once_day["fee_to_qp"];
+				mapping(string:mixed) removal=
+					me->remove_combine_item_transaction("xianyuanyu",ante_fee);
+				if(!(int)removal["ok"]){
+					write("兑换失败！仙缘玉扣除未完成。\n[返回游戏:look]\n");
+					return 1;
+				}
+				me->get_once_day["fee_to_qp"]=1;
+				if(!me->save_with_result()){
+					me->get_once_day["fee_to_qp"]=old_once;
+					me->rollback_combine_item_transaction(removal);
+					write("人物存档失败，仙缘玉没有兑换。\n[返回游戏:look]\n");
+					return 1;
+				}
 				int rtn = FEE_EXCHANGED->exchange_to(me,to_game,to_user,ante_real);
 				if(rtn){
 					s += "兑换成功！对方账号可在兑换的领取处领取\n";
-					me->remove_combine_item("xianyuanyu",ante_fee);
-					me->get_once_day["fee_to_qp"]=1;
 				}
 				else{
+					me->get_once_day["fee_to_qp"]=old_once;
+					me->rollback_combine_item_transaction(removal);
+					if(!me->save_with_result())
+						werror("[FEE-EXCHANGE] 严重: 兑换失败后人物回滚落盘失败 player=%s amount=%d\n",
+							(string)me->query_name(),ante_fee);
 					s += "兑换失败！无法完成这笔交易\n";
 				}
 			}
