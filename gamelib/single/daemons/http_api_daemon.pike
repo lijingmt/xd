@@ -97,6 +97,7 @@ string normalize_http_client_ip(string address)
 #include "_http_api_mod/rate_limit.pike"
 #include "_http_api_mod/account_characters.pike"
 #include "_http_api_mod/equipment_panel.pike"
+#include "_http_api_mod/pike_gateway.pike"
 #include "_http_api_mod/map_worker_rpc.pike"
 
 // ========================================================================
@@ -221,6 +222,10 @@ protected void create()
     // Distributed workers self-fence before the coordinator can reassign an
     // expired owner. Standalone servers return immediately in this check.
     call_out(enforce_map_worker_control_fence, 2);
+    // The coordinator also owns the transparent public Pike gateway. Shadow
+    // mode starts only its control loop and deliberately leaves port 8888 to
+    // the legacy standalone process.
+    call_out(init_pike_gateway, 1);
 }
 
 void start_server()
@@ -530,6 +535,8 @@ private mapping complete_map_worker_arrival(object player,string userid)
         if(!functionp(player->complete_static_worker_arrival) ||
            !player->complete_static_worker_arrival(
                 (string)arrival["room_path"])){
+            werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=move epoch=%d\n",
+                userid,(int)arrival["epoch"]);
             remove_virtual_connection(userid);
             MAP_WORKERD->clear_local_player_arrival(userid);
             if(functionp(player->discard_stale_worker_copy))
@@ -543,6 +550,8 @@ private mapping complete_map_worker_arrival(object player,string userid)
         affinity = room ? MAP_WORKERD->query_affinity_key(file_name(room),"") : "";
     }
     if(affinity!=(string)arrival["affinity"]){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=affinity epoch=%d\n",
+            userid,(int)arrival["epoch"]);
         remove_virtual_connection(userid);
         MAP_WORKERD->clear_local_player_arrival(userid);
         if(functionp(player->discard_stale_worker_copy))
@@ -553,7 +562,9 @@ private mapping complete_map_worker_arrival(object player,string userid)
             "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
     }
     if(functionp(player->consume_worker_summon_handoff) &&
-       !player->consume_worker_summon_handoff()){
+       !player->consume_worker_summon_handoff(1)){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=summon_save epoch=%d\n",
+            userid,(int)arrival["epoch"]);
         remove_virtual_connection(userid);
         MAP_WORKERD->clear_local_player_arrival(userid);
         if(functionp(player->discard_stale_worker_copy))
@@ -564,8 +575,13 @@ private mapping complete_map_worker_arrival(object player,string userid)
             "output":"{\"error\":\"跨地图召唤状态落盘失败，请重试\"}"]);
     }
     output = execute_internal_command(player,"look");
-    err = catch { saved = player->save_with_result(0); };
+    // The authenticated gateway already committed this exact target epoch and
+    // room capability. This is the target's one mandatory arrival save, so it
+    // must remain valid while a control heartbeat is rolling over.
+    err = catch { saved = player->save_with_result(0,1); };
     if(err || !saved){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=save epoch=%d error=%s\n",
+            userid,(int)arrival["epoch"],err ? describe_error(err) : "false");
         remove_virtual_connection(userid);
         MAP_WORKERD->clear_local_player_arrival(userid);
         if(functionp(player->discard_stale_worker_copy))
@@ -756,7 +772,19 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 req->request_headers["x-xiand-lease-userid"] || "")),
             (int)(req->request_headers["x-xiand-lease-epoch"] || "0"),
             lower_case(String.trim_all_whites(
-                req->request_headers["x-xiand-command-kind"] || "general")));
+                req->request_headers["x-xiand-command-kind"] || "general")),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-userid"] || "")),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-account"] || "")),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-worker"] || "")),
+            (int)(req->request_headers["x-xiand-admin-target-epoch"] || "0"),
+            (int)(req->request_headers["x-xiand-admin-fee"] || "0"),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-recharge-request"] || "")),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-capability"] || "")));
         if(!(int)request_begin["ok"]){
             send_json(req,(["error":"worker request fence rejected",
                 "code":request_begin["code"]]),409);
@@ -1062,24 +1090,39 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             return;
         }
 
-        // 解析参数: Vue发送 login_regnew gamenv xd01username password sid challenge (6个部分)
-        // JSP发送: login_regnew gamenv user password sid game_pre m_key userip userua (9个部分)
-        // 先初始化所有变量为空字符串
+        // Vue sends six tokens including the command. Old JSP sends at least
+        // nine, with the logical-zone prefix separate from the short name.
         string projname = "", user_name = "", pswd = "", sid = "";
         string game_pre = "", m_key = "", userip = "", userua = "";
         string challenge = "";
-
-        // 先尝试Vue格式（更常见，6个部分）
-        int parse_result = sscanf(cmd, "login_regnew %s %s %s %s %s %s",
-                                  projname, user_name, pswd, sid, challenge, game_pre);
-        http_werror(" sscanf Vue format result: %d\n", parse_result);
-
-        // 如果Vue格式解析失败（少于5个参数），尝试JSP格式（9个部分）
-        if(parse_result < 5) {
-            parse_result = sscanf(cmd, "login_regnew %s %s %s %s %s %s %s %s",
-                                  projname, user_name, pswd, sid, game_pre, m_key, userip, userua);
-            http_werror(" sscanf JSP format result: %d\n", parse_result);
+        array(string) registration_fields = cmd/" ";
+        registration_fields -= ({""});
+        int parse_result = 0;
+        if(sizeof(registration_fields)==6 &&
+           registration_fields[0]=="login_regnew") {
+            projname = registration_fields[1];
+            user_name = registration_fields[2];
+            pswd = registration_fields[3];
+            sid = registration_fields[4];
+            challenge = registration_fields[5];
+            parse_result = 5;
         }
+	        else if(sizeof(registration_fields)>=9 &&
+	                registration_fields[0]=="login_regnew") {
+            projname = registration_fields[1];
+            user_name = registration_fields[2];
+            pswd = registration_fields[3];
+            sid = registration_fields[4];
+            game_pre = registration_fields[5];
+            m_key = registration_fields[6];
+            userip = registration_fields[7];
+            userua = registration_fields[8..]*" ";
+	            parse_result = 8;
+	        }
+	        // Player identifiers are canonical lowercase, while the password and
+	        // remaining form values retain their original case end to end.
+	        user_name = lower_case(user_name);
+	        game_pre = lower_case(game_pre);
 
         http_werror(" registration fields parsed: count=%d, password_len=%d\n",
                     parse_result,sizeof(pswd));
@@ -1253,15 +1296,23 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                                     me->move(LOW_VOID_OB);
                                                 }
 
-                                                // 保存用户档案到文件
+                                                // The gateway registration lock is the creation
+                                                // fence. Persist atomically before reporting success.
                                                 http_werror("  Saving user file...\n");
-                                                if(functionp(me->save)) {
-                                                    me->save();
+                                                int registration_saved =
+                                                    functionp(me->save_with_result) &&
+                                                    me->save_with_result(0,
+                                                        MAP_WORKERD->query_node_role()=="worker" ? 1 : 0);
+                                                if(registration_saved) {
                                                     http_werror("  User file saved successfully\n");
+                                                    http_werror(" Registration SUCCESS: %s\n", full_username);
+                                                    result = actual_user + "," + pswd;
                                                 }
-
-                                                http_werror(" Registration SUCCESS: %s\n", full_username);
-                                                result = actual_user + "," + pswd;  // 返回不含前缀的用户名
+                                                else {
+                                                    http_werror("  User file save FAILED\n");
+                                                    result = "error2";
+                                                    error_msg = "用户档案写入失败，请重试";
+                                                }
                                             } else {
                                                 http_werror("  setup() returned FALSE\n");
                                                 result = "error2";
@@ -1272,6 +1323,14 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                             http_werror("  setup() EXCEPTION: %s\n", describe_error(setup_err));
                                             result = "error2";
                                             error_msg = "用户初始化异常: " + describe_error(setup_err);
+                                        }
+                                        // Registration is not a logged-in player lease. Keep only
+                                        // the canonical archive and remove this temporary object.
+                                        if(me) {
+                                            if(functionp(me->discard_stale_worker_copy))
+                                                me->discard_stale_worker_copy();
+                                            else
+                                                destruct(me);
                                         }
                                     }
                                 };

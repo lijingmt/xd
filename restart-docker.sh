@@ -19,6 +19,7 @@
 #   ./restart-docker.sh                    # 使用默认值 xd01 9001 8888
 #   ./restart-docker.sh xd01 9001 8888     # 指定区号、端口、API端口
 #   ./restart-docker.sh xd02 9002 8889     # xd02 区，端口 9002，API 8889
+#   ./restart-docker.sh xd01 9001 8888 --workers 5
 #
 # 环境变量：
 #   GAME_AREAS  - 游戏分区列表，逗号分隔（默认：xd01,xd02,xd03,xd04,xd05）
@@ -32,6 +33,42 @@ set -e
 # 配置参数
 # ============================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+CLI_WORKER_COUNT=""
+POSITIONAL_ARGS=()
+while (( $# )); do
+    case "$1" in
+        --workers)
+            (( $# >= 2 )) || {
+                echo "[ERROR] --workers 需要一个 1-16 的整数" >&2
+                exit 1
+            }
+            [[ -z "$CLI_WORKER_COUNT" ]] || {
+                echo "[ERROR] --workers 不能重复指定" >&2
+                exit 1
+            }
+            CLI_WORKER_COUNT="$2"
+            shift 2
+            ;;
+        --workers=*)
+            [[ -z "$CLI_WORKER_COUNT" ]] || {
+                echo "[ERROR] --workers 不能重复指定" >&2
+                exit 1
+            }
+            CLI_WORKER_COUNT="${1#--workers=}"
+            shift
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+(( ${#POSITIONAL_ARGS[@]} <= 3 )) || {
+    echo "[ERROR] 用法：$0 [GAME_AREA] [TOMCAT_PORT] [API_PORT] [--workers N]" >&2
+    exit 1
+}
+set -- "${POSITIONAL_ARGS[@]}"
 
 # 自动定位项目根目录
 PROJECT_ROOT="$SCRIPT_DIR"
@@ -50,6 +87,12 @@ INHERITED_XIAND_MAP_WORKER_TRAFFIC_MODE="${XIAND_MAP_WORKER_TRAFFIC_MODE:-}"
 INHERITED_XIAND_MAP_WORKER_COUNT="${XIAND_MAP_WORKER_COUNT:-}"
 INHERITED_XIAND_MAP_WORKER_CAPACITY="${XIAND_MAP_WORKER_CAPACITY:-}"
 INHERITED_XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}"
+ENV_SETUP_SCRIPT="$PROJECT_ROOT/scripts/setup_deploy_env.sh"
+if [ ! -x "$ENV_SETUP_SCRIPT" ]; then
+    echo "[ERROR] 缺少可执行的环境初始化脚本：$ENV_SETUP_SCRIPT" >&2
+    exit 1
+fi
+"$ENV_SETUP_SCRIPT" "$XIAND_ENV_FILE"
 if [ -f "$XIAND_ENV_FILE" ]; then
     set -a
     . "$XIAND_ENV_FILE"
@@ -76,10 +119,21 @@ XIAND_MAP_WORKER_TRAFFIC_MODE="${XIAND_MAP_WORKER_TRAFFIC_MODE:-shadow}"
 XIAND_MAP_WORKER_COUNT="${XIAND_MAP_WORKER_COUNT:-3}"
 XIAND_MAP_WORKER_CAPACITY="${XIAND_MAP_WORKER_CAPACITY:-100}"
 XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}"
+XIAND_MAP_WORKER_COUNT_OVERRIDE=""
+if [[ -n "$CLI_WORKER_COUNT" ]]; then
+    [[ "$CLI_WORKER_COUNT" =~ ^[0-9]+$ ]] &&
+        (( CLI_WORKER_COUNT >= 1 && CLI_WORKER_COUNT <= 16 )) || {
+        echo "[ERROR] --workers 必须是 1-16 的整数" >&2
+        exit 1
+    }
+    XIAND_MAP_WORKER_COUNT="$CLI_WORKER_COUNT"
+    XIAND_MAP_WORKER_COUNT_OVERRIDE="$CLI_WORKER_COUNT"
+fi
 
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
+SELECTED_DOCKER_IMAGE=""
 
 # 十一职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 # 无相的 3 本隐藏书（归墟/混元/无极）在账号解锁该职业后才生效，仍走同一池子。
@@ -223,6 +277,7 @@ prepare_map_worker_runtime() {
     XIAND_MAP_WORKER_ENABLED="$XIAND_MAP_WORKER_ENABLED" \
     XIAND_MAP_WORKER_TRAFFIC_MODE="$XIAND_MAP_WORKER_TRAFFIC_MODE" \
     XIAND_MAP_WORKER_COUNT="$XIAND_MAP_WORKER_COUNT" \
+    XIAND_MAP_WORKER_COUNT_OVERRIDE="$XIAND_MAP_WORKER_COUNT_OVERRIDE" \
     XIAND_MAP_WORKER_CAPACITY="$XIAND_MAP_WORKER_CAPACITY" \
     XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK" \
         "$PROJECT_ROOT/scripts/bootstrap_map_worker_runtime.sh"
@@ -828,10 +883,12 @@ pull_docker_images() {
     if docker pull ${DOCKER_USER}/xiand-all:latest 2>/dev/null; then
         print_success "统一镜像拉取成功"
         docker tag ${DOCKER_USER}/xiand-all:latest xiand-all:latest 2>/dev/null || true
+        SELECTED_DOCKER_IMAGE="${DOCKER_USER}/xiand-all:latest"
     else
         print_warning "远程镜像拉取失败，使用本地构建的镜像..."
         if docker image inspect xiand-all:latest >/dev/null 2>&1; then
             print_success "使用本地 xiand-all:latest 镜像"
+            SELECTED_DOCKER_IMAGE="xiand-all:latest"
         else
             print_error "无法找到 xiand-all 镜像，请先运行 ./rebuild-image.sh 构建镜像"
             exit 1
@@ -843,6 +900,42 @@ pull_docker_images() {
     print_info "已有的 Docker 镜像："
     docker images | grep -E "xiand-all|REPOSITORY" | head -3
     echo ""
+}
+
+# 先让容器内的集群完成停流和全员原子存档，再停止 PID 1。若无法证明
+# Worker 已安全退出，则保留原容器继续运行，不进入删除/覆盖流程。
+stop_existing_container_safely() {
+    local container_name="xiand-$GAME_AREA"
+    local exit_code=""
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | \
+       grep -Fxq "$container_name"; then
+        return 0
+    fi
+
+    print_info "安全停止旧容器 $container_name（先停流并保存所有 Worker）..."
+    if docker exec "$container_name" \
+       test -f "/app/xiand/log/map-workers/$GAME_AREA/topology.json"; then
+        if ! docker exec \
+            -e XIAND_MAP_WORKER_LAUNCHER=background \
+            -e XIAND_MAP_WORKER_AREA_NAME="$GAME_AREA" \
+            "$container_name" \
+            /app/xiand/scripts/map_worker_cluster.sh stop; then
+            print_error "Worker 集群未能证明安全存档，拒绝停止或删除旧容器"
+            exit 1
+        fi
+    fi
+
+    if ! docker stop -t 600 "$container_name" >/dev/null; then
+        print_error "旧容器未能在安全超时内停止，拒绝继续部署"
+        exit 1
+    fi
+    exit_code="$(docker inspect -f '{{.State.ExitCode}}' \
+        "$container_name" 2>/dev/null || true)"
+    if [ "$exit_code" = "137" ]; then
+        print_error "旧容器被强制终止（exit 137），拒绝删除并停止部署"
+        exit 1
+    fi
+    print_success "旧容器已完成安全停止"
 }
 
 # 函数：创建必要的数据目录
@@ -987,11 +1080,9 @@ main() {
     if [ -z "${MYSQL_PASSWORD:-}" ]; then
         print_error "MYSQL_PASSWORD 必须通过环境变量或受限权限的 .env 提供"
         echo ""
-        echo "首次部署请执行："
+        echo "首次部署请在终端执行："
         echo "  cd $PROJECT_ROOT"
-        echo "  cp .env.example .env"
-        echo "  chmod 600 .env"
-        echo "  vi .env  # 填写 MYSQL_PASSWORD 后重新运行本脚本"
+        echo "  ./scripts/setup_deploy_env.sh"
         exit 1
     fi
 
@@ -1054,47 +1145,44 @@ main() {
     echo "  分区列表：$GAME_AREAS"
     echo "  Tomcat HTTP 端口：$TOMCAT_HTTP_PORT"
     echo "  HTTP API 端口：$HTTP_API_PORT"
+    echo "  地图 Worker 数量：$XIAND_MAP_WORKER_COUNT"
     echo "  Docker 镜像：${DOCKER_USER}/xiand-all:latest"
     echo ""
 
     # 执行步骤 - 自动化初始化和启动流程
-    print_info "[1/5] 初始化游戏数据库..."
+    print_info "[1/7] 初始化游戏数据库..."
     initialize_game_database "$GAME_AREA"
 
-    print_info "[2/5] 准备游戏数据目录..."
-    prepare_game_directories "$GAME_AREA"
-    prepare_data_directories
-	prepare_map_worker_runtime
-
-    print_info "[3/5] 拉取 Docker 镜像..."
+    print_info "[2/7] 拉取 Docker 镜像..."
     pull_docker_images
 
-    print_info "[3.5/5] 配置防火墙端口..."
+    print_info "[3/7] 配置防火墙端口..."
     open_firewall_port "$HTTP_API_PORT"
     open_firewall_port "$TOMCAT_HTTP_PORT"
     open_firewall_port "$((TOMCAT_HTTP_PORT + 10000))"
 
-    print_info "[4/5] 清理旧容器..."
+    print_info "[4/7] 安全停止旧容器..."
+    stop_existing_container_safely
 
-    # 优雅地停止相同区号的旧容器
-    if docker ps --filter "name=xiand-$GAME_AREA" --format "{{.Names}}" 2>/dev/null | grep -q "xiand-$GAME_AREA"; then
-        print_info "停止旧的 xiand-$GAME_AREA 容器..."
-        docker stop "xiand-$GAME_AREA" 2>/dev/null || true
-        print_success "旧容器已停止"
-    fi
+    print_info "[5/7] 准备宿主机数据与 Worker 配置..."
+    prepare_game_directories "$GAME_AREA"
+    prepare_data_directories
+	prepare_map_worker_runtime
 
     # 清理已停止的相同区号容器
     if docker ps -a --filter "name=xiand-$GAME_AREA" --format "{{.Names}}" 2>/dev/null | grep -q "xiand-$GAME_AREA"; then
         docker rm -f "xiand-$GAME_AREA" 2>/dev/null || true
     fi
 
-    print_info "[5/6] 启动统一容器 (Pike MUD + Tomcat)..."
+    print_info "[6/7] 启动统一容器 (Pike MUD + Tomcat + Workers)..."
 
     # 使用统一镜像
-    local docker_image="${DOCKER_USER}/xiand-all:latest"
+    local docker_image="${SELECTED_DOCKER_IMAGE:-${DOCKER_USER}/xiand-all:latest}"
 
     if docker run -d \
         --name "xiand-${GAME_AREA}" \
+        --restart unless-stopped \
+        --stop-timeout 600 \
         --memory=6g \
         --memory-swap=16g \
         --log-driver json-file \
@@ -1135,7 +1223,7 @@ main() {
     verify_logical_zone_runtime_in_container "xiand-${GAME_AREA}"
     verify_map_worker_runtime_in_container "xiand-${GAME_AREA}"
 
-    print_info "[6/7] 更新Vue前端分区配置..."
+    print_info "[7/7] 更新Vue前端分区配置..."
     CONTAINER_NAME="xiand-${GAME_AREA}"
 
     # 检查容器是否运行

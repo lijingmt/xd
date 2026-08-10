@@ -85,15 +85,16 @@ if(z==null)
 	//String userip = "192.158.13.252";
 	String userua = (String)request.getHeader("User-Agent");
 	//String userua = "UserAgent";
-	String user_url = java.net.URLEncoder.encode(user,"UTF-8");
-	String pswd_url = java.net.URLEncoder.encode(pswd,"UTF-8");
 if( user==null || pswd==null){
-	//out.print("用户名和密码不能为空，请修改后重试。 <br/>");	
-	response.sendRedirect("./regnew.jsp?_user="+user+"&_pswd="+pswd+"&err=1&"+paraString);
+	//out.print("用户名和密码不能为空，请修改后重试。 <br/>");
+	response.sendRedirect("./regnew.jsp?err=1&"+paraString);
+	return;
 }
 else{
 	user = user.trim();
 	pswd = pswd.trim();
+	String user_url = java.net.URLEncoder.encode(user,"UTF-8");
+	String pswd_url = java.net.URLEncoder.encode(pswd,"UTF-8");
 	if(user.length() == 0 || pswd.length() == 0){
 		//	out.print("用户名和密码不能为空，请修改后重试。 <br/>");	
 		response.sendRedirect("./regnew.jsp?_user="+user+"&_pswd="+pswd+"&err=1&"+paraString);
@@ -112,27 +113,41 @@ else{
 			response.sendRedirect("./regnew.jsp?_user="+user_url+"&_pswd="+pswd_url+"&err=3&"+paraString);
 		}
 		else {
-			Socket socket = new Socket(ip,port);
-			InputStream reader = socket.getInputStream();
-			OutputStream writer = socket.getOutputStream();
-
 			String sid = (String)session.getId();
+			String registerCommand = "login_regnew "+projname+" "+user+" "+
+				pswd+" "+sid+" "+game_pre+" "+m_key+" "+userip+" "+
+				(userua==null ? "legacy-jsp" : userua);
+			String ret = "error2";
+			HttpURLConnection connection = null;
+			try {
+				URL endpoint = new URL("http://127.0.0.1:8888/api/html?cmd="+
+					java.net.URLEncoder.encode(registerCommand,"UTF-8"));
+				connection = (HttpURLConnection)endpoint.openConnection();
+				connection.setConnectTimeout(5000);
+				connection.setReadTimeout(35000);
+				connection.setUseCaches(false);
+				InputStream input = connection.getResponseCode()>=400 ?
+					connection.getErrorStream() : connection.getInputStream();
+				if(input!=null)
+					ret = read(input,"utf-8");
+				int divStart = ret.indexOf("<div>");
+				int divEnd = ret.indexOf("</div>");
+				if(divStart>=0 && divEnd>divStart)
+					ret = ret.substring(divStart+5,divEnd);
+			}
+			catch(Exception registrationError) {
+				ret = "error2";
+			}
+			finally {
+				if(connection!=null)
+					connection.disconnect();
+			}
 
-			send(writer,("login_regnew "+projname+" "+user+" "+pswd+" "+sid+" "+game_pre+" "+m_key+" "+userip+" "+userua).getBytes());
-			send(writer,"flush_filter".getBytes());
-			socket.shutdownOutput();
-
-			String ret = read(reader,"utf-8");
-
-			if(writer!=null) writer.close();
-			if(reader!=null) reader.close();
-			if(socket!=null) socket.close();
-
-			if(ret.equals("error1")){
+			if(ret.startsWith("error1")){
 				//resultData += "游戏帐号已经有人使用！<br/>";
 				response.sendRedirect("./regnew.jsp?_user="+user+"&_pswd="+pswd+"&err=4&"+paraString);
 			}
-			else if(ret.equals("error2")){
+			else if(ret.startsWith("error2")){
 				response.sendRedirect("./regnew.jsp?_user="+user+"&_pswd="+pswd+"&err=5&"+paraString);
 			}
 			else{

@@ -33,7 +33,11 @@ constant MAP_WORKER_MAX_PK_SESSIONS = 4096;
 constant MAP_WORKER_DELIVERY_LEASE_TTL = 30;
 constant MAP_WORKER_ESCROW_RESERVATION_TTL = 86400;
 constant MAP_WORKER_FINAL_STATE_TTL = 604800;
-constant MAP_WORKER_LOCAL_CONTROL_TTL = 15;
+// The coordinator monitors as many as 16 workers serially. Control RPCs use
+// a short timeout, but unavailable siblings must not make a healthy worker
+// fence itself before its next heartbeat arrives.
+constant MAP_WORKER_LOCAL_CONTROL_TTL = 45;
+constant MAP_WORKER_ONLINE_SNAPSHOT_TTL = 30;
 constant MAP_WORKER_LOCAL_REQUEST_TTL = 180;
 constant MAP_WORKER_MAX_LOCAL_REQUESTS = 65536;
 
@@ -42,6 +46,7 @@ private mapping(string:mapping(string:mixed)) worker_nodes = ([]);
 private mapping(string:mapping(string:mixed)) affinity_assignments = ([]);
 private mapping(string:int) affinity_room_weights = ([]);
 private int placement_generation;
+private int placement_topology_worker_count;
 
 private Thread.Mutex player_lease_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) player_leases = ([]);
@@ -62,10 +67,13 @@ private mapping(string:string) local_affinity_owners = ([]);
 private mapping(string:mapping(string:mixed)) pending_player_moves = ([]);
 private mapping(string:int) local_player_epochs = ([]);
 private mapping(string:string) local_player_account_owners = ([]);
+private int local_shutdown_save_fence_expires_at;
 private mapping(string:mapping(string:mixed)) local_player_arrivals = ([]);
 private mapping(string:string) local_account_cache_tokens = ([]);
 private mapping(string:mapping(string:mixed)) local_requests = ([]);
 private mapping(string:string) local_running_request_by_user = ([]);
+private mapping(string:mixed) local_online_snapshot = ([]);
+private int local_online_snapshot_at;
 private int local_assignment_generation;
 private int local_control_seen_at;
 private int local_control_isolated;
@@ -78,6 +86,7 @@ private int control_last_persisted_at;
 private string control_last_persist_error = "";
 private int control_restore_discarded;
 private int control_restored_from_backup;
+private Thread.Mutex cluster_config_lock = Thread.Mutex();
 private mapping(string:mixed) cluster_config = ([
 	"schema_version":2,
 	"enabled":0,
@@ -151,21 +160,30 @@ private void load_cluster_config()
 		decoded["traffic_mode"] = "shadow";
 	}
 	if(!err && valid_cluster_config(decoded))
+	{
+		object key = cluster_config_lock->lock();
 		cluster_config = copy_value(decoded);
+		destruct(key);
+	}
 	else
 		werror("[MAP_WORKERD] ignored invalid map worker config\n");
 }
 
 private int save_cluster_config(mapping candidate)
 {
+	object key;
 	string path = cluster_config_path();
-	string temp_path = path+".tmp";
+	// Every Pike process has its own mutex.  Use a node-specific staging file
+	// as well so two administrators on different workers cannot truncate the
+	// same temporary generation before atomic rename.
+	string temp_path = path+"."+local_worker_id+".tmp";
 	string backup_path = path+".bak";
 	string encoded;
 	int ok;
 	mixed err;
 	if(!valid_cluster_config(candidate))
 		return 0;
+	key = cluster_config_lock->lock();
 	err = catch {
 		encoded = Standards.JSON.encode(candidate);
 		mkdir(DATA_ROOT+"map_workers");
@@ -180,15 +198,20 @@ private int save_cluster_config(mapping candidate)
 	};
 	if(err || !ok){
 		rm(temp_path);
+		destruct(key);
 		return 0;
 	}
 	cluster_config = copy_value(candidate);
+	destruct(key);
 	return 1;
 }
 
 mapping(string:mixed) query_cluster_config()
 {
-	return copy_value(cluster_config);
+	object key = cluster_config_lock->lock();
+	mapping result = copy_value(cluster_config);
+	destruct(key);
+	return result;
 }
 
 mapping(string:mixed) admin_set_cluster_config(string operator,
@@ -198,7 +221,7 @@ mapping(string:mixed) admin_set_cluster_config(string operator,
 	string now;
 	if(!operator || MANAGERD->checkpower(operator)!="admin")
 		return (["ok":0,"message":"需要管理员权限。"]);
-	candidate = copy_value(cluster_config);
+	candidate = query_cluster_config();
 	candidate["enabled"] = enabled ? 1 : 0;
 	candidate["worker_count"] = worker_count;
 	candidate["worker_capacity"] = worker_capacity;
@@ -238,12 +261,12 @@ mapping(string:mixed) validate_control_plane_snapshot(mapping decoded)
 	int discarded;
 	int snapshot_version = mappingp(decoded) ? (int)decoded["version"] : 0;
 	if(!mappingp(decoded) ||
-	   !has_value(({1,2}),snapshot_version))
+	   !has_value(({1,2,3}),snapshot_version))
 		return (["ok":0,"code":"invalid_snapshot"]);
 	// Version 2 snapshots carry exact collection counts. A syntactically valid
 	// but truncated JSON object must never silently erase leases or equipment
 	// escrow state; reject the whole generation and let restore use .bak.
-	if(snapshot_version==2){
+	if(snapshot_version>=2){
 		mapping counts = mappingp(decoded["counts"]) ? decoded["counts"] : ([]);
 		array(string) state_fields = ({"affinity_assignments","player_leases",
 			"handoffs","envelopes","escrow_transactions","pk_sessions"});
@@ -252,6 +275,10 @@ mapping(string:mixed) validate_control_plane_snapshot(mapping decoded)
 			   (int)counts[field]!=sizeof((mapping)decoded[field]))
 				return (["ok":0,"code":"incomplete_snapshot"]);
 	}
+	if(snapshot_version==3 &&
+	   ((int)decoded["placement_topology_worker_count"]<1 ||
+	    (int)decoded["placement_topology_worker_count"]>MAP_WORKER_MAX_NODES))
+		return (["ok":0,"code":"invalid_snapshot_topology"]);
 
 	if(mappingp(decoded["affinity_assignments"]))
 		foreach(indices(decoded["affinity_assignments"]),mixed raw_key){
@@ -477,11 +504,21 @@ mapping(string:mixed) validate_control_plane_snapshot(mapping decoded)
 			discarded++;
 		}
 	}
-	if(snapshot_version==2 && discarded)
+	if(snapshot_version>=2 && discarded)
 		return (["ok":0,"code":"corrupt_snapshot",
 			"discarded":discarded]);
+	int restored_topology_count =
+		(int)decoded["placement_topology_worker_count"];
+	if(snapshot_version<3){
+		multiset(string) catalog_owners = (<>);
+		foreach(indices(placements),string affinity)
+			if(affinity_room_weights[affinity])
+				catalog_owners[(string)placements[affinity]["worker_id"]] = 1;
+		restored_topology_count = sizeof(catalog_owners);
+	}
 	return (["ok":1,"discarded":discarded,
 		"snapshot":(["affinity_assignments":placements,
+			"placement_topology_worker_count":restored_topology_count,
 			"player_leases":leases,"handoffs":restored_handoffs,
 			"envelopes":restored_envelopes,
 			"escrow_transactions":restored_escrows,
@@ -533,6 +570,8 @@ private void restore_control_plane()
 	}
 	snapshot = validated["snapshot"];
 	affinity_assignments = snapshot["affinity_assignments"];
+	placement_topology_worker_count =
+		(int)snapshot["placement_topology_worker_count"];
 	player_leases = snapshot["player_leases"];
 	handoffs = snapshot["handoffs"];
 	envelopes = snapshot["envelopes"];
@@ -566,9 +605,11 @@ private int persist_control_plane()
 	{
 		object worker_key = worker_state_lock->lock();
 		snapshot = ([
-			"version":2,
+			"version":3,
 			"saved_at":time(),
 			"placement_generation":placement_generation,
+			"placement_topology_worker_count":
+				placement_topology_worker_count,
 			"affinity_assignments":copy_value(affinity_assignments),
 		]);
 		destruct(worker_key);
@@ -773,6 +814,14 @@ string query_local_worker_id()
 	return local_worker_id;
 }
 
+int query_runtime_worker_count()
+{
+	int runtime_count = (int)(getenv("XIAND_MAP_WORKER_RUNTIME_COUNT") || "0");
+	if(runtime_count>=1 && runtime_count<=16)
+		return runtime_count;
+	return (int)query_cluster_config()["worker_count"];
+}
+
 int distributed_mode_enabled()
 {
 	return node_role=="gateway" || node_role=="worker";
@@ -955,16 +1004,40 @@ int accept_local_account_cache_token(string account_id,string cache_token)
 }
 
 mapping(string:mixed) begin_local_gateway_request(string request_id,
-	string userid,int epoch,string kind)
+	string userid,int epoch,string kind,void|string admin_target_userid,
+	void|string admin_target_account,void|string admin_target_worker,
+	void|int admin_target_epoch,void|int admin_fee,
+	void|string admin_recharge_request_id,void|string admin_capability)
 {
 	object key;
 	mapping existing;
 	request_id = lower_case(String.trim_all_whites(request_id || ""));
 	userid = normalize_userid(userid);
 	kind = normalize_token(kind,32);
+	admin_target_userid = normalize_userid(admin_target_userid || "");
+	admin_target_account = normalize_userid(admin_target_account || "");
+	admin_target_worker = normalize_worker_id(admin_target_worker || "");
+	admin_capability = lower_case(String.trim_all_whites(
+		admin_capability || ""));
+	admin_recharge_request_id = lower_case(String.trim_all_whites(
+		admin_recharge_request_id || ""));
 	if(node_role!="worker" || sizeof(request_id)!=64 ||
 	   !valid_hex_identifier(request_id) || kind=="")
 		return (["ok":0,"code":"invalid_local_request"]);
+	if(kind=="admin_recharge" &&
+	   (admin_target_userid=="" || admin_target_account=="" ||
+	    admin_target_worker=="" || admin_target_epoch<0 ||
+	    admin_fee<=0 || admin_fee>100000000 ||
+	    sizeof(admin_recharge_request_id)!=64 ||
+	    !valid_hex_identifier(admin_recharge_request_id) ||
+	    sizeof(admin_capability)!=64 ||
+	    !valid_hex_identifier(admin_capability)))
+		return (["ok":0,"code":"invalid_admin_target_capability"]);
+	if(kind!="admin_recharge" &&
+	   (admin_target_userid!="" || admin_target_account!="" ||
+	    admin_target_worker!="" || admin_target_epoch ||
+	    admin_fee || admin_recharge_request_id!="" || admin_capability!=""))
+		return (["ok":0,"code":"unexpected_admin_target_capability"]);
 	key = local_route_lock->lock();
 	existing = local_requests[request_id];
 	if(mappingp(existing)){
@@ -996,10 +1069,47 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	local_requests[request_id] = (["request_id":request_id,
 		"userid":userid,"epoch":epoch,"kind":kind,"state":"running",
 		"started_at":time(),"expires_at":time()+MAP_WORKER_LOCAL_REQUEST_TTL]);
+	if(kind=="admin_recharge"){
+		local_requests[request_id]["admin_target_userid"] =
+			admin_target_userid;
+		local_requests[request_id]["admin_target_account"] =
+			admin_target_account;
+		local_requests[request_id]["admin_target_worker"] =
+			admin_target_worker;
+		local_requests[request_id]["admin_target_epoch"] =
+			admin_target_epoch;
+		local_requests[request_id]["admin_fee"] = admin_fee;
+		local_requests[request_id]["admin_recharge_request_id"] =
+			admin_recharge_request_id;
+		local_requests[request_id]["admin_capability"] = admin_capability;
+	}
 	if(userid!="")
 		local_running_request_by_user[userid] = request_id;
 	destruct(key);
 	return (["ok":1,"request_id":request_id]);
+}
+
+mapping(string:mixed) query_local_running_admin_target(string userid)
+{
+	object key;
+	string request_id;
+	mapping request;
+	userid = normalize_userid(userid);
+	if(userid=="")
+		return (["ok":0,"code":"invalid_userid"]);
+	key = local_route_lock->lock();
+	request_id = local_running_request_by_user[userid];
+	request = local_requests[request_id];
+	if(mappingp(request) && (string)request["state"]=="running" &&
+	   (string)request["kind"]=="admin_recharge")
+		request = copy_value(request);
+	else
+		request = 0;
+	destruct(key);
+	if(!mappingp(request))
+		return (["ok":0,"code":"admin_target_missing"]);
+	request["ok"] = 1;
+	return request;
 }
 
 void complete_local_gateway_request(string request_id)
@@ -1074,6 +1184,58 @@ int local_user_request_running(string userid)
 	return running;
 }
 
+/** A slow accepted request may finish after control heartbeat expiry only. */
+int local_user_request_save_fence_valid(string userid)
+{
+	object key;
+	int valid;
+	string request_id;
+	mapping request;
+	userid = normalize_userid(userid);
+	if(node_role!="worker" || userid=="")
+		return 0;
+	key = local_route_lock->lock();
+	request_id = local_running_request_by_user[userid];
+	request = local_requests[request_id];
+	valid = request_id!="" && mappingp(request) &&
+		(string)request["state"]=="running" &&
+		(string)request["userid"]==userid &&
+		(int)request["epoch"]>0 &&
+		(int)request["epoch"]==local_player_epochs[userid];
+	destruct(key);
+	return valid;
+}
+
+/**
+ * The coordinator may grant this worker one bounded shutdown-save window only
+ * after public routing has been paused and every accepted request has settled.
+ * This does not transfer character ownership; it merely lets shutdown_safe
+ * persist the worker's existing epoch-owned objects after control heartbeats
+ * have intentionally stopped.
+ */
+mapping(string:mixed) prepare_local_shutdown_save_fence()
+{
+	object key;
+	if(node_role!="worker")
+		return (["ok":0,"code":"not_worker"]);
+	key = local_route_lock->lock();
+	local_shutdown_save_fence_expires_at = time()+1800;
+	destruct(key);
+	return (["ok":1,"expires_at":local_shutdown_save_fence_expires_at]);
+}
+
+int local_shutdown_save_fence_valid()
+{
+	object key;
+	int valid;
+	if(node_role!="worker")
+		return 0;
+	key = local_route_lock->lock();
+	valid = local_shutdown_save_fence_expires_at>=time();
+	destruct(key);
+	return valid;
+}
+
 mapping(string:mixed) install_local_player_arrival(string userid,int epoch,
 	string room_path)
 {
@@ -1144,6 +1306,68 @@ mapping(string:mixed) query_local_control_status()
 		"tracked_player_epochs":sizeof(local_player_epochs),
 		"control_ttl":MAP_WORKER_LOCAL_CONTROL_TTL]);
 	destruct(key);
+	return result;
+}
+
+/**
+ * Cache an already validated coordinator snapshot for management commands.
+ * A worker must never synchronously call the coordinator from inside a public
+ * request: the coordinator is already waiting for that worker response.
+ */
+mapping(string:mixed) update_local_online_snapshot(mapping snapshot)
+{
+	object key;
+	array users;
+	mapping counts;
+	int worker_count;
+	int snapshot_at;
+	if(node_role!="worker" || !mappingp(snapshot))
+		return (["ok":0,"code":"invalid_online_snapshot"]);
+	users = arrayp(snapshot["users"]) ? (array)snapshot["users"] : 0;
+	counts = mappingp(snapshot["worker_counts"]) ?
+		(mapping)snapshot["worker_counts"] : 0;
+	worker_count = (int)snapshot["worker_count"];
+	snapshot_at = (int)snapshot["snapshot_at"];
+	if(!(int)snapshot["ok"] || !arrayp(users) || !mappingp(counts) ||
+	   sizeof(users)>MAP_WORKER_MAX_PLAYER_LEASES ||
+	   (int)snapshot["count"]!=sizeof(users) ||
+	   worker_count!=query_runtime_worker_count() ||
+	   snapshot_at<time()-MAP_WORKER_ONLINE_SNAPSHOT_TTL ||
+	   snapshot_at>time()+5)
+		return (["ok":0,"code":"invalid_online_snapshot"]);
+	foreach(users,mixed raw){
+		mapping row;
+		string userid;
+		string worker_id;
+		if(!mappingp(raw))
+			return (["ok":0,"code":"invalid_online_snapshot"]);
+		row = (mapping)raw;
+		userid = normalize_userid((string)(row["userid"] || ""));
+		worker_id = normalize_worker_id((string)(row["worker_id"] || ""));
+		if(userid=="" || worker_id=="" || (int)row["epoch"]<1)
+			return (["ok":0,"code":"invalid_online_snapshot"]);
+	}
+	key = local_route_lock->lock();
+	local_online_snapshot = copy_value(snapshot);
+	local_online_snapshot_at = snapshot_at;
+	destruct(key);
+	return (["ok":1,"snapshot_at":snapshot_at,"count":sizeof(users)]);
+}
+
+mapping(string:mixed) query_local_online_snapshot()
+{
+	object key;
+	mapping result;
+	int snapshot_at;
+	key = local_route_lock->lock();
+	result = copy_value(local_online_snapshot);
+	snapshot_at = local_online_snapshot_at;
+	destruct(key);
+	if(node_role!="worker" || !mappingp(result) || !(int)result["ok"] ||
+	   snapshot_at<time()-MAP_WORKER_ONLINE_SNAPSHOT_TTL)
+		return (["ok":0,"code":"online_snapshot_stale",
+			"snapshot_at":snapshot_at]);
+	result["age_seconds"] = max(0,time()-snapshot_at);
 	return result;
 }
 
@@ -1673,9 +1897,34 @@ mapping(string:mixed) assign_catalog(void|int force)
 		else
 			failures += ({result});
 	}
+	if(!sizeof(failures)){
+		object key = worker_state_lock->lock();
+		int current_worker_count;
+		foreach(values(worker_nodes),mapping node)
+			if(worker_alive_unlocked(node,time()))
+				current_worker_count++;
+		placement_topology_worker_count = current_worker_count;
+		destruct(key);
+		if(current_worker_count<1 || !persist_control_plane())
+			failures += ({(["ok":0,"code":"topology_persist_failed"])});
+	}
 	return (["ok":sizeof(failures)==0,"assigned":assigned,
 		"failed":failures,"catalog_size":sizeof(affinities),
-		"placement_generation":placement_generation]);
+		"placement_generation":placement_generation,
+		"placement_topology_worker_count":placement_topology_worker_count]);
+}
+
+int placement_topology_requires_rebalance()
+{
+	object key = worker_state_lock->lock();
+	int current_worker_count;
+	int previous_worker_count = placement_topology_worker_count;
+	foreach(values(worker_nodes),mapping node)
+		if(worker_alive_unlocked(node,time()))
+			current_worker_count++;
+	destruct(key);
+	return previous_worker_count>0 &&
+		current_worker_count!=previous_worker_count;
 }
 
 mapping(string:mixed) acquire_player_lease(string userid,string worker_id,
@@ -2470,6 +2719,60 @@ mapping(string:mixed) abort_handoff(string request_id,string source_worker)
 	return (["ok":1,"state":"aborted"]);
 }
 
+/**
+ * Retire a committed arrival only after the gateway has paused routing and
+ * inventoried every worker. The exact epoch/worker/room tuple prevents an old
+ * recovery pass from deleting a newer player owner.
+ */
+mapping(string:mixed) retire_abandoned_player_arrival(string userid,
+	string worker_id,int epoch,string room_path)
+{
+	object key;
+	mapping lease;
+	mapping original_lease;
+	mapping(string:mapping(string:mixed)) removed_handoffs = ([]);
+	userid = normalize_userid(userid);
+	worker_id = normalize_worker_id(worker_id);
+	room_path = normalize_room_location(room_path);
+	if(userid=="" || worker_id=="" || epoch<1 || room_path=="")
+		return (["ok":0,"code":"invalid_abandoned_arrival"]);
+	key = player_lease_lock->lock();
+	lease = player_leases[userid];
+	if(!mappingp(lease) || (string)lease["state"]!="active" ||
+	   (string)lease["worker_id"]!=worker_id ||
+	   (int)lease["epoch"]!=epoch ||
+	   normalize_room_location((string)lease["arrival_room_path"])!=room_path){
+		destruct(key);
+		return (["ok":0,"code":"stale_abandoned_arrival"]);
+	}
+	original_lease = copy_value(lease);
+	foreach(indices(handoffs),string request_id){
+		mapping handoff = handoffs[request_id];
+		if((string)handoff["state"]=="committed" &&
+		   (string)handoff["userid"]==userid &&
+		   (string)handoff["target_worker"]==worker_id &&
+		   (int)handoff["target_epoch"]==epoch){
+			removed_handoffs[request_id] = copy_value(handoff);
+			m_delete(handoffs,request_id);
+		}
+	}
+	m_delete(player_leases,userid);
+	destruct(key);
+	if(!persist_control_plane()){
+		key = player_lease_lock->lock();
+		if(!mappingp(player_leases[userid])){
+			player_leases[userid] = original_lease;
+			foreach(indices(removed_handoffs),string request_id)
+				if(!mappingp(handoffs[request_id]))
+					handoffs[request_id] = removed_handoffs[request_id];
+		}
+		destruct(key);
+		return (["ok":0,"code":"control_persist_failed"]);
+	}
+	return (["ok":1,"userid":userid,"worker_id":worker_id,
+		"epoch":epoch,"removed_handoffs":sizeof(removed_handoffs)]);
+}
+
 private int valid_payload(mapping payload)
 {
 	string encoded;
@@ -2994,6 +3297,7 @@ mapping(string:mixed) query_status()
 {
 	array(mapping(string:mixed)) nodes = ({});
 	array(mapping(string:mixed)) placements = ({});
+	mapping desired_config = query_cluster_config();
 	object worker_key = worker_state_lock->lock();
 	foreach(sort(indices(worker_nodes)),string worker_id){
 		mapping node = copy_value(worker_nodes[worker_id]);
@@ -3004,6 +3308,7 @@ mapping(string:mixed) query_status()
 	foreach(sort(indices(affinity_assignments)),string affinity)
 		placements += ({copy_value(affinity_assignments[affinity])});
 	int generation = placement_generation;
+	int topology_worker_count = placement_topology_worker_count;
 	destruct(worker_key);
 	object lease_key = player_lease_lock->lock();
 	int lease_count = sizeof(player_leases);
@@ -3017,11 +3322,12 @@ mapping(string:mixed) query_status()
 	return ([
 		"mode":distributed_mode_enabled() ? "distributed" : "standalone",
 		"node_role":node_role,"local_worker_id":local_worker_id,
-		"desired_config":copy_value(cluster_config),
+		"desired_config":desired_config,
 		"last_persisted_at":control_last_persisted_at,
 		"persist_healthy":control_last_persist_error=="",
 		"restore_discarded":control_restore_discarded,
 		"placement_generation":generation,"catalog_size":sizeof(affinity_room_weights),
+		"placement_topology_worker_count":topology_worker_count,
 		"nodes":nodes,"placements":placements,"player_leases":lease_count,
 		"handoffs":handoff_count,"envelopes":envelope_count,
 		"escrows":escrow_count,"pk_sessions":pk_count,

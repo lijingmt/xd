@@ -26,6 +26,7 @@ gamelib/clone/item/
 
 # 临时文件
 tmp/
+.include/
 *.tmp
 *.bak
 *.swp

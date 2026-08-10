@@ -79,7 +79,9 @@
   g_key=user+"|"+pswd;
   
   long ot = System.currentTimeMillis();
-  string m_key=String.valueOf(ot);
+  String m_key=String.valueOf(ot);
+  String stru="";
+  String strp="";
   
   if( user==null || pswd==null )
   	response.sendRedirect("./pc.jsp?err=1");
@@ -97,6 +99,14 @@
 		if(!isLegalChar(user_pswd))
   			response.sendRedirect("./pc.jsp?err=4");//非法字符
 		else{
+			if(request.getServerPort()>=0){
+				String legacyTarget = "./legacy_api.jsp?userid="+
+					java.net.URLEncoder.encode(area+user,"UTF-8")+
+					"&password="+java.net.URLEncoder.encode(pswd,"UTF-8")+
+					"&cmd=init";
+				response.sendRedirect(response.encodeRedirectURL(legacyTarget));
+				return;
+			}
 			//帐号检测	
 			String strcheck = "";
 			Socket socket = new Socket(ip,port);

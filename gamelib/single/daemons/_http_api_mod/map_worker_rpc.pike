@@ -23,6 +23,143 @@ private int map_worker_coordinator_role()
     return role=="gateway" || role=="standalone";
 }
 
+private string map_worker_admin_capability(string manager_userid,
+    string target_userid,string account_id,string worker_id,int epoch,
+    int fee,string recharge_request_id,string gateway_request_id)
+{
+    object hash = Crypto.SHA256();
+    hash->update((getenv("XIAND_WORKER_TOKEN") || "")+"|admin_recharge|"+
+        manager_userid+"|"+target_userid+"|"+account_id+"|"+worker_id+"|"+
+        (string)epoch+"|"+(string)fee+"|"+recharge_request_id+"|"+
+        gateway_request_id);
+    return lower_case(String.string2hex(hash->digest()));
+}
+
+private mapping map_worker_internal_http_call(int port,mapping payload)
+{
+    object query;
+    object response;
+    mapping decoded;
+    string body;
+    mixed err;
+    if(port<1024 || port>65535)
+        return (["ok":0,"code":"invalid_internal_port"]);
+    query = Protocols.HTTP.Query();
+    query->maxtime = 30;
+    err = catch {
+        response = Protocols.HTTP.do_method("POST",
+            "http://127.0.0.1:"+(string)port+"/internal/map-worker",0,([
+                "Content-Type":"application/json",
+                "X-Xiand-Worker-Token":getenv("XIAND_WORKER_TOKEN") || "",
+            ]),query,Standards.JSON.encode(payload));
+        if(!response)
+            error("internal worker request failed\n");
+        body = response->data(1024*1024+1);
+        if(sizeof(body)>1024*1024)
+            error("internal worker response too large\n");
+        decoded = Standards.JSON.decode(body);
+        if(!mappingp(decoded))
+            error("invalid internal worker response\n");
+    };
+    if(err)
+        return (["ok":0,"code":"internal_worker_unavailable"]);
+    return decoded;
+}
+
+/** Called only from txadd while the public Pike gateway holds target account lock. */
+mapping(string:mixed) execute_map_worker_admin_recharge(object manager,
+    string target_userid,int fee,string recharge_request_id)
+{
+    string manager_userid;
+    string target_worker;
+    string target_account;
+    string capability;
+    string gateway_request_id;
+    int target_epoch;
+    int worker_index;
+    int worker_count;
+    int worker_http_base;
+    mapping metadata;
+    mapping config;
+    mapping result;
+    target_userid = lower_case(String.trim_all_whites(target_userid || ""));
+    recharge_request_id = lower_case(String.trim_all_whites(
+        recharge_request_id || ""));
+    if(MAP_WORKERD->query_node_role()!="worker" || !manager ||
+       MANAGERD->checkpower(manager->query_name())!="admin")
+        return (["ok":0,"message":"分布式充值权限校验失败"]);
+    manager_userid = lower_case((string)manager->query_name());
+    metadata = MAP_WORKERD->query_local_running_admin_target(manager_userid);
+    if(!(int)metadata["ok"] ||
+       (string)metadata["admin_target_userid"]!=target_userid ||
+       (int)metadata["admin_fee"]!=fee ||
+       (string)metadata["admin_recharge_request_id"]!=recharge_request_id)
+        return (["ok":0,"message":"充值目标没有协调器锁定"]);
+    target_worker = (string)metadata["admin_target_worker"];
+    target_account = (string)metadata["admin_target_account"];
+    target_epoch = (int)metadata["admin_target_epoch"];
+    capability = (string)metadata["admin_capability"];
+    gateway_request_id = (string)metadata["request_id"];
+    if(sizeof(target_worker)!=3 || target_worker[0]!='w' ||
+       target_worker[1]<'0' || target_worker[1]>'9' ||
+       target_worker[2]<'0' || target_worker[2]>'9')
+        return (["ok":0,"message":"充值目标 worker 无效"]);
+    worker_index = (int)target_worker[1..];
+    config = MAP_WORKERD->query_cluster_config();
+    worker_count = MAP_WORKERD->query_runtime_worker_count();
+    worker_http_base = (int)config["worker_http_base_port"];
+    if(worker_index<1 || worker_index>worker_count)
+        return (["ok":0,"message":"充值目标 worker 不在当前拓扑"]);
+    mapping target_payload = ([
+        "action":"local_admin_recharge","manager_userid":manager_userid,
+        "target_userid":target_userid,"account_id":target_account,
+        "worker_id":target_worker,"epoch":target_epoch,"fee":fee,
+        "recharge_request_id":recharge_request_id,
+        "gateway_request_id":gateway_request_id,
+        "capability":capability,
+    ]);
+    // A command is already running on this worker's main Backend. Calling its
+    // own HTTP listener here would wait on itself and stop control heartbeats.
+    if(target_worker==MAP_WORKERD->query_local_worker_id())
+        result = execute_map_worker_local_admin_recharge(target_payload);
+    else
+        result = map_worker_internal_http_call(
+            worker_http_base+worker_index-1,target_payload);
+    if(!(int)result["ok"])
+        return result+(["message":(string)(result["message"] ||
+            "目标 worker 充值失败，本次没有重复入账")]);
+    result["worker_id"] = target_worker;
+    for(int index=1;index<=worker_count;index++){
+        string refresh_worker = sprintf("w%02d",index);
+        mapping refreshed;
+        if(refresh_worker==MAP_WORKERD->query_local_worker_id())
+            refreshed = execute_map_worker_local_account_refresh(
+                target_account);
+        else
+            refreshed = map_worker_internal_http_call(
+                worker_http_base+index-1,([
+                "action":"local_account_refresh",
+                "account_id":target_account,
+            ]));
+        if(!(int)refreshed["ok"]){
+            result["cache_refresh_ok"] = 0;
+            result["message"] = "充值已入账，但有 worker 缓存刷新失败，请重试同一确认链接";
+            return result;
+        }
+    }
+    result["cache_refresh_ok"] = 1;
+    return result;
+}
+
+mapping(string:mixed) query_map_worker_cluster_online_users()
+{
+    if(MAP_WORKERD->query_node_role()!="worker")
+        return (["ok":0,"code":"not_worker"]);
+    // A public request is already being awaited by the coordinator. Calling
+    // it back synchronously here would deadlock both event loops.
+    return MAP_WORKERD->query_local_online_snapshot();
+}
+
 /** Every public request reaching a worker must come through the loopback gateway. */
 private int map_worker_gateway_request_authorized(
     Protocols.HTTP.Server.Request req)
@@ -158,6 +295,30 @@ private void handle_map_worker_local_route(
         "handoff_safe":!(int)player->in_combat,
         "move_redirect":(int)redirect["ok"] ? redirect : 0,
     ]));
+}
+
+/** Resolve a user-bound opaque UI token on the worker which created it. */
+private void handle_map_worker_local_resolve_command(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    string userid = lower_case(String.trim_all_whites(
+        (string)(params["userid"] || "")));
+    string command = String.trim_all_whites(
+        (string)(params["command"] || ""));
+    int epoch = (int)params["epoch"];
+    string resolved;
+    if(MAP_WORKERD->query_node_role()!="worker" || userid=="" || epoch<1 ||
+       MAP_WORKERD->query_local_player_epoch(userid)!=epoch ||
+       !has_prefix(command,"c_") || sizeof(command)>MAX_HTTP_QUERY_SIZE){
+        send_json(req,(["ok":0,"code":"invalid_command_token_route"]),409);
+        return;
+    }
+    resolved = unhide_command(userid,command);
+    if(resolved=="" || sizeof(resolved)>MAX_HTTP_QUERY_SIZE){
+        send_json(req,(["ok":0,"code":"invalid_resolved_command"]),409);
+        return;
+    }
+    send_json(req,(["ok":1,"command":resolved]));
 }
 
 /**
@@ -314,8 +475,18 @@ private void handle_map_worker_local_arrival(
             lower_case((string)player->query_account_owner()) : userid;
         if(MAP_WORKERD->query_local_player_epoch(userid)==epoch &&
            actual_path==room_path && actual_owner==account_owner){
+            // A previous materialization may have completed while its reply
+            // was lost. The exact live player is authoritative; retire any
+            // duplicate local arrival capability before the gateway ACKs it.
+            mapping pending_arrival =
+                MAP_WORKERD->query_local_player_arrival(userid);
+            if((int)pending_arrival["ok"] &&
+               (int)pending_arrival["epoch"]==epoch &&
+               (string)pending_arrival["room_path"]==room_path)
+                MAP_WORKERD->clear_local_player_arrival(userid);
             send_json(req,(["ok":1,"replayed":1,"userid":userid,
-                "room_path":room_path]));
+                "room_path":room_path,
+                "affinity":map_worker_player_affinity(player)]));
             return;
         }
         send_json(req,(["ok":0,"code":"live_player_conflict"]),409);
@@ -431,6 +602,39 @@ private void handle_map_worker_local_inventory(
         "worker_id":MAP_WORKERD->query_local_worker_id()]));
 }
 
+private array(mapping(string:mixed)) map_worker_local_online_rows(
+    array(object)|void supplied_players)
+{
+    array(mapping(string:mixed)) rows = ({});
+    array(object) players = supplied_players || map_worker_local_players();
+    foreach(players,object player){
+        mapping(string:mixed) row = ([]);
+        mixed row_err;
+        if(!player || !functionp(player->query_name))
+            continue;
+        row_err = catch {
+            object room = environment(player);
+            string userid = lower_case((string)player->query_name());
+            row = (["userid":userid,
+                "name_cn":(string)player->query_name_cn(),
+                "level":(int)player->query_level(),
+                "worker_id":MAP_WORKERD->query_local_worker_id(),
+                "epoch":MAP_WORKERD->query_local_player_epoch(userid),
+                "room_path":room ? file_name(room)-ROOT : "",
+                "room_name":room && functionp(room->query_name_cn) ?
+                    (string)room->query_name_cn() : "未知",
+                "idle":functionp(player->query_idle_label) ?
+                    (string)player->query_idle_label() : "",
+                "account_id":functionp(player->query_account_owner) ?
+                    lower_case((string)player->query_account_owner()) : userid,
+            ]);
+        };
+        if(!row_err && (string)row["userid"]!="" && (int)row["epoch"]>0)
+            rows += ({row});
+    }
+    return rows;
+}
+
 private void handle_map_worker_local_status(
     Protocols.HTTP.Server.Request req)
 {
@@ -451,7 +655,166 @@ private void handle_map_worker_local_status(
         "pending_commands":(int)thread_status["world_pending_commands"],
         "heartbeat_ms":(int)runtime_status["heartbeat_last_cycle_ms"],
         "control":MAP_WORKERD->query_local_control_status(),
+        "online_users":map_worker_local_online_rows(local_players),
     ]));
+}
+
+private void discard_map_worker_offline_admin_player(object|zero player)
+{
+    if(!player)
+        return;
+    if(functionp(player->discard_stale_worker_copy))
+        player->discard_stale_worker_copy();
+    else{
+        foreach(all_inventory(player),object item)
+            if(item)
+                destruct(item);
+        destruct(player);
+    }
+}
+
+private mapping execute_map_worker_local_admin_recharge(mapping params)
+{
+    string manager_userid = lower_case(String.trim_all_whites(
+        (string)(params["manager_userid"] || "")));
+    string target_userid = lower_case(String.trim_all_whites(
+        (string)(params["target_userid"] || "")));
+    string account_id = lower_case(String.trim_all_whites(
+        (string)(params["account_id"] || "")));
+    string worker_id = lower_case(String.trim_all_whites(
+        (string)(params["worker_id"] || "")));
+    string recharge_request_id = lower_case(String.trim_all_whites(
+        (string)(params["recharge_request_id"] || "")));
+    string gateway_request_id = lower_case(String.trim_all_whites(
+        (string)(params["gateway_request_id"] || "")));
+    string capability = lower_case(String.trim_all_whites(
+        (string)(params["capability"] || "")));
+    int epoch = (int)params["epoch"];
+    int fee = (int)params["fee"];
+    object|zero player = 0;
+    object recharge_command;
+    int offline;
+    mapping result;
+    string expected_capability = map_worker_admin_capability(manager_userid,
+        target_userid,account_id,worker_id,epoch,fee,recharge_request_id,
+        gateway_request_id);
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       worker_id!=MAP_WORKERD->query_local_worker_id() ||
+       !MAP_WORKERD->local_control_lease_valid() ||
+       MANAGERD->checkpower(manager_userid)!="admin" ||
+       sizeof(recharge_request_id)!=64 || sizeof(gateway_request_id)!=64 ||
+       capability!=expected_capability ||
+       ACCOUNT_CHARACTERD->query_account_id_for_character(target_userid)!=
+        account_id){
+        return (["ok":0,"code":"admin_recharge_forbidden",
+            "message":"分布式充值能力校验失败"]);
+    }
+    player = get_player_from_connection(target_userid,0);
+    if(!player)
+        player = find_player(target_userid);
+    if(epoch>0){
+        int local_epoch = MAP_WORKERD->query_local_player_epoch(target_userid);
+        if(player && local_epoch!=epoch){
+            return (["ok":0,"code":"stale_admin_target",
+                "message":"目标人物已经切换 worker，请重新确认充值"]);
+        }
+        if(!player && local_epoch!=0 && local_epoch!=epoch){
+            return (["ok":0,"code":"stale_admin_target",
+                "message":"目标人物离线租约已变化，请重新确认充值"]);
+        }
+        if(!player)
+            offline = 1;
+    }
+    else{
+        if(player || MAP_WORKERD->query_local_player_epoch(target_userid)>0){
+            return (["ok":0,"code":"target_became_online",
+                "message":"目标人物刚刚上线，请重新确认充值"]);
+        }
+        offline = 1;
+    }
+    if(offline){
+        player = clone(GAMELIB_USER);
+        if(player){
+            player->set_name(target_userid);
+            player->set_project("gamelib");
+            if(!player->restore()){
+                destruct(player);
+                player = 0;
+            }
+        }
+    }
+    if(!player || !functionp(player->query_account_owner) ||
+       lower_case((string)player->query_account_owner())!=account_id){
+        if(offline)
+            discard_map_worker_offline_admin_player(player);
+        return (["ok":0,"code":"target_account_mismatch",
+            "message":"目标人物账号归属无效"]);
+    }
+    recharge_command = (object)(ROOT+"/gamelib/cmds/txadd.pike");
+    if(!recharge_command ||
+       !functionp(recharge_command->execute_admin_recharge_target))
+        result = (["ok":0,"message":"充值处理器不可用"]);
+    else
+        result = recharge_command->execute_admin_recharge_target(player,fee,
+            manager_userid,recharge_request_id,1);
+    if(offline)
+        discard_map_worker_offline_admin_player(player);
+    return result;
+}
+
+private void handle_map_worker_local_admin_recharge(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    mapping result = execute_map_worker_local_admin_recharge(params);
+    send_json(req,result,(int)result["ok"] ? 200 :
+        (string)result["code"]=="admin_recharge_forbidden" ? 403 : 409);
+}
+
+private mapping execute_map_worker_local_account_refresh(string account_id)
+{
+    account_id = lower_case(String.trim_all_whites(account_id || ""));
+    int refreshed;
+    int save_failed;
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       !MAP_WORKERD->local_control_lease_valid() || account_id=="")
+        return (["ok":0,"code":"invalid_account_refresh"]);
+    if(functionp(ACCOUNT_STORAGED->invalidate_worker_account_cache))
+        ACCOUNT_STORAGED->invalidate_worker_account_cache(account_id);
+    if(functionp(ACCOUNT_WALLETD->invalidate_worker_account_cache))
+        ACCOUNT_WALLETD->invalidate_worker_account_cache(account_id);
+    if(functionp(ACCOUNT_CHARACTERD->invalidate_worker_account_cache))
+        ACCOUNT_CHARACTERD->invalidate_worker_account_cache(account_id);
+    if(functionp(PETD->invalidate_worker_account_cache))
+        PETD->invalidate_worker_account_cache(account_id);
+    foreach(map_worker_local_players(),object player){
+        if(!player || !functionp(player->query_account_owner) ||
+           lower_case((string)player->query_account_owner())!=account_id)
+            continue;
+        ACCOUNT_WALLETD->reconcile_player_login(player);
+        if(!player->save_with_result())
+            save_failed++;
+        else
+            refreshed++;
+    }
+    return (["ok":save_failed ? 0 : 1,"refreshed":refreshed,
+        "save_failed":save_failed]);
+}
+
+private void handle_map_worker_local_account_refresh(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    mapping result = execute_map_worker_local_account_refresh(
+        (string)(params["account_id"] || ""));
+    send_json(req,result,(int)result["ok"] ? 200 :
+        (string)result["code"]=="invalid_account_refresh" ? 409 : 500);
+}
+
+private void handle_map_worker_local_online_users(
+    Protocols.HTTP.Server.Request req)
+{
+    send_json(req,(["ok":1,"worker_id":
+        MAP_WORKERD->query_local_worker_id(),"users":
+        map_worker_local_online_rows()]));
 }
 
 private void handle_map_worker_local_release(
@@ -494,7 +857,10 @@ private void handle_map_worker_local_release(
     int saved = 0;
     mixed save_err = catch {
         if(functionp(player->save_with_result))
-            saved = player->save_with_result(0);
+            // begin_handoff already froze the exact coordinator epoch. This
+            // is the one final atomic source save, even if a slow accepted
+            // request made the short worker-control heartbeat expire.
+            saved = player->save_with_result(0,1);
         else{
             player->save();
             saved = 1;
@@ -669,6 +1035,10 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
         handle_map_worker_local_route(req,params);
         return;
     }
+    if(action=="local_resolve_command"){
+        handle_map_worker_local_resolve_command(req,params);
+        return;
+    }
     if(action=="local_status"){
         handle_map_worker_local_status(req);
         return;
@@ -710,6 +1080,29 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
         result = MAP_WORKERD->query_local_control_status();
         result["ok"] = (int)result["control_lease_valid"];
         send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_online_snapshot_update"){
+        result = MAP_WORKERD->update_local_online_snapshot(
+            mappingp(params["snapshot"]) ? (mapping)params["snapshot"] : ([]));
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_prepare_shutdown"){
+        result = MAP_WORKERD->prepare_local_shutdown_save_fence();
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_admin_recharge"){
+        handle_map_worker_local_admin_recharge(req,params);
+        return;
+    }
+    if(action=="local_account_refresh"){
+        handle_map_worker_local_account_refresh(req,params);
+        return;
+    }
+    if(action=="local_online_users"){
+        handle_map_worker_local_online_users(req);
         return;
     }
     if(action=="local_auction_tick"){
@@ -761,9 +1154,24 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
     }
 
     switch(action){
+        case "gateway_quiesce":
+            result = prepare_pike_gateway_shutdown();
+            break;
+        case "gateway_failover_quiesce":
+            result = prepare_pike_gateway_failover_shutdown(
+                arrayp(params["failed_workers"]) ?
+                    (array)params["failed_workers"] : ({}));
+            break;
+        case "online_users":
+            result = query_pike_gateway_online_users();
+            break;
+        case "gateway_status":
+            result = query_pike_gateway_status();
+            break;
         case "status":
             result = MAP_WORKERD->query_status();
             result["ok"] = 1;
+            result["gateway"] = query_pike_gateway_status();
             break;
         case "register":
             result = MAP_WORKERD->register_worker(

@@ -103,6 +103,31 @@ string build_online_user_row(object user,int display_index)
 	return row;
 }
 
+string build_cluster_online_user_row(mapping user,int display_index)
+{
+	string userid = (string)(user["userid"] || "");
+	string name_cn = (string)(user["name_cn"] || "");
+	string worker_id = (string)(user["worker_id"] || "");
+	string room_name = (string)(user["room_name"] || "未知");
+	if(userid=="" || worker_id=="")
+		return "";
+	return (string)display_index+"|"+(string)(int)user["level"]+"级|"+
+		name_cn+"|"+userid+"|"+room_name+"|"+worker_id+"|"+
+		"[密语:tell start "+userid+" 0]|"+
+		"[管理:mgr_usr_data "+userid+"]|"+
+		(string)(user["idle"] || "")+"\n";
+}
+
+string cluster_worker_count_desc(mapping status)
+{
+	string result = "";
+	mapping counts = mappingp(status["worker_counts"]) ?
+		(mapping)status["worker_counts"] : ([]);
+	foreach(sort(indices(counts)),string worker_id)
+		result += worker_id+":"+(string)(int)counts[worker_id]+"人 ";
+	return result=="" ? "" : "Worker分布："+result+"\n";
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -142,6 +167,21 @@ int main(string|zero arg)
 			s += "[历史用户查询管理:game_deal manager_user_history not not not]\n";
 		}
 		else{
+			if(MAP_WORKERD->query_node_role()=="worker" &&
+			   (type=="free_chat" || type=="free_login" ||
+			    (type=="manager_user_online" &&
+			     (action1=="char_user" || action1=="unchat" ||
+			      action1=="band_user")))){
+				if(type=="manager_user_online" && action1=="char_user")
+					s += "多Worker人物详情由安全入口汇总，禁止在管理进程复制在线档案。\n"+
+						"[查看安全详情:mgr_usr_data "+action2+"]\n";
+				else
+					s += "此旧管理动作在多Worker试运行期间已失败关闭，避免多个进程覆盖同一管理状态。\n";
+				s += "[返回管理主界面:game_deal]\n";
+				s += "[返回游戏:look]\n";
+				write(s);
+				return 1;
+			}
 			switch(type){
 				case "downgame":
 				{
@@ -392,29 +432,58 @@ int main(string|zero arg)
 							s += "[返回管理主界面:game_deal]\n";
 						}
 						else if(action1=="allcount"){
-							array(object) list =
-								filter_valid_online_users(users(1));
-							int count = sizeof(list);
-							s += "在线总用户："+count+"\n";
+							if(MAP_WORKERD->query_node_role()=="worker"){
+								mapping status = HTTP_APID->
+									query_map_worker_cluster_online_users();
+								if(status["ok"]){
+									s += "在线总用户："+(string)(int)status["count"]+"\n";
+									s += cluster_worker_count_desc(status);
+								}
+								else
+									s += "跨Worker在线统计校验失败，已拒绝显示不完整数字。\n";
+							}
+							else{
+								array(object) list =
+									filter_valid_online_users(users(1));
+								s += "在线总用户："+sizeof(list)+"\n";
+							}
 							s += "[查看禁言列表:game_deal unchat_user_list not not not]\n";
 							s += "[查看封号列表:game_deal unlogin_user_list not not not]\n";
 							s += "[返回管理主界面:game_deal]\n";
 						}
 						else if(action1=="not"){
-							array(object) list;
 							int j;
 							int count = 0;
 							string rows = "";
 							string row = "";
-							list = filter_valid_online_users(users(1));
-							for(j=0;j<sizeof(list);j++){
-								row = build_online_user_row(list[j],count+1);
-								if(row && sizeof(row)){
-									rows += row;
-									count++;
+							if(MAP_WORKERD->query_node_role()=="worker"){
+								mapping status = HTTP_APID->
+									query_map_worker_cluster_online_users();
+								if(status["ok"] && arrayp(status["users"])){
+									foreach((array)status["users"],mapping user){
+										row = build_cluster_online_user_row(user,count+1);
+										if(row!=""){
+											rows += row;
+											count++;
+										}
+									}
+									s += "在线总用户："+count+"\n";
+									s += cluster_worker_count_desc(status);
 								}
+								else
+									s += "跨Worker在线统计校验失败，已拒绝显示不完整列表。\n";
 							}
-							s += "在线总用户："+count+"\n";
+							else{
+								array(object) list = filter_valid_online_users(users(1));
+								for(j=0;j<sizeof(list);j++){
+									row = build_online_user_row(list[j],count+1);
+									if(row && sizeof(row)){
+										rows += row;
+										count++;
+									}
+								}
+								s += "在线总用户："+count+"\n";
+							}
 							s += rows;
 							s += "[查看禁言列表:game_deal unchat_user_list not not not]\n";
 							s += "[查看封号列表:game_deal unlogin_user_list not not not]\n";

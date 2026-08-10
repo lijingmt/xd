@@ -98,6 +98,13 @@ string get_log_name(int type){
 //内存文件回写物理文件
 void rewritefile()
 {
+	// All workers share these legacy files. Only the primary worker may ever
+	// rewrite them; admin mutations are failed closed elsewhere in trial mode.
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   MAP_WORKERD->query_local_worker_id()!="w01"){
+		call_out(rewritefile,SAVE_MANAGER);
+		return;
+	}
 	string tmp = "";
 	//回写内存中封号玩家的id到文件中
 	if(unlogin_mem&&sizeof(unlogin_mem))

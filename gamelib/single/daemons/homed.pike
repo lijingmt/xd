@@ -172,6 +172,17 @@ private mapping(int:int) timeDelay = ([1:0,3:3,7:5,]);		//物品出售期限及�
 #include "_home_mod/logical_zone.pike"
 #include "_home_mod/persistence.pike"
 
+private int home_persistence_owner()
+{
+	string role = lower_case(getenv("XIAND_NODE_ROLE") || "standalone");
+	if(role=="gateway")
+		return 0;
+	if(role!="worker")
+		return 1;
+	return MAP_WORKERD->local_worker_owns_room(
+		ROOT+"/gamelib/d/home/worker_owner_probe");
+}
+
 protected void create(){
 	werror("============== HOMED start  ===============\n");
 	init_level();
@@ -184,7 +195,10 @@ protected void create(){
 	init_dropMap();
 	init_infancy();
 	init_shopRcmMap();
-	flush_shopRcm_list(1);
+	if(home_persistence_owner())
+		flush_shopRcm_list(1);
+	else
+		werror("[HOMED] read-only cache; persistence belongs to home owner worker\n");
 	call_out(store_all_info,TIME_SAPCE);
 	werror("==============  HOMED end  ===============\n\n");
 }
@@ -2707,6 +2721,11 @@ private int store_all_info_unlocked(int fg){
 
 int store_all_info(void|int fg)
 {
+	if(!home_persistence_owner()){
+		if(!fg)
+			call_out(store_all_info,TIME_SAPCE);
+		return 1;
+	}
 	object state_key = homeStateLock->lock();
 	int ok = 0;
 	mixed err = catch{

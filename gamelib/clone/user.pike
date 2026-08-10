@@ -107,6 +107,63 @@ string last_pos;//最后登陆房间记录
 // One-shot non-item state for a fenced cross-worker arrival. Equipment and
 // inventory remain exclusively inside the atomic player save.
 mapping worker_summon_handoff=([]);
+// Exactly-once receipts live in the same atomic file as the granted items.
+// A lost HTTP response can therefore retry an already-credited recharge
+// without cloning its per-character bonus a second time.
+mapping(string:int) admin_recharge_bonus_receipts=([]);
+
+private int valid_admin_recharge_receipt_id(string request_id)
+{
+	if(!request_id || sizeof(request_id)!=64)
+		return 0;
+	for(int index=0;index<sizeof(request_id);index++){
+		int one = request_id[index];
+		if((one>='0' && one<='9') || (one>='a' && one<='f'))
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+int has_admin_recharge_bonus_receipt(string request_id)
+{
+	return valid_admin_recharge_receipt_id(request_id) &&
+		mappingp(admin_recharge_bonus_receipts) &&
+		(int)admin_recharge_bonus_receipts[request_id]>0;
+}
+
+int record_admin_recharge_bonus_receipt(string request_id)
+{
+	if(!valid_admin_recharge_receipt_id(request_id))
+		return 0;
+	if(!mappingp(admin_recharge_bonus_receipts))
+		admin_recharge_bonus_receipts = ([]);
+	// Keep at least the same 256-request replay window as ACCOUNT_WALLETD.
+	// That daemon refuses additional live requests at its cap and rejects
+	// pruned request ids after their signed 30-minute freshness window, so an
+	// evicted old bonus receipt can never reach this method again.
+	if(!admin_recharge_bonus_receipts[request_id] &&
+	   sizeof(admin_recharge_bonus_receipts)>=256){
+		array(string) receipt_ids = indices(admin_recharge_bonus_receipts);
+		string oldest_id = "";
+		int oldest_time = time();
+		foreach(receipt_ids,string receipt_id)
+			if((int)admin_recharge_bonus_receipts[receipt_id]<=oldest_time){
+				oldest_time = (int)admin_recharge_bonus_receipts[receipt_id];
+				oldest_id = receipt_id;
+			}
+		if(oldest_id!="")
+			m_delete(admin_recharge_bonus_receipts,oldest_id);
+	}
+	admin_recharge_bonus_receipts[request_id] = time();
+	return 1;
+}
+
+void rollback_admin_recharge_bonus_receipt(string request_id)
+{
+	if(mappingp(admin_recharge_bonus_receipts))
+		m_delete(admin_recharge_bonus_receipts,request_id);
+}
 
 /**
  * Complete one coordinator-fenced static-room arrival without replaying the
@@ -554,7 +611,8 @@ int save_with_result(void|int autosave,void|int worker_fenced_save){
 	// fence is allowed one final atomic save before destroying the stale copy.
 	if(MAP_WORKERD->query_node_role()=="worker" && !worker_fenced_save &&
 	   (!MAP_WORKERD->local_control_lease_valid() ||
-	    MAP_WORKERD->query_local_player_epoch(query_name())<1)){
+	    MAP_WORKERD->query_local_player_epoch(query_name())<1) &&
+	   !MAP_WORKERD->local_user_request_save_fence_valid(query_name())){
 		werror("[MAP_WORKER][SAVE_FENCE] blocked userid=%s\n",
 			this_object()->query_name() || "unknown");
 		return 0;
@@ -632,14 +690,14 @@ void cancel_worker_summon_handoff(){
 }
 
 /** Clear and save the capability before materializing any target summons. */
-int consume_worker_summon_handoff(){
+int consume_worker_summon_handoff(void|int worker_fenced_save){
 	mapping snapshot;
 	if(MAP_WORKERD->query_node_role()!="worker" ||
 	   !mappingp(worker_summon_handoff) || !sizeof(worker_summon_handoff))
 		return 1;
 	snapshot = copy_value(worker_summon_handoff);
 	worker_summon_handoff = ([]);
-	if(!save_with_result(0)){
+	if(!save_with_result(0,worker_fenced_save)){
 		worker_summon_handoff = snapshot;
 		return 0;
 	}

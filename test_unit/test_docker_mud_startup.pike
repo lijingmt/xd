@@ -64,6 +64,7 @@ void test_pike_stack_contract()
 	if(source &&
 	   search(source,"ulimit -s unlimited")!=-1 &&
 	   search(source,"pike -s1000000 -ss67108864")!=-1 &&
+	   search(source,"-ss67108864 --no-precompile")!=-1 &&
 	   search(source,"\"$ROOT_DIR/lowlib/driver.pike\"")!=-1)
 		test_pass();
 	else
@@ -322,12 +323,19 @@ void test_real_healthcheck_and_runtime_contracts()
 	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
 	string ignore = Stdio.read_file(ROOT+"/.dockerignore");
 	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
-	if(dockerfile && ignore && startup &&
+	string message_daemon = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/messaged.pike");
+	if(dockerfile && ignore && startup && message_daemon &&
 	   search(dockerfile,"curl -fsS --max-time 5")!=-1 &&
 	   search(dockerfile,"http://127.0.0.1:8888/health")!=-1 &&
 	   search(dockerfile,"CMD pike -e 'exit(0);'")==-1 &&
+	   search(startup,"\"$ROOT_DIR/log/fee_log\"")!=-1 &&
+	   search(startup,"\"$ROOT_DIR/log/home/drop\"")!=-1 &&
+	   search(startup,"\"$ROOT_DIR/log/stat/online\"")!=-1 &&
 	   search(startup,"\"$ROOT_DIR/db_log/reg_new\"")!=-1 &&
 	   search(startup,"\"$ROOT_DIR/db_log/daily_user\"")!=-1 &&
+	   search(message_daemon,"Stdio.file_size(MSG_LIST)<=0")!=-1 &&
+	   search(message_daemon,"if(!msgData)")!=-1 &&
 	   search(ignore,"!docker/Dockerfile.all")!=-1 &&
 	   search(ignore,"!docker/docker-compose.yml")!=-1 &&
 	   search(ignore,"!docker/start-unified.sh")!=-1 &&
@@ -337,12 +345,12 @@ void test_real_healthcheck_and_runtime_contracts()
 	   search(startup,"chmod 700 \"$ROOT_DIR/db_log\"")!=-1)
 		test_pass();
 	else
-		test_fail("健康检查仍可能假阳性、db_log未初始化或镜像TestUnit缺少静态文件");
+		test_fail("健康检查可能假阳性、运行目录/空公告兼容不全或镜像TestUnit缺文件");
 }
 
 void test_worker_docker_start_chain_contract()
 {
-	test_start("restart-all到容器的3-worker启动链完整");
+	test_start("restart-all到容器的可配置worker启动链完整");
 	string wrapper = Stdio.read_file(ROOT+"/restart-all-docker.sh");
 	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
 	string compose = Stdio.read_file(ROOT+"/docker/docker-compose.yml");
@@ -350,9 +358,22 @@ void test_worker_docker_start_chain_contract()
 	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
 	string bootstrap = Stdio.read_file(
 		ROOT+"/scripts/bootstrap_map_worker_runtime.sh");
+	string env_setup = Stdio.read_file(
+		ROOT+"/scripts/setup_deploy_env.sh");
+	string env_example = Stdio.read_file(ROOT+"/.env.example");
 	if(wrapper && restart && compose && dockerfile && startup && bootstrap &&
+	   env_setup && env_example &&
 	   search(wrapper,"exec \"$SCRIPT_DIR/restart-docker.sh\"")!=-1 &&
 	   search(wrapper,"xd01-02 2002 2003")!=-1 &&
+	   search(wrapper,"\"$@\"")!=-1 &&
+	   search(restart,"--workers")!=-1 &&
+	   search(restart,"XIAND_MAP_WORKER_COUNT_OVERRIDE")!=-1 &&
+	   search(restart,"\"$ENV_SETUP_SCRIPT\" \"$XIAND_ENV_FILE\"")!=-1 &&
+	   search(restart,"stop_existing_container_safely")!=-1 &&
+	   search(restart,"map_worker_cluster.sh stop")!=-1 &&
+	   search(restart,"docker stop -t 600")!=-1 &&
+	   search(restart,"--restart unless-stopped")!=-1 &&
+	   search(restart,"--stop-timeout 600")!=-1 &&
 	   search(restart,"prepare_map_worker_runtime")!=-1 &&
 	   search(restart,
 		   "/usr/local/games/allxd/${GAME_AREA}/data_xiand/map_workers")!=-1 &&
@@ -360,13 +381,27 @@ void test_worker_docker_start_chain_contract()
 	   search(restart,"-e XIAND_WORKER_TOKEN")!=-1 &&
 	   search(restart,"-e XIAND_MAP_WORKER_COUNT")!=-1 &&
 	   search(restart,"verify_map_worker_runtime_in_container")!=-1 &&
+	   search(restart,"-p \"18880") == -1 &&
+	   search(restart,"-p \"18881") == -1 &&
+	   search(restart,"-p \"14801") == -1 &&
 	   search(compose,"XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}")!=-1 &&
 	   search(compose,"XIAND_WORKER_TOKEN=${XIAND_WORKER_TOKEN}")!=-1 &&
+	   search(compose,"stop_grace_period: 10m")!=-1 &&
+	   search(compose,"18880:") == -1 &&
+	   search(compose,"18881:") == -1 &&
+	   search(compose,"14801:") == -1 &&
 	   search(dockerfile,"python3")!=-1 &&
 	   search(dockerfile,"openssl")!=-1 &&
 	   search(dockerfile,"nmap-ncat")!=-1 &&
+	   search(dockerfile,"COPY . /app/xiand/")!=-1 &&
+	   search(env_setup,"cp \"$ENV_TEMPLATE\" \"$ENV_FILE\"")!=-1 &&
+	   search(env_setup,"chmod 600 \"$ENV_FILE\"")!=-1 &&
+	   search(env_setup,"openssl rand -hex 32")!=-1 &&
+	   search(env_example,"MYSQL_PASSWORD=")!=-1 &&
 	   search(dockerfile,"procps-ng")!=-1 &&
 	   search(startup,"XIAND_MAP_WORKER_LAUNCHER=background")!=-1 &&
+	   search(startup,"\"$ROOT_DIR/data_xiand/u\"")!=-1 &&
+	   search(startup,"\"$ROOT_DIR/data_xiand/accounts\"")!=-1 &&
 	   search(startup,
 		   "[[ \"$MAP_WORKER_CONFIG\" == \"$MAP_WORKER_DIR/config.json\" ]]")!=-1 &&
 	   search(startup,"\"$MAP_WORKER_SCRIPT\" apply")!=-1 &&
@@ -376,7 +411,90 @@ void test_worker_docker_start_chain_contract()
 	   search(bootstrap,"chmod 600 \"$CONFIG_FILE\"")!=-1)
 		test_pass();
 	else
-		test_fail("worker配置未持久化、环境未传入容器或入口未实际apply 3-worker");
+		test_fail("worker数量参数未持久化、环境未传入容器或入口未实际apply");
+}
+
+void test_local_worker_restart_chain_contract()
+{
+	test_start("本地一键重启先跑完整TestUnit再启动可配置worker");
+	string wrapper = Stdio.read_file(ROOT+"/restart-local-workers.sh");
+	string local_restart = Stdio.read_file(
+		ROOT+"/scripts/restart_map_workers_with_testunit.sh");
+	string testunit_restart = Stdio.read_file(
+		ROOT+"/scripts/restart_with_testunit.sh");
+	if(wrapper && local_restart && testunit_restart &&
+	   search(wrapper,"restart_map_workers_with_testunit.sh")!=-1 &&
+	   search(wrapper,"\"$@\"")!=-1 &&
+	   search(local_restart,"XIAND_STOP_AFTER_TESTUNIT=1")!=-1 &&
+	   search(local_restart,"\"$CLUSTER_SCRIPT\" stop")!=-1 &&
+	   search(local_restart,"XIAND_MAP_WORKER_RUN_SELFTESTS=1")!=-1 &&
+	   search(local_restart,"\"$CLUSTER_SCRIPT\" start \"$@\"")!=-1 &&
+	   search(local_restart,"\"$CLUSTER_SCRIPT\" health")!=-1 &&
+	   search(testunit_restart,"stop_after_testunit_if_requested")!=-1 &&
+	   search(testunit_restart,"validated standalone could not shut down safely")!=-1)
+		test_pass();
+	else
+		test_fail("本地worker重启可能漏跑TestUnit、漏安全停旧拓扑或忽略数量参数");
+}
+
+void test_testunit_and_include_isolation_contract()
+{
+	test_start("TestUnit显式启用且多Pike进程隔离编译目录");
+	string test_daemon = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/testunitd.pike");
+	string local_restart = Stdio.read_file(
+		ROOT+"/scripts/restart_with_testunit.sh");
+	string cluster = Stdio.read_file(ROOT+"/scripts/map_worker_cluster.sh");
+	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
+	string driver = Stdio.read_file(ROOT+"/lowlib/driver.pike");
+	if(test_daemon && local_restart && cluster && startup && driver &&
+	   search(test_daemon,"getenv(\"XIAND_RUN_TESTUNIT\")!=\"1\"")!=-1 &&
+	   search(local_restart,"XIAND_RUN_TESTUNIT=1")!=-1 &&
+	   search(startup,"XIAND_RUN_TESTUNIT=0")!=-1 &&
+	   search(startup,"-ss67108864 --no-precompile")!=-1 &&
+	   search(local_restart,"--no-precompile '$ROOT_DIR/lowlib/driver.pike'")!=-1 &&
+	   search(cluster,"--no-precompile '$ROOT_DIR/lowlib/driver.pike'")!=-1 &&
+	   search(driver,"runtime_include_path=\"/tmp/xiand-include-\"")!=-1 &&
+	   search(driver,"Stdio.recursive_rm(runtime_include_path)")!=-1 &&
+	   search(driver,"add_include_path(runtime_include_path)")!=-1 &&
+	   search(driver,"Stdio.recursive_rm(mudlib_root+\"/.include\")")==-1)
+		test_pass();
+	else
+		test_fail("生产回退可能误跑TestUnit或多个Pike进程竞争.include目录");
+}
+
+void test_legacy_jsp_worker_gateway_contract()
+{
+	test_start("旧JSP书签和txd透明转发到Pike Gateway");
+	string proxy = Stdio.read_file(ROOT+"/web/legacy_api.jsp");
+	string header = Stdio.read_file(ROOT+"/web/includes/header.inc");
+	string registration = Stdio.read_file(ROOT+"/web/login_reg.jsp");
+	string partner = Stdio.read_file(ROOT+"/web/pg.jsp");
+	array(string) pages = ({"main.jsp","main_dark.jsp","main_ft.jsp",
+		"main_ft_dark.jsp","game.jsp","entrycheck.jsp",
+		"entrycheck_dark.jsp"});
+	int valid = proxy && header && registration && partner &&
+		search(header,"jakarta.servlet.http.HttpServletRequest")!=-1 &&
+		search(header,"javax.servlet.http.HttpServletRequest")==-1 &&
+		search(registration,"if( user==null || pswd==null)")!=-1 &&
+		search(registration,"if( user==null || pswd==null)")<
+			search(registration,"URLEncoder.encode(user") &&
+		search(proxy,"http://127.0.0.1:8888/api/html?")!=-1 &&
+		search(proxy,"query.length()>65536")!=-1 &&
+		search(proxy,"html.replace(\"/api/html\",compatibilityPath)")!=-1 &&
+		search(header,"buildLegacyApiCommand")!=-1 &&
+		search(header,"legacyCommandValue")!=-1 &&
+		search(registration,"http://127.0.0.1:8888/api/html?cmd=")!=-1 &&
+		search(partner,"./legacy_api.jsp?userid=")!=-1;
+	foreach(pages,string page){
+		string source = Stdio.read_file(ROOT+"/web/"+page);
+		if(!source || search(source,"legacy_api.jsp")==-1)
+			valid = 0;
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail("旧入口可能继续依赖单进程13800、丢失表单参数或改变txd书签");
 }
 
 void test_worker_failure_legacy_fallback_contract()
@@ -390,7 +508,8 @@ void test_worker_failure_legacy_fallback_contract()
 	if(startup){
 		latch_position = search(startup,
 			"latch_active_fallback \"worker-health-failure\"");
-		stop_position = search(startup,"if ! stop_cluster_safely; then",
+		stop_position = search(startup,
+			"if ! stop_cluster_safely \"$traffic_mode\"; then",
 			latch_position);
 		legacy_position = search(startup,"start_legacy_main",stop_position);
 	}
@@ -400,6 +519,9 @@ void test_worker_failure_legacy_fallback_contract()
 	   search(startup,"FALLBACK_LATCH=")!=-1 &&
 	   search(startup,"persistent worker fallback latch found")!=-1 &&
 	   search(startup,"health_failures >= 3")!=-1 &&
+	   search(startup,"XIAND_MAP_WORKER_FAILOVER_SHUTDOWN")!=-1 &&
+	   search(cluster,"gateway_failover_quiesce")!=-1 &&
+	   search(cluster,"failover shutdown confirmed absent workers")!=-1 &&
 	   search(startup,"if probe_output=\"$(XIAND_MAP_WORKER_CONFIG=")!=-1 &&
 	   search(startup,"map-worker-monitor.log")!=-1 &&
 	   search(startup,
@@ -454,6 +576,9 @@ int main()
 	test_real_healthcheck_and_runtime_contracts();
 	test_room_catalog_deploy_contract();
 	test_worker_docker_start_chain_contract();
+	test_local_worker_restart_chain_contract();
+	test_testunit_and_include_isolation_contract();
+	test_legacy_jsp_worker_gateway_contract();
 	test_worker_failure_legacy_fallback_contract();
 	print_summary();
 	if(test_results["failed"]==0)

@@ -124,7 +124,9 @@ start_legacy_main()
 	fi
 	log "starting legacy single-process main on 13800/8888"
 	cd "$ROOT_DIR"
-	pike -s1000000 -ss67108864 "$ROOT_DIR/lowlib/driver.pike" \
+	XIAND_NODE_ROLE=standalone XIAND_RUN_TESTUNIT=0 \
+		pike -s1000000 -ss67108864 --no-precompile \
+		"$ROOT_DIR/lowlib/driver.pike" \
 		-i 0.0.0.0 -p "$LEGACY_MUD_PORT" "$ROOT_DIR/" \
 		>> "$ROOT_DIR/log/pike.log" 2>&1 &
 	LEGACY_PID=$!
@@ -170,6 +172,7 @@ start_cluster()
 
 stop_cluster_safely()
 {
+	local traffic_mode="${1:-}"
 	if [[ "$CLUSTER_STARTED" != "1" &&
 	      ! -f "$ROOT_DIR/log/map-workers/$GAME_PREFIX/topology.json" ]]; then
 		return 0
@@ -177,6 +180,7 @@ stop_cluster_safely()
 	if XIAND_MAP_WORKER_CONFIG="$MAP_WORKER_CONFIG" \
 	   XIAND_MAP_WORKER_LAUNCHER=background \
 	   XIAND_MAP_WORKER_AREA_NAME="$GAME_PREFIX" \
+	   XIAND_MAP_WORKER_FAILOVER_SHUTDOWN="$([[ "$traffic_mode" == "active" ]] && echo 1 || echo 0)" \
 	   "$MAP_WORKER_SCRIPT" stop; then
 		CLUSTER_STARTED=0
 		return 0
@@ -215,7 +219,7 @@ fallback_to_legacy()
 	if [[ "$traffic_mode" == "active" ]]; then
 		latch_active_fallback "worker-health-failure"
 	fi
-	if ! stop_cluster_safely; then
+	if ! stop_cluster_safely "$traffic_mode"; then
 		if [[ "$traffic_mode" == "active" ]]; then
 			fail "worker cluster could not prove safe shutdown; fallback latch retained"
 		fi
@@ -323,11 +327,27 @@ initialize_runtime()
 	export MYSQL_HOST MYSQL_PORT MYSQL_USER MYSQL_PASSWORD
 
 	umask 027
-	mkdir -p "$ROOT_DIR/log/stat/reg" "$ROOT_DIR/log/stat/daily" \
+	mkdir -p "$ROOT_DIR/data_xiand/u" "$ROOT_DIR/data_xiand/bangpai" \
+		"$ROOT_DIR/data_xiand/accounts" "$ROOT_DIR/data_xiand/new_users" \
+		"$ROOT_DIR/data_xiand/feedback" \
+		"$ROOT_DIR/log/pk" "$ROOT_DIR/log/stat/online" \
+		"$ROOT_DIR/log/stat/consume" "$ROOT_DIR/log/stat/daily" \
+		"$ROOT_DIR/log/stat/reg" "$ROOT_DIR/log/stat/money_consume" \
+		"$ROOT_DIR/log/fee_log" "$ROOT_DIR/log/home/drop" \
+		"$ROOT_DIR/log/auto_learn" "$ROOT_DIR/log/push" \
+		"$ROOT_DIR/log/daily" "$ROOT_DIR/log/month" \
 		"$ROOT_DIR/db_log/reg_new" "$ROOT_DIR/db_log/daily_user" \
 		/var/lib/mysql /tmp "$MAP_WORKER_DIR"
-	chmod 750 "$ROOT_DIR/log" "$ROOT_DIR/log/stat" \
-		"$ROOT_DIR/log/stat/reg" "$ROOT_DIR/log/stat/daily"
+	chmod 700 "$ROOT_DIR/data_xiand" "$ROOT_DIR/data_xiand/u" \
+		"$ROOT_DIR/data_xiand/bangpai" "$ROOT_DIR/data_xiand/accounts" \
+		"$ROOT_DIR/data_xiand/new_users" "$ROOT_DIR/data_xiand/feedback"
+	chmod 750 "$ROOT_DIR/log" "$ROOT_DIR/log/pk" \
+		"$ROOT_DIR/log/stat" "$ROOT_DIR/log/stat/online" \
+		"$ROOT_DIR/log/stat/consume" "$ROOT_DIR/log/stat/daily" \
+		"$ROOT_DIR/log/stat/reg" "$ROOT_DIR/log/stat/money_consume" \
+		"$ROOT_DIR/log/fee_log" "$ROOT_DIR/log/home" \
+		"$ROOT_DIR/log/home/drop" "$ROOT_DIR/log/auto_learn" \
+		"$ROOT_DIR/log/push" "$ROOT_DIR/log/daily" "$ROOT_DIR/log/month"
 	chmod 700 "$ROOT_DIR/db_log" "$ROOT_DIR/db_log/reg_new" \
 		"$ROOT_DIR/db_log/daily_user" "$MAP_WORKER_DIR"
 	find "$ROOT_DIR/data_xiand" -type d -exec chmod 700 {} + 2>/dev/null || true

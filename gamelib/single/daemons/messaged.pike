@@ -51,7 +51,11 @@ protected void create()
 void load_msg()
 {
 	all_msg = ([]);
+	if(Stdio.file_size(MSG_LIST)<=0)
+		return;
 	string msgData = Stdio.read_file(MSG_LIST);
+	if(!msgData)
+		return;
 	array(string) lines = msgData/"\r\n";
 	if(lines && sizeof(lines)){
 		lines = lines-({""});
@@ -238,4 +242,3 @@ int msg_send(array(string) msg)
 	else 
 		return 0;
 }
-

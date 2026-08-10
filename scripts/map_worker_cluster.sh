@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${XIAND_MAP_WORKER_CONFIG:-$ROOT_DIR/data_xiand/map_workers/config.json}"
 ACTION="${1:-status}"
+WORKER_COUNT_OVERRIDE=""
 PIKE_BIN="${PIKE_BIN:-}"
 PIKE_STACK_DEPTH="${XIAND_PIKE_STACK_DEPTH:-1000000}"
 PIKE_THREAD_STACK="${XIAND_PIKE_THREAD_STACK:-67108864}"
@@ -26,6 +27,49 @@ fail()
 {
 	echo "[map-workers] ERROR: $*" >&2
 	exit 1
+}
+
+parse_arguments()
+{
+	local positional_count=0
+	[[ $# -eq 0 ]] || shift
+	while (( $# )); do
+		case "$1" in
+			--workers)
+				(( $# >= 2 )) || fail "--workers requires a value"
+				[[ -z "$WORKER_COUNT_OVERRIDE" ]] ||
+					fail "worker count was specified more than once"
+				WORKER_COUNT_OVERRIDE="$2"
+				shift 2
+				;;
+			--workers=*)
+				[[ -z "$WORKER_COUNT_OVERRIDE" ]] ||
+					fail "worker count was specified more than once"
+				WORKER_COUNT_OVERRIDE="${1#--workers=}"
+				shift
+				;;
+			[0-9]*)
+				(( positional_count == 0 )) ||
+					fail "unexpected extra argument: $1"
+				[[ -z "$WORKER_COUNT_OVERRIDE" ]] ||
+					fail "worker count was specified more than once"
+				WORKER_COUNT_OVERRIDE="$1"
+				positional_count=1
+				shift
+				;;
+			*)
+				fail "unexpected argument: $1"
+				;;
+		esac
+	done
+	if [[ -n "$WORKER_COUNT_OVERRIDE" ]]; then
+		[[ "$ACTION" == "start" || "$ACTION" == "apply" ||
+		   "$ACTION" == "restart" ]] ||
+			fail "--workers is only valid with start, apply, or restart"
+		[[ "$WORKER_COUNT_OVERRIDE" =~ ^[0-9]+$ ]] &&
+			(( WORKER_COUNT_OVERRIDE >= 1 && WORKER_COUNT_OVERRIDE <= 16 )) ||
+			fail "worker count must be 1..16"
+	fi
 }
 
 release_orchestrator_lock()
@@ -120,7 +164,8 @@ load_environment()
 		PIKE_BIN="$(command -v pike || true)"
 	fi
 	[[ -x "$PIKE_BIN" ]] || fail "Pike binary is not executable"
-	command -v python3 >/dev/null 2>&1 || fail "python3 is required"
+	command -v python3 >/dev/null 2>&1 ||
+		fail "python3 is required by deployment JSON helpers"
 	if [[ "$LAUNCHER" == "screen" ]]; then
 		command -v screen >/dev/null 2>&1 || fail "screen is required"
 	fi
@@ -192,15 +237,39 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 PY
 }
 
-validate_gateway_code()
+update_worker_count()
 {
-	python3 -m py_compile \
-		"$ROOT_DIR/tools/map_workers/gateway.py" \
-		"$ROOT_DIR/tools/map_workers/test_gateway.py"
-	python3 -m unittest discover -s "$ROOT_DIR/tools/map_workers" \
-		-p 'test_*.py'
-	bash "$ROOT_DIR/tools/map_workers/test_startup.sh"
-	bash "$ROOT_DIR/tools/map_workers/test_bootstrap.sh"
+	local worker_count="$1"
+	python3 - "$CONFIG_FILE" "$worker_count" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+worker_count = int(sys.argv[2])
+if path.is_symlink():
+    raise SystemExit("worker config must not be a symlink")
+config = json.loads(path.read_text(encoding="utf-8"))
+config["worker_count"] = worker_count
+temporary = path.with_name(f".config.{os.getpid()}.tmp")
+temporary.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+os.chmod(temporary, 0o600)
+os.replace(temporary, path)
+PY
+	ensure_config
+	log "persistent worker count updated to $worker_count"
+}
+
+validate_gateway_stack()
+{
+	[[ -s "$ROOT_DIR/gamelib/single/daemons/_http_api_mod/pike_gateway.pike" ]] ||
+		fail "embedded Pike gateway module is missing"
+	bash -n "$ROOT_DIR/scripts/map_worker_cluster.sh"
+	if [[ "${XIAND_MAP_WORKER_RUN_SELFTESTS:-0}" == "1" ]]; then
+		bash "$ROOT_DIR/tools/map_workers/test_startup.sh"
+		bash "$ROOT_DIR/tools/map_workers/test_bootstrap.sh"
+	fi
 }
 
 session_exists()
@@ -232,13 +301,12 @@ runtime_process_running()
 	kill -0 "$pid" >/dev/null 2>&1 || return 1
 	command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
 	[[ "$command_line" == *"$ROOT_DIR"* ]] || return 1
-	[[ "$command_line" == *"lowlib/driver.pike"* ||
-	   "$command_line" == *"tools/map_workers/gateway.py"* ]]
+	[[ "$command_line" == *"lowlib/driver.pike"* ]]
 }
 
 cluster_processes_running()
 {
-	runtime_process_running coordinator || runtime_process_running gateway
+	runtime_process_running coordinator
 }
 
 port_is_listening()
@@ -339,7 +407,6 @@ PY
 		<<< "$topology_values"
 
 	runtime_process_running coordinator || fail "coordinator process is down"
-	runtime_process_running gateway || fail "gateway controller is down"
 	port_is_listening "$coordinator_http" || fail "coordinator HTTP port is down"
 	port_is_listening "$coordinator_mud" || fail "coordinator MUD port is down"
 	if [[ "$traffic_mode" == "active" ]]; then
@@ -374,10 +441,15 @@ with urllib.request.urlopen(request, timeout=3) as response:
     status = json.loads(response.read().decode("utf-8"))
 nodes = status.get("nodes", [])
 expected = int(sys.argv[2])
+gateway = status.get("gateway", {})
 if not status.get("ok") or len(nodes) != expected:
     raise SystemExit("coordinator worker inventory is incomplete")
 if not all(node.get("healthy") for node in nodes):
     raise SystemExit("coordinator reports an unhealthy worker")
+if not gateway.get("controller_ready") or not gateway.get("routing_ready"):
+    raise SystemExit("embedded Pike gateway controller is not ready")
+if status.get("desired_config", {}).get("traffic_mode") == "active" and not gateway.get("public_listening"):
+    raise SystemExit("embedded Pike public gateway is not listening")
 PY
 	log "cluster health is good: mode=$traffic_mode workers=$worker_count"
 }
@@ -411,9 +483,11 @@ start_pike_node()
 	local screen_name="xiand-${AREA_NAME}-${worker_id}"
 	local run_dir
 	local process_pid_file
+	local runtime_worker_count
 	local shadow_flag=0
 	[[ "$TRAFFIC_MODE" == "shadow" ]] && shadow_flag=1
 	run_dir="$(runtime_dir)"
+	runtime_worker_count="$(config_value worker_count)"
 	process_pid_file="$run_dir/$worker_id.pid"
 	if runtime_process_running "$worker_id"; then
 		fail "runtime process already exists: $worker_id"
@@ -423,7 +497,7 @@ start_pike_node()
 		fail "screen session already exists: $screen_name"
 	fi
 	launch_detached "$screen_name" \
-		"cd '$ROOT_DIR' && umask 027 && echo \$\$ > '$process_pid_file' && export XIAND_NODE_ROLE='$role' XIAND_WORKER_ID='$worker_id' XIAND_HTTP_HOST='127.0.0.1' XIAND_HTTP_PORT='$http_port' XIAND_RUN_TESTUNIT=0 XIAND_MAP_WORKER_SHADOW='$shadow_flag' && exec '$PIKE_BIN' -s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK' '$ROOT_DIR/lowlib/driver.pike' -i 127.0.0.1 -p '$mud_port' '$ROOT_DIR/' >> '$run_dir/runtime.$worker_id.log' 2>&1"
+		"cd '$ROOT_DIR' && umask 027 && echo \$\$ > '$process_pid_file' && export XIAND_NODE_ROLE='$role' XIAND_WORKER_ID='$worker_id' XIAND_HTTP_HOST='127.0.0.1' XIAND_HTTP_PORT='$http_port' XIAND_RUN_TESTUNIT=0 XIAND_MAP_WORKER_SHADOW='$shadow_flag' XIAND_MAP_WORKER_RUNTIME_COUNT='$runtime_worker_count' && exec '$PIKE_BIN' -s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK' --no-precompile '$ROOT_DIR/lowlib/driver.pike' -i 127.0.0.1 -p '$mud_port' '$ROOT_DIR/' >> '$run_dir/runtime.$worker_id.log' 2>&1"
 	STARTED_SESSIONS+=("$screen_name")
 	STARTED_NODE_IDS+=("$worker_id")
 	STARTED_MUD_PORTS+=("$mud_port")
@@ -479,57 +553,57 @@ wait_for_runtime_process()
 	fail "$node_id did not publish a validated PID within 15 seconds"
 }
 
-start_gateway_controller()
+wait_for_pike_gateway()
 {
 	local worker_count="$1"
-	local capacity="$2"
-	local coordinator_http="$3"
-	local worker_http_base="$4"
-	local gateway_port="$5"
-	local run_dir="$6"
-	local endpoints=""
-	local gateway_session="xiand-${AREA_NAME}-gateway"
-	local gateway_pid_file="$run_dir/gateway.pid"
-	local shadow_flag=0
-	[[ "$TRAFFIC_MODE" == "shadow" ]] && shadow_flag=1
-	for (( index=1; index<=worker_count; index++ )); do
-		local worker_id http_port
-		worker_id="$(printf 'w%02d' "$index")"
-		http_port=$((worker_http_base + index - 1))
-		runtime_process_running "$worker_id" ||
-			fail "cannot start gateway: $worker_id process is not validated"
-		port_is_listening "$http_port" ||
-			fail "cannot start gateway: $worker_id HTTP port $http_port is down"
-		if [[ -n "$endpoints" ]]; then
-			endpoints+=","
+	local coordinator_http="$2"
+	local gateway_port="$3"
+	local deadline=$((SECONDS + 120))
+	while (( SECONDS < deadline )); do
+		if python3 - "http://127.0.0.1:$coordinator_http" \
+			"$worker_count" "$TRAFFIC_MODE" <<'PY'
+import json
+import os
+import sys
+import urllib.request
+
+request = urllib.request.Request(
+    sys.argv[1] + "/internal/map-worker",
+    data=b'{"action":"status"}',
+    headers={"Content-Type": "application/json",
+             "X-Xiand-Worker-Token": os.environ["XIAND_WORKER_TOKEN"]},
+    method="POST",
+)
+try:
+    with urllib.request.urlopen(request, timeout=3) as response:
+        status = json.loads(response.read().decode("utf-8"))
+except Exception:
+    raise SystemExit(1)
+gateway = status.get("gateway", {})
+nodes = status.get("nodes", [])
+valid = (
+    status.get("ok")
+    and len(nodes) == int(sys.argv[2])
+    and all(node.get("healthy") for node in nodes)
+    and gateway.get("controller_ready")
+    and gateway.get("routing_ready")
+    and (sys.argv[3] == "shadow" or gateway.get("public_listening"))
+)
+raise SystemExit(0 if valid else 1)
+PY
+		then
+			if [[ "$TRAFFIC_MODE" == "active" ]]; then
+				port_is_listening "$gateway_port" ||
+					fail "Pike gateway reports ready but port is down"
+				log "ACTIVE embedded Pike gateway ready with $worker_count workers"
+			else
+				log "SHADOW embedded Pike gateway controller ready with $worker_count workers"
+			fi
+			return 0
 		fi
-		endpoints+="$worker_id=http://127.0.0.1:$http_port"
+		sleep 1
 	done
-	runtime_process_running coordinator ||
-		fail "cannot start gateway: coordinator process is not validated"
-	port_is_listening "$coordinator_http" ||
-		fail "cannot start gateway: coordinator HTTP port is down"
-	if runtime_process_running gateway; then
-		fail "runtime process already exists: gateway"
-	fi
-	if [[ "$TRAFFIC_MODE" == "active" ]]; then
-		port_is_listening "$gateway_port" &&
-			fail "gateway port $gateway_port is already occupied"
-	fi
-	[[ ! -f "$gateway_pid_file" ]] || rm "$gateway_pid_file"
-	launch_detached "$gateway_session" \
-		"cd '$ROOT_DIR' && umask 027 && export XIAND_WORKERS='$endpoints' XIAND_COORDINATOR_URL='http://127.0.0.1:$coordinator_http' XIAND_GATEWAY_HOST='0.0.0.0' XIAND_GATEWAY_PORT='$gateway_port' XIAND_WORKER_CAPACITY='$capacity' XIAND_MAP_WORKER_SHADOW='$shadow_flag' XIAND_GATEWAY_PID_FILE='$gateway_pid_file' XIAND_GATEWAY_LOCK_FILE='$run_dir/gateway.controller.lock' && exec python3 '$ROOT_DIR/tools/map_workers/gateway.py' >> '$run_dir/gateway.log' 2>&1"
-	STARTED_SESSIONS+=("$gateway_session")
-	STARTED_NODE_IDS+=("gateway")
-	STARTED_MUD_PORTS+=("0")
-	wait_for_runtime_process gateway
-	if [[ "$TRAFFIC_MODE" == "active" ]]; then
-		wait_for_port "$gateway_port" gateway
-		log "ACTIVE isolated gateway ready with $worker_count workers"
-	else
-		wait_for_worker_registration "$coordinator_http" "$worker_count"
-		log "SHADOW gateway controller ready with $worker_count workers"
-	fi
+	fail "embedded Pike gateway did not become ready within 120 seconds"
 }
 
 cluster_status()
@@ -546,11 +620,7 @@ cluster_status()
 	else
 		log "xiand-${AREA_NAME}-coordinator: stopped"
 	fi
-	if runtime_process_running gateway; then
-		log "xiand-${AREA_NAME}-gateway: running"
-	else
-		log "xiand-${AREA_NAME}-gateway: stopped"
-	fi
+	log "gateway: embedded in xiand-${AREA_NAME}-coordinator"
 	log "ports coordinator=$coordinator_http gateway=$gateway_port"
 	for (( index=1; index<=worker_count; index++ )); do
 		local worker_id http_port mud_port session
@@ -571,7 +641,7 @@ start_cluster()
 {
 	local enabled worker_count capacity coordinator_http worker_http_base
 	local worker_mud_base gateway_port coordinator_mud run_dir
-	validate_gateway_code
+	validate_gateway_stack
 	enabled="$(config_value enabled)"
 	[[ "$enabled" == "1" ]] || fail "worker mode is disabled in $CONFIG_FILE"
 	worker_count="$(config_value worker_count)"
@@ -622,8 +692,7 @@ start_cluster()
 		wait_for_port "$http_port" "$worker_id"
 	done
 
-	start_gateway_controller "$worker_count" "$capacity" "$coordinator_http" \
-		"$worker_http_base" "$gateway_port" "$run_dir"
+	wait_for_pike_gateway "$worker_count" "$coordinator_http" "$gateway_port"
 	if [[ "$TRAFFIC_MODE" == "shadow" ]]; then
 		log "SHADOW trial leaves standalone traffic unchanged"
 	fi
@@ -652,8 +721,7 @@ terminate_runtime_process()
 	if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" >/dev/null 2>&1; then
 		command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
 		if [[ "$command_line" == *"$ROOT_DIR"* &&
-		      ( "$command_line" == *"lowlib/driver.pike"* ||
-		        "$command_line" == *"tools/map_workers/gateway.py"* ) ]]; then
+		      "$command_line" == *"lowlib/driver.pike"* ]]; then
 			kill -TERM "$pid" >/dev/null 2>&1 || true
 			local deadline=$((SECONDS + 15))
 			while (( SECONDS < deadline )); do
@@ -680,6 +748,11 @@ graceful_node_stop()
 	local session="$1"
 	local mud_port="$2"
 	local node_id="$3"
+	if runtime_process_running "$node_id" &&
+	   ! port_is_listening "$mud_port"; then
+		log "cannot prove a safe save for $node_id: process is alive but MUD port is down"
+		return 1
+	fi
 	if port_is_listening "$mud_port" && command -v nc >/dev/null 2>&1; then
 		(
 			sleep 1
@@ -699,24 +772,96 @@ graceful_node_stop()
 	terminate_runtime_process "$session" "$node_id"
 }
 
+quiesce_gateway_for_shutdown()
+{
+	local coordinator_http="$1"
+	local failed_workers="${2:-}"
+	python3 - "http://127.0.0.1:$coordinator_http" "$failed_workers" <<'PY'
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+
+failed_workers = [item for item in sys.argv[2].split(",") if item]
+action = "gateway_failover_quiesce" if failed_workers else "gateway_quiesce"
+payload = {"action": action}
+if failed_workers:
+    payload["failed_workers"] = failed_workers
+deadline = time.monotonic() + (30 if failed_workers else 1)
+while True:
+    request = urllib.request.Request(
+        sys.argv[1] + "/internal/map-worker",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Xiand-Worker-Token": os.environ["XIAND_WORKER_TOKEN"],
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=45) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        break
+    except urllib.error.HTTPError as error:
+        response_body = error.read().decode("utf-8", errors="replace")
+        try:
+            result = json.loads(response_body)
+        except json.JSONDecodeError:
+            print(response_body, file=sys.stderr)
+            raise
+        if (failed_workers
+                and result.get("code") == "failed_worker_still_reachable"
+                and time.monotonic() < deadline):
+            time.sleep(2)
+            continue
+        print(json.dumps(result, ensure_ascii=False), file=sys.stderr)
+        raise
+if (not result.get("ok") or result.get("routing_ready") != 0
+        or result.get("active_requests") != 0
+        or result.get("pending_requests") != 0
+        or result.get("uncertain_requests") != 0
+        or result.get("pending_reconcile_users") != 0
+        or result.get("background_arrivals") != 0):
+    raise SystemExit("coordinator could not prove a quiescent shutdown")
+PY
+	log "gateway routing is paused and all accepted requests are settled"
+}
+
 stop_cluster()
 {
-	local worker_count worker_mud_base gateway_session
+	local worker_count worker_mud_base coordinator_http
 	local coordinator_mud
+	local failed_workers=()
+	local failed_worker_csv=""
 	if [[ -f "$(topology_file)" ]]; then
 		worker_count="$(topology_value worker_count)"
+		coordinator_http="$(topology_value coordinator_http_port)"
 		worker_mud_base="$(topology_value worker_mud_base_port)"
 		coordinator_mud="$(topology_value coordinator_mud_port)"
 	else
 		worker_count="$(config_value worker_count)"
+		coordinator_http="$(config_value coordinator_http_port)"
 		worker_mud_base="$(config_value worker_mud_base_port)"
 		coordinator_mud=$((worker_mud_base - 1))
 	fi
-	gateway_session="xiand-${AREA_NAME}-gateway"
-	if session_exists "$gateway_session"; then
-		terminate_runtime_process "$gateway_session" gateway
-	elif [[ -f "$(runtime_pid_file gateway)" ]]; then
-		terminate_runtime_process "$gateway_session" gateway
+	if [[ "${XIAND_MAP_WORKER_FAILOVER_SHUTDOWN:-0}" == "1" ]]; then
+		for (( index=1; index<=worker_count; index++ )); do
+			local candidate_worker_id
+			candidate_worker_id="$(printf 'w%02d' "$index")"
+			if ! runtime_process_running "$candidate_worker_id"; then
+				failed_workers+=("$candidate_worker_id")
+			fi
+		done
+		if (( ${#failed_workers[@]} )); then
+			failed_worker_csv="$(IFS=,; echo "${failed_workers[*]}")"
+			log "failover shutdown confirmed absent workers: $failed_worker_csv"
+		fi
+	fi
+	if runtime_process_running coordinator &&
+	   port_is_listening "$coordinator_http"; then
+		quiesce_gateway_for_shutdown "$coordinator_http" "$failed_worker_csv"
 	fi
 	for (( index=1; index<=worker_count; index++ )); do
 		local worker_id
@@ -734,49 +879,88 @@ stop_cluster()
 
 recover_gateway()
 {
-	local worker_count capacity coordinator_http worker_http_base gateway_port
-	local run_dir
+	local worker_count coordinator_http worker_http_base worker_mud_base
+	local gateway_port coordinator_mud
 	[[ -f "$(topology_file)" ]] ||
 		fail "cannot recover gateway without a validated running topology"
-	validate_gateway_code
+	validate_gateway_stack
 	worker_count="$(topology_value worker_count)"
-	capacity="$(topology_value worker_capacity)"
 	coordinator_http="$(topology_value coordinator_http_port)"
 	worker_http_base="$(topology_value worker_http_base_port)"
+	worker_mud_base="$(topology_value worker_mud_base_port)"
+	coordinator_mud="$(topology_value coordinator_mud_port)"
 	gateway_port="$(topology_value gateway_port)"
 	TRAFFIC_MODE="$(topology_value traffic_mode)"
 	if [[ "$TRAFFIC_MODE" == "active" &&
 	      "${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}" != "isolated-test-server-only" ]]; then
 		fail "active gateway recovery requires the isolated trial acknowledgement"
 	fi
-	run_dir="$(runtime_dir)"
+	runtime_process_running coordinator &&
+		fail "coordinator/Pike gateway is already running"
+	port_is_listening "$coordinator_http" &&
+		fail "coordinator HTTP port is occupied"
+	port_is_listening "$coordinator_mud" &&
+		fail "coordinator MUD port is occupied"
+	if [[ "$TRAFFIC_MODE" == "active" ]]; then
+		port_is_listening "$gateway_port" &&
+			fail "public gateway port is occupied"
+	fi
+	for (( index=1; index<=worker_count; index++ )); do
+		local worker_id
+		worker_id="$(printf 'w%02d' "$index")"
+		runtime_process_running "$worker_id" ||
+			fail "cannot recover coordinator: $worker_id is down"
+		port_is_listening "$((worker_http_base + index - 1))" ||
+			fail "cannot recover coordinator: $worker_id HTTP is down"
+		port_is_listening "$((worker_mud_base + index - 1))" ||
+			fail "cannot recover coordinator: $worker_id MUD is down"
+	done
 	STARTING_CLUSTER=1
 	STARTED_SESSIONS=()
 	STARTED_NODE_IDS=()
 	STARTED_MUD_PORTS=()
 	trap cleanup_partial_start ERR
-	start_gateway_controller "$worker_count" "$capacity" "$coordinator_http" \
-		"$worker_http_base" "$gateway_port" "$run_dir"
+	start_pike_node gateway coordinator "$coordinator_mud" "$coordinator_http"
+	wait_for_port "$coordinator_http" coordinator
+	wait_for_pike_gateway "$worker_count" "$coordinator_http" "$gateway_port"
 	STARTING_CLUSTER=0
 	trap - ERR
-	log "gateway recovery completed only after worker inventory reconciliation"
+	log "embedded Pike gateway recovery completed after worker inventory reconciliation"
 }
 
 main()
 {
 	cd "$ROOT_DIR"
+	parse_arguments "$@"
 	load_environment
 	ensure_config
 	case "$ACTION" in
-		start|stop|recover-gateway|apply)
+		start|apply)
 			acquire_orchestrator_lock
+			if [[ -n "$WORKER_COUNT_OVERRIDE" ]]; then
+				update_worker_count "$WORKER_COUNT_OVERRIDE"
+			fi
+			snapshot_config
+			;;
+		stop|recover-gateway)
+			acquire_orchestrator_lock
+			snapshot_config
+			;;
+		restart)
+			acquire_orchestrator_lock
+			if cluster_processes_running || [[ -f "$(topology_file)" ]]; then
+				stop_cluster
+			fi
+			if [[ -n "$WORKER_COUNT_OVERRIDE" ]]; then
+				update_worker_count "$WORKER_COUNT_OVERRIDE"
+			fi
 			snapshot_config
 			;;
 	esac
 	TRAFFIC_MODE="$(config_value traffic_mode)"
 	case "$ACTION" in
 		validate)
-			validate_gateway_code
+			validate_gateway_stack
 			log "configuration is valid"
 			;;
 		status)
@@ -786,6 +970,9 @@ main()
 			cluster_health
 			;;
 		start)
+			start_cluster
+			;;
+		restart)
 			start_cluster
 			;;
 		stop)
@@ -805,9 +992,9 @@ main()
 			fi
 			;;
 		*)
-			fail "usage: $0 {validate|status|health|start|stop|recover-gateway|apply}"
+			fail "usage: $0 {validate|status|health|start|stop|restart|recover-gateway|apply} [--workers N]"
 			;;
 	esac
 }
 
-main
+main "$@"

@@ -7,6 +7,7 @@ CONFIG_FILE="${XIAND_MAP_WORKER_CONFIG:-$ROOT_DIR/data_xiand/map_workers/config.
 ENABLED="${XIAND_MAP_WORKER_ENABLED:-1}"
 TRAFFIC_MODE="${XIAND_MAP_WORKER_TRAFFIC_MODE:-shadow}"
 WORKER_COUNT="${XIAND_MAP_WORKER_COUNT:-3}"
+WORKER_COUNT_OVERRIDE="${XIAND_MAP_WORKER_COUNT_OVERRIDE:-}"
 WORKER_CAPACITY="${XIAND_MAP_WORKER_CAPACITY:-100}"
 
 fail()
@@ -76,6 +77,27 @@ write_config()
 		'  "gateway_port": 8888' \
 		'}' > "$temp_file"
 	chmod 600 "$temp_file"
+	mv -f "$temp_file" "$CONFIG_FILE"
+}
+
+update_worker_count()
+{
+	local temp_file
+	temp_file="$(mktemp "$(dirname "$CONFIG_FILE")/.config.XXXXXX")"
+	python3 - "$CONFIG_FILE" "$temp_file" "$WORKER_COUNT_OVERRIDE" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+source = pathlib.Path(sys.argv[1])
+target = pathlib.Path(sys.argv[2])
+worker_count = int(sys.argv[3])
+config = json.loads(source.read_text(encoding="utf-8"))
+config["worker_count"] = worker_count
+target.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+os.chmod(target, 0o600)
+PY
 	mv -f "$temp_file" "$CONFIG_FILE"
 }
 
@@ -154,6 +176,12 @@ main()
 	[[ "$WORKER_COUNT" =~ ^[0-9]+$ ]] &&
 		(( WORKER_COUNT >= 1 && WORKER_COUNT <= 16 )) ||
 		fail "XIAND_MAP_WORKER_COUNT must be 1..16"
+	if [[ -n "$WORKER_COUNT_OVERRIDE" ]]; then
+		[[ "$WORKER_COUNT_OVERRIDE" =~ ^[0-9]+$ ]] &&
+			(( WORKER_COUNT_OVERRIDE >= 1 && WORKER_COUNT_OVERRIDE <= 16 )) ||
+			fail "XIAND_MAP_WORKER_COUNT_OVERRIDE must be 1..16"
+		WORKER_COUNT="$WORKER_COUNT_OVERRIDE"
+	fi
 	[[ "$WORKER_CAPACITY" =~ ^[0-9]+$ ]] &&
 		(( WORKER_CAPACITY >= 10 && WORKER_CAPACITY <= 10000 )) ||
 		fail "XIAND_MAP_WORKER_CAPACITY must be 10..10000"
@@ -189,6 +217,8 @@ main()
 	[[ ! -L "$CONFIG_FILE" ]] || fail "worker config must not be a symlink"
 	if [[ "$write_requested" == "1" ]]; then
 		write_config
+	elif [[ -n "$WORKER_COUNT_OVERRIDE" ]]; then
+		update_worker_count
 	fi
 	chmod 600 "$CONFIG_FILE"
 	config_values="$(validate_config)"

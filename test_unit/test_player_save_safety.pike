@@ -138,7 +138,11 @@ void test_shutdown_save_contract()
 		search(source,"set_this_player(player);")!=-1 &&
 		search(source,"set_this_player(old_context);")!=-1 &&
 		search(source,"functionp(player->save_with_result)")!=-1 &&
-		search(source,"save_ok = player->save_with_result();")!=-1 &&
+		search(source,
+			"save_ok = player->save_with_result(0,worker_shutdown ? 1 : 0);")!=-1 &&
+		search(source,"shutdown_safe_ephemeral_login(player)")!=-1 &&
+		search(source,"has_prefix(userid,\"logintmp\")")!=-1 &&
+		search(source,"Stdio.file_size(path+\".bak\")<=0")!=-1 &&
 		search(source,"shutdown_safe ABORTED")!=-1 &&
 		search(source,"if(failed>0)")!=-1 &&
 		search(source,"shutdown(0);")!=-1 &&

@@ -112,6 +112,11 @@ int main(string|zero arg)
 		write("需要管理员权限才可以执行此操作。\n[返回游戏:look]\n");
 		return 1;
 	}
+	if(MAP_WORKERD->query_node_role()=="worker"){
+		write("多Worker试运行期间已关闭直接改级，避免从错误进程复制并覆盖在线档案。\n"+
+			"[返回管理主界面:game_deal]\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(!arg || arg==""){
 		s += "请先从用户数据管理页选择账号。\n";
 	}
