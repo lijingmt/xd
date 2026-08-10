@@ -394,7 +394,13 @@ void test_worker_docker_start_chain_contract()
 	   search(dockerfile,"openssl")!=-1 &&
 	   search(dockerfile,"nmap-ncat")!=-1 &&
 	   search(dockerfile,"COPY . /app/xiand/")!=-1 &&
-	   search(env_setup,"cp \"$ENV_TEMPLATE\" \"$ENV_FILE\"")!=-1 &&
+	   search(env_setup,
+		   "mysql_password=\"$(env_value MYSQL_PASSWORD)\"")!=-1 &&
+	   search(env_setup,"refresh_env_from_template")!=-1 &&
+	   search(env_setup,"cp \"$ENV_TEMPLATE\" \"$temp_file\"")!=-1 &&
+	   search(env_setup,
+		   "upsert_env MYSQL_PASSWORD \"$mysql_password\" \"$temp_file\"")!=-1 &&
+	   search(env_setup,"chown \"$owner_group\" \"$temp_file\"")!=-1 &&
 	   search(env_setup,"chmod 600 \"$ENV_FILE\"")!=-1 &&
 	   search(env_setup,"openssl rand -hex 32")!=-1 &&
 	   search(env_example,"MYSQL_PASSWORD=")!=-1 &&

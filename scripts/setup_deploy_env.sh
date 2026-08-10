@@ -31,12 +31,13 @@ upsert_env()
 {
 	local key="$1"
 	local value="$2"
+	local target_file="${3:-$ENV_FILE}"
 	local quoted_value
 	local temp_file
 	local line
 	local replaced=0
 	quoted_value="$(shell_quote "$value")"
-	temp_file="$(mktemp "${ENV_FILE}.tmp.XXXXXX")"
+	temp_file="$(mktemp "${target_file}.tmp.XXXXXX")"
 	while IFS= read -r line || [[ -n "$line" ]]; do
 		if [[ "$line" =~ ^[[:space:]]*$key= ]]; then
 			if [[ "$replaced" == "0" ]]; then
@@ -46,12 +47,42 @@ upsert_env()
 			continue
 		fi
 		printf '%s\n' "$line" >> "$temp_file"
-	done < "$ENV_FILE"
+	done < "$target_file"
 	if [[ "$replaced" == "0" ]]; then
 		printf '%s=%s\n' "$key" "$quoted_value" >> "$temp_file"
 	fi
 	chmod 600 "$temp_file"
+	mv -f "$temp_file" "$target_file"
+}
+
+refresh_env_from_template()
+{
+	local mysql_password="$1"
+	local temp_file
+	local owner_group=""
+	if owner_group="$(stat -c '%u:%g' "$ENV_FILE" 2>/dev/null)"; then
+		:
+	elif owner_group="$(stat -f '%u:%g' "$ENV_FILE" 2>/dev/null)"; then
+		:
+	else
+		fail "cannot determine existing .env ownership"
+	fi
+	temp_file="$(mktemp "${ENV_FILE}.refresh.XXXXXX")"
+	cp "$ENV_TEMPLATE" "$temp_file"
+	chmod 600 "$temp_file"
+	if [[ -n "$mysql_password" ]]; then
+		upsert_env MYSQL_PASSWORD "$mysql_password" "$temp_file"
+	fi
+	bash -n "$temp_file" || {
+		rm -f -- "$temp_file"
+		fail "refreshed .env failed shell syntax validation"
+	}
+	chown "$owner_group" "$temp_file" || {
+		rm -f -- "$temp_file"
+		fail "cannot preserve existing .env ownership"
+	}
 	mv -f "$temp_file" "$ENV_FILE"
+	echo "[env-setup] refreshed $ENV_FILE from .env.example and preserved MYSQL_PASSWORD"
 }
 
 generate_token()
@@ -80,13 +111,18 @@ main()
 	env_dir="$(dirname "$ENV_FILE")"
 	[[ ! -L "$env_dir" ]] || fail ".env parent directory must not be a symlink"
 	mkdir -p "$env_dir"
-	if [[ ! -f "$ENV_FILE" ]]; then
+	if [[ -f "$ENV_FILE" ]]; then
+		mysql_password="$(env_value MYSQL_PASSWORD)"
+		refresh_env_from_template "$mysql_password"
+	else
 		(umask 077 && cp "$ENV_TEMPLATE" "$ENV_FILE")
 		echo "[env-setup] created $ENV_FILE from .env.example"
 	fi
 	chmod 600 "$ENV_FILE"
 
-	mysql_password="$(env_value MYSQL_PASSWORD)"
+	if [[ -z "$mysql_password" ]]; then
+		mysql_password="$(env_value MYSQL_PASSWORD)"
+	fi
 	if [[ -z "$mysql_password" && -n "${MYSQL_PASSWORD:-}" ]]; then
 		mysql_password="$MYSQL_PASSWORD"
 	fi

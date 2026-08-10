@@ -35,8 +35,9 @@ config_checksum()
 }
 
 # A fresh pull can create a secure deployment environment non-interactively
-# when MYSQL_PASSWORD is supplied by deployment automation. Existing secrets
-# and generated tokens must remain stable on repeated runs.
+# when MYSQL_PASSWORD is supplied by deployment automation. A repeated run
+# rebuilds the file from the latest template, preserves only MYSQL_PASSWORD,
+# and rotates generated internal tokens.
 DEPLOY_ENV_FILE="$TEST_ROOT/deploy/.env"
 MYSQL_PASSWORD='fixture-password-with-$-and-space' \
 	"$ROOT_DIR/scripts/setup_deploy_env.sh" "$DEPLOY_ENV_FILE" >/dev/null
@@ -53,9 +54,29 @@ DEPLOY_ENV_CHECKSUM="$(config_checksum "$DEPLOY_ENV_FILE")"
 	[[ ${#XIAND_WORKER_TOKEN} -ge 32 ]]
 	[[ ${#XIAND_HEALTH_TOKEN} -ge 24 ]]
 )
+printf '%s\n' 'LEGACY_REMOVED_SETTING=stale' >> "$DEPLOY_ENV_FILE"
+FIRST_WORKER_TOKEN="$(
+	set -a
+	# shellcheck disable=SC1090
+	. "$DEPLOY_ENV_FILE"
+	set +a
+	printf '%s' "$XIAND_WORKER_TOKEN"
+))"
 MYSQL_PASSWORD='replacement-must-not-overwrite-existing' \
 	"$ROOT_DIR/scripts/setup_deploy_env.sh" "$DEPLOY_ENV_FILE" >/dev/null
-[[ "$(config_checksum "$DEPLOY_ENV_FILE")" == "$DEPLOY_ENV_CHECKSUM" ]]
+[[ "$(config_checksum "$DEPLOY_ENV_FILE")" != "$DEPLOY_ENV_CHECKSUM" ]]
+(
+	set -a
+	# shellcheck disable=SC1090
+	. "$DEPLOY_ENV_FILE"
+	set +a
+	[[ "$MYSQL_PASSWORD" == 'fixture-password-with-$-and-space' ]]
+	[[ ${#XIAND_WORKER_TOKEN} -ge 32 ]]
+	[[ ${#XIAND_HEALTH_TOKEN} -ge 24 ]]
+	[[ "$XIAND_WORKER_TOKEN" != "$FIRST_WORKER_TOKEN" ]]
+	[[ -z "${LEGACY_REMOVED_SETTING:-}" ]]
+	[[ "$XIAND_MAP_WORKER_COUNT" == "3" ]]
+)
 ln -s "$DEPLOY_ENV_FILE" "$TEST_ROOT/deploy-env-link"
 if MYSQL_PASSWORD=fixture \
 	"$ROOT_DIR/scripts/setup_deploy_env.sh" \
