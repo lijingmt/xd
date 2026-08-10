@@ -62,11 +62,25 @@ void test_primary_server_ui_coverage()
 		!sizeof(missing),"missing="+missing*", ");
 }
 
+void test_wealth_ranking_uses_gold_unit()
+{
+	object moneyd=(object)(ROOT+"/lowlib/mudlib/single/moneyd.pike");
+	string source=Stdio.read_file(ROOT+"/gamelib/cmds/look_top.pike");
+	check("富翁榜从内部银单位换算为金币单位",
+		moneyd && moneyd->query_money_for_paihang(1234567)=="12345金",
+		moneyd ? moneyd->query_money_for_paihang(1234567) : "moneyd missing");
+	check("富翁榜使用货币格式器而非普通万亿缩写",
+		source && search(source,"type==\"富翁\"")!=-1 &&
+		search(source,"query_money_for_paihang(")!=-1,
+		"富翁榜专用货币格式分支缺失");
+}
+
 int main()
 {
 	werror("\n========== 服务端中文数字缩写测试 ==========\n");
 	test_boundaries();
 	test_primary_server_ui_coverage();
+	test_wealth_ranking_uses_gold_unit();
 	werror("数字缩写测试：失败 %d\n",failures);
 	return failures ? 1 : 0;
 }

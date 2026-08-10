@@ -87,9 +87,14 @@ int main(string|zero arg)
 		string lr = "";
 		for(int i=(page-1)*PAGELEN;i<sizeof(record)&&i<(page-1)*PAGELEN+PAGELEN;i++)
                 {
-			string record_value = type=="等级" || type=="捐赠" ?
-				(string)record[i][VALUE] :
-				format_game_number((int)record[i][VALUE]);
+			string record_value;
+			if(type=="等级" || type=="捐赠")
+				record_value=(string)record[i][VALUE];
+			else if(type=="富翁")
+				record_value=MUD_MONEYD->query_money_for_paihang(
+					(int)record[i][VALUE]);
+			else
+				record_value=format_game_number((int)record[i][VALUE]);
 			lr += sprintf("第%d名|%s|%s：%s\n",i+1,
 				record[i][NAMECN],type,record_value);
                 }
