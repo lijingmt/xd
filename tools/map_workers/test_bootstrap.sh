@@ -29,6 +29,15 @@ file_mode()
 	fi
 }
 
+file_owner_group()
+{
+	if stat -f '%u:%g' "$1" >/dev/null 2>&1; then
+		stat -f '%u:%g' "$1"
+	else
+		stat -c '%u:%g' "$1"
+	fi
+}
+
 config_checksum()
 {
 	cksum "$1" | awk '{print $1 ":" $2}'
@@ -45,6 +54,7 @@ MYSQL_PASSWORD='fixture-password-with-$-and-space' \
 [[ ! -L "$DEPLOY_ENV_FILE" ]]
 [[ "$(file_mode "$DEPLOY_ENV_FILE")" == "600" ]]
 DEPLOY_ENV_CHECKSUM="$(config_checksum "$DEPLOY_ENV_FILE")"
+DEPLOY_ENV_OWNER_GROUP="$(file_owner_group "$DEPLOY_ENV_FILE")"
 (
 	set -a
 	# shellcheck disable=SC1090
@@ -65,6 +75,7 @@ FIRST_WORKER_TOKEN="$(
 MYSQL_PASSWORD='replacement-must-not-overwrite-existing' \
 	"$ROOT_DIR/scripts/setup_deploy_env.sh" "$DEPLOY_ENV_FILE" >/dev/null
 [[ "$(config_checksum "$DEPLOY_ENV_FILE")" != "$DEPLOY_ENV_CHECKSUM" ]]
+[[ "$(file_owner_group "$DEPLOY_ENV_FILE")" == "$DEPLOY_ENV_OWNER_GROUP" ]]
 (
 	set -a
 	# shellcheck disable=SC1090

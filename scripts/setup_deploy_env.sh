@@ -36,6 +36,14 @@ upsert_env()
 	local temp_file
 	local line
 	local replaced=0
+	local owner_group=""
+	if owner_group="$(stat -c '%u:%g' "$target_file" 2>/dev/null)"; then
+		:
+	elif owner_group="$(stat -f '%u:%g' "$target_file" 2>/dev/null)"; then
+		:
+	else
+		fail "cannot determine ownership for $target_file"
+	fi
 	quoted_value="$(shell_quote "$value")"
 	temp_file="$(mktemp "${target_file}.tmp.XXXXXX")"
 	while IFS= read -r line || [[ -n "$line" ]]; do
@@ -52,6 +60,10 @@ upsert_env()
 		printf '%s=%s\n' "$key" "$quoted_value" >> "$temp_file"
 	fi
 	chmod 600 "$temp_file"
+	chown "$owner_group" "$temp_file" || {
+		rm -f -- "$temp_file"
+		fail "cannot preserve ownership for $target_file"
+	}
 	mv -f "$temp_file" "$target_file"
 }
 

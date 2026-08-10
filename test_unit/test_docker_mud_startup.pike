@@ -400,6 +400,10 @@ void test_worker_docker_start_chain_contract()
 	   search(env_setup,"cp \"$ENV_TEMPLATE\" \"$temp_file\"")!=-1 &&
 	   search(env_setup,
 		   "upsert_env MYSQL_PASSWORD \"$mysql_password\" \"$temp_file\"")!=-1 &&
+	   search(env_setup,
+		   "cannot determine ownership for $target_file")!=-1 &&
+	   search(env_setup,
+		   "cannot preserve ownership for $target_file")!=-1 &&
 	   search(env_setup,"chown \"$owner_group\" \"$temp_file\"")!=-1 &&
 	   search(env_setup,"chmod 600 \"$ENV_FILE\"")!=-1 &&
 	   search(env_setup,"openssl rand -hex 32")!=-1 &&
@@ -504,6 +508,7 @@ void test_legacy_jsp_worker_gateway_contract()
 		search(registration,"http://127.0.0.1:8888/api/html?cmd=")!=-1 &&
 		search(partner,"./legacy_api.jsp?userid=")!=-1 &&
 		search(renderer,"string authenticated_txd")!=-1 &&
+		search(renderer,"has_suffix(content, \" ...\")")!=-1 &&
 		search(renderer,"generate_txd(userid);")==-1 &&
 		search(api,"authenticated_txd = txd;")!=-1 &&
 		search(api,"authenticated_txd = generate_txd(auth_userid,stored_password)")!=-1 &&

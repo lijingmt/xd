@@ -322,7 +322,7 @@ string parse_mud_content_to_html(string response, string txd, string userid)
                         string cmd_name = content[0..colon_pos-1];
                         html += format_html_command_input(cmd_name, txd, userid);
                     }
-                    else if(content[-5..] == " ...") {
+                    else if(has_suffix(content, " ...")) {
                         string cmd_name = content[0..sizeof(content)-5];
                         html += format_html_command_input(cmd_name, txd, userid);
                     }
