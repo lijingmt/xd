@@ -123,6 +123,15 @@ int main()
 			httpd->test_pike_gateway_registration("login_regnew bad")=="",
 			"并发注册可能绕过人物锁或旧逻辑区前缀被解析错误");
 
+		check("旧JSP失效令牌在离线或迁移后只恢复当前画面",
+			source_has(rpc,"stale_command_token_route") &&
+			source_has(rpc,"\"command\":\"look\",\"recovered\":1") &&
+			source_has(rpc,
+				"MAP_WORKERD->query_local_player_epoch(userid)!=epoch") &&
+			source_has(rpc,"invalid_command_token_request") &&
+			source_has(gateway,"cannot resolve routed command token"),
+			"旧页面无法恢复，或畸形/传输错误被错误放行");
+
 		check("只有拍卖命令进入数据库全局锁",
 			httpd->test_pike_gateway_auction("vendue 1") &&
 			httpd->test_pike_gateway_auction("vendue_ykj2 1") &&

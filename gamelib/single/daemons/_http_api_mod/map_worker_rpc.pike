@@ -297,7 +297,7 @@ private void handle_map_worker_local_route(
     ]));
 }
 
-/** Resolve a user-bound opaque UI token on the worker which created it. */
+/** Resolve a user-bound opaque UI token on its currently routed worker. */
 private void handle_map_worker_local_resolve_command(
     Protocols.HTTP.Server.Request req,mapping params)
 {
@@ -308,9 +308,17 @@ private void handle_map_worker_local_resolve_command(
     int epoch = (int)params["epoch"];
     string resolved;
     if(MAP_WORKERD->query_node_role()!="worker" || userid=="" || epoch<1 ||
-       MAP_WORKERD->query_local_player_epoch(userid)!=epoch ||
        !has_prefix(command,"c_") || sizeof(command)>MAX_HTTP_QUERY_SIZE){
-        send_json(req,(["ok":0,"code":"invalid_command_token_route"]),409);
+        send_json(req,(["ok":0,"code":"invalid_command_token_request"]),409);
+        return;
+    }
+    // 旧 JSP 页面可能在人物离线、worker 重启或跨 worker 迁移后继续
+    // 提交原页面令牌。人物尚未在当前 worker 恢复时不能解开旧令牌，
+    // 但可安全降级为 look，让后续正常请求恢复人物并生成新令牌。
+    // 这里只恢复画面，绝不重放赠送、交易、拍卖或管理命令。
+    if(MAP_WORKERD->query_local_player_epoch(userid)!=epoch){
+        send_json(req,(["ok":1,"code":"stale_command_token_route",
+            "command":"look","recovered":1]));
         return;
     }
     resolved = unhide_command(userid,command);

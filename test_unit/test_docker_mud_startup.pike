@@ -474,6 +474,7 @@ void test_legacy_jsp_worker_gateway_contract()
 	test_start("旧JSP书签和txd透明转发到Pike Gateway");
 	string proxy = Stdio.read_file(ROOT+"/web/legacy_api.jsp");
 	string header = Stdio.read_file(ROOT+"/web/includes/header.inc");
+	string legacy_bookmark = Stdio.read_file(ROOT+"/web/main.jsp");
 	string registration = Stdio.read_file(ROOT+"/web/login_reg.jsp");
 	string partner = Stdio.read_file(ROOT+"/web/pg.jsp");
 	string renderer = Stdio.read_file(ROOT+
@@ -483,7 +484,8 @@ void test_legacy_jsp_worker_gateway_contract()
 	array(string) pages = ({"main.jsp","main_dark.jsp","main_ft.jsp",
 		"main_ft_dark.jsp","game.jsp","entrycheck.jsp",
 		"entrycheck_dark.jsp"});
-	int valid = proxy && header && registration && partner && renderer && api &&
+	int valid = proxy && header && legacy_bookmark && registration && partner &&
+		renderer && api &&
 		search(header,"jakarta.servlet.http.HttpServletRequest")!=-1 &&
 		search(header,"javax.servlet.http.HttpServletRequest")==-1 &&
 		search(registration,"if( user==null || pswd==null)")!=-1 &&
@@ -494,6 +496,11 @@ void test_legacy_jsp_worker_gateway_contract()
 		search(proxy,"html.replace(\"/api/html\",compatibilityPath)")!=-1 &&
 		search(header,"buildLegacyApiCommand")!=-1 &&
 		search(header,"legacyCommandValue")!=-1 &&
+		search(legacy_bookmark,"request.getParameter(\"_txd\")")!=-1 &&
+		search(legacy_bookmark,"request.getParameter(\"_usid\")")!=-1 &&
+		search(legacy_bookmark,"request.getParameter(\"_cmd\")")!=-1 &&
+		search(legacy_bookmark,
+			"legacyTarget += \"&txd=\"+java.net.URLEncoder.encode(txd")!=-1 &&
 		search(registration,"http://127.0.0.1:8888/api/html?cmd=")!=-1 &&
 		search(partner,"./legacy_api.jsp?userid=")!=-1 &&
 		search(renderer,"string authenticated_txd")!=-1 &&

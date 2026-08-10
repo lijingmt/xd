@@ -435,6 +435,7 @@ string unhide_command(string userid, string token_input)
     mapping entry;
     object key;
     int space_pos;
+    int legacy_numeric;
     if(!userid || !token_input)
         return "look";
     token = token_input;
@@ -443,6 +444,17 @@ string unhide_command(string userid, string token_input)
         token = token_input[0..space_pos-1];
         input = token_input[space_pos+1..];
     }
+    // 老 JSP 书签保存的是进程内数字下标。跨版本、重启或切换 worker
+    // 后已不可能安全还原原命令；历史实现此时也会回退 look。禁止把
+    // 数字当作明文游戏命令执行，并让玩家原书签继续恢复当前画面。
+    legacy_numeric = sizeof(token)>0;
+    for(int i=0;i<sizeof(token);i++)
+        if(token[i]<'0' || token[i]>'9') {
+            legacy_numeric = 0;
+            break;
+        }
+    if(legacy_numeric)
+        return "look";
     if(!has_prefix(token,"c_"))
         return token_input;
     key = hidden_command_lock->lock();

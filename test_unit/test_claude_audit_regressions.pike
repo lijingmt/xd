@@ -759,6 +759,10 @@ void test_immutable_hidden_commands()
 	check("隐藏命令令牌绑定账号",
 		httpd->unhide_command("xd01another",first)=="look",
 		"其他账号可复用令牌");
+	check("老JSP数字命令书签失效后安全恢复当前画面",
+		httpd->unhide_command(user,"0")=="look" &&
+		httpd->unhide_command(user,"17 old-input")=="look",
+		"旧进程数字下标被当作明文命令执行");
 	check("令牌回收按序号推进且按账号清理",
 		auth_source &&
 		search(auth_source,"mapping(int:string) hidden_command_order")!=-1 &&
