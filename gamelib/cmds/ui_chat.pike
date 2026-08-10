@@ -30,7 +30,7 @@ int main(string|zero arg)
 		}
 		else if(me->roomchatid=="term"){ 
 			content = me->query_name_cn()+"："+arg;
-			TERMD->add_termChat(me->query_term(),content);
+			TERMD->add_termChat(me->query_term(),content,me->query_name());
 		}
 		else if(me->roomchatid=="bang"){
 			if(!BANGD->bang_allows_user(me->bangid,me->query_name())){

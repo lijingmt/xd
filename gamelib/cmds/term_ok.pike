@@ -25,6 +25,48 @@ int main(string|zero arg)
 		return 1;
 	}
 	object ob = find_player(arg);
+	if(!ob && MAP_WORKERD->query_node_role()=="worker"){
+		mapping invite = TERMD->query_term_invite(me->query_name());
+		mapping remote = MAP_WORKERD->query_local_online_user(arg);
+		string remote_team_id = (string)(invite["team_id"] || "");
+		// The coordinator publishes online and team snapshots independently.
+		// Keep a still-valid invite when either snapshot is between generations;
+		// the gateway team fence will drain it before the next retry.
+		if(!(int)remote["ok"] || remote_team_id=="" ||
+		   !TERMD->query_termId(remote_team_id)){
+			s += "队伍状态正在跨地图同步，请稍后再次点击同意。\n";
+			s += "[返回游戏:look]\n";
+			write(s);
+			return 1;
+		}
+		if(!LOGICALZONED->can_user_action("team",arg,me->query_name()) ||
+		   !((string)me->query_raceId()==(string)remote["race_id"] ||
+		     (string)me->query_raceId()=="third" ||
+		     (string)remote["race_id"]=="third")){
+			TERMD->clear_term_invite(me->query_name(),arg);
+			s += "该组队邀请已不符合阵营或逻辑分区规则。\n";
+			s += "[返回游戏:look]\n";
+			write(s);
+			return 1;
+		}
+		int remote_add = TERMD->add_termer(remote_team_id,
+			me->query_name(),me->query_name_cn());
+		if(remote_add==1){
+			TERMD->clear_term_invite(me->query_name(),arg);
+			s += "你加入了该队伍，队伍状态正在同步到其他地图。\n";
+		}
+		else if(remote_add==2)
+			s += "队伍人数已经5人，无法加入该队伍。\n";
+		else if(remote_add==4){
+			TERMD->clear_term_invite(me->query_name(),arg);
+			s += "该组队邀请已不符合逻辑分区规则。\n";
+		}
+		else
+			s += "加入队伍失败，请让对方重新邀请。\n";
+		s += "[返回游戏:look]\n";
+		write(s);
+		return 1;
+	}
 	if(ob && LOGICALZONED->can_interact(me,ob)){
 		if(ob->query_term()!="" && ob->query_term()!="noterm" &&
 		   !TERMD->query_termId(ob->query_term()))

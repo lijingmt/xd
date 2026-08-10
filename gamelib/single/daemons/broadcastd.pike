@@ -144,7 +144,7 @@ int query_num(string name)
 返回值：0 插入失败  
 	1 插入成功
  */
-int bcSend(array(string) msg)
+private int add_bc_message(array(string) msg)
 {
 	if(sizeof(msg)==6)
 	{
@@ -168,6 +168,25 @@ int bcSend(array(string) msg)
 	}
 	else
 		return 0;
+}
+
+int bcSend(array(string) msg)
+{
+	if(sizeof(msg)!=6)
+		return 0;
+	if(MAP_WORKERD->query_node_role()=="worker"){
+		mapping staged = MAP_WORKERD->stage_local_social_event(
+			"world_broadcast",msg[1],"",(["message":msg]));
+		if(!(int)staged["ok"])
+			return 0;
+	}
+	return add_bc_message(msg);
+}
+
+/** Gateway fanout path; idempotency is fenced by MAP_WORKERD before entry. */
+int apply_distributed_broadcast(array(string) msg)
+{
+	return add_bc_message(msg);
 }
 /*
 方法描述：定时刷新bc_msg中的信息

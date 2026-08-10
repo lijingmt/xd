@@ -947,7 +947,9 @@ int main()
 			source_has("/gamelib/clone/user.pike",
 				"暂不支持队伍跨节点移动") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
-				"TERMD is still process-local") &&
+				"primitive replica. The gateway") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"TERMD->query_termId") &&
 			!source_has("/gamelib/clone/user.pike",
 				"last_pos = room_path;") &&
 			source_has("/lowlib/wapmud2/cmds/leave.pike",
@@ -966,6 +968,10 @@ int main()
 				"pike_gateway_user_mutex(userid,account_id)->lock()") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"local_release") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"local_team_snapshot") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"local_team_apply") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"MAP_WORKERD->commit_handoff") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
@@ -1159,7 +1165,7 @@ int main()
 			source_has("/gamelib/cmds/trade.pike",
 				"ob=find_player(user_name)") &&
 			source_has("/gamelib/cmds/mgr_map_workers.pike",
-				"队伍同步和世界广播尚未通过验收"),
+				"面对面赠送/交易仍保持关闭"),
 			"双人物存档缺少原子提交时可能在崩溃或并发确认中复制装备/货币");
 
 			check("账号会话API固定主worker且token维护与人物写操作互斥",

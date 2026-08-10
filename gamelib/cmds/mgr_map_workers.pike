@@ -30,8 +30,9 @@ private string overview()
 	s += "流量模式："+((string)config["traffic_mode"]=="active" ?
 		"active（仅隔离测试机）" : "shadow（不接玩家流量）")+"\n";
 	s += "分配策略：负载感知一致性哈希 + 粘性租约\n";
-	s += "试运行安全边界：面对面赠送/交易在 active 中关闭；跨节点私聊、"+
-		"队伍同步和世界广播尚未通过验收，禁止用于生产。\n";
+	s += "试运行安全边界：跨节点私聊、队伍同步和世界广播已通过"+
+		"5-worker 重启验收；面对面赠送/交易仍保持关闭，"+
+		"active 仍仅用于隔离试运行。\n";
 	s += "运行模式："+(string)status["mode"]+
 		"，当前节点角色："+(string)status["node_role"]+
 		"，地图目录："+(string)status["catalog_size"]+
@@ -142,7 +143,8 @@ int main(string|zero arg)
 		string mode = search(arg,"active")!=-1 ? "active" : "shadow";
 		if(mode=="active")
 			write("active 会让真实请求进入多个世界进程，只能用于隔离测试机；"+
-				"赠送/交易会关闭，跨节点私聊、队伍和世界广播尚未验收；"+
+				"跨节点私聊、队伍和世界广播已通过重启验收，"+
+				"但赠送/交易仍会关闭；"+
 				"编排器仍要求环境变量二次确认。\n");
 		write("确认切换为 "+mode+" 模式？\n");
 		write("[确认:mgr_map_workers mode "+mode+" confirm] ");

@@ -625,6 +625,10 @@ private array(mapping(string:mixed)) map_worker_local_online_rows(
             string userid = lower_case((string)player->query_name());
             row = (["userid":userid,
                 "name_cn":(string)player->query_name_cn(),
+                "race_id":(string)player->query_raceId(),
+                "nick":(string)player->query_nick(),
+                "honer_desc":functionp(player->query_honer_desc) ?
+                    (string)player->query_honer_desc() : "",
                 "level":(int)player->query_level(),
                 "worker_id":MAP_WORKERD->query_local_worker_id(),
                 "epoch":MAP_WORKERD->query_local_player_epoch(userid),
@@ -823,6 +827,211 @@ private void handle_map_worker_local_online_users(
     send_json(req,(["ok":1,"worker_id":
         MAP_WORKERD->query_local_worker_id(),"users":
         map_worker_local_online_rows()]));
+}
+
+private int map_worker_social_friend(object player,string userid)
+{
+    if(!player || !arrayp(player->qqlist))
+        return 0;
+    foreach((array)player->qqlist,mixed raw)
+        if(arrayp(raw) && sizeof((array)raw)>0 &&
+           (string)((array)raw)[0]==userid)
+            return 1;
+    return 0;
+}
+
+private mapping map_worker_apply_private_tell(mapping event)
+{
+    mapping payload = mappingp(event["payload"]) ?
+        (mapping)event["payload"] : ([]);
+    string event_id = lower_case(String.trim_all_whites(
+        (string)(event["event_id"] || "")));
+    string source_user = lower_case(String.trim_all_whites(
+        (string)(event["source_user"] || "")));
+    string target_user = lower_case(String.trim_all_whites(
+        (string)(event["target_user"] || "")));
+    string message = (string)(payload["message"] || "");
+    string source_name_cn = (string)(payload["source_name_cn"] || "");
+    string source_nick = (string)(payload["source_nick"] || "");
+    string source_race = (string)(payload["source_race"] || "");
+    object target = get_player_from_connection(target_user,0);
+    mapping source_online;
+    string target_race;
+    string extra;
+    mixed delivery_err;
+    if(!target)
+        target = find_player(target_user);
+    if(!target || MAP_WORKERD->query_local_player_epoch(target_user)<1 ||
+       sizeof(event_id)!=64 || source_user=="" || target_user=="" ||
+       source_user==target_user || message=="" || sizeof(message)>2048 ||
+       source_name_cn=="" || sizeof(source_name_cn)>160 ||
+       sizeof(source_nick)>160 ||
+       !has_value(({"human","monst","third"}),source_race))
+        return (["ok":0,"code":"invalid_private_tell"]);
+    if(MAP_WORKERD->local_user_request_running(target_user))
+        return (["ok":0,"code":"target_request_running"]);
+    source_online = MAP_WORKERD->query_local_online_user(source_user);
+    if(!(int)source_online["ok"] ||
+       (string)source_online["worker_id"]!=(string)event["source_worker"] ||
+       (string)source_online["name_cn"]!=source_name_cn ||
+       (string)source_online["race_id"]!=source_race)
+        return (["ok":0,"code":"stale_private_tell_source"]);
+    if(!LOGICALZONED->can_user_action("chat",source_user,target_user))
+        return (["ok":1,"code":"logical_zone_rejected"]);
+    target_race = (string)target->query_raceId();
+    if(source_race!=target_race && source_race!="third" &&
+       target_race!="third")
+        return (["ok":1,"code":"race_rejected"]);
+    if(target["/tmp/blacklist/"+source_user] ||
+       target["/plus/blacklist/"+source_user])
+        return (["ok":1,"code":"target_blocked"]);
+    if(!MAP_WORKERD->begin_local_social_delivery(event_id,0))
+        return MAP_WORKERD->complete_local_social_delivery(event_id,0) ?
+            (["ok":1,"replayed":1]) :
+            (["ok":0,"code":"social_delivery_persist_failed"]);
+    delivery_err = catch {
+        extra = map_worker_social_friend(target,source_user) ?
+            "【好友】" : "【陌生人】";
+        if(!target->msg_history)
+            target->msg_history = "";
+        target->msg_history = "【"+(string)(int)payload["month"]+"-"+
+            (string)(int)payload["day"]+" "+
+            (string)(int)payload["hour"]+":"+
+            (string)(int)payload["minute"]+"】"+extra+source_name_cn+
+            "："+message+"\n[回复:tell "+source_user+"]\n"+
+            target->msg_history;
+        if(sizeof(target->msg_history)>1024){
+            target->recieve_mail("CHAT","聊天系统",target->query_name(),
+                target->query_name_cn(),"聊天记录",target->msg_history);
+            target->msg_history = "";
+        }
+        extra = "（"+(string)(int)payload["hour"]+"："+
+            (string)(int)payload["minute"]+"）"+extra;
+        tell_object(target,extra+source_nick+source_name_cn+"："+message+
+            "\n\n[回复:tell "+source_user+"] [加为好友:qqlist "+
+            source_user+"]\n[加入临时屏蔽列表:blacklist "+source_user+
+            " -add 0]\n\n");
+    };
+    if(delivery_err){
+        MAP_WORKERD->abort_local_social_delivery(event_id);
+        return (["ok":0,"code":"private_tell_delivery_failed"]);
+    }
+    if(!MAP_WORKERD->complete_local_social_delivery(event_id,0))
+        return (["ok":0,"code":"social_delivery_persist_failed"]);
+    return (["ok":1,"event_id":event_id]);
+}
+
+private mapping map_worker_apply_world_broadcast(mapping event)
+{
+    mapping payload = mappingp(event["payload"]) ?
+        (mapping)event["payload"] : ([]);
+    array message = arrayp(payload["message"]) ?
+        (array)payload["message"] : ({});
+    string event_id = lower_case(String.trim_all_whites(
+        (string)(event["event_id"] || "")));
+    mixed delivery_err;
+    if(sizeof(event_id)!=64 || sizeof(message)!=6)
+        return (["ok":0,"code":"invalid_world_broadcast"]);
+    foreach(message,mixed field)
+        if(!stringp(field) || sizeof((string)field)>2048)
+            return (["ok":0,"code":"invalid_world_broadcast"]);
+    if(!MAP_WORKERD->begin_local_social_delivery(event_id,1))
+        return MAP_WORKERD->complete_local_social_delivery(event_id,1) ?
+            (["ok":1,"replayed":1]) :
+            (["ok":0,"code":"social_delivery_persist_failed"]);
+    delivery_err = catch {
+        if(!BROADCASTD->apply_distributed_broadcast((array(string))message))
+            error("broadcast apply rejected\n");
+    };
+    if(delivery_err){
+        MAP_WORKERD->abort_local_social_delivery(event_id);
+        return (["ok":0,"code":"world_broadcast_delivery_failed"]);
+    }
+    if(!MAP_WORKERD->complete_local_social_delivery(event_id,1))
+        return (["ok":0,"code":"social_delivery_persist_failed"]);
+    return (["ok":1,"event_id":event_id]);
+}
+
+private mapping map_worker_apply_team_event(mapping event,string kind)
+{
+    mapping payload = mappingp(event["payload"]) ?
+        (mapping)event["payload"] : ([]);
+    string event_id = lower_case(String.trim_all_whites(
+        (string)(event["event_id"] || "")));
+    string source_user = lower_case(String.trim_all_whites(
+        (string)(event["source_user"] || "")));
+    string target_user = lower_case(String.trim_all_whites(
+        (string)(event["target_user"] || "")));
+    mapping result;
+    mixed delivery_err;
+    if(sizeof(event_id)!=64 || source_user=="")
+        return (["ok":0,"code":"invalid_team_event"]);
+    if(kind=="team_invite"){
+        object target = find_player(target_user);
+        if(!target || MAP_WORKERD->query_local_player_epoch(target_user)<1 ||
+           MAP_WORKERD->local_user_request_running(target_user))
+            return (["ok":0,"code":"team_invite_target_busy"]);
+    }
+    if(kind=="team_snapshot"){
+        mapping snapshot = mappingp(payload["snapshot"]) ?
+            (mapping)payload["snapshot"] : ([]);
+        mapping members = mappingp(snapshot["members"]) ?
+            (mapping)snapshot["members"] : ([]);
+        mapping old_members = TERMD->query_term_m(
+            (string)(snapshot["team_id"] || ""));
+        foreach(indices(old_members)+indices(members),mixed raw_userid)
+            if(stringp(raw_userid) && find_player((string)raw_userid) &&
+               MAP_WORKERD->local_user_request_running((string)raw_userid))
+                return (["ok":0,"code":"team_member_request_running"]);
+    }
+    if(!MAP_WORKERD->begin_local_social_delivery(event_id,0))
+        return MAP_WORKERD->complete_local_social_delivery(event_id,0) ?
+            (["ok":1,"replayed":1]) :
+            (["ok":0,"code":"social_delivery_persist_failed"]);
+    delivery_err = catch {
+        if(kind=="team_invite")
+            result = TERMD->apply_distributed_team_invite(event_id,
+                target_user,payload);
+        else if(kind=="team_snapshot")
+            result = TERMD->apply_distributed_team_snapshot(
+                mappingp(payload["snapshot"]) ?
+                    (mapping)payload["snapshot"] : ([]));
+        else if(kind=="team_chat")
+            result = TERMD->apply_distributed_team_chat(
+                (string)payload["team_id"],(string)payload["message"],
+                source_user);
+        else if(kind=="team_notice")
+            result = TERMD->apply_distributed_team_notice(
+                (string)payload["team_id"],(string)payload["message"],
+                source_user);
+        else
+            result = (["ok":0,"code":"unknown_team_event"]);
+    };
+    if(delivery_err || !(int)result["ok"]){
+        MAP_WORKERD->abort_local_social_delivery(event_id);
+        return (["ok":0,"code":delivery_err ?
+            "team_event_delivery_failed" : (string)result["code"]]);
+    }
+    if(!MAP_WORKERD->complete_local_social_delivery(event_id,0))
+        return (["ok":0,"code":"social_delivery_persist_failed"]);
+    result["event_id"] = event_id;
+    return result;
+}
+
+private mapping map_worker_apply_social_event(mapping event)
+{
+    string kind = lower_case(String.trim_all_whites(
+        (string)(event["kind"] || "")));
+    if(MAP_WORKERD->query_node_role()!="worker")
+        return (["ok":0,"code":"not_worker"]);
+    if(kind=="private_tell")
+        return map_worker_apply_private_tell(event);
+    if(kind=="world_broadcast")
+        return map_worker_apply_world_broadcast(event);
+    if(has_value(({"team_invite","team_snapshot","team_chat","team_notice"}),
+        kind))
+        return map_worker_apply_team_event(event,kind);
+    return (["ok":0,"code":"unknown_social_event"]);
 }
 
 private void handle_map_worker_local_release(
@@ -1111,6 +1320,49 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
     }
     if(action=="local_online_users"){
         handle_map_worker_local_online_users(req);
+        return;
+    }
+    if(action=="local_social_events"){
+        send_json(req,(["ok":1,"events":
+            MAP_WORKERD->poll_local_social_events((int)params["limit"])]));
+        return;
+    }
+    if(action=="local_social_ack"){
+        result = MAP_WORKERD->acknowledge_local_social_event(
+            (string)params["event_id"]);
+        send_json(req,result,(int)result["ok"] ? 200 : 404);
+        return;
+    }
+    if(action=="local_social_apply"){
+        result = map_worker_apply_social_event(
+            mappingp(params["event"]) ? (mapping)params["event"] : ([]));
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_team_snapshot"){
+        result = TERMD->query_distributed_team_snapshot_for_user(
+            lower_case(String.trim_all_whites(
+                (string)(params["userid"] || ""))));
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_team_apply"){
+        mapping team_snapshot = mappingp(params["snapshot"]) ?
+            (mapping)params["snapshot"] : ([]);
+        mapping new_members = mappingp(team_snapshot["members"]) ?
+            (mapping)team_snapshot["members"] : ([]);
+        mapping old_members = TERMD->query_term_m(
+            (string)(team_snapshot["team_id"] || ""));
+        int team_busy;
+        foreach(indices(old_members)+indices(new_members),mixed raw_userid)
+            if(stringp(raw_userid) && find_player((string)raw_userid) &&
+               MAP_WORKERD->local_user_request_running((string)raw_userid)){
+                team_busy = 1;
+                break;
+            }
+        result = team_busy ? (["ok":0,"code":"team_member_request_running"]) :
+            TERMD->apply_distributed_team_snapshot(team_snapshot);
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
         return;
     }
     if(action=="local_auction_tick"){

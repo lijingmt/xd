@@ -31,6 +31,8 @@ private Thread.Mutex pike_gateway_recovery_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_assignment_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_account_management_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_auction_lock = Thread.Mutex();
+private Thread.Mutex pike_gateway_social_lock = Thread.Mutex();
+private Thread.Mutex pike_gateway_team_mutation_lock = Thread.Mutex();
 private array(object) pike_gateway_user_locks = ({});
 private object pike_gateway_account_resolver;
 
@@ -73,6 +75,7 @@ private int pike_gateway_started_at;
 private int pike_gateway_last_monitor_at;
 private int pike_gateway_last_handoff_at;
 private int pike_gateway_last_auction_at;
+private int pike_gateway_last_social_at;
 private int pike_gateway_last_lease_gc_at;
 private int pike_gateway_shutdown_prepared;
 
@@ -262,6 +265,14 @@ private int pike_gateway_auction_command(string command)
 {
 	string first = pike_gateway_command_verb(command);
 	return first=="vendue" || has_prefix(first,"vendue_");
+}
+
+/** Team membership is one logical object even when its players span workers. */
+private int pike_gateway_team_mutation_command(string command)
+{
+	string verb = pike_gateway_command_verb(command);
+	return has_value(({"term_assist","term_ok","term_refuse","term_kick",
+		"term_leave","term_release","term_changeleader"}),verb);
 }
 
 private mapping(string:mixed) pike_gateway_admin_recharge_target(
@@ -1556,6 +1567,20 @@ private mixed pike_gateway_reconcile(string userid,string source_worker,
 		MAP_WORKERD->abort_handoff(request_id,source_worker);
 		error("handoff unexpectedly resolved to source worker\n");
 	}
+	mapping team_state = pike_gateway_worker_rpc(source_worker,
+		"local_team_snapshot",(["userid":userid]));
+	if(!(int)team_state["ok"]){
+		MAP_WORKERD->abort_handoff(request_id,source_worker);
+		error("cannot read source team snapshot\n");
+	}
+	if(mappingp(team_state["snapshot"])){
+		mapping team_applied = pike_gateway_worker_rpc(target_worker,
+			"local_team_apply",(["snapshot":team_state["snapshot"]]));
+		if(!(int)team_applied["ok"]){
+			MAP_WORKERD->abort_handoff(request_id,source_worker);
+			error("cannot install target team snapshot\n");
+		}
+	}
 	mapping released = pike_gateway_worker_rpc(source_worker,"local_release",([
 		"userid":userid,"affinity":source_affinity,"epoch":source_epoch,
 	]));
@@ -1677,6 +1702,7 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 	mapping proxied;
 	object user_key;
 	object auction_key;
+	object team_mutation_key;
 	object account_management_key;
 	array(object) all_account_keys = ({});
 	int request_entered;
@@ -1773,6 +1799,12 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			}
 			if(pike_gateway_auction_command(game_command))
 				auction_key = pike_gateway_auction_lock->lock();
+			if(pike_gateway_team_mutation_command(game_command)){
+				team_mutation_key = pike_gateway_team_mutation_lock->lock();
+				// Finish any earlier membership snapshot before this worker reads
+				// its replica. This also serializes simultaneous remote accepts.
+				pike_gateway_run_social_events(1);
+			}
 			command_kind = sizeof(admin_target) ? "admin_recharge" :
 				(pike_gateway_auction_command(game_command) ?
 				"auction" : "gameplay");
@@ -1874,6 +1906,12 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				headers,body,"",0,"","","general");
 	};
 
+	if(team_mutation_key){
+		// Publish this mutation to every worker before the next structural
+		// team command is allowed to observe or modify the replica.
+		pike_gateway_run_social_events(1);
+		destruct(team_mutation_key);
+	}
 	if(auction_key)
 		destruct(auction_key);
 	if(user_key)
@@ -2427,6 +2465,112 @@ private void pike_gateway_run_lease_gc()
 		error(describe_error(recovery_err));
 }
 
+private void pike_gateway_deliver_social_event(mapping event)
+{
+	string kind = lower_case(String.trim_all_whites(
+		(string)(event["kind"] || "")));
+	string source_worker = lower_case(String.trim_all_whites(
+		(string)(event["source_worker"] || "")));
+	if(!pike_gateway_worker_ports[source_worker] ||
+	   (string)event["event_id"]=="" || !mappingp(event["payload"]))
+		error("invalid social event\n");
+	if(kind=="private_tell"){
+		string target_user = lower_case(String.trim_all_whites(
+			(string)(event["target_user"] || "")));
+		mapping route = MAP_WORKERD->query_player_route(target_user);
+		if(!(int)route["ok"] || (string)route["state"]!="active" ||
+		   !pike_gateway_worker_is_reachable((string)route["worker_id"]))
+			error("private tell target is unavailable\n");
+		mapping delivered = pike_gateway_worker_rpc(
+			(string)route["worker_id"],"local_social_apply",(["event":event]));
+		if(!(int)delivered["ok"])
+			error("private tell delivery rejected\n");
+		return;
+	}
+	if(kind=="team_invite"){
+		string target_user = lower_case(String.trim_all_whites(
+			(string)(event["target_user"] || "")));
+		mapping route = MAP_WORKERD->query_player_route(target_user);
+		if(!(int)route["ok"] || (string)route["state"]!="active" ||
+		   !pike_gateway_worker_is_reachable((string)route["worker_id"]))
+			error("team invite target is unavailable\n");
+		mapping delivered = pike_gateway_worker_rpc(
+			(string)route["worker_id"],"local_social_apply",(["event":event]));
+		if(!(int)delivered["ok"])
+			error("team invite delivery rejected\n");
+		return;
+	}
+	if(kind=="world_broadcast"){
+		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+			if(worker_id==source_worker)
+				continue;
+			if(!pike_gateway_worker_is_reachable(worker_id))
+				error("broadcast worker is unavailable\n");
+			mapping delivered = pike_gateway_worker_rpc(worker_id,
+				"local_social_apply",(["event":event]));
+			if(!(int)delivered["ok"])
+				error("broadcast delivery rejected\n");
+		}
+		return;
+	}
+	if(has_value(({"team_snapshot","team_chat","team_notice"}),kind)){
+		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+			if(worker_id==source_worker)
+				continue;
+			if(!pike_gateway_worker_is_reachable(worker_id))
+				error("team sync worker is unavailable\n");
+			mapping delivered = pike_gateway_worker_rpc(worker_id,
+				"local_social_apply",(["event":event]));
+			if(!(int)delivered["ok"]){
+				string code = stringp(delivered["code"]) ?
+					(string)delivered["code"] : "unknown";
+				error("team sync delivery rejected worker="+worker_id+
+					" kind="+kind+" code="+code+"\n");
+			}
+		}
+		return;
+	}
+	error("unsupported social event\n");
+}
+
+/** Drain only outside public account locks; worker delivery is idempotent. */
+private void pike_gateway_run_social_events(void|int wait_for_lock)
+{
+	object social_key = wait_for_lock ? pike_gateway_social_lock->lock() :
+		pike_gateway_social_lock->trylock();
+	if(!social_key)
+		return;
+	foreach(sort(indices(pike_gateway_worker_ports)),string source_worker){
+		if(!pike_gateway_worker_is_reachable(source_worker))
+			continue;
+		mapping pending;
+		mixed poll_err = catch {
+			pending = pike_gateway_worker_rpc(source_worker,
+				"local_social_events",(["limit":100]));
+		};
+		if(poll_err || !(int)pending["ok"] || !arrayp(pending["events"]))
+			continue;
+		foreach((array)pending["events"],mixed raw){
+			if(!mappingp(raw) ||
+			   (string)((mapping)raw)["source_worker"]!=source_worker)
+				continue;
+			mixed delivery_err = catch {
+				pike_gateway_deliver_social_event((mapping)raw);
+				mapping acked = pike_gateway_worker_rpc(source_worker,
+					"local_social_ack",(["event_id":
+					(string)((mapping)raw)["event_id"]]));
+				if(!(int)acked["ok"])
+					error("social event ACK rejected\n");
+			};
+			if(delivery_err)
+				werror("[PIKE_GATEWAY][SOCIAL] source=%s event=%s error=%s\n",
+					source_worker,(string)((mapping)raw)["event_id"],
+					describe_error(delivery_err));
+		}
+	}
+	destruct(social_key);
+}
+
 private void pike_gateway_run_auction_tick()
 {
 	if(pike_gateway_shadow ||
@@ -2499,6 +2643,7 @@ private void pike_gateway_controller_loop()
 			pike_gateway_last_monitor_at = time();
 			pike_gateway_last_handoff_at = time();
 			pike_gateway_last_auction_at = time();
+			pike_gateway_last_social_at = time();
 			pike_gateway_last_lease_gc_at = time();
 			destruct(key);
 			call_out(pike_gateway_start_public_listener,0);
@@ -2518,6 +2663,10 @@ private void pike_gateway_controller_loop()
 		   now-pike_gateway_last_handoff_at>=1){
 			pike_gateway_last_handoff_at = now;
 			pike_gateway_run_background_handoffs();
+		}
+		if(pike_gateway_routing_ready && now-pike_gateway_last_social_at>=1){
+			pike_gateway_last_social_at = now;
+			pike_gateway_run_social_events();
 		}
 		if(pike_gateway_routing_ready &&
 		   now-pike_gateway_last_lease_gc_at>=pike_gateway_lease_gc_seconds){

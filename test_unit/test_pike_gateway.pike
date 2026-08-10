@@ -331,6 +331,67 @@ int main()
 			source_has(gateway,"pike_gateway_publish_online_snapshot();"),
 			"逐worker边采集边发布会在人物迁移时显示重复或离线状态");
 
+		check("跨worker私聊和世界广播由gateway异步投递且幂等确认",
+			source_has(rpc,"local_social_events") &&
+			source_has(rpc,"local_social_apply") &&
+			source_has(rpc,"local_social_ack") &&
+			source_has(rpc,"target_request_running") &&
+			source_has(rpc,"begin_local_social_delivery(event_id,0)") &&
+			source_has(gateway,"pike_gateway_run_social_events") &&
+			source_has(gateway,"pike_gateway_social_lock->trylock()") &&
+			source_has(gateway,"if(worker_id==source_worker)") &&
+			source_has(gateway,"private tell target is unavailable") &&
+			source_has(Stdio.read_file(ROOT+"/gamelib/cmds/tell.pike"),
+				"stage_local_social_event(") &&
+			source_has(Stdio.read_file(ROOT+
+				"/gamelib/single/daemons/broadcastd.pike"),
+				"apply_distributed_broadcast") &&
+			source_has(rpc,"\"race_id\":(string)player->query_raceId()"),
+			"私聊可能在目标命令中并发改档，或广播重试造成重复显示/重复扣符");
+
+		string term_ok = Stdio.read_file(ROOT+"/gamelib/cmds/term_ok.pike");
+		string termd = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/termd.pike");
+		string map_workerd = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/map_workerd.pike");
+		check("跨worker队伍结构命令全局串行且同步窗口保留有效邀请",
+			source_has(gateway,"pike_gateway_team_mutation_lock") &&
+			source_has(gateway,"pike_gateway_team_mutation_command") &&
+			source_has(gateway,"pike_gateway_run_social_events(1)") &&
+			source_has(gateway,"Finish any earlier membership snapshot") &&
+			source_has(gateway,"Publish this mutation to every worker") &&
+			source_has(term_ok,"队伍状态正在跨地图同步") &&
+			source_has(term_ok,"!TERMD->query_termId(remote_team_id)") &&
+			source_has(rpc,"team_member_request_running"),
+			"并发入队可能丢成员，或快照尚未到达时永久清除仍有效邀请");
+
+		check("队伍快照先于通知发布且无本地成员worker幂等忽略",
+			source_has(termd,"local_worker_has_team_player") &&
+			source_has(termd,"team_snapshot_missing") &&
+			source_has(termd,"no_local_team_member") &&
+			source_has(map_workerd,"local_team_player_exists") &&
+			source_has(map_workerd,"indices(local_player_epochs)") &&
+			source_has(termd,"\t\tpublish_distributed_team_snapshot(tid,uid);\n"+
+				"\t\tterm_tell(tid,msg);") &&
+			source_has(gateway,"team sync delivery rejected worker=") &&
+			source_has(gateway,"\" kind=\"+kind+\" code=\"+code"),
+			"空闲worker会使队伍通知永久重试，或通知抢在快照前到达");
+
+		check("付费世界广播与社交事件先持久化且重启后保持幂等",
+			source_has(map_workerd,"persist_local_social_outbox_unlocked") &&
+			source_has(map_workerd,"restore_local_social_outbox") &&
+			source_has(map_workerd,"local_social_kind_is_durable") &&
+			source_has(map_workerd,"kind==\"team_snapshot\"") &&
+			source_has(map_workerd,"kind==\"team_invite\"") &&
+			source_has(map_workerd,"restore_local_team_outbox_snapshots") &&
+			source_has(map_workerd,"local_social_persist_failed") &&
+			source_has(map_workerd,"complete_local_social_delivery") &&
+			source_has(map_workerd,"social_delivery_markers") &&
+			source_has(map_workerd,"MAP_WORKER_LOCAL_BROADCAST_TTL") &&
+			source_has(rpc,"social_delivery_persist_failed") &&
+			source_has(rpc,"complete_local_social_delivery(event_id,1)"),
+			"worker崩溃窗口可能吞掉已扣传音符，或重启重放造成重复广播");
+
 		check("人物首次登录不会在每个worker重复启动全局daemon和技能",
 			source_has(game_master,
 				"node_role==\"gateway\" || node_role==\"worker\"") &&

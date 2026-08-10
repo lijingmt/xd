@@ -40,6 +40,10 @@ constant MAP_WORKER_LOCAL_CONTROL_TTL = 45;
 constant MAP_WORKER_ONLINE_SNAPSHOT_TTL = 30;
 constant MAP_WORKER_LOCAL_REQUEST_TTL = 180;
 constant MAP_WORKER_MAX_LOCAL_REQUESTS = 65536;
+constant MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS = 4096;
+constant MAP_WORKER_LOCAL_SOCIAL_TTL = 300;
+constant MAP_WORKER_LOCAL_BROADCAST_TTL = 86400;
+constant MAP_WORKER_MAX_SOCIAL_OUTBOX_BYTES = 64*1024*1024;
 
 private Thread.Mutex worker_state_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) worker_nodes = ([]);
@@ -77,6 +81,13 @@ private int local_online_snapshot_at;
 private int local_assignment_generation;
 private int local_control_seen_at;
 private int local_control_isolated;
+private Thread.Mutex local_social_lock = Thread.Mutex();
+private mapping(string:mapping(string:mixed)) local_social_events = ([]);
+private array(string) local_social_event_order = ({});
+private mapping(string:int) local_social_delivered = ([]);
+private mapping(string:int) local_social_completed = ([]);
+private multiset(string) local_social_durable_deliveries = (<>);
+private int local_social_sequence;
 
 private string node_role = "standalone";
 private string local_worker_id = "standalone";
@@ -1306,6 +1317,10 @@ mapping(string:mixed) query_local_control_status()
 		"tracked_player_epochs":sizeof(local_player_epochs),
 		"control_ttl":MAP_WORKER_LOCAL_CONTROL_TTL]);
 	destruct(key);
+	key = local_social_lock->lock();
+	result["social_outbox_pending"] = sizeof(local_social_events);
+	result["social_delivery_markers"] = sizeof(local_social_completed);
+	destruct(key);
 	return result;
 }
 
@@ -1369,6 +1384,420 @@ mapping(string:mixed) query_local_online_snapshot()
 			"snapshot_at":snapshot_at]);
 	result["age_seconds"] = max(0,time()-snapshot_at);
 	return result;
+}
+
+/**
+ * Check the worker's authoritative local lease table, not the coordinator's
+ * periodically published online snapshot. This closes the short arrival
+ * window where a newly handed-off team member is already local but has not
+ * appeared in the next cluster snapshot yet.
+ */
+int local_team_player_exists(string tid)
+{
+	object key;
+	array(string) userids;
+	if(node_role!="worker")
+		return 1;
+	if(!tid || tid=="")
+		return 0;
+	key = local_route_lock->lock();
+	userids = indices(local_player_epochs);
+	destruct(key);
+	foreach(userids,string userid){
+		object player = find_player(userid);
+		if(player && (string)player->query_term()==tid)
+			return 1;
+	}
+	return 0;
+}
+
+/** Look up one coordinator-verified online row without a synchronous callback. */
+mapping(string:mixed) query_local_online_user(string userid)
+{
+	mapping snapshot = query_local_online_snapshot();
+	userid = normalize_userid(userid);
+	if(userid=="" || !(int)snapshot["ok"] || !arrayp(snapshot["users"]))
+		return (["ok":0,"code":"online_user_unavailable"]);
+	foreach((array)snapshot["users"],mixed raw)
+		if(mappingp(raw) && (string)raw["userid"]==userid){
+			mapping result = copy_value((mapping)raw);
+			result["ok"] = 1;
+			return result;
+		}
+	return (["ok":0,"code":"online_user_not_found"]);
+}
+
+private string local_social_outbox_path()
+{
+	return DATA_ROOT+"map_workers/social_outbox/"+local_worker_id+".json";
+}
+
+/** Paid broadcasts and structural team changes must survive a worker crash. */
+private int local_social_kind_is_durable(string kind)
+{
+	return kind=="world_broadcast" || kind=="team_snapshot" ||
+		kind=="team_invite";
+}
+
+private mapping(string:mixed) validate_local_social_outbox(mapping decoded)
+{
+	mapping(string:mapping(string:mixed)) restored = ([]);
+	array(string) restored_order = ({});
+	multiset(string) seen = (<>);
+	mapping raw_events = mappingp(decoded) ?
+		(mapping)decoded["events"] : ([]);
+	mapping raw_delivered = mappingp(decoded) && mappingp(decoded["delivered"]) ?
+		(mapping)decoded["delivered"] : ([]);
+	mapping(string:int) restored_delivered = ([]);
+	array raw_order = mappingp(decoded) && arrayp(decoded["order"]) ?
+		(array)decoded["order"] : ({});
+	int now = time();
+	if(!mappingp(decoded) || (int)decoded["version"]!=1 ||
+	   (string)decoded["worker_id"]!=local_worker_id ||
+	   !mappingp(decoded["events"]) || !arrayp(decoded["order"]) ||
+	   !intp(decoded["sequence"]) || (int)decoded["sequence"]<0 ||
+	   !intp(decoded["event_count"]) ||
+	   (int)decoded["event_count"]!=sizeof(raw_events) ||
+	   !mappingp(decoded["delivered"]) ||
+	   !intp(decoded["delivered_count"]) ||
+	   (int)decoded["delivered_count"]!=sizeof(raw_delivered) ||
+	   sizeof(raw_events)>MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS ||
+	   sizeof(raw_delivered)>MAP_WORKER_MAX_LOCAL_REQUESTS ||
+	   sizeof(raw_order)!=sizeof(raw_events))
+		return (["ok":0,"code":"invalid_social_outbox"]);
+	foreach(raw_order,mixed raw_event_id){
+		string event_id = stringp(raw_event_id) ?
+			normalize_token((string)raw_event_id,96) : "";
+		mapping event = event_id!="" && mappingp(raw_events[event_id]) ?
+			(mapping)raw_events[event_id] : ([]);
+		string kind = normalize_token((string)(event["kind"] || ""),48);
+		string source_user = normalize_userid(
+			(string)(event["source_user"] || ""));
+		string target_user = normalize_userid(
+			(string)(event["target_user"] || ""));
+		int maximum_ttl = kind=="world_broadcast" ?
+			MAP_WORKER_LOCAL_BROADCAST_TTL : MAP_WORKER_LOCAL_SOCIAL_TTL;
+		if(event_id=="" || event_id!=(string)raw_event_id || seen[event_id] ||
+		   (string)event["event_id"]!=event_id ||
+		   !local_social_kind_is_durable(kind) ||
+		   (string)event["kind"]!=kind || source_user=="" ||
+		   (string)event["source_user"]!=source_user ||
+		   (string)(event["target_user"] || "")!=target_user ||
+		   (string)event["source_worker"]!=local_worker_id ||
+		   !valid_payload(mappingp(event["payload"]) ?
+			(mapping)event["payload"] : ([])) ||
+		   (has_value(({"private_tell","team_invite"}),kind) &&
+		    target_user=="") || (int)event["created_at"]<1 ||
+		   (int)event["created_at"]>now+5 ||
+		   (int)event["expires_at"]<(int)event["created_at"] ||
+		   (int)event["expires_at"]>
+			(int)event["created_at"]+maximum_ttl+5)
+			return (["ok":0,"code":"invalid_social_outbox_event"]);
+		seen[event_id] = 1;
+		if((int)event["expires_at"]>=now){
+			restored[event_id] = copy_value(event);
+			restored_order += ({event_id});
+		}
+	}
+	foreach(indices(raw_delivered),mixed raw_event_id){
+		string event_id = stringp(raw_event_id) ?
+			normalize_token((string)raw_event_id,96) : "";
+		if(event_id=="" || event_id!=(string)raw_event_id ||
+		   !intp(raw_delivered[raw_event_id]) ||
+		   (int)raw_delivered[raw_event_id]>now+MAP_WORKER_LOCAL_BROADCAST_TTL+5)
+			return (["ok":0,"code":"invalid_social_delivery_marker"]);
+		if((int)raw_delivered[raw_event_id]>=now)
+			restored_delivered[event_id] =
+				(int)raw_delivered[raw_event_id];
+	}
+	return (["ok":1,"events":restored,"order":restored_order,
+		"delivered":restored_delivered,
+		"sequence":(int)decoded["sequence"]]);
+}
+
+/** Caller holds local_social_lock. */
+private int persist_local_social_outbox_unlocked()
+{
+	string path = local_social_outbox_path();
+	string temp_path = path+".tmp";
+	string backup_path = path+".bak";
+	mapping(string:mapping(string:mixed)) durable_events = ([]);
+	array(string) durable_order = ({});
+	mapping(string:int) durable_delivered = ([]);
+	foreach(local_social_event_order,string event_id)
+		if(mappingp(local_social_events[event_id]) &&
+		   local_social_kind_is_durable(
+			(string)local_social_events[event_id]["kind"])){
+			durable_events[event_id] = copy_value(local_social_events[event_id]);
+			durable_order += ({event_id});
+		}
+	foreach(indices(local_social_completed),string event_id)
+		if(local_social_durable_deliveries[event_id])
+			durable_delivered[event_id] = local_social_completed[event_id];
+	mapping snapshot = (["version":1,"worker_id":local_worker_id,
+		"saved_at":time(),"sequence":local_social_sequence,
+		"event_count":sizeof(durable_events),
+		"delivered_count":sizeof(durable_delivered),
+		"events":durable_events,"order":durable_order,
+		"delivered":durable_delivered]);
+	string encoded;
+	mixed err;
+	int ok;
+	err = catch {
+		encoded = Standards.JSON.encode(snapshot);
+		if(sizeof(encoded)>MAP_WORKER_MAX_SOCIAL_OUTBOX_BYTES)
+			error("social outbox exceeds durable size budget\n");
+		mkdir(DATA_ROOT+"map_workers");
+		mkdir(DATA_ROOT+"map_workers/social_outbox");
+		rm(temp_path);
+		if(Stdio.write_file(temp_path,encoded)==sizeof(encoded) &&
+		   Stdio.file_size(temp_path)>0){
+			if(Stdio.file_size(path)>0)
+				Stdio.cp(path,backup_path);
+			if(mv(temp_path,path) && Stdio.file_size(path)>0)
+				ok = 1;
+		}
+	};
+	if(err || !ok){
+		rm(temp_path);
+		werror("[MAP_WORKERD][SOCIAL_OUTBOX] persist failed worker=%s\n",
+			local_worker_id);
+		return 0;
+	}
+	return 1;
+}
+
+private void restore_local_social_outbox()
+{
+	array(string) candidates;
+	if(node_role!="worker")
+		return;
+	candidates = ({local_social_outbox_path(),
+		local_social_outbox_path()+".bak"});
+	foreach(candidates,string path){
+		mapping decoded;
+		mapping validated;
+		mixed err;
+		int size = Stdio.file_size(path);
+		if(size<=0 || size>MAP_WORKER_MAX_SOCIAL_OUTBOX_BYTES)
+			continue;
+		err = catch { decoded = Standards.JSON.decode(Stdio.read_file(path)); };
+		if(err)
+			continue;
+		validated = validate_local_social_outbox(decoded);
+		if(!(int)validated["ok"])
+			continue;
+		local_social_events = (mapping)validated["events"];
+		local_social_event_order = (array(string))validated["order"];
+		local_social_completed = (mapping)validated["delivered"];
+		local_social_delivered = copy_value(local_social_completed);
+		local_social_durable_deliveries = (<>);
+		foreach(indices(local_social_completed),string event_id)
+			local_social_durable_deliveries[event_id] = 1;
+		local_social_sequence = (int)validated["sequence"];
+		if(path!=candidates[0])
+			werror("[MAP_WORKERD][SOCIAL_OUTBOX] restored backup worker=%s\n",
+				local_worker_id);
+		return;
+	}
+}
+
+/**
+ * A structural mutation may have reached the durable source outbox just before
+ * that worker crashed. Rebuild its primitive TERMD replica before the gateway
+ * retries fanout; otherwise the source player would retain a team id whose
+ * local daemon no longer knew its members.
+ */
+private void restore_local_team_outbox_snapshots()
+{
+	array(mapping) snapshots = ({});
+	object key;
+	if(node_role!="worker")
+		return;
+	key = local_social_lock->lock();
+	foreach(local_social_event_order,string event_id){
+		mapping event = local_social_events[event_id];
+		mapping payload;
+		mapping snapshot;
+		string kind;
+		if(!mappingp(event))
+			continue;
+		kind = (string)event["kind"];
+		if(kind!="team_snapshot" && kind!="team_invite")
+			continue;
+		payload = mappingp(event["payload"]) ?
+			(mapping)event["payload"] : ([]);
+		snapshot = mappingp(payload["snapshot"]) ?
+			(mapping)payload["snapshot"] : ([]);
+		if(sizeof(snapshot))
+			snapshots += ({copy_value(snapshot)});
+	}
+	destruct(key);
+	foreach(snapshots,mapping snapshot){
+		mapping result = TERMD->apply_distributed_team_snapshot(snapshot);
+		if(!(int)result["ok"])
+			werror("[MAP_WORKERD][TEAM_OUTBOX] restore failed team=%s code=%s\n",
+				(string)(snapshot["team_id"] || ""),
+				(string)(result["code"] || "unknown"));
+	}
+}
+
+/**
+ * A public worker request may not call the coordinator synchronously.  It
+ * stages a bounded primitive event instead; the Pike gateway drains it only
+ * after the worker response has completed.
+ */
+mapping(string:mixed) stage_local_social_event(string kind,string source_user,
+	string target_user,mapping(string:mixed) payload)
+{
+	object key;
+	string event_id;
+	kind = normalize_token(kind,48);
+	source_user = normalize_userid(source_user);
+	target_user = normalize_userid(target_user);
+	if(node_role!="worker" || !local_control_lease_valid() || kind=="" ||
+	   source_user=="" || !valid_payload(payload) ||
+	   (has_value(({"private_tell","team_invite"}),kind) &&
+	    target_user==""))
+		return (["ok":0,"code":"invalid_local_social_event"]);
+	key = local_social_lock->lock();
+	if(sizeof(local_social_events)>=MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS){
+		destruct(key);
+		return (["ok":0,"code":"local_social_event_limit"]);
+	}
+	local_social_sequence++;
+	event_id = lower_case(stable_digest(local_worker_id+"|"+
+		(string)time()+"|"+(string)local_social_sequence+"|"+
+		(string)random(1000000000)));
+	local_social_events[event_id] = ([
+		"event_id":event_id,"kind":kind,"source_user":source_user,
+		"target_user":target_user,"source_worker":local_worker_id,
+		"payload":copy_value(payload),"created_at":time(),
+		"expires_at":time()+(kind=="world_broadcast" ?
+			MAP_WORKER_LOCAL_BROADCAST_TTL : MAP_WORKER_LOCAL_SOCIAL_TTL),
+	]);
+	local_social_event_order += ({event_id});
+	if(local_social_kind_is_durable(kind) &&
+	   !persist_local_social_outbox_unlocked()){
+		m_delete(local_social_events,event_id);
+		local_social_event_order -= ({event_id});
+		destruct(key);
+		return (["ok":0,"code":"local_social_persist_failed"]);
+	}
+	destruct(key);
+	return (["ok":1,"event_id":event_id]);
+}
+
+array(mapping(string:mixed)) poll_local_social_events(void|int limit)
+{
+	object key;
+	array(mapping(string:mixed)) result = ({});
+	int max_items = max(1,min(100,limit || 20));
+	key = local_social_lock->lock();
+	foreach(local_social_event_order,string event_id){
+		mapping event = local_social_events[event_id];
+		if(sizeof(result)>=max_items)
+			break;
+		if(mappingp(event) && (int)event["expires_at"]>=time())
+			result += ({copy_value(event)});
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) acknowledge_local_social_event(string event_id)
+{
+	object key;
+	mapping removed;
+	array(string) old_order;
+	event_id = normalize_token(event_id,96);
+	key = local_social_lock->lock();
+	if(event_id=="" || !mappingp(local_social_events[event_id])){
+		destruct(key);
+		return (["ok":0,"code":"unknown_local_social_event"]);
+	}
+	removed = local_social_events[event_id];
+	old_order = copy_value(local_social_event_order);
+	m_delete(local_social_events,event_id);
+	local_social_event_order -= ({event_id});
+	if(local_social_kind_is_durable((string)removed["kind"]) &&
+	   !persist_local_social_outbox_unlocked()){
+		local_social_events[event_id] = removed;
+		local_social_event_order = old_order;
+		destruct(key);
+		return (["ok":0,"code":"local_social_persist_failed"]);
+	}
+	destruct(key);
+	return (["ok":1,"event_id":event_id]);
+}
+
+/** Reserve one idempotent worker-local delivery before mutating chat state. */
+int begin_local_social_delivery(string event_id,void|int durable)
+{
+	object key;
+	event_id = normalize_token(event_id,96);
+	if(node_role!="worker" || event_id=="")
+		return 0;
+	key = local_social_lock->lock();
+	if(local_social_delivered[event_id]>=time()){
+		destruct(key);
+		return 0;
+	}
+	if(sizeof(local_social_delivered)>=MAP_WORKER_MAX_LOCAL_REQUESTS){
+		destruct(key);
+		return 0;
+	}
+	local_social_delivered[event_id] =
+		time()+(durable ? MAP_WORKER_LOCAL_BROADCAST_TTL :
+			MAP_WORKER_LOCAL_SOCIAL_TTL);
+	if(durable)
+		local_social_durable_deliveries[event_id] = 1;
+	destruct(key);
+	return 1;
+}
+
+/** Persist exactly-once completion only after the target mutation succeeded. */
+int complete_local_social_delivery(string event_id,void|int durable)
+{
+	object key;
+	int expiry;
+	event_id = normalize_token(event_id,96);
+	if(node_role!="worker" || event_id=="")
+		return 0;
+	key = local_social_lock->lock();
+	if(local_social_completed[event_id]>=time()){
+		destruct(key);
+		return 1;
+	}
+	if(local_social_delivered[event_id]<time()){
+		destruct(key);
+		return 0;
+	}
+	expiry = local_social_delivered[event_id];
+	local_social_completed[event_id] = expiry;
+	if(durable)
+		local_social_durable_deliveries[event_id] = 1;
+	if(local_social_durable_deliveries[event_id] &&
+	   !persist_local_social_outbox_unlocked()){
+		m_delete(local_social_completed,event_id);
+		destruct(key);
+		return 0;
+	}
+	destruct(key);
+	return 1;
+}
+
+void abort_local_social_delivery(string event_id)
+{
+	object key;
+	event_id = normalize_token(event_id,96);
+	if(event_id=="")
+		return;
+	key = local_social_lock->lock();
+	m_delete(local_social_delivered,event_id);
+	m_delete(local_social_completed,event_id);
+	local_social_durable_deliveries[event_id] = 0;
+	destruct(key);
 }
 
 /** Replace the worker-local affinity cache with a coordinator snapshot. */
@@ -1545,13 +1974,13 @@ int guard_local_player_move(object player,mixed destination)
 		destruct(key);
 		return 0;
 	}
-	// TERMD is still process-local in the active trial. Moving one member while
-	// preserving its saved team id would create a ghost team and could split
-	// dungeon loot ownership across processes. Fail closed until the team state
-	// machine itself has a durable coordinator protocol.
+	// A non-empty saved team id is movable only when this worker has the full
+	// primitive replica. The gateway installs that snapshot on the target before
+	// releasing this source, while room-owned loot objects never cross processes.
 	if(functionp(player->query_term) &&
 	   (string)player->query_term()!="" &&
-	   (string)player->query_term()!="noterm"){
+	   (string)player->query_term()!="noterm" &&
+	   !TERMD->query_termId((string)player->query_term())){
 		destruct(key);
 		return 3;
 	}
@@ -3226,6 +3655,33 @@ private void cleanup_expired_state()
 			}
 		}
 		destruct(local_key);
+		object social_key = local_social_lock->lock();
+		int social_changed;
+		foreach(indices(local_social_events),string event_id)
+			if((int)local_social_events[event_id]["expires_at"]<now){
+				m_delete(local_social_events,event_id);
+				social_changed = 1;
+			}
+		array(string) remaining_social_order = ({});
+		foreach(local_social_event_order,string ordered_event_id)
+			if(mappingp(local_social_events[ordered_event_id]))
+				remaining_social_order += ({ordered_event_id});
+		if(!equal(local_social_event_order,remaining_social_order)){
+			local_social_event_order = remaining_social_order;
+			social_changed = 1;
+		}
+		foreach(indices(local_social_delivered),string delivered_id)
+			if(local_social_delivered[delivered_id]<now)
+				m_delete(local_social_delivered,delivered_id);
+		foreach(indices(local_social_completed),string delivered_id)
+			if(local_social_completed[delivered_id]<now){
+				m_delete(local_social_completed,delivered_id);
+				local_social_durable_deliveries[delivered_id] = 0;
+				social_changed = 1;
+			}
+		if(social_changed)
+			persist_local_social_outbox_unlocked();
+		destruct(social_key);
 	}
 	object lease_key = player_lease_lock->lock();
 	if(lease_reconciliation_id!="" &&
@@ -3348,5 +3804,7 @@ protected void create()
 	load_cluster_config();
 	load_room_catalog();
 	restore_control_plane();
+	restore_local_social_outbox();
+	restore_local_team_outbox_snapshots();
 	call_out(cleanup_expired_state,10);
 }

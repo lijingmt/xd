@@ -19,18 +19,25 @@ int main(string|zero arg)
 	}
 	int rs;
 	object ob = find_player(arg);
-	if(!ob || !LOGICALZONED->can_interact(me,ob)){
+	mapping team = TERMD->query_term_m(me->query_term());
+	array remote_member = arrayp(team[arg]) ? (array)team[arg] : ({});
+	if((!ob && !sizeof(remote_member)) ||
+	   !LOGICALZONED->can_user_action("team",me->query_name(),arg)){
 		s += "该用户不在线，无法进行此操作。\n";
 		s += "[返回游戏:look]\n";
 		write(s);
 		return 1;
 	}
 	else{
-		rs = TERMD->update_termLeader(me->query_term(),me->query_name(),ob->query_name(),ob->query_name_cn());
+		string target_name = ob ? ob->query_name() : arg;
+		string target_name_cn = ob ? ob->query_name_cn() :
+			(string)remote_member[0];
+		rs = TERMD->update_termLeader(me->query_term(),me->query_name(),
+			target_name,target_name_cn);
 		if(rs)	
-			s += "成功将 "+ob->query_name_cn()+" 设置为队长。\n";
+			s += "成功将 "+target_name_cn+" 设置为队长。\n";
 		else	
-			s += "将队员 "+ob->query_name_cn()+" 设置队长失败。\n";
+			s += "将队员 "+target_name_cn+" 设置队长失败。\n";
 	}
 	s += "[返回游戏:look]\n";
 	write(s);
