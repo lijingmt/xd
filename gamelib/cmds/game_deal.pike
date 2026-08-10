@@ -146,6 +146,7 @@ int main(string|zero arg)
 		s+="在线更新脚本[进入:mgr_script]\n";
 		s+="用户数据管理[进入:mgr_usr_data]\n";
 		if(MANAGERD->checkpower(me->query_name())=="admin"){
+			s += "[给指定玩家发放物品:mgr_give_item]\n";
 			s += "[玩家意见反馈管理:mgr_feedback]\n";
 			s += "[逻辑新区管理:mgr_logical_zone]\n";
 			s += "[地图Worker试运行管理:mgr_map_workers]\n";

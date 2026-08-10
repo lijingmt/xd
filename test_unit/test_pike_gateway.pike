@@ -80,6 +80,8 @@ int main()
 		"/gamelib/single/daemons/http_api_daemon.pike");
 	string rpc = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike");
+	string map_worker_daemon = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike");
 	string user = Stdio.read_file(ROOT+"/gamelib/clone/user.pike");
 	string game_master = Stdio.read_file(ROOT+"/gamelib/master.pike");
 	string homed = Stdio.read_file(ROOT+
@@ -282,7 +284,7 @@ int main()
 
 		check("充值由目标账号锁定并在精确worker幂等存档",
 			source_has(gateway,
-				"pike_gateway_admin_recharge_target(game_command)") &&
+				"pike_gateway_admin_target(game_command)") &&
 			source_has(gateway,"pike_gateway_lock_user_pair") &&
 			source_has(gateway,"admin command changed during lock upgrade") &&
 			source_has(gateway,"pike_gateway_resolve_routed_command") &&
@@ -300,6 +302,16 @@ int main()
 			source_has(Stdio.read_file(ROOT+"/gamelib/cmds/txadd.pike"),
 				"give_recharge_bonus_once"),
 			"管理进程可能复制目标人物、重复附赠或保留跨worker旧钱包缓存");
+
+		check("后台物品发放与充值共享双账号锁且使用独立能力凭据",
+			source_has(gateway,"pike_gateway_admin_item_grant_target") &&
+			source_has(gateway,"admin_item_grant|") &&
+			source_has(gateway,"X-Xiand-Admin-Item-Request") &&
+			source_has(rpc,"execute_map_worker_admin_item_grant") &&
+			source_has(rpc,"local_admin_item_grant") &&
+			source_has(map_worker_daemon,"admin_item_request_id") &&
+			source_has(user,"admin_item_grant_receipts"),
+			"后台发物可能路由到错误worker或在超时重试时克隆物品");
 
 		check("在线列表聚合后逐人物核对worker与epoch并拒绝重复owner",
 			source_has(gateway,"query_pike_gateway_online_users") &&

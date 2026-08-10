@@ -136,6 +136,12 @@ mapping worker_summon_handoff=([]);
 // A lost HTTP response can therefore retry an already-credited recharge
 // without cloning its per-character bonus a second time.
 mapping(string:int) admin_recharge_bonus_receipts=([]);
+// Arbitrary administrator item grants use a separate receipt namespace.  The
+// item payload and its receipt are committed in the same atomic player save,
+// so a lost HTTP response can be retried without cloning the item again.
+mapping(string:mapping(string:mixed)) admin_item_grant_receipts=([]);
+#define ADMIN_ITEM_GRANT_RECEIPT_TTL 1800
+#define ADMIN_ITEM_GRANT_RECEIPT_LIMIT 256
 
 private int valid_admin_recharge_receipt_id(string request_id)
 {
@@ -188,6 +194,54 @@ void rollback_admin_recharge_bonus_receipt(string request_id)
 {
 	if(mappingp(admin_recharge_bonus_receipts))
 		m_delete(admin_recharge_bonus_receipts,request_id);
+}
+
+mapping(string:mixed) query_admin_item_grant_receipt(string request_id)
+{
+	if(!valid_admin_recharge_receipt_id(request_id) ||
+	   !mappingp(admin_item_grant_receipts) ||
+	   !mappingp(admin_item_grant_receipts[request_id]))
+		return ([]);
+	return copy_value(admin_item_grant_receipts[request_id]);
+}
+
+int record_admin_item_grant_receipt(string request_id,string item_path,
+	int item_count)
+{
+	if(!valid_admin_recharge_receipt_id(request_id) || !item_path ||
+	   !sizeof(item_path) || item_count<1)
+		return 0;
+	if(!mappingp(admin_item_grant_receipts))
+		admin_item_grant_receipts = ([]);
+	if(mappingp(admin_item_grant_receipts[request_id])){
+		mapping receipt = admin_item_grant_receipts[request_id];
+		return (string)receipt["item_path"]==item_path &&
+			(int)receipt["item_count"]==item_count;
+	}
+	// Remove only receipts whose confirmation link has already expired.  Fresh
+	// receipts are never evicted: at the bound, new grants fail closed instead
+	// of making an earlier still-valid link replayable.
+	array(string) receipt_ids = indices(admin_item_grant_receipts);
+	int cutoff = time()-ADMIN_ITEM_GRANT_RECEIPT_TTL;
+	foreach(receipt_ids,string receipt_id){
+		mapping receipt = admin_item_grant_receipts[receipt_id];
+		if(!mappingp(receipt) || (int)receipt["created_at"]<cutoff)
+			m_delete(admin_item_grant_receipts,receipt_id);
+	}
+	if(sizeof(admin_item_grant_receipts)>=ADMIN_ITEM_GRANT_RECEIPT_LIMIT)
+		return 0;
+	admin_item_grant_receipts[request_id] = ([
+		"item_path":item_path,
+		"item_count":item_count,
+		"created_at":time(),
+	]);
+	return 1;
+}
+
+void rollback_admin_item_grant_receipt(string request_id)
+{
+	if(mappingp(admin_item_grant_receipts))
+		m_delete(admin_item_grant_receipts,request_id);
 }
 
 /**

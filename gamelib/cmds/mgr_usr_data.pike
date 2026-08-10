@@ -57,6 +57,7 @@ int main(string|zero arg){
 				else
 					s += "账号共享充值钱包：数据异常，已停止入账和消费\n";
 				s += "[给注册账号共享充值:txadd "+uid+"]\n";
+				s += "[给此人物发放物品:mgr_give_item "+uid+"]\n";
 				s += "说明：多Worker模式下不在管理进程复制在线人物，"+
 					"充值由协调器锁定目标账号后自动送到所在Worker。\n";
 			}
@@ -119,6 +120,7 @@ int main(string|zero arg){
 			else
 				s += "账号共享充值钱包：数据异常，已停止入账和消费\n";
 			s += "[给注册账号共享充值:txadd "+uid+"]\n";
+			s += "[给此人物发放物品:mgr_give_item "+uid+"]\n";
 			s += "-------------------\n";
 			//s += "【通宝历史数额】："+player->history_tongbao+" (输入大于等于0的整数)[string:change history_tb "+player->name+" ...]\n";
 			//int qhs_count = check_need_item(player,"qhs");

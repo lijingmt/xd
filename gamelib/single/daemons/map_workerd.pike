@@ -1018,10 +1018,13 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	string userid,int epoch,string kind,void|string admin_target_userid,
 	void|string admin_target_account,void|string admin_target_worker,
 	void|int admin_target_epoch,void|int admin_fee,
-	void|string admin_recharge_request_id,void|string admin_capability)
+	void|string admin_recharge_request_id,void|string admin_item_path,
+	void|int admin_item_count,void|string admin_item_request_id,
+	void|string admin_capability)
 {
 	object key;
 	mapping existing;
+	int admin_operation;
 	request_id = lower_case(String.trim_all_whites(request_id || ""));
 	userid = normalize_userid(userid);
 	kind = normalize_token(kind,32);
@@ -1032,22 +1035,39 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 		admin_capability || ""));
 	admin_recharge_request_id = lower_case(String.trim_all_whites(
 		admin_recharge_request_id || ""));
+	admin_item_path = String.trim_all_whites(admin_item_path || "");
+	admin_item_request_id = lower_case(String.trim_all_whites(
+		admin_item_request_id || ""));
 	if(node_role!="worker" || sizeof(request_id)!=64 ||
 	   !valid_hex_identifier(request_id) || kind=="")
 		return (["ok":0,"code":"invalid_local_request"]);
-	if(kind=="admin_recharge" &&
+	admin_operation = kind=="admin_recharge" || kind=="admin_item_grant";
+	if(admin_operation &&
 	   (admin_target_userid=="" || admin_target_account=="" ||
 	    admin_target_worker=="" || admin_target_epoch<0 ||
-	    admin_fee<=0 || admin_fee>100000000 ||
-	    sizeof(admin_recharge_request_id)!=64 ||
-	    !valid_hex_identifier(admin_recharge_request_id) ||
 	    sizeof(admin_capability)!=64 ||
 	    !valid_hex_identifier(admin_capability)))
 		return (["ok":0,"code":"invalid_admin_target_capability"]);
-	if(kind!="admin_recharge" &&
+	if(kind=="admin_recharge" &&
+	   (admin_fee<=0 || admin_fee>100000000 ||
+	    sizeof(admin_recharge_request_id)!=64 ||
+	    !valid_hex_identifier(admin_recharge_request_id) ||
+	    admin_item_path!="" || admin_item_count ||
+	    admin_item_request_id!=""))
+		return (["ok":0,"code":"invalid_admin_recharge_capability"]);
+	if(kind=="admin_item_grant" &&
+	   (admin_fee || admin_recharge_request_id!="" ||
+	    admin_item_path=="" || sizeof(admin_item_path)>128 ||
+	    search(admin_item_path,"..")!=-1 || admin_item_count<1 ||
+	    admin_item_count>9999 || sizeof(admin_item_request_id)!=64 ||
+	    !valid_hex_identifier(admin_item_request_id)))
+		return (["ok":0,"code":"invalid_admin_item_capability"]);
+	if(!admin_operation &&
 	   (admin_target_userid!="" || admin_target_account!="" ||
 	    admin_target_worker!="" || admin_target_epoch ||
-	    admin_fee || admin_recharge_request_id!="" || admin_capability!=""))
+	    admin_fee || admin_recharge_request_id!="" ||
+	    admin_item_path!="" || admin_item_count ||
+	    admin_item_request_id!="" || admin_capability!=""))
 		return (["ok":0,"code":"unexpected_admin_target_capability"]);
 	key = local_route_lock->lock();
 	existing = local_requests[request_id];
@@ -1080,7 +1100,7 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	local_requests[request_id] = (["request_id":request_id,
 		"userid":userid,"epoch":epoch,"kind":kind,"state":"running",
 		"started_at":time(),"expires_at":time()+MAP_WORKER_LOCAL_REQUEST_TTL]);
-	if(kind=="admin_recharge"){
+	if(admin_operation){
 		local_requests[request_id]["admin_target_userid"] =
 			admin_target_userid;
 		local_requests[request_id]["admin_target_account"] =
@@ -1089,10 +1109,18 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 			admin_target_worker;
 		local_requests[request_id]["admin_target_epoch"] =
 			admin_target_epoch;
-		local_requests[request_id]["admin_fee"] = admin_fee;
-		local_requests[request_id]["admin_recharge_request_id"] =
-			admin_recharge_request_id;
 		local_requests[request_id]["admin_capability"] = admin_capability;
+		if(kind=="admin_recharge"){
+			local_requests[request_id]["admin_fee"] = admin_fee;
+			local_requests[request_id]["admin_recharge_request_id"] =
+				admin_recharge_request_id;
+		}
+		else{
+			local_requests[request_id]["admin_item_path"] = admin_item_path;
+			local_requests[request_id]["admin_item_count"] = admin_item_count;
+			local_requests[request_id]["admin_item_request_id"] =
+				admin_item_request_id;
+		}
 	}
 	if(userid!="")
 		local_running_request_by_user[userid] = request_id;
@@ -1100,19 +1128,22 @@ mapping(string:mixed) begin_local_gateway_request(string request_id,
 	return (["ok":1,"request_id":request_id]);
 }
 
-mapping(string:mixed) query_local_running_admin_target(string userid)
+mapping(string:mixed) query_local_running_admin_target(string userid,
+	void|string expected_kind)
 {
 	object key;
 	string request_id;
 	mapping request;
 	userid = normalize_userid(userid);
+	expected_kind = normalize_token(expected_kind || "",32);
 	if(userid=="")
 		return (["ok":0,"code":"invalid_userid"]);
 	key = local_route_lock->lock();
 	request_id = local_running_request_by_user[userid];
 	request = local_requests[request_id];
 	if(mappingp(request) && (string)request["state"]=="running" &&
-	   (string)request["kind"]=="admin_recharge")
+	   ((expected_kind!="" && (string)request["kind"]==expected_kind) ||
+	    (expected_kind=="" && has_prefix((string)request["kind"],"admin_"))))
 		request = copy_value(request);
 	else
 		request = 0;

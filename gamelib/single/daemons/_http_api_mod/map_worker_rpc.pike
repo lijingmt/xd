@@ -35,6 +35,19 @@ private string map_worker_admin_capability(string manager_userid,
     return lower_case(String.string2hex(hash->digest()));
 }
 
+private string map_worker_admin_item_capability(string manager_userid,
+    string target_userid,string account_id,string worker_id,int epoch,
+    string item_path,int item_count,string item_request_id,
+    string gateway_request_id)
+{
+    object hash = Crypto.SHA256();
+    hash->update((getenv("XIAND_WORKER_TOKEN") || "")+
+        "|admin_item_grant|"+manager_userid+"|"+target_userid+"|"+
+        account_id+"|"+worker_id+"|"+(string)epoch+"|"+item_path+"|"+
+        (string)item_count+"|"+item_request_id+"|"+gateway_request_id);
+    return lower_case(String.string2hex(hash->digest()));
+}
+
 private mapping map_worker_internal_http_call(int port,mapping payload)
 {
     object query;
@@ -89,7 +102,8 @@ mapping(string:mixed) execute_map_worker_admin_recharge(object manager,
        MANAGERD->checkpower(manager->query_name())!="admin")
         return (["ok":0,"message":"分布式充值权限校验失败"]);
     manager_userid = lower_case((string)manager->query_name());
-    metadata = MAP_WORKERD->query_local_running_admin_target(manager_userid);
+    metadata = MAP_WORKERD->query_local_running_admin_target(manager_userid,
+        "admin_recharge");
     if(!(int)metadata["ok"] ||
        (string)metadata["admin_target_userid"]!=target_userid ||
        (int)metadata["admin_fee"]!=fee ||
@@ -148,6 +162,74 @@ mapping(string:mixed) execute_map_worker_admin_recharge(object manager,
         }
     }
     result["cache_refresh_ok"] = 1;
+    return result;
+}
+
+/** Called only from mgr_give_item while the gateway holds both account locks. */
+mapping(string:mixed) execute_map_worker_admin_item_grant(object manager,
+    string target_userid,string item_path,int item_count,
+    string item_request_id)
+{
+    string manager_userid;
+    string target_worker;
+    string target_account;
+    string capability;
+    string gateway_request_id;
+    int target_epoch;
+    int worker_index;
+    int worker_count;
+    int worker_http_base;
+    mapping metadata;
+    mapping config;
+    mapping result;
+    target_userid = lower_case(String.trim_all_whites(target_userid || ""));
+    item_path = String.trim_all_whites(item_path || "");
+    item_request_id = lower_case(String.trim_all_whites(
+        item_request_id || ""));
+    if(MAP_WORKERD->query_node_role()!="worker" || !manager ||
+       MANAGERD->checkpower(manager->query_name())!="admin")
+        return (["ok":0,"message":"分布式物品发放权限校验失败"]);
+    manager_userid = lower_case((string)manager->query_name());
+    metadata = MAP_WORKERD->query_local_running_admin_target(manager_userid,
+        "admin_item_grant");
+    if(!(int)metadata["ok"] ||
+       (string)metadata["admin_target_userid"]!=target_userid ||
+       (string)metadata["admin_item_path"]!=item_path ||
+       (int)metadata["admin_item_count"]!=item_count ||
+       (string)metadata["admin_item_request_id"]!=item_request_id)
+        return (["ok":0,"message":"物品发放目标没有协调器锁定"]);
+    target_worker = (string)metadata["admin_target_worker"];
+    target_account = (string)metadata["admin_target_account"];
+    target_epoch = (int)metadata["admin_target_epoch"];
+    capability = (string)metadata["admin_capability"];
+    gateway_request_id = (string)metadata["request_id"];
+    if(sizeof(target_worker)!=3 || target_worker[0]!='w' ||
+       target_worker[1]<'0' || target_worker[1]>'9' ||
+       target_worker[2]<'0' || target_worker[2]>'9')
+        return (["ok":0,"message":"物品发放目标 worker 无效"]);
+    worker_index = (int)target_worker[1..];
+    config = MAP_WORKERD->query_cluster_config();
+    worker_count = MAP_WORKERD->query_runtime_worker_count();
+    worker_http_base = (int)config["worker_http_base_port"];
+    if(worker_index<1 || worker_index>worker_count)
+        return (["ok":0,"message":"物品发放目标 worker 不在当前拓扑"]);
+    mapping target_payload = ([
+        "action":"local_admin_item_grant","manager_userid":manager_userid,
+        "target_userid":target_userid,"account_id":target_account,
+        "worker_id":target_worker,"epoch":target_epoch,
+        "item_path":item_path,"item_count":item_count,
+        "item_request_id":item_request_id,
+        "gateway_request_id":gateway_request_id,"capability":capability,
+    ]);
+    if(target_worker==MAP_WORKERD->query_local_worker_id())
+        result = execute_map_worker_local_admin_item_grant(target_payload);
+    else
+        result = map_worker_internal_http_call(
+            worker_http_base+worker_index-1,target_payload);
+    if(!(int)result["ok"])
+        return result+(["message":(string)(result["message"] ||
+            "目标 worker 物品发放失败，本次没有重复发放")]);
+    result["worker_id"] = target_worker;
     return result;
 }
 
@@ -784,6 +866,105 @@ private void handle_map_worker_local_admin_recharge(
         (string)result["code"]=="admin_recharge_forbidden" ? 403 : 409);
 }
 
+private mapping execute_map_worker_local_admin_item_grant(mapping params)
+{
+    string manager_userid = lower_case(String.trim_all_whites(
+        (string)(params["manager_userid"] || "")));
+    string target_userid = lower_case(String.trim_all_whites(
+        (string)(params["target_userid"] || "")));
+    string account_id = lower_case(String.trim_all_whites(
+        (string)(params["account_id"] || "")));
+    string worker_id = lower_case(String.trim_all_whites(
+        (string)(params["worker_id"] || "")));
+    string item_path = String.trim_all_whites(
+        (string)(params["item_path"] || ""));
+    string item_request_id = lower_case(String.trim_all_whites(
+        (string)(params["item_request_id"] || "")));
+    string gateway_request_id = lower_case(String.trim_all_whites(
+        (string)(params["gateway_request_id"] || "")));
+    string capability = lower_case(String.trim_all_whites(
+        (string)(params["capability"] || "")));
+    int epoch = (int)params["epoch"];
+    int item_count = (int)params["item_count"];
+    object|zero player = 0;
+    object grant_command;
+    int offline;
+    mapping result;
+    string expected_capability = map_worker_admin_item_capability(
+        manager_userid,target_userid,account_id,worker_id,epoch,item_path,
+        item_count,item_request_id,gateway_request_id);
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       worker_id!=MAP_WORKERD->query_local_worker_id() ||
+       !MAP_WORKERD->local_control_lease_valid() ||
+       MANAGERD->checkpower(manager_userid)!="admin" ||
+       sizeof(item_request_id)!=64 || sizeof(gateway_request_id)!=64 ||
+       capability!=expected_capability ||
+       ACCOUNT_CHARACTERD->query_account_id_for_character(target_userid)!=
+        account_id){
+        return (["ok":0,"code":"admin_item_grant_forbidden",
+            "message":"分布式物品发放能力校验失败"]);
+    }
+    player = get_player_from_connection(target_userid,0);
+    if(!player)
+        player = find_player(target_userid);
+    if(epoch>0){
+        int local_epoch = MAP_WORKERD->query_local_player_epoch(target_userid);
+        if(player && local_epoch!=epoch){
+            return (["ok":0,"code":"stale_admin_item_target",
+                "message":"目标人物已经切换 worker，请重新确认发放"]);
+        }
+        if(!player && local_epoch!=0 && local_epoch!=epoch){
+            return (["ok":0,"code":"stale_admin_item_target",
+                "message":"目标人物离线租约已变化，请重新确认发放"]);
+        }
+        if(!player)
+            offline = 1;
+    }
+    else{
+        if(player || MAP_WORKERD->query_local_player_epoch(target_userid)>0){
+            return (["ok":0,"code":"admin_item_target_became_online",
+                "message":"目标人物刚刚上线，请重新确认发放"]);
+        }
+        offline = 1;
+    }
+    if(offline){
+        player = clone(GAMELIB_USER);
+        if(player){
+            player->set_name(target_userid);
+            player->set_project("gamelib");
+            if(!player->restore()){
+                destruct(player);
+                player = 0;
+            }
+        }
+    }
+    if(!player || !functionp(player->query_account_owner) ||
+       lower_case((string)player->query_account_owner())!=account_id){
+        if(offline)
+            discard_map_worker_offline_admin_player(player);
+        return (["ok":0,"code":"admin_item_target_account_mismatch",
+            "message":"目标人物账号归属无效"]);
+    }
+    grant_command = (object)(ROOT+"/gamelib/cmds/mgr_give_item.pike");
+    if(!grant_command ||
+       !functionp(grant_command->execute_admin_item_grant_target))
+        result = (["ok":0,"message":"物品发放处理器不可用"]);
+    else
+        result = grant_command->execute_admin_item_grant_target(player,
+            item_path,item_count,manager_userid,item_request_id,1);
+    if(offline)
+        discard_map_worker_offline_admin_player(player);
+    return result;
+}
+
+private void handle_map_worker_local_admin_item_grant(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    mapping result = execute_map_worker_local_admin_item_grant(params);
+    send_json(req,result,(int)result["ok"] ? 200 :
+        (string)result["code"]=="admin_item_grant_forbidden" ? 403 : 409);
+}
+
 private mapping execute_map_worker_local_account_refresh(string account_id)
 {
     account_id = lower_case(String.trim_all_whites(account_id || ""));
@@ -1314,6 +1495,10 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
     }
     if(action=="local_admin_recharge"){
         handle_map_worker_local_admin_recharge(req,params);
+        return;
+    }
+    if(action=="local_admin_item_grant"){
+        handle_map_worker_local_admin_item_grant(req,params);
         return;
     }
     if(action=="local_account_refresh"){

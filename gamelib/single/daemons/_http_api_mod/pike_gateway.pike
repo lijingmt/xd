@@ -311,7 +311,89 @@ private mapping(string:mixed) pike_gateway_admin_recharge_target(
 		error("admin target worker is unavailable\n");
 	return (["userid":target_userid,"account_id":account_id,
 		"worker_id":worker_id,"epoch":epoch,"fee":fee,
-		"recharge_request_id":request_id]);
+		"recharge_request_id":request_id,"kind":"admin_recharge"]);
+}
+
+private int pike_gateway_valid_admin_item_path(string item_path)
+{
+	string allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"+
+		"0123456789_/-+.";
+	if(!item_path || !sizeof(item_path) || sizeof(item_path)>128 ||
+	   item_path[0]=='/' || has_suffix(item_path,"/") ||
+	   search(item_path,"..")!=-1 || search(item_path,"//")!=-1 ||
+	   search(item_path,"\\")!=-1)
+		return 0;
+	for(int index=0;index<sizeof(item_path);index++)
+		if(search(allowed,sprintf("%c",item_path[index]))==-1)
+			return 0;
+	return 1;
+}
+
+private mapping(string:mixed) pike_gateway_admin_item_grant_target(
+	string command)
+{
+	string target_userid = "";
+	string item_path = "";
+	string request_id = "";
+	string account_id;
+	string worker_id;
+	string verb = "";
+	int item_count;
+	int epoch;
+	mapping route;
+	if(sscanf(command,"%s %s %s %d %s",verb,target_userid,item_path,
+		item_count,request_id)!=5 || lower_case(verb)!="mgr_give_item")
+		return ([]);
+	target_userid = lower_case(target_userid);
+	request_id = lower_case(request_id);
+	if(!pike_gateway_valid_userid(target_userid) ||
+	   !pike_gateway_valid_admin_item_path(item_path) || item_count<1 ||
+	   item_count>9999 || !pike_gateway_valid_hex_token(request_id,64))
+		return ([]);
+	account_id = pike_gateway_resolve_account(target_userid);
+	route = MAP_WORKERD->query_player_route(target_userid);
+	if((int)route["ok"]){
+		worker_id = (string)route["worker_id"];
+		epoch = (int)route["epoch"];
+	}
+	else if((string)route["code"]=="lease_missing"){
+		worker_id = pike_gateway_primary;
+		epoch = 0;
+	}
+	else
+		error("admin item target route is not settled\n");
+	if(!pike_gateway_worker_ports[worker_id] ||
+	   !pike_gateway_worker_is_reachable(worker_id))
+		error("admin item target worker is unavailable\n");
+	return (["userid":target_userid,"account_id":account_id,
+		"worker_id":worker_id,"epoch":epoch,"item_path":item_path,
+		"item_count":item_count,"item_request_id":request_id,
+		"kind":"admin_item_grant"]);
+}
+
+private mapping(string:mixed) pike_gateway_admin_target(string command)
+{
+	mapping target = pike_gateway_admin_recharge_target(command);
+	if(sizeof(target))
+		return target;
+	return pike_gateway_admin_item_grant_target(command);
+}
+
+private int pike_gateway_same_admin_target(mapping first,mapping second)
+{
+	if(!mappingp(first) || !mappingp(second) || !sizeof(first) ||
+	   !sizeof(second))
+		return 0;
+	return (string)first["kind"]==(string)second["kind"] &&
+		(string)first["userid"]==(string)second["userid"] &&
+		(string)first["account_id"]==(string)second["account_id"] &&
+		(int)first["fee"]==(int)second["fee"] &&
+		(string)first["recharge_request_id"]==
+			(string)second["recharge_request_id"] &&
+		(string)first["item_path"]==(string)second["item_path"] &&
+		(int)first["item_count"]==(int)second["item_count"] &&
+		(string)first["item_request_id"]==
+			(string)second["item_request_id"];
 }
 
 private int pike_gateway_account_path(string path)
@@ -1400,23 +1482,45 @@ private mapping pike_gateway_proxy(string worker_id,string method,string path,
 	headers["X-Xiand-Request-Id"] = request_id;
 	headers["X-Xiand-Command-Kind"] = command_kind;
 	if(mappingp(admin_target) && sizeof(admin_target)){
+		string admin_kind = (string)admin_target["kind"];
 		string target_userid = (string)admin_target["userid"];
 		string target_account = (string)admin_target["account_id"];
 		string target_worker = (string)admin_target["worker_id"];
 		int target_epoch = (int)admin_target["epoch"];
-		int admin_fee = (int)admin_target["fee"];
-		string recharge_request_id =
-			(string)admin_target["recharge_request_id"];
-		string capability = pike_gateway_digest(pike_gateway_token+"|"+
-			"admin_recharge|"+userid+"|"+target_userid+"|"+
-			target_account+"|"+target_worker+"|"+(string)target_epoch+"|"+
-			(string)admin_fee+"|"+recharge_request_id+"|"+request_id);
+		string capability = "";
 		headers["X-Xiand-Admin-Target-Userid"] = target_userid;
 		headers["X-Xiand-Admin-Target-Account"] = target_account;
 		headers["X-Xiand-Admin-Target-Worker"] = target_worker;
 		headers["X-Xiand-Admin-Target-Epoch"] = (string)target_epoch;
-		headers["X-Xiand-Admin-Fee"] = (string)admin_fee;
-		headers["X-Xiand-Admin-Recharge-Request"] = recharge_request_id;
+		if(admin_kind=="admin_recharge"){
+			int admin_fee = (int)admin_target["fee"];
+			string recharge_request_id =
+				(string)admin_target["recharge_request_id"];
+			capability = pike_gateway_digest(pike_gateway_token+"|"+
+				"admin_recharge|"+userid+"|"+target_userid+"|"+
+				target_account+"|"+target_worker+"|"+
+				(string)target_epoch+"|"+(string)admin_fee+"|"+
+				recharge_request_id+"|"+request_id);
+			headers["X-Xiand-Admin-Fee"] = (string)admin_fee;
+			headers["X-Xiand-Admin-Recharge-Request"] =
+				recharge_request_id;
+		}
+		else if(admin_kind=="admin_item_grant"){
+			string item_path = (string)admin_target["item_path"];
+			int item_count = (int)admin_target["item_count"];
+			string item_request_id =
+				(string)admin_target["item_request_id"];
+			capability = pike_gateway_digest(pike_gateway_token+"|"+
+				"admin_item_grant|"+userid+"|"+target_userid+"|"+
+				target_account+"|"+target_worker+"|"+
+				(string)target_epoch+"|"+item_path+"|"+
+				(string)item_count+"|"+item_request_id+"|"+request_id);
+			headers["X-Xiand-Admin-Item-Path"] = item_path;
+			headers["X-Xiand-Admin-Item-Count"] = (string)item_count;
+			headers["X-Xiand-Admin-Item-Request"] = item_request_id;
+		}
+		else
+			error("unsupported admin target kind\n");
 		headers["X-Xiand-Admin-Capability"] = capability;
 	}
 	if(arrival_room!="")
@@ -1768,7 +1872,7 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			game_command = pike_gateway_resolve_routed_command(
 				(string)route["worker_id"],userid,(int)route["epoch"],
 				game_command);
-			admin_target = pike_gateway_admin_recharge_target(game_command);
+			admin_target = pike_gateway_admin_target(game_command);
 			if(sizeof(admin_target)){
 				// Upgrade from the manager-only lock to a stable two-account lock,
 				// then re-resolve the immutable token after the unlocked window.
@@ -1783,16 +1887,10 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				string confirmed_command = pike_gateway_resolve_routed_command(
 					(string)route["worker_id"],userid,(int)route["epoch"],
 					pike_gateway_extract_command(params));
-				mapping confirmed_target =
-					pike_gateway_admin_recharge_target(confirmed_command);
-				if(!sizeof(confirmed_target) ||
-				   (string)confirmed_target["userid"]!=
-					(string)admin_target["userid"] ||
-				   (string)confirmed_target["account_id"]!=
-					(string)admin_target["account_id"] ||
-				   (int)confirmed_target["fee"]!=(int)admin_target["fee"] ||
-				   (string)confirmed_target["recharge_request_id"]!=
-					(string)admin_target["recharge_request_id"])
+				mapping confirmed_target = pike_gateway_admin_target(
+					confirmed_command);
+				if(!pike_gateway_same_admin_target(admin_target,
+					confirmed_target))
 					error("admin command changed during lock upgrade\n");
 				game_command = confirmed_command;
 				admin_target = confirmed_target;
@@ -1805,7 +1903,8 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				// its replica. This also serializes simultaneous remote accepts.
 				pike_gateway_run_social_events(1);
 			}
-			command_kind = sizeof(admin_target) ? "admin_recharge" :
+			command_kind = sizeof(admin_target) ?
+				(string)admin_target["kind"] :
 				(pike_gateway_auction_command(game_command) ?
 				"auction" : "gameplay");
 			string worker_id = (string)route["worker_id"];

@@ -783,6 +783,11 @@ void handle_request(Protocols.HTTP.Server.Request req)
             (int)(req->request_headers["x-xiand-admin-fee"] || "0"),
             lower_case(String.trim_all_whites(
                 req->request_headers["x-xiand-admin-recharge-request"] || "")),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-admin-item-path"] || ""),
+            (int)(req->request_headers["x-xiand-admin-item-count"] || "0"),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-item-request"] || "")),
             lower_case(String.trim_all_whites(
                 req->request_headers["x-xiand-admin-capability"] || "")));
         if(!(int)request_begin["ok"]){
