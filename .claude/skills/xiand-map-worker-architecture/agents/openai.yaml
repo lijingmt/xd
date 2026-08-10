@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xiand 地图 Worker 架构"
+  short_description: "Maintain Xiand Pike map-worker architecture safely"
+  default_prompt: "Use $xiand-map-worker-architecture to review or modify the Xiand Pike map-worker runtime safely."
