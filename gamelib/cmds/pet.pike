@@ -233,6 +233,11 @@ private string render_detail(mapping state,string species,object me)
 		s += "灵纹节奏："+((int)pet["skill_set"]==1 ?
 			"轻灵（80%效果/24秒）" : ((int)pet["skill_set"]==2 ?
 			"厚积（115%效果/36秒）" : "均衡（100%效果/30秒）"))+"\n";
+		s += "灵纹符："+(int)state["materials"]["skill_rune"]+
+			"枚（独立材料，不在人物背包；轮换消耗1枚）\n";
+		s += "获取：每周平复3次万灵裂隙后，在『今日修行→本周目标』"+
+			"三选一领取2枚。 [查看周目标:daily_cultivation] "+
+			"[前往裂隙:wanling_rift]\n";
 		s += "已收录外观："+((array)pet["variants"]*"、")+"\n";
 		s += "[设为协战:pet active "+(string)pet["id"]+"] "+
 			"[灵露加速1级:pet level "+(string)pet["id"]+"]\n";
@@ -268,6 +273,8 @@ private string render_materials(mapping state)
 		s += "• "+material_name(material)+"："+
 			(int)state["materials"][material]+"\n";
 	s += "\n灵印可稳定换基础灵宠；灵卵残片既可用于1—10星成长，也可用60枚任选裂隙异兽稳定孵化；3/6/9星自动进化。灵纹符按顺序轮换协战节奏；40月华尘可保底解锁星辉异色。\n";
+	s += "灵纹符获取：每周平复3次万灵裂隙后，在『今日修行→本周目标』三选一选择灵纹符，一次领取2枚；它保存在独立材料栏，不会出现在人物背包。\n";
+	s += "[查看本周进度:daily_cultivation]|[组队挑战裂隙:wanling_rift]\n";
 	s += "\n残片来源：每日寻迹稳定获得2枚；普通同级怪4%、副本怪12%、首领30%、副本首领50%概率获得1枚，战斗掉落按账号每日最多12枚；组队裂隙仍有最高综合效率、周奖励与完整灵卵保底。\n";
 	s += "[可兑换灵宠:pet catalog]|[返回万灵谱:pet]\n";
 	return s;
@@ -412,7 +419,10 @@ private string render_main(mapping state,object me)
 		" | 完整灵卵保底 "+(int)state["rift_pity"]+"/30\n";
 	s += "灵印："+(int)state["materials"]["spirit_mark"]+
 		" | 灵露："+(int)state["materials"]["spirit_dew"]+
-		" | 灵卵残片："+(int)state["materials"]["egg_fragment"]+"\n\n";
+		" | 灵卵残片："+(int)state["materials"]["egg_fragment"]+"\n";
+	s += "灵纹符："+(int)state["materials"]["skill_rune"]+
+		"（本周裂隙3胜后可三选一领2枚） "+
+		"[获取说明:pet materials]\n\n";
 	s += "今日战斗残片："+(int)state["daily"]["pve_fragments"]+"/"+
 		PETD->query_pet_pve_fragment_daily_cap()+
 		"（普通怪、副本与首领均可获得）\n\n";
@@ -605,6 +615,10 @@ int main(string|zero arg)
 		return 1;
 	}
 	write(message+"\n");
+	if(parts[0]=="reset")
+		write("[查看灵纹符获取:daily_cultivation]|"+
+			"[组队挑战万灵裂隙:wanling_rift]|"+
+			"[查看独立材料栏:pet materials]\n");
 	if(search(({"gearequip","gearunequip","gearforge","geardismantle"}),
 	   parts[0])!=-1 && sizeof(parts)>=2){
 		write("[继续整理灵宠装备:pet gear "+parts[1]+"]|"+

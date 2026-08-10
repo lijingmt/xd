@@ -47,13 +47,14 @@ int main(string|zero arg)
 		(int)state["weekly"]["rift_wins"]+"/3\n";
 	if((int)state["weekly"]["rift_wins"]>=3 &&
 	   !(int)state["weekly"]["choice_claimed"])
-		s += "可三选一：[灵卵残片:wanling_rift weekly fragment] "+
-			"[灵纹符:wanling_rift weekly rune] "+
+		s += "可三选一：[灵卵残片×12:wanling_rift weekly fragment] "+
+			"[灵纹符×2:wanling_rift weekly rune] "+
 			"[外观材料:wanling_rift weekly cosmetic]\n";
 	else if((int)state["weekly"]["choice_claimed"])
 		s += "✓ 本周三选一奖励已领取。\n";
 	else
-		s += "平复3次后可在灵卵残片、灵纹符、外观材料中任选。\n";
+		s += "平复3次后可在灵卵残片、灵纹符×2、外观材料中任选；"+
+			"灵纹符保存在万灵独立材料栏，不进入人物背包。\n";
 	s += "\n收藏进度："+(int)state["collection_count"]+"/"+
 		(int)state["catalog_total"]+"，灵印 "+
 		(int)state["materials"]["spirit_mark"]+"/30（可稳定换一只基础灵宠）。\n";

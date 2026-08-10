@@ -552,7 +552,9 @@ mapping(string:mixed) reset_pet_skills(object player,string pet_id)
 		if(index<0)
 			result["message"] = "找不到这只灵宠。";
 		else if((int)record["materials"]["skill_rune"]<1)
-			result["message"] = "需要1枚灵纹符；周目标可稳定取得。";
+			result["message"] = "你当前有0枚灵纹符，轮换需要1枚。"+
+				"灵纹符不进入人物背包；每周平复3次万灵裂隙后，"+
+				"可在『今日修行→本周目标』三选一领取2枚。";
 		else{
 			mapping pet = record["pets"][index];
 			mapping info = shanhai_catalog[(string)pet["species"]];

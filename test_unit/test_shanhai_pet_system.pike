@@ -219,6 +219,15 @@ void test_collection_growth(object player)
 		sizeof((array)after_duplicate["pets"])==1 &&
 		(int)after_duplicate["materials"]["egg_fragment"]==10,
 		"重复图鉴生成第二个实例或残片数量错误");
+	mapping no_rune_reset = PETD->reset_pet_skills(player,pet_id);
+	mapping no_rune_state = PETD->query_pet_state(player);
+	check("灵纹符不足时明确显示零枚、独立材料栏和每周领取路径",
+		!no_rune_reset["ok"] &&
+		search((string)no_rune_reset["message"],"当前有0枚")!=-1 &&
+		search((string)no_rune_reset["message"],"不进入人物背包")!=-1 &&
+		search((string)no_rune_reset["message"],"本周目标")!=-1 &&
+		(int)no_rune_state["materials"]["skill_rune"]==0,
+		(string)no_rune_reset["message"]);
 
 	PETD->test_add_pet_material(player,"spirit_dew",1000);
 	PETD->test_add_pet_material(player,"bond_token",20);
@@ -1318,6 +1327,18 @@ void test_corruption_and_wiring()
 		search(vue_app_source,"handlePetLevelChange(previousPet")!=-1 &&
 		search(vue_css_source,"@keyframes petLevelUpEnter")!=-1,
 		"成长建议、直达入口、升级状态差分或视觉层没有完整接通");
+	string pet_command_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/pet.pike") || "";
+	string daily_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/daily_cultivation.pike") || "";
+	check("万灵主页、宠物详情和本周目标均直显灵纹符数量与获取入口",
+		search(pet_command_source,
+			"灵纹符获取：每周平复3次万灵裂隙后")!=-1 &&
+		search(pet_command_source,"[获取说明:pet materials]")!=-1 &&
+		search(pet_command_source,"[查看灵纹符获取:daily_cultivation]")!=-1 &&
+		search(daily_source,"[灵纹符×2:wanling_rift weekly rune]")!=-1 &&
+		search(daily_source,"不进入人物背包")!=-1,
+		"数量、来源、周进度或切换失败后的直达入口仍有缺失");
 	check("头像装备面板使用只读结构接口并复用服务器换装命令校验",
 		equipment_api_source &&
 		search(equipment_api_source,"all_inventory(player)")!=-1 &&
