@@ -206,7 +206,8 @@ private int deliver_no_level_recycle_mail(object player)
  * failed candidate cannot over-credit the player. All state lives in the same
  * atomic character archive.
  */
-mapping(string:mixed) recycle_no_level_equipment(object player)
+mapping(string:mixed) recycle_no_level_equipment(object player,
+	int|void skip_persist)
 {
 	array(object) inventory_candidates = ({});
 	array(int) warehouse_candidates = ({});
@@ -221,6 +222,7 @@ mapping(string:mixed) recycle_no_level_equipment(object player)
 	int previous_total;
 	int maximum_tokens;
 	int ancient_tokens;
+	int persisted = 0;
 	if(!player)
 		return (["count":0,"reward":0]);
 
@@ -335,11 +337,21 @@ mapping(string:mixed) recycle_no_level_equipment(object player)
 			"")+"详情已发送至邮箱。\n");
 	}
 	deliver_no_level_recycle_mail(player);
+	if(removed_count>0 && !skip_persist &&
+	   functionp(player->save_with_result)){
+		mixed save_err = catch { persisted=player->save_with_result(); };
+		if(save_err || !persisted)
+			Stdio.append_file(NO_LEVEL_RECYCLE_LOG,
+				(string)time()+"|post_recycle_save_failed|"+
+				safe_recycle_log_field(player->query_name())+"|count="+
+				(string)removed_count+"\n");
+	}
 	return (["count":removed_count,"reward":removed_count,
 		"ancient_tokens":ancient_tokens,
 		"recycle_total":previous_total+removed_count,
 		"next_token_progress":(previous_total+removed_count)%10,
-		"inventory":inventory_removed,"warehouse":warehouse_removed]);
+		"inventory":inventory_removed,"warehouse":warehouse_removed,
+		"persisted":persisted]);
 }
 
 void do_remove(object me)

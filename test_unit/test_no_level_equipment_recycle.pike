@@ -76,7 +76,7 @@ void test_exact_equipment_filter_and_reward()
 	existing_jade->amount = 5;
 	existing_jade->move(player);
 	player->wield(no_level);
-	first = daemon->recycle_no_level_equipment(player);
+	first = daemon->recycle_no_level_equipment(player,1);
 	int mail_count = arrayp(player->inbox) ? sizeof(player->inbox) : 0;
 	int jade_count = count_named_items(player,"suiyu");
 	check("只回收is_equip且穿戴等级小于0的装备",
@@ -99,7 +99,7 @@ void test_exact_equipment_filter_and_reward()
 		search((string)player->inbox[0][5],"1件")!=-1 &&
 		search((string)player->inbox[0][5],"普通道具")!=-1,
 		mail_count ? sprintf("mail=%O",player->inbox[0]) : "no mail");
-	second = daemon->recycle_no_level_equipment(player);
+	second = daemon->recycle_no_level_equipment(player,1);
 	check("重复登录不会重复回收、发奖或发信",
 		(int)second["count"]==0 &&
 		count_named_items(player,"suiyu")==jade_count &&
@@ -121,7 +121,7 @@ void test_full_mailbox_defers_notice_without_repeating_reward()
 	for(int index=0;index<13;index++)
 		player->recieve_mail("CHAT","测试系统",player->query_name(),
 			player->query_name_cn(),"占位邮件","占位");
-	mapping first = daemon->recycle_no_level_equipment(player);
+	mapping first = daemon->recycle_no_level_equipment(player,1);
 	int jade_count = count_named_items(player,"suiyu");
 	check("邮箱满时先保留待发通知且奖励仍只发一次",
 		(int)first["count"]==1 && jade_count==1 &&
@@ -130,7 +130,7 @@ void test_full_mailbox_defers_notice_without_repeating_reward()
 			player["/plus/no_level_equipment_recycle_notice"]));
 	player->delete_mail(0);
 	player->delete_mail(0);
-	mapping retry = daemon->recycle_no_level_equipment(player);
+	mapping retry = daemon->recycle_no_level_equipment(player,1);
 	check("邮箱腾出空间后自动补发通知但不重复给碎玉",
 		(int)retry["count"]==0 &&
 		count_named_items(player,"suiyu")==jade_count &&
@@ -152,7 +152,7 @@ void test_ten_item_milestone_and_profession_choice()
 		no_level->set_item_canLevel(-1);
 		no_level->move(player);
 	}
-	mapping recycled = daemon->recycle_no_level_equipment(player);
+	mapping recycled = daemon->recycle_no_level_equipment(player,1);
 	object token = present("ancient_skill_choice_token",player);
 	check("累计回收10件严格发放一枚不可流转的太古择卷",
 		(int)recycled["count"]==10 &&
@@ -183,7 +183,7 @@ void test_ten_item_milestone_and_profession_choice()
 		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 	extra->set_item_canLevel(-1);
 	extra->move(player);
-	mapping next = daemon->recycle_no_level_equipment(player);
+	mapping next = daemon->recycle_no_level_equipment(player,1);
 	check("十件后的余数跨登录累计且不会提前再发择卷",
 		(int)next["count"]==1 && (int)next["recycle_total"]==11 &&
 		(int)next["next_token_progress"]==1 &&
@@ -193,6 +193,28 @@ void test_ten_item_milestone_and_profession_choice()
 	destroy_test_player(player);
 }
 
+void test_login_hook_covers_direct_resume_clients()
+{
+	string user_source=Stdio.read_file(ROOT+"/gamelib/clone/user.pike");
+	string entrance_source=Stdio.read_file(ROOT+"/gamelib/d/init");
+	string warehouse_source=Stdio.read_file(
+		ROOT+"/gamelib/cmds/user_repackage.pike");
+	check("Vue、JSP书签和worker恢复共用真正的登录回收钩子",
+		user_source && search(user_source,"int setup(string password)")!=-1 &&
+		search(user_source,"run_login_migrations_once()")!=-1 &&
+		search(user_source,"if(ready && query_profeId())")!=-1 &&
+		entrance_source &&
+		search(entrance_source,"me->run_login_migrations_once()")!=-1,
+		"真正登录或新人选职后的回收钩子缺失");
+	check("在线后才从老仓库取出的负等级装备立即复查",
+		warehouse_source &&
+		search(warehouse_source,"environment(ob)==me && ob->is(\"equip\")")!=-1 &&
+		search(warehouse_source,"(int)ob->query_item_canLevel()<0")!=-1 &&
+		search(warehouse_source,
+			"USERD->recycle_no_level_equipment(me)")!=-1,
+		"仓库取出后的精确回收钩子缺失");
+}
+
 int main()
 {
 	object|zero original_player = this_player();
@@ -200,6 +222,7 @@ int main()
 		test_exact_equipment_filter_and_reward();
 		test_full_mailbox_defers_notice_without_repeating_reward();
 		test_ten_item_milestone_and_profession_choice();
+		test_login_hook_covers_direct_resume_clients();
 	};
 	if(err)
 		check("测试运行时无异常",0,

@@ -22,6 +22,31 @@ string query_account_owner()
 	return query_name();
 }
 
+private int login_migrations_done;
+
+void run_login_migrations_once()
+{
+	if(login_migrations_done)
+		return;
+	USERD->do_login(this_object());
+	login_migrations_done=1;
+}
+
+/**
+ * Login migrations must run after the complete player archive has been
+ * restored, even when Vue, a legacy JSP bookmark, or a map-worker handoff
+ * resumes without pressing the entrance room's start button.
+ */
+int setup(string password)
+{
+	int ready=::setup(password);
+	// Existing characters already have a profession after restore. Brand-new
+	// characters run the same hook from d/init after choosing a profession.
+	if(ready && query_profeId())
+		run_login_migrations_once();
+	return ready;
+}
+
 // 复活点必须是地图内、源码明确暴露 set_relife 链接的卧室。
 // 既用于设置命令，也用于清理历史上可能被伪造的存档路径。
 int is_valid_relife_path(string path)

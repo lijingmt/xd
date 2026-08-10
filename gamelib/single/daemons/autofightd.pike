@@ -1259,6 +1259,10 @@ void reset_daily_time(object me)
 	int daily_limit;
 	if(!me)
 		return;
+	// A first-day reset must populate the complete safe defaults before it
+	// marks the helper initialized; otherwise new characters keep zero-valued
+	// recovery and cleanup settings for the entire day.
+	initialize_player(me);
 	daily_limit = query_daily_seconds_for(me);
 	me["/plus/autofight_initialized"] = 1;
 	me["/plus/autofight_daily_limit"] = daily_limit;

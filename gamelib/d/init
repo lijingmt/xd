@@ -1126,7 +1126,7 @@ int start(string arg){
 	reguser(me->name);
 	//统计系统
 	COUNTD->count_login_time(me->name);
-	USERD->do_login(me);
+	me->run_login_migrations_once();
 	//赠送系统，临时变量标示
 	if(me["/plus/sendrecd"])
 		me["/plus/sendrecd"] = 0;
