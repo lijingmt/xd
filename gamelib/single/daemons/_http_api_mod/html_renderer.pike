@@ -39,9 +39,13 @@ void refresh_button_grade_snapshot()
 /**
  * 将MUD响应转换为HTML格式 (用于iframe显示)
  */
-string response_to_html(string response, string userid, string cmd)
+string response_to_html(string response, string userid, string cmd,
+    string authenticated_txd)
 {
-    string txd = generate_txd(userid);
+    // 只复用认证成功后由调用方生成的完整 TXD。这里绝不能再调用
+    // generate_txd(userid)，否则密码会退化为 dummy，旧 JSP 的下一次点击
+    // 必然被严格认证拒绝。
+    string txd = authenticated_txd;
     string html = "";
     string area = getenv("GAME_AREA");
     if(!area) area = "tx01";

@@ -26,11 +26,13 @@ private object pike_gateway_request_farm;
 private object pike_gateway_controller_thread;
 private Thread.Mutex pike_gateway_state_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_identity_lock = Thread.Mutex();
+private Thread.Mutex pike_gateway_account_resolver_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_recovery_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_assignment_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_account_management_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_auction_lock = Thread.Mutex();
 private array(object) pike_gateway_user_locks = ({});
+private object pike_gateway_account_resolver;
 
 private mapping(string:int) pike_gateway_worker_ports = ([]);
 private mapping(string:int) pike_gateway_generations = ([]);
@@ -719,17 +721,49 @@ private string pike_gateway_account_for_token(string token)
 	return result;
 }
 
+/**
+ * Map nodes intentionally skip most eager daemons. The first burst of browser
+ * polls can therefore race Pike's lazy account daemon construction and observe
+ * an object whose public functions are not installed yet. Publish exactly one
+ * fully constructed resolver before account lookups run concurrently.
+ */
+private object pike_gateway_account_resolver_daemon()
+{
+	object resolver;
+	object key;
+	if(objectp(pike_gateway_account_resolver) && functionp(
+	   pike_gateway_account_resolver->query_account_id_for_character))
+		return pike_gateway_account_resolver;
+	key = pike_gateway_account_resolver_lock->lock();
+	resolver = pike_gateway_account_resolver;
+	if(!objectp(resolver) || !functionp(
+	   resolver->query_account_id_for_character)){
+		resolver = (object)(ROOT+
+			"/gamelib/single/daemons/account_characterd.pike");
+		if(!objectp(resolver) || !functionp(
+		   resolver->query_account_id_for_character)){
+			destruct(key);
+			error("account character resolver is not ready\n");
+		}
+		pike_gateway_account_resolver = resolver;
+	}
+	destruct(key);
+	return resolver;
+}
+
 private string pike_gateway_resolve_account(string userid)
 {
 	object key;
+	object resolver;
 	string account_id;
 	key = pike_gateway_identity_lock->lock();
 	account_id = pike_gateway_account_by_user[userid] || "";
 	destruct(key);
 	if(pike_gateway_valid_userid(account_id))
 		return account_id;
+	resolver = pike_gateway_account_resolver_daemon();
 	account_id = lower_case(String.trim_all_whites((string)
-		ACCOUNT_CHARACTERD->query_account_id_for_character(userid)));
+		resolver->query_account_id_for_character(userid)));
 	if(!pike_gateway_valid_userid(account_id))
 		error("cannot resolve account owner for "+userid+"\n");
 	pike_gateway_record_account(userid,account_id);

@@ -856,7 +856,11 @@ int main()
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"account_id = pike_gateway_resolve_account(userid)") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
-				"ACCOUNT_CHARACTERD->query_account_id_for_character(userid)") &&
+				"resolver->query_account_id_for_character(userid)") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_account_resolver_lock") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_account_resolver_daemon") &&
 			source_has("/test_unit/test_pike_gateway.pike",
 				"test_shared_account_lock_identity_is_resolved_authoritatively"),
 			"子角色首次并发可能绕过主账号事务锁并复制共享装备");

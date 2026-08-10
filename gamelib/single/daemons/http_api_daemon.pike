@@ -1371,6 +1371,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
 
     // 认证
     string auth_userid, auth_password;
+    string stored_password, authenticated_txd;
     string challenge = params["challenge"];
 
     if(txd && txd != "" && txd != " ") {
@@ -1383,7 +1384,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_html_error(req, "用户不存在");
             return;
@@ -1398,7 +1399,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
         auth_password = password;
 
         // 密码验证
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_html_error(req, "用户不存在");
             return;
@@ -1421,6 +1422,14 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
         send_html_error(req, "缺少认证信息");
         return;
     }
+
+    // 已有书签通过严格认证后原样沿用，禁止改变玩家保存的 TXD；仅首次使用
+    // 用户名密码登录时按历史算法生成完整 token。challenge 登录也必须使用
+    // 档案中的真实密码，而不是请求中的哈希。
+    if(txd && txd!="" && txd!=" ")
+        authenticated_txd = txd;
+    else
+        authenticated_txd = generate_txd(auth_userid,stored_password);
 
     // 登录速率限制
     int is_login_attempt = (!txd || txd == "" || txd == " ");
@@ -1445,21 +1454,21 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             string cached_output = (string)cached_view["output"];
             if(cached_output!=""){
                 finish_handle_api_html(cached_output,req,auth_userid,cmd,
-                    client_ip,is_login_attempt);
+                    authenticated_txd,client_ip,is_login_attempt);
                 return;
             }
         }
     }
 
     if(!execute_command_async(auth_userid,auth_password,cmd,
-       finish_handle_api_html,req,auth_userid,cmd,client_ip,
-       is_login_attempt))
+       finish_handle_api_html,req,auth_userid,cmd,authenticated_txd,
+       client_ip,is_login_attempt))
         send_html_error(req,"命令队列繁忙，请稍后重试");
 }
 
 void finish_handle_api_html(string response,
     Protocols.HTTP.Server.Request req,string auth_userid,string cmd,
-    string client_ip,int is_login_attempt)
+    string authenticated_txd,string client_ip,int is_login_attempt)
 {
 
     if(!response) {
@@ -1483,7 +1492,8 @@ void finish_handle_api_html(string response,
         reset_login_failures(client_ip);
     }
 
-    string html = response_to_html(response, auth_userid, cmd);
+    string html = response_to_html(response,auth_userid,cmd,
+        authenticated_txd);
 
     mapping resp = ([ ]);
     resp["type"] = "text/html; charset=UTF-8";
@@ -3125,6 +3135,11 @@ void handle_api_async(Protocols.HTTP.Server.Request req)
     }
 
     string userid = auth["userid"];
+    string stored_password = get_user_password(userid);
+    if(!stored_password || auth["password"]!=stored_password) {
+        send_json(req, ([ "error": "用户名或密码错误" ]), 401);
+        return;
+    }
     cmd = unhide_command(userid, cmd);
 
     string request_id = userid + "_" + sprintf("%d", time() * 1000 + random(999));
@@ -3145,37 +3160,51 @@ void handle_api_result(Protocols.HTTP.Server.Request req)
 {
     mapping params = get_params(req);
     string request_id = params["request_id"];
+    string txd = url_decode(params["txd"]);
+    string userid, stored_password, authenticated_txd;
 
     if(!request_id || request_id == "") {
         send_json(req, ([ "error": "缺少request_id参数" ]), 400);
         return;
     }
 
+    if(!txd || txd=="" || txd==" ") {
+        send_json(req, ([ "error": "需要认证信息：txd" ]), 400);
+        return;
+    }
+
+    mapping auth = decode_txd(txd);
+    if(!auth) {
+        send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
+        return;
+    }
+    userid = auth["userid"];
+    stored_password = get_user_password(userid);
+    if(!stored_password || auth["password"]!=stored_password) {
+        send_json(req, ([ "error": "用户名或密码错误" ]), 401);
+        return;
+    }
+    if(search(request_id,userid+"_")!=0) {
+        send_json(req, ([ "error": "请求不属于当前用户" ]), 403);
+        return;
+    }
+    // 严格认证后原样沿用调用方 token，异步结果同样不得改写旧书签格式。
+    authenticated_txd = txd;
+
     string|zero result = get_request_result(request_id);
 
     if(result == 0) {
         // 更新闲置时间 - 活跃用户不应被踢出
-        string txd = params["txd"];
-        if(txd && txd != "") {
-            mapping auth = decode_txd(txd);
-            if(auth) update_connection_time(auth["userid"]);
-        }
+        update_connection_time(userid);
         send_json(req, ([ "status": "pending", "message": "命令正在执行中" ]));
     } else if(result == UNDEFINED) {
         send_json(req, ([ "error": "请求超时或已过期" ]), 408);
     } else {
-        string txd = params["txd"];
-        string userid = "";
-        if(txd && txd != "") {
-            mapping auth = decode_txd(txd);
-            if(auth) {
-                userid = auth["userid"];
-                // 更新闲置时间 - 活跃用户不应被踢出
-                update_connection_time(userid);
-            }
-        }
+        // 更新闲置时间 - 活跃用户不应被踢出
+        update_connection_time(userid);
 
-        string html = response_to_html(result, userid, "look");
+        string html = response_to_html(result,userid,"look",
+            authenticated_txd);
         mapping resp = ([ ]);
         resp["type"] = "text/html; charset=UTF-8";
         resp["data"] = html;

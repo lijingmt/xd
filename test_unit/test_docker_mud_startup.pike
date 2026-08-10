@@ -470,10 +470,14 @@ void test_legacy_jsp_worker_gateway_contract()
 	string header = Stdio.read_file(ROOT+"/web/includes/header.inc");
 	string registration = Stdio.read_file(ROOT+"/web/login_reg.jsp");
 	string partner = Stdio.read_file(ROOT+"/web/pg.jsp");
+	string renderer = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
+	string api = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/http_api_daemon.pike");
 	array(string) pages = ({"main.jsp","main_dark.jsp","main_ft.jsp",
 		"main_ft_dark.jsp","game.jsp","entrycheck.jsp",
 		"entrycheck_dark.jsp"});
-	int valid = proxy && header && registration && partner &&
+	int valid = proxy && header && registration && partner && renderer && api &&
 		search(header,"jakarta.servlet.http.HttpServletRequest")!=-1 &&
 		search(header,"javax.servlet.http.HttpServletRequest")==-1 &&
 		search(registration,"if( user==null || pswd==null)")!=-1 &&
@@ -485,7 +489,13 @@ void test_legacy_jsp_worker_gateway_contract()
 		search(header,"buildLegacyApiCommand")!=-1 &&
 		search(header,"legacyCommandValue")!=-1 &&
 		search(registration,"http://127.0.0.1:8888/api/html?cmd=")!=-1 &&
-		search(partner,"./legacy_api.jsp?userid=")!=-1;
+		search(partner,"./legacy_api.jsp?userid=")!=-1 &&
+		search(renderer,"string authenticated_txd")!=-1 &&
+		search(renderer,"generate_txd(userid);")==-1 &&
+		search(api,"authenticated_txd = txd;")!=-1 &&
+		search(api,"authenticated_txd = generate_txd(auth_userid,stored_password)")!=-1 &&
+		search(api,"auth[\"password\"]!=stored_password")!=-1 &&
+		search(api,"search(request_id,userid+\"_\")!=0")!=-1;
 	foreach(pages,string page){
 		string source = Stdio.read_file(ROOT+"/web/"+page);
 		if(!source || search(source,"legacy_api.jsp")==-1)
@@ -495,6 +505,24 @@ void test_legacy_jsp_worker_gateway_contract()
 		test_pass();
 	else
 		test_fail("旧入口可能继续依赖单进程13800、丢失表单参数或改变txd书签");
+}
+
+void test_legacy_html_authenticated_txd_runtime()
+{
+	test_start("旧HTML动作链接保持完整认证TXD且不产生dummy密码");
+	object api = HTTP_APID;
+	string userid = "xd01legacytest";
+	string password = "SafePass123";
+	string txd = api->generate_txd(userid,password);
+	string html = api->response_to_html("[查看:look]",userid,"look",txd);
+	mapping decoded = api->decode_txd(txd);
+	if(decoded && decoded["userid"]==userid &&
+	   decoded["password"]==password &&
+	   search(html,"txd="+txd)!=-1 &&
+	   search(html,"~dummy")==-1)
+		test_pass();
+	else
+		test_fail("旧HTML动作链接丢失认证密码、改变TXD或仍生成dummy");
 }
 
 void test_worker_failure_legacy_fallback_contract()
@@ -579,6 +607,7 @@ int main()
 	test_local_worker_restart_chain_contract();
 	test_testunit_and_include_isolation_contract();
 	test_legacy_jsp_worker_gateway_contract();
+	test_legacy_html_authenticated_txd_runtime();
 	test_worker_failure_legacy_fallback_contract();
 	print_summary();
 	if(test_results["failed"]==0)

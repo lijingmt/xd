@@ -176,6 +176,10 @@ int main()
 		check("账号锁、拍卖锁和有界线程池保持因果一致",
 			source_has(gateway,"PIKE_GATEWAY_USER_LOCKS = 4096") &&
 			source_has(gateway,"pike_gateway_account_management_lock") &&
+			source_has(gateway,"pike_gateway_account_resolver_lock") &&
+			source_has(gateway,"pike_gateway_account_resolver_daemon") &&
+			source_has(gateway,
+				"resolver->query_account_id_for_character(userid)") &&
 			source_has(gateway,"pike_gateway_auction_lock") &&
 			source_has(gateway,"set_max_num_threads") &&
 			source_has(gateway,"pike_gateway_pending_requests<pike_gateway_max_requests"),
