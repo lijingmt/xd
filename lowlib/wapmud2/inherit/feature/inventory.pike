@@ -303,6 +303,65 @@ string view_inventory_batch_sell_entry(){
 		return "[一键安全卖装:sell_equipment_batch]\n";
 	return "[一键安全卖装（VIP1）:vip_service_list]\n";
 }
+
+// 背包名称搜索只生成现有 inv 详情入口，不直接执行使用、丢弃、交易等
+// 写操作。最多展示40项，避免宽泛关键字生成超大页面拖慢旧JSP。
+string view_inventory_search(void|string raw_keyword){
+	string keyword=raw_keyword || "";
+	string needle;
+	string results="";
+	mapping(string:int) name_count=([]);
+	array(object) items;
+	int matched=0;
+	int displayed=0;
+	int scanned=0;
+	int scan_limit=4096;
+	keyword=replace(keyword,(["%20":" ","%2B":"+","%3A":":"]));
+	keyword=String.trim_all_whites(keyword);
+	if(keyword=="")
+		return "【搜索背包】\n请输入物品名称中的关键字：\n"+
+			"[inventory_search ...]\n[返回装备:inventory] [返回道具:inventory_daoju]\n";
+	if(sizeof(keyword)>96)
+		return "搜索词过长，请缩短后重试。\n[inventory_search ...]\n"+
+			"[返回背包:inventory]\n";
+	needle=lower_case(keyword);
+	items=all_inventory(this_object(),this_player())-({this_player()});
+	for(int i=0;i<sizeof(items) && scanned<scan_limit;i++){
+		object item=items[i];
+		string item_name;
+		string short_name;
+		string chinese_name;
+		int item_count;
+		if(!item || !item->is("item"))
+			continue;
+		scanned++;
+		item_name=(string)item->query_name();
+		item_count=name_count[item_name];
+		name_count[item_name]++;
+		short_name=(string)item->query_short();
+		chinese_name=(string)item->query_name_cn();
+		if(search(lower_case(short_name),needle)==-1 &&
+		   search(lower_case(chinese_name),needle)==-1 &&
+		   search(lower_case(item_name),needle)==-1)
+			continue;
+		matched++;
+		if(displayed>=40)
+			continue;
+		results+="["+short_name+":inv "+item_name+" "+item_count+"]\n";
+		displayed++;
+	}
+	if(matched==0)
+		results="没有找到匹配的物品。\n";
+	else
+		results="找到"+matched+"件匹配物品：\n"+results;
+	if(matched>displayed)
+		results+="结果较多，仅显示前40件，请输入更精确的名称。\n";
+	if(scanned<sizeof(items))
+		results+="背包数据异常庞大，本次仅检查前4096件，请联系管理员审计档案。\n";
+	return "【背包搜索】\n"+results+
+		"搜索其他物品：[inventory_search ...]\n"+
+		"[返回装备:inventory] [返回道具:inventory_daoju] [返回游戏:look]\n";
+}
 //查看随身物品-装备
 string view_inventory_zhuangbei(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
@@ -319,10 +378,64 @@ string view_inventory_zhuangbei(void|string cmd,void|int notShowMoney,void|int s
 		return "你身上什么东西也没有。\n";
 	return  mymoney + myyushi + s;
 }
+
+// 老档案按独立对象恢复背包，继承改为可叠加后不会自动经过 move_player。
+// 首次查看道具时按同级、同VIP归属守恒整理；只复用已有对象，不克隆奖励。
+int normalize_christmas_box_stacks(){
+	mapping(string:int) allowed=([
+		"chr_bx_1":1,"chr_bx_2":1,"chr_bx_3":1,"chr_bx_4":1,
+		"chr_bx_5":1,"chr_bx_6":1,"chr_bx_7":1,
+	]);
+	mapping(string:array(object)) groups=([]);
+	array(object) items=all_inventory(this_object(),this_player())-
+		({this_player()});
+	int removed_groups=0;
+	for(int i=0;i<sizeof(items);i++){
+		object item=items[i];
+		string item_name;
+		string group_key;
+		if(!item || !item->is("combine_item"))
+			continue;
+		item_name=(string)item->query_name();
+		if(!allowed[item_name])
+			continue;
+		group_key=item_name+"|"+(string)item->query_toVip();
+		if(!groups[group_key])
+			groups[group_key]=({});
+		groups[group_key]+=({item});
+	}
+	foreach(indices(groups),string group_key){
+		array(object) boxes=groups[group_key];
+		int total=0;
+		int max_count=30;
+		for(int i=0;i<sizeof(boxes);i++){
+			if((int)boxes[i]->max_count>0)
+				max_count=(int)boxes[i]->max_count;
+			if((int)boxes[i]->amount>0)
+				total+=(int)boxes[i]->amount;
+		}
+		// 损坏档案若单组数量已经超过容量，宁可保持原状也绝不丢失溢出数量。
+		if(total>max_count*sizeof(boxes))
+			continue;
+		for(int i=0;i<sizeof(boxes);i++){
+			if(total>0){
+				int amount=total>max_count ? max_count : total;
+				boxes[i]->amount=amount;
+				total-=amount;
+			}
+			else{
+				boxes[i]->remove();
+				removed_groups++;
+			}
+		}
+	}
+	return removed_groups;
+}
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
 		cmd="inv";
+	normalize_christmas_box_stacks();
 	string s="";
 	string mymoney = this_player()->query_money_cn()+"\n";
 	string myyushi = this_player()->query_yushi_cn()+"\n"; 

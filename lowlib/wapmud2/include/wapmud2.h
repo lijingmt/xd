@@ -21,6 +21,7 @@
 #define WAP_BOOK		SROOT "/wapmud2/inherit/book"//书，学习技能
 #define WAP_YUSHI               SROOT "/wapmud2/inherit/yushi"//玉石
 #define WAP_BAOXIANG            SROOT "/wapmud2/inherit/baoxiang"//宝箱
+#define WAP_COMBINE_BAOXIANG    SROOT "/wapmud2/inherit/combine_baoxiang"//可叠加宝箱
 #define WAP_HONGBAO             SROOT "/wapmud2/inherit/hongbao"//红包                                            
 #define WAP_TRANSFER            SROOT "/wapmud2/inherit/transfer"//传送道具
 #define WAP_INFANCY             SROOT "/wapmud2/inherit/infancy"//【家园】种子/树苗/幼崽/矿源

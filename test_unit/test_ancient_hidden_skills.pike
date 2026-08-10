@@ -54,7 +54,10 @@ void test_catalog_and_weights()
 		   !has_suffix(daemon->query_colored_name(id),"§r"))
 			failures += ({id});
 	}
-	if(sizeof(ids)!=70 || sizeof(professions)!=10)
+	if(sizeof(ids)!=70 || sizeof(professions)!=10 ||
+	   sizeof(daemon->query_profession_skill_ids("jianxian"))!=7 ||
+	   sizeof(daemon->query_profession_skill_ids("not_a_profession"))!=0 ||
+	   daemon->query_profession_name("jianxian")!="剑仙")
 		failures += ({"数量不是70/10"});
 	foreach(indices(professions),string profession)
 		if(professions[profession]!=7)

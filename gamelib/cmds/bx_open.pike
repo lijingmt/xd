@@ -11,11 +11,33 @@ int main(string|zero arg)
 	object me = this_player();
 	string bx_name="";
 	int bx_count= 0;
+	int requested=1;
+	int opened=0;
+	mapping(string:int) allowed_boxes=([
+		"chr_bx_1":1,"chr_bx_2":1,"chr_bx_3":1,"chr_bx_4":1,
+		"chr_bx_5":1,"chr_bx_6":1,"chr_bx_7":1,
+	]);
 
 	string desc="";
-	sscanf(arg,"%s %d",bx_name,bx_count);
+	if(!arg || sscanf(arg,"%s %d %d",bx_name,bx_count,requested)!=3)
+		if(!arg || sscanf(arg,"%s %d",bx_name,bx_count)!=2){
+			write("请选择要开启的圣诞宝箱。\n[返回背包:inventory_daoju]\n");
+			return 1;
+		}
+	if(requested<1)
+		requested=1;
+	if(requested>20)
+		requested=20;
+	if(bx_count<0)
+		bx_count=0;
+	// 命令参数来自客户端，不能只依赖背包链接约束。历史实现若传入
+	// 普通物品名，也会进入圣诞奖励分支；批量开启会进一步放大该漏洞。
+	if(!allowed_boxes[bx_name]){
+		write("这不是可开启的圣诞宝箱。\n[返回背包:inventory_daoju]\n");
+		return 1;
+	}
 	object bx = present(bx_name,me,bx_count);
-	if(bx)
+	while(bx && opened<requested)
 	{
 		object xx;           //圣诞星星
 		object yushi;        //碎玉
@@ -47,7 +69,9 @@ int main(string|zero arg)
 			yaoshui->move_player(me->query_name());
 		}
 		else{
-			s_log = me->query_name_cn()+"("+me->query_name()+")  error! 开启圣诞宝箱时获取"+yaoshui->query_name_cn()+"失败\n";
+			string failed_name=yaoshui ? yaoshui->query_name_cn() :
+				"随机圣诞药水";
+			s_log = me->query_name_cn()+"("+me->query_name()+")  error! 开启圣诞宝箱时获取"+failed_name+"失败\n";
 			Stdio.append_file(ROOT+"/log/fee_log/bx_addfee_error.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
 		}
 
@@ -149,11 +173,21 @@ int main(string|zero arg)
 				}
 			}
 		}
-		bx->remove();
+		// 叠加宝箱每次只能消耗一个；老档案中的独立宝箱仍按原方式删除。
+		if(bx->is("combine_item") && bx->amount>1)
+			bx->amount--;
+		else
+			bx->remove();
+		opened++;
+		bx=present(bx_name,me,0);
 	}
-	else
+	if(opened==0)
 		desc += "你身上没有这件物品！\n";
-	desc += "[返回游戏:look]\n";
+	else if(opened>1)
+		desc = "本次批量开启了"+opened+"个圣诞宝箱。\n"+desc;
+	if(opened==20 && bx)
+		desc += "为避免服务器瞬时卡顿，单次最多开启20个；背包中还有同类宝箱。\n";
+	desc += "[继续查看背包:inventory_daoju]\n[返回游戏:look]\n";
 	write(desc);
 	return 1;
 }

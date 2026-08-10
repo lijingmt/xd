@@ -95,6 +95,23 @@ array(string) query_all_skill_ids()
 	return result;
 }
 
+array(string) query_profession_skill_ids(string|zero profession)
+{
+	array(string) result = ({});
+	if(!profession || !profession_skills[profession])
+		return result;
+	foreach(profession_skills[profession],string entry)
+		result += ({split_entry(entry)[0]});
+	return result;
+}
+
+string query_profession_name(string|zero profession)
+{
+	if(!profession || !profession_names[profession])
+		return "";
+	return profession_names[profession];
+}
+
 int query_total_drop_weight()
 {
 	int one_profession = 0;
