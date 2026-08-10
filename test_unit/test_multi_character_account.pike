@@ -164,16 +164,24 @@ int main()
 			restored->query_password()==password &&
 			(!restored->query_profeId() || restored->query_profeId()==""),
 			"归属、密码或空白职业状态错误");
+		restored->set_password("childOnly88");
 		restored->set_account_owner("xd99testunitoutsider");
 		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
 		int forged_owner_denied = !ACCOUNT_CHARACTERD->
 			account_owns_character(account_id,character_id);
+		int forged_legacy_login_denied = !HTTP_APID->
+			test_character_login_password_matches(
+				character_id,password,"");
+		restored->set_password(password);
 		restored->set_account_owner(account_id);
 		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
 		check("子人物物理档案归属被篡改时拒绝选角",
-			forged_owner_denied && ACCOUNT_CHARACTERD->
+			forged_owner_denied && forged_legacy_login_denied &&
+			ACCOUNT_CHARACTERD->
 				account_owns_character(account_id,character_id),
-			"只校验索引而没有校验物理档案归属");
+			"选角或老JSP主账号密码只校验了单侧归属");
 
 		mapping changed = ACCOUNT_CHARACTERD->change_account_password(
 			legacy,"testunit99");
@@ -191,6 +199,22 @@ int main()
 			(!child_backup || search(child_backup,
 				"password \"testunit88\"")==-1),
 			"多人物密码没有保持账号级一致");
+
+		restored->set_password("childLegacy99");
+		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
+		HTTP_APID->invalidate_user_password_cache(account_id);
+		check("老JSP共享角色接受主账号密码并规范化大写人物ID",
+			HTTP_APID->test_character_login_password_matches(
+				upper_case(character_id),"testunit99","") &&
+			HTTP_APID->test_character_login_password_matches(
+				character_id,"childLegacy99","") &&
+			!HTTP_APID->test_character_login_password_matches(
+				character_id,"wrongPassword","") ,
+			"共享账号、旧角色密码或大小写兼容校验错误");
+		restored->set_password("testunit99");
+		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
 
 		object init_room = (object)(ROOT+"/gamelib/d/init");
 		mixed first_entry_err = catch{

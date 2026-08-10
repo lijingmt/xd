@@ -502,13 +502,15 @@ void test_legacy_jsp_worker_gateway_contract()
 	string partner = Stdio.read_file(ROOT+"/web/pg.jsp");
 	string renderer = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
+	string auth_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/auth.pike");
 	string api = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
 	array(string) pages = ({"main.jsp","main_dark.jsp","main_ft.jsp",
 		"main_ft_dark.jsp","game.jsp","entrycheck.jsp",
 		"entrycheck_dark.jsp"});
 	int valid = proxy && header && legacy_bookmark && registration && partner &&
-		renderer && api &&
+		renderer && auth_source && api &&
 		search(header,"jakarta.servlet.http.HttpServletRequest")!=-1 &&
 		search(header,"javax.servlet.http.HttpServletRequest")==-1 &&
 		search(registration,"if( user==null || pswd==null)")!=-1 &&
@@ -531,6 +533,10 @@ void test_legacy_jsp_worker_gateway_contract()
 		search(renderer,"generate_txd(userid);")==-1 &&
 		search(api,"authenticated_txd = txd;")!=-1 &&
 		search(api,"authenticated_txd = generate_txd(auth_userid,stored_password)")!=-1 &&
+		search(api,"character_login_password_matches(auth_userid,stored_password")!=-1 &&
+		search(auth_source,"account_owns_character(")!=-1 &&
+		search(api,"auth_password = stored_password;")!=-1 &&
+		search(api,"lower_case(String.trim_all_whites(userid))")!=-1 &&
 		search(api,"auth[\"password\"]!=stored_password")!=-1 &&
 		search(api,"search(request_id,userid+\"_\")!=0")!=-1;
 	foreach(pages,string page){

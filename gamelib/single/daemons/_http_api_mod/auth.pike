@@ -339,6 +339,51 @@ string get_user_password(string userid)
     return 0;
 }
 
+private int submitted_password_matches(string submitted,string expected,
+    string challenge)
+{
+    if(!submitted || !expected)
+        return 0;
+    if(challenge && challenge!="")
+        return verify_password_hash(challenge,submitted,expected);
+    return submitted==expected;
+}
+
+// 共享账号的人物物理档案仍保存自己的真实密码，但老 main.jsp 书签
+// 可能提交账号主档密码。允许两者通过同一严格校验，随后调用方必须
+// 使用人物档案密码执行登录和生成 TXD，不能把账号密码写入人物档案。
+private int character_login_password_matches(string character_id,
+    string character_password,string submitted,string challenge)
+{
+    string account_id;
+    string account_password;
+    if(submitted_password_matches(submitted,character_password,challenge))
+        return 1;
+    account_id = lower_case(String.trim_all_whites((string)
+        ACCOUNT_CHARACTERD->query_account_id_for_character(character_id)));
+    if(!valid_auth_userid(account_id) || account_id==character_id ||
+       !ACCOUNT_CHARACTERD->account_owns_character(
+           account_id,character_id))
+        return 0;
+    account_password = get_user_password(account_id);
+    return submitted_password_matches(submitted,account_password,challenge);
+}
+
+int test_character_login_password_matches(string character_id,
+    string submitted,string challenge)
+{
+    string canonical_id;
+    string character_password;
+    if(getenv("XIAND_RUN_TESTUNIT")!="1")
+        return 0;
+    canonical_id = lower_case(String.trim_all_whites(character_id || ""));
+    character_password = get_user_password(canonical_id);
+    if(!character_password)
+        return 0;
+    return character_login_password_matches(canonical_id,
+        character_password,submitted,challenge || "");
+}
+
 // ========================================================================
 // 命令隐藏系统
 // ========================================================================
