@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 动态怪 100-120 级属性平滑衔接回归测试。 */
+/** 动态怪 100-122 级属性与生命平滑衔接回归测试。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -91,6 +91,37 @@ void test_no_level_101_cliff()
 		destruct(npc);
 }
 
+void test_life_scale_transition()
+{
+	object npc = make_dynamic_npc(100,0,0);
+	array(int) defenses = ({0,1,100,1000,10000,100000});
+	int valid = npc!=0;
+	if(npc){
+		foreach(defenses,int defense){
+			int target = (int)pow(defense,0.3);
+			int previous = npc->query_dynamic_npc_life_scale(100,defense);
+			if(target<1)
+				target = 1;
+			if(previous!=1000)
+				valid = 0;
+			for(int level=101;level<=124;level++){
+				int scale = npc->query_dynamic_npc_life_scale(level,defense);
+				if(level<122 && scale>target*1000)
+					valid = 0;
+				if(level>=122 && scale!=target*1000)
+					valid = 0;
+				if(scale<previous)
+					valid = 0;
+				previous = scale;
+			}
+		}
+	}
+	check("101-121级生命平滑并在122级恢复历史倍率",valid,
+		"生命倍率端点、单调性或122级历史值不成立");
+	if(npc)
+		destruct(npc);
+}
+
 void test_runtime_stats_and_boss_multipliers()
 {
 	object player = clone(GAMELIB_USER);
@@ -100,10 +131,13 @@ void test_runtime_stats_and_boss_multipliers()
 	object scaled_120 = make_dynamic_npc(120,0,0);
 	object elite_120 = make_dynamic_npc(120,0,1);
 	object boss_120 = make_dynamic_npc(120,1,0);
+	object base_122 = make_dynamic_npc(122,0,0);
+	object scaled_122 = make_dynamic_npc(122,0,0);
 	int valid = objectp(player) && objectp(level_100) &&
 		objectp(level_101) && objectp(base_120) &&
 		objectp(scaled_120) && objectp(elite_120) &&
-		objectp(boss_120);
+		objectp(boss_120) && objectp(base_122) &&
+		objectp(scaled_122);
 	if(valid){
 		player->set_name("__testunit_dynamic_npc_scale__");
 		player->set_raceId("human");
@@ -115,14 +149,21 @@ void test_runtime_stats_and_boss_multipliers()
 		level_101->setup_npc_dongtai(player);
 		player->set_base_defend(1);
 		base_120->setup_npc_dongtai(player);
+		base_122->setup_npc_dongtai(player);
 		player->set_base_defend(1000);
 		scaled_120->setup_npc_dongtai(player);
 		elite_120->setup_npc_dongtai(player);
 		boss_120->setup_npc_dongtai(player);
+		scaled_122->setup_npc_dongtai(player);
+		int life_scale_120 = scaled_120->query_dynamic_npc_life_scale(
+			120,1000);
+		int expected_life_120 = base_120->get_cur_life()/10*
+			life_scale_120/1000*10;
 		valid = level_101->get_cur_life()<
 			level_100->get_cur_life()*2 &&
-			scaled_120->get_cur_life()==
-			base_120->get_cur_life()*7 &&
+			scaled_120->get_cur_life()==expected_life_120 &&
+			scaled_120->get_cur_life()<base_120->get_cur_life()*7 &&
+			scaled_122->get_cur_life()==base_122->get_cur_life()*7 &&
 			elite_120->get_cur_life()==
 			scaled_120->get_cur_life()*3 &&
 			boss_120->get_cur_life()==
@@ -142,6 +183,10 @@ void test_runtime_stats_and_boss_multipliers()
 		destruct(elite_120);
 	if(boss_120)
 		destruct(boss_120);
+	if(base_122)
+		destruct(base_122);
+	if(scaled_122)
+		destruct(scaled_122);
 	if(player)
 		destruct(player);
 }
@@ -151,6 +196,7 @@ int main()
 	werror("\n=== 动态怪等级断层回归 ===\n");
 	test_scale_boundaries();
 	test_no_level_101_cliff();
+	test_life_scale_transition();
 	test_runtime_stats_and_boss_multipliers();
 	werror("动态怪断层测试: %d通过/%d失败\n",
 		test_results["passed"],test_results["failed"]);

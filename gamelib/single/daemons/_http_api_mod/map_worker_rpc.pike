@@ -626,6 +626,8 @@ private array(mapping(string:mixed)) map_worker_local_online_rows(
             row = (["userid":userid,
                 "name_cn":(string)player->query_name_cn(),
                 "race_id":(string)player->query_raceId(),
+                "profe_id":(string)player->query_profeId(),
+                "gender":(string)player->query_gender(),
                 "nick":(string)player->query_nick(),
                 "honer_desc":functionp(player->query_honer_desc) ?
                     (string)player->query_honer_desc() : "",

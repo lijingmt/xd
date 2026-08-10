@@ -5,6 +5,8 @@ mapping(string:string) groupList=([]);//所有分组信息
 #define NAME_CN 1
 #define GROUP 2
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+#define MAPWORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define HTTPAPID ((object)(ROOT "/gamelib/single/daemons/http_api_daemon.pike"))
 
 int qqlist_zone_visible(string user_id)
 {
@@ -12,10 +14,61 @@ int qqlist_zone_visible(string user_id)
 		this_object()->query_name(),user_id);
 }
 
+int qqlist_races_can_socialize(string source_race,string target_race)
+{
+	return source_race==target_race || source_race=="third" ||
+		target_race=="third";
+}
+
+string qqlist_static_room_link_path(string room_path)
+{
+	string prefix = "/gamelib/d/";
+	if(!room_path || !has_prefix(room_path,prefix) ||
+	   sizeof(room_path)<=sizeof(prefix) || search(room_path,"..")!=-1 ||
+	   search(room_path,"#")!=-1)
+		return "";
+	return room_path[sizeof(prefix)..];
+}
+
+string view_cluster_user_list_row(mapping user)
+{
+	string userid = lower_case(String.trim_all_whites(
+		(string)(user["userid"] || "")));
+	string name_cn = (string)(user["name_cn"] || "");
+	string race_id = (string)(user["race_id"] || "");
+	string profe_id = (string)(user["profe_id"] || "");
+	string gender = (string)(user["gender"] || "");
+	string idle = (string)(user["idle"] || "");
+	string position = (string)(user["room_name"] || "未知");
+	string room_path = qqlist_static_room_link_path(
+		(string)(user["room_path"] || ""));
+	string profession = this_object()->query_profe_cn(profe_id) || "未知";
+	string data;
+	if(userid=="" || name_cn=="" || !qqlist_zone_visible(userid))
+		return "";
+	data = name_cn+"("+profession+") "+gender+" "+idle+" *"+position;
+	data += " [加为好友:qqlist "+userid+"] [发消息:tell "+userid+"]";
+	if(qqlist_races_can_socialize(
+		(string)this_object()->query_raceId(),race_id) && room_path!="")
+		data += "[传送过去:qge74hye "+room_path+"]";
+	else
+		data += "传送过去";
+	return data+"\n\n";
+}
+
 string view_user_list(){
 	string data="";
 	array list;
 	int j;
+	if(MAPWORKERD->query_node_role()=="worker"){
+		mapping status = HTTPAPID->query_map_worker_cluster_online_users();
+		if(!(int)status["ok"] || !arrayp(status["users"]))
+			return "跨 Worker 在线列表正在同步，请稍后刷新。\n";
+		foreach((array)status["users"],mixed raw)
+			if(mappingp(raw))
+				data += view_cluster_user_list_row((mapping)raw);
+		return data;
+	}
 	int count = sizeof(users());
 	//data+="在线用户 "+count+" \n";
 	for (list = users(1), j = 0; j < sizeof(list); j++) {
