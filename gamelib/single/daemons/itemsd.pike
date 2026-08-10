@@ -99,7 +99,7 @@ private mapping(int:array(string)) item_list = ([]);
 private mapping(string:array(string)) item_attributes = ([]);
 
 //十一职业大神传承仅通过70级以上怪物极低概率掉落。
-//总掉率为37/100000，三十七本等概率，即单本长期均值约1/100000。
+//总掉率为37/10000000，三十七本等概率，即单本长期均值约1/10000000。
 private array(string) hidden_skill_books = ({
 	"book/wanjianguizong",
 	"book/taiqingjianyu",
@@ -141,6 +141,7 @@ private array(string) hidden_skill_books = ({
 });
 private int hidden_skill_min_level = 70;
 private int hidden_skill_drop_rate = 37;
+private int hidden_skill_drop_denominator = 10000000;
 
 //用于生成物品文件后缀的映射表,现在暂时未用上
 private mapping(string:int) postfix_map = ([
@@ -543,6 +544,10 @@ int query_hidden_skill_drop_rate()
 {
 	return hidden_skill_drop_rate;
 }
+int query_hidden_skill_drop_denominator()
+{
+	return hidden_skill_drop_denominator;
+}
 int can_drop_hidden_skill_book(int npclevel,int roll)
 {
 	if(npclevel < hidden_skill_min_level)
@@ -553,7 +558,7 @@ int can_drop_hidden_skill_book(int npclevel,int roll)
 }
 object get_hidden_skill_book(int npclevel)
 {
-	int roll = random(100000)+1;
+	int roll = random(query_hidden_skill_drop_denominator())+1;
 	if(!can_drop_hidden_skill_book(npclevel,roll))
 		return 0;
 	string item_name =

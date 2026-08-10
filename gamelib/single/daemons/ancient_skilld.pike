@@ -43,9 +43,9 @@ private mapping(string:array(string)) profession_types = ([
 	"lingyi":({"heal","heal","buff","bing_mofa_attack","heal","heal","heal"}),
 ]);
 
-// 品阶越高权重越低；390/125000000约为旧池31/100000的1/100。
+// 品阶越高权重越低；390/1250000000约为神技池37/10000000的1/12。
 private array(int) tier_drop_weights = ({12,9,7,5,3,2,1});
-private int drop_denominator = 125000000;
+private int drop_denominator = 1250000000;
 private int minimum_npc_level = 90;
 
 private array(string) split_entry(string entry)

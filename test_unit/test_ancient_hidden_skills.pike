@@ -105,30 +105,33 @@ void test_all_programs_compile()
 
 void test_drop_probability_contract()
 {
-	test_start("90级门槛、约百倍稀有率及加权边界均由服务端决定");
+	test_start("神技/太古低掉率、等级门槛及加权边界均由服务端决定");
 	object items = ITEMSD;
-	int old_rate = items->query_hidden_skill_drop_rate();
-	int old_denominator = 100000;
-	int new_weight = items->query_ancient_skill_total_weight();
-	int new_denominator = items->query_ancient_skill_drop_denominator();
-	int ratio_times_100 = old_rate*new_denominator*100/
-		(old_denominator*new_weight);
+	int mythic_rate = items->query_hidden_skill_drop_rate();
+	int mythic_denominator = items->query_hidden_skill_drop_denominator();
+	int ancient_weight = items->query_ancient_skill_total_weight();
+	int ancient_denominator = items->query_ancient_skill_drop_denominator();
+	int ratio_times_100 = mythic_rate*ancient_denominator*100/
+		(mythic_denominator*ancient_weight);
 	int valid = items->query_hidden_skill_book_count()==37 &&
+		mythic_rate==37 && mythic_denominator==10000000 &&
 		items->query_ancient_skill_book_count()==70 &&
 		items->query_ancient_skill_min_level()==90 &&
+		ancient_weight==390 && ancient_denominator==1250000000 &&
 		!items->can_drop_ancient_skill_book(89,1) &&
 		items->can_drop_ancient_skill_book(90,1) &&
-		items->can_drop_ancient_skill_book(90,new_weight) &&
-		!items->can_drop_ancient_skill_book(90,new_weight+1) &&
-		ratio_times_100>=9500 && ratio_times_100<=12500 &&
+		items->can_drop_ancient_skill_book(90,ancient_weight) &&
+		!items->can_drop_ancient_skill_book(90,ancient_weight+1) &&
+		ratio_times_100>=1100 && ratio_times_100<=1300 &&
 		ANCIENT_SKILLD->query_weighted_book(1)!="" &&
-		ANCIENT_SKILLD->query_weighted_book(new_weight)!="" &&
-		ANCIENT_SKILLD->query_weighted_book(new_weight+1)=="";
+		ANCIENT_SKILLD->query_weighted_book(ancient_weight)!="" &&
+		ANCIENT_SKILLD->query_weighted_book(ancient_weight+1)=="";
 	if(valid)
 		test_pass();
 	else
-		test_fail(sprintf("old=%d/100000 new=%d/%d ratioX100=%d",
-			old_rate,new_weight,new_denominator,ratio_times_100));
+		test_fail(sprintf("mythic=%d/%d ancient=%d/%d ratioX100=%d",
+			mythic_rate,mythic_denominator,ancient_weight,
+			ancient_denominator,ratio_times_100));
 }
 
 void test_binding_and_legacy_compatibility()

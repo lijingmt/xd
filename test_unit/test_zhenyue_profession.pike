@@ -369,6 +369,7 @@ void test_hidden_equipment_tasks_and_teacher()
 		set_this_player(this_object());
 	if(ITEMSD->query_hidden_skill_book_count()!=37 ||
 	   ITEMSD->query_hidden_skill_drop_rate()!=37 ||
+	   ITEMSD->query_hidden_skill_drop_denominator()!=10000000 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,30)!=1 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,37)!=1 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,38)!=0 ||

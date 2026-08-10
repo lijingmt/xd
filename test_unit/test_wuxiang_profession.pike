@@ -436,8 +436,9 @@ void test_hidden_pool_extended()
 	mixed err = catch {
 		int count = itemsd->query_hidden_skill_book_count();
 		int rate = itemsd->query_hidden_skill_drop_rate();
-		// 池子和分子必须同步：37 本对应 37/100000（31 baseline + 3 无相 + 3 太极）
-		valid = count == 37 && rate == 37;
+		// 池子和分子保持同步，经济分母独立收紧以免挂机大量产出。
+		valid = count == 37 && rate == 37 &&
+			itemsd->query_hidden_skill_drop_denominator() == 10000000;
 	};
 	if(err)
 		error_desc = describe_error(err);
