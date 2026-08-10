@@ -5,6 +5,13 @@
 //      item_type
 //      cost    当flag==1或==2时需要的玉石花费
 //      flag    1--转化属性  2--增加属性  3--冰蓝玉石辅助增加 
+int pay_convert_equip_yushi(object player,int cost)
+{
+	if(!player || cost<0 || !YUSHID->have_enough_yushi(player,cost))
+		return 0;
+	return YUSHID->pay_yushi(player,cost);
+}
+
 int main(string|zero arg)
 {
 	string s = "";
@@ -61,24 +68,16 @@ int main(string|zero arg)
 		}
 	}
 	if(can_convert && item){
-		int need_xianyuan = 0;
-		int need_suiyu = 0;
 		int need_money = item->query_item_canLevel()*100;
 		if(me->query_vip_flag()) need_money = 0;//会员金币免费
-		if(cost>=0 && cost<100){
-			need_xianyuan = cost/10;
-			need_suiyu = cost%10;
-		}
-		else{
+		if(cost<0 || cost>=100){
 			s += "此物品级别太高，暂时无法炼化\n"; 
 			s += "[返回:convert_equip_list]\n";
 			s += "[返回游戏:look]\n";
 			write(s);
 			return 1;
 		}
-		int have_xianyuan = YUSHID->query_yushi_num(me,2);
-		int have_suiyu = YUSHID->query_yushi_num(me,1);
-		if(have_xianyuan<need_xianyuan || have_suiyu<need_suiyu)
+		if(!YUSHID->have_enough_yushi(me,cost))
 			s += "炼化失败！你身上没有足够的玉石\n";
 		else if(me->query_account()<need_money)
 			s += "炼化失败！你身上没有足够的金钱\n";
@@ -208,15 +207,14 @@ int main(string|zero arg)
 					log_consume = "convert_add";
 					ret_flag = 3;
 					new_item_name = "failed";
-					//扣除相应的玉石
-					if(need_xianyuan){
-						me->remove_combine_item("xianyuanyu",need_xianyuan);
-						cost_s += need_xianyuan+"|xianyuanyu,";
+					//按碎玉总价值自动兑换并扣除，不要求手工准备面额。
+					if(!pay_convert_equip_yushi(me,cost)){
+						s += "炼化失败！玉石状态已经变化，本次没有扣费\n";
+						write(s);
+						return 1;
 					}
-					if(need_suiyu){
-						me->remove_combine_item("suiyu",need_suiyu);
-						cost_s += need_suiyu+"|suiyu,";
-					}
+					if(cost)
+						cost_s += cost+"|suiyu_value,";
 					//扣除相应的钱
 					if(need_money)
 						me->del_account(need_money);
@@ -256,15 +254,15 @@ int main(string|zero arg)
 			}
 			if(new_item){
 				new_item_name = new_item->query_name();
-				//扣除相应的玉石
-				if(need_xianyuan){
-					me->remove_combine_item("xianyuanyu",need_xianyuan);
-					cost_s += need_xianyuan+"|xianyuanyu,";
+				//按碎玉总价值自动兑换并扣除，不要求手工准备面额。
+				if(!pay_convert_equip_yushi(me,cost)){
+					destruct(new_item);
+					s += "炼化失败！玉石状态已经变化，本次没有更换装备\n";
+					write(s);
+					return 1;
 				}
-				if(need_suiyu){
-					me->remove_combine_item("suiyu",need_suiyu);
-					cost_s += need_suiyu+"|suiyu,";
-				}
+				if(cost)
+					cost_s += cost+"|suiyu_value,";
 				//扣除相应的钱
 				if(need_money)
 					me->del_account(need_money);

@@ -63,7 +63,8 @@ int main(string|zero arg)
 		audit_reason="invalid_count";
 	}
 	else if(can_num<num){
-		s+="打碎失败！你没有足够的"+need_namecn+"\n";
+		s+="打碎失败！你当前只有"+can_num+"块"+need_namecn+
+			"，本次输入了"+num+"块\n";
 		audit_reason="insufficient_material";
 	}
 	else if(me->query_account()<num*1000){

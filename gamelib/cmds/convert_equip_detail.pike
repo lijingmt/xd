@@ -117,6 +117,7 @@ int main(string|zero arg)
 			}
 		}
 		if(item->query_item_rareLevel()!=0){
+			s += "玉石按碎玉总价值结算，大面额会自动兑换找零，无需手工拆玉。\n";
 			s += "转化需要："+YUSHID->get_yushi_for_desc(convert_cost)+","+s_money+"\n";
 			s += "[转化属性:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+convert_cost+" 1 0]\n";
 			s += "[会员免费转化:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" 0 1 1]\n";
