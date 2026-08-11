@@ -384,12 +384,15 @@ void test_worker_docker_start_chain_contract()
 		ROOT+"/deploy/map_workers/config.json");
 	string config_sync = Stdio.read_file(
 		ROOT+"/scripts/sync_map_worker_deploy_config.sh");
+	string old_container_stop = Stdio.read_file(
+		ROOT+"/scripts/stop_old_map_worker_cluster.sh");
 	int preflight_call = restart ?
 		search(restart,"\n    preflight_map_worker_deploy_config\n") : -1;
 	int stop_call = restart ?
 		search(restart,"\n    stop_existing_container_safely\n") : -1;
 	if(wrapper && restart && compose && dockerfile && startup && bootstrap &&
 	   env_setup && env_example && deploy_config && config_sync &&
+	   old_container_stop &&
 	   search(wrapper,"exec \"$SCRIPT_DIR/restart-docker.sh\"")!=-1 &&
 	   search(wrapper,"xd01-02 2002 2003")!=-1 &&
 	   search(wrapper,"\"$@\"")!=-1 &&
@@ -408,7 +411,9 @@ void test_worker_docker_start_chain_contract()
 	   preflight_call!=-1 && stop_call!=-1 && preflight_call<stop_call &&
 	   search(restart,"\"$ENV_SETUP_SCRIPT\" \"$XIAND_ENV_FILE\"")!=-1 &&
 	   search(restart,"stop_existing_container_safely")!=-1 &&
-	   search(restart,"map_worker_cluster.sh stop")!=-1 &&
+	   search(restart,"stop_old_map_worker_cluster.sh")!=-1 &&
+	   search(old_container_stop,
+		   "/app/xiand/scripts/map_worker_cluster.sh stop")!=-1 &&
 	   search(restart,"docker stop -t 600")!=-1 &&
 	   search(restart,"--restart unless-stopped")!=-1 &&
 	   search(restart,"--stop-timeout 600")!=-1 &&

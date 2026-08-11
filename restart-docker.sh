@@ -1067,11 +1067,8 @@ stop_existing_container_safely() {
     print_info "安全停止旧容器 $container_name（先停流并保存所有 Worker）..."
     if docker exec "$container_name" \
        test -f "/app/xiand/log/map-workers/$GAME_AREA/topology.json"; then
-        if ! docker exec \
-            -e XIAND_MAP_WORKER_LAUNCHER=background \
-            -e XIAND_MAP_WORKER_AREA_NAME="$GAME_AREA" \
-            "$container_name" \
-            /app/xiand/scripts/map_worker_cluster.sh stop; then
+        if ! "$PROJECT_ROOT/scripts/stop_old_map_worker_cluster.sh" \
+            "$container_name" "$GAME_AREA"; then
             print_error "Worker 集群未能证明安全存档，拒绝停止或删除旧容器"
             exit 1
         fi

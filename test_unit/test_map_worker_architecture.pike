@@ -779,7 +779,19 @@ int main()
 			source_has("/tools/map_workers/test_quiesce_retry.sh",
 				"\"uncertain_requests\": 1") &&
 			source_has("/tools/map_workers/test_quiesce_retry.sh",
-				"expected HTTP conflict leaked a Python traceback"),
+				"expected HTTP conflict leaked a Python traceback") &&
+			source_has("/restart-docker.sh",
+				"stop_old_map_worker_cluster.sh") &&
+			source_has("/scripts/stop_old_map_worker_cluster.sh",
+				"for attempt in 1 2") &&
+			source_has("/scripts/stop_old_map_worker_cluster.sh",
+				"gateway_not_quiescent") &&
+			source_has("/scripts/stop_old_map_worker_cluster.sh",
+				"Traceback") &&
+			source_has("/scripts/stop_old_map_worker_cluster.sh",
+				"exit \"$stop_status\"") &&
+			source_has("/tools/map_workers/test_old_container_stop_retry.sh",
+				"unsafe old stop must remain fail-closed"),
 			"第一次409仍会中断部署、无限重试或绕过不确定请求栅栏");
 		check("本地与Docker重启可显式选择1到16个worker且默认仍为3",
 			source_has("/scripts/map_worker_cluster.sh","restart|recover-gateway") &&
