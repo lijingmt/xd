@@ -58,6 +58,12 @@ int main()
 
 	werror("\n========== 地图 Worker 架构测试 ==========\n");
 	mixed err = catch {
+		check("队伍结构事件保留七天且普通聊天仍使用短期窗口",
+			daemon->query_local_social_event_ttl("team_snapshot")==604800 &&
+			daemon->query_local_social_event_ttl("team_invite")==604800 &&
+			daemon->query_local_social_event_ttl("world_broadcast")==86400 &&
+			daemon->query_local_social_event_ttl("team_chat")==300,
+			"队伍快照可能在节点维护期间过期，或普通聊天无限堆积");
 		mapping account_save_capability = ([
 			"state":"running","kind":"account",
 			"account_owner":"xd98accountowner",
@@ -238,6 +244,10 @@ int main()
 
 		mapping catalog = daemon->assign_catalog(1);
 		status = daemon->query_status();
+		check("控制面状态按迁移阶段计数并暴露最老prepared年龄",
+			mappingp(status["handoff_states"]) &&
+			(int)status["oldest_prepared_handoff_age"]>=0,
+			"总handoff数无法区分正常历史记录与卡住的prepared迁移");
 		mapping(string:int) counts = ([]);
 		mapping(string:int) weights = ([]);
 		int largest_affinity_weight;
@@ -950,7 +960,7 @@ int main()
 			source_has("/gamelib/clone/user.pike",
 				"save_with_result(void|int autosave,void|int worker_fenced_save)") &&
 			source_has("/gamelib/clone/user.pike",
-				"query_local_player_epoch(query_name())<1") &&
+				"query_local_player_epoch(query_name())>=1") &&
 			source_has("/gamelib/clone/user.pike",
 				"local_user_request_save_fence_valid(query_name())") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",

@@ -989,6 +989,30 @@ open_firewall_port() {
     fi
 }
 
+ensure_logrotate_policy() {
+    local source_policy="$PROJECT_ROOT/deploy/logrotate/xiand"
+    local target_policy="/etc/logrotate.d/xiand"
+    local installer="$PROJECT_ROOT/scripts/install-logrotate.sh"
+
+    if [ ! -s "$source_policy" ]; then
+        print_warning "日志轮转策略缺失：$source_policy"
+        return
+    fi
+    if [ -r "$target_policy" ] && cmp -s "$source_policy" "$target_policy"; then
+        print_success "宿主机日志轮转策略已是最新版本"
+        return
+    fi
+    if [ "$(id -u)" -eq 0 ]; then
+        if "$installer"; then
+            print_success "宿主机日志轮转策略已安装并校验"
+        else
+            print_warning "日志轮转策略安装失败；游戏仍可启动，请检查 logrotate"
+        fi
+        return
+    fi
+    print_warning "宿主机日志轮转策略缺失或过期；请执行：sudo $installer"
+}
+
 # 函数：拉取 Docker 镜像
 pull_docker_images() {
     print_info "拉取 Docker 镜像..."
@@ -1296,6 +1320,7 @@ main() {
     open_firewall_port "$HTTP_API_PORT"
     open_firewall_port "$TOMCAT_HTTP_PORT"
     open_firewall_port "$((TOMCAT_HTTP_PORT + 10000))"
+    ensure_logrotate_policy
 
     print_info "[4/7] 安全停止旧容器..."
     stop_existing_container_safely

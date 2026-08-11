@@ -303,13 +303,21 @@ void test_health_and_deployment_secrets()
 void test_log_policy_and_atomic_recovery()
 {
 	string policy = Stdio.read_file(ROOT+"/deploy/logrotate/xiand");
+	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
+	string installer = Stdio.read_file(ROOT+
+		"/scripts/install-logrotate.sh");
 	string save = Stdio.read_file(ROOT+
 		"/lowlib/system/inherit/feature/save.pike");
 	string users = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/user_countd.pike");
-	int valid = policy && save && users &&
+	int valid = policy && restart && installer && save && users &&
 		search(policy,"maxsize 50M")!=-1 &&
 		search(policy,"rotate 14")!=-1 &&
+		search(restart,"ensure_logrotate_policy")!=-1 &&
+		search(restart,
+			"cmp -s \"$source_policy\" \"$target_policy\"")!=-1 &&
+		search(restart,"sudo $installer")!=-1 &&
+		search(installer,"logrotate -d")!=-1 &&
 		search(save,"promote_recovered_save")!=-1 &&
 		search(save,"restore backup promoted")!=-1 &&
 		search(users,"me->password")==-1 &&

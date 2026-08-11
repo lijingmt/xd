@@ -477,6 +477,36 @@ int main()
 			source_has(rpc,"\"race_id\":(string)player->query_raceId()"),
 			"私聊可能在目标命令中并发改档，或广播重试造成重复显示/重复扣符");
 
+		check("耐久社交事件逐目标确认并退避，已成功节点不会重复投递",
+			source_has(gateway,"pike_gateway_social_target_is_acked") &&
+			source_has(gateway,
+				"pike_gateway_worker_incarnation(worker_id)") &&
+			source_has(gateway,"local_social_target_ack") &&
+			source_has(gateway,"local_social_defer") &&
+			source_has(gateway,"deferred[\"should_log\"]") &&
+			source_has(rpc,"acknowledge_local_social_target") &&
+			source_has(rpc,"defer_local_social_event") &&
+			source_has(map_worker_daemon,"acked_workers") &&
+			source_has(map_worker_daemon,"next_retry_at") &&
+			source_has(map_worker_daemon,"previous_order") &&
+			source_has(map_worker_daemon,
+				"or a newer snapshot for the same team supersedes them") &&
+			source_has(map_worker_daemon,
+				"MAP_WORKER_LOCAL_TEAM_DURABLE_TTL = 604800"),
+			"部分fanout成功后仍会重复访问健康节点，或故障日志每秒刷屏");
+
+		check("目标确认绑定真实worker进程代数，节点重启后必须重放快照",
+			source_has(rpc,"local_identity") &&
+			source_has(rpc,"query_local_process_incarnation") &&
+			source_has(gateway,"cannot verify worker identity") &&
+			source_has(gateway,
+				"assignment snapshot before any restarted worker serves play") &&
+			source_has(gateway,"\"incarnation\":pike_gateway_worker_incarnation") &&
+			source_has(map_worker_daemon,"local_process_incarnation") &&
+			source_has(map_worker_daemon,
+				"previous_acks[worker_id]==incarnation"),
+			"同名worker重启后可能沿用旧ACK并缺失队伍副本");
+
 		string term_ok = Stdio.read_file(ROOT+"/gamelib/cmds/term_ok.pike");
 		string termd = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/termd.pike");
@@ -517,7 +547,10 @@ int main()
 			source_has(map_workerd,"social_delivery_markers") &&
 			source_has(map_workerd,"MAP_WORKER_LOCAL_BROADCAST_TTL") &&
 			source_has(rpc,"social_delivery_persist_failed") &&
-			source_has(rpc,"complete_local_social_delivery(event_id,1)"),
+			source_has(rpc,"complete_local_social_delivery(event_id,1)") &&
+			source_has(rpc,"event_id,durable,delivery_ttl") &&
+			source_has(rpc,
+				"complete_local_social_delivery(event_id,durable)"),
 			"worker崩溃窗口可能吞掉已扣传音符，或重启重放造成重复广播");
 
 		check("人物首次登录不会在每个worker重复启动全局daemon和技能",
@@ -528,6 +561,26 @@ int main()
 			source_has(game_master,"if(!map_worker_node)") &&
 			source_has(game_master,"gamelib/single/skills"),
 			"第二层master会绕过启动边界，复制家园/拍卖定时器并阻塞首次look");
+
+		check("公网监听前并行预热每个worker地图索引且恢复节点再次预热",
+			source_has(gateway,"pike_gateway_prewarm_all_workers") &&
+			source_has(gateway,"pike_gateway_prewarm_worker") &&
+			source_has(gateway,"local_prewarm_caches") &&
+			source_has(gateway,"max(30,pike_gateway_timeout)") &&
+			source_has(gateway,"pike_gateway_reconcile_recovered_worker") &&
+			source_has(rpc,"map_worker_prewarm_caches") &&
+			source_has(rpc,"MAPD->query_cache_status()") &&
+			source_has(gateway,"prewarm_completed_at"),
+			"玩家首次look仍可能承担约4秒地图索引初始化，或重启节点漏预热");
+
+		check("worker状态上报社交积压与存档栅栏拒绝且日志不含人物ID",
+			source_has(rpc,"social_outbox_pending") &&
+			source_has(rpc,"save_fence_blocks") &&
+			source_has(gateway,"social_delivery_markers") &&
+			source_has(map_worker_daemon,"save_fence_block_reasons") &&
+			source_has(user,"blocked reason=%s") &&
+			!source_has(user,"[MAP_WORKER][SAVE_FENCE] blocked userid=%s"),
+			"社交堆积或拒绝存档无法按worker定位，或日志泄露人物标识");
 
 		check("家园全局快照和推荐店铺定时器只由home owner worker执行",
 			source_has(homed,"home_persistence_owner()") &&

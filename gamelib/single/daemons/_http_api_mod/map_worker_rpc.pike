@@ -736,6 +736,7 @@ private void handle_map_worker_local_status(
 {
     mapping thread_status = query_thread_status();
     mapping runtime_status = query_runtime_performance();
+    mapping control_status = MAP_WORKERD->query_local_control_status();
     mapping(string:int) occupied_rooms = ([]);
     array(object) local_players = map_worker_local_players();
     foreach(local_players,object player){
@@ -761,9 +762,24 @@ private void handle_map_worker_local_status(
         "save_average_ms":(int)runtime_status["save_average_ms"],
         "save_max_ms":(int)runtime_status["save_max_ms"],
         "save_failures":(int)runtime_status["save_failure_count"],
-        "control":MAP_WORKERD->query_local_control_status(),
+        "save_fence_blocks":(int)control_status["save_fence_blocks"],
+        "social_outbox_pending":
+            (int)control_status["social_outbox_pending"],
+        "social_delivery_markers":
+            (int)control_status["social_delivery_markers"],
+        "control":control_status,
         "online_users":map_worker_local_online_rows(local_players),
     ]));
+}
+
+private mapping map_worker_prewarm_caches()
+{
+    mapping map_status;
+    mixed prewarm_err = catch { map_status = MAPD->query_cache_status(); };
+    if(prewarm_err || !mappingp(map_status) ||
+       (int)map_status["rooms"]<1)
+        return (["ok":0,"code":"map_cache_prewarm_failed"]);
+    return (["ok":1,"map":map_status]);
 }
 
 private void discard_map_worker_offline_admin_player(object|zero player)
@@ -1158,6 +1174,8 @@ private mapping map_worker_apply_team_event(mapping event,string kind)
         (string)(event["target_user"] || ""));
     mapping result;
     mixed delivery_err;
+    int durable = kind=="team_invite" || kind=="team_snapshot";
+    int delivery_ttl = MAP_WORKERD->query_local_social_event_ttl(kind);
     if(sizeof(event_id)!=64 || source_user=="")
         return (["ok":0,"code":"invalid_team_event"]);
     if(kind=="team_invite"){
@@ -1178,8 +1196,9 @@ private mapping map_worker_apply_team_event(mapping event,string kind)
                MAP_WORKERD->local_user_request_running((string)raw_userid))
                 return (["ok":0,"code":"team_member_request_running"]);
     }
-    if(!MAP_WORKERD->begin_local_social_delivery(event_id,0))
-        return MAP_WORKERD->complete_local_social_delivery(event_id,0) ?
+    if(!MAP_WORKERD->begin_local_social_delivery(
+       event_id,durable,delivery_ttl))
+        return MAP_WORKERD->complete_local_social_delivery(event_id,durable) ?
             (["ok":1,"replayed":1]) :
             (["ok":0,"code":"social_delivery_persist_failed"]);
     delivery_err = catch {
@@ -1206,7 +1225,7 @@ private mapping map_worker_apply_team_event(mapping event,string kind)
         return (["ok":0,"code":delivery_err ?
             "team_event_delivery_failed" : (string)result["code"]]);
     }
-    if(!MAP_WORKERD->complete_local_social_delivery(event_id,0))
+    if(!MAP_WORKERD->complete_local_social_delivery(event_id,durable))
         return (["ok":0,"code":"social_delivery_persist_failed"]);
     result["event_id"] = event_id;
     return result;
@@ -1454,6 +1473,17 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
         handle_map_worker_local_status(req);
         return;
     }
+    if(action=="local_identity"){
+        send_json(req,(["ok":1,
+            "worker_id":MAP_WORKERD->query_local_worker_id(),
+            "incarnation":MAP_WORKERD->query_local_process_incarnation()]));
+        return;
+    }
+    if(action=="local_prewarm_caches"){
+        result = map_worker_prewarm_caches();
+        send_json(req,result,(int)result["ok"] ? 200 : 503);
+        return;
+    }
     if(action=="local_account_session_owner"){
         string session_token = lower_case(String.trim_all_whites(
             (string)(params["token"] || "")));
@@ -1541,6 +1571,19 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
     }
     if(action=="local_social_ack"){
         result = MAP_WORKERD->acknowledge_local_social_event(
+            (string)params["event_id"]);
+        send_json(req,result,(int)result["ok"] ? 200 : 404);
+        return;
+    }
+    if(action=="local_social_target_ack"){
+        result = MAP_WORKERD->acknowledge_local_social_target(
+            (string)params["event_id"],(string)params["worker_id"],
+            (string)params["incarnation"]);
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_social_defer"){
+        result = MAP_WORKERD->defer_local_social_event(
             (string)params["event_id"]);
         send_json(req,result,(int)result["ok"] ? 200 : 404);
         return;

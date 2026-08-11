@@ -688,15 +688,21 @@ int save_with_result(void|int autosave,void|int worker_fenced_save){
 	// A worker which lost its loopback control lease must never overwrite a
 	// character that the coordinator may later recover elsewhere. The control
 	// fence is allowed one final atomic save before destroying the stale copy.
-	if(MAP_WORKERD->query_node_role()=="worker" && !worker_fenced_save &&
-	   (!MAP_WORKERD->local_control_lease_valid() ||
-	    MAP_WORKERD->query_local_player_epoch(query_name())<1) &&
-	   !MAP_WORKERD->local_user_request_save_fence_valid(query_name()) &&
-	   !MAP_WORKERD->consume_local_account_character_save_fence(
-		query_account_owner(),query_name())){
-		werror("[MAP_WORKER][SAVE_FENCE] blocked userid=%s\n",
-			this_object()->query_name() || "unknown");
-		return 0;
+	if(MAP_WORKERD->query_node_role()=="worker" && !worker_fenced_save){
+		int control_valid = MAP_WORKERD->local_control_lease_valid();
+		int epoch_valid =
+			MAP_WORKERD->query_local_player_epoch(query_name())>=1;
+		if((!control_valid || !epoch_valid) &&
+		   !MAP_WORKERD->local_user_request_save_fence_valid(query_name()) &&
+		   !MAP_WORKERD->consume_local_account_character_save_fence(
+			query_account_owner(),query_name())){
+			string reason = !control_valid && !epoch_valid ?
+				"control_and_epoch" : (!control_valid ?
+				"control_lease" : "player_epoch");
+			MAP_WORKERD->note_local_save_fence_block(reason);
+			werror("[MAP_WORKER][SAVE_FENCE] blocked reason=%s\n",reason);
+			return 0;
+		}
 	}
 	if(this_object()->sid == "5dwap"){
 		//tell_object(this_object(),"欢迎尝试仙道，您现在是游客身份，你的档案将不会被保存，欢迎点击注册一个正式帐号来体验仙道的乐趣。\n[注册帐号:reg_account]\n");

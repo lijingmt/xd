@@ -43,6 +43,9 @@ constant MAP_WORKER_MAX_LOCAL_REQUESTS = 65536;
 constant MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS = 4096;
 constant MAP_WORKER_LOCAL_SOCIAL_TTL = 300;
 constant MAP_WORKER_LOCAL_BROADCAST_TTL = 86400;
+// Team membership is structural state, not chat.  Keep its retry envelope
+// across ordinary maintenance windows and persist target-by-target ACKs.
+constant MAP_WORKER_LOCAL_TEAM_DURABLE_TTL = 604800;
 constant MAP_WORKER_MAX_SOCIAL_OUTBOX_BYTES = 64*1024*1024;
 constant MAP_WORKER_MAX_HEAT_BYTES = 1024*1024;
 constant MAP_WORKER_MAX_HEAT_SCORE = 10000000;
@@ -97,6 +100,8 @@ private int local_online_snapshot_at;
 private int local_assignment_generation;
 private int local_control_seen_at;
 private int local_control_isolated;
+private int local_save_fence_block_total;
+private mapping(string:int) local_save_fence_blocks = ([]);
 private Thread.Mutex local_social_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) local_social_events = ([]);
 private array(string) local_social_event_order = ({});
@@ -107,6 +112,7 @@ private int local_social_sequence;
 
 private string node_role = "standalone";
 private string local_worker_id = "standalone";
+private string local_process_incarnation = "";
 private Thread.Mutex control_persist_lock = Thread.Mutex();
 private int control_persist_scheduled;
 private int control_last_persisted_at;
@@ -1206,6 +1212,11 @@ string query_local_worker_id()
 	return local_worker_id;
 }
 
+string query_local_process_incarnation()
+{
+	return local_process_incarnation;
+}
+
 /** Resource/event daemons must not create room-owned state before routing lands. */
 int local_affinity_assignments_ready()
 {
@@ -1917,6 +1928,8 @@ mapping(string:mixed) query_local_control_status()
 			(!local_control_isolated && local_control_seen_at+
 			MAP_WORKER_LOCAL_CONTROL_TTL>=time()),
 		"isolated":local_control_isolated,
+		"save_fence_blocks":local_save_fence_block_total,
+		"save_fence_block_reasons":copy_value(local_save_fence_blocks),
 		"tracked_player_epochs":sizeof(local_player_epochs),
 		"control_ttl":MAP_WORKER_LOCAL_CONTROL_TTL,
 		"shutdown_save_fence_valid":
@@ -1927,6 +1940,19 @@ mapping(string:mixed) query_local_control_status()
 	result["social_delivery_markers"] = sizeof(local_social_completed);
 	destruct(key);
 	return result;
+}
+
+void note_local_save_fence_block(string reason)
+{
+	object key;
+	reason = normalize_token(reason,48);
+	if(!has_value(({"control_lease","player_epoch",
+	   "control_and_epoch"}),reason))
+		reason = "unknown";
+	key = local_route_lock->lock();
+	local_save_fence_block_total++;
+	local_save_fence_blocks[reason]++;
+	destruct(key);
 }
 
 /**
@@ -2044,6 +2070,16 @@ private int local_social_kind_is_durable(string kind)
 		kind=="team_invite";
 }
 
+int query_local_social_event_ttl(string kind)
+{
+	kind = normalize_token(kind,48);
+	if(kind=="team_snapshot" || kind=="team_invite")
+		return MAP_WORKER_LOCAL_TEAM_DURABLE_TTL;
+	if(kind=="world_broadcast")
+		return MAP_WORKER_LOCAL_BROADCAST_TTL;
+	return MAP_WORKER_LOCAL_SOCIAL_TTL;
+}
+
 private mapping(string:mixed) validate_local_social_outbox(mapping decoded)
 {
 	mapping(string:mapping(string:mixed)) restored = ([]);
@@ -2080,8 +2116,43 @@ private mapping(string:mixed) validate_local_social_outbox(mapping decoded)
 			(string)(event["source_user"] || ""));
 		string target_user = normalize_userid(
 			(string)(event["target_user"] || ""));
-		int maximum_ttl = kind=="world_broadcast" ?
-			MAP_WORKER_LOCAL_BROADCAST_TTL : MAP_WORKER_LOCAL_SOCIAL_TTL;
+		mapping raw_acked_workers = mappingp(event["acked_workers"]) ?
+			(mapping)event["acked_workers"] : ([]);
+		mapping(string:string) acked_workers = ([]);
+		mixed raw_retry_count = event["retry_count"];
+		mixed raw_next_retry_at = event["next_retry_at"];
+		mixed raw_last_log_at = event["last_log_at"];
+		if((has_index(event,"acked_workers") &&
+		    !mappingp(event["acked_workers"])) ||
+		   (has_index(event,"retry_count") && !intp(raw_retry_count)) ||
+		   (has_index(event,"next_retry_at") && !intp(raw_next_retry_at)) ||
+		   (has_index(event,"last_log_at") && !intp(raw_last_log_at)))
+			return (["ok":0,"code":"invalid_social_outbox_retry"]);
+		int retry_count = intp(raw_retry_count) ? (int)raw_retry_count : 0;
+		int next_retry_at = intp(raw_next_retry_at) ?
+			(int)raw_next_retry_at : 0;
+		int last_log_at = intp(raw_last_log_at) ? (int)raw_last_log_at : 0;
+		int maximum_ttl = query_local_social_event_ttl(kind);
+		if(sizeof(raw_acked_workers)>MAP_WORKER_MAX_NODES)
+			return (["ok":0,"code":"invalid_social_outbox_ack"]);
+		foreach(indices(raw_acked_workers),mixed raw_worker_id){
+			string acked_worker_id = stringp(raw_worker_id) ?
+				normalize_worker_id((string)raw_worker_id) : "";
+			mixed raw_incarnation = raw_acked_workers[raw_worker_id];
+			if(acked_worker_id=="" || acked_worker_id!=(string)raw_worker_id)
+				return (["ok":0,"code":"invalid_social_outbox_ack"]);
+			// A short-lived development build stored coordinator generations.
+			// Accept and discard those values so the event safely re-fanouts.
+			if(intp(raw_incarnation) && (int)raw_incarnation>=1 &&
+			   (int)raw_incarnation<=1000000000)
+				continue;
+			string incarnation = stringp(raw_incarnation) ?
+				normalize_token((string)raw_incarnation,96) : "";
+			if(incarnation!=(string)raw_incarnation ||
+			   sizeof(incarnation)!=64)
+				return (["ok":0,"code":"invalid_social_outbox_ack"]);
+			acked_workers[acked_worker_id] = incarnation;
+		}
 		if(event_id=="" || event_id!=(string)raw_event_id || seen[event_id] ||
 		   (string)event["event_id"]!=event_id ||
 		   !local_social_kind_is_durable(kind) ||
@@ -2096,11 +2167,27 @@ private mapping(string:mixed) validate_local_social_outbox(mapping decoded)
 		   (int)event["created_at"]>now+5 ||
 		   (int)event["expires_at"]<(int)event["created_at"] ||
 		   (int)event["expires_at"]>
-			(int)event["created_at"]+maximum_ttl+5)
+			(int)event["created_at"]+maximum_ttl+5 || retry_count<0 ||
+		   retry_count>1000000 || next_retry_at<0 ||
+		   next_retry_at>(int)event["expires_at"]+60 || last_log_at<0 ||
+		   last_log_at>now+5)
 			return (["ok":0,"code":"invalid_social_outbox_event"]);
 		seen[event_id] = 1;
-		if((int)event["expires_at"]>=now){
-			restored[event_id] = copy_value(event);
+		// Membership snapshots remain authoritative until every current worker
+		// ACKs them or a newer snapshot for the same team supersedes them.
+		if((int)event["expires_at"]>=now || kind=="team_snapshot"){
+			mapping restored_event = copy_value(event);
+			restored_event["acked_workers"] = acked_workers;
+			restored_event["retry_count"] = retry_count;
+			restored_event["next_retry_at"] = next_retry_at;
+			restored_event["last_log_at"] = last_log_at;
+			if((int)event["expires_at"]<now){
+				restored_event["created_at"] = now;
+				restored_event["expires_at"] =
+					now+MAP_WORKER_LOCAL_TEAM_DURABLE_TTL;
+				restored_event["next_retry_at"] = 0;
+			}
+			restored[event_id] = restored_event;
 			restored_order += ({event_id});
 		}
 	}
@@ -2109,7 +2196,8 @@ private mapping(string:mixed) validate_local_social_outbox(mapping decoded)
 			normalize_token((string)raw_event_id,96) : "";
 		if(event_id=="" || event_id!=(string)raw_event_id ||
 		   !intp(raw_delivered[raw_event_id]) ||
-		   (int)raw_delivered[raw_event_id]>now+MAP_WORKER_LOCAL_BROADCAST_TTL+5)
+		   (int)raw_delivered[raw_event_id]>
+			now+MAP_WORKER_LOCAL_TEAM_DURABLE_TTL+5)
 			return (["ok":0,"code":"invalid_social_delivery_marker"]);
 		if((int)raw_delivered[raw_event_id]>=now)
 			restored_delivered[event_id] =
@@ -2247,6 +2335,13 @@ private void restore_local_team_outbox_snapshots()
 	}
 }
 
+private string local_social_team_id(mapping payload)
+{
+	mapping snapshot = mappingp(payload["snapshot"]) ?
+		(mapping)payload["snapshot"] : ([]);
+	return normalize_token((string)(snapshot["team_id"] || ""),96);
+}
+
 /**
  * A public worker request may not call the coordinator synchronously.  It
  * stages a bounded primitive event instead; the Pike gateway drains it only
@@ -2257,6 +2352,9 @@ mapping(string:mixed) stage_local_social_event(string kind,string source_user,
 {
 	object key;
 	string event_id;
+	string team_id;
+	mapping(string:mapping(string:mixed)) superseded = ([]);
+	array(string) previous_order = ({});
 	kind = normalize_token(kind,48);
 	source_user = normalize_userid(source_user);
 	target_user = normalize_userid(target_user);
@@ -2266,7 +2364,35 @@ mapping(string:mixed) stage_local_social_event(string kind,string source_user,
 	    target_user==""))
 		return (["ok":0,"code":"invalid_local_social_event"]);
 	key = local_social_lock->lock();
+	// A newer authoritative membership snapshot makes older snapshots for the
+	// same team obsolete.  This bounds the durable outbox during an outage and
+	// avoids replaying intermediate membership states after recovery.
+	if(kind=="team_snapshot"){
+		team_id = local_social_team_id(payload);
+		if(team_id!=""){
+			previous_order = copy_value(local_social_event_order);
+			foreach(local_social_event_order,string old_event_id){
+				mapping old_event = local_social_events[old_event_id];
+				mapping old_payload;
+				if(!mappingp(old_event) ||
+				   (string)old_event["kind"]!="team_snapshot")
+					continue;
+				old_payload = mappingp(old_event["payload"]) ?
+					(mapping)old_event["payload"] : ([]);
+				if(local_social_team_id(old_payload)==team_id){
+					superseded[old_event_id] = old_event;
+					m_delete(local_social_events,old_event_id);
+				}
+			}
+			if(sizeof(superseded))
+				local_social_event_order -= indices(superseded);
+		}
+	}
 	if(sizeof(local_social_events)>=MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS){
+		foreach(indices(superseded),string old_event_id)
+			local_social_events[old_event_id] = superseded[old_event_id];
+		if(sizeof(superseded))
+			local_social_event_order = previous_order;
 		destruct(key);
 		return (["ok":0,"code":"local_social_event_limit"]);
 	}
@@ -2278,14 +2404,20 @@ mapping(string:mixed) stage_local_social_event(string kind,string source_user,
 		"event_id":event_id,"kind":kind,"source_user":source_user,
 		"target_user":target_user,"source_worker":local_worker_id,
 		"payload":copy_value(payload),"created_at":time(),
-		"expires_at":time()+(kind=="world_broadcast" ?
-			MAP_WORKER_LOCAL_BROADCAST_TTL : MAP_WORKER_LOCAL_SOCIAL_TTL),
+		"expires_at":time()+query_local_social_event_ttl(kind),
+		"acked_workers":([]),"retry_count":0,"next_retry_at":0,
+		"last_log_at":0,
 	]);
 	local_social_event_order += ({event_id});
 	if(local_social_kind_is_durable(kind) &&
 	   !persist_local_social_outbox_unlocked()){
 		m_delete(local_social_events,event_id);
-		local_social_event_order -= ({event_id});
+		foreach(indices(superseded),string old_event_id)
+			local_social_events[old_event_id] = superseded[old_event_id];
+		if(sizeof(superseded))
+			local_social_event_order = previous_order;
+		else
+			local_social_event_order -= ({event_id});
 		destruct(key);
 		return (["ok":0,"code":"local_social_persist_failed"]);
 	}
@@ -2303,7 +2435,8 @@ array(mapping(string:mixed)) poll_local_social_events(void|int limit)
 		mapping event = local_social_events[event_id];
 		if(sizeof(result)>=max_items)
 			break;
-		if(mappingp(event) && (int)event["expires_at"]>=time())
+		if(mappingp(event) && (int)event["expires_at"]>=time() &&
+		   (int)(event["next_retry_at"] || 0)<=time())
 			result += ({copy_value(event)});
 	}
 	destruct(key);
@@ -2336,8 +2469,82 @@ mapping(string:mixed) acknowledge_local_social_event(string event_id)
 	return (["ok":1,"event_id":event_id]);
 }
 
+/** Persist each successful fanout target so retries only visit missing nodes. */
+mapping(string:mixed) acknowledge_local_social_target(string event_id,
+	string worker_id,string incarnation)
+{
+	object key;
+	mapping event;
+	mapping previous_acks;
+	event_id = normalize_token(event_id,96);
+	worker_id = normalize_worker_id(worker_id);
+	incarnation = normalize_token(incarnation,96);
+	key = local_social_lock->lock();
+	event = local_social_events[event_id];
+	if(event_id=="" || worker_id=="" || sizeof(incarnation)!=64 ||
+	   !mappingp(event) ||
+	   !local_social_kind_is_durable((string)event["kind"])){
+		destruct(key);
+		return (["ok":0,"code":"invalid_local_social_target_ack"]);
+	}
+	previous_acks = mappingp(event["acked_workers"]) ?
+		copy_value((mapping)event["acked_workers"]) : ([]);
+	if((string)previous_acks[worker_id]==incarnation){
+		destruct(key);
+		return (["ok":1,"event_id":event_id,"worker_id":worker_id,
+			"replayed":1]);
+	}
+	event["acked_workers"] = previous_acks+([worker_id:incarnation]);
+	if(!persist_local_social_outbox_unlocked()){
+		event["acked_workers"] = previous_acks;
+		destruct(key);
+		return (["ok":0,"code":"local_social_persist_failed"]);
+	}
+	destruct(key);
+	return (["ok":1,"event_id":event_id,"worker_id":worker_id]);
+}
+
+/** Exponential retry with a one-minute log gate prevents outage log storms. */
+mapping(string:mixed) defer_local_social_event(string event_id)
+{
+	object key;
+	mapping event;
+	mapping previous;
+	array(int) delays = ({1,2,4,8,15,30,60});
+	int retry_count;
+	int delay;
+	int now = time();
+	int should_log;
+	event_id = normalize_token(event_id,96);
+	key = local_social_lock->lock();
+	event = local_social_events[event_id];
+	if(event_id=="" || !mappingp(event)){
+		destruct(key);
+		return (["ok":0,"code":"unknown_local_social_event"]);
+	}
+	previous = copy_value(event);
+	retry_count = (int)(event["retry_count"] || 0)+1;
+	delay = delays[min(sizeof(delays)-1,retry_count-1)];
+	should_log = !(int)(event["last_log_at"] || 0) ||
+		(int)event["last_log_at"]+60<=now;
+	event["retry_count"] = retry_count;
+	event["next_retry_at"] = now+delay;
+	if(should_log)
+		event["last_log_at"] = now;
+	if(local_social_kind_is_durable((string)event["kind"]) &&
+	   !persist_local_social_outbox_unlocked()){
+		local_social_events[event_id] = previous;
+		destruct(key);
+		return (["ok":0,"code":"local_social_persist_failed"]);
+	}
+	destruct(key);
+	return (["ok":1,"event_id":event_id,"retry_count":retry_count,
+		"retry_after":delay,"should_log":should_log]);
+}
+
 /** Reserve one idempotent worker-local delivery before mutating chat state. */
-int begin_local_social_delivery(string event_id,void|int durable)
+int begin_local_social_delivery(string event_id,void|int durable,
+	void|int ttl_seconds)
 {
 	object key;
 	event_id = normalize_token(event_id,96);
@@ -2353,8 +2560,10 @@ int begin_local_social_delivery(string event_id,void|int durable)
 		return 0;
 	}
 	local_social_delivered[event_id] =
-		time()+(durable ? MAP_WORKER_LOCAL_BROADCAST_TTL :
-			MAP_WORKER_LOCAL_SOCIAL_TTL);
+		time()+(ttl_seconds>0 ?
+			min(MAP_WORKER_LOCAL_TEAM_DURABLE_TTL,ttl_seconds) :
+			(durable ? MAP_WORKER_LOCAL_BROADCAST_TTL :
+			MAP_WORKER_LOCAL_SOCIAL_TTL));
 	if(durable)
 		local_social_durable_deliveries[event_id] = 1;
 	destruct(key);
@@ -2712,6 +2921,9 @@ mapping(string:mixed) register_worker(string worker_id,string endpoint,
 		"save_average_ms":0,
 		"save_max_ms":0,
 		"save_failures":0,
+		"save_fence_blocks":0,
+		"social_outbox_pending":0,
+		"social_delivery_markers":0,
 	]);
 	placement_generation++;
 	destruct(key);
@@ -2756,6 +2968,14 @@ mapping(string:mixed) heartbeat_worker(string worker_id,int generation,
 	node["save_max_ms"] = max(0,min(3600000,(int)metrics["save_max_ms"]));
 	node["save_failures"] = max(0,min(1000000,
 		(int)metrics["save_failures"]));
+	node["save_fence_blocks"] = max(0,min(100000000,
+		(int)metrics["save_fence_blocks"]));
+	node["social_outbox_pending"] = max(0,
+		min(MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS,
+		(int)metrics["social_outbox_pending"]));
+	node["social_delivery_markers"] = max(0,
+		min(MAP_WORKER_MAX_LOCAL_REQUESTS,
+		(int)metrics["social_delivery_markers"]));
 	destruct(key);
 	return (["ok":1,"generation":generation]);
 }
@@ -4387,7 +4607,15 @@ private void cleanup_expired_state()
 		int social_changed;
 		foreach(indices(local_social_events),string event_id)
 			if((int)local_social_events[event_id]["expires_at"]<now){
-				m_delete(local_social_events,event_id);
+				mapping expired_event = local_social_events[event_id];
+				if((string)expired_event["kind"]=="team_snapshot"){
+					expired_event["created_at"] = now;
+					expired_event["expires_at"] =
+						now+MAP_WORKER_LOCAL_TEAM_DURABLE_TTL;
+					expired_event["next_retry_at"] = 0;
+				}
+				else
+					m_delete(local_social_events,event_id);
 				social_changed = 1;
 			}
 		array(string) remaining_social_order = ({});
@@ -4509,6 +4737,18 @@ mapping(string:mixed) query_status()
 	object lease_key = player_lease_lock->lock();
 	int lease_count = sizeof(player_leases);
 	int handoff_count = sizeof(handoffs);
+	mapping(string:int) handoff_states = ([]);
+	int oldest_prepared_age;
+	int status_now = time();
+	foreach(values(handoffs),mapping handoff){
+		string state = normalize_token((string)(handoff["state"] || ""),32);
+		if(state=="")
+			state = "unknown";
+		handoff_states[state]++;
+		if(state=="prepared")
+			oldest_prepared_age = max(oldest_prepared_age,
+				max(0,status_now-(int)handoff["created_at"]));
+	}
 	destruct(lease_key);
 	object message_key = envelope_lock->lock();
 	int envelope_count = sizeof(envelopes);
@@ -4547,7 +4787,9 @@ mapping(string:mixed) query_status()
 		"affinity_heat_last_observed_at":heat_observed_at,
 		"affinity_heat_last_persisted_at":heat_persisted_at,
 		"nodes":nodes,"placements":placements,"player_leases":lease_count,
-		"handoffs":handoff_count,"envelopes":envelope_count,
+		"handoffs":handoff_count,"handoff_states":handoff_states,
+		"oldest_prepared_handoff_age":oldest_prepared_age,
+		"envelopes":envelope_count,
 		"escrows":escrow_count,"pk_sessions":pk_count,
 	]);
 }
@@ -4562,6 +4804,9 @@ protected void create()
 		node_role = configured_role;
 	if(configured_worker!="")
 		local_worker_id = configured_worker;
+	local_process_incarnation = lower_case(stable_digest(local_worker_id+"|"+
+		(string)time()+"|"+(string)random(1000000000)+"|"+
+		(string)gethrtime()));
 	local_control_seen_at = time();
 	load_cluster_config();
 	load_room_catalog();

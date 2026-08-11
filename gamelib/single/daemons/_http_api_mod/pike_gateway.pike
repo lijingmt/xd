@@ -45,6 +45,7 @@ private object pike_gateway_account_resolver;
 
 private mapping(string:int) pike_gateway_worker_ports = ([]);
 private mapping(string:int) pike_gateway_generations = ([]);
+private mapping(string:string) pike_gateway_worker_incarnations = ([]);
 private mapping(string:int) pike_gateway_worker_reachable = ([]);
 private mapping(string:int) pike_gateway_worker_request_active = ([]);
 private mapping(string:int) pike_gateway_worker_request_peak = ([]);
@@ -93,6 +94,8 @@ private int pike_gateway_started_at;
 private int pike_gateway_last_monitor_at;
 private int pike_gateway_last_monitor_completed_at;
 private int pike_gateway_last_online_publish_at;
+private int pike_gateway_prewarm_completed_at;
+private int pike_gateway_prewarm_max_ms;
 private int pike_gateway_last_handoff_at;
 private int pike_gateway_last_auction_at;
 private int pike_gateway_last_social_at;
@@ -677,6 +680,8 @@ mapping query_pike_gateway_status()
 		"primary_worker":pike_gateway_primary,
 		"worker_count":sizeof(pike_gateway_worker_ports),
 		"worker_requests":worker_requests,
+		"prewarm_completed_at":pike_gateway_prewarm_completed_at,
+		"prewarm_max_ms":pike_gateway_prewarm_max_ms,
 		"control_timeout":pike_gateway_control_timeout,
 		"active_requests":pike_gateway_active_requests,
 		"pending_requests":pike_gateway_pending_requests,
@@ -1003,7 +1008,7 @@ private mapping pike_gateway_http_request(string worker_id,string method,
 }
 
 private mapping pike_gateway_worker_rpc(string worker_id,string action,
-	mapping params)
+	mapping params,void|int request_timeout)
 {
 	mapping headers = ([
 		"Content-Type":"application/json",
@@ -1016,7 +1021,7 @@ private mapping pike_gateway_worker_rpc(string worker_id,string action,
 	payload["action"] = action;
 	http_result = pike_gateway_http_request(worker_id,"POST",
 		"/internal/map-worker",headers,Standards.JSON.encode(payload),
-		pike_gateway_control_timeout);
+		request_timeout || pike_gateway_control_timeout);
 	decode_err = catch { decoded = Standards.JSON.decode(
 		(string)http_result["body"]); };
 	if(decode_err || !mappingp(decoded))
@@ -1269,6 +1274,14 @@ private int pike_gateway_worker_generation(string worker_id)
 	return generation;
 }
 
+private string pike_gateway_worker_incarnation(string worker_id)
+{
+	object key = pike_gateway_state_lock->lock();
+	string incarnation = pike_gateway_worker_incarnations[worker_id] || "";
+	destruct(key);
+	return incarnation;
+}
+
 private int pike_gateway_monitor_generation_current(int observed,int current)
 {
 	return observed>0 && observed==current;
@@ -1443,20 +1456,28 @@ private void pike_gateway_quarantine_uncertain(string worker_id,
 private void pike_gateway_register_all()
 {
 	mapping(string:int) next_generations = ([]);
+	mapping(string:string) next_incarnations = ([]);
 	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+		mapping identity = pike_gateway_worker_rpc(worker_id,
+			"local_identity",([]));
+		string incarnation = (string)(identity["incarnation"] || "");
+		if(!(int)identity["ok"] || (string)identity["worker_id"]!=worker_id ||
+		   sizeof(incarnation)!=64)
+			error("cannot verify worker identity "+worker_id+"\n");
 		mapping result = MAP_WORKERD->register_worker(worker_id,
 			"http://127.0.0.1:"+(string)pike_gateway_worker_ports[worker_id],
-			pike_gateway_worker_capacity,
-			"pike-gateway-"+pike_gateway_controller_nonce+"-"+worker_id);
+			pike_gateway_worker_capacity,incarnation);
 		if(!(int)result["ok"])
 			error("cannot register worker "+worker_id+"\n");
 		next_generations[worker_id] = (int)result["generation"];
+		next_incarnations[worker_id] = incarnation;
 	}
 	// register_worker changes the coordinator generation one worker at a time.
 	// Publish the matching local view only after the complete registration pass
 	// succeeds, so parallel monitors never observe a half-old/half-new mapping.
 	object key = pike_gateway_state_lock->lock();
 	pike_gateway_generations = next_generations;
+	pike_gateway_worker_incarnations = next_incarnations;
 	destruct(key);
 }
 
@@ -2696,6 +2717,11 @@ private mapping pike_gateway_collect_worker_metrics(string worker_id)
 		"save_average_ms":(int)local_status["save_average_ms"],
 		"save_max_ms":(int)local_status["save_max_ms"],
 		"save_failures":(int)local_status["save_failures"],
+		"save_fence_blocks":(int)local_status["save_fence_blocks"],
+		"social_outbox_pending":
+			(int)local_status["social_outbox_pending"],
+		"social_delivery_markers":
+			(int)local_status["social_delivery_markers"],
 	]);
 }
 
@@ -2855,6 +2881,7 @@ private void pike_gateway_monitor_worker(string worker_id)
 				recovery_err = catch {
 					pike_gateway_register_all();
 					pike_gateway_sync_catalog();
+					pike_gateway_prewarm_all_workers();
 					pike_gateway_recover_local_players();
 				};
 				if(!recovery_err)
@@ -2869,13 +2896,20 @@ private void pike_gateway_monitor_worker(string worker_id)
 				error("worker heartbeat rejected\n");
 			if(!pike_gateway_worker_is_reachable(worker_id)){
 				object recovery_key = pike_gateway_recovery_lock->lock();
-				pike_gateway_pause_routing();
-				mixed recovery_err = catch {
-					pike_gateway_reconcile_recovered_worker(worker_id);
-					pike_gateway_set_worker_reachable(worker_id,1);
-				};
-				if(!recovery_err)
-					pike_gateway_resume_routing();
+				mixed recovery_err;
+				if(!pike_gateway_worker_is_reachable(worker_id)){
+					pike_gateway_pause_routing();
+					recovery_err = catch {
+						// Re-register real process identities and reinstall the full
+						// assignment snapshot before any restarted worker serves play.
+						pike_gateway_register_all();
+						pike_gateway_sync_catalog();
+						pike_gateway_prewarm_all_workers();
+						pike_gateway_recover_local_players();
+					};
+					if(!recovery_err)
+						pike_gateway_resume_routing();
+				}
 				destruct(recovery_key);
 				if(recovery_err)
 					error(describe_error(recovery_err));
@@ -2943,6 +2977,36 @@ private void pike_gateway_monitor_all_workers()
 			destruct(key);
 		}
 	}
+}
+
+private mapping pike_gateway_prewarm_worker(string worker_id)
+{
+	int started_at = gethrtime();
+	mapping result = pike_gateway_worker_rpc(worker_id,
+		"local_prewarm_caches",([]),max(30,pike_gateway_timeout));
+	if(!(int)result["ok"])
+		error("worker cache prewarm rejected: "+worker_id+"\n");
+	result["worker_id"] = worker_id;
+	result["elapsed_ms"] = (gethrtime()-started_at)/1000;
+	return result;
+}
+
+/** Warm every worker concurrently before the public listener accepts play. */
+private void pike_gateway_prewarm_all_workers()
+{
+	array(object) futures = ({});
+	int max_ms;
+	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id)
+		futures += ({pike_gateway_monitor_farm->run(
+			pike_gateway_prewarm_worker,worker_id)});
+	foreach(futures,object future){
+		mapping result = future->get();
+		max_ms = max(max_ms,(int)result["elapsed_ms"]);
+	}
+	object key = pike_gateway_state_lock->lock();
+	pike_gateway_prewarm_completed_at = time();
+	pike_gateway_prewarm_max_ms = max_ms;
+	destruct(key);
 }
 
 private void pike_gateway_resolve_uncertain_requests()
@@ -3159,6 +3223,38 @@ private void pike_gateway_run_lease_gc()
 		error(describe_error(recovery_err));
 }
 
+private int pike_gateway_social_kind_is_durable(string kind)
+{
+	return kind=="world_broadcast" || kind=="team_snapshot" ||
+		kind=="team_invite";
+}
+
+private int pike_gateway_social_target_is_acked(mapping event,
+	string worker_id)
+{
+	mapping acked_workers = mappingp(event["acked_workers"]) ?
+		(mapping)event["acked_workers"] : ([]);
+	string current_incarnation =
+		pike_gateway_worker_incarnation(worker_id);
+	return sizeof(current_incarnation)==64 &&
+		(string)(acked_workers[worker_id] || "")==current_incarnation;
+}
+
+private void pike_gateway_record_social_target_ack(mapping event,
+	string worker_id)
+{
+	string source_worker = (string)event["source_worker"];
+	string kind = (string)event["kind"];
+	if(!pike_gateway_social_kind_is_durable(kind))
+		return;
+	mapping acked = pike_gateway_worker_rpc(source_worker,
+		"local_social_target_ack",(["event_id":(string)event["event_id"],
+		"worker_id":worker_id,
+		"incarnation":pike_gateway_worker_incarnation(worker_id)]));
+	if(!(int)acked["ok"])
+		error("social target ACK rejected\n");
+}
+
 private void pike_gateway_deliver_social_event(mapping event)
 {
 	string kind = lower_case(String.trim_all_whites(
@@ -3188,15 +3284,22 @@ private void pike_gateway_deliver_social_event(mapping event)
 		if(!(int)route["ok"] || (string)route["state"]!="active" ||
 		   !pike_gateway_worker_is_reachable((string)route["worker_id"]))
 			error("team invite target is unavailable\n");
+		if(pike_gateway_social_target_is_acked(event,
+		   (string)route["worker_id"]))
+			return;
 		mapping delivered = pike_gateway_worker_rpc(
 			(string)route["worker_id"],"local_social_apply",(["event":event]));
 		if(!(int)delivered["ok"])
 			error("team invite delivery rejected\n");
+		pike_gateway_record_social_target_ack(event,
+			(string)route["worker_id"]);
 		return;
 	}
 	if(kind=="world_broadcast"){
 		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 			if(worker_id==source_worker)
+				continue;
+			if(pike_gateway_social_target_is_acked(event,worker_id))
 				continue;
 			if(!pike_gateway_worker_is_reachable(worker_id))
 				error("broadcast worker is unavailable\n");
@@ -3204,12 +3307,15 @@ private void pike_gateway_deliver_social_event(mapping event)
 				"local_social_apply",(["event":event]));
 			if(!(int)delivered["ok"])
 				error("broadcast delivery rejected\n");
+			pike_gateway_record_social_target_ack(event,worker_id);
 		}
 		return;
 	}
 	if(has_value(({"team_snapshot","team_chat","team_notice"}),kind)){
 		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 			if(worker_id==source_worker)
+				continue;
+			if(pike_gateway_social_target_is_acked(event,worker_id))
 				continue;
 			if(!pike_gateway_worker_is_reachable(worker_id))
 				error("team sync worker is unavailable\n");
@@ -3221,6 +3327,7 @@ private void pike_gateway_deliver_social_event(mapping event)
 				error("team sync delivery rejected worker="+worker_id+
 					" kind="+kind+" code="+code+"\n");
 			}
+			pike_gateway_record_social_target_ack(event,worker_id);
 		}
 		return;
 	}
@@ -3256,10 +3363,21 @@ private void pike_gateway_run_social_events(void|int wait_for_lock)
 				if(!(int)acked["ok"])
 					error("social event ACK rejected\n");
 			};
-			if(delivery_err)
-				werror("[PIKE_GATEWAY][SOCIAL] source=%s event=%s error=%s\n",
-					source_worker,(string)((mapping)raw)["event_id"],
-					describe_error(delivery_err));
+			if(delivery_err){
+				mapping deferred;
+				mixed defer_err = catch {
+					deferred = pike_gateway_worker_rpc(source_worker,
+						"local_social_defer",(["event_id":
+						(string)((mapping)raw)["event_id"]]));
+				};
+				if(defer_err || !(int)deferred["ok"] ||
+				   (int)deferred["should_log"])
+					werror("[PIKE_GATEWAY][SOCIAL] source=%s event=%s retry=%d error=%s\n",
+						source_worker,(string)((mapping)raw)["event_id"],
+						mappingp(deferred) ?
+							(int)deferred["retry_count"] : 0,
+						describe_error(delivery_err));
+			}
 		}
 	}
 	destruct(social_key);
@@ -3320,6 +3438,7 @@ private void pike_gateway_controller_loop()
 			mixed startup_err = catch {
 				pike_gateway_register_all();
 				pike_gateway_sync_catalog();
+				pike_gateway_prewarm_all_workers();
 				pike_gateway_recover_local_players();
 			};
 			if(startup_err){

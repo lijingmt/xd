@@ -424,6 +424,40 @@ void test_relogin_and_ui_safety_wiring()
 		test_fail("重登、UI 或逃跑脱困接线缺失");
 }
 
+void test_fbd_cleanup_survives_missing_member_state()
+{
+	test_start("副本成员表缺失时清理链不中断且空实例可回收");
+	program daemon_program = (program)(ROOT+
+		"/gamelib/single/daemons/fbd.pike");
+	object daemon = daemon_program();
+	object|zero room = 0;
+	string error_desc = "";
+	int valid = 0;
+	int created = 0;
+	string daemon_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/fbd.pike");
+	mixed err = catch {
+		room = daemon->query_fb_room("lingranzhiyan_h",0,
+			"__testunit_missing_members__",0);
+		created = room ? 1 : 0;
+		// query_fb_room deliberately creates no fb_members entry here.
+		daemon->flush_fb_map();
+		valid = created && daemon_source &&
+			search(daemon->check_fb(),
+				"__testunit_missing_members__/lingranzhiyan_h")==-1 &&
+			search(daemon_source,
+				"catch { flush_one_fb_map(fb_id); }")!=-1;
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("缺失成员表仍会终止清理: "+error_desc);
+	if(daemon)
+		destruct(daemon);
+}
+
 int main()
 {
 	werror("\n========== 副本实例与脱困安全测试 ==========\n");
@@ -435,6 +469,7 @@ int main()
 	test_emergency_leave_and_move_cleanup();
 	test_summons_do_not_block_autofight();
 	test_relogin_and_ui_safety_wiring();
+	test_fbd_cleanup_survives_missing_member_state();
 	werror("副本安全：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);
