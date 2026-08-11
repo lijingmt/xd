@@ -641,9 +641,17 @@ void test_historical_fallback_recovery_contract()
 	   search(restart,"recover_historical_map_worker_fallback")!=-1 &&
 	   search(restart,"--force-active")!=-1 &&
 	   search(restart,"XIAND_MAP_WORKER_FORCE_ACTIVE")!=-1 &&
+	   search(restart,"XIAND_MAP_WORKER_AUDIT_IMAGE")!=-1 &&
 	   search(restart,"--force-active 未能进入 active")!=-1 &&
 	   search(recovery,"isolated-test-server-only")!=-1 &&
 	   search(recovery,"mandatory ownership audit remains enabled")!=-1 &&
+	   search(recovery,"audit_with_read_only_container")!=-1 &&
+	   search(recovery,"XIAND_MAP_WORKER_FORCE_CONTAINER_AUDIT")!=-1 &&
+	   search(recovery,"--network=none")!=-1 &&
+	   search(recovery,"--read-only")!=-1 &&
+	   search(recovery,"--cap-drop=ALL")!=-1 &&
+	   search(recovery,"--security-opt=no-new-privileges")!=-1 &&
+	   search(recovery,"/map-worker-state:ro")!=-1 &&
 	   search(recovery,"schema_version")!=-1 &&
 	   search(recovery,"control.get(\"version\") != 3")!=-1 &&
 	   search(recovery,"os.path.lexists")!=-1 &&

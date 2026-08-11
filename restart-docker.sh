@@ -418,6 +418,7 @@ recover_historical_map_worker_fallback() {
     XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED="$MAP_WORKER_SAFE_STOP_CONFIRMED" \
     XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK" \
     XIAND_MAP_WORKER_FORCE_ACTIVE="$FORCE_ACTIVE" \
+    XIAND_MAP_WORKER_AUDIT_IMAGE="$SELECTED_DOCKER_IMAGE" \
         "$PROJECT_ROOT/scripts/recover_map_worker_fallback_latch.sh" \
         "$config_dir"
 }

@@ -10,6 +10,8 @@ RUNTIME_DIR="${1:-}"
 SAFE_STOP_CONFIRMED="${XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED:-0}"
 ACTIVE_ACK="${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}"
 FORCE_ACTIVE="${XIAND_MAP_WORKER_FORCE_ACTIVE:-0}"
+AUDIT_IMAGE="${XIAND_MAP_WORKER_AUDIT_IMAGE:-}"
+FORCE_CONTAINER_AUDIT="${XIAND_MAP_WORKER_FORCE_CONTAINER_AUDIT:-0}"
 
 log()
 {
@@ -44,6 +46,8 @@ file_mode()
 	fail "runtime directory must be an absolute path"
 [[ "$FORCE_ACTIVE" == "0" || "$FORCE_ACTIVE" == "1" ]] ||
 	fail "force-active flag is invalid"
+[[ "$FORCE_CONTAINER_AUDIT" == "0" || "$FORCE_CONTAINER_AUDIT" == "1" ]] ||
+	fail "force-container-audit flag is invalid"
 [[ -d "$RUNTIME_DIR" && ! -L "$RUNTIME_DIR" ]] ||
 	fail "runtime directory is missing or unsafe"
 
@@ -116,8 +120,11 @@ if [[ "$FORCE_ACTIVE" == "1" ]]; then
 fi
 
 # Exit 0 only when every persisted ownership/mutation record is terminal and
-# expired.  Identifiers and payloads are deliberately never printed.
-if ! python3 - "$CONTROL_PLANE" "$CONTROL_PLANE_BACKUP" "$SOCIAL_OUTBOX" <<'PY'
+# expired. Identifiers and payloads are deliberately never printed. Keep one
+# audit source for both the host Python and the rootful, read-only Docker helper
+# used when container-created mode-0600 snapshots cannot be read by the host
+# deployment account.
+AUDIT_SOURCE="$(cat <<'PY'
 import glob
 import json
 import os
@@ -191,7 +198,48 @@ if os.path.lexists(outbox_dir):
                event["expires_at"] > now for event in events):
             raise ValueError("a durable social event is still live")
 PY
-then
+)"
+
+audit_with_host_python()
+{
+	printf '%s\n' "$AUDIT_SOURCE" | python3 - \
+		"$CONTROL_PLANE" "$CONTROL_PLANE_BACKUP" "$SOCIAL_OUTBOX" \
+		>/dev/null 2>&1
+}
+
+audit_with_read_only_container()
+{
+	[[ -n "$AUDIT_IMAGE" ]] || return 1
+	command -v docker >/dev/null 2>&1 || return 1
+	docker image inspect "$AUDIT_IMAGE" >/dev/null 2>&1 || return 1
+	printf '%s\n' "$AUDIT_SOURCE" | docker run --rm -i \
+		--network=none \
+		--read-only \
+		--cap-drop=ALL \
+		--security-opt=no-new-privileges \
+		--pids-limit=32 \
+		--memory=128m \
+		--memory-swap=128m \
+		--user=0:0 \
+		--log-driver=none \
+		-e PYTHONDONTWRITEBYTECODE=1 \
+		-v "$RUNTIME_DIR:/map-worker-state:ro" \
+		--entrypoint python3 \
+		"$AUDIT_IMAGE" - \
+		/map-worker-state/control_plane.json \
+		/map-worker-state/control_plane.json.bak \
+		/map-worker-state/social_outbox \
+		>/dev/null 2>&1
+}
+
+AUDIT_CLEAN=0
+if [[ "$FORCE_CONTAINER_AUDIT" != "1" ]] && audit_with_host_python; then
+	AUDIT_CLEAN=1
+elif audit_with_read_only_container; then
+	AUDIT_CLEAN=1
+	log "persisted ownership audit completed through read-only Docker helper"
+fi
+if [[ "$AUDIT_CLEAN" != "1" ]]; then
 	log "fallback latch retained because persisted ownership audit is not clean"
 	exit 0
 fi

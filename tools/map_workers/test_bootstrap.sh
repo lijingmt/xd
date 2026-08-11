@@ -288,11 +288,36 @@ control = json.loads(path.read_text(encoding="utf-8"))
 control["player_leases"]["fixture"]["expires_at"] = int(time.time()) - 60
 path.write_text(json.dumps(control), encoding="utf-8")
 PY
+chmod 000 "$RECOVERY_DIR/control_plane.json" \
+	"$RECOVERY_DIR/control_plane.json.bak" \
+	"$RECOVERY_DIR/social_outbox/w01.json" \
+	"$RECOVERY_DIR/social_outbox/w01.json.bak"
+MOCK_DOCKER_BIN="$RECOVERY_ROOT/mock-bin"
+MOCK_DOCKER_LOG="$RECOVERY_ROOT/mock-docker.log"
+mkdir -p "$MOCK_DOCKER_BIN"
+printf '%s\n' \
+	'#!/usr/bin/env bash' \
+	'printf "%s\n" "$*" >> "$MOCK_DOCKER_LOG"' \
+	'if [[ "$1" == "image" && "$2" == "inspect" ]]; then exit 0; fi' \
+	'while IFS= read -r line; do :; done' \
+	'exit 0' > "$MOCK_DOCKER_BIN/docker"
+chmod 700 "$MOCK_DOCKER_BIN/docker"
 XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
 XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
 XIAND_MAP_WORKER_FORCE_ACTIVE=1 \
+	XIAND_MAP_WORKER_AUDIT_IMAGE=fixture-image \
+	XIAND_MAP_WORKER_FORCE_CONTAINER_AUDIT=1 \
+	MOCK_DOCKER_LOG="$MOCK_DOCKER_LOG" \
+	PATH="$MOCK_DOCKER_BIN:$PATH" \
 	"$RECOVERY_SCRIPT" "$RECOVERY_DIR" >/dev/null
 [[ ! -e "$RECOVERY_DIR/fallback-latched" ]]
+grep -q '^image inspect fixture-image$' "$MOCK_DOCKER_LOG"
+grep -q -- '--network=none' "$MOCK_DOCKER_LOG"
+grep -q -- '--read-only' "$MOCK_DOCKER_LOG"
+grep -q -- '--cap-drop=ALL' "$MOCK_DOCKER_LOG"
+grep -q -- '--security-opt=no-new-privileges' "$MOCK_DOCKER_LOG"
+grep -q -- "$RECOVERY_DIR:/map-worker-state:ro" "$MOCK_DOCKER_LOG"
+grep -q -- '--entrypoint python3 fixture-image -' "$MOCK_DOCKER_LOG"
 RECOVERY_ARCHIVE="$(find "$RECOVERY_DIR/fallback-history" -maxdepth 1 \
 	-type f -name 'fallback-latched.*' -print)"
 [[ -n "$RECOVERY_ARCHIVE" ]]
