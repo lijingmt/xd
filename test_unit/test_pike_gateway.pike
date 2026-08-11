@@ -144,6 +144,17 @@ int main()
 			!httpd->test_pike_gateway_auction("buy 1"),
 			"普通命令被全局串行或拍卖跨worker并发");
 
+		check("单Worker舱壁覆盖失联、满载、开路与半开探针",
+			httpd->test_pike_gateway_missing_counter_is_zero() &&
+			httpd->test_pike_gateway_worker_bulkhead(0,1,0,8,0,0,100) &&
+			httpd->test_pike_gateway_worker_bulkhead(1,0,0,8,0,0,100) &&
+			httpd->test_pike_gateway_worker_bulkhead(1,1,8,8,0,0,100) &&
+			httpd->test_pike_gateway_worker_bulkhead(1,1,0,8,3,101,100) &&
+			httpd->test_pike_gateway_worker_bulkhead(1,1,1,8,3,100,100) &&
+			!httpd->test_pike_gateway_worker_bulkhead(1,1,0,8,3,100,100) &&
+			!httpd->test_pike_gateway_worker_bulkhead(1,1,7,8,0,0,100),
+			"热点Worker可能挤满全局线程或熔断后无法安全半开探测");
+
 		check("响应过滤移除跳转头、内部能力和重复长度",
 			httpd->test_pike_gateway_header("Content-Type") &&
 			!httpd->test_pike_gateway_header("Transfer-Encoding") &&
@@ -221,13 +232,15 @@ int main()
 			source_has(rpc,"\"epoch\":epoch,\"room_path\":room_path"),
 			"重复local_route探针可能在懒加载时超时，或伪回执清除错误epoch");
 
-		check("健康心跳与慢维护分线程且各Worker并行有界探测",
+		check("健康心跳与四条慢维护通道分离且各Worker并行有界探测",
 			source_has(gateway,"pike_gateway_monitor_farm = Thread.Farm()") &&
 			source_has(gateway,"set_max_num_threads(worker_count)") &&
 			source_has(gateway,"pike_gateway_monitor_all_workers()") &&
-			source_has(gateway,"pike_gateway_maintenance_loop") &&
-			source_has(gateway,
-				"pike_gateway_maintenance_thread = Thread.Thread(") &&
+			source_has(gateway,"pike_gateway_recovery_loop") &&
+			source_has(gateway,"pike_gateway_handoff_loop") &&
+			source_has(gateway,"pike_gateway_social_loop") &&
+			source_has(gateway,"pike_gateway_housekeeping_loop") &&
+			source_has(gateway,"pike_gateway_maintenance_operations") &&
 			source_has(gateway,
 				"pike_gateway_last_monitor_completed_at"),
 			"到达重试、社交或在线快照可能串行阻塞全部Worker控制心跳");
@@ -270,8 +283,21 @@ int main()
 				"resolver->query_account_id_for_character(userid)") &&
 			source_has(gateway,"pike_gateway_auction_lock") &&
 			source_has(gateway,"set_max_num_threads") &&
-			source_has(gateway,"pike_gateway_pending_requests<pike_gateway_max_requests"),
+			source_has(gateway,"pike_gateway_pending_requests<pike_gateway_max_requests") &&
+			source_has(gateway,"pike_gateway_enter_worker_request") &&
+			source_has(gateway,"pike_gateway_worker_request_limit") &&
+			source_has(gateway,"pike_gateway_worker_circuit_until") &&
+			source_has(gateway,"min(pike_gateway_max_requests,") &&
+			source_has(gateway,"XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER"),
 			"并发量可能无界或共享账号/拍卖发生双写");
+
+		check("冷账号令牌只向主Worker解析且不锁住全部4096人物分片",
+			source_has(gateway,"pike_gateway_resolve_account_token") &&
+			source_has(gateway,"local_account_session_owner") &&
+			source_has(rpc,"local_account_session_owner") &&
+			!source_has(gateway,
+				"foreach(pike_gateway_user_locks,object mutex)"),
+			"冷令牌登录风暴可能全局暂停所有人物请求");
 
 		check("placement generation的分配和发布由短控制锁原子排序",
 			source_has(gateway,"pike_gateway_assignment_lock") &&
@@ -279,7 +305,8 @@ int main()
 			source_has(gateway,
 				"MAP_WORKERD->assign_affinity(affinity,weight,force)") &&
 			source_has(gateway,
-				"pike_gateway_sync_assignment(affinity,placement)"),
+				"pike_gateway_sync_assignment(affinity,placement)") &&
+			source_has(gateway,"pike_gateway_heat_rebalance_completed"),
 			"并发首次进图可能让较旧generation晚到并误报affinity更新失败");
 
 		check("每个写请求等待worker完成证明，断线后停流盘点",
@@ -333,16 +360,28 @@ int main()
 			source_has(rpc,"player->retire_worker_copy_after_save"),
 			"短控制租约可能中断已接受请求，或放宽成无epoch的任意存档");
 
-		check("安全停机超时覆盖卡住请求且重复停机保持幂等",
+		check("安全停机超时可恢复、栅栏可回滚且重复停机保持幂等",
 			source_has(gateway,"pike_gateway_recovery_lock->trylock()") &&
 			source_has(gateway,"pike_gateway_routing_ready = 0") &&
+			source_has(gateway,"pike_gateway_shutdown_state = \"draining\"") &&
+			source_has(gateway,"({\"running\",\"failed\"})") &&
+			source_has(gateway,"shutdown drain timed out; routing resumed") &&
 			source_has(gateway,"deadline = time()+30") &&
 			source_has(gateway,"pike_gateway_shutdown_prepared") &&
 			source_has(gateway,"pike_gateway_recover_local_players();") &&
+			source_has(gateway,"local_cancel_shutdown") &&
+			source_has(rpc,"local_cancel_shutdown") &&
+			source_has(map_worker_daemon,
+				"cancel_local_shutdown_save_fence") &&
+			source_has(gateway,"pike_gateway_process_reserved_snapshot") &&
+			source_has(gateway,"pike_gateway_release_request_slot();") &&
 			source_has(gateway,"retire_abandoned_player_arrival") &&
 			source_has(cluster,"pending_reconcile_users") &&
 			source_has(cluster,"background_arrivals") &&
-			source_has(cluster,"uncertain_requests"),
+			source_has(cluster,"uncertain_requests") &&
+			source_has(cluster,"maintenance_operations") &&
+			source_has(cluster,"shutdown_state is not None") &&
+			source_has(cluster,"shutdown_state != \"prepared\""),
 			"停机可能无限等待、在不确定请求存在时存档或无法安全重试");
 
 		check("故障回退只跳过已摘除节点且仍拒绝未结迁移",

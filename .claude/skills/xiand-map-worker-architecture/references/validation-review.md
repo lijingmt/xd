@@ -77,6 +77,8 @@ scripts/map_worker_cluster.sh health
 - Two-account operations acquire locks in stable order.
 - Auction uses one global cluster lock; ordinary commands do not.
 - Admission is bounded and returns controlled `503` under pressure.
+- One saturated worker opens only its own bulkhead/circuit before dispatch; another healthy worker remains serviceable.
+- A cold or expired account token never locks all 4096 character shards.
 
 ### Request fencing
 
@@ -104,7 +106,7 @@ scripts/map_worker_cluster.sh health
 - Friend/online list uses the coherent aggregate, preserves logical-zone/faction visibility, rejects unsafe room paths, and routes teleport through the normal player handoff.
 - Private chat reaches the exact remote owner once; durable team/broadcast events survive retry without duplicate delivery.
 - Admin recharge handles online/offline target, idempotent replay, bonus save, and cache refresh.
-- Direct gift/trade restrictions cannot be bypassed by old confirmation links.
+- Same-room direct gift/trade uses stable two-account locking; old links cannot bypass the cross-room/cross-worker boundary.
 - Auction scheduled tick runs exactly once and never from shadow workers.
 - Global daemons/files are not eagerly mutated by every worker.
 
@@ -124,6 +126,7 @@ scripts/map_worker_cluster.sh health
 - Docker entrypoint starts the correct process count for disabled/shadow/active.
 - Only historical public ports are published.
 - Safe stop pauses routing and drains all accepted/uncertain/background work.
+- Safe stop drains maintenance lanes, releases pending admission when processing settles, and cancels every possible worker save fence after an aborted normal stop.
 - Worker/coordinator stop refuses force kill when save proof is missing.
 - Worker failure opens the correct shadow/active fallback path.
 - Active fallback latch prevents automatic active restart.

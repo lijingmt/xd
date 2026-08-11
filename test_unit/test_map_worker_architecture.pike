@@ -189,7 +189,13 @@ int main()
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"backup_size==live_size") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
-				"mv(backup_temp_path,backup_path)"),
+				"mv(backup_temp_path,backup_path)") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"control_persist_attempts") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"persist_average_ms") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"if(!control_persist_scheduled)"),
 			"损坏主快照可能覆盖唯一好备份或并发写同一临时文件");
 		check("控制面容量预算与恢复上限一致且耐久消息确认同步落盘",
 			source_has("/gamelib/single/daemons/map_workerd.pike",
@@ -645,6 +651,12 @@ int main()
 				"运行期排空/重均衡只能由持有内部令牌") &&
 			source_has("/gamelib/cmds/mgr_map_workers.pike",
 				"query_node_role()!=\"gateway\"") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"当前最高负载地图域") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"backend_lag_ms") &&
+			source_has("/gamelib/cmds/mgr_map_workers.pike",
+				"persist_max_ms") &&
 			source_has("/gamelib/d/manager_room","mgr_map_workers") &&
 			source_has("/gamelib/cmds/game_deal.pike","mgr_map_workers"),
 			"管理面可能越权或缺少安全确认入口");
@@ -921,7 +933,9 @@ int main()
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"topology rebalance requires a cold worker inventory") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
-				"heat_rebalance = heat_ready && cold_workers") &&
+				"heat_rebalance = heat_candidate && cold_workers") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"!pike_gateway_heat_rebalance_completed") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"assign_catalog(force_rebalance)"),
 			"新增worker可能长期空闲，或恢复过程重映射含在线角色的地图");
@@ -1100,8 +1114,8 @@ int main()
 				"TIMED_EVENTD->guard_player_move(this_object(),dest)") &&
 			source_has("/gamelib/clone/user.pike",
 				"MAP_WORKER_REDIRECT_ERROR+\" dynamic room denied") &&
-			source_has("/gamelib/clone/user.pike",
-				"暂不支持队伍跨节点移动") &&
+				source_has("/gamelib/clone/user.pike",
+					"队伍状态正在同步到目标地图") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"primitive replica. The gateway") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
@@ -1370,11 +1384,15 @@ int main()
 				"跨房间或跨 Worker 仍失败关闭"),
 			"双账号锁、双档案结算或同房间边界不完整");
 
-			check("账号会话API固定主worker且token维护与人物写操作互斥",
+			check("账号会话API固定主worker且冷token解析不全局锁人物分片",
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_account_path((string)snapshot[\"path_only\"])") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_account_management_lock->lock()") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"local_account_session_owner") &&
+			!source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"foreach(pike_gateway_user_locks,object mutex)") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_proxy(pike_gateway_primary") &&
 				source_has("/test_unit/test_pike_gateway.pike",
@@ -1396,6 +1414,10 @@ int main()
 				"pike_gateway_request_farm = Thread.Farm()") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_pending_requests<pike_gateway_max_requests") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_worker_request_limit") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_worker_circuit_until") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"XIAND_GATEWAY_MAX_REQUESTS"),
 			"外部可伪造worker租约头或访问内部控制面");

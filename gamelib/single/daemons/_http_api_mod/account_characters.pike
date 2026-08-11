@@ -78,6 +78,13 @@ private string query_account_session(string token)
 	return account_id;
 }
 
+/** Internal loopback-only resolver used by the Pike coordinator on a cold
+ * token cache. Public clients cannot invoke this function directly. */
+string query_account_session_owner_for_gateway(string token)
+{
+	return query_account_session(lower_case(String.trim_all_whites(token || "")));
+}
+
 private void revoke_account_session(string token)
 {
 	object key;

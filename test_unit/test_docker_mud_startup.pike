@@ -418,11 +418,15 @@ void test_worker_docker_start_chain_contract()
 	   search(restart,"bootstrap_map_worker_runtime.sh")!=-1 &&
 	   search(restart,"-e XIAND_WORKER_TOKEN")!=-1 &&
 	   search(restart,"-e XIAND_MAP_WORKER_COUNT")!=-1 &&
+	   search(restart,"-e XIAND_GATEWAY_MAX_REQUESTS")!=-1 &&
+	   search(restart,"-e XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER")!=-1 &&
 	   search(restart,"verify_map_worker_runtime_in_container")!=-1 &&
 	   search(restart,"-p \"18880") == -1 &&
 	   search(restart,"-p \"18881") == -1 &&
 	   search(restart,"-p \"14801") == -1 &&
 	   search(compose,"XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}")!=-1 &&
+	   search(compose,"XIAND_GATEWAY_MAX_REQUESTS=${XIAND_GATEWAY_MAX_REQUESTS:-}")!=-1 &&
+	   search(compose,"XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER=${XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER:-}")!=-1 &&
 	   search(compose,"XIAND_WORKER_TOKEN=${XIAND_WORKER_TOKEN}")!=-1 &&
 	   search(compose,"stop_grace_period: 10m")!=-1 &&
 	   search(compose,"18880:") == -1 &&
@@ -621,6 +625,7 @@ void test_worker_failure_legacy_fallback_contract()
 		   "legacy main ports are still occupied after worker shutdown")!=-1 &&
 	   search(startup,"printf 'shutdown_safe\\r\\n'")!=-1 &&
 	   search(cluster,"cluster_health()")!=-1 &&
+	   search(cluster,"maintenance_operations")!=-1 &&
 	   search(cluster,"coordinator reports an unhealthy worker")!=-1 &&
 	   search(cluster,"runtime_process_running \"$worker_id\"")!=-1)
 		test_pass();

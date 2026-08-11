@@ -129,6 +129,10 @@ void test_shutdown_save_contract()
 {
 	string source = Stdio.read_file(
 		ROOT+"/lowlib/system/cmds/shutdown_safe.pike");
+	string worker = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/map_workerd.pike");
+	string rpc = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike");
 	test_start("关服只在全部玩家原子存档成功后执行");
 	test_result(source &&
 		search(source,"query_all_connected_players")!=-1 &&
@@ -146,7 +150,10 @@ void test_shutdown_save_contract()
 		search(source,"shutdown_safe ABORTED")!=-1 &&
 		search(source,"if(failed>0)")!=-1 &&
 		search(source,"shutdown(0);")!=-1 &&
-		search(source,"player->command(\"quit\")")==-1,
+		search(source,"player->command(\"quit\")")==-1 &&
+		search(worker,"cancel_local_shutdown_save_fence")!=-1 &&
+		search(worker,"local_shutdown_save_fence_expires_at = 0")!=-1 &&
+		search(rpc,"local_cancel_shutdown")!=-1,
 		"关服流程未校验存档结果或仍会在失败后退出");
 }
 

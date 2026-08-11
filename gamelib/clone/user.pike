@@ -91,7 +91,7 @@ int move(mixed dest)
 		return 1;
 	if(worker_move_guard==3){
 		tell_object(this_object(),
-			"多 worker 试运行暂不支持队伍跨节点移动，请先离队后重试。\n");
+			"队伍状态正在同步到目标地图，请稍后再试，无需离队。\n");
 		return 0;
 	}
 	if(worker_move_guard==1){

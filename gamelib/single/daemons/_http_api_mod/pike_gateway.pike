@@ -15,6 +15,8 @@ constant PIKE_GATEWAY_USER_LOCKS = 4096;
 constant PIKE_GATEWAY_MAX_PENDING = 128;
 constant PIKE_GATEWAY_MAX_UNCERTAIN = 1024;
 constant PIKE_GATEWAY_MAX_RECONCILE_USERS = 20000;
+constant PIKE_GATEWAY_CIRCUIT_FAILURES = 3;
+constant PIKE_GATEWAY_CIRCUIT_SECONDS = 5;
 
 private multiset(string) pike_gateway_hop_headers = (<
 	"connection","keep-alive","proxy-authenticate",
@@ -25,7 +27,10 @@ private Protocols.HTTP.Server.Port pike_gateway_public_port;
 private object pike_gateway_request_farm;
 private object pike_gateway_monitor_farm;
 private object pike_gateway_controller_thread;
-private object pike_gateway_maintenance_thread;
+private object pike_gateway_recovery_thread;
+private object pike_gateway_handoff_thread;
+private object pike_gateway_social_thread;
+private object pike_gateway_housekeeping_thread;
 private Thread.Mutex pike_gateway_state_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_identity_lock = Thread.Mutex();
 private Thread.Mutex pike_gateway_account_resolver_lock = Thread.Mutex();
@@ -41,6 +46,15 @@ private object pike_gateway_account_resolver;
 private mapping(string:int) pike_gateway_worker_ports = ([]);
 private mapping(string:int) pike_gateway_generations = ([]);
 private mapping(string:int) pike_gateway_worker_reachable = ([]);
+private mapping(string:int) pike_gateway_worker_request_active = ([]);
+private mapping(string:int) pike_gateway_worker_request_peak = ([]);
+private mapping(string:int) pike_gateway_worker_request_completed = ([]);
+private mapping(string:int) pike_gateway_worker_request_failed = ([]);
+private mapping(string:int) pike_gateway_worker_request_rejected = ([]);
+private mapping(string:int) pike_gateway_worker_consecutive_failures = ([]);
+private mapping(string:int) pike_gateway_worker_circuit_until = ([]);
+private mapping(string:int) pike_gateway_worker_request_total_ms = ([]);
+private mapping(string:int) pike_gateway_worker_request_max_ms = ([]);
 private mapping(string:array(mapping(string:mixed)))
 	pike_gateway_online_rows_by_worker = ([]);
 private mapping(string:int) pike_gateway_online_rows_at = ([]);
@@ -62,6 +76,7 @@ private int pike_gateway_listen_port = 8888;
 private int pike_gateway_timeout = 30;
 private int pike_gateway_control_timeout = 2;
 private int pike_gateway_max_requests = 128;
+private int pike_gateway_worker_request_limit = 32;
 private int pike_gateway_lease_gc_seconds = 3600;
 private int pike_gateway_shadow = 1;
 private int pike_gateway_enabled;
@@ -70,6 +85,7 @@ private int pike_gateway_routing_ready;
 private int pike_gateway_stop;
 private int pike_gateway_active_requests;
 private int pike_gateway_pending_requests;
+private int pike_gateway_maintenance_operations;
 private int pike_gateway_completed_requests;
 private int pike_gateway_failed_requests;
 private int pike_gateway_rejected_requests;
@@ -81,7 +97,10 @@ private int pike_gateway_last_handoff_at;
 private int pike_gateway_last_auction_at;
 private int pike_gateway_last_social_at;
 private int pike_gateway_last_lease_gc_at;
+private int pike_gateway_heat_rebalance_completed;
 private int pike_gateway_shutdown_prepared;
+private string pike_gateway_shutdown_state = "running";
+private int pike_gateway_shutdown_started_at;
 
 private int pike_gateway_env_int(string name,int fallback,int minimum,
 	int maximum)
@@ -326,6 +345,11 @@ private string pike_gateway_registration_target(string command)
 	   parts[5][3]>='0' && parts[5][3]<='9')
 		userid = lower_case(parts[5]+userid);
 	return pike_gateway_valid_userid(userid) ? userid : "";
+}
+
+private int pike_gateway_counter_value(mapping counters,string worker_id)
+{
+	return (int)(counters[worker_id] || 0);
 }
 
 private int pike_gateway_auction_command(string command)
@@ -573,6 +597,19 @@ int test_pike_gateway_monitor_generation_current(int observed,int current)
 	return pike_gateway_monitor_generation_current(observed,current);
 }
 
+int test_pike_gateway_missing_counter_is_zero()
+{
+	return pike_gateway_counter_value(([]),"w99")==0;
+}
+
+int test_pike_gateway_worker_bulkhead(int has_port,int reachable,int active,
+	int limit,int failures,int circuit_until,int now)
+{
+	return !has_port || !reachable || circuit_until>now ||
+		(failures>=PIKE_GATEWAY_CIRCUIT_FAILURES && active>0) ||
+		active>=limit;
+}
+
 string test_pike_gateway_registration(string command)
 {
 	return pike_gateway_registration_target(
@@ -599,6 +636,36 @@ private object pike_gateway_user_mutex(string userid,string account_hint)
 mapping query_pike_gateway_status()
 {
 	object key = pike_gateway_state_lock->lock();
+	mapping(string:mapping(string:int)) worker_requests = ([]);
+	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+		int completed = pike_gateway_counter_value(
+			pike_gateway_worker_request_completed,worker_id);
+		int failed = pike_gateway_counter_value(
+			pike_gateway_worker_request_failed,worker_id);
+		int total = completed+failed;
+		worker_requests[worker_id] = ([
+			"active":pike_gateway_counter_value(
+				pike_gateway_worker_request_active,worker_id),
+			"peak":pike_gateway_counter_value(
+				pike_gateway_worker_request_peak,worker_id),
+			"limit":pike_gateway_worker_request_limit,
+			"completed":completed,
+			"failed":failed,
+			"rejected":pike_gateway_counter_value(
+				pike_gateway_worker_request_rejected,worker_id),
+			"consecutive_failures":
+				pike_gateway_counter_value(
+					pike_gateway_worker_consecutive_failures,worker_id),
+			"circuit_until":
+				pike_gateway_counter_value(
+					pike_gateway_worker_circuit_until,worker_id),
+			"average_ms":total ?
+				pike_gateway_counter_value(
+					pike_gateway_worker_request_total_ms,worker_id)/total : 0,
+			"max_ms":pike_gateway_counter_value(
+				pike_gateway_worker_request_max_ms,worker_id),
+		]);
+	}
 	mapping result = ([
 		"ok":pike_gateway_enabled ? 1 : 0,
 		"enabled":pike_gateway_enabled,
@@ -609,13 +676,17 @@ mapping query_pike_gateway_status()
 		"listen_port":pike_gateway_listen_port,
 		"primary_worker":pike_gateway_primary,
 		"worker_count":sizeof(pike_gateway_worker_ports),
+		"worker_requests":worker_requests,
 		"control_timeout":pike_gateway_control_timeout,
 		"active_requests":pike_gateway_active_requests,
 		"pending_requests":pike_gateway_pending_requests,
+		"maintenance_operations":pike_gateway_maintenance_operations,
 		"uncertain_requests":sizeof(pike_gateway_uncertain_requests),
 		"pending_reconcile_users":sizeof(pike_gateway_pending_reconcile_users),
 		"background_arrivals":sizeof(pike_gateway_background_arrivals),
 		"shutdown_prepared":pike_gateway_shutdown_prepared,
+		"shutdown_state":pike_gateway_shutdown_state,
+		"shutdown_started_at":pike_gateway_shutdown_started_at,
 		"completed_requests":pike_gateway_completed_requests,
 		"failed_requests":pike_gateway_failed_requests,
 		"rejected_requests":pike_gateway_rejected_requests,
@@ -687,14 +758,19 @@ private mapping pike_gateway_prepare_shutdown(array failed_workers)
 	object recovery_key;
 	object key;
 	multiset(string) skipped_workers = (<>);
+	array(string) prepared_workers = ({});
 	int deadline;
 	int active;
 	int pending;
 	int uncertain;
 	int reconcile;
 	int background;
+	int maintenance;
 	int failover = sizeof(failed_workers) ? 1 : 0;
+	int rollback_ok = 1;
+	int routing_resumed;
 	mixed prepare_err;
+	mixed rollback_err;
 	if(MAP_WORKERD->query_node_role()!="gateway" || !pike_gateway_enabled)
 		return (["ok":0,"code":"gateway_not_active"]);
 	foreach(failed_workers,mixed raw_worker_id){
@@ -727,8 +803,16 @@ private mapping pike_gateway_prepare_shutdown(array failed_workers)
 		return (["ok":1,"routing_ready":0,"active_requests":0,
 			"pending_requests":0,"uncertain_requests":0,
 			"pending_reconcile_users":0,"background_arrivals":0,
+			"maintenance_operations":0,
+			"shutdown_state":"prepared",
 			"worker_count":sizeof(pike_gateway_worker_ports),
 			"replayed":1]);
+	}
+	// A failed closed attempt keeps admission paused, but the operator must be
+	// able to retry the same proof after a transient worker/control error clears.
+	if(!has_value(({"running","failed"}),pike_gateway_shutdown_state)){
+		destruct(key);
+		return (["ok":0,"code":"gateway_shutdown_busy"]);
 	}
 	destruct(key);
 	recovery_key = pike_gateway_recovery_lock->trylock();
@@ -738,6 +822,8 @@ private mapping pike_gateway_prepare_shutdown(array failed_workers)
 	// cover a request which is stuck inside a worker.
 	key = pike_gateway_state_lock->lock();
 	pike_gateway_routing_ready = 0;
+	pike_gateway_shutdown_state = "draining";
+	pike_gateway_shutdown_started_at = time();
 	destruct(key);
 	deadline = time()+30;
 	while(1){
@@ -747,17 +833,35 @@ private mapping pike_gateway_prepare_shutdown(array failed_workers)
 		uncertain = sizeof(pike_gateway_uncertain_requests);
 		reconcile = sizeof(pike_gateway_pending_reconcile_users);
 		background = sizeof(pike_gateway_background_arrivals);
+		maintenance = pike_gateway_maintenance_operations;
 		destruct(key);
-		if(!active && !pending && !uncertain &&
+		if(!active && !pending && !uncertain && !maintenance &&
 		   (!failover || (!reconcile && !background)))
 			break;
 		if(time()>=deadline){
+			key = pike_gateway_state_lock->lock();
+			if(!failover && pike_gateway_controller_ready &&
+			   !sizeof(pike_gateway_uncertain_requests)){
+				pike_gateway_routing_ready = 1;
+				pike_gateway_shutdown_state = "running";
+				pike_gateway_shutdown_started_at = 0;
+				pike_gateway_last_error =
+					"shutdown drain timed out; routing resumed";
+				routing_resumed = 1;
+			}
+			else{
+				pike_gateway_shutdown_state = "failed";
+				pike_gateway_last_error = "shutdown drain failed closed";
+			}
+			destruct(key);
 			destruct(recovery_key);
 			return (["ok":0,"code":"gateway_not_quiescent",
 				"active_requests":active,"pending_requests":pending,
 				"uncertain_requests":uncertain,
 				"pending_reconcile_users":reconcile,
-				"background_arrivals":background]);
+				"background_arrivals":background,
+				"maintenance_operations":maintenance,
+				"routing_resumed":routing_resumed]);
 		}
 		sleep(0.01);
 	}
@@ -792,22 +896,67 @@ private mapping pike_gateway_prepare_shutdown(array failed_workers)
 				"local_prepare_shutdown",([]));
 			if(!(int)prepared["ok"])
 				error("worker refused shutdown fence: "+worker_id+"\n");
+			prepared_workers += ({worker_id});
 		}
 	};
 	if(prepare_err){
+		if(!failover){
+			rollback_err = catch {
+				// The prepare reply itself can be lost after the worker installed
+				// its fence. Cancellation is idempotent, so address every expected
+				// live worker instead of trusting only confirmed prepare replies.
+				foreach(sort(indices(pike_gateway_worker_ports)),
+				   string worker_id){
+					if(skipped_workers[worker_id])
+						continue;
+					mapping cancelled = pike_gateway_worker_rpc(worker_id,
+						"local_cancel_shutdown",([]));
+					if(!(int)cancelled["ok"])
+						error("worker refused shutdown rollback: "+worker_id+"\n");
+				}
+				pike_gateway_recover_local_players();
+			};
+			if(rollback_err)
+				rollback_ok = 0;
+		}
+		key = pike_gateway_state_lock->lock();
+		if(!failover && rollback_ok && pike_gateway_controller_ready &&
+		   !sizeof(pike_gateway_uncertain_requests) &&
+		   !sizeof(pike_gateway_pending_reconcile_users) &&
+		   !sizeof(pike_gateway_background_arrivals)){
+			pike_gateway_routing_ready = 1;
+			pike_gateway_shutdown_state = "running";
+			pike_gateway_shutdown_started_at = 0;
+			pike_gateway_last_error =
+				"shutdown fence failed; rollback completed";
+			routing_resumed = 1;
+		}
+		else{
+			pike_gateway_shutdown_state = "failed";
+			pike_gateway_last_error = rollback_ok ?
+				"shutdown fence failed closed" :
+				"shutdown rollback failed closed";
+		}
+		destruct(key);
 		destruct(recovery_key);
-		return (["ok":0,"code":"worker_shutdown_fence_failed"]);
+		return (["ok":0,"code":rollback_ok ?
+			"worker_shutdown_fence_failed" : "shutdown_rollback_failed",
+			"routing_resumed":routing_resumed,
+			"prepared_workers":prepared_workers]);
 	}
 	key = pike_gateway_state_lock->lock();
 	pike_gateway_stop = 1;
 	pike_gateway_controller_ready = 0;
 	pike_gateway_shutdown_prepared = 1;
+	pike_gateway_shutdown_state = "prepared";
 	pike_gateway_last_error = "shutdown quiesced";
 	destruct(key);
 	destruct(recovery_key);
 	return (["ok":1,"routing_ready":0,"active_requests":0,
 		"pending_requests":0,"uncertain_requests":0,
 		"pending_reconcile_users":0,"background_arrivals":0,
+		"maintenance_operations":0,
+		"shutdown_state":"prepared",
 		"worker_count":sizeof(pike_gateway_worker_ports),
 		"failed_workers":sort(indices(skipped_workers))]);
 }
@@ -930,6 +1079,39 @@ private string pike_gateway_account_for_token(string token)
 	return result;
 }
 
+/** Resolve a valid but coordinator-cold account token on the only worker that
+ * owns account sessions. The short management lock prevents a login storm
+ * from producing an unbounded control-RPC fan-out; gameplay shards stay free. */
+private string pike_gateway_resolve_account_token(string token)
+{
+	string account_id;
+	mapping resolved;
+	object management_key;
+	mixed resolve_err;
+	if(!pike_gateway_valid_hex_token(token,64))
+		return "";
+	account_id = pike_gateway_account_for_token(token);
+	if(account_id!="")
+		return account_id;
+	management_key = pike_gateway_account_management_lock->lock();
+	resolve_err = catch {
+		account_id = pike_gateway_account_for_token(token);
+		if(account_id==""){
+			resolved = pike_gateway_worker_rpc(pike_gateway_primary,
+				"local_account_session_owner",(["token":token]));
+			if((int)resolved["ok"] && pike_gateway_valid_userid(
+			   (string)resolved["account_id"])){
+				account_id = (string)resolved["account_id"];
+				pike_gateway_record_account_token(token,account_id);
+			}
+		}
+	};
+	destruct(management_key);
+	if(resolve_err)
+		error(describe_error(resolve_err));
+	return account_id;
+}
+
 /**
  * Map nodes intentionally skip most eager daemons. The first burst of browser
  * polls can therefore race Pike's lazy account daemon construction and observe
@@ -1002,6 +1184,74 @@ private int pike_gateway_worker_is_reachable(string worker_id)
 	int reachable = pike_gateway_worker_reachable[worker_id];
 	destruct(key);
 	return reachable;
+}
+
+/** One slow map process must not consume the whole public request farm. */
+private int pike_gateway_enter_worker_request(string worker_id)
+{
+	object key = pike_gateway_state_lock->lock();
+	int now = time();
+	int active = pike_gateway_counter_value(
+		pike_gateway_worker_request_active,worker_id);
+	int rejected = test_pike_gateway_worker_bulkhead(
+		pike_gateway_worker_ports[worker_id] ? 1 : 0,
+		pike_gateway_worker_reachable[worker_id],active,
+		pike_gateway_worker_request_limit,
+		pike_gateway_counter_value(
+			pike_gateway_worker_consecutive_failures,worker_id),
+		pike_gateway_counter_value(
+			pike_gateway_worker_circuit_until,worker_id),now);
+	if(rejected){
+		pike_gateway_worker_request_rejected[worker_id] =
+			pike_gateway_counter_value(
+				pike_gateway_worker_request_rejected,worker_id)+1;
+		pike_gateway_rejected_requests++;
+		destruct(key);
+		return 0;
+	}
+	active++;
+	pike_gateway_worker_request_active[worker_id] = active;
+	if(active>pike_gateway_counter_value(
+	   pike_gateway_worker_request_peak,worker_id))
+		pike_gateway_worker_request_peak[worker_id] = active;
+	destruct(key);
+	return 1;
+}
+
+private void pike_gateway_leave_worker_request(string worker_id,int ok,
+	int elapsed_ms)
+{
+	object key = pike_gateway_state_lock->lock();
+	pike_gateway_worker_request_active[worker_id] = max(0,
+		pike_gateway_counter_value(
+			pike_gateway_worker_request_active,worker_id)-1);
+	pike_gateway_worker_request_total_ms[worker_id] =
+		pike_gateway_counter_value(
+			pike_gateway_worker_request_total_ms,worker_id)+max(0,elapsed_ms);
+	if(elapsed_ms>pike_gateway_counter_value(
+	   pike_gateway_worker_request_max_ms,worker_id))
+		pike_gateway_worker_request_max_ms[worker_id] = elapsed_ms;
+	if(ok){
+		pike_gateway_worker_request_completed[worker_id] =
+			pike_gateway_counter_value(
+				pike_gateway_worker_request_completed,worker_id)+1;
+		pike_gateway_worker_consecutive_failures[worker_id] = 0;
+		pike_gateway_worker_circuit_until[worker_id] = 0;
+	}
+	else{
+		pike_gateway_worker_request_failed[worker_id] =
+			pike_gateway_counter_value(
+				pike_gateway_worker_request_failed,worker_id)+1;
+		pike_gateway_worker_consecutive_failures[worker_id] =
+			pike_gateway_counter_value(
+				pike_gateway_worker_consecutive_failures,worker_id)+1;
+		if(pike_gateway_counter_value(
+		   pike_gateway_worker_consecutive_failures,worker_id)>=
+		   PIKE_GATEWAY_CIRCUIT_FAILURES)
+			pike_gateway_worker_circuit_until[worker_id] =
+				time()+PIKE_GATEWAY_CIRCUIT_SECONDS;
+	}
+	destruct(key);
 }
 
 private void pike_gateway_set_worker_reachable(string worker_id,int reachable)
@@ -1077,6 +1327,24 @@ private void pike_gateway_end_request()
 	destruct(key);
 }
 
+private int pike_gateway_begin_maintenance_operation()
+{
+	object key = pike_gateway_state_lock->lock();
+	int ready = pike_gateway_routing_ready && !pike_gateway_stop;
+	if(ready)
+		pike_gateway_maintenance_operations++;
+	destruct(key);
+	return ready;
+}
+
+private void pike_gateway_end_maintenance_operation()
+{
+	object key = pike_gateway_state_lock->lock();
+	pike_gateway_maintenance_operations = max(0,
+		pike_gateway_maintenance_operations-1);
+	destruct(key);
+}
+
 private void pike_gateway_pause_routing()
 {
 	int active = 1;
@@ -1095,7 +1363,8 @@ private void pike_gateway_pause_routing()
 private void pike_gateway_resume_routing()
 {
 	object key = pike_gateway_state_lock->lock();
-	if(!sizeof(pike_gateway_uncertain_requests))
+	if(pike_gateway_shutdown_state=="running" &&
+	   !sizeof(pike_gateway_uncertain_requests))
 		pike_gateway_routing_ready = 1;
 	destruct(key);
 }
@@ -1214,14 +1483,18 @@ private void pike_gateway_sync_catalog_unlocked()
 	int topology_rebalance = MAP_WORKERD->
 		placement_topology_requires_rebalance();
 	int heat_ready = MAP_WORKERD->affinity_heat_ready();
+	int heat_candidate = heat_ready &&
+		!pike_gateway_heat_rebalance_completed;
 	int cold_workers;
 	int heat_rebalance;
 	int force_rebalance;
-	if(topology_rebalance || heat_ready)
+	if(topology_rebalance || heat_candidate)
 		cold_workers = pike_gateway_workers_are_cold();
 	if(topology_rebalance && !cold_workers)
 		error("topology rebalance requires a cold worker inventory\n");
-	heat_rebalance = heat_ready && cold_workers;
+	// Heat is a cold-start seed, not a reason to reshuffle the same catalog on
+	// every recovery/install call in one coordinator lifetime.
+	heat_rebalance = heat_candidate && cold_workers;
 	force_rebalance = topology_rebalance || heat_rebalance;
 	mapping catalog = MAP_WORKERD->assign_catalog(force_rebalance);
 	mapping status;
@@ -1229,6 +1502,8 @@ private void pike_gateway_sync_catalog_unlocked()
 	int generation;
 	if(!(int)catalog["ok"])
 		error("cannot assign map catalog\n");
+	if(heat_rebalance)
+		pike_gateway_heat_rebalance_completed = 1;
 	if(force_rebalance)
 		werror("[PIKE_GATEWAY] cold catalog rebalance completed; topology=%d heat=%d workers=%d\n",
 			topology_rebalance,heat_rebalance,
@@ -1622,6 +1897,8 @@ private mapping pike_gateway_proxy(string worker_id,string method,string path,
 	string request_id = pike_gateway_random_hex(32);
 	string accepted = "";
 	int request_may_be_running;
+	int worker_slot;
+	int worker_started_at;
 	mixed proxy_err;
 	foreach(indices(request_headers),mixed raw_name){
 		string name;
@@ -1695,6 +1972,14 @@ private mapping pike_gateway_proxy(string worker_id,string method,string path,
 		headers["X-Xiand-Account-Cache-Token"] =
 			pike_gateway_account_cache_token(account_id,worker_id);
 	}
+	if(!pike_gateway_enter_worker_request(worker_id)){
+		response = pike_gateway_busy_response(
+			"当前地图繁忙，请稍后重试");
+		response["not_started"] = 1;
+		return response;
+	}
+	worker_slot = 1;
+	worker_started_at = gethrtime();
 	proxy_err = catch {
 		request_may_be_running = 1;
 		response = pike_gateway_http_request(worker_id,method,path,headers,body,
@@ -1708,6 +1993,9 @@ private mapping pike_gateway_proxy(string worker_id,string method,string path,
 		else if(!has_value(({403,409,413}),(int)response["status"]))
 			error("worker response lacks request fence proof\n");
 	};
+	if(worker_slot)
+		pike_gateway_leave_worker_request(worker_id,proxy_err ? 0 : 1,
+			(gethrtime()-worker_started_at)/1000);
 	if(proxy_err){
 		if(request_may_be_running)
 			pike_gateway_quarantine_uncertain(worker_id,request_id);
@@ -2001,7 +2289,6 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 	object user_key;
 	object auction_key;
 	object team_mutation_key;
-	object account_management_key;
 	array(object) all_account_keys = ({});
 	int request_entered;
 	int command_may_have_run;
@@ -2021,7 +2308,7 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 		pike_gateway_begin_request();
 		request_entered = 1;
 		if(pike_gateway_account_path((string)snapshot["path_only"])){
-			token_account = pike_gateway_account_for_token(account_token);
+			token_account = pike_gateway_resolve_account_token(account_token);
 			if(userid!=""){
 				account_id = pike_gateway_resolve_account(userid);
 				if(token_account!="" && token_account!=account_id)
@@ -2033,10 +2320,9 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				user_key = pike_gateway_user_mutex(account_id,account_id)->lock();
 			}
 			else{
-				account_management_key =
-					pike_gateway_account_management_lock->lock();
-				foreach(pike_gateway_user_locks,object mutex)
-					all_account_keys += ({mutex->lock()});
+				// An invalid or expired token cannot mutate an account. Let the
+				// primary return its normal 401 without blocking every player shard.
+				account_id = "";
 			}
 			pike_gateway_ensure_routing_ready();
 			proxied = pike_gateway_proxy(pike_gateway_primary,method,path,
@@ -2166,6 +2452,8 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			command_may_have_run = 1;
 			proxied = pike_gateway_proxy(worker_id,method,path,headers,body,
 				userid,epoch,arrival_room,account_id,command_kind,admin_target);
+			if((int)proxied["not_started"])
+				command_may_have_run = 0;
 			if((int)proxied["status"]<500){
 				pike_gateway_acknowledge_arrival(userid,worker_id,epoch,
 					leased_affinity,arrival_room);
@@ -2215,7 +2503,7 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				}
 				pike_gateway_clear_reconciliation_pending(userid);
 			}
-			else
+			else if(!(int)proxied["not_started"])
 				pike_gateway_mark_reconciliation_pending(userid);
 		}
 		else
@@ -2235,8 +2523,6 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 		destruct(user_key);
 	for(int index=sizeof(all_account_keys)-1;index>=0;index--)
 		destruct(all_account_keys[index]);
-	if(account_management_key)
-		destruct(account_management_key);
 	if(request_entered)
 		pike_gateway_end_request();
 	if(request_err){
@@ -2251,7 +2537,8 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 		return pike_gateway_busy_response("地图服务暂时繁忙，请稍后重试");
 	}
 	object key = pike_gateway_state_lock->lock();
-	pike_gateway_completed_requests++;
+	if(!(int)proxied["not_started"])
+		pike_gateway_completed_requests++;
 	destruct(key);
 	return proxied;
 }
@@ -2261,6 +2548,21 @@ private void pike_gateway_release_request_slot()
 	object key = pike_gateway_state_lock->lock();
 	pike_gateway_pending_requests = max(0,pike_gateway_pending_requests-1);
 	destruct(key);
+}
+
+/** Release admission when worker processing settles, not when the socket's
+ * response callback eventually runs.  Shutdown cares about mutations and
+ * queued work; a slow/disconnected browser must not pin a completed request. */
+private mapping pike_gateway_process_reserved_snapshot(mapping snapshot)
+{
+	mapping proxied;
+	mixed process_err = catch {
+		proxied = pike_gateway_process_public_snapshot(snapshot);
+	};
+	pike_gateway_release_request_slot();
+	if(process_err)
+		error(describe_error(process_err));
+	return proxied;
 }
 
 private void pike_gateway_deliver_response(mapping proxied,
@@ -2288,7 +2590,6 @@ private void pike_gateway_deliver_response(mapping proxied,
 	response["type"] = content_type;
 	response["data"] = method=="HEAD" ? "" : (string)(proxied["body"] || "");
 	response["extra_heads"] = extra_heads;
-	pike_gateway_release_request_slot();
 	finish_http_response(req,response);
 }
 
@@ -2358,7 +2659,7 @@ void handle_pike_gateway_request(Protocols.HTTP.Server.Request req)
 	]);
 	schedule_err = catch {
 		future = pike_gateway_request_farm->run(
-			pike_gateway_process_public_snapshot,copy_value(snapshot));
+			pike_gateway_process_reserved_snapshot,copy_value(snapshot));
 		future->on_success(pike_gateway_deliver_response,req,method);
 		future->on_failure(pike_gateway_deliver_failure,req,method);
 	};
@@ -2383,7 +2684,18 @@ private mapping pike_gateway_collect_worker_metrics(string worker_id)
 		"active_players":(int)local_status["active_players"],
 		"active_rooms":(int)local_status["active_rooms"],
 		"pending_commands":(int)local_status["pending_commands"],
+		"commands_waiting":(int)local_status["commands_waiting"],
+		"commands_active":(int)local_status["commands_active"],
+		"queue_wait_max_ms":(int)local_status["queue_wait_max_ms"],
+		"command_max_ms":(int)local_status["command_max_ms"],
 		"heartbeat_ms":(int)local_status["heartbeat_ms"],
+		"backend_lag_ms":(int)local_status["backend_lag_ms"],
+		"backend_max_lag_ms":(int)local_status["backend_max_lag_ms"],
+		"cpu_percent":(int)local_status["cpu_percent"],
+		"call_outs":(int)local_status["call_outs"],
+		"save_average_ms":(int)local_status["save_average_ms"],
+		"save_max_ms":(int)local_status["save_max_ms"],
+		"save_failures":(int)local_status["save_failures"],
 	]);
 }
 
@@ -3045,12 +3357,9 @@ private void pike_gateway_controller_loop()
 	}
 }
 
-/**
- * Potentially slow arrival, social, snapshot and recovery work must never
- * share the heartbeat loop. One maintenance thread preserves their existing
- * ordering while the monitor farm continues renewing worker control leases.
- */
-private void pike_gateway_maintenance_loop()
+/** Recovery owns the global recovery lock and never shares a lane with social
+ * fan-out or player arrivals. */
+private void pike_gateway_recovery_loop()
 {
 	while(!pike_gateway_stop){
 		if(!pike_gateway_controller_ready){
@@ -3059,26 +3368,6 @@ private void pike_gateway_maintenance_loop()
 		}
 		pike_gateway_resolve_uncertain_requests();
 		int now = time();
-		int publish_online;
-		object publish_key = pike_gateway_state_lock->lock();
-		if(pike_gateway_last_monitor_completed_at>
-		   pike_gateway_last_online_publish_at){
-			pike_gateway_last_online_publish_at =
-				pike_gateway_last_monitor_completed_at;
-			publish_online = 1;
-		}
-		destruct(publish_key);
-		if(publish_online)
-			pike_gateway_publish_online_snapshot();
-		if(pike_gateway_routing_ready &&
-		   now-pike_gateway_last_handoff_at>=1){
-			pike_gateway_last_handoff_at = now;
-			pike_gateway_run_background_handoffs();
-		}
-		if(pike_gateway_routing_ready && now-pike_gateway_last_social_at>=1){
-			pike_gateway_last_social_at = now;
-			pike_gateway_run_social_events();
-		}
 		if(pike_gateway_routing_ready &&
 		   now-pike_gateway_last_lease_gc_at>=pike_gateway_lease_gc_seconds){
 			pike_gateway_last_lease_gc_at = now;
@@ -3089,10 +3378,78 @@ private void pike_gateway_maintenance_loop()
 				destruct(key);
 			}
 		}
-		if(!pike_gateway_shadow &&
-		   now-pike_gateway_last_auction_at>=1200){
+		sleep(0.25);
+	}
+}
+
+private void pike_gateway_handoff_loop()
+{
+	while(!pike_gateway_stop){
+		if(pike_gateway_controller_ready && pike_gateway_routing_ready &&
+		   time()-pike_gateway_last_handoff_at>=1 &&
+		   pike_gateway_begin_maintenance_operation()){
+			pike_gateway_last_handoff_at = time();
+			mixed handoff_err = catch {
+				pike_gateway_run_background_handoffs();
+			};
+			pike_gateway_end_maintenance_operation();
+			if(handoff_err)
+				werror("[PIKE_GATEWAY][HANDOFF_LANE] %s\n",
+					describe_error(handoff_err));
+		}
+		sleep(0.25);
+	}
+}
+
+private void pike_gateway_social_loop()
+{
+	while(!pike_gateway_stop){
+		if(pike_gateway_controller_ready && pike_gateway_routing_ready &&
+		   time()-pike_gateway_last_social_at>=1 &&
+		   pike_gateway_begin_maintenance_operation()){
+			pike_gateway_last_social_at = time();
+			mixed social_err = catch { pike_gateway_run_social_events(); };
+			pike_gateway_end_maintenance_operation();
+			if(social_err)
+				werror("[PIKE_GATEWAY][SOCIAL_LANE] %s\n",
+					describe_error(social_err));
+		}
+		sleep(0.25);
+	}
+}
+
+private void pike_gateway_housekeeping_loop()
+{
+	while(!pike_gateway_stop){
+		int publish_online;
+		int now;
+		if(!pike_gateway_controller_ready){
+			sleep(0.25);
+			continue;
+		}
+		now = time();
+		object publish_key = pike_gateway_state_lock->lock();
+		if(pike_gateway_last_monitor_completed_at>
+		   pike_gateway_last_online_publish_at){
+			pike_gateway_last_online_publish_at =
+				pike_gateway_last_monitor_completed_at;
+			publish_online = 1;
+		}
+		destruct(publish_key);
+		if(publish_online && pike_gateway_begin_maintenance_operation()){
+			mixed publish_err = catch {
+				pike_gateway_publish_online_snapshot();
+			};
+			pike_gateway_end_maintenance_operation();
+			if(publish_err)
+				werror("[PIKE_GATEWAY][SNAPSHOT_LANE] %s\n",
+					describe_error(publish_err));
+		}
+		if(!pike_gateway_shadow && now-pike_gateway_last_auction_at>=1200 &&
+		   pike_gateway_begin_maintenance_operation()){
 			pike_gateway_last_auction_at = now;
 			pike_gateway_run_auction_tick();
+			pike_gateway_end_maintenance_operation();
 		}
 		sleep(0.25);
 	}
@@ -3129,6 +3486,10 @@ void init_pike_gateway()
 		"XIAND_WORKER_CONTROL_TIMEOUT",2,1,10);
 	pike_gateway_max_requests = pike_gateway_env_int(
 		"XIAND_GATEWAY_MAX_REQUESTS",128,8,1024);
+	pike_gateway_worker_request_limit = min(pike_gateway_max_requests,
+		pike_gateway_env_int("XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER",
+			max(8,(pike_gateway_max_requests+worker_count-1)/worker_count+4),
+			4,1024));
 	pike_gateway_lease_gc_seconds = pike_gateway_env_int(
 		"XIAND_MAP_WORKER_LEASE_GC_SECONDS",3600,300,86400);
 	for(int index=1;index<=worker_count;index++){
@@ -3149,8 +3510,11 @@ void init_pike_gateway()
 	pike_gateway_enabled = 1;
 	pike_gateway_controller_thread = Thread.Thread(
 		pike_gateway_controller_loop);
-	pike_gateway_maintenance_thread = Thread.Thread(
-		pike_gateway_maintenance_loop);
+	pike_gateway_recovery_thread = Thread.Thread(pike_gateway_recovery_loop);
+	pike_gateway_handoff_thread = Thread.Thread(pike_gateway_handoff_loop);
+	pike_gateway_social_thread = Thread.Thread(pike_gateway_social_loop);
+	pike_gateway_housekeeping_thread = Thread.Thread(
+		pike_gateway_housekeeping_loop);
 	werror("[PIKE_GATEWAY] embedded controller starting; mode=%s workers=%d\n",
 		pike_gateway_shadow ? "shadow" : "active",worker_count);
 }

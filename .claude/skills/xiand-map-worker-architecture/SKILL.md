@@ -63,12 +63,15 @@ Do not trust older Python gateway artifacts or documentation. The active impleme
 - Ship examples as `enabled=0`, `traffic_mode=shadow`, `worker_count=3`; preserve an existing host's persisted configuration instead of resetting it.
 - Treat `shadow` as the safe observation mode: legacy single-process remains authoritative; the coordinator and workers receive no player traffic.
 - Active mode is implemented and may run a controlled production trial with a configured worker count. Still require `XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only`, a healthy full topology, and no persistent fallback latch.
-- Keep player direct gift and face-to-face trade disabled in distributed mode until durable cross-worker transactions are integrated end to end.
+- Permit direct gift and face-to-face trade only when both exact characters are in the same local room and `player_transferd` holds the gateway's stable two-account lock. Keep cross-room and cross-worker transfer fail-closed until durable escrow is integrated end to end.
+- Keep the public total request bound and a smaller per-worker bulkhead. A hot/slow worker may reject new work locally, but a request that may already have executed must still quarantine globally and reconcile; never reroute it.
+- Keep shutdown as an explicit `running -> draining -> prepared|failed` state machine. A normal aborted stop may resume only after every possible worker shutdown fence is idempotently cancelled and inventory reconciliation succeeds.
 - Cross-worker private chat, team invitations/snapshots/chat/notices, and world broadcast use the durable social-event pipeline. Preserve event ids, outbox durability classes, gateway fan-out, and idempotent worker delivery.
 - Permit a team member's cross-worker movement only when the source has a complete primitive team snapshot and the target installs it before source release; otherwise fail closed.
 - Build player/friend presence from the coordinator-verified cluster snapshot. Never use local `users()` or `find_player()` as proof that a remote player is offline.
 - Friend teleport must resolve to a validated static `/gamelib/d/` room and then use `qge74hye -> user::move() -> guard_local_player_move()`. Reject clone paths, logical-zone violations, incompatible factions, stale snapshots, and unavailable owners.
 - Do not remove a `fallback-latched` file merely to make startup pass. Audit the failure and control-plane/player inventories first.
+- Treat one affinity as one atomic social world. Current hotspot metrics and cold placement spread heavy affinities across workers; they do not authorize live room cloning or Diablo-style layering.
 
 ## Keep adjacent balance changes separate
 

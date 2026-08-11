@@ -23,6 +23,9 @@ private string overview()
 	int runtime_controls = (string)status["node_role"]=="gateway";
 	mapping(string:int) placement_counts = ([]);
 	mapping(string:int) placement_weights = ([]);
+	string hottest_affinity = "";
+	string hottest_worker = "";
+	int hottest_weight;
 	string s = "=== 地图 Worker 试运行管理 ===\n";
 	s += "期望状态："+((int)config["enabled"] ? "开启" : "关闭")+
 		"，worker 数："+(string)config["worker_count"]+
@@ -44,13 +47,26 @@ private string overview()
 	s += "人物租约："+(string)status["player_leases"]+
 		"，迁移事务："+(string)status["handoffs"]+
 		"，控制面持久化："+
-		((int)status["persist_healthy"] ? "正常" : "异常")+"\n\n";
+		((int)status["persist_healthy"] ? "正常" : "异常")+
+		"（最近 "+(string)status["persist_last_ms"]+"ms，最大 "+
+		(string)status["persist_max_ms"]+"ms，失败 "+
+		(string)status["persist_failures"]+"）\n\n";
 
 	foreach(placements,mapping placement){
 		string worker_id = (string)placement["worker_id"];
+		int effective_weight = (int)(placement["effective_weight"] ||
+			placement["weight"]);
 		placement_counts[worker_id]++;
 		placement_weights[worker_id] += (int)placement["weight"];
+		if(effective_weight>hottest_weight){
+			hottest_weight = effective_weight;
+			hottest_affinity = (string)placement["affinity"];
+			hottest_worker = worker_id;
+		}
 	}
+	if(hottest_affinity!="")
+		s += "当前最高负载地图域："+hottest_affinity+" → "+
+			hottest_worker+"（有效权重 "+(string)hottest_weight+"）\n";
 	if(sizeof(nodes)==0)
 		s += "当前没有已注册 worker；配置需由试运行编排器 apply 后生效。\n";
 	else{
@@ -63,7 +79,12 @@ private string overview()
 				" | 玩家="+(string)node["active_players"]+
 				" 房间="+(string)node["active_rooms"]+
 				" 排队="+(string)node["pending_commands"]+
+				"/"+(string)node["commands_waiting"]+
+				" CPU="+(string)node["cpu_percent"]+"%"+
+				" 后端延迟="+(string)node["backend_lag_ms"]+"ms"+
 				" 心跳周期="+(string)node["heartbeat_ms"]+"ms"+
+				" 存档="+(string)node["save_average_ms"]+"/"+
+				(string)node["save_max_ms"]+"ms"+
 				" | 地图区="+(string)placement_counts[worker_id]+
 				" 权重="+(string)placement_weights[worker_id]+"\n";
 			if(runtime_controls){

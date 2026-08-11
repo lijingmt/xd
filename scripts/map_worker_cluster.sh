@@ -818,9 +818,14 @@ while True:
             continue
         print(json.dumps(result, ensure_ascii=False), file=sys.stderr)
         raise
+shutdown_state = result.get("shutdown_state")
 if (not result.get("ok") or result.get("routing_ready") != 0
+        # A coordinator from the immediately previous release has no explicit
+        # state field; its complete zero-inflight proof remains upgrade-safe.
+        or (shutdown_state is not None and shutdown_state != "prepared")
         or result.get("active_requests") != 0
         or result.get("pending_requests") != 0
+        or result.get("maintenance_operations", 0) != 0
         or result.get("uncertain_requests") != 0
         or result.get("pending_reconcile_users") != 0
         or result.get("background_arrivals") != 0):

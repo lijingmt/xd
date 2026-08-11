@@ -173,9 +173,10 @@ private void reconcile_worker_caoyao(string name)
 	}
 	caoyaoNeed[name] = missing;
 	worker_initialized[name] = 1;
-	werror("[CAOYAOD][WORKER] generation=%d source=%s desired=%d existing=%d spawned=%d missing=%d\n",
-		MAP_WORKERD->query_local_assignment_generation(),name,
-		desired_total,existing_total,spawned,missing);
+	if(spawned || missing)
+		werror("[CAOYAOD][WORKER] generation=%d source=%s desired=%d existing=%d spawned=%d missing=%d\n",
+			MAP_WORKERD->query_local_assignment_generation(),name,
+			desired_total,existing_total,spawned,missing);
 }
 
 private int refresh_worker_generation()
@@ -192,6 +193,8 @@ private void reconcile_all_worker_caoyao()
 {
 	foreach(indices(caoyaoMap),string name)
 		reconcile_worker_caoyao(name);
+	werror("[CAOYAOD][WORKER] generation=%d reconciled_sources=%d\n",
+		MAP_WORKERD->query_local_assignment_generation(),sizeof(caoyaoMap));
 }
 
 private void fill_worker_caoyao_need(string name)

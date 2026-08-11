@@ -236,9 +236,11 @@ void test_runtime_debug_logs_removed()
 		"/gamelib/single/daemons/_http_api_mod/command_queue.pike");
 	string renderer = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
-	valid = valid && queue && renderer &&
+	string driver = Stdio.read_file(ROOT+"/lowlib/driver.pike");
+	valid = valid && queue && renderer && driver &&
 		search(queue,"Enqueued request for %s: cmd=%s")==-1 &&
-		search(renderer,"response_to_html called! cmd=%s")==-1;
+		search(renderer,"response_to_html called! cmd=%s")==-1 &&
+		search(driver,"debug_log->write(\"%s:%d: %s\\n\"")==-1;
 	string taskd = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/taskd.pike");
 	valid = valid && taskd && search(taskd,"taskdrop.log")==-1;

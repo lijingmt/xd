@@ -111,6 +111,12 @@ private Thread.Mutex control_persist_lock = Thread.Mutex();
 private int control_persist_scheduled;
 private int control_last_persisted_at;
 private string control_last_persist_error = "";
+private int control_persist_attempts;
+private int control_persist_failures;
+private int control_persist_total_ms;
+private int control_persist_max_ms;
+private int control_persist_last_ms;
+private int control_persist_last_bytes;
 private int control_restore_discarded;
 private int control_restored_from_backup;
 private Thread.Mutex cluster_config_lock = Thread.Mutex();
@@ -615,7 +621,7 @@ private int persist_control_plane()
 {
 	object persist_key = control_persist_lock->lock();
 	mapping snapshot;
-	string encoded;
+	string encoded = "";
 	string path;
 	string temp_path;
 	string backup_path;
@@ -624,11 +630,15 @@ private int persist_control_plane()
 	int ok;
 	int live_size;
 	int backup_size;
+	int started_at;
+	int elapsed_ms;
 	control_persist_scheduled = 0;
 	if(node_role!="gateway"){
 		destruct(persist_key);
 		return 1;
 	}
+	control_persist_attempts++;
+	started_at = gethrtime();
 	{
 		object worker_key = worker_state_lock->lock();
 		snapshot = ([
@@ -668,6 +678,7 @@ private int persist_control_plane()
 	backup_temp_path = path+".bak.tmp";
 	err = catch {
 		encoded = Standards.JSON.encode(snapshot);
+		control_persist_last_bytes = sizeof(encoded);
 		if(sizeof(encoded)>MAP_WORKER_MAX_CONTROL_BYTES)
 			error("control plane exceeds durable size budget\n");
 		mkdir(DATA_ROOT+"map_workers");
@@ -688,10 +699,16 @@ private int persist_control_plane()
 				ok = 1;
 		}
 	};
+	elapsed_ms = max(0,(gethrtime()-started_at)/1000);
+	control_persist_last_ms = elapsed_ms;
+	control_persist_total_ms += elapsed_ms;
+	if(elapsed_ms>control_persist_max_ms)
+		control_persist_max_ms = elapsed_ms;
 	if(err || !ok){
 		rm(temp_path);
 		rm(backup_temp_path);
 		control_last_persist_error = "control plane persistence failed";
+		control_persist_failures++;
 		werror("[MAP_WORKERD] control plane persistence failed\n");
 		destruct(persist_key);
 		return 0;
@@ -705,10 +722,18 @@ private int persist_control_plane()
 
 private void schedule_control_persist()
 {
-	if(node_role!="gateway" || control_persist_scheduled)
+	int schedule;
+	object key;
+	if(node_role!="gateway")
 		return;
-	control_persist_scheduled = 1;
-	call_out(persist_control_plane,1);
+	key = control_persist_lock->lock();
+	if(!control_persist_scheduled){
+		control_persist_scheduled = 1;
+		schedule = 1;
+	}
+	destruct(key);
+	if(schedule)
+		call_out(persist_control_plane,1);
 }
 
 private string normalize_token(string value,int max_length)
@@ -1796,6 +1821,23 @@ mapping(string:mixed) prepare_local_shutdown_save_fence()
 	return (["ok":1,"expires_at":local_shutdown_save_fence_expires_at]);
 }
 
+/**
+ * A normal coordinator restart may abort before any process is stopped.  Its
+ * shutdown-save capability must then be revoked explicitly before public
+ * routing is reopened; otherwise a later control interruption could permit a
+ * stale worker save during the old 30-minute capability window.
+ */
+mapping(string:mixed) cancel_local_shutdown_save_fence()
+{
+	object key;
+	if(node_role!="worker")
+		return (["ok":0,"code":"not_worker"]);
+	key = local_route_lock->lock();
+	local_shutdown_save_fence_expires_at = 0;
+	destruct(key);
+	return (["ok":1]);
+}
+
 int local_shutdown_save_fence_valid()
 {
 	object key;
@@ -1876,7 +1918,9 @@ mapping(string:mixed) query_local_control_status()
 			MAP_WORKER_LOCAL_CONTROL_TTL>=time()),
 		"isolated":local_control_isolated,
 		"tracked_player_epochs":sizeof(local_player_epochs),
-		"control_ttl":MAP_WORKER_LOCAL_CONTROL_TTL]);
+		"control_ttl":MAP_WORKER_LOCAL_CONTROL_TTL,
+		"shutdown_save_fence_valid":
+			local_shutdown_save_fence_expires_at>=time()]);
 	destruct(key);
 	key = local_social_lock->lock();
 	result["social_outbox_pending"] = sizeof(local_social_events);
@@ -2657,6 +2701,17 @@ mapping(string:mixed) register_worker(string worker_id,string endpoint,
 		"active_rooms":0,
 		"pending_commands":0,
 		"heartbeat_ms":0,
+		"commands_waiting":0,
+		"commands_active":0,
+		"backend_lag_ms":0,
+		"cpu_percent":0,
+		"queue_wait_max_ms":0,
+		"command_max_ms":0,
+		"backend_max_lag_ms":0,
+		"call_outs":0,
+		"save_average_ms":0,
+		"save_max_ms":0,
+		"save_failures":0,
 	]);
 	placement_generation++;
 	destruct(key);
@@ -2682,6 +2737,25 @@ mapping(string:mixed) heartbeat_worker(string worker_id,int generation,
 	node["active_rooms"] = max(0,min(100000,(int)metrics["active_rooms"]));
 	node["pending_commands"] = max(0,min(100000,(int)metrics["pending_commands"]));
 	node["heartbeat_ms"] = max(0,min(600000,(int)metrics["heartbeat_ms"]));
+	node["commands_waiting"] = max(0,min(100000,
+		(int)metrics["commands_waiting"]));
+	node["commands_active"] = max(0,min(100000,
+		(int)metrics["commands_active"]));
+	node["backend_lag_ms"] = max(0,min(600000,
+		(int)metrics["backend_lag_ms"]));
+	node["cpu_percent"] = max(0,min(10000,(int)metrics["cpu_percent"]));
+	node["queue_wait_max_ms"] = max(0,min(3600000,
+		(int)metrics["queue_wait_max_ms"]));
+	node["command_max_ms"] = max(0,min(3600000,
+		(int)metrics["command_max_ms"]));
+	node["backend_max_lag_ms"] = max(0,min(3600000,
+		(int)metrics["backend_max_lag_ms"]));
+	node["call_outs"] = max(0,min(1000000,(int)metrics["call_outs"]));
+	node["save_average_ms"] = max(0,min(3600000,
+		(int)metrics["save_average_ms"]));
+	node["save_max_ms"] = max(0,min(3600000,(int)metrics["save_max_ms"]));
+	node["save_failures"] = max(0,min(1000000,
+		(int)metrics["save_failures"]));
 	destruct(key);
 	return (["ok":1,"generation":generation]);
 }
@@ -2710,7 +2784,11 @@ private int worker_load_score_unlocked(mapping node)
 	int raw = (int)node["active_players"]*1000+
 		(int)node["active_rooms"]*120+
 		(int)node["pending_commands"]*400+
-		(int)node["heartbeat_ms"]*10;
+		(int)node["commands_waiting"]*600+
+		(int)node["commands_active"]*200+
+		(int)node["heartbeat_ms"]*10+
+		(int)node["backend_lag_ms"]*20+
+		(int)node["cpu_percent"]*30;
 	return raw/capacity;
 }
 
@@ -4437,12 +4515,30 @@ mapping(string:mixed) query_status()
 	int escrow_count = sizeof(escrow_transactions);
 	int pk_count = sizeof(pk_sessions);
 	destruct(message_key);
+	object persist_key = control_persist_lock->lock();
+	int last_persisted_at = control_last_persisted_at;
+	string persist_error = control_last_persist_error;
+	int persist_attempts = control_persist_attempts;
+	int persist_failures = control_persist_failures;
+	int persist_total_ms = control_persist_total_ms;
+	int persist_max_ms = control_persist_max_ms;
+	int persist_last_ms = control_persist_last_ms;
+	int persist_last_bytes = control_persist_last_bytes;
+	destruct(persist_key);
 	return ([
 		"mode":distributed_mode_enabled() ? "distributed" : "standalone",
 		"node_role":node_role,"local_worker_id":local_worker_id,
 		"desired_config":desired_config,
-		"last_persisted_at":control_last_persisted_at,
-		"persist_healthy":control_last_persist_error=="",
+		"last_persisted_at":last_persisted_at,
+		"persist_healthy":persist_error=="",
+		"persist_error":persist_error,
+		"persist_attempts":persist_attempts,
+		"persist_failures":persist_failures,
+		"persist_average_ms":persist_attempts ?
+			persist_total_ms/persist_attempts : 0,
+		"persist_max_ms":persist_max_ms,
+		"persist_last_ms":persist_last_ms,
+		"persist_last_bytes":persist_last_bytes,
 		"restore_discarded":control_restore_discarded,
 		"placement_generation":generation,"catalog_size":sizeof(affinity_room_weights),
 		"placement_topology_worker_count":topology_worker_count,

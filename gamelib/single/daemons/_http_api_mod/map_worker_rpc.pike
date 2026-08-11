@@ -749,7 +749,18 @@ private void handle_map_worker_local_status(
         "active_players":sizeof(local_players),
         "active_rooms":sizeof(occupied_rooms),
         "pending_commands":(int)thread_status["world_pending_commands"],
+        "commands_waiting":(int)thread_status["world_commands_waiting"],
+        "commands_active":(int)thread_status["world_commands_active"],
+        "queue_wait_max_ms":(int)thread_status["world_max_queue_wait_ms"],
+        "command_max_ms":(int)thread_status["max_command_ms"],
         "heartbeat_ms":(int)runtime_status["heartbeat_last_cycle_ms"],
+        "backend_lag_ms":(int)runtime_status["backend_last_lag_ms"],
+        "backend_max_lag_ms":(int)runtime_status["backend_max_lag_ms"],
+        "cpu_percent":(int)runtime_status["cpu_percent"],
+        "call_outs":(int)runtime_status["backend_call_outs"],
+        "save_average_ms":(int)runtime_status["save_average_ms"],
+        "save_max_ms":(int)runtime_status["save_max_ms"],
+        "save_failures":(int)runtime_status["save_failure_count"],
         "control":MAP_WORKERD->query_local_control_status(),
         "online_users":map_worker_local_online_rows(local_players),
     ]));
@@ -1443,6 +1454,15 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
         handle_map_worker_local_status(req);
         return;
     }
+    if(action=="local_account_session_owner"){
+        string session_token = lower_case(String.trim_all_whites(
+            (string)(params["token"] || "")));
+        string account_id = query_account_session_owner_for_gateway(
+            session_token);
+        send_json(req,(["ok":account_id!="" ? 1 : 0,
+            "account_id":account_id]),account_id!="" ? 200 : 401);
+        return;
+    }
     if(action=="local_pending_routes"){
         handle_map_worker_local_pending_routes(req);
         return;
@@ -1490,6 +1510,11 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
     }
     if(action=="local_prepare_shutdown"){
         result = MAP_WORKERD->prepare_local_shutdown_save_fence();
+        send_json(req,result,(int)result["ok"] ? 200 : 409);
+        return;
+    }
+    if(action=="local_cancel_shutdown"){
+        result = MAP_WORKERD->cancel_local_shutdown_save_fence();
         send_json(req,result,(int)result["ok"] ? 200 : 409);
         return;
     }

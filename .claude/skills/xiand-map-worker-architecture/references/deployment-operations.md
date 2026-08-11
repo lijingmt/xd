@@ -126,6 +126,13 @@ Host persistent mounts:
 
 Do not publish coordinator or worker ports from Docker. Public mappings remain the historical Tomcat/API/MUD mappings.
 
+Optional gateway pressure controls are passed by both `docker run` and Compose:
+
+- `XIAND_GATEWAY_MAX_REQUESTS` (default `128`) for total accepted work;
+- `XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER` for one worker's RPC bulkhead. When unset, Pike derives `max(8, ceil(total/workers)+4)` from the actual topology.
+
+Keep the per-worker limit below the total limit. Raising it does not fix a slow world process; inspect command queue, backend lag, CPU, call-outs, and save latency first.
+
 ## Ports and process counts
 
 Default internal ports:
@@ -194,9 +201,21 @@ Health must prove:
 - every worker registered healthy;
 - controller ready and routing ready;
 - active public listener ready only in active mode;
-- no uncertain requests, pending reconciliation, or background arrivals before shutdown.
+- no uncertain requests, pending reconciliation, background arrivals, or maintenance operations before shutdown;
+- per-worker request active/peak/rejected/failure/circuit metrics are bounded and explainable;
+- control persistence is healthy and its latency/failure counters are not increasing unexpectedly.
+
+During a one-version rolling script upgrade, the immediately previous coordinator may omit the new `shutdown_state` field. Accept that legacy response only when every historical quiescence counter is explicitly zero. When the field is present it must be exactly `prepared`; never treat an unknown non-empty state as compatible.
 
 The Docker supervisor probes every five seconds. After three failures it opens the circuit. Active fallback is permitted only after the safe failover shutdown protocol accounts for failed and reachable workers. If quiescence or save fencing cannot be proven, preserve the old container/processes and stop deployment.
+
+`restart-all-docker.sh` may recover a historical active fallback latch after it safely stops the old container. `scripts/recover_map_worker_fallback_latch.sh` must validate the current schema, require the active acknowledgement, and audit both primary/backup control-plane snapshots before atomically moving the latch into `fallback-history/`. Permit recovery only when all leases are active-but-expired, every handoff is terminal and expired, no coordinator envelope/escrow/PK mutation remains, and all durable social-outbox events are expired. Missing, malformed, future-version, symlinked, live, frozen, prepared, or unsettled state must retain the latch.
+
+The container creates `fallback-latched` as root-owned mode `0600`, while the host deployment account owns the parent data directory. Inspect latch size and mode with `stat`; never open it with shell input redirection or require the host account to `chmod` it. A same-filesystem `mv` into the mode-`0700` history directory preserves the secure root ownership and mode without reading the file.
+
+The control-plane snapshots and durable social-outbox files may also be root-owned mode `0600`. If the host deployment account cannot read them, rerun the identical ownership audit in a short-lived helper based on the already selected Xiand image. The helper must have no network, a read-only root filesystem, a read-only bind of only `data_xiand/map_workers`, all Linux capabilities dropped, `no-new-privileges`, and strict PID/memory limits. It may run as container root solely to read those files; it must never relabel, chmod, rewrite, delete, or print their payloads. Failure to start the helper or any audit failure retains the latch.
+
+Use `./restart-all-docker.sh --force-active` when the operator requires active mode as the deployment outcome. This flag does not bypass safe stop or ownership/mutation audits. It archives a safe historical latch and attempts a cold active start; if startup reopens the circuit, keep the legacy fallback serving traffic but make the deployment command fail visibly instead of reporting success.
 
 ## Image/platform cautions
 

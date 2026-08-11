@@ -441,6 +441,10 @@ void test_wiring_and_safety_guards()
 		search(caoyao_source,"local_worker_owns_room")!=-1 &&
 		search(kuang_source,"stable_room_slot")!=-1 &&
 		search(caoyao_source,"stable_room_slot")!=-1 &&
+		search(kuang_source,"reconciled_sources=%d")!=-1 &&
+		search(caoyao_source,"reconciled_sources=%d")!=-1 &&
+		search(kuang_source,"if(spawned || missing)")!=-1 &&
+		search(caoyao_source,"if(spawned || missing)")!=-1 &&
 		search(caoyao_source,"reconcile_all_worker_caoyao")!=-1 &&
 		search(caoyao_source,"if(refresh_worker_generation())")!=-1 &&
 		search(caoyao_source,"call_out(flush_caoyao,FLUSH_TIME)")!=-1,

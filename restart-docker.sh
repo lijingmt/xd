@@ -1347,6 +1347,8 @@ main() {
         -e XIAND_MAP_WORKER_COUNT \
         -e XIAND_MAP_WORKER_CAPACITY \
         -e XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK \
+        -e XIAND_GATEWAY_MAX_REQUESTS \
+        -e XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER \
         -v /usr/local/games/allxd/${GAME_AREA}/data_xiand:/app/xiand/data_xiand \
         -v /usr/local/games/allxd/${GAME_AREA}/etc:/app/xiand/gamelib/etc \
         -v "${SHARED_ITEM_DIR}:/app/xiand/gamelib/clone/item" \

@@ -162,9 +162,10 @@ private void reconcile_worker_kuang(string name)
 				missing++;
 	}
 	kuangNeed[name] = missing;
-	werror("[KUANGD][WORKER] generation=%d source=%s desired=%d existing=%d spawned=%d missing=%d\n",
-		MAP_WORKERD->query_local_assignment_generation(),name,
-		desired_total,existing_total,spawned,missing);
+	if(spawned || missing)
+		werror("[KUANGD][WORKER] generation=%d source=%s desired=%d existing=%d spawned=%d missing=%d\n",
+			MAP_WORKERD->query_local_assignment_generation(),name,
+			desired_total,existing_total,spawned,missing);
 }
 
 private void reconcile_worker_assignments()
@@ -178,6 +179,8 @@ private void reconcile_worker_assignments()
 	foreach(indices(kuangMap),string name)
 		reconcile_worker_kuang(name);
 	worker_assignment_generation = generation;
+	werror("[KUANGD][WORKER] generation=%d reconciled_sources=%d\n",
+		generation,sizeof(kuangMap));
 }
 
 private void fill_worker_kuang_need(string name)
