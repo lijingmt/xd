@@ -1221,6 +1221,13 @@ mapping query_player_state(object player)
 			recent_aoe_report = player->query_recent_aoe_battle_report();
 		result["lingyi_revive"] = lingyi_revive;
 		result["recent_aoe_report"] = recent_aoe_report;
+		// 同房施法显化是短生命UI事件：不参与战斗结算，不做
+		// 已读写入。客户端依靠事件ID去重，因此/status与
+		// /battle_status并发也不会重放。
+		array(mapping(string:mixed)) room_skill_events = ({});
+		if(functionp(player->query_room_skill_manifestations))
+			room_skill_events = player->query_room_skill_manifestations();
+		result["room_skill_events"] = room_skill_events;
 
 		// 共享宠物/本命灵伴同时提供只读卡位，但旧客户端的
 		// pet_assist仍只返回当前唯一战斗位，不会渲染或结算双宠。

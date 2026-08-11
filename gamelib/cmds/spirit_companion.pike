@@ -42,6 +42,8 @@ private string render_spirit_catalog(mapping state)
 			result += ((int)owned["active"] ? "★ " : "○ ")+
 				(string)info["icon"]+(string)info["name"]+" Lv."+
 				(int)owned["level"]+" · "+(string)info["combat"]+
+				((int)owned["level_limited"] ? " · 培养Lv."+
+				(int)owned["trained_level"]+"已保留" : "")+
 				" [详情:spirit_companion detail "+
 				(string)owned["id"]+"]\n";
 		else
@@ -64,10 +66,15 @@ private string render_spirit_detail(mapping state,string pet_id)
 	result += "协战："+(string)pet["skill"]+" · "+
 		(string)pet["combat"]+"。\n";
 	result += "成长：Lv."+(int)pet["level"]+"/"+
-		SPIRIT_COMPANIOND->query_spirit_companion_level_max()+
+		(int)pet["level_max"]+
 		" · 亲密度 "+(int)pet["bond"]+"/100\n";
-	if((int)pet["level"]<SPIRIT_COMPANIOND->query_spirit_companion_level_max())
+	if((int)pet["level_limited"])
+		result += "培养进度：Lv."+(int)pet["trained_level"]+
+			"（已完整保留）；当前只按人物等级计算属性和协战。\n";
+	if((int)pet["trained_level"]<(int)pet["level_max"])
 		result += "历练："+(int)pet["xp"]+"/"+(int)pet["xp_need"]+"\n";
+	else
+		result += "历练：已与当前人物等级同步；人物升级后继续成长，当前不囤积溢出历练。\n";
 	result += "装备增益：伤害+"+(int)pet["attack_bonus"]+
 		"% · 回复+"+(int)pet["support_bonus"]+"%\n";
 	result += "装备槽：";
@@ -78,8 +85,11 @@ private string render_spirit_detail(mapping state,string pet_id)
 	result += "\n\n";
 	if(!(int)pet["active"])
 		result += "[设为出战灵伴:spirit_companion active "+pet_id+"]\n";
-	result += "[喂养5枚灵果:spirit_companion feed "+pet_id+"]|"+
-		"[灵伴装备:spirit_companion gear "+pet_id+"]\n"+
+	if((int)pet["trained_level"]<(int)pet["level_max"])
+		result += "[喂养5枚灵果:spirit_companion feed "+pet_id+"]|";
+	else
+		result += "人物升级后可继续喂养 | ";
+	result += "[灵伴装备:spirit_companion gear "+pet_id+"]\n"+
 		"[返回图鉴:spirit_companion catalog]|[返回本命灵伴:spirit_companion]\n";
 	return result;
 }
@@ -155,6 +165,12 @@ private string render_spirit_main(object me,mapping state)
 	mapping active = find_spirit_pet(state,(string)state["active_id"]);
 	result += "当前灵伴："+(string)active["icon"]+(string)active["name"]+
 		" Lv."+(int)active["level"]+" · "+(string)active["combat"]+"\n";
+	result += "有效等级不超过当前人物Lv."+
+		(int)active["level_max"]+
+		"；VIP只通过人物可达等级间接解锁，不额外倍增灵伴成长。\n";
+	if((int)active["level_limited"])
+		result += "已保留培养进度：Lv."+
+			(int)active["trained_level"]+"，人物升级后自动解锁。\n";
 	result += "当前战斗位："+(source=="personal" ?
 		"§5本命灵伴§r" : "§g共享宠物§r")+"\n";
 	result += "共享图鉴共鸣：伤害与回复 +"+

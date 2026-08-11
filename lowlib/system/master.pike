@@ -35,13 +35,15 @@ void load_daemons()
 	foreach(files,string s){
 		string full_path = ROOT+"/gamelib/single/daemons/"+s;
 		// A map worker must not eagerly start another copy of every global
-		// scheduler (auction, ranking, boss/herb/mine refresh, cron, etc.).
-		// Only the routing/HTTP substrate starts with the process. A local
-		// gameplay daemon is loaded on demand by the room/player that owns it.
+		// scheduler (auction, ranking, boss, cron, etc.).  The small allow-list
+		// also contains room-affinity schedulers: they wait for the assignment
+		// snapshot and mutate only rooms owned by this worker.
 		// Standalone startup remains byte-for-byte compatible.
-		if(map_worker_node &&
-		   !has_value(({"map_workerd.pike",
-		   "http_api_daemon.pike"}),s)){
+		array(string) node_daemons = node_role=="worker" ?
+			({"map_workerd.pike","http_api_daemon.pike","roomLeveld.pike",
+			  "kuangd.pike","caoyaod.pike","timed_eventd.pike"}) :
+			({"map_workerd.pike","http_api_daemon.pike"});
+		if(map_worker_node && !has_value(node_daemons,s)){
 			werror("[MASTER] Map-worker node skipping eager daemon: %s\n",s);
 			continue;
 		}

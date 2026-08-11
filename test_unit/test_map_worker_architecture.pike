@@ -104,7 +104,7 @@ int main()
 				"consume_local_account_character_save_fence"),
 			"无租约新档可能越权保存兄弟人物、复用能力或继续被保存栅栏误拒");
 
-		check("普通地图按一级目录归属，全局家园不分片",
+		check("普通地图按一级目录归属，家园与限时活动各自保持单一一致性域",
 			daemon->query_affinity_key(
 				ROOT+"/gamelib/d/wugongdong/wugongchao#12","")==
 				"wugongdong" &&
@@ -116,7 +116,7 @@ int main()
 			daemon->query_affinity_key(
 				"/gamelib/d/timed_event/event_room#2",
 				"tianheng|2026-08-09|group1")==
-				"timed_event:tianheng:2026-08-09:group1" &&
+				"timed_event" &&
 			daemon->query_affinity_key("../../etc/passwd","")=="",
 			"静态房间被拆分、实例未分片或路径穿越未拒绝");
 
@@ -624,13 +624,19 @@ int main()
 				"SKIP disabled node role"),
 			"内部RPC可能外露、抢占现网端口或多节点重复跑TestUnit");
 
-		check("worker不重复预启动全局定时daemon，shadow不接流量且active需隔离机确认",
+		check("worker只预启动归属安全daemon，shadow不接流量且active需隔离机确认",
 			source_has("/lowlib/system/master.pike",
 				"Map-worker node skipping eager daemon") &&
 			source_has("/lowlib/system/master.pike",
 				"int map_worker_node = node_role==\"gateway\" ||") &&
 			source_has("/lowlib/system/master.pike",
 				"A map worker must not eagerly start another copy") &&
+			source_has("/lowlib/system/master.pike","roomLeveld.pike") &&
+			source_has("/lowlib/system/master.pike","kuangd.pike") &&
+			source_has("/lowlib/system/master.pike","caoyaod.pike") &&
+			source_has("/lowlib/system/master.pike","timed_eventd.pike") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"local_affinity_assignments_ready") &&
 				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 					"controller ready; mode=%s workers=%d") &&
 				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
@@ -798,11 +804,13 @@ int main()
 				"MAP_WORKER_HEARTBEAT_TTL = 20"),
 			"失联worker可能被伪心跳维持健康并继续接收地图");
 
-		check("两层master都禁止worker首次登录重复启动全局daemon",
+		check("两层master都禁止worker首次登录重复启动全局daemon但允许房间归属刷新器",
 			source_has("/lowlib/system/master.pike",
 				"Map-worker node skipping eager daemon") &&
 			source_has("/gamelib/master.pike",
 				"Map-worker node skipping eager daemon") &&
+			source_has("/gamelib/master.pike","roomLeveld.pike") &&
+			source_has("/gamelib/master.pike","timed_eventd.pike") &&
 			source_has("/gamelib/master.pike","if(!map_worker_node)"),
 			"人物首次登录可能复制家园保存、拍卖和地图刷新定时器");
 
@@ -1141,6 +1149,32 @@ int main()
 			source_has("/gamelib/single/daemons/_timed_event_mod/runtime.pike",
 				"m_delete_foruser(\"/tmp/timed_event_move_bypass\")"),
 			"跨节点拒绝动态房间时可能丢失旧位置、污染成员表或永久绕过移动栅栏");
+
+		check("限时活动先经静态入口汇聚到唯一owner再创建动态场地",
+			daemon->query_affinity_key(
+				"/gamelib/d/timed_event/tianheng_ingress.pike","")==
+				"timed_event" &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/core.pike",
+				"route_player_to_event_ingress") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/runtime.pike",
+				"/gamelib/d/timed_event/tianheng_ingress.pike") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"query_timed_event_ingress_id") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"!(int)pending_arrival[\"ok\"]") &&
+			source_has("/gamelib/single/daemons/timed_eventd.pike",
+				"local_timed_event_owner") &&
+			source_has("/gamelib/single/daemons/timed_eventd.pike",
+				"load_event_state(0)") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/persistence.pike",
+				"[TIMED_EVENTD][WRITE_FENCE]") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/persistence.pike",
+				"stage_reward_claim_ack") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/persistence.pike",
+				"consume_reward_claim_acks") &&
+			source_has("/gamelib/single/daemons/_timed_event_mod/core.pike",
+				"请先返回活动场地，再执行该操作"),
+			"活动可能继续在多个worker各建一场、到达证明前跳入动态房或懒加载取消现场");
 
 		check("死亡复活与挂机定时器产生的后台移动无需浏览器刷新也会收敛",
 			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",

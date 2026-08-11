@@ -13,7 +13,7 @@ inherit LOW_DAEMON;
 #define SPIRIT_COMPANION_ROOT "/spirit_companion/record"
 #define PET_BATTLE_SOURCE_ROOT "/pet_battle/source"
 #define SPIRIT_COMPANION_VERSION 1
-#define SPIRIT_COMPANION_LEVEL_MAX 30
+#define SPIRIT_COMPANION_LEVEL_MAX MAX_LEVEL
 #define SPIRIT_COMPANION_GEAR_MAX 60
 
 private Thread.Mutex spirit_companion_lock = Thread.Mutex();
@@ -140,6 +140,19 @@ private int spirit_xp_need(int level)
 	if(level<1)
 		level = 1;
 	return level*20;
+}
+
+/** 培养进度保存在角色档案；战斗与界面只按不超过人物的等级生效。 */
+private int spirit_companion_level_limit(void|object player)
+{
+	int level_max = SPIRIT_COMPANION_LEVEL_MAX;
+	if(player && functionp(player->query_level))
+		level_max = (int)player->query_level();
+	if(level_max<1)
+		level_max = 1;
+	if(level_max>SPIRIT_COMPANION_LEVEL_MAX)
+		level_max = SPIRIT_COMPANION_LEVEL_MAX;
+	return level_max;
 }
 
 private int find_spirit_pet_index(array pets,string pet_id)
@@ -331,18 +344,22 @@ private void add_spirit_material_unlocked(mapping record,string material,
 	record["materials"][material] = value;
 }
 
-private void add_spirit_xp_unlocked(mapping pet,int amount)
+private void add_spirit_xp_unlocked(mapping pet,int amount,int level_max)
 {
-	if(amount<=0 || (int)pet["level"]>=SPIRIT_COMPANION_LEVEL_MAX)
+	if(level_max<1)
+		level_max = 1;
+	if(level_max>SPIRIT_COMPANION_LEVEL_MAX)
+		level_max = SPIRIT_COMPANION_LEVEL_MAX;
+	if(amount<=0 || (int)pet["level"]>=level_max)
 		return;
 	pet["xp"] = (int)pet["xp"]+amount;
-	while((int)pet["level"]<SPIRIT_COMPANION_LEVEL_MAX &&
+	while((int)pet["level"]<level_max &&
 	      (int)pet["xp"]>=spirit_xp_need((int)pet["level"])){
 		pet["xp"] = (int)pet["xp"]-
 			spirit_xp_need((int)pet["level"]);
 		pet["level"] = (int)pet["level"]+1;
 	}
-	if((int)pet["level"]>=SPIRIT_COMPANION_LEVEL_MAX)
+	if((int)pet["level"]>=level_max)
 		pet["xp"] = 0;
 }
 
@@ -363,12 +380,20 @@ private int save_spirit_record(object player,mapping record,
 	return 0;
 }
 
-private mapping(string:mixed) enrich_spirit_pet(mapping pet,mapping record)
+private mapping(string:mixed) enrich_spirit_pet(mapping pet,mapping record,
+	void|object player)
 {
 	mapping result = copy_value(pet);
 	mapping info = spirit_companion_catalog[(string)pet["species"]];
+	int trained_level = (int)pet["level"];
+	int level_max = spirit_companion_level_limit(player);
+	int effective_level = trained_level;
 	int attack_bonus = 0;
 	int support_bonus = 0;
+	if(effective_level<1)
+		effective_level = 1;
+	if(effective_level>level_max)
+		effective_level = level_max;
 	foreach((mapping)pet["equipment"];string slot;mixed gear_id){
 		int index = find_spirit_gear_index(record["gear_inventory"],
 			(string)gear_id);
@@ -379,8 +404,13 @@ private mapping(string:mixed) enrich_spirit_pet(mapping pet,mapping record)
 		}
 	}
 	result += info;
-	result["xp_need"] = (int)pet["level"]>=SPIRIT_COMPANION_LEVEL_MAX ?
-		0 : spirit_xp_need((int)pet["level"]);
+	result["trained_level"] = trained_level;
+	result["level"] = effective_level;
+	result["level_limited"] = trained_level>effective_level;
+	result["level_max"] = level_max;
+	result["xp"] = trained_level>=level_max ? 0 : (int)pet["xp"];
+	result["xp_need"] = trained_level>=level_max ?
+		0 : spirit_xp_need(trained_level);
 	result["attack_bonus"] = attack_bonus;
 	result["support_bonus"] = support_bonus;
 	result["active"] = (string)record["active_id"]==(string)pet["id"];
@@ -407,9 +437,9 @@ mapping(string:mapping(string:mixed)) query_spirit_gear_slots()
 	return copy_value(spirit_gear_slots);
 }
 
-int query_spirit_companion_level_max()
+int query_spirit_companion_level_max(void|object player)
 {
-	return SPIRIT_COMPANION_LEVEL_MAX;
+	return spirit_companion_level_limit(player);
 }
 
 /** 每约2种共享宠物提供1%本命共鸣，封顶8%；只读共享图鉴。 */
@@ -529,7 +559,7 @@ mapping(string:mixed) query_spirit_companion_state(object player)
 		query_shared_pet_resonance_bonus(player);
 	array enriched = ({});
 	foreach((array)record["pets"],mapping pet)
-		enriched += ({enrich_spirit_pet(pet,record)});
+		enriched += ({enrich_spirit_pet(pet,record,player)});
 	result["pets"] = enriched;
 	return result;
 }
@@ -579,7 +609,7 @@ mapping(string:mixed) choose_spirit_companion(object player,string species)
 	else{
 		result = spirit_result(1,(string)spirit_companion_catalog[species]["name"]+
 			"与你结下本命契约，并带来一套素朴灵伴装备。");
-		result["pet"] = enrich_spirit_pet(pet,record);
+		result["pet"] = enrich_spirit_pet(pet,record,player);
 	}
 	destruct(key);
 	return result;
@@ -647,11 +677,15 @@ mapping(string:mixed) interact_spirit_companion(object player)
 		(int)record["pets"][pet_index]["bond"]+1;
 	if((int)record["pets"][pet_index]["bond"]>100)
 		record["pets"][pet_index]["bond"] = 100;
-	add_spirit_xp_unlocked(record["pets"][pet_index],10);
+	int level_max = spirit_companion_level_limit(player);
+	int can_grow = (int)record["pets"][pet_index]["level"]<level_max;
+	add_spirit_xp_unlocked(record["pets"][pet_index],10,level_max);
 	add_spirit_material_unlocked(record,"companion_food",2);
 	record["revision"] = (int)record["revision"]+1;
 	if(save_spirit_record(player,record,previous))
-		result = spirit_result(1,"陪伴完成：灵伴成长10点，并获得2枚同心灵果。");
+		result = spirit_result(1,can_grow ?
+			"陪伴完成：灵伴成长10点，并获得2枚同心灵果。" :
+			"陪伴完成：灵伴已与当前人物等级同步，未囤积溢出成长；获得2枚同心灵果。");
 	else
 		result["message"] = "人物档案保存失败，本次陪伴已回滚。";
 	destruct(key);
@@ -722,16 +756,22 @@ mapping(string:mixed) feed_spirit_companion(object player,string pet_id)
 	mapping previous = copy_value((mapping)raw_record);
 	mapping record = copy_value(previous);
 	int pet_index = find_spirit_pet_index(record["pets"],pet_id);
+	int level_max = spirit_companion_level_limit(player);
 	if(pet_index<0)
 		result["message"] = "本命图鉴中没有这位灵伴。";
 	else if((int)record["pets"][pet_index]["level"]>=
-	   SPIRIT_COMPANION_LEVEL_MAX)
-		result["message"] = "这位灵伴已经成长圆满。";
+	   level_max)
+		result["message"] = (int)record["pets"][pet_index]["level"]>
+			level_max ? "这位灵伴的培养进度已保留至Lv."+
+			(int)record["pets"][pet_index]["level"]+
+			"；当前角色只按Lv."+level_max+"生效。" :
+			"这位灵伴已与当前人物Lv."+level_max+
+			"同步；人物升级后才能继续喂养。";
 	else if((int)record["materials"]["companion_food"]<5)
 		result["message"] = "喂养需要5枚同心灵果。";
 	else{
 		add_spirit_material_unlocked(record,"companion_food",-5);
-		add_spirit_xp_unlocked(record["pets"][pet_index],20);
+		add_spirit_xp_unlocked(record["pets"][pet_index],20,level_max);
 		record["revision"] = (int)record["revision"]+1;
 		if(save_spirit_record(player,record,previous))
 			result = spirit_result(1,"喂养完成，灵伴成长20点。");
@@ -911,7 +951,7 @@ private mapping(string:mixed)|zero query_active_spirit_combat_pet(
 	   (int)pet["level"]>SPIRIT_COMPANION_LEVEL_MAX ||
 	   !mappingp(pet["equipment"]))
 		return 0;
-	return enrich_spirit_pet(pet,raw_record);
+	return enrich_spirit_pet(pet,raw_record,player);
 }
 
 private string query_spirit_role_label(string role)
@@ -1224,17 +1264,19 @@ mapping(string:mixed) record_spirit_companion_combat_xp(object player,
 	mapping record = copy_value(previous);
 	int pet_index = find_spirit_pet_index(record["pets"],
 		(string)record["active_id"]);
+	int level_max = spirit_companion_level_limit(player);
 	credited = mappingp(npc["/tmp/spirit_companion/xp_pet_ids"]) ?
 		npc["/tmp/spirit_companion/xp_pet_ids"] : ([]);
 	if(pet_index>=0 &&
 	   !credited[(string)record["pets"][pet_index]["id"]] &&
 	   (int)record["pets"][pet_index]["level"]<
-		SPIRIT_COMPANION_LEVEL_MAX){
+		level_max){
 		int old_level = (int)record["pets"][pet_index]["level"];
 		int xp_gain = 5+npc->query_level()/5;
 		if(xp_gain>40)
 			xp_gain = 40;
-		add_spirit_xp_unlocked(record["pets"][pet_index],xp_gain);
+		add_spirit_xp_unlocked(record["pets"][pet_index],xp_gain,
+			level_max);
 		record["revision"] = (int)record["revision"]+1;
 		if(save_spirit_record(player,record,previous)){
 			credited[(string)record["pets"][pet_index]["id"]] = 1;

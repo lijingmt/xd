@@ -87,7 +87,12 @@ object restore_child_player(string character_id,string race,
 	player->set_name(character_id);
 	player->set_project("gamelib");
 	player->set_userip("testunit");
-	player->restore();
+	// 真实登录会在恢复档案后注册living identity；只调
+	// restore()会让组队守护进程正确地把该测试角色判为离线。
+	if(!player->setup("testunit88")){
+		destruct(player);
+		return 0;
+	}
 	player->set_raceId(race);
 	player->set_profeId(profession);
 	player->setup_player(race,profession);
@@ -233,7 +238,7 @@ void test_collection_growth(object player)
 	PETD->test_add_pet_material(player,"bond_token",20);
 	PETD->test_add_pet_material(player,"skill_rune",3);
 	int growth_ok = 1;
-	for(int i=1;i<60;i++)
+	for(int i=1;i<50;i++)
 		growth_ok = growth_ok && PETD->train_pet_level(player,pet_id)["ok"];
 	mapping level_reject = PETD->train_pet_level(player,pet_id);
 	for(int i=1;i<5;i++)
@@ -256,10 +261,12 @@ void test_collection_growth(object player)
 	string skills1_json = Standards.JSON.encode(skills1);
 	string skills2_json = Standards.JSON.encode(skills2);
 	string skills3_json = Standards.JSON.encode(skills3);
-	check("培养严格封顶60级、十星、五阶羁绊且三套灵纹确定轮换",
+	check("培养严格封顶当前人物50级、十星、五阶羁绊且三套灵纹确定轮换",
 		growth_ok && !level_reject["ok"] && !star_reject["ok"] &&
 		!bond_reject["ok"] &&
-		(int)grown["pets"][0]["level"]==60 &&
+		(int)grown["pets"][0]["level"]==50 &&
+		(int)grown["pets"][0]["trained_level"]==50 &&
+		(int)grown["pets"][0]["level_max"]==50 &&
 		(int)grown["pets"][0]["star"]==10 &&
 		(int)grown["pets"][0]["evolution"]==3 &&
 		grown["pets"][0]["evolution_name"]=="真形·圆满" &&
@@ -276,8 +283,8 @@ void test_collection_growth(object player)
 		(int)grown["pets"][0]["attributes"]["spirit"]>0 &&
 		(int)grown["pets"][0]["attributes"]["speed"]>0 &&
 		(int)grown["pets"][0]["power"]>0 &&
-		(int)grown["pets"][0]["growth_percent"]==227 &&
-		(int)grown["pets"][0]["pvp_growth_percent"]==125,
+		(int)grown["pets"][0]["growth_percent"]==217 &&
+		(int)grown["pets"][0]["pvp_growth_percent"]==123,
 		"属性缺字段、战力无效或PVP没有压缩到完整成长的20%");
 	check("所有培养材料保存在独立材料栏且不污染人物背包",
 		player->packaged_items==inventory_before &&
@@ -303,6 +310,63 @@ void test_collection_growth(object player)
 			"星辉异色")!=-1 &&
 		(int)after_variant["materials"]["cosmetic_dust"]==0,
 		"月华尘无消费出口、重复扣除或未写入永久外观");
+}
+
+void test_pet_player_level_cap()
+{
+	werror("\n【万灵测试】人物等级联动与共享进度保留\n");
+	object player = create_test_player("xd99testunitpetlevelcap","human",
+		"jianxian");
+	player->level = 15;
+	player->set_att_by_level();
+	mapping chosen = PETD->choose_starter_pet(player,"dangkang");
+	mapping state = PETD->query_pet_state(player);
+	string pet_id = sizeof((array)state["pets"]) ?
+		(string)state["pets"][0]["id"] : "";
+	PETD->test_add_pet_material(player,"spirit_dew",1000);
+	int trained = 1;
+	for(int i=1;i<15;i++)
+		trained = trained && PETD->train_pet_level(player,pet_id)["ok"];
+	mapping capped = PETD->query_pet_state(player);
+	int dew_at_cap = (int)capped["materials"]["spirit_dew"];
+	mapping cap_reject = PETD->train_pet_level(player,pet_id);
+	mapping after_reject = PETD->query_pet_state(player);
+	check("共享宠物不能超过当前人物等级且拒绝时不扣灵露",
+		chosen["ok"] && trained && !cap_reject["ok"] &&
+		(int)capped["pets"][0]["level"]==15 &&
+		(int)capped["pets"][0]["trained_level"]==15 &&
+		(int)capped["pets"][0]["level_max"]==15 &&
+		(int)after_reject["materials"]["spirit_dew"]==dew_at_cap,
+		"人物等级上限、拒绝返回或材料事务有误");
+	player->level = 16;
+	player->set_att_by_level();
+	mapping resumed = PETD->train_pet_level(player,pet_id);
+	player->level = 10;
+	player->set_att_by_level();
+	mapping limited = PETD->query_pet_state(player);
+	mapping limited_presence = PETD->query_pet_battle_presence(player);
+	int dew_before_low_reject = (int)limited["materials"]["spirit_dew"];
+	mapping low_reject = PETD->train_pet_level(player,pet_id);
+	mapping low_after = PETD->query_pet_state(player);
+	check("低等级角色不破坏共享高等级进度，战斗运行态自动软限制",
+		resumed["ok"] && (int)limited["pets"][0]["level"]==10 &&
+		(int)limited["pets"][0]["trained_level"]==16 &&
+		(int)limited["pets"][0]["level_limited"]==1 &&
+		(int)limited_presence["level"]==10 && !low_reject["ok"] &&
+		(int)low_after["pets"][0]["trained_level"]==16 &&
+		(int)low_after["materials"]["spirit_dew"]==dew_before_low_reject,
+		"软限制破坏共享存档、协战运行态或材料账");
+	player->level = 17;
+	player->set_att_by_level();
+	mapping unlocked_presence = PETD->query_pet_battle_presence(player);
+	mapping continued = PETD->train_pet_level(player,pet_id);
+	mapping final_state = PETD->query_pet_state(player);
+	check("人物再升级后自动解锁已保留进度并可继续培养",
+		(int)unlocked_presence["level"]==16 && continued["ok"] &&
+		(int)final_state["pets"][0]["level"]==17 &&
+		(int)final_state["pets"][0]["trained_level"]==17 &&
+		!(int)final_state["pets"][0]["level_limited"],
+		"角色升级后运行态未刷新或培养仍被错误拦截");
 }
 
 void test_same_account_active_pet()
@@ -457,7 +521,7 @@ void test_hunt_and_assist(object player,object pvp_target)
 	check("协战事件向战斗小窗和Header提供宠物、技能与唯一事件编号",
 		presence["active"] && presence["name"]=="当康" &&
 		presence["icon"]!="" && presence["skill"]=="丰穰守心" &&
-		(int)presence["level"]==60 && (int)presence["star"]==10 &&
+		(int)presence["level"]==50 && (int)presence["star"]==10 &&
 		presence["evolution_name"]=="真形·圆满" &&
 		(int)presence["power"]>0 && presence["combat_mode"]=="pve" &&
 		(int)presence["cooldown_remaining"]>0 &&
@@ -999,7 +1063,7 @@ void test_rift(array(object) players)
 	test_team_id = "";
 }
 
-void test_rift_same_account_rejection(object independent)
+void test_rift_same_account_participants(object independent)
 {
 	string account_id = "xd99testunitpetriftsame";
 	object root_player = create_test_player(account_id,"human","jianxian");
@@ -1010,7 +1074,11 @@ void test_rift_same_account_rejection(object independent)
 		account_id,"third","fangshi");
 	object child = created["ok"] ? restore_child_player(
 		(string)created["character"]["id"],"third","fangshi") : 0;
-	PETD->choose_starter_pet(root_player,"dangkang");
+	mapping starter = PETD->choose_starter_pet(root_player,"dangkang");
+	root_player->set_life(root_player->query_life_max());
+	if(child)
+		child->set_life(child->query_life_max());
+	independent->set_life(independent->query_life_max());
 	root_player->move(test_room);
 	if(child) child->move(test_room);
 	independent->move(test_room);
@@ -1018,14 +1086,59 @@ void test_rift_same_account_rejection(object independent)
 	if(child) child->set_term("noterm");
 	independent->set_term("noterm");
 	string team_id = TERMD->term_create(root_player->query_name());
+	int child_add = 0;
 	if(child)
-		TERMD->add_termer(team_id,child->query_name(),child->query_name_cn());
-	TERMD->add_termer(team_id,independent->query_name(),
+		child_add = TERMD->add_termer(team_id,child->query_name(),
+			child->query_name_cn());
+	int independent_add = TERMD->add_termer(team_id,independent->query_name(),
 		independent->query_name_cn());
-	mapping rejected = PETD->start_rift(root_player);
-	check("同一注册账号的多个职业不能给裂隙虚增有效人数",
-		created["ok"] && child && !rejected["ok"],
-		"同账号小号可互刷多人裂隙");
+	mapping team_snapshot = TERMD->query_term_m(team_id);
+	mapping before = PETD->query_pet_state(root_player);
+	mapping started = PETD->start_rift(root_player);
+	mapping won = started["ok"] ?
+		run_rift(({root_player,child,independent}),1) : ([]);
+	mapping pending = PETD->query_pet_state(root_player);
+	mapping root_claim = PETD->claim_rift_reward(root_player,9999,9999);
+	mapping child_claim = PETD->claim_rift_reward(child,9999,9999);
+	mapping independent_claim = PETD->claim_rift_reward(
+		independent,9999,9999);
+	mapping after = PETD->query_pet_state(root_player);
+	mapping cleared = PETD->query_rift_state(child);
+	check("同一注册账号的不同角色可补足3人行动位",
+		created["ok"] && child && starter["ok"] &&
+		started["ok"] && won["ok"] &&
+		won["status"]=="won",
+		"同账号角色仍被错误拒绝或无法独立行动: starter="+
+		(string)starter["message"]+" start="+(string)started["message"]+
+		" won="+(string)won["message"]+" add="+(string)child_add+"/"+
+		(string)independent_add+" team="+(string)sizeof(team_snapshot)+
+		" term="+(child ? child->query_term() : "missing")+"/"+
+		independent->query_term()+" level="+
+		(string)(child ? child->query_level() : 0)+"/"+
+		(string)independent->query_level()+" life="+
+		(string)(child ? child->get_cur_life() : 0)+"/"+
+		(string)independent->get_cur_life()+" env="+
+		(string)(child && environment(child)==environment(root_player))+"/"+
+		(string)(environment(independent)==environment(root_player)));
+	check("同账号多角色每场只产生一份共享万灵奖励",
+		sizeof((mapping)pending["pending_rift_rewards"])==1 &&
+		root_claim["ok"] && !child_claim["ok"] &&
+		independent_claim["ok"] &&
+		(int)after["materials"]["spirit_mark"]==
+			(int)before["materials"]["spirit_mark"]+5 &&
+		(int)after["weekly"]["rift_wins"]==
+			(int)before["weekly"]["rift_wins"]+1 && !cleared["ok"],
+		"共享档案重复发奖、周次数翻倍或已结算会话未清理: root="+
+		(string)root_claim["message"]+" child="+
+		(string)child_claim["message"]+" independent="+
+		(string)independent_claim["message"]);
+	string rift_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_pet_mod/rift.pike");
+	check("裂隙共享奖励按精确注册账号标识归并",
+		search(rift_source,
+			"participant_account_ids[member_id] = member_account")!=-1 &&
+		search(rift_source,"lower_case(member_account)")==-1,
+		"大小写不同的合法注册账号可能被误当成同一账号");
 	if(sizeof(team_id)>1)
 		TERMD->destory_term(team_id,root_player->query_name());
 }
@@ -1397,7 +1510,8 @@ int main()
 			"测试人物或房间创建失败");
 		if(players_ok && test_room){
 			test_catalog_and_all_professions(profession_players);
-			test_collection_growth(profession_players[0]);
+				test_collection_growth(profession_players[0]);
+				test_pet_player_level_cap();
 			test_legacy_pet_migration();
 			 test_same_account_active_pet();
 			test_hunt_and_assist(profession_players[0],profession_players[1]);
@@ -1413,7 +1527,7 @@ int main()
 				PETD->choose_starter_pet(profession_players[i],
 					PETD->query_starter_species()[i]);
 			}
-			test_rift_same_account_rejection(profession_players[2]);
+			test_rift_same_account_participants(profession_players[2]);
 			test_duel(profession_players[0],profession_players[1]);
 			test_corruption_and_wiring();
 		}

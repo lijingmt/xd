@@ -823,13 +823,18 @@ string query_affinity_key(string room_path,void|string instance_key)
 	// HOMED 的一份全局快照，因此必须归属同一个一致性域。
 	if(block=="home" || block=="ninggedian")
 		return "home";
-	// Timed-event session keys historically use `event|date|group`. Convert
-	// only that server-owned separator into the affinity token alphabet; all
-	// remaining unsafe input is still rejected by normalize_token().
+	// TIMED_EVENTD owns one shared session snapshot and one scheduler.  Every
+	// timed-event lobby/stage/duel must therefore stay in a single consistency
+	// domain; splitting instance keys across workers races the same state file
+	// and prevents players on different maps from joining one event.
+	if(block=="timed_event")
+		return "timed_event";
+	// Dungeon instance keys historically use server-owned separators. Convert
+	// only that separator into the affinity token alphabet; all remaining
+	// unsafe input is still rejected by normalize_token().
 	instance = normalize_token(replace(instance_key || "","|",":"),96);
 	if(instance!="" &&
-	   (block=="timed_event" ||
-	   has_prefix(block,"fb_") || has_suffix(block,"_fb")))
+	   (has_prefix(block,"fb_") || has_suffix(block,"_fb")))
 		return block+":"+instance;
 	return block;
 }
@@ -842,6 +847,31 @@ string query_node_role()
 string query_local_worker_id()
 {
 	return local_worker_id;
+}
+
+/** Resource/event daemons must not create room-owned state before routing lands. */
+int local_affinity_assignments_ready()
+{
+	object key;
+	int ready;
+	if(node_role!="worker")
+		return 1;
+	key = local_route_lock->lock();
+	ready = local_assignment_generation>0 && sizeof(local_affinity_owners)>0;
+	destruct(key);
+	return ready;
+}
+
+int query_local_assignment_generation()
+{
+	object key;
+	int generation;
+	if(node_role!="worker")
+		return 0;
+	key = local_route_lock->lock();
+	generation = local_assignment_generation;
+	destruct(key);
+	return generation;
 }
 
 int query_runtime_worker_count()

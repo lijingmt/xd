@@ -48,13 +48,178 @@ private mapping(string:kuang) kuangMap = ([]); //物品信息总表
 private mapping(string:int) kuangNeed = ([]); //记录目前需要刷的矿数量
 private mapping(string:array) quick_flush = ([]); //快速刷矿,在固定地点刷出矿,在玩家挖矿时别写入，
 //([kuang_name:({房间1,房间2,房间3....})])
+private int worker_refresh_started;
+private int worker_assignment_generation;
+
+private int worker_mode()
+{
+	return MAP_WORKERD->query_node_role()=="worker";
+}
+
+private int stable_room_slot(string name,int slot,int room_count)
+{
+	object hash;
+	string digest;
+	int value = 0;
+	if(room_count<1)
+		return -1;
+	hash = Crypto.SHA256();
+	hash->update("kuang|"+name+"|"+(string)slot);
+	digest = String.string2hex(hash->digest());
+	if(sizeof(digest)>=7)
+		sscanf(digest[0..6],"%x",value);
+	return value%room_count;
+}
+
+private int count_room_source(object room_ob,string name)
+{
+	int count;
+	string source_path = MATERIAL_PATH+name;
+	if(!room_ob)
+		return 0;
+	foreach(all_inventory(room_ob),object one){
+		string path = one ? file_name(one) : "";
+		if(path==source_path || has_prefix(path,source_path+"#"))
+			count++;
+	}
+	return count;
+}
+
+private int spawn_worker_kuang(string name,string room)
+{
+	object room_ob;
+	object source;
+	mixed err;
+	if(!kuangMap[name] || room=="" || search(room,"..")!=-1 ||
+	   !MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+		return 0;
+	err = catch { room_ob = (object)(ROOM_PATH+room); };
+	if(err || !room_ob)
+		return 0;
+	err = catch {
+		source = clone(MATERIAL_PATH+name);
+		if(source)
+			source->move(room_ob);
+	};
+	if(err || !source || environment(source)!=room_ob){
+		if(source)
+			destruct(source);
+		return 0;
+	}
+	return 1;
+}
+
+private array(string) local_kuang_rooms(kuang one)
+{
+	array(string) result = ({});
+	array(string) rooms;
+	if(!one)
+		return result;
+	rooms = ROOMLEVELD->query_rooms(one->mLevel_min,one->mLevel_max);
+	foreach(rooms,string room)
+		if(MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+			result += ({room});
+	return result;
+}
+
+private void reconcile_worker_kuang(string name)
+{
+	kuang one = kuangMap[name];
+	array(string) rooms;
+	mapping(string:int) desired = ([]);
+	int missing;
+	int desired_total;
+	int existing_total;
+	int spawned;
+	if(!one){
+		kuangNeed[name] = 0;
+		return;
+	}
+	rooms = ROOMLEVELD->query_rooms(one->mLevel_min,one->mLevel_max);
+	if(!sizeof(rooms)){
+		kuangNeed[name] = 0;
+		werror("[KUANGD][WORKER] no eligible rooms for %s\n",name);
+		return;
+	}
+	for(int slot=0;slot<one->nums;slot++){
+		int index = stable_room_slot(name,slot,sizeof(rooms));
+		string room = index>=0 ? rooms[index] : "";
+		if(room!="" &&
+		   MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+			desired[room] = (int)desired[room]+1;
+	}
+	foreach(indices(desired),string room){
+		object room_ob;
+		mixed err = catch { room_ob = (object)(ROOM_PATH+room); };
+		int existing = !err && room_ob ? count_room_source(room_ob,name) : 0;
+		int need = (int)desired[room]-existing;
+		desired_total += (int)desired[room];
+		existing_total += existing;
+		for(int index=0;index<need;index++)
+			if(spawn_worker_kuang(name,room))
+				spawned++;
+			else
+				missing++;
+	}
+	kuangNeed[name] = missing;
+	werror("[KUANGD][WORKER] generation=%d source=%s desired=%d existing=%d spawned=%d missing=%d\n",
+		MAP_WORKERD->query_local_assignment_generation(),name,
+		desired_total,existing_total,spawned,missing);
+}
+
+private void reconcile_worker_assignments()
+{
+	int generation = MAP_WORKERD->query_local_assignment_generation();
+	if(generation<1 || generation==worker_assignment_generation)
+		return;
+	// A queued exact-room refill belongs to the previous assignment. Keeping
+	// it would race the reconciliation pass and could create a duplicate node.
+	quick_flush = ([]);
+	foreach(indices(kuangMap),string name)
+		reconcile_worker_kuang(name);
+	worker_assignment_generation = generation;
+}
+
+private void fill_worker_kuang_need(string name)
+{
+	kuang one = kuangMap[name];
+	int need = (int)kuangNeed[name];
+	array(string) rooms;
+	if(need<1)
+		return;
+	rooms = local_kuang_rooms(one);
+	if(!sizeof(rooms))
+		return;
+	for(int index=0;index<need;index++){
+		string room = rooms[random(sizeof(rooms))];
+		if(spawn_worker_kuang(name,room) && kuangNeed[name]>0)
+			kuangNeed[name]--;
+	}
+}
+
+void start_worker_refresh()
+{
+	if(!worker_mode() || worker_refresh_started)
+		return;
+	if(!MAP_WORKERD->local_affinity_assignments_ready()){
+		call_out(start_worker_refresh,2);
+		return;
+	}
+	worker_refresh_started = 1;
+	flush_kuang();
+	call_out(quick_flush_kuang,QUICK_TIME);
+}
 
 protected void create()
 {
 	load_csv();
-	flush_kuang();
-	//call_out(flush_kuang,FLUSH_TIME);
-	call_out(quick_flush_kuang,QUICK_TIME);
+	if(worker_mode())
+		call_out(start_worker_refresh,2);
+	else{
+		flush_kuang();
+		//call_out(flush_kuang,FLUSH_TIME);
+		call_out(quick_flush_kuang,QUICK_TIME);
+	}
 }
 
 
@@ -100,6 +265,14 @@ void load_csv()
 //刷新矿的接口
 void flush_kuang()
 {
+	if(worker_mode()){
+		reconcile_worker_assignments();
+		foreach(indices(kuangNeed),string name)
+			fill_worker_kuang_need(name);
+		quick_flush = ([]);
+		call_out(flush_kuang,FLUSH_TIME);
+		return;
+	}
 	foreach(indices(kuangNeed),string kuangname){
 		int need_num = kuangNeed[kuangname];
 		if(need_num > 0){
@@ -139,6 +312,8 @@ void flush_kuang()
 
 void quick_flush_kuang()
 {
+	if(worker_mode())
+		reconcile_worker_assignments();
 	if(sizeof(quick_flush)>0){
 		foreach(indices(quick_flush),string name){
 			int size = sizeof(quick_flush[name]);
@@ -146,11 +321,21 @@ void quick_flush_kuang()
 				array(string) tmp = quick_flush[name];
 				for(int i=0;i<size;i++){
 					string room = tmp[i];
-					object ob = clone(MATERIAL_PATH+name);
-					ob->move(ROOM_PATH+room);
-					kuangNeed[name]--;
-					string now=ctime(time());
-					Stdio.append_file(ROOT+"/log/flush_kuang.log",now[0..sizeof(now)-2]+":quick_flush:"+ob->query_name_cn()+"("+room+")\n----------------------\n");
+					if(worker_mode()){
+						if(spawn_worker_kuang(name,room)){
+							if(kuangNeed[name]>0)
+								kuangNeed[name]--;
+							string now=ctime(time());
+							Stdio.append_file(ROOT+"/log/flush_kuang.log",now[0..sizeof(now)-2]+":quick_flush:"+kuangMap[name]->name_cn+"("+room+")\n----------------------\n");
+						}
+					}
+					else{
+						object ob = clone(MATERIAL_PATH+name);
+						ob->move(ROOM_PATH+room);
+						kuangNeed[name]--;
+						string now=ctime(time());
+						Stdio.append_file(ROOT+"/log/flush_kuang.log",now[0..sizeof(now)-2]+":quick_flush:"+ob->query_name_cn()+"("+room+")\n----------------------\n");
+					}
 				}
 			}
 		}
@@ -185,10 +370,20 @@ mapping(string:int) query_get_m(string name)
 //矿被挖了后要设置待刷新矿的数量
 void set_flush_num(string name,string room)
 {
+	if(!kuangMap[name])
+		return;
 	if(!kuangNeed[name])
 		kuangNeed[name] = 1;
 	else
 		kuangNeed[name]++;
+	// A legacy/unindexed room still contributes to the missing count and will
+	// be replenished by the regular owner-aware pass; it is not a safe exact
+	// quick-refresh destination.
+	if(!room || room=="" || search(room,"..")!=-1)
+		return;
+	if(worker_mode() &&
+	   !MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+		return;
 	if(quick_flush == ([]))
 		quick_flush[name] = ({room});
 	else if(quick_flush[name] == 0)

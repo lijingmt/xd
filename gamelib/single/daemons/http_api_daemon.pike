@@ -333,7 +333,27 @@ string execute_internal_command(object player, string cmd)
 
     // 直接调用command()
     mixed err = catch {
-        player->command(cmd);
+		int ingress_moved = 0;
+		// A cross-worker timed-event join first lands in a signed static
+		// ingress. Never leave that recovery room during the arrival proof; on
+		// the gateway's following safe view, resume the join automatically.
+		object ingress_room = environment(player);
+		mapping pending_arrival = MAP_WORKERD->query_local_player_arrival(
+			(string)player->query_name());
+		if((first_word=="look" || first_word=="l") && ingress_room &&
+		   functionp(ingress_room->query_timed_event_ingress_id) &&
+		   !(int)pending_arrival["ok"]){
+			string ingress_event =
+				(string)ingress_room->query_timed_event_ingress_id();
+			if(ingress_event=="tianheng" || ingress_event=="jiuyao"){
+				player->command("timed_event join "+ingress_event);
+				ingress_moved = environment(player)!=ingress_room;
+			}
+		}
+		// join already renders the destination. If it failed, keep the outer
+		// look so the ingress recovery links remain usable.
+		if(!ingress_moved)
+			player->command(cmd);
         // http_werror(" command() executed\n");
     };
 

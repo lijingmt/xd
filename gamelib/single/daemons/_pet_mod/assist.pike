@@ -18,6 +18,7 @@ private mapping(string:mixed) query_runtime_pet(object player)
 	string species;
 	if(!player)
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	if(!shanhai_catalog[species])
 		return result;
@@ -57,6 +58,7 @@ mapping(string:mixed) query_pet_room_presence(object player)
 	mapping info;
 	if(!player || !player->is || !player->is("player"))
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
 	if(!info)
@@ -96,6 +98,7 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 	string pvp_target;
 	if(!player)
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
 	if(!info)
@@ -398,6 +401,7 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	   !LOGICALZONED->can_action("combat",player,target) ||
 	   SUMMOND->query_combat_credit_owner(target)!=target)
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
 	if(!info)
@@ -498,6 +502,7 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	if(!player->query_in_combat || !player->query_in_combat() ||
 	   !target_owner->query_in_combat || !target_owner->query_in_combat())
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	if(player->query_enemy){
 		object active_target = player->query_enemy();
 		object active_owner = active_target && active_target->is("player") ?
@@ -641,6 +646,7 @@ mapping(string:mixed) perform_pet_basic_assist(object player,object target)
 	// PVE 专属：基础灵攻不参与 PVP，避免破坏 PVP 充能平衡。
 	if(target->is("player"))
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
 	if(!info)
@@ -831,8 +837,9 @@ mapping(string:mixed) query_pet_pk_fast_profile(object player,object target)
 	int required;
 	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared" ||
 	   !player || !target || !target->is || !target->is("player") ||
-	   environment(player)!=environment(target))
+		environment(player)!=environment(target))
 		return result;
+	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	if(!shanhai_catalog[species])
 		return result;

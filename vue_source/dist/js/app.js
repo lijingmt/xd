@@ -318,6 +318,7 @@ createApp({
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
+            roomSkillEventHistory: {},  // 服务端同房施法事件ID去重
             combatEffectsEnabled: localStorage.getItem('battle_effects_enabled') !== '0',
             soundEffectsEnabled: localStorage.getItem('game_sound_enabled') === '1',
             soundPlayer: null,
@@ -1463,6 +1464,7 @@ createApp({
                 this.loadingTimer = null;
             }
             this.resetPetBattleVisualState();
+            this.roomSkillEventHistory = {};
             this.clearPetLevelUpEffect();
             return this.characterSessionEpoch;
         },
@@ -2894,6 +2896,7 @@ createApp({
             this.playerStats = null;
             this.playerAvatarFailed = false;
             this.petAssistEventHistory = {};
+            this.roomSkillEventHistory = {};
             this.loginPasswordVisible = false;
             this.clearUiToast();
             this.dismissNewbieCompletions();
@@ -3140,6 +3143,7 @@ createApp({
             const previousPet = this.playerStats && this.playerStats.pet_assist;
             const previousLevel = Number(this.playerStats?.level);
             this.handlePetLevelChange(previousPet, data.pet_assist);
+            this.syncRoomSkillManifestations(data.room_skill_events);
             this.playerStats = data;
             this.syncTimedEventInvite(data.timed_event);
             this.syncBattleAoeReport(data.recent_aoe_report);
@@ -3886,6 +3890,7 @@ createApp({
 
         applyBattleStatusData(data, fromAutofightRefresh = false) {
             if (!data) return;
+            this.syncRoomSkillManifestations(data.player?.room_skill_events);
             this.syncBattleAoeReport(data.player?.recent_aoe_report);
 
             if (data.in_battle) {
@@ -4349,6 +4354,38 @@ createApp({
                 return playerCast || affectsPlayer ? 'player' : 'enemy';
             }
             return affectsPlayer && !value.includes('你对') ? 'player' : 'enemy';
+        },
+
+        /**
+         * 消费房间所属 Worker 产生的短生命施法事件。/status、
+         * battle_status 和挂机快照可能返回同一事件，只按服务端 ID
+         * 播放一次；人物会话切换时由上层清空记录。
+         */
+        syncRoomSkillManifestations(events) {
+            if (!Array.isArray(events) || events.length === 0) return;
+            if (!this.roomSkillEventHistory) this.roomSkillEventHistory = {};
+            const seenAt = Date.now();
+            for (const [eventId, timestamp] of Object.entries(
+                this.roomSkillEventHistory
+            )) {
+                if (seenAt - Number(timestamp) > 120000) {
+                    delete this.roomSkillEventHistory[eventId];
+                }
+            }
+            const ordered = [...events].sort((left, right) =>
+                Number(left?.event_at || 0) - Number(right?.event_at || 0)
+            );
+            for (const event of ordered) {
+                const eventId = String(event?.id || '');
+                if (!eventId || this.roomSkillEventHistory[eventId]) continue;
+                this.roomSkillEventHistory[eventId] = seenAt;
+                const skillName = this.formatSkillAnimationName(
+                    event?.skill_name || '战技显化'
+                );
+                const skillType = this.parseMartialArtsSkill(skillName) ||
+                    'generic';
+                this.addSkillAnimation(skillType, skillName, 'room');
+            }
         },
 
         /** 添加技能动画；同一技能短时间去重并最多保留三个并行动画。 */

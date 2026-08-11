@@ -39,6 +39,18 @@ private string join_event(object player,string event_id)
 		return "需要达到"+(string)config["minimum_level"]+"级才能参加。\n[返回:timed_event]\n";
 	if(player->query_in_combat())
 		return "请先结束当前战斗再进入。\n[返回:look]\n";
+	// Dynamic event rooms cannot be used as a durable handoff destination.
+	// Route through one signed static ingress first; after its arrival has been
+	// acknowledged, the destination worker resumes this same join operation.
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !MAP_WORKERD->local_worker_owns_room(timed_event_ingress_path())){
+		if(route_player_to_event_ingress(player,event_id))
+			return "";
+		return "活动节点正在切换，请稍后重试。\n[返回:timed_event]\n";
+	}
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !event_scheduler_started)
+		probe_event_owner();
 	existing = query_session_for_user_id(player->query_name(),1);
 	if(existing){
 		mapping participant = existing["participants"][player->query_name()];
@@ -111,6 +123,7 @@ string handle_command(object player,string action,string value)
 	mapping participant;
 	if(!player)
 		return "";
+	refresh_readonly_event_snapshot();
 	claim_all_pending(player);
 	if(!action || action=="")
 		return query_event_page(player);
@@ -124,6 +137,13 @@ string handle_command(object player,string action,string value)
 		return join_event(player,value);
 	session = query_session_for_user_id(player->query_name(),1);
 	if(action=="return"){
+		if(session && MAP_WORKERD->query_node_role()=="worker" &&
+		   !local_timed_event_owner()){
+			if(route_player_to_event_ingress(player,
+			   (string)session["event_id"]))
+				return "";
+			return "活动节点正在切换，请稍后重试。\n[返回:timed_event]\n";
+		}
 		if(!session || !restore_player(player))
 			return "当前没有可返回的活动场次。\n[返回:timed_event]\n";
 		player->command("look");
@@ -131,6 +151,11 @@ string handle_command(object player,string action,string value)
 	}
 	if(!session)
 		return "你当前没有参加活动。\n[返回:timed_event]\n";
+	// A stale read-only session may be used for status rendering only. All
+	// active gameplay mutations must run beside the sole event scheduler.
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !local_timed_event_owner())
+		return "请先返回活动场地，再执行该操作。\n[返回活动场地:timed_event return]\n";
 	participant = session["participants"][player->query_name()];
 	if(action=="leave")
 		return leave_event(player,session);
@@ -241,6 +266,13 @@ private void prune_old_sessions(int now)
 private void tick_sessions()
 {
 	int now = time();
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !local_timed_event_owner()){
+		event_scheduler_started = 0;
+		schedule_event_owner_probe(2);
+		return;
+	}
+	consume_reward_claim_acks();
 	foreach(({EVENT_TIANHENG,EVENT_JIUYAO}),string event_id){
 		mapping window = query_event_window(event_id,now);
 		if((string)window["phase"]=="signup")

@@ -8,6 +8,19 @@ int query_pet_star_max()
 	return PET_STAR_MAX;
 }
 
+/** 账号保存培养等级；当前角色只获得不超过自身等级的有效成长。 */
+int query_pet_effective_level(object player,int stored_level)
+{
+	int level_max = query_pet_level_max(player);
+	if(stored_level<1)
+		stored_level = 1;
+	if(stored_level>PET_LEVEL_MAX)
+		stored_level = PET_LEVEL_MAX;
+	if(stored_level>level_max)
+		stored_level = level_max;
+	return stored_level;
+}
+
 /** 当前等级升到下一级所需的独立战斗历练；满级不再累计。 */
 int query_pet_level_xp_need(int current_level)
 {
@@ -174,29 +187,32 @@ mapping(string:int) query_pet_attributes(mapping pet)
 	return result;
 }
 
-private mapping(string:mixed) enrich_pet_view(mapping pet)
+private mapping(string:mixed) enrich_pet_view(mapping pet,
+	void|object player)
 {
 	mapping result = copy_value(pet);
 	int star = (int)result["star"];
-	int level = (int)result["level"];
+	int trained_level = (int)result["level"];
+	int level = query_pet_effective_level(player,trained_level);
+	int level_max = query_pet_level_max(player);
 	int xp = (int)result["xp"];
 	int xp_need;
 	if(star<1)
 		star = 1;
 	if(level<1)
 		level = 1;
-	if(level>PET_LEVEL_MAX)
-		level = PET_LEVEL_MAX;
 	if(xp<0)
 		xp = 0;
 	xp_need = query_pet_level_xp_need(level);
 	result["star"] = star;
 	result["level"] = level;
-	result["xp"] = level>=PET_LEVEL_MAX ? 0 : xp;
-	result["xp_need"] = xp_need;
-	result["xp_progress_percent"] = level>=PET_LEVEL_MAX ? 100 :
+	result["trained_level"] = trained_level;
+	result["level_limited"] = trained_level>level;
+	result["xp"] = trained_level>=level_max ? 0 : xp;
+	result["xp_need"] = trained_level>=level_max ? 0 : xp_need;
+	result["xp_progress_percent"] = trained_level>=level_max ? 100 :
 		(xp_need>0 && xp<xp_need ? xp*100/xp_need : 100);
-	result["level_max"] = PET_LEVEL_MAX;
+	result["level_max"] = level_max;
 	result["evolution"] = query_pet_evolution_stage(star);
 	result["evolution_name"] = query_pet_evolution_name(star);
 	result["attributes"] = query_pet_attributes(result);

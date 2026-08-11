@@ -182,6 +182,8 @@ void test_drop_and_visual_wiring()
 		sizeof(npc/"get_ancient_skill_book")-1>=2 &&
 		search(get,"bind_to_account")!=-1 &&
 		search(fight,"【战技显化】")!=-1 &&
+		search(fight,"query_room_skill_manifestations")!=-1 &&
+		search(fight,"observer_epoch")!=-1 &&
 		search(fight,"is_visible(observer,caster)")!=-1 &&
 		search(pet,"【灵宠显化】")!=-1 &&
 		search(pet,"is_visible(observer,player)")!=-1 &&
@@ -196,6 +198,82 @@ void test_drop_and_visual_wiring()
 		test_fail("掉落、绑定、广播或Vue表现链路缺失");
 }
 
+void test_room_skill_manifestation_snapshot()
+{
+	test_start("同房战技事件可轮询、去重、限界且不跨房间");
+	object caster = create_test_player(
+		"__testunit_skill_caster__","__testunit_skill_account_a__");
+	object observer = create_test_player(
+		"__testunit_skill_observer__","__testunit_skill_account_b__");
+	object outsider = create_test_player(
+		"__testunit_skill_outsider__","__testunit_skill_account_c__");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object away = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhen");
+	object map_worker = (object)(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike");
+	array(mapping(string:mixed)) events = ({});
+	int accepted = 0;
+	int rejected = 0;
+	int valid = 0;
+	mixed err = catch {
+		caster->move(room);
+		observer->move(room);
+		outsider->move(away);
+		for(int index=1;index<=8;index++){
+			mapping event = ([
+				"id":"skill-event-"+(string)index,
+				"event_at":time(),
+				"room_path":file_name(room),
+				"worker_id":map_worker->query_local_worker_id(),
+				"caster_userid":caster->query_name(),
+				"caster_name":caster->query_name_cn(),
+				"skill_name":"鸿蒙一剑",
+				"skill_level":index,
+				"target_name":"妖狼",
+				"effect_desc":"战技气息扩散开来",
+			]);
+			accepted += observer->receive_room_skill_manifestation(
+				event,caster);
+			if(index==1)
+				accepted += observer->receive_room_skill_manifestation(
+					event,caster);
+		}
+		mapping outsider_event = ([
+			"id":"outsider-event","event_at":time(),
+			"room_path":file_name(room),
+			"worker_id":map_worker->query_local_worker_id(),
+		]);
+		rejected = outsider->receive_room_skill_manifestation(
+			outsider_event,caster);
+		mapping invalid_event = ([
+			"id":"invalid-event","event_at":time(),
+			"room_path":file_name(room),
+			"worker_id":map_worker->query_local_worker_id(),
+			"skill_name":"伪造\n技能","skill_level":1,
+		]);
+		rejected += observer->receive_room_skill_manifestation(
+			invalid_event,caster);
+		events = observer->query_room_skill_manifestations();
+		valid = accepted==9 && rejected==0 && sizeof(events)==6 &&
+			(string)events[0]["id"]=="skill-event-3" &&
+			(string)events[-1]["id"]=="skill-event-8";
+		observer->move(away);
+		valid = valid &&
+			!sizeof(observer->query_room_skill_manifestations());
+	};
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("room snapshot err="+(err ? describe_error(err) : "")+
+			" accepted="+(string)accepted+" rejected="+(string)rejected+
+			" events="+(string)sizeof(events));
+	if(caster) destruct(caster);
+	if(observer) destruct(observer);
+	if(outsider) destruct(outsider);
+}
+
 int main()
 {
 	werror("\n========== 十职业太古隐藏技能测试 ==========\n");
@@ -204,6 +282,7 @@ int main()
 	test_drop_probability_contract();
 	test_binding_and_legacy_compatibility();
 	test_drop_and_visual_wiring();
+	test_room_skill_manifestation_snapshot();
 	werror("太古传承：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

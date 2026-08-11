@@ -240,9 +240,16 @@ string query_weekly_boss_species(void|int at_time)
 	return rift_boss_species[index];
 }
 
-int query_pet_level_max()
+int query_pet_level_max(void|object player)
 {
-	return PET_LEVEL_MAX;
+	int level_max = PET_LEVEL_MAX;
+	if(player && functionp(player->query_level))
+		level_max = (int)player->query_level();
+	if(level_max<1)
+		level_max = 1;
+	if(level_max>PET_LEVEL_MAX)
+		level_max = PET_LEVEL_MAX;
+	return level_max;
 }
 
 int query_pet_bond_max()

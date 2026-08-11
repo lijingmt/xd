@@ -151,6 +151,7 @@ mapping(string:mixed) query_player_status(object player)
 	mapping active;
 	if(!player)
 		return result;
+	refresh_readonly_event_snapshot();
 	active = query_session_for_user_id(player->query_name(),1);
 	if(active){
 		result["active"] = 1;

@@ -286,7 +286,9 @@ private mapping(string:mixed)|zero upgrade_pet_record_unlocked(
 	upgraded = copy_value(record);
 	foreach((array)upgraded["pets"],mixed one){
 		if(!mappingp(one) || (int)one["level"]<1 ||
-		   (old_version==1 && (int)one["level"]>30))
+		   (old_version==1 && (int)one["level"]>30) ||
+		   (old_version>1 &&
+		    (int)one["level"]>PET_LEGACY_LEVEL_MAX))
 			return 0;
 		if(old_version==1)
 			one["star"] = 1;

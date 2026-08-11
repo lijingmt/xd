@@ -197,6 +197,8 @@ private string render_detail(mapping state,string species,object me)
 	if(owned>=0){
 		mapping pet = state["pets"][owned];
 		mapping attributes = pet["attributes"];
+		int level_max = (int)pet["level_max"];
+		int trained_level = (int)pet["trained_level"];
 		s += "\n契名："+pet_display_name(pet,info)+"\n";
 		s += "阴阳："+(string)pet["polarity_name"]+"属\n";
 		if(mappingp(pet["fusion"])){
@@ -206,11 +208,15 @@ private string render_detail(mapping state,string species,object me)
 				(int)fusion["growth_bonus"]+"%\n";
 			s += "灵脉："+((array)fusion["traits"]*"、")+"\n";
 		}
-		s += "已收录：Lv."+(int)pet["level"]+"/60 · "+
+		s += "已收录：Lv."+(int)pet["level"]+"/"+level_max+" · "+
 			(int)pet["star"]+"星 · "+(string)pet["evolution_name"]+
 			" · 羁绊"+(int)pet["bond"]+"/5\n";
-		if((int)pet["level"]>=PETD->query_pet_level_max())
-			s += "战斗历练：已满级；继续战斗不会囤积溢出经验。\n";
+		if((int)pet["level_limited"])
+			s += "共享培养进度：Lv."+trained_level+
+				"（已完整保留）；当前角色只按Lv."+
+				(int)pet["level"]+"属性协战。\n";
+		if(trained_level>=level_max)
+			s += "战斗历练：已与当前人物等级同步；人物升级后继续成长，当前不囤积溢出历练。\n";
 		else
 			s += "战斗历练："+(int)pet["xp"]+"/"+
 				(int)pet["xp_need"]+"（协战击败合适等级怪物会自动连续升级）\n";
@@ -239,14 +245,19 @@ private string render_detail(mapping state,string species,object me)
 			"三选一领取2枚。 [查看周目标:daily_cultivation] "+
 			"[前往裂隙:wanling_rift]\n";
 		s += "已收录外观："+((array)pet["variants"]*"、")+"\n";
-		s += "[设为协战:pet active "+(string)pet["id"]+"] "+
-			"[灵露加速1级:pet level "+(string)pet["id"]+"]\n";
-		if(VIPD->query_active_vip_level(me)>=2)
-			s += "[灵露连续加速10级:pet level10 "+(string)pet["id"]+"]（"+
-				vip_label(2)+"）\n";
+		s += "[设为协战:pet active "+(string)pet["id"]+"] ";
+		if(trained_level<level_max){
+			s += "[灵露加速1级:pet level "+
+				(string)pet["id"]+"]\n";
+			if(VIPD->query_active_vip_level(me)>=2)
+				s += "[灵露连续加速10级:pet level10 "+
+					(string)pet["id"]+"]（"+vip_label(2)+"）\n";
+			else
+				s += "连续提升10级（"+vip_label(2)+"解锁）"+
+					"[升级会员:vip_service_list]\n";
+		}
 		else
-			s += "连续提升10级（"+vip_label(2)+"解锁）"+
-				"[升级会员:vip_service_list]\n";
+			s += "已达当前人物有效等级上限\n";
 		s +=
 			"[消耗残片升星:pet star "+(string)pet["id"]+"] "+
 			"[深化羁绊:pet bond "+(string)pet["id"]+"]\n"+
@@ -419,6 +430,8 @@ private string render_main(mapping state,object me)
 		s += "回生羽："+((int)state["daily"]["owner_revive"] ?
 			"今日已使用" : "今日可触发1次")+"\n";
 	s += "出战灵宠会从合适等级的真实怪物获得历练并自动连续升级；灵露可用于加速培养。\n";
+	s += "有效等级不超过当前人物Lv."+
+		(int)state["level_max"]+"；共享高等级培养进度永久保留，低等级角色只临时按自身等级生效。\n";
 	s += "本周裂隙："+(string)boss["icon"]+(string)boss["name"]+
 		" | 周胜场 "+(int)state["weekly"]["rift_wins"]+"/3"+
 		" | 完整灵卵保底 "+(int)state["rift_pity"]+"/30\n";
@@ -457,6 +470,8 @@ private string render_main(mapping state,object me)
 					"Lv."+(int)pet["level"]+"·"+(int)pet["star"]+
 					"星"+(string)pet["evolution_name"]+"·战力"+
 					(int)pet["power"]+"·羁绊"+(int)pet["bond"]+
+					((int)pet["level_limited"] ? "·培养Lv."+
+					(int)pet["trained_level"]+"已保留" : "")+
 					" [详情:pet detail "+(string)pet["species"]+"]\n";
 		}
 		s += "[暂停当前协战:pet active none]\n\n";
@@ -467,7 +482,7 @@ private string render_main(mapping state,object me)
 	s += "[阴阳灵契合成:pet fusion]（失败保留原宠）\n";
 	s += "[前往万灵台:wanling_rift gather]\n";
 	s += "[本命灵伴:spirit_companion]（角色独立收集与培养）\n";
-	s += "\n公平规则：PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。会员不出售战斗专属宠物或属性洗练。\n";
+	s += "\n公平规则：宠物有效等级不超过当前人物等级；VIP只通过人物自身可达等级间接影响上限，不另外倍增宠物成长。PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。\n";
 	if(me->query_profeId()=="fangshi")
 		s += "方士说明：万灵伙伴不占虎灵、鹤灵、龟灵名额，不触发三灵共鸣。\n";
 	s += "[返回游戏:look]\n";

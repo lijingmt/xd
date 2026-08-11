@@ -312,6 +312,8 @@ void configure_test_pet(object player,string species,string opponent_id)
 {
 	player["/tmp/wanling/pet_id"] = player->query_name()+"-pet";
 	player["/tmp/wanling/species"] = species;
+	player["/tmp/wanling/pet_level"] = 60;
+	player["/tmp/wanling/player_level"] = player->query_level();
 	player["/tmp/wanling/skill_set"] = 0;
 	player["/tmp/wanling/pet_pvp_growth_percent"] = 124;
 	player["/tmp/wanling/pvp_target"] = opponent_id;

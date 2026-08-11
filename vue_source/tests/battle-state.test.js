@@ -426,6 +426,20 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.skillAnimations[0].type, 'ancient');
   assert.strictEqual(client.skillAnimations[0].name, '鸿蒙一剑');
   assert.strictEqual(client.skillAnimations[0].target, 'room');
+  client.skillAnimations = [];
+  client.roomSkillEventHistory = {};
+  const workerSkillEvents = [{
+    id: 'worker-skill-001', event_at: 100,
+    caster_name: '太虚真人', skill_name: '【象】九星连珠',
+    skill_level: 3, target_name: '妖狼'
+  }];
+  client.syncRoomSkillManifestations(workerSkillEvents);
+  client.syncRoomSkillManifestations(workerSkillEvents);
+  assert.strictEqual(client.skillAnimations.length, 1);
+  assert.strictEqual(client.skillAnimations[0].type, 'wind');
+  assert.strictEqual(client.skillAnimations[0].name, '九星连珠');
+  assert.strictEqual(client.skillAnimations[0].target, 'room');
+  assert(client.roomSkillEventHistory['worker-skill-001']);
   const roomPet = client.parseRoomPetManifestation(
     '【灵宠显化】太虚真人的🐗当康施展「丰穰守心」，对妖狼造成321点协战伤害。'
   );

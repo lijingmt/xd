@@ -11,6 +11,9 @@
 #define SPIRIT_COMPANIOND ((object)(ROOT "/gamelib/single/daemons/spirit_companiond.pike"))
 #define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
+#define MAP_WORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define ROOM_SKILL_EVENT_TTL 8
+#define ROOM_SKILL_EVENT_MAX 6
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -343,25 +346,143 @@ int apply_team_guard_to_group(object caster,int shield,int duration)
 	return applied;
 }
 
-// 玩家成功施法后向同一逻辑区、同一房间的旁观玩家发送轻量事件文案。
-// 这条消息只驱动客户端表现，不参与命中、伤害、治疗、仇恨或掉落结算。
+// 房间技能事件只是不落盘的UI快照。房间路径、Worker和玩家租约任一
+// 发生变化都会使它失效，避免跨地图迁移后重放上一个房间的特效。
+array(mapping(string:mixed)) query_room_skill_manifestations()
+{
+	array(mapping(string:mixed)) result = ({});
+	mixed raw = this_object()["/tmp/combat/room_skill_events"];
+	object env = environment(this_object());
+	string room_path;
+	string worker_id;
+	int player_epoch;
+	int now = time();
+	if(!env || !arrayp(raw))
+		return result;
+	room_path = file_name(env);
+	worker_id = MAP_WORKERD->query_local_worker_id();
+	player_epoch = MAP_WORKERD->query_node_role()=="worker" ?
+		MAP_WORKERD->query_local_player_epoch(this_object()->query_name()) : 0;
+	foreach((array)raw,mixed candidate){
+		mapping event;
+		int event_at;
+		if(!mappingp(candidate))
+			continue;
+		event = (mapping)candidate;
+		event_at = (int)event["event_at"];
+		if((string)event["id"]=="" || event_at<1 || event_at>now+1 ||
+		   now-event_at>ROOM_SKILL_EVENT_TTL ||
+		   (string)event["room_path"]!=room_path ||
+		   (string)event["worker_id"]!=worker_id ||
+		   (int)event["observer_epoch"]!=player_epoch)
+			continue;
+		result += ({copy_value(event)});
+	}
+	return result;
+}
+
+// 由房间所属Worker在施法时调用。入口再次校验同房、同逻辑区，
+// 即使未来其他系统复用也不能伪造跨区技能表现。
+int receive_room_skill_manifestation(mapping raw_event,object caster)
+{
+	object env = environment(this_object());
+	array(mapping(string:mixed)) events;
+	mapping(string:mixed) event;
+	string room_path;
+	string worker_id;
+	int player_epoch;
+	if(!mappingp(raw_event) || !caster || !env ||
+	   environment(caster)!=env || caster==this_object() ||
+	   !this_object()->is || !this_object()->is("player") ||
+	   !caster->is || !caster->is("player") ||
+	   !LOGICALZONED->is_visible(this_object(),caster))
+		return 0;
+	room_path = file_name(env);
+	worker_id = MAP_WORKERD->query_local_worker_id();
+	player_epoch = MAP_WORKERD->query_node_role()=="worker" ?
+		MAP_WORKERD->query_local_player_epoch(this_object()->query_name()) : 0;
+	if((string)raw_event["id"]=="" ||
+	   sizeof((string)raw_event["id"])>192 ||
+	   (int)raw_event["event_at"]<time()-1 ||
+	   (int)raw_event["event_at"]>time()+1 ||
+	   (string)raw_event["room_path"]!=room_path ||
+	   (string)raw_event["worker_id"]!=worker_id ||
+	   !stringp(raw_event["skill_name"]) ||
+	   sizeof((string)raw_event["skill_name"])<1 ||
+	   sizeof((string)raw_event["skill_name"])>120 ||
+	   search((string)raw_event["skill_name"],"\n")!=-1 ||
+	   sizeof((string)raw_event["target_name"])>120 ||
+	   search((string)raw_event["target_name"],"\n")!=-1 ||
+	   sizeof((string)raw_event["effect_desc"])>240 ||
+	   search((string)raw_event["effect_desc"],"\n")!=-1 ||
+	   (int)raw_event["skill_level"]<0 ||
+	   (int)raw_event["skill_level"]>10000)
+		return 0;
+	event = ([
+		"id":(string)raw_event["id"],
+		"event_at":(int)raw_event["event_at"],
+		"room_path":room_path,
+		"worker_id":worker_id,
+		"observer_epoch":player_epoch,
+		"caster_userid":caster->query_name(),
+		"caster_name":caster->query_name_cn(),
+		"skill_name":(string)raw_event["skill_name"],
+		"skill_level":(int)raw_event["skill_level"],
+		"target_name":(string)raw_event["target_name"],
+		"effect_desc":(string)raw_event["effect_desc"],
+	]);
+	events = query_room_skill_manifestations();
+	foreach(events,mapping old_event)
+		if((string)old_event["id"]==(string)event["id"])
+			return 1;
+	events += ({event});
+	if(sizeof(events)>ROOM_SKILL_EVENT_MAX)
+		events = events[sizeof(events)-ROOM_SKILL_EVENT_MAX..];
+	this_object()["/tmp/combat/room_skill_events"] = events;
+	return 1;
+}
+
+// 玩家成功施法后向同一逻辑区、同一房间的旁观玩家发送轻量事件。
+// 结构化快照供Vue轮询，文案保留给旧JSP；两者都不参与战斗结算。
 private void broadcast_room_skill_manifestation(object skill,object|zero target,
 	int skill_level,string effect_desc)
 {
 	object caster = this_object();
 	object env = environment(caster);
 	string target_desc = "";
+	string target_name = "";
+	mapping(string:mixed) event;
+	int event_seq;
 	if(!caster || !skill || !env || !caster->is || !caster->is("player"))
 		return;
 	if(target && target!=caster && environment(target)==env &&
-	   functionp(target->query_name_cn))
-		target_desc = "，目标为"+target->query_name_cn();
+	   functionp(target->query_name_cn)){
+		target_name = target->query_name_cn();
+		target_desc = "，目标为"+target_name;
+	}
+	event_seq = (int)caster["/tmp/combat/room_skill_event_seq"]+1;
+	caster["/tmp/combat/room_skill_event_seq"] = event_seq;
+	event = ([
+		"id":sprintf("%s-%d-%d-%d",caster->query_name(),time(),
+			event_seq,random(1000000)),
+		"event_at":time(),
+		"room_path":file_name(env),
+		"worker_id":MAP_WORKERD->query_local_worker_id(),
+		"caster_userid":caster->query_name(),
+		"caster_name":caster->query_name_cn(),
+		"skill_name":skill->query_name_cn(),
+		"skill_level":skill_level,
+		"target_name":target_name,
+		"effect_desc":effect_desc,
+	]);
 	catch {
 		foreach(all_inventory(env),object observer){
 			if(!observer || observer==caster || observer==target ||
 			   !observer->is || !observer->is("player") ||
 			   !LOGICALZONED->is_visible(observer,caster))
 				continue;
+			if(functionp(observer->receive_room_skill_manifestation))
+				observer->receive_room_skill_manifestation(event,caster);
 			tell_object(observer,"【战技显化】"+caster->query_name_cn()+
 				"施放「"+skill->query_name_cn()+"」（等级"+skill_level+
 				"）"+target_desc+

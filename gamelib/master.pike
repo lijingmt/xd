@@ -195,8 +195,11 @@ private void _create()
 		// lowlib/system/master applies the same map-node startup boundary.
 		// A first player login must not bypass it and start duplicate global
 		// schedulers (home saves, auctions, refresh daemons) on every worker.
-		if(map_worker_node &&
-		   !has_value(({"map_workerd.pike","http_api_daemon.pike"}),s)){
+		array(string) node_daemons = node_role=="worker" ?
+			({"map_workerd.pike","http_api_daemon.pike","roomLeveld.pike",
+			  "kuangd.pike","caoyaod.pike","timed_eventd.pike"}) :
+			({"map_workerd.pike","http_api_daemon.pike"});
+		if(map_worker_node && !has_value(node_daemons,s)){
 			werror("[MASTER] Map-worker node skipping eager daemon: %s\n",s);
 			continue;
 		}

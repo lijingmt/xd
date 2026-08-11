@@ -57,11 +57,185 @@ private mapping(int:array(string)) caoyao_flush_time = ([]);//以刷新时间为
 // ...
 //  ])
 private int flush_count = 0;
+private int worker_refresh_started;
+private int worker_assignment_generation;
+private mapping(string:int) worker_initialized = ([]);
+
+private int worker_mode()
+{
+	return MAP_WORKERD->query_node_role()=="worker";
+}
+
+private int stable_room_slot(string name,int slot,int room_count)
+{
+	object hash;
+	string digest;
+	int value = 0;
+	if(room_count<1)
+		return -1;
+	hash = Crypto.SHA256();
+	hash->update("caoyao|"+name+"|"+(string)slot);
+	digest = String.string2hex(hash->digest());
+	if(sizeof(digest)>=7)
+		sscanf(digest[0..6],"%x",value);
+	return value%room_count;
+}
+
+private int count_room_source(object room_ob,string name)
+{
+	int count;
+	string source_path = MATERIAL_PATH+name;
+	if(!room_ob)
+		return 0;
+	foreach(all_inventory(room_ob),object one){
+		string path = one ? file_name(one) : "";
+		if(path==source_path || has_prefix(path,source_path+"#"))
+			count++;
+	}
+	return count;
+}
+
+private int spawn_worker_caoyao(string name,string room)
+{
+	object room_ob;
+	object source;
+	mixed err;
+	if(!caoyaoMap[name] || room=="" || search(room,"..")!=-1 ||
+	   !MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+		return 0;
+	err = catch { room_ob = (object)(ROOM_PATH+room); };
+	if(err || !room_ob || sizeof(all_inventory(room_ob))>=MAX_ITEMS_PER_ROOM)
+		return 0;
+	err = catch {
+		source = clone(MATERIAL_PATH+name);
+		if(source)
+			source->move(room_ob);
+	};
+	if(err || !source || environment(source)!=room_ob){
+		if(source)
+			destruct(source);
+		return 0;
+	}
+	return 1;
+}
+
+private array(string) local_caoyao_rooms(caoyao one)
+{
+	array(string) result = ({});
+	array(string) rooms;
+	if(!one)
+		return result;
+	rooms = ROOMLEVELD->query_rooms(one->mLevel_min,one->mLevel_max);
+	foreach(rooms,string room)
+		if(MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+			result += ({room});
+	return result;
+}
+
+private void reconcile_worker_caoyao(string name)
+{
+	caoyao one = caoyaoMap[name];
+	array(string) rooms;
+	mapping(string:int) desired = ([]);
+	int missing;
+	int desired_total;
+	int existing_total;
+	int spawned;
+	if(!one){
+		caoyaoNeed[name] = 0;
+		return;
+	}
+	rooms = ROOMLEVELD->query_rooms(one->mLevel_min,one->mLevel_max);
+	if(!sizeof(rooms)){
+		caoyaoNeed[name] = 0;
+		werror("[CAOYAOD][WORKER] no eligible rooms for %s\n",name);
+		return;
+	}
+	for(int slot=0;slot<one->nums;slot++){
+		int index = stable_room_slot(name,slot,sizeof(rooms));
+		string room = index>=0 ? rooms[index] : "";
+		if(room!="" &&
+		   MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+			desired[room] = (int)desired[room]+1;
+	}
+	foreach(indices(desired),string room){
+		object room_ob;
+		mixed err = catch { room_ob = (object)(ROOM_PATH+room); };
+		int existing = !err && room_ob ? count_room_source(room_ob,name) : 0;
+		int need = (int)desired[room]-existing;
+		desired_total += (int)desired[room];
+		existing_total += existing;
+		for(int index=0;index<need;index++)
+			if(spawn_worker_caoyao(name,room))
+				spawned++;
+			else
+				missing++;
+	}
+	caoyaoNeed[name] = missing;
+	worker_initialized[name] = 1;
+	werror("[CAOYAOD][WORKER] generation=%d source=%s desired=%d existing=%d spawned=%d missing=%d\n",
+		MAP_WORKERD->query_local_assignment_generation(),name,
+		desired_total,existing_total,spawned,missing);
+}
+
+private int refresh_worker_generation()
+{
+	int generation = MAP_WORKERD->query_local_assignment_generation();
+	if(generation<1 || generation==worker_assignment_generation)
+		return 0;
+	worker_assignment_generation = generation;
+	worker_initialized = ([]);
+	return 1;
+}
+
+private void reconcile_all_worker_caoyao()
+{
+	foreach(indices(caoyaoMap),string name)
+		reconcile_worker_caoyao(name);
+}
+
+private void fill_worker_caoyao_need(string name)
+{
+	caoyao one = caoyaoMap[name];
+	int need = (int)caoyaoNeed[name];
+	array(string) rooms;
+	int attempts = need*4;
+	if(need<1)
+		return;
+	rooms = local_caoyao_rooms(one);
+	if(!sizeof(rooms))
+		return;
+	for(int index=0;index<attempts && caoyaoNeed[name]>0;index++){
+		string room = rooms[random(sizeof(rooms))];
+		if(spawn_worker_caoyao(name,room))
+			caoyaoNeed[name]--;
+	}
+}
+
+void start_worker_refresh()
+{
+	if(!worker_mode() || worker_refresh_started)
+		return;
+	if(!MAP_WORKERD->local_affinity_assignments_ready()){
+		call_out(start_worker_refresh,2);
+		return;
+	}
+	worker_refresh_started = 1;
+	// A restart must restore every configured herb immediately, including the
+	// 30/60-minute varieties. The cadence below remains unchanged and only
+	// governs replenishment after players gather them.
+	if(refresh_worker_generation())
+		reconcile_all_worker_caoyao();
+	call_out(flush_caoyao,FLUSH_TIME);
+}
 
 protected void create()
 {
 	load_csv();
-	flush_caoyao();
+	if(worker_mode())
+		call_out(start_worker_refresh,2);
+	else
+		flush_caoyao();
 	
 	//call_out(flush_caoyao,FLUSH_TIME);
 }
@@ -120,6 +294,23 @@ void flush_caoyao()
 {
 	flush_count += 15; //刷新时间是15的倍数
 	string now=ctime(time());
+	if(worker_mode()){
+		if(refresh_worker_generation())
+			reconcile_all_worker_caoyao();
+		foreach(indices(caoyao_flush_time),int worker_time)
+			if(flush_count%worker_time==0){
+				array(string) names = caoyao_flush_time[worker_time];
+				foreach(names,string name)
+					if(!worker_initialized[name])
+						reconcile_worker_caoyao(name);
+					else
+						fill_worker_caoyao_need(name);
+			}
+		if(flush_count>=MAX_TIME)
+			flush_count = 0;
+		call_out(flush_caoyao,FLUSH_TIME);
+		return;
+	}
 	int need_reload = 1;
 	foreach(indices(caoyaoNeed),string str_name){
 		if(caoyaoNeed[str_name]>=2){
@@ -216,6 +407,8 @@ mapping(string:int) query_get_m(string name)
 //草药被挖了后要设置待刷新草药的数量
 void set_flush_num(string name)
 {
+	if(!caoyaoMap[name])
+		return;
 	if(!caoyaoNeed[name])
 		caoyaoNeed[name] = 1;
 	else

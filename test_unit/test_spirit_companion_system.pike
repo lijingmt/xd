@@ -178,6 +178,56 @@ void test_collection_and_gear(object root)
 		"打造扣账、换装或唯一装备引用异常");
 }
 
+void test_player_level_cap(object root)
+{
+	werror("\n【本命灵伴测试】人物等级联动与旧进度保留\n");
+	mapping original = copy_value(root["/spirit_companion/record"]);
+	mapping record = root["/spirit_companion/record"];
+	int pet_index = 0;
+	for(int i=0;i<sizeof((array)record["pets"]);i++)
+		if((string)record["pets"][i]["id"]==(string)record["active_id"])
+			pet_index = i;
+	root->level = 15;
+	root->set_att_by_level();
+	record["pets"][pet_index]["level"] = 14;
+	record["pets"][pet_index]["xp"] = 260;
+	record["materials"]["companion_food"] = 12;
+	root->save_with_result();
+	string pet_id = (string)record["pets"][pet_index]["id"];
+	mapping reached = SPIRIT_COMPANIOND->feed_spirit_companion(root,pet_id);
+	mapping capped = SPIRIT_COMPANIOND->query_spirit_companion_state(root);
+	int food_at_cap = (int)capped["materials"]["companion_food"];
+	mapping rejected = SPIRIT_COMPANIOND->feed_spirit_companion(root,pet_id);
+	mapping after_reject = SPIRIT_COMPANIOND->query_spirit_companion_state(root);
+	check("本命灵伴到达人物等级后停止成长且不扣灵果",
+		reached["ok"] && !rejected["ok"] &&
+		(int)capped["pets"][0]["level"]==15 &&
+		(int)capped["pets"][0]["trained_level"]==15 &&
+		(int)capped["pets"][0]["level_max"]==15 &&
+		(int)after_reject["materials"]["companion_food"]==food_at_cap,
+		"本命等级上限、历练清算或灵果事务有误");
+	root->level = 16;
+	root->set_att_by_level();
+	record = root["/spirit_companion/record"];
+	record["pets"][pet_index]["xp"] = 280;
+	root->save_with_result();
+	mapping resumed = SPIRIT_COMPANIOND->feed_spirit_companion(root,pet_id);
+	root->level = 10;
+	root->set_att_by_level();
+	mapping limited = SPIRIT_COMPANIOND->query_spirit_companion_state(root);
+	mapping presence = SPIRIT_COMPANIOND->query_spirit_companion_presence(root);
+	check("保留高等级本命进度，低等级状态与PVE/PVP入口只按人物等级生效",
+		resumed["ok"] && (int)limited["pets"][0]["level"]==10 &&
+		(int)limited["pets"][0]["trained_level"]==16 &&
+		(int)limited["pets"][0]["level_limited"]==1 &&
+		presence["active"] && (int)presence["level"]==10,
+		"旧进度被降级改写或战斗快照没有软限制");
+	root["/spirit_companion/record"] = copy_value(original);
+	root->level = 80;
+	root->set_att_by_level();
+	root->save_with_result();
+}
+
 void test_unique_battle_slot(object root)
 {
 	werror("\n【本命灵伴测试】共享/本命唯一战斗位与PVE/PVP\n");
@@ -409,8 +459,9 @@ int main()
 			(string)created["character"]["id"],"third","fangshi") : 0;
 		check("测试账号可建立独立子角色",created["ok"] && objectp(child),
 			"账号角色索引创建失败");
-		test_isolated_collection_and_shared_compatibility(root,child);
-		test_collection_and_gear(root);
+			test_isolated_collection_and_shared_compatibility(root,child);
+			test_player_level_cap(root);
+			test_collection_and_gear(root);
 		test_unique_battle_slot(root);
 		test_persistence_and_ui(child);
 	};

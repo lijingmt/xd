@@ -313,6 +313,12 @@ void test_duihuan_command_complete()
 		search(npc,"shilian_duihuan 500 hidden")==-1 &&
 		search(npc,"shilian_duihuan 1 hidden")!=-1,
 		"页面仍把单价当成数量传入");
+	check("太古直接掉落与武勋神技兑换文案明确区分",
+		search(menu,"极低概率直接掉落")!=-1 &&
+		search(menu,"500武勋兑换的是太极/无相神技")!=-1 &&
+		search(npc,"不会替代太古掉落")!=-1 &&
+		search(menu,"太极/无相神技书(500武勋)")!=-1,
+		"页面仍可能让玩家误以为武勋兑换替代了太古掉落");
 	check("装备兑换按标称目标等级和品质生成",
 		search(src,"get_itemname_on_level(level)")!=-1 &&
 		search(src,"get_convert_item(raw_name")!=-1 &&
