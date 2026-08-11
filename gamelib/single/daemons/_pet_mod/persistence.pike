@@ -447,6 +447,9 @@ private int valid_pet_record(mapping record,string account_id)
 			return 0;
 	foreach(pending_rewards;string session_id;mixed raw_reward){
 		mapping reward;
+		array participants;
+		mapping character_rewarded;
+		multiset(string) participant_seen = (<>);
 		if(!valid_pet_id(session_id) || !mappingp(raw_reward))
 			return 0;
 		reward = raw_reward;
@@ -454,6 +457,25 @@ private int valid_pet_record(mapping record,string account_id)
 		   (int)reward["won_at"]<=0 ||
 		   (int)reward["expires_at"]<(int)reward["won_at"])
 			return 0;
+		participants = arrayp(reward["participants"]) ?
+			(array)reward["participants"] : ({});
+		character_rewarded = mappingp(reward["character_rewarded"]) ?
+			(mapping)reward["character_rewarded"] : ([]);
+		if(sizeof(participants)>PET_RIFT_MAX_MEMBERS ||
+		   sizeof(character_rewarded)>sizeof(participants))
+			return 0;
+		foreach(participants,mixed raw_player_id){
+			string player_id = (string)raw_player_id;
+			if(!stringp(raw_player_id) || !valid_pet_userid(player_id) ||
+			   participant_seen[player_id])
+				return 0;
+			participant_seen[player_id] = 1;
+		}
+		foreach(character_rewarded;string player_id;mixed claimed){
+			if(!participant_seen[player_id] || !intp(claimed) ||
+			   (int)claimed!=1)
+				return 0;
+		}
 	}
 	foreach(rewarded;string session_id;mixed claimed_at){
 		if(!valid_pet_id(session_id) || !intp(claimed_at) ||

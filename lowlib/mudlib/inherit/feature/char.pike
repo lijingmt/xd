@@ -39,9 +39,56 @@ private object|zero query_toolbar_skill_object(string name)
 	return skill;
 }
 
+private int valid_toolbar_entry_name(string name)
+{
+	return !!name && name!="" && sizeof(name)<=64 &&
+		search(name,"/")==-1 && search(name,"..")==-1;
+}
+
+private void ensure_toolbar_slots()
+{
+	while(sizeof(toolbar_key)<TOOLBAR_NUM)
+		toolbar_key += ({(["none":0])});
+	for(int i=0;i<TOOLBAR_NUM;i++)
+		if(!mappingp(toolbar_key[i]))
+			toolbar_key[i] = (["none":0]);
+}
+
+/**
+ * 快捷栏配置页、战斗栏和设置命令共用同一套安全解析。
+ * 返回空字符串表示旧档案中的对象已失效；调用方必须允许玩家取消配置。
+ */
+string query_toolbar_entry_name(string name,int flag)
+{
+	object|zero entry = 0;
+	string display_name = "";
+	mixed err = 0;
+	if(!valid_toolbar_entry_name(name))
+		return "";
+	if(flag==1){
+		entry = query_toolbar_skill_object(name);
+		if(entry)
+			display_name = (string)entry->query_name_cn();
+		return display_name;
+	}
+	if(flag==2)
+		err = catch { entry = clone(FOOD_PATH+name); };
+	else if(flag==3)
+		err = catch { entry = clone(WATER_PATH+name); };
+	else
+		return "";
+	if(!err && entry)
+		display_name = (string)entry->query_name_cn();
+	if(entry)
+		destruct(entry);
+	return display_name;
+}
+
 int set_toolbar(string name,int num,int flag)
 {
-	if(name != "" && num<TOOLBAR_NUM){
+	if(valid_toolbar_entry_name(name) && num>=0 && num<TOOLBAR_NUM &&
+	   flag>=1 && flag<=3){
+		ensure_toolbar_slots();
 		toolbar_key[num]=([name:flag]);
 		return 1;
 	}
@@ -50,7 +97,8 @@ int set_toolbar(string name,int num,int flag)
 }
 int clean_toolbar(int num)
 {
-	if(num<TOOLBAR_NUM){
+	if(num>=0 && num<TOOLBAR_NUM){
+		ensure_toolbar_slots();
 		toolbar_key[num]=(["none":0]);
 		return 1;
 	}
@@ -60,6 +108,9 @@ int clean_toolbar(int num)
 mapping(string:int) query_toolbar(int a)
 {
 	mapping(string:int) tmp = ([]);
+	if(a<0 || a>=TOOLBAR_NUM)
+		return tmp;
+	ensure_toolbar_slots();
 	tmp = toolbar_key[a];
 	return tmp;	
 }
@@ -68,8 +119,9 @@ string query_toolbar_cn()
 	string s = "";
 	int used = 0;
 	for(int i=0;i<TOOLBAR_NUM;i++){
-		foreach(indices(toolbar_key[i]),string name){
-			if(toolbar_key[i][name]==0){
+		mapping(string:int) toolbar_entry = query_toolbar(i);
+		foreach(indices(toolbar_entry),string name){
+			if(toolbar_entry[name]==0){
 				/*s += "无";
 				if(i!=2)
 					s += "|";
@@ -78,34 +130,14 @@ string query_toolbar_cn()
 			}
 			else{
 				used ++;
-				if(toolbar_key[i][name]==1){
-					object|zero toolbar_skill =
-						query_toolbar_skill_object(name);
-					if(!toolbar_skill)
-						break;
-					s += "["+toolbar_skill->query_name_cn()+":use_toolbar "+i+"]";
+				string display_name = query_toolbar_entry_name(name,
+					(int)toolbar_entry[name]);
+				if(display_name!=""){
+					s += "["+display_name+":use_toolbar "+i+"]";
 					if(i!=TOOLBAR_NUM-1)
 						s += "|";
-					break;
 				}
-				else if(toolbar_key[i][name]==2){
-					object food = clone(FOOD_PATH+name); 
-					if(food){
-						s += "["+food->query_name_cn()+":use_toolbar "+i+"]";
-						if(i!=TOOLBAR_NUM-1)
-							s += "|";
-						break;
-					}
-				}
-				else if(toolbar_key[i][name]==3){
-					object water = clone(WATER_PATH+name);
-					if(water){
-						s += "["+water->query_name_cn()+":use_toolbar "+i+"]";
-						if(i!=TOOLBAR_NUM-1)
-							s += "|";
-						break;
-					}
-				}
+				break;
 			}
 		}
 		//if(used == 3)//每3个一换行
@@ -116,6 +148,7 @@ string query_toolbar_cn()
 array(mapping(string:int)) query_toolbar_all()
 {
 	array(mapping(string:int)) tmp = ({});
+	ensure_toolbar_slots();
 	tmp = toolbar_key;
 	return tmp;
 }

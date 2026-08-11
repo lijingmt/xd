@@ -1094,9 +1094,17 @@ void test_rift_same_account_participants(object independent)
 		independent->query_name_cn());
 	mapping team_snapshot = TERMD->query_term_m(team_id);
 	mapping before = PETD->query_pet_state(root_player);
+	int root_exp_before = root_player->query_exp();
+	int child_exp_before = child ? child->query_exp() : 0;
+	int root_money_before = root_player->query_account();
+	int child_money_before = child ? child->query_account() : 0;
 	mapping started = PETD->start_rift(root_player);
 	mapping won = started["ok"] ?
 		run_rift(({root_player,child,independent}),1) : ([]);
+	int root_exp_after_win = root_player->query_exp();
+	int child_exp_after_win = child ? child->query_exp() : 0;
+	int root_money_after_win = root_player->query_account();
+	int child_money_after_win = child ? child->query_account() : 0;
 	mapping pending = PETD->query_pet_state(root_player);
 	mapping root_claim = PETD->claim_rift_reward(root_player,9999,9999);
 	mapping child_claim = PETD->claim_rift_reward(child,9999,9999);
@@ -1132,6 +1140,76 @@ void test_rift_same_account_participants(object independent)
 		(string)root_claim["message"]+" child="+
 		(string)child_claim["message"]+" independent="+
 		(string)independent_claim["message"]);
+	check("同账号每个真实参战角色都独立获得幂等经验金币奖励",
+		root_exp_after_win>root_exp_before &&
+		child_exp_after_win>child_exp_before &&
+		root_money_after_win>root_money_before &&
+		child_money_after_win>child_money_before &&
+		mappingp(root_player["/wanling/rift_character_rewards"]) &&
+		mappingp(child["/wanling/rift_character_rewards"]) &&
+		sizeof((mapping)root_player["/wanling/rift_character_rewards"])==1 &&
+		sizeof((mapping)child["/wanling/rift_character_rewards"])==1 &&
+		root_player->query_exp()==root_exp_after_win &&
+		child->query_exp()==child_exp_after_win &&
+		root_player->query_account()==root_money_after_win &&
+		child->query_account()==child_money_after_win,
+		"同账号第二角色零奖励，或点击共享领奖时重复发放角色奖励");
+	int repeated_sessions_ok = 1;
+	for(int cycle=2;cycle<=3;cycle++){
+		int one_root_exp = root_player->query_exp();
+		int one_child_exp = child ? child->query_exp() : 0;
+		int one_root_money = root_player->query_account();
+		int one_child_money = child ? child->query_account() : 0;
+		mapping one_started = PETD->start_rift(root_player);
+		mapping one_won = one_started["ok"] ?
+			run_rift(({root_player,child,independent}),1) : ([]);
+		mapping one_root_claim = PETD->claim_rift_reward(
+			root_player,9999,9999);
+		mapping one_independent_claim = PETD->claim_rift_reward(
+			independent,9999,9999);
+		repeated_sessions_ok = repeated_sessions_ok &&
+			one_started["ok"] && one_won["status"]=="won" &&
+			one_root_claim["ok"] && one_independent_claim["ok"] &&
+			root_player->query_exp()>one_root_exp &&
+			child->query_exp()>one_child_exp &&
+			root_player->query_account()>one_root_money &&
+			child->query_account()>one_child_money;
+	}
+	mapping after_three = PETD->query_pet_state(root_player);
+	check("同账号多角色连续完成3场也不会间歇性漏发或重复发放",
+		repeated_sessions_ok &&
+		sizeof((mapping)root_player["/wanling/rift_character_rewards"])==3 &&
+		sizeof((mapping)child["/wanling/rift_character_rewards"])==3 &&
+		(int)after_three["materials"]["spirit_mark"]==
+			(int)before["materials"]["spirit_mark"]+15 &&
+		(int)after_three["weekly"]["rift_wins"]==
+			(int)before["weekly"]["rift_wins"]+3,
+		"连续场次角色凭据、共享材料或账号周胜场结算不一致");
+	string legacy_session_id =
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+	mapping legacy_record = Standards.JSON.decode(
+		Stdio.read_file(pet_file(account_id)));
+	legacy_record["pending_rift_rewards"][legacy_session_id] = ([
+		"boss_species":"kui",
+		"won_at":time(),
+		"expires_at":time()+3600,
+	]);
+	Stdio.write_file(pet_file(account_id),
+		Standards.JSON.encode(legacy_record));
+	PETD->drop_test_pet_cache(account_id);
+	int legacy_exp_before = root_player->query_exp();
+	int legacy_money_before = root_player->query_account();
+	mapping legacy_claim = PETD->claim_rift_reward(
+		root_player,9999,9999);
+	mapping legacy_after = PETD->query_pet_state(root_player);
+	check("更新前无角色列表的待领奖励可迁移且只补发当前角色一次",
+		legacy_claim["ok"] && root_player->query_exp()>legacy_exp_before &&
+		root_player->query_account()>legacy_money_before &&
+		(int)legacy_after["materials"]["spirit_mark"]==
+			(int)after_three["materials"]["spirit_mark"]+5 &&
+		!legacy_after["pending_rift_rewards"][legacy_session_id] &&
+		sizeof((mapping)root_player["/wanling/rift_character_rewards"])==4,
+		"旧版本待领奖励仍漏发角色收益、重复发放或无法完成清理");
 	string rift_source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_pet_mod/rift.pike");
 	check("裂隙共享奖励按精确注册账号标识归并",

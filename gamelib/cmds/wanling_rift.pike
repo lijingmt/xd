@@ -6,6 +6,7 @@ private string render_rift(mapping state)
 	if(!state["ok"])
 		return "【万灵裂隙】\n\n每周轮替一只山海异兽。需要3—5名15级以上玩家组队，并在同一房间集合。\n"+
 			"没有强制职业：每轮任何人都可选择破阵、守御、疗愈、封印；生命进入15%后开放缚灵。\n\n"+
+			"奖励规则：每个真实参战角色都有独立经验和金币；共享万灵材料每个注册账号每场一份；每周三选一同账号只能领取一次。\n\n"+
 			"[一键发布招募:wanling_rift recruit]|[前往万灵台:wanling_rift gather]\n"+
 			"[队长开启裂隙:wanling_rift start]|[查看队伍:my_term]\n"+
 			"[返回今日修行:daily_cultivation]|[返回游戏:look]\n";
@@ -31,7 +32,7 @@ private string render_rift(mapping state)
 	else if((string)state["status"]=="active")
 		s += "你本轮已经行动，正在等待队友。\n";
 	else if((string)state["status"]=="won")
-		s += "[领取个人奖励:wanling_rift claim]\n";
+		s += "角色参战奖励会自动发放；[领取账号共享奖励:wanling_rift claim]\n";
 	else
 		s += "本次探索已经结束，可重新组队挑战。\n";
 	s += "\n个人贡献：\n";
