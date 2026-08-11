@@ -1,9 +1,7 @@
 /** 本命灵伴：角色独立的收集、培养、装备与战斗位操作界面。 */
 
-#include <globals.h>
+#include <command.h>
 #include <gamelib/include/gamelib.h>
-
-inherit LOW_CMD;
 
 private mapping find_spirit_pet(mapping state,string pet_id)
 {

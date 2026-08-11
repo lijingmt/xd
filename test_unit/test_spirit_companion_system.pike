@@ -335,6 +335,27 @@ void test_persistence_and_ui(object child)
 	string vue_html = Stdio.read_file(ROOT+"/vue_source/index.html");
 	string vue_js = Stdio.read_file(ROOT+"/vue_source/js/app.js");
 	string vue_css = Stdio.read_file(ROOT+"/vue_source/css/app.css");
+	object|zero original_player = this_player();
+	object|zero shared_command = 0;
+	object|zero personal_command = 0;
+	int shared_result = 0;
+	int personal_result = 0;
+	string command_error = "";
+	mixed command_err = catch {
+		shared_command = (object)(ROOT+"/gamelib/cmds/pet.pike");
+		personal_command = (object)(ROOT+
+			"/gamelib/cmds/spirit_companion.pike");
+		set_this_player(reloaded);
+		shared_result = shared_command->main(0);
+		personal_result = personal_command->main(0);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(command_err)
+		command_error = describe_error(command_err)+" "+
+			describe_backtrace(command_err);
 	check("角色重载后灵伴、材料与装备从唯一.o档案恢复",
 		state["ok"] && state["owner_id"]==child_id &&
 		sizeof((array)state["pets"])==1 &&
@@ -361,11 +382,20 @@ void test_persistence_and_ui(object child)
 		search(daemon_source,"quality_roll = random(100)")!=-1 &&
 		search(daemon_source,"record[\"revision\"]%4")==-1 &&
 		search(vue_html,"header-pet-slots")!=-1 &&
+		search(vue_html,"@click=\"sendQuickCommand(slot.command)\"")!=-1 &&
+		search(vue_html,"sendQuickCommand('pet')")!=-1 &&
+		search(vue_html,"sendQuickCommand('spirit_companion')")!=-1 &&
 		search(vue_html,"共享宠物</button>")!=-1 &&
 		search(vue_html,"本命灵伴</button>")!=-1 &&
 		search(vue_js,"getPetSlotTitle(slot)")!=-1 &&
+		search(vue_js,
+			"index === 0 ? 'pet' : 'spirit_companion'")!=-1 &&
 		search(vue_css,"pet-system-personal")!=-1,
 		"新旧系统仍共用名称、视觉、入口或双宠战斗链");
+	check("共享宠物与本命灵伴命令可真实加载并执行各自首页",
+		!command_err && shared_command && personal_command &&
+		shared_result==1 && personal_result==1,
+		"命令编译、只读首页或双向入口失败: "+command_error);
 }
 
 int main()
