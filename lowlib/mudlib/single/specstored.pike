@@ -7,6 +7,168 @@ inherit LOW_DAEMON;
 //private	mapping(string:object) m_goods = ([]);
 private mapping(int:mapping(string:object)) goods_list=([]);//[物品等级:([该等级物品id:物品对象])]
 private mapping(int:mapping(string:object)) goods_list_normal=([]);//[物品等级:([该等级物品id:物品对象])]
+private mapping(string:mapping(string:mixed)) player_offers=([]);
+private int offer_nonce;
+#define SPEC_OFFER_TTL 600
+#define SPEC_OFFER_PLAYER_LIMIT 4096
+
+private string normalized_offer_userid(object player)
+{
+	string userid;
+	if(!player)
+		return "";
+	userid=lower_case((string)player->query_name());
+	if(userid=="" || sizeof(userid)>80)
+		return "";
+	return userid;
+}
+
+private string create_offer_token(string userid,string item_name,int fee)
+{
+	object hash=Crypto.SHA256();
+	offer_nonce++;
+	hash->update(userid+"|"+item_name+"|"+fee+"|"+time()+"|"+
+		offer_nonce+"|"+random(0x7fffffff));
+	return String.string2hex(hash->digest());
+}
+
+private void prune_player_offers()
+{
+	array(string) userids=indices(player_offers);
+	int now=time();
+	for(int i=0;i<sizeof(userids);i++){
+		mapping(string:mixed) shelf=player_offers[userids[i]];
+		if(!shelf || (int)shelf["consumed"] ||
+		   now-(int)shelf["created"]>SPEC_OFFER_TTL)
+			m_delete(player_offers,userids[i]);
+	}
+	while(sizeof(player_offers)>=SPEC_OFFER_PLAYER_LIMIT){
+		string oldest_user="";
+		int oldest_time=now+1;
+		foreach(indices(player_offers),string userid){
+			int created=(int)player_offers[userid]["created"];
+			if(created<oldest_time){
+				oldest_time=created;
+				oldest_user=userid;
+			}
+		}
+		if(oldest_user=="")
+			break;
+		m_delete(player_offers,oldest_user);
+	}
+}
+
+private void begin_player_offer_refresh(object player)
+{
+	string userid=normalized_offer_userid(player);
+	if(userid=="")
+		return;
+	prune_player_offers();
+	player_offers[userid]=(["created":time(),"consumed":0,"items":([])]);
+}
+
+private string register_offer(object player,string item_name,int fee)
+{
+	string userid=normalized_offer_userid(player);
+	mapping(string:mixed) shelf;
+	mapping items;
+	string token;
+	if(userid=="" || item_name=="" || fee<0 || fee>1000000)
+		return "";
+	shelf=player_offers[userid];
+	if(!shelf || time()-(int)shelf["created"]>SPEC_OFFER_TTL){
+		begin_player_offer_refresh(player);
+		shelf=player_offers[userid];
+	}
+	items=shelf["items"];
+	token=create_offer_token(userid,item_name,fee);
+	items[token]=(["name":item_name,"fee":fee,"reserved":0]);
+	return token;
+}
+
+private string register_selected_offer_link(object player,string link)
+{
+	string prefix;
+	string item_name;
+	int fee;
+	string token;
+	string old_command;
+	if(!link || sscanf(link,"%s:buy_detail_spec %s %d]",prefix,
+	   item_name,fee)!=3)
+		return link;
+	token=register_offer(player,item_name,fee);
+	if(token=="")
+		return "";
+	old_command="buy_detail_spec "+item_name+" "+fee+"]";
+	return replace(link,old_command,old_command[..sizeof(old_command)-2]+
+		" "+token+"]");
+}
+
+mapping(string:mixed) query_player_offer(object player,string item_name,
+	string token)
+{
+	string userid=normalized_offer_userid(player);
+	mapping(string:mixed) shelf;
+	mapping offer;
+	if(userid=="" || !token || sizeof(token)!=64 || item_name=="")
+		return ([]);
+	shelf=player_offers[userid];
+	if(!shelf || (int)shelf["consumed"] ||
+	   time()-(int)shelf["created"]>SPEC_OFFER_TTL ||
+	   !mappingp(shelf["items"]))
+		return ([]);
+	offer=((mapping)shelf["items"])[token];
+	if(!offer || (string)offer["name"]!=item_name ||
+	   (int)offer["reserved"])
+		return ([]);
+	return copy_value(offer);
+}
+
+mapping(string:mixed) reserve_player_offer(object player,string item_name,
+	string token)
+{
+	string userid=normalized_offer_userid(player);
+	mapping(string:mixed) offer=query_player_offer(player,item_name,token);
+	if(!sizeof(offer))
+		return ([]);
+	((mapping)player_offers[userid]["items"])[token]["reserved"]=1;
+	return offer;
+}
+
+void release_player_offer(object player,string token)
+{
+	string userid=normalized_offer_userid(player);
+	mapping(string:mixed) shelf=player_offers[userid];
+	if(userid!="" && shelf && mappingp(shelf["items"]) &&
+	   mappingp(((mapping)shelf["items"])[token]))
+		((mapping)shelf["items"])[token]["reserved"]=0;
+}
+
+int consume_player_offer(object player,string token)
+{
+	string userid=normalized_offer_userid(player);
+	mapping(string:mixed) shelf=player_offers[userid];
+	mapping offer;
+	if(userid=="" || !shelf || (int)shelf["consumed"] ||
+	   !mappingp(shelf["items"]))
+		return 0;
+	offer=((mapping)shelf["items"])[token];
+	if(!offer || !(int)offer["reserved"])
+		return 0;
+	shelf["consumed"]=1;
+	m_delete(player_offers,userid);
+	return 1;
+}
+
+string issue_test_offer(object player,string item_name,int fee)
+{
+	string userid=normalized_offer_userid(player);
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   search(userid,"testunit")==-1)
+		return "";
+	begin_player_offer_refresh(player);
+	return register_offer(player,item_name,fee);
+}
 
 //游戏中商店买卖守护进程
 protected void create()
@@ -26,11 +188,16 @@ protected void create()
 }
 string random_list(int|void type){
 	string ret = "";
+	object player=this_player();
+	begin_player_offer_refresh(player);
 	for(int i = 0; i< 10; i++){
 		string t = query_goods_list(random(71)+1);
 		if(t !=""){
 			array(string) arr = t/"\n";
-			ret += arr[random(sizeof(arr))]+"\n";
+			string selected=register_selected_offer_link(player,
+				arr[random(sizeof(arr))]);
+			if(selected!="")
+				ret += selected+"\n";
 		}		
 	}
 	if(type == 1){
@@ -45,7 +212,10 @@ string random_list(int|void type){
 			}
 			if(t !=""){
 				array(string) arr = t/"\n";
-				ret += arr[random(sizeof(arr))]+"\n";
+				string selected=register_selected_offer_link(player,
+					arr[random(sizeof(arr))]);
+				if(selected!="")
+					ret += selected+"\n";
 			}		
 		}
 	}

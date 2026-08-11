@@ -770,11 +770,64 @@ int normalize_christmas_box_stacks(){
 	}
 	return removed_groups;
 }
+
+// 老人物档案会持久化 max_count=30。按玉名和VIP归属整理五种付费玉，
+// 只合并已有对象，不克隆、不跨归属，确保碎玉等价总值严格守恒。
+int normalize_paid_yushi_stacks(){
+	mapping(string:array(object)) groups=([]);
+	mapping(string:int) invalid_groups=([]);
+	array(object) items=all_inventory(this_object(),this_player())-
+		({this_player()});
+	int removed_groups=0;
+	for(int i=0;i<sizeof(items);i++){
+		object item=items[i];
+		string group_key;
+		string vip_owner="";
+		int rarelevel;
+		if(!item || !functionp(item->query_yushi_rarelevel))
+			continue;
+		rarelevel=(int)item->query_yushi_rarelevel();
+		if(rarelevel<1 || rarelevel>5)
+			continue;
+		if(functionp(item->query_toVip))
+			vip_owner=(string)item->query_toVip();
+		group_key=(string)item->query_name()+"|"+vip_owner;
+		item->max_count=9999;
+		if((int)item->amount<0)
+			invalid_groups[group_key]=1;
+		if(!groups[group_key])
+			groups[group_key]=({});
+		groups[group_key]+=({item});
+	}
+	foreach(sort(indices(groups)),string group_key){
+		array(object) jades=groups[group_key];
+		int total=0;
+		if(invalid_groups[group_key])
+			continue;
+		for(int i=0;i<sizeof(jades);i++)
+			total+=(int)jades[i]->amount;
+		if(total>9999*sizeof(jades))
+			continue;
+		for(int i=0;i<sizeof(jades);i++){
+			if(total>0){
+				int amount=total>9999 ? 9999 : total;
+				jades[i]->amount=amount;
+				total-=amount;
+			}
+			else{
+				jades[i]->remove();
+				removed_groups++;
+			}
+		}
+	}
+	return removed_groups;
+}
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
 		cmd="inv";
 	normalize_christmas_box_stacks();
+	normalize_paid_yushi_stacks();
 	string s="";
 	string mymoney = this_player()->query_money_cn()+"\n";
 	string myyushi = this_player()->query_yushi_cn()+"\n"; 

@@ -120,6 +120,25 @@ int main()
 			daemon->query_affinity_key("../../etc/passwd","")=="",
 			"静态房间被拆分、实例未分片或路径穿越未拒绝");
 
+		check("传统幻境静态入口与克隆房按同一队伍实例汇聚唯一worker",
+			daemon->query_affinity_key(
+				"/gamelib/d/fb_runtime/ingress.pike",
+				"team_a/lingranzhiyan_h")==
+				"fb_runtime:team_a/lingranzhiyan_h" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/xinnian_fb/lingranzhiyan_h#9",
+				"team_a/lingranzhiyan_h")==
+				"fb_runtime:team_a/lingranzhiyan_h" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/xinnian_fb/lingranzhiyan_h#10",
+				"team_b/lingranzhiyan_h")!=
+				"fb_runtime:team_a/lingranzhiyan_h" &&
+			source_has("/gamelib/cmds/fb_entry.pike",
+				"route_player_to_fb_ingress") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"is_fb_worker_ingress"),
+			"跨worker幻境可能拒绝进入、拆散队伍或复制副本奖励");
+
 		mapping restored_validation = daemon->validate_control_plane_snapshot(([
 			"version":1,
 			"affinity_assignments":([

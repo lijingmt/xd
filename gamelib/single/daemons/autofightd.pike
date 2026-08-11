@@ -67,6 +67,9 @@ private mapping(string:int) server_autofight_epochs = ([]);
 private mapping(string:int) server_autofight_inflight = ([]);
 private mapping(string:int) server_autofight_inflight_started = ([]);
 private mapping(string:mapping(string:mixed)) server_autofight_views = ([]);
+// 计时租约只保存在当前 Pike 进程内。重启或人物对象重建后，第一次
+// flushview 只重新锚定时间，不能把停服/离线间隔当成有效挂机扣除。
+private mapping(string:object) server_autofight_charge_owners = ([]);
 private mapping(string:int) server_autofight_ordered = ([]);
 private array(string) server_autofight_order = ({});
 private int server_autofight_cursor;
@@ -320,6 +323,7 @@ private void run_server_autofight_tick()
 			m_delete(server_autofight_epochs,userid);
 			m_delete(server_autofight_inflight,userid);
 			m_delete(server_autofight_inflight_started,userid);
+			m_delete(server_autofight_charge_owners,userid);
 			deactivate_server_autofight_view(userid);
 			continue;
 		}
@@ -408,6 +412,7 @@ void cancel_server_autofight_tick(object me)
 	m_delete(server_autofight_epochs,userid);
 	m_delete(server_autofight_inflight,userid);
 	m_delete(server_autofight_inflight_started,userid);
+	m_delete(server_autofight_charge_owners,userid);
 	deactivate_server_autofight_view(userid);
 	reset_server_autofight_order_if_idle();
 }
@@ -2850,10 +2855,14 @@ mapping(string:mixed) perform_auto_store_non_equipment(object me)
 
 void start_autofight(object me)
 {
+	string userid;
 	if(!me)
 		return;
 	initialize_player(me);
 	me["/tmp/autofight_last_charge"] = time();
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid!="")
+		server_autofight_charge_owners[userid]=me;
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
 	me["/tmp/autofight_failed_loot"] = 0;
@@ -2898,6 +2907,7 @@ void stop_autofight(object me)
 
 int charge_time(object me)
 {
+	string userid;
 	int now;
 	int last;
 	int elapsed;
@@ -2906,6 +2916,13 @@ int charge_time(object me)
 		return 0;
 	initialize_player(me);
 	now = time();
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="" || server_autofight_charge_owners[userid]!=me){
+		if(userid!="")
+			server_autofight_charge_owners[userid]=me;
+		me["/tmp/autofight_last_charge"] = now;
+		return query_time_left(me);
+	}
 	last = (int)me["/tmp/autofight_last_charge"];
 	if(last <= 0 || last > now){
 		me["/tmp/autofight_last_charge"] = now;
@@ -3161,6 +3178,7 @@ mapping(string:mixed) query_balanced_training_route(object me,
 	array(string) paths;
 	string current;
 	string selected="";
+	object env;
 	int capacity;
 	int min_count=-1;
 	int all_full=1;
@@ -3172,6 +3190,7 @@ mapping(string:mixed) query_balanced_training_route(object me,
 		return route;
 	occupancy=query_public_training_occupancy();
 	current=query_current_room_path(me);
+	env=environment(me);
 	capacity=query_training_room_capacity(me);
 	offset=query_stable_training_offset(me,sizeof(paths));
 	for(int i=0;i<sizeof(paths);i++){
@@ -3193,6 +3212,11 @@ mapping(string:mixed) query_balanced_training_route(object me,
 	route["capacity"]=capacity;
 	route["all_full"]=all_full;
 	route["pool_size"]=sizeof(paths);
+	// 临时分流房没有出口。它连续空图后必须回到公共练级房恢复，
+	// 即使公共房当前满员也不能再次套入另一个可能空置的实例。
+	if(avoid_current && env &&
+	   (int)env["/tmp/autofight_overflow"]==1)
+		route["recovering_overflow"]=1;
 	return route;
 }
 
@@ -3434,7 +3458,8 @@ int move_to_training_route(object me,mapping(string:mixed) route)
 	path=(string)route["path"];
 	if(path=="")
 		return 0;
-	if((int)route["all_full"]==1)
+	if((int)route["all_full"]==1 &&
+	   (int)route["recovering_overflow"]!=1)
 		room=query_or_create_overflow_room(me,route);
 	if(!room){
 		me->command("qge74hye "+path);
@@ -3602,8 +3627,15 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 		return 0;
 	current = query_current_room_path(me);
 	env=environment(me);
-	if(env && (int)env["/tmp/autofight_overflow"]==1)
-		return 0;
+	if(env && (int)env["/tmp/autofight_overflow"]==1){
+		if(target_snapshot && (int)target_snapshot["visible"]>0)
+			return 1;
+		if(!target_snapshot && query_visible_monster_count(me)>0 &&
+		   !query_target(me))
+			return 1;
+		return (int)me["/tmp/autofight_no_target_ticks"]>=
+			AUTOFIGHT_ROAM_NO_TARGET_TICKS;
+	}
 	if(is_training_pool_path(route,current)){
 		if(target_snapshot && (int)target_snapshot["visible"]>0)
 			return 1;

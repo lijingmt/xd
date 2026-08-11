@@ -7,6 +7,18 @@ inherit LOW_DAEMON;
 //private	mapping(string:object) m_goods = ([]);
 private mapping(int:mapping(string:object)) goods_list=([]);//[物品等级:([该等级物品id:物品对象])]
 
+int is_catalog_item(string item_name,int low,int high)
+{
+	if(!item_name || item_name=="" || low<1 || high<low || high>999)
+		return 0;
+	for(int level=low;level<=high;level++){
+		mapping(string:object) one_level=goods_list[level];
+		if(one_level && one_level[item_name])
+			return 1;
+	}
+	return 0;
+}
+
 //游戏中商店买卖守护进程
 protected void create()
 {

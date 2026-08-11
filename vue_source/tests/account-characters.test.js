@@ -83,11 +83,39 @@ client.chooseNewProfession(
 assert.strictEqual(client.characterError, '');
 assert.strictEqual(client.characterForm.race_id, 'human');
 assert.strictEqual(client.characterForm.profession_id, 'jianxian');
+assert.strictEqual(client.characterForm.sex, 'male');
+assert.strictEqual(client.avatarChoicesFor('human', 'jianxian', 'male').length, 11);
+assert.strictEqual(client.avatarChoicesFor('human', 'jianxian', 'female').length, 12);
 client.chooseNewProfession(
   client.professionOptions.find(option => option.profession_id === 'fangshi')
 );
 assert.strictEqual(client.characterForm.race_id, 'third');
 assert.strictEqual(client.characterForm.profession_id, 'fangshi');
+assert.strictEqual(client.avatarChoicesFor('third', 'zhenyue', 'male')[0], 'zhenyue_male');
+assert.strictEqual(client.avatarChoicesFor('monst', 'kuangyao', 'female').length, 11);
+client.chooseCharacterSex('female');
+assert.strictEqual(client.characterForm.sex, 'female');
+assert.strictEqual(client.characterForm.avatar_id, '');
+
+client.currentCharacterId = 'xd01legacy';
+client.maybePromptCharacterProfile({
+  profile_complete: false,
+  profile_needs_name: true,
+  profile_needs_sex: false,
+  profile_needs_avatar: true,
+  name_cn: '无名剑客',
+  sex: 'male',
+  race_id: 'human',
+  profession_id: 'jianxian',
+  avatar_id: '',
+  profile_avatar_choices: ['h_male1', 'h_male2']
+});
+assert.strictEqual(client.characterProfileOpen, true);
+assert.strictEqual(client.characterProfileForm.name_cn, '');
+assert.strictEqual(client.characterProfileForm.sex, 'male');
+client.skipCharacterProfile();
+assert.strictEqual(client.characterProfileOpen, false);
+assert.strictEqual(client.characterProfileDismissedFor, 'xd01legacy');
 
 client.clearAccountSession();
 assert.strictEqual(client.accountToken, '');
@@ -99,6 +127,10 @@ assert.strictEqual(client.accountSharedRechargeAvailable, true);
 assert(indexSource.includes('v-if="showCharacterSelect"'));
 assert(indexSource.includes('@click="openCharacterCenter"'));
 assert(indexSource.includes('@click="createAccountCharacter"'));
+assert(indexSource.includes('v-model.trim="characterForm.name_cn"'));
+assert(indexSource.includes('v-for="avatar in characterAvatarOptions"'));
+assert(indexSource.includes('v-if="characterProfileOpen"'));
+assert(indexSource.includes('@click="skipCharacterProfile"'));
 assert(indexSource.includes('!showRegister && !showCharacterSelect'));
 assert(indexSource.includes('注册账号共享充值余额'));
 assert(indexSource.includes('人物赠送玉石仍各自独立'));
@@ -107,10 +139,14 @@ assert(!indexSource.includes(':disabled="accountCharacters.some(character => cha
 assert(cssSource.includes('.character-modal'));
 assert(cssSource.includes('.character-wallet'));
 assert(cssSource.includes('.profession-choice-grid'));
+assert(cssSource.includes('.character-avatar-grid'));
+assert(cssSource.includes('.character-profile-modal'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
+assert(appSource.includes("this.apiBase + '/api/profile'"));
+assert(appSource.includes('maybePromptCharacterProfile(data)'));
 assert(appSource.includes('error.status === 404 || error.status === 501'));
 assert(appSource.includes('characterSessionEpoch'));
 assert(appSource.includes('invalidateCharacterSessionRequests'));

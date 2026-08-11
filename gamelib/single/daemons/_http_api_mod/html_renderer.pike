@@ -1055,6 +1055,8 @@ mapping query_player_state(object player)
             avatar = "/images/" + player->user_pic + ".gif";
         }
         result["avatar"] = avatar;
+		result["avatar_id"] = (string)(player->user_pic || "");
+		result["sex"] = (string)(player->sex || "");
 
         // 称谓
         string honer = "";
@@ -1082,6 +1084,19 @@ mapping query_player_state(object player)
             profe = sprintf("%d", player->profeId);
         }
 		result["profe"] = profe || "";
+		result["race_id"] = functionp(player->query_raceId) ?
+			(string)(player->query_raceId() || "") : "";
+		result["profession_id"] = functionp(player->query_profeId) ?
+			(string)(player->query_profeId() || "") : "";
+		mapping profile_status = ACCOUNT_CHARACTERD->
+			query_character_profile_status(player);
+		result["profile_complete"] = profile_status["profile_complete"];
+		result["profile_needs_name"] = profile_status["profile_needs_name"];
+		result["profile_needs_sex"] = profile_status["profile_needs_sex"];
+		result["profile_needs_avatar"] =
+			profile_status["profile_needs_avatar"];
+		result["profile_avatar_choices"] =
+			profile_status["avatar_choices"] || ({});
 		// 新职业助手状态由服务端统一判定，前端只负责展示。
 		result["profession_assistant"] =
 			PROFESSIONVIPD->query_status(player);

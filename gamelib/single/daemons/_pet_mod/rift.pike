@@ -200,6 +200,45 @@ mapping(string:mixed) start_rift(object leader)
 		return pet_result(0,"请让3—5名15级以上队员活着在同一房间集合。 ");
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
+	// 失败场次原先只按当前 team_id 清理。玩家解散后重组会得到新的
+	// team_id，旧 lost 会话仍能被角色查询命中，导致新场次行动被路由
+	// 到旧场次。开始新场次前按参与角色清掉所有旧失败会话。
+	foreach(indices(rift_sessions),string old_team_id){
+		mapping old_session = rift_sessions[old_team_id];
+		if(!old_session || (string)old_session["status"]!="lost")
+			continue;
+		if(!arrayp(old_session["participants"])){
+			m_delete(rift_sessions,old_team_id);
+			continue;
+		}
+		foreach(members,string member_id){
+			if(search((array)old_session["participants"],member_id)!=-1){
+				m_delete(rift_sessions,old_team_id);
+				break;
+			}
+		}
+	}
+	// active/won 场次不能因换队伍 ID 被绕开，否则同一角色可能同时
+	// 占据两个裂隙行动位，或在奖励尚未安全落盘前覆盖运行时会话。
+	foreach(indices(rift_sessions),string old_team_id){
+		mapping old_session = rift_sessions[old_team_id];
+		if(!old_session || old_team_id==term_id ||
+		   ((string)old_session["status"]!="active" &&
+		    (string)old_session["status"]!="won"))
+			continue;
+		if(!arrayp(old_session["participants"])){
+			// 运行时会话缺少参与者就无法安全结算；清掉损坏记录，
+			// 避免队长因 search(array) 类型错误永远无法重新开场。
+			m_delete(rift_sessions,old_team_id);
+			continue;
+		}
+		foreach(members,string member_id){
+			if(search((array)old_session["participants"],member_id)!=-1){
+				destruct(key);
+				return pet_result(0,"队员仍有进行中或待领取的裂隙，请先完成该场次。 ");
+			}
+		}
+	}
 	mapping(string:string) participant_account_ids = ([]);
 	foreach(members,string member_id){
 		object member = find_player(member_id);
@@ -272,11 +311,24 @@ mapping(string:mixed) start_rift(object leader)
 
 private string find_player_rift_team_unlocked(string player_id)
 {
+	string best_team_id = "";
+	int best_priority = 0;
+	int best_created_at = 0;
 	foreach(rift_sessions;string team_id;mapping session){
-		if(session && search((array)session["participants"],player_id)!=-1)
-			return team_id;
+		if(!session ||
+		   search((array)session["participants"],player_id)==-1)
+			continue;
+		int priority = (string)session["status"]=="active" ? 3 :
+			((string)session["status"]=="won" ? 2 : 1);
+		if(priority>best_priority ||
+		   (priority==best_priority &&
+		    (int)session["created_at"]>best_created_at)){
+			best_team_id = team_id;
+			best_priority = priority;
+			best_created_at = (int)session["created_at"];
+		}
 	}
-	return "";
+	return best_team_id;
 }
 
 /**

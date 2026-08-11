@@ -211,7 +211,24 @@ createApp({
             taijiUnlocked: false,
             characterForm: {
                 race_id: '',
-                profession_id: ''
+                profession_id: '',
+                name_cn: '',
+                sex: 'male',
+                avatar_id: ''
+            },
+            characterProfileOpen: false,
+            characterProfileBusy: false,
+            characterProfileError: '',
+            characterProfileDismissedFor: '',
+            characterProfileForm: {
+                name_cn: '',
+                sex: 'male',
+                avatar_id: '',
+                race_id: '',
+                profession_id: '',
+                needs_name: false,
+                needs_sex: false,
+                needs_avatar: false
             },
             professionOptions: [
                 { race_id: 'human', profession_id: 'jianxian', name: '剑仙', race: '人类', icon: '⚔️', desc: '重甲长剑，正面强攻' },
@@ -1459,6 +1476,10 @@ createApp({
             this.equipmentPanel = null;
             this.equipmentPanelError = '';
             this.equipmentActionBusy = '';
+            this.characterProfileOpen = false;
+            this.characterProfileBusy = false;
+            this.characterProfileError = '';
+            this.characterProfileDismissedFor = '';
             if (this.loadingTimer) {
                 clearTimeout(this.loadingTimer);
                 this.loadingTimer = null;
@@ -1656,6 +1677,9 @@ createApp({
             }
             this.characterForm.race_id = '';
             this.characterForm.profession_id = '';
+            this.characterForm.name_cn = '';
+            this.characterForm.sex = 'male';
+            this.characterForm.avatar_id = '';
             this.characterError = '';
             this.characterCreateOpen = true;
         },
@@ -1663,12 +1687,55 @@ createApp({
         chooseNewProfession(option) {
             this.characterForm.race_id = option.race_id;
             this.characterForm.profession_id = option.profession_id;
+            this.characterForm.avatar_id = '';
             this.characterError = '';
         },
 
+        chooseCharacterSex(sex, profileMode = false) {
+            if (sex !== 'male' && sex !== 'female') return;
+            const form = profileMode ? this.characterProfileForm : this.characterForm;
+            if (profileMode && !form.needs_sex && form.sex !== sex) return;
+            if (form.sex !== sex) {
+                form.sex = sex;
+                form.avatar_id = '';
+            }
+        },
+
+        avatarChoicesFor(raceId, professionId, sex) {
+            if (!raceId || !professionId || !['male', 'female'].includes(sex)) {
+                return [];
+            }
+            const choices = [];
+            if (raceId === 'human' || raceId === 'third') {
+                if (raceId === 'third' &&
+                    ['zhenyue', 'tianxiang', 'lingyi', 'wuxiang', 'taiji'].includes(professionId)) {
+                    choices.push(`${professionId}_${sex}`);
+                }
+                const count = sex === 'male' ? 11 : 12;
+                for (let index = 1; index <= count; index += 1) {
+                    choices.push(`h_${sex}${index}`);
+                }
+            } else if (raceId === 'monst') {
+                const count = sex === 'male' ? 12 : 11;
+                for (let index = 1; index <= count; index += 1) {
+                    choices.push(`m_${sex}${index}`);
+                }
+            }
+            return choices;
+        },
+
         async createAccountCharacter() {
-            if (!this.characterForm.profession_id || this.characterCreating) {
+            if (this.characterCreating) return;
+            if (!this.characterForm.profession_id) {
                 this.characterError = '请先选择一个职业';
+                return;
+            }
+            if (!String(this.characterForm.name_cn || '').trim()) {
+                this.characterError = '请先为人物取一个姓名';
+                return;
+            }
+            if (!this.characterForm.sex || !this.characterForm.avatar_id) {
+                this.characterError = '请选择人物性别和头像';
                 return;
             }
             this.characterCreating = true;
@@ -1677,7 +1744,10 @@ createApp({
                 const created = await this.postAccountApi('/api/account/characters/create', {
                     token: this.accountToken,
                     race_id: this.characterForm.race_id,
-                    profession_id: this.characterForm.profession_id
+                    profession_id: this.characterForm.profession_id,
+                    name_cn: String(this.characterForm.name_cn).trim(),
+                    sex: this.characterForm.sex,
+                    avatar_id: this.characterForm.avatar_id
                 });
                 await this.refreshAccountCharacters();
                 const newId = created.character && created.character.id;
@@ -1693,6 +1763,86 @@ createApp({
                 }
             } finally {
                 this.characterCreating = false;
+            }
+        },
+
+        maybePromptCharacterProfile(data) {
+            if (!data || data.profile_complete ||
+                (!data.profile_needs_name && !data.profile_needs_sex &&
+                 !data.profile_needs_avatar)) {
+                this.characterProfileOpen = false;
+                return;
+            }
+            const characterId = this.currentCharacterId ||
+                (this.decodeCredentialsFromTxd(this.txd) || {}).userid || '';
+            if (!characterId || this.characterProfileDismissedFor === characterId ||
+                this.characterProfileOpen) return;
+            const choices = Array.isArray(data.profile_avatar_choices)
+                ? data.profile_avatar_choices : [];
+            this.characterProfileForm.name_cn = data.profile_needs_name
+                ? '' : String(data.name_cn || '');
+            this.characterProfileForm.sex = ['male', 'female'].includes(data.sex)
+                ? data.sex : 'male';
+            this.characterProfileForm.avatar_id = data.profile_needs_avatar
+                ? '' : String(data.avatar_id || '');
+            this.characterProfileForm.race_id = String(data.race_id || '');
+            this.characterProfileForm.profession_id = String(data.profession_id || '');
+            this.characterProfileForm.needs_name = !!data.profile_needs_name;
+            this.characterProfileForm.needs_sex = !!data.profile_needs_sex;
+            this.characterProfileForm.needs_avatar = !!data.profile_needs_avatar;
+            if (data.profile_needs_avatar && choices.length === 1) {
+                this.characterProfileForm.avatar_id = choices[0];
+            }
+            this.characterProfileError = '';
+            this.characterProfileOpen = true;
+        },
+
+        skipCharacterProfile() {
+            this.characterProfileDismissedFor = this.currentCharacterId ||
+                (this.decodeCredentialsFromTxd(this.txd) || {}).userid || '';
+            this.characterProfileOpen = false;
+            this.characterProfileError = '';
+        },
+
+        async submitCharacterProfile() {
+            if (this.characterProfileBusy || !this.txd) return;
+            const form = this.characterProfileForm;
+            if (form.needs_name && !String(form.name_cn || '').trim()) {
+                this.characterProfileError = '请为人物取一个姓名，或选择暂时跳过';
+                return;
+            }
+            if (!form.sex || !form.avatar_id) {
+                this.characterProfileError = '请选择人物性别和头像，或选择暂时跳过';
+                return;
+            }
+            this.characterProfileBusy = true;
+            this.characterProfileError = '';
+            try {
+                const response = await fetch(this.apiBase + '/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        txd: this.txd,
+                        name_cn: String(form.name_cn || '').trim(),
+                        sex: form.sex,
+                        avatar_id: form.avatar_id
+                    })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.error) {
+                    const error = new Error(data.error || '人物资料保存失败');
+                    error.status = response.status;
+                    throw error;
+                }
+                this.characterProfileDismissedFor = this.currentCharacterId || '';
+                this.characterProfileOpen = false;
+                this.showUiToast(data.message || '人物姓名与头像已保存', 'info');
+                await this.fetchPlayerStats();
+                if (this.accountToken) await this.refreshAccountCharacters();
+            } catch (error) {
+                this.characterProfileError = error.message || '人物资料保存失败';
+            } finally {
+                this.characterProfileBusy = false;
             }
         },
 
@@ -3145,6 +3295,7 @@ createApp({
             this.handlePetLevelChange(previousPet, data.pet_assist);
             this.syncRoomSkillManifestations(data.room_skill_events);
             this.playerStats = data;
+            this.maybePromptCharacterProfile(data);
             this.syncTimedEventInvite(data.timed_event);
             this.syncBattleAoeReport(data.recent_aoe_report);
             const currentLevel = Number(data.level);
@@ -4746,6 +4897,22 @@ createApp({
                 }
                 return true;
             });
+        },
+
+        characterAvatarOptions() {
+            return this.avatarChoicesFor(
+                this.characterForm.race_id,
+                this.characterForm.profession_id,
+                this.characterForm.sex
+            );
+        },
+
+        profileAvatarOptions() {
+            return this.avatarChoicesFor(
+                this.characterProfileForm.race_id,
+                this.characterProfileForm.profession_id,
+                this.characterProfileForm.sex
+            );
         },
 
         headerPet() {

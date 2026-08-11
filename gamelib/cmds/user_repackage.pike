@@ -20,6 +20,7 @@ int main(string|zero arg)
 	if(env){
 		if(!arg){
 			s += "正在操作：当前角色仓库 → 背包\n";
+			s += "[搜索筛选与批量取出:personal_storage take 0]\n";
 			s += "[需要跨职业转移？进入账号共享仓库:account_storage]\n\n";
 			s += "请选择要取到背包的物品：\n";
 			s += me->view_packaged_list()+"\n";

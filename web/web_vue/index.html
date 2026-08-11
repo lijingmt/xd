@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786452914984">
-    <link rel="stylesheet" href="css/app.css?v=v1786452914984">
-    <link rel="stylesheet" href="css/realm.css?v=v1786452914984">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786462790817">
+    <link rel="stylesheet" href="css/app.css?v=v1786462790817">
+    <link rel="stylesheet" href="css/realm.css?v=v1786462790817">
 </head>
 <body>
     <div id="app">
@@ -325,8 +325,25 @@
 
                 <div class="character-create" v-else>
                     <div class="character-create-copy">
-                        <strong>选择新人物职业</strong>
-                        <span>创建后将调用原有职业流程，自动发放对应初始技能、装备和新手物资。</span>
+                        <strong>创建有名字、有头像的新人物</strong>
+                        <span>先选姓名、性别、职业和头像；创建后仍调用原职业流程发放初始技能、装备和新手物资。</span>
+                    </div>
+                    <label class="character-name-field">
+                        <span>人物姓名</span>
+                        <input v-model.trim="characterForm.name_cn"
+                               type="text"
+                               maxlength="12"
+                               autocomplete="off"
+                               placeholder="2-6个中文，或2-12个英文/数字">
+                    </label>
+                    <div class="character-sex-row" aria-label="选择人物性别">
+                        <span>人物性别</span>
+                        <button type="button"
+                                :class="{ selected: characterForm.sex === 'male' }"
+                                @click="chooseCharacterSex('male')">男</button>
+                        <button type="button"
+                                :class="{ selected: characterForm.sex === 'female' }"
+                                @click="chooseCharacterSex('female')">女</button>
                     </div>
                     <div class="profession-choice-grid">
                         <button v-for="option in visibleProfessionOptions"
@@ -344,6 +361,21 @@
                             </em>
                         </button>
                     </div>
+                    <div class="character-avatar-section" v-if="characterForm.profession_id">
+                        <strong>选择头像</strong>
+                        <div class="character-avatar-grid">
+                            <button v-for="avatar in characterAvatarOptions"
+                                    :key="avatar"
+                                    type="button"
+                                    class="character-avatar-choice"
+                                    :class="{ selected: characterForm.avatar_id === avatar }"
+                                    @click="characterForm.avatar_id = avatar"
+                                    :aria-label="'选择头像 ' + avatar">
+                                <img :src="getImageUrl('/images/' + avatar + '.gif')"
+                                     alt="">
+                            </button>
+                        </div>
+                    </div>
                     <div class="character-create-actions">
                         <button type="button"
                                 class="btn btn-secondary"
@@ -352,7 +384,7 @@
                         <button type="button"
                                 class="btn btn-primary"
                                 @click="createAccountCharacter"
-                                :disabled="characterCreating || !characterForm.profession_id">
+                                :disabled="characterCreating || !characterForm.profession_id || !characterForm.name_cn.trim() || !characterForm.avatar_id">
                             {{ characterCreating ? '创建中...' : '创建并进入' }}
                         </button>
                     </div>
@@ -370,6 +402,70 @@
                     <button type="button"
                             class="auth-text-action"
                             @click="doLogout">退出注册账号</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay auth-overlay character-profile-overlay"
+             v-if="characterProfileOpen">
+            <div class="modal character-profile-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="character-profile-title">
+                <div class="character-create-copy">
+                    <strong id="character-profile-title">完善人物姓名与头像</strong>
+                    <span>这个旧人物还没有完整的姓名或头像。现在补全后会永久保存；也可以暂时跳过继续游戏。</span>
+                </div>
+                <label class="character-name-field">
+                    <span>人物姓名</span>
+                    <input v-model.trim="characterProfileForm.name_cn"
+                           type="text"
+                           maxlength="12"
+                           autocomplete="off"
+                           :disabled="!characterProfileForm.needs_name"
+                           :placeholder="characterProfileForm.needs_name ? '请输入新姓名' : '姓名已经选定'">
+                </label>
+                <div class="character-sex-row" aria-label="完善人物性别">
+                    <span>人物性别</span>
+                    <button type="button"
+                            :disabled="!characterProfileForm.needs_sex"
+                            :class="{ selected: characterProfileForm.sex === 'male' }"
+                            @click="chooseCharacterSex('male', true)">男</button>
+                    <button type="button"
+                            :disabled="!characterProfileForm.needs_sex"
+                            :class="{ selected: characterProfileForm.sex === 'female' }"
+                            @click="chooseCharacterSex('female', true)">女</button>
+                </div>
+                <div class="character-avatar-section">
+                    <strong>{{ characterProfileForm.needs_avatar ? '选择头像' : '当前头像' }}</strong>
+                    <div class="character-avatar-grid">
+                        <button v-for="avatar in profileAvatarOptions"
+                                :key="avatar"
+                                type="button"
+                                class="character-avatar-choice"
+                                :disabled="!characterProfileForm.needs_avatar"
+                                :class="{ selected: characterProfileForm.avatar_id === avatar }"
+                                @click="characterProfileForm.avatar_id = avatar"
+                                :aria-label="'选择头像 ' + avatar">
+                            <img :src="getImageUrl('/images/' + avatar + '.gif')"
+                                 alt="">
+                        </button>
+                    </div>
+                </div>
+                <div v-if="characterProfileError"
+                     class="message message-error character-message"
+                     role="alert">{{ characterProfileError }}</div>
+                <div class="character-create-actions profile-actions">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @click="skipCharacterProfile"
+                            :disabled="characterProfileBusy">暂时跳过</button>
+                    <button type="button"
+                            class="btn btn-primary"
+                            @click="submitCharacterProfile"
+                            :disabled="characterProfileBusy || (characterProfileForm.needs_name && !characterProfileForm.name_cn.trim()) || !characterProfileForm.avatar_id">
+                        {{ characterProfileBusy ? '保存中...' : '保存资料' }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -1595,19 +1691,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786452914984"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786452914984"></script>
-    <script src="vendor/howler.core.min.js?v=v1786452914984"></script>
-    <script src="vendor/driver.iife.js?v=v1786452914984"></script>
-    <script src="../includes/game-number-format.js?v=v1786452914984" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786462790817"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786462790817"></script>
+    <script src="vendor/howler.core.min.js?v=v1786462790817"></script>
+    <script src="vendor/driver.iife.js?v=v1786462790817"></script>
+    <script src="../includes/game-number-format.js?v=v1786462790817" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786452914984';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786462790817';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786452914984"></script>
+    <script src="js/app.js?v=v1786462790817"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786452914984"></script>
+    <script src="../includes/translate.js?v=v1786462790817"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

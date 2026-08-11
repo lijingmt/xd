@@ -11,6 +11,8 @@ int main(string|zero arg)
 	if(env){
 		if(!arg){//无参数传入
 			s += "正在操作：背包 → 当前角色仓库\n";
+			s += "[搜索筛选与批量存入:personal_storage put 0]\n";
+			s += "[批量直存账号共享仓库:personal_storage share 0]\n";
 			s += "[需要跨职业转移？进入账号共享仓库:account_storage]\n\n";
 			s += "请选择背包中要存入的物品：\n";
 			s += me->view_inventory_zhuangbei_package("user_package",1,0);

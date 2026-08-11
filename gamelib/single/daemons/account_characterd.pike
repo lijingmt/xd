@@ -598,22 +598,30 @@ private mapping(string:mixed) profile_summary_unlocked(
 	string name_cn = "";
 	string race_id = "";
 	string profession_id = "";
+	string sex = "";
+	string avatar_id = "";
 	int level = 1;
 	int ready = 0;
 	if(player){
-		if(functionp(player->query_name_cn))
-			name_cn = player->query_name_cn(1);
+		if(functionp(player->have_name_cn))
+			name_cn = player->have_name_cn() || "";
+		else if(functionp(player->query_name_cn))
+			name_cn = player->query_name_cn(1) || "";
 		if(functionp(player->query_raceId))
 			race_id = player->query_raceId() || "";
 		if(functionp(player->query_profeId))
 			profession_id = player->query_profeId() || "";
 		if(functionp(player->query_level))
 			level = player->query_level();
+		sex = (string)(player->sex || "");
+		avatar_id = (string)(player->user_pic || "");
 	}
 	else if(content){
 		name_cn = read_saved_string(content,"name_cn");
 		race_id = read_saved_string(content,"raceId");
 		profession_id = read_saved_string(content,"profeId");
+		sex = read_saved_string(content,"sex");
+		avatar_id = read_saved_string(content,"user_pic");
 		level = read_saved_int(content,"level",1);
 	}
 	if(profession_id && profession_id!="")
@@ -624,6 +632,10 @@ private mapping(string:mixed) profile_summary_unlocked(
 		race_id = (string)(entry["desired_race"] || "");
 	if(!profession_id || profession_id=="")
 		profession_id = (string)(entry["desired_profession"] || "");
+	int profile_needs_name = !name_cn || name_cn=="" ||
+		has_prefix(name_cn,"无名");
+	int profile_needs_sex = sex!="male" && sex!="female";
+	int profile_needs_avatar = !avatar_id || avatar_id=="";
 	if(!name_cn || name_cn==""){
 		if(profession_id && profession_names[profession_id])
 			name_cn = "待命名"+profession_names[profession_id];
@@ -639,6 +651,13 @@ private mapping(string:mixed) profile_summary_unlocked(
 		"race_name":race_names[race_id] || "待选择",
 		"profession_id":profession_id,
 		"profession_name":profession_names[profession_id] || "待选择",
+		"sex":sex,
+		"avatar_id":avatar_id,
+		"profile_needs_name":profile_needs_name,
+		"profile_needs_sex":profile_needs_sex,
+		"profile_needs_avatar":profile_needs_avatar,
+		"profile_complete":!(profile_needs_name || profile_needs_sex ||
+			profile_needs_avatar),
 		"ready":ready,
 		"available":(content || player) ? 1 : 0,
 		"online":player ? 1 : 0,
@@ -723,6 +742,39 @@ private int valid_profession_pair(string race_id,string profession_id)
 		search(valid_professions[race_id],profession_id)!=-1;
 }
 
+array(string) query_creation_avatar_choices(string race_id,
+	string profession_id,string sex)
+{
+	array(string) choices = ({});
+	string prefix = "";
+	int maximum = 0;
+	if(!valid_profession_pair(race_id,profession_id) ||
+	   (sex!="male" && sex!="female"))
+		return choices;
+	if(race_id=="human" || race_id=="third"){
+		if(race_id=="third" &&
+		   has_value(({"zhenyue","tianxiang","lingyi","wuxiang","taiji"}),
+			profession_id))
+			choices += ({profession_id+"_"+sex});
+		prefix = sex=="male" ? "h_male" : "h_female";
+		maximum = sex=="male" ? 11 : 12;
+	}
+	else if(race_id=="monst"){
+		prefix = sex=="male" ? "m_male" : "m_female";
+		maximum = sex=="male" ? 12 : 11;
+	}
+	for(int index=1;index<=maximum;index++)
+		choices += ({prefix+index});
+	return choices;
+}
+
+int valid_creation_avatar(string race_id,string profession_id,
+	string sex,string avatar_id)
+{
+	return has_value(query_creation_avatar_choices(race_id,
+		profession_id,sex),avatar_id);
+}
+
 private string generate_character_id_unlocked(string account_id,int slot)
 {
 	for(int attempt=0;attempt<30;attempt++){
@@ -745,7 +797,8 @@ private string query_saved_password_unlocked(string userid)
 }
 
 private int create_empty_character_unlocked(string account_id,
-	string character_id,string password)
+	string character_id,string password,void|string name_cn,
+	void|string sex,void|string avatar_id)
 {
 	object player;
 	int saved = 0;
@@ -758,6 +811,14 @@ private int create_empty_character_unlocked(string account_id,
 		player->set_userip("account-character");
 		player->set_account_owner(account_id);
 		player->sid = "account-character";
+		if(name_cn && name_cn!=""){
+			player->name_cn = name_cn;
+			if(functionp(player->set_original_name_cn))
+				player->set_original_name_cn(name_cn);
+			player->sex = sex;
+			player->user_pic = avatar_id;
+			player->set_pic_ok = 1;
+		}
 		if(MAP_WORKERD->query_node_role()=="worker"){
 			mapping capability = MAP_WORKERD->
 				prepare_local_account_character_save(account_id,character_id);
@@ -784,7 +845,8 @@ private int create_empty_character_unlocked(string account_id,
 }
 
 mapping(string:mixed) create_character(string requested_id,
-	string race_id,string profession_id)
+	string race_id,string profession_id,void|string requested_name,
+	void|string requested_sex,void|string requested_avatar)
 {
 	mapping(string:mixed) result = ([
 		"ok":0,
@@ -794,11 +856,34 @@ mapping(string:mixed) create_character(string requested_id,
 	mapping(string:mixed)|zero record;
 	string character_id;
 	string password;
+	string profile_name = (string)(requested_name || "");
+	string profile_sex = (string)(requested_sex || "");
+	string profile_avatar = (string)(requested_avatar || "");
+	string reservation_token = "";
+	int profile_requested = profile_name!="" || profile_sex!="" ||
+		profile_avatar!="";
 	int slot;
 	object key;
 	if(!valid_profession_pair(race_id,profession_id)){
 		result["message"] = "阵营与职业组合无效。";
 		return result;
+	}
+	if(profile_requested){
+		if(profile_name=="" || profile_sex=="" || profile_avatar==""){
+			result["message"] = "请完整选择人物姓名、性别和头像。";
+			return result;
+		}
+		mapping name_validation = NAMESD->validate_profile_name(profile_name);
+		if(!(int)name_validation["ok"]){
+			result["message"] = name_validation["message"];
+			return result;
+		}
+		profile_name = (string)name_validation["name"];
+		if(!valid_creation_avatar(race_id,profession_id,
+			profile_sex,profile_avatar)){
+			result["message"] = "头像与人物阵营、职业或性别不匹配。";
+			return result;
+		}
 	}
 	// 无相是隐藏职业：除了阵营/职业组合合法，还要求账号下 10 个基础职业
 	// 均至少有一个角色达到 120 级。未达标时返回具体缺口，方便前端展示。
@@ -848,44 +933,203 @@ mapping(string:mixed) create_character(string requested_id,
 			password = query_saved_password_unlocked(account_id);
 			if(character_id=="" || password=="")
 				result["message"] = "无法生成安全的人物档案。";
-			else if(!create_empty_character_unlocked(account_id,
-				character_id,password))
-				result["message"] = "人物物理存档创建失败。";
 			else{
-				mapping entry = ([
-					"id":character_id,
-					"slot":slot,
-					"created_at":time(),
-					"desired_race":race_id,
-					"desired_profession":profession_id,
-				]);
-				if((int)record["created_at"]<=0)
-					record["created_at"] = time();
-				record["characters"] += ({entry});
-				if(save_record_unlocked(record)){
-					result = ([
-						"ok":1,
-						"message":"人物档案创建成功。",
-						"account_id":account_id,
-						"character":profile_summary_unlocked(
-							account_id,entry),
-						"bootstrap_command":"choice_profe "+
-							race_id+"/"+profession_id,
-					]);
+				mapping reservation = ([]);
+				if(profile_requested){
+					reservation = NAMESD->reserve_profile_name(profile_name);
+					if(!(int)reservation["ok"])
+						result["message"] = reservation["message"];
+					else{
+						profile_name = (string)reservation["name"];
+						reservation_token = (string)reservation["token"];
+					}
 				}
-				else{
-					string path = user_file_path(character_id);
-					rm(path);
-					rm(path+".tmp");
-					rm(path+".bak");
-					result["message"] =
-						"账号索引保存失败，已回滚新人物。";
+				if(!profile_requested || reservation_token!=""){
+					if(!create_empty_character_unlocked(account_id,
+						character_id,password,profile_name,profile_sex,
+						profile_avatar)){
+						string failed_path = user_file_path(character_id);
+						rm(failed_path);
+						rm(failed_path+".tmp");
+						rm(failed_path+".bak");
+						rm(failed_path+".bak.tmp");
+						result["message"] = "人物物理存档创建失败。";
+					}
+					else{
+						mapping entry = ([
+							"id":character_id,
+							"slot":slot,
+							"created_at":time(),
+							"desired_race":race_id,
+							"desired_profession":profession_id,
+						]);
+						if((int)record["created_at"]<=0)
+							record["created_at"] = time();
+						record["characters"] += ({entry});
+						if(save_record_unlocked(record)){
+							result = ([
+								"ok":1,
+								"message":"人物档案创建成功。",
+								"account_id":account_id,
+								"character":profile_summary_unlocked(
+									account_id,entry),
+								"bootstrap_command":"choice_profe "+
+									race_id+"/"+profession_id,
+							]);
+						}
+						else{
+							string path = user_file_path(character_id);
+							rm(path);
+							rm(path+".tmp");
+							rm(path+".bak");
+							result["message"] =
+								"账号索引保存失败，已回滚新人物。";
+						}
+					}
+				}
+				if(reservation_token!=""){
+					if((int)result["ok"])
+						NAMESD->commit_profile_name(profile_name,
+							reservation_token);
+					else
+						NAMESD->release_profile_name(profile_name,
+							reservation_token);
 				}
 			}
 		}
 	}
 	destruct(key);
 	return result;
+}
+
+mapping(string:mixed) query_character_profile_status(object player)
+{
+	string stored_name = "";
+	string display_name = "";
+	string race_id = "";
+	string profession_id = "";
+	string sex = "";
+	string avatar_id = "";
+	if(!player)
+		return (["profile_complete":0,"profile_needs_name":1,
+			"profile_needs_sex":1,"profile_needs_avatar":1]);
+	if(functionp(player->have_name_cn))
+		stored_name = (string)(player->have_name_cn() || "");
+	if(functionp(player->query_name_cn))
+		display_name = (string)(player->query_name_cn(1) || "");
+	if(functionp(player->query_raceId))
+		race_id = (string)(player->query_raceId() || "");
+	if(functionp(player->query_profeId))
+		profession_id = (string)(player->query_profeId() || "");
+	sex = (string)(player->sex || "");
+	avatar_id = (string)(player->user_pic || "");
+	int needs_name = stored_name=="" || has_prefix(stored_name,"无名");
+	int needs_sex = sex!="male" && sex!="female";
+	int needs_avatar = avatar_id=="";
+	return ([
+		"profile_complete":!(needs_name || needs_sex || needs_avatar),
+		"profile_needs_name":needs_name,
+		"profile_needs_sex":needs_sex,
+		"profile_needs_avatar":needs_avatar,
+		"profile_name":needs_name ? "" : (stored_name || display_name),
+		"sex":sex,
+		"avatar_id":avatar_id,
+		"race_id":race_id,
+		"profession_id":profession_id,
+		"avatar_choices":query_creation_avatar_choices(race_id,
+			profession_id,sex=="female" ? "female" : "male"),
+	]);
+}
+
+/** 在线人物资料补全：只允许补缺失/无名字段，不能借接口改已有姓名或头像。 */
+mapping(string:mixed) complete_character_profile(object player,
+	string requested_name,string requested_sex,string requested_avatar)
+{
+	mapping status = query_character_profile_status(player);
+	mapping result = (["ok":0,"message":"人物资料补全失败。"]);
+	string stored_name;
+	string final_name;
+	string final_sex;
+	string final_avatar;
+	string reservation_token = "";
+	int old_pic_ok;
+	if(!player || !functionp(player->save_with_result))
+		return result;
+	if((int)status["profile_complete"])
+		return (["ok":1,"message":"人物资料已经完整。",
+			"profile":status]);
+	stored_name = functionp(player->have_name_cn) ?
+		(string)(player->have_name_cn() || "") : "";
+	final_name = stored_name;
+	final_sex = (string)status["sex"];
+	final_avatar = (string)status["avatar_id"];
+	if((int)status["profile_needs_name"]){
+		mapping reservation = NAMESD->reserve_profile_name(requested_name);
+		if(!(int)reservation["ok"]){
+			result["message"] = reservation["message"];
+			return result;
+		}
+		final_name = (string)reservation["name"];
+		reservation_token = (string)reservation["token"];
+	}
+	if((int)status["profile_needs_sex"])
+		final_sex = requested_sex;
+	else if(requested_sex!="" && requested_sex!=final_sex){
+		result["message"] = "已经选定的性别不能通过资料补全修改。";
+		if(reservation_token!="")
+			NAMESD->release_profile_name(final_name,reservation_token);
+		return result;
+	}
+	if(final_sex!="male" && final_sex!="female"){
+		result["message"] = "请选择人物性别。";
+		if(reservation_token!="")
+			NAMESD->release_profile_name(final_name,reservation_token);
+		return result;
+	}
+	if((int)status["profile_needs_avatar"])
+		final_avatar = requested_avatar;
+	else if(requested_avatar!="" && requested_avatar!=final_avatar){
+		result["message"] = "已经选定的头像不能通过资料补全修改。";
+		if(reservation_token!="")
+			NAMESD->release_profile_name(final_name,reservation_token);
+		return result;
+	}
+	if(((int)status["profile_needs_avatar"] ||
+	    (int)status["profile_needs_sex"]) &&
+	   !valid_creation_avatar((string)status["race_id"],
+		(string)status["profession_id"],final_sex,final_avatar)){
+		result["message"] = "头像与当前人物职业或性别不匹配。";
+		if(reservation_token!="")
+			NAMESD->release_profile_name(final_name,reservation_token);
+		return result;
+	}
+	string old_name = stored_name;
+	string old_sex = (string)(player->sex || "");
+	string old_avatar = (string)(player->user_pic || "");
+	old_pic_ok = (int)player->set_pic_ok;
+	player->name_cn = final_name;
+	if(functionp(player->set_original_name_cn))
+		player->set_original_name_cn(final_name);
+	player->sex = final_sex;
+	player->user_pic = final_avatar;
+	player->set_pic_ok = 1;
+	if(!player->save_with_result()){
+		player->name_cn = old_name;
+		if(functionp(player->set_original_name_cn))
+			player->set_original_name_cn(old_name);
+		player->sex = old_sex;
+		player->user_pic = old_avatar;
+		player->set_pic_ok = old_pic_ok;
+		if(reservation_token!="")
+			NAMESD->release_profile_name(final_name,reservation_token);
+		result["message"] = "人物存档保存失败，资料没有修改。";
+		return result;
+	}
+	if(reservation_token!="")
+		NAMESD->commit_profile_name(final_name,reservation_token);
+	status = query_character_profile_status(player);
+	return (["ok":1,"message":"人物姓名与头像已保存。",
+		"profile":status]);
 }
 
 string query_bootstrap_command(string account_id,string character_id)

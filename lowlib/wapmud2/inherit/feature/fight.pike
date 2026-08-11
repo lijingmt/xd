@@ -1342,8 +1342,11 @@ void escape(void|int change){
 //技能升级系统20070206//////////////////////////////////
 //熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 //而且，防止超出技能等级上限而溢出
-	void skills_level_check(string sname){
+	void skills_level_check(string sname,void|int test_gain_roll){
 		object skill;
+		int skill_level;
+		int required;
+		int gain_roll;
 		if(!sname || !this_object()->skills ||
 		   !this_object()->skills[sname])
 			return;
@@ -1358,20 +1361,27 @@ void escape(void|int change){
 		if(skill->query_skill_level_max)
 			cur_skills_level_limit =
 				(int)skill->query_skill_level_max();
-		//当前该用户该技能等级的熟练度大于该技能本身该等级的熟练度，则升级该用户的该技能等级
-		if(this_object()->skills[sname][1]>=
-		   skill->performs_shuliandu[this_object()->skills[sname][0]]){
-			//当前技能等级设定上限为10级
-			if(this_object()->skills[sname][0]<cur_skills_level_limit){
-				this_object()->skills[sname][0]++;
-				this_object()->skills[sname][1] = 0;
-			}
-		}
-		else{
+		skill_level = (int)this_object()->skills[sname][0];
+		required = (int)skill->performs_shuliandu[skill_level];
+		if(required<=0 || skill_level>=cur_skills_level_limit)
+			return;
+		if((int)this_object()->skills[sname][1]<required){
 			//技能升级速度降低一半
-			int tmp = random(3)+1;
-			if(tmp==2)
+			gain_roll = random(3)+1;
+			if(search((string)this_object()->query_name(),"testunit")!=-1 &&
+			   !zero_type(test_gain_roll))
+				gain_roll = (int)test_gain_roll;
+			if(gain_roll==2)
 				this_object()->skills[sname][1]++;
+		}
+		// 本次成功施放刚好把熟练度推到100%时立即升级，不再要求
+		// 再施放一次长CD技能；成长速度、门槛与等级上限均不改变。
+		if((int)this_object()->skills[sname][1]>=required){
+			this_object()->skills[sname][0] = skill_level+1;
+			this_object()->skills[sname][1] = 0;
+			tell_object(this_object(),"【技能精进】"+
+				(string)skill->query_name_cn()+"提升至"+(skill_level+1)+
+				"级。\n");
 		}
 	}
 //技能升级系统20070206//////////////////////////////////

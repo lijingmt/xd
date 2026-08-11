@@ -157,10 +157,37 @@ string view_qqlist_groups()
 		groupList=([]);
 	foreach(indices(groupList),string index){
 		if(index&&groupList[index]){
-			data+="["+groupList[index]+":qqlist_group "+index+"]\n";
+			data+="["+groupList[index]+":qqlist_group "+index+"] "+
+				"[一键组队:qqlist_group_invite "+index+"]\n";
 		}
 	}
 	return data;
+}
+
+string query_qqlist_group_name(string group)
+{
+	if(!group || group=="" || !mappingp(groupList) ||
+	   !stringp(groupList[group]))
+		return "";
+	return (string)groupList[group];
+}
+
+array(string) query_qqlist_group_member_ids(string group)
+{
+	array(string) result = ({});
+	multiset(string) seen = (<>);
+	if(query_qqlist_group_name(group)=="" || !arrayp(qqlist))
+		return result;
+	foreach(qqlist,mixed raw_friend){
+		if(!arrayp(raw_friend) || sizeof((array)raw_friend)<3 ||
+		   !stringp(raw_friend[NAME]) ||
+		   (string)raw_friend[GROUP]!=group ||
+		   seen[(string)raw_friend[NAME]])
+			continue;
+		seen[(string)raw_friend[NAME]] = 1;
+		result += ({(string)raw_friend[NAME]});
+	}
+	return result;
 }
 string view_qqlist_group(string group)
 {
@@ -184,6 +211,7 @@ string view_qqlist_group(string group)
 	}
 	string tmp = online_data+data;
 	if(tmp != ""){
+		tmp += "\n[邀请本组在线好友组队:qqlist_group_invite "+group+"]\n";
 		tmp +=  "\n[删除该组所有好友:qqlist_delete_group_user "+group+"]\n";
 	}
 	else {

@@ -199,12 +199,34 @@ void test_balancing_and_no_target_reroute(object player)
 		daemon->record_no_target(player);
 		int ready=daemon->should_route_to_training_area(player,
 			(["visible":0]));
+		room["/tmp/autofight_overflow"]=1;
+		room["/tmp/autofight_overflow_path"]=(string)route["path"];
+		room->exits=([]);
+		daemon->clear_no_target(player);
+		daemon->record_no_target(player);
+		daemon->record_no_target(player);
+		player["/tmp/autofight_last_route_time"]=time()-20;
+		int overflow_early=daemon->should_route_to_training_area(player,
+			(["visible":0]));
+		daemon->record_no_target(player);
+		int overflow_ready=daemon->should_route_to_training_area(player,
+			(["visible":0]));
+		mapping recovery=daemon->query_balanced_training_route(player,1);
+		// 强制模拟公共房已满，仍应回公共房而不是再建空实例。
+		recovery["all_full"]=1;
+		int recovered=daemon->move_to_training_route(player,recovery);
 		valid=(string)balanced["path"]!=(string)route["path"] &&
-			(int)balanced["pool_size"]>=3 && !early && ready;
+			(int)balanced["pool_size"]>=3 && !early && ready &&
+			!overflow_early && overflow_ready &&
+			(int)recovery["recovering_overflow"]==1 && recovered &&
+			environment(player) &&
+			(int)environment(player)["/tmp/autofight_overflow"]!=1 &&
+			daemon->query_current_room_path(player)==
+				(string)recovery["path"];
 	};
 	if(err)
 		error_desc=describe_error(err);
-	check("连续三轮无怪才改道且避开当前房间",
+	check("连续三轮无怪后避开当前房且空分流房强制回公共图",
 		!err && valid,error_desc);
 	destroy_test_room(room,player);
 }

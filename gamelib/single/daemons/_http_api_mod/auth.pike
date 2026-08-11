@@ -366,7 +366,20 @@ private int character_login_password_matches(string character_id,
            account_id,character_id))
         return 0;
     account_password = get_user_password(account_id);
-    return submitted_password_matches(submitted,account_password,challenge);
+	return submitted_password_matches(submitted,account_password,challenge);
+}
+
+// 已登录人物的写接口必须再次验证 TXD 中的密码；只读状态接口不调用。
+int authenticated_character_password_matches(string character_id,
+	string submitted)
+{
+	string canonical_id = String.trim_all_whites(character_id || "");
+	string character_password;
+	if(!valid_auth_userid(canonical_id) || !submitted)
+		return 0;
+	character_password = get_user_password(canonical_id);
+	return character_password && character_login_password_matches(
+		canonical_id,character_password,submitted,"");
 }
 
 int test_character_login_password_matches(string character_id,

@@ -819,6 +819,11 @@ string query_affinity_key(string room_path,void|string instance_key)
 	block = normalize_token(parts[0],64);
 	if(block=="")
 		return "";
+	// 传统 FBD 幻境的实际目录并不以 fb_ 命名。统一折叠到虚拟
+	// block，并由服务端 team/fb_name 实例键分片，确保同一队伍的
+	// 克隆房只存在于一个 Worker，不复制怪物与奖励。
+	if(FBD->is_fb_room_path(path))
+		block = "fb_runtime";
 	// 家园商户、地契和杂货 NPC 都在凝阁殿。它们与家园共用
 	// HOMED 的一份全局快照，因此必须归属同一个一致性域。
 	if(block=="home" || block=="ninggedian")
@@ -2089,6 +2094,8 @@ private string player_instance_hint(object player,object room,string room_path)
 {
 	string normalized = strip_room_root(room_path);
 	string block = sizeof(normalized/"/") ? (normalized/"/")[0] : "";
+	string fb_name = FBD->query_fb_name_by_room_path(normalized);
+	string fb_id = "";
 	string term = "";
 	// Keep the server-owned home identity hint for recovery metadata. The
 	// affinity function deliberately collapses every home to the single
@@ -2102,6 +2109,17 @@ private string player_instance_hint(object player,object room,string room_path)
 			return (string)player->query_inhome_pos();
 		if(functionp(player->query_home_path))
 			return (string)player->query_home_path();
+	}
+	if(block=="fb_runtime" || fb_name!=""){
+		fb_id = (string)(player->fb_id || "");
+		if(fb_id!="" && sizeof(fb_id)<=160 && search(fb_id,"..")==-1)
+			return fb_id;
+		if(functionp(player->query_term))
+			term = (string)player->query_term();
+		if(fb_name=="")
+			fb_name = FBD->query_fb_name_by_id(fb_id);
+		if(term!="" && term!="noterm" && fb_name!="")
+			return term+"/"+fb_name;
 	}
 	if((has_prefix(block,"fb_") || has_suffix(block,"_fb")) &&
 	   functionp(player->query_term)){
@@ -2132,14 +2150,14 @@ string query_player_affinity(object player)
 }
 
 /** Dynamic overflow rooms may only be cloned by their static map owner. */
-int local_worker_owns_room(string room_path)
+int local_worker_owns_room(string room_path,void|string instance_key)
 {
 	string affinity;
 	string owner;
 	object key;
 	if(node_role!="worker")
 		return 1;
-	affinity = query_affinity_key(room_path,"");
+	affinity = query_affinity_key(room_path,instance_key || "");
 	if(affinity=="")
 		return 0;
 	key = local_route_lock->lock();

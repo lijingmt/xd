@@ -748,6 +748,7 @@ void test_time_and_low_life_guard()
 	int valid = 0;
 	mixed err = catch {
 		daemon->initialize_player(player);
+		daemon->start_autofight(player);
 		food->move(player);
 		player->set_life(player->query_life_max()/4);
 		player["/tmp/autofight_last_charge"] = time()-5;
@@ -765,6 +766,49 @@ void test_time_and_low_life_guard()
 	else
 		test_fail("计时或低血保护错误: "+error_desc);
 	destroy_runtime_player(player);
+}
+
+void test_restart_and_relogin_charge_lease()
+{
+	test_start("重启或快速重登不扣除无收益间隔且在线循环正常计时");
+	string userid="__testunit_autofight_charge_lease__";
+	object|zero player=create_runtime_player(userid);
+	object daemon=(object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object|zero relogin=0;
+	string error_desc="";
+	int valid=0;
+	mixed err=catch{
+		daemon->initialize_player(player);
+		daemon->start_autofight(player);
+		player["/plus/autofight_time_left"]=100;
+		player["/tmp/autofight_last_charge"]=time()-5;
+		int active_after=daemon->charge_time(player);
+		destruct(player);
+		player=0;
+
+		relogin=create_runtime_player(userid);
+		daemon->initialize_player(relogin);
+		relogin->set_autofight("enable");
+		relogin["/plus/autofight_time_left"]=active_after;
+		relogin["/tmp/autofight_last_charge"]=time()-10;
+		int relogin_after=daemon->charge_time(relogin);
+		int anchored_at=(int)relogin["/tmp/autofight_last_charge"];
+		int checked_at=time();
+		valid=active_after<=95 && active_after>=94 &&
+			relogin_after==active_after &&
+			anchored_at>=checked_at-1 && anchored_at<=checked_at;
+	};
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("在线扣时或人物对象计时租约错误: "+error_desc);
+	if(player)
+		destroy_runtime_player(player);
+	if(relogin)
+		destroy_runtime_player(relogin);
 }
 
 void test_gathering_and_material_cleanup()
@@ -3098,6 +3142,7 @@ int main()
 	test_vip4_huanhua_auto_sell_confirmation();
 	test_auto_sell_settlement();
 	test_time_and_low_life_guard();
+	test_restart_and_relogin_charge_lease();
 	test_gathering_and_material_cleanup();
 	test_non_equipment_destroy_safety();
 	test_vip_non_equipment_cleanup_tiers();

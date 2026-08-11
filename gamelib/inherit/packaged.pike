@@ -130,3 +130,22 @@ object repackaged(string name){
 	}
 	return 0;
 }
+
+object repackaged_by_storage_id(string item_id)
+{
+	if(!item_id || sizeof(item_id)!=64 || !arrayp(packaged_items))
+		return 0;
+	for(int i=0;i<sizeof(packaged_items);i++){
+		if(!arrayp(packaged_items[i]) || sizeof(packaged_items[i])<8 ||
+		   (string)packaged_items[i][7]!=item_id)
+			continue;
+		string item_name = (string)packaged_items[i][0];
+		if(i>0){
+			array selected = packaged_items[i];
+			packaged_items[i] = packaged_items[0];
+			packaged_items[0] = selected;
+		}
+		return repackaged(item_name);
+	}
+	return 0;
+}

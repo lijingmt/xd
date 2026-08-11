@@ -75,6 +75,70 @@ private int valid_relative_item_path(string path)
 	return 1;
 }
 
+int valid_storage_filter_category(string category)
+{
+	return has_value(({"all","equip","book","material",
+		"consumable","other"}),category);
+}
+
+private string storage_data_category(array data)
+{
+	string path;
+	string root;
+	if(!valid_personal_data(data))
+		return "other";
+	path = (string)data[3];
+	root = sizeof(path/"/") ? (path/"/")[0] : path;
+	if(has_value(({"weapon","armor","decorate","jewelry"}),root))
+		return "equip";
+	if(root=="book" || root=="peifang")
+		return "book";
+	if(has_value(({"material","duanzao","baoshi","yushi","feed",
+	   "liandan"}),root))
+		return "material";
+	if(has_value(({"food","water","teyao","baoxiang","gift",
+	   "zhongqiuyuebing","zongzi"}),root))
+		return "consumable";
+	return "other";
+}
+
+private int storage_data_matches_filter(array data,string category,
+	string keyword)
+{
+	string haystack;
+	if(!valid_personal_data(data) ||
+	   !valid_storage_filter_category(category) || sizeof(keyword)>96)
+		return 0;
+	if(category!="all" && storage_data_category(data)!=category)
+		return 0;
+	if(keyword=="")
+		return 1;
+	haystack = lower_case((string)data[0]+" "+(string)data[1]+" "+
+		(string)data[2]+" "+(string)data[3]);
+	return search(haystack,lower_case(keyword))!=-1;
+}
+
+array query_filtered_storage_items(array source,string mode,
+	string category,string keyword)
+{
+	array result = ({});
+	if((mode!="put" && mode!="take") ||
+	   !valid_storage_filter_category(category) || sizeof(keyword)>96)
+		return result;
+	for(int i=0;i<sizeof(source) && i<4096;i++){
+		array data = ({});
+		if(mode=="put" && arrayp(source[i]))
+			data = (array)source[i];
+		else if(mode=="take" && mappingp(source[i]) &&
+		        arrayp(source[i]["data"]))
+			data = (array)source[i]["data"];
+		if(sizeof(data) &&
+		   storage_data_matches_filter(data,category,keyword))
+			result += ({copy_value(source[i])});
+	}
+	return result;
+}
+
 private string storage_file_path(string account_id)
 {
 	if(!valid_account_or_character_id(account_id))

@@ -192,6 +192,12 @@ int restore()
 					if(inventory_data&&i<sizeof(inventory_data)){
 						pikenv_restore_object(ob,inventory_data[i]);
 					}
+					// 老档案持久化了付费玉的旧30堆叠上限；恢复时覆盖为
+					// 新上限，不能让存档字段压回旧值。
+					if(functionp(ob->query_yushi_rarelevel) &&
+					   (int)ob->query_yushi_rarelevel()>=1 &&
+					   (int)ob->query_yushi_rarelevel()<=5)
+						ob->max_count=9999;
 					ob->move(this_object());
 				}
 			};
@@ -199,6 +205,13 @@ int restore()
 				atomic_save_log("inventory restore skipped index="+i);
 		}
 		inventory=0;
+		if(functionp(this_object()->normalize_paid_yushi_stacks)){
+			mixed normalize_err=catch{
+				this_object()->normalize_paid_yushi_stacks();
+			};
+			if(normalize_err)
+				atomic_save_log("paid jade stack normalization skipped");
+		}
 	}
 	return succ;
 }

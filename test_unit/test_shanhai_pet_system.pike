@@ -1039,12 +1039,24 @@ void test_rift(array(object) players)
 
 	mapping bad_start = PETD->start_rift(players[0]);
 	mapping lost = run_rift(players,0);
+	// 玩家真实反馈路径：失败后解散旧队、重新组队会产生新的 term_id。
+	// 旧 lost 会话不能继续抢占角色的裂隙路由。
+	TERMD->destory_term(test_team_id,players[0]->query_name());
+	foreach(players,object player)
+		player->set_term("noterm");
+	test_team_id = TERMD->term_create(players[0]->query_name());
+	TERMD->add_termer(test_team_id,players[1]->query_name(),
+		players[1]->query_name_cn());
+	TERMD->add_termer(test_team_id,players[2]->query_name(),
+		players[2]->query_name_cn());
 	mapping restart = PETD->start_rift(players[0]);
-	check("缚灵不能靠普通输出绕过且失败场次最多12轮后可立即重开",
+	mapping restart_action = PETD->take_rift_action(players[0],"break");
+	check("缚灵不能靠普通输出绕过且失败后重组新队可立即重开行动",
 		bad_start["ok"] && lost["status"]=="lost" &&
 		(int)lost["round"]<=12 && restart["ok"] &&
-		restart["session"]["status"]=="active",
-		"错误行动仍赢得裂隙、无限等待或失败后无法重开");
+		restart["session"]["status"]=="active" &&
+		restart_action["ok"],
+		"错误行动仍赢得裂隙、旧失败会话抢路由或重组后无法行动");
 	object away_room = clone(ROOT+"/gamelib/d/wanling/wanlingtai");
 	players[2]->move(away_room);
 	mapping dropout = PETD->query_rift_state(players[0]);

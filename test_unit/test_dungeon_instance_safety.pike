@@ -70,6 +70,7 @@ void test_runtime_compile_and_reverse_index()
 		"/gamelib/cmds/qge74hye.pike",
 		"/gamelib/cmds/fb_entry.pike",
 		"/gamelib/cmds/fb_leave.pike",
+		"/gamelib/d/fb_runtime/ingress.pike",
 		"/gamelib/single/daemons/autofightd.pike",
 		"/lowlib/wapmud2/inherit/feature/fight.pike",
 	});
@@ -103,6 +104,58 @@ void test_runtime_compile_and_reverse_index()
 			destruct(item);
 		destruct(cloned_room);
 	}
+}
+
+void test_worker_ingress_affinity_and_direct_entry()
+{
+	test_start("幻境按队伍汇聚唯一 Worker 且单进程入口保持直达");
+	object map_daemon=(object)(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike");
+	object command_ob=(object)(ROOT+"/gamelib/cmds/fb_entry.pike");
+	object player=create_player(
+		"__testunit_fb_worker_ingress__",70,"human","jianxian");
+	object start_room=(object)(ROOT+
+		"/gamelib/d/xiqicheng/tiechuangxiang");
+	object|zero original_player=this_player();
+	string team_id="";
+	string error_desc="";
+	int valid=0;
+	mixed err=catch {
+		string fb_id_a="__testunit_team_a__/lingranzhiyan_h";
+		string fb_id_b="__testunit_team_b__/lingranzhiyan_h";
+		string ingress_affinity=map_daemon->query_affinity_key(
+			"/gamelib/d/fb_runtime/ingress.pike",fb_id_a);
+		string clone_affinity=map_daemon->query_affinity_key(
+			"/gamelib/d/xinnian_fb/lingranzhiyan_h#42",fb_id_a);
+		string other_affinity=map_daemon->query_affinity_key(
+			"/gamelib/d/xinnian_fb/lingranzhiyan_h#7",fb_id_b);
+		player->move(start_room);
+		team_id=TERMD->term_create(player->query_name());
+		set_this_player(player);
+		command_ob->main("lingranzhiyan_h 0 0");
+		valid=ingress_affinity==clone_affinity &&
+			ingress_affinity!=other_affinity &&
+			has_prefix(ingress_affinity,"fb_runtime:") &&
+			environment(player) &&
+			FBD->is_fb_room_path(file_name(environment(player))) &&
+			(string)player->fb_id==team_id+"/lingranzhiyan_h" &&
+			FBD->query_fb_memebers(player->fb_id,player->query_name());
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("Worker亲和或旧模式直达失败: "+error_desc);
+	if(player && player->fb_id)
+		FBD->detach_fb_member(player);
+	if(team_id!="" && TERMD->query_termId(team_id))
+		TERMD->destory_term(team_id,player->query_name());
+	destroy_player(player);
 }
 
 void test_safe_dungeon_fly_catalog()
@@ -375,6 +428,7 @@ int main()
 {
 	werror("\n========== 副本实例与脱困安全测试 ==========\n");
 	test_runtime_compile_and_reverse_index();
+	test_worker_ingress_affinity_and_direct_entry();
 	test_team_instance_identity();
 	test_map_filter_and_legacy_redirect();
 	test_safe_dungeon_fly_catalog();

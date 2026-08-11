@@ -257,6 +257,80 @@ int main()
 			after_batch_take["used"]==0 &&
 			sizeof(child_player->packaged_items)==3,
 			"批量取回后共享仓库或角色仓库数量异常");
+		object personal_ui =
+			(object)(ROOT+"/gamelib/cmds/personal_storage.pike");
+		object personal_batch =
+			(object)(ROOT+"/gamelib/cmds/personal_storage_batch.pike");
+		object token_stack = clone(ROOT+
+			"/gamelib/clone/item/yushi/suiyu");
+		token_stack->amount = 3;
+		string stack_token_before = personal_ui->
+			personal_storage_object_token(token_stack);
+		token_stack->amount = 4;
+		string stack_token_after = personal_ui->
+			personal_storage_object_token(token_stack);
+		check("背包堆叠数量变化会使旧批量页面令牌失效",
+			stack_token_before!=stack_token_after &&
+			sizeof(stack_token_before)==64 && sizeof(stack_token_after)==64,
+			"物品数量未进入背包页面快照令牌");
+		check("仓库搜索词展示转义界面控制字符但保留中文",
+			personal_ui->personal_storage_safe_display(
+				"技能[领取:x]书") == "技能［领取：x］书",
+			"搜索词仍可构造伪按钮或转义破坏中文");
+		destruct(token_stack);
+		object skill_book = clone(ROOT+
+			"/gamelib/clone/item/book/lingzhen");
+		skill_book->move(child_player);
+		array backpack_books = personal_ui->query_backpack_rows(
+			child_player,"book","lingzhen");
+		array(string) direct_tokens = sizeof(backpack_books) ?
+			({(string)backpack_books[0]["token"]}) : ({});
+		string direct_token = personal_ui->personal_storage_batch_token(
+			"share","book","lingzhen",direct_tokens);
+		child_player["/tmp/personal_storage/category"] = "book";
+		child_player["/tmp/personal_storage/keyword"] = "lingzhen";
+		set_this_player(child_player);
+		personal_batch->main("share 0 "+direct_token);
+		mapping after_direct_share = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		array filtered_books = ACCOUNT_STORAGED->
+			query_filtered_storage_items((array)after_direct_share["items"],
+			"take","book","lingzhen");
+		object stale_book = clone(ROOT+
+			"/gamelib/clone/item/book/lingzhen");
+		stale_book->move(child_player);
+		personal_batch->main("share 0 "+direct_token);
+		mapping after_stale_direct = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("背包技能书可按关键词批量直存共享且旧令牌不移动下一件",
+			sizeof(backpack_books)==1 && after_direct_share["used"]==1 &&
+			sizeof(filtered_books)==1 &&
+			after_stale_direct["used"]==1 && objectp(stale_book) &&
+			environment(stale_book)==child_player,
+			"直接共享、技能书筛选或重复批量令牌边界错误");
+		string direct_book_id = sizeof(filtered_books) ?
+			(string)filtered_books[0]["id"] : "";
+		mapping book_to_personal = ACCOUNT_STORAGED->
+			transfer_to_personal(child_player,direct_book_id);
+		array personal_books = personal_ui->query_personal_rows(
+			child_player,"book","lingzhen");
+		array(string) take_tokens = sizeof(personal_books) ?
+			({(string)personal_books[0]["token"]}) : ({});
+		string personal_take_token = personal_ui->
+			personal_storage_batch_token("take","book","lingzhen",take_tokens);
+		personal_batch->main("take 0 "+personal_take_token);
+		mapping after_personal_take = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("角色仓库技能书可按分类关键词批量取到背包",
+			book_to_personal["ok"] && sizeof(personal_books)==1 &&
+			!sizeof(ACCOUNT_STORAGED->query_filtered_storage_items(
+				(array)after_personal_take["personal_items"],"put",
+				"book","lingzhen")),
+			"角色仓库筛选或批量取出没有使用永久物品ID");
+		child_player["/tmp/personal_storage/category"] = "all";
+		child_player["/tmp/personal_storage/keyword"] = "";
+		if(stale_book)
+			destruct(stale_book);
 		mapping return_for_recovery = ACCOUNT_STORAGED->
 			transfer_to_shared(child_player,item_id);
 		valid_storage = Stdio.read_file(storage_file(account_id));
@@ -384,6 +458,11 @@ int main()
 			"/gamelib/cmds/account_storage_deposit.pike",
 			"/gamelib/cmds/account_storage_withdraw.pike",
 			"/gamelib/cmds/account_storage_batch.pike",
+			"/gamelib/cmds/account_storage_filter.pike",
+			"/gamelib/cmds/personal_storage.pike",
+			"/gamelib/cmds/personal_storage_move.pike",
+			"/gamelib/cmds/personal_storage_batch.pike",
+			"/gamelib/cmds/personal_storage_filter.pike",
 			"/lowlib/system/inherit/user.pike",
 			"/lowlib/system/cmds/login_check.pike",
 			"/gamelib/single/daemons/http_api_daemon.pike",

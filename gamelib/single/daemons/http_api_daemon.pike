@@ -350,6 +350,19 @@ string execute_internal_command(object player, string cmd)
 				ingress_moved = environment(player)!=ingress_room;
 			}
 		}
+		// FBD 动态幻境沿用限时活动的安全模型。只有协调器 arrival
+		// 已确认后才自动续办，避免目标 Worker 在玩家唯一归属尚未
+		// 证明时创建克隆房和房内奖励状态。
+		if(!ingress_moved && (first_word=="look" || first_word=="l") &&
+		   ingress_room && functionp(ingress_room->is_fb_worker_ingress) &&
+		   ingress_room->is_fb_worker_ingress() &&
+		   !(int)pending_arrival["ok"]){
+			string ingress_fb_name=FBD->query_fb_name_by_id(player->fb_id);
+			if(ingress_fb_name!=""){
+				player->command("fb_entry "+ingress_fb_name+" 0 0");
+				ingress_moved=environment(player)!=ingress_room;
+			}
+		}
 		// join already renders the destination. If it failed, keep the outer
 		// look so the ingress recovery links remain usable.
 		if(!ingress_moved)
@@ -853,6 +866,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 break;
             case "/api/account/characters/select":
                 handle_api_account_character_select(req);
+                break;
+            case "/api/profile":
+                handle_api_character_profile(req);
                 break;
             case "/api/account/logout":
                 handle_api_account_logout(req);

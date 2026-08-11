@@ -4,10 +4,11 @@
 #define STORAGE_PAGE_SIZE 8
 
 string account_storage_batch_token(string mode,int revision,
-	array(string) item_ids)
+	array(string) item_ids,void|string category,void|string keyword)
 {
 	object hash = Crypto.SHA256();
-	hash->update(mode+"|"+revision+"|"+(item_ids*"|"));
+	hash->update(mode+"|"+revision+"|"+(category || "all")+"|"+
+		(keyword || "")+"|"+(item_ids*"|"));
 	return String.string2hex(hash->digest());
 }
 
@@ -28,6 +29,12 @@ int main(string|zero arg)
 	array source_items = ({});
 	array(string) item_ids = ({});
 	mapping snapshot;
+	string category = (string)(me["/tmp/account_storage/category"] || "all");
+	string keyword = (string)(me["/tmp/account_storage/keyword"] || "");
+	if(!ACCOUNT_STORAGED->valid_storage_filter_category(category))
+		category = "all";
+	if(sizeof(keyword)>96)
+		keyword = "";
 
 	if(!arg || sscanf(arg,"%s %d %s",mode,page,expected_token)!=3 ||
 	   sizeof(expected_token)!=64 ||
@@ -43,6 +50,8 @@ int main(string|zero arg)
 			source_items = mode=="put" ?
 				(array)snapshot["personal_items"] :
 				(array)snapshot["items"];
+			source_items = ACCOUNT_STORAGED->query_filtered_storage_items(
+				source_items,mode,category,keyword);
 			if(sizeof(source_items))
 				max_page = (sizeof(source_items)-1)/STORAGE_PAGE_SIZE;
 			if(page>max_page)
@@ -64,7 +73,7 @@ int main(string|zero arg)
 			if(!sizeof(item_ids))
 				s = "本页已经没有可批量转移的物品。\n";
 			else if(expected_token!=account_storage_batch_token(mode,
-			         (int)snapshot["revision"],item_ids))
+			         (int)snapshot["revision"],item_ids,category,keyword))
 				s = "仓库内容已经变化，本次重复或过期操作已拦截，请重新选择。\n";
 			else{
 				foreach(item_ids,string item_id){
