@@ -60,6 +60,10 @@ int main()
 	object|zero player = 0;
 	object|zero verifier = 0;
 	object command_ob = (object)(ROOT+"/gamelib/cmds/mgr_give_item.pike");
+	check("后台发物品保留历史人物ID精确大小写",
+		command_ob->valid_admin_item_userid("xd01LSQ2026") &&
+		!command_ob->valid_admin_item_userid("xd01LSQ/2026"),
+		"大写人物ID被误拒绝或路径字符被放行");
 	string gateway = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_http_api_mod/pike_gateway.pike") || "";
 	string rpc = Stdio.read_file(ROOT+

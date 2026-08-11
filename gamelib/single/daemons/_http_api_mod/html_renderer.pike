@@ -765,31 +765,46 @@ string format_html_command_input(string cmd, string txd, string userid)
 {
     string input_id = "input_cmd_" + (random(9000) + 1000);
     string hidden_cmd = hide_command(userid, cmd);
+	string border_color, input_bg, text_color, btn_border, btn_bg, btn_text;
+	int use_dark_mode = 0;
+	object player = find_player(userid);
+	if(player && functionp(player->query_dark_mode) && player->query_dark_mode())
+		use_dark_mode = 1;
+	if(use_dark_mode){
+		border_color = "#667eea";
+		input_bg = "#2a2a4a";
+		text_color = "#e0e0e0";
+		btn_border = "#48bb78";
+		btn_bg = "#48bb78";
+		btn_text = "#fff";
+	}
+	else{
+		border_color = "#8B7765";
+		input_bg = "#FFFEF8";
+		text_color = "#3d2914";
+		btn_border = "#228B22";
+		btn_bg = "#228B22";
+		btn_text = "#fff";
+	}
+
+    // 背包保持传统列表，仅把可选分类收进一个紧凑下拉框。
+    if(cmd=="inventory_filter category")
+        return sprintf("<select data-mud-txd='%s' " +
+            "onchange=\"if(this.value){postMudCommand(this.getAttribute('data-mud-txd'),'inventory_filter category '+this.value);this.selectedIndex=0;}\" " +
+            "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;'>" +
+            "<option value=''>请选择分类</option>" +
+            "<option value='all'>全部</option>" +
+            "<option value='equipment'>装备</option>" +
+            "<option value='medicine'>药品</option>" +
+            "<option value='book'>书籍</option>" +
+            "<option value='material'>材料</option>" +
+            "<option value='jade'>玉石</option>" +
+            "<option value='box'>宝箱</option>" +
+            "<option value='quest'>任务</option>" +
+			"<option value='other'>其他</option></select>",
+			format_html_attribute(txd),border_color,input_bg,text_color);
 
     // 检查主题模式
-    string border_color, input_bg, text_color, btn_border, btn_bg, btn_text;
-    int use_dark_mode = 0;
-    object player = find_player(userid);
-    if(player && functionp(player->query_dark_mode) && player->query_dark_mode()) {
-        use_dark_mode = 1;
-    }
-
-    if(use_dark_mode) {
-        border_color = "#667eea";
-        input_bg = "#2a2a4a";
-        text_color = "#e0e0e0";
-        btn_border = "#48bb78";
-        btn_bg = "#48bb78";
-        btn_text = "#fff";
-    } else {
-        border_color = "#8B7765";
-        input_bg = "#FFFEF8";
-        text_color = "#3d2914";
-        btn_border = "#228B22";
-        btn_bg = "#228B22";
-        btn_text = "#fff";
-    }
-
     return sprintf("<input type='text' id='%s' placeholder='输入参数...' " +
                    "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;width:120px;' " +
                    "onkeypress='if(event.key==\"Enter\"){submitCmdInput(\"%s\", \"%s\", \"%s\");return false;}'> " +

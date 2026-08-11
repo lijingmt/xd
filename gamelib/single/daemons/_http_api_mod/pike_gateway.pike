@@ -111,7 +111,8 @@ private string pike_gateway_random_hex(int bytes)
 
 private int pike_gateway_valid_userid(string userid)
 {
-	string allowed = "abcdefghijklmnopqrstuvwxyz0123456789_.-";
+	string allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"+
+		"0123456789_.-";
 	if(sizeof(userid)<2 || sizeof(userid)>64 || search(userid,"..")!=-1)
 		return 0;
 	for(int index=0;index<sizeof(userid);index++)
@@ -147,7 +148,7 @@ private string pike_gateway_decode_txd_userid(string txd)
 			return "";
 		decoded += sprintf("%c",value);
 	}
-	return lower_case(String.trim_all_whites(decoded));
+	return String.trim_all_whites(decoded);
 }
 
 private mapping(string:mixed) pike_gateway_extract_params(mapping snapshot)
@@ -204,7 +205,7 @@ private string pike_gateway_extract_userid(mapping params)
 	foreach(({"userid","character_id","auth_userid"}),string key){
 		mixed raw = params[key];
 		if(stringp(raw)){
-			string candidate = lower_case(String.trim_all_whites((string)raw));
+			string candidate = String.trim_all_whites((string)raw);
 			if(pike_gateway_valid_userid(candidate))
 				candidates[candidate] = 1;
 		}
@@ -293,9 +294,9 @@ private mapping(string:string) pike_gateway_player_transfer_target(
 	if(!has_value(({"trade","trade_daoju","sendother","sendother_to",
 	   "sendother_daoju","sendother_daoju_to","sendother_ok"}),verb))
 		return ([]);
-	target_userid=lower_case(String.trim_all_whites(parts[1]));
+	target_userid=String.trim_all_whites(parts[1]);
 	if(!pike_gateway_valid_userid(target_userid) ||
-	   target_userid==lower_case(actor_userid || ""))
+	   target_userid==String.trim_all_whites(actor_userid || ""))
 		return ([]);
 	return (["userid":target_userid,
 		"account_id":pike_gateway_resolve_account(target_userid),
@@ -324,7 +325,7 @@ private mapping(string:mixed) pike_gateway_admin_recharge_target(
 	if(sscanf(command,"%s %s %d %s",verb,target_userid,fee,request_id)!=4 ||
 	   lower_case(verb)!="txadd")
 		return ([]);
-	target_userid = lower_case(target_userid);
+	target_userid = String.trim_all_whites(target_userid);
 	request_id = lower_case(request_id);
 	if(!pike_gateway_valid_userid(target_userid) || fee<=0 ||
 	   fee>100000000 || !pike_gateway_valid_hex_token(request_id,64))
@@ -379,7 +380,7 @@ private mapping(string:mixed) pike_gateway_admin_item_grant_target(
 	if(sscanf(command,"%s %s %s %d %s",verb,target_userid,item_path,
 		item_count,request_id)!=5 || lower_case(verb)!="mgr_give_item")
 		return ([]);
-	target_userid = lower_case(target_userid);
+	target_userid = String.trim_all_whites(target_userid);
 	request_id = lower_case(request_id);
 	if(!pike_gateway_valid_userid(target_userid) ||
 	   !pike_gateway_valid_admin_item_path(item_path) || item_count<1 ||
@@ -902,8 +903,8 @@ private string pike_gateway_resolve_account(string userid)
 	if(pike_gateway_valid_userid(account_id))
 		return account_id;
 	resolver = pike_gateway_account_resolver_daemon();
-	account_id = lower_case(String.trim_all_whites((string)
-		resolver->query_account_id_for_character(userid)));
+	account_id = String.trim_all_whites((string)
+		resolver->query_account_id_for_character(userid));
 	if(!pike_gateway_valid_userid(account_id))
 		error("cannot resolve account owner for "+userid+"\n");
 	pike_gateway_record_account(userid,account_id);
@@ -976,8 +977,8 @@ private void pike_gateway_observe_account_response(string path,
 		return;
 	token = lower_case(String.trim_all_whites(
 		(string)(payload["token"] || request_token)));
-	account_id = lower_case(String.trim_all_whites(
-		(string)(payload["account_id"] || "")));
+	account_id = String.trim_all_whites(
+		(string)(payload["account_id"] || ""));
 	pike_gateway_record_account_token(token,account_id);
 }
 
@@ -2597,10 +2598,10 @@ private void pike_gateway_deliver_background_arrival(string userid,
 private void pike_gateway_settle_background_move(string source_worker,
 	mapping item)
 {
-	string userid = lower_case(String.trim_all_whites(
-		(string)(item["userid"] || "")));
-	string account_id = lower_case(String.trim_all_whites(
-		(string)(item["account_id"] || "")));
+	string userid = String.trim_all_whites(
+		(string)(item["userid"] || ""));
+	string account_id = String.trim_all_whites(
+		(string)(item["account_id"] || ""));
 	int source_epoch = (int)item["lease_epoch"];
 	object user_key;
 	int request_entered;
@@ -2739,8 +2740,8 @@ private void pike_gateway_deliver_social_event(mapping event)
 	   (string)event["event_id"]=="" || !mappingp(event["payload"]))
 		error("invalid social event\n");
 	if(kind=="private_tell"){
-		string target_user = lower_case(String.trim_all_whites(
-			(string)(event["target_user"] || "")));
+		string target_user = String.trim_all_whites(
+			(string)(event["target_user"] || ""));
 		mapping route = MAP_WORKERD->query_player_route(target_user);
 		if(!(int)route["ok"] || (string)route["state"]!="active" ||
 		   !pike_gateway_worker_is_reachable((string)route["worker_id"]))
@@ -2752,8 +2753,8 @@ private void pike_gateway_deliver_social_event(mapping event)
 		return;
 	}
 	if(kind=="team_invite"){
-		string target_user = lower_case(String.trim_all_whites(
-			(string)(event["target_user"] || "")));
+		string target_user = String.trim_all_whites(
+			(string)(event["target_user"] || ""));
 		mapping route = MAP_WORKERD->query_player_route(target_user);
 		if(!(int)route["ok"] || (string)route["state"]!="active" ||
 		   !pike_gateway_worker_is_reachable((string)route["worker_id"]))

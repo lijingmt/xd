@@ -92,7 +92,7 @@ int main(string|zero arg)
 
 	if(parsed<2){
 		name = arg || "";
-		name = lower_case(String.trim_all_whites(name));
+		name = String.trim_all_whites(name);
 		//s+="请输入充值的通宝数[string:txadd "+name+" ...]\n";
 		s += "充值将进入注册账号共享钱包，账号内所有职业可消费。\n";
 		s += "历史背包玉石和免费奖励仍归具体人物，不会自动迁移。\n";
@@ -108,7 +108,7 @@ int main(string|zero arg)
 		write("%s",s);
 		return 1;
 	}
-	name = lower_case(String.trim_all_whites(name));
+	name = String.trim_all_whites(name);
 	if(fe<=0 || fe>100000000){
 		write("充值金额无效。\n[返回:txadd "+name+"]\n");
 		return 1;
@@ -126,7 +126,7 @@ int main(string|zero arg)
 			string located_worker = "";
 			if(online_status["ok"] && arrayp(online_status["users"]))
 				foreach((array)online_status["users"],mapping row)
-					if((string)row["userid"]==lower_case(name)){
+					if((string)row["userid"]==name){
 						located_worker = (string)row["worker_id"];
 						break;
 					}

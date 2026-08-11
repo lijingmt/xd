@@ -604,7 +604,7 @@ private int map_worker_player_account_authorized(object player,string userid)
         return 1;
     expected = MAP_WORKERD->query_local_player_account_owner(userid);
     actual = player && functionp(player->query_account_owner) ?
-        lower_case((string)player->query_account_owner()) : "";
+        (string)player->query_account_owner() : "";
     return expected!="" && actual==expected;
 }
 
@@ -768,15 +768,15 @@ void handle_request(Protocols.HTTP.Server.Request req)
             req->request_headers["x-xiand-request-id"] || ""));
         mapping request_begin = MAP_WORKERD->begin_local_gateway_request(
             map_worker_request_id,
-            lower_case(String.trim_all_whites(
-                req->request_headers["x-xiand-lease-userid"] || "")),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-lease-userid"] || ""),
             (int)(req->request_headers["x-xiand-lease-epoch"] || "0"),
             lower_case(String.trim_all_whites(
                 req->request_headers["x-xiand-command-kind"] || "general")),
-            lower_case(String.trim_all_whites(
-                req->request_headers["x-xiand-admin-target-userid"] || "")),
-            lower_case(String.trim_all_whites(
-                req->request_headers["x-xiand-admin-target-account"] || "")),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-userid"] || ""),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-account"] || ""),
             lower_case(String.trim_all_whites(
                 req->request_headers["x-xiand-admin-target-worker"] || "")),
             (int)(req->request_headers["x-xiand-admin-target-epoch"] || "0"),
@@ -790,8 +790,8 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 req->request_headers["x-xiand-admin-item-request"] || "")),
             lower_case(String.trim_all_whites(
                 req->request_headers["x-xiand-admin-capability"] || "")),
-            lower_case(String.trim_all_whites(
-                req->request_headers["x-xiand-account-owner"] || "")));
+            String.trim_all_whites(
+                req->request_headers["x-xiand-account-owner"] || ""));
         if(!(int)request_begin["ok"]){
             send_json(req,(["error":"worker request fence rejected",
                 "code":request_begin["code"]]),409);
@@ -1022,7 +1022,7 @@ void handle_api(Protocols.HTTP.Server.Request req)
             send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
             return;
         }
-        auth_userid = lower_case(String.trim_all_whites(auth["userid"]));
+        auth_userid = String.trim_all_whites(auth["userid"]);
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
@@ -1039,7 +1039,7 @@ void handle_api(Protocols.HTTP.Server.Request req)
         auth_password = stored_password;
     }
     else if(userid && password && userid != "" && password != "") {
-        auth_userid = lower_case(String.trim_all_whites(userid));
+        auth_userid = String.trim_all_whites(userid);
 
         // 密码验证
         stored_password = get_user_password(auth_userid);
@@ -1397,7 +1397,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             send_html_error(req, "TXD认证信息无效");
             return;
         }
-        auth_userid = lower_case(String.trim_all_whites(auth["userid"]));
+        auth_userid = String.trim_all_whites(auth["userid"]);
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
@@ -1414,7 +1414,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
         auth_password = stored_password;
     }
     else if(userid && password && userid != "" && password != "") {
-        auth_userid = lower_case(String.trim_all_whites(userid));
+        auth_userid = String.trim_all_whites(userid);
 
         // 密码验证
         stored_password = get_user_password(auth_userid);
@@ -1545,7 +1545,7 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
             send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
             return;
         }
-        auth_userid = lower_case(String.trim_all_whites(auth["userid"]));
+        auth_userid = String.trim_all_whites(auth["userid"]);
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
@@ -1562,7 +1562,7 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
         auth_password = stored_password;
     }
     else if(userid && password && userid != "" && password != "") {
-        auth_userid = lower_case(String.trim_all_whites(userid));
+        auth_userid = String.trim_all_whites(userid);
 
         // 密码验证
         stored_password = get_user_password(auth_userid);

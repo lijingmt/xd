@@ -94,8 +94,8 @@ private int server_autofight_throttled_batches;
 
 private string normalize_server_autofight_userid(string userid)
 {
-	// 与 HTTP 虚拟连接池使用同一规范键，兼容含大写字母的老账号。
-	return lower_case(String.trim_all_whites(userid || ""));
+	// 与 HTTP 虚拟连接池使用同一精确键，兼容历史大写账号且不串号。
+	return String.trim_all_whites(userid || "");
 }
 
 int query_server_autofight_dispatch_budget_for(int world_pending,

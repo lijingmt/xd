@@ -62,13 +62,20 @@ int main()
 {
 	string account_id = "xd99testunitmultichar";
 	string password = "testunit88";
+	string case_account_id = "xd99CaseUnitLSQ";
+	string case_account_lower = lower_case(case_account_id);
 	string character_id = "";
 	object|zero legacy = 0;
 	object|zero restored = 0;
+	object|zero case_player = 0;
 	object|zero original_player = this_player();
 	werror("\n========== 注册账号多人物测试 ==========\n");
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	cleanup_player(account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_lower);
+	cleanup_player(case_account_id);
+	cleanup_player(case_account_lower);
 	mixed err = catch{
 		legacy = create_legacy_player(account_id,password);
 		mapping before = ACCOUNT_CHARACTERD->
@@ -204,17 +211,36 @@ int main()
 		restored->save_with_result();
 		HTTP_APID->invalidate_user_password_cache(character_id);
 		HTTP_APID->invalidate_user_password_cache(account_id);
-		check("老JSP共享角色接受主账号密码并规范化大写人物ID",
-			HTTP_APID->test_character_login_password_matches(
-				upper_case(character_id),"testunit99","") &&
+		check("老JSP共享角色接受主账号密码且人物ID大小写敏感",
 			HTTP_APID->test_character_login_password_matches(
 				character_id,"childLegacy99","") &&
+			HTTP_APID->test_character_login_password_matches(
+				character_id,"testunit99","") &&
+			!HTTP_APID->test_character_login_password_matches(
+				upper_case(character_id),"testunit99","") &&
 			!HTTP_APID->test_character_login_password_matches(
 				character_id,"wrongPassword","") ,
-			"共享账号、旧角色密码或大小写兼容校验错误");
+			"共享账号、旧角色密码或大小写隔离校验错误");
 		restored->set_password("testunit99");
 		restored->save_with_result();
 		HTTP_APID->invalidate_user_password_cache(character_id);
+
+		case_player = create_legacy_player(case_account_id,"CasePass2026");
+		HTTP_APID->invalidate_user_password_cache(case_account_id);
+		HTTP_APID->invalidate_user_password_cache(case_account_lower);
+		int case_sensitive_filesystem =
+			Stdio.file_size(player_file(case_account_lower))<=0;
+		check("历史大写人物档案只按精确ID认证",
+			HTTP_APID->get_user_password(case_account_id)=="CasePass2026" &&
+			HTTP_APID->test_character_login_password_matches(
+				case_account_id,"CasePass2026","") &&
+			Stdio.file_size(player_file(case_account_id))>0 &&
+			(!case_sensitive_filesystem ||
+			 (!HTTP_APID->get_user_password(case_account_lower) &&
+			  !HTTP_APID->test_character_login_password_matches(
+				case_account_lower,"CasePass2026","") &&
+			  Stdio.file_size(player_file(case_account_lower))<=0)),
+			"大写老档被强制转小写、串号或错误命中不存在档案");
 
 		object init_room = (object)(ROOT+"/gamelib/d/init");
 		mixed first_entry_err = catch{
@@ -315,10 +341,16 @@ int main()
 		destruct(restored);
 	if(legacy)
 		destruct(legacy);
+	if(case_player)
+		destruct(case_player);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	if(character_id!="")
 		cleanup_player(character_id);
 	cleanup_player(account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_lower);
+	cleanup_player(case_account_id);
+	cleanup_player(case_account_lower);
 	werror("注册账号多人物：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);

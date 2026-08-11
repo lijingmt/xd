@@ -98,7 +98,9 @@ void test_categories_and_paging(object player)
 		first_page+"\n---\n"+last_page);
 	check("搜索框和页码跳转框同时兼容括号命令",
 		search(first_page,"[inventory_filter search ...]")!=-1 &&
-		search(first_page,"[inventory_filter jump ...]")!=-1,
+		search(first_page,"[inventory_filter jump ...]")!=-1 &&
+		search(first_page,"[inventory_filter category ...]")!=-1 &&
+		search(first_page,":inventory_filter category equipment]")==-1,
 		first_page);
 }
 
@@ -139,21 +141,33 @@ void test_search_and_legacy_rendering(object player)
 	string rendered=HTTP_APID->response_to_html(
 		"搜索：[inventory_filter search ...] 跳页：[inventory_filter jump ...]",
 		player->query_name(),"inventory","zf12testunit~password");
+	string dropdown=HTTP_APID->response_to_html(
+		"筛选：[inventory_filter category ...]",
+		player->query_name(),"inventory","zf12testunit~password");
 	string view_source=Stdio.read_file(ROOT+
 		"/lowlib/wapmud2/single/viewd.pike");
+	string vue_index=Stdio.read_file(ROOT+"/vue_source/index.html");
+	string vue_app=Stdio.read_file(ROOT+"/vue_source/js/app.js");
 	check("旧搜索命令升级为可分页搜索且不回显恶意命令",
 		search(search_result,"找到65件匹配物品")!=-1 &&
 		search(search_result,"第1/3页")!=-1 &&
 		search(injection,"drop all")==-1,
 		search_result+"\n---\n"+injection);
-	check("旧JSP与Vue均可渲染搜索和跳页输入框",
+	check("旧JSP与Vue均可渲染搜索、跳页和单一下拉筛选",
 		search(rendered,"<input type='text'")!=-1 &&
 		search(rendered,"submitCmdInput")!=-1 &&
+		search(dropdown,"<select")!=-1 &&
+		search(dropdown,"inventory_filter category")!=-1 &&
+		vue_index && search(vue_index,"mud-category-select")!=-1 &&
+		search(vue_index,"submitCmdSelect(segment.cmd, $event)")!=-1 &&
+		vue_app && search(vue_app,"submitCmdSelect(cmdName, event)")!=-1 &&
 		view_source && search(view_source,
-			"$(player->view_inventory_browser())")!=-1 &&
+			"$(player->view_inventory_zhuangbei())")!=-1 &&
+		search(view_source,"筛选物品：[inventory_filter category ...]")!=-1 &&
+		search(view_source,"$(player->view_inventory_browser())")==-1 &&
 		search(player->view_inventory_browser("all",1,""),
-			"[传统装备列表:inventory_legacy]")!=-1,
-		rendered);
+			"[返回装备背包:inventory]")!=-1,
+		rendered+"\n---\n"+dropdown);
 	mixed err=catch {
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/inventory_filter.pike");
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/inventory_legacy.pike");

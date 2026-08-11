@@ -319,7 +319,7 @@ object query_account_runtime_mutex(string requested_id)
 	if(!valid_userid(account_id))
 		account_id = "_invalid_account";
 	else
-		account_id = lower_case(account_id);
+		account_id = String.trim_all_whites(account_id);
 	table_key = account_runtime_lock_table_lock->lock();
 	if(!objectp(account_runtime_locks[account_id]))
 		account_runtime_locks[account_id] = Thread.Mutex();
@@ -958,7 +958,7 @@ private int disconnect_online_character(object player,string incoming_id)
 	// 同一人物重连属于会话替换，不设拦截标记；只有被账号在线上限
 	// 清退的人物才阻止旧标签页凭缓存TXD自动登录，避免多个职业轮流互踢。
 	if(player_id!=incoming_id){
-		string marker_id = lower_case(player_id);
+		string marker_id = String.trim_all_whites(player_id);
 		mapping(string:mixed) forced = ([
 			"error":incoming_id=="配置上限" ?
 				"账号同时在线上限已调整，当前人物已安全退出，请重新选择人物。" :
@@ -1017,7 +1017,7 @@ mapping(string:mixed) query_recent_forced_logout(string character_id)
 	object key;
 	if(!valid_userid(character_id))
 		return result;
-	character_id = lower_case(character_id);
+	character_id = String.trim_all_whites(character_id);
 	key = account_online_state_lock->lock();
 	if(mappingp(recent_forced_logouts[character_id])){
 		mapping(string:mixed) forced = recent_forced_logouts[character_id];
@@ -1035,7 +1035,7 @@ void clear_recent_forced_logout(string character_id)
 	object key;
 	if(!valid_userid(character_id))
 		return;
-	character_id = lower_case(character_id);
+	character_id = String.trim_all_whites(character_id);
 	key = account_online_state_lock->lock();
 	m_delete(recent_forced_logouts,character_id);
 	destruct(key);

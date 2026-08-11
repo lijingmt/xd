@@ -93,12 +93,15 @@ int main()
 			snapshot("userid=xd01hero&cmd=flushview"));
 		mapping json = httpd->test_pike_gateway_parse_snapshot(snapshot("",
 			"application/json","{\"character_id\":\"xd01hero\",\"cmd\":\"look\"}"));
+		mapping mixed_case = httpd->test_pike_gateway_parse_snapshot(
+			snapshot("userid=xd01LSQ2026&cmd=look"));
 		mapping case_sensitive = httpd->test_pike_gateway_parse_snapshot(
 			snapshot("","application/json",
 				"{\"cmd\":\"login_regnew gamelib xd01newhero MiXeD88 sid challenge\"}"));
 		check("查询和JSON正文使用同一人物路由规则",
 			query["userid"]=="xd01hero" && query["command"]=="flushview" &&
 			json["userid"]=="xd01hero" && json["command"]=="look" &&
+			mixed_case["userid"]=="xd01LSQ2026" &&
 			case_sensitive["command"]==
 				"login_regnew gamelib xd01newhero MiXeD88 sid challenge",
 			"请求格式差异可能把同一人物发往不同worker");
@@ -112,7 +115,8 @@ int main()
 		check("冲突人物身份和路径穿越标识失败关闭",
 			conflict_rejected &&
 			!httpd->test_pike_gateway_userid("../xd01hero") &&
-			httpd->test_pike_gateway_userid("xd01hero"),
+			httpd->test_pike_gateway_userid("xd01hero") &&
+			httpd->test_pike_gateway_userid("xd01LSQ2026"),
 			"客户端可能伪造第二身份绕过账号锁");
 
 		check("Vue和旧JSP注册在建档前解析为同一人物串行锁",

@@ -95,13 +95,13 @@ mapping(string:mixed) execute_map_worker_admin_recharge(object manager,
     mapping metadata;
     mapping config;
     mapping result;
-    target_userid = lower_case(String.trim_all_whites(target_userid || ""));
+    target_userid = String.trim_all_whites(target_userid || "");
     recharge_request_id = lower_case(String.trim_all_whites(
         recharge_request_id || ""));
     if(MAP_WORKERD->query_node_role()!="worker" || !manager ||
        MANAGERD->checkpower(manager->query_name())!="admin")
         return (["ok":0,"message":"分布式充值权限校验失败"]);
-    manager_userid = lower_case((string)manager->query_name());
+    manager_userid = (string)manager->query_name();
     metadata = MAP_WORKERD->query_local_running_admin_target(manager_userid,
         "admin_recharge");
     if(!(int)metadata["ok"] ||
@@ -182,14 +182,14 @@ mapping(string:mixed) execute_map_worker_admin_item_grant(object manager,
     mapping metadata;
     mapping config;
     mapping result;
-    target_userid = lower_case(String.trim_all_whites(target_userid || ""));
+    target_userid = String.trim_all_whites(target_userid || "");
     item_path = String.trim_all_whites(item_path || "");
     item_request_id = lower_case(String.trim_all_whites(
         item_request_id || ""));
     if(MAP_WORKERD->query_node_role()!="worker" || !manager ||
        MANAGERD->checkpower(manager->query_name())!="admin")
         return (["ok":0,"message":"分布式物品发放权限校验失败"]);
-    manager_userid = lower_case((string)manager->query_name());
+    manager_userid = (string)manager->query_name();
     metadata = MAP_WORKERD->query_local_running_admin_target(manager_userid,
         "admin_item_grant");
     if(!(int)metadata["ok"] ||
@@ -260,8 +260,8 @@ private int map_worker_gateway_request_authorized(
         return 1;
     routed_worker = lower_case(String.trim_all_whites(
         req->request_headers["x-xiand-lease-worker"] || ""));
-    routed_user = lower_case(String.trim_all_whites(
-        req->request_headers["x-xiand-lease-userid"] || ""));
+    routed_user = String.trim_all_whites(
+        req->request_headers["x-xiand-lease-userid"] || "");
     routed_epoch = (int)(req->request_headers["x-xiand-lease-epoch"] || "0");
     if(!map_worker_rpc_authorized(req) ||
        routed_worker!=MAP_WORKERD->query_local_worker_id())
@@ -273,8 +273,8 @@ private int map_worker_gateway_request_authorized(
     if((routed_user=="" && routed_epoch!=0) ||
        (routed_user!="" && routed_epoch<1))
         return 0;
-    account_owner = lower_case(String.trim_all_whites(
-        req->request_headers["x-xiand-account-owner"] || ""));
+    account_owner = String.trim_all_whites(
+        req->request_headers["x-xiand-account-owner"] || "");
     account_cache_token = lower_case(String.trim_all_whites(
         req->request_headers["x-xiand-account-cache-token"] || ""));
     if((account_owner=="")!=(account_cache_token==""))
@@ -300,7 +300,7 @@ private int map_worker_gateway_request_authorized(
             return 0;
         local_player = find_player(routed_user);
         if(local_player && functionp(local_player->query_account_owner) &&
-           lower_case((string)local_player->query_account_owner())!=account_owner)
+           (string)local_player->query_account_owner()!=account_owner)
             return 0;
         epoch_result = MAP_WORKERD->accept_local_player_epoch(
             routed_user,routed_epoch,local_player ? 1 : 0);
@@ -352,8 +352,8 @@ private array(object) map_worker_local_players()
 private void handle_map_worker_local_route(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     object player = get_player_from_connection(userid,0);
     if(!player)
         player = find_player(userid);
@@ -364,7 +364,7 @@ private void handle_map_worker_local_route(
     object room = environment(player);
     mapping redirect = MAP_WORKERD->query_local_move_redirect(userid);
     string account_id = functionp(player->query_account_owner) ?
-        lower_case((string)player->query_account_owner()) : userid;
+        (string)player->query_account_owner() : userid;
     send_json(req,([
         "ok":1,
         "userid":userid,
@@ -383,8 +383,8 @@ private void handle_map_worker_local_route(
 private void handle_map_worker_local_resolve_command(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     string command = String.trim_all_whites(
         (string)(params["command"] || ""));
     int epoch = (int)params["epoch"];
@@ -426,12 +426,12 @@ private void handle_map_worker_local_pending_routes(
         string account_id;
         if(sizeof(pending)>=128 || !player || !functionp(player->query_name))
             break;
-        userid = lower_case((string)player->query_name());
+        userid = (string)player->query_name();
         redirect = MAP_WORKERD->query_local_move_redirect(userid);
         if(!(int)redirect["ok"] || (int)player->in_combat)
             continue;
         account_id = functionp(player->query_account_owner) ?
-            lower_case((string)player->query_account_owner()) : userid;
+            (string)player->query_account_owner() : userid;
         pending += ({([
             "userid":userid,
             "account_id":account_id,
@@ -471,7 +471,7 @@ private void handle_map_worker_local_live_leases(
         mapping redirect;
         if(!player || !functionp(player->query_name))
             continue;
-        userid = lower_case((string)player->query_name());
+        userid = (string)player->query_name();
         // A public command already renewed this exact lease before entering
         // the worker. Do not race its response-tail handoff from the monitor.
         if(MAP_WORKERD->local_user_request_running(userid))
@@ -482,7 +482,7 @@ private void handle_map_worker_local_live_leases(
             (string)redirect["source_affinity"] :
             map_worker_player_affinity(player);
         account_id = functionp(player->query_account_owner) ?
-            lower_case((string)player->query_account_owner()) : userid;
+            (string)player->query_account_owner() : userid;
         if(userid=="" || account_id=="" || epoch<1 || affinity==""){
             send_json(req,(["ok":0,"code":"invalid_live_player",
                 "userid":userid]),409);
@@ -530,12 +530,12 @@ private void discard_map_worker_internal_arrival(string userid,object player)
 private void handle_map_worker_local_arrival(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     string room_path = String.trim_all_whites(
         (string)(params["room_path"] || ""));
-    string account_owner = lower_case(String.trim_all_whites(
-        (string)(params["account_owner"] || "")));
+    string account_owner = String.trim_all_whites(
+        (string)(params["account_owner"] || ""));
     string cache_token = lower_case(String.trim_all_whites(
         (string)(params["account_cache_token"] || "")));
     int epoch = (int)params["epoch"];
@@ -562,7 +562,7 @@ private void handle_map_worker_local_arrival(
         object room = environment(player);
         string actual_path = room ? file_name(room)-ROOT : "";
         string actual_owner = functionp(player->query_account_owner) ?
-            lower_case((string)player->query_account_owner()) : userid;
+            (string)player->query_account_owner() : userid;
         if(MAP_WORKERD->query_local_player_epoch(userid)==epoch &&
            actual_path==room_path && actual_owner==account_owner){
             // A previous materialization may have completed while its reply
@@ -665,10 +665,10 @@ private void handle_map_worker_local_inventory(
     array(mapping(string:mixed)) players = ({});
     foreach(map_worker_local_players(),object player){
         string userid = functionp(player->query_name) ?
-            lower_case((string)player->query_name()) : "";
+            (string)player->query_name() : "";
         string affinity = map_worker_player_affinity(player);
         string account_id = functionp(player->query_account_owner) ?
-            lower_case((string)player->query_account_owner()) : userid;
+            (string)player->query_account_owner() : userid;
         if(userid!=""){
             if(affinity=="")
                 affinity = "session:recovery:"+userid;
@@ -704,7 +704,7 @@ private array(mapping(string:mixed)) map_worker_local_online_rows(
             continue;
         row_err = catch {
             object room = environment(player);
-            string userid = lower_case((string)player->query_name());
+            string userid = (string)player->query_name();
             row = (["userid":userid,
                 "name_cn":(string)player->query_name_cn(),
                 "race_id":(string)player->query_raceId(),
@@ -722,7 +722,7 @@ private array(mapping(string:mixed)) map_worker_local_online_rows(
                 "idle":functionp(player->query_idle_label) ?
                     (string)player->query_idle_label() : "",
                 "account_id":functionp(player->query_account_owner) ?
-                    lower_case((string)player->query_account_owner()) : userid,
+                    (string)player->query_account_owner() : userid,
             ]);
         };
         if(!row_err && (string)row["userid"]!="" && (int)row["epoch"]>0)
@@ -771,12 +771,12 @@ private void discard_map_worker_offline_admin_player(object|zero player)
 
 private mapping execute_map_worker_local_admin_recharge(mapping params)
 {
-    string manager_userid = lower_case(String.trim_all_whites(
-        (string)(params["manager_userid"] || "")));
-    string target_userid = lower_case(String.trim_all_whites(
-        (string)(params["target_userid"] || "")));
-    string account_id = lower_case(String.trim_all_whites(
-        (string)(params["account_id"] || "")));
+    string manager_userid = String.trim_all_whites(
+        (string)(params["manager_userid"] || ""));
+    string target_userid = String.trim_all_whites(
+        (string)(params["target_userid"] || ""));
+    string account_id = String.trim_all_whites(
+        (string)(params["account_id"] || ""));
     string worker_id = lower_case(String.trim_all_whites(
         (string)(params["worker_id"] || "")));
     string recharge_request_id = lower_case(String.trim_all_whites(
@@ -840,7 +840,7 @@ private mapping execute_map_worker_local_admin_recharge(mapping params)
         }
     }
     if(!player || !functionp(player->query_account_owner) ||
-       lower_case((string)player->query_account_owner())!=account_id){
+       (string)player->query_account_owner()!=account_id){
         if(offline)
             discard_map_worker_offline_admin_player(player);
         return (["ok":0,"code":"target_account_mismatch",
@@ -868,12 +868,12 @@ private void handle_map_worker_local_admin_recharge(
 
 private mapping execute_map_worker_local_admin_item_grant(mapping params)
 {
-    string manager_userid = lower_case(String.trim_all_whites(
-        (string)(params["manager_userid"] || "")));
-    string target_userid = lower_case(String.trim_all_whites(
-        (string)(params["target_userid"] || "")));
-    string account_id = lower_case(String.trim_all_whites(
-        (string)(params["account_id"] || "")));
+    string manager_userid = String.trim_all_whites(
+        (string)(params["manager_userid"] || ""));
+    string target_userid = String.trim_all_whites(
+        (string)(params["target_userid"] || ""));
+    string account_id = String.trim_all_whites(
+        (string)(params["account_id"] || ""));
     string worker_id = lower_case(String.trim_all_whites(
         (string)(params["worker_id"] || "")));
     string item_path = String.trim_all_whites(
@@ -939,7 +939,7 @@ private mapping execute_map_worker_local_admin_item_grant(mapping params)
         }
     }
     if(!player || !functionp(player->query_account_owner) ||
-       lower_case((string)player->query_account_owner())!=account_id){
+       (string)player->query_account_owner()!=account_id){
         if(offline)
             discard_map_worker_offline_admin_player(player);
         return (["ok":0,"code":"admin_item_target_account_mismatch",
@@ -967,7 +967,7 @@ private void handle_map_worker_local_admin_item_grant(
 
 private mapping execute_map_worker_local_account_refresh(string account_id)
 {
-    account_id = lower_case(String.trim_all_whites(account_id || ""));
+    account_id = String.trim_all_whites(account_id || "");
     int refreshed;
     int save_failed;
     if(MAP_WORKERD->query_node_role()!="worker" ||
@@ -983,7 +983,7 @@ private mapping execute_map_worker_local_account_refresh(string account_id)
         PETD->invalidate_worker_account_cache(account_id);
     foreach(map_worker_local_players(),object player){
         if(!player || !functionp(player->query_account_owner) ||
-           lower_case((string)player->query_account_owner())!=account_id)
+           (string)player->query_account_owner()!=account_id)
             continue;
         ACCOUNT_WALLETD->reconcile_player_login(player);
         if(!player->save_with_result())
@@ -1029,10 +1029,10 @@ private mapping map_worker_apply_private_tell(mapping event)
         (mapping)event["payload"] : ([]);
     string event_id = lower_case(String.trim_all_whites(
         (string)(event["event_id"] || "")));
-    string source_user = lower_case(String.trim_all_whites(
-        (string)(event["source_user"] || "")));
-    string target_user = lower_case(String.trim_all_whites(
-        (string)(event["target_user"] || "")));
+    string source_user = String.trim_all_whites(
+        (string)(event["source_user"] || ""));
+    string target_user = String.trim_all_whites(
+        (string)(event["target_user"] || ""));
     string message = (string)(payload["message"] || "");
     string source_name_cn = (string)(payload["source_name_cn"] || "");
     string source_nick = (string)(payload["source_nick"] || "");
@@ -1141,10 +1141,10 @@ private mapping map_worker_apply_team_event(mapping event,string kind)
         (mapping)event["payload"] : ([]);
     string event_id = lower_case(String.trim_all_whites(
         (string)(event["event_id"] || "")));
-    string source_user = lower_case(String.trim_all_whites(
-        (string)(event["source_user"] || "")));
-    string target_user = lower_case(String.trim_all_whites(
-        (string)(event["target_user"] || "")));
+    string source_user = String.trim_all_whites(
+        (string)(event["source_user"] || ""));
+    string target_user = String.trim_all_whites(
+        (string)(event["target_user"] || ""));
     mapping result;
     mixed delivery_err;
     if(sizeof(event_id)!=64 || source_user=="")
@@ -1220,8 +1220,8 @@ private mapping map_worker_apply_social_event(mapping event)
 private void handle_map_worker_local_release(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     string expected_affinity = (string)(params["affinity"] || "");
     int expected_epoch = (int)params["epoch"];
     object player = get_player_from_connection(userid,0);
@@ -1286,8 +1286,8 @@ private void handle_map_worker_local_release(
 private void handle_map_worker_local_discard(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     int expected_epoch = (int)params["epoch"];
     int actual_epoch = MAP_WORKERD->query_local_player_epoch(userid);
     object player = get_player_from_connection(userid,0);
@@ -1315,8 +1315,8 @@ private void handle_map_worker_local_discard(
 private void handle_map_worker_local_epoch(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     int epoch = (int)params["epoch"];
     object player = get_player_from_connection(userid,0);
     mapping result;
@@ -1333,8 +1333,8 @@ private void handle_map_worker_local_epoch(
 private void handle_map_worker_local_redirect_complete(
     Protocols.HTTP.Server.Request req,mapping params)
 {
-    string userid = lower_case(String.trim_all_whites(
-        (string)(params["userid"] || "")));
+    string userid = String.trim_all_whites(
+        (string)(params["userid"] || ""));
     string room_path = String.trim_all_whites(
         (string)(params["room_path"] || ""));
     int expected_epoch = (int)params["epoch"];
@@ -1356,7 +1356,7 @@ private void handle_map_worker_local_control_resume(
 {
     foreach(map_worker_local_players(),object player){
         string userid = functionp(player->query_name) ?
-            lower_case((string)player->query_name()) : "";
+            (string)player->query_name() : "";
         if(userid=="" || MAP_WORKERD->query_local_player_epoch(userid)<1){
             send_json(req,(["ok":0,"code":"unreconciled_local_player"]),409);
             return;
@@ -1388,7 +1388,7 @@ void enforce_map_worker_control_fence()
         mixed save_err;
         if(!player || !functionp(player->query_name))
             continue;
-        userid = lower_case((string)player->query_name());
+        userid = (string)player->query_name();
         if(MAP_WORKERD->local_user_request_running(userid)){
             werror("[MAP_WORKER][CONTROL_FENCE_DEFER] userid=%s request=running\n",
                 userid);
@@ -1528,8 +1528,8 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
     }
     if(action=="local_team_snapshot"){
         result = TERMD->query_distributed_team_snapshot_for_user(
-            lower_case(String.trim_all_whites(
-                (string)(params["userid"] || ""))));
+            String.trim_all_whites(
+                (string)(params["userid"] || "")));
         send_json(req,result,(int)result["ok"] ? 200 : 409);
         return;
     }
@@ -1650,13 +1650,13 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
             break;
         case "resolve_account":
             {
-                string requested_user = lower_case(String.trim_all_whites(
-                    (string)(params["userid"] || "")));
+                string requested_user = String.trim_all_whites(
+                    (string)(params["userid"] || ""));
                 string account_id = ACCOUNT_CHARACTERD->
                     query_account_id_for_character(requested_user);
                 if(account_id && account_id!="")
                     result = (["ok":1,"userid":requested_user,
-                        "account_id":lower_case(account_id)]);
+                        "account_id":account_id]);
                 else
                     result = (["ok":0,"code":"account_not_resolved"]);
             }

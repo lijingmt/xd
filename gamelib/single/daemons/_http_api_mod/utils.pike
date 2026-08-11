@@ -183,8 +183,8 @@ void finish_http_response(Protocols.HTTP.Server.Request req,mapping response)
     int worker_request = (int)request_status["ok"] &&
         (string)request_status["state"]=="running";
 	if(worker_request){
-		string routed_user = lower_case(String.trim_all_whites(
-			req->request_headers["x-xiand-lease-userid"] || ""));
+		string routed_user = String.trim_all_whites(
+			req->request_headers["x-xiand-lease-userid"] || "");
 		if(!mappingp(response["extra_heads"]))
 			response["extra_heads"] = ([]);
 		// The gateway waits for durable finalizers only when the worker proves

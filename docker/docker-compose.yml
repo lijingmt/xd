@@ -8,13 +8,13 @@ services:
     restart: unless-stopped
     # 最多 16 个 Worker 依次执行停流和原子存档时，禁止 Docker 提前 SIGKILL。
     stop_grace_period: 10m
-    # 内存限制
+    # 5 Worker + 协调器 + Tomcat 的生产实测会超过 6G；18G 为编译缓存和流量高峰留出余量。
     deploy:
       resources:
         limits:
-          memory: 6G
+          memory: 18G
         reservations:
-          memory: 2G
+          memory: 8G
     # 设置堆栈限制为无限，防止 Pike 编译大文件时栈溢出
     # 设置文件描述符限制，防止 "Too many open files" 错误
     ulimits:

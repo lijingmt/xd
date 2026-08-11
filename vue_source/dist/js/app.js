@@ -1565,7 +1565,7 @@ createApp({
             if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
             const credentials = this.decodeCredentialsFromTxd(txd);
             if (data.userid && credentials &&
-                data.userid.toLowerCase() !== credentials.userid.toLowerCase()) {
+                data.userid !== credentials.userid) {
                 throw new Error('人物会话响应不匹配，请重新选择人物');
             }
             this.txd = data.txd || txd;
@@ -2541,8 +2541,7 @@ createApp({
                 }
                 const requestCredentials = this.decodeCredentialsFromTxd(requestTxd);
                 if (data.userid && requestCredentials &&
-                    data.userid.toLowerCase() !==
-                    requestCredentials.userid.toLowerCase()) {
+                    data.userid !== requestCredentials.userid) {
                     throw new Error('人物会话响应不匹配');
                 }
                 // 更新txd（可能已变化）
@@ -2845,6 +2844,13 @@ createApp({
             this.sendJsonCommand(cmd);
         },
 
+        submitCmdSelect(cmdName, event) {
+            const value = event?.target?.value || '';
+            if (!value) return;
+            event.target.value = '';
+            this.sendJsonCommand(`${cmdName} ${value}`);
+        },
+
         // JSON模式: 提交表单（多个输入框共用一个提交按钮）
         submitForm(formSegment) {
             const inputs = formSegment.inputs || [];
@@ -2972,8 +2978,7 @@ createApp({
                 if (data.error) {
                     throw new Error(data.error);
                 }
-                if (data.userid && data.userid.toLowerCase() !==
-                    fullUserid.toLowerCase()) {
+                if (data.userid && data.userid !== fullUserid) {
                     throw new Error('人物会话响应不匹配');
                 }
 
@@ -3305,8 +3310,7 @@ createApp({
                 }
                 const requestCredentials = this.decodeCredentialsFromTxd(requestTxd);
                 if (data.userid && requestCredentials &&
-                    data.userid.toLowerCase() !==
-                    requestCredentials.userid.toLowerCase()) return;
+                    data.userid !== requestCredentials.userid) return;
                 const sequence = Number(data.sequence || 0);
                 if (!Number.isFinite(sequence) || !generation ||
                     (generation === this.autofightViewGeneration &&

@@ -86,16 +86,18 @@ void test_queue_runtime_contract(object httpd)
 void test_same_user_serialization(object httpd)
 {
 	object first = httpd->query_user_command_mutex("XD01ThreadUser");
-	object second = httpd->query_user_command_mutex(" xd01threaduser ");
+	object second = httpd->query_user_command_mutex(" XD01ThreadUser ");
+	object different_case = httpd->query_user_command_mutex(
+		"xd01threaduser");
 	mapping status = httpd->query_thread_status();
-	int valid = first && first == second &&
+	int valid = first && first == second && first != different_case &&
 		status["same_user_policy"] == "serialized" &&
 		status["cross_user_policy"] ==
 			"round_robin_world_parallel_render" &&
 		status["process_model"] == "single_process" &&
 		(int)status["user_command_locks"] >= 1;
-	test_result("同账号串行且不同账号世界命令公平轮转",valid,
-		"账号规范化、锁复用或跨账号并行策略状态错误");
+	test_result("同账号串行且账号大小写严格隔离",valid,
+		"账号精确大小写、锁复用或跨账号并行策略错误");
 }
 
 void test_world_queue_coalescing_and_causal_order(object httpd)
@@ -106,7 +108,7 @@ void test_world_queue_coalescing_and_causal_order(object httpd)
 	int first = httpd->enqueue_world_command(userid,"","flushview",
 		record_world_queue_probe,({callback_result,"first"}));
 	int merged = httpd->enqueue_world_command(
-		lower_case(userid),"","flushview",record_world_queue_probe,
+		userid,"","flushview",record_world_queue_probe,
 		({callback_result,"merged"}));
 	int merged_size = httpd->query_world_user_queue_size(userid);
 	int pending_after_merge = httpd->query_world_pending_command_count();
@@ -115,6 +117,12 @@ void test_world_queue_coalescing_and_causal_order(object httpd)
 	int trailing = httpd->enqueue_world_command(userid,"","flushview",
 		record_world_queue_probe,({callback_result,"trailing"}));
 	int ordered_size = httpd->query_world_user_queue_size(userid);
+	httpd->remove_world_user_queue(userid);
+	int different_case = httpd->enqueue_world_command(
+		lower_case(userid),"","flushview",record_world_queue_probe,
+		({callback_result,"different_case"}));
+	int different_case_size = httpd->query_world_user_queue_size(
+		lower_case(userid));
 	httpd->remove_world_user_queue(lower_case(userid));
 	int look_first = httpd->enqueue_world_command(userid,"","look",
 		record_world_queue_probe,({callback_result,"look_first"}));
@@ -124,6 +132,7 @@ void test_world_queue_coalescing_and_causal_order(object httpd)
 	httpd->remove_world_user_queue(userid);
 	mapping after = httpd->query_thread_status();
 	int valid = first==1 && merged==1 && middle==1 && trailing==1 &&
+		different_case==1 && different_case_size==1 &&
 		look_first==1 && look_merged==1 && look_size==1 &&
 		merged_size==1 && ordered_size==3 &&
 		pending_after_merge==(int)before["world_pending_commands"]+1 &&
@@ -138,8 +147,8 @@ void test_world_queue_coalescing_and_causal_order(object httpd)
 			(int)before["world_coalesced_refreshes"]+1 &&
 		(int)after["world_coalesced_looks"]==
 			(int)before["world_coalesced_looks"]+1;
-	test_result("重复刷新/查看只在队尾合并且不跨越中间命令",valid,
-		"刷新合并破坏命令因果顺序、账号规范化或清理计数错误");
+	test_result("重复刷新/查看只在同人物队尾合并",valid,
+		"刷新合并破坏因果顺序、大小写隔离或清理计数错误");
 }
 
 void test_non_backend_world_rejection(object httpd)

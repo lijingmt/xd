@@ -712,7 +712,18 @@ private string normalize_token(string value,int max_length)
 
 private string normalize_userid(string userid)
 {
-	return normalize_token(userid,MAP_WORKER_MAX_USERID);
+	string result = String.trim_all_whites(userid || "");
+	if(result=="" || sizeof(result)>MAP_WORKER_MAX_USERID ||
+	   search(result,"..")!=-1)
+		return "";
+	foreach(result;int index;int one){
+		if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+		   (one>='0' && one<='9') || one=='_' || one=='-' ||
+		   one==':' || one=='.' || one=='/')
+			continue;
+		return "";
+	}
+	return result;
 }
 
 private string normalize_worker_id(string worker_id)

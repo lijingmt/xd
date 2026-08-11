@@ -178,6 +178,37 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   
   assert.strictEqual(client.showLogin, false);
 
+  // 历史人物ID可含大写字母。请求必须保留精确大小写，
+  // 后端若返回另一个大小写变体，前端必须拒绝以防串档。
+  const mixedCaseUserid = 'xd01LSQ2026';
+  const mixedCaseTxd = client.encodeTxd(mixedCaseUserid, 'CasePass88');
+  let mixedCaseUrl = '';
+  client.invalidateCharacterSessionRequests();
+  client.txd = mixedCaseTxd;
+  client.currentCharacterId = mixedCaseUserid;
+  client.showLogin = false;
+  const mixedCaseEpoch = client.characterSessionEpoch;
+  sandbox.fetch = async url => {
+    mixedCaseUrl = String(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        userid: mixedCaseUserid.toLowerCase(),
+        txd: client.encodeTxd(mixedCaseUserid.toLowerCase(), 'CasePass88'),
+        lines: []
+      })
+    };
+  };
+  const mixedCaseRelogged = await client.relogin(mixedCaseTxd, mixedCaseEpoch);
+  const mixedCaseParams = new URL(
+    mixedCaseUrl, 'https://game.example.com'
+  ).searchParams;
+  assert.strictEqual(mixedCaseParams.get('userid'), mixedCaseUserid);
+  assert.strictEqual(mixedCaseRelogged, false);
+  assert.strictEqual(client.showLogin, true);
+  assert.strictEqual(client.txd, mixedCaseTxd);
+
   // 创建后职业初始化若由后端返回500，必须留在选角页并允许重试，
   // 不能把错误文字当成正常MUD页面覆盖当前人物会话。
   client.accountToken = 'c'.repeat(64);

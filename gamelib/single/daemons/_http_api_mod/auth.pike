@@ -359,8 +359,8 @@ private int character_login_password_matches(string character_id,
     string account_password;
     if(submitted_password_matches(submitted,character_password,challenge))
         return 1;
-    account_id = lower_case(String.trim_all_whites((string)
-        ACCOUNT_CHARACTERD->query_account_id_for_character(character_id)));
+    account_id = String.trim_all_whites((string)
+        ACCOUNT_CHARACTERD->query_account_id_for_character(character_id));
     if(!valid_auth_userid(account_id) || account_id==character_id ||
        !ACCOUNT_CHARACTERD->account_owns_character(
            account_id,character_id))
@@ -376,7 +376,7 @@ int test_character_login_password_matches(string character_id,
     string character_password;
     if(getenv("XIAND_RUN_TESTUNIT")!="1")
         return 0;
-    canonical_id = lower_case(String.trim_all_whites(character_id || ""));
+    canonical_id = String.trim_all_whites(character_id || "");
     character_password = get_user_password(canonical_id);
     if(!character_password)
         return 0;

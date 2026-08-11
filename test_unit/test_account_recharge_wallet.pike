@@ -377,6 +377,10 @@ int main()
 			search(txadd_source,"MANAGERD->checkpower")!=-1 &&
 			search(txadd_source,"credit_recharge_once")!=-1 &&
 			search(txadd_source,"确认共享充值")!=-1 &&
+			search(txadd_source,
+				"name = String.trim_all_whites(name);")!=-1 &&
+			search(txadd_source,
+				"name = lower_case(String.trim_all_whites(name));")==-1 &&
 			search(txadd_source,"player->command(\"yushi_add_fee") == -1 &&
 			search(legacy_source,"MANAGERD->checkpower")!=-1,
 			"充值入口仍存在越权、误点或直接铸币路径");

@@ -1269,12 +1269,14 @@ main() {
     # 使用统一镜像
     local docker_image="${SELECTED_DOCKER_IMAGE:-${DOCKER_USER}/xiand-all:latest}"
 
+    # 5 个 Pike Worker、协调器与 Tomcat 的生产实测会超过 6 GiB。
+    # 保留足够的编译缓存与高峰余量，避免 cgroup OOM 触发持久 fallback。
     if docker run -d \
         --name "xiand-${GAME_AREA}" \
         --restart unless-stopped \
         --stop-timeout 600 \
-        --memory=6g \
-        --memory-swap=16g \
+        --memory=18g \
+        --memory-swap=32g \
         --log-driver json-file \
         --log-opt max-size=50m \
         --log-opt max-file=5 \

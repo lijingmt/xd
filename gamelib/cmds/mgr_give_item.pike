@@ -7,8 +7,9 @@ constant ADMIN_ITEM_REQUEST_TTL = 1800;
 
 int valid_admin_item_userid(string userid)
 {
-	string allowed = "abcdefghijklmnopqrstuvwxyz0123456789_.-";
-	userid = lower_case(String.trim_all_whites(userid || ""));
+	string allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"+
+		"0123456789_.-";
+	userid = String.trim_all_whites(userid || "");
 	if(sizeof(userid)<2 || sizeof(userid)>64 || search(userid,"..")!=-1)
 		return 0;
 	for(int index=0;index<sizeof(userid);index++)
@@ -318,7 +319,7 @@ int main(string|zero arg)
 		s += "请输入目标玩家ID：\n[string:mgr_give_item ...]\n";
 	}
 	else if(parsed==1){
-		target_userid = lower_case(String.trim_all_whites(target_userid));
+		target_userid = String.trim_all_whites(target_userid);
 		if(!valid_admin_item_userid(target_userid))
 			s += "玩家ID格式不正确。\n";
 		else if(!admin_item_target_exists(target_userid))
@@ -331,7 +332,7 @@ int main(string|zero arg)
 		}
 	}
 	else if(parsed==3){
-		target_userid = lower_case(String.trim_all_whites(target_userid));
+		target_userid = String.trim_all_whites(target_userid);
 		mapping inspected = inspect_admin_item(item_path,item_count);
 		if(!valid_admin_item_userid(target_userid))
 			s += "玩家ID格式不正确。\n";
@@ -353,7 +354,7 @@ int main(string|zero arg)
 		}
 	}
 	else if(parsed==4){
-		target_userid = lower_case(String.trim_all_whites(target_userid));
+		target_userid = String.trim_all_whites(target_userid);
 		request_id = lower_case(String.trim_all_whites(request_id));
 		if(!valid_admin_item_userid(target_userid) ||
 		   !valid_admin_item_path(item_path) || item_count<1 ||

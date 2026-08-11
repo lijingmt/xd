@@ -256,6 +256,19 @@ int main()
 			lease["worker_id"]==source_worker &&
 			lease["affinity"]==source_affinity && (int)lease["epoch"]>=1,
 			"首登被误判为过期恢复，或人物可能同时被多个worker持有");
+		string mixed_case_user="xd98Case"+prefix;
+		string lower_case_user=lower_case(mixed_case_user);
+		mapping mixed_case_lease=daemon->acquire_player_lease(
+			mixed_case_user,source_worker,source_affinity,0);
+		mapping lower_case_lease=daemon->acquire_player_lease(
+			lower_case_user,source_worker,source_affinity,0);
+		check("多Worker租约保留账号精确大小写且不串号",
+			mixed_case_lease["ok"] && lower_case_lease["ok"] &&
+			daemon->query_player_route(mixed_case_user)["userid"]==
+				mixed_case_user &&
+			daemon->query_player_route(lower_case_user)["userid"]==
+				lower_case_user && mixed_case_user!=lower_case_user,
+			"大小写账号被协调器折叠为同一人物租约");
 		mapping batch_bad = daemon->renew_player_leases_batch(source_worker,
 			(int)registrations[member_array(source_worker,worker_ids)]["generation"],
 			({(["userid":userid,"epoch":lease["epoch"],

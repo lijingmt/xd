@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786404222135">
-    <link rel="stylesheet" href="css/app.css?v=v1786404222135">
-    <link rel="stylesheet" href="css/realm.css?v=v1786404222135">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786410485407">
+    <link rel="stylesheet" href="css/app.css?v=v1786410485407">
+    <link rel="stylesheet" href="css/realm.css?v=v1786410485407">
 </head>
 <body>
     <div id="app">
@@ -825,11 +825,27 @@
                                            v-html="renderGameText(segment.label)"></a>
                                         <!-- 命令输入框 -->
                                         <span v-else-if="segment.type === 'cmd-input'" class="mud-cmd-input">
-                                            <input type="text"
+                                            <select v-if="segment.cmd === 'inventory_filter category'"
+                                                    class="mud-input mud-category-select"
+                                                    aria-label="筛选背包物品"
+                                                    @change="submitCmdSelect(segment.cmd, $event)">
+                                                <option value="">请选择分类</option>
+                                                <option value="all">全部</option>
+                                                <option value="equipment">装备</option>
+                                                <option value="medicine">药品</option>
+                                                <option value="book">书籍</option>
+                                                <option value="material">材料</option>
+                                                <option value="jade">玉石</option>
+                                                <option value="box">宝箱</option>
+                                                <option value="quest">任务</option>
+                                                <option value="other">其他</option>
+                                            </select>
+                                            <input v-else type="text"
                                                    :placeholder="'输入' + segment.cmd + '的参数'"
                                                    @keyup.enter="submitCmdInput(segment.cmd, $event)"
                                                    class="mud-input">
-                                            <a href="#"
+                                            <a v-if="segment.cmd !== 'inventory_filter category'"
+                                               href="#"
                                                @click.prevent="submitCmdInput(segment.cmd, $event)"
                                                class="mud-btn mud-confirm-btn">确定</a>
                                         </span>
@@ -1579,19 +1595,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786404222135"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786404222135"></script>
-    <script src="vendor/howler.core.min.js?v=v1786404222135"></script>
-    <script src="vendor/driver.iife.js?v=v1786404222135"></script>
-    <script src="../includes/game-number-format.js?v=v1786404222135" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786410485407"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786410485407"></script>
+    <script src="vendor/howler.core.min.js?v=v1786410485407"></script>
+    <script src="vendor/driver.iife.js?v=v1786410485407"></script>
+    <script src="../includes/game-number-format.js?v=v1786410485407" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786404222135';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786410485407';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786404222135"></script>
+    <script src="js/app.js?v=v1786410485407"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786404222135"></script>
+    <script src="../includes/translate.js?v=v1786410485407"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

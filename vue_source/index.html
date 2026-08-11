@@ -825,11 +825,27 @@
                                            v-html="renderGameText(segment.label)"></a>
                                         <!-- 命令输入框 -->
                                         <span v-else-if="segment.type === 'cmd-input'" class="mud-cmd-input">
-                                            <input type="text"
+                                            <select v-if="segment.cmd === 'inventory_filter category'"
+                                                    class="mud-input mud-category-select"
+                                                    aria-label="筛选背包物品"
+                                                    @change="submitCmdSelect(segment.cmd, $event)">
+                                                <option value="">请选择分类</option>
+                                                <option value="all">全部</option>
+                                                <option value="equipment">装备</option>
+                                                <option value="medicine">药品</option>
+                                                <option value="book">书籍</option>
+                                                <option value="material">材料</option>
+                                                <option value="jade">玉石</option>
+                                                <option value="box">宝箱</option>
+                                                <option value="quest">任务</option>
+                                                <option value="other">其他</option>
+                                            </select>
+                                            <input v-else type="text"
                                                    :placeholder="'输入' + segment.cmd + '的参数'"
                                                    @keyup.enter="submitCmdInput(segment.cmd, $event)"
                                                    class="mud-input">
-                                            <a href="#"
+                                            <a v-if="segment.cmd !== 'inventory_filter category'"
+                                               href="#"
                                                @click.prevent="submitCmdInput(segment.cmd, $event)"
                                                class="mud-btn mud-confirm-btn">确定</a>
                                         </span>

@@ -601,9 +601,8 @@ string view_inventory_browser(void|string requested_category,
 	int page_count;
 	int start;
 	int end;
-	string result="【分类背包】\n";
+	string result="【背包筛选】\n";
 	mapping(string:string) labels=query_inventory_browser_category_labels();
-	array(string) categories=query_inventory_browser_categories();
 	if(category=="" || !valid_inventory_browser_category(category)){
 		category=(string)(this_object()[
 			"/tmp/inventory_browser/category"] || "all");
@@ -638,18 +637,10 @@ string view_inventory_browser(void|string requested_category,
 	if((int)snapshot["scan_truncated"])
 		result+="档案物品异常过多，分类仅审计前"+
 			INVENTORY_BROWSER_SCAN_LIMIT+"个对象，请联系管理员。\n";
-	for(int i=0;i<sizeof(categories);i++){
-		string one=categories[i];
-		string title=(string)labels[one]+"("+
-			(int)snapshot["counts"][one]+")";
-		if(one==category)
-			result+="【"+title+"】 ";
-		else
-			result+="["+title+":inventory_filter category "+one+"] ";
-		if(i==3 || i==7)
-			result+="\n";
-	}
-	result+="\n搜索当前分类：[inventory_filter search ...]";
+	result+="当前筛选："+(string)labels[category]+"("+
+		(int)snapshot["counts"][category]+")；重新筛选："+
+		"[inventory_filter category ...]\n"+
+		"搜索当前筛选：[inventory_filter search ...]";
 	if(keyword!="")
 		result+=" [清除搜索:inventory_filter clear]";
 	result+="\n";
@@ -691,8 +682,8 @@ string view_inventory_browser(void|string requested_category,
 	result+="\n跳转页码：[inventory_filter jump ...]\n"+
 		"[一键穿装:auto_equip]|"+view_inventory_batch_sell_entry()+
 		"[一键安全销毁非装备:cleanup_non_equipment]\n"+
-		"[传统装备列表:inventory_legacy]|"+
-		"[传统道具列表:inventory_daoju]|[返回游戏:look]\n";
+		"[返回装备背包:inventory]|"+
+		"[返回道具背包:inventory_daoju]|[返回游戏:look]\n";
 	return result;
 }
 
