@@ -1191,10 +1191,38 @@ private void pike_gateway_register_all()
 	destruct(key);
 }
 
+/** Catalog remapping is safe only before any worker owns a live player. */
+private int pike_gateway_workers_are_cold()
+{
+	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+		mapping inflight = pike_gateway_worker_rpc(worker_id,
+			"local_inflight",([]));
+		mapping inventory;
+		if(!(int)inflight["ok"] || (int)inflight["count"])
+			return 0;
+		inventory = pike_gateway_worker_rpc(worker_id,
+			"local_inventory",([]));
+		if(!(int)inventory["ok"] || !arrayp(inventory["players"]) ||
+		   sizeof((array)inventory["players"]))
+			return 0;
+	}
+	return 1;
+}
+
 private void pike_gateway_sync_catalog_unlocked()
 {
-	int force_rebalance = MAP_WORKERD->
+	int topology_rebalance = MAP_WORKERD->
 		placement_topology_requires_rebalance();
+	int heat_ready = MAP_WORKERD->affinity_heat_ready();
+	int cold_workers;
+	int heat_rebalance;
+	int force_rebalance;
+	if(topology_rebalance || heat_ready)
+		cold_workers = pike_gateway_workers_are_cold();
+	if(topology_rebalance && !cold_workers)
+		error("topology rebalance requires a cold worker inventory\n");
+	heat_rebalance = heat_ready && cold_workers;
+	force_rebalance = topology_rebalance || heat_rebalance;
 	mapping catalog = MAP_WORKERD->assign_catalog(force_rebalance);
 	mapping status;
 	mapping(string:string) owners = ([]);
@@ -1202,7 +1230,8 @@ private void pike_gateway_sync_catalog_unlocked()
 	if(!(int)catalog["ok"])
 		error("cannot assign map catalog\n");
 	if(force_rebalance)
-		werror("[PIKE_GATEWAY] topology size changed; rebalanced catalog across %d workers\n",
+		werror("[PIKE_GATEWAY] cold catalog rebalance completed; topology=%d heat=%d workers=%d\n",
+			topology_rebalance,heat_rebalance,
 			(int)catalog["placement_topology_worker_count"]);
 	status = MAP_WORKERD->query_status();
 	generation = (int)status["placement_generation"];
@@ -2358,12 +2387,33 @@ private mapping pike_gateway_collect_worker_metrics(string worker_id)
 	]);
 }
 
+private mapping(string:int) pike_gateway_affinity_heat_counts(array users)
+{
+	mapping(string:int) counts = ([]);
+	foreach(users,mixed raw){
+		mapping row;
+		string affinity;
+		if(!mappingp(raw))
+			continue;
+		row = (mapping)raw;
+		affinity = MAP_WORKERD->query_affinity_key(
+			(string)row["room_path"],"");
+		if(affinity!="")
+			counts[affinity]++;
+	}
+	return counts;
+}
+
 /** Publish only after a complete monitor pass produced one coherent view. */
 private void pike_gateway_publish_online_snapshot()
 {
 	mapping snapshot = query_pike_gateway_online_users();
 	if(!(int)snapshot["ok"])
 		return;
+	mapping observed = MAP_WORKERD->observe_affinity_heat(
+		pike_gateway_affinity_heat_counts((array)snapshot["users"]));
+	if(!(int)observed["ok"])
+		werror("[PIKE_GATEWAY][AFFINITY_HEAT] observation rejected\n");
 	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 		if(!pike_gateway_worker_is_reachable(worker_id))
 			continue;

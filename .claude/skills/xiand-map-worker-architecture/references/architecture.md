@@ -81,7 +81,7 @@ Worker RPC accepts only loopback callers with a matching `XIAND_WORKER_TOKEN` an
 
 All users in the same shared static map affinity resolve to the same worker, so they can see and interact with one another. Never hash a shared room by userid.
 
-Placement is `load_aware_rendezvous`:
+Runtime placement is `load_aware_rendezvous`:
 
 - stable SHA-256-derived rendezvous score preserves ownership;
 - live player, active room, pending command, and heartbeat cost reduce the score;
@@ -89,7 +89,9 @@ Placement is `load_aware_rendezvous`:
 - configured worker capacity lets larger nodes receive proportionally more weight;
 - current healthy assignments remain sticky unless forced.
 
-Cold start weighs each top-level map directory by its file count and assigns largest maps first. A topology-size change causes catalog re-evaluation at safe startup. Runtime admin rebalance skips affinities with active/frozen leases or prepared handoffs.
+Cold start combines each top-level map directory's static file count with a privacy-safe online-popularity EWMA. The coordinator derives counts only from its already verified coherent online snapshot; `affinity_heat.json` stores affinity names and integer aggregate scores, never user ids. Recent restored leases seed first deployment so a restart does not forget current hotspots.
+
+For a proven-cold worker inventory, sort affinities by effective weight and use capacity-normalized least-loaded bin packing; use rendezvous only as a deterministic tie-break. This keeps several heavy/popular maps apart. A topology-size change must fail closed unless every worker reports zero in-flight requests and zero local players. Heat-driven catalog remapping is also cold-only. Normal requests keep current assignments sticky, and runtime admin rebalance still skips affinities with active/frozen leases or prepared handoffs. Never live-move a room object merely to improve balance.
 
 Changing `worker_count` is not a hot-add operation. Stop the current topology safely, update persisted configuration, and apply/start the new topology.
 
@@ -136,9 +138,10 @@ The control plane persists primitive routing state to:
 
 - `data_xiand/map_workers/control_plane.json`;
 - `data_xiand/map_workers/control_plane.json.bak`;
+- `data_xiand/map_workers/affinity_heat.json` and its validated backup for heuristic aggregate map heat;
 - `data_xiand/map_workers/config.json` for desired topology.
 
-The control snapshot contains placements, player leases, handoffs, envelopes, escrow state, and PK session primitives. It never replaces player archives. Validate every restored field and capacity count; reject incomplete/corrupt generations and use only a validated backup.
+The authoritative control snapshot contains placements, player leases, handoffs, envelopes, escrow state, and PK session primitives. It never replaces player archives. Validate every restored field and capacity count; reject incomplete/corrupt generations and use only a validated backup. Heat is deliberately a separate bounded heuristic snapshot: if neither generation validates, discard it and retain the authoritative placements.
 
 Before any worker save, require one of:
 

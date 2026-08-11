@@ -44,13 +44,28 @@ constant MAP_WORKER_MAX_LOCAL_SOCIAL_EVENTS = 4096;
 constant MAP_WORKER_LOCAL_SOCIAL_TTL = 300;
 constant MAP_WORKER_LOCAL_BROADCAST_TTL = 86400;
 constant MAP_WORKER_MAX_SOCIAL_OUTBOX_BYTES = 64*1024*1024;
+constant MAP_WORKER_MAX_HEAT_BYTES = 1024*1024;
+constant MAP_WORKER_MAX_HEAT_SCORE = 10000000;
+constant MAP_WORKER_HEAT_SCALE = 100;
+constant MAP_WORKER_HEAT_EWMA_DENOMINATOR = 60;
+constant MAP_WORKER_HEAT_WEIGHT_PER_PLAYER = 25;
+constant MAP_WORKER_HEAT_PERSIST_SECONDS = 60;
+constant MAP_WORKER_HEAT_SEED_MAX_AGE = 3600;
 
 private Thread.Mutex worker_state_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) worker_nodes = ([]);
 private mapping(string:mapping(string:mixed)) affinity_assignments = ([]);
 private mapping(string:int) affinity_room_weights = ([]);
+private mapping(string:int) affinity_heat_scores = ([]);
+private multiset(string) catalog_rebalance_pending = (<>);
 private int placement_generation;
 private int placement_topology_worker_count;
+private int affinity_heat_generation;
+private int affinity_heat_last_observed_at;
+private int affinity_heat_last_persisted_at;
+private int affinity_heat_dirty;
+private int affinity_heat_persist_scheduled;
+private int affinity_heat_restored_from_backup;
 
 private Thread.Mutex player_lease_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) player_leases = ([]);
@@ -729,6 +744,318 @@ private string normalize_userid(string userid)
 private string normalize_worker_id(string worker_id)
 {
 	return normalize_token(worker_id,MAP_WORKER_MAX_NODE_ID);
+}
+
+private string affinity_heat_path()
+{
+	return DATA_ROOT+"map_workers/affinity_heat.json";
+}
+
+/** Heat is heuristic only: malformed generations are ignored as a whole. */
+mapping(string:mixed) validate_affinity_heat_snapshot(mapping decoded)
+{
+	mapping(string:int) scores = ([]);
+	if(!mappingp(decoded) || (int)decoded["version"]!=1 ||
+	   !mappingp(decoded["scores"]) ||
+	   sizeof((mapping)decoded["scores"])>MAP_WORKER_MAX_AFFINITIES ||
+	   (int)decoded["generation"]<0 || (int)decoded["saved_at"]<1 ||
+	   (int)decoded["saved_at"]>time()+300)
+		return (["ok":0,"code":"invalid_affinity_heat"]);
+	foreach(indices((mapping)decoded["scores"]),mixed raw_affinity){
+		string affinity;
+		mixed raw_score;
+		if(!stringp(raw_affinity))
+			return (["ok":0,"code":"invalid_affinity_heat_key"]);
+		affinity = normalize_token((string)raw_affinity,
+			MAP_WORKER_MAX_AFFINITY);
+		raw_score = decoded["scores"][raw_affinity];
+		if(affinity=="" || affinity!=(string)raw_affinity ||
+		   !affinity_room_weights[affinity] || !intp(raw_score) ||
+		   (int)raw_score<0 || (int)raw_score>MAP_WORKER_MAX_HEAT_SCORE)
+			return (["ok":0,"code":"invalid_affinity_heat_entry"]);
+		if((int)raw_score>0)
+			scores[affinity] = (int)raw_score;
+	}
+	return (["ok":1,"scores":scores,
+		"generation":(int)decoded["generation"],
+		"observed_at":max(0,(int)decoded["observed_at"]),
+		"saved_at":(int)decoded["saved_at"]]);
+}
+
+private void restore_affinity_heat()
+{
+	string path = affinity_heat_path();
+	string selected = "";
+	mapping validated = ([]);
+	foreach(({path,path+".bak"}),string candidate){
+		int file_size = Stdio.file_size(candidate);
+		string source;
+		mapping decoded;
+		mixed err;
+		if(file_size<=0 || file_size>MAP_WORKER_MAX_HEAT_BYTES)
+			continue;
+		source = Stdio.read_file(candidate);
+		err = catch { decoded = Standards.JSON.decode(source); };
+		if(err || !mappingp(decoded))
+			continue;
+		validated = validate_affinity_heat_snapshot(decoded);
+		if((int)validated["ok"]){
+			selected = candidate;
+			break;
+		}
+	}
+	if(selected=="")
+		return;
+	{
+		object key = worker_state_lock->lock();
+		affinity_heat_scores = copy_value((mapping)validated["scores"]);
+		affinity_heat_generation = (int)validated["generation"];
+		affinity_heat_last_observed_at = (int)validated["observed_at"];
+		affinity_heat_last_persisted_at = (int)validated["saved_at"];
+		affinity_heat_restored_from_backup = selected!=path;
+		destruct(key);
+	}
+	if(selected!=path)
+		werror("[MAP_WORKERD] restored affinity heat from backup\n");
+	if(selected!=path){
+		object key = worker_state_lock->lock();
+		affinity_heat_dirty = 1;
+		destruct(key);
+		schedule_affinity_heat_persist();
+	}
+}
+
+private int persist_affinity_heat()
+{
+	string path = affinity_heat_path();
+	string temp_path = path+".tmp";
+	string backup_path = path+".bak";
+	string backup_temp_path = path+".bak.tmp";
+	string encoded;
+	mapping snapshot;
+	int saved_generation;
+	int restored_from_backup;
+	int live_size;
+	int backup_size;
+	int ok;
+	int reschedule;
+	mixed err;
+	{
+		object key = worker_state_lock->lock();
+		affinity_heat_persist_scheduled = 0;
+		if(!affinity_heat_dirty){
+			destruct(key);
+			return 1;
+		}
+		saved_generation = affinity_heat_generation;
+		restored_from_backup = affinity_heat_restored_from_backup;
+		snapshot = (["version":1,"saved_at":time(),
+			"observed_at":affinity_heat_last_observed_at,
+			"generation":saved_generation,
+			"scores":copy_value(affinity_heat_scores)]);
+		destruct(key);
+	}
+	err = catch {
+		encoded = Standards.JSON.encode(snapshot);
+		if(sizeof(encoded)>MAP_WORKER_MAX_HEAT_BYTES)
+			error("affinity heat exceeds durable size budget\n");
+		mkdir(DATA_ROOT+"map_workers");
+		rm(temp_path);
+		rm(backup_temp_path);
+		if(Stdio.write_file(temp_path,encoded)==sizeof(encoded) &&
+		   Stdio.file_size(temp_path)==sizeof(encoded)){
+			live_size = Stdio.file_size(path);
+			if(live_size>0 && !restored_from_backup){
+				Stdio.cp(path,backup_temp_path);
+				backup_size = Stdio.file_size(backup_temp_path);
+				if(backup_size==live_size &&
+				   mv(backup_temp_path,backup_path) &&
+				   mv(temp_path,path) &&
+				   Stdio.file_size(path)==sizeof(encoded))
+					ok = 1;
+			}
+			else if(mv(temp_path,path) &&
+			   Stdio.file_size(path)==sizeof(encoded))
+				ok = 1;
+		}
+	};
+	if(!ok){
+		rm(temp_path);
+		rm(backup_temp_path);
+		werror("[MAP_WORKERD] affinity heat persistence failed\n");
+	}
+	{
+		object key = worker_state_lock->lock();
+		if(ok){
+			affinity_heat_last_persisted_at = time();
+			affinity_heat_restored_from_backup = 0;
+			if(affinity_heat_generation==saved_generation)
+				affinity_heat_dirty = 0;
+		}
+		reschedule = affinity_heat_dirty;
+		destruct(key);
+	}
+	if(reschedule)
+		schedule_affinity_heat_persist();
+	return ok && !err;
+}
+
+private void schedule_affinity_heat_persist()
+{
+	int schedule;
+	object key;
+	if(node_role!="gateway")
+		return;
+	key = worker_state_lock->lock();
+	if(affinity_heat_dirty && !affinity_heat_persist_scheduled){
+		affinity_heat_persist_scheduled = 1;
+		schedule = 1;
+	}
+	destruct(key);
+	if(schedule)
+		call_out(persist_affinity_heat,MAP_WORKER_HEAT_PERSIST_SECONDS);
+}
+
+private int affinity_effective_weight_unlocked(string affinity)
+{
+	int static_weight = max(1,affinity_room_weights[affinity] || 1);
+	int heat_score = max(0,affinity_heat_scores[affinity]);
+	return calculate_affinity_effective_weight(static_weight,heat_score);
+}
+
+/** Pure helper used by placement and TestUnit boundary checks. */
+int calculate_affinity_effective_weight(int static_weight,int heat_score)
+{
+	int heat_weight;
+	static_weight = max(1,min(1000000,static_weight));
+	heat_score = max(0,min(MAP_WORKER_MAX_HEAT_SCORE,heat_score));
+	heat_weight = (heat_score*MAP_WORKER_HEAT_WEIGHT_PER_PLAYER+
+		MAP_WORKER_HEAT_SCALE-1)/MAP_WORKER_HEAT_SCALE;
+	return min(1000000,static_weight+heat_weight);
+}
+
+mapping(string:mixed) query_affinity_weight_info(string affinity)
+{
+	mapping result;
+	affinity = normalize_token(affinity,MAP_WORKER_MAX_AFFINITY);
+	if(affinity=="" || !affinity_room_weights[affinity])
+		return (["ok":0,"code":"unknown_static_affinity"]);
+	{
+		object key = worker_state_lock->lock();
+		int heat_score = max(0,affinity_heat_scores[affinity]);
+		result = (["ok":1,"affinity":affinity,
+			"static_weight":max(1,affinity_room_weights[affinity]),
+			"heat_score":heat_score,
+			"estimated_players":(heat_score+MAP_WORKER_HEAT_SCALE/2)/
+				MAP_WORKER_HEAT_SCALE,
+			"effective_weight":affinity_effective_weight_unlocked(affinity)]);
+		destruct(key);
+	}
+	return result;
+}
+
+int affinity_heat_ready()
+{
+	object key = worker_state_lock->lock();
+	int ready = sizeof(affinity_heat_scores)>0;
+	destruct(key);
+	return ready;
+}
+
+/** Record one complete coordinator-verified online snapshot. */
+mapping(string:mixed) observe_affinity_heat(mapping observed)
+{
+	mapping(string:int) validated = ([]);
+	int changed;
+	if(node_role!="gateway" || !mappingp(observed) ||
+	   sizeof(observed)>MAP_WORKER_MAX_AFFINITIES)
+		return (["ok":0,"code":"invalid_affinity_heat_observation"]);
+	foreach(indices(observed),mixed raw_affinity){
+		string affinity;
+		mixed raw_count;
+		if(!stringp(raw_affinity))
+			return (["ok":0,"code":"invalid_affinity_heat_observation"]);
+		affinity = normalize_token((string)raw_affinity,
+			MAP_WORKER_MAX_AFFINITY);
+		raw_count = observed[raw_affinity];
+		if(affinity=="" || affinity!=(string)raw_affinity ||
+		   !intp(raw_count) || (int)raw_count<0 || (int)raw_count>100000)
+			return (["ok":0,"code":"invalid_affinity_heat_observation"]);
+		if(affinity_room_weights[affinity])
+			validated[affinity] = (int)raw_count;
+	}
+	{
+		object key = worker_state_lock->lock();
+		foreach(indices(affinity_room_weights),string affinity){
+			int old_score = max(0,affinity_heat_scores[affinity]);
+			int target_score = min(MAP_WORKER_MAX_HEAT_SCORE,
+				validated[affinity]*MAP_WORKER_HEAT_SCALE);
+			int next_score = (old_score*
+				(MAP_WORKER_HEAT_EWMA_DENOMINATOR-1)+target_score)/
+				MAP_WORKER_HEAT_EWMA_DENOMINATOR;
+			if(next_score==old_score)
+				continue;
+			if(next_score>0)
+				affinity_heat_scores[affinity] = next_score;
+			else
+				m_delete(affinity_heat_scores,affinity);
+			changed++;
+		}
+		affinity_heat_last_observed_at = time();
+		if(changed){
+			affinity_heat_generation++;
+			affinity_heat_dirty = 1;
+		}
+		destruct(key);
+	}
+	if(changed)
+		schedule_affinity_heat_persist();
+	return (["ok":1,"changed":changed,
+		"observed_affinities":sizeof(validated)]);
+}
+
+/** A clean restart's recent leases seed first-deploy popularity immediately. */
+private void seed_affinity_heat_from_restored_leases()
+{
+	mapping(string:int) counts = ([]);
+	int now = time();
+	int changed;
+	if(node_role!="gateway")
+		return;
+	{
+		object lease_key = player_lease_lock->lock();
+		foreach(values(player_leases),mapping lease){
+			string affinity = (string)lease["affinity"];
+			if(!has_value(({"active","frozen"}),(string)lease["state"]) ||
+			   ((int)lease["updated_at"]<now-MAP_WORKER_HEAT_SEED_MAX_AGE &&
+			    (int)lease["expires_at"]<now-300))
+				continue;
+			counts[affinity]++;
+		}
+		destruct(lease_key);
+	}
+	{
+		object key = worker_state_lock->lock();
+		foreach(indices(counts),string affinity){
+			int seed_score;
+			if(!affinity_room_weights[affinity])
+				continue;
+			seed_score = min(MAP_WORKER_MAX_HEAT_SCORE,
+				counts[affinity]*MAP_WORKER_HEAT_SCALE);
+			if(seed_score>affinity_heat_scores[affinity]){
+				affinity_heat_scores[affinity] = seed_score;
+				changed++;
+			}
+		}
+		if(changed){
+			affinity_heat_generation++;
+			affinity_heat_last_observed_at = now;
+			affinity_heat_dirty = 1;
+		}
+		destruct(key);
+	}
+	if(changed)
+		schedule_affinity_heat_persist();
 }
 
 /** Static room location safe to persist in a handoff or trusted header. */
@@ -2399,6 +2726,52 @@ private int assigned_weight_unlocked(string worker_id,string except_affinity)
 	return assigned;
 }
 
+private int assigned_catalog_weight_unlocked(string worker_id,
+	string except_affinity)
+{
+	int assigned;
+	foreach(indices(affinity_assignments),string affinity){
+		mapping placement = affinity_assignments[affinity];
+		if(affinity!=except_affinity && affinity_room_weights[affinity] &&
+		   !catalog_rebalance_pending[affinity] &&
+		   (string)placement["worker_id"]==worker_id)
+			assigned += max(1,(int)placement["weight"]);
+	}
+	return assigned;
+}
+
+/** Strict least-loaded bin packing for a proven-cold catalog rebuild. */
+private string choose_catalog_worker_unlocked(string affinity,int weight,
+	int now)
+{
+	string best = "";
+	int best_cost;
+	int best_hash;
+	foreach(sort(indices(worker_nodes)),string worker_id){
+		mapping node = worker_nodes[worker_id];
+		int capacity;
+		int assigned;
+		int cost;
+		int rendezvous_hash;
+		if(!worker_alive_unlocked(node,now))
+			continue;
+		capacity = max(1,(int)node["capacity"]);
+		assigned = assigned_catalog_weight_unlocked(worker_id,affinity)+
+			max(1,weight);
+		cost = assigned*100000/capacity+
+			worker_load_score_unlocked(node)*100;
+		rendezvous_hash = stable_hash_value(affinity+"|"+worker_id)+1;
+		if(best=="" || cost<best_cost ||
+		   (cost==best_cost && rendezvous_hash>best_hash) ||
+		   (cost==best_cost && rendezvous_hash==best_hash && worker_id<best)){
+			best = worker_id;
+			best_cost = cost;
+			best_hash = rendezvous_hash;
+		}
+	}
+	return best;
+}
+
 private string choose_worker_unlocked(string affinity,int weight,int now)
 {
 	string best = "";
@@ -2466,7 +2839,10 @@ mapping(string:mixed) assign_affinity(string affinity,void|int weight,
 	}
 	previous = mappingp(current) ? copy_value(current) : 0;
 	previous_generation = placement_generation;
-	worker_id = choose_worker_unlocked(affinity,room_weight,now);
+	if(force>1)
+		worker_id = choose_catalog_worker_unlocked(affinity,room_weight,now);
+	else
+		worker_id = choose_worker_unlocked(affinity,room_weight,now);
 	if(worker_id==""){
 		destruct(key);
 		return (["ok":0,"code":"no_healthy_worker"]);
@@ -2479,6 +2855,8 @@ mapping(string:mixed) assign_affinity(string affinity,void|int weight,
 		"weight":room_weight,
 		"assigned_at":now,
 	]);
+	if(force>1)
+		catalog_rebalance_pending[affinity] = 0;
 	placement_generation++;
 	current = copy_value(affinity_assignments[affinity]);
 	current["ok"] = 1;
@@ -2529,9 +2907,12 @@ mapping(string:mixed) query_affinity_assignment(string affinity)
 mapping(string:mixed) assign_room(string room_path,void|string instance_key)
 {
 	string affinity = query_affinity_key(room_path,instance_key);
+	mapping weight_info;
 	if(affinity=="")
 		return (["ok":0,"code":"invalid_room"]);
-	return assign_affinity(affinity,affinity_room_weights[affinity] || 1,0);
+	weight_info = query_affinity_weight_info(affinity);
+	return assign_affinity(affinity,
+		(int)(weight_info["effective_weight"] || 1),0);
 }
 
 private void load_room_catalog()
@@ -2559,19 +2940,35 @@ private void load_room_catalog()
 mapping(string:mixed) assign_catalog(void|int force)
 {
 	array(string) affinities = sort(indices(affinity_room_weights));
+	mapping(string:int) effective_weights = ([]);
 	int assigned;
 	array(mapping(string:mixed)) failures = ({});
-	// Largest maps first prevents one late giant directory from skewing a node.
+	{
+		object key = worker_state_lock->lock();
+		foreach(affinities,string affinity)
+			effective_weights[affinity] =
+				affinity_effective_weight_unlocked(affinity);
+		if(force)
+			foreach(affinities,string affinity)
+				catalog_rebalance_pending[affinity] = 1;
+		destruct(key);
+	}
+	// Largest effective maps first keeps real player hotspots apart.
 	sort(map(affinities,lambda(string affinity){
-		return -affinity_room_weights[affinity];
+		return -effective_weights[affinity];
 	}),affinities);
 	foreach(affinities,string affinity){
 		mapping result = assign_affinity(affinity,
-			affinity_room_weights[affinity],force);
+			effective_weights[affinity],force ? 2 : 0);
 		if((int)result["ok"])
 			assigned++;
 		else
 			failures += ({result});
+	}
+	{
+		object key = worker_state_lock->lock();
+		catalog_rebalance_pending = (<>);
+		destruct(key);
 	}
 	if(!sizeof(failures)){
 		object key = worker_state_lock->lock();
@@ -4014,10 +4411,22 @@ mapping(string:mixed) query_status()
 		node["load_score"] = worker_load_score_unlocked(node);
 		nodes += ({node});
 	}
-	foreach(sort(indices(affinity_assignments)),string affinity)
-		placements += ({copy_value(affinity_assignments[affinity])});
+	foreach(sort(indices(affinity_assignments)),string affinity){
+		mapping placement = copy_value(affinity_assignments[affinity]);
+		if(affinity_room_weights[affinity]){
+			placement["static_weight"] = affinity_room_weights[affinity];
+			placement["heat_score"] = max(0,affinity_heat_scores[affinity]);
+			placement["effective_weight"] =
+				affinity_effective_weight_unlocked(affinity);
+		}
+		placements += ({placement});
+	}
 	int generation = placement_generation;
 	int topology_worker_count = placement_topology_worker_count;
+	int heat_generation = affinity_heat_generation;
+	int heat_maps = sizeof(affinity_heat_scores);
+	int heat_observed_at = affinity_heat_last_observed_at;
+	int heat_persisted_at = affinity_heat_last_persisted_at;
 	destruct(worker_key);
 	object lease_key = player_lease_lock->lock();
 	int lease_count = sizeof(player_leases);
@@ -4037,6 +4446,10 @@ mapping(string:mixed) query_status()
 		"restore_discarded":control_restore_discarded,
 		"placement_generation":generation,"catalog_size":sizeof(affinity_room_weights),
 		"placement_topology_worker_count":topology_worker_count,
+		"affinity_heat_generation":heat_generation,
+		"affinity_heat_maps":heat_maps,
+		"affinity_heat_last_observed_at":heat_observed_at,
+		"affinity_heat_last_persisted_at":heat_persisted_at,
 		"nodes":nodes,"placements":placements,"player_leases":lease_count,
 		"handoffs":handoff_count,"envelopes":envelope_count,
 		"escrows":escrow_count,"pk_sessions":pk_count,
@@ -4056,7 +4469,9 @@ protected void create()
 	local_control_seen_at = time();
 	load_cluster_config();
 	load_room_catalog();
+	restore_affinity_heat();
 	restore_control_plane();
+	seed_affinity_heat_from_restored_leases();
 	restore_local_social_outbox();
 	restore_local_team_outbox_snapshots();
 	call_out(cleanup_expired_state,10);

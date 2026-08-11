@@ -29,7 +29,7 @@ private string overview()
 		"，单 worker 容量："+(string)config["worker_capacity"]+"\n";
 	s += "流量模式："+((string)config["traffic_mode"]=="active" ?
 		"active（仅隔离测试机）" : "shadow（不接玩家流量）")+"\n";
-	s += "分配策略：负载感知一致性哈希 + 粘性租约\n";
+	s += "分配策略：静态复杂度 + 在线热度 + 冷启动分箱 + 粘性租约\n";
 	s += "试运行安全边界：跨节点私聊、队伍同步和世界广播已通过"+
 		"5-worker 重启验收；同房间赠送/交易使用双账号事务，"+
 		"跨房间或跨 Worker 仍失败关闭，"+
@@ -38,6 +38,9 @@ private string overview()
 		"，当前节点角色："+(string)status["node_role"]+
 		"，地图目录："+(string)status["catalog_size"]+
 		"，分配代数："+(string)status["placement_generation"]+"\n";
+	s += "热度地图："+(string)status["affinity_heat_maps"]+
+		"，热度代数："+(string)status["affinity_heat_generation"]+
+		"，最近采样："+(string)status["affinity_heat_last_observed_at"]+"\n";
 	s += "人物租约："+(string)status["player_leases"]+
 		"，迁移事务："+(string)status["handoffs"]+
 		"，控制面持久化："+

@@ -6,7 +6,7 @@ protected void create(){
 	name=object_name(this_object());
 	name_cn="万象林";
 	desc="一片扭曲的密林，枝叶间洒下五彩光斑，深处隐约有妖气涌动。\n"+
-		"此处为团队硬 Boss「万象妖皇」的栖息之地，需 4 人以上队伍挑战。\n";
+		"此处为团队硬 Boss「万象妖皇」的栖息之地，最低 2 人队伍即可挑战，有效同房队员越多，队伍总经验越高。\n";
 	exits["west"]=ROOT "/gamelib/d/congxianzhen/congxianzhenguangchang";
 	add_items(({ROOT "/gamelib/clone/npc/boss/wanxiangyaohuang"}));
 }

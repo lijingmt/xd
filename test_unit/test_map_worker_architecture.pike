@@ -234,19 +234,67 @@ int main()
 		status = daemon->query_status();
 		mapping(string:int) counts = ([]);
 		mapping(string:int) weights = ([]);
+		int largest_affinity_weight;
+		int heat_shape_valid = 1;
+		string known_static_affinity = "";
 		foreach((array)status["placements"],mapping one){
 			string owner = (string)one["worker_id"];
 			if(has_value(worker_ids,owner)){
 				counts[owner]++;
 				weights[owner] += (int)one["weight"];
+				if(!intp(one["heat_score"]))
+					heat_shape_valid = 0;
+				largest_affinity_weight = max(largest_affinity_weight,
+					(int)one["weight"]);
+				if(known_static_affinity=="" && (int)one["static_weight"]>0)
+					known_static_affinity = (string)one["affinity"];
 			}
 		}
-		valid = catalog["ok"] && (int)catalog["catalog_size"]>=60;
+		valid = heat_shape_valid && catalog["ok"] &&
+			(int)catalog["catalog_size"]>=60;
 		foreach(worker_ids,string worker_id)
 			if(counts[worker_id]<1 || weights[worker_id]<1)
 				valid = 0;
 		check("约2693个房间按目录权重分布到3个worker",
 			valid,"冷启动目录未覆盖所有worker或地图目录缺失");
+		array(int) worker_weights = values(weights);
+		int lightest_worker_weight = sizeof(worker_weights) ?
+			worker_weights[0] : 0;
+		int heaviest_worker_weight = lightest_worker_weight;
+		foreach(worker_weights,int worker_weight){
+			lightest_worker_weight = min(lightest_worker_weight,worker_weight);
+			heaviest_worker_weight = max(heaviest_worker_weight,worker_weight);
+		}
+		check("冷启动按最大有效权重优先分箱且各节点差值受单图上限约束",
+			sizeof(worker_weights)==3 &&
+			heaviest_worker_weight-lightest_worker_weight<=
+				largest_affinity_weight &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"choose_catalog_worker_unlocked") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"Largest effective maps first"),
+			"热门或大型地图仍可能集中到同一worker");
+		mapping valid_heat = daemon->validate_affinity_heat_snapshot(([
+			"version":1,"generation":2,"saved_at":time(),
+			"observed_at":time(),"scores":([known_static_affinity:1200]),
+		]));
+		mapping invalid_heat = daemon->validate_affinity_heat_snapshot(([
+			"version":1,"generation":2,"saved_at":time(),
+			"observed_at":time(),"scores":(["../player/xd98secret":1200]),
+		]));
+		check("地图热度快照只保存已知地图聚合值并严格限制格式与容量",
+			known_static_affinity!="" && valid_heat["ok"] &&
+			(int)valid_heat["scores"][known_static_affinity]==1200 &&
+			!invalid_heat["ok"] &&
+			daemon->calculate_affinity_effective_weight(10,1000)==260 &&
+			daemon->calculate_affinity_effective_weight(0,-1)==1 &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_MAX_HEAT_BYTES = 1024*1024") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"backup_temp_path = path+\".bak.tmp\"") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"seed_affinity_heat_from_restored_leases"),
+			"热度文件可能泄漏角色、接受越界内容或无法安全恢复");
 
 		placement = daemon->assign_affinity(source_affinity,3,1);
 		source_worker = (string)placement["worker_id"];
@@ -859,16 +907,24 @@ int main()
 					"pike_gateway_sync_assignment(affinity,placement)"),
 			"较旧generation可能晚到worker并使正常玩家请求失败");
 
-		check("扩缩容只在拓扑数量变化时重新均衡已有地图",
+		check("拓扑或热度只允许在所有worker空仓时冷重映射目录",
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"placement_topology_worker_count") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"placement_topology_requires_rebalance") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"affinity_heat_ready") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"\"version\":3") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_workers_are_cold") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"topology rebalance requires a cold worker inventory") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"heat_rebalance = heat_ready && cold_workers") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"assign_catalog(force_rebalance)"),
-			"新增worker可能长期空闲，或协调器单独恢复时无故重映射活跃地图");
+			"新增worker可能长期空闲，或恢复过程重映射含在线角色的地图");
 
 			check("网络分区先自隔离卸载玩家且恢复前逐角色核对owner和epoch",
 			source_has("/gamelib/single/daemons/map_workerd.pike",
