@@ -20,6 +20,7 @@
 #   ./restart-docker.sh xd01 9001 8888     # 指定区号、端口、API端口
 #   ./restart-docker.sh xd02 9002 8889     # xd02 区，端口 9002，API 8889
 #   ./restart-docker.sh xd01 9001 8888 --workers 5
+#   ./restart-all-docker.sh --force-active
 #   XIAND_MAP_WORKER_DEPLOY_CONFIG=deploy/map_workers/config.json \
 #       ./restart-docker.sh xd01-02 2002 2003
 #
@@ -37,6 +38,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 CLI_WORKER_COUNT=""
+FORCE_ACTIVE=0
 POSITIONAL_ARGS=()
 while (( $# )); do
     case "$1" in
@@ -60,6 +62,18 @@ while (( $# )); do
             CLI_WORKER_COUNT="${1#--workers=}"
             shift
             ;;
+        --force-active)
+            [[ "$FORCE_ACTIVE" == "0" ]] || {
+                echo "[ERROR] --force-active 不能重复指定" >&2
+                exit 1
+            }
+            FORCE_ACTIVE=1
+            shift
+            ;;
+        --*)
+            echo "[ERROR] 未知参数：$1" >&2
+            exit 1
+            ;;
         *)
             POSITIONAL_ARGS+=("$1")
             shift
@@ -67,7 +81,7 @@ while (( $# )); do
     esac
 done
 (( ${#POSITIONAL_ARGS[@]} <= 3 )) || {
-    echo "[ERROR] 用法：$0 [GAME_AREA] [TOMCAT_PORT] [API_PORT] [--workers N]" >&2
+    echo "[ERROR] 用法：$0 [GAME_AREA] [TOMCAT_PORT] [API_PORT] [--workers N] [--force-active]" >&2
     exit 1
 }
 set -- "${POSITIONAL_ARGS[@]}"
@@ -136,6 +150,7 @@ DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 SHARED_ITEM_DIR="${XIAND_SHARED_ITEM_DIR:-/usr/local/games/allxd/item}"
 LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logical_zones}"
 SELECTED_DOCKER_IMAGE=""
+MAP_WORKER_SAFE_STOP_CONFIRMED=0
 
 # 十一职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 # 无相的 3 本隐藏书（归墟/混元/无极）在账号解锁该职业后才生效，仍走同一池子。
@@ -398,6 +413,15 @@ PY
     print_success "worker配置已持久化到宿主机：$config_file"
 }
 
+recover_historical_map_worker_fallback() {
+    local config_dir="/usr/local/games/allxd/${GAME_AREA}/data_xiand/map_workers"
+    XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED="$MAP_WORKER_SAFE_STOP_CONFIRMED" \
+    XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK="$XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK" \
+    XIAND_MAP_WORKER_FORCE_ACTIVE="$FORCE_ACTIVE" \
+        "$PROJECT_ROOT/scripts/recover_map_worker_fallback_latch.sh" \
+        "$config_dir"
+}
+
 verify_map_worker_runtime_in_container() {
     local container_name="$1"
     local deadline=$((SECONDS + 240))
@@ -427,7 +451,15 @@ verify_map_worker_runtime_in_container() {
                 if docker exec "$container_name" \
                     curl -fsS --max-time 3 http://127.0.0.1:8888/health \
                     >/dev/null 2>&1; then
-                    print_success "容器已安全运行于旧主进程模式：$runtime_mode"
+                    if [ "$runtime_mode" = "legacy-fallback" ]; then
+                        if [ "$FORCE_ACTIVE" = "1" ]; then
+                            print_error "--force-active 未能进入 active；服务已安全回退旧主进程"
+                            return 1
+                        fi
+                        print_warning "active Worker 已安全熔断，当前运行旧主进程：$runtime_mode"
+                    else
+                        print_success "容器已安全运行于旧主进程模式：$runtime_mode"
+                    fi
                     return 0
                 fi
                 ;;
@@ -448,6 +480,10 @@ check_commands() {
             exit 1
         fi
     done
+    if [ ! -x "$PROJECT_ROOT/scripts/recover_map_worker_fallback_latch.sh" ]; then
+        print_error "缺少可执行的 Worker 熔断恢复审计脚本"
+        exit 1
+    fi
 }
 
 # 准备逻辑区持久化目录。模板可以自动补齐，真实 xdNN.conf 只有在显式指定
@@ -996,8 +1032,10 @@ pull_docker_images() {
 stop_existing_container_safely() {
     local container_name="xiand-$GAME_AREA"
     local exit_code=""
+    MAP_WORKER_SAFE_STOP_CONFIRMED=0
     if ! docker ps --format '{{.Names}}' 2>/dev/null | \
        grep -Fxq "$container_name"; then
+        MAP_WORKER_SAFE_STOP_CONFIRMED=1
         return 0
     fi
 
@@ -1024,6 +1062,7 @@ stop_existing_container_safely() {
         print_error "旧容器被强制终止（exit 137），拒绝删除并停止部署"
         exit 1
     fi
+    MAP_WORKER_SAFE_STOP_CONFIRMED=1
     print_success "旧容器已完成安全停止"
 }
 
@@ -1212,6 +1251,12 @@ main() {
     # 检查必要命令
     check_commands
     preflight_map_worker_deploy_config
+    if [ "$FORCE_ACTIVE" = "1" ] && {
+       [ "$XIAND_MAP_WORKER_ENABLED" != "1" ] ||
+       [ "$XIAND_MAP_WORKER_TRAFFIC_MODE" != "active" ]; }; then
+        print_error "--force-active 需要经过校验的 enabled=1、traffic_mode=active 配置"
+        exit 1
+    fi
 
     # 获取 Docker 用户名
     if [ -z "$DOCKER_USER" ]; then
@@ -1258,6 +1303,7 @@ main() {
     prepare_game_directories "$GAME_AREA"
     prepare_data_directories
 	prepare_map_worker_runtime
+	recover_historical_map_worker_fallback
 
     # 清理已停止的相同区号容器
     if docker ps -a --filter "name=xiand-$GAME_AREA" --format "{{.Names}}" 2>/dev/null | grep -q "xiand-$GAME_AREA"; then

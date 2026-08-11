@@ -628,6 +628,39 @@ void test_worker_failure_legacy_fallback_contract()
 		test_fail("active故障可能双写、自动反复切换或未在原端口恢复旧主进程");
 }
 
+void test_historical_fallback_recovery_contract()
+{
+	test_start("历史fallback锁仅在安全停机和无在途状态后归档");
+	string restart = Stdio.read_file(ROOT+"/restart-docker.sh");
+	string recovery = Stdio.read_file(
+		ROOT+"/scripts/recover_map_worker_fallback_latch.sh");
+
+	if(restart && recovery &&
+	   search(restart,"MAP_WORKER_SAFE_STOP_CONFIRMED=0")!=-1 &&
+	   search(restart,"MAP_WORKER_SAFE_STOP_CONFIRMED=1")!=-1 &&
+	   search(restart,"recover_historical_map_worker_fallback")!=-1 &&
+	   search(restart,"--force-active")!=-1 &&
+	   search(restart,"XIAND_MAP_WORKER_FORCE_ACTIVE")!=-1 &&
+	   search(restart,"--force-active 未能进入 active")!=-1 &&
+	   search(recovery,"isolated-test-server-only")!=-1 &&
+	   search(recovery,"mandatory ownership audit remains enabled")!=-1 &&
+	   search(recovery,"schema_version")!=-1 &&
+	   search(recovery,"control.get(\"version\") != 3")!=-1 &&
+	   search(recovery,"os.path.lexists")!=-1 &&
+	   search(recovery,"player_leases")!=-1 &&
+	   search(recovery,"handoffs")!=-1 &&
+	   search(recovery,"envelopes")!=-1 &&
+	   search(recovery,"escrow_transactions")!=-1 &&
+	   search(recovery,"pk_sessions")!=-1 &&
+	   search(recovery,"social_outbox")!=-1 &&
+	   search(recovery,"fallback-history")!=-1 &&
+	   search(recovery,"fallback latch retained")!=-1 &&
+	   search(recovery,"mv -- \"$FALLBACK_LATCH\"")!=-1)
+		test_pass();
+	else
+		test_fail("重启可能无条件删锁、跳过存档审计或丢失熔断历史");
+}
+
 void test_room_catalog_deploy_contract()
 {
 	test_start("部署原子增量同步持久化房间等级目录");
@@ -673,6 +706,7 @@ int main()
 	test_legacy_jsp_worker_gateway_contract();
 	test_legacy_html_authenticated_txd_runtime();
 	test_worker_failure_legacy_fallback_contract();
+	test_historical_fallback_recovery_contract();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;

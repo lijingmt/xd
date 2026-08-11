@@ -195,6 +195,124 @@ XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
 [[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["traffic_mode"])' "$SYNC_TARGET")" == "active" ]]
 [[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["worker_count"])' "$SYNC_TARGET")" == "7" ]]
 
+# A historical active fallback latch is recovered only after a proven safe
+# stop and a clean persisted ownership inventory.  The latch remains when the
+# acknowledgement is absent or any lease/social event is still live.
+RECOVERY_ROOT="$TEST_ROOT/fallback-recovery"
+RECOVERY_DIR="$RECOVERY_ROOT/map_workers"
+RECOVERY_SCRIPT="$ROOT_DIR/scripts/recover_map_worker_fallback_latch.sh"
+mkdir -p "$RECOVERY_DIR/social_outbox"
+cp "$ROOT_DIR/deploy/map_workers/config.json" "$RECOVERY_DIR/config.json"
+printf '%s\n' 'fixture-worker-health-failure' > \
+	"$RECOVERY_DIR/fallback-latched"
+python3 - "$RECOVERY_DIR" <<'PY'
+import json
+import pathlib
+import sys
+import time
+
+root = pathlib.Path(sys.argv[1])
+now = int(time.time())
+control = {
+    "version": 3,
+    "player_leases": {
+        "fixture": {
+            "state": "active",
+            "expires_at": now - 60,
+        },
+    },
+    "handoffs": {
+        "fixture": {
+            "state": "committed",
+            "expires_at": now - 60,
+        },
+    },
+    "envelopes": {},
+    "escrow_transactions": {},
+    "pk_sessions": {},
+}
+outbox = {
+    "version": 1,
+    "events": {
+        "fixture": {
+            "kind": "team_snapshot",
+            "expires_at": now - 60,
+        },
+    },
+}
+(root / "control_plane.json").write_text(
+    json.dumps(control), encoding="utf-8")
+(root / "control_plane.json.bak").write_text(
+    json.dumps(control), encoding="utf-8")
+(root / "social_outbox" / "w01.json").write_text(
+    json.dumps(outbox), encoding="utf-8")
+(root / "social_outbox" / "w01.json.bak").write_text(
+    json.dumps(outbox), encoding="utf-8")
+PY
+XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK= \
+	"$RECOVERY_SCRIPT" "$RECOVERY_DIR" >/dev/null
+[[ -f "$RECOVERY_DIR/fallback-latched" ]]
+XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=0 \
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
+	"$RECOVERY_SCRIPT" "$RECOVERY_DIR" >/dev/null
+[[ -f "$RECOVERY_DIR/fallback-latched" ]]
+python3 - "$RECOVERY_DIR/control_plane.json" <<'PY'
+import json
+import pathlib
+import sys
+import time
+
+path = pathlib.Path(sys.argv[1])
+control = json.loads(path.read_text(encoding="utf-8"))
+control["player_leases"]["fixture"]["expires_at"] = int(time.time()) + 600
+path.write_text(json.dumps(control), encoding="utf-8")
+PY
+XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
+XIAND_MAP_WORKER_FORCE_ACTIVE=1 \
+	"$RECOVERY_SCRIPT" "$RECOVERY_DIR" >/dev/null
+[[ -f "$RECOVERY_DIR/fallback-latched" ]]
+python3 - "$RECOVERY_DIR/control_plane.json" <<'PY'
+import json
+import pathlib
+import sys
+import time
+
+path = pathlib.Path(sys.argv[1])
+control = json.loads(path.read_text(encoding="utf-8"))
+control["player_leases"]["fixture"]["expires_at"] = int(time.time()) - 60
+path.write_text(json.dumps(control), encoding="utf-8")
+PY
+XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
+XIAND_MAP_WORKER_FORCE_ACTIVE=1 \
+	"$RECOVERY_SCRIPT" "$RECOVERY_DIR" >/dev/null
+[[ ! -e "$RECOVERY_DIR/fallback-latched" ]]
+RECOVERY_ARCHIVE="$(find "$RECOVERY_DIR/fallback-history" -maxdepth 1 \
+	-type f -name 'fallback-latched.*' -print)"
+[[ -n "$RECOVERY_ARCHIVE" ]]
+[[ "$(file_mode "$RECOVERY_ARCHIVE")" == "600" ]]
+[[ "$(<"$RECOVERY_ARCHIVE")" == "fixture-worker-health-failure" ]]
+XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
+XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
+XIAND_MAP_WORKER_FORCE_ACTIVE=1 \
+	"$RECOVERY_SCRIPT" "$RECOVERY_DIR" >/dev/null
+
+RECOVERY_SYMLINK_DIR="$TEST_ROOT/fallback-recovery-symlink"
+mkdir -p "$RECOVERY_SYMLINK_DIR"
+cp "$ROOT_DIR/deploy/map_workers/config.json" \
+	"$RECOVERY_SYMLINK_DIR/config.json"
+ln -s "$RECOVERY_SYMLINK_DIR/missing-latch-target" \
+	"$RECOVERY_SYMLINK_DIR/fallback-latched"
+if XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
+   XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \
+   XIAND_MAP_WORKER_FORCE_ACTIVE=1 \
+	"$RECOVERY_SCRIPT" "$RECOVERY_SYMLINK_DIR" >/dev/null 2>&1; then
+	echo "symlinked fallback latch was accepted" >&2
+	exit 1
+fi
+
 # Invalid or symlinked Git inputs fail before replacing the last valid target.
 VALID_SYNC_CHECKSUM="$(config_checksum "$SYNC_TARGET")"
 INVALID_SYNC_SOURCE="$SYNC_ROOT/invalid.json"
@@ -235,6 +353,15 @@ RESTART_SOURCE="$(sed -n '1,420p' "$ROOT_DIR/restart-docker.sh")"
 [[ "$RESTART_SOURCE" == *"preflight_map_worker_deploy_config"* ]]
 [[ "$RESTART_SOURCE" == *"Git worker配置预检失败，旧容器保持运行"* ]]
 [[ "$RESTART_SOURCE" == *"宿主worker配置路径不安全，旧容器保持运行"* ]]
+[[ -x "$RECOVERY_SCRIPT" ]]
+grep -q '^recover_historical_map_worker_fallback()' \
+	"$ROOT_DIR/restart-docker.sh"
+grep -q '^\trecover_historical_map_worker_fallback$' \
+	"$ROOT_DIR/restart-docker.sh"
+grep -q -- '--force-active)' "$ROOT_DIR/restart-docker.sh"
+grep -q 'XIAND_MAP_WORKER_FORCE_ACTIVE' "$ROOT_DIR/restart-docker.sh"
+grep -q -- '--force-active 未能进入 active' "$ROOT_DIR/restart-docker.sh"
+grep -q 'mandatory ownership audit remains enabled' "$RECOVERY_SCRIPT"
 PREFLIGHT_CALL_LINE="$(grep -n '^    preflight_map_worker_deploy_config$' \
 	"$ROOT_DIR/restart-docker.sh" | tail -1 | cut -d: -f1)"
 STOP_CALL_LINE="$(grep -n '^    stop_existing_container_safely$' \
