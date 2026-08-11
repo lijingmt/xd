@@ -1841,15 +1841,19 @@ protected void _destruct(void|object ob)
 
 object new(string|program|function path,mixed ... args)
 {
-	if(stringp(path))
+	if(stringp(path)){
+		normalize_existing_item_source(path);
 		return ((program)path)(@args);
+	}
 	else 
 		return path(@args);
 }
 object clone(string|program|function path,mixed ... args)
 {
-	if(stringp(path))
+	if(stringp(path)){
+		normalize_existing_item_source(path);
 		return ((program)path)(@args);
+	}
 	else 
 		return path(@args);
 }

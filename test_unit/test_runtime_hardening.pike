@@ -101,6 +101,44 @@ void test_item_publish_runtime()
 	if(lazy_item)
 		destruct(lazy_item);
 	rm(lazy_path);
+
+	string clone_path=ROOT+
+		"/gamelib/clone/item/.test_runtime_clone_normalize";
+	string clone_source="void create(){\n"+
+		"\tint clone_value=23;\n}\n";
+	rm(clone_path);
+	Stdio.write_file(clone_path,clone_source);
+	object clone_object;
+	mixed clone_err=catch { clone_object=clone(clone_path); };
+	saved=Stdio.read_file(clone_path) || "";
+	check("通用clone物品入口在编译前惰性修复旧源码",
+		!clone_err && clone_object &&
+		search(saved,"protected void create(){")!=-1 &&
+		search(saved,"\nvoid create(){")==-1,
+		sprintf("clone惰性修复失败 err=%O object=%d source=%O",
+			clone_err,!!clone_object,saved));
+	if(clone_object)
+		destruct(clone_object);
+	rm(clone_path);
+
+	string new_path=ROOT+
+		"/gamelib/clone/item/.test_runtime_new_normalize";
+	string new_source="protected protected void create(){\n"+
+		"\tint new_value=29;\n}\n";
+	rm(new_path);
+	Stdio.write_file(new_path,new_source);
+	object new_object;
+	mixed new_err=catch { new_object=new(new_path); };
+	saved=Stdio.read_file(new_path) || "";
+	check("通用new物品入口在编译前惰性修复旧源码",
+		!new_err && new_object &&
+		search(saved,"protected void create(){")!=-1 &&
+		search(saved,"protected protected")==-1,
+		sprintf("new惰性修复失败 err=%O object=%d source=%O",
+			new_err,!!new_object,saved));
+	if(new_object)
+		destruct(new_object);
+	rm(new_path);
 }
 
 int main()
