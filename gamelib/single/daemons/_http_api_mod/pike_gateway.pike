@@ -238,6 +238,68 @@ private string pike_gateway_extract_command(mapping params)
 	return String.trim_all_whites((string)params["cmd"]);
 }
 
+/** Replace every client command with one non-mutating destination view. */
+private string pike_gateway_safe_view_fields(string encoded)
+{
+	array(string) fields = (encoded || "")/"&";
+	array(string) result = ({});
+	int command_seen;
+	foreach(fields,string field){
+		array(string) pair = field/"=";
+		string key = sizeof(pair) ? lower_case(url_decode(pair[0])) : "";
+		if(key=="cmd"){
+			if(!command_seen)
+				result += ({pair[0]+"=look"});
+			command_seen = 1;
+		}
+		else if(field!="")
+			result += ({field});
+	}
+	if(!command_seen)
+		result += ({"cmd=look"});
+	return result*"&";
+}
+
+/**
+ * Build a shape-compatible destination refresh without replaying the command
+ * which already completed on the source worker. Unsupported request bodies
+ * keep the original response and let the next ordinary refresh catch up.
+ */
+private mapping(string:mixed) pike_gateway_safe_view_request(string method,
+	string path,mapping headers,string body)
+{
+	int query_at = search(path || "","?");
+	string path_only = query_at==-1 ? path : path[..query_at-1];
+	string query = query_at==-1 ? "" : path[query_at+1..];
+	string safe_body = body || "";
+	string content_type = lower_case((string)(headers["content-type"] || ""));
+	if(!has_value(({"/api","/api/html","/api/json"}),path_only))
+		return ([]);
+	if(safe_body!=""){
+		if(search(content_type,"application/json")!=-1){
+			mixed decoded;
+			mixed decode_err = catch {
+				decoded = Standards.JSON.decode(safe_body);
+			};
+			if(decode_err || !mappingp(decoded))
+				return ([]);
+			mapping safe_json = copy_value((mapping)decoded);
+			safe_json["cmd"] = "look";
+			safe_body = Standards.JSON.encode(safe_json);
+		}
+		else if(search(content_type,"x-www-form-urlencoded")!=-1)
+			safe_body = pike_gateway_safe_view_fields(safe_body);
+		else
+			return ([]);
+	}
+	return ([
+		"method":method,
+		"path":path_only+"?"+pike_gateway_safe_view_fields(query),
+		"headers":headers,
+		"body":safe_body,
+	]);
+}
+
 private string pike_gateway_command_verb(string command)
 {
 	string normalized = String.trim_all_whites(command || "");
@@ -491,6 +553,12 @@ mapping test_pike_gateway_migration_plan(string source_worker,
 	mapping migration,int before_command)
 {
 	return pike_gateway_migration_plan(source_worker,migration,before_command);
+}
+
+mapping test_pike_gateway_safe_view_request(string method,string path,
+	mapping headers,string body)
+{
+	return pike_gateway_safe_view_request(method,path,headers,body);
 }
 
 int test_pike_gateway_arrival_proof(mapping proof,string userid,int epoch,
@@ -2055,13 +2123,8 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 							"worker_id":worker_id,"epoch":epoch,
 							"room_path":arrival_room,"account_id":account_id,
 						]));
-						mapping arrival_response = pike_gateway_proxy(
-							worker_id,method,path,headers,body,userid,epoch,
-							arrival_room,account_id,command_kind,admin_target);
-						if((int)arrival_response["status"]>=500)
-							error("pre-command arrival delivery failed\n");
-						pike_gateway_acknowledge_arrival(userid,worker_id,
-							epoch,leased_affinity,arrival_room);
+						pike_gateway_deliver_background_arrival(userid,
+							worker_id,epoch,arrival_room,account_id);
 						pike_gateway_delete_background_arrival(userid);
 						confirmed = pike_gateway_confirmed_route(userid,
 							worker_id,epoch);
@@ -2093,28 +2156,32 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 						   (arrival_room=="" ||
 						   (string)confirmed["arrival_room"]!=arrival_room))
 							error("post-command arrival capability mismatch\n");
-						if(worker_id!=source_worker)
+						if(worker_id!=source_worker){
 							pike_gateway_set_background_arrival(userid,([
 								"worker_id":worker_id,"epoch":epoch,
 								"room_path":arrival_room,
 								"account_id":account_id,
 							]));
-						mapping arrival_response = pike_gateway_proxy(
-							worker_id,method,path,headers,body,userid,epoch,
-							arrival_room,account_id,command_kind,admin_target);
-						if((int)arrival_response["status"]>=500)
-							error("post-command arrival delivery failed\n");
-						if(worker_id!=source_worker){
-							pike_gateway_acknowledge_arrival(userid,
-								worker_id,epoch,leased_affinity,arrival_room);
+							pike_gateway_deliver_background_arrival(userid,
+								worker_id,epoch,arrival_room,account_id);
 							pike_gateway_delete_background_arrival(userid);
 							confirmed = pike_gateway_confirmed_route(userid,
 								worker_id,epoch);
 							if((string)confirmed["arrival_room"]!="")
 								error("post-command arrival remains pending\n");
 						}
-						if((int)plan["replace"])
-							proxied = arrival_response;
+						if((int)plan["replace"]){
+							mapping view_request =
+								pike_gateway_safe_view_request(method,path,
+									headers,body);
+							if(sizeof(view_request))
+								proxied = pike_gateway_proxy(worker_id,
+									(string)view_request["method"],
+									(string)view_request["path"],
+									(mapping)view_request["headers"],
+									(string)view_request["body"],userid,epoch,
+									"",account_id,"view");
+						}
 					}
 				}
 				pike_gateway_clear_reconciliation_pending(userid);

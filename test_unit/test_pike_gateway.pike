@@ -173,6 +173,36 @@ int main()
 			same_after["deliver"] && same_after["replace"],
 			"跨worker移动可能漏到达、双执行或返回旧画面");
 
+		mapping safe_get = httpd->test_pike_gateway_safe_view_request(
+			"GET","/api/html?txd=token&cmd=north&cmd=south",
+			(["content-type":""]),"");
+		mapping safe_json = httpd->test_pike_gateway_safe_view_request(
+			"POST","/api/json?userid=xd01hero&cmd=sendother",
+			(["content-type":"application/json"]),
+			"{\"userid\":\"xd01hero\",\"cmd\":\"trade target\"}");
+		mapping safe_form = httpd->test_pike_gateway_safe_view_request(
+			"POST","/api?txd=token",
+			(["content-type":"application/x-www-form-urlencoded"]),
+			"userid=xd01hero&cmd=east&cmd=west");
+		mapping safe_json_body = Standards.JSON.decode(
+			(string)safe_json["body"]);
+		mapping unsupported_view =
+			httpd->test_pike_gateway_safe_view_request("GET",
+				"/api/autofight_view?txd=token",([]),"");
+		check("交接后只用look刷新目标页且不重放原移动交易命令",
+			safe_get["path"]=="/api/html?txd=token&cmd=look" &&
+			safe_json["path"]==
+				"/api/json?userid=xd01hero&cmd=look" &&
+			safe_json_body["userid"]=="xd01hero" &&
+			safe_json_body["cmd"]=="look" &&
+			safe_form["body"]=="userid=xd01hero&cmd=look" &&
+			!sizeof(unsupported_view) &&
+			source_has(gateway,
+				"pike_gateway_deliver_background_arrival(userid,") &&
+			source_has(gateway,"\"\",account_id,\"view\"") &&
+			!source_has((string)safe_json["body"],"trade target"),
+			"目标页可能重复执行方向、交易或其他已经完成的命令");
+
 		mapping arrival_proof = (["ok":1,"userid":"xd01hero",
 			"epoch":7,"affinity":"wugongdong",
 			"room_path":"/gamelib/d/wugongdong/wugongchao"]);

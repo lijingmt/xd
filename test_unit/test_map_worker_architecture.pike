@@ -1100,6 +1100,12 @@ int main()
 				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 					"pre-command arrival remains pending") &&
 				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+					"pike_gateway_deliver_background_arrival(userid,") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+					"pike_gateway_safe_view_request(method,path") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+					"\"\",account_id,\"view\"") &&
+				source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 					"coordinator arrival acknowledgement failed") &&
 				source_has("/test_unit/test_pike_gateway.pike",
 					"test_dynamic_clone_room_move_fails_closed_without_arrival_path") &&
