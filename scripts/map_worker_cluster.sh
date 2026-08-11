@@ -789,8 +789,10 @@ action = "gateway_failover_quiesce" if failed_workers else "gateway_quiesce"
 payload = {"action": action}
 if failed_workers:
     payload["failed_workers"] = failed_workers
-deadline = time.monotonic() + (30 if failed_workers else 1)
+deadline = time.monotonic() + (30 if failed_workers else 120)
+attempt = 0
 while True:
+    attempt += 1
     request = urllib.request.Request(
         sys.argv[1] + "/internal/map-worker",
         data=json.dumps(payload).encode("utf-8"),
@@ -802,22 +804,49 @@ while True:
     )
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
-            result = json.loads(response.read().decode("utf-8"))
+            response_body = response.read().decode("utf-8", errors="replace")
+        try:
+            result = json.loads(response_body)
+        except json.JSONDecodeError:
+            raise SystemExit("coordinator returned an invalid shutdown response")
         break
     except urllib.error.HTTPError as error:
         response_body = error.read().decode("utf-8", errors="replace")
         try:
             result = json.loads(response_body)
         except json.JSONDecodeError:
-            print(response_body, file=sys.stderr)
-            raise
-        if (failed_workers
-                and result.get("code") == "failed_worker_still_reachable"
+            raise SystemExit("coordinator returned an invalid shutdown error")
+        retry_failed_worker = (failed_workers
+            and result.get("code") == "failed_worker_still_reachable")
+        retry_normal_drain = (not failed_workers
+            and result.get("code") in (
+                "gateway_not_quiescent", "gateway_recovery_busy")
+            and result.get("uncertain_requests", 0) == 0
+            and result.get("pending_reconcile_users", 0) == 0
+            and result.get("background_arrivals", 0) == 0
+            and result.get("maintenance_operations", 0) == 0
+            # The immediately previous coordinator release omitted this key
+            # after safely resuming routing, so absence remains retry-safe.
+            and result.get("routing_resumed", 1) != 0)
+        if ((retry_failed_worker or (retry_normal_drain and attempt < 4))
                 and time.monotonic() < deadline):
-            time.sleep(2)
+            print("[map-workers] shutdown drain is still settling; "
+                  "retry=%d active=%s pending=%s uncertain=%s" % (
+                      attempt,
+                      result.get("active_requests", 0),
+                      result.get("pending_requests", 0),
+                      result.get("uncertain_requests", 0)),
+                  file=sys.stderr)
+            time.sleep(0.2 if retry_normal_drain else 2)
             continue
         print(json.dumps(result, ensure_ascii=False), file=sys.stderr)
-        raise
+        raise SystemExit("coordinator refused the safe shutdown barrier")
+    except urllib.error.URLError as error:
+        raise SystemExit("coordinator shutdown request failed: %s" %
+                         getattr(error, "reason", "connection error"))
+    except Exception as error:
+        raise SystemExit("coordinator shutdown request failed: %s" %
+                         type(error).__name__)
 shutdown_state = result.get("shutdown_state")
 if (not result.get("ok") or result.get("routing_ready") != 0
         # A coordinator from the immediately previous release has no explicit
@@ -1002,4 +1031,6 @@ main()
 	esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+	main "$@"
+fi

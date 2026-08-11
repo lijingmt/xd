@@ -762,6 +762,25 @@ int main()
 			source_has("/scripts/map_worker_cluster.sh",
 				"$run_dir/$worker_id.pid"),
 			"半启动节点可能残留、缩容后旧worker可能未保存就被遗忘");
+		check("正常停机对瞬时pending请求有界重试且不放过不确定执行",
+			source_has("/scripts/map_worker_cluster.sh",
+				"deadline = time.monotonic() + (30 if failed_workers else 120)") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"gateway_not_quiescent\", \"gateway_recovery_busy") &&
+			source_has("/scripts/map_worker_cluster.sh","attempt < 4") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"result.get(\"routing_resumed\", 1) != 0") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"coordinator refused the safe shutdown barrier") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"${BASH_SOURCE[0]}\" == \"$0") &&
+			source_has("/tools/map_workers/test_quiesce_retry.sh",
+				"\"pending_requests\": 3") &&
+			source_has("/tools/map_workers/test_quiesce_retry.sh",
+				"\"uncertain_requests\": 1") &&
+			source_has("/tools/map_workers/test_quiesce_retry.sh",
+				"expected HTTP conflict leaked a Python traceback"),
+			"第一次409仍会中断部署、无限重试或绕过不确定请求栅栏");
 		check("本地与Docker重启可显式选择1到16个worker且默认仍为3",
 			source_has("/scripts/map_worker_cluster.sh","restart|recover-gateway") &&
 			source_has("/scripts/map_worker_cluster.sh","--workers N") &&
