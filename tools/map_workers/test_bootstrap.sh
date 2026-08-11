@@ -205,6 +205,10 @@ mkdir -p "$RECOVERY_DIR/social_outbox"
 cp "$ROOT_DIR/deploy/map_workers/config.json" "$RECOVERY_DIR/config.json"
 printf '%s\n' 'fixture-worker-health-failure' > \
 	"$RECOVERY_DIR/fallback-latched"
+# Container root creates the production latch as root:root 0600.  A host
+# deployment account can rename that directory entry but cannot read it.  A
+# write-only owner fixture exercises the same metadata-only recovery path.
+chmod 200 "$RECOVERY_DIR/fallback-latched"
 python3 - "$RECOVERY_DIR" <<'PY'
 import json
 import pathlib
@@ -292,7 +296,8 @@ XIAND_MAP_WORKER_FORCE_ACTIVE=1 \
 RECOVERY_ARCHIVE="$(find "$RECOVERY_DIR/fallback-history" -maxdepth 1 \
 	-type f -name 'fallback-latched.*' -print)"
 [[ -n "$RECOVERY_ARCHIVE" ]]
-[[ "$(file_mode "$RECOVERY_ARCHIVE")" == "600" ]]
+[[ "$(file_mode "$RECOVERY_ARCHIVE")" == "200" ]]
+chmod 600 "$RECOVERY_ARCHIVE"
 [[ "$(<"$RECOVERY_ARCHIVE")" == "fixture-worker-health-failure" ]]
 XIAND_MAP_WORKER_SAFE_STOP_CONFIRMED=1 \
 XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only \

@@ -22,6 +22,24 @@ fail()
 	exit 1
 }
 
+file_size()
+{
+	if stat -f '%z' "$1" >/dev/null 2>&1; then
+		stat -f '%z' "$1"
+	else
+		stat -c '%s' "$1"
+	fi
+}
+
+file_mode()
+{
+	if stat -f '%Lp' "$1" >/dev/null 2>&1; then
+		stat -f '%Lp' "$1"
+	else
+		stat -c '%a' "$1"
+	fi
+}
+
 [[ -n "$RUNTIME_DIR" && "$RUNTIME_DIR" == /* ]] ||
 	fail "runtime directory must be an absolute path"
 [[ "$FORCE_ACTIVE" == "0" || "$FORCE_ACTIVE" == "1" ]] ||
@@ -43,8 +61,20 @@ SOCIAL_OUTBOX="$RUNTIME_DIR/social_outbox"
 }
 [[ -f "$FALLBACK_LATCH" && ! -L "$FALLBACK_LATCH" ]] ||
 	fail "fallback latch is not a regular file"
-(( $(wc -c < "$FALLBACK_LATCH") <= 4096 )) ||
+LATCH_SIZE="$(file_size "$FALLBACK_LATCH")" ||
+	fail "fallback latch metadata cannot be read"
+[[ "$LATCH_SIZE" =~ ^[0-9]+$ ]] ||
+	fail "fallback latch size is invalid"
+(( LATCH_SIZE <= 4096 )) ||
 	fail "fallback latch is unexpectedly large"
+LATCH_MODE="$(file_mode "$FALLBACK_LATCH")" ||
+	fail "fallback latch mode cannot be read"
+[[ "$LATCH_MODE" =~ ^[0-7]{3,4}$ ]] ||
+	fail "fallback latch mode is invalid"
+LATCH_MODE_VALUE=$((8#$LATCH_MODE))
+(( (LATCH_MODE_VALUE & 0077) == 0 &&
+   (LATCH_MODE_VALUE & 0111) == 0 )) ||
+	fail "fallback latch permissions are unsafe"
 
 read -r ENABLED TRAFFIC_MODE < <(
 	python3 - "$CONFIG_FILE" <<'PY'
@@ -173,5 +203,4 @@ chmod 700 "$ARCHIVE_DIR"
 ARCHIVE_FILE="$ARCHIVE_DIR/fallback-latched.$(date -u +%Y%m%dT%H%M%SZ).$$"
 [[ ! -e "$ARCHIVE_FILE" ]] || fail "fallback archive collision"
 mv -- "$FALLBACK_LATCH" "$ARCHIVE_FILE"
-chmod 600 "$ARCHIVE_FILE"
 log "historical fallback latch archived after safe state audit; active cold start is permitted"
