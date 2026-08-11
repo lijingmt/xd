@@ -634,7 +634,7 @@ array(string) query_command_prefix(){
 	return ({ROOT+"/gamelib/cmds/",})+::query_command_prefix();
 }
 /////////////////////////////////////////////////////
-protected protected protected protected protected void create(){
+protected void create(){
 	::create();
 	//term = "noterm";
 	picture = "nosex";	

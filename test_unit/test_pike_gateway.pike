@@ -119,6 +119,25 @@ int main()
 			httpd->test_pike_gateway_userid("xd01LSQ2026"),
 			"客户端可能伪造第二身份绕过账号锁");
 
+		string unsafe_log = httpd->test_pike_gateway_log_field(
+			"/api\0\r\n\t forged",64);
+		string user_ref = httpd->test_pike_gateway_user_ref("xd01hero");
+		check("Gateway日志字段转义控制字符且人物仅记录不可逆短摘要",
+			search(unsafe_log,"\0")==-1 && search(unsafe_log,"\r")==-1 &&
+			search(unsafe_log,"\n")==-1 && search(unsafe_log,"\t")==-1 &&
+			search(unsafe_log,"\\0")!=-1 && search(unsafe_log,"\\n")!=-1 &&
+			sizeof(user_ref)==12 && user_ref!="xd01hero",
+			"畸形路径仍可伪造日志行，或运行日志暴露人物ID");
+
+		check("畸形HTTP目标在占用请求槽和转发Worker之前失败关闭",
+			httpd->test_pike_gateway_request_target("/api","a=1") &&
+			!httpd->test_pike_gateway_request_target("api","a=1") &&
+			!httpd->test_pike_gateway_request_target("/api\0x","a=1") &&
+			!httpd->test_pike_gateway_request_target("/api","a=1\r\nX:y") &&
+			source_has(gateway,"invalid request target") &&
+			source_has(gateway,"pike_gateway_valid_request_target(path_only,query)"),
+			"本地协议栈拒绝的请求仍可能被误记为Worker不确定执行");
+
 		check("Vue和旧JSP注册在建档前解析为同一人物串行锁",
 			httpd->test_pike_gateway_registration(
 				"login_regnew gamelib xd01newhero pass88 sid challenge")==

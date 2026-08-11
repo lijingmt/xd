@@ -16,7 +16,7 @@ program connect()
 	return login_ob;
 }
 array hosts_list;
-protected protected void create(){
+protected void create(){
 	// Load hosts list
 	hosts_list=filter(Stdio.read_file(SROOT+"/etc/hosts_list")/"\n",`!=,"");
 

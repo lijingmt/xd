@@ -35,7 +35,7 @@ string view_exits(){
 	return "";
 }
 
-protected protected void create(){
+protected void create(){
 	name="UNKNOWN";
 	name_cn="未知";
 	desc="这是一个神秘的地方。";

@@ -2,7 +2,7 @@
 inherit LOW_F_ACCESS;
 string url;
 string title;
-protected protected void create(){
+protected void create(){
 	url=0;
 }
 string setup(string _url){

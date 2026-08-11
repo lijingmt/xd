@@ -1,7 +1,7 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit WAP_DANYAO;
-protected protected protected void create(){
+protected void create(){
 	name=object_name(this_object());
 	name_cn="洋槐蜜";
 	desc="增加打怪获得的经验20%，持续30分钟\n";

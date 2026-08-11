@@ -1,7 +1,7 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit WAP_DANYAO;
-protected protected protected void create(){
+protected void create(){
 	name=object_name(this_object());
 	name_cn="凝力丸";
 	desc="增加物理伤害50点，持续1小时,\n下线后效果不消失,\n";

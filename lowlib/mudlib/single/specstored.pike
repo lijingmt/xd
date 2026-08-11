@@ -186,6 +186,44 @@ protected void create()
 		exit(1);
 	}
 }
+
+/* A shelf slot needs one candidate, not every base item at that level.  The
+ * old path generated and retained all candidates before randomly selecting
+ * one link, multiplying disk writes and compiled objects under load. */
+private string query_random_goods_normal(int store_level,object me)
+{
+	string result="";
+	object|zero obt;
+	mapping(string:object) level_goods;
+	array(string) item_names;
+	if(store_level<=0 || !me || !goods_list_normal[store_level])
+		return result;
+	level_goods=goods_list_normal[store_level];
+	item_names=indices(level_goods);
+	if(!sizeof(item_names))
+		return result;
+	string item_name=item_names[random(sizeof(item_names))];
+	int pro_add=random(3000);
+	mixed err=catch {
+		obt=ITEMSD->get_item_from_rawname(me->query_level(),
+			me->query_level(),me->query_lunck()+pro_add,item_name);
+		if(obt){
+			string generated_name=file_name(obt);
+			string real_name=generated_name-(ROOT+"/gamelib/clone/item/");
+			real_name=(real_name/"#")[0];
+			int fee=random(1000000);
+			result="["+(string)obt->query_name_cn()+"("+
+				MUD_MONEYD->query_store_money_cn(fee)+
+				"):buy_detail_spec "+real_name+" "+fee+"]";
+		}
+	};
+	if(obt)
+		destruct(obt);
+	if(err)
+		werror("[SPECSTORED] candidate generation failed\n");
+	return result;
+}
+
 string random_list(int|void type){
 	string ret = "";
 	object player=this_player();
@@ -203,17 +241,16 @@ string random_list(int|void type){
 	if(type == 1){
 		ret+="\n----------\n";
 		for(int i = 0; i< 10; i++){
-			string t = query_goods_list_normal(random(71)+1);
+			string t = query_random_goods_normal(random(71)+1,player);
 			int max_count = 0;
 			while(t==""){
-				t = query_goods_list_normal(random(71)+1);
+				t = query_random_goods_normal(random(71)+1,player);
 				max_count++;
 				if(max_count >10) break;
 			}
 			if(t !=""){
-				array(string) arr = t/"\n";
 				string selected=register_selected_offer_link(player,
-					arr[random(sizeof(arr))]);
+					t);
 				if(selected!="")
 					ret += selected+"\n";
 			}		
@@ -322,7 +359,7 @@ string query_goods_list_normal(int store_level)//根据商店等级不同，返�
 										tmp += "["+(string)obt->query_name_cn()+"("+MUD_MONEYD->query_store_money_cn(fee)+"):buy_detail_spec "+real_name+" "+fee+"]\n";
 									};
 									if(err) werror("======generate items error\n");
-									
+									destruct(obt);
 								}
 							}
 						}

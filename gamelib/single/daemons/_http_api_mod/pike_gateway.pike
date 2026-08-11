@@ -126,6 +126,67 @@ private string pike_gateway_digest(string source)
 	return lower_case(String.string2hex(hash->digest()));
 }
 
+/** Keep every runtime diagnostic on one bounded physical log line. */
+private string pike_gateway_log_field(string value,int limit)
+{
+	string source = value || "";
+	string result = "";
+	int consumed;
+	if(limit<16)
+		limit = 16;
+	if(limit>512)
+		limit = 512;
+	for(int index=0;index<sizeof(source) && sizeof(result)<limit;index++){
+		int code = source[index];
+		consumed = index+1;
+		switch(code){
+		case '\0':
+			result += "\\0";
+			break;
+		case '\r':
+			result += "\\r";
+			break;
+		case '\n':
+			result += "\\n";
+			break;
+		case '\t':
+			result += "\\t";
+			break;
+		default:
+			if(code<32 || code==127)
+				result += "\\x"+sprintf("%02x",code);
+			else
+				result += sprintf("%c",code);
+			break;
+		}
+	}
+	int truncated = consumed<sizeof(source) || sizeof(result)>limit;
+	if(sizeof(result)>limit)
+		result = result[..limit-1];
+	if(truncated && sizeof(result)>=3)
+		result = result[..limit-4]+"...";
+	return result;
+}
+
+private string pike_gateway_user_log_ref(string userid)
+{
+	if(!pike_gateway_valid_userid(userid))
+		return "-";
+	return pike_gateway_digest(userid)[..11];
+}
+
+/** Reject targets that the local HTTP client cannot forward byte-for-byte. */
+private int pike_gateway_valid_request_target(string path,string query)
+{
+	if(path=="" || path[0]!='/')
+		return 0;
+	foreach(({path,query || ""}),string value)
+		for(int index=0;index<sizeof(value);index++)
+			if(value[index]<=32 || value[index]==127)
+				return 0;
+	return 1;
+}
+
 private string pike_gateway_random_hex(int bytes)
 {
 	return lower_case(String.string2hex(Crypto.Random.random_string(bytes)));
@@ -617,6 +678,21 @@ string test_pike_gateway_registration(string command)
 {
 	return pike_gateway_registration_target(
 		String.trim_all_whites(command || ""));
+}
+
+string test_pike_gateway_log_field(string value,int limit)
+{
+	return pike_gateway_log_field(value,limit);
+}
+
+string test_pike_gateway_user_ref(string userid)
+{
+	return pike_gateway_user_log_ref(userid);
+}
+
+int test_pike_gateway_request_target(string path,string query)
+{
+	return pike_gateway_valid_request_target(path,query);
 }
 
 private object pike_gateway_user_mutex(string userid,string account_hint)
@@ -1667,8 +1743,8 @@ private void pike_gateway_recover_local_players()
 			if(!(int)aborted["ok"])
 				error("cannot thaw duplicate player lease\n");
 		}
-		werror("[PIKE_GATEWAY][STALE_DISCARD] userid=%s copies=%d\n",
-			userid,sizeof(copies));
+		werror("[PIKE_GATEWAY][STALE_DISCARD] user_ref=%s copies=%d\n",
+			pike_gateway_user_log_ref(userid),sizeof(copies));
 	}
 	// Resolve committed arrivals only after every worker has proven its full
 	// inventory. An exact target copy is acknowledged; otherwise the canonical
@@ -2551,10 +2627,13 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			pike_gateway_mark_reconciliation_pending(userid);
 		object key = pike_gateway_state_lock->lock();
 		pike_gateway_failed_requests++;
-		pike_gateway_last_error = describe_error(request_err);
+		pike_gateway_last_error = pike_gateway_log_field(
+			describe_error(request_err),256);
 		destruct(key);
-		werror("[PIKE_GATEWAY][REQUEST_FAILED] path=%s userid=%s error=%s\n",
-			(string)snapshot["path_only"],userid,describe_error(request_err));
+		werror("[PIKE_GATEWAY][REQUEST_FAILED] path=%s user_ref=%s error=%s\n",
+			pike_gateway_log_field((string)snapshot["path_only"],160),
+			pike_gateway_user_log_ref(userid),
+			pike_gateway_log_field(describe_error(request_err),256));
 		return pike_gateway_busy_response("地图服务暂时繁忙，请稍后重试");
 	}
 	object key = pike_gateway_state_lock->lock();
@@ -2617,7 +2696,8 @@ private void pike_gateway_deliver_response(mapping proxied,
 private void pike_gateway_deliver_failure(mixed err,
 	Protocols.HTTP.Server.Request req,string method)
 {
-	werror("[PIKE_GATEWAY][FUTURE_FAILED] %s\n",describe_error(err));
+	werror("[PIKE_GATEWAY][FUTURE_FAILED] %s\n",
+		pike_gateway_log_field(describe_error(err),256));
 	mapping proxied = pike_gateway_busy_response(
 		"地图服务暂时繁忙，请稍后重试");
 	pike_gateway_deliver_response(proxied,req,method);
@@ -2640,6 +2720,10 @@ void handle_pike_gateway_request(Protocols.HTTP.Server.Request req)
 	}
 	if(!has_value(({"GET","HEAD","POST","OPTIONS"}),method)){
 		send_json(req,(["error":"method not allowed"]),405);
+		return;
+	}
+	if(!pike_gateway_valid_request_target(path_only,query)){
+		send_json(req,(["error":"invalid request target"]),400);
 		return;
 	}
 	if(sizeof(path_only)>MAX_HTTP_QUERY_SIZE ||
@@ -2763,7 +2847,8 @@ private void pike_gateway_publish_online_snapshot()
 		};
 		if(publish_err)
 			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] worker=%s error=%s\n",
-				worker_id,describe_error(publish_err));
+				worker_id,pike_gateway_log_field(
+					describe_error(publish_err),256));
 	}
 }
 
@@ -2933,7 +3018,7 @@ private void pike_gateway_monitor_worker(string worker_id)
 		pike_gateway_set_worker_reachable(worker_id,0);
 		object key = pike_gateway_state_lock->lock();
 		pike_gateway_last_error = "monitor "+worker_id+": "+
-			describe_error(monitor_err);
+			pike_gateway_log_field(describe_error(monitor_err),256);
 		m_delete(pike_gateway_online_rows_by_worker,worker_id);
 		m_delete(pike_gateway_online_rows_at,worker_id);
 		destruct(key);
@@ -2964,7 +3049,7 @@ private void pike_gateway_monitor_all_workers()
 			pike_gateway_set_worker_reachable(worker_id,0);
 			object key = pike_gateway_state_lock->lock();
 			pike_gateway_last_error = "monitor schedule "+worker_id+": "+
-				describe_error(schedule_err);
+				pike_gateway_log_field(describe_error(schedule_err),256);
 			destruct(key);
 		}
 	}
@@ -2973,7 +3058,7 @@ private void pike_gateway_monitor_all_workers()
 		if(monitor_err){
 			object key = pike_gateway_state_lock->lock();
 			pike_gateway_last_error = "monitor farm: "+
-				describe_error(monitor_err);
+				pike_gateway_log_field(describe_error(monitor_err),256);
 			destruct(key);
 		}
 	}
@@ -3056,7 +3141,7 @@ private void pike_gateway_resolve_uncertain_requests()
 	if(recovery_err){
 		key = pike_gateway_state_lock->lock();
 		pike_gateway_last_error = "uncertain recovery: "+
-			describe_error(recovery_err);
+			pike_gateway_log_field(describe_error(recovery_err),256);
 		destruct(key);
 	}
 }
@@ -3184,8 +3269,9 @@ private void pike_gateway_run_background_handoffs()
 			pike_gateway_retry_background_arrival(userid,pending);
 		};
 		if(retry_err)
-			werror("[PIKE_GATEWAY][ARRIVAL_RETRY] userid=%s error=%s\n",
-				userid,describe_error(retry_err));
+			werror("[PIKE_GATEWAY][ARRIVAL_RETRY] user_ref=%s error=%s\n",
+				pike_gateway_user_log_ref(userid),
+				pike_gateway_log_field(describe_error(retry_err),256));
 	}
 	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 		if(!pike_gateway_worker_is_reachable(worker_id))
@@ -3206,7 +3292,8 @@ private void pike_gateway_run_background_handoffs()
 			};
 			if(settle_err)
 				werror("[PIKE_GATEWAY][BACKGROUND_HANDOFF] worker=%s error=%s\n",
-					worker_id,describe_error(settle_err));
+					worker_id,pike_gateway_log_field(
+						describe_error(settle_err),256));
 		}
 	}
 }
@@ -3376,7 +3463,8 @@ private void pike_gateway_run_social_events(void|int wait_for_lock)
 						source_worker,(string)((mapping)raw)["event_id"],
 						mappingp(deferred) ?
 							(int)deferred["retry_count"] : 0,
-						describe_error(delivery_err));
+						pike_gateway_log_field(
+							describe_error(delivery_err),256));
 			}
 		}
 	}
@@ -3396,7 +3484,8 @@ private void pike_gateway_run_auction_tick()
 	};
 	destruct(auction_key);
 	if(tick_err)
-		werror("[PIKE_GATEWAY][AUCTION_TICK] %s\n",describe_error(tick_err));
+		werror("[PIKE_GATEWAY][AUCTION_TICK] %s\n",
+			pike_gateway_log_field(describe_error(tick_err),256));
 }
 
 private void pike_gateway_start_public_listener()
@@ -3420,11 +3509,11 @@ private void pike_gateway_start_public_listener()
 	if(listener_err){
 		object key = pike_gateway_state_lock->lock();
 		pike_gateway_last_error = "public listener: "+
-			describe_error(listener_err);
+			pike_gateway_log_field(describe_error(listener_err),256);
 		pike_gateway_routing_ready = 0;
 		destruct(key);
 		werror("[PIKE_GATEWAY] public listener failed: %s\n",
-			describe_error(listener_err));
+			pike_gateway_log_field(describe_error(listener_err),256));
 	}
 	else
 		werror("[PIKE_GATEWAY] public listener ready on 0.0.0.0:%d\n",
@@ -3444,7 +3533,7 @@ private void pike_gateway_controller_loop()
 			if(startup_err){
 				object key = pike_gateway_state_lock->lock();
 				pike_gateway_last_error = "startup: "+
-					describe_error(startup_err);
+					pike_gateway_log_field(describe_error(startup_err),256);
 				destruct(key);
 				sleep(2);
 				continue;
@@ -3493,7 +3582,8 @@ private void pike_gateway_recovery_loop()
 			mixed gc_err = catch { pike_gateway_run_lease_gc(); };
 			if(gc_err){
 				object key = pike_gateway_state_lock->lock();
-				pike_gateway_last_error = "lease GC: "+describe_error(gc_err);
+				pike_gateway_last_error = "lease GC: "+
+					pike_gateway_log_field(describe_error(gc_err),256);
 				destruct(key);
 			}
 		}
@@ -3514,7 +3604,7 @@ private void pike_gateway_handoff_loop()
 			pike_gateway_end_maintenance_operation();
 			if(handoff_err)
 				werror("[PIKE_GATEWAY][HANDOFF_LANE] %s\n",
-					describe_error(handoff_err));
+					pike_gateway_log_field(describe_error(handoff_err),256));
 		}
 		sleep(0.25);
 	}
@@ -3531,7 +3621,7 @@ private void pike_gateway_social_loop()
 			pike_gateway_end_maintenance_operation();
 			if(social_err)
 				werror("[PIKE_GATEWAY][SOCIAL_LANE] %s\n",
-					describe_error(social_err));
+					pike_gateway_log_field(describe_error(social_err),256));
 		}
 		sleep(0.25);
 	}
@@ -3562,7 +3652,7 @@ private void pike_gateway_housekeeping_loop()
 			pike_gateway_end_maintenance_operation();
 			if(publish_err)
 				werror("[PIKE_GATEWAY][SNAPSHOT_LANE] %s\n",
-					describe_error(publish_err));
+					pike_gateway_log_field(describe_error(publish_err),256));
 		}
 		if(!pike_gateway_shadow && now-pike_gateway_last_auction_at>=1200 &&
 		   pike_gateway_begin_maintenance_operation()){
