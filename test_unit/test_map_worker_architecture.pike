@@ -144,6 +144,24 @@ int main()
 			source_has("/gamelib/single/daemons/http_api_daemon.pike",
 				"is_fb_worker_ingress"),
 			"跨worker幻境可能拒绝进入、拆散队伍或复制副本奖励");
+		check("跨Worker到达不重复执行真实登录迁移且仅携带状态药快照",
+			source_has("/gamelib/clone/user.pike",
+				"int pending_worker_arrival = query_pending_worker_arrival()") &&
+			source_has("/gamelib/clone/user.pike",
+				"!pending_worker_arrival") &&
+			source_has("/gamelib/clone/user.pike",
+				"snapshot_worker_status_effects") &&
+			source_has("/gamelib/clone/user.pike",
+				"restore_worker_status_effects") &&
+			source_has("/gamelib/clone/user.pike",
+				"if(!worker_fenced_save)") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"finalize_worker_status_effect_handoff") &&
+			!source_has("/gamelib/clone/user.pike",
+				"snapshot[\"buff\"]") &&
+			!source_has("/gamelib/clone/user.pike",
+				"snapshot[\"team_guard\"]"),
+			"地图切换会再次执行回收迁移、清掉装备，或复制战斗态Buff");
 
 		mapping restored_validation = daemon->validate_control_plane_snapshot(([
 			"version":1,
@@ -183,6 +201,34 @@ int main()
 			sizeof((mapping)restored_snapshot["handoffs"])==0 &&
 			sizeof((mapping)restored_snapshot["escrow_transactions"])==1,
 			"损坏快照可能恢复伪造地图归属或永久冻结人物");
+		mapping fb_restored_validation =
+			daemon->validate_control_plane_snapshot(([
+			"version":1,"affinity_assignments":([]),
+			"player_leases":(["xd98fbrestore":([
+				"worker_id":"w02",
+				"affinity":"fb_runtime:team_a/lingranzhiyan_h",
+				"epoch":2,"state":"active","expires_at":time()+60,
+				"updated_at":time(),
+				"arrival_room_path":"/gamelib/d/fb_runtime/ingress.pike",
+				"arrival_epoch":2,
+			])]),
+			"handoffs":(["restore-fb-instance":([
+				"userid":"xd98fbrestore","source_worker":"w01",
+				"target_worker":"w02","source_epoch":1,"target_epoch":2,
+				"target_affinity":"fb_runtime:team_a/lingranzhiyan_h",
+				"target_room_path":"/gamelib/d/fb_runtime/ingress.pike",
+				"state":"committed","created_at":time(),
+				"expires_at":time()+60,"committed_at":time(),
+			])]),"envelopes":([]),"escrow_transactions":([]),
+			"pk_sessions":([]),
+		]));
+		mapping fb_restored_snapshot = fb_restored_validation["snapshot"];
+		check("队伍副本实例到达凭证可在协调器重启后精确恢复",
+			fb_restored_validation["ok"] &&
+			(int)fb_restored_validation["discarded"]==0 &&
+			sizeof((mapping)fb_restored_snapshot["player_leases"])==1 &&
+			sizeof((mapping)fb_restored_snapshot["handoffs"])==1,
+			"静态入口路径丢失服务端实例后缀会让重启中的副本玩家断线");
 		check("控制面主文件损坏时仅从已验证备份恢复且串行持久化",
 			source_has("/gamelib/single/daemons/map_workerd.pike",
 				"restored control plane from backup") &&
@@ -453,6 +499,34 @@ int main()
 		check("实时负载会把新地图避开严重拥塞worker",
 			target_placement["ok"] && target_worker!=source_worker,
 			"新地图仍被放到拥塞worker");
+
+		string fb_user = userid+"fb";
+		string fb_affinity = "fb_runtime:"+prefix+"/instance";
+		string fb_room = "/gamelib/d/fb_runtime/ingress.pike";
+		string fb_request = request_id+"fb";
+		mapping fb_placement = daemon->assign_affinity(fb_affinity,1,1);
+		mapping fb_lease = daemon->acquire_player_lease(fb_user,
+			source_worker,source_affinity,0);
+		mapping fb_handoff = daemon->begin_handoff(fb_user,source_worker,
+			(int)fb_lease["epoch"],fb_affinity,fb_room,fb_request);
+		mapping bad_fb_handoff = daemon->begin_handoff(fb_user,source_worker,
+			(int)fb_lease["epoch"],"fb_runtime:../forged",fb_room,
+			fb_request+"bad");
+		string fb_target = (string)fb_placement["worker_id"];
+		mapping fb_commit = daemon->commit_handoff(fb_request,fb_target);
+		mapping fb_reopen = daemon->acquire_player_lease(fb_user,fb_target,
+			fb_affinity,(int)fb_commit["target_epoch"]);
+		mapping fb_ack = daemon->acknowledge_player_arrival(fb_user,fb_target,
+			(int)fb_commit["target_epoch"],fb_affinity);
+		check("合法队伍副本入口可完成跨Worker迁移且伪造实例仍被拒绝",
+			fb_placement["ok"] &&
+			fb_placement["worker_id"]!=source_worker && fb_lease["ok"] &&
+			fb_handoff["ok"] && fb_handoff["state"]=="prepared" &&
+			fb_handoff["target_affinity"]==fb_affinity &&
+			bad_fb_handoff["code"]=="invalid_handoff" && fb_commit["ok"] &&
+			fb_reopen["ok"] && fb_reopen["arrival_room_path"]==fb_room &&
+			fb_ack["ok"],
+			"实例affinity被误拒会让飞副本断线，或伪造实例可绕过入口");
 
 		string drift_user = userid+"drift";
 		string drift_affinity = "drift"+prefix;

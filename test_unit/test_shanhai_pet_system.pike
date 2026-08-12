@@ -1025,10 +1025,17 @@ void test_rift(array(object) players)
 		players[2]->query_name_cn());
 	mapping started = PETD->start_rift(players[0]);
 	mapping won = run_rift(players,1);
+	mapping immediate_restart = PETD->start_rift(players[0]);
+	mapping immediate_lost = immediate_restart["ok"] ?
+		run_rift(players,0) : ([]);
 	check("裂隙拒绝两人凑数且三名不同账号玩家可在12轮内协作完成",
 		!too_few["ok"] && started["ok"] && won["ok"] &&
 		won["status"]=="won" && (int)won["round"]<=12,
 		"人数门槛、回合上限或正确机制结算失败");
+	check("胜利资格落盘后无需等待全员手动领取即可立即重开",
+		immediate_restart["ok"] && immediate_lost["ok"] &&
+		immediate_lost["status"]=="lost",
+		"上一场已持久化奖励仍占用运行时会话，导致队伍无法继续挑战");
 
 	mapping before0 = PETD->query_pet_state(players[0]);
 	int queued_before_restart = sizeof((mapping)before0[

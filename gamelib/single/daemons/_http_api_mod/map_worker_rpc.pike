@@ -249,6 +249,7 @@ private int map_worker_gateway_request_authorized(
     string role = MAP_WORKERD->query_node_role();
     string routed_worker;
     string routed_user;
+    string routed_affinity;
     string arrival_room;
     string account_owner;
     string account_cache_token;
@@ -262,6 +263,8 @@ private int map_worker_gateway_request_authorized(
         req->request_headers["x-xiand-lease-worker"] || ""));
     routed_user = String.trim_all_whites(
         req->request_headers["x-xiand-lease-userid"] || "");
+    routed_affinity = String.trim_all_whites(
+        req->request_headers["x-xiand-lease-affinity"] || "");
     routed_epoch = (int)(req->request_headers["x-xiand-lease-epoch"] || "0");
     if(!map_worker_rpc_authorized(req) ||
        routed_worker!=MAP_WORKERD->query_local_worker_id())
@@ -270,8 +273,8 @@ private int map_worker_gateway_request_authorized(
     // Renewal is reserved for local_control_heartbeat after coordinator ACK.
     if(!MAP_WORKERD->local_control_lease_valid())
         return 0;
-    if((routed_user=="" && routed_epoch!=0) ||
-       (routed_user!="" && routed_epoch<1))
+    if((routed_user=="" && (routed_epoch!=0 || routed_affinity!="")) ||
+       (routed_user!="" && (routed_epoch<1 || routed_affinity=="")))
         return 0;
     account_owner = String.trim_all_whites(
         req->request_headers["x-xiand-account-owner"] || "");
@@ -314,7 +317,7 @@ private int map_worker_gateway_request_authorized(
             req->request_headers["x-xiand-arrival-room"] || "");
         if(arrival_room!=""){
             epoch_result = MAP_WORKERD->install_local_player_arrival(
-                routed_user,routed_epoch,arrival_room);
+                routed_user,routed_epoch,arrival_room,routed_affinity);
             if(!(int)epoch_result["ok"])
                 return 0;
         }
@@ -534,6 +537,8 @@ private void handle_map_worker_local_arrival(
         (string)(params["userid"] || ""));
     string room_path = String.trim_all_whites(
         (string)(params["room_path"] || ""));
+    string affinity = String.trim_all_whites(
+        (string)(params["affinity"] || ""));
     string account_owner = String.trim_all_whites(
         (string)(params["account_owner"] || ""));
     string cache_token = lower_case(String.trim_all_whites(
@@ -551,7 +556,8 @@ private void handle_map_worker_local_arrival(
     mixed load_err;
     if(MAP_WORKERD->query_node_role()!="worker" ||
        !MAP_WORKERD->local_control_lease_valid() ||
-       userid=="" || account_owner=="" || epoch<1 || room_path==""){
+       userid=="" || account_owner=="" || epoch<1 || room_path=="" ||
+       affinity==""){
         send_json(req,(["ok":0,"code":"invalid_local_arrival"]),409);
         return;
     }
@@ -612,7 +618,7 @@ private void handle_map_worker_local_arrival(
             PETD->invalidate_worker_account_cache(account_owner);
     }
     result = MAP_WORKERD->install_local_player_arrival(
-        userid,epoch,room_path);
+        userid,epoch,room_path,affinity);
     if(!(int)result["ok"]){
         MAP_WORKERD->clear_local_player_epoch(userid);
         send_json(req,result,409);

@@ -200,6 +200,14 @@ mapping(string:mixed) start_rift(object leader)
 		return pet_result(0,"请让3—5名15级以上队员活着在同一房间集合。 ");
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
+	// A won session is no longer the source of truth once every account's
+	// pending reward has been saved.  Retire such sessions before checking
+	// participant conflicts so one offline claimant cannot block a whole team.
+	foreach(indices(rift_sessions),string settled_team_id){
+		mapping settled_session = rift_sessions[settled_team_id];
+		if(settled_session && (string)settled_session["status"]=="won")
+			settle_won_rift_unlocked(settled_session);
+	}
 	// 失败场次原先只按当前 team_id 清理。玩家解散后重组会得到新的
 	// team_id，旧 lost 会话仍能被角色查询命中，导致新场次行动被路由
 	// 到旧场次。开始新场次前按参与角色清掉所有旧失败会话。
@@ -218,8 +226,8 @@ mapping(string:mixed) start_rift(object leader)
 			}
 		}
 	}
-	// active/won 场次不能因换队伍 ID 被绕开，否则同一角色可能同时
-	// 占据两个裂隙行动位，或在奖励尚未安全落盘前覆盖运行时会话。
+	// Active sessions cannot be bypassed by changing the team id.  Won
+	// sessions remain here only when at least one durable reward write failed.
 	foreach(indices(rift_sessions),string old_team_id){
 		mapping old_session = rift_sessions[old_team_id];
 		if(!old_session || old_team_id==term_id ||
@@ -373,6 +381,11 @@ mapping(string:mixed) query_rift_state(object player)
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
 	team_id = find_player_rift_team_unlocked(player->query_name());
+	if(team_id!="" &&
+	   (string)rift_sessions[team_id]["status"]=="won"){
+		settle_won_rift_unlocked(rift_sessions[team_id]);
+		team_id = find_player_rift_team_unlocked(player->query_name());
+	}
 	if(team_id!=""){
 		reconcile_rift_participants_unlocked(rift_sessions[team_id]);
 		result = copy_value(rift_sessions[team_id]);
@@ -639,6 +652,31 @@ private int queue_rift_rewards_unlocked(mapping session)
 	return queued;
 }
 
+/**
+ * Once every participant has a durable pending-reward record, the runtime
+ * battle session can be retired immediately.  Character rewards are still
+ * granted to online participants here and are idempotently completed from the
+ * pending record when an offline participant later claims.
+ */
+private int settle_won_rift_unlocked(mapping session)
+{
+	string team_id;
+	int queued;
+	if(!mappingp(session) || (string)session["status"]!="won" ||
+	   !arrayp(session["participants"]) ||
+	   !sizeof((array)session["participants"]))
+		return 0;
+	queued = queue_rift_rewards_unlocked(session);
+	grant_rift_character_rewards_unlocked(session);
+	if(queued<sizeof((array)session["participants"]))
+		return 0;
+	team_id = (string)session["team_id"];
+	if(team_id!="" && mappingp(rift_sessions[team_id]) &&
+	   (string)rift_sessions[team_id]["id"]==(string)session["id"])
+		m_delete(rift_sessions,team_id);
+	return 1;
+}
+
 private void tell_rift_participants(mapping session,string message)
 {
 	foreach((array)session["participants"],string player_id){
@@ -770,9 +808,7 @@ private void resolve_rift_round_unlocked(mapping session)
 		}
 	}
 	if((string)session["status"]=="won"){
-		int queued = queue_rift_rewards_unlocked(session);
-		grant_rift_character_rewards_unlocked(session);
-		if(queued<sizeof((array)session["participants"]))
+		if(!settle_won_rift_unlocked(session))
 			round_message += " 部分领奖资格保存失败，请留在战局页重试领取。";
 	}
 	session["last_message"] = round_message;
@@ -840,6 +876,11 @@ mapping(string:mixed) claim_rift_reward(object player,
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
 	team_id = find_player_rift_team_unlocked(player->query_name());
+	if(team_id!="" &&
+	   (string)rift_sessions[team_id]["status"]=="won"){
+		settle_won_rift_unlocked(rift_sessions[team_id]);
+		team_id = find_player_rift_team_unlocked(player->query_name());
+	}
 	if(team_id!=""){
 		mapping active_session = rift_sessions[team_id];
 		if((string)active_session["status"]=="won"){

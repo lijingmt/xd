@@ -573,6 +573,92 @@ void test_missing_skill_safety()
 	destroy_test_player(target);
 }
 
+void test_worker_status_effect_handoff()
+{
+	test_start("跨Worker移动保留状态药且不携带战斗Buff");
+	string userid = "__testunit_worker_status__";
+	object|zero player = 0;
+	string error_desc = "";
+	int valid = 0;
+	cleanup_test_player_file(userid);
+	mixed err = catch {
+		player = create_test_player(userid);
+		player["/danyao"] = ([]);
+		player["/teyao"] = ([]);
+		player["/homeBuff"] = ([]);
+		player->set_buff("attri_attack",0,"attack");
+		player->set_buff("attri_attack",1,321);
+		player->set_buff("attri_attack",2,30);
+		player["/danyao/attri_attack"] = "测试攻击丹";
+		player->set_buff("spec",0,"hind");
+		player->set_buff("spec",1,1);
+		player->set_buff("spec",2,20);
+		player["/danyao/spec"] = "测试影遁丹";
+		player->hind = 1;
+		player->set_buff("te_exp",0,"exp");
+		player->set_buff("te_exp",1,400);
+		player->set_buff("te_exp",2,25);
+		player["/teyao/te_exp"] = ({"exp",400,25,"测试星河露"});
+		player->set_buff("mianzhan",0,"mianzhan");
+		player->set_buff("mianzhan",1,0);
+		player->set_buff("mianzhan",2,60);
+		player["/teyao/mianzhan"] =
+			({"mianzhan",0,60,"测试免战符"});
+		player->set_buff("home_attack",0,"all");
+		player->set_buff("home_attack",1,50);
+		player->set_buff("home_attack",2,15);
+		player["/homeBuff/home_attack"] =
+			({"all",50,15,"测试练功草庐"});
+		player->set_buff("buff",0,"absorb");
+		player->set_buff("buff",1,999999);
+		player->set_buff("buff",2,12);
+		player->apply_team_guard(888888,12);
+		mapping snapshot = player->snapshot_worker_status_effects();
+		player["/danyao"] = ([]);
+		player["/teyao"] = ([]);
+		player["/homeBuff"] = ([]);
+		foreach(({"attri_attack","spec","te_exp","mianzhan","home_attack"}),
+		   string kind)
+			player->clean_buff(kind);
+		player->hind = 0;
+		int restored = player->restore_worker_status_effects(snapshot);
+		player->sleep();
+		mapping expired = (["attri_attack":copy_value(
+			snapshot["attri_attack"])]);
+		expired["attri_attack"]["expires_at"] = time()-1;
+		player->clean_buff("attri_attack");
+		player->restore_worker_status_effects(expired);
+		mapping forged = (["buff":([
+			"source":"danyao","type":"absorb","value":999999999,
+			"remaining":999,"expires_at":time()+9999,
+			"name_cn":"伪造战斗护盾",
+		])]);
+		player->clean_buff("buff");
+		player->restore_worker_status_effects(forged);
+		valid = sizeof(snapshot)==5 && !snapshot["buff"] &&
+			!snapshot["team_guard"] && restored==5 &&
+			player->query_buff("te_exp",0)=="exp" &&
+			player->query_buff("te_exp",1)==400 &&
+			player->query_buff("mianzhan",0)=="mianzhan" &&
+			player->query_buff("home_attack",1)==50 &&
+			player->query_buff("spec",0)=="hind" && player->hind==1 &&
+			arrayp(player["/teyao/te_exp"]) &&
+			arrayp(player["/homeBuff/home_attack"]) &&
+			player->query_buff("attri_attack",0)=="none" &&
+			!player["/danyao/attri_attack"] &&
+			player->query_buff("buff",0)=="none";
+	};
+	if(err)
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("状态药快照、到期清理、休息保持或战斗Buff隔离失败: "+
+			error_desc);
+	destroy_test_player(player);
+	cleanup_test_player_file(userid);
+}
+
 void test_cross_zone_admin_security()
 {
 	test_start("jinghaha与mumu215跨区可管理且相似后缀不能越权");
@@ -649,6 +735,7 @@ int main()
 	test_stacked_absorb_shields();
 	test_physical_penetration_reaches_real_life_damage();
 	test_missing_skill_safety();
+	test_worker_status_effect_handoff();
 	test_cross_zone_admin_security();
 	werror("\n战斗平衡测试完成！总计: %d, 通过: %d, 失败: %d\n",
 		test_results["total"],test_results["passed"],

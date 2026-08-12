@@ -2018,6 +2018,16 @@ private mapping pike_gateway_proxy(string worker_id,string method,string path,
 	headers["X-Xiand-Lease-Worker"] = worker_id;
 	headers["X-Xiand-Lease-Userid"] = userid;
 	headers["X-Xiand-Lease-Epoch"] = (string)epoch;
+	if(userid!=""){
+		mapping lease_route = MAP_WORKERD->query_player_route(userid);
+		if(!(int)lease_route["ok"] ||
+		   (string)lease_route["worker_id"]!=worker_id ||
+		   (int)lease_route["epoch"]!=epoch ||
+		   (string)lease_route["affinity"]=="")
+			error("worker lease route changed before proxy\n");
+		headers["X-Xiand-Lease-Affinity"] =
+			(string)lease_route["affinity"];
+	}
 	headers["X-Xiand-Request-Id"] = request_id;
 	headers["X-Xiand-Command-Kind"] = command_kind;
 	if(mappingp(admin_target) && sizeof(admin_target)){
@@ -3154,15 +3164,20 @@ private void pike_gateway_deliver_background_arrival(string userid,
 	   !has_prefix(room_path,"/gamelib/d/") || search(room_path,"#")!=-1 ||
 	   !pike_gateway_valid_userid(account_id))
 		error("invalid background arrival capability\n");
+	mapping confirmed = pike_gateway_confirmed_route(userid,worker_id,epoch);
+	if((string)confirmed["arrival_room"]!=room_path ||
+	   (string)confirmed["affinity"]=="")
+		error("background arrival route changed\n");
 	mapping result = pike_gateway_worker_rpc(worker_id,"local_arrival",([
 		"userid":userid,"epoch":epoch,"room_path":room_path,
+		"affinity":(string)confirmed["affinity"],
 		"account_owner":account_id,
 		"account_cache_token":pike_gateway_account_cache_token(
 			account_id,worker_id),
 	]));
 	if(!(int)result["ok"])
 		error("background arrival failed\n");
-	mapping confirmed = pike_gateway_confirmed_route(userid,worker_id,epoch);
+	confirmed = pike_gateway_confirmed_route(userid,worker_id,epoch);
 	if((string)confirmed["arrival_room"]!=room_path ||
 	   (string)result["affinity"]!=(string)confirmed["affinity"])
 		error("background arrival route mismatch\n");

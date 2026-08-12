@@ -562,7 +562,7 @@ private mapping complete_map_worker_arrival(object player,string userid)
     if(!(int)arrival["ok"])
         return (["handled":0]);
     room = environment(player);
-    affinity = room ? MAP_WORKERD->query_affinity_key(file_name(room),"") : "";
+    affinity = room ? MAP_WORKERD->query_player_affinity(player) : "";
     if(room && room->is("menu")){
         if(!functionp(player->complete_static_worker_arrival) ||
            !player->complete_static_worker_arrival(
@@ -579,7 +579,7 @@ private mapping complete_map_worker_arrival(object player,string userid)
                 "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
         }
         room = environment(player);
-        affinity = room ? MAP_WORKERD->query_affinity_key(file_name(room),"") : "";
+        affinity = room ? MAP_WORKERD->query_player_affinity(player) : "";
     }
     if(affinity!=(string)arrival["affinity"]){
         werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=affinity epoch=%d\n",
@@ -607,6 +607,11 @@ private mapping complete_map_worker_arrival(object player,string userid)
             "output":"{\"error\":\"跨地图召唤状态落盘失败，请重试\"}"]);
     }
     output = execute_internal_command(player,"look");
+    // Clear the one-shot status capability in the same atomic save that proves
+    // the final destination. A failed save leaves the previous archive intact
+    // so a retried arrival can restore timed medicine/home effects again.
+    if(functionp(player->finalize_worker_status_effect_handoff))
+        player->finalize_worker_status_effect_handoff();
     // The authenticated gateway already committed this exact target epoch and
     // room capability. This is the target's one mandatory arrival save, so it
     // must remain valid while a control heartbeat is rolling over.

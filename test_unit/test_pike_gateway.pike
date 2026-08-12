@@ -342,6 +342,10 @@ int main()
 			source_has(rpc,"saved = player->save_with_result(0,1)") &&
 			source_has(gateway,"commit_handoff") &&
 			source_has(gateway,"X-Xiand-Arrival-Room") &&
+			source_has(gateway,"X-Xiand-Lease-Affinity") &&
+			source_has(rpc,"x-xiand-lease-affinity") &&
+			source_has(rpc,
+				"userid,epoch,room_path,affinity") &&
 			source_has(gateway,"pike_gateway_acknowledge_arrival") &&
 			source_has(gateway,"dynamic instance cannot cross workers"),
 			"装备可能双副本或动态副本被猜测迁移");

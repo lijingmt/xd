@@ -372,8 +372,8 @@ mapping(string:mixed) validate_control_plane_snapshot(mapping decoded)
 					(string)raw["arrival_room_path"]);
 				if(arrival_room!="" &&
 				   (int)raw["arrival_epoch"]==(int)raw["epoch"] &&
-				   query_affinity_key(arrival_room,"")==
-				   (string)restored_lease["affinity"]){
+				   room_matches_affinity(arrival_room,
+					(string)restored_lease["affinity"])){
 					restored_lease["arrival_room_path"] = arrival_room;
 					restored_lease["arrival_epoch"] = (int)raw["arrival_epoch"];
 				}
@@ -402,9 +402,8 @@ mapping(string:mixed) validate_control_plane_snapshot(mapping decoded)
 			   normalize_token((string)raw["target_affinity"],
 				MAP_WORKER_MAX_AFFINITY)=="" ||
 			   normalize_room_location((string)raw["target_room_path"])=="" ||
-			   query_affinity_key((string)raw["target_room_path"],"")!=
-				normalize_token((string)raw["target_affinity"],
-					MAP_WORKER_MAX_AFFINITY) ||
+			   !room_matches_affinity((string)raw["target_room_path"],
+				(string)raw["target_affinity"]) ||
 			   (int)raw["source_epoch"]<1 ||
 			   (int)raw["target_epoch"]!=(int)raw["source_epoch"]+1 ||
 			   !has_value(({"prepared","committed","aborted","expired"}),
@@ -1202,6 +1201,31 @@ string query_affinity_key(string room_path,void|string instance_key)
 	return block;
 }
 
+/**
+ * A persisted room path identifies the static map block, while a dungeon
+ * affinity may additionally carry its server-owned team/instance key.  Check
+ * the suffix by feeding it back through the one canonical affinity function;
+ * ordinary maps, homes and timed events still require an exact match.
+ */
+private int room_matches_affinity(string room_path,string affinity)
+{
+	string room_affinity = query_affinity_key(room_path,"");
+	string normalized_affinity = normalize_token(affinity,
+		MAP_WORKER_MAX_AFFINITY);
+	string instance_key;
+	if(room_affinity=="" || normalized_affinity=="")
+		return 0;
+	if(room_affinity==normalized_affinity)
+		return 1;
+	if((!has_prefix(room_affinity,"fb_") &&
+	   !has_suffix(room_affinity,"_fb")) ||
+	   !has_prefix(normalized_affinity,room_affinity+":"))
+		return 0;
+	instance_key = normalized_affinity[sizeof(room_affinity)+1..];
+	return instance_key!="" &&
+		query_affinity_key(room_path,instance_key)==normalized_affinity;
+}
+
 string query_node_role()
 {
 	return node_role;
@@ -1862,16 +1886,17 @@ int local_shutdown_save_fence_valid()
 }
 
 mapping(string:mixed) install_local_player_arrival(string userid,int epoch,
-	string room_path)
+	string room_path,string expected_affinity)
 {
 	object key;
 	string affinity;
 	string owner;
 	userid = normalize_userid(userid);
 	room_path = normalize_room_location(room_path);
-	affinity = query_affinity_key(room_path,"");
+	affinity = normalize_token(expected_affinity || "",
+		MAP_WORKER_MAX_AFFINITY);
 	if(node_role!="worker" || userid=="" || epoch<1 || room_path=="" ||
-	   affinity=="")
+	   affinity=="" || !room_matches_affinity(room_path,affinity))
 		return (["ok":0,"code":"invalid_local_arrival"]);
 	key = local_route_lock->lock();
 	owner = local_affinity_owners[affinity] || "";
@@ -3329,7 +3354,7 @@ mapping(string:mixed) acquire_player_lease(string userid,string worker_id,
 		pending_arrival = normalize_room_location(
 			(string)lease["arrival_room_path"]);
 		if(pending_arrival!="" &&
-		   query_affinity_key(pending_arrival,"")!=affinity)
+		   !room_matches_affinity(pending_arrival,affinity))
 			pending_arrival = "";
 	}
 	if(mappingp(lease) && (string)lease["state"]=="frozen"){
@@ -3836,8 +3861,9 @@ mapping(string:mixed) begin_handoff(string userid,string source_worker,
 	target_room_path = normalize_room_location(target_room_path);
 	request_id = normalize_token(request_id,96);
 	if(userid=="" || source_worker=="" || target_affinity=="" ||
-	   target_room_path=="" || query_affinity_key(target_room_path,"")!=
-	   target_affinity || request_id=="")
+	   target_room_path=="" ||
+	   !room_matches_affinity(target_room_path,target_affinity) ||
+	   request_id=="")
 		return (["ok":0,"code":"invalid_handoff"]);
 	assignment = assign_affinity(target_affinity,
 		affinity_room_weights[target_affinity] || 1,0);

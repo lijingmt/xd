@@ -24,6 +24,17 @@ string query_account_owner()
 
 private int login_migrations_done;
 
+/** A fenced target-worker restore is a move, not a fresh account login. */
+int query_pending_worker_arrival()
+{
+	mapping arrival;
+	if(MAP_WORKERD->query_node_role()!="worker" || !query_name() ||
+	   query_name()=="")
+		return 0;
+	arrival = MAP_WORKERD->query_local_player_arrival(query_name());
+	return mappingp(arrival) && (int)arrival["ok"];
+}
+
 void run_login_migrations_once()
 {
 	if(login_migrations_done)
@@ -33,16 +44,20 @@ void run_login_migrations_once()
 }
 
 /**
- * Login migrations must run after the complete player archive has been
- * restored, even when Vue, a legacy JSP bookmark, or a map-worker handoff
- * resumes without pressing the entrance room's start button.
+ * Login migrations run after a complete archive restore for real Vue/JSP
+ * logins. A coordinator-fenced target-worker restore is only a map move and
+ * must not repeat login-time equipment migrations.
  */
 int setup(string password)
 {
+	// Capture before restore/account reconciliation: under severe load the
+	// 60-second arrival capability may expire while ::setup() is still loading.
+	// A failed/slow map move must never fall through into destructive login work.
+	int pending_worker_arrival = query_pending_worker_arrival();
 	int ready=::setup(password);
 	// Existing characters already have a profession after restore. Brand-new
 	// characters run the same hook from d/init after choosing a profession.
-	if(ready && query_profeId())
+	if(ready && query_profeId() && !pending_worker_arrival)
 		run_login_migrations_once();
 	return ready;
 }
@@ -132,6 +147,10 @@ string last_pos;//最后登陆房间记录
 // One-shot non-item state for a fenced cross-worker arrival. Equipment and
 // inventory remain exclusively inside the atomic player save.
 mapping worker_summon_handoff=([]);
+// Timed medicine/home effects live in the protected runtime buff mapping and
+// therefore need a narrow one-shot archive when a player changes workers.
+// Combat skill buffs and debuffs are deliberately excluded.
+mapping worker_status_effect_handoff=([]);
 // Exactly-once receipts live in the same atomic file as the granted items.
 // A lost HTTP response can therefore retry an already-credited recharge
 // without cloning its per-character bonus a second time.
@@ -763,32 +782,182 @@ int save_with_result(void|int autosave,void|int worker_fenced_save){
 	return save_ok;
 }
 
+private string query_worker_status_effect_source(string kind)
+{
+	if(has_value(({"attri_base","attri_vice","attri_defend",
+	   "attri_attack","attri_exp","attri_honer","attri_luck","spec"}),
+	   kind))
+		return "danyao";
+	if(has_value(({"te_exp","te_honer","te_luck","te_attack","te_vice",
+	   "te_base","te_defend","mianzhan"}),kind))
+		return "teyao";
+	if(has_value(({"home_attack","home_luck","home_base","home_defend"}),
+	   kind))
+		return "homeBuff";
+	return "";
+}
+
+private void clear_worker_status_effect_mirror(string kind,string source)
+{
+	mapping effects = this_object()["/"+source];
+	if(mappingp(effects))
+		m_delete(effects,kind);
+	clean_buff(kind);
+	if(kind=="spec")
+		hind = 0;
+}
+
+/** Capture only durable timed medicine/home effects, never combat buffs. */
+mapping snapshot_worker_status_effects()
+{
+	mapping snapshot = ([]);
+	array(string) kinds = ({
+		"attri_base","attri_vice","attri_defend","attri_attack",
+		"attri_exp","attri_honer","attri_luck","spec",
+		"te_exp","te_honer","te_luck","te_attack","te_vice",
+		"te_base","te_defend","mianzhan",
+		"home_attack","home_luck","home_base","home_defend",
+	});
+	int now = time();
+	foreach(kinds,string kind){
+		string source = query_worker_status_effect_source(kind);
+		mixed raw_type = query_buff(kind,0);
+		mixed raw_value = query_buff(kind,1);
+		int remaining = (int)query_buff(kind,2);
+		string name_cn = "";
+		if(!stringp(raw_type) || (string)raw_type=="" ||
+		   (string)raw_type=="none" || !intp(raw_value) || remaining<1 ||
+		   remaining>525600)
+			continue;
+		if(source=="danyao"){
+			mixed raw_name = this_object()["/danyao/"+kind];
+			if(!stringp(raw_name) || (string)raw_name=="")
+				continue;
+			name_cn = (string)raw_name;
+		}
+		else{
+			mixed raw_effect = this_object()["/"+source+"/"+kind];
+			if(!arrayp(raw_effect) || sizeof((array)raw_effect)<4 ||
+			   !stringp(((array)raw_effect)[3]) ||
+			   (string)((array)raw_effect)[3]=="")
+				continue;
+			name_cn = (string)((array)raw_effect)[3];
+		}
+		if(sizeof((string)raw_type)>64 || sizeof(name_cn)>160)
+			continue;
+		snapshot[kind] = ([
+			"source":source,"type":(string)raw_type,
+			"value":(int)raw_value,"remaining":remaining,
+			"expires_at":now+remaining*60,"name_cn":name_cn,
+		]);
+	}
+	return snapshot;
+}
+
+/** Restore a validated one-shot worker snapshot without extending duration. */
+int restore_worker_status_effects(mapping snapshot)
+{
+	int restored = 0;
+	int now = time();
+	if(!mappingp(snapshot) || sizeof(snapshot)>20)
+		return 0;
+	foreach(snapshot;mixed raw_kind;mixed raw_effect){
+		string kind = stringp(raw_kind) ? (string)raw_kind : "";
+		string source = query_worker_status_effect_source(kind);
+		mapping effect = mappingp(raw_effect) ? (mapping)raw_effect : ([]);
+		string type = stringp(effect["type"]) ?
+			(string)effect["type"] : "";
+		string name_cn = stringp(effect["name_cn"]) ?
+			(string)effect["name_cn"] : "";
+		int stored_remaining = intp(effect["remaining"]) ?
+			(int)effect["remaining"] : 0;
+		int expires_at = intp(effect["expires_at"]) ?
+			(int)effect["expires_at"] : 0;
+		if(source=="" || (string)effect["source"]!=source ||
+		   type=="" || type=="none" || sizeof(type)>64 ||
+		   name_cn=="" || sizeof(name_cn)>160 ||
+		   !intp(effect["value"]) || (int)effect["value"]<-1000000000 ||
+		   (int)effect["value"]>1000000000 || stored_remaining<1 ||
+		   stored_remaining>525600 || expires_at<=now){
+			if(source!="")
+				clear_worker_status_effect_mirror(kind,source);
+			continue;
+		}
+		int remaining = (expires_at-now+59)/60;
+		if(remaining>stored_remaining)
+			remaining = stored_remaining;
+		if(remaining<1){
+			clear_worker_status_effect_mirror(kind,source);
+			continue;
+		}
+		set_buff(kind,0,type);
+		set_buff(kind,1,(int)effect["value"]);
+		set_buff(kind,2,remaining);
+		if(source=="danyao")
+			this_object()["/danyao/"+kind] = name_cn;
+		else
+			this_object()["/"+source+"/"+kind] = ({
+				type,(int)effect["value"],remaining,name_cn,
+			});
+		if(kind=="spec" && type=="hind")
+			hind = 1;
+		restored++;
+	}
+	return restored;
+}
+
 int prepare_worker_summon_handoff(){
 	if(MAP_WORKERD->query_node_role()!="worker")
 		return 1;
-	if(mappingp(worker_summon_handoff) && sizeof(worker_summon_handoff))
+	if((mappingp(worker_summon_handoff) && sizeof(worker_summon_handoff)) ||
+	   (mappingp(worker_status_effect_handoff) &&
+	    sizeof(worker_status_effect_handoff)))
 		return 0;
 	worker_summon_handoff = SUMMOND->snapshot_worker_handoff(this_object());
+	worker_status_effect_handoff = snapshot_worker_status_effects();
 	return 1;
 }
 
 void cancel_worker_summon_handoff(){
 	worker_summon_handoff = ([]);
+	worker_status_effect_handoff = ([]);
+}
+
+/** Clear only immediately before the target's final atomic arrival save. */
+void finalize_worker_status_effect_handoff()
+{
+	worker_status_effect_handoff = ([]);
 }
 
 /** Clear and save the capability before materializing any target summons. */
 int consume_worker_summon_handoff(void|int worker_fenced_save){
-	mapping snapshot;
+	mapping summon_snapshot;
+	mapping status_snapshot;
 	if(MAP_WORKERD->query_node_role()!="worker" ||
-	   !mappingp(worker_summon_handoff) || !sizeof(worker_summon_handoff))
+	   ((!mappingp(worker_summon_handoff) ||
+	     !sizeof(worker_summon_handoff)) &&
+	    (!mappingp(worker_status_effect_handoff) ||
+	     !sizeof(worker_status_effect_handoff))))
 		return 1;
-	snapshot = copy_value(worker_summon_handoff);
+	summon_snapshot = mappingp(worker_summon_handoff) ?
+		copy_value(worker_summon_handoff) : ([]);
+	status_snapshot = mappingp(worker_status_effect_handoff) ?
+		copy_value(worker_status_effect_handoff) : ([]);
 	worker_summon_handoff = ([]);
+	// During a fenced arrival the status capability remains in the last durable
+	// archive until complete_map_worker_arrival performs its final atomic save.
+	// If that save fails, a retry can therefore reconstruct protected buffs.
+	if(!worker_fenced_save)
+		worker_status_effect_handoff = ([]);
 	if(!save_with_result(0,worker_fenced_save)){
-		worker_summon_handoff = snapshot;
+		worker_summon_handoff = summon_snapshot;
+		worker_status_effect_handoff = status_snapshot;
 		return 0;
 	}
-	SUMMOND->restore_worker_handoff(this_object(),snapshot);
+	if(sizeof(summon_snapshot))
+		SUMMOND->restore_worker_handoff(this_object(),summon_snapshot);
+	if(sizeof(status_snapshot))
+		restore_worker_status_effects(status_snapshot);
 	return 1;
 }
 

@@ -199,13 +199,18 @@ void test_login_hook_covers_direct_resume_clients()
 	string entrance_source=Stdio.read_file(ROOT+"/gamelib/d/init");
 	string warehouse_source=Stdio.read_file(
 		ROOT+"/gamelib/cmds/user_repackage.pike");
-	check("Vue、JSP书签和worker恢复共用真正的登录回收钩子",
+	check("Vue、JSP真正登录执行回收且Worker地图迁移不会重复回收",
 		user_source && search(user_source,"int setup(string password)")!=-1 &&
 		search(user_source,"run_login_migrations_once()")!=-1 &&
-		search(user_source,"if(ready && query_profeId())")!=-1 &&
+		search(user_source,
+			"int pending_worker_arrival = query_pending_worker_arrival()")!=-1 &&
+		search(user_source,
+			"if(ready && query_profeId() && !pending_worker_arrival)")!=-1 &&
+		search(user_source,
+			"MAP_WORKERD->query_local_player_arrival(query_name())")!=-1 &&
 		entrance_source &&
 		search(entrance_source,"me->run_login_migrations_once()")!=-1,
-		"真正登录或新人选职后的回收钩子缺失");
+		"真正登录/新人选职缺少回收，或跨Worker移动再次回收已穿装备");
 	check("在线后才从老仓库取出的负等级装备立即复查",
 		warehouse_source &&
 		search(warehouse_source,"environment(ob)==me && ob->is(\"equip\")")!=-1 &&
