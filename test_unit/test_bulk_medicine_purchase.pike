@@ -163,14 +163,15 @@ int main()
 				amount_of(player,"lingzhen"),amount_of(player,"xiaohuandan")));
 
 		player->set_account(1);
+		int insufficient_before=amount_of(player,"jinchuangyao");
 		offer_token=MUD_SPEC_STORED->issue_test_offer(
 			player,"food/jinchuangyao",100);
 		special->main("food/jinchuangyao 0 "+offer_token+" 10");
 		check("余额不足的批量请求不扣款也不发药",
 			player->query_account()==1 &&
-			amount_of(player,"jinchuangyao")==0,
+			amount_of(player,"jinchuangyao")==insufficient_before,
 			sprintf("money=%d amount=%d",player->query_account(),
-				amount_of(player,"jinchuangyao")));
+				amount_of(player,"jinchuangyao")-insufficient_before));
 	};
 	if(original_player)
 		set_this_player(original_player);

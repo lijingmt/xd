@@ -129,6 +129,28 @@ int main()
 			sizeof(user_ref)==12 && user_ref!="xd01hero",
 			"畸形路径仍可伪造日志行，或运行日志暴露人物ID");
 
+		string recovery_error = httpd->test_pike_gateway_request_error_field(
+			"map worker recovery is in progress\n");
+		check("恢复期请求误报在路由恢复时可被精确识别并清除",
+			recovery_error==
+				"request: map worker recovery is in progress\\n" &&
+			httpd->test_pike_gateway_is_recovery_request_error(
+				recovery_error) &&
+			!httpd->test_pike_gateway_is_recovery_request_error(
+				"monitor w1: worker unavailable") &&
+			httpd->test_pike_gateway_should_publish_request_error(
+				recovery_error,0) &&
+			!httpd->test_pike_gateway_should_publish_request_error(
+				recovery_error,1) &&
+			httpd->test_pike_gateway_should_publish_request_error(
+				"request: gameplay failure",1) &&
+			source_has(gateway,
+				"if(pike_gateway_is_recovery_request_error("+
+				"pike_gateway_last_error))") &&
+			source_has(gateway,
+				"pike_gateway_should_publish_request_error(request_error,"),
+			"恢复完成后状态仍误报繁忙，或真实控制面故障被错误清空");
+
 		check("畸形HTTP目标在占用请求槽和转发Worker之前失败关闭",
 			httpd->test_pike_gateway_request_target("/api","a=1") &&
 			!httpd->test_pike_gateway_request_target("api","a=1") &&

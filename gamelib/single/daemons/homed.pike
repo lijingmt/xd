@@ -3416,12 +3416,11 @@ void add_shop_license(string masterId,string roomName){
 //返回值：1、已经购买   0、还没购买
 int if_have_shopLicense(string masterId){
 	home he = homeDetail[masterId];
-	mapping(int:string) shopList = he->shop;
-	if(sizeof(shopList)){
-		return 1;
-	}
-	else 
+	mapping(int:string) shopList;
+	if(!he || !mappingp(he->shop))
 		return 0;
+	shopList = he->shop;
+	return sizeof(shopList) ? 1 : 0;
 }
 
 void flush_flag(object player){

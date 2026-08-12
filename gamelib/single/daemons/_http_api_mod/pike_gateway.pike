@@ -168,6 +168,23 @@ private string pike_gateway_log_field(string value,int limit)
 	return result;
 }
 
+/** Distinguish transient public-request failures from control-plane faults. */
+private string pike_gateway_request_error_field(string value)
+{
+	return "request: "+pike_gateway_log_field(value,256);
+}
+
+private int pike_gateway_is_recovery_request_error(string value)
+{
+	return value==pike_gateway_request_error_field(
+		"map worker recovery is in progress\n");
+}
+
+private int pike_gateway_should_publish_request_error(string value,int ready)
+{
+	return !ready || !pike_gateway_is_recovery_request_error(value);
+}
+
 private string pike_gateway_user_log_ref(string userid)
 {
 	if(!pike_gateway_valid_userid(userid))
@@ -683,6 +700,21 @@ string test_pike_gateway_registration(string command)
 string test_pike_gateway_log_field(string value,int limit)
 {
 	return pike_gateway_log_field(value,limit);
+}
+
+string test_pike_gateway_request_error_field(string value)
+{
+	return pike_gateway_request_error_field(value);
+}
+
+int test_pike_gateway_is_recovery_request_error(string value)
+{
+	return pike_gateway_is_recovery_request_error(value);
+}
+
+int test_pike_gateway_should_publish_request_error(string value,int ready)
+{
+	return pike_gateway_should_publish_request_error(value,ready);
 }
 
 string test_pike_gateway_user_ref(string userid)
@@ -1453,8 +1485,11 @@ private void pike_gateway_resume_routing()
 {
 	object key = pike_gateway_state_lock->lock();
 	if(pike_gateway_shutdown_state=="running" &&
-	   !sizeof(pike_gateway_uncertain_requests))
+	   !sizeof(pike_gateway_uncertain_requests)){
 		pike_gateway_routing_ready = 1;
+		if(pike_gateway_is_recovery_request_error(pike_gateway_last_error))
+			pike_gateway_last_error = "";
+	}
 	destruct(key);
 }
 
@@ -2254,7 +2289,12 @@ private mixed pike_gateway_reconcile(string userid,string source_worker,
 	   (string)prepared["state"]!="prepared" ||
 	   prepared_target!=target_worker ||
 	   !pike_gateway_worker_ports[prepared_target])
-		error("cannot prepare cross-worker handoff\n");
+		error("cannot prepare cross-worker handoff: code="+
+			pike_gateway_log_field((string)(prepared["code"] ||
+				"contract_mismatch"),64)+" state="+
+			pike_gateway_log_field((string)(prepared["state"] || ""),32)+
+			" expected="+pike_gateway_log_field(target_worker,32)+
+			" actual="+pike_gateway_log_field(prepared_target,32)+"\n");
 	if(target_worker==source_worker){
 		MAP_WORKERD->abort_handoff(request_id,source_worker);
 		error("handoff unexpectedly resolved to source worker\n");
@@ -2635,10 +2675,13 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 	if(request_err){
 		if(userid!="" && command_may_have_run)
 			pike_gateway_mark_reconciliation_pending(userid);
+		string request_error = pike_gateway_request_error_field(
+			describe_error(request_err));
 		object key = pike_gateway_state_lock->lock();
 		pike_gateway_failed_requests++;
-		pike_gateway_last_error = pike_gateway_log_field(
-			describe_error(request_err),256);
+		if(pike_gateway_should_publish_request_error(request_error,
+		   pike_gateway_routing_ready))
+			pike_gateway_last_error = request_error;
 		destruct(key);
 		werror("[PIKE_GATEWAY][REQUEST_FAILED] path=%s user_ref=%s error=%s\n",
 			pike_gateway_log_field((string)snapshot["path_only"],160),
