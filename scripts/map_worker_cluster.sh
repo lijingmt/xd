@@ -166,7 +166,12 @@ load_environment()
 	[[ -x "$PIKE_BIN" ]] || fail "Pike binary is not executable"
 	command -v python3 >/dev/null 2>&1 ||
 		fail "python3 is required by deployment JSON helpers"
-	if [[ "$LAUNCHER" == "screen" ]]; then
+	# Read-only probes inspect validated PID files and loopback listeners; they
+	# do not launch a detached process.  Keep them usable inside the unified
+	# container, where PID 1 deliberately starts workers with the background
+	# launcher but a later `docker exec` does not inherit that shell export.
+	if [[ "$LAUNCHER" == "screen" &&
+	      "$ACTION" != "status" && "$ACTION" != "health" ]]; then
 		command -v screen >/dev/null 2>&1 || fail "screen is required"
 	fi
 	command -v lsof >/dev/null 2>&1 || fail "lsof is required"

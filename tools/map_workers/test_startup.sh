@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CLUSTER_SCRIPT="$ROOT_DIR/scripts/map_worker_cluster.sh"
 export XIAND_STARTUP_LIBRARY_ONLY=1
 source "$ROOT_DIR/docker/start-unified.sh"
 
@@ -168,5 +169,40 @@ fi
 	echo "subshell failure test leaked parent state" >&2
 	exit 1
 }
+
+# A unified Docker container launches the topology with the background
+# launcher from PID 1.  A later `docker exec ... map_worker_cluster.sh status`
+# does not inherit that shell-only export and falls back to `screen`.  Status
+# and health are read-only, so they must remain available even when screen is
+# intentionally absent; mutating lifecycle actions must retain the dependency.
+(
+	source "$CLUSTER_SCRIPT"
+	fixture_root="$(mktemp -d)"
+	trap 'rm -rf -- "$fixture_root"' EXIT
+	ROOT_DIR="$fixture_root"
+	PIKE_BIN="$(command -v sh)"
+	MYSQL_PASSWORD="test-only-not-a-secret"
+	XIAND_WORKER_TOKEN="test-only-worker-token-not-a-secret"
+	XIAND_MAP_WORKER_LAUNCHER="screen"
+	command()
+	{
+		if [[ "${1:-}" == "-v" && "${2:-}" == "screen" ]]; then
+			return 1
+		fi
+		if [[ "${1:-}" == "-v" ]]; then
+			printf '%s\n' "$PIKE_BIN"
+			return 0
+		fi
+		builtin command "$@"
+	}
+	ACTION="status"
+	load_environment
+	ACTION="health"
+	load_environment
+	if (ACTION="start"; load_environment) >/dev/null 2>&1; then
+		echo "worker start unexpectedly ignored the missing screen dependency" >&2
+		exit 1
+	fi
+)
 
 echo "docker worker startup safety tests passed"

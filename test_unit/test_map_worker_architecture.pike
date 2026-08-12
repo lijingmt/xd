@@ -961,9 +961,13 @@ int main()
 					"nohup bash -lc") &&
 				source_has("/scripts/map_worker_cluster.sh",
 					"[[ \"$LAUNCHER\" == \"screen\" ]] || return 1") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"\"$ACTION\" != \"status\"") &&
+				source_has("/scripts/map_worker_cluster.sh",
+					"\"$ACTION\" != \"health\"") &&
 				source_has("/docker/start-unified.sh",
 					"XIAND_MAP_WORKER_LAUNCHER=background"),
-				"容器缺少screen时worker无法启动或脱离进程失去PID校验");
+				"容器缺少screen时只读诊断不可用，或worker启动绕过PID校验");
 			check("worker健康失败只允许整组熔断回旧主进程",
 				source_has("/scripts/map_worker_cluster.sh","cluster_health()") &&
 				source_has("/scripts/map_worker_cluster.sh",
