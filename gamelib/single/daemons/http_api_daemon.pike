@@ -629,6 +629,20 @@ private mapping complete_map_worker_arrival(object player,string userid)
             "output":"{\"error\":\"跨地图到达存档失败，请重试\"}"]);
     }
     MAP_WORKERD->clear_local_player_arrival(userid);
+    // Register only after the final arrival archive is durable. This prevents a
+    // background flushview from racing the one-shot handoff capability while also
+    // ensuring browser-background AFK continues on the destination worker.
+    if(functionp(player->query_autofight) &&
+       player->query_autofight()=="enable"){
+        int resumed = 0;
+        mixed resume_err = catch {
+            resumed = AUTOFIGHTD->resume_worker_handoff(player);
+        };
+        if(resume_err || !resumed)
+            werror("[MAP_WORKER][AFK_RESUME_FAILED] userid=%s epoch=%d error=%s\n",
+                userid,(int)arrival["epoch"],resume_err ?
+                    describe_error(resume_err) : "false");
+    }
     return (["handled":1,"output":output]);
 }
 

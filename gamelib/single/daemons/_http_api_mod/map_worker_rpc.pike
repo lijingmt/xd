@@ -1168,6 +1168,42 @@ private mapping map_worker_apply_world_broadcast(mapping event)
     return (["ok":1,"event_id":event_id]);
 }
 
+private mapping map_worker_apply_channel_chat(mapping event)
+{
+    mapping payload = mappingp(event["payload"]) ?
+        (mapping)event["payload"] : ([]);
+    string event_id = lower_case(String.trim_all_whites(
+        (string)(event["event_id"] || "")));
+    string source_user = String.trim_all_whites(
+        (string)(event["source_user"] || ""));
+    string race_id = String.trim_all_whites(
+        (string)(payload["race_id"] || ""));
+    string chat_id = String.trim_all_whites(
+        (string)(payload["chat_id"] || ""));
+    string message = (string)(payload["message"] || "");
+    mixed delivery_err;
+    if(sizeof(event_id)!=64 || source_user=="" ||
+       !has_value(({"human","monst","third"}),race_id) ||
+       chat_id=="" || sizeof(chat_id)>64 || message=="" ||
+       sizeof(message)>512 || !has_prefix(message,source_user+"|"))
+        return (["ok":0,"code":"invalid_channel_chat"]);
+    if(!MAP_WORKERD->begin_local_social_delivery(event_id,0))
+        return MAP_WORKERD->complete_local_social_delivery(event_id,0) ?
+            (["ok":1,"replayed":1]) :
+            (["ok":0,"code":"social_delivery_failed"]);
+    delivery_err = catch {
+        if(!RACECHATD->apply_distributed_chat_msg(race_id,chat_id,message))
+            error("channel chat apply rejected\n");
+    };
+    if(delivery_err){
+        MAP_WORKERD->abort_local_social_delivery(event_id);
+        return (["ok":0,"code":"channel_chat_delivery_failed"]);
+    }
+    if(!MAP_WORKERD->complete_local_social_delivery(event_id,0))
+        return (["ok":0,"code":"social_delivery_failed"]);
+    return (["ok":1,"event_id":event_id]);
+}
+
 private mapping map_worker_apply_team_event(mapping event,string kind)
 {
     mapping payload = mappingp(event["payload"]) ?
@@ -1247,6 +1283,8 @@ private mapping map_worker_apply_social_event(mapping event)
         return map_worker_apply_private_tell(event);
     if(kind=="world_broadcast")
         return map_worker_apply_world_broadcast(event);
+    if(kind=="channel_chat")
+        return map_worker_apply_channel_chat(event);
     if(has_value(({"team_invite","team_snapshot","team_chat","team_notice"}),
         kind))
         return map_worker_apply_team_event(event,kind);

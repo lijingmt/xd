@@ -62,7 +62,8 @@ int main()
 			daemon->query_local_social_event_ttl("team_snapshot")==604800 &&
 			daemon->query_local_social_event_ttl("team_invite")==604800 &&
 			daemon->query_local_social_event_ttl("world_broadcast")==86400 &&
-			daemon->query_local_social_event_ttl("team_chat")==300,
+			daemon->query_local_social_event_ttl("team_chat")==300 &&
+			daemon->query_local_social_event_ttl("channel_chat")==300,
 			"队伍快照可能在节点维护期间过期，或普通聊天无限堆积");
 		mapping account_save_capability = ([
 			"state":"running","kind":"account",
@@ -642,6 +643,18 @@ int main()
 			ack_replay["replayed"] &&
 			sizeof(daemon->poll_envelopes(target_user,20))==0,
 			"消息可能ID碰撞、并发重复领取、旧epoch ACK或串收件人");
+		check("公共频道消息使用同一有界社会事件通道同步所有Worker",
+			source_has("/gamelib/cmds/chatroom_chat.pike",
+				"RACECHATD->publish_chat_msg") &&
+			source_has("/gamelib/single/daemons/racechatd.pike",
+				"\"channel_chat\"") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"if(kind==\"channel_chat\")") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"map_worker_apply_channel_chat") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"\"world_broadcast\",\"channel_chat\""),
+			"普通频道仍可能按Worker分裂或接受未知社会事件类型");
 
 		mapping escrow = daemon->create_escrow(transaction_id,userid,target_user,
 			(["item_id":item_id,"amount":1,"digest":item_digest]));
@@ -1263,9 +1276,23 @@ int main()
 				"\"epoch\":source_epoch") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
 				"stale_local_epoch") &&
-			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
-				"retire_worker_copy_after_save") &&
-			source_has("/gamelib/clone/user.pike",
+				source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+					"retire_worker_copy_after_save") &&
+				source_has("/gamelib/clone/user.pike",
+					"AUTOFIGHTD->cancel_server_autofight_tick(this_object())") &&
+				source_has("/gamelib/single/daemons/http_api_daemon.pike",
+					"AUTOFIGHTD->resume_worker_handoff(player)") &&
+				source_has("/gamelib/clone/user.pike",
+					"restore_persistent_activity_state") &&
+				source_has("/gamelib/clone/user.pike",
+					"auto_learn_runtime") &&
+				source_has("/gamelib/single/daemons/autolearnd.pike",
+					"prepare_worker_handoff") &&
+				source_has("/gamelib/single/daemons/autolearnd.pike",
+					"detach_worker_handoff") &&
+				!source_has("/gamelib/single/daemons/autolearnd.pike",
+					"user->reconnect(pswd)") &&
+				source_has("/gamelib/clone/user.pike",
 				"consume_worker_summon_handoff") &&
 			source_has("/gamelib/single/daemons/summond.pike",
 				"snapshot_worker_handoff") &&

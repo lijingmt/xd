@@ -59,6 +59,16 @@ int setup(string password)
 	// characters run the same hook from d/init after choosing a profession.
 	if(ready && query_profeId() && !pending_worker_arrival)
 		run_login_migrations_once();
+	// Paid legacy training used to exist only in one daemon's process memory.
+	// Re-register a durable session before rebuilding its commands-disabled timer.
+	if(ready && mappingp(auto_learn_runtime) && sizeof(auto_learn_runtime))
+		AUTO_LEARND->resume_player(this_object());
+	// setup() creates a fresh object and enables commands. Rebuild any durable
+	// sleep/unconscious/training timer after the complete archive is restored.
+	if(ready && functionp(this_object()->restore_persistent_activity_state))
+		this_object()->restore_persistent_activity_state();
+	if(ready && functionp(this_object()->restore_persistent_ghost_state))
+		this_object()->restore_persistent_ghost_state();
 	return ready;
 }
 
@@ -149,8 +159,55 @@ string last_pos;//最后登陆房间记录
 mapping worker_summon_handoff=([]);
 // Timed medicine/home effects live in the protected runtime buff mapping and
 // therefore need a narrow one-shot archive when a player changes workers.
-// Combat skill buffs and debuffs are deliberately excluded.
+// Ordinary combat DOT/curse and room-bound shields are deliberately excluded;
+// player-heartbeat skill effects which survive a normal room move are included.
 mapping worker_status_effect_handoff=([]);
+// Legacy paid meditation progress must survive both worker moves and restarts.
+mapping(string:mixed) auto_learn_runtime=([]);
+mapping(string:mixed) query_auto_learn_runtime()
+{
+	return mappingp(auto_learn_runtime) ? copy_value(auto_learn_runtime) : ([]);
+}
+void set_auto_learn_runtime(mapping runtime)
+{
+	auto_learn_runtime = mappingp(runtime) ? copy_value(runtime) : ([]);
+}
+void clear_auto_learn_runtime()
+{
+	auto_learn_runtime = ([]);
+}
+
+/** Optional daemon failures must not take down ordinary character saves. */
+private int sync_auto_learn_runtime_for_save(int required)
+{
+	object|zero daemon = 0;
+	int prepared = 0;
+	if(!mappingp(auto_learn_runtime) || !sizeof(auto_learn_runtime))
+		return 1;
+	mixed err=catch {
+		daemon=find_object(ROOT+"/gamelib/single/daemons/autolearnd.pike");
+		if(daemon && functionp(daemon->prepare_worker_handoff))
+			prepared=daemon->prepare_worker_handoff(this_object());
+	};
+	if(!err && prepared)
+		return 1;
+	if(required)
+		werror("[AUTO_LEARND] required runtime sync failed uid=%s error=%s\n",
+			query_name(),err ? describe_error(err) : "daemon_unavailable");
+	return required ? 0 : 1;
+}
+
+private void detach_auto_learn_worker_runtime()
+{
+	object|zero daemon = 0;
+	if(!mappingp(auto_learn_runtime) || !sizeof(auto_learn_runtime))
+		return;
+	catch {
+		daemon=find_object(ROOT+"/gamelib/single/daemons/autolearnd.pike");
+		if(daemon && functionp(daemon->detach_worker_handoff))
+			daemon->detach_worker_handoff(this_object());
+	};
+}
 // Exactly-once receipts live in the same atomic file as the granted items.
 // A lost HTTP response can therefore retry an already-credited recharge
 // without cloning its per-character bonus a second time.
@@ -704,6 +761,9 @@ string query_extra_links(void|int count)
 
 int save_with_result(void|int autosave,void|int worker_fenced_save){
 	object env=environment(this_object());
+	// Keep paid legacy training's exact remaining seconds in the same atomic
+	// character archive used by worker handoff and safe shutdown.
+	sync_auto_learn_runtime_for_save(0);
 	// A worker which lost its loopback control lease must never overwrite a
 	// character that the coordinator may later recover elsewhere. The control
 	// fence is allowed one final atomic save before destroying the stale copy.
@@ -807,7 +867,16 @@ private void clear_worker_status_effect_mirror(string kind,string source)
 		hind = 0;
 }
 
-/** Capture only durable timed medicine/home effects, never combat buffs. */
+private string query_worker_skill_effect_channel(string kind)
+{
+	if(kind=="spec_attack_buff" || kind=="70_skill_buff")
+		return "buff";
+	if(kind=="70_skill_curse")
+		return "debuff";
+	return "";
+}
+
+/** Capture durable timed effects while excluding battle/room-bound state. */
 mapping snapshot_worker_status_effects()
 {
 	mapping snapshot = ([]);
@@ -851,6 +920,28 @@ mapping snapshot_worker_status_effects()
 			"expires_at":now+remaining*60,"name_cn":name_cn,
 		]);
 	}
+	// These effects are decremented by the player heartbeat and intentionally
+	// survive an ordinary same-process room move. Preserve their remaining tick
+	// count, but use an absolute deadline so handoff latency never extends them.
+	foreach(({"spec_attack_buff","70_skill_buff","70_skill_curse"}),
+	   string kind){
+		string channel = query_worker_skill_effect_channel(kind);
+		mixed raw_type = channel=="buff" ? query_buff(kind,0) :
+			query_debuff(kind,0);
+		mixed raw_value = channel=="buff" ? query_buff(kind,1) :
+			query_debuff(kind,1);
+		int remaining = (int)(channel=="buff" ? query_buff(kind,2) :
+			query_debuff(kind,2));
+		if(!stringp(raw_type) || (string)raw_type=="" ||
+		   (string)raw_type=="none" || sizeof((string)raw_type)>64 ||
+		   !intp(raw_value) || remaining<1 || remaining>525600)
+			continue;
+		snapshot[kind] = ([
+			"source":"skill_runtime","channel":channel,
+			"type":(string)raw_type,"value":(int)raw_value,
+			"remaining":remaining,"expires_at":now+remaining*2,
+		]);
+	}
 	return snapshot;
 }
 
@@ -859,10 +950,11 @@ int restore_worker_status_effects(mapping snapshot)
 {
 	int restored = 0;
 	int now = time();
-	if(!mappingp(snapshot) || sizeof(snapshot)>20)
+	if(!mappingp(snapshot) || sizeof(snapshot)>24)
 		return 0;
 	foreach(snapshot;mixed raw_kind;mixed raw_effect){
 		string kind = stringp(raw_kind) ? (string)raw_kind : "";
+		string skill_channel = query_worker_skill_effect_channel(kind);
 		string source = query_worker_status_effect_source(kind);
 		mapping effect = mappingp(raw_effect) ? (mapping)raw_effect : ([]);
 		string type = stringp(effect["type"]) ?
@@ -873,6 +965,42 @@ int restore_worker_status_effects(mapping snapshot)
 			(int)effect["remaining"] : 0;
 		int expires_at = intp(effect["expires_at"]) ?
 			(int)effect["expires_at"] : 0;
+		if(skill_channel!=""){
+			if((string)effect["source"]!="skill_runtime" ||
+			   (string)effect["channel"]!=skill_channel || type=="" ||
+			   type=="none" || sizeof(type)>64 || !intp(effect["value"]) ||
+			   (int)effect["value"]<-1000000000 ||
+			   (int)effect["value"]>1000000000 || stored_remaining<1 ||
+			   stored_remaining>525600 || expires_at<=now){
+				if(skill_channel=="buff")
+					clean_buff(kind);
+				else
+					clean_debuff(kind);
+				continue;
+			}
+			int skill_remaining = (expires_at-now+1)/2;
+			if(skill_remaining>stored_remaining)
+				skill_remaining=stored_remaining;
+			if(skill_remaining<1){
+				if(skill_channel=="buff")
+					clean_buff(kind);
+				else
+					clean_debuff(kind);
+				continue;
+			}
+			if(skill_channel=="buff"){
+				set_buff(kind,0,type);
+				set_buff(kind,1,(int)effect["value"]);
+				set_buff(kind,2,skill_remaining);
+			}
+			else{
+				set_debuff(kind,0,type);
+				set_debuff(kind,1,(int)effect["value"]);
+				set_debuff(kind,2,skill_remaining);
+			}
+			restored++;
+			continue;
+		}
 		if(source=="" || (string)effect["source"]!=source ||
 		   type=="" || type=="none" || sizeof(type)>64 ||
 		   name_cn=="" || sizeof(name_cn)>160 ||
@@ -912,6 +1040,8 @@ int prepare_worker_summon_handoff(){
 	if((mappingp(worker_summon_handoff) && sizeof(worker_summon_handoff)) ||
 	   (mappingp(worker_status_effect_handoff) &&
 	    sizeof(worker_status_effect_handoff)))
+		return 0;
+	if(!sync_auto_learn_runtime_for_save(1))
 		return 0;
 	worker_summon_handoff = SUMMOND->snapshot_worker_handoff(this_object());
 	worker_status_effect_handoff = snapshot_worker_status_effects();
@@ -966,6 +1096,8 @@ void save(void|int autosave){
 }
 /** Drop an isolated stale copy without executing any persistence hook. */
 void discard_stale_worker_copy(){
+	catch { AUTOFIGHTD->cancel_server_autofight_tick(this_object()); };
+	detach_auto_learn_worker_runtime();
 	catch { SUMMOND->player_logout(query_name()); };
 	foreach(all_inventory(this_object()),object ob)
 		if(ob)
@@ -1003,6 +1135,8 @@ void detach_worker_follow_links(){
  * online on the destination worker.
  */
 void retire_worker_copy_after_save(){
+	catch { AUTOFIGHTD->cancel_server_autofight_tick(this_object()); };
+	detach_auto_learn_worker_runtime();
 	catch { SUMMOND->player_logout(query_name()); };
 	foreach(all_inventory(this_object()),object ob)
 		if(ob)

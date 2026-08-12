@@ -2384,6 +2384,8 @@ mapping(string:mixed) stage_local_social_event(string kind,string source_user,
 	source_user = normalize_userid(source_user);
 	target_user = normalize_userid(target_user);
 	if(node_role!="worker" || !local_control_lease_valid() || kind=="" ||
+	   !has_value(({"private_tell","world_broadcast","channel_chat",
+		"team_invite","team_snapshot","team_chat","team_notice"}),kind) ||
 	   source_user=="" || !valid_payload(payload) ||
 	   (has_value(({"private_tell","team_invite"}),kind) &&
 	    target_user==""))

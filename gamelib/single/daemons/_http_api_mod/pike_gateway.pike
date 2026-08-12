@@ -3413,6 +3413,19 @@ private void pike_gateway_deliver_social_event(mapping event)
 		}
 		return;
 	}
+	if(kind=="channel_chat"){
+		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
+			if(worker_id==source_worker)
+				continue;
+			if(!pike_gateway_worker_is_reachable(worker_id))
+				error("channel chat worker is unavailable\n");
+			mapping delivered = pike_gateway_worker_rpc(worker_id,
+				"local_social_apply",(["event":event]));
+			if(!(int)delivered["ok"])
+				error("channel chat delivery rejected\n");
+		}
+		return;
+	}
 	if(has_value(({"team_snapshot","team_chat","team_notice"}),kind)){
 		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 			if(worker_id==source_worker)

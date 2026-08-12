@@ -112,8 +112,7 @@ int main(string|zero arg)
 			string mtmp ="["+me->query_name_cn()+":chatroom_char "+me->query_name()+"]："+arg;
 			arg = me->query_name()+"|"+mtmp;
 
-			if(RACECHATD->add_chat_msg(
-			   me->query_raceId(),me->query_chatid(),arg)){
+			if(RACECHATD->publish_chat_msg(me,me->query_chatid(),arg)){
 				s += "[刷新:chatroom_chat flush]\n[chatroom_chat ...]\n";
 				s += RACECHATD->query_chat_msg(
 					me->query_raceId(),me->query_chatid(),

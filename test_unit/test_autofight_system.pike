@@ -1981,6 +1981,8 @@ void test_loot_pickup_never_blocks_next_fight()
 		daemon->record_failed_loot(player,weapon);
 		valid = valid &&
 			daemon->query_loot_temporarily_suppressed(player,weapon) == 1 &&
+			!player["/tmp/autofight_failed_loot"] &&
+			!player["/tmp/autofight_failed_loot_room"] &&
 			daemon->query_loot_item(player) == 0;
 		flush_command->main(0);
 		valid = valid && environment(weapon) == room &&

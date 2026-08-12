@@ -58,6 +58,42 @@ int add_chat_msg(string race_id,string chat_id,string message)
 	return success;
 }
 
+/** Publish once locally and fan the primitive channel event to other workers. */
+int publish_chat_msg(object source,string chat_id,string message)
+{
+	string race_id;
+	string source_user;
+	if(!source || !functionp(source->query_name) ||
+	   !functionp(source->query_raceId))
+		return 0;
+	race_id = (string)source->query_raceId();
+	source_user = (string)source->query_name();
+	if(!has_value(({"human","monst","third"}),race_id) ||
+	   source_user=="" || chat_id=="" || sizeof(chat_id)>64 ||
+	   message=="" || sizeof(message)>512 ||
+	   !has_prefix(message,source_user+"|"))
+		return 0;
+	if(MAP_WORKERD->query_node_role()=="worker"){
+		mapping staged = MAP_WORKERD->stage_local_social_event(
+			"channel_chat",source_user,"",([
+				"race_id":race_id,"chat_id":chat_id,"message":message,
+			]));
+		if(!(int)staged["ok"])
+			return 0;
+	}
+	return add_chat_msg(race_id,chat_id,message);
+}
+
+/** Gateway fanout path; delivery idempotency is fenced before this call. */
+int apply_distributed_chat_msg(string race_id,string chat_id,string message)
+{
+	if(!has_value(({"human","monst","third"}),race_id) ||
+	   chat_id=="" || sizeof(chat_id)>64 || message=="" ||
+	   sizeof(message)>512)
+		return 0;
+	return add_chat_msg(race_id,chat_id,message);
+}
+
 protected void create()
 {
 }

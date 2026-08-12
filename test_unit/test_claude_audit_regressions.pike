@@ -51,6 +51,8 @@ void test_changed_files_compile()
 		"/gamelib/clone/npc/shilian_xianguan.pike",
 		"/gamelib/clone/npc/taiji_teacher.pike",
 		"/gamelib/cmds/shilian_duihuan.pike",
+		"/gamelib/cmds/auto_learn_confirm.pike",
+		"/gamelib/cmds/chatroom_chat.pike",
 		"/gamelib/cmds/boss_enter.pike",
 		"/gamelib/cmds/buy_items.pike",
 		"/gamelib/cmds/set_relife.pike",
@@ -70,6 +72,7 @@ void test_changed_files_compile()
 		"/gamelib/clone/item/weapon/wuxiangjian/wuxiangjian",
 		"/gamelib/single/daemons/account_characterd.pike",
 		"/gamelib/single/daemons/autofightd.pike",
+		"/gamelib/single/daemons/autolearnd.pike",
 		"/gamelib/single/daemons/buyd.pike",
 		"/gamelib/single/daemons/http_api_daemon.pike",
 		"/gamelib/single/daemons/giftd.pike",
@@ -78,10 +81,12 @@ void test_changed_files_compile()
 		"/gamelib/single/daemons/taskd.pike",
 		"/gamelib/single/daemons/timed_eventd.pike",
 		"/gamelib/single/daemons/professionvipd.pike",
+		"/gamelib/single/daemons/racechatd.pike",
 		"/gamelib/single/daemons/summond.pike",
 		"/gamelib/clone/user.pike",
 		"/lowlib/mudlib/inherit/feature/attack.pike",
 		"/lowlib/mudlib/inherit/feature/char.pike",
+		"/lowlib/mudlib/inherit/feature/ghost.pike",
 		"/lowlib/mudlib/inherit/feature/level.pike",
 		"/lowlib/mudlib/inherit/npc.pike",
 		"/lowlib/mudlib/inherit/user.pike",
@@ -729,6 +734,26 @@ void test_server_driven_autofight()
 	check("事件循环长停顿不一次性补扣超过30秒额度",
 		after==before,
 		sprintf("before=%d after=%d",before,after));
+	AUTOFIGHTD->cancel_server_autofight_tick(player);
+	player->set_autofight("enable");
+	player["/tmp/autofight_no_target_ticks"] = 9;
+	player["/tmp/autofight_previous_room"] = "stale/source/room";
+	player["/tmp/autofight_resting"] = 1;
+	player["/tmp/autofight_rest_started"] = time()-10;
+	player["/tmp/autofight_last_charge"] = time()-20;
+	int resume_before = AUTOFIGHTD->query_time_left(player);
+	int resumed = AUTOFIGHTD->resume_worker_handoff(player);
+	int resume_after = AUTOFIGHTD->query_time_left(player);
+	check("跨Worker恢复挂机重新登记调度且不补扣运输耗时",
+		resumed==1 &&
+		AUTOFIGHTD->query_server_autofight_tick_active(player)==1 &&
+		resume_after==resume_before &&
+		(int)player["/tmp/autofight_last_charge"]>=time()-1 &&
+		(int)player["/tmp/autofight_no_target_ticks"]==0 &&
+		(string)player["/tmp/autofight_previous_room"]=="" &&
+		(int)player["/tmp/autofight_resting"]==0 &&
+		(int)player["/tmp/autofight_rest_started"]==0,
+		"目标Worker未恢复调度、错误扣费或计费锚点未更新");
 	AUTOFIGHTD->stop_autofight(player);
 	check("关闭挂机立即注销服务端调度",
 		AUTOFIGHTD->query_server_autofight_tick_active(player)==0,
@@ -864,6 +889,18 @@ void test_prelogin_command_guards()
 		destruct(prelogin);
 }
 
+void test_distributed_channel_chat_contract()
+{
+	string userid="__testunit_channel_chat";
+	string message=userid+"|[频道测试:look]：跨Worker消息";
+	check("普通频道消息可由目标Worker幂等投递且拒绝伪造阵营",
+		RACECHATD->apply_distributed_chat_msg(
+			"human","pub_channel",message)==1 &&
+		RACECHATD->apply_distributed_chat_msg(
+			"invalid","pub_channel",message)==0,
+		"普通频道缺少跨Worker投递入口或未校验阵营");
+}
+
 int main()
 {
 	werror("\n========== Claude 两日提交审计回归 =========="
@@ -882,6 +919,7 @@ int main()
 		test_timed_event_daily_entry_contract();
 		test_other_runtime_regressions();
 		test_prelogin_command_guards();
+		test_distributed_channel_chat_contract();
 	};
 	if(err)
 		check("审计回归测试运行时无异常",0,

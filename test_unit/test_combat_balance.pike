@@ -575,7 +575,7 @@ void test_missing_skill_safety()
 
 void test_worker_status_effect_handoff()
 {
-	test_start("跨Worker移动保留状态药且不携带战斗Buff");
+	test_start("跨Worker移动保留状态药和人物心跳技能且隔离战场状态");
 	string userid = "__testunit_worker_status__";
 	object|zero player = 0;
 	string error_desc = "";
@@ -613,6 +613,15 @@ void test_worker_status_effect_handoff()
 		player->set_buff("buff",1,999999);
 		player->set_buff("buff",2,12);
 		player->apply_team_guard(888888,12);
+		player->set_buff("spec_attack_buff",0,"jinchanmeiying2");
+		player->set_buff("spec_attack_buff",1,17);
+		player->set_buff("spec_attack_buff",2,25);
+		player->set_buff("70_skill_buff",0,"lieshanmengji");
+		player->set_buff("70_skill_buff",1,23);
+		player->set_buff("70_skill_buff",2,16);
+		player->set_debuff("70_skill_curse",0,"baofengfeixue");
+		player->set_debuff("70_skill_curse",1,31);
+		player->set_debuff("70_skill_curse",2,18);
 		mapping snapshot = player->snapshot_worker_status_effects();
 		player["/danyao"] = ([]);
 		player["/teyao"] = ([]);
@@ -620,6 +629,9 @@ void test_worker_status_effect_handoff()
 		foreach(({"attri_attack","spec","te_exp","mianzhan","home_attack"}),
 		   string kind)
 			player->clean_buff(kind);
+		player->clean_buff("spec_attack_buff");
+		player->clean_buff("70_skill_buff");
+		player->clean_debuff("70_skill_curse");
 		player->hind = 0;
 		int restored = player->restore_worker_status_effects(snapshot);
 		player->sleep();
@@ -635,8 +647,8 @@ void test_worker_status_effect_handoff()
 		])]);
 		player->clean_buff("buff");
 		player->restore_worker_status_effects(forged);
-		valid = sizeof(snapshot)==5 && !snapshot["buff"] &&
-			!snapshot["team_guard"] && restored==5 &&
+		valid = sizeof(snapshot)==8 && !snapshot["buff"] &&
+			!snapshot["team_guard"] && restored==8 &&
 			player->query_buff("te_exp",0)=="exp" &&
 			player->query_buff("te_exp",1)==400 &&
 			player->query_buff("mianzhan",0)=="mianzhan" &&
@@ -646,14 +658,24 @@ void test_worker_status_effect_handoff()
 			arrayp(player["/homeBuff/home_attack"]) &&
 			player->query_buff("attri_attack",0)=="none" &&
 			!player["/danyao/attri_attack"] &&
-			player->query_buff("buff",0)=="none";
+			player->query_buff("buff",0)=="none" &&
+			player->query_buff("spec_attack_buff",0)=="jinchanmeiying2" &&
+			player->query_buff("spec_attack_buff",1)==17 &&
+			player->query_buff("spec_attack_buff",2)>0 &&
+			player->query_buff("spec_attack_buff",2)<=25 &&
+			player->query_buff("70_skill_buff",0)=="lieshanmengji" &&
+			player->query_buff("70_skill_buff",2)>0 &&
+			player->query_buff("70_skill_buff",2)<=16 &&
+			player->query_debuff("70_skill_curse",0)=="baofengfeixue" &&
+			player->query_debuff("70_skill_curse",2)>0 &&
+			player->query_debuff("70_skill_curse",2)<=18;
 	};
 	if(err)
 		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
 	if(!err && valid)
 		test_pass();
 	else
-		test_fail("状态药快照、到期清理、休息保持或战斗Buff隔离失败: "+
+		test_fail("状态药/心跳技能快照、到期清理或战场状态隔离失败: "+
 			error_desc);
 	destroy_test_player(player);
 	cleanup_test_player_file(userid);

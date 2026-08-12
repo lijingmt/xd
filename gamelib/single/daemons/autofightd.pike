@@ -70,6 +70,9 @@ private mapping(string:mapping(string:mixed)) server_autofight_views = ([]);
 // 计时租约只保存在当前 Pike 进程内。重启或人物对象重建后，第一次
 // flushview 只重新锚定时间，不能把停服/离线间隔当成有效挂机扣除。
 private mapping(string:object) server_autofight_charge_owners = ([]);
+// Failed-loot retry targets are live process objects. They must never enter the
+// player's serialised data_tmp mapping or cross a map-worker boundary.
+private mapping(string:mapping(string:mixed)) autofight_failed_loot_runtime = ([]);
 private mapping(string:int) server_autofight_ordered = ([]);
 private array(string) server_autofight_order = ({});
 private int server_autofight_cursor;
@@ -414,7 +417,33 @@ void cancel_server_autofight_tick(object me)
 	m_delete(server_autofight_inflight_started,userid);
 	m_delete(server_autofight_charge_owners,userid);
 	deactivate_server_autofight_view(userid);
+	clear_failed_loot(me);
 	reset_server_autofight_order_if_idle();
+}
+
+/** Re-register an enabled player after a fenced map-worker reconstruction. */
+int resume_worker_handoff(object me)
+{
+	string userid;
+	if(!me || !functionp(me->query_autofight) ||
+	   me->query_autofight()!="enable")
+		return 0;
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="")
+		return 0;
+	// The source worker unregisters its scheduler during retirement. Re-anchor
+	// charging here so transport/load latency is never billed as active play.
+	server_autofight_charge_owners[userid]=me;
+	me["/tmp/autofight_last_charge"] = time();
+	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/tmp/autofight_previous_room"] = "";
+	me["/tmp/autofight_resting"] = 0;
+	me["/tmp/autofight_rest_started"] = 0;
+	clear_failed_loot(me);
+	reset_scan_state(me);
+	initialize_player(me);
+	ensure_server_autofight_tick(me);
+	return query_server_autofight_tick_active(me);
 }
 
 int query_server_autofight_tick_active(object me)
@@ -2865,9 +2894,7 @@ void start_autofight(object me)
 		server_autofight_charge_owners[userid]=me;
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
-	me["/tmp/autofight_failed_loot"] = 0;
-	me["/tmp/autofight_failed_loot_room"] = 0;
-	me["/tmp/autofight_failed_loot_retry"] = 0;
+	clear_failed_loot(me);
 	me["/tmp/autofight_first_death_time"] = 0;
 	me["/tmp/autofight_death_count"] = 0;
 	me["/tmp/autofight_quota_warned"] = 0;
@@ -2888,9 +2915,7 @@ void stop_autofight(object me)
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
 	me["/tmp/autofight_resting"] = 0;
-	me["/tmp/autofight_failed_loot"] = 0;
-	me["/tmp/autofight_failed_loot_room"] = 0;
-	me["/tmp/autofight_failed_loot_retry"] = 0;
+	clear_failed_loot(me);
 	reset_scan_state(me);
 	me->set_autofight("disable");
 	// 停止挂机后不把玩家困在无出口的临时分流房。战斗中不强制移动，
@@ -3894,8 +3919,13 @@ private int can_loot_item(object me, object ob)
 
 void clear_failed_loot(object me)
 {
+	string userid;
 	if(!me)
 		return;
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid!="")
+		m_delete(autofight_failed_loot_runtime,userid);
+	// Remove archives written by the historical implementation as well.
 	me["/tmp/autofight_failed_loot"] = 0;
 	me["/tmp/autofight_failed_loot_room"] = 0;
 	me["/tmp/autofight_failed_loot_retry"] = 0;
@@ -3903,25 +3933,36 @@ void clear_failed_loot(object me)
 
 void record_failed_loot(object me,object item)
 {
+	string userid;
 	if(!me || !item)
 		return;
-	me["/tmp/autofight_failed_loot"] = item;
-	me["/tmp/autofight_failed_loot_room"] = environment(me);
-	me["/tmp/autofight_failed_loot_retry"] =
-		time()+AUTOFIGHT_LOOT_RETRY_SECONDS;
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="")
+		return;
+	autofight_failed_loot_runtime[userid]=([
+		"item":item,
+		"room":environment(me),
+		"retry_at":time()+AUTOFIGHT_LOOT_RETRY_SECONDS,
+	]);
 }
 
 int query_loot_temporarily_suppressed(object me,object item)
 {
+	string userid;
+	mapping runtime;
 	object|zero failed;
 	object|zero failed_room;
 	if(!me || !item)
 		return 0;
-	failed = me["/tmp/autofight_failed_loot"];
-	failed_room = me["/tmp/autofight_failed_loot_room"];
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	runtime=userid!="" ? autofight_failed_loot_runtime[userid] : 0;
+	if(!mappingp(runtime))
+		return 0;
+	failed = runtime["item"];
+	failed_room = runtime["room"];
 	if(!failed || failed_room!=environment(me) ||
 	   environment(failed)!=environment(me) ||
-	   (int)me["/tmp/autofight_failed_loot_retry"]<=time()){
+	   (int)runtime["retry_at"]<=time()){
 		clear_failed_loot(me);
 		return 0;
 	}

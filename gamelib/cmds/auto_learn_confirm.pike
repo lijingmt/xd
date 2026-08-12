@@ -60,10 +60,17 @@ int main(string|zero arg)
 						me->set_auto_learn_dazuo(0);
 					}
 					string c_log  = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][auto_learn][type:"+type+"][time:"+time+"][1]["+yushi+"][0]\n";
-					if(c_log != "")
-						Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
-					me->command("sleep_for_learn "+time);
-					return 1;
+						if(c_log != "")
+							Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+						me->command("sleep_for_learn "+time);
+						// The daemon registry and wake-up callout are process-local. Persist
+						// their durable mirror only after the timer exists, so an immediate
+						// restart or worker handoff cannot lose paid training time.
+						AUTO_LEARND->prepare_worker_handoff(me);
+						if(functionp(me->save_with_result) && !me->save_with_result())
+							werror("[AUTO_LEARND] initial save failed uid=%s\n",
+								(string)me->query_name());
+						return 1;
 				}
 				else
 					s += "你预定的"+typeDes+"时间为"+time+"分钟，要开始修炼，剩余时间必须在5分钟以上。\n";
