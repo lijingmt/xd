@@ -27,6 +27,8 @@ private void clear_pet_runtime(object player)
 	player["/tmp/wanling/pet_pvp_growth_percent"] = 0;
 	player["/tmp/wanling/pet_name"] = 0;
 	player["/tmp/wanling/pet_polarity"] = 0;
+	player["/tmp/wanling/pet_skills"] = 0;
+	player["/tmp/wanling/pet_fusion"] = 0;
 	player["/tmp/wanling/pet_equipment_bonus"] = 0;
 	player["/tmp/wanling/imprinted_skill"] = 0;
 	player["/tmp/wanling/assist_at"] = 0;
@@ -87,6 +89,12 @@ private void sync_pet_runtime_unlocked(object player,mapping pet,
 		(string)pet["fusion"]["name"] :
 		(string)shanhai_catalog[(string)pet["species"]]["name"];
 	player["/tmp/wanling/pet_polarity"] = query_pet_polarity(pet);
+	player["/tmp/wanling/pet_skills"] = arrayp(pet["skills"]) ?
+		copy_value((array)pet["skills"]) : copy_value((array)
+		shanhai_catalog[(string)pet["species"]]["skill_sets"][
+			(int)pet["skill_set"]]);
+	player["/tmp/wanling/pet_fusion"] = mappingp(pet["fusion"]) ?
+		copy_value((mapping)pet["fusion"]) : 0;
 	player["/tmp/wanling/pet_equipment_bonus"] = mappingp(
 		pet["equipment_bonus"]) ?
 		copy_value((mapping)pet["equipment_bonus"]) :

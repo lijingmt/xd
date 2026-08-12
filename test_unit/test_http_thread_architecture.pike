@@ -174,6 +174,9 @@ void test_non_backend_world_rejection(object httpd)
 void test_core_command_coverage(object httpd)
 {
 	int valid = httpd->is_core_command("buy_items book fangshi") == 1 &&
+		httpd->is_core_command("list_spec 1") == 1 &&
+		httpd->is_core_command("buy_detail_spec book/test 1 token") == 1 &&
+		httpd->is_core_command("buy_goods_spec book/test 1 token") == 1 &&
 		httpd->is_core_command("choice_race third") == 1 &&
 		httpd->is_core_command("choice_profe third/fangshi") == 1 &&
 		httpd->is_core_command("start third") == 1 &&

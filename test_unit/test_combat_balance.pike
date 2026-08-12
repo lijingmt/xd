@@ -213,6 +213,58 @@ void test_xuehai_percentage_limits()
 	destroy_test_player(player);
 }
 
+void test_xuehai_dot_tick_and_guard_visibility()
+{
+	test_start("血海裂伤真实逐跳扣血、山河壁吸收、到期清理与致死均可核验");
+	object caster = create_test_player("__testunit_xuehai_tick_caster__");
+	object target = create_test_player("__testunit_xuehai_tick_target__");
+	int valid = !!caster && !!target;
+	if(valid){
+		int before = target->get_cur_life();
+		mapping first = ([]);
+		mapping guarded = ([]);
+		mapping expired = ([]);
+		mapping lethal = ([]);
+		valid = caster->apply_nonstacking_dot(
+			target,"xuehailieshang",1000,2)==1;
+		string combat_save = pikenv_save_object(target);
+		valid = valid && search(combat_save,"dot_source_runtime")==-1 &&
+			search(combat_save,"dot_source_runtime_name")==-1;
+		first = target->process_dot_tick();
+		valid = valid && first["active"] && first["damage"]==1000 &&
+			first["absorbed"]==0 && first["remaining"]==1 &&
+			target->get_cur_life()==before-1000 &&
+			first["display_name"]=="【神】血海裂伤";
+		target->set_life(before);
+		valid = valid && target->apply_team_guard(1500,12)==1 &&
+			caster->apply_nonstacking_dot(
+				target,"xuehailieshang",1000,2)==1;
+		guarded = target->process_dot_tick();
+		valid = valid && guarded["damage"]==0 &&
+			guarded["absorbed"]==1000 && guarded["remaining"]==1 &&
+			target->get_cur_life()==before &&
+			target->query_buff("team_guard",1)==500;
+		expired = target->process_dot_tick();
+		valid = valid && expired["damage"]==500 &&
+			expired["absorbed"]==500 && expired["remaining"]==0 &&
+			target->get_cur_life()==before-500 &&
+			target->query_debuff("dot",0)=="none";
+		target->set_life(400);
+		valid = valid && caster->apply_nonstacking_dot(
+			target,"xuehailieshang",1000,2)==1;
+		lethal = target->process_dot_tick();
+		valid = valid && lethal["defeated"] && lethal["damage"]==400 &&
+			lethal["absorbed"]==0 &&
+			target->get_cur_life()==0;
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail("持续伤害仍可能只写Debuff不扣血、护盾吸收不可见或到期/致死错误");
+	destroy_test_player(caster);
+	destroy_test_player(target);
+}
+
 void test_kuangyao_wound_and_dot_priority()
 {
 	test_start("致残重伤按自身生命成长且弱持续伤害不能覆盖强效果");
@@ -591,6 +643,7 @@ int main()
 	test_critical_and_dodge_caps();
 	test_zero_probability_boundaries();
 	test_xuehai_percentage_limits();
+	test_xuehai_dot_tick_and_guard_visibility();
 	test_kuangyao_wound_and_dot_priority();
 	test_formula_wiring_contract();
 	test_stacked_absorb_shields();

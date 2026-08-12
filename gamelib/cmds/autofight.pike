@@ -1,8 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
-
 private string format_time(int seconds)
 {
 	int hours;

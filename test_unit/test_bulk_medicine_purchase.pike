@@ -56,7 +56,9 @@ int main()
 {
 	object player=create_player();
 	object ordinary=(object)(ROOT+"/lowlib/wapmud2/cmds/buy_goods.pike");
+	object detail=(object)(ROOT+"/lowlib/wapmud2/cmds/buy_detail_spec.pike");
 	object special=(object)(ROOT+"/lowlib/wapmud2/cmds/buy_goods_spec.pike");
+	object httpd=(object)(ROOT+"/gamelib/single/daemons/http_api_daemon.pike");
 	object|zero original_player=this_player();
 	string error_desc="";
 	mixed err=catch{
@@ -64,6 +66,9 @@ int main()
 		string listing=MUD_SPEC_STORED->random_list(0);
 		int listed=0;
 		int signed_links=0;
+		string first_name="";
+		string first_token="";
+		int first_fee;
 		foreach(listing/"\n",string line){
 			string prefix;
 			string listed_name;
@@ -74,12 +79,57 @@ int main()
 			listed++;
 			if(sscanf(line,"%s:buy_detail_spec %s %d %s]",prefix,
 			   listed_name,listed_fee,listed_token)==4 &&
-			   sizeof(listed_token)==64)
+			   sizeof(listed_token)==64){
 				signed_links++;
+				if(first_name==""){
+					first_name=listed_name;
+					first_fee=listed_fee;
+					first_token=listed_token;
+				}
+			}
 		}
 		check("神秘商店真实刷新链接全部携带玩家专属货架凭证",
 			listed>0 && signed_links==listed,
 			sprintf("listed=%d signed=%d",listed,signed_links));
+
+		array(mapping) rendered=httpd->parse_mud_to_json(listing,
+			"testunit-txd",player->query_name());
+		int rendered_buttons=0;
+		string first_hidden="";
+		foreach(rendered,mapping line)
+			foreach((array)(line["segments"] || ({})),mapping segment)
+				if((string)segment["type"]=="button"){
+					rendered_buttons++;
+					if(first_hidden=="")
+						first_hidden=(string)segment["cmd"];
+				}
+		string first_command="buy_detail_spec "+first_name+" "+
+			(string)first_fee+" "+first_token;
+		check("新界面把真实货架商品渲染成可点击按钮",
+			first_name!="" && rendered_buttons==listed &&
+			httpd->unhide_command(player->query_name(),first_hidden)==
+			first_command,
+			sprintf("listed=%d buttons=%d",listed,rendered_buttons));
+
+		int shelf_money=player->query_account();
+		int shelf_inventory=sizeof(all_inventory(player));
+		detail->main(first_name+" "+(string)first_fee+" "+first_token);
+		string detail_view=(string)(player->query_spliter()["text"] || "");
+		int detail_has_buy=search(detail_view,
+			"buy_goods_spec "+first_name+" "+(string)first_fee+" "+
+			first_token)!=-1;
+		special->main(first_name+" "+(string)first_fee+" "+first_token);
+		int shelf_after_money=player->query_account();
+		int shelf_after_inventory=sizeof(all_inventory(player));
+		special->main(first_name+" "+(string)first_fee+" "+first_token);
+		check("真实刷新到详情、购买及防重放链路完整可用",
+			detail_has_buy && shelf_after_money==shelf_money-first_fee &&
+			shelf_after_inventory==shelf_inventory+1 &&
+			player->query_account()==shelf_after_money &&
+			sizeof(all_inventory(player))==shelf_after_inventory,
+			sprintf("detail=%d cost=%d items=%d",detail_has_buy,
+				shelf_money-player->query_account(),
+				sizeof(all_inventory(player))-shelf_inventory));
 
 		int before_money=player->query_account();
 		ordinary->main("food/xiaohuandan 5");

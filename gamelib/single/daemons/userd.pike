@@ -2,7 +2,6 @@
 #include <gamelib/include/gamelib.h>
 inherit LOW_DAEMON;
 
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
 #define NO_LEVEL_RECYCLE_NOTICE "/plus/no_level_equipment_recycle_notice"
 #define NO_LEVEL_RECYCLE_TOTAL "/plus/no_level_equipment_recycle_total"
 #define NO_LEVEL_RECYCLE_LOG ROOT "/log/no_level_equipment_recycle.log"

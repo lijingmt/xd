@@ -44,6 +44,7 @@ constant CORE_COMMANDS = ({
 
     // ========== 商店/交易（涉及金币/物品转移）==========
     "buy", "buy_items", "sell", "list", "value",
+    "list_spec", "buy_detail_spec", "buy_goods_spec",
     "trade",  // 玩家间交易
     "sell_new", "sell_zb_all",  // 拍卖售卖
     "cancel_sell",  // 取消拍卖（物品返回）

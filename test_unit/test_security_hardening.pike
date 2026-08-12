@@ -250,15 +250,20 @@ void test_runtime_debug_logs_removed()
 
 void test_bossdrop_sentinels()
 {
+	string source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/bossdropd.pike") || "";
 	object bossdropd = (object)(ROOT+
 		"/gamelib/single/daemons/bossdropd.pike");
-	int valid = bossdropd &&
+	int valid = source!="" &&
+		search(source,"String.trim_all_whites")==-1 &&
+		search(source,"String.trim_whites")!=-1 &&
+		bossdropd &&
 		bossdropd->get_bossdrop_specitem("choulounianshou")=="" &&
 		bossdropd->get_bossdrop_specitem("xueduchongwang")=="" &&
 		bossdropd->get_bossdrop_specitem("liubimojun")==
 			"bossdrop/bawanghuiji";
-	check("Boss掉落正确区分特殊物品与and/end哨兵",valid,
-		"CSV哨兵仍会被当成物品路径");
+	check("Boss掉落无弃用裁剪告警且正确区分and/end哨兵",valid,
+		"CSV裁剪仍触发弃用告警，或哨兵被当成物品路径");
 }
 
 void test_health_and_deployment_secrets()

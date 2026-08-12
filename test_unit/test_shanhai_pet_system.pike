@@ -966,6 +966,36 @@ void test_pet_batch_growth_and_fusion()
 		(int)success_after["materials"]["spirit_mark"]==
 			(int)success_before["materials"]["spirit_mark"]-10,
 		"成功路径数量、旧ID删除、随机结构或继承字段错误");
+	player->move(test_room);
+	mapping child_activated = PETD->set_active_pet(player,
+		(string)child["id"]);
+	mapping child_presence = PETD->query_pet_battle_presence(player);
+	object fusion_target = make_npc(player,50);
+	player["/tmp/wanling/assist_at"] = 0;
+	mapping fusion_assist = PETD->perform_pet_pve_assist(player,
+		fusion_target);
+	mapping fusion_event = mappingp(fusion_assist["event"]) ?
+		fusion_assist["event"] : ([]);
+	int all_runes_visible = sizeof((array)child["skills"])==3;
+	foreach((array)child["skills"],string rune)
+		all_runes_visible = all_runes_visible &&
+			search((string)(fusion_event["skill"] || ""),rune)!=-1;
+	check("阴阳融合宠三枚父系灵纹同步到战斗并作为一个共鸣组合真实触发",
+		child_activated["ok"] && fusion_assist["ok"] &&
+		child_presence["rune_combo"] && fusion_event["rune_combo"] &&
+		Standards.JSON.encode(child_presence["runes"])==
+			Standards.JSON.encode(child["skills"]) &&
+		Standards.JSON.encode(fusion_event["runes"])==
+			Standards.JSON.encode(child["skills"]) && all_runes_visible,
+		"融合灵纹只写入档案，出战快照仍回退原种族技能或战斗不触发");
+	player["/tmp/wanling/pet_skills"] = ({"损坏残片",0,0});
+	mapping repaired_presence = PETD->query_pet_battle_presence(player);
+	check("损坏的临时灵纹快照安全回退完整原生组合且不拼接残片",
+		sizeof((array)repaired_presence["runes"])==3 &&
+		search((array)repaired_presence["runes"],"损坏残片")==-1,
+		"部分损坏快照与图鉴回退拼接，形成四枚以上伪灵纹");
+	PETD->set_active_pet(player,"none");
+	PETD->set_active_pet(player,(string)child["id"]);
 	mapping duplicate_attempt = PETD->test_fuse_pets(player,
 		(string)dangkang["id"],(string)bifang["id"],1,4,1);
 	mapping duplicate_state = PETD->query_pet_state(player);
@@ -977,6 +1007,7 @@ void test_pet_batch_growth_and_fusion()
 		disk_state["ok"] && sizeof((array)disk_state["pets"])==2 &&
 		mappingp(find_pet_species(disk_state,(string)child["species"])["fusion"]),
 		"重复合成产生克隆、材料重复扣除或融合档案无法恢复");
+	if(fusion_target) destruct(fusion_target);
 }
 
 void test_rift(array(object) players)

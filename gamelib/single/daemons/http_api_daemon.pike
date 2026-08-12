@@ -30,7 +30,6 @@
 
 inherit LOW_DAEMON;
 
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
 #define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 
 // ========================================================================

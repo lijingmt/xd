@@ -9,8 +9,6 @@
 
 inherit LOW_DAEMON;
 
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
-
 #define PROFESSION_VIP_VERSION 1
 #define PROFESSION_TRIAL_SECONDS 259200
 #define PROFESSION_TRIAL_LEVEL 2

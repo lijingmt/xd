@@ -39,6 +39,12 @@ int main(string|zero arg)
 		int supplied_fee=0;
 		int parsed=sscanf(arg,"%s %d %s %s",name,supplied_fee,
 			offer_token,count_value);
+		// Pike 在缺少末尾可选字段时不会保留前一个 %s 的赋值：单件
+		// 购买只有三段参数，必须用独立的三段格式重新解析报价凭证。
+		if(parsed!=4){
+			count_value="";
+			parsed=sscanf(arg,"%s %d %s",name,supplied_fee,offer_token);
+		}
 		int count=parse_count(parsed==4 ? count_value : 0);
 		if(parsed<3 || name=="" || search(name,"..")!=-1 ||
 		   name[0]=='/' || sizeof(offer_token)!=64 ||

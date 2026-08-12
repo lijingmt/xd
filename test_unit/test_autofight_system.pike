@@ -80,6 +80,17 @@ void test_runtime_compile()
 		"/gamelib/cmds/get.pike",
 		"/lowlib/wapmud2/cmds/flushview.pike",
 	});
+	array(string) shared_macro_paths = ({
+		"/gamelib/cmds/autofight.pike",
+		"/gamelib/cmds/autofightclose.pike",
+		"/gamelib/cmds/cleanup_non_equipment.pike",
+		"/gamelib/cmds/sell_equipment_batch.pike",
+		"/gamelib/cmds/viceskill_dig.pike",
+		"/gamelib/cmds/viceskill_gather.pike",
+		"/gamelib/single/daemons/http_api_daemon.pike",
+		"/gamelib/single/daemons/professionvipd.pike",
+		"/gamelib/single/daemons/userd.pike",
+	});
 	int failed = 0;
 	string error_desc = "";
 	foreach(paths,string path){
@@ -93,10 +104,18 @@ void test_runtime_compile()
 			error_desc += path+": "+describe_error(err);
 		}
 	}
+	foreach(shared_macro_paths,string source_path){
+		string source = Stdio.read_file(ROOT+source_path) || "";
+		if(source=="" || search(source,"#define AUTOFIGHTD")!=-1){
+			failed++;
+			error_desc += source_path+": redundant AUTOFIGHTD; ";
+		}
+	}
 	if(failed == 0)
 		test_pass();
 	else
-		test_fail("自动挂机文件编译失败: "+error_desc);
+		test_fail("自动挂机文件编译失败或重复定义AUTOFIGHTD: "+
+			error_desc);
 }
 
 void test_defaults_and_switch()

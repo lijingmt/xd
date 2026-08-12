@@ -12,25 +12,31 @@ int query_pet_pvp_charge_required(void|int skill_set)
 	return 5;
 }
 
-private mapping(string:mixed) query_runtime_pet(object player)
+private array(string) query_pet_runtime_runes(object player,mapping info)
 {
-	mapping result = ([]);
-	string species;
-	if(!player)
+	array(string) result = ({});
+	mixed raw;
+	int skill_set;
+	if(!player || !mappingp(info))
 		return result;
-	refresh_pet_runtime_level_if_needed(player);
-	species = (string)(player["/tmp/wanling/species"] || "");
-	if(!shanhai_catalog[species])
-		return result;
-	result["id"] = (string)(player["/tmp/wanling/pet_id"] || "");
-	result["species"] = species;
-	result["level"] = (int)player["/tmp/wanling/pet_level"];
-	result["star"] = (int)player["/tmp/wanling/pet_star"];
-	result["bond"] = (int)player["/tmp/wanling/pet_bond"];
-	result["skill_set"] = (int)player["/tmp/wanling/skill_set"];
-	result["imprinted_skill"] = mappingp(player[
-		"/tmp/wanling/imprinted_skill"]) ?
-		copy_value((mapping)player["/tmp/wanling/imprinted_skill"]) : 0;
+	raw = player["/tmp/wanling/pet_skills"];
+	if(arrayp(raw) && sizeof((array)raw)==3){
+		foreach((array)raw,mixed rune)
+			if(stringp(rune) && (string)rune!="")
+				result += ({(string)rune});
+		if(sizeof(result)==3)
+			return result;
+	}
+	result = ({});
+	skill_set = (int)player["/tmp/wanling/skill_set"];
+	if(skill_set<0 || skill_set>2)
+		skill_set = 0;
+	if(arrayp(info["skill_sets"]) &&
+	   sizeof((array)info["skill_sets"])>skill_set &&
+	   arrayp(info["skill_sets"][skill_set]))
+		foreach((array)info["skill_sets"][skill_set],mixed rune)
+			if(stringp(rune) && (string)rune!="")
+				result += ({(string)rune});
 	return result;
 }
 
@@ -38,8 +44,15 @@ private string query_pet_active_skill_name(object player,mapping info)
 {
 	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
 		player["/tmp/wanling/imprinted_skill"] : ([]);
+	array(string) runes;
 	if((string)(imprint["name_cn"] || "")!="")
 		return "拓印·"+(string)imprint["name_cn"];
+	runes = query_pet_runtime_runes(player,info);
+	// 融合宠的三枚灵纹来自不同父系，不能再用锚定种族的原生技能名
+	// 覆盖。三纹作为一个共鸣组合触发，结算仍沿用既有角色与节奏，
+	// 只修复战斗读取和可见性，不额外叠加数值。
+	if(mappingp(player["/tmp/wanling/pet_fusion"]) && sizeof(runes)==3)
+		return runes*"·";
 	return (string)info["skill"];
 }
 
@@ -76,6 +89,8 @@ mapping(string:mixed) query_pet_room_presence(object player)
 		"power":(int)player["/tmp/wanling/pet_power"],
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
+		"runes":query_pet_runtime_runes(player,info),
+		"rune_combo":mappingp(player["/tmp/wanling/pet_fusion"]),
 	]);
 }
 
@@ -125,6 +140,8 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		"role":(string)info["role"],
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
+		"runes":query_pet_runtime_runes(player,info),
+		"rune_combo":mappingp(player["/tmp/wanling/pet_fusion"]),
 		"imprinted_skill":mappingp(player[
 			"/tmp/wanling/imprinted_skill"]) ?
 			copy_value((mapping)player[
@@ -331,6 +348,8 @@ private mapping(string:mixed) create_pet_assist_event(object player,
 		"role":(string)info["role"],
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
+		"runes":query_pet_runtime_runes(player,info),
+		"rune_combo":mappingp(player["/tmp/wanling/pet_fusion"]),
 		"mode":mode,
 		"type":effect_type,
 		"amount":actual,

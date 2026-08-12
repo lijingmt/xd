@@ -581,6 +581,23 @@ int query_dot_should_replace(string current_name,int current_damage,
 	return new_damage*new_time >= current_damage*current_time;
 }
 
+// 施法者对象只属于当前战斗进程。不能放入 dbase 的 /tmp：旧存档器会
+// 序列化 data_tmp，可能把玩家/NPC对象引用写入人物档案。
+private object|zero dot_source_runtime;
+private string dot_source_runtime_name = "";
+
+void set_dot_source_runtime(object|zero source,string name)
+{
+	dot_source_runtime = source;
+	dot_source_runtime_name = name || "";
+}
+
+void clear_dot_source_runtime()
+{
+	dot_source_runtime = 0;
+	dot_source_runtime_name = "";
+}
+
 int apply_nonstacking_dot(object target,string name,int damage,int duration)
 {
 	string current_name;
@@ -597,7 +614,100 @@ int apply_nonstacking_dot(object target,string name,int damage,int duration)
 	target->set_debuff("dot",0,name);
 	target->set_debuff("dot",1,damage);
 	target->set_debuff("dot",2,duration);
+	// 只保存当前成功覆盖者的私有运行时引用，用于每跳向真正施法者
+	// 回报。名称必须与槽位一致，净化或下一次覆盖后不会串报。
+	target->set_dot_source_runtime(this_object(),name);
 	return 1;
+}
+
+private string query_dot_display_name(string name)
+{
+	object skill;
+	if(!name || name=="" || name=="none")
+		return "持续伤害";
+	skill = MUD_SKILLSD[name];
+	if(skill && functionp(skill->query_name_cn) && skill->query_name_cn()!="")
+		return (string)skill->query_name_cn();
+	return name;
+}
+
+/**
+ * 结算一个持续伤害节拍。返回值供 TestUnit 和未来战斗状态接口核验；
+ * 伤害、持续时间、山河壁吸收与死亡规则均沿用原逻辑，只补齐真实扣血
+ * 的单一入口和施法者/受击者可见反馈。
+ */
+mapping(string:mixed) process_dot_tick()
+{
+	string dot_name = (string)this_object()->query_debuff("dot",0);
+	int raw_damage = (int)this_object()->query_debuff("dot",1);
+	int remaining = (int)this_object()->query_debuff("dot",2);
+	mapping(string:mixed) result = ([
+		"active":0,"name":dot_name,"display_name":"持续伤害",
+		"raw_damage":raw_damage,"damage":0,"absorbed":0,
+		"remaining":remaining,"defeated":0,
+	]);
+	object source;
+	string source_name;
+	string display_name;
+	string damage_desc;
+	int before_life;
+	int post_guard_damage;
+	int actual_damage;
+	int after_life;
+	if(dot_name=="" || dot_name=="none" || raw_damage<=0 || remaining<=0){
+		if(dot_name!="none")
+			this_object()->clean_debuff("dot");
+		clear_dot_source_runtime();
+		return result;
+	}
+	result["active"] = 1;
+	display_name = query_dot_display_name(dot_name);
+	result["display_name"] = display_name;
+	source_name = dot_source_runtime_name;
+	if(source_name==dot_name && objectp(dot_source_runtime))
+		source = dot_source_runtime;
+	before_life = this_object()->get_cur_life();
+	post_guard_damage = this_object()->absorb_team_guard_damage(raw_damage);
+	if(post_guard_damage<0)
+		post_guard_damage = 0;
+	actual_damage = post_guard_damage;
+	if(actual_damage>before_life)
+		actual_damage = before_life;
+	after_life = before_life-actual_damage;
+	this_object()->set_life(after_life);
+	remaining--;
+	result["damage"] = actual_damage;
+	// 过量致死伤害不是护盾吸收；这里只报告山河壁真正吞掉的部分。
+	result["absorbed"] = raw_damage-post_guard_damage;
+	result["remaining"] = remaining;
+	if(remaining<=0){
+		this_object()->clean_debuff("dot");
+		clear_dot_source_runtime();
+	}
+	else
+		this_object()->set_debuff("dot",2,remaining);
+
+	if(actual_damage>0)
+		damage_desc = "造成"+format_game_number(actual_damage)+"点持续伤害";
+	else
+		damage_desc = "本跳"+format_game_number(raw_damage)+
+			"点伤害被山河壁完全吸收";
+	if(source && source!=this_object())
+		tell_object(source,"【持续伤害】你的"+display_name+"对"+
+			this_object()->query_name_cn()+damage_desc+"（剩余"+remaining+
+			"个战斗节拍）。\n");
+	if(this_object()->is("player"))
+		tell_object(this_object(),"【持续伤害】"+display_name+"对你"+
+			damage_desc+"（剩余"+remaining+"个战斗节拍）。\n");
+
+	if(after_life<=0){
+		result["defeated"] = 1;
+		if(enemy && objectp(enemy))
+			enemy->clean_targets(this_object());
+		if(zero_type(find_call_out(dot_death)))
+			call_out(dot_death,0);
+	}
+	return result;
 }
 
 private int killing;
@@ -1286,6 +1396,7 @@ void _clean_fight(){
 	this_object()->set_debuff("dot",0,"none");
 	this_object()->set_debuff("dot",1,0);
 	this_object()->set_debuff("dot",2,0);
+	clear_dot_source_runtime();
 	this_object()->set_debuff("curse",0,"none");
 	this_object()->set_debuff("curse",1,0);
 	this_object()->set_debuff("curse",2,0);
@@ -4177,34 +4288,12 @@ private void heart_beat_action(){
 		//在这儿可以读取自己身上的debuff映射表，来影响自身的状态
 		//
 		/////////////////////////////////////////////////////////
-		//如果身上有dot状态
+		// 持续伤害统一走可测试的单跳结算，并把真实扣血/护盾吸收反馈给
+		// 施法者和玩家目标；死亡仍由心跳外的既有兜底完成。
 		if(this_object()->query_debuff("dot",0)!="none"){
-			//掉血
-			int dot_damage = this_object()->absorb_team_guard_damage(
-				this_object()->query_debuff("dot",1));
-			int tmp_life=this_object()->get_cur_life()-dot_damage;
-			if(tmp_life<=0){
-				this_object()->set_life(0);
-				//敌人死亡，则把敌人从仇恨列表中清除
-				if(enemy && objectp(enemy))
-					enemy->clean_targets(this_object());
-				//自身心跳不能直接 fight_die（后台报错）。多数情况下一次
-				// 敌人心跳会检测到 0 血并触发 fight_die；但敌人若已离场
-				// （换区/下线/换目标），没人触发就会留下零血怪。call_out
-				// 兜底，dot_death 内会再校验 HP，复活时不重复触发。
-				if(zero_type(find_call_out(dot_death)))
-					call_out(dot_death,0);
+			mapping dot_tick = process_dot_tick();
+			if(dot_tick["defeated"])
 				return;
-			}
-			else {
-				//持续时间减1
-				this_object()->set_life(tmp_life);
-				int dot_time=this_object()->query_debuff("dot",2)-1; 
-				if(dot_time<=0) //dot持续时间结束，则去除dot状态
-					this_object()->clean_debuff("dot");
-				else
-					this_object()->set_debuff("dot",2,dot_time);
-			}
 		}
 		//如果身上有诅咒状态
 		if(this_object()->query_debuff("curse",0)!="none"){

@@ -37,7 +37,10 @@ int main(string|zero arg)
 		return 1;
 	}
 	fee=(int)offer["fee"];
-	object ob=clone(ROOT+"/gamelib/clone/item/"+name);
+	object|zero ob;
+	mixed clone_err=catch {
+		ob=clone(ROOT+"/gamelib/clone/item/"+name);
+	};
 	if(ob){
 		string s=ob->query_name_cn()+"\n";
 		s+=ob->query_picture_url()+"\n";
@@ -62,6 +65,8 @@ int main(string|zero arg)
 	else{
 		string s = "";
 		s+= "没有这个物品\n";
+		if(clone_err)
+			s+= "商品数据暂时不可用，请重新刷新货架。\n";
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 	}
 	return 1;
