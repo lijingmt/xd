@@ -949,6 +949,13 @@ void test_pet_equipment_and_skill_imprint()
 	player["/tmp/wanling/assist_at"] = 0;
 	npc->set_life(npc->query_life_max());
 	int dot_life_before = npc->get_cur_life();
+	object dot_skill = MUD_SKILLSD["xuehailieshang"];
+	mapping dot_balance = PETD->query_pet_imprinted_dot_profile(
+		player,npc,1,"pve");
+	int expected_dot_damage = (int)dot_balance["source_tick"]*35*
+		(int)dot_balance["rhythm_percent"]/10000;
+	if(expected_dot_damage<(int)dot_balance["fallback_tick"])
+		expected_dot_damage = (int)dot_balance["fallback_tick"];
 	mapping dot_assist = PETD->perform_pet_pve_assist(player,npc);
 	int dot_duration = (int)npc->query_debuff("dot",2);
 	int dot_damage = (int)npc->query_debuff("dot",1);
@@ -962,7 +969,11 @@ void test_pet_equipment_and_skill_imprint()
 	string dot_second_tick_text = player->drain_catch_tell(0,50);
 	check("宠物拓印DOT经真实战斗心跳逐跳扣血并显示伤害与剩余节拍",
 		dot_imprinted["ok"] && dot_assist["ok"] &&
-		dot_assist["type"]=="dot" && dot_duration>1 && dot_damage>0 &&
+		dot_assist["type"]=="dot" && dot_duration==12 &&
+		dot_skill && (int)dot_balance["inherit_percent"]==35 &&
+		(int)dot_balance["source_tick"]==
+			player->query_active_dot_damage(dot_skill,1,npc) &&
+		dot_damage==expected_dot_damage &&
 		dot_life_after_first==dot_life_before-dot_damage &&
 		npc->get_cur_life()==dot_life_before-dot_damage*2 &&
 		(int)npc->query_debuff("dot",2)==dot_duration-2 &&
@@ -980,11 +991,57 @@ void test_pet_equipment_and_skill_imprint()
 			dot_life_after_first,dot_life_before,
 			dot_damage,(int)npc->query_debuff("dot",2),dot_duration,
 			dot_tick_text,dot_second_tick_text));
+
+	object dot_boss = make_npc(player,50);
+	dot_boss->_boss = 1;
+	mapping boss_dot_balance = PETD->query_pet_imprinted_dot_profile(
+		player,dot_boss,1,"pve");
+	object dot_pvp_target = create_test_player(
+		"xd99testunitpetdotpvp","human","zhenyue");
+	dot_pvp_target->level = 50;
+	dot_pvp_target->set_att_by_level();
+	dot_pvp_target->move(test_room);
+	mapping pvp_dot_balance = PETD->query_pet_imprinted_dot_profile(
+		player,dot_pvp_target,1,"pvp");
+	player["/pet_battle/source"] = "shared";
+	mapping fast_dot_profile = PETD->query_pet_pk_fast_profile(
+		player,dot_pvp_target);
+	check("拓印持续伤害按普通35%、首领20%、PVP 15%分层且复用人物公式",
+		(int)boss_dot_balance["inherit_percent"]==20 &&
+		(int)boss_dot_balance["source_tick"]==
+			player->query_active_dot_damage(dot_skill,1,dot_boss) &&
+		(int)pvp_dot_balance["inherit_percent"]==15 &&
+		(int)pvp_dot_balance["source_tick"]==
+			player->query_active_dot_damage(dot_skill,1,dot_pvp_target) &&
+		(int)boss_dot_balance["tick_damage"]==
+			(int)boss_dot_balance["source_tick"]*20*
+			(int)boss_dot_balance["rhythm_percent"]/10000 &&
+		(int)pvp_dot_balance["tick_damage"]==
+			(int)pvp_dot_balance["source_tick"]*15*
+			(int)pvp_dot_balance["rhythm_percent"]/10000 &&
+		fast_dot_profile["active"] && fast_dot_profile["dot"] &&
+		(int)fast_dot_profile["dot_tick_damage"]==
+			(int)pvp_dot_balance["tick_damage"] &&
+		(int)fast_dot_profile["amount"]==
+			(int)pvp_dot_balance["total_amount"],
+		"目标类型未分层、拓印复制了另一套技能公式或比例被成长属性放大");
+
+	npc->clean_debuff("dot");
+	player["/tmp/wanling/assist_at"] = 0;
+	npc->set_life(2);
+	mapping guarded_dot = PETD->perform_pet_pve_assist(player,npc);
+	mapping guarded_tick = npc->process_dot_tick();
+	check("灵宠持续伤害保留最后1点生命且不抢人物击杀与掉落归属",
+		guarded_dot["ok"] && guarded_dot["type"]=="dot" &&
+		guarded_tick["active"] && !guarded_tick["defeated"] &&
+		(int)guarded_tick["damage"]==1 && npc->get_cur_life()==1,
+		"灵宠后台持续伤害可以直接击杀目标或没有真实结算");
 	if(player->query_in_combat())
 		player->_clean_fight();
 	if(npc->query_in_combat())
 		npc->_clean_fight();
 
+	if(dot_boss) destruct(dot_boss);
 	mapping forgotten = PETD->forget_pet_imprinted_skill(player,pet_id);
 	mapping core_removed = PETD->unequip_pet_gear(player,pet_id,
 		"spirit_core");

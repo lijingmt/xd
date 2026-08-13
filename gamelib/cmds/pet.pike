@@ -76,11 +76,46 @@ private string pet_display_name(mapping pet,mapping info)
 	return (string)info["name"];
 }
 
+private string pet_imprinted_effect(mapping imprint)
+{
+	string effect = (string)(imprint["effect"] || "");
+	string name = (string)(imprint["name"] || "");
+	object|zero skill = 0;
+	mixed err = 0;
+	if(name!="" && sizeof(name)<=64 && search(name,"/")==-1 &&
+	   search(name,"..")==-1){
+		skill = MUD_SKILLSD[name];
+		if(!skill)
+			err = catch { skill = (object)(ROOT+
+				"/gamelib/single/skills/"+name); };
+	}
+	if(err)
+		skill = 0;
+	if(skill && (string)(skill->s_skill_type || "")=="dot")
+		return "dot";
+	return effect;
+}
+
+private string pet_imprinted_effect_label(mapping imprint)
+{
+	string effect = pet_imprinted_effect(imprint);
+	if(effect=="heal")
+		return "治疗";
+	if(effect=="dot")
+		return "持续伤害";
+	return "攻击";
+}
+
 private string pet_rune_effect_label(mapping pet,mapping info)
 {
-	if(mappingp(pet["imprinted_skill"]))
-		return (string)pet["imprinted_skill"]["effect"]=="heal" ?
-			"拓印治疗" : "拓印攻击";
+	if(mappingp(pet["imprinted_skill"])){
+		string effect = pet_imprinted_effect(pet["imprinted_skill"]);
+		if(effect=="heal")
+			return "拓印治疗";
+		if(effect=="dot")
+			return "拓印持续伤害";
+		return "拓印攻击";
+	}
 	if((string)info["role"]=="强攻" || (string)info["role"]=="迅捷")
 		return "协战伤害";
 	if((string)info["role"]=="灵息")
@@ -153,12 +188,12 @@ private string render_pet_imprint(mapping state,string pet_id,object me)
 	string s = "§m【灵技拓印】§r\n\n";
 	if(!sizeof(pet))
 		return "找不到这只灵宠。\n[返回万灵谱:pet]\n";
-	s += "灵宠20级且穿戴灵核后，可学习当前角色真实掌握的主动攻击或治疗技能。\n";
-	s += "拓印保留技能名称与战斗表现，但效果按灵宠属性、冷却和PVE/PVP安全上限结算，不复制人物技能数值。\n\n";
+	s += "灵宠20级且穿戴灵核后，可学习当前角色真实掌握的主动攻击、持续伤害或治疗技能。\n";
+	s += "拓印保留技能名称与战斗表现。持续伤害逐跳复用人物真实技能公式：普通目标继承35%，首领20%，PVP 15%，再受灵纹节奏修正；人物技能数值不受影响。\n\n";
 	if(mappingp(pet["imprinted_skill"])){
 		mapping skill = pet["imprinted_skill"];
 		s += "当前：拓印·"+(string)skill["name_cn"]+"（"+
-			((string)skill["effect"]=="heal" ? "治疗" : "攻击")+
+			pet_imprinted_effect_label(skill)+
 			"，习得时"+(int)skill["level"]+"级） "+
 			"[遗忘:pet forget "+pet_id+"]\n\n";
 	}
@@ -172,7 +207,7 @@ private string render_pet_imprint(mapping state,string pet_id,object me)
 		foreach(candidates,mapping candidate)
 			s += "• "+(string)candidate["name_cn"]+" Lv."+
 				(int)candidate["level"]+" · "+
-				((string)candidate["effect"]=="heal" ? "治疗" : "攻击")+
+				pet_imprinted_effect_label(candidate)+
 				" [拓印:pet imprint "+pet_id+" "+
 				(string)candidate["name"]+"]\n";
 	}

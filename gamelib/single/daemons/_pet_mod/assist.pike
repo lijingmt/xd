@@ -3,6 +3,17 @@
 #ifndef XIAND_PET_ASSIST_PIKE
 #define XIAND_PET_ASSIST_PIKE
 
+// 拓印持续伤害只继承人物真实每跳公式的一部分：普通PVE强调养成反馈，
+// Boss与PVP进一步收敛，避免高生命百分比技能绕过协战平衡。
+int query_pet_dot_inheritance_percent(string mode,int is_boss)
+{
+	if(mode=="pvp")
+		return 15;
+	if(is_boss)
+		return 20;
+	return 35;
+}
+
 int query_pet_pvp_charge_required(void|int skill_set)
 {
 	if(skill_set==1)
@@ -150,7 +161,7 @@ private string query_pet_imprinted_effect(object player)
 	return search(({"damage","heal","dot"}),effect)!=-1 ? effect : "";
 }
 
-private int query_pet_imprinted_dot_duration(object player,int total_amount)
+private int query_pet_imprinted_dot_duration(object player)
 {
 	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
 		player["/tmp/wanling/imprinted_skill"] : ([]);
@@ -165,38 +176,84 @@ private int query_pet_imprinted_dot_duration(object player,int total_amount)
 		duration = 2;
 	if(duration>12)
 		duration = 12;
-	// DOT至少保留两个战斗节拍；低级宠物的安全伤害预算
-	// 只有1点时，仍以1点两跳呈现真实持续效果。
-	if(total_amount>=2 && duration>total_amount)
-		duration = total_amount;
-	if(duration<2)
-		duration = 2;
 	return duration;
 }
 
-private mapping(string:mixed) apply_pet_imprinted_dot(object player,
-	object target,int total_amount)
+mapping(string:mixed) query_pet_imprinted_dot_profile(object player,
+	object target,int safe_total,string mode)
 {
-	mapping result = (["applied":0,"tick_damage":0,"duration":0,
-		"total_amount":0]);
-	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
-		player["/tmp/wanling/imprinted_skill"] : ([]);
-	string skill_name = (string)(imprint["name"] || "");
+	mapping result = (["tick_damage":0,"duration":0,"total_amount":0,
+		"source_tick":0,"inherit_percent":0,"rhythm_percent":100,
+		"fallback_tick":0]);
+	mapping imprint;
+	object|zero skill;
+	int skill_level;
 	int duration;
+	int fallback_tick;
+	int source_tick;
+	int inherit_percent;
+	int rhythm_percent;
 	int tick_damage;
-	if(!player || !target || total_amount<1 || skill_name=="" ||
-	   !functionp(player->apply_nonstacking_dot))
+	int is_boss;
+	if(!player || !target)
 		return result;
-	duration = query_pet_imprinted_dot_duration(player,total_amount);
-	tick_damage = total_amount/duration;
+	imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	skill = query_pet_imprinted_skill_object(player);
+	if(!skill || (string)(skill->s_skill_type || "")!="dot" ||
+	   !functionp(player->query_active_dot_damage))
+		return result;
+	skill_level = (int)imprint["level"];
+	if(skill_level<1)
+		skill_level = 1;
+	duration = query_pet_imprinted_dot_duration(player);
+	fallback_tick = safe_total/duration;
+	if(fallback_tick<1)
+		fallback_tick = 1;
+	is_boss = target->is("npc") && target->_boss;
+	inherit_percent = query_pet_dot_inheritance_percent(mode,is_boss);
+	rhythm_percent = (int)query_pet_rune_rhythm_profile(
+		(int)player["/tmp/wanling/skill_set"])["effect_percent"];
+	source_tick = (int)player->query_active_dot_damage(skill,skill_level,target);
+	tick_damage = source_tick*inherit_percent*rhythm_percent/10000;
+	// 低固定伤害技能至少保留旧协战安全预算，不因统一继承公式被削弱。
+	if(tick_damage<fallback_tick)
+		tick_damage = fallback_tick;
 	if(tick_damage<1)
 		tick_damage = 1;
-	if(!player->apply_nonstacking_dot(target,skill_name,tick_damage,duration))
-		return result;
-	result["applied"] = 1;
 	result["tick_damage"] = tick_damage;
 	result["duration"] = duration;
 	result["total_amount"] = tick_damage*duration;
+	result["source_tick"] = source_tick;
+	result["inherit_percent"] = inherit_percent;
+	result["rhythm_percent"] = rhythm_percent;
+	result["fallback_tick"] = fallback_tick;
+	return result;
+}
+
+private mapping(string:mixed) apply_pet_imprinted_dot(object player,
+	object target,int safe_total,string mode)
+{
+	mapping result = (["applied":0,"tick_damage":0,"duration":0,
+		"total_amount":0,"source_tick":0,"inherit_percent":0,
+		"rhythm_percent":100,"fallback_tick":0]);
+	mapping imprint;
+	string skill_name;
+	if(!player || !target || safe_total<1 ||
+	   !functionp(player->apply_nonstacking_dot))
+		return result;
+	imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	skill_name = (string)(imprint["name"] || "");
+	if(skill_name=="")
+		return result;
+	result = query_pet_imprinted_dot_profile(player,target,safe_total,mode);
+	if((int)result["tick_damage"]<1 || (int)result["duration"]<1)
+		return result;
+	if(!player->apply_nonstacking_dot(target,skill_name,
+	   (int)result["tick_damage"],(int)result["duration"],1))
+		return result;
+	result["applied"] = 1;
 	return result;
 }
 
@@ -628,11 +685,14 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 		}
 	}
 	else if(effect_type=="dot" && target->get_cur_life()>1){
-		mapping dot_result = apply_pet_imprinted_dot(player,target,amount);
+		mapping dot_result = apply_pet_imprinted_dot(player,target,amount,"pve");
 		if(dot_result["applied"]){
 			actual = (int)dot_result["tick_damage"];
 			result["duration"] = (int)dot_result["duration"];
 			result["total_amount"] = (int)dot_result["total_amount"];
+			result["source_tick"] = (int)dot_result["source_tick"];
+			result["inherit_percent"] =
+				(int)dot_result["inherit_percent"];
 		}
 	}
 	else if(effect_type=="mofa"){
@@ -779,11 +839,14 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 		}
 	}
 	else if(effect_type=="dot" && target->get_cur_life()>1){
-		mapping dot_result = apply_pet_imprinted_dot(player,target,amount);
+		mapping dot_result = apply_pet_imprinted_dot(player,target,amount,"pvp");
 		if(dot_result["applied"]){
 			actual = (int)dot_result["tick_damage"];
 			result["duration"] = (int)dot_result["duration"];
 			result["total_amount"] = (int)dot_result["total_amount"];
+			result["source_tick"] = (int)dot_result["source_tick"];
+			result["inherit_percent"] =
+				(int)dot_result["inherit_percent"];
 		}
 	}
 	else if(effect_type=="mofa"){
@@ -1104,8 +1167,14 @@ mapping(string:mixed) query_pet_pk_fast_profile(object player,object target)
 		(int)player["/tmp/wanling/pet_pvp_growth_percent"],
 		query_pet_imprinted_effect(player));
 	if(profile["type"]=="dot"){
-		profile["dot_duration"] = query_pet_imprinted_dot_duration(player,
-			(int)profile["amount"]);
+		mapping dot_profile = query_pet_imprinted_dot_profile(player,target,
+			(int)profile["amount"],"pvp");
+		profile["amount"] = (int)dot_profile["total_amount"];
+		profile["dot_duration"] = (int)dot_profile["duration"];
+		profile["dot_tick_damage"] = (int)dot_profile["tick_damage"];
+		profile["dot_source_tick"] = (int)dot_profile["source_tick"];
+		profile["dot_inherit_percent"] =
+			(int)dot_profile["inherit_percent"];
 		profile["dot"] = 1;
 		profile["type"] = "damage";
 	}

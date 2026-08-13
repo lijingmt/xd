@@ -567,6 +567,38 @@ int query_kuangyao_wound_damage(int caster_life_max,int basis_points,
 	return result;
 }
 
+// 统一计算人物主动持续伤害的每跳原始值。人物施法与灵宠拓印都读取
+// 这个入口，确保血海裂伤、致残重伤及太古技能不会各自复制一份公式。
+int query_active_dot_damage(object skill,int skill_level,object target)
+{
+	string name;
+	int dot_damage;
+	int is_boss;
+	if(!skill || !target || !functionp(skill->query_performs_attack))
+		return 0;
+	if(skill_level<1)
+		skill_level=1;
+	name=(string)skill->query_name();
+	dot_damage=(int)skill->query_performs_attack(skill_level);
+	is_boss=target->is("npc") && target->_boss;
+	if(name=="xuehailieshang")
+		dot_damage=query_xuehai_dot_damage(target->query_life_max(),
+			dot_damage,is_boss);
+	else if(name=="zhicanzhongshang")
+		dot_damage=query_kuangyao_wound_damage(
+			this_object()->query_life_max(),
+			(int)skill->query_performs_per(skill_level),dot_damage,
+			target->query_life_max(),target->is("player"),is_boss);
+	else if(functionp(skill->query_rare_dot_power_percent) &&
+	   skill->query_rare_dot_power_percent(skill_level)>0)
+		dot_damage=query_rare_dot_damage(skill,skill_level,dot_damage,
+			query_rare_dot_offense(this_object()),target->query_life_max(),
+			target->is("player"),is_boss);
+	if(dot_damage<1)
+		dot_damage=1;
+	return dot_damage;
+}
+
 // 全游戏继续保留一个持续伤害槽，按“剩余总伤害”比较；等强技能可刷新，
 // 弱技能不能延长或借用强技能快照，防止低级流血、队友毒伤覆盖强效果。
 int query_dot_should_replace(string current_name,int current_damage,
@@ -585,20 +617,25 @@ int query_dot_should_replace(string current_name,int current_damage,
 // 序列化 data_tmp，可能把玩家/NPC对象引用写入人物档案。
 private object|zero dot_source_runtime;
 private string dot_source_runtime_name = "";
+private int dot_nonlethal_runtime;
 
-void set_dot_source_runtime(object|zero source,string name)
+void set_dot_source_runtime(object|zero source,string name,
+	void|int nonlethal)
 {
 	dot_source_runtime = source;
 	dot_source_runtime_name = name || "";
+	dot_nonlethal_runtime = nonlethal ? 1 : 0;
 }
 
 void clear_dot_source_runtime()
 {
 	dot_source_runtime = 0;
 	dot_source_runtime_name = "";
+	dot_nonlethal_runtime = 0;
 }
 
-int apply_nonstacking_dot(object target,string name,int damage,int duration)
+int apply_nonstacking_dot(object target,string name,int damage,int duration,
+	void|int nonlethal)
 {
 	string current_name;
 	int current_damage;
@@ -616,7 +653,7 @@ int apply_nonstacking_dot(object target,string name,int damage,int duration)
 	target->set_debuff("dot",2,duration);
 	// 只保存当前成功覆盖者的私有运行时引用，用于每跳向真正施法者
 	// 回报。名称必须与槽位一致，净化或下一次覆盖后不会串报。
-	target->set_dot_source_runtime(this_object(),name);
+	target->set_dot_source_runtime(this_object(),name,nonlethal);
 	return 1;
 }
 
@@ -644,7 +681,7 @@ mapping(string:mixed) process_dot_tick()
 	mapping(string:mixed) result = ([
 		"active":0,"name":dot_name,"display_name":"持续伤害",
 		"raw_damage":raw_damage,"damage":0,"absorbed":0,
-		"remaining":remaining,"defeated":0,
+		"remaining":remaining,"defeated":0,"last_hit_guarded":0,
 	]);
 	object source;
 	string source_name;
@@ -673,6 +710,12 @@ mapping(string:mixed) process_dot_tick()
 	actual_damage = post_guard_damage;
 	if(actual_damage>before_life)
 		actual_damage = before_life;
+	// 灵宠协战不能代替主人完成最后一击，避免归属、掉落与PVP结算
+	// 被后台持续伤害抢走；人物自身施放的持续伤害仍可正常击杀。
+	if(dot_nonlethal_runtime && actual_damage>=before_life){
+		actual_damage = before_life>1 ? before_life-1 : 0;
+		result["last_hit_guarded"] = 1;
+	}
 	after_life = before_life-actual_damage;
 	this_object()->set_life(after_life);
 	remaining--;
@@ -689,6 +732,8 @@ mapping(string:mixed) process_dot_tick()
 
 	if(actual_damage>0)
 		damage_desc = "造成"+format_game_number(actual_damage)+"点持续伤害";
+	else if(result["last_hit_guarded"])
+		damage_desc = "本跳未结算，灵宠为主人保留最后一击";
 	else
 		damage_desc = "本跳"+format_game_number(raw_damage)+
 			"点伤害被山河壁完全吸收";
@@ -3008,29 +3053,8 @@ void perform(string name,void|int flag){
 					if(h<30)
 						h=30;
 					if(random(100)<h){ //命中啦~
-						int dot_damage = f_cur_skill->query_performs_attack(skill_level);
-						if(name=="xuehailieshang"){
-							int is_boss = enemy->is("npc") && enemy->_boss;
-							dot_damage = query_xuehai_dot_damage(
-								enemy->query_life_max(),dot_damage,is_boss);
-						}
-						else if(name=="zhicanzhongshang"){
-							int is_boss = enemy->is("npc") && enemy->_boss;
-							int dot_basis_points =
-								f_cur_skill->query_performs_per(skill_level);
-							dot_damage = query_kuangyao_wound_damage(
-								this_object()->query_life_max(),dot_basis_points,
-								dot_damage,enemy->query_life_max(),
-								enemy->is("player"),is_boss);
-						}
-						else if(functionp(
-						   f_cur_skill->query_rare_dot_power_percent) &&
-						   f_cur_skill->query_rare_dot_power_percent(skill_level)>0){
-							dot_damage=query_rare_dot_damage(f_cur_skill,skill_level,
-								dot_damage,query_rare_dot_offense(this_object()),
-								enemy->query_life_max(),enemy->is("player"),
-								enemy->is("npc") && enemy->_boss);
-						}
+						int dot_damage=query_active_dot_damage(f_cur_skill,
+							skill_level,enemy);
 						int dot_applied = apply_nonstacking_dot(enemy,name,dot_damage,
 							f_cur_skill->query_s_lasttime(skill_level));
 						// 血海裂伤过去只在目标后续心跳才结算首跳，施放当拍仅显示
