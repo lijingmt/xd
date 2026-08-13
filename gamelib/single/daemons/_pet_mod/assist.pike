@@ -82,6 +82,8 @@ private string query_pet_runtime_effect_label(object player,mapping info)
 	string role = (string)info["role"];
 	if(imprinted_effect=="damage")
 		return "拓印攻击";
+	if(imprinted_effect=="dot")
+		return "拓印持续伤害";
 	if(imprinted_effect=="heal")
 		return "拓印治疗";
 	if(role=="强攻" || role=="迅捷")
@@ -118,19 +120,91 @@ private string query_pet_active_skill_name(object player,mapping info)
 	return (string)info["skill"];
 }
 
+private object|zero query_pet_imprinted_skill_object(object player)
+{
+	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	string name = (string)(imprint["name"] || "");
+	object|zero skill = 0;
+	mixed err = 0;
+	if(name=="" || sizeof(name)>64 || search(name,"/")!=-1 ||
+	   search(name,"..")!=-1)
+		return 0;
+	skill = MUD_SKILLSD[name];
+	if(!skill)
+		err = catch { skill = (object)(ROOT+
+			"/gamelib/single/skills/"+name); };
+	if(err)
+		return 0;
+	return skill;
+}
+
 private string query_pet_imprinted_effect(object player)
 {
 	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
 		player["/tmp/wanling/imprinted_skill"] : ([]);
 	string effect = (string)(imprint["effect"] || "");
-	return search(({"damage","heal"}),effect)!=-1 ? effect : "";
+	object|zero skill = query_pet_imprinted_skill_object(player);
+	if(skill && (string)(skill->s_skill_type || "")=="dot")
+		return "dot";
+	return search(({"damage","heal","dot"}),effect)!=-1 ? effect : "";
+}
+
+private int query_pet_imprinted_dot_duration(object player,int total_amount)
+{
+	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	object|zero skill = query_pet_imprinted_skill_object(player);
+	int skill_level = (int)imprint["level"];
+	int duration = 4;
+	if(skill_level<1)
+		skill_level = 1;
+	if(skill && functionp(skill->query_s_lasttime))
+		duration = (int)skill->query_s_lasttime(skill_level);
+	if(duration<2)
+		duration = 2;
+	if(duration>12)
+		duration = 12;
+	// DOT至少保留两个战斗节拍；低级宠物的安全伤害预算
+	// 只有1点时，仍以1点两跳呈现真实持续效果。
+	if(total_amount>=2 && duration>total_amount)
+		duration = total_amount;
+	if(duration<2)
+		duration = 2;
+	return duration;
+}
+
+private mapping(string:mixed) apply_pet_imprinted_dot(object player,
+	object target,int total_amount)
+{
+	mapping result = (["applied":0,"tick_damage":0,"duration":0,
+		"total_amount":0]);
+	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
+		player["/tmp/wanling/imprinted_skill"] : ([]);
+	string skill_name = (string)(imprint["name"] || "");
+	int duration;
+	int tick_damage;
+	if(!player || !target || total_amount<1 || skill_name=="" ||
+	   !functionp(player->apply_nonstacking_dot))
+		return result;
+	duration = query_pet_imprinted_dot_duration(player,total_amount);
+	tick_damage = total_amount/duration;
+	if(tick_damage<1)
+		tick_damage = 1;
+	if(!player->apply_nonstacking_dot(target,skill_name,tick_damage,duration))
+		return result;
+	result["applied"] = 1;
+	result["tick_damage"] = tick_damage;
+	result["duration"] = duration;
+	result["total_amount"] = tick_damage*duration;
+	return result;
 }
 
 private string query_pet_waiting_resource(object player,mapping info)
 {
 	string imprinted_effect = query_pet_imprinted_effect(player);
 	string role = (string)info["role"];
-	if(imprinted_effect=="damage" ||
+	if(imprinted_effect=="damage" || imprinted_effect=="dot" ||
 	   (imprinted_effect!="heal" && (role=="强攻" || role=="迅捷")))
 		return "";
 	if(imprinted_effect!="heal" && role=="灵息")
@@ -318,7 +392,7 @@ mapping(string:mixed) query_pet_assist_profile(string species,
 		growth_percent = 250;
 	result["cooldown"] = cooldown;
 	string role = (string)info["role"];
-	if(imprinted_effect=="damage" ||
+	if(imprinted_effect=="damage" || imprinted_effect=="dot" ||
 	   (imprinted_effect!="heal" && (role=="强攻" || role=="迅捷"))){
 		int amount = base_damage*2/100*amount_percent/100*
 			growth_percent/100;
@@ -326,7 +400,7 @@ mapping(string:mixed) query_pet_assist_profile(string species,
 		if(amount<1) amount = 1;
 		if(cap<1) cap = 1;
 		if(amount>cap) amount = cap;
-		result["type"] = "damage";
+		result["type"] = imprinted_effect=="dot" ? "dot" : "damage";
 		result["amount"] = amount;
 	}
 	else if(imprinted_effect!="heal" && role=="灵息"){
@@ -369,7 +443,7 @@ mapping(string:mixed) query_pet_pvp_assist_profile(string species,
 	if(growth_percent>130)
 		growth_percent = 130;
 	string role = (string)info["role"];
-	if(imprinted_effect=="damage" ||
+	if(imprinted_effect=="damage" || imprinted_effect=="dot" ||
 	   (imprinted_effect!="heal" && (role=="强攻" || role=="迅捷"))){
 		int amount = base_damage*8/100*amount_percent/100*
 			growth_percent/100;
@@ -377,7 +451,7 @@ mapping(string:mixed) query_pet_pvp_assist_profile(string species,
 		if(amount<1) amount = 1;
 		if(cap<1) cap = 1;
 		if(amount>cap) amount = cap;
-		result["type"] = "damage";
+		result["type"] = imprinted_effect=="dot" ? "dot" : "damage";
 		result["amount"] = amount;
 	}
 	else if(imprinted_effect!="heal" && role=="灵息"){
@@ -476,6 +550,10 @@ private void broadcast_pet_skill_to_room(object player,object|zero direct_player
 			amount_desc = "，对"+(string)event["target_name"]+"造成"+
 				(int)event["amount"]+"点"+
 				(event["mode"]=="pvp" ? "御灵" : "协战")+"伤害";
+		else if(event["type"]=="dot")
+			amount_desc = "，为"+(string)event["target_name"]+
+				"施加持续伤害，每跳"+(int)event["amount"]+
+				"点，持续"+(int)event["duration"]+"个战斗节拍";
 		else if(event["type"]=="mofa")
 			amount_desc = "，为主人恢复"+(int)event["amount"]+"点法力";
 		else if(event["type"]=="revive")
@@ -549,6 +627,14 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 			player->flush_targets(target,actual);
 		}
 	}
+	else if(effect_type=="dot" && target->get_cur_life()>1){
+		mapping dot_result = apply_pet_imprinted_dot(player,target,amount);
+		if(dot_result["applied"]){
+			actual = (int)dot_result["tick_damage"];
+			result["duration"] = (int)dot_result["duration"];
+			result["total_amount"] = (int)dot_result["total_amount"];
+		}
+	}
 	else if(effect_type=="mofa"){
 		int before = player->get_cur_mofa();
 		int after = before+amount;
@@ -581,13 +667,20 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	result["ok"] = 1;
 	result["amount"] = actual;
 	event = create_pet_assist_event(player,
-		effect_type=="damage" ? target : player,info,"pve",effect_type,
+		search(({"damage","dot"}),effect_type)!=-1 ? target : player,
+		info,"pve",effect_type,
 		actual,(int)result["cooldown"]);
+	if(effect_type=="dot"){
+		event["duration"] = (int)result["duration"];
+		event["total_amount"] = (int)result["total_amount"];
+	}
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
 	result["event"] = copy_value(event);
 	broadcast_pet_skill_to_room(player,0,event);
 	string unit = effect_type=="damage" ? "点协战伤害" :
-		(effect_type=="mofa" ? "点法力" : "点生命");
+		(effect_type=="dot" ? "点/跳持续伤害（持续"+
+		(int)result["duration"]+"个战斗节拍）" :
+		(effect_type=="mofa" ? "点法力" : "点生命"));
 	tell_object(player,"【万灵协战】"+
 		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
 		query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"。\n");
@@ -685,6 +778,14 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 			player->flush_targets(target,actual);
 		}
 	}
+	else if(effect_type=="dot" && target->get_cur_life()>1){
+		mapping dot_result = apply_pet_imprinted_dot(player,target,amount);
+		if(dot_result["applied"]){
+			actual = (int)dot_result["tick_damage"];
+			result["duration"] = (int)dot_result["duration"];
+			result["total_amount"] = (int)dot_result["total_amount"];
+		}
+	}
 	else if(effect_type=="mofa"){
 		int before = player->get_cur_mofa();
 		int after = before+amount;
@@ -722,15 +823,22 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	result["amount"] = actual;
 	result["uses"] = uses+1;
 	event = create_pet_assist_event(player,
-		effect_type=="damage" ? target : player,info,"pvp",effect_type,
+		search(({"damage","dot"}),effect_type)!=-1 ? target : player,
+		info,"pvp",effect_type,
 		actual,required);
+	if(effect_type=="dot"){
+		event["duration"] = (int)result["duration"];
+		event["total_amount"] = (int)result["total_amount"];
+	}
 	event["pvp_uses"] = uses+1;
 	event["pvp_uses_max"] = PET_PVP_ASSIST_USES;
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
 	result["event"] = copy_value(event);
 	broadcast_pet_skill_to_room(player,target_owner,event);
 	string unit = effect_type=="damage" ? "点御灵伤害" :
-		(effect_type=="mofa" ? "点法力" : "点生命");
+		(effect_type=="dot" ? "点/跳持续伤害（持续"+
+		(int)result["duration"]+"个战斗节拍）" :
+		(effect_type=="mofa" ? "点法力" : "点生命"));
 	tell_object(player,"【御灵交锋】"+
 		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
 		query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"（本场"+
@@ -995,6 +1103,12 @@ mapping(string:mixed) query_pet_pk_fast_profile(object player,object target)
 		(int)player["/tmp/wanling/skill_set"],
 		(int)player["/tmp/wanling/pet_pvp_growth_percent"],
 		query_pet_imprinted_effect(player));
+	if(profile["type"]=="dot"){
+		profile["dot_duration"] = query_pet_imprinted_dot_duration(player,
+			(int)profile["amount"]);
+		profile["dot"] = 1;
+		profile["type"] = "damage";
+	}
 	profile["active"] = 1;
 	profile["remaining_uses"] = PET_PVP_ASSIST_USES-uses;
 	required = (int)profile["charge_required"];

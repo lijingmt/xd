@@ -816,6 +816,7 @@ void test_pet_equipment_and_skill_imprint()
 
 	player->skills["huichun"] = ({25,0});
 	player->skills["wanmuxinchun"] = ({1,0});
+	player->skills["xuehailieshang"] = ({1,0});
 	player->skills["b_nuhou"] = ({100,0});
 	mapping too_early = PETD->imprint_pet_skill(player,pet_id,"huichun");
 	PETD->test_add_pet_material(player,"spirit_dew",100);
@@ -825,6 +826,7 @@ void test_pet_equipment_and_skill_imprint()
 	array candidates = PETD->query_pet_imprint_skill_candidates(player);
 	int has_heal = 0;
 	int has_wanmu = 0;
+	int has_dot = 0;
 	int has_injected = 0;
 	foreach(candidates,mapping candidate){
 		if((string)candidate["name"]=="huichun")
@@ -832,6 +834,9 @@ void test_pet_equipment_and_skill_imprint()
 		if((string)candidate["name"]=="wanmuxinchun" &&
 		   (string)candidate["effect"]=="heal")
 			has_wanmu = 1;
+		if((string)candidate["name"]=="xuehailieshang" &&
+		   (string)candidate["effect"]=="dot")
+			has_dot = 1;
 		if((string)candidate["name"]=="b_nuhou")
 			has_injected = 1;
 	}
@@ -839,7 +844,7 @@ void test_pet_equipment_and_skill_imprint()
 	mapping core_locked = PETD->unequip_pet_gear(player,pet_id,
 		"spirit_core");
 	check("灵技只接受20级后真实学会的主动技能并拒绝注入技能",
-		!too_early["ok"] && trained && has_heal && has_wanmu &&
+		!too_early["ok"] && trained && has_heal && has_wanmu && has_dot &&
 		!has_injected &&
 		imprinted["ok"] && !core_locked["ok"],
 		"等级、技能来源过滤或承载灵核保护失效");
@@ -933,6 +938,52 @@ void test_pet_equipment_and_skill_imprint()
 		search((array)refreshed_presence["runes"],"旧灵纹")==-1 &&
 		(int)player["/tmp/wanling/assist_at"]==combat_at_before_refresh,
 		"只清账号缓存但在线人物继续使用旧拓印/灵纹，或借刷新重置冷却");
+
+	PETD->test_add_pet_material(player,"skill_rune",1);
+	mapping dot_imprinted = PETD->imprint_pet_skill(player,pet_id,
+		"xuehailieshang");
+	// 更新前的宠物档案把DOT记成damage；即使未重新拓印，
+	// 运行时也必须根据真实技能类型恢复持续伤害。
+	if(mappingp(player["/tmp/wanling/imprinted_skill"]))
+		player["/tmp/wanling/imprinted_skill"]["effect"] = "damage";
+	player["/tmp/wanling/assist_at"] = 0;
+	npc->set_life(npc->query_life_max());
+	int dot_life_before = npc->get_cur_life();
+	mapping dot_assist = PETD->perform_pet_pve_assist(player,npc);
+	int dot_duration = (int)npc->query_debuff("dot",2);
+	int dot_damage = (int)npc->query_debuff("dot",1);
+	player->drain_catch_tell(0,50);
+	player->_fight(npc);
+	npc->_fight(player);
+	npc->heart_beat();
+	string dot_tick_text = player->drain_catch_tell(0,50);
+	int dot_life_after_first = npc->get_cur_life();
+	npc->heart_beat();
+	string dot_second_tick_text = player->drain_catch_tell(0,50);
+	check("宠物拓印DOT经真实战斗心跳逐跳扣血并显示伤害与剩余节拍",
+		dot_imprinted["ok"] && dot_assist["ok"] &&
+		dot_assist["type"]=="dot" && dot_duration>1 && dot_damage>0 &&
+		dot_life_after_first==dot_life_before-dot_damage &&
+		npc->get_cur_life()==dot_life_before-dot_damage*2 &&
+		(int)npc->query_debuff("dot",2)==dot_duration-2 &&
+		search(dot_tick_text,"【持续伤害】")!=-1 &&
+		search(dot_tick_text,"血海裂伤")!=-1 &&
+		search(dot_tick_text,"点持续伤害")!=-1 &&
+		search(dot_tick_text,"剩余"+(dot_duration-1)+"个战斗节拍")!=-1 &&
+		search(dot_second_tick_text,"【持续伤害】")!=-1 &&
+		search(dot_second_tick_text,"剩余"+(dot_duration-2)+
+			"个战斗节拍")!=-1,
+		sprintf("拓印DOT或心跳失效: imprint=%d assist=%d/%s "+
+			"life=%d/%d/%d damage=%d duration=%d/%d text=%O/%O",
+			(int)dot_imprinted["ok"],(int)dot_assist["ok"],
+			(string)dot_assist["type"],npc->get_cur_life(),
+			dot_life_after_first,dot_life_before,
+			dot_damage,(int)npc->query_debuff("dot",2),dot_duration,
+			dot_tick_text,dot_second_tick_text));
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(npc->query_in_combat())
+		npc->_clean_fight();
 
 	mapping forgotten = PETD->forget_pet_imprinted_skill(player,pet_id);
 	mapping core_removed = PETD->unequip_pet_gear(player,pet_id,
@@ -1466,8 +1517,8 @@ void test_hidden_luan_owner_revive()
 	player->set_att_by_level();
 	object gap_boss = make_npc(player,70);
 	gap_boss->_boss = 1;
-	mapping gap_rejected = PETD->test_record_hidden_luan_drop(player,
-		gap_boss,0);
+	mapping gap_counted = PETD->test_record_hidden_luan_drop(player,
+		gap_boss,9999);
 	player->level = 70;
 	player->set_att_by_level();
 	object first_boss = make_npc(player,70);
@@ -1478,17 +1529,19 @@ void test_hidden_luan_owner_revive()
 	mapping duplicate = PETD->test_record_hidden_luan_drop(player,
 		first_boss,0);
 	player["/pet_battle/source"] = "shared";
-	check("鸾鸟只累计等级差五级内首领并审计落空与同首领去重",
+	check("鸾鸟累计70级以上真实首领且不限玩家等级差",
 		chosen["ok"] && (int)before["catalog_total"]==15 &&
-		!normal_drop["eligible"] && !gap_rejected["eligible"] &&
-		(string)gap_rejected["audit_reason"]=="level_gap_over_5" &&
+		!normal_drop["eligible"] && gap_counted["ok"] &&
+		gap_counted["eligible"] && !gap_counted["dropped"] &&
+		(string)gap_counted["audit_reason"]=="roll_miss" &&
+		(int)gap_counted["pity"]==1 &&
 		missed["ok"] &&
 		missed["eligible"] && !missed["dropped"] &&
 		(string)missed["audit_reason"]=="roll_miss" &&
-		(int)missed["pity"]==1 && duplicate["ok"] &&
+		(int)missed["pity"]==2 && duplicate["ok"] &&
 		(string)duplicate["audit_reason"]=="duplicate_npc" &&
-		(int)duplicate["pity"]==1,
-		"等级差拒绝、有效计数、概率落空或同一首领去重不可核验");
+		(int)duplicate["pity"]==2,
+		"高等级玩家未计入70级首领、概率落空或同一首领去重不可核验");
 
 	int pity_set = PETD->test_set_hidden_luan_pity(player,499);
 	object pity_boss = make_npc(player,70);
@@ -1508,7 +1561,7 @@ void test_hidden_luan_owner_revive()
 		"/gamelib/single/daemons/_pet_mod/collection.pike") || "";
 	check("鸾鸟首领拒绝、计数、概率、保底、失败与成功均写审计日志",
 		search(collection_source,"pet_hidden_drop_audit.log")!=-1 &&
-		search(collection_source,"level_gap_over_5")!=-1 &&
+		search(collection_source,"npc_level_below_70")!=-1 &&
 		search(collection_source,"pity_guarantee")!=-1 &&
 		search(collection_source,"save_failed")!=-1,
 		"当前仍只能在掉落成功后看到日志，无法解释1300次未出的原因");

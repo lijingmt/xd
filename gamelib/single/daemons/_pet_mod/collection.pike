@@ -1052,12 +1052,6 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 			(string)result["audit_reason"],0,-1,-1,-1);
 		return result;
 	}
-	if(player->query_level()-npc->query_level()>5){
-		result["audit_reason"] = "level_gap_over_5";
-		append_hidden_luan_audit(player,npc,account_id,"rejected",
-			(string)result["audit_reason"],0,-1,-1,-1);
-		return result;
-	}
 	if(npc->query_npc_type &&
 	   search(({"city_keeper","city_guarder","city_lord"}),
 		(string)npc->query_npc_type())!=-1){

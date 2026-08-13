@@ -198,7 +198,7 @@ private int valid_pet_imprinted_skill(mixed raw_skill)
 	   !stringp(skill["name_cn"]) ||
 	   sizeof((string)skill["name_cn"])<1 ||
 	   sizeof((string)skill["name_cn"])>80 ||
-	   search(({"damage","heal"}),(string)skill["effect"])==-1 ||
+	   search(({"damage","heal","dot"}),(string)skill["effect"])==-1 ||
 	   (int)skill["level"]<1 || (int)skill["level"]>100 ||
 	   !valid_pet_userid((string)skill["source_character"]) ||
 	   (int)skill["learned_at"]<=0)

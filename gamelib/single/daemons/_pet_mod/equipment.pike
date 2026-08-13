@@ -439,7 +439,9 @@ private mapping(string:mixed) query_imprint_skill_candidate(object player,
 	string effect = "";
 	if(skill_type=="heal")
 		effect = "heal";
-	else if(search(({"phy","curse","dot","huo_mofa_attack",
+	else if(skill_type=="dot")
+		effect = "dot";
+	else if(search(({"phy","curse","huo_mofa_attack",
 	   "bing_mofa_attack","feng_mofa_attack","du_mofa_attack"}),
 	   skill_type)!=-1)
 		effect = "damage";
