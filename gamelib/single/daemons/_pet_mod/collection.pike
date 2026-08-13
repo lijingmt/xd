@@ -996,28 +996,76 @@ private mapping(string:mixed) record_pet_pve_fragment_unlocked(
  * 0.05%，每500次合格首领必定收录。同一NPC对同一账号只结算
  * 一次；兑换、残片孵化和融合均无法绕过这条获取链。
  */
+private void append_hidden_luan_audit(object player,object npc,
+	string account_id,string outcome,string reason,int chance,int roll,
+	int pity_before,int pity_after)
+{
+	if(!player || !npc)
+		return;
+	ASYNC_IOD->append_log(ROOT+"/log/pet_hidden_drop_audit.log",
+		sprintf("%d|account=%s|character=%s|outcome=%s|reason=%s|"+
+			"player_level=%d|npc_level=%d|boss=%d|chance=%d|roll=%d|"+
+			"pity_before=%d|pity_after=%d\n",
+			time(),account_id,player->query_name(),outcome,reason,
+			player->query_level(),npc->query_level(),(int)(npc->_boss || 0),
+			chance,roll,pity_before,pity_after));
+}
+
 private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 	object player,object npc,int forced_roll)
 {
 	mapping result = (["ok":0,"eligible":0,"dropped":0,"chance":0,
-		"pity":0,"pity_max":PET_HIDDEN_LUAN_PITY]);
-	string account_id = resolve_pet_account(player);
+		"pity":0,"pity_max":PET_HIDDEN_LUAN_PITY,"audit_reason":""]);
+	string account_id = player ? resolve_pet_account(player) : "";
 	mapping(string:mixed)|zero record;
 	mapping credited_accounts;
 	object key;
 	int is_dungeon = 0;
 	int chance;
 	int roll;
-	if(account_id=="" || !npc || !npc->is || !npc->is("npc") ||
-	   SUMMOND->query_combat_credit_owner(npc)!=npc ||
-	   (int)(npc->_boss || 0)<=0 || npc->query_level()<70 ||
-	   player->query_level()<70 ||
-	   player->query_level()-npc->query_level()>5)
+	int pity_before = -1;
+	int pity_after = -1;
+	if(!player || !npc || !npc->is || !npc->is("npc") ||
+	   (int)(npc->_boss || 0)<=0)
 		return result;
+	if(account_id==""){
+		result["audit_reason"] = "invalid_account";
+		append_hidden_luan_audit(player,npc,account_id,"rejected",
+			(string)result["audit_reason"],0,-1,-1,-1);
+		return result;
+	}
+	if(SUMMOND->query_combat_credit_owner(npc)!=npc){
+		result["audit_reason"] = "summon_or_invalid_boss";
+		append_hidden_luan_audit(player,npc,account_id,"rejected",
+			(string)result["audit_reason"],0,-1,-1,-1);
+		return result;
+	}
+	if(npc->query_level()<70){
+		result["audit_reason"] = "npc_level_below_70";
+		append_hidden_luan_audit(player,npc,account_id,"rejected",
+			(string)result["audit_reason"],0,-1,-1,-1);
+		return result;
+	}
+	if(player->query_level()<70){
+		result["audit_reason"] = "player_level_below_70";
+		append_hidden_luan_audit(player,npc,account_id,"rejected",
+			(string)result["audit_reason"],0,-1,-1,-1);
+		return result;
+	}
+	if(player->query_level()-npc->query_level()>5){
+		result["audit_reason"] = "level_gap_over_5";
+		append_hidden_luan_audit(player,npc,account_id,"rejected",
+			(string)result["audit_reason"],0,-1,-1,-1);
+		return result;
+	}
 	if(npc->query_npc_type &&
 	   search(({"city_keeper","city_guarder","city_lord"}),
-		(string)npc->query_npc_type())!=-1)
+		(string)npc->query_npc_type())!=-1){
+		result["audit_reason"] = "city_npc_excluded";
+		append_hidden_luan_audit(player,npc,account_id,"rejected",
+			(string)result["audit_reason"],0,-1,-1,-1);
 		return result;
+	}
 	if((string)(player->fb_id || "")!="" &&
 	   FBD->query_fb_memebers((string)player->fb_id,
 		player->query_name()))
@@ -1029,12 +1077,17 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 	key = pet_lock->lock();
 	record = load_pet_record_unlocked(account_id);
 	if(record){
+		pity_before = (int)record["hidden_luan_pity"];
 		credited_accounts = mappingp(npc["/tmp/wanling/hidden_accounts"]) ?
 			npc["/tmp/wanling/hidden_accounts"] : ([]);
 		if(find_species_index(record["pets"],PET_HIDDEN_LUAN_SPECIES)>=0){
 			result["ok"] = 1;
 			result["owned"] = 1;
 			result["pity"] = (int)record["hidden_luan_pity"];
+			result["audit_reason"] = "already_owned";
+			pity_after = (int)record["hidden_luan_pity"];
+			append_hidden_luan_audit(player,npc,account_id,"ignored",
+				(string)result["audit_reason"],chance,-1,pity_before,pity_after);
 		}
 		else if((int)record["starter_claimed"] &&
 		   !credited_accounts[account_id]){
@@ -1051,10 +1104,16 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 					record["hidden_luan_pity"] = 0;
 					result["dropped"] = 1;
 					result["pet"] = copy_value(acquired["pet"]);
+					result["audit_reason"] = next_pity>=PET_HIDDEN_LUAN_PITY ?
+						"pity_guarantee" : "random_drop";
 				}
-				else
+				else{
 					next_pity = (int)record["hidden_luan_pity"];
+					result["audit_reason"] = "acquire_failed";
+				}
 			}
+			else
+				result["audit_reason"] = "roll_miss";
 			if(!result["dropped"])
 				record["hidden_luan_pity"] = next_pity;
 			record["revision"] = (int)record["revision"]+1;
@@ -1063,6 +1122,11 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 				npc["/tmp/wanling/hidden_accounts"] = credited_accounts;
 				result["ok"] = 1;
 				result["pity"] = (int)record["hidden_luan_pity"];
+				pity_after = (int)record["hidden_luan_pity"];
+				append_hidden_luan_audit(player,npc,account_id,
+					result["dropped"] ? "dropped" : "counted",
+					(string)result["audit_reason"],chance,roll,
+					pity_before,pity_after);
 				if(result["dropped"]){
 					tell_object(player,"【隐藏灵契】首领消散时落下一枚五采灵羽，鸾鸟以回生羽与你缔结灵契！\n[查看万灵谱:pet]\n");
 					ASYNC_IOD->append_log(ROOT+"/log/pet_hidden_drop.log",
@@ -1074,9 +1138,30 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 			else{
 				result["ok"] = 0;
 				result["dropped"] = 0;
+				result["audit_reason"] = "save_failed";
 				m_delete(result,"pet");
+				append_hidden_luan_audit(player,npc,account_id,"failed",
+					(string)result["audit_reason"],chance,roll,
+					pity_before,pity_before);
 			}
 		}
+		else if(!(int)record["starter_claimed"]){
+			result["audit_reason"] = "starter_not_claimed";
+			append_hidden_luan_audit(player,npc,account_id,"rejected",
+				(string)result["audit_reason"],chance,-1,pity_before,pity_before);
+		}
+		else{
+			result["ok"] = 1;
+			result["pity"] = (int)record["hidden_luan_pity"];
+			result["audit_reason"] = "duplicate_npc";
+			append_hidden_luan_audit(player,npc,account_id,"ignored",
+				(string)result["audit_reason"],chance,-1,pity_before,pity_before);
+		}
+	}
+	else{
+		result["audit_reason"] = "record_load_failed";
+		append_hidden_luan_audit(player,npc,account_id,"failed",
+			(string)result["audit_reason"],chance,-1,-1,-1);
 	}
 	destruct(key);
 	return result;

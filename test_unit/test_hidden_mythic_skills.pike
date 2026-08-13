@@ -996,12 +996,12 @@ void test_bt_attribute_rare_scaling_envelope()
 		ancient_dot && ancient_heal && normal &&
 		old_direct->query_rare_power_percent(1)==140 &&
 		old_direct->query_rare_power_percent(5)==160 &&
-		ancient_low->query_rare_power_percent(1)==159 &&
-		ancient_low->query_rare_power_percent(5)==183 &&
-		ancient_high->query_rare_power_percent(5)==201 &&
+		ancient_low->query_rare_power_percent(1)==170 &&
+		ancient_low->query_rare_power_percent(5)==198 &&
+		ancient_high->query_rare_power_percent(5)==216 &&
 		old_heal->query_rare_vital_percent(1)==8 &&
 		old_heal->query_rare_vital_percent(5)==16 &&
-		ancient_heal->query_rare_vital_percent(5)==22 &&
+		ancient_heal->query_rare_vital_percent(5)==24 &&
 		old_direct->query_s_delayTime(1)==50 &&
 		old_shield->query_s_delayTime(1)==75 &&
 		old_dot->query_s_delayTime(1)==90 &&
@@ -1022,7 +1022,7 @@ void test_bt_attribute_rare_scaling_envelope()
 		formula->query_rare_vital_floor(
 			old_heal,5,58000000)==9280000 &&
 		formula->query_rare_vital_floor(
-			ancient_heal,5,58000000)==12760000 &&
+			ancient_heal,5,58000000)==13920000 &&
 		formula->query_rare_control_floor(
 			old_control,5,1000000,4800)==380000 &&
 		formula->query_physical_damage_after_percent_curse(

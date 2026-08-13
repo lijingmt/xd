@@ -206,7 +206,22 @@ private string query_random_goods_normal(int store_level,object me)
 	int pro_add=random(3000);
 	mixed err=catch {
 		obt=ITEMSD->get_item_from_rawname(me->query_level(),
-			me->query_level(),me->query_lunck()+pro_add,item_name);
+			me->query_level(),me->query_lunck()+pro_add,item_name,
+			store_level);
+		// 生成结果必须与当前玩家等级一致；任何历史文件碰撞或异常模板
+		// 都在进入有价货架前拒绝，避免玩家看到/买到跨等级刷出的属性。
+		if(obt && (!functionp(obt->query_item_canLevel) ||
+		   obt->query_item_canLevel()!=me->query_level())){
+			Stdio.append_file(ROOT+"/log/spec_shop_guard.log",
+				sprintf("%s user=%s player_level=%d template_level=%d item=%s result_level=%d\n",
+					ctime(time())[..sizeof(ctime(time()))-2],
+					(string)me->query_name(),(int)me->query_level(),
+					store_level,item_name,
+					functionp(obt->query_item_canLevel) ?
+						(int)obt->query_item_canLevel() : -999));
+			destruct(obt);
+			obt=0;
+		}
 		if(obt){
 			string generated_name=file_name(obt);
 			string real_name=generated_name-(ROOT+"/gamelib/clone/item/");
@@ -222,6 +237,32 @@ private string query_random_goods_normal(int store_level,object me)
 	if(err)
 		werror("[SPECSTORED] candidate generation failed\n");
 	return result;
+}
+
+// 73级内只使用玩家当前等级附近的真实模板；高等级动态装备也只从
+// 60—71级成熟模板扩展。旧逻辑随机抽取1—71级模板，再用另一份随机
+// 等级作为缩放基准，低级武器可因此反复刷出不属于其模板的异常属性。
+private int query_safe_shop_template_level(int player_level)
+{
+	int start_level;
+	int level;
+	if(player_level<1)
+		player_level=1;
+	if(player_level<=71){
+		start_level=player_level;
+		for(level=start_level;level>=1;level--)
+			if(goods_list_normal[level] && sizeof(goods_list_normal[level]))
+				return level;
+		return 0;
+	}
+	start_level=60+random(12);
+	for(level=start_level;level>=60;level--)
+		if(goods_list_normal[level] && sizeof(goods_list_normal[level]))
+			return level;
+	for(level=71;level>start_level;level--)
+		if(goods_list_normal[level] && sizeof(goods_list_normal[level]))
+			return level;
+	return 0;
 }
 
 string random_list(int|void type){
@@ -241,10 +282,14 @@ string random_list(int|void type){
 	if(type == 1){
 		ret+="\n----------\n";
 		for(int i = 0; i< 10; i++){
-			string t = query_random_goods_normal(random(71)+1,player);
+			int template_level=query_safe_shop_template_level(
+				player->query_level());
+			string t = query_random_goods_normal(template_level,player);
 			int max_count = 0;
 			while(t==""){
-				t = query_random_goods_normal(random(71)+1,player);
+				template_level=query_safe_shop_template_level(
+					player->query_level());
+				t = query_random_goods_normal(template_level,player);
 				max_count++;
 				if(max_count >10) break;
 			}
@@ -346,7 +391,9 @@ string query_goods_list_normal(int store_level)//根据商店等级不同，返�
 								int pro_add= random(3000);
 
 								//随机生成装备
-								object obt = ITEMSD->get_item_from_rawname(me->query_level(), me->query_level(), me->query_lunck()+pro_add,items);
+				object obt = ITEMSD->get_item_from_rawname(me->query_level(),
+					me->query_level(),me->query_lunck()+pro_add,items,
+					store_level);
 
 								if(obt){
 									mixed err = catch{

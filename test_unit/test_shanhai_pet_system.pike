@@ -1462,18 +1462,33 @@ void test_hidden_luan_owner_revive()
 	object normal = make_npc(player,70);
 	mapping normal_drop = PETD->test_record_hidden_luan_drop(player,
 		normal,0);
+	player->level = 76;
+	player->set_att_by_level();
+	object gap_boss = make_npc(player,70);
+	gap_boss->_boss = 1;
+	mapping gap_rejected = PETD->test_record_hidden_luan_drop(player,
+		gap_boss,0);
+	player->level = 70;
+	player->set_att_by_level();
 	object first_boss = make_npc(player,70);
 	first_boss->_boss = 1;
 	player["/pet_battle/source"] = "personal";
 	mapping missed = PETD->test_record_hidden_luan_drop(player,
 		first_boss,9999);
+	mapping duplicate = PETD->test_record_hidden_luan_drop(player,
+		first_boss,0);
 	player["/pet_battle/source"] = "shared";
-	check("隐藏图鉴不泄露且完成初契后切换本命灵伴仍累计合格首领",
+	check("鸾鸟只累计等级差五级内首领并审计落空与同首领去重",
 		chosen["ok"] && (int)before["catalog_total"]==15 &&
-		!normal_drop["eligible"] && missed["ok"] &&
+		!normal_drop["eligible"] && !gap_rejected["eligible"] &&
+		(string)gap_rejected["audit_reason"]=="level_gap_over_5" &&
+		missed["ok"] &&
 		missed["eligible"] && !missed["dropped"] &&
-		(int)missed["pity"]==1,
-		"普通怪可掉隐藏宠、公开图鉴提前泄露或首领保底未累计");
+		(string)missed["audit_reason"]=="roll_miss" &&
+		(int)missed["pity"]==1 && duplicate["ok"] &&
+		(string)duplicate["audit_reason"]=="duplicate_npc" &&
+		(int)duplicate["pity"]==1,
+		"等级差拒绝、有效计数、概率落空或同一首领去重不可核验");
 
 	int pity_set = PETD->test_set_hidden_luan_pity(player,499);
 	object pity_boss = make_npc(player,70);
@@ -1484,10 +1499,19 @@ void test_hidden_luan_owner_revive()
 	mapping luan = find_pet_species(collected,"luanniao");
 	check("第500次合格首领无视随机值保底完整鸾鸟并重置账号计数",
 		pity_set && guaranteed["ok"] && guaranteed["dropped"] &&
+		(string)guaranteed["audit_reason"]=="pity_guarantee" &&
 		sizeof(luan) && (string)luan["source"]=="hidden_world_boss_pity" &&
 		(int)collected["hidden_luan_pity"]==0 &&
 		(int)collected["catalog_total"]==16,
 		"隐藏掉率无保底、生成残片而非完整宠物或收录后图鉴未解锁");
+	string collection_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_pet_mod/collection.pike") || "";
+	check("鸾鸟首领拒绝、计数、概率、保底、失败与成功均写审计日志",
+		search(collection_source,"pet_hidden_drop_audit.log")!=-1 &&
+		search(collection_source,"level_gap_over_5")!=-1 &&
+		search(collection_source,"pity_guarantee")!=-1 &&
+		search(collection_source,"save_failed")!=-1,
+		"当前仍只能在掉落成功后看到日志，无法解释1300次未出的原因");
 
 	mapping attack_grant = PETD->test_grant_pet_species(player,"bifang");
 	mapping with_attack = PETD->query_pet_state(player);

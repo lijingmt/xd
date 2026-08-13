@@ -869,6 +869,9 @@ void test_gathering_and_material_cleanup()
 		player->vice_skills["caikuang"] = ({0,0,VICESKILL_UP});
 		player->vice_skills["caiyao"] = ({0,0,VICESKILL_UP});
 		daemon->initialize_player(player);
+		// 本用例验证背包堆叠与挂机出售；百工材料囊另有独立测试。
+		// 显式关闭默认自动入囊，避免从NULL背包对象读取amount。
+		player["/artisan/auto_pouch"] = 0;
 		player["/plus/autofight_gather_mode"] = "mine";
 		object first_ore = clone(ROOT+
 			"/gamelib/clone/item/material/tongkuang");

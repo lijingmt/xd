@@ -112,12 +112,16 @@ void test_exact_one_time_recovery()
 {
 	string userid="xd99testunitjaderecovery";
 	object player=create_test_player(userid);
+	int started_at=time();
 	give_test_jade(player,15);
 	int installed=JADE_RECOVERYD->test_set_manifest(
 		approved_manifest(userid,10,15));
 	mapping first=JADE_RECOVERYD->apply_if_listed(player);
 	mapping receipt=player["/plus/illicit_jade_recovery_once"];
 	int after_first=YUSHID->query_physical_all_num(player);
+	int vip_end_after_first=player->query_vip_end_time();
+	int mail_count_after_first=arrayp(player->inbox) ?
+		sizeof(player->inbox) : 0;
 	give_test_jade(player,7);
 	mapping second=JADE_RECOVERYD->apply_if_listed(player);
 	int after_second=YUSHID->query_physical_all_num(player);
@@ -126,9 +130,93 @@ void test_exact_one_time_recovery()
 		(int)first["confiscated"]==10 && after_first==5 &&
 		mappingp(receipt) && (int)receipt["confiscated"]==10,
 		"首次扣除数量或结案凭据不正确");
+	check("实际扣玉后一次性补偿30天VIP4并发送系统邮件",
+		player->query_vip_flag()==4 &&
+		vip_end_after_first>=started_at+2592000 &&
+		vip_end_after_first<=time()+2592005 &&
+		(int)receipt["compensation_vip_level"]==4 &&
+		(int)receipt["compensation_vip_seconds"]==2592000 &&
+		!(int)receipt["compensation_notice_pending"] &&
+		mail_count_after_first==1 &&
+		search((string)player->inbox[0][4],"异常玉石一次性回收补偿")!=-1 &&
+		search((string)player->inbox[0][5],"30天VIP4")!=-1,
+		"VIP4期限、回执或系统邮件缺失");
 	check("结案后新获得的玉石不再追扣",
-		second["code"]=="already_closed" && after_second==12,
+		second["code"]=="already_closed" && after_second==12 &&
+		player->query_vip_end_time()==vip_end_after_first &&
+		(arrayp(player->inbox) ? sizeof(player->inbox) : 0)==
+			mail_count_after_first,
 		"同一人物被重复执行或未来玉石被追扣");
+	destroy_test_player(player);
+}
+
+void test_existing_higher_vip_is_extended_without_downgrade()
+{
+	string userid="xd99testunitjadehighvip";
+	object player=create_test_player(userid);
+	int old_end=time()+86400;
+	player->set_vip_flag(6);
+	player->set_vip_end_time(old_end);
+	player->add_vip_history(old_end,6);
+	give_test_jade(player,5);
+	JADE_RECOVERYD->test_set_manifest(approved_manifest(userid,5,5));
+	mapping result=JADE_RECOVERYD->apply_if_listed(player);
+	check("已有高阶VIP保持原等级并在原到期日顺延30天",
+		result["code"]=="closed" && (int)result["confiscated"]==5 &&
+		player->query_vip_flag()==6 &&
+		player->query_vip_end_time()==old_end+2592000 &&
+		(int)result["compensation_vip_level"]==6,
+		"高阶VIP被降级、未顺延或重复从当前时间计算");
+	destroy_test_player(player);
+}
+
+void test_expired_vip_does_not_extend_stale_end_time()
+{
+	string userid="xd99testunitjadeexpiredvip";
+	object player=create_test_player(userid);
+	player->set_vip_flag(8);
+	player->set_vip_end_time(time()-86400);
+	give_test_jade(player,4);
+	int started_at=time();
+	JADE_RECOVERYD->test_set_manifest(approved_manifest(userid,4,4));
+	mapping result=JADE_RECOVERYD->apply_if_listed(player);
+	check("已过期高阶VIP按VIP4补30天且不复活旧等级或旧期限",
+		result["code"]=="closed" && (int)result["confiscated"]==4 &&
+		player->query_vip_flag()==4 &&
+		player->query_vip_end_time()>=started_at+2592000 &&
+		player->query_vip_end_time()<=time()+2592005,
+		"过期VIP被错误复活或补偿期限继承了失效时间");
+	destroy_test_player(player);
+}
+
+void test_legacy_closed_receipt_gets_compensation_only()
+{
+	string userid="xd99testunitjadelegacyreceipt";
+	object player=create_test_player(userid);
+	give_test_jade(player,9);
+	player["/plus/illicit_jade_recovery_once"] = ([
+		"schema_version":2,
+		"case_id":"jade-testunit-legacy-0001",
+		"confiscated":7,
+		"closed_at":time()-3600,
+		"status":"matched_snapshot_closed",
+	]);
+	int before_jade=YUSHID->query_physical_all_num(player);
+	mapping first=JADE_RECOVERYD->apply_if_listed(player);
+	int first_end=player->query_vip_end_time();
+	int first_mails=arrayp(player->inbox) ? sizeof(player->inbox) : 0;
+	mapping second=JADE_RECOVERYD->apply_if_listed(player);
+	mapping receipt=player["/plus/illicit_jade_recovery_once"];
+	check("旧版已扣玉回执无需有效快照也会补VIP和邮件且不再扣玉",
+		first["code"]=="already_closed" &&
+		second["code"]=="already_closed" &&
+		YUSHID->query_physical_all_num(player)==before_jade &&
+		player->query_vip_flag()==4 &&
+		(int)receipt["compensation_vip_seconds"]==2592000 &&
+		first_mails==1 &&
+		(arrayp(player->inbox) ? sizeof(player->inbox) : 0)==first_mails &&
+		player->query_vip_end_time()==first_end,
+		"旧回执被重复扣玉、漏发补偿或重复补发");
 	destroy_test_player(player);
 }
 
@@ -246,7 +334,9 @@ void test_snapshot_change_closes_without_touching_new_jade()
 	check("审计快照变化时零扣除结案且以后不追缴",
 		first["code"]=="closed" && (int)first["confiscated"]==0 &&
 		second["code"]=="already_closed" &&
-		YUSHID->query_physical_all_num(player)==16,
+		YUSHID->query_physical_all_num(player)==16 &&
+		player->query_vip_flag()==0 &&
+		(!arrayp(player->inbox) || !sizeof(player->inbox)),
 		"快照后的合法玉被扣除或案件被重复执行");
 	destroy_test_player(player);
 }
@@ -343,6 +433,9 @@ int main()
 {
 	werror("\n========== 异常玉石一次性回收测试 ==========\n");
 	test_exact_one_time_recovery();
+	test_existing_higher_vip_is_extended_without_downgrade();
+	test_expired_vip_does_not_extend_stale_end_time();
+	test_legacy_closed_receipt_gets_compensation_only();
 	test_current_balance_caps_recovery();
 	test_nonlisted_and_unapproved_are_ignored();
 	test_creation_cutoff_and_manifest_validation();

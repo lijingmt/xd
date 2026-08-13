@@ -35,6 +35,28 @@ object create_test_player(string name,string account_owner)
 	return player;
 }
 
+object create_combat_test_player(string name,string race,string profession)
+{
+	object player = clone(GAMELIB_USER);
+	if(!player)
+		return 0;
+	player->set_name(name);
+	player->name_cn = "太古实战测试";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId(race);
+	player->set_profeId(profession);
+	player->setup_player(race,profession);
+	player->level = 190;
+	player->set_att_by_level();
+	player->set_base_life(50000);
+	player->flush_life();
+	player->set_life(player->query_life_max());
+	player->set_mofa(player->query_mofa_max());
+	player->set_base_hitte(100000);
+	return player;
+}
+
 void test_catalog_and_weights()
 {
 	test_start("十职业各7个独立技能且高品阶权重严格递减");
@@ -96,6 +118,54 @@ void test_all_programs_compile()
 			failures += ({id+":"+describe_error(err)});
 		if(book)
 			destruct(book);
+	}
+	if(!sizeof(failures))
+		test_pass();
+	else
+		test_fail(failures*" | ");
+}
+
+void test_all_ancient_skills_strengthened()
+{
+	test_start("70个太古技能按直伤、持续、治疗护盾、控制与嘲讽全系增强");
+	array(string) failures = ({});
+	foreach(ANCIENT_SKILLD->query_all_skill_ids(),string id){
+		object skill = (object)(ROOT+"/gamelib/single/skills/"+id);
+		mapping config = ANCIENT_SKILLD->query_skill_config(id);
+		string type = (string)config["type"];
+		int tier = (int)config["tier"];
+		int old_delay = 65+tier*5;
+		int strengthened = 0;
+		if(!skill){
+			failures += ({id+"无法加载"});
+			continue;
+		}
+		if(skill->query_s_delayTime(5)>old_delay)
+			failures += ({id+"冷却反向增加"});
+		if(type=="dot")
+			strengthened = skill->query_rare_dot_power_percent(5)==
+				14+(tier+1)/2;
+		else if(type=="curse"){
+			strengthened = skill->query_rare_control_percent(5)==47+tier;
+			if(id=="shuraqianlie"){
+				if(skill->s_curse_type!="defend")
+					failures += ({id+"未撕裂防御"});
+			}
+			else if(skill->s_curse_type!="hitte_percent" ||
+			   skill->query_performs_attack(5)!=47+tier ||
+			   search(skill->query_performs_desc(5),"最终命中率")==-1)
+				failures += ({id+"仍使用无效的固定命中减值"});
+		}
+		else if(type=="buff" || type=="team_guard" || type=="heal")
+			strengthened = skill->query_rare_vital_percent(5)==
+				20+(tier+1)/2;
+		else if(type=="taunt")
+			strengthened = skill->query_performs_attack(5)>
+				900+5*450+tier*120;
+		else
+			strengthened = skill->query_rare_power_percent(5)==195+tier*3;
+		if(!strengthened)
+			failures += ({id+"未命中对应增强公式"});
 	}
 	if(!sizeof(failures))
 		test_pass();
@@ -198,6 +268,107 @@ void test_drop_and_visual_wiring()
 		test_fail("掉落、绑定、广播或Vue表现链路缺失");
 }
 
+void test_shura_qianlie_scaled_armor_rend()
+{
+	test_start("狂妖五档修罗千裂按目标当前防御成长并真实生效");
+	object skill = (object)(ROOT+
+		"/gamelib/single/skills/shuraqianlie");
+	object caster = create_combat_test_player(
+		"__testunit_shura_caster__","monst","kuangyao");
+	object target = create_combat_test_player(
+		"__testunit_shura_target__","third","zhenyue");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	int before_defense = 0;
+	int curse_value = 0;
+	int attempt = 0;
+	int valid = !!skill && !!caster && !!target && !!room;
+	if(valid){
+		target->set_base_defend(1000000);
+		caster->move(room);
+		target->move(room);
+		caster->skills["shuraqianlie"] = ({5,0});
+		caster->_fight(target);
+		before_defense = target->query_defend_power();
+		for(attempt=0;attempt<5 &&
+		   target->query_debuff("curse",0)!="defend";attempt++){
+			caster->perform("shuraqianlie",1);
+			if(target->query_debuff("curse",0)!="defend"){
+				caster->f_skills["shuraqianlie"] = 0;
+				caster->timeCold = 0;
+				caster->set_mofa(caster->query_mofa_max());
+			}
+		}
+		curse_value = (int)target->query_debuff("curse",1);
+		valid = skill->s_curse_type=="defend" &&
+			skill->query_performs_attack(5)==680 &&
+			skill->query_rare_control_percent(5)==52 &&
+			search(skill->query_performs_desc(5),"撕裂目标防御")!=-1 &&
+			search(skill->query_performs_desc(5),"当前属性52%")!=-1 &&
+			curse_value>=before_defense*52/100 &&
+			target->query_defend_power()==before_defense-curse_value &&
+			target->query_debuff("curse",2)==12;
+		caster->_clean_fight();
+		target->_clean_fight();
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail(sprintf("type=%s base=%d before=%d curse=%d after=%d",
+			skill ? skill->s_curse_type : "missing",
+			skill ? skill->query_performs_attack(5) : 0,before_defense,
+			curse_value,target ? target->query_defend_power() : 0));
+	if(caster) destruct(caster);
+	if(target) destruct(target);
+}
+
+void test_ancient_hit_curse_after_cap()
+{
+	test_start("太古命中诅咒在99封顶后按百分比压制并真实生效");
+	object skill = (object)(ROOT+
+		"/gamelib/single/skills/longhunpozhen");
+	object caster = create_combat_test_player(
+		"__testunit_ancient_curse_caster__","human","zhuxian");
+	object target = create_combat_test_player(
+		"__testunit_ancient_curse_target__","third","zhenyue");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	int attempt = 0;
+	int valid = !!skill && !!caster && !!target && !!room;
+	if(valid){
+		target->set_base_hitte(100000);
+		caster->move(room);
+		target->move(room);
+		caster->skills["longhunpozhen"] = ({5,0});
+		caster->_fight(target);
+		for(attempt=0;attempt<5 &&
+		   target->query_debuff("curse",0)!="hitte_percent";attempt++){
+			caster->perform("longhunpozhen",1);
+			if(target->query_debuff("curse",0)!="hitte_percent"){
+				caster->f_skills["longhunpozhen"] = 0;
+				caster->timeCold = 0;
+				caster->set_mofa(caster->query_mofa_max());
+			}
+		}
+		valid = skill->query_rare_control_percent(5)==49 &&
+			target->query_debuff("curse",0)=="hitte_percent" &&
+			target->query_debuff("curse",1)==49 &&
+			target->query_debuff("curse",2)==12 &&
+			target->query_if_hitte()==50;
+		caster->_clean_fight();
+		target->_clean_fight();
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail(sprintf("type=%s value=%d hit=%d",
+			target ? (string)target->query_debuff("curse",0) : "missing",
+			target ? (int)target->query_debuff("curse",1) : 0,
+			target ? target->query_if_hitte() : 0));
+	if(caster) destruct(caster);
+	if(target) destruct(target);
+}
+
 void test_room_skill_manifestation_snapshot()
 {
 	test_start("同房战技事件可轮询、去重、限界且不跨房间");
@@ -279,9 +450,12 @@ int main()
 	werror("\n========== 十职业太古隐藏技能测试 ==========\n");
 	test_catalog_and_weights();
 	test_all_programs_compile();
+	test_all_ancient_skills_strengthened();
 	test_drop_probability_contract();
 	test_binding_and_legacy_compatibility();
 	test_drop_and_visual_wiring();
+	test_shura_qianlie_scaled_armor_rend();
+	test_ancient_hit_curse_after_cap();
 	test_room_skill_manifestation_snapshot();
 	werror("太古传承：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);

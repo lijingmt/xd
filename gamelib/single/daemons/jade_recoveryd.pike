@@ -19,6 +19,8 @@ inherit LOW_DAEMON;
 #define RECOVERY_MAX_SUIYU 20000000
 #define RECOVERY_MANIFEST_MAX_SIZE 1048576
 #define RECOVERY_CACHE_SECONDS 5
+#define RECOVERY_COMPENSATION_VIP_LEVEL 4
+#define RECOVERY_COMPENSATION_SECONDS 2592000
 
 private Thread.Mutex manifest_lock=Thread.Mutex();
 private mapping(string:mixed) cached_manifest=([]);
@@ -221,6 +223,125 @@ private void append_recovery_log(string userid,string case_id,string status,
 			describe_error(err));
 }
 
+private void append_compensation_log(string userid,string case_id,
+	int confiscated,int vip_level,int vip_end,int mail_delivered)
+{
+	mixed err=catch{
+		Stdio.append_file(RECOVERY_LOG,sprintf(
+			"%d\tstatus=vip_compensation_granted\tuserid=%s\tcase_id=%s"
+			"\tconfiscated=%d\tvip_level=%d\tvip_end=%d"
+			"\tvip_seconds=%d\tmail_delivered=%d\n",
+			time(),userid,case_id,confiscated,vip_level,vip_end,
+			RECOVERY_COMPENSATION_SECONDS,mail_delivered));
+	};
+	if(err)
+		werror("[JADE_RECOVERY] compensation audit append failed: %s\n",
+			describe_error(err));
+}
+
+private int deliver_compensation_notice(object player)
+{
+	mapping(string:mixed) receipt;
+	string body;
+	int delivered=0;
+	mixed err;
+	if(!player || !mappingp(player[RECOVERY_RECEIPT]))
+		return 0;
+	receipt=(mapping(string:mixed))player[RECOVERY_RECEIPT];
+	if(!(int)receipt["compensation_notice_pending"])
+		return 1;
+	body="系统依据已复核的历史异常记录，一次性回收了"+
+		YUSHID->get_yushi_for_desc((int)receipt["confiscated"])+
+		"。作为本次一次性处置补偿，已为你发放30天VIP"+
+		(string)((int)receipt["compensation_vip_level"])+
+		"会员；若你原有有效VIP高于4级，等级保持不降并顺延30天。"+
+		"本案已结案，以后充值和正常获得的玉石不会继续扣除。";
+	err=catch{
+		delivered=player->recieve_mail("CHAT","仙道系统",
+			player->query_name(),player->query_name_cn(),
+			"异常玉石一次性回收补偿",body);
+	};
+	if(err || !delivered)
+		return 0;
+	receipt["compensation_notice_pending"]=0;
+	receipt["compensation_notice_delivered_at"]=time();
+	player[RECOVERY_RECEIPT]=receipt;
+	if(!functionp(player->save_with_result) || !player->save_with_result())
+		return 0;
+	return 1;
+}
+
+// 兼容已经由旧版本完成扣除、但当时尚无VIP补偿字段的永久回执。
+// 回执本身是成功扣除后与人物档案一起原子保存的凭据；这里只补偿，
+// 不再读取过期快照、不再接触任何玉石。
+private int ensure_closed_recovery_compensation(object player)
+{
+	mapping(string:mixed) receipt;
+	mapping(string:mixed) original_receipt;
+	mapping before_vip_history;
+	int confiscated;
+	int before_vip_flag;
+	int before_vip_end;
+	int compensation_vip_level;
+	int compensation_vip_end;
+	int saved=0;
+	if(!player || !mappingp(player[RECOVERY_RECEIPT]))
+		return 0;
+	receipt=(mapping(string:mixed))player[RECOVERY_RECEIPT];
+	confiscated=(int)receipt["confiscated"];
+	if(confiscated<1)
+		return 1;
+	if((int)receipt["compensation_vip_seconds"]==
+	   RECOVERY_COMPENSATION_SECONDS)
+		return deliver_compensation_notice(player);
+	original_receipt=copy_value(receipt);
+	before_vip_flag=(int)player->query_vip_flag();
+	before_vip_end=(int)player->query_vip_end_time();
+	before_vip_history=mappingp(player->vip_history) ?
+		copy_value(player->vip_history) : ([]);
+	int active_vip_level=before_vip_end>time() ? before_vip_flag : 0;
+	compensation_vip_level=max(RECOVERY_COMPENSATION_VIP_LEVEL,
+		active_vip_level);
+	if(compensation_vip_level>VIP_MAX_LEVEL)
+		compensation_vip_level=VIP_MAX_LEVEL;
+	compensation_vip_end=(active_vip_level>0 ? before_vip_end : time())+
+		RECOVERY_COMPENSATION_SECONDS;
+	mixed err=catch{
+		player->set_vip_flag(compensation_vip_level);
+		player->set_vip_end_time(compensation_vip_end);
+		player->add_vip_history(compensation_vip_end,
+			compensation_vip_level);
+		receipt["compensation_vip_level"]=compensation_vip_level;
+		receipt["compensation_vip_end"]=compensation_vip_end;
+		receipt["compensation_vip_seconds"]=
+			RECOVERY_COMPENSATION_SECONDS;
+		receipt["compensation_notice_pending"]=1;
+		receipt["compensation_migrated_at"]=time();
+		player[RECOVERY_RECEIPT]=receipt;
+		saved=functionp(player->save_with_result) &&
+			player->save_with_result();
+	};
+	if(err || !saved){
+		player->set_vip_flag(before_vip_flag);
+		player->set_vip_end_time(before_vip_end);
+		player->vip_history=copy_value(before_vip_history);
+		player[RECOVERY_RECEIPT]=original_receipt;
+		return 0;
+	}
+	if(PROFESSIONVIPD->is_supported_profession(player->query_profeId()))
+		PROFESSIONVIPD->record_membership_state(player);
+	int mail_delivered=deliver_compensation_notice(player);
+	append_compensation_log((string)player->query_name(),
+		(string)receipt["case_id"],confiscated,compensation_vip_level,
+		compensation_vip_end,mail_delivered);
+	catch{ tell_object(player,
+		"历史异常玉石回收案件已补发30天VIP"+
+		(string)compensation_vip_level+"会员；"+
+		(mail_delivered ? "详细说明已发送至邮箱。\n" :
+			"邮箱暂不可用，系统会在后续登录时重试发送。\n")); };
+	return 1;
+}
+
 private int personal_storage_yushi_level(array row)
 {
 	if(!arrayp(row) || sizeof(row)<7 || !stringp(row[3]) ||
@@ -402,17 +523,29 @@ private mapping(string:mixed) perform_recovery(object player,
 	int after_wallet;
 	int paid;
 	int saved;
+	int before_vip_flag;
+	int before_vip_end;
+	int compensation_vip_level;
+	int compensation_vip_end;
+	mapping before_vip_history;
 	mixed debit_err;
+	mixed compensation_err;
 	mixed save_err;
 	array before_storage_rows=player && arrayp(player->packaged_items) ?
 		copy_value(player->packaged_items) : ({});
 	mapping debit=([]);
-	if(mappingp(player[RECOVERY_RECEIPT]))
+	if(mappingp(player[RECOVERY_RECEIPT])){
+		ensure_closed_recovery_compensation(player);
 		return (["ok":1,"code":"already_closed","confiscated":0]);
+	}
 	before_physical=YUSHID->query_physical_all_num(player);
 	before_storage=query_personal_storage_yushi(player);
 	before_wallet=ACCOUNT_WALLETD->query_balance(player);
 	before_all_fee=ACCOUNT_WALLETD->query_total_recharge_fee(player);
+	before_vip_flag=(int)player->query_vip_flag();
+	before_vip_end=(int)player->query_vip_end_time();
+	before_vip_history=mappingp(player->vip_history) ?
+		copy_value(player->vip_history) : ([]);
 	// The snapshot is a one-hour one-time evidence window. Any intervening
 	// spend, reward, transfer or recharge makes old and new jade impossible to
 	// distinguish, so close with zero rather than touching a possibly new asset.
@@ -447,6 +580,35 @@ private mapping(string:mixed) perform_recovery(object player,
 		return (["ok":0,"code":"physical_debit_failed",
 			"confiscated":0]);
 	}
+	compensation_err=catch{
+		if(confiscated>0){
+			int active_vip_level=before_vip_end>time() ? before_vip_flag : 0;
+			compensation_vip_level=max(RECOVERY_COMPENSATION_VIP_LEVEL,
+				active_vip_level);
+			if(compensation_vip_level>VIP_MAX_LEVEL)
+				compensation_vip_level=VIP_MAX_LEVEL;
+			compensation_vip_end=(active_vip_level>0 ?
+				before_vip_end : time())+RECOVERY_COMPENSATION_SECONDS;
+			player->set_vip_flag(compensation_vip_level);
+			player->set_vip_end_time(compensation_vip_end);
+			player->add_vip_history(compensation_vip_end,
+				compensation_vip_level);
+		}
+	};
+	if(compensation_err){
+		player->set_vip_flag(before_vip_flag);
+		player->set_vip_end_time(before_vip_end);
+		player->vip_history=copy_value(before_vip_history);
+		int restored=rollback_exact(player,before_wallet,before_physical,
+			before_storage_rows,"illicit_jade_recovery_compensation_failed");
+		append_recovery_log((string)player->query_name(),case_id,
+			restored ? "compensation_failed_rolled_back" :
+				"critical_compensation_rollback_failed",
+			proven,before_physical,before_storage,0,
+			YUSHID->query_physical_all_num(player),
+			query_personal_storage_yushi(player),evidence_sha256);
+		return (["ok":0,"code":"compensation_failed","confiscated":0]);
+	}
 	mapping receipt=(["schema_version":2,"case_id":case_id,
 		"proven_suiyu":proven,"confiscated":confiscated,
 		"before_physical":before_physical,"after_physical":after_physical,
@@ -454,6 +616,11 @@ private mapping(string:mixed) perform_recovery(object player,
 		"after_personal_storage":after_storage,
 		"evidence_sha256":evidence_sha256,"closed_at":time(),
 		"policy":RECOVERY_POLICY,
+		"compensation_vip_level":compensation_vip_level,
+		"compensation_vip_end":compensation_vip_end,
+		"compensation_vip_seconds":confiscated>0 ?
+			RECOVERY_COMPENSATION_SECONDS : 0,
+		"compensation_notice_pending":confiscated>0 ? 1 : 0,
 		"status":confiscated>0 ?
 			"matched_snapshot_closed" : "snapshot_changed_closed"]);
 	save_err=catch{
@@ -464,6 +631,9 @@ private mapping(string:mixed) perform_recovery(object player,
 		int restored=confiscated==0;
 		mixed rollback_err=catch{
 			player->m_delete_foruser(RECOVERY_RECEIPT);
+			player->set_vip_flag(before_vip_flag);
+			player->set_vip_end_time(before_vip_end);
+			player->vip_history=copy_value(before_vip_history);
 			if(confiscated>0)
 				restored=rollback_exact(player,before_wallet,before_physical,
 					before_storage_rows,
@@ -473,6 +643,20 @@ private mapping(string:mixed) perform_recovery(object player,
 			// Fail closed in memory. If a later autosave succeeds, this receipt
 			// prevents a second deduction; if no save can succeed, the disk still
 			// contains the untouched pre-operation state.
+			// 若玉石回滚失败，必须同时保留已承诺的VIP补偿，不能出现只扣
+			// 玉却因回滚分支把会员撤掉的二次伤害。
+			if(confiscated>0){
+				mixed compensation_restore_err=catch{
+					player->set_vip_flag(compensation_vip_level);
+					player->set_vip_end_time(compensation_vip_end);
+					player->add_vip_history(compensation_vip_end,
+						compensation_vip_level);
+				};
+				if(compensation_restore_err)
+					werror("[JADE_RECOVERY] CRITICAL VIP compensation restore failed "
+						"userid=%s case=%s\n",
+						(string)player->query_name(),case_id);
+			}
 			receipt["status"]="rollback_failed_closed";
 			player[RECOVERY_RECEIPT]=receipt;
 			catch{ player->save_with_result(); };
@@ -500,13 +684,28 @@ private mapping(string:mixed) perform_recovery(object player,
 		proven,
 		before_physical,before_storage,confiscated,after_physical,
 		after_storage,evidence_sha256);
-	if(confiscated>0)
+	if(confiscated>0){
+		if(PROFESSIONVIPD->is_supported_profession(player->query_profeId()))
+			PROFESSIONVIPD->record_membership_state(player);
+		int mail_delivered=deliver_compensation_notice(player);
+		append_compensation_log((string)player->query_name(),case_id,
+			confiscated,compensation_vip_level,compensation_vip_end,
+			mail_delivered);
 		catch{ tell_object(player,
 			"系统依据已复核的历史异常记录，一次性回收了"+
 			YUSHID->get_yushi_for_desc(confiscated)+
-			"。本次处置已经结案，以后充值和获得的玉石不会继续扣除。\n"); };
+			"，并补偿30天VIP"+(string)compensation_vip_level+
+			"会员（到期时间"+
+			TIMESD->get_user_year_to_second(compensation_vip_end)+
+			"）。"+(mail_delivered ? "详细说明已发送至邮箱；" :
+				"邮箱暂不可用，系统会在后续登录时重试发送；")+
+			"本次处置已经结案，以后充值和"+
+			"正常获得的玉石不会继续扣除。\n"); };
+	}
 	return (["ok":1,"code":"closed","confiscated":confiscated,
-		"proven_suiyu":proven]);
+		"proven_suiyu":proven,
+		"compensation_vip_level":compensation_vip_level,
+		"compensation_vip_end":compensation_vip_end]);
 }
 
 mapping(string:mixed) apply_if_listed(object player)
@@ -521,17 +720,18 @@ mapping(string:mixed) apply_if_listed(object player)
 	userid=(string)player->query_name();
 	if(!valid_userid(userid))
 		return (["ok":0,"code":"invalid_userid"]);
+	claim_path=user_claim_path(userid);
+	if(mappingp(player[RECOVERY_RECEIPT])){
+		// 永久人物回执比短期审计快照更持久。旧版本已成功扣除的人物
+		// 即使清单过期，也只补发一次会员与通知，绝不再次扣玉。
+		Stdio.mkdirhier(RECOVERY_CLAIM_ROOT);
+		mkdir(claim_path);
+		ensure_closed_recovery_compensation(player);
+		return (["ok":1,"code":"already_closed","confiscated":0]);
+	}
 	entry=approved_entry(load_manifest(),userid);
 	if(!sizeof(entry))
 		return (["ok":1,"code":"not_listed","confiscated":0]);
-	claim_path=user_claim_path(userid);
-	if(mappingp(player[RECOVERY_RECEIPT])){
-		// Repair a missing shared fence from the durable player receipt before
-		// any stale Worker object can enter this user-level case.
-		Stdio.mkdirhier(RECOVERY_CLAIM_ROOT);
-		mkdir(claim_path);
-		return (["ok":1,"code":"already_closed","confiscated":0]);
-	}
 	if(!acquire_user_claim(claim_path))
 		return (["ok":1,"code":"already_claimed","confiscated":0]);
 	operation_err=catch{ result=perform_recovery(player,entry); };

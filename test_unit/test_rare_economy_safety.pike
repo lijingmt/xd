@@ -26,11 +26,19 @@ int main()
 		"/gamelib/single/daemons/bossdropd.pike");
 	string items = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/itemsd.pike");
+	string shelf = Stdio.read_file(ROOT+
+		"/lowlib/mudlib/single/specstored.pike");
 	mixed shop_compile = catch {
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/list_spec.pike");
 	};
 	mixed boss_compile = catch {
 		compile_file(ROOT+"/gamelib/single/daemons/bossdropd.pike");
+	};
+	mixed shelf_compile = catch {
+		compile_file(ROOT+"/lowlib/mudlib/single/specstored.pike");
+	};
+	mixed items_compile = catch {
+		compile_file(ROOT+"/gamelib/single/daemons/itemsd.pike");
 	};
 	check("神秘技能货架仅接受服务端固定30碎玉",
 		!shop_compile && shop && search(shop,"type==2 ? 30 : 10")!=-1 &&
@@ -48,6 +56,21 @@ int main()
 		search(items,"rtn_ob->set_item_canLevel(target_item_level)")!=-1 &&
 		search(items,"只兼容旧无等级装备明确传入-1后的炼化")!=-1,
 		"随机无等级分支仍存在或旧数据兼容说明缺失");
+	check("神秘货架使用真实模板等级且不再抽取1级武器跨级放大",
+		!shelf_compile && shelf &&
+		search(shelf,"query_safe_shop_template_level")!=-1 &&
+		search(shelf,"60+random(12)")!=-1 &&
+		search(shelf,"item_name,\n\t\t\tstore_level")!=-1 &&
+		search(shelf,"spec_shop_guard.log")!=-1 &&
+		search(shelf,"obt->query_item_canLevel()!=me->query_level()")!=-1 &&
+		search(shelf,"query_random_goods_normal(random(71)+1")==-1,
+		"货架仍可能把随机低级模板按错误原始等级生成属性");
+	check("动态装备文件名隔离不同目标等级并保持货架所见即所得",
+		!items_compile && items &&
+		search(items,"void|int original_item_level")!=-1 &&
+		search(items,"original_item_level>0 ? original_item_level")!=-1 &&
+		search(items,"target_item_level!=orginal_level")!=-1,
+		"不同等级仍可能复用同一动态装备源码并串换攻防属性");
 	werror("稀有经济：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

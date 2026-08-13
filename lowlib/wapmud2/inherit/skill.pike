@@ -36,14 +36,15 @@ int query_rare_tier(){
 }
 
 // 高属性版本的稀有技能使用总攻势倍率，而不是继续依赖几千点固定值。
-// 旧大神传承最高160%，太古传承随品阶最高201%，维持稀有度梯度。
+// 旧大神传承保持原值；太古传承在不改变玩家/Boss伤害封顶的前提下，
+// 提高普通战斗中的成长，避免极低掉率技能反而弱于常规技能。
 int query_rare_power_percent(int level){
 	if(level<1)
 		level=1;
 	if(level>5)
 		level=5;
 	if(skill_rare=="ancient")
-		return 150+level*6+query_rare_tier()*3;
+		return 160+level*7+query_rare_tier()*3;
 	if(skill_rare=="mythic")
 		return 135+level*5;
 	return 100;
@@ -57,7 +58,7 @@ int query_rare_vital_percent(int level){
 	if(level>5)
 		level=5;
 	if(skill_rare=="ancient")
-		return 8+level*2+(query_rare_tier()+1)/2;
+		return 10+level*2+(query_rare_tier()+1)/2;
 	if(skill_rare=="mythic")
 		return 6+level*2;
 	return 0;
@@ -70,7 +71,7 @@ int query_rare_control_percent(int level){
 	if(level>5)
 		level=5;
 	if(skill_rare=="ancient")
-		return 22+level*4+query_rare_tier();
+		return 27+level*4+query_rare_tier();
 	if(skill_rare=="mythic")
 		return 18+level*4;
 	return 0;
@@ -83,7 +84,7 @@ int query_rare_dot_power_percent(int level){
 	if(level>5)
 		level=5;
 	if(skill_rare=="ancient")
-		return 7+level+(query_rare_tier()+1)/2;
+		return 9+level+(query_rare_tier()+1)/2;
 	if(skill_rare=="mythic")
 		return 5+level;
 	return 0;
@@ -118,9 +119,21 @@ int query_is_rare_direct_damage(){
 		s_skill_type)==-1;
 }
 
-// 旧大神传承缩短过时的超长冷却，但仍明显长于普通技能。
+// 稀有传承缩短过时的超长冷却，但仍明显长于普通技能。太古高品阶
+// 原始冷却可达100秒；按用途分别封顶，避免最稀有技能实战中长期空转。
 int query_s_delayTime(int level){
 	int delay = ::query_s_delayTime(level);
+	if(skill_rare=="ancient"){
+		if(query_is_rare_direct_damage() && delay>75)
+			return 75;
+		if((s_skill_type=="dot" || s_skill_type=="curse") && delay>85)
+			return 85;
+		if((s_skill_type=="buff" || s_skill_type=="heal" ||
+		   s_skill_type=="team_guard" || s_skill_type=="taunt") &&
+		   delay>90)
+			return 90;
+		return delay;
+	}
 	if(skill_rare!="mythic")
 		return delay;
 	if(query_is_rare_direct_damage() && delay>50)

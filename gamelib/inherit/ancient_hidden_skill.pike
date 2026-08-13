@@ -23,7 +23,14 @@ protected void create()
 	s_skill_type = (string)config["type"];
 	s_delayTime = 65+ancient_tier*5;
 	s_lasttime = 12;
-	s_curse_type = "hitte";
+	// 太古诅咒默认使用封顶后的百分比命中压制。旧固定命中减值在
+	// 高属性角色身上会先被巨量命中吞掉，再封顶为99，实际等于无效。
+	s_curse_type = "hitte_percent";
+	// 修罗千裂是狂妖第五档太古传承。后期命中会在99点封顶，继续
+	// 降低固定命中值无法对高属性目标产生稳定收益；改为撕裂防御，
+	// 由稀有控制快照按目标当前防御百分比成长。
+	if(name=="shuraqianlie")
+		s_curse_type = "defend";
 	skill_type += ({(string)config["profession"]});
 	skill_rare = "ancient";
 	if(s_skill_type=="buff" || s_skill_type=="team_guard")
@@ -52,9 +59,18 @@ protected void create()
 				performs_attack[level],cast);
 		}
 		else if(s_skill_type=="curse"){
-			performs_attack[level] = 180+level*75+ancient_tier*25;
-			performs_desc[level] = sprintf("12秒降低目标%d点命中，消耗法力%d点",
-				performs_attack[level],cast);
+			if(name=="shuraqianlie"){
+				performs_attack[level] = 180+level*75+ancient_tier*25;
+				performs_desc[level] = sprintf(
+					"12秒撕裂目标防御，至少降低%d点防御，消耗法力%d点",
+					performs_attack[level],cast);
+			}
+			else{
+				performs_attack[level] = query_rare_control_percent(level);
+				performs_desc[level] = sprintf(
+					"12秒使目标最终命中率降低%d%%，消耗法力%d点",
+					performs_attack[level],cast);
+			}
 		}
 		else if(s_skill_type=="buff" || s_skill_type=="team_guard"){
 			performs_attack[level] = 3200+level*1800+ancient_tier*420;
@@ -62,7 +78,7 @@ protected void create()
 				performs_attack[level],cast);
 		}
 		else if(s_skill_type=="taunt"){
-			performs_attack[level] = 900+level*450+ancient_tier*120;
+			performs_attack[level] = 1050+level*525+ancient_tier*150;
 			performs_desc[level] = sprintf("强制锁定当前目标并增加%d点仇恨，消耗法力%d点",
 				performs_attack[level],cast);
 		}
