@@ -165,6 +165,8 @@
 #define REFERRALD ((object)(ROOT "/gamelib/single/daemons/referrald.pike"))
 //付费商城批量叠加、背包容量证明与精确回滚
 #define SHOP_BATCHD ((object)(ROOT "/gamelib/single/daemons/shop_batchd.pike"))
+//证据白名单限定的一次性历史异常玉石回收
+#define JADE_RECOVERYD ((object)(ROOT "/gamelib/single/daemons/jade_recoveryd.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 

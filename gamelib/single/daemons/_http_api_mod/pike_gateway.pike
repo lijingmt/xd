@@ -716,6 +716,28 @@ int test_pike_gateway_online_snapshot_retryable(string code)
 	return pike_gateway_online_snapshot_retryable(code);
 }
 
+/**
+ * A prepared handoff durably freezes the exact source owner before its final
+ * save and retirement.  That source object can still appear in one online
+ * inventory pass, but it is no longer an active route and must be omitted from
+ * the published cluster snapshot.  Every non-exact worker/epoch copy remains
+ * a hard mismatch so this exception cannot conceal a split owner.
+ */
+private int pike_gateway_online_row_is_prepared_source(mapping row,
+	mapping route,string worker_id)
+{
+	return (int)route["ok"] && (string)route["state"]=="frozen" &&
+		(string)route["handoff_request_id"]!="" &&
+		(string)route["worker_id"]==worker_id &&
+		(int)route["epoch"]==(int)row["epoch"];
+}
+
+int test_pike_gateway_online_row_is_prepared_source(mapping row,
+	mapping route,string worker_id)
+{
+	return pike_gateway_online_row_is_prepared_source(row,route,worker_id);
+}
+
 int test_pike_gateway_missing_counter_is_zero()
 {
 	return pike_gateway_counter_value(([]),"w99")==0;
@@ -894,11 +916,15 @@ mapping query_pike_gateway_online_users()
 			userid = (string)row["userid"];
 			if(!pike_gateway_valid_userid(userid) ||
 			   (string)row["worker_id"]!=worker_id ||
-			   (int)row["epoch"]<1 || by_user[userid])
-				return (["ok":0,"code":by_user[userid] ?
-					"duplicate_online_owner" : "invalid_online_owner",
+			   (int)row["epoch"]<1)
+				return (["ok":0,"code":"invalid_online_owner",
 					"userid":userid]);
 			route = MAP_WORKERD->query_player_route(userid);
+			if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))
+				continue;
+			if(by_user[userid])
+				return (["ok":0,"code":"duplicate_online_owner",
+					"userid":userid]);
 			if(!(int)route["ok"] || (string)route["state"]!="active" ||
 			   (string)route["worker_id"]!=worker_id ||
 			   (int)route["epoch"]!=(int)row["epoch"])
