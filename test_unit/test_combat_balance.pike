@@ -298,7 +298,9 @@ void test_xuehai_perform_has_immediate_damage_and_text()
 			target->query_debuff("dot",0)=="xuehailieshang" &&
 			target->query_debuff("dot",2)==11 &&
 			search(combat_text,"【持续伤害】")!=-1 &&
-			search(combat_text,"【神】血海裂伤")!=-1;
+			search(combat_text,"【神】血海裂伤")!=-1 &&
+			search(combat_text,"点持续伤害")!=-1 &&
+			search(combat_text,"剩余11个战斗节拍")!=-1;
 		caster->_clean_fight();
 		target->_clean_fight();
 	}

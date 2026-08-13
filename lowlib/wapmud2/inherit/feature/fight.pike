@@ -3106,6 +3106,10 @@ void perform(string name,void|int flag){
 							curse_value=query_rare_control_floor(f_cur_skill,
 								skill_level,query_rare_physical_offense(enemy),
 								curse_value);
+						else if(f_cur_skill->s_curse_type=="hitte_percent" &&
+						   functionp(f_cur_skill->query_rare_control_percent))
+							curse_value=f_cur_skill->query_rare_control_percent(
+								skill_level);
 						//记录诅咒的类型
 						enemy->set_debuff("curse",0,f_cur_skill->s_curse_type);
 						//记录诅咒的值

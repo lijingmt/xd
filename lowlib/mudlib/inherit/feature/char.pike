@@ -2681,6 +2681,7 @@ void exercise(object room)
 //由liaocheng于07/1/8添加，用于判断是否命中
 int query_if_hitte(){
 	float h;
+	int hitte_percent_reduce;
 	//int hInt;
 	h = this_object()->query_phy_hitte();
 	if(buff["buff"][0]=="hitte")
@@ -2695,6 +2696,16 @@ int query_if_hitte(){
 	}
 	if(h>99)
 		h=99.0;
+	// 太古诅咒必须在命中率99封顶后按比例生效。若在封顶前从十万级
+	// 原始命中扣除，任何固定值或普通百分比最终仍会被封回99。
+	if(debuff["curse"][0]=="hitte_percent"){
+		hitte_percent_reduce=debuff["curse"][1];
+		if(hitte_percent_reduce<0)
+			hitte_percent_reduce=0;
+		if(hitte_percent_reduce>70)
+			hitte_percent_reduce=70;
+		h=h*(100-hitte_percent_reduce)/100;
+	}
 	return (int)h;
 	/*	hInt = (int)(h*100);
 		if(hInt>=random(10000))//恭喜你，命中了
