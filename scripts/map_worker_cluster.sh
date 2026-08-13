@@ -447,10 +447,15 @@ with urllib.request.urlopen(request, timeout=3) as response:
 nodes = status.get("nodes", [])
 expected = int(sys.argv[2])
 gateway = status.get("gateway", {})
+gateway_workers = gateway.get("worker_requests", {})
 if not status.get("ok") or len(nodes) != expected:
     raise SystemExit("coordinator worker inventory is incomplete")
 if not all(node.get("healthy") for node in nodes):
     raise SystemExit("coordinator reports an unhealthy worker")
+if (len(gateway_workers) != expected
+        or not all(worker.get("reachable") for worker in
+                   gateway_workers.values())):
+    raise SystemExit("coordinator gateway reports an unreachable worker")
 if not gateway.get("controller_ready") or not gateway.get("routing_ready"):
     raise SystemExit("embedded Pike gateway controller is not ready")
 if status.get("desired_config", {}).get("traffic_mode") == "active" and not gateway.get("public_listening"):

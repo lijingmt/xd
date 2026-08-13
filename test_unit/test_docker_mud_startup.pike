@@ -425,6 +425,7 @@ void test_worker_docker_start_chain_contract()
 	   search(restart,"-e XIAND_MAP_WORKER_COUNT")!=-1 &&
 	   search(restart,"-e XIAND_GATEWAY_MAX_REQUESTS")!=-1 &&
 	   search(restart,"-e XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER")!=-1 &&
+	   search(restart,"-e XIAND_WORKER_CONTROL_TIMEOUT")!=-1 &&
 	   search(restart,"verify_map_worker_runtime_in_container")!=-1 &&
 	   search(restart,"-p \"18880") == -1 &&
 	   search(restart,"-p \"18881") == -1 &&
@@ -432,6 +433,7 @@ void test_worker_docker_start_chain_contract()
 	   search(compose,"XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}")!=-1 &&
 	   search(compose,"XIAND_GATEWAY_MAX_REQUESTS=${XIAND_GATEWAY_MAX_REQUESTS:-}")!=-1 &&
 	   search(compose,"XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER=${XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER:-}")!=-1 &&
+	   search(compose,"XIAND_WORKER_CONTROL_TIMEOUT=${XIAND_WORKER_CONTROL_TIMEOUT:-4}")!=-1 &&
 	   search(compose,"XIAND_WORKER_TOKEN=${XIAND_WORKER_TOKEN}")!=-1 &&
 	   search(compose,"stop_grace_period: 10m")!=-1 &&
 	   search(compose,"18880:") == -1 &&
@@ -455,6 +457,7 @@ void test_worker_docker_start_chain_contract()
 	   search(env_setup,"chmod 600 \"$ENV_FILE\"")!=-1 &&
 	   search(env_setup,"openssl rand -hex 32")!=-1 &&
 	   search(env_example,"MYSQL_PASSWORD=")!=-1 &&
+	   search(env_example,"XIAND_WORKER_CONTROL_TIMEOUT=4")!=-1 &&
 	   search(dockerfile,"procps-ng")!=-1 &&
 	   search(startup,"XIAND_MAP_WORKER_LAUNCHER=background")!=-1 &&
 	   search(startup,"\"$ROOT_DIR/data_xiand/u\"")!=-1 &&
@@ -483,10 +486,13 @@ void test_local_worker_restart_chain_contract()
 	   search(wrapper,"restart_map_workers_with_testunit.sh")!=-1 &&
 	   search(wrapper,"\"$@\"")!=-1 &&
 	   search(local_restart,"XIAND_STOP_AFTER_TESTUNIT=1")!=-1 &&
-	   search(local_restart,"\"$CLUSTER_SCRIPT\" stop")!=-1 &&
+	   search(local_restart,
+		   "XIAND_MAP_WORKER_FAILOVER_SHUTDOWN=1 \"$CLUSTER_SCRIPT\" stop")!=-1 &&
 	   search(local_restart,"XIAND_MAP_WORKER_RUN_SELFTESTS=1")!=-1 &&
 	   search(local_restart,"\"$CLUSTER_SCRIPT\" start \"$@\"")!=-1 &&
 	   search(local_restart,"\"$CLUSTER_SCRIPT\" health")!=-1 &&
+	   search(Stdio.read_file(ROOT+"/scripts/map_worker_cluster.sh"),
+		   "coordinator gateway reports an unreachable worker")!=-1 &&
 	   search(testunit_restart,"stop_after_testunit_if_requested")!=-1 &&
 	   search(testunit_restart,"validated standalone could not shut down safely")!=-1)
 		test_pass();

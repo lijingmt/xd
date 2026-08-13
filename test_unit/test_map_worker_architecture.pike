@@ -893,6 +893,8 @@ int main()
 				"restart_map_workers_with_testunit.sh") &&
 			source_has("/scripts/restart_map_workers_with_testunit.sh",
 				"XIAND_STOP_AFTER_TESTUNIT=1") &&
+			source_has("/scripts/restart_map_workers_with_testunit.sh",
+				"XIAND_MAP_WORKER_FAILOVER_SHUTDOWN=1") &&
 			source_has("/docker/docker-compose.yml",
 				"XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}"),
 			"一键重启可能忽略worker数量、覆盖其他后台配置或偏离默认3个");
@@ -1002,18 +1004,24 @@ int main()
 					"One mutation uses one immutable config generation"),
 				"并发apply/stop或启动中改配置可能混用两代worker数与端口");
 
-		check("worker探测失败停止续心跳并由TTL自动摘除死节点",
+		check("worker探测抖动有三次迟滞且持续失败仍由TTL摘除死节点",
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
-				"if(monitor_err){") &&
+				"PIKE_GATEWAY_MONITOR_FAILURES = 3") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_monitor_all_workers()") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_monitor_farm->run(") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
-				"pike_gateway_set_worker_reachable(worker_id,0)") &&
+				"pike_gateway_note_monitor_failure(worker_id,") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"if(isolate){") &&
 			source_has("/gamelib/single/daemons/map_workerd.pike",
-				"MAP_WORKER_HEARTBEAT_TTL = 20"),
-			"失联worker可能被伪心跳维持健康并继续接收地图");
+				"MAP_WORKER_HEARTBEAT_TTL = 20") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"gateway_workers = gateway.get(\"worker_requests\", {})") &&
+			source_has("/scripts/map_worker_cluster.sh",
+				"coordinator gateway reports an unreachable worker"),
+			"单次抖动仍会停全服，或持续失联worker继续接收地图");
 
 		check("两层master都禁止worker首次登录重复启动全局daemon但允许房间归属刷新器",
 			source_has("/lowlib/system/master.pike",

@@ -294,6 +294,92 @@ void test_hidden_support_perform_runtime()
 	if(room) destruct(room);
 }
 
+// 无相焰的生产故障来自“候选目标只取已有仇恨表”：普通开战
+// 仅有一只怪在表中，所以群攻实际只打一只。本测试故意不预先给
+// 第二只怪建立仇恨，同时验证路人玩家和任务NPC不被误伤。
+void test_wuxiang_room_aoe_runtime()
+{
+	object caster = create_hidden_profession_player(
+		"xd01testunitwuxiangaoe","wuxiang");
+	object teammate = create_hidden_profession_player(
+		"xd01testunitwuxiangmate","taiji");
+	object outsider = create_hidden_profession_player(
+		"xd01testunitwuxiangout","taiji");
+	object enemy = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object enemy_two = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object protected_npc = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object room = clone(WAP_ROOM);
+	int failed = 0;
+	string detail = "";
+	mixed err = catch {
+		caster->set_term("xd01testunitwuxiangteam");
+		teammate->set_term("xd01testunitwuxiangteam");
+		outsider->set_term("xd01testunitwuxiangother");
+		caster->move(room);
+		teammate->move(room);
+		outsider->move(room);
+		enemy->move(room);
+		enemy_two->move(room);
+		protected_npc->move(room);
+		protected_npc->_tasknpc = 1;
+		enemy->set_base_life(10000000);
+		enemy->flush_life();
+		enemy_two->set_base_life(10000000);
+		enemy_two->flush_life();
+		protected_npc->set_base_life(10000000);
+		protected_npc->flush_life();
+		caster->skills["wuxiangyan"] = ({5,0});
+		caster->set_mofa(caster->query_mofa_max());
+		caster->_fight(enemy);
+		int second_was_not_engaged = !caster->if_in_targets(enemy_two);
+		int teammate_before = teammate->get_cur_life();
+		int outsider_before = outsider->get_cur_life();
+		int protected_before = protected_npc->get_cur_life();
+		int mofa_before = caster->get_cur_mofa();
+		caster->perform("wuxiangyan",1);
+		mapping report = caster->query_recent_aoe_battle_report();
+		if(!second_was_not_engaged || !report ||
+		   report["skill"]!="wuxiangyan" ||
+		   sizeof((array)report["targets"])!=2 ||
+		   !caster->if_in_targets(enemy_two) ||
+		   teammate->get_cur_life()!=teammate_before ||
+		   outsider->get_cur_life()!=outsider_before ||
+		   protected_npc->get_cur_life()!=protected_before ||
+		   caster->get_cur_mofa()>=mofa_before ||
+		   caster->f_skills["wuxiangyan"]!=4){
+			failed++;
+			detail += sprintf(
+				"pre=%d report=%O targets=%d second=%d mate=%d/%d out=%d/%d task=%d/%d mana=%d/%d cold=%d; ",
+				second_was_not_engaged,report && report["skill"],
+				report ? sizeof((array)report["targets"]) : -1,
+				caster->if_in_targets(enemy_two),
+				teammate->get_cur_life(),teammate_before,
+				outsider->get_cur_life(),outsider_before,
+				protected_npc->get_cur_life(),protected_before,
+				caster->get_cur_mofa(),mofa_before,
+				(int)caster->f_skills["wuxiangyan"]);
+		}
+	};
+	if(err){
+		failed++;
+		detail += describe_error(err)+" "+describe_backtrace(err);
+	}
+	check("无相焰会扩展到同房普通怪且不误伤队友、路人与任务NPC",
+		failed==0,detail);
+	if(caster && caster->query_in_combat())
+		caster->_clean_fight();
+	destroy_player_with_inventory(caster);
+	destroy_player_with_inventory(teammate);
+	destroy_player_with_inventory(outsider);
+	if(enemy) destruct(enemy);
+	if(enemy_two) destruct(enemy_two);
+	if(protected_npc) destruct(protected_npc);
+	if(room) destruct(room);
+}
+
 void test_hidden_advanced_perform_runtime()
 {
 	object caster = create_hidden_profession_player(
@@ -912,6 +998,7 @@ int main()
 		test_hidden_profession_combat_formulas();
 		test_hidden_skill_contract_runtime();
 		test_hidden_support_perform_runtime();
+		test_wuxiang_room_aoe_runtime();
 		test_hidden_advanced_perform_runtime();
 		test_server_authoritative_reward_and_relife();
 		test_trial_reward_exchange_runtime();

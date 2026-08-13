@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#define MAX_BULK_BUY_COUNT 999
 
 private int can_bulk_buy(object item)
 {
@@ -9,13 +10,100 @@ private int can_bulk_buy(object item)
 		(string)item->query_item_type())!=-1;
 }
 
-private int inventory_amount(object player,string name)
+private string item_vip_owner(object item)
+{
+	if(item && functionp(item->query_toVip))
+		return (string)item->query_toVip();
+	return "";
+}
+
+private int inventory_amount(object player,string name,string vip_owner)
 {
 	int amount=0;
 	foreach(all_inventory(player),object item)
-		if(item && item->query_name()==name)
+		if(item && item->query_name()==name &&
+		   item_vip_owner(item)==vip_owner)
 			amount+=item->is("combine_item") ? (int)item->amount : 1;
 	return amount;
+}
+
+private int bulk_capacity(object player,object item)
+{
+	array(object) items=all_inventory(player);
+	string name=(string)item->query_name();
+	string vip_owner=item_vip_owner(item);
+	int stack_max=(int)item->max_count;
+	int capacity=0;
+	int free_slots;
+	if(stack_max<1)
+		return 0;
+	foreach(items,object existing){
+		if(!existing || !existing->is("combine_item") ||
+		   existing->query_name()!=name ||
+		   item_vip_owner(existing)!=vip_owner)
+			continue;
+		if((int)existing->amount>=0 && (int)existing->amount<stack_max)
+			capacity+=stack_max-(int)existing->amount;
+	}
+	free_slots=player->query_beibao_size()-sizeof(items);
+	if(free_slots>0)
+		capacity+=free_slots*stack_max;
+	return capacity;
+}
+
+private int deliver_combine_items(object player,string item_path,
+	object first_item,int count)
+{
+	int remaining=count;
+	int stack_max=(int)first_item->max_count;
+	object|zero piece=first_item;
+	if(stack_max<1)
+		return 0;
+	while(remaining>0){
+		if(!piece){
+			mixed clone_err=catch { piece=clone(item_path); };
+			if(clone_err || !piece)
+				return 0;
+		}
+		int chunk=remaining>stack_max ? stack_max : remaining;
+		piece->amount=chunk;
+		mixed move_err=catch {
+			piece->move_player(player->query_name());
+		};
+		if(move_err || (piece && environment(piece)!=player)){
+			if(piece)
+				destruct(piece);
+			return 0;
+		}
+		remaining-=chunk;
+		piece=0;
+	}
+	return 1;
+}
+
+private int remove_inventory_amount(object player,string name,
+	string vip_owner,int count)
+{
+	int remaining=count;
+	foreach(all_inventory(player),object item){
+		int available;
+		int take;
+		if(remaining<=0)
+			break;
+		if(!item || item->query_name()!=name ||
+		   item_vip_owner(item)!=vip_owner)
+			continue;
+		available=item->is("combine_item") ? (int)item->amount : 1;
+		if(available<=0)
+			continue;
+		take=available>remaining ? remaining : available;
+		if(item->is("combine_item") && take<available)
+			item->amount=available-take;
+		else
+			item->remove();
+		remaining-=take;
+	}
+	return count-remaining;
 }
 
 private int parse_count(string|zero value)
@@ -48,7 +136,7 @@ int main(string|zero arg)
 		int count=parse_count(parsed==4 ? count_value : 0);
 		if(parsed<3 || name=="" || search(name,"..")!=-1 ||
 		   name[0]=='/' || sizeof(offer_token)!=64 ||
-		   count<1 || count>20){
+		   count<1 || count>MAX_BULK_BUY_COUNT){
 			write("商品、价格或数量参数无效，本次没有扣款。\n"+
 				"[返回游戏:look]\n");
 			return 1;
@@ -77,11 +165,12 @@ int main(string|zero arg)
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
 		}
-		if(ob->is("combine_item"))
-			ob->amount=count;
 		string item_name=(string)ob->query_name();
 		string item_name_cn=(string)ob->query_name_cn();
-		if(me->if_over_load(ob)){
+		string vip_owner=item_vip_owner(ob);
+		int stackable=ob->is("combine_item");
+		if((stackable && bulk_capacity(me,ob)<count) ||
+		   (!stackable && me->if_over_load(ob))){
 			MUD_SPEC_STORED->release_player_offer(me,offer_token);
 			s = "你的背包已满，无法执行此操作，请返回。\n";       
 			destruct(ob);
@@ -97,31 +186,63 @@ int main(string|zero arg)
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 		}
 		else{
-			int before=inventory_amount(me,item_name);
+			int before=inventory_amount(me,item_name,vip_owner);
+			int delivered=0;
 			mixed move_err=catch{
-				if(ob->is("combine_item"))
-					ob->move_player(me->query_name());
-				else
+				if(stackable){
+					delivered=deliver_combine_items(me,
+						ROOT+"/gamelib/clone/item/"+name,ob,count);
+				}
+				else{
 					ob->move(me);
+					delivered=1;
+				}
 			};
-			int added=inventory_amount(me,item_name)-before;
-			if(move_err || added!=count){
-				if(added>0)
-					me->remove_combine_item_transaction(item_name,added);
-				me->add_account(need_money);
-				MUD_SPEC_STORED->release_player_offer(me,offer_token);
+			int added=inventory_amount(me,item_name,vip_owner)-before;
+			if(move_err || !delivered || added!=count){
+				int removed=0;
+				if(added>0 && !stackable && ob && environment(ob)==me){
+					ob->remove();
+					removed=1;
+				}
+				else if(added>0)
+					removed=remove_inventory_amount(me,item_name,
+						vip_owner,added);
+				int kept=added-removed;
+				int refund=need_money-fee*kept;
+				if(refund>0)
+					me->add_account(refund);
+				if(kept>0)
+					MUD_SPEC_STORED->consume_player_offer(me,offer_token);
+				else
+					MUD_SPEC_STORED->release_player_offer(me,offer_token);
 				if(ob)
 					destruct(ob);
-				s += "物品发放失败，费用已全部退回，请稍后重试。\n";
+				if(kept>0)
+					s += "批量发放中断，仅按背包中实际保留的"+
+						kept+"件计费，其余费用已退回。\n";
+				else
+					s += "物品发放失败，费用已全部退回，请稍后重试。\n";
 			}
 			else if(!MUD_SPEC_STORED->consume_player_offer(
 			        me,offer_token)){
-				if(ob && environment(ob)==me)
-					destruct(ob);
+				int removed=0;
+				if(added>0 && !stackable && ob && environment(ob)==me){
+					ob->remove();
+					removed=1;
+				}
 				else if(added>0)
-					me->remove_combine_item_transaction(item_name,added);
-				me->add_account(need_money);
-				s += "货架状态已经变化，物品已回收且费用已退回。\n";
+					removed=remove_inventory_amount(me,item_name,
+						vip_owner,added);
+				int kept=added-removed;
+				int refund=need_money-fee*kept;
+				if(refund>0)
+					me->add_account(refund);
+				if(kept>0)
+					s += "货架状态已变化，仅按未能回收的"+
+						kept+"件计费，其余费用已退回。\n";
+				else
+					s += "货架状态已经变化，物品已回收且费用已退回。\n";
 			}
 			else{
 				s += "交易成功！\n你花费"+

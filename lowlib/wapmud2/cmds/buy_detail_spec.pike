@@ -1,6 +1,7 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
 #include <gamelib/include/gamelib.h>
+#define MAX_BULK_BUY_COUNT 999
 private int can_bulk_buy(object item)
 {
 	if(!item || !item->is("combine_item"))
@@ -51,10 +52,12 @@ int main(string|zero arg)
 		s+="[确定购买:buy_goods_spec "+name+" "+fee+" "+
 			offer_token+"]\n";
 		if(can_bulk_buy(ob)){
-			s+="批量购买（1—20）：[买5个:buy_goods_spec "+name+" "+fee+
-				" "+offer_token+" 5] [买10个:buy_goods_spec "+name+" "+fee+
-				" "+offer_token+" 10] [买20个:buy_goods_spec "+name+" "+fee+
-				" "+offer_token+" 20]\n";
+			s+="批量购买（1—"+MAX_BULK_BUY_COUNT+"）："+
+				"[买50个:buy_goods_spec "+name+" "+fee+" "+offer_token+
+				" 50] [买100个:buy_goods_spec "+name+" "+fee+" "+offer_token+
+				" 100] [买300个:buy_goods_spec "+name+" "+fee+" "+offer_token+
+				" 300] [买999个:buy_goods_spec "+name+" "+fee+" "+offer_token+
+				" 999]\n";
 			s+="[int no:...]\n";
 			s+="[submit 自定义数量购买:buy_goods_spec "+name+" "+fee+
 				" "+offer_token+" ...]\n";

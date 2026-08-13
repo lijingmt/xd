@@ -18,7 +18,11 @@ main()
 	export XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=isolated-test-server-only
 
 	log "stopping the previous local worker topology, if present"
-	"$CLUSTER_SCRIPT" stop
+	# Local fault-injection frequently leaves one test worker genuinely absent.
+	# The cluster script still verifies the PID, waits until the coordinator has
+	# marked that exact worker unreachable, and keeps every uncertain write
+	# fail-closed before it skips the dead process.
+	XIAND_MAP_WORKER_FAILOVER_SHUTDOWN=1 "$CLUSTER_SCRIPT" stop
 
 	log "restarting standalone once to run the complete Pike TestUnit suite"
 	XIAND_STOP_AFTER_TESTUNIT=1 "$RESTART_TESTUNIT"

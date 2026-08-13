@@ -17,6 +17,7 @@ constant PIKE_GATEWAY_MAX_UNCERTAIN = 1024;
 constant PIKE_GATEWAY_MAX_RECONCILE_USERS = 20000;
 constant PIKE_GATEWAY_CIRCUIT_FAILURES = 3;
 constant PIKE_GATEWAY_CIRCUIT_SECONDS = 5;
+constant PIKE_GATEWAY_MONITOR_FAILURES = 3;
 
 private multiset(string) pike_gateway_hop_headers = (<
 	"connection","keep-alive","proxy-authenticate",
@@ -47,6 +48,8 @@ private mapping(string:int) pike_gateway_worker_ports = ([]);
 private mapping(string:int) pike_gateway_generations = ([]);
 private mapping(string:string) pike_gateway_worker_incarnations = ([]);
 private mapping(string:int) pike_gateway_worker_reachable = ([]);
+private mapping(string:int) pike_gateway_worker_monitor_failures = ([]);
+private mapping(string:int) pike_gateway_worker_monitor_total_failures = ([]);
 private mapping(string:int) pike_gateway_worker_request_active = ([]);
 private mapping(string:int) pike_gateway_worker_request_peak = ([]);
 private mapping(string:int) pike_gateway_worker_request_completed = ([]);
@@ -75,7 +78,7 @@ private string pike_gateway_last_error = "";
 private int pike_gateway_worker_capacity = 100;
 private int pike_gateway_listen_port = 8888;
 private int pike_gateway_timeout = 30;
-private int pike_gateway_control_timeout = 2;
+private int pike_gateway_control_timeout = 4;
 private int pike_gateway_max_requests = 128;
 private int pike_gateway_worker_request_limit = 32;
 private int pike_gateway_lease_gc_seconds = 3600;
@@ -678,6 +681,16 @@ int test_pike_gateway_monitor_generation_current(int observed,int current)
 	return pike_gateway_monitor_generation_current(observed,current);
 }
 
+private int pike_gateway_monitor_should_isolate(int failures)
+{
+	return failures>=PIKE_GATEWAY_MONITOR_FAILURES;
+}
+
+int test_pike_gateway_monitor_should_isolate(int failures)
+{
+	return pike_gateway_monitor_should_isolate(failures);
+}
+
 int test_pike_gateway_missing_counter_is_zero()
 {
 	return pike_gateway_counter_value(([]),"w99")==0;
@@ -755,6 +768,11 @@ mapping query_pike_gateway_status()
 			pike_gateway_worker_request_failed,worker_id);
 		int total = completed+failed;
 		worker_requests[worker_id] = ([
+			"reachable":pike_gateway_worker_reachable[worker_id] ? 1 : 0,
+			"monitor_failures":pike_gateway_counter_value(
+				pike_gateway_worker_monitor_failures,worker_id),
+			"monitor_total_failures":pike_gateway_counter_value(
+				pike_gateway_worker_monitor_total_failures,worker_id),
 			"active":pike_gateway_counter_value(
 				pike_gateway_worker_request_active,worker_id),
 			"peak":pike_gateway_counter_value(
@@ -1371,6 +1389,51 @@ private void pike_gateway_set_worker_reachable(string worker_id,int reachable)
 {
 	object key = pike_gateway_state_lock->lock();
 	pike_gateway_worker_reachable[worker_id] = reachable ? 1 : 0;
+	if(reachable)
+		pike_gateway_worker_monitor_failures[worker_id] = 0;
+	destruct(key);
+}
+
+/**
+ * Control RPCs share CPU with gameplay inside a worker. One delayed probe must
+ * not pause every map, but repeated failures still fail closed before the
+ * coordinator's 20-second heartbeat lease can keep a dead worker eligible.
+ */
+private int pike_gateway_note_monitor_failure(string worker_id,
+	string error_desc)
+{
+	int failures;
+	int isolate;
+	object key = pike_gateway_state_lock->lock();
+	failures = pike_gateway_counter_value(
+		pike_gateway_worker_monitor_failures,worker_id)+1;
+	pike_gateway_worker_monitor_failures[worker_id] = failures;
+	pike_gateway_worker_monitor_total_failures[worker_id] =
+		pike_gateway_counter_value(
+			pike_gateway_worker_monitor_total_failures,worker_id)+1;
+	pike_gateway_last_error = "monitor "+worker_id+": "+
+		pike_gateway_log_field(error_desc,256);
+	isolate = pike_gateway_monitor_should_isolate(failures);
+	if(isolate){
+		pike_gateway_worker_reachable[worker_id] = 0;
+		m_delete(pike_gateway_online_rows_by_worker,worker_id);
+		m_delete(pike_gateway_online_rows_at,worker_id);
+	}
+	destruct(key);
+	if(failures==1 || failures==PIKE_GATEWAY_MONITOR_FAILURES)
+		werror("[PIKE_GATEWAY][MONITOR] worker=%s failures=%d isolated=%d error=%s\n",
+			pike_gateway_log_field(worker_id,32),failures,isolate,
+			pike_gateway_log_field(error_desc,256));
+	return isolate;
+}
+
+private void pike_gateway_note_monitor_success(string worker_id)
+{
+	object key = pike_gateway_state_lock->lock();
+	pike_gateway_worker_monitor_failures[worker_id] = 0;
+	string prefix = "monitor "+worker_id+":";
+	if(has_prefix(pike_gateway_last_error,prefix))
+		pike_gateway_last_error = "";
 	destruct(key);
 }
 
@@ -3068,21 +3131,11 @@ private void pike_gateway_monitor_worker(string worker_id)
 	// generation unreachable.
 	if(monitor_err && pike_gateway_monitor_generation_current(generation,
 	   pike_gateway_worker_generation(worker_id))){
-		pike_gateway_set_worker_reachable(worker_id,0);
-		object key = pike_gateway_state_lock->lock();
-		pike_gateway_last_error = "monitor "+worker_id+": "+
-			pike_gateway_log_field(describe_error(monitor_err),256);
-		m_delete(pike_gateway_online_rows_by_worker,worker_id);
-		m_delete(pike_gateway_online_rows_at,worker_id);
-		destruct(key);
+		pike_gateway_note_monitor_failure(worker_id,
+			describe_error(monitor_err));
 	}
-	else{
-		object key = pike_gateway_state_lock->lock();
-		string prefix = "monitor "+worker_id+":";
-		if(has_prefix(pike_gateway_last_error,prefix))
-			pike_gateway_last_error = "";
-		destruct(key);
-	}
+	else
+		pike_gateway_note_monitor_success(worker_id);
 }
 
 /**
@@ -3099,11 +3152,8 @@ private void pike_gateway_monitor_all_workers()
 				pike_gateway_monitor_worker,worker_id)});
 		};
 		if(schedule_err){
-			pike_gateway_set_worker_reachable(worker_id,0);
-			object key = pike_gateway_state_lock->lock();
-			pike_gateway_last_error = "monitor schedule "+worker_id+": "+
-				pike_gateway_log_field(describe_error(schedule_err),256);
-			destruct(key);
+			pike_gateway_note_monitor_failure(worker_id,
+				"schedule: "+describe_error(schedule_err));
 		}
 	}
 	foreach(futures,object future){
@@ -3763,7 +3813,7 @@ void init_pike_gateway()
 	pike_gateway_timeout = pike_gateway_env_int(
 		"XIAND_WORKER_TIMEOUT",30,1,120);
 	pike_gateway_control_timeout = pike_gateway_env_int(
-		"XIAND_WORKER_CONTROL_TIMEOUT",2,1,10);
+		"XIAND_WORKER_CONTROL_TIMEOUT",4,1,10);
 	pike_gateway_max_requests = pike_gateway_env_int(
 		"XIAND_GATEWAY_MAX_REQUESTS",128,8,1024);
 	pike_gateway_worker_request_limit = min(pike_gateway_max_requests,

@@ -196,6 +196,22 @@ int main()
 			!httpd->test_pike_gateway_worker_bulkhead(1,1,7,8,0,0,100),
 			"热点Worker可能挤满全局线程或熔断后无法安全半开探测");
 
+		check("Worker探测连续三次失败才隔离且控制超时默认四秒",
+			!httpd->test_pike_gateway_monitor_should_isolate(0) &&
+			!httpd->test_pike_gateway_monitor_should_isolate(1) &&
+			!httpd->test_pike_gateway_monitor_should_isolate(2) &&
+			httpd->test_pike_gateway_monitor_should_isolate(3) &&
+			httpd->test_pike_gateway_monitor_should_isolate(4) &&
+			source_has(gateway,
+				"constant PIKE_GATEWAY_MONITOR_FAILURES = 3") &&
+			source_has(gateway,
+				"isolate = pike_gateway_monitor_should_isolate(failures)") &&
+			source_has(gateway,
+				"\"XIAND_WORKER_CONTROL_TIMEOUT\",4,1,10") &&
+			source_has(gateway,"\"monitor_failures\"") &&
+			source_has(gateway,"\"monitor_total_failures\""),
+			"瞬时调度延迟仍会全局停流，或真实连续故障无法被观测和隔离");
+
 		check("响应过滤移除跳转头、内部能力和重复长度",
 			httpd->test_pike_gateway_header("Content-Type") &&
 			!httpd->test_pike_gateway_header("Transfer-Encoding") &&

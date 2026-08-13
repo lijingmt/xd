@@ -42,6 +42,24 @@ int amount_of(object player,string name)
 	return amount;
 }
 
+int stack_count_of(object player,string name)
+{
+	int count=0;
+	foreach(all_inventory(player),object item)
+		if(item && item->query_name()==name)
+			count++;
+	return count;
+}
+
+int max_stack_amount_of(object player,string name)
+{
+	int maximum=0;
+	foreach(all_inventory(player),object item)
+		if(item && item->query_name()==name && (int)item->amount>maximum)
+			maximum=(int)item->amount;
+	return maximum;
+}
+
 void destroy_player(object|zero player)
 {
 	if(!player)
@@ -139,28 +157,80 @@ int main()
 			sprintf("amount=%d money=%d",amount_of(player,"xiaohuandan"),
 				player->query_account()));
 
+		string ordinary_detail_source=Stdio.read_file(ROOT+
+			"/lowlib/wapmud2/cmds/buy_detail.pike");
+		string ordinary_buy_source=Stdio.read_file(ROOT+
+			"/lowlib/wapmud2/cmds/buy_goods.pike");
+		check("普通商店的兼容入口同步支持50到999与跨堆叠发放",
+			ordinary_detail_source && ordinary_buy_source &&
+			search(ordinary_detail_source,
+				"[买50个:buy_goods ")!=-1 &&
+			search(ordinary_detail_source,
+				"[买999个:buy_goods ")!=-1 &&
+			search(ordinary_buy_source,
+				"deliver_combine_items")!=-1 &&
+			search(ordinary_buy_source,
+				"count>MAX_BULK_BUY_COUNT")!=-1,
+			"普通商店的批量入口或服务端跨堆叠结算缺失");
+
 		int before_special=player->query_account();
+		int special_amount_before=amount_of(player,"changqingshui");
 		string offer_token=MUD_SPEC_STORED->issue_test_offer(
 			player,"water/changqingshui",123);
-		special->main("water/changqingshui 0 "+offer_token+" no=7");
+		detail->main("water/changqingshui 0 "+offer_token);
+		string bulk_view=(string)(player->query_spliter()["text"] || "");
+		check("新旧界面的药品详情都提供50、100、300、999快捷数量",
+			search(bulk_view,"buy_goods_spec water/changqingshui 123 "+
+				offer_token+" 50")!=-1 &&
+			search(bulk_view,"buy_goods_spec water/changqingshui 123 "+
+				offer_token+" 100")!=-1 &&
+			search(bulk_view,"buy_goods_spec water/changqingshui 123 "+
+				offer_token+" 300")!=-1 &&
+			search(bulk_view,"buy_goods_spec water/changqingshui 123 "+
+				offer_token+" 999")!=-1,
+			"批量快捷按钮或自定义上限缺失");
+		special->main("water/changqingshui 0 "+offer_token+" no=999");
 		int after_special=player->query_account();
-		special->main("water/changqingshui 0 "+offer_token+" no=7");
-		check("随机商店忽略伪造价格、批量发药且已消费货架不能重放",
-			amount_of(player,"changqingshui")==7 &&
-			player->query_account()==before_special-123*7 &&
+		special->main("water/changqingshui 0 "+offer_token+" no=999");
+		check("随机商店忽略伪造价格、一次发999份且已消费货架不能重放",
+			amount_of(player,"changqingshui")==special_amount_before+999 &&
+			stack_count_of(player,"changqingshui")==
+				(special_amount_before+999+29)/30 &&
+			max_stack_amount_of(player,"changqingshui")<=30 &&
+			player->query_account()==before_special-123*999 &&
 			player->query_account()==after_special,
-			sprintf("amount=%d cost=%d",amount_of(player,"changqingshui"),
+			sprintf("amount=%d stacks=%d max=%d cost=%d",
+				amount_of(player,"changqingshui"),
+				stack_count_of(player,"changqingshui"),
+				max_stack_amount_of(player,"changqingshui"),
 				before_special-player->query_account()));
+		player->remove_combine_item_transaction("changqingshui",999);
 
 		int protected_money=player->query_account();
-		ordinary->main("book/lingzhen 5");
-		ordinary->main("food/xiaohuandan 21");
-		check("技能书伪造批量与超过20份均不扣款不发货",
-			player->query_account()==protected_money &&
-			amount_of(player,"lingzhen")==0 &&
-			amount_of(player,"xiaohuandan")==0,
-			sprintf("money=%d book=%d medicine=%d",player->query_account(),
-				amount_of(player,"lingzhen"),amount_of(player,"xiaohuandan")));
+		int protected_books=amount_of(player,"lingzhen");
+		offer_token=MUD_SPEC_STORED->issue_test_offer(
+			player,"book/lingzhen",100);
+		special->main("book/lingzhen 0 "+offer_token+" 5");
+		special->main("book/lingzhen 0 "+offer_token);
+		check("非堆叠技能书拒绝批量且不会误消费单件报价",
+			player->query_account()==protected_money-100 &&
+			amount_of(player,"lingzhen")==protected_books+1,
+			sprintf("cost=%d book=%d",
+				protected_money-player->query_account(),
+				amount_of(player,"lingzhen")));
+
+		int oversized_money=player->query_account();
+		int oversized_before=amount_of(player,"changqingshui");
+		offer_token=MUD_SPEC_STORED->issue_test_offer(
+			player,"water/changqingshui",123);
+		special->main("water/changqingshui 0 "+offer_token+" 1000");
+		special->main("water/changqingshui 0 "+offer_token+" 1");
+		check("超过999的数量被拒绝且不会消费合法报价",
+			player->query_account()==oversized_money-123 &&
+			amount_of(player,"changqingshui")==oversized_before+1,
+			sprintf("cost=%d amount_delta=%d",
+				oversized_money-player->query_account(),
+				amount_of(player,"changqingshui")-oversized_before));
 
 		player->set_account(1);
 		int insufficient_before=amount_of(player,"jinchuangyao");
@@ -172,6 +242,30 @@ int main()
 			amount_of(player,"jinchuangyao")==insufficient_before,
 			sprintf("money=%d amount=%d",player->query_account(),
 				amount_of(player,"jinchuangyao")-insufficient_before));
+
+		// 背包全满时，现有药堆只能容纳不足30份；大单必须在
+		// 扣款前整单拒绝，并释放报价，之后仍可用同一报价买入1份。
+		while(sizeof(all_inventory(player))<player->query_beibao_size()){
+			object filler=clone(ROOT+"/gamelib/clone/item/book/lingzhen");
+			filler->move(player);
+		}
+		player->set_account(10000);
+		int full_money=player->query_account();
+		int full_before=amount_of(player,"changqingshui");
+		offer_token=MUD_SPEC_STORED->issue_test_offer(
+			player,"water/changqingshui",10);
+		special->main("water/changqingshui 0 "+offer_token+" 30");
+		int after_reject_money=player->query_account();
+		int after_reject_amount=amount_of(player,"changqingshui");
+		special->main("water/changqingshui 0 "+offer_token+" 1");
+		check("满背包跨堆叠大单在扣款前整单拒绝且报价可重试",
+			after_reject_money==full_money &&
+			after_reject_amount==full_before &&
+			player->query_account()==full_money-10 &&
+			amount_of(player,"changqingshui")==full_before+1,
+			sprintf("reject_money=%d/%d reject_amount=%d/%d final=%d/%d",
+				after_reject_money,full_money,after_reject_amount,full_before,
+				player->query_account(),amount_of(player,"changqingshui")));
 	};
 	if(original_player)
 		set_this_player(original_player);

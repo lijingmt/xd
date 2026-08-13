@@ -2008,30 +2008,42 @@ private array(object) query_lingyi_room_aoe_targets(){
 	return result;
 }
 
-// 隐藏职业群攻只能命中已经进入施法者仇恨表的目标，不扫描房间扩大战斗，
-// 因而不会把路人、任务NPC、好友或同队玩家卷入。
+// 无相/太极群攻需要覆盖同房间的普通战斗NPC，不能只从施法者
+// 当前仇恨表取数（普通开战时该表通常只有一个目标）。玩家及其
+// 召唤物则必须已参与当前战斗，并继续保护同队、好友和同账号角色。
 private array(object) query_balanced_aoe_targets(){
 	array(object) result = ({});
-	array(object) candidates;
 	object caster = this_object();
 	object env = environment(caster);
 	if(!env || !caster->query_in_combat() || caster->get_cur_life()<=0)
 		return result;
-	candidates = caster->get_all_targets();
-	if(!candidates)
-		return result;
-	foreach(candidates,object candidate){
-		string npc_type;
-		if(!candidate || candidate==caster || environment(candidate)!=env ||
+	foreach(all_inventory(env),object candidate){
+		object owner;
+		object side;
+		if(!candidate || candidate==caster ||
+		   (functionp(candidate->is) && candidate->is("item")) ||
+		   !functionp(candidate->get_cur_life) ||
 		   candidate->get_cur_life()<=0 ||
 		   !LOGICALZONED->can_action("combat",caster,candidate) ||
-		   is_lingyi_aoe_team_ally(caster,candidate) ||
-		   is_lingyi_aoe_social_ally(caster,candidate))
+		   is_lingyi_aoe_team_ally(caster,candidate))
 			continue;
 		if(functionp(candidate->can_be_attacked) &&
 		   !candidate->can_be_attacked(caster))
 			continue;
-		if(candidate->is("npc")){
+		owner = SUMMOND->query_combat_credit_owner(candidate);
+		side = owner && owner!=candidate ? owner : candidate;
+		if(is_lingyi_aoe_social_ally(caster,side))
+			continue;
+		// 路人玩家与其召唤物不因“同房间”就被强制开战。
+		if(side->is("player") &&
+		   !is_lingyi_aoe_engaged_player(caster,side) &&
+		   !caster->if_in_targets(candidate) &&
+		   !candidate->if_in_targets(caster))
+			continue;
+		if(!side->is("player")){
+			string npc_type;
+			if(!candidate->is("npc"))
+				continue;
 			npc_type = candidate->query_npc_type();
 			if(candidate->_tasknpc || npc_type=="city_keeper" ||
 			   npc_type=="city_guarder" || npc_type=="city_lord")
@@ -2225,7 +2237,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			target->reduce_fight_wear_armor(1);
 		}
 	}
-	tell_object(caster,"你施放"+skill->query_name_cn()+"，药雾覆盖"+
+	tell_object(caster,"你施放"+skill->query_name_cn()+
+		(balanced ? "，群体攻势覆盖" : "，药雾覆盖")+
 		sizeof(targets)+"名合法目标；战斗小窗将保留本次战果。\n");
 	return sizeof(targets);
 }
