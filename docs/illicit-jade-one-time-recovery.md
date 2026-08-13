@@ -1,8 +1,8 @@
 # 历史异常玉石一次性回收
 
-本机制只处理严格早于 `2026-08-01` 创建的旧人物账号。默认配置为
-`enabled=false`、`state=review`，扫描程序不会修改人物档案，运行时也不会
-读取未逐条批准的账号。
+本机制只处理严格早于 `2026-08-01` 创建的旧人物账号。候选扫描和余额快照
+均不会修改人物档案；最终扫描会自动批准所有满足证据、日期、余额和安全上限
+条件的案件，不需要管理员逐个维护账号白名单。
 
 ## 审计公式
 
@@ -25,7 +25,8 @@
 
 ## 执行保护
 
-1. 审计清单生成后仍是关闭状态，每个候选也都是 `approved=false`。
+1. 没有财务快照的第一阶段清单保持关闭；带新鲜快照的最终清单会自动批准全部
+   合格案件。机器清单是多 Worker 执行所需的事务快照，不是人工白名单。
 2. 余额快照同时覆盖背包和人物仓库，只在一小时内有效；人物实体玉、共享钱包或
    `all_fee` 任一变化，
    本次按零回收结案，之后不追缴。
@@ -54,8 +55,10 @@ python3 scripts/snapshot_illicit_jade_candidates.py \
   --output /restricted/security/jade-financial-snapshot.json
 ```
 
-若共享仓库中仍有来自目标人物的玉，案件只进入人工复核，不会自动执行。
-最终清单由下列命令生成：
+若共享仓库中仍有来自目标人物的玉，案件只进入人工复核，不会自动执行。玉石
+历史上允许8级以上人物赠送、交易和拍卖，因此已经转给其他人物的部分不会追缴，
+也不会向接收者连坐回收。最终清单由下列命令生成；所有符合条件的案件默认自动
+批准：
 
 ```bash
 python3 scripts/audit_illicit_jade.py \
@@ -66,9 +69,9 @@ python3 scripts/audit_illicit_jade.py \
   --output /restricted/security/illicit_jade_recovery.json
 ```
 
-对已经确认的旧拆玉精确证据自动批准时，追加
-`--approve-exact-evidence`。该开关只批准
-`legacy_split_remainder_bug`，不会批准高余额、操作频率或单纯 `all_fee` 差额。
+如只想查看最终候选而不启用执行，可追加 `--review-only`。高余额、操作频率、
+同秒拆合玉或账本不完整的单纯 `all_fee` 差额仍然只进入 `review_only`，不会因为
+自动批准模式而执行。
 
 财务快照必须使用权限 `0600` 保存，结构如下。`captured_at` 使用 Unix 时间；
 `legal_ledger_complete` 只有在旧大额充值、充值赠送、奖励、交易、赠送、宝箱、
@@ -92,6 +95,7 @@ python3 scripts/audit_illicit_jade.py \
 }
 ```
 
-未使用自动批准开关时，只有复核完成后才能手工批准。清单必须放在
-运行时数据目录 `data_xiand/security/illicit_jade_recovery.json`，不得提交真实
-账号清单到 Git。
+最终机器清单必须放在运行时数据目录
+`data_xiand/security/illicit_jade_recovery.json`，不得提交真实账号清单到 Git。
+运行时仍会重新校验清单结构、证据摘要、快照时效和实时余额；任何变化都按零
+回收结案，避免触碰快照以后新获得的合法玉。
