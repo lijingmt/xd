@@ -3033,6 +3033,12 @@ void perform(string name,void|int flag){
 						}
 						int dot_applied = apply_nonstacking_dot(enemy,name,dot_damage,
 							f_cur_skill->query_s_lasttime(skill_level));
+						// 血海裂伤过去只在目标后续心跳才结算首跳，施放当拍仅显示
+						// 动画，玩家会看到技能命中却完全不掉血。命中后立即结算
+						// 第一跳；process_dot_tick() 同时把剩余节拍减一，因此总跳数
+						// 和原伤害公式保持不变。
+						if(dot_applied && name=="xuehailieshang")
+							enemy->process_dot_tick();
 
 						//产生仇恨值,dot的仇恨暂时定为20
 						int hate=(int)(20*skills_hate["test"]/100);

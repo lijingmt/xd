@@ -265,6 +265,51 @@ void test_xuehai_dot_tick_and_guard_visibility()
 	destroy_test_player(target);
 }
 
+void test_xuehai_perform_has_immediate_damage_and_text()
+{
+	test_start("血海裂伤真实施放当拍可见掉血并写入战斗描述");
+	object caster = create_test_player("__testunit_xuehai_perform_caster__");
+	object target = create_test_player("__testunit_xuehai_perform_target__");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	int before = 0;
+	int attempt = 0;
+	string combat_text = "";
+	int valid = !!caster && !!target && !!room;
+	if(valid){
+		caster->move(room);
+		target->move(room);
+		caster->skills["xuehailieshang"] = ({1,0});
+		caster->_fight(target);
+		before = target->get_cur_life();
+		// 主动技能正常保留1%抵抗概率；有限重试只消除测试随机性，
+		// 不改变生产命中公式。
+		for(attempt=0;attempt<5 &&
+		   target->query_debuff("dot",0)!="xuehailieshang";attempt++){
+			caster->perform("xuehailieshang",1);
+			if(target->query_debuff("dot",0)!="xuehailieshang"){
+				caster->f_skills["xuehailieshang"] = 0;
+				caster->timeCold = 0;
+				caster->set_mofa(caster->query_mofa_max());
+			}
+		}
+		combat_text = caster->drain_catch_tell(0,20);
+		valid = target->get_cur_life()<before &&
+			target->query_debuff("dot",0)=="xuehailieshang" &&
+			target->query_debuff("dot",2)==11 &&
+			search(combat_text,"【持续伤害】")!=-1 &&
+			search(combat_text,"【神】血海裂伤")!=-1;
+		caster->_clean_fight();
+		target->_clean_fight();
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail("技能只显示释放动画，施放当拍没有真实扣血或伤害文字");
+	destroy_test_player(caster);
+	destroy_test_player(target);
+}
+
 void test_kuangyao_wound_and_dot_priority()
 {
 	test_start("致残重伤按自身生命成长且弱持续伤害不能覆盖强效果");
@@ -752,6 +797,7 @@ int main()
 	test_zero_probability_boundaries();
 	test_xuehai_percentage_limits();
 	test_xuehai_dot_tick_and_guard_visibility();
+	test_xuehai_perform_has_immediate_damage_and_text();
 	test_kuangyao_wound_and_dot_priority();
 	test_formula_wiring_contract();
 	test_stacked_absorb_shields();
