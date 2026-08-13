@@ -40,19 +40,29 @@ private array(string) query_pet_runtime_runes(object player,mapping info)
 	return result;
 }
 
+private int query_pet_rune_combo_active(object player,mapping info)
+{
+	return mappingp(player["/tmp/wanling/pet_fusion"]) &&
+		sizeof(query_pet_runtime_runes(player,info))==3;
+}
+
 private string query_pet_active_skill_name(object player,mapping info)
 {
 	mapping imprint = mappingp(player["/tmp/wanling/imprinted_skill"]) ?
 		player["/tmp/wanling/imprinted_skill"] : ([]);
 	array(string) runes;
-	if((string)(imprint["name_cn"] || "")!="")
-		return "拓印·"+(string)imprint["name_cn"];
 	runes = query_pet_runtime_runes(player,info);
 	// 融合宠的三枚灵纹来自不同父系，不能再用锚定种族的原生技能名
 	// 覆盖。三纹作为一个共鸣组合触发，结算仍沿用既有角色与节奏，
 	// 只修复战斗读取和可见性，不额外叠加数值。
-	if(mappingp(player["/tmp/wanling/pet_fusion"]) && sizeof(runes)==3)
-		return runes*"·";
+	if((string)(imprint["name_cn"] || "")!=""){
+		string name = "拓印·"+(string)imprint["name_cn"];
+		if(query_pet_rune_combo_active(player,info))
+			name += "·三灵纹共鸣（"+runes*"·"+"）";
+		return name;
+	}
+	if(query_pet_rune_combo_active(player,info))
+		return "三灵纹共鸣（"+runes*"·"+"）";
 	return (string)info["skill"];
 }
 
@@ -62,6 +72,19 @@ private string query_pet_imprinted_effect(object player)
 		player["/tmp/wanling/imprinted_skill"] : ([]);
 	string effect = (string)(imprint["effect"] || "");
 	return search(({"damage","heal"}),effect)!=-1 ? effect : "";
+}
+
+private string query_pet_waiting_resource(object player,mapping info)
+{
+	string imprinted_effect = query_pet_imprinted_effect(player);
+	string role = (string)info["role"];
+	if(imprinted_effect=="damage" ||
+	   (imprinted_effect!="heal" && (role=="强攻" || role=="迅捷")))
+		return "";
+	if(imprinted_effect!="heal" && role=="灵息")
+		return player->get_cur_mofa()>=player->query_mofa_max() ?
+			"mofa" : "";
+	return player->get_cur_life()>=player->query_life_max() ? "life" : "";
 }
 
 mapping(string:mixed) query_pet_room_presence(object player)
@@ -90,7 +113,7 @@ mapping(string:mixed) query_pet_room_presence(object player)
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
 		"runes":query_pet_runtime_runes(player,info),
-		"rune_combo":mappingp(player["/tmp/wanling/pet_fusion"]),
+		"rune_combo":query_pet_rune_combo_active(player,info),
 	]);
 }
 
@@ -141,7 +164,7 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
 		"runes":query_pet_runtime_runes(player,info),
-		"rune_combo":mappingp(player["/tmp/wanling/pet_fusion"]),
+		"rune_combo":query_pet_rune_combo_active(player,info),
 		"imprinted_skill":mappingp(player[
 			"/tmp/wanling/imprinted_skill"]) ?
 			copy_value((mapping)player[
@@ -177,6 +200,13 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		result["cooldown"] = required;
 		result["cooldown_remaining"] = required-charge;
 		result["ready_at"] = 0;
+	}
+	if((pvp_target=="" && (int)result["cooldown_remaining"]==0) ||
+	   (pvp_target!="" && (int)result["pvp_charge"]>=
+		(int)result["pvp_charge_required"])) {
+		string waiting_resource = query_pet_waiting_resource(player,info);
+		if(waiting_resource!="")
+			result["waiting_resource"] = waiting_resource;
 	}
 	if(species==PET_HIDDEN_LUAN_SPECIES){
 		string revive_day_key = (string)(player[
@@ -349,7 +379,9 @@ private mapping(string:mixed) create_pet_assist_event(object player,
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
 		"runes":query_pet_runtime_runes(player,info),
-		"rune_combo":mappingp(player["/tmp/wanling/pet_fusion"]),
+		"rune_combo":query_pet_rune_combo_active(player,info),
+		"rune_combo_triggered":actual>0 &&
+			query_pet_rune_combo_active(player,info),
 		"mode":mode,
 		"type":effect_type,
 		"amount":actual,
@@ -437,6 +469,13 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	string effect_type = (string)result["type"];
 	int amount = (int)result["amount"];
 	int actual = 0;
+	string waiting_resource = query_pet_waiting_resource(player,info);
+	if(waiting_resource!=""){
+		result["ok"] = 0;
+		result["amount"] = 0;
+		result["waiting_resource"] = waiting_resource;
+		return result;
+	}
 	if(effect_type=="damage" && target->get_cur_life()>1){
 		actual = amount;
 		if(actual>=target->get_cur_life())
@@ -468,7 +507,13 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 			actual = after-before;
 		}
 	}
-	// 满生命/法力也进入冷却，避免每个心跳反复判断和刷屏。
+	if(actual<=0){
+		result["ok"] = 0;
+		result["amount"] = 0;
+		result["waiting_target"] = 1;
+		return result;
+	}
+	// 只有真实产生效果才进入冷却；满生命/法力时保持就绪。
 	player["/tmp/wanling/assist_at"] = time();
 	result["ok"] = 1;
 	result["amount"] = actual;
@@ -478,17 +523,11 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
 	result["event"] = copy_value(event);
 	broadcast_pet_skill_to_room(player,0,event);
-	if(actual>0){
-		string unit = effect_type=="damage" ? "点协战伤害" :
-			(effect_type=="mofa" ? "点法力" : "点生命");
-		tell_object(player,"【万灵协战】"+
+	string unit = effect_type=="damage" ? "点协战伤害" :
+		(effect_type=="mofa" ? "点法力" : "点生命");
+	tell_object(player,"【万灵协战】"+
 		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"。\n");
-	}
-	else
-		tell_object(player,"【万灵协战】"+
-		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			query_pet_active_skill_name(player,info)+"，守护在你身旁。\n");
+		query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"。\n");
 	return result;
 }
 
@@ -552,8 +591,6 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 		result["charge_required"] = required;
 		return result;
 	}
-	player["/tmp/wanling/pvp_charge"] = 0;
-	player["/tmp/wanling/pvp_uses"] = uses+1;
 	result = query_pet_pvp_assist_profile(species,
 		player->query_base_damage(),target->query_life_max(),
 		player->query_life_max(),player->query_mofa_max(),
@@ -563,6 +600,17 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	string effect_type = (string)result["type"];
 	int amount = (int)result["amount"];
 	int actual = 0;
+	string waiting_resource = query_pet_waiting_resource(player,info);
+	if(waiting_resource!=""){
+		player["/tmp/wanling/pvp_charge"] = required;
+		result["ok"] = 0;
+		result["amount"] = 0;
+		result["waiting_resource"] = waiting_resource;
+		result["charge"] = required;
+		result["charge_required"] = required;
+		result["uses"] = uses;
+		return result;
+	}
 	if(effect_type=="damage" && target->get_cur_life()>1){
 		actual = amount;
 		if(actual>=target->get_cur_life())
@@ -594,6 +642,18 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 			actual = after-before;
 		}
 	}
+	if(actual<=0){
+		player["/tmp/wanling/pvp_charge"] = required;
+		result["ok"] = 0;
+		result["amount"] = 0;
+		result["waiting_target"] = 1;
+		result["charge"] = required;
+		result["charge_required"] = required;
+		result["uses"] = uses;
+		return result;
+	}
+	player["/tmp/wanling/pvp_charge"] = 0;
+	player["/tmp/wanling/pvp_uses"] = uses+1;
 	result["ok"] = 1;
 	result["amount"] = actual;
 	result["uses"] = uses+1;
@@ -605,23 +665,16 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	player["/tmp/wanling/recent_assist"] = copy_value(event);
 	result["event"] = copy_value(event);
 	broadcast_pet_skill_to_room(player,target_owner,event);
-	if(actual>0){
-		string unit = effect_type=="damage" ? "点御灵伤害" :
-			(effect_type=="mofa" ? "点法力" : "点生命");
-		tell_object(player,"【御灵交锋】"+
+	string unit = effect_type=="damage" ? "点御灵伤害" :
+		(effect_type=="mofa" ? "点法力" : "点生命");
+	tell_object(player,"【御灵交锋】"+
 		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"（本场"+
-			(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
-		tell_object(target_owner,"【御灵交锋】"+player->query_name_cn()+
-			"的"+(string)(player["/tmp/wanling/pet_name"] ||
-				info["name"])+"施展"+query_pet_active_skill_name(player,info)+
-			"。\n");
-	}
-	else
-		tell_object(player,"【御灵交锋】"+
-		(string)(player["/tmp/wanling/pet_name"] || info["name"])+"施展"+
-			query_pet_active_skill_name(player,info)+"，与你并肩守住战局（本场"+
-			(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
+		query_pet_active_skill_name(player,info)+"，带来"+actual+unit+"（本场"+
+		(uses+1)+"/"+PET_PVP_ASSIST_USES+"）。\n");
+	tell_object(target_owner,"【御灵交锋】"+player->query_name_cn()+
+		"的"+(string)(player["/tmp/wanling/pet_name"] ||
+			info["name"])+"施展"+query_pet_active_skill_name(player,info)+
+		"。\n");
 	return result;
 }
 

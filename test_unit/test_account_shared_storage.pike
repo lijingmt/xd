@@ -158,6 +158,78 @@ int main()
 			count_personal_id(child_player,item_id)==1,
 			"账号内跨人物移动后唯一ID总数不是1");
 
+		object gemmed_gear = clone(ROOT+
+			"/gamelib/clone/item/decorate/70feicuipifeng/70feicuipifeng");
+		object red_gem = clone(ROOT+
+			"/gamelib/clone/item/bossdrop/nianshoulingshi");
+		object blue_gem = clone(ROOT+
+			"/gamelib/clone/item/bossdrop/nianshoulingshi2");
+		object yellow_gem = clone(ROOT+
+			"/gamelib/clone/item/bossdrop/nianshoulingshi3");
+		gemmed_gear->set_baoshi("red",red_gem);
+		gemmed_gear->set_aocao("red",0);
+		gemmed_gear->set_baoshi("blue",blue_gem);
+		gemmed_gear->set_aocao("blue",0);
+		gemmed_gear->set_baoshi("yellow",yellow_gem);
+		gemmed_gear->set_aocao("yellow",0);
+		int gem_stored = !child_player->packaged(gemmed_gear,20);
+		destruct(gemmed_gear);
+		destruct(red_gem);
+		destruct(blue_gem);
+		destruct(yellow_gem);
+		mapping gem_personal = ACCOUNT_STORAGED->query_storage(child_player);
+		string gem_item_id = "";
+		array gem_item_data = ({});
+		foreach((array)gem_personal["personal_items"],array personal_item)
+			if(sizeof(personal_item)>8 &&
+			   (string)personal_item[3]==
+			   "decorate/70feicuipifeng/70feicuipifeng"){
+				gem_item_id = (string)personal_item[7];
+				gem_item_data = personal_item;
+				break;
+			}
+		object gem_relogin = clone(GAMELIB_USER);
+		gem_relogin->set_name(child_id);
+		gem_relogin->set_project("gamelib");
+		gem_relogin->restore();
+		int gem_snapshot_reloaded = 0;
+		foreach((array)(gem_relogin->packaged_items || ({})),array disk_item)
+			if(sizeof(disk_item)>8 && (string)disk_item[7]==gem_item_id &&
+			   mappingp(disk_item[8]))
+				gem_snapshot_reloaded = 1;
+		destruct(gem_relogin);
+		mapping gem_to_shared = ACCOUNT_STORAGED->transfer_to_shared(
+			child_player,gem_item_id);
+		ACCOUNT_STORAGED->drop_test_cache(account_id);
+		mapping gem_shared_disk = ACCOUNT_STORAGED->query_storage(root_player);
+		int gem_shared_reloaded = gem_shared_disk["ok"] &&
+			sizeof((array)gem_shared_disk["items"])==1 &&
+			mappingp(gem_shared_disk["items"][0]["data"][8]);
+		mapping gem_to_root = ACCOUNT_STORAGED->transfer_to_personal(
+			root_player,gem_item_id);
+		object restored_gear = root_player->repackaged_by_storage_id(
+			gem_item_id);
+		check("镶嵌装备跨角色共享仓库后完整保留三色年兽灵石与凹槽",
+			gem_stored && sizeof(gem_item_data)==9 &&
+			mappingp(gem_item_data[8]) && gem_snapshot_reloaded &&
+			gem_to_shared["ok"] && gem_shared_reloaded &&
+			gem_to_root["ok"] && objectp(restored_gear) &&
+			restored_gear->query_baoshi_by_id("red",0)==
+				"bossdrop/nianshoulingshi" &&
+			restored_gear->query_baoshi_by_id("blue",0)==
+				"bossdrop/nianshoulingshi2" &&
+			restored_gear->query_baoshi_by_id("yellow",0)==
+				"bossdrop/nianshoulingshi3" &&
+			restored_gear->query_aocao("red")==0 &&
+			restored_gear->query_aocao_max("red")==1 &&
+			restored_gear->query_aocao("blue")==0 &&
+			restored_gear->query_aocao_max("blue")==1 &&
+			restored_gear->query_aocao("yellow")==0 &&
+			restored_gear->query_aocao_max("yellow")==1,
+			"仓库快照、永久ID或跨人物重建丢失了镶嵌状态");
+		if(restored_gear)
+			destruct(restored_gear);
+
 		mapping put_back = ACCOUNT_STORAGED->transfer_to_shared(
 			child_player,item_id);
 		mapping before_reconcile = ACCOUNT_STORAGED->

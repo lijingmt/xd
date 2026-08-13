@@ -167,12 +167,45 @@ private mapping(string:mixed) empty_record(string account_id)
 private int valid_personal_data(array data)
 {
 	if(!arrayp(data) || sizeof(data)<7 ||
+	   sizeof(data)>9 ||
 	   !stringp(data[0]) || !stringp(data[1]) ||
 	   !stringp(data[2]) || !stringp(data[3]) ||
 	   !valid_relative_item_path((string)data[3]))
 		return 0;
-	if(sizeof(data)>7 && !valid_hex_id((string)data[7]))
-		return 0;
+	if(sizeof(data)>7){
+		if(!stringp(data[7]))
+			return 0;
+		string item_id = (string)data[7];
+		if(item_id!="" && !valid_hex_id(item_id))
+			return 0;
+	}
+	if(sizeof(data)>8){
+		mapping snapshot;
+		if(!mappingp(data[8]))
+			return 0;
+		snapshot = data[8];
+		if(sizeof(snapshot)!=4 || (int)snapshot["version"]!=1)
+			return 0;
+		foreach(({"red","blue","yellow"}),string color){
+			mapping one = snapshot[color];
+			array gems;
+			int free_count;
+			int max_count;
+			if(!mappingp(one) || sizeof(one)!=3 || !intp(one["free"]) ||
+			   !intp(one["max"]) || !arrayp(one["gems"]))
+				return 0;
+			free_count = (int)one["free"];
+			max_count = (int)one["max"];
+			gems = one["gems"];
+			if(max_count<0 || max_count>64 || free_count<0 ||
+			   free_count>max_count || sizeof(gems)!=max_count-free_count)
+				return 0;
+			foreach(gems,mixed gem_path)
+				if(!stringp(gem_path) ||
+				   !valid_relative_item_path((string)gem_path))
+					return 0;
+		}
+	}
 	return 1;
 }
 
@@ -560,7 +593,10 @@ private int ensure_personal_ids_unlocked(object player,
 		item_id = new_unique_id(used);
 		if(item_id=="")
 			return 0;
-		updated[i] += ({item_id});
+		if(sizeof(updated[i])>7)
+			updated[i][7] = item_id;
+		else
+			updated[i] += ({item_id});
 		used[item_id] = 1;
 		changed = 1;
 	}

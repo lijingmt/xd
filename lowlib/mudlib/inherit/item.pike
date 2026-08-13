@@ -234,6 +234,95 @@ array(string) red_baoshi = ({}); //红色宝石
 array(string) blue_baoshi = ({}); //蓝色宝石
 array(string) yellow_baoshi = ({}); //黄色宝石
 
+/**
+ * 角色仓库原格式只保存物品路径、耐久和转换次数。镶嵌数据属于克隆
+ * 对象的运行时字段，若不单独保存，装备从仓库重建时会回到模板状态。
+ * 快照只接受三色凹槽和服务端已经加载为宝石的相对路径。
+ */
+private int valid_storage_gem_path(string path,string color)
+{
+	object|zero gem = 0;
+	mixed err = 0;
+	if(!path || sizeof(path)<1 || sizeof(path)>240 || path[0]=='/' ||
+	   search(path,"..")!=-1 ||
+	   search(({"red","blue","yellow"}),color)==-1)
+		return 0;
+	for(int i=0;i<sizeof(path);i++){
+		int one = path[i];
+		if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+		   (one>='0' && one<='9') || one=='/' || one=='_' || one=='-')
+			continue;
+		return 0;
+	}
+	err = catch { gem = (object)(ITEM_PATH+path); };
+	return !err && gem && functionp(gem->query_item_type) &&
+		gem->query_item_type()=="baoshi" && functionp(gem->query_color) &&
+		gem->query_color()==color;
+}
+
+mapping(string:mixed) query_storage_gem_snapshot()
+{
+	mapping(string:mixed) snapshot;
+	if(red_aocao_max<=0 && blue_aocao_max<=0 && yellow_aocao_max<=0 &&
+	   !sizeof(red_baoshi || ({})) && !sizeof(blue_baoshi || ({})) &&
+	   !sizeof(yellow_baoshi || ({})))
+		return ([]);
+	snapshot = ([
+		"version":1,
+		"red":(["free":red_aocao,"max":red_aocao_max,
+			"gems":copy_value(red_baoshi || ({}))]),
+		"blue":(["free":blue_aocao,"max":blue_aocao_max,
+			"gems":copy_value(blue_baoshi || ({}))]),
+		"yellow":(["free":yellow_aocao,"max":yellow_aocao_max,
+			"gems":copy_value(yellow_baoshi || ({}))]),
+	]);
+	return snapshot;
+}
+
+int restore_storage_gem_snapshot(mapping snapshot)
+{
+	mapping(string:array(string)) restored = ([]);
+	mapping(string:int) free_slots = ([]);
+	mapping(string:int) max_slots = ([]);
+	if(!mappingp(snapshot) || sizeof(snapshot)!=4 ||
+	   (int)snapshot["version"]!=1)
+		return 0;
+	foreach(({"red","blue","yellow"}),string color){
+		mapping one = snapshot[color];
+		array gems;
+		int free_count;
+		int max_count;
+		if(!mappingp(one) || sizeof(one)!=3 || !intp(one["free"]) ||
+		   !intp(one["max"]) || !arrayp(one["gems"]))
+			return 0;
+		free_count = (int)one["free"];
+		max_count = (int)one["max"];
+		gems = one["gems"];
+		if(max_count<0 || max_count>64 || free_count<0 ||
+		   free_count>max_count || sizeof(gems)!=max_count-free_count)
+			return 0;
+		restored[color] = ({});
+		foreach(gems,mixed raw_path){
+			if(!stringp(raw_path) ||
+			   !valid_storage_gem_path((string)raw_path,color))
+				return 0;
+			restored[color] += ({(string)raw_path});
+		}
+		free_slots[color] = free_count;
+		max_slots[color] = max_count;
+	}
+	red_aocao = free_slots["red"];
+	red_aocao_max = max_slots["red"];
+	red_baoshi = copy_value(restored["red"]);
+	blue_aocao = free_slots["blue"];
+	blue_aocao_max = max_slots["blue"];
+	blue_baoshi = copy_value(restored["blue"]);
+	yellow_aocao = free_slots["yellow"];
+	yellow_aocao_max = max_slots["yellow"];
+	yellow_baoshi = copy_value(restored["yellow"]);
+	return 1;
+}
+
 void set_baoshi(string color,object baoshi_ob,void|int ind){
 	object ob = this_object();
 	string baoshi = file_name(baoshi_ob)-ITEM_PATH;

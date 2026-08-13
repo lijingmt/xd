@@ -569,26 +569,53 @@ void test_hunt_and_assist(object player,object pvp_target)
 			player->query_name_cn() &&
 		(string)after_pvp_presence["recent_event"]["id"]!=event_id,
 		"PVP充能、限次状态、模式事件、治疗目标或角色边界错误");
+	player->set_life(player->query_life_max());
+	mapping pvp_waiting = ([]);
 	for(int round=1;round<=5;round++)
-		PETD->perform_pet_combat_assist(player,pvp_target);
+		pvp_waiting = PETD->perform_pet_combat_assist(player,pvp_target);
+	mapping pvp_wait_presence = PETD->query_pet_battle_presence(player);
+	check("PVP治疗充能就绪但主人满血时不吞协战次数并保留满充能",
+		!pvp_waiting["ok"] && pvp_waiting["waiting_resource"]=="life" &&
+		(int)pvp_wait_presence["pvp_uses"]==1 &&
+		(int)pvp_wait_presence["pvp_charge"]==
+			(int)pvp_wait_presence["pvp_charge_required"] &&
+		pvp_wait_presence["waiting_resource"]=="life",
+		"满生命零治疗仍消耗PVP次数、清空充能或缺少就绪状态");
+	player->set_life(player->query_life_max()/2);
+	mapping second_pvp = PETD->perform_pet_combat_assist(player,pvp_target);
 	mapping exhausted = PETD->perform_pet_combat_assist(player,pvp_target);
-	check("同一场人物PVP最多触发两次御灵协战",
+	check("资源出现缺口后立即释放已就绪灵技且每场仍最多触发两次",
+		second_pvp["ok"] && (int)second_pvp["amount"]>0 &&
 		!exhausted["ok"] &&
 		(int)PETD->query_pet_battle_presence(player)["pvp_uses"]==2,
-		"PVP切换目标或继续心跳可绕过每场两次限制");
+		"等待资源后重新充能、重复消耗次数或可绕过每场两次限制");
 	if(player->query_in_combat())
 		player->_clean_fight();
 	if(pvp_target->query_in_combat())
 		pvp_target->_clean_fight();
 	player->set_life(player->query_life_max());
 	player["/tmp/wanling/assist_at"] = 0;
+	mapping before_full_life = PETD->query_pet_battle_presence(player);
+	string before_full_event = mappingp(before_full_life["recent_event"]) ?
+		(string)before_full_life["recent_event"]["id"] : "";
 	mapping full_life_assist = PETD->perform_pet_pve_assist(player,first);
 	mapping full_life_presence = PETD->query_pet_battle_presence(player);
-	check("生命已满时仍生成零数值陪伴事件但不伪造治疗量",
-		full_life_assist["ok"] && (int)full_life_assist["amount"]==0 &&
-		(string)full_life_presence["recent_event"]["id"]!=event_id &&
-		(int)full_life_presence["recent_event"]["amount"]==0,
-		"满生命时宠物完全无反馈、重复事件ID或显示虚假回血");
+	check("PVE治疗就绪但主人满血时不吞冷却也不生成零值伪事件",
+		!full_life_assist["ok"] &&
+		full_life_assist["waiting_resource"]=="life" &&
+		(int)player["/tmp/wanling/assist_at"]==0 &&
+		full_life_presence["waiting_resource"]=="life" &&
+		(mappingp(full_life_presence["recent_event"]) ?
+			(string)full_life_presence["recent_event"]["id"] : "")==
+			before_full_event,
+		"满生命零治疗仍进入冷却或伪造了一次灵技触发");
+	player->set_life(player->query_life_max()/2);
+	mapping ready_heal = PETD->perform_pet_pve_assist(player,first);
+	check("主人受伤后无需重新等待即可释放已就绪PVE治疗",
+		ready_heal["ok"] && ready_heal["type"]=="heal" &&
+		(int)ready_heal["amount"]>0 &&
+		(int)player["/tmp/wanling/assist_at"]>0,
+		"资源出现缺口后治疗仍不生效或错误重算冷却");
 	mapping granted_attack = PETD->test_grant_pet_species(player,"bifang");
 	mapping attack_state = PETD->query_pet_state(player);
 	string attack_pet_id = "";
@@ -788,6 +815,7 @@ void test_pet_equipment_and_skill_imprint()
 		"初契装备缺槽、派生属性错误或污染人物背包");
 
 	player->skills["huichun"] = ({25,0});
+	player->skills["wanmuxinchun"] = ({1,0});
 	player->skills["b_nuhou"] = ({100,0});
 	mapping too_early = PETD->imprint_pet_skill(player,pet_id,"huichun");
 	PETD->test_add_pet_material(player,"spirit_dew",100);
@@ -796,10 +824,14 @@ void test_pet_equipment_and_skill_imprint()
 		trained = trained && PETD->train_pet_level(player,pet_id)["ok"];
 	array candidates = PETD->query_pet_imprint_skill_candidates(player);
 	int has_heal = 0;
+	int has_wanmu = 0;
 	int has_injected = 0;
 	foreach(candidates,mapping candidate){
 		if((string)candidate["name"]=="huichun")
 			has_heal = 1;
+		if((string)candidate["name"]=="wanmuxinchun" &&
+		   (string)candidate["effect"]=="heal")
+			has_wanmu = 1;
 		if((string)candidate["name"]=="b_nuhou")
 			has_injected = 1;
 	}
@@ -807,7 +839,8 @@ void test_pet_equipment_and_skill_imprint()
 	mapping core_locked = PETD->unequip_pet_gear(player,pet_id,
 		"spirit_core");
 	check("灵技只接受20级后真实学会的主动技能并拒绝注入技能",
-		!too_early["ok"] && trained && has_heal && !has_injected &&
+		!too_early["ok"] && trained && has_heal && has_wanmu &&
+		!has_injected &&
 		imprinted["ok"] && !core_locked["ok"],
 		"等级、技能来源过滤或承载灵核保护失效");
 
@@ -825,6 +858,34 @@ void test_pet_equipment_and_skill_imprint()
 		presence["native_skill"]=="夜渡回澜" &&
 		mappingp(presence["imprinted_skill"]),
 		"拓印直接沿用原定位、没有治疗或战斗小窗技能名错误");
+
+	PETD->test_add_pet_material(player,"skill_rune",1);
+	mapping wanmu_imprinted = PETD->imprint_pet_skill(player,pet_id,
+		"wanmuxinchun");
+	player->set_life(player->query_life_max());
+	player["/tmp/wanling/assist_at"] = 0;
+	mapping wanmu_before = PETD->query_pet_battle_presence(player);
+	string wanmu_event_before = mappingp(wanmu_before["recent_event"]) ?
+		(string)wanmu_before["recent_event"]["id"] : "";
+	mapping wanmu_waiting = PETD->perform_pet_pve_assist(player,npc);
+	mapping wanmu_wait_presence = PETD->query_pet_battle_presence(player);
+	player->set_life(player->query_life_max()/2);
+	int wanmu_life_before = player->get_cur_life();
+	mapping wanmu_assist = PETD->perform_pet_pve_assist(player,npc);
+	mapping wanmu_presence = PETD->query_pet_battle_presence(player);
+	check("扩印万木新春在主人受伤时真实治疗且满血不吞冷却",
+		wanmu_imprinted["ok"] && !wanmu_waiting["ok"] &&
+		wanmu_waiting["waiting_resource"]=="life" &&
+		(int)wanmu_wait_presence["cooldown_remaining"]==0 &&
+		(mappingp(wanmu_wait_presence["recent_event"]) ?
+			(string)wanmu_wait_presence["recent_event"]["id"] : "")==
+			wanmu_event_before && wanmu_assist["ok"] &&
+		wanmu_assist["type"]=="heal" &&
+		(int)wanmu_assist["amount"]>0 &&
+		player->get_cur_life()>wanmu_life_before &&
+		search((string)wanmu_presence["skill"],"万木新春")!=-1 &&
+		wanmu_presence["recent_event"]["skill"]==wanmu_presence["skill"],
+		"万木新春被误判为攻击、满血消耗冷却或事件没有显示拓印技能");
 
 	mapping forgotten = PETD->forget_pet_imprinted_skill(player,pet_id);
 	mapping core_removed = PETD->unequip_pet_gear(player,pet_id,
@@ -971,6 +1032,8 @@ void test_pet_batch_growth_and_fusion()
 		(string)child["id"]);
 	mapping child_presence = PETD->query_pet_battle_presence(player);
 	object fusion_target = make_npc(player,50);
+	player->set_life(player->query_life_max()/2);
+	player->set_mofa(player->query_mofa_max()/2);
 	player["/tmp/wanling/assist_at"] = 0;
 	mapping fusion_assist = PETD->perform_pet_pve_assist(player,
 		fusion_target);
@@ -982,7 +1045,9 @@ void test_pet_batch_growth_and_fusion()
 			search((string)(fusion_event["skill"] || ""),rune)!=-1;
 	check("阴阳融合宠三枚父系灵纹同步到战斗并作为一个共鸣组合真实触发",
 		child_activated["ok"] && fusion_assist["ok"] &&
+		(int)fusion_assist["amount"]>0 &&
 		child_presence["rune_combo"] && fusion_event["rune_combo"] &&
+		fusion_event["rune_combo_triggered"] &&
 		Standards.JSON.encode(child_presence["runes"])==
 			Standards.JSON.encode(child["skills"]) &&
 		Standards.JSON.encode(fusion_event["runes"])==
