@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Build a review-only, evidence-backed illicit-jade recovery manifest.
+"""Build an evidence-backed illicit-jade recovery manifest.
 
-The scanner never edits player data.  An executable candidate requires a
-fresh balance snapshot plus either an exact mint event or an explicitly
-complete ledger for legitimate jade not represented by ``all_fee``. High
+The scanner never edits player data.  A candidate requires a fresh balance
+snapshot plus either an exact mint event or an explicitly complete ledger for
+legitimate jade not represented by ``all_fee``.  Every candidate that passes
+those checks is approved automatically unless ``--review-only`` is used. High
 balances, conversion volume and same-second bursts by themselves remain review
 hints, not confiscation proof.
 """
@@ -626,6 +627,7 @@ def manifest_for(
         "schema_version": SCHEMA_VERSION,
         "enabled": False,
         "state": "review",
+        "approval_mode": "review_only",
         "policy": "one_time_current_physical_only_no_future_debt",
         "created_before": created_before,
         "generated_at": int(time.time()),
@@ -637,6 +639,7 @@ def manifest_for(
                 int(entry["proven_suiyu"]) for entry in accounts.values()
             ),
             "review_only_accounts": len(review_only),
+            "approved_accounts": 0,
             "excluded": dict(sorted(excluded.items())),
         },
     }
@@ -662,8 +665,13 @@ def write_private_json(path: Path, value: dict[str, object]) -> None:
             temporary.unlink()
 
 
-def approve_exact_split_evidence(manifest: dict[str, object]) -> int:
-    """Approve only cases whose entire exact amount is the known split bug."""
+def approve_eligible_evidence(manifest: dict[str, object]) -> int:
+    """Approve every account already proven executable by ``manifest_for``.
+
+    Exact mint evidence may come from more than one historical exploit route.
+    A balance-only case remains eligible only when the complete legal-jade
+    ledger marker and its dedicated route are both present.
+    """
 
     accounts = manifest.get("accounts", {})
     if not isinstance(accounts, dict):
@@ -673,18 +681,47 @@ def approve_exact_split_evidence(manifest: dict[str, object]) -> int:
         if not isinstance(row, dict):
             continue
         routes = row.get("routes", {})
-        exact = int(row.get("exact_minted_suiyu", 0))
-        proven = int(row.get("proven_suiyu", 0))
-        if (
+        exact = row.get("exact_minted_suiyu", 0)
+        proven = row.get("proven_suiyu", 0)
+        exact_routes = (
             isinstance(routes, dict)
-            and set(routes) == {"legacy_split_remainder_bug"}
-            and int(routes.get("legacy_split_remainder_bug", 0)) > 0
+            and bool(routes)
+            and "complete_fee_balance_ledger" not in routes
+            and all(
+                isinstance(route, str)
+                and bool(route)
+                and isinstance(count, int)
+                and not isinstance(count, bool)
+                and count > 0
+                for route, count in routes.items()
+            )
+        )
+        eligible = False
+        if (
+            exact_routes
+            and isinstance(exact, int)
+            and not isinstance(exact, bool)
+            and isinstance(proven, int)
+            and not isinstance(proven, bool)
             and exact >= proven > 0
         ):
-            row["approved"] = True
+            eligible = True
+        elif (
+            isinstance(routes, dict)
+            and routes == {"complete_fee_balance_ledger": 1}
+            and exact == 0
+            and isinstance(proven, int)
+            and not isinstance(proven, bool)
+            and proven > 0
+            and row.get("legal_ledger_complete") is True
+        ):
+            eligible = True
+        row["approved"] = eligible
+        if eligible:
             approved_count += 1
     manifest["enabled"] = approved_count > 0
     manifest["state"] = "approved" if approved_count > 0 else "review"
+    manifest["approval_mode"] = "automatic_all_eligible"
     summary = manifest.get("summary", {})
     if isinstance(summary, dict):
         summary["approved_accounts"] = approved_count
@@ -701,17 +738,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         type=Path,
         help=(
             "private JSON snapshot of current physical jade, all_fee and an "
-            "reviewed legal-jade allowance not represented by all_fee"
+            "operator-reviewed legal-jade allowance not represented by all_fee"
         ),
     )
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument(
+    approval = parser.add_mutually_exclusive_group()
+    approval.add_argument(
+        "--review-only",
+        action="store_true",
+        help="produce a disabled report without approving eligible accounts",
+    )
+    approval.add_argument(
         "--approve-exact-evidence",
         action="store_true",
-        help=(
-            "enable only rows proven by the historical two-item split bug; "
-            "all other candidates remain unapproved"
-        ),
+        help=argparse.SUPPRESS,
     )
     return parser.parse_args(argv)
 
@@ -750,8 +790,8 @@ def main(argv: list[str] | None = None) -> int:
         financial,
     )
     approved_count = 0
-    if args.approve_exact_evidence:
-        approved_count = approve_exact_split_evidence(manifest)
+    if not args.review_only:
+        approved_count = approve_eligible_evidence(manifest)
     write_private_json(args.output, manifest)
 
     summary = manifest["summary"]

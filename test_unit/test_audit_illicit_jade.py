@@ -321,7 +321,7 @@ class IllicitJadeAuditTest(unittest.TestCase):
         self.assertEqual(decoded["accounts"], {})
         self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
 
-    def test_explicit_auto_approval_only_accepts_exact_split_bug(self):
+    def test_final_snapshot_automatically_approves_eligible_case(self):
         self.write("new_users/xd.20260601.txt", "splitapprove\n")
         self.write(
             "log/fee_log/yushi_change-2026-06.log",
@@ -360,7 +360,6 @@ class IllicitJadeAuditTest(unittest.TestCase):
                 str(self.registration_root),
                 "--financial-snapshot",
                 str(snapshot),
-                "--approve-exact-evidence",
                 "--output",
                 str(output),
             ]
@@ -373,7 +372,7 @@ class IllicitJadeAuditTest(unittest.TestCase):
         self.assertTrue(decoded["accounts"]["splitapprove"]["approved"])
         self.assertEqual(decoded["summary"]["approved_accounts"], 1)
 
-    def test_auto_approval_rejects_mixed_evidence_routes(self):
+    def test_auto_approval_accepts_mixed_exact_evidence_routes(self):
         manifest = {
             "enabled": False,
             "state": "review",
@@ -391,11 +390,121 @@ class IllicitJadeAuditTest(unittest.TestCase):
             "summary": {},
         }
 
-        approved = AUDIT.approve_exact_split_evidence(manifest)
+        approved = AUDIT.approve_eligible_evidence(manifest)
+
+        self.assertEqual(approved, 1)
+        self.assertTrue(manifest["enabled"])
+        self.assertTrue(manifest["accounts"]["mixeduser"]["approved"])
+        self.assertEqual(manifest["approval_mode"], "automatic_all_eligible")
+
+    def test_complete_ledger_gap_is_automatically_approved(self):
+        manifest = {
+            "enabled": False,
+            "state": "review",
+            "accounts": {
+                "ledgeruser": {
+                    "routes": {"complete_fee_balance_ledger": 1},
+                    "exact_minted_suiyu": 0,
+                    "proven_suiyu": 500,
+                    "legal_ledger_complete": True,
+                    "approved": False,
+                }
+            },
+            "summary": {},
+        }
+
+        approved = AUDIT.approve_eligible_evidence(manifest)
+
+        self.assertEqual(approved, 1)
+        self.assertTrue(manifest["accounts"]["ledgeruser"]["approved"])
+
+    def test_auto_approval_rejects_rows_without_evidence_provenance(self):
+        manifest = {
+            "enabled": False,
+            "state": "review",
+            "accounts": {
+                "noroute": {
+                    "routes": {},
+                    "exact_minted_suiyu": 100,
+                    "proven_suiyu": 100,
+                    "approved": True,
+                },
+                "incompleteledger": {
+                    "routes": {"complete_fee_balance_ledger": 1},
+                    "exact_minted_suiyu": 0,
+                    "proven_suiyu": 500,
+                    "legal_ledger_complete": False,
+                    "approved": True,
+                },
+                "booleanamount": {
+                    "routes": {"legacy_split_remainder_bug": 1},
+                    "exact_minted_suiyu": True,
+                    "proven_suiyu": True,
+                    "approved": True,
+                },
+            },
+            "summary": {},
+        }
+
+        approved = AUDIT.approve_eligible_evidence(manifest)
 
         self.assertEqual(approved, 0)
         self.assertFalse(manifest["enabled"])
-        self.assertFalse(manifest["accounts"]["mixeduser"]["approved"])
+        self.assertTrue(
+            all(not row["approved"] for row in manifest["accounts"].values())
+        )
+
+    def test_review_only_flag_keeps_eligible_case_disabled(self):
+        self.write("new_users/xd.20260601.txt", "splitreview\n")
+        self.write(
+            "log/fee_log/yushi_change-2026-06.log",
+            "Thu Jun  4 12:00:00 2026:甲(splitreview) "
+            "打算打碎(2)linglongyu,结果为: "
+            "将(2)linglongyu打碎获得(20)xianyuanyu,\n",
+        )
+        snapshot = self.root / "financial-review.json"
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "captured_at": int(AUDIT.time.time()),
+                    "accounts": {
+                        "splitreview": {
+                            "current_physical_suiyu": 100,
+                            "current_personal_storage_suiyu": 0,
+                            "current_shared_source_suiyu": 0,
+                            "current_wallet_suiyu": 0,
+                            "all_fee": 0,
+                            "legal_non_all_fee_suiyu": 0,
+                            "legal_ledger_complete": False,
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        output = self.root / "security" / "review-only.json"
+
+        result = AUDIT.main(
+            [
+                "--log-root",
+                str(self.log_root),
+                "--registration-root",
+                str(self.registration_root),
+                "--financial-snapshot",
+                str(snapshot),
+                "--review-only",
+                "--output",
+                str(output),
+            ]
+        )
+
+        self.assertEqual(result, 0)
+        decoded = json.loads(output.read_text(encoding="utf-8"))
+        self.assertFalse(decoded["enabled"])
+        self.assertEqual(decoded["state"], "review")
+        self.assertFalse(decoded["accounts"]["splitreview"]["approved"])
+        self.assertEqual(decoded["summary"]["approved_accounts"], 0)
 
 
 if __name__ == "__main__":

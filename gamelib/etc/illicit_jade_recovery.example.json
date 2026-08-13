@@ -2,6 +2,7 @@
   "schema_version": 2,
   "enabled": false,
   "state": "review",
+  "approval_mode": "review_only",
   "policy": "one_time_current_physical_only_no_future_debt",
   "created_before": "2026-08-01",
   "generated_at": 0,
@@ -11,6 +12,7 @@
     "proven_accounts": 0,
     "proven_suiyu": 0,
     "review_only_accounts": 0,
+    "approved_accounts": 0,
     "excluded": {}
   }
 }
