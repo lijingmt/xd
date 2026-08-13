@@ -60,6 +60,23 @@ int main()
 	object|zero player = 0;
 	object|zero verifier = 0;
 	object command_ob = (object)(ROOT+"/gamelib/cmds/mgr_give_item.pike");
+	mapping target_input = command_ob->parse_admin_item_input(
+		"  xd01jinghaha  ");
+	mapping preview_input = command_ob->parse_admin_item_input(
+		"xd01jinghaha yushi/xuantianbaoyu 2");
+	mapping confirm_input = command_ob->parse_admin_item_input(
+		"xd01jinghaha yushi/xuantianbaoyu 2 "+request_id);
+	check("后台找玩家的单参数输入不会被sscanf误判为空",
+		target_input["parsed"]==1 &&
+		target_input["target_userid"]=="xd01jinghaha",
+		"单独输入人物ID没有进入找玩家阶段");
+	check("后台物品预览与确认参数保持分阶段精确解析",
+		preview_input["parsed"]==3 &&
+		preview_input["item_path"]=="yushi/xuantianbaoyu" &&
+		preview_input["item_count"]==2 &&
+		confirm_input["parsed"]==4 &&
+		confirm_input["request_id"]==request_id,
+		"预览或确认参数在分阶段解析时发生变化");
 	check("后台发物品保留历史人物ID精确大小写",
 		command_ob->valid_admin_item_userid("xd01LSQ2026") &&
 		!command_ob->valid_admin_item_userid("xd01LSQ/2026"),
@@ -100,8 +117,9 @@ int main()
 		player->setup_player("third","fangshi");
 		player->save_with_result(0,1);
 		check("未建分职业索引的旧玩家档案仍可作为发放目标",
-			command_ob->admin_item_target_exists(userid),
-			"后台目标校验不兼容历史单人物账号");
+			command_ob->admin_item_target_exists(userid) &&
+			!command_ob->admin_item_target_exists("xd99itemgrantmissing"),
+			"后台目标校验不兼容历史单人物账号或误认不存在人物");
 		mixed denied_err = catch {
 			set_this_player(player);
 			command_ob->main(""+userid+" yushi/suiyu 1 "+request_id);

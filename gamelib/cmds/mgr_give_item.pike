@@ -48,9 +48,21 @@ int valid_admin_item_request_id(string request_id)
 
 int admin_item_target_exists(string userid)
 {
+	string account_id;
+	mapping account_data;
 	if(!valid_admin_item_userid(userid))
 		return 0;
-	return ACCOUNT_CHARACTERD->query_account_id_for_character(userid)!="";
+	account_id = ACCOUNT_CHARACTERD->query_account_id_for_character(userid);
+	if(account_id=="")
+		return 0;
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id);
+	if(!(int)account_data["ok"] || !arrayp(account_data["characters"]))
+		return 0;
+	foreach((array)account_data["characters"],mapping character)
+		if((string)character["id"]==userid &&
+		   (int)character["available"])
+			return 1;
+	return 0;
 }
 
 int admin_item_request_is_fresh(string request_id)
@@ -74,6 +86,37 @@ void discard_admin_item_offline_player(object|zero player)
 				destruct(item);
 		destruct(player);
 	}
+}
+
+mapping(string:mixed) parse_admin_item_input(string|zero arg)
+{
+	mapping(string:mixed) result = (["parsed":0,"target_userid":"",
+		"item_path":"","item_count":0,"request_id":""]);
+	string normalized = String.trim_all_whites(arg || "");
+	string target_userid = "";
+	string item_path = "";
+	string request_id = "";
+	int item_count;
+	int parsed;
+	if(normalized=="")
+		return result;
+	parsed = sscanf(normalized,"%s %s %d %s",target_userid,item_path,
+		item_count,request_id);
+	if(parsed==4)
+		return (["parsed":4,"target_userid":target_userid,
+			"item_path":item_path,"item_count":item_count,
+			"request_id":request_id]);
+	parsed = sscanf(normalized,"%s %s %d",target_userid,item_path,
+		item_count);
+	if(parsed==3)
+		return (["parsed":3,"target_userid":target_userid,
+			"item_path":item_path,"item_count":item_count,
+			"request_id":""]);
+	if(search(normalized," ")==-1 && search(normalized,"\t")==-1)
+		return (["parsed":1,"target_userid":normalized,
+			"item_path":"","item_count":0,"request_id":""]);
+	result["parsed"] = parsed;
+	return result;
 }
 
 mapping(string:mixed) inspect_admin_item(string item_path,int item_count)
@@ -309,12 +352,17 @@ int main(string|zero arg)
 	int offline;
 	object|zero player = 0;
 	mapping result;
+	mapping parsed_input;
 	if(!manager || MANAGERD->checkpower(manager->query_name())!="admin"){
 		write("需要管理员权限才可以发放物品。\n[返回游戏:look]\n");
 		return 1;
 	}
-	parsed = sscanf(arg || "","%s %s %d %s",target_userid,item_path,
-		item_count,request_id);
+	parsed_input = parse_admin_item_input(arg);
+	parsed = (int)parsed_input["parsed"];
+	target_userid = (string)parsed_input["target_userid"];
+	item_path = (string)parsed_input["item_path"];
+	item_count = (int)parsed_input["item_count"];
+	request_id = (string)parsed_input["request_id"];
 	if(parsed<1){
 		s += "请输入目标玩家ID：\n[string:mgr_give_item ...]\n";
 	}
