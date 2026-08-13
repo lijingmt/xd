@@ -359,6 +359,12 @@ void do_remove(object me)
 void do_login(object me)
 {
 	check_daily(me);
+	// 默认关闭且只匹配管理员批准的证据白名单；每个人物最多结案一次。
+	mixed jade_recovery_err=catch{ JADE_RECOVERYD->apply_if_listed(me); };
+	if(jade_recovery_err)
+		werror("[JADE_RECOVERY] login hook failed safely userid=%s error=%s\n",
+			me && functionp(me->query_name) ? (string)me->query_name() :
+				"unknown",describe_error(jade_recovery_err));
 	recycle_no_level_equipment(me);
 	// 采纳奖励支持离线审核，玩家下次登录时自动补发且有领取凭据防重。
 	FEEDBACKD->deliver_pending_rewards(me);

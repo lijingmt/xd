@@ -516,6 +516,35 @@ int main()
 				"worker_online_snapshot_stale"),
 			"慢续租可能令在线行过期、混入两代进程或在迁移瞬间永久断更");
 
+		check("prepared迁移仅暂时排除精确源owner且不掩盖错误副本",
+			httpd->test_pike_gateway_online_row_is_prepared_source(
+				(["epoch":7]),(["ok":1,"state":"frozen",
+					"handoff_request_id":"prepared-1","worker_id":"w02",
+					"epoch":7]),"w02") &&
+			!httpd->test_pike_gateway_online_row_is_prepared_source(
+				(["epoch":7]),(["ok":1,"state":"active",
+					"handoff_request_id":"prepared-1","worker_id":"w02",
+					"epoch":7]),"w02") &&
+			!httpd->test_pike_gateway_online_row_is_prepared_source(
+				(["epoch":7]),(["ok":1,"state":"frozen",
+					"handoff_request_id":"prepared-1","worker_id":"w03",
+					"epoch":7]),"w02") &&
+			!httpd->test_pike_gateway_online_row_is_prepared_source(
+				(["epoch":7]),(["ok":1,"state":"frozen",
+					"handoff_request_id":"prepared-1","worker_id":"w02",
+					"epoch":8]),"w02") &&
+			source_has(gateway,
+				"if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))"),
+			"正常handoff会误触发route mismatch，或错误worker/epoch副本被隐藏");
+		int prepared_source_filter=search(gateway,
+			"if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))");
+		int duplicate_online_filter=search(gateway,
+			"if(by_user[userid])",prepared_source_filter);
+		check("prepared源owner在重复检查前排除且与Worker排序无关",
+			prepared_source_filter!=-1 && duplicate_online_filter!=-1 &&
+			prepared_source_filter<duplicate_online_filter,
+			"目标Worker排序在源Worker之前时，正常handoff仍可能被误判为重复owner");
+
 		check("全体在线行只在身份复核后原子替换且快照并行发布",
 			source_has(gateway,
 				"pike_gateway_online_rows_by_worker = fresh_rows") &&
@@ -532,6 +561,19 @@ int main()
 			source_has(gateway,
 				"pike_gateway_online_farm->run(\n\t\t\t\tpike_gateway_publish_online_worker"),
 			"逐Worker更新可能暴露半新半旧名单，或串行发布令末端Worker过期");
+
+		check("瞬时迁移快照不降级且持续不一致仍由末次完整快照超时保护",
+			source_has(cluster,
+				"gateway.get(\"online_snapshot_age\", 999) > 30") &&
+			source_has(cluster,
+				"gateway.get(\"online_snapshot_age\", 999) <= 30") &&
+			!source_has(cluster,
+				"or gateway.get(\"online_snapshot_error\")") &&
+			!source_has(cluster,
+				"and not gateway.get(\"online_snapshot_error\")") &&
+			source_has(cluster,
+				"Keep the previous complete snapshot authoritative"),
+			"跨Worker迁移的瞬时route mismatch可能误触发全服fallback，或长期不一致被放行");
 
 		int control_heartbeat = search(gateway,
 			"\"local_control_heartbeat\",([])");
