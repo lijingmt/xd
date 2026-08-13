@@ -11,10 +11,10 @@ int main(string|zero arg)
 	int hour = time["hour"];
 	/*
 	if(hour>=18&&hour<=20)
-		s += "[千里传音符超低价限时促销:yushi_buy_bc_detail qianlichuanyinfu 2 2](剩余"+BROADCASTD->query_num("qianlichuanyingfu")+"张)\n";
+		s += "[千里传音符超低价限时促销:yushi_buy_bc_detail qianlichuanyinfu 2 2](剩余"+BROADCASTD->query_num("qianlichuanyinfu")+"张)\n";
 	else 
 	*/
-	s += "[千里传音符(国庆促销):yushi_buy_bc_detail qianlichuanyinfu 2 1](剩余"+BROADCASTD->query_num("qianlichuanyingfu")+"张)\n";
+	s += "[千里传音符(国庆促销):yushi_buy_bc_detail qianlichuanyinfu 2 1](剩余"+BROADCASTD->query_num("qianlichuanyinfu")+"张)\n";
 	s += "[免战符:yushi_buy_bc_detail mianzhanfu 1 5]\n";
 	s += "\n";
 	s += "[返回:yushi_myzone]\n";

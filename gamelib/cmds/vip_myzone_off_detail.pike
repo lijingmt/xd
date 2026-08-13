@@ -33,8 +33,34 @@ int main(string|zero arg)
 		s += goods->query_picture_url()+"\n ";
 		s += goods->query_desc()+"\n";
 		s += "--------\n";
-		s += VIPD->get_vip_name(lv)+"购买，享受"+ VIPD->get_vip_off(lv) +"折优惠,仅需"+YUSHID->get_yushi_for_desc(price)+"\n\n";
-		s += "[确定购买:vip_myzone_off_confirm " + goods_name + " "+ lv +" "+ price +"]\n";
+		s += VIPD->get_vip_name(lv)+"购买，享受"+ VIPD->get_vip_off(lv) +"折优惠,单价仅需"+YUSHID->get_yushi_for_desc(price)+"\n\n";
+		if(goods->is("combine_item")){
+			int remaining = VIPD->query_off_good_remaining(me,goods,lv);
+			int affordable = price>0 ? YUSHID->query_all_num(me)/price : 0;
+			int capacity = SHOP_BATCHD->query_capacity(me,goods,1);
+			int quick_max = min(remaining,affordable);
+			quick_max = min(quick_max,capacity);
+			quick_max = min(quick_max,SHOP_BATCHD->query_hard_max());
+			s += "本次可购买1-100个；同类会员商品随身剩余额度："+
+				remaining+"个。\n";
+			if(quick_max>0){
+				foreach(({1,5,10,20,50,100}),int quick)
+					if(quick<=quick_max)
+						s += "[买"+quick+"个:vip_myzone_off_confirm "+
+							goods_name+" "+lv+" "+price+" "+quick+"] ";
+				if(search(({1,5,10,20,50,100}),quick_max)==-1)
+					s += "[按余额/背包买满"+quick_max+"个:"+
+						"vip_myzone_off_confirm "+goods_name+" "+lv+" "+
+						price+" "+quick_max+"]";
+				s += "\n";
+			}
+			s += "自定义数量：[int no:...]\n";
+			s += "[submit 确定购买:vip_myzone_off_confirm "+goods_name+
+				" "+lv+" "+price+" ...]\n";
+		}
+		else
+			s += "[确定购买:vip_myzone_off_confirm "+goods_name+" "+
+				lv+" "+price+"]\n";
 	}
 	else
 		s += "这东西好像已经卖光了，改天再来吧！\n";

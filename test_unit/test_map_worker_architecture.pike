@@ -1225,6 +1225,16 @@ int main()
 				"void invalidate_worker_account_cache") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
 				"PETD->invalidate_worker_account_cache(account_owner)") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"PETD->mark_pet_player_runtime_stale(local_player)") &&
+			source_has("/gamelib/single/daemons/_pet_mod/collection.pike",
+				"int refresh_pet_player_runtime(object player)") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"pike_gateway_lock_user_accounts(lock_users") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"referral_account") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"refresh_accounts+=({referral_account})") &&
 			source_has("/test_unit/test_pike_gateway.pike",
 				"test_account_cache_capability_changes_only_when_worker_changes"),
 			"不同worker可能用旧缓存覆盖共享装备或充值余额");

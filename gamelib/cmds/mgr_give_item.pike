@@ -88,11 +88,60 @@ void discard_admin_item_offline_player(object|zero player)
 	}
 }
 
+/**
+ * 兼容已经被浏览器缓存的旧后台输入控件。旧 JSON/JSP 渲染器可能把
+ * 控件名一并送入参数，例如 mgr_give_item=xd01foo 或
+ * string:mgr_give_item xd01foo；只剥离本命令的固定前缀，后续仍走
+ * 原有玩家 ID、物品路径和数量白名单，不能借此放宽输入边界。
+ */
+private string normalize_admin_item_input(string|zero arg)
+{
+	string normalized = String.trim_all_whites(arg || "");
+	array(string) prefixes = ({
+		"string:mgr_give_item ","string:mgr_give_item=",
+		"mgr_give_item ","mgr_give_item=",
+	});
+	for(int pass=0;pass<3;pass++){
+		int changed;
+		foreach(prefixes,string prefix)
+			if(search(normalized,prefix)==0){
+				normalized = sizeof(normalized)>sizeof(prefix) ?
+					normalized[sizeof(prefix)..] : "";
+				normalized = String.trim_all_whites(normalized);
+				changed = 1;
+				break;
+			}
+		if(!changed)
+			break;
+	}
+	return normalized;
+}
+
+private void log_invalid_admin_item_input(object manager,string|zero raw_arg,
+	string normalized,int parsed,string target_userid)
+{
+	string raw = raw_arg || "";
+	string worker_id;
+	// 失败输入最多记录前256字节；该命令不接收密码，确认凭据也不会
+	// 进入此分支。十六进制用于识别全角空格、NBSP和残留URL编码。
+	if(sizeof(raw)>256)
+		raw = raw[0..255];
+	worker_id = (string)(MAP_WORKERD->query_local_worker_id() ||
+		"standalone");
+	Stdio.append_file(ROOT+"/log/admin_item_input_debug.log",
+		time()+" worker="+worker_id+" admin="+
+		(string)(manager ? manager->query_name() : "unknown")+
+		" parsed="+parsed+" raw="+sprintf("%O",raw)+
+		" normalized="+sprintf("%O",normalized)+" target="+
+		sprintf("%O",target_userid)+" raw_hex="+
+		String.string2hex(raw)+"\n");
+}
+
 mapping(string:mixed) parse_admin_item_input(string|zero arg)
 {
 	mapping(string:mixed) result = (["parsed":0,"target_userid":"",
 		"item_path":"","item_count":0,"request_id":""]);
-	string normalized = String.trim_all_whites(arg || "");
+	string normalized = normalize_admin_item_input(arg);
 	string target_userid = "";
 	string item_path = "";
 	string request_id = "";
@@ -100,6 +149,42 @@ mapping(string:mixed) parse_admin_item_input(string|zero arg)
 	int parsed;
 	if(normalized=="")
 		return result;
+	/*
+	 * 新旧页面的具名表单分别会产生空格或 & 分隔的 key=value。
+	 * 先按字段名解析，避免把 target_userid= 前缀当成人物 ID；旧的
+	 * 纯位置参数仍由下面的兼容分支处理。
+	 */
+	if(search(normalized,"=")!=-1){
+		mapping(string:string) fields = ([]);
+		string field_text = replace(normalized,"&"," ");
+		foreach(field_text/" ",string token){
+			string field_name;
+			string field_value;
+			if(token=="" || sscanf(token,"%s=%s",field_name,
+				field_value)!=2)
+				continue;
+			fields[field_name] = field_value;
+		}
+		target_userid = (string)(fields["target_userid"] ||
+			fields["userid"] || "");
+		item_path = (string)(fields["item_path"] || "");
+		request_id = (string)(fields["request_id"] || "");
+		if((string)(fields["item_count"] || "")!="")
+			sscanf((string)fields["item_count"],"%d",item_count);
+		if(target_userid!="" && item_path!="" && item_count>0 &&
+		   request_id!="")
+			return (["parsed":4,"target_userid":target_userid,
+				"item_path":item_path,"item_count":item_count,
+				"request_id":request_id]);
+		if(target_userid!="" && item_path!="" && item_count>0)
+			return (["parsed":3,"target_userid":target_userid,
+				"item_path":item_path,"item_count":item_count,
+				"request_id":""]);
+		if(target_userid!="")
+			return (["parsed":1,"target_userid":target_userid,
+				"item_path":"","item_count":0,"request_id":""]);
+		return result;
+	}
 	parsed = sscanf(normalized,"%s %s %d %s",target_userid,item_path,
 		item_count,request_id);
 	if(parsed==4)
@@ -363,8 +448,13 @@ int main(string|zero arg)
 	item_path = (string)parsed_input["item_path"];
 	item_count = (int)parsed_input["item_count"];
 	request_id = (string)parsed_input["request_id"];
+	if(parsed<1 || (parsed>=1 &&
+	   !valid_admin_item_userid(String.trim_all_whites(target_userid))))
+		log_invalid_admin_item_input(manager,arg,
+			normalize_admin_item_input(arg),parsed,target_userid);
 	if(parsed<1){
-		s += "请输入目标玩家ID：\n[string:mgr_give_item ...]\n";
+		s += "请输入目标玩家ID：\n[string target_userid:...]\n";
+		s += "[submit 查找玩家:mgr_give_item action=find ...]\n";
 	}
 	else if(parsed==1){
 		target_userid = String.trim_all_whites(target_userid);
@@ -376,7 +466,10 @@ int main(string|zero arg)
 			s += "目标玩家："+target_userid+"\n";
 			s += "请输入“物品相对路径 数量”，例如：yushi/suiyu 1\n";
 			s += "路径必须位于 gamelib/clone/item/，装备与普通道具都可以发放。\n";
-			s += "[string:mgr_give_item "+target_userid+" ...]\n";
+			s += "物品相对路径：[string item_path:...]\n";
+			s += "发放数量：[int item_count:...]\n";
+			s += "[submit 校验发放:mgr_give_item action=preview "+
+				"target_userid="+target_userid+" ...]\n";
 		}
 	}
 	else if(parsed==3){

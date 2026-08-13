@@ -869,23 +869,70 @@ void test_pet_equipment_and_skill_imprint()
 		(string)wanmu_before["recent_event"]["id"] : "";
 	mapping wanmu_waiting = PETD->perform_pet_pve_assist(player,npc);
 	mapping wanmu_wait_presence = PETD->query_pet_battle_presence(player);
+	mapping balanced_rhythm = PETD->query_pet_rune_rhythm_profile(0);
+	mapping agile_rhythm = PETD->query_pet_rune_rhythm_profile(1);
+	mapping charged_rhythm = PETD->query_pet_rune_rhythm_profile(2);
+	check("三套灵纹公开说明与真实冷却、倍率和PVP蓄能常量一致",
+		balanced_rhythm["effect_percent"]==100 &&
+		balanced_rhythm["pve_cooldown"]==30 &&
+		balanced_rhythm["pvp_charge"]==
+			PETD->query_pet_pvp_charge_required(0) &&
+		agile_rhythm["effect_percent"]==80 &&
+		agile_rhythm["pve_cooldown"]==24 &&
+		agile_rhythm["pvp_charge"]==
+			PETD->query_pet_pvp_charge_required(1) &&
+		charged_rhythm["effect_percent"]==115 &&
+		charged_rhythm["pve_cooldown"]==36 &&
+		charged_rhythm["pvp_charge"]==
+			PETD->query_pet_pvp_charge_required(2) &&
+		search((string)wanmu_wait_presence["rune_effect"],
+			"三枚灵纹整套触发")!=-1,
+		"灵纹页面说明可能与实际战斗常量漂移或仍无效果描述");
+	string pet_command_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/pet.pike") || "";
+	check("共享宠物详情逐套解释灵纹效果并提示本命战斗位会暂停触发",
+		search(pet_command_source,
+			"PETD->query_pet_rune_rhythm_description")!=-1 &&
+		search(pet_command_source,"当前战斗位是本命灵伴")!=-1 &&
+		search(pet_command_source,"真实生效时战斗中会出现三纹共鸣提示")!=-1,
+		"玩家仍需猜灵纹组合效果或无法判断共享宠物为何不出手");
 	player->set_life(player->query_life_max()/2);
 	int wanmu_life_before = player->get_cur_life();
-	mapping wanmu_assist = PETD->perform_pet_pve_assist(player,npc);
+	player->_fight(npc);
+	npc->_fight(player);
+	player->heart_beat();
 	mapping wanmu_presence = PETD->query_pet_battle_presence(player);
-	check("扩印万木新春在主人受伤时真实治疗且满血不吞冷却",
+	mapping wanmu_event = mappingp(wanmu_presence["recent_event"]) ?
+		wanmu_presence["recent_event"] : ([]);
+	check("拓印万木新春经真实人物心跳治疗且满血不吞冷却",
 		wanmu_imprinted["ok"] && !wanmu_waiting["ok"] &&
 		wanmu_waiting["waiting_resource"]=="life" &&
 		(int)wanmu_wait_presence["cooldown_remaining"]==0 &&
 		(mappingp(wanmu_wait_presence["recent_event"]) ?
 			(string)wanmu_wait_presence["recent_event"]["id"] : "")==
-			wanmu_event_before && wanmu_assist["ok"] &&
-		wanmu_assist["type"]=="heal" &&
-		(int)wanmu_assist["amount"]>0 &&
+			wanmu_event_before && wanmu_event["type"]=="heal" &&
+		(int)wanmu_event["amount"]>0 &&
 		player->get_cur_life()>wanmu_life_before &&
 		search((string)wanmu_presence["skill"],"万木新春")!=-1 &&
-		wanmu_presence["recent_event"]["skill"]==wanmu_presence["skill"],
-		"万木新春被误判为攻击、满血消耗冷却或事件没有显示拓印技能");
+		wanmu_event["skill"]==wanmu_presence["skill"] &&
+		wanmu_event["rune_set_triggered"],
+		"真实人物心跳未触发万木新春、误判为攻击或事件没有显示灵纹");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(npc->query_in_combat())
+		npc->_clean_fight();
+	int combat_at_before_refresh = (int)player["/tmp/wanling/assist_at"];
+	player["/tmp/wanling/pet_skills"] = ({"旧灵纹", "旧灵纹", "旧灵纹"});
+	player["/tmp/wanling/imprinted_skill"] = 0;
+	PETD->drop_test_pet_cache(player->query_account_owner());
+	PETD->mark_pet_player_runtime_stale(player);
+	mapping refreshed_presence = PETD->query_pet_battle_presence(player);
+	check("Worker账号缓存换代后重建在线人物灵技灵纹且不刷新战斗冷却",
+		!(int)player["/tmp/wanling/runtime_stale"] &&
+		search((string)refreshed_presence["skill"],"万木新春")!=-1 &&
+		search((array)refreshed_presence["runes"],"旧灵纹")==-1 &&
+		(int)player["/tmp/wanling/assist_at"]==combat_at_before_refresh,
+		"只清账号缓存但在线人物继续使用旧拓印/灵纹，或借刷新重置冷却");
 
 	mapping forgotten = PETD->forget_pet_imprinted_skill(player,pet_id);
 	mapping core_removed = PETD->unequip_pet_gear(player,pet_id,
@@ -1035,24 +1082,30 @@ void test_pet_batch_growth_and_fusion()
 	player->set_life(player->query_life_max()/2);
 	player->set_mofa(player->query_mofa_max()/2);
 	player["/tmp/wanling/assist_at"] = 0;
-	mapping fusion_assist = PETD->perform_pet_pve_assist(player,
-		fusion_target);
-	mapping fusion_event = mappingp(fusion_assist["event"]) ?
-		fusion_assist["event"] : ([]);
+	player->_fight(fusion_target);
+	fusion_target->_fight(player);
+	player->heart_beat();
+	mapping fusion_presence = PETD->query_pet_battle_presence(player);
+	mapping fusion_event = mappingp(fusion_presence["recent_event"]) ?
+		fusion_presence["recent_event"] : ([]);
 	int all_runes_visible = sizeof((array)child["skills"])==3;
 	foreach((array)child["skills"],string rune)
 		all_runes_visible = all_runes_visible &&
 			search((string)(fusion_event["skill"] || ""),rune)!=-1;
 	check("阴阳融合宠三枚父系灵纹同步到战斗并作为一个共鸣组合真实触发",
-		child_activated["ok"] && fusion_assist["ok"] &&
-		(int)fusion_assist["amount"]>0 &&
+		child_activated["ok"] && (int)fusion_event["amount"]>0 &&
 		child_presence["rune_combo"] && fusion_event["rune_combo"] &&
 		fusion_event["rune_combo_triggered"] &&
+		fusion_event["rune_set_triggered"] &&
 		Standards.JSON.encode(child_presence["runes"])==
 			Standards.JSON.encode(child["skills"]) &&
 		Standards.JSON.encode(fusion_event["runes"])==
 			Standards.JSON.encode(child["skills"]) && all_runes_visible,
 		"融合灵纹只写入档案，出战快照仍回退原种族技能或战斗不触发");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(fusion_target->query_in_combat())
+		fusion_target->_clean_fight();
 	player["/tmp/wanling/pet_skills"] = ({"损坏残片",0,0});
 	mapping repaired_presence = PETD->query_pet_battle_presence(player);
 	check("损坏的临时灵纹快照安全回退完整原生组合且不拼接残片",
@@ -1411,9 +1464,11 @@ void test_hidden_luan_owner_revive()
 		normal,0);
 	object first_boss = make_npc(player,70);
 	first_boss->_boss = 1;
+	player["/pet_battle/source"] = "personal";
 	mapping missed = PETD->test_record_hidden_luan_drop(player,
 		first_boss,9999);
-	check("隐藏图鉴未收录前不泄露总数且只接受70级以上真实首领",
+	player["/pet_battle/source"] = "shared";
+	check("隐藏图鉴不泄露且完成初契后切换本命灵伴仍累计合格首领",
 		chosen["ok"] && (int)before["catalog_total"]==15 &&
 		!normal_drop["eligible"] && missed["ok"] &&
 		missed["eligible"] && !missed["dropped"] &&

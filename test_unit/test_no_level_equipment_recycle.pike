@@ -172,6 +172,11 @@ void test_ten_item_milestone_and_profession_choice()
 		!present("taigushanyin",player),
 		"token="+sprintf("%O",present("ancient_skill_choice_token",player)));
 	command->main("taixujianhen");
+	check("太古自选先展示技能资料且不会因首次点击误消耗",
+		present("ancient_skill_choice_token",player)==token &&
+		!present("taixujianhen",player),
+		"技能资料预览阶段错误消耗了择卷");
+	command->main("confirm taixujianhen");
 	object book = present("taixujianhen",player);
 	check("本职业合法选择生成账号绑定原版技能书后才消耗择卷",
 		!present("ancient_skill_choice_token",player) && book &&

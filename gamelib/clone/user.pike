@@ -216,6 +216,9 @@ mapping(string:int) admin_recharge_bonus_receipts=([]);
 // item payload and its receipt are committed in the same atomic player save,
 // so a lost HTTP response can be retried without cloning the item again.
 mapping(string:mapping(string:mixed)) admin_item_grant_receipts=([]);
+// 邀请累计捐赠每满300元所得太古自选卷轴。凭据和卷轴在同一人物
+// 原子档案中保存，跨角色领取前会扫描账号全部人物，禁止重复发放。
+mapping(string:int) referral_scroll_reward_receipts=([]);
 #define ADMIN_ITEM_GRANT_RECEIPT_TTL 1800
 #define ADMIN_ITEM_GRANT_RECEIPT_LIMIT 256
 
@@ -270,6 +273,32 @@ void rollback_admin_recharge_bonus_receipt(string request_id)
 {
 	if(mappingp(admin_recharge_bonus_receipts))
 		m_delete(admin_recharge_bonus_receipts,request_id);
+}
+
+int has_referral_scroll_reward_receipt(string request_id)
+{
+	return valid_admin_recharge_receipt_id(request_id) &&
+		mappingp(referral_scroll_reward_receipts) &&
+		(int)referral_scroll_reward_receipts[request_id]>0;
+}
+
+int record_referral_scroll_reward_receipt(string request_id)
+{
+	if(!valid_admin_recharge_receipt_id(request_id))
+		return 0;
+	if(!mappingp(referral_scroll_reward_receipts))
+		referral_scroll_reward_receipts=([]);
+	if(!referral_scroll_reward_receipts[request_id] &&
+	   sizeof(referral_scroll_reward_receipts)>=1024)
+		return 0;
+	referral_scroll_reward_receipts[request_id]=time();
+	return 1;
+}
+
+void rollback_referral_scroll_reward_receipt(string request_id)
+{
+	if(mappingp(referral_scroll_reward_receipts))
+		m_delete(referral_scroll_reward_receipts,request_id);
 }
 
 mapping(string:mixed) query_admin_item_grant_receipt(string request_id)
@@ -389,21 +418,18 @@ int query_auto_learn_dazuo(){
 }
 int max_yao;
 int query_max_yao(){
-	object me=this_player();
-	int vip_flag = 0;
-	if(me && me->query_vip_flag) {
-		vip_flag = me->query_vip_flag();
-	}
-	max_yao=5*(vip_flag+1);
-	//werror("========me->query_vip_flag() "+me->query_vip_flag()+"\n");
+	int current_vip = (int)this_object()->query_vip_flag();
+	if(current_vip<0)
+		current_vip=0;
+	if(current_vip>VIP_MAX_LEVEL)
+		current_vip=VIP_MAX_LEVEL;
+	max_yao=5*(current_vip+1);
 	return max_yao;
 }
 string query_max_yao_info(){
 	string s="会员最大食用次数:\n";
-	s+="水晶会员10次\n";
-	s+="黄金会员15次\n";
-	s+="白金会员20次\n";
-	s+="钻石会员25次\n";
+	for(int level=1;level<=VIP_MAX_LEVEL;level++)
+		s+=VIPD->get_vip_name(level)+(5*(level+1))+"次\n";
 	s+="捐赠获得会员 QQ：1811117272\n";
 	return s;
 }
@@ -483,7 +509,7 @@ string query_bandpswd_link(){
 //add by calvin 20080806
 
 //和会员制度相关的字段和存、取方法  added by evan 2008.07.16
-int vip_flag;      //会员标志 0:非会员 1:水晶会员  2:黄金会员  3:白金会员  4:钻石会员
+int vip_flag;      //会员标志 0:非会员；1-8档名称由VIPD服务端目录提供
 int vip_end_time;  //会员到期时间 
 mapping(int:int) vip_history=([]);//玩家会员历史记录 【结构  会员到期时间:会员等级】
 void add_vip_history(int endtime,int level){  //向历史记录中添加相关信息

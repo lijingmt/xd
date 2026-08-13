@@ -3955,7 +3955,8 @@ mapping(string:mixed) purchase_infancy(object buyer,string infancy_path,
 	int trade_result;
 	int delivered;
 	int rollback_ok=1;
-	if(!buyer || !(int)offer["ok"] || count<1 || count>20 ||
+	if(!buyer || !(int)offer["ok"] || count<1 ||
+	   count>SHOP_BATCHD->query_hard_max() ||
 	   (payment_kind!=1 && payment_kind!=2))
 		return (["ok":0,"code":"invalid","message":"商品或购买参数无效"]);
 	unit_price=payment_kind==1 ? (int)offer["yushi"] :
@@ -3966,17 +3967,15 @@ mapping(string:mixed) purchase_infancy(object buyer,string infancy_path,
 	money_cost=payment_kind==2 ? unit_price*count*100 : 0;
 	mixed load_err=catch{
 		item=clone(ROOT+"/gamelib/clone/item/home/infancy/"+infancy_path);
-		item->set_amount(count);
 	};
 	if(load_err || !item || !item->is("combine_item") ||
-	   buyer->if_over_load(item)){
+	   SHOP_BATCHD->query_capacity(buyer,item,0)<count){
 		if(item) destruct(item);
 		return (["ok":0,"code":"item","message":"商品资料异常或你的背包已满"]);
 	}
 	item_name=(string)item->query_name();
 	item_name_cn=(string)item->query_name_cn();
 	item_unit=(string)item->query_unit();
-	before_amount=shop_inventory_amount(buyer,item_name);
 	before_wallet=ACCOUNT_WALLETD->query_balance(buyer);
 	before_physical=YUSHID->query_physical_all_num(buyer);
 	before_money=(int)buyer->query_account();
@@ -3998,19 +3997,22 @@ mapping(string:mixed) purchase_infancy(object buyer,string infancy_path,
 		return (["ok":0,"code":"save","message":rollback_ok ?
 			"人物存档失败，费用已经退回" : "退款保存异常，请立即联系客服"]);
 	}
-	item->move_player((string)buyer->query_name());
-	delivered=shop_inventory_amount(buyer,item_name)-before_amount==count;
+	destruct(item);
+	item=0;
+	mapping delivery=SHOP_BATCHD->deliver(buyer,
+		"home/infancy/"+infancy_path,count,0);
+	delivered=(int)delivery["ok"];
 	if(delivered && save_function_room_player(buyer))
 		return (["ok":1,"code":"committed","message":"购买成功",
 			"item_name":item_name,"item_name_cn":item_name_cn,
 			"unit":item_unit,"count":count,"yushi_cost":yushi_cost,
 			"money_cost":money_cost]);
-	int added=shop_inventory_amount(buyer,item_name)-before_amount;
-	if(added>0){
-		mapping removed=buyer->remove_combine_item_transaction(item_name,added);
-		if(!(int)removed["ok"])
+	if(delivered){
+		if(!SHOP_BATCHD->rollback(buyer,delivery))
 			rollback_ok=0;
 	}
+	else if(!(int)delivery["rollback_ok"])
+		rollback_ok=0;
 	if(!rollback_shop_payment(buyer,before_wallet,before_physical,before_money) ||
 	   !save_function_room_player(buyer))
 		rollback_ok=0;

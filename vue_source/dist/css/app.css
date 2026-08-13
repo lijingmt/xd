@@ -421,6 +421,39 @@ body {
     text-decoration: underline;
 }
 
+.referral-register-group {
+    padding: 12px;
+    border: 1px solid rgba(76, 175, 130, 0.35);
+    border-radius: var(--radius-md);
+    background: rgba(76, 175, 130, 0.08);
+}
+
+.optional-label {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.referral-bound-hint {
+    display: block;
+    margin-top: 7px;
+    color: var(--success);
+    line-height: 1.5;
+}
+
+.referral-skip-action {
+    min-height: 34px;
+    margin-top: 6px;
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
 /* ============================================
    Inline Sections - 内联区域样式
    ============================================ */
@@ -7310,6 +7343,234 @@ select:focus-visible {
     cursor: pointer;
 }
 
+.register-modal {
+    width: min(100%, 500px);
+    max-width: 500px;
+}
+
+.register-progress {
+    display: grid;
+    grid-template-columns: auto minmax(12px, 1fr) auto minmax(12px, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    margin: -5px 0 19px;
+    color: var(--ux-ink-muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.register-progress span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.register-progress b {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border: 1px solid var(--ux-line);
+    border-radius: 50%;
+    background: var(--ux-surface-muted);
+    font-size: 11px;
+}
+
+.register-progress span.active {
+    color: var(--ux-accent);
+}
+
+.register-progress span.active b {
+    border-color: var(--ux-accent);
+    background: var(--ux-accent);
+    color: #fff;
+}
+
+.register-progress i {
+    height: 1px;
+    background: var(--ux-line);
+}
+
+.register-form {
+    gap: 12px;
+}
+
+.register-section {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--ux-line);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--ux-surface-strong) 82%, transparent);
+}
+
+.register-section-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.register-section-title > div {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.register-section-title strong {
+    color: var(--ux-ink);
+    font-size: 14px;
+}
+
+.register-section-title small {
+    color: var(--ux-ink-muted);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.register-section-title.compact {
+    margin-bottom: -1px;
+}
+
+.account-preview,
+.invite-ready-badge {
+    max-width: 48%;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: var(--ux-surface-muted);
+    color: var(--ux-accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.field-rule {
+    float: right;
+    color: var(--ux-ink-muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.auth-form input.field-valid {
+    border-color: color-mix(in srgb, var(--success) 70%, var(--ux-line));
+}
+
+.auth-form input.field-invalid {
+    border-color: color-mix(in srgb, var(--danger) 76%, var(--ux-line));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 9%, transparent);
+}
+
+.form-field-feedback {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.form-field-feedback.success {
+    color: var(--success);
+}
+
+.form-field-feedback.error {
+    color: var(--danger);
+}
+
+.password-strength {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.password-strength span {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ux-line);
+}
+
+.password-strength span.filled {
+    background: linear-gradient(90deg, var(--ux-accent), var(--success));
+}
+
+.password-strength small {
+    min-width: 58px;
+    color: var(--ux-ink-muted);
+    font-size: 10px;
+    text-align: right;
+}
+
+.register-section.referral-register-group {
+    padding: 14px;
+    border-color: var(--ux-line);
+    background: color-mix(in srgb, var(--ux-surface-strong) 82%, transparent);
+}
+
+.register-section.referral-register-group.from-invite-link {
+    border-color: color-mix(in srgb, var(--success) 54%, var(--ux-line));
+    background: color-mix(in srgb, var(--success) 8%, var(--ux-surface-strong));
+}
+
+.invite-ready-badge {
+    background: color-mix(in srgb, var(--success) 13%, var(--ux-surface-muted));
+    color: var(--success);
+    font-family: inherit;
+}
+
+.register-privacy-note {
+    margin: 0 4px;
+    color: var(--ux-ink-muted);
+    font-size: 11px;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.register-success-panel {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    padding: 30px 18px 18px;
+    text-align: center;
+}
+
+.register-success-icon {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--success) 15%, var(--ux-surface-strong));
+    color: var(--success);
+    font-size: 32px;
+    font-weight: 900;
+}
+
+.register-success-panel h3 {
+    margin: 4px 0 0;
+    color: var(--ux-ink);
+    font-size: 22px;
+}
+
+.register-success-panel p {
+    margin: 0 0 8px;
+    color: var(--ux-ink-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.register-success-panel strong {
+    color: var(--ux-accent);
+    overflow-wrap: anywhere;
+}
+
+.register-success-panel .btn {
+    min-height: 48px;
+}
+
 /* Player header */
 .game-header,
 [data-theme="classic"] .game-header,
@@ -8218,6 +8479,107 @@ select:focus-visible {
     font-weight: 700;
 }
 
+.battle-pet-rune-desc,
+.pet-rune-trigger-copy {
+    color: #fde68a !important;
+    white-space: normal !important;
+}
+
+.pet-rune-resonance {
+    overflow: visible;
+    border-color: #fde68a;
+    background:
+        radial-gradient(circle at 18% 50%, rgba(253, 230, 138, 0.46), transparent 42%),
+        radial-gradient(circle at 82% 50%, var(--pet-glow), transparent 48%),
+        linear-gradient(105deg, rgba(30, 15, 48, 0.97), var(--pet-surface));
+    box-shadow: 0 0 22px #fde68a, 0 0 56px var(--pet-glow),
+        0 16px 42px rgba(0, 0, 0, 0.5);
+    animation: petAssistBurst 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+        petRuneResonanceFlash 0.72s ease-out both;
+}
+
+.pet-actual-damage { --pet-accent: #fb7185; --pet-glow: rgba(244, 63, 94, 0.64); }
+.pet-actual-heal { --pet-accent: #86efac; --pet-glow: rgba(34, 197, 94, 0.58); }
+.pet-actual-mofa { --pet-accent: #93c5fd; --pet-glow: rgba(59, 130, 246, 0.62); }
+.pet-actual-revive { --pet-accent: #fde68a; --pet-glow: rgba(250, 204, 21, 0.76); }
+
+.pet-actual-effect-mark {
+    position: absolute;
+    z-index: 4;
+    top: -14px;
+    right: -10px;
+    display: grid;
+    width: 31px;
+    height: 31px;
+    place-items: center;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    background: rgba(8, 12, 24, 0.9);
+    color: var(--pet-accent);
+    box-shadow: 0 0 18px var(--pet-glow);
+    font-size: 16px;
+    font-weight: 900;
+    text-shadow: 0 0 8px var(--pet-glow);
+    animation: petActualEffectSeal 1.05s cubic-bezier(0.15, 1.35, 0.4, 1) both;
+}
+
+.pet-actual-damage .pet-assist-comet {
+    height: 5px;
+    transform: rotate(-7deg);
+}
+
+.pet-actual-heal .pet-assist-avatar,
+.pet-actual-mofa .pet-assist-avatar {
+    animation: petAssistLeap 0.72s cubic-bezier(0.2, 1.35, 0.5, 1) both,
+        petActualAura 1.1s ease-in-out 0.55s infinite alternate;
+}
+
+.pet-actual-revive .pet-assist-avatar {
+    animation: petReviveRise 1.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pet-has-secondary .pet-actual-effect-mark {
+    background: linear-gradient(135deg, rgba(190, 24, 93, 0.94),
+        rgba(21, 128, 61, 0.94));
+    color: #fff;
+}
+
+.pet-rune-resonance::before,
+.pet-rune-resonance::after {
+    position: absolute;
+    inset: -11px;
+    border: 2px solid rgba(253, 230, 138, 0.88);
+    border-radius: 24px;
+    content: '';
+    opacity: 0;
+    animation: petRuneShockwave 1.4s ease-out 0.08s both;
+}
+
+.pet-rune-resonance::after {
+    animation-delay: 0.32s;
+}
+
+.pet-rune-orbit {
+    position: absolute;
+    z-index: 3;
+    inset: -18px;
+    pointer-events: none;
+    animation: petRuneOrbit 2.4s cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.pet-rune-orbit i {
+    position: absolute;
+    color: #fff7bd;
+    font-size: 18px;
+    font-style: normal;
+    filter: drop-shadow(0 0 7px #fde047);
+    animation: petRuneSpark 0.78s ease-in-out infinite alternate;
+}
+
+.pet-rune-orbit i:nth-child(1) { top: 0; left: 12%; }
+.pet-rune-orbit i:nth-child(2) { top: 0; right: 12%; animation-delay: 0.16s; }
+.pet-rune-orbit i:nth-child(3) { right: 46%; bottom: -3px; animation-delay: 0.32s; }
+
 .battle-panel.fullscreen-mode .battle-pet-assist-burst {
     position: fixed;
     top: 50%;
@@ -8269,6 +8631,46 @@ select:focus-visible {
     100% { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
 }
 
+@keyframes petRuneResonanceFlash {
+    0% { filter: brightness(2.2) saturate(1.8); }
+    45% { filter: brightness(1.18) saturate(1.35); }
+    100% { filter: brightness(1) saturate(1); }
+}
+
+@keyframes petRuneShockwave {
+    0% { opacity: 0.95; transform: scale(0.76); }
+    100% { opacity: 0; transform: scale(1.34); }
+}
+
+@keyframes petRuneOrbit {
+    0% { opacity: 0; transform: rotate(-54deg) scale(0.62); }
+    18% { opacity: 1; }
+    72% { opacity: 1; transform: rotate(305deg) scale(1); }
+    100% { opacity: 0; transform: rotate(360deg) scale(1.08); }
+}
+
+@keyframes petRuneSpark {
+    from { opacity: 0.6; transform: scale(0.78); }
+    to { opacity: 1; transform: scale(1.26); }
+}
+
+@keyframes petActualEffectSeal {
+    0% { opacity: 0; transform: rotate(-130deg) scale(0.2); }
+    62% { opacity: 1; transform: rotate(12deg) scale(1.24); }
+    100% { opacity: 1; transform: rotate(0) scale(1); }
+}
+
+@keyframes petActualAura {
+    from { box-shadow: 0 0 12px var(--pet-glow); }
+    to { box-shadow: 0 0 34px var(--pet-glow), 0 0 52px var(--pet-glow); }
+}
+
+@keyframes petReviveRise {
+    0% { opacity: 0; transform: translateY(38px) scale(0.25) rotate(-24deg); filter: brightness(2.4); }
+    55% { opacity: 1; transform: translateY(-9px) scale(1.3) rotate(7deg); filter: brightness(1.55); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); filter: brightness(1); }
+}
+
 @media (max-width: 389px) {
     :root { --battle-dock-height: 148px; }
     .battle-pet-skill { display: none; }
@@ -8283,6 +8685,10 @@ select:focus-visible {
     .battle-pet-avatar,
     .pet-assist-avatar,
     .pet-assist-comet,
+	.pet-rune-orbit,
+	.pet-rune-resonance::before,
+	.pet-rune-resonance::after,
+	.pet-actual-effect-mark,
     .battle-pet-assist-burst {
         animation: none !important;
     }
@@ -9056,6 +9462,32 @@ select:focus-visible {
     .modal.auth-modal {
         padding: 24px 20px;
         border-radius: 22px;
+    }
+
+    .modal.auth-modal.register-modal {
+        padding: 22px 16px;
+    }
+
+    .register-progress {
+        gap: 4px;
+        font-size: 10px;
+    }
+
+    .register-progress span {
+        gap: 3px;
+    }
+
+    .register-progress b {
+        width: 20px;
+        height: 20px;
+    }
+
+    .register-section {
+        padding: 12px;
+    }
+
+    .account-preview {
+        max-width: 44%;
     }
 
     .auth-brand {

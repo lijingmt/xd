@@ -501,6 +501,11 @@ private mapping(string:mixed) pike_gateway_admin_recharge_target(
 	   fee>100000000 || !pike_gateway_valid_hex_token(request_id,64))
 		return ([]);
 	account_id = pike_gateway_resolve_account(target_userid);
+	mapping referral_relation=REFERRALD->query_relation(account_id);
+	string referral_account=(string)(referral_relation["inviter_account"] || "");
+	if(!pike_gateway_valid_userid(referral_account) ||
+	   referral_account==account_id)
+		referral_account="";
 	route = MAP_WORKERD->query_player_route(target_userid);
 	if((int)route["ok"]){
 		worker_id = (string)route["worker_id"];
@@ -517,7 +522,8 @@ private mapping(string:mixed) pike_gateway_admin_recharge_target(
 		error("admin target worker is unavailable\n");
 	return (["userid":target_userid,"account_id":account_id,
 		"worker_id":worker_id,"epoch":epoch,"fee":fee,
-		"recharge_request_id":request_id,"kind":"admin_recharge"]);
+		"recharge_request_id":request_id,
+		"referral_account":referral_account,"kind":"admin_recharge"]);
 }
 
 private int pike_gateway_valid_admin_item_path(string item_path)
@@ -596,6 +602,8 @@ private int pike_gateway_same_admin_target(mapping first,mapping second)
 		(int)first["fee"]==(int)second["fee"] &&
 		(string)first["recharge_request_id"]==
 			(string)second["recharge_request_id"] &&
+		(string)first["referral_account"]==
+			(string)second["referral_account"] &&
 		(string)first["item_path"]==(string)second["item_path"] &&
 		(int)first["item_count"]==(int)second["item_count"] &&
 		(string)first["item_request_id"]==
@@ -2444,28 +2452,33 @@ private mapping pike_gateway_materialize_route_arrival(string userid,
 		"arrival_room":""]);
 }
 
+/** Acquire account-sharded locks in stable shard order. */
+private array(object) pike_gateway_lock_user_accounts(
+	array(string) userids,array(string) account_ids)
+{
+	mapping(int:object) mutexes=([]);
+	array(object) locks=({});
+	if(sizeof(userids)!=sizeof(account_ids) || !sizeof(userids))
+		error("invalid account lock set\n");
+	for(int index=0;index<sizeof(userids);index++){
+		object mutex=pike_gateway_user_mutex(userids[index],
+			account_ids[index]);
+		int shard=search(pike_gateway_user_locks,mutex);
+		if(shard<0)
+			error("account lock shard missing\n");
+		mutexes[shard]=mutex;
+	}
+	foreach(sort(indices(mutexes)),int shard)
+		locks+=({mutexes[shard]->lock()});
+	return locks;
+}
+
 /** Acquire two account-sharded locks in stable shard order. */
 private array(object) pike_gateway_lock_user_pair(string first_user,
 	string first_account,string second_user,string second_account)
 {
-	object first_mutex = pike_gateway_user_mutex(first_user,first_account);
-	object second_mutex = pike_gateway_user_mutex(second_user,second_account);
-	array(object) locks = ({});
-	if(first_mutex==second_mutex)
-		return ({first_mutex->lock()});
-	int first_index = search(pike_gateway_user_locks,first_mutex);
-	int second_index = search(pike_gateway_user_locks,second_mutex);
-	if(first_index<0 || second_index<0)
-		error("account lock shard missing\n");
-	if(first_index<second_index){
-		locks += ({first_mutex->lock()});
-		locks += ({second_mutex->lock()});
-	}
-	else{
-		locks += ({second_mutex->lock()});
-		locks += ({first_mutex->lock()});
-	}
-	return locks;
+	return pike_gateway_lock_user_accounts(
+		({first_user,second_user}),({first_account,second_account}));
 }
 
 private mapping pike_gateway_busy_response(string message,void|int status)
@@ -2568,9 +2581,18 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				// then re-resolve the immutable token after the unlocked window.
 				destruct(user_key);
 				user_key = 0;
-				all_account_keys = pike_gateway_lock_user_pair(userid,account_id,
-					(string)admin_target["userid"],
-					(string)admin_target["account_id"]);
+				string referral_account=
+					(string)(admin_target["referral_account"] || "");
+				array(string) lock_users=({userid,
+					(string)admin_target["userid"]});
+				array(string) lock_accounts=({account_id,
+					(string)admin_target["account_id"]});
+				if(referral_account!=""){
+					lock_users+=({referral_account});
+					lock_accounts+=({referral_account});
+				}
+				all_account_keys=pike_gateway_lock_user_accounts(lock_users,
+					lock_accounts);
 				pike_gateway_ensure_routing_ready();
 				route = pike_gateway_materialize_route_arrival(userid,
 					account_id,pike_gateway_route_user(userid));

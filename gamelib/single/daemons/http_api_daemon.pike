@@ -1144,6 +1144,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     string userid = params["userid"];
     string password = params["password"];
     string cmd = params["cmd"];
+    string ref_code = lower_case(String.trim_all_whites(
+        url_decode((string)(params["ref"] || ""))));
     http_werror(" handle_api_html request received\n");
     if(!cmd || cmd == "") cmd = "look";
 
@@ -1260,10 +1262,20 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                         break;
                     }
                 }
+                mapping referral_precheck=(["ok":1]);
+                if(valid_name && ref_code!="")
+					referral_precheck=REFERRALD->validate_registration_invite(
+						full_username,ref_code,client_ip);
                 if(!valid_name) {
                     http_werror(" VALIDATION FAILED: invalid characters in actual_user\n");
                     result = "error2";
                     error_msg = "用户名只能包含字母和数字";
+                } else if(!(int)referral_precheck["ok"]) {
+					http_werror(" REFERRAL VALIDATION FAILED: code=%s\n",
+						(string)(referral_precheck["code"] || "unknown"));
+					result="error2";
+					error_msg=(string)(referral_precheck["message"] ||
+						"邀请码无效");
                 } else {
                     // full_username已在上面定义: game_fg + actual_user
                     // 与登录、原子存档统一使用 data_xiand，严禁覆盖已有旧人物。
@@ -1376,8 +1388,27 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                                         MAP_WORKERD->query_node_role()=="worker" ? 1 : 0);
                                                 if(registration_saved) {
                                                     http_werror("  User file saved successfully\n");
-                                                    http_werror(" Registration SUCCESS: %s\n", full_username);
-                                                    result = actual_user + "," + pswd;
+													mapping referral_binding=(["ok":1]);
+                                                    if(ref_code!="") {
+													referral_binding=REFERRALD->bind_registration(
+                                                                full_username,ref_code,
+                                                                client_ip);
+                                                    }
+													if(!(int)referral_binding["ok"]){
+														http_werror(" Referral binding failed after save: code=%s\n",
+															(string)(referral_binding["code"] || "unknown"));
+														rm(user_file_path);
+												rm(user_file_path+".tmp");
+												rm(user_file_path+".bak");
+												rm(user_file_path+".bak.tmp");
+														result="error2";
+														error_msg=(string)(referral_binding["message"] ||
+															"邀请关系安全保存失败，请重试");
+													}
+													else{
+														http_werror(" Registration SUCCESS: %s\n", full_username);
+														result = actual_user + "," + pswd;
+													}
                                                 }
                                                 else {
                                                     http_werror("  User file save FAILED\n");

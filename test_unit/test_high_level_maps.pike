@@ -59,7 +59,7 @@ void destroy_player(object|zero player)
 
 void test_level_cap_runtime()
 {
-	test_start("普通120级、VIP每级加20级且过期保级停经验");
+	test_start("普通120级、VIP1-8每级加20级且过期保级停经验");
 	object|zero player = 0;
 	string error_desc = "";
 	int granted = -1;
@@ -70,6 +70,10 @@ void test_level_cap_runtime()
 		2:160,
 		3:180,
 		4:200,
+		5:220,
+		6:240,
+		7:260,
+		8:280,
 	]);
 	mixed err = catch {
 		player = create_player(
@@ -78,7 +82,7 @@ void test_level_cap_runtime()
 		player->query_if_levelup();
 		valid = NORMAL_MAX_LEVEL==120 &&
 			VIP_LEVEL_LIMIT_STEP==20 &&
-			VIP_MAX_LEVEL==4 && MAX_LEVEL==1000 &&
+			VIP_MAX_LEVEL==8 && MAX_LEVEL==1000 &&
 			MUD_ROOMD->query_max_level()==1000 &&
 			ENDGAME_MAP_MIN_LEVEL==990 &&
 			player->query_level()==120 &&

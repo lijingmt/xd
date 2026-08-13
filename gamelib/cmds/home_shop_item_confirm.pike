@@ -17,7 +17,7 @@ int main(string|zero arg)
 		write("购买参数无效。\n[返回游戏:look]\n");
 		return 1;
 	}
-	sscanf(numTmp,"no=%d",num);
+	num=SHOP_BATCHD->parse_count(numTmp);
 	mapping(string:mixed) offer=HOMED->query_infancy_offer(infancyName);
 	if(!(int)offer["ok"] || ((yushi>0)==(money>0))){
 		write("商品或支付方式无效。\n[返回游戏:look]\n");
@@ -38,8 +38,8 @@ int main(string|zero arg)
 			return 1;
 		}
 	}
-	if(num<1 || num>20)
-		s += "输入有误！购买个数必须在1到20之间\n";
+	if(num<1 || num>SHOP_BATCHD->query_hard_max())
+		s += "输入有误！购买个数必须在1到100之间\n";
 	else{
 		mapping(string:mixed) result=HOMED->purchase_infancy(me,infancyName,
 			num,payment_kind);

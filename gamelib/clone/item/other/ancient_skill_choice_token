@@ -7,7 +7,7 @@ protected void create()
 	name = object_name(this_object());
 	name_cn = "太古传承择卷";
 	unit = "枚";
-	desc = "历史无等级装备回收补偿。可从当前职业的太古传承中指定一本技能书；技能书仍按原有等级、职业和重复学习规则使用。\n";
+	desc = "珍贵的绑定传承奖励。可先查看当前职业全部太古传承的名称、品阶与说明，二次确认后指定一本技能书；技能书仍按原有等级、职业和重复学习规则使用。\n";
 	value = 0;
 	amount = 1;
 	max_count = 999;

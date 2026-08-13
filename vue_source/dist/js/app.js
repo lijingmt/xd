@@ -251,6 +251,15 @@ createApp({
             loginError: '',
             registerError: '',
             registerSuccess: false,
+            registerSuccessAccount: '',
+            registerReturnTimer: null,
+            registerTouched: {
+                userid: false,
+                password: false,
+                passwordConfirm: false,
+                captcha: false,
+                referral: false
+            },
             loginForm: {
                 partition: '',
                 userid: '',
@@ -261,7 +270,8 @@ createApp({
                 userid: '',
                 password: '',
                 passwordConfirm: '',
-                captcha: ''
+                captcha: '',
+                referral: ''
             },
             captchaCode: '',
             partitions: [],  // 将从API动态加载
@@ -360,7 +370,7 @@ createApp({
             quickActionsCollapsed: true,  // 更多功能默认收起，保留五项高频导航
             // 邀请系统
             refCode: '',  // 推荐人邀请码（从URL参数ref获取）
-            showInviteModal: false,  // 显示邀请弹窗
+            inviteModalOpen: false,  // 显示邀请弹窗
             inviteLink: '',  // 邀请链接
             inviteCode: '',  // 邀请码
             qrCodeUrl: '',  // 二维码URL
@@ -1215,13 +1225,159 @@ createApp({
             this.registerPasswordVisible = false;
             this.registerError = '';
             this.registerSuccess = false;
+            this.registerSuccessAccount = '';
+            this.resetRegisterTouched();
+        },
+
+        resetRegisterTouched() {
+            this.registerTouched = {
+                userid: false,
+                password: false,
+                passwordConfirm: false,
+                captcha: false,
+                referral: false
+            };
+        },
+
+        markRegisterFieldTouched(field) {
+            if (!Object.prototype.hasOwnProperty.call(this.registerTouched, field)) return;
+            this.registerTouched[field] = true;
+            if (this.registerError) this.registerError = '';
+        },
+
+        registrationFieldError(field) {
+            const form = this.registerForm || {};
+            const value = String(form[field] || '');
+
+            if (field === 'userid') {
+                if (!value) return '请输入账号';
+                if (value.length < 2) return '至少输入2个字符';
+                if (value.length > 12) return '最多输入12个字符';
+                if (!/^[a-zA-Z0-9]+$/.test(value)) return '仅支持英文字母和数字';
+                return '';
+            }
+            if (field === 'password') {
+                if (!value) return '请输入密码';
+                if (value.length < 2) return '至少输入2个字符';
+                if (value.length > 12) return '最多输入12个字符';
+                if (!/^[a-zA-Z0-9]+$/.test(value)) return '仅支持英文字母和数字';
+                return '';
+            }
+            if (field === 'passwordConfirm') {
+                if (!value) return '请再次输入密码';
+                if (value !== String(form.password || '')) return '两次输入的密码不一致';
+                return '';
+            }
+            if (field === 'captcha') {
+                if (!value) return '请输入右侧验证码';
+                if (value.length !== 4) return '验证码为4个字符';
+                if (value.toLowerCase() !== String(this.captchaCode || '').toLowerCase())
+                    return '验证码不正确，点击右侧可换一张';
+                return '';
+            }
+            if (field === 'referral') {
+                if (!value) return '';
+                return this.normalizeReferralCode(value)
+                    ? ''
+                    : '邀请码格式不正确，请检查或留空';
+            }
+            return '';
+        },
+
+        registrationFieldClass(field) {
+            const value = String(this.registerForm?.[field] || '');
+            if (!value && !this.registerTouched?.[field]) return '';
+            return this.registrationFieldError(field) ? 'field-invalid' : 'field-valid';
+        },
+
+        registrationPasswordStrength() {
+            const password = String(this.registerForm?.password || '');
+            if (!password || this.registrationFieldError('password')) return 0;
+            let score = password.length >= 6 ? 1 : 0;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+            if (/[a-zA-Z]/.test(password) && /[0-9]/.test(password)) score += 1;
+            return Math.max(1, Math.min(3, score));
+        },
+
+        registrationPasswordStrengthLabel() {
+            return ['未填写', '可用', '良好', '较强'][this.registrationPasswordStrength()];
+        },
+
+        registrationFirstError() {
+            if (!this.registerForm.partition) return '请选择可注册的分区';
+            const fields = ['userid', 'password', 'passwordConfirm', 'referral', 'captcha'];
+            for (const field of fields) {
+                const error = this.registrationFieldError(field);
+                if (error) return error;
+            }
+            return '';
+        },
+
+        normalizeReferralCode(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            return /^[a-z0-9]{2,64}$/.test(normalized) ? normalized : '';
+        },
+
+        buildReferralLink(value) {
+            const code = this.normalizeReferralCode(value);
+            if (!code) return '';
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.hash = '';
+            url.searchParams.set('register', '1');
+            url.searchParams.set('ref', code);
+            return url.toString();
+        },
+
+        applyReferralLanding(value) {
+            const code = this.normalizeReferralCode(value);
+            if (!code) return false;
+            this.refCode = code;
+            this.registerForm.referral = code;
+            this.showLogin = false;
+            this.showRegister = true;
+            return true;
+        },
+
+        clearReferralLanding() {
+            this.refCode = '';
+            this.registerForm.referral = '';
+            try {
+                localStorage.removeItem('ref_code');
+                const url = new URL(window.location.href);
+                url.searchParams.delete('ref');
+                url.searchParams.delete('register');
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {
+                // 无痕模式/旧内置浏览器不支持时不影响注册。
+            }
         },
 
         // 关闭注册页面
         closeRegister() {
+            if (this.registerReturnTimer) {
+                clearTimeout(this.registerReturnTimer);
+                this.registerReturnTimer = null;
+            }
             this.showRegister = false;
             this.showLogin = true;
             this.registerPasswordVisible = false;
+            this.registerSuccess = false;
+            this.registerSuccessAccount = '';
+            this.registerError = '';
+        },
+
+        returnToLoginAfterRegistration() {
+            if (this.registerReturnTimer) {
+                clearTimeout(this.registerReturnTimer);
+                this.registerReturnTimer = null;
+            }
+            this.showRegister = false;
+            this.showLogin = true;
+            this.registerSuccess = false;
+            this.loginForm.partition = this.registerForm.partition;
+            this.loginForm.userid = this.registerForm.userid;
+            this.loginForm.password = this.registerForm.password;
         },
 
         getPartitionSortValue(partition) {
@@ -1337,32 +1493,22 @@ createApp({
 
         // 注册功能
         async doRegister() {
-            // 验证输入
-            if (!this.registerForm.userid || !this.registerForm.password) {
-                this.registerError = '账号和密码不能为空';
+            // 前端即时校验只改善体验；后端仍会按相同规则再次校验。
+            Object.keys(this.registerTouched).forEach((field) => {
+                this.registerTouched[field] = true;
+            });
+            const validationError = this.registrationFirstError();
+            if (validationError) {
+                this.registerError = validationError;
+                if (this.registrationFieldError('captcha')) {
+                    this.registerForm.captcha = '';
+                    this.refreshCaptcha();
+                }
                 return;
             }
-            if (this.registerForm.userid.length < 2 || this.registerForm.password.length < 2) {
-                this.registerError = '账号和密码不能少于2个字符';
-                return;
-            }
-            if (this.registerForm.userid.length > 12 || this.registerForm.password.length > 12) {
-                this.registerError = '账号和密码不能超过12个字符';
-                return;
-            }
-            if (!/^[a-zA-Z0-9]+$/.test(this.registerForm.userid + this.registerForm.password)) {
-                this.registerError = '账号和密码只能是大小写字母或数字';
-                return;
-            }
-            if (this.registerForm.password !== this.registerForm.passwordConfirm) {
-                this.registerError = '两次输入的密码不一致';
-                return;
-            }
-            if (this.registerForm.captcha.toLowerCase() !== this.captchaCode.toLowerCase()) {
-                this.registerError = '验证码错误';
-                this.refreshCaptcha();
-                return;
-            }
+            const referralCode = this.registerForm.referral
+                ? this.normalizeReferralCode(this.registerForm.referral)
+                : '';
 
             this.isRegistering = true;
             this.registerError = '';
@@ -1392,10 +1538,9 @@ createApp({
                 let url = this.apiBase + '/api/html?cmd=' + encodeURIComponent(cmd);
 
                 // 如果有推荐码，添加到URL参数
-                const refCode = this.refCode || localStorage.getItem('ref_code');
-                if (refCode) {
-                    url += '&ref=' + encodeURIComponent(refCode);
-                    console.log('使用推荐码:', refCode);
+                if (referralCode) {
+                    url += '&ref=' + encodeURIComponent(referralCode);
+                    console.log('使用推荐码:', referralCode);
                 }
 
                 const response = await fetch(url, {
@@ -1406,27 +1551,26 @@ createApp({
                 console.log('response.ok:', response.ok);
 
                 const text = await response.text();
-                console.log('注册响应:', text);
 
                 // 检查注册结果
-                if (text.includes('error1') || text.includes('已经有人使用')) {
+                if (text.includes('邀请码') || text.includes('邀请关系') ||
+                    text.includes('同一注册网络')) {
+                    const message = text.match(/<div>error2,([^<]+)<\/div>/)?.[1];
+                    this.registerError = message || '邀请链接无效，请向好友重新获取';
+                } else if (text.includes('error1') || text.includes('已经有人使用')) {
                     this.registerError = '该账号已存在，请修改后重试';
                 } else if (text.includes('error2') || text.includes('登录错误')) {
                     this.registerError = '注册失败，请稍后重试';
                 } else {
                     // 注册成功 - 响应格式: username,password
                     this.registerSuccess = true;
+                    this.registerSuccessAccount = fullUserid;
                     this.registerError = '';
+                    this.clearReferralLanding();
                     // 延迟后返回登录页面
-                    setTimeout(() => {
-                        this.showRegister = false;
-                        this.showLogin = true;
-                        this.registerSuccess = false;
-                        // 填充登录表单
-                        this.loginForm.partition = this.registerForm.partition;
-                        this.loginForm.userid = this.registerForm.userid;
-                        this.loginForm.password = this.registerForm.password;
-                    }, 2000);
+                    this.registerReturnTimer = setTimeout(() => {
+                        this.returnToLoginAfterRegistration();
+                    }, 2200);
                 }
             } catch (e) {
                 console.error('注册请求失败:', e);
@@ -2347,14 +2491,14 @@ createApp({
         },
 
         // 显示邀请弹窗
-        showInviteModal() {
+        openInviteModal() {
             // 获取完整的用户名（分区+账号）
-            let username = '';
+            let username = this.accountId || this.playerStats?.userid || '';
             if (this.txd) {
-                // 从txd解析用户名：txd格式为 "tx01userid:timestamp:hash"
-                const txdParts = this.txd.split(':');
-                if (txdParts[0]) {
-                    username = txdParts[0];
+                // 兼容新 token（冒号）与旧书签（userid~password）两种格式。
+                const tokenUserid = this.txd.split(/[~:]/)[0];
+                if (!username && tokenUserid) {
+                    username = tokenUserid;
                 }
             }
 
@@ -2364,25 +2508,24 @@ createApp({
             }
 
             // 生成邀请链接 - 使用当前页面路径
-            const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
             this.inviteCode = username;
-            this.inviteLink = baseUrl + '?ref=' + username;
+            this.inviteLink = this.buildReferralLink(username);
             console.log('邀请链接生成:', {
                 username: username,
                 inviteCode: this.inviteCode,
                 inviteLink: this.inviteLink,
-                baseUrl: baseUrl
+                baseUrl: window.location.origin + window.location.pathname
             });
 
             // 生成二维码URL
             this.qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(this.inviteLink);
 
-            this.showInviteModal = true;
+            this.inviteModalOpen = true;
         },
 
         // 关闭邀请弹窗
         closeInviteModal() {
-            this.showInviteModal = false;
+            this.inviteModalOpen = false;
         },
 
         // 复制邀请码
@@ -3842,6 +3985,13 @@ createApp({
                     '回生羽可用' : '回生羽今日已用') : '';
             const withRevive = status => reviveStatus ?
                 `${reviveStatus} · ${status}` : status;
+            const waitingResource = String(pet.waiting_resource || '');
+            if (waitingResource === 'life') {
+                return withRevive('治疗灵技已就绪 · 等待生命缺口');
+            }
+            if (waitingResource === 'mofa') {
+                return withRevive('灵息技能已就绪 · 等待法力缺口');
+            }
             if (String(pet.combat_mode || '') === 'pvp') {
                 const required = Math.max(1, Number(
                     pet.pvp_charge_required || pet.cooldown || 1
@@ -3897,6 +4047,45 @@ createApp({
             return `${systemName}·${slot.name} · ${this.getPetCultivationLabel(slot)} · ${state}，点击打开${destination}`;
         },
 
+        getPetActualEffectMark(event) {
+            const type = String(event?.type || '');
+            if (type === 'revive') return '生';
+            if (type === 'heal') return '愈';
+            if (type === 'mofa') return '灵';
+            if (type === 'damage') return '破';
+            return '契';
+        },
+
+        getPetActualEffectDescription(event) {
+            const type = String(event?.type || '');
+            const amount = Math.max(0, Number(event?.amount || 0));
+            const secondaryAmount = Math.max(0, Number(
+                event?.secondary_amount || event?.restored || 0
+            ));
+            const secondaryType = String(event?.secondary_type || '');
+            const amountText = this.formatGameNumber(amount);
+            if (type === 'revive') {
+                const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
+                return `回生已生效：生命 +${amountText} · 法力 +${this.formatGameNumber(mofaAmount)}`;
+            }
+            if (type === 'damage') {
+                let text = `${String(event?.mode || '') === 'pvp' ? '御灵' : '协战'}伤害 -${amountText}`;
+                if (secondaryAmount > 0) {
+                    text += secondaryType === 'mofa' ?
+                        ` · 同时法力 +${this.formatGameNumber(secondaryAmount)}` :
+                        ` · 同时生命 +${this.formatGameNumber(secondaryAmount)}`;
+                }
+                const resonanceBonus = Math.max(0, Number(
+                    event?.shared_resonance_bonus || 0
+                ));
+                if (resonanceBonus > 0) text += ` · 共享共鸣 +${resonanceBonus}%`;
+                return text;
+            }
+            if (type === 'mofa') return `灵息回复已生效：法力 +${amountText}`;
+            if (type === 'heal') return `守护治疗已生效：生命 +${amountText}`;
+            return amount > 0 ? `灵宠效果已生效：+${amountText}` : '灵宠显化，等待生效条件';
+        },
+
         formatPetAssistMessage(event) {
             const petName = String(event?.name || '灵宠');
             const skillName = String(event?.skill || '协战');
@@ -3908,21 +4097,34 @@ createApp({
             const recipient = observer ? '主人' : '你';
             const prefix = String(event?.mode || '') === 'pvp' ?
                 '【御灵交锋】' : '';
+            const runes = Array.isArray(event?.runes) ?
+                event.runes.filter(rune => String(rune || '').trim()) : [];
+            const runeTrigger = Number(event?.rune_set_triggered || 0) === 1 &&
+                runes.length === 3 ?
+                `；${String(event?.rune_mode || '当前')}灵纹共鸣：${runes.join('·')}` +
+                (event?.rune_effect ? `（${String(event.rune_effect)}）` : '') : '';
             if (type === 'revive') {
                 const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatGameNumber(amount)}点生命与${this.formatGameNumber(mofaAmount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatGameNumber(amount)}点生命与${this.formatGameNumber(mofaAmount)}点法力${runeTrigger}`;
             }
             if (amount <= 0) {
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在${recipient}身旁`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在${recipient}身旁${runeTrigger}`;
             }
             if (type === 'damage') {
                 const targetName = String(event?.target_name || '敌人');
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatGameNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
+                const secondaryAmount = Math.max(0, Number(
+                    event?.secondary_amount || event?.restored || 0
+                ));
+                const secondary = secondaryAmount > 0 ?
+                    (String(event?.secondary_type || '') === 'mofa' ?
+                        `，同时恢复${this.formatGameNumber(secondaryAmount)}点法力` :
+                        `，同时恢复${this.formatGameNumber(secondaryAmount)}点生命`) : '';
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatGameNumber(amount)}点${prefix ? '御灵' : '协战'}伤害${secondary}${runeTrigger}`;
             }
             if (type === 'mofa') {
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点法力${runeTrigger}`;
             }
-            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点生命`;
+            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点生命${runeTrigger}`;
         },
 
         showPetAssistEffect(event, eventId = '', addToBattleLog = true) {
@@ -3964,12 +4166,21 @@ createApp({
                     effect.type === 'damage' ? 'enemy' : 'player',
                     effect.amount
                 );
+                const secondaryAmount = Math.max(0, Number(
+                    effect.secondary_amount || effect.restored || 0
+                ));
+                if (secondaryAmount > 0) {
+                    this.addBattleAnimation(
+                        'heal', 'player', secondaryAmount
+                    );
+                }
             }
             this.playGameSound('ui', 2200);
             this.petAssistEffectTimer = setTimeout(() => {
                 this.petAssistEffect = null;
                 this.petAssistEffectTimer = null;
-            }, 2400);
+            }, Number(effect.rune_set_triggered || 0) === 1 ||
+                effect.type === 'revive' ? 3000 : 2400);
         },
 
         parseRoomPetManifestation(text) {
@@ -4227,7 +4438,7 @@ createApp({
 
             // 如果找到了，进行替换
             if (inviteCode && insertIndex >= 0) {
-                const inviteUrl = baseUrl + '?ref=' + inviteCode;
+                const inviteUrl = this.buildReferralLink(inviteCode);
                 const newLine = {
                     type: 'line',  // 必须有 type 属性
                     segments: [
@@ -4968,6 +5179,10 @@ createApp({
     },
 
     beforeUnmount() {
+        if (this.registerReturnTimer) {
+            clearTimeout(this.registerReturnTimer);
+            this.registerReturnTimer = null;
+        }
         if (this.backgroundHeartbeatTimer) {
             clearTimeout(this.backgroundHeartbeatTimer);
             this.backgroundHeartbeatTimer = null;
@@ -5031,11 +5246,13 @@ createApp({
             console.log('HTML模式已启用：按钮使用href链接');
         }
         if (refParam) {
-            this.refCode = refParam;
-            console.log('检测到推荐码:', refParam);
-            // 保存到localStorage，注册时使用
-            localStorage.setItem('ref_code', refParam);
-            console.log('推荐码已保存到localStorage');
+            if (this.applyReferralLanding(refParam))
+                console.log('已从好友专属链接打开注册:', this.refCode);
+            else {
+                this.showLogin = false;
+                this.showRegister = true;
+                this.registerError = '好友邀请链接无效，请向邀请人重新获取';
+            }
         } else {
             console.log('未检测到推荐码参数');
         }

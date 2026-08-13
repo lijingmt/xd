@@ -437,7 +437,7 @@ void check_daily(object me)
 		if(me["/plus/random_award"]<=50)
 			me["/plus/random_award"]=50;
 
-		//自动打怪普通玩家8小时，VIP每级增加2小时，VIP4最高16小时。
+		//自动打怪普通玩家8小时，VIP每级增加2小时，VIP8最高24小时。
 		AUTOFIGHTD->reset_daily_time(me);
 		if(functionp(me->set_autofight))
 			me->set_autofight("disable");

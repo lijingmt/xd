@@ -66,6 +66,38 @@ int main()
 		"xd01jinghaha yushi/xuantianbaoyu 2");
 	mapping confirm_input = command_ob->parse_admin_item_input(
 		"xd01jinghaha yushi/xuantianbaoyu 2 "+request_id);
+	mapping cached_json_input = command_ob->parse_admin_item_input(
+		"mgr_give_item=xd01jinghaha");
+	mapping cached_jsp_input = command_ob->parse_admin_item_input(
+		"string:mgr_give_item mgr_give_item=xd01jinghaha");
+	mapping cached_item_input = command_ob->parse_admin_item_input(
+		"mgr_give_item=xd01jinghaha yushi/xuantianbaoyu 2");
+	mapping named_target_input = command_ob->parse_admin_item_input(
+		"action=find target_userid=xd01jinghaha");
+	mapping direct_named_target_input = command_ob->parse_admin_item_input(
+		"target_userid=xd01jinghaha");
+	mapping named_preview_input = command_ob->parse_admin_item_input(
+		"action=preview target_userid=xd01jinghaha "+
+		"item_path=yushi/xuantianbaoyu item_count=2");
+	mapping jsp_named_preview_input = command_ob->parse_admin_item_input(
+		"action=preview&target_userid=xd01jinghaha&"+
+		"item_path=yushi/xuantianbaoyu&item_count=2");
+	mapping target_input_segment = HTTP_APID->parse_bracket_content(
+		"mgr_give_item ...","","testunitadmin");
+	mapping item_input_segment = HTTP_APID->parse_bracket_content(
+		"mgr_give_item xd01jinghaha ...","","testunitadmin");
+	array(mapping) named_form = HTTP_APID->parse_mud_to_json(
+		"请输入目标玩家ID：\n[string target_userid:...]\n"+
+		"[submit 查找玩家:mgr_give_item action=find ...]",
+		"testunit-txd","testunitadmin");
+	int named_form_ok;
+	foreach(named_form,mapping line)
+		foreach((array)(line["segments"] || ({})),mapping segment)
+			if((string)segment["type"]=="form-submit" &&
+			   (string)segment["cmd"]=="mgr_give_item action=find" &&
+			   sizeof((array)segment["inputs"])==1 &&
+			   (string)segment["inputs"][0]["name"]=="target_userid")
+				named_form_ok=1;
 	check("后台找玩家的单参数输入不会被sscanf误判为空",
 		target_input["parsed"]==1 &&
 		target_input["target_userid"]=="xd01jinghaha",
@@ -77,6 +109,37 @@ int main()
 		confirm_input["parsed"]==4 &&
 		confirm_input["request_id"]==request_id,
 		"预览或确认参数在分阶段解析时发生变化");
+	check("新旧页面使用稳定命令输入框且不把类型前缀送入玩家ID",
+		target_input_segment["type"]=="cmd-input" &&
+		target_input_segment["cmd"]=="mgr_give_item" &&
+		item_input_segment["type"]=="cmd-input" &&
+		item_input_segment["cmd"]=="mgr_give_item xd01jinghaha",
+		"后台输入框未解析成带固定参数的纯命令");
+	check("管理员找玩家改用新旧页面一致的具名提交表单",
+		named_form_ok,
+		"target_userid输入框没有与查找按钮组成同一表单");
+	check("缓存中的旧JSON/JSP控件前缀不会污染玩家ID或物品参数",
+		cached_json_input["parsed"]==1 &&
+		cached_json_input["target_userid"]=="xd01jinghaha" &&
+		cached_jsp_input["parsed"]==1 &&
+		cached_jsp_input["target_userid"]=="xd01jinghaha" &&
+		cached_item_input["parsed"]==3 &&
+		cached_item_input["target_userid"]=="xd01jinghaha" &&
+		cached_item_input["item_path"]=="yushi/xuantianbaoyu" &&
+		cached_item_input["item_count"]==2,
+		"旧控件名仍被当成玩家ID或破坏分阶段解析");
+	check("具名后台表单兼容Vue空格参数和旧JSP连接参数",
+		named_target_input["parsed"]==1 &&
+		named_target_input["target_userid"]=="xd01jinghaha" &&
+		direct_named_target_input["parsed"]==1 &&
+		direct_named_target_input["target_userid"]=="xd01jinghaha" &&
+		named_preview_input["parsed"]==3 &&
+		named_preview_input["item_path"]=="yushi/xuantianbaoyu" &&
+		named_preview_input["item_count"]==2 &&
+		jsp_named_preview_input["parsed"]==3 &&
+		jsp_named_preview_input["item_path"]=="yushi/xuantianbaoyu" &&
+		jsp_named_preview_input["item_count"]==2,
+		"key=value表单仍会把控件名黏到玩家ID或物品路径");
 	check("后台发物品保留历史人物ID精确大小写",
 		command_ob->valid_admin_item_userid("xd01LSQ2026") &&
 		!command_ob->valid_admin_item_userid("xd01LSQ/2026"),
@@ -199,8 +262,10 @@ int main()
 		check("后台入口受管理员权限保护并写独立审计日志",
 			search(command_source,"MANAGERD->checkpower")!=-1 &&
 			search(command_source,"manage_give_item.log")!=-1 &&
+			search(command_source,"admin_item_input_debug.log")!=-1 &&
+			search(command_source,"raw_hex=")!=-1 &&
 			search(menu_source,"给指定玩家发放物品")!=-1,
-			"普通玩家可能调用入口或管理员操作无法审计");
+			"普通玩家可能调用入口或失败输入/管理员操作无法审计");
 	};
 	if(err)
 		error_desc = describe_error(err)+"\n"+describe_backtrace(err);

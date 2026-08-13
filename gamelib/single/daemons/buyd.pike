@@ -130,61 +130,118 @@ string get_buy_item_list(string item_type,string zhiye){
 }
 
 
-//利用玉石和黄金购买物品的接口
-string buy_items(string item_name,string item_type)
+mapping(string:mixed) query_buy_offer(object player,string item_name,
+	string item_type,void|string category)
 {
-	object me = this_player();
-	object item;
-	string s = "";
 	buy_item tmp = buy_item_list[item_name];
 	if(!tmp)
-		return "商品不存在或已经下架\n";
+		return (["ok":0,"message":"商品不存在或已经下架"]);
 	if(tmp->item_type!=item_type)
-		return "商品类别不匹配\n";
+		return (["ok":0,"message":"商品类别不匹配"]);
+	if(category && category!="" && tmp->zhiye!="all" &&
+	   tmp->zhiye!=category)
+		return (["ok":0,"message":"商品目录不匹配"]);
 	if(tmp->item_type=="book" && tmp->zhiye!="all" &&
-	   tmp->zhiye!=me->query_profeId())
-		return "只能购买自己职业的技能书\n";
-	int money = (tmp->need_money)*100;//购买物品需要的黄金
-	int yushi = tmp->need_yushi;//购买物品需要的玉石
-	int have_money = me->query_account();//玩家身上带有的金钱
-	string item_namecn = "";
-	if(have_money<money){
-		s += "黄金不够\n";
-		return s ;
-	}
-	if(!YUSHID->have_enough_yushi(me,yushi)){
-		s += "玉石不够\n";
-		return s;
-	}
-	if(me->if_over_easy_load()){
-		s += "您的背包已满，去清理一下再来吧\n";
-		return s;
-	}
-	mixed err = catch{
-		item = clone(ITEM_PATH+tmp->file);
-		item_namecn = item->query_name_cn();
-	};
+	   (!player || tmp->zhiye!=player->query_profeId()))
+		return (["ok":0,"message":"只能购买自己职业的技能书"]);
+	object item;
+	mixed err=catch{ item=clone(ITEM_PATH+tmp->file); };
 	if(err || !item)
-		return "商品文件暂时不可用，请联系管理员\n";
-	if(item){
-		if(!YUSHID->pay_yushi(me,yushi)){
-			s += "玉石扣除失败，请稍后再试\n";
-			return s;
+		return (["ok":0,"message":"商品文件暂时不可用，请联系管理员"]);
+	mapping result=(["ok":1,"path":tmp->file,"item_name":item_name,
+		"item_type":item_type,"category":tmp->zhiye,
+		"name_cn":(string)item->query_name_cn(),
+		"yushi":tmp->need_yushi,"money":tmp->need_money*100,
+		"combine":item->is("combine_item") ? 1 : 0]);
+	destruct(item);
+	return result;
+}
+
+//利用玉石和黄金购买物品的接口；复数商品统一支持1至100个。
+string buy_items(string item_name,string item_type,void|string category,
+	void|int requested_count)
+{
+	object me=this_player();
+	mapping offer=query_buy_offer(me,item_name,item_type,category);
+	object|zero item=0;
+	mapping delivery=([]);
+	int count=requested_count || 1;
+	int yushi;
+	int money;
+	int before_wallet;
+	int before_physical;
+	int before_money;
+	int delivery_ok;
+	if(!(int)offer["ok"])
+		return (string)offer["message"]+"\n";
+	if(count<1 || count>SHOP_BATCHD->query_hard_max() ||
+	   (!(int)offer["combine"] && count!=1))
+		return "购买数量无效；复数商品每次可买1至100个，单件商品只能买1件。\n";
+	yushi=(int)offer["yushi"]*count;
+	money=(int)offer["money"]*count;
+	if(me->query_account()<money)
+		return "黄金不够\n";
+	if(!YUSHID->have_enough_yushi(me,yushi))
+		return "玉石不够\n";
+	if((int)offer["combine"]){
+		mixed capacity_err=catch{ item=clone(ITEM_PATH+(string)offer["path"]); };
+		if(capacity_err || !item)
+			return "商品文件暂时不可用，请联系管理员\n";
+		if(SHOP_BATCHD->query_capacity(me,item,0)<count){
+			destruct(item);
+			return "背包空间不足，无法装下整笔订单\n";
 		}
-		me->del_account(money);
-		if(item->is_combine_item()){
-			item->move_player(me->query_name());
-		}
-		else
-			item->move(me);
-		NEWBIED->record_book_purchase(me,item_name);
-		string consume_time = MUD_TIMESD->get_mysql_timedesc();
-		int cost_reb=yushi;
-		string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"]["+item_type+"]["+item_name+"]["+item_namecn+"][1]["+cost_reb+"][0]\n";
-		Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
-		s += "购买成功！\n";
+		destruct(item);
+		item=0;
 	}
-	return s;
+	else if(me->if_over_easy_load())
+		return "您的背包已满，去清理一下再来吧\n";
+	before_wallet=ACCOUNT_WALLETD->query_balance(me);
+	before_physical=YUSHID->query_physical_all_num(me);
+	before_money=(int)me->query_account();
+	if(!YUSHID->pay_yushi(me,yushi))
+		return "玉石扣除失败，请稍后再试\n";
+	if(money)
+		me->del_account(money);
+	if((int)offer["combine"]){
+		delivery=SHOP_BATCHD->deliver(me,(string)offer["path"],count,0);
+		delivery_ok=(int)delivery["ok"];
+	}
+	else{
+		mixed item_err=catch{
+			item=clone(ITEM_PATH+(string)offer["path"]);
+			if(item)
+				delivery_ok=item->move(me)==1 && environment(item)==me;
+		};
+		if(item_err)
+			delivery_ok=0;
+	}
+	if(!delivery_ok || !me->save_with_result()){
+		int inventory_rollback=1;
+		if((int)offer["combine"])
+			inventory_rollback=delivery_ok ?
+				SHOP_BATCHD->rollback(me,delivery) :
+				(int)delivery["rollback_ok"];
+		else if(item)
+			destruct(item);
+		if(me->query_account()<before_money)
+			me->add_account(before_money-me->query_account());
+		int payment_rollback=YUSHID->rollback_yushi_payment(me,
+			before_wallet,before_physical,"general_shop_delivery_failed");
+		int rollback_saved=me->save_with_result();
+		return inventory_rollback && payment_rollback && rollback_saved ?
+			"商品发放失败，费用已退回\n" :
+			"商品发放和退款异常，请立即联系客服\n";
+	}
+	NEWBIED->record_book_purchase(me,item_name);
+	string c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+
+		"["+GAME_NAME_S+"]["+me->query_name()+"]["+item_type+"]["+
+		item_name+"]["+(string)offer["name_cn"]+"]["+count+"]["+
+		yushi+"][0]\n";
+	Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+
+		"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+	return "购买成功！你获得了"+(string)offer["name_cn"]+" × "+
+		count+"。\n";
 }
 
 //显示物品信息调用接口

@@ -111,6 +111,60 @@ private void sync_pet_runtime_unlocked(object player,mapping pet,
 	}
 }
 
+/**
+ * Worker 收到新的账号缓存能力后，永久万灵谱已经可能被同账号的另一个
+ * 人物修改。只清进程缓存不足以更新在线人物的临时战斗快照；这里从同一
+ * 权威文件重建灵纹、拓印和装备增益。仍是同一只宠物时保留本场冷却与
+ * PVP 充能，只有协战归属真的变化时才重置，避免刷新能力被用来刷技能。
+ */
+int refresh_pet_player_runtime(object player)
+{
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	string character_id;
+	string pet_id;
+	string runtime_pet_id;
+	object key;
+	if(account_id==""){
+		clear_pet_runtime(player);
+		return 1;
+	}
+	character_id = player->query_name();
+	runtime_pet_id = (string)(player["/tmp/wanling/pet_id"] || "");
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record){
+		refresh_pet_periods_unlocked(record);
+		pet_id = (string)(record["active"][character_id] || "");
+		int index = find_pet_index(record["pets"],pet_id);
+		if(index>=0){
+			sync_pet_runtime_unlocked(player,record["pets"][index],
+				runtime_pet_id!=pet_id);
+			sync_pet_owner_revive_runtime_unlocked(player,record);
+		}
+		else
+			clear_pet_runtime(player);
+	}
+	else
+		clear_pet_runtime(player);
+	player["/tmp/wanling/runtime_stale"] = 0;
+	destruct(key);
+	return 1;
+}
+
+/** 网关鉴权阶段只做O(1)标记，避免普通请求立即读取宠物档案。 */
+void mark_pet_player_runtime_stale(object player)
+{
+	if(player)
+		player["/tmp/wanling/runtime_stale"] = 1;
+}
+
+private void refresh_pet_runtime_if_stale(object player)
+{
+	if(player && (int)player["/tmp/wanling/runtime_stale"])
+		refresh_pet_player_runtime(player);
+}
+
 /** 人物升级、降级或转生后，首次读取协战状态时自动重算共享宠物。 */
 private void refresh_pet_runtime_level_if_needed(object player)
 {
@@ -947,8 +1001,6 @@ private mapping(string:mixed) record_hidden_luan_drop_unlocked(
 {
 	mapping result = (["ok":0,"eligible":0,"dropped":0,"chance":0,
 		"pity":0,"pity_max":PET_HIDDEN_LUAN_PITY]);
-	if(SPIRIT_COMPANIOND->query_pet_battle_source(player)!="shared")
-		return result;
 	string account_id = resolve_pet_account(player);
 	mapping(string:mixed)|zero record;
 	mapping credited_accounts;
@@ -1457,29 +1509,9 @@ mapping(string:mixed) unlock_pet_dust_variant(object player,string pet_id)
 
 int reconcile_pet_player_login(object player)
 {
-	string account_id = resolve_pet_account(player);
-	mapping(string:mixed)|zero record;
-	string character_id;
-	string pet_id;
-	object key;
 	clear_pet_runtime(player);
-	if(account_id=="")
-		return 1;
-	character_id = player->query_name();
-	key = pet_lock->lock();
-	record = load_pet_record_unlocked(account_id);
-	if(record){
-		refresh_pet_periods_unlocked(record);
-		pet_id = (string)(record["active"][character_id] || "");
-		int index = find_pet_index(record["pets"],pet_id);
-		if(index>=0){
-			sync_pet_runtime_unlocked(player,record["pets"][index],1);
-			sync_pet_owner_revive_runtime_unlocked(player,record);
-		}
-	}
-	destruct(key);
 	// 宠物附属文件损坏时仅关闭万灵入口，不能阻断人物旧存档登录。
-	return 1;
+	return refresh_pet_player_runtime(player);
 }
 
 mapping(string:mixed) test_grant_pet_species(object player,string species)

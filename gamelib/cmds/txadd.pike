@@ -60,12 +60,25 @@ mapping(string:mixed) execute_admin_recharge_target(object player,int fee,
 {
 	mapping wallet_result;
 	mapping bonus_result;
+	mapping referral_result;
 	if(!player)
 		return (["ok":0,"message":"没有这个游戏id"]);
 	wallet_result = ACCOUNT_WALLETD->credit_recharge_once(
 		player,fee,operator,request_id);
 	if(!(int)wallet_result["ok"])
 		return wallet_result;
+	// 管理员补单与正常后台充值共用同一请求凭据。首次入账或同请求
+	// 重试都会经过这里，由 REFERRALD 自行幂等记录半年返玉事件。
+	referral_result=REFERRALD->record_recharge_from_wallet(
+		(string)wallet_result["account_id"],request_id);
+	wallet_result["referral_ok"]=(int)referral_result["ok"];
+	wallet_result["referral_recorded"]=(int)referral_result["recorded"];
+	wallet_result["referral_duplicate"]=(int)referral_result["duplicate"];
+	wallet_result["referral_reward_amount"]=
+		(int)referral_result["reward_amount"];
+	wallet_result["referral_inviter_account"]=
+		(string)(referral_result["inviter_account"] || "");
+	wallet_result["referral_code"]=(string)(referral_result["code"] || "");
 	bonus_result = give_recharge_bonus_once(player,request_id,
 		worker_fenced_save);
 	wallet_result["bonus_ok"] = (int)bonus_result["ok"];
@@ -183,6 +196,8 @@ int main(string|zero arg)
 			int bonus_ok = (int)wallet_result["bonus_ok"];
 			int save_ok = (int)wallet_result["player_saved"];
 			int bonus_duplicate = (int)wallet_result["bonus_duplicate"];
+			int referral_ok = (int)wallet_result["referral_ok"];
+			int referral_recorded = (int)wallet_result["referral_recorded"];
 			int cache_refresh_ok = !has_index(wallet_result,"cache_refresh_ok") ||
 				(int)wallet_result["cache_refresh_ok"];
 			string account_id = (string)wallet_result["account_id"];
@@ -191,6 +206,7 @@ int main(string|zero arg)
 			string lgs = "操作人："+manager->name+"|"+
 				manager->name_cn+"||||"+name+"|"+target_name_cn;
 			lgs += "|充值："+(fe)+"|附赠："+bonus_ok+
+				"|邀请奖励凭据："+referral_recorded+
 				"|人物存档："+save_ok+
 				"|worker："+(string)(wallet_result["worker_id"] || "standalone")+
 				"|request："+request_id+"|\n";
@@ -200,6 +216,10 @@ int main(string|zero arg)
 				YUSHID->get_yushi_for_desc((int)wallet_result["amount"])+"\n";
 			s += "账号共享余额："+
 				YUSHID->get_yushi_for_desc((int)wallet_result["balance"])+"\n";
+			if(referral_recorded)
+				s += "该账号的邀请人已自动收到这笔10%仙玉奖励，可在“我的邀请”中查看。\n";
+			else if(!referral_ok)
+				s += "邀请奖励凭据暂未写入，请保留同一确认链接安全重试。\n";
 			s += duplicate && bonus_duplicate ?
 				"该确认请求此前已经完整处理，本次未重复入账或发放附赠物。\n" :
 				(bonus_ok && save_ok ?
@@ -209,7 +229,7 @@ int main(string|zero arg)
 				"充值已入账，但附赠物发放或人物存档失败，请按日志核对补发。\n");
 			if(!cache_refresh_ok)
 				s += "充值已经安全入账，但部分Worker缓存刷新未确认。\n";
-			if(!bonus_ok || !save_ok || !cache_refresh_ok)
+			if(!bonus_ok || !save_ok || !cache_refresh_ok || !referral_ok)
 				s += "[用同一凭据安全重试:txadd "+name+" "+fe+" "+
 					request_id+"]\n";
 			string now = ctime(time());

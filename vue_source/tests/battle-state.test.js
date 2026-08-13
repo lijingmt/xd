@@ -133,6 +133,12 @@ assert(indexSource.includes('battle-pet-companion-mini'));
 assert(indexSource.includes('battle-pet-companion-full'));
 assert(indexSource.includes('battle-pet-assist-burst'));
 assert(indexSource.includes('getPetCultivationLabel(battlePet)'));
+assert(indexSource.includes("battlePet.runes.join(' · ')"));
+assert(indexSource.includes('battlePet.rune_effect'));
+assert(indexSource.includes('pet-rune-resonance'));
+assert(indexSource.includes('pet-rune-orbit'));
+assert(indexSource.includes('pet-actual-effect-mark'));
+assert(indexSource.includes('getPetActualEffectDescription(petAssistEffect)'));
 assert(indexSource.includes("petAssistEffect.mode === 'pvp'"));
 assert(indexSource.includes('v-if="headerPetSlots"'));
 assert(indexSource.includes('v-for="slot in headerPetSlots"'));
@@ -653,6 +659,18 @@ assert.strictEqual(client.playerAvatarFailed, true);
     active: true, role: '疗愈', cooldown_remaining: 0
   }), '疗愈就绪');
   assert.strictEqual(client.getPetAssistStatus({
+    active: true, role: '疗愈', cooldown_remaining: 0,
+    waiting_resource: 'life'
+  }), '治疗灵技已就绪 · 等待生命缺口');
+  assert.strictEqual(client.getPetActualEffectDescription({
+    type: 'damage', mode: 'pve', amount: 888,
+    secondary_type: 'heal', secondary_amount: 66,
+    shared_resonance_bonus: 4
+  }), '协战伤害 -888 · 同时生命 +66 · 共享共鸣 +4%');
+  assert.strictEqual(client.getPetActualEffectDescription({
+    type: 'revive', amount: 300, mofa_amount: 120
+  }), '回生已生效：生命 +300 · 法力 +120');
+  assert.strictEqual(client.getPetAssistStatus({
     active: true, role: '强攻', cooldown_remaining: 6
   }), '攻势蓄力 6秒');
   assert.strictEqual(client.getPetAssistStatus({
@@ -668,6 +686,16 @@ assert.strictEqual(client.playerAvatarFailed, true);
     name: '毕方', icon: '🔥', skill: '独足炎翎', type: 'damage',
     mode: 'pvp', amount: 496, target_name: '对手'
   }).includes('【御灵交锋】'));
+  assert(client.formatPetAssistMessage({
+    name: '融合灵宠', icon: '🐾', skill: '三灵纹共鸣', type: 'heal',
+    amount: 321, rune_set_triggered: 1, rune_mode: '厚积',
+    runes: ['回生羽', '苍文聚灵', '谷熟无忧'],
+    rune_effect: '厚积共鸣：三枚灵纹整套触发，拓印治疗为115%效果'
+  }).includes('厚积共鸣：三枚灵纹整套触发，拓印治疗为115%效果'));
+  assert(client.formatPetAssistMessage({
+    name: '本命灵伴', skill: '护主', type: 'damage', amount: 80,
+    target_name: '妖兽', secondary_type: 'mofa', secondary_amount: 25
+  }).includes('同时恢复25点法力'));
   assert.strictEqual(
     componentOptions.computed.hasRecentAoeReport.call(client),
     true

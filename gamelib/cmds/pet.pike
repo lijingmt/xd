@@ -76,6 +76,18 @@ private string pet_display_name(mapping pet,mapping info)
 	return (string)info["name"];
 }
 
+private string pet_rune_effect_label(mapping pet,mapping info)
+{
+	if(mappingp(pet["imprinted_skill"]))
+		return (string)pet["imprinted_skill"]["effect"]=="heal" ?
+			"拓印治疗" : "拓印攻击";
+	if((string)info["role"]=="强攻" || (string)info["role"]=="迅捷")
+		return "协战伤害";
+	if((string)info["role"]=="灵息")
+		return "法力回复";
+	return "生命回复";
+}
+
 private string pet_gear_attributes(mapping gear)
 {
 	array(string) parts = ({});
@@ -191,9 +203,13 @@ private string render_detail(mapping state,string species,object me)
 	s += (string)info["origin"]+"\n\n";
 	s += "战斗灵技："+(string)info["skill"]+
 		"。PVE按冷却协战；人物PVP按战斗回合充能，每场最多触发2次，成长收益经过压缩且不能补刀。\n";
-	s += "三套灵纹：\n";
-	foreach((array)info["skill_sets"],array skills)
-		s += "• "+(skills*"、")+"\n";
+	s += "三套灵纹（名称是流派表现，三枚作为一套同步共鸣，不会分别叠加三次）：\n";
+	for(int rune_set=0;rune_set<sizeof((array)info["skill_sets"]);
+	   rune_set++){
+		array skills = info["skill_sets"][rune_set];
+		s += "• "+(skills*"、")+"\n  "+
+			PETD->query_pet_rune_rhythm_description(rune_set,"灵技")+"\n";
+	}
 	if(owned>=0){
 		mapping pet = state["pets"][owned];
 		mapping attributes = pet["attributes"];
@@ -228,6 +244,14 @@ private string render_detail(mapping state,string species,object me)
 			"% | PVP压缩倍率："+(int)pet["pvp_growth_percent"]+
 			"% | 编号"+pet_short_id((string)pet["id"])+"\n";
 		s += "当前灵纹："+((array)pet["skills"]*"、")+"\n";
+		s += "实际共鸣："+
+			PETD->query_pet_rune_rhythm_description(
+				(int)pet["skill_set"],pet_rune_effect_label(pet,info))+"\n";
+		if(SPIRIT_COMPANIOND->query_pet_battle_source(me)!="shared")
+			s += "§y注意：当前战斗位是本命灵伴，本共享宠物处于待命，灵技与灵纹不会触发；切回共享宠物后生效。§r\n"+
+				"[立即携带共享宠物:pet carry]\n";
+		if(mappingp(pet["fusion"]))
+			s += "融合说明：三枚灵纹分别继承父系，但仍按上面的当前共鸣节奏作为一套结算；真实生效时战斗中会出现三纹共鸣提示。\n";
 		if(species=="luanniao")
 			s += "隐藏天赋：回生羽会在主人真正死亡时自动触发；灵医职业复苏优先，账号每日1次，复活后恢复15%生命与10%法力，切磋和自杀不消耗。\n";
 		if(mappingp(pet["imprinted_skill"]))

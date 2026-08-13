@@ -143,22 +143,28 @@ mapping(string:mixed) execute_map_worker_admin_recharge(object manager,
         return result+(["message":(string)(result["message"] ||
             "目标 worker 充值失败，本次没有重复入账")]);
     result["worker_id"] = target_worker;
-    for(int index=1;index<=worker_count;index++){
-        string refresh_worker = sprintf("w%02d",index);
-        mapping refreshed;
-        if(refresh_worker==MAP_WORKERD->query_local_worker_id())
-            refreshed = execute_map_worker_local_account_refresh(
-                target_account);
-        else
-            refreshed = map_worker_internal_http_call(
-                worker_http_base+index-1,([
-                "action":"local_account_refresh",
-                "account_id":target_account,
-            ]));
-        if(!(int)refreshed["ok"]){
-            result["cache_refresh_ok"] = 0;
-            result["message"] = "充值已入账，但有 worker 缓存刷新失败，请重试同一确认链接";
-            return result;
+    array(string) refresh_accounts = ({target_account});
+    string referral_account=(string)(result["referral_inviter_account"] || "");
+    if(referral_account!="" && referral_account!=target_account)
+        refresh_accounts+=({referral_account});
+    foreach(refresh_accounts,string refresh_account){
+        for(int index=1;index<=worker_count;index++){
+            string refresh_worker = sprintf("w%02d",index);
+            mapping refreshed;
+            if(refresh_worker==MAP_WORKERD->query_local_worker_id())
+                refreshed = execute_map_worker_local_account_refresh(
+                    refresh_account);
+            else
+                refreshed = map_worker_internal_http_call(
+                    worker_http_base+index-1,([
+                    "action":"local_account_refresh",
+                    "account_id":refresh_account,
+                ]));
+            if(!(int)refreshed["ok"]){
+                result["cache_refresh_ok"] = 0;
+                result["message"] = "充值已入账，但有 worker 缓存刷新失败，请重试同一确认链接";
+                return result;
+            }
         }
     }
     result["cache_refresh_ok"] = 1;
@@ -305,6 +311,9 @@ private int map_worker_gateway_request_authorized(
         if(local_player && functionp(local_player->query_account_owner) &&
            (string)local_player->query_account_owner()!=account_owner)
             return 0;
+        if(cache_changed && local_player &&
+           functionp(PETD->mark_pet_player_runtime_stale))
+            PETD->mark_pet_player_runtime_stale(local_player);
         epoch_result = MAP_WORKERD->accept_local_player_epoch(
             routed_user,routed_epoch,local_player ? 1 : 0);
         if(!(int)epoch_result["ok"])
@@ -1019,6 +1028,8 @@ private mapping execute_map_worker_local_account_refresh(string account_id)
            (string)player->query_account_owner()!=account_id)
             continue;
         ACCOUNT_WALLETD->reconcile_player_login(player);
+        if(functionp(PETD->refresh_pet_player_runtime))
+            PETD->refresh_pet_player_runtime(player);
         if(!player->save_with_result())
             save_failed++;
         else

@@ -15,6 +15,8 @@ int main(string|zero arg)
 	string item_name = "";
 	string s = "";
 	int flag = 0;
+	int buy_count = 1;
+	string buy_count_arg = "";
 	int yushi,money;
 	//int need_yushi = 0;
 	//int need_money = 0;
@@ -22,7 +24,14 @@ int main(string|zero arg)
 		write("请选择要购买的物品。\n[返回游戏:look]\n");
 		return 1;
 	}
-	if(sscanf(arg,"%s %s %s %d %d %d",item_type,type,item_name,yushi,money,flag)!=6){
+	int parsed=sscanf(arg,"%s %s %s %d %d %d %s",item_type,type,
+		item_name,yushi,money,flag,buy_count_arg);
+	if(parsed==7)
+		buy_count=SHOP_BATCHD->parse_count(buy_count_arg);
+	if(parsed!=7)
+		parsed=sscanf(arg,"%s %s %s %d %d %d",item_type,type,
+			item_name,yushi,money,flag);
+	if(parsed!=6 && parsed!=7){
 		sscanf(arg,"%s %s",item_type,type);
 		s = "您想购买些什么：\n";
 		s += "-------\n";
@@ -77,10 +86,22 @@ int main(string|zero arg)
 		}
 		if(flag==0){
 			s += BUYD->item_view(item_name,yushi,money);
-			s += "[购买:buy_items "+item_type+" "+type+" "+item_name+" "+yushi+" "+money+" 1]\n";
+			mapping offer=BUYD->query_buy_offer(me,item_name,item_type,type);
+			if((int)offer["ok"] && (int)offer["combine"]){
+				foreach(({1,5,10,20,50,100}),int quick)
+					s += "[买"+quick+"个:buy_items "+item_type+" "+
+						type+" "+item_name+" "+yushi+" "+money+" 1 "+
+						quick+"] ";
+				s += "\n自定义数量(1-100)：[int no:...]\n"+
+					"[submit 确定购买:buy_items "+item_type+" "+type+" "+
+					item_name+" "+yushi+" "+money+" 1 ...]\n";
+			}
+			else
+				s += "[购买:buy_items "+item_type+" "+type+" "+
+					item_name+" "+yushi+" "+money+" 1]\n";
 		}
 		else if(flag==1){
-			s += BUYD->buy_items(item_name,item_type);
+			s += BUYD->buy_items(item_name,item_type,type,buy_count);
 		}
 		s += "[返回:buy_items "+item_type+" "+type+"]\n";
 		s += "[返回游戏:look]\n";

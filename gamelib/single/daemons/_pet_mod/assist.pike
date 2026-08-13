@@ -12,6 +12,30 @@ int query_pet_pvp_charge_required(void|int skill_set)
 	return 5;
 }
 
+/** 只读说明与真实结算常量保持一致，不改变任何宠物数值。 */
+mapping(string:mixed) query_pet_rune_rhythm_profile(int skill_set)
+{
+	if(skill_set==1)
+		return (["name":"轻灵","effect_percent":80,
+			"pve_cooldown":24,"pvp_charge":4]);
+	if(skill_set==2)
+		return (["name":"厚积","effect_percent":115,
+			"pve_cooldown":36,"pvp_charge":6]);
+	return (["name":"均衡","effect_percent":100,
+		"pve_cooldown":30,"pvp_charge":5]);
+}
+
+string query_pet_rune_rhythm_description(int skill_set,
+	void|string effect_label)
+{
+	mapping profile = query_pet_rune_rhythm_profile(skill_set);
+	string label = effect_label && effect_label!="" ? effect_label : "当前灵技";
+	return (string)profile["name"]+"共鸣：三枚灵纹整套触发，"+
+		label+"为"+(int)profile["effect_percent"]+"%效果；PVE每"+
+		(int)profile["pve_cooldown"]+"秒一次，PVP蓄能"+
+		(int)profile["pvp_charge"]+"回合且每场最多2次。";
+}
+
 private array(string) query_pet_runtime_runes(object player,mapping info)
 {
 	array(string) result = ({});
@@ -44,6 +68,34 @@ private int query_pet_rune_combo_active(object player,mapping info)
 {
 	return mappingp(player["/tmp/wanling/pet_fusion"]) &&
 		sizeof(query_pet_runtime_runes(player,info))==3;
+}
+
+private string query_pet_rune_mode_name(object player)
+{
+	return (string)query_pet_rune_rhythm_profile(
+		(int)player["/tmp/wanling/skill_set"])["name"];
+}
+
+private string query_pet_runtime_effect_label(object player,mapping info)
+{
+	string imprinted_effect = query_pet_imprinted_effect(player);
+	string role = (string)info["role"];
+	if(imprinted_effect=="damage")
+		return "拓印攻击";
+	if(imprinted_effect=="heal")
+		return "拓印治疗";
+	if(role=="强攻" || role=="迅捷")
+		return "协战伤害";
+	if(role=="灵息")
+		return "法力回复";
+	return "生命回复";
+}
+
+private string query_pet_runtime_rune_description(object player,mapping info)
+{
+	return query_pet_rune_rhythm_description(
+		(int)player["/tmp/wanling/skill_set"],
+		query_pet_runtime_effect_label(player,info));
 }
 
 private string query_pet_active_skill_name(object player,mapping info)
@@ -94,6 +146,7 @@ mapping(string:mixed) query_pet_room_presence(object player)
 	mapping info;
 	if(!player || !player->is || !player->is("player"))
 		return result;
+	refresh_pet_runtime_if_stale(player);
 	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
@@ -114,6 +167,8 @@ mapping(string:mixed) query_pet_room_presence(object player)
 		"native_skill":(string)info["skill"],
 		"runes":query_pet_runtime_runes(player,info),
 		"rune_combo":query_pet_rune_combo_active(player,info),
+		"rune_mode":query_pet_rune_mode_name(player),
+		"rune_effect":query_pet_runtime_rune_description(player,info),
 	]);
 }
 
@@ -136,6 +191,7 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 	string pvp_target;
 	if(!player)
 		return result;
+	refresh_pet_runtime_if_stale(player);
 	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
@@ -165,6 +221,8 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		"native_skill":(string)info["skill"],
 		"runes":query_pet_runtime_runes(player,info),
 		"rune_combo":query_pet_rune_combo_active(player,info),
+		"rune_mode":query_pet_rune_mode_name(player),
+		"rune_effect":query_pet_runtime_rune_description(player,info),
 		"imprinted_skill":mappingp(player[
 			"/tmp/wanling/imprinted_skill"]) ?
 			copy_value((mapping)player[
@@ -380,6 +438,10 @@ private mapping(string:mixed) create_pet_assist_event(object player,
 		"native_skill":(string)info["skill"],
 		"runes":query_pet_runtime_runes(player,info),
 		"rune_combo":query_pet_rune_combo_active(player,info),
+		"rune_mode":query_pet_rune_mode_name(player),
+		"rune_effect":query_pet_runtime_rune_description(player,info),
+		"rune_set_triggered":actual>0 &&
+			sizeof(query_pet_runtime_runes(player,info))==3,
 		"rune_combo_triggered":actual>0 &&
 			query_pet_rune_combo_active(player,info),
 		"mode":mode,
@@ -452,6 +514,7 @@ mapping(string:mixed) perform_pet_pve_assist(object player,object target)
 	   !LOGICALZONED->can_action("combat",player,target) ||
 	   SUMMOND->query_combat_credit_owner(target)!=target)
 		return result;
+	refresh_pet_runtime_if_stale(player);
 	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	info = shanhai_catalog[species];
@@ -548,6 +611,7 @@ mapping(string:mixed) perform_pet_pvp_assist(object player,object target)
 	   environment(player)!=environment(target) ||
 	   !LOGICALZONED->can_action("combat",player,target))
 		return result;
+	refresh_pet_runtime_if_stale(player);
 	target_owner = target->is("player") ? target :
 		SUMMOND->query_combat_credit_owner(target);
 	if(!target_owner ||
@@ -715,6 +779,7 @@ mapping(string:mixed) perform_pet_basic_assist(object player,object target)
 	   !LOGICALZONED->can_action("combat",player,target) ||
 	   SUMMOND->query_combat_credit_owner(target)!=target)
 		return result;
+	refresh_pet_runtime_if_stale(player);
 	// PVE 专属：基础灵攻不参与 PVP，避免破坏 PVP 充能平衡。
 	if(target->is("player"))
 		return result;
@@ -826,8 +891,11 @@ int try_pet_owner_revive(object player,object killer)
 	mapping info;
 	mapping event;
 	if(!player || !player->is || !player->is("player") ||
-	   (string)(player["/tmp/wanling/species"] || "")!=
-		PET_HIDDEN_LUAN_SPECIES || !killer || !objectp(killer) ||
+	   !killer || !objectp(killer))
+		return 0;
+	refresh_pet_runtime_if_stale(player);
+	if((string)(player["/tmp/wanling/species"] || "")!=
+		PET_HIDDEN_LUAN_SPECIES ||
 	   player->get_cur_life()>0 || player->is("ghost") ||
 	   player->sucide || player["/tmp/wanling/owner_revive_running"])
 		return 0;
@@ -911,6 +979,7 @@ mapping(string:mixed) query_pet_pk_fast_profile(object player,object target)
 	   !player || !target || !target->is || !target->is("player") ||
 		environment(player)!=environment(target))
 		return result;
+	refresh_pet_runtime_if_stale(player);
 	refresh_pet_runtime_level_if_needed(player);
 	species = (string)(player["/tmp/wanling/species"] || "");
 	if(!shanhai_catalog[species])

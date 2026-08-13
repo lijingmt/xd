@@ -61,7 +61,20 @@ int main(string|zero arg)
 			else
 				s += "你现在并没有家园\n";
 			s += "\n\n";
-			s += "[int no:...]\n";
+			int have_yushi=YUSHID->query_all_num(me);
+			int affordable=yushi>0 ? have_yushi/yushi :
+				(money>0 ? me->query_account()/(money*100) : 0);
+			int capacity=SHOP_BATCHD->query_capacity(me,infancy,0);
+			int quick_max=min(affordable,capacity);
+			quick_max=min(quick_max,SHOP_BATCHD->query_hard_max());
+			if(quick_max>0){
+				foreach(({1,5,10,20,50,100}),int quick)
+					if(quick<=quick_max)
+						s += "[买"+quick+"个:home_shop_item_confirm "+
+							infancyName+" "+yushi+" "+money+" "+quick+"] ";
+				s += "\n";
+			}
+			s += "购买数量(1-100)：[int no:...]\n";
 			s += "[submit 确定购买:home_shop_item_confirm "+ infancyName+" "+ yushi +" "+money+" ...]\n";
 		}
 	}

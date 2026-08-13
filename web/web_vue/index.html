@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786462790817">
-    <link rel="stylesheet" href="css/app.css?v=v1786462790817">
-    <link rel="stylesheet" href="css/realm.css?v=v1786462790817">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786628618151">
+    <link rel="stylesheet" href="css/app.css?v=v1786628618151">
+    <link rel="stylesheet" href="css/realm.css?v=v1786628618151">
 </head>
 <body>
     <div id="app">
@@ -128,89 +128,219 @@
                         <h2 id="register-title">创建新账号</h2>
                     </div>
                 </div>
-                <div class="auth-form">
-                <div class="form-group">
-                    <label for="register-partition">分区</label>
-                    <select id="register-partition"
-                            v-model="registerForm.partition"
-                            class="form-select"
-                            :disabled="partitionsLoading || isRegistering">
-                        <option v-for="p in partitions"
-                                :key="p.value"
-                                :value="p.value"
-                                :disabled="p.registration_open === 0">
-                            {{ p.label }}{{ p.registration_open === 0 ? '（暂停注册）' : '' }}
-                        </option>
-                    </select>
+                <div class="register-progress" aria-label="注册流程">
+                    <span class="active"><b>1</b> 注册账号</span>
+                    <i aria-hidden="true"></i>
+                    <span><b>2</b> 创建人物</span>
+                    <i aria-hidden="true"></i>
+                    <span><b>3</b> 开始游戏</span>
                 </div>
-                <div class="form-group">
-                    <label for="register-userid">账号</label>
-                    <input id="register-userid"
-                           type="text"
-                           v-model.trim="registerForm.userid"
-                           placeholder="2-12位英文或数字"
-                           maxlength="12"
-                           autocomplete="username"
-                           autocapitalize="none"
-                           spellcheck="false"
-                           @keyup.enter="doRegister"
-                           :disabled="isRegistering">
-                </div>
-                <div class="form-group">
-                    <label for="register-password">密码</label>
-                    <div class="password-field">
-                        <input id="register-password"
-                               :type="registerPasswordVisible ? 'text' : 'password'"
-                               v-model="registerForm.password"
-                               placeholder="2-12位英文或数字"
-                               maxlength="12"
-                               autocomplete="new-password"
-                               @keyup.enter="doRegister"
-                               :disabled="isRegistering">
-                        <button type="button"
-                                class="password-toggle"
-                                @click="registerPasswordVisible = !registerPasswordVisible"
-                                :aria-label="registerPasswordVisible ? '隐藏密码' : '显示密码'">
-                            {{ registerPasswordVisible ? '隐藏' : '显示' }}
-                        </button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="register-password-confirm">确认密码</label>
-                    <input id="register-password-confirm"
-                           type="password"
-                           v-model="registerForm.passwordConfirm"
-                           placeholder="请再次输入密码"
-                           maxlength="12"
-                           autocomplete="new-password"
-                           :disabled="isRegistering">
-                </div>
-                <div class="form-group">
-                    <label for="register-captcha">验证码</label>
-                    <div class="captcha-group">
-                        <input id="register-captcha"
-                               type="text"
-                               v-model.trim="registerForm.captcha"
-                               placeholder="输入验证码"
-                               maxlength="4"
-                               class="form-control"
-                               autocomplete="off"
-                               :disabled="isRegistering">
-                        <button type="button"
-                                class="captcha-display"
-                                @click="refreshCaptcha"
-                                aria-label="刷新验证码">
-                            {{ captchaCode }}
-                        </button>
-                    </div>
-                </div>
-                <button type="button"
-                        class="btn btn-primary btn-block auth-submit"
-                        @click="doRegister"
-                        :disabled="isRegistering">
-                    <span v-if="!isRegistering">创建账号</span>
-                    <span v-else class="loading">正在创建...</span>
-                </button>
+                <div class="auth-form register-form" v-if="!registerSuccess">
+                    <section class="register-section" aria-labelledby="register-account-heading">
+                        <div class="register-section-title">
+                            <div>
+                                <strong id="register-account-heading">账号信息</strong>
+                                <small>注册后可在同一账号下创建多职业人物</small>
+                            </div>
+                            <span class="account-preview" v-if="registerForm.partition">
+                                {{ registerForm.partition }}{{ registerForm.userid || '你的账号' }}
+                            </span>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-partition">选择分区</label>
+                            <select id="register-partition"
+                                    v-model="registerForm.partition"
+                                    class="form-select"
+                                    :disabled="partitionsLoading || isRegistering">
+                                <option v-for="p in partitions"
+                                        :key="p.value"
+                                        :value="p.value"
+                                        :disabled="p.registration_open === 0">
+                                    {{ p.label }}{{ p.registration_open === 0 ? '（暂停注册）' : '' }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-userid">
+                                登录账号
+                                <span class="field-rule">2–12位英文或数字</span>
+                            </label>
+                            <input id="register-userid"
+                                   type="text"
+                                   v-model.trim="registerForm.userid"
+                                   placeholder="例如：jingli2026"
+                                   maxlength="12"
+                                   autocomplete="username"
+                                   autocapitalize="none"
+                                   inputmode="text"
+                                   spellcheck="false"
+                                   :class="registrationFieldClass('userid')"
+                                   :aria-invalid="Boolean(registerTouched.userid && registrationFieldError('userid'))"
+                                   @blur="markRegisterFieldTouched('userid')"
+                                   @keyup.enter="doRegister"
+                                   :disabled="isRegistering">
+                            <small class="form-field-feedback"
+                                   :class="registrationFieldError('userid') ? 'error' : 'success'"
+                                   v-if="registerTouched.userid || registerForm.userid">
+                                {{ registrationFieldError('userid') || '账号格式正确' }}
+                            </small>
+                        </div>
+                    </section>
+
+                    <section class="register-section" aria-labelledby="register-security-heading">
+                        <div class="register-section-title">
+                            <div>
+                                <strong id="register-security-heading">登录密码</strong>
+                                <small>请牢记密码；管理员不会向您索要密码</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-password">
+                                设置密码
+                                <span class="field-rule">2–12位英文或数字</span>
+                            </label>
+                            <div class="password-field">
+                                <input id="register-password"
+                                       :type="registerPasswordVisible ? 'text' : 'password'"
+                                       v-model="registerForm.password"
+                                       placeholder="建议字母和数字组合"
+                                       maxlength="12"
+                                       autocomplete="new-password"
+                                       autocapitalize="none"
+                                       spellcheck="false"
+                                       :class="registrationFieldClass('password')"
+                                       :aria-invalid="Boolean(registerTouched.password && registrationFieldError('password'))"
+                                       @blur="markRegisterFieldTouched('password')"
+                                       @keyup.enter="doRegister"
+                                       :disabled="isRegistering">
+                                <button type="button"
+                                        class="password-toggle"
+                                        @click="registerPasswordVisible = !registerPasswordVisible"
+                                        :aria-label="registerPasswordVisible ? '隐藏密码' : '显示密码'">
+                                    {{ registerPasswordVisible ? '隐藏' : '显示' }}
+                                </button>
+                            </div>
+                            <div class="password-strength" v-if="registerForm.password">
+                                <span :class="{ filled: registrationPasswordStrength() >= 1 }"></span>
+                                <span :class="{ filled: registrationPasswordStrength() >= 2 }"></span>
+                                <span :class="{ filled: registrationPasswordStrength() >= 3 }"></span>
+                                <small>强度：{{ registrationPasswordStrengthLabel() }}</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-password-confirm">确认密码</label>
+                            <input id="register-password-confirm"
+                                   :type="registerPasswordVisible ? 'text' : 'password'"
+                                   v-model="registerForm.passwordConfirm"
+                                   placeholder="再次输入相同密码"
+                                   maxlength="12"
+                                   autocomplete="new-password"
+                                   autocapitalize="none"
+                                   spellcheck="false"
+                                   :class="registrationFieldClass('passwordConfirm')"
+                                   :aria-invalid="Boolean(registerTouched.passwordConfirm && registrationFieldError('passwordConfirm'))"
+                                   @blur="markRegisterFieldTouched('passwordConfirm')"
+                                   @keyup.enter="doRegister"
+                                   :disabled="isRegistering">
+                            <small class="form-field-feedback"
+                                   :class="registrationFieldError('passwordConfirm') ? 'error' : 'success'"
+                                   v-if="registerTouched.passwordConfirm || registerForm.passwordConfirm">
+                                {{ registrationFieldError('passwordConfirm') || '两次密码一致' }}
+                            </small>
+                        </div>
+                    </section>
+
+                    <section class="register-section referral-register-group"
+                             :class="{ 'from-invite-link': Boolean(refCode) }"
+                             aria-labelledby="register-referral-heading">
+                        <div class="register-section-title">
+                            <div>
+                                <strong id="register-referral-heading">
+                                    {{ refCode ? '好友邀请已识别' : '好友邀请码' }}
+                                </strong>
+                                <small>{{ refCode ? '注册成功后永久绑定邀请关系' : '没有邀请码可以留空' }}</small>
+                            </div>
+                            <span class="invite-ready-badge" v-if="refCode">已自动填入</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-referral">
+                                邀请码 <span class="optional-label">选填</span>
+                            </label>
+                            <input id="register-referral"
+                                   type="text"
+                                   v-model.trim="registerForm.referral"
+                                   placeholder="通过好友专属链接打开会自动填入"
+                                   maxlength="64"
+                                   autocomplete="off"
+                                   autocapitalize="none"
+                                   spellcheck="false"
+                                   :class="registrationFieldClass('referral')"
+                                   :readonly="Boolean(refCode)"
+                                   :disabled="isRegistering"
+                                   @blur="markRegisterFieldTouched('referral')">
+                            <small v-if="refCode" class="referral-bound-hint">
+                                邀请人只能获得系统活动奖励，不会看到您的密码、人物或其他隐私。
+                            </small>
+                            <button type="button"
+                                    class="referral-skip-action"
+                                    v-if="refCode"
+                                    @click="clearReferralLanding"
+                                    :disabled="isRegistering">
+                                不使用邀请码，按普通账号注册
+                            </button>
+                            <small v-else-if="registerTouched.referral && registrationFieldError('referral')"
+                                   class="form-field-feedback error">
+                                {{ registrationFieldError('referral') }}
+                            </small>
+                        </div>
+                    </section>
+
+                    <section class="register-section register-verification"
+                             aria-labelledby="register-verification-heading">
+                        <div class="register-section-title compact">
+                            <div>
+                                <strong id="register-verification-heading">安全验证</strong>
+                                <small>看不清可点击右侧验证码更换</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-captcha">验证码</label>
+                            <div class="captcha-group">
+                                <input id="register-captcha"
+                                       type="text"
+                                       v-model.trim="registerForm.captcha"
+                                       placeholder="输入右侧4位字符"
+                                       maxlength="4"
+                                       class="form-control"
+                                       autocomplete="off"
+                                       autocapitalize="none"
+                                       spellcheck="false"
+                                       :class="registrationFieldClass('captcha')"
+                                       :aria-invalid="Boolean(registerTouched.captcha && registrationFieldError('captcha'))"
+                                       @blur="markRegisterFieldTouched('captcha')"
+                                       @keyup.enter="doRegister"
+                                       :disabled="isRegistering">
+                                <button type="button"
+                                        class="captcha-display"
+                                        @click="refreshCaptcha(); registerForm.captcha = ''; registerTouched.captcha = false;"
+                                        aria-label="刷新验证码"
+                                        title="点击更换验证码">
+                                    {{ captchaCode }}
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <p class="register-privacy-note">
+                        创建即表示您确认账号由本人保管。注册完成后，下一步可选择人物名字、头像与职业。
+                    </p>
+                    <button type="button"
+                            class="btn btn-primary btn-block auth-submit"
+                            @click="doRegister"
+                            :disabled="isRegistering">
+                        <span v-if="!isRegistering">创建账号，下一步选人物</span>
+                        <span v-else class="loading">正在安全创建...</span>
+                    </button>
                 </div>
                 <div v-if="registerError"
                      class="message message-error auth-message"
@@ -219,19 +349,35 @@
                     {{ registerError }}
                 </div>
                 <div v-if="registerSuccess"
-                     class="message message-success auth-message"
+                     class="register-success-panel"
                      role="status"
                      aria-live="polite">
-                    注册成功，请返回登录
+                    <div class="register-success-icon" aria-hidden="true">✓</div>
+                    <h3>账号创建成功</h3>
+                    <p><strong>{{ registerSuccessAccount }}</strong> 已创建，正在为您返回登录。</p>
+                    <button type="button"
+                            class="btn btn-primary btn-block"
+                            @click="returnToLoginAfterRegistration">
+                        立即返回登录
+                    </button>
                 </div>
                 <div class="auth-secondary-actions">
-                    <button type="button" class="auth-text-action primary" @click="closeRegister">
+                    <button type="button"
+                            class="auth-text-action primary"
+                            v-if="!registerSuccess"
+                            @click="closeRegister">
                         返回登录
                     </button>
-                    <button type="button" class="auth-text-action" @click="toggleTheme">
+                    <button type="button"
+                            class="auth-text-action"
+                            v-if="!registerSuccess"
+                            @click="toggleTheme">
                         切换主题
                     </button>
-                    <button type="button" class="auth-text-action" @click="goToSelection">
+                    <button type="button"
+                            class="auth-text-action"
+                            v-if="!registerSuccess"
+                            @click="goToSelection">
                         新旧界面选择
                     </button>
                 </div>
@@ -708,6 +854,10 @@
                                 <span class="menu-icon">💬</span>
                                 <span>聊天</span>
                             </button>
+                            <button type="button" class="menu-item" @click="openInviteModal(); headerMenuOpen = false;">
+                                <span class="menu-icon">🤝</span>
+                                <span>邀请好友 / 查看奖励</span>
+                            </button>
                             <button type="button" class="menu-item" @click="goToSelection(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔄</span>
                                 <span>返回选择</span>
@@ -781,17 +931,19 @@
             <div v-if="useJsonMode && !isInBattle && !hasRecentAoeReport && combatEffectsEnabled && petAssistEffect"
                  :key="petAssistEffect.id"
                  class="room-pet-manifestation battle-pet-assist-burst"
-                 :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass]"
+                 :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass, 'pet-actual-' + (petAssistEffect.type || 'guard'), { 'pet-rune-resonance': Number(petAssistEffect.rune_set_triggered || 0) === 1, 'pet-has-secondary': Number(petAssistEffect.secondary_amount || petAssistEffect.restored || 0) > 0 }]"
                  role="status"
                  :aria-label="formatPetAssistMessage(petAssistEffect)">
                 <span class="pet-assist-comet" aria-hidden="true"></span>
+                <span v-if="Number(petAssistEffect.rune_set_triggered || 0) === 1" class="pet-rune-orbit" aria-hidden="true">
+                    <i v-for="(rune, runeIndex) in petAssistEffect.runes" :key="runeIndex" :title="rune">✦</i>
+                </span>
+                <span class="pet-actual-effect-mark" aria-hidden="true">{{ getPetActualEffectMark(petAssistEffect) }}</span>
                 <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
                 <span class="pet-assist-copy">
                     <strong>{{ petAssistEffect.owner_name ? petAssistEffect.owner_name + '的' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
-                    <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatGameNumber(petAssistEffect.amount) }}</small>
-                    <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
-                    <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
-                    <small v-else>灵宠显化，陪伴主人作战</small>
+                    <small>{{ getPetActualEffectDescription(petAssistEffect) }}</small>
+                    <small v-if="Number(petAssistEffect.rune_set_triggered || 0) === 1" class="pet-rune-trigger-copy">{{ petAssistEffect.rune_effect || ((petAssistEffect.rune_mode || '三枚') + '灵纹整套共鸣') }}</small>
                 </span>
             </div>
 
@@ -1000,17 +1152,19 @@
                 <div v-if="combatEffectsEnabled && petAssistEffect && (!battleDockCollapsed || battleFullscreen)"
                      :key="petAssistEffect.id"
                      class="battle-pet-assist-burst"
-                     :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass]"
+                     :class="['pet-effect-' + petAssistEffect.visualType, 'pet-family-' + petAssistEffect.familyClass, 'pet-actual-' + (petAssistEffect.type || 'guard'), { 'pet-rune-resonance': Number(petAssistEffect.rune_set_triggered || 0) === 1, 'pet-has-secondary': Number(petAssistEffect.secondary_amount || petAssistEffect.restored || 0) > 0 }]"
                      role="status"
                      :aria-label="formatPetAssistMessage(petAssistEffect)">
                     <span class="pet-assist-comet" aria-hidden="true"></span>
+                    <span v-if="Number(petAssistEffect.rune_set_triggered || 0) === 1" class="pet-rune-orbit" aria-hidden="true">
+                        <i v-for="(rune, runeIndex) in petAssistEffect.runes" :key="runeIndex" :title="rune">✦</i>
+                    </span>
+                    <span class="pet-actual-effect-mark" aria-hidden="true">{{ getPetActualEffectMark(petAssistEffect) }}</span>
                     <span class="pet-assist-avatar" aria-hidden="true">{{ petAssistEffect.icon || '🐾' }}</span>
                     <span class="pet-assist-copy">
                         <strong>{{ petAssistEffect.mode === 'pvp' ? '御灵交锋·' : '' }}{{ petAssistEffect.name }}·{{ petAssistEffect.skill }}</strong>
-                        <small v-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'damage'">{{ petAssistEffect.mode === 'pvp' ? '御灵' : '协战' }} -{{ formatGameNumber(petAssistEffect.amount) }}</small>
-                        <small v-else-if="petAssistEffect.amount > 0 && petAssistEffect.type === 'mofa'">灵息 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
-                        <small v-else-if="petAssistEffect.amount > 0">守护 +{{ formatGameNumber(petAssistEffect.amount) }}</small>
-                        <small v-else>与你并肩，静候时机</small>
+                        <small>{{ getPetActualEffectDescription(petAssistEffect) }}</small>
+                        <small v-if="Number(petAssistEffect.rune_set_triggered || 0) === 1" class="pet-rune-trigger-copy">{{ petAssistEffect.rune_effect || ((petAssistEffect.rune_mode || '三枚') + '灵纹整套共鸣') }}</small>
                     </span>
                 </div>
                 <button v-if="!battleFullscreen && battleDockCollapsed && !hasRecentAoeReport"
@@ -1234,6 +1388,8 @@
                                 <span class="battle-pet-info">
                                     <strong>{{ battlePet.name }} · {{ battlePet.role }} · {{ getPetCultivationLabel(battlePet) }}</strong>
                                     <small>{{ battlePet.skill }} · 战力{{ formatGameNumber(battlePet.power || 0) }} · {{ getPetAssistStatus(battlePet) }}</small>
+                                    <small v-if="Array.isArray(battlePet.runes) && battlePet.runes.length === 3">{{ battlePet.rune_mode || '当前' }}灵纹：{{ battlePet.runes.join(' · ') }}</small>
+                                    <small v-if="battlePet.rune_effect" class="battle-pet-rune-desc">{{ battlePet.rune_effect }}</small>
                                 </span>
                                 <span class="battle-pet-cooldown" role="progressbar"
                                       :aria-label="battlePet.name + '协战准备进度'"
@@ -1548,14 +1704,14 @@
             </div>
 
             <!-- 邀请好友弹窗 -->
-            <div class="modal-overlay" v-if="showInviteModal" @click.self="closeInviteModal">
+            <div class="modal-overlay" v-if="inviteModalOpen" @click.self="closeInviteModal">
                 <div class="invite-modal">
                     <div class="invite-modal-header">
                         <h3>👥 邀请好友</h3>
                         <button class="chat-close-btn" @click="closeInviteModal">✕</button>
                     </div>
                     <div class="invite-modal-body">
-                        <p class="invite-desc">通过邀请链接注册的玩家充值后，您将获得天下点奖励！</p>
+                        <p class="invite-desc">好友通过链接注册后180天内捐赠，您持续获得10%仙玉奖励。</p>
 
                         <div class="invite-section">
                             <label class="invite-label">您的邀请码：</label>
@@ -1582,7 +1738,8 @@
 
                         <div class="invite-rules">
                             <p class="rules-title">🎁 奖励规则</p>
-                            <p>每推荐 <strong>4</strong> 人充值，获得 <strong>5000</strong> 天下点！</p>
+                            <p>每笔真实捐赠返 <strong>10%</strong> 仙玉；有效捐赠累计每满 <strong>300元</strong>，再送1张绑定太古技能自选卷轴。</p>
+                            <p>同账号多职业只计一次；重复补单不会重复累计，已到账奖励永久有效。</p>
                         </div>
 
                         <div class="invite-stats">
@@ -1691,19 +1848,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786462790817"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786462790817"></script>
-    <script src="vendor/howler.core.min.js?v=v1786462790817"></script>
-    <script src="vendor/driver.iife.js?v=v1786462790817"></script>
-    <script src="../includes/game-number-format.js?v=v1786462790817" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786628618151"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786628618151"></script>
+    <script src="vendor/howler.core.min.js?v=v1786628618151"></script>
+    <script src="vendor/driver.iife.js?v=v1786628618151"></script>
+    <script src="../includes/game-number-format.js?v=v1786628618151" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786462790817';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786628618151';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786462790817"></script>
+    <script src="js/app.js?v=v1786628618151"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786462790817"></script>
+    <script src="../includes/translate.js?v=v1786628618151"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

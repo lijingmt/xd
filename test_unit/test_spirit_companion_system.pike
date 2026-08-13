@@ -259,12 +259,21 @@ void test_unique_battle_slot(object root)
 		root,npc);
 	mapping pve_repeat = SPIRIT_COMPANIOND->perform_spirit_companion_combat_assist(
 		root,npc);
+	mapping pve_event = mappingp(pve["event"]) ? pve["event"] : ([]);
 	check("PVE真实协战、有1%上限且受冷却保护",
 		pve["ok"] && (int)pve["amount"]>0 &&
 		(int)pve["amount"]<=npc_max/100 && !pve_repeat["ok"] &&
 		(int)pve["restored"]>0 &&
 		(int)pve["restored"]<=root->query_life_max()*3/1000,
 		"本命灵伴未参战、越过PVE上限或无冷却");
+	check("本命灵伴实际伤害、治疗与共享共鸣完整进入前端事件",
+		pve_event["type"]=="damage" &&
+		(int)pve_event["amount"]==(int)pve["amount"] &&
+		pve_event["secondary_type"]=="heal" &&
+		(int)pve_event["secondary_amount"]==(int)pve["restored"] &&
+		(int)pve_event["shared_resonance_bonus"]==
+			(int)pve["shared_resonance_bonus"],
+		"真实回血或共享共鸣只参与数值却没有进入UI动画事件");
 	root->set_debuff("curse",0,"none");
 	root->set_debuff("curse",1,0);
 	mapping header_state = HTTP_APID->query_player_state(root);

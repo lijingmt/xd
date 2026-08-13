@@ -386,7 +386,7 @@ void test_tianxiang_context_skill_selection()
 
 void test_vip_daily_limits()
 {
-	test_start("VIP1至VIP4每日额度、当天升级与降级同步");
+	test_start("VIP1至VIP8每日额度、当天升级与降级同步");
 	object normal_player = create_runtime_player(
 		"__testunit_autofight_normal_limit__");
 	object vip_player = create_runtime_player(
@@ -405,6 +405,10 @@ void test_vip_daily_limits()
 		valid = valid &&
 			daemon->query_daily_seconds_for(normal_player) == 16*60*60 &&
 			daemon->query_time_left(normal_player) == 15*60*60;
+		set_active_vip(normal_player,8);
+		valid = valid &&
+			daemon->query_daily_seconds_for(normal_player) == 24*60*60 &&
+			daemon->query_time_left(normal_player) == 23*60*60;
 		set_active_vip(normal_player,0);
 		valid = valid &&
 			daemon->query_daily_seconds_for(normal_player) == 8*60*60 &&
@@ -436,6 +440,8 @@ void test_vip_quota_exhausted_guidance()
 		"__testunit_autofight_quota_normal__");
 	object vip4_player = create_runtime_player(
 		"__testunit_autofight_quota_vip4__");
+	object vip8_player = create_runtime_player(
+		"__testunit_autofight_quota_vip8__");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	string command_source = Stdio.read_file(
@@ -445,6 +451,7 @@ void test_vip_quota_exhausted_guidance()
 	string vue_source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
 	string normal_message = "";
 	string vip4_message = "";
+	string vip8_message = "";
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
@@ -456,8 +463,13 @@ void test_vip_quota_exhausted_guidance()
 		daemon->initialize_player(vip4_player);
 		vip4_player["/plus/autofight_time_left"] = 0;
 		vip4_message = daemon->query_quota_exhausted_message(vip4_player);
+		set_active_vip(vip8_player,8);
+		daemon->initialize_player(vip8_player);
+		vip8_player["/plus/autofight_time_left"] = 0;
+		vip8_message = daemon->query_quota_exhausted_message(vip8_player);
 		valid = daemon->can_upgrade_daily_time(normal_player) == 1 &&
-			daemon->can_upgrade_daily_time(vip4_player) == 0 &&
+			daemon->can_upgrade_daily_time(vip4_player) == 1 &&
+			daemon->can_upgrade_daily_time(vip8_player) == 0 &&
 			daemon->is_quota_exhausted_reason(
 				normal_player,normal_message) == 1 &&
 			daemon->is_quota_exhausted_reason(
@@ -466,9 +478,11 @@ void test_vip_quota_exhausted_guidance()
 			search(normal_message,"VIP1（水晶会员）") != -1 &&
 			search(normal_message,"10小时") != -1 &&
 			search(vip4_message,"今天的16小时") != -1 &&
-			search(vip4_message,"VIP4（钻石会员）") != -1 &&
-			search(vip4_message,"最高额度") != -1 &&
-			search(vip4_message,"升级至") == -1 &&
+			search(vip4_message,"升级至VIP5（星耀会员）") != -1 &&
+			search(vip8_message,"今天的24小时") != -1 &&
+			search(vip8_message,"VIP8（仙尊会员）") != -1 &&
+			search(vip8_message,"最高额度") != -1 &&
+			search(vip8_message,"升级至") == -1 &&
 			command_source &&
 			search(command_source,"[提高VIP等级:vip_service_list]") != -1 &&
 			search(command_source,"[玉石不足可捐款:add_szx_fee]") != -1 &&
@@ -483,9 +497,10 @@ void test_vip_quota_exhausted_guidance()
 		test_pass();
 	else
 		test_fail("挂机额度提示分级错误: "+normal_message+" / "+
-			vip4_message+" "+error_desc);
+			vip4_message+" / "+vip8_message+" "+error_desc);
 	destroy_runtime_player(normal_player);
 	destroy_runtime_player(vip4_player);
+	destroy_runtime_player(vip8_player);
 }
 
 void test_vip_labels_and_plan()
@@ -503,6 +518,10 @@ void test_vip_labels_and_plan()
 			daemon->query_vip_label(2) == "VIP2（黄金会员）" &&
 			daemon->query_vip_label(3) == "VIP3（白金会员）" &&
 			daemon->query_vip_label(4) == "VIP4（钻石会员）" &&
+			daemon->query_vip_label(5) == "VIP5（星耀会员）" &&
+			daemon->query_vip_label(6) == "VIP6（王者会员）" &&
+			daemon->query_vip_label(7) == "VIP7（至尊会员）" &&
+			daemon->query_vip_label(8) == "VIP8（仙尊会员）" &&
 			command_source &&
 			search(command_source,"自动挂机·VIP权益总览") != -1 &&
 			search(command_source,"查看VIP挂机分级") != -1 &&

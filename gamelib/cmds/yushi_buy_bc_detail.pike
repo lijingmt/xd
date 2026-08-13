@@ -36,7 +36,24 @@ int main(string|zero arg)
 			int num = BROADCASTD->query_num(bc_name);
 			//s += "（你目前拥有"+need_namecn+"："+have_num+"块）\n";
 			if(num>0){
-				s += "购买数量(1-50)：\n[int no:...]\n";
+				int affordable=amount>0 ? have_num/amount : 0;
+				int capacity=SHOP_BATCHD->query_capacity(me,bc,0);
+				int quick_max=min(num,affordable);
+				quick_max=min(quick_max,capacity);
+				quick_max=min(quick_max,SHOP_BATCHD->query_hard_max());
+				if(quick_max>0){
+					foreach(({1,5,10,20,50,100}),int quick)
+						if(quick<=quick_max)
+							s += "[买"+quick+"张:yushi_buy_bc_confirm "+
+								bc_name+" "+rarelevel+" "+amount+" "+
+								quick+"] ";
+					if(search(({1,5,10,20,50,100}),quick_max)==-1)
+						s += "[按库存/余额买满"+quick_max+"张:"+
+							"yushi_buy_bc_confirm "+bc_name+" "+rarelevel+
+							" "+amount+" "+quick_max+"]";
+					s += "\n";
+				}
+				s += "购买数量(1-100)：\n[int no:...]\n";
 				s += "[submit 确定购买:yushi_buy_bc_confirm "+bc_name+" "+rarelevel+" "+amount+" ...]\n";
 			}
 			else 
@@ -45,7 +62,7 @@ int main(string|zero arg)
 		else if(bc_name=="mianzhanfu"){
 			if(me->query_raceId()=="monst"){
 				s += "每天最多只能使用3张\n";
-				s += "[int no:...]\n";
+				s += "购买数量(1-3)：\n[int no:...]\n";
 				s += "[submit 确定购买:yushi_buy_bc_confirm "+bc_name+" "+rarelevel+" "+amount+" ...]\n";
 			}
 			else {
