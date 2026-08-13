@@ -14,7 +14,7 @@ int main(string|zero arg)
 	int level = me->query_vip_flag();
 	if(level)//是会员
 	{
-		if(level!=4){
+		if(level<VIP_MAX_LEVEL){
 			s += "请注意：升级并不会延长你的会员期限\n\n";
 			s += "\n请选择你要升级的会员类别:\n";
 			mapping vip_name = VIPD->get_vip_name_map();
@@ -39,7 +39,7 @@ int main(string|zero arg)
 		}
 		else
 		{
-			s += "你已经是最高级的会员了，请期待我们开放更高特权的等级吧！\n";
+			s += "你已经是当前最高级的会员了，请期待我们开放更高特权的等级吧！\n";
 		}
 	}
 	else//不是会员

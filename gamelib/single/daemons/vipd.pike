@@ -249,7 +249,8 @@ string get_vip_state_des(object player)
 				re += "你的会员资格即将到期，此时续费将享受费用9折优惠。\n";
 				break;
 		}
-				re += "[会员升级:vip_service_upgrade_list]\n";
+				if(vip_level<VIP_MAX_LEVEL)
+					re += "[会员升级:vip_service_upgrade_list]\n";
 				re += "[会员续费:vip_service_extend_detail]\n";
 	}else
 	{

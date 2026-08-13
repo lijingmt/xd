@@ -86,6 +86,10 @@ int main()
 	object player=create_player();
 	object confirm=(object)(ROOT+
 		"/gamelib/cmds/vip_myzone_off_confirm.pike");
+	object upgrade_command=(object)(ROOT+
+		"/gamelib/cmds/vip_service_upgrade_list.pike");
+	object tips_command=(object)(ROOT+
+		"/gamelib/cmds/view_more_tips.pike");
 	object autofightd=(object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	object|zero original_player=this_player();
@@ -101,6 +105,25 @@ int main()
 			VIPD->query_vip_level_limit(4)==200 &&
 			autofightd->query_daily_seconds_for(player)==16*3600,
 			"旧四档权益被新增档位改写");
+		string upgrade_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/vip_service_upgrade_list.pike") || "";
+		string api_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/http_api_daemon.pike") || "";
+		string tips_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/view_more_tips.pike") || "";
+		string vipd_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/vipd.pike") || "";
+		string vip4_state=VIPD->get_vip_state_des(player);
+		check("VIP4至VIP7仍可进入下一档升级且仅VIP8显示最高档",
+			upgrade_command && tips_command &&
+			search(upgrade_source,"if(level<VIP_MAX_LEVEL)")!=-1 &&
+			search(upgrade_source,"if(level!=4)")==-1 &&
+			search(api_source,"vip_level < VIP_MAX_LEVEL ?")!=-1 &&
+			search(api_source,"vip_level < 4 ?")==-1 &&
+			search(tips_source,"目前分为\"+VIP_MAX_LEVEL+\"个等级")!=-1 &&
+			search(vipd_source,"if(vip_level<VIP_MAX_LEVEL)")!=-1 &&
+			search(vip4_state,"[会员升级:vip_service_upgrade_list]")!=-1,
+			"旧钻石最高档判断仍在升级入口、HTTP提示或帮助页残留");
 
 		player->set_vip_flag(8);
 		check("VIP5-8按每档50元增量开放至280级24小时",
@@ -113,6 +136,11 @@ int main()
 			autofightd->query_daily_seconds_for(player)==24*3600 &&
 			player->query_max_yao()==45,
 			"新增价格、等级、挂机或药品上限不一致");
+		string vip8_state=VIPD->get_vip_state_des(player);
+		check("VIP8只显示续费且不再提供无效升级入口",
+			search(vip8_state,"[会员升级:vip_service_upgrade_list]")==-1 &&
+			search(vip8_state,"[会员续费:vip_service_extend_detail]")!=-1,
+			"最高档会员页仍显示升级入口或遗漏续费入口");
 		check("新增高阶VIP沿用钻石飞行费用且不因缺失映射退化",
 			MAPD->query_player_fly_fee(player)==5000,
 			"VIP5-8飞行费用没有继承钻石档");
