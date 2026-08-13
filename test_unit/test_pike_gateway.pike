@@ -556,6 +556,15 @@ int main()
 				"MAP_WORKER_LOCAL_TEAM_DURABLE_TTL = 604800"),
 			"部分fanout成功后仍会重复访问健康节点，或故障日志每秒刷屏");
 
+		check("社交同步按worker公平限批且不会挤占冷启动控制面",
+			source_has(gateway,
+				"PIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER = 8") &&
+			source_has(gateway,"\"local_social_events\",([\"limit\":\n"+
+				"\t\t\t\tPIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER])") &&
+			!source_has(gateway,
+				"\"local_social_events\",([\"limit\":100])"),
+			"单次最多可能扇出数千次RPC，导致租约续期和健康探测饥饿");
+
 		check("目标确认绑定真实worker进程代数，节点重启后必须重放快照",
 			source_has(rpc,"local_identity") &&
 			source_has(rpc,"query_local_process_incarnation") &&

@@ -624,7 +624,10 @@ void test_worker_failure_legacy_fallback_contract()
 	   stop_position<legacy_position &&
 	   search(startup,"FALLBACK_LATCH=")!=-1 &&
 	   search(startup,"persistent worker fallback latch found")!=-1 &&
-	   search(startup,"health_failures >= 3")!=-1 &&
+	   search(startup,"SUPERVISOR_HEALTH_FAILURES >= 3")!=-1 &&
+	   search(startup,
+		   "MAP_WORKER_STARTUP_STABILIZATION_SECONDS=60")!=-1 &&
+	   search(startup,"SECONDS < startup_grace_deadline")!=-1 &&
 	   search(startup,"XIAND_MAP_WORKER_FAILOVER_SHUTDOWN")!=-1 &&
 	   search(cluster,"gateway_failover_quiesce")!=-1 &&
 	   search(cluster,"failover shutdown confirmed absent workers")!=-1 &&

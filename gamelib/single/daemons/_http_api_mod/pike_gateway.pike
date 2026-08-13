@@ -18,6 +18,7 @@ constant PIKE_GATEWAY_MAX_RECONCILE_USERS = 20000;
 constant PIKE_GATEWAY_CIRCUIT_FAILURES = 3;
 constant PIKE_GATEWAY_CIRCUIT_SECONDS = 5;
 constant PIKE_GATEWAY_MONITOR_FAILURES = 3;
+constant PIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER = 8;
 
 private multiset(string) pike_gateway_hop_headers = (<
 	"connection","keep-alive","proxy-authenticate",
@@ -3577,7 +3578,8 @@ private void pike_gateway_run_social_events(void|int wait_for_lock)
 		mapping pending;
 		mixed poll_err = catch {
 			pending = pike_gateway_worker_rpc(source_worker,
-				"local_social_events",(["limit":100]));
+				"local_social_events",(["limit":
+				PIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER]));
 		};
 		if(poll_err || !(int)pending["ok"] || !arrayp(pending["events"]))
 			continue;
