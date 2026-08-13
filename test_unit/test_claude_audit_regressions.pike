@@ -51,6 +51,8 @@ void test_changed_files_compile()
 		"/gamelib/clone/npc/shilian_xianguan.pike",
 		"/gamelib/clone/npc/taiji_teacher.pike",
 		"/gamelib/cmds/shilian_duihuan.pike",
+		"/gamelib/cmds/auto_learn_confirm.pike",
+		"/gamelib/cmds/chatroom_chat.pike",
 		"/gamelib/cmds/boss_enter.pike",
 		"/gamelib/cmds/buy_items.pike",
 		"/gamelib/cmds/set_relife.pike",
@@ -70,6 +72,7 @@ void test_changed_files_compile()
 		"/gamelib/clone/item/weapon/wuxiangjian/wuxiangjian",
 		"/gamelib/single/daemons/account_characterd.pike",
 		"/gamelib/single/daemons/autofightd.pike",
+		"/gamelib/single/daemons/autolearnd.pike",
 		"/gamelib/single/daemons/buyd.pike",
 		"/gamelib/single/daemons/http_api_daemon.pike",
 		"/gamelib/single/daemons/giftd.pike",
@@ -78,10 +81,12 @@ void test_changed_files_compile()
 		"/gamelib/single/daemons/taskd.pike",
 		"/gamelib/single/daemons/timed_eventd.pike",
 		"/gamelib/single/daemons/professionvipd.pike",
+		"/gamelib/single/daemons/racechatd.pike",
 		"/gamelib/single/daemons/summond.pike",
 		"/gamelib/clone/user.pike",
 		"/lowlib/mudlib/inherit/feature/attack.pike",
 		"/lowlib/mudlib/inherit/feature/char.pike",
+		"/lowlib/mudlib/inherit/feature/ghost.pike",
 		"/lowlib/mudlib/inherit/feature/level.pike",
 		"/lowlib/mudlib/inherit/npc.pike",
 		"/lowlib/mudlib/inherit/user.pike",
@@ -286,6 +291,92 @@ void test_hidden_support_perform_runtime()
 	destroy_player_with_inventory(outsider);
 	if(enemy) destruct(enemy);
 	if(enemy_two) destruct(enemy_two);
+	if(room) destruct(room);
+}
+
+// 无相焰的生产故障来自“候选目标只取已有仇恨表”：普通开战
+// 仅有一只怪在表中，所以群攻实际只打一只。本测试故意不预先给
+// 第二只怪建立仇恨，同时验证路人玩家和任务NPC不被误伤。
+void test_wuxiang_room_aoe_runtime()
+{
+	object caster = create_hidden_profession_player(
+		"xd01testunitwuxiangaoe","wuxiang");
+	object teammate = create_hidden_profession_player(
+		"xd01testunitwuxiangmate","taiji");
+	object outsider = create_hidden_profession_player(
+		"xd01testunitwuxiangout","taiji");
+	object enemy = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object enemy_two = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object protected_npc = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object room = clone(WAP_ROOM);
+	int failed = 0;
+	string detail = "";
+	mixed err = catch {
+		caster->set_term("xd01testunitwuxiangteam");
+		teammate->set_term("xd01testunitwuxiangteam");
+		outsider->set_term("xd01testunitwuxiangother");
+		caster->move(room);
+		teammate->move(room);
+		outsider->move(room);
+		enemy->move(room);
+		enemy_two->move(room);
+		protected_npc->move(room);
+		protected_npc->_tasknpc = 1;
+		enemy->set_base_life(10000000);
+		enemy->flush_life();
+		enemy_two->set_base_life(10000000);
+		enemy_two->flush_life();
+		protected_npc->set_base_life(10000000);
+		protected_npc->flush_life();
+		caster->skills["wuxiangyan"] = ({5,0});
+		caster->set_mofa(caster->query_mofa_max());
+		caster->_fight(enemy);
+		int second_was_not_engaged = !caster->if_in_targets(enemy_two);
+		int teammate_before = teammate->get_cur_life();
+		int outsider_before = outsider->get_cur_life();
+		int protected_before = protected_npc->get_cur_life();
+		int mofa_before = caster->get_cur_mofa();
+		caster->perform("wuxiangyan",1);
+		mapping report = caster->query_recent_aoe_battle_report();
+		if(!second_was_not_engaged || !report ||
+		   report["skill"]!="wuxiangyan" ||
+		   sizeof((array)report["targets"])!=2 ||
+		   !caster->if_in_targets(enemy_two) ||
+		   teammate->get_cur_life()!=teammate_before ||
+		   outsider->get_cur_life()!=outsider_before ||
+		   protected_npc->get_cur_life()!=protected_before ||
+		   caster->get_cur_mofa()>=mofa_before ||
+		   caster->f_skills["wuxiangyan"]!=4){
+			failed++;
+			detail += sprintf(
+				"pre=%d report=%O targets=%d second=%d mate=%d/%d out=%d/%d task=%d/%d mana=%d/%d cold=%d; ",
+				second_was_not_engaged,report && report["skill"],
+				report ? sizeof((array)report["targets"]) : -1,
+				caster->if_in_targets(enemy_two),
+				teammate->get_cur_life(),teammate_before,
+				outsider->get_cur_life(),outsider_before,
+				protected_npc->get_cur_life(),protected_before,
+				caster->get_cur_mofa(),mofa_before,
+				(int)caster->f_skills["wuxiangyan"]);
+		}
+	};
+	if(err){
+		failed++;
+		detail += describe_error(err)+" "+describe_backtrace(err);
+	}
+	check("无相焰会扩展到同房普通怪且不误伤队友、路人与任务NPC",
+		failed==0,detail);
+	if(caster && caster->query_in_combat())
+		caster->_clean_fight();
+	destroy_player_with_inventory(caster);
+	destroy_player_with_inventory(teammate);
+	destroy_player_with_inventory(outsider);
+	if(enemy) destruct(enemy);
+	if(enemy_two) destruct(enemy_two);
+	if(protected_npc) destruct(protected_npc);
 	if(room) destruct(room);
 }
 
@@ -703,7 +794,7 @@ void test_server_driven_autofight()
 
 	object httpd = HTTP_APID;
 	object player = clone(GAMELIB_USER);
-	// 老账号可能包含大写字母；虚拟连接池键与挂机调度键必须完全一致。
+	// 老账号可能包含大写字母；连接池与挂机键保留物理档案精确大小写。
 	string userid = "xd01TestUnitAuditAFK";
 	player->set_name(userid);
 	player->set_password("testunit-afk");
@@ -713,11 +804,12 @@ void test_server_driven_autofight()
 	player->setup_player("human","jianxian");
 	player->move(ROOT+"/gamelib/d/kunlunshan/wuge");
 	httpd->set_virtual_connection(userid,({0,time(),player}));
-	check("HTTP虚拟连接池对混合大小写账号使用同一规范键",
+	check("HTTP虚拟连接池保留混合大小写账号的精确身份",
 		httpd->has_virtual_connection(userid)==1 &&
-		httpd->has_virtual_connection(lower_case(userid))==1 &&
-		httpd->get_player_from_connection(lower_case(userid),0)==player,
-		"大小写变体未命中同一虚拟连接");
+		httpd->has_virtual_connection(lower_case(userid))==0 &&
+		!httpd->get_player_from_connection(lower_case(userid),0) &&
+		httpd->get_player_from_connection(userid,0)==player,
+		"大小写变体发生串号或精确连接无法读取");
 	AUTOFIGHTD->start_autofight(player);
 	check("混合大小写账号开启挂机后注册服务端全局调度",
 		AUTOFIGHTD->query_server_autofight_tick_active(player)==1,
@@ -728,6 +820,26 @@ void test_server_driven_autofight()
 	check("事件循环长停顿不一次性补扣超过30秒额度",
 		after==before,
 		sprintf("before=%d after=%d",before,after));
+	AUTOFIGHTD->cancel_server_autofight_tick(player);
+	player->set_autofight("enable");
+	player["/tmp/autofight_no_target_ticks"] = 9;
+	player["/tmp/autofight_previous_room"] = "stale/source/room";
+	player["/tmp/autofight_resting"] = 1;
+	player["/tmp/autofight_rest_started"] = time()-10;
+	player["/tmp/autofight_last_charge"] = time()-20;
+	int resume_before = AUTOFIGHTD->query_time_left(player);
+	int resumed = AUTOFIGHTD->resume_worker_handoff(player);
+	int resume_after = AUTOFIGHTD->query_time_left(player);
+	check("跨Worker恢复挂机重新登记调度且不补扣运输耗时",
+		resumed==1 &&
+		AUTOFIGHTD->query_server_autofight_tick_active(player)==1 &&
+		resume_after==resume_before &&
+		(int)player["/tmp/autofight_last_charge"]>=time()-1 &&
+		(int)player["/tmp/autofight_no_target_ticks"]==0 &&
+		(string)player["/tmp/autofight_previous_room"]=="" &&
+		(int)player["/tmp/autofight_resting"]==0 &&
+		(int)player["/tmp/autofight_rest_started"]==0,
+		"目标Worker未恢复调度、错误扣费或计费锚点未更新");
 	AUTOFIGHTD->stop_autofight(player);
 	check("关闭挂机立即注销服务端调度",
 		AUTOFIGHTD->query_server_autofight_tick_active(player)==0,
@@ -759,6 +871,10 @@ void test_immutable_hidden_commands()
 	check("隐藏命令令牌绑定账号",
 		httpd->unhide_command("xd01another",first)=="look",
 		"其他账号可复用令牌");
+	check("老JSP数字命令书签失效后安全恢复当前画面",
+		httpd->unhide_command(user,"0")=="look" &&
+		httpd->unhide_command(user,"17 old-input")=="look",
+		"旧进程数字下标被当作明文命令执行");
 	check("令牌回收按序号推进且按账号清理",
 		auth_source &&
 		search(auth_source,"mapping(int:string) hidden_command_order")!=-1 &&
@@ -859,6 +975,18 @@ void test_prelogin_command_guards()
 		destruct(prelogin);
 }
 
+void test_distributed_channel_chat_contract()
+{
+	string userid="__testunit_channel_chat";
+	string message=userid+"|[频道测试:look]：跨Worker消息";
+	check("普通频道消息可由目标Worker幂等投递且拒绝伪造阵营",
+		RACECHATD->apply_distributed_chat_msg(
+			"human","pub_channel",message)==1 &&
+		RACECHATD->apply_distributed_chat_msg(
+			"invalid","pub_channel",message)==0,
+		"普通频道缺少跨Worker投递入口或未校验阵营");
+}
+
 int main()
 {
 	werror("\n========== Claude 两日提交审计回归 =========="
@@ -870,6 +998,7 @@ int main()
 		test_hidden_profession_combat_formulas();
 		test_hidden_skill_contract_runtime();
 		test_hidden_support_perform_runtime();
+		test_wuxiang_room_aoe_runtime();
 		test_hidden_advanced_perform_runtime();
 		test_server_authoritative_reward_and_relife();
 		test_trial_reward_exchange_runtime();
@@ -877,6 +1006,7 @@ int main()
 		test_timed_event_daily_entry_contract();
 		test_other_runtime_regressions();
 		test_prelogin_command_guards();
+		test_distributed_channel_chat_contract();
 	};
 	if(err)
 		check("审计回归测试运行时无异常",0,

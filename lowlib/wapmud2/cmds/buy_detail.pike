@@ -1,6 +1,27 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
-int main(string arg)
+#define MAX_BULK_BUY_COUNT 999
+private int can_bulk_buy(object item)
+{
+	if(!item || !item->is("combine_item"))
+		return 0;
+	return search(({"food","water","danyao"}),
+		(string)item->query_item_type())!=-1;
+}
+
+private int is_current_store_item(object player,string item_name)
+{
+	object env=player ? environment(player) : 0;
+	int low;
+	int high;
+	if(!env)
+		return 0;
+	low=(int)env->store_level_low;
+	high=(int)env->store_level_high;
+	return MUD_STORED->is_catalog_item(item_name,low,high);
+}
+
+int main(string|zero arg)
 {
 	string name=arg;
 	if(!name)
@@ -10,6 +31,13 @@ int main(string arg)
 		s+="[返回:list]\n";
 		s+="[返回游戏:look]\n";
 		write(s);
+		return 1;
+	}
+	if(search(name,"..")!=-1 || name[0]=='/' ||
+	   !is_current_store_item(this_player(),name)){
+		write("该商品不在当前商店货架中。\n"+
+			"[返回:list]\n[返回游戏:look]\n");
+		return 1;
 	}
 	object ob=clone(ROOT+"/gamelib/clone/item/"+name);
 	if(ob){
@@ -19,10 +47,19 @@ int main(string arg)
 			s+=ob->query_content? ob->query_content():"";
 		s+=ob->query_desc();
 		s+="[确定购买:buy_goods "+name+"]\n";
-		//s+="输入你想一次购买"+ob->query_name_cn()+"的数目（范围一到五十）[int:buy_lots_goods "+name+" ...]\n";
+		if(can_bulk_buy(ob)){
+			s+="批量购买（1—"+MAX_BULK_BUY_COUNT+"）："+
+				"[买50个:buy_goods "+name+" 50] "+
+				"[买100个:buy_goods "+name+" 100] "+
+				"[买300个:buy_goods "+name+" 300] "+
+				"[买999个:buy_goods "+name+" 999]\n";
+			s+="[int no:...]\n";
+			s+="[submit 自定义数量购买:buy_goods "+name+" ...]\n";
+		}
 		s+="[返回:list]\n";
 		s+="[返回游戏:look]\n";
 		write(s);
+		destruct(ob);
 	}
 	else{
 		string s = "";

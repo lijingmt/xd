@@ -6,7 +6,7 @@
     "dev": "node serve.js",
     "build": "node build.js",
     "build:prod": "node build.js",
-    "test": "node tests/build-pipeline.test.js && node tests/game-number-format.test.js && node tests/battle-state.test.js && node tests/account-characters.test.js && node tests/responsive-layout.test.js && node tests/timed-event-ui.test.js",
+    "test": "node tests/build-pipeline.test.js && node tests/game-number-format.test.js && node tests/battle-state.test.js && node tests/account-characters.test.js && node tests/responsive-layout.test.js && node tests/timed-event-ui.test.js && node tests/referral-registration.test.js",
     "clean": "rm -rf dist ../web/web_vue"
   },
   "dependencies": {
@@ -15,5 +15,8 @@
     "driver.js": "1.8.0",
     "howler": "2.2.4",
     "vue": "3.5.40"
+  },
+  "overrides": {
+    "nanoid": "3.3.17"
   }
 }

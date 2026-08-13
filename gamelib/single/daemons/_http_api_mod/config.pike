@@ -25,6 +25,25 @@
 /** HTTP服务端口 */
 constant HTTP_PORT = 8888;
 
+/** Worker processes use distinct loopback HTTP ports; standalone stays 8888. */
+int query_configured_http_port()
+{
+    string configured = getenv("XIAND_HTTP_PORT") || "";
+    int port = (int)configured;
+    if(port>=1024 && port<=65535)
+        return port;
+    return HTTP_PORT;
+}
+
+/** Distributed Pike nodes expose control RPC only on the local host. */
+string query_configured_http_host()
+{
+    string role = lower_case(getenv("XIAND_NODE_ROLE") || "standalone");
+    if(role=="worker" || role=="gateway")
+        return "127.0.0.1";
+    return "0.0.0.0";
+}
+
 /** 缺少玩家对象时的HTTP空闲兜底；正常连接由IDLE_KICKD统一判定。
  *  后台标签心跳每 25 秒发一次请求，所以这里给 2 小时确保不会被误清理。
  */

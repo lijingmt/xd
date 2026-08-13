@@ -17,6 +17,7 @@
 #define TERM_NUM 5 //队伍上限5人,以后有可能有不同人数的选择
 #define TERM_INVITE_TIMEOUT 120
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+#define MAPWORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
 inherit LOW_DAEMON;
 
 // 组队经验先提高全队共享池，再按同房合法队员数分配。
@@ -52,6 +53,12 @@ private mapping(string:array(object)) termItems=([]);
 // HTTP/Vue玩家没有持续socket输出，组队邀请必须在守护进程中暂存，
 // 由状态轮询和“我的队伍”页面共同展示。
 private mapping(string:array(mixed)) termInvites=([]);
+// Distributed workers keep primitive replicas only; room objects and loot stay
+// on the one worker that owns their room affinity.
+private mapping(string:int) termRevisions=([]);
+private mapping(string:string) termRevisionWriters=([]);
+private mapping(string:int) termCreatedAt=([]);
+private int distributedTermApply;
 void add_termItems(string termid,object item)
 {
 	if(termItems[termid] == 0)
@@ -172,31 +179,240 @@ protected void create(){
 		termChat=([]);
 	if(termInvites==0)
 		termInvites=([]);
+	if(termRevisions==0)
+		termRevisions=([]);
+	if(termRevisionWriters==0)
+		termRevisionWriters=([]);
+	if(termCreatedAt==0)
+		termCreatedAt=([]);
+}
+
+private int valid_distributed_team_token(string value,int maximum)
+{
+	if(!value || value=="" || sizeof(value)>maximum || search(value,"..")!=-1)
+		return 0;
+	foreach(value;int index;int one)
+		if(!((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+		     (one>='0' && one<='9') || one=='_' || one=='-' || one=='.'))
+			return 0;
+	return 1;
+}
+
+private mapping distributed_online_user(string userid)
+{
+	if(MAPWORKERD->query_node_role()!="worker")
+		return ([]);
+	return MAPWORKERD->query_local_online_user(userid);
+}
+
+mapping query_distributed_team_snapshot(string tid)
+{
+	mapping members = mappingp(termMain[tid]) ?
+		copy_value(termMain[tid]) : ([]);
+	array chat = arrayp(termChat[tid]) ? copy_value(termChat[tid]) : ({});
+	return (["team_id":tid,"revision":termRevisions[tid],
+		"writer":termRevisionWriters[tid] || "",
+		"members":members,"chat":chat,
+		"created_at":termCreatedAt[tid],"updated_at":time()]);
+}
+
+private void publish_distributed_team_snapshot(string tid,string source_user,
+	void|int tombstone)
+{
+	if(distributedTermApply || MAPWORKERD->query_node_role()!="worker" ||
+	   !valid_distributed_team_token(tid,96) ||
+	   !valid_distributed_team_token(source_user,64))
+		return;
+	termRevisions[tid] = max(0,termRevisions[tid])+1;
+	termRevisionWriters[tid] = MAPWORKERD->query_local_worker_id();
+	mapping snapshot = query_distributed_team_snapshot(tid);
+	if(tombstone){
+		snapshot["members"] = ([]);
+		snapshot["chat"] = ({});
+		snapshot["tombstone"] = 1;
+	}
+	mapping staged = MAPWORKERD->stage_local_social_event(
+		"team_snapshot",source_user,"",(["snapshot":snapshot]));
+	if(!(int)staged["ok"])
+		werror("[TERMD][SYNC_QUEUE_FAILED] team=%s source=%s\n",tid,source_user);
+}
+
+private void reconcile_local_team_members(string tid,mapping old_members,
+	mapping new_members)
+{
+	foreach(indices(old_members),string userid){
+		if(new_members[userid])
+			continue;
+		object player = find_player(userid);
+		if(player && (string)player->query_term()==tid)
+			player->set_term("noterm");
+	}
+	foreach(indices(new_members),string userid){
+		object player = find_player(userid);
+		if(player && (string)player->query_term()!=tid)
+			player->set_term(tid);
+	}
+}
+
+mapping apply_distributed_team_snapshot(mapping snapshot)
+{
+	string tid = (string)(snapshot["team_id"] || "");
+	string writer = (string)(snapshot["writer"] || "");
+	mapping raw_members = mappingp(snapshot["members"]) ?
+		(mapping)snapshot["members"] : ([]);
+	array raw_chat = arrayp(snapshot["chat"]) ? (array)snapshot["chat"] : ({});
+	mapping(string:array) members = ([]);
+	array(string) chat = ({});
+	int revision = (int)snapshot["revision"];
+	int leaders;
+	if(MAPWORKERD->query_node_role()!="worker" ||
+	   !valid_distributed_team_token(tid,96) ||
+	   !valid_distributed_team_token(writer,48) || revision<1 ||
+	   sizeof(raw_members)>TERM_NUM || sizeof(raw_chat)>16)
+		return (["ok":0,"code":"invalid_team_snapshot"]);
+	foreach(indices(raw_members),mixed raw_userid){
+		if(!stringp(raw_userid) || !arrayp(raw_members[raw_userid]))
+			return (["ok":0,"code":"invalid_team_snapshot"]);
+		string userid = (string)raw_userid;
+		array row = (array)raw_members[raw_userid];
+		if(!valid_distributed_team_token(userid,64) || sizeof(row)<4 ||
+		   !stringp(row[0]) || sizeof((string)row[0])>160 ||
+		   !has_value(({"leader","termer"}),(string)row[1]) ||
+		   !stringp(row[2]) || sizeof((string)row[2])>48 ||
+		   !intp(row[3]) || (int)row[3]<0 || (int)row[3]>10000)
+			return (["ok":0,"code":"invalid_team_snapshot"]);
+		if((string)row[1]=="leader")
+			leaders++;
+		members[userid] = ({(string)row[0],(string)row[1],
+			(string)row[2],(int)row[3]});
+	}
+	if(sizeof(members) && leaders!=1)
+		return (["ok":0,"code":"invalid_team_leader"]);
+	if(sizeof(members)){
+		string anchor = "";
+		foreach(indices(members),string userid)
+			if((string)members[userid][1]=="leader"){
+				anchor = userid;
+				break;
+			}
+		foreach(indices(members),string userid)
+			if(!LOGICALZONED->can_user_action("team",anchor,userid))
+				return (["ok":0,"code":"cross_zone_team_snapshot"]);
+	}
+	foreach(raw_chat,mixed raw_line){
+		if(!stringp(raw_line) || sizeof((string)raw_line)>2048)
+			return (["ok":0,"code":"invalid_team_chat_snapshot"]);
+		chat += ({(string)raw_line});
+	}
+	if(revision<termRevisions[tid] ||
+	   (revision==termRevisions[tid] &&
+	    writer<= (termRevisionWriters[tid] || "")))
+		return (["ok":1,"replayed":1,"team_id":tid]);
+	mapping old_members = mappingp(termMain[tid]) ?
+		copy_value(termMain[tid]) : ([]);
+	distributedTermApply = 1;
+	termRevisions[tid] = revision;
+	termRevisionWriters[tid] = writer;
+	if(sizeof(members)){
+		termMain[tid] = members;
+		termChat[tid] = chat;
+		termCreatedAt[tid] = max(0,(int)snapshot["created_at"]);
+	}
+	else{
+		m_delete(termMain,tid);
+		m_delete(termChat,tid);
+		m_delete(termItems,tid);
+		m_delete(termCreatedAt,tid);
+	}
+	reconcile_local_team_members(tid,old_members,members);
+	distributedTermApply = 0;
+	return (["ok":1,"team_id":tid,"revision":revision]);
+}
+
+mapping query_distributed_team_snapshot_for_user(string userid)
+{
+	object player = find_player(userid);
+	string tid = player ? (string)player->query_term() : "";
+	if(!player || tid=="" || tid=="noterm" || !termMain[tid])
+		return (["ok":1,"snapshot":0]);
+	return (["ok":1,"snapshot":query_distributed_team_snapshot(tid)]);
 }
 
 int create_term_invite(string inviter_uid,string target_uid)
 {
 	object inviter;
 	object target;
+	mapping remote_target;
+	string team_id;
 	if(!inviter_uid || inviter_uid=="" ||
 	   !target_uid || target_uid=="" || inviter_uid==target_uid)
 		return 0;
 	inviter = find_player(inviter_uid);
 	target = find_player(target_uid);
-	if(!inviter || !target)
+	if(!inviter)
+		return 0;
+	if(!target)
+		remote_target = distributed_online_user(target_uid);
+	if(!target && !(int)remote_target["ok"])
 		return 0;
 	if(!LOGICALZONED->can_user_interact(inviter_uid,target_uid)){
 		tell_object(inviter,"逻辑分区隔离中，不能邀请该玩家组队。\n");
 		return 0;
 	}
-	if(target->query_term()!="" && target->query_term()!="noterm"){
+	if(target && target->query_term()!="" && target->query_term()!="noterm"){
 		if(query_termId(target->query_term()))
 			return 2;
 		target->set_term("noterm");
 	}
+	team_id = (string)inviter->query_term();
+	if(team_id=="" || team_id=="noterm" || !query_termId(team_id)){
+		team_id = term_create(inviter_uid);
+		if(sizeof(team_id)<=1)
+			return 0;
+	}
+	if(!target){
+		mapping staged = MAPWORKERD->stage_local_social_event(
+			"team_invite",inviter_uid,target_uid,([
+				"inviter_uid":inviter_uid,
+				"inviter_name_cn":inviter->query_name_cn(),
+				"team_id":team_id,"expires_at":time()+TERM_INVITE_TIMEOUT,
+				"snapshot":query_distributed_team_snapshot(team_id),
+			]));
+		return (int)staged["ok"] ? 1 : 0;
+	}
 	termInvites[target_uid] = ({inviter_uid,
-		inviter->query_name_cn(),time()+TERM_INVITE_TIMEOUT});
+		inviter->query_name_cn(),time()+TERM_INVITE_TIMEOUT,team_id});
 	return 1;
+}
+
+mapping apply_distributed_team_invite(string event_id,string target_uid,
+	mapping payload)
+{
+	object target = find_player(target_uid);
+	string inviter_uid = (string)(payload["inviter_uid"] || "");
+	string inviter_name_cn = (string)(payload["inviter_name_cn"] || "");
+	string team_id = (string)(payload["team_id"] || "");
+	int expires_at = (int)payload["expires_at"];
+	if(!target || !valid_distributed_team_token(event_id,96) ||
+	   !valid_distributed_team_token(inviter_uid,64) ||
+	   !valid_distributed_team_token(team_id,96) ||
+	   inviter_name_cn=="" || sizeof(inviter_name_cn)>160 ||
+	   expires_at<time() || expires_at>time()+TERM_INVITE_TIMEOUT+5 ||
+	   !mappingp(payload["snapshot"]) ||
+	   !LOGICALZONED->can_user_action("team",inviter_uid,target_uid))
+		return (["ok":0,"code":"invalid_team_invite"]);
+	mapping imported = apply_distributed_team_snapshot(
+		(mapping)payload["snapshot"]);
+	if(!(int)imported["ok"])
+		return imported;
+	if(target->query_term()!="" && target->query_term()!="noterm")
+		return (["ok":1,"code":"target_already_teamed"]);
+	termInvites[target_uid] = ({inviter_uid,inviter_name_cn,
+		expires_at,team_id});
+	tell_object(target,inviter_name_cn+
+		"邀请你加入一个队伍，是否同意？\n[同意:term_ok "+inviter_uid+
+		"] [拒绝:term_refuse "+inviter_uid+"]\n");
+	return (["ok":1,"team_id":team_id]);
 }
 
 mapping query_term_invite(string target_uid)
@@ -214,7 +430,11 @@ mapping query_term_invite(string target_uid)
 	}
 	inviter = find_player((string)invite[0]);
 	target = find_player(target_uid);
-	if(!inviter || !target ||
+	if(!inviter && !(int)distributed_online_user((string)invite[0])["ok"]){
+		m_delete(termInvites,target_uid);
+		return result;
+	}
+	if(!target ||
 	   !LOGICALZONED->can_user_interact(target_uid,(string)invite[0]) ||
 	   (target->query_term()!="" && target->query_term()!="noterm")){
 		m_delete(termInvites,target_uid);
@@ -224,6 +444,7 @@ mapping query_term_invite(string target_uid)
 	result["from"] = (string)invite[0];
 	result["from_name"] = (string)invite[1];
 	result["expires_at"] = (int)invite[2];
+	result["team_id"] = sizeof(invite)>3 ? (string)invite[3] : "";
 	return result;
 }
 
@@ -284,6 +505,7 @@ string term_create(string user){
 				t_a += ({player->query_level()});//队员等级
 				t_m[user] = t_a;
 				termMain[tid] = t_m;
+				termCreatedAt[tid] = time();
 				//该创建者加上队伍id
 				player->set_term(tid);
 				//初始化新队伍的聊天内存
@@ -292,6 +514,7 @@ string term_create(string user){
 				string strchat = " : \n";                                                                  
 				chatTmp = strchat/":";
 				termChat[tid] = chatTmp;
+				publish_distributed_team_snapshot(tid,user);
 				return tid;//成功创建队伍,返回队列id
 			}
 			else
@@ -319,7 +542,9 @@ int destory_term(string termid,string uid){
 					if(who)
 						who->set_term("noterm");
 				}
+				publish_distributed_team_snapshot(termid,uid,1);
 				m_delete(termMain,termid);
+				m_delete(termCreatedAt,termid);
 				if(termChat[termid])
 					m_delete(termChat,termid);
 				//liaocheng 解散后，队伍仓库清空
@@ -510,7 +735,43 @@ int add_termChat(string tid,string msg,void|string sender_id)
 	}
 	else
 		flag = 0;
+	if(flag && sender_id && sender_id!="" && !distributedTermApply &&
+	   MAPWORKERD->query_node_role()=="worker")
+		MAPWORKERD->stage_local_social_event("team_chat",sender_id,"",([
+			"team_id":tid,"message":msg,
+		]));
 	return flag;
+}
+
+/*
+ * Team events are fanned out to every worker.  A worker with no local member
+ * must acknowledge the event instead of forcing the source to retry forever.
+ * The authoritative worker-local lease table avoids online-snapshot lag.
+ */
+private int local_worker_has_team_player(string tid)
+{
+	if(MAPWORKERD->query_node_role()!="worker")
+		return 1;
+	return MAPWORKERD->local_team_player_exists(tid);
+}
+
+mapping apply_distributed_team_chat(string tid,string msg,string sender_id)
+{
+	int added;
+	if(!valid_distributed_team_token(tid,96) ||
+	   !valid_distributed_team_token(sender_id,64) || msg=="" ||
+	   sizeof(msg)>2048)
+		return (["ok":0,"code":"invalid_team_chat"]);
+	if(!termMain[tid] || !termMain[tid][sender_id]){
+		if(local_worker_has_team_player(tid))
+			return (["ok":0,"code":"team_snapshot_missing"]);
+		return (["ok":1,"ignored":1,"code":"no_local_team_member",
+			"team_id":tid]);
+	}
+	distributedTermApply = 1;
+	added = add_termChat(tid,msg,sender_id);
+	distributedTermApply = 0;
+	return (["ok":added ? 1 : 0,"team_id":tid]);
 }
 
 
@@ -548,6 +809,7 @@ int update_termLeader(string tid, string olduid, string lname, string lname_cn)
 	if(flag){
 		//发消息给该队伍中的队员通知队长转让
 		string msg = "现在队长是"+lname_cn+"\n";
+		publish_distributed_team_snapshot(tid,olduid);
 		term_tell(tid,msg);
 	}
 	return flag;
@@ -593,6 +855,7 @@ int add_termer(string tid, string uid, string uname){
 					player->set_term(tid);
 					string msg = player->query_name_cn()+"加入了队伍\n";
 					//发消息给该队伍中的队员通知增加新队员
+					publish_distributed_team_snapshot(tid,uid);
 					term_tell(tid,msg);
 					return 1;//成功加入新队员
 				}
@@ -647,6 +910,22 @@ string query_termList(string tid,string userid){//这里传回调用者id，判�
 						}
 					}
 				}
+				else{
+					mapping remote = distributed_online_user(uid);
+					if((int)remote["ok"]){
+						array member = termMain[tid][uid];
+						results += (string)member[0]+"("+(string)member[2]+")("+
+							(string)(int)member[3]+"级)("+
+							(string)(remote["room_name"] || "跨地图")+")";
+						if((string)member[1]=="leader")
+							results += "(队长)\n";
+						else
+							results += "\n";
+						if(is_leader && userid!=uid)
+							results += "[提为队长:term_changeleader "+uid+"] "+
+								"[移出队伍:term_kick "+uid+"]\n";
+					}
+				}
 			}
 			if(is_leader){
 				results += "[解散队伍:term_release "+tid+"] ";
@@ -691,6 +970,7 @@ int kick_termer(string tid, string uid, string uname){
 	if(flag){
 		string msg = uname+"被移出了队伍。\n";
 		//发消息给该队伍中的队员通知增加新队员
+		publish_distributed_team_snapshot(tid,uid);
 		term_tell(tid,msg);
 		return 1;//成功删除队员
 	}
@@ -725,6 +1005,7 @@ int leave_term(string tid, string uid, string uname)
 		string msg = uname+"离开了队伍。\n";
 		flush_term(tid);
 		//发消息给该队伍中的队员通知增加新队员
+		publish_distributed_team_snapshot(tid,uid);
 		term_tell(tid,msg);
 		return 1;//成功删除队员
 	}
@@ -735,6 +1016,7 @@ private int term_free(string termid){
 	if(termid&&sizeof(termid)){
 		if(termMain[termid]&&sizeof(termMain[termid])){
 			if(query_termId(termid)){
+				string source_user = query_term_anchor(termid);
 				//未解散前，发消息给所有队员
 				string msg = "你所在的队伍解散了。\n";
 				term_tell(termid,msg);
@@ -744,7 +1026,10 @@ private int term_free(string termid){
 					if(who)
 						who->set_term("noterm");
 				}
+				if(source_user!="")
+					publish_distributed_team_snapshot(termid,source_user,1);
 				m_delete(termMain,termid);
+				m_delete(termCreatedAt,termid);
 				if(termChat[termid])
 					m_delete(termChat,termid);
 				//liaocheng 解散后，队伍仓库清空
@@ -768,6 +1053,11 @@ void flush_term(string tid){
 		if(termMain[tid]&&sizeof(termMain[tid])){
 			//队伍建立之后，起码两人，如果刷新之后只有一人，立刻解散。。。。。
 			if(sizeof(termMain[tid])==1){
+				// 跨 worker 邀请先创建队伍快照，再由目标节点接受；给这
+				// 个单人预备队伍一个与邀请相同的有界存活窗口。
+				if(MAPWORKERD->query_node_role()=="worker" &&
+				   termCreatedAt[tid]+TERM_INVITE_TIMEOUT>=time())
+					return;
 				term_free(tid);			
 				return;
 			}
@@ -780,6 +1070,9 @@ void flush_term(string tid){
 						m_delete(termMain[tid],userid);	
 				}
 				else{
+					mapping remote = distributed_online_user(userid);
+					if((int)remote["ok"])
+						continue;
 					//if the term leader offline, the next termer will be term leader	
 					if(termMain[tid][userid][1]=="leader")
 						term_no_leader = 1;	
@@ -880,8 +1173,32 @@ void term_tell(string tid,string msg){
 				if(ob)
 					tell_object(ob,msg);
 			}
+			if(anchor!="" && !distributedTermApply &&
+			   MAPWORKERD->query_node_role()=="worker")
+				MAPWORKERD->stage_local_social_event(
+					"team_notice",anchor,"",([
+						"team_id":tid,"message":msg,
+					]));
 		}
 	}
+}
+
+mapping apply_distributed_team_notice(string tid,string msg,string source_user)
+{
+	if(!valid_distributed_team_token(tid,96) ||
+	   !valid_distributed_team_token(source_user,64) || msg=="" ||
+	   sizeof(msg)>2048)
+		return (["ok":0,"code":"invalid_team_notice"]);
+	if(!termMain[tid] || !termMain[tid][source_user]){
+		if(local_worker_has_team_player(tid))
+			return (["ok":0,"code":"team_snapshot_missing"]);
+		return (["ok":1,"ignored":1,"code":"no_local_team_member",
+			"team_id":tid]);
+	}
+	distributedTermApply = 1;
+	term_tell(tid,msg);
+	distributedTermApply = 0;
+	return (["ok":1,"team_id":tid]);
 }
 //返回所有队员内存状态
 //private protected mapping(string:mapping(string:array)) termMain=([]);

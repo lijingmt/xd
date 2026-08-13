@@ -37,13 +37,12 @@ int main(string|zero arg)
 		write("无效的目的地。\n");
 		return 1;
 	}
-	object room;
-	mixed err = catch { room = (object)dest; };
-	if(err || !room){
+	int moved;
+	mixed err = catch { moved = me->move(dest); };
+	if(err || !moved){
 		write("目的地暂时无法到达。\n");
 		return 1;
 	}
-	me->move(room);
 	me->reset_view();
 	me->command("look");
 	return 1;

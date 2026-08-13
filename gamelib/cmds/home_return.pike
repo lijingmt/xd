@@ -5,18 +5,16 @@ int main(string|zero arg)
 {
 	string s = "";
 	object me = this_player();
-	//如果玩家在某个家园（自己或别人）中，则要清除该玩家在该home中的记录
-	if(me->if_in_home())
-		HOMED->clear_user(me);
 	//开始进入自己的家园
 	object|zero room = HOMED->query_home_by_path(arg);
 	if(room && !LOGICALZONED->can_user_action("home",
 	   me->query_name(),room->query_masterId()))
 		room = 0;
 	if(room){
-		me->set_inhome_pos(room->query_masterId());
-		me->move(room);
-		HOMED->add_user(me->query_name());
+		if(!HOMED->move_user_to_home(me,room)){
+			write("你的家园当前位于其他地图节点，请稍后重试。\n[确定:look]\n");
+			return 1;
+		}
 		me->reset_view(WAP_VIEWD["/home"]);                                                                      
 		me->write_view();
 		return 1;

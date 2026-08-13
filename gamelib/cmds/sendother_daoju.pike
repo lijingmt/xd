@@ -4,16 +4,10 @@ int main(string|zero arg)
 {
 	string s = "";
 	string user_name;
-	int user_count;
-	string goods_id;
-	string type;
 	object player=this_player();
-	object goods;
-	if(sscanf(arg,"%s",user_name)==1){
+	if(arg && sscanf(arg,"%s",user_name)==1){
 		object ob=present(user_name,environment(player));
-		if(!ob)
-	    		ob=find_player(user_name);
-		if(!ob){
+		if(!ob || ob==player || !PLAYER_TRANSFERD->same_local_room(player,ob)){
 			s += "你要赠送物品的人不在这里，请返回。\n";	
 			s += "[返回:look]\n";
 			write(s);
@@ -31,5 +25,6 @@ int main(string|zero arg)
 	}
 	s += "你要赠送物品给谁？\n";	
 	s += "[返回:look]\n";
+	write(s);
 	return 1;
 }

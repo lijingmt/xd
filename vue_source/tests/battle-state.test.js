@@ -133,10 +133,19 @@ assert(indexSource.includes('battle-pet-companion-mini'));
 assert(indexSource.includes('battle-pet-companion-full'));
 assert(indexSource.includes('battle-pet-assist-burst'));
 assert(indexSource.includes('getPetCultivationLabel(battlePet)'));
+assert(indexSource.includes("battlePet.runes.join(' · ')"));
+assert(indexSource.includes('battlePet.rune_effect'));
+assert(indexSource.includes('pet-rune-resonance'));
+assert(indexSource.includes('pet-rune-orbit'));
+assert(indexSource.includes('pet-actual-effect-mark'));
+assert(indexSource.includes('getPetActualEffectDescription(petAssistEffect)'));
 assert(indexSource.includes("petAssistEffect.mode === 'pvp'"));
-assert(indexSource.includes('v-if="headerPet"'));
+assert(indexSource.includes('v-if="headerPetSlots"'));
+assert(indexSource.includes('v-for="slot in headerPetSlots"'));
 assert(indexSource.includes('class="header-pet-companion"'));
 assert(indexSource.includes("@click=\"sendQuickCommand('pet')\""));
+assert(indexSource.includes("@click=\"sendQuickCommand('spirit_companion')\""));
+assert(indexSource.includes("'pet-system-' + (battlePet.system || 'shared')"));
 assert(indexSource.includes('@click="openEquipmentPanel"'));
 assert(indexSource.includes('equipment-human-silhouette'));
 assert(indexSource.includes('getEquipmentCandidates(equipmentSelectedSlot)'));
@@ -187,6 +196,26 @@ client.playerStats = {
 const headerPet = componentOptions.computed.headerPet.call(client);
 assert.strictEqual(headerPet.name, '当康');
 assert.strictEqual(client.getPetCultivationLabel(headerPet), 'Lv.60 · 10星真形·圆满');
+client.playerStats.pet_slots = {
+  battle_source: 'personal',
+  shared: {
+    active: 1, battle_active: 0, system: 'shared', command: 'pet',
+    name: '当康', level: 60, star: 10, evolution_name: '真形·圆满'
+  },
+  personal: {
+    active: 1, battle_active: 1, system: 'personal',
+    command: 'spirit_companion', name: '青原狸', level: 12,
+    evolution_name: '本命契约'
+  }
+};
+const dualPetSlots = componentOptions.computed.headerPetSlots.call(client);
+assert.strictEqual(dualPetSlots.length, 2);
+assert.strictEqual(dualPetSlots[0].command, 'pet');
+assert.strictEqual(dualPetSlots[1].command, 'spirit_companion');
+assert.strictEqual(dualPetSlots[1].battle_active, 1);
+assert.strictEqual(client.getPetCultivationLabel(dualPetSlots[1]), 'Lv.12 · 本命契约');
+assert(client.getPetSlotTitle(dualPetSlots[0]).includes('收藏待命'));
+assert(client.getPetSlotTitle(dualPetSlots[1]).includes('当前出战'));
 client.playerStats.pet_assist = { active: 0 };
 assert.strictEqual(componentOptions.computed.headerPet.call(client), null);
 client.playerStats.pet_assist = headerPet;
@@ -219,6 +248,18 @@ assert.strictEqual(client.handlePetLevelChange({
 }, {
   active: 1, pet_id: 'pet-growth-2', level: 22
 }), false);
+client.clearPetLevelUpEffect();
+assert.strictEqual(client.handlePetLevelChange({
+  active: 1, system: 'personal', pet_id: 'spirit-growth-1',
+  name: '青原狸', level: 11
+}, {
+  active: 1, system: 'personal', pet_id: 'spirit-growth-1',
+  name: '青原狸', level: 12
+}), true);
+assert.strictEqual(
+  client.petLevelUpEffect.command,
+  'spirit_companion detail spirit-growth-1'
+);
 client.clearPetLevelUpEffect();
 assert.strictEqual(client.petLevelUpEffect, null);
 assert.strictEqual(client.showEquipmentPanel, false);
@@ -391,6 +432,20 @@ assert.strictEqual(client.playerAvatarFailed, true);
   assert.strictEqual(client.skillAnimations[0].type, 'ancient');
   assert.strictEqual(client.skillAnimations[0].name, '鸿蒙一剑');
   assert.strictEqual(client.skillAnimations[0].target, 'room');
+  client.skillAnimations = [];
+  client.roomSkillEventHistory = {};
+  const workerSkillEvents = [{
+    id: 'worker-skill-001', event_at: 100,
+    caster_name: '太虚真人', skill_name: '【象】九星连珠',
+    skill_level: 3, target_name: '妖狼'
+  }];
+  client.syncRoomSkillManifestations(workerSkillEvents);
+  client.syncRoomSkillManifestations(workerSkillEvents);
+  assert.strictEqual(client.skillAnimations.length, 1);
+  assert.strictEqual(client.skillAnimations[0].type, 'wind');
+  assert.strictEqual(client.skillAnimations[0].name, '九星连珠');
+  assert.strictEqual(client.skillAnimations[0].target, 'room');
+  assert(client.roomSkillEventHistory['worker-skill-001']);
   const roomPet = client.parseRoomPetManifestation(
     '【灵宠显化】太虚真人的🐗当康施展「丰穰守心」，对妖狼造成321点协战伤害。'
   );
@@ -604,6 +659,18 @@ assert.strictEqual(client.playerAvatarFailed, true);
     active: true, role: '疗愈', cooldown_remaining: 0
   }), '疗愈就绪');
   assert.strictEqual(client.getPetAssistStatus({
+    active: true, role: '疗愈', cooldown_remaining: 0,
+    waiting_resource: 'life'
+  }), '治疗灵技已就绪 · 等待生命缺口');
+  assert.strictEqual(client.getPetActualEffectDescription({
+    type: 'damage', mode: 'pve', amount: 888,
+    secondary_type: 'heal', secondary_amount: 66,
+    shared_resonance_bonus: 4
+  }), '协战伤害 -888 · 同时生命 +66 · 共享共鸣 +4%');
+  assert.strictEqual(client.getPetActualEffectDescription({
+    type: 'revive', amount: 300, mofa_amount: 120
+  }), '回生已生效：生命 +300 · 法力 +120');
+  assert.strictEqual(client.getPetAssistStatus({
     active: true, role: '强攻', cooldown_remaining: 6
   }), '攻势蓄力 6秒');
   assert.strictEqual(client.getPetAssistStatus({
@@ -619,6 +686,16 @@ assert.strictEqual(client.playerAvatarFailed, true);
     name: '毕方', icon: '🔥', skill: '独足炎翎', type: 'damage',
     mode: 'pvp', amount: 496, target_name: '对手'
   }).includes('【御灵交锋】'));
+  assert(client.formatPetAssistMessage({
+    name: '融合灵宠', icon: '🐾', skill: '三灵纹共鸣', type: 'heal',
+    amount: 321, rune_set_triggered: 1, rune_mode: '厚积',
+    runes: ['回生羽', '苍文聚灵', '谷熟无忧'],
+    rune_effect: '厚积共鸣：三枚灵纹整套触发，拓印治疗为115%效果'
+  }).includes('厚积共鸣：三枚灵纹整套触发，拓印治疗为115%效果'));
+  assert(client.formatPetAssistMessage({
+    name: '本命灵伴', skill: '护主', type: 'damage', amount: 80,
+    target_name: '妖兽', secondary_type: 'mofa', secondary_amount: 25
+  }).includes('同时恢复25点法力'));
   assert.strictEqual(
     componentOptions.computed.hasRecentAoeReport.call(client),
     true

@@ -124,8 +124,17 @@ else
 			//out.print("用户名和密码只能是大小写字母或数字，请修改后重试。 <br/>");	
 			response.sendRedirect("./pc.jsp?_user="+user_url+"&_pswd="+pswd_url+"&err=3");
 		}
-		else 
+		else
 		{
+			if(request.getServerPort()>=0){
+				String legacyUser = game_fg+user;
+				String legacyTarget = "./legacy_api.jsp?userid="+
+					java.net.URLEncoder.encode(legacyUser,"UTF-8")+
+					"&password="+java.net.URLEncoder.encode(pswd,"UTF-8")+
+					"&cmd=init";
+				response.sendRedirect(response.encodeRedirectURL(legacyTarget));
+				return;
+			}
 			Socket socket = new Socket(ip,port);
 			InputStream reader = socket.getInputStream();
 			OutputStream writer = socket.getOutputStream();

@@ -4,6 +4,7 @@
 .gitattributes
 .env
 .env.*
+!.env.example
 .claude/
 
 # 日志文件
@@ -25,6 +26,7 @@ gamelib/clone/item/
 
 # 临时文件
 tmp/
+.include/
 *.tmp
 *.bak
 *.swp
@@ -46,6 +48,7 @@ dist/
 docker/*
 !docker/Dockerfile.all
 !docker/docker-compose.yml
+!docker/start-unified.sh
 
 # 脚本输出
 *.pid

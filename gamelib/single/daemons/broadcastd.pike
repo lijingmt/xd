@@ -49,6 +49,7 @@ private int bc_flag =0;                           //当前是否有尚未显示�
 private int bc_count =0;                          //当前消息在队列中的序号
 private int bc_timespace = 30;                     //消息显示间隔时间（单位：秒）
 private array(mixed) bc=({});			  //存放传音符信息 add by caijie 2008/07/07
+private Thread.Mutex bc_stock_lock=Thread.Mutex();
 
 //add by caijie 2008/07/07
 #define FLUSH_TIME 86400						  //刷新间隔时间
@@ -93,16 +94,21 @@ protected void create(){
 //add by caijie 2008/07/07
 void flush_bc()
 {
-	bc = ({});
+	array(mixed) refreshed=({});
 	object ob;
+	object key;
 	string name = "qianlichuanyinfu";
 	mixed err = catch{
-		ob = (object)(ITEM_PATH+name);
+		ob = clone(ROOT+"/gamelib/clone/item/other/"+name);
 	};
 	if(!err && ob){
 		string name_cn = ob->query_name_cn();
-		bc += ({name,name_cn,FLUSH_NUM});
+		refreshed=({name,name_cn,FLUSH_NUM});
+		destruct(ob);
 	}
+	key=bc_stock_lock->lock();
+	bc=refreshed;
+	destruct(key);
 	call_out(flush_bc,FLUSH_TIME);
 	return;
 }
@@ -111,27 +117,55 @@ void flush_bc()
 //add by caijie 2008/07/07
 void set_bc_num(string name,int num)
 {
-	if(bc && sizeof(bc)){
-		if(name == bc[0]){
-			int have_num = (int)bc[2];
-			if(have_num>=num){
-				bc[2] = have_num - num;
-			}
-		}
+	reserve_bc_num(name,num);
+}
+
+// 批量购买先原子预留库存，交付或存档失败时再原子归还。
+// 避免两个同时请求都看到相同余量后超卖。
+int reserve_bc_num(string name,int num)
+{
+	object key;
+	int ok;
+	if(!name || num<1)
+		return 0;
+	key=bc_stock_lock->lock();
+	if(bc && sizeof(bc)>=3 && name==(string)bc[0] &&
+	   (int)bc[2]>=num){
+		bc[2]=(int)bc[2]-num;
+		ok=1;
 	}
+	destruct(key);
+	return ok;
+}
+
+int release_bc_num(string name,int num)
+{
+	object key;
+	int ok;
+	if(!name || num<1)
+		return 0;
+	key=bc_stock_lock->lock();
+	if(bc && sizeof(bc)>=3 && name==(string)bc[0]){
+		bc[2]=min(FLUSH_NUM,(int)bc[2]+num);
+		ok=1;
+	}
+	destruct(key);
+	return ok;
 }
 
 //获得可供购买的传音符的个数
 //add by caijie 2008/07/07
 int query_num(string name)
 {
-	if(bc && sizeof(bc)){
+	object key=bc_stock_lock->lock();
+	int result;
+	if(bc && sizeof(bc)>=3 && name==(string)bc[0]){
 		int num = bc[2];
 		if(num>=0)
-			return bc[2];
-		else 
-			return 0;
+			result=(int)bc[2];
 	}
+	destruct(key);
+	return result;
 }
 
 /*
@@ -144,7 +178,7 @@ int query_num(string name)
 返回值：0 插入失败  
 	1 插入成功
  */
-int bcSend(array(string) msg)
+private int add_bc_message(array(string) msg)
 {
 	if(sizeof(msg)==6)
 	{
@@ -168,6 +202,25 @@ int bcSend(array(string) msg)
 	}
 	else
 		return 0;
+}
+
+int bcSend(array(string) msg)
+{
+	if(sizeof(msg)!=6)
+		return 0;
+	if(MAP_WORKERD->query_node_role()=="worker"){
+		mapping staged = MAP_WORKERD->stage_local_social_event(
+			"world_broadcast",msg[1],"",(["message":msg]));
+		if(!(int)staged["ok"])
+			return 0;
+	}
+	return add_bc_message(msg);
+}
+
+/** Gateway fanout path; idempotency is fenced by MAP_WORKERD before entry. */
+int apply_distributed_broadcast(array(string) msg)
+{
+	return add_bc_message(msg);
 }
 /*
 方法描述：定时刷新bc_msg中的信息

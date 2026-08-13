@@ -22,6 +22,56 @@ string query_account_owner()
 	return query_name();
 }
 
+private int login_migrations_done;
+
+/** A fenced target-worker restore is a move, not a fresh account login. */
+int query_pending_worker_arrival()
+{
+	mapping arrival;
+	if(MAP_WORKERD->query_node_role()!="worker" || !query_name() ||
+	   query_name()=="")
+		return 0;
+	arrival = MAP_WORKERD->query_local_player_arrival(query_name());
+	return mappingp(arrival) && (int)arrival["ok"];
+}
+
+void run_login_migrations_once()
+{
+	if(login_migrations_done)
+		return;
+	USERD->do_login(this_object());
+	login_migrations_done=1;
+}
+
+/**
+ * Login migrations run after a complete archive restore for real Vue/JSP
+ * logins. A coordinator-fenced target-worker restore is only a map move and
+ * must not repeat login-time equipment migrations.
+ */
+int setup(string password)
+{
+	// Capture before restore/account reconciliation: under severe load the
+	// 60-second arrival capability may expire while ::setup() is still loading.
+	// A failed/slow map move must never fall through into destructive login work.
+	int pending_worker_arrival = query_pending_worker_arrival();
+	int ready=::setup(password);
+	// Existing characters already have a profession after restore. Brand-new
+	// characters run the same hook from d/init after choosing a profession.
+	if(ready && query_profeId() && !pending_worker_arrival)
+		run_login_migrations_once();
+	// Paid legacy training used to exist only in one daemon's process memory.
+	// Re-register a durable session before rebuilding its commands-disabled timer.
+	if(ready && mappingp(auto_learn_runtime) && sizeof(auto_learn_runtime))
+		AUTO_LEARND->resume_player(this_object());
+	// setup() creates a fresh object and enables commands. Rebuild any durable
+	// sleep/unconscious/training timer after the complete archive is restored.
+	if(ready && functionp(this_object()->restore_persistent_activity_state))
+		this_object()->restore_persistent_activity_state();
+	if(ready && functionp(this_object()->restore_persistent_ghost_state))
+		this_object()->restore_persistent_ghost_state();
+	return ready;
+}
+
 // 复活点必须是地图内、源码明确暴露 set_relife 链接的卧室。
 // 既用于设置命令，也用于清理历史上可能被伪造的存档路径。
 int is_valid_relife_path(string path)
@@ -49,10 +99,38 @@ int move(mixed dest)
 {
 	object old_env = environment(this_object());
 	object new_env;
-	if(TIMED_EVENTD->guard_player_move(this_object(),dest))
-		return 0;
 	int old_was_fb = old_env &&
 		FBD->is_fb_room_path(file_name(old_env));
+	// 玩法权限必须先于 worker 路由判断。否则一个本应被活动守卫
+	// 拒绝的目标，可能被误当成跨 worker 到达而绕过入口规则。
+	if(TIMED_EVENTD->guard_player_move(this_object(),dest))
+		return 0;
+	// In worker mode a cross-affinity move is fenced before move_object().
+	// Static-room redirects report logical success so the original command
+	// completes durable costs/cooldowns on the sole source object. The gateway
+	// then saves and retires it before loading the target copy. Dynamic clone
+	// rooms have no reconstructable path yet and therefore fail closed.
+	int worker_move_guard = MAP_WORKERD->guard_local_player_move(
+		this_object(),dest);
+	if(worker_move_guard==2)
+		return 1;
+	if(worker_move_guard==3){
+		tell_object(this_object(),
+			"队伍状态正在同步到目标地图，请稍后再试，无需离队。\n");
+		return 0;
+	}
+	if(worker_move_guard==1){
+		mapping redirect = MAP_WORKERD->query_local_move_redirect(query_name());
+		if(!mappingp(redirect) || !(int)redirect["ok"] ||
+		   (string)redirect["target_room_path"]==""){
+			MAP_WORKERD->clear_local_move_redirect(query_name());
+			error(MAP_WORKER_REDIRECT_ERROR+" dynamic room denied\n");
+		}
+		if(old_was_fb &&
+		   !FBD->is_fb_room_path((string)redirect["target_room_path"]))
+			FBD->detach_fb_member(this_object());
+		return 1;
+	}
 	int moved = ::move(dest);
 	new_env = environment(this_object());
 	if(moved && old_was_fb && old_env!=new_env &&
@@ -76,6 +154,249 @@ int kill_flag;
 int get_gift;//获得活动赠送物品的标识，1=已领取，0=未领取，每天一次刷新
 mapping(string:int) get_once_day=([]);//记录每天领一次的物品领取情况
 string last_pos;//最后登陆房间记录
+// One-shot non-item state for a fenced cross-worker arrival. Equipment and
+// inventory remain exclusively inside the atomic player save.
+mapping worker_summon_handoff=([]);
+// Timed medicine/home effects live in the protected runtime buff mapping and
+// therefore need a narrow one-shot archive when a player changes workers.
+// Ordinary combat DOT/curse and room-bound shields are deliberately excluded;
+// player-heartbeat skill effects which survive a normal room move are included.
+mapping worker_status_effect_handoff=([]);
+// Legacy paid meditation progress must survive both worker moves and restarts.
+mapping(string:mixed) auto_learn_runtime=([]);
+mapping(string:mixed) query_auto_learn_runtime()
+{
+	return mappingp(auto_learn_runtime) ? copy_value(auto_learn_runtime) : ([]);
+}
+void set_auto_learn_runtime(mapping runtime)
+{
+	auto_learn_runtime = mappingp(runtime) ? copy_value(runtime) : ([]);
+}
+void clear_auto_learn_runtime()
+{
+	auto_learn_runtime = ([]);
+}
+
+/** Optional daemon failures must not take down ordinary character saves. */
+private int sync_auto_learn_runtime_for_save(int required)
+{
+	object|zero daemon = 0;
+	int prepared = 0;
+	if(!mappingp(auto_learn_runtime) || !sizeof(auto_learn_runtime))
+		return 1;
+	mixed err=catch {
+		daemon=find_object(ROOT+"/gamelib/single/daemons/autolearnd.pike");
+		if(daemon && functionp(daemon->prepare_worker_handoff))
+			prepared=daemon->prepare_worker_handoff(this_object());
+	};
+	if(!err && prepared)
+		return 1;
+	if(required)
+		werror("[AUTO_LEARND] required runtime sync failed uid=%s error=%s\n",
+			query_name(),err ? describe_error(err) : "daemon_unavailable");
+	return required ? 0 : 1;
+}
+
+private void detach_auto_learn_worker_runtime()
+{
+	object|zero daemon = 0;
+	if(!mappingp(auto_learn_runtime) || !sizeof(auto_learn_runtime))
+		return;
+	catch {
+		daemon=find_object(ROOT+"/gamelib/single/daemons/autolearnd.pike");
+		if(daemon && functionp(daemon->detach_worker_handoff))
+			daemon->detach_worker_handoff(this_object());
+	};
+}
+// Exactly-once receipts live in the same atomic file as the granted items.
+// A lost HTTP response can therefore retry an already-credited recharge
+// without cloning its per-character bonus a second time.
+mapping(string:int) admin_recharge_bonus_receipts=([]);
+// Arbitrary administrator item grants use a separate receipt namespace.  The
+// item payload and its receipt are committed in the same atomic player save,
+// so a lost HTTP response can be retried without cloning the item again.
+mapping(string:mapping(string:mixed)) admin_item_grant_receipts=([]);
+// 邀请累计捐赠每满300元所得太古自选卷轴。凭据和卷轴在同一人物
+// 原子档案中保存，跨角色领取前会扫描账号全部人物，禁止重复发放。
+mapping(string:int) referral_scroll_reward_receipts=([]);
+#define ADMIN_ITEM_GRANT_RECEIPT_TTL 1800
+#define ADMIN_ITEM_GRANT_RECEIPT_LIMIT 256
+
+private int valid_admin_recharge_receipt_id(string request_id)
+{
+	if(!request_id || sizeof(request_id)!=64)
+		return 0;
+	for(int index=0;index<sizeof(request_id);index++){
+		int one = request_id[index];
+		if((one>='0' && one<='9') || (one>='a' && one<='f'))
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+int has_admin_recharge_bonus_receipt(string request_id)
+{
+	return valid_admin_recharge_receipt_id(request_id) &&
+		mappingp(admin_recharge_bonus_receipts) &&
+		(int)admin_recharge_bonus_receipts[request_id]>0;
+}
+
+int record_admin_recharge_bonus_receipt(string request_id)
+{
+	if(!valid_admin_recharge_receipt_id(request_id))
+		return 0;
+	if(!mappingp(admin_recharge_bonus_receipts))
+		admin_recharge_bonus_receipts = ([]);
+	// Keep at least the same 256-request replay window as ACCOUNT_WALLETD.
+	// That daemon refuses additional live requests at its cap and rejects
+	// pruned request ids after their signed 30-minute freshness window, so an
+	// evicted old bonus receipt can never reach this method again.
+	if(!admin_recharge_bonus_receipts[request_id] &&
+	   sizeof(admin_recharge_bonus_receipts)>=256){
+		array(string) receipt_ids = indices(admin_recharge_bonus_receipts);
+		string oldest_id = "";
+		int oldest_time = time();
+		foreach(receipt_ids,string receipt_id)
+			if((int)admin_recharge_bonus_receipts[receipt_id]<=oldest_time){
+				oldest_time = (int)admin_recharge_bonus_receipts[receipt_id];
+				oldest_id = receipt_id;
+			}
+		if(oldest_id!="")
+			m_delete(admin_recharge_bonus_receipts,oldest_id);
+	}
+	admin_recharge_bonus_receipts[request_id] = time();
+	return 1;
+}
+
+void rollback_admin_recharge_bonus_receipt(string request_id)
+{
+	if(mappingp(admin_recharge_bonus_receipts))
+		m_delete(admin_recharge_bonus_receipts,request_id);
+}
+
+int has_referral_scroll_reward_receipt(string request_id)
+{
+	return valid_admin_recharge_receipt_id(request_id) &&
+		mappingp(referral_scroll_reward_receipts) &&
+		(int)referral_scroll_reward_receipts[request_id]>0;
+}
+
+int record_referral_scroll_reward_receipt(string request_id)
+{
+	if(!valid_admin_recharge_receipt_id(request_id))
+		return 0;
+	if(!mappingp(referral_scroll_reward_receipts))
+		referral_scroll_reward_receipts=([]);
+	if(!referral_scroll_reward_receipts[request_id] &&
+	   sizeof(referral_scroll_reward_receipts)>=1024)
+		return 0;
+	referral_scroll_reward_receipts[request_id]=time();
+	return 1;
+}
+
+void rollback_referral_scroll_reward_receipt(string request_id)
+{
+	if(mappingp(referral_scroll_reward_receipts))
+		m_delete(referral_scroll_reward_receipts,request_id);
+}
+
+mapping(string:mixed) query_admin_item_grant_receipt(string request_id)
+{
+	if(!valid_admin_recharge_receipt_id(request_id) ||
+	   !mappingp(admin_item_grant_receipts) ||
+	   !mappingp(admin_item_grant_receipts[request_id]))
+		return ([]);
+	return copy_value(admin_item_grant_receipts[request_id]);
+}
+
+int record_admin_item_grant_receipt(string request_id,string item_path,
+	int item_count)
+{
+	if(!valid_admin_recharge_receipt_id(request_id) || !item_path ||
+	   !sizeof(item_path) || item_count<1)
+		return 0;
+	if(!mappingp(admin_item_grant_receipts))
+		admin_item_grant_receipts = ([]);
+	if(mappingp(admin_item_grant_receipts[request_id])){
+		mapping receipt = admin_item_grant_receipts[request_id];
+		return (string)receipt["item_path"]==item_path &&
+			(int)receipt["item_count"]==item_count;
+	}
+	// Remove only receipts whose confirmation link has already expired.  Fresh
+	// receipts are never evicted: at the bound, new grants fail closed instead
+	// of making an earlier still-valid link replayable.
+	array(string) receipt_ids = indices(admin_item_grant_receipts);
+	int cutoff = time()-ADMIN_ITEM_GRANT_RECEIPT_TTL;
+	foreach(receipt_ids,string receipt_id){
+		mapping receipt = admin_item_grant_receipts[receipt_id];
+		if(!mappingp(receipt) || (int)receipt["created_at"]<cutoff)
+			m_delete(admin_item_grant_receipts,receipt_id);
+	}
+	if(sizeof(admin_item_grant_receipts)>=ADMIN_ITEM_GRANT_RECEIPT_LIMIT)
+		return 0;
+	admin_item_grant_receipts[request_id] = ([
+		"item_path":item_path,
+		"item_count":item_count,
+		"created_at":time(),
+	]);
+	return 1;
+}
+
+void rollback_admin_item_grant_receipt(string request_id)
+{
+	if(mappingp(admin_item_grant_receipts))
+		m_delete(admin_item_grant_receipts,request_id);
+}
+
+/**
+ * Complete one coordinator-fenced static-room arrival without replaying the
+ * init room's `start` command.  Replaying `start` would run login, daily and
+ * timed-event side effects twice when an already-online character crosses a
+ * worker boundary.
+ *
+ * This deliberately bypasses only this class' cross-affinity move guard.  It
+ * is callable solely while this exact userid/epoch/room arrival capability is
+ * installed locally by the authenticated loopback gateway.
+ */
+int complete_static_worker_arrival(string room_path)
+{
+	object current_room = environment(this_object());
+	mapping arrival = MAP_WORKERD->query_local_player_arrival(query_name());
+	int moved;
+	mixed move_err;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !current_room || !current_room->is("menu") ||
+	   !(int)arrival["ok"] ||
+	   (string)arrival["room_path"]!=room_path)
+		return 0;
+	move_err = catch { moved = ::move(ROOT+room_path); };
+	if(move_err || !moved)
+		return 0;
+	return 1;
+}
+
+/**
+ * Finish a redirect whose coordinator placement resolves back to this same
+ * worker. The original command already completed its durable costs exactly
+ * once, so only the inherited room move may run here; replaying the command
+ * would charge items, mana or cooldowns twice.
+ */
+int complete_same_worker_static_redirect(string room_path)
+{
+	mapping redirect = MAP_WORKERD->query_local_move_redirect(query_name());
+	int moved;
+	mixed move_err;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !(int)redirect["ok"] || room_path=="" ||
+	   (string)redirect["target_room_path"]!=room_path)
+		return 0;
+	move_err = catch { moved = ::move(ROOT+room_path); };
+	if(move_err || !moved)
+		return 0;
+	MAP_WORKERD->clear_local_move_redirect(query_name());
+	return 1;
+}
 string term;//队伍标志
 string chatid;//聊天频道标志
 int honerpt;//荣誉值
@@ -97,21 +418,18 @@ int query_auto_learn_dazuo(){
 }
 int max_yao;
 int query_max_yao(){
-	object me=this_player();
-	int vip_flag = 0;
-	if(me && me->query_vip_flag) {
-		vip_flag = me->query_vip_flag();
-	}
-	max_yao=5*(vip_flag+1);
-	//werror("========me->query_vip_flag() "+me->query_vip_flag()+"\n");
+	int current_vip = (int)this_object()->query_vip_flag();
+	if(current_vip<0)
+		current_vip=0;
+	if(current_vip>VIP_MAX_LEVEL)
+		current_vip=VIP_MAX_LEVEL;
+	max_yao=5*(current_vip+1);
 	return max_yao;
 }
 string query_max_yao_info(){
 	string s="会员最大食用次数:\n";
-	s+="水晶会员10次\n";
-	s+="黄金会员15次\n";
-	s+="白金会员20次\n";
-	s+="钻石会员25次\n";
+	for(int level=1;level<=VIP_MAX_LEVEL;level++)
+		s+=VIPD->get_vip_name(level)+(5*(level+1))+"次\n";
 	s+="捐赠获得会员 QQ：1811117272\n";
 	return s;
 }
@@ -191,7 +509,7 @@ string query_bandpswd_link(){
 //add by calvin 20080806
 
 //和会员制度相关的字段和存、取方法  added by evan 2008.07.16
-int vip_flag;      //会员标志 0:非会员 1:水晶会员  2:黄金会员  3:白金会员  4:钻石会员
+int vip_flag;      //会员标志 0:非会员；1-8档名称由VIPD服务端目录提供
 int vip_end_time;  //会员到期时间 
 mapping(int:int) vip_history=([]);//玩家会员历史记录 【结构  会员到期时间:会员等级】
 void add_vip_history(int endtime,int level){  //向历史记录中添加相关信息
@@ -418,7 +736,7 @@ array(string) query_command_prefix(){
 	return ({ROOT+"/gamelib/cmds/",})+::query_command_prefix();
 }
 /////////////////////////////////////////////////////
-protected protected protected protected protected void create(){
+protected void create(){
 	::create();
 	//term = "noterm";
 	picture = "nosex";	
@@ -442,7 +760,7 @@ string query_extra_links(void|int count)
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
 	string topten= "[排行榜:look_top]\t";
-	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[万灵:pet]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[共享宠物:pet]|[本命灵伴:spirit_companion]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	if(env && FBD->is_fb_room_path(file_name(env)))
 		returnLinks = "【幻境安全通道】[紧急离开幻境:fb_leave]\n"+
 			returnLinks;
@@ -467,8 +785,30 @@ string query_extra_links(void|int count)
 	return returnLinks;
 }
 
-int save_with_result(void|int autosave){
+int save_with_result(void|int autosave,void|int worker_fenced_save){
 	object env=environment(this_object());
+	// Keep paid legacy training's exact remaining seconds in the same atomic
+	// character archive used by worker handoff and safe shutdown.
+	sync_auto_learn_runtime_for_save(0);
+	// A worker which lost its loopback control lease must never overwrite a
+	// character that the coordinator may later recover elsewhere. The control
+	// fence is allowed one final atomic save before destroying the stale copy.
+	if(MAP_WORKERD->query_node_role()=="worker" && !worker_fenced_save){
+		int control_valid = MAP_WORKERD->local_control_lease_valid();
+		int epoch_valid =
+			MAP_WORKERD->query_local_player_epoch(query_name())>=1;
+		if((!control_valid || !epoch_valid) &&
+		   !MAP_WORKERD->local_user_request_save_fence_valid(query_name()) &&
+		   !MAP_WORKERD->consume_local_account_character_save_fence(
+			query_account_owner(),query_name())){
+			string reason = !control_valid && !epoch_valid ?
+				"control_and_epoch" : (!control_valid ?
+				"control_lease" : "player_epoch");
+			MAP_WORKERD->note_local_save_fence_block(reason);
+			werror("[MAP_WORKER][SAVE_FENCE] blocked reason=%s\n",reason);
+			return 0;
+		}
+	}
 	if(this_object()->sid == "5dwap"){
 		//tell_object(this_object(),"欢迎尝试仙道，您现在是游客身份，你的档案将不会被保存，欢迎点击注册一个正式帐号来体验仙道的乐趣。\n[注册帐号:reg_account]\n");
 		this_object()->command("quit");
@@ -528,9 +868,308 @@ int save_with_result(void|int autosave){
 	return save_ok;
 }
 
+private string query_worker_status_effect_source(string kind)
+{
+	if(has_value(({"attri_base","attri_vice","attri_defend",
+	   "attri_attack","attri_exp","attri_honer","attri_luck","spec"}),
+	   kind))
+		return "danyao";
+	if(has_value(({"te_exp","te_honer","te_luck","te_attack","te_vice",
+	   "te_base","te_defend","mianzhan"}),kind))
+		return "teyao";
+	if(has_value(({"home_attack","home_luck","home_base","home_defend"}),
+	   kind))
+		return "homeBuff";
+	return "";
+}
+
+private void clear_worker_status_effect_mirror(string kind,string source)
+{
+	mapping effects = this_object()["/"+source];
+	if(mappingp(effects))
+		m_delete(effects,kind);
+	clean_buff(kind);
+	if(kind=="spec")
+		hind = 0;
+}
+
+private string query_worker_skill_effect_channel(string kind)
+{
+	if(kind=="spec_attack_buff" || kind=="70_skill_buff")
+		return "buff";
+	if(kind=="70_skill_curse")
+		return "debuff";
+	return "";
+}
+
+/** Capture durable timed effects while excluding battle/room-bound state. */
+mapping snapshot_worker_status_effects()
+{
+	mapping snapshot = ([]);
+	array(string) kinds = ({
+		"attri_base","attri_vice","attri_defend","attri_attack",
+		"attri_exp","attri_honer","attri_luck","spec",
+		"te_exp","te_honer","te_luck","te_attack","te_vice",
+		"te_base","te_defend","mianzhan",
+		"home_attack","home_luck","home_base","home_defend",
+	});
+	int now = time();
+	foreach(kinds,string kind){
+		string source = query_worker_status_effect_source(kind);
+		mixed raw_type = query_buff(kind,0);
+		mixed raw_value = query_buff(kind,1);
+		int remaining = (int)query_buff(kind,2);
+		string name_cn = "";
+		if(!stringp(raw_type) || (string)raw_type=="" ||
+		   (string)raw_type=="none" || !intp(raw_value) || remaining<1 ||
+		   remaining>525600)
+			continue;
+		if(source=="danyao"){
+			mixed raw_name = this_object()["/danyao/"+kind];
+			if(!stringp(raw_name) || (string)raw_name=="")
+				continue;
+			name_cn = (string)raw_name;
+		}
+		else{
+			mixed raw_effect = this_object()["/"+source+"/"+kind];
+			if(!arrayp(raw_effect) || sizeof((array)raw_effect)<4 ||
+			   !stringp(((array)raw_effect)[3]) ||
+			   (string)((array)raw_effect)[3]=="")
+				continue;
+			name_cn = (string)((array)raw_effect)[3];
+		}
+		if(sizeof((string)raw_type)>64 || sizeof(name_cn)>160)
+			continue;
+		snapshot[kind] = ([
+			"source":source,"type":(string)raw_type,
+			"value":(int)raw_value,"remaining":remaining,
+			"expires_at":now+remaining*60,"name_cn":name_cn,
+		]);
+	}
+	// These effects are decremented by the player heartbeat and intentionally
+	// survive an ordinary same-process room move. Preserve their remaining tick
+	// count, but use an absolute deadline so handoff latency never extends them.
+	foreach(({"spec_attack_buff","70_skill_buff","70_skill_curse"}),
+	   string kind){
+		string channel = query_worker_skill_effect_channel(kind);
+		mixed raw_type = channel=="buff" ? query_buff(kind,0) :
+			query_debuff(kind,0);
+		mixed raw_value = channel=="buff" ? query_buff(kind,1) :
+			query_debuff(kind,1);
+		int remaining = (int)(channel=="buff" ? query_buff(kind,2) :
+			query_debuff(kind,2));
+		if(!stringp(raw_type) || (string)raw_type=="" ||
+		   (string)raw_type=="none" || sizeof((string)raw_type)>64 ||
+		   !intp(raw_value) || remaining<1 || remaining>525600)
+			continue;
+		snapshot[kind] = ([
+			"source":"skill_runtime","channel":channel,
+			"type":(string)raw_type,"value":(int)raw_value,
+			"remaining":remaining,"expires_at":now+remaining*2,
+		]);
+	}
+	return snapshot;
+}
+
+/** Restore a validated one-shot worker snapshot without extending duration. */
+int restore_worker_status_effects(mapping snapshot)
+{
+	int restored = 0;
+	int now = time();
+	if(!mappingp(snapshot) || sizeof(snapshot)>24)
+		return 0;
+	foreach(snapshot;mixed raw_kind;mixed raw_effect){
+		string kind = stringp(raw_kind) ? (string)raw_kind : "";
+		string skill_channel = query_worker_skill_effect_channel(kind);
+		string source = query_worker_status_effect_source(kind);
+		mapping effect = mappingp(raw_effect) ? (mapping)raw_effect : ([]);
+		string type = stringp(effect["type"]) ?
+			(string)effect["type"] : "";
+		string name_cn = stringp(effect["name_cn"]) ?
+			(string)effect["name_cn"] : "";
+		int stored_remaining = intp(effect["remaining"]) ?
+			(int)effect["remaining"] : 0;
+		int expires_at = intp(effect["expires_at"]) ?
+			(int)effect["expires_at"] : 0;
+		if(skill_channel!=""){
+			if((string)effect["source"]!="skill_runtime" ||
+			   (string)effect["channel"]!=skill_channel || type=="" ||
+			   type=="none" || sizeof(type)>64 || !intp(effect["value"]) ||
+			   (int)effect["value"]<-1000000000 ||
+			   (int)effect["value"]>1000000000 || stored_remaining<1 ||
+			   stored_remaining>525600 || expires_at<=now){
+				if(skill_channel=="buff")
+					clean_buff(kind);
+				else
+					clean_debuff(kind);
+				continue;
+			}
+			int skill_remaining = (expires_at-now+1)/2;
+			if(skill_remaining>stored_remaining)
+				skill_remaining=stored_remaining;
+			if(skill_remaining<1){
+				if(skill_channel=="buff")
+					clean_buff(kind);
+				else
+					clean_debuff(kind);
+				continue;
+			}
+			if(skill_channel=="buff"){
+				set_buff(kind,0,type);
+				set_buff(kind,1,(int)effect["value"]);
+				set_buff(kind,2,skill_remaining);
+			}
+			else{
+				set_debuff(kind,0,type);
+				set_debuff(kind,1,(int)effect["value"]);
+				set_debuff(kind,2,skill_remaining);
+			}
+			restored++;
+			continue;
+		}
+		if(source=="" || (string)effect["source"]!=source ||
+		   type=="" || type=="none" || sizeof(type)>64 ||
+		   name_cn=="" || sizeof(name_cn)>160 ||
+		   !intp(effect["value"]) || (int)effect["value"]<-1000000000 ||
+		   (int)effect["value"]>1000000000 || stored_remaining<1 ||
+		   stored_remaining>525600 || expires_at<=now){
+			if(source!="")
+				clear_worker_status_effect_mirror(kind,source);
+			continue;
+		}
+		int remaining = (expires_at-now+59)/60;
+		if(remaining>stored_remaining)
+			remaining = stored_remaining;
+		if(remaining<1){
+			clear_worker_status_effect_mirror(kind,source);
+			continue;
+		}
+		set_buff(kind,0,type);
+		set_buff(kind,1,(int)effect["value"]);
+		set_buff(kind,2,remaining);
+		if(source=="danyao")
+			this_object()["/danyao/"+kind] = name_cn;
+		else
+			this_object()["/"+source+"/"+kind] = ({
+				type,(int)effect["value"],remaining,name_cn,
+			});
+		if(kind=="spec" && type=="hind")
+			hind = 1;
+		restored++;
+	}
+	return restored;
+}
+
+int prepare_worker_summon_handoff(){
+	if(MAP_WORKERD->query_node_role()!="worker")
+		return 1;
+	if((mappingp(worker_summon_handoff) && sizeof(worker_summon_handoff)) ||
+	   (mappingp(worker_status_effect_handoff) &&
+	    sizeof(worker_status_effect_handoff)))
+		return 0;
+	if(!sync_auto_learn_runtime_for_save(1))
+		return 0;
+	worker_summon_handoff = SUMMOND->snapshot_worker_handoff(this_object());
+	worker_status_effect_handoff = snapshot_worker_status_effects();
+	return 1;
+}
+
+void cancel_worker_summon_handoff(){
+	worker_summon_handoff = ([]);
+	worker_status_effect_handoff = ([]);
+}
+
+/** Clear only immediately before the target's final atomic arrival save. */
+void finalize_worker_status_effect_handoff()
+{
+	worker_status_effect_handoff = ([]);
+}
+
+/** Clear and save the capability before materializing any target summons. */
+int consume_worker_summon_handoff(void|int worker_fenced_save){
+	mapping summon_snapshot;
+	mapping status_snapshot;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   ((!mappingp(worker_summon_handoff) ||
+	     !sizeof(worker_summon_handoff)) &&
+	    (!mappingp(worker_status_effect_handoff) ||
+	     !sizeof(worker_status_effect_handoff))))
+		return 1;
+	summon_snapshot = mappingp(worker_summon_handoff) ?
+		copy_value(worker_summon_handoff) : ([]);
+	status_snapshot = mappingp(worker_status_effect_handoff) ?
+		copy_value(worker_status_effect_handoff) : ([]);
+	worker_summon_handoff = ([]);
+	// During a fenced arrival the status capability remains in the last durable
+	// archive until complete_map_worker_arrival performs its final atomic save.
+	// If that save fails, a retry can therefore reconstruct protected buffs.
+	if(!worker_fenced_save)
+		worker_status_effect_handoff = ([]);
+	if(!save_with_result(0,worker_fenced_save)){
+		worker_summon_handoff = summon_snapshot;
+		worker_status_effect_handoff = status_snapshot;
+		return 0;
+	}
+	if(sizeof(summon_snapshot))
+		SUMMOND->restore_worker_handoff(this_object(),summon_snapshot);
+	if(sizeof(status_snapshot))
+		restore_worker_status_effects(status_snapshot);
+	return 1;
+}
+
 void save(void|int autosave){
 	save_with_result(autosave);
 }
+/** Drop an isolated stale copy without executing any persistence hook. */
+void discard_stale_worker_copy(){
+	catch { AUTOFIGHTD->cancel_server_autofight_tick(this_object()); };
+	detach_auto_learn_worker_runtime();
+	catch { SUMMOND->player_logout(query_name()); };
+	foreach(all_inventory(this_object()),object ob)
+		if(ob)
+			destruct(ob);
+	destruct(this_object());
+}
+
+/** Every cross-worker transport, not only ordinary exits, drops local follow links. */
+void detach_worker_follow_links(){
+	object old_env = environment(this_object());
+	if(arrayp(follow_me)){
+		foreach(follow_me,mixed raw_name){
+			string follower_name = stringp(raw_name) ? (string)raw_name : "";
+			object follower = follower_name!="" ? find_player(follower_name) : 0;
+			if(follower && environment(follower)==old_env){
+				follower->follow = "_none";
+				tell_object(follower,
+					"目标跨越了地图节点，自动跟随已安全解除。\n");
+			}
+		}
+		follow_me = ({});
+	}
+	if(follow && follow!="_none"){
+		object followed = find_player((string)follow);
+		if(followed && arrayp(followed->follow_me))
+			followed->follow_me -= ({query_name()});
+		follow = "_none";
+	}
+}
+
+/**
+ * Retire the source worker's already-saved in-memory copy during handoff.
+ * Do not call the normal remove() path here: that path saves again and emits
+ * gameplay logout/team/summon side effects even though the character remains
+ * online on the destination worker.
+ */
+void retire_worker_copy_after_save(){
+	catch { AUTOFIGHTD->cancel_server_autofight_tick(this_object()); };
+	detach_auto_learn_worker_runtime();
+	catch { SUMMOND->player_logout(query_name()); };
+	foreach(all_inventory(this_object()),object ob)
+		if(ob)
+			destruct(ob);
+	destruct(this_object());
+}
+
 void remove(){
 	SUMMOND->player_logout(this_object()->query_name());
 	if(term && term != "noterm"){
@@ -561,8 +1200,9 @@ void fight_die()
 	// 太极·生生不息（被动自复活）：5 分钟冷却，PVP 可触发。
 	if(me->try_taiji_self_revive(enemy))
 		return;
-	// 灵医职业复苏优先；未触发时才判定隐藏鸾鸟的账号级回生羽。
-	if(PETD->try_pet_owner_revive(me,enemy))
+	// 只有当前携带共享宠物时，隐藏鸾鸟的账号级回生羽才参与死亡判定。
+	if(SPIRIT_COMPANIOND->query_pet_battle_source(me)=="shared" &&
+	   PETD->try_pet_owner_revive(me,enemy))
 		return;
 	// 所有免死/活动复活均未触发，只有真实死亡才累计挂机死亡循环。
 	if(functionp(me->query_autofight) && me->query_autofight()=="enable")
@@ -1039,7 +1679,7 @@ string query_tips_msg()
 }
 int remove_combine_item(string name,int count)
 {
-	if(!count){
+	if(!name || name=="" || count<=0){
 		return 0;
 	}
 	object me = this_object();

@@ -3,11 +3,24 @@
 
 #define STORAGE_PAGE_SIZE 8
 
+private string storage_filter_safe_display(string value)
+{
+	if(!value)
+		return "";
+	value = replace(value,"[","［");
+	value = replace(value,"]","］");
+	value = replace(value,":","：");
+	value = replace(value,"\r"," ");
+	value = replace(value,"\n"," ");
+	return value;
+}
+
 string account_storage_batch_token(string mode,int revision,
-	array(string) item_ids)
+	array(string) item_ids,void|string category,void|string keyword)
 {
 	object hash = Crypto.SHA256();
-	hash->update(mode+"|"+revision+"|"+(item_ids*"|"));
+	hash->update(mode+"|"+revision+"|"+(category || "all")+"|"+
+		(keyword || "")+"|"+(item_ids*"|"));
 	return String.string2hex(hash->digest());
 }
 
@@ -25,6 +38,12 @@ int main(string|zero arg)
 	int end_index = 0;
 	int rendered_items = 0;
 	array(string) page_item_ids = ({});
+	string category = (string)(me["/tmp/account_storage/category"] || "all");
+	string keyword = (string)(me["/tmp/account_storage/keyword"] || "");
+	if(!ACCOUNT_STORAGED->valid_storage_filter_category(category))
+		category = "all";
+	if(sizeof(keyword)>96)
+		keyword = "";
 
 	if(!result["ok"]){
 		s += (string)(result["message"] || "账号共享仓库暂不可用。")+"\n";
@@ -58,7 +77,8 @@ int main(string|zero arg)
 		s += "[取给角色：账号共享 → 角色仓库:account_storage take 0]\n\n";
 	}
 	else if(mode=="put"){
-		personal = result["personal_items"];
+		personal = ACCOUNT_STORAGED->query_filtered_storage_items(
+			(array)result["personal_items"],"put",category,keyword);
 		if(sizeof(personal))
 			max_page = (sizeof(personal)-1)/STORAGE_PAGE_SIZE;
 		if(page>max_page)
@@ -68,6 +88,17 @@ int main(string|zero arg)
 		if(end_index>=sizeof(personal))
 			end_index = sizeof(personal)-1;
 		s += "§y放入共享§r（当前角色仓库 → 账号共享仓库）\n";
+		s += "筛选：[全部:account_storage_filter put category all] "+
+			"[装备:account_storage_filter put category equip] "+
+			"[技能书:account_storage_filter put category book] "+
+			"[材料:account_storage_filter put category material] "+
+			"[消耗品:account_storage_filter put category consumable]\n";
+		s += "关键词：[submit 搜索:account_storage_filter put search ...] "+
+			"[清除:account_storage_filter put clear]\n";
+		if(category!="all" || keyword!="")
+			s += "当前筛选："+category+
+				(keyword!="" ? " / "+
+				storage_filter_safe_display(keyword) : "")+"\n";
 		if(!sizeof(personal))
 			s += "当前角色仓库没有可转入的物品。\n";
 		else{
@@ -89,7 +120,8 @@ int main(string|zero arg)
 				s += "\n[本页全部放入（"+rendered_items+
 					"件）:account_storage_batch put "+page+" "+
 					account_storage_batch_token("put",
-					(int)result["revision"],page_item_ids)+"]\n";
+					(int)result["revision"],page_item_ids,
+					category,keyword)+"]\n";
 			}
 		}
 		if(page>0)
@@ -101,7 +133,8 @@ int main(string|zero arg)
 		s += "[改为从共享仓库取回:account_storage take 0]\n\n";
 	}
 	else{
-		shared = result["items"];
+		shared = ACCOUNT_STORAGED->query_filtered_storage_items(
+			(array)result["items"],"take",category,keyword);
 		if(sizeof(shared))
 			max_page = (sizeof(shared)-1)/STORAGE_PAGE_SIZE;
 		if(page>max_page)
@@ -111,6 +144,17 @@ int main(string|zero arg)
 		if(end_index>=sizeof(shared))
 			end_index = sizeof(shared)-1;
 		s += "§y取给当前角色§r（账号共享仓库 → 当前角色仓库）\n";
+		s += "筛选：[全部:account_storage_filter take category all] "+
+			"[装备:account_storage_filter take category equip] "+
+			"[技能书:account_storage_filter take category book] "+
+			"[材料:account_storage_filter take category material] "+
+			"[消耗品:account_storage_filter take category consumable]\n";
+		s += "关键词：[submit 搜索:account_storage_filter take search ...] "+
+			"[清除:account_storage_filter take clear]\n";
+		if(category!="all" || keyword!="")
+			s += "当前筛选："+category+
+				(keyword!="" ? " / "+
+				storage_filter_safe_display(keyword) : "")+"\n";
 		if(!sizeof(shared))
 			s += "账号共享仓库当前没有物品。\n";
 		else{
@@ -134,7 +178,8 @@ int main(string|zero arg)
 				s += "\n[本页全部取回（"+rendered_items+
 					"件）:account_storage_batch take "+page+" "+
 					account_storage_batch_token("take",
-					(int)result["revision"],page_item_ids)+"]\n";
+					(int)result["revision"],page_item_ids,
+					category,keyword)+"]\n";
 			}
 		}
 		if(page>0)
@@ -146,7 +191,8 @@ int main(string|zero arg)
 		s += "[改为把角色物品放入共享:account_storage put 0]\n\n";
 	}
 	s += "当前角色仓库：";
-	s += "[背包存入:user_package]|[取到背包:user_repackage]|";
+	s += "[批量存取:personal_storage]|[旧版逐件存入:user_package]|"+
+		"[旧版逐件取出:user_repackage]|";
 	s += "[扩充容量:user_package_buy_list]\n";
 	if(mode!="menu")
 		s += "[返回共享仓库首页:account_storage]\n";

@@ -12,7 +12,11 @@ int main(string|zero arg)
 	string name = "";
 	int count = 0;
 	int can_get = 0; //可以获得熔解后的物品的标识，主要是针对随身物品是否已满
-	sscanf(arg,"%d %s %d",flag,name,count);
+	if(!arg || sscanf(arg,"%d %s %d",flag,name,count)!=3 ||
+	   (flag!=0 && flag!=1) || name=="" || count<0){
+		write("熔解参数无效。\n[返回:viceskill_rongjie_list]\n[返回游戏:look]\n");
+		return 1;
+	}
 	object ob=present(name,me,count);
 	object kuang;
 	object baoshi;
@@ -41,6 +45,15 @@ int main(string|zero arg)
 		if(ob->query_item_from() != "")
 			rare_level = 7;
 		array(object) get_items = RONGJIED->get_rongjie_items(ob->query_item_canLevel(),rare_level);
+		// 部分历史装备的可熔解等级为 0，旧逻辑会在守护进程返回空数组时
+		// 直接读取 get_items[0]。保留原有产出公式，只阻止空产物消耗装备。
+		if(!sizeof(get_items) || !objectp(get_items[0])){
+			s += "该装备暂时没有可用的熔解产物，装备没有被消耗。\n";
+			s += "[返回:viceskill_rongjie_list]\n";
+			s += "[返回游戏:look]\n";
+			write(s);
+			return 1;
+		}
 		kuang = get_items[0];
 		//kuang = RONGJIED->get_kuang(ob->query_item_canLevel());
 		//baoshi = RONGJIED->get_baoshi(ob->query_item_canLevel(),rare_level);

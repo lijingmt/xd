@@ -73,6 +73,13 @@ void test_multidimensional_keys(object homed)
 		"产权键或新旧路径归一化不正确");
 }
 
+void test_missing_home_shop_license(object homed)
+{
+	check("无家园档案打开家园设置安全视为未购买店铺许可",
+		homed->if_have_shopLicense("__testunit_missing_home_shop__")==0,
+		"缺失家园档案仍解引用shop字段");
+}
+
 void test_transaction_contracts()
 {
 	int valid = source_has("/gamelib/single/daemons/homed.pike",
@@ -82,7 +89,9 @@ void test_transaction_contracts()
 		source_has("/gamelib/single/daemons/homed.pike",
 		"store_all_info_unlocked(1)") &&
 		source_has("/gamelib/single/daemons/homed.pike",
-		"YUSHID->give_yushi(player,refund_yushi)") &&
+			"YUSHID->rollback_yushi_payment(player,before_wallet") &&
+		source_has("/gamelib/single/daemons/homed.pike",
+			"player_saved=save_function_room_player(player)") &&
 		source_has("/gamelib/single/daemons/homed.pike",
 		"before_yushi-YUSHID->query_all_num(player)==yushi") &&
 		source_has("/gamelib/single/daemons/_home_mod/persistence.pike",
@@ -136,9 +145,11 @@ void test_shop_and_legacy_contracts()
 		source_has("/gamelib/cmds/home_buy_shopItem_confirm.pike",
 		"can_user_action(\"home\"") &&
 		source_has("/gamelib/cmds/home_buy_shopItem_confirm.pike",
-		"query_shop_purchase_offer(masterId,shopId)") &&
-		source_has("/gamelib/cmds/home_buy_shopItem_confirm.pike",
-		"款项已经退回") &&
+		"purchase_shop_listing(me,masterId") &&
+		source_has("/gamelib/single/daemons/homed.pike",
+		"rollback_shop_payment") &&
+		source_lacks("/gamelib/cmds/home_buy_shopItem_confirm.pike",
+		"load_player(masterId)") &&
 		source_lacks("/gamelib/cmds/home_buy_shopItem_confirm.pike",
 		"combine_itme");
 	check("旧房契读取不迁移且推荐店铺、销量榜和购买均按家园域过滤",valid,
@@ -181,6 +192,7 @@ int main()
 	}
 	test_runtime_index(homed);
 	test_multidimensional_keys(homed);
+	test_missing_home_shop_license(homed);
 	test_transaction_contracts();
 	test_visibility_and_reconciliation_contracts();
 	test_shop_and_legacy_contracts();

@@ -54,8 +54,10 @@ int main(string|zero arg)
 	*/
 	//必要的判断
 	int res_num = BROADCASTD->query_num(bc_name);
-	if(buy_num<1 || buy_num>50)
-		s += "输入有误！购买个数必须在1到50之间\n";
+	int batch_max=bc_name=="qianlichuanyinfu" ?
+		SHOP_BATCHD->query_hard_max() : 3;
+	if(buy_num<1 || buy_num>batch_max)
+		s += "输入有误！购买个数必须在1到"+batch_max+"之间\n";
 	else if(bc_name=="mianzhanfu" && me->query_raceId()!="monst")
 		s += "只有妖魔才有权利购买免战符\n";
 	else if(bc_name=="qianlichuanyinfu" && buy_num>res_num)
@@ -65,23 +67,61 @@ int main(string|zero arg)
 	else{
 		mixed err;
 		err=catch{
-			bc = clone(ITEM_PATH+bc_name);
+			bc = clone(ROOT+"/gamelib/clone/item/other/"+bc_name);
 		};
 		if(!err && bc){
-			bc->amount = buy_num;
-			if(me->if_over_load(bc)){
+			if(SHOP_BATCHD->query_capacity(me,bc,0)<buy_num){
 				s += "你的随身物品已满，无法再装下更多\n";
 				destruct(bc);
 			}
 			else{
+				int stock_reserved=bc_name!="qianlichuanyinfu" ||
+					BROADCASTD->reserve_bc_num(bc_name,buy_num);
+				if(!stock_reserved){
+					s += "千里传音符刚被其他玩家买走，请刷新余量后再试\n";
+					destruct(bc);
+					write(s+"[返回:yushi_buy_shenfu_list]\n"+
+						"[返回游戏:look]\n");
+					return 1;
+				}
 				int cost_reb = need_amount*buy_num*yushi_value;
+				int before_wallet=ACCOUNT_WALLETD->query_balance(me);
+				int before_physical=YUSHID->query_physical_all_num(me);
 				if(!YUSHID->pay_yushi(me,cost_reb)){
 					s += "玉石扣除失败，请稍后再试\n";
+					if(bc_name=="qianlichuanyinfu")
+						BROADCASTD->release_bc_num(bc_name,buy_num);
 					destruct(bc);
 				}
 				else{
-					s += "交易成功，你获得了"+bc->query_short()+"\n";
 					string bc_namecn = bc->query_name_cn();
+					destruct(bc);
+					bc=0;
+					mapping delivery=SHOP_BATCHD->deliver(me,
+						"other/"+bc_name,buy_num,0);
+					int delivery_saved=(int)delivery["ok"] &&
+						me->save_with_result();
+					if(!delivery_saved){
+						int inventory_rollback=(int)delivery["ok"] ?
+							SHOP_BATCHD->rollback(me,delivery) :
+							(int)delivery["rollback_ok"];
+						int payment_rollback=YUSHID->rollback_yushi_payment(
+							me,before_wallet,before_physical,
+							"shenfu_delivery_failed");
+						int rollback_saved=me->save_with_result();
+						int stock_rollback=bc_name!="qianlichuanyinfu" ||
+							BROADCASTD->release_bc_num(bc_name,buy_num);
+						if(!inventory_rollback || !payment_rollback ||
+						   !rollback_saved || !stock_rollback)
+							s += "神符发放和退款异常，请立即联系客服\n";
+						else
+							s += "神符发放失败，费用已退回\n";
+						write(s+"[返回:yushi_buy_shenfu_list]\n"+
+							"[返回游戏:look]\n");
+						return 1;
+					}
+					s += "交易成功，你获得了"+bc_namecn+" × "+
+						buy_num+"\n";
 					string consume_time = MUD_TIMESD->get_mysql_timedesc();
 					string cost = ""+(need_amount*buy_num)+"|"+need_yushi;
 					//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','chaunyinfu','"+cost+"','"+bc_name+"',"+buy_num+",'"+bc_namecn+"',"+cost_reb+");\n";
@@ -89,8 +129,6 @@ int main(string|zero arg)
 						c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][chuanyinfu]["+bc_name+"]["+bc_namecn+"]["+buy_num+"]["+cost_reb+"][0]\n";
 					else
 						c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][mianzhanfu]["+bc_name+"]["+bc_namecn+"]["+buy_num+"]["+cost_reb+"][0]\n";
-					bc->move_player(me->query_name());
-					BROADCASTD->set_bc_num(bc_name,buy_num);
 				}
 			}
 		}

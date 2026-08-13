@@ -197,6 +197,7 @@ void test_drop_contract_runtime()
 	if(ITEMSD->query_hidden_skill_book_count()!=37 ||
 	   ITEMSD->query_hidden_skill_min_level()!=70 ||
 	   ITEMSD->query_hidden_skill_drop_rate()!=37 ||
+	   ITEMSD->query_hidden_skill_drop_denominator()!=10000000 ||
 	   ITEMSD->can_drop_hidden_skill_book(69,1)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,0)!=0 ||
 	   ITEMSD->can_drop_hidden_skill_book(70,1)!=1 ||

@@ -17,20 +17,25 @@ int main(string|zero arg)
 	int need_level = 100000;
 	string producer_info = "";
 	object peifang;
-	sscanf(arg,"%s %s %d",type,filename,flag);
+	if(!arg || sscanf(arg,"%s %s %d",type,filename,flag)!=3 ||
+	   (flag!=0 && flag!=1) || !PEIFANGD->can_buy_peifang(type,filename)){
+		write("没有这样的卷轴配方。\n[返回游戏:look]\n");
+		return 1;
+	}
+	mixed load_err;
 	if(type == "duanzao"){
-		peifang = clone(DUANZAO+filename);
+		load_err=catch{ peifang = clone(DUANZAO+filename); };
 	}
 	else if(type == "liandan"){
-		peifang = clone(LIANDAN+filename);
+		load_err=catch{ peifang = clone(LIANDAN+filename); };
 	}
 	else if(type == "caifeng"){
-		peifang = clone(CAIFENG+filename);
+		load_err=catch{ peifang = clone(CAIFENG+filename); };
 	}
 	else if(type == "zhijia"){
-		peifang = clone(ZHIJIA+filename);
+		load_err=catch{ peifang = clone(ZHIJIA+filename); };
 	}
-	if(peifang){
+	if(!load_err && peifang && (int)peifang->level_limit>0){
 		if(flag == 0){
 			p_id = (int)peifang->peifang_id;
 			s += peifang->query_name_cn()+"\n";
@@ -63,12 +68,18 @@ int main(string|zero arg)
 		}
 		else if(flag == 1){
 			int value = peifang->level_limit*50;
-			if(me->query_account()<value)
+			if(me->if_over_easy_load())
+				s += "你的随身物品已满\n";
+			else if(me->query_account()<value)
 				s += "你身上没有足够的钱\n";
 			else{
 				me->del_account(value);
-				s += "你购买了一个"+peifang->query_name_cn()+"\n";
-				peifang->move(me);
+				if(peifang->move(me)!=1 || environment(peifang)!=me){
+					me->add_account(value);
+					s += "配方发放失败，金币已退回\n";
+				}
+				else
+					s += "你购买了一个"+peifang->query_name_cn()+"\n";
 			}
 		}
 	}

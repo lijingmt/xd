@@ -1,5 +1,14 @@
 #include <command.h>                                                                                                      
 #include <gamelib/include/gamelib.h>
+private mapping(string:int) exchange_catalog=([
+	"hundun:55emeng":30,"hundun:55shouhu":30,"hundun:55minghui":30,
+	"hu:55ziyangjian":40,"hu:55tianhuangbaodao":80,
+	"hu:55shetianbi":40,"hu:55liushuangyuehunzhang":80,
+	"hu:55hanyueliuguang":35,"hu:55fengduyuhun":35,
+	"hu:55chengyingbishou":35,"hu:55chunjunbishou":35,
+	"hu:55tiancongyunjian":70,"hu:55qinglongji":70,
+	"hu:55bingxinhuoyu":70,"hu:55yuezhimian":70
+]);
 //此指令实现利用混沌碎片合成【混沌】饰品或者利用血火石换取【狐】武器功能
 //arg = type item_name need_hdsuipian|need_xuehuoshi flag
 //type = "hundun" "hu"
@@ -15,7 +24,12 @@ int main(string|zero arg){
 	string type = "";
 	string item_name = "";
 	object me = this_player();
-	sscanf(arg,"%s %s %d %d",type,item_name,need_cailiao,flag);
+	if(!arg || sscanf(arg,"%s %s %d %d",type,item_name,need_cailiao,flag)!=4 ||
+	   !exchange_catalog[type+":"+item_name] || (flag!=0 && flag!=1)){
+		write("兑换参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
+	need_cailiao=exchange_catalog[type+":"+item_name];
 	if(flag == 0){
 		object item = (object)(ITEM_PATH + "bossdrop/" + item_name);
 		s += item->query_short()+"\n"+item->query_picture_url()+"\n"+item->query_desc()+"\n";
@@ -69,8 +83,15 @@ int main(string|zero arg){
 					Stdio.append_file(ROOT+"/log/huanjin_equip_exchange.log",now[0..sizeof(now)-2]+":"+s_log+"\n");   
 					return 1;
 				}
-				me->remove_combine_item("hundunsuipian",need_cailiao);//删除所需物品
-				item->move(me);
+				mapping(string:mixed) removal=me->remove_combine_item_transaction(
+					"hundunsuipian",need_cailiao);
+				if(!(int)removal["ok"] || item->move(me)!=1 || environment(item)!=me){
+					if((int)removal["ok"])
+						me->rollback_combine_item_transaction(removal);
+					s += "合成失败，材料已退回\n";
+					write(s+"[返回游戏:look]\n");
+					return 1;
+				}
 				s += "物品合成成功！您获得了"+item->query_short()+"\n";
 				s_log = me->query_name_cn()+"("+me->query_name()+")"+"花费"+need_cailiao+"个混沌碎片合成"+item->query_short();
 				string now=ctime(time());
@@ -97,8 +118,15 @@ int main(string|zero arg){
 					Stdio.append_file(ROOT+"/log/huanjin_equip_exchange.log",now[0..sizeof(now)-2]+":"+s_log+"\n");   
 					return 1;
 				}
-				me->remove_combine_item("xuehuoshi",need_cailiao);//删除所需的血火石
-				item->move(me);
+				mapping(string:mixed) removal=me->remove_combine_item_transaction(
+					"xuehuoshi",need_cailiao);
+				if(!(int)removal["ok"] || item->move(me)!=1 || environment(item)!=me){
+					if((int)removal["ok"])
+						me->rollback_combine_item_transaction(removal);
+					s += "换取失败，材料已退回\n";
+					write(s+"[返回游戏:look]\n");
+					return 1;
+				}
 				s += "换取成功！您获得了"+item->query_short()+"\n";
 				s_log = me->query_name_cn()+"("+me->query_name()+")"+"花费"+need_cailiao+"个血火石换取"+item->query_short();
 				string now=ctime(time());

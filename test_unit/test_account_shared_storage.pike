@@ -158,6 +158,78 @@ int main()
 			count_personal_id(child_player,item_id)==1,
 			"账号内跨人物移动后唯一ID总数不是1");
 
+		object gemmed_gear = clone(ROOT+
+			"/gamelib/clone/item/decorate/70feicuipifeng/70feicuipifeng");
+		object red_gem = clone(ROOT+
+			"/gamelib/clone/item/bossdrop/nianshoulingshi");
+		object blue_gem = clone(ROOT+
+			"/gamelib/clone/item/bossdrop/nianshoulingshi2");
+		object yellow_gem = clone(ROOT+
+			"/gamelib/clone/item/bossdrop/nianshoulingshi3");
+		gemmed_gear->set_baoshi("red",red_gem);
+		gemmed_gear->set_aocao("red",0);
+		gemmed_gear->set_baoshi("blue",blue_gem);
+		gemmed_gear->set_aocao("blue",0);
+		gemmed_gear->set_baoshi("yellow",yellow_gem);
+		gemmed_gear->set_aocao("yellow",0);
+		int gem_stored = !child_player->packaged(gemmed_gear,20);
+		destruct(gemmed_gear);
+		destruct(red_gem);
+		destruct(blue_gem);
+		destruct(yellow_gem);
+		mapping gem_personal = ACCOUNT_STORAGED->query_storage(child_player);
+		string gem_item_id = "";
+		array gem_item_data = ({});
+		foreach((array)gem_personal["personal_items"],array personal_item)
+			if(sizeof(personal_item)>8 &&
+			   (string)personal_item[3]==
+			   "decorate/70feicuipifeng/70feicuipifeng"){
+				gem_item_id = (string)personal_item[7];
+				gem_item_data = personal_item;
+				break;
+			}
+		object gem_relogin = clone(GAMELIB_USER);
+		gem_relogin->set_name(child_id);
+		gem_relogin->set_project("gamelib");
+		gem_relogin->restore();
+		int gem_snapshot_reloaded = 0;
+		foreach((array)(gem_relogin->packaged_items || ({})),array disk_item)
+			if(sizeof(disk_item)>8 && (string)disk_item[7]==gem_item_id &&
+			   mappingp(disk_item[8]))
+				gem_snapshot_reloaded = 1;
+		destruct(gem_relogin);
+		mapping gem_to_shared = ACCOUNT_STORAGED->transfer_to_shared(
+			child_player,gem_item_id);
+		ACCOUNT_STORAGED->drop_test_cache(account_id);
+		mapping gem_shared_disk = ACCOUNT_STORAGED->query_storage(root_player);
+		int gem_shared_reloaded = gem_shared_disk["ok"] &&
+			sizeof((array)gem_shared_disk["items"])==1 &&
+			mappingp(gem_shared_disk["items"][0]["data"][8]);
+		mapping gem_to_root = ACCOUNT_STORAGED->transfer_to_personal(
+			root_player,gem_item_id);
+		object restored_gear = root_player->repackaged_by_storage_id(
+			gem_item_id);
+		check("镶嵌装备跨角色共享仓库后完整保留三色年兽灵石与凹槽",
+			gem_stored && sizeof(gem_item_data)==9 &&
+			mappingp(gem_item_data[8]) && gem_snapshot_reloaded &&
+			gem_to_shared["ok"] && gem_shared_reloaded &&
+			gem_to_root["ok"] && objectp(restored_gear) &&
+			restored_gear->query_baoshi_by_id("red",0)==
+				"bossdrop/nianshoulingshi" &&
+			restored_gear->query_baoshi_by_id("blue",0)==
+				"bossdrop/nianshoulingshi2" &&
+			restored_gear->query_baoshi_by_id("yellow",0)==
+				"bossdrop/nianshoulingshi3" &&
+			restored_gear->query_aocao("red")==0 &&
+			restored_gear->query_aocao_max("red")==1 &&
+			restored_gear->query_aocao("blue")==0 &&
+			restored_gear->query_aocao_max("blue")==1 &&
+			restored_gear->query_aocao("yellow")==0 &&
+			restored_gear->query_aocao_max("yellow")==1,
+			"仓库快照、永久ID或跨人物重建丢失了镶嵌状态");
+		if(restored_gear)
+			destruct(restored_gear);
+
 		mapping put_back = ACCOUNT_STORAGED->transfer_to_shared(
 			child_player,item_id);
 		mapping before_reconcile = ACCOUNT_STORAGED->
@@ -257,6 +329,80 @@ int main()
 			after_batch_take["used"]==0 &&
 			sizeof(child_player->packaged_items)==3,
 			"批量取回后共享仓库或角色仓库数量异常");
+		object personal_ui =
+			(object)(ROOT+"/gamelib/cmds/personal_storage.pike");
+		object personal_batch =
+			(object)(ROOT+"/gamelib/cmds/personal_storage_batch.pike");
+		object token_stack = clone(ROOT+
+			"/gamelib/clone/item/yushi/suiyu");
+		token_stack->amount = 3;
+		string stack_token_before = personal_ui->
+			personal_storage_object_token(token_stack);
+		token_stack->amount = 4;
+		string stack_token_after = personal_ui->
+			personal_storage_object_token(token_stack);
+		check("背包堆叠数量变化会使旧批量页面令牌失效",
+			stack_token_before!=stack_token_after &&
+			sizeof(stack_token_before)==64 && sizeof(stack_token_after)==64,
+			"物品数量未进入背包页面快照令牌");
+		check("仓库搜索词展示转义界面控制字符但保留中文",
+			personal_ui->personal_storage_safe_display(
+				"技能[领取:x]书") == "技能［领取：x］书",
+			"搜索词仍可构造伪按钮或转义破坏中文");
+		destruct(token_stack);
+		object skill_book = clone(ROOT+
+			"/gamelib/clone/item/book/lingzhen");
+		skill_book->move(child_player);
+		array backpack_books = personal_ui->query_backpack_rows(
+			child_player,"book","lingzhen");
+		array(string) direct_tokens = sizeof(backpack_books) ?
+			({(string)backpack_books[0]["token"]}) : ({});
+		string direct_token = personal_ui->personal_storage_batch_token(
+			"share","book","lingzhen",direct_tokens);
+		child_player["/tmp/personal_storage/category"] = "book";
+		child_player["/tmp/personal_storage/keyword"] = "lingzhen";
+		set_this_player(child_player);
+		personal_batch->main("share 0 "+direct_token);
+		mapping after_direct_share = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		array filtered_books = ACCOUNT_STORAGED->
+			query_filtered_storage_items((array)after_direct_share["items"],
+			"take","book","lingzhen");
+		object stale_book = clone(ROOT+
+			"/gamelib/clone/item/book/lingzhen");
+		stale_book->move(child_player);
+		personal_batch->main("share 0 "+direct_token);
+		mapping after_stale_direct = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("背包技能书可按关键词批量直存共享且旧令牌不移动下一件",
+			sizeof(backpack_books)==1 && after_direct_share["used"]==1 &&
+			sizeof(filtered_books)==1 &&
+			after_stale_direct["used"]==1 && objectp(stale_book) &&
+			environment(stale_book)==child_player,
+			"直接共享、技能书筛选或重复批量令牌边界错误");
+		string direct_book_id = sizeof(filtered_books) ?
+			(string)filtered_books[0]["id"] : "";
+		mapping book_to_personal = ACCOUNT_STORAGED->
+			transfer_to_personal(child_player,direct_book_id);
+		array personal_books = personal_ui->query_personal_rows(
+			child_player,"book","lingzhen");
+		array(string) take_tokens = sizeof(personal_books) ?
+			({(string)personal_books[0]["token"]}) : ({});
+		string personal_take_token = personal_ui->
+			personal_storage_batch_token("take","book","lingzhen",take_tokens);
+		personal_batch->main("take 0 "+personal_take_token);
+		mapping after_personal_take = ACCOUNT_STORAGED->
+			query_storage(child_player);
+		check("角色仓库技能书可按分类关键词批量取到背包",
+			book_to_personal["ok"] && sizeof(personal_books)==1 &&
+			!sizeof(ACCOUNT_STORAGED->query_filtered_storage_items(
+				(array)after_personal_take["personal_items"],"put",
+				"book","lingzhen")),
+			"角色仓库筛选或批量取出没有使用永久物品ID");
+		child_player["/tmp/personal_storage/category"] = "all";
+		child_player["/tmp/personal_storage/keyword"] = "";
+		if(stale_book)
+			destruct(stale_book);
 		mapping return_for_recovery = ACCOUNT_STORAGED->
 			transfer_to_shared(child_player,item_id);
 		valid_storage = Stdio.read_file(storage_file(account_id));
@@ -384,6 +530,11 @@ int main()
 			"/gamelib/cmds/account_storage_deposit.pike",
 			"/gamelib/cmds/account_storage_withdraw.pike",
 			"/gamelib/cmds/account_storage_batch.pike",
+			"/gamelib/cmds/account_storage_filter.pike",
+			"/gamelib/cmds/personal_storage.pike",
+			"/gamelib/cmds/personal_storage_move.pike",
+			"/gamelib/cmds/personal_storage_batch.pike",
+			"/gamelib/cmds/personal_storage_filter.pike",
 			"/lowlib/system/inherit/user.pike",
 			"/lowlib/system/cmds/login_check.pike",
 			"/gamelib/single/daemons/http_api_daemon.pike",

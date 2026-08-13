@@ -118,6 +118,91 @@ mapping get_params(Protocols.HTTP.Server.Request req)
 // ========================================================================
 
 /**
+ * Keep a worker request running until its real response callback fires. This
+ * includes queued Backend commands and parallel JSON/static-file futures.
+ */
+private int finalize_map_worker_response_state(string routed_user,
+    string request_id)
+{
+    object routed_player;
+    mixed finalize_err;
+    int finalized = 1;
+    if(routed_user=="")
+        return 1;
+    routed_player = get_player_from_connection(routed_user,0);
+    if(!routed_player)
+        routed_player = find_player(routed_user);
+    finalize_err = catch {
+        if(routed_player &&
+           functionp(YUSHID->finalize_wallet_payment_after_worker_request))
+            finalized = YUSHID->finalize_wallet_payment_after_worker_request(
+                routed_player);
+    };
+    if(finalize_err || !finalized){
+        http_werror(" map worker response finalizer pending: %s %s error=%s\n",
+            routed_user,request_id,finalize_err ?
+            describe_error(finalize_err) : "retry");
+        return 0;
+    }
+    return 1;
+}
+
+private void publish_finished_worker_response(
+    Protocols.HTTP.Server.Request req,mapping response,string request_id)
+{
+    mixed response_err = catch { req->response_and_finish(response); };
+    // Socket delivery and world-state completion are separate facts. Once all
+    // wallet/player finalizers are durable, publish done even if the client has
+    // disconnected; the gateway can then resolve its uncertain request safely.
+    MAP_WORKERD->complete_local_gateway_request(request_id);
+    if(response_err)
+        http_werror(" map worker finalized response socket error: %s\n",
+            describe_error(response_err));
+}
+
+private void retry_finish_http_response(Protocols.HTTP.Server.Request req,
+    mapping response,string request_id,string routed_user)
+{
+    mapping request_status = MAP_WORKERD->query_local_gateway_request(request_id);
+    if(!(int)request_status["ok"] ||
+       (string)request_status["state"]!="running")
+        return;
+    if(!finalize_map_worker_response_state(routed_user,request_id)){
+        call_out(retry_finish_http_response,1,req,response,request_id,routed_user);
+        return;
+    }
+    publish_finished_worker_response(req,response,request_id);
+}
+
+void finish_http_response(Protocols.HTTP.Server.Request req,mapping response)
+{
+    string request_id = lower_case(String.trim_all_whites(
+        req->request_headers["x-xiand-request-id"] || ""));
+    mapping request_status = MAP_WORKERD->query_node_role()=="worker" ?
+        MAP_WORKERD->query_local_gateway_request(request_id) : ([]);
+    int worker_request = (int)request_status["ok"] &&
+        (string)request_status["state"]=="running";
+	if(worker_request){
+		string routed_user = String.trim_all_whites(
+			req->request_headers["x-xiand-lease-userid"] || "");
+		if(!mappingp(response["extra_heads"]))
+			response["extra_heads"] = ([]);
+		// The gateway waits for durable finalizers only when the worker proves
+		// that this exact request entered its mutation fence. Pre-fence 403/409
+		// responses intentionally carry no such capability.
+		response["extra_heads"]["X-Xiand-Request-Accepted"] = request_id;
+		if(!finalize_map_worker_response_state(routed_user,request_id)){
+            call_out(retry_finish_http_response,1,req,response,request_id,
+                routed_user);
+            return;
+        }
+        publish_finished_worker_response(req,response,request_id);
+        return;
+    }
+    req->response_and_finish(response);
+}
+
+/**
  * 发送已经在线程池编码完成的JSON字符串。
  */
 void send_encoded_json(Protocols.HTTP.Server.Request req,string json,
@@ -131,7 +216,7 @@ void send_encoded_json(Protocols.HTTP.Server.Request req,string json,
         response["extra_heads"] = ([ ]);
         response["extra_heads"]["Access-Control-Allow-Origin"] = "*";
         response["extra_heads"]["Cache-Control"] = "no-store";
-        req->response_and_finish(response);
+        finish_http_response(req,response);
     };
     if(err)
         http_werror(" send_encoded_json error: %s\n",describe_error(err));
@@ -164,7 +249,7 @@ void send_cors(Protocols.HTTP.Server.Request req)
     response["extra_heads"]["Access-Control-Allow-Origin"] = "*";
     response["extra_heads"]["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
     response["extra_heads"]["Access-Control-Allow-Headers"] = "Content-Type";
-    req->response_and_finish(response);
+    finish_http_response(req,response);
 }
 
 /**
@@ -188,7 +273,7 @@ void send_html_error(Protocols.HTTP.Server.Request req, string error_msg)
         resp["data"] = html;
         resp["error"] = 200;
         resp["extra_heads"] = (["Access-Control-Allow-Origin": "*"]);
-        req->response_and_finish(resp);
+        finish_http_response(req,resp);
     };
 
     if(err) {
@@ -213,7 +298,7 @@ private void finish_serve_file(string|zero data,
     response["data"] = data;
     response["extra_heads"] = (["Access-Control-Allow-Origin": "*"]);
     mixed err = catch {
-        req->response_and_finish(response);
+        finish_http_response(req,response);
     };
     if(err)
         http_werror(" async static response error: %s\n",

@@ -267,9 +267,17 @@ void test_real_star_rotation_and_unlearned_gate()
 		caster->skills["xingluo"] = ({1,0});
 		caster->_fight(target);
 		foreach(generators,string skill_name){
-			caster->timeCold = 0;
-			caster->f_skills[skill_name] = 0;
-			caster->perform(skill_name,1);
+			int marks_before = caster->query_tianxiang_star_marks();
+			// 命中判定是战斗公式的一部分；允许真实未命中后重试，避免
+			// 单测把合法闪避随机误判成星痕逻辑回归。
+			for(int attempt=0;attempt<20 &&
+			    caster->query_tianxiang_star_marks()==marks_before;attempt++){
+				caster->timeCold = 0;
+				caster->f_skills[skill_name] = 0;
+				caster->perform(skill_name,1);
+			}
+			if(caster->query_tianxiang_star_marks()!=marks_before+1)
+				failed++;
 		}
 		marks_after_generators = caster->query_tianxiang_star_marks();
 		if(marks_after_generators!=3)
@@ -343,9 +351,15 @@ void test_shield_curse_and_hidden_balance()
 		   caster->query_buff("buff",2)!=12)
 			failed++;
 		caster->clean_buff("buff");
-		caster->timeCold = 0;
 		caster->skills["xingsuo"] = ({1,0});
-		caster->perform("xingsuo",1);
+		// 星锁保留真实命中判定；有限重试只消除单测随机闪避，
+		// 不改变技能伤害、命中率或线上冷却。
+		for(int attempt=0;attempt<20 &&
+		    target->query_debuff("curse",0)!="all_mofa_defend";attempt++){
+			caster->timeCold = 0;
+			caster->f_skills["xingsuo"] = 0;
+			caster->perform("xingsuo",1);
+		}
 		if(target->query_debuff("curse",0)!="all_mofa_defend" ||
 		   target->query_debuff("curse",1)!=12 ||
 		   target->query_debuff("curse",2)!=8)

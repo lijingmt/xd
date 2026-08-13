@@ -43,9 +43,9 @@ private mapping(string:array(string)) profession_types = ([
 	"lingyi":({"heal","heal","buff","bing_mofa_attack","heal","heal","heal"}),
 ]);
 
-// 品阶越高权重越低；390/125000000约为旧池31/100000的1/100。
+// 品阶越高权重越低；390/1250000000约为神技池37/10000000的1/12。
 private array(int) tier_drop_weights = ({12,9,7,5,3,2,1});
-private int drop_denominator = 125000000;
+private int drop_denominator = 1250000000;
 private int minimum_npc_level = 90;
 
 private array(string) split_entry(string entry)
@@ -93,6 +93,23 @@ array(string) query_all_skill_ids()
 		foreach(profession_skills[profession],string entry)
 			result += ({split_entry(entry)[0]});
 	return result;
+}
+
+array(string) query_profession_skill_ids(string|zero profession)
+{
+	array(string) result = ({});
+	if(!profession || !profession_skills[profession])
+		return result;
+	foreach(profession_skills[profession],string entry)
+		result += ({split_entry(entry)[0]});
+	return result;
+}
+
+string query_profession_name(string|zero profession)
+{
+	if(!profession || !profession_names[profession])
+		return "";
+	return profession_names[profession];
 }
 
 int query_total_drop_weight()

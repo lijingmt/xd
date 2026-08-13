@@ -4,6 +4,7 @@
 	javax.naming.*,
 	java.sql.Connection,
 	javax.sql.DataSource,
+	jakarta.servlet.http.HttpServletRequest,
 	java.sql.PreparedStatement,
 	java.io.*,
 	java.security.*,
@@ -204,6 +205,36 @@ String read(InputStream reader,String charset) throws IOException
 		e.printStackTrace();
 	}
 	return ret;
+}
+
+String legacyCommandValue(String value)
+{
+	if(value == null)
+		return "";
+	return value.replace("%","%%").replace(" ","%20");
+}
+
+String buildLegacyApiCommand(HttpServletRequest request,String baseCommand)
+{
+	String command = baseCommand == null || baseCommand.trim().length() == 0 ?
+		"init" : baseCommand.trim();
+	for(Enumeration names=request.getParameterNames();names.hasMoreElements();){
+		String name = (String)names.nextElement();
+		if(name == null || name.length() == 0 || name.charAt(0) == '_' ||
+			"t".equals(name) || "arg".equals(name) || "info".equals(name) ||
+			"cmd".equals(name) || "txd".equals(name) ||
+			"userid".equals(name) || "password".equals(name) ||
+			name.length() >= 5)
+			continue;
+		command += " "+name+"="+
+			legacyCommandValue(request.getParameter(name));
+	}
+	String argument = request.getParameter("arg");
+	if(argument == null || argument.length() == 0)
+		argument = request.getParameter("_arg");
+	if(argument != null && argument.length() > 0)
+		command += " "+legacyCommandValue(argument);
+	return command.replaceAll("  +"," ").trim();
 }
 %>
 <%

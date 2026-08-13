@@ -111,10 +111,11 @@ void test_team_required_flag()
 	int ok1 = (int)b1->is_team_required_boss()==1;
 	int ok2 = (int)b2->is_team_required_boss()==1;
 	int ok3 = (int)b1->query_team_required_min_size()==4;
-	int ok4 = (int)b2->query_team_required_min_size()==4;
+	int ok4 = (int)b2->query_team_required_min_size()==2;
 	check("归墟魔君 启用 team_required",ok1,"未启用");
 	check("万象妖皇 启用 team_required",ok2,"未启用");
-	check("最小队伍人数=4",ok3&&ok4,"默认值异常");
+	check("归墟魔君最少4人",ok3,"默认值异常");
+	check("万象妖皇最少2人",ok4,"默认值异常");
 }
 
 void test_team_counter()
@@ -220,6 +221,44 @@ void test_team_gate_and_reset_runtime()
 	destroy_room_inventory(reset_room);
 }
 
+void test_wanxiang_two_player_gate_runtime()
+{
+	werror("\n[测试5B] 万象妖皇两人门槛与组队经验池\n");
+	object room = clone(WAP_ROOM);
+	object boss = clone(ROOT+"/gamelib/clone/npc/boss/wanxiangyaohuang");
+	object p1 = create_gate_player("__testunit_wanxiang_gate_1__","zhenyue");
+	object p2 = create_gate_player("__testunit_wanxiang_gate_2__","lingyi");
+	int one_blocked;
+	int two_allowed;
+	string error_desc = "";
+	mixed err = catch {
+		p1->set_term("__testunit_wanxiang_gate_team__");
+		p2->set_term("__testunit_wanxiang_gate_team__");
+		p1->move(room);
+		boss->move(room);
+		one_blocked = p1->_fight(boss)==0 && !p1->query_in_combat();
+		p2->move(room);
+		two_allowed = p1->_fight(boss)==1 && p1->query_in_combat();
+	};
+	if(err)
+		error_desc = describe_error(err);
+	check("万象妖皇1人拒绝、2人可进入战斗",
+		!err && one_blocked && two_allowed,
+		sprintf("one=%d two=%d %s",one_blocked,two_allowed,error_desc));
+	check("有效队员越多时沿用递增组队总经验池",
+		TERMD->query_team_exp_pool_percent(2)==120 &&
+		TERMD->query_team_exp_pool_percent(3)==140 &&
+		TERMD->query_team_exp_pool_percent(4)==160 &&
+		TERMD->query_team_exp_pool_percent(5)==200,
+		"2至5人经验池不是120/140/160/200");
+	if(p1 && p1->query_in_combat())
+		p1->_clean_fight();
+	if(p1) destruct(p1);
+	if(p2) destruct(p2);
+	if(boss) destruct(boss);
+	if(room) destruct(room);
+}
+
 void test_self_heal_threat_hook()
 {
 	werror("\n[测试5] 自疗产生 5:1 仇恨（fight.pike heal 分支）\n");
@@ -313,6 +352,12 @@ void test_duihuan_command_complete()
 		search(npc,"shilian_duihuan 500 hidden")==-1 &&
 		search(npc,"shilian_duihuan 1 hidden")!=-1,
 		"页面仍把单价当成数量传入");
+	check("太古直接掉落与武勋神技兑换文案明确区分",
+		search(menu,"极低概率直接掉落")!=-1 &&
+		search(menu,"500武勋兑换的是太极/无相神技")!=-1 &&
+		search(npc,"不会替代太古掉落")!=-1 &&
+		search(menu,"太极/无相神技书(500武勋)")!=-1,
+		"页面仍可能让玩家误以为武勋兑换替代了太古掉落");
 	check("装备兑换按标称目标等级和品质生成",
 		search(src,"get_itemname_on_level(level)")!=-1 &&
 		search(src,"get_convert_item(raw_name")!=-1 &&
@@ -343,6 +388,13 @@ void test_boss_rooms_connected()
 		r1->query_name_cn());
 	check("万象林 name_cn 正确",r2->query_name_cn()=="万象林",
 		r2->query_name_cn());
+	string wanxiang_source = Stdio.read_file(ROOT+
+		"/gamelib/d/congxianzhen/wanxianglin");
+	check("万象林入口同步显示2人门槛与人数经验加成",
+		wanxiang_source && search(wanxiang_source,"最低 2 人")!=-1 &&
+		search(wanxiang_source,"队伍总经验越高")!=-1 &&
+		search(wanxiang_source,"需 4 人以上")==-1,
+		"入口房间仍显示旧的4人门槛");
 	check("两处硬 Boss 战场不被误标为可睡眠卧室",
 		!r1->is("bedroom") && !r2->is("bedroom"),
 		"玩家仍可在 Boss 房使用 sleep");
@@ -402,6 +454,7 @@ int main()
 		test_team_required_flag();
 		test_team_counter();
 		test_team_gate_and_reset_runtime();
+		test_wanxiang_two_player_gate_runtime();
 		test_self_heal_threat_hook();
 		test_team_required_gate_in_attack();
 		test_wuxun_drop_on_boss_death();

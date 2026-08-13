@@ -20,10 +20,24 @@ inherit LOW_DAEMON;
 #define ACCOUNT_WALLET_REQUEST_TTL 1800
 #define ACCOUNT_WALLET_MAX_REQUESTS 256
 #define ACCOUNT_WALLET_MAX_DEBIT_REQUESTS 64
+#define ACCOUNT_WALLET_MAX_REFERRAL_REQUESTS 4096
 
 private Thread.Mutex account_wallet_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_wallet_cache = ([]);
 private mapping(string:mapping(string:int)) account_legacy_fee_cache = ([]);
+
+/** Authenticated map-worker ingress only: discard cross-process stale state. */
+void invalidate_worker_account_cache(string account_id)
+{
+	object key;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !valid_wallet_userid(account_id))
+		return;
+	key = account_wallet_lock->lock();
+	m_delete(account_wallet_cache,account_id);
+	m_delete(account_legacy_fee_cache,account_id);
+	destruct(key);
+}
 
 private void cache_wallet_unlocked(string account_id,mapping record)
 {
@@ -94,8 +108,20 @@ private mapping(string:mixed) empty_wallet(string account_id)
 		"transactions":({}),
 		"recharge_requests":([]),
 		"debit_requests":([]),
+		"referral_requests":([]),
 		"persisted":0,
 	]);
+}
+
+private int valid_referral_receipt(string request_id,mapping receipt)
+{
+	if(!valid_wallet_txid(request_id) || !mappingp(receipt) ||
+	   !valid_wallet_userid((string)receipt["invitee_account"]) ||
+	   !intp(receipt["amount"]) || (int)receipt["amount"]<=0 ||
+	   (int)receipt["amount"]>ACCOUNT_WALLET_MAX_BALANCE ||
+	   !intp(receipt["created_at"]) || (int)receipt["created_at"]<=0)
+		return 0;
+	return 1;
 }
 
 private int valid_debit_receipt(string request_id,mapping receipt)
@@ -152,6 +178,8 @@ private int valid_wallet_transaction(mapping transaction)
 		return 0;
 	if(type=="recharge")
 		return (int)transaction["fee"]>0 && request_id!="";
+	if(type=="referral_reward")
+		return (int)transaction["fee"]==0 && request_id!="";
 	return (type=="spend" || type=="refund") &&
 		(int)transaction["fee"]==0;
 }
@@ -161,6 +189,7 @@ private int valid_wallet_record(mapping record,string account_id)
 	array transactions;
 	mapping recharge_requests;
 	mapping debit_requests;
+	mapping referral_requests;
 	if(!mappingp(record) || record["account_id"]!=account_id ||
 	   (int)record["version"]!=ACCOUNT_WALLET_VERSION ||
 	   !intp(record["revision"]) || (int)record["revision"]<0 ||
@@ -171,16 +200,20 @@ private int valid_wallet_record(mapping record,string account_id)
 	   (int)record["total_recharge_fee"]>ACCOUNT_WALLET_MAX_BALANCE ||
 	   !arrayp(record["transactions"]) ||
 	   !mappingp(record["recharge_requests"]) ||
-	   !mappingp(record["debit_requests"]))
+	   !mappingp(record["debit_requests"]) ||
+	   !mappingp(record["referral_requests"]))
 		return 0;
 	transactions = record["transactions"];
 	recharge_requests = record["recharge_requests"];
 	debit_requests = record["debit_requests"];
+	referral_requests = record["referral_requests"];
 	if(sizeof(transactions)>ACCOUNT_WALLET_MAX_TRANSACTIONS)
 		return 0;
 	if(sizeof(recharge_requests)>ACCOUNT_WALLET_MAX_REQUESTS)
 		return 0;
 	if(sizeof(debit_requests)>ACCOUNT_WALLET_MAX_DEBIT_REQUESTS)
+		return 0;
+	if(sizeof(referral_requests)>ACCOUNT_WALLET_MAX_REFERRAL_REQUESTS)
 		return 0;
 	foreach(transactions,mixed one)
 		if(!mappingp(one) || !valid_wallet_transaction((mapping)one))
@@ -194,6 +227,11 @@ private int valid_wallet_record(mapping record,string account_id)
 		if(!mappingp(debit_requests[request_id]) ||
 		   !valid_debit_receipt(request_id,
 			(mapping)debit_requests[request_id]))
+			return 0;
+	foreach(indices(referral_requests),string request_id)
+		if(!mappingp(referral_requests[request_id]) ||
+		   !valid_referral_receipt(request_id,
+			(mapping)referral_requests[request_id]))
 			return 0;
 	return 1;
 }
@@ -212,6 +250,9 @@ private mapping(string:mixed)|zero decode_wallet_file(string path,
 	// v1 早期钱包没有幂等消费凭据；缺字段等价于空集合。
 	if(!err && mappingp(decoded) && !mappingp(decoded["debit_requests"]))
 		decoded["debit_requests"] = ([]);
+	// v1 钱包上线邀请返玉前没有该字段，兼容为空集合。
+	if(!err && mappingp(decoded) && !mappingp(decoded["referral_requests"]))
+		decoded["referral_requests"] = ([]);
 	if(err || !mappingp(decoded) ||
 	   !valid_wallet_record((mapping)decoded,account_id))
 		return 0;
@@ -663,6 +704,93 @@ mapping(string:mixed) credit_recharge(object player,int fee,
 {
 	return credit_recharge_once(player,fee,operator,
 		new_recharge_request_id());
+}
+
+/**
+ * 将一笔已经由 REFERRALD 核验的邀请奖励永久计入邀请人共享钱包。
+ * request_id 沿用被邀请人的真实充值请求号，因此管理员补单重试和
+ * 跨Worker重放都会命中同一凭据，不会重复返玉。
+ */
+mapping(string:mixed) credit_account_referral_reward_once(
+	string account_id,string invitee_account,string request_id,int amount)
+{
+	string character_id=account_id;
+	mapping(string:mixed)|zero record;
+	mapping validation;
+	mapping receipt;
+	object key;
+	invitee_account=lower_case(String.trim_all_whites(
+		invitee_account || ""));
+	request_id=lower_case(String.trim_all_whites(request_id || ""));
+	account_id=lower_case(String.trim_all_whites(account_id || ""));
+	if(!valid_wallet_userid(account_id) ||
+	   !(int)ACCOUNT_CHARACTERD->query_account_characters(account_id)["ok"] ||
+	   !valid_wallet_userid(invitee_account) ||
+	   account_id==invitee_account || !valid_wallet_txid(request_id) ||
+	   amount<=0 || amount>ACCOUNT_WALLET_MAX_BALANCE)
+		return (["ok":0,"message":"邀请奖励参数无效"]);
+	validation=REFERRALD->validate_reward_event(account_id,
+		invitee_account,request_id,amount);
+	if(!(int)validation["ok"])
+		return validation;
+	key=account_wallet_lock->lock();
+	record=load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"邀请人共享钱包不可用"]);
+	}
+	receipt=((mapping)record["referral_requests"])[request_id];
+	if(receipt){
+		if((string)receipt["invitee_account"]!=invitee_account ||
+		   (int)receipt["amount"]!=amount){
+			destruct(key);
+			return (["ok":0,"message":"邀请奖励请求编号冲突"]);
+		}
+		mapping duplicate_result=(["ok":1,"duplicate":1,
+			"amount":amount,"account_id":account_id,
+			"balance":(int)record["balance"]]);
+		destruct(key);
+		return duplicate_result;
+	}
+	if(sizeof((mapping)record["referral_requests"])>=
+	   ACCOUNT_WALLET_MAX_REFERRAL_REQUESTS){
+		destruct(key);
+		return (["ok":0,"message":"邀请奖励凭据已达到安全上限，请联系管理员归档"]);
+	}
+	if((int)record["balance"]>ACCOUNT_WALLET_MAX_BALANCE-amount){
+		destruct(key);
+		return (["ok":0,"message":"邀请人共享钱包已达到安全上限"]);
+	}
+	record["balance"]=(int)record["balance"]+amount;
+	record["revision"]=(int)record["revision"]+1;
+	record["referral_requests"][request_id]=(["invitee_account":invitee_account,
+		"amount":amount,"created_at":time()]);
+	append_transaction(record,"referral_reward",character_id,amount,0,
+		"referral","referral_reward:"+invitee_account,request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return (["ok":0,"message":"邀请奖励保存失败，本次未入账"]);
+	}
+	int balance=(int)record["balance"];
+	destruct(key);
+	log_wallet(account_id,character_id,"referral_reward",amount,balance,
+		invitee_account);
+	Stdio.append_file(ROOT+"/log/referral_audit.log",
+		time()+" action=credit inviter="+account_id+" invitee="+
+		invitee_account+" request="+request_id+" reward="+amount+
+		" balance="+balance+"\n");
+	return (["ok":1,"duplicate":0,"amount":amount,
+		"account_id":account_id,"balance":balance]);
+}
+
+mapping(string:mixed) credit_referral_reward_once(object player,
+	string invitee_account,string request_id,int amount)
+{
+	string account_id=resolve_player_account(player);
+	if(account_id=="")
+		return (["ok":0,"message":"邀请人账号归属无效"]);
+	return credit_account_referral_reward_once(account_id,invitee_account,
+		request_id,amount);
 }
 
 int debit_recharge(object player,int amount,string reason)

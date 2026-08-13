@@ -2,6 +2,9 @@
 #define PRE_LIST_SIZE 5        //页面上显示"这里有xx、xx、xxx等物品"时，"等"前面的物品数目
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
+#define INVENTORY_BROWSER_PAGE_SIZE 30
+#define INVENTORY_BROWSER_SEARCH_MAX 96
+#define INVENTORY_BROWSER_SCAN_LIMIT 4096
 //int ite_count;                 //用户随身物品格子数目
 /*
 	此文件中主要包括了以下几类方法：
@@ -303,6 +306,401 @@ string view_inventory_batch_sell_entry(){
 		return "[一键安全卖装:sell_equipment_batch]\n";
 	return "[一键安全卖装（VIP1）:vip_service_list]\n";
 }
+
+// 背包名称搜索只生成现有 inv 详情入口，不直接执行使用、丢弃、交易等
+// 写操作。分类浏览器按物品数量分页，旧JSP与Vue共用同一组命令。
+array(string) query_inventory_browser_categories()
+{
+	return ({"all","equipment","medicine","book","material",
+		"jade","box","quest","other"});
+}
+
+mapping(string:string) query_inventory_browser_category_labels()
+{
+	return ([
+		"all":"全部","equipment":"装备","medicine":"药品",
+		"book":"书籍","material":"材料","jade":"玉石",
+		"box":"宝箱","quest":"任务","other":"其他",
+	]);
+}
+
+int valid_inventory_browser_category(string category)
+{
+	return category &&
+		search(query_inventory_browser_categories(),category)!=-1;
+}
+
+private int inventory_browser_is_equipment(object item)
+{
+	string item_type;
+	if(!item)
+		return 0;
+	item_type=(string)item->query_item_type();
+	return search(({"weapon","single_weapon","double_weapon","armor",
+		"decorate","jewelry"}),item_type)!=-1;
+}
+
+string query_inventory_browser_category(object item)
+{
+	string item_type;
+	string item_path;
+	if(!item || !item->is("item"))
+		return "other";
+	item_type=(string)item->query_item_type();
+	item_path=(file_name(item)/"#")[0];
+	if(item->query_item_task())
+		return "quest";
+	if(inventory_browser_is_equipment(item))
+		return "equipment";
+	if(item_type=="yushi")
+		return "jade";
+	if(item_type=="box" ||
+	   search(item_path,"/clone/item/baoxiang/")!=-1 ||
+	   search(item_path,"/clone/item/gift/")!=-1)
+		return "box";
+	if(search(({"food","water","danyao"}),item_type)!=-1)
+		return "medicine";
+	if(item_type=="book")
+		return "book";
+	if(search(({"material","baoshi","source"}),item_type)!=-1 ||
+	   (functionp(item->query_for_material) &&
+	    (string)item->query_for_material()!=""))
+		return "material";
+	return "other";
+}
+
+private string normalize_inventory_browser_keyword(void|string raw_keyword)
+{
+	string keyword=raw_keyword || "";
+	keyword=replace(keyword,(["%20":" ","%2B":"+","%3A":":",
+		"\r":" ","\n":" "]));
+	return String.trim_all_whites(keyword);
+}
+
+private int inventory_browser_item_matches(object item,string needle)
+{
+	string short_name;
+	string chinese_name;
+	string item_name;
+	if(needle=="")
+		return 1;
+	short_name=lower_case((string)item->query_short());
+	chinese_name=lower_case((string)item->query_name_cn());
+	item_name=lower_case((string)item->query_name());
+	return search(short_name,needle)!=-1 ||
+		search(chinese_name,needle)!=-1 ||
+		search(item_name,needle)!=-1;
+}
+
+private string sanitize_inventory_browser_label(string label)
+{
+	return replace(label || "",(["[":"（","]":"）",":":"：",
+		"\r":" ","\n":" "]));
+}
+
+// 装备仅做展示分组，不改变或合并任何物理对象。完整持久化状态参与
+// 指纹；只忽略拾取保护的临时归属字段，使随机属性、耐久、镶嵌、
+// 强化、绑定等任一字段不同的装备保持分开。
+string query_inventory_equipment_group_id(object item)
+{
+	string saved;
+	string signature="";
+	array(string) lines;
+	object hash;
+	mixed save_error;
+	if(!inventory_browser_is_equipment(item) || item["equiped"])
+		return "";
+	// 某件老装备若含有无法编码的历史字段，只禁用这件装备的展示
+	// 分组，不能让玩家的整个背包页面白屏。
+	save_error=catch {
+		saved=pikenv_save_object(item);
+	};
+	if(save_error || !saved)
+		return "";
+	lines=saved/"\n";
+	for(int i=0;i<sizeof(lines);i++){
+		if(has_prefix(lines[i],"item_whoCanGet ") ||
+		   has_prefix(lines[i],"item_TimewhoCanGet ") ||
+		   has_prefix(lines[i],"item_logical_zone_owner "))
+			continue;
+		signature+=lines[i]+"\n";
+	}
+	hash=Crypto.SHA256();
+	hash->update(signature);
+	return String.string2hex(hash->digest());
+}
+
+int valid_inventory_equipment_group_id(string group_id)
+{
+	if(!group_id || sizeof(group_id)!=64)
+		return 0;
+	for(int i=0;i<sizeof(group_id);i++)
+		if(!((group_id[i]>='0' && group_id[i]<='9') ||
+		   (group_id[i]>='a' && group_id[i]<='f')))
+			return 0;
+	return 1;
+}
+
+mapping(string:mixed) query_inventory_browser_snapshot(string category,
+	void|string raw_keyword)
+{
+	string keyword=normalize_inventory_browser_keyword(raw_keyword);
+	string needle=lower_case(keyword);
+	array(object) items=all_inventory(this_object(),this_player())-
+		({this_player()});
+	mapping(string:int) counts=([]);
+	mapping(string:int) name_count=([]);
+	mapping(string:int) group_positions=([]);
+	array(mapping(string:mixed)) entries=({});
+	array(string) categories=query_inventory_browser_categories();
+	int physical_total=0;
+	int matched_physical=0;
+	int inventory_slots=sizeof(items);
+	int scan_limit=inventory_slots>INVENTORY_BROWSER_SCAN_LIMIT ?
+		INVENTORY_BROWSER_SCAN_LIMIT : inventory_slots;
+	if(!valid_inventory_browser_category(category))
+		category="all";
+	for(int i=0;i<sizeof(categories);i++)
+		counts[categories[i]]=0;
+	for(int i=0;i<scan_limit;i++){
+		object item=items[i];
+		string item_name;
+		string item_category;
+		string group_id="";
+		int item_index;
+		if(!item || !item->is("item"))
+			continue;
+		item_name=(string)item->query_name();
+		item_index=name_count[item_name];
+		name_count[item_name]++;
+		item_category=query_inventory_browser_category(item);
+		physical_total++;
+		counts["all"]++;
+		counts[item_category]++;
+		if(category!="all" && item_category!=category)
+			continue;
+		if(!inventory_browser_item_matches(item,needle))
+			continue;
+		matched_physical++;
+		if(item_category=="equipment" && !item["equiped"])
+			group_id=query_inventory_equipment_group_id(item);
+		if(group_id!="" && has_index(group_positions,group_id)){
+			int group_position=group_positions[group_id];
+			entries[group_position]["group_count"]=
+				(int)entries[group_position]["group_count"]+1;
+			entries[group_position]["item_indices"]+=({item_index});
+			continue;
+		}
+		mapping(string:mixed) entry=([
+			"item":item,"item_name":item_name,"item_index":item_index,
+			"category":item_category,"group_id":group_id,
+			"group_count":1,"item_indices":({item_index}),
+		]);
+		entries+=({entry});
+		if(group_id!="")
+			group_positions[group_id]=sizeof(entries)-1;
+	}
+	return ([
+		"category":category,"keyword":keyword,"counts":counts,
+		"inventory_slots":inventory_slots,
+		"scan_truncated":inventory_slots>scan_limit,
+		"physical_total":physical_total,
+		"matched_physical":matched_physical,"entries":entries,
+	]);
+}
+
+private string query_inventory_browser_item_label(object item,int group_count)
+{
+	string label=sanitize_inventory_browser_label(
+		(string)item->query_short());
+	if(inventory_browser_is_equipment(item)){
+		int item_level=(int)item->query_item_canLevel();
+		if(item["equiped"])
+			label="【已装备】"+label;
+		if(item_level>0)
+			label+="("+item_level+"级)";
+		else if(item_level<0)
+			label+="(无等级)";
+	}
+	if(item->query_item_task())
+		label="【任务】"+label;
+	if(item->query_toVip())
+		label="【绑定】"+label;
+	if(group_count>1)
+		label+=" ×"+group_count;
+	return label;
+}
+
+string view_inventory_equipment_group(string group_id,void|int page)
+{
+	array(object) items=all_inventory(this_object(),this_player())-
+		({this_player()});
+	mapping(string:int) name_count=([]);
+	array(mapping(string:mixed)) matches=({});
+	string result="【同属性装备组】\n";
+	int page_count;
+	int start;
+	int end;
+	int scan_limit=sizeof(items)>INVENTORY_BROWSER_SCAN_LIMIT ?
+		INVENTORY_BROWSER_SCAN_LIMIT : sizeof(items);
+	if(!valid_inventory_equipment_group_id(group_id))
+		return result+"装备分组已经失效。\n[返回分类背包:inventory_filter]\n";
+	for(int i=0;i<scan_limit;i++){
+		object item=items[i];
+		string item_name;
+		int item_index;
+		if(!item || !item->is("item"))
+			continue;
+		item_name=(string)item->query_name();
+		item_index=name_count[item_name];
+		name_count[item_name]++;
+		if(query_inventory_equipment_group_id(item)==group_id)
+			matches+=({(["item":item,"item_name":item_name,
+				"item_index":item_index])});
+	}
+	if(!sizeof(matches))
+		return result+"这些装备已经不在背包中。\n[返回分类背包:inventory_filter]\n";
+	page_count=(sizeof(matches)+INVENTORY_BROWSER_PAGE_SIZE-1)/
+		INVENTORY_BROWSER_PAGE_SIZE;
+	if(page<1)
+		page=1;
+	if(page>page_count)
+		page=page_count;
+	start=(page-1)*INVENTORY_BROWSER_PAGE_SIZE;
+	end=start+INVENTORY_BROWSER_PAGE_SIZE;
+	if(end>sizeof(matches))
+		end=sizeof(matches);
+	result+="共"+sizeof(matches)+"件；这里只合并展示，装备对象仍然独立。\n";
+	if(sizeof(items)>scan_limit)
+		result+="档案物品异常过多，本组只审计前"+
+			INVENTORY_BROWSER_SCAN_LIMIT+"个对象，请联系管理员。\n";
+	for(int i=start;i<end;i++){
+		object item=matches[i]["item"];
+		result+="[第"+(i+1)+"件 "+sanitize_inventory_browser_label(
+			(string)item->query_short())+
+			":inv "+(string)matches[i]["item_name"]+" "+
+			(int)matches[i]["item_index"]+"]\n";
+	}
+	result+="第"+page+"/"+page_count+"页 ";
+	if(page>1)
+		result+="[首页:inventory_filter group "+group_id+" 1] "+
+			"[上一页:inventory_filter group "+group_id+" "+(page-1)+"] ";
+	if(page<page_count)
+		result+="[下一页:inventory_filter group "+group_id+" "+(page+1)+"] "+
+			"[尾页:inventory_filter group "+group_id+" "+page_count+"]";
+	result+="\n[返回分类背包:inventory_filter]|[返回游戏:look]\n";
+	return result;
+}
+
+string view_inventory_browser(void|string requested_category,
+	void|int requested_page,void|string requested_keyword)
+{
+	string category=requested_category || "";
+	string keyword;
+	int page=requested_page;
+	int page_count;
+	int start;
+	int end;
+	string result="【背包筛选】\n";
+	mapping(string:string) labels=query_inventory_browser_category_labels();
+	if(category=="" || !valid_inventory_browser_category(category)){
+		category=(string)(this_object()[
+			"/tmp/inventory_browser/category"] || "all");
+		if(!valid_inventory_browser_category(category))
+			category="all";
+		page=(int)this_object()["/tmp/inventory_browser/page"];
+		keyword=(string)(this_object()[
+			"/tmp/inventory_browser/keyword"] || "");
+	}
+	else
+		keyword=normalize_inventory_browser_keyword(requested_keyword);
+	if(sizeof(keyword)>INVENTORY_BROWSER_SEARCH_MAX)
+		return result+"搜索词过长，请缩短后重试。\n"+
+			"[inventory_filter search ...]\n[返回游戏:look]\n";
+	mapping(string:mixed) snapshot=
+		query_inventory_browser_snapshot(category,keyword);
+	array(mapping(string:mixed)) entries=snapshot["entries"];
+	page_count=(sizeof(entries)+INVENTORY_BROWSER_PAGE_SIZE-1)/
+		INVENTORY_BROWSER_PAGE_SIZE;
+	if(page_count<1)
+		page_count=1;
+	if(page<1)
+		page=1;
+	if(page>page_count)
+		page=page_count;
+	this_object()["/tmp/inventory_browser/category"]=category;
+	this_object()["/tmp/inventory_browser/page"]=page;
+	this_object()["/tmp/inventory_browser/keyword"]=keyword;
+	result+="物品："+(int)snapshot["inventory_slots"]+"/"+
+		query_beibao_size()+"；每页最多"+INVENTORY_BROWSER_PAGE_SIZE+
+		"个展示项。\n";
+	if((int)snapshot["scan_truncated"])
+		result+="档案物品异常过多，分类仅审计前"+
+			INVENTORY_BROWSER_SCAN_LIMIT+"个对象，请联系管理员。\n";
+	result+="当前筛选："+(string)labels[category]+"("+
+		(int)snapshot["counts"][category]+")；重新筛选："+
+		"[inventory_filter category ...]\n"+
+		"搜索当前筛选：[inventory_filter search ...]";
+	if(keyword!="")
+		result+=" [清除搜索:inventory_filter clear]";
+	result+="\n";
+	if(!sizeof(entries)){
+		result+=keyword!="" ? "没有找到匹配的物品。\n" :
+			"这个分类暂时没有物品。\n";
+	}
+	else{
+		result+="找到"+(int)snapshot["matched_physical"]+
+			"件匹配物品，合并显示为"+sizeof(entries)+"项：\n";
+		start=(page-1)*INVENTORY_BROWSER_PAGE_SIZE;
+		end=start+INVENTORY_BROWSER_PAGE_SIZE;
+		if(end>sizeof(entries))
+			end=sizeof(entries);
+		for(int i=start;i<end;i++){
+			mapping entry=entries[i];
+			object item=entry["item"];
+			string label;
+			if(!item || environment(item)!=this_object())
+				continue;
+			label=query_inventory_browser_item_label(item,
+				(int)entry["group_count"]);
+			if((int)entry["group_count"]>1)
+				result+="["+label+":inventory_filter group "+
+					(string)entry["group_id"]+" 1]\n";
+			else
+				result+="["+label+":inv "+
+					(string)entry["item_name"]+" "+
+					(int)entry["item_index"]+"]\n";
+		}
+	}
+	result+="第"+page+"/"+page_count+"页 ";
+	if(page>1)
+		result+="[首页:inventory_filter page 1] "+
+			"[上一页:inventory_filter page "+(page-1)+"] ";
+	if(page<page_count)
+		result+="[下一页:inventory_filter page "+(page+1)+"] "+
+			"[尾页:inventory_filter page "+page_count+"]";
+	result+="\n跳转页码：[inventory_filter jump ...]\n"+
+		"[一键穿装:auto_equip]|"+view_inventory_batch_sell_entry()+
+		"[一键安全销毁非装备:cleanup_non_equipment]\n"+
+		"[返回装备背包:inventory]|"+
+		"[返回道具背包:inventory_daoju]|[返回游戏:look]\n";
+	return result;
+}
+
+string view_inventory_search(void|string raw_keyword){
+	string keyword=raw_keyword || "";
+	keyword=normalize_inventory_browser_keyword(keyword);
+	if(keyword=="")
+		return "【搜索背包】\n请输入物品名称中的关键字：\n"+
+			"[inventory_search ...]\n[返回装备:inventory] [返回道具:inventory_daoju]\n";
+	if(sizeof(keyword)>INVENTORY_BROWSER_SEARCH_MAX)
+		return "搜索词过长，请缩短后重试。\n[inventory_search ...]\n"+
+			"[返回背包:inventory]\n";
+	this_object()["/tmp/inventory_browser/category"]="all";
+	this_object()["/tmp/inventory_browser/page"]=1;
+	this_object()["/tmp/inventory_browser/keyword"]=keyword;
+	return view_inventory_browser("all",1,keyword);
+}
 //查看随身物品-装备
 string view_inventory_zhuangbei(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
@@ -319,10 +717,117 @@ string view_inventory_zhuangbei(void|string cmd,void|int notShowMoney,void|int s
 		return "你身上什么东西也没有。\n";
 	return  mymoney + myyushi + s;
 }
+
+// 老档案按独立对象恢复背包，继承改为可叠加后不会自动经过 move_player。
+// 首次查看道具时按同级、同VIP归属守恒整理；只复用已有对象，不克隆奖励。
+int normalize_christmas_box_stacks(){
+	mapping(string:int) allowed=([
+		"chr_bx_1":1,"chr_bx_2":1,"chr_bx_3":1,"chr_bx_4":1,
+		"chr_bx_5":1,"chr_bx_6":1,"chr_bx_7":1,
+	]);
+	mapping(string:array(object)) groups=([]);
+	array(object) items=all_inventory(this_object(),this_player())-
+		({this_player()});
+	int removed_groups=0;
+	for(int i=0;i<sizeof(items);i++){
+		object item=items[i];
+		string item_name;
+		string group_key;
+		if(!item || !item->is("combine_item"))
+			continue;
+		item_name=(string)item->query_name();
+		if(!allowed[item_name])
+			continue;
+		group_key=item_name+"|"+(string)item->query_toVip();
+		if(!groups[group_key])
+			groups[group_key]=({});
+		groups[group_key]+=({item});
+	}
+	foreach(indices(groups),string group_key){
+		array(object) boxes=groups[group_key];
+		int total=0;
+		int max_count=30;
+		for(int i=0;i<sizeof(boxes);i++){
+			if((int)boxes[i]->max_count>0)
+				max_count=(int)boxes[i]->max_count;
+			if((int)boxes[i]->amount>0)
+				total+=(int)boxes[i]->amount;
+		}
+		// 损坏档案若单组数量已经超过容量，宁可保持原状也绝不丢失溢出数量。
+		if(total>max_count*sizeof(boxes))
+			continue;
+		for(int i=0;i<sizeof(boxes);i++){
+			if(total>0){
+				int amount=total>max_count ? max_count : total;
+				boxes[i]->amount=amount;
+				total-=amount;
+			}
+			else{
+				boxes[i]->remove();
+				removed_groups++;
+			}
+		}
+	}
+	return removed_groups;
+}
+
+// 老人物档案会持久化 max_count=30。按玉名和VIP归属整理五种付费玉，
+// 只合并已有对象，不克隆、不跨归属，确保碎玉等价总值严格守恒。
+int normalize_paid_yushi_stacks(){
+	mapping(string:array(object)) groups=([]);
+	mapping(string:int) invalid_groups=([]);
+	array(object) items=all_inventory(this_object(),this_player())-
+		({this_player()});
+	int removed_groups=0;
+	for(int i=0;i<sizeof(items);i++){
+		object item=items[i];
+		string group_key;
+		string vip_owner="";
+		int rarelevel;
+		if(!item || !functionp(item->query_yushi_rarelevel))
+			continue;
+		rarelevel=(int)item->query_yushi_rarelevel();
+		if(rarelevel<1 || rarelevel>5)
+			continue;
+		if(functionp(item->query_toVip))
+			vip_owner=(string)item->query_toVip();
+		group_key=(string)item->query_name()+"|"+vip_owner;
+		item->max_count=9999;
+		if((int)item->amount<0)
+			invalid_groups[group_key]=1;
+		if(!groups[group_key])
+			groups[group_key]=({});
+		groups[group_key]+=({item});
+	}
+	foreach(sort(indices(groups)),string group_key){
+		array(object) jades=groups[group_key];
+		int total=0;
+		if(invalid_groups[group_key])
+			continue;
+		for(int i=0;i<sizeof(jades);i++)
+			total+=(int)jades[i]->amount;
+		if(total>9999*sizeof(jades))
+			continue;
+		for(int i=0;i<sizeof(jades);i++){
+			if(total>0){
+				int amount=total>9999 ? 9999 : total;
+				jades[i]->amount=amount;
+				total-=amount;
+			}
+			else{
+				jades[i]->remove();
+				removed_groups++;
+			}
+		}
+	}
+	return removed_groups;
+}
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
 		cmd="inv";
+	normalize_christmas_box_stacks();
+	normalize_paid_yushi_stacks();
 	string s="";
 	string mymoney = this_player()->query_money_cn()+"\n";
 	string myyushi = this_player()->query_yushi_cn()+"\n"; 

@@ -186,7 +186,7 @@ protected void close_callback(mixed id)
 	close();
 	//werror("========close_callback end==========\n");
 }
-void create(Stdio.File c,object ob)
+protected void create(Stdio.File c,object ob)
 {
 	in="";
 	out="";

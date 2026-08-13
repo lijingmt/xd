@@ -18,7 +18,7 @@ array(string) query_command_prefix(){
 mapping(string:string) boss_skills = ([]);
 
 
-protected protected void create(){
+protected void create(){
 	//其他主要属性
 	life = 10;//生命
 	life_max = 10;//生命上限

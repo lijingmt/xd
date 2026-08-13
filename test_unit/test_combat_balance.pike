@@ -213,6 +213,58 @@ void test_xuehai_percentage_limits()
 	destroy_test_player(player);
 }
 
+void test_xuehai_dot_tick_and_guard_visibility()
+{
+	test_start("血海裂伤真实逐跳扣血、山河壁吸收、到期清理与致死均可核验");
+	object caster = create_test_player("__testunit_xuehai_tick_caster__");
+	object target = create_test_player("__testunit_xuehai_tick_target__");
+	int valid = !!caster && !!target;
+	if(valid){
+		int before = target->get_cur_life();
+		mapping first = ([]);
+		mapping guarded = ([]);
+		mapping expired = ([]);
+		mapping lethal = ([]);
+		valid = caster->apply_nonstacking_dot(
+			target,"xuehailieshang",1000,2)==1;
+		string combat_save = pikenv_save_object(target);
+		valid = valid && search(combat_save,"dot_source_runtime")==-1 &&
+			search(combat_save,"dot_source_runtime_name")==-1;
+		first = target->process_dot_tick();
+		valid = valid && first["active"] && first["damage"]==1000 &&
+			first["absorbed"]==0 && first["remaining"]==1 &&
+			target->get_cur_life()==before-1000 &&
+			first["display_name"]=="【神】血海裂伤";
+		target->set_life(before);
+		valid = valid && target->apply_team_guard(1500,12)==1 &&
+			caster->apply_nonstacking_dot(
+				target,"xuehailieshang",1000,2)==1;
+		guarded = target->process_dot_tick();
+		valid = valid && guarded["damage"]==0 &&
+			guarded["absorbed"]==1000 && guarded["remaining"]==1 &&
+			target->get_cur_life()==before &&
+			target->query_buff("team_guard",1)==500;
+		expired = target->process_dot_tick();
+		valid = valid && expired["damage"]==500 &&
+			expired["absorbed"]==500 && expired["remaining"]==0 &&
+			target->get_cur_life()==before-500 &&
+			target->query_debuff("dot",0)=="none";
+		target->set_life(400);
+		valid = valid && caster->apply_nonstacking_dot(
+			target,"xuehailieshang",1000,2)==1;
+		lethal = target->process_dot_tick();
+		valid = valid && lethal["defeated"] && lethal["damage"]==400 &&
+			lethal["absorbed"]==0 &&
+			target->get_cur_life()==0;
+	}
+	if(valid)
+		test_pass();
+	else
+		test_fail("持续伤害仍可能只写Debuff不扣血、护盾吸收不可见或到期/致死错误");
+	destroy_test_player(caster);
+	destroy_test_player(target);
+}
+
 void test_kuangyao_wound_and_dot_priority()
 {
 	test_start("致残重伤按自身生命成长且弱持续伤害不能覆盖强效果");
@@ -521,6 +573,114 @@ void test_missing_skill_safety()
 	destroy_test_player(target);
 }
 
+void test_worker_status_effect_handoff()
+{
+	test_start("跨Worker移动保留状态药和人物心跳技能且隔离战场状态");
+	string userid = "__testunit_worker_status__";
+	object|zero player = 0;
+	string error_desc = "";
+	int valid = 0;
+	cleanup_test_player_file(userid);
+	mixed err = catch {
+		player = create_test_player(userid);
+		player["/danyao"] = ([]);
+		player["/teyao"] = ([]);
+		player["/homeBuff"] = ([]);
+		player->set_buff("attri_attack",0,"attack");
+		player->set_buff("attri_attack",1,321);
+		player->set_buff("attri_attack",2,30);
+		player["/danyao/attri_attack"] = "测试攻击丹";
+		player->set_buff("spec",0,"hind");
+		player->set_buff("spec",1,1);
+		player->set_buff("spec",2,20);
+		player["/danyao/spec"] = "测试影遁丹";
+		player->hind = 1;
+		player->set_buff("te_exp",0,"exp");
+		player->set_buff("te_exp",1,400);
+		player->set_buff("te_exp",2,25);
+		player["/teyao/te_exp"] = ({"exp",400,25,"测试星河露"});
+		player->set_buff("mianzhan",0,"mianzhan");
+		player->set_buff("mianzhan",1,0);
+		player->set_buff("mianzhan",2,60);
+		player["/teyao/mianzhan"] =
+			({"mianzhan",0,60,"测试免战符"});
+		player->set_buff("home_attack",0,"all");
+		player->set_buff("home_attack",1,50);
+		player->set_buff("home_attack",2,15);
+		player["/homeBuff/home_attack"] =
+			({"all",50,15,"测试练功草庐"});
+		player->set_buff("buff",0,"absorb");
+		player->set_buff("buff",1,999999);
+		player->set_buff("buff",2,12);
+		player->apply_team_guard(888888,12);
+		player->set_buff("spec_attack_buff",0,"jinchanmeiying2");
+		player->set_buff("spec_attack_buff",1,17);
+		player->set_buff("spec_attack_buff",2,25);
+		player->set_buff("70_skill_buff",0,"lieshanmengji");
+		player->set_buff("70_skill_buff",1,23);
+		player->set_buff("70_skill_buff",2,16);
+		player->set_debuff("70_skill_curse",0,"baofengfeixue");
+		player->set_debuff("70_skill_curse",1,31);
+		player->set_debuff("70_skill_curse",2,18);
+		mapping snapshot = player->snapshot_worker_status_effects();
+		player["/danyao"] = ([]);
+		player["/teyao"] = ([]);
+		player["/homeBuff"] = ([]);
+		foreach(({"attri_attack","spec","te_exp","mianzhan","home_attack"}),
+		   string kind)
+			player->clean_buff(kind);
+		player->clean_buff("spec_attack_buff");
+		player->clean_buff("70_skill_buff");
+		player->clean_debuff("70_skill_curse");
+		player->hind = 0;
+		int restored = player->restore_worker_status_effects(snapshot);
+		player->sleep();
+		mapping expired = (["attri_attack":copy_value(
+			snapshot["attri_attack"])]);
+		expired["attri_attack"]["expires_at"] = time()-1;
+		player->clean_buff("attri_attack");
+		player->restore_worker_status_effects(expired);
+		mapping forged = (["buff":([
+			"source":"danyao","type":"absorb","value":999999999,
+			"remaining":999,"expires_at":time()+9999,
+			"name_cn":"伪造战斗护盾",
+		])]);
+		player->clean_buff("buff");
+		player->restore_worker_status_effects(forged);
+		valid = sizeof(snapshot)==8 && !snapshot["buff"] &&
+			!snapshot["team_guard"] && restored==8 &&
+			player->query_buff("te_exp",0)=="exp" &&
+			player->query_buff("te_exp",1)==400 &&
+			player->query_buff("mianzhan",0)=="mianzhan" &&
+			player->query_buff("home_attack",1)==50 &&
+			player->query_buff("spec",0)=="hind" && player->hind==1 &&
+			arrayp(player["/teyao/te_exp"]) &&
+			arrayp(player["/homeBuff/home_attack"]) &&
+			player->query_buff("attri_attack",0)=="none" &&
+			!player["/danyao/attri_attack"] &&
+			player->query_buff("buff",0)=="none" &&
+			player->query_buff("spec_attack_buff",0)=="jinchanmeiying2" &&
+			player->query_buff("spec_attack_buff",1)==17 &&
+			player->query_buff("spec_attack_buff",2)>0 &&
+			player->query_buff("spec_attack_buff",2)<=25 &&
+			player->query_buff("70_skill_buff",0)=="lieshanmengji" &&
+			player->query_buff("70_skill_buff",2)>0 &&
+			player->query_buff("70_skill_buff",2)<=16 &&
+			player->query_debuff("70_skill_curse",0)=="baofengfeixue" &&
+			player->query_debuff("70_skill_curse",2)>0 &&
+			player->query_debuff("70_skill_curse",2)<=18;
+	};
+	if(err)
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("状态药/心跳技能快照、到期清理或战场状态隔离失败: "+
+			error_desc);
+	destroy_test_player(player);
+	cleanup_test_player_file(userid);
+}
+
 void test_cross_zone_admin_security()
 {
 	test_start("jinghaha与mumu215跨区可管理且相似后缀不能越权");
@@ -591,11 +751,13 @@ int main()
 	test_critical_and_dodge_caps();
 	test_zero_probability_boundaries();
 	test_xuehai_percentage_limits();
+	test_xuehai_dot_tick_and_guard_visibility();
 	test_kuangyao_wound_and_dot_priority();
 	test_formula_wiring_contract();
 	test_stacked_absorb_shields();
 	test_physical_penetration_reaches_real_life_damage();
 	test_missing_skill_safety();
+	test_worker_status_effect_handoff();
 	test_cross_zone_admin_security();
 	werror("\n战斗平衡测试完成！总计: %d, 通过: %d, 失败: %d\n",
 		test_results["total"],test_results["passed"],

@@ -87,7 +87,12 @@ object restore_child_player(string character_id,string race,
 	player->set_name(character_id);
 	player->set_project("gamelib");
 	player->set_userip("testunit");
-	player->restore();
+	// 真实登录会在恢复档案后注册living identity；只调
+	// restore()会让组队守护进程正确地把该测试角色判为离线。
+	if(!player->setup("testunit88")){
+		destruct(player);
+		return 0;
+	}
 	player->set_raceId(race);
 	player->set_profeId(profession);
 	player->setup_player(race,profession);
@@ -219,12 +224,21 @@ void test_collection_growth(object player)
 		sizeof((array)after_duplicate["pets"])==1 &&
 		(int)after_duplicate["materials"]["egg_fragment"]==10,
 		"重复图鉴生成第二个实例或残片数量错误");
+	mapping no_rune_reset = PETD->reset_pet_skills(player,pet_id);
+	mapping no_rune_state = PETD->query_pet_state(player);
+	check("灵纹符不足时明确显示零枚、独立材料栏和每周领取路径",
+		!no_rune_reset["ok"] &&
+		search((string)no_rune_reset["message"],"当前有0枚")!=-1 &&
+		search((string)no_rune_reset["message"],"不进入人物背包")!=-1 &&
+		search((string)no_rune_reset["message"],"本周目标")!=-1 &&
+		(int)no_rune_state["materials"]["skill_rune"]==0,
+		(string)no_rune_reset["message"]);
 
 	PETD->test_add_pet_material(player,"spirit_dew",1000);
 	PETD->test_add_pet_material(player,"bond_token",20);
 	PETD->test_add_pet_material(player,"skill_rune",3);
 	int growth_ok = 1;
-	for(int i=1;i<60;i++)
+	for(int i=1;i<50;i++)
 		growth_ok = growth_ok && PETD->train_pet_level(player,pet_id)["ok"];
 	mapping level_reject = PETD->train_pet_level(player,pet_id);
 	for(int i=1;i<5;i++)
@@ -247,10 +261,12 @@ void test_collection_growth(object player)
 	string skills1_json = Standards.JSON.encode(skills1);
 	string skills2_json = Standards.JSON.encode(skills2);
 	string skills3_json = Standards.JSON.encode(skills3);
-	check("培养严格封顶60级、十星、五阶羁绊且三套灵纹确定轮换",
+	check("培养严格封顶当前人物50级、十星、五阶羁绊且三套灵纹确定轮换",
 		growth_ok && !level_reject["ok"] && !star_reject["ok"] &&
 		!bond_reject["ok"] &&
-		(int)grown["pets"][0]["level"]==60 &&
+		(int)grown["pets"][0]["level"]==50 &&
+		(int)grown["pets"][0]["trained_level"]==50 &&
+		(int)grown["pets"][0]["level_max"]==50 &&
 		(int)grown["pets"][0]["star"]==10 &&
 		(int)grown["pets"][0]["evolution"]==3 &&
 		grown["pets"][0]["evolution_name"]=="真形·圆满" &&
@@ -267,8 +283,8 @@ void test_collection_growth(object player)
 		(int)grown["pets"][0]["attributes"]["spirit"]>0 &&
 		(int)grown["pets"][0]["attributes"]["speed"]>0 &&
 		(int)grown["pets"][0]["power"]>0 &&
-		(int)grown["pets"][0]["growth_percent"]==227 &&
-		(int)grown["pets"][0]["pvp_growth_percent"]==125,
+		(int)grown["pets"][0]["growth_percent"]==217 &&
+		(int)grown["pets"][0]["pvp_growth_percent"]==123,
 		"属性缺字段、战力无效或PVP没有压缩到完整成长的20%");
 	check("所有培养材料保存在独立材料栏且不污染人物背包",
 		player->packaged_items==inventory_before &&
@@ -294,6 +310,63 @@ void test_collection_growth(object player)
 			"星辉异色")!=-1 &&
 		(int)after_variant["materials"]["cosmetic_dust"]==0,
 		"月华尘无消费出口、重复扣除或未写入永久外观");
+}
+
+void test_pet_player_level_cap()
+{
+	werror("\n【万灵测试】人物等级联动与共享进度保留\n");
+	object player = create_test_player("xd99testunitpetlevelcap","human",
+		"jianxian");
+	player->level = 15;
+	player->set_att_by_level();
+	mapping chosen = PETD->choose_starter_pet(player,"dangkang");
+	mapping state = PETD->query_pet_state(player);
+	string pet_id = sizeof((array)state["pets"]) ?
+		(string)state["pets"][0]["id"] : "";
+	PETD->test_add_pet_material(player,"spirit_dew",1000);
+	int trained = 1;
+	for(int i=1;i<15;i++)
+		trained = trained && PETD->train_pet_level(player,pet_id)["ok"];
+	mapping capped = PETD->query_pet_state(player);
+	int dew_at_cap = (int)capped["materials"]["spirit_dew"];
+	mapping cap_reject = PETD->train_pet_level(player,pet_id);
+	mapping after_reject = PETD->query_pet_state(player);
+	check("共享宠物不能超过当前人物等级且拒绝时不扣灵露",
+		chosen["ok"] && trained && !cap_reject["ok"] &&
+		(int)capped["pets"][0]["level"]==15 &&
+		(int)capped["pets"][0]["trained_level"]==15 &&
+		(int)capped["pets"][0]["level_max"]==15 &&
+		(int)after_reject["materials"]["spirit_dew"]==dew_at_cap,
+		"人物等级上限、拒绝返回或材料事务有误");
+	player->level = 16;
+	player->set_att_by_level();
+	mapping resumed = PETD->train_pet_level(player,pet_id);
+	player->level = 10;
+	player->set_att_by_level();
+	mapping limited = PETD->query_pet_state(player);
+	mapping limited_presence = PETD->query_pet_battle_presence(player);
+	int dew_before_low_reject = (int)limited["materials"]["spirit_dew"];
+	mapping low_reject = PETD->train_pet_level(player,pet_id);
+	mapping low_after = PETD->query_pet_state(player);
+	check("低等级角色不破坏共享高等级进度，战斗运行态自动软限制",
+		resumed["ok"] && (int)limited["pets"][0]["level"]==10 &&
+		(int)limited["pets"][0]["trained_level"]==16 &&
+		(int)limited["pets"][0]["level_limited"]==1 &&
+		(int)limited_presence["level"]==10 && !low_reject["ok"] &&
+		(int)low_after["pets"][0]["trained_level"]==16 &&
+		(int)low_after["materials"]["spirit_dew"]==dew_before_low_reject,
+		"软限制破坏共享存档、协战运行态或材料账");
+	player->level = 17;
+	player->set_att_by_level();
+	mapping unlocked_presence = PETD->query_pet_battle_presence(player);
+	mapping continued = PETD->train_pet_level(player,pet_id);
+	mapping final_state = PETD->query_pet_state(player);
+	check("人物再升级后自动解锁已保留进度并可继续培养",
+		(int)unlocked_presence["level"]==16 && continued["ok"] &&
+		(int)final_state["pets"][0]["level"]==17 &&
+		(int)final_state["pets"][0]["trained_level"]==17 &&
+		!(int)final_state["pets"][0]["level_limited"],
+		"角色升级后运行态未刷新或培养仍被错误拦截");
 }
 
 void test_same_account_active_pet()
@@ -448,7 +521,7 @@ void test_hunt_and_assist(object player,object pvp_target)
 	check("协战事件向战斗小窗和Header提供宠物、技能与唯一事件编号",
 		presence["active"] && presence["name"]=="当康" &&
 		presence["icon"]!="" && presence["skill"]=="丰穰守心" &&
-		(int)presence["level"]==60 && (int)presence["star"]==10 &&
+		(int)presence["level"]==50 && (int)presence["star"]==10 &&
 		presence["evolution_name"]=="真形·圆满" &&
 		(int)presence["power"]>0 && presence["combat_mode"]=="pve" &&
 		(int)presence["cooldown_remaining"]>0 &&
@@ -496,26 +569,53 @@ void test_hunt_and_assist(object player,object pvp_target)
 			player->query_name_cn() &&
 		(string)after_pvp_presence["recent_event"]["id"]!=event_id,
 		"PVP充能、限次状态、模式事件、治疗目标或角色边界错误");
+	player->set_life(player->query_life_max());
+	mapping pvp_waiting = ([]);
 	for(int round=1;round<=5;round++)
-		PETD->perform_pet_combat_assist(player,pvp_target);
+		pvp_waiting = PETD->perform_pet_combat_assist(player,pvp_target);
+	mapping pvp_wait_presence = PETD->query_pet_battle_presence(player);
+	check("PVP治疗充能就绪但主人满血时不吞协战次数并保留满充能",
+		!pvp_waiting["ok"] && pvp_waiting["waiting_resource"]=="life" &&
+		(int)pvp_wait_presence["pvp_uses"]==1 &&
+		(int)pvp_wait_presence["pvp_charge"]==
+			(int)pvp_wait_presence["pvp_charge_required"] &&
+		pvp_wait_presence["waiting_resource"]=="life",
+		"满生命零治疗仍消耗PVP次数、清空充能或缺少就绪状态");
+	player->set_life(player->query_life_max()/2);
+	mapping second_pvp = PETD->perform_pet_combat_assist(player,pvp_target);
 	mapping exhausted = PETD->perform_pet_combat_assist(player,pvp_target);
-	check("同一场人物PVP最多触发两次御灵协战",
+	check("资源出现缺口后立即释放已就绪灵技且每场仍最多触发两次",
+		second_pvp["ok"] && (int)second_pvp["amount"]>0 &&
 		!exhausted["ok"] &&
 		(int)PETD->query_pet_battle_presence(player)["pvp_uses"]==2,
-		"PVP切换目标或继续心跳可绕过每场两次限制");
+		"等待资源后重新充能、重复消耗次数或可绕过每场两次限制");
 	if(player->query_in_combat())
 		player->_clean_fight();
 	if(pvp_target->query_in_combat())
 		pvp_target->_clean_fight();
 	player->set_life(player->query_life_max());
 	player["/tmp/wanling/assist_at"] = 0;
+	mapping before_full_life = PETD->query_pet_battle_presence(player);
+	string before_full_event = mappingp(before_full_life["recent_event"]) ?
+		(string)before_full_life["recent_event"]["id"] : "";
 	mapping full_life_assist = PETD->perform_pet_pve_assist(player,first);
 	mapping full_life_presence = PETD->query_pet_battle_presence(player);
-	check("生命已满时仍生成零数值陪伴事件但不伪造治疗量",
-		full_life_assist["ok"] && (int)full_life_assist["amount"]==0 &&
-		(string)full_life_presence["recent_event"]["id"]!=event_id &&
-		(int)full_life_presence["recent_event"]["amount"]==0,
-		"满生命时宠物完全无反馈、重复事件ID或显示虚假回血");
+	check("PVE治疗就绪但主人满血时不吞冷却也不生成零值伪事件",
+		!full_life_assist["ok"] &&
+		full_life_assist["waiting_resource"]=="life" &&
+		(int)player["/tmp/wanling/assist_at"]==0 &&
+		full_life_presence["waiting_resource"]=="life" &&
+		(mappingp(full_life_presence["recent_event"]) ?
+			(string)full_life_presence["recent_event"]["id"] : "")==
+			before_full_event,
+		"满生命零治疗仍进入冷却或伪造了一次灵技触发");
+	player->set_life(player->query_life_max()/2);
+	mapping ready_heal = PETD->perform_pet_pve_assist(player,first);
+	check("主人受伤后无需重新等待即可释放已就绪PVE治疗",
+		ready_heal["ok"] && ready_heal["type"]=="heal" &&
+		(int)ready_heal["amount"]>0 &&
+		(int)player["/tmp/wanling/assist_at"]>0,
+		"资源出现缺口后治疗仍不生效或错误重算冷却");
 	mapping granted_attack = PETD->test_grant_pet_species(player,"bifang");
 	mapping attack_state = PETD->query_pet_state(player);
 	string attack_pet_id = "";
@@ -715,6 +815,7 @@ void test_pet_equipment_and_skill_imprint()
 		"初契装备缺槽、派生属性错误或污染人物背包");
 
 	player->skills["huichun"] = ({25,0});
+	player->skills["wanmuxinchun"] = ({1,0});
 	player->skills["b_nuhou"] = ({100,0});
 	mapping too_early = PETD->imprint_pet_skill(player,pet_id,"huichun");
 	PETD->test_add_pet_material(player,"spirit_dew",100);
@@ -723,10 +824,14 @@ void test_pet_equipment_and_skill_imprint()
 		trained = trained && PETD->train_pet_level(player,pet_id)["ok"];
 	array candidates = PETD->query_pet_imprint_skill_candidates(player);
 	int has_heal = 0;
+	int has_wanmu = 0;
 	int has_injected = 0;
 	foreach(candidates,mapping candidate){
 		if((string)candidate["name"]=="huichun")
 			has_heal = 1;
+		if((string)candidate["name"]=="wanmuxinchun" &&
+		   (string)candidate["effect"]=="heal")
+			has_wanmu = 1;
 		if((string)candidate["name"]=="b_nuhou")
 			has_injected = 1;
 	}
@@ -734,7 +839,8 @@ void test_pet_equipment_and_skill_imprint()
 	mapping core_locked = PETD->unequip_pet_gear(player,pet_id,
 		"spirit_core");
 	check("灵技只接受20级后真实学会的主动技能并拒绝注入技能",
-		!too_early["ok"] && trained && has_heal && !has_injected &&
+		!too_early["ok"] && trained && has_heal && has_wanmu &&
+		!has_injected &&
 		imprinted["ok"] && !core_locked["ok"],
 		"等级、技能来源过滤或承载灵核保护失效");
 
@@ -752,6 +858,81 @@ void test_pet_equipment_and_skill_imprint()
 		presence["native_skill"]=="夜渡回澜" &&
 		mappingp(presence["imprinted_skill"]),
 		"拓印直接沿用原定位、没有治疗或战斗小窗技能名错误");
+
+	PETD->test_add_pet_material(player,"skill_rune",1);
+	mapping wanmu_imprinted = PETD->imprint_pet_skill(player,pet_id,
+		"wanmuxinchun");
+	player->set_life(player->query_life_max());
+	player["/tmp/wanling/assist_at"] = 0;
+	mapping wanmu_before = PETD->query_pet_battle_presence(player);
+	string wanmu_event_before = mappingp(wanmu_before["recent_event"]) ?
+		(string)wanmu_before["recent_event"]["id"] : "";
+	mapping wanmu_waiting = PETD->perform_pet_pve_assist(player,npc);
+	mapping wanmu_wait_presence = PETD->query_pet_battle_presence(player);
+	mapping balanced_rhythm = PETD->query_pet_rune_rhythm_profile(0);
+	mapping agile_rhythm = PETD->query_pet_rune_rhythm_profile(1);
+	mapping charged_rhythm = PETD->query_pet_rune_rhythm_profile(2);
+	check("三套灵纹公开说明与真实冷却、倍率和PVP蓄能常量一致",
+		balanced_rhythm["effect_percent"]==100 &&
+		balanced_rhythm["pve_cooldown"]==30 &&
+		balanced_rhythm["pvp_charge"]==
+			PETD->query_pet_pvp_charge_required(0) &&
+		agile_rhythm["effect_percent"]==80 &&
+		agile_rhythm["pve_cooldown"]==24 &&
+		agile_rhythm["pvp_charge"]==
+			PETD->query_pet_pvp_charge_required(1) &&
+		charged_rhythm["effect_percent"]==115 &&
+		charged_rhythm["pve_cooldown"]==36 &&
+		charged_rhythm["pvp_charge"]==
+			PETD->query_pet_pvp_charge_required(2) &&
+		search((string)wanmu_wait_presence["rune_effect"],
+			"三枚灵纹整套触发")!=-1,
+		"灵纹页面说明可能与实际战斗常量漂移或仍无效果描述");
+	string pet_command_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/pet.pike") || "";
+	check("共享宠物详情逐套解释灵纹效果并提示本命战斗位会暂停触发",
+		search(pet_command_source,
+			"PETD->query_pet_rune_rhythm_description")!=-1 &&
+		search(pet_command_source,"当前战斗位是本命灵伴")!=-1 &&
+		search(pet_command_source,"真实生效时战斗中会出现三纹共鸣提示")!=-1,
+		"玩家仍需猜灵纹组合效果或无法判断共享宠物为何不出手");
+	player->set_life(player->query_life_max()/2);
+	int wanmu_life_before = player->get_cur_life();
+	player->_fight(npc);
+	npc->_fight(player);
+	player->heart_beat();
+	mapping wanmu_presence = PETD->query_pet_battle_presence(player);
+	mapping wanmu_event = mappingp(wanmu_presence["recent_event"]) ?
+		wanmu_presence["recent_event"] : ([]);
+	check("拓印万木新春经真实人物心跳治疗且满血不吞冷却",
+		wanmu_imprinted["ok"] && !wanmu_waiting["ok"] &&
+		wanmu_waiting["waiting_resource"]=="life" &&
+		(int)wanmu_wait_presence["cooldown_remaining"]==0 &&
+		(mappingp(wanmu_wait_presence["recent_event"]) ?
+			(string)wanmu_wait_presence["recent_event"]["id"] : "")==
+			wanmu_event_before && wanmu_event["type"]=="heal" &&
+		(int)wanmu_event["amount"]>0 &&
+		player->get_cur_life()>wanmu_life_before &&
+		search((string)wanmu_presence["skill"],"万木新春")!=-1 &&
+		wanmu_event["skill"]==wanmu_presence["skill"] &&
+		wanmu_event["rune_set_triggered"],
+		"真实人物心跳未触发万木新春、误判为攻击或事件没有显示灵纹");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(npc->query_in_combat())
+		npc->_clean_fight();
+	int combat_at_before_refresh = (int)player["/tmp/wanling/assist_at"];
+	player["/tmp/wanling/pet_skills"] = ({"旧灵纹", "旧灵纹", "旧灵纹"});
+	player["/tmp/wanling/imprinted_skill"] = 0;
+	PETD->drop_test_pet_cache(player->query_account_owner());
+	PETD->mark_pet_player_runtime_stale(player);
+	mapping refreshed_presence = PETD->query_pet_battle_presence(player);
+	check("Worker账号缓存换代后重建在线人物灵技灵纹且不刷新战斗冷却",
+		!(int)player["/tmp/wanling/runtime_stale"] &&
+		search((string)refreshed_presence["skill"],"万木新春")!=-1 &&
+		search((array)refreshed_presence["runes"],"旧灵纹")==-1 &&
+		(int)player["/tmp/wanling/assist_at"]==combat_at_before_refresh,
+		"只清账号缓存但在线人物继续使用旧拓印/灵纹，或借刷新重置冷却");
 
 	mapping forgotten = PETD->forget_pet_imprinted_skill(player,pet_id);
 	mapping core_removed = PETD->unequip_pet_gear(player,pet_id,
@@ -893,6 +1074,46 @@ void test_pet_batch_growth_and_fusion()
 		(int)success_after["materials"]["spirit_mark"]==
 			(int)success_before["materials"]["spirit_mark"]-10,
 		"成功路径数量、旧ID删除、随机结构或继承字段错误");
+	player->move(test_room);
+	mapping child_activated = PETD->set_active_pet(player,
+		(string)child["id"]);
+	mapping child_presence = PETD->query_pet_battle_presence(player);
+	object fusion_target = make_npc(player,50);
+	player->set_life(player->query_life_max()/2);
+	player->set_mofa(player->query_mofa_max()/2);
+	player["/tmp/wanling/assist_at"] = 0;
+	player->_fight(fusion_target);
+	fusion_target->_fight(player);
+	player->heart_beat();
+	mapping fusion_presence = PETD->query_pet_battle_presence(player);
+	mapping fusion_event = mappingp(fusion_presence["recent_event"]) ?
+		fusion_presence["recent_event"] : ([]);
+	int all_runes_visible = sizeof((array)child["skills"])==3;
+	foreach((array)child["skills"],string rune)
+		all_runes_visible = all_runes_visible &&
+			search((string)(fusion_event["skill"] || ""),rune)!=-1;
+	check("阴阳融合宠三枚父系灵纹同步到战斗并作为一个共鸣组合真实触发",
+		child_activated["ok"] && (int)fusion_event["amount"]>0 &&
+		child_presence["rune_combo"] && fusion_event["rune_combo"] &&
+		fusion_event["rune_combo_triggered"] &&
+		fusion_event["rune_set_triggered"] &&
+		Standards.JSON.encode(child_presence["runes"])==
+			Standards.JSON.encode(child["skills"]) &&
+		Standards.JSON.encode(fusion_event["runes"])==
+			Standards.JSON.encode(child["skills"]) && all_runes_visible,
+		"融合灵纹只写入档案，出战快照仍回退原种族技能或战斗不触发");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(fusion_target->query_in_combat())
+		fusion_target->_clean_fight();
+	player["/tmp/wanling/pet_skills"] = ({"损坏残片",0,0});
+	mapping repaired_presence = PETD->query_pet_battle_presence(player);
+	check("损坏的临时灵纹快照安全回退完整原生组合且不拼接残片",
+		sizeof((array)repaired_presence["runes"])==3 &&
+		search((array)repaired_presence["runes"],"损坏残片")==-1,
+		"部分损坏快照与图鉴回退拼接，形成四枚以上伪灵纹");
+	PETD->set_active_pet(player,"none");
+	PETD->set_active_pet(player,(string)child["id"]);
 	mapping duplicate_attempt = PETD->test_fuse_pets(player,
 		(string)dangkang["id"],(string)bifang["id"],1,4,1);
 	mapping duplicate_state = PETD->query_pet_state(player);
@@ -904,6 +1125,7 @@ void test_pet_batch_growth_and_fusion()
 		disk_state["ok"] && sizeof((array)disk_state["pets"])==2 &&
 		mappingp(find_pet_species(disk_state,(string)child["species"])["fusion"]),
 		"重复合成产生克隆、材料重复扣除或融合档案无法恢复");
+	if(fusion_target) destruct(fusion_target);
 }
 
 void test_rift(array(object) players)
@@ -921,10 +1143,17 @@ void test_rift(array(object) players)
 		players[2]->query_name_cn());
 	mapping started = PETD->start_rift(players[0]);
 	mapping won = run_rift(players,1);
+	mapping immediate_restart = PETD->start_rift(players[0]);
+	mapping immediate_lost = immediate_restart["ok"] ?
+		run_rift(players,0) : ([]);
 	check("裂隙拒绝两人凑数且三名不同账号玩家可在12轮内协作完成",
 		!too_few["ok"] && started["ok"] && won["ok"] &&
 		won["status"]=="won" && (int)won["round"]<=12,
 		"人数门槛、回合上限或正确机制结算失败");
+	check("胜利资格落盘后无需等待全员手动领取即可立即重开",
+		immediate_restart["ok"] && immediate_lost["ok"] &&
+		immediate_lost["status"]=="lost",
+		"上一场已持久化奖励仍占用运行时会话，导致队伍无法继续挑战");
 
 	mapping before0 = PETD->query_pet_state(players[0]);
 	int queued_before_restart = sizeof((mapping)before0[
@@ -966,12 +1195,24 @@ void test_rift(array(object) players)
 
 	mapping bad_start = PETD->start_rift(players[0]);
 	mapping lost = run_rift(players,0);
+	// 玩家真实反馈路径：失败后解散旧队、重新组队会产生新的 term_id。
+	// 旧 lost 会话不能继续抢占角色的裂隙路由。
+	TERMD->destory_term(test_team_id,players[0]->query_name());
+	foreach(players,object player)
+		player->set_term("noterm");
+	test_team_id = TERMD->term_create(players[0]->query_name());
+	TERMD->add_termer(test_team_id,players[1]->query_name(),
+		players[1]->query_name_cn());
+	TERMD->add_termer(test_team_id,players[2]->query_name(),
+		players[2]->query_name_cn());
 	mapping restart = PETD->start_rift(players[0]);
-	check("缚灵不能靠普通输出绕过且失败场次最多12轮后可立即重开",
+	mapping restart_action = PETD->take_rift_action(players[0],"break");
+	check("缚灵不能靠普通输出绕过且失败后重组新队可立即重开行动",
 		bad_start["ok"] && lost["status"]=="lost" &&
 		(int)lost["round"]<=12 && restart["ok"] &&
-		restart["session"]["status"]=="active",
-		"错误行动仍赢得裂隙、无限等待或失败后无法重开");
+		restart["session"]["status"]=="active" &&
+		restart_action["ok"],
+		"错误行动仍赢得裂隙、旧失败会话抢路由或重组后无法行动");
 	object away_room = clone(ROOT+"/gamelib/d/wanling/wanlingtai");
 	players[2]->move(away_room);
 	mapping dropout = PETD->query_rift_state(players[0]);
@@ -990,7 +1231,7 @@ void test_rift(array(object) players)
 	test_team_id = "";
 }
 
-void test_rift_same_account_rejection(object independent)
+void test_rift_same_account_participants(object independent)
 {
 	string account_id = "xd99testunitpetriftsame";
 	object root_player = create_test_player(account_id,"human","jianxian");
@@ -1001,7 +1242,11 @@ void test_rift_same_account_rejection(object independent)
 		account_id,"third","fangshi");
 	object child = created["ok"] ? restore_child_player(
 		(string)created["character"]["id"],"third","fangshi") : 0;
-	PETD->choose_starter_pet(root_player,"dangkang");
+	mapping starter = PETD->choose_starter_pet(root_player,"dangkang");
+	root_player->set_life(root_player->query_life_max());
+	if(child)
+		child->set_life(child->query_life_max());
+	independent->set_life(independent->query_life_max());
 	root_player->move(test_room);
 	if(child) child->move(test_room);
 	independent->move(test_room);
@@ -1009,14 +1254,137 @@ void test_rift_same_account_rejection(object independent)
 	if(child) child->set_term("noterm");
 	independent->set_term("noterm");
 	string team_id = TERMD->term_create(root_player->query_name());
+	int child_add = 0;
 	if(child)
-		TERMD->add_termer(team_id,child->query_name(),child->query_name_cn());
-	TERMD->add_termer(team_id,independent->query_name(),
+		child_add = TERMD->add_termer(team_id,child->query_name(),
+			child->query_name_cn());
+	int independent_add = TERMD->add_termer(team_id,independent->query_name(),
 		independent->query_name_cn());
-	mapping rejected = PETD->start_rift(root_player);
-	check("同一注册账号的多个职业不能给裂隙虚增有效人数",
-		created["ok"] && child && !rejected["ok"],
-		"同账号小号可互刷多人裂隙");
+	mapping team_snapshot = TERMD->query_term_m(team_id);
+	mapping before = PETD->query_pet_state(root_player);
+	int root_exp_before = root_player->query_exp();
+	int child_exp_before = child ? child->query_exp() : 0;
+	int root_money_before = root_player->query_account();
+	int child_money_before = child ? child->query_account() : 0;
+	mapping started = PETD->start_rift(root_player);
+	mapping won = started["ok"] ?
+		run_rift(({root_player,child,independent}),1) : ([]);
+	int root_exp_after_win = root_player->query_exp();
+	int child_exp_after_win = child ? child->query_exp() : 0;
+	int root_money_after_win = root_player->query_account();
+	int child_money_after_win = child ? child->query_account() : 0;
+	mapping pending = PETD->query_pet_state(root_player);
+	mapping root_claim = PETD->claim_rift_reward(root_player,9999,9999);
+	mapping child_claim = PETD->claim_rift_reward(child,9999,9999);
+	mapping independent_claim = PETD->claim_rift_reward(
+		independent,9999,9999);
+	mapping after = PETD->query_pet_state(root_player);
+	mapping cleared = PETD->query_rift_state(child);
+	check("同一注册账号的不同角色可补足3人行动位",
+		created["ok"] && child && starter["ok"] &&
+		started["ok"] && won["ok"] &&
+		won["status"]=="won",
+		"同账号角色仍被错误拒绝或无法独立行动: starter="+
+		(string)starter["message"]+" start="+(string)started["message"]+
+		" won="+(string)won["message"]+" add="+(string)child_add+"/"+
+		(string)independent_add+" team="+(string)sizeof(team_snapshot)+
+		" term="+(child ? child->query_term() : "missing")+"/"+
+		independent->query_term()+" level="+
+		(string)(child ? child->query_level() : 0)+"/"+
+		(string)independent->query_level()+" life="+
+		(string)(child ? child->get_cur_life() : 0)+"/"+
+		(string)independent->get_cur_life()+" env="+
+		(string)(child && environment(child)==environment(root_player))+"/"+
+		(string)(environment(independent)==environment(root_player)));
+	check("同账号多角色每场只产生一份共享万灵奖励",
+		sizeof((mapping)pending["pending_rift_rewards"])==1 &&
+		root_claim["ok"] && !child_claim["ok"] &&
+		independent_claim["ok"] &&
+		(int)after["materials"]["spirit_mark"]==
+			(int)before["materials"]["spirit_mark"]+5 &&
+		(int)after["weekly"]["rift_wins"]==
+			(int)before["weekly"]["rift_wins"]+1 && !cleared["ok"],
+		"共享档案重复发奖、周次数翻倍或已结算会话未清理: root="+
+		(string)root_claim["message"]+" child="+
+		(string)child_claim["message"]+" independent="+
+		(string)independent_claim["message"]);
+	check("同账号每个真实参战角色都独立获得幂等经验金币奖励",
+		root_exp_after_win>root_exp_before &&
+		child_exp_after_win>child_exp_before &&
+		root_money_after_win>root_money_before &&
+		child_money_after_win>child_money_before &&
+		mappingp(root_player["/wanling/rift_character_rewards"]) &&
+		mappingp(child["/wanling/rift_character_rewards"]) &&
+		sizeof((mapping)root_player["/wanling/rift_character_rewards"])==1 &&
+		sizeof((mapping)child["/wanling/rift_character_rewards"])==1 &&
+		root_player->query_exp()==root_exp_after_win &&
+		child->query_exp()==child_exp_after_win &&
+		root_player->query_account()==root_money_after_win &&
+		child->query_account()==child_money_after_win,
+		"同账号第二角色零奖励，或点击共享领奖时重复发放角色奖励");
+	int repeated_sessions_ok = 1;
+	for(int cycle=2;cycle<=3;cycle++){
+		int one_root_exp = root_player->query_exp();
+		int one_child_exp = child ? child->query_exp() : 0;
+		int one_root_money = root_player->query_account();
+		int one_child_money = child ? child->query_account() : 0;
+		mapping one_started = PETD->start_rift(root_player);
+		mapping one_won = one_started["ok"] ?
+			run_rift(({root_player,child,independent}),1) : ([]);
+		mapping one_root_claim = PETD->claim_rift_reward(
+			root_player,9999,9999);
+		mapping one_independent_claim = PETD->claim_rift_reward(
+			independent,9999,9999);
+		repeated_sessions_ok = repeated_sessions_ok &&
+			one_started["ok"] && one_won["status"]=="won" &&
+			one_root_claim["ok"] && one_independent_claim["ok"] &&
+			root_player->query_exp()>one_root_exp &&
+			child->query_exp()>one_child_exp &&
+			root_player->query_account()>one_root_money &&
+			child->query_account()>one_child_money;
+	}
+	mapping after_three = PETD->query_pet_state(root_player);
+	check("同账号多角色连续完成3场也不会间歇性漏发或重复发放",
+		repeated_sessions_ok &&
+		sizeof((mapping)root_player["/wanling/rift_character_rewards"])==3 &&
+		sizeof((mapping)child["/wanling/rift_character_rewards"])==3 &&
+		(int)after_three["materials"]["spirit_mark"]==
+			(int)before["materials"]["spirit_mark"]+15 &&
+		(int)after_three["weekly"]["rift_wins"]==
+			(int)before["weekly"]["rift_wins"]+3,
+		"连续场次角色凭据、共享材料或账号周胜场结算不一致");
+	string legacy_session_id =
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+	mapping legacy_record = Standards.JSON.decode(
+		Stdio.read_file(pet_file(account_id)));
+	legacy_record["pending_rift_rewards"][legacy_session_id] = ([
+		"boss_species":"kui",
+		"won_at":time(),
+		"expires_at":time()+3600,
+	]);
+	Stdio.write_file(pet_file(account_id),
+		Standards.JSON.encode(legacy_record));
+	PETD->drop_test_pet_cache(account_id);
+	int legacy_exp_before = root_player->query_exp();
+	int legacy_money_before = root_player->query_account();
+	mapping legacy_claim = PETD->claim_rift_reward(
+		root_player,9999,9999);
+	mapping legacy_after = PETD->query_pet_state(root_player);
+	check("更新前无角色列表的待领奖励可迁移且只补发当前角色一次",
+		legacy_claim["ok"] && root_player->query_exp()>legacy_exp_before &&
+		root_player->query_account()>legacy_money_before &&
+		(int)legacy_after["materials"]["spirit_mark"]==
+			(int)after_three["materials"]["spirit_mark"]+5 &&
+		!legacy_after["pending_rift_rewards"][legacy_session_id] &&
+		sizeof((mapping)root_player["/wanling/rift_character_rewards"])==4,
+		"旧版本待领奖励仍漏发角色收益、重复发放或无法完成清理");
+	string rift_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_pet_mod/rift.pike");
+	check("裂隙共享奖励按精确注册账号标识归并",
+		search(rift_source,
+			"participant_account_ids[member_id] = member_account")!=-1 &&
+		search(rift_source,"lower_case(member_account)")==-1,
+		"大小写不同的合法注册账号可能被误当成同一账号");
 	if(sizeof(team_id)>1)
 		TERMD->destory_term(team_id,root_player->query_name());
 }
@@ -1096,9 +1464,11 @@ void test_hidden_luan_owner_revive()
 		normal,0);
 	object first_boss = make_npc(player,70);
 	first_boss->_boss = 1;
+	player["/pet_battle/source"] = "personal";
 	mapping missed = PETD->test_record_hidden_luan_drop(player,
 		first_boss,9999);
-	check("隐藏图鉴未收录前不泄露总数且只接受70级以上真实首领",
+	player["/pet_battle/source"] = "shared";
+	check("隐藏图鉴不泄露且完成初契后切换本命灵伴仍累计合格首领",
 		chosen["ok"] && (int)before["catalog_total"]==15 &&
 		!normal_drop["eligible"] && missed["ok"] &&
 		missed["eligible"] && !missed["dropped"] &&
@@ -1302,7 +1672,7 @@ void test_corruption_and_wiring()
 		summon_cleanup_pos>pet_revive_pos,
 		"隐藏宠物抢占灵医特色或复活发生在死亡惩罚之后");
 	check("旧文字入口、Vue快捷入口与Header随行宠物均接入万灵谱",
-		user_source && search(user_source,"[万灵:pet]")!=-1 &&
+		user_source && search(user_source,"[共享宠物:pet]")!=-1 &&
 		vue_source && search(vue_source,"sendQuickCommand('pet')")!=-1 &&
 		search(vue_source,"header-pet-companion")!=-1 &&
 		vue_app_source && search(vue_app_source,"headerPet()")!=-1 &&
@@ -1318,6 +1688,18 @@ void test_corruption_and_wiring()
 		search(vue_app_source,"handlePetLevelChange(previousPet")!=-1 &&
 		search(vue_css_source,"@keyframes petLevelUpEnter")!=-1,
 		"成长建议、直达入口、升级状态差分或视觉层没有完整接通");
+	string pet_command_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/pet.pike") || "";
+	string daily_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/daily_cultivation.pike") || "";
+	check("万灵主页、宠物详情和本周目标均直显灵纹符数量与获取入口",
+		search(pet_command_source,
+			"灵纹符获取：每周平复3次万灵裂隙后")!=-1 &&
+		search(pet_command_source,"[获取说明:pet materials]")!=-1 &&
+		search(pet_command_source,"[查看灵纹符获取:daily_cultivation]")!=-1 &&
+		search(daily_source,"[灵纹符×2:wanling_rift weekly rune]")!=-1 &&
+		search(daily_source,"不进入人物背包")!=-1,
+		"数量、来源、周进度或切换失败后的直达入口仍有缺失");
 	check("头像装备面板使用只读结构接口并复用服务器换装命令校验",
 		equipment_api_source &&
 		search(equipment_api_source,"all_inventory(player)")!=-1 &&
@@ -1376,7 +1758,8 @@ int main()
 			"测试人物或房间创建失败");
 		if(players_ok && test_room){
 			test_catalog_and_all_professions(profession_players);
-			test_collection_growth(profession_players[0]);
+				test_collection_growth(profession_players[0]);
+				test_pet_player_level_cap();
 			test_legacy_pet_migration();
 			 test_same_account_active_pet();
 			test_hunt_and_assist(profession_players[0],profession_players[1]);
@@ -1392,7 +1775,7 @@ int main()
 				PETD->choose_starter_pet(profession_players[i],
 					PETD->query_starter_species()[i]);
 			}
-			test_rift_same_account_rejection(profession_players[2]);
+			test_rift_same_account_participants(profession_players[2]);
 			test_duel(profession_players[0],profession_players[1]);
 			test_corruption_and_wiring();
 		}

@@ -5,35 +5,25 @@
 int main(string|zero arg)
 {
 	string s = "点击快捷键,可进入配置页面，可配置的范围包括技能和可食用药品\n";
-	string name_cn = "";
 	object me = this_player();
 	array(mapping(string:int)) tmps = me->query_toolbar_all();
 	if(tmps&&sizeof(tmps)){
 		for(int i=0;i<sizeof(tmps);i++){
 			int j = i+1;
 			mapping(string:int) tmp = tmps[i];
-			string tmp_name;// = indices(tmp)[0];
-			foreach(indices(tmp), string keys){
+			string tmp_name = "";
+			string name_cn = "无";
+			if(!mappingp(tmp))
+				tmp = ([]);
+			foreach(indices(tmp),string keys){
 				tmp_name = keys;
 				break;
 			}
-			if(tmp_name == "none" || tmp_name == "" )
-				name_cn = "无";
-			else{
-				if(tmp[tmp_name] == 1){
-					name_cn = MUD_SKILLSD[tmp_name]->query_name_cn(); 
-				}
-				else if(tmp[tmp_name] == 2){
-					object food = clone(FOOD_PATH+tmp_name);
-					if(food)
-						name_cn = food->query_name_cn();
-				}
-				else if(tmp[tmp_name] == 3){
-					object water = clone(WATER_PATH+tmp_name);
-					if(water)
-						name_cn = water->query_name_cn();
-				}
-				//s += "[快捷键"+j+":toolbar_view "+i+" skills] (当前配置:"+name_cn+")-[取消配置:toolbar_cancel "+i+"]\n";
+			if(tmp_name!="none" && tmp_name!=""){
+				name_cn = (string)me->query_toolbar_entry_name(tmp_name,
+					(int)tmp[tmp_name]);
+				if(name_cn=="")
+					name_cn = "失效配置，请取消后重新设置";
 			}
 			s += "[快捷键"+j+":toolbar_view "+i+" skills] (当前配置:"+name_cn+")-[取消配置:toolbar_cancel "+i+"]\n";
 		}

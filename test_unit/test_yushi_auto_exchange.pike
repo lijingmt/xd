@@ -138,6 +138,35 @@ void test_insufficient_yushi_unchanged()
 	destroy_runtime_player(player);
 }
 
+void test_convert_equip_auto_exchange()
+{
+	test_start("装备洗炼使用大面额玉石并自动找零");
+	object|zero player = create_runtime_player("__testunit_yushi_convert__");
+	object command = (object)(ROOT+
+		"/gamelib/cmds/convert_equip_confirm.pike");
+	int pay_result = 0;
+	int second_result = 1;
+	string error_desc = "";
+	mixed err = catch {
+		give_test_yushi(player,"linglongyu",1);
+		pay_result = command->pay_convert_equip_yushi(player,10);
+		second_result = command->pay_convert_equip_yushi(player,91);
+	};
+	if(err)
+		error_desc = describe_error(err);
+
+	if(!err && player && pay_result == 1 && second_result == 0 &&
+	   YUSHID->query_all_num(player) == 90 &&
+	   YUSHID->query_yushi_num(player,3) == 0 &&
+	   YUSHID->query_yushi_num(player,2) == 9 &&
+	   YUSHID->query_yushi_num(player,1) == 0)
+		test_pass();
+	else
+		test_fail("洗炼自动兑换或余额不足保护错误: "+error_desc);
+
+	destroy_runtime_player(player);
+}
+
 void test_generic_shop_runtime()
 {
 	test_start("副职技能书购买入口自动兑换");
@@ -192,6 +221,8 @@ void test_purchase_commands_compile()
 		"/gamelib/cmds/dubo_item_confirm.pike",
 		"/gamelib/cmds/lottery_join_in.pike",
 		"/gamelib/cmds/auto_learn_submit.pike",
+		"/gamelib/cmds/convert_equip_confirm.pike",
+		"/gamelib/cmds/convert_equip_detail.pike",
 		"/lowlib/wapmud2/cmds/list_spec.pike",
 	});
 	int failed = 0;
@@ -236,6 +267,7 @@ int main()
 	test_large_yushi_purchase_change();
 	test_mixed_yushi_change();
 	test_insufficient_yushi_unchanged();
+	test_convert_equip_auto_exchange();
 	test_generic_shop_runtime();
 	test_purchase_commands_compile();
 	print_summary();

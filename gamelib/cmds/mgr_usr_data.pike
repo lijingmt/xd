@@ -24,6 +24,49 @@ int main(string|zero arg){
 	}
 	else{
 		string uid = (arg/" ")[0];
+		if(MAP_WORKERD->query_node_role()=="worker"){
+			mapping online_status = HTTP_APID->
+				query_map_worker_cluster_online_users();
+			mapping online_row = ([]);
+			string account_owner = ACCOUNT_CHARACTERD->
+				query_account_id_for_character(uid);
+			if(online_status["ok"] && arrayp(online_status["users"]))
+				foreach((array)online_status["users"],mapping row)
+					if((string)row["userid"]==lower_case(uid)){
+						online_row = row;
+						break;
+					}
+			if(account_owner=="")
+				s += "此用户账号不存在，请返回确认。\n";
+			else{
+				ACCOUNT_WALLETD->invalidate_worker_account_cache(account_owner);
+				mapping wallet_status = ACCOUNT_WALLETD->
+					query_account_wallet(account_owner);
+				s += "用户状态："+(sizeof(online_row) ? "在线\n" : "离线\n");
+				s += "账号："+uid+"\n";
+				s += "注册账号归属："+account_owner+"\n";
+				if(sizeof(online_row)){
+					s += "所在Worker："+(string)online_row["worker_id"]+"\n";
+					s += "等级："+(string)(int)online_row["level"]+"\n";
+					s += "地点："+(string)online_row["room_name"]+"\n";
+				}
+				if(wallet_status["ok"])
+					s += "账号共享充值余额："+
+						YUSHID->get_yushi_for_desc(
+							(int)wallet_status["balance"])+"\n";
+				else
+					s += "账号共享充值钱包：数据异常，已停止入账和消费\n";
+				s += "[给注册账号共享充值:txadd "+uid+"]\n";
+				s += "[给此人物发放物品:mgr_give_item "+uid+"]\n";
+				s += "说明：多Worker模式下不在管理进程复制在线人物，"+
+					"充值由协调器锁定目标账号后自动送到所在Worker。\n";
+			}
+			s += "[返回:mgr_usr_data]\n";
+			s += "[返回管理主界面:game_deal]\n";
+			s += "[返回游戏:look]\n";
+			write(s);
+			return 1;
+		}
 		int remove_flag=0;
 		object player = find_player(uid);
 		if(!player){
@@ -77,6 +120,7 @@ int main(string|zero arg){
 			else
 				s += "账号共享充值钱包：数据异常，已停止入账和消费\n";
 			s += "[给注册账号共享充值:txadd "+uid+"]\n";
+			s += "[给此人物发放物品:mgr_give_item "+uid+"]\n";
 			s += "-------------------\n";
 			//s += "【通宝历史数额】："+player->history_tongbao+" (输入大于等于0的整数)[string:change history_tb "+player->name+" ...]\n";
 			//int qhs_count = check_need_item(player,"qhs");

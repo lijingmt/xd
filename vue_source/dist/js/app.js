@@ -211,7 +211,24 @@ createApp({
             taijiUnlocked: false,
             characterForm: {
                 race_id: '',
-                profession_id: ''
+                profession_id: '',
+                name_cn: '',
+                sex: 'male',
+                avatar_id: ''
+            },
+            characterProfileOpen: false,
+            characterProfileBusy: false,
+            characterProfileError: '',
+            characterProfileDismissedFor: '',
+            characterProfileForm: {
+                name_cn: '',
+                sex: 'male',
+                avatar_id: '',
+                race_id: '',
+                profession_id: '',
+                needs_name: false,
+                needs_sex: false,
+                needs_avatar: false
             },
             professionOptions: [
                 { race_id: 'human', profession_id: 'jianxian', name: '剑仙', race: '人类', icon: '⚔️', desc: '重甲长剑，正面强攻' },
@@ -234,6 +251,15 @@ createApp({
             loginError: '',
             registerError: '',
             registerSuccess: false,
+            registerSuccessAccount: '',
+            registerReturnTimer: null,
+            registerTouched: {
+                userid: false,
+                password: false,
+                passwordConfirm: false,
+                captcha: false,
+                referral: false
+            },
             loginForm: {
                 partition: '',
                 userid: '',
@@ -244,7 +270,8 @@ createApp({
                 userid: '',
                 password: '',
                 passwordConfirm: '',
-                captcha: ''
+                captcha: '',
+                referral: ''
             },
             captchaCode: '',
             partitions: [],  // 将从API动态加载
@@ -318,6 +345,7 @@ createApp({
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
+            roomSkillEventHistory: {},  // 服务端同房施法事件ID去重
             combatEffectsEnabled: localStorage.getItem('battle_effects_enabled') !== '0',
             soundEffectsEnabled: localStorage.getItem('game_sound_enabled') === '1',
             soundPlayer: null,
@@ -342,7 +370,7 @@ createApp({
             quickActionsCollapsed: true,  // 更多功能默认收起，保留五项高频导航
             // 邀请系统
             refCode: '',  // 推荐人邀请码（从URL参数ref获取）
-            showInviteModal: false,  // 显示邀请弹窗
+            inviteModalOpen: false,  // 显示邀请弹窗
             inviteLink: '',  // 邀请链接
             inviteCode: '',  // 邀请码
             qrCodeUrl: '',  // 二维码URL
@@ -546,15 +574,18 @@ createApp({
             }
             const name = String(currentPet.name || '灵宠');
             const icon = String(currentPet.icon || '🐾');
+            const personal = String(currentPet.system || '') === 'personal';
+            const systemName = personal ? '本命灵伴' : '灵宠';
+            const systemCommand = personal ? 'spirit_companion' : 'pet';
             const levelsGained = toLevel - fromLevel;
             const message = `${name} ${fromLevel}级 → ${toLevel}级${levelsGained > 1 ? `，连升${levelsGained}级` : ''}`;
             const signature = `pet:${currentPet.pet_id}:${fromLevel}->${toLevel}`;
             this.triggerGameFeedback('petLevel', signature, 800);
             this.clearPetLevelUpEffect();
             if (!this.combatEffectsEnabled || this.prefersReducedMotion()) {
-                this.showUiToast(`灵宠成长：${message}`, 'info', {
-                    label: '查看万灵谱',
-                    command: 'pet'
+                this.showUiToast(`${systemName}成长：${message}`, 'info', {
+                    label: personal ? '查看本命灵伴' : '查看万灵谱',
+                    command: systemCommand
                 });
                 return true;
             }
@@ -565,9 +596,11 @@ createApp({
                 fromLevel,
                 toLevel,
                 levelsGained,
-                command: currentPet.species
-                    ? `pet detail ${currentPet.species}`
-                    : 'pet'
+                command: personal
+                    ? `spirit_companion detail ${currentPet.pet_id}`
+                    : (currentPet.species
+                        ? `pet detail ${currentPet.species}`
+                        : systemCommand)
             };
             this.petLevelUpEffectTimer = setTimeout(() => {
                 this.petLevelUpEffect = null;
@@ -1192,13 +1225,159 @@ createApp({
             this.registerPasswordVisible = false;
             this.registerError = '';
             this.registerSuccess = false;
+            this.registerSuccessAccount = '';
+            this.resetRegisterTouched();
+        },
+
+        resetRegisterTouched() {
+            this.registerTouched = {
+                userid: false,
+                password: false,
+                passwordConfirm: false,
+                captcha: false,
+                referral: false
+            };
+        },
+
+        markRegisterFieldTouched(field) {
+            if (!Object.prototype.hasOwnProperty.call(this.registerTouched, field)) return;
+            this.registerTouched[field] = true;
+            if (this.registerError) this.registerError = '';
+        },
+
+        registrationFieldError(field) {
+            const form = this.registerForm || {};
+            const value = String(form[field] || '');
+
+            if (field === 'userid') {
+                if (!value) return '请输入账号';
+                if (value.length < 2) return '至少输入2个字符';
+                if (value.length > 12) return '最多输入12个字符';
+                if (!/^[a-zA-Z0-9]+$/.test(value)) return '仅支持英文字母和数字';
+                return '';
+            }
+            if (field === 'password') {
+                if (!value) return '请输入密码';
+                if (value.length < 2) return '至少输入2个字符';
+                if (value.length > 12) return '最多输入12个字符';
+                if (!/^[a-zA-Z0-9]+$/.test(value)) return '仅支持英文字母和数字';
+                return '';
+            }
+            if (field === 'passwordConfirm') {
+                if (!value) return '请再次输入密码';
+                if (value !== String(form.password || '')) return '两次输入的密码不一致';
+                return '';
+            }
+            if (field === 'captcha') {
+                if (!value) return '请输入右侧验证码';
+                if (value.length !== 4) return '验证码为4个字符';
+                if (value.toLowerCase() !== String(this.captchaCode || '').toLowerCase())
+                    return '验证码不正确，点击右侧可换一张';
+                return '';
+            }
+            if (field === 'referral') {
+                if (!value) return '';
+                return this.normalizeReferralCode(value)
+                    ? ''
+                    : '邀请码格式不正确，请检查或留空';
+            }
+            return '';
+        },
+
+        registrationFieldClass(field) {
+            const value = String(this.registerForm?.[field] || '');
+            if (!value && !this.registerTouched?.[field]) return '';
+            return this.registrationFieldError(field) ? 'field-invalid' : 'field-valid';
+        },
+
+        registrationPasswordStrength() {
+            const password = String(this.registerForm?.password || '');
+            if (!password || this.registrationFieldError('password')) return 0;
+            let score = password.length >= 6 ? 1 : 0;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+            if (/[a-zA-Z]/.test(password) && /[0-9]/.test(password)) score += 1;
+            return Math.max(1, Math.min(3, score));
+        },
+
+        registrationPasswordStrengthLabel() {
+            return ['未填写', '可用', '良好', '较强'][this.registrationPasswordStrength()];
+        },
+
+        registrationFirstError() {
+            if (!this.registerForm.partition) return '请选择可注册的分区';
+            const fields = ['userid', 'password', 'passwordConfirm', 'referral', 'captcha'];
+            for (const field of fields) {
+                const error = this.registrationFieldError(field);
+                if (error) return error;
+            }
+            return '';
+        },
+
+        normalizeReferralCode(value) {
+            const normalized = String(value || '').trim().toLowerCase();
+            return /^[a-z0-9]{2,64}$/.test(normalized) ? normalized : '';
+        },
+
+        buildReferralLink(value) {
+            const code = this.normalizeReferralCode(value);
+            if (!code) return '';
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.hash = '';
+            url.searchParams.set('register', '1');
+            url.searchParams.set('ref', code);
+            return url.toString();
+        },
+
+        applyReferralLanding(value) {
+            const code = this.normalizeReferralCode(value);
+            if (!code) return false;
+            this.refCode = code;
+            this.registerForm.referral = code;
+            this.showLogin = false;
+            this.showRegister = true;
+            return true;
+        },
+
+        clearReferralLanding() {
+            this.refCode = '';
+            this.registerForm.referral = '';
+            try {
+                localStorage.removeItem('ref_code');
+                const url = new URL(window.location.href);
+                url.searchParams.delete('ref');
+                url.searchParams.delete('register');
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {
+                // 无痕模式/旧内置浏览器不支持时不影响注册。
+            }
         },
 
         // 关闭注册页面
         closeRegister() {
+            if (this.registerReturnTimer) {
+                clearTimeout(this.registerReturnTimer);
+                this.registerReturnTimer = null;
+            }
             this.showRegister = false;
             this.showLogin = true;
             this.registerPasswordVisible = false;
+            this.registerSuccess = false;
+            this.registerSuccessAccount = '';
+            this.registerError = '';
+        },
+
+        returnToLoginAfterRegistration() {
+            if (this.registerReturnTimer) {
+                clearTimeout(this.registerReturnTimer);
+                this.registerReturnTimer = null;
+            }
+            this.showRegister = false;
+            this.showLogin = true;
+            this.registerSuccess = false;
+            this.loginForm.partition = this.registerForm.partition;
+            this.loginForm.userid = this.registerForm.userid;
+            this.loginForm.password = this.registerForm.password;
         },
 
         getPartitionSortValue(partition) {
@@ -1314,32 +1493,22 @@ createApp({
 
         // 注册功能
         async doRegister() {
-            // 验证输入
-            if (!this.registerForm.userid || !this.registerForm.password) {
-                this.registerError = '账号和密码不能为空';
+            // 前端即时校验只改善体验；后端仍会按相同规则再次校验。
+            Object.keys(this.registerTouched).forEach((field) => {
+                this.registerTouched[field] = true;
+            });
+            const validationError = this.registrationFirstError();
+            if (validationError) {
+                this.registerError = validationError;
+                if (this.registrationFieldError('captcha')) {
+                    this.registerForm.captcha = '';
+                    this.refreshCaptcha();
+                }
                 return;
             }
-            if (this.registerForm.userid.length < 2 || this.registerForm.password.length < 2) {
-                this.registerError = '账号和密码不能少于2个字符';
-                return;
-            }
-            if (this.registerForm.userid.length > 12 || this.registerForm.password.length > 12) {
-                this.registerError = '账号和密码不能超过12个字符';
-                return;
-            }
-            if (!/^[a-zA-Z0-9]+$/.test(this.registerForm.userid + this.registerForm.password)) {
-                this.registerError = '账号和密码只能是大小写字母或数字';
-                return;
-            }
-            if (this.registerForm.password !== this.registerForm.passwordConfirm) {
-                this.registerError = '两次输入的密码不一致';
-                return;
-            }
-            if (this.registerForm.captcha.toLowerCase() !== this.captchaCode.toLowerCase()) {
-                this.registerError = '验证码错误';
-                this.refreshCaptcha();
-                return;
-            }
+            const referralCode = this.registerForm.referral
+                ? this.normalizeReferralCode(this.registerForm.referral)
+                : '';
 
             this.isRegistering = true;
             this.registerError = '';
@@ -1369,10 +1538,9 @@ createApp({
                 let url = this.apiBase + '/api/html?cmd=' + encodeURIComponent(cmd);
 
                 // 如果有推荐码，添加到URL参数
-                const refCode = this.refCode || localStorage.getItem('ref_code');
-                if (refCode) {
-                    url += '&ref=' + encodeURIComponent(refCode);
-                    console.log('使用推荐码:', refCode);
+                if (referralCode) {
+                    url += '&ref=' + encodeURIComponent(referralCode);
+                    console.log('使用推荐码:', referralCode);
                 }
 
                 const response = await fetch(url, {
@@ -1383,27 +1551,26 @@ createApp({
                 console.log('response.ok:', response.ok);
 
                 const text = await response.text();
-                console.log('注册响应:', text);
 
                 // 检查注册结果
-                if (text.includes('error1') || text.includes('已经有人使用')) {
+                if (text.includes('邀请码') || text.includes('邀请关系') ||
+                    text.includes('同一注册网络')) {
+                    const message = text.match(/<div>error2,([^<]+)<\/div>/)?.[1];
+                    this.registerError = message || '邀请链接无效，请向好友重新获取';
+                } else if (text.includes('error1') || text.includes('已经有人使用')) {
                     this.registerError = '该账号已存在，请修改后重试';
                 } else if (text.includes('error2') || text.includes('登录错误')) {
                     this.registerError = '注册失败，请稍后重试';
                 } else {
                     // 注册成功 - 响应格式: username,password
                     this.registerSuccess = true;
+                    this.registerSuccessAccount = fullUserid;
                     this.registerError = '';
+                    this.clearReferralLanding();
                     // 延迟后返回登录页面
-                    setTimeout(() => {
-                        this.showRegister = false;
-                        this.showLogin = true;
-                        this.registerSuccess = false;
-                        // 填充登录表单
-                        this.loginForm.partition = this.registerForm.partition;
-                        this.loginForm.userid = this.registerForm.userid;
-                        this.loginForm.password = this.registerForm.password;
-                    }, 2000);
+                    this.registerReturnTimer = setTimeout(() => {
+                        this.returnToLoginAfterRegistration();
+                    }, 2200);
                 }
             } catch (e) {
                 console.error('注册请求失败:', e);
@@ -1453,11 +1620,16 @@ createApp({
             this.equipmentPanel = null;
             this.equipmentPanelError = '';
             this.equipmentActionBusy = '';
+            this.characterProfileOpen = false;
+            this.characterProfileBusy = false;
+            this.characterProfileError = '';
+            this.characterProfileDismissedFor = '';
             if (this.loadingTimer) {
                 clearTimeout(this.loadingTimer);
                 this.loadingTimer = null;
             }
             this.resetPetBattleVisualState();
+            this.roomSkillEventHistory = {};
             this.clearPetLevelUpEffect();
             return this.characterSessionEpoch;
         },
@@ -1560,7 +1732,7 @@ createApp({
             if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
             const credentials = this.decodeCredentialsFromTxd(txd);
             if (data.userid && credentials &&
-                data.userid.toLowerCase() !== credentials.userid.toLowerCase()) {
+                data.userid !== credentials.userid) {
                 throw new Error('人物会话响应不匹配，请重新选择人物');
             }
             this.txd = data.txd || txd;
@@ -1649,6 +1821,9 @@ createApp({
             }
             this.characterForm.race_id = '';
             this.characterForm.profession_id = '';
+            this.characterForm.name_cn = '';
+            this.characterForm.sex = 'male';
+            this.characterForm.avatar_id = '';
             this.characterError = '';
             this.characterCreateOpen = true;
         },
@@ -1656,12 +1831,55 @@ createApp({
         chooseNewProfession(option) {
             this.characterForm.race_id = option.race_id;
             this.characterForm.profession_id = option.profession_id;
+            this.characterForm.avatar_id = '';
             this.characterError = '';
         },
 
+        chooseCharacterSex(sex, profileMode = false) {
+            if (sex !== 'male' && sex !== 'female') return;
+            const form = profileMode ? this.characterProfileForm : this.characterForm;
+            if (profileMode && !form.needs_sex && form.sex !== sex) return;
+            if (form.sex !== sex) {
+                form.sex = sex;
+                form.avatar_id = '';
+            }
+        },
+
+        avatarChoicesFor(raceId, professionId, sex) {
+            if (!raceId || !professionId || !['male', 'female'].includes(sex)) {
+                return [];
+            }
+            const choices = [];
+            if (raceId === 'human' || raceId === 'third') {
+                if (raceId === 'third' &&
+                    ['zhenyue', 'tianxiang', 'lingyi', 'wuxiang', 'taiji'].includes(professionId)) {
+                    choices.push(`${professionId}_${sex}`);
+                }
+                const count = sex === 'male' ? 11 : 12;
+                for (let index = 1; index <= count; index += 1) {
+                    choices.push(`h_${sex}${index}`);
+                }
+            } else if (raceId === 'monst') {
+                const count = sex === 'male' ? 12 : 11;
+                for (let index = 1; index <= count; index += 1) {
+                    choices.push(`m_${sex}${index}`);
+                }
+            }
+            return choices;
+        },
+
         async createAccountCharacter() {
-            if (!this.characterForm.profession_id || this.characterCreating) {
+            if (this.characterCreating) return;
+            if (!this.characterForm.profession_id) {
                 this.characterError = '请先选择一个职业';
+                return;
+            }
+            if (!String(this.characterForm.name_cn || '').trim()) {
+                this.characterError = '请先为人物取一个姓名';
+                return;
+            }
+            if (!this.characterForm.sex || !this.characterForm.avatar_id) {
+                this.characterError = '请选择人物性别和头像';
                 return;
             }
             this.characterCreating = true;
@@ -1670,7 +1888,10 @@ createApp({
                 const created = await this.postAccountApi('/api/account/characters/create', {
                     token: this.accountToken,
                     race_id: this.characterForm.race_id,
-                    profession_id: this.characterForm.profession_id
+                    profession_id: this.characterForm.profession_id,
+                    name_cn: String(this.characterForm.name_cn).trim(),
+                    sex: this.characterForm.sex,
+                    avatar_id: this.characterForm.avatar_id
                 });
                 await this.refreshAccountCharacters();
                 const newId = created.character && created.character.id;
@@ -1686,6 +1907,86 @@ createApp({
                 }
             } finally {
                 this.characterCreating = false;
+            }
+        },
+
+        maybePromptCharacterProfile(data) {
+            if (!data || data.profile_complete ||
+                (!data.profile_needs_name && !data.profile_needs_sex &&
+                 !data.profile_needs_avatar)) {
+                this.characterProfileOpen = false;
+                return;
+            }
+            const characterId = this.currentCharacterId ||
+                (this.decodeCredentialsFromTxd(this.txd) || {}).userid || '';
+            if (!characterId || this.characterProfileDismissedFor === characterId ||
+                this.characterProfileOpen) return;
+            const choices = Array.isArray(data.profile_avatar_choices)
+                ? data.profile_avatar_choices : [];
+            this.characterProfileForm.name_cn = data.profile_needs_name
+                ? '' : String(data.name_cn || '');
+            this.characterProfileForm.sex = ['male', 'female'].includes(data.sex)
+                ? data.sex : 'male';
+            this.characterProfileForm.avatar_id = data.profile_needs_avatar
+                ? '' : String(data.avatar_id || '');
+            this.characterProfileForm.race_id = String(data.race_id || '');
+            this.characterProfileForm.profession_id = String(data.profession_id || '');
+            this.characterProfileForm.needs_name = !!data.profile_needs_name;
+            this.characterProfileForm.needs_sex = !!data.profile_needs_sex;
+            this.characterProfileForm.needs_avatar = !!data.profile_needs_avatar;
+            if (data.profile_needs_avatar && choices.length === 1) {
+                this.characterProfileForm.avatar_id = choices[0];
+            }
+            this.characterProfileError = '';
+            this.characterProfileOpen = true;
+        },
+
+        skipCharacterProfile() {
+            this.characterProfileDismissedFor = this.currentCharacterId ||
+                (this.decodeCredentialsFromTxd(this.txd) || {}).userid || '';
+            this.characterProfileOpen = false;
+            this.characterProfileError = '';
+        },
+
+        async submitCharacterProfile() {
+            if (this.characterProfileBusy || !this.txd) return;
+            const form = this.characterProfileForm;
+            if (form.needs_name && !String(form.name_cn || '').trim()) {
+                this.characterProfileError = '请为人物取一个姓名，或选择暂时跳过';
+                return;
+            }
+            if (!form.sex || !form.avatar_id) {
+                this.characterProfileError = '请选择人物性别和头像，或选择暂时跳过';
+                return;
+            }
+            this.characterProfileBusy = true;
+            this.characterProfileError = '';
+            try {
+                const response = await fetch(this.apiBase + '/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        txd: this.txd,
+                        name_cn: String(form.name_cn || '').trim(),
+                        sex: form.sex,
+                        avatar_id: form.avatar_id
+                    })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.error) {
+                    const error = new Error(data.error || '人物资料保存失败');
+                    error.status = response.status;
+                    throw error;
+                }
+                this.characterProfileDismissedFor = this.currentCharacterId || '';
+                this.characterProfileOpen = false;
+                this.showUiToast(data.message || '人物姓名与头像已保存', 'info');
+                await this.fetchPlayerStats();
+                if (this.accountToken) await this.refreshAccountCharacters();
+            } catch (error) {
+                this.characterProfileError = error.message || '人物资料保存失败';
+            } finally {
+                this.characterProfileBusy = false;
             }
         },
 
@@ -1943,6 +2244,36 @@ createApp({
             }
         },
 
+        // 在独立标签打开指定人物的长期入口。绝不携带当前人物的 txd，
+        // 否则新标签会先重复登录当前人物并把原标签挤下线。
+        openAccountCharacterInNewTab(characterId) {
+            if (!characterId || !this.accountId) {
+                this.showNotification('角色信息缺失，无法打开新标签');
+                return;
+            }
+            const url = new URL(window.location.href);
+            ['txd', '_txd', '_user', '_pswd', 'user', 'pswd', 'password']
+                .forEach(name => url.searchParams.delete(name));
+            url.searchParams.set('userid', this.accountId);
+            url.searchParams.set('char', characterId);
+            // 先打开空白页，再切断 opener 后导航；目标页面从未获得访问
+            // 原标签的机会，同时保留可靠的“弹窗被拦截”检测。
+            const opened = window.open('about:blank', '_blank');
+            if (!opened) {
+                this.showNotification('浏览器阻止了新标签，请允许弹窗后重试');
+                return;
+            }
+            try {
+                opened.opener = null;
+                opened.location.replace(url.toString());
+            } catch (error) {
+                if (typeof opened.close === 'function') opened.close();
+                this.showNotification('新标签打开失败，请重试');
+                return;
+            }
+            this.showNotification('新标签已打开，登录后会直接进入所选角色');
+        },
+
         // 显示通知消息
         showNotification(message, duration = 2000) {
             // 移除已存在的通知
@@ -2160,14 +2491,14 @@ createApp({
         },
 
         // 显示邀请弹窗
-        showInviteModal() {
+        openInviteModal() {
             // 获取完整的用户名（分区+账号）
-            let username = '';
+            let username = this.accountId || this.playerStats?.userid || '';
             if (this.txd) {
-                // 从txd解析用户名：txd格式为 "tx01userid:timestamp:hash"
-                const txdParts = this.txd.split(':');
-                if (txdParts[0]) {
-                    username = txdParts[0];
+                // 兼容新 token（冒号）与旧书签（userid~password）两种格式。
+                const tokenUserid = this.txd.split(/[~:]/)[0];
+                if (!username && tokenUserid) {
+                    username = tokenUserid;
                 }
             }
 
@@ -2177,25 +2508,24 @@ createApp({
             }
 
             // 生成邀请链接 - 使用当前页面路径
-            const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
             this.inviteCode = username;
-            this.inviteLink = baseUrl + '?ref=' + username;
+            this.inviteLink = this.buildReferralLink(username);
             console.log('邀请链接生成:', {
                 username: username,
                 inviteCode: this.inviteCode,
                 inviteLink: this.inviteLink,
-                baseUrl: baseUrl
+                baseUrl: window.location.origin + window.location.pathname
             });
 
             // 生成二维码URL
             this.qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(this.inviteLink);
 
-            this.showInviteModal = true;
+            this.inviteModalOpen = true;
         },
 
         // 关闭邀请弹窗
         closeInviteModal() {
-            this.showInviteModal = false;
+            this.inviteModalOpen = false;
         },
 
         // 复制邀请码
@@ -2506,8 +2836,7 @@ createApp({
                 }
                 const requestCredentials = this.decodeCredentialsFromTxd(requestTxd);
                 if (data.userid && requestCredentials &&
-                    data.userid.toLowerCase() !==
-                    requestCredentials.userid.toLowerCase()) {
+                    data.userid !== requestCredentials.userid) {
                     throw new Error('人物会话响应不匹配');
                 }
                 // 更新txd（可能已变化）
@@ -2810,6 +3139,13 @@ createApp({
             this.sendJsonCommand(cmd);
         },
 
+        submitCmdSelect(cmdName, event) {
+            const value = event?.target?.value || '';
+            if (!value) return;
+            event.target.value = '';
+            this.sendJsonCommand(`${cmdName} ${value}`);
+        },
+
         // JSON模式: 提交表单（多个输入框共用一个提交按钮）
         submitForm(formSegment) {
             const inputs = formSegment.inputs || [];
@@ -2853,6 +3189,7 @@ createApp({
             this.playerStats = null;
             this.playerAvatarFailed = false;
             this.petAssistEventHistory = {};
+            this.roomSkillEventHistory = {};
             this.loginPasswordVisible = false;
             this.clearUiToast();
             this.dismissNewbieCompletions();
@@ -2937,8 +3274,7 @@ createApp({
                 if (data.error) {
                     throw new Error(data.error);
                 }
-                if (data.userid && data.userid.toLowerCase() !==
-                    fullUserid.toLowerCase()) {
+                if (data.userid && data.userid !== fullUserid) {
                     throw new Error('人物会话响应不匹配');
                 }
 
@@ -3100,7 +3436,9 @@ createApp({
             const previousPet = this.playerStats && this.playerStats.pet_assist;
             const previousLevel = Number(this.playerStats?.level);
             this.handlePetLevelChange(previousPet, data.pet_assist);
+            this.syncRoomSkillManifestations(data.room_skill_events);
             this.playerStats = data;
+            this.maybePromptCharacterProfile(data);
             this.syncTimedEventInvite(data.timed_event);
             this.syncBattleAoeReport(data.recent_aoe_report);
             const currentLevel = Number(data.level);
@@ -3270,8 +3608,7 @@ createApp({
                 }
                 const requestCredentials = this.decodeCredentialsFromTxd(requestTxd);
                 if (data.userid && requestCredentials &&
-                    data.userid.toLowerCase() !==
-                    requestCredentials.userid.toLowerCase()) return;
+                    data.userid !== requestCredentials.userid) return;
                 const sequence = Number(data.sequence || 0);
                 if (!Number.isFinite(sequence) || !generation ||
                     (generation === this.autofightViewGeneration &&
@@ -3648,6 +3985,13 @@ createApp({
                     '回生羽可用' : '回生羽今日已用') : '';
             const withRevive = status => reviveStatus ?
                 `${reviveStatus} · ${status}` : status;
+            const waitingResource = String(pet.waiting_resource || '');
+            if (waitingResource === 'life') {
+                return withRevive('治疗灵技已就绪 · 等待生命缺口');
+            }
+            if (waitingResource === 'mofa') {
+                return withRevive('灵息技能已就绪 · 等待法力缺口');
+            }
             if (String(pet.combat_mode || '') === 'pvp') {
                 const required = Math.max(1, Number(
                     pet.pvp_charge_required || pet.cooldown || 1
@@ -3682,9 +4026,64 @@ createApp({
         getPetCultivationLabel(pet = this.battlePet) {
             if (!pet?.active) return '';
             const level = Math.max(1, Number(pet.level || 1));
+            if (String(pet.system || '') === 'personal') {
+                return `Lv.${level} · 本命契约`;
+            }
             const star = Math.max(1, Number(pet.star || 1));
             const evolution = String(pet.evolution_name || '初生体');
             return `Lv.${level} · ${star}星${evolution}`;
+        },
+
+        getPetSlotTitle(slot) {
+            if (!slot) return '';
+            const personal = String(slot.system || '') === 'personal';
+            const systemName = personal ? '本命灵伴' : '共享宠物';
+            const destination = personal ? '本命灵伴界面' : '山海万灵谱';
+            if (Number(slot.active || 0) !== 1) {
+                return `${systemName}尚未契约，点击打开${destination}`;
+            }
+            const state = Number(slot.battle_active || 0) === 1 ?
+                '当前出战' : '收藏待命';
+            return `${systemName}·${slot.name} · ${this.getPetCultivationLabel(slot)} · ${state}，点击打开${destination}`;
+        },
+
+        getPetActualEffectMark(event) {
+            const type = String(event?.type || '');
+            if (type === 'revive') return '生';
+            if (type === 'heal') return '愈';
+            if (type === 'mofa') return '灵';
+            if (type === 'damage') return '破';
+            return '契';
+        },
+
+        getPetActualEffectDescription(event) {
+            const type = String(event?.type || '');
+            const amount = Math.max(0, Number(event?.amount || 0));
+            const secondaryAmount = Math.max(0, Number(
+                event?.secondary_amount || event?.restored || 0
+            ));
+            const secondaryType = String(event?.secondary_type || '');
+            const amountText = this.formatGameNumber(amount);
+            if (type === 'revive') {
+                const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
+                return `回生已生效：生命 +${amountText} · 法力 +${this.formatGameNumber(mofaAmount)}`;
+            }
+            if (type === 'damage') {
+                let text = `${String(event?.mode || '') === 'pvp' ? '御灵' : '协战'}伤害 -${amountText}`;
+                if (secondaryAmount > 0) {
+                    text += secondaryType === 'mofa' ?
+                        ` · 同时法力 +${this.formatGameNumber(secondaryAmount)}` :
+                        ` · 同时生命 +${this.formatGameNumber(secondaryAmount)}`;
+                }
+                const resonanceBonus = Math.max(0, Number(
+                    event?.shared_resonance_bonus || 0
+                ));
+                if (resonanceBonus > 0) text += ` · 共享共鸣 +${resonanceBonus}%`;
+                return text;
+            }
+            if (type === 'mofa') return `灵息回复已生效：法力 +${amountText}`;
+            if (type === 'heal') return `守护治疗已生效：生命 +${amountText}`;
+            return amount > 0 ? `灵宠效果已生效：+${amountText}` : '灵宠显化，等待生效条件';
         },
 
         formatPetAssistMessage(event) {
@@ -3698,21 +4097,34 @@ createApp({
             const recipient = observer ? '主人' : '你';
             const prefix = String(event?.mode || '') === 'pvp' ?
                 '【御灵交锋】' : '';
+            const runes = Array.isArray(event?.runes) ?
+                event.runes.filter(rune => String(rune || '').trim()) : [];
+            const runeTrigger = Number(event?.rune_set_triggered || 0) === 1 &&
+                runes.length === 3 ?
+                `；${String(event?.rune_mode || '当前')}灵纹共鸣：${runes.join('·')}` +
+                (event?.rune_effect ? `（${String(event.rune_effect)}）` : '') : '';
             if (type === 'revive') {
                 const mofaAmount = Math.max(0, Number(event?.mofa_amount || 0));
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatGameNumber(amount)}点生命与${this.formatGameNumber(mofaAmount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，令主人死里回生，恢复${this.formatGameNumber(amount)}点生命与${this.formatGameNumber(mofaAmount)}点法力${runeTrigger}`;
             }
             if (amount <= 0) {
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在${recipient}身旁`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，守护在${recipient}身旁${runeTrigger}`;
             }
             if (type === 'damage') {
                 const targetName = String(event?.target_name || '敌人');
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatGameNumber(amount)}点${prefix ? '御灵' : '协战'}伤害`;
+                const secondaryAmount = Math.max(0, Number(
+                    event?.secondary_amount || event?.restored || 0
+                ));
+                const secondary = secondaryAmount > 0 ?
+                    (String(event?.secondary_type || '') === 'mofa' ?
+                        `，同时恢复${this.formatGameNumber(secondaryAmount)}点法力` :
+                        `，同时恢复${this.formatGameNumber(secondaryAmount)}点生命`) : '';
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，对${targetName}造成${this.formatGameNumber(amount)}点${prefix ? '御灵' : '协战'}伤害${secondary}${runeTrigger}`;
             }
             if (type === 'mofa') {
-                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点法力`;
+                return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点法力${runeTrigger}`;
             }
-            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点生命`;
+            return `${prefix}${ownerPrefix}${event?.icon || '🐾'} ${petName}施展「${skillName}」，为${recipient}恢复${this.formatGameNumber(amount)}点生命${runeTrigger}`;
         },
 
         showPetAssistEffect(event, eventId = '', addToBattleLog = true) {
@@ -3754,12 +4166,21 @@ createApp({
                     effect.type === 'damage' ? 'enemy' : 'player',
                     effect.amount
                 );
+                const secondaryAmount = Math.max(0, Number(
+                    effect.secondary_amount || effect.restored || 0
+                ));
+                if (secondaryAmount > 0) {
+                    this.addBattleAnimation(
+                        'heal', 'player', secondaryAmount
+                    );
+                }
             }
             this.playGameSound('ui', 2200);
             this.petAssistEffectTimer = setTimeout(() => {
                 this.petAssistEffect = null;
                 this.petAssistEffectTimer = null;
-            }, 2400);
+            }, Number(effect.rune_set_triggered || 0) === 1 ||
+                effect.type === 'revive' ? 3000 : 2400);
         },
 
         parseRoomPetManifestation(text) {
@@ -3831,6 +4252,7 @@ createApp({
 
         applyBattleStatusData(data, fromAutofightRefresh = false) {
             if (!data) return;
+            this.syncRoomSkillManifestations(data.player?.room_skill_events);
             this.syncBattleAoeReport(data.player?.recent_aoe_report);
 
             if (data.in_battle) {
@@ -4016,7 +4438,7 @@ createApp({
 
             // 如果找到了，进行替换
             if (inviteCode && insertIndex >= 0) {
-                const inviteUrl = baseUrl + '?ref=' + inviteCode;
+                const inviteUrl = this.buildReferralLink(inviteCode);
                 const newLine = {
                     type: 'line',  // 必须有 type 属性
                     segments: [
@@ -4294,6 +4716,38 @@ createApp({
                 return playerCast || affectsPlayer ? 'player' : 'enemy';
             }
             return affectsPlayer && !value.includes('你对') ? 'player' : 'enemy';
+        },
+
+        /**
+         * 消费房间所属 Worker 产生的短生命施法事件。/status、
+         * battle_status 和挂机快照可能返回同一事件，只按服务端 ID
+         * 播放一次；人物会话切换时由上层清空记录。
+         */
+        syncRoomSkillManifestations(events) {
+            if (!Array.isArray(events) || events.length === 0) return;
+            if (!this.roomSkillEventHistory) this.roomSkillEventHistory = {};
+            const seenAt = Date.now();
+            for (const [eventId, timestamp] of Object.entries(
+                this.roomSkillEventHistory
+            )) {
+                if (seenAt - Number(timestamp) > 120000) {
+                    delete this.roomSkillEventHistory[eventId];
+                }
+            }
+            const ordered = [...events].sort((left, right) =>
+                Number(left?.event_at || 0) - Number(right?.event_at || 0)
+            );
+            for (const event of ordered) {
+                const eventId = String(event?.id || '');
+                if (!eventId || this.roomSkillEventHistory[eventId]) continue;
+                this.roomSkillEventHistory[eventId] = seenAt;
+                const skillName = this.formatSkillAnimationName(
+                    event?.skill_name || '战技显化'
+                );
+                const skillType = this.parseMartialArtsSkill(skillName) ||
+                    'generic';
+                this.addSkillAnimation(skillType, skillName, 'room');
+            }
         },
 
         /** 添加技能动画；同一技能短时间去重并最多保留三个并行动画。 */
@@ -4656,12 +5110,44 @@ createApp({
             });
         },
 
+        characterAvatarOptions() {
+            return this.avatarChoicesFor(
+                this.characterForm.race_id,
+                this.characterForm.profession_id,
+                this.characterForm.sex
+            );
+        },
+
+        profileAvatarOptions() {
+            return this.avatarChoicesFor(
+                this.characterProfileForm.race_id,
+                this.characterProfileForm.profession_id,
+                this.characterProfileForm.sex
+            );
+        },
+
         headerPet() {
             const pet = this.playerStats?.pet_assist;
             if (!pet || Number(pet.active || 0) !== 1) {
                 return null;
             }
             return pet;
+        },
+
+        headerPetSlots() {
+            const slots = this.playerStats?.pet_slots;
+            if (slots?.shared && slots?.personal) {
+                return [slots.shared, slots.personal].map((slot, index) => ({
+                    ...slot,
+                    system: slot.system || (index === 0 ? 'shared' : 'personal'),
+                    command: slot.command || (index === 0 ? 'pet' : 'spirit_companion')
+                }));
+            }
+            const legacy = this.playerStats?.pet_assist;
+            if (!legacy || Number(legacy.active || 0) !== 1) {
+                return null;
+            }
+            return [{ ...legacy, system: 'shared', command: 'pet', battle_active: 1 }];
         },
 
         playerAvatarUrl() {
@@ -4693,6 +5179,10 @@ createApp({
     },
 
     beforeUnmount() {
+        if (this.registerReturnTimer) {
+            clearTimeout(this.registerReturnTimer);
+            this.registerReturnTimer = null;
+        }
         if (this.backgroundHeartbeatTimer) {
             clearTimeout(this.backgroundHeartbeatTimer);
             this.backgroundHeartbeatTimer = null;
@@ -4756,11 +5246,13 @@ createApp({
             console.log('HTML模式已启用：按钮使用href链接');
         }
         if (refParam) {
-            this.refCode = refParam;
-            console.log('检测到推荐码:', refParam);
-            // 保存到localStorage，注册时使用
-            localStorage.setItem('ref_code', refParam);
-            console.log('推荐码已保存到localStorage');
+            if (this.applyReferralLanding(refParam))
+                console.log('已从好友专属链接打开注册:', this.refCode);
+            else {
+                this.showLogin = false;
+                this.showRegister = true;
+                this.registerError = '好友邀请链接无效，请向邀请人重新获取';
+            }
         } else {
             console.log('未检测到推荐码参数');
         }

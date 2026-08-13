@@ -7,7 +7,7 @@ inherit LOW_DAEMON;
 
 #define AUTOFIGHT_DAILY_SECONDS (8*60*60)
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
-#define AUTOFIGHT_MAX_VIP_LEVEL 4
+#define AUTOFIGHT_MAX_VIP_LEVEL 8
 #define AUTOFIGHT_ROUTE_COOLDOWN 8
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
@@ -67,6 +67,12 @@ private mapping(string:int) server_autofight_epochs = ([]);
 private mapping(string:int) server_autofight_inflight = ([]);
 private mapping(string:int) server_autofight_inflight_started = ([]);
 private mapping(string:mapping(string:mixed)) server_autofight_views = ([]);
+// 计时租约只保存在当前 Pike 进程内。重启或人物对象重建后，第一次
+// flushview 只重新锚定时间，不能把停服/离线间隔当成有效挂机扣除。
+private mapping(string:object) server_autofight_charge_owners = ([]);
+// Failed-loot retry targets are live process objects. They must never enter the
+// player's serialised data_tmp mapping or cross a map-worker boundary.
+private mapping(string:mapping(string:mixed)) autofight_failed_loot_runtime = ([]);
 private mapping(string:int) server_autofight_ordered = ([]);
 private array(string) server_autofight_order = ({});
 private int server_autofight_cursor;
@@ -94,8 +100,8 @@ private int server_autofight_throttled_batches;
 
 private string normalize_server_autofight_userid(string userid)
 {
-	// 与 HTTP 虚拟连接池使用同一规范键，兼容含大写字母的老账号。
-	return lower_case(String.trim_all_whites(userid || ""));
+	// 与 HTTP 虚拟连接池使用同一精确键，兼容历史大写账号且不串号。
+	return String.trim_all_whites(userid || "");
 }
 
 int query_server_autofight_dispatch_budget_for(int world_pending,
@@ -320,6 +326,7 @@ private void run_server_autofight_tick()
 			m_delete(server_autofight_epochs,userid);
 			m_delete(server_autofight_inflight,userid);
 			m_delete(server_autofight_inflight_started,userid);
+			m_delete(server_autofight_charge_owners,userid);
 			deactivate_server_autofight_view(userid);
 			continue;
 		}
@@ -408,8 +415,35 @@ void cancel_server_autofight_tick(object me)
 	m_delete(server_autofight_epochs,userid);
 	m_delete(server_autofight_inflight,userid);
 	m_delete(server_autofight_inflight_started,userid);
+	m_delete(server_autofight_charge_owners,userid);
 	deactivate_server_autofight_view(userid);
+	clear_failed_loot(me);
 	reset_server_autofight_order_if_idle();
+}
+
+/** Re-register an enabled player after a fenced map-worker reconstruction. */
+int resume_worker_handoff(object me)
+{
+	string userid;
+	if(!me || !functionp(me->query_autofight) ||
+	   me->query_autofight()!="enable")
+		return 0;
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="")
+		return 0;
+	// The source worker unregisters its scheduler during retirement. Re-anchor
+	// charging here so transport/load latency is never billed as active play.
+	server_autofight_charge_owners[userid]=me;
+	me["/tmp/autofight_last_charge"] = time();
+	me["/tmp/autofight_no_target_ticks"] = 0;
+	me["/tmp/autofight_previous_room"] = "";
+	me["/tmp/autofight_resting"] = 0;
+	me["/tmp/autofight_rest_started"] = 0;
+	clear_failed_loot(me);
+	reset_scan_state(me);
+	initialize_player(me);
+	ensure_server_autofight_tick(me);
+	return query_server_autofight_tick_active(me);
 }
 
 int query_server_autofight_tick_active(object me)
@@ -1259,6 +1293,10 @@ void reset_daily_time(object me)
 	int daily_limit;
 	if(!me)
 		return;
+	// A first-day reset must populate the complete safe defaults before it
+	// marks the helper initialized; otherwise new characters keep zero-valued
+	// recovery and cleanup settings for the entire day.
+	initialize_player(me);
 	daily_limit = query_daily_seconds_for(me);
 	me["/plus/autofight_initialized"] = 1;
 	me["/plus/autofight_daily_limit"] = daily_limit;
@@ -2846,15 +2884,17 @@ mapping(string:mixed) perform_auto_store_non_equipment(object me)
 
 void start_autofight(object me)
 {
+	string userid;
 	if(!me)
 		return;
 	initialize_player(me);
 	me["/tmp/autofight_last_charge"] = time();
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid!="")
+		server_autofight_charge_owners[userid]=me;
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
-	me["/tmp/autofight_failed_loot"] = 0;
-	me["/tmp/autofight_failed_loot_room"] = 0;
-	me["/tmp/autofight_failed_loot_retry"] = 0;
+	clear_failed_loot(me);
 	me["/tmp/autofight_first_death_time"] = 0;
 	me["/tmp/autofight_death_count"] = 0;
 	me["/tmp/autofight_quota_warned"] = 0;
@@ -2875,9 +2915,7 @@ void stop_autofight(object me)
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";
 	me["/tmp/autofight_resting"] = 0;
-	me["/tmp/autofight_failed_loot"] = 0;
-	me["/tmp/autofight_failed_loot_room"] = 0;
-	me["/tmp/autofight_failed_loot_retry"] = 0;
+	clear_failed_loot(me);
 	reset_scan_state(me);
 	me->set_autofight("disable");
 	// 停止挂机后不把玩家困在无出口的临时分流房。战斗中不强制移动，
@@ -2894,6 +2932,7 @@ void stop_autofight(object me)
 
 int charge_time(object me)
 {
+	string userid;
 	int now;
 	int last;
 	int elapsed;
@@ -2902,6 +2941,13 @@ int charge_time(object me)
 		return 0;
 	initialize_player(me);
 	now = time();
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="" || server_autofight_charge_owners[userid]!=me){
+		if(userid!="")
+			server_autofight_charge_owners[userid]=me;
+		me["/tmp/autofight_last_charge"] = now;
+		return query_time_left(me);
+	}
 	last = (int)me["/tmp/autofight_last_charge"];
 	if(last <= 0 || last > now){
 		me["/tmp/autofight_last_charge"] = now;
@@ -3157,6 +3203,7 @@ mapping(string:mixed) query_balanced_training_route(object me,
 	array(string) paths;
 	string current;
 	string selected="";
+	object env;
 	int capacity;
 	int min_count=-1;
 	int all_full=1;
@@ -3168,6 +3215,7 @@ mapping(string:mixed) query_balanced_training_route(object me,
 		return route;
 	occupancy=query_public_training_occupancy();
 	current=query_current_room_path(me);
+	env=environment(me);
 	capacity=query_training_room_capacity(me);
 	offset=query_stable_training_offset(me,sizeof(paths));
 	for(int i=0;i<sizeof(paths);i++){
@@ -3189,6 +3237,11 @@ mapping(string:mixed) query_balanced_training_route(object me,
 	route["capacity"]=capacity;
 	route["all_full"]=all_full;
 	route["pool_size"]=sizeof(paths);
+	// 临时分流房没有出口。它连续空图后必须回到公共练级房恢复，
+	// 即使公共房当前满员也不能再次套入另一个可能空置的实例。
+	if(avoid_current && env &&
+	   (int)env["/tmp/autofight_overflow"]==1)
+		route["recovering_overflow"]=1;
 	return route;
 }
 
@@ -3264,9 +3317,14 @@ private int evacuate_inactive_overflow_players(object room,string path)
 		if(functionp(all[i]->query_autofight) &&
 		   all[i]->query_autofight()=="enable")
 			continue;
-		all[i]->move(ROOT+"/gamelib/d/"+path);
-		all[i]->reset_view();
-		moved++;
+		int moved_one;
+		mixed move_err = catch {
+			moved_one = all[i]->move(ROOT+"/gamelib/d/"+path);
+		};
+		if(!move_err && moved_one){
+			all[i]->reset_view();
+			moved++;
+		}
 	}
 	return moved;
 }
@@ -3365,12 +3423,17 @@ private object|zero query_or_create_overflow_room(object me,
 	mapping(string:mixed) route)
 {
 	string pool_key=query_overflow_pool_key(me,route);
-	string path;
+	string path=(string)route["path"];
 	array(mapping(string:mixed)) entries=
 		autofight_overflow_rooms[pool_key] || ({});
 	int capacity=query_overflow_capacity(me);
 	object room;
 	mixed err;
+	// A clone has no reconstructable cross-worker arrival path. Let qge74hye
+	// migrate the player to the static owner first; that owner may then split.
+	if(path=="" || !MAP_WORKERD->local_worker_owns_room(
+	   ROOT+"/gamelib/d/"+path))
+		return 0;
 	for(int i=0;i<sizeof(entries);i++){
 		object room=entries[i]["room"];
 		if(room && count_players_in_training_room(room)<capacity){
@@ -3383,7 +3446,6 @@ private object|zero query_or_create_overflow_room(object me,
 		autofight_overflow_limit_fallbacks++;
 		return 0;
 	}
-	path=(string)route["path"];
 	err=catch{
 		room=clone(ROOT+"/gamelib/d/"+path);
 	};
@@ -3421,7 +3483,8 @@ int move_to_training_route(object me,mapping(string:mixed) route)
 	path=(string)route["path"];
 	if(path=="")
 		return 0;
-	if((int)route["all_full"]==1)
+	if((int)route["all_full"]==1 &&
+	   (int)route["recovering_overflow"]!=1)
 		room=query_or_create_overflow_room(me,route);
 	if(!room){
 		me->command("qge74hye "+path);
@@ -3431,13 +3494,17 @@ int move_to_training_route(object me,mapping(string:mixed) route)
 		}
 		return 0;
 	}
-	if(me->if_in_home())
-		HOMED->clear_user(me);
 	env=environment(me);
+	int was_in_home=me->if_in_home();
+	int moved;
+	mixed move_err=catch { moved=me->move(room); };
+	if(move_err || !moved || environment(me)!=room)
+		return 0;
+	if(was_in_home)
+		HOMED->clear_user(me);
 	if(env && !env->is("character") && !env->is("menu"))
 		me->last_pos=file_name(env)-ROOT;
 	me->m_delete_foruser("/tmp/tour_pos");
-	me->move(room);
 	me->reset_view();
 	me->command("look");
 	if(environment(me)==room){
@@ -3585,8 +3652,15 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 		return 0;
 	current = query_current_room_path(me);
 	env=environment(me);
-	if(env && (int)env["/tmp/autofight_overflow"]==1)
-		return 0;
+	if(env && (int)env["/tmp/autofight_overflow"]==1){
+		if(target_snapshot && (int)target_snapshot["visible"]>0)
+			return 1;
+		if(!target_snapshot && query_visible_monster_count(me)>0 &&
+		   !query_target(me))
+			return 1;
+		return (int)me["/tmp/autofight_no_target_ticks"]>=
+			AUTOFIGHT_ROAM_NO_TARGET_TICKS;
+	}
 	if(is_training_pool_path(route,current)){
 		if(target_snapshot && (int)target_snapshot["visible"]>0)
 			return 1;
@@ -3845,8 +3919,13 @@ private int can_loot_item(object me, object ob)
 
 void clear_failed_loot(object me)
 {
+	string userid;
 	if(!me)
 		return;
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid!="")
+		m_delete(autofight_failed_loot_runtime,userid);
+	// Remove archives written by the historical implementation as well.
 	me["/tmp/autofight_failed_loot"] = 0;
 	me["/tmp/autofight_failed_loot_room"] = 0;
 	me["/tmp/autofight_failed_loot_retry"] = 0;
@@ -3854,25 +3933,36 @@ void clear_failed_loot(object me)
 
 void record_failed_loot(object me,object item)
 {
+	string userid;
 	if(!me || !item)
 		return;
-	me["/tmp/autofight_failed_loot"] = item;
-	me["/tmp/autofight_failed_loot_room"] = environment(me);
-	me["/tmp/autofight_failed_loot_retry"] =
-		time()+AUTOFIGHT_LOOT_RETRY_SECONDS;
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="")
+		return;
+	autofight_failed_loot_runtime[userid]=([
+		"item":item,
+		"room":environment(me),
+		"retry_at":time()+AUTOFIGHT_LOOT_RETRY_SECONDS,
+	]);
 }
 
 int query_loot_temporarily_suppressed(object me,object item)
 {
+	string userid;
+	mapping runtime;
 	object|zero failed;
 	object|zero failed_room;
 	if(!me || !item)
 		return 0;
-	failed = me["/tmp/autofight_failed_loot"];
-	failed_room = me["/tmp/autofight_failed_loot_room"];
+	userid=normalize_server_autofight_userid((string)me->query_name());
+	runtime=userid!="" ? autofight_failed_loot_runtime[userid] : 0;
+	if(!mappingp(runtime))
+		return 0;
+	failed = runtime["item"];
+	failed_room = runtime["room"];
 	if(!failed || failed_room!=environment(me) ||
 	   environment(failed)!=environment(me) ||
-	   (int)me["/tmp/autofight_failed_loot_retry"]<=time()){
+	   (int)runtime["retry_at"]<=time()){
 		clear_failed_loot(me);
 		return 0;
 	}

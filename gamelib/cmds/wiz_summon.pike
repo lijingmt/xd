@@ -14,8 +14,16 @@ int main(string|zero arg)
 		write("你要找的人不存在或者不在线。\n");
 		return 1;
 	}
-	if(environment(this_player()))
-		ob->move(environment(this_player()));
+	if(environment(this_player())){
+		int moved;
+		mixed move_err=catch {
+			moved=ob->move(environment(this_player()));
+		};
+		if(move_err || !moved){
+			write("目标当前无法安全跨地图召唤。\n");
+			return 1;
+		}
+	}
 	write("你把%s抓到面前来了.\n",ob->name_cn);
 	return 1;
 }

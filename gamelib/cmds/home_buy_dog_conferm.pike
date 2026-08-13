@@ -28,7 +28,12 @@ int main(string|zero arg)
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
-	sscanf(arg,"%s %d",name,need_money);
+	if(!arg || sscanf(arg,"%s %d",name,need_money)!=2 ||
+	   name!="vice_npc/huoyunquan"){
+		write("看门狗商品无效。\n[返回游戏:look]\n");
+		return 1;
+	}
+	need_money=80;
 	int result = BUYD->do_trade(me,need_money,0);
 	switch(result){
 		case 0:

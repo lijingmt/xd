@@ -15,7 +15,6 @@ int main(string|zero arg)
 	int result = HOMED->get_pass_time_ob(me,ind);
 	if(result){
 		s += "领取成功\n";
-		HOMED->save_shopItem(masterId,"",ind);
 	}
 	else
 		s += "领取失败，请联系客服。\n";

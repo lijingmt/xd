@@ -43,7 +43,11 @@ protected void create()
 		LOG->append_time("[create()] [database unavailable] [fail]");
 		werror("[auctiond] MySQL unavailable; auction service will retry on demand\n");
 	}
-	call_out(time_task,TIME_INTERVAL);
+	// Distributed nodes never run independent auction settlement timers. The
+	// single gateway invokes w01 under the same cluster-wide auction lock used
+	// for every vendue command.
+	if(!MAP_WORKERD->distributed_mode_enabled())
+		call_out(time_task,TIME_INTERVAL);
 }
 
 //描述:每隔一定时间处理一下
@@ -60,6 +64,17 @@ private void time_task()
 
 	call_out(time_task,TIME_INTERVAL);
 	//LOG->append_time("[time_task()] [void] [succ] [" + (time()-st) + "s] [end]");
+}
+
+int run_map_worker_scheduled_task()
+{
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   MAP_WORKERD->query_local_worker_id()!="w01" ||
+	   !MAP_WORKERD->local_control_lease_valid())
+		return 0;
+	check_sale_info();
+	check_result_info();
+	return 1;
 }
 
 

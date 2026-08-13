@@ -39,9 +39,56 @@ private object|zero query_toolbar_skill_object(string name)
 	return skill;
 }
 
+private int valid_toolbar_entry_name(string name)
+{
+	return !!name && name!="" && sizeof(name)<=64 &&
+		search(name,"/")==-1 && search(name,"..")==-1;
+}
+
+private void ensure_toolbar_slots()
+{
+	while(sizeof(toolbar_key)<TOOLBAR_NUM)
+		toolbar_key += ({(["none":0])});
+	for(int i=0;i<TOOLBAR_NUM;i++)
+		if(!mappingp(toolbar_key[i]))
+			toolbar_key[i] = (["none":0]);
+}
+
+/**
+ * 快捷栏配置页、战斗栏和设置命令共用同一套安全解析。
+ * 返回空字符串表示旧档案中的对象已失效；调用方必须允许玩家取消配置。
+ */
+string query_toolbar_entry_name(string name,int flag)
+{
+	object|zero entry = 0;
+	string display_name = "";
+	mixed err = 0;
+	if(!valid_toolbar_entry_name(name))
+		return "";
+	if(flag==1){
+		entry = query_toolbar_skill_object(name);
+		if(entry)
+			display_name = (string)entry->query_name_cn();
+		return display_name;
+	}
+	if(flag==2)
+		err = catch { entry = clone(FOOD_PATH+name); };
+	else if(flag==3)
+		err = catch { entry = clone(WATER_PATH+name); };
+	else
+		return "";
+	if(!err && entry)
+		display_name = (string)entry->query_name_cn();
+	if(entry)
+		destruct(entry);
+	return display_name;
+}
+
 int set_toolbar(string name,int num,int flag)
 {
-	if(name != "" && num<TOOLBAR_NUM){
+	if(valid_toolbar_entry_name(name) && num>=0 && num<TOOLBAR_NUM &&
+	   flag>=1 && flag<=3){
+		ensure_toolbar_slots();
 		toolbar_key[num]=([name:flag]);
 		return 1;
 	}
@@ -50,7 +97,8 @@ int set_toolbar(string name,int num,int flag)
 }
 int clean_toolbar(int num)
 {
-	if(num<TOOLBAR_NUM){
+	if(num>=0 && num<TOOLBAR_NUM){
+		ensure_toolbar_slots();
 		toolbar_key[num]=(["none":0]);
 		return 1;
 	}
@@ -60,6 +108,9 @@ int clean_toolbar(int num)
 mapping(string:int) query_toolbar(int a)
 {
 	mapping(string:int) tmp = ([]);
+	if(a<0 || a>=TOOLBAR_NUM)
+		return tmp;
+	ensure_toolbar_slots();
 	tmp = toolbar_key[a];
 	return tmp;	
 }
@@ -68,8 +119,9 @@ string query_toolbar_cn()
 	string s = "";
 	int used = 0;
 	for(int i=0;i<TOOLBAR_NUM;i++){
-		foreach(indices(toolbar_key[i]),string name){
-			if(toolbar_key[i][name]==0){
+		mapping(string:int) toolbar_entry = query_toolbar(i);
+		foreach(indices(toolbar_entry),string name){
+			if(toolbar_entry[name]==0){
 				/*s += "无";
 				if(i!=2)
 					s += "|";
@@ -78,34 +130,14 @@ string query_toolbar_cn()
 			}
 			else{
 				used ++;
-				if(toolbar_key[i][name]==1){
-					object|zero toolbar_skill =
-						query_toolbar_skill_object(name);
-					if(!toolbar_skill)
-						break;
-					s += "["+toolbar_skill->query_name_cn()+":use_toolbar "+i+"]";
+				string display_name = query_toolbar_entry_name(name,
+					(int)toolbar_entry[name]);
+				if(display_name!=""){
+					s += "["+display_name+":use_toolbar "+i+"]";
 					if(i!=TOOLBAR_NUM-1)
 						s += "|";
-					break;
 				}
-				else if(toolbar_key[i][name]==2){
-					object food = clone(FOOD_PATH+name); 
-					if(food){
-						s += "["+food->query_name_cn()+":use_toolbar "+i+"]";
-						if(i!=TOOLBAR_NUM-1)
-							s += "|";
-						break;
-					}
-				}
-				else if(toolbar_key[i][name]==3){
-					object water = clone(WATER_PATH+name);
-					if(water){
-						s += "["+water->query_name_cn()+":use_toolbar "+i+"]";
-						if(i!=TOOLBAR_NUM-1)
-							s += "|";
-						break;
-					}
-				}
+				break;
 			}
 		}
 		//if(used == 3)//每3个一换行
@@ -116,6 +148,7 @@ string query_toolbar_cn()
 array(mapping(string:int)) query_toolbar_all()
 {
 	array(mapping(string:int)) tmp = ({});
+	ensure_toolbar_slots();
 	tmp = toolbar_key;
 	return tmp;
 }
@@ -2467,12 +2500,88 @@ int unwear(void|object ob)
 	return 0;
 }
 //角色昏迷,休息状态处理///////////////////////////////////////
-protected string unconscious_msg;
-private string wake_up_msg;
+string unconscious_msg;
+read_write(unconscious_msg);
+string wake_up_msg;
+read_write(wake_up_msg);
 protected multiset(string) status=(<>);
 read_write(status);
-protected string doing_status;
+string doing_status;
 read_write(doing_status);
+// Commands-disabled activity is not fully represented by doing_status alone:
+// Pike cancels object call_outs when a player is reconstructed on another map
+// worker or after a restart. Persist the absolute deadline and rebuild exactly
+// one wake-up timer after setup, without extending the original duration.
+int doing_status_until;
+read_write(doing_status_until);
+
+private int valid_persistent_doing_status(string value)
+{
+	return has_value(({"昏迷不醒","睡眠中","修炼中"}),value);
+}
+
+int query_doing_status_remaining()
+{
+	int remaining = doing_status_until-time();
+	return remaining>0 ? remaining : 0;
+}
+
+/** Restore paid training with exact saved seconds instead of rounding minutes. */
+int resume_paid_training_activity(int remaining)
+{
+	if(remaining<1 || remaining>20*366*24*60*60)
+		return 0;
+	doing_status="修炼中";
+	unconscious_msg="你现在正在闭关修炼\n[查看修炼情况:_break_then_auto_learn_check]\n[中断修炼:_break_then_auto_learn_end_submit]\n";
+	wake_up_msg="$N修炼完成了\n";
+	doing_status_until=time()+remaining;
+	remove_call_out(wake_up);
+	disable_commands();
+	call_out(wake_up,remaining);
+	return 1;
+}
+
+/** Rebuild a lost object-local wake-up callout from the durable deadline. */
+int restore_persistent_activity_state()
+{
+	int remaining;
+	if(!doing_status || doing_status=="")
+		return 0;
+	remaining = query_doing_status_remaining();
+	// Twenty years covers accumulated historical paid training duration
+	// while still
+	// failing closed if a damaged archive attempts to disable commands forever.
+	if(!valid_persistent_doing_status(doing_status) || remaining<1 ||
+	   remaining>20*366*24*60*60){
+		remove_call_out(wake_up);
+		doing_status=0;
+		doing_status_until=0;
+		unconscious_msg=0;
+		wake_up_msg=0;
+		enable_commands();
+		return 0;
+	}
+	if(!unconscious_msg || unconscious_msg==""){
+		if(doing_status=="昏迷不醒")
+			unconscious_msg="你现在昏迷不醒。\n";
+		else if(doing_status=="睡眠中")
+			unconscious_msg="你正在休息。\n";
+		else
+			unconscious_msg="你现在正在闭关修炼。\n";
+	}
+	if(!wake_up_msg || wake_up_msg==""){
+		if(doing_status=="昏迷不醒")
+			wake_up_msg="$N慢慢苏醒过来。\n";
+		else if(doing_status=="睡眠中")
+			wake_up_msg="$N睡醒了。\n";
+		else
+			wake_up_msg="$N修炼完成了。\n";
+	}
+	remove_call_out(wake_up);
+	disable_commands();
+	call_out(wake_up,remaining);
+	return 1;
+}
 
 int is_item(){
 	return doing_status=="昏迷不醒";
@@ -2483,12 +2592,16 @@ int is_character(){
 private void wake_up(void|int notShowMSG)
 {
 	doing_status=0;
+	doing_status_until=0;
 	object env=environment(this_object());
 	if(living(env)){
 		object env1=environment(env);
 		this_object()->move(env1);
 	}
-	if(!notShowMSG) MUD_EMOTED->emote(wake_up_msg,this_object(),0);
+	if(!notShowMSG && wake_up_msg)
+		MUD_EMOTED->emote(wake_up_msg,this_object(),0);
+	unconscious_msg=0;
+	wake_up_msg=0;
 	enable_commands();
 }
 void unconscious()
@@ -2497,6 +2610,8 @@ void unconscious()
 	unconscious_msg="你现在昏迷不醒。\n";
 	wake_up_msg="$N慢慢苏醒过来。\n";
 	disable_commands();
+	doing_status_until=time()+60;
+	remove_call_out(wake_up);
 	call_out(wake_up,60);
 }
 void die(){
@@ -2515,17 +2630,23 @@ void sleep()
 	this_object()->life=this_object()->life_max;
 	this_object()->mofa=this_object()->mofa_max;
 
+	doing_status_until=time()+10;
+	remove_call_out(wake_up);
 	call_out(wake_up,10);
 }
 
 //Evan 22008.11.21 为了实现玩家主动从sleep状态醒来。
-void sleep_for_learn(int time)                                                                                                      
-{   
+void sleep_for_learn(int minutes)
+{
+	if(minutes<1 || minutes>10000000)
+		return;
 	doing_status="修炼中";
 	unconscious_msg="你现在正在闭关修炼\n[查看修炼情况:_break_then_auto_learn_check]\n[中断修炼:_break_then_auto_learn_end_submit]\n";      
 	wake_up_msg="$N修炼完成了\n";
 	disable_commands();
-	call_out(wake_up,time*60);//参数的单位是"分"，这里要换算成秒
+	doing_status_until=time()+minutes*60;
+	remove_call_out(wake_up);
+	call_out(wake_up,minutes*60);//参数的单位是"分"，这里要换算成秒
 }  
 
 void wakeup_from_auto_learn()                                                                                                       
@@ -2552,6 +2673,8 @@ void exercise(object room)
 
 	wake_up_msg="$N修炼完成了。\n";
 	disable_commands();
+	doing_status_until=time()+need_time;
+	remove_call_out(wake_up);
 	call_out(wake_up,need_time);
 }
 //求命中率=攻击者命中率+装备附加命中+技能命中(可能100%)

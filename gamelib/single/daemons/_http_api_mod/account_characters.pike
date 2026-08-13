@@ -78,6 +78,13 @@ private string query_account_session(string token)
 	return account_id;
 }
 
+/** Internal loopback-only resolver used by the Pike coordinator on a cold
+ * token cache. Public clients cannot invoke this function directly. */
+string query_account_session_owner_for_gateway(string token)
+{
+	return query_account_session(lower_case(String.trim_all_whites(token || "")));
+}
+
 private void revoke_account_session(string token)
 {
 	object key;
@@ -221,6 +228,9 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 	string account_id;
 	string race_id;
 	string profession_id;
+	string name_cn;
+	string sex;
+	string avatar_id;
 	mapping result;
 	if(req->request_type!="POST"){
 		send_json(req,(["error":"请使用POST创建人物"]),405);
@@ -235,13 +245,78 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 	}
 	race_id = (string)(params["race_id"] || "");
 	profession_id = (string)(params["profession_id"] || "");
+	name_cn = (string)(params["name_cn"] || "");
+	sex = (string)(params["sex"] || "");
+	avatar_id = (string)(params["avatar_id"] || "");
+	if(String.trim_all_whites(name_cn)=="" || sex=="" || avatar_id==""){
+		send_json(req,(["error":"请完整选择人物姓名、性别和头像"]),400);
+		return;
+	}
 	result = ACCOUNT_CHARACTERD->create_character(account_id,
-		race_id,profession_id);
+		race_id,profession_id,name_cn,sex,avatar_id);
 	if(!result["ok"]){
 		send_json(req,(["error":result["message"] || "创建人物失败"]),409);
 		return;
 	}
 	send_json(req,result,201);
+}
+
+void handle_api_character_profile(Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	mapping auth;
+	mapping result = ([]);
+	string txd;
+	string userid;
+	object player;
+	object user_mutex;
+	object user_key;
+	mixed update_err;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST补全人物资料"]),405);
+		return;
+	}
+	params = get_params(req);
+	txd = url_decode((string)(params["txd"] || ""));
+	auth = decode_txd(txd);
+	if(!auth){
+		send_json(req,(["error":"人物会话已过期，请重新登录"]),401);
+		return;
+	}
+	userid = (string)auth["userid"];
+	if(!authenticated_character_password_matches(userid,
+		(string)(auth["password"] || ""))){
+		send_json(req,(["error":"人物认证信息无效，请重新登录"]),401);
+		return;
+	}
+	player = get_player_from_connection(userid,1);
+	if(!player)
+		player = find_player(userid);
+	if(!player){
+		send_json(req,(["error":"人物当前不在线，请重新登录"]),401);
+		return;
+	}
+	user_mutex = query_user_command_mutex(userid);
+	user_key = user_mutex->lock();
+	update_err = catch {
+		result = ACCOUNT_CHARACTERD->complete_character_profile(player,
+			(string)(params["name_cn"] || ""),
+			(string)(params["sex"] || ""),
+			(string)(params["avatar_id"] || ""));
+	};
+	destruct(user_key);
+	if(update_err){
+		http_werror(" profile completion failed userid=%s error=%s\n",
+			userid,describe_error(update_err));
+		send_json(req,(["error":"人物资料保存失败，请稍后重试"]),500);
+		return;
+	}
+	if(!(int)result["ok"]){
+		send_json(req,(["error":result["message"] ||
+			"人物资料补全失败"]),409);
+		return;
+	}
+	send_json(req,result);
 }
 
 void handle_api_account_character_select(Protocols.HTTP.Server.Request req)

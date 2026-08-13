@@ -22,6 +22,12 @@ private mapping(int:int) vip_fly_fee_config = ([
     2: 100000,   // │     2      │  黄金会员 │  固定10万     │  (1000金)
     3: 50000,    // │     3      │  白金会员 │  固定5万      │  (500金)
     4: 5000,     // │     4      │  钻石会员 │  固定5千      │  (50金)
+	// VIP5-8只增量开放等级与挂机额度，飞行权益沿用钻石档，避免
+	// 未配置键被当成0后意外回退到高额的按等级费用。
+	5: 5000,
+	6: 5000,
+	7: 5000,
+	8: 5000,
 ]);
 // └─────────────┴───────────┴──────────────┘
 
@@ -176,22 +182,23 @@ string get_all_map_list(){
 string get_all_kinds_map(){
 	string s="";
 	array(string) block_list = sort(indices(all_map_list));
+	object me = this_player();
+	if(!me)
+		return s;
+	int level = me->query_level();
+	int fee = query_player_fly_fee(me);
+	string fee_cn = MUD_MONEYD->query_store_money_cn(fee);
+	int cross_zone_admin = MANAGERD->is_cross_zone_admin(me->query_name());
 	foreach(block_list,string block){
 		if(pinyin_to_cn[block] && all_map_list[block] &&
 		   sizeof(all_map_list[block])){
-			object me = this_player();
-			int level = me->query_level();
 			if(block=="jiuxiaojiejing" &&
 			   level<ENDGAME_MAP_MIN_LEVEL &&
-			   !MANAGERD->is_cross_zone_admin(me->query_name())){
+			   !cross_zone_admin){
 				s += "九霄界境（"+ENDGAME_MAP_MIN_LEVEL+
 					"级开放）\n";
 				continue;
 			}
-
-			int fee = query_player_fly_fee(me);
-
-			string fee_cn = MUD_MONEYD->query_store_money_cn(fee);
 			s+="[支付"+fee_cn+"飞到 "+pinyin_to_cn[block]+":map_display "+block+" "+fee+"]\n";
 		}
 
@@ -218,16 +225,20 @@ void load_all_map(){
 		foreach(sub_map_index_list,string realroom){
 			object ob;
 			string room_path = block+"/"+realroom;
+			string room_file = ROOT+"/gamelib/d/"+block+"/"+realroom;
+			Stdio.Stat room_stat = file_stat(room_file);
 			if(is_hidden_map_room_path(room_path))
 				continue;
-			werror("=======try to load room:"+realroom+"\n");
+			if(!room_stat || room_stat->isdir)
+				continue;
 			mixed err=catch{
-				ob = (object)(ROOT + "/gamelib/d/"+block+"/"+realroom);
+				ob = (object)room_file;
 			};
-			if(err)werror("=======try to load room error:"+realroom+"\n");
+			if(err)
+				werror("[MAPD] room catalog load failed: "+block+"/"+
+					realroom+"\n");
 			if(ob){
 				sub_map[ob->name_cn] = room_path;
-				werror("=======load map:"+ob->name_cn + ":"+sub_map[ob->name_cn]+"\n");
 			}
 		}
 		all_map_list[block] = sub_map;
@@ -239,18 +250,28 @@ void load_all_map(){
 //查询当前房间的direction方向的下一个房间
 object query_next_room(object this_room,string direction){
 	object room;
-	string room_path = (this_room->exits)[direction];
+	string room_path;
+	if(!this_room || !mappingp(this_room->exits))
+		return 0;
+	room_path = (this_room->exits)[direction];
 	if(room_path&&sizeof(room_path)){
 		mixed err = catch{
-			room = clone(room_path);
+			room = find_object(room_path);
+			if(!room && search(room_path,"#")==-1)
+				room = (object)room_path;
 		};
 	}
 	return room;
 }
 
 string query_map(object pre_room){
-	string room_name = pre_room->query_name();
-	mapping map_tmp = all_map[room_name];
+	string room_key = object_name(pre_room);
+	if(room_key=="")
+		room_key = pre_room->query_name();
+	int clone_suffix = search(room_key,"#");
+	if(clone_suffix>0)
+		room_key = room_key[..clone_suffix-1];
+	mapping map_tmp = all_map[room_key];
 	string s = "";
 	if(map_tmp&&sizeof(map_tmp)){
 		string dire_desc = map_tmp["north"];
@@ -283,15 +304,15 @@ string query_map(object pre_room){
 				break;
 			}
 			else{
-				if(!all_map[room_name]){
-					all_map[room_name]=([]);
+				if(!all_map[room_key]){
+					all_map[room_key]=([]);
 				}
-				if(!all_map[room_name][direction]){
-					all_map[room_name][direction]=next_room->query_name_cn();
+				if(!all_map[room_key][direction]){
+					all_map[room_key][direction]=next_room->query_name_cn();
 					s += next_room->query_name_cn();
 				}
 				else{
-					all_map[room_name][direction] += "-"+next_room->query_name_cn();
+					all_map[room_key][direction] += "-"+next_room->query_name_cn();
 					s += "-"+next_room->query_name_cn();
 				}
 				tmp_room = next_room;
@@ -307,15 +328,15 @@ string query_map(object pre_room){
 				break;
 			}
 			else{
-				if(!all_map[room_name]){
-					all_map[room_name]=([]);
+				if(!all_map[room_key]){
+					all_map[room_key]=([]);
 				}
-				if(!all_map[room_name][direction]){
-					all_map[room_name][direction]=next_room->query_name_cn();
+				if(!all_map[room_key][direction]){
+					all_map[room_key][direction]=next_room->query_name_cn();
 					s += next_room->query_name_cn();
 				}
 				else{
-					all_map[room_name][direction] += "-"+next_room->query_name_cn();
+					all_map[room_key][direction] += "-"+next_room->query_name_cn();
 					s += "-"+next_room->query_name_cn();
 				}
 				tmp_room = next_room;
@@ -331,15 +352,15 @@ string query_map(object pre_room){
 				break;
 			}
 			else{
-				if(!all_map[room_name]){
-					all_map[room_name]=([]);
+				if(!all_map[room_key]){
+					all_map[room_key]=([]);
 				}
-				if(!all_map[room_name][direction]){
-					all_map[room_name][direction]=next_room->query_name_cn();
+				if(!all_map[room_key][direction]){
+					all_map[room_key][direction]=next_room->query_name_cn();
 					s += next_room->query_name_cn();
 				}
 				else{
-					all_map[room_name][direction] += "-"+next_room->query_name_cn();
+					all_map[room_key][direction] += "-"+next_room->query_name_cn();
 					s += "-"+next_room->query_name_cn();
 				}
 				tmp_room = next_room;
@@ -355,15 +376,15 @@ string query_map(object pre_room){
 				break;
 			}
 			else{
-				if(!all_map[room_name]){
-					all_map[room_name]=([]);
+				if(!all_map[room_key]){
+					all_map[room_key]=([]);
 				}
-				if(!all_map[room_name][direction]){
-					all_map[room_name][direction]=next_room->query_name_cn();
+				if(!all_map[room_key][direction]){
+					all_map[room_key][direction]=next_room->query_name_cn();
 					s += next_room->query_name_cn();
 				}
 				else{
-					all_map[room_name][direction] += "-"+next_room->query_name_cn();
+					all_map[room_key][direction] += "-"+next_room->query_name_cn();
 					s += "-"+next_room->query_name_cn();
 				}
 				tmp_room = next_room;

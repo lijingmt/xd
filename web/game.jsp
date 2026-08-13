@@ -67,6 +67,25 @@ else
 	cmd = "init";
 String arg=request.getParameter("arg");
 String temptitle=title;
+if(request.getServerPort()>=0){
+String legacyCmd=buildLegacyApiCommand(request,cmd);
+String legacyTarget="./legacy_api.jsp?cmd="+
+	java.net.URLEncoder.encode(legacyCmd,"UTF-8");
+if(txd!=null&&txd.trim().length()>0)
+	legacyTarget += "&txd="+java.net.URLEncoder.encode(txd,"UTF-8");
+else{
+	String legacyUserid=request.getParameter("_user");
+	String legacyPassword=request.getParameter("_pswd");
+	if(legacyUserid==null||legacyPassword==null){
+		response.sendError(400,"缺少登录信息");
+		return;
+	}
+	legacyTarget += "&userid="+java.net.URLEncoder.encode(legacyUserid,"UTF-8")+
+		"&password="+java.net.URLEncoder.encode(legacyPassword,"UTF-8");
+}
+response.sendRedirect(response.encodeRedirectURL(legacyTarget));
+return;
+}
 Socket socket;
 InputStream reader;
 OutputStream writer;

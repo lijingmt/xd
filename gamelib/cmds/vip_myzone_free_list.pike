@@ -8,30 +8,22 @@ int main(string|zero arg)
 	string lv = "";
 	sscanf(arg,"%s %s",type,lv);
 	string s = "*** 会员免费场 ***\n";
-	switch(lv){
-		case "1":
-			s += "水晶|[黄金:vip_myzone_free_list "+type+" 2]|[白金:vip_myzone_free_list "+type+" 3]|[钻石:vip_myzone_free_list "+type+" 4]\n";
-		s += "--------\n";
-		s += VIPD->display_free_goods(type,1);
-		break;
-		case "2":
-			s += "[水晶:vip_myzone_free_list "+type+" 1]|黄金|[白金:vip_myzone_free_list "+type+" 3]|[钻石:vip_myzone_free_list "+type+" 4]\n";
-		s += "--------\n";
-		s += VIPD->display_free_goods(type,2);
-		break;
-		case "3":
-			s += "[水晶:vip_myzone_free_list "+type+" 1]|[黄金:vip_myzone_free_list "+type+" 2]|白金|[钻石:vip_myzone_free_list "+type+" 4]\n";
-		s += "--------\n";
-		s += VIPD->display_free_goods(type,3);
-		break;
-		case "4":
-			s += "[水晶:vip_myzone_free_list "+type+" 1]|[黄金:vip_myzone_free_list "+type+" 2]|[白金:vip_myzone_free_list "+type+" 3]|钻石\n";
-		s += "--------\n";
-		s += VIPD->display_free_goods(type,4);
-		break;
-		default:
-		s +="东西已经被抢购一空了，下次早点来吧\n";
-		break;
+	int level;
+	sscanf(lv,"%d",level);
+	if(level<1 || level>VIP_MAX_LEVEL || !VIPD->get_vip_name(level))
+		s +="会员档位无效，请返回重新选择。\n";
+	else{
+		for(int index=1;index<=VIP_MAX_LEVEL;index++){
+			string name=VIPD->get_vip_name(index);
+			if(index>1)
+				s += "|";
+			if(index==level)
+				s += name;
+			else
+				s += "["+name+":vip_myzone_free_list "+type+" "+index+"]";
+		}
+		s += "\n--------\n";
+		s += VIPD->display_free_goods(type,level);
 	}
 	s += "\n[返回:vip_myzone]\n";
 	s += "[返回游戏:look]\n";

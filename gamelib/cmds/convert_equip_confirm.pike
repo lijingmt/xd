@@ -5,6 +5,13 @@
 //      item_type
 //      cost    当flag==1或==2时需要的玉石花费
 //      flag    1--转化属性  2--增加属性  3--冰蓝玉石辅助增加 
+int pay_convert_equip_yushi(object player,int cost)
+{
+	if(!player || cost<0 || !YUSHID->have_enough_yushi(player,cost))
+		return 0;
+	return YUSHID->pay_yushi(player,cost);
+}
+
 int main(string|zero arg)
 {
 	string s = "";
@@ -21,23 +28,10 @@ int main(string|zero arg)
 	int cost = 0;//需要的玉石数
 	int ret_flag = 1;//标识是转化成功，还是增加成功
 	int vip_flag = 0;//vip标志位
-	sscanf(arg,"%s %s %d %d %d",item_name,item_type,cost,flag,vip_flag);
-	if(vip_flag && flag == 1)//免费操作，需要判定是否是会员
-	{
-	//werror("-----------vip_flag="+vip_flag+"----flag=---"+flag+"------\n");
-		if(me->query_vip_flag()){
-			s += "由于你是会员，本次操作完全免费！\n";
-			write(s);
-		}
-		else
-		{
-			s += "对不起，本功能只针对会员开放，赶快申请成为会员吧！\n"; 
-			s += "[申请成为会员:vip_service_app_list]\n";
-			s += "[返回:convert_equip_list]\n";
-			s += "[返回游戏:look]\n";
-			write(s);
-			return 1;
-		}
+	if(!arg || sscanf(arg,"%s %s %d %d %d",item_name,item_type,cost,flag,vip_flag)<4 ||
+	   flag<1 || flag>5 || (vip_flag!=0 && vip_flag!=1)){
+		write("炼化参数无效。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
+		return 1;
 	}
 	/*
 	//对于转化属性和增加属性，会员点击非会员操作时给出提示
@@ -61,24 +55,47 @@ int main(string|zero arg)
 		}
 	}
 	if(can_convert && item){
-		int need_xianyuan = 0;
-		int need_suiyu = 0;
+		string actual_item_type=(string)item->query_item_type();
+		if(actual_item_type!=item_type){
+			write("装备类型校验失败。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
+			return 1;
+		}
+		int base_cost=ITEMSD->query_convert_equip_yushi_cost(item);
+		if(base_cost<=0){
+			write("该装备暂时无法炼化。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
+			return 1;
+		}
+		if(vip_flag){
+			int vip_level=(int)me->query_vip_flag();
+			if(!vip_level || (flag!=1 && flag!=2)){
+				write("会员炼化参数无效。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
+				return 1;
+			}
+			if(flag==1){
+				cost=0;
+				s += "由于你是会员，本次操作完全免费！\n";
+			}
+			else{
+				mapping(int:int) vip_off=VIPD->get_vip_off_map();
+				if(!vip_off[vip_level]){
+					write("会员折扣资料无效。\n[返回:convert_equip_list]\n");
+					return 1;
+				}
+				cost=base_cost*vip_off[vip_level]/10;
+			}
+		}
+		else
+			cost=base_cost;
 		int need_money = item->query_item_canLevel()*100;
 		if(me->query_vip_flag()) need_money = 0;//会员金币免费
-		if(cost>=0 && cost<100){
-			need_xianyuan = cost/10;
-			need_suiyu = cost%10;
-		}
-		else{
+		if(cost<0 || cost>=100){
 			s += "此物品级别太高，暂时无法炼化\n"; 
 			s += "[返回:convert_equip_list]\n";
 			s += "[返回游戏:look]\n";
 			write(s);
 			return 1;
 		}
-		int have_xianyuan = YUSHID->query_yushi_num(me,2);
-		int have_suiyu = YUSHID->query_yushi_num(me,1);
-		if(have_xianyuan<need_xianyuan || have_suiyu<need_suiyu)
+		if(!YUSHID->have_enough_yushi(me,cost))
 			s += "炼化失败！你身上没有足够的玉石\n";
 		else if(me->query_account()<need_money)
 			s += "炼化失败！你身上没有足够的金钱\n";
@@ -208,15 +225,14 @@ int main(string|zero arg)
 					log_consume = "convert_add";
 					ret_flag = 3;
 					new_item_name = "failed";
-					//扣除相应的玉石
-					if(need_xianyuan){
-						me->remove_combine_item("xianyuanyu",need_xianyuan);
-						cost_s += need_xianyuan+"|xianyuanyu,";
+					//按碎玉总价值自动兑换并扣除，不要求手工准备面额。
+					if(!pay_convert_equip_yushi(me,cost)){
+						s += "炼化失败！玉石状态已经变化，本次没有扣费\n";
+						write(s);
+						return 1;
 					}
-					if(need_suiyu){
-						me->remove_combine_item("suiyu",need_suiyu);
-						cost_s += need_suiyu+"|suiyu,";
-					}
+					if(cost)
+						cost_s += cost+"|suiyu_value,";
 					//扣除相应的钱
 					if(need_money)
 						me->del_account(need_money);
@@ -251,34 +267,32 @@ int main(string|zero arg)
 					return 1;
 					//new_item = ITEMSD->get_convert_item(item_rawname,attri_num,item->query_item_canLevel(),item->query_item_canLevel());
 				}
-					
+				if(!new_item){
+					if(orginal_item)
+						destruct(orginal_item);
+					write("炼化产物生成失败，原装备和费用均未改变。\n"+
+						"[返回:convert_equip_list]\n[返回游戏:look]\n");
+					return 1;
+				}
 			//	werror("====[dubug]  the num of new item's attrabute is "+ attri_num+" =====\n");
 			}
+			if(orginal_item)
+				destruct(orginal_item);
 			if(new_item){
 				new_item_name = new_item->query_name();
-				//扣除相应的玉石
-				if(need_xianyuan){
-					me->remove_combine_item("xianyuanyu",need_xianyuan);
-					cost_s += need_xianyuan+"|xianyuanyu,";
-				}
-				if(need_suiyu){
-					me->remove_combine_item("suiyu",need_suiyu);
-					cost_s += need_suiyu+"|suiyu,";
-				}
-				//扣除相应的钱
-				if(need_money)
-					me->del_account(need_money);
+				mapping(string:mixed) special_removal=(["ok":1]);
+				string special_name="";
+				if(flag==3) special_name="binglanyushi";
+				else if(flag==4) special_name="huposhi";
+				else if(flag==5) special_name="cuijinshi";
 				//若是玉石辅助，则扣除玉石
 				if(flag == 3){ //冰蓝玉石
-					me->remove_combine_item("binglanyushi",1);
 					cost_s += "1|binglanyushi,";
 				}
 				if(flag == 4){ //琥珀石
-					me->remove_combine_item("huposhi",1);
 					cost_s += "1|huposhi,";
 				}
 				if(flag == 5){ //翠晶石
-					me->remove_combine_item("cuijinshi",1);
 					cost_s += "1|cuijishi,";
 				}
 				if(ret_flag == 1)
@@ -311,10 +325,37 @@ int main(string|zero arg)
 						}
 					}
 				}
-				//扣除被转化的物品
+				// 先确认新装备能进入同一人物背包；原装备此时仍完整保留。
+				if(new_item->move(me)!=1 || environment(new_item)!=me){
+					if(new_item) destruct(new_item);
+					write("炼化产物发放失败，原装备和费用均未改变。\n"+
+						"[返回:convert_equip_list]\n[返回游戏:look]\n");
+					return 1;
+				}
+				if(special_name!=""){
+					special_removal=me->remove_combine_item_transaction(
+						special_name,1);
+					if(!(int)special_removal["ok"]){
+						new_item->remove();
+						write("辅助材料扣除失败，本次未炼化。\n[返回:convert_equip_list]\n");
+						return 1;
+					}
+				}
+				//按碎玉总价值自动兑换并扣除，不要求手工准备面额。
+				if(!pay_convert_equip_yushi(me,cost)){
+					if(special_name!="")
+						me->rollback_combine_item_transaction(special_removal);
+					new_item->remove();
+					s += "炼化失败！玉石状态已经变化，本次没有更换装备\n";
+					write(s);
+					return 1;
+				}
+				if(cost)
+					cost_s += cost+"|suiyu_value,";
+				if(need_money)
+					me->del_account(need_money);
+				// 新装备、材料与费用均已就绪，最后删除原装备。
 				item->remove();
-				//获得炼化获得的物品
-				new_item->move(me);
 			}
 			//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','"+log_consume+"','"+cost_s+"','"+item_name+"|"+new_item_name+"',1,'"+item_name_cn+"',"+cost+");\n";
 			c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"]["+log_consume+"]["+item_name+"]["+item_name_cn+"][1]["+cost+"]["+new_item_name+"]\n";

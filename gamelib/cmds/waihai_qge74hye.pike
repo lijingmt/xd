@@ -3,7 +3,9 @@
 int main(string path)
 {
 	object me=this_player();
-	if(!path){
+	if(!path || path!="waihai/wenshuidai"){
+		if(path)
+			write("跳崖目标校验失败。\n");
 		me->command("look");
 		return 1;
 	}
@@ -14,7 +16,7 @@ int main(string path)
 	int ran = me->query_level();
 	path = ROOT + "/gamelib/d/" + path;
 	object env=environment(me);
-	if(env->query_name() != "mengduya"){
+	if(!env || env->query_name() != "mengduya"){
 		me->command("look");
 		return 1;
 	}
@@ -22,8 +24,13 @@ int main(string path)
 		if(env&&!env->is("character")&&!env->is("menu")){
 			me->last_pos=file_name(env)-ROOT;
 		}
+		int moved;
+		mixed move_err=catch { moved=me->move(path); };
+		if(move_err || !moved){
+			write("跳崖落点暂时无法到达。\n");
+			return 1;
+		}
 		me->m_delete_foruser("/tmp/tour_pos");
-		me->move(path);
 		me->reset_view();
 		me->command("look");
 		return 1;
@@ -32,14 +39,15 @@ int main(string path)
 		string s = "也许是功力不够，也许是运气不好~总之，你坠崖身亡了。\n";
 		tell_object(me,s);
 		me->set_life(1);
-		if(me->relife){
-			mixed err=catch{
-				(object)(ROOT+me->relife);
+		int revived;
+		if(me->relife && me->is_valid_relife_path(me->relife)){
+			mixed revive_err=catch {
+				revived=me->move(ROOT+me->relife);
 			};
-			if(!err)
-				me->move(ROOT+me->relife);
+			if(revive_err)
+				revived=0;
 		}
-		else{
+		if(!revived){
 			//没有复活点，从默认阵营复活地复活
 			if(me->query_raceId()=="human")
 				me->last_pos="/gamelib/d/congxianzhen/congxianzhenguangchang";
@@ -52,13 +60,16 @@ int main(string path)
 					me->last_pos="/gamelib/d/jinaodao/yuhuacunguangchang";
 			}
 			if(me->last_pos){
-				mixed err=catch{
-					(object)(ROOT+me->last_pos);
+				mixed fallback_err=catch {
+					revived=me->move(ROOT+me->last_pos);
 				};
-				if(!err)
-					me->move(ROOT+me->last_pos);
+				if(fallback_err)
+					revived=0;
 			}
 		}
+		if(!revived)
+			werror("[WAIHAI] revive movement failed userid=%s\n",
+				me->query_name());
 		me->reset_view();
 		me->command("look");
 		return 1;

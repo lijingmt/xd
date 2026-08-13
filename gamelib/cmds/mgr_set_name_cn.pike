@@ -13,6 +13,11 @@ int main(string|zero arg){
 		write(stmp);
 		return 1;
 	}
+	if(MAP_WORKERD->query_node_role()=="worker"){
+		write("多Worker试运行期间已关闭直接改名，避免从错误进程覆盖在线档案。\n"+
+			"[返回管理主界面:game_deal]\n[返回游戏:look]\n");
+		return 1;
+	}
 	s += "====在线管理用户数据====\n";
 	if(!arg || arg==""){
 		//s += "输入用户ID\n";
@@ -94,5 +99,4 @@ int main(string|zero arg){
 	me->write_view(WAP_VIEWD["/emote"],0,0,s); 
 	return 1; 
 }
-
 

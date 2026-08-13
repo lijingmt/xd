@@ -339,6 +339,64 @@ string get_user_password(string userid)
     return 0;
 }
 
+private int submitted_password_matches(string submitted,string expected,
+    string challenge)
+{
+    if(!submitted || !expected)
+        return 0;
+    if(challenge && challenge!="")
+        return verify_password_hash(challenge,submitted,expected);
+    return submitted==expected;
+}
+
+// 共享账号的人物物理档案仍保存自己的真实密码，但老 main.jsp 书签
+// 可能提交账号主档密码。允许两者通过同一严格校验，随后调用方必须
+// 使用人物档案密码执行登录和生成 TXD，不能把账号密码写入人物档案。
+private int character_login_password_matches(string character_id,
+    string character_password,string submitted,string challenge)
+{
+    string account_id;
+    string account_password;
+    if(submitted_password_matches(submitted,character_password,challenge))
+        return 1;
+    account_id = String.trim_all_whites((string)
+        ACCOUNT_CHARACTERD->query_account_id_for_character(character_id));
+    if(!valid_auth_userid(account_id) || account_id==character_id ||
+       !ACCOUNT_CHARACTERD->account_owns_character(
+           account_id,character_id))
+        return 0;
+    account_password = get_user_password(account_id);
+	return submitted_password_matches(submitted,account_password,challenge);
+}
+
+// 已登录人物的写接口必须再次验证 TXD 中的密码；只读状态接口不调用。
+int authenticated_character_password_matches(string character_id,
+	string submitted)
+{
+	string canonical_id = String.trim_all_whites(character_id || "");
+	string character_password;
+	if(!valid_auth_userid(canonical_id) || !submitted)
+		return 0;
+	character_password = get_user_password(canonical_id);
+	return character_password && character_login_password_matches(
+		canonical_id,character_password,submitted,"");
+}
+
+int test_character_login_password_matches(string character_id,
+    string submitted,string challenge)
+{
+    string canonical_id;
+    string character_password;
+    if(getenv("XIAND_RUN_TESTUNIT")!="1")
+        return 0;
+    canonical_id = String.trim_all_whites(character_id || "");
+    character_password = get_user_password(canonical_id);
+    if(!character_password)
+        return 0;
+    return character_login_password_matches(canonical_id,
+        character_password,submitted,challenge || "");
+}
+
 // ========================================================================
 // 命令隐藏系统
 // ========================================================================
@@ -435,6 +493,7 @@ string unhide_command(string userid, string token_input)
     mapping entry;
     object key;
     int space_pos;
+    int legacy_numeric;
     if(!userid || !token_input)
         return "look";
     token = token_input;
@@ -443,6 +502,17 @@ string unhide_command(string userid, string token_input)
         token = token_input[0..space_pos-1];
         input = token_input[space_pos+1..];
     }
+    // 老 JSP 书签保存的是进程内数字下标。跨版本、重启或切换 worker
+    // 后已不可能安全还原原命令；历史实现此时也会回退 look。禁止把
+    // 数字当作明文游戏命令执行，并让玩家原书签继续恢复当前画面。
+    legacy_numeric = sizeof(token)>0;
+    for(int i=0;i<sizeof(token);i++)
+        if(token[i]<'0' || token[i]>'9') {
+            legacy_numeric = 0;
+            break;
+        }
+    if(legacy_numeric)
+        return "look";
     if(!has_prefix(token,"c_"))
         return token_input;
     key = hidden_command_lock->lock();

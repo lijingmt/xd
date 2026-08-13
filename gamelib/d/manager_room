@@ -11,6 +11,7 @@ protected void create(){
 	desc+="[历史公告管理:msg_read admin old]\n";
 	desc+="[新增公告:msg_write_entry]\n";
 	desc+="[逻辑新区管理:mgr_logical_zone]\n";
+	desc+="[地图Worker试运行管理:mgr_map_workers]\n";
 	//desc+="[获得玉石:yushi_get_test]\n";
 	//desc+="[获取物品:test_get_item]\n";
 	//desc+="[国庆换取:shzzh_view_equiplist 9ji]\n";

@@ -399,26 +399,156 @@ int write_file(string file,string data,void|int overwrite)
 	}
 }
 */
+private string normalize_generated_item_source(string data)
+{
+	string source=data || "";
+	while(search(source,"protected protected void create()")!=-1)
+		source=replace(source,"protected protected void create()",
+			"protected void create()");
+	if(has_prefix(source,"void create(){"))
+		source="protected "+source;
+	source=replace(source,"\nvoid create(){","\nprotected void create(){");
+	return source;
+}
+
+#define ITEM_SOURCE_CHECK_CACHE_LIMIT 16384
+#define ITEM_SOURCE_CHECK_CACHE_TRIM 4096
+private mapping(string:int) checked_item_sources=([]);
+private array(string) checked_item_source_order=({});
+private Thread.Mutex checked_item_source_mutex=Thread.Mutex();
+
+private int item_source_was_checked(string file)
+{
+	object key=checked_item_source_mutex->lock();
+	int checked=checked_item_sources[file];
+	destruct(key);
+	return checked;
+}
+
+private void remember_checked_item_source(string file)
+{
+	object key=checked_item_source_mutex->lock();
+	if(!checked_item_sources[file]){
+		checked_item_sources[file]=1;
+		checked_item_source_order+=({file});
+	}
+	if(sizeof(checked_item_source_order)>ITEM_SOURCE_CHECK_CACHE_LIMIT){
+		array(string) expired=checked_item_source_order[..ITEM_SOURCE_CHECK_CACHE_TRIM-1];
+		foreach(expired,string old_file)
+			m_delete(checked_item_sources,old_file);
+		checked_item_source_order=
+			checked_item_source_order[ITEM_SOURCE_CHECK_CACHE_TRIM..];
+	}
+	destruct(key);
+}
+
+private string item_publish_digest(string file)
+{
+	object hash=Crypto.SHA256();
+	hash->update(file || "");
+	return lower_case(String.string2hex(hash->digest()));
+}
+
+/* mkdir() is the inter-process exclusion primitive.  The lock and temporary
+ * source live beside the mounted item tree, so every Worker and physical
+ * container that shares that tree observes the same publication fence. */
+private int acquire_item_publish_lock(string file,string lock_path,
+	int accept_existing)
+{
+	for(int attempt=0;attempt<200;attempt++){
+		if(mkdir(lock_path))
+			return 1;
+		if(accept_existing && Stdio.file_size(file)>0)
+			return 0;
+		Stdio.Stat stat=file_stat(lock_path);
+		if(stat && stat->isdir && time()-stat->mtime>60){
+			rm(lock_path);
+			continue;
+		}
+		sleep(0.005);
+	}
+	return 0;
+}
+
 int write_item_file(string file,string data,void|int overwrite)
 {
-	if(!overwrite){//�������ļ�
-		int n=Stdio.write_file(file,data);
-		if(n==sizeof(data))
-			return 1;
-		else
-			return 0;
-	}
-	else{//�����ļ�
-		object f=Stdio.FILE(file,"wct");
-		int n=f->write(data);
-		int err=f->close();
-		if(n==sizeof(data)&&!err){
-			return 1;
-		}
+	string source=normalize_generated_item_source(data);
+	string digest=item_publish_digest(file);
+	string lock_root=dirname(file)+"/.item_publish_locks";
+	string lock_path=lock_root+"/"+digest;
+	string temp_path=lock_root+"/"+digest+".tmp";
+	int acquired;
+	int ok;
+	mixed err;
+	if(!file || file=="" || source=="")
+		return 0;
+	if(!overwrite && Stdio.file_size(file)>0)
+		return 1;
+	mkdir(lock_root);
+	acquired=acquire_item_publish_lock(file,lock_path,!overwrite);
+	if(!acquired)
+		return !overwrite && Stdio.file_size(file)>0;
+	err=catch {
+		if(!overwrite && Stdio.file_size(file)>0)
+			ok=1;
 		else{
-			return 0;
+			rm(temp_path);
+			if(Stdio.write_file(temp_path,source)==sizeof(source) &&
+			   Stdio.file_size(temp_path)==sizeof(source)){
+				if(!overwrite && Stdio.file_size(file)>0)
+					ok=1;
+				else if(mv(temp_path,file) &&
+					Stdio.file_size(file)==sizeof(source))
+					ok=1;
+			}
 		}
+	};
+	rm(temp_path);
+	rm(lock_path);
+	if(err)
+		return 0;
+	return ok;
+}
+
+/* The shared item tree can contain millions of historical generated files.
+ * Never scan that tree during deployment.  Repair a legacy create() modifier
+ * once, under the same cross-process publication fence, immediately before
+ * that exact source is compiled. */
+private void normalize_existing_item_source(string file)
+{
+	string item_root=(has_suffix(ROOT,"/") ? ROOT : ROOT+"/")+
+		"gamelib/clone/item/";
+	string head="";
+	string source;
+	string normalized;
+	object input;
+	int readable;
+	int repaired=1;
+	if(!has_prefix(file,item_root) || item_source_was_checked(file))
+		return;
+	mixed err=catch {
+		input=Stdio.File(file,"r");
+		if(input){
+			head=input->read(1024) || "";
+			input->close();
+			readable=1;
+		}
+	};
+	if(input)
+		catch { input->close(); };
+	if(err || !readable)
+		return;
+	if(search(head,"protected protected void create()")!=-1 ||
+	   has_prefix(head,"void create(){") ||
+	   search(head,"\nvoid create(){")!=-1){
+		source=Stdio.read_file(file) || "";
+		normalized=normalize_generated_item_source(source);
+		if(source=="" || normalized==source ||
+		   !write_item_file(file,normalized,1))
+			repaired=0;
 	}
+	if(repaired)
+		remember_checked_item_source(file);
 }
 void cat(string file)
 {
@@ -1711,21 +1841,26 @@ protected void _destruct(void|object ob)
 
 object new(string|program|function path,mixed ... args)
 {
-	if(stringp(path))
+	if(stringp(path)){
+		normalize_existing_item_source(path);
 		return ((program)path)(@args);
+	}
 	else 
 		return path(@args);
 }
 object clone(string|program|function path,mixed ... args)
 {
-	if(stringp(path))
+	if(stringp(path)){
+		normalize_existing_item_source(path);
 		return ((program)path)(@args);
+	}
 	else 
 		return path(@args);
 }
 mixed clone_item(string|program|function path,mixed ... args)
 {
 	if(stringp(path)){
+		normalize_existing_item_source(path);
 		program p = compile_file(path);
 		object rt = p();
 		if(rt)

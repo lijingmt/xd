@@ -8,7 +8,12 @@ int main(string|zero arg)
 	int yushi = 0;
 	string roomName = "";
 	string s = "";
-	sscanf(arg,"%s %d",roomName,yushi);
+	if(!arg || sscanf(arg,"%s %d",roomName,yushi)!=2 ||
+	   roomName!="sijiaxiaodian"){
+		write("店铺许可参数无效。\n[返回:look]\n");
+		return 1;
+	}
+	yushi=200;
 	object me = this_player();
 	string masterId = me->query_name();
 	if(HOMED->if_have_home(masterId)){

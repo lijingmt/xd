@@ -15,4 +15,6 @@ protected int yushi_value = 0;
 void set_yushi_value(int a){yushi_value=a;}
 int query_yushi_value(){return yushi_value;}
 
-private string initer=((set_item_type("yushi")),"");
+// 仅五种付费玉提高单组容量；普通道具、药品和特殊炼化石继续使用
+// 各自原有上限，面额与合拆比例也不在这里改变。
+private string initer=((set_item_type("yushi")),(max_count=9999),"");

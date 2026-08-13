@@ -80,6 +80,17 @@ void test_runtime_compile()
 		"/gamelib/cmds/get.pike",
 		"/lowlib/wapmud2/cmds/flushview.pike",
 	});
+	array(string) shared_macro_paths = ({
+		"/gamelib/cmds/autofight.pike",
+		"/gamelib/cmds/autofightclose.pike",
+		"/gamelib/cmds/cleanup_non_equipment.pike",
+		"/gamelib/cmds/sell_equipment_batch.pike",
+		"/gamelib/cmds/viceskill_dig.pike",
+		"/gamelib/cmds/viceskill_gather.pike",
+		"/gamelib/single/daemons/http_api_daemon.pike",
+		"/gamelib/single/daemons/professionvipd.pike",
+		"/gamelib/single/daemons/userd.pike",
+	});
 	int failed = 0;
 	string error_desc = "";
 	foreach(paths,string path){
@@ -93,10 +104,18 @@ void test_runtime_compile()
 			error_desc += path+": "+describe_error(err);
 		}
 	}
+	foreach(shared_macro_paths,string source_path){
+		string source = Stdio.read_file(ROOT+source_path) || "";
+		if(source=="" || search(source,"#define AUTOFIGHTD")!=-1){
+			failed++;
+			error_desc += source_path+": redundant AUTOFIGHTD; ";
+		}
+	}
 	if(failed == 0)
 		test_pass();
 	else
-		test_fail("自动挂机文件编译失败: "+error_desc);
+		test_fail("自动挂机文件编译失败或重复定义AUTOFIGHTD: "+
+			error_desc);
 }
 
 void test_defaults_and_switch()
@@ -367,7 +386,7 @@ void test_tianxiang_context_skill_selection()
 
 void test_vip_daily_limits()
 {
-	test_start("VIP1至VIP4每日额度、当天升级与降级同步");
+	test_start("VIP1至VIP8每日额度、当天升级与降级同步");
 	object normal_player = create_runtime_player(
 		"__testunit_autofight_normal_limit__");
 	object vip_player = create_runtime_player(
@@ -386,6 +405,10 @@ void test_vip_daily_limits()
 		valid = valid &&
 			daemon->query_daily_seconds_for(normal_player) == 16*60*60 &&
 			daemon->query_time_left(normal_player) == 15*60*60;
+		set_active_vip(normal_player,8);
+		valid = valid &&
+			daemon->query_daily_seconds_for(normal_player) == 24*60*60 &&
+			daemon->query_time_left(normal_player) == 23*60*60;
 		set_active_vip(normal_player,0);
 		valid = valid &&
 			daemon->query_daily_seconds_for(normal_player) == 8*60*60 &&
@@ -417,6 +440,8 @@ void test_vip_quota_exhausted_guidance()
 		"__testunit_autofight_quota_normal__");
 	object vip4_player = create_runtime_player(
 		"__testunit_autofight_quota_vip4__");
+	object vip8_player = create_runtime_player(
+		"__testunit_autofight_quota_vip8__");
 	object daemon = (object)(ROOT+
 		"/gamelib/single/daemons/autofightd.pike");
 	string command_source = Stdio.read_file(
@@ -426,6 +451,7 @@ void test_vip_quota_exhausted_guidance()
 	string vue_source = Stdio.read_file(ROOT+"/vue_source/js/app.js");
 	string normal_message = "";
 	string vip4_message = "";
+	string vip8_message = "";
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
@@ -437,8 +463,13 @@ void test_vip_quota_exhausted_guidance()
 		daemon->initialize_player(vip4_player);
 		vip4_player["/plus/autofight_time_left"] = 0;
 		vip4_message = daemon->query_quota_exhausted_message(vip4_player);
+		set_active_vip(vip8_player,8);
+		daemon->initialize_player(vip8_player);
+		vip8_player["/plus/autofight_time_left"] = 0;
+		vip8_message = daemon->query_quota_exhausted_message(vip8_player);
 		valid = daemon->can_upgrade_daily_time(normal_player) == 1 &&
-			daemon->can_upgrade_daily_time(vip4_player) == 0 &&
+			daemon->can_upgrade_daily_time(vip4_player) == 1 &&
+			daemon->can_upgrade_daily_time(vip8_player) == 0 &&
 			daemon->is_quota_exhausted_reason(
 				normal_player,normal_message) == 1 &&
 			daemon->is_quota_exhausted_reason(
@@ -447,9 +478,11 @@ void test_vip_quota_exhausted_guidance()
 			search(normal_message,"VIP1（水晶会员）") != -1 &&
 			search(normal_message,"10小时") != -1 &&
 			search(vip4_message,"今天的16小时") != -1 &&
-			search(vip4_message,"VIP4（钻石会员）") != -1 &&
-			search(vip4_message,"最高额度") != -1 &&
-			search(vip4_message,"升级至") == -1 &&
+			search(vip4_message,"升级至VIP5（星耀会员）") != -1 &&
+			search(vip8_message,"今天的24小时") != -1 &&
+			search(vip8_message,"VIP8（仙尊会员）") != -1 &&
+			search(vip8_message,"最高额度") != -1 &&
+			search(vip8_message,"升级至") == -1 &&
 			command_source &&
 			search(command_source,"[提高VIP等级:vip_service_list]") != -1 &&
 			search(command_source,"[玉石不足可捐款:add_szx_fee]") != -1 &&
@@ -464,9 +497,10 @@ void test_vip_quota_exhausted_guidance()
 		test_pass();
 	else
 		test_fail("挂机额度提示分级错误: "+normal_message+" / "+
-			vip4_message+" "+error_desc);
+			vip4_message+" / "+vip8_message+" "+error_desc);
 	destroy_runtime_player(normal_player);
 	destroy_runtime_player(vip4_player);
+	destroy_runtime_player(vip8_player);
 }
 
 void test_vip_labels_and_plan()
@@ -484,6 +518,10 @@ void test_vip_labels_and_plan()
 			daemon->query_vip_label(2) == "VIP2（黄金会员）" &&
 			daemon->query_vip_label(3) == "VIP3（白金会员）" &&
 			daemon->query_vip_label(4) == "VIP4（钻石会员）" &&
+			daemon->query_vip_label(5) == "VIP5（星耀会员）" &&
+			daemon->query_vip_label(6) == "VIP6（王者会员）" &&
+			daemon->query_vip_label(7) == "VIP7（至尊会员）" &&
+			daemon->query_vip_label(8) == "VIP8（仙尊会员）" &&
 			command_source &&
 			search(command_source,"自动挂机·VIP权益总览") != -1 &&
 			search(command_source,"查看VIP挂机分级") != -1 &&
@@ -748,6 +786,7 @@ void test_time_and_low_life_guard()
 	int valid = 0;
 	mixed err = catch {
 		daemon->initialize_player(player);
+		daemon->start_autofight(player);
 		food->move(player);
 		player->set_life(player->query_life_max()/4);
 		player["/tmp/autofight_last_charge"] = time()-5;
@@ -765,6 +804,49 @@ void test_time_and_low_life_guard()
 	else
 		test_fail("计时或低血保护错误: "+error_desc);
 	destroy_runtime_player(player);
+}
+
+void test_restart_and_relogin_charge_lease()
+{
+	test_start("重启或快速重登不扣除无收益间隔且在线循环正常计时");
+	string userid="__testunit_autofight_charge_lease__";
+	object|zero player=create_runtime_player(userid);
+	object daemon=(object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object|zero relogin=0;
+	string error_desc="";
+	int valid=0;
+	mixed err=catch{
+		daemon->initialize_player(player);
+		daemon->start_autofight(player);
+		player["/plus/autofight_time_left"]=100;
+		player["/tmp/autofight_last_charge"]=time()-5;
+		int active_after=daemon->charge_time(player);
+		destruct(player);
+		player=0;
+
+		relogin=create_runtime_player(userid);
+		daemon->initialize_player(relogin);
+		relogin->set_autofight("enable");
+		relogin["/plus/autofight_time_left"]=active_after;
+		relogin["/tmp/autofight_last_charge"]=time()-10;
+		int relogin_after=daemon->charge_time(relogin);
+		int anchored_at=(int)relogin["/tmp/autofight_last_charge"];
+		int checked_at=time();
+		valid=active_after<=95 && active_after>=94 &&
+			relogin_after==active_after &&
+			anchored_at>=checked_at-1 && anchored_at<=checked_at;
+	};
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("在线扣时或人物对象计时租约错误: "+error_desc);
+	if(player)
+		destroy_runtime_player(player);
+	if(relogin)
+		destroy_runtime_player(relogin);
 }
 
 void test_gathering_and_material_cleanup()
@@ -1918,6 +2000,8 @@ void test_loot_pickup_never_blocks_next_fight()
 		daemon->record_failed_loot(player,weapon);
 		valid = valid &&
 			daemon->query_loot_temporarily_suppressed(player,weapon) == 1 &&
+			!player["/tmp/autofight_failed_loot"] &&
+			!player["/tmp/autofight_failed_loot_room"] &&
 			daemon->query_loot_item(player) == 0;
 		flush_command->main(0);
 		valid = valid && environment(weapon) == room &&
@@ -3098,6 +3182,7 @@ int main()
 	test_vip4_huanhua_auto_sell_confirmation();
 	test_auto_sell_settlement();
 	test_time_and_low_life_guard();
+	test_restart_and_relogin_charge_lease();
 	test_gathering_and_material_cleanup();
 	test_non_equipment_destroy_safety();
 	test_vip_non_equipment_cleanup_tiers();

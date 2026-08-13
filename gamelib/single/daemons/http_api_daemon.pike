@@ -30,7 +30,6 @@
 
 inherit LOW_DAEMON;
 
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
 #define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 
 // ========================================================================
@@ -97,6 +96,8 @@ string normalize_http_client_ip(string address)
 #include "_http_api_mod/rate_limit.pike"
 #include "_http_api_mod/account_characters.pike"
 #include "_http_api_mod/equipment_panel.pike"
+#include "_http_api_mod/pike_gateway.pike"
+#include "_http_api_mod/map_worker_rpc.pike"
 
 // ========================================================================
 // 全局变量
@@ -110,6 +111,8 @@ int api_only_mode = 1;
 
 /** HTTP API启动时间 */
 int http_api_start_time = 0;
+int http_listen_port = HTTP_PORT;
+string http_listen_host = "0.0.0.0";
 
 /** HTTP 请求性能统计 */
 int http_request_count = 0;
@@ -194,11 +197,13 @@ int query_exp_bonus_rate() {
 protected void create()
 {
     http_api_start_time = time();
+    http_listen_port = query_configured_http_port();
+    http_listen_host = query_configured_http_host();
     init_parallel_command_farm();
     refresh_button_grade_snapshot();
     werror("========================================\n");
     werror("[HTTP_API] Daemon Loading...\n");
-    werror("[HTTP_API] HTTP_PORT = %d\n", HTTP_PORT);
+    werror("[HTTP_API] HTTP_PORT = %d\n", http_listen_port);
     werror("[HTTP_API] HTTP_API_DEBUG = %d\n", HTTP_API_DEBUG);
     werror("[HTTP_API] EXP_BONUS_ENABLED = %d\n", HTTP_API_EXP_BONUS_ENABLED);
     werror("[HTTP_API] EXP_BONUS_RATE = %d%%\n", HTTP_API_EXP_BONUS_RATE);
@@ -213,6 +218,13 @@ protected void create()
     // 启动队列处理
     call_out(start_worker_thread, 10);
     call_out(cleanup_old_results, RESULT_CLEANUP_INTERVAL);
+    // Distributed workers self-fence before the coordinator can reassign an
+    // expired owner. Standalone servers return immediately in this check.
+    call_out(enforce_map_worker_control_fence, 2);
+    // The coordinator also owns the transparent public Pike gateway. Shadow
+    // mode starts only its control loop and deliberately leaves port 8888 to
+    // the legacy standalone process.
+    call_out(init_pike_gateway, 1);
 }
 
 void start_server()
@@ -223,16 +235,19 @@ void start_server()
         return;
     }
 
-    werror("[HTTP_API] Creating HTTP.Server.Port on 0.0.0.0:%d\n", HTTP_PORT);
+    werror("[HTTP_API] Creating HTTP.Server.Port on %s:%d\n",
+        http_listen_host,http_listen_port);
     mixed err = catch {
-        http_port = Protocols.HTTP.Server.Port(handle_request, HTTP_PORT, "0.0.0.0");
+        http_port = Protocols.HTTP.Server.Port(handle_request,
+            http_listen_port, http_listen_host);
     };
 
     if(err) {
         werror("[HTTP_API] ERROR starting server: %O\n", err);
     } else {
-        werror("[HTTP_API] Successfully started on port %d\n", HTTP_PORT);
-        werror("[HTTP_API] Listening on http://0.0.0.0:%d\n", HTTP_PORT);
+        werror("[HTTP_API] Successfully started on port %d\n", http_listen_port);
+        werror("[HTTP_API] Listening on http://%s:%d\n",
+            http_listen_host,http_listen_port);
         werror("[HTTP_API] API Endpoints available:\n");
         werror("[HTTP_API]   - GET  /health\n");
         werror("[HTTP_API]   - GET  /api/partitions\n");
@@ -317,7 +332,40 @@ string execute_internal_command(object player, string cmd)
 
     // 直接调用command()
     mixed err = catch {
-        player->command(cmd);
+		int ingress_moved = 0;
+		// A cross-worker timed-event join first lands in a signed static
+		// ingress. Never leave that recovery room during the arrival proof; on
+		// the gateway's following safe view, resume the join automatically.
+		object ingress_room = environment(player);
+		mapping pending_arrival = MAP_WORKERD->query_local_player_arrival(
+			(string)player->query_name());
+		if((first_word=="look" || first_word=="l") && ingress_room &&
+		   functionp(ingress_room->query_timed_event_ingress_id) &&
+		   !(int)pending_arrival["ok"]){
+			string ingress_event =
+				(string)ingress_room->query_timed_event_ingress_id();
+			if(ingress_event=="tianheng" || ingress_event=="jiuyao"){
+				player->command("timed_event join "+ingress_event);
+				ingress_moved = environment(player)!=ingress_room;
+			}
+		}
+		// FBD 动态幻境沿用限时活动的安全模型。只有协调器 arrival
+		// 已确认后才自动续办，避免目标 Worker 在玩家唯一归属尚未
+		// 证明时创建克隆房和房内奖励状态。
+		if(!ingress_moved && (first_word=="look" || first_word=="l") &&
+		   ingress_room && functionp(ingress_room->is_fb_worker_ingress) &&
+		   ingress_room->is_fb_worker_ingress() &&
+		   !(int)pending_arrival["ok"]){
+			string ingress_fb_name=FBD->query_fb_name_by_id(player->fb_id);
+			if(ingress_fb_name!=""){
+				player->command("fb_entry "+ingress_fb_name+" 0 0");
+				ingress_moved=environment(player)!=ingress_room;
+			}
+		}
+		// join already renders the destination. If it failed, keep the outer
+		// look so the ingress recovery links remain usable.
+		if(!ingress_moved)
+			player->command(cmd);
         // http_werror(" command() executed\n");
     };
 
@@ -502,6 +550,126 @@ string execute_command(string userid, string password, string cmd)
     return route_and_execute(userid, password, cmd);
 }
 
+/** Complete one durable cross-worker arrival instead of replaying movement. */
+private mapping complete_map_worker_arrival(object player,string userid)
+{
+    mapping arrival = MAP_WORKERD->query_local_player_arrival(userid);
+    object room;
+    string affinity;
+    string output = "";
+    int saved;
+    mixed err;
+    if(!(int)arrival["ok"])
+        return (["handled":0]);
+    room = environment(player);
+    affinity = room ? MAP_WORKERD->query_player_affinity(player) : "";
+    if(room && room->is("menu")){
+        if(!functionp(player->complete_static_worker_arrival) ||
+           !player->complete_static_worker_arrival(
+                (string)arrival["room_path"])){
+            werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=move epoch=%d\n",
+                userid,(int)arrival["epoch"]);
+            remove_virtual_connection(userid);
+            MAP_WORKERD->clear_local_player_arrival(userid);
+            if(functionp(player->discard_stale_worker_copy))
+                player->discard_stale_worker_copy();
+            else
+                destruct(player);
+            return (["handled":1,
+                "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
+        }
+        room = environment(player);
+        affinity = room ? MAP_WORKERD->query_player_affinity(player) : "";
+    }
+    if(affinity!=(string)arrival["affinity"]){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=affinity epoch=%d\n",
+            userid,(int)arrival["epoch"]);
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_player_arrival(userid);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+        return (["handled":1,
+            "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
+    }
+    if(functionp(player->consume_worker_summon_handoff) &&
+       !player->consume_worker_summon_handoff(1)){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=summon_save epoch=%d\n",
+            userid,(int)arrival["epoch"]);
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_player_arrival(userid);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+        return (["handled":1,
+            "output":"{\"error\":\"跨地图召唤状态落盘失败，请重试\"}"]);
+    }
+    output = execute_internal_command(player,"look");
+    // Clear the one-shot status capability in the same atomic save that proves
+    // the final destination. A failed save leaves the previous archive intact
+    // so a retried arrival can restore timed medicine/home effects again.
+    if(functionp(player->finalize_worker_status_effect_handoff))
+        player->finalize_worker_status_effect_handoff();
+    // The authenticated gateway already committed this exact target epoch and
+    // room capability. This is the target's one mandatory arrival save, so it
+    // must remain valid while a control heartbeat is rolling over.
+    err = catch { saved = player->save_with_result(0,1); };
+    if(err || !saved){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=save epoch=%d error=%s\n",
+            userid,(int)arrival["epoch"],err ? describe_error(err) : "false");
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_player_arrival(userid);
+        if(functionp(player->discard_stale_worker_copy))
+            player->discard_stale_worker_copy();
+        else
+            destruct(player);
+        return (["handled":1,
+            "output":"{\"error\":\"跨地图到达存档失败，请重试\"}"]);
+    }
+    MAP_WORKERD->clear_local_player_arrival(userid);
+    // Register only after the final arrival archive is durable. This prevents a
+    // background flushview from racing the one-shot handoff capability while also
+    // ensuring browser-background AFK continues on the destination worker.
+    if(functionp(player->query_autofight) &&
+       player->query_autofight()=="enable"){
+        int resumed = 0;
+        mixed resume_err = catch {
+            resumed = AUTOFIGHTD->resume_worker_handoff(player);
+        };
+        if(resume_err || !resumed)
+            werror("[MAP_WORKER][AFK_RESUME_FAILED] userid=%s epoch=%d error=%s\n",
+                userid,(int)arrival["epoch"],resume_err ?
+                    describe_error(resume_err) : "false");
+    }
+    return (["handled":1,"output":output]);
+}
+
+/** A newly loaded player must match the gateway's authoritative account lock. */
+private int map_worker_player_account_authorized(object player,string userid)
+{
+    string expected;
+    string actual;
+    if(MAP_WORKERD->query_node_role()!="worker")
+        return 1;
+    expected = MAP_WORKERD->query_local_player_account_owner(userid);
+    actual = player && functionp(player->query_account_owner) ?
+        (string)player->query_account_owner() : "";
+    return expected!="" && actual==expected;
+}
+
+private string discard_map_worker_account_mismatch(object player,string userid)
+{
+    remove_virtual_connection(userid);
+    MAP_WORKERD->clear_local_player_epoch(userid);
+    if(player && functionp(player->discard_stale_worker_copy))
+        player->discard_stale_worker_copy();
+    else if(player)
+        destruct(player);
+    return "{\"error\":\"账号归属校验失败，请重试\"}";
+}
+
 // ========================================================================
 // 同步版本的命令执行函数 (供线程管理器调用)
 // ========================================================================
@@ -520,6 +688,14 @@ string execute_command_sync(string userid, string password, string cmd)
         // 检查是否已有虚拟连接
         object player = get_player_from_connection(userid);
         if(player) {
+            if(!map_worker_player_account_authorized(player,userid))
+                return discard_map_worker_account_mismatch(player,userid);
+            mapping arrival = complete_map_worker_arrival(player,userid);
+            if((int)arrival["handled"])
+                return (string)arrival["output"];
+            if(functionp(player->consume_worker_summon_handoff) &&
+               !player->consume_worker_summon_handoff())
+                return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
             return execute_internal_command(player, cmd);
         }
 
@@ -551,6 +727,17 @@ string execute_command_sync(string userid, string password, string cmd)
         if(!player) {
             return "{\"error\":\"登录失败\"}";
         }
+
+        if(!map_worker_player_account_authorized(player,userid))
+            return discard_map_worker_account_mismatch(player,userid);
+
+        mapping arrival = complete_map_worker_arrival(player,userid);
+        if((int)arrival["handled"])
+            return (string)arrival["output"];
+
+        if(functionp(player->consume_worker_summon_handoff) &&
+           !player->consume_worker_summon_handoff())
+            return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
 
         return execute_internal_command(player, cmd);
     };
@@ -607,6 +794,7 @@ void handle_request(Protocols.HTTP.Server.Request req)
     string path = req->not_query;
     string method = req->request_type;
     int request_started_at = gethrtime();
+    string map_worker_request_id = "";
 
     // http_werror(" %s %s from %s\n", method, path, req->remote_addr || "unknown");
 
@@ -616,6 +804,51 @@ void handle_request(Protocols.HTTP.Server.Request req)
         send_json(req,(["error":"Request too large"]),413);
         record_http_request_timing(method,path,request_started_at);
         return;
+    }
+
+    if(path!="/internal/map-worker" &&
+       !map_worker_gateway_request_authorized(req)){
+        send_json(req,(["error":"worker gateway authorization required"]),403);
+        record_http_request_timing(method,path,request_started_at);
+        return;
+    }
+
+    if(path!="/internal/map-worker" &&
+       MAP_WORKERD->query_node_role()=="worker"){
+        map_worker_request_id = lower_case(String.trim_all_whites(
+            req->request_headers["x-xiand-request-id"] || ""));
+        mapping request_begin = MAP_WORKERD->begin_local_gateway_request(
+            map_worker_request_id,
+            String.trim_all_whites(
+                req->request_headers["x-xiand-lease-userid"] || ""),
+            (int)(req->request_headers["x-xiand-lease-epoch"] || "0"),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-command-kind"] || "general")),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-userid"] || ""),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-account"] || ""),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-target-worker"] || "")),
+            (int)(req->request_headers["x-xiand-admin-target-epoch"] || "0"),
+            (int)(req->request_headers["x-xiand-admin-fee"] || "0"),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-recharge-request"] || "")),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-admin-item-path"] || ""),
+            (int)(req->request_headers["x-xiand-admin-item-count"] || "0"),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-item-request"] || "")),
+            lower_case(String.trim_all_whites(
+                req->request_headers["x-xiand-admin-capability"] || "")),
+            String.trim_all_whites(
+                req->request_headers["x-xiand-account-owner"] || ""));
+        if(!(int)request_begin["ok"]){
+            send_json(req,(["error":"worker request fence rejected",
+                "code":request_begin["code"]]),409);
+            record_http_request_timing(method,path,request_started_at);
+            return;
+        }
     }
 
     // CORS 预检不进入异常捕获块，遵守 Pike catch 内不提前 return 的约束。
@@ -628,6 +861,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
     mixed err = catch {
         // API路由分发
         switch(path) {
+            case "/internal/map-worker":
+                handle_map_worker_rpc(req);
+                break;
             case "/api":
                 handle_api(req);
                 break;
@@ -648,6 +884,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 break;
             case "/api/account/characters/select":
                 handle_api_account_character_select(req);
+                break;
+            case "/api/profile":
+                handle_api_character_profile(req);
                 break;
             case "/api/account/logout":
                 handle_api_account_logout(req);
@@ -699,7 +938,8 @@ void handle_request(Protocols.HTTP.Server.Request req)
                 if(detailed_health){
                     mapping queue_status = query_queue_status();
                     mapping thread_status = query_thread_status();
-                    m["port"] = HTTP_PORT;
+                    string health_node_role = MAP_WORKERD->query_node_role();
+                    m["port"] = http_listen_port;
                     m["uptime"] = http_api_start_time > 0 ?
                         time()-http_api_start_time : 0;
                     m["queue"] = ([
@@ -711,19 +951,33 @@ void handle_request(Protocols.HTTP.Server.Request req)
                     m["threads"] = thread_status;
                     m["async_io"] = ASYNC_IOD->query_status();
                     m["runtime"] = query_runtime_performance();
-                    m["config_caches"] = ([
-                        "map":MAPD->query_cache_status(),
-                        "task":TASKD->query_cache_status(),
-                        "skill":MUD_SKILLSD->query_cache_status(),
-                        "autofight":AUTOFIGHTD->
-                            query_training_route_cache_status(),
-                    ]);
-                    m["autofight_performance"] = AUTOFIGHTD->
-                        query_autofight_performance_status();
+                    // The coordinator owns routing only. Loading gameplay
+                    // daemons merely to serve monitoring previously blocked
+                    // its public gateway for several seconds after startup.
+                    if(health_node_role!="gateway"){
+                        m["config_caches"] = ([
+                            "map":MAPD->query_cache_status(),
+                            "task":TASKD->query_cache_status(),
+                            "skill":MUD_SKILLSD->query_cache_status(),
+                            "autofight":AUTOFIGHTD->
+                                query_training_route_cache_status(),
+                        ]);
+                        m["autofight_performance"] = AUTOFIGHTD->
+                            query_autofight_performance_status();
+                    }
+                    else{
+                        m["config_caches"] = ([
+                            "mode":"not_collected_on_gateway",
+                        ]);
+                        m["autofight_performance"] = ([
+                            "mode":"not_collected_on_gateway",
+                        ]);
+                    }
                     m["performance"] = query_http_performance_status();
                     m["account_sessions"] = query_account_session_status();
                     m["command_tokens"] = query_hidden_command_status();
                     m["pagination"] = query_pagination_status();
+                    m["map_workers"] = MAP_WORKERD->query_status();
                 }
                 if(!send_json_mapping_async(req,m,200))
                     send_json(req,m);
@@ -813,6 +1067,7 @@ void handle_api(Protocols.HTTP.Server.Request req)
     if(!cmd || cmd == "") cmd = "look";
 
     string auth_userid, auth_password;
+    string stored_password;
     string challenge = params["challenge"];
 
     if(txd && txd != "" && txd != " ") {
@@ -821,42 +1076,37 @@ void handle_api(Protocols.HTTP.Server.Request req)
             send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
             return;
         }
-        auth_userid = auth["userid"];
+        auth_userid = String.trim_all_whites(auth["userid"]);
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_json(req, ([ "error": "用户不存在" ]), 401);
             return;
         }
-        if(auth_password != stored_password) {
+        if(!character_login_password_matches(auth_userid,stored_password,
+           auth_password,"")) {
             send_json(req, ([ "error": "用户名或密码错误" ]), 401);
             return;
         }
+        auth_password = stored_password;
     }
     else if(userid && password && userid != "" && password != "") {
-        auth_userid = userid;
-        auth_password = password;
+        auth_userid = String.trim_all_whites(userid);
 
         // 密码验证
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_json(req, ([ "error": "用户不存在" ]), 401);
             return;
         }
-        // 如果有 challenge，使用 challenge 验证；否则直接比较明文密码
-        if(challenge && sizeof(challenge) > 0) {
-            if(!verify_password_hash(challenge, password, stored_password)) {
-                send_json(req, ([ "error": "用户名或密码错误" ]), 401);
-                return;
-            }
-        } else {
-            if(password != stored_password) {
-                send_json(req, ([ "error": "用户名或密码错误" ]), 401);
-                return;
-            }
+        if(!character_login_password_matches(auth_userid,stored_password,
+           password,challenge || "")) {
+            send_json(req, ([ "error": "用户名或密码错误" ]), 401);
+            return;
         }
+        auth_password = stored_password;
     }
     else {
         send_json(req, ([ "error": "缺少认证信息" ]), 400);
@@ -894,6 +1144,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     string userid = params["userid"];
     string password = params["password"];
     string cmd = params["cmd"];
+    string ref_code = lower_case(String.trim_all_whites(
+        url_decode((string)(params["ref"] || ""))));
     http_werror(" handle_api_html request received\n");
     if(!cmd || cmd == "") cmd = "look";
 
@@ -911,24 +1163,39 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             return;
         }
 
-        // 解析参数: Vue发送 login_regnew gamenv xd01username password sid challenge (6个部分)
-        // JSP发送: login_regnew gamenv user password sid game_pre m_key userip userua (9个部分)
-        // 先初始化所有变量为空字符串
+        // Vue sends six tokens including the command. Old JSP sends at least
+        // nine, with the logical-zone prefix separate from the short name.
         string projname = "", user_name = "", pswd = "", sid = "";
         string game_pre = "", m_key = "", userip = "", userua = "";
         string challenge = "";
-
-        // 先尝试Vue格式（更常见，6个部分）
-        int parse_result = sscanf(cmd, "login_regnew %s %s %s %s %s %s",
-                                  projname, user_name, pswd, sid, challenge, game_pre);
-        http_werror(" sscanf Vue format result: %d\n", parse_result);
-
-        // 如果Vue格式解析失败（少于5个参数），尝试JSP格式（9个部分）
-        if(parse_result < 5) {
-            parse_result = sscanf(cmd, "login_regnew %s %s %s %s %s %s %s %s",
-                                  projname, user_name, pswd, sid, game_pre, m_key, userip, userua);
-            http_werror(" sscanf JSP format result: %d\n", parse_result);
+        array(string) registration_fields = cmd/" ";
+        registration_fields -= ({""});
+        int parse_result = 0;
+        if(sizeof(registration_fields)==6 &&
+           registration_fields[0]=="login_regnew") {
+            projname = registration_fields[1];
+            user_name = registration_fields[2];
+            pswd = registration_fields[3];
+            sid = registration_fields[4];
+            challenge = registration_fields[5];
+            parse_result = 5;
         }
+	        else if(sizeof(registration_fields)>=9 &&
+	                registration_fields[0]=="login_regnew") {
+            projname = registration_fields[1];
+            user_name = registration_fields[2];
+            pswd = registration_fields[3];
+            sid = registration_fields[4];
+            game_pre = registration_fields[5];
+            m_key = registration_fields[6];
+            userip = registration_fields[7];
+            userua = registration_fields[8..]*" ";
+	            parse_result = 8;
+	        }
+	        // Player identifiers are canonical lowercase, while the password and
+	        // remaining form values retain their original case end to end.
+	        user_name = lower_case(user_name);
+	        game_pre = lower_case(game_pre);
 
         http_werror(" registration fields parsed: count=%d, password_len=%d\n",
                     parse_result,sizeof(pswd));
@@ -995,10 +1262,20 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                         break;
                     }
                 }
+                mapping referral_precheck=(["ok":1]);
+                if(valid_name && ref_code!="")
+					referral_precheck=REFERRALD->validate_registration_invite(
+						full_username,ref_code,client_ip);
                 if(!valid_name) {
                     http_werror(" VALIDATION FAILED: invalid characters in actual_user\n");
                     result = "error2";
                     error_msg = "用户名只能包含字母和数字";
+                } else if(!(int)referral_precheck["ok"]) {
+					http_werror(" REFERRAL VALIDATION FAILED: code=%s\n",
+						(string)(referral_precheck["code"] || "unknown"));
+					result="error2";
+					error_msg=(string)(referral_precheck["message"] ||
+						"邀请码无效");
                 } else {
                     // full_username已在上面定义: game_fg + actual_user
                     // 与登录、原子存档统一使用 data_xiand，严禁覆盖已有旧人物。
@@ -1102,15 +1379,42 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                                     me->move(LOW_VOID_OB);
                                                 }
 
-                                                // 保存用户档案到文件
+                                                // The gateway registration lock is the creation
+                                                // fence. Persist atomically before reporting success.
                                                 http_werror("  Saving user file...\n");
-                                                if(functionp(me->save)) {
-                                                    me->save();
+                                                int registration_saved =
+                                                    functionp(me->save_with_result) &&
+                                                    me->save_with_result(0,
+                                                        MAP_WORKERD->query_node_role()=="worker" ? 1 : 0);
+                                                if(registration_saved) {
                                                     http_werror("  User file saved successfully\n");
+													mapping referral_binding=(["ok":1]);
+                                                    if(ref_code!="") {
+													referral_binding=REFERRALD->bind_registration(
+                                                                full_username,ref_code,
+                                                                client_ip);
+                                                    }
+													if(!(int)referral_binding["ok"]){
+														http_werror(" Referral binding failed after save: code=%s\n",
+															(string)(referral_binding["code"] || "unknown"));
+														rm(user_file_path);
+												rm(user_file_path+".tmp");
+												rm(user_file_path+".bak");
+												rm(user_file_path+".bak.tmp");
+														result="error2";
+														error_msg=(string)(referral_binding["message"] ||
+															"邀请关系安全保存失败，请重试");
+													}
+													else{
+														http_werror(" Registration SUCCESS: %s\n", full_username);
+														result = actual_user + "," + pswd;
+													}
                                                 }
-
-                                                http_werror(" Registration SUCCESS: %s\n", full_username);
-                                                result = actual_user + "," + pswd;  // 返回不含前缀的用户名
+                                                else {
+                                                    http_werror("  User file save FAILED\n");
+                                                    result = "error2";
+                                                    error_msg = "用户档案写入失败，请重试";
+                                                }
                                             } else {
                                                 http_werror("  setup() returned FALSE\n");
                                                 result = "error2";
@@ -1121,6 +1425,14 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                             http_werror("  setup() EXCEPTION: %s\n", describe_error(setup_err));
                                             result = "error2";
                                             error_msg = "用户初始化异常: " + describe_error(setup_err);
+                                        }
+                                        // Registration is not a logged-in player lease. Keep only
+                                        // the canonical archive and remove this temporary object.
+                                        if(me) {
+                                            if(functionp(me->discard_stale_worker_copy))
+                                                me->discard_stale_worker_copy();
+                                            else
+                                                destruct(me);
                                         }
                                     }
                                 };
@@ -1149,7 +1461,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             resp["data"] = html;
             resp["error"] = 200;
             resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
-            req->response_and_finish(resp);
+            finish_http_response(req,resp);
             return;
         }
 
@@ -1161,6 +1473,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
 
     // 认证
     string auth_userid, auth_password;
+    string stored_password, authenticated_txd;
     string challenge = params["challenge"];
 
     if(txd && txd != "" && txd != " ") {
@@ -1169,48 +1482,50 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             send_html_error(req, "TXD认证信息无效");
             return;
         }
-        auth_userid = auth["userid"];
+        auth_userid = String.trim_all_whites(auth["userid"]);
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_html_error(req, "用户不存在");
             return;
         }
-        if(auth_password != stored_password) {
+        if(!character_login_password_matches(auth_userid,stored_password,
+           auth_password,"")) {
             send_html_error(req, "用户名或密码错误");
             return;
         }
+        auth_password = stored_password;
     }
     else if(userid && password && userid != "" && password != "") {
-        auth_userid = userid;
-        auth_password = password;
+        auth_userid = String.trim_all_whites(userid);
 
         // 密码验证
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_html_error(req, "用户不存在");
             return;
         }
-        // 如果有 challenge，使用 challenge 验证；否则直接比较明文密码
-        if(challenge && sizeof(challenge) > 0) {
-            if(!verify_password_hash(challenge, password, stored_password)) {
-                send_html_error(req, "用户名或密码错误");
-                return;
-            }
-        } else {
-            // 没有 challenge 时，直接比较明文密码
-            if(password != stored_password) {
-                send_html_error(req, "用户名或密码错误");
-                return;
-            }
+        if(!character_login_password_matches(auth_userid,stored_password,
+           password,challenge || "")) {
+            send_html_error(req, "用户名或密码错误");
+            return;
         }
+        auth_password = stored_password;
     }
     else {
         send_html_error(req, "缺少认证信息");
         return;
     }
+
+    // 已有书签通过严格认证后原样沿用，禁止改变玩家保存的 TXD；仅首次使用
+    // 用户名密码登录时按历史算法生成完整 token。challenge 登录也必须使用
+    // 档案中的真实密码，而不是请求中的哈希。
+    if(txd && txd!="" && txd!=" ")
+        authenticated_txd = txd;
+    else
+        authenticated_txd = generate_txd(auth_userid,stored_password);
 
     // 登录速率限制
     int is_login_attempt = (!txd || txd == "" || txd == " ");
@@ -1235,21 +1550,21 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             string cached_output = (string)cached_view["output"];
             if(cached_output!=""){
                 finish_handle_api_html(cached_output,req,auth_userid,cmd,
-                    client_ip,is_login_attempt);
+                    authenticated_txd,client_ip,is_login_attempt);
                 return;
             }
         }
     }
 
     if(!execute_command_async(auth_userid,auth_password,cmd,
-       finish_handle_api_html,req,auth_userid,cmd,client_ip,
-       is_login_attempt))
+       finish_handle_api_html,req,auth_userid,cmd,authenticated_txd,
+       client_ip,is_login_attempt))
         send_html_error(req,"命令队列繁忙，请稍后重试");
 }
 
 void finish_handle_api_html(string response,
     Protocols.HTTP.Server.Request req,string auth_userid,string cmd,
-    string client_ip,int is_login_attempt)
+    string authenticated_txd,string client_ip,int is_login_attempt)
 {
 
     if(!response) {
@@ -1273,7 +1588,8 @@ void finish_handle_api_html(string response,
         reset_login_failures(client_ip);
     }
 
-    string html = response_to_html(response, auth_userid, cmd);
+    string html = response_to_html(response,auth_userid,cmd,
+        authenticated_txd);
 
     mapping resp = ([ ]);
     resp["type"] = "text/html; charset=UTF-8";
@@ -1281,7 +1597,7 @@ void finish_handle_api_html(string response,
     resp["error"] = 200;
     resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
     mixed response_err = catch {
-        req->response_and_finish(resp);
+        finish_http_response(req,resp);
     };
     if(response_err)
         http_werror(" async HTML response error: %s\n",
@@ -1305,6 +1621,7 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
 
     // 认证
     string auth_userid, auth_password;
+    string stored_password;
     string challenge = params["challenge"];
 
     if(txd && txd != "" && txd != " ") {
@@ -1313,42 +1630,37 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
             send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
             return;
         }
-        auth_userid = auth["userid"];
+        auth_userid = String.trim_all_whites(auth["userid"]);
         auth_password = auth["password"];
 
         // TXD 也需要验证密码
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_json(req, ([ "error": "用户不存在" ]), 401);
             return;
         }
-        if(auth_password != stored_password) {
+        if(!character_login_password_matches(auth_userid,stored_password,
+           auth_password,"")) {
             send_json(req, ([ "error": "用户名或密码错误" ]), 401);
             return;
         }
+        auth_password = stored_password;
     }
     else if(userid && password && userid != "" && password != "") {
-        auth_userid = userid;
-        auth_password = password;
+        auth_userid = String.trim_all_whites(userid);
 
         // 密码验证
-        string stored_password = get_user_password(auth_userid);
+        stored_password = get_user_password(auth_userid);
         if(!stored_password) {
             send_json(req, ([ "error": "用户不存在" ]), 401);
             return;
         }
-        // 如果有 challenge，使用 challenge 验证；否则直接比较明文密码
-        if(challenge && sizeof(challenge) > 0) {
-            if(!verify_password_hash(challenge, password, stored_password)) {
-                send_json(req, ([ "error": "用户名或密码错误" ]), 401);
-                return;
-            }
-        } else {
-            if(password != stored_password) {
-                send_json(req, ([ "error": "用户名或密码错误" ]), 401);
-                return;
-            }
+        if(!character_login_password_matches(auth_userid,stored_password,
+           password,challenge || "")) {
+            send_json(req, ([ "error": "用户名或密码错误" ]), 401);
+            return;
         }
+        auth_password = stored_password;
     }
     else {
         send_json(req, ([ "error": "缺少认证信息" ]), 400);
@@ -2915,6 +3227,11 @@ void handle_api_async(Protocols.HTTP.Server.Request req)
     }
 
     string userid = auth["userid"];
+    string stored_password = get_user_password(userid);
+    if(!stored_password || auth["password"]!=stored_password) {
+        send_json(req, ([ "error": "用户名或密码错误" ]), 401);
+        return;
+    }
     cmd = unhide_command(userid, cmd);
 
     string request_id = userid + "_" + sprintf("%d", time() * 1000 + random(999));
@@ -2935,43 +3252,57 @@ void handle_api_result(Protocols.HTTP.Server.Request req)
 {
     mapping params = get_params(req);
     string request_id = params["request_id"];
+    string txd = url_decode(params["txd"]);
+    string userid, stored_password, authenticated_txd;
 
     if(!request_id || request_id == "") {
         send_json(req, ([ "error": "缺少request_id参数" ]), 400);
         return;
     }
 
+    if(!txd || txd=="" || txd==" ") {
+        send_json(req, ([ "error": "需要认证信息：txd" ]), 400);
+        return;
+    }
+
+    mapping auth = decode_txd(txd);
+    if(!auth) {
+        send_json(req, ([ "error": "TXD认证信息无效" ]), 401);
+        return;
+    }
+    userid = auth["userid"];
+    stored_password = get_user_password(userid);
+    if(!stored_password || auth["password"]!=stored_password) {
+        send_json(req, ([ "error": "用户名或密码错误" ]), 401);
+        return;
+    }
+    if(search(request_id,userid+"_")!=0) {
+        send_json(req, ([ "error": "请求不属于当前用户" ]), 403);
+        return;
+    }
+    // 严格认证后原样沿用调用方 token，异步结果同样不得改写旧书签格式。
+    authenticated_txd = txd;
+
     string|zero result = get_request_result(request_id);
 
     if(result == 0) {
         // 更新闲置时间 - 活跃用户不应被踢出
-        string txd = params["txd"];
-        if(txd && txd != "") {
-            mapping auth = decode_txd(txd);
-            if(auth) update_connection_time(auth["userid"]);
-        }
+        update_connection_time(userid);
         send_json(req, ([ "status": "pending", "message": "命令正在执行中" ]));
     } else if(result == UNDEFINED) {
         send_json(req, ([ "error": "请求超时或已过期" ]), 408);
     } else {
-        string txd = params["txd"];
-        string userid = "";
-        if(txd && txd != "") {
-            mapping auth = decode_txd(txd);
-            if(auth) {
-                userid = auth["userid"];
-                // 更新闲置时间 - 活跃用户不应被踢出
-                update_connection_time(userid);
-            }
-        }
+        // 更新闲置时间 - 活跃用户不应被踢出
+        update_connection_time(userid);
 
-        string html = response_to_html(result, userid, "look");
+        string html = response_to_html(result,userid,"look",
+            authenticated_txd);
         mapping resp = ([ ]);
         resp["type"] = "text/html; charset=UTF-8";
         resp["data"] = html;
         resp["error"] = 200;
         resp["extra_heads"] = (["cache-control": "no-cache", "Access-Control-Allow-Origin": "*"]);
-        req->response_and_finish(resp);
+        finish_http_response(req,resp);
     }
 }
 

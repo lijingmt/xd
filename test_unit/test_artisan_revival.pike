@@ -89,6 +89,9 @@ void test_runtime_compile()
 		"/gamelib/cmds/viceskill_ronglian_confirm.pike",
 		"/gamelib/cmds/viceskill_view.pike",
 		"/gamelib/single/daemons/homed.pike",
+		"/gamelib/single/daemons/roomLeveld.pike",
+		"/gamelib/single/daemons/kuangd.pike",
+		"/gamelib/single/daemons/caoyaod.pike",
 		"/gamelib/clone/item/peifang/duanzao/p_lyuzhijiang",
 		"/gamelib/clone/item/peifang/duanzao/p_lningchenlu",
 		"/lowlib/mudlib/inherit/feature/readed.pike",
@@ -407,6 +410,12 @@ void test_wiring_and_safety_guards()
 		"/gamelib/cmds/viceskill_dig.pike");
 	string gather_source = Stdio.read_file(ROOT+
 		"/gamelib/cmds/viceskill_gather.pike");
+	string kuang_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/kuangd.pike");
+	string caoyao_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/caoyaod.pike");
+	array(string) rooms = ROOMLEVELD->query_rooms(10,20);
+	array(string) rooms_again = ROOMLEVELD->query_rooms(10,20);
 	check("基础手艺取消二选二限制且非法技能不会扣款",
 		learn_source &&
 		search(learn_source,"sizeof(me->vice_skills) >= 2")==-1 &&
@@ -423,6 +432,23 @@ void test_wiring_and_safety_guards()
 		search(dig_source,"advance_proficiency(me,\"caikuang\",1)")!=-1 &&
 		search(gather_source,"advance_proficiency(me,\"caiyao\",1)")!=-1,
 		"采集链存在未接入的新旧分叉");
+	check("房间等级目录返回排序副本且worker资源只刷新归属房间",
+		sizeof(rooms)>0 && equal(rooms,rooms_again) &&
+		kuang_source && caoyao_source &&
+		search(kuang_source,"local_affinity_assignments_ready")!=-1 &&
+		search(caoyao_source,"local_affinity_assignments_ready")!=-1 &&
+		search(kuang_source,"local_worker_owns_room")!=-1 &&
+		search(caoyao_source,"local_worker_owns_room")!=-1 &&
+		search(kuang_source,"stable_room_slot")!=-1 &&
+		search(caoyao_source,"stable_room_slot")!=-1 &&
+		search(kuang_source,"reconciled_sources=%d")!=-1 &&
+		search(caoyao_source,"reconciled_sources=%d")!=-1 &&
+		search(kuang_source,"if(spawned || missing)")!=-1 &&
+		search(caoyao_source,"if(spawned || missing)")!=-1 &&
+		search(caoyao_source,"reconcile_all_worker_caoyao")!=-1 &&
+		search(caoyao_source,"if(refresh_worker_generation())")!=-1 &&
+		search(caoyao_source,"call_out(flush_caoyao,FLUSH_TIME)")!=-1,
+		"资源可能在assignment前刷新、跨owner加载房间或每个worker重复全量生成");
 }
 
 int main()

@@ -20,6 +20,18 @@ inherit LOW_DAEMON;
 private Thread.Mutex account_storage_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_storage_cache = ([]);
 
+/** Authenticated map-worker ingress only: discard cross-process stale state. */
+void invalidate_worker_account_cache(string account_id)
+{
+	object key;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   !valid_account_or_character_id(account_id))
+		return;
+	key = account_storage_lock->lock();
+	m_delete(account_storage_cache,account_id);
+	destruct(key);
+}
+
 private int valid_hex_id(string value)
 {
 	if(!value || sizeof(value)!=64)
@@ -63,6 +75,70 @@ private int valid_relative_item_path(string path)
 	return 1;
 }
 
+int valid_storage_filter_category(string category)
+{
+	return has_value(({"all","equip","book","material",
+		"consumable","other"}),category);
+}
+
+private string storage_data_category(array data)
+{
+	string path;
+	string root;
+	if(!valid_personal_data(data))
+		return "other";
+	path = (string)data[3];
+	root = sizeof(path/"/") ? (path/"/")[0] : path;
+	if(has_value(({"weapon","armor","decorate","jewelry"}),root))
+		return "equip";
+	if(root=="book" || root=="peifang")
+		return "book";
+	if(has_value(({"material","duanzao","baoshi","yushi","feed",
+	   "liandan"}),root))
+		return "material";
+	if(has_value(({"food","water","teyao","baoxiang","gift",
+	   "zhongqiuyuebing","zongzi"}),root))
+		return "consumable";
+	return "other";
+}
+
+private int storage_data_matches_filter(array data,string category,
+	string keyword)
+{
+	string haystack;
+	if(!valid_personal_data(data) ||
+	   !valid_storage_filter_category(category) || sizeof(keyword)>96)
+		return 0;
+	if(category!="all" && storage_data_category(data)!=category)
+		return 0;
+	if(keyword=="")
+		return 1;
+	haystack = lower_case((string)data[0]+" "+(string)data[1]+" "+
+		(string)data[2]+" "+(string)data[3]);
+	return search(haystack,lower_case(keyword))!=-1;
+}
+
+array query_filtered_storage_items(array source,string mode,
+	string category,string keyword)
+{
+	array result = ({});
+	if((mode!="put" && mode!="take") ||
+	   !valid_storage_filter_category(category) || sizeof(keyword)>96)
+		return result;
+	for(int i=0;i<sizeof(source) && i<4096;i++){
+		array data = ({});
+		if(mode=="put" && arrayp(source[i]))
+			data = (array)source[i];
+		else if(mode=="take" && mappingp(source[i]) &&
+		        arrayp(source[i]["data"]))
+			data = (array)source[i]["data"];
+		if(sizeof(data) &&
+		   storage_data_matches_filter(data,category,keyword))
+			result += ({copy_value(source[i])});
+	}
+	return result;
+}
+
 private string storage_file_path(string account_id)
 {
 	if(!valid_account_or_character_id(account_id))
@@ -91,12 +167,45 @@ private mapping(string:mixed) empty_record(string account_id)
 private int valid_personal_data(array data)
 {
 	if(!arrayp(data) || sizeof(data)<7 ||
+	   sizeof(data)>9 ||
 	   !stringp(data[0]) || !stringp(data[1]) ||
 	   !stringp(data[2]) || !stringp(data[3]) ||
 	   !valid_relative_item_path((string)data[3]))
 		return 0;
-	if(sizeof(data)>7 && !valid_hex_id((string)data[7]))
-		return 0;
+	if(sizeof(data)>7){
+		if(!stringp(data[7]))
+			return 0;
+		string item_id = (string)data[7];
+		if(item_id!="" && !valid_hex_id(item_id))
+			return 0;
+	}
+	if(sizeof(data)>8){
+		mapping snapshot;
+		if(!mappingp(data[8]))
+			return 0;
+		snapshot = data[8];
+		if(sizeof(snapshot)!=4 || (int)snapshot["version"]!=1)
+			return 0;
+		foreach(({"red","blue","yellow"}),string color){
+			mapping one = snapshot[color];
+			array gems;
+			int free_count;
+			int max_count;
+			if(!mappingp(one) || sizeof(one)!=3 || !intp(one["free"]) ||
+			   !intp(one["max"]) || !arrayp(one["gems"]))
+				return 0;
+			free_count = (int)one["free"];
+			max_count = (int)one["max"];
+			gems = one["gems"];
+			if(max_count<0 || max_count>64 || free_count<0 ||
+			   free_count>max_count || sizeof(gems)!=max_count-free_count)
+				return 0;
+			foreach(gems,mixed gem_path)
+				if(!stringp(gem_path) ||
+				   !valid_relative_item_path((string)gem_path))
+					return 0;
+		}
+	}
 	return 1;
 }
 
@@ -484,7 +593,10 @@ private int ensure_personal_ids_unlocked(object player,
 		item_id = new_unique_id(used);
 		if(item_id=="")
 			return 0;
-		updated[i] += ({item_id});
+		if(sizeof(updated[i])>7)
+			updated[i][7] = item_id;
+		else
+			updated[i] += ({item_id});
 		used[item_id] = 1;
 		changed = 1;
 	}

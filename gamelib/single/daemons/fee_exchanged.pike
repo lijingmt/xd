@@ -216,27 +216,10 @@ int query_out_amount(string to_game)
 //向游戏区兑换调用的接口，完成将兑换信息写入数据库的操作
 int exchange_to(object from_player,string to_game,string to_user,int ante_fee)
 {
-	string from_user = from_player->query_name();
-	string from_usercn = from_player->query_name_cn();
-	string from_time = MUD_TIMESD->get_mysql_timedesc();
-	string sql_s = "insert into fee_exchange_info (from_game,from_user,from_usercn,from_time,exchange_fee,to_game,to_user,fetch_status) values ('"+GAME_NAME_S+"','"+from_user+"','"+from_usercn+"','"+from_time+"',"+ante_fee+",'"+to_game+"','"+to_user+"',0)";
-	mixed err = catch{
-		//if(!db)
-		//	db=Sql.Sql(dbSql,optionsMap);
-		//db->query(sql_s);
-	};
-	if(err){
-		return 0;
-	}
-	//刷新出入量
-	exchange_amount tmpExchangemnt = amount_m[to_game];
-	if(tmpExchangemnt){
-		tmpExchangemnt->out_amount += ante_fee;
-	}
-	else{
-		tmpExchangemnt = exchange_amount();
-		tmpExchangemnt->out_amount = ante_fee;
-		amount_m[to_game] = tmpExchangemnt;
-	}
-	return 1;
+	// 旧跨游戏数据库写入早已停用。在恢复受测试的幂等交易前，
+	// 必须始终失败关闭，不能仅因 db 句柄存在就伪报成功。
+	werror("[FEE-EXCHANGE] disabled legacy exchange request player=%s game=%s user=%s amount=%d\n",
+		from_player ? (string)from_player->query_name() : "",to_game || "",
+		to_user || "",ante_fee);
+	return 0;
 }

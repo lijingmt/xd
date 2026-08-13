@@ -12,7 +12,24 @@ int main(string|zero arg)
 	}
 	else{
 		object ob = find_player(arg);
-		if(ob && LOGICALZONED->can_interact(me,ob)){
+		mapping remote = !ob && MAP_WORKERD->query_node_role()=="worker" ?
+			MAP_WORKERD->query_local_online_user(arg) : ([]);
+		int remote_compatible = (int)remote["ok"] &&
+			LOGICALZONED->can_user_action("team",me->query_name(),arg) &&
+			((string)me->query_raceId()==(string)remote["race_id"] ||
+			 (string)me->query_raceId()=="third" ||
+			 (string)remote["race_id"]=="third");
+		if((ob && LOGICALZONED->can_interact(me,ob)) || remote_compatible){
+			if(!ob){
+				int invite_result = TERMD->create_term_invite(
+					me->query_name(),arg);
+				s += invite_result==1 ?
+					"跨地图组队邀请已经发出，对方可从队伍页面处理。\n" :
+					"组队邀请发送失败，对方可能已经加入其他队伍。\n";
+				s += "[返回游戏:look]\n";
+				write(s);
+				return 1;
+			}
 			if(ob->query_term()!="" && ob->query_term()!="noterm" &&
 			   !TERMD->query_termId(ob->query_term()))
 				ob->set_term("noterm");

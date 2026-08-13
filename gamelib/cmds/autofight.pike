@@ -1,8 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
-
 private string format_time(int seconds)
 {
 	int hours;
@@ -127,6 +125,10 @@ private void show_vip_plan(object me)
 	out += vip_label(2)+"：每日12小时；可处理优良装备，装备90％触发并一次清完，可设低3级保护；非装备85％触发每次2组，可自选处理类别。\n";
 	out += vip_label(3)+"：每日14小时；可处理精制装备，装备80％触发并一次清完，可取消等级差；非装备80％触发每次4组，可设置材料保留量。\n";
 	out += vip_label(4)+"：每日16小时；装备70％触发并一次清完，可经二次确认选择处理至幻化；非装备每次8组，可自选70/80/90％触发线，并设置名称保护和优先处理。\n\n";
+	for(int level=5;level<=VIP_MAX_LEVEL;level++)
+		out += vip_label(level)+"：每日"+(8+level*2)+
+			"小时；继承钻石会员全部安全清包与职业助手权益。\n";
+	out += "\n";
 	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
 		out += "本职业另有公平自动化助手：技能与手动操作永久免费，VIP只开放PVE执行、策略槽和报告。\n[查看职业助手:profession_assistant]\n\n";
 	out += "永久安全保护不因VIP改变：穿戴、任务、技能书、玉石、宝箱、补给、不可交易／丢弃／存储、唯一、特殊来源及高品质物品不会被误处理。\n\n";
@@ -476,7 +478,9 @@ private void show_settings(object me, string notice)
 		out += "（"+vip_label(vip_level)+"，每级增加2小时）\n";
 	else
 		out += "（普通玩家；VIP每级增加2小时，"+
-			vip_label(4)+"最高16小时）\n";
+			vip_label(VIP_MAX_LEVEL)+"最高"+
+			(AUTOFIGHTD->query_daily_seconds()/3600+
+			 VIP_MAX_LEVEL*2)+"小时）\n";
 	if(time_left <= 0){
 		out += "额度提示："+
 			AUTOFIGHTD->query_quota_exhausted_message(me)+"。\n";

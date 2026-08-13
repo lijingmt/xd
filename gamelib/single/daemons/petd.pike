@@ -13,7 +13,8 @@ inherit LOW_DAEMON;
 #define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 
 #define PET_RECORD_VERSION 4
-#define PET_LEVEL_MAX 60
+#define PET_LEVEL_MAX MAX_LEVEL
+#define PET_LEGACY_LEVEL_MAX 60
 #define PET_STAR_MAX 10
 #define PET_BOND_MAX 5
 #define PET_FILE_MAX_SIZE (4*1024*1024)

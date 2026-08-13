@@ -200,21 +200,70 @@ mapping(string:mixed) start_rift(object leader)
 		return pet_result(0,"请让3—5名15级以上队员活着在同一房间集合。 ");
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
-	multiset(string) participant_accounts = (<>);
+	// A won session is no longer the source of truth once every account's
+	// pending reward has been saved.  Retire such sessions before checking
+	// participant conflicts so one offline claimant cannot block a whole team.
+	foreach(indices(rift_sessions),string settled_team_id){
+		mapping settled_session = rift_sessions[settled_team_id];
+		if(settled_session && (string)settled_session["status"]=="won")
+			settle_won_rift_unlocked(settled_session);
+	}
+	// 失败场次原先只按当前 team_id 清理。玩家解散后重组会得到新的
+	// team_id，旧 lost 会话仍能被角色查询命中，导致新场次行动被路由
+	// 到旧场次。开始新场次前按参与角色清掉所有旧失败会话。
+	foreach(indices(rift_sessions),string old_team_id){
+		mapping old_session = rift_sessions[old_team_id];
+		if(!old_session || (string)old_session["status"]!="lost")
+			continue;
+		if(!arrayp(old_session["participants"])){
+			m_delete(rift_sessions,old_team_id);
+			continue;
+		}
+		foreach(members,string member_id){
+			if(search((array)old_session["participants"],member_id)!=-1){
+				m_delete(rift_sessions,old_team_id);
+				break;
+			}
+		}
+	}
+	// Active sessions cannot be bypassed by changing the team id.  Won
+	// sessions remain here only when at least one durable reward write failed.
+	foreach(indices(rift_sessions),string old_team_id){
+		mapping old_session = rift_sessions[old_team_id];
+		if(!old_session || old_team_id==term_id ||
+		   ((string)old_session["status"]!="active" &&
+		    (string)old_session["status"]!="won"))
+			continue;
+		if(!arrayp(old_session["participants"])){
+			// 运行时会话缺少参与者就无法安全结算；清掉损坏记录，
+			// 避免队长因 search(array) 类型错误永远无法重新开场。
+			m_delete(rift_sessions,old_team_id);
+			continue;
+		}
+		foreach(members,string member_id){
+			if(search((array)old_session["participants"],member_id)!=-1){
+				destruct(key);
+				return pet_result(0,"队员仍有进行中或待领取的裂隙，请先完成该场次。 ");
+			}
+		}
+	}
+	mapping(string:string) participant_account_ids = ([]);
 	foreach(members,string member_id){
 		object member = find_player(member_id);
 		string member_account = resolve_pet_account(member);
 		mapping member_record;
-		if(member_account=="" || participant_accounts[lower_case(member_account)]){
+		if(member_account==""){
 			destruct(key);
-			return pet_result(0,"裂隙人数必须来自不同注册账号，同账号多角色不能补足人数。 ");
+			return pet_result(0,"队员的注册账号异常，暂时无法开启裂隙。 ");
 		}
 		member_record = load_pet_record_unlocked(member_account);
 		if(!member_record || !(int)member_record["starter_claimed"]){
 			destruct(key);
 			return pet_result(0,"每位队员都需要先完成15级万灵初契。 ");
 		}
-		participant_accounts[lower_case(member_account)] = 1;
+		// 同一注册账号的不同角色可以分别占据行动位，
+		// 但万灵档案本来就按账号共享，后续仍每场每账号一份奖励。
+		participant_account_ids[member_id] = member_account;
 	}
 	if(rift_sessions[term_id]){
 		if((string)rift_sessions[term_id]["status"]!="lost"){
@@ -242,6 +291,7 @@ mapping(string:mixed) start_rift(object leader)
 		"leader_id":leader->query_name(),
 		"boss_species":boss_species,
 		"participants":members,
+		"participant_accounts":participant_account_ids,
 		"room":environment(leader),
 		"hp":hp_max,
 		"hp_max":hp_max,
@@ -269,11 +319,24 @@ mapping(string:mixed) start_rift(object leader)
 
 private string find_player_rift_team_unlocked(string player_id)
 {
+	string best_team_id = "";
+	int best_priority = 0;
+	int best_created_at = 0;
 	foreach(rift_sessions;string team_id;mapping session){
-		if(session && search((array)session["participants"],player_id)!=-1)
-			return team_id;
+		if(!session ||
+		   search((array)session["participants"],player_id)==-1)
+			continue;
+		int priority = (string)session["status"]=="active" ? 3 :
+			((string)session["status"]=="won" ? 2 : 1);
+		if(priority>best_priority ||
+		   (priority==best_priority &&
+		    (int)session["created_at"]>best_created_at)){
+			best_team_id = team_id;
+			best_priority = priority;
+			best_created_at = (int)session["created_at"];
+		}
 	}
-	return "";
+	return best_team_id;
 }
 
 /**
@@ -318,6 +381,11 @@ mapping(string:mixed) query_rift_state(object player)
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
 	team_id = find_player_rift_team_unlocked(player->query_name());
+	if(team_id!="" &&
+	   (string)rift_sessions[team_id]["status"]=="won"){
+		settle_won_rift_unlocked(rift_sessions[team_id]);
+		team_id = find_player_rift_team_unlocked(player->query_name());
+	}
 	if(team_id!=""){
 		reconcile_rift_participants_unlocked(rift_sessions[team_id]);
 		result = copy_value(rift_sessions[team_id]);
@@ -332,7 +400,8 @@ mapping(string:mixed) query_rift_state(object player)
 			int changed = refresh_pet_periods_unlocked(record);
 			if(changed && (int)record["persisted"])
 				save_pet_record_unlocked(record);
-			mapping pending = newest_pending_rift_unlocked(record);
+			mapping pending = newest_pending_rift_unlocked(record,
+				player->query_name());
 			if(sizeof(pending))
 				result = ([
 					"ok":1,"message":"","pending":1,
@@ -344,7 +413,7 @@ mapping(string:mixed) query_rift_state(object player)
 					"participants":({player->query_name()}),
 					"contributions":([player->query_name():([])]),
 					"acted":1,
-					"last_message":"你有一份已持久化的裂隙个人奖励，服务器重启后仍可领取。",
+					"last_message":"你有一份已持久化的裂隙奖励，服务器重启后仍可领取。角色参战奖励与账号共享奖励会分别防重复结算。",
 				]);
 		}
 	}
@@ -357,12 +426,24 @@ private int rift_required_success(int member_count)
 	return (member_count+1)/2;
 }
 
-private mapping(string:mixed) newest_pending_rift_unlocked(mapping record)
+private mapping(string:mixed) newest_pending_rift_unlocked(mapping record,
+	void|string player_id)
 {
 	mapping result = ([]);
 	int newest = 0;
 	foreach((mapping)record["pending_rift_rewards"];
 	   string session_id;mapping reward){
+		array participants = arrayp(reward["participants"]) ?
+			(array)reward["participants"] : ({});
+		mapping character_rewarded = mappingp(
+			reward["character_rewarded"]) ?
+			(mapping)reward["character_rewarded"] : ([]);
+		int shared_pending = !record["rewarded_sessions"][session_id];
+		int character_pending = !!player_id &&
+			search(participants,(string)player_id)!=-1 &&
+			!character_rewarded[(string)player_id];
+		if(!shared_pending && !character_pending)
+			continue;
 		if((int)reward["won_at"]>=newest){
 			newest = (int)reward["won_at"];
 			result = copy_value(reward);
@@ -372,39 +453,228 @@ private mapping(string:mixed) newest_pending_rift_unlocked(mapping record)
 	return result;
 }
 
+private mapping(string:int) build_rift_character_reward(object player)
+{
+	int level = player ? player->query_level() : 1;
+	if(level<1)
+		level = 1;
+	if(level>MAX_LEVEL)
+		level = MAX_LEVEL;
+	return ([
+		"exp":level*level*3+500,
+		"money":level*200+1000,
+	]);
+}
+
+/**
+ * 角色参战奖励写入角色自己的原子档案；同账号多角色因此各有一份，
+ * 但共享万灵材料和周胜场仍由账号档案按场次幂等结算。
+ */
+private mapping(string:mixed) grant_rift_character_reward_unlocked(
+	object player,string session_id)
+{
+	mapping result = (["ok":0,"durable":0,"newly_credited":0]);
+	mapping receipts;
+	mapping receipt;
+	mapping reward;
+	int actual_exp = 0;
+	int save_ok = 1;
+	if(!player || !valid_pet_id(session_id))
+		return result;
+	receipts = mappingp(player["/wanling/rift_character_rewards"]) ?
+		(mapping)player["/wanling/rift_character_rewards"] : ([]);
+	receipt = mappingp(receipts[session_id]) ?
+		(mapping)receipts[session_id] : ([]);
+	if(!sizeof(receipt)){
+		reward = build_rift_character_reward(player);
+		if(player->query_level()<MAX_LEVEL && (int)reward["exp"]>0)
+			actual_exp = player->add_exp_with_bonus((int)reward["exp"]);
+		if((int)reward["money"]>0)
+			player->add_account((int)reward["money"]);
+		player->query_if_levelup();
+		receipt = ([
+			"created_at":time(),
+			"actual_exp":actual_exp,
+			"money":(int)reward["money"],
+		]);
+		receipts[session_id] = receipt;
+		while(sizeof(receipts)>64){
+			string oldest_id = "";
+			int oldest_at = time();
+			foreach(receipts;string receipt_id;mixed raw_receipt){
+				int created_at = mappingp(raw_receipt) ?
+					(int)raw_receipt["created_at"] : 0;
+				if(oldest_id=="" || created_at<=oldest_at){
+					oldest_id = receipt_id;
+					oldest_at = created_at;
+				}
+			}
+			if(oldest_id=="")
+				break;
+			m_delete(receipts,oldest_id);
+		}
+		player["/wanling/rift_character_rewards"] = receipts;
+		result["newly_credited"] = 1;
+	}
+	else{
+		actual_exp = (int)receipt["actual_exp"];
+		reward = (["money":(int)receipt["money"]]);
+	}
+	if((string)player->sid!="5dwap"){
+		if(!functionp(player->save_with_result))
+			save_ok = 0;
+		else
+			save_ok = player->save_with_result();
+	}
+	if(!save_ok){
+		tell_object(player,"【万灵裂隙】角色参战奖励已进入待保存状态；系统将在存档成功后确认，请勿重复操作。\n");
+		return result;
+	}
+	result["ok"] = 1;
+	result["durable"] = 1;
+	result["actual_exp"] = actual_exp;
+	result["money"] = (int)reward["money"];
+	if((int)result["newly_credited"])
+		tell_object(player,"【万灵裂隙·角色参战奖励】经验+"+
+			(string)actual_exp+"，金币+"+(string)(int)reward["money"]+
+			"。共享万灵材料与周胜场仍按注册账号每场结算一次。\n");
+	return result;
+}
+
+private void grant_rift_character_rewards_unlocked(mapping session)
+{
+	mapping(string:mapping(string:int)) durable_by_account = ([]);
+	mapping accounts = mappingp(session["participant_accounts"]) ?
+		(mapping)session["participant_accounts"] : ([]);
+	foreach((array)session["participants"],string player_id){
+		object player = find_player(player_id);
+		string account_id = (string)accounts[player_id];
+		mapping grant;
+		if(!player || account_id=="")
+			continue;
+		grant = grant_rift_character_reward_unlocked(player,
+			(string)session["id"]);
+		if(!(int)grant["durable"])
+			continue;
+		if(!durable_by_account[account_id])
+			durable_by_account[account_id] = ([]);
+		durable_by_account[account_id][player_id] = 1;
+	}
+	foreach(durable_by_account;string account_id;mapping durable_players){
+		mapping(string:mixed)|zero record =
+			load_pet_record_unlocked(account_id);
+		mapping pending;
+		mapping character_rewarded;
+		if(!record)
+			continue;
+		pending = record["pending_rift_rewards"][(string)session["id"]];
+		if(!mappingp(pending))
+			continue;
+		character_rewarded = mappingp(pending["character_rewarded"]) ?
+			(mapping)pending["character_rewarded"] : ([]);
+		foreach(indices(durable_players),string player_id)
+			character_rewarded[player_id] = 1;
+		pending["character_rewarded"] = character_rewarded;
+		record["revision"] = (int)record["revision"]+1;
+		save_pet_record_unlocked(record);
+	}
+}
+
+private int pending_character_rewards_complete(mapping reward)
+{
+	array participants = arrayp(reward && reward["participants"]) ?
+		(array)reward["participants"] : ({});
+	mapping character_rewarded = mappingp(
+		reward && reward["character_rewarded"]) ?
+		(mapping)reward["character_rewarded"] : ([]);
+	if(!sizeof(participants))
+		return 1;
+	foreach(participants,string player_id)
+		if(!character_rewarded[player_id])
+			return 0;
+	return 1;
+}
+
+private void cleanup_completed_rift_reward_unlocked(mapping record,
+	string session_id)
+{
+	mapping reward = record["pending_rift_rewards"][session_id];
+	if(record["rewarded_sessions"][session_id] &&
+	   (!mappingp(reward) || pending_character_rewards_complete(reward)))
+		m_delete(record["pending_rift_rewards"],session_id);
+}
+
 /** 胜利资格先逐账号原子保存，进程重启后仍可领取。 */
 private int queue_rift_rewards_unlocked(mapping session)
 {
 	int queued = 0;
+	mapping(string:array(string)) account_participants = ([]);
+	mapping accounts = mappingp(session["participant_accounts"]) ?
+		(mapping)session["participant_accounts"] : ([]);
 	if((int)session["reward_queued"])
 		return sizeof((array)session["participants"]);
 	foreach((array)session["participants"],string player_id){
-		object player = find_player(player_id);
-		string account_id = resolve_pet_account(player);
-		mapping(string:mixed)|zero record;
+		string account_id = (string)accounts[player_id];
+		if(account_id==""){
+			object player = find_player(player_id);
+			account_id = resolve_pet_account(player);
+		}
 		if(account_id=="")
 			continue;
+		if(!account_participants[account_id])
+			account_participants[account_id] = ({});
+		account_participants[account_id] += ({player_id});
+	}
+	foreach(account_participants;string account_id;array(string) player_ids){
+		mapping(string:mixed)|zero record;
 		record = load_pet_record_unlocked(account_id);
 		if(!record)
 			continue;
 		refresh_pet_periods_unlocked(record);
 		if(record["rewarded_sessions"][(string)session["id"]] ||
 		   record["pending_rift_rewards"][(string)session["id"]]){
-			queued++;
+			queued += sizeof(player_ids);
 			continue;
 		}
 		record["pending_rift_rewards"][(string)session["id"]] = ([
 			"boss_species":(string)session["boss_species"],
 			"won_at":time(),
 			"expires_at":time()+PET_PENDING_REWARD_SECONDS,
+			"participants":player_ids+({}),
+			"character_rewarded":([]),
 		]);
 		record["revision"] = (int)record["revision"]+1;
 		if(save_pet_record_unlocked(record))
-			queued++;
+			queued += sizeof(player_ids);
 	}
 	if(queued==sizeof((array)session["participants"]))
 		session["reward_queued"] = 1;
 	return queued;
+}
+
+/**
+ * Once every participant has a durable pending-reward record, the runtime
+ * battle session can be retired immediately.  Character rewards are still
+ * granted to online participants here and are idempotently completed from the
+ * pending record when an offline participant later claims.
+ */
+private int settle_won_rift_unlocked(mapping session)
+{
+	string team_id;
+	int queued;
+	if(!mappingp(session) || (string)session["status"]!="won" ||
+	   !arrayp(session["participants"]) ||
+	   !sizeof((array)session["participants"]))
+		return 0;
+	queued = queue_rift_rewards_unlocked(session);
+	grant_rift_character_rewards_unlocked(session);
+	if(queued<sizeof((array)session["participants"]))
+		return 0;
+	team_id = (string)session["team_id"];
+	if(team_id!="" && mappingp(rift_sessions[team_id]) &&
+	   (string)rift_sessions[team_id]["id"]==(string)session["id"])
+		m_delete(rift_sessions,team_id);
+	return 1;
 }
 
 private void tell_rift_participants(mapping session,string message)
@@ -415,6 +685,30 @@ private void tell_rift_participants(mapping session,string message)
 		   "team",(string)session["leader_id"],player_id))
 			tell_object(player,message);
 	}
+}
+
+// 裂隙奖励存在共享万灵档案中。同账号多角色参战时，任一角色
+// 成功领取即代表该账号的全部参战位已领，避免重复发奖，也避免
+// 未能达到participants数而把已结算会话永久卡住。
+private void mark_rift_account_claimed_unlocked(mapping session,
+	string account_id)
+{
+	mapping accounts;
+	if(!session || account_id=="")
+		return;
+	accounts = mappingp(session["participant_accounts"]) ?
+		(mapping)session["participant_accounts"] : ([]);
+	foreach((array)session["participants"],string player_id){
+		string participant_account = (string)accounts[player_id];
+		if(participant_account=="")
+			participant_account = (string)
+				ACCOUNT_CHARACTERD->query_account_id_for_character(player_id);
+		if(participant_account==account_id)
+			session["claimed"][player_id] = 1;
+	}
+	if(sizeof((mapping)session["claimed"])>=
+	   sizeof((array)session["participants"]))
+		m_delete(rift_sessions,(string)session["team_id"]);
 }
 
 private void resolve_rift_round_unlocked(mapping session)
@@ -514,8 +808,7 @@ private void resolve_rift_round_unlocked(mapping session)
 		}
 	}
 	if((string)session["status"]=="won"){
-		int queued = queue_rift_rewards_unlocked(session);
-		if(queued<sizeof((array)session["participants"]))
+		if(!settle_won_rift_unlocked(session))
 			round_message += " 部分领奖资格保存失败，请留在战局页重试领取。";
 	}
 	session["last_message"] = round_message;
@@ -570,6 +863,11 @@ mapping(string:mixed) claim_rift_reward(object player,
 	string account_id = resolve_pet_account(player);
 	string team_id = "";
 	mapping session = ([]);
+	mapping pending_reward = ([]);
+	mapping character_rewarded = ([]);
+	array account_participants = ({});
+	int character_record_changed = 0;
+	mapping character_grant = ([]);
 	int runtime_session = 0;
 	mapping(string:mixed)|zero record;
 	object key;
@@ -578,6 +876,11 @@ mapping(string:mixed) claim_rift_reward(object player,
 	key = pet_lock->lock();
 	clean_expired_pet_runtime_unlocked();
 	team_id = find_player_rift_team_unlocked(player->query_name());
+	if(team_id!="" &&
+	   (string)rift_sessions[team_id]["status"]=="won"){
+		settle_won_rift_unlocked(rift_sessions[team_id]);
+		team_id = find_player_rift_team_unlocked(player->query_name());
+	}
 	if(team_id!=""){
 		mapping active_session = rift_sessions[team_id];
 		if((string)active_session["status"]=="won"){
@@ -591,7 +894,8 @@ mapping(string:mixed) claim_rift_reward(object player,
 	else{
 		refresh_pet_periods_unlocked(record);
 		if(!sizeof(session)){
-			mapping pending = newest_pending_rift_unlocked(record);
+			mapping pending = newest_pending_rift_unlocked(record,
+				player->query_name());
 			if(sizeof(pending))
 				session = ([
 					"id":pending["id"],
@@ -606,9 +910,66 @@ mapping(string:mixed) claim_rift_reward(object player,
 			else if(team_id!="")
 				result["message"] = "裂隙仍在进行中。";
 		}
-		else if(record["rewarded_sessions"][(string)session["id"]])
-			result["message"] = "这个账号已经领取过本场个人奖励。";
 		else{
+			string session_id = (string)session["id"];
+			pending_reward = mappingp(
+				record["pending_rift_rewards"][session_id]) ?
+				(mapping)record["pending_rift_rewards"][session_id] : ([]);
+			account_participants = arrayp(pending_reward["participants"]) ?
+				(array)pending_reward["participants"] : ({});
+			if(!sizeof(account_participants) && runtime_session){
+				mapping participant_accounts = mappingp(
+					session["participant_accounts"]) ?
+					(mapping)session["participant_accounts"] : ([]);
+				foreach((array)session["participants"],string player_id)
+					if((string)participant_accounts[player_id]==account_id)
+						account_participants += ({player_id});
+			}
+			// 旧版本的落盘待领奖励没有 participants 字段。重启后已
+			// 无法还原整支队伍，至少把这一份角色奖励安全归给当前
+			// 领取角色，并把迁移结果落盘，避免换角色反复补领。
+			if(!sizeof(account_participants) && sizeof(pending_reward)){
+				account_participants = ({player->query_name()});
+				pending_reward["participants"] = account_participants+({});
+				pending_reward["character_rewarded"] = ([]);
+				character_record_changed = 1;
+			}
+			character_rewarded = mappingp(
+				pending_reward["character_rewarded"]) ?
+				(mapping)pending_reward["character_rewarded"] : ([]);
+			if(search(account_participants,player->query_name())!=-1 &&
+			   !character_rewarded[player->query_name()]){
+				character_grant = grant_rift_character_reward_unlocked(
+					player,session_id);
+				if((int)character_grant["durable"] &&
+				   sizeof(pending_reward)){
+					character_rewarded[player->query_name()] = 1;
+					pending_reward["character_rewarded"] =
+						character_rewarded;
+					character_record_changed = 1;
+				}
+			}
+		}
+		if(sizeof(session) &&
+		   record["rewarded_sessions"][(string)session["id"]]){
+			cleanup_completed_rift_reward_unlocked(record,
+				(string)session["id"]);
+			if(character_record_changed){
+				record["revision"] = (int)record["revision"]+1;
+				if(!save_pet_record_unlocked(record)){
+					result["message"] = "角色参战奖励已到账，但领取凭据保存失败；共享奖励不会重复发放。";
+					destruct(key);
+					return result;
+				}
+			}
+			if(runtime_session)
+				mark_rift_account_claimed_unlocked(session,account_id);
+			if((int)character_grant["newly_credited"])
+				result = pet_result(1,"角色参战奖励已补发；这个注册账号的本场共享万灵奖励已经领取过。 ");
+			else
+				result["message"] = "本角色参战奖励已在通关时自动发放；这个注册账号的本场共享万灵奖励已经领取过。";
+		}
+		else if(sizeof(session)){
 			add_pet_material_unlocked(record,"spirit_mark",5);
 			add_pet_material_unlocked(record,"spirit_dew",4);
 			add_pet_material_unlocked(record,"egg_fragment",2);
@@ -647,19 +1008,16 @@ mapping(string:mixed) claim_rift_reward(object player,
 				cosmetic = 1;
 			}
 			record["rewarded_sessions"][(string)session["id"]] = time();
-			m_delete(record["pending_rift_rewards"],(string)session["id"]);
+			cleanup_completed_rift_reward_unlocked(record,
+				(string)session["id"]);
 			record["revision"] = (int)record["revision"]+1;
 			if(save_pet_record_unlocked(record)){
-				result = pet_result(1,"获得5枚灵印、4滴灵露、2枚灵卵残片和1枚同心叶。 ");
+				result = pet_result(1,"本注册账号获得5枚灵印、4滴灵露、2枚灵卵残片和1枚同心叶；同账号其他参战角色的经验与金币已分别发放。 ");
 				result["pet_acquisition"] = copy_value(acquisition);
 				result["cosmetic"] = cosmetic;
 				result["weekly_wins"] = record["weekly"]["rift_wins"];
-				if(runtime_session){
-					session["claimed"][player->query_name()] = 1;
-					if(sizeof((mapping)session["claimed"])>=
-					   sizeof((array)session["participants"]))
-						m_delete(rift_sessions,team_id);
-				}
+				if(runtime_session)
+					mark_rift_account_claimed_unlocked(session,account_id);
 			}
 			else
 				result["message"] = "奖励保存失败，本次仍可重试领取。";

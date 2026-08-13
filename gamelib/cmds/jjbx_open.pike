@@ -12,9 +12,16 @@ int main(string|zero arg){
 	string s = "";
 	string s_log = "";
 	int bx_count = 0;
-	sscanf(arg,"%s %d",bx_name,bx_count);
+	if(!arg || sscanf(arg,"%s %d",bx_name,bx_count)!=2 ||
+	   bx_name!="jingjinbaoxiang" || bx_count<0){
+		write("打开参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
 	bx = present(bx_name,me,bx_count);
-	if(bx){
+	if(bx && (file_name(bx)/"#")[0]==ITEM_PATH+"baoxiang/jingjinbaoxiang"){
+		string box_name_cn=(string)bx->query_name_cn();
+		// 先消耗真实宝箱，后续奖励异常不能通过重试重复领取。
+		bx->remove();
 		string now = ctime(time());
 		int yu_amount = 0;
 		int att_num = 0;//装备属性个数
@@ -79,7 +86,7 @@ int main(string|zero arg){
 		if(!err && yushi && yu && equip){
 			yu->amount = yu_amount;
 			s += yushi->query_short()+"\n"+yu->query_short()+"\n"+equip->query_short()+"\n";
-			s_log += me->query_name_cn()+"("+me->query_name()+") 打开"+bx->query_name_cn()+"时获得"+yushi->query_short()+","+yu->query_short()+","+equip->query_short();
+			s_log += me->query_name_cn()+"("+me->query_name()+") 打开"+box_name_cn+"时获得"+yushi->query_short()+","+yu->query_short()+","+equip->query_short();
 			yushi->move(me);
 			yu->move(me);
 			equip->move(me);
@@ -151,8 +158,9 @@ int main(string|zero arg){
 		}
 		*/
 		Stdio.append_file(ROOT+"/log/hyq_exchange.log",now[0..sizeof(now)-2]+":"+s_log+"\n");
-		bx->remove();
 	}
+	else
+		s += "你身上没有这件宝箱！\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	return 1;

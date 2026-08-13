@@ -10,11 +10,10 @@ int main(string|zero arg)
 	object room = HOMED->query_room_by_masterId(arg,"main");
 	string s = "";
 	if(room){
-		if(me->if_in_home())
-			HOMED->clear_user(me);
-		me->set_inhome_pos(room->query_masterId());
-		me->move(room);
-		HOMED->add_user(me->query_name());
+		if(!HOMED->move_user_to_home(me,room)){
+			write("该家园当前位于其他地图节点，请稍后重试。\n[确认:look]\n");
+			return 1;
+		}
 		me->reset_view(WAP_VIEWD["/home"]);
 		me->write_view();
 		return 1;

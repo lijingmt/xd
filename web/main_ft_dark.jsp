@@ -109,6 +109,22 @@ if(cmd!=null){
 */
 String arg=request.getParameter("_arg");
 String temptitle=title;
+if(request.getServerPort()>=0){
+String legacyCmd=buildLegacyApiCommand(request,cmd);
+String legacyTarget="./legacy_api.jsp?cmd="+
+	java.net.URLEncoder.encode(legacyCmd,"UTF-8");
+if(txd!=null&&txd.trim().length()>0)
+	legacyTarget += "&txd="+java.net.URLEncoder.encode(txd,"UTF-8");
+else if(uid!=null&&pid!=null&&uid.length()>0&&pid.length()>0)
+	legacyTarget += "&userid="+java.net.URLEncoder.encode(uid,"UTF-8")+
+		"&password="+java.net.URLEncoder.encode(pid,"UTF-8");
+else{
+	response.sendError(400,"缺少登录信息");
+	return;
+}
+response.sendRedirect(response.encodeRedirectURL(legacyTarget));
+return;
+}
 //这里再进行socket的初始化
 Socket socket;
 InputStream reader;

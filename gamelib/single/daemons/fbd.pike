@@ -229,41 +229,49 @@ array(mapping(string:string)) query_safe_fb_catalog()
 	return result;
 }
 
-void flush_fb_map()
+private void flush_one_fb_map(string fb_id)
 {
-	if(fb_map && sizeof(fb_map)){
-		foreach(indices(fb_map),string fb_id){
-			array(string) tmp = fb_id/"/";
-			if(sizeof(tmp) == 2){
-				string team_id = tmp[0];
-				foreach(indices(fb_members[fb_id]),string name){
-					if(name && sizeof(name)){
-						object ob = find_player(name);
-						if(!ob)
-							m_delete(fb_members[fb_id],name);
-					}
+	array(string) tmp = fb_id/"/";
+	if(sizeof(tmp) == 2){
+		string team_id = tmp[0];
+		mapping(string:int) members =
+			mappingp(fb_members[fb_id]) ? fb_members[fb_id] : ([]);
+		if(!mappingp(fb_members[fb_id]))
+			fb_members[fb_id] = members;
+		foreach(indices(members),string name){
+			if(name && sizeof(name)){
+				object ob = find_player(name);
+				if(!ob)
+					m_delete(members,name);
+			}
+		}
+		if(TERMD->query_termId(team_id) == 0){
+			array maps = arrayp(fb_map[fb_id]) ? fb_map[fb_id] : ({});
+			if(sizeof(members) == 0){
+				foreach(maps,mixed raw_room){
+					if(objectp(raw_room) &&
+					   functionp(((object)raw_room)->remove))
+						((object)raw_room)->remove();
 				}
-				if(TERMD->query_termId(team_id) == 0){
-					array(object) maps = fb_map[fb_id];
-					if(sizeof(fb_members[fb_id]) == 0){
-						foreach(maps,object tmp_ob){
-							tmp_ob->remove();
-						}
-						m_delete(fb_map,fb_id);
-						m_delete(fb_members,fb_id);
-					}
-					//else{
-					//	foreach(indices(fb_members[fb_id]),string name){
-					//		object ob = find_player(name);
-					//		if(!ob)
-					//			m_delete(fb_members[fb_id],name);
-					//	}
-					//}
-				}
+				m_delete(fb_map,fb_id);
+				m_delete(fb_members,fb_id);
 			}
 		}
 	}
+}
+
+void flush_fb_map()
+{
+	// Schedule the next sweep before touching mutable instance state.  One
+	// malformed legacy entry must never permanently stop the cleanup chain.
 	call_out(flush_fb_map,FLUSH_TIME);
+	if(fb_map && sizeof(fb_map))
+		foreach(indices(fb_map),string fb_id){
+			mixed cleanup_err = catch { flush_one_fb_map(fb_id); };
+			if(cleanup_err)
+				werror("[FBD] instance cleanup failed: %s\n",
+					describe_error(cleanup_err));
+		}
 }
 
 string check_fb()

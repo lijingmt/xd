@@ -62,13 +62,22 @@ int main()
 {
 	string account_id = "xd99testunitmultichar";
 	string password = "testunit88";
+	string case_account_id = "xd99CaseUnitLSQ";
+	string case_account_lower = lower_case(case_account_id);
 	string character_id = "";
 	object|zero legacy = 0;
 	object|zero restored = 0;
+	object|zero case_player = 0;
 	object|zero original_player = this_player();
 	werror("\n========== 注册账号多人物测试 ==========\n");
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	cleanup_player(account_id);
+	NAMESD->remove_test_profile_name("testunitA1");
+	NAMESD->remove_test_profile_name("testunitB2");
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_lower);
+	cleanup_player(case_account_id);
+	cleanup_player(case_account_lower);
 	mixed err = catch{
 		legacy = create_legacy_player(account_id,password);
 		mapping before = ACCOUNT_CHARACTERD->
@@ -82,8 +91,18 @@ int main()
 			Stdio.file_size(account_file(account_id))<=0,
 			"读取旧账号时发生了隐式写盘");
 
+		mapping unnamed_rejected = ACCOUNT_CHARACTERD->create_character(
+			account_id,"third","fangshi","无名方士","female","h_female1");
+		mapping forged_avatar_rejected = ACCOUNT_CHARACTERD->create_character(
+			account_id,"third","fangshi","testunitA1","female","m_female1");
+		check("新建人物必须通过姓名与头像服务端校验",
+			!unnamed_rejected["ok"] && !forged_avatar_rejected["ok"] &&
+			search((string)unnamed_rejected["message"],"无名")!=-1 &&
+			search((string)forged_avatar_rejected["message"],"不匹配")!=-1,
+			"无名或跨阵营伪造头像通过了创建接口");
+
 		mapping created = ACCOUNT_CHARACTERD->create_character(
-			account_id,"third","fangshi");
+			account_id,"third","fangshi","testunitA1","female","h_female1");
 		if(created["ok"] && mappingp(created["character"]))
 			character_id = (string)created["character"]["id"];
 		check("新增方士建立独立物理档案和原子账号索引",
@@ -96,6 +115,12 @@ int main()
 			ACCOUNT_CHARACTERD->query_bootstrap_command(
 				account_id,character_id)=="choice_profe third/fangshi",
 			"没有复用 choice_profe 职业初始化入口");
+		check("新人物创建时姓名、性别和头像已经原子保存",
+			created["character"]["name_cn"]=="testunitA1" &&
+			created["character"]["sex"]=="female" &&
+			created["character"]["avatar_id"]=="h_female1" &&
+			created["character"]["profile_complete"],
+			"创建后仍留下无名、无头像或资料不完整状态");
 
 		mapping after = ACCOUNT_CHARACTERD->
 			query_account_characters(account_id);
@@ -162,18 +187,29 @@ int main()
 		check("新人物存档可独立恢复且继承账号密码",
 			restored_ok && restored->query_account_owner()==account_id &&
 			restored->query_password()==password &&
+			restored->have_name_cn()=="testunitA1" &&
+			restored->sex=="female" &&
+			restored->user_pic=="h_female1" &&
 			(!restored->query_profeId() || restored->query_profeId()==""),
 			"归属、密码或空白职业状态错误");
+		restored->set_password("childOnly88");
 		restored->set_account_owner("xd99testunitoutsider");
 		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
 		int forged_owner_denied = !ACCOUNT_CHARACTERD->
 			account_owns_character(account_id,character_id);
+		int forged_legacy_login_denied = !HTTP_APID->
+			test_character_login_password_matches(
+				character_id,password,"");
+		restored->set_password(password);
 		restored->set_account_owner(account_id);
 		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
 		check("子人物物理档案归属被篡改时拒绝选角",
-			forged_owner_denied && ACCOUNT_CHARACTERD->
+			forged_owner_denied && forged_legacy_login_denied &&
+			ACCOUNT_CHARACTERD->
 				account_owns_character(account_id,character_id),
-			"只校验索引而没有校验物理档案归属");
+			"选角或老JSP主账号密码只校验了单侧归属");
 
 		mapping changed = ACCOUNT_CHARACTERD->change_account_password(
 			legacy,"testunit99");
@@ -191,6 +227,41 @@ int main()
 			(!child_backup || search(child_backup,
 				"password \"testunit88\"")==-1),
 			"多人物密码没有保持账号级一致");
+
+		restored->set_password("childLegacy99");
+		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
+		HTTP_APID->invalidate_user_password_cache(account_id);
+		check("老JSP共享角色接受主账号密码且人物ID大小写敏感",
+			HTTP_APID->test_character_login_password_matches(
+				character_id,"childLegacy99","") &&
+			HTTP_APID->test_character_login_password_matches(
+				character_id,"testunit99","") &&
+			!HTTP_APID->test_character_login_password_matches(
+				upper_case(character_id),"testunit99","") &&
+			!HTTP_APID->test_character_login_password_matches(
+				character_id,"wrongPassword","") ,
+			"共享账号、旧角色密码或大小写隔离校验错误");
+		restored->set_password("testunit99");
+		restored->save_with_result();
+		HTTP_APID->invalidate_user_password_cache(character_id);
+
+		case_player = create_legacy_player(case_account_id,"CasePass2026");
+		HTTP_APID->invalidate_user_password_cache(case_account_id);
+		HTTP_APID->invalidate_user_password_cache(case_account_lower);
+		int case_sensitive_filesystem =
+			Stdio.file_size(player_file(case_account_lower))<=0;
+		check("历史大写人物档案只按精确ID认证",
+			HTTP_APID->get_user_password(case_account_id)=="CasePass2026" &&
+			HTTP_APID->test_character_login_password_matches(
+				case_account_id,"CasePass2026","") &&
+			Stdio.file_size(player_file(case_account_id))>0 &&
+			(!case_sensitive_filesystem ||
+			 (!HTTP_APID->get_user_password(case_account_lower) &&
+			  !HTTP_APID->test_character_login_password_matches(
+				case_account_lower,"CasePass2026","") &&
+			  Stdio.file_size(player_file(case_account_lower))<=0)),
+			"大写老档被强制转小写、串号或错误命中不存在档案");
 
 		object init_room = (object)(ROOT+"/gamelib/d/init");
 		mixed first_entry_err = catch{
@@ -212,6 +283,12 @@ int main()
 				"职业、阵营或出生点初始化不完整");
 
 		int initialized_saved = restored->save_with_result();
+		mapping duplicate_name = ACCOUNT_CHARACTERD->create_character(
+			account_id,"third","fangshi","testunitA1","female","h_female2");
+		check("并发安全姓名登记拒绝账号内外重复姓名",
+			!duplicate_name["ok"] &&
+			search((string)duplicate_name["message"],"已经有人")!=-1,
+			"已登记姓名仍被第二个人物占用");
 		mapping repeated = ACCOUNT_CHARACTERD->create_character(
 			account_id,"third","fangshi");
 		mapping repeated_list = ACCOUNT_CHARACTERD->
@@ -231,6 +308,31 @@ int main()
 			(string)(repeated["message"] ||
 				"重复职业创建或总上限错误"));
 
+		legacy->name_cn = "";
+		legacy->sex = "male";
+		legacy->user_pic = "";
+		legacy->set_pic_ok = 0;
+		legacy->save_with_result();
+		mapping legacy_profile_before = ACCOUNT_CHARACTERD->
+			query_character_profile_status(legacy);
+		mapping legacy_profile_saved = ACCOUNT_CHARACTERD->
+			complete_character_profile(legacy,"testunitB2","male","h_male1");
+		mapping legacy_profile_after = ACCOUNT_CHARACTERD->
+			query_character_profile_status(legacy);
+		mapping legacy_profile_second = ACCOUNT_CHARACTERD->
+			complete_character_profile(legacy,"testunitOther","female","h_female1");
+		check("旧无名人物登录后可补全资料且不能借入口二次改名换头像",
+			legacy_profile_before["profile_needs_name"] &&
+			legacy_profile_before["profile_needs_avatar"] &&
+			legacy_profile_saved["ok"] &&
+			legacy_profile_after["profile_complete"] &&
+			legacy->have_name_cn()=="testunitB2" &&
+			legacy->user_pic=="h_male1" &&
+			legacy_profile_second["ok"] &&
+			legacy->have_name_cn()=="testunitB2" &&
+			legacy->user_pic=="h_male1",
+			"存量无名档案无法安全补全或已完整资料可被覆盖");
+
 		string http_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/http_api_daemon.pike");
 		string account_http_source = Stdio.read_file(ROOT+
@@ -249,6 +351,10 @@ int main()
 				"account_owns_character(account_id,character_id)")!=-1 &&
 			search(account_http_source,
 				"ACCOUNT_SESSION_PER_ACCOUNT_LIMIT")!=-1 &&
+			search(account_http_source,
+				"authenticated_character_password_matches")!=-1 &&
+			search(account_http_source,
+				"请完整选择人物姓名、性别和头像")!=-1 &&
 			search(account_http_source,
 				"请使用POST读取人物档案")!=-1 &&
 			search(account_http_source,
@@ -291,10 +397,18 @@ int main()
 		destruct(restored);
 	if(legacy)
 		destruct(legacy);
+	if(case_player)
+		destruct(case_player);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	if(character_id!="")
 		cleanup_player(character_id);
 	cleanup_player(account_id);
+	NAMESD->remove_test_profile_name("testunitA1");
+	NAMESD->remove_test_profile_name("testunitB2");
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(case_account_lower);
+	cleanup_player(case_account_id);
+	cleanup_player(case_account_lower);
 	werror("注册账号多人物：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);

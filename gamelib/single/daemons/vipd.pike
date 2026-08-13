@@ -380,10 +380,14 @@ int is_off_good(string name,int level)
 
 int query_off_good_price(string name,int level)
 {
+	int price;
 	if(!is_off_good(name,level) || !goods_price_map[name] ||
 	   !vip_off_map[level])
 		return -1;
-	return goods_price_map[name]*vip_off_map[level]/10;
+	price=goods_price_map[name]*vip_off_map[level]/10;
+	// 低单价商品遇到3至4折时整数除法可能得到0；付费目录不能产生
+	// 零价成交，最低仍收1枚碎玉。
+	return price>0 ? price : 1;
 }
 /*
 方法描述：得到会员【等级\名称】列表
@@ -469,7 +473,7 @@ string display_off_goods(string sub,int lv)
 		{
 			tmp_ob = clone(ITEM_PATH+tmp_good_list[i]);
 			tmp_ob->set_toVip(1);
-			price = goods_price_map[tmp_good_list[i]] * vip_off_map[lv]/10;//打折后的价格
+			price = query_off_good_price(tmp_good_list[i],lv);
 			re += "["+tmp_ob->query_name_cn()+":vip_myzone_off_detail "+tmp_good_list[i]+" "+lv+" "+price+"]\n";
 		}
 	}
@@ -490,24 +494,15 @@ int if_can_get_freely(object player,object goods,int lv)
 {
 	int re = 4;
 	int mylv = query_active_vip_level(player);
-	int vip_max_yao=player->query_max_yao();     
 	if(!mylv)                                  //不是会员
 		return 0;
 	if(mylv<lv)                                //会员级别不够
 		return 1;
-	if(player->if_over_load(goods))            //包裹已满
+	if(query_vip_good_backpack_capacity(player,goods)<=0)
 		return 2;
-
-	array(object) items=all_inventory(player);//判断是否已经超过会员物品数上限
-	foreach(items, object tmp){
-		if(goods->query_name()==tmp->query_name()&&tmp->toVip == 1){
-			if(tmp->amount>=vip_max_yao){
-				return 3;           //已经达到上线
-			}
-			else
-				continue;
-		}
-	} 
+	if(query_off_good_inventory_amount(player,goods)>=
+	   (int)player->query_max_yao())
+		return 3;
 	return re;
 }
 /*
@@ -558,25 +553,73 @@ int if_can_get_offly(object player,object goods,int lv)
 {
 	int re = 4;
 	int mylv = query_active_vip_level(player);
-	int vip_max_yao=player->query_max_yao();     
 	if(!mylv)                                  //不是会员
 		return 0;
 	if(mylv<lv)                                //会员级别不够
 		return 1;
-	if(player->if_over_load(goods))            //包裹已满
+	if(query_vip_good_backpack_capacity(player,goods)<=0)
 		return 2;
-
-	array(object) items=all_inventory(player);//判断是否已经超过会员物品数上限
-	foreach(items, object tmp){
-		if(goods->query_name()==tmp->query_name()&&tmp->toVip == 1){			
-			if(tmp->amount>=vip_max_yao){
-				return 3;           //已经达到上线
-			}
-			else
-				continue;
-		}
-	} 
+	if(query_off_good_remaining(player,goods,lv)<=0)
+		return 3;
 	return re;
+}
+
+// 批量购买在扣玉前证明整个订单都能装下；已有同来源堆叠的空位也算
+// 容量，不能因背包格已满而误拒绝本可合并的一瓶药。
+int query_vip_good_backpack_capacity(object player,object goods)
+{
+	array(object) items;
+	int free_slots;
+	int maximum;
+	int capacity;
+	string goods_name;
+	if(!player || !goods)
+		return 0;
+	items=all_inventory(player);
+	free_slots=(int)player->query_beibao_size()-sizeof(items);
+	if(!goods->is("combine_item"))
+		return free_slots>0 ? free_slots : 0;
+	maximum=(int)goods->max_count;
+	if(maximum<1)
+		return 0;
+	goods_name=(string)goods->query_name();
+	foreach(items,object item)
+		if(item && item->is("combine_item") &&
+		   (string)item->query_name()==goods_name &&
+		   (int)item->query_toVip()==1 && (int)item->amount>=0 &&
+		   (int)item->amount<maximum)
+			capacity+=maximum-(int)item->amount;
+	if(free_slots>0)
+		capacity+=free_slots*maximum;
+	return capacity;
+}
+
+// 同名会员商品可能因历史堆叠上限分成多组，必须累计判断，不能只看
+// 任意一组的 amount，否则拆成多个堆叠即可绕过随身数量上限。
+int query_off_good_inventory_amount(object player,object goods)
+{
+	int amount;
+	string goods_name;
+	if(!player || !goods)
+		return 0;
+	goods_name = (string)goods->query_name();
+	foreach(all_inventory(player),object item){
+		if(!item || (string)item->query_name()!=goods_name ||
+		   (int)item->query_toVip()!=1)
+			continue;
+		amount += item->is("combine_item") ? (int)item->amount : 1;
+	}
+	return amount;
+}
+
+int query_off_good_remaining(object player,object goods,int lv)
+{
+	int maximum=999;
+	int remaining;
+	if(!player || !goods || query_active_vip_level(player)<lv)
+		return 0;
+	remaining = maximum-query_off_good_inventory_amount(player,goods);
+	return remaining>0 ? remaining : 0;
 }
 /*
    方法描述：不能领取的说明信息
@@ -586,7 +629,7 @@ int if_can_get_offly(object player,object goods,int lv)
 string if_can_get_offly_desc(int state,int lv,string name)
 {
 	string re = "";
-	int vip_max_yao=this_player()->query_max_yao();
+	int paid_goods_max=999;
 	switch(state){
 		case 0:
 			re +="抱歉，你还不是会员或者会员资格已经到期，赶快加入到会员的大家庭中，享受尊贵的会员特权！\n\n"; 
@@ -601,7 +644,8 @@ string if_can_get_offly_desc(int state,int lv,string name)
 			break;
 		case 3:
 			
-			re +="相同会员物品只能随身携带最多"+(string)vip_max_yao+"个，用完再来取吧！\n";
+			re +="相同会员特卖物品可随身携带最多"+
+				(string)paid_goods_max+"个，用完再来购买吧！\n";
 			break;
 		case 4:
 			//re +="恭喜，你获得了"+name+"\n";

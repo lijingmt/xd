@@ -9,7 +9,30 @@ int main(string|zero arg)
 	string typeDes = "";  //类型描述
 	int time = 0;          //时间
 	int yushi = 0;         //需要扣除的玉石
-	sscanf(arg,"%s %d %d",type,time,yushi);
+	int fields=arg ? sscanf(arg,"%s %d %d",type,time,yushi) : 0;
+	if((fields!=2 && fields!=3) ||
+	   (type!="xiuchan" && type!="dazuo") ||
+	   (fields==3 && (yushi<=0 || yushi>100000))){
+		write("修炼参数无效。\n[返回:look]\n");
+		return 1;
+	}
+	if(me->query_level()>=70){
+		write("你已经到达70级了，不能进行该项操作。\n[返回:look]\n");
+		return 1;
+	}
+	int saved_time=(type=="xiuchan" ?
+		(int)me->query_auto_learn_xiuchan() :
+		(int)me->query_auto_learn_dazuo());
+	if(fields==2){
+		yushi=0;
+		time=saved_time;
+	}
+	else
+		time=saved_time+yushi*(type=="xiuchan" ? 3 : 12);
+	if(time<5){
+		write("剩余修炼时间不足5分钟，本次没有扣除玉石。\n[返回:look]\n");
+		return 1;
+	}
 	if(type == "xiuchan"){
 		typeDes = "修禅";
 	}
@@ -37,10 +60,17 @@ int main(string|zero arg)
 						me->set_auto_learn_dazuo(0);
 					}
 					string c_log  = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][auto_learn][type:"+type+"][time:"+time+"][1]["+yushi+"][0]\n";
-					if(c_log != "")
-						Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
-					me->command("sleep_for_learn "+time);
-					return 1;
+						if(c_log != "")
+							Stdio.append_file(ROOT+"/log/stat/consume/"+GAME_NAME_S+"_consume_"+MUD_TIMESD->get_year_month_day()+".log",c_log);
+						me->command("sleep_for_learn "+time);
+						// The daemon registry and wake-up callout are process-local. Persist
+						// their durable mirror only after the timer exists, so an immediate
+						// restart or worker handoff cannot lose paid training time.
+						AUTO_LEARND->prepare_worker_handoff(me);
+						if(functionp(me->save_with_result) && !me->save_with_result())
+							werror("[AUTO_LEARND] initial save failed uid=%s\n",
+								(string)me->query_name());
+						return 1;
 				}
 				else
 					s += "你预定的"+typeDes+"时间为"+time+"分钟，要开始修炼，剩余时间必须在5分钟以上。\n";

@@ -270,6 +270,18 @@ $(ob->query_links(arg))
 			");
 	WAP_VIEWD["/inventory"]=new(MUD_VIEW,
 #"【装备背包】
+			筛选物品：[inventory_filter category ...]
+			搜索物品：[inventory_search ...]
+			[一键穿装:auto_equip]
+			[新手补给商店:newbie_shop]
+			[一键安全销毁非装备:cleanup_non_equipment]
+			$(player->view_inventory_batch_sell_entry())
+			$(player->view_inventory_zhuangbei())
+			");
+	WAP_VIEWD["/inventory_legacy"]=new(MUD_VIEW,
+#"【传统装备背包】
+			筛选物品：[inventory_filter category ...]
+			搜索物品：[inventory_search ...]
 			[一键穿装:auto_equip]
 			[新手补给商店:newbie_shop]
 			[一键安全销毁非装备:cleanup_non_equipment]
@@ -277,7 +289,9 @@ $(ob->query_links(arg))
 			$(player->view_inventory_zhuangbei())
 			");
 	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,
-#"[一键安全销毁非装备:cleanup_non_equipment]
+#"筛选物品：[inventory_filter category ...]
+			搜索物品：[inventory_search ...]
+			[一键安全销毁非装备:cleanup_non_equipment]
 			$(player->view_inventory_daoju())
 			");
 	WAP_VIEWD["/inventory_sell"]=new(MUD_VIEW,

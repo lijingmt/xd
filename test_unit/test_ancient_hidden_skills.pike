@@ -54,7 +54,10 @@ void test_catalog_and_weights()
 		   !has_suffix(daemon->query_colored_name(id),"§r"))
 			failures += ({id});
 	}
-	if(sizeof(ids)!=70 || sizeof(professions)!=10)
+	if(sizeof(ids)!=70 || sizeof(professions)!=10 ||
+	   sizeof(daemon->query_profession_skill_ids("jianxian"))!=7 ||
+	   sizeof(daemon->query_profession_skill_ids("not_a_profession"))!=0 ||
+	   daemon->query_profession_name("jianxian")!="剑仙")
 		failures += ({"数量不是70/10"});
 	foreach(indices(professions),string profession)
 		if(professions[profession]!=7)
@@ -102,30 +105,33 @@ void test_all_programs_compile()
 
 void test_drop_probability_contract()
 {
-	test_start("90级门槛、约百倍稀有率及加权边界均由服务端决定");
+	test_start("神技/太古低掉率、等级门槛及加权边界均由服务端决定");
 	object items = ITEMSD;
-	int old_rate = items->query_hidden_skill_drop_rate();
-	int old_denominator = 100000;
-	int new_weight = items->query_ancient_skill_total_weight();
-	int new_denominator = items->query_ancient_skill_drop_denominator();
-	int ratio_times_100 = old_rate*new_denominator*100/
-		(old_denominator*new_weight);
+	int mythic_rate = items->query_hidden_skill_drop_rate();
+	int mythic_denominator = items->query_hidden_skill_drop_denominator();
+	int ancient_weight = items->query_ancient_skill_total_weight();
+	int ancient_denominator = items->query_ancient_skill_drop_denominator();
+	int ratio_times_100 = mythic_rate*ancient_denominator*100/
+		(mythic_denominator*ancient_weight);
 	int valid = items->query_hidden_skill_book_count()==37 &&
+		mythic_rate==37 && mythic_denominator==10000000 &&
 		items->query_ancient_skill_book_count()==70 &&
 		items->query_ancient_skill_min_level()==90 &&
+		ancient_weight==390 && ancient_denominator==1250000000 &&
 		!items->can_drop_ancient_skill_book(89,1) &&
 		items->can_drop_ancient_skill_book(90,1) &&
-		items->can_drop_ancient_skill_book(90,new_weight) &&
-		!items->can_drop_ancient_skill_book(90,new_weight+1) &&
-		ratio_times_100>=9500 && ratio_times_100<=12500 &&
+		items->can_drop_ancient_skill_book(90,ancient_weight) &&
+		!items->can_drop_ancient_skill_book(90,ancient_weight+1) &&
+		ratio_times_100>=1100 && ratio_times_100<=1300 &&
 		ANCIENT_SKILLD->query_weighted_book(1)!="" &&
-		ANCIENT_SKILLD->query_weighted_book(new_weight)!="" &&
-		ANCIENT_SKILLD->query_weighted_book(new_weight+1)=="";
+		ANCIENT_SKILLD->query_weighted_book(ancient_weight)!="" &&
+		ANCIENT_SKILLD->query_weighted_book(ancient_weight+1)=="";
 	if(valid)
 		test_pass();
 	else
-		test_fail(sprintf("old=%d/100000 new=%d/%d ratioX100=%d",
-			old_rate,new_weight,new_denominator,ratio_times_100));
+		test_fail(sprintf("mythic=%d/%d ancient=%d/%d ratioX100=%d",
+			mythic_rate,mythic_denominator,ancient_weight,
+			ancient_denominator,ratio_times_100));
 }
 
 void test_binding_and_legacy_compatibility()
@@ -176,6 +182,8 @@ void test_drop_and_visual_wiring()
 		sizeof(npc/"get_ancient_skill_book")-1>=2 &&
 		search(get,"bind_to_account")!=-1 &&
 		search(fight,"【战技显化】")!=-1 &&
+		search(fight,"query_room_skill_manifestations")!=-1 &&
+		search(fight,"observer_epoch")!=-1 &&
 		search(fight,"is_visible(observer,caster)")!=-1 &&
 		search(pet,"【灵宠显化】")!=-1 &&
 		search(pet,"is_visible(observer,player)")!=-1 &&
@@ -190,6 +198,82 @@ void test_drop_and_visual_wiring()
 		test_fail("掉落、绑定、广播或Vue表现链路缺失");
 }
 
+void test_room_skill_manifestation_snapshot()
+{
+	test_start("同房战技事件可轮询、去重、限界且不跨房间");
+	object caster = create_test_player(
+		"__testunit_skill_caster__","__testunit_skill_account_a__");
+	object observer = create_test_player(
+		"__testunit_skill_observer__","__testunit_skill_account_b__");
+	object outsider = create_test_player(
+		"__testunit_skill_outsider__","__testunit_skill_account_c__");
+	object room = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object away = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhen");
+	object map_worker = (object)(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike");
+	array(mapping(string:mixed)) events = ({});
+	int accepted = 0;
+	int rejected = 0;
+	int valid = 0;
+	mixed err = catch {
+		caster->move(room);
+		observer->move(room);
+		outsider->move(away);
+		for(int index=1;index<=8;index++){
+			mapping event = ([
+				"id":"skill-event-"+(string)index,
+				"event_at":time(),
+				"room_path":file_name(room),
+				"worker_id":map_worker->query_local_worker_id(),
+				"caster_userid":caster->query_name(),
+				"caster_name":caster->query_name_cn(),
+				"skill_name":"鸿蒙一剑",
+				"skill_level":index,
+				"target_name":"妖狼",
+				"effect_desc":"战技气息扩散开来",
+			]);
+			accepted += observer->receive_room_skill_manifestation(
+				event,caster);
+			if(index==1)
+				accepted += observer->receive_room_skill_manifestation(
+					event,caster);
+		}
+		mapping outsider_event = ([
+			"id":"outsider-event","event_at":time(),
+			"room_path":file_name(room),
+			"worker_id":map_worker->query_local_worker_id(),
+		]);
+		rejected = outsider->receive_room_skill_manifestation(
+			outsider_event,caster);
+		mapping invalid_event = ([
+			"id":"invalid-event","event_at":time(),
+			"room_path":file_name(room),
+			"worker_id":map_worker->query_local_worker_id(),
+			"skill_name":"伪造\n技能","skill_level":1,
+		]);
+		rejected += observer->receive_room_skill_manifestation(
+			invalid_event,caster);
+		events = observer->query_room_skill_manifestations();
+		valid = accepted==9 && rejected==0 && sizeof(events)==6 &&
+			(string)events[0]["id"]=="skill-event-3" &&
+			(string)events[-1]["id"]=="skill-event-8";
+		observer->move(away);
+		valid = valid &&
+			!sizeof(observer->query_room_skill_manifestations());
+	};
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("room snapshot err="+(err ? describe_error(err) : "")+
+			" accepted="+(string)accepted+" rejected="+(string)rejected+
+			" events="+(string)sizeof(events));
+	if(caster) destruct(caster);
+	if(observer) destruct(observer);
+	if(outsider) destruct(outsider);
+}
+
 int main()
 {
 	werror("\n========== 十职业太古隐藏技能测试 ==========\n");
@@ -198,6 +282,7 @@ int main()
 	test_drop_probability_contract();
 	test_binding_and_legacy_compatibility();
 	test_drop_and_visual_wiring();
+	test_room_skill_manifestation_snapshot();
 	werror("太古传承：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

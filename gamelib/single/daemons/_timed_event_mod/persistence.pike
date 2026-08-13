@@ -59,6 +59,15 @@ private int save_event_state()
 	int live_size;
 	int ok = 0;
 	mixed err;
+	// All worker copies may read the shared snapshot, but only the affinity
+	// owner may replace it. This fence prevents a stale read-only copy from
+	// overwriting the live scheduler after a command or lazy login hook.
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !local_timed_event_owner()){
+		werror("[TIMED_EVENTD][WRITE_FENCE] rejected non-owner state write worker=%s\n",
+			MAP_WORKERD->query_local_worker_id());
+		return 0;
+	}
 	encoded = Standards.JSON.encode(([
 		"version":TIMED_EVENT_STATE_VERSION,
 		"saved_at":time(),
@@ -90,6 +99,141 @@ private int save_event_state()
 		werror("[TIMED_EVENTD] 活动状态保存失败。\n");
 	}
 	return ok;
+}
+
+private string timed_event_claim_ack_digest(string claim_id,string user_id)
+{
+	object hash = Crypto.SHA256();
+	hash->update(claim_id+"\0"+user_id);
+	return lower_case(String.string2hex(hash->digest()));
+}
+
+private string timed_event_claim_ack_path(string claim_id,string user_id)
+{
+	return TIMED_EVENT_CLAIM_ACK_DIR+"/"+
+		timed_event_claim_ack_digest(claim_id,user_id)+".json";
+}
+
+/**
+ * A non-owner can persist the player's idempotent reward receipt, but cannot
+ * replace the shared event snapshot. It therefore leaves one bounded atomic
+ * acknowledgement for the sole owner to merge into that snapshot.
+ */
+private int stage_reward_claim_ack(mapping session,string user_id)
+{
+	string claim_id;
+	string path;
+	string temp_path;
+	string encoded;
+	mixed err;
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   local_timed_event_owner())
+		return 1;
+	claim_id = query_session_key(session);
+	if(claim_id=="" || !stringp(user_id) || sizeof(user_id)<2 ||
+	   sizeof(user_id)>64)
+		return 0;
+	path = timed_event_claim_ack_path(claim_id,user_id);
+	if(Stdio.file_size(path)>0)
+		return 1;
+	encoded = Standards.JSON.encode(([
+		"version":TIMED_EVENT_CLAIM_ACK_VERSION,
+		"claim_id":claim_id,
+		"user_id":user_id,
+		"created_at":time(),
+	]));
+	if(sizeof(encoded)<=0 || sizeof(encoded)>TIMED_EVENT_CLAIM_ACK_MAX_BYTES)
+		return 0;
+	mkdir(TIMED_EVENT_CLAIM_ACK_DIR);
+	temp_path = path+"."+MAP_WORKERD->query_local_worker_id()+".tmp";
+	err = catch{
+		rm(temp_path);
+		if(Stdio.write_file(temp_path,encoded)<=0 ||
+		   Stdio.file_size(temp_path)!=sizeof(encoded) ||
+		   !mv(temp_path,path))
+			error("claim acknowledgement write failed\n");
+	};
+	if(err){
+		rm(temp_path);
+		// Another retry may have installed the same deterministic receipt.
+		if(Stdio.file_size(path)>0)
+			return 1;
+		werror("[TIMED_EVENTD][CLAIM_ACK] stage failed user=%s: %s\n",
+			user_id,describe_error(err));
+		return 0;
+	}
+	return 1;
+}
+
+private int valid_reward_claim_ack(mapping ack)
+{
+	return mappingp(ack) &&
+		(int)ack["version"]==TIMED_EVENT_CLAIM_ACK_VERSION &&
+		stringp(ack["claim_id"]) && sizeof((string)ack["claim_id"])>=3 &&
+		sizeof((string)ack["claim_id"])<=256 &&
+		stringp(ack["user_id"]) && sizeof((string)ack["user_id"])>=2 &&
+		sizeof((string)ack["user_id"])<=64 &&
+		intp(ack["created_at"]) && (int)ack["created_at"]>0;
+}
+
+/** Consume at most one bounded batch; tick_sessions() repeats every 2s. */
+private void consume_reward_claim_acks()
+{
+	array(string) files;
+	array(string) remove_after_save = ({});
+	int changed = 0;
+	int handled = 0;
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !local_timed_event_owner())
+		return;
+	files = get_dir(TIMED_EVENT_CLAIM_ACK_DIR) || ({});
+	foreach(files,string filename){
+		string path;
+		string source;
+		mixed decoded = 0;
+		mixed err;
+		mapping session;
+		mapping participant;
+		if(handled>=TIMED_EVENT_CLAIM_ACK_BATCH)
+			break;
+		if(sizeof(filename)!=69 || !has_suffix(filename,".json"))
+			continue;
+		handled++;
+		path = TIMED_EVENT_CLAIM_ACK_DIR+"/"+filename;
+		if(Stdio.file_size(path)<=0 ||
+		   Stdio.file_size(path)>TIMED_EVENT_CLAIM_ACK_MAX_BYTES){
+			rm(path);
+			continue;
+		}
+		source = Stdio.read_file(path);
+		err = catch{ decoded = Standards.JSON.decode(source); };
+		if(err || !mappingp(decoded) ||
+		   !valid_reward_claim_ack((mapping)decoded) ||
+		   filename!=timed_event_claim_ack_digest(
+			(string)decoded["claim_id"],(string)decoded["user_id"])+".json"){
+			rm(path);
+			continue;
+		}
+		session = sessions[(string)decoded["claim_id"]];
+		if(!mappingp(session)){
+			rm(path);
+			continue;
+		}
+		participant = session["participants"][(string)decoded["user_id"]];
+		if(!mappingp(participant) || !mappingp(participant["reward"])){
+			rm(path);
+			continue;
+		}
+		if(!(int)participant["reward_claimed"]){
+			participant["reward_claimed"] = 1;
+			changed = 1;
+		}
+		remove_after_save += ({path});
+	}
+	if(changed && !save_event_state())
+		return;
+	foreach(remove_after_save,string path)
+		rm(path);
 }
 
 private void cancel_interrupted_battles()
@@ -125,7 +269,7 @@ private void cancel_interrupted_battles()
 		save_event_state();
 }
 
-private void load_event_state()
+private void load_event_state(void|int recover_interrupted_runtime)
 {
 	string source;
 	mixed decoded = 0;
@@ -145,5 +289,6 @@ private void load_event_state()
 		return;
 	}
 	sessions = copy_value(decoded["sessions"]);
-	cancel_interrupted_battles();
+	if(recover_interrupted_runtime)
+		cancel_interrupted_battles();
 }

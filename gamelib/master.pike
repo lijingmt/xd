@@ -186,10 +186,23 @@ $(player->view_qqlist_move(arg))
 }
 private void _create()
 {
+	string node_role = lower_case(getenv("XIAND_NODE_ROLE") || "standalone");
+	int map_worker_node = node_role=="gateway" || node_role=="worker";
 	mkdir(ROOT+"/gamelib/single/daemons");
 	werror("[MASTER] Loading daemons from: "+ROOT+"/gamelib/single/daemons/\n");
 	foreach(get_dir(ROOT+"/gamelib/single/daemons"),string s){
 		string full_path = ROOT+"/gamelib/single/daemons/"+s;
+		// lowlib/system/master applies the same map-node startup boundary.
+		// A first player login must not bypass it and start duplicate global
+		// schedulers (home saves, auctions, refresh daemons) on every worker.
+		array(string) node_daemons = node_role=="worker" ?
+			({"map_workerd.pike","http_api_daemon.pike","roomLeveld.pike",
+			  "kuangd.pike","caoyaod.pike","timed_eventd.pike"}) :
+			({"map_workerd.pike","http_api_daemon.pike"});
+		if(map_worker_node && !has_value(node_daemons,s)){
+			werror("[MASTER] Map-worker node skipping eager daemon: %s\n",s);
+			continue;
+		}
 		werror("[MASTER] Checking: %s (is_dir=%d)\n", s, Stdio.is_dir(full_path));
 		// Skip directories
 		if(Stdio.is_dir(full_path)) {
@@ -207,10 +220,11 @@ private void _create()
 	}
 	//技能初始化
 	mkdir(ROOT+"/gamelib/single/skills");
-	foreach(get_dir(ROOT+"/gamelib/single/skills"),string s){
-		catch{
-			object ob=(object)(expand_symlinks(s,ROOT+"/gamelib/single/skills/"));
-		};
-	}
+	if(!map_worker_node)
+		foreach(get_dir(ROOT+"/gamelib/single/skills"),string s){
+			catch{
+				object ob=(object)(expand_symlinks(s,ROOT+"/gamelib/single/skills/"));
+			};
+		}
 }
 private string initer=(_create(),"");

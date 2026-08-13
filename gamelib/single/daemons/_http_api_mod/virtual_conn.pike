@@ -25,7 +25,8 @@ Thread.Mutex vconnections_lock = Thread.Mutex();
 
 private string normalize_virtual_connection_userid(string userid)
 {
-    return lower_case(String.trim_all_whites(userid || ""));
+    // 历史账号允许大写字母，连接键必须与物理档案名精确一致。
+    return String.trim_all_whites(userid || "");
 }
 
 // ========================================================================
@@ -88,8 +89,7 @@ mixed get_virtual_connection(string userid)
     if(arrayp(result)){
         if(sizeof(result)>=3 && objectp(result[2]) &&
            functionp(result[2]->query_name) &&
-           lower_case((string)result[2]->query_name())!=
-           lower_case(userid)){
+           (string)result[2]->query_name()!=userid){
             m_delete(vconnections,userid);
             result = 0;
         }
@@ -110,7 +110,7 @@ void set_virtual_connection(string userid, mixed conn_data)
     if(!arrayp(conn_data) || sizeof(conn_data)<3 ||
        !objectp(conn_data[2]) ||
        !functionp(conn_data[2]->query_name) ||
-       lower_case((string)conn_data[2]->query_name())!=lower_case(userid)){
+       (string)conn_data[2]->query_name()!=userid){
         http_werror(" Refused mismatched virtual connection for %s\n",
             userid);
         return;
@@ -155,7 +155,7 @@ object get_player_from_connection(string userid, void|int update_idle_time)
     if(vconn && arrayp(vconn) && sizeof(vconn) >= 3) {
         object player = vconn[2];
         if(player && functionp(player->query_name) &&
-           lower_case((string)player->query_name())==lower_case(userid)) {
+           (string)player->query_name()==userid) {
             // 只有用户主动操作的调用点才显式传1；只读轮询必须传0。
             if(update_idle_time != 0) {
                 vconn[1] = time();

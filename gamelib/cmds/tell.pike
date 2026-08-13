@@ -43,6 +43,39 @@ int main(string|zero arg)
 		COUNTD->count_msg();
 		COUNTD->count_day_msg(me->name);			
 		if(!ob){
+			mapping remote = MAP_WORKERD->query_node_role()=="worker" ?
+				MAP_WORKERD->query_local_online_user(name) : ([]);
+			if((int)remote["ok"] &&
+			   (string)remote["worker_id"]!=MAP_WORKERD->query_local_worker_id()){
+				string source_race = (string)me->query_raceId();
+				string target_race = (string)remote["race_id"];
+				if(!LOGICALZONED->can_user_action("chat",me->query_name(),name)){
+					write("逻辑分区隔离中，无法联系该玩家。\n[返回游戏:look]\n");
+					return 1;
+				}
+				if(source_race!=target_race && source_race!="third" &&
+				   target_race!="third"){
+					write("不同阵营的玩家之间不能谈话。\n[返回游戏:look]\n");
+					return 1;
+				}
+				mapping staged = MAP_WORKERD->stage_local_social_event(
+					"private_tell",me->query_name(),name,([
+						"message":s,"source_name_cn":me->query_name_cn(),
+						"source_nick":me->query_nick(),"source_race":source_race,
+						"target_name_cn":(string)remote["name_cn"],
+						"month":month,"day":day,"hour":hour,"minute":minute,
+					]));
+				if(!(int)staged["ok"]){
+					write("跨地图消息队列暂时繁忙，请稍后重试。\n[返回游戏:look]\n");
+					return 1;
+				}
+				Stdio.append_file(ROOT+"/log/tell.log",
+					now[0..sizeof(now)-2]+":"+me->name_cn+"("+me->name+"):"+
+					(string)remote["name_cn"]+"("+name+"):"+s+"\n");
+				write("你对 "+(string)remote["name_cn"]+" 说："+s+
+					"\n消息已送往对方所在地图。\n[返回游戏:look]\n");
+				return 1;
+			}
 			//s = "对方不在线，等他上线了再说吧，暂时关闭离线发信功能，需要升级该项功能，谢谢。\n";
 			//me->write_view(WAP_VIEWD["/emote"],0,0,s);
 			/*

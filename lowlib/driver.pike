@@ -202,8 +202,9 @@ class pikenv_master{
 	}
 	void compile_warning(string file, int line, string msg)
 	{
+		// stderr already points at debug_log; a direct second write duplicates
+		// every compiler warning in every worker log.
 		werror("%s:%d: %s\n", file, line, msg);
-		debug_log->write("%s:%d: %s\n", file, line, msg);
 	}
 
 	void compile_error(string file, int line, string msg)
@@ -211,7 +212,6 @@ class pikenv_master{
 		string timestamp = String.trim_all_whites(ctime(time()));
 		string error_msg = sprintf("-----%s-----\nCOMPILE ERROR: %s:%d: %s\n", timestamp, file, line, msg);
 		werror("%s:%d: %s\n", file, line, msg);
-		debug_log->write("%s:%d: %s\n", file, line, msg);
 		// 同时写入主错误日志
 		log->write(error_msg);
 	}
@@ -227,6 +227,8 @@ int main(int argc, array(string) argv)
 	array(string) args=Getopt.get_args(argv);
 	string root=dirname(argv[0]);
 	string mudlib_root=combine_path(getcwd(),args[1]);
+	string runtime_include_path="/tmp/xiand-include-"+
+		(string)(opts["port"]?(int)opts["port"]:PORT);
 	while(mudlib_root[sizeof(mudlib_root)-1]=='/'){
 		mudlib_root=mudlib_root[0..(sizeof(mudlib_root)-2)];
 	}
@@ -238,23 +240,23 @@ int main(int argc, array(string) argv)
 		master=combine_path(root,"system/master");
 	}
 	if(Stdio.is_dir(mudlib_root)){
-		Stdio.recursive_rm(mudlib_root+"/.include");
-		mkdir(mudlib_root+"/.include");
-		Stdio.write_file(mudlib_root+"/.include/sys_config.h","#define SROOT \""+root+"\"\n#define ROOT \""+mudlib_root+"\"");
+		Stdio.recursive_rm(runtime_include_path);
+		Stdio.mkdirhier(runtime_include_path);
+		Stdio.write_file(runtime_include_path+"/sys_config.h","#define SROOT \""+root+"\"\n#define ROOT \""+mudlib_root+"\"");
 		foreach(get_dir(root),string s){
 			if(Stdio.is_dir(root+"/"+s)&&Stdio.is_file(root+"/"+s+"/include/"+s+".h")){
-				Stdio.write_file(mudlib_root+"/.include/"+s+".h","#include <"+root+"/"+s+"/include/"+s+".h>");
+				Stdio.write_file(runtime_include_path+"/"+s+".h","#include <"+root+"/"+s+"/include/"+s+".h>");
 			}
 		}
 		foreach(get_dir(mudlib_root),string s){
 			if(Stdio.is_dir(mudlib_root+"/"+s)&&Stdio.is_file(mudlib_root+"/"+s+"/include/"+s+".h")){
-				Stdio.write_file(mudlib_root+"/.include/"+s+".h","#include <"+mudlib_root+"/"+s+"/include/"+s+".h>");
+				Stdio.write_file(runtime_include_path+"/"+s+".h","#include <"+mudlib_root+"/"+s+"/include/"+s+".h>");
 			}
 		}
 	}
 	add_include_path(root);
 	add_include_path(mudlib_root);
-	add_include_path(mudlib_root+"/.include");
+	add_include_path(runtime_include_path);
 	add_include_path(root+"/system/include");
 	add_program_path(root);
 	efuns=(object)(root+"/efuns.pike");

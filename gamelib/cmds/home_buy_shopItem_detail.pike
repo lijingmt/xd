@@ -8,7 +8,7 @@ int main(string|zero arg)
 	object me = this_player();
 	object env = environment(me);
 	string s = "";
-	string homeId = env->query_homeId();
+	string homeId = env ? (string)env->query_homeId() : "";
 	string masterId = "";
 	string itemName = "";
 	int price = 0;
@@ -16,7 +16,11 @@ int main(string|zero arg)
 	int shopId = 0;
 	int timeDelay = 0;
 	mapping(string:mixed) offer;
-	sscanf(arg,"%s %d %d %d %d",masterId,price,priceFlag,shopId,timeDelay);
+	if(!env || !arg || sscanf(arg,"%s %d %d %d %d",masterId,price,
+	   priceFlag,shopId,timeDelay)!=5 || masterId=="" || shopId<=0){
+		write("商品参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
 	if(!LOGICALZONED->can_user_action("home",me->query_name(),masterId)){
 		write("逻辑分区隔离中，该商店不可见。\n[返回游戏:look]\n");
 		return 1;
@@ -29,7 +33,8 @@ int main(string|zero arg)
 	price = (int)offer["price"];
 	priceFlag = (int)offer["price_flag"];
 	timeDelay = (int)offer["time_delay"];
-	object item = HOMED->get_shop_item(masterId,shopId);
+	string listing_token=(string)offer["listing_token"];
+	object item = HOMED->get_shop_item(masterId,shopId,listing_token);
 	if(!item){
 		s += "该摊位已经没有物品,请返回\n";
 		me->write_view(WAP_VIEWD["/emote"],0,0,s);
@@ -40,7 +45,7 @@ int main(string|zero arg)
 	if(!item->is_combine_item()&&item->query_item_type()!="book"){
 		s += item->query_content()+"\n"; 
 	}
-	s += "物品数量："+HOMED->get_shopItem_num(masterId,shopId)+"\n";
+	s += "物品数量："+(int)offer["item_amount"]+"\n";
 	s += "需要：";
 	if(priceFlag==1){
 		s += YUSHID->get_yushi_for_desc(price);
@@ -54,7 +59,7 @@ int main(string|zero arg)
 	}
 	else
 		s += "[购买:home_buy_shopItem_confirm "+masterId+" "+price+" "+
-			priceFlag+" "+shopId+" "+timeDelay+"]\n";
+			priceFlag+" "+shopId+" "+timeDelay+" "+listing_token+"]\n";
 	s += "[再逛一圈:popview]\n";
 	s += "[返回游戏:look]\n";
 	write(s);

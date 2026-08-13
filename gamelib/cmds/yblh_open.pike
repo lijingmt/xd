@@ -5,13 +5,14 @@
 int main(string|zero arg)
 {
     object me = this_player();
-    string hb_name=arg;
+    string hb_name=arg || "";
 
     string s="";
     string s_log="";//普通的log
     string fee_log="";//花费的统计log
     object hb = present(hb_name,me,0);
-    if(hb)
+    if(hb && hb_name=="yuebinglihe" &&
+       (file_name(hb)/"#")[0]==ITEM_PATH+"baoxiang/yuebinglihe")
     {
 	if(me->if_over_easy_load()){
 	    s += "打开失败！你的随身物品已满。\n";

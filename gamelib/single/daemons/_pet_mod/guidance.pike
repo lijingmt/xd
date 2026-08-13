@@ -112,7 +112,8 @@ mapping(string:mixed) query_pet_growth_guidance(object player)
 			hunt>0 ? "继续寻迹" : "开始寻迹","pet_hunt",
 			hunt_progress,3));
 	}
-	if(sizeof(active_pet) && (int)active_pet["level"]<PET_LEVEL_MAX){
+	if(sizeof(active_pet) &&
+	   (int)active_pet["trained_level"]<(int)state["level_max"]){
 		next_cost = 2+(int)active_pet["level"]/5;
 		if((int)state["materials"]["spirit_dew"]>=next_cost)
 			suggestions = append_pet_guidance(suggestions,make_pet_guidance(
@@ -127,6 +128,12 @@ mapping(string:mixed) query_pet_growth_guidance(object player)
 				"打开智能挂机","autofight open",
 				(int)active_pet["xp"],(int)active_pet["xp_need"]));
 	}
+	else if(sizeof(active_pet))
+		suggestions = append_pet_guidance(suggestions,make_pet_guidance(
+			"成长","先提升人物等级",
+			"灵宠有效等级不会超过当前人物；共享培养进度会完整保留，升级后自动解锁。",
+			"返回游戏","look",(int)active_pet["level"],
+			(int)state["level_max"]+1));
 	if(sizeof(active_pet) &&
 	   sizeof((mapping)active_pet["equipment"])<3)
 		suggestions = append_pet_guidance(suggestions,make_pet_guidance(

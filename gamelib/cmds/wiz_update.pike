@@ -15,6 +15,10 @@ int main(string file)
 {
 	object obj,env,usr;
 	array oblist;
+	if(MAP_WORKERD->query_node_role()=="worker"){
+		write("多 worker 模式禁止单节点热更新，请通过集群编排统一重启。\n");
+		return 1;
+	}
 	//if( this_player()->query_name()!="zhubin"||this_player()->query_name()!="wangyan" )	
 	//	return 1;
 	obj=find_player(file);

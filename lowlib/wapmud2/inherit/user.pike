@@ -26,7 +26,7 @@ string query_LOGIN_MSG(){
 }
 string sid = "tmpUser";  // 默认会话ID，避免未定义错误
 protected int living_time=10*60;
-protected protected void create(){
+protected void create(){
 }
 array(string) query_command_prefix(){
 	return ({SROOT+"/wapmud2/cmds/"})+::query_command_prefix();

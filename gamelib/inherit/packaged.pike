@@ -19,6 +19,7 @@ string state_packaged(int user_p_level)
 	return result;
 }
 int packaged(object ob, int user_p_level){
+	array item_data;
 	if(packaged_items==0)
 		packaged_items = ({});
 	if(sizeof(packaged_items)>=user_p_level)
@@ -29,29 +30,31 @@ int packaged(object ob, int user_p_level){
 	string filename = "";
 	sscanf(filename_all,"%s/item/%s",tmp,filename);
 	if(ob->is("combine_item")){
-		if(sizeof(packaged_items)==0)
-			//packaged_items=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),(file_name(ob)/"#")[0],0,0,ob->amount})});
-			packaged_items=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,0,0,ob->amount})});
-		else
-			packaged_items+=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,0,0,ob->amount})});
+		item_data = ({ob->query_name(),ob->query_name_cn(),
+			ob->query_short(),filename,0,0,ob->amount});
 	}
 	else{
 		int convert_count = 0;
 		if(ob->is("equip"))
 			convert_count = ob->query_convert_count();
 		if(ob->item_dura){
-			if(sizeof(packaged_items)==0)
-				packaged_items=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,ob->item_cur_dura,ob->item_dura,convert_count})});
-			else
-				packaged_items+=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,ob->item_cur_dura,ob->item_dura,convert_count})});
+			item_data = ({ob->query_name(),ob->query_name_cn(),
+				ob->query_short(),filename,ob->item_cur_dura,
+				ob->item_dura,convert_count});
 		}
 		else{
-			if(sizeof(packaged_items)==0)
-				packaged_items=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,0,0,convert_count})});
-			else
-				packaged_items+=({({ob->query_name(),ob->query_name_cn(),ob->query_short(),filename,0,0,convert_count})});
+			item_data = ({ob->query_name(),ob->query_name_cn(),
+				ob->query_short(),filename,0,0,convert_count});
+		}
+		if(ob->is("equip") &&
+		   functionp(ob->query_storage_gem_snapshot)){
+			mapping gem_snapshot = ob->query_storage_gem_snapshot();
+			// 第8列预留永久物品ID；共享仓库首次读取时原位填入。
+			if(mappingp(gem_snapshot) && sizeof(gem_snapshot))
+				item_data += ({"",copy_value(gem_snapshot)});
 		}
 	}
+	packaged_items += ({item_data});
 	//加入存入仓库的Log
 	string now=ctime(time());
 	ASYNC_IOD->append_log(ROOT+"/log/package.log",
@@ -93,21 +96,28 @@ object repackaged(string name){
 				ob=new (ITEM_PATH+returnString);
 			};
 			if(!err && ob){
+				array stored = packaged_items[i];
 				//取出复数物品
 				if(ob->is("combine_item"))
-					ob->amount = (int)packaged_items[i][6];
+					ob->amount = (int)stored[6];
 				else{
 					if(ob->item_dura){
-						ob->item_cur_dura = (int)packaged_items[i][4];	
-						ob->item_dura = (int)packaged_items[i][5];
+						ob->item_cur_dura = (int)stored[4];
+						ob->item_dura = (int)stored[5];
 					}
 					if(ob->is("equip")){
 						int convert_count = 0;
 						// 账号共享仓库会在第8列追加永久物品ID；旧取出流程
 						// 仍必须保留第7列的装备转换次数。
-						if(sizeof(packaged_items[i])>=7)
-							convert_count = (int)packaged_items[i][6];
+						if(sizeof(stored)>=7)
+							convert_count = (int)stored[6];
 						ob->set_convert_count(convert_count);
+						if(sizeof(stored)>8 && mappingp(stored[8]) &&
+						   (!functionp(ob->restore_storage_gem_snapshot) ||
+						    !ob->restore_storage_gem_snapshot(stored[8]))){
+							destruct(ob);
+							return 0;
+						}
 					}
 				}
 				packaged_items[i]=packaged_items[0];
@@ -127,6 +137,25 @@ object repackaged(string name){
 				return 0;
 			}
 		}
+	}
+	return 0;
+}
+
+object repackaged_by_storage_id(string item_id)
+{
+	if(!item_id || sizeof(item_id)!=64 || !arrayp(packaged_items))
+		return 0;
+	for(int i=0;i<sizeof(packaged_items);i++){
+		if(!arrayp(packaged_items[i]) || sizeof(packaged_items[i])<8 ||
+		   (string)packaged_items[i][7]!=item_id)
+			continue;
+		string item_name = (string)packaged_items[i][0];
+		if(i>0){
+			array selected = packaged_items[i];
+			packaged_items[i] = packaged_items[0];
+			packaged_items[0] = selected;
+		}
+		return repackaged(item_name);
 	}
 	return 0;
 }

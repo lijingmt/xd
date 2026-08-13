@@ -8,15 +8,18 @@ int main(string|zero arg)
 	string s = "";
 	mapping(string:int) time = localtime(time());
 	int hour = time["hour"];
+	int browse_level = VIPD->query_active_vip_level(me);
+	if(browse_level<1)
+		browse_level=1;
 	s += "**会员特供区**\n\n";
 	s += "---免费区---\n";
-	s += "[宝石:vip_myzone_free_list baoshi 1]\n";
-	s += "[特药:vip_myzone_free_list teyao 1]\n\n";
+	s += "[宝石:vip_myzone_free_list baoshi "+browse_level+"]\n";
+	s += "[特药:vip_myzone_free_list teyao "+browse_level+"]\n\n";
 
 	s += "---折扣区---\n";
-	s += "[宝石:vip_myzone_off_list baoshi 1]\n";
-	s += "[道具:vip_myzone_off_list other 1]\n";
-	s += "[特药:vip_myzone_off_list teyao 1]\n";
+	s += "[宝石:vip_myzone_off_list baoshi "+browse_level+"]\n";
+	s += "[道具:vip_myzone_off_list other "+browse_level+"]\n";
+	s += "[特药:vip_myzone_off_list teyao "+browse_level+"]\n";
 
 	s += VIPD->get_vip_state_des(me);
 	s += "\n[返回:yushi_myzone]\n";

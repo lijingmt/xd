@@ -8,8 +8,12 @@
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+#define SPIRIT_COMPANIOND ((object)(ROOT "/gamelib/single/daemons/spirit_companiond.pike"))
 #define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
+#define MAP_WORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define ROOM_SKILL_EVENT_TTL 8
+#define ROOM_SKILL_EVENT_MAX 6
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
 #define PK_FAST_DECISION_SIMULATION_ROUNDS 1000
 #define PK_FAST_DECISION_SCALE_MAX 16
@@ -342,25 +346,143 @@ int apply_team_guard_to_group(object caster,int shield,int duration)
 	return applied;
 }
 
-// 玩家成功施法后向同一逻辑区、同一房间的旁观玩家发送轻量事件文案。
-// 这条消息只驱动客户端表现，不参与命中、伤害、治疗、仇恨或掉落结算。
+// 房间技能事件只是不落盘的UI快照。房间路径、Worker和玩家租约任一
+// 发生变化都会使它失效，避免跨地图迁移后重放上一个房间的特效。
+array(mapping(string:mixed)) query_room_skill_manifestations()
+{
+	array(mapping(string:mixed)) result = ({});
+	mixed raw = this_object()["/tmp/combat/room_skill_events"];
+	object env = environment(this_object());
+	string room_path;
+	string worker_id;
+	int player_epoch;
+	int now = time();
+	if(!env || !arrayp(raw))
+		return result;
+	room_path = file_name(env);
+	worker_id = MAP_WORKERD->query_local_worker_id();
+	player_epoch = MAP_WORKERD->query_node_role()=="worker" ?
+		MAP_WORKERD->query_local_player_epoch(this_object()->query_name()) : 0;
+	foreach((array)raw,mixed candidate){
+		mapping event;
+		int event_at;
+		if(!mappingp(candidate))
+			continue;
+		event = (mapping)candidate;
+		event_at = (int)event["event_at"];
+		if((string)event["id"]=="" || event_at<1 || event_at>now+1 ||
+		   now-event_at>ROOM_SKILL_EVENT_TTL ||
+		   (string)event["room_path"]!=room_path ||
+		   (string)event["worker_id"]!=worker_id ||
+		   (int)event["observer_epoch"]!=player_epoch)
+			continue;
+		result += ({copy_value(event)});
+	}
+	return result;
+}
+
+// 由房间所属Worker在施法时调用。入口再次校验同房、同逻辑区，
+// 即使未来其他系统复用也不能伪造跨区技能表现。
+int receive_room_skill_manifestation(mapping raw_event,object caster)
+{
+	object env = environment(this_object());
+	array(mapping(string:mixed)) events;
+	mapping(string:mixed) event;
+	string room_path;
+	string worker_id;
+	int player_epoch;
+	if(!mappingp(raw_event) || !caster || !env ||
+	   environment(caster)!=env || caster==this_object() ||
+	   !this_object()->is || !this_object()->is("player") ||
+	   !caster->is || !caster->is("player") ||
+	   !LOGICALZONED->is_visible(this_object(),caster))
+		return 0;
+	room_path = file_name(env);
+	worker_id = MAP_WORKERD->query_local_worker_id();
+	player_epoch = MAP_WORKERD->query_node_role()=="worker" ?
+		MAP_WORKERD->query_local_player_epoch(this_object()->query_name()) : 0;
+	if((string)raw_event["id"]=="" ||
+	   sizeof((string)raw_event["id"])>192 ||
+	   (int)raw_event["event_at"]<time()-1 ||
+	   (int)raw_event["event_at"]>time()+1 ||
+	   (string)raw_event["room_path"]!=room_path ||
+	   (string)raw_event["worker_id"]!=worker_id ||
+	   !stringp(raw_event["skill_name"]) ||
+	   sizeof((string)raw_event["skill_name"])<1 ||
+	   sizeof((string)raw_event["skill_name"])>120 ||
+	   search((string)raw_event["skill_name"],"\n")!=-1 ||
+	   sizeof((string)raw_event["target_name"])>120 ||
+	   search((string)raw_event["target_name"],"\n")!=-1 ||
+	   sizeof((string)raw_event["effect_desc"])>240 ||
+	   search((string)raw_event["effect_desc"],"\n")!=-1 ||
+	   (int)raw_event["skill_level"]<0 ||
+	   (int)raw_event["skill_level"]>10000)
+		return 0;
+	event = ([
+		"id":(string)raw_event["id"],
+		"event_at":(int)raw_event["event_at"],
+		"room_path":room_path,
+		"worker_id":worker_id,
+		"observer_epoch":player_epoch,
+		"caster_userid":caster->query_name(),
+		"caster_name":caster->query_name_cn(),
+		"skill_name":(string)raw_event["skill_name"],
+		"skill_level":(int)raw_event["skill_level"],
+		"target_name":(string)raw_event["target_name"],
+		"effect_desc":(string)raw_event["effect_desc"],
+	]);
+	events = query_room_skill_manifestations();
+	foreach(events,mapping old_event)
+		if((string)old_event["id"]==(string)event["id"])
+			return 1;
+	events += ({event});
+	if(sizeof(events)>ROOM_SKILL_EVENT_MAX)
+		events = events[sizeof(events)-ROOM_SKILL_EVENT_MAX..];
+	this_object()["/tmp/combat/room_skill_events"] = events;
+	return 1;
+}
+
+// 玩家成功施法后向同一逻辑区、同一房间的旁观玩家发送轻量事件。
+// 结构化快照供Vue轮询，文案保留给旧JSP；两者都不参与战斗结算。
 private void broadcast_room_skill_manifestation(object skill,object|zero target,
 	int skill_level,string effect_desc)
 {
 	object caster = this_object();
 	object env = environment(caster);
 	string target_desc = "";
+	string target_name = "";
+	mapping(string:mixed) event;
+	int event_seq;
 	if(!caster || !skill || !env || !caster->is || !caster->is("player"))
 		return;
 	if(target && target!=caster && environment(target)==env &&
-	   functionp(target->query_name_cn))
-		target_desc = "，目标为"+target->query_name_cn();
+	   functionp(target->query_name_cn)){
+		target_name = target->query_name_cn();
+		target_desc = "，目标为"+target_name;
+	}
+	event_seq = (int)caster["/tmp/combat/room_skill_event_seq"]+1;
+	caster["/tmp/combat/room_skill_event_seq"] = event_seq;
+	event = ([
+		"id":sprintf("%s-%d-%d-%d",caster->query_name(),time(),
+			event_seq,random(1000000)),
+		"event_at":time(),
+		"room_path":file_name(env),
+		"worker_id":MAP_WORKERD->query_local_worker_id(),
+		"caster_userid":caster->query_name(),
+		"caster_name":caster->query_name_cn(),
+		"skill_name":skill->query_name_cn(),
+		"skill_level":skill_level,
+		"target_name":target_name,
+		"effect_desc":effect_desc,
+	]);
 	catch {
 		foreach(all_inventory(env),object observer){
 			if(!observer || observer==caster || observer==target ||
 			   !observer->is || !observer->is("player") ||
 			   !LOGICALZONED->is_visible(observer,caster))
 				continue;
+			if(functionp(observer->receive_room_skill_manifestation))
+				observer->receive_room_skill_manifestation(event,caster);
 			tell_object(observer,"【战技显化】"+caster->query_name_cn()+
 				"施放「"+skill->query_name_cn()+"」（等级"+skill_level+
 				"）"+target_desc+
@@ -459,6 +581,23 @@ int query_dot_should_replace(string current_name,int current_damage,
 	return new_damage*new_time >= current_damage*current_time;
 }
 
+// 施法者对象只属于当前战斗进程。不能放入 dbase 的 /tmp：旧存档器会
+// 序列化 data_tmp，可能把玩家/NPC对象引用写入人物档案。
+private object|zero dot_source_runtime;
+private string dot_source_runtime_name = "";
+
+void set_dot_source_runtime(object|zero source,string name)
+{
+	dot_source_runtime = source;
+	dot_source_runtime_name = name || "";
+}
+
+void clear_dot_source_runtime()
+{
+	dot_source_runtime = 0;
+	dot_source_runtime_name = "";
+}
+
 int apply_nonstacking_dot(object target,string name,int damage,int duration)
 {
 	string current_name;
@@ -475,7 +614,100 @@ int apply_nonstacking_dot(object target,string name,int damage,int duration)
 	target->set_debuff("dot",0,name);
 	target->set_debuff("dot",1,damage);
 	target->set_debuff("dot",2,duration);
+	// 只保存当前成功覆盖者的私有运行时引用，用于每跳向真正施法者
+	// 回报。名称必须与槽位一致，净化或下一次覆盖后不会串报。
+	target->set_dot_source_runtime(this_object(),name);
 	return 1;
+}
+
+private string query_dot_display_name(string name)
+{
+	object skill;
+	if(!name || name=="" || name=="none")
+		return "持续伤害";
+	skill = MUD_SKILLSD[name];
+	if(skill && functionp(skill->query_name_cn) && skill->query_name_cn()!="")
+		return (string)skill->query_name_cn();
+	return name;
+}
+
+/**
+ * 结算一个持续伤害节拍。返回值供 TestUnit 和未来战斗状态接口核验；
+ * 伤害、持续时间、山河壁吸收与死亡规则均沿用原逻辑，只补齐真实扣血
+ * 的单一入口和施法者/受击者可见反馈。
+ */
+mapping(string:mixed) process_dot_tick()
+{
+	string dot_name = (string)this_object()->query_debuff("dot",0);
+	int raw_damage = (int)this_object()->query_debuff("dot",1);
+	int remaining = (int)this_object()->query_debuff("dot",2);
+	mapping(string:mixed) result = ([
+		"active":0,"name":dot_name,"display_name":"持续伤害",
+		"raw_damage":raw_damage,"damage":0,"absorbed":0,
+		"remaining":remaining,"defeated":0,
+	]);
+	object source;
+	string source_name;
+	string display_name;
+	string damage_desc;
+	int before_life;
+	int post_guard_damage;
+	int actual_damage;
+	int after_life;
+	if(dot_name=="" || dot_name=="none" || raw_damage<=0 || remaining<=0){
+		if(dot_name!="none")
+			this_object()->clean_debuff("dot");
+		clear_dot_source_runtime();
+		return result;
+	}
+	result["active"] = 1;
+	display_name = query_dot_display_name(dot_name);
+	result["display_name"] = display_name;
+	source_name = dot_source_runtime_name;
+	if(source_name==dot_name && objectp(dot_source_runtime))
+		source = dot_source_runtime;
+	before_life = this_object()->get_cur_life();
+	post_guard_damage = this_object()->absorb_team_guard_damage(raw_damage);
+	if(post_guard_damage<0)
+		post_guard_damage = 0;
+	actual_damage = post_guard_damage;
+	if(actual_damage>before_life)
+		actual_damage = before_life;
+	after_life = before_life-actual_damage;
+	this_object()->set_life(after_life);
+	remaining--;
+	result["damage"] = actual_damage;
+	// 过量致死伤害不是护盾吸收；这里只报告山河壁真正吞掉的部分。
+	result["absorbed"] = raw_damage-post_guard_damage;
+	result["remaining"] = remaining;
+	if(remaining<=0){
+		this_object()->clean_debuff("dot");
+		clear_dot_source_runtime();
+	}
+	else
+		this_object()->set_debuff("dot",2,remaining);
+
+	if(actual_damage>0)
+		damage_desc = "造成"+format_game_number(actual_damage)+"点持续伤害";
+	else
+		damage_desc = "本跳"+format_game_number(raw_damage)+
+			"点伤害被山河壁完全吸收";
+	if(source && source!=this_object())
+		tell_object(source,"【持续伤害】你的"+display_name+"对"+
+			this_object()->query_name_cn()+damage_desc+"（剩余"+remaining+
+			"个战斗节拍）。\n");
+	if(this_object()->is("player"))
+		tell_object(this_object(),"【持续伤害】"+display_name+"对你"+
+			damage_desc+"（剩余"+remaining+"个战斗节拍）。\n");
+
+	if(after_life<=0){
+		result["defeated"] = 1;
+		if(enemy && objectp(enemy))
+			enemy->clean_targets(this_object());
+		if(zero_type(find_call_out(dot_death)))
+			call_out(dot_death,0);
+	}
+	return result;
 }
 
 private int killing;
@@ -850,13 +1082,23 @@ mapping query_pk_fast_decision_simulation(object target){
 		me,target,me_profile,target_profile);
 	target_damage = query_pk_fast_damage_profile(
 		target,me,target_profile,me_profile);
-	me_pet = PETD->query_pet_pk_fast_profile(me,target);
-	target_pet = PETD->query_pet_pk_fast_profile(target,me);
-	if(me_pet["active"] && me_pet["type"]=="mofa")
-		me_profile["pet_score"] = (int)me_pet["amount"]*
+	me_pet = SPIRIT_COMPANIOND->query_pet_battle_source(me)=="personal" ?
+		SPIRIT_COMPANIOND->query_spirit_companion_pk_fast_profile(me,target) :
+		PETD->query_pet_pk_fast_profile(me,target);
+	target_pet = SPIRIT_COMPANIOND->query_pet_battle_source(target)==
+		"personal" ?
+		SPIRIT_COMPANIOND->query_spirit_companion_pk_fast_profile(target,me) :
+		PETD->query_pet_pk_fast_profile(target,me);
+	if(me_pet["active"] && (me_pet["type"]=="mofa" ||
+	   me_pet["secondary_type"]=="mofa"))
+		me_profile["pet_score"] = (int)(me_pet["secondary_type"]=="mofa" ?
+			me_pet["secondary_amount"] : me_pet["amount"])*
 			(int)me_pet["remaining_uses"]*2;
-	if(target_pet["active"] && target_pet["type"]=="mofa")
-		target_profile["pet_score"] = (int)target_pet["amount"]*
+	if(target_pet["active"] && (target_pet["type"]=="mofa" ||
+	   target_pet["secondary_type"]=="mofa"))
+		target_profile["pet_score"] = (int)(
+			target_pet["secondary_type"]=="mofa" ?
+			target_pet["secondary_amount"] : target_pet["amount"])*
 			(int)target_pet["remaining_uses"]*2;
 	me_profile["effective_damage"] = me_damage["damage"];
 	target_profile["effective_damage"] = target_damage["damage"];
@@ -940,8 +1182,12 @@ mapping query_pk_fast_decision_simulation(object target){
 		target_life += target_profile["heal"];
 		if(me_pet_trigger && me_pet["type"]=="heal")
 			me_life += (int)me_pet["amount"];
+		if(me_pet_trigger && me_pet["secondary_type"]=="heal")
+			me_life += (int)me_pet["secondary_amount"];
 		if(target_pet_trigger && target_pet["type"]=="heal")
 			target_life += (int)target_pet["amount"];
+		if(target_pet_trigger && target_pet["secondary_type"]=="heal")
+			target_life += (int)target_pet["secondary_amount"];
 		if(me_life>me_profile["life_max"])
 			me_life = me_profile["life_max"];
 		if(target_life>target_profile["life_max"])
@@ -1126,6 +1372,8 @@ void _clean_fight(){
 	this_object()->m_delete_foruser("/tmp/pk_fast_decision/running");
 	if(this_object()->is("player"))
 		PETD->reset_pet_combat_state(this_object());
+	if(this_object()->is("player"))
+		SPIRIT_COMPANIOND->reset_spirit_companion_combat_state(this_object());
 	this_object()->clean_tianxiang_star_marks();
 	this_object()->clean_lingyi_medicine_pacts();
 	if(this_object()->is("npc")){
@@ -1148,6 +1396,7 @@ void _clean_fight(){
 	this_object()->set_debuff("dot",0,"none");
 	this_object()->set_debuff("dot",1,0);
 	this_object()->set_debuff("dot",2,0);
+	clear_dot_source_runtime();
 	this_object()->set_debuff("curse",0,"none");
 	this_object()->set_debuff("curse",1,0);
 	this_object()->set_debuff("curse",2,0);
@@ -1204,8 +1453,11 @@ void escape(void|int change){
 //技能升级系统20070206//////////////////////////////////
 //熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 //而且，防止超出技能等级上限而溢出
-	void skills_level_check(string sname){
+	void skills_level_check(string sname,void|int test_gain_roll){
 		object skill;
+		int skill_level;
+		int required;
+		int gain_roll;
 		if(!sname || !this_object()->skills ||
 		   !this_object()->skills[sname])
 			return;
@@ -1220,20 +1472,27 @@ void escape(void|int change){
 		if(skill->query_skill_level_max)
 			cur_skills_level_limit =
 				(int)skill->query_skill_level_max();
-		//当前该用户该技能等级的熟练度大于该技能本身该等级的熟练度，则升级该用户的该技能等级
-		if(this_object()->skills[sname][1]>=
-		   skill->performs_shuliandu[this_object()->skills[sname][0]]){
-			//当前技能等级设定上限为10级
-			if(this_object()->skills[sname][0]<cur_skills_level_limit){
-				this_object()->skills[sname][0]++;
-				this_object()->skills[sname][1] = 0;
-			}
-		}
-		else{
+		skill_level = (int)this_object()->skills[sname][0];
+		required = (int)skill->performs_shuliandu[skill_level];
+		if(required<=0 || skill_level>=cur_skills_level_limit)
+			return;
+		if((int)this_object()->skills[sname][1]<required){
 			//技能升级速度降低一半
-			int tmp = random(3)+1;
-			if(tmp==2)
+			gain_roll = random(3)+1;
+			if(search((string)this_object()->query_name(),"testunit")!=-1 &&
+			   !zero_type(test_gain_roll))
+				gain_roll = (int)test_gain_roll;
+			if(gain_roll==2)
 				this_object()->skills[sname][1]++;
+		}
+		// 本次成功施放刚好把熟练度推到100%时立即升级，不再要求
+		// 再施放一次长CD技能；成长速度、门槛与等级上限均不改变。
+		if((int)this_object()->skills[sname][1]>=required){
+			this_object()->skills[sname][0] = skill_level+1;
+			this_object()->skills[sname][1] = 0;
+			tell_object(this_object(),"【技能精进】"+
+				(string)skill->query_name_cn()+"提升至"+(skill_level+1)+
+				"级。\n");
 		}
 	}
 //技能升级系统20070206//////////////////////////////////
@@ -1749,30 +2008,42 @@ private array(object) query_lingyi_room_aoe_targets(){
 	return result;
 }
 
-// 隐藏职业群攻只能命中已经进入施法者仇恨表的目标，不扫描房间扩大战斗，
-// 因而不会把路人、任务NPC、好友或同队玩家卷入。
+// 无相/太极群攻需要覆盖同房间的普通战斗NPC，不能只从施法者
+// 当前仇恨表取数（普通开战时该表通常只有一个目标）。玩家及其
+// 召唤物则必须已参与当前战斗，并继续保护同队、好友和同账号角色。
 private array(object) query_balanced_aoe_targets(){
 	array(object) result = ({});
-	array(object) candidates;
 	object caster = this_object();
 	object env = environment(caster);
 	if(!env || !caster->query_in_combat() || caster->get_cur_life()<=0)
 		return result;
-	candidates = caster->get_all_targets();
-	if(!candidates)
-		return result;
-	foreach(candidates,object candidate){
-		string npc_type;
-		if(!candidate || candidate==caster || environment(candidate)!=env ||
+	foreach(all_inventory(env),object candidate){
+		object owner;
+		object side;
+		if(!candidate || candidate==caster ||
+		   (functionp(candidate->is) && candidate->is("item")) ||
+		   !functionp(candidate->get_cur_life) ||
 		   candidate->get_cur_life()<=0 ||
 		   !LOGICALZONED->can_action("combat",caster,candidate) ||
-		   is_lingyi_aoe_team_ally(caster,candidate) ||
-		   is_lingyi_aoe_social_ally(caster,candidate))
+		   is_lingyi_aoe_team_ally(caster,candidate))
 			continue;
 		if(functionp(candidate->can_be_attacked) &&
 		   !candidate->can_be_attacked(caster))
 			continue;
-		if(candidate->is("npc")){
+		owner = SUMMOND->query_combat_credit_owner(candidate);
+		side = owner && owner!=candidate ? owner : candidate;
+		if(is_lingyi_aoe_social_ally(caster,side))
+			continue;
+		// 路人玩家与其召唤物不因“同房间”就被强制开战。
+		if(side->is("player") &&
+		   !is_lingyi_aoe_engaged_player(caster,side) &&
+		   !caster->if_in_targets(candidate) &&
+		   !candidate->if_in_targets(caster))
+			continue;
+		if(!side->is("player")){
+			string npc_type;
+			if(!candidate->is("npc"))
+				continue;
 			npc_type = candidate->query_npc_type();
 			if(candidate->_tasknpc || npc_type=="city_keeper" ||
 			   npc_type=="city_guarder" || npc_type=="city_lord")
@@ -1966,7 +2237,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			target->reduce_fight_wear_armor(1);
 		}
 	}
-	tell_object(caster,"你施放"+skill->query_name_cn()+"，药雾覆盖"+
+	tell_object(caster,"你施放"+skill->query_name_cn()+
+		(balanced ? "，群体攻势覆盖" : "，药雾覆盖")+
 		sizeof(targets)+"名合法目标；战斗小窗将保留本次战果。\n");
 	return sizeof(targets);
 }
@@ -3984,12 +4256,16 @@ private void heart_beat_action(){
 	}
 	else{
 		this_object()->timeCount++;
-		// 通用万灵不生成NPC；PVE按冷却协战，PVP按回合充能且每场限次。
+		// 共享宠物与本命灵伴共用唯一战斗位，不能叠加协战。
 		if(this_object()->is("player")){
-			PETD->perform_pet_combat_assist(this_object(),enemy);
-			// 山海万灵基础灵攻：每回合（每心跳）都可触发的免费小技能，
-			// 与主灵技冷却独立，仅 PVE 生效，提供宠物持续参与感。
-			PETD->perform_pet_basic_assist(this_object(),enemy);
+			if(SPIRIT_COMPANIOND->query_pet_battle_source(
+			   this_object())=="personal")
+				SPIRIT_COMPANIOND->perform_spirit_companion_combat_assist(
+					this_object(),enemy);
+			else{
+				PETD->perform_pet_combat_assist(this_object(),enemy);
+				PETD->perform_pet_basic_assist(this_object(),enemy);
+			}
 			// 灵医百草助手常态化：未挂机时也按 PVE 上下文自动施法。
 			// 挂机模式下 flushview 周期已处理，函数内部会跳过避免重复。
 			PROFESSIONVIPD->try_lingyi_active_combat_assist(this_object());
@@ -4025,34 +4301,12 @@ private void heart_beat_action(){
 		//在这儿可以读取自己身上的debuff映射表，来影响自身的状态
 		//
 		/////////////////////////////////////////////////////////
-		//如果身上有dot状态
+		// 持续伤害统一走可测试的单跳结算，并把真实扣血/护盾吸收反馈给
+		// 施法者和玩家目标；死亡仍由心跳外的既有兜底完成。
 		if(this_object()->query_debuff("dot",0)!="none"){
-			//掉血
-			int dot_damage = this_object()->absorb_team_guard_damage(
-				this_object()->query_debuff("dot",1));
-			int tmp_life=this_object()->get_cur_life()-dot_damage;
-			if(tmp_life<=0){
-				this_object()->set_life(0);
-				//敌人死亡，则把敌人从仇恨列表中清除
-				if(enemy && objectp(enemy))
-					enemy->clean_targets(this_object());
-				//自身心跳不能直接 fight_die（后台报错）。多数情况下一次
-				// 敌人心跳会检测到 0 血并触发 fight_die；但敌人若已离场
-				// （换区/下线/换目标），没人触发就会留下零血怪。call_out
-				// 兜底，dot_death 内会再校验 HP，复活时不重复触发。
-				if(zero_type(find_call_out(dot_death)))
-					call_out(dot_death,0);
+			mapping dot_tick = process_dot_tick();
+			if(dot_tick["defeated"])
 				return;
-			}
-			else {
-				//持续时间减1
-				this_object()->set_life(tmp_life);
-				int dot_time=this_object()->query_debuff("dot",2)-1; 
-				if(dot_time<=0) //dot持续时间结束，则去除dot状态
-					this_object()->clean_debuff("dot");
-				else
-					this_object()->set_debuff("dot",2,dot_time);
-			}
 		}
 		//如果身上有诅咒状态
 		if(this_object()->query_debuff("curse",0)!="none"){

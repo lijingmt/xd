@@ -15,8 +15,12 @@ int main(string|zero arg)
 	//int money = 0;
 	string s ="";
 	string c_log = "";//统计用的日志
-	sscanf(arg,"%s %d",roomName,yushi);
-	object room;
+	if(!arg || sscanf(arg,"%s %d",roomName,yushi)!=2 ||
+	   roomName!="sijiaxiaodian"){
+		write("店铺许可参数无效。\n[返回游戏:look]\n");
+		return 1;
+	}
+	yushi=200;
 	//string roomNameCn = room->query_name_cn();
 	//判断该玩家是否有家园
 	if(HOMED->if_have_home(masterId)){

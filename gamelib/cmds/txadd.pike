@@ -7,10 +7,14 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 
-private int give_recharge_bonus(object player)
+mapping(string:mixed) give_recharge_bonus_once(object player,
+	string request_id,int worker_fenced_save)
 {
 	object|zero box = 0;
 	object|zero token = 0;
+	int save_ok;
+	if(player->has_admin_recharge_bonus_receipt(request_id))
+		return (["ok":1,"duplicate":1,"saved":1]);
 	mixed err = catch{
 		box = clone(ITEM_PATH+"baoxiang/jingjinbaoxiang");
 		token = clone(ITEM_PATH+"bossdrop/huoyueqian");
@@ -20,7 +24,7 @@ private int give_recharge_bonus(object player)
 			destruct(box);
 		if(token)
 			destruct(token);
-		return 0;
+		return (["ok":0,"duplicate":0,"saved":0]);
 	}
 	token->amount = 5;
 	err = catch{
@@ -32,9 +36,56 @@ private int give_recharge_bonus(object player)
 			destruct(box);
 		if(token)
 			destruct(token);
-		return 0;
+		return (["ok":0,"duplicate":0,"saved":0]);
 	}
-	return 1;
+	if(!player->record_admin_recharge_bonus_receipt(request_id)){
+		destruct(box);
+		destruct(token);
+		return (["ok":0,"duplicate":0,"saved":0]);
+	}
+	save_ok = player->save_with_result(0,worker_fenced_save);
+	if(!save_ok){
+		player->rollback_admin_recharge_bonus_receipt(request_id);
+		if(box)
+			destruct(box);
+		if(token)
+			destruct(token);
+		return (["ok":0,"duplicate":0,"saved":0]);
+	}
+	return (["ok":1,"duplicate":0,"saved":1]);
+}
+
+mapping(string:mixed) execute_admin_recharge_target(object player,int fee,
+	string operator,string request_id,int worker_fenced_save)
+{
+	mapping wallet_result;
+	mapping bonus_result;
+	mapping referral_result;
+	if(!player)
+		return (["ok":0,"message":"没有这个游戏id"]);
+	wallet_result = ACCOUNT_WALLETD->credit_recharge_once(
+		player,fee,operator,request_id);
+	if(!(int)wallet_result["ok"])
+		return wallet_result;
+	// 管理员补单与正常后台充值共用同一请求凭据。首次入账或同请求
+	// 重试都会经过这里，由 REFERRALD 自行幂等记录半年返玉事件。
+	referral_result=REFERRALD->record_recharge_from_wallet(
+		(string)wallet_result["account_id"],request_id);
+	wallet_result["referral_ok"]=(int)referral_result["ok"];
+	wallet_result["referral_recorded"]=(int)referral_result["recorded"];
+	wallet_result["referral_duplicate"]=(int)referral_result["duplicate"];
+	wallet_result["referral_reward_amount"]=
+		(int)referral_result["reward_amount"];
+	wallet_result["referral_inviter_account"]=
+		(string)(referral_result["inviter_account"] || "");
+	wallet_result["referral_code"]=(string)(referral_result["code"] || "");
+	bonus_result = give_recharge_bonus_once(player,request_id,
+		worker_fenced_save);
+	wallet_result["bonus_ok"] = (int)bonus_result["ok"];
+	wallet_result["bonus_duplicate"] = (int)bonus_result["duplicate"];
+	wallet_result["player_saved"] = (int)bonus_result["saved"];
+	wallet_result["character_name_cn"] = (string)player->query_name_cn();
+	return wallet_result;
 }
 
 int main(string|zero arg)
@@ -54,6 +105,7 @@ int main(string|zero arg)
 
 	if(parsed<2){
 		name = arg || "";
+		name = String.trim_all_whites(name);
 		//s+="请输入充值的通宝数[string:txadd "+name+" ...]\n";
 		s += "充值将进入注册账号共享钱包，账号内所有职业可消费。\n";
 		s += "历史背包玉石和免费奖励仍归具体人物，不会自动迁移。\n";
@@ -69,6 +121,7 @@ int main(string|zero arg)
 		write("%s",s);
 		return 1;
 	}
+	name = String.trim_all_whites(name);
 	if(fe<=0 || fe>100000000){
 		write("充值金额无效。\n[返回:txadd "+name+"]\n");
 		return 1;
@@ -80,6 +133,21 @@ int main(string|zero arg)
 		s += "请最后确认本次充值：\n";
 		s += "注册账号："+account_id+"\n";
 		s += "选择人物："+name+"（仅用于接收附赠物）\n";
+		if(MAP_WORKERD->query_node_role()=="worker"){
+			mapping online_status = HTTP_APID->
+				query_map_worker_cluster_online_users();
+			string located_worker = "";
+			if(online_status["ok"] && arrayp(online_status["users"]))
+				foreach((array)online_status["users"],mapping row)
+					if((string)row["userid"]==name){
+						located_worker = (string)row["worker_id"];
+						break;
+					}
+			s += located_worker!="" ?
+				"当前在线进程："+located_worker+
+				"（确认后由协调器自动路由）\n" :
+				"当前状态：离线（确认后由主worker安全加载并存档）\n";
+		}
 		s += "共享入账："+fe+"元（"+
 			YUSHID->get_yushi_for_desc(fe*10)+"）\n";
 		s += "账号内所有职业共享消费，重复点击同一确认链接不会重复入账。\n";
@@ -93,59 +161,83 @@ int main(string|zero arg)
 		return 1;
 	}
 	else{
-		object player = find_player(name);
-		if(!player)
-		{
-			player=this_player()->load_player(name);
-			remove_flag=1;                                                                                      
+		object|zero player = 0;
+		mapping wallet_result;
+		string target_name_cn = name;
+		if(MAP_WORKERD->query_node_role()=="worker")
+			wallet_result = HTTP_APID->execute_map_worker_admin_recharge(
+				manager,name,fe,request_id);
+		else{
+			player = find_player(name);
+			if(!player){
+				player=this_player()->load_player(name);
+				remove_flag=1;
+			}
+			if(player)
+				wallet_result = execute_admin_recharge_target(player,fe,
+					manager->query_name(),request_id,0);
+			else
+				wallet_result = (["ok":0,"message":"没有这个游戏id"]);
 		}
-		if(!player && (remove_flag==1)){
+		if(!mappingp(wallet_result) || !wallet_result["ok"]){
 			s += "没有这个游戏id，请核对后再查。\n";
+			if(mappingp(wallet_result) && wallet_result["message"])
+				s = (string)wallet_result["message"]+"\n";
 			s += "[返回上级:mgr_usr_data "+name+"]\n";
 			s += "[返回管理主界面:game_deal]\n";
 			s+="[返回游戏:look]\n";
+			if(remove_flag && player)
+				player->net_dead();
 			write("%s",s);
 			return 1;
 		}
-		if(player){
-			mapping wallet_result = ACCOUNT_WALLETD->credit_recharge_once(
-				player,fe,manager->query_name(),request_id);
-			if(!wallet_result["ok"]){
-				s += (string)(wallet_result["message"] ||
-					"共享充值失败，本次没有入账")+"\n";
-				if(remove_flag)
-					player->net_dead();
-				s += "[返回:mgr_usr_data "+name+"]\n";
-				s += "[返回管理主界面:game_deal]\n";
-				s += "[返回游戏:look]\n";
-				write("%s",s);
-				return 1;
-			}
+		{
 			int duplicate = (int)wallet_result["duplicate"];
-			int bonus_ok = duplicate ? 1 : give_recharge_bonus(player);
-			int save_ok = duplicate ? 1 : player->save_with_result();
+			int bonus_ok = (int)wallet_result["bonus_ok"];
+			int save_ok = (int)wallet_result["player_saved"];
+			int bonus_duplicate = (int)wallet_result["bonus_duplicate"];
+			int referral_ok = (int)wallet_result["referral_ok"];
+			int referral_recorded = (int)wallet_result["referral_recorded"];
+			int cache_refresh_ok = !has_index(wallet_result,"cache_refresh_ok") ||
+				(int)wallet_result["cache_refresh_ok"];
 			string account_id = (string)wallet_result["account_id"];
+			if((string)wallet_result["character_name_cn"]!="")
+				target_name_cn = (string)wallet_result["character_name_cn"];
 			string lgs = "操作人："+manager->name+"|"+
-				manager->name_cn+"||||"+name+"|"+player->name_cn;
+				manager->name_cn+"||||"+name+"|"+target_name_cn;
 			lgs += "|充值："+(fe)+"|附赠："+bonus_ok+
-				"|人物存档："+save_ok+"|\n";
+				"|邀请奖励凭据："+referral_recorded+
+				"|人物存档："+save_ok+
+				"|worker："+(string)(wallet_result["worker_id"] || "standalone")+
+				"|request："+request_id+"|\n";
 			s = "注册账号："+account_id+"\n";
 			s += "本次指定人物："+name+"（附赠物发到此人物）\n";
 			s += "共享充值："+fe+"元，入账"+
 				YUSHID->get_yushi_for_desc((int)wallet_result["amount"])+"\n";
 			s += "账号共享余额："+
 				YUSHID->get_yushi_for_desc((int)wallet_result["balance"])+"\n";
-			s += duplicate ?
-				"该确认请求此前已经成功处理，本次未重复入账或发放附赠物。\n" :
+			if(referral_recorded)
+				s += "该账号的邀请人已自动收到这笔10%仙玉奖励，可在“我的邀请”中查看。\n";
+			else if(!referral_ok)
+				s += "邀请奖励凭据暂未写入，请保留同一确认链接安全重试。\n";
+			s += duplicate && bonus_duplicate ?
+				"该确认请求此前已经完整处理，本次未重复入账或发放附赠物。\n" :
 				(bonus_ok && save_ok ?
-				"充值附赠物已发到指定人物。\n" :
+				(duplicate ?
+				"共享入账此前已完成，本次已补齐且仅补发一次附赠物。\n" :
+				"充值附赠物已发到指定人物。\n") :
 				"充值已入账，但附赠物发放或人物存档失败，请按日志核对补发。\n");
+			if(!cache_refresh_ok)
+				s += "充值已经安全入账，但部分Worker缓存刷新未确认。\n";
+			if(!bonus_ok || !save_ok || !cache_refresh_ok || !referral_ok)
+				s += "[用同一凭据安全重试:txadd "+name+" "+fe+" "+
+					request_id+"]\n";
 			string now = ctime(time());
-			if(!duplicate)
+			if(!duplicate || !bonus_duplicate)
 				Stdio.append_file(ROOT+"/log/manage_addfee.log",
 					now[0..sizeof(now)-2]+"|"+lgs);
-			//s += "通宝数 "+(fe*10)+" 充值成功，请返回。\n";
-			s += "账号共享充值成功，请返回。\n";
+			if(bonus_ok && save_ok && cache_refresh_ok)
+				s += "账号共享充值完整成功，请返回。\n";
 		}
 		if(remove_flag){
 			//player->remove();	

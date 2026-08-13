@@ -147,8 +147,11 @@ assert(
 );
 
 assert(
-  html.includes("'has-header-pet': !!headerPet"),
-  'header must compact cleanly when the current character has no active pet'
+  html.includes("'has-header-pet': !!headerPetSlots") &&
+  html.includes('class="header-pet-slots"') &&
+  responsiveCss.includes('.game-header.has-header-pet') &&
+  responsiveCss.includes('grid-template-columns: 44px 66px minmax(0, 1fr) 38px'),
+	'header must reserve two distinct shared/personal pet slots without crowding player stats'
 );
 assert(
   responsiveCss.includes('Compact status header v3') &&

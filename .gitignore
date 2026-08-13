@@ -3,6 +3,7 @@ log/
 db_bak/
 db_log/
 tmp/
+.include/
 **/__pycache__/
 *.py[cod]
 .claude/scheduled_tasks.lock

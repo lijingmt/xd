@@ -104,14 +104,46 @@ int is_event_room(object room)
 private int internal_move_player(object player,object room)
 {
 	int moved;
+	mixed move_err;
 	if(!player || !room)
 		return 0;
 	player["/tmp/timed_event_move_bypass"] = 1;
-	moved = player->move(room);
+	move_err = catch { moved = player->move(room); };
 	player->m_delete_foruser("/tmp/timed_event_move_bypass");
-	if(moved && functionp(player->reset_view))
+	if(!move_err && moved && functionp(player->reset_view))
 		player->reset_view();
-	return moved && environment(player)==room;
+	return !move_err && moved && environment(player)==room;
+}
+
+private string event_ingress_path(string event_id)
+{
+	if(event_id==EVENT_TIANHENG)
+		return "/gamelib/d/timed_event/tianheng_ingress.pike";
+	if(event_id==EVENT_JIUYAO)
+		return "/gamelib/d/timed_event/jiuyao_ingress.pike";
+	return "";
+}
+
+/**
+ * Request a normal fenced move to a reconstructable event ingress. A remote
+ * move reports logical success while the gateway saves/retires this copy; a
+ * local move really lands in the room. Both cases are intentionally accepted.
+ */
+private int route_player_to_event_ingress(object player,string event_id)
+{
+	string path = event_ingress_path(event_id);
+	object room;
+	int moved;
+	mixed move_err;
+	if(!player || path=="")
+		return 0;
+	move_err = catch { room = (object)(ROOT+path); };
+	if(move_err || !room)
+		return 0;
+	player["/tmp/timed_event_move_bypass"] = 1;
+	move_err = catch { moved = player->move(room); };
+	player->m_delete_foruser("/tmp/timed_event_move_bypass");
+	return !move_err && moved;
 }
 
 int guard_player_move(object player,mixed destination)
@@ -341,6 +373,7 @@ private int claim_participant_reward(mapping session,string user_id,
 	string claim_id;
 	int actual_exp = 0;
 	int save_ok = 1;
+	int newly_credited = 0;
 	if(!player || !mappingp(participant) ||
 	   (int)participant["reward_claimed"] ||
 	   !mappingp(participant["reward"]))
@@ -351,6 +384,7 @@ private int claim_participant_reward(mapping session,string user_id,
 	claim_id = query_session_key(session);
 	receipt = claims[claim_id];
 	if(!mappingp(receipt)){
+		newly_credited = 1;
 		if((int)reward["exp"]>0)
 			actual_exp = player->add_exp_with_bonus((int)reward["exp"]);
 		if((int)reward["money"]>0)
@@ -386,11 +420,26 @@ private int claim_participant_reward(mapping session,string user_id,
 		tell_object(player,"活动奖励已进入待保存状态，系统会在存档成功后自动确认，请勿重复操作。\n");
 		return 0;
 	}
-	participant["reward_claimed"] = 1;
-	tell_object(player,"【"+(string)reward["message"]+"】经验+"+
-		(string)actual_exp+"，金币+"+(string)reward["money"]+
-		"，活动令+"+(string)reward["tokens"]+"。\n");
-	save_event_state();
+	// The player receipt is the anti-duplication authority. Once that record is
+	// durable, report the credit even if the owner's global acknowledgement
+	// needs a later retry.
+	if(newly_credited)
+		tell_object(player,"【"+(string)reward["message"]+"】经验+"+
+			(string)actual_exp+"，金币+"+(string)reward["money"]+
+			"，活动令+"+(string)reward["tokens"]+"。\n");
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !local_timed_event_owner()){
+		if(!stage_reward_claim_ack(session,user_id))
+			return newly_credited;
+		participant["reward_claimed"] = 1;
+	}
+	else{
+		participant["reward_claimed"] = 1;
+		if(!save_event_state()){
+			participant["reward_claimed"] = 0;
+			return newly_credited;
+		}
+	}
 	return 1;
 }
 
@@ -434,10 +483,15 @@ int restore_player(object player)
 	string node;
 	if(!player)
 		return 0;
+	refresh_readonly_event_snapshot();
 	claim_all_pending(player);
 	session = query_session_for_user_id(player->query_name(),1);
 	if(!session)
 		return 0;
+	if(MAP_WORKERD->query_node_role()=="worker" &&
+	   !local_timed_event_owner())
+		return route_player_to_event_ingress(player,
+			(string)session["event_id"]);
 	participant = session["participants"][player->query_name()];
 	if(!mappingp(participant)){
 		werror("[timed_event] restore_player failed: %s not in session participants\n",

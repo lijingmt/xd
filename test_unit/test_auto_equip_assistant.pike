@@ -2,7 +2,8 @@
 /**
  * 新手自动穿装助手测试：
  * 建角接线 -> 十职业一级初始装备 -> 最优空位选择 ->
- * 现有装备保护 -> 穿戴限制 -> 双手武器冲突 -> 空背包。
+ * 现有装备保护 -> 智能同槽替换 -> 养成装备保护 -> 穿戴限制 ->
+ * 双手武器冲突 -> 空背包。
  */
 
 #include <globals.h>
@@ -265,6 +266,85 @@ void test_equip_restrictions()
 	destroy_runtime_player(player);
 }
 
+void test_smart_replace_and_equal_guard()
+{
+	test_start("智能模式只替换同槽严格更强装备且同分不替换");
+	object assistant = load_assistant();
+	object player = create_runtime_player(
+		"__testunit_auto_smart__","third","fangshi",20);
+	object old_cloth = clone(
+		ROOT+"/gamelib/clone/item/armor/2cubuyi/2cubuyi");
+	object strong_cloth = clone(
+		ROOT+"/gamelib/clone/item/armor/2cubuyi/2cubuyi");
+	object old_shoes = clone(
+		ROOT+"/gamelib/clone/item/armor/2caoxie/2caoxie");
+	object equal_shoes = clone(
+		ROOT+"/gamelib/clone/item/armor/2caoxie/2caoxie");
+	string error_desc = "";
+	mapping result = ([]);
+	mixed err = catch {
+		old_cloth->set_equip_defend(10);
+		strong_cloth->set_equip_defend(100);
+		old_shoes->set_equip_defend(50);
+		equal_shoes->set_equip_defend(50);
+		old_cloth->move(player);
+		strong_cloth->move(player);
+		old_shoes->move(player);
+		equal_shoes->move(player);
+		player->wear(old_cloth);
+		player->wear(old_shoes);
+		result = assistant->auto_replace_player(player);
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && strong_cloth->equiped && !old_cloth->equiped &&
+	   old_shoes->equiped && !equal_shoes->equiped &&
+	   sizeof(result["replaced"]) == 1 &&
+	   (int)result["rejected"]["not_stronger"] >= 1)
+		test_pass();
+	else
+		test_fail("严格更强替换或同分保护失败: "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_smart_investment_and_broken_protection()
+{
+	test_start("智能模式保护稀有养成装备并拒绝零耐久候选");
+	object assistant = load_assistant();
+	object player = create_runtime_player(
+		"__testunit_auto_invested__","third","fangshi",20);
+	object rare_cloth = clone(
+		ROOT+"/gamelib/clone/item/armor/2cubuyi/2cubuyi");
+	object candidate_cloth = clone(
+		ROOT+"/gamelib/clone/item/armor/2cubuyi/2cubuyi");
+	object broken_shoes = clone(
+		ROOT+"/gamelib/clone/item/armor/2caoxie/2caoxie");
+	string error_desc = "";
+	mapping result = ([]);
+	mixed err = catch {
+		rare_cloth->set_item_rareLevel(1);
+		rare_cloth->set_equip_defend(10);
+		candidate_cloth->set_equip_defend(500);
+		broken_shoes->item_dura = 10;
+		broken_shoes->item_cur_dura = 0;
+		rare_cloth->move(player);
+		candidate_cloth->move(player);
+		broken_shoes->move(player);
+		player->wear(rare_cloth);
+		result = assistant->auto_replace_player(player);
+	};
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && rare_cloth->equiped && !candidate_cloth->equiped &&
+	   !broken_shoes->equiped &&
+	   (int)result["invested_protected"] == 1 &&
+	   (int)result["rejected"]["broken"] >= 1)
+		test_pass();
+	else
+		test_fail("养成装备或耐久保护失败: "+error_desc);
+	destroy_runtime_player(player);
+}
+
 void test_two_hand_weapon_conflict()
 {
 	test_start("双手武器不会与主手、副手同时装备");
@@ -341,6 +421,8 @@ int main()
 	test_all_professions_starter_equipment();
 	test_best_item_and_existing_protection();
 	test_equip_restrictions();
+	test_smart_replace_and_equal_guard();
+	test_smart_investment_and_broken_protection();
 	test_two_hand_weapon_conflict();
 	test_empty_inventory();
 	print_summary();

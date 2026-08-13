@@ -1,7 +1,7 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit WAP_ARMOR;
-protected protected protected void create(){
+protected void create(){
 	name=object_name(this_object());
 	name_cn="【妖】妖羽护手";
 	unit="副";

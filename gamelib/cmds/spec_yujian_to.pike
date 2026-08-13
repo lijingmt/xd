@@ -10,6 +10,10 @@ int main(string|zero arg)
 		me->command("attack");
 		return 1;
 	}
+	if(me->get_cur_mofa()<300){
+		write("没有足够的法力施放御剑术。\n[返回:myskills]\n");
+		return 1;
+	}
 	if(me["/spec_skill/coldtime"]>time()){
 		s += "技能尚未冷却\n";
 		s += "[返回:myskills]\n";
@@ -18,7 +22,9 @@ int main(string|zero arg)
 	}
 	else{
 		to = find_player(arg);
-		if(to && !LOGICALZONED->can_interact(me,to))
+		if(to && (!LOGICALZONED->can_interact(me,to) ||
+		   me->query_term()=="" || me->query_term()=="noterm" ||
+		   to->query_term()!=me->query_term()))
 			to = 0;
 		if(to){
 			object env = environment(to);
@@ -34,7 +40,7 @@ int main(string|zero arg)
 					return 1;
 
 				}
-				object room = clone(path);
+				object room = env;
 				array(string) tmp = path/"/";
 				int num = sizeof(tmp);
 				string roomName = tmp[num-2];
@@ -61,12 +67,16 @@ int main(string|zero arg)
 						s += "[返回游戏:look]\n";
 						write(s);
 					}
-					else{          
-						if(me->if_in_home())//如果玩家是在某个home中
-						{
-							HOMED->clear_user(me);//清除相关的信息 Evan 2008.09.21
+					else{
+						int was_in_home = me->if_in_home();
+						int moved;
+						mixed move_err = catch { moved = me->move(path); };
+						if(move_err || !moved){
+							write("御剑失败，目的地暂时无法到达。\n[返回游戏:look]\n");
+							return 1;
 						}
-						me->move(path);
+						if(was_in_home)
+							HOMED->clear_user(me);
 						me->set_mofa(me->get_cur_mofa()-300);
 						me["/spec_skill/coldtime"] = time()+SPEC;
 						me->reset_view();

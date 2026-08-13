@@ -19,20 +19,26 @@ int main(string|zero arg)
 	}
 	int rs;
 	object ob = find_player(arg);
-	if(!ob || !LOGICALZONED->can_interact(me,ob)){
+	mapping team = TERMD->query_term_m(me->query_term());
+	array remote_member = arrayp(team[arg]) ? (array)team[arg] : ({});
+	if((!ob && !sizeof(remote_member)) ||
+	   !LOGICALZONED->can_user_action("team",me->query_name(),arg)){
 		s += "该队员不在线，请返回。\n";
 		s += "[返回游戏:look]\n";
 		write(s);
 		return 1;
 	}
 	else{
-		rs = TERMD->kick_termer(me->query_term(), ob->query_name(), ob->query_name_cn());
+		string target_name = ob ? ob->query_name() : arg;
+		string target_name_cn = ob ? ob->query_name_cn() :
+			(string)remote_member[0];
+		rs = TERMD->kick_termer(me->query_term(),target_name,target_name_cn);
 		switch(rs){
 			case 0:
-				s += "移出队员 "+ob->query_name_cn()+" 失败\n";
+				s += "移出队员 "+target_name_cn+" 失败\n";
 				break;
 			case 1:
-				s += "成功移出队员 "+ob->query_name_cn()+"\n";
+				s += "成功移出队员 "+target_name_cn+"\n";
 				//刷新队伍
 				TERMD->flush_term(me->query_term());
 				break;

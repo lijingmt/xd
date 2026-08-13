@@ -383,6 +383,61 @@ void test_wiring_and_duration_clamp()
 		destruct(summon);
 }
 
+void test_worker_handoff_preserves_expiry_and_hp_ratio()
+{
+	test_start("跨worker仅恢复一次召唤且不延长时长或刷新生命");
+	string name = "__testunit_summon_worker_handoff__";
+	object player = create_player(name,"third","fangshi",60);
+	object room = clone(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object|zero tiger = 0;
+	mapping snapshot = ([]);
+	int restored = 0;
+	int restored_count = 0;
+	int restored_life = 0;
+	int restored_life_max = 0;
+	int restored_remaining = 0;
+	string error_desc = "";
+
+	mixed err = catch {
+		player->skills["huling"] = ({2,0});
+		player->move(room);
+		tiger = SUMMOND->summon_creature(name,"huling",999,999);
+		if(tiger){
+			tiger->set_life(max(1,tiger->query_life_max()/3));
+			snapshot = SUMMOND->snapshot_worker_handoff(player);
+			SUMMOND->dismiss_all(name);
+			restored = SUMMOND->restore_worker_handoff(player,snapshot);
+			mapping summons = SUMMOND->get_player_summons(name);
+			tiger = summons["huling"];
+			restored_count = SUMMOND->get_current_summon_count(name);
+			if(tiger){
+				restored_life = tiger->get_cur_life();
+				restored_life_max = tiger->query_life_max();
+				restored_remaining = tiger->query_summon_remaining();
+			}
+		}
+	};
+	if(err)
+		error_desc = describe_error(err);
+
+	if(!err && restored==1 && restored_count==1 && tiger &&
+	   restored_life>0 && restored_life_max>0 &&
+	   restored_life*100/restored_life_max>=32 &&
+	   restored_life*100/restored_life_max<=34 &&
+	   restored_remaining>0 && restored_remaining<=720)
+		test_pass();
+	else
+		test_fail(sprintf(
+			"恢复=%d/%d 生命=%d/%d 剩余=%d: %s",
+			restored,restored_count,restored_life,restored_life_max,
+			restored_remaining,error_desc));
+
+	destroy_player(player);
+	if(room)
+		destruct(room);
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -399,6 +454,7 @@ int main()
 	test_target_switch_and_turtle_taunt();
 	test_pvp_credit_and_owner_death();
 	test_wiring_and_duration_clamp();
+	test_worker_handoff_preserves_expiry_and_hp_ratio();
 	print_summary();
 	return test_results["failed"] == 0 ? 0 : 1;
 }

@@ -80,6 +80,25 @@ string query_room(int level)
 		return "";
 }
 
+/** Return an isolated, deterministic room catalog for owner-aware refreshers. */
+array(string) query_rooms(int level_min,int level_max)
+{
+	array(string) result = ({});
+	mapping(string:int) seen = ([]);
+	if(level_min<0 || level_max<level_min || level_max>10000 ||
+	   level_max-level_min>5000)
+		return result;
+	for(int level=level_min;level<=level_max;level++)
+		if(arrayp(room_level[level]))
+			foreach(room_level[level],string room)
+				if(room!="" && !seen[room]){
+					seen[room] = 1;
+					result += ({room});
+				}
+	sort(result);
+	return result;
+}
+
 string query_room_quick(string room_name)
 {
 	if(quick_room_level[room_name] && sizeof(quick_room_level[room_name]))

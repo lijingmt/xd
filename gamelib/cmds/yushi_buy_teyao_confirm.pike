@@ -22,6 +22,7 @@ private mapping(string:array(int)) teyao_catalog = ([
 	"duxiaosan":({1,8,0,0}),
 	"wuweisan":({2,4,0,0}),
 ]);
+
 //确认玉石购买的某药品
 //arg =   name       yushi_rareLevel    need_amount       buy_num
 //     药品文件名    所需玉石的稀有度   玉石的个数  购买的个数
@@ -52,7 +53,7 @@ int main(string|zero arg)
 	need_money=product[2];
 	flag=product[3];
 	if(flag==0)
-		sscanf(s_buy_num,"no=%d",buy_num);
+		buy_num=SHOP_BATCHD->parse_count(s_buy_num);
 	else buy_num = 1;
 	object teyao;
 	string need_yushi = YUSHID->get_yushi_name(rarelevel);
@@ -75,8 +76,8 @@ int main(string|zero arg)
 	}
 	//end
 	//必要的判断
-	if(buy_num<1 || buy_num>20)
-		s += "输入有误！购买个数必须在1到20之间\n";
+	if(buy_num<1 || buy_num>SHOP_BATCHD->query_hard_max())
+		s += "输入有误！购买个数必须在1到100之间\n";
 	else if(can_num<=0 || can_num<buy_num)
 		s += "身上玉石或者黄金不够，你无法购买指定数目的此类药品\n";
 	else{
@@ -103,26 +104,51 @@ int main(string|zero arg)
 			teyao = clone(TEYAO_PATH+teyao_name);
 		};
 		if(!err && teyao){
-			teyao->amount = buy_num;
-			if(me->if_over_load(teyao)){
+			if(SHOP_BATCHD->query_capacity(me,teyao,0)<buy_num){
 				s += "你的随身物品已满，无法再装下更多\n";
 				destruct(teyao);
 			}
 			else{
 				int cost_reb = need_amount*buy_num*yushi_value;
+				int before_wallet=ACCOUNT_WALLETD->query_balance(me);
+				int before_physical=YUSHID->query_physical_all_num(me);
 				if(!YUSHID->pay_yushi(me,cost_reb)){
 					s += "玉石扣除失败，请稍后再试\n";
 					destruct(teyao);
 				}
 				else{
-					me->del_account(need_money);
-					s += "交易成功，你获得了"+teyao->query_short()+"\n";
-					string teyao_namecn = teyao->query_name_cn();
+					me->del_account(need_money*buy_num);
+					string teyao_short=(string)teyao->query_short();
+					string teyao_namecn=(string)teyao->query_name_cn();
+					destruct(teyao);
+					teyao=0;
+					mapping delivery=SHOP_BATCHD->deliver(me,
+						"teyao/"+teyao_name,buy_num,0);
+					int delivery_saved=(int)delivery["ok"] &&
+						me->save_with_result();
+					if(!delivery_saved){
+						int inventory_rollback=(int)delivery["ok"] ?
+							SHOP_BATCHD->rollback(me,delivery) :
+							(int)delivery["rollback_ok"];
+						me->add_account(need_money*buy_num);
+						int payment_rollback=YUSHID->rollback_yushi_payment(
+							me,before_wallet,before_physical,
+							"teyao_delivery_failed");
+						int rollback_saved=me->save_with_result();
+						if(!inventory_rollback || !payment_rollback ||
+						   !rollback_saved)
+							s += "药品发放和退款异常，请立即联系客服\n";
+						else
+							s += "药品发放失败，费用已退回\n";
+						write(s+"[返回:yushi_buy_teyao_list exp]\n[返回游戏:look]\n");
+						return 1;
+					}
+					s += "交易成功，你获得了"+teyao_namecn+" × "+
+						buy_num+"\n";
 					string consume_time = MUD_TIMESD->get_mysql_timedesc();
 					string cost = ""+(need_amount*buy_num)+"|"+need_yushi;
 					//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','teyao','"+cost+"','"+teyao_name+"',"+buy_num+",'"+teyao_namecn+"',"+cost_reb+");\n";
 					c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"][teyao]["+teyao_name+"]["+teyao_namecn+"]["+buy_num+"]["+cost_reb+"]["+flag+"]\n";
-					teyao->move_player(me->query_name());
 					if(flag==1)
 						me->get_once_day[teyao_name] = 1;
 				}

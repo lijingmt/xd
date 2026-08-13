@@ -16,7 +16,7 @@ program connect()
 	return login_ob;
 }
 array hosts_list;
-protected protected void create(){
+protected void create(){
 	// Load hosts list
 	hosts_list=filter(Stdio.read_file(SROOT+"/etc/hosts_list")/"\n",`!=,"");
 
@@ -29,9 +29,24 @@ protected protected void create(){
 void load_daemons()
 {
 	array files = get_dir(ROOT+"/gamelib/single/daemons");
+	string node_role = lower_case(getenv("XIAND_NODE_ROLE") || "standalone");
+	int map_worker_node = node_role=="gateway" || node_role=="worker";
 	werror("[MASTER] get_dir() returned %d files\n", sizeof(files));
 	foreach(files,string s){
 		string full_path = ROOT+"/gamelib/single/daemons/"+s;
+		// A map worker must not eagerly start another copy of every global
+		// scheduler (auction, ranking, boss, cron, etc.).  The small allow-list
+		// also contains room-affinity schedulers: they wait for the assignment
+		// snapshot and mutate only rooms owned by this worker.
+		// Standalone startup remains byte-for-byte compatible.
+		array(string) node_daemons = node_role=="worker" ?
+			({"map_workerd.pike","http_api_daemon.pike","roomLeveld.pike",
+			  "kuangd.pike","caoyaod.pike","timed_eventd.pike"}) :
+			({"map_workerd.pike","http_api_daemon.pike"});
+		if(map_worker_node && !has_value(node_daemons,s)){
+			werror("[MASTER] Map-worker node skipping eager daemon: %s\n",s);
+			continue;
+		}
 		// 只加载文件，跳过目录
 		if(Stdio.is_dir(full_path)) {
 			werror("[MASTER] Skipping directory: %s\n", s);

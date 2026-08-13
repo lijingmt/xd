@@ -4,7 +4,7 @@ int main(int argc, array(string) argv){
 //头部信息
 templates["include"]="#include <globals.h>\n#include <gamelib/include/gamelib.h>\ninherit MUD_SKILL;\ninherit WAP_F_VIEW_PICTURE;\nmapping(int:int) performs_attack=([]);\nmapping(int:int) performs_per=([]);\nmapping(int:int) performs_cast=([]);\narray(string) skill_type=({});\nmapping(int:array(int)) performs_mofa_attack=([]);\nmapping(int:string) performs_desc=([]);\n";
 
-templates["head"]="void create(){\n\tname=object_name(this_object());\n";
+templates["head"]="protected void create(){\n\tname=object_name(this_object());\n";
 
 templates["技能名称"]="\tname_cn=\"$1\";\n";
 templates["技能描述"]="\tdesc=\"$1\";\n";

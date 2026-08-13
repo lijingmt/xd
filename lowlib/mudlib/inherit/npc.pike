@@ -341,6 +341,53 @@ void setup_npc_dongtai(object player){
 	//得到该等级的npc基本属性值
 	npc_level_define_dongtai(player);
 }
+
+// 动态怪在 100 级以前保持原始属性，120 级以后仍使用历史的
+// player_defense^0.3 整数倍率。101-119 级只负责平滑衔接两端，
+// 避免 100->101 级时普通怪属性突然跳成数倍或数十倍。
+int query_dynamic_npc_defense_scale(int npc_level,int player_defense){
+	int target_multiplier;
+	int target_scale;
+	int transition_level;
+	float transition_ratio;
+	if(npc_level<=100)
+		return 1000;
+	if(player_defense<0)
+		player_defense = 0;
+	target_multiplier = (int)pow(player_defense,0.3);
+	if(target_multiplier<1)
+		target_multiplier = 1;
+	target_scale = target_multiplier*1000;
+	if(npc_level>=120)
+		return target_scale;
+	transition_level = npc_level-100;
+	transition_ratio = (float)transition_level/(float)20;
+	return (int)(pow((float)target_multiplier,transition_ratio)*1000);
+}
+
+// 101-121 级玩家处在战力衔接带，怪物战斗属性仍在 120 级恢复历史
+// 倍率，但生命值延后到 122 级才恢复。这样只降低战斗时长，不改变
+// 命中、伤害、奖励、自定义血量及 122 级以后的既有数值。
+int query_dynamic_npc_life_scale(int npc_level,int player_defense){
+	int target_multiplier;
+	int target_scale;
+	int transition_level;
+	float transition_ratio;
+	if(npc_level<=100)
+		return 1000;
+	if(player_defense<0)
+		player_defense = 0;
+	target_multiplier = (int)pow(player_defense,0.3);
+	if(target_multiplier<1)
+		target_multiplier = 1;
+	target_scale = target_multiplier*1000;
+	if(npc_level>=122)
+		return target_scale;
+	transition_level = npc_level-100;
+	transition_ratio = (float)transition_level/(float)22;
+	return (int)(pow((float)target_multiplier,transition_ratio)*1000);
+}
+
 //该方法自动根据npc类型和等级，生成该Npc基本属性值,给动态地图使用
 void npc_level_define_dongtai(object player){
 	int npcLevel = _npcLevel-1;
@@ -505,28 +552,32 @@ void npc_level_define_dongtai(object player){
 				*/
 		}
 
-		int plus_add = (int) pow(player->query_defend_power(),0.3);//根据玩家防御度增加npc的强度
-		if(npcLevel < 100){
-			plus_add = 1;
-		}
-		if(plus_add){//玩家自身防御调整npc强度
-			_str = _str*plus_add;
-			_dex = _dex*plus_add;//敏捷
-			_think = _think*plus_add;//智力
-			_lunck = plus_add*10;//幸运
-		}
+		int player_defense = 0;
+		if(player && functionp(player->query_defend_power))
+			player_defense = player->query_defend_power();
+		int defense_scale = query_dynamic_npc_defense_scale(
+			_npcLevel,player_defense);
+		int life_scale = query_dynamic_npc_life_scale(
+			_npcLevel,player_defense);
+		int life_strength = _str*life_scale/1000;
+		_str = _str*defense_scale/1000;
+		_dex = _dex*defense_scale/1000;//敏捷
+		_think = _think*defense_scale/1000;//智力
+		_lunck = defense_scale/100;//幸运
 		//精英怪和boss怪的处理，分别是精英*2,boss*3
 		if(_meritocrat==1){
 			_str = _str*3;
 			_dex = _dex*3;//敏捷
 			_think = _think*3;//智力
+			life_strength = life_strength*3;
 		}
 		else if(_boss==1){
 			_str = _str*6;
 			_dex = _dex*6;//敏捷
 			_think = _think*6;//智力
+			life_strength = life_strength*6;
 		}
-		life = _str*10;//生命=生命上限
+		life = life_strength*10;//生命=生命上限
 		life_max = life;
 		mofa = _think*10;//法力=法力上限
 		mofa_max = mofa;

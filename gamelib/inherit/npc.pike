@@ -308,6 +308,8 @@ void fight_die()
 							PETD->record_pet_hunt_kill(termer,this_object());
 							PETD->record_pet_combat_xp(termer,this_object());
 							PETD->record_pet_pve_kill(termer,this_object());
+							SPIRIT_COMPANIOND->record_spirit_companion_combat_xp(
+								termer,this_object());
 
 							//根据玩家等级获得计算后的应得经验值
 							//如果玩家等级大于该npc等级的获得计算
@@ -805,6 +807,8 @@ void fight_die_single(object env)
 		PETD->record_pet_hunt_kill(first,this_object());
 		PETD->record_pet_combat_xp(first,this_object());
 		PETD->record_pet_pve_kill(first,this_object());
+		SPIRIT_COMPANIOND->record_spirit_companion_combat_xp(
+			first,this_object());
 		//不是团队杀死怪物，是个人杀死/////////////////////////
 		int npclevel = this_object()->query_level();//npc等级
 		int melevel = first->query_level();//player等级

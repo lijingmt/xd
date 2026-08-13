@@ -1,0 +1,28 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_COMBINE_ITEM;
+
+protected void create()
+{
+	name = object_name(this_object());
+	name_cn = "太古传承择卷";
+	unit = "枚";
+	desc = "珍贵的绑定传承奖励。可先查看当前职业全部太古传承的名称、品阶与说明，二次确认后指定一本技能书；技能书仍按原有等级、职业和重复学习规则使用。\n";
+	value = 0;
+	amount = 1;
+	max_count = 999;
+	picture = name;
+	set_item_canEquip(0);
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(0);
+	set_item_level(1);
+}
+
+string query_inventory_links(void|int count)
+{
+	return ::query_inventory_links(count)+
+		"[选择本职业太古技能:ancient_skill_choice]";
+}

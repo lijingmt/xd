@@ -133,10 +133,11 @@
 #define DIAOCHAD ((object)(ROOT "/gamelib/single/daemons/diaochad"))
 //附加技能上限
 #define VICESKILL_UP 300
-//普通玩家120级封顶；有效VIP每级增加20级，系统安全上限保留到1000级。
+//普通玩家120级封顶；有效VIP每级增加20级。旧VIP1-4权益保持不变，
+//新增VIP5-8后最高280级；系统安全上限仍保留到1000级。
 #define NORMAL_MAX_LEVEL 120
 #define VIP_LEVEL_LIMIT_STEP 20
-#define VIP_MAX_LEVEL 4
+#define VIP_MAX_LEVEL 8
 #define MAX_LEVEL 1000
 #define ENDGAME_MAP_MIN_LEVEL 990
 //洞穴刷新出口操作
@@ -155,11 +156,22 @@
 #define ACCOUNT_CHARACTERD ((object)(ROOT "/gamelib/single/daemons/account_characterd.pike"))
 //注册账号独立共享宝库（个人仓库保持不变）
 #define ACCOUNT_STORAGED ((object)(ROOT "/gamelib/single/daemons/account_storaged.pike"))
-//账号级山海万灵图鉴、培养、裂隙与灵宠论道
+//账号共享宠物：山海万灵图鉴、培养、裂隙与灵宠论道
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
+//角色独立的本命灵伴；数据只进入该角色.o档案
+#define SPIRIT_COMPANIOND ((object)(ROOT "/gamelib/single/daemons/spirit_companiond.pike"))
 #define ACCOUNT_WALLETD ((object)(ROOT "/gamelib/single/daemons/account_walletd.pike"))
+//注册邀请码、半年捐赠返玉与永久审计凭据
+#define REFERRALD ((object)(ROOT "/gamelib/single/daemons/referrald.pike"))
+//付费商城批量叠加、背包容量证明与精确回滚
+#define SHOP_BATCHD ((object)(ROOT "/gamelib/single/daemons/shop_batchd.pike"))
 //同一物理进程内的逻辑分区、热开区与在线合区守护模块
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
+
+#define MAP_WORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define MAP_WORKER_REDIRECT_ERROR "[MAP_WORKER_REDIRECT]"
+//同房间、同 Worker 的玩家赠送与面对面交易事务
+#define PLAYER_TRANSFERD ((object)(ROOT "/gamelib/single/daemons/player_transferd.pike"))
 //每日限时原创玩法：天衡绝境（PVP）与九曜镇渊（PVE）
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 

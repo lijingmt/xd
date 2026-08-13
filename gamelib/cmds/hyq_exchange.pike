@@ -3,6 +3,15 @@
 
 #define PATH ROOT "/gamelib/clone/item/bossdrop/"
 
+private int inventory_amount(object player,string name)
+{
+	int amount;
+	foreach(all_inventory(player),object one)
+		if(one && one->query_name()==name)
+			amount+=one->is("combine_item") ? (int)one->amount : 1;
+	return amount;
+}
+
 /*******************************************************************************
  *此指令用火月签固定换取物品模块
  *arg为空：列出火月签可换取的物品清单
@@ -44,7 +53,11 @@ int main(string|zero arg){
 		return 1;
 	}
 	if(arg){
-		sscanf(arg,"%s %d",item_name,exchange_count);
+		if(sscanf(arg,"%s %d",item_name,exchange_count)!=2 ||
+		   search(({"bawanghuiji","xuehuoshi","hundunsuipian"}),item_name)==-1){
+			write("兑换物品无效。\n[返回游戏:look]\n");
+			return 1;
+		}
 		//werror("------name------------"+item_name+"-----------\n");
 		//werror("------name1------------"+exchange_count+"-----------\n");
 		//sscanf(exchange_count,"no=%d",count);
@@ -70,7 +83,7 @@ int main(string|zero arg){
 		else{
 			object item_ob = (object)(PATH+item_name);
 			string item_name_cn = item_ob->query_name_cn();
-			if(exchange_count>20||exchange_count<0){
+			if(exchange_count>20||exchange_count<=0){
 				s += "您输入的数量不正确，换取数量必须大于0小于等于20\n";
 				s += "[继续换取:hyq_exchange]\n";
 				s += "[返回游戏:look]\n";
@@ -89,13 +102,28 @@ int main(string|zero arg){
 				item = clone(PATH+item_name);
 			};
 			if(!err&&item){
+				int before_grant=inventory_amount(me,item_name);
 				if(me->if_over_load(item)){
 					s += "你随身物品已满，无法存放更多的东西。\n";
 				}
 				else{
+					mapping(string:mixed) removal=
+						me->remove_combine_item_transaction("huoyueqian",exchange_count);
+					if(!(int)removal["ok"]){
+						destruct(item);
+						write("火月签扣除失败。\n[返回游戏:look]\n");
+						return 1;
+					}
 					item->amount = exchange_count;
-					item->move(me);
-					me->remove_combine_item("huoyueqian",exchange_count);
+					item->move_player(me->query_name());
+					if(inventory_amount(me,item_name)-before_grant!=exchange_count){
+						int added=inventory_amount(me,item_name)-before_grant;
+						if(added>0)
+							me->remove_combine_item_transaction(item_name,added);
+						me->rollback_combine_item_transaction(removal);
+						write("奖励发放失败，火月签已退回。\n[返回游戏:look]\n");
+						return 1;
+					}
 					s += "换取成功，您获得了"+exchange_count+item_name_cn+"。\n";
 					s_log += me->query_name_cn()+"("+me->query_name()+")"+"花了"+exchange_count+"支火月签换取"+exchange_count+item_name_cn+"\n";
 					string now=ctime(time());

@@ -216,7 +216,8 @@ void test_hidden_pool_extended_to_37()
 		if(search(b,"taiji")!=-1)
 			found++;
 	}
-	int valid = count==37 && rate==37 && found==3;
+	int valid = count==37 && rate==37 &&
+		itemsd->query_hidden_skill_drop_denominator()==10000000 && found==3;
 	if(valid) test_pass();
 	else
 		test_fail(sprintf("count=%d rate=%d found=%d",count,rate,found));

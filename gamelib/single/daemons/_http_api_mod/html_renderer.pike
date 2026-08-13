@@ -39,9 +39,13 @@ void refresh_button_grade_snapshot()
 /**
  * 将MUD响应转换为HTML格式 (用于iframe显示)
  */
-string response_to_html(string response, string userid, string cmd)
+string response_to_html(string response, string userid, string cmd,
+    string authenticated_txd)
 {
-    string txd = generate_txd(userid);
+    // 只复用认证成功后由调用方生成的完整 TXD。这里绝不能再调用
+    // generate_txd(userid)，否则密码会退化为 dummy，旧 JSP 的下一次点击
+    // 必然被严格认证拒绝。
+    string txd = authenticated_txd;
     string html = "";
     string area = getenv("GAME_AREA");
     if(!area) area = "tx01";
@@ -165,6 +169,9 @@ string response_to_html(string response, string userid, string cmd)
     html += "<script>\n";
     html += "function submitInput(inputId,txd){var input=document.getElementById(inputId);if(!input)return;var value=encodeURIComponent(input.value);var url='/api/html?txd='+txd+'&cmd='+value;window.location.href=url}\n";
     html += "function submitCmdInput(inputId,hiddenCmd,txd){var input=document.getElementById(inputId);if(!input)return;var value=encodeURIComponent(input.value);var url='/api/html?txd='+txd+'&cmd='+hiddenCmd+' '+value;window.location.href=url}\n";
+    html += "function postMudCommand(txd,cmd){var form=document.createElement('form');form.method='post';form.action='/api/html';var auth=document.createElement('input');auth.type='hidden';auth.name='txd';auth.value=txd;form.appendChild(auth);var action=document.createElement('input');action.type='hidden';action.name='cmd';action.value=cmd;form.appendChild(action);document.body.appendChild(form);form.submit()}\n";
+    html += "function submitMudForm(button){var formId=button.getAttribute('data-mud-submit');var inputs=document.querySelectorAll('[data-mud-form=\"'+formId+'\"]');var fields=[];for(var i=0;i<inputs.length;i++){fields.push(inputs[i].getAttribute('data-mud-name')+'='+inputs[i].value)}var cmd=button.getAttribute('data-mud-cmd');if(fields.length)cmd+=' '+fields.join('&');postMudCommand(button.getAttribute('data-mud-txd'),cmd)}\n";
+    html += "function submitPendingMudForm(formId){var button=document.querySelector('[data-mud-submit=\"'+formId+'\"]');if(button)submitMudForm(button)}\n";
     // 翻译语言切换函数 - 支持队列机制和postMessage通信
     html += "console.log('[Iframe Debug] Script loaded');window.pendingLanguage=null;window.changeLanguage=function(lang){console.log('[Iframe Debug] changeLanguage called:',lang);if(typeof translate!=='undefined'&&translate.changeLanguage){console.log('[Iframe Debug] Calling translate.changeLanguage');translate.changeLanguage(lang);window.pendingLanguage=null;window.parent.postMessage({type:'changeLanguage',lang:lang},'*')}else{window.pendingLanguage=lang;console.log('[Iframe Debug] Translate not loaded yet, pending:',lang)}};\n";
     // 监听来自父窗口的语言切换消息
@@ -224,6 +231,9 @@ string response_to_html(string response, string userid, string cmd)
 string parse_mud_content_to_html(string response, string txd, string userid)
 {
     string html = "";
+    string active_form_id = "";
+    int active_form_submitted = 0;
+    int form_serial = 0;
     if(!response) response = "";
 
 
@@ -298,27 +308,48 @@ string parse_mud_content_to_html(string response, string txd, string userid)
                 if(search(part, "[") == 0 && part[-1] == ']') {
                     string content = part[1..<1];
                     string var_name, default_val, width, type;
+                    string submit_label, submit_cmd;
 
                     // 输入框格式 [类型 变量名:...] 或 [变量名:默认值...宽度]
                     if(sscanf(content, "%s %s:..*%s...*%s", type, var_name, default_val, width) == 4 ||
                        sscanf(content, "%s:..*%s...*%s", var_name, default_val, width) == 3) {
-                        html += format_html_input(var_name, default_val, width, txd, userid, (type == "passwd"));
+                        if(active_form_id=="" || active_form_submitted){
+                            form_serial++;
+                            active_form_id = "mud_form_"+(string)form_serial;
+                            active_form_submitted = 0;
+                        }
+                        html += format_html_input(var_name, default_val, width,
+                            txd, userid, (type == "passwd"),active_form_id);
                     }
-                    // submit按钮 [submit 确定:command ...] - HTTP API中跳过不渲染
-                    // WAP系统用submit按钮提交前面的输入框，但HTTP API中输入框自带Enter提交
-                    else if(has_prefix(content, "submit ")) {
-                        // 跳过不渲染任何内容
+                    // WAP表单的submit必须带上前面所有具名输入框。旧实现
+                    // 丢弃了按钮，并把回车输入误当成完整命令，导致购买等
+                    // 页面只能输入数量却无法提交。
+                    else if(sscanf(content,"submit %s:%s ...",
+                        submit_label,submit_cmd)==2) {
+                        if(active_form_id!=""){
+                            html += format_html_form_submit(submit_label,
+                                submit_cmd,active_form_id,txd,userid);
+                            // 连续submit是同一组输入的备选动作（例如推荐人
+                            // 原二区/原三区/新区），都必须复用这组字段。
+                            active_form_submitted = 1;
+                        }
                     }
                     else if(sscanf(content, "%s %s:...", type, var_name) == 2) {
                         int is_passwd = (type == "passwd" || type == "password");
-                        html += format_html_input(var_name, "", "", txd, userid, is_passwd);
+                        if(active_form_id=="" || active_form_submitted){
+                            form_serial++;
+                            active_form_id = "mud_form_"+(string)form_serial;
+                            active_form_submitted = 0;
+                        }
+                        html += format_html_input(var_name, "", "", txd,
+                            userid, is_passwd,active_form_id);
                     }
                     else if(search(content, ":") > 0 && content[-4..] == ":...") {
                         int colon_pos = search(content, ":");
                         string cmd_name = content[0..colon_pos-1];
                         html += format_html_command_input(cmd_name, txd, userid);
                     }
-                    else if(content[-5..] == " ...") {
+                    else if(has_suffix(content, " ...")) {
                         string cmd_name = content[0..sizeof(content)-5];
                         html += format_html_command_input(cmd_name, txd, userid);
                     }
@@ -668,16 +699,23 @@ string format_html_button(string label, string cmd, string txd, string userid)
                    txd, hidden_cmd, css_class, label_formatted);
 }
 
+string format_html_attribute(string value)
+{
+    return replace(value || "",(["&":"&amp;","\"":"&quot;",
+        "'":"&#39;","<":"&lt;",">":"&gt;"]));
+}
+
 /**
  * 格式化HTML输入框
  */
-string format_html_input(string name, string default_val, string width, string txd, string userid, int is_passwd)
+string format_html_input(string name, string default_val, string width,
+    string txd, string userid, int is_passwd,string form_id)
 {
     string size = (sizeof(width) > 0) ? width : "20";
     string value = (sizeof(default_val) > 0) ? default_val : "";
     string input_type = is_passwd ? "password" : "text";
 
-    string input_id = "input_" + name + "_" + (random(9000) + 1000);
+    string input_id = "input_"+form_id+"_"+name;
 
     // 检查主题模式
     string border_color, input_bg, text_color;
@@ -698,9 +736,26 @@ string format_html_input(string name, string default_val, string width, string t
     }
 
     return sprintf("<input type='%s' id='%s' size='%s' value='%s' placeholder='%s' " +
+                   "data-mud-form='%s' data-mud-name='%s' " +
                    "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;' " +
-                   "onkeypress='if(event.key==\"Enter\"){submitInput(\"%s\", \"%s\");return false;}'>",
-                   input_type, input_id, size, value, name, border_color, input_bg, text_color, input_id, txd);
+                   "onkeypress='if(event.key==\"Enter\"){submitPendingMudForm(\"%s\");return false;}'>",
+                   input_type, format_html_attribute(input_id),
+                   format_html_attribute(size),format_html_attribute(value),
+                   format_html_attribute(name),format_html_attribute(form_id),
+                   format_html_attribute(name),border_color,input_bg,text_color,
+                   format_html_attribute(form_id));
+}
+
+string format_html_form_submit(string label,string cmd,string form_id,
+    string txd,string userid)
+{
+    string css_class = get_button_css_class(label);
+    string hidden_cmd = hide_command(userid,cmd);
+    return sprintf("<button type='button' data-mud-submit='%s' " +
+        "data-mud-cmd='%s' data-mud-txd='%s' " +
+        "onclick='submitMudForm(this);return false;' class='%s'>%s</button>",
+        format_html_attribute(form_id),format_html_attribute(hidden_cmd),
+        format_html_attribute(txd),css_class,format_text(label));
 }
 
 /**
@@ -710,31 +765,46 @@ string format_html_command_input(string cmd, string txd, string userid)
 {
     string input_id = "input_cmd_" + (random(9000) + 1000);
     string hidden_cmd = hide_command(userid, cmd);
+	string border_color, input_bg, text_color, btn_border, btn_bg, btn_text;
+	int use_dark_mode = 0;
+	object player = find_player(userid);
+	if(player && functionp(player->query_dark_mode) && player->query_dark_mode())
+		use_dark_mode = 1;
+	if(use_dark_mode){
+		border_color = "#667eea";
+		input_bg = "#2a2a4a";
+		text_color = "#e0e0e0";
+		btn_border = "#48bb78";
+		btn_bg = "#48bb78";
+		btn_text = "#fff";
+	}
+	else{
+		border_color = "#8B7765";
+		input_bg = "#FFFEF8";
+		text_color = "#3d2914";
+		btn_border = "#228B22";
+		btn_bg = "#228B22";
+		btn_text = "#fff";
+	}
+
+    // 背包保持传统列表，仅把可选分类收进一个紧凑下拉框。
+    if(cmd=="inventory_filter category")
+        return sprintf("<select data-mud-txd='%s' " +
+            "onchange=\"if(this.value){postMudCommand(this.getAttribute('data-mud-txd'),'inventory_filter category '+this.value);this.selectedIndex=0;}\" " +
+            "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;'>" +
+            "<option value=''>请选择分类</option>" +
+            "<option value='all'>全部</option>" +
+            "<option value='equipment'>装备</option>" +
+            "<option value='medicine'>药品</option>" +
+            "<option value='book'>书籍</option>" +
+            "<option value='material'>材料</option>" +
+            "<option value='jade'>玉石</option>" +
+            "<option value='box'>宝箱</option>" +
+            "<option value='quest'>任务</option>" +
+			"<option value='other'>其他</option></select>",
+			format_html_attribute(txd),border_color,input_bg,text_color);
 
     // 检查主题模式
-    string border_color, input_bg, text_color, btn_border, btn_bg, btn_text;
-    int use_dark_mode = 0;
-    object player = find_player(userid);
-    if(player && functionp(player->query_dark_mode) && player->query_dark_mode()) {
-        use_dark_mode = 1;
-    }
-
-    if(use_dark_mode) {
-        border_color = "#667eea";
-        input_bg = "#2a2a4a";
-        text_color = "#e0e0e0";
-        btn_border = "#48bb78";
-        btn_bg = "#48bb78";
-        btn_text = "#fff";
-    } else {
-        border_color = "#8B7765";
-        input_bg = "#FFFEF8";
-        text_color = "#3d2914";
-        btn_border = "#228B22";
-        btn_bg = "#228B22";
-        btn_text = "#fff";
-    }
-
     return sprintf("<input type='text' id='%s' placeholder='输入参数...' " +
                    "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;width:120px;' " +
                    "onkeypress='if(event.key==\"Enter\"){submitCmdInput(\"%s\", \"%s\", \"%s\");return false;}'> " +
@@ -985,6 +1055,8 @@ mapping query_player_state(object player)
             avatar = "/images/" + player->user_pic + ".gif";
         }
         result["avatar"] = avatar;
+		result["avatar_id"] = (string)(player->user_pic || "");
+		result["sex"] = (string)(player->sex || "");
 
         // 称谓
         string honer = "";
@@ -1012,6 +1084,19 @@ mapping query_player_state(object player)
             profe = sprintf("%d", player->profeId);
         }
 		result["profe"] = profe || "";
+		result["race_id"] = functionp(player->query_raceId) ?
+			(string)(player->query_raceId() || "") : "";
+		result["profession_id"] = functionp(player->query_profeId) ?
+			(string)(player->query_profeId() || "") : "";
+		mapping profile_status = ACCOUNT_CHARACTERD->
+			query_character_profile_status(player);
+		result["profile_complete"] = profile_status["profile_complete"];
+		result["profile_needs_name"] = profile_status["profile_needs_name"];
+		result["profile_needs_sex"] = profile_status["profile_needs_sex"];
+		result["profile_needs_avatar"] =
+			profile_status["profile_needs_avatar"];
+		result["profile_avatar_choices"] =
+			profile_status["avatar_choices"] || ({});
 		// 新职业助手状态由服务端统一判定，前端只负责展示。
 		result["profession_assistant"] =
 			PROFESSIONVIPD->query_status(player);
@@ -1151,10 +1236,35 @@ mapping query_player_state(object player)
 			recent_aoe_report = player->query_recent_aoe_battle_report();
 		result["lingyi_revive"] = lingyi_revive;
 		result["recent_aoe_report"] = recent_aoe_report;
+		// 同房施法显化是短生命UI事件：不参与战斗结算，不做
+		// 已读写入。客户端依靠事件ID去重，因此/status与
+		// /battle_status并发也不会重放。
+		array(mapping(string:mixed)) room_skill_events = ({});
+		if(functionp(player->query_room_skill_manifestations))
+			room_skill_events = player->query_room_skill_manifestations();
+		result["room_skill_events"] = room_skill_events;
 
-		// 山海万灵只返回当前人物的轻量陪伴快照和最近一次协战事件。
-		// 该查询不读账号文件，适合战斗状态每秒轮询；客户端按事件ID去重。
-		result["pet_assist"] = PETD->query_pet_battle_presence(player);
+		// 共享宠物/本命灵伴同时提供只读卡位，但旧客户端的
+		// pet_assist仍只返回当前唯一战斗位，不会渲染或结算双宠。
+		string pet_battle_source =
+			SPIRIT_COMPANIOND->query_pet_battle_source(player);
+		mapping shared_pet_presence = PETD->query_pet_battle_presence(player);
+		mapping personal_pet_presence =
+			SPIRIT_COMPANIOND->query_spirit_companion_presence(player);
+		shared_pet_presence["system"] = "shared";
+		shared_pet_presence["system_label"] = "共享";
+		shared_pet_presence["command"] = "pet";
+		shared_pet_presence["battle_active"] =
+			pet_battle_source=="shared" ? 1 : 0;
+		personal_pet_presence["battle_active"] =
+			pet_battle_source=="personal" ? 1 : 0;
+		result["pet_slots"] = ([
+			"battle_source":pet_battle_source,
+			"shared":shared_pet_presence,
+			"personal":personal_pet_presence,
+		]);
+		result["pet_assist"] = pet_battle_source=="personal" ?
+			personal_pet_presence : shared_pet_presence;
 		// 每日摘要保持纯读取；跨日时返回虚拟空状态，不在轮询线程改档。
 		result["daily_goal"] = DAILYGOALD->query_summary(player);
 		result["timed_event"] = TIMED_EVENTD->query_player_status(player);

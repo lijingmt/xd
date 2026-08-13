@@ -32,8 +32,24 @@ int main(string|zero arg)
 		if(flag == 0){
 			s += "需要："+amount+"块"+need_namecn+"("+have_num+")\n";
 			s += "购买时自动兑换不同面额玉石\n";
-			//s += "（你目前拥有"+need_namecn+"："+have_num+"块）\n";
-			s += "购买个数(1-20)：\n[int no:...]\n";
+			int affordable=amount>0 ? have_num/amount : 0;
+			int capacity=SHOP_BATCHD->query_capacity(me,teyao,0);
+			int quick_max=min(affordable,capacity);
+			quick_max=min(quick_max,SHOP_BATCHD->query_hard_max());
+			if(quick_max>0){
+				foreach(({1,5,10,20,50,100}),int quick)
+					if(quick<=quick_max)
+						s += "[买"+quick+"个:yushi_buy_teyao_confirm "+
+							teyao_name+" "+rarelevel+" "+amount+" "+money+
+							" 0 "+quick+"] ";
+				if(search(({1,5,10,20,50,100}),quick_max)==-1)
+					s += "[按余额/背包买满"+quick_max+"个:"+
+						"yushi_buy_teyao_confirm "+teyao_name+" "+
+						rarelevel+" "+amount+" "+money+" 0 "+
+						quick_max+"]";
+				s += "\n";
+			}
+			s += "购买个数(1-100)：\n[int no:...]\n";
 			s += "[submit 确定购买:yushi_buy_teyao_confirm "+teyao_name+" "+rarelevel+" "+amount+" "+money+" 0 ...]\n";
 		}
 		else if(flag == 1){

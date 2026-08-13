@@ -21,7 +21,10 @@ string query_words(){
 	if(!me) return ::query_words();
 	s += ::query_words();
 	s += name_cn+"说道：归墟境与万象林的硬 Boss 倒下后会掉落试炼武勋。\n";
-	s += "队伍需 4 人以上才能挑战；伤害极高，必须有镇越拉住仇恨、灵医持续治疗。\n";
+	s += "归墟魔君需 4 人，万象妖皇最低 2 人；万象林有效同房队员越多，队伍总经验池越高。\n";
+	s += "两位 Boss 伤害极高，建议由镇越拉住仇恨、灵医持续治疗。\n";
+	s += "Boss等级达到90后，还有极低概率直接掉落账号绑定的太古传承。\n";
+	s += "500武勋兑换的是太极/无相神技，不会替代太古掉落。\n";
 	s += "武勋可换：\n";
 	s += "  10 武勋 → 金币×10000\n";
 	s += "  30 武勋 → 90级蓝色装备\n";
@@ -42,5 +45,5 @@ string query_npc_links(void|int count){
 		"[兑换110级紫装:shilian_duihuan 1 purple110]\n"+
 		"[兑换饲料金币:shilian_duihuan 1 feed]\n"+
 		"[兑换110级金装:shilian_duihuan 1 gold110]\n"+
-		"[兑换隐藏书:shilian_duihuan 1 hidden]\n";
+		"[兑换太极/无相神技书:shilian_duihuan 1 hidden]\n";
 }

@@ -44,6 +44,7 @@ constant CORE_COMMANDS = ({
 
     // ========== 商店/交易（涉及金币/物品转移）==========
     "buy", "buy_items", "sell", "list", "value",
+    "list_spec", "buy_detail_spec", "buy_goods_spec",
     "trade",  // 玩家间交易
     "sell_new", "sell_zb_all",  // 拍卖售卖
     "cancel_sell",  // 取消拍卖（物品返回）
@@ -245,7 +246,7 @@ void remove_world_user_queue(string userid)
     array(mapping) queue;
     array(string) remaining = ({});
 
-    userid = lower_case(String.trim_all_whites(userid || ""));
+    userid = String.trim_all_whites(userid || "");
     if(userid=="")
         return;
     queue = world_user_queues[userid];
@@ -271,7 +272,7 @@ void remove_world_user_queue(string userid)
 
 int query_world_user_queue_size(string userid)
 {
-    userid = lower_case(String.trim_all_whites(userid || ""));
+    userid = String.trim_all_whites(userid || "");
     array queue = world_user_queues[userid];
     if(!arrayp(queue))
         return 0;
@@ -296,7 +297,7 @@ int enqueue_world_command(string userid,string password,string cmd,
 
     if(!userid || !cmd || !callback)
         return 0;
-    queue_userid = lower_case(String.trim_all_whites(userid));
+    queue_userid = String.trim_all_whites(userid);
     if(queue_userid=="")
         return 0;
     queue = world_user_queues[queue_userid];
@@ -436,7 +437,7 @@ object query_user_command_mutex(string userid)
     object mutex;
 	string requested_id = String.trim_all_whites(userid || "");
 
-	userid = lower_case(requested_id);
+	userid = requested_id;
     if(userid == "")
         userid = "_anonymous";
 	account_characterd = (object)(ROOT+

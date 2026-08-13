@@ -41,6 +41,8 @@ void test_runtime_compile()
 	array(string) files = ({
 		"/gamelib/single/daemons/timed_eventd.pike",
 		"/gamelib/d/timed_event/event_room.pike",
+		"/gamelib/d/timed_event/tianheng_ingress.pike",
+		"/gamelib/d/timed_event/jiuyao_ingress.pike",
 		"/gamelib/clone/npc/timed_event/yuanling.pike",
 		"/gamelib/cmds/timed_event.pike",
 	});
@@ -54,6 +56,48 @@ void test_runtime_compile()
 		}
 	}
 	check("守护进程、房间、首领与命令均由真实Pike运行时编译",ok,details);
+}
+
+void test_worker_ingress_recovery_rooms()
+{
+	object tianheng = (object)(ROOT+
+		"/gamelib/d/timed_event/tianheng_ingress.pike");
+	object jiuyao = (object)(ROOT+
+		"/gamelib/d/timed_event/jiuyao_ingress.pike");
+	check("跨worker静态入口可重建并保留手动恢复按钮",
+		tianheng && jiuyao &&
+		tianheng->query_timed_event_ingress_id()=="tianheng" &&
+		jiuyao->query_timed_event_ingress_id()=="jiuyao" &&
+		search(tianheng->query_links(),"timed_event join tianheng")!=-1 &&
+		search(jiuyao->query_links(),"timed_event join jiuyao")!=-1,
+		"活动入口不能重建或迁移中断后没有恢复动作");
+}
+
+void test_worker_single_writer_and_reward_ack_contract()
+{
+	string daemon = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/timed_eventd.pike");
+	string persistence = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_timed_event_mod/persistence.pike");
+	string runtime = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_timed_event_mod/runtime.pike");
+	string core = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_timed_event_mod/core.pike");
+	check("多Worker活动状态只有owner可写且异地领奖经幂等确认单合并",
+		search(persistence,"[TIMED_EVENTD][WRITE_FENCE]")!=-1 &&
+		search(persistence,"!local_timed_event_owner()")!=-1 &&
+		search(persistence,"stage_reward_claim_ack")!=-1 &&
+		search(persistence,"consume_reward_claim_acks")!=-1 &&
+		search(persistence,"TIMED_EVENT_CLAIM_ACK_MAX_BYTES")!=-1 &&
+		search(runtime,"stage_reward_claim_ack(session,user_id)")!=-1 &&
+		search(daemon,"consume_reward_claim_acks();")!=-1,
+		"只读worker仍可能覆盖活动快照，或离线奖励确认无法汇入owner");
+	check("非owner恢复活动先经静态入口且不能执行旧快照场景写操作",
+		search(runtime,"refresh_readonly_event_snapshot();")!=-1 &&
+		search(runtime,"return route_player_to_event_ingress(player,")!=-1 &&
+		search(core,"请先返回活动场地，再执行该操作")!=-1 &&
+		search(core,"route_player_to_event_ingress(player,")!=-1,
+		"登录恢复或伪造活动命令可能在错误worker创建动态房并改状态");
 }
 
 void test_token_exchange_shop()
@@ -328,6 +372,8 @@ int main()
 {
 	werror("\n========== 每日限时原创玩法测试 ==========\n");
 	test_runtime_compile();
+	test_worker_ingress_recovery_rooms();
+	test_worker_single_writer_and_reward_ack_contract();
 	test_schedule_and_timezone();
 	test_token_exchange_shop();
 	test_original_game_rules();

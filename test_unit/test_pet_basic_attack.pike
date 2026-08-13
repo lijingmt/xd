@@ -46,6 +46,8 @@ object create_test_player_with_pet(string species)
 	// 装备宠物
 	player["/tmp/wanling/species"] = species;
 	player["/tmp/wanling/pet_name"] = "测试灵兽";
+	player["/tmp/wanling/pet_level"] = 60;
+	player["/tmp/wanling/player_level"] = player->query_level();
 	player["/tmp/wanling/skill_set"] = 0;
 	player["/tmp/wanling/pet_growth_percent"] = 100;
 	player["/tmp/wanling/assist_at"] = 0;

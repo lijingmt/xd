@@ -13,7 +13,6 @@ int main(string|zero arg)
 {
 	object me = this_player();
 	object env;
-	object|zero target = 0;
 	string room_name = arg || "";
 	string inferred_name = "";
 	string leave_to = "";
@@ -40,24 +39,14 @@ int main(string|zero arg)
 		leave_to = query_default_leave_room(me);
 
 	target_path = ROOT+"/gamelib/d/"+leave_to;
-	err = catch {
-		target = (object)target_path;
-	};
-	if(err || !target || FBD->is_fb_room_path(file_name(target))){
+	if(FBD->is_fb_room_path(target_path)){
 		leave_to = query_default_leave_room(me);
 		target_path = ROOT+"/gamelib/d/"+leave_to;
-		target = 0;
-		err = catch {
-			target = (object)target_path;
-		};
 	}
-	if(err || !target){
-		write("紧急离开点暂时不可用，请联系管理员。\n");
-		return 1;
-	}
-
-	moved = me->move(target);
-	if(!moved || environment(me)!=target){
+	err = catch { moved = me->move(target_path); };
+	mapping redirect = MAP_WORKERD->query_local_move_redirect(me->query_name());
+	if(err || !moved ||
+	   (file_name(environment(me))!=target_path && !(int)redirect["ok"])){
 		write("紧急离开失败，请稍后重试。\n");
 		return 1;
 	}

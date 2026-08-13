@@ -250,6 +250,8 @@ int city_update(string file)
 	object env,usr;
 	array oblist;
 	object ob;
+	object staging_room;
+	array(object) staged=({});
 	mixed err1 = catch{
 		ob = find_object(file);
 	};
@@ -257,9 +259,22 @@ int city_update(string file)
 		return 0;
 	}
 	if(ob && ob->is_room){
-		env = find_object(TEMP_ENV);
 		oblist = all_inventory(ob);
-		if(!env) env = load_object(TEMP_ENV);
+		if(MAP_WORKERD->query_node_role()=="worker"){
+			mixed staging_err=catch { staging_room=clone(file); };
+			if(staging_err || !staging_room){
+				werror("[CITYD] worker-local staging room failed: %s\n",file);
+				return 0;
+			}
+			foreach(all_inventory(staging_room),object initial)
+				if(initial)
+					initial->remove();
+			env=staging_room;
+		}
+		else{
+			env = find_object(TEMP_ENV);
+			if(!env) env = load_object(TEMP_ENV);
+		}
 		if(!env){
 			werror("----- city_update wrong TEMP_ENV not exist!!-----\n");
 			return 1;
@@ -267,18 +282,34 @@ int city_update(string file)
 		foreach(oblist,usr){
 			if( (usr->is_character && !usr->is_npc) || usr->query_name()=="bingfusuipian")//player move to kezhan
 			{
-				usr->move(env);
+				int moved;
+				mixed move_err=catch { moved=usr->move(env); };
+				if(move_err || !moved){
+					foreach(staged,object rollback)
+						if(rollback)
+							rollback->move(ob);
+					if(staging_room)
+						destruct(staging_room);
+					werror("[CITYD] refused room update; staging move failed: %s\n",file);
+					return 0;
+				}
+				staged+=({usr});
 			}
-			else{//remove npc&items
-				oblist-=({usr});
-				usr->remove();
-			}
+		}
+		foreach(oblist-staged,usr){
+			oblist-=({usr});
+			usr->remove();
 		}
 	}
 	mixed err=catch{
 		compile_file(file);
 	};
 	if(err){
+		foreach(oblist,usr)
+			if(usr)
+				catch { usr->move(ob); };
+		if(staging_room && sizeof(all_inventory(staging_room))==0)
+			destruct(staging_room);
 		werror("----- city_update wrong with compile_file(file)!!-----\n");
 		return 1;
 	}
@@ -288,10 +319,16 @@ int city_update(string file)
 		foreach(oblist,usr){
 			if( (usr->is_character && !usr->is_npc) || usr->query_name()=="bingfusuipian")
 			{
-				usr->move(env);
+				int moved;
+				mixed return_err=catch { moved=usr->move(env); };
+				if(return_err || !moved)
+					werror("[CITYD] staged object return failed: %s %O\n",
+						file,usr);
 			}
 		}
 	}
+	if(staging_room && sizeof(all_inventory(staging_room))==0)
+		destruct(staging_room);
 	return 1;
 }
 

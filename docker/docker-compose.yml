@@ -6,13 +6,15 @@ services:
     container_name: xiand-${GAME_AREA:-xd01}
     pull_policy: always
     restart: unless-stopped
-    # 内存限制
+    # 最多 16 个 Worker 依次执行停流和原子存档时，禁止 Docker 提前 SIGKILL。
+    stop_grace_period: 10m
+    # 5 Worker + 协调器 + Tomcat 的生产实测会超过 6G；18G 为编译缓存和流量高峰留出余量。
     deploy:
       resources:
         limits:
-          memory: 6G
+          memory: 18G
         reservations:
-          memory: 2G
+          memory: 8G
     # 设置堆栈限制为无限，防止 Pike 编译大文件时栈溢出
     # 设置文件描述符限制，防止 "Too many open files" 错误
     ulimits:
@@ -57,6 +59,16 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - XIAND_HEALTH_TOKEN=${XIAND_HEALTH_TOKEN:-}
+      - XIAND_WORKER_TOKEN=${XIAND_WORKER_TOKEN}
+      - XIAND_MAP_WORKER_ENABLED=${XIAND_MAP_WORKER_ENABLED:-1}
+      - XIAND_MAP_WORKER_TRAFFIC_MODE=${XIAND_MAP_WORKER_TRAFFIC_MODE:-shadow}
+      - XIAND_MAP_WORKER_COUNT=${XIAND_MAP_WORKER_COUNT:-3}
+      - XIAND_MAP_WORKER_CAPACITY=${XIAND_MAP_WORKER_CAPACITY:-100}
+      - XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK=${XIAND_MAP_WORKER_ACTIVE_TRIAL_ACK:-}
+      - XIAND_WORKER_CONTROL_TIMEOUT=${XIAND_WORKER_CONTROL_TIMEOUT:-4}
+      # 留空时由 Pike 按总并发和实际 Worker 数量计算安全默认值。
+      - XIAND_GATEWAY_MAX_REQUESTS=${XIAND_GATEWAY_MAX_REQUESTS:-}
+      - XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER=${XIAND_GATEWAY_MAX_REQUESTS_PER_WORKER:-}
       - MYSQL_DATABASE=${GAME_AREA:-xd01}
       # MUD 配置
       - MUD_PORT=${MUD_PORT:-13800}

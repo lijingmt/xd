@@ -83,11 +83,39 @@ client.chooseNewProfession(
 assert.strictEqual(client.characterError, '');
 assert.strictEqual(client.characterForm.race_id, 'human');
 assert.strictEqual(client.characterForm.profession_id, 'jianxian');
+assert.strictEqual(client.characterForm.sex, 'male');
+assert.strictEqual(client.avatarChoicesFor('human', 'jianxian', 'male').length, 11);
+assert.strictEqual(client.avatarChoicesFor('human', 'jianxian', 'female').length, 12);
 client.chooseNewProfession(
   client.professionOptions.find(option => option.profession_id === 'fangshi')
 );
 assert.strictEqual(client.characterForm.race_id, 'third');
 assert.strictEqual(client.characterForm.profession_id, 'fangshi');
+assert.strictEqual(client.avatarChoicesFor('third', 'zhenyue', 'male')[0], 'zhenyue_male');
+assert.strictEqual(client.avatarChoicesFor('monst', 'kuangyao', 'female').length, 11);
+client.chooseCharacterSex('female');
+assert.strictEqual(client.characterForm.sex, 'female');
+assert.strictEqual(client.characterForm.avatar_id, '');
+
+client.currentCharacterId = 'xd01legacy';
+client.maybePromptCharacterProfile({
+  profile_complete: false,
+  profile_needs_name: true,
+  profile_needs_sex: false,
+  profile_needs_avatar: true,
+  name_cn: '无名剑客',
+  sex: 'male',
+  race_id: 'human',
+  profession_id: 'jianxian',
+  avatar_id: '',
+  profile_avatar_choices: ['h_male1', 'h_male2']
+});
+assert.strictEqual(client.characterProfileOpen, true);
+assert.strictEqual(client.characterProfileForm.name_cn, '');
+assert.strictEqual(client.characterProfileForm.sex, 'male');
+client.skipCharacterProfile();
+assert.strictEqual(client.characterProfileOpen, false);
+assert.strictEqual(client.characterProfileDismissedFor, 'xd01legacy');
 
 client.clearAccountSession();
 assert.strictEqual(client.accountToken, '');
@@ -99,6 +127,10 @@ assert.strictEqual(client.accountSharedRechargeAvailable, true);
 assert(indexSource.includes('v-if="showCharacterSelect"'));
 assert(indexSource.includes('@click="openCharacterCenter"'));
 assert(indexSource.includes('@click="createAccountCharacter"'));
+assert(indexSource.includes('v-model.trim="characterForm.name_cn"'));
+assert(indexSource.includes('v-for="avatar in characterAvatarOptions"'));
+assert(indexSource.includes('v-if="characterProfileOpen"'));
+assert(indexSource.includes('@click="skipCharacterProfile"'));
 assert(indexSource.includes('!showRegister && !showCharacterSelect'));
 assert(indexSource.includes('注册账号共享充值余额'));
 assert(indexSource.includes('人物赠送玉石仍各自独立'));
@@ -107,10 +139,14 @@ assert(!indexSource.includes(':disabled="accountCharacters.some(character => cha
 assert(cssSource.includes('.character-modal'));
 assert(cssSource.includes('.character-wallet'));
 assert(cssSource.includes('.profession-choice-grid'));
+assert(cssSource.includes('.character-avatar-grid'));
+assert(cssSource.includes('.character-profile-modal'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
+assert(appSource.includes("this.apiBase + '/api/profile'"));
+assert(appSource.includes('maybePromptCharacterProfile(data)'));
 assert(appSource.includes('error.status === 404 || error.status === 501'));
 assert(appSource.includes('characterSessionEpoch'));
 assert(appSource.includes('invalidateCharacterSessionRequests'));
@@ -177,6 +213,37 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   assert.strictEqual(client.txd, firstTxd);
   
   assert.strictEqual(client.showLogin, false);
+
+  // 历史人物ID可含大写字母。请求必须保留精确大小写，
+  // 后端若返回另一个大小写变体，前端必须拒绝以防串档。
+  const mixedCaseUserid = 'xd01LSQ2026';
+  const mixedCaseTxd = client.encodeTxd(mixedCaseUserid, 'CasePass88');
+  let mixedCaseUrl = '';
+  client.invalidateCharacterSessionRequests();
+  client.txd = mixedCaseTxd;
+  client.currentCharacterId = mixedCaseUserid;
+  client.showLogin = false;
+  const mixedCaseEpoch = client.characterSessionEpoch;
+  sandbox.fetch = async url => {
+    mixedCaseUrl = String(url);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        userid: mixedCaseUserid.toLowerCase(),
+        txd: client.encodeTxd(mixedCaseUserid.toLowerCase(), 'CasePass88'),
+        lines: []
+      })
+    };
+  };
+  const mixedCaseRelogged = await client.relogin(mixedCaseTxd, mixedCaseEpoch);
+  const mixedCaseParams = new URL(
+    mixedCaseUrl, 'https://game.example.com'
+  ).searchParams;
+  assert.strictEqual(mixedCaseParams.get('userid'), mixedCaseUserid);
+  assert.strictEqual(mixedCaseRelogged, false);
+  assert.strictEqual(client.showLogin, true);
+  assert.strictEqual(client.txd, mixedCaseTxd);
 
   // 创建后职业初始化若由后端返回500，必须留在选角页并允许重试，
   // 不能把错误文字当成正常MUD页面覆盖当前人物会话。
@@ -274,6 +341,27 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   assert.strictEqual(selfBookmarkUrl.searchParams.get('txd'), firstTxd,
     '复制当前角色书签应附上 txd 以支持立即进入');
 
+  let openedUrl = '';
+  let openedTarget = '';
+  const popup = {
+    opener: {},
+    location: { replace: (url) => { openedUrl = url; } }
+  };
+  sandbox.window.open = (url, target) => {
+    assert.strictEqual(url, 'about:blank');
+    openedTarget = target;
+    return popup;
+  };
+  client.openAccountCharacterInNewTab('xd01abcc2a8f31e20');
+  assert.strictEqual(openedTarget, '_blank');
+  assert.strictEqual(popup.opener, null,
+    '导航前必须切断 opener，避免新标签反向控制原页面');
+  const newTabUrl = new URL(openedUrl, 'https://game.example.com');
+  assert.strictEqual(newTabUrl.searchParams.get('userid'), 'xd01abc');
+  assert.strictEqual(newTabUrl.searchParams.get('char'), 'xd01abcc2a8f31e20');
+  assert.strictEqual(newTabUrl.searchParams.get('txd'), null,
+    '新标签不得携带当前角色 txd，否则会把原标签挤下线');
+
   // doLogin 书签逻辑的静态契约：源码必须包含 preselectedUserid 优先级判断和 char 匹配。
   // 完整端到端流程（account/login + characters/select + completeCharacterLogin）依赖
   // 现有 selectAccountCharacter 测试覆盖，这里只验证新逻辑的源码存在性。
@@ -295,8 +383,12 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
     'index.html 应在每个角色卡片上提供复制书签按钮');
   assert(indexSource.includes('copyCharacterBookmarkUrl(character.id)'),
     'index.html 应把复制按钮绑定到 copyCharacterBookmarkUrl');
+  assert(indexSource.includes('openAccountCharacterInNewTab(character.id)'),
+    'index.html 应提供不会重复当前人物登录的新标签入口');
   assert(cssSource.includes('.character-bookmark-btn'),
     'app.css 应为复制书签按钮提供样式');
+  assert(cssSource.includes('.character-new-tab-btn'),
+    'app.css 应为新标签人物入口提供样式');
 
   console.log('account character frontend tests passed');
 })().catch(error => {

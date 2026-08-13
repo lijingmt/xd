@@ -2,7 +2,6 @@
 #include <gamelib/include/gamelib.h>
 #define ITEM_PATH_KUANG ITEM_PATH+"material/"
 #define GATHER_STACK_NUM 9999
-#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd"))
 //arg = name count
 int main(string|zero arg)
 {

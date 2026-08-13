@@ -230,8 +230,9 @@ mapping(string:mixed) query_pet_equipment_state(object player,string pet_id)
 			result = ([
 				"ok":1,
 				"message":"",
-				"pet":enrich_pet_equipment_view_unlocked(record,
-					record["pets"][index]),
+				"pet":enrich_pet_view(
+					enrich_pet_equipment_view_unlocked(record,
+						record["pets"][index]),player),
 				"gear_inventory":inventory,
 				"slots":query_pet_gear_slots(),
 				"inventory_max":PET_GEAR_INVENTORY_MAX,
@@ -272,7 +273,8 @@ mapping(string:mixed) equip_pet_gear(object player,string pet_id,
 				query_pet_gear_equipped_by_unlocked(record,gear_id);
 			if(occupied_by!="" && occupied_by!=pet_id)
 				result["message"] = "这件装备正由另一只灵宠穿戴。";
-			else if((int)pet["level"]<(int)gear["level_requirement"])
+			else if(query_pet_effective_level(player,(int)pet["level"])<
+			   (int)gear["level_requirement"])
 				result["message"] = "灵宠等级不足，需要Lv."+
 					(int)gear["level_requirement"]+"。";
 			else{
@@ -360,7 +362,8 @@ mapping(string:mixed) forge_pet_gear(object player,string slot)
 		else{
 			int roll = random(100);
 			int quality = roll<1 ? 4 : (roll<8 ? 3 : (roll<30 ? 2 : 1));
-			int pet_level = (int)record["pets"][pet_index]["level"];
+			int pet_level = query_pet_effective_level(player,
+				(int)record["pets"][pet_index]["level"]);
 			int requirement = ((pet_level-1)/10)*10+1;
 			mapping gear = make_pet_gear_unlocked(record,slot,quality,
 				requirement,"spirit-forge");
@@ -487,7 +490,7 @@ mapping(string:mixed) imprint_pet_skill(object player,string pet_id,
 			result["message"] = "找不到这只灵宠。";
 		else{
 			mapping pet = record["pets"][index];
-			if((int)pet["level"]<20)
+			if(query_pet_effective_level(player,(int)pet["level"])<20)
 				result["message"] = "灵宠达到20级后才能承受主人灵技。";
 			else if(!(string)(pet["equipment"]["spirit_core"] || ""))
 				result["message"] = "请先为灵宠穿戴灵核。";

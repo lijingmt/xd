@@ -170,7 +170,7 @@ start_server()
 {
 	log "starting Xiand on $HOST:$PORT (HTTP $HTTP_PORT) in screen $SCREEN_NAME"
 	screen -dmS "$SCREEN_NAME" bash -lc \
-		"cd '$ROOT_DIR' && '$PIKE_BIN' -s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK' '$ROOT_DIR/lowlib/driver.pike' -i '$HOST' -p '$PORT' '$ROOT_DIR/' >> '$RUNTIME_LOG' 2>&1"
+		"cd '$ROOT_DIR' && export XIAND_NODE_ROLE=standalone XIAND_RUN_TESTUNIT=1 && '$PIKE_BIN' -s'$PIKE_STACK_DEPTH' -ss'$PIKE_THREAD_STACK' --no-precompile '$ROOT_DIR/lowlib/driver.pike' -i '$HOST' -p '$PORT' '$ROOT_DIR/' >> '$RUNTIME_LOG' 2>&1"
 }
 
 wait_for_testunit()
@@ -223,6 +223,16 @@ verify_ports()
 	log "server is ready on game port $PORT and HTTP port $HTTP_PORT"
 }
 
+stop_after_testunit_if_requested()
+{
+	[[ "${XIAND_STOP_AFTER_TESTUNIT:-0}" == "1" ]] || return 0
+	log "TestUnit validation is complete; stopping standalone before worker startup"
+	if ! graceful_shutdown; then
+		fail "validated standalone could not shut down safely"
+	fi
+	stop_screen
+}
+
 main()
 {
 	cd "$ROOT_DIR"
@@ -236,6 +246,7 @@ main()
 	start_server
 	wait_for_testunit
 	verify_ports
+	stop_after_testunit_if_requested
 }
 
 main "$@"

@@ -11,6 +11,7 @@ private mapping(int:array(string)) duanzao_pf = ([]);
 private mapping(int:array(string)) liandan_pf = ([]);
 private mapping(int:array(string)) caifeng_pf = ([]);
 private mapping(int:array(string)) zhijia_pf = ([]);
+private mapping(string:int) purchasable_pf = ([]);
 
 protected void create()
 {
@@ -24,6 +25,7 @@ void get_pf()
 	liandan_pf = ([]);
 	caifeng_pf = ([]);
 	zhijia_pf = ([]);
+	purchasable_pf = ([]);
 	string peifangData = Stdio.read_file(PEIFANG_CSV);
 	array(string) lines = peifangData/"\r\n";
 	if(lines && sizeof(lines)){
@@ -36,6 +38,9 @@ void get_pf()
 				int level = (int)columns[6];
 				array(string) tmp = columns[5]/"/";
 				string in = name_cn +":"+tmp[2];
+				if(sizeof(tmp)==3 && tmp[2]!="" &&
+				   search(tmp[2],"..")==-1 && search(tmp[2],"/")==-1)
+					purchasable_pf[type+":"+tmp[2]]=1;
 				if(type == "duanzao"){
 					if(duanzao_pf[level] == 0)
 						duanzao_pf[level] = ({in});
@@ -69,6 +74,14 @@ void get_pf()
 		werror("===== Error! file not exist =====\n");
 	werror("===== everything is ok!  =====\n");
 	werror("==========  [PEIFANGD end!]  =========\n");
+}
+
+int can_buy_peifang(string type,string filename)
+{
+	if(!type || !filename || filename=="" || search(filename,"..")!=-1 ||
+	   search(filename,"/")!=-1)
+		return 0;
+	return purchasable_pf[type+":"+filename] || 0;
 }
 
 //主要是返回购买锻造配方的列表，可按等级来分

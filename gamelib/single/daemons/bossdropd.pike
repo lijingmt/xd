@@ -36,7 +36,7 @@ private array(string) parse_drop_column(string source)
 	if(!source)
 		return result;
 	foreach(source/"|",string value){
-		value = String.trim_all_whites(value);
+		value = String.trim_whites(value);
 		if(value!="")
 			result += ({value});
 	}
@@ -55,10 +55,10 @@ void load_csv()
 			droplist tmpBossdrop = droplist();
 			array(string) columns = eachline/",";
 			if(sizeof(columns) >= 4){
-				string boss_name = String.trim_all_whites(columns[0]);
+				string boss_name = String.trim_whites(columns[0]);
 				tmpBossdrop->item_arr = parse_drop_column(columns[1]);
 				tmpBossdrop->other_arr = parse_drop_column(columns[2]);
-				string spec_item = String.trim_all_whites(columns[3]);
+				string spec_item = String.trim_whites(columns[3]);
 				if(spec_item=="and" || spec_item=="end")
 					spec_item = "";
 				tmpBossdrop->spec_item = spec_item;

@@ -76,6 +76,18 @@ private string pet_display_name(mapping pet,mapping info)
 	return (string)info["name"];
 }
 
+private string pet_rune_effect_label(mapping pet,mapping info)
+{
+	if(mappingp(pet["imprinted_skill"]))
+		return (string)pet["imprinted_skill"]["effect"]=="heal" ?
+			"拓印治疗" : "拓印攻击";
+	if((string)info["role"]=="强攻" || (string)info["role"]=="迅捷")
+		return "协战伤害";
+	if((string)info["role"]=="灵息")
+		return "法力回复";
+	return "生命回复";
+}
+
 private string pet_gear_attributes(mapping gear)
 {
 	array(string) parts = ({});
@@ -191,12 +203,18 @@ private string render_detail(mapping state,string species,object me)
 	s += (string)info["origin"]+"\n\n";
 	s += "战斗灵技："+(string)info["skill"]+
 		"。PVE按冷却协战；人物PVP按战斗回合充能，每场最多触发2次，成长收益经过压缩且不能补刀。\n";
-	s += "三套灵纹：\n";
-	foreach((array)info["skill_sets"],array skills)
-		s += "• "+(skills*"、")+"\n";
+	s += "三套灵纹（名称是流派表现，三枚作为一套同步共鸣，不会分别叠加三次）：\n";
+	for(int rune_set=0;rune_set<sizeof((array)info["skill_sets"]);
+	   rune_set++){
+		array skills = info["skill_sets"][rune_set];
+		s += "• "+(skills*"、")+"\n  "+
+			PETD->query_pet_rune_rhythm_description(rune_set,"灵技")+"\n";
+	}
 	if(owned>=0){
 		mapping pet = state["pets"][owned];
 		mapping attributes = pet["attributes"];
+		int level_max = (int)pet["level_max"];
+		int trained_level = (int)pet["trained_level"];
 		s += "\n契名："+pet_display_name(pet,info)+"\n";
 		s += "阴阳："+(string)pet["polarity_name"]+"属\n";
 		if(mappingp(pet["fusion"])){
@@ -206,11 +224,15 @@ private string render_detail(mapping state,string species,object me)
 				(int)fusion["growth_bonus"]+"%\n";
 			s += "灵脉："+((array)fusion["traits"]*"、")+"\n";
 		}
-		s += "已收录：Lv."+(int)pet["level"]+"/60 · "+
+		s += "已收录：Lv."+(int)pet["level"]+"/"+level_max+" · "+
 			(int)pet["star"]+"星 · "+(string)pet["evolution_name"]+
 			" · 羁绊"+(int)pet["bond"]+"/5\n";
-		if((int)pet["level"]>=PETD->query_pet_level_max())
-			s += "战斗历练：已满级；继续战斗不会囤积溢出经验。\n";
+		if((int)pet["level_limited"])
+			s += "共享培养进度：Lv."+trained_level+
+				"（已完整保留）；当前角色只按Lv."+
+				(int)pet["level"]+"属性协战。\n";
+		if(trained_level>=level_max)
+			s += "战斗历练：已与当前人物等级同步；人物升级后继续成长，当前不囤积溢出历练。\n";
 		else
 			s += "战斗历练："+(int)pet["xp"]+"/"+
 				(int)pet["xp_need"]+"（协战击败合适等级怪物会自动连续升级）\n";
@@ -222,6 +244,14 @@ private string render_detail(mapping state,string species,object me)
 			"% | PVP压缩倍率："+(int)pet["pvp_growth_percent"]+
 			"% | 编号"+pet_short_id((string)pet["id"])+"\n";
 		s += "当前灵纹："+((array)pet["skills"]*"、")+"\n";
+		s += "实际共鸣："+
+			PETD->query_pet_rune_rhythm_description(
+				(int)pet["skill_set"],pet_rune_effect_label(pet,info))+"\n";
+		if(SPIRIT_COMPANIOND->query_pet_battle_source(me)!="shared")
+			s += "§y注意：当前战斗位是本命灵伴，本共享宠物处于待命，灵技与灵纹不会触发；切回共享宠物后生效。§r\n"+
+				"[立即携带共享宠物:pet carry]\n";
+		if(mappingp(pet["fusion"]))
+			s += "融合说明：三枚灵纹分别继承父系，但仍按上面的当前共鸣节奏作为一套结算；真实生效时战斗中会出现三纹共鸣提示。\n";
 		if(species=="luanniao")
 			s += "隐藏天赋：回生羽会在主人真正死亡时自动触发；灵医职业复苏优先，账号每日1次，复活后恢复15%生命与10%法力，切磋和自杀不消耗。\n";
 		if(mappingp(pet["imprinted_skill"]))
@@ -233,15 +263,25 @@ private string render_detail(mapping state,string species,object me)
 		s += "灵纹节奏："+((int)pet["skill_set"]==1 ?
 			"轻灵（80%效果/24秒）" : ((int)pet["skill_set"]==2 ?
 			"厚积（115%效果/36秒）" : "均衡（100%效果/30秒）"))+"\n";
+		s += "灵纹符："+(int)state["materials"]["skill_rune"]+
+			"枚（独立材料，不在人物背包；轮换消耗1枚）\n";
+		s += "获取：每周平复3次万灵裂隙后，在『今日修行→本周目标』"+
+			"三选一领取2枚。 [查看周目标:daily_cultivation] "+
+			"[前往裂隙:wanling_rift]\n";
 		s += "已收录外观："+((array)pet["variants"]*"、")+"\n";
-		s += "[设为协战:pet active "+(string)pet["id"]+"] "+
-			"[灵露加速1级:pet level "+(string)pet["id"]+"]\n";
-		if(VIPD->query_active_vip_level(me)>=2)
-			s += "[灵露连续加速10级:pet level10 "+(string)pet["id"]+"]（"+
-				vip_label(2)+"）\n";
+		s += "[设为协战:pet active "+(string)pet["id"]+"] ";
+		if(trained_level<level_max){
+			s += "[灵露加速1级:pet level "+
+				(string)pet["id"]+"]\n";
+			if(VIPD->query_active_vip_level(me)>=2)
+				s += "[灵露连续加速10级:pet level10 "+
+					(string)pet["id"]+"]（"+vip_label(2)+"）\n";
+			else
+				s += "连续提升10级（"+vip_label(2)+"解锁）"+
+					"[升级会员:vip_service_list]\n";
+		}
 		else
-			s += "连续提升10级（"+vip_label(2)+"解锁）"+
-				"[升级会员:vip_service_list]\n";
+			s += "已达当前人物有效等级上限\n";
 		s +=
 			"[消耗残片升星:pet star "+(string)pet["id"]+"] "+
 			"[深化羁绊:pet bond "+(string)pet["id"]+"]\n"+
@@ -268,6 +308,8 @@ private string render_materials(mapping state)
 		s += "• "+material_name(material)+"："+
 			(int)state["materials"][material]+"\n";
 	s += "\n灵印可稳定换基础灵宠；灵卵残片既可用于1—10星成长，也可用60枚任选裂隙异兽稳定孵化；3/6/9星自动进化。灵纹符按顺序轮换协战节奏；40月华尘可保底解锁星辉异色。\n";
+	s += "灵纹符获取：每周平复3次万灵裂隙后，在『今日修行→本周目标』三选一选择灵纹符，一次领取2枚；它保存在独立材料栏，不会出现在人物背包。\n";
+	s += "[查看本周进度:daily_cultivation]|[组队挑战裂隙:wanling_rift]\n";
 	s += "\n残片来源：每日寻迹稳定获得2枚；普通同级怪4%、副本怪12%、首领30%、副本首领50%概率获得1枚，战斗掉落按账号每日最多12枚；组队裂隙仍有最高综合效率、周奖励与完整灵卵保底。\n";
 	s += "[可兑换灵宠:pet catalog]|[返回万灵谱:pet]\n";
 	return s;
@@ -400,19 +442,29 @@ private string render_main(mapping state,object me)
 	string boss_species = (string)state["weekly_boss"];
 	mapping boss = PETD->query_pet_species(boss_species);
 	mapping guidance = PETD->query_pet_growth_guidance(me);
-	string s = "§g【山海万灵谱】§r\n\n";
-	s += "账号共享收藏："+(int)state["collection_count"]+"/"+
+	string s = "§g【共享宠物·山海万灵谱】§r\n\n";
+	string battle_source = SPIRIT_COMPANIOND->query_pet_battle_source(me);
+	s += "共享宠物收藏："+(int)state["collection_count"]+"/"+
 		(int)state["catalog_total"]+" | 当前协战："+active_name+"\n";
+	s += "当前战斗位："+(battle_source=="shared" ?
+		"§g共享宠物§r" : "§5本命灵伴§r")+"\n";
+	if(battle_source!="shared" && active_id!="")
+		s += "[携带共享宠物:pet carry]\n";
 	if(find_state_pet(state,active_id)["species"]=="luanniao")
 		s += "回生羽："+((int)state["daily"]["owner_revive"] ?
 			"今日已使用" : "今日可触发1次")+"\n";
 	s += "出战灵宠会从合适等级的真实怪物获得历练并自动连续升级；灵露可用于加速培养。\n";
+	s += "有效等级不超过当前人物Lv."+
+		(int)state["level_max"]+"；共享高等级培养进度永久保留，低等级角色只临时按自身等级生效。\n";
 	s += "本周裂隙："+(string)boss["icon"]+(string)boss["name"]+
 		" | 周胜场 "+(int)state["weekly"]["rift_wins"]+"/3"+
 		" | 完整灵卵保底 "+(int)state["rift_pity"]+"/30\n";
 	s += "灵印："+(int)state["materials"]["spirit_mark"]+
 		" | 灵露："+(int)state["materials"]["spirit_dew"]+
-		" | 灵卵残片："+(int)state["materials"]["egg_fragment"]+"\n\n";
+		" | 灵卵残片："+(int)state["materials"]["egg_fragment"]+"\n";
+	s += "灵纹符："+(int)state["materials"]["skill_rune"]+
+		"（本周裂隙3胜后可三选一领2枚） "+
+		"[获取说明:pet materials]\n\n";
 	s += "今日战斗残片："+(int)state["daily"]["pve_fragments"]+"/"+
 		PETD->query_pet_pve_fragment_daily_cap()+
 		"（普通怪、副本与首领均可获得）\n\n";
@@ -442,6 +494,8 @@ private string render_main(mapping state,object me)
 					"Lv."+(int)pet["level"]+"·"+(int)pet["star"]+
 					"星"+(string)pet["evolution_name"]+"·战力"+
 					(int)pet["power"]+"·羁绊"+(int)pet["bond"]+
+					((int)pet["level_limited"] ? "·培养Lv."+
+					(int)pet["trained_level"]+"已保留" : "")+
 					" [详情:pet detail "+(string)pet["species"]+"]\n";
 		}
 		s += "[暂停当前协战:pet active none]\n\n";
@@ -451,7 +505,8 @@ private string render_main(mapping state,object me)
 	s += "[完整图鉴:pet catalog]|[论道编队:pet team]|[独立材料栏:pet materials]\n";
 	s += "[阴阳灵契合成:pet fusion]（失败保留原宠）\n";
 	s += "[前往万灵台:wanling_rift gather]\n";
-	s += "\n公平规则：PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。会员不出售战斗专属宠物或属性洗练。\n";
+	s += "[本命灵伴:spirit_companion]（角色独立收集与培养）\n";
+	s += "\n公平规则：宠物有效等级不超过当前人物等级；VIP只通过人物自身可达等级间接影响上限，不另外倍增宠物成长。PVE使用完整培养成长；人物PVP只保留20%额外成长、每场最多2次且不能补刀。三宠论道继续完全标准化。\n";
 	if(me->query_profeId()=="fangshi")
 		s += "方士说明：万灵伙伴不占虎灵、鹤灵、龟灵名额，不触发三灵共鸣。\n";
 	s += "[返回游戏:look]\n";
@@ -549,6 +604,9 @@ int main(string|zero arg)
 	}
 	if(parts[0]=="choose" && sizeof(parts)>=2)
 		message = (string)PETD->choose_starter_pet(me,parts[1])["message"];
+	else if(parts[0]=="carry")
+		message = (string)SPIRIT_COMPANIOND->set_pet_battle_source(
+			me,"shared")["message"];
 	else if(parts[0]=="active" && sizeof(parts)>=2)
 		message = (string)PETD->set_active_pet(me,parts[1])["message"];
 	else if(parts[0]=="level" && sizeof(parts)>=2)
@@ -605,6 +663,10 @@ int main(string|zero arg)
 		return 1;
 	}
 	write(message+"\n");
+	if(parts[0]=="reset")
+		write("[查看灵纹符获取:daily_cultivation]|"+
+			"[组队挑战万灵裂隙:wanling_rift]|"+
+			"[查看独立材料栏:pet materials]\n");
 	if(search(({"gearequip","gearunequip","gearforge","geardismantle"}),
 	   parts[0])!=-1 && sizeof(parts)>=2){
 		write("[继续整理灵宠装备:pet gear "+parts[1]+"]|"+

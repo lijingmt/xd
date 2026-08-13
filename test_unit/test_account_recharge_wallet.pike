@@ -72,6 +72,19 @@ void give_physical_yushi(object player,int amount)
 	yushi->move(player);
 }
 
+int inventory_template_count(object player,string template_path)
+{
+	int count;
+	foreach(all_inventory(player),object item){
+		string path = file_name(item);
+		sscanf(path,"%s#%*d",path);
+		if(path==template_path)
+			count += functionp(item->is_combine_item) && item->is_combine_item() ?
+				(int)item->amount : 1;
+	}
+	return count;
+}
+
 void run_concurrent_debit(object player,int amount)
 {
 	int result = ACCOUNT_WALLETD->debit_recharge(
@@ -177,6 +190,38 @@ int main()
 			ACCOUNT_WALLETD->query_balance(root_player)==500,
 			"重复点击造成重复入账或请求编号被复用");
 
+		object txadd_command = (object)(ROOT+"/gamelib/cmds/txadd.pike");
+		mapping recovered_bonus = txadd_command->
+			execute_admin_recharge_target(child_player,50,"testunitadmin",
+				request_id,0);
+		mapping repeated_bonus = txadd_command->
+			execute_admin_recharge_target(child_player,50,"testunitadmin",
+				request_id,0);
+		int one_box = inventory_template_count(child_player,
+			ROOT+"/gamelib/clone/item/baoxiang/jingjinbaoxiang");
+		int five_tokens = inventory_template_count(child_player,
+			ROOT+"/gamelib/clone/item/bossdrop/huoyueqian");
+		check("钱包已入账但响应中断时补发一次附赠物且重复确认不克隆",
+			recovered_bonus["ok"] && recovered_bonus["duplicate"] &&
+			recovered_bonus["bonus_ok"] &&
+			!recovered_bonus["bonus_duplicate"] &&
+			repeated_bonus["ok"] && repeated_bonus["bonus_duplicate"] &&
+			one_box==1 && five_tokens==5,
+			"钱包/人物跨文件恢复造成附赠物丢失或重复");
+		child_player->save_with_result();
+		destruct(child_player);
+		child_player = clone(GAMELIB_USER);
+		child_player->set_name(child_id);
+		child_player->set_project("gamelib");
+		int child_reloaded = child_player->restore();
+		check("充值附赠凭据与背包在人物唯一档案中重载一致",
+			child_reloaded &&
+			child_player->has_admin_recharge_bonus_receipt(request_id) &&
+			inventory_template_count(child_player,
+				ROOT+"/gamelib/clone/item/baoxiang/jingjinbaoxiang")==1 &&
+			inventory_template_count(child_player,
+				ROOT+"/gamelib/clone/item/bossdrop/huoyueqian")==5,
+			"重启重载后附赠凭据或背包物品不一致");
 		check("历史人物玉石不迁移也不复制给其他职业",
 			YUSHID->query_physical_all_num(root_player)==7 &&
 			YUSHID->query_physical_all_num(child_player)==0 &&
@@ -332,6 +377,10 @@ int main()
 			search(txadd_source,"MANAGERD->checkpower")!=-1 &&
 			search(txadd_source,"credit_recharge_once")!=-1 &&
 			search(txadd_source,"确认共享充值")!=-1 &&
+			search(txadd_source,
+				"name = String.trim_all_whites(name);")!=-1 &&
+			search(txadd_source,
+				"name = lower_case(String.trim_all_whites(name));")==-1 &&
 			search(txadd_source,"player->command(\"yushi_add_fee") == -1 &&
 			search(legacy_source,"MANAGERD->checkpower")!=-1,
 			"充值入口仍存在越权、误点或直接铸币路径");
