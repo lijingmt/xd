@@ -2836,9 +2836,9 @@ mapping execute_autofight_api_action(object player,string action)
                     AUTOFIGHTD->query_daily_seconds_for(player)/3600;
                 result["can_upgrade_vip"] =
                     AUTOFIGHTD->can_upgrade_daily_time(player);
-                result["upgrade_command"] = vip_level < 4 ?
+                result["upgrade_command"] = vip_level < VIP_MAX_LEVEL ?
                     "vip_service_list" : "autofight vip";
-                result["upgrade_label"] = vip_level < 4 ?
+                result["upgrade_label"] = vip_level < VIP_MAX_LEVEL ?
                     "提高VIP" : "查看权益";
             }
             return result;
