@@ -240,4 +240,3 @@ Every change to the multi-worker foundation must:
 
 The New Moon principle is straightforward: grow the world without sacrificing
 save uniqueness, economic consistency, or old-player entry points.
-
