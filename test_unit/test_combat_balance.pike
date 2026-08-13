@@ -224,12 +224,14 @@ void test_xuehai_dot_tick_and_guard_visibility()
 		mapping first = ([]);
 		mapping guarded = ([]);
 		mapping expired = ([]);
+		mapping nonlethal = ([]);
 		mapping lethal = ([]);
 		valid = caster->apply_nonstacking_dot(
 			target,"xuehailieshang",1000,2)==1;
 		string combat_save = pikenv_save_object(target);
 		valid = valid && search(combat_save,"dot_source_runtime")==-1 &&
-			search(combat_save,"dot_source_runtime_name")==-1;
+			search(combat_save,"dot_source_runtime_name")==-1 &&
+			search(combat_save,"dot_nonlethal_runtime")==-1;
 		first = target->process_dot_tick();
 		valid = valid && first["active"] && first["damage"]==1000 &&
 			first["absorbed"]==0 && first["remaining"]==1 &&
@@ -248,6 +250,18 @@ void test_xuehai_dot_tick_and_guard_visibility()
 		valid = valid && expired["damage"]==500 &&
 			expired["absorbed"]==500 && expired["remaining"]==0 &&
 			target->get_cur_life()==before-500 &&
+			target->query_debuff("dot",0)=="none";
+		target->set_life(400);
+		valid = valid && caster->apply_nonstacking_dot(
+			target,"xuehailieshang",1000,2,1)==1;
+		nonlethal = target->process_dot_tick();
+		valid = valid && !nonlethal["defeated"] &&
+			nonlethal["last_hit_guarded"] &&
+			nonlethal["damage"]==399 && target->get_cur_life()==1;
+		nonlethal = target->process_dot_tick();
+		valid = valid && !nonlethal["defeated"] &&
+			nonlethal["last_hit_guarded"] && nonlethal["damage"]==0 &&
+			nonlethal["absorbed"]==0 && target->get_cur_life()==1 &&
 			target->query_debuff("dot",0)=="none";
 		target->set_life(400);
 		valid = valid && caster->apply_nonstacking_dot(
