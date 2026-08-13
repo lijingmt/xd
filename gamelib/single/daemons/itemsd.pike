@@ -454,7 +454,8 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 
 
 //外部接口，由fight_die()调用，为装备掉落的的接口
-object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,string item_rawname)
+object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,
+	string item_rawname,void|int original_item_level)
 {
 	array(string) itemsallow=({}); //等级范围类允许物品列表
 	object ret_item; //最后生成并返回的装备
@@ -463,10 +464,14 @@ object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,string 
 
 	//判断是否掉落白色物品
 	int pro = 10000;
-	int itemlevel=get_item_level(npclevel); //调用了获得物品等级的接口
+	// 明确指定模板时必须使用货架索引中的真实等级。旧逻辑又按目标
+	// 等级随机一次“原始等级”，会让低级模板以错误倍率生成属性。
+	int itemlevel=original_item_level>0 ? original_item_level :
+		get_item_level(npclevel); //调用了获得物品等级的接口
 
 	if(npclevel>73){
-		itemlevel=get_item_level(random(63)+10);//支持超过73以上的装备，如果超过70级按照10-73级的装备模板区随机选一个级别的装备，作为原始模板
+		if(original_item_level<=0)
+			itemlevel=get_item_level(random(63)+10);//兼容非货架旧调用
 		//werror("=========itemlevel:"+itemlevel+"\n");
 		a=72;//装备稀有度的因子按照73级npc的等级来，保持之前的概率分布
 		b=35;//极品10万分之4
@@ -1149,7 +1154,10 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		//到这里，我们就获得了物品的后缀名，以及需要回写的数据，接下来就是完成前面指出的第二件事
 		//orgitem="/weapon/70shelingzhang/70shelingzhang";
 		item_name=orgitem+postfix; //得到了完整的物品文件名
-		if(target_item_level>73)//这里之所以不用postfix，他超出了文件名最大长度，存储出现问题,暂时放postfix等以后解决
+		// 只要目标等级与原模板不同，就把等级写进文件名。否则同一低级
+		// 模板在不同等级生成但属性后缀相同，会误复用先生成者的攻防值，
+		// 形成低级装备跨等级刷属性和货架所见非所得。
+		if(target_item_level>73 || target_item_level!=orginal_level)
 			item_name=orgitem+postfix+"_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
 		
 
