@@ -15,6 +15,9 @@ SOCAT_SOCKET_PID=""
 SOCAT_TCP_PID=""
 CLUSTER_STARTED=0
 SHUTTING_DOWN=0
+SUPERVISOR_HEALTH_FAILURES=0
+SUPERVISOR_ENABLED=0
+MAP_WORKER_STARTUP_STABILIZATION_SECONDS=60
 
 export PATH="/usr/local/pike9/bin:${PATH}"
 if [[ "${XIAND_STARTUP_LIBRARY_ONLY:-0}" != "1" ]]; then
@@ -389,11 +392,36 @@ initialize_runtime()
 	fi
 }
 
+supervise_worker_cluster_once()
+{
+	local traffic_mode="$1"
+	local startup_grace_deadline="$2"
+	if cluster_is_healthy; then
+		SUPERVISOR_HEALTH_FAILURES=0
+		return 0
+	fi
+	if (( SECONDS < startup_grace_deadline )); then
+		SUPERVISOR_HEALTH_FAILURES=0
+		log "worker health probe is stabilizing; retrying before fallback"
+		return 0
+	fi
+	SUPERVISOR_HEALTH_FAILURES=$((SUPERVISOR_HEALTH_FAILURES + 1))
+	log "worker health probe failed ($SUPERVISOR_HEALTH_FAILURES/3)"
+	if (( SUPERVISOR_HEALTH_FAILURES >= 3 )); then
+		fallback_to_legacy "$traffic_mode"
+		SUPERVISOR_ENABLED=0
+		SUPERVISOR_HEALTH_FAILURES=0
+	fi
+}
+
 run_supervisor()
 {
 	local enabled="$1"
 	local traffic_mode="$2"
-	local health_failures=0
+	local startup_grace_deadline=$((
+		SECONDS + MAP_WORKER_STARTUP_STABILIZATION_SECONDS))
+	SUPERVISOR_ENABLED="$enabled"
+	SUPERVISOR_HEALTH_FAILURES=0
 	while true; do
 		sleep 5
 		if [[ -n "$TOMCAT_PID" ]] && ! kill -0 "$TOMCAT_PID" 2>/dev/null; then
@@ -402,18 +430,10 @@ run_supervisor()
 		if [[ -n "$LEGACY_PID" ]] && ! kill -0 "$LEGACY_PID" 2>/dev/null; then
 			fail "legacy main exited unexpectedly"
 		fi
-		[[ "$enabled" == "1" && "$CLUSTER_STARTED" == "1" ]] || continue
-		if cluster_is_healthy; then
-			health_failures=0
-			continue
-		fi
-		health_failures=$((health_failures + 1))
-		log "worker health probe failed ($health_failures/3)"
-		if (( health_failures >= 3 )); then
-			fallback_to_legacy "$traffic_mode"
-			enabled=0
-			health_failures=0
-		fi
+		[[ "$SUPERVISOR_ENABLED" == "1" &&
+		   "$CLUSTER_STARTED" == "1" ]] || continue
+		supervise_worker_cluster_once "$traffic_mode" \
+			"$startup_grace_deadline"
 	done
 }
 

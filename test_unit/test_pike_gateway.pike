@@ -500,6 +500,39 @@ int main()
 			source_has(gateway,"XIAND_WORKER_CONTROL_TIMEOUT"),
 			"在线人数可能重复、漏算或接受失效worker快照");
 
+		check("在线名单在慢监控后独立并行重抓并绑定Worker进程身份",
+			source_has(gateway,"pike_gateway_online_farm = Thread.Farm()") &&
+			source_has(gateway,"pike_gateway_refresh_online_rows") &&
+			source_has(gateway,"pike_gateway_collect_online_worker") &&
+			source_has(gateway,"online_worker_identity_changed") &&
+			source_has(rpc,"query_local_process_incarnation()") &&
+			!source_has(gateway,
+				"pike_gateway_online_rows_by_worker[worker_id] =\n\t\tcopy_value((array)local_status[\"online_users\"])") &&
+			httpd->test_pike_gateway_online_snapshot_retryable(
+				"online_route_mismatch") &&
+			httpd->test_pike_gateway_online_snapshot_retryable(
+				"duplicate_online_owner") &&
+			!httpd->test_pike_gateway_online_snapshot_retryable(
+				"worker_online_snapshot_stale"),
+			"慢续租可能令在线行过期、混入两代进程或在迁移瞬间永久断更");
+
+		check("全体在线行只在身份复核后原子替换且快照并行发布",
+			source_has(gateway,
+				"pike_gateway_online_rows_by_worker = fresh_rows") &&
+			source_has(gateway,"pike_gateway_online_rows_at = fresh_at") &&
+			source_has(gateway,
+				"rows_by_worker = copy_value(pike_gateway_online_rows_by_worker)") &&
+			source_has(gateway,
+				"reachable_by_worker = copy_value(pike_gateway_worker_reachable)") &&
+			source_has(gateway,"counts[worker_id] = 0") &&
+			source_has(gateway,"PIKE_GATEWAY_ONLINE_SNAPSHOT_ATTEMPTS = 3") &&
+			source_has(gateway,"pike_gateway_publish_online_worker") &&
+			source_has(gateway,"online_snapshot_age") &&
+			source_has(gateway,"online_snapshot_error") &&
+			source_has(gateway,
+				"pike_gateway_online_farm->run(\n\t\t\t\tpike_gateway_publish_online_worker"),
+			"逐Worker更新可能暴露半新半旧名单，或串行发布令末端Worker过期");
+
 		int control_heartbeat = search(gateway,
 			"\"local_control_heartbeat\",([])");
 		int live_renewal = search(gateway,
@@ -555,6 +588,15 @@ int main()
 			source_has(map_worker_daemon,
 				"MAP_WORKER_LOCAL_TEAM_DURABLE_TTL = 604800"),
 			"部分fanout成功后仍会重复访问健康节点，或故障日志每秒刷屏");
+
+		check("社交同步按worker公平限批且不会挤占冷启动控制面",
+			source_has(gateway,
+				"PIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER = 8") &&
+			source_has(gateway,"\"local_social_events\",([\"limit\":\n"+
+				"\t\t\t\tPIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER])") &&
+			!source_has(gateway,
+				"\"local_social_events\",([\"limit\":100])"),
+			"单次最多可能扇出数千次RPC，导致租约续期和健康探测饥饿");
 
 		check("目标确认绑定真实worker进程代数，节点重启后必须重放快照",
 			source_has(rpc,"local_identity") &&

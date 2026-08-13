@@ -458,6 +458,10 @@ if (len(gateway_workers) != expected
     raise SystemExit("coordinator gateway reports an unreachable worker")
 if not gateway.get("controller_ready") or not gateway.get("routing_ready"):
     raise SystemExit("embedded Pike gateway controller is not ready")
+if (gateway.get("online_snapshot_at", 0) <= 0
+        or gateway.get("online_snapshot_age", 999) > 30
+        or gateway.get("online_snapshot_error")):
+    raise SystemExit("embedded Pike gateway online snapshot is not ready")
 if status.get("desired_config", {}).get("traffic_mode") == "active" and not gateway.get("public_listening"):
     raise SystemExit("embedded Pike public gateway is not listening")
 PY
@@ -597,6 +601,9 @@ valid = (
     and all(node.get("healthy") for node in nodes)
     and gateway.get("controller_ready")
     and gateway.get("routing_ready")
+    and gateway.get("online_snapshot_at", 0) > 0
+    and gateway.get("online_snapshot_age", 999) <= 30
+    and not gateway.get("online_snapshot_error")
     and (sys.argv[3] == "shadow" or gateway.get("public_listening"))
 )
 raise SystemExit(0 if valid else 1)

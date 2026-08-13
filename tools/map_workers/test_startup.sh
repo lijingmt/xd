@@ -155,6 +155,45 @@ fallback_to_legacy shadow
 	}
 )
 
+# Cold-start cache, lease and team reconstruction may briefly make the
+# embedded gateway report a worker as unreachable after it first becomes
+# ready.  The supervisor must allow a bounded stabilization window, then keep
+# the normal three-consecutive-failure circuit breaker unchanged.
+(
+	CALLS=""
+	CLUSTER_STARTED=1
+	SUPERVISOR_ENABLED=1
+	SUPERVISOR_HEALTH_FAILURES=0
+	cluster_is_healthy()
+	{
+		return 1
+	}
+	fallback_to_legacy()
+	{
+		record_call "fallback:$1"
+	}
+	SECONDS=100
+	supervise_worker_cluster_once active 160
+	[[ "$CALLS" == "" && "$SUPERVISOR_HEALTH_FAILURES" == "0" &&
+	   "$SUPERVISOR_ENABLED" == "1" ]] || {
+		echo "startup stabilization unexpectedly opened fallback: $CALLS" >&2
+		exit 1
+	}
+	SECONDS=160
+	supervise_worker_cluster_once active 160
+	supervise_worker_cluster_once active 160
+	[[ "$CALLS" == "" && "$SUPERVISOR_HEALTH_FAILURES" == "2" ]] || {
+		echo "post-stabilization failures were not counted: $CALLS" >&2
+		exit 1
+	}
+	supervise_worker_cluster_once active 160
+	[[ "$CALLS" == "fallback:active" && "$SUPERVISOR_ENABLED" == "0" &&
+	   "$SUPERVISOR_HEALTH_FAILURES" == "0" ]] || {
+		echo "post-stabilization circuit breaker did not fail closed: $CALLS" >&2
+		exit 1
+	}
+)
+
 CALLS=""
 stop_cluster_safely()
 {
