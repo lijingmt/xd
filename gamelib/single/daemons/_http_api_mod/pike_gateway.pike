@@ -19,6 +19,7 @@ constant PIKE_GATEWAY_CIRCUIT_FAILURES = 3;
 constant PIKE_GATEWAY_CIRCUIT_SECONDS = 5;
 constant PIKE_GATEWAY_MONITOR_FAILURES = 3;
 constant PIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER = 8;
+constant PIKE_GATEWAY_ONLINE_SNAPSHOT_ATTEMPTS = 3;
 
 private multiset(string) pike_gateway_hop_headers = (<
 	"connection","keep-alive","proxy-authenticate",
@@ -28,6 +29,7 @@ private multiset(string) pike_gateway_hop_headers = (<
 private Protocols.HTTP.Server.Port pike_gateway_public_port;
 private object pike_gateway_request_farm;
 private object pike_gateway_monitor_farm;
+private object pike_gateway_online_farm;
 private object pike_gateway_controller_thread;
 private object pike_gateway_recovery_thread;
 private object pike_gateway_handoff_thread;
@@ -98,6 +100,9 @@ private int pike_gateway_started_at;
 private int pike_gateway_last_monitor_at;
 private int pike_gateway_last_monitor_completed_at;
 private int pike_gateway_last_online_publish_at;
+private int pike_gateway_last_online_snapshot_at;
+private int pike_gateway_last_online_snapshot_count;
+private string pike_gateway_last_online_snapshot_error = "not_published";
 private int pike_gateway_prewarm_completed_at;
 private int pike_gateway_prewarm_max_ms;
 private int pike_gateway_last_handoff_at;
@@ -700,6 +705,17 @@ int test_pike_gateway_monitor_should_isolate(int failures)
 	return pike_gateway_monitor_should_isolate(failures);
 }
 
+private int pike_gateway_online_snapshot_retryable(string code)
+{
+	return has_value(({"online_route_mismatch",
+		"duplicate_online_owner"}),code || "");
+}
+
+int test_pike_gateway_online_snapshot_retryable(string code)
+{
+	return pike_gateway_online_snapshot_retryable(code);
+}
+
 int test_pike_gateway_missing_counter_is_zero()
 {
 	return pike_gateway_counter_value(([]),"w99")==0;
@@ -817,6 +833,11 @@ mapping query_pike_gateway_status()
 		"worker_requests":worker_requests,
 		"prewarm_completed_at":pike_gateway_prewarm_completed_at,
 		"prewarm_max_ms":pike_gateway_prewarm_max_ms,
+		"online_snapshot_at":pike_gateway_last_online_snapshot_at,
+		"online_snapshot_age":pike_gateway_last_online_snapshot_at ?
+			max(0,time()-pike_gateway_last_online_snapshot_at) : -1,
+		"online_snapshot_count":pike_gateway_last_online_snapshot_count,
+		"online_snapshot_error":pike_gateway_last_online_snapshot_error,
 		"control_timeout":pike_gateway_control_timeout,
 		"active_requests":pike_gateway_active_requests,
 		"pending_requests":pike_gateway_pending_requests,
@@ -842,21 +863,27 @@ mapping query_pike_gateway_online_users()
 	mapping(string:mapping(string:mixed)) by_user = ([]);
 	mapping(string:int) counts = ([]);
 	array(mapping(string:mixed)) users = ({});
+	mapping(string:array(mapping(string:mixed))) rows_by_worker;
+	mapping(string:int) rows_at_by_worker;
+	mapping(string:int) reachable_by_worker;
 	if(MAP_WORKERD->query_node_role()!="gateway" ||
 	   !pike_gateway_controller_ready)
 		return (["ok":0,"code":"gateway_not_ready"]);
+	/* One reader must observe one cache generation. Per-worker locking would
+	 * still allow an atomic writer replacement between w01 and w02. */
+	object cache_key = pike_gateway_state_lock->lock();
+	rows_by_worker = copy_value(pike_gateway_online_rows_by_worker);
+	rows_at_by_worker = copy_value(pike_gateway_online_rows_at);
+	reachable_by_worker = copy_value(pike_gateway_worker_reachable);
+	destruct(cache_key);
 	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
-		array worker_users;
-		int rows_at;
-		int worker_reachable;
-		object cache_key = pike_gateway_state_lock->lock();
-		worker_users = copy_value(pike_gateway_online_rows_by_worker[worker_id]);
-		rows_at = pike_gateway_online_rows_at[worker_id];
-		worker_reachable = pike_gateway_worker_reachable[worker_id];
-		destruct(cache_key);
+		array worker_users = rows_by_worker[worker_id];
+		int rows_at = rows_at_by_worker[worker_id];
+		int worker_reachable = reachable_by_worker[worker_id];
 		if(!arrayp(worker_users) || rows_at<time()-15 || !worker_reachable)
 			return (["ok":0,"code":"worker_online_snapshot_stale",
 				"worker_id":worker_id]);
+		counts[worker_id] = 0;
 		foreach(worker_users,mixed raw){
 			mapping row;
 			mapping route;
@@ -2919,11 +2946,6 @@ private mapping pike_gateway_collect_worker_metrics(string worker_id)
 		"local_status",([]));
 	if(!(int)local_status["ok"] || !arrayp(local_status["online_users"]))
 		error("worker status rejected\n");
-	object key = pike_gateway_state_lock->lock();
-	pike_gateway_online_rows_by_worker[worker_id] =
-		copy_value((array)local_status["online_users"]);
-	pike_gateway_online_rows_at[worker_id] = time();
-	destruct(key);
 	return ([
 		"active_players":(int)local_status["active_players"],
 		"active_rooms":(int)local_status["active_rooms"],
@@ -2948,6 +2970,93 @@ private mapping pike_gateway_collect_worker_metrics(string worker_id)
 	]);
 }
 
+/** Fetch one worker's online rows and bind them to its exact process. */
+private mapping pike_gateway_collect_online_worker(string worker_id)
+{
+	mapping result = pike_gateway_worker_rpc(worker_id,
+		"local_online_users",([]));
+	string incarnation = (string)(result["incarnation"] || "");
+	if(!(int)result["ok"] || (string)result["worker_id"]!=worker_id ||
+	   sizeof(incarnation)!=64 || !arrayp(result["users"]) ||
+	   sizeof((array)result["users"])>PIKE_GATEWAY_MAX_RECONCILE_USERS)
+		error("worker online snapshot rejected\n");
+	return result;
+}
+
+/**
+ * Capture every worker after the slow monitor pass.  No per-worker result is
+ * exposed until all process identities still match the coordinator view.
+ */
+private mapping pike_gateway_refresh_online_rows()
+{
+	array(string) worker_ids = sort(indices(pike_gateway_worker_ports));
+	array(object) futures = ({});
+	mapping(string:string) expected_incarnations = ([]);
+	mapping(string:array(mapping(string:mixed))) fresh_rows = ([]);
+	mapping(string:int) fresh_at = ([]);
+	object state_key = pike_gateway_state_lock->lock();
+	foreach(worker_ids,string worker_id){
+		string incarnation = pike_gateway_worker_incarnations[worker_id] || "";
+		if(!pike_gateway_worker_reachable[worker_id] ||
+		   sizeof(incarnation)!=64){
+			destruct(state_key);
+			return (["ok":0,"code":"online_worker_unavailable"]);
+		}
+		expected_incarnations[worker_id] = incarnation;
+	}
+	destruct(state_key);
+	foreach(worker_ids,string worker_id){
+		mixed schedule_err = catch {
+			futures += ({pike_gateway_online_farm->run(
+				pike_gateway_collect_online_worker,worker_id)});
+		};
+		if(schedule_err)
+			return (["ok":0,"code":"online_snapshot_schedule_failed"]);
+	}
+	for(int index=0;index<sizeof(futures);index++){
+		mapping result;
+		mixed collect_err = catch { result = futures[index]->get(); };
+		if(collect_err || !mappingp(result))
+			return (["ok":0,"code":"online_snapshot_collect_failed"]);
+		string worker_id = worker_ids[index];
+		if((string)result["worker_id"]!=worker_id ||
+		   (string)result["incarnation"]!=expected_incarnations[worker_id] ||
+		   !arrayp(result["users"]))
+			return (["ok":0,"code":"online_worker_identity_changed"]);
+		fresh_rows[worker_id] = copy_value((array)result["users"]);
+	}
+	int snapshot_at = time();
+	foreach(worker_ids,string worker_id)
+		fresh_at[worker_id] = snapshot_at;
+	state_key = pike_gateway_state_lock->lock();
+	foreach(worker_ids,string worker_id){
+		if(!pike_gateway_worker_reachable[worker_id] ||
+		   pike_gateway_worker_incarnations[worker_id]!=
+			expected_incarnations[worker_id]){
+			destruct(state_key);
+			return (["ok":0,"code":"online_worker_identity_changed"]);
+		}
+	}
+	pike_gateway_online_rows_by_worker = fresh_rows;
+	pike_gateway_online_rows_at = fresh_at;
+	destruct(state_key);
+	return (["ok":1,"snapshot_at":snapshot_at]);
+}
+
+private void pike_gateway_note_online_snapshot(int ok,int snapshot_at,
+	int count,string code)
+{
+	object key = pike_gateway_state_lock->lock();
+	if(ok){
+		pike_gateway_last_online_snapshot_at = snapshot_at;
+		pike_gateway_last_online_snapshot_count = count;
+		pike_gateway_last_online_snapshot_error = "";
+	}
+	else
+		pike_gateway_last_online_snapshot_error = code || "snapshot_failed";
+	destruct(key);
+}
+
 private mapping(string:int) pike_gateway_affinity_heat_counts(array users)
 {
 	mapping(string:int) counts = ([]);
@@ -2965,30 +3074,82 @@ private mapping(string:int) pike_gateway_affinity_heat_counts(array users)
 	return counts;
 }
 
-/** Publish only after a complete monitor pass produced one coherent view. */
+private mapping pike_gateway_publish_online_worker(string worker_id,
+	mapping snapshot)
+{
+	mapping published = pike_gateway_worker_rpc(worker_id,
+		"local_online_snapshot_update",(["snapshot":snapshot]));
+	if(!(int)published["ok"])
+		error("worker rejected online snapshot\n");
+	return (["ok":1,"worker_id":worker_id]);
+}
+
+/** Publish only after a fresh, complete and identity-bound parallel capture. */
 private void pike_gateway_publish_online_snapshot()
 {
-	mapping snapshot = query_pike_gateway_online_users();
+	mapping snapshot = ([]);
+	for(int attempt=1;attempt<=PIKE_GATEWAY_ONLINE_SNAPSHOT_ATTEMPTS;attempt++){
+		mapping refreshed = pike_gateway_refresh_online_rows();
+		if(!(int)refreshed["ok"]){
+			pike_gateway_note_online_snapshot(0,0,0,
+				(string)refreshed["code"]);
+			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] collect attempt=%d code=%s\n",
+				attempt,pike_gateway_log_field((string)refreshed["code"],64));
+			return;
+		}
+		snapshot = query_pike_gateway_online_users();
+		if((int)snapshot["ok"])
+			break;
+		string code = (string)(snapshot["code"] || "snapshot_invalid");
+		if(attempt>=PIKE_GATEWAY_ONLINE_SNAPSHOT_ATTEMPTS ||
+		   !pike_gateway_online_snapshot_retryable(code)){
+			pike_gateway_note_online_snapshot(0,0,0,code);
+			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] validation attempt=%d code=%s\n",
+				attempt,pike_gateway_log_field(code,64));
+			return;
+		}
+		sleep(0.05);
+	}
 	if(!(int)snapshot["ok"])
 		return;
 	mapping observed = MAP_WORKERD->observe_affinity_heat(
 		pike_gateway_affinity_heat_counts((array)snapshot["users"]));
 	if(!(int)observed["ok"])
 		werror("[PIKE_GATEWAY][AFFINITY_HEAT] observation rejected\n");
+	array(object) futures = ({});
+	array(string) publish_workers = ({});
+	int publish_ok = 1;
 	foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 		if(!pike_gateway_worker_is_reachable(worker_id))
 			continue;
-		mixed publish_err = catch {
-			mapping published = pike_gateway_worker_rpc(worker_id,
-				"local_online_snapshot_update",(["snapshot":snapshot]));
-			if(!(int)published["ok"])
-				error("worker rejected online snapshot\n");
+		mixed schedule_err = catch {
+			futures += ({pike_gateway_online_farm->run(
+				pike_gateway_publish_online_worker,worker_id,
+				copy_value(snapshot))});
+			publish_workers += ({worker_id});
 		};
-		if(publish_err)
-			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] worker=%s error=%s\n",
-				worker_id,pike_gateway_log_field(
-					describe_error(publish_err),256));
+		if(schedule_err){
+			publish_ok = 0;
+			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] worker=%s code=publish_schedule_failed\n",
+				worker_id);
+		}
 	}
+	for(int index=0;index<sizeof(futures);index++){
+		mapping published;
+		mixed publish_err = catch { published = futures[index]->get(); };
+		if(publish_err || !mappingp(published) || !(int)published["ok"]){
+			publish_ok = 0;
+			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] worker=%s code=publish_failed error=%s\n",
+				publish_workers[index],
+				pike_gateway_log_field(publish_err ?
+					describe_error(publish_err) : "invalid publish result",256));
+		}
+	}
+	if(publish_ok && sizeof(futures)==sizeof(pike_gateway_worker_ports))
+		pike_gateway_note_online_snapshot(1,(int)snapshot["snapshot_at"],
+			(int)snapshot["count"],"");
+	else
+		pike_gateway_note_online_snapshot(0,0,0,"publish_failed");
 }
 
 private void pike_gateway_renew_live_player_leases(string worker_id,
@@ -3860,6 +4021,8 @@ void init_pike_gateway()
 		min(64,max(8,pike_gateway_max_requests)));
 	pike_gateway_monitor_farm = Thread.Farm();
 	pike_gateway_monitor_farm->set_max_num_threads(worker_count);
+	pike_gateway_online_farm = Thread.Farm();
+	pike_gateway_online_farm->set_max_num_threads(worker_count);
 	pike_gateway_started_at = time();
 	pike_gateway_enabled = 1;
 	pike_gateway_controller_thread = Thread.Thread(
