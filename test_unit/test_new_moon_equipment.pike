@@ -583,15 +583,17 @@ void test_catalog_and_templates()
 	check("新月套装从普通白装池隔离并使用69级以上独立稀有掉落门",
 		ITEMSD->query_newmoon_equipment_template_count()==120 &&
 		ITEMSD->query_newmoon_equipment_drop_denominator()==300000 &&
-		ITEMSD->query_enabled_newmoon_collection_count()==2 &&
-		!ITEMSD->can_drop_newmoon_equipment(68,101) &&
-		ITEMSD->query_newmoon_collection_id_for_roll(69,101)=="newmoon" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(69,400)=="newmoon" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(69,401)=="" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(89,1)=="" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(90,1)=="starshine" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(90,100)=="starshine" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(90,101)=="newmoon",
+		ITEMSD->query_enabled_newmoon_collection_count()==3 &&
+		!ITEMSD->can_drop_newmoon_equipment(68,131) &&
+		ITEMSD->query_newmoon_collection_id_for_roll(69,131)=="newmoon" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(69,430)=="newmoon" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(69,431)=="" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(89,31)=="" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(90,31)=="starshine" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(90,130)=="starshine" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(109,1)=="" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(110,1)=="firmament" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(110,30)=="firmament",
 		"套装可能污染普通掉落池、低等级掉落或绕过独立稀有概率");
 	check("十件套词缀均受生成器支持且没有非武器攻击词缀",
 		effective_profile_valid,"发现无效、反向或错槽词缀");
@@ -1167,124 +1169,185 @@ void test_high_level_dynamic_generation()
 		rm(generated_path);
 }
 
-void test_starshine_collection_lineage()
+void test_enabled_collection_lineage()
 {
+	array(mapping(string:mixed)) expected=({
+		(["id":"newmoon","name":"新月","quality":"稀世","rank":1,
+			"min_level":69,"min_affixes":1,"weight":300,"percent":100]),
+		(["id":"starshine","name":"曜星","quality":"绝世","rank":2,
+			"min_level":90,"min_affixes":2,"weight":100,"percent":105]),
+		(["id":"firmament","name":"天穹","quality":"传说","rank":3,
+			"min_level":110,"min_affixes":3,"weight":30,"percent":110]),
+		(["id":"greatvoid","name":"太虚","quality":"神话","rank":4,
+			"min_level":130,"min_affixes":4,"weight":10,"percent":116]),
+		(["id":"primordial","name":"太初","quality":"太古","rank":5,
+			"min_level":160,"min_affixes":5,"weight":3,"percent":123]),
+		(["id":"hongmeng","name":"鸿蒙","quality":"至尊","rank":6,
+			"min_level":200,"min_affixes":6,"weight":1,"percent":132]),
+	});
 	array(mapping(string:mixed)) collections=
 		ITEMSD->query_newmoon_collection_catalog();
-	int catalog_valid=sizeof(collections)==2 &&
-		collections[0]["id"]=="newmoon" &&
-		(int)collections[0]["weight"]==300 &&
-		(int)collections[0]["min_affixes"]==1 &&
-		collections[1]["id"]=="starshine" &&
-		collections[1]["name"]=="曜星" &&
-		collections[1]["quality"]=="绝世" &&
-		(int)collections[1]["rank"]==2 &&
-		(int)collections[1]["min_level"]==90 &&
-		(int)collections[1]["min_affixes"]==2 &&
-		(int)collections[1]["weight"]==100;
-	check("曜星套装目录按第二阶开放且掉率严格低于新月",
-		catalog_valid,"曜星品质、门槛、词缀下限或掉率权重错误");
+	int enabled=ITEMSD->query_enabled_newmoon_collection_count();
+	int catalog_valid=enabled==3 && sizeof(collections)==enabled;
+	int drop_windows_valid=1;
+	int cursor=0;
+	for(int index=0;index<enabled;index++){
+		mapping actual=collections[index];
+		mapping wanted=expected[index];
+		if(actual["id"]!=wanted["id"] || actual["name"]!=wanted["name"] ||
+		   actual["quality"]!=wanted["quality"] ||
+		   (int)actual["rank"]!=(int)wanted["rank"] ||
+		   (int)actual["min_level"]!=(int)wanted["min_level"] ||
+		   (int)actual["min_affixes"]!=(int)wanted["min_affixes"] ||
+		   (int)actual["weight"]!=(int)wanted["weight"])
+			catalog_valid=0;
+		if(index>0 && ((int)actual["weight"]>=
+		   (int)collections[index-1]["weight"] ||
+		   (int)actual["min_level"]<=
+		   (int)collections[index-1]["min_level"] ||
+		   (int)actual["min_affixes"]<=
+		   (int)collections[index-1]["min_affixes"]))
+			catalog_valid=0;
+	}
+	for(int index=enabled-1;index>=0;index--){
+		mapping current=collections[index];
+		int first_roll=cursor+1;
+		cursor+=(int)current["weight"];
+		if(ITEMSD->query_newmoon_collection_id_for_roll(
+		   (int)current["min_level"],first_roll)!=(string)current["id"] ||
+		   ITEMSD->query_newmoon_collection_id_for_roll(
+		   (int)current["min_level"],cursor)!=(string)current["id"] ||
+		   ITEMSD->query_newmoon_collection_id_for_roll(
+		   (int)current["min_level"]-1,first_roll)!="")
+			drop_windows_valid=0;
+	}
+	if(ITEMSD->query_newmoon_collection_id_for_roll(300,cursor+1)!="")
+		drop_windows_valid=0;
+	check("新月、曜星、天穹三阶目录品质递增且掉率递减",
+		catalog_valid,"三阶目录名称、品质、等级、词缀或权重错误");
+	check("三阶独立随机区间边界精确且未达等级不会降级冒充",
+		drop_windows_valid && cursor==430,
+		"掉率区间重叠、越界、等级门槛失效或总权重错误");
 
 	string weapon_path=item_path("weapon","69xinyuetianfengjian");
 	string head_path=item_path("head","69xinyuejianxinguan");
-	object newmoon_weapon=clone(weapon_path);
-	object starshine_weapon=clone(weapon_path);
-	int raw_attack=newmoon_weapon->query_attack_power();
-	int raw_attack_limit=newmoon_weapon->query_attack_power_limit();
-	int collection_set=starshine_weapon->set_newmoon_collection("starshine");
-	check("曜星底版只提升装备基础攻防并保持既有战斗公式",
-		collection_set && starshine_weapon->query_newmoon_collection_rank()==2 &&
-		starshine_weapon->query_attack_power()==raw_attack*105/100 &&
-		starshine_weapon->query_attack_power_limit()==raw_attack_limit*105/100 &&
-		starshine_weapon->query_weapon_attack()>=
-			starshine_weapon->query_attack_power() &&
-		starshine_weapon->query_weapon_attack()<=
-			starshine_weapon->query_attack_power_limit(),
-		"曜星基础品质倍率或装备随机攻击接口未统一");
+	object raw_weapon=clone(weapon_path);
+	int raw_attack=raw_weapon->query_attack_power();
+	int raw_attack_limit=raw_weapon->query_attack_power_limit();
+	int quality_valid=1;
+	for(int index=0;index<enabled;index++){
+		object quality_item=clone(weapon_path);
+		mapping current=expected[index];
+		if(!quality_item->set_newmoon_collection((string)current["id"]) ||
+		   quality_item->query_newmoon_collection_rank()!=index+1 ||
+		   quality_item->query_attack_power()!=
+			raw_attack*(int)current["percent"]/100 ||
+		   quality_item->query_attack_power_limit()!=
+			raw_attack_limit*(int)current["percent"]/100 ||
+		   quality_item->query_weapon_attack()<
+			quality_item->query_attack_power() ||
+		   quality_item->query_weapon_attack()>
+			quality_item->query_attack_power_limit())
+			quality_valid=0;
+		destruct(quality_item);
+	}
+	check("三阶品质只递增装备基础攻防并统一进入既有攻击接口",
+		quality_valid,"品质倍率、阶位或装备随机攻击接口不一致");
+	destruct(raw_weapon);
 
-	object player=create_player("__testunit_newmoon_starshine_mix__",
+	object player=create_player("__testunit_newmoon_collection_mix__",
 		"human","jianxian");
+	object high_weapon=clone(weapon_path);
 	object newmoon_head=clone(head_path);
-	starshine_weapon->move(player);
+	high_weapon->set_newmoon_collection("firmament");
+	high_weapon->move(player);
 	newmoon_head->move(player);
-	player->wield(starshine_weapon);
+	player->wield(high_weapon);
 	player->wear(newmoon_head);
 	check("不同品质套装不能混穿伪造二件共鸣",
-		starshine_weapon->query_newmoon_set_piece_count()==1 &&
+		high_weapon->query_newmoon_set_piece_count()==1 &&
 		newmoon_head->query_newmoon_set_piece_count()==1 &&
-		starshine_weapon->query_newmoon_resonance_percent()==100 &&
+		high_weapon->query_newmoon_resonance_percent()==100 &&
 		newmoon_head->query_newmoon_resonance_percent()==100,
-		"曜星与新月被错误合并为同一套装计数");
+		"天穹与新月被错误合并为同一套装计数");
 	destroy_player(player);
-	destruct(newmoon_weapon);
 
 	string raw="weapon/69xinyuetianfengjian/69xinyuetianfengjian";
-	string directory=ITEM_PATH+
-		"weapon/69xinyuetianfengjian";
+	string directory=ITEM_PATH+"weapon/69xinyuetianfengjian";
 	array(string) before=get_dir(directory) || ({});
-	object base=clone(weapon_path);
-	object|zero generated=0;
-	object|zero reforged=0;
-	string generated_name="";
-	mixed generation_error=catch {
-		base->set_newmoon_collection("starshine");
-		generated=ITEMSD->get_convert_item(raw,2,69,90,base);
-		if(generated){
-			generated_name=object_name(generated);
-			reforged=ITEMSD->get_convert_item(
-				ITEMSD->query_convert_item_rawname(generated),3,69,90,
-				generated);
+	int generation_valid=1;
+	array(string) generation_errors=({});
+	for(int index=1;index<enabled;index++){
+		mapping current=expected[index];
+		object base=clone(weapon_path);
+		object|zero generated=0;
+		object|zero reforged=0;
+		string generated_name="";
+		mixed generation_error=catch {
+			base->set_newmoon_collection((string)current["id"]);
+			generated=ITEMSD->get_convert_item(raw,
+				(int)current["min_affixes"],69,
+				(int)current["min_level"],base);
+			if(generated){
+				generated_name=object_name(generated);
+				reforged=ITEMSD->get_convert_item(
+					ITEMSD->query_convert_item_rawname(generated),
+					min(7,(int)current["min_affixes"]+1),69,
+					(int)current["min_level"],generated);
+			}
+		};
+		if(generation_error || !generated || !reforged ||
+		   search(generated_name,"_nm"+(string)(index+1))==-1 ||
+		   generated->query_item_rareLevel()<(int)current["min_affixes"] ||
+		   reforged->query_item_rareLevel()<
+			min(7,(int)current["min_affixes"]+1) ||
+		   generated->query_newmoon_collection_id()!=(string)current["id"] ||
+		   reforged->query_newmoon_collection_id()!=(string)current["id"] ||
+		   generated->query_newmoon_collection_name()!=(string)current["name"] ||
+		   generated->query_newmoon_collection_quality()!=
+			(string)current["quality"] ||
+		   search(generated->query_short(),"【"+(string)current["name"]+
+			"·"+(string)current["quality"]+"·剑仙】")==-1 ||
+		   search(generated->query_short(),"【新月·剑仙】")!=-1){
+			generation_valid=0;
+			generation_errors+=({generation_error ?
+				describe_error(generation_error) : (string)current["id"]});
 		}
-	};
-	check("曜星动态生成与再次炼化使用独立文件并保留套装身份",
-		!generation_error && objectp(generated) && objectp(reforged) &&
-		search(generated_name,"_nm2")!=-1 &&
-		generated->query_item_rareLevel()>=2 &&
-		reforged->query_item_rareLevel()>=3 &&
-		generated->query_newmoon_collection_id()=="starshine" &&
-		reforged->query_newmoon_collection_id()=="starshine" &&
-		generated->query_newmoon_collection_name()=="曜星" &&
-		generated->query_newmoon_collection_quality()=="绝世" &&
-		search(generated->query_short(),"【曜星·绝世·剑仙】")!=-1 &&
-		search(generated->query_short(),"【新月·剑仙】")==-1 &&
-		generated->query_newmoon_set_name()==
-			"曜星·绝世·剑仙·剑心",
-		generation_error ? describe_error(generation_error) :
-			"动态文件、最低词缀、显示或炼化身份丢失");
+		if(reforged)
+			destruct(reforged);
+		if(generated)
+			destruct(generated);
+		destruct(base);
+	}
+	check("曜星与天穹动态生成、显示和再次炼化均保留独立身份",
+		generation_valid,generation_errors*" | ");
+	cleanup_generated_files(directory,before);
 
 	object storage_player=create_player(
 		"__testunit_newmoon_starshine_store__","human","jianxian");
-	int stored=0;
-	array row=({});
-	object|zero restored=0;
-	if(generated){
-		generated->move(storage_player);
-		stored=storage_player->packaged(
-			generated,storage_player->query_cangku_size())==0;
-		if(stored){
-			destruct(generated);
-			generated=0;
-		}
-		if(stored && sizeof(storage_player->packaged_items)){
-			row=copy_value(storage_player->packaged_items[0]);
-			restored=storage_player->repackaged((string)row[0]);
-		}
-	}
-	check("曜星装备经个人仓库存取保持独立品质且不伪造绑定",
+	object storage_item=clone(weapon_path);
+	storage_item->set_newmoon_collection("starshine");
+	storage_item->move(storage_player);
+	int stored=storage_player->packaged(
+		storage_item,storage_player->query_cangku_size())==0;
+	if(stored)
+		destruct(storage_item);
+	array row=stored && sizeof(storage_player->packaged_items) ?
+		copy_value(storage_player->packaged_items[0]) : ({});
+	object|zero restored=stored ? storage_player->repackaged(
+		(string)row[0]) : 0;
+	check("高阶套装经个人仓库存取保持独立品质且不伪造绑定",
 		stored && sizeof(row)==11 && mappingp(row[9]) &&
 		!sizeof(row[9]) && mappingp(row[10]) &&
 		row[10]["collection_id"]=="starshine" && objectp(restored) &&
 		restored->query_newmoon_collection_id()=="starshine" &&
 		!restored->query_newmoon_account_bound(),
-		"曜星集合快照在仓库存取中丢失、错位或意外绑定");
+		"高阶集合快照在仓库存取中丢失、错位或意外绑定");
 	if(restored)
 		destruct(restored);
-	if(reforged)
-		destruct(reforged);
-	if(base)
-		destruct(base);
+	if(!stored)
+		destruct(storage_item);
 	destroy_player(storage_player);
-	cleanup_generated_files(directory,before);
 }
 
 void cleanup_generated_files(string directory,array(string) before)
@@ -1431,7 +1494,7 @@ int main()
 	test_set_identity_and_duplicate_boundaries();
 	test_two_player_real_combat_comparisons();
 	test_high_level_dynamic_generation();
-	test_starshine_collection_lineage();
+	test_enabled_collection_lineage();
 	test_forge_and_wash_compatibility();
 	test_legacy_equipment_compatibility();
 	werror("新月十件套测试：总计%d，通过%d，失败%d\n",
