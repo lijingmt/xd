@@ -95,6 +95,12 @@ private mapping(int:array(string)) spec_item_list = ([]);
 //记录所有白色装备的映射表
 private mapping(int:array(string)) item_list = ([]);
 
+// 新月套装使用独立稀有池。底版仍登记在 orgItems.list 供动态装备
+// 生成器复用，但绝不能混进对应等级的普通白装池。
+private array(string) newmoon_item_list = ({});
+private int newmoon_drop_min_level = 69;
+private int newmoon_drop_denominator = 1000;
+
 //记录白色装备允许出现属性的映射表
 private mapping(string:array(string)) item_attributes = ([]);
 
@@ -303,8 +309,17 @@ private int ReadFile_item_list(string filename)
 					array(string)tmp = eachline/"|";
 					//然后分割出每个装备的名称，这主要是为了将有属性物品列表文件读入内存
 					array(string) itemnames=tmp[1]/",";
-					//记录在item_list映射中
-					item_list[(int)tmp[0]]=itemnames-({""});//copy_value(itemnames);
+					array(string) ordinary=({});
+					foreach(itemnames-({""}),string itemname){
+						if(search(itemname,"69xinyue")!=-1)
+							newmoon_item_list+=({itemname});
+						else
+							ordinary+=({itemname});
+					}
+					//记录在普通 item_list 映射中；仅含新月套装的登记行
+					//不会创建空池，从而保持上线前该等级“无普通底版”的行为。
+					if(sizeof(ordinary))
+						item_list[(int)tmp[0]]=ordinary;
 				}
 			}
 		}
@@ -313,6 +328,22 @@ private int ReadFile_item_list(string filename)
 	}
 	//werror("===== Error! file not exist =====\n");
 	return 0;
+}
+
+int query_newmoon_equipment_drop_denominator()
+{
+	return newmoon_drop_denominator;
+}
+
+int query_newmoon_equipment_template_count()
+{
+	return sizeof(newmoon_item_list);
+}
+
+int can_drop_newmoon_equipment(int npclevel,int roll)
+{
+	return npclevel>=newmoon_drop_min_level &&
+		roll==1 && sizeof(newmoon_item_list)==120;
 }
 
 //由liaocheng于07/2/7添加，内部接口，被create()调用，用于读入特殊物品文件索引到spec_item_list映射表
@@ -407,12 +438,17 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
 		if(itemlevel==0)
 			return 0;
-		itemsallow=item_list[itemlevel]; 
-		if(!itemsallow){
-			return 0;
+		int newmoon_roll=random(query_newmoon_equipment_drop_denominator())+1;
+		if(can_drop_newmoon_equipment(npclevel,newmoon_roll)){
+			item_rawname=newmoon_item_list[random(sizeof(newmoon_item_list))];
+			itemlevel=newmoon_drop_min_level;
 		}
-		
-		item_rawname=itemsallow[random(sizeof(itemsallow))]; //在这里获得了白色物品的名字
+		else{
+			itemsallow=item_list[itemlevel];
+			if(!itemsallow)
+				return 0;
+			item_rawname=itemsallow[random(sizeof(itemsallow))];
+		}
 		//werror("============item_rawname:"+item_rawname+"\n");
 		//判断掉落的物品是否有属性
 		//掉落的属性概率xxxxxxxxxxx
@@ -1861,4 +1897,165 @@ int if_have_enough(object player,string itemName,void|int num)
 	else
 	return re;
 
+}
+
+private string safe_newmoon_binding_log_field(string value)
+{
+	string result=value || "";
+	result=replace(result,"\r"," ");
+	result=replace(result,"\n"," ");
+	result=replace(result,"|","/");
+	if(sizeof(result)>240)
+		result=result[..239];
+	return result;
+}
+
+private void append_newmoon_binding_log(string line)
+{
+	mixed log_error=catch{
+		Stdio.append_file(ROOT+"/log/newmoon_item_binding.log",line);
+	};
+	if(log_error)
+		werror("[NEWMOON_BINDING] audit log write failed: %s\n",
+			describe_error(log_error));
+}
+
+string query_player_account_owner(object player)
+{
+	string owner="";
+	int test_owner;
+	if(!player || !functionp(player->is) || !player->is("player") ||
+	   !functionp(player->query_name))
+		return "";
+	if(functionp(player->query_account_owner))
+		owner=(string)player->query_account_owner();
+	if(owner=="")
+		owner=(string)player->query_name();
+	if(sizeof(owner)<2 || sizeof(owner)>64)
+		return "";
+	test_owner=has_prefix(owner,"__testunit_") && has_suffix(owner,"__");
+	for(int index=0;index<sizeof(owner);index++){
+		int one=owner[index];
+		if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+		   (one>='0' && one<='9') || (test_owner && one=='_'))
+			continue;
+		return "";
+	}
+	return owner;
+}
+
+private string new_newmoon_binding_id(object item,object player,
+	string owner,string reason)
+{
+	object hash=Crypto.SHA256();
+	hash->update(owner+"|"+(string)player->query_name()+"|"+
+		(file_name(item)/"#")[0]+"|"+reason+"|"+(string)time()+"|"+
+		String.string2hex(Crypto.Random.random_string(16)));
+	return String.string2hex(hash->digest());
+}
+
+/**
+ * Return 2 for a new binding, 1 for non-New-Moon/already same-account, and 0
+ * for invalid input or an ownership conflict.
+ */
+int bind_newmoon_item_to_player(object item,object player,string reason)
+{
+	string owner;
+	string current_owner;
+	string binding_id;
+	int bound_at;
+	if(!item)
+		return 0;
+	if(!functionp(item->query_newmoon_resonance_profession) ||
+	   (string)item->query_newmoon_resonance_profession()=="")
+		return 1;
+	owner=query_player_account_owner(player);
+	if(owner=="" || !functionp(item->is_newmoon_binding_reason) ||
+	   !item->is_newmoon_binding_reason(reason) ||
+	   !functionp(item->apply_newmoon_account_binding))
+		return 0;
+	current_owner=functionp(item->query_newmoon_account_bind_owner) ?
+		(string)item->query_newmoon_account_bind_owner() : "";
+	if(current_owner!=""){
+		if(current_owner!=owner)
+			return 0;
+		if(!item->apply_newmoon_account_binding(owner,
+		   (string)item->query_newmoon_account_bind_reason(),
+		   (int)item->query_newmoon_account_bind_time(),
+		   (string)item->query_newmoon_account_bind_id()))
+			return 0;
+		return 1;
+	}
+	bound_at=time();
+	binding_id=new_newmoon_binding_id(item,player,owner,reason);
+	if(!item->apply_newmoon_account_binding(owner,reason,bound_at,binding_id))
+		return 0;
+	append_newmoon_binding_log(
+		(string)bound_at+"|bind|id="+binding_id+"|account="+
+		safe_newmoon_binding_log_field(owner)+"|character="+
+		safe_newmoon_binding_log_field((string)player->query_name())+
+		"|reason="+reason+"|item="+
+		safe_newmoon_binding_log_field((file_name(item)/"#")[0])+"|name="+
+		safe_newmoon_binding_log_field((string)item->query_name_cn())+"\n");
+	return 2;
+}
+
+int rollback_newmoon_item_binding(object item,object player,string binding_id)
+{
+	string owner=query_player_account_owner(player);
+	if(owner=="" || !item ||
+	   !functionp(item->rollback_newmoon_account_binding))
+		return 0;
+	if(!item->rollback_newmoon_account_binding(owner,binding_id))
+		return 0;
+	append_newmoon_binding_log(
+		(string)time()+"|rollback|id="+
+		safe_newmoon_binding_log_field(binding_id)+"|account="+
+		safe_newmoon_binding_log_field(owner)+"|character="+
+		safe_newmoon_binding_log_field((string)player->query_name())+"\n");
+	return 1;
+}
+
+int bind_equipped_newmoon_items(object player,string reason)
+{
+	mapping equipped;
+	array(object) seen=({});
+	int newly_bound=0;
+	if(!player || !functionp(player->query_equip))
+		return 0;
+	equipped=player->query_equip();
+	if(!mappingp(equipped))
+		return 0;
+	foreach(values(equipped),object item){
+		int status;
+		if(!item || search(seen,item)!=-1)
+			continue;
+		seen+=({item});
+		status=bind_newmoon_item_to_player(item,player,reason);
+		if(status==2)
+			newly_bound++;
+	}
+	return newly_bound;
+}
+
+int newmoon_item_cross_account_blocked(object item)
+{
+	return item && functionp(item->query_newmoon_account_bound) &&
+		(int)item->query_newmoon_account_bound()==1;
+}
+
+/** Fail closed when an account-bound New Moon instance reaches the wrong user. */
+int newmoon_item_usable_by_player(object item,object player)
+{
+	string owner;
+	string player_owner;
+	if(!item || !functionp(item->query_newmoon_resonance_profession) ||
+	   (string)item->query_newmoon_resonance_profession()=="")
+		return 1;
+	player_owner=query_player_account_owner(player);
+	if(player_owner=="")
+		return 0;
+	owner=functionp(item->query_newmoon_account_bind_owner) ?
+		(string)item->query_newmoon_account_bind_owner() : "";
+	return owner=="" || owner==player_owner;
 }

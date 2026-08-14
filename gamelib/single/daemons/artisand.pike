@@ -686,11 +686,17 @@ private int query_enhancer_luck(object player,string skill_name,int amount,
 	return luck;
 }
 
-private void remove_created_items(array(object) created)
+private void remove_created_items(array(object) created,void|object player)
 {
 	foreach(created,object item){
-		if(item)
+		if(item){
+			if(player && functionp(item->query_newmoon_account_bound) &&
+			   item->query_newmoon_account_bound() &&
+			   item->query_newmoon_account_bind_reason()=="artisan")
+				ITEMSD->rollback_newmoon_item_binding(item,player,
+					(string)item->query_newmoon_account_bind_id());
 			destruct(item);
+		}
 	}
 }
 
@@ -781,7 +787,7 @@ mapping(string:mixed) craft_equipment(object player,string skill_name,
 		if(target_level>0)
 			generated_level = target_level;
 		if(!template_item){
-			remove_created_items(created);
+			remove_created_items(created,player);
 			result["message"] = "制品模板无法载入，本次没有扣除材料。";
 			return result;
 		}
@@ -800,15 +806,28 @@ mapping(string:mixed) craft_equipment(object player,string skill_name,
 		if(!item || player->if_over_load(item)){
 			if(item)
 				destruct(item);
-			remove_created_items(created);
+			remove_created_items(created,player);
 			result["message"] = "包袱空间不足或制品生成失败，本次没有扣除材料。";
+			return result;
+		}
+		int newmoon_bind_status=ITEMSD->bind_newmoon_item_to_player(
+			item,player,"artisan");
+		if(newmoon_bind_status<1){
+			destruct(item);
+			remove_created_items(created,player);
+			result["message"] =
+				"新月制品账号绑定失败，本次没有扣除材料。";
 			return result;
 		}
 		item->move(player);
 		if(environment(item)!=player){
-			if(item)
+			if(item){
+				if(newmoon_bind_status==2)
+					ITEMSD->rollback_newmoon_item_binding(item,player,
+						(string)item->query_newmoon_account_bind_id());
 				destruct(item);
-			remove_created_items(created);
+			}
+			remove_created_items(created,player);
 			result["message"] = "制品放入包袱失败，本次没有扣除材料。";
 			return result;
 		}
@@ -824,7 +843,7 @@ mapping(string:mixed) craft_equipment(object player,string skill_name,
 	}
 	consumption = begin_material_consumption(player,requirements);
 	if(!(int)consumption["ok"]){
-		remove_created_items(created);
+		remove_created_items(created,player);
 		result["message"] = "材料状态已经变化，本次制作已安全取消。";
 		return result;
 	}
@@ -841,7 +860,7 @@ mapping(string:mixed) craft_equipment(object player,string skill_name,
 		player->vice_skills[skill_name] = old_skill;
 		player["/artisan/insight/"+skill_name] = old_insight;
 		player->baoshi_add = old_enhancers;
-		remove_created_items(created);
+		remove_created_items(created,player);
 		rollback_material_consumption(player,consumption);
 		result["message"] = "人物存档失败，制品与材料变更已经回滚。";
 		return result;

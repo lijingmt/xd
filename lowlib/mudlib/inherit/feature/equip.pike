@@ -23,6 +23,133 @@ void set_equip_defend(int a){ equip_defend=a;}
 // 持久化变量。旧装备序列化依赖继承布局；新增顶层字段会让历史档案
 // 的 equiped 等字段错位。没有共鸣数据的全部旧装备始终返回 0 加成。
 #define NEWMOON_RESONANCE_ROOT "/item_newmoon/resonance"
+#define NEWMOON_BINDING_ROOT "/item_newmoon/binding"
+
+int is_newmoon_binding_owner(string owner)
+{
+	int test_owner;
+	if(!owner || sizeof(owner)<2 || sizeof(owner)>64)
+		return 0;
+	test_owner=has_prefix(owner,"__testunit_") && has_suffix(owner,"__");
+	for(int index=0;index<sizeof(owner);index++){
+		int one=owner[index];
+		if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+		   (one>='0' && one<='9') || (test_owner && one=='_'))
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+int is_newmoon_binding_id(string binding_id)
+{
+	if(!binding_id || sizeof(binding_id)!=64)
+		return 0;
+	for(int index=0;index<sizeof(binding_id);index++){
+		int one=binding_id[index];
+		if((one>='0' && one<='9') || (one>='a' && one<='f'))
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+int is_newmoon_binding_reason(string reason)
+{
+	return search(({
+		"equip","legacy_equip","reforge","socket","artisan",
+		"pity","choice","compensation",
+	}),reason)!=-1;
+}
+
+int query_newmoon_account_bound()
+{
+	return query_newmoon_resonance_profession()!="" &&
+		query_newmoon_account_bind_owner()!="";
+}
+
+string query_newmoon_account_bind_owner()
+{
+	return (string)(this_object()[NEWMOON_BINDING_ROOT+"/owner"] || "");
+}
+
+string query_newmoon_account_bind_reason()
+{
+	return (string)(this_object()[NEWMOON_BINDING_ROOT+"/reason"] || "");
+}
+
+int query_newmoon_account_bind_time()
+{
+	return (int)this_object()[NEWMOON_BINDING_ROOT+"/time"];
+}
+
+string query_newmoon_account_bind_id()
+{
+	return (string)(this_object()[NEWMOON_BINDING_ROOT+"/id"] || "");
+}
+
+/**
+ * Bind one concrete New Moon equipment instance. State lives in dbase so the
+ * historical equipment save-field layout is unchanged. Existing bindings are
+ * immutable and idempotent only for the same registered account.
+ */
+int apply_newmoon_account_binding(string owner,string reason,int bound_at,
+	string binding_id)
+{
+	string current_owner;
+	if(query_newmoon_resonance_profession()=="" ||
+	   !is_newmoon_binding_owner(owner) ||
+	   !is_newmoon_binding_reason(reason) || bound_at<=0 ||
+	   !is_newmoon_binding_id(binding_id))
+		return 0;
+	current_owner=query_newmoon_account_bind_owner();
+	if(current_owner!=""){
+		if(current_owner!=owner)
+			return 0;
+		return 1;
+	}
+	this_object()[NEWMOON_BINDING_ROOT+"/owner"]=owner;
+	this_object()[NEWMOON_BINDING_ROOT+"/reason"]=reason;
+	this_object()[NEWMOON_BINDING_ROOT+"/time"]=bound_at;
+	this_object()[NEWMOON_BINDING_ROOT+"/id"]=binding_id;
+	return 1;
+}
+
+/** Only used before an initial binding has been persisted successfully. */
+int rollback_newmoon_account_binding(string owner,string binding_id)
+{
+	if(!query_newmoon_account_bound() ||
+	   query_newmoon_account_bind_owner()!=owner ||
+	   query_newmoon_account_bind_id()!=binding_id)
+		return 0;
+	this_object()->m_delete_foruser(NEWMOON_BINDING_ROOT);
+	return 1;
+}
+
+mapping(string:mixed) query_newmoon_storage_binding_snapshot()
+{
+	if(!query_newmoon_account_bound())
+		return ([]);
+	return ([
+		"version":1,
+		"owner":query_newmoon_account_bind_owner(),
+		"reason":query_newmoon_account_bind_reason(),
+		"bound_at":query_newmoon_account_bind_time(),
+		"binding_id":query_newmoon_account_bind_id(),
+	]);
+}
+
+int restore_newmoon_storage_binding_snapshot(mapping snapshot)
+{
+	if(!mappingp(snapshot) || sizeof(snapshot)!=5 ||
+	   (int)snapshot["version"]!=1 || !stringp(snapshot["owner"]) ||
+	   !stringp(snapshot["reason"]) || !intp(snapshot["bound_at"]) ||
+	   !stringp(snapshot["binding_id"]))
+		return 0;
+	return apply_newmoon_account_binding((string)snapshot["owner"],
+		(string)snapshot["reason"],(int)snapshot["bound_at"],
+		(string)snapshot["binding_id"]);
+}
 
 int is_newmoon_supported_set_attribute(string attribute)
 {
@@ -180,6 +307,7 @@ int query_newmoon_set_piece_count()
 	string theme=query_newmoon_resonance_theme();
 	int count=0;
 	array(object) counted=({});
+	mapping(string:int) counted_slots=([]);
 	if(profession=="" || theme=="" || !owner ||
 	   !functionp(owner->query_equip))
 		return 0;
@@ -187,7 +315,10 @@ int query_newmoon_set_piece_count()
 	if(!mappingp(equipped))
 		return 0;
 	foreach(values(equipped),object item){
-		if(item && item->item_cur_dura>0 &&
+		string slot=item && functionp(item->query_item_kind) ?
+			(string)item->query_item_kind() : "";
+		if(item && environment(item)==owner && item->equiped &&
+		   item->item_cur_dura>0 && slot!="" && !counted_slots[slot] &&
 		   search(counted,item)==-1 &&
 		   functionp(item->query_newmoon_resonance_profession) &&
 		   functionp(item->query_newmoon_resonance_theme) &&
@@ -195,6 +326,7 @@ int query_newmoon_set_piece_count()
 		   item->query_newmoon_resonance_theme()==theme){
 			count++;
 			counted+=({item});
+			counted_slots[slot]=1;
 		}
 	}
 	return min(10,count);
@@ -220,6 +352,8 @@ int query_newmoon_resonance_active()
 {
 	object owner=environment(this_object());
 	string profession=query_newmoon_resonance_profession();
+	string slot=functionp(this_object()->query_item_kind) ?
+		(string)this_object()->query_item_kind() : "";
 	if(profession=="" || !owner ||
 	   this_object()->item_cur_dura<=0 ||
 	   !functionp(owner->is) || !owner->is("player") ||
@@ -227,8 +361,7 @@ int query_newmoon_resonance_active()
 	   !functionp(owner->query_equip))
 		return 0;
 	mapping equipped=owner->query_equip();
-	if(!mappingp(equipped) ||
-	   search(values(equipped),this_object())==-1)
+	if(!mappingp(equipped) || slot=="" || equipped[slot]!=this_object())
 		return 0;
 	return (string)owner->query_profeId()==profession;
 }
@@ -781,6 +914,10 @@ string query_content(){
 		int resonance_active=ob->query_newmoon_resonance_active();
 		r+="【新月共鸣·"+ob->query_newmoon_resonance_theme()+"】"+
 			ob->query_newmoon_resonance_profession_cn()+"契合\n";
+		if(ob->query_newmoon_account_bound())
+			r+="【账号绑定】同注册账号共享仓库可用；不可丢弃、赠送、交易或拍卖\n";
+		else
+			r+="【未绑定】可自由交易；首次穿戴、炼化或镶嵌后账号绑定\n";
 		r+=(resonance_active ? "已激活：" :
 			"职业契合且穿戴后激活：")+
 			ob->query_newmoon_resonance_bonus_text()+"\n";

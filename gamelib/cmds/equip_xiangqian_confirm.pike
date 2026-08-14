@@ -109,6 +109,12 @@ int main(string|zero arg)
 			//有空闲的凹槽
 			//string baoshi_path = file_name(baoshi)-ITEM_PATH;
 			//baoshi_path = (baoshi_path/"#")[0];//获得宝石的文件路径，如baoshi/pshongchuoshi
+			if(ITEMSD->bind_newmoon_item_to_player(item,me,"socket")<1){
+				s += "新月装备账号绑定失败，本次没有消耗宝石。\n";
+				s += "[返回:equip_xiangqian_list]\n";
+				write(s);
+				return 1;
+			}
 			item->set_baoshi(color,baoshi);//在装备上添加宝石字段
 			item->set_aocao(color,num-1);//改装备减少一个相对应颜色的凹槽
 			me->remove_combine_item(baoshi->query_name(),1);//扣除宝石

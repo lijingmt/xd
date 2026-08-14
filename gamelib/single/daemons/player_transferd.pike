@@ -157,6 +157,10 @@ private int transferable(object item,int gift,object first,object second)
 {
 	if(!item || item->query_toVip() || item->equiped)
 		return 0;
+	// Binding flags are also persisted on the item, but the immutable binding
+	// marker is the authoritative defense against tampered or stale instances.
+	if(ITEMSD->newmoon_item_cross_account_blocked(item))
+		return 0;
 	if(gift && (int)item->query_item_canSend()!=1)
 		return 0;
 	if(!gift && (int)item->query_item_canTrade()!=1)

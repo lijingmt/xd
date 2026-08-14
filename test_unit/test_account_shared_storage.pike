@@ -230,6 +230,64 @@ int main()
 		if(restored_gear)
 			destruct(restored_gear);
 
+		object newmoon_gear = clone(ROOT+
+			"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
+		newmoon_gear->move(child_player);
+		int newmoon_bound = ITEMSD->bind_newmoon_item_to_player(
+			newmoon_gear,child_player,"socket");
+		int newmoon_stored = !child_player->packaged(newmoon_gear,20);
+		destruct(newmoon_gear);
+		mapping newmoon_personal = ACCOUNT_STORAGED->query_storage(
+			child_player);
+		string newmoon_item_id = "";
+		array newmoon_item_data = ({});
+		foreach((array)newmoon_personal["personal_items"],array personal_item)
+			if(sizeof(personal_item)>9 && (string)personal_item[3]==
+			   "weapon/69xinyuetianfengjian/69xinyuetianfengjian"){
+				newmoon_item_id = (string)personal_item[7];
+				newmoon_item_data = copy_value(personal_item);
+				break;
+			}
+		mapping newmoon_to_shared = ACCOUNT_STORAGED->transfer_to_shared(
+			child_player,newmoon_item_id);
+		mapping newmoon_to_root = ACCOUNT_STORAGED->transfer_to_personal(
+			root_player,newmoon_item_id);
+		object restored_newmoon = root_player->repackaged_by_storage_id(
+			newmoon_item_id);
+		check("账号绑定新月装备经同账号共享仓库跨人物后保持绑定",
+			newmoon_bound==2 && newmoon_stored &&
+			sizeof(newmoon_item_data)==10 &&
+			mappingp(newmoon_item_data[9]) &&
+			newmoon_item_data[9]["owner"]==account_id &&
+			newmoon_to_shared["ok"] && newmoon_to_root["ok"] &&
+			objectp(restored_newmoon) &&
+			restored_newmoon->query_newmoon_account_bound() &&
+			restored_newmoon->query_newmoon_account_bind_owner()==account_id &&
+			restored_newmoon->query_item_canTrade()==0 &&
+			restored_newmoon->query_item_canStorage()==1,
+			"绑定快照在角色仓库或共享仓库往返中丢失");
+		if(restored_newmoon)
+			destruct(restored_newmoon);
+
+		array foreign_bound_data = copy_value(newmoon_item_data);
+		foreign_bound_data[7] = "";
+		foreign_bound_data[9]["owner"] = "xd98foreignaccount";
+		child_player->packaged_items += ({foreign_bound_data});
+		mapping foreign_personal = ACCOUNT_STORAGED->query_storage(
+			child_player);
+		string foreign_item_id = (string)foreign_personal["personal_items"][-1][7];
+		mapping foreign_to_shared = ACCOUNT_STORAGED->transfer_to_shared(
+			child_player,foreign_item_id);
+		check("共享仓库拒绝绑定归属与当前注册账号不一致的装备",
+			!foreign_to_shared["ok"] &&
+			search((string)foreign_to_shared["message"],"不属于当前注册账号")!=-1,
+			"跨账号绑定快照进入了共享仓库");
+		if(sizeof(child_player->packaged_items)>1)
+			child_player->packaged_items = child_player->packaged_items[
+				..sizeof(child_player->packaged_items)-2];
+		else
+			child_player->packaged_items = ({});
+
 		mapping put_back = ACCOUNT_STORAGED->transfer_to_shared(
 			child_player,item_id);
 		mapping before_reconcile = ACCOUNT_STORAGED->

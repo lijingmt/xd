@@ -421,6 +421,15 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 int add_new_sale_info(object saler,object goods,int start_value,int end_value)
 {
 	//return 0;
+	if(!saler || !goods || environment(goods)!=saler ||
+	   !functionp(goods->is) || !goods->is("item") || goods->equiped ||
+	   !functionp(goods->query_item_save) || !goods->query_item_save() ||
+	   !functionp(goods->query_item_canTrade) ||
+	   !goods->query_item_canTrade() || goods->query_toVip() ||
+	   ITEMSD->newmoon_item_cross_account_blocked(goods)){
+		LOG->append_time("[add_new_sale_info] [item not transferable] [fail]");
+		return 0;
+	}
 	if(dbSql==""){
 		LOG->append_time("[add_new_sale_info] [database unavailable] [fail]");
 		return 0;

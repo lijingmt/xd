@@ -56,6 +56,14 @@ int main(string|zero arg)
 			};
 			if(!err&&old_baoshi){
 				string old_baoshi_name = old_baoshi->query_short();
+				if(ITEMSD->bind_newmoon_item_to_player(
+				   item,me,"socket")<1){
+					destruct(old_baoshi);
+					s += "新月装备账号绑定失败，本次没有替换宝石。\n";
+					s += "[返回:equip_xiangqian_list]\n";
+					write(s);
+					return 1;
+				}
 				if(old_baoshi->query_name()=="pshuangshuiyu"||old_baoshi->query_name()=="slhuangshuiyu"||old_baoshi->query_name()=="jinghuangshuiyu"||old_baoshi->query_name()=="nianshoulingshi"||old_baoshi->query_name()=="nianshoulingshi2"||old_baoshi->query_name()=="nianshoulingshi3"){
 					s += old_baoshi->query_short()+"已放到您的背包中\n";
 					old_baoshi->move_player(me->query_name());

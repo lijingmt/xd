@@ -580,6 +580,13 @@ void test_catalog_and_templates()
 		budget_valid,"存在异常放大的基础攻防");
 	check("120件底版在掉落登记和随机词缀表中各出现一次",
 		profile_valid,"登记表或词缀表存在缺项或重复");
+	check("新月套装从普通白装池隔离并使用69级以上独立稀有掉落门",
+		ITEMSD->query_newmoon_equipment_template_count()==120 &&
+		ITEMSD->query_newmoon_equipment_drop_denominator()==1000 &&
+		!ITEMSD->can_drop_newmoon_equipment(68,1) &&
+		ITEMSD->can_drop_newmoon_equipment(69,1) &&
+		!ITEMSD->can_drop_newmoon_equipment(69,2),
+		"套装可能污染普通掉落池、低等级掉落或绕过独立稀有概率");
 	check("十件套词缀均受生成器支持且没有非武器攻击词缀",
 		effective_profile_valid,"发现无效、反向或错槽词缀");
 	check("十件套复用图片在源码与Web资源树均可加载",
@@ -863,6 +870,16 @@ void test_set_identity_and_duplicate_boundaries()
 		duplicate_item->query_newmoon_set_piece_count()==1,
 		"重复装备对象被多次计数");
 	m_delete(equipped,"__test_duplicate_slot");
+	object duplicate_slot_item=clone(item_path("weapon",
+		(string)pieces["weapon"]));
+	duplicate_slot_item->move(duplicate_player);
+	duplicate_slot_item->equiped=1;
+	equipped["__test_duplicate_slot"]=duplicate_slot_item;
+	check("两个同部位对象即使异常写入装备映射也只计算一件",
+		duplicate_item->query_newmoon_set_piece_count()==1,
+		"同一装备部位可通过异常映射重复凑套装件数");
+	m_delete(equipped,"__test_duplicate_slot");
+	destruct(duplicate_slot_item);
 	destroy_player(duplicate_player);
 }
 

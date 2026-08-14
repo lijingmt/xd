@@ -5,6 +5,16 @@
 //每增加10个位置100g,总共能买9次，放置100个物品
 mapping packaged_goods =([]);
 array packaged_items =({});
+
+private mapping(string:mixed) empty_storage_gem_snapshot()
+{
+	return ([
+		"version":1,
+		"red":(["free":0,"max":0,"gems":({})]),
+		"blue":(["free":0,"max":0,"gems":({})]),
+		"yellow":(["free":0,"max":0,"gems":({})]),
+	]);
+}
 string state_packaged(int user_p_level)
 {
 	string result = "";
@@ -49,9 +59,18 @@ int packaged(object ob, int user_p_level){
 		if(ob->is("equip") &&
 		   functionp(ob->query_storage_gem_snapshot)){
 			mapping gem_snapshot = ob->query_storage_gem_snapshot();
+			mapping binding_snapshot = functionp(
+				ob->query_newmoon_storage_binding_snapshot) ?
+				ob->query_newmoon_storage_binding_snapshot() : ([]);
 			// 第8列预留永久物品ID；共享仓库首次读取时原位填入。
-			if(mappingp(gem_snapshot) && sizeof(gem_snapshot))
+			if(mappingp(binding_snapshot) && sizeof(binding_snapshot) &&
+			   (!mappingp(gem_snapshot) || !sizeof(gem_snapshot)))
+				gem_snapshot=empty_storage_gem_snapshot();
+			if(mappingp(gem_snapshot) && sizeof(gem_snapshot)){
 				item_data += ({"",copy_value(gem_snapshot)});
+				if(mappingp(binding_snapshot) && sizeof(binding_snapshot))
+					item_data += ({copy_value(binding_snapshot)});
+			}
 		}
 	}
 	packaged_items += ({item_data});
@@ -115,6 +134,14 @@ object repackaged(string name){
 						if(sizeof(stored)>8 && mappingp(stored[8]) &&
 						   (!functionp(ob->restore_storage_gem_snapshot) ||
 						    !ob->restore_storage_gem_snapshot(stored[8]))){
+							destruct(ob);
+							return 0;
+						}
+						if(sizeof(stored)>9 && mappingp(stored[9]) &&
+						   (!functionp(
+						      ob->restore_newmoon_storage_binding_snapshot) ||
+						    !ob->restore_newmoon_storage_binding_snapshot(
+							stored[9]))){
 							destruct(ob);
 							return 0;
 						}

@@ -358,7 +358,17 @@ void do_remove(object me)
 }
 void do_login(object me)
 {
+	int migrated_newmoon;
 	check_daily(me);
+	// Deployment compatibility: only New Moon pieces already equipped before
+	// the binding release are migrated. Unused backpack/warehouse drops remain
+	// freely tradable until their first real use.
+	migrated_newmoon=ITEMSD->bind_equipped_newmoon_items(me,"legacy_equip");
+	if(migrated_newmoon>0 &&
+	   (!functionp(me->save_with_result) || !me->save_with_result()))
+		werror("[NEWMOON_BINDING] legacy migration save failed user=%s count=%d\n",
+			me && functionp(me->query_name) ? (string)me->query_name() :
+				"unknown",migrated_newmoon);
 	// 登录时只按当前人物的精确漏洞日志证据审计；不依赖人工候选
 	// 名单，不以玉多、频率或余额差额单独判定。每个人物永久结案一次。
 	mixed jade_recovery_err=catch{ JADE_RECOVERYD->apply_on_login(me); };

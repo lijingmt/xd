@@ -164,10 +164,35 @@ private mapping(string:mixed) empty_record(string account_id)
 	]);
 }
 
+private int valid_newmoon_binding_snapshot(mapping snapshot)
+{
+	string reason;
+	if(!mappingp(snapshot) || sizeof(snapshot)!=5 ||
+	   (int)snapshot["version"]!=1 ||
+	   !valid_account_or_character_id((string)snapshot["owner"]) ||
+	   !stringp(snapshot["reason"]) || !intp(snapshot["bound_at"]) ||
+	   (int)snapshot["bound_at"]<=0 ||
+	   !valid_hex_id((string)snapshot["binding_id"]))
+		return 0;
+	reason=(string)snapshot["reason"];
+	return has_value(({
+		"equip","legacy_equip","reforge","socket","artisan",
+		"pity","choice","compensation",
+	}),reason);
+}
+
+private string personal_newmoon_binding_owner(array data)
+{
+	if(arrayp(data) && sizeof(data)>9 && mappingp(data[9]) &&
+	   valid_newmoon_binding_snapshot(data[9]))
+		return (string)data[9]["owner"];
+	return "";
+}
+
 private int valid_personal_data(array data)
 {
 	if(!arrayp(data) || sizeof(data)<7 ||
-	   sizeof(data)>9 ||
+	   sizeof(data)>10 ||
 	   !stringp(data[0]) || !stringp(data[1]) ||
 	   !stringp(data[2]) || !stringp(data[3]) ||
 	   !valid_relative_item_path((string)data[3]))
@@ -206,10 +231,14 @@ private int valid_personal_data(array data)
 					return 0;
 		}
 	}
+	if(sizeof(data)>9 &&
+	   (!mappingp(data[9]) ||
+	    !valid_newmoon_binding_snapshot(data[9])))
+		return 0;
 	return 1;
 }
 
-private int valid_shared_item(mapping item)
+private int valid_shared_item(mapping item,void|string account_id)
 {
 	array data;
 	if(!mappingp(item) || !arrayp(item["data"]) ||
@@ -220,16 +249,21 @@ private int valid_shared_item(mapping item)
 		return 0;
 	if((string)data[7]!=(string)item["id"])
 		return 0;
+	if(account_id && account_id!=""){
+		string binding_owner=personal_newmoon_binding_owner(data);
+		if(binding_owner!="" && binding_owner!=account_id)
+			return 0;
+	}
 	return 1;
 }
 
-private int valid_pending(mapping pending)
+private int valid_pending(mapping pending,string account_id)
 {
 	string direction;
 	if(!mappingp(pending) ||
 	   !valid_hex_id((string)pending["txid"]) ||
 	   !mappingp(pending["item"]) ||
-	   !valid_shared_item(pending["item"]) ||
+	   !valid_shared_item(pending["item"],account_id) ||
 	   !valid_account_or_character_id((string)pending["character_id"]))
 		return 0;
 	direction = (string)pending["direction"];
@@ -259,7 +293,7 @@ private int valid_record(mapping record,string account_id)
 		return 0;
 	for(int i=0;i<sizeof(items);i++){
 		string item_id;
-		if(!valid_shared_item(items[i]))
+		if(!valid_shared_item(items[i],account_id))
 			return 0;
 		item_id = (string)items[i]["id"];
 		if(active_ids[item_id])
@@ -269,7 +303,7 @@ private int valid_record(mapping record,string account_id)
 	for(int i=0;i<sizeof(pending);i++){
 		string item_id;
 		string character_id;
-		if(!valid_pending(pending[i]))
+		if(!valid_pending(pending[i],account_id))
 			return 0;
 		character_id = (string)pending[i]["character_id"];
 		if(!ACCOUNT_CHARACTERD->account_owns_character(
@@ -755,6 +789,12 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 		}
 		if(personal_index<0)
 			result["message"] = "当前角色仓库中已没有这件物品，请刷新后重试。";
+		else if(personal_newmoon_binding_owner(
+		   personal[personal_index])!="" &&
+		   personal_newmoon_binding_owner(personal[personal_index])!=
+			account_id)
+			result["message"] =
+				"这件新月装备不属于当前注册账号，已拒绝转入共享仓库。";
 		else if(find_shared_index((array)record["items"],item_id)!=-1)
 			result["message"] = "检测到重复物品标识，已停止转移。";
 		else{
@@ -772,7 +812,7 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 				"item":item,
 				"created_at":time(),
 			]);
-			if(txid=="" || !valid_shared_item(item))
+			if(txid=="" || !valid_shared_item(item,account_id))
 				result["message"] = "无法生成安全的物品转移编号。";
 			else{
 				record["pending"] += ({pending});
@@ -861,6 +901,12 @@ mapping(string:mixed) transfer_to_personal(object player,string item_id,
 		shared_index = find_shared_index((array)record["items"],item_id);
 		if(shared_index<0)
 			result["message"] = "账号共享仓库中已没有这件物品，请刷新后重试。";
+		else if(personal_newmoon_binding_owner(
+		   (array)record["items"][shared_index]["data"])!="" &&
+		   personal_newmoon_binding_owner(
+		   (array)record["items"][shared_index]["data"])!=account_id)
+			result["message"] =
+				"这件新月装备不属于当前注册账号，已拒绝取出。";
 		else{
 			int duplicate = 0;
 			for(int i=0;i<sizeof(player->packaged_items);i++){

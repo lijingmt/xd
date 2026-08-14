@@ -79,7 +79,12 @@ int query_item_canEquip(){return item_canEquip;}
 void set_item_canEquip(int a){ item_canEquip= a;}
 
 private int item_canDrop=1;//物品是否可以丢弃
-int query_item_canDrop(){return item_canDrop;}
+int query_item_canDrop(){
+	if(functionp(this_object()->query_newmoon_account_bound) &&
+	   this_object()->query_newmoon_account_bound())
+		return 0;
+	return item_canDrop;
+}
 void set_item_canDrop(int a){ item_canDrop= a;}
 
 private int item_canGet=0;//物品是否可以检起
@@ -87,11 +92,21 @@ int query_item_canGet(){return item_canGet;}
 void set_item_canGet(int a){ item_canGet= a;}
 
 private int item_canTrade=1;//物品是否可以交易
-int query_item_canTrade(){return item_canTrade;}
+int query_item_canTrade(){
+	if(functionp(this_object()->query_newmoon_account_bound) &&
+	   this_object()->query_newmoon_account_bound())
+		return 0;
+	return item_canTrade;
+}
 void set_item_canTrade(int a){ item_canTrade= a;}
 
 private int item_canSend=1;//物品是否可以赠送
-int query_item_canSend(){return item_canSend;}
+int query_item_canSend(){
+	if(functionp(this_object()->query_newmoon_account_bound) &&
+	   this_object()->query_newmoon_account_bound())
+		return 0;
+	return item_canSend;
+}
 void set_item_canSend(int a){ item_canSend= a;}
 
 private int item_task=0;//物品是否是任务物品
@@ -99,7 +114,12 @@ int query_item_task(){return item_task;}
 void set_item_task(int a){ item_task= a;}
 
 private int item_canStorage=1;//物品是否可以存储仓库或者银行中
-int query_item_canStorage(){return item_canStorage;}
+int query_item_canStorage(){
+	if(functionp(this_object()->query_newmoon_account_bound) &&
+	   this_object()->query_newmoon_account_bound())
+		return 1;
+	return item_canStorage;
+}
 void set_item_canStorage(int a){ item_canStorage= a;}
 
 string item_playerDesc;//可以增加玩家自己标志的物品

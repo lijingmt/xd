@@ -2401,6 +2401,41 @@ int query_danyao_add(string kind,string type)
 }
 
 //装载
+private int prepare_newmoon_item_for_equip(object item)
+{
+	int status;
+	int saved=0;
+	string binding_id="";
+	mixed save_error;
+	if(!item || !functionp(item->query_newmoon_resonance_profession) ||
+	   (string)item->query_newmoon_resonance_profession()=="")
+		return 1;
+	// NPC equipment does not own a registered account and is never persisted as
+	// a player instance; only real players trigger first-use binding.
+	if(!functionp(this_object()->is) || !this_object()->is("player"))
+		return 1;
+	status=ITEMSD->bind_newmoon_item_to_player(item,this_object(),"equip");
+	if(status<1){
+		tell_object(this_object(),
+			"这件新月装备已绑定其他注册账号，无法穿戴。\n");
+		return 0;
+	}
+	if(status!=2)
+		return 1;
+	binding_id=(string)item->query_newmoon_account_bind_id();
+	if(functionp(this_object()->save_with_result))
+		save_error=catch{ saved=this_object()->save_with_result(); };
+	if(save_error || !saved){
+		ITEMSD->rollback_newmoon_item_binding(item,this_object(),binding_id);
+		tell_object(this_object(),
+			"新月装备绑定存档失败，本次没有穿戴，请稍后重试。\n");
+		return 0;
+	}
+	tell_object(this_object(),
+		"新月装备已绑定当前注册账号；同账号共享仓库可用。\n");
+	return 1;
+}
+
 int wield(object weapon){
 	object ob=present(weapon,this_object());
 	//必须是可装载的物品is_equip()
@@ -2408,6 +2443,8 @@ int wield(object weapon){
 		if(functionp(ob->query_catchup_equipment) &&
 		   ob->query_catchup_equipment() &&
 		   !ob->query_catchup_can_equip(this_object()))
+			return 0;
+		if(!prepare_newmoon_item_for_equip(ob))
 			return 0;
 		//物品装配类型=item.pike->item_kind
 		//双手武器-item_kind=double_main_weapon必须在主手
@@ -2487,6 +2524,8 @@ int wear(object armor)
 		if(functionp(ob->query_catchup_equipment) &&
 		   ob->query_catchup_equipment() &&
 		   !ob->query_catchup_can_equip(this_object()))
+			return 0;
+		if(!prepare_newmoon_item_for_equip(ob))
 			return 0;
 		//已穿戴，则脱下已穿戴的再穿戴上新的
 		if(equip[ob->item_kind]!=0)

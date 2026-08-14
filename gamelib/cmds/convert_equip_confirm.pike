@@ -58,6 +58,11 @@ int main(string|zero arg)
 		}
 	}
 	if(can_convert && item){
+		if(!ITEMSD->newmoon_item_usable_by_player(item,me)){
+			write("这件新月装备不属于当前注册账号，无法炼化。\n"+
+				"[返回:convert_equip_list]\n[返回游戏:look]\n");
+			return 1;
+		}
 		string actual_item_type=(string)item->query_item_type();
 		if(actual_item_type!=item_type){
 			write("装备类型校验失败。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
@@ -285,6 +290,8 @@ int main(string|zero arg)
 			if(orginal_item)
 				destruct(orginal_item);
 			if(new_item){
+				int newmoon_bind_status=0;
+				string newmoon_binding_id="";
 				new_item_name = new_item->query_name();
 				mapping(string:mixed) special_removal=(["ok":1]);
 				string special_name="";
@@ -331,8 +338,22 @@ int main(string|zero arg)
 						}
 					}
 				}
+				newmoon_bind_status=ITEMSD->bind_newmoon_item_to_player(
+					new_item,me,"reforge");
+				if(newmoon_bind_status<1){
+					destruct(new_item);
+					write("新月装备账号绑定失败，原装备和费用均未改变。\n"+
+						"[返回:convert_equip_list]\n[返回游戏:look]\n");
+					return 1;
+				}
+				if(newmoon_bind_status==2)
+					newmoon_binding_id=(string)new_item->
+						query_newmoon_account_bind_id();
 				// 先确认新装备能进入同一人物背包；原装备此时仍完整保留。
 				if(new_item->move(me)!=1 || environment(new_item)!=me){
+					if(newmoon_bind_status==2)
+						ITEMSD->rollback_newmoon_item_binding(new_item,me,
+							newmoon_binding_id);
 					if(new_item) destruct(new_item);
 					write("炼化产物发放失败，原装备和费用均未改变。\n"+
 						"[返回:convert_equip_list]\n[返回游戏:look]\n");
@@ -342,6 +363,9 @@ int main(string|zero arg)
 					special_removal=me->remove_combine_item_transaction(
 						special_name,1);
 					if(!(int)special_removal["ok"]){
+						if(newmoon_bind_status==2)
+							ITEMSD->rollback_newmoon_item_binding(new_item,me,
+								newmoon_binding_id);
 						new_item->remove();
 						write("辅助材料扣除失败，本次未炼化。\n[返回:convert_equip_list]\n");
 						return 1;
@@ -351,6 +375,9 @@ int main(string|zero arg)
 				if(!pay_convert_equip_yushi(me,cost)){
 					if(special_name!="")
 						me->rollback_combine_item_transaction(special_removal);
+					if(newmoon_bind_status==2)
+						ITEMSD->rollback_newmoon_item_binding(new_item,me,
+							newmoon_binding_id);
 					new_item->remove();
 					s += "炼化失败！玉石状态已经变化，本次没有更换装备\n";
 					write(s);

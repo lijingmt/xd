@@ -3613,6 +3613,12 @@ mapping(string:mixed) create_shop_listing(object player,int price_flag,
 		destruct(state_key);
 		return (["ok":0,"message":"物品数量或类型无效"]);
 	}
+	if(item->equiped || !item->query_item_save() ||
+	   !item->query_item_canTrade() || item->query_toVip() ||
+	   ITEMSD->newmoon_item_cross_account_blocked(item)){
+		destruct(state_key);
+		return (["ok":0,"message":"该物品已绑定或当前不可摆摊"]);
+	}
 	combine_item=(int)item->is("combine_item");
 	item_path=(file_name(item)/"#")[0];
 	if(!has_prefix(item_path,ITEM_PATH) ||

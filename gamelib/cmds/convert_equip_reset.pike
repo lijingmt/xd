@@ -44,6 +44,13 @@ int main(string|zero arg)
 			return 1;
 		}
 		else{
+			if(ITEMSD->bind_newmoon_item_to_player(item,me,"reforge")<1){
+				s += "新月装备账号绑定失败，本次没有消耗紫金玉石。\n";
+				s += "[返回:convert_equip_list]\n";
+				s += "[返回游戏:look]\n";
+				write(s);
+				return 1;
+			}
 			item->set_convert_count(0);
 			me->remove_combine_item("zijinyushi",1);
 			me->command("convert_equip_detail "+item_name+" 4");

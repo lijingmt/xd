@@ -35,6 +35,10 @@ void cleanup_player_files(string userid)
 
 object create_player(string userid,int level)
 {
+	// TestUnit can be restarted after an earlier suite abort. Always remove the
+	// previous synthetic archive before setup so persisted master-specialty
+	// state cannot make the next run order-dependent.
+	cleanup_player_files(userid);
 	object player = clone(GAMELIB_USER);
 	player->set_name(userid);
 	player->name_cn = "百工测试人物";
