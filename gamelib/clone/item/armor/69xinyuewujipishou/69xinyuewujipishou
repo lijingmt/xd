@@ -1,0 +1,25 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ARMOR;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【新月·影鬼】无迹皮手";
+	unit="双";
+	picture="65lieyanpishou";
+	desc="影鬼流派的新月全套底版装备；与同主题其他部位共同激活二、四、六、八、十件套效果，高等级版本仍由原动态系统生成。\n";
+	item_cur_dura=1900;
+	item_dura=1900;
+	set_item_type("armor");
+	set_item_kind("armor_hand");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_equip_defend(365);
+	set_item_canLevel(69);
+	set_item_profeLimit("yinggui");
+	set_newmoon_resonance("yinggui","影鬼","夜行",0,4,0,1,0,
+		"dodge",1,"doub",1);
+}

@@ -1,72 +1,213 @@
 #!/usr/bin/env pike
-/** 新月十二职业装备底版、职业共鸣和旧装备兼容回归。 */
+/** 新月十二职业十件套、分阶共鸣、动态生成和旧装备兼容回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 
 mapping(string:int) results=(["total":0,"passed":0,"failed":0]);
+array(string) piece_order=({
+	"weapon","head","cloth","waste","hand",
+	"thou","shoes","ring","neck","bangle",
+});
+array(int) set_tiers=({2,4,6,8,10});
+array(string) set_attributes=({
+	"all","defend","dodge","hitte","doub","lunck",
+	"rase_life_add","rase_mofa_add","mofa_all","all_mofa_defend",
+});
 
 array(mapping(string:mixed)) catalog=({
-	(["profession":"jianxian","race":"human","profession_cn":"剑仙",
-		"weapon":"69xinyuetianfengjian","armor":"69xinyuetianfengzhanyi",
-		"jewelry":"69xinyuejianxinyujue","bonus":({3,2,0,1,0}),
-		"two_attr":"hitte","two_value":1,
-		"three_attr":"doub","three_value":1]),
-	(["profession":"yushi","race":"human","profession_cn":"羽士",
-		"weapon":"69xinyueyaoyulingzhang","armor":"69xinyuexingyufapao",
-		"jewelry":"69xinyueyaolingzhui","bonus":({0,1,4,0,3}),
-		"two_attr":"mofa_all","two_value":4,
-		"three_attr":"rase_mofa_add","three_value":1]),
-	(["profession":"zhuxian","race":"human","profession_cn":"诛仙",
-		"weapon":"69xinyuezhuihunren","armor":"69xinyuezhuyingyi",
-		"jewelry":"69xinyuejueyinghuan","bonus":({1,4,0,1,0}),
-		"two_attr":"hitte","two_value":1,
-		"three_attr":"doub","three_value":1]),
-	(["profession":"kuangyao","race":"monst","profession_cn":"狂妖",
-		"weapon":"69xinyuelieyueshuangren","armor":"69xinyuexuezhanjia",
-		"jewelry":"69xinyuekuanglanzhui","bonus":({4,1,0,4,0}),
-		"two_attr":"doub","two_value":1,
-		"three_attr":"rase_life_add","three_value":1]),
-	(["profession":"wuyao","race":"monst","profession_cn":"巫妖",
-		"weapon":"69xinyueshiguhunzhang","armor":"69xinyueyouzhoubao",
-		"jewelry":"69xinyuewuhunpei","bonus":({0,1,4,1,3}),
-		"two_attr":"mofa_all","two_value":4,
-		"three_attr":"all_mofa_defend","three_value":4]),
-	(["profession":"yinggui","race":"monst","profession_cn":"影鬼",
-		"weapon":"69xinyueyexingguiren","armor":"69xinyuewujiyi",
-		"jewelry":"69xinyueyingpohuan","bonus":({0,4,0,1,0}),
-		"two_attr":"dodge","two_value":1,
-		"three_attr":"doub","three_value":1]),
-	(["profession":"fangshi","race":"third","profession_cn":"方士",
-		"weapon":"69xinyuewanxiangfachi","armor":"69xinyuewuxingfayi",
-		"jewelry":"69xinyuetianjiyin","bonus":({1,1,4,1,2}),
-		"two_attr":"all","two_value":1,
-		"three_attr":"mofa_all","three_value":3]),
-	(["profession":"zhenyue","race":"third","profession_cn":"镇越",
-		"weapon":"69xinyueshanhezhongjian","armor":"69xinyuebudongshanjia",
-		"jewelry":"69xinyuezhenyueyin","bonus":({4,0,0,5,0}),
-		"two_attr":"defend","two_value":2,
-		"three_attr":"all_mofa_defend","three_value":4]),
-	(["profession":"tianxiang","race":"third","profession_cn":"天象",
-		"weapon":"69xinyuezhoutianxingzhang","armor":"69xinyuexingluofapao",
-		"jewelry":"69xinyuetianshupan","bonus":({0,1,4,0,3}),
-		"two_attr":"mofa_all","two_value":4,
-		"three_attr":"lunck","three_value":2]),
-	(["profession":"lingyi","race":"third","profession_cn":"灵医",
-		"weapon":"69xinyuehuichunlingzhang","armor":"69xinyuebaicaofayi",
-		"jewelry":"69xinyuechangshengpei","bonus":({0,1,4,4,4}),
-		"two_attr":"rase_life_add","two_value":1,
-		"three_attr":"rase_mofa_add","three_value":1]),
-	(["profession":"wuxiang","race":"third","profession_cn":"无相",
-		"weapon":"69xinyuewanfaguiyijian","armor":"69xinyuewuxiangxuanyi",
-		"jewelry":"69xinyuehunyuanjing","bonus":({2,2,2,2,2}),
-		"two_attr":"all","two_value":1,
-		"three_attr":"all_mofa_defend","three_value":3]),
-	(["profession":"taiji","race":"third","profession_cn":"太极",
-		"weapon":"69xinyueliangyijian","armor":"69xinyuetaijidaopao",
-		"jewelry":"69xinyueyinyangyupei","bonus":({3,3,3,3,3}),
-		"two_attr":"all","two_value":1,
-		"three_attr":"all_mofa_defend","three_value":4]),
+	(["profession":"jianxian","race":"human",
+		"profession_cn":"剑仙","theme":"剑心",
+		"pieces":([
+			"weapon":"69xinyuetianfengjian",
+			"head":"69xinyuejianxinguan",
+			"cloth":"69xinyuetianfengzhanyi",
+			"waste":"69xinyuetianfenghuwan",
+			"hand":"69xinyuetianfengzhanshou",
+			"thou":"69xinyuetianfengzhanku",
+			"shoes":"69xinyuetianfengzhanxue",
+			"ring":"69xinyuejianxinjie",
+			"neck":"69xinyuejianxinyujue",
+			"bangle":"69xinyuejianxinshouhuan",
+		]),"bonus":({3,2,0,1,0}),
+		"tiers":([2:({"hitte",1}),4:({"doub",1}),6:({"dodge",1}),
+			8:({"rase_life_add",1}),10:({"all",1})])]),
+	(["profession":"yushi","race":"human",
+		"profession_cn":"羽士","theme":"曜羽",
+		"pieces":([
+			"weapon":"69xinyueyaoyulingzhang",
+			"head":"69xinyueyaoyuguan",
+			"cloth":"69xinyuexingyufapao",
+			"waste":"69xinyueyaoyufuwan",
+			"hand":"69xinyueyaoyufushou",
+			"thou":"69xinyuexingyuchangku",
+			"shoes":"69xinyuexingyufalv",
+			"ring":"69xinyueyaoyujie",
+			"neck":"69xinyueyaolingzhui",
+			"bangle":"69xinyueyaoyushouhuan",
+		]),"bonus":({0,1,4,0,3}),
+		"tiers":([2:({"mofa_all",4}),4:({"rase_mofa_add",1}),6:({"all_mofa_defend",2}),
+			8:({"lunck",1}),10:({"all",1})])]),
+	(["profession":"zhuxian","race":"human",
+		"profession_cn":"诛仙","theme":"绝影",
+		"pieces":([
+			"weapon":"69xinyuezhuihunren",
+			"head":"69xinyuejueyingdoumao",
+			"cloth":"69xinyuezhuyingyi",
+			"waste":"69xinyuezhuyinghuwan",
+			"hand":"69xinyuezhuyingpishou",
+			"thou":"69xinyuejueyingpiku",
+			"shoes":"69xinyuejueyingxue",
+			"ring":"69xinyuejueyingjie",
+			"neck":"69xinyuejueyinghuan",
+			"bangle":"69xinyuejueyingshouhuan",
+		]),"bonus":({1,4,0,1,0}),
+		"tiers":([2:({"hitte",1}),4:({"doub",1}),6:({"dodge",1}),
+			8:({"lunck",1}),10:({"rase_life_add",1})])]),
+	(["profession":"kuangyao","race":"monst",
+		"profession_cn":"狂妖","theme":"狂澜",
+		"pieces":([
+			"weapon":"69xinyuelieyueshuangren",
+			"head":"69xinyuekuanglanzhankui",
+			"cloth":"69xinyuexuezhanjia",
+			"waste":"69xinyuexuezhanhuwan",
+			"hand":"69xinyuexuezhantieshou",
+			"thou":"69xinyuexuezhantuikai",
+			"shoes":"69xinyuexuezhanxue",
+			"ring":"69xinyuekuanglanjie",
+			"neck":"69xinyuekuanglanzhui",
+			"bangle":"69xinyuekuanglanshouhuan",
+		]),"bonus":({4,1,0,4,0}),
+		"tiers":([2:({"doub",1}),4:({"rase_life_add",1}),6:({"defend",1}),
+			8:({"hitte",1}),10:({"all",1})])]),
+	(["profession":"wuyao","race":"monst",
+		"profession_cn":"巫妖","theme":"幽咒",
+		"pieces":([
+			"weapon":"69xinyueshiguhunzhang",
+			"head":"69xinyueyouzhouguan",
+			"cloth":"69xinyueyouzhoubao",
+			"waste":"69xinyueyouzhoufuwan",
+			"hand":"69xinyueyouzhoufushou",
+			"thou":"69xinyueyouzhouchangku",
+			"shoes":"69xinyueyouzhoufalv",
+			"ring":"69xinyuewuhunjie",
+			"neck":"69xinyuewuhunpei",
+			"bangle":"69xinyuewuhunshouhuan",
+		]),"bonus":({0,1,4,1,3}),
+		"tiers":([2:({"mofa_all",4}),4:({"all_mofa_defend",4}),6:({"rase_mofa_add",1}),
+			8:({"lunck",1}),10:({"all",1})])]),
+	(["profession":"yinggui","race":"monst",
+		"profession_cn":"影鬼","theme":"夜行",
+		"pieces":([
+			"weapon":"69xinyueyexingguiren",
+			"head":"69xinyueyexingdoumao",
+			"cloth":"69xinyuewujiyi",
+			"waste":"69xinyuewujihuwan",
+			"hand":"69xinyuewujipishou",
+			"thou":"69xinyueyexingpiku",
+			"shoes":"69xinyueyexingxue",
+			"ring":"69xinyueyingpojie",
+			"neck":"69xinyueyingpohuan",
+			"bangle":"69xinyueyingposhouhuan",
+		]),"bonus":({0,4,0,1,0}),
+		"tiers":([2:({"dodge",1}),4:({"doub",1}),6:({"hitte",1}),
+			8:({"lunck",1}),10:({"rase_life_add",1})])]),
+	(["profession":"fangshi","race":"third",
+		"profession_cn":"方士","theme":"万象",
+		"pieces":([
+			"weapon":"69xinyuewanxiangfachi",
+			"head":"69xinyuewuxingguan",
+			"cloth":"69xinyuewuxingfayi",
+			"waste":"69xinyuewuxingfuwan",
+			"hand":"69xinyuewuxingfushou",
+			"thou":"69xinyuewuxingchangku",
+			"shoes":"69xinyuewuxingfalv",
+			"ring":"69xinyuetianjijie",
+			"neck":"69xinyuetianjiyin",
+			"bangle":"69xinyuetianjishouhuan",
+		]),"bonus":({1,1,4,1,2}),
+		"tiers":([2:({"all",1}),4:({"mofa_all",3}),6:({"all_mofa_defend",2}),
+			8:({"rase_mofa_add",1}),10:({"lunck",1})])]),
+	(["profession":"zhenyue","race":"third",
+		"profession_cn":"镇越","theme":"不动",
+		"pieces":([
+			"weapon":"69xinyueshanhezhongjian",
+			"head":"69xinyuebudongshankui",
+			"cloth":"69xinyuebudongshanjia",
+			"waste":"69xinyuebudongshanwan",
+			"hand":"69xinyuebudongshanshou",
+			"thou":"69xinyuebudongshantuikai",
+			"shoes":"69xinyuebudongshanzhanxue",
+			"ring":"69xinyuezhenyuejie",
+			"neck":"69xinyuezhenyueyin",
+			"bangle":"69xinyuezhenyueshouhuan",
+		]),"bonus":({4,0,0,5,0}),
+		"tiers":([2:({"defend",2}),4:({"all_mofa_defend",4}),6:({"rase_life_add",1}),
+			8:({"hitte",1}),10:({"all",1})])]),
+	(["profession":"tianxiang","race":"third",
+		"profession_cn":"天象","theme":"周天",
+		"pieces":([
+			"weapon":"69xinyuezhoutianxingzhang",
+			"head":"69xinyuexingluoguan",
+			"cloth":"69xinyuexingluofapao",
+			"waste":"69xinyuexingluofuwan",
+			"hand":"69xinyuexingluofushou",
+			"thou":"69xinyuexingluochangku",
+			"shoes":"69xinyuexingluofalv",
+			"ring":"69xinyuetianshujie",
+			"neck":"69xinyuetianshupan",
+			"bangle":"69xinyuetianshushouhuan",
+		]),"bonus":({0,1,4,0,3}),
+		"tiers":([2:({"mofa_all",4}),4:({"lunck",2}),6:({"all_mofa_defend",2}),
+			8:({"rase_mofa_add",1}),10:({"all",1})])]),
+	(["profession":"lingyi","race":"third",
+		"profession_cn":"灵医","theme":"长生",
+		"pieces":([
+			"weapon":"69xinyuehuichunlingzhang",
+			"head":"69xinyuebaicaoguan",
+			"cloth":"69xinyuebaicaofayi",
+			"waste":"69xinyuebaicaoyaowan",
+			"hand":"69xinyuebaicaoyaoshou",
+			"thou":"69xinyuebaicaochangku",
+			"shoes":"69xinyuebaicaoyaolv",
+			"ring":"69xinyuechangshengjie",
+			"neck":"69xinyuechangshengpei",
+			"bangle":"69xinyuechangshengshouhuan",
+		]),"bonus":({0,1,4,4,4}),
+		"tiers":([2:({"rase_life_add",1}),4:({"rase_mofa_add",1}),6:({"all_mofa_defend",2}),
+			8:({"lunck",1}),10:({"all",1})])]),
+	(["profession":"wuxiang","race":"third",
+		"profession_cn":"无相","theme":"混元",
+		"pieces":([
+			"weapon":"69xinyuewanfaguiyijian",
+			"head":"69xinyuewuxiangguan",
+			"cloth":"69xinyuewuxiangxuanyi",
+			"waste":"69xinyuewuxianghuwan",
+			"hand":"69xinyuewuxiangshou",
+			"thou":"69xinyuewuxiangchangku",
+			"shoes":"69xinyuewuxiangxuanlv",
+			"ring":"69xinyuehunyuanjie",
+			"neck":"69xinyuehunyuanjing",
+			"bangle":"69xinyuehunyuanshouhuan",
+		]),"bonus":({2,2,2,2,2}),
+		"tiers":([2:({"all",1}),4:({"all_mofa_defend",3}),6:({"hitte",1}),
+			8:({"doub",1}),10:({"rase_life_add",1})])]),
+	(["profession":"taiji","race":"third",
+		"profession_cn":"太极","theme":"两仪",
+		"pieces":([
+			"weapon":"69xinyueliangyijian",
+			"head":"69xinyuetaijiguan",
+			"cloth":"69xinyuetaijidaopao",
+			"waste":"69xinyuetaijihuwan",
+			"hand":"69xinyuetaijidaoshou",
+			"thou":"69xinyuetaijidaoku",
+			"shoes":"69xinyuetaijidaolv",
+			"ring":"69xinyueyinyangjie",
+			"neck":"69xinyueyinyangyupei",
+			"bangle":"69xinyueyinyangshouhuan",
+		]),"bonus":({3,3,3,3,3}),
+		"tiers":([2:({"all",1}),4:({"all_mofa_defend",4}),6:({"defend",1}),
+			8:({"rase_life_add",1}),10:({"rase_mofa_add",1})])]),
 });
 
 void check(string name,int valid,string reason)
@@ -82,16 +223,49 @@ void check(string name,int valid,string reason)
 	}
 }
 
-string item_path(string kind,string name)
+string query_piece_parent(string slot)
 {
-	return ROOT+"/gamelib/clone/item/"+kind+"/"+name+"/"+name;
+	if(slot=="weapon")
+		return "weapon";
+	if(search(({"ring","neck","bangle"}),slot)!=-1)
+		return "jewelry";
+	return "armor";
+}
+
+string query_expected_kind(string slot)
+{
+	if(slot=="weapon")
+		return "";
+	if(slot=="head") return "armor_head";
+	if(slot=="cloth") return "armor_cloth";
+	if(slot=="waste") return "armor_waste";
+	if(slot=="hand") return "armor_hand";
+	if(slot=="thou") return "armor_thou";
+	if(slot=="shoes") return "armor_shoes";
+	if(slot=="ring") return "jewelry_ring";
+	if(slot=="neck") return "jewelry_neck";
+	if(slot=="bangle") return "jewelry_bangle";
+	return "";
+}
+
+string item_path(string slot,string name)
+{
+	string parent=query_piece_parent(slot);
+	return ROOT+"/gamelib/clone/item/"+parent+"/"+name+"/"+name;
+}
+
+string raw_item_path(string slot,string name)
+{
+	string parent=query_piece_parent(slot);
+	return parent+"/"+name+"/"+name;
 }
 
 void cleanup_player_files(string name)
 {
+	string path;
 	if(!name || !has_prefix(name,"__testunit_newmoon_"))
 		return;
-	string path=DATA_ROOT+"u/"+name[sizeof(name)-2..]+"/"+name+".o";
+	path=DATA_ROOT+"u/"+name[sizeof(name)-2..]+"/"+name+".o";
 	rm(path);
 	rm(path+".tmp");
 	rm(path+".bak");
@@ -100,8 +274,9 @@ void cleanup_player_files(string name)
 
 object create_player(string name,string race,string profession)
 {
+	object player;
 	cleanup_player_files(name);
-	object player=clone(GAMELIB_USER);
+	player=clone(GAMELIB_USER);
 	player->set_name(name);
 	player->name_cn="新月装备测试玩家";
 	player->set_project("gamelib");
@@ -110,6 +285,44 @@ object create_player(string name,string race,string profession)
 	player->set_profeId(profession);
 	player->level=120;
 	return player;
+}
+
+void destroy_player(object|zero player)
+{
+	string name;
+	array(object) inventory;
+	if(!player)
+		return;
+	name=(string)player->query_name();
+	inventory=all_inventory(player);
+	for(int index=0;index<sizeof(inventory);index++)
+		if(inventory[index])
+			destruct(inventory[index]);
+	destruct(player);
+	cleanup_player_files(name);
+}
+
+array(object) clone_full_set(mapping config)
+{
+	array(object) items=({});
+	mapping pieces=(mapping)config["pieces"];
+	for(int index=0;index<sizeof(piece_order);index++){
+		string slot=piece_order[index];
+		string name=(string)pieces[slot];
+		items+=({clone(item_path(slot,name))});
+	}
+	return items;
+}
+
+void equip_full_set(object player,array(object) items)
+{
+	for(int index=0;index<sizeof(items);index++){
+		items[index]->move(player);
+		if(index==0)
+			player->wield(items[index]);
+		else
+			player->wear(items[index]);
+	}
 }
 
 int query_effective_set_attribute(object item,string attribute)
@@ -128,15 +341,52 @@ int query_effective_set_attribute(object item,string attribute)
 	return 0;
 }
 
-void destroy_player(object|zero player)
+int sum_set_attribute(array(object) items,string attribute)
 {
-	if(!player)
-		return;
-	string name=(string)player->query_name();
-	foreach(all_inventory(player),object item)
-		destruct(item);
-	destruct(player);
-	cleanup_player_files(name);
+	int total=0;
+	for(int index=0;index<sizeof(items);index++)
+		total+=query_effective_set_attribute(items[index],attribute);
+	return total;
+}
+
+int sum_core_attribute(array(object) items,string attribute)
+{
+	int total=0;
+	for(int index=0;index<sizeof(items);index++){
+		if(attribute=="str") total+=items[index]->query_str_add();
+		else if(attribute=="dex") total+=items[index]->query_dex_add();
+		else if(attribute=="think") total+=items[index]->query_think_add();
+		else if(attribute=="life") total+=items[index]->query_life_add();
+		else if(attribute=="mofa") total+=items[index]->query_mofa_add();
+	}
+	return total;
+}
+
+int expected_resonance_percent(int count)
+{
+	if(count>=10) return 200;
+	if(count>=8) return 180;
+	if(count>=6) return 160;
+	if(count>=4) return 140;
+	if(count>=2) return 120;
+	return 100;
+}
+
+int profile_attribute_supported(string attribute)
+{
+	return search(({
+		"str_add","dex_add","think_add","all_add","dodge_add",
+		"doub_add","hitte_add","lunck_add","attack_add",
+		"weapon_attack_add","defend_add","dura_add","item_canDura",
+		"life_add","mofa_add","rase_life_add","rase_mofa_add",
+		"huo_mofa_attack_add","bing_mofa_attack_add",
+		"feng_mofa_attack_add","du_mofa_attack_add",
+		"spec_mofa_attack_add","mofa_all_add","attack_huoyan_add",
+		"attack_bingshuang_add","attack_fengren_add",
+		"attack_dusu_add","attack_spec_add","huoyan_defend_add",
+		"bingshuang_defend_add","fengren_defend_add",
+		"dusu_defend_add","all_mofa_defend_add",
+	}),attribute)!=-1;
 }
 
 void test_catalog_and_templates()
@@ -144,20 +394,11 @@ void test_catalog_and_templates()
 	string org=Stdio.read_file(ROOT+"/gamelib/data/orgItems.list") || "";
 	string attrs=Stdio.read_file(ROOT+"/gamelib/data/allItems.list") || "";
 	string level_line="";
-	foreach(org/"\n",string line)
-		if(has_prefix(line,"69|"))
-			level_line=line;
 	array(string) registered=({});
-	if(sizeof(level_line))
-		registered=(level_line[3..]/",")-({""});
-	mapping(string:int) unique_registered=([]);
-	foreach(registered,string raw_name)
-		unique_registered[raw_name]=1;
-	check("69级新月底版只登记十二职业三件套共36件",
-		sizeof(registered)==36 && sizeof(unique_registered)==36,
-		sprintf("登记数=%d，去重后=%d",sizeof(registered),
-			sizeof(unique_registered)));
-
+	mapping(string:int) registered_counts=([]);
+	mapping(string:int) profile_counts=([]);
+	mapping(string:string) profile_lines=([]);
+	mapping(string:int) expected_paths=([]);
 	int compiled=1;
 	int metadata_valid=1;
 	int profile_valid=1;
@@ -166,66 +407,94 @@ void test_catalog_and_templates()
 	int slot_valid=1;
 	int budget_valid=1;
 	array(string) errors=({});
-	foreach(catalog,mapping config){
-		foreach(({"weapon","armor","jewelry"}),string kind){
-			string name=(string)config[kind];
-			string path=item_path(kind,name);
+
+	foreach(org/"\n",string line)
+		if(has_prefix(line,"69|"))
+			level_line=line;
+	if(sizeof(level_line))
+		registered=(level_line[3..]/",")-({""});
+	for(int index=0;index<sizeof(registered);index++)
+		registered_counts[registered[index]]=
+			(int)registered_counts[registered[index]]+1;
+	foreach(attrs/"\n",string profile_line){
+		array(string) line_parts=profile_line/"|";
+		if(sizeof(line_parts)<2 || search(line_parts[0],"69xinyue")==-1)
+			continue;
+		profile_counts[line_parts[0]]=(int)profile_counts[line_parts[0]]+1;
+		profile_lines[line_parts[0]]=profile_line;
+	}
+
+	for(int config_index=0;config_index<sizeof(catalog);config_index++){
+		mapping config=catalog[config_index];
+		mapping pieces=(mapping)config["pieces"];
+		for(int slot_index=0;slot_index<sizeof(piece_order);slot_index++){
+			string slot=piece_order[slot_index];
+			string name=(string)pieces[slot];
+			string raw=raw_item_path(slot,name);
+			string path=item_path(slot,name);
 			object|zero item=0;
 			mixed err=catch { item=clone(path); };
+			expected_paths[raw]=1;
 			if(err || !item){
 				compiled=0;
-				errors+=({kind+"/"+name});
+				errors+=({slot+"/"+name});
 				continue;
 			}
 			array(string) limits=item->query_item_profeLimit();
 			if(item->query_item_canLevel()!=69 ||
-			   item->query_newmoon_resonance_profession()!=config["profession"] ||
+			   item->query_newmoon_resonance_profession()!=
+				(string)config["profession"] ||
+			   item->query_newmoon_resonance_theme()!=
+				(string)config["theme"] ||
 			   search(limits,(string)config["profession"])==-1 ||
 			   !item->query_item_canDrop() || !item->query_item_canTrade() ||
 			   !item->query_item_canSend() || !item->query_item_canStorage())
 				metadata_valid=0;
-			if(kind=="weapon"){
+			if(slot=="weapon"){
 				if(search(({"weapon","single_weapon","double_weapon"}),
 				   (string)item->query_item_type())==-1 ||
 				   search(({"single_main_weapon","double_main_weapon"}),
 				   (string)item->query_item_kind())==-1)
 					slot_valid=0;
 				if(item->query_attack_power()<170 ||
-				   item->query_attack_power_limit()<item->query_attack_power() ||
+				   item->query_attack_power_limit()<
+					item->query_attack_power() ||
 				   item->query_attack_power_limit()>420)
 					budget_valid=0;
 			}
-			else if(kind=="armor"){
+			else if(query_piece_parent(slot)=="armor"){
 				if(item->query_item_type()!="armor" ||
-				   item->query_item_kind()!="armor_cloth")
+				   item->query_item_kind()!=query_expected_kind(slot))
 					slot_valid=0;
-				if(item->query_equip_defend()<200 ||
+				if(item->query_equip_defend()<190 ||
 				   item->query_equip_defend()>720)
 					budget_valid=0;
 			}
 			else if(item->query_item_type()!="jewelry" ||
-			        item->query_item_kind()!="jewelry_neck")
+			        item->query_item_kind()!=query_expected_kind(slot))
 				slot_valid=0;
-			string raw=(kind+"/"+name+"/"+name);
-			if(search(level_line,raw)==-1 ||
-			   search(attrs,raw+"|")==-1)
+
+			if((int)registered_counts[raw]!=1 ||
+			   (int)profile_counts[raw]!=1)
 				profile_valid=0;
-			foreach(attrs/"\n",string profile_line){
-				if(!has_prefix(profile_line,raw+"|"))
-					continue;
-				array(string) profile_parts=profile_line/"|";
-				if(sizeof(profile_parts)<2){
-					effective_profile_valid=0;
-					continue;
-				}
+			string profile=(string)(profile_lines[raw] || "");
+			array(string) profile_parts=profile/"|";
+			if(sizeof(profile_parts)<2)
+				effective_profile_valid=0;
+			else{
 				foreach(profile_parts[1]/",",string attribute_spec){
 					array(string) attribute_parts=attribute_spec/":";
-					string attribute=sizeof(attribute_parts) ?
-						attribute_parts[0] : "";
-					if(attribute=="recive_add" || attribute=="back_add" ||
-					   (kind!="weapon" &&
-					    (attribute=="attack_add" ||
-					     attribute=="weapon_attack_add")))
+					if(attribute_spec=="")
+						continue;
+					if(sizeof(attribute_parts)!=3 ||
+					   !profile_attribute_supported(attribute_parts[0]) ||
+					   (int)attribute_parts[1]<=0 ||
+					   (int)attribute_parts[2]<(int)attribute_parts[1] ||
+					   attribute_parts[0]=="recive_add" ||
+					   attribute_parts[0]=="back_add" ||
+					   (slot!="weapon" &&
+					    (attribute_parts[0]=="attack_add" ||
+					     attribute_parts[0]=="weapon_attack_add")))
 						effective_profile_valid=0;
 				}
 			}
@@ -245,18 +514,25 @@ void test_catalog_and_templates()
 			destruct(item);
 		}
 	}
-	check("36件底版均可在游戏环境编译克隆",compiled,errors*",");
-	check("全部底版等级、流通能力与职业元数据完整",
+	check("69级新月底版精确登记十二职业十件套共120件",
+		sizeof(registered)==120 && sizeof(registered_counts)==120 &&
+		sizeof(expected_paths)==120,
+		sprintf("登记数=%d，去重=%d，期望=%d",
+			sizeof(registered),sizeof(registered_counts),
+			sizeof(expected_paths)));
+	check("120件十件套底版均可在游戏环境编译克隆",
+		compiled,errors*",");
+	check("全部底版等级、流通能力、主题与职业元数据完整",
 		metadata_valid,"某件装备元数据不完整");
-	check("武器、衣服与项链使用既有且互不冲突的装备槽",
+	check("十件套覆盖主武器、六防具与三首饰且槽位不冲突",
 		slot_valid,"存在错误的装备类型或部位");
-	check("69级武器和衣服的白板攻防保持在旧装备预算区间",
+	check("69级武器与六防具白板攻防保持在旧装备预算区间",
 		budget_valid,"存在异常放大的基础攻防");
-	check("每件底版同时进入掉落登记与随机词缀表",
-		profile_valid,"登记表或词缀表缺项");
-	check("新月随机词缀按装备槽使用战斗主链真实消费的字段",
-		effective_profile_valid,"发现仅生成但实战不消费的词缀");
-	check("新装备复用的原创资源在源码与Web树均可加载",
+	check("120件底版在掉落登记和随机词缀表中各出现一次",
+		profile_valid,"登记表或词缀表存在缺项或重复");
+	check("十件套词缀均受生成器支持且没有非武器攻击词缀",
+		effective_profile_valid,"发现无效、反向或错槽词缀");
+	check("十件套复用图片在源码与Web资源树均可加载",
 		image_valid,"存在缺失图片");
 }
 
@@ -266,10 +542,12 @@ void test_resonance_boundaries()
 	array(string) errors=({});
 	for(int index=0;index<sizeof(catalog);index++){
 		mapping config=catalog[index];
-		string player_name="__testunit_newmoon_"+index+"__";
+		mapping pieces=(mapping)config["pieces"];
+		string player_name="__testunit_newmoon_profession_"+
+			(string)index+"__";
 		object player=create_player(player_name,
 			(string)config["race"],(string)config["profession"]);
-		object item=clone(item_path("weapon",(string)config["weapon"]));
+		object item=clone(item_path("weapon",(string)pieces["weapon"]));
 		array bonus=(array)config["bonus"];
 		int inactive=item->query_newmoon_resonance_active();
 		item->move(player);
@@ -289,82 +567,103 @@ void test_resonance_boundaries()
 	check("十二职业共鸣只在目标职业实际穿戴后生效",
 		all_valid,errors*",");
 
+	mapping yushi=catalog[1];
+	mapping yushi_pieces=(mapping)yushi["pieces"];
 	object wrong=create_player("__testunit_newmoon_wrong__",
 		"human","jianxian");
-	object other=clone(item_path("weapon","69xinyueyaoyulingzhang"));
-	object other_armor=clone(item_path("armor","69xinyuexingyufapao"));
-	object other_jewelry=clone(item_path("jewelry","69xinyueyaolingzhui"));
-	other->move(wrong);
-	other_armor->move(wrong);
-	other_jewelry->move(wrong);
-	wrong->wield(other);
-	wrong->wear(other_armor);
-	wrong->wear(other_jewelry);
-	check("跨职业持有不能激活其他职业共鸣",
-		!other->query_newmoon_resonance_active() &&
-		other->query_think_add()==0 && other->query_mofa_add()==0,
+	array(object) other_items=clone_full_set(yushi);
+	equip_full_set(wrong,other_items);
+	check("跨职业凑齐全套不能激活其他职业共鸣或属性",
+		!other_items[0]->query_newmoon_resonance_active() &&
+		other_items[0]->query_think_add()==0 &&
+		other_items[0]->query_mofa_add()==0,
 		"羽士共鸣错误作用于剑仙");
 	object|zero original_player=this_player();
 	set_this_player(wrong);
-	string wrong_detail=other->query_content();
+	string wrong_detail=other_items[0]->query_content();
 	set_this_player(original_player);
-	check("跨职业凑齐三件时详情也不能误报已激活",
+	check("跨职业全套详情不能误报任何分阶效果已激活",
 		search(wrong_detail,"职业契合且穿戴后激活")!=-1 &&
 		search(wrong_detail,"（已激活）")==-1,
 		"不契合职业的套装详情错误显示已激活");
 	destroy_player(wrong);
 }
 
-void test_set_progression()
+void test_full_set_progression()
 {
-	object player=create_player("__testunit_newmoon_set__",
+	mapping config=catalog[0];
+	object player=create_player("__testunit_newmoon_progress__",
 		"human","jianxian");
-	object weapon=clone(item_path("weapon","69xinyuetianfengjian"));
-	object armor=clone(item_path("armor","69xinyuetianfengzhanyi"));
-	object jewelry=clone(item_path("jewelry","69xinyuejianxinyujue"));
-	weapon->move(player);
-	armor->move(player);
-	jewelry->move(player);
-	player->wield(weapon);
-	int one_piece=weapon->query_str_add();
-	player->wear(armor);
-	int two_piece=weapon->query_str_add()+armor->query_str_add();
-	int two_piece_hitte=weapon->query_hitte_add()+armor->query_hitte_add();
-	player->wear(jewelry);
-	int three_piece=weapon->query_str_add()+armor->query_str_add()+
-		jewelry->query_str_add();
-	int three_piece_doub=weapon->query_doub_add()+armor->query_doub_add()+
-		jewelry->query_doub_add();
-	check("一件、两件与三件套按100%/150%/200%强化共鸣",
-		one_piece==3 && two_piece==8 && three_piece==18 &&
-		weapon->query_newmoon_set_piece_count()==3 &&
-		weapon->query_newmoon_resonance_percent()==200,
-		sprintf("one=%d two=%d three=%d count=%d percent=%d",
-			one_piece,two_piece,three_piece,
-			weapon->query_newmoon_set_piece_count(),
-			weapon->query_newmoon_resonance_percent()));
-	check("剑仙两件命中与三件暴击属性按每件套装生效",
-		two_piece_hitte==2 && three_piece_doub==3,
-		sprintf("two_hitte=%d three_doub=%d",
-			two_piece_hitte,three_piece_doub));
+	array(object) items=clone_full_set(config);
+	array(int) milestones=({1,2,4,6,8,10});
+	array(int) expected_percent=({100,120,140,160,180,200});
+	array(int) expected_strength=({3,6,16,24,40,60});
+	int progression_valid=1;
+	array(string) errors=({});
+
+	for(int index=0;index<sizeof(items);index++){
+		items[index]->move(player);
+		if(index==0)
+			player->wield(items[index]);
+		else
+			player->wear(items[index]);
+		int milestone_index=search(milestones,index+1);
+		if(milestone_index!=-1){
+			int total_strength=0;
+			for(int item_index=0;item_index<sizeof(items);item_index++)
+				total_strength+=items[item_index]->query_str_add();
+			if(items[0]->query_newmoon_set_piece_count()!=index+1 ||
+			   items[0]->query_newmoon_resonance_percent()!=
+				expected_percent[milestone_index] ||
+			   total_strength!=expected_strength[milestone_index]){
+				progression_valid=0;
+				errors+=({sprintf("%d件:%d%%/力量%d",
+					index+1,items[0]->query_newmoon_resonance_percent(),
+					total_strength)});
+			}
+		}
+	}
+	check("十件套按2/4/6/8/10件逐级提高共鸣并封顶200%",
+		progression_valid,errors*";");
+	check("剑仙五档套装属性均按实际穿戴件数进入真实getter",
+		sum_set_attribute(items,"hitte")==10 &&
+		sum_set_attribute(items,"doub")==10 &&
+		sum_set_attribute(items,"dodge")==10 &&
+		sum_set_attribute(items,"rase_life_add")==10 &&
+		sum_set_attribute(items,"all")==10,
+		sprintf("命中%d 暴击%d 闪避%d 恢复%d 全属性%d",
+			sum_set_attribute(items,"hitte"),
+			sum_set_attribute(items,"doub"),
+			sum_set_attribute(items,"dodge"),
+			sum_set_attribute(items,"rase_life_add"),
+			sum_set_attribute(items,"all")));
+
 	object|zero original_player=this_player();
 	set_this_player(player);
-	string detail=weapon->query_content();
+	string detail=items[0]->query_content();
 	set_this_player(original_player);
-	check("装备详情显示套装进度、两件效果与满月觉醒",
-		search(detail,"【套装·新月·剑仙·剑心】(3/3)")!=-1 &&
-		search(detail,"已激活：力量+6、敏捷+4、生命+20")!=-1 &&
-		search(detail,"2件：职业共鸣提高50%；每件已穿套装命中率+1%（已激活）")!=-1 &&
-		search(detail,"3件：满月觉醒，职业共鸣提高100%；每件已穿套装暴击率+1%（已激活）")!=-1,
-		"套装详情缺少进度或效果说明");
-	armor->item_cur_dura=0;
-	check("耐久耗尽的装备不计入套装件数或提供共鸣",
-		weapon->query_newmoon_set_piece_count()==2 &&
-		!armor->query_newmoon_resonance_active() &&
-		weapon->query_doub_add()==0 &&
-		weapon->query_str_add()+armor->query_str_add()+
-		jewelry->query_str_add()==8,
-		"破损套装仍激活三件效果或自身属性");
+	check("装备详情完整显示十件进度和五档月相效果",
+		search(detail,"【套装·新月·剑仙·剑心】(10/10)")!=-1 &&
+		search(detail,"2件·初月：职业共鸣120%")!=-1 &&
+		search(detail,"4件·弦月：职业共鸣140%")!=-1 &&
+		search(detail,"6件·望月：职业共鸣160%")!=-1 &&
+		search(detail,"8件·盈月：职业共鸣180%")!=-1 &&
+		search(detail,"10件·满月觉醒：职业共鸣200%")!=-1,
+		"详情缺少十件进度或分阶效果");
+
+	items[1]->item_cur_dura=0;
+	int broken_strength=0;
+	for(int index=0;index<sizeof(items);index++)
+		broken_strength+=items[index]->query_str_add();
+	check("破损装备不计件、不提供自身共鸣且关闭十件效果",
+		items[0]->query_newmoon_set_piece_count()==9 &&
+		items[0]->query_newmoon_resonance_percent()==180 &&
+		!items[1]->query_newmoon_resonance_active() &&
+		broken_strength==45 && sum_set_attribute(items,"all")==0,
+		sprintf("件数%d 共鸣%d 力量%d 全属性%d",
+			items[0]->query_newmoon_set_piece_count(),
+			items[0]->query_newmoon_resonance_percent(),
+			broken_strength,sum_set_attribute(items,"all")));
 	destroy_player(player);
 }
 
@@ -374,62 +673,147 @@ void test_all_profession_set_extras()
 	array(string) errors=({});
 	for(int index=0;index<sizeof(catalog);index++){
 		mapping config=catalog[index];
+		mapping tiers=(mapping)config["tiers"];
 		object player=create_player("__testunit_newmoon_extras_"+
 			(string)index+"__",
 			(string)config["race"],(string)config["profession"]);
-		array(object) items=({
-			clone(item_path("weapon",(string)config["weapon"])),
-			clone(item_path("armor",(string)config["armor"])),
-			clone(item_path("jewelry",(string)config["jewelry"])),
-		});
-		foreach(items,object item)
-			item->move(player);
-		player->wield(items[0]);
-		player->wear(items[1]);
-		player->wear(items[2]);
-		string two_attr=(string)config["two_attr"];
-		string three_attr=(string)config["three_attr"];
-		int two_total=0;
-		int three_total=0;
-		foreach(items,object item){
-			two_total+=query_effective_set_attribute(item,two_attr);
-			three_total+=query_effective_set_attribute(item,three_attr);
-		}
-		int two_expected=(int)config["two_value"]*3*
-			(two_attr=="defend" ? 10 : 1);
-		int three_expected=(int)config["three_value"]*3*
-			(three_attr=="defend" ? 10 : 1);
-		if(two_total!=two_expected || three_total!=three_expected){
+		array(object) items=clone_full_set(config);
+		equip_full_set(player,items);
+		if(items[0]->query_newmoon_set_piece_count()!=10)
 			all_valid=0;
-			errors+=({sprintf("%s:%s=%d/%d,%s=%d/%d",
-				(string)config["profession"],two_attr,two_total,two_expected,
-				three_attr,three_total,three_expected)});
+		for(int tier_index=0;tier_index<sizeof(set_tiers);tier_index++){
+			int tier=set_tiers[tier_index];
+			array spec=(array)tiers[tier];
+			string attribute=(string)spec[0];
+			int factor=attribute=="defend" ? 10 : 1;
+			int expected=(int)spec[1]*10*factor;
+			int actual=sum_set_attribute(items,attribute);
+			if(actual!=expected){
+				all_valid=0;
+				errors+=({sprintf("%s-%d:%s=%d/%d",
+					(string)config["profession"],tier,attribute,
+					actual,expected)});
+			}
 		}
 		destroy_player(player);
 	}
-	check("十二职业两件与三件额外属性均进入真实属性getter",
+	check("十二职业共60档套装属性全部进入真实战斗属性getter",
 		all_valid,errors*";");
 }
 
-void test_set_identity_boundary()
+void test_requested_piece_attribute_matrix()
 {
+	array(int) checkpoints=({1,2,3,4,10});
+	array(string) core_attributes=({"str","dex","think","life","mofa"});
+	int all_valid=1;
+	array(string) errors=({});
+	for(int config_index=0;config_index<sizeof(catalog);config_index++){
+		mapping config=catalog[config_index];
+		mapping tiers=(mapping)config["tiers"];
+		array bonus=(array)config["bonus"];
+		object player=create_player("__testunit_newmoon_matrix_"+
+			(string)config_index+"__",
+			(string)config["race"],(string)config["profession"]);
+		array(object) items=clone_full_set(config);
+		int equipped_count=0;
+		for(int checkpoint_index=0;
+		    checkpoint_index<sizeof(checkpoints);checkpoint_index++){
+			int checkpoint=checkpoints[checkpoint_index];
+			while(equipped_count<checkpoint){
+				items[equipped_count]->move(player);
+				if(equipped_count==0)
+					player->wield(items[equipped_count]);
+				else
+					player->wear(items[equipped_count]);
+				equipped_count++;
+			}
+			int percent=expected_resonance_percent(checkpoint);
+			if(items[0]->query_newmoon_set_piece_count()!=checkpoint ||
+			   items[0]->query_newmoon_resonance_percent()!=percent){
+				all_valid=0;
+				errors+=({sprintf("%s-%d件:件数%d/共鸣%d",
+					(string)config["profession"],checkpoint,
+					items[0]->query_newmoon_set_piece_count(),
+					items[0]->query_newmoon_resonance_percent())});
+			}
+			for(int core_index=0;core_index<sizeof(core_attributes);
+			    core_index++){
+				string attribute=core_attributes[core_index];
+				int bonus_index=core_index;
+				int factor=1;
+				if(attribute=="life" || attribute=="mofa")
+					factor=10;
+				int expected=checkpoint*((int)bonus[bonus_index]*percent/100)*factor;
+				int actual=sum_core_attribute(items,attribute);
+				if(actual!=expected){
+					all_valid=0;
+					errors+=({sprintf("%s-%d件:%s=%d/%d",
+						(string)config["profession"],checkpoint,
+						attribute,actual,expected)});
+				}
+			}
+			for(int attribute_index=0;
+			    attribute_index<sizeof(set_attributes);attribute_index++){
+				string attribute=set_attributes[attribute_index];
+				int per_item=0;
+				for(int tier_index=0;tier_index<sizeof(set_tiers);
+				    tier_index++){
+					int tier=set_tiers[tier_index];
+					array spec=(array)tiers[tier];
+					if(tier<=checkpoint && (string)spec[0]==attribute)
+						per_item+=(int)spec[1];
+				}
+				int factor=attribute=="defend" ? 10 : 1;
+				int expected=checkpoint*per_item*factor;
+				int actual=sum_set_attribute(items,attribute);
+				if(actual!=expected){
+					all_valid=0;
+					errors+=({sprintf("%s-%d件:%s=%d/%d",
+						(string)config["profession"],checkpoint,
+						attribute,actual,expected)});
+				}
+			}
+		}
+		destroy_player(player);
+	}
+	check("十二职业穿1/2/3/4/10件时全部15类属性精确符合预期",
+		all_valid,errors*";");
+}
+
+void test_set_identity_and_duplicate_boundaries()
+{
+	mapping config=catalog[0];
+	mapping pieces=(mapping)config["pieces"];
 	object player=create_player("__testunit_newmoon_identity__",
 		"human","jianxian");
-	object weapon=clone(item_path("weapon","69xinyuetianfengjian"));
-	object armor=clone(item_path("armor","69xinyuetianfengzhanyi"));
+	object weapon=clone(item_path("weapon",(string)pieces["weapon"]));
+	object armor=clone(item_path("cloth",(string)pieces["cloth"]));
 	weapon->move(player);
 	armor->move(player);
 	player->wield(weapon);
 	player->wear(armor);
 	armor->set_newmoon_resonance("jianxian","剑仙","异月",3,2,0,1,0,
 		"hitte",1,"doub",1);
-	check("同职业不同套装主题不能混穿凑两件效果",
+	check("同职业不同套装主题不能混穿凑分阶效果",
 		weapon->query_newmoon_set_piece_count()==1 &&
 		armor->query_newmoon_set_piece_count()==1 &&
-		weapon->query_str_add()==3 && armor->query_str_add()==3 &&
 		weapon->query_hitte_add()==0 && armor->query_hitte_add()==0,
-		"不同主题错误计入同一套装件数");
+		"不同主题错误计入同一套装");
 	destroy_player(player);
+
+	object duplicate_player=create_player("__testunit_newmoon_duplicate__",
+		"human","jianxian");
+	object duplicate_item=clone(item_path("weapon",
+		(string)pieces["weapon"]));
+	duplicate_item->move(duplicate_player);
+	duplicate_player->wield(duplicate_item);
+	mapping equipped=duplicate_player->query_equip();
+	equipped["__test_duplicate_slot"]=duplicate_item;
+	check("同一对象即使异常占据两个映射键也只能计算一件",
+		duplicate_item->query_newmoon_set_piece_count()==1,
+		"重复装备对象被多次计数");
+	m_delete(equipped,"__test_duplicate_slot");
+	destroy_player(duplicate_player);
 }
 
 void test_high_level_dynamic_generation()
@@ -446,9 +830,11 @@ void test_high_level_dynamic_generation()
 		generated->query_item_canLevel()==120 &&
 		generated->query_newmoon_resonance_profession()=="jianxian" &&
 		generated->query_newmoon_resonance_theme()=="剑心" &&
+		generated->query_newmoon_set_extra_description(6)!="" &&
+		generated->query_newmoon_set_extra_description(10)!="" &&
 		generated->query_item_canTrade() && generated->query_item_canStorage();
-	check("旧动态生成器可把69级新月底版安全扩展到120级",
-		valid,err ? describe_error(err) : "高等级装备元数据丢失");
+	check("旧动态生成器可把69级十件套底版安全扩展到120级",
+		valid,err ? describe_error(err) : "高等级装备套装元数据丢失");
 	if(generated)
 		destruct(generated);
 	if(!existed_before && Stdio.exist(generated_path))
@@ -466,7 +852,7 @@ void test_legacy_equipment_compatibility()
 	old_item->move(player);
 	player->wield(old_item);
 	string saved=pikenv_save_object(old_item,1);
-	check("旧装备属性getter保持原数值且无新月身份",
+	check("旧装备getter保持原数值且没有新月身份",
 		old_item->query_str_add()==7 && old_item->query_life_add()==90 &&
 		old_item->query_newmoon_resonance_profession()=="" &&
 		!old_item->query_newmoon_resonance_active(),
@@ -480,28 +866,30 @@ void test_legacy_equipment_compatibility()
 	string new_saved=pikenv_save_object(new_item,1);
 	object restored=clone(item_path("weapon","69xinyuetianfengjian"));
 	pikenv_restore_object(restored,new_saved);
-	check("新月套装身份通过既有dbase随物品存档往返",
+	check("十件套身份和五档配置通过既有dbase随物品存档往返",
 		search(new_saved,"item_newmoon")!=-1 &&
 		restored->query_newmoon_resonance_profession()=="jianxian" &&
 		restored->query_newmoon_resonance_theme()=="剑心" &&
+		restored->query_newmoon_set_extra_description(10)!="" &&
 		restored->query_attack_power()==248 &&
 		restored->query_item_canLevel()==69,
-		"套装元数据存档恢复后丢失或装备字段错位");
+		"套装元数据恢复后丢失或旧装备字段错位");
 	destruct(new_item);
 	destruct(restored);
 }
 
 int main()
 {
-	werror("\n========== 新月十二职业装备测试 ==========\n");
+	werror("\n========== 新月十二职业十件套测试 ==========\n");
 	test_catalog_and_templates();
 	test_resonance_boundaries();
-	test_set_progression();
+	test_full_set_progression();
 	test_all_profession_set_extras();
-	test_set_identity_boundary();
+	test_requested_piece_attribute_matrix();
+	test_set_identity_and_duplicate_boundaries();
 	test_high_level_dynamic_generation();
 	test_legacy_equipment_compatibility();
-	werror("新月装备测试：总计%d，通过%d，失败%d\n",
+	werror("新月十件套测试：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
 	return results["failed"]==0 ? 0 : 1;
 }

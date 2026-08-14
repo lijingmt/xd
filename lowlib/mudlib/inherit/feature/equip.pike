@@ -24,22 +24,117 @@ void set_equip_defend(int a){ equip_defend=a;}
 // 的 equiped 等字段错位。没有共鸣数据的全部旧装备始终返回 0 加成。
 #define NEWMOON_RESONANCE_ROOT "/item_newmoon/resonance"
 
-void set_newmoon_resonance(string profession,string profession_cn,
-	string theme,int str_bonus,int dex_bonus,int think_bonus,
-	int life_bonus,int mofa_bonus,string two_piece_attribute,
-	int two_piece_value,string three_piece_attribute,
-	int three_piece_value)
+int is_newmoon_supported_set_attribute(string attribute)
 {
 	array(string) supported_set_attributes=({
 		"all","defend","dodge","hitte","doub",
 		"lunck","rase_life_add","rase_mofa_add","mofa_all",
 		"all_mofa_defend",
 	});
-	if(!profession || profession=="" || !profession_cn ||
-	   profession_cn=="" || !theme || theme=="")
+	return search(supported_set_attributes,attribute)!=-1;
+}
+
+int is_newmoon_supported_set_tier(int tier)
+{
+	return search(({2,4,6,8,10}),tier)!=-1;
+}
+
+int is_newmoon_supported_profession(string profession)
+{
+	return search(({
+		"jianxian","yushi","zhuxian","kuangyao","wuyao",
+		"yinggui","fangshi","zhenyue","tianxiang","lingyi",
+		"wuxiang","taiji",
+	}),profession)!=-1;
+}
+
+void set_newmoon_set_bonus(int tier,string attribute,int value)
+{
+	string tier_path;
+	if(!is_newmoon_supported_set_tier(tier) ||
+	   !is_newmoon_supported_set_attribute(attribute))
 		return;
-	if(search(supported_set_attributes,two_piece_attribute)==-1 ||
-	   search(supported_set_attributes,three_piece_attribute)==-1)
+	tier_path=NEWMOON_RESONANCE_ROOT+"/tier/"+(string)tier;
+	this_object()[tier_path+"/attribute"]=attribute;
+	this_object()[tier_path+"/value"]=max(0,min(20,value));
+}
+
+void set_newmoon_full_set_bonuses(string profession)
+{
+	if(profession=="jianxian"){
+		set_newmoon_set_bonus(6,"dodge",1);
+		set_newmoon_set_bonus(8,"rase_life_add",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="yushi"){
+		set_newmoon_set_bonus(6,"all_mofa_defend",2);
+		set_newmoon_set_bonus(8,"lunck",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="zhuxian"){
+		set_newmoon_set_bonus(6,"dodge",1);
+		set_newmoon_set_bonus(8,"lunck",1);
+		set_newmoon_set_bonus(10,"rase_life_add",1);
+	}
+	else if(profession=="kuangyao"){
+		set_newmoon_set_bonus(6,"defend",1);
+		set_newmoon_set_bonus(8,"hitte",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="wuyao"){
+		set_newmoon_set_bonus(6,"rase_mofa_add",1);
+		set_newmoon_set_bonus(8,"lunck",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="yinggui"){
+		set_newmoon_set_bonus(6,"hitte",1);
+		set_newmoon_set_bonus(8,"lunck",1);
+		set_newmoon_set_bonus(10,"rase_life_add",1);
+	}
+	else if(profession=="fangshi"){
+		set_newmoon_set_bonus(6,"all_mofa_defend",2);
+		set_newmoon_set_bonus(8,"rase_mofa_add",1);
+		set_newmoon_set_bonus(10,"lunck",1);
+	}
+	else if(profession=="zhenyue"){
+		set_newmoon_set_bonus(6,"rase_life_add",1);
+		set_newmoon_set_bonus(8,"hitte",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="tianxiang"){
+		set_newmoon_set_bonus(6,"all_mofa_defend",2);
+		set_newmoon_set_bonus(8,"rase_mofa_add",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="lingyi"){
+		set_newmoon_set_bonus(6,"all_mofa_defend",2);
+		set_newmoon_set_bonus(8,"lunck",1);
+		set_newmoon_set_bonus(10,"all",1);
+	}
+	else if(profession=="wuxiang"){
+		set_newmoon_set_bonus(6,"hitte",1);
+		set_newmoon_set_bonus(8,"doub",1);
+		set_newmoon_set_bonus(10,"rase_life_add",1);
+	}
+	else if(profession=="taiji"){
+		set_newmoon_set_bonus(6,"defend",1);
+		set_newmoon_set_bonus(8,"rase_life_add",1);
+		set_newmoon_set_bonus(10,"rase_mofa_add",1);
+	}
+}
+
+void set_newmoon_resonance(string profession,string profession_cn,
+	string theme,int str_bonus,int dex_bonus,int think_bonus,
+	int life_bonus,int mofa_bonus,string two_piece_attribute,
+	int two_piece_value,string four_piece_attribute,
+	int four_piece_value)
+{
+	if(!profession || profession=="" || !profession_cn ||
+	   profession_cn=="" || !theme || theme=="" ||
+	   !is_newmoon_supported_profession(profession))
+		return;
+	if(!is_newmoon_supported_set_attribute(two_piece_attribute) ||
+	   !is_newmoon_supported_set_attribute(four_piece_attribute))
 		return;
 	this_object()[NEWMOON_RESONANCE_ROOT+"/profession"]=profession;
 	this_object()[NEWMOON_RESONANCE_ROOT+"/profession_cn"]=profession_cn;
@@ -49,13 +144,9 @@ void set_newmoon_resonance(string profession,string profession_cn,
 	this_object()[NEWMOON_RESONANCE_ROOT+"/think"]=max(0,min(20,think_bonus));
 	this_object()[NEWMOON_RESONANCE_ROOT+"/life"]=max(0,min(20,life_bonus));
 	this_object()[NEWMOON_RESONANCE_ROOT+"/mofa"]=max(0,min(20,mofa_bonus));
-	this_object()[NEWMOON_RESONANCE_ROOT+"/two_attribute"]=two_piece_attribute;
-	this_object()[NEWMOON_RESONANCE_ROOT+"/two_value"]=
-		max(0,min(20,two_piece_value));
-	this_object()[NEWMOON_RESONANCE_ROOT+"/three_attribute"]=
-		three_piece_attribute;
-	this_object()[NEWMOON_RESONANCE_ROOT+"/three_value"]=
-		max(0,min(20,three_piece_value));
+	set_newmoon_set_bonus(2,two_piece_attribute,two_piece_value);
+	set_newmoon_set_bonus(4,four_piece_attribute,four_piece_value);
+	set_newmoon_full_set_bonuses(profession);
 }
 
 string query_newmoon_resonance_profession()
@@ -88,6 +179,7 @@ int query_newmoon_set_piece_count()
 	string profession=query_newmoon_resonance_profession();
 	string theme=query_newmoon_resonance_theme();
 	int count=0;
+	array(object) counted=({});
 	if(profession=="" || theme=="" || !owner ||
 	   !functionp(owner->query_equip))
 		return 0;
@@ -96,22 +188,31 @@ int query_newmoon_set_piece_count()
 		return 0;
 	foreach(values(equipped),object item){
 		if(item && item->item_cur_dura>0 &&
+		   search(counted,item)==-1 &&
 		   functionp(item->query_newmoon_resonance_profession) &&
 		   functionp(item->query_newmoon_resonance_theme) &&
 		   item->query_newmoon_resonance_profession()==profession &&
-		   item->query_newmoon_resonance_theme()==theme)
+		   item->query_newmoon_resonance_theme()==theme){
 			count++;
+			counted+=({item});
+		}
 	}
-	return min(3,count);
+	return min(10,count);
 }
 
 int query_newmoon_resonance_percent()
 {
 	int count=query_newmoon_set_piece_count();
-	if(count>=3)
+	if(count>=10)
 		return 200;
+	if(count>=8)
+		return 180;
+	if(count>=6)
+		return 160;
+	if(count>=4)
+		return 140;
 	if(count>=2)
-		return 150;
+		return 120;
 	return 100;
 }
 
@@ -136,15 +237,17 @@ int query_newmoon_set_extra_value(string attribute)
 {
 	int count;
 	int value=0;
+	array(int) tiers=({2,4,6,8,10});
 	if(!query_newmoon_resonance_active())
 		return 0;
 	count=query_newmoon_set_piece_count();
-	if(count>=2 && (string)this_object()[
-	   NEWMOON_RESONANCE_ROOT+"/two_attribute"]==attribute)
-		value+=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/two_value"];
-	if(count>=3 && (string)this_object()[
-	   NEWMOON_RESONANCE_ROOT+"/three_attribute"]==attribute)
-		value+=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/three_value"];
+	for(int index=0;index<sizeof(tiers);index++){
+		string tier_path=NEWMOON_RESONANCE_ROOT+"/tier/"+
+			(string)tiers[index];
+		if(count>=tiers[index] && (string)this_object()[
+		   tier_path+"/attribute"]==attribute)
+			value+=(int)this_object()[tier_path+"/value"];
+	}
 	return max(0,min(40,value));
 }
 
@@ -153,16 +256,12 @@ string query_newmoon_set_extra_description(int tier)
 	string attribute;
 	int value;
 	string label="";
-	if(tier==2){
-		attribute=(string)(this_object()[
-			NEWMOON_RESONANCE_ROOT+"/two_attribute"] || "");
-		value=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/two_value"];
-	}
-	else if(tier==3){
-		attribute=(string)(this_object()[
-			NEWMOON_RESONANCE_ROOT+"/three_attribute"] || "");
-		value=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/three_value"];
-	}
+	string tier_path;
+	if(!is_newmoon_supported_set_tier(tier))
+		return "";
+	tier_path=NEWMOON_RESONANCE_ROOT+"/tier/"+(string)tier;
+	attribute=(string)(this_object()[tier_path+"/attribute"] || "");
+	value=(int)this_object()[tier_path+"/value"];
 	if(attribute=="all") label="全属性";
 	else if(attribute=="defend"){
 		label="防御";
@@ -687,13 +786,22 @@ string query_content(){
 			ob->query_newmoon_resonance_bonus_text()+"\n";
 		int set_count=ob->query_newmoon_set_piece_count();
 		r+="【套装·"+ob->query_newmoon_set_name()+"】("+
-			(string)set_count+"/3)\n";
-		r+="2件：职业共鸣提高50%；"+
+			(string)set_count+"/10)\n";
+		r+="2件·初月：职业共鸣120%；"+
 			ob->query_newmoon_set_extra_description(2)+
 			(resonance_active && set_count>=2 ? "（已激活）" : "")+"\n";
-		r+="3件：满月觉醒，职业共鸣提高100%；"+
-			ob->query_newmoon_set_extra_description(3)+
-			(resonance_active && set_count>=3 ? "（已激活）" : "")+"\n";
+		r+="4件·弦月：职业共鸣140%；"+
+			ob->query_newmoon_set_extra_description(4)+
+			(resonance_active && set_count>=4 ? "（已激活）" : "")+"\n";
+		r+="6件·望月：职业共鸣160%；"+
+			ob->query_newmoon_set_extra_description(6)+
+			(resonance_active && set_count>=6 ? "（已激活）" : "")+"\n";
+		r+="8件·盈月：职业共鸣180%；"+
+			ob->query_newmoon_set_extra_description(8)+
+			(resonance_active && set_count>=8 ? "（已激活）" : "")+"\n";
+		r+="10件·满月觉醒：职业共鸣200%；"+
+			ob->query_newmoon_set_extra_description(10)+
+			(resonance_active && set_count>=10 ? "（已激活）" : "")+"\n";
 	}
 	if(functionp(ob->query_catchup_equipment) &&
 	   ob->query_catchup_equipment()){
