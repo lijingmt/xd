@@ -228,6 +228,34 @@ void test_frontend_playability_gate()
 		test_fail("真实渲染、computed误调用扫描或白屏回归断言缺失");
 }
 
+void test_high_realm_contrast_contract()
+{
+	test_start("离三界高阶装备在新旧界面均使用高对比颜色");
+	string realm_source = Stdio.read_file(
+		ROOT+"/vue_source/css/realm.css");
+	string renderer_source = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/_http_api_mod/html_renderer.pike");
+
+	if(realm_source && renderer_source &&
+	   search(realm_source,
+		"--realm-lisan3-ink: #9A3412;")!=-1 &&
+	   search(realm_source,
+		"--realm-lisan3-ink: #FFD08A;")!=-1 &&
+	   search(realm_source,
+		"color: var(--realm-lisan3-ink) !important;")!=-1 &&
+	   search(realm_source,
+		"text-shadow: none !important;")!=-1 &&
+	   search(renderer_source,
+		"color:#9A3412!important;border-color:#C2410C!important;"
+		"background:#FFF7ED!important;text-shadow:none!important")!=-1 &&
+	   search(renderer_source,
+		"color:#FFD08A!important;border-color:#F59E0B!important;"
+		"background:#2C1B0F!important;text-shadow:none!important")!=-1)
+		test_pass();
+	else
+		test_fail("境界装备高对比样式未同步到新旧界面");
+}
+
 void test_deployed_frontend_artifacts()
 {
 	test_start("正式与历史Vue产物可加载且和源码同步");
@@ -282,6 +310,7 @@ int main()
 	test_docker_copy_contract();
 	test_game_number_format_contract();
 	test_frontend_playability_gate();
+	test_high_realm_contrast_contract();
 	test_deployed_frontend_artifacts();
 	print_summary();
 	if(test_results["failed"]==0)

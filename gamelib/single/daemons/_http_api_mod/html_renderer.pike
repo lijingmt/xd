@@ -143,7 +143,10 @@ string response_to_html(string response, string userid, string cmd,
     html += "a.btn.btn-outline-wuse{color:#ADD8E6!important;border-color:#ADD8E6!important;background:#F0F8FF!important}\n";
     html += "a.btn.btn-outline-lisan1{color:#228B22!important;border-color:#228B22!important;background:#F0FFF0!important}\n";
     html += "a.btn.btn-outline-lisan2{color:#32CD32!important;border-color:#32CD32!important;background:#F5FFF5!important}\n";
-    html += "a.btn.btn-outline-lisan3{color:#FFD700!important;border-color:#FFD700!important;background:#FFFFE0!important;text-shadow:0 0 3px #FFA500!important}\n";
+    if(use_dark_mode)
+        html += "a.btn.btn-outline-lisan3{color:#FFD08A!important;border-color:#F59E0B!important;background:#2C1B0F!important;text-shadow:none!important}\n";
+    else
+        html += "a.btn.btn-outline-lisan3{color:#9A3412!important;border-color:#C2410C!important;background:#FFF7ED!important;text-shadow:none!important}\n";
     html += "a.btn.btn-outline-poxu{color:#FF6347!important;border-color:#FF6347!important;background:#FFF0EE!important}\n";
     html += "a.btn.btn-outline-dujie{color:#FF4500!important;border-color:#FF4500!important;background:#FFE0DD!important}\n";
     html += "a.btn.btn-outline-tianxian{color:#00BFFF!important;border-color:#00BFFF!important;background:#E0F7FF!important}\n";

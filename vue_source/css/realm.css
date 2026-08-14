@@ -2,6 +2,20 @@
    境界装备颜色样式
    ============================================ */
 
+:root,
+[data-theme="classic"],
+[data-theme="light"] {
+  --realm-lisan3-ink: #9A3412;
+  --realm-lisan3-border: #C2410C;
+  --realm-lisan3-bg: #FFF7ED;
+}
+
+[data-theme="dark"] {
+  --realm-lisan3-ink: #FFD08A;
+  --realm-lisan3-border: #F59E0B;
+  --realm-lisan3-bg: #2C1B0F;
+}
+
 /* 欲界 - 棕灰 */
 a.btn.btn-outline-yujie,
 button.btn.btn-outline-yujie {
@@ -42,13 +56,13 @@ button.btn.btn-outline-lisan2 {
   background-color: #F5FFF5 !important;
 }
 
-/* 离三界-高阶 - 金黄 */
+/* 离三界-高阶 - 深赤金（浅色界面保持高对比） */
 a.btn.btn-outline-lisan3,
 button.btn.btn-outline-lisan3 {
-  color: #FFD700 !important;
-  border-color: #FFD700 !important;
-  background-color: #FFFFE0 !important;
-  text-shadow: 0 0 3px #FFA500 !important;
+  color: var(--realm-lisan3-ink) !important;
+  border-color: var(--realm-lisan3-border) !important;
+  background-color: var(--realm-lisan3-bg) !important;
+  text-shadow: none !important;
 }
 
 /* 破虚境 - 橙红 */

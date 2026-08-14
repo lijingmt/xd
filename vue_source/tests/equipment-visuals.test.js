@@ -45,6 +45,11 @@ const root = path.resolve(__dirname, '..');
 const appSource = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const htmlSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const cssSource = fs.readFileSync(path.join(root, 'css/app.css'), 'utf8');
+const realmCssSource = fs.readFileSync(path.join(root, 'css/realm.css'), 'utf8');
+const legacyRendererSource = fs.readFileSync(path.join(
+    root, '..', 'gamelib', 'single', 'daemons', '_http_api_mod',
+    'html_renderer.pike'
+), 'utf8');
 vm.runInNewContext(appSource, sandbox, { filename: 'app.js' });
 assert(componentOptions, 'Vue component should register');
 const client = Object.assign(componentOptions.data(), componentOptions.methods);
@@ -163,4 +168,25 @@ assert(
     '橙装文字在暗色卡片背景上的对比度必须达到 WCAG AA'
 );
 
-console.log('人物、宠物、装备与高等级怪物统一成长光环测试通过');
+assert(realmCssSource.includes('--realm-lisan3-ink: #9A3412;'));
+assert(realmCssSource.includes('--realm-lisan3-ink: #FFD08A;'));
+assert(realmCssSource.includes('color: var(--realm-lisan3-ink) !important;'));
+assert(realmCssSource.includes('text-shadow: none !important;'));
+assert(legacyRendererSource.includes(
+    'color:#9A3412!important;border-color:#C2410C!important;' +
+    'background:#FFF7ED!important;text-shadow:none!important'
+));
+assert(legacyRendererSource.includes(
+    'color:#FFD08A!important;border-color:#F59E0B!important;' +
+    'background:#2C1B0F!important;text-shadow:none!important'
+));
+assert(
+    contrastRatio('#9A3412', '#FFF7ED') >= 4.5,
+    '离三界高阶装备在浅色界面的对比度必须达到 WCAG AA'
+);
+assert(
+    contrastRatio('#FFD08A', '#2C1B0F') >= 4.5,
+    '离三界高阶装备在暗色界面的对比度必须达到 WCAG AA'
+);
+
+console.log('人物、宠物、装备、高等级怪物光环与高阶境界对比度测试通过');

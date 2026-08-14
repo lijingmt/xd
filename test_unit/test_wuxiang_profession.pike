@@ -402,10 +402,12 @@ void test_level20_task_award_item()
 
 void test_all_books_in_catalog()
 {
-	test_start("无相书在 can_buy_book_list.csv 中均有对应条目");
+	test_start("无相标准技能书在商店目录中均有对应条目");
 	array(string) book_ids = ({
 		"wuxiangquan","wuxiangjue","wuxiangyi","wuxiangdun",
-		"wuxianghou","wuxiangjian","wuxiangyan",
+		"wuxianghou","wuxiangjian","wuxiangyan","wuxiangjing",
+		"wuxiangbi","wuxianghuan","wuxiangyu","wuxiangji",
+		"wuxiangmie",
 	});
 	string csv = Stdio.read_file(ROOT+
 		"/gamelib/data/can_buy_book_list.csv");
@@ -425,6 +427,51 @@ void test_all_books_in_catalog()
 		test_pass();
 	else
 		test_fail("缺书："+missing_ids);
+}
+
+void test_runtime_shop_inventory()
+{
+	test_start("无相玩家运行时打开普通技能商店能看到完整商品");
+	object player = create_runtime_player("__testunit_wuxiang_shop__");
+	object|zero original_player = this_player();
+	array(string) expected = ({
+		"无相拳","无相诀","无相医","无相盾","无相吼",
+		"无相剑","无相焰","无相净","无相壁","无相唤",
+	});
+	array(string) missing = ({});
+	string error_desc = "";
+	mixed err = catch {
+		set_this_player(player);
+		string shop = BUYD->get_buy_item_list("book","wuxiang");
+		foreach(expected,string book_name){
+			if(search(shop,book_name)==-1)
+				missing += ({book_name});
+		}
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	if(!err && !sizeof(missing))
+		test_pass();
+	else
+		test_fail("运行时商店缺少："+(missing*" ")+" "+error_desc);
+	destroy_runtime_player(player);
+}
+
+void test_skills_page_has_shop_entry()
+{
+	test_start("技能主页始终提供服务端锁职业的购书入口");
+	string source = Stdio.read_file(ROOT+"/gamelib/cmds/myskills.pike");
+	if(source &&
+	   search(source,"购买本职业技能书")!=-1 &&
+	   search(source,"buy_items book ")!=-1 &&
+	   search(source,"query_profeId()")!=-1)
+		test_pass();
+	else
+		test_fail("技能主页缺少当前职业购书入口");
 }
 
 void test_hidden_pool_extended()
@@ -837,6 +884,8 @@ int main()
 	test_vue_profession_list_includes_wuxiang();
 	test_all_skills_load();
 	test_all_books_in_catalog();
+	test_runtime_shop_inventory();
+	test_skills_page_has_shop_entry();
 	test_hidden_pool_extended();
 	test_formless_heart_passive();
 	test_formless_heart_no_bonus_for_specialist();
