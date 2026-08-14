@@ -774,6 +774,54 @@ void test_empty_skills_robustness()
 	destroy_runtime_player(player);
 }
 
+void test_wuxiang_broad_not_best_balance()
+{
+	test_start("无相广而不精：通用群攻降为6秒，其余跨职能力遵守专精级冷却");
+	mapping(string:int) expected_delays = ([
+		"wuxiangquan":3,
+		"wuxiangjue":3,
+		"wuxiangjian":3,
+		"wuxiangyan":6,
+		"wuxiangyi":12,
+		"wuxiangdun":36,
+		"wuxianghou":60,
+		"wuxiangjing":30,
+		"wuxiangbi":45,
+		"wuxianghuan":90,
+		"wuxiangyu":36,
+		"wuxiangji":6,
+		"wuxiangmie":6,
+	]);
+	array(string) failures = ({});
+	foreach(sort(indices(expected_delays)),string skill_id){
+		object skill = (object)(ROOT+"/gamelib/single/skills/"+skill_id);
+		int actual = skill ? (int)skill->query_s_delayTime(5) : -1;
+		if(actual!=expected_delays[skill_id])
+			failures += ({skill_id+"="+(string)actual});
+	}
+	object aoe = (object)(ROOT+"/gamelib/single/skills/wuxiangyan");
+	object personal_shield =
+		(object)(ROOT+"/gamelib/single/skills/wuxiangdun");
+	object team_shield =
+		(object)(ROOT+"/gamelib/single/skills/wuxiangbi");
+	object attr = (object)(ROOT+"/gamelib/single/skills/wuxianghou");
+	int ratios_ok = aoe && personal_shield && team_shield && attr &&
+		aoe->query_lingyi_aoe_power_percent()==60 &&
+		aoe->query_balanced_aoe_target_limit(1)==2 &&
+		aoe->query_balanced_aoe_target_limit(2)==4 &&
+		aoe->query_balanced_aoe_target_limit(3)==6 &&
+		aoe->query_balanced_aoe_target_limit(4)==8 &&
+		aoe->query_balanced_aoe_target_limit(5)==10 &&
+		aoe->query_balanced_aoe_target_limit(99)==10 &&
+		personal_shield->query_performs_attack(5)==800 &&
+		team_shield->query_performs_attack(5)==1125 &&
+		attr->query_performs_attack(5)==12;
+	if(!sizeof(failures) && ratios_ok)
+		test_pass();
+	else
+		test_fail("冷却或50%-60%补位强度异常："+failures*", ");
+}
+
 int main()
 {
 	werror("\n========== 无相职业测试 ==========\n");
@@ -806,6 +854,7 @@ int main()
 	test_locked_button_hidden_from_ui();
 	test_book_learning_cross_profession_rejected();
 	test_empty_skills_robustness();
+	test_wuxiang_broad_not_best_balance();
 	werror("\n无相职业测试：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);

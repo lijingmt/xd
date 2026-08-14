@@ -21,6 +21,11 @@ int main(string|zero arg)
 			object add_item2 = present(tmp_arr2[0],me,tmp_arr2[1]);
 			if(!add_item1 || !add_item2)
 				s += "你身上没有参与熔炼的物品\n";
+			else if((functionp(add_item1->query_catchup_equipment) &&
+				add_item1->query_catchup_equipment()) ||
+				(functionp(add_item2->query_catchup_equipment) &&
+				add_item2->query_catchup_equipment()))
+				s += "追赶装备为绑定过渡物品，不能参与熔炼。\n";
 			else{
 				string yushi_name ="";
 				string yushi_name_cn ="";

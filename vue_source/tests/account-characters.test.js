@@ -15,6 +15,8 @@ const sandbox = {
   window: {
     crypto: {},
     location: { protocol: 'https:', hostname: 'game.example.com', href: 'https://game.example.com/' },
+    history: { replaceState() {} },
+    confirm() { return true; },
     matchMedia() { return { matches: false }; }
   },
   document: { documentElement: { setAttribute() {} } },
@@ -313,36 +315,26 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   assert.strictEqual(client.txd, '');
   assert(client.characterError.includes('重新选择人物'));
 
-  // 角色直达书签：copyCharacterBookmarkUrl 应生成 ?userid=&char= 格式的 URL，
-  // 仅当当前在线角色就是目标角色时才附上 txd（避免把 A 角色的 txd 误塞到 B 角色的书签里）。
+  // 角色直达书签：一次点击必须先同步打开新标签，再从服务端签发只绑定
+  // 所选人物的长期随机凭证。凭证放fragment，禁止TXD/密码进入URL。
   client.accountId = 'xd01abc';
+  client.accountToken = 'd'.repeat(64);
   client.currentCharacterId = 'xd01firsthero';
   client.txd = firstTxd;
+  sandbox.window.location.href =
+    'https://game.example.com/xd/vue/?mode=html&txd=legacy-secret&token=unknown-secret&ref=wrong#old-secret';
   // 测试环境没有真实 DOM/clipboard，stub 掉通知和剪贴板写
   client.showNotification = () => {};
   let copiedUrl = '';
   sandbox.navigator = {
+    platform: 'MacIntel',
     clipboard: {
       writeText: async (text) => { copiedUrl = text; }
     }
   };
-  // 当前在线 A，复制 B 的书签：不应带 txd
-  await client.copyCharacterBookmarkUrl('xd01abcc2a8f31e20');
-  const bookmarkUrl = new URL(copiedUrl, 'https://game.example.com');
-  assert.strictEqual(bookmarkUrl.searchParams.get('userid'), 'xd01abc');
-  assert.strictEqual(bookmarkUrl.searchParams.get('char'), 'xd01abcc2a8f31e20');
-  assert.strictEqual(bookmarkUrl.searchParams.get('txd'), null,
-    '复制其他角色书签时不应附上当前角色的 txd');
-  // 当前在线 A，复制 A 的书签：应附上 txd（同角色 txd 可立即进入）
-  await client.copyCharacterBookmarkUrl('xd01firsthero');
-  const selfBookmarkUrl = new URL(copiedUrl, 'https://game.example.com');
-  assert.strictEqual(selfBookmarkUrl.searchParams.get('userid'), 'xd01abc');
-  assert.strictEqual(selfBookmarkUrl.searchParams.get('char'), 'xd01firsthero');
-  assert.strictEqual(selfBookmarkUrl.searchParams.get('txd'), firstTxd,
-    '复制当前角色书签应附上 txd 以支持立即进入');
-
   let openedUrl = '';
   let openedTarget = '';
+  let openCount = 0;
   const popup = {
     opener: {},
     location: { replace: (url) => { openedUrl = url; } }
@@ -350,17 +342,138 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
   sandbox.window.open = (url, target) => {
     assert.strictEqual(url, 'about:blank');
     openedTarget = target;
+    openCount += 1;
+    popup.opener = {};
     return popup;
   };
-  client.openAccountCharacterInNewTab('xd01abcc2a8f31e20');
+  let issuedBookmark = '1'.repeat(64);
+  client.postAccountApi = async (path, body) => {
+    assert.strictEqual(path, '/api/account/bookmark/create');
+    assert.strictEqual(body.token, 'd'.repeat(64));
+    assert(body.character_id);
+    return { bookmark_token: issuedBookmark };
+  };
+  // 当前在线 A，存并打开 B 的书签：新标签与复制文本必须是同一个
+  // 跨浏览器永久入口，而不是当前账号的12小时会话。
+  await client.copyCharacterBookmarkUrl('xd01abcc2a8f31e20');
+  const bookmarkUrl = new URL(copiedUrl, 'https://game.example.com');
+  assert.strictEqual(bookmarkUrl.searchParams.get('userid'), 'xd01abc');
+  assert.strictEqual(bookmarkUrl.searchParams.get('char'), 'xd01abcc2a8f31e20');
+  assert.strictEqual(bookmarkUrl.searchParams.get('txd'), null,
+    '复制其他角色书签时不应附上当前角色的 txd');
+  assert.strictEqual(bookmarkUrl.searchParams.get('token'), null);
+  assert.strictEqual(bookmarkUrl.searchParams.get('ref'), null);
+  assert.strictEqual(bookmarkUrl.searchParams.get('mode'), 'html',
+    '自动浏览器的HTML兼容模式必须保留');
+  assert.strictEqual(
+    new URLSearchParams(bookmarkUrl.hash.slice(1)).get('character_bookmark'),
+    issuedBookmark
+  );
+  assert.strictEqual(
+    new URLSearchParams(bookmarkUrl.hash.slice(1)).get('account_session'),
+    null,
+    '长期书签不能退化为重启即失效的账号内存会话'
+  );
   assert.strictEqual(openedTarget, '_blank');
   assert.strictEqual(popup.opener, null,
     '导航前必须切断 opener，避免新标签反向控制原页面');
-  const newTabUrl = new URL(openedUrl, 'https://game.example.com');
+  let newTabUrl = new URL(openedUrl, 'https://game.example.com');
   assert.strictEqual(newTabUrl.searchParams.get('userid'), 'xd01abc');
   assert.strictEqual(newTabUrl.searchParams.get('char'), 'xd01abcc2a8f31e20');
-  assert.strictEqual(newTabUrl.searchParams.get('txd'), null,
-    '新标签不得携带当前角色 txd，否则会把原标签挤下线');
+  assert.strictEqual(newTabUrl.searchParams.get('txd'), null);
+  assert.strictEqual(
+    new URLSearchParams(newTabUrl.hash.slice(1)).get('character_bookmark'),
+    issuedBookmark
+  );
+
+  // 当前在线 A，复制 A 的书签也不得把可还原密码的旧 txd 放进去。
+  issuedBookmark = '2'.repeat(64);
+  await client.copyCharacterBookmarkUrl('xd01firsthero');
+  const selfBookmarkUrl = new URL(copiedUrl, 'https://game.example.com');
+  assert.strictEqual(selfBookmarkUrl.searchParams.get('userid'), 'xd01abc');
+  assert.strictEqual(selfBookmarkUrl.searchParams.get('char'), 'xd01firsthero');
+  assert.strictEqual(selfBookmarkUrl.searchParams.get('txd'), null,
+    '复制当前角色书签也不得泄露可还原密码的 txd');
+  assert.strictEqual(openCount, 2, '每次点击书签按钮都应同步打开一个新标签');
+  assert.strictEqual(
+    new URLSearchParams(selfBookmarkUrl.hash.slice(1)).get('character_bookmark'),
+    issuedBookmark
+  );
+
+  // 复制到完全没有账号session的浏览器后，长期凭证应直接换取绑定人物
+  // 的TXD并进入游戏，且不能被本地缓存的另一个角色覆盖。
+  const persistentClient = Object.assign(componentOptions.data(), componentOptions.methods);
+  persistentClient.characterBookmarkToken = '3'.repeat(64);
+  persistentClient.preselectedUserid = 'xd01LSQ';
+  persistentClient.preselectedCharacterId = 'xd01LSQ_wuxiang';
+  persistentClient.apiBase = '';
+  persistentClient.showNotification = () => {};
+  let persistentOpenBody = null;
+  persistentClient.postAccountApi = async (path, body) => {
+    assert.strictEqual(path, '/api/account/bookmark/open');
+    persistentOpenBody = body;
+    return {
+      account_id: 'xd01LSQ',
+      character_id: 'xd01LSQ_wuxiang',
+      txd: 'bookmark-direct-txd',
+      bootstrap_command: 'init'
+    };
+  };
+  persistentClient.completeCharacterLogin = async (txd, characterId) => {
+    assert.strictEqual(txd, 'bookmark-direct-txd');
+    persistentClient.currentCharacterId = characterId;
+    return true;
+  };
+  assert.strictEqual(await persistentClient.resumePersistentCharacterBookmark(), true);
+  assert.strictEqual(persistentOpenBody.userid, 'xd01LSQ');
+  assert.strictEqual(persistentOpenBody.character_id, 'xd01LSQ_wuxiang');
+  assert.strictEqual(persistentOpenBody.bookmark_token, '3'.repeat(64));
+  assert.strictEqual(persistentClient.accountToken, '',
+    '人物书签不应升级为可读取账号其他人物的账号会话');
+
+  // 书签登录框通常输入短账号；必须与链接里的完整大小写账号匹配并
+  // 登录后直接进入指定职业。
+  const bookmarkClient = Object.assign(componentOptions.data(), componentOptions.methods);
+  bookmarkClient.loginForm = {
+    partition: 'xd01', userid: 'LSQ', password: 'CasePass88'
+  };
+  bookmarkClient.preselectedUserid = 'xd01LSQ';
+  bookmarkClient.preselectedCharacterId = 'xd01LSQ_wuxiang';
+  let loginUserid = '';
+  let selectedBookmarkCharacter = '';
+  bookmarkClient.postAccountApi = async (path, body) => {
+    assert.strictEqual(path, '/api/account/login');
+    loginUserid = body.userid;
+    return {
+      token: 'e'.repeat(64),
+      account_id: 'xd01LSQ',
+      characters: [{ id: 'xd01LSQ_wuxiang', available: 1 }]
+    };
+  };
+  bookmarkClient.selectAccountCharacter = async character => {
+    selectedBookmarkCharacter = character.id;
+  };
+  await bookmarkClient.doLogin();
+  assert.strictEqual(loginUserid, 'xd01LSQ');
+  assert.strictEqual(selectedBookmarkCharacter, 'xd01LSQ_wuxiang');
+
+  const handoffClient = Object.assign(componentOptions.data(), componentOptions.methods);
+  handoffClient.accountToken = 'f'.repeat(64);
+  handoffClient.preselectedUserid = 'xd01LSQ';
+  handoffClient.preselectedCharacterId = 'xd01LSQ_wuxiang';
+  handoffClient.postAccountApi = async (path, body) => {
+    assert.strictEqual(path, '/api/account/characters');
+    assert.strictEqual(body.token, 'f'.repeat(64));
+    return {
+      account_id: 'xd01LSQ',
+      characters: [{ id: 'xd01LSQ_wuxiang', available: 1 }]
+    };
+  };
+  handoffClient.selectAccountCharacter = async character => {
+    handoffClient.currentCharacterId = character.id;
+  };
+  assert.strictEqual(await handoffClient.resumeCharacterBookmarkHandoff(), true);
+  assert.strictEqual(handoffClient.currentCharacterId, 'xd01LSQ_wuxiang');
 
   // doLogin 书签逻辑的静态契约：源码必须包含 preselectedUserid 优先级判断和 char 匹配。
   // 完整端到端流程（account/login + characters/select + completeCharacterLogin）依赖
@@ -373,7 +486,7 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
     'app.js 应从 URL 读取 userid 参数');
   assert(appSource.includes("urlParams.get('char')"),
     'app.js 应从 URL 读取 char 参数');
-  assert(appSource.includes('const bookmarkMatch = (!userInput || userInput === this.preselectedUserid)'),
+  assert(appSource.includes('const bookmarkMatch = bookmarkAccountMatched'),
     'app.js 应在 doLogin 中实现书签角色匹配逻辑');
 
   // 静态契约：UI 和源码必须包含书签相关结构和逻辑
@@ -383,12 +496,16 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
     'index.html 应在每个角色卡片上提供复制书签按钮');
   assert(indexSource.includes('copyCharacterBookmarkUrl(character.id)'),
     'index.html 应把复制按钮绑定到 copyCharacterBookmarkUrl');
-  assert(indexSource.includes('openAccountCharacterInNewTab(character.id)'),
-    'index.html 应提供不会重复当前人物登录的新标签入口');
+  assert(indexSource.includes('存书签并在新标签打开本角色'),
+    'index.html 应把存书签与新标签直达合并为一个清晰入口');
+  assert(indexSource.includes('revokeCharacterBookmarks(character.id)'),
+    'index.html 应提供可见的逐人物书签撤销入口');
   assert(cssSource.includes('.character-bookmark-btn'),
     'app.css 应为复制书签按钮提供样式');
-  assert(cssSource.includes('.character-new-tab-btn'),
-    'app.css 应为新标签人物入口提供样式');
+  assert(appSource.includes('resumeCharacterBookmarkHandoff'),
+    'app.js 应支持新标签安全接续账号会话');
+  assert(appSource.includes('resumePersistentCharacterBookmark'),
+    'app.js 应支持无登录态浏览器使用长期人物书签直接进入');
 
   console.log('account character frontend tests passed');
 })().catch(error => {

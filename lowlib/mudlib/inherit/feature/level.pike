@@ -69,7 +69,13 @@ int query_need_exp(){
 	//return (level+1)*(level+1)*(level+1)*100 - level*level*level*100; 
 }
 void query_if_levelup(){
+	int before_level=query_level();
 	check_level();
+	// 经验变化远比真实升级频繁；只在等级发生变化时扫描装备栏。
+	// 登录和底层 wear/wield 仍各自执行独立保护。
+	if(query_level()!=before_level &&
+	   functionp(this_object()->enforce_catchup_equipment_limits))
+		this_object()->enforce_catchup_equipment_limits(1);
 }
 private void check_level(){
 	int level_next = query_need_exp(); 

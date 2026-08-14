@@ -18,6 +18,10 @@ inherit LOW_DAEMON;
 #define ACCOUNT_ONLINE_SAFE_DEFAULT 1
 #define ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL 15
 #define ACCOUNT_FORCED_LOGOUT_TTL 600
+#define ACCOUNT_CHARACTER_BOOKMARK_LIMIT 64
+#define ACCOUNT_CHARACTER_BOOKMARK_PER_CHARACTER_LIMIT 8
+#define WUXIANG_DONATION_UNLOCK_FEE 3000
+#define TAIJI_DONATION_UNLOCK_FEE 10000
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
@@ -72,6 +76,15 @@ int query_profession_account_limit(string profession_id)
 	return 0;
 }
 
+int query_hidden_profession_donation_threshold(string profession_id)
+{
+	if(profession_id=="wuxiang")
+		return WUXIANG_DONATION_UNLOCK_FEE;
+	if(profession_id=="taiji")
+		return TAIJI_DONATION_UNLOCK_FEE;
+	return 0;
+}
+
 mapping(string:mixed) query_profession_limit_from_summary(
 	mapping(string:mixed) data,string profession_id,
 	void|string excluded_character_id)
@@ -116,10 +129,13 @@ private array(string) wuxiang_required_professions = ({
 	"fangshi","zhenyue","tianxiang","lingyi",
 });
 
-int query_wuxiang_unlocked_from_summary(mapping(string:mixed) data)
+int query_wuxiang_unlocked_from_summary(mapping(string:mixed) data,
+	void|int total_recharge_fee)
 {
 	mapping(string:int) prof_max_level;
 	array(mapping(string:mixed)) characters;
+	if((int)(total_recharge_fee || 0)>=WUXIANG_DONATION_UNLOCK_FEE)
+		return 1;
 	if(!data || (int)data["ok"] != 1)
 		return 0;
 	characters = (array(mapping(string:mixed)))data["characters"];
@@ -185,10 +201,13 @@ private array(string) taiji_required_professions = ({
 	"wuxiang",
 });
 
-int query_taiji_unlocked_from_summary(mapping(string:mixed) data)
+int query_taiji_unlocked_from_summary(mapping(string:mixed) data,
+	void|int total_recharge_fee)
 {
 	mapping(string:int) prof_max_level;
 	array(mapping(string:mixed)) characters;
+	if((int)(total_recharge_fee || 0)>=TAIJI_DONATION_UNLOCK_FEE)
+		return 1;
 	if(!data || (int)data["ok"] != 1)
 		return 0;
 	characters = (array(mapping(string:mixed)))data["characters"];
@@ -394,6 +413,105 @@ private int valid_userid(string userid)
 		return 0;
 	}
 	return 1;
+}
+
+private int valid_bookmark_hex(string value)
+{
+	if(!value || sizeof(value)!=64)
+		return 0;
+	foreach(value;int index;int one)
+		if(!((one>='0' && one<='9') || (one>='a' && one<='f')))
+			return 0;
+	return 1;
+}
+
+private string character_bookmark_digest(string token)
+{
+	object hash = Crypto.SHA256();
+	hash->update("xiand-character-bookmark-v1\n"+(token || ""));
+	return lower_case(String.string2hex(hash->digest()));
+}
+
+private string character_bookmark_auth_proof(string token,string password)
+{
+	object hash = Crypto.SHA256();
+	hash->update("xiand-character-bookmark-auth-v1\n"+(token || "")+
+		"\n"+(password || ""));
+	return lower_case(String.string2hex(hash->digest()));
+}
+
+private int constant_time_bookmark_equal(string first,string second)
+{
+	int difference;
+	if(!first || !second || sizeof(first)!=sizeof(second))
+		return 0;
+	for(int i=0;i<sizeof(first);i++)
+		difference |= first[i]^second[i];
+	return difference==0;
+}
+
+private int record_contains_character(mapping record,string character_id)
+{
+	if(!record || !arrayp(record["characters"]))
+		return 0;
+	foreach((array)record["characters"],mapping entry)
+		if((string)entry["id"]==character_id)
+			return 1;
+	return 0;
+}
+
+private array(mapping(string:mixed)) normalized_character_bookmarks(
+	mapping record)
+{
+	array(mapping(string:mixed)) result = ({});
+	if(!record || !arrayp(record["character_bookmarks"]))
+		return result;
+	foreach((array)record["character_bookmarks"],mixed raw){
+		mapping entry;
+		if(!mappingp(raw))
+			continue;
+		entry = raw;
+		if(!valid_userid((string)entry["character_id"]) ||
+		   !record_contains_character(record,(string)entry["character_id"]) ||
+		   !valid_bookmark_hex((string)entry["token_digest"]) ||
+		   !valid_bookmark_hex((string)entry["auth_proof"]) ||
+		   (int)entry["created_at"]<=0)
+			continue;
+		result += ({copy_value(entry)});
+		if(sizeof(result)>=ACCOUNT_CHARACTER_BOOKMARK_LIMIT)
+			break;
+	}
+	return result;
+}
+
+private array(mapping(string:mixed)) remove_character_bookmark_at(
+	array(mapping(string:mixed)) bookmarks,int index)
+{
+	if(index<0 || index>=sizeof(bookmarks))
+		return bookmarks;
+	if(sizeof(bookmarks)==1)
+		return ({});
+	if(index==0)
+		return bookmarks[1..];
+	if(index==sizeof(bookmarks)-1)
+		return bookmarks[..sizeof(bookmarks)-2];
+	return bookmarks[..index-1]+bookmarks[index+1..];
+}
+
+private int oldest_character_bookmark_index(
+	array(mapping(string:mixed)) bookmarks,void|string character_id)
+{
+	int oldest = -1;
+	string wanted = (string)(character_id || "");
+	for(int i=0;i<sizeof(bookmarks);i++){
+		if(wanted!="" &&
+		   (string)bookmarks[i]["character_id"]!=wanted)
+			continue;
+		if(oldest<0 || (int)bookmarks[i]["created_at"]<
+		   (int)bookmarks[oldest]["created_at"])
+			oldest = i;
+	}
+	return oldest;
 }
 
 private string user_file_path(string userid)
@@ -739,11 +857,23 @@ mapping(string:mixed) query_account_characters(string requested_id)
 			"limit":ACCOUNT_CHARACTER_LIMIT,
 			"legacy_only":(int)record["legacy_only"],
 		]);
-		// 给前端用于隐藏未解锁的隐藏职业入口（无相），避免玩家点击后才报错。
-		result["wuxiang_unlocked"] = query_wuxiang_unlocked_from_summary(result);
-		result["taiji_unlocked"] = query_taiji_unlocked_from_summary(result);
 	}
 	destruct(key);
+	if((int)result["ok"]==1){
+		// 必须先释放账号索引锁，再读取共享充值钱包。钱包兼容旧 all_fee
+		// 时会反查人物索引，颠倒锁顺序会形成账号锁/钱包锁死锁。
+		int total_recharge_fee = ACCOUNT_WALLETD->
+			query_total_recharge_fee_for_account(account_id);
+		result["donation_total"] = total_recharge_fee;
+		result["wuxiang_unlocked"] =
+			query_wuxiang_unlocked_from_summary(result,total_recharge_fee);
+		result["taiji_unlocked"] =
+			query_taiji_unlocked_from_summary(result,total_recharge_fee);
+		result["wuxiang_unlock_by_donation"] =
+			total_recharge_fee>=WUXIANG_DONATION_UNLOCK_FEE;
+		result["taiji_unlock_by_donation"] =
+			total_recharge_fee>=TAIJI_DONATION_UNLOCK_FEE;
+	}
 	return result;
 }
 
@@ -779,6 +909,173 @@ int account_owns_character(string account_id,string character_id)
 	}
 	destruct(key);
 	return found;
+}
+
+/**
+ * 为账号下指定人物签发一个可跨浏览器使用的长期直达书签。
+ *
+ * 磁盘只保存随机令牌摘要，以及令牌与当前账号密码共同生成的证明；既不
+ * 保存原始令牌，也不保存可直接用于登录的TXD。修改账号密码会令旧证明
+ * 自动失效。旧令牌在玩家明确撤销前继续可用，重复点击不会弄坏已收藏的
+ * 老链接。
+ */
+mapping(string:mixed) create_character_bookmark(string account_id,
+	string character_id,string account_password)
+{
+	mapping(string:mixed) result = ([
+		"ok":0,"message":"直达书签创建失败。",
+	]);
+	mapping(string:mixed)|zero record;
+	array(mapping(string:mixed)) bookmarks;
+	string token = "";
+	string token_digest = "";
+	object key;
+	if(!valid_userid(account_id) || !valid_userid(character_id) ||
+	   !account_password || account_password=="" ||
+	   !account_owns_character(account_id,character_id)){
+		result["message"] = "人物不属于当前账号。";
+		return result;
+	}
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id);
+	if(record && record_contains_character(record,character_id)){
+		bookmarks = normalized_character_bookmarks(record);
+		int same_character_count = 0;
+		foreach(bookmarks,mapping entry)
+			if((string)entry["character_id"]==character_id)
+				same_character_count++;
+		while(same_character_count>=
+		      ACCOUNT_CHARACTER_BOOKMARK_PER_CHARACTER_LIMIT){
+			int oldest = oldest_character_bookmark_index(bookmarks,
+				character_id);
+			if(oldest<0)
+				break;
+			bookmarks = remove_character_bookmark_at(bookmarks,oldest);
+			same_character_count--;
+		}
+		while(sizeof(bookmarks)>=ACCOUNT_CHARACTER_BOOKMARK_LIMIT){
+			int oldest = oldest_character_bookmark_index(bookmarks);
+			if(oldest<0)
+				break;
+			bookmarks = remove_character_bookmark_at(bookmarks,oldest);
+		}
+		for(int attempt=0;attempt<10;attempt++){
+			token = lower_case(String.string2hex(
+				Crypto.Random.random_string(32)));
+			token_digest = character_bookmark_digest(token);
+			int duplicate = 0;
+			foreach(bookmarks,mapping entry)
+				if(constant_time_bookmark_equal(
+				   (string)entry["token_digest"],token_digest)){
+					duplicate = 1;
+					break;
+				}
+			if(!duplicate)
+				break;
+			token = "";
+		}
+		if(token!=""){
+			bookmarks += ({([
+				"character_id":character_id,
+				"token_digest":token_digest,
+				"auth_proof":character_bookmark_auth_proof(
+					token,account_password),
+				"created_at":time(),
+			])});
+			record["character_bookmarks"] = bookmarks;
+			if(save_record_unlocked(record))
+				result = ([
+					"ok":1,
+					"message":"直达书签已创建。",
+					"account_id":account_id,
+					"character_id":character_id,
+					"bookmark_token":token,
+				]);
+			else
+				result["message"] = "账号书签保存失败，请稍后重试。";
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) verify_character_bookmark(string account_id,
+	string character_id,string token,string account_password)
+{
+	mapping(string:mixed) result = ([
+		"ok":0,"message":"直达书签无效或已撤销。",
+	]);
+	mapping(string:mixed)|zero record;
+	string normalized_token = lower_case(token || "");
+	string token_digest;
+	string auth_proof;
+	object key;
+	if(!valid_userid(account_id) || !valid_userid(character_id) ||
+	   !valid_bookmark_hex(normalized_token) ||
+	   !account_password || account_password=="")
+		return result;
+	token_digest = character_bookmark_digest(normalized_token);
+	auth_proof = character_bookmark_auth_proof(normalized_token,
+		account_password);
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id);
+	if(record && record_contains_character(record,character_id)){
+		foreach(normalized_character_bookmarks(record),mapping entry){
+			if((string)entry["character_id"]==character_id &&
+			   constant_time_bookmark_equal(
+				(string)entry["token_digest"],token_digest) &&
+			   constant_time_bookmark_equal(
+				(string)entry["auth_proof"],auth_proof)){
+				result = ([
+					"ok":1,
+					"message":"",
+					"account_id":account_id,
+					"character_id":character_id,
+				]);
+				break;
+			}
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) revoke_character_bookmarks(string account_id,
+	string character_id)
+{
+	mapping(string:mixed) result = ([
+		"ok":0,"message":"直达书签撤销失败。","revoked":0,
+	]);
+	mapping(string:mixed)|zero record;
+	array(mapping(string:mixed)) kept = ({});
+	int revoked;
+	object key;
+	if(!valid_userid(account_id) || !valid_userid(character_id) ||
+	   !account_owns_character(account_id,character_id)){
+		result["message"] = "人物不属于当前账号。";
+		return result;
+	}
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id);
+	if(record && record_contains_character(record,character_id)){
+		foreach(normalized_character_bookmarks(record),mapping entry){
+			if((string)entry["character_id"]==character_id)
+				revoked++;
+			else
+				kept += ({entry});
+		}
+		record["character_bookmarks"] = kept;
+		if(!revoked || save_record_unlocked(record))
+			result = ([
+				"ok":1,"message":revoked ? "该人物的直达书签已全部撤销。" :
+					"该人物当前没有可撤销的直达书签。",
+				"revoked":revoked,
+			]);
+		else
+			result["message"] = "账号书签保存失败，未执行撤销。";
+	}
+	destruct(key);
+	return result;
 }
 
 private int valid_profession_pair(string race_id,string profession_id)
@@ -905,6 +1202,8 @@ mapping(string:mixed) create_character(string requested_id,
 	string profile_sex = (string)(requested_sex || "");
 	string profile_avatar = (string)(requested_avatar || "");
 	string reservation_token = "";
+	string hidden_unlock_source = "";
+	int hidden_unlock_fee = 0;
 	int profile_requested = profile_name!="" || profile_sex!="" ||
 		profile_avatar!="";
 	int slot;
@@ -934,19 +1233,33 @@ mapping(string:mixed) create_character(string requested_id,
 	// 均至少有一个角色达到 120 级。未达标时返回具体缺口，方便前端展示。
 	if(profession_id=="wuxiang" && account_id!=""){
 		mapping wu_data = query_account_characters(account_id);
-		if(!(int)wu_data["ok"] || !query_wuxiang_unlocked_from_summary(wu_data)){
+		if(!(int)wu_data["ok"] || !(int)wu_data["wuxiang_unlocked"]){
 			string missing = query_wuxiang_missing_from_summary(wu_data);
-			result["message"] = "【无相·未解锁】需要账号下 10 个职业均达到 120 级。当前缺口："+missing;
+			result["message"] = "【无相·未解锁】需要账号下 10 个职业均达到 120 级，或共享账号累计捐赠达到"+
+				WUXIANG_DONATION_UNLOCK_FEE+"元。当前成长缺口："+missing+
+				"；当前累计捐赠："+(int)wu_data["donation_total"]+"元。";
 			return result;
+		}
+		if((int)wu_data["wuxiang_unlock_by_donation"] &&
+		   !query_wuxiang_unlocked_from_summary(wu_data)){
+			hidden_unlock_source = "donation";
+			hidden_unlock_fee = (int)wu_data["donation_total"];
 		}
 	}
 	// 太极是无相之上的隐藏职业：账号下 10 个基础职业 + 无相，均需达到 200 级。
 	if(profession_id=="taiji" && account_id!=""){
 		mapping tj_data = query_account_characters(account_id);
-		if(!(int)tj_data["ok"] || !query_taiji_unlocked_from_summary(tj_data)){
+		if(!(int)tj_data["ok"] || !(int)tj_data["taiji_unlocked"]){
 			string missing = query_taiji_missing_from_summary(tj_data);
-			result["message"] = "【太极·未解锁】需要账号下 10 职业与无相均达到 200 级。当前缺口："+missing;
+			result["message"] = "【太极·未解锁】需要账号下 10 职业与无相均达到 200 级，或共享账号累计捐赠达到"+
+				TAIJI_DONATION_UNLOCK_FEE+"元。当前成长缺口："+missing+
+				"；当前累计捐赠："+(int)tj_data["donation_total"]+"元。";
 			return result;
+		}
+		if((int)tj_data["taiji_unlock_by_donation"] &&
+		   !query_taiji_unlocked_from_summary(tj_data)){
+			hidden_unlock_source = "donation";
+			hidden_unlock_fee = (int)tj_data["donation_total"];
 		}
 	}
 	if(!valid_userid(account_id)){
@@ -1063,6 +1376,18 @@ mapping(string:mixed) create_character(string requested_id,
 		}
 	}
 	destruct(key);
+	if((int)result["ok"] && hidden_unlock_source=="donation"){
+		string now = ctime(time());
+		int threshold = query_hidden_profession_donation_threshold(
+			profession_id);
+		Stdio.append_file(ROOT+"/log/hidden_profession_unlock.log",
+			now[0..sizeof(now)-2]+" account="+account_id+
+			" character="+character_id+" profession="+profession_id+
+			" source=donation total_fee="+hidden_unlock_fee+
+			" threshold="+threshold+"\n");
+		result["unlock_source"] = "donation";
+		result["donation_total"] = hidden_unlock_fee;
+	}
 	return result;
 }
 

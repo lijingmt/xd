@@ -1652,9 +1652,48 @@ void test_hidden_luan_owner_revive()
 	check("鸾鸟拓印攻击灵技后仍保留物种被动治疗",
 		luan_trained && luan_imprinted["ok"] && basic_heal["ok"] &&
 		basic_heal["type"]=="heal" && (int)basic_heal["amount"]>0 &&
+		basic_heal["skill_name"]=="灵羽回春" &&
 		player->get_cur_life()>basic_life_before &&
 		basic_target->get_cur_life()==basic_target_before,
 		"拓印主动效果覆盖了鸾鸟基础疗愈或错误伤害目标");
+	// 不直接调用PETD，而是走人物真实战斗心跳；同时让拓印主灵技保持
+	// 冷却，证明本次回血来自鸾鸟固有疗愈而不是拓印效果。
+	player->set_life(player->query_life_max()/2);
+	player["/tmp/wanling/assist_at"] = time();
+	int heartbeat_life_before = player->get_cur_life();
+	player->_fight(basic_target);
+	basic_target->_fight(player);
+	player->heart_beat();
+	check("鸾鸟学习攻击灵技后经真实战斗心跳继续被动回血",
+		player->get_cur_life()>heartbeat_life_before &&
+		(int)player["/tmp/wanling/assist_at"]>0,
+		"直接调用可回血，但真实heart_beat没有执行固有疗愈");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(basic_target->query_in_combat())
+		basic_target->_clean_fight();
+	// 模拟跨Worker使账号缓存失效后重建临时态；拓印和物种均从唯一
+	// 宠物档案恢复，再次通过真实心跳确认固有疗愈没有丢失。
+	PETD->drop_test_pet_cache(player->query_account_owner());
+	PETD->mark_pet_player_runtime_stale(player);
+	player->set_life(player->query_life_max()/2);
+	player["/tmp/wanling/assist_at"] = time();
+	int worker_life_before = player->get_cur_life();
+	player->_fight(basic_target);
+	basic_target->_fight(player);
+	player->heart_beat();
+	mapping worker_presence = PETD->query_pet_battle_presence(player);
+	check("鸾鸟拓印状态跨Worker重建后仍保留固有疗愈",
+		!(int)player["/tmp/wanling/runtime_stale"] &&
+		worker_presence["species"]=="luanniao" &&
+		worker_presence["basic_skill"]=="灵羽回春" &&
+		search((string)worker_presence["native_passive"],"不会覆盖")!=-1 &&
+		player->get_cur_life()>worker_life_before,
+		"缓存换代后鸾鸟种族、拓印战斗态或固有疗愈丢失");
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(basic_target->query_in_combat())
+		basic_target->_clean_fight();
 	player->set_life(player->query_life_max());
 	if(basic_target)
 		destruct(basic_target);
@@ -1940,7 +1979,7 @@ int main()
 		}
 	};
 	if(err){
-		error_desc = describe_error(err);
+		error_desc = describe_error(err)+"\n"+describe_backtrace(err);
 		check("测试脚本自身无未捕获异常",0,error_desc);
 	}
 	cleanup_all();

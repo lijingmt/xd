@@ -26,6 +26,11 @@ int main(string|zero arg)
 	else{
 		out += "你已达到70级，追赶经验药不能再购买或服用。\n";
 	}
+	if(level>=NEWBIED->query_catchup_equipment_min_level() &&
+	   level<=NEWBIED->query_catchup_equipment_max_level()){
+		out += "\n[领取/激活追赶装备:catchup_equipment]\n";
+		out += "30～89级可用；每件绑定激活100碎玉，PVP无属性，90级自动卸下。\n";
+	}
 
 	out += "\n经验药同类效果不叠加，后服用的会覆盖原效果。\n";
 	out += "[新手引导:newbie_guide]|[挂机设置:autofight open]\n";

@@ -19,6 +19,9 @@ inherit LOW_DAEMON;
 #define CATCHUP_EXP_MAX_LEVEL 69
 #define STARTER_EXP_PATH ROOT+"/gamelib/clone/item/teyao/zhuiguanglu"
 #define STARTER_EXP_ID "zhuiguanglu"
+#define CATCHUP_EQUIPMENT_MIN_LEVEL 30
+#define CATCHUP_EQUIPMENT_MAX_LEVEL 89
+#define CATCHUP_EQUIPMENT_CLAIM_ROOT "/plus/newbie_supply/catchup_equipment_claimed"
 
 mapping(string:mapping(string:mixed)) catchup_exp_potions = ([
 	"zhuiguanglu":([
@@ -41,6 +44,24 @@ mapping(string:mapping(string:mixed)) catchup_exp_potions = ([
 		"effect":400,
 		"price":20,
 		"path":ROOT+"/gamelib/clone/item/teyao/xinghelu",
+	]),
+]);
+
+private mapping(string:mapping(string:mixed)) catchup_equipments = ([
+	"zhuixingjia":([
+		"name":"【追赶】逐星护甲",
+		"slot":"胸甲",
+		"path":ROOT+"/gamelib/clone/item/catchup/zhuixingjia",
+	]),
+	"zhuixingjie":([
+		"name":"【追赶】逐星灵戒",
+		"slot":"戒指",
+		"path":ROOT+"/gamelib/clone/item/catchup/zhuixingjie",
+	]),
+	"zhuixingpei":([
+		"name":"【追赶】逐星灵佩",
+		"slot":"挂件",
+		"path":ROOT+"/gamelib/clone/item/catchup/zhuixingpei",
 	]),
 ]);
 
@@ -214,6 +235,66 @@ int query_catchup_exp_max_level()
 mapping(string:mapping(string:mixed)) query_catchup_exp_potions()
 {
 	return copy_value(catchup_exp_potions);
+}
+
+int query_catchup_equipment_min_level()
+{
+	return CATCHUP_EQUIPMENT_MIN_LEVEL;
+}
+
+int query_catchup_equipment_max_level()
+{
+	return CATCHUP_EQUIPMENT_MAX_LEVEL;
+}
+
+mapping(string:mapping(string:mixed)) query_catchup_equipments()
+{
+	return copy_value(catchup_equipments);
+}
+
+int query_catchup_equipment_claimed(object player,string item_id)
+{
+	mapping claimed;
+	if(!player || !catchup_equipments[item_id])
+		return 0;
+	claimed=mappingp(player[CATCHUP_EQUIPMENT_CLAIM_ROOT]) ?
+		player[CATCHUP_EQUIPMENT_CLAIM_ROOT] : ([]);
+	if((int)claimed[item_id])
+		return 1;
+	foreach(all_inventory(player),object item)
+		if(item && item->query_name()==item_id &&
+		   functionp(item->query_catchup_equipment) &&
+		   item->query_catchup_equipment())
+			return 1;
+	return 0;
+}
+
+mapping(string:mixed) grant_catchup_equipment(object player,string item_id)
+{
+	mapping(string:mixed) config=catchup_equipments[item_id];
+	mapping claimed;
+	object|zero item=0;
+	mixed err;
+	if(!player || !config)
+		return (["ok":0,"code":"invalid_item"]);
+	if(player->query_level()<CATCHUP_EQUIPMENT_MIN_LEVEL ||
+	   player->query_level()>CATCHUP_EQUIPMENT_MAX_LEVEL)
+		return (["ok":0,"code":"level"]);
+	if(query_catchup_equipment_claimed(player,item_id))
+		return (["ok":0,"code":"claimed"]);
+	err=catch { item=clone((string)config["path"]); };
+	if(err || !item)
+		return (["ok":0,"code":"clone_failed"]);
+	if(player->if_over_load(item) || item->move(player)!=1){
+		destruct(item);
+		return (["ok":0,"code":"inventory_full"]);
+	}
+	claimed=mappingp(player[CATCHUP_EQUIPMENT_CLAIM_ROOT]) ?
+		copy_value(player[CATCHUP_EQUIPMENT_CLAIM_ROOT]) : ([]);
+	claimed[item_id]=time();
+	player[CATCHUP_EQUIPMENT_CLAIM_ROOT]=claimed;
+	return (["ok":1,"code":"granted","item":item,
+		"name":config["name"]]);
 }
 
 mapping(string:int) query_newbie_supply_policy(object player)

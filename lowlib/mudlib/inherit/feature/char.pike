@@ -4,7 +4,8 @@
 #define SKILL_PATH ROOT "/gamelib/single/skills/"
 #define FOOD_PATH ROOT "/gamelib/clone/item/food/"
 #define WATER_PATH ROOT "/gamelib/clone/item/water/"
-#define TOOLBAR_NUM 6
+#define TOOLBAR_BASE_NUM 6
+#define TOOLBAR_MAX_NUM (TOOLBAR_BASE_NUM+VIP_MAX_LEVEL)
 string who_fight_npc;
 string term_who_fight_npc;
 
@@ -47,12 +48,20 @@ private int valid_toolbar_entry_name(string name)
 
 private void ensure_toolbar_slots()
 {
-	while(sizeof(toolbar_key)<TOOLBAR_NUM)
+	while(sizeof(toolbar_key)<TOOLBAR_MAX_NUM)
 		toolbar_key += ({(["none":0])});
-	for(int i=0;i<TOOLBAR_NUM;i++)
+	for(int i=0;i<TOOLBAR_MAX_NUM;i++)
 		if(!mappingp(toolbar_key[i]))
 			toolbar_key[i] = (["none":0]);
 }
+
+int query_toolbar_slot_limit()
+{
+	int vip_level=VIPD->query_active_vip_level(this_object());
+	return TOOLBAR_BASE_NUM+vip_level;
+}
+
+int query_toolbar_max_slots(){ return TOOLBAR_MAX_NUM; }
 
 /**
  * 快捷栏配置页、战斗栏和设置命令共用同一套安全解析。
@@ -86,7 +95,8 @@ string query_toolbar_entry_name(string name,int flag)
 
 int set_toolbar(string name,int num,int flag)
 {
-	if(valid_toolbar_entry_name(name) && num>=0 && num<TOOLBAR_NUM &&
+	if(valid_toolbar_entry_name(name) && num>=0 &&
+	   num<query_toolbar_slot_limit() &&
 	   flag>=1 && flag<=3){
 		ensure_toolbar_slots();
 		toolbar_key[num]=([name:flag]);
@@ -97,7 +107,7 @@ int set_toolbar(string name,int num,int flag)
 }
 int clean_toolbar(int num)
 {
-	if(num>=0 && num<TOOLBAR_NUM){
+	if(num>=0 && num<query_toolbar_slot_limit()){
 		ensure_toolbar_slots();
 		toolbar_key[num]=(["none":0]);
 		return 1;
@@ -108,7 +118,7 @@ int clean_toolbar(int num)
 mapping(string:int) query_toolbar(int a)
 {
 	mapping(string:int) tmp = ([]);
-	if(a<0 || a>=TOOLBAR_NUM)
+	if(a<0 || a>=query_toolbar_slot_limit())
 		return tmp;
 	ensure_toolbar_slots();
 	tmp = toolbar_key[a];
@@ -118,7 +128,8 @@ string query_toolbar_cn()
 {
 	string s = "";
 	int used = 0;
-	for(int i=0;i<TOOLBAR_NUM;i++){
+	int slot_limit=query_toolbar_slot_limit();
+	for(int i=0;i<slot_limit;i++){
 		mapping(string:int) toolbar_entry = query_toolbar(i);
 		foreach(indices(toolbar_entry),string name){
 			if(toolbar_entry[name]==0){
@@ -134,7 +145,7 @@ string query_toolbar_cn()
 					(int)toolbar_entry[name]);
 				if(display_name!=""){
 					s += "["+display_name+":use_toolbar "+i+"]";
-					if(i!=TOOLBAR_NUM-1)
+					if(i!=slot_limit-1)
 						s += "|";
 				}
 				break;
@@ -149,7 +160,8 @@ array(mapping(string:int)) query_toolbar_all()
 {
 	array(mapping(string:int)) tmp = ({});
 	ensure_toolbar_slots();
-	tmp = toolbar_key;
+	int slot_limit=query_toolbar_slot_limit();
+	tmp = toolbar_key[..slot_limit-1];
 	return tmp;
 }
 string view_things_toolbar(int num)
@@ -2393,6 +2405,10 @@ int wield(object weapon){
 	object ob=present(weapon,this_object());
 	//必须是可装载的物品is_equip()
 	if(ob&&ob->is("equip")){
+		if(functionp(ob->query_catchup_equipment) &&
+		   ob->query_catchup_equipment() &&
+		   !ob->query_catchup_can_equip(this_object()))
+			return 0;
 		//物品装配类型=item.pike->item_kind
 		//双手武器-item_kind=double_main_weapon必须在主手
 		//单手武器-item_kind=single_main_weapon主手,必须主手，
@@ -2468,6 +2484,10 @@ int wear(object armor)
 	//item_kind=decorate_tool    饰物中的携带物
 	object ob=present(armor,this_object());
 	if(ob&&ob->is("equip")){
+		if(functionp(ob->query_catchup_equipment) &&
+		   ob->query_catchup_equipment() &&
+		   !ob->query_catchup_can_equip(this_object()))
+			return 0;
 		//已穿戴，则脱下已穿戴的再穿戴上新的
 		if(equip[ob->item_kind]!=0)
 		{
@@ -2485,6 +2505,27 @@ int wear(object armor)
 		}
 	}
 	return 0;
+}
+
+// 等级超过追赶期时立即卸下追赶装备。登录、升级和属性结算都会调用，
+// 防止玩家在89级时穿上后通过升级继续享受属性。
+int enforce_catchup_equipment_limits(void|int notify)
+{
+	array(object) removed=({});
+	foreach(indices(equip),string slot){
+		object item=equip[slot];
+		if(!item || !functionp(item->query_catchup_equipment) ||
+		   !item->query_catchup_equipment() ||
+		   item->query_catchup_can_equip(this_object()))
+			continue;
+		item->equiped=0;
+		m_delete(equip,slot);
+		removed+=({item});
+	}
+	if(notify && sizeof(removed) && this_object()->is("player"))
+		tell_object(this_object(),
+			"【追赶装备】你已超过适用等级，相关装备已自动卸下。\n");
+	return sizeof(removed);
 }
 int unwear(void|object ob)
 {

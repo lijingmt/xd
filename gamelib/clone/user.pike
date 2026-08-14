@@ -69,6 +69,8 @@ int setup(string password)
 		this_object()->restore_persistent_activity_state();
 	if(ready && functionp(this_object()->restore_persistent_ghost_state))
 		this_object()->restore_persistent_ghost_state();
+	if(ready && functionp(this_object()->enforce_catchup_equipment_limits))
+		this_object()->enforce_catchup_equipment_limits(1);
 	return ready;
 }
 

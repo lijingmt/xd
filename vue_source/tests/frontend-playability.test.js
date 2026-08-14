@@ -123,14 +123,61 @@ async function main() {
         showLogin: false,
         playerStats: {
             name_cn: '测试玩家', level: 101, hp: 1000, hp_max: 1000,
-            mana: 500, mana_max: 500, profession_assistant: null,
+            mana: 500, mana_max: 500,
+            profession_assistant: { style_class: 'profession-style-fangshi' },
+            pet_slots: {
+                shared: {
+                    active: 1, battle_active: 1, level: 120, star: 5,
+                    evolution: 1, icon: '🐦', family: 'wind'
+                },
+                personal: {
+                    active: 1, battle_active: 0, level: 60, star: 2,
+                    evolution: 0, icon: '🦊', family: 'fire'
+                }
+            },
             autofight: 0, area: 'xd01'
+        },
+        isInBattle: true,
+        battleEnemy: {
+            name: '高阶测试首领', is_npc: 1, level: 200,
+            hp: 50000, hpMax: 100000
+        },
+        battlePet: {
+            active: 1, name: '测试灵伴', level: 120, star: 5,
+            evolution: 1, icon: '🐦', family: 'wind', system: 'shared',
+            cooldown_remaining: 0, cooldown_total: 10, skill: '风鸣', power: 8888
+        },
+        showEquipmentPanel: true,
+        equipmentSelectedSlot: 'armor_head',
+        equipmentPanel: {
+            player: { name_cn: '测试玩家', level: 200, profession: '方士' },
+            slot_order: ['armor_head'],
+            slots: {
+                armor_head: {
+                    label: '头部', icon: '盔',
+                    image: '/images/equipment/fallback/armor_head.png'
+                }
+            },
+            equipped: {
+                armor_head: {
+                    id: 'test-head', name_cn: '测试仙盔', rare_level: 7,
+                    level_requirement: 200,
+                    image_url: '/images/equipment/fallback/armor_head.png'
+                }
+            },
+            candidates: { armor_head: [] }
         },
         mudLines: [{ type: 'text', segments: [] }]
     });
     assert(gameRendered.length > 5000, 'game render must produce a non-trivial page');
     assert(gameRendered.includes('game-header'), 'game render must contain the player header');
     assert(gameRendered.includes('player-avatar-shell'), 'game render must contain the avatar action');
+    assert(gameRendered.includes('pet-level-aura-4'), 'level-120 pet aura must render');
+    assert(gameRendered.includes('pet-rarity-aura-4'), 'pet star/evolution rarity aura must render');
+    assert(gameRendered.includes('monster-level-aura-6'), 'level-200 NPC aura must render');
+    assert(gameRendered.includes('equipment-panel-avatar'), 'equipment panel player aura must render');
+    assert(gameRendered.includes('equipment-level-7'), 'level-200 equipment aura must render');
+    assert(gameRendered.includes('equipment-rarity-7'), 'rarest equipment aura must render');
 
     console.log(
         `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +

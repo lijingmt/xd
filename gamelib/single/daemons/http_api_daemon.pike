@@ -885,6 +885,15 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/account/characters/select":
                 handle_api_account_character_select(req);
                 break;
+            case "/api/account/bookmark/create":
+                handle_api_account_bookmark_create(req);
+                break;
+            case "/api/account/bookmark/open":
+                handle_api_account_bookmark_open(req);
+                break;
+            case "/api/account/bookmark/revoke":
+                handle_api_account_bookmark_revoke(req);
+                break;
             case "/api/profile":
                 handle_api_character_profile(req);
                 break;
@@ -1194,10 +1203,11 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             userua = registration_fields[8..]*" ";
 	            parse_result = 8;
 	        }
-	        // Player identifiers are canonical lowercase, while the password and
-	        // remaining form values retain their original case end to end.
-	        user_name = lower_case(user_name);
-	        game_pre = lower_case(game_pre);
+	        // 人物/账号档案文件名严格区分大小写。只规范逻辑区前缀，
+	        // 绝不能把账号主体转成小写，否则 LSQ 与 lsq 会注册、邀请
+	        // 和返利到同一身份。
+	        user_name = String.trim_all_whites(user_name || "");
+	        game_pre = lower_case(String.trim_all_whites(game_pre || ""));
 
         http_werror(" registration fields parsed: count=%d, password_len=%d\n",
                     parse_result,sizeof(pswd));
@@ -1215,7 +1225,7 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
             if(sscanf(user_name, "%[a-zA-Z]%d%s", prefix, num, rest) == 3 && sizeof(prefix) == 2 && num >= 1 && num <= 99) {
                 // user_name包含前缀，如 tx01jinghaha152
                 if(game_fg == "") {
-                    game_fg = prefix + sprintf("%02d", num);
+                    game_fg = lower_case(prefix) + sprintf("%02d", num);
                 }
                 actual_user = rest;  // 实际用户名是去掉前缀的部分
             }

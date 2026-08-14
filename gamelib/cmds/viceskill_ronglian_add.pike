@@ -18,6 +18,10 @@ int main(string|zero arg)
 		if(!ob){
 			s += "你没有此物品\n";
 		}
+		else if(functionp(ob->query_catchup_equipment) &&
+			ob->query_catchup_equipment()){
+			s += "追赶装备为绑定过渡物品，不能参与熔炼。\n";
+		}
 		else{
 			if(flag == 0){
 				s += ob->query_name_cn()+"\n";

@@ -87,12 +87,27 @@ int main(string|zero arg)
 				"[返回:look]\n");
 			return 1;
 		}
+		// 房间克隆时会根据 FBD 成员表判断是否启用野外动态等级。
+		// 因此首次进入必须先暂存副本身份，再创建房间；否则 70 级以上
+		// 玩家会把年兽等固定等级副本怪错误地放大到玩家等级。
+		// 若创建或移动失败，则完整回滚，避免留下幽灵成员记录。
+		string previous_fb_id=(string)(me->fb_id || "");
+		int staged_membership=0;
+		if(flag==0){
+			me->fb_id=next_fb_id;
+			FBD->add_fb_members(next_fb_id,me->query_name());
+			staged_membership=1;
+		}
 		//desc+="[进入【幻境】冥府:fb_entry mingfu 0 0]\n";
 		object room = FBD->query_fb_room(room_name,room_num,team_id,flag);
 		if(room){
 			int moved;
 			mixed move_err = catch { moved = me->move(room); };
 			if(move_err || !moved || environment(me)!=room){
+				if(staged_membership){
+					FBD->delete_fb_members(next_fb_id,me->query_name());
+					me->fb_id=previous_fb_id;
+				}
 				write("幻境实例尚未在当前节点就绪，请返回中转通道继续。\n"+
 					"[继续进入:fb_entry "+room_name+" "+room_num+
 					" "+flag+"] [安全离开:fb_leave "+room_name+"]\n");
@@ -106,6 +121,10 @@ int main(string|zero arg)
 			return 1;
 		}
 		else{
+			if(staged_membership){
+				FBD->delete_fb_members(next_fb_id,me->query_name());
+				me->fb_id=previous_fb_id;
+			}
 			s += "由于队伍的重组或者幻境重置，你们被传送回入口处。\n";
 			s += "\n[确定:fb_leave "+room_name+"]\n";
 			write(s);

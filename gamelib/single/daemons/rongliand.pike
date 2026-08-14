@@ -98,6 +98,9 @@ string query_can_ronglian(object player,string type,int num)
 		tmp_arr2 = tmp_m[2];
 	int flag ;
 	foreach(all_obj,object ob){
+		if(functionp(ob->query_catchup_equipment) &&
+		   ob->query_catchup_equipment())
+			continue;
 		flag = 1;
 		if(type == "weapon"){
 			if(ob->query_item_type()=="weapon"||ob->query_item_type()=="single_weapon"||ob->query_item_type()=="double_weapon"){

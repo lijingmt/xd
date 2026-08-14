@@ -247,6 +247,48 @@ void test_team_instance_identity()
 			"__testunit_fb_member_b__");
 }
 
+void test_fixed_year_beast_levels_after_high_level_entry()
+{
+	test_start("高等级玩家进入前先登记成员，前两层年兽保持固定10/30级");
+	object player=create_player(
+		"__testunit_fixed_year_beast__",180,"human","jianxian");
+	object|zero original_player=this_player();
+	array(string) rooms=({"lingranzhiyan_h","hunfeizhijing_h"});
+	array(int) expected=({10,30});
+	array(string) fb_ids=({});
+	string error_desc="";
+	int valid=1;
+	mixed err=catch {
+		set_this_player(player);
+		for(int i=0;i<sizeof(rooms);i++){
+			string team_id="__testunit_fixed_year_beast_"+i+"__";
+			string fb_id=team_id+"/"+rooms[i];
+			player->fb_id=fb_id;
+			FBD->add_fb_members(fb_id,player->query_name());
+			fb_ids+=({fb_id});
+			object room=FBD->query_fb_room(rooms[i],0,team_id,0);
+			array(object) npcs=room ? filter(all_inventory(room),
+				lambda(object ob){ return ob && ob->is("npc"); }) : ({});
+			if(!room || sizeof(npcs)!=1 || npcs[0]->query_level()!=expected[i])
+				valid=0;
+		}
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("固定年兽等级被动态缩放: "+error_desc);
+	foreach(fb_ids,string fb_id)
+		FBD->delete_fb_members(fb_id,player->query_name());
+	FBD->flush_fb_map();
+	destroy_player(player);
+}
+
 void test_map_filter_and_legacy_redirect()
 {
 	test_start("地图不暴露副本内部房间且旧直飞链接改送入口");
@@ -464,6 +506,7 @@ int main()
 	test_runtime_compile_and_reverse_index();
 	test_worker_ingress_affinity_and_direct_entry();
 	test_team_instance_identity();
+	test_fixed_year_beast_levels_after_high_level_entry();
 	test_map_filter_and_legacy_redirect();
 	test_safe_dungeon_fly_catalog();
 	test_emergency_leave_and_move_cleanup();

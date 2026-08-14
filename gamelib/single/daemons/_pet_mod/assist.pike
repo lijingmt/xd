@@ -296,6 +296,9 @@ mapping(string:mixed) query_pet_room_presence(object player)
 		"power":(int)player["/tmp/wanling/pet_power"],
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
+		"basic_skill":query_pet_basic_attack_name(species),
+		"native_passive":species==PET_HIDDEN_LUAN_SPECIES ?
+			"灵羽回春在PVE战斗中按节拍疗愈主人，拓印其他灵技也不会覆盖" : "",
 		"runes":query_pet_runtime_runes(player,info),
 		"rune_combo":query_pet_rune_combo_active(player,info),
 		"rune_mode":query_pet_rune_mode_name(player),
@@ -350,6 +353,9 @@ mapping(string:mixed) query_pet_battle_presence(object player)
 		"role":(string)info["role"],
 		"skill":query_pet_active_skill_name(player,info),
 		"native_skill":(string)info["skill"],
+		"basic_skill":query_pet_basic_attack_name(species),
+		"native_passive":species==PET_HIDDEN_LUAN_SPECIES ?
+			"灵羽回春在PVE战斗中按节拍疗愈主人，拓印其他灵技也不会覆盖" : "",
 		"runes":query_pet_runtime_runes(player,info),
 		"rune_combo":query_pet_rune_combo_active(player,info),
 		"rune_mode":query_pet_rune_mode_name(player),
@@ -966,7 +972,9 @@ mapping(string:mixed) perform_pet_basic_assist(object player,object target)
 		player->query_mofa_max(),
 		(int)player["/tmp/wanling/skill_set"],
 		(int)player["/tmp/wanling/pet_growth_percent"],
-		"");
+		// 鸾鸟是疗愈型灵宠。把固有小治疗明确锁定为 heal，避免以后
+		// 调整图鉴角色或拓印类型时又把灵羽回春改成攻击效果。
+		species==PET_HIDDEN_LUAN_SPECIES ? "heal" : "");
 	effect_type = (string)profile["type"];
 	amount = (int)profile["amount"];
 	if(amount<=0 || effect_type=="none")

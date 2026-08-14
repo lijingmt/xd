@@ -16,6 +16,9 @@ int main(string|zero arg)
 	int rareLevel = 0;//物品的稀有等级
 	array(object) all_obj = all_inventory(me);
 	foreach(all_obj,object ob){
+		if(ob && functionp(ob->query_catchup_equipment) &&
+		   ob->query_catchup_equipment())
+			continue;
 		if(ob && ob->query_item_rareLevel()>0 && !ob["equiped"]){
 			if(ob->query_name() == item_name){
 				can_reset = 1;

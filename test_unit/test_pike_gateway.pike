@@ -162,13 +162,16 @@ int main()
 
 		check("Vue和旧JSP注册在建档前解析为同一人物串行锁",
 			httpd->test_pike_gateway_registration(
+				"login_regnew gamelib xd01NewHero pass88 sid challenge")==
+					"xd01NewHero" &&
+			httpd->test_pike_gateway_registration(
+				"login_regnew gamelib NewHero pass88 sid xd01 key ip ua")==
+					"xd01NewHero" &&
+			httpd->test_pike_gateway_registration(
 				"login_regnew gamelib xd01newhero pass88 sid challenge")==
 					"xd01newhero" &&
-			httpd->test_pike_gateway_registration(
-				"login_regnew gamelib newhero pass88 sid xd01 key ip ua")==
-					"xd01newhero" &&
 			httpd->test_pike_gateway_registration("login_regnew bad")=="",
-			"并发注册可能绕过人物锁或旧逻辑区前缀被解析错误");
+			"并发注册可能绕过人物锁、丢失账号大小写或误解析旧逻辑区前缀");
 
 		check("旧JSP失效令牌在离线或迁移后只恢复当前画面",
 			source_has(rpc,"stale_command_token_route") &&

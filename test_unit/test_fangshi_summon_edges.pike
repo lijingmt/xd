@@ -298,7 +298,10 @@ void test_pvp_credit_and_owner_death()
 	int duel_allowed = 0;
 	int team_blocked = 0;
 	int credited = 0;
+	int team_credit = 0;
+	int team_loot = 0;
 	int cleared = 0;
+	string reward_team = "";
 	string error_desc = "";
 
 	mixed err = catch {
@@ -318,6 +321,26 @@ void test_pvp_credit_and_owner_death()
 			team_blocked = !tiger->can_be_attacked(attacker);
 			credited =
 				SUMMOND->query_combat_credit_owner(tiger)==player;
+			reward_team=TERMD->term_create(player->query_name());
+			// 单人临时队伍在非 Worker TestUnit 环境会被 flush_term
+			// 正常解散；加入第二名真实在线成员，复刻年兽幻境的有效队伍。
+			if(sizeof(reward_team)>1)
+				TERMD->add_termer(reward_team,attacker->query_name(),
+					attacker->query_name_cn());
+			object reward_boss=clone(ROOT+
+				"/gamelib/clone/npc/nianshou/choulounianshou");
+			reward_boss->move(room);
+			reward_boss->_fight(tiger);
+			team_credit = reward_boss->term_who_fight_npc==
+				player->query_term() &&
+				reward_boss->who_fight_npc==player->query_name();
+			reward_boss->set_life(0);
+			reward_boss->fight_die();
+			team_loot=TERMD->query_term_item_count(reward_team)>0 &&
+				search(TERMD->query_termItems(reward_team,1,
+					player->query_name()),"分配")!=-1;
+			if(reward_boss)
+				destruct(reward_boss);
 			SUMMOND->player_death(name);
 			cleared =
 				SUMMOND->get_current_summon_count(name)==0 && !tiger;
@@ -328,13 +351,15 @@ void test_pvp_credit_and_owner_death()
 		error_desc = describe_error(err);
 
 	if(!err && ordinary_blocked && duel_allowed &&
-	   team_blocked && credited && cleared)
+	   team_blocked && credited && team_credit && team_loot && cleared)
 		test_pass();
 	else
 		test_fail(sprintf(
-			"普通=%d 决斗=%d 队伍=%d 归属=%d 清理=%d: %s",
+			"普通=%d 决斗=%d 队伍=%d 归属=%d 队伍归属=%d 仓库=%d 清理=%d: %s",
 			ordinary_blocked,duel_allowed,team_blocked,
-			credited,cleared,error_desc));
+			credited,team_credit,team_loot,cleared,error_desc));
+	if(reward_team!="" && TERMD->query_termId(reward_team))
+		TERMD->destory_term(reward_team,player->query_name());
 
 	destroy_player(player);
 	destroy_player(attacker);

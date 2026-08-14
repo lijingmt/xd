@@ -180,6 +180,89 @@ void set_all_mofa_defend_add(int a){ all_mofa_defend_add=a;}
 //新属性0121//////////////////////////////////
 int equiped;//是否装备了该物品
 
+// 追赶装备的激活与角色绑定状态必须随物品实例持久化，因此这些字段
+// 不能声明为 private。普通装备的 catchup_equipment 为 0，行为不变。
+int catchup_equipment;
+int catchup_activated;
+int catchup_activation_price;
+int catchup_max_level;
+string catchup_owner="";
+
+void set_catchup_equipment(int price,int max_level)
+{
+	catchup_equipment=1;
+	catchup_activation_price=max(0,price);
+	catchup_max_level=max(1,max_level);
+}
+
+int query_catchup_equipment(){ return catchup_equipment; }
+int query_catchup_activated(){ return catchup_activated; }
+int query_catchup_activation_price(){ return catchup_activation_price; }
+int query_catchup_max_level(){ return catchup_max_level; }
+string query_catchup_owner(){ return catchup_owner || ""; }
+
+int activate_catchup_equipment(object player)
+{
+	if(!catchup_equipment || !player || !player->is("player") ||
+	   catchup_activated || catchup_owner!="")
+		return 0;
+	catchup_owner=(string)player->query_name();
+	catchup_activated=1;
+	return 1;
+}
+
+// 只供购买事务在人物原子存档失败时原地回滚，不能用于玩家操作。
+int rollback_catchup_activation(object player)
+{
+	if(!catchup_equipment || !player || !catchup_activated ||
+	   catchup_owner!=(string)player->query_name())
+		return 0;
+	catchup_activated=0;
+	catchup_owner="";
+	return 1;
+}
+
+int query_catchup_can_equip(object player)
+{
+	if(!catchup_equipment)
+		return 1;
+	if(!player || !player->is("player") || !catchup_activated ||
+	   catchup_owner=="" || catchup_owner!=(string)player->query_name())
+		return 0;
+	if(catchup_max_level>0 && player->query_level()>catchup_max_level)
+		return 0;
+	return 1;
+}
+
+// 追赶装只辅助 PVE。若当前对手是玩家或玩家召唤物，所有覆写过的
+// 属性 getter 返回 0；这不会触碰既有战斗公式，也不会影响普通装备。
+int query_catchup_effect_enabled(void|object player)
+{
+	array(object) targets=({});
+	if(!player)
+		player=environment(this_object());
+	if(!query_catchup_can_equip(player))
+		return 0;
+	if(!equiped || !player->query_in_combat())
+		return 1;
+	if(functionp(player->get_all_targets))
+		targets=player->get_all_targets() || ({});
+	if(functionp(player->query_enemy) && player->query_enemy() &&
+	   search(targets,player->query_enemy())==-1)
+		targets+=({player->query_enemy()});
+	// 不能只看当前主目标：混战时主目标可能是NPC，但仇恨表里已有玩家。
+	// 玩家召唤物即使主人暂时不在find_player缓存，也仍按PVP处理。
+	foreach(targets,object target){
+		if(!target)
+			continue;
+		if(target->is && target->is("player"))
+			return 0;
+		if(target->query_master && (string)target->query_master()!="")
+			return 0;
+	}
+	return 1;
+}
+
 private int renxing = 0;//韧性
 void set_renxing(int num){ renxing = num;}
 int query_renxing(){ return renxing;}
@@ -269,6 +352,16 @@ string query_content(){
 	array(string) profe_limits = ob->query_item_profeLimit();
 	if(!ob->is_equip())
 		return r;
+	if(functionp(ob->query_catchup_equipment) &&
+	   ob->query_catchup_equipment()){
+		if(ob->query_catchup_activated())
+			r += "(追赶装备：已绑定激活，限"+
+				ob->query_catchup_max_level()+"级及以下PVE使用)\n";
+		else
+			r += "(追赶装备：未激活，需"+
+				ob->query_catchup_activation_price()+
+				"碎玉；激活前不能装备)\n";
+	}
 	if(ob->query_item_type()=="armor"){
 		switch(ob->item_kind){
 			case "armor_head":

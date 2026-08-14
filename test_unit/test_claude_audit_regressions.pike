@@ -309,6 +309,10 @@ void test_wuxiang_room_aoe_runtime()
 		"/gamelib/clone/npc/mihuandao/9youdangelang");
 	object enemy_two = clone(ROOT+
 		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object enemy_three = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object enemy_four = clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
 	object protected_npc = clone(ROOT+
 		"/gamelib/clone/npc/mihuandao/9youdangelang");
 	object room = clone(WAP_ROOM);
@@ -323,15 +327,29 @@ void test_wuxiang_room_aoe_runtime()
 		outsider->move(room);
 		enemy->move(room);
 		enemy_two->move(room);
+		enemy_three->move(room);
+		enemy_four->move(room);
 		protected_npc->move(room);
+		enemy->set_name("__testunit_wuxiang_aoe_primary__");
+		enemy_two->set_name("__testunit_wuxiang_aoe_extra_two__");
+		enemy_three->set_name("__testunit_wuxiang_aoe_extra_three__");
+		enemy_four->set_name("__testunit_wuxiang_aoe_extra_four__");
+		protected_npc->set_name("__testunit_wuxiang_aoe_protected__");
 		protected_npc->_tasknpc = 1;
 		enemy->set_base_life(10000000);
 		enemy->flush_life();
 		enemy_two->set_base_life(10000000);
 		enemy_two->flush_life();
+		enemy_three->set_base_life(10000000);
+		enemy_three->flush_life();
+		enemy_four->set_base_life(10000000);
+		enemy_four->flush_life();
 		protected_npc->set_base_life(10000000);
 		protected_npc->flush_life();
 		caster->skills["wuxiangyan"] = ({5,0});
+		// 虽已学到5阶，但1级人物只能发挥1阶：服务端必须把覆盖上限压到2。
+		caster->level = 1;
+		caster->set_att_by_level();
 		caster->set_mofa(caster->query_mofa_max());
 		caster->_fight(enemy);
 		int second_was_not_engaged = !caster->if_in_targets(enemy_two);
@@ -341,21 +359,35 @@ void test_wuxiang_room_aoe_runtime()
 		int mofa_before = caster->get_cur_mofa();
 		caster->perform("wuxiangyan",1);
 		mapping report = caster->query_recent_aoe_battle_report();
+		int saw_primary = 0;
+		int selected_extras = 0;
+		int saw_protected = 0;
+		foreach((array(mapping))report["targets"],mapping target){
+			if(target["name"]=="__testunit_wuxiang_aoe_primary__")
+				saw_primary = 1;
+			else if(search(({"__testunit_wuxiang_aoe_extra_two__",
+			   "__testunit_wuxiang_aoe_extra_three__",
+			   "__testunit_wuxiang_aoe_extra_four__"}),
+			   target["name"])!=-1)
+				selected_extras++;
+			else if(target["name"]=="__testunit_wuxiang_aoe_protected__")
+				saw_protected = 1;
+		}
 		if(!second_was_not_engaged || !report ||
 		   report["skill"]!="wuxiangyan" ||
 		   sizeof((array)report["targets"])!=2 ||
-		   !caster->if_in_targets(enemy_two) ||
+		   !saw_primary || selected_extras!=1 || saw_protected ||
 		   teammate->get_cur_life()!=teammate_before ||
 		   outsider->get_cur_life()!=outsider_before ||
 		   protected_npc->get_cur_life()!=protected_before ||
 		   caster->get_cur_mofa()>=mofa_before ||
-		   caster->f_skills["wuxiangyan"]!=4){
+		   caster->f_skills["wuxiangyan"]!=7){
 			failed++;
 			detail += sprintf(
-				"pre=%d report=%O targets=%d second=%d mate=%d/%d out=%d/%d task=%d/%d mana=%d/%d cold=%d; ",
+				"pre=%d report=%O targets=%d primary=%d extras=%d protected=%d mate=%d/%d out=%d/%d task=%d/%d mana=%d/%d cold=%d; ",
 				second_was_not_engaged,report && report["skill"],
 				report ? sizeof((array)report["targets"]) : -1,
-				caster->if_in_targets(enemy_two),
+				saw_primary,selected_extras,saw_protected,
 				teammate->get_cur_life(),teammate_before,
 				outsider->get_cur_life(),outsider_before,
 				protected_npc->get_cur_life(),protected_before,
@@ -376,6 +408,8 @@ void test_wuxiang_room_aoe_runtime()
 	destroy_player_with_inventory(outsider);
 	if(enemy) destruct(enemy);
 	if(enemy_two) destruct(enemy_two);
+	if(enemy_three) destruct(enemy_three);
+	if(enemy_four) destruct(enemy_four);
 	if(protected_npc) destruct(protected_npc);
 	if(room) destruct(room);
 }

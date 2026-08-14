@@ -1,14 +1,26 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
 int main(string arg)
 {
 	object me = this_player();
 	string s = "";
-	if(arg && me->skills_enable == arg && MUD_SKILLSD[arg]){
-		me->skills_enable = "";
-		me->skills_enable_colddown = 0;
-		me["/plus/autofight_skill_mode"] = "off";
-		s += "你将技能 "+MUD_SKILLSD[arg]->query_name_cn()+" 取消在战斗中自动施放。\n";
+	string name="";
+	int slot;
+	int removed;
+	if(arg && sscanf(arg,"%s %d",name,slot)==2){
+		array(string) queue=AUTOFIGHTD->query_auto_skill_queue(me);
+		if(slot>=1 && slot<=3 && queue[slot-1]==name)
+			removed=AUTOFIGHTD->clear_auto_skill_slot(me,slot);
+	}
+	else if(arg){
+		name=arg;
+		removed=AUTOFIGHTD->clear_selected_auto_skill(me,name);
+	}
+	if(removed){
+		s += "你已将技能 "+
+			(MUD_SKILLSD[name] ? MUD_SKILLSD[name]->query_name_cn() : name)+
+			" 从自动连招中移除。\n";
 	}
 	else
 		s += "当前没有这个自动施放技能。\n";

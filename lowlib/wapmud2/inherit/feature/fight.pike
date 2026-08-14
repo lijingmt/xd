@@ -12,6 +12,7 @@
 #define DAILYGOALD ((object)(ROOT "/gamelib/single/daemons/daily_goald.pike"))
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 #define MAP_WORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
 #define ROOM_SKILL_EVENT_TTL 8
 #define ROOM_SKILL_EVENT_MAX 6
 #define PK_FAST_DECISION_TRIGGER_ROUNDS 90
@@ -2106,6 +2107,7 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 	object caster = this_object();
 	object env = environment(caster);
 	int balanced;
+	int target_limit;
 	int raw_low;
 	int raw_high;
 	int raw_base;
@@ -2123,6 +2125,16 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		query_lingyi_room_aoe_targets();
 	if(!sizeof(targets))
 		return 0;
+	// 有目标上限的职业群攻优先保留玩家当前锁定的主目标，再从已经通过
+	// 队友/好友/同账号/任务NPC保护的合法候选中截取。未声明该接口的
+	// 太极、灵医和旧群攻继续保持原有覆盖范围。
+	if(balanced && functionp(skill->query_balanced_aoe_target_limit)){
+		target_limit = skill->query_balanced_aoe_target_limit(skill_level);
+		if(enemy && search(targets,enemy)!=-1)
+			targets = ({enemy})+(targets-({enemy}));
+		if(target_limit>0 && sizeof(targets)>target_limit)
+			targets = targets[..target_limit-1];
+	}
 	raw_low = skill->query_performs_mofa_attack_low(skill_level);
 	raw_high = skill->query_performs_mofa_attack_high(skill_level);
 	if(raw_high<raw_low)
@@ -4437,15 +4449,24 @@ private void heart_beat_action(){
 		}
 		//////////////////////////////////////
 
-		//设置自动释放主动技能	
-		if(this_object()->skills_enable!=""&&this_object()->skills_enable_colddown!=0){
+		// 玩家自动连招每个战斗心跳最多施放一次，并按优先1→2→3选择
+		// 首个满足原有冷却、法力、等级和武器条件的技能。NPC/Boss继续
+		// 使用历史单技能节奏，避免改变任何怪物战斗数值共识。
+		if(this_object()->is && this_object()->is("player")){
+			string ready_skill=AUTOFIGHTD->query_ready_auto_skill(
+				this_object());
+			if(ready_skill!="")
+				perform(ready_skill);
+		}
+		else if(this_object()->skills_enable!="" &&
+		   this_object()->skills_enable_colddown!=0){
 			if(autoPerforming==1){
-				autoPerforming = 0;	
+				autoPerforming = 0;
 				perform(this_object()->skills_enable);
 			}
-			else if((this_object()->timeCount%this_object()->skills_enable_colddown)==0){
+			else if((this_object()->timeCount%
+			   this_object()->skills_enable_colddown)==0)
 				perform(this_object()->skills_enable);
-			}
 		}
 		//双手都拿武器
 		if(this_object()->weapon_type=="both"){
@@ -4556,10 +4577,15 @@ int _fight(object _enemy){
 			// enemy 可能在 kill() 链路中被析构；召唤物还会攻击
 			// 没有 query_term() 接口的普通 NPC。对象和可选接口都要校验。
 			if(enemy && objectp(enemy)){
+				object combat_credit =
+					SUMMOND->query_combat_credit_owner(enemy);
+				if(!combat_credit)
+					combat_credit=enemy;
 				this_object()->term_who_fight_npc =
-					functionp(enemy->query_term) ? enemy->query_term() : "";
+					functionp(combat_credit->query_term) ?
+					combat_credit->query_term() : "";
 				//谁先开始的攻击，掉落物品属于谁
-				this_object()->who_fight_npc = enemy->query_name();
+				this_object()->who_fight_npc = combat_credit->query_name();
 			}
 		}
 		//敌人的仇恨列表中加入自己

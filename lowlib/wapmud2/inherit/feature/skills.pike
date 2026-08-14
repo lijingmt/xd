@@ -208,10 +208,19 @@ string view_performs(string name)
 		}
 
 		if(cur_skill->s_type=="zhudong"){
-			if(name==this_object()->skills_enable)
-				out+="[取消自动施放:disable_autoSkills "+name+"]";
-			else
-				out+="[自动施放:set_autoSkills "+name+"]";
+			object auto_daemon=(object)(ROOT+
+				"/gamelib/single/daemons/autofightd.pike");
+			array(string) queue=auto_daemon->query_auto_skill_queue(
+				this_object());
+			out+="自动连招：";
+			for(int slot=1;slot<=3;slot++){
+				if(queue[slot-1]==name)
+					out+="[取消优先"+slot+":disable_autoSkills "+
+						name+" "+slot+"] ";
+				else
+					out+="[设为优先"+slot+":set_autoSkills "+
+						name+" "+slot+"] ";
+			}
 		}
 	}
 	else{

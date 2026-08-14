@@ -12,6 +12,12 @@ int main(string|zero arg)
 	//有宝石
 		sscanf(arg,"%s %d %d",item_name,count,flag);
 		object item = present(item_name,me,count);
+		if(!item || (functionp(item->query_catchup_equipment) &&
+		   item->query_catchup_equipment())){
+			me->write_view(WAP_VIEWD["/emote"],0,0,
+				"追赶装备不能镶嵌或改造。\n[返回游戏:look]\n");
+			return 1;
+		}
 		s += item->query_name_cn()+"\n";;
 		s += item->query_picture_url()+"\n"+item->query_desc()+"\n";
 		s += item->query_content()+"\n";

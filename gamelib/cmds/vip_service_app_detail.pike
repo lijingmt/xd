@@ -22,6 +22,7 @@ int main(string|zero arg)
 	s += vip_name + "\n\n";
 	s += vip_desc + "\n\n";
 	s += "开通后等级上限："+VIPD->query_vip_level_limit(level)+"级\n";
+	s += "开通后战斗快捷栏："+(6+level)+"格（普通人物6格）\n";
 	s += "需要"+ YUSHID->get_yushi_for_desc(vip_cost*10)+"\n"; 
 	s += "[申请:vip_service_app_confirm.pike "+level+"]\n\n";
 	if(!YUSHID->have_enough_yushi(me,vip_cost*10))

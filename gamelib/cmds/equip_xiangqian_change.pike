@@ -35,6 +35,12 @@ int main(string|zero arg)
 			me->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
 		}
+		if(functionp(item->query_catchup_equipment) &&
+		   item->query_catchup_equipment()){
+			me->write_view(WAP_VIEWD["/emote"],0,0,
+				"追赶装备不能替换宝石，本次没有消耗物品。\n[返回游戏:look]\n");
+			return 1;
+		}
 		//有宝石也有装备,
 		string color = baoshi->query_color();//获得宝石颜色
 		string color_cn = baoshi->query_color_cn();//获得宝石颜色（中文描述）

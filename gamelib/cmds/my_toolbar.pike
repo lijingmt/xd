@@ -6,6 +6,8 @@ int main(string|zero arg)
 {
 	string s = "点击快捷键,可进入配置页面，可配置的范围包括技能和可食用药品\n";
 	object me = this_player();
+	int slot_limit=me->query_toolbar_slot_limit();
+	s += "当前可用"+slot_limit+"格：普通人物6格，VIP每级增加1格（VIP4为10格，VIP8为14格）。\n";
 	array(mapping(string:int)) tmps = me->query_toolbar_all();
 	if(tmps&&sizeof(tmps)){
 		for(int i=0;i<sizeof(tmps);i++){

@@ -547,6 +547,25 @@ mapping(string:mixed) query_account_wallet(string account_id)
 	return record;
 }
 
+// 账号级权益判定不能依赖某个当前在线人物。共享钱包累计值与旧人物
+// all_fee 取较大者，确保共享钱包上线前的历史捐赠仍可解锁账号权益。
+int query_total_recharge_fee_for_account(string account_id)
+{
+	mapping(string:mixed)|zero record;
+	int total_fee = 0;
+	int legacy_fee = 0;
+	object key;
+	if(!valid_wallet_userid(account_id))
+		return 0;
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(record)
+		total_fee = (int)record["total_recharge_fee"];
+	legacy_fee = query_legacy_account_fee_unlocked(account_id);
+	destruct(key);
+	return legacy_fee>total_fee ? legacy_fee : total_fee;
+}
+
 int query_balance(object player)
 {
 	mapping status = query_wallet(player);

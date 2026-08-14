@@ -86,6 +86,7 @@ private string view_auto_skills(object me)
 {
 	mapping learned;
 	array(string) names;
+	array(string) queue;
 	object|zero skill;
 	string out;
 	string name;
@@ -93,14 +94,22 @@ private string view_auto_skills(object me)
 		return "尚未学会可设置的主动技能。\n";
 	learned = me->skills;
 	names = sort(indices(learned));
+	queue = AUTOFIGHTD->query_auto_skill_queue(me);
 	out = "";
 	for(int i = 0;i < sizeof(names);i++){
 		name = names[i];
 		skill = MUD_SKILLSD[name];
 		if(!skill || skill->s_type != "zhudong")
 			continue;
-		out += selected_prefix(me->skills_enable == name)+"["+
-			skill->query_name_cn()+":autofight skill "+name+"]\n";
+		out += skill->query_name_cn()+" ";
+		for(int slot=1;slot<=3;slot++){
+			if(queue[slot-1]==name)
+				out += "✓优先"+slot+" ";
+			else
+				out += "[设为优先"+slot+":autofight skill "+slot+
+					" "+name+"] ";
+		}
+		out += "\n";
 	}
 	if(out == "")
 		out = "尚未学会可设置的主动技能。\n";
@@ -434,6 +443,8 @@ private void show_settings(object me, string notice)
 	string food;
 	string water;
 	string skill;
+	array(string) skill_queue;
+	array(string) skill_labels=({});
 	string food_auto_prefix;
 	string water_auto_prefix;
 	string skill_mode;
@@ -449,6 +460,7 @@ private void show_settings(object me, string notice)
 	food_auto_prefix = "";
 	water_auto_prefix = "";
 	skill = AUTOFIGHTD->ensure_auto_skill(me);
+	skill_queue = AUTOFIGHTD->query_auto_skill_queue(me);
 	skill_mode = AUTOFIGHTD->query_auto_skill_mode(me);
 	daily_seconds = AUTOFIGHTD->query_daily_seconds_for(me);
 	vip_level = AUTOFIGHTD->query_vip_level(me);
@@ -464,10 +476,14 @@ private void show_settings(object me, string notice)
 		water = "自动选择";
 		water_auto_prefix = "✓ 已选择 ";
 	}
-	if(!skill || skill == "")
-		skill = "未设置（普通攻击兜底）";
-	else if(MUD_SKILLSD[skill])
-		skill = MUD_SKILLSD[skill]->query_name_cn();
+	for(int slot=0;slot<sizeof(skill_queue);slot++){
+		string configured=skill_queue[slot];
+		string display="空（自动跳过）";
+		if(configured!="" && MUD_SKILLSD[configured])
+			display=MUD_SKILLSD[configured]->query_name_cn();
+		skill_labels += ({"优先"+(slot+1)+"："+display});
+	}
+	skill = skill_labels*"；";
 	out = "【自动打怪／挂机】\n";
 	if(notice && notice != "")
 		out += notice+"\n\n";
@@ -494,7 +510,7 @@ private void show_settings(object me, string notice)
 	out += "低法力补充："+AUTOFIGHTD->query_mana_percent(me)+"％\n";
 	out += "回血食物："+food+"\n";
 	out += "回蓝饮品："+water+"\n";
-	out += "自动技能："+skill+"（"+
+	out += "自动技能连招："+skill+"（"+
 		AUTOFIGHTD->query_auto_skill_mode_cn(me)+"）\n";
 	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
 		out += "职业助手："+
@@ -601,11 +617,14 @@ private void show_settings(object me, string notice)
 	out += water_auto_prefix+
 		"[自动选择回蓝饮品:autofight water auto]\n";
 	out += view_recovery_items(me,"mana");
-	out += "\n自动技能设置：冷却结束、等级与法力满足时会自动施放；技能不可用时继续普通攻击。\n";
+	out += "\n自动技能设置：每个合法战斗心跳最多施放一个技能，依次尝试优先1→2→3；冷却、等级、法力、武器或目标不满足时自动跳到下一格，全部不可用才普通攻击。\n";
 	out += selected_prefix(skill_mode == "smart")+
 		"[智能推荐攻击技能:autofight skill auto]|";
 	out += selected_prefix(skill_mode == "off")+
 		"[关闭自动技能:autofight skill off]\n";
+	for(int slot=1;slot<=3;slot++)
+		if(skill_queue[slot-1]!="")
+			out += "[清空优先"+slot+":autofight skill clear "+slot+"]\n";
 	out += view_auto_skills(me);
 	out += "[前往完整技能页:myskills]\n";
 	out += "[返回游戏:look]\n";
@@ -700,6 +719,8 @@ int main(string|zero arg)
 		return 1;
 	}
 	if(action == "skill"){
+		int skill_slot;
+		string skill_name;
 		if(value == "auto"){
 			AUTOFIGHTD->set_auto_skill_mode(me,"smart");
 			selected_skill = AUTOFIGHTD->ensure_auto_skill(me);
@@ -713,11 +734,23 @@ int main(string|zero arg)
 			show_settings(me,"自动技能已关闭，挂机仍会使用普通攻击。");
 			return 1;
 		}
-		if(!AUTOFIGHTD->set_selected_auto_skill(me,value)){
+		if(sscanf(value,"clear %d",skill_slot)==1){
+			if(!AUTOFIGHTD->clear_auto_skill_slot(me,skill_slot))
+				show_settings(me,"自动技能优先级无效。");
+			else
+				show_settings(me,"已清空自动技能优先"+skill_slot+"。");
+			return 1;
+		}
+		if(sscanf(value,"%d %s",skill_slot,skill_name)!=2){
+			skill_slot=1;
+			skill_name=value;
+		}
+		if(!AUTOFIGHTD->set_selected_auto_skill(me,skill_name,skill_slot)){
 			show_settings(me,"只能选择自己已学会的主动技能。");
 			return 1;
 		}
-		show_settings(me,"自动技能已更新，下一次冷却就绪时自动施放。");
+		show_settings(me,"自动技能优先"+skill_slot+
+			"已更新，战斗时会按1→2→3依次尝试。");
 		return 1;
 	}
 	if(action == "gather"){

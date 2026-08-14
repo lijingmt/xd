@@ -59,13 +59,20 @@ private mapping(string:int) termRevisions=([]);
 private mapping(string:string) termRevisionWriters=([]);
 private mapping(string:int) termCreatedAt=([]);
 private int distributedTermApply;
-void add_termItems(string termid,object item)
+int add_termItems(string termid,object item)
 {
+	if(!termid || termid=="" || !item || !query_termId(termid))
+		return 0;
 	if(termItems[termid] == 0)
 		termItems[termid] = ({item});
 	else
 		termItems[termid] += ({item});
-	return;
+	return 1;
+}
+
+int query_term_item_count(string termid)
+{
+	return arrayp(termItems[termid]) ? sizeof(termItems[termid]) : 0;
 }
 //删除已经分配了的物品
 void delete_termItems(string termid,int index)

@@ -55,6 +55,8 @@ assert.strictEqual(client.equipmentRarityClass({ rare_level: 99 }), 'equipment-r
 assert.strictEqual(client.equipmentLevelClass({ level_requirement: 19 }), 'equipment-level-0');
 assert.strictEqual(client.equipmentLevelClass({ level_requirement: 60 }), 'equipment-level-3');
 assert.strictEqual(client.equipmentLevelClass({ level_requirement: 100 }), 'equipment-level-5');
+assert.strictEqual(client.equipmentLevelClass({ level_requirement: 160 }), 'equipment-level-6');
+assert.strictEqual(client.equipmentLevelClass({ level_requirement: 200 }), 'equipment-level-7');
 
 client.equipmentPanel = {
     slots: {
@@ -79,15 +81,54 @@ for (const [level, expected] of expectedAuras) {
     );
 }
 
+assert.strictEqual(client.petLevelAuraClass(null), 'pet-level-aura-0');
+assert.strictEqual(
+    client.petLevelAuraClass({ active: 1, level: 120 }),
+    'pet-level-aura-4'
+);
+assert.strictEqual(
+    client.petRarityAuraClass({ active: 1, level: 120, star: 5, evolution: 1 }),
+    'pet-rarity-aura-4'
+);
+assert.strictEqual(
+    client.petRarityAuraClass({ active: 1, star: 2, evolution: 4 }),
+    'pet-rarity-aura-7'
+);
+assert.strictEqual(
+    client.monsterLevelAuraClass({ is_npc: 1, level: 200 }),
+    'monster-level-aura-6'
+);
+assert.strictEqual(
+    client.monsterLevelAuraClass({ is_npc: 0, level: 250 }),
+    'monster-level-aura-0'
+);
+assert.strictEqual(
+    client.petRarityAuraClass({ active: 1, rarity: 'damaged' }),
+    'pet-rarity-aura-0'
+);
+assert.strictEqual(
+    client.monsterLevelAuraClass({ is_npc: 1, level: 'damaged' }),
+    'monster-level-aura-0'
+);
+
 assert(htmlSource.includes('playerLevelAuraClass'));
 assert(!htmlSource.includes('playerLevelAuraClass()'));
 assert(htmlSource.includes('equipmentLevelClass(item)'));
 assert(htmlSource.includes('getEquipmentImageUrl(item, equipmentSelectedSlot)'));
 assert(htmlSource.includes('v-if="equipmentPanel.equipped[slot]"'));
 assert(htmlSource.includes('<span v-else aria-hidden="true">'));
+assert(htmlSource.includes('equipment-panel-avatar'));
+assert(htmlSource.includes('petLevelAuraClass(slot)'));
+assert(htmlSource.includes('petRarityAuraClass(battlePet)'));
+assert(htmlSource.includes('monsterLevelAuraClass(battleEnemy)'));
 assert(cssSource.includes('.equipment-rarity-7'));
-assert(cssSource.includes('.equipment-level-5 .equipment-item-art'));
+assert(cssSource.includes('.equipment-level-7 .equipment-item-art'));
 assert(cssSource.includes('.player-avatar-shell.level-aura-7'));
+assert(cssSource.includes('.pet-level-aura-7'));
+assert(cssSource.includes('.pet-rarity-aura-7'));
+assert(cssSource.includes('.monster-level-aura-7'));
 assert(cssSource.includes('@keyframes equipment-high-level-breathe'));
+assert(cssSource.includes('@keyframes pet-avatar-aura-orbit'));
+assert(cssSource.includes('@keyframes monster-avatar-aura-pulse'));
 
-console.log('装备图片、等级/稀缺度光效与人物等级头像光环测试通过');
+console.log('人物、宠物、装备与高等级怪物统一成长光环测试通过');

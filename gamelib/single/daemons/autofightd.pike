@@ -12,7 +12,9 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
 #define AUTOFIGHT_LOOT_RETRY_SECONDS 10
-#define AUTOFIGHT_CONFIG_VERSION 8
+#define AUTOFIGHT_CONFIG_VERSION 9
+#define AUTOFIGHT_SKILL_QUEUE_SIZE 3
+#define AUTOFIGHT_SMART_SKILL_REFRESH_SECONDS 30
 #define AUTOFIGHT_CLEANUP_NAME_LIMIT 20
 #define AUTOFIGHT_SCAN_MAX_OBJECTS 128
 #define AUTOFIGHT_SERVER_TICK_SECONDS 1
@@ -1192,6 +1194,13 @@ void initialize_player(object me)
 		me["/plus/autofight_skill_mode"] = "smart";
 	if(config_version < 8)
 		me["/plus/autofight_buff"] = 0;
+	if(config_version < 9){
+		// 旧存档只有一个 skills_enable；原样迁入第一优先级，另外两格
+		// 留空。绝不凭名称猜测或改动玩家已经选择的技能。
+		string legacy_skill=(string)(me->skills_enable || "");
+		me["/plus/autofight_skill_queue"] =
+			({legacy_skill,"",""});
+	}
 	if(config_version < AUTOFIGHT_CONFIG_VERSION)
 		me["/plus/autofight_config_version"] =
 			AUTOFIGHT_CONFIG_VERSION;
@@ -1514,8 +1523,15 @@ private int query_auto_attack_skill_priority(object skill)
 
 string query_recommended_auto_skill(object me)
 {
+	array(string) recommendations=query_recommended_auto_skills(me);
+	return sizeof(recommendations) ? recommendations[0] : "";
+}
+
+array(string) query_recommended_auto_skills(object me)
+{
 	mapping learned;
 	array(string) names;
+	array(string) result=({});
 	object|zero skill;
 	string best_name;
 	string name;
@@ -1528,39 +1544,107 @@ string query_recommended_auto_skill(object me)
 	int score;
 	int best_score;
 	if(!me || !me->skills || !sizeof(me->skills))
-		return "";
+		return result;
 	learned = me->skills;
 	names = sort(indices(learned));
-	best_name = "";
-	best_score = -1;
-	for(int i = 0;i < sizeof(names);i++){
-		name = names[i];
-		skill = query_auto_skill_object(name);
-		priority = query_auto_attack_skill_priority(skill);
-		if(priority <= 0)
-			continue;
-		usable_level = query_auto_skill_usable_level(me,name);
-		if(usable_level <= 0)
-			continue;
-		cast = skill->query_performs_cast(usable_level);
-		if(cast > me->query_mofa_max())
-			continue;
-		power = skill->query_performs_attack(usable_level);
-		if(skill->s_skill_type == "huo_mofa_attack" ||
-		   skill->s_skill_type == "bing_mofa_attack" ||
-		   skill->s_skill_type == "feng_mofa_attack" ||
-		   skill->s_skill_type == "du_mofa_attack"){
-			magic_low = skill->query_performs_mofa_attack_low(usable_level);
-			magic_high = skill->query_performs_mofa_attack_high(usable_level);
-			power = (magic_low+magic_high)/2;
+	for(int pick=0;pick<AUTOFIGHT_SKILL_QUEUE_SIZE;pick++){
+		best_name = "";
+		best_score = -1;
+		for(int i = 0;i < sizeof(names);i++){
+			name = names[i];
+			if(search(result,name)!=-1)
+				continue;
+			skill = query_auto_skill_object(name);
+			priority = query_auto_attack_skill_priority(skill);
+			if(priority <= 0)
+				continue;
+			usable_level = query_auto_skill_usable_level(me,name);
+			if(usable_level <= 0)
+				continue;
+			// 老技能和测试注入条目可能声明为主动攻击，却没有完整施放
+			// 接口。智能扫描处必须失败关闭，不能让一次异常档案打断人物
+			// 战斗心跳乃至整个Worker。
+			if(!functionp(skill->query_performs_cast) ||
+			   !functionp(skill->query_s_delayTime))
+				continue;
+			cast = skill->query_performs_cast(usable_level);
+			if(cast > me->query_mofa_max())
+				continue;
+			power = functionp(skill->query_performs_attack) ?
+				skill->query_performs_attack(usable_level) : 0;
+			if(skill->s_skill_type == "huo_mofa_attack" ||
+			   skill->s_skill_type == "bing_mofa_attack" ||
+			   skill->s_skill_type == "feng_mofa_attack" ||
+			   skill->s_skill_type == "du_mofa_attack"){
+				if(!functionp(skill->query_performs_mofa_attack_low) ||
+				   !functionp(skill->query_performs_mofa_attack_high))
+					continue;
+				magic_low = skill->query_performs_mofa_attack_low(usable_level);
+				magic_high = skill->query_performs_mofa_attack_high(usable_level);
+				power = (magic_low+magic_high)/2;
+			}
+			score = priority*100000000+usable_level*100000+power;
+			if(score > best_score){
+				best_score = score;
+				best_name = name;
+			}
 		}
-		score = priority*100000000+usable_level*100000+power;
-		if(score > best_score){
-			best_score = score;
-			best_name = name;
+		if(best_name=="")
+			break;
+		result += ({best_name});
+	}
+	return result;
+}
+
+private void persist_auto_skill_queue(object me,array(string) queue)
+{
+	object|zero skill;
+	if(!me)
+		return;
+	while(sizeof(queue)<AUTOFIGHT_SKILL_QUEUE_SIZE)
+		queue += ({""});
+	if(sizeof(queue)>AUTOFIGHT_SKILL_QUEUE_SIZE)
+		queue = queue[..AUTOFIGHT_SKILL_QUEUE_SIZE-1];
+	me["/plus/autofight_skill_queue"] = queue+({});
+	// skills_enable 是历史存档/API字段，继续镜像第一优先级，避免旧JSP、
+	// 旧书签和外部管理脚本突然失去兼容性。
+	me->skills_enable = queue[0];
+	skill = queue[0]!="" ? query_auto_skill_object(queue[0]) : 0;
+	me->skills_enable_colddown = skill &&
+		functionp(skill->query_s_delayTime) ?
+		skill->query_s_delayTime()+1 : 0;
+}
+
+array(string) query_auto_skill_queue(object me)
+{
+	array(string) queue=({"","" ,""});
+	multiset(string) seen=(<>);
+	mixed stored;
+	if(!me)
+		return queue;
+	initialize_player(me);
+	stored=me["/plus/autofight_skill_queue"];
+	if(arrayp(stored)){
+		for(int i=0;i<AUTOFIGHT_SKILL_QUEUE_SIZE && i<sizeof(stored);i++){
+			string name=stringp(stored[i]) ? (string)stored[i] : "";
+			object|zero skill;
+			if(name=="" || seen[name] || !me->skills || !me->skills[name])
+				continue;
+			skill=query_auto_skill_object(name);
+			if(!skill || skill->s_type!="zhudong" ||
+			   !functionp(skill->query_performs_cast) ||
+			   !functionp(skill->query_s_delayTime))
+				continue;
+			queue[i]=name;
+			seen[name]=1;
 		}
 	}
-	return best_name;
+	// 战斗心跳会频繁读取队列。只有清理了无效/重复项，或旧兼容字段
+	// 尚未同步时才回写，避免每拍重复改人物 mapping。
+	if(!arrayp(stored) || !equal(queue,stored) ||
+	   (string)(me->skills_enable || "")!=queue[0])
+		persist_auto_skill_queue(me,queue);
+	return queue+({});
 }
 
 int set_auto_skill_mode(object me,string mode)
@@ -1568,58 +1652,112 @@ int set_auto_skill_mode(object me,string mode)
 	if(!me || (mode != "smart" && mode != "off"))
 		return 0;
 	me["/plus/autofight_skill_mode"] = mode;
-	me->skills_enable = "";
-	me->skills_enable_colddown = 0;
+	persist_auto_skill_queue(me,({"","",""}));
+	me["/tmp/autofight_skill_refresh_at"] = 0;
 	if(mode == "smart")
 		ensure_auto_skill(me);
 	return 1;
 }
 
-int set_selected_auto_skill(object me,string name)
+int set_selected_auto_skill(object me,string name,void|int slot)
 {
 	object|zero skill;
+	array(string) queue;
 	if(!me || !name || name == "" || !me->skills ||
 	   !me->skills[name])
 		return 0;
-	skill = query_auto_skill_object(name);
-	if(!skill || skill->s_type != "zhudong")
+	if(!slot)
+		slot=1;
+	if(slot<1 || slot>AUTOFIGHT_SKILL_QUEUE_SIZE)
 		return 0;
+	skill = query_auto_skill_object(name);
+	if(!skill || skill->s_type != "zhudong" ||
+	   !functionp(skill->query_performs_cast) ||
+	   !functionp(skill->query_s_delayTime))
+		return 0;
+	queue=query_auto_skill_queue(me);
+	// 同一个技能只能占一个优先级。移位时先清旧位置再落新位置。
+	for(int i=0;i<sizeof(queue);i++)
+		if(queue[i]==name)
+			queue[i]="";
+	queue[slot-1]=name;
 	me["/plus/autofight_skill_mode"] = "manual";
-	me->skills_enable = name;
-	me->skills_enable_colddown = skill->query_s_delayTime()+1;
+	persist_auto_skill_queue(me,queue);
+	return 1;
+}
+
+int clear_auto_skill_slot(object me,int slot)
+{
+	array(string) queue;
+	if(!me || slot<1 || slot>AUTOFIGHT_SKILL_QUEUE_SIZE)
+		return 0;
+	queue=query_auto_skill_queue(me);
+	queue[slot-1]="";
+	persist_auto_skill_queue(me,queue);
+	if(queue*""=="")
+		me["/plus/autofight_skill_mode"]="off";
+	return 1;
+}
+
+int clear_selected_auto_skill(object me,string name)
+{
+	array(string) queue;
+	int changed;
+	if(!me || !name || name=="")
+		return 0;
+	queue=query_auto_skill_queue(me);
+	for(int i=0;i<sizeof(queue);i++)
+		if(queue[i]==name){
+			queue[i]="";
+			changed=1;
+		}
+	if(!changed)
+		return 0;
+	persist_auto_skill_queue(me,queue);
+	if(queue*""=="")
+		me["/plus/autofight_skill_mode"]="off";
 	return 1;
 }
 
 string ensure_auto_skill(object me)
 {
-	object|zero skill;
+	array(string) queue;
+	array(string) recommended;
 	string mode;
-	string name;
+	int refresh_at;
+	int needs_refresh;
 	if(!me)
 		return "";
 	mode = query_auto_skill_mode(me);
 	if(mode == "off")
 		return "";
-	name = (string)me->skills_enable;
-	if(name != "" && me->skills && me->skills[name] &&
-	   query_auto_skill_usable_level(me,name) > 0){
-		skill = query_auto_skill_object(name);
-		if(skill && skill->s_type == "zhudong")
-			return name;
+	queue=query_auto_skill_queue(me);
+	if(mode=="smart"){
+		refresh_at=(int)me["/tmp/autofight_skill_refresh_at"];
+		needs_refresh=refresh_at<=time() || queue*""=="";
+		// 队列中的技能若刚被遗忘或失效，不等待缓存到期。
+		if(!needs_refresh)
+			foreach(queue,string configured)
+				if(configured!="" && query_auto_skill_usable_level(
+				   me,configured)<=0){
+					needs_refresh=1;
+					break;
+				}
+		if(needs_refresh){
+			recommended=query_recommended_auto_skills(me);
+			queue=({"","",""});
+			for(int i=0;i<sizeof(recommended) &&
+			   i<AUTOFIGHT_SKILL_QUEUE_SIZE;i++)
+				queue[i]=recommended[i];
+			persist_auto_skill_queue(me,queue);
+			me["/tmp/autofight_skill_refresh_at"] =
+				time()+AUTOFIGHT_SMART_SKILL_REFRESH_SECONDS;
+		}
 	}
-	me->skills_enable = "";
-	me->skills_enable_colddown = 0;
-	if(mode != "smart")
-		return "";
-	name = query_recommended_auto_skill(me);
-	if(name == "")
-		return "";
-	skill = query_auto_skill_object(name);
-	if(!skill)
-		return "";
-	me->skills_enable = name;
-	me->skills_enable_colddown = skill->query_s_delayTime()+1;
-	return name;
+	foreach(queue,string name)
+		if(name!="")
+			return name;
+	return "";
 }
 
 string query_auto_skill_unready_reason(object me,string name)
@@ -1633,6 +1771,9 @@ string query_auto_skill_unready_reason(object me,string name)
 	skill = query_auto_skill_object(name);
 	if(!skill)
 		return "missing_skill";
+	if(!functionp(skill->query_performs_cast) ||
+	   !functionp(skill->query_s_delayTime))
+		return "invalid_skill_api";
 	usable_level = query_auto_skill_usable_level(me,name);
 	if(usable_level <= 0)
 		return "level_locked";
@@ -1643,6 +1784,12 @@ string query_auto_skill_unready_reason(object me,string name)
 	cast = skill->query_performs_cast(usable_level);
 	if(cast > me->get_cur_mofa())
 		return "insufficient_mana";
+	if(skill->s_skill_type == "phy"){
+		mapping items=me->query_equip();
+		if(!items || (!items["single_main_weapon"] &&
+		   !items["double_main_weapon"]))
+			return "missing_weapon";
+	}
 	return "";
 }
 
@@ -1699,12 +1846,8 @@ string query_ready_lingyi_context_skill(object me)
 
 string query_ready_auto_skill(object me)
 {
-	object|zero skill;
-	mapping items;
-	string name;
+	array(string) queue;
 	string context_name;
-	int usable_level;
-	int cast;
 	if(!me || !me->query_in_combat())
 		return "";
 	if(query_auto_skill_mode(me) == "smart"){
@@ -1717,25 +1860,12 @@ string query_ready_auto_skill(object me)
 		if(context_name != "")
 			return context_name;
 	}
-	name = ensure_auto_skill(me);
-	if(name == "")
-		return "";
-	skill = query_auto_skill_object(name);
-	usable_level = query_auto_skill_usable_level(me,name);
-	if(!skill || usable_level <= 0 || me->timeCold != 0)
-		return "";
-	if(me->f_skills && (int)me->f_skills[name] > 1)
-		return "";
-	cast = skill->query_performs_cast(usable_level);
-	if(cast > me->get_cur_mofa())
-		return "";
-	if(skill->s_skill_type == "phy"){
-		items = me->query_equip();
-		if(!items || (!items["single_main_weapon"] &&
-		   !items["double_main_weapon"]))
-			return "";
-	}
-	return name;
+	ensure_auto_skill(me);
+	queue=query_auto_skill_queue(me);
+	foreach(queue,string name)
+		if(name!="" && query_auto_skill_unready_reason(me,name)=="")
+			return name;
+	return "";
 }
 
 int query_loot_enabled(object me)

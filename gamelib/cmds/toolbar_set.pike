@@ -12,7 +12,8 @@ int main(string|zero arg)
 	string name_cn = "";
 	object me = this_player();
 	if(!arg || sscanf(arg,"%d %s %d",num,name,flag)!=3 ||
-	   num<0 || num>=6 || flag<1 || flag>3){
+	   num<0 || num>=me->query_toolbar_slot_limit() ||
+	   flag<1 || flag>3){
 		s = "快捷栏参数无效，设置没有生效。\n";
 	}
 	else

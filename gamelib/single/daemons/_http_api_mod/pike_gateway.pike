@@ -430,13 +430,14 @@ private string pike_gateway_registration_target(string command)
 	if(sizeof(parts)<6 || lower_case(parts[0])!="login_regnew" ||
 	   lower_case(parts[1])!="gamelib")
 		return "";
-	userid = lower_case(String.trim_all_whites(parts[2]));
+	// 账号主体区分大小写；网关注册互斥键必须和最终人物档案完全一致。
+	userid = String.trim_all_whites(parts[2]);
 	// Old JSP: login_regnew project user pass sid logical_zone ...
 	if(sizeof(parts)>=9 && sizeof(parts[5])==4 &&
 	   (has_prefix(parts[5],"xd") || has_prefix(parts[5],"tx")) &&
 	   parts[5][2]>='0' && parts[5][2]<='9' &&
 	   parts[5][3]>='0' && parts[5][3]<='9')
-		userid = lower_case(parts[5]+userid);
+		userid = lower_case(parts[5])+userid;
 	return pike_gateway_valid_userid(userid) ? userid : "";
 }
 

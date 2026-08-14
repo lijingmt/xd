@@ -137,6 +137,10 @@ string query_equip_reject_reason(object player,object item,
 		return "task_item";
 	if(item->query_item_canEquip() == 0)
 		return "disabled";
+	if(functionp(item->query_catchup_equipment) &&
+	   item->query_catchup_equipment() &&
+	   !item->query_catchup_can_equip(player))
+		return "catchup_inactive";
 	if(item->query_item_canDura() == 1 && item->item_dura > 0 &&
 	   item->item_cur_dura <= 0)
 		return "broken";

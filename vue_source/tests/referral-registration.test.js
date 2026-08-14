@@ -95,13 +95,15 @@ assert.strictEqual(client.registrationFirstError(), '邀请码格式不正确，
 client.registerForm.referral = '';
 
 client.inviteModalOpen = false;
-client.playerStats = { userid: 'XD01Friend' };
+client.accountId = 'xd01LSQ';
+client.playerStats = { userid: 'xd01lsq' };
 client.openInviteModal();
 assert.strictEqual(client.inviteModalOpen, true);
 assert.strictEqual(
     client.inviteLink,
-    'https://xd.example.com/xd/vue/?register=1&ref=XD01Friend'
+    'https://xd.example.com/xd/vue/?register=1&ref=xd01LSQ'
 );
+assert.strictEqual(client.inviteCode, 'xd01LSQ');
 client.closeInviteModal();
 assert.strictEqual(client.inviteModalOpen, false);
 

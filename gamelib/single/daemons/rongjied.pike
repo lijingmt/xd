@@ -76,6 +76,9 @@ string query_can_rongjie(object player)
 	array all_obj = all_inventory(player);
 	mapping(string:int) name_count=([]);
 	foreach(all_obj,object ob){
+		if(functionp(ob->query_catchup_equipment) &&
+		   ob->query_catchup_equipment())
+			continue;
 		if(ob->query_item_type()=="weapon"||ob->query_item_type()=="single_weapon"||ob->query_item_type()=="double_weapon"||ob->query_item_type()=="armor"||ob->query_item_type()=="decorate"||ob->query_item_type()=="jewelry"){
 			if(!ob["equiped"]){
 				if(ob->query_item_rareLevel()>=1 || ob->query_item_from()!=""){

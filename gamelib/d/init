@@ -342,6 +342,8 @@ int query_wuxiang_unlocked_for(object me){
 		(string)me->query_name());
 	if(!account_data || (int)account_data["ok"] != 1)
 		return 0;
+	if((int)account_data["wuxiang_unlocked"])
+		return 1;
 	characters = (array(mapping(string:mixed)))account_data["characters"];
 	if(!characters || sizeof(characters) == 0)
 		return 0;
@@ -420,6 +422,8 @@ int query_taiji_unlocked_for(object me){
 		(string)me->query_name());
 	if(!account_data || (int)account_data["ok"] != 1)
 		return 0;
+	if((int)account_data["taiji_unlocked"])
+		return 1;
 	characters = (array(mapping(string:mixed)))account_data["characters"];
 	if(!characters || sizeof(characters) == 0)
 		return 0;
@@ -547,13 +551,13 @@ int choice_race(string arg){
 			if(query_wuxiang_unlocked_for(me)){
 				s += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 				s += "[无相:choice_profe third/wuxiang]\n";
-				s += "（已解锁）全能补位，机制傻瓜，技能池广\n";
+				s += "（成长达标或累计捐赠3000元解锁）全能补位，机制傻瓜，技能池广\n";
 			}
 			// 太极：无相之上的隐藏职业，需要 10 职+无相均达 200 级。
 			if(query_taiji_unlocked_for(me)){
 				s += "[imgurl loading:/"+GAME_NAME+"/images/taiji_logo.png]\n";
 				s += "[太极:choice_profe third/taiji]\n";
-				s += "（已解锁）生死轮转，可复活自己和队友\n";
+				s += "（成长达标或累计捐赠10000元解锁）生死轮转，可复活自己和队友\n";
 			}
 		}
 		s += "[更换阵营:choice_race]\n";
@@ -600,7 +604,7 @@ int choice_profe(string arg){
 		// 无相解锁：未达标时给出具体缺口（哪个职业、当前等级/未创建），让玩家清楚差什么。
 		if((string)arr[1]=="wuxiang" && !query_wuxiang_unlocked_for(me)){
 			string missing = query_wuxiang_missing_for(me);
-			write("【无相·未解锁】无相是隐藏全职业，需要账号下 10 个职业均达到 120 级。\n");
+			write("【无相·未解锁】需要账号下 10 个职业均达到 120 级，或共享账号累计捐赠达到3000元。\n");
 			write("当前缺口："+missing+"\n");
 			write("提示：把账号下任意一个对应职业的角色练到 120 级即可推进进度。\n");
 			write("[返回阵营选择:choice_race]\n");
@@ -609,7 +613,7 @@ int choice_profe(string arg){
 		// 太极解锁：账号下 10 职业与无相均需达到 200 级。
 		if((string)arr[1]=="taiji" && !query_taiji_unlocked_for(me)){
 			string missing = query_taiji_missing_for(me);
-			write("【太极·未解锁】太极是无相之上的隐藏职业，需要账号下 10 职业与无相均达到 200 级。\n");
+			write("【太极·未解锁】需要账号下 10 职业与无相均达到 200 级，或共享账号累计捐赠达到10000元。\n");
 			write("当前缺口："+missing+"\n");
 			write("提示：把账号下对应职业的角色练到 200 级即可推进进度。\n");
 			write("[返回阵营选择:choice_race]\n");
@@ -901,12 +905,12 @@ int start(string arg){
 			if(query_wuxiang_unlocked_for(me)){
 				desc += "[imgurl loading:/"+GAME_NAME+"/images/wuxiang_logo.png]\n";
 				desc += "[无相:choice_profe third/wuxiang]\n";
-				desc += "（已解锁）全职业补位\n";
+				desc += "（成长达标或累计捐赠3000元解锁）全职业补位\n";
 			}
 			if(query_taiji_unlocked_for(me)){
 				desc += "[imgurl loading:/"+GAME_NAME+"/images/taiji_logo.png]\n";
 				desc += "[太极:choice_profe third/taiji]\n";
-				desc += "（已解锁）生死轮转\n";
+				desc += "（成长达标或累计捐赠10000元解锁）生死轮转\n";
 			}
 		}
 		else{

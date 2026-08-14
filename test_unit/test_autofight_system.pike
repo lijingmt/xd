@@ -146,7 +146,7 @@ void test_defaults_and_switch()
 			player["/plus/autofight_buff"] == 0 &&
 			player->query_autofight() == "disable";
 			valid = valid &&
-				player["/plus/autofight_config_version"] == 8 &&
+				player["/plus/autofight_config_version"] == 9 &&
 				player["/plus/autofight_skill_mode"] == "smart" &&
 				daemon->query_auto_skill_mode(player) == "smart" &&
 				player["/plus/autofight_store_non_equipment"] == 0 &&
@@ -190,6 +190,7 @@ void test_smart_auto_skill_selection()
 	int off_result = 0;
 	int manual_result = 0;
 	int invalid_result = 0;
+	int incomplete_skill_result = 0;
 	int valid = 0;
 	mixed err = catch {
 		player->level = 40;
@@ -197,6 +198,9 @@ void test_smart_auto_skill_selection()
 		player->skills["lingji"] = ({1,0});
 		player->skills["lingbailei"] = ({1,0});
 		player->skills["lingzhi"] = ({5,0});
+		// 历史/异常档案可能把缺少施放接口的主动技能直接注入skills。
+		// 智能扫描必须跳过，不能在人物战斗心跳调用NULL函数。
+		player->skills["b_nuhou"] = ({100,0});
 		player->skills_enable = "";
 		daemon->initialize_player(player);
 		recommended = daemon->query_recommended_auto_skill(player);
@@ -212,11 +216,13 @@ void test_smart_auto_skill_selection()
 		manual_result = daemon->set_selected_auto_skill(player,"lingzhi");
 		invalid_result = daemon->set_selected_auto_skill(
 			player,"__invalid__");
+		incomplete_skill_result = daemon->set_selected_auto_skill(
+			player,"b_nuhou");
 		mode = daemon->query_auto_skill_mode(player);
 		valid = valid && manual_result &&
 			mode == "manual" &&
 			player->skills_enable == "lingzhi" &&
-			!invalid_result;
+			!invalid_result && !incomplete_skill_result;
 	};
 	if(err)
 		error_desc = describe_error(err);
@@ -225,10 +231,98 @@ void test_smart_auto_skill_selection()
 	else
 		test_fail(sprintf(
 			"自动技能选择错误: recommended=%s ensured=%s current=%s "
-			"mode=%s off=%d manual=%d invalid=%d %s",
+			"mode=%s off=%d manual=%d invalid=%d incomplete=%d %s",
 			recommended,ensured,player->skills_enable,mode,off_result,
-			manual_result,invalid_result,error_desc));
+			manual_result,invalid_result,incomplete_skill_result,error_desc));
 	destroy_runtime_player(player);
+}
+
+void test_three_slot_auto_skill_priority_queue()
+{
+	test_start("自动连招迁移旧设置并按优先1至3逐格降级");
+	object player=create_runtime_player(
+		"__testunit_autofight_skill_queue__");
+	object enemy=clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object room=clone(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object weapon=clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	object daemon=(object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	array(string) migrated=({});
+	array(string) moved=({});
+	string first="";
+	string second="";
+	string third="";
+	string none="";
+	string error_desc="";
+	int valid;
+	mixed err=catch{
+		(object)(ROOT+"/gamelib/single/skills/lingbailei");
+		(object)(ROOT+"/gamelib/single/skills/lingzhi");
+		(object)(ROOT+"/gamelib/single/skills/lingji");
+		player->level=40;
+		player->set_att_by_level();
+		player->set_mofa(player->query_mofa_max());
+		player->skills["lingbailei"]=({1,0});
+		player->skills["lingzhi"]=({5,0});
+		player->skills["lingji"]=({1,0});
+		player["/plus/autofight_initialized"]=1;
+		player["/plus/autofight_config_version"]=8;
+		player["/plus/autofight_skill_mode"]="manual";
+		player->skills_enable="lingzhi";
+		migrated=daemon->query_auto_skill_queue(player);
+		valid=equal(migrated,({"lingzhi","",""})) &&
+			player->skills_enable=="lingzhi";
+		valid=daemon->set_selected_auto_skill(player,"lingbailei",1) &&
+			daemon->set_selected_auto_skill(player,"lingzhi",2) &&
+			daemon->set_selected_auto_skill(player,"lingji",3) && valid;
+		// 重复技能移位必须从旧格清除，不能在同一心跳被重复候选。
+		valid=daemon->set_selected_auto_skill(player,"lingzhi",1) && valid;
+		moved=daemon->query_auto_skill_queue(player);
+		valid=equal(moved,({"lingzhi","","lingji"})) && valid;
+		valid=daemon->set_selected_auto_skill(player,"lingbailei",1) &&
+			daemon->set_selected_auto_skill(player,"lingzhi",2) && valid;
+		weapon->move(player);
+		player->wear(weapon);
+		player->move(room);
+		enemy->move(room);
+		player->_fight(enemy);
+		first=daemon->query_ready_auto_skill(player);
+		player->f_skills["lingbailei"]=9;
+		second=daemon->query_ready_auto_skill(player);
+		player->f_skills["lingzhi"]=9;
+		third=daemon->query_ready_auto_skill(player);
+		player->f_skills["lingji"]=9;
+		none=daemon->query_ready_auto_skill(player);
+		valid=valid && first=="lingbailei" && second=="lingzhi" &&
+			third=="lingji" && none=="";
+		// 智能模式第一次推荐后建立短期缓存；同一战斗窗口内重复
+		// 心跳不得反复扫描并改写推荐队列。
+		player->f_skills=([]);
+		valid=daemon->set_auto_skill_mode(player,"smart") && valid;
+		array(string) smart_first=daemon->query_auto_skill_queue(player);
+		int refresh_at=(int)player["/tmp/autofight_skill_refresh_at"];
+		daemon->ensure_auto_skill(player);
+		array(string) smart_second=daemon->query_auto_skill_queue(player);
+		valid=refresh_at>time() &&
+			(int)player["/tmp/autofight_skill_refresh_at"]==refresh_at &&
+			equal(smart_first,smart_second) && valid;
+	};
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf("migration=%O moved=%O order=%s/%s/%s/%s %s",
+			migrated,moved,first,second,third,none,error_desc));
+	if(player)
+		player->_clean_fight();
+	destroy_runtime_player(player);
+	destroy_runtime_player(enemy);
+	if(room)
+		destruct(room);
 }
 
 void test_zhenyue_context_skill_selection()
@@ -2628,6 +2722,8 @@ void test_integration_wiring()
 		ROOT+"/gamelib/single/daemons/autofightd.pike");
 	string flush_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/cmds/flushview.pike");
+	string fight_source = Stdio.read_file(
+		ROOT+"/lowlib/wapmud2/inherit/feature/fight.pike");
 	string set_skill_source = Stdio.read_file(
 		ROOT+"/lowlib/wapmud2/cmds/set_autoSkills.pike");
 	string disable_skill_source = Stdio.read_file(
@@ -2639,6 +2735,7 @@ void test_integration_wiring()
 	if(api_source && renderer_source && vue_source && index_source &&
 	   daily_source && kill_source && leave_source && user_source &&
 	   autofight_source && autofight_daemon_source && flush_source &&
+	   fight_source &&
 	   set_skill_source && disable_skill_source && inventory_source &&
 	   inventory_feature_source &&
 	   search(api_source,"AUTOFIGHTD->start_autofight(player)") != -1 &&
@@ -2667,11 +2764,17 @@ void test_integration_wiring()
 	   search(autofight_source,"autofight buff 1") != -1 &&
 	   search(autofight_daemon_source,
 		"query_recommended_auto_skill") != -1 &&
+	   search(autofight_daemon_source,
+		"query_auto_skill_queue") != -1 &&
+	   search(autofight_daemon_source,
+		"AUTOFIGHT_SMART_SKILL_REFRESH_SECONDS") != -1 &&
+	   search(autofight_source,"优先1→2→3") != -1 &&
 	   search(autofight_daemon_source,"query_auto_buff_enabled") != -1 &&
 	   search(autofight_daemon_source,"perform_auto_buff") != -1 &&
 	   search(flush_source,"query_ready_auto_skill(me)") != -1 &&
-	   search(set_skill_source,"autofight_skill_mode\"] = \"manual\"") != -1 &&
-	   search(disable_skill_source,"autofight_skill_mode\"] = \"off\"") != -1 &&
+	   search(set_skill_source,"set_selected_auto_skill") != -1 &&
+	   search(disable_skill_source,"clear_auto_skill_slot") != -1 &&
+	   search(fight_source,"this_object()->is(\"player\")") != -1 &&
 	   search(flush_source,"perform_auto_sell(me)") != -1 &&
 	   search(flush_source,"perform_auto_store_non_equipment") != -1 &&
 	   search(flush_source,"perform_non_equipment_destroy") != -1 &&
@@ -2703,7 +2806,7 @@ void test_auto_buff_config_migration()
 		m_delete(player,"/plus/autofight_buff");
 		daemon->initialize_player(player);
 		valid = player["/plus/autofight_buff"] == 0 &&
-			player["/plus/autofight_config_version"] == 8 &&
+			player["/plus/autofight_config_version"] == 9 &&
 			daemon->query_auto_buff_enabled(player) == 0;
 	};
 	if(err)
@@ -3175,6 +3278,7 @@ int main()
 	test_runtime_compile();
 	test_defaults_and_switch();
 	test_smart_auto_skill_selection();
+	test_three_slot_auto_skill_priority_queue();
 	test_zhenyue_context_skill_selection();
 	test_tianxiang_context_skill_selection();
 	test_vip_daily_limits();

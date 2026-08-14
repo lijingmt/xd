@@ -73,6 +73,8 @@ void test_runtime_compile()
 		"/gamelib/cmds/artisan_master_craft.pike",
 		"/gamelib/cmds/myskills.pike",
 		"/gamelib/cmds/viceskill_learn.pike",
+		"/gamelib/cmds/viceskill_peifang_view.pike",
+		"/gamelib/cmds/viceskill_peifang_buy.pike",
 		"/gamelib/cmds/viceskill_pf_detail.pike",
 		"/gamelib/cmds/viceskill_duanzao_confirm.pike",
 		"/gamelib/cmds/viceskill_liandan_confirm.pike",
@@ -291,6 +293,62 @@ void test_learning_runtime()
 	cleanup_player_files(userid);
 }
 
+void test_low_level_recipe_shop_runtime()
+{
+	string userid = "__testunit_artisan_shop__";
+	object player = create_player(userid,20);
+	object view_command = (object)(ROOT+
+		"/gamelib/cmds/viceskill_peifang_view.pike");
+	object buy_command = (object)(ROOT+
+		"/gamelib/cmds/viceskill_peifang_buy.pike");
+	array(string) skill_names = ({"duanzao","liandan","caifeng","zhijia"});
+	array(string) filenames = ({
+		"p_canpodezhongjian","p_jisudan","p_2cubumao","t_2caoxie",
+	});
+	array(int) recipe_ids = ({1,2,1,1});
+	array(string) recipe_types = ({"d_weapon","attri_base","head","shoes"});
+	object original_player = this_player();
+	int list_valid = 1;
+	int buy_valid = 1;
+	int learn_valid = 1;
+	player->set_account(100000);
+	foreach(skill_names,string skill_name)
+		player->vice_skills[skill_name] = ({1,0,300});
+	set_this_player(player);
+	for(int i=0;i<sizeof(skill_names);i++){
+		string shop_text = view_command->query_peifang_shop_text(skill_names[i]);
+		if(search(shop_text,"viceskill_peifang_buy "+skill_names[i]+" ")==-1 ||
+		   search(shop_text,"复活点")!=-1)
+			list_valid = 0;
+		int before_count = sizeof(all_inventory(player));
+		int before_account = player->query_account();
+		buy_command->main(skill_names[i]+" "+filenames[i]+" 1");
+		array(object) inventory = all_inventory(player);
+		if(sizeof(inventory)!=before_count+1 ||
+		   player->query_account()>=before_account){
+			buy_valid = 0;
+			continue;
+		}
+		object recipe = inventory[sizeof(inventory)-1];
+		recipe->read();
+		mapping learned = player["/"+skill_names[i]+"/"+recipe_types[i]];
+		if(!mappingp(learned) || !learned[recipe_ids[i]])
+			learn_valid = 0;
+	}
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	check("四类低阶配方商店均返回真实购买入口",
+		list_valid,"配方入口被其他命令覆盖或列表为空");
+	check("四类低阶配方均可真实扣款并进入包袱",
+		buy_valid,"低阶配方购买未发货或未扣款");
+	check("四类低阶配方购买后均可真实学习",
+		learn_valid,"低阶配方书与手艺分类没有接通");
+	destroy_player(player);
+	cleanup_player_files(userid);
+}
+
 void test_recipe_categories_and_master()
 {
 	string userid = "__testunit_artisan_master__";
@@ -460,6 +518,7 @@ int main()
 		test_progression_boundaries();
 		test_material_pouch();
 		test_learning_runtime();
+		test_low_level_recipe_shop_runtime();
 		test_complete_recipe_catalog();
 		test_withdrawal_path_guard();
 		test_recipe_categories_and_master();

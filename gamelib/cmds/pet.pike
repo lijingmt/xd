@@ -288,7 +288,8 @@ private string render_detail(mapping state,string species,object me)
 		if(mappingp(pet["fusion"]))
 			s += "融合说明：三枚灵纹分别继承父系，但仍按上面的当前共鸣节奏作为一套结算；真实生效时战斗中会出现三纹共鸣提示。\n";
 		if(species=="luanniao")
-			s += "隐藏天赋：回生羽会在主人真正死亡时自动触发；灵医职业复苏优先，账号每日1次，复活后恢复15%生命与10%法力，切磋和自杀不消耗。\n";
+			s += "固有疗愈：灵羽回春会在PVE战斗中按节拍为主人恢复少量生命；它与拓印灵技相互独立，学习攻击或治疗灵技都不会覆盖。\n"+
+				"隐藏天赋：回生羽会在主人真正死亡时自动触发；灵医职业复苏优先，账号每日1次，复活后恢复15%生命与10%法力，切磋和自杀不消耗。\n";
 		if(mappingp(pet["imprinted_skill"]))
 			s += "拓印灵技："+(string)pet["imprinted_skill"]["name_cn"]+
 				"（"+((string)pet["imprinted_skill"]["effect"]=="heal" ?

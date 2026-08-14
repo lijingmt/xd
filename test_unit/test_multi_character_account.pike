@@ -137,6 +137,45 @@ int main()
 				account_id,"xd99notownedcharacter"),
 			"人物归属校验可被越权");
 
+		mapping bookmark_first = ACCOUNT_CHARACTERD->
+			create_character_bookmark(account_id,character_id,password);
+		mapping bookmark_second = ACCOUNT_CHARACTERD->
+			create_character_bookmark(account_id,character_id,password);
+		string bookmark_token = (string)(bookmark_first["bookmark_token"] || "");
+		mapping bookmark_verified = ACCOUNT_CHARACTERD->
+			verify_character_bookmark(account_id,character_id,
+				bookmark_token,password);
+		mapping bookmark_wrong_password = ACCOUNT_CHARACTERD->
+			verify_character_bookmark(account_id,character_id,
+				bookmark_token,"wrongPassword");
+		mapping bookmark_wrong_character = ACCOUNT_CHARACTERD->
+			verify_character_bookmark(account_id,account_id,
+				bookmark_token,password);
+		check("人物直达书签使用独立随机令牌且重复签发不破坏旧链接",
+			bookmark_first["ok"] && bookmark_second["ok"] &&
+			sizeof(bookmark_token)==64 && bookmark_verified["ok"] &&
+			!bookmark_wrong_password["ok"] &&
+			!bookmark_wrong_character["ok"],
+			"书签未绑定人物/账号密码，或新书签错误吊销旧链接");
+		string bookmark_index_source = Stdio.read_file(
+			account_file(account_id));
+		check("人物直达书签磁盘只保存摘要而不保存原始凭证",
+			bookmark_index_source &&
+			search(bookmark_index_source,bookmark_token)==-1 &&
+			search(bookmark_index_source,"token_digest")!=-1 &&
+			search(bookmark_index_source,"auth_proof")!=-1,
+			"原始直达凭证被写入账号索引或缺少密码变更失效证明");
+		mapping bookmark_revoked = ACCOUNT_CHARACTERD->
+			revoke_character_bookmarks(account_id,character_id);
+		mapping bookmark_after_revoke = ACCOUNT_CHARACTERD->
+			verify_character_bookmark(account_id,character_id,
+				bookmark_token,password);
+		check("人物直达书签可按人物一次性撤销且不依赖浏览器会话",
+			bookmark_revoked["ok"] &&
+			(int)bookmark_revoked["revoked"]==2 &&
+			!bookmark_after_revoke["ok"],
+			"撤销后旧书签仍可使用或遗漏同人物凭证");
+
 		string index_source = Stdio.read_file(account_file(account_id));
 		Stdio.write_file(account_file(account_id)+".bak",index_source);
 		Stdio.write_file(account_file(account_id),"{broken");
@@ -346,6 +385,9 @@ int main()
 			http_source && account_http_source && recovery_source &&
 			vue_source &&
 			search(http_source,"/api/account/login")!=-1 &&
+			search(http_source,"/api/account/bookmark/create")!=-1 &&
+			search(http_source,"/api/account/bookmark/open")!=-1 &&
+			search(http_source,"/api/account/bookmark/revoke")!=-1 &&
 			search(http_source,"DATA_ROOT + \"u/\"")!=-1 &&
 			search(account_http_source,
 				"account_owns_character(account_id,character_id)")!=-1 &&
@@ -353,6 +395,10 @@ int main()
 				"ACCOUNT_SESSION_PER_ACCOUNT_LIMIT")!=-1 &&
 			search(account_http_source,
 				"authenticated_character_password_matches")!=-1 &&
+			search(account_http_source,
+				"create_character_bookmark")!=-1 &&
+			search(account_http_source,
+				"verify_character_bookmark")!=-1 &&
 			search(account_http_source,
 				"请完整选择人物姓名、性别和头像")!=-1 &&
 			search(account_http_source,

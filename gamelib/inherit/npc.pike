@@ -571,8 +571,19 @@ void fight_die()
 					Stdio.append_file(ROOT+"/log/bossdrop_error.log",ITEM_PATH+drop_item+"\n");
 				}
 				if(item_ob){
-					TERMD->add_termItems(term_who,item_ob);
-					t_w += "掉落了 "+item_ob->query_name_cn()+",已放入队伍仓库!\n";	
+					if(TERMD->add_termItems(term_who,item_ob)){
+						t_w += "掉落了 "+item_ob->query_name_cn()+",已放入队伍仓库!\n";
+						Stdio.append_file(ROOT+"/log/team_boss_loot.log",
+							sprintf("%d\tstatus=stored\tteam=%s\tboss=%s\titem=%s\tcount=%d\n",
+								time(),term_who,this_object()->query_name(),
+								drop_item,TERMD->query_term_item_count(term_who)));
+					}
+					else{
+						Stdio.append_file(ROOT+"/log/team_boss_loot.log",
+							sprintf("%d\tstatus=rejected\tteam=%s\tboss=%s\titem=%s\n",
+								time(),term_who,this_object()->query_name(),drop_item));
+						destruct(item_ob);
+					}
 				}
 			}
 			}
@@ -591,8 +602,10 @@ void fight_die()
 						Stdio.append_file(ROOT+"/log/bossdrop_error.log",ITEM_PATH+drop_other+"\n");
 					}
 					if(other_ob){
-						TERMD->add_termItems(term_who,other_ob);
-						t_w += "掉落了 "+other_ob->query_name_cn()+",已放入队伍仓库!\n";	
+						if(TERMD->add_termItems(term_who,other_ob))
+							t_w += "掉落了 "+other_ob->query_name_cn()+",已放入队伍仓库!\n";
+						else
+							destruct(other_ob);
 					}
 				}
 			}

@@ -196,8 +196,9 @@ createApp({
             accountToken: '',
             accountId: '',
             currentCharacterId: '',
-            // 书签直达：从 URL ?userid=&char= 读出，跨会话长期有效
-            // （txd 一旦过期就回登录表单，重新输密码后自动选回这个角色）
+            // 跨浏览器直达书签使用URL fragment里的独立随机凭证。它只
+            // 授权一个指定人物，不暴露账号密码，也不能打开其他人物。
+            characterBookmarkToken: '',
             preselectedUserid: '',
             preselectedCharacterId: '',
             // 每次选角/退出都会递增。旧人物尚未返回的挂机与轮询响应
@@ -241,8 +242,8 @@ createApp({
                 { race_id: 'third', profession_id: 'zhenyue', name: '镇越', race: '中立', icon: '🛡️', desc: '团队坦克，守御承伤' },
                 { race_id: 'third', profession_id: 'tianxiang', name: '天象', race: '中立', icon: '🌠', desc: '星痕法术，元素爆发' },
                 { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' },
-                { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位，需账号下 10 职业均达 120 级解锁' },
-                { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转，可复活自己和队友；需账号下 10 职+无相均达 200 级解锁' }
+                { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位；10职业均达120级，或共享账号累计捐赠3000元解锁' },
+                { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转；10职+无相均达200级，或共享账号累计捐赠10000元解锁' }
             ],
             isLoggingIn: false,
             isRegistering: false,
@@ -2073,9 +2074,17 @@ createApp({
             // 用 URL 的完整账号 ID 跳过分区下拉拼接。
             // 用户在表单里输了 userid 就以表单为准（允许覆盖书签账号）。
             const userInput = (this.loginForm.userid || '').trim();
-            const fullUserid = userInput
-                ? (this.loginForm.partition + userInput)
-                : (this.preselectedUserid || '');
+            const partitionedUserid = userInput
+                ? (this.loginForm.partition + userInput) : '';
+            // 书签保存的是完整且区分大小写的账号 ID，登录框通常只输入
+            // 去掉分区后的短账号。两者都匹配时必须使用书签原值，不能
+            // lower-case，也不能因为格式不同而放弃自动选角。
+            const bookmarkAccountMatched = !!this.preselectedUserid &&
+                (!userInput || userInput === this.preselectedUserid ||
+                    partitionedUserid === this.preselectedUserid);
+            const fullUserid = bookmarkAccountMatched
+                ? this.preselectedUserid
+                : partitionedUserid;
             if (!fullUserid || !this.loginForm.password) {
                 this.loginError = !fullUserid ? '请输入账号和密码' : '请输入密码';
                 return;
@@ -2102,8 +2111,8 @@ createApp({
                 this.showRegister = false;
                 // 书签直达：登录成功后若 preselectedCharacterId 在角色列表里，
                 // 跳过选角界面直接进入该角色。找不到则降级到原有流程。
-                const bookmarkMatch = (!userInput || userInput === this.preselectedUserid)
-                    && this.preselectedCharacterId
+                const bookmarkMatch = bookmarkAccountMatched &&
+                    this.preselectedCharacterId
                     ? this.accountCharacters.find(c => c.id === this.preselectedCharacterId)
                     : null;
                 if (bookmarkMatch) {
@@ -2161,6 +2170,16 @@ createApp({
         updateUrlWithTxd() {
             if (!this.txd) return;
 
+            // 从长期人物书签进入时，地址栏必须始终保持可再次收藏、复制
+            // 和跨浏览器打开的书签URL。绝不把可还原密码的TXD混进链接。
+            if (this.characterBookmarkToken && this.preselectedUserid &&
+                this.currentCharacterId) {
+                const bookmarkUrl = this.buildAccountCharacterBookmarkUrl(
+                    this.currentCharacterId, this.characterBookmarkToken
+                );
+                window.history.replaceState({}, '', bookmarkUrl.toString());
+                return;
+            }
             const url = new URL(window.location.href);
             url.searchParams.set('txd', this.txd);
             if (this.currentCharacterId) {
@@ -2207,26 +2226,74 @@ createApp({
             }
         },
 
-        // 复制某个角色的"直达书签"URL到剪贴板。
-        // 书签含 userid+char（长期有效）+ 当前 txd（仅当此角色已在线时附上，方便立即进入）。
-        // auto-browser 用户每个角色存一个书签，打开就直接进入对应角色。
+        buildAccountCharacterBookmarkUrl(characterId, bookmarkToken = '') {
+            const url = new URL(window.location.href);
+            // 长期人物入口使用参数白名单。只保留自动浏览器需要的
+            // mode=html；历史URL中的任何未知参数都不能被当成凭证复制。
+            const htmlMode = url.searchParams.get('mode') === 'html';
+            url.search = '';
+            url.hash = '';
+            if (htmlMode) url.searchParams.set('mode', 'html');
+            url.searchParams.set('userid', this.accountId);
+            url.searchParams.set('char', characterId);
+            if (/^[0-9a-f]{64}$/.test(bookmarkToken)) {
+                const bookmark = new URLSearchParams({
+                    character_bookmark: bookmarkToken
+                });
+                url.hash = bookmark.toString();
+            }
+            return url;
+        },
+
+        bookmarkShortcutLabel() {
+            const platform = String(navigator.platform || '').toLowerCase();
+            return platform.includes('mac') ? '⌘D' : 'Ctrl+D';
+        },
+
+        // 签发一个只绑定所选人物的长期凭证，复制后可在其他浏览器直接
+        // 打开。先同步创建空白标签，避免await后被浏览器当成弹窗拦截。
         async copyCharacterBookmarkUrl(characterId) {
-            if (!characterId || !this.accountId) {
+            if (!characterId || !this.accountId || !this.accountToken) {
                 this.showNotification('角色信息缺失，无法复制书签');
                 return;
             }
-            const url = new URL(window.location.href);
-            url.searchParams.delete('txd');  // 先清，避免把别的角色的 txd 误带
-            url.searchParams.set('userid', this.accountId);
-            url.searchParams.set('char', characterId);
-            // 仅当当前在线角色就是书签目标角色时，才附上 txd（同角色 txd 才能直接进入）
-            if (this.txd && this.currentCharacterId === characterId) {
-                url.searchParams.set('txd', this.txd);
+            const opened = window.open('about:blank', '_blank');
+            if (opened) opened.opener = null;
+            let issued;
+            try {
+                issued = await this.postAccountApi(
+                    '/api/account/bookmark/create', {
+                        token: this.accountToken,
+                        character_id: characterId
+                    }
+                );
+            } catch (error) {
+                if (opened && typeof opened.close === 'function') opened.close();
+                this.showNotification(error.message || '直达书签创建失败，请重试');
+                return;
             }
-            const bookmarkUrl = url.toString();
+            const bookmarkToken = issued.bookmark_token || '';
+            if (!/^[0-9a-f]{64}$/.test(bookmarkToken)) {
+                if (opened && typeof opened.close === 'function') opened.close();
+                this.showNotification('服务器没有返回有效书签，请重试');
+                return;
+            }
+            const bookmarkUrl = this.buildAccountCharacterBookmarkUrl(
+                characterId, bookmarkToken
+            ).toString();
+            let openedOk = false;
+            if (opened) {
+                try {
+                    opened.location.replace(bookmarkUrl);
+                    openedOk = true;
+                } catch (error) {
+                    if (typeof opened.close === 'function') opened.close();
+                }
+            }
+            let copied = false;
             try {
                 await navigator.clipboard.writeText(bookmarkUrl);
-                this.showNotification('角色书签已复制：auto-browser 存为快捷入口即可直达本角色');
+                copied = true;
             } catch (err) {
                 const textArea = document.createElement('textarea');
                 textArea.value = bookmarkUrl;
@@ -2236,42 +2303,122 @@ createApp({
                 textArea.select();
                 try {
                     document.execCommand('copy');
-                    this.showNotification('角色书签已复制：auto-browser 存为快捷入口即可直达本角色');
+                    copied = true;
                 } catch (e) {
-                    this.showNotification('复制失败，请手动复制URL');
+                    copied = false;
                 }
                 document.body.removeChild(textArea);
             }
+            if (copied && openedOk)
+                this.showNotification('跨浏览器直达书签已复制；新标签打开后按' +
+                    this.bookmarkShortcutLabel() + '收藏');
+            else if (copied)
+                this.showNotification('书签已复制；浏览器拦截了新标签，请允许弹窗');
+            else if (openedOk)
+                this.showNotification('新标签已打开；复制失败，请手动保存地址');
+            else
+                this.showNotification('复制和新标签均被浏览器阻止，请检查权限');
         },
 
-        // 在独立标签打开指定人物的长期入口。绝不携带当前人物的 txd，
-        // 否则新标签会先重复登录当前人物并把原标签挤下线。
-        openAccountCharacterInNewTab(characterId) {
-            if (!characterId || !this.accountId) {
-                this.showNotification('角色信息缺失，无法打开新标签');
-                return;
-            }
-            const url = new URL(window.location.href);
-            ['txd', '_txd', '_user', '_pswd', 'user', 'pswd', 'password']
-                .forEach(name => url.searchParams.delete(name));
-            url.searchParams.set('userid', this.accountId);
-            url.searchParams.set('char', characterId);
-            // 先打开空白页，再切断 opener 后导航；目标页面从未获得访问
-            // 原标签的机会，同时保留可靠的“弹窗被拦截”检测。
-            const opened = window.open('about:blank', '_blank');
-            if (!opened) {
-                this.showNotification('浏览器阻止了新标签，请允许弹窗后重试');
-                return;
-            }
+        async resumeCharacterBookmarkHandoff() {
+            if (!this.accountToken || !this.preselectedCharacterId) return false;
+            this.showLogin = false;
+            this.showCharacterSelect = true;
+            this.characterLoading = true;
+            this.characterError = '';
             try {
-                opened.opener = null;
-                opened.location.replace(url.toString());
+                const accountData = await this.postAccountApi(
+                    '/api/account/characters', { token: this.accountToken }
+                );
+                this.applyAccountData(accountData);
+                if (this.preselectedUserid &&
+                    this.accountId !== this.preselectedUserid) {
+                    throw new Error('书签账号与当前会话不匹配，请重新登录');
+                }
+                const character = this.accountCharacters.find(
+                    one => one.id === this.preselectedCharacterId
+                );
+                if (!character)
+                    throw new Error('书签对应的人物不存在或暂不可用');
+                this.characterLoading = false;
+                await this.selectAccountCharacter(character);
+                return this.currentCharacterId === character.id;
             } catch (error) {
-                if (typeof opened.close === 'function') opened.close();
-                this.showNotification('新标签打开失败，请重试');
-                return;
+                this.characterLoading = false;
+                this.clearAccountSession();
+                this.showCharacterSelect = false;
+                this.showLogin = true;
+                this.loginError = error.message || '书签会话已过期，请重新登录';
+                return false;
             }
-            this.showNotification('新标签已打开，登录后会直接进入所选角色');
+        },
+
+        async resumePersistentCharacterBookmark() {
+            if (!this.characterBookmarkToken || !this.preselectedUserid ||
+                !this.preselectedCharacterId) return false;
+            this.showLogin = false;
+            this.showCharacterSelect = false;
+            this.characterLoading = true;
+            this.loginError = '';
+            const expectedEpoch = this.invalidateCharacterSessionRequests();
+            try {
+                const selected = await this.postAccountApi(
+                    '/api/account/bookmark/open', {
+                        userid: this.preselectedUserid,
+                        character_id: this.preselectedCharacterId,
+                        bookmark_token: this.characterBookmarkToken
+                    }
+                );
+                if (selected.account_id !== this.preselectedUserid ||
+                    selected.character_id !== this.preselectedCharacterId)
+                    throw new Error('直达书签返回的人物不匹配');
+                this.accountId = selected.account_id;
+                await this.completeCharacterLogin(
+                    selected.txd,
+                    selected.character_id,
+                    selected.bootstrap_command || 'init',
+                    null,
+                    expectedEpoch
+                );
+                const entered = this.currentCharacterId === selected.character_id;
+                if (entered)
+                    this.showNotification('已通过直达书签进入；按' +
+                        this.bookmarkShortcutLabel() + '可收藏当前角色', 6000);
+                return entered;
+            } catch (error) {
+                if (!this.isCharacterSessionCurrent(expectedEpoch)) return false;
+                this.characterBookmarkToken = '';
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.hash = '';
+                window.history.replaceState({}, '', cleanUrl.toString());
+                this.showLogin = true;
+                this.loginError = error.message || '直达书签无效，请重新登录';
+                return false;
+            } finally {
+                if (this.isCharacterSessionCurrent(expectedEpoch))
+                    this.characterLoading = false;
+            }
+        },
+
+        async revokeCharacterBookmarks(characterId) {
+            if (!characterId || !this.accountToken || this.characterLoading)
+                return;
+            if (!window.confirm('撤销后，该人物以前保存和分享的直达书签都会失效。确定继续吗？'))
+                return;
+            this.characterLoading = true;
+            try {
+                const result = await this.postAccountApi(
+                    '/api/account/bookmark/revoke', {
+                        token: this.accountToken,
+                        character_id: characterId
+                    }
+                );
+                this.showNotification(result.message || '直达书签已撤销');
+            } catch (error) {
+                this.showNotification(error.message || '撤销失败，请重试');
+            } finally {
+                this.characterLoading = false;
+            }
         },
 
         // 显示通知消息
@@ -2366,12 +2513,59 @@ createApp({
 
         equipmentLevelClass(item) {
             const level = Math.max(0, Number(item?.level_requirement || 0));
+            if (level >= 200) return 'equipment-level-7';
+            if (level >= 160) return 'equipment-level-6';
             if (level >= 100) return 'equipment-level-5';
             if (level >= 80) return 'equipment-level-4';
             if (level >= 60) return 'equipment-level-3';
             if (level >= 40) return 'equipment-level-2';
             if (level >= 20) return 'equipment-level-1';
             return 'equipment-level-0';
+        },
+
+        progressionAuraTier(level) {
+            const parsed = Number(level);
+            const value = Math.max(1, Number.isFinite(parsed) ? parsed : 1);
+            if (value >= 250) return 7;
+            if (value >= 200) return 6;
+            if (value >= 160) return 5;
+            if (value >= 120) return 4;
+            if (value >= 90) return 3;
+            if (value >= 60) return 2;
+            if (value >= 30) return 1;
+            return 0;
+        },
+
+        petLevelAuraClass(pet) {
+            if (!pet || Number(pet.active || 0) !== 1) {
+                return 'pet-level-aura-0';
+            }
+            return 'pet-level-aura-' + this.progressionAuraTier(pet.level);
+        },
+
+        petRarityAuraClass(pet) {
+            if (!pet || Number(pet.active || 0) !== 1) {
+                return 'pet-rarity-aura-0';
+            }
+            const finiteNumber = (value) => {
+                const parsed = Number(value);
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+            const explicitRarity = finiteNumber(
+                pet.visual_rarity ?? pet.rare_level ?? pet.rarity ?? 0
+            );
+            const starRarity = Math.max(0, finiteNumber(pet.star) - 1);
+            const evolutionRarity = Math.max(0,
+                finiteNumber(pet.evolution) * 2);
+            const rarity = Math.max(0, Math.min(7,
+                Math.max(explicitRarity, starRarity, evolutionRarity)));
+            return 'pet-rarity-aura-' + rarity;
+        },
+
+        monsterLevelAuraClass(enemy) {
+            if (!enemy || !enemy.is_npc) return 'monster-level-aura-0';
+            return 'monster-level-aura-' +
+                this.progressionAuraTier(enemy.level);
         },
 
         getEquipmentImageUrl(item, slot) {
@@ -5188,15 +5382,9 @@ createApp({
         },
 
         playerLevelAuraClass() {
-            const level = Math.max(1, Number(this.playerStats?.level || 1));
-            if (level >= 250) return 'level-aura-7';
-            if (level >= 200) return 'level-aura-6';
-            if (level >= 160) return 'level-aura-5';
-            if (level >= 120) return 'level-aura-4';
-            if (level >= 90) return 'level-aura-3';
-            if (level >= 60) return 'level-aura-2';
-            if (level >= 30) return 'level-aura-1';
-            return 'level-aura-0';
+            return 'level-aura-' + this.progressionAuraTier(
+                this.playerStats?.level
+            );
         },
 
         // 将区号转换为可读格式 (tx01 -> 1区, tx02 -> 2区, etc.)
@@ -5273,6 +5461,26 @@ createApp({
         const txdParam = urlParams.get('txd');
         const useridParam = urlParams.get('userid');
         const charParam = urlParams.get('char');
+        // Fragment 不会进入HTTP访问日志。短期账号会话读取后立刻清除；
+        // 长期人物书签则保留在地址栏，方便跨浏览器复制和浏览器收藏。
+        const bookmarkFragment = new URLSearchParams(
+            window.location.hash ? window.location.hash.slice(1) : ''
+        );
+        const accountHandoff = bookmarkFragment.get('account_session') || '';
+        const characterBookmark =
+            bookmarkFragment.get('character_bookmark') || '';
+        if (/^[0-9a-f]{64}$/.test(characterBookmark)) {
+            this.characterBookmarkToken = characterBookmark;
+        } else if (/^[0-9a-f]{64}$/.test(accountHandoff)) {
+            this.accountToken = accountHandoff;
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.hash = '';
+            window.history.replaceState({}, '', cleanUrl.toString());
+        } else if (window.location.hash) {
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.hash = '';
+            window.history.replaceState({}, '', cleanUrl.toString());
+        }
 
         // 检测HTML模式（兼容自动浏览器）
         const modeParam = urlParams.get('mode');
@@ -5438,7 +5646,12 @@ createApp({
         const savedUser = this.loginForm.userid;
 
         // 自动登录条件：有txd且（来自URL 或 window.name 或 有保存的用户信息）
-        if (savedTxd && (txdFromUrl || txdFromWindowName || savedUser)) {
+        if (this.characterBookmarkToken && this.preselectedUserid &&
+            this.preselectedCharacterId) {
+            // 长期书签显式指定的人物优先于本标签任何历史TXD，避免打开B
+            // 的书签却先恢复A并把A的标签挤下线。
+            this.resumePersistentCharacterBookmark();
+        } else if (savedTxd && (txdFromUrl || txdFromWindowName || savedUser)) {
             // 有保存的登录信息或URL中有txd，自动恢复
             this.txd = savedTxd;
             this.loginForm.partition = savedPartition || 'tx01';
@@ -5484,6 +5697,8 @@ createApp({
             if (savedUser) {
                 this.loginForm.userid = savedUser;
             }
+            if (this.accountToken && this.preselectedCharacterId)
+                this.resumeCharacterBookmarkHandoff();
         }
     }
 }).mount('#app');

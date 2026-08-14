@@ -157,7 +157,7 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 	"luanniao":([
 		"name":"鸾鸟","icon":"🕊️","family":"灵","role":"疗愈",
 		"origin":"女床山五采瑞鸟，古籍记其现世象征安宁；本作以守护灵契作原创演绎。",
-		"skill":"回生羽","basic_attack":"灵翼拂","boss":0,"exchange":0,"hidden":1,
+		"skill":"回生羽","basic_attack":"灵羽回春","boss":0,"exchange":0,"hidden":1,
 		"skill_sets":({
 			({"回生羽","五采安魂","鸾音护命"}),
 			({"回生羽","女床清鸣","灵羽回光"}),

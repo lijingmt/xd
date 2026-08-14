@@ -61,8 +61,21 @@ int main()
 				missing += ({kind+"/"+base_name+" -> "+picture});
 		}
 	}
+	// 追赶装备不位于四类历史目录内，也必须具备旧JSP可直接加载的
+	// picture 资源；不能只依赖Vue装备面板的部位兜底。
+	string catchup_root=ROOT+"/gamelib/clone/item/catchup";
+	foreach(get_dir(catchup_root) || ({}),string base_name){
+		string base_file=catchup_root+"/"+base_name;
+		if(Stdio.file_size(base_file)<=0)
+			continue;
+		total++;
+		string picture=read_picture_name(
+			Stdio.read_file(base_file),base_name);
+		if(!image_exists_in_both_trees(picture))
+			missing += ({"catchup/"+base_name+" -> "+picture});
+	}
 	check("全部基础装备模型在源码与Web镜像中都有可加载图片",
-		total>=300 && !sizeof(missing),
+		total>=303 && !sizeof(missing),
 		"total="+total+" missing="+missing*" | ");
 
 	array(string) fallback_slots = ({

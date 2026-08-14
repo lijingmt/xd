@@ -27,6 +27,16 @@ int main(string arg)
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);	
 		return 1;
 	}
+	else if(functionp(ob->query_catchup_equipment) &&
+		ob->query_catchup_equipment() &&
+		!ob->query_catchup_can_equip(this_player())){
+		if(!ob->query_catchup_activated())
+			s += "追赶装备尚未激活，请先在追赶装备页面支付激活费用。\n";
+		else
+			s += "这件追赶装备已不属于你或已超过适用等级。\n";
+		this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
+		return 1;
+	}
 	//判断玩家的等级是否可以装载该等级武器
 	else if(this_player()->query_level()<ob->query_item_canLevel()){
 		s += "你的级别尚不能装备此物品\n";	

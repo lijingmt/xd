@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786704183079">
-    <link rel="stylesheet" href="css/app.css?v=v1786704183079">
-    <link rel="stylesheet" href="css/realm.css?v=v1786704183079">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786712544703">
+    <link rel="stylesheet" href="css/app.css?v=v1786712544703">
+    <link rel="stylesheet" href="css/realm.css?v=v1786712544703">
 </head>
 <body>
     <div id="app">
@@ -443,18 +443,20 @@
                                 {{ character.available === 0 ? '待恢复' : (character.id === currentCharacterId ? '当前' : (character.ready ? '进入' : '完成创建')) }}
                             </span>
                         </button>
-                        <button type="button"
-                                class="character-bookmark-btn"
-                                @click.stop="copyCharacterBookmarkUrl(character.id)"
-                                :disabled="characterLoading"
-                                aria-label="复制本角色直达书签"
-                                title="复制直达书签：auto-browser 存为快捷入口即可一键进入本角色">📋</button>
-                        <button type="button"
-                                class="character-new-tab-btn"
-                                @click.stop="openAccountCharacterInNewTab(character.id)"
-                                :disabled="characterLoading"
-                                aria-label="在新标签登录本角色"
-                                title="在新标签登录本角色，不会重复登录当前角色">↗</button>
+                        <div class="character-bookmark-actions">
+                            <button type="button"
+                                    class="character-bookmark-btn"
+                                    @click.stop="copyCharacterBookmarkUrl(character.id)"
+                                    :disabled="characterLoading"
+                                    aria-label="存书签并在新标签打开本角色"
+                                    title="存跨浏览器直达书签，并在新标签立即打开">存</button>
+                            <button type="button"
+                                    class="character-bookmark-btn character-bookmark-revoke-btn"
+                                    @click.stop="revokeCharacterBookmarks(character.id)"
+                                    :disabled="characterLoading"
+                                    aria-label="撤销本角色全部直达书签"
+                                    title="使本角色以前保存和分享的直达书签全部失效">撤</button>
+                        </div>
                     </div>
                     <button type="button"
                             class="character-card character-add"
@@ -652,6 +654,8 @@
                             :class="[
                                 'pet-family-' + getPetFamilyClass(slot.family),
                                 'pet-system-' + slot.system,
+                                petLevelAuraClass(slot),
+                                petRarityAuraClass(slot),
                                 { 'is-battle-active': Number(slot.battle_active || 0) === 1,
                                   'is-empty': Number(slot.active || 0) !== 1 }
                             ]"
@@ -659,7 +663,7 @@
                             :title="getPetSlotTitle(slot)"
                             :aria-label="getPetSlotTitle(slot)">
                         <span class="header-pet-system" aria-hidden="true">{{ slot.system === 'personal' ? '命' : '共' }}</span>
-                        <span class="header-pet-icon" aria-hidden="true">{{ slot.icon || (slot.system === 'personal' ? '✦' : '🐾') }}</span>
+                        <span class="header-pet-icon pet-avatar-aura" aria-hidden="true">{{ slot.icon || (slot.system === 'personal' ? '✦' : '🐾') }}</span>
                         <span class="header-pet-state" aria-hidden="true">{{ Number(slot.active || 0) !== 1 ? '未' : (Number(slot.battle_active || 0) === 1 ? '战' : '藏') }}</span>
                     </button>
                 </div>
@@ -1177,7 +1181,10 @@
                         :title="'展开战斗状态：' + (battleEnemy?.name || '目标识别中')"
                         aria-label="展开战斗状态">
                     <span aria-hidden="true">⚔️</span>
-                    <span v-if="battlePet" class="battle-dock-pet" aria-hidden="true">{{ battlePet.icon }}</span>
+                    <span v-if="battlePet"
+                          class="battle-dock-pet pet-avatar-aura"
+                          :class="[petLevelAuraClass(battlePet), petRarityAuraClass(battlePet)]"
+                          aria-hidden="true">{{ battlePet.icon }}</span>
                     <span class="battle-dock-percent">{{ getStatPercent(battleEnemy?.hp, battleEnemy?.hpMax) }}%</span>
                 </button>
                 <div v-if="hasRecentAoeReport"
@@ -1211,7 +1218,9 @@
                                  class="battle-pet-companion battle-pet-companion-mini"
                              :class="['pet-family-' + getPetFamilyClass(battlePet.family), 'pet-system-' + (battlePet.system || 'shared'), { 'is-ready': battlePet.cooldown_remaining <= 0 }]"
                              :title="battlePet.name + ' · ' + battlePet.skill + ' · ' + getPetAssistStatus(battlePet)">
-                            <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
+                            <span class="battle-pet-avatar pet-avatar-aura"
+                                  :class="[petLevelAuraClass(battlePet), petRarityAuraClass(battlePet)]"
+                                  aria-hidden="true">{{ battlePet.icon }}</span>
                             <span class="battle-pet-info">
                                 <strong>{{ battlePet.name }} · {{ getPetCultivationLabel(battlePet) }}</strong>
                                 <small>{{ getPetAssistStatus(battlePet) }}</small>
@@ -1282,6 +1291,10 @@
                     <div class="battle-vs">⚔️</div>
                     <div class="battle-side enemy-side">
                         <div class="battle-identity">
+                            <span class="battle-enemy-avatar monster-avatar-aura"
+                                  :class="monsterLevelAuraClass(battleEnemy)"
+                                  v-if="battleEnemy?.is_npc"
+                                  aria-hidden="true">👹</span>
                             <span class="battle-name">{{ battleEnemy?.name || '目标识别中' }}</span>
                             <span class="battle-level" v-if="battleEnemy?.level !== undefined">Lv.{{ battleEnemy.level }}</span>
                         </div>
@@ -1342,7 +1355,8 @@
                         <div class="combatant-vertical enemy-combatant" :class="{ 'damage-flash': hasDamageAnimation('enemy') }">
                             <div class="combatant-row">
                                 <div class="combatant-row-left">
-                                    <span class="combatant-avatar">{{ battleEnemy?.is_npc ? '👹' : '⚔️' }}</span>
+                                    <span class="combatant-avatar"
+                                          :class="battleEnemy?.is_npc ? ['monster-avatar-aura', monsterLevelAuraClass(battleEnemy)] : []">{{ battleEnemy?.is_npc ? '👹' : '⚔️' }}</span>
                                     <span class="combatant-name enemy-name">{{ battleEnemy?.name || '目标识别中' }}</span>
                                     <span class="battle-level" v-if="battleEnemy?.level !== undefined">Lv.{{ battleEnemy.level }}</span>
                                 </div>
@@ -1387,10 +1401,13 @@
                             <div v-if="battlePet"
                                  class="battle-pet-companion battle-pet-companion-full"
                              :class="['pet-family-' + getPetFamilyClass(battlePet.family), 'pet-system-' + (battlePet.system || 'shared'), { 'is-ready': battlePet.cooldown_remaining <= 0 }]">
-                                <span class="battle-pet-avatar" aria-hidden="true">{{ battlePet.icon }}</span>
+                                <span class="battle-pet-avatar pet-avatar-aura"
+                                      :class="[petLevelAuraClass(battlePet), petRarityAuraClass(battlePet)]"
+                                      aria-hidden="true">{{ battlePet.icon }}</span>
                                 <span class="battle-pet-info">
                                     <strong>{{ battlePet.name }} · {{ battlePet.role }} · {{ getPetCultivationLabel(battlePet) }}</strong>
                                     <small>{{ battlePet.skill }} · 战力{{ formatGameNumber(battlePet.power || 0) }} · {{ getPetAssistStatus(battlePet) }}</small>
+									<small v-if="battlePet.native_passive" class="battle-pet-native-passive">{{ battlePet.basic_skill }}：{{ battlePet.native_passive }}</small>
                                     <small v-if="Array.isArray(battlePet.runes) && battlePet.runes.length === 3">{{ battlePet.rune_mode || '当前' }}灵纹：{{ battlePet.runes.join(' · ') }}</small>
                                     <small v-if="battlePet.rune_effect" class="battle-pet-rune-desc">{{ battlePet.rune_effect }}</small>
                                 </span>
@@ -1558,12 +1575,27 @@
                          aria-modal="true"
                          aria-labelledby="equipment-panel-title">
                     <header class="equipment-panel-header">
-                        <div>
-                            <small>人物外观 · 快速换装</small>
-                            <h2 id="equipment-panel-title">{{ equipmentPanel?.player?.name_cn || '我的装备' }}</h2>
-                            <p v-if="equipmentPanel?.player">
-                                Lv.{{ equipmentPanel.player.level }} · {{ equipmentPanel.player.profession }}
-                            </p>
+                        <div class="equipment-panel-identity">
+                            <div class="player-avatar-shell equipment-panel-avatar"
+                                 :class="[
+                                     playerStats?.profession_assistant?.style_class || 'profession-style-none',
+                                     playerLevelAuraClass
+                                 ]"
+                                 aria-hidden="true">
+                                <img v-if="playerAvatarUrl && !playerAvatarFailed"
+                                     :src="playerAvatarUrl"
+                                     class="player-avatar-image"
+                                     alt=""
+                                     @error="handlePlayerAvatarError">
+                                <span v-else class="player-avatar-fallback">{{ playerAvatarFallback }}</span>
+                            </div>
+                            <div>
+                                <small>人物外观 · 快速换装</small>
+                                <h2 id="equipment-panel-title">{{ equipmentPanel?.player?.name_cn || '我的装备' }}</h2>
+                                <p v-if="equipmentPanel?.player">
+                                    Lv.{{ equipmentPanel.player.level }} · {{ equipmentPanel.player.profession }}
+                                </p>
+                            </div>
                         </div>
                         <button type="button"
                                 class="equipment-panel-close"
@@ -1875,19 +1907,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786704183079"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786704183079"></script>
-    <script src="vendor/howler.core.min.js?v=v1786704183079"></script>
-    <script src="vendor/driver.iife.js?v=v1786704183079"></script>
-    <script src="../includes/game-number-format.js?v=v1786704183079" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786712544703"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786712544703"></script>
+    <script src="vendor/howler.core.min.js?v=v1786712544703"></script>
+    <script src="vendor/driver.iife.js?v=v1786712544703"></script>
+    <script src="../includes/game-number-format.js?v=v1786712544703" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786704183079';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786712544703';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786704183079"></script>
+    <script src="js/app.js?v=v1786712544703"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786704183079"></script>
+    <script src="../includes/translate.js?v=v1786712544703"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

@@ -572,6 +572,9 @@ void test_legacy_jsp_worker_gateway_contract()
 		search(api,"auth_password = stored_password;")!=-1 &&
 		search(api,"auth_userid = String.trim_all_whites(userid);")!=-1 &&
 		search(api,"lower_case(String.trim_all_whites(userid))")==-1 &&
+		search(api,"user_name = lower_case(user_name);")==-1 &&
+		search(api,
+			"user_name = String.trim_all_whites(user_name || \"\");")!=-1 &&
 		search(api,"auth[\"password\"]!=stored_password")!=-1 &&
 		search(api,"search(request_id,userid+\"_\")!=0")!=-1;
 	foreach(pages,string page){

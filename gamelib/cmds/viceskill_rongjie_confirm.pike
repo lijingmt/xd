@@ -24,6 +24,11 @@ int main(string|zero arg)
 		s += "你身上已没有该物品\n";
 		s += "\n[继续熔解:viceskill_rongjie_list]\n";
 	}
+	else if(functionp(ob->query_catchup_equipment) &&
+		ob->query_catchup_equipment()){
+		s += "追赶装备为绑定过渡物品，不能熔解。\n";
+		s += "[返回:viceskill_rongjie_list]\n";
+	}
 	else if(flag == 0){
 		s += ob->query_name_cn()+"\n";
 		s += ob->query_desc()+"\n";

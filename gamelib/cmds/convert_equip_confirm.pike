@@ -45,6 +45,9 @@ int main(string|zero arg)
 	*/
 	array(object) all_obj = all_inventory(me);
 	foreach(all_obj,object ob){
+		if(ob && functionp(ob->query_catchup_equipment) &&
+		   ob->query_catchup_equipment())
+			continue;
 		//if(ob && ob->query_item_rareLevel()>0 && !ob["equiped"])
 		if(ob && ITEMSD->can_equip(ob) &&((ob->query_item_rareLevel()>0)||(ob->query_item_canLevel()>=1&&(sizeof(ob->query_name_cn()/"】"))==1))){
 			if(ob->query_name() == item_name){

@@ -362,6 +362,128 @@ void handle_api_account_character_select(Protocols.HTTP.Server.Request req)
 	]));
 }
 
+void handle_api_account_bookmark_create(Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	string token;
+	string account_id;
+	string character_id;
+	string account_password;
+	mapping result;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST创建直达书签"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = lower_case(String.trim_all_whites(
+		(string)(params["token"] || "")));
+	account_id = query_account_session(token);
+	character_id = String.trim_all_whites(
+		(string)(params["character_id"] || ""));
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	if(!ACCOUNT_CHARACTERD->account_owns_character(account_id,character_id)){
+		send_json(req,(["error":"人物不属于当前账号"]),403);
+		return;
+	}
+	account_password = get_user_password(account_id);
+	if(!account_password || account_password==""){
+		send_json(req,(["error":"账号认证档案不可用"]),409);
+		return;
+	}
+	result = ACCOUNT_CHARACTERD->create_character_bookmark(account_id,
+		character_id,account_password);
+	if(!(int)result["ok"]){
+		send_json(req,(["error":result["message"] ||
+			"直达书签创建失败"]),500);
+		return;
+	}
+	// 原始书签令牌只在这一次TLS响应里返回。服务端磁盘只保存摘要。
+	send_json(req,result,201);
+}
+
+void handle_api_account_bookmark_open(Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	string requested_id;
+	string account_id;
+	string character_id;
+	string bookmark_token;
+	string account_password;
+	string character_password;
+	string bootstrap_command;
+	mapping verified;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST打开直达书签"]),405);
+		return;
+	}
+	params = get_params(req);
+	requested_id = String.trim_all_whites(
+		(string)(params["userid"] || ""));
+	character_id = String.trim_all_whites(
+		(string)(params["character_id"] || ""));
+	bookmark_token = lower_case(String.trim_all_whites(
+		(string)(params["bookmark_token"] || "")));
+	account_id = ACCOUNT_CHARACTERD->query_account_id_for_character(
+		requested_id);
+	account_password = get_user_password(account_id);
+	verified = ACCOUNT_CHARACTERD->verify_character_bookmark(account_id,
+		character_id,bookmark_token,account_password);
+	if(!(int)verified["ok"]){
+		// 不区分账号、人物、令牌和密码变更，避免书签入口泄露档案存在性。
+		send_json(req,(["error":"直达书签无效、已撤销或账号密码已修改"]),401);
+		return;
+	}
+	character_password = get_user_password(character_id);
+	if(!character_password || character_password==""){
+		send_json(req,(["error":"人物物理档案不可用"]),409);
+		return;
+	}
+	bootstrap_command = ACCOUNT_CHARACTERD->query_bootstrap_command(
+		account_id,character_id);
+	ACCOUNT_CHARACTERD->clear_recent_forced_logout(character_id);
+	send_json(req,([
+		"ok":1,
+		"account_id":account_id,
+		"character_id":character_id,
+		"txd":generate_txd(character_id,character_password),
+		"bootstrap_command":bootstrap_command,
+	]));
+}
+
+void handle_api_account_bookmark_revoke(Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	string token;
+	string account_id;
+	string character_id;
+	mapping result;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST撤销直达书签"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = lower_case(String.trim_all_whites(
+		(string)(params["token"] || "")));
+	account_id = query_account_session(token);
+	character_id = String.trim_all_whites(
+		(string)(params["character_id"] || ""));
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	result = ACCOUNT_CHARACTERD->revoke_character_bookmarks(account_id,
+		character_id);
+	if(!(int)result["ok"]){
+		send_json(req,(["error":result["message"] ||
+			"直达书签撤销失败"]),409);
+		return;
+	}
+	send_json(req,result);
+}
+
 void handle_api_account_logout(Protocols.HTTP.Server.Request req)
 {
 	if(req->request_type!="POST"){
