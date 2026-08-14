@@ -269,6 +269,57 @@ int main()
 		if(restored_newmoon)
 			destruct(restored_newmoon);
 
+		object starshine_gear = clone(ROOT+
+			"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
+		int starshine_marked = starshine_gear->
+			set_newmoon_collection("starshine");
+		int starshine_bound = ITEMSD->bind_newmoon_item_to_player(
+			starshine_gear,child_player,"socket");
+		int starshine_stored = !child_player->packaged(starshine_gear,20);
+		destruct(starshine_gear);
+		mapping starshine_personal = ACCOUNT_STORAGED->query_storage(
+			child_player);
+		string starshine_item_id = "";
+		array starshine_item_data = ({});
+		foreach((array)starshine_personal["personal_items"],
+		   array personal_item)
+			if(sizeof(personal_item)>10 &&
+			   (string)personal_item[10]["collection_id"]=="starshine"){
+				starshine_item_id=(string)personal_item[7];
+				starshine_item_data=copy_value(personal_item);
+				break;
+			}
+		mapping starshine_to_shared=ACCOUNT_STORAGED->transfer_to_shared(
+			child_player,starshine_item_id);
+		ACCOUNT_STORAGED->drop_test_cache(account_id);
+		mapping starshine_shared=ACCOUNT_STORAGED->query_storage(root_player);
+		int starshine_shared_snapshot=0;
+		foreach((array)starshine_shared["items"],mapping shared_item)
+			if((string)shared_item["id"]==starshine_item_id &&
+			   sizeof((array)shared_item["data"])==11 &&
+			   shared_item["data"][10]["collection_id"]=="starshine")
+				starshine_shared_snapshot=1;
+		mapping starshine_to_root=ACCOUNT_STORAGED->transfer_to_personal(
+			root_player,starshine_item_id);
+		object restored_starshine=root_player->repackaged_by_storage_id(
+			starshine_item_id);
+		check("账号绑定曜星装备跨共享仓库保持绑定与二阶品质双快照",
+			starshine_marked && starshine_bound==2 && starshine_stored &&
+			sizeof(starshine_item_data)==11 &&
+			mappingp(starshine_item_data[9]) &&
+			starshine_item_data[9]["owner"]==account_id &&
+			mappingp(starshine_item_data[10]) &&
+			starshine_item_data[10]["collection_id"]=="starshine" &&
+			starshine_to_shared["ok"] && starshine_shared_snapshot &&
+			starshine_to_root["ok"] && objectp(restored_starshine) &&
+			restored_starshine->query_newmoon_account_bound() &&
+			restored_starshine->query_newmoon_account_bind_owner()==account_id &&
+			restored_starshine->query_newmoon_collection_id()=="starshine" &&
+			restored_starshine->query_newmoon_collection_rank()==2,
+			"绑定或集合快照在角色/共享仓库往返中丢失");
+		if(restored_starshine)
+			destruct(restored_starshine);
+
 		array foreign_bound_data = copy_value(newmoon_item_data);
 		foreign_bound_data[7] = "";
 		foreign_bound_data[9]["owner"] = "xd98foreignaccount";

@@ -173,6 +173,24 @@ string query_short(){
 			display_name = prefix + display_name;
 		}
 	}
+	if(functionp(this_object()->query_newmoon_resonance_profession) &&
+	   this_object()->query_newmoon_resonance_profession()!="" &&
+	   functionp(this_object()->query_newmoon_collection_name) &&
+	   functionp(this_object()->query_newmoon_collection_quality) &&
+	   functionp(this_object()->query_newmoon_resonance_profession_cn)){
+		string profession_cn=this_object()->
+			query_newmoon_resonance_profession_cn();
+		string legacy_prefix="【新月·"+profession_cn+"】";
+		int legacy_position=search(display_name,legacy_prefix);
+		if(legacy_position==0)
+			display_name=display_name[sizeof(legacy_prefix)..];
+		else if(legacy_position>0)
+			display_name=display_name[..legacy_position-1]+
+				display_name[legacy_position+sizeof(legacy_prefix)..];
+		display_name="【"+this_object()->query_newmoon_collection_name()+
+			"·"+this_object()->query_newmoon_collection_quality()+"·"+
+			profession_cn+"】"+display_name;
+	}
 	return "一"+unit+display_name+s;
 }
 void remove(void|int judgement){

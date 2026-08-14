@@ -181,6 +181,15 @@ private int valid_newmoon_binding_snapshot(mapping snapshot)
 	}),reason);
 }
 
+private int valid_newmoon_collection_snapshot(mapping snapshot)
+{
+	if(!mappingp(snapshot) || sizeof(snapshot)!=2 ||
+	   (int)snapshot["version"]!=1 || !stringp(snapshot["collection_id"]))
+		return 0;
+	return has_value(({"starshine","firmament","greatvoid",
+		"primordial","hongmeng"}),(string)snapshot["collection_id"]);
+}
+
 private string personal_newmoon_binding_owner(array data)
 {
 	if(arrayp(data) && sizeof(data)>9 && mappingp(data[9]) &&
@@ -192,7 +201,7 @@ private string personal_newmoon_binding_owner(array data)
 private int valid_personal_data(array data)
 {
 	if(!arrayp(data) || sizeof(data)<7 ||
-	   sizeof(data)>10 ||
+	   sizeof(data)>11 ||
 	   !stringp(data[0]) || !stringp(data[1]) ||
 	   !stringp(data[2]) || !stringp(data[3]) ||
 	   !valid_relative_item_path((string)data[3]))
@@ -231,9 +240,12 @@ private int valid_personal_data(array data)
 					return 0;
 		}
 	}
-	if(sizeof(data)>9 &&
-	   (!mappingp(data[9]) ||
-	    !valid_newmoon_binding_snapshot(data[9])))
+	if(sizeof(data)>9 && (!mappingp(data[9]) ||
+	   (sizeof(data[9]) && !valid_newmoon_binding_snapshot(data[9]))))
+		return 0;
+	if(sizeof(data)>10 &&
+	   (!mappingp(data[10]) ||
+	    !valid_newmoon_collection_snapshot(data[10])))
 		return 0;
 	return 1;
 }

@@ -98,8 +98,22 @@ private mapping(int:array(string)) item_list = ([]);
 // 新月套装使用独立稀有池。底版仍登记在 orgItems.list 供动态装备
 // 生成器复用，但绝不能混进对应等级的普通白装池。
 private array(string) newmoon_item_list = ({});
-private int newmoon_drop_min_level = 69;
-private int newmoon_drop_denominator = 1000;
+private int enabled_newmoon_collection_count = 2;
+private int newmoon_drop_denominator = 300000;
+private array(mapping(string:mixed)) newmoon_collection_catalog = ({
+	(["id":"newmoon","name":"新月","quality":"稀世","rank":1,
+		"min_level":69,"min_affixes":1,"weight":300]),
+	(["id":"starshine","name":"曜星","quality":"绝世","rank":2,
+		"min_level":90,"min_affixes":2,"weight":100]),
+	(["id":"firmament","name":"天穹","quality":"传说","rank":3,
+		"min_level":110,"min_affixes":3,"weight":30]),
+	(["id":"greatvoid","name":"太虚","quality":"神话","rank":4,
+		"min_level":130,"min_affixes":4,"weight":10]),
+	(["id":"primordial","name":"太初","quality":"太古","rank":5,
+		"min_level":160,"min_affixes":5,"weight":3]),
+	(["id":"hongmeng","name":"鸿蒙","quality":"至尊","rank":6,
+		"min_level":200,"min_affixes":6,"weight":1]),
+});
 
 //记录白色装备允许出现属性的映射表
 private mapping(string:array(string)) item_attributes = ([]);
@@ -335,15 +349,59 @@ int query_newmoon_equipment_drop_denominator()
 	return newmoon_drop_denominator;
 }
 
+int query_enabled_newmoon_collection_count()
+{
+	return enabled_newmoon_collection_count;
+}
+
+array(mapping(string:mixed)) query_newmoon_collection_catalog()
+{
+	return copy_value(newmoon_collection_catalog[
+		..enabled_newmoon_collection_count-1]);
+}
+
 int query_newmoon_equipment_template_count()
 {
 	return sizeof(newmoon_item_list);
 }
 
+mapping(string:mixed) query_newmoon_collection_for_roll(int npclevel,int roll)
+{
+	int cursor=0;
+	if(roll<1 || roll>newmoon_drop_denominator ||
+	   sizeof(newmoon_item_list)!=120)
+		return ([]);
+	for(int index=enabled_newmoon_collection_count-1;index>=0;index--){
+		mapping collection=newmoon_collection_catalog[index];
+		cursor+=(int)collection["weight"];
+		if(roll<=cursor)
+			return npclevel>=(int)collection["min_level"] ?
+				copy_value(collection) : ([]);
+	}
+	return ([]);
+}
+
+string query_newmoon_collection_id_for_roll(int npclevel,int roll)
+{
+	mapping collection=query_newmoon_collection_for_roll(npclevel,roll);
+	return (string)(collection["id"] || "");
+}
+
 int can_drop_newmoon_equipment(int npclevel,int roll)
 {
-	return npclevel>=newmoon_drop_min_level &&
-		roll==1 && sizeof(newmoon_item_list)==120;
+	return sizeof(query_newmoon_collection_for_roll(npclevel,roll))>0;
+}
+
+private mapping(string:mixed) query_newmoon_collection_for_item(object item)
+{
+	string collection_id;
+	if(!item || !functionp(item->query_newmoon_collection_id))
+		return ([]);
+	collection_id=(string)item->query_newmoon_collection_id();
+	foreach(newmoon_collection_catalog,mapping collection)
+		if((string)collection["id"]==collection_id)
+			return copy_value(collection);
+	return ([]);
 }
 
 //由liaocheng于07/2/7添加，内部接口，被create()调用，用于读入特殊物品文件索引到spec_item_list映射表
@@ -439,9 +497,11 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 		if(itemlevel==0)
 			return 0;
 		int newmoon_roll=random(query_newmoon_equipment_drop_denominator())+1;
-		if(can_drop_newmoon_equipment(npclevel,newmoon_roll)){
+		mapping newmoon_collection=query_newmoon_collection_for_roll(
+			npclevel,newmoon_roll);
+		if(sizeof(newmoon_collection)){
 			item_rawname=newmoon_item_list[random(sizeof(newmoon_item_list))];
-			itemlevel=newmoon_drop_min_level;
+			itemlevel=69;
 		}
 		else{
 			itemsallow=item_list[itemlevel];
@@ -463,24 +523,20 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 		int one = (int)((1080-a*16)*20+playerluck*b*1);
 		//int one = (int)((2160-a*16)*20+playerluck*b*1);
 		int ran=random(100000)+1;
+		int attribute_count=1;
+		if(ran<=seven) attribute_count=7;
+		else if(ran<=six) attribute_count=6;
+		else if(ran<=five) attribute_count=5;
+		else if(ran<=four) attribute_count=4;
+		else if(ran<=three) attribute_count=3;
+		else if(ran<=two) attribute_count=2;
+		else if(ran<=one) attribute_count=1;
+		if(sizeof(newmoon_collection))
+			attribute_count=max(attribute_count,
+				(int)newmoon_collection["min_affixes"]);
 		//get_attributes_item最后两项为原始装备的等级，以及目标NPC等级
-		if(ran<=seven)
-			ret_item=get_attributes_item(item_rawname,7,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else if(ran<=six)
-			ret_item=get_attributes_item(item_rawname,6,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else if(ran<=five)
-			ret_item=get_attributes_item(item_rawname,5,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else if(ran<=four)
-			ret_item=get_attributes_item(item_rawname,4,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else if(ran<=three)
-			ret_item=get_attributes_item(item_rawname,3,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else if(ran<=two)
-			ret_item=get_attributes_item(item_rawname,2,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else if(ran<=one)
-			ret_item=get_attributes_item(item_rawname,1,itemlevel,npclevel); //调用了获得属性物品的核心接口
-		else
-			ret_item=get_attributes_item(item_rawname,1,itemlevel,npclevel); 
-			//ret_item=clone(ITEM_PATH+item_rawname); //产生白物品
+		ret_item=get_attributes_item(item_rawname,attribute_count,itemlevel,
+			npclevel,0,newmoon_collection);
 
 		return ret_item;
 	}
@@ -1106,7 +1162,9 @@ string get_item_name_prefix(int level, void|object ob){
 // 核心，重点：本方法是扩展后的方法，可以生成73级以上的装备，计算差额随机的方式 浮动各个数据，其中73级内的是在系统内固定写死的，73以上的则自动生成
 // 核心重点： orginal_level为73级以前的原始装备等级，target_item_level则为目标生成的高于73级以上的装备，用差额来计算浮动数字
 //如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
-private object get_attributes_item(string orgitem,int num,int|void orginal_level,int|void target_item_level, void|object item_ob)
+private object get_attributes_item(string orgitem,int num,
+	int|void orginal_level,int|void target_item_level,void|object item_ob,
+	void|mapping newmoon_collection)
 {	
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
@@ -1195,6 +1253,9 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 		// 形成低级装备跨等级刷属性和货架所见非所得。
 		if(target_item_level>73 || target_item_level!=orginal_level)
 			item_name=orgitem+postfix+"_"+target_item_level; //得到了完整的物品文件名,大于73的后面加后缀等级
+		if(mappingp(newmoon_collection) && sizeof(newmoon_collection) &&
+		   (int)newmoon_collection["rank"]>1)
+			item_name+="_nm"+(string)(int)newmoon_collection["rank"];
 		
 
 		if(Stdio.exist(ITEM_PATH+item_name)){
@@ -1210,6 +1271,13 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 				rtn_ob->set_item_canLevel(target_item_level);
 			// 即使装备已存在，也要检查并添加中立玩家职业
 			if(rtn_ob) {
+				if(mappingp(newmoon_collection) && sizeof(newmoon_collection) &&
+				   functionp(rtn_ob->set_newmoon_collection) &&
+				   !rtn_ob->set_newmoon_collection(
+					(string)newmoon_collection["id"])){
+					destruct(rtn_ob);
+					return 0;
+				}
 				array(string) profs = rtn_ob->query_item_profeLimit();
 				if(profs && sizeof(profs) > 0 && search(profs, "fangshi") == -1) {
 					rtn_ob->set_item_profeLimit("fangshi");
@@ -1552,6 +1620,17 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 							"    set_item_profeLimit(\"lingyi\");\n" +
 							writeback[last_brace..];
 				}
+				if(mappingp(newmoon_collection) && sizeof(newmoon_collection) &&
+				   (int)newmoon_collection["rank"]>1){
+					int last_brace=search(writeback,"\n}\n");
+					if(last_brace==-1)
+						last_brace=search(writeback,"}\n");
+					if(last_brace!=-1)
+						writeback=writeback[..last_brace-1]+
+							"    set_newmoon_collection(\""+
+							(string)newmoon_collection["id"]+"\");\n"+
+							writeback[last_brace..];
+				}
 
 				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
 
@@ -1570,6 +1649,14 @@ private object get_attributes_item(string orgitem,int num,int|void orginal_level
 						//将新生成对象加入master的总对象影射中
 						master()->programs[new_item_path]=p;
 						rtn_ob=clone(p);
+						if(rtn_ob && mappingp(newmoon_collection) &&
+						   sizeof(newmoon_collection) &&
+						   functionp(rtn_ob->set_newmoon_collection) &&
+						   !rtn_ob->set_newmoon_collection(
+							(string)newmoon_collection["id"])){
+							destruct(rtn_ob);
+							rtn_ob=0;
+						}
 					}
 					//werror("$$$$$$$$$$$$$$$$创建新物品结束$$$$$$$$$$$$$$$$$$$$\n");
 					if(!rtn_ob){
@@ -1687,7 +1774,9 @@ object get_ronglian_item(int itemlevel,int playerluck)
 //这个接口也是获得num属性指定装备的接口
 object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level, void|object item_ob)
 {
-	object ret_item = get_attributes_item(item_rawname,num,orginal_level,item_level,item_ob);//生成目标itemlevel大于70级的装备
+	mapping newmoon_collection=query_newmoon_collection_for_item(item_ob);
+	object ret_item = get_attributes_item(item_rawname,num,orginal_level,
+		item_level,item_ob,newmoon_collection);//生成目标itemlevel大于70级的装备
 	return ret_item;
 }
 

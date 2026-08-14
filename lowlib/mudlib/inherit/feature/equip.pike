@@ -4,11 +4,11 @@
 //中所有然木剑生成的object都具有这个属性，没必要存储起来
 //除非属于该物品装备状态的特殊属性是会变化，而且需要存储，比如磨损程度等
 private int attack_power=0;//武器伤害基础值
-int query_attack_power(){ return attack_power;}
+int query_attack_power(){ return scale_newmoon_collection_base(attack_power);}
 void set_attack_power(int a){ attack_power=a;}
 
 private int attack_power_limit=0;//武器伤害上限值
-int query_attack_power_limit(){ return attack_power_limit;}
+int query_attack_power_limit(){ return scale_newmoon_collection_base(attack_power_limit);}
 void set_attack_power_limit(int a){ attack_power_limit=a;}
 
 private int speed_power=0;//武器攻击速度,可能会变化，需要存储
@@ -16,7 +16,8 @@ int query_speed_power(){ return speed_power;}
 void set_speed_power(int a){ speed_power=a;}
 
 private int equip_defend=0;//防具的防御力
-int query_equip_defend(){ return equip_defend+(query_defend_add()==0?0:query_defend_add());}
+int query_equip_defend(){ return scale_newmoon_collection_base(equip_defend)+
+	(query_defend_add()==0?0:query_defend_add());}
 void set_equip_defend(int a){ equip_defend=a;}
 
 // 新月装备职业共鸣使用既有 dbase 扩展区保存，不能在这里新增顶层
@@ -24,6 +25,102 @@ void set_equip_defend(int a){ equip_defend=a;}
 // 的 equiped 等字段错位。没有共鸣数据的全部旧装备始终返回 0 加成。
 #define NEWMOON_RESONANCE_ROOT "/item_newmoon/resonance"
 #define NEWMOON_BINDING_ROOT "/item_newmoon/binding"
+
+int is_newmoon_collection_id(string collection_id)
+{
+	return search(({
+		"newmoon","starshine","firmament","greatvoid","primordial",
+		"hongmeng",
+	}),collection_id)!=-1;
+}
+
+string query_newmoon_collection_id()
+{
+	string collection_id=(string)(this_object()[
+		NEWMOON_RESONANCE_ROOT+"/collection/id"] || "");
+	return is_newmoon_collection_id(collection_id) ? collection_id : "newmoon";
+}
+
+int query_newmoon_collection_rank()
+{
+	switch(query_newmoon_collection_id()){
+		case "starshine": return 2;
+		case "firmament": return 3;
+		case "greatvoid": return 4;
+		case "primordial": return 5;
+		case "hongmeng": return 6;
+	}
+	return 1;
+}
+
+string query_newmoon_collection_name()
+{
+	switch(query_newmoon_collection_id()){
+		case "starshine": return "曜星";
+		case "firmament": return "天穹";
+		case "greatvoid": return "太虚";
+		case "primordial": return "太初";
+		case "hongmeng": return "鸿蒙";
+	}
+	return "新月";
+}
+
+string query_newmoon_collection_quality()
+{
+	switch(query_newmoon_collection_id()){
+		case "starshine": return "绝世";
+		case "firmament": return "传说";
+		case "greatvoid": return "神话";
+		case "primordial": return "太古";
+		case "hongmeng": return "至尊";
+	}
+	return "稀世";
+}
+
+int query_newmoon_collection_quality_percent()
+{
+	switch(query_newmoon_collection_id()){
+		case "starshine": return 105;
+		case "firmament": return 110;
+		case "greatvoid": return 116;
+		case "primordial": return 123;
+		case "hongmeng": return 132;
+	}
+	return 100;
+}
+
+int scale_newmoon_collection_base(int value)
+{
+	if(value<=0 || query_newmoon_resonance_profession()=="")
+		return value;
+	return value*query_newmoon_collection_quality_percent()/100;
+}
+
+int set_newmoon_collection(string collection_id)
+{
+	if(query_newmoon_resonance_profession()=="" ||
+	   !is_newmoon_collection_id(collection_id))
+		return 0;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/collection/id"]=collection_id;
+	return 1;
+}
+
+mapping(string:mixed) query_newmoon_storage_collection_snapshot()
+{
+	if(query_newmoon_resonance_profession()=="" ||
+	   query_newmoon_collection_id()=="newmoon")
+		return ([]);
+	return (["version":1,"collection_id":query_newmoon_collection_id()]);
+}
+
+int restore_newmoon_storage_collection_snapshot(mapping snapshot)
+{
+	if(!mappingp(snapshot) || sizeof(snapshot)!=2 ||
+	   (int)snapshot["version"]!=1 ||
+	   !stringp(snapshot["collection_id"]))
+		return 0;
+	return set_newmoon_collection((string)snapshot["collection_id"]);
+}
 
 int is_newmoon_binding_owner(string owner)
 {
@@ -297,7 +394,8 @@ string query_newmoon_set_name()
 	string theme=query_newmoon_resonance_theme();
 	if(profession_cn=="" || theme=="")
 		return "";
-	return "新月·"+profession_cn+"·"+theme;
+	return query_newmoon_collection_name()+"·"+
+		query_newmoon_collection_quality()+"·"+profession_cn+"·"+theme;
 }
 
 int query_newmoon_set_piece_count()
@@ -305,6 +403,7 @@ int query_newmoon_set_piece_count()
 	object owner=environment(this_object());
 	string profession=query_newmoon_resonance_profession();
 	string theme=query_newmoon_resonance_theme();
+	string collection_id=query_newmoon_collection_id();
 	int count=0;
 	array(object) counted=({});
 	mapping(string:int) counted_slots=([]);
@@ -322,8 +421,10 @@ int query_newmoon_set_piece_count()
 		   search(counted,item)==-1 &&
 		   functionp(item->query_newmoon_resonance_profession) &&
 		   functionp(item->query_newmoon_resonance_theme) &&
+		   functionp(item->query_newmoon_collection_id) &&
 		   item->query_newmoon_resonance_profession()==profession &&
-		   item->query_newmoon_resonance_theme()==theme){
+		   item->query_newmoon_resonance_theme()==theme &&
+		   item->query_newmoon_collection_id()==collection_id){
 			count++;
 			counted+=({item});
 			counted_slots[slot]=1;
@@ -891,7 +992,12 @@ int query_convert_limit(){return convert_limit;}
 int is_equip(){return 1;}
 
 int query_weapon_attack(){
-	return attack_power+random(attack_power_limit-attack_power+1);
+	int current_attack_power=query_attack_power();
+	int current_attack_power_limit=query_attack_power_limit();
+	if(current_attack_power_limit<current_attack_power)
+		current_attack_power_limit=current_attack_power;
+	return current_attack_power+
+		random(current_attack_power_limit-current_attack_power+1);
 }
 //装备的磨损计算
 void reduce_power(int power){
@@ -912,8 +1018,11 @@ string query_content(){
 		return r;
 	if(ob->query_newmoon_resonance_profession()!=""){
 		int resonance_active=ob->query_newmoon_resonance_active();
-		r+="【新月共鸣·"+ob->query_newmoon_resonance_theme()+"】"+
+		r+="【"+ob->query_newmoon_collection_name()+"共鸣·"+
+			ob->query_newmoon_resonance_theme()+"】"+
 			ob->query_newmoon_resonance_profession_cn()+"契合\n";
+		r+="【套装品质】"+ob->query_newmoon_collection_quality()+
+			"（"+(string)ob->query_newmoon_collection_rank()+"阶）\n";
 		if(ob->query_newmoon_account_bound())
 			r+="【账号绑定】同注册账号共享仓库可用；不可丢弃、赠送、交易或拍卖\n";
 		else

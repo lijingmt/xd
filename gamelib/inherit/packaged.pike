@@ -62,14 +62,22 @@ int packaged(object ob, int user_p_level){
 			mapping binding_snapshot = functionp(
 				ob->query_newmoon_storage_binding_snapshot) ?
 				ob->query_newmoon_storage_binding_snapshot() : ([]);
+			mapping collection_snapshot = functionp(
+				ob->query_newmoon_storage_collection_snapshot) ?
+				ob->query_newmoon_storage_collection_snapshot() : ([]);
 			// 第8列预留永久物品ID；共享仓库首次读取时原位填入。
-			if(mappingp(binding_snapshot) && sizeof(binding_snapshot) &&
+			if(((mappingp(binding_snapshot) && sizeof(binding_snapshot)) ||
+			   (mappingp(collection_snapshot) && sizeof(collection_snapshot))) &&
 			   (!mappingp(gem_snapshot) || !sizeof(gem_snapshot)))
 				gem_snapshot=empty_storage_gem_snapshot();
 			if(mappingp(gem_snapshot) && sizeof(gem_snapshot)){
 				item_data += ({"",copy_value(gem_snapshot)});
-				if(mappingp(binding_snapshot) && sizeof(binding_snapshot))
-					item_data += ({copy_value(binding_snapshot)});
+				if((mappingp(binding_snapshot) && sizeof(binding_snapshot)) ||
+				   (mappingp(collection_snapshot) && sizeof(collection_snapshot)))
+					item_data += ({mappingp(binding_snapshot) ?
+						copy_value(binding_snapshot) : ([])});
+				if(mappingp(collection_snapshot) && sizeof(collection_snapshot))
+					item_data += ({copy_value(collection_snapshot)});
 			}
 		}
 	}
@@ -138,10 +146,19 @@ object repackaged(string name){
 							return 0;
 						}
 						if(sizeof(stored)>9 && mappingp(stored[9]) &&
+						   sizeof(stored[9]) &&
 						   (!functionp(
 						      ob->restore_newmoon_storage_binding_snapshot) ||
 						    !ob->restore_newmoon_storage_binding_snapshot(
 							stored[9]))){
+							destruct(ob);
+							return 0;
+						}
+						if(sizeof(stored)>10 && mappingp(stored[10]) &&
+						   (!functionp(
+						      ob->restore_newmoon_storage_collection_snapshot) ||
+						    !ob->restore_newmoon_storage_collection_snapshot(
+							stored[10]))){
 							destruct(ob);
 							return 0;
 						}
