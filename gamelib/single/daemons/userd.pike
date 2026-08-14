@@ -359,8 +359,9 @@ void do_remove(object me)
 void do_login(object me)
 {
 	check_daily(me);
-	// 默认关闭且只匹配管理员批准的证据白名单；每个人物最多结案一次。
-	mixed jade_recovery_err=catch{ JADE_RECOVERYD->apply_if_listed(me); };
+	// 登录时只按当前人物的精确漏洞日志证据审计；不依赖人工候选
+	// 名单，不以玉多、频率或余额差额单独判定。每个人物永久结案一次。
+	mixed jade_recovery_err=catch{ JADE_RECOVERYD->apply_on_login(me); };
 	if(jade_recovery_err)
 		werror("[JADE_RECOVERY] login hook failed safely userid=%s error=%s\n",
 			me && functionp(me->query_name) ? (string)me->query_name() :

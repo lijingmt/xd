@@ -1,9 +1,11 @@
 /**
  * Evidence-gated, one-time recovery of historically minted physical jade.
  *
- * This daemon never infers guilt from a balance or activity level. It only
- * accepts an explicitly approved runtime manifest produced by the offline
- * audit tool. Shared recharge balance and future jade are never touched.
+ * This daemon never infers guilt from a balance or activity level. Historical
+ * conversion logs must prove the exact amount minted by the old 2 -> 20 split
+ * bug. On login the player's live personal holdings and all_fee allowance are
+ * checked, then the case is permanently closed exactly once. The old approved
+ * manifest remains a rollback-compatible input, but is no longer required.
  */
 
 #include <globals.h>
@@ -21,15 +23,26 @@ inherit LOW_DAEMON;
 #define RECOVERY_CACHE_SECONDS 5
 #define RECOVERY_COMPENSATION_VIP_LEVEL 4
 #define RECOVERY_COMPENSATION_SECONDS 2592000
+#define RECOVERY_AUTO_CUTOFF_MONTH 202608
+#define RECOVERY_AUTO_CUTOFF_DATE "2026-08-01"
+#define RECOVERY_AUTO_LOG_FILE_MAX_SIZE (8*1024*1024)
+#define RECOVERY_AUTO_LOG_TOTAL_MAX_SIZE (64*1024*1024)
+#define RECOVERY_AUTO_REG_FILE_MAX_SIZE (4*1024*1024)
+#define RECOVERY_AUTO_MAX_EVENTS 200000
 
 private Thread.Mutex manifest_lock=Thread.Mutex();
 private mapping(string:mixed) cached_manifest=([]);
 private int cached_manifest_mtime=-1;
 private int cached_manifest_checked_at;
 private mapping(string:mixed)|zero test_manifest_override;
+private Thread.Mutex auto_evidence_lock=Thread.Mutex();
+private mapping(string:mixed) auto_evidence_index=([]);
+private int auto_evidence_loaded;
+private mapping(string:mixed)|zero test_auto_evidence_override;
 
 protected void create()
 {
+	call_out(warm_auto_evidence,1);
 }
 
 private int valid_userid(string value)
@@ -93,6 +106,330 @@ private string recovery_digest(string value)
 	object hash=Crypto.SHA256();
 	hash->update(value || "");
 	return lower_case(String.string2hex(hash->digest()));
+}
+
+private int safe_regular_file(string path,int max_size)
+{
+	Stdio.Stat stat;
+	if(!path || max_size<=0)
+		return 0;
+	// file_stat(path,1) does not follow symlinks. Recovery evidence must never
+	// be redirected outside the mounted audit-log tree.
+	stat=file_stat(path,1);
+	return stat && stat->isreg && stat->size>0 && stat->size<=max_size;
+}
+
+private int valid_log_month_name(string name)
+{
+	int year;
+	int month;
+	if(!name || sscanf(name,"yushi_change-%d-%d.log",year,month)!=2 ||
+	   year<2000 || year>2200 || month<1 || month>12 ||
+	   name!=sprintf("yushi_change-%04d-%02d.log",year,month))
+		return 0;
+	return year*100+month;
+}
+
+private void register_creation_user(mapping(string:int) registered,
+	string userid)
+{
+	if(valid_userid(userid))
+		registered[userid]=1;
+}
+
+private void scan_compact_registration_files(mapping(string:int) registered)
+{
+	string root=ROOT+"/gamelib/data/uniq_user";
+	array(string) names=get_dir(root) || ({});
+	foreach(names,string name){
+		int day;
+		string path;
+		string source;
+		if(sscanf(name,"xd.%d.txt",day)!=1 || day<20000101 ||
+		   day>=20260801 || name!=sprintf("xd.%08d.txt",day))
+			continue;
+		path=root+"/"+name;
+		if(!safe_regular_file(path,RECOVERY_AUTO_REG_FILE_MAX_SIZE))
+			continue;
+		source=Stdio.read_file(path);
+		if(!source)
+			continue;
+		foreach(source/"\n",string raw)
+			register_creation_user(registered,
+				String.trim_all_whites(raw));
+	}
+}
+
+private void scan_runtime_registration_files(mapping(string:int) registered)
+{
+	string root=ROOT+"/log/stat/reg";
+	array(string) names=get_dir(root) || ({});
+	foreach(names,string name){
+		int year;
+		int month;
+		int day;
+		string suffix;
+		string prefix;
+		string path;
+		string source;
+		// Pike counts the suppressed %*s conversion in sscanf's result.
+		if(sscanf(name,"%*s_reg_%d-%d-%d.log",year,month,day)!=4 ||
+		   year<2000 || year>2200 || month<1 || month>12 || day<1 ||
+		   day>31 || year*10000+month*100+day>=20260801)
+			continue;
+		suffix=sprintf("_reg_%04d-%02d-%02d.log",year,month,day);
+		if(!has_suffix(name,suffix) || sizeof(name)<=sizeof(suffix) ||
+		   !valid_iso_date(sprintf("%04d-%02d-%02d",year,month,day)))
+			continue;
+		prefix=name[..sizeof(name)-sizeof(suffix)-1];
+		if(!valid_userid(prefix))
+			continue;
+		path=root+"/"+name;
+		if(!safe_regular_file(path,RECOVERY_AUTO_REG_FILE_MAX_SIZE))
+			continue;
+		source=Stdio.read_file(path);
+		if(!source)
+			continue;
+		foreach(source/"\n",string line){
+			array(string) fields=line/"][";
+			if(sizeof(fields)>=3)
+				register_creation_user(registered,fields[1]);
+		}
+	}
+}
+
+private string legacy_conversion_userid(string line)
+{
+	int marker;
+	int opening=-1;
+	string userid;
+	if(!line || (marker=search(line,") 打算打碎"))<=0)
+		return "";
+	for(int index=marker-1;index>=0;index--)
+		if(line[index]=='('){
+			opening=index;
+			break;
+		}
+	if(opening<0 || opening+1>=marker)
+		return "";
+	userid=line[opening+1..marker-1];
+	return valid_userid(userid) ? userid : "";
+}
+
+private mapping(string:string) structured_conversion_fields(string line)
+{
+	mapping(string:string) fields=([]);
+	if(!line || search(line,"event=yushi_conversion")==-1)
+		return fields;
+	foreach(line/"\t",string part){
+		int separator=search(part,"=");
+		if(separator>0 && separator<sizeof(part)-1)
+			fields[part[..separator-1]]=String.trim_all_whites(
+				part[separator+1..]);
+	}
+	return fields;
+}
+
+private void add_auto_evidence(mapping(string:mapping(string:mixed)) rows,
+	string userid,int amount,string route,string fingerprint,int event_month)
+{
+	mapping(string:mixed) row;
+	if(!valid_userid(userid) || amount<=0 ||
+	   amount>1000000000000 || !valid_hex(fingerprint,64))
+		return;
+	row=rows[userid];
+	if(!row){
+		row=(["userid":userid,"exact_minted_suiyu":0,"event_count":0,
+			"routes":([]),"fingerprints":({}),
+			"creation_proven_by_event":0]);
+		rows[userid]=row;
+	}
+	if((int)row["exact_minted_suiyu"]>1000000000000-amount)
+		return;
+	row["exact_minted_suiyu"]=(int)row["exact_minted_suiyu"]+amount;
+	row["event_count"]=(int)row["event_count"]+1;
+	((mapping)row["routes"])[route]=(int)((mapping)row["routes"])[route]+1;
+	row["fingerprints"]+=({fingerprint});
+	if(event_month>0 && event_month<RECOVERY_AUTO_CUTOFF_MONTH)
+		row["creation_proven_by_event"]=1;
+}
+
+private int count_exact_legacy_mints(string file_name,int line_number,
+	string line,string userid,int event_month,
+	mapping(string:mapping(string:mixed)) rows)
+{
+	array(array(mixed)) patterns=({
+		({"将(2)xianyuanyu打碎获得(20)suiyu",10}),
+		({"将(2)linglongyu打碎获得(20)xianyuanyu",100}),
+		({"将(2)biluanyu打碎获得(20)linglongyu",1000}),
+		({"将(2)xuantianbaoyu打碎获得(20)biluanyu",10000}),
+	});
+	int found=0;
+	foreach(patterns,array(mixed) one){
+		string pattern=(string)one[0];
+		int start=0;
+		int position;
+		while((position=search(line,pattern,start))!=-1){
+			string fingerprint=recovery_digest(file_name+"\0"+
+				(string)line_number+"\0"+(string)position+"\0"+line);
+			add_auto_evidence(rows,userid,(int)one[1],
+				"legacy_split_remainder_bug",fingerprint,event_month);
+			found++;
+			start=position+sizeof(pattern);
+		}
+	}
+	return found;
+}
+
+private int scan_structured_exact_mint(string file_name,int line_number,
+	string line,int event_month,mapping(string:mapping(string:mixed)) rows)
+{
+	mapping(string:string) fields=structured_conversion_fields(line);
+	string userid=(string)fields["player"];
+	string status=(string)fields["status"];
+	int source_value;
+	int target_value;
+	if(!sizeof(fields) || !valid_userid(userid) ||
+	   (status!="success" && status!="partial") ||
+	   sscanf((string)fields["source_value"],"%d",source_value)!=1 ||
+	   sscanf((string)fields["target_value"],"%d",target_value)!=1 ||
+	   source_value<0 || target_value<=source_value ||
+	   target_value-source_value>1000000000000)
+		return 0;
+	string fingerprint=recovery_digest(file_name+"\0"+
+		(string)line_number+"\0"+line);
+	add_auto_evidence(rows,userid,target_value-source_value,
+		"structured_conversion",fingerprint,event_month);
+	return 1;
+}
+
+private mapping(string:mixed) build_auto_evidence_index()
+{
+	string log_root=ROOT+"/log/fee_log";
+	array(string) names=sort(get_dir(log_root) || ({}));
+	mapping(string:int) registered=([]);
+	mapping(string:mapping(string:mixed)) rows=([]);
+	mapping(string:mixed) accounts=([]);
+	int total_size=0;
+	int total_events=0;
+	scan_compact_registration_files(registered);
+	scan_runtime_registration_files(registered);
+	foreach(names,string name){
+		int event_month=valid_log_month_name(name);
+		string path;
+		Stdio.Stat stat;
+		string source;
+		int line_number=0;
+		if(!event_month)
+			continue;
+		path=log_root+"/"+name;
+		stat=file_stat(path,1);
+		if(!stat || !stat->isreg || stat->size<=0 ||
+		   stat->size>RECOVERY_AUTO_LOG_FILE_MAX_SIZE ||
+		   total_size>RECOVERY_AUTO_LOG_TOTAL_MAX_SIZE-stat->size){
+			werror("[JADE_RECOVERY] skipped unsafe evidence file=%s\n",name);
+			continue;
+		}
+		total_size+=stat->size;
+		source=Stdio.read_file(path);
+		if(!source || sizeof(source)!=stat->size)
+			continue;
+		foreach(source/"\n",string line){
+			string userid;
+			line_number++;
+			if(total_events>=RECOVERY_AUTO_MAX_EVENTS)
+				break;
+			if(search(line,"event=yushi_conversion")!=-1){
+				total_events+=scan_structured_exact_mint(name,
+					line_number,line,event_month,rows);
+				continue;
+			}
+			userid=legacy_conversion_userid(line);
+			if(userid!="")
+				total_events+=count_exact_legacy_mints(name,line_number,
+					line,userid,event_month,rows);
+		}
+		if(total_events>=RECOVERY_AUTO_MAX_EVENTS){
+			werror("[JADE_RECOVERY] exact evidence event limit reached; "
+				"remaining logs were skipped safely\n");
+			break;
+		}
+	}
+	foreach(rows;string userid;mapping(string:mixed) row){
+		array(string) fingerprints=(array(string))row["fingerprints"];
+		if(!registered[userid] && !(int)row["creation_proven_by_event"])
+			continue;
+		sort(fingerprints);
+		string evidence_sha256=recovery_digest(fingerprints*"\n");
+		accounts[userid]=(["userid":userid,
+			"exact_minted_suiyu":(int)row["exact_minted_suiyu"],
+			"event_count":(int)row["event_count"],
+			"routes":copy_value(row["routes"]),
+			"evidence_sha256":evidence_sha256,
+			"registered_before_cutoff":1]);
+	}
+	return (["schema_version":1,"created_before":RECOVERY_AUTO_CUTOFF_DATE,
+		"generated_at":time(),"accounts":accounts,
+		"scanned_bytes":total_size,"exact_event_count":total_events]);
+}
+
+private mapping(string:mixed) load_auto_evidence_index()
+{
+	object key=auto_evidence_lock->lock();
+	mapping(string:mixed) result=([]);
+	if(test_auto_evidence_override)
+		result=test_auto_evidence_override;
+	else if(auto_evidence_loaded)
+		result=auto_evidence_index;
+	else{
+		mixed err=catch{ auto_evidence_index=build_auto_evidence_index(); };
+		auto_evidence_loaded=1;
+		if(err){
+			auto_evidence_index=([]);
+			werror("[JADE_RECOVERY] automatic evidence scan failed safely: %s\n",
+				describe_error(err));
+		}
+		else
+			werror("[JADE_RECOVERY] automatic evidence ready accounts=%d "
+				"events=%d bytes=%d\n",
+				mappingp(auto_evidence_index["accounts"]) ?
+					sizeof((mapping)auto_evidence_index["accounts"]) : 0,
+				(int)auto_evidence_index["exact_event_count"],
+				(int)auto_evidence_index["scanned_bytes"]);
+		result=auto_evidence_index;
+	}
+	destruct(key);
+	return result;
+}
+
+void warm_auto_evidence()
+{
+	// Read-only startup warmup keeps the first player login off the 5 MB
+	// historical scan path. Any failure is already caught and logged inside.
+	load_auto_evidence_index();
+}
+
+private mapping(string:mixed) automatic_evidence_row(string userid)
+{
+	mapping(string:mixed) index=load_auto_evidence_index();
+	mapping accounts;
+	mapping(string:mixed) row;
+	if(!mappingp(index) || (int)index["schema_version"]!=1 ||
+	   index["created_before"]!=RECOVERY_AUTO_CUTOFF_DATE ||
+	   !mappingp(index["accounts"]))
+		return ([]);
+	accounts=(mapping)index["accounts"];
+	if(!mappingp(accounts[userid]))
+		return ([]);
+	row=(mapping(string:mixed))accounts[userid];
+	if(row["userid"]!=userid || !(int)row["registered_before_cutoff"] ||
+	   (int)row["exact_minted_suiyu"]<=0 ||
+	   (int)row["exact_minted_suiyu"]>1000000000000 ||
+	   (int)row["event_count"]<=0 ||
+	   (int)row["event_count"]>RECOVERY_AUTO_MAX_EVENTS ||
+	   !valid_hex((string)row["evidence_sha256"],64))
+		return ([]);
+	return row;
 }
 
 private mapping(string:mixed) decode_manifest(string source)
@@ -373,6 +710,102 @@ int query_personal_storage_yushi(object player)
 	return personal_storage_yushi_rows((array)player->packaged_items);
 }
 
+/**
+ * Return jade that this exact character placed in the account warehouse.
+ * A negative result means the shared record could not be proved healthy and
+ * automatic recovery must defer without claiming or touching the player.
+ */
+private int query_shared_source_yushi(object player,string userid)
+{
+	mapping(string:mixed) storage;
+	int total=0;
+	if(!player || !valid_userid(userid))
+		return -1;
+	storage=ACCOUNT_STORAGED->query_storage(player);
+	if(!(int)storage["ok"] || !arrayp(storage["items"]))
+		return -1;
+	foreach((array)storage["items"],mixed raw_item){
+		mapping item;
+		array data;
+		if(!mappingp(raw_item))
+			return -1;
+		item=(mapping)raw_item;
+		if((string)item["source_character"]!=userid)
+			continue;
+		if(!arrayp(item["data"]))
+			return -1;
+		data=(array)item["data"];
+		int level=personal_storage_yushi_level(data);
+		if(level){
+			int value=(int)data[6]*YUSHID->get_yushi_value(level);
+			if(value<0 || total>1000000000000-value)
+				return -1;
+			total+=value;
+		}
+	}
+	return total;
+}
+
+private mapping(string:mixed) automatic_live_entry(object player,
+	string userid)
+{
+	mapping(string:mixed) evidence=automatic_evidence_row(userid);
+	int exact_minted;
+	int before_physical;
+	int before_storage;
+	int before_shared;
+	int before_wallet;
+	int all_fee;
+	int fee_allowance;
+	int unexplained;
+	int proven;
+	string evidence_sha256;
+	if(!sizeof(evidence))
+		return ([]);
+	exact_minted=(int)evidence["exact_minted_suiyu"];
+	before_physical=YUSHID->query_physical_all_num(player);
+	before_storage=query_personal_storage_yushi(player);
+	before_shared=query_shared_source_yushi(player,userid);
+	before_wallet=ACCOUNT_WALLETD->query_balance(player);
+	all_fee=ACCOUNT_WALLETD->query_total_recharge_fee(player);
+	if(before_shared<0)
+		return (["deferred_code":"shared_storage_unavailable"]);
+	if(before_physical<0 || before_storage<0 || before_wallet<0 || all_fee<0 ||
+	   before_physical>1000000000000 ||
+	   before_storage>1000000000000 || before_wallet>1000000000000 ||
+	   all_fee>1000000000000)
+		return (["deferred_code":"live_financial_state_invalid"]);
+	// Shared storage needs its own account-file transaction. Never substitute
+	// another character's or newly reloaded personal jade for that ambiguity.
+	if(before_shared>0){
+		append_recovery_log(userid,
+			"jade-auto-deferred-shared-storage",
+			"shared_storage_deferred",min(exact_minted,
+				RECOVERY_MAX_SUIYU),before_physical,before_storage,0,
+			before_physical,before_storage,
+			(string)evidence["evidence_sha256"]);
+		return (["deferred_code":"shared_storage_jade"]);
+	}
+	fee_allowance=all_fee*10;
+	unexplained=max(0,before_physical+before_storage-fee_allowance);
+	proven=min(exact_minted,unexplained);
+	proven=min(proven,before_physical+before_storage);
+	proven=min(proven,RECOVERY_MAX_SUIYU);
+	evidence_sha256=(string)evidence["evidence_sha256"];
+	return (["userid":userid,
+		"case_id":"jade-auto-"+
+			recovery_digest(userid+"|"+evidence_sha256)[..31],
+		"proven_suiyu":proven,
+		"evidence_sha256":evidence_sha256,
+		"captured_physical_suiyu":before_physical,
+		"captured_personal_storage_suiyu":before_storage,
+		"captured_wallet_suiyu":before_wallet,
+		"all_fee":all_fee,
+		"source_mode":"automatic_login_evidence",
+		"exact_minted_suiyu":exact_minted,
+		"event_count":(int)evidence["event_count"]]);
+}
+
 private int personal_storage_yushi_units(object player,int level)
 {
 	int total=0;
@@ -525,6 +958,7 @@ private mapping(string:mixed) perform_recovery(object player,
 	int saved;
 	int before_vip_flag;
 	int before_vip_end;
+	int snapshot_matched;
 	int compensation_vip_level;
 	int compensation_vip_end;
 	mapping before_vip_history;
@@ -546,13 +980,14 @@ private mapping(string:mixed) perform_recovery(object player,
 	before_vip_end=(int)player->query_vip_end_time();
 	before_vip_history=mappingp(player->vip_history) ?
 		copy_value(player->vip_history) : ([]);
-	// The snapshot is a one-hour one-time evidence window. Any intervening
-	// spend, reward, transfer or recharge makes old and new jade impossible to
-	// distinguish, so close with zero rather than touching a possibly new asset.
-	confiscated=before_physical==captured_physical &&
+	// Approved-manifest entries use a short snapshot window. Automatic login
+	// entries capture these same values immediately before this transaction.
+	// In both modes any intervening mutation closes with zero rather than
+	// touching a possibly new asset.
+	snapshot_matched=before_physical==captured_physical &&
 		before_storage==captured_storage &&
-		before_wallet==captured_wallet && before_all_fee==captured_all_fee ?
-		proven : 0;
+		before_wallet==captured_wallet && before_all_fee==captured_all_fee;
+	confiscated=snapshot_matched ? proven : 0;
 	debit_err=catch{
 		debit=confiscated>0 ? debit_personal_yushi(player,confiscated,
 			before_physical,before_storage_rows) : (["ok":1]);
@@ -616,13 +1051,16 @@ private mapping(string:mixed) perform_recovery(object player,
 		"after_personal_storage":after_storage,
 		"evidence_sha256":evidence_sha256,"closed_at":time(),
 		"policy":RECOVERY_POLICY,
+		"source_mode":(string)(entry["source_mode"] ||
+			"approved_manifest"),
 		"compensation_vip_level":compensation_vip_level,
 		"compensation_vip_end":compensation_vip_end,
 		"compensation_vip_seconds":confiscated>0 ?
 			RECOVERY_COMPENSATION_SECONDS : 0,
 		"compensation_notice_pending":confiscated>0 ? 1 : 0,
-		"status":confiscated>0 ?
-			"matched_snapshot_closed" : "snapshot_changed_closed"]);
+		"status":confiscated>0 ? "matched_snapshot_closed" :
+			(snapshot_matched ? "no_recoverable_balance_closed" :
+				"snapshot_changed_closed")]);
 	save_err=catch{
 		player[RECOVERY_RECEIPT]=receipt;
 		saved=functionp(player->save_with_result) && player->save_with_result();
@@ -679,8 +1117,8 @@ private mapping(string:mixed) perform_recovery(object player,
 		return (["ok":0,"code":"save_failed","confiscated":0]);
 	}
 	append_recovery_log((string)player->query_name(),case_id,
-		confiscated>0 ? "closed" :
-			"snapshot_changed_closed",
+		confiscated>0 ? "closed" : (snapshot_matched ?
+			"no_recoverable_balance_closed" : "snapshot_changed_closed"),
 		proven,
 		before_physical,before_storage,confiscated,after_physical,
 		after_storage,evidence_sha256);
@@ -710,6 +1148,11 @@ private mapping(string:mixed) perform_recovery(object player,
 
 mapping(string:mixed) apply_if_listed(object player)
 {
+	return apply_on_login(player);
+}
+
+mapping(string:mixed) apply_on_login(object player)
+{
 	string userid;
 	mapping(string:mixed) entry;
 	mapping(string:mixed) result=([]);
@@ -729,9 +1172,18 @@ mapping(string:mixed) apply_if_listed(object player)
 		ensure_closed_recovery_compensation(player);
 		return (["ok":1,"code":"already_closed","confiscated":0]);
 	}
+	// Preserve a currently deployed approved manifest as a rollback-compatible
+	// exact snapshot. When absent, login derives the case from machine evidence
+	// and current values without an operator-maintained candidate list.
 	entry=approved_entry(load_manifest(),userid);
 	if(!sizeof(entry))
-		return (["ok":1,"code":"not_listed","confiscated":0]);
+		entry=automatic_live_entry(player,userid);
+	if(!sizeof(entry))
+		return (["ok":1,"code":"no_exact_evidence","confiscated":0]);
+	if(stringp(entry["deferred_code"]) &&
+	   sizeof((string)entry["deferred_code"]))
+		return (["ok":1,"code":"deferred_"+
+			(string)entry["deferred_code"],"confiscated":0]);
 	if(!acquire_user_claim(claim_path))
 		return (["ok":1,"code":"already_claimed","confiscated":0]);
 	operation_err=catch{ result=perform_recovery(player,entry); };
@@ -741,6 +1193,77 @@ mapping(string:mixed) apply_if_listed(object player)
 		return (["ok":0,"code":"exception","confiscated":0]);
 	}
 	return result;
+}
+
+/** TestUnit-only automatic evidence index. Production ids are denied. */
+int test_set_auto_evidence(mapping(string:mixed) evidence)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !mappingp(evidence) ||
+	   !mappingp(evidence["accounts"]))
+		return 0;
+	foreach((mapping)evidence["accounts"];mixed raw_userid;mixed ignored){
+		if(!stringp(raw_userid) ||
+		   search((string)raw_userid,"testunit")==-1)
+			return 0;
+	}
+	foreach((mapping)evidence["accounts"];mixed raw_userid;mixed ignored)
+		rm(user_claim_path((string)raw_userid));
+	object key=auto_evidence_lock->lock();
+	test_auto_evidence_override=evidence;
+	destruct(key);
+	return 1;
+}
+
+void test_clear_auto_evidence()
+{
+	object key=auto_evidence_lock->lock();
+	if(getenv("XIAND_RUN_TESTUNIT")=="1" && test_auto_evidence_override &&
+	   mappingp(test_auto_evidence_override["accounts"]))
+		foreach((mapping)test_auto_evidence_override["accounts"];
+		   mixed raw_userid;mixed ignored)
+			if(stringp(raw_userid) &&
+			   search((string)raw_userid,"testunit")!=-1)
+				rm(user_claim_path((string)raw_userid));
+	test_auto_evidence_override=0;
+	destruct(key);
+}
+
+int test_clear_user_claim(string userid)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !valid_userid(userid) ||
+	   search(userid,"testunit")==-1)
+		return 0;
+	return rm(user_claim_path(userid));
+}
+
+mapping(string:mixed) test_build_auto_evidence_index()
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return ([]);
+	return build_auto_evidence_index();
+}
+
+mapping(string:mixed) test_parse_auto_evidence(string userid,
+	array(string) lines,int event_month)
+{
+	mapping(string:mapping(string:mixed)) rows=([]);
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   search(userid,"testunit")==-1 || !valid_userid(userid) ||
+	   event_month<200001 || event_month>220012)
+		return ([]);
+	for(int index=0;index<sizeof(lines);index++){
+		string line=lines[index];
+		if(search(line,"event=yushi_conversion")!=-1)
+			scan_structured_exact_mint("testunit.log",index+1,line,
+				event_month,rows);
+		else{
+			string parsed_userid=legacy_conversion_userid(line);
+			if(parsed_userid!="")
+				count_exact_legacy_mints("testunit.log",index+1,line,
+					parsed_userid,event_month,rows);
+		}
+	}
+	return rows[userid] || ([]);
 }
 
 /** TestUnit-only in-memory manifest. Production ids are deliberately denied. */

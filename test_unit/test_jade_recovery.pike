@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** Evidence allowlist and one-time physical-jade recovery regression tests. */
+/** Automatic login evidence and one-time physical-jade recovery tests. */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -34,6 +34,8 @@ void cleanup_test_player_file(string userid)
 object create_test_player(string userid)
 {
 	JADE_RECOVERYD->test_clear_manifest();
+	JADE_RECOVERYD->test_clear_auto_evidence();
+	JADE_RECOVERYD->test_clear_user_claim(userid);
 	cleanup_test_player_file(userid);
 	object player=clone(GAMELIB_USER);
 	player->set_name(userid);
@@ -95,9 +97,30 @@ mapping(string:mixed) approved_manifest(string userid,int amount,int captured,
 		])]);
 }
 
+mapping(string:mixed) automatic_evidence(string userid,int exact_minted,
+	void|int event_count,void|int registered)
+{
+	string evidence=
+		"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+	if(!event_count)
+		event_count=1;
+	if(zero_type(registered))
+		registered=1;
+	return (["schema_version":1,"created_before":"2026-08-01",
+		"generated_at":time(),"accounts":([
+			userid:(["userid":userid,
+				"exact_minted_suiyu":exact_minted,
+				"event_count":event_count,
+				"routes":(["legacy_split_remainder_bug":event_count]),
+				"evidence_sha256":evidence,
+				"registered_before_cutoff":registered])
+		])]);
+}
+
 void destroy_test_player(object|zero player)
 {
 	JADE_RECOVERYD->test_clear_manifest();
+	JADE_RECOVERYD->test_clear_auto_evidence();
 	if(!player)
 		return;
 	foreach(all_inventory(player),object item)
@@ -105,7 +128,181 @@ void destroy_test_player(object|zero player)
 			destruct(item);
 	string userid=(string)player->query_name();
 	destruct(player);
+	JADE_RECOVERYD->test_clear_user_claim(userid);
 	cleanup_test_player_file(userid);
+}
+
+void test_automatic_login_exact_evidence_recovery()
+{
+	string userid="xd99testunitjadeautomatic";
+	object player=create_test_player(userid);
+	give_test_jade(player,25);
+	int installed=JADE_RECOVERYD->test_set_auto_evidence(
+		automatic_evidence(userid,20));
+	mapping first=JADE_RECOVERYD->apply_on_login(player);
+	mapping receipt=player["/plus/illicit_jade_recovery_once"];
+	give_test_jade(player,7);
+	mapping second=JADE_RECOVERYD->apply_on_login(player);
+	check("登录自动证据无需候选清单即可一次性回收",
+		installed && first["code"]=="closed" &&
+		(int)first["confiscated"]==20 &&
+		YUSHID->query_physical_all_num(player)==12 &&
+		mappingp(receipt) &&
+		receipt["source_mode"]=="automatic_login_evidence" &&
+		second["code"]=="already_closed",
+		sprintf("仍依赖清单、扣除数量错误或永久结案失效 "
+			"installed=%d first=%O second=%O jade=%d receipt=%O",
+			installed,first,second,YUSHID->query_physical_all_num(player),
+			receipt));
+	destroy_test_player(player);
+}
+
+void test_automatic_login_fee_allowance_and_spent_forgiveness()
+{
+	string userid="xd99testunitjadeallowance";
+	object player=create_test_player(userid);
+	player->set_all_fee(2);
+	give_test_jade(player,25);
+	JADE_RECOVERYD->test_set_auto_evidence(automatic_evidence(userid,40));
+	mapping result=JADE_RECOVERYD->apply_on_login(player);
+	mapping receipt=player["/plus/illicit_jade_recovery_once"];
+	check("all_fee按十倍保护合法玉且已消费异常额不形成未来欠款",
+		result["code"]=="closed" && (int)result["confiscated"]==5 &&
+		YUSHID->query_physical_all_num(player)==20 &&
+		(int)receipt["proven_suiyu"]==5,
+		"合法充值额度被扣、精确证据未按现存差额裁剪或形成欠款");
+	destroy_test_player(player);
+}
+
+void test_automatic_login_closes_zero_without_future_debt()
+{
+	string userid="xd99testunitjadezeroclose";
+	object player=create_test_player(userid);
+	player->set_all_fee(10);
+	give_test_jade(player,30);
+	JADE_RECOVERYD->test_set_auto_evidence(automatic_evidence(userid,20));
+	mapping first=JADE_RECOVERYD->apply_on_login(player);
+	mapping receipt=player["/plus/illicit_jade_recovery_once"];
+	give_test_jade(player,11);
+	mapping second=JADE_RECOVERYD->apply_on_login(player);
+	check("证据对应玉已消费时零扣除结案且以后正常所得不追缴",
+		first["code"]=="closed" && (int)first["confiscated"]==0 &&
+		mappingp(receipt) &&
+		receipt["status"]=="no_recoverable_balance_closed" &&
+		second["code"]=="already_closed" &&
+		YUSHID->query_physical_all_num(player)==41,
+		"已消费金额被记成债务或后续合法玉被扣");
+	destroy_test_player(player);
+}
+
+void test_auto_evidence_parser_only_accepts_exact_mints()
+{
+	string userid="xd99testunitjadeparser";
+	array(string) lines=({
+		"Fri Jul 31 12:00:00 2026:玩家("+userid+
+			") 打算打碎(1)xianyuanyu,结果为: 将(1)xianyuanyu打碎获得(10)suiyu,",
+		"Fri Jul 31 12:00:01 2026:玩家("+userid+
+			") 打算打碎(5)xianyuanyu,结果为: 将(2)xianyuanyu打碎获得(20)suiyu, 将(2)xianyuanyu打碎获得(20)suiyu, 将(1)xianyuanyu打碎获得(10)suiyu,",
+		"1\tevent=yushi_conversion\tplayer="+userid+
+			"\tstatus=success\tsource_value=10\ttarget_value=14",
+		"2\tevent=yushi_conversion\tplayer="+userid+
+			"\tstatus=failed\tsource_value=10\ttarget_value=99",
+	});
+	mapping row=JADE_RECOVERYD->test_parse_auto_evidence(userid,lines,
+		202607);
+	check("自动扫描只累计2转20与成功结构化正增发的精确数量",
+		(int)row["exact_minted_suiyu"]==24 &&
+		(int)row["event_count"]==3 &&
+		(int)row["creation_proven_by_event"]==1,
+		"正常1转10、失败事件被误判或同一行多个漏洞段漏算");
+}
+
+void test_auto_evidence_validation_fails_closed()
+{
+	string userid="xd99testunitjadeinvalidauto";
+	object player=create_test_player(userid);
+	give_test_jade(player,9);
+	mapping evidence=automatic_evidence(userid,9,1,0);
+	JADE_RECOVERYD->test_set_auto_evidence(evidence);
+	mapping cutoff=JADE_RECOVERYD->apply_on_login(player);
+	evidence=automatic_evidence(userid,9);
+	evidence["accounts"][userid]["evidence_sha256"]="bad";
+	JADE_RECOVERYD->test_set_auto_evidence(evidence);
+	mapping digest=JADE_RECOVERYD->apply_on_login(player);
+	int production_override=JADE_RECOVERYD->test_set_auto_evidence(
+		automatic_evidence("xd01productionuser",9));
+	check("自动证据强制注册截止、摘要格式并拒绝测试注入生产账号",
+		cutoff["code"]=="no_exact_evidence" &&
+		digest["code"]=="no_exact_evidence" && !production_override &&
+		YUSHID->query_physical_all_num(player)==9 &&
+		!mappingp(player["/plus/illicit_jade_recovery_once"]),
+		"截止条件、证据完整性或TestUnit生产隔离被绕过");
+	destroy_test_player(player);
+}
+
+void test_automatic_recovery_defers_shared_source_jade()
+{
+	string userid="xd99testunitjadeshared";
+	ACCOUNT_STORAGED->remove_test_storage(userid);
+	object player=create_test_player(userid);
+	give_test_storage_jade(player,"suiyu",12);
+	string item_id=(string)player->packaged_items[0][7];
+	mapping moved=ACCOUNT_STORAGED->transfer_to_shared(player,item_id);
+	JADE_RECOVERYD->test_set_auto_evidence(automatic_evidence(userid,12));
+	mapping result=JADE_RECOVERYD->apply_on_login(player);
+	mapping storage=ACCOUNT_STORAGED->query_storage(player);
+	check("共享仓库含本人来源玉时延后且不抢占永久结案",
+		(int)moved["ok"] && result["code"]==
+			"deferred_shared_storage_jade" &&
+		(int)storage["ok"] && sizeof((array)storage["items"])==1 &&
+		!mappingp(player["/plus/illicit_jade_recovery_once"]),
+		"共享仓库事务被盲扣、删除或错误永久结案");
+	ACCOUNT_STORAGED->remove_test_storage(userid);
+	destroy_test_player(player);
+}
+
+void test_automatic_recovery_runtime_cap()
+{
+	string userid="xd99testunitjadecap";
+	object player=create_test_player(userid);
+	give_test_jade(player,20000009);
+	JADE_RECOVERYD->test_set_auto_evidence(
+		automatic_evidence(userid,20000009));
+	mapping result=JADE_RECOVERYD->apply_on_login(player);
+	check("自动回收仍受单人两千万碎玉硬上限保护",
+		result["code"]=="closed" &&
+		(int)result["confiscated"]==20000000 &&
+		YUSHID->query_physical_all_num(player)==9,
+		"单次扣除突破安全上限或上限计算错误");
+	destroy_test_player(player);
+}
+
+void test_production_log_scanner_is_bounded_and_well_formed()
+{
+	mapping index=JADE_RECOVERYD->test_build_auto_evidence_index();
+	mapping accounts=mappingp(index["accounts"]) ?
+		(mapping)index["accounts"] : ([]);
+	int exact_total=0;
+	int valid= index["schema_version"]==1 &&
+		index["created_before"]=="2026-08-01" &&
+		(int)index["scanned_bytes"]>=0 &&
+		(int)index["scanned_bytes"]<=64*1024*1024 &&
+		(int)index["exact_event_count"]>=0 &&
+		(int)index["exact_event_count"]<=200000;
+	foreach(accounts;string userid;mapping row){
+		exact_total+=(int)row["exact_minted_suiyu"];
+		if(userid!=(string)row["userid"] ||
+		   (int)row["exact_minted_suiyu"]<=0 ||
+		   (int)row["event_count"]<=0 ||
+		   sizeof((string)row["evidence_sha256"])!=64)
+			valid=0;
+	}
+	werror("[异常玉石回收] 自动证据扫描 accounts=%d events=%d "
+		"exact_suiyu=%d bytes=%d\n",
+		sizeof(accounts),(int)index["exact_event_count"],
+		exact_total,(int)index["scanned_bytes"]);
+	check("真实日志扫描在文件、总量和事件上限内产生完整索引",
+		valid,"真实日志索引结构异常或超出安全边界");
 }
 
 void test_exact_one_time_recovery()
@@ -250,8 +447,9 @@ void test_nonlisted_and_unapproved_are_ignored()
 	manifest["enabled"]=0;
 	JADE_RECOVERYD->test_set_manifest(manifest);
 	mapping disabled=JADE_RECOVERYD->apply_if_listed(player);
-	check("非白名单和未启用清单绝不进入扣除逻辑",
-		missing["code"]=="not_listed" && disabled["code"]=="not_listed" &&
+	check("无精确证据和未启用旧清单绝不进入扣除逻辑",
+		missing["code"]=="no_exact_evidence" &&
+		disabled["code"]=="no_exact_evidence" &&
 		YUSHID->query_physical_all_num(player)==9 &&
 		!mappingp(player["/plus/illicit_jade_recovery_once"]),
 		"未批准人物的物理玉或存档被修改");
@@ -282,9 +480,10 @@ void test_creation_cutoff_and_manifest_validation()
 	int production_override=JADE_RECOVERYD->test_set_manifest(
 		approved_manifest("xd01productionuser",8,8));
 	check("注册日期门槛和证据摘要均为强制条件",
-		cutoff["code"]=="not_listed" && bad_hash["code"]=="not_listed" &&
-		expired["code"]=="not_listed" &&
-		inconsistent_fee["code"]=="not_listed" &&
+		cutoff["code"]=="no_exact_evidence" &&
+		bad_hash["code"]=="no_exact_evidence" &&
+		expired["code"]=="no_exact_evidence" &&
+		inconsistent_fee["code"]=="no_exact_evidence" &&
 		YUSHID->query_physical_all_num(player)==8,
 		"创建日期、快照时效或财务证据校验可以被绕过");
 	check("TestUnit内存入口拒绝任何生产账号",
@@ -392,10 +591,15 @@ void test_personal_storage_snapshot_change_is_not_confiscated()
 void test_login_hook_is_fail_open()
 {
 	string source=Stdio.read_file(ROOT+"/gamelib/single/daemons/userd.pike");
+	string master_source=Stdio.read_file(ROOT+"/gamelib/master.pike");
+	string system_master_source=Stdio.read_file(ROOT+"/lowlib/system/master.pike");
 	check("登录钩子异常不会阻断正常登录",
 		source && search(source,
-			"jade_recovery_err=catch{ JADE_RECOVERYD->apply_if_listed(me); }")!=-1 &&
-		search(source,"login hook failed safely")!=-1,
+			"jade_recovery_err=catch{ JADE_RECOVERYD->apply_on_login(me); }")!=-1 &&
+		search(source,"login hook failed safely")!=-1 && master_source &&
+		search(master_source,"\"jade_recoveryd.pike\"")!=-1 &&
+		system_master_source &&
+		search(system_master_source,"\"jade_recoveryd.pike\"")!=-1,
 		"一次性审计守护异常可能中断玩家登录");
 }
 
@@ -432,6 +636,14 @@ void test_stale_second_worker_object_cannot_repeat_recovery()
 int main()
 {
 	werror("\n========== 异常玉石一次性回收测试 ==========\n");
+	test_automatic_login_exact_evidence_recovery();
+	test_automatic_login_fee_allowance_and_spent_forgiveness();
+	test_automatic_login_closes_zero_without_future_debt();
+	test_auto_evidence_parser_only_accepts_exact_mints();
+	test_auto_evidence_validation_fails_closed();
+	test_automatic_recovery_defers_shared_source_jade();
+	test_automatic_recovery_runtime_cap();
+	test_production_log_scanner_is_bounded_and_well_formed();
 	test_exact_one_time_recovery();
 	test_existing_higher_vip_is_extended_without_downgrade();
 	test_expired_vip_does_not_extend_stale_end_time();

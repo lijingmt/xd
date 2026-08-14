@@ -19,6 +19,20 @@ void check(string name,int valid,string detail)
 	}
 }
 
+object create_shop_test_player()
+{
+	object player=clone(GAMELIB_USER);
+	player->set_name("xd99testunitmysterygear");
+	player->name_cn="神秘装备回归测试玩家";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId("third");
+	player->set_profeId("fangshi");
+	player->setup_player("third","fangshi");
+	player->level=101;
+	return player;
+}
+
 int main()
 {
 	string shop = Stdio.read_file(ROOT+"/lowlib/wapmud2/cmds/list_spec.pike");
@@ -56,21 +70,47 @@ int main()
 		search(items,"rtn_ob->set_item_canLevel(target_item_level)")!=-1 &&
 		search(items,"只兼容旧无等级装备明确传入-1后的炼化")!=-1,
 		"随机无等级分支仍存在或旧数据兼容说明缺失");
-	check("神秘货架使用真实模板等级且不再抽取1级武器跨级放大",
+	check("神秘货架使用真实模板等级并保留初始装备外观",
 		!shelf_compile && shelf &&
 		search(shelf,"query_safe_shop_template_level")!=-1 &&
-		search(shelf,"60+random(12)")!=-1 &&
+		search(shelf,"levels=filter(levels")!=-1 &&
+		search(shelf,"level>=1 && level<=71")!=-1 &&
+		search(shelf,"60+random(12)")==-1 &&
 		search(shelf,"item_name,\n\t\t\tstore_level")!=-1 &&
 		search(shelf,"spec_shop_guard.log")!=-1 &&
 		search(shelf,"obt->query_item_canLevel()!=me->query_level()")!=-1 &&
 		search(shelf,"query_random_goods_normal(random(71)+1")==-1,
-		"货架仍可能把随机低级模板按错误原始等级生成属性");
+		"初始模板被过度过滤或货架仍可以伪造模板等级");
 	check("动态装备文件名隔离不同目标等级并保持货架所见即所得",
 		!items_compile && items &&
 		search(items,"void|int original_item_level")!=-1 &&
 		search(items,"original_item_level>0 ? original_item_level")!=-1 &&
 		search(items,"target_item_level!=orginal_level")!=-1,
 		"不同等级仍可能复用同一动态装备源码并串换攻防属性");
+	object player=create_shop_test_player();
+	object shelf_daemon=(object)(ROOT+
+		"/lowlib/mudlib/single/specstored.pike");
+	string candidate=shelf_daemon->test_query_normal_candidate(player,1);
+	string item_name="";
+	int fee;
+	int parsed=candidate!="" ? sscanf(candidate,
+		"%*s:buy_detail_spec %s %d]",item_name,fee) : 0;
+	object generated;
+	mixed generated_err=catch{
+		if(parsed==3)
+			generated=clone(ROOT+"/gamelib/clone/item/"+item_name);
+	};
+	check("101级玩家能刷出带词缀初始模板且不可低级穿戴",
+		!generated_err && candidate!="" && parsed==3 && generated &&
+		generated->query_item_canLevel()==101 &&
+		search(item_name,"weapon/1")!=-1,
+		"初始装备仍不上架，或高级属性错误保留了1级穿戴门槛");
+	if(generated)
+		destruct(generated);
+	foreach(all_inventory(player),object item)
+		if(item)
+			destruct(item);
+	destruct(player);
 	werror("稀有经济：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

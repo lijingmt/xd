@@ -41,7 +41,8 @@ void load_daemons()
 		// Standalone startup remains byte-for-byte compatible.
 		array(string) node_daemons = node_role=="worker" ?
 			({"map_workerd.pike","http_api_daemon.pike","roomLeveld.pike",
-			  "kuangd.pike","caoyaod.pike","timed_eventd.pike"}) :
+			  "kuangd.pike","caoyaod.pike","timed_eventd.pike",
+			  "jade_recoveryd.pike"}) :
 			({"map_workerd.pike","http_api_daemon.pike"});
 		if(map_worker_node && !has_value(node_daemons,s)){
 			werror("[MASTER] Map-worker node skipping eager daemon: %s\n",s);

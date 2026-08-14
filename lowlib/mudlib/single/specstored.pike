@@ -239,30 +239,35 @@ private string query_random_goods_normal(int store_level,object me)
 	return result;
 }
 
-// 73级内只使用玩家当前等级附近的真实模板；高等级动态装备也只从
-// 60—71级成熟模板扩展。旧逻辑随机抽取1—71级模板，再用另一份随机
-// 等级作为缩放基准，低级武器可因此反复刷出不属于其模板的异常属性。
+// 初始装备外观是神秘商店的合法收集内容，因此保留1—71级全部真实
+// 模板。安全边界由生成器保证：模板真实等级显式传入，生成文件名
+// 隔离目标等级，且有价上架前必须验证穿戴等级等于玩家当前等级。
+// 这样可以刷到“带词缀的初始装备”，但不能用低级穿戴要求承载高级属性。
 private int query_safe_shop_template_level(int player_level)
 {
-	int start_level;
-	int level;
+	array(int) levels=sort(indices(goods_list_normal));
 	if(player_level<1)
-		player_level=1;
-	if(player_level<=71){
-		start_level=player_level;
-		for(level=start_level;level>=1;level--)
-			if(goods_list_normal[level] && sizeof(goods_list_normal[level]))
-				return level;
 		return 0;
+	levels=filter(levels,lambda(int level){
+		return level>=1 && level<=71 && goods_list_normal[level] &&
+			sizeof(goods_list_normal[level]);
+	});
+	return sizeof(levels) ? levels[random(sizeof(levels))] : 0;
+}
+
+string test_query_normal_candidate(object player,int template_level)
+{
+	string userid=normalized_offer_userid(player);
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   search(userid,"testunit")==-1 || template_level<1 ||
+	   template_level>71)
+		return "";
+	for(int attempt=0;attempt<200;attempt++){
+		string candidate=query_random_goods_normal(template_level,player);
+		if(candidate!="")
+			return candidate;
 	}
-	start_level=60+random(12);
-	for(level=start_level;level>=60;level--)
-		if(goods_list_normal[level] && sizeof(goods_list_normal[level]))
-			return level;
-	for(level=71;level>start_level;level--)
-		if(goods_list_normal[level] && sizeof(goods_list_normal[level]))
-			return level;
-	return 0;
+	return "";
 }
 
 string random_list(int|void type){
