@@ -103,6 +103,9 @@ private int pike_gateway_last_online_publish_at;
 private int pike_gateway_last_online_snapshot_at;
 private int pike_gateway_last_online_snapshot_count;
 private string pike_gateway_last_online_snapshot_error = "not_published";
+private int pike_gateway_online_snapshot_recovery_pending;
+private int pike_gateway_online_snapshot_recoveries;
+private int pike_gateway_online_snapshot_recovery_failures;
 private int pike_gateway_prewarm_completed_at;
 private int pike_gateway_prewarm_max_ms;
 private int pike_gateway_last_handoff_at;
@@ -716,6 +719,17 @@ int test_pike_gateway_online_snapshot_retryable(string code)
 	return pike_gateway_online_snapshot_retryable(code);
 }
 
+private int pike_gateway_handoff_release_deferred(string code)
+{
+	return has_value(({"player_in_combat","summon_handoff_pending"}),
+		code || "");
+}
+
+int test_pike_gateway_handoff_release_deferred(string code)
+{
+	return pike_gateway_handoff_release_deferred(code);
+}
+
 /**
  * A prepared handoff durably freezes the exact source owner before its final
  * save and retirement.  That source object can still appear in one online
@@ -860,6 +874,12 @@ mapping query_pike_gateway_status()
 			max(0,time()-pike_gateway_last_online_snapshot_at) : -1,
 		"online_snapshot_count":pike_gateway_last_online_snapshot_count,
 		"online_snapshot_error":pike_gateway_last_online_snapshot_error,
+		"online_snapshot_recovery_pending":
+			pike_gateway_online_snapshot_recovery_pending,
+		"online_snapshot_recoveries":
+			pike_gateway_online_snapshot_recoveries,
+		"online_snapshot_recovery_failures":
+			pike_gateway_online_snapshot_recovery_failures,
 		"control_timeout":pike_gateway_control_timeout,
 		"active_requests":pike_gateway_active_requests,
 		"pending_requests":pike_gateway_pending_requests,
@@ -2444,7 +2464,24 @@ private mixed pike_gateway_reconcile(string userid,string source_worker,
 	if(!(int)released["ok"]){
 		string release_code = stringp(released["code"]) ?
 			(string)released["code"] : "unknown";
-		MAP_WORKERD->abort_handoff(request_id,source_worker);
+		mapping aborted = MAP_WORKERD->abort_handoff(request_id,source_worker);
+		if(!(int)aborted["ok"])
+			error("cannot abort failed handoff: "+
+				pike_gateway_log_field((string)(aborted["code"] ||
+					"unknown"),64)+"\n");
+		if(pike_gateway_handoff_release_deferred(release_code)){
+			mapping restored = MAP_WORKERD->query_player_route(userid);
+			if(!(int)restored["ok"] ||
+			   (string)restored["state"]!="active" ||
+			   (string)restored["worker_id"]!=source_worker ||
+			   (int)restored["epoch"]!=source_epoch)
+				error("handoff abort did not restore exact source lease\n");
+			return ([
+				"worker_id":source_worker,"epoch":source_epoch,
+				"redirect":replay_request,"arrival_room":"",
+				"deferred":1,
+			]);
+		}
 		error("cannot release handoff source: "+release_code+"\n");
 	}
 	mapping committed = MAP_WORKERD->commit_handoff(request_id,target_worker);
@@ -2464,6 +2501,11 @@ private mapping pike_gateway_migration_plan(string source_worker,
 	mapping migration,int before_command)
 {
 	if(!mappingp(migration))
+		return (["deliver":0,"replace":0]);
+	// A combat/summon race deliberately keeps the exact source owner active.
+	// Preserve the command's original response and retry the pending room move
+	// only after the worker reports that it is safe to release the player.
+	if((int)migration["deferred"])
 		return (["deliver":0,"replace":0]);
 	int cross_worker = (string)migration["worker_id"]!=source_worker;
 	int redirect_response = (int)migration["redirect"];
@@ -3077,10 +3119,22 @@ private void pike_gateway_note_online_snapshot(int ok,int snapshot_at,
 		pike_gateway_last_online_snapshot_at = snapshot_at;
 		pike_gateway_last_online_snapshot_count = count;
 		pike_gateway_last_online_snapshot_error = "";
+		pike_gateway_online_snapshot_recovery_pending = 0;
 	}
-	else
+	else{
 		pike_gateway_last_online_snapshot_error = code || "snapshot_failed";
+		if(pike_gateway_online_snapshot_retryable(code))
+			pike_gateway_online_snapshot_recovery_pending = 1;
+	}
 	destruct(key);
+}
+
+private int pike_gateway_online_snapshot_recovery_requested()
+{
+	object key = pike_gateway_state_lock->lock();
+	int requested = pike_gateway_online_snapshot_recovery_pending;
+	destruct(key);
+	return requested;
 }
 
 private mapping(string:int) pike_gateway_affinity_heat_counts(array users)
@@ -3628,6 +3682,32 @@ private void pike_gateway_run_lease_gc()
 		error(describe_error(recovery_err));
 }
 
+/**
+ * A snapshot owner mismatch which survives all immediate recollection attempts
+ * is not a worker crash.  Pause admission and use the existing all-worker
+ * inventory fence to repair the exact owner/epoch before the supervisor's
+ * last-good snapshot expires.  Recovery failure remains fail-closed.
+ */
+private void pike_gateway_run_online_snapshot_recovery()
+{
+	mixed recovery_err = catch { pike_gateway_run_lease_gc(); };
+	object key = pike_gateway_state_lock->lock();
+	if(recovery_err){
+		pike_gateway_online_snapshot_recovery_failures++;
+		pike_gateway_last_error = "online snapshot recovery: "+
+			pike_gateway_log_field(describe_error(recovery_err),256);
+	}
+	else{
+		pike_gateway_online_snapshot_recovery_pending = 0;
+		pike_gateway_online_snapshot_recoveries++;
+		pike_gateway_last_lease_gc_at = time();
+	}
+	destruct(key);
+	if(recovery_err)
+		error(describe_error(recovery_err));
+	werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] ownership inventory reconciled\n");
+}
+
 private int pike_gateway_social_kind_is_durable(string kind)
 {
 	return kind=="world_broadcast" || kind=="team_snapshot" ||
@@ -3908,6 +3988,16 @@ private void pike_gateway_recovery_loop()
 		}
 		pike_gateway_resolve_uncertain_requests();
 		int now = time();
+		if(pike_gateway_routing_ready &&
+		   pike_gateway_online_snapshot_recovery_requested()){
+			mixed snapshot_recovery_err = catch {
+				pike_gateway_run_online_snapshot_recovery();
+			};
+			if(snapshot_recovery_err)
+				werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] recovery failed: %s\n",
+					pike_gateway_log_field(
+						describe_error(snapshot_recovery_err),256));
+		}
 		if(pike_gateway_routing_ready &&
 		   now-pike_gateway_last_lease_gc_at>=pike_gateway_lease_gc_seconds){
 			pike_gateway_last_lease_gc_at = now;

@@ -1337,6 +1337,11 @@ private void handle_map_worker_local_release(
         player->detach_worker_follow_links();
     if(functionp(player->prepare_worker_summon_handoff) &&
        !player->prepare_worker_summon_handoff()){
+        // No source release or coordinator commit happened.  Clear a stale
+        // local transfer capability before the gateway thaws the source lease,
+        // otherwise every later retry can remain permanently deferred.
+        if(functionp(player->cancel_worker_summon_handoff))
+            player->cancel_worker_summon_handoff();
         send_json(req,(["ok":0,"code":"summon_handoff_pending"]),409);
         return;
     }
