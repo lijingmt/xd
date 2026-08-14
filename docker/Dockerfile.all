@@ -174,8 +174,9 @@ COPY web /usr/local/tomcat/webapps/ROOT
 
 # 复制游戏图片到 Tomcat ROOT/xd/images/ (游戏代码使用 /xd/images/ 路径)
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT/xd/images && \
-    cp /app/xiand/images/* /usr/local/tomcat/webapps/ROOT/xd/images/ && \
-    echo "Copied $(ls /usr/local/tomcat/webapps/ROOT/xd/images/ | wc -l) images to ROOT/xd/images/"
+    cp -R /app/xiand/images/. /usr/local/tomcat/webapps/ROOT/xd/images/ && \
+    test -s /usr/local/tomcat/webapps/ROOT/xd/images/equipment/fallback/single_main_weapon.png && \
+    echo "Copied $(find /usr/local/tomcat/webapps/ROOT/xd/images/ -type f | wc -l) image files to ROOT/xd/images/"
 
 # 设置权限
 RUN chmod -R 755 /usr/local/tomcat/webapps/ROOT && \

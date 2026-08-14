@@ -291,6 +291,26 @@ void test_neutral_profession_images_deploy_contract()
 		test_fail("中立职业图片必须镜像一致、男女有别并部署到容器全部路径");
 }
 
+void test_nested_game_images_docker_contract()
+{
+	test_start("Docker镜像递归复制装备图片子目录");
+	string dockerfile = Stdio.read_file(ROOT+"/docker/Dockerfile.all");
+	string nested_image = Stdio.read_file(
+		ROOT+"/images/equipment/fallback/single_main_weapon.png");
+
+	if(dockerfile && nested_image &&
+	   search(dockerfile,
+		   "cp -R /app/xiand/images/. /usr/local/tomcat/webapps/ROOT/xd/images/")!=-1 &&
+	   search(dockerfile,
+		   "test -s /usr/local/tomcat/webapps/ROOT/xd/images/equipment/fallback/single_main_weapon.png")!=-1 &&
+	   search(dockerfile,
+		   "find /usr/local/tomcat/webapps/ROOT/xd/images/ -type f")!=-1 &&
+	   search(dockerfile,"cp /app/xiand/images/*")==-1)
+		test_pass();
+	else
+		test_fail("镜像必须递归复制图片目录并校验装备图片产物");
+}
+
 void test_local_restart_save_contract()
 {
 	test_start("本地重启先执行游戏内全员存档再停止进程");
@@ -726,6 +746,7 @@ int main()
 	test_stack_order_contract();
 	test_item_sync_contract();
 	test_neutral_profession_images_deploy_contract();
+	test_nested_game_images_docker_contract();
 	test_local_restart_save_contract();
 	test_local_restart_stack_contract();
 	test_real_healthcheck_and_runtime_contracts();
