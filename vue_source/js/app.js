@@ -1314,8 +1314,8 @@ createApp({
         },
 
         normalizeReferralCode(value) {
-            const normalized = String(value || '').trim().toLowerCase();
-            return /^[a-z0-9]{2,64}$/.test(normalized) ? normalized : '';
+            const normalized = String(value || '').trim();
+            return /^[a-zA-Z0-9]{2,64}$/.test(normalized) ? normalized : '';
         },
 
         buildReferralLink(value) {
@@ -2356,6 +2356,29 @@ createApp({
             const candidates = this.equipmentPanel?.candidates?.[slot];
             if (!Array.isArray(candidates)) return [];
             return candidates.filter(item => item && !item.equipped);
+        },
+
+        equipmentRarityClass(item) {
+            const value = Math.max(0, Math.min(7,
+                Number(item?.rare_level || 0)));
+            return 'equipment-rarity-' + value;
+        },
+
+        equipmentLevelClass(item) {
+            const level = Math.max(0, Number(item?.level_requirement || 0));
+            if (level >= 100) return 'equipment-level-5';
+            if (level >= 80) return 'equipment-level-4';
+            if (level >= 60) return 'equipment-level-3';
+            if (level >= 40) return 'equipment-level-2';
+            if (level >= 20) return 'equipment-level-1';
+            return 'equipment-level-0';
+        },
+
+        getEquipmentImageUrl(item, slot) {
+            const imagePath = item?.image_url ||
+                this.equipmentPanel?.slots?.[slot]?.image ||
+                '/images/equipment/fallback/decorate_tool.png';
+            return this.getImageUrl(imagePath);
         },
 
         async fetchEquipmentPanel() {
@@ -5162,6 +5185,18 @@ createApp({
                 ? this.playerStats.name_cn
                 : this.loginForm.userid;
             return displayName ? String(displayName).trim().charAt(0) : '仙';
+        },
+
+        playerLevelAuraClass() {
+            const level = Math.max(1, Number(this.playerStats?.level || 1));
+            if (level >= 250) return 'level-aura-7';
+            if (level >= 200) return 'level-aura-6';
+            if (level >= 160) return 'level-aura-5';
+            if (level >= 120) return 'level-aura-4';
+            if (level >= 90) return 'level-aura-3';
+            if (level >= 60) return 'level-aura-2';
+            if (level >= 30) return 'level-aura-1';
+            return 'level-aura-0';
         },
 
         // 将区号转换为可读格式 (tx01 -> 1区, tx02 -> 2区, etc.)

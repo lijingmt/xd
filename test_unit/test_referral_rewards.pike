@@ -56,13 +56,17 @@ int inventory_amount(object player,string item_name)
 
 int main()
 {
-	string inviter_id="xd01testunitreferrer";
+	string inviter_id="xd01testunitReferrer";
+	string lowercase_collision="xd01testunitreferrer";
 	string invitee_one="xd01testunitreferreda";
 	string invitee_two="xd01testunitreferredb";
-	array(string) ids=({inviter_id,invitee_one,invitee_two});
+	array(string) ids=({inviter_id,lowercase_collision,invitee_one,
+		invitee_two});
 	object|zero inviter=0;
+	object|zero collision=0;
 	object|zero first=0;
 	object|zero second=0;
+	int case_sensitive_filesystem=0;
 	object original_player=this_player();
 	werror("\n========== 邀请半年返玉与太古卷轴测试 ==========\n");
 	REFERRALD->remove_test_referrals(ids);
@@ -73,8 +77,28 @@ int main()
 	}
 	mixed err=catch{
 		inviter=create_saved_player(inviter_id,"198.51.100.10");
+		case_sensitive_filesystem=
+			Stdio.file_size(player_file(lowercase_collision))<=0;
+		if(case_sensitive_filesystem)
+			collision=create_saved_player(lowercase_collision,
+				"198.51.100.13");
 		first=create_saved_player(invitee_one,"198.51.100.11");
 		second=create_saved_player(invitee_two,"198.51.100.12");
+		mapping uppercase_validation=REFERRALD->
+			validate_registration_invite(invitee_one,inviter_id,
+				"198.51.100.11");
+		mapping lowercase_validation=case_sensitive_filesystem ?
+			REFERRALD->validate_registration_invite(invitee_one,
+				lowercase_collision,"198.51.100.11") : ([]);
+		check("邀请码严格保留大小写且不会串到同名小写账号",
+			uppercase_validation["ok"] &&
+			uppercase_validation["inviter_account"]==inviter_id &&
+			(!case_sensitive_filesystem ||
+			 (lowercase_validation["ok"] &&
+			  lowercase_validation["inviter_account"]==lowercase_collision &&
+			  uppercase_validation["inviter_account"]!=
+				lowercase_validation["inviter_account"])),
+			"LSQ与lsq未按精确人物档案解析");
 		mapping self_bind=REFERRALD->bind_registration(inviter_id,
 			inviter_id,"198.51.100.10");
 		mapping same_network=REFERRALD->validate_registration_invite(invitee_one,
@@ -83,7 +107,9 @@ int main()
 			!self_bind["ok"] && same_network["ok"] &&
 			same_network["registration_network_match"] &&
 			!sizeof(REFERRALD->query_relation(invitee_one)),
-			"自邀请防刷或同网络审计信号异常");
+			"self="+sprintf("%O",self_bind)+" network="+
+				sprintf("%O",same_network)+" relation="+
+				sprintf("%O",REFERRALD->query_relation(invitee_one)));
 		mapping bound_one=REFERRALD->bind_registration(invitee_one,
 			inviter_id,"198.51.100.11");
 		mapping rebound=REFERRALD->bind_registration(invitee_one,
@@ -157,7 +183,7 @@ int main()
 		check("邀请奖励测试无运行异常",0,describe_error(err));
 	if(original_player)
 		set_this_player(original_player);
-	foreach(({inviter,first,second}),object player)
+	foreach(({inviter,collision,first,second}),object player)
 		if(player)
 			destruct(player);
 	REFERRALD->remove_test_referrals(ids);

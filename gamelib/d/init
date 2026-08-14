@@ -615,6 +615,17 @@ int choice_profe(string arg){
 			write("[返回阵营选择:choice_race]\n");
 			return 1;
 		}
+		// API 新建人物已在账号锁内校验一次；旧 JSP/历史空白档仍可
+		// 直接到达 choice_profe，因此这里必须再做服务端防绕过校验。
+		mapping profession_permission = ACCOUNT_CHARACTERD->
+			query_profession_selection_permission(
+				(string)me->query_name(),(string)arr[1]);
+		if(!(int)profession_permission["allowed"]){
+			write((string)(profession_permission["message"] ||
+				"账号人物数量暂时无法核验，请稍后重试。")+"\n");
+			write("[返回阵营选择:choice_race]\n");
+			return 1;
+		}
 		string u_r = (string)arr[0];
 		string u_p = (string)arr[1];
 		me->set_raceId(u_r);

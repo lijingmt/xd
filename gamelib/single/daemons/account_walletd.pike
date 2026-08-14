@@ -719,10 +719,11 @@ mapping(string:mixed) credit_account_referral_reward_once(
 	mapping validation;
 	mapping receipt;
 	object key;
-	invitee_account=lower_case(String.trim_all_whites(
-		invitee_account || ""));
+	// 账号文件名严格区分大小写；只有哈希请求号允许规范化为小写。
+	// 否则大写历史邀请人会在奖励入账末端被错误指向小写账号。
+	invitee_account=String.trim_all_whites(invitee_account || "");
 	request_id=lower_case(String.trim_all_whites(request_id || ""));
-	account_id=lower_case(String.trim_all_whites(account_id || ""));
+	account_id=String.trim_all_whites(account_id || "");
 	if(!valid_wallet_userid(account_id) ||
 	   !(int)ACCOUNT_CHARACTERD->query_account_characters(account_id)["ok"] ||
 	   !valid_wallet_userid(invitee_account) ||

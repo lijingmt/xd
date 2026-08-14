@@ -959,13 +959,14 @@ mapping(string:mixed) perform_pet_basic_assist(object player,object target)
 	info = shanhai_catalog[species];
 	if(!info)
 		return result;
-	// 取主灵技档位，再按 5% 折算成基础灵攻。
+	// 基础灵攻是物种天赋，不能被拓印的主动灵技覆盖。否则疗愈型鸾鸟
+	// 学会伤害灵技后会永久失去回生羽之外的被动治疗。
 	profile = query_pet_assist_profile(species,player->query_base_damage(),
 		target->query_life_max(),player->query_life_max(),
 		player->query_mofa_max(),
 		(int)player["/tmp/wanling/skill_set"],
 		(int)player["/tmp/wanling/pet_growth_percent"],
-		query_pet_imprinted_effect(player));
+		"");
 	effect_type = (string)profile["type"];
 	amount = (int)profile["amount"];
 	if(amount<=0 || effect_type=="none")

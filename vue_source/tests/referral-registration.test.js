@@ -48,17 +48,17 @@ vm.runInNewContext(appSource, sandbox, { filename: 'app.js' });
 assert(componentOptions, 'Vue component should register');
 const client = Object.assign(componentOptions.data(), componentOptions.methods);
 
-assert.strictEqual(client.normalizeReferralCode(' XD01Friend '), 'xd01friend');
+assert.strictEqual(client.normalizeReferralCode(' XD01Friend '), 'XD01Friend');
 assert.strictEqual(client.normalizeReferralCode('../bad'), '');
 assert.strictEqual(
     client.buildReferralLink('XD01Friend'),
-    'https://xd.example.com/xd/vue/?register=1&ref=xd01friend'
+    'https://xd.example.com/xd/vue/?register=1&ref=XD01Friend'
 );
 assert.strictEqual(client.applyReferralLanding('XD01Friend'), true);
 assert.strictEqual(client.showRegister, true);
 assert.strictEqual(client.showLogin, false);
-assert.strictEqual(client.registerForm.referral, 'xd01friend');
-assert.strictEqual(client.refCode, 'xd01friend');
+assert.strictEqual(client.registerForm.referral, 'XD01Friend');
+assert.strictEqual(client.refCode, 'XD01Friend');
 assert.strictEqual(client.applyReferralLanding('../bad'), false);
 
 client.clearReferralLanding();
@@ -95,12 +95,12 @@ assert.strictEqual(client.registrationFirstError(), '邀请码格式不正确，
 client.registerForm.referral = '';
 
 client.inviteModalOpen = false;
-client.playerStats = { userid: 'xd01friend' };
+client.playerStats = { userid: 'XD01Friend' };
 client.openInviteModal();
 assert.strictEqual(client.inviteModalOpen, true);
 assert.strictEqual(
     client.inviteLink,
-    'https://xd.example.com/xd/vue/?register=1&ref=xd01friend'
+    'https://xd.example.com/xd/vue/?register=1&ref=XD01Friend'
 );
 client.closeInviteModal();
 assert.strictEqual(client.inviteModalOpen, false);

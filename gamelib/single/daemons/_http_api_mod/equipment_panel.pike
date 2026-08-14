@@ -4,21 +4,36 @@
 #define XIAND_HTTP_API_EQUIPMENT_PANEL_PIKE
 
 private mapping(string:mapping(string:string)) equipment_panel_slots = ([
-	"double_main_weapon":(["label":"双手武器","icon":"⚔","group":"weapon"]),
-	"single_main_weapon":(["label":"主手","icon":"剑","group":"weapon"]),
-	"single_other_weapon":(["label":"副手","icon":"刃","group":"weapon"]),
-	"armor_head":(["label":"头部","icon":"冠","group":"body"]),
-	"armor_cloth":(["label":"衣服","icon":"衣","group":"body"]),
-	"armor_waste":(["label":"护腕","icon":"腕","group":"body"]),
-	"armor_hand":(["label":"手部","icon":"手","group":"body"]),
-	"armor_thou":(["label":"腿部","icon":"腿","group":"body"]),
-	"armor_shoes":(["label":"脚部","icon":"履","group":"body"]),
-	"jewelry_ring":(["label":"戒指","icon":"戒","group":"jewelry"]),
-	"jewelry_neck":(["label":"项链","icon":"链","group":"jewelry"]),
-	"jewelry_bangle":(["label":"手镯","icon":"镯","group":"jewelry"]),
-	"decorate_manteau":(["label":"披风","icon":"披","group":"decorate"]),
-	"decorate_thing":(["label":"挂件","icon":"佩","group":"decorate"]),
-	"decorate_tool":(["label":"携带物","icon":"宝","group":"decorate"]),
+	"double_main_weapon":(["label":"双手武器","icon":"⚔","group":"weapon",
+		"image":"/images/equipment/fallback/double_main_weapon.png"]),
+	"single_main_weapon":(["label":"主手","icon":"剑","group":"weapon",
+		"image":"/images/equipment/fallback/single_main_weapon.png"]),
+	"single_other_weapon":(["label":"副手","icon":"刃","group":"weapon",
+		"image":"/images/equipment/fallback/single_other_weapon.png"]),
+	"armor_head":(["label":"头部","icon":"冠","group":"body",
+		"image":"/images/equipment/fallback/armor_head.png"]),
+	"armor_cloth":(["label":"衣服","icon":"衣","group":"body",
+		"image":"/images/equipment/fallback/armor_cloth.png"]),
+	"armor_waste":(["label":"护腕","icon":"腕","group":"body",
+		"image":"/images/equipment/fallback/armor_waste.png"]),
+	"armor_hand":(["label":"手部","icon":"手","group":"body",
+		"image":"/images/equipment/fallback/armor_hand.png"]),
+	"armor_thou":(["label":"腿部","icon":"腿","group":"body",
+		"image":"/images/equipment/fallback/armor_thou.png"]),
+	"armor_shoes":(["label":"脚部","icon":"履","group":"body",
+		"image":"/images/equipment/fallback/armor_shoes.png"]),
+	"jewelry_ring":(["label":"戒指","icon":"戒","group":"jewelry",
+		"image":"/images/equipment/fallback/jewelry_ring.png"]),
+	"jewelry_neck":(["label":"项链","icon":"链","group":"jewelry",
+		"image":"/images/equipment/fallback/jewelry_neck.png"]),
+	"jewelry_bangle":(["label":"手镯","icon":"镯","group":"jewelry",
+		"image":"/images/equipment/fallback/jewelry_bangle.png"]),
+	"decorate_manteau":(["label":"披风","icon":"披","group":"decorate",
+		"image":"/images/equipment/fallback/decorate_manteau.png"]),
+	"decorate_thing":(["label":"挂件","icon":"佩","group":"decorate",
+		"image":"/images/equipment/fallback/decorate_thing.png"]),
+	"decorate_tool":(["label":"携带物","icon":"宝","group":"decorate",
+		"image":"/images/equipment/fallback/decorate_tool.png"]),
 ]);
 
 private int is_equipment_panel_type(string item_type)
@@ -33,10 +48,40 @@ private int is_equipment_panel_weapon(string item_type)
 		item_type)!=-1;
 }
 
+private int valid_equipment_picture_name(string picture)
+{
+	if(!picture || picture=="" || sizeof(picture)>160 ||
+	   search(picture,"..")!=-1)
+		return 0;
+	foreach(picture;int index;int one){
+		if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
+		   (one>='0' && one<='9') || one=='_' || one=='-' || one=='/')
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+private string query_equipment_panel_image(object item,string slot)
+{
+	string fallback = equipment_panel_slots[slot] ?
+		(string)equipment_panel_slots[slot]["image"] :
+		"/images/equipment/fallback/decorate_tool.png";
+	string picture = functionp(item->query_picture) ?
+		(string)(item->query_picture() || "") : "";
+	if(!valid_equipment_picture_name(picture))
+		return fallback;
+	foreach(({".gif",".png",".webp",".jpg"}),string extension)
+		if(Stdio.file_size(ROOT+"/images/"+picture+extension)>0)
+			return "/images/"+picture+extension;
+	return fallback;
+}
+
 private mapping query_equipment_panel_item(object item,int count)
 {
 	string item_type = (string)item->query_item_type();
 	string item_name = (string)item->query_name();
+	string slot = (string)item->query_item_kind();
 	int equipped = (int)(item->equiped || 0);
 	string action = equipped ?
 		(is_equipment_panel_weapon(item_type) ? "unwield" : "unwear") :
@@ -45,8 +90,12 @@ private mapping query_equipment_panel_item(object item,int count)
 		"id":item_name+"#"+count,
 		"name":item_name,
 		"name_cn":(string)item->query_short(),
-		"slot":(string)item->query_item_kind(),
+		"slot":slot,
 		"item_type":item_type,
+		"image_url":query_equipment_panel_image(item,slot),
+		"image_fallback":equipment_panel_slots[slot] ?
+			(string)equipment_panel_slots[slot]["image"] :
+			"/images/equipment/fallback/decorate_tool.png",
 		"level_requirement":(int)item->query_item_canLevel(),
 		"rare_level":(int)item->query_item_rareLevel(),
 		"equipped":equipped,

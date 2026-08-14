@@ -96,6 +96,41 @@ void test_catalog_and_weights()
 		test_fail(failures*" | ");
 }
 
+void test_uppercase_color_code_rendering()
+{
+	test_start("太古五/七阶大写颜色码不泄漏为技能名前缀字符");
+	string shura = ANCIENT_SKILLD->query_colored_name("shuraqianlie");
+	string top = ANCIENT_SKILLD->query_colored_name("hundunkaimo");
+	mapping parsed = HTTP_APID->parse_text_segment(shura);
+	array parts = (array)(parsed["parts"] || ({}));
+	string plain = "";
+	foreach(parts,mapping part)
+		if((string)part["type"]=="text")
+			plain += (string)(part["content"] || "");
+	string shura_html = HTTP_APID->process_color_codes(shura);
+	string top_html = HTTP_APID->process_color_codes(top);
+	string bright_html = HTTP_APID->process_color_codes(
+		"§A绿§R§B蓝§R§D粉§R§F白§R§Y黄§R");
+	int valid = sizeof(parts)>=3 &&
+		(string)parts[0]["type"]=="color-start" &&
+		(string)parts[0]["class"]=="color-red-bold" &&
+		plain=="【太古·5】修罗千裂" &&
+		search(shura_html,"color-red-bold")!=-1 &&
+		search(shura_html,"C【")==-1 &&
+		search(top_html,"color-bright-gold-bold")!=-1 &&
+		search(top_html,"E【")==-1 &&
+		search(bright_html,"color-bright-green-bold")!=-1 &&
+		search(bright_html,"color-bright-blue-bold")!=-1 &&
+		search(bright_html,"color-hot-pink-bold")!=-1 &&
+		search(bright_html,"color-bright-white-bold")!=-1 &&
+		search(bright_html,"color-bright-yellow-bold")!=-1;
+	if(valid)
+		test_pass();
+	else
+		test_fail("parsed="+sprintf("%O",parsed)+" html="+
+			shura_html+" top="+top_html);
+}
+
 void test_all_programs_compile()
 {
 	test_start("70个技能与70本技能书全部编译并具有五阶成长");
@@ -449,6 +484,7 @@ int main()
 {
 	werror("\n========== 十职业太古隐藏技能测试 ==========\n");
 	test_catalog_and_weights();
+	test_uppercase_color_code_rendering();
 	test_all_programs_compile();
 	test_all_ancient_skills_strengthened();
 	test_drop_probability_contract();

@@ -61,6 +61,51 @@ int query_character_limit()
 	return ACCOUNT_CHARACTER_LIMIT;
 }
 
+// 隐藏职业按注册账号限量。这里使用现有职业ID：玩家口中的“无极”
+// 对应当前最高隐藏职业 taiji（太极），不创建第二套职业身份。
+int query_profession_account_limit(string profession_id)
+{
+	if(profession_id=="wuxiang")
+		return 3;
+	if(profession_id=="taiji")
+		return 2;
+	return 0;
+}
+
+mapping(string:mixed) query_profession_limit_from_summary(
+	mapping(string:mixed) data,string profession_id,
+	void|string excluded_character_id)
+{
+	int limit = query_profession_account_limit(profession_id);
+	int count = 0;
+	string excluded = (string)(excluded_character_id || "");
+	if(limit<=0)
+		return (["ok":1,"limited":0,"allowed":1,"count":0,"limit":0]);
+	if(!data || (int)data["ok"]!=1 || !arrayp(data["characters"]))
+		return (["ok":0,"limited":1,"allowed":0,"count":0,
+			"limit":limit,"message":"账号人物档案暂时无法核验。"]);
+	foreach((array)data["characters"],mapping summary){
+		if(excluded!="" && (string)summary["id"]==excluded)
+			continue;
+		if((string)summary["profession_id"]==profession_id)
+			count++;
+	}
+	string profession_name = profession_names[profession_id] || profession_id;
+	return (["ok":1,"limited":1,"allowed":count<limit,
+		"count":count,"limit":limit,
+		"message":count<limit ? "" : "【"+profession_name+
+			"·人物上限】同一注册账号最多创建"+limit+"个"+
+			profession_name+"。"]);
+}
+
+mapping(string:mixed) query_profession_selection_permission(
+	string requested_id,string profession_id)
+{
+	mapping(string:mixed) data = query_account_characters(requested_id);
+	return query_profession_limit_from_summary(data,profession_id,
+		requested_id);
+}
+
 // 无相解锁判定：账号下 10 个基础职业均至少有一个角色达到 120 级。
 // 输入是 query_account_characters 的返回值，避免重复查询。
 // 同一函数被 gamelib/d/init 的 query_wuxiang_unlocked_for 和
@@ -916,6 +961,25 @@ mapping(string:mixed) create_character(string requested_id,
 		result["message"] = "人物档案已达到"+
 			ACCOUNT_CHARACTER_LIMIT+"个上限。";
 	else{
+		int profession_limit = query_profession_account_limit(profession_id);
+		int profession_count = 0;
+		if(profession_limit>0){
+			foreach((array)record["characters"],mapping existing_entry){
+				mapping existing_summary = profile_summary_unlocked(
+					account_id,existing_entry);
+				if((string)existing_summary["profession_id"]==profession_id)
+					profession_count++;
+			}
+		}
+		if(profession_limit>0 && profession_count>=profession_limit){
+			string profession_name = profession_names[profession_id] ||
+				profession_id;
+			result["message"] = "【"+profession_name+
+				"·人物上限】同一注册账号最多创建"+
+				profession_limit+"个"+profession_name+"。";
+			destruct(key);
+			return result;
+		}
 		int unfinished = 0;
 		foreach((array)record["characters"],mapping entry){
 			mapping summary = profile_summary_unlocked(account_id,entry);

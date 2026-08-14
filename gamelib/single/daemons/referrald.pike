@@ -151,8 +151,7 @@ private int ensure_inviter_relation_index(mapping relation)
 mapping(string:mixed) query_relation(string invitee_account)
 {
 	mapping(string:mixed)|zero relation;
-	invitee_account=lower_case(String.trim_all_whites(
-		invitee_account || ""));
+	invitee_account=String.trim_all_whites(invitee_account || "");
 	if(!valid_referral_userid(invitee_account))
 		return ([]);
 	relation=decode_json_file(relation_path(invitee_account));
@@ -187,12 +186,24 @@ private string read_saved_userip(string character_id)
 
 private int account_has_registration_ip(string account_id,string client_ip)
 {
+	array(string) character_ids;
 	if(client_ip=="" || client_ip=="unknown")
 		return 0;
-	foreach(ACCOUNT_CHARACTERD->query_character_ids(account_id),
-		string character_id)
+	character_ids = ACCOUNT_CHARACTERD->query_character_ids(account_id);
+	// 无索引历史账号以账号ID本身作为唯一人物；即使账号索引正处于
+	// 首次合成/缓存切换，也不能漏掉这份权威老档。
+	if(search(character_ids,account_id)==-1)
+		character_ids += ({account_id});
+	foreach(character_ids,string character_id){
+		// 注册邀请人可能仍在线且最新来源尚未完成下一次落盘；先读
+		// 权威运行态，再兼容离线档案，避免同网络审计信号漏记。
+		object online = find_player(character_id);
+		if(online && functionp(online->query_userip) &&
+		   (string)(online->query_userip() || "")==client_ip)
+			return 1;
 		if(read_saved_userip(character_id)==client_ip)
 			return 1;
+	}
 	return 0;
 }
 
@@ -264,9 +275,10 @@ mapping(string:mixed) validate_registration_invite(
 	string invitee_account;
 	string inviter_account;
 	mapping existing;
-	invitee_character=lower_case(String.trim_all_whites(
-		invitee_character || ""));
-	inviter_code=lower_case(String.trim_all_whites(inviter_code || ""));
+	// 历史账号可能含大写字母且文件名严格区分大小写。邀请关系中的
+	// 双方账号必须按精确ID解析，避免 LSQ 与 lsq 串号。
+	invitee_character=String.trim_all_whites(invitee_character || "");
+	inviter_code=String.trim_all_whites(inviter_code || "");
 	client_ip=String.trim_all_whites(client_ip || "");
 	if(!valid_referral_userid(invitee_character) ||
 	   !valid_referral_userid(inviter_code))
@@ -339,8 +351,7 @@ mapping(string:mixed) record_recharge_from_wallet(string invitee_account,
 	mapping receipt;
 	mapping event;
 	string path;
-	invitee_account=lower_case(String.trim_all_whites(
-		invitee_account || ""));
+	invitee_account=String.trim_all_whites(invitee_account || "");
 	request_id=lower_case(String.trim_all_whites(request_id || ""));
 	if(!valid_referral_userid(invitee_account) ||
 	   !valid_referral_request_id(request_id))

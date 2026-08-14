@@ -1144,8 +1144,10 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
     string userid = params["userid"];
     string password = params["password"];
     string cmd = params["cmd"];
-    string ref_code = lower_case(String.trim_all_whites(
-        url_decode((string)(params["ref"] || ""))));
+    // 历史人物ID区分大小写；邀请码必须保留分享人的精确ID，不能像
+    // 新注册短账号一样规范化成小写，否则 LSQ 会错误归到 lsq。
+    string ref_code = String.trim_all_whites(
+        url_decode((string)(params["ref"] || "")));
     http_werror(" handle_api_html request received\n");
     if(!cmd || cmd == "") cmd = "look";
 
@@ -2062,6 +2064,16 @@ mapping parse_text_segment(string text)
                 case 0x67: color_class = "color-gold"; break;      // g
                 case 0x72: parts += ({(["type": "color-end"])}); i += 3; continue;  // r = reset
                 case 0x78: color_class = "color-bold"; break;     // x
+				// 大写亮色码是游戏既有协议；旧解析器漏掉后会把码位
+				// 字母本身渲染出来，例如 §C 变成技能名前缀 C。
+				case 0x41: color_class = "color-bright-green-bold"; break; // A
+				case 0x42: color_class = "color-bright-blue-bold"; break;  // B
+				case 0x43: color_class = "color-red-bold"; break;   // C
+				case 0x44: color_class = "color-hot-pink-bold"; break; // D
+				case 0x45: color_class = "color-bright-gold-bold"; break; // E
+				case 0x46: color_class = "color-bright-white-bold"; break; // F
+				case 0x59: color_class = "color-bright-yellow-bold"; break; // Y
+				case 0x52: parts += ({(["type": "color-end"])}); i += 3; continue; // R
                 default: i += 2; continue;
             }
 
@@ -2331,6 +2343,14 @@ string process_color_codes(string text)
                 case 0x67: color_class = "color-gold"; break;      // g
                 case 0x72: is_reset = 1; break;                   // r = reset
                 case 0x78: color_class = "color-bold"; break;     // x
+				case 0x41: color_class = "color-bright-green-bold"; break; // A
+				case 0x42: color_class = "color-bright-blue-bold"; break;  // B
+				case 0x43: color_class = "color-red-bold"; break;   // C
+				case 0x44: color_class = "color-hot-pink-bold"; break; // D
+				case 0x45: color_class = "color-bright-gold-bold"; break; // E
+				case 0x46: color_class = "color-bright-white-bold"; break; // F
+				case 0x59: color_class = "color-bright-yellow-bold"; break; // Y
+				case 0x52: is_reset = 1; break;                     // R
                 default: break;
             }
 

@@ -626,7 +626,10 @@
                 <button type="button"
                      class="player-avatar-shell"
                      data-tour="player-avatar"
-                     :class="playerStats?.profession_assistant?.style_class || 'profession-style-none'"
+                     :class="[
+                         playerStats?.profession_assistant?.style_class || 'profession-style-none',
+                         playerLevelAuraClass()
+                     ]"
                      @click="openEquipmentPanel"
                      :title="playerStats && playerStats.name_cn ? '查看' + playerStats.name_cn + '的装备' : '查看人物装备'">
                     <img v-if="playerAvatarUrl && !playerAvatarFailed"
@@ -1595,7 +1598,19 @@
                                             filled: !!equipmentPanel.equipped[slot]
                                         }"
                                         @click="equipmentSelectedSlot = slot">
-                                    <span class="equipment-slot-icon">{{ equipmentPanel.slots[slot]?.icon || '装' }}</span>
+                                    <span class="equipment-slot-icon"
+                                          :class="[
+                                              equipmentRarityClass(equipmentPanel.equipped[slot]),
+                                              equipmentLevelClass(equipmentPanel.equipped[slot])
+                                          ]">
+                                        <img v-if="equipmentPanel.equipped[slot]"
+                                             :src="getEquipmentImageUrl(equipmentPanel.equipped[slot], slot)"
+                                             :alt="equipmentPanel.slots[slot]?.label || '装备'"
+                                             loading="lazy">
+                                        <span v-else aria-hidden="true">
+                                            {{ equipmentPanel.slots[slot]?.icon || '装' }}
+                                        </span>
+                                    </span>
                                     <span class="equipment-slot-copy">
                                         <small>{{ equipmentPanel.slots[slot]?.label || slot }}</small>
                                         <strong>{{ cleanEquipmentName(equipmentPanel.equipped[slot]?.name_cn) || '空' }}</strong>
@@ -1613,7 +1628,14 @@
                                 </div>
                             </div>
                             <article v-if="equipmentPanel.equipped[equipmentSelectedSlot]"
-                                     class="equipment-current-item">
+                                     class="equipment-current-item"
+                                     :class="[
+                                         equipmentRarityClass(equipmentPanel.equipped[equipmentSelectedSlot]),
+                                         equipmentLevelClass(equipmentPanel.equipped[equipmentSelectedSlot])
+                                     ]">
+                                <img class="equipment-item-art"
+                                     :src="getEquipmentImageUrl(equipmentPanel.equipped[equipmentSelectedSlot], equipmentSelectedSlot)"
+                                     :alt="cleanEquipmentName(equipmentPanel.equipped[equipmentSelectedSlot].name_cn)">
                                 <small>已穿戴</small>
                                 <strong>{{ cleanEquipmentName(equipmentPanel.equipped[equipmentSelectedSlot].name_cn) }}</strong>
                                 <span>需求 Lv.{{ equipmentPanel.equipped[equipmentSelectedSlot].level_requirement || 0 }}</span>
@@ -1633,7 +1655,12 @@
                             <div class="equipment-candidate-list">
                                 <article v-for="item in getEquipmentCandidates(equipmentSelectedSlot)"
                                          :key="item.id"
-                                         class="equipment-candidate-item">
+                                         class="equipment-candidate-item"
+                                         :class="[equipmentRarityClass(item), equipmentLevelClass(item)]">
+                                    <img class="equipment-item-art"
+                                         :src="getEquipmentImageUrl(item, equipmentSelectedSlot)"
+                                         :alt="cleanEquipmentName(item.name_cn)"
+                                         loading="lazy">
                                     <div>
                                         <strong>{{ cleanEquipmentName(item.name_cn) }}</strong>
                                         <small>需求 Lv.{{ item.level_requirement || 0 }} · 品阶 {{ item.rare_level || 0 }}</small>

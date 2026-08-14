@@ -1634,6 +1634,31 @@ void test_hidden_luan_owner_revive()
 		search((string)fusion["message"],"不能作为合成材料")!=-1,
 		"隐藏宠物无法出战或可被融合导致复活能力丢失/继承");
 
+	player->skills["xuehailieshang"] = ({1,0});
+	PETD->test_add_pet_material(player,"spirit_dew",100);
+	int luan_trained = 1;
+	for(int level=1;level<20;level++)
+		luan_trained = luan_trained &&
+			PETD->train_pet_level(player,(string)luan["id"])["ok"];
+	PETD->test_add_pet_material(player,"skill_rune",1);
+	mapping luan_imprinted = PETD->imprint_pet_skill(player,
+		(string)luan["id"],"xuehailieshang");
+	player->move(test_room);
+	player->set_life(player->query_life_max()/2);
+	object basic_target = make_npc(player,70);
+	int basic_life_before = player->get_cur_life();
+	int basic_target_before = basic_target->get_cur_life();
+	mapping basic_heal = PETD->perform_pet_basic_assist(player,basic_target);
+	check("鸾鸟拓印攻击灵技后仍保留物种被动治疗",
+		luan_trained && luan_imprinted["ok"] && basic_heal["ok"] &&
+		basic_heal["type"]=="heal" && (int)basic_heal["amount"]>0 &&
+		player->get_cur_life()>basic_life_before &&
+		basic_target->get_cur_life()==basic_target_before,
+		"拓印主动效果覆盖了鸾鸟基础疗愈或错误伤害目标");
+	player->set_life(player->query_life_max());
+	if(basic_target)
+		destruct(basic_target);
+
 	player->move(test_room);
 	object duel_killer = create_test_player(
 		"xd99testunitpetluankiller","monst","yinggui");

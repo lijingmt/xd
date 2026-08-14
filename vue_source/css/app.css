@@ -3627,6 +3627,12 @@ body {
 .color-cyan-bold { color: #00AAFF; font-weight: bold; }
 .color-purple-bold { color: #8B00FF; font-weight: bold; }
 .color-orange-bold { color: #FF8C00; font-weight: bold; }
+.color-bright-green-bold { color: #00FF00; font-weight: bold; }
+.color-bright-blue-bold { color: #0099FF; font-weight: bold; }
+.color-hot-pink-bold { color: #FF1493; font-weight: bold; }
+.color-bright-gold-bold { color: #FFD700; font-weight: bold; }
+.color-bright-white-bold { color: #FFFFFF; font-weight: bold; }
+.color-bright-yellow-bold { color: #FFFF00; font-weight: bold; }
 .color-gray { color: #666666; }
 .color-dark-gray { color: #888888; }
 .color-light-gray { color: #CCCCCC; }
@@ -7593,14 +7599,17 @@ select:focus-visible {
 }
 
 .player-avatar-shell {
+	--level-aura: transparent;
+	--level-aura-soft: transparent;
 	appearance: none;
+	position: relative;
     display: grid;
     flex: 0 0 52px;
     place-items: center;
     width: 52px;
     height: 52px;
     padding: 3px;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid rgba(255, 244, 220, 0.5);
     border-radius: 18px 8px 18px 8px;
     background:
@@ -7609,6 +7618,70 @@ select:focus-visible {
     box-shadow:
         0 8px 18px rgba(25, 14, 10, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.player-avatar-shell::before,
+.player-avatar-shell::after {
+	position: absolute;
+	inset: -4px;
+	border: 2px solid var(--level-aura);
+	border-radius: 20px 10px 20px 10px;
+	box-shadow: 0 0 12px var(--level-aura-soft),
+		inset 0 0 8px var(--level-aura-soft);
+	content: "";
+	pointer-events: none;
+}
+
+.player-avatar-shell::after {
+	inset: -8px;
+	border-width: 1px;
+	opacity: 0;
+}
+
+.player-avatar-shell.level-aura-1 {
+	--level-aura: #73d69b;
+	--level-aura-soft: rgba(93, 221, 143, 0.42);
+}
+.player-avatar-shell.level-aura-2 {
+	--level-aura: #70bdff;
+	--level-aura-soft: rgba(64, 158, 255, 0.52);
+}
+.player-avatar-shell.level-aura-3 {
+	--level-aura: #bd8cff;
+	--level-aura-soft: rgba(150, 88, 255, 0.58);
+}
+.player-avatar-shell.level-aura-4 {
+	--level-aura: #ffe080;
+	--level-aura-soft: rgba(255, 191, 54, 0.66);
+}
+.player-avatar-shell.level-aura-5 {
+	--level-aura: #ff9d55;
+	--level-aura-soft: rgba(255, 104, 47, 0.7);
+}
+.player-avatar-shell.level-aura-6 {
+	--level-aura: #ff647f;
+	--level-aura-soft: rgba(255, 63, 105, 0.76);
+}
+.player-avatar-shell.level-aura-7 {
+	--level-aura: #f6fbff;
+	--level-aura-soft: rgba(111, 226, 255, 0.88);
+	background: conic-gradient(from 0deg, rgba(96, 235, 255, 0.5),
+		rgba(202, 121, 255, 0.52), rgba(255, 221, 112, 0.54),
+		rgba(96, 235, 255, 0.5));
+}
+
+.player-avatar-shell.level-aura-3::after,
+.player-avatar-shell.level-aura-4::after,
+.player-avatar-shell.level-aura-5::after,
+.player-avatar-shell.level-aura-6::after,
+.player-avatar-shell.level-aura-7::after {
+	opacity: 0.72;
+	animation: player-level-aura-orbit 5s linear infinite;
+}
+
+@keyframes player-level-aura-orbit {
+	50% { transform: rotate(180deg) scale(1.03); opacity: 0.34; }
+	100% { transform: rotate(360deg); }
 }
 
 .header-pet-companion {
@@ -7816,6 +7889,11 @@ select:focus-visible {
     .player-avatar-shell[class*="profession-style-"] {
         animation: none;
     }
+	.player-avatar-shell[class*="level-aura-"]::after,
+	.equipment-level-5 .equipment-item-art,
+	.equipment-slot-icon.equipment-level-5 {
+		animation: none;
+	}
 }
 
 /* ========================================================================
@@ -8002,6 +8080,7 @@ select:focus-visible {
 }
 
 .equipment-slot-icon {
+	position: relative;
     display: grid;
     flex: 0 0 30px;
     place-items: center;
@@ -8011,6 +8090,14 @@ select:focus-visible {
     background: color-mix(in srgb, var(--ux-accent) 13%, var(--ux-surface-strong));
     color: var(--ux-accent);
     font-weight: 800;
+	isolation: isolate;
+	overflow: hidden;
+}
+
+.equipment-slot-icon img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
 }
 
 .equipment-slot-copy {
@@ -8065,12 +8152,12 @@ select:focus-visible {
 }
 
 .equipment-current-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-    margin-bottom: 16px;
+	grid-template-columns: 56px minmax(0, 1fr) auto;
+	margin-bottom: 16px;
 }
 
-.equipment-current-item > :not(button) { grid-column: 1; }
-.equipment-current-item button { grid-column: 2; grid-row: 1 / span 3; }
+.equipment-current-item > :not(button):not(.equipment-item-art) { grid-column: 2; }
+.equipment-current-item button { grid-column: 3; grid-row: 1 / span 3; }
 
 .equipment-current-empty,
 .equipment-candidate-empty {
@@ -8096,8 +8183,89 @@ select:focus-visible {
 }
 
 .equipment-candidate-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+	grid-template-columns: 48px minmax(0, 1fr) auto;
+	align-items: center;
+}
+
+.equipment-item-art {
+	grid-column: 1;
+	grid-row: 1 / span 3;
+	width: 48px;
+	height: 48px;
+	padding: 3px;
+	border: 1px solid var(--equipment-rarity-color, var(--ux-line));
+	border-radius: 12px;
+	background: radial-gradient(circle,
+		var(--equipment-rarity-glow, transparent), transparent 72%);
+	box-shadow: 0 0 10px var(--equipment-rarity-glow, transparent);
+	object-fit: contain;
+}
+
+.equipment-current-item .equipment-item-art {
+	width: 56px;
+	height: 56px;
+}
+
+.equipment-rarity-0 { --equipment-rarity-color: #8d98a8; --equipment-rarity-glow: rgba(141, 152, 168, 0.2); }
+.equipment-rarity-1 { --equipment-rarity-color: #68cc88; --equipment-rarity-glow: rgba(67, 205, 111, 0.28); }
+.equipment-rarity-2 { --equipment-rarity-color: #5fb7ff; --equipment-rarity-glow: rgba(60, 151, 255, 0.34); }
+.equipment-rarity-3 { --equipment-rarity-color: #b078ff; --equipment-rarity-glow: rgba(150, 73, 255, 0.4); }
+.equipment-rarity-4 { --equipment-rarity-color: #ffce61; --equipment-rarity-glow: rgba(255, 178, 46, 0.48); }
+.equipment-rarity-5 { --equipment-rarity-color: #ff765d; --equipment-rarity-glow: rgba(255, 74, 45, 0.54); }
+.equipment-rarity-6 { --equipment-rarity-color: #ff5fd2; --equipment-rarity-glow: rgba(255, 61, 188, 0.58); }
+.equipment-rarity-7 { --equipment-rarity-color: #f3fbff; --equipment-rarity-glow: rgba(87, 225, 255, 0.66); }
+
+.equipment-slot-icon[class*="equipment-rarity-"] {
+	border: 1px solid var(--equipment-rarity-color);
+	box-shadow: 0 0 9px var(--equipment-rarity-glow);
+}
+
+.equipment-level-1 .equipment-item-art,
+.equipment-slot-icon.equipment-level-1 {
+	outline: 1px solid color-mix(in srgb,
+		var(--equipment-rarity-color) 38%, transparent);
+	outline-offset: 1px;
+}
+
+.equipment-level-2 .equipment-item-art,
+.equipment-slot-icon.equipment-level-2 {
+	outline: 1px solid color-mix(in srgb,
+		var(--equipment-rarity-color) 58%, transparent);
+	outline-offset: 2px;
+}
+
+.equipment-level-3 .equipment-item-art,
+.equipment-slot-icon.equipment-level-3 {
+	outline: 2px solid color-mix(in srgb,
+		var(--equipment-rarity-color) 66%, transparent);
+	outline-offset: 2px;
+	filter: saturate(1.08) drop-shadow(0 0 4px var(--equipment-rarity-glow));
+}
+
+.equipment-level-4 .equipment-item-art,
+.equipment-slot-icon.equipment-level-4 {
+	outline: 2px double color-mix(in srgb,
+		var(--equipment-rarity-color) 78%, white 12%);
+	outline-offset: 3px;
+	filter: saturate(1.15) brightness(1.04)
+		drop-shadow(0 0 6px var(--equipment-rarity-glow));
+}
+
+.equipment-level-5 .equipment-item-art,
+.equipment-slot-icon.equipment-level-5 {
+	outline: 3px double color-mix(in srgb,
+		var(--equipment-rarity-color) 82%, white 18%);
+	outline-offset: 3px;
+	filter: saturate(1.22) brightness(1.08)
+		drop-shadow(0 0 8px var(--equipment-rarity-glow));
+	animation: equipment-high-level-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes equipment-high-level-breathe {
+	50% {
+		filter: saturate(1.32) brightness(1.14)
+			drop-shadow(0 0 12px var(--equipment-rarity-glow));
+	}
 }
 
 .equipment-candidate-item > div {
