@@ -583,18 +583,20 @@ void test_catalog_and_templates()
 	check("新月套装从普通白装池隔离并使用69级以上独立稀有掉落门",
 		ITEMSD->query_newmoon_equipment_template_count()==120 &&
 		ITEMSD->query_newmoon_equipment_drop_denominator()==300000 &&
-		ITEMSD->query_enabled_newmoon_collection_count()==4 &&
-		!ITEMSD->can_drop_newmoon_equipment(68,141) &&
-		ITEMSD->query_newmoon_collection_id_for_roll(69,141)=="newmoon" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(69,440)=="newmoon" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(69,441)=="" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(90,41)=="starshine" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(90,140)=="starshine" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(110,11)=="firmament" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(110,40)=="firmament" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(129,1)=="" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(130,1)=="greatvoid" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(130,10)=="greatvoid",
+		ITEMSD->query_enabled_newmoon_collection_count()==5 &&
+		!ITEMSD->can_drop_newmoon_equipment(68,144) &&
+		ITEMSD->query_newmoon_collection_id_for_roll(69,144)=="newmoon" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(69,443)=="newmoon" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(69,444)=="" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(90,44)=="starshine" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(90,143)=="starshine" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(110,14)=="firmament" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(110,43)=="firmament" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(130,4)=="greatvoid" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(130,13)=="greatvoid" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(159,1)=="" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(160,1)=="primordial" &&
+		ITEMSD->query_newmoon_collection_id_for_roll(160,3)=="primordial",
 		"套装可能污染普通掉落池、低等级掉落或绕过独立稀有概率");
 	check("十件套词缀均受生成器支持且没有非武器攻击词缀",
 		effective_profile_valid,"发现无效、反向或错槽词缀");
@@ -1189,7 +1191,7 @@ void test_enabled_collection_lineage()
 	array(mapping(string:mixed)) collections=
 		ITEMSD->query_newmoon_collection_catalog();
 	int enabled=ITEMSD->query_enabled_newmoon_collection_count();
-	int catalog_valid=enabled==4 && sizeof(collections)==enabled;
+	int catalog_valid=enabled==5 && sizeof(collections)==enabled;
 	int drop_windows_valid=1;
 	int cursor=0;
 	for(int index=0;index<enabled;index++){
@@ -1224,10 +1226,10 @@ void test_enabled_collection_lineage()
 	}
 	if(ITEMSD->query_newmoon_collection_id_for_roll(300,cursor+1)!="")
 		drop_windows_valid=0;
-	check("新月到太虚四阶目录品质递增且掉率递减",
-		catalog_valid,"四阶目录名称、品质、等级、词缀或权重错误");
-	check("四阶独立随机区间边界精确且未达等级不会降级冒充",
-		drop_windows_valid && cursor==440,
+	check("新月到太初五阶目录品质递增且掉率递减",
+		catalog_valid,"五阶目录名称、品质、等级、词缀或权重错误");
+	check("五阶独立随机区间边界精确且未达等级不会降级冒充",
+		drop_windows_valid && cursor==443,
 		"掉率区间重叠、越界、等级门槛失效或总权重错误");
 
 	string weapon_path=item_path("weapon","69xinyuetianfengjian");
@@ -1252,7 +1254,7 @@ void test_enabled_collection_lineage()
 			quality_valid=0;
 		destruct(quality_item);
 	}
-	check("四阶品质只递增装备基础攻防并统一进入既有攻击接口",
+	check("五阶品质只递增装备基础攻防并统一进入既有攻击接口",
 		quality_valid,"品质倍率、阶位或装备随机攻击接口不一致");
 	destruct(raw_weapon);
 
@@ -1260,7 +1262,7 @@ void test_enabled_collection_lineage()
 		"human","jianxian");
 	object high_weapon=clone(weapon_path);
 	object newmoon_head=clone(head_path);
-	high_weapon->set_newmoon_collection("greatvoid");
+	high_weapon->set_newmoon_collection("primordial");
 	high_weapon->move(player);
 	newmoon_head->move(player);
 	player->wield(high_weapon);
@@ -1270,7 +1272,7 @@ void test_enabled_collection_lineage()
 		newmoon_head->query_newmoon_set_piece_count()==1 &&
 		high_weapon->query_newmoon_resonance_percent()==100 &&
 		newmoon_head->query_newmoon_resonance_percent()==100,
-		"太虚与新月被错误合并为同一套装计数");
+		"太初与新月被错误合并为同一套装计数");
 	destroy_player(player);
 
 	string raw="weapon/69xinyuetianfengjian/69xinyuetianfengjian";
@@ -1320,7 +1322,7 @@ void test_enabled_collection_lineage()
 			destruct(generated);
 		destruct(base);
 	}
-	check("曜星、天穹与太虚动态生成、显示和再次炼化均保留独立身份",
+	check("曜星至太初四套动态生成、显示和再次炼化均保留独立身份",
 		generation_valid,generation_errors*" | ");
 	cleanup_generated_files(directory,before);
 
