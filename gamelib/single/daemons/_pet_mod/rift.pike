@@ -975,8 +975,14 @@ mapping(string:mixed) claim_rift_reward(object player,
 			add_pet_material_unlocked(record,"egg_fragment",2);
 			add_pet_material_unlocked(record,"bond_token",1);
 			record["daily"]["rift"] = 1;
-			record["weekly"]["rift_wins"] =
-				(int)record["weekly"]["rift_wins"]+1;
+			// 周胜场只用于“达到3场”的周目标。历史高频玩家可能已经
+			// 达到档案安全上限；继续加一会让整个奖励事务被校验拒绝，
+			// 从而留下无法领取、入口也一直显示待领取的裂隙。上限处
+			// 饱和保存，既不改变奖励门槛，也保证旧待领奖励可以结算。
+			if((int)record["weekly"]["rift_wins"]<
+			   PET_RIFT_WEEKLY_WIN_MAX)
+				record["weekly"]["rift_wins"] =
+					(int)record["weekly"]["rift_wins"]+1;
 			record["rift_pity"] = (int)record["rift_pity"]+1;
 			int pet_roll = random(10000);
 			int cosmetic_roll = random(10000);

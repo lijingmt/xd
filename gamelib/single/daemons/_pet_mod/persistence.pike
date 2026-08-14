@@ -428,7 +428,7 @@ private int valid_pet_record(mapping record,string account_id)
 	   ((int)record["daily"]["owner_revive"]!=0 &&
 	    (int)record["daily"]["owner_revive"]!=1) ||
 	   (int)record["weekly"]["rift_wins"]<0 ||
-	   (int)record["weekly"]["rift_wins"]>1000 ||
+	   (int)record["weekly"]["rift_wins"]>PET_RIFT_WEEKLY_WIN_MAX ||
 	   ((int)record["weekly"]["choice_claimed"]!=0 &&
 	    (int)record["weekly"]["choice_claimed"]!=1) ||
 	   (int)record["season"]["wins"]<0 ||
@@ -569,8 +569,10 @@ private int save_pet_record_unlocked(mapping(string:mixed) record)
 	if(path=="")
 		return 0;
 	prune_pet_reward_sessions(record);
-	if(!valid_pet_record(record,account_id))
+	if(!valid_pet_record(record,account_id)){
+		werror("[PETD] 账号万灵谱保存前校验失败\n");
 		return 0;
+	}
 	disk_record = copy_value(record);
 	m_delete(disk_record,"persisted");
 	m_delete(disk_record,"migration_pending");

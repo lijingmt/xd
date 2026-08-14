@@ -1497,6 +1497,45 @@ void test_rift_same_account_participants(object independent)
 		TERMD->destory_term(team_id,root_player->query_name());
 }
 
+void test_rift_reward_at_weekly_cap()
+{
+	string account_id = "xd99testunitpetriftcap";
+	string session_id =
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+	object player = create_test_player(account_id,"human","jianxian");
+	player->level = 50;
+	player->set_att_by_level();
+	player->save_with_result();
+	mapping starter = PETD->choose_starter_pet(player,"dangkang");
+	// 先走一次真实查看，让日/周周期键与生产档案一致，再构造上限。
+	PETD->query_pet_state(player);
+	mapping record = Standards.JSON.decode(
+		Stdio.read_file(pet_file(account_id)));
+	record["weekly"]["rift_wins"] = 1000;
+	record["pending_rift_rewards"][session_id] = ([
+		"boss_species":"kui",
+		"won_at":time(),
+		"expires_at":time()+3600,
+		"participants":({account_id}),
+		"character_rewarded":([account_id:1]),
+	]);
+	Stdio.write_file(pet_file(account_id),Standards.JSON.encode(record));
+	PETD->drop_test_pet_cache(account_id);
+	mapping before = PETD->query_pet_state(player);
+	mapping claim = PETD->claim_rift_reward(player,9999,9999);
+	mapping after = PETD->query_pet_state(player);
+	mapping duplicate = PETD->claim_rift_reward(player,9999,9999);
+	mapping rift_state = PETD->query_rift_state(player);
+	check("周胜场达到安全上限时仍可领取裂隙奖励并解除入口占用",
+		starter["ok"] && claim["ok"] && !duplicate["ok"] &&
+		(int)after["weekly"]["rift_wins"]==1000 &&
+		(int)after["materials"]["spirit_mark"]==
+			(int)before["materials"]["spirit_mark"]+5 &&
+		!after["pending_rift_rewards"][session_id] &&
+		after["rewarded_sessions"][session_id] && !rift_state["ok"],
+		"1000胜继续加一导致保存失败、重复发奖或待领取入口未释放");
+}
+
 void test_duel(object challenger,object target)
 {
 	werror("\n【万灵测试】标准化三宠论道\n");
@@ -1967,6 +2006,7 @@ int main()
 			test_pet_batch_growth_and_fusion();
 			test_hidden_luan_owner_revive();
 			test_rift(profession_players[0..2]);
+			test_rift_reward_at_weekly_cap();
 			// 上一项特意清理了前三个账号的宠物数据；重新初契供反刷和论道。
 			for(int i=0;i<3;i++){
 				PETD->drop_test_pet_cache(profession_players[i]->query_name());
