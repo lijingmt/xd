@@ -325,6 +325,56 @@ void equip_full_set(object player,array(object) items)
 	}
 }
 
+object create_combat_player(string name,string race,string profession)
+{
+	object player=create_player(name,race,profession);
+	player->setup_player(race,profession);
+	player->level=120;
+	player->set_att_by_level();
+	player->flush_life();
+	player->set_mofa(player->query_mofa_max());
+	return player;
+}
+
+void equip_set_count(object player,array(object) items,int count)
+{
+	for(int index=0;index<count && index<sizeof(items);index++){
+		items[index]->move(player);
+		if(index==0)
+			player->wield(items[index]);
+		else
+			player->wear(items[index]);
+	}
+	player->flush_life();
+	player->set_mofa(player->query_mofa_max());
+}
+
+int query_magic_defend_snapshot(object player)
+{
+	int result=(int)player->query_equip_add("huoyan_defend");
+	int current=(int)player->query_equip_add("bingshuang_defend");
+	if(current<result)
+		result=current;
+	current=(int)player->query_equip_add("fengren_defend");
+	if(current<result)
+		result=current;
+	current=(int)player->query_equip_add("dusu_defend");
+	if(current<result)
+		result=current;
+	return result+(int)player->query_equip_add("all_mofa_defend");
+}
+
+int query_expected_damage_per_hundred(object attacker,object target,
+	mapping damage_profile)
+{
+	int damage=(int)damage_profile["damage"];
+	int hit=(int)damage_profile["hit"];
+	int critical=(int)damage_profile["critical"];
+	int critical_damage=attacker->query_balanced_critical_damage(
+		damage,(int)target->query_equip_add("renxing"));
+	return hit*((100-critical)*damage+critical*critical_damage)/100;
+}
+
 int query_effective_set_attribute(object item,string attribute)
 {
 	if(attribute=="all") return item->query_all_add();
@@ -816,6 +866,251 @@ void test_set_identity_and_duplicate_boundaries()
 	destroy_player(duplicate_player);
 }
 
+void test_two_player_real_combat_comparisons()
+{
+	object room=(object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	mapping jianxian=catalog[0];
+	object physical_four=create_combat_player(
+		"__testunit_newmoon_pvp_phy_four__","human","jianxian");
+	object physical_ten=create_combat_player(
+		"__testunit_newmoon_pvp_phy_ten__","human","jianxian");
+	array(object) physical_four_items=clone_full_set(jianxian);
+	array(object) physical_ten_items=clone_full_set(jianxian);
+	mapping physical_four_profile=([]);
+	mapping physical_ten_profile=([]);
+	mapping physical_four_damage=([]);
+	mapping physical_ten_damage=([]);
+	int physical_four_reference=0;
+	int physical_ten_reference=0;
+	string physical_error="";
+	mixed physical_err=catch {
+		physical_four->move(room);
+		physical_ten->move(room);
+		equip_set_count(physical_four,physical_four_items,4);
+		equip_set_count(physical_ten,physical_ten_items,10);
+		physical_four_profile=physical_four->query_pk_fast_side_profile(
+			physical_four);
+		physical_ten_profile=physical_ten->query_pk_fast_side_profile(
+			physical_ten);
+		physical_four_damage=physical_four->query_pk_fast_damage_profile(
+			physical_four,physical_ten,physical_four_profile,
+			physical_ten_profile);
+		physical_ten_damage=physical_ten->query_pk_fast_damage_profile(
+			physical_ten,physical_four,physical_ten_profile,
+			physical_four_profile);
+		physical_four_reference=physical_four->query_balanced_physical_damage(
+			(int)physical_four_profile["physical_raw"],
+			physical_ten->query_defend_power(),
+			(int)physical_four_profile["physical_penetration"]);
+		physical_ten_reference=physical_ten->query_balanced_physical_damage(
+			(int)physical_ten_profile["physical_raw"],
+			physical_four->query_defend_power(),
+			(int)physical_ten_profile["physical_penetration"]);
+	};
+	if(physical_err)
+		physical_error=describe_error(physical_err);
+	werror("[新月双人实战] 剑仙4件: 力量%d 生命%d 攻击%d 防御%d 命中%d 暴击%d；"+
+		"10件: 力量%d 生命%d 攻击%d 防御%d 命中%d 暴击%d；互攻伤害=%d/%d\n",
+		physical_four->query_str(),physical_four->query_life_max(),
+		(int)physical_four_profile["physical_raw"],
+		physical_four->query_defend_power(),
+		(int)physical_four_profile["hit"],
+		(int)physical_four_profile["critical"],
+		physical_ten->query_str(),physical_ten->query_life_max(),
+		(int)physical_ten_profile["physical_raw"],
+		physical_ten->query_defend_power(),
+		(int)physical_ten_profile["hit"],
+		(int)physical_ten_profile["critical"],
+		(int)physical_four_damage["damage"],
+		(int)physical_ten_damage["damage"]);
+	check("真实双人剑仙4件与10件的面板、物防和物理输出符合生产公式",
+		!physical_err &&
+		physical_four_items[0]->query_newmoon_set_piece_count()==4 &&
+		physical_ten_items[0]->query_newmoon_set_piece_count()==10 &&
+		physical_ten->query_str()>physical_four->query_str() &&
+		physical_ten->query_life_max()>physical_four->query_life_max() &&
+		physical_ten->query_defend_power()>physical_four->query_defend_power() &&
+		(int)physical_ten_profile["physical_raw"]>
+			(int)physical_four_profile["physical_raw"] &&
+		(int)physical_ten_profile["hit"]>
+			(int)physical_four_profile["hit"] &&
+		(int)physical_ten_profile["critical"]>
+			(int)physical_four_profile["critical"] &&
+		!(int)physical_four_damage["magic"] &&
+		!(int)physical_ten_damage["magic"] &&
+		(int)physical_four_damage["damage"]==physical_four_reference &&
+		(int)physical_ten_damage["damage"]==physical_ten_reference &&
+		(int)physical_ten_damage["damage"]>
+			(int)physical_four_damage["damage"],
+		physical_error!="" ? physical_error :
+			sprintf("4件攻防伤%d/%d/%d，10件攻防伤%d/%d/%d",
+				(int)physical_four_profile["physical_raw"],
+				physical_four->query_defend_power(),
+				(int)physical_four_damage["damage"],
+				(int)physical_ten_profile["physical_raw"],
+				physical_ten->query_defend_power(),
+				(int)physical_ten_damage["damage"]));
+	destroy_player(physical_four);
+	destroy_player(physical_ten);
+
+	mapping yushi=catalog[1];
+	object magic_four=create_combat_player(
+		"__testunit_newmoon_pvp_magic_four__","human","yushi");
+	object magic_ten=create_combat_player(
+		"__testunit_newmoon_pvp_magic_ten__","human","yushi");
+	array(object) magic_four_items=clone_full_set(yushi);
+	array(object) magic_ten_items=clone_full_set(yushi);
+	mapping magic_four_profile=([]);
+	mapping magic_ten_profile=([]);
+	mapping magic_four_damage=([]);
+	mapping magic_ten_damage=([]);
+	int magic_four_reference=0;
+	int magic_ten_reference=0;
+	string magic_error="";
+	mixed magic_err=catch {
+		magic_four->move(room);
+		magic_ten->move(room);
+		equip_set_count(magic_four,magic_four_items,4);
+		equip_set_count(magic_ten,magic_ten_items,10);
+		magic_four_profile=magic_four->query_pk_fast_side_profile(magic_four);
+		magic_ten_profile=magic_ten->query_pk_fast_side_profile(magic_ten);
+		magic_four_damage=magic_four->query_pk_fast_damage_profile(
+			magic_four,magic_ten,magic_four_profile,magic_ten_profile);
+		magic_ten_damage=magic_ten->query_pk_fast_damage_profile(
+			magic_ten,magic_four,magic_ten_profile,magic_four_profile);
+		magic_four_reference=magic_four->query_balanced_magic_damage(
+			(int)magic_four_profile["magic_raw"],
+			query_magic_defend_snapshot(magic_ten),
+			(int)magic_four_profile["magic_penetration"]);
+		magic_ten_reference=magic_ten->query_balanced_magic_damage(
+			(int)magic_ten_profile["magic_raw"],
+			query_magic_defend_snapshot(magic_four),
+			(int)magic_ten_profile["magic_penetration"]);
+	};
+	if(magic_err)
+		magic_error=describe_error(magic_err);
+	werror("[新月双人实战] 羽士4件: 智力%d 法力%d 法攻%d 法抗%d；"+
+		"10件: 智力%d 法力%d 法攻%d 法抗%d；互攻伤害=%d/%d\n",
+		magic_four->query_think(),magic_four->query_mofa_max(),
+		(int)magic_four_profile["magic_raw"],
+		query_magic_defend_snapshot(magic_four),
+		magic_ten->query_think(),magic_ten->query_mofa_max(),
+		(int)magic_ten_profile["magic_raw"],
+		query_magic_defend_snapshot(magic_ten),
+		(int)magic_four_damage["damage"],
+		(int)magic_ten_damage["damage"]);
+	check("真实双人羽士4件与10件的法力、法抗和法术输出符合生产公式",
+		!magic_err &&
+		magic_four_items[0]->query_newmoon_set_piece_count()==4 &&
+		magic_ten_items[0]->query_newmoon_set_piece_count()==10 &&
+		magic_ten->query_think()>magic_four->query_think() &&
+		magic_ten->query_mofa_max()>magic_four->query_mofa_max() &&
+		query_magic_defend_snapshot(magic_ten)>
+			query_magic_defend_snapshot(magic_four) &&
+		(int)magic_ten_profile["magic_raw"]>
+			(int)magic_four_profile["magic_raw"] &&
+		(int)magic_four_damage["magic"] &&
+		(int)magic_ten_damage["magic"] &&
+		(int)magic_four_damage["damage"]==magic_four_reference &&
+		(int)magic_ten_damage["damage"]==magic_ten_reference &&
+		(int)magic_ten_damage["damage"]>
+			(int)magic_four_damage["damage"],
+		magic_error!="" ? magic_error :
+			sprintf("4件法攻抗伤%d/%d/%d，10件法攻抗伤%d/%d/%d",
+				(int)magic_four_profile["magic_raw"],
+				query_magic_defend_snapshot(magic_four),
+				(int)magic_four_damage["damage"],
+				(int)magic_ten_profile["magic_raw"],
+				query_magic_defend_snapshot(magic_ten),
+				(int)magic_ten_damage["damage"]));
+	destroy_player(magic_four);
+	destroy_player(magic_ten);
+
+	object coherent=create_combat_player(
+		"__testunit_newmoon_pvp_coherent__","human","jianxian");
+	object mixed_player=create_combat_player(
+		"__testunit_newmoon_pvp_mixed__","human","jianxian");
+	array(object) coherent_items=clone_full_set(jianxian);
+	array(object) mixed_items=clone_full_set(jianxian);
+	mapping coherent_profile=([]);
+	mapping mixed_profile=([]);
+	mapping coherent_damage=([]);
+	mapping mixed_damage=([]);
+	int coherent_damage_reference=0;
+	int mixed_damage_reference=0;
+	int coherent_expected_output=0;
+	int mixed_expected_output=0;
+	string mixed_error="";
+	mixed mixed_err=catch {
+		mixed_items[2]->set_newmoon_resonance("jianxian","剑仙","残月",
+			3,2,0,1,0,"hitte",1,"doub",1);
+		mixed_items[3]->set_newmoon_resonance("jianxian","剑仙","残月",
+			3,2,0,1,0,"hitte",1,"doub",1);
+		coherent->move(room);
+		mixed_player->move(room);
+		equip_set_count(coherent,coherent_items,4);
+		equip_set_count(mixed_player,mixed_items,4);
+		coherent_profile=coherent->query_pk_fast_side_profile(coherent);
+		mixed_profile=mixed_player->query_pk_fast_side_profile(mixed_player);
+		coherent_damage=coherent->query_pk_fast_damage_profile(
+			coherent,mixed_player,coherent_profile,mixed_profile);
+		mixed_damage=mixed_player->query_pk_fast_damage_profile(
+			mixed_player,coherent,mixed_profile,coherent_profile);
+		coherent_damage_reference=coherent->query_balanced_physical_damage(
+			(int)coherent_profile["physical_raw"],
+			mixed_player->query_defend_power(),
+			(int)coherent_profile["physical_penetration"]);
+		mixed_damage_reference=mixed_player->query_balanced_physical_damage(
+			(int)mixed_profile["physical_raw"],
+			coherent->query_defend_power(),
+			(int)mixed_profile["physical_penetration"]);
+		coherent_expected_output=query_expected_damage_per_hundred(
+			coherent,mixed_player,coherent_damage);
+		mixed_expected_output=query_expected_damage_per_hundred(
+			mixed_player,coherent,mixed_damage);
+	};
+	if(mixed_err)
+		mixed_error=describe_error(mixed_err);
+	werror("[新月双人实战] 剑仙完整4件: 力量%d 攻击%d 暴击%d 伤害%d 百次期望%d；"+
+		"2+2混搭: 力量%d 攻击%d 暴击%d 伤害%d 百次期望%d\n",
+		coherent->query_str(),(int)coherent_profile["physical_raw"],
+		(int)coherent_profile["critical"],
+		(int)coherent_damage["damage"],coherent_expected_output,
+		mixed_player->query_str(),
+		(int)mixed_profile["physical_raw"],
+		(int)mixed_profile["critical"],(int)mixed_damage["damage"],
+		mixed_expected_output);
+	check("真实双人同职业2+2混搭不能偷取完整四件共鸣与输出",
+		!mixed_err &&
+		coherent_items[0]->query_newmoon_set_piece_count()==4 &&
+		mixed_items[0]->query_newmoon_set_piece_count()==2 &&
+		mixed_items[2]->query_newmoon_set_piece_count()==2 &&
+		sum_core_attribute(coherent_items[..3],"str")==16 &&
+		sum_core_attribute(mixed_items[..3],"str")==12 &&
+		sum_set_attribute(coherent_items[..3],"doub")==4 &&
+		sum_set_attribute(mixed_items[..3],"doub")==0 &&
+		coherent->query_str()>mixed_player->query_str() &&
+		(int)coherent_profile["physical_raw"]>
+			(int)mixed_profile["physical_raw"] &&
+		(int)coherent_profile["critical"]>
+			(int)mixed_profile["critical"] &&
+		(int)coherent_damage["damage"]==coherent_damage_reference &&
+		(int)mixed_damage["damage"]==mixed_damage_reference &&
+		coherent_expected_output>mixed_expected_output,
+		mixed_error!="" ? mixed_error :
+			sprintf("完整/混搭攻击%d/%d，暴击%d/%d，伤害%d/%d，百次期望%d/%d",
+				(int)coherent_profile["physical_raw"],
+				(int)mixed_profile["physical_raw"],
+				(int)coherent_profile["critical"],
+				(int)mixed_profile["critical"],
+				(int)coherent_damage["damage"],
+				(int)mixed_damage["damage"],coherent_expected_output,
+				mixed_expected_output));
+	destroy_player(coherent);
+	destroy_player(mixed_player);
+}
+
 void test_high_level_dynamic_generation()
 {
 	string raw="weapon/69xinyuetianfengjian/69xinyuetianfengjian";
@@ -887,6 +1182,7 @@ int main()
 	test_all_profession_set_extras();
 	test_requested_piece_attribute_matrix();
 	test_set_identity_and_duplicate_boundaries();
+	test_two_player_real_combat_comparisons();
 	test_high_level_dynamic_generation();
 	test_legacy_equipment_compatibility();
 	werror("新月十件套测试：总计%d，通过%d，失败%d\n",
