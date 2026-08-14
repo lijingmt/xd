@@ -516,6 +516,43 @@ int main()
 				"worker_online_snapshot_stale"),
 			"慢续租可能令在线行过期、混入两代进程或在迁移瞬间永久断更");
 
+		check("战斗竞态只延期后台迁移且其他释放错误继续失败关闭",
+			httpd->test_pike_gateway_handoff_release_deferred(
+				"player_in_combat") &&
+			httpd->test_pike_gateway_handoff_release_deferred(
+				"summon_handoff_pending") &&
+			!httpd->test_pike_gateway_handoff_release_deferred(
+				"save_failed") &&
+			source_has(gateway,"cannot abort failed handoff") &&
+			source_has(gateway,
+				"handoff abort did not restore exact source lease") &&
+			source_has(gateway,"\"deferred\":1") &&
+			source_has(gateway,
+				"pike_gateway_handoff_release_deferred(release_code)") &&
+			source_has(rpc,
+				"player->cancel_worker_summon_handoff();\n        send_json(req,([\"ok\":0,\"code\":\"summon_handoff_pending\"]"),
+			"战斗中人物可能留下frozen租约，或真实存档错误被静默吞掉");
+		mapping deferred_plan = httpd->test_pike_gateway_migration_plan(
+			"w01",(["worker_id":"w01","redirect":1,"deferred":1]),0);
+		check("延期迁移保留本次战斗响应且不伪造到达",
+			!(int)deferred_plan["deliver"] &&
+			!(int)deferred_plan["replace"],
+			"进入战斗的请求可能被空白look替换或错误投递到目标worker");
+
+		check("持久在线owner不一致先停流清点再决定是否fallback",
+			source_has(gateway,
+				"pike_gateway_online_snapshot_recovery_pending = 1") &&
+			source_has(gateway,
+				"pike_gateway_online_snapshot_recovery_requested()") &&
+			source_has(gateway,
+				"pike_gateway_run_online_snapshot_recovery()") &&
+			source_has(gateway,
+				"mixed recovery_err = catch { pike_gateway_run_lease_gc(); }") &&
+			source_has(gateway,"pike_gateway_recover_local_players();") &&
+			source_has(gateway,"online_snapshot_recovery_failures") &&
+			source_has(gateway,"ownership inventory reconciled"),
+			"瞬时迁移竞态会耗尽30秒快照窗口并误触发整套安全回退");
+
 		check("prepared迁移仅暂时排除精确源owner且不掩盖错误副本",
 			httpd->test_pike_gateway_online_row_is_prepared_source(
 				(["epoch":7]),(["ok":1,"state":"frozen",
