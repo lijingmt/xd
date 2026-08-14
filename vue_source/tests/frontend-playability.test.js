@@ -1,0 +1,145 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const Vue = require('vue');
+const { renderToString } = require('@vue/server-renderer');
+
+const sourceDir = path.resolve(__dirname, '..');
+const indexSource = fs.readFileSync(path.join(sourceDir, 'index.html'), 'utf8');
+const appSource = fs.readFileSync(path.join(sourceDir, 'js/app.js'), 'utf8');
+
+function extractAppTemplate(html) {
+    const rootMarker = '<div id="app">';
+    const rootStart = html.indexOf(rootMarker);
+    const scriptsStart = html.indexOf('<script src="vendor/vue.global.prod.js');
+    const rootEnd = html.lastIndexOf('</div>', scriptsStart);
+    assert(rootStart >= 0, 'Vue #app root must exist');
+    assert(scriptsStart > rootStart, 'local Vue runtime must load after #app');
+    assert(rootEnd > rootStart, 'Vue #app root must close before runtime scripts');
+    return html.slice(rootStart + rootMarker.length, rootEnd);
+}
+
+function createStorage() {
+    const values = new Map();
+    return {
+        getItem(key) { return values.has(key) ? values.get(key) : null; },
+        setItem(key, value) { values.set(key, String(value)); },
+        removeItem(key) { values.delete(key); }
+    };
+}
+
+function captureComponentOptions() {
+    let componentOptions = null;
+    const sandboxVue = Object.assign({}, Vue, {
+        createApp(options) {
+            componentOptions = options;
+            return { mount() {} };
+        }
+    });
+    const sandbox = {
+        Vue: sandboxVue,
+        window: {
+            crypto: {},
+            location: {
+                protocol: 'http:', hostname: 'localhost',
+                host: 'localhost:8080', origin: 'http://localhost:8080',
+                pathname: '/xd/web_vue/index.html',
+                href: 'http://localhost:8080/xd/web_vue/index.html', search: ''
+            },
+            history: { replaceState() {} },
+            matchMedia() { return { matches: false }; },
+            addEventListener() {}, removeEventListener() {}
+        },
+        document: {
+            documentElement: { setAttribute() {} },
+            querySelector() { return null; },
+            addEventListener() {}, removeEventListener() {}
+        },
+        navigator: { sendBeacon() { return true; } },
+        localStorage: createStorage(),
+        sessionStorage: createStorage(),
+        console,
+        TextEncoder,
+        URLSearchParams,
+        URL,
+        btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
+        setTimeout,
+        clearTimeout,
+        setInterval() { return 1; },
+        clearInterval() {},
+        fetch: async () => ({ ok: true, json: async () => ({}) })
+    };
+    vm.runInNewContext(appSource, sandbox, { filename: 'js/app.js' });
+    assert(componentOptions, 'app.js must register a Vue root component');
+    return componentOptions;
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function renderScenario(componentOptions, template, overrides) {
+    const renderOptions = Object.assign({}, componentOptions, {
+        template,
+        data() {
+            return Object.assign(componentOptions.data.call(this), overrides);
+        }
+    });
+    for (const hook of [
+        'beforeCreate', 'created', 'beforeMount', 'mounted',
+        'beforeUnmount', 'unmounted'
+    ]) {
+        delete renderOptions[hook];
+    }
+
+    const warnings = [];
+    const app = Vue.createSSRApp(renderOptions);
+    app.config.warnHandler = (message) => warnings.push(message);
+    const rendered = await renderToString(app);
+    assert.deepStrictEqual(warnings, [], `Vue render warnings:\n${warnings.join('\n')}`);
+    return rendered;
+}
+
+async function main() {
+    const template = extractAppTemplate(indexSource);
+    const componentOptions = captureComponentOptions();
+    const computedNames = Object.keys(componentOptions.computed || {});
+
+    for (const name of computedNames) {
+        const calledLikeMethod = new RegExp(`\\b${escapeRegExp(name)}\\s*\\(`);
+        assert(
+            !calledLikeMethod.test(template),
+            `computed property ${name} must be referenced as a value, not called as a method`
+        );
+    }
+
+    const loginRendered = await renderScenario(componentOptions, template, {});
+    assert(loginRendered.length > 1000, 'login render must produce a non-trivial page');
+    assert(loginRendered.includes('auth-modal'), 'initial render must contain the login UI');
+    assert(loginRendered.includes('登录游戏'), 'initial render must expose the login action');
+
+    const gameRendered = await renderScenario(componentOptions, template, {
+        showLogin: false,
+        playerStats: {
+            name_cn: '测试玩家', level: 101, hp: 1000, hp_max: 1000,
+            mana: 500, mana_max: 500, profession_assistant: null,
+            autofight: 0, area: 'xd01'
+        },
+        mudLines: [{ type: 'text', segments: [] }]
+    });
+    assert(gameRendered.length > 5000, 'game render must produce a non-trivial page');
+    assert(gameRendered.includes('game-header'), 'game render must contain the player header');
+    assert(gameRendered.includes('player-avatar-shell'), 'game render must contain the avatar action');
+
+    console.log(
+        `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +
+        `登录${loginRendered.length}字节、游戏${gameRendered.length}字节SSR输出，` +
+        '0条运行时警告'
+    );
+}
+
+main().catch((error) => {
+    console.error(error && error.stack ? error.stack : error);
+    process.exit(1);
+});

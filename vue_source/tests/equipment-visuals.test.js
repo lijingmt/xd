@@ -79,7 +79,8 @@ for (const [level, expected] of expectedAuras) {
     );
 }
 
-assert(htmlSource.includes('playerLevelAuraClass()'));
+assert(htmlSource.includes('playerLevelAuraClass'));
+assert(!htmlSource.includes('playerLevelAuraClass()'));
 assert(htmlSource.includes('equipmentLevelClass(item)'));
 assert(htmlSource.includes('getEquipmentImageUrl(item, equipmentSelectedSlot)'));
 assert(htmlSource.includes('v-if="equipmentPanel.equipped[slot]"'));

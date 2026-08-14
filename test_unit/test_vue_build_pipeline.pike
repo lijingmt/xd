@@ -206,6 +206,62 @@ void test_game_number_format_contract()
 		test_fail("格式器、Vue出口或旧HTML过滤器接入不完整");
 }
 
+void test_frontend_playability_gate()
+{
+	test_start("真实Vue首屏渲染门禁已接入测试链");
+	string package_source = Stdio.read_file(
+		ROOT+"/vue_source/package.json");
+	string test_source = Stdio.read_file(
+		ROOT+"/vue_source/tests/frontend-playability.test.js");
+	string index_source = Stdio.read_file(
+		ROOT+"/vue_source/index.html");
+
+	if(package_source && test_source && index_source &&
+	   search(package_source,
+		"tests/frontend-playability.test.js")!=-1 &&
+	   search(test_source,"createSSRApp")!=-1 &&
+	   search(test_source,"renderToString")!=-1 &&
+	   search(test_source,"componentOptions.computed")!=-1 &&
+	   search(index_source,"playerLevelAuraClass()") == -1)
+		test_pass();
+	else
+		test_fail("真实渲染、computed误调用扫描或白屏回归断言缺失");
+}
+
+void test_deployed_frontend_artifacts()
+{
+	test_start("正式与历史Vue产物可加载且和源码同步");
+	string source_js = Stdio.read_file(
+		ROOT+"/vue_source/js/app.js");
+	string web_js = Stdio.read_file(
+		ROOT+"/web/web_vue/js/app.js");
+	string dist_js = Stdio.read_file(
+		ROOT+"/vue_source/dist/js/app.js");
+	string web_index = Stdio.read_file(
+		ROOT+"/web/web_vue/index.html");
+	string dist_index = Stdio.read_file(
+		ROOT+"/vue_source/dist/index.html");
+	string web_vue = Stdio.read_file(
+		ROOT+"/web/web_vue/vendor/vue.global.prod.js");
+	string dist_vue = Stdio.read_file(
+		ROOT+"/vue_source/dist/vendor/vue.global.prod.js");
+
+	if(source_js && web_js && dist_js &&
+	   web_index && dist_index && web_vue && dist_vue &&
+	   sizeof(source_js)>1000 && source_js==web_js && source_js==dist_js &&
+	   sizeof(web_index)>1000 && sizeof(dist_index)>1000 &&
+	   sizeof(web_vue)>100000 && web_vue==dist_vue &&
+	   search(web_index,"BUILD_VERSION")==-1 &&
+	   search(dist_index,"BUILD_VERSION")==-1 &&
+	   search(web_index,"playerLevelAuraClass()")==-1 &&
+	   search(dist_index,"playerLevelAuraClass()")==-1 &&
+	   search(web_index,"vendor/vue.global.prod.js?v=v")!=-1 &&
+	   search(web_index,"js/app.js?v=v")!=-1)
+		test_pass();
+	else
+		test_fail("Vue正式/历史产物缺失、过期或仍含白屏回归代码");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -225,6 +281,8 @@ int main()
 	test_auto_browser_login_contract();
 	test_docker_copy_contract();
 	test_game_number_format_contract();
+	test_frontend_playability_gate();
+	test_deployed_frontend_artifacts();
 	print_summary();
 	if(test_results["failed"]==0)
 		return 0;
