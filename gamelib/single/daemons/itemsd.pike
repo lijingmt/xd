@@ -98,7 +98,7 @@ private mapping(int:array(string)) item_list = ([]);
 // 新月套装使用独立稀有池。底版仍登记在 orgItems.list 供动态装备
 // 生成器复用，但绝不能混进对应等级的普通白装池。
 private array(string) newmoon_item_list = ({});
-private int enabled_newmoon_collection_count = 5;
+private int enabled_newmoon_collection_count = 6;
 private int newmoon_drop_denominator = 300000;
 private array(mapping(string:mixed)) newmoon_collection_catalog = ({
 	(["id":"newmoon","name":"新月","quality":"稀世","rank":1,
