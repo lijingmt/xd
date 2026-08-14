@@ -1655,6 +1655,42 @@ object get_convert_item(string item_rawname,int num,int|void orginal_level,int|v
 	return ret_item;
 }
 
+// 返回炼化装备真正的白装底版路径。
+// 动态装备与新月套装可能复用旧图片，图片只能用于显示，不能再作为底版身份。
+// 优先从对象实际程序路径还原同目录底版；仅为历史特殊对象保留图片回退。
+string query_convert_item_rawname(object item)
+{
+	string path;
+	string relative;
+	string candidate;
+	string item_type;
+	string picture;
+	array(string) parts;
+	if(!item || !can_equip(item))
+		return "";
+	path=(file_name(item)/"#")[0];
+	if(has_prefix(path,ITEM_PATH)){
+		relative=path[sizeof(ITEM_PATH)..];
+		parts=relative/"/";
+		if(sizeof(parts)>=3){
+			parts[sizeof(parts)-1]=parts[sizeof(parts)-2];
+			candidate=parts*"/";
+			if(Stdio.exist(ITEM_PATH+candidate))
+				return candidate;
+		}
+	}
+	item_type=(string)item->query_item_type();
+	if(item_type=="single_weapon" || item_type=="double_weapon")
+		item_type="weapon";
+	picture=(string)item->query_picture();
+	if(item_type!="" && picture!=""){
+		candidate=item_type+"/"+picture+"/"+picture;
+		if(Stdio.exist(ITEM_PATH+candidate))
+			return candidate;
+	}
+	return "";
+}
+
 //根据参数level随机给出一个与level相近的装备名
 string get_itemname_on_level(int level)
 {

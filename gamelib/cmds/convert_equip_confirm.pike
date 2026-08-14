@@ -63,6 +63,12 @@ int main(string|zero arg)
 			write("装备类型校验失败。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
 			return 1;
 		}
+		string item_rawname=ITEMSD->query_convert_item_rawname(item);
+		if(item_rawname==""){
+			write("无法识别该装备的炼化底版，原装备和费用均未改变。\n"+
+				"[返回:convert_equip_list]\n[返回游戏:look]\n");
+			return 1;
+		}
 		int base_cost=ITEMSD->query_convert_equip_yushi_cost(item);
 		if(base_cost<=0){
 			write("该装备暂时无法炼化。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
@@ -251,9 +257,6 @@ int main(string|zero arg)
 					return 1;
 				}
 			}
-			if(item_type == "single_weapon" || item_type == "double_weapon")
-				item_type = "weapon";
-			string item_rawname = item_type+"/"+item->query_picture()+"/"+item->query_picture();
 			object orginal_item=clone (ITEM_PATH+item_rawname);
 			//werror("=============217orginal_item "+orginal_item->query_item_canLevel()+"\n");
 			//werror("=============218item "+item->query_item_canLevel()+"\n");

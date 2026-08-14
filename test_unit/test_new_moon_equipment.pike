@@ -1136,6 +1136,102 @@ void test_high_level_dynamic_generation()
 		rm(generated_path);
 }
 
+void cleanup_generated_files(string directory,array(string) before)
+{
+	array(string) after=get_dir(directory) || ({});
+	for(int index=0;index<sizeof(after);index++)
+		if(search(before,after[index])==-1)
+			rm(directory+"/"+after[index]);
+}
+
+void test_forge_and_wash_compatibility()
+{
+	int all_paths_valid=1;
+	array(string) path_errors=({});
+	for(int config_index=0;config_index<sizeof(catalog);config_index++){
+		mapping config=catalog[config_index];
+		mapping pieces=(mapping)config["pieces"];
+		for(int slot_index=0;slot_index<sizeof(piece_order);slot_index++){
+			string slot=piece_order[slot_index];
+			string name=(string)pieces[slot];
+			string expected=raw_item_path(slot,name);
+			object item=clone(item_path(slot,name));
+			string actual=ITEMSD->query_convert_item_rawname(item);
+			if(actual!=expected){
+				all_paths_valid=0;
+				path_errors+=({expected+"=>"+actual});
+			}
+			destruct(item);
+		}
+	}
+	check("十二职业120件套装均以真实模板炼化而非误用旧图片模板",
+		all_paths_valid,path_errors*";");
+
+	array(mapping(string:string)) representatives=({
+		(["slot":"weapon","name":"69xinyuetianfengjian"]),
+		(["slot":"head","name":"69xinyuejianxinguan"]),
+		(["slot":"ring","name":"69xinyuejianxinjie"]),
+	});
+	int all_generated_valid=1;
+	array(string) generated_errors=({});
+	for(int index=0;index<sizeof(representatives);index++){
+		string slot=(string)representatives[index]["slot"];
+		string name=(string)representatives[index]["name"];
+		string raw=raw_item_path(slot,name);
+		string directory=ITEM_PATH+query_piece_parent(slot)+"/"+name;
+		array(string) before=get_dir(directory) || ({});
+		object|zero base=0;
+		object|zero rare=0;
+		object|zero washed=0;
+		object|zero enhanced=0;
+		string expected_kind="";
+		string error="";
+		mixed err=catch {
+			base=clone(item_path(slot,name));
+			expected_kind=(string)base->query_item_kind();
+			rare=ITEMSD->get_convert_item(raw,2,69,69,base);
+			string resolved=ITEMSD->query_convert_item_rawname(rare);
+			washed=ITEMSD->get_convert_item(resolved,2,69,69,rare);
+			enhanced=ITEMSD->get_convert_item(resolved,3,69,69,rare);
+			if(!rare || !washed || !enhanced || resolved!=raw ||
+			   rare->query_item_rareLevel()!=2 ||
+			   washed->query_item_rareLevel()!=2 ||
+			   enhanced->query_item_rareLevel()!=3 ||
+			   rare->query_item_kind()!=expected_kind ||
+			   washed->query_item_kind()!=expected_kind ||
+			   enhanced->query_item_kind()!=expected_kind ||
+			   rare->query_item_canLevel()!=69 ||
+			   washed->query_item_canLevel()!=69 ||
+			   enhanced->query_item_canLevel()!=69 ||
+			   rare->query_newmoon_resonance_profession()!="jianxian" ||
+			   washed->query_newmoon_resonance_profession()!="jianxian" ||
+			   enhanced->query_newmoon_resonance_profession()!="jianxian" ||
+			   rare->query_newmoon_resonance_theme()!="剑心" ||
+			   washed->query_newmoon_resonance_theme()!="剑心" ||
+			   enhanced->query_newmoon_resonance_theme()!="剑心" ||
+			   enhanced->query_newmoon_set_extra_description(2)=="" ||
+			   enhanced->query_newmoon_set_extra_description(4)=="" ||
+			   enhanced->query_newmoon_set_extra_description(6)=="" ||
+			   enhanced->query_newmoon_set_extra_description(8)=="" ||
+			   enhanced->query_newmoon_set_extra_description(10)=="")
+				error=slot+"炼化后稀有度、部位、等级或套装元数据丢失";
+		};
+		if(err)
+			error=describe_error(err);
+		if(error!=""){
+			all_generated_valid=0;
+			generated_errors+=({error});
+		}
+		if(enhanced) destruct(enhanced);
+		if(washed) destruct(washed);
+		if(rare) destruct(rare);
+		if(base) destruct(base);
+		cleanup_generated_files(directory,before);
+	}
+	check("新月武器、防具和首饰可洗同阶属性并增加一条属性且保留套装身份",
+		all_generated_valid,generated_errors*";");
+}
+
 void test_legacy_equipment_compatibility()
 {
 	object player=create_player("__testunit_newmoon_legacy__",
@@ -1184,6 +1280,7 @@ int main()
 	test_set_identity_and_duplicate_boundaries();
 	test_two_player_real_combat_comparisons();
 	test_high_level_dynamic_generation();
+	test_forge_and_wash_compatibility();
 	test_legacy_equipment_compatibility();
 	werror("新月十件套测试：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
