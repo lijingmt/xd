@@ -425,12 +425,12 @@ assert.strictEqual(client.playerAvatarFailed, true);
   client.parseBattleActions([{
     segments: [{
       type: 'text',
-      parts: [{ content: '【战技显化】太虚真人施放「【太古·7】鸿蒙一剑」（等级1），目标为妖狼，战技气息扩散开来。' }]
+      parts: [{ content: '【战技显化】太虚真人施放「【太古·7】寰极一剑」（等级1），目标为妖狼，战技气息扩散开来。' }]
     }]
   }]);
   assert.strictEqual(client.skillAnimations.length, 1);
   assert.strictEqual(client.skillAnimations[0].type, 'ancient');
-  assert.strictEqual(client.skillAnimations[0].name, '鸿蒙一剑');
+  assert.strictEqual(client.skillAnimations[0].name, '寰极一剑');
   assert.strictEqual(client.skillAnimations[0].target, 'room');
   client.skillAnimations = [];
   client.roomSkillEventHistory = {};

@@ -460,9 +460,9 @@ void test_catalog_and_templates()
 	int highest_affix_capacity_valid=1;
 	array(string) errors=({});
 	array(string) collection_ids=({
-		"newmoon","starshine","firmament","greatvoid","primordial","hongmeng",
+		"newmoon","starshine","firmament","greatvoid","primordial","huanji",
 	});
-	array(string) collection_names=({"新月","曜星","天穹","太虚","太初","鸿蒙"});
+	array(string) collection_names=({"新月","曜星","天穹","太虚","太初","寰极"});
 	array(string) collection_qualities=({"稀世","绝世","传说","神话","太古","至尊"});
 	array(int) collection_percents=({100,105,110,116,123,132});
 
@@ -645,13 +645,13 @@ void test_catalog_and_templates()
 		ITEMSD->query_newmoon_collection_id_for_roll(160,2)=="primordial" &&
 		ITEMSD->query_newmoon_collection_id_for_roll(160,4)=="primordial" &&
 		ITEMSD->query_newmoon_collection_id_for_roll(199,1)=="" &&
-		ITEMSD->query_newmoon_collection_id_for_roll(200,1)=="hongmeng",
+		ITEMSD->query_newmoon_collection_id_for_roll(200,1)=="huanji",
 		"套装可能污染普通掉落池、低等级掉落或绕过独立稀有概率");
 	check("十件套词缀均受生成器支持且没有非武器攻击词缀",
 		effective_profile_valid,"发现无效、反向或错槽词缀");
-	check("120件底版均至少提供六种有效词缀供鸿蒙保底抽取",
+	check("120件底版均至少提供六种有效词缀供寰极保底抽取",
 		highest_affix_capacity_valid,
-		"存在底版词缀池小于鸿蒙六词缀下限");
+		"存在底版词缀池小于寰极六词缀下限");
 	check("十件套复用图片在源码与Web资源树均可加载",
 		image_valid,"存在缺失图片");
 }
@@ -1237,7 +1237,7 @@ void test_enabled_collection_lineage()
 			"min_level":130,"min_affixes":4,"weight":10,"percent":116]),
 		(["id":"primordial","name":"太初","quality":"太古","rank":5,
 			"min_level":160,"min_affixes":5,"weight":3,"percent":123]),
-		(["id":"hongmeng","name":"鸿蒙","quality":"至尊","rank":6,
+		(["id":"huanji","name":"寰极","quality":"至尊","rank":6,
 			"min_level":200,"min_affixes":6,"weight":1,"percent":132]),
 	});
 	array(mapping(string:mixed)) collections=
@@ -1278,7 +1278,7 @@ void test_enabled_collection_lineage()
 	}
 	if(ITEMSD->query_newmoon_collection_id_for_roll(300,cursor+1)!="")
 		drop_windows_valid=0;
-	check("新月到鸿蒙六阶目录品质递增且掉率递减",
+	check("新月到寰极六阶目录品质递增且掉率递减",
 		catalog_valid,"六阶目录名称、品质、等级、词缀或权重错误");
 	check("六阶独立随机区间边界精确且未达等级不会降级冒充",
 		drop_windows_valid && cursor==444,
@@ -1356,7 +1356,7 @@ void test_enabled_collection_lineage()
 		"human","jianxian");
 	object high_weapon=clone(weapon_path);
 	object newmoon_head=clone(head_path);
-	high_weapon->set_newmoon_collection("hongmeng");
+	high_weapon->set_newmoon_collection("huanji");
 	high_weapon->move(player);
 	newmoon_head->move(player);
 	player->wield(high_weapon);
@@ -1366,7 +1366,7 @@ void test_enabled_collection_lineage()
 		newmoon_head->query_newmoon_set_piece_count()==1 &&
 		high_weapon->query_newmoon_resonance_percent()==100 &&
 		newmoon_head->query_newmoon_resonance_percent()==100,
-		"鸿蒙与新月被错误合并为同一套装计数");
+		"寰极与新月被错误合并为同一套装计数");
 	destroy_player(player);
 
 	string raw="weapon/69xinyuetianfengjian/69xinyuetianfengjian";
@@ -1420,7 +1420,7 @@ void test_enabled_collection_lineage()
 			destruct(generated);
 		destruct(base);
 	}
-	check("曜星至鸿蒙五套动态生成、显示和再次炼化均保留独立身份",
+	check("曜星至寰极五套动态生成、显示和再次炼化均保留独立身份",
 		generation_valid,generation_errors*" | ");
 	cleanup_generated_files(directory,before);
 
@@ -1599,21 +1599,140 @@ void test_legacy_equipment_compatibility()
 		restored->query_attack_power()==248 &&
 		restored->query_item_canLevel()==69,
 		"套装元数据恢复后丢失或旧装备字段错位");
-	new_item->set_newmoon_collection("hongmeng");
-	string hongmeng_saved=pikenv_save_object(new_item,1);
-	object hongmeng_restored=clone(
+	new_item->set_newmoon_collection("huanji");
+	string huanji_saved=pikenv_save_object(new_item,1);
+	object huanji_restored=clone(
 		item_path("weapon","69xinyuetianfengjian"));
-	pikenv_restore_object(hongmeng_restored,hongmeng_saved);
-	check("鸿蒙集合身份随人物唯一档案和跨Worker存档完整往返",
-		search(hongmeng_saved,"hongmeng")!=-1 &&
-		hongmeng_restored->query_newmoon_collection_id()=="hongmeng" &&
-		hongmeng_restored->query_newmoon_collection_rank()==6 &&
-		hongmeng_restored->query_newmoon_collection_quality()=="至尊" &&
-		hongmeng_restored->query_attack_power()==248*132/100,
+	pikenv_restore_object(huanji_restored,huanji_saved);
+	check("寰极集合身份随人物唯一档案和跨Worker存档完整往返",
+		search(huanji_saved,"huanji")!=-1 &&
+		huanji_restored->query_newmoon_collection_id()=="huanji" &&
+		huanji_restored->query_newmoon_collection_rank()==6 &&
+		huanji_restored->query_newmoon_collection_quality()=="至尊" &&
+		huanji_restored->query_attack_power()==248*132/100,
 		"高阶集合字段未进入dbase存档或恢复后倍率错误");
 	destruct(new_item);
 	destruct(restored);
-	destruct(hongmeng_restored);
+	destruct(huanji_restored);
+}
+
+void test_full_set_skill_activation()
+{
+	array(string) collection_ids=({
+		"newmoon","starshine","firmament","greatvoid","primordial","huanji",
+	});
+	array(string) expected_names=({
+		"newmoon_jianxian","newmoon_yushi","newmoon_zhuxian",
+		"newmoon_kuangyao","newmoon_wuyao","newmoon_yinggui",
+		"newmoon_fangshi","newmoon_zhenyue","newmoon_tianxiang",
+		"newmoon_lingyi","newmoon_wuxiang","newmoon_taiji",
+	});
+	int all_professions_valid=1;
+	array(string) errors=({});
+	object room=(object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+
+	for(int index=0;index<sizeof(catalog);index++){
+		mapping config=catalog[index];
+		object player=create_combat_player("__testunit_newmoon_setskill_"+
+			(string)index+"__",(string)config["race"],
+			(string)config["profession"]);
+		object target=create_combat_player("__testunit_newmoon_settarget_"+
+			(string)index+"__","human","jianxian");
+		array(object) items=clone_full_set(config);
+		int rank=index%6+1;
+		for(int item_index=0;item_index<sizeof(items);item_index++)
+			items[item_index]->set_newmoon_collection(
+				collection_ids[rank-1]);
+		player->move(room);
+		target->move(room);
+		equip_full_set(player,items);
+		player->flush_life();
+		player->set_life(max(1,player->query_life_max()/2));
+		player->set_mofa(player->query_mofa_max());
+		player->set_base_hitte(100000);
+		mapping active=NEWMOON_SET_SKILLD->query_active_set_skill(player);
+		string skill_name=expected_names[index];
+		object|zero skill=NEWMOON_SET_SKILLD->query_active_skill_object(
+			player,skill_name);
+		int before_mofa=player->get_cur_mofa();
+		player->_fight(target);
+		player->perform(skill_name,1);
+		if(!active || (string)active["skill"]!=skill_name ||
+		   (int)active["rank"]!=rank || !skill ||
+		   !skill->query_newmoon_set_skill() ||
+		   skill->query_s_delayTime(rank)!=126-rank*6 ||
+		   search((array(string))skill->skill_type,
+			(string)config["profession"])==-1 ||
+		   search(player->view_skills(),"套装技")==-1 ||
+		   search(player->view_use_performs(),skill->query_name_cn())==-1 ||
+		   !player->set_toolbar(skill_name,0,1) ||
+		   player->query_toolbar_entry_name(skill_name,1)!=
+			skill->query_name_cn() ||
+		   !AUTOFIGHTD->set_selected_auto_skill(player,skill_name,1) ||
+		   AUTOFIGHTD->query_auto_skill_queue(player)[0]!=skill_name ||
+		   (int)player->f_skills[skill_name]<=1 ||
+		   player->get_cur_mofa()>=before_mofa){
+			all_professions_valid=0;
+			errors+=({(string)config["profession"]+"/"+
+				(string)rank});
+		}
+		destroy_player(player);
+		destroy_player(target);
+	}
+	check("十二职业十件套按寰极六阶自动激活对应技能并接入双端技能、快捷栏和挂机",
+		all_professions_valid,errors*",");
+
+	mapping config=catalog[0];
+	object boundary=create_player("__testunit_newmoon_setskill_edge__",
+		"human","jianxian");
+	array(object) boundary_items=clone_full_set(config);
+	for(int index=0;index<sizeof(boundary_items);index++)
+		boundary_items[index]->set_newmoon_collection("huanji");
+	equip_full_set(boundary,boundary_items);
+	string boundary_skill=NEWMOON_SET_SKILLD->query_active_skill_name(boundary);
+	boundary->f_skills[boundary_skill]=77;
+	boundary_items[1]->item_cur_dura=0;
+	int broken_inactive=NEWMOON_SET_SKILLD->
+		query_active_skill_level(boundary,boundary_skill)==0 &&
+		NEWMOON_SET_SKILLD->query_active_skill_object(
+			boundary,boundary_skill)==0;
+	boundary_items[1]->item_cur_dura=boundary_items[1]->query_item_dura();
+	int repaired_active=NEWMOON_SET_SKILLD->
+		query_active_skill_level(boundary,boundary_skill)==6;
+	check("破损任一件立即停用套装技且修复后恢复资格但不清冷却",
+		broken_inactive && repaired_active &&
+		boundary->f_skills[boundary_skill]==77,
+		"破损资格、修复资格或冷却持久性错误");
+	boundary_items[1]->set_newmoon_collection("newmoon");
+	check("同职业混入不同品质不能凑齐十件套技能且伪造技能名失败关闭",
+		NEWMOON_SET_SKILLD->query_active_skill_name(boundary)=="" &&
+		!NEWMOON_SET_SKILLD->is_set_skill_name("../../newmoon_jianxian") &&
+		!NEWMOON_SET_SKILLD->query_active_skill_object(
+			boundary,"../../newmoon_jianxian"),
+		"混套或路径注入错误获得套装技能");
+	boundary_items[1]->set_newmoon_collection("huanji");
+	object foreign_owner=create_player("__testunit_newmoon_foreign_owner__",
+		"human","jianxian");
+	object foreign_weapon=clone(item_path("weapon",
+		(string)((mapping)config["pieces"])["weapon"]));
+	foreign_weapon->move(foreign_owner);
+	foreign_owner->wield(foreign_weapon);
+	foreign_owner->unwield(foreign_weapon);
+	foreign_weapon->move(boundary);
+	string weapon_slot=(string)foreign_weapon->query_item_kind();
+	object original_weapon=boundary->query_equip()[weapon_slot];
+	if(original_weapon)
+		original_weapon->equiped=0;
+	boundary->query_equip()[weapon_slot]=foreign_weapon;
+	foreign_weapon->equiped=1;
+	check("异常档案也不能用其他账号绑定装备激活套装属性或技能",
+		!foreign_weapon->query_newmoon_binding_matches_owner(boundary) &&
+		boundary_items[1]->query_newmoon_set_piece_count()==9 &&
+		NEWMOON_SET_SKILLD->query_active_skill_name(boundary)=="",
+		"跨账号绑定装备被异常计入十件套");
+	destroy_player(foreign_owner);
+	destroy_player(boundary);
 }
 
 int main()
@@ -1630,6 +1749,7 @@ int main()
 	test_enabled_collection_lineage();
 	test_forge_and_wash_compatibility();
 	test_legacy_equipment_compatibility();
+	test_full_set_skill_activation();
 	werror("新月十件套测试：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
 	return results["failed"]==0 ? 0 : 1;

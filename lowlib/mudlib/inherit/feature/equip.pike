@@ -30,7 +30,7 @@ int is_newmoon_collection_id(string collection_id)
 {
 	return search(({
 		"newmoon","starshine","firmament","greatvoid","primordial",
-		"hongmeng",
+		"huanji",
 	}),collection_id)!=-1;
 }
 
@@ -50,7 +50,7 @@ int query_newmoon_collection_rank()
 		case "firmament": return 3;
 		case "greatvoid": return 4;
 		case "primordial": return 5;
-		case "hongmeng": return 6;
+		case "huanji": return 6;
 	}
 	return 1;
 }
@@ -62,7 +62,7 @@ string query_newmoon_collection_name()
 		case "firmament": return "天穹";
 		case "greatvoid": return "太虚";
 		case "primordial": return "太初";
-		case "hongmeng": return "鸿蒙";
+		case "huanji": return "寰极";
 	}
 	return "新月";
 }
@@ -74,7 +74,7 @@ string query_newmoon_collection_quality()
 		case "firmament": return "传说";
 		case "greatvoid": return "神话";
 		case "primordial": return "太古";
-		case "hongmeng": return "至尊";
+		case "huanji": return "至尊";
 	}
 	return "稀世";
 }
@@ -86,7 +86,7 @@ int query_newmoon_collection_quality_percent()
 		case "firmament": return 110;
 		case "greatvoid": return 116;
 		case "primordial": return 123;
-		case "hongmeng": return 132;
+		case "huanji": return 132;
 	}
 	return 100;
 }
@@ -185,6 +185,20 @@ int query_newmoon_account_bind_time()
 string query_newmoon_account_bind_id()
 {
 	return (string)(this_object()[NEWMOON_BINDING_ROOT+"/id"] || "");
+}
+
+int query_newmoon_binding_matches_owner(object owner)
+{
+	string expected_owner="";
+	if(!owner || !functionp(owner->is) || !owner->is("player") ||
+	   !query_newmoon_account_bound())
+		return 0;
+	if(functionp(owner->query_account_owner))
+		expected_owner=(string)owner->query_account_owner();
+	if(expected_owner=="" && functionp(owner->query_name))
+		expected_owner=(string)owner->query_name();
+	return expected_owner!="" &&
+		query_newmoon_account_bind_owner()==expected_owner;
 }
 
 /**
@@ -421,6 +435,8 @@ int query_newmoon_set_piece_count()
 		if(item && environment(item)==owner && item->equiped &&
 		   item->item_cur_dura>0 && slot!="" && !counted_slots[slot] &&
 		   search(counted,item)==-1 &&
+		   functionp(item->query_newmoon_binding_matches_owner) &&
+		   item->query_newmoon_binding_matches_owner(owner) &&
 		   functionp(item->query_newmoon_resonance_profession) &&
 		   functionp(item->query_newmoon_resonance_theme) &&
 		   functionp(item->query_newmoon_collection_id) &&
@@ -460,6 +476,7 @@ int query_newmoon_resonance_active()
 	if(profession=="" || !owner ||
 	   this_object()->item_cur_dura<=0 ||
 	   !functionp(owner->is) || !owner->is("player") ||
+	   !query_newmoon_binding_matches_owner(owner) ||
 	   !functionp(owner->query_profeId) ||
 	   !functionp(owner->query_equip))
 		return 0;
@@ -1050,6 +1067,18 @@ string query_content(){
 		r+="10件·满月觉醒：职业共鸣200%；"+
 			ob->query_newmoon_set_extra_description(10)+
 			(resonance_active && set_count>=10 ? "（已激活）" : "")+"\n";
+		if(resonance_active && set_count>=10){
+			object set_skill_daemon=(object)(ROOT+
+				"/gamelib/single/daemons/newmoon_set_skilld.pike");
+			string set_skill_summary=set_skill_daemon ?
+				(string)set_skill_daemon->query_active_skill_summary(
+					environment(ob)) : "";
+			if(set_skill_summary!="")
+				r+="【满月套装技】"+set_skill_summary+
+					"已自动激活，可在技能、快捷栏和自动连招中配置\n";
+		}
+		else
+			r+="【满月套装技】完整穿戴同职业、同主题、同品质十件后自动激活\n";
 	}
 	if(functionp(ob->query_catchup_equipment) &&
 	   ob->query_catchup_equipment()){

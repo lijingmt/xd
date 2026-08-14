@@ -12,11 +12,11 @@ probability per successful equipment-drop opportunity, not per NPC kill.
 | 3 | `firmament` | 天穹 | 传说 | 110 | 3 | 30 | 1/10000 |
 | 4 | `greatvoid` | 太虚 | 神话 | 130 | 4 | 10 | 1/30000 |
 | 5 | `primordial` | 太初 | 太古 | 160 | 5 | 3 | 1/100000 |
-| 6 | `hongmeng` | 鸿蒙 | 至尊 | 200 | 6 | 1 | 1/300000 |
+| 6 | `huanji` | 寰极 | 至尊 | 200 | 6 | 1 | 1/300000 |
 
 At all six ranks the exclusive roll bands are:
 
-- Hongmeng: 1
+- Huanji: 1
 - Primordial: 2..4
 - Great Void: 5..14
 - Firmament: 15..44
@@ -41,7 +41,7 @@ must match; different ranks cannot be combined to satisfy a milestone.
 
 - `orgItems.list` must contain exactly 120 unique New Moon base paths.
 - `allItems.list` must contain exactly one effective affix profile for each path.
-- Every profile must provide at least six valid affix choices for Hongmeng.
+- Every profile must provide at least six valid affix choices for Huanji.
 - The physical bases remain level 69 and retain old images and profession metadata.
 - Generated ranks 2..6 append `_nm<rank>` after the ordinary attribute/level
   suffix and inject `set_newmoon_collection("<id>")` into source.
@@ -88,3 +88,19 @@ Base source names retain `【新月·职业】` for compatibility. At runtime, r
 that one legacy fragment and prefix `【集合·品质·职业】`. Apply the transformation
 to both `query_name_cn()` and `query_short()` without changing `name`, program
 path, raw source name, or command IDs.
+
+## Full-set skills
+
+Each profession owns one stable `newmoon_<profession>` skill. Collection rank
+1..6 is the skill's virtual level. The active skill is derived at read time from
+the ten objects actually equipped through `newmoon_set_skilld.pike`; it is not
+written into the learned-skill mapping or any Worker-local save.
+
+Activation requires one collection ID, one profession, active resonance, usable
+durability, matching immutable owner, ten distinct object instances, and all ten
+required slots. A mixed, incomplete, duplicated, broken, or foreign-owner set
+exposes no skill.
+
+The ordinary player combat cooldown mapping remains authoritative. Set removal
+may remove the skill from auto-fight selection, but must not clear its cooldown.
+This prevents unequip/re-equip or cross-collection swapping from bypassing delay.

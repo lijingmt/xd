@@ -16,19 +16,40 @@ private mapping(string:string) profession_names = ([
 	"lingyi":"灵医",
 ]);
 
-// 每项为“稳定技能ID|中文名”。不得调整既有ID，只能在新版本追加。
+// 每项为“稳定技能ID|中文名”。寰极技能使用 huanji 前缀；旧鸿蒙前缀
+// 只在下方兼容映射中接受，用于登录迁移和已存档技能书恢复。
 private mapping(string:array(string)) profession_skills = ([
-	"jianxian":({"taixujianhen|太虚剑痕","xinghejiandian|星河剑典","wanjianchaoxi|万剑潮汐","tiangangjianjie|天罡剑界","wuxiangjianxin|无相剑心","jiuxiaojianjie|九霄剑劫","hongmengyijian|鸿蒙一剑"}),
+	"jianxian":({"taixujianhen|太虚剑痕","xinghejiandian|星河剑典","wanjianchaoxi|万剑潮汐","tiangangjianjie|天罡剑界","wuxiangjianxin|无相剑心","jiuxiaojianjie|九霄剑劫","huanjiyijian|寰极一剑"}),
 	"yushi":({"tianhuanglingyu|天凰灵羽","jiutianfenglei|九天风雷","bingheyuemian|冰河月冕","liuguangxianyin|流光仙音","cangmingyufeng|苍冥御风","taixushenlei|太虚神雷","wanxiangtianguang|万象天光"}),
 	"zhuxian":({"zhutianjianyu|诛天剑狱","longhunpozhen|龙魂破阵","tianluofengmo|天罗封魔","shenxiaojianming|神霄剑鸣","qixingzhuxie|七星诛邪","wanfazhanmie|万法斩灭","hunyuanjiandao|混元剑道"}),
 	"kuangyao":({"huangguyaomai|荒古妖脉","xueyuekuangchao|血月狂潮","tianshaxuezhou|天煞血咒","wanhuangzhennu|万荒震怒","shuraqianlie|修罗千裂","miezhanmoqu|灭战魔躯","hundunkaimo|混沌开魔"}),
 	"wuyao":({"xuanyinminghuo|玄阴冥火","jiuyouxiefeng|九幽邪风","huangquanzhoujie|黄泉咒界","wanshidupo|万蚀毒魄","tianmoguiyin|天魔鬼印","xueyuelunzhuan|血月轮转","hunyuanmiejie|混元灭界"}),
 	"yinggui":({"wujianyingxi|无间影袭","mingyezhuiming|冥夜追命","qiankunhuanying|乾坤幻影","jiuyousuohun|九幽锁魂","wuyingtiansha|无影天煞","luanshimingzhan|乱世冥斩","taixujueying|太虚绝影"}),
-	"fangshi":({"taigulingzhen|太古灵阵","shanhaifuzhao|山海符诏","yinyanglingyu|阴阳灵域","jiuxiaoleifa|九霄雷法","wanlingguizhen|万灵归真","hunyuandaoyin|混元道印","hongmengfaling|鸿蒙法灵"}),
-	"zhenyue":({"taigushanyin|太古山印","wuyuezhenjie|五岳镇界","tianqingdimai|天擎地脉","wanshanzhenshi|万山镇世","buzhoushouyu|不周守御","hunyuandibi|混元地壁","hongmengyuezhen|鸿蒙岳阵"}),
-	"tianxiang":({"zhouxingtiantu|周星天图","ziyaoxingyu|紫曜星雨","tiangangxingzhen|天罡星阵","yinyuehanchao|银月寒潮","jiuxiaoxinglei|九霄星雷","wanxiangxingjie|万象星界","hongmengtianguang|鸿蒙天光"}),
-	"lingyi":({"qingdiyaodian|青帝药典","jiuzhuanhuichun|九转回春","yaowanglingyu|药王灵域","wanhuajinglu|万华净露","shengshengbuxi|生生不息","cihangtianguang|慈航天光","hongmenghuisheng|鸿蒙回生"}),
+	"fangshi":({"taigulingzhen|太古灵阵","shanhaifuzhao|山海符诏","yinyanglingyu|阴阳灵域","jiuxiaoleifa|九霄雷法","wanlingguizhen|万灵归真","hunyuandaoyin|混元道印","huanjifaling|寰极法灵"}),
+	"zhenyue":({"taigushanyin|太古山印","wuyuezhenjie|五岳镇界","tianqingdimai|天擎地脉","wanshanzhenshi|万山镇世","buzhoushouyu|不周守御","hunyuandibi|混元地壁","huanjiyuezhen|寰极岳阵"}),
+	"tianxiang":({"zhouxingtiantu|周星天图","ziyaoxingyu|紫曜星雨","tiangangxingzhen|天罡星阵","yinyuehanchao|银月寒潮","jiuxiaoxinglei|九霄星雷","wanxiangxingjie|万象星界","huanjitianguang|寰极天光"}),
+	"lingyi":({"qingdiyaodian|青帝药典","jiuzhuanhuichun|九转回春","yaowanglingyu|药王灵域","wanhuajinglu|万华净露","shengshengbuxi|生生不息","cihangtianguang|慈航天光","huanjihuisheng|寰极回生"}),
 ]);
+
+private mapping(string:string) legacy_skill_ids = ([
+	"hongmengyijian":"huanjiyijian",
+	"hongmengfaling":"huanjifaling",
+	"hongmengyuezhen":"huanjiyuezhen",
+	"hongmengtianguang":"huanjitianguang",
+	"hongmenghuisheng":"huanjihuisheng",
+]);
+
+string query_canonical_skill_id(string|zero skill_id)
+{
+	if(!skill_id || skill_id=="")
+		return "";
+	return legacy_skill_ids[skill_id] || skill_id;
+}
+
+mapping(string:string) query_legacy_skill_id_migrations()
+{
+	return copy_value(legacy_skill_ids);
+}
 
 private mapping(string:array(string)) profession_types = ([
 	"jianxian":({"phy","phy","buff","phy","dot","phy","phy"}),
@@ -58,6 +79,7 @@ mapping(string:mixed) query_skill_config(string|zero skill_id)
 {
 	if(!skill_id || skill_id=="")
 		return ([]);
+	skill_id=query_canonical_skill_id(skill_id);
 	foreach(profession_order,string profession){
 		array(string) entries = profession_skills[profession];
 		for(int i=0;i<sizeof(entries);i++){
@@ -137,4 +159,73 @@ string query_weighted_book(int roll)
 		}
 	}
 	return "";
+}
+
+/**
+ * 一次性兼容旧太古七阶前缀。迁移人物技能、冷却、快捷栏和挂机队列，
+ * 不触碰技能等级数值，也不清空已有冷却。
+ */
+int migrate_player_skill_ids(object player)
+{
+	int changes = 0;
+	if(!player)
+		return 0;
+	foreach(indices(legacy_skill_ids),string old_id){
+		string new_id = legacy_skill_ids[old_id];
+		if(mappingp(player->skills) && has_index(player->skills,old_id)){
+			mixed old_raw = player->skills[old_id];
+			if(arrayp(old_raw) && sizeof((array)old_raw)){
+				array old_value = (array)old_raw;
+				mixed new_raw = player->skills[new_id];
+				array new_value = arrayp(new_raw) ? (array)new_raw : ({});
+				if(!sizeof(new_value) ||
+				   (int)old_value[0]>(int)new_value[0] ||
+				   ((int)old_value[0]==(int)new_value[0] &&
+				   sizeof(old_value)>1 &&
+				   (sizeof(new_value)<2 ||
+				   (int)old_value[1]>(int)new_value[1])))
+					player->skills[new_id]=copy_value(old_value);
+			}
+			// 即使旧键异常，也要删除已废弃 ID；异常值不能成为绕过
+			// canonical 技能目录的第二份状态。
+			m_delete(player->skills,old_id);
+			changes++;
+		}
+		if(mappingp(player->f_skills) &&
+		   has_index(player->f_skills,old_id)){
+			int old_cold = (int)player->f_skills[old_id];
+			if(old_cold>(int)player->f_skills[new_id])
+				player->f_skills[new_id]=old_cold;
+			m_delete(player->f_skills,old_id);
+			changes++;
+		}
+		if((string)(player->skills_enable || "")==old_id){
+			player->skills_enable=new_id;
+			changes++;
+		}
+		if(arrayp(player->toolbar_key)){
+			foreach(player->toolbar_key,mixed slot){
+				if(!mappingp(slot) || !has_index(slot,old_id))
+					continue;
+				if(!has_index(slot,new_id))
+					slot[new_id]=slot[old_id];
+				m_delete(slot,old_id);
+				changes++;
+			}
+		}
+	}
+	mixed stored = player["/plus/autofight_skill_queue"];
+	if(arrayp(stored)){
+		array queue = copy_value(stored);
+		for(int i=0;i<sizeof(queue);i++){
+			string canonical = query_canonical_skill_id(
+				stringp(queue[i]) ? (string)queue[i] : "");
+			if(stringp(queue[i]) && canonical!=(string)queue[i]){
+				queue[i]=canonical;
+				changes++;
+			}
+		}
+		player["/plus/autofight_skill_queue"]=queue;
+	}
+	return changes;
 }

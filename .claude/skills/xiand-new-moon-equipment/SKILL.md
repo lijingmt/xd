@@ -1,6 +1,6 @@
 ---
 name: xiand-new-moon-equipment
-description: Maintain, extend, audit, balance, or debug Xiand's New Moon six-collection profession equipment system. Use for 新月/曜星/天穹/太虚/太初/鸿蒙套装, 12-profession 10-piece equipment, rare drops, collection quality, dynamic equipment generation, reforging/forging/socketing, bind-on-use and limited trading, personal/shared warehouse persistence, old JSP or Vue equipment display, cross-Worker saves, or related TestUnit and restart validation in /usr/local/games/xiand.
+description: Maintain, extend, audit, balance, or debug Xiand's New Moon six-collection profession equipment system. Use for 新月/曜星/天穹/太虚/太初/寰极套装, 12-profession 10-piece equipment, full-set skills, rare drops, collection quality, dynamic equipment generation, reforging/forging/socketing, bind-on-use and limited trading, personal/shared warehouse persistence, old JSP or Vue equipment display, cross-Worker saves, or related TestUnit and restart validation in /usr/local/games/xiand.
 ---
 
 # Xiand New Moon Equipment
@@ -27,6 +27,9 @@ playability, and English Git commits when those surfaces are touched.
 2. Identify the layer being changed:
    - catalog/drop selection: `gamelib/single/daemons/itemsd.pike`
    - identity, quality, set counting, binding: `lowlib/mudlib/inherit/feature/equip.pike`
+   - full-set skill identity and activation: `gamelib/single/daemons/newmoon_set_skilld.pike`
+   - rank-safe skill base: `gamelib/inherit/newmoon_set_skill.pike`
+   - profession skill implementations: `gamelib/single/skills/newmoon_*`
    - unified old/new UI name: `lowlib/mudlib/inherit/item.pike`
    - personal warehouse row: `gamelib/inherit/packaged.pike`
    - shared warehouse validation: `gamelib/single/daemons/account_storaged.pike`
@@ -60,6 +63,13 @@ playability, and English Git commits when those surfaces are touched.
 - Keep the player profile as the unique player save. Collection identity must
   survive regular saves, cross-Worker handoff, dynamic source reload, and both
   warehouse directions.
+- Derive full-set skills from the ten objects actually equipped. Never persist a
+  duplicate learned-skill flag, rank, or owner in a Worker-local cache.
+- Require one profession, one collection ID, ten unique objects, ten unique
+  equipped slots, usable durability, active resonance, and matching owner before
+  exposing a set skill. Mixed or broken sets fail closed immediately.
+- Keep set-skill cooldown in the existing player combat cooldown mapping so
+  unequip/re-equip, collection swaps, saves, and Worker handoff cannot reset it.
 - Keep old JSP and Vue displays consistent by decorating both `query_name_cn()`
   and `query_short()` without mutating the raw internal name.
 - Fail closed on unknown IDs, malformed snapshots, ownership mismatch, missing
@@ -79,6 +89,21 @@ playability, and English Git commits when those surfaces are touched.
    suffix for a different collection.
 5. Extend the generic collection matrix and exact roll-window tests.
 6. Restart, validate, and make a standalone commit before enabling the next rank.
+
+### Add or change a full-set skill
+
+1. Keep the skill name stable and ASCII-only. Register it in the daemon catalog
+   for exactly one profession.
+2. Reuse existing combat types and damage/heal helpers. Do not introduce or
+   silently change core physical, magical, healing, defense, or PvP formulas.
+3. Use the active collection rank as the virtual skill level. The player must not
+   learn, forget, save, or warehouse the skill itself.
+4. Integrate the virtual skill through the common skill resolver so legacy JSP,
+   Vue, toolbar, manual perform, and auto-fight queue share one authorization path.
+5. Preserve cooldown when the full set becomes temporarily inactive. Remove the
+   unusable queue entry, not its already-running cooldown.
+6. Prove all 12 professions and ranks 1..6, incomplete/mixed/broken sets,
+   reactivation, cooldown persistence, toolbar use, and auto-fight use in TestUnit.
 
 ### Change balance
 

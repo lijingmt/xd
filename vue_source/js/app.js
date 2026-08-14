@@ -3218,6 +3218,16 @@ createApp({
             return 'btn btn-outline-info btn-sm';
         },
 
+		// 装备名称常携带服务端稀有度色码。只标记装备相关命令，
+		// 避免为了修复浅黄底黄字而改变商城、活动等其他金色按钮。
+		isEquipmentButtonCommand(command) {
+			const name = String(command || '').trim().split(/\s+/)[0];
+			return [
+				'inv', 'inv_other', 'equipment', 'wear', 'wield',
+				'unwear', 'unwield', 'auto_equip', 'convert_equip_detail'
+			].includes(name);
+		},
+
         // JSON模式: 获取颜色样式类名
         getColorClass(colorCode) {
             const colorMap = {
@@ -4788,7 +4798,7 @@ createApp({
                 // 普通文字被误判；同时显示真实技能名。
                 const skillName = this.extractSkillName(lineText);
                 if (skillName) {
-                    const skillType = /太古|鸿蒙/.test(lineText) ? 'ancient' :
+                    const skillType = /太古|寰极/.test(lineText) ? 'ancient' :
                         (this.parseMartialArtsSkill(skillName) || 'generic');
                     const skillTarget = this.getSkillAnimationTarget(skillType, lineText);
                     this.addSkillAnimation(skillType, skillName, skillTarget);
@@ -4892,7 +4902,7 @@ createApp({
             const value = String(text || '');
             if (!value) return null;
 
-            if (/太古|鸿蒙/.test(value)) return 'ancient';
+            if (/太古|寰极/.test(value)) return 'ancient';
 
             if (/灵治|灵莲铺|万灵朝生|治疗|回春|恢复/.test(value)) return 'heal';
             if (/召唤|虎灵|鹤灵|龟灵|三灵合一|三灵共鸣|唤小灵|灵契共鸣/.test(value)) return 'summon';

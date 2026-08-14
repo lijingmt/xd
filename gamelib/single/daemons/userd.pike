@@ -359,7 +359,16 @@ void do_remove(object me)
 void do_login(object me)
 {
 	int migrated_newmoon;
+	int migrated_skill_ids;
 	check_daily(me);
+	// 七阶太古技能正式改用 huanji 前缀。旧档只迁移键名，完整保留
+	// 等级、熟练度、冷却、快捷栏和自动挂机优先级。
+	migrated_skill_ids=ANCIENT_SKILLD->migrate_player_skill_ids(me);
+	if(migrated_skill_ids>0 &&
+	   (!functionp(me->save_with_result) || !me->save_with_result()))
+		werror("[ANCIENT_SKILL] id migration save failed user=%s count=%d\n",
+			me && functionp(me->query_name) ? (string)me->query_name() :
+				"unknown",migrated_skill_ids);
 	// Deployment compatibility: only New Moon pieces already equipped before
 	// the binding release are migrated. Unused backpack/warehouse drops remain
 	// freely tradable until their first real use.

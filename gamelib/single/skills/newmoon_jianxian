@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】月痕归鞘";
+	desc="剑心十器共鸣，月痕随剑归鞘后迸发一次沉稳剑击";
+	s_type="zhudong"; s_skill_type="phy";
+	performs_attack=([1:260,2:520,3:900,4:1380,5:1980,6:2700]);
+	performs_per=([1:20,2:28,3:36,4:44,5:52,6:60]);
+	performs_cast=([1:120,2:150,3:185,4:225,5:270,6:320]);
+	performs_desc=([1:"附加260点伤害并增加20%武器伤害",2:"附加520点伤害并增加28%武器伤害",3:"附加900点伤害并增加36%武器伤害",4:"附加1380点伤害并增加44%武器伤害",5:"附加1980点伤害并增加52%武器伤害",6:"附加2700点伤害并增加60%武器伤害"]);
+	skill_type+=({"jianxian"});
+}

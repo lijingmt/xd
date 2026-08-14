@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】月影绝行";
+	desc="夜行十器令身影融入月色，发动一次高机动突袭";
+	s_type="zhudong"; s_skill_type="phy";
+	performs_attack=([1:210,2:450,3:790,4:1220,5:1770,6:2430]);
+	performs_per=([1:30,2:38,3:46,4:54,5:62,6:70]);
+	performs_cast=([1:110,2:140,3:175,4:215,5:260,6:310]);
+	performs_desc=([1:"附加210点伤害并增加30%武器伤害",2:"附加450点伤害并增加38%武器伤害",3:"附加790点伤害并增加46%武器伤害",4:"附加1220点伤害并增加54%武器伤害",5:"附加1770点伤害并增加62%武器伤害",6:"附加2430点伤害并增加70%武器伤害"]);
+	skill_type+=({"yinggui"});
+}

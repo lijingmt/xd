@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】山河月障";
+	desc="不动十器展开山河月障，为同房间存活队员提供护盾";
+	s_type="zhudong"; s_skill_type="team_guard"; s_curse_type="absorb"; s_lasttime=12;
+	performs_attack=([1:500,2:900,3:1400,4:2000,5:2700,6:3500]);
+	performs_cast=([1:120,2:150,3:185,4:225,5:270,6:320]);
+	performs_desc=([1:"为队伍展开500点基础护盾",2:"为队伍展开900点基础护盾",3:"为队伍展开1400点基础护盾",4:"为队伍展开2000点基础护盾",5:"为队伍展开2700点基础护盾",6:"为队伍展开3500点基础护盾"]);
+	skill_type+=({"zhenyue"});
+}

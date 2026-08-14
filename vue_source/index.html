@@ -1053,7 +1053,9 @@
                                         <a v-else-if="segment.type === 'button'"
                                            :href="htmlMode ? getDirectUrl(segment.cmd) : '#'"
                                            @click="handleMudButtonClick($event, segment.cmd)"
-                                           :class="segment.class"
+                                           :class="[segment.class, {
+                                               'mud-equipment-btn': isEquipmentButtonCommand(segment.cmd)
+                                           }]"
                                            class="mud-btn"
                                            v-html="renderGameText(segment.label, true)"></a>
                                         <!-- 输入框 -->

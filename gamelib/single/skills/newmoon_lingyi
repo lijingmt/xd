@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】长生月华";
+	desc="长生十器洒下月华，救治同房间自己与队员并净化一项负面状态";
+	s_type="zhudong"; s_skill_type="heal"; lingyi_heal_scope=2;
+	lingyi_think_scale=3; lingyi_cleanse=1; lingyi_life_cap_percent=22;
+	performs_attack=([1:420,2:760,3:1180,4:1680,5:2260,6:2920]);
+	performs_cast=([1:130,2:165,3:205,4:250,5:300,6:355]);
+	performs_desc=([1:"群体恢复420点基础生命",2:"群体恢复760点基础生命",3:"群体恢复1180点基础生命",4:"群体恢复1680点基础生命",5:"群体恢复2260点基础生命",6:"群体恢复2920点基础生命"]);
+	skill_type+=({"lingyi"});
+}

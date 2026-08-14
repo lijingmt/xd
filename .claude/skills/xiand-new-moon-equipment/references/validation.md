@@ -25,6 +25,11 @@ Keep these proofs:
     warehouse round trips; binding owner survives with it.
 11. Unknown IDs and malformed snapshots fail without changing the current item.
 12. Old `query_name_cn()` and Vue/API `query_short()` show the same collection.
+13. All 12 professions expose exactly one full-set skill across ranks 1..6.
+14. Incomplete, mixed, broken, duplicate-slot, duplicate-object, wrong-profession,
+    and foreign-owner equipment cannot expose or perform a full-set skill.
+15. Full-set skills work through legacy/Vue skill lists, toolbar, manual perform,
+    and auto-fight; removal cleans unusable queue entries without clearing cooldown.
 
 ## Real restart
 
@@ -61,7 +66,8 @@ reports active and healthy.
 5. Reforge, reset, socket, artisan, and generated-file cleanup.
 6. Bind ownership and all cross-account market exits.
 7. Personal/shared storage schemas, legacy rows, saves, and handoff.
-8. Set counting, mixed ranks/themes, durability, duplicates, and PVP getters.
+8. Set counting, full-set skill authorization/cooldown, mixed ranks/themes,
+   durability, duplicates, and PVP getters.
 9. Legacy JSP, auction, inventory, JSON/Vue names, images, and command IDs.
 10. Full restart, complete TestUnit, HTTP/Worker health, logs, staged diff, and
     standalone English commit scope.

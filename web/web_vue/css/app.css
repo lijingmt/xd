@@ -3656,6 +3656,18 @@ body {
     box-shadow: 0 2px 8px rgba(139,69,19,0.3);
 }
 
+/* 装备按钮使用石榴红正文；稀有度原有金色边框与辉光继续保留。 */
+.mud-equipment-btn,
+.mud-equipment-btn .color-bright-gold-bold,
+.mud-equipment-btn .color-bright-yellow-bold,
+.mud-equipment-btn .color-gold,
+.mud-equipment-btn .color-yellow {
+	color: #A61B3B !important;
+	-webkit-text-fill-color: #A61B3B !important;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72),
+		0 0 5px rgba(166, 27, 59, 0.2) !important;
+}
+
 /* 按钮颜色变体 */
 .mud-btn.btn-outline-success {
     border-color: #228B22;

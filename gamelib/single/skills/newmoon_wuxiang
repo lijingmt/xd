@@ -1,0 +1,17 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】混元月变";
+	desc="混元十器演化月相，以六成专精威力覆盖逐阶增多的合法目标";
+	s_type="zhudong"; s_skill_type="balanced_aoe"; lingyi_aoe_power_percent=60;
+	performs_mofa_attack=([1:({260,360}),2:({510,680}),3:({850,1100}),4:({1280,1620}),5:({1800,2260}),6:({2440,3020})]);
+	performs_cast=([1:130,2:165,3:205,4:250,5:300,6:355]);
+	performs_desc=([1:"最多攻击2个合法目标",2:"最多攻击4个合法目标",3:"最多攻击6个合法目标",4:"最多攻击8个合法目标",5:"最多攻击10个合法目标",6:"最多攻击10个合法目标并提高基础威力"]);
+	skill_type+=({"wuxiang"});
+}
+int query_balanced_aoe_target_limit(int level){
+	if(level<1) level=1;
+	if(level>5) return 10;
+	return level*2;
+}

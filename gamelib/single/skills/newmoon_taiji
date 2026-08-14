@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】两仪归一";
+	desc="两仪十器归于一念，为同房间队伍恢复生命并净化负面状态";
+	s_type="zhudong"; s_skill_type="balanced_wuji";
+	performs_attack=([1:460,2:820,3:1260,4:1780,5:2380,6:3060]);
+	performs_cast=([1:140,2:175,3:215,4:260,5:310,6:365]);
+	performs_desc=([1:"群体恢复460点生命并净化",2:"群体恢复820点生命并净化",3:"群体恢复1260点生命并净化",4:"群体恢复1780点生命并净化",5:"群体恢复2380点生命并净化",6:"群体恢复3060点生命并净化"]);
+	skill_type+=({"taiji"});
+}

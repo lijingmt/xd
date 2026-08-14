@@ -187,7 +187,7 @@ private int valid_newmoon_collection_snapshot(mapping snapshot)
 	   (int)snapshot["version"]!=1 || !stringp(snapshot["collection_id"]))
 		return 0;
 	return has_value(({"starshine","firmament","greatvoid",
-		"primordial","hongmeng"}),(string)snapshot["collection_id"]);
+		"primordial","huanji"}),(string)snapshot["collection_id"]);
 }
 
 private string personal_newmoon_binding_owner(array data)

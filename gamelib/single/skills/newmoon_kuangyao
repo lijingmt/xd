@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】血月战吼";
+	desc="狂澜十器回应血月，以重击宣泄积蓄的战意";
+	s_type="zhudong"; s_skill_type="phy";
+	performs_attack=([1:300,2:600,3:1020,4:1540,5:2200,6:3000]);
+	performs_per=([1:18,2:26,3:34,4:42,5:50,6:58]);
+	performs_cast=([1:125,2:155,3:190,4:230,5:275,6:325]);
+	performs_desc=([1:"附加300点伤害并增加18%武器伤害",2:"附加600点伤害并增加26%武器伤害",3:"附加1020点伤害并增加34%武器伤害",4:"附加1540点伤害并增加42%武器伤害",5:"附加2200点伤害并增加50%武器伤害",6:"附加3000点伤害并增加58%武器伤害"]);
+	skill_type+=({"kuangyao"});
+}

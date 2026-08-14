@@ -270,6 +270,175 @@ void test_binding_and_legacy_compatibility()
 	destruct(other_account);
 }
 
+void test_huanji_id_migration()
+{
+	test_start("寰极技能统一使用huanji ID且旧档完整迁移");
+	object player = create_test_player(
+		"__testunit_huanji_migration__","__testunit_huanji_account__");
+	object|zero book_player = 0;
+	object|zero legacy_book = 0;
+	int changes = 0;
+	int read_result = 0;
+	int valid = 0;
+	string legacy_picture_id = "";
+	string legacy_picture_url = "";
+	mixed err = catch {
+		player->skills["hongmengtianguang"] = ({4,321});
+		player->skills["huanjitianguang"] = ({3,999});
+		player->f_skills["hongmengtianguang"] = 77;
+		player->f_skills["huanjitianguang"] = 12;
+		player->skills_enable = "hongmengtianguang";
+		player->toolbar_key = ({(["hongmengtianguang":0])});
+		player["/plus/autofight_skill_queue"] =
+			({"hongmengtianguang","",""});
+		changes = ANCIENT_SKILLD->migrate_player_skill_ids(player);
+		legacy_book = clone(ROOT+
+			"/gamelib/clone/item/book/hongmengtianguang");
+		book_player=create_test_player("__testunit_huanji_book__",
+			"__testunit_huanji_book_account__");
+		book_player->set_raceId("third");
+		book_player->set_profeId("tianxiang");
+		book_player->level=190;
+		legacy_book->skill_bname="hongmengtianguang";
+		legacy_book->name_cn="§E【太古·7】鸿蒙天光§r";
+		legacy_book->set_picture("hongmengtianguang");
+		legacy_book->move(book_player);
+		book_player->pic_flag=(["item":"open"]);
+		legacy_picture_url=legacy_book->query_picture_url();
+		legacy_picture_id=legacy_book->query_picture();
+		object|zero original_player=this_player();
+		set_this_player(book_player);
+		read_result=legacy_book->read();
+		set_this_player(original_player);
+		valid = changes==5 &&
+			ANCIENT_SKILLD->query_canonical_skill_id(
+				"hongmengtianguang")=="huanjitianguang" &&
+			(string)ANCIENT_SKILLD->query_skill_config(
+				"huanjitianguang")["id"]=="huanjitianguang" &&
+			!player->skills["hongmengtianguang"] &&
+			(int)player->skills["huanjitianguang"][0]==4 &&
+			(int)player->skills["huanjitianguang"][1]==321 &&
+			!player->f_skills["hongmengtianguang"] &&
+			(int)player->f_skills["huanjitianguang"]==77 &&
+			player->skills_enable=="huanjitianguang" &&
+			has_index(player->toolbar_key[0],"huanjitianguang") &&
+			(int)player->toolbar_key[0]["huanjitianguang"]==0 &&
+			!has_index(player->toolbar_key[0],"hongmengtianguang") &&
+			(string)player["/plus/autofight_skill_queue"][0]==
+				"huanjitianguang" &&
+			legacy_picture_id=="huanjitianguang" &&
+			search(legacy_picture_url,"huanjitianguang.gif")!=-1 &&
+			search(legacy_picture_url,"hongmengtianguang")==-1 &&
+			read_result==1 && book_player->skills["huanjitianguang"] &&
+			!book_player->skills["hongmengtianguang"] &&
+			ANCIENT_SKILLD->migrate_player_skill_ids(player)==0;
+	};
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("migration err="+(err ? describe_error(err) : "")+
+			" changes="+(string)changes);
+	if(legacy_book)
+		destruct(legacy_book);
+	if(player)
+		destruct(player);
+	if(book_player)
+		destruct(book_player);
+}
+
+void test_huanji_books_real_learning()
+{
+	test_start("五本寰极七阶技能书按真实用户流程学习且失败不吞书");
+	array(mapping(string:string)) cases = ({
+		(["id":"huanjiyijian","profession":"jianxian","race":"human"]),
+		(["id":"huanjifaling","profession":"fangshi","race":"third"]),
+		(["id":"huanjiyuezhen","profession":"zhenyue","race":"third"]),
+		(["id":"huanjitianguang","profession":"tianxiang","race":"third"]),
+		(["id":"huanjihuisheng","profession":"lingyi","race":"third"]),
+	});
+	array(string) failures = ({});
+	object|zero original_player = this_player();
+	foreach(cases,mapping config){
+		string id=(string)config["id"];
+		object player=create_test_player("__testunit_learn_"+id+"__",
+			"__testunit_learn_account_"+id+"__");
+		object|zero book=clone(ROOT+"/gamelib/clone/item/book/"+id);
+		int result=0;
+		mixed read_err=0;
+		player->set_raceId((string)config["race"]);
+		player->set_profeId((string)config["profession"]);
+		player->level=190;
+		book->move(player);
+		set_this_player(player);
+		read_err=catch { result=book->read(); };
+		set_this_player(original_player);
+		mapping learned=player->skills || ([]);
+		string visible=player->view_skills();
+		object duplicate_book=clone(ROOT+
+			"/gamelib/clone/item/book/"+id);
+		duplicate_book->move(player);
+		set_this_player(player);
+		int duplicate_result=duplicate_book->read();
+		set_this_player(original_player);
+		if(read_err || result!=1 || !arrayp(learned[id]) ||
+		   (int)learned[id][0]!=1 || (int)learned[id][1]!=0 ||
+		   search(visible,(string)ANCIENT_SKILLD->
+			query_skill_config(id)["name_cn"])==-1 ||
+		   search(indices(learned)*",","hongmeng")!=-1 ||
+		   (book && environment(book)==player) || duplicate_result!=2 ||
+		   environment(duplicate_book)!=player)
+			failures+=({id+" result="+(string)result+
+				(read_err ? " err="+describe_error(read_err) : "")});
+		if(book)
+			destruct(book);
+		if(duplicate_book)
+			destruct(duplicate_book);
+		destruct(player);
+	}
+
+	// 职业和等级门槛失败时，技能书必须仍在人物背包，不能因绑定或
+	// canonical 迁移而被错误消耗。
+	object mismatch=create_test_player("__testunit_huanji_mismatch__",
+		"__testunit_huanji_mismatch_account__");
+	mismatch->set_raceId("third");
+	mismatch->set_profeId("fangshi");
+	mismatch->level=190;
+	object mismatch_book=clone(ROOT+
+		"/gamelib/clone/item/book/huanjiyijian");
+	mismatch_book->move(mismatch);
+	set_this_player(mismatch);
+	int mismatch_result=mismatch_book->read();
+	set_this_player(original_player);
+	if(mismatch_result!=3 || environment(mismatch_book)!=mismatch ||
+	   has_index(mismatch->skills,"huanjiyijian"))
+		failures+=({"职业不符未被安全拒绝"});
+
+	object low_level=create_test_player("__testunit_huanji_lowlevel__",
+		"__testunit_huanji_lowlevel_account__");
+	low_level->set_raceId("human");
+	low_level->set_profeId("jianxian");
+	low_level->level=89;
+	object low_level_book=clone(ROOT+
+		"/gamelib/clone/item/book/huanjiyijian");
+	low_level_book->move(low_level);
+	set_this_player(low_level);
+	int low_level_result=low_level_book->read();
+	set_this_player(original_player);
+	if(low_level_result!=4 || environment(low_level_book)!=low_level ||
+	   has_index(low_level->skills,"huanjiyijian"))
+		failures+=({"等级不足未被安全拒绝"});
+
+	if(!sizeof(failures))
+		test_pass();
+	else
+		test_fail(failures*" | ");
+	if(mismatch_book) destruct(mismatch_book);
+	if(low_level_book) destruct(low_level_book);
+	if(mismatch) destruct(mismatch);
+	if(low_level) destruct(low_level);
+	set_this_player(original_player);
+}
+
 void test_drop_and_visual_wiring()
 {
 	test_start("队伍/单人掉落、拾取绑定及人物宠物房间UI事件完整接线");
@@ -435,7 +604,7 @@ void test_room_skill_manifestation_snapshot()
 				"worker_id":map_worker->query_local_worker_id(),
 				"caster_userid":caster->query_name(),
 				"caster_name":caster->query_name_cn(),
-				"skill_name":"鸿蒙一剑",
+				"skill_name":"寰极一剑",
 				"skill_level":index,
 				"target_name":"妖狼",
 				"effect_desc":"战技气息扩散开来",
@@ -489,6 +658,8 @@ int main()
 	test_all_ancient_skills_strengthened();
 	test_drop_probability_contract();
 	test_binding_and_legacy_compatibility();
+	test_huanji_id_migration();
+	test_huanji_books_real_learning();
 	test_drop_and_visual_wiring();
 	test_shura_qianlie_scaled_armor_rend();
 	test_ancient_hit_curse_after_cap();

@@ -984,11 +984,11 @@ void test_bt_attribute_rare_scaling_envelope()
 	object ancient_low = (object)(ROOT+
 		"/gamelib/single/skills/taixujianhen");
 	object ancient_high = (object)(ROOT+
-		"/gamelib/single/skills/hongmengyijian");
+		"/gamelib/single/skills/huanjiyijian");
 	object ancient_dot = (object)(ROOT+
 		"/gamelib/single/skills/wuxiangjianxin");
 	object ancient_heal = (object)(ROOT+
-		"/gamelib/single/skills/hongmenghuisheng");
+		"/gamelib/single/skills/huanjihuisheng");
 	object normal = (object)(ROOT+
 		"/gamelib/single/skills/huichun");
 	int valid = formula && old_direct && old_dot && old_heal && old_control &&

@@ -26,8 +26,13 @@ private object|zero query_toolbar_skill_object(string name)
 	object|zero skill = 0;
 	mixed load_err = 0;
 	if(!name || name=="" || sizeof(name)>64 ||
-	   search(name,"/")!=-1 || search(name,"..")!=-1 ||
-	   !skills || !skills[name] || (int)skills[name][0]<=0)
+	   search(name,"/")!=-1 || search(name,"..")!=-1)
+		return 0;
+	skill=NEWMOON_SET_SKILLD->query_active_skill_object(
+		this_object(),name);
+	if(skill)
+		return skill;
+	if(!skills || !skills[name] || (int)skills[name][0]<=0)
 		return 0;
 	skill = MUD_SKILLSD[name];
 	if(!skill){

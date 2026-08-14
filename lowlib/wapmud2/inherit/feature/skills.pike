@@ -1,5 +1,6 @@
 #include <globals.h>
 #include <mudlib/include/mudlib.h>
+#include <gamelib/include/gamelib.h>
 #define level_max 11
 
 // 技能对象在重启后按需注册。只允许载入人物存档中真实拥有的受限技能名，
@@ -9,8 +10,13 @@ private object|zero query_owned_skill_object(string name)
 	object|zero skill = 0;
 	mixed load_err = 0;
 	if(!name || name=="" || sizeof(name)>64 ||
-	   search(name,"/")!=-1 || search(name,"..")!=-1 ||
-	   !this_object()->skills || !this_object()->skills[name] ||
+	   search(name,"/")!=-1 || search(name,"..")!=-1)
+		return 0;
+	skill=NEWMOON_SET_SKILLD->query_active_skill_object(
+		this_object(),name);
+	if(skill)
+		return skill;
+	if(!this_object()->skills || !this_object()->skills[name] ||
 	   (int)this_object()->skills[name][0]<=0)
 		return 0;
 	skill = MUD_SKILLSD[name];
@@ -24,10 +30,43 @@ private object|zero query_owned_skill_object(string name)
 	return skill;
 }
 
+private array(string) query_visible_skill_names()
+{
+	array(string) names=({});
+	string set_skill=NEWMOON_SET_SKILLD->query_active_skill_name(
+		this_object());
+	if(this_object()->skills)
+		names=indices(this_object()->skills);
+	if(set_skill!="" && search(names,set_skill)==-1)
+		names+=({set_skill});
+	return sort(names);
+}
+
+private int query_owned_skill_level(string name)
+{
+	int set_level=NEWMOON_SET_SKILLD->query_active_skill_level(
+		this_object(),name);
+	if(set_level>0)
+		return set_level;
+	if(!this_object()->skills || !this_object()->skills[name])
+		return 0;
+	return (int)this_object()->skills[name][0];
+}
+
+private int query_owned_skill_progress(string name)
+{
+	if(NEWMOON_SET_SKILLD->query_active_skill_level(this_object(),name)>0 ||
+	   !this_object()->skills || !this_object()->skills[name])
+		return 0;
+	return (int)this_object()->skills[name][1];
+}
+
 // 返回技能真正配置的熟练度上限；未声明时保持老职业10级规则。
 int query_skill_training_level_max(string name)
 {
 	object|zero skill = query_owned_skill_object(name);
+	if(NEWMOON_SET_SKILLD->query_active_skill_level(this_object(),name)>0)
+		return 6;
 	if(skill && skill->query_skill_level_max)
 		return (int)skill->query_skill_level_max();
 	return level_max-1;
@@ -54,16 +93,19 @@ private string query_skill_cooldown_text(string name)
 
 string view_skills()
 {
-	mapping m=this_object()->skills;
+	mapping m=this_object()->skills || ([]);
 	string e=this_object()->skills_enable;
+	array(string) names=query_visible_skill_names();
 
 	string out="";
-	if(m&&sizeof(m)){
-		foreach(sort(indices(m)),string name){
+	if(sizeof(names)){
+		foreach(names,string name){
 			object|zero skill = query_owned_skill_object(name);
 			if(!skill)
 				continue;
 			int skill_level_max = query_skill_training_level_max(name);
+			int skill_level=query_owned_skill_level(name);
+			int skill_progress=query_owned_skill_progress(name);
 
 			if(e==name){
 				out+="□";
@@ -73,12 +115,14 @@ string view_skills()
 
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec" || skill->s_skill_type == "70_spec")
 				out+="["+skill->query_name_cn()+":skill_detail "+name+"]";
-			else if(skill->s_type=="zhudong"&&m[name][0]<skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(skill->performs_shuliandu[m[name][0]]))+"%):skill_detail "+name+"]";
-			else if(skill->s_type=="zhudong"&&m[name][0]>=skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级):skill_detail "+name+"]";
+			else if(NEWMOON_SET_SKILLD->is_set_skill_name(name))
+				out+="["+skill->query_name_cn()+"("+skill_level+"阶套装技):skill_detail "+name+"]";
+			else if(skill->s_type=="zhudong"&&skill_level<skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级/"+(int)(100*skill_progress/(skill->performs_shuliandu[skill_level]))+"%):skill_detail "+name+"]";
+			else if(skill->s_type=="zhudong"&&skill_level>=skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级):skill_detail "+name+"]";
 			else if(skill->s_type=="beidong")
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级/5级):skill_detail "+name+"](被动)";
+				out+="["+skill->query_name_cn()+"("+skill_level+"级/5级):skill_detail "+name+"](被动)";
 			out += coldtime_s+"\n";
 		}
 		if(out==""){
@@ -93,16 +137,19 @@ string view_skills()
 //用于在不同指令中查看技能的方法，以指令名为参数,added by caijie 08/11/17
 string view_skills_mud(string cmds)
 {
-	mapping m=this_object()->skills;
+	mapping m=this_object()->skills || ([]);
 	string e=this_object()->skills_enable;
+	array(string) names=query_visible_skill_names();
 
 	string out="";
-	if(m&&sizeof(m)){
-		foreach(sort(indices(m)),string name){
+	if(sizeof(names)){
+		foreach(names,string name){
 			object|zero skill = query_owned_skill_object(name);
 			if(!skill)
 				continue;
 			int skill_level_max = query_skill_training_level_max(name);
+			int skill_level=query_owned_skill_level(name);
+			int skill_progress=query_owned_skill_progress(name);
 
 			if(e==name){
 				out+="□";
@@ -111,12 +158,14 @@ string view_skills_mud(string cmds)
 			string coldtime_s = query_skill_cooldown_text(name);
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec" || skill->s_skill_type == "70_spec")
 				out+="["+skill->query_name_cn()+":"+cmds+" "+name+"]";
-			else if(skill->s_type=="zhudong"&&m[name][0]<skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(skill->performs_shuliandu[m[name][0]]))+"%):"+cmds+" "+name+"]";
-			else if(skill->s_type=="zhudong"&&m[name][0]>=skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级):"+cmds+" "+name+"]";
+			else if(NEWMOON_SET_SKILLD->is_set_skill_name(name))
+				out+="["+skill->query_name_cn()+"("+skill_level+"阶套装技):"+cmds+" "+name+"]";
+			else if(skill->s_type=="zhudong"&&skill_level<skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级/"+(int)(100*skill_progress/(skill->performs_shuliandu[skill_level]))+"%):"+cmds+" "+name+"]";
+			else if(skill->s_type=="zhudong"&&skill_level>=skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级):"+cmds+" "+name+"]";
 			else if(skill->s_type=="beidong")
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级/5级):"+cmds+" "+name+"](被动)";
+				out+="["+skill->query_name_cn()+"("+skill_level+"级/5级):"+cmds+" "+name+"](被动)";
 			out += coldtime_s+"\n";
 		}
 		if(out==""){
@@ -131,26 +180,31 @@ string view_skills_mud(string cmds)
 //配置技能快捷键时调用，由liaocheng于07/4/16添加
 string view_skills_toolbar(int num)
 {
-	mapping m=this_object()->skills;
+	mapping m=this_object()->skills || ([]);
 	string e=this_object()->skills_enable;
+	array(string) names=query_visible_skill_names();
 
 	string out="";
-	if(m&&sizeof(m)){
-		foreach(sort(indices(m)),string name){
+	if(sizeof(names)){
+		foreach(names,string name){
 			object|zero skill = query_owned_skill_object(name);
 			if(!skill)
 				continue;
 			int skill_level_max = query_skill_training_level_max(name);
+			int skill_level=query_owned_skill_level(name);
+			int skill_progress=query_owned_skill_progress(name);
 
 			if(e==name){
 				out+="□";
 			}
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec" || skill->s_skill_type == "70_spec")
 				out+="["+skill->query_name_cn()+":toolbar_set "+num+" "+name+" 1]\n";
-			else if(skill->s_type=="zhudong"&&m[name][0]<skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(skill->performs_shuliandu[m[name][0]]))+"%):toolbar_set "+num+" "+name+" 1]\n";
-			else if(skill->s_type=="zhudong"&&m[name][0]>=skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级):toolbar_set "+num+" "+name+" 1]\n";
+			else if(NEWMOON_SET_SKILLD->is_set_skill_name(name))
+				out+="["+skill->query_name_cn()+"("+skill_level+"阶套装技):toolbar_set "+num+" "+name+" 1]\n";
+			else if(skill->s_type=="zhudong"&&skill_level<skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级/"+(int)(100*skill_progress/(skill->performs_shuliandu[skill_level]))+"%):toolbar_set "+num+" "+name+" 1]\n";
+			else if(skill->s_type=="zhudong"&&skill_level>=skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级):toolbar_set "+num+" "+name+" 1]\n";
 		}
 		if(out==""){
 			return "你还没有学习过任何技能。";
@@ -172,17 +226,24 @@ string view_performs(string name)
 
 	if(cur_skill){
 		int skill_level_max = query_skill_training_level_max(name);
-		int display_level = (int)this_object()->skills[name][0];
+		int display_level = query_owned_skill_level(name);
+		int skill_progress=query_owned_skill_progress(name);
 		if(display_level > skill_level_max)
 			display_level = skill_level_max;
 		if(cur_skill->query_name() == "chongdong" || cur_skill->s_skill_type == "spec" || cur_skill->s_skill_type == "70_spec")
 			out+=cur_skill->query_name_cn()+"\n";
-		else if(cur_skill->s_type=="zhudong"&&this_object()->skills[name][0]<skill_level_max)
-			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级/"+(int)(100*(this_object()->skills[name][1])/(cur_skill->performs_shuliandu[this_object()->skills[name][0]]))+"%)\n";
-		else if(cur_skill->s_type=="zhudong"&&this_object()->skills[name][0]>=skill_level_max)
-			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级)\n";
+		else if(NEWMOON_SET_SKILLD->is_set_skill_name(name))
+			out += cur_skill->query_name_cn()+"("+display_level+"阶套装技)\n";
+		else if(cur_skill->s_type=="zhudong"&&display_level<skill_level_max)
+			out += cur_skill->query_name_cn()+"("+display_level+"级/"+(int)(100*skill_progress/(cur_skill->performs_shuliandu[display_level]))+"%)\n";
+		else if(cur_skill->s_type=="zhudong"&&display_level>=skill_level_max)
+			out += cur_skill->query_name_cn()+"("+display_level+"级)\n";
 		else if(cur_skill->s_type=="beidong")
-			out += cur_skill->query_name_cn()+"("+this_object()->skills[name][0]+"级/5级)\n";
+			out += cur_skill->query_name_cn()+"("+display_level+"级/5级)\n";
+		if(NEWMOON_SET_SKILLD->is_set_skill_name(name))
+			out += "【来源】"+NEWMOON_SET_SKILLD->
+				query_active_skill_summary(this_object())+
+				"；不是永久学习，完整穿戴时自动激活。\n";
 		if(coldtime_s!="")
 			out += "当前冷却："+coldtime_s+"\n";
 		out += cur_skill->query_picture_url()+"\n";
@@ -233,16 +294,19 @@ string view_performs(string name)
 }
 string view_use_performs()
 {
-	mapping m=this_object()->skills;
+	mapping m=this_object()->skills || ([]);
 	string e=this_object()->skills_enable;
+	array(string) names=query_visible_skill_names();
 
 	string out="";
-	if(m&&sizeof(m)){
-		foreach(sort(indices(m)),string name){
+	if(sizeof(names)){
+		foreach(names,string name){
 			object|zero skill = query_owned_skill_object(name);
 			if(!skill)
 				continue;
 			int skill_level_max = query_skill_training_level_max(name);
+			int skill_level=query_owned_skill_level(name);
+			int skill_progress=query_owned_skill_progress(name);
 
 			if(skill->s_type=="beidong")
 				continue;//被动技能在战斗调用界面中不显示
@@ -252,10 +316,12 @@ string view_use_performs()
 			string coldtime_s = query_skill_cooldown_text(name);
 			if(skill->query_name() == "chongdong" || skill->s_skill_type == "spec")
 				out+="["+skill->query_name_cn()+":use_perform "+name+"]";
-			else if(m[name][0]<skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级/"+(int)(100*(m[name][1])/(skill->performs_shuliandu[m[name][0]]))+"%):use_perform "+name+"]";
-			else if(m[name][0]>=skill_level_max)
-				out+="["+skill->query_name_cn()+"("+m[name][0]+"级):use_perform "+name+"]";
+			else if(NEWMOON_SET_SKILLD->is_set_skill_name(name))
+				out+="["+skill->query_name_cn()+"("+skill_level+"阶套装技):use_perform "+name+"]";
+			else if(skill_level<skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级/"+(int)(100*skill_progress/(skill->performs_shuliandu[skill_level]))+"%):use_perform "+name+"]";
+			else if(skill_level>=skill_level_max)
+				out+="["+skill->query_name_cn()+"("+skill_level+"级):use_perform "+name+"]";
 			out += coldtime_s+"\n";
 		}
 		if(out==""){

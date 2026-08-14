@@ -10,6 +10,7 @@
 #define GAMELIB_MASTER ROOT "/gamelib/inherit/master"
 #define GAMELIB_ROOM ROOT "/gamelib/inherit/room"
 #define GAMELIB_ANCIENT_SKILL ROOT "/gamelib/inherit/ancient_hidden_skill.pike"
+#define GAMELIB_NEWMOON_SET_SKILL ROOT "/gamelib/inherit/newmoon_set_skill.pike"
 #define GAMELIB_ANCIENT_BOOK ROOT "/gamelib/inherit/ancient_hidden_book.pike"
 //用户仓库系统
 #define GAMELIB_PACKAGED ROOT "/gamelib/inherit/packaged"
@@ -115,6 +116,8 @@
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
 //自动挂机系统
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
+//新月六阶十件套技能：只从当前真实穿戴重建，不另建玩家或Worker存储
+#define NEWMOON_SET_SKILLD ((object)(ROOT "/gamelib/single/daemons/newmoon_set_skilld.pike"))
 //召唤系统
 #define SUMMOND ((object)(ROOT "/gamelib/single/daemons/summond.pike"))
 //召唤物公共基类

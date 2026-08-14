@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit GAMELIB_NEWMOON_SET_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【套装】万象月轮";
+	desc="万象十器转动五行月轮，对当前目标造成火系法术伤害";
+	s_type="zhudong"; s_skill_type="huo_mofa_attack";
+	performs_mofa_attack=([1:({310,435}),2:({605,810}),3:({1030,1335}),4:({1570,1985}),5:({2220,2790}),6:({3010,3730})]);
+	performs_cast=([1:125,2:160,3:200,4:245,5:295,6:350]);
+	performs_desc=([1:"造成310至435点火系法术伤害",2:"造成605至810点火系法术伤害",3:"造成1030至1335点火系法术伤害",4:"造成1570至1985点火系法术伤害",5:"造成2220至2790点火系法术伤害",6:"造成3010至3730点火系法术伤害"]);
+	skill_type+=({"fangshi"});
+}

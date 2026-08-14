@@ -115,6 +115,13 @@ int main()
 		search(css,".equipment-level-5 .equipment-item-art")!=-1 &&
 		search(css,".player-avatar-shell.level-aura-7")!=-1,
 		"等级、稀缺度或头像等级光效没有独立接线");
+	check("装备按钮文字统一使用石榴红且不移除原稀有度边框光效",
+		search(app,"isEquipmentButtonCommand")!=-1 &&
+		search(html,"mud-equipment-btn")!=-1 &&
+		search(css,".mud-equipment-btn .color-bright-gold-bold")!=-1 &&
+		search(css,"#A61B3B")!=-1 &&
+		search(css,"--equipment-rarity-glow")!=-1,
+		"装备按钮未被精确标记、石榴红覆盖缺失或稀有度光效被删除");
 	check("补图生成器兼容旧Bash且不会覆盖已有装备美术",
 		search(generator,"declare -A")==-1 &&
 		search(generator,"if [[ ! -f \"$output\" ]]")!=-1 &&

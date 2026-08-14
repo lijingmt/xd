@@ -1467,6 +1467,16 @@ object|zero query_auto_skill_object(string name)
 	return skill;
 }
 
+private int query_auto_skill_owned(object me,string name)
+{
+	if(!me || !name || name=="")
+		return 0;
+	if(NEWMOON_SET_SKILLD->query_active_skill_level(me,name)>0)
+		return 1;
+	return me->skills && me->skills[name] &&
+		(int)me->skills[name][0]>0;
+}
+
 private int query_auto_skill_usable_level(object me,string name)
 {
 	object|zero skill;
@@ -1474,11 +1484,15 @@ private int query_auto_skill_usable_level(object me,string name)
 	array(int) levels;
 	int learned_level;
 	int usable_level;
-	if(!me || !name || name == "" || !me->skills ||
-	   !me->skills[name])
+	if(!me || !name || name == "")
 		return 0;
 	skill = query_auto_skill_object(name);
 	if(!skill || skill->s_type != "zhudong")
+		return 0;
+	usable_level=NEWMOON_SET_SKILLD->query_active_skill_level(me,name);
+	if(usable_level>0)
+		return usable_level;
+	if(!me->skills || !me->skills[name])
 		return 0;
 	learned_level = (int)me->skills[name][0];
 	if(learned_level <= 0)
@@ -1543,10 +1557,15 @@ array(string) query_recommended_auto_skills(object me)
 	int cast;
 	int score;
 	int best_score;
-	if(!me || !me->skills || !sizeof(me->skills))
+	if(!me)
 		return result;
-	learned = me->skills;
+	learned = me->skills || ([]);
 	names = sort(indices(learned));
+	string set_skill=NEWMOON_SET_SKILLD->query_active_skill_name(me);
+	if(set_skill!="" && search(names,set_skill)==-1)
+		names+=({set_skill});
+	if(!sizeof(names))
+		return result;
 	for(int pick=0;pick<AUTOFIGHT_SKILL_QUEUE_SIZE;pick++){
 		best_name = "";
 		best_score = -1;
@@ -1599,6 +1618,7 @@ array(string) query_recommended_auto_skills(object me)
 private void persist_auto_skill_queue(object me,array(string) queue)
 {
 	object|zero skill;
+	int set_skill_level;
 	if(!me)
 		return;
 	while(sizeof(queue)<AUTOFIGHT_SKILL_QUEUE_SIZE)
@@ -1610,9 +1630,12 @@ private void persist_auto_skill_queue(object me,array(string) queue)
 	// 旧书签和外部管理脚本突然失去兼容性。
 	me->skills_enable = queue[0];
 	skill = queue[0]!="" ? query_auto_skill_object(queue[0]) : 0;
+	set_skill_level=queue[0]!="" ? NEWMOON_SET_SKILLD->
+		query_active_skill_level(me,queue[0]) : 0;
 	me->skills_enable_colddown = skill &&
 		functionp(skill->query_s_delayTime) ?
-		skill->query_s_delayTime()+1 : 0;
+		(set_skill_level>0 ? skill->query_s_delayTime(set_skill_level) :
+			skill->query_s_delayTime())+1 : 0;
 }
 
 array(string) query_auto_skill_queue(object me)
@@ -1628,7 +1651,8 @@ array(string) query_auto_skill_queue(object me)
 		for(int i=0;i<AUTOFIGHT_SKILL_QUEUE_SIZE && i<sizeof(stored);i++){
 			string name=stringp(stored[i]) ? (string)stored[i] : "";
 			object|zero skill;
-			if(name=="" || seen[name] || !me->skills || !me->skills[name])
+			if(name=="" || seen[name] ||
+			   !query_auto_skill_owned(me,name))
 				continue;
 			skill=query_auto_skill_object(name);
 			if(!skill || skill->s_type!="zhudong" ||
@@ -1663,8 +1687,8 @@ int set_selected_auto_skill(object me,string name,void|int slot)
 {
 	object|zero skill;
 	array(string) queue;
-	if(!me || !name || name == "" || !me->skills ||
-	   !me->skills[name])
+	if(!me || !name || name == "" ||
+	   !query_auto_skill_owned(me,name))
 		return 0;
 	if(!slot)
 		slot=1;
@@ -1765,8 +1789,8 @@ string query_auto_skill_unready_reason(object me,string name)
 	object|zero skill;
 	int usable_level;
 	int cast;
-	if(!me || !name || name == "" || !me->skills ||
-	   !me->skills[name])
+	if(!me || !name || name == "" ||
+	   !query_auto_skill_owned(me,name))
 		return "not_learned";
 	skill = query_auto_skill_object(name);
 	if(!skill)

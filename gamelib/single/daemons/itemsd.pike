@@ -111,7 +111,7 @@ private array(mapping(string:mixed)) newmoon_collection_catalog = ({
 		"min_level":130,"min_affixes":4,"weight":10]),
 	(["id":"primordial","name":"太初","quality":"太古","rank":5,
 		"min_level":160,"min_affixes":5,"weight":3]),
-	(["id":"hongmeng","name":"鸿蒙","quality":"至尊","rank":6,
+	(["id":"huanji","name":"寰极","quality":"至尊","rank":6,
 		"min_level":200,"min_affixes":6,"weight":1]),
 });
 

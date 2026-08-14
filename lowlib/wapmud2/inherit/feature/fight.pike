@@ -1,6 +1,7 @@
 #include <globals.h>
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 //城主被攻击需要调用这个程序里的通告模块
 #define CITYD ((object)(ROOT "/gamelib/single/daemons/cityd"))
 #define MANAGERD ((object)(ROOT "/gamelib/single/daemons/managed"))
@@ -1551,8 +1552,15 @@ private object|zero query_learned_skill_object(string name){
 	mixed load_err = 0;
 	mixed learned = 0;
 	if(!name || name == "" || sizeof(name) > 64 ||
-	   search(name,"/") != -1 || search(name,"..") != -1 ||
-	   !this_object()->skills)
+	   search(name,"/") != -1 || search(name,"..") != -1)
+		return 0;
+	// 十件套技能不是永久已学技能。每次施放都从真实穿戴重建资格，
+	// 脱装、破损、混套或跨职业时立即失效。
+	skill=NEWMOON_SET_SKILLD->query_active_skill_object(
+		this_object(),name);
+	if(skill)
+		return skill;
+	if(!this_object()->skills)
 		return 0;
 	learned = this_object()->skills[name];
 	if(!arrayp(learned) || !sizeof(learned) || (int)learned[0]<=0)
@@ -2362,9 +2370,12 @@ void perform(string name,void|int flag){
 	object|zero f_cur_skill;//当前使用技能对象
 	string s = "";//面向自己的战斗描述
 	string s1=""; //面向敌人的战斗描述
+	int set_skill_level=NEWMOON_SET_SKILLD->query_active_skill_level(
+		this_object(),name);
 	if(name&&sizeof(name)){
-		if(!this_object()->skills || !this_object()->skills[name] ||
-		   (int)this_object()->skills[name][0] <= 0){
+		if(set_skill_level<=0 && (!this_object()->skills ||
+		   !this_object()->skills[name] ||
+		   (int)this_object()->skills[name][0] <= 0)){
 			tell_object(this_object(),"你尚未学会该技能。\n");
 			return;
 		}
@@ -2429,7 +2440,8 @@ void perform(string name,void|int flag){
 		//判断有这种技能
 		string mofa_type=f_cur_skill->s_skill_type; //得到魔法类型
 		//再判断是否有足够的法力施放该技能
-		int skill_level=(int)(this_object()->skills[name][0]);
+		int skill_level=set_skill_level>0 ? set_skill_level :
+			(int)(this_object()->skills[name][0]);
 		//werror("===========skill_level:"+skill_level+"\n");
 		if(skill_level>can_skill_level&&can_skill_level>0)
 			skill_level=can_skill_level;
@@ -4707,9 +4719,14 @@ int _fight(object _enemy){
 		if(this_object()->skills_enable&&sizeof(this_object()->skills_enable)){
 			sk = query_learned_skill_object(this_object()->skills_enable);
 			if(sk){
+				int auto_skill_level=NEWMOON_SET_SKILLD->
+					query_active_skill_level(this_object(),
+					this_object()->skills_enable);
 				autoPerforming = 1;
 				this_object()->skills_enable_colddown =
-					sk->query_s_delayTime()+1;
+					(auto_skill_level>0 ?
+						sk->query_s_delayTime(auto_skill_level) :
+						sk->query_s_delayTime())+1;
 			}
 			else{
 				autoPerforming = 0;
