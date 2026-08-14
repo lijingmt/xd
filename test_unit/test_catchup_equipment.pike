@@ -79,6 +79,7 @@ int main()
 		"/gamelib/cmds/equip_xiangqian_confirm.pike",
 		"/gamelib/cmds/equip_xiangqian_change.pike",
 		"/lowlib/mudlib/inherit/feature/level.pike",
+		"/lowlib/system/inherit/feature/save.pike",
 	});
 	int compiled=1;
 	string error_desc="";
@@ -99,12 +100,112 @@ int main()
 	object eligible=create_player("__testunit_catchup_equipment_50__",50);
 	object high=create_player("__testunit_catchup_equipment_90__",90);
 	object opponent=create_player("__testunit_catchup_equipment_pvp__",50);
+	object restore_player=create_player(
+		"__testunit_catchup_equipment_restore__",50);
 	object mixed_npc=clone(ROOT+
 		"/gamelib/clone/npc/mihuandao/9youdangelang");
 	object room=clone(ROOT+
 		"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	object|zero original=this_player();
+	object|zero archive_player=0;
 	mixed err=catch {
+		object ordinary=clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		ordinary->equiped=1;
+		string ordinary_saved=pikenv_save_object(ordinary);
+		check("普通装备序列化仍保存equiped且绝不写成追赶装备",
+			search(ordinary_saved,"\nequiped 1\n")!=-1 &&
+			search(ordinary_saved,"\ncatchup_equipment ")==-1,
+			"新增持久化字段再次扰动了历史装备布局");
+		array(string) shifted_fields=({
+			"catchup_equipment","catchup_activated",
+			"catchup_activation_price","catchup_max_level","catchup_owner",
+		});
+		int all_shifted_recovered=1;
+		object|zero legacy=0;
+		foreach(shifted_fields,string shifted_field){
+			string legacy_saved=replace(ordinary_saved,
+				"\nequiped 1\n","\n"+shifted_field+" 1\n");
+			legacy=clone(ROOT+
+				"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+			mapping prepared=legacy->prepare_legacy_catchup_serialization(
+				legacy_saved);
+			pikenv_restore_object(legacy,(string)prepared["saved"]);
+			int legacy_recovered=
+				legacy->apply_legacy_catchup_serialization(
+					prepared,restore_player);
+			if(legacy_recovered!=1 || !legacy->equiped ||
+			   legacy->query_catchup_equipment() ||
+			   search((string)prepared["saved"],"\ncatchup_")!=-1)
+				all_shifted_recovered=0;
+			destruct(legacy);
+			legacy=0;
+		}
+		legacy=clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		legacy->move(restore_player);
+		restore_player->wield(legacy);
+		check("受影响旧档按原标记恢复穿戴并重新出现在装备栏",
+			all_shifted_recovered && legacy->equiped &&
+			!legacy->query_catchup_equipment() &&
+			search(restore_player->view_equip(),
+				legacy->query_name_cn())!=-1,
+			"错位字段未恢复或普通装备仍被追赶校验拦截");
+		restore_player->unwield(legacy);
+		destruct(legacy);
+
+		// 走完整的人物档案 restore() 链路，证明 save.pike 的前置清理、
+		// 物品重建和 user.pike 的装备槽重建可以一起恢复线上旧档。
+		string archive_name="__testunit_catchup_equipment_archive__";
+		cleanup_player_files(archive_name);
+		string archive_path=DATA_ROOT+"u/"+
+			archive_name[sizeof(archive_name)-2..]+"/"+archive_name+".o";
+		mkdir(dirname(archive_path));
+		string archive_item_path=
+			"~/gamelib/clone/item/weapon/1taomujian/1taomujian";
+		string archive_item_saved=replace(ordinary_saved,
+			"\nequiped 1\n","\ncatchup_equipment 1\n");
+		Stdio.write_file(archive_path,
+			"inventory "+pikenv_encode_value(({archive_item_path}))+"\n"+
+			"inventory_data "+
+				pikenv_encode_value(({archive_item_saved}))+"\n");
+		archive_player=clone(GAMELIB_USER);
+		archive_player->set_name(archive_name);
+		archive_player->set_project("gamelib");
+		int archive_restored=archive_player->restore();
+		object archive_item=present("1taomujian",archive_player,0);
+		check("完整人物档案恢复链自动找回原装备槽",
+			archive_restored && archive_item && archive_item->equiped &&
+			search(archive_player->view_equip(),
+				archive_item->query_name_cn())!=-1,
+			"save.pike迁移钩子或人物装备槽重建未生效");
+		string archive_resaved=pikenv_save_object(archive_item);
+		check("迁移后的再次存档稳定且不残留故障字段",
+			search(archive_resaved,"catchup_equipment 1")==-1 &&
+			search(archive_resaved,"equiped 1")!=-1,
+			"恢复后的档案仍会在下一次登录丢失装备");
+		destruct(ordinary);
+		object legacy_catchup=clone(ROOT+
+			"/gamelib/clone/item/catchup/zhuixingjia");
+		string shifted_catchup="#~/gamelib/clone/item/catchup/zhuixingjia\n"+
+			"catchup_activated 1\ncatchup_activation_price 1\n"+
+			"catchup_max_level 100\ncatchup_owner 89\nrenxing "+
+			pikenv_encode_value(restore_player->query_name())+"\n";
+		mapping catchup_prepared=
+			legacy_catchup->prepare_legacy_catchup_serialization(
+				shifted_catchup);
+		pikenv_restore_object(legacy_catchup,
+			(string)catchup_prepared["saved"]);
+		legacy_catchup->apply_legacy_catchup_serialization(
+			catchup_prepared,restore_player);
+		check("已激活追赶装备的错位owner安全迁移且不会触发类型错误",
+			legacy_catchup->query_catchup_activated() &&
+			legacy_catchup->query_catchup_owner()==
+				restore_player->query_name() &&
+			search((string)catchup_prepared["saved"],"\nrenxing ")==-1,
+			"短暂版本的追赶装备绑定状态未迁移");
+		destruct(legacy_catchup);
+
 		mapping low_result=NEWBIED->grant_catchup_equipment(
 			low,"zhuixingjia");
 		mapping high_result=NEWBIED->grant_catchup_equipment(
@@ -160,7 +261,9 @@ int main()
 		pikenv_restore_object(restored,saved);
 		check("激活与角色绑定状态随装备实例持久化",
 			restored->query_catchup_activated() &&
-			restored->query_catchup_owner()==eligible->query_name(),
+			restored->query_catchup_owner()==eligible->query_name() &&
+			search(saved,"\ncatchup_equipment ")==-1 &&
+			search(saved,"\ncatchup_activated ")==-1,
 			"装备重建后激活状态丢失");
 		destruct(restored);
 		check("追赶装备明确拒绝炼化、镶嵌与激活事务绕过",
@@ -229,6 +332,8 @@ int main()
 	destroy_player(eligible);
 	destroy_player(high);
 	destroy_player(opponent);
+	destroy_player(restore_player);
+	destroy_player(archive_player);
 	if(mixed_npc)
 		destruct(mixed_npc);
 	if(room)

@@ -180,56 +180,179 @@ void set_all_mofa_defend_add(int a){ all_mofa_defend_add=a;}
 //新属性0121//////////////////////////////////
 int equiped;//是否装备了该物品
 
-// 追赶装备的激活与角色绑定状态必须随物品实例持久化，因此这些字段
-// 不能声明为 private。普通装备的 catchup_equipment 为 0，行为不变。
-int catchup_equipment;
-int catchup_activated;
-int catchup_activation_price;
-int catchup_max_level;
-string catchup_owner="";
+// 追赶装备状态放进既有 dbase 数据树，不新增顶层持久化变量。
+// Pike 9 的旧物品序列化器按继承布局读取顶层变量；在 equiped 后插入
+// 新变量会把历史 equiped=1 错写成 catchup_equipment=1，导致下次登录
+// 把普通装备误判为未激活追赶装并全部卸下。
+#define CATCHUP_DATA_ROOT "/item_catchup"
+
+int query_catchup_program_identity()
+{
+	string path = file_name(this_object());
+	if(search(path,"#")!=-1)
+		path = (path/"#")[0];
+	return path==ROOT+"/gamelib/clone/item/catchup/zhuixingjia" ||
+		path==ROOT+"/gamelib/clone/item/catchup/zhuixingjie" ||
+		path==ROOT+"/gamelib/clone/item/catchup/zhuixingpei";
+}
 
 void set_catchup_equipment(int price,int max_level)
 {
-	catchup_equipment=1;
-	catchup_activation_price=max(0,price);
-	catchup_max_level=max(1,max_level);
+	if(!query_catchup_program_identity())
+		return;
+	this_object()[CATCHUP_DATA_ROOT+"/activation_price"]=max(0,price);
+	this_object()[CATCHUP_DATA_ROOT+"/max_level"]=max(1,max_level);
 }
 
-int query_catchup_equipment(){ return catchup_equipment; }
-int query_catchup_activated(){ return catchup_activated; }
-int query_catchup_activation_price(){ return catchup_activation_price; }
-int query_catchup_max_level(){ return catchup_max_level; }
-string query_catchup_owner(){ return catchup_owner || ""; }
+int query_catchup_equipment(){ return query_catchup_program_identity(); }
+int query_catchup_activated()
+{
+	return (int)this_object()[CATCHUP_DATA_ROOT+"/activated"];
+}
+int query_catchup_activation_price()
+{
+	int price=(int)this_object()[CATCHUP_DATA_ROOT+"/activation_price"];
+	return price>0 ? price : (query_catchup_equipment() ? 100 : 0);
+}
+int query_catchup_max_level()
+{
+	int max_level=(int)this_object()[CATCHUP_DATA_ROOT+"/max_level"];
+	return max_level>0 ? max_level : (query_catchup_equipment() ? 89 : 0);
+}
+string query_catchup_owner()
+{
+	return (string)(this_object()[CATCHUP_DATA_ROOT+"/owner"] || "");
+}
+
+mixed query_legacy_catchup_saved_value(string saved,string field)
+{
+	if(!saved || !field)
+		return 0;
+	foreach(saved/"\n",string line){
+		string name;
+		string encoded;
+		if(sscanf(line,"%s %s",name,encoded)==2 && name==field){
+			mixed value;
+			mixed err=catch{ value=pikenv_decode_value(encoded); };
+			if(!err)
+				return value;
+		}
+	}
+	return 0;
+}
+
+// 在通用反序列化之前剥离短暂版本的顶层字段。玩家若在故障版本中
+// 反复登录，原 equiped=1 会依次移入后续 catchup_* 字段；真正的追赶
+// 装备还可能把字符串 owner 错写到整型 renxing，必须先清理再恢复。
+mapping(string:mixed) prepare_legacy_catchup_serialization(string saved)
+{
+	array(string) legacy_fields=({
+		"catchup_equipment","catchup_activated",
+		"catchup_activation_price","catchup_max_level","catchup_owner",
+	});
+	mapping(string:mixed) values=([]);
+	array(string) cleaned=({});
+	mixed shifted_owner=0;
+	foreach((saved || "")/"\n",string line){
+		string name;
+		string encoded;
+		if(sscanf(line,"%s %s",name,encoded)==2){
+			if(search(legacy_fields,name)!=-1){
+				mixed value;
+				mixed err=catch{ value=pikenv_decode_value(encoded); };
+				if(!err)
+					values[name]=value;
+				continue;
+			}
+			if(query_catchup_equipment() && name=="renxing"){
+				mixed value;
+				mixed err=catch{ value=pikenv_decode_value(encoded); };
+				if(!err && stringp(value)){
+					shifted_owner=value;
+					continue;
+				}
+			}
+		}
+		cleaned+=({line});
+	}
+	mixed legacy_owner=values["catchup_owner"];
+	if(!stringp(legacy_owner) && stringp(shifted_owner))
+		legacy_owner=shifted_owner;
+	int legacy_marker=0;
+	foreach(legacy_fields,string field)
+		if(intp(values[field]) && (int)values[field]==1)
+			legacy_marker=1;
+	return ([
+		"saved":cleaned*"\n",
+		"restore_equiped":!query_catchup_equipment() &&
+			legacy_marker && (int)query_legacy_catchup_saved_value(
+				saved,"equiped")!=1,
+		"activated":query_catchup_equipment() &&
+			((int)values["catchup_activated"]==1 ||
+			 (int)values["catchup_activation_price"]==1),
+		"owner":legacy_owner,
+	]);
+}
+
+int apply_legacy_catchup_serialization(mapping(string:mixed) state,
+	void|object owner)
+{
+	if(!mappingp(state))
+		return 0;
+	if(!query_catchup_equipment() && (int)state["restore_equiped"]){
+		equiped=1;
+		return 1;
+	}
+	// 真正的追赶装备迁移到 dbase；角色名必须与当前档案一致，不能
+	// 接受被编辑的跨角色绑定状态。
+	mixed legacy_owner=state["owner"];
+	if(query_catchup_equipment() && (int)state["activated"]==1 &&
+	   stringp(legacy_owner) && (string)legacy_owner!="" && owner &&
+	   (string)legacy_owner==(string)owner->query_name()){
+		this_object()[CATCHUP_DATA_ROOT+"/activated"]=1;
+		this_object()[CATCHUP_DATA_ROOT+"/owner"]=(string)legacy_owner;
+	}
+	return 0;
+}
+
+int restore_legacy_catchup_serialization(string saved,void|object owner)
+{
+	return apply_legacy_catchup_serialization(
+		prepare_legacy_catchup_serialization(saved),owner);
+}
 
 int activate_catchup_equipment(object player)
 {
-	if(!catchup_equipment || !player || !player->is("player") ||
-	   catchup_activated || catchup_owner!="")
+	if(!query_catchup_equipment() || !player || !player->is("player") ||
+	   query_catchup_activated() || query_catchup_owner()!="")
 		return 0;
-	catchup_owner=(string)player->query_name();
-	catchup_activated=1;
+	this_object()[CATCHUP_DATA_ROOT+"/owner"]=(string)player->query_name();
+	this_object()[CATCHUP_DATA_ROOT+"/activated"]=1;
 	return 1;
 }
 
 // 只供购买事务在人物原子存档失败时原地回滚，不能用于玩家操作。
 int rollback_catchup_activation(object player)
 {
-	if(!catchup_equipment || !player || !catchup_activated ||
-	   catchup_owner!=(string)player->query_name())
+	if(!query_catchup_equipment() || !player ||
+	   !query_catchup_activated() ||
+	   query_catchup_owner()!=(string)player->query_name())
 		return 0;
-	catchup_activated=0;
-	catchup_owner="";
+	this_object()[CATCHUP_DATA_ROOT+"/activated"]=0;
+	this_object()[CATCHUP_DATA_ROOT+"/owner"]="";
 	return 1;
 }
 
 int query_catchup_can_equip(object player)
 {
-	if(!catchup_equipment)
+	if(!query_catchup_equipment())
 		return 1;
-	if(!player || !player->is("player") || !catchup_activated ||
-	   catchup_owner=="" || catchup_owner!=(string)player->query_name())
+	if(!player || !player->is("player") || !query_catchup_activated() ||
+	   query_catchup_owner()=="" ||
+	   query_catchup_owner()!=(string)player->query_name())
 		return 0;
-	if(catchup_max_level>0 && player->query_level()>catchup_max_level)
+	if(query_catchup_max_level()>0 &&
+	   player->query_level()>query_catchup_max_level())
 		return 0;
 	return 1;
 }

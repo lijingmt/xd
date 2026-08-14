@@ -190,7 +190,25 @@ int restore()
 				object ob=clone(final_path);
 				if(ob){
 					if(inventory_data&&i<sizeof(inventory_data)){
-						pikenv_restore_object(ob,inventory_data[i]);
+						string item_saved=inventory_data[i];
+						mapping legacy_catchup_state=([]);
+						if(functionp(
+						   ob->prepare_legacy_catchup_serialization)){
+							legacy_catchup_state=
+								ob->prepare_legacy_catchup_serialization(
+									item_saved);
+							if(mappingp(legacy_catchup_state) &&
+							   stringp(legacy_catchup_state["saved"]))
+								item_saved=legacy_catchup_state["saved"];
+						}
+						pikenv_restore_object(ob,item_saved);
+						// 兼容 8aa72c8423 后短暂存在的装备字段错位。
+						// 恢复逻辑只按存档中的明确标记还原原穿戴状态，
+						// 不进行任何装备评分或自动替换。
+						if(functionp(
+						   ob->apply_legacy_catchup_serialization))
+							ob->apply_legacy_catchup_serialization(
+								legacy_catchup_state,this_object());
 					}
 					// 老档案持久化了付费玉的旧30堆叠上限；恢复时覆盖为
 					// 新上限，不能让存档字段压回旧值。

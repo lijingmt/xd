@@ -44,6 +44,8 @@
     --warning: #D9773E;
     --danger: #C45C5C;
     --info: #6B8E9E;
+	/* §6/橙装文字：浅黄按钮上保持足够对比度。 */
+	--mud-orange-bold: #9A3412;
 
     /* 背景色 */
     --bg-dark: #EDE4D8;
@@ -82,6 +84,7 @@
     --warning: #E8C55A;
     --danger: #E87A7A;
     --info: #6BB5F0;
+	--mud-orange-bold: #FFB454;
 
     /* 背景色 */
     --bg-dark: #0F111A;
@@ -120,6 +123,7 @@
     --warning: #FF9500;
     --danger: #FF3B30;
     --info: #5AC8FA;
+	--mud-orange-bold: #9A3412;
 
     /* 背景色 */
     --bg-dark: #F2F2F7;
@@ -3610,7 +3614,7 @@ body {
 .color-blue-bold { color: #0066CC; font-weight: bold; }
 .color-cyan-bold { color: #00AAFF; font-weight: bold; }
 .color-purple-bold { color: #8B00FF; font-weight: bold; }
-.color-orange-bold { color: #FF8C00; font-weight: bold; }
+.color-orange-bold { color: var(--mud-orange-bold); font-weight: bold; }
 .color-bright-green-bold { color: #00FF00; font-weight: bold; }
 .color-bright-blue-bold { color: #0099FF; font-weight: bold; }
 .color-hot-pink-bold { color: #FF1493; font-weight: bold; }

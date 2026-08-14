@@ -73,6 +73,75 @@ void test_worker_ingress_recovery_rooms()
 		"活动入口不能重建或迁移中断后没有恢复动作");
 }
 
+void test_invalid_login_positions_fall_back_to_main_city()
+{
+	object entrance = (object)(ROOT+"/gamelib/d/init");
+	object human = create_player("__testunit_stale_human_room__");
+	object monst = create_player("__testunit_stale_monst_room__");
+	object third = create_player("__testunit_stale_third_room__");
+	object worker_home = create_player("__testunit_worker_home_login__");
+	object valid = create_player("__testunit_valid_login_room__");
+	int human_repaired;
+	int monst_repaired;
+	int third_repaired;
+	int worker_home_repaired;
+	int valid_repaired;
+	human->set_raceId("human");
+	human->last_pos = "/gamelib/d/timed_event/event_room#999999";
+	human->relife = "/gamelib/d/timed_event/event_room#999999";
+	monst->set_raceId("monst");
+	monst->last_pos = "/gamelib/d/__missing_login_room__";
+	monst->relife = "/gamelib/d/__missing_relife_room__";
+	third->set_raceId("third");
+	third->last_pos = "/gamelib/d/jinaodao/__missing_third_room__";
+	third->relife = "/gamelib/d/jinaodao/__missing_third_relife__";
+	worker_home->set_raceId("human");
+	worker_home->last_pos = "/gamelib/d/home/template/door#888888";
+	worker_home->relife =
+		"/gamelib/d/congxianzhen/congxianzhenguangchang";
+	worker_home->inhome_pos = "__testunit_home_owner__";
+	valid->set_raceId("human");
+	valid->last_pos =
+		"/gamelib/d/congxianzhen/congxianzhenguangchang";
+	valid->relife =
+		"/gamelib/d/congxianzhen/congxianzhenguangchang";
+	human_repaired = entrance->repair_invalid_login_positions(human);
+	monst_repaired = entrance->repair_invalid_login_positions(monst);
+	third_repaired = entrance->repair_invalid_login_positions(third);
+	worker_home_repaired = entrance->repair_invalid_login_positions(
+		worker_home,1);
+	valid_repaired = entrance->repair_invalid_login_positions(valid);
+	check("已销毁秘境、不存在房间与无效复活点登录时回主城",
+		human_repaired==1 && monst_repaired==1 && third_repaired==1 &&
+		worker_home_repaired==1 && valid_repaired==0 &&
+		human->last_pos==
+			"/gamelib/d/congxianzhen/congxianzhenguangchang" &&
+		human->relife==
+			"/gamelib/d/congxianzhen/congxianzhenguangchang" &&
+		monst->last_pos==
+			"/gamelib/d/jinaodao/yuhuacunguangchang" &&
+		monst->relife==
+			"/gamelib/d/jinaodao/yuhuacunguangchang" &&
+		human->is_valid_relife_path(human->relife) &&
+		monst->is_valid_relife_path(monst->relife) &&
+		third->last_pos==
+			"/gamelib/d/jinaodao/yuhuacunguangchang" &&
+		third->relife==
+			"/gamelib/d/jinaodao/yuhuacunguangchang" &&
+		third->is_valid_relife_path(third->relife) &&
+		worker_home->last_pos==
+			"/gamelib/d/congxianzhen/congxianzhenguangchang" &&
+		worker_home->inhome_pos=="" &&
+		valid->last_pos==
+			"/gamelib/d/congxianzhen/congxianzhenguangchang",
+		"登录脱困没有按阵营修复位置和复活点");
+	if(human) destruct(human);
+	if(monst) destruct(monst);
+	if(third) destruct(third);
+	if(worker_home) destruct(worker_home);
+	if(valid) destruct(valid);
+}
+
 void test_worker_single_writer_and_reward_ack_contract()
 {
 	string daemon = Stdio.read_file(ROOT+
@@ -373,6 +442,7 @@ int main()
 	werror("\n========== 每日限时原创玩法测试 ==========\n");
 	test_runtime_compile();
 	test_worker_ingress_recovery_rooms();
+	test_invalid_login_positions_fall_back_to_main_city();
 	test_worker_single_writer_and_reward_ack_contract();
 	test_schedule_and_timezone();
 	test_token_exchange_shop();

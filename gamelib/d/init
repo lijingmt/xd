@@ -862,6 +862,82 @@ string have_character(){
 string have_item(){
 	return "";
 }
+
+string query_login_main_city_for(object me)
+{
+	string race = "";
+	string last_path = "";
+	string relife_path = "";
+	if(me){
+		race = (string)(me->query_raceId() || "");
+		last_path = (string)(me->last_pos || "");
+		relife_path = (string)(me->relife || "");
+	}
+	if(race=="monst" ||
+	   (race=="third" &&
+	    (has_prefix(last_path,"/gamelib/d/jinaodao/") ||
+	     has_prefix(relife_path,"/gamelib/d/jinaodao/"))))
+		return "/gamelib/d/jinaodao/yuhuacunguangchang";
+	return "/gamelib/d/congxianzhen/congxianzhenguangchang";
+}
+
+// 登录恢复不能直接进入已销毁的克隆房间或限时秘境。
+// last_pos 无效时回到对应阵营主城；relife 无效时也修复为
+// 同一个合法卧室，避免移动后又被复活点校验拦回登录页。
+int repair_invalid_login_positions(object me,void|int worker_mode_override)
+{
+	string main_city;
+	string last_path;
+	string last_base;
+	object last_room;
+	int worker_mode = worker_mode_override ? 1 : 0;
+	int relife_valid = 0;
+	int last_valid = 1;
+	int repaired = 0;
+	mixed relife_err;
+	mixed last_err;
+	if(!me)
+		return 0;
+	if(!worker_mode){
+		mixed role_err=catch{
+			worker_mode=MAP_WORKERD->query_node_role()=="worker";
+		};
+		if(role_err)
+			worker_mode=0;
+	}
+	main_city = query_login_main_city_for(me);
+	relife_err = catch{
+		relife_valid = me->is_valid_relife_path((string)me->relife);
+	};
+	if(relife_err || !relife_valid){
+		me->relife = main_city;
+		repaired = 1;
+	}
+	last_path = (string)(me->last_pos || "");
+	last_base = last_path;
+	if(search(last_base,"#")!=-1)
+		last_base = (last_base/"#")[0];
+	if(last_path=="" || !has_prefix(last_base,"/gamelib/d/") ||
+	   search(last_base,"..")!=-1 ||
+	   has_prefix(last_base,"/gamelib/d/timed_event/") ||
+	   (worker_mode && search(last_path,"#")!=-1 &&
+	    (string)(me->inhome_pos || "")!=""))
+		last_valid = 0;
+	else{
+		last_err = catch{
+			last_room = (object)(ROOT+last_base);
+		};
+		if(last_err || !last_room)
+			last_valid = 0;
+	}
+	if(!last_valid){
+		me->last_pos = main_city;
+		me->inhome_pos = "";
+		repaired = 1;
+	}
+	return repaired;
+}
+
 int start(string arg){
 	object me=this_player();
 	if(this_object()->sid == "5dwap")
@@ -1181,6 +1257,7 @@ int start(string arg){
 				me->relife = me->last_pos;
 			}
 		}
+		repair_invalid_login_positions(me);
 			//房契是家园产权提交点；异常重启后自动修复玩家档案中的 home_path。
 			HOMED->repair_player_home_path(me);
 			HOMED->enforce_user_home_isolation(me);
@@ -1285,6 +1362,7 @@ int start(string arg){
 				}
 			}
 		}
+		repair_invalid_login_positions(me);
 		/*
 		//在副本中则要把玩家传到副本外
 		me->last_pos = (me->last_pos/"#")[0];

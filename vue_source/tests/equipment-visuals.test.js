@@ -131,4 +131,36 @@ assert(cssSource.includes('@keyframes equipment-high-level-breathe'));
 assert(cssSource.includes('@keyframes pet-avatar-aura-orbit'));
 assert(cssSource.includes('@keyframes monster-avatar-aura-pulse'));
 
+function relativeLuminance(hex) {
+    const channels = hex.slice(1).match(/../g).map((part) => {
+        const value = parseInt(part, 16) / 255;
+        return value <= 0.03928
+            ? value / 12.92
+            : Math.pow((value + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] +
+        0.0722 * channels[2];
+}
+
+function contrastRatio(foreground, background) {
+    const first = relativeLuminance(foreground);
+    const second = relativeLuminance(background);
+    return (Math.max(first, second) + 0.05) /
+        (Math.min(first, second) + 0.05);
+}
+
+assert(cssSource.includes('--mud-orange-bold: #9A3412;'));
+assert(cssSource.includes('--mud-orange-bold: #FFB454;'));
+assert(cssSource.includes(
+    '.color-orange-bold { color: var(--mud-orange-bold); font-weight: bold; }'
+));
+assert(
+    contrastRatio('#9A3412', '#FFFEF8') >= 4.5,
+    '橙装文字在浅黄按钮背景上的对比度必须达到 WCAG AA'
+);
+assert(
+    contrastRatio('#FFB454', '#1B2035') >= 4.5,
+    '橙装文字在暗色卡片背景上的对比度必须达到 WCAG AA'
+);
+
 console.log('人物、宠物、装备与高等级怪物统一成长光环测试通过');
