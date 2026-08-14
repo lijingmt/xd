@@ -194,9 +194,9 @@ book,book/wuxiangyan,35,wuxiang,【无】无相焰,30,1300,
 book,book/wuxiangjing,40,wuxiang,【无】无相净,18,600,
 book,book/wuxiangbi,50,wuxiang,【无】无相壁,25,1000,
 book,book/wuxianghuan,55,wuxiang,【无】无相唤,28,1200,
-book,book/wuxiangyu,60,wuxiang,【无】无相雨,30,1500,
-book,book/wuxiangji,70,wuxiang,【无】无相击,35,2000,
-book,book/wuxiangmie,85,wuxiang,【无】无相灭,45,3000,
+book,book/wuxiangyu,60,wuxiang,【无】无相雨,30,1500,2
+book,book/wuxiangji,70,wuxiang,【无】无相击,35,2000,2
+book,book/wuxiangmie,85,wuxiang,【无】无相灭,45,3000,2
 book,book/taijiquan,1,taiji,【极】太极拳,2,30,
 book,book/taijijue,5,taiji,【极】太极诀,4,80,
 book,book/taijiyi,10,taiji,【极】太极医,8,150,
@@ -205,6 +205,6 @@ book,book/taijihou,20,taiji,【极】太极吼,15,400,
 book,book/taijijian,30,taiji,【极】太极剑,25,900,
 book,book/taijiyan,35,taiji,【极】太极焰,30,1300,
 book,book/taijihuan,55,taiji,【极】太极唤,28,1200,
-book,book/taijiyu,60,taiji,【极】太极雨,30,1500,
-book,book/taijiji,70,taiji,【极】太极击,35,2000,
-book,book/taijimie,85,taiji,【极】太极灭,45,3000,
+book,book/taijiyu,60,taiji,【极】太极雨,30,1500,2
+book,book/taijiji,70,taiji,【极】太极击,35,2000,2
+book,book/taijimie,85,taiji,【极】太极灭,45,3000,2

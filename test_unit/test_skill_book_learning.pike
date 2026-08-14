@@ -526,6 +526,38 @@ void test_capstone_catchup_runtime()
 		test_fail(failures*" | ");
 }
 
+void test_high_level_book_stock_config()
+{
+	test_start("全职业高级技能书配置了正整数启动库存");
+	string csv_path = ROOT + "/gamelib/data/can_buy_book_list.csv";
+	string csv_content = Stdio.read_file(csv_path);
+	array(string) failures = ({});
+	int checked_count = 0;
+	if(!csv_content){
+		test_fail("无法读取技能书配置 CSV");
+		return;
+	}
+	foreach(csv_content / "\n",string line){
+		if(!line || line=="" || line[0]=='#')
+			continue;
+		array(string) parts = line / ",";
+		if(sizeof(parts)<3 || parts[0]!="book" || (int)parts[2]<60)
+			continue;
+		checked_count++;
+		if(sizeof(parts)!=8 || (int)parts[7]<=0){
+			if(sizeof(parts)>1)
+				failures += ({parts[1]});
+			else
+				failures += ({"invalid-row"});
+		}
+	}
+	if(checked_count>0 && !sizeof(failures))
+		test_pass();
+	else
+		test_fail(sprintf("高级书库存配置无效 checked=%d: %s",
+			checked_count,failures*" "));
+}
+
 // 主测试运行函数
 void run_tests()
 {
@@ -545,6 +577,7 @@ void run_tests()
 	test_skill_book_file_integrity();
 	test_skill_file_correspondence();
 	test_capstone_catchup_runtime();
+	test_high_level_book_stock_config();
 
 	// 打印测试结果汇总
 	print_summary();

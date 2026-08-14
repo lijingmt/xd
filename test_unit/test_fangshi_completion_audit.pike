@@ -178,14 +178,16 @@ void test_summon_team_protection_and_orphan_cleanup()
 
 void test_profession_balanced_high_books()
 {
-	test_start("十职业各自轮换两种高级书且只能购买本职业目录");
+	test_start("十二职业各自轮换两种有库存的高级书");
 	array(string) professions = ({
 		"jianxian","yushi","zhuxian",
 		"kuangyao","wuyao","yinggui","fangshi","zhenyue","tianxiang","lingyi",
+		"wuxiang","taiji",
 	});
 	array(string) races = ({
 		"human","human","human",
 		"monst","monst","monst","third","third","third","third",
+		"third","third",
 	});
 	array(object) players = ({});
 	array(array(string)) selected = ({});
@@ -206,6 +208,7 @@ void test_profession_balanced_high_books()
 			foreach(names,string name){
 				if(!BUYD->can_buy_high_level_book(player,name) ||
 				   BUYD->query_high_level_book_price(name)<=0 ||
+				   BUYD->query_book_num(name)<=0 ||
 				   search(BUYD->get_book_for_profe(professions[i]),
 					name)==-1)
 					failed++;
