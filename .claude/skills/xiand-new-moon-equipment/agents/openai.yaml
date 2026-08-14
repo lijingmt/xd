@@ -1,0 +1,4 @@
+interface:
+  display_name: "仙道新月六套装备维护"
+  short_description: "维护仙道六阶职业套装的掉率绑定仓库炼化交易与真实重启验证流程"
+  default_prompt: "使用 $xiand-new-moon-equipment 安全维护新月六阶职业装备、掉率、绑定、仓库和真实重启测试。"
