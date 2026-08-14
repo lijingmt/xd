@@ -19,28 +19,227 @@ private int equip_defend=0;//防具的防御力
 int query_equip_defend(){ return equip_defend+(query_defend_add()==0?0:query_defend_add());}
 void set_equip_defend(int a){ equip_defend=a;}
 
+// 新月装备职业共鸣使用既有 dbase 扩展区保存，不能在这里新增顶层
+// 持久化变量。旧装备序列化依赖继承布局；新增顶层字段会让历史档案
+// 的 equiped 等字段错位。没有共鸣数据的全部旧装备始终返回 0 加成。
+#define NEWMOON_RESONANCE_ROOT "/item_newmoon/resonance"
+
+void set_newmoon_resonance(string profession,string profession_cn,
+	string theme,int str_bonus,int dex_bonus,int think_bonus,
+	int life_bonus,int mofa_bonus,string two_piece_attribute,
+	int two_piece_value,string three_piece_attribute,
+	int three_piece_value)
+{
+	array(string) supported_set_attributes=({
+		"all","defend","dodge","hitte","doub",
+		"lunck","rase_life_add","rase_mofa_add","mofa_all",
+		"all_mofa_defend",
+	});
+	if(!profession || profession=="" || !profession_cn ||
+	   profession_cn=="" || !theme || theme=="")
+		return;
+	if(search(supported_set_attributes,two_piece_attribute)==-1 ||
+	   search(supported_set_attributes,three_piece_attribute)==-1)
+		return;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/profession"]=profession;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/profession_cn"]=profession_cn;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/theme"]=theme;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/str"]=max(0,min(20,str_bonus));
+	this_object()[NEWMOON_RESONANCE_ROOT+"/dex"]=max(0,min(20,dex_bonus));
+	this_object()[NEWMOON_RESONANCE_ROOT+"/think"]=max(0,min(20,think_bonus));
+	this_object()[NEWMOON_RESONANCE_ROOT+"/life"]=max(0,min(20,life_bonus));
+	this_object()[NEWMOON_RESONANCE_ROOT+"/mofa"]=max(0,min(20,mofa_bonus));
+	this_object()[NEWMOON_RESONANCE_ROOT+"/two_attribute"]=two_piece_attribute;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/two_value"]=
+		max(0,min(20,two_piece_value));
+	this_object()[NEWMOON_RESONANCE_ROOT+"/three_attribute"]=
+		three_piece_attribute;
+	this_object()[NEWMOON_RESONANCE_ROOT+"/three_value"]=
+		max(0,min(20,three_piece_value));
+}
+
+string query_newmoon_resonance_profession()
+{
+	return (string)(this_object()[NEWMOON_RESONANCE_ROOT+"/profession"] || "");
+}
+
+string query_newmoon_resonance_profession_cn()
+{
+	return (string)(this_object()[NEWMOON_RESONANCE_ROOT+"/profession_cn"] || "");
+}
+
+string query_newmoon_resonance_theme()
+{
+	return (string)(this_object()[NEWMOON_RESONANCE_ROOT+"/theme"] || "");
+}
+
+string query_newmoon_set_name()
+{
+	string profession_cn=query_newmoon_resonance_profession_cn();
+	string theme=query_newmoon_resonance_theme();
+	if(profession_cn=="" || theme=="")
+		return "";
+	return "新月·"+profession_cn+"·"+theme;
+}
+
+int query_newmoon_set_piece_count()
+{
+	object owner=environment(this_object());
+	string profession=query_newmoon_resonance_profession();
+	string theme=query_newmoon_resonance_theme();
+	int count=0;
+	if(profession=="" || theme=="" || !owner ||
+	   !functionp(owner->query_equip))
+		return 0;
+	mapping equipped=owner->query_equip();
+	if(!mappingp(equipped))
+		return 0;
+	foreach(values(equipped),object item){
+		if(item && item->item_cur_dura>0 &&
+		   functionp(item->query_newmoon_resonance_profession) &&
+		   functionp(item->query_newmoon_resonance_theme) &&
+		   item->query_newmoon_resonance_profession()==profession &&
+		   item->query_newmoon_resonance_theme()==theme)
+			count++;
+	}
+	return min(3,count);
+}
+
+int query_newmoon_resonance_percent()
+{
+	int count=query_newmoon_set_piece_count();
+	if(count>=3)
+		return 200;
+	if(count>=2)
+		return 150;
+	return 100;
+}
+
+int query_newmoon_resonance_active()
+{
+	object owner=environment(this_object());
+	string profession=query_newmoon_resonance_profession();
+	if(profession=="" || !owner ||
+	   this_object()->item_cur_dura<=0 ||
+	   !functionp(owner->is) || !owner->is("player") ||
+	   !functionp(owner->query_profeId) ||
+	   !functionp(owner->query_equip))
+		return 0;
+	mapping equipped=owner->query_equip();
+	if(!mappingp(equipped) ||
+	   search(values(equipped),this_object())==-1)
+		return 0;
+	return (string)owner->query_profeId()==profession;
+}
+
+int query_newmoon_set_extra_value(string attribute)
+{
+	int count;
+	int value=0;
+	if(!query_newmoon_resonance_active())
+		return 0;
+	count=query_newmoon_set_piece_count();
+	if(count>=2 && (string)this_object()[
+	   NEWMOON_RESONANCE_ROOT+"/two_attribute"]==attribute)
+		value+=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/two_value"];
+	if(count>=3 && (string)this_object()[
+	   NEWMOON_RESONANCE_ROOT+"/three_attribute"]==attribute)
+		value+=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/three_value"];
+	return max(0,min(40,value));
+}
+
+string query_newmoon_set_extra_description(int tier)
+{
+	string attribute;
+	int value;
+	string label="";
+	if(tier==2){
+		attribute=(string)(this_object()[
+			NEWMOON_RESONANCE_ROOT+"/two_attribute"] || "");
+		value=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/two_value"];
+	}
+	else if(tier==3){
+		attribute=(string)(this_object()[
+			NEWMOON_RESONANCE_ROOT+"/three_attribute"] || "");
+		value=(int)this_object()[NEWMOON_RESONANCE_ROOT+"/three_value"];
+	}
+	if(attribute=="all") label="全属性";
+	else if(attribute=="defend"){
+		label="防御";
+		value*=10;
+	}
+	else if(attribute=="dodge") label="闪避率";
+	else if(attribute=="hitte") label="命中率";
+	else if(attribute=="doub") label="暴击率";
+	else if(attribute=="lunck") label="幸运";
+	else if(attribute=="rase_life_add") label="每秒生命恢复";
+	else if(attribute=="rase_mofa_add") label="每秒法力恢复";
+	else if(attribute=="mofa_all") label="全系法术伤害";
+	else if(attribute=="all_mofa_defend") label="全法术抗性";
+	if(label=="" || value<=0)
+		return "";
+	if(search(({"dodge","hitte","doub"}),
+	   attribute)!=-1)
+		return "每件已穿套装"+label+"+"+(string)value+"%";
+	return "每件已穿套装"+label+"+"+(string)value;
+}
+
+int query_newmoon_resonance_value(string attribute)
+{
+	int base_value;
+	if(!query_newmoon_resonance_active() ||
+	   search(({"str","dex","think","life","mofa"}),attribute)==-1)
+		return 0;
+	base_value=max(0,min(20,(int)this_object()[
+		NEWMOON_RESONANCE_ROOT+"/"+attribute]));
+	return base_value*query_newmoon_resonance_percent()/100;
+}
+
+string query_newmoon_resonance_bonus_text()
+{
+	array(string) bonuses=({});
+	int active=query_newmoon_resonance_active();
+	int value;
+	value=active ? query_newmoon_resonance_value("str") :
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/str"];
+	if(value>0) bonuses+=({"力量+"+(string)value});
+	value=active ? query_newmoon_resonance_value("dex") :
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/dex"];
+	if(value>0) bonuses+=({"敏捷+"+(string)value});
+	value=active ? query_newmoon_resonance_value("think") :
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/think"];
+	if(value>0) bonuses+=({"智力+"+(string)value});
+	value=active ? query_newmoon_resonance_value("life") :
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/life"];
+	if(value>0) bonuses+=({"生命+"+(string)(value*10)});
+	value=active ? query_newmoon_resonance_value("mofa") :
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/mofa"];
+	if(value>0) bonuses+=({"法力+"+(string)(value*10)});
+	return bonuses*"、";
+}
+
 private int str_add=0;//物品附带力量增加属性
-int query_str_add(){ return str_add;}
+int query_str_add(){ return str_add+query_newmoon_resonance_value("str");}
 void set_str_add(int a){ str_add=a;}
 
 private int dex_add=0;//物品附带敏捷增加属性
-int query_dex_add(){ return dex_add;}
+int query_dex_add(){ return dex_add+query_newmoon_resonance_value("dex");}
 void set_dex_add(int a){ dex_add=a;}
 
 private int think_add=0;//物品附带智力增加属性
-int query_think_add(){ return think_add;}
+int query_think_add(){ return think_add+query_newmoon_resonance_value("think");}
 void set_think_add(int a){ think_add=a;}
 
 private int life_add=0;//生命附加
-int query_life_add(){ return life_add*10;}
+int query_life_add(){ return (life_add+query_newmoon_resonance_value("life"))*10;}
 void set_life_add(int a){ life_add=a;}
 
 private int mofa_add=0;//法力附加
-int query_mofa_add(){ return mofa_add*10;}
+int query_mofa_add(){ return (mofa_add+query_newmoon_resonance_value("mofa"))*10;}
 void set_mofa_add(int a){ mofa_add=a;}
 
 private int lunck_add=0;//幸运附加
-int query_lunck_add(){ return lunck_add;}
+int query_lunck_add(){ return lunck_add+query_newmoon_set_extra_value("lunck");}
 void set_lunck_add(int a){ lunck_add=a;}
 
 private int appear_add=0;//容貌附加
@@ -53,19 +252,19 @@ int query_attack_add(){ return attack_add;}
 void set_attack_add(int a){ attack_add=a;}
 
 private int defend_add=0;//附加防御
-int query_defend_add(){ return defend_add*10;}
+int query_defend_add(){ return (defend_add+query_newmoon_set_extra_value("defend"))*10;}
 void set_defend_add(int a){ defend_add=a;}
 
 private int dodge_add=0;//附加闪避
-int query_dodge_add(){ return dodge_add;}
+int query_dodge_add(){ return dodge_add+query_newmoon_set_extra_value("dodge");}
 void set_dodge_add(int a){ dodge_add=a;}
 
 private int hitte_add=0;//附加命中
-int query_hitte_add(){ return hitte_add;}
+int query_hitte_add(){ return hitte_add+query_newmoon_set_extra_value("hitte");}
 void set_hitte_add(int a){ hitte_add=a;}
 
 private int doub_add=0;//附加暴击
-int query_doub_add(){ return doub_add;}
+int query_doub_add(){ return doub_add+query_newmoon_set_extra_value("doub");}
 void set_doub_add(int a){ doub_add=a;}
 //新属性2024//////////////////////////////////
 private int wulichuantou_add=0;//物理穿透转为有上限的无视防御伤害
@@ -82,7 +281,7 @@ void set_dodgechuantou_add(int a){ dodgechuantou_add=a;}
 
 //新属性0121//////////////////////////////////
 private int all_add=0;//物品附加全属性
-int query_all_add(){ return all_add;}
+int query_all_add(){ return all_add+query_newmoon_set_extra_value("all");}
 void set_all_add(int a){ all_add=a;}
 
 private int recive_add=0;//物品附加吸收伤害
@@ -102,11 +301,13 @@ int query_dura_add(){ return dura_add*10;}
 void set_dura_add(int a){ dura_add=a;}
 
 private int rase_life_add=0;//物品附加生命恢复增加
-int query_rase_life_add(){ return rase_life_add;}
+int query_rase_life_add(){ return rase_life_add+
+	query_newmoon_set_extra_value("rase_life_add");}
 void set_rase_life_add(int a){ rase_life_add=a;}
 
 private int rase_mofa_add=0;//物品附加法力恢复增加
-int query_rase_mofa_add(){ return rase_mofa_add;}
+int query_rase_mofa_add(){ return rase_mofa_add+
+	query_newmoon_set_extra_value("rase_mofa_add");}
 void set_rase_mofa_add(int a){ rase_mofa_add=a;}
 
 private int huo_mofa_attack_add=0;//物品附加火系法术伤害
@@ -130,7 +331,8 @@ int query_spec_mofa_attack_add(){ return spec_mofa_attack_add;}
 void set_spec_mofa_attack_add(int a){ spec_mofa_attack_add=a;}
 
 private int mofa_all_add=0;//物品附加全系法术伤害
-int query_mofa_all_add(){ return mofa_all_add;}
+int query_mofa_all_add(){ return mofa_all_add+
+	query_newmoon_set_extra_value("mofa_all");}
 void set_mofa_all_add(int a){ mofa_all_add=a;}
 
 private int attack_huoyan_add=0;//物品附加火焰攻击力
@@ -174,7 +376,8 @@ int query_dusu_defend_add(){ return dusu_defend_add;}
 void set_dusu_defend_add(int a){ dusu_defend_add=a;}
 
 private int all_mofa_defend_add=0;//物品附加全法术抗性
-int query_all_mofa_defend_add(){ return all_mofa_defend_add;}
+int query_all_mofa_defend_add(){ return all_mofa_defend_add+
+	query_newmoon_set_extra_value("all_mofa_defend");}
 void set_all_mofa_defend_add(int a){ all_mofa_defend_add=a;}
 
 //新属性0121//////////////////////////////////
@@ -475,6 +678,23 @@ string query_content(){
 	array(string) profe_limits = ob->query_item_profeLimit();
 	if(!ob->is_equip())
 		return r;
+	if(ob->query_newmoon_resonance_profession()!=""){
+		int resonance_active=ob->query_newmoon_resonance_active();
+		r+="【新月共鸣·"+ob->query_newmoon_resonance_theme()+"】"+
+			ob->query_newmoon_resonance_profession_cn()+"契合\n";
+		r+=(resonance_active ? "已激活：" :
+			"职业契合且穿戴后激活：")+
+			ob->query_newmoon_resonance_bonus_text()+"\n";
+		int set_count=ob->query_newmoon_set_piece_count();
+		r+="【套装·"+ob->query_newmoon_set_name()+"】("+
+			(string)set_count+"/3)\n";
+		r+="2件：职业共鸣提高50%；"+
+			ob->query_newmoon_set_extra_description(2)+
+			(resonance_active && set_count>=2 ? "（已激活）" : "")+"\n";
+		r+="3件：满月觉醒，职业共鸣提高100%；"+
+			ob->query_newmoon_set_extra_description(3)+
+			(resonance_active && set_count>=3 ? "（已激活）" : "")+"\n";
+	}
 	if(functionp(ob->query_catchup_equipment) &&
 	   ob->query_catchup_equipment()){
 		if(ob->query_catchup_activated())

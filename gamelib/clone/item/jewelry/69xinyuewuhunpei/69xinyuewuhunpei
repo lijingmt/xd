@@ -1,0 +1,24 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_JEWELRY;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【新月·巫妖】巫魂佩";
+	unit="枚";
+	picture="65lingyuxianglian";
+	desc="巫妖流派的新月底版装备；基础数值遵循六十九级旧装备预算，高等级版本仍由原动态系统生成。\n";
+	item_cur_dura=10000;
+	item_dura=10000;
+	set_item_type("jewelry");
+	set_item_kind("jewelry_neck");
+	set_item_canEquip(1);
+	set_item_canDrop(1);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_item_canLevel(69);
+	set_item_profeLimit("wuyao");
+	set_newmoon_resonance("wuyao","巫妖","幽咒",0,1,4,1,3,
+		"mofa_all",4,"all_mofa_defend",4);
+}
