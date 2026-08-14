@@ -395,7 +395,9 @@ int can_drop_newmoon_equipment(int npclevel,int roll)
 private mapping(string:mixed) query_newmoon_collection_for_item(object item)
 {
 	string collection_id;
-	if(!item || !functionp(item->query_newmoon_collection_id))
+	if(!item || !functionp(item->query_newmoon_collection_id) ||
+	   !functionp(item->query_newmoon_resonance_profession) ||
+	   item->query_newmoon_resonance_profession()=="")
 		return ([]);
 	collection_id=(string)item->query_newmoon_collection_id();
 	foreach(newmoon_collection_catalog,mapping collection)

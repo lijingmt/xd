@@ -456,7 +456,15 @@ void test_catalog_and_templates()
 	int image_valid=1;
 	int slot_valid=1;
 	int budget_valid=1;
+	int six_collection_matrix_valid=1;
+	int highest_affix_capacity_valid=1;
 	array(string) errors=({});
+	array(string) collection_ids=({
+		"newmoon","starshine","firmament","greatvoid","primordial","hongmeng",
+	});
+	array(string) collection_names=({"新月","曜星","天穹","太虚","太初","鸿蒙"});
+	array(string) collection_qualities=({"稀世","绝世","传说","神话","太古","至尊"});
+	array(int) collection_percents=({100,105,110,116,123,132});
 
 	foreach(org/"\n",string line)
 		if(has_prefix(line,"69|"))
@@ -490,6 +498,39 @@ void test_catalog_and_templates()
 				errors+=({slot+"/"+name});
 				continue;
 			}
+			int raw_attack=item->query_attack_power();
+			int raw_attack_limit=item->query_attack_power_limit();
+			int raw_defend=item->query_equip_defend();
+			for(int collection_index=0;
+			   collection_index<sizeof(collection_ids);collection_index++){
+				if(!item->set_newmoon_collection(
+				   collection_ids[collection_index]) ||
+				   item->query_newmoon_collection_rank()!=collection_index+1 ||
+				   item->query_newmoon_collection_name()!=
+					collection_names[collection_index] ||
+				   item->query_newmoon_collection_quality()!=
+					collection_qualities[collection_index] ||
+				   search(item->query_short(),"【"+
+					collection_names[collection_index]+"·"+
+					collection_qualities[collection_index]+"·"+
+					(string)config["profession_cn"]+"】")==-1 ||
+				   search(item->query_name_cn(),"【"+
+					collection_names[collection_index]+"·"+
+					collection_qualities[collection_index]+"·"+
+					(string)config["profession_cn"]+"】")==-1 ||
+				   (collection_index>0 && search(item->query_name_cn(),
+					"【新月·"+(string)config["profession_cn"]+"】")!=-1) ||
+				   (slot=="weapon" &&
+				    (item->query_attack_power()!=raw_attack*
+					collection_percents[collection_index]/100 ||
+				     item->query_attack_power_limit()!=raw_attack_limit*
+					collection_percents[collection_index]/100)) ||
+				   (query_piece_parent(slot)=="armor" &&
+				    item->query_equip_defend()!=raw_defend*
+					collection_percents[collection_index]/100))
+					six_collection_matrix_valid=0;
+			}
+			item->set_newmoon_collection("newmoon");
 			array(string) limits=item->query_item_profeLimit();
 			if(item->query_item_canLevel()!=69 ||
 			   item->query_newmoon_resonance_profession()!=
@@ -532,10 +573,12 @@ void test_catalog_and_templates()
 			if(sizeof(profile_parts)<2)
 				effective_profile_valid=0;
 			else{
+				int available_affixes=0;
 				foreach(profile_parts[1]/",",string attribute_spec){
 					array(string) attribute_parts=attribute_spec/":";
 					if(attribute_spec=="")
 						continue;
+					available_affixes++;
 					if(sizeof(attribute_parts)!=3 ||
 					   !profile_attribute_supported(attribute_parts[0]) ||
 					   (int)attribute_parts[1]<=0 ||
@@ -547,6 +590,8 @@ void test_catalog_and_templates()
 					     attribute_parts[0]=="weapon_attack_add")))
 						effective_profile_valid=0;
 				}
+				if(available_affixes<6)
+					highest_affix_capacity_valid=0;
 			}
 			string source=Stdio.read_file(path) || "";
 			string picture="";
@@ -572,6 +617,9 @@ void test_catalog_and_templates()
 			sizeof(expected_paths)));
 	check("120件十件套底版均可在游戏环境编译克隆",
 		compiled,errors*",");
+	check("十二职业十部位映射为六套共720个身份且品质显示一致",
+		six_collection_matrix_valid,
+		"某件底版无法映射全部六套、倍率错误或仍显示旧前缀");
 	check("全部底版等级、流通能力、主题与职业元数据完整",
 		metadata_valid,"某件装备元数据不完整");
 	check("十件套覆盖主武器、六防具与三首饰且槽位不冲突",
@@ -601,6 +649,9 @@ void test_catalog_and_templates()
 		"套装可能污染普通掉落池、低等级掉落或绕过独立稀有概率");
 	check("十件套词缀均受生成器支持且没有非武器攻击词缀",
 		effective_profile_valid,"发现无效、反向或错槽词缀");
+	check("120件底版均至少提供六种有效词缀供鸿蒙保底抽取",
+		highest_affix_capacity_valid,
+		"存在底版词缀池小于鸿蒙六词缀下限");
 	check("十件套复用图片在源码与Web资源树均可加载",
 		image_valid,"存在缺失图片");
 }
@@ -1258,6 +1309,48 @@ void test_enabled_collection_lineage()
 	check("六阶品质只递增装备基础攻防并统一进入既有攻击接口",
 		quality_valid,"品质倍率、阶位或装备随机攻击接口不一致");
 	destruct(raw_weapon);
+	object invalid_collection_item=clone(weapon_path);
+	int valid_collection_set=invalid_collection_item->
+		set_newmoon_collection("starshine");
+	int invalid_collection_set=invalid_collection_item->
+		set_newmoon_collection("../../malicious");
+	int unknown_collection_restore=invalid_collection_item->
+		restore_newmoon_storage_collection_snapshot(([
+			"version":1,"collection_id":"unknown",
+		]));
+	int invalid_collection_restore=invalid_collection_item->
+		restore_newmoon_storage_collection_snapshot(([
+			"version":1,"collection_id":"starshine","extra":1,
+		]));
+	check("未知集合ID和畸形仓库快照失败关闭且不改写既有身份",
+		valid_collection_set && !invalid_collection_set &&
+		!unknown_collection_restore &&
+		!invalid_collection_restore &&
+		invalid_collection_item->query_newmoon_collection_id()=="starshine",
+		"任意集合ID可污染动态文件、显示或仓库存档");
+	destruct(invalid_collection_item);
+
+	int six_full_sets_valid=1;
+	mapping jianxian_config=catalog[0];
+	for(int collection_index=0;collection_index<enabled;
+	   collection_index++){
+		object set_player=create_player("__testunit_newmoon_sixset_"+
+			(string)collection_index+"__","human","jianxian");
+		array(object) set_items=clone_full_set(jianxian_config);
+		foreach(set_items,object set_item)
+			if(!set_item->set_newmoon_collection(
+			   (string)expected[collection_index]["id"]))
+				six_full_sets_valid=0;
+		equip_full_set(set_player,set_items);
+		if(set_items[0]->query_newmoon_set_piece_count()!=10 ||
+		   set_items[0]->query_newmoon_resonance_percent()!=200 ||
+		   set_items[0]->query_newmoon_collection_rank()!=collection_index+1 ||
+		   set_items[9]->query_newmoon_set_piece_count()!=10)
+			six_full_sets_valid=0;
+		destroy_player(set_player);
+	}
+	check("六套各自十件完整穿戴均精确激活同职业五档共鸣",
+		six_full_sets_valid,"某套十件计数、阶位或200%满月共鸣错误");
 
 	object player=create_player("__testunit_newmoon_collection_mix__",
 		"human","jianxian");
@@ -1312,7 +1405,11 @@ void test_enabled_collection_lineage()
 			(string)current["quality"] ||
 		   search(generated->query_short(),"【"+(string)current["name"]+
 			"·"+(string)current["quality"]+"·剑仙】")==-1 ||
-		   search(generated->query_short(),"【新月·剑仙】")!=-1){
+		   search(generated->query_name_cn(),"【"+
+			(string)current["name"]+"·"+(string)current["quality"]+
+			"·剑仙】")==-1 ||
+		   search(generated->query_short(),"【新月·剑仙】")!=-1 ||
+		   search(generated->query_name_cn(),"【新月·剑仙】")!=-1){
 			generation_valid=0;
 			generation_errors+=({generation_error ?
 				describe_error(generation_error) : (string)current["id"]});
@@ -1464,11 +1561,30 @@ void test_legacy_equipment_compatibility()
 	check("旧装备getter保持原数值且没有新月身份",
 		old_item->query_str_add()==7 && old_item->query_life_add()==90 &&
 		old_item->query_newmoon_resonance_profession()=="" &&
+		old_item->query_newmoon_collection_id()=="" &&
 		!old_item->query_newmoon_resonance_active(),
 		"旧装备被共鸣逻辑改变");
 	check("旧装备存档不新增新月扩展数据",
 		search(saved,"item_newmoon")==-1,
 		"旧装备序列化出现新字段");
+	string old_raw="weapon/65haixiaofengjian/65haixiaofengjian";
+	string old_directory=ITEM_PATH+"weapon/65haixiaofengjian";
+	array(string) old_before=get_dir(old_directory) || ({});
+	object|zero converted_old=0;
+	mixed old_convert_error=catch {
+		converted_old=ITEMSD->get_convert_item(
+			old_raw,2,65,65,old_item);
+	};
+	check("普通旧装备传入原对象炼化时不会被误判为新月套装",
+		!old_convert_error && objectp(converted_old) &&
+		converted_old->query_item_rareLevel()==2 &&
+		converted_old->query_newmoon_resonance_profession()=="" &&
+		search(object_name(converted_old),"_nm")==-1,
+		old_convert_error ? describe_error(old_convert_error) :
+			"旧装备炼化返回空、出现套装身份或错误文件后缀");
+	if(converted_old)
+		destruct(converted_old);
+	cleanup_generated_files(old_directory,old_before);
 	destroy_player(player);
 
 	object new_item=clone(item_path("weapon","69xinyuetianfengjian"));
@@ -1483,8 +1599,21 @@ void test_legacy_equipment_compatibility()
 		restored->query_attack_power()==248 &&
 		restored->query_item_canLevel()==69,
 		"套装元数据恢复后丢失或旧装备字段错位");
+	new_item->set_newmoon_collection("hongmeng");
+	string hongmeng_saved=pikenv_save_object(new_item,1);
+	object hongmeng_restored=clone(
+		item_path("weapon","69xinyuetianfengjian"));
+	pikenv_restore_object(hongmeng_restored,hongmeng_saved);
+	check("鸿蒙集合身份随人物唯一档案和跨Worker存档完整往返",
+		search(hongmeng_saved,"hongmeng")!=-1 &&
+		hongmeng_restored->query_newmoon_collection_id()=="hongmeng" &&
+		hongmeng_restored->query_newmoon_collection_rank()==6 &&
+		hongmeng_restored->query_newmoon_collection_quality()=="至尊" &&
+		hongmeng_restored->query_attack_power()==248*132/100,
+		"高阶集合字段未进入dbase存档或恢复后倍率错误");
 	destruct(new_item);
 	destruct(restored);
+	destruct(hongmeng_restored);
 }
 
 int main()

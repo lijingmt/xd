@@ -36,6 +36,8 @@ int is_newmoon_collection_id(string collection_id)
 
 string query_newmoon_collection_id()
 {
+	if(query_newmoon_resonance_profession()=="")
+		return "";
 	string collection_id=(string)(this_object()[
 		NEWMOON_RESONANCE_ROOT+"/collection/id"] || "");
 	return is_newmoon_collection_id(collection_id) ? collection_id : "newmoon";

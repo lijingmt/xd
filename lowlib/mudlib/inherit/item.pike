@@ -153,6 +153,32 @@ private string original_name_cn = 0;
 void set_original_name_cn(string s){ original_name_cn = s;}
 string query_original_name_cn(){ return original_name_cn || ::query_name_cn(); }
 
+private string apply_newmoon_collection_display(string display_name)
+{
+	if(!functionp(this_object()->query_newmoon_resonance_profession) ||
+	   this_object()->query_newmoon_resonance_profession()=="" ||
+	   !functionp(this_object()->query_newmoon_collection_name) ||
+	   !functionp(this_object()->query_newmoon_collection_quality) ||
+	   !functionp(this_object()->query_newmoon_resonance_profession_cn))
+		return display_name;
+	string profession_cn=this_object()->query_newmoon_resonance_profession_cn();
+	string legacy_prefix="【新月·"+profession_cn+"】";
+	int legacy_position=search(display_name,legacy_prefix);
+	if(legacy_position==0)
+		display_name=display_name[sizeof(legacy_prefix)..];
+	else if(legacy_position>0)
+		display_name=display_name[..legacy_position-1]+
+			display_name[legacy_position+sizeof(legacy_prefix)..];
+	return "【"+this_object()->query_newmoon_collection_name()+"·"+
+		this_object()->query_newmoon_collection_quality()+"·"+
+		profession_cn+"】"+display_name;
+}
+
+string query_name_cn()
+{
+	return apply_newmoon_collection_display(::query_name_cn());
+}
+
 protected int add_luck = 0;//增加的幸运值，锻造时宝石需用这个
 int query_add_luck(){return add_luck;}
 void set_add_luck(int s){ add_luck = s;}
@@ -173,24 +199,7 @@ string query_short(){
 			display_name = prefix + display_name;
 		}
 	}
-	if(functionp(this_object()->query_newmoon_resonance_profession) &&
-	   this_object()->query_newmoon_resonance_profession()!="" &&
-	   functionp(this_object()->query_newmoon_collection_name) &&
-	   functionp(this_object()->query_newmoon_collection_quality) &&
-	   functionp(this_object()->query_newmoon_resonance_profession_cn)){
-		string profession_cn=this_object()->
-			query_newmoon_resonance_profession_cn();
-		string legacy_prefix="【新月·"+profession_cn+"】";
-		int legacy_position=search(display_name,legacy_prefix);
-		if(legacy_position==0)
-			display_name=display_name[sizeof(legacy_prefix)..];
-		else if(legacy_position>0)
-			display_name=display_name[..legacy_position-1]+
-				display_name[legacy_position+sizeof(legacy_prefix)..];
-		display_name="【"+this_object()->query_newmoon_collection_name()+
-			"·"+this_object()->query_newmoon_collection_quality()+"·"+
-			profession_cn+"】"+display_name;
-	}
+	display_name=apply_newmoon_collection_display(display_name);
 	return "一"+unit+display_name+s;
 }
 void remove(void|int judgement){
