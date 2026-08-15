@@ -70,12 +70,24 @@ client.applyAccountData({
   limit: 10,
   shared_recharge_available: 1,
   shared_recharge_balance: 12345,
+  illusion_entitled: 1,
+  illusion_realm: {
+    ok: true,
+    illusion_id: 'S1',
+    display_name: '新月幻境·S1',
+    phase: 'active',
+    phase_name: '进行中',
+    creation_open: true
+  },
   characters: [{ id: 'xd01legacy', profession_id: 'jianxian' }]
 });
 assert.strictEqual(client.accountId, 'xd01legacy');
 assert.strictEqual(client.accountCharacters.length, 1);
 assert.strictEqual(client.accountSharedRechargeAvailable, true);
 assert.strictEqual(client.accountSharedRechargeBalance, 12345);
+assert.strictEqual(client.illusionEntitled, true);
+assert.strictEqual(client.illusionRealmStatus.illusion_id, 'S1');
+assert.strictEqual(client.illusionRealmStatus.creation_open, true);
 // sessionStorage 不再用于会话存储
 // 使用 window.name 替代
 
@@ -137,14 +149,20 @@ assert(indexSource.includes('!showRegister && !showCharacterSelect'));
 assert(indexSource.includes('注册账号共享充值余额'));
 assert(indexSource.includes('人物赠送玉石仍各自独立'));
 assert(indexSource.includes('同职业可重复创建'));
+assert(indexSource.includes("characterForm.realm_type === 'illusion'"));
+assert(indexSource.includes('新月幻境·S1'));
+assert(indexSource.includes('期满原档案回归'));
 assert(!indexSource.includes(':disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"'));
 assert(cssSource.includes('.character-modal'));
 assert(cssSource.includes('.character-wallet'));
 assert(cssSource.includes('.profession-choice-grid'));
 assert(cssSource.includes('.character-avatar-grid'));
 assert(cssSource.includes('.character-profile-modal'));
+assert(cssSource.includes('.character-card.illusion'));
+assert(cssSource.includes('.character-realm-choice'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
+assert(appSource.includes('realm_type: this.characterForm.realm_type'));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
 assert(appSource.includes("this.apiBase + '/api/profile'"));

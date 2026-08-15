@@ -668,6 +668,9 @@ private int ensure_personal_ids_unlocked(object player,
  */
 int reconcile_player_login(object player)
 {
+	// S1人物使用独立人物存储；回归永恒服后同一原档案才重新对账。
+	if(SEASONALD->shared_account_assets_blocked(player))
+		return 1;
 	string account_id = resolve_login_account(player);
 	mapping(string:mixed)|zero record;
 	array original;
@@ -723,6 +726,10 @@ mapping(string:mixed) query_storage(object player)
 		"ok":0,
 		"message":"账号共享仓库暂不可用。",
 	]);
+	if(SEASONALD->shared_account_assets_blocked(player)){
+		result["message"] = "幻境人物不能访问永恒服账号共享仓库。";
+		return result;
+	}
 	string account_id = resolve_player_account(player);
 	string character_id;
 	mapping(string:mixed)|zero record;
@@ -782,6 +789,10 @@ mapping(string:mixed) purchase_capacity(object player,int expected_capacity,
 {
 	mapping(string:mixed) result=(["ok":0,
 		"message":"账号共享仓库扩容失败。"]);
+	if(SEASONALD->shared_account_assets_blocked(player)){
+		result["message"] = "幻境人物不能扩充永恒服账号共享仓库。";
+		return result;
+	}
 	string account_id=resolve_player_account(player);
 	mapping(string:mixed)|zero record;
 	object storage_key;
@@ -860,6 +871,8 @@ private mapping shared_item_from_personal(array personal,string character_id)
 mapping(string:mixed) transfer_to_shared(object player,string item_id,
 	string|void test_failpoint)
 {
+	if(SEASONALD->shared_account_assets_blocked(player))
+		return (["ok":0,"message":"幻境人物不能向永恒服共享仓库存入物品。"]) ;
 	mapping(string:mixed) result = ([
 		"ok":0,
 		"message":"将物品放入账号共享仓库失败。",
@@ -979,6 +992,8 @@ mapping(string:mixed) transfer_to_shared(object player,string item_id,
 mapping(string:mixed) transfer_to_personal(object player,string item_id,
 	string|void test_failpoint)
 {
+	if(SEASONALD->shared_account_assets_blocked(player))
+		return (["ok":0,"message":"幻境人物不能从永恒服共享仓库取出物品。"]) ;
 	mapping(string:mixed) result = ([
 		"ok":0,
 		"message":"将物品取到当前角色仓库失败。",

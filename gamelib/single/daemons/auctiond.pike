@@ -213,6 +213,8 @@ mapping(string:mixed) query_sale_info(int id,void|string viewer_id)
 //liaocheng于07/3/30添加
 int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 {
+	if(winner && SEASONALD->shared_account_assets_blocked(winner))
+		return 0;
 	mapping(string:mixed) sale_info = query_sale_info(sale_id);
 	if(!sizeof(sale_info))
 		return 0;
@@ -421,7 +423,8 @@ int reset_sale_info(void|object winner,int sale_id,int value,int flag)
 int add_new_sale_info(object saler,object goods,int start_value,int end_value)
 {
 	//return 0;
-	if(!saler || !goods || environment(goods)!=saler ||
+	if(!saler || SEASONALD->shared_account_assets_blocked(saler) ||
+	   !goods || environment(goods)!=saler ||
 	   !functionp(goods->is) || !goods->is("item") || goods->equiped ||
 	   !functionp(goods->query_item_save) || !goods->query_item_save() ||
 	   !functionp(goods->query_item_canTrade) ||

@@ -78,6 +78,10 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 		" 点经验。\n";
 	if(sizeof(bonus_tips))
 		message += "（"+bonus_tips+"）\n";
+	// 只在经验真正发放后记录一次幻境击杀；单人、队伍共用此入口，
+	// 不触碰任何伤害、经验或掉落公式。
+	if(actual_exp>0)
+		SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
 	player->query_if_levelup();
 	if(player->query_levelFlag())
 		message += "你的等级提升到了 "+(string)player->query_level()+" 级！\n";

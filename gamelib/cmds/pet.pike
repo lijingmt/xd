@@ -12,6 +12,15 @@ private string material_name(string material)
 	return material;
 }
 
+private int illusion_shared_pet_blocked(object player)
+{
+	if(!SEASONALD->shared_account_assets_blocked(player))
+		return 0;
+	write("新月幻境·S1不继承账号共享宠物；可使用本人物独立的本命灵伴。\n"+
+		"[前往本命灵伴:spirit_companion]\n[返回幻境区:illusion_realm]\n");
+	return 1;
+}
+
 private string pet_short_id(string pet_id)
 {
 	if(sizeof(pet_id)<=8)
@@ -575,6 +584,8 @@ private string render_growth_guide(object me)
 int main(string|zero arg)
 {
 	object me = this_player();
+	if(illusion_shared_pet_blocked(me))
+		return 1;
 	mapping state;
 	array(string) parts;
 	string message = "";

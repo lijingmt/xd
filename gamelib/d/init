@@ -830,6 +830,9 @@ int choice_profe(string arg){
 				me->last_pos=me->relife;
 			}
 		}
+		// 幻境人物仍使用这一份唯一角色档案；职业初始化完成后只覆盖
+		// 出生/复活位置，不复制新手物品或人物数据。
+		SEASONALD->prepare_new_character(me);
 
 		if(me->sid != "5dwap")
 			me->command("save");
@@ -868,6 +871,15 @@ string query_login_main_city_for(object me)
 	string race = "";
 	string last_path = "";
 	string relife_path = "";
+	string illusion_fallback = "";
+	mixed illusion_err;
+	if(me)
+		illusion_err = catch{
+			illusion_fallback =
+				(string)SEASONALD->query_login_fallback_room(me);
+		};
+	if(!illusion_err && illusion_fallback!="")
+		return illusion_fallback;
 	if(me){
 		race = (string)(me->query_raceId() || "");
 		last_path = (string)(me->last_pos || "");
@@ -1218,6 +1230,9 @@ int start(string arg){
 	//统计系统
 	COUNTD->count_login_time(me->name);
 	me->run_login_migrations_once();
+	// 在校验历史last_pos及执行普通地图移动前完成幻境身份对账。
+	// 到期人物会在这里以原档案回归，进行中人物则固定到S1地图。
+	SEASONALD->reconcile_player_login(me);
 	//赠送系统，临时变量标示
 	if(me["/plus/sendrecd"])
 		me["/plus/sendrecd"] = 0;

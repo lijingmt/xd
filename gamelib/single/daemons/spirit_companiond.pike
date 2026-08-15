@@ -445,6 +445,8 @@ int query_spirit_companion_level_max(void|object player)
 /** 每约2种共享宠物提供1%本命共鸣，封顶8%；只读共享图鉴。 */
 int query_shared_pet_resonance_bonus(object player)
 {
+	if(SEASONALD->shared_account_assets_blocked(player))
+		return 0;
 	int collection_count =
 		PETD->query_shared_pet_collection_count_read_only(player);
 	int bonus = collection_count>0 ? (collection_count+1)/2 : 0;
@@ -473,6 +475,9 @@ string query_pet_battle_source(object player)
 	string source;
 	if(!player)
 		return "shared";
+	// 幻境人物可培养自己档案内的本命灵伴，但不继承账号共享宠物。
+	if(SEASONALD->shared_account_assets_blocked(player))
+		return "personal";
 	source = (string)(player[PET_BATTLE_SOURCE_ROOT] || "shared");
 	return source=="personal" ? "personal" : "shared";
 }
@@ -485,6 +490,8 @@ mapping(string:mixed) set_pet_battle_source(object player,string source)
 	int saved = 0;
 	mixed err;
 	mixed previous;
+	if(source=="shared" && SEASONALD->shared_account_assets_blocked(player))
+		return spirit_result(0,"幻境人物不能携带永恒服共享宠物。");
 	if(!valid_spirit_owner(player) ||
 	   search(({"shared","personal"}),source)==-1)
 		return result;

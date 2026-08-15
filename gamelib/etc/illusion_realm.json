@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "current_id": "S1",
+  "display_name": "新月幻境·S1",
+  "duration_days": 90,
+  "entitlement_cost_suiyu": 500,
+  "entry_room": "/gamelib/d/illusion_s1/moon_gate.pike",
+  "return_room": "/gamelib/d/congxianzhen/congxianzhenguangchang",
+  "route_challenges": {
+    "pioneer_secrets": [
+      {"path":"/gamelib/d/illusion_s1/mirror_lake.pike","id":"mirror_moon","message":"你从倒影与真月的错位中拓下【水镜月印】。"},
+      {"path":"/gamelib/d/illusion_s1/hidden_crater.pike","id":"hidden_core","message":"你在环坑中央辨认出【隐月星核】。"},
+      {"path":"/gamelib/d/illusion_s1/newmoon_altar.pike","id":"returning_mark","message":"你令三途月辉重合，取得【归真月印】。"}
+    ],
+    "hunter_bosses": [
+      {"path":"/gamelib/clone/npc/illusion_s1/star_keeper.pike","id":"broken_star"},
+      {"path":"/gamelib/clone/npc/illusion_s1/moon_general.pike","id":"moon_guard"},
+      {"path":"/gamelib/clone/npc/illusion_s1/newmoon_lord.pike","id":"newmoon_lord"}
+    ],
+    "companion_team_kills": 50
+  },
+  "chapters": [
+    {"id":"S1-C1","title":"月门初醒","description":"踏查两处月痕并击败20只幻境妖物。","min_level":10,"kills":20,"boss_kills":0,"visits":2,"reward_count":1},
+    {"id":"S1-C2","title":"雾林寻星","description":"深入四处异变区域，累计击败60只妖物。","min_level":20,"kills":60,"boss_kills":0,"visits":4,"reward_count":1},
+    {"id":"S1-C3","title":"三途择印","description":"选择破阵、寻星或同心路线，并完成首次首领挑战。","min_level":30,"kills":120,"boss_kills":1,"visits":6,"reward_count":1},
+    {"id":"S1-C4","title":"镜湖逆潮","description":"破解八处月痕，击败2名首领。","min_level":40,"kills":200,"boss_kills":2,"visits":8,"reward_count":1},
+    {"id":"S1-C5","title":"古城回声","description":"推进专属路线：寻星找月印、破阵猎守关者、同心并肩战斗。","min_level":50,"kills":280,"boss_kills":3,"visits":9,"reward_count":2},
+    {"id":"S1-C6","title":"深渊同辉","description":"累计击败400只妖物与5名首领。","min_level":60,"kills":400,"boss_kills":5,"visits":10,"reward_count":2},
+    {"id":"S1-C7","title":"新月归真","description":"完成路线终章：三月印、三守关首领或50次同队击杀，集齐十件套装。","min_level":69,"kills":600,"boss_kills":8,"visits":10,"reward_count":2}
+  ]
+}

@@ -117,6 +117,11 @@ private void attach_account_wallet_status(mapping result,string account_id)
 		(int)wallet["balance"] : 0;
 }
 
+private void attach_illusion_realm_status(mapping result)
+{
+	result["illusion_realm"] = SEASONALD->query_public_status();
+}
+
 mapping query_account_session_status()
 {
 	mapping result;
@@ -185,6 +190,7 @@ void handle_api_account_login(Protocols.HTTP.Server.Request req)
 		return;
 	}
 	attach_account_wallet_status(account_data,account_id);
+	attach_illusion_realm_status(account_data);
 	token = create_account_session(account_id);
 	if(token==""){
 		send_json(req,(["error":"账号会话繁忙，请稍后再试"]),503);
@@ -217,6 +223,7 @@ void handle_api_account_characters(Protocols.HTTP.Server.Request req)
 		return;
 	}
 	attach_account_wallet_status(result,account_id);
+	attach_illusion_realm_status(result);
 	result["expires_in"] = ACCOUNT_SESSION_TTL;
 	send_json(req,result);
 }
@@ -231,6 +238,7 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 	string name_cn;
 	string sex;
 	string avatar_id;
+	string realm_type;
 	mapping result;
 	if(req->request_type!="POST"){
 		send_json(req,(["error":"请使用POST创建人物"]),405);
@@ -248,12 +256,21 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 	name_cn = (string)(params["name_cn"] || "");
 	sex = (string)(params["sex"] || "");
 	avatar_id = (string)(params["avatar_id"] || "");
+	realm_type = (string)(params["realm_type"] || "eternal");
 	if(String.trim_all_whites(name_cn)=="" || sex=="" || avatar_id==""){
 		send_json(req,(["error":"请完整选择人物姓名、性别和头像"]),400);
 		return;
 	}
-	result = ACCOUNT_CHARACTERD->create_character(account_id,
-		race_id,profession_id,name_cn,sex,avatar_id);
+	if(realm_type=="illusion")
+		result = SEASONALD->create_illusion_character(account_id,
+			race_id,profession_id,name_cn,sex,avatar_id);
+	else if(realm_type=="eternal")
+		result = ACCOUNT_CHARACTERD->create_character(account_id,
+			race_id,profession_id,name_cn,sex,avatar_id);
+	else{
+		send_json(req,(["error":"人物世界类型无效"]),400);
+		return;
+	}
 	if(!result["ok"]){
 		send_json(req,(["error":result["message"] || "创建人物失败"]),409);
 		return;

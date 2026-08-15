@@ -150,6 +150,7 @@ int main(string|zero arg)
 			s += "[玩家意见反馈管理:mgr_feedback]\n";
 			s += "[逻辑新区管理:mgr_logical_zone]\n";
 			s += "[地图Worker试运行管理:mgr_map_workers]\n";
+			s += "[新月幻境·S1管理:mgr_illusion_realm]\n";
 		}
 		//s+="测试购买空间[进入:user_package_buy_list]\n";
 		s += "[实时在线总数:game_deal manager_user_online allcount not not]\n";

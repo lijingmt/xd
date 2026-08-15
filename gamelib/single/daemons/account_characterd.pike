@@ -415,6 +415,50 @@ private int valid_userid(string userid)
 	return 1;
 }
 
+private int valid_illusion_id(string illusion_id)
+{
+	if(!illusion_id || sizeof(illusion_id)<2 || sizeof(illusion_id)>16)
+		return 0;
+	foreach(illusion_id;int index;int one){
+		if((one>='A' && one<='Z') || (one>='0' && one<='9') || one=='_')
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+private int valid_sha256_hex(string value)
+{
+	if(!value || sizeof(value)!=64)
+		return 0;
+	foreach(value;int index;int one){
+		if((one>='0' && one<='9') || (one>='a' && one<='f'))
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
+private int valid_illusion_entitlement(mixed raw)
+{
+	mapping entitlement;
+	if(!raw)
+		return 1;
+	if(!mappingp(raw))
+		return 0;
+	entitlement = raw;
+	if((int)entitlement["unlocked"]!=1 ||
+	   (int)entitlement["unlocked_at"]<=0)
+		return 0;
+	if(search(({"jade","admin","legacy","test"}),
+	   (string)entitlement["source"])==-1)
+		return 0;
+	if(entitlement["request_id"] &&
+	   !valid_sha256_hex((string)entitlement["request_id"]))
+		return 0;
+	return 1;
+}
+
 private int valid_bookmark_hex(string value)
 {
 	if(!value || sizeof(value)!=64)
@@ -608,7 +652,8 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 	multiset(string) seen = (<>);
 	multiset(int) seen_slots = (<>);
 	if(!mappingp(record) || record["account_id"]!=account_id ||
-	   !arrayp(record["characters"]))
+	   !arrayp(record["characters"]) ||
+	   !valid_illusion_entitlement(record["illusion_entitlement"]))
 		return 0;
 	characters = record["characters"];
 	if(sizeof(characters)<1 || sizeof(characters)>ACCOUNT_CHARACTER_LIMIT)
@@ -618,6 +663,9 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 		string character_id;
 		string desired_race;
 		string desired_profession;
+		string realm_type;
+		string illusion_id;
+		string illusion_state;
 		int slot;
 		if(!mappingp(raw))
 			return 0;
@@ -626,6 +674,9 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 		slot = (int)one["slot"];
 		desired_race = (string)(one["desired_race"] || "");
 		desired_profession = (string)(one["desired_profession"] || "");
+		realm_type = (string)(one["realm_type"] || "eternal");
+		illusion_id = (string)(one["illusion_id"] || "");
+		illusion_state = (string)(one["illusion_state"] || "");
 		if(!valid_userid(character_id) || seen[character_id] ||
 		   slot!=index+1 || seen_slots[slot])
 			return 0;
@@ -635,6 +686,22 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 		if((desired_race!="" || desired_profession!="") &&
 		   (!valid_professions[desired_race] ||
 		    search(valid_professions[desired_race],desired_profession)==-1))
+			return 0;
+		if(realm_type!="eternal" && realm_type!="illusion")
+			return 0;
+		if(realm_type=="illusion" &&
+		   (!valid_illusion_id(illusion_id) || illusion_state!="active" ||
+		    (int)one["illusion_joined_at"]<=0))
+			return 0;
+		if(realm_type=="eternal" && illusion_state!="" &&
+		   illusion_state!="returned")
+			return 0;
+		if(realm_type=="eternal" && illusion_state=="" &&
+		   illusion_id!="")
+			return 0;
+		if(illusion_state=="returned" &&
+		   (!valid_illusion_id(illusion_id) || (int)one["settled_at"]<=0 ||
+		    !valid_sha256_hex((string)one["settlement_receipt"])))
 			return 0;
 		seen[character_id] = 1;
 		seen_slots[slot] = 1;
@@ -662,11 +729,11 @@ private mapping(string:mixed)|zero decode_record_file(string path,
 }
 
 private mapping(string:mixed)|zero load_persisted_record_unlocked(
-	string account_id)
+	string account_id,void|int force_disk)
 {
 	string path = account_file_path(account_id);
 	mapping(string:mixed)|zero record;
-	if(account_cache[account_id])
+	if(!force_disk && account_cache[account_id])
 		return copy_value(account_cache[account_id]);
 	record = decode_record_file(path,account_id);
 	if(!record)
@@ -679,13 +746,14 @@ private mapping(string:mixed)|zero load_persisted_record_unlocked(
 	return 0;
 }
 
-private mapping(string:mixed)|zero load_record_unlocked(string account_id)
+private mapping(string:mixed)|zero load_record_unlocked(string account_id,
+	void|int force_disk)
 {
 	mapping(string:mixed)|zero record;
 	string path;
 	if(!valid_userid(account_id) || !user_file_exists(account_id))
 		return 0;
-	record = load_persisted_record_unlocked(account_id);
+	record = load_persisted_record_unlocked(account_id,force_disk);
 	if(record)
 		return record;
 	path = account_file_path(account_id);
@@ -826,6 +894,11 @@ private mapping(string:mixed) profile_summary_unlocked(
 		"online":player ? 1 : 0,
 		"is_default":character_id==account_id ? 1 : 0,
 		"created_at":(int)entry["created_at"],
+		"realm_type":(string)(entry["realm_type"] || "eternal"),
+		"illusion_id":(string)(entry["illusion_id"] || ""),
+		"illusion_state":(string)(entry["illusion_state"] || ""),
+		"illusion_joined_at":(int)entry["illusion_joined_at"],
+		"settled_at":(int)entry["settled_at"],
 	]);
 }
 
@@ -844,7 +917,9 @@ mapping(string:mixed) query_account_characters(string requested_id)
 	if(!valid_userid(account_id))
 		return result;
 	key = account_character_lock->lock();
-	record = load_record_unlocked(account_id);
+	// 账号中心在协调器、资格/结算可能在地图Worker。这里是低频管理
+	// 读取，必须绕过进程本地缓存看共享磁盘的最新世界身份。
+	record = load_record_unlocked(account_id,1);
 	if(record){
 		array summaries = ({});
 		foreach((array)record["characters"],mapping entry)
@@ -856,6 +931,10 @@ mapping(string:mixed) query_account_characters(string requested_id)
 			"characters":summaries,
 			"limit":ACCOUNT_CHARACTER_LIMIT,
 			"legacy_only":(int)record["legacy_only"],
+			"illusion_entitled":mappingp(record["illusion_entitlement"]) &&
+				(int)record["illusion_entitlement"]["unlocked"]==1,
+			"illusion_entitlement":mappingp(record["illusion_entitlement"]) ?
+				copy_value(record["illusion_entitlement"]) : ([]),
 		]);
 	}
 	destruct(key);
@@ -874,6 +953,190 @@ mapping(string:mixed) query_account_characters(string requested_id)
 		result["taiji_unlock_by_donation"] =
 			total_recharge_fee>=TAIJI_DONATION_UNLOCK_FEE;
 	}
+	return result;
+}
+
+mapping(string:mixed) query_character_realm(string character_id)
+{
+	mapping(string:mixed) result = ([
+		"ok":0,"realm_type":"eternal","illusion_id":"",
+		"illusion_state":"","security_blocked":0,
+	]);
+	string account_id = query_account_id_for_character(character_id);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(!valid_userid(account_id) || !valid_userid(character_id))
+		return result;
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id);
+	if(record){
+		foreach((array)record["characters"],mapping entry){
+			if((string)entry["id"]!=character_id)
+				continue;
+			result = ([
+				"ok":1,
+				"account_id":account_id,
+				"character_id":character_id,
+				"realm_type":(string)(entry["realm_type"] || "eternal"),
+				"illusion_id":(string)(entry["illusion_id"] || ""),
+				"illusion_state":(string)(entry["illusion_state"] || ""),
+				"illusion_joined_at":(int)entry["illusion_joined_at"],
+				"settled_at":(int)entry["settled_at"],
+			]);
+			break;
+		}
+	}
+	else{
+		string index_path = account_file_path(account_id);
+		// 账号索引存在却无法通过主/备份校验时不能把人物当作永恒服
+		// 旧账号。直接失败关闭，避免损坏索引让幻境人物绕过隔离。
+		if(index_path!="" &&
+		   (Stdio.file_size(index_path)>0 ||
+		    Stdio.file_size(index_path+".bak")>0))
+			result = ([
+				"ok":0,"account_id":account_id,
+				"character_id":character_id,"realm_type":"unavailable",
+				"illusion_id":"","illusion_state":"",
+				"security_blocked":1,
+			]);
+	}
+	destruct(key);
+	return result;
+}
+
+/** Rare lifecycle audit: scan immutable account indexes without loading users. */
+mapping(string:mixed) query_illusion_population(string illusion_id)
+{
+	mapping(string:mixed) result = ([
+		"ok":0,"illusion_id":illusion_id,"active":0,"returned":0,
+		"accounts":0,"corrupt_indexes":0,
+	]);
+	array(string) buckets;
+	if(!valid_illusion_id(illusion_id))
+		return result;
+	buckets = get_dir(ACCOUNT_CHARACTER_DIR) || ({});
+	foreach(buckets,string bucket){
+		string bucket_path = ACCOUNT_CHARACTER_DIR+"/"+bucket;
+		Stdio.Stat bucket_stat = file_stat(bucket_path);
+		if(!bucket_stat || !bucket_stat->isdir)
+			continue;
+		foreach(get_dir(bucket_path) || ({}),string filename){
+			string account_id;
+			mapping record;
+			if(!has_suffix(filename,".json"))
+				continue;
+			account_id = filename[..sizeof(filename)-6];
+			// wallet/pet/storage JSON 含点号，不能误算作人物索引。
+			if(!valid_userid(account_id))
+				continue;
+			record = decode_record_file(bucket_path+"/"+filename,
+				account_id) || decode_record_file(
+					bucket_path+"/"+filename+".bak",account_id);
+			if(!record){
+				result["corrupt_indexes"] =
+					(int)result["corrupt_indexes"]+1;
+				continue;
+			}
+			result["accounts"] = (int)result["accounts"]+1;
+			foreach((array)record["characters"],mapping entry){
+				if((string)entry["illusion_id"]!=illusion_id)
+					continue;
+				if((string)entry["realm_type"]=="illusion" &&
+				   (string)entry["illusion_state"]=="active")
+					result["active"] = (int)result["active"]+1;
+				else if((string)entry["realm_type"]=="eternal" &&
+				   (string)entry["illusion_state"]=="returned")
+					result["returned"] = (int)result["returned"]+1;
+			}
+		}
+	}
+	result["ok"] = (int)result["corrupt_indexes"]==0;
+	return result;
+}
+
+mapping(string:mixed) grant_illusion_entitlement(string requested_id,
+	string source,void|string request_id)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"幻境资格写入失败。"]);
+	string account_id = query_account_id_for_character(requested_id);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(!valid_userid(account_id) ||
+	   search(({"jade","admin","legacy","test"}),source)==-1 ||
+	   (request_id && !valid_sha256_hex((string)request_id)))
+		return result;
+	key = account_character_lock->lock();
+	// 资格可能由另一个Worker刚写入；持有网关账号锁时仍需绕过本地旧缓存。
+	record = load_record_unlocked(account_id,1);
+	if(record){
+		if(mappingp(record["illusion_entitlement"]) &&
+		   (int)record["illusion_entitlement"]["unlocked"]==1)
+			result = (["ok":1,"already":1,
+				"message":"账号已永久解锁幻境人物资格。",
+				"account_id":account_id,
+				"entitlement":copy_value(record["illusion_entitlement"])]);
+		else{
+			record["illusion_entitlement"] = ([
+				"unlocked":1,"unlocked_at":time(),"source":source,
+			]);
+			if(request_id)
+				record["illusion_entitlement"]["request_id"] = request_id;
+			if(save_record_unlocked(record))
+				result = (["ok":1,"already":0,
+					"message":"账号已永久解锁幻境人物资格。",
+					"account_id":account_id,
+					"entitlement":copy_value(
+						record["illusion_entitlement"])]);
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) settle_illusion_character(string character_id,
+	string illusion_id,string receipt_hash)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"幻境人物回归失败。"]);
+	string account_id = query_account_id_for_character(character_id);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(!valid_userid(account_id) || !valid_userid(character_id) ||
+	   !valid_illusion_id(illusion_id) || !receipt_hash ||
+	   !valid_sha256_hex(receipt_hash))
+		return result;
+	key = account_character_lock->lock();
+	// 回归是账号世界身份的唯一写入口，写前必须读取共享磁盘最新修订。
+	record = load_record_unlocked(account_id,1);
+	if(record){
+		foreach((array)record["characters"],mapping entry){
+			if((string)entry["id"]!=character_id)
+				continue;
+			if((string)(entry["realm_type"] || "eternal")=="eternal" &&
+			   (string)entry["illusion_id"]==illusion_id &&
+			   (string)entry["illusion_state"]=="returned"){
+				if((string)entry["settlement_receipt"]==receipt_hash)
+					result = (["ok":1,"already":1,
+						"message":"该幻境人物已经回归永恒服。"]);
+				else
+					result["message"] = "回归收据不匹配，已拒绝重复结算。";
+			}
+			else if((string)entry["realm_type"]=="illusion" &&
+			   (string)entry["illusion_id"]==illusion_id &&
+			   (string)entry["illusion_state"]=="active"){
+				entry["realm_type"] = "eternal";
+				entry["illusion_state"] = "returned";
+				entry["settled_at"] = time();
+				entry["settlement_receipt"] = receipt_hash;
+				if(save_record_unlocked(record))
+					result = (["ok":1,"already":0,
+						"message":"幻境人物已回归永恒服。"]);
+			}
+			break;
+		}
+	}
+	destruct(key);
 	return result;
 }
 
@@ -1188,7 +1451,8 @@ private int create_empty_character_unlocked(string account_id,
 
 mapping(string:mixed) create_character(string requested_id,
 	string race_id,string profession_id,void|string requested_name,
-	void|string requested_sex,void|string requested_avatar)
+	void|string requested_sex,void|string requested_avatar,
+	void|string requested_realm_type,void|string requested_illusion_id)
 {
 	mapping(string:mixed) result = ([
 		"ok":0,
@@ -1202,12 +1466,23 @@ mapping(string:mixed) create_character(string requested_id,
 	string profile_sex = (string)(requested_sex || "");
 	string profile_avatar = (string)(requested_avatar || "");
 	string reservation_token = "";
+	string realm_type = (string)(requested_realm_type || "eternal");
+	string illusion_id = (string)(requested_illusion_id || "");
 	string hidden_unlock_source = "";
 	int hidden_unlock_fee = 0;
 	int profile_requested = profile_name!="" || profile_sex!="" ||
 		profile_avatar!="";
 	int slot;
 	object key;
+	if(realm_type!="eternal" && realm_type!="illusion"){
+		result["message"] = "人物世界类型无效。";
+		return result;
+	}
+	if((realm_type=="illusion" && !valid_illusion_id(illusion_id)) ||
+	   (realm_type=="eternal" && illusion_id!="")){
+		result["message"] = "幻境编号无效。";
+		return result;
+	}
 	if(!valid_profession_pair(race_id,profession_id)){
 		result["message"] = "阵营与职业组合无效。";
 		return result;
@@ -1267,13 +1542,30 @@ mapping(string:mixed) create_character(string requested_id,
 		return result;
 	}
 	key = account_character_lock->lock();
-	record = load_record_unlocked(account_id);
+	// 建角由协调器处理，但资格可能刚由地图Worker写入。
+	record = load_record_unlocked(account_id,1);
 	if(!record)
 		result["message"] = "原账号人物档案不存在。";
 	else if(sizeof((array)record["characters"])>=ACCOUNT_CHARACTER_LIMIT)
 		result["message"] = "人物档案已达到"+
 			ACCOUNT_CHARACTER_LIMIT+"个上限。";
 	else{
+		if(realm_type=="illusion"){
+			if(!mappingp(record["illusion_entitlement"]) ||
+			   (int)record["illusion_entitlement"]["unlocked"]!=1){
+				result["message"] = "账号尚未永久解锁幻境人物资格。";
+				destruct(key);
+				return result;
+			}
+			foreach((array)record["characters"],mapping realm_entry){
+				if((string)realm_entry["illusion_id"]==illusion_id){
+					result["message"] = "该账号在"+illusion_id+
+						"已经创建过幻境人物。";
+					destruct(key);
+					return result;
+				}
+			}
+		}
 		int profession_limit = query_profession_account_limit(profession_id);
 		int profession_count = 0;
 		if(profession_limit>0){
@@ -1339,7 +1631,13 @@ mapping(string:mixed) create_character(string requested_id,
 							"created_at":time(),
 							"desired_race":race_id,
 							"desired_profession":profession_id,
+							"realm_type":realm_type,
 						]);
+						if(realm_type=="illusion"){
+							entry["illusion_id"] = illusion_id;
+							entry["illusion_state"] = "active";
+							entry["illusion_joined_at"] = time();
+						}
 						if((int)record["created_at"]<=0)
 							record["created_at"] = time();
 						record["characters"] += ({entry});

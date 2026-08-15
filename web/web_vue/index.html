@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786746448791">
-    <link rel="stylesheet" href="css/app.css?v=v1786746448791">
-    <link rel="stylesheet" href="css/realm.css?v=v1786746448791">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786759784466">
+    <link rel="stylesheet" href="css/app.css?v=v1786759784466">
+    <link rel="stylesheet" href="css/realm.css?v=v1786759784466">
 </head>
 <body>
     <div id="app">
@@ -427,7 +427,8 @@
                                 :class="{
                                     current: character.id === currentCharacterId,
                                     pending: !character.ready,
-                                    unavailable: character.available === 0
+									unavailable: character.available === 0,
+									illusion: character.realm_type === 'illusion'
                                 }"
                                 @click="selectAccountCharacter(character)"
                                 :disabled="characterLoading || character.available === 0">
@@ -438,6 +439,9 @@
                                 <strong>{{ character.name_cn }}</strong>
                                 <span>{{ character.race_name }} · {{ character.profession_name }}</span>
                                 <small>Lv.{{ character.level }} · 档案 {{ character.slot }}</small>
+								<small v-if="character.realm_type === 'illusion'" class="illusion-character-badge">
+									{{ character.illusion_id }} 幻境人物 · 期满原档案回归
+								</small>
                             </span>
                             <span class="character-card-state">
                                 {{ character.available === 0 ? '待恢复' : (character.id === currentCharacterId ? '当前' : (character.ready ? '进入' : '完成创建')) }}
@@ -476,6 +480,31 @@
                         <strong>创建有名字、有头像的新人物</strong>
                         <span>先选姓名、性别、职业和头像；创建后仍调用原职业流程发放初始技能、装备和新手物资。</span>
                     </div>
+					<div class="character-realm-choice" aria-label="选择人物世界">
+						<button type="button"
+								:class="{ selected: characterForm.realm_type === 'eternal' }"
+								@click="characterForm.realm_type = 'eternal'">
+							<strong>永恒服人物</strong>
+							<small>沿用现有世界、共享仓库与账号服务</small>
+						</button>
+						<button type="button"
+								class="illusion-realm-option"
+								:class="{ selected: characterForm.realm_type === 'illusion' }"
+								@click="characterForm.realm_type = 'illusion'"
+								:disabled="!illusionEntitled || !illusionRealmStatus.creation_open">
+							<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
+							<small v-if="illusionEntitled && illusionRealmStatus.creation_open">
+								独立起步，完成七章后携套装随原档案回归
+							</small>
+							<small v-else-if="!illusionEntitled">
+								未解锁永久资格；请先进入现有人物，从“幻境区”购买
+							</small>
+							<small v-else>当前阶段：{{ illusionRealmStatus.phase_name }}</small>
+						</button>
+					</div>
+					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
+						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；期间不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
+					</p>
                     <label class="character-name-field">
                         <span>人物姓名</span>
                         <input v-model.trim="characterForm.name_cn"
@@ -533,7 +562,7 @@
                                 class="btn btn-primary"
                                 @click="createAccountCharacter"
                                 :disabled="characterCreating || !characterForm.profession_id || !characterForm.name_cn.trim() || !characterForm.avatar_id">
-                            {{ characterCreating ? '创建中...' : '创建并进入' }}
+							{{ characterCreating ? '创建中...' : (characterForm.realm_type === 'illusion' ? '创建' + (illusionRealmStatus.illusion_id || 'S1') + '人物并进入' : '创建并进入') }}
                         </button>
                     </div>
                 </div>
@@ -1909,19 +1938,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786746448791"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786746448791"></script>
-    <script src="vendor/howler.core.min.js?v=v1786746448791"></script>
-    <script src="vendor/driver.iife.js?v=v1786746448791"></script>
-    <script src="../includes/game-number-format.js?v=v1786746448791" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786759784466"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786759784466"></script>
+    <script src="vendor/howler.core.min.js?v=v1786759784466"></script>
+    <script src="vendor/driver.iife.js?v=v1786759784466"></script>
+    <script src="../includes/game-number-format.js?v=v1786759784466" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786746448791';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786759784466';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786746448791"></script>
+    <script src="js/app.js?v=v1786759784466"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786746448791"></script>
+    <script src="../includes/translate.js?v=v1786759784466"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

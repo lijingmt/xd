@@ -98,6 +98,7 @@ private mapping(int:array(string)) item_list = ([]);
 // 新月套装使用独立稀有池。底版仍登记在 orgItems.list 供动态装备
 // 生成器复用，但绝不能混进对应等级的普通白装池。
 private array(string) newmoon_item_list = ({});
+private mapping(string:array(string)) newmoon_profession_templates = ([]);
 private int enabled_newmoon_collection_count = 6;
 private int newmoon_drop_denominator = 300000;
 private array(mapping(string:mixed)) newmoon_collection_catalog = ({
@@ -363,6 +364,34 @@ array(mapping(string:mixed)) query_newmoon_collection_catalog()
 int query_newmoon_equipment_template_count()
 {
 	return sizeof(newmoon_item_list);
+}
+
+/**
+ * 返回某职业十件“新月”底版的稳定路径。幻境任务只领取现有套装，
+ * 不另造一套数值公式；路径排序保证断线重试仍指向同一件奖励。
+ */
+array(string) query_newmoon_base_templates_for_profession(string profession_id)
+{
+	array(string) cached = newmoon_profession_templates[profession_id];
+	array(string) result = ({});
+	if(arrayp(cached) && sizeof(cached)==10)
+		return cached+({});
+	foreach(newmoon_item_list,string item_name){
+		object item;
+		mixed err = catch{ item=clone(ITEM_PATH+item_name); };
+		if(!err && item &&
+		   functionp(item->query_newmoon_resonance_profession) &&
+		   functionp(item->query_newmoon_collection_id) &&
+		   (string)item->query_newmoon_resonance_profession()==profession_id &&
+		   (string)item->query_newmoon_collection_id()=="newmoon")
+			result += ({item_name});
+		if(item)
+			destruct(item);
+	}
+	sort(result);
+	if(sizeof(result)==10)
+		newmoon_profession_templates[profession_id] = result+({});
+	return result;
 }
 
 mapping(string:mixed) query_newmoon_collection_for_roll(int npclevel,int roll)

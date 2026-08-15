@@ -34,6 +34,9 @@ string query_group_for_test(mapping(string:mixed) zone,string zone_id)
 
 string query_user_group(string user_id)
 {
+	string illusion_group = SEASONALD->query_character_group(user_id);
+	if(illusion_group!="")
+		return illusion_group;
 	string zone_id = query_user_zone_id(user_id);
 	if(zone_id=="")
 		return "legacy:main";

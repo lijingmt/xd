@@ -103,6 +103,10 @@ int move(mixed dest)
 	object new_env;
 	int old_was_fb = old_env &&
 		FBD->is_fb_room_path(file_name(old_env));
+	// 幻境世界边界先于活动与Worker路由。非法跨世界目标不能生成
+	// redirect/lease，否则会把本应拒绝的移动变成一次人物迁移。
+	if(SEASONALD->guard_player_move(this_object(),dest))
+		return 0;
 	// 玩法权限必须先于 worker 路由判断。否则一个本应被活动守卫
 	// 拒绝的目标，可能被误当成跨 worker 到达而绕过入口规则。
 	if(TIMED_EVENTD->guard_player_move(this_object(),dest))
@@ -138,6 +142,8 @@ int move(mixed dest)
 	if(moved && old_was_fb && old_env!=new_env &&
 	   (!new_env || !FBD->is_fb_room_path(file_name(new_env))))
 		FBD->detach_fb_member(this_object());
+	if(moved && new_env)
+		SEASONALD->record_room_visit(this_object(),new_env);
 	return moved;
 }
 
@@ -762,7 +768,7 @@ string query_extra_links(void|int count)
 			status += "(+"+me->query_buff("spec_attack_buff",1)+"%)";
 	}
 	string topten= "[排行榜:look_top]\t";
-	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[共享宠物:pet]|[本命灵伴:spirit_companion]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
+	string returnLinks="[刷新:look]"+topten+status+"\n[状态:myhp](生命"+this_player()->get_cur_life()+"/"+this_player()->query_life_max()+")\n[技能:myskills](法力"+this_player()->get_cur_mofa()+"/"+this_player()->query_mofa_max()+")\n[物品:inventory]|[地图:map_display]|[队伍:my_term]|[玉石:yushi_change]\n[任务:mytasks]|[共享宠物:pet]|[本命灵伴:spirit_companion]|[帮派:my_bang]|[江湖:my_games]\n[限时玩法:timed_event]|[幻境区:illusion_realm]|[传送:userlist]|[仙玉:yushi_myzone]|[设置:game_detail]|[会员:vip_service_list]|[url 首页:http://www.wapmud.com/gamehome/]\n";
 	if(env && FBD->is_fb_room_path(file_name(env)))
 		returnLinks = "【幻境安全通道】[紧急离开幻境:fb_leave]\n"+
 			returnLinks;

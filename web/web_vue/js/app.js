@@ -208,9 +208,21 @@ createApp({
             accountCharacterLimit: 10,
             accountSharedRechargeBalance: 0,
             accountSharedRechargeAvailable: true,
+			illusionEntitled: false,
+			illusionRealmStatus: {
+				ok: false,
+				illusion_id: 'S1',
+				display_name: '新月幻境·S1',
+				phase: 'disabled',
+				phase_name: '不可用',
+				creation_open: false,
+				entitlement_open: false,
+				entitlement_cost_suiyu: 0
+			},
             wuxiangUnlocked: false,
             taijiUnlocked: false,
             characterForm: {
+				realm_type: 'eternal',
                 race_id: '',
                 profession_id: '',
                 name_cn: '',
@@ -1604,6 +1616,12 @@ createApp({
             this.accountCharacterLimit = 10;
             this.accountSharedRechargeBalance = 0;
             this.accountSharedRechargeAvailable = true;
+			this.illusionEntitled = false;
+			this.illusionRealmStatus = {
+				ok: false, illusion_id: 'S1', display_name: '新月幻境·S1',
+				phase: 'disabled', phase_name: '不可用', creation_open: false,
+				entitlement_open: false, entitlement_cost_suiyu: 0
+			};
             this.characterCreateOpen = false;
             this.characterError = '';
         },
@@ -1684,6 +1702,11 @@ createApp({
             );
             this.accountSharedRechargeAvailable =
                 data.shared_recharge_available !== 0;
+			this.illusionEntitled = !!data.illusion_entitled;
+			if (data.illusion_realm && typeof data.illusion_realm === 'object') {
+				this.illusionRealmStatus = Object.assign({},
+					this.illusionRealmStatus, data.illusion_realm);
+			}
             this.wuxiangUnlocked = !!data.wuxiang_unlocked;
             this.taijiUnlocked = !!data.taiji_unlocked;
             if (data.token) {
@@ -1821,6 +1844,7 @@ createApp({
                 return;
             }
             this.characterForm.race_id = '';
+			this.characterForm.realm_type = 'eternal';
             this.characterForm.profession_id = '';
             this.characterForm.name_cn = '';
             this.characterForm.sex = 'male';
@@ -1888,6 +1912,7 @@ createApp({
             try {
                 const created = await this.postAccountApi('/api/account/characters/create', {
                     token: this.accountToken,
+				realm_type: this.characterForm.realm_type,
                     race_id: this.characterForm.race_id,
                     profession_id: this.characterForm.profession_id,
                     name_cn: String(this.characterForm.name_cn).trim(),
