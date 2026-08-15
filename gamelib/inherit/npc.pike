@@ -30,6 +30,25 @@ int can_receive_logical_reward(string owner_name,object player)
 		"team",owner_name,(string)player->query_name());
 }
 
+int query_team_shared_drop_difficulty(mapping map_term,string owner_name)
+{
+	int lowest=7;
+	int found;
+	if(!mappingp(map_term) || !environment(this_object()))
+		return 0;
+	foreach(indices(map_term),string userid){
+		object member=find_player(userid);
+		if(!member || environment(member)!=environment(this_object()) ||
+		   member->get_cur_life()<=0 ||
+		   !can_receive_logical_reward(owner_name,member))
+			continue;
+		lowest=min(lowest,PERSONAL_DIFFICULTYD->query_current_level(member));
+		found=1;
+	}
+	// 混合难度队伍共享掉落按最低档，杜绝基础档借高难成员抬高奖励。
+	return found ? lowest : 0;
+}
+
 /** 单人和组队共用同一套打怪经验发放与提示。 */
 int grant_kill_experience(object player,int base_exp,void|int team_count,
 	void|int team_pool_percent)
@@ -82,6 +101,8 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 	// 不触碰任何伤害、经验或掉落公式。
 	if(actual_exp>0)
 		SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
+	if(actual_exp>0)
+		PERSONAL_DIFFICULTYD->record_npc_kill(player,this_object());
 	player->query_if_levelup();
 	if(player->query_levelFlag())
 		message += "你的等级提升到了 "+(string)player->query_level()+" 级！\n";
@@ -709,7 +730,10 @@ void fight_die()
 				pro_add = 3000;  //新手村的怪，有一定的幸运加成  
 			//end of evan add 2008-04-24
 			
-			object ob = ITEMSD->get_item(this_object()->query_level(), 0, pro_add);
+			int shared_difficulty=query_team_shared_drop_difficulty(
+				map_term,logical_drop_owner);
+			object ob = ITEMSD->get_item(this_object()->query_level(),0,
+				pro_add,shared_difficulty);
 			//掉落特殊物品
 			object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), 0, pro_add);
 			//掉落宝石 added by caijie 080807
@@ -1031,7 +1055,9 @@ void fight_die_single(object env)
 		if(room_type && room_type == "rookie")
 			pro_add = 3000; //新手村的怪，都有一定的幸运加成。
 		//end of evan added 2008-04-24
-		object ob = ITEMSD->get_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
+		object ob = ITEMSD->get_item(this_object()->query_level(),
+			first->query_level(),first->query_lunck()+pro_add,
+			PERSONAL_DIFFICULTYD->query_current_level(first));
 		//掉落特殊物品
 		object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
 		//掉落宝石 caijie 080807

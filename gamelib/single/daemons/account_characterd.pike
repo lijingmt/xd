@@ -22,6 +22,8 @@ inherit LOW_DAEMON;
 #define ACCOUNT_CHARACTER_BOOKMARK_PER_CHARACTER_LIMIT 8
 #define WUXIANG_DONATION_UNLOCK_FEE 3000
 #define TAIJI_DONATION_UNLOCK_FEE 10000
+#define ILLUSION_EXTRA_SLOT_COST 100
+#define ILLUSION_MULTI_UNLOCK_COST 500
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
@@ -442,6 +444,10 @@ private int valid_sha256_hex(string value)
 private int valid_illusion_entitlement(mixed raw)
 {
 	mapping entitlement;
+	int expansion_spent;
+	int character_slots;
+	int multi_unlocked;
+	array expansion_requests;
 	if(!raw)
 		return 1;
 	if(!mappingp(raw))
@@ -456,6 +462,29 @@ private int valid_illusion_entitlement(mixed raw)
 	if(entitlement["request_id"] &&
 	   !valid_sha256_hex((string)entitlement["request_id"]))
 		return 0;
+	expansion_spent = (int)(entitlement["expansion_spent_suiyu"] || 0);
+	character_slots = (int)(entitlement["character_slots"] || 1);
+	multi_unlocked = (int)(entitlement["multi_character_unlocked"] || 0);
+	expansion_requests = arrayp(entitlement["expansion_requests"]) ?
+		(array)entitlement["expansion_requests"] : ({});
+	if(expansion_spent<0 || expansion_spent>ILLUSION_MULTI_UNLOCK_COST ||
+	   expansion_spent%ILLUSION_EXTRA_SLOT_COST!=0 ||
+	   character_slots<1 || character_slots>6 ||
+	   (multi_unlocked!=0 && multi_unlocked!=1) ||
+	   (multi_unlocked && expansion_spent!=ILLUSION_MULTI_UNLOCK_COST) ||
+	   (!multi_unlocked && character_slots!=
+		1+expansion_spent/ILLUSION_EXTRA_SLOT_COST) ||
+	   (multi_unlocked && character_slots!=6) ||
+	   sizeof(expansion_requests)>5 ||
+	   (expansion_spent>0 && (int)entitlement["expansion_updated_at"]<=0))
+		return 0;
+	multiset(string) seen_requests = (<>);
+	foreach(expansion_requests,mixed raw_request){
+		string one_request = (string)raw_request;
+		if(!valid_sha256_hex(one_request) || seen_requests[one_request])
+			return 0;
+		seen_requests[one_request] = 1;
+	}
 	return 1;
 }
 
@@ -935,7 +964,22 @@ mapping(string:mixed) query_account_characters(string requested_id)
 				(int)record["illusion_entitlement"]["unlocked"]==1,
 			"illusion_entitlement":mappingp(record["illusion_entitlement"]) ?
 				copy_value(record["illusion_entitlement"]) : ([]),
+			"illusion_character_slots":mappingp(record["illusion_entitlement"]) ?
+				(int)(record["illusion_entitlement"]["character_slots"] || 1) : 1,
+			"illusion_multi_character_unlocked":
+				mappingp(record["illusion_entitlement"]) ?
+				(int)(record["illusion_entitlement"]
+					["multi_character_unlocked"] || 0) : 0,
+			"illusion_expansion_spent_suiyu":
+				mappingp(record["illusion_entitlement"]) ?
+				(int)(record["illusion_entitlement"]
+					["expansion_spent_suiyu"] || 0) : 0,
+			"illusion_extra_slot_cost_suiyu":ILLUSION_EXTRA_SLOT_COST,
+			"illusion_multi_unlock_cost_suiyu":ILLUSION_MULTI_UNLOCK_COST,
 		]);
+		result["illusion_expansion_remaining_suiyu"] =
+			ILLUSION_MULTI_UNLOCK_COST-
+			(int)result["illusion_expansion_spent_suiyu"];
 	}
 	destruct(key);
 	if((int)result["ok"]==1){
@@ -1079,6 +1123,8 @@ mapping(string:mixed) grant_illusion_entitlement(string requested_id,
 		else{
 			record["illusion_entitlement"] = ([
 				"unlocked":1,"unlocked_at":time(),"source":source,
+				"character_slots":1,"multi_character_unlocked":0,
+				"expansion_spent_suiyu":0,"expansion_requests":({}),
 			]);
 			if(request_id)
 				record["illusion_entitlement"]["request_id"] = request_id;
@@ -1090,6 +1136,95 @@ mapping(string:mixed) grant_illusion_entitlement(string requested_id,
 						record["illusion_entitlement"])]);
 		}
 	}
+	destruct(key);
+	return result;
+}
+
+/**
+ * Atomically grant one paid S1 character-slot expansion or the cumulative
+ * multi-character unlock. The caller must charge exactly the returned policy
+ * price before calling this function. Request ids make crash recovery and
+ * cross-Worker retries idempotent.
+ */
+mapping(string:mixed) grant_illusion_character_expansion(string requested_id,
+	string option,string request_id,int paid_amount)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"幻境人物栏位写入失败。"]);
+	string account_id = query_account_id_for_character(requested_id);
+	mapping(string:mixed)|zero record;
+	mapping entitlement;
+	array requests;
+	int spent;
+	int expected;
+	object key;
+	if(!valid_userid(account_id) ||
+	   search(({"one","all"}),option)==-1 ||
+	   !valid_sha256_hex(request_id) || paid_amount<=0)
+		return result;
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id,1);
+	if(!record || !mappingp(record["illusion_entitlement"]) ||
+	   (int)record["illusion_entitlement"]["unlocked"]!=1){
+		result["message"] = "账号尚未激活幻境人物资格。";
+		destruct(key);
+		return result;
+	}
+	entitlement = record["illusion_entitlement"];
+	requests = arrayp(entitlement["expansion_requests"]) ?
+		(array)entitlement["expansion_requests"] : ({});
+	if(search(requests,request_id)!=-1){
+		result = (["ok":1,"already":1,"same_request":1,
+			"message":"本次幻境人物栏位已成功写入。",
+			"account_id":account_id,
+			"entitlement":copy_value(entitlement)]);
+		destruct(key);
+		return result;
+	}
+	if((int)entitlement["multi_character_unlocked"]==1){
+		result = (["ok":1,"already":1,"same_request":0,
+			"message":"账号已永久解锁幻境多人物。",
+			"account_id":account_id,
+			"entitlement":copy_value(entitlement)]);
+		destruct(key);
+		return result;
+	}
+	spent = (int)(entitlement["expansion_spent_suiyu"] || 0);
+	expected = option=="one" ? ILLUSION_EXTRA_SLOT_COST :
+		ILLUSION_MULTI_UNLOCK_COST-spent;
+	if(spent<0 || spent>=ILLUSION_MULTI_UNLOCK_COST ||
+	   spent%ILLUSION_EXTRA_SLOT_COST!=0 || paid_amount!=expected){
+		result["message"] = "幻境人物栏位价格或累计抵扣状态已变化。";
+		result["expected_cost_suiyu"] = expected;
+		destruct(key);
+		return result;
+	}
+	spent += paid_amount;
+	if(spent>ILLUSION_MULTI_UNLOCK_COST){
+		result["message"] = "幻境人物栏位累计金额超出安全上限。";
+		destruct(key);
+		return result;
+	}
+	entitlement["expansion_spent_suiyu"] = spent;
+	entitlement["expansion_updated_at"] = time();
+	entitlement["expansion_requests"] = requests+({request_id});
+	if(spent==ILLUSION_MULTI_UNLOCK_COST){
+		entitlement["multi_character_unlocked"] = 1;
+		entitlement["character_slots"] = 6;
+	}
+	else{
+		entitlement["multi_character_unlocked"] = 0;
+		entitlement["character_slots"] =
+			1+spent/ILLUSION_EXTRA_SLOT_COST;
+	}
+	if(save_record_unlocked(record))
+		result = (["ok":1,"already":0,"same_request":0,
+			"message":spent==ILLUSION_MULTI_UNLOCK_COST ?
+				"已永久解锁幻境多人物。" :
+				"已永久增加1个幻境人物栏位。",
+			"account_id":account_id,
+			"charged_suiyu":paid_amount,
+			"entitlement":copy_value(entitlement)]);
 	destruct(key);
 	return result;
 }
@@ -1557,13 +1692,22 @@ mapping(string:mixed) create_character(string requested_id,
 				destruct(key);
 				return result;
 			}
-			foreach((array)record["characters"],mapping realm_entry){
-				if((string)realm_entry["illusion_id"]==illusion_id){
-					result["message"] = "该账号在"+illusion_id+
-						"已经创建过幻境人物。";
-					destruct(key);
-					return result;
-				}
+			mapping entitlement = record["illusion_entitlement"];
+			int multi_unlocked =
+				(int)(entitlement["multi_character_unlocked"] || 0);
+			int illusion_capacity = multi_unlocked ? ACCOUNT_CHARACTER_LIMIT :
+				(int)(entitlement["character_slots"] || 1);
+			int illusion_count = 0;
+			foreach((array)record["characters"],mapping existing_entry)
+				if((string)existing_entry["illusion_id"]==illusion_id)
+					illusion_count++;
+			if(illusion_capacity<1 || illusion_capacity>ACCOUNT_CHARACTER_LIMIT ||
+			   illusion_count>=illusion_capacity){
+				result["message"] = "本期幻境人物栏位已用完（"+
+					illusion_count+"/"+illusion_capacity+
+					"）；可在‘幻境区’用100碎玉永久加1格，或补足累计500碎玉永久解锁多人物。";
+				destruct(key);
+				return result;
 			}
 		}
 		int profession_limit = query_profession_account_limit(profession_id);

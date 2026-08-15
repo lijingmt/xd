@@ -129,6 +129,8 @@ private void show_vip_plan(object me)
 	out = "【自动挂机·VIP权益总览】\n";
 	out += "当前等级："+vip_label(vip_level)+"\n";
 	out += "原则：核心挂机免费，VIP提升时长和清包效率；高等级包含低等级全部权益。\n\n";
+	out += "当前个人难度："+PERSONAL_DIFFICULTYD->query_current_name(me)+
+		"；难度越高，VIP挂机额度按比例缩短，基础档权益表如下。\n";
 	out += "普通玩家：每日8小时；自动战斗、智能寻路、补血补法、缺药休整、拾取、区域巡游、采药采矿及原料出售均可用。\n";
 	out += vip_label(1)+"：每日10小时；背包满时一次卖完符合规则的普通白装；非装备90％触发自动存仓／销毁，每次1组，处理药材和矿材。\n";
 	out += vip_label(2)+"：每日12小时；可处理优良装备，装备90％触发并一次清完，可设低3级保护；非装备85％触发每次2组，可自选处理类别。\n";
@@ -491,12 +493,13 @@ private void show_settings(object me, string notice)
 	out += "今日剩余："+format_time(time_left)+"\n";
 	out += "每日额度："+format_time(daily_seconds);
 	if(vip_level > 0)
-		out += "（"+vip_label(vip_level)+"，每级增加2小时）\n";
+		out += "（"+vip_label(vip_level)+"；个人难度："+
+			PERSONAL_DIFFICULTYD->query_current_name(me)+"）\n";
 	else
-		out += "（普通玩家；VIP每级增加2小时，"+
-			vip_label(VIP_MAX_LEVEL)+"最高"+
-			(AUTOFIGHTD->query_daily_seconds()/3600+
-			 VIP_MAX_LEVEL*2)+"小时）\n";
+		out += "（普通玩家；基础档VIP每级增加2小时，当前难度同比缩减）\n";
+	out += "难度挂机上限："+
+		PERSONAL_DIFFICULTYD->query_afk_cap_hours(me)+
+		"小时（VIP8在本难度的绝对上限） [查看/切换:personal_difficulty]\n";
 	if(time_left <= 0){
 		out += "额度提示："+
 			AUTOFIGHTD->query_quota_exhausted_message(me)+"。\n";

@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786759784466">
-    <link rel="stylesheet" href="css/app.css?v=v1786759784466">
-    <link rel="stylesheet" href="css/realm.css?v=v1786759784466">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786797814848">
+    <link rel="stylesheet" href="css/app.css?v=v1786797814848">
+    <link rel="stylesheet" href="css/realm.css?v=v1786797814848">
 </head>
 <body>
     <div id="app">
@@ -488,22 +488,25 @@
 							<small>沿用现有世界、共享仓库与账号服务</small>
 						</button>
 						<button type="button"
-								class="illusion-realm-option"
-								:class="{ selected: characterForm.realm_type === 'illusion' }"
-								@click="characterForm.realm_type = 'illusion'"
-								:disabled="!illusionEntitled || !illusionRealmStatus.creation_open">
-							<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
-							<small v-if="illusionEntitled && illusionRealmStatus.creation_open">
-								独立起步，完成七章后携套装随原档案回归
+									class="illusion-realm-option"
+									:class="{ selected: characterForm.realm_type === 'illusion' }"
+									@click="characterForm.realm_type = 'illusion'"
+									:disabled="!illusionEntitled || !illusionRealmStatus.creation_open || illusionCharacterCapacityReached">
+								<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
+								<small v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached">
+									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }}；进入已有角色的“幻境区”可选择100碎玉加1格，或补足累计500碎玉解锁多人物
+								</small>
+								<small v-else-if="illusionEntitled && illusionRealmStatus.creation_open">
+									首名免费；完成七章后携十件套装随原档案回归
 							</small>
 							<small v-else-if="!illusionEntitled">
-								未解锁永久资格；请先进入现有人物，从“幻境区”购买
+								未激活永久资格；请先进入现有人物，从“幻境区”免费激活
 							</small>
 							<small v-else>当前阶段：{{ illusionRealmStatus.phase_name }}</small>
 						</button>
 					</div>
 					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
-						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；期间不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
+						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；本期不开放家园，也不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
 					</p>
                     <label class="character-name-field">
                         <span>人物姓名</span>
@@ -1938,19 +1941,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786759784466"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786759784466"></script>
-    <script src="vendor/howler.core.min.js?v=v1786759784466"></script>
-    <script src="vendor/driver.iife.js?v=v1786759784466"></script>
-    <script src="../includes/game-number-format.js?v=v1786759784466" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786797814848"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786797814848"></script>
+    <script src="vendor/howler.core.min.js?v=v1786797814848"></script>
+    <script src="vendor/driver.iife.js?v=v1786797814848"></script>
+    <script src="../includes/game-number-format.js?v=v1786797814848" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786759784466';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786797814848';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786759784466"></script>
+    <script src="js/app.js?v=v1786797814848"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786759784466"></script>
+    <script src="../includes/translate.js?v=v1786797814848"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

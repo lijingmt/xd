@@ -60,6 +60,15 @@ private mapping(string:mapping(string:mixed)) worker_nodes = ([]);
 private mapping(string:mapping(string:mixed)) affinity_assignments = ([]);
 private mapping(string:int) affinity_room_weights = ([]);
 private mapping(string:int) affinity_heat_scores = ([]);
+private mapping(string:string) illusion_s1_room_groups = ([
+	"moon_gate":"hub",
+	"silver_path":"silver","fog_forest":"silver",
+	"mirror_lake":"silver",
+	"broken_observatory":"ruins","echo_ruins":"ruins",
+	"star_bridge":"ruins",
+	"abyss_garden":"depths","moon_palace":"depths",
+	"newmoon_altar":"depths","hidden_crater":"depths",
+]);
 private multiset(string) catalog_rebalance_pending = (<>);
 private int placement_generation;
 private int placement_topology_worker_count;
@@ -1155,7 +1164,25 @@ private string strip_room_root(string room_path)
 }
 
 /**
- * Static rooms use their top-level map directory as an affinity group.
+ * S1 is one logical world, but it must not be one process-sized hotspot.
+ * Shared rooms stay exact-affinity singletons while connected field chapters
+ * form a few stable placement units.  The coordinator may place those units
+ * on any healthy worker; no worker is permanently reserved for one realm.
+ */
+private string illusion_s1_affinity(array(string) parts)
+{
+	string room_name;
+	if(sizeof(parts)<2)
+		return "illusion_s1:frontier";
+	room_name = (parts[1]/".")[0];
+	return "illusion_s1:"+
+		(illusion_s1_room_groups[room_name] || "frontier");
+}
+
+/**
+ * Static rooms normally use their top-level map directory as an affinity
+ * group. S1 is deliberately split into stable chapter groups so one popular
+ * season can use multiple workers without ever cloning one shared room.
  * Dynamic dungeons/events may supply an instance key so separate instances
  * can be spread without splitting one shared room. All homes intentionally
  * share one affinity because HOMED owns one global marketplace/property
@@ -1176,6 +1203,8 @@ string query_affinity_key(string room_path,void|string instance_key)
 	block = normalize_token(parts[0],64);
 	if(block=="")
 		return "";
+	if(block=="illusion_s1")
+		return illusion_s1_affinity(parts);
 	// 传统 FBD 幻境的实际目录并不以 fb_ 命名。统一折叠到虚拟
 	// block，并由服务端 team/fb_name 实例键分片，确保同一队伍的
 	// 克隆房只存在于一个 Worker，不复制怪物与奖励。
@@ -3252,6 +3281,21 @@ private void load_room_catalog()
 		if(normalized=="" || !Stdio.is_dir(ROOT+"/gamelib/d/"+block))
 			continue;
 		files = get_dir(ROOT+"/gamelib/d/"+block);
+		// S1 has several stable placement groups rather than one top-level
+		// affinity. Register every group with its real static-room weight so
+		// cold-start bin packing and later heat observations can balance it.
+		if(normalized=="illusion_s1" && arrayp(files)){
+			foreach(files,string one){
+				string affinity;
+				if(!Stdio.is_file(ROOT+"/gamelib/d/"+block+"/"+one))
+					continue;
+				affinity = query_affinity_key(
+					"/gamelib/d/"+block+"/"+one,"");
+				if(affinity!="")
+					affinity_room_weights[affinity]++;
+			}
+			continue;
+		}
 		if(arrayp(files)){
 			foreach(files,string one)
 				if(Stdio.is_file(ROOT+"/gamelib/d/"+block+"/"+one))

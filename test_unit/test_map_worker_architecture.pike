@@ -127,6 +127,28 @@ int main()
 			daemon->query_affinity_key("../../etc/passwd","")=="",
 			"静态房间被拆分、实例未分片或路径穿越未拒绝");
 
+		check("S1公共营地固定且野外章节可分散到多个worker",
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/moon_gate.pike","")==
+				"illusion_s1:hub" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/silver_path.pike","")==
+				"illusion_s1:silver" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/fog_forest.pike","")==
+				daemon->query_affinity_key(
+					"/gamelib/d/illusion_s1/mirror_lake.pike","") &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/broken_observatory.pike","")==
+				"illusion_s1:ruins" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/newmoon_altar.pike","")==
+				"illusion_s1:depths" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/future_room.pike","")==
+				"illusion_s1:frontier",
+			"S1仍可能整区挤在一个worker，或同房间映射不稳定");
+
 		check("传统幻境静态入口与克隆房按同一队伍实例汇聚唯一worker",
 			daemon->query_affinity_key(
 				"/gamelib/d/fb_runtime/ingress.pike",
@@ -297,11 +319,17 @@ int main()
 			"总handoff数无法区分正常历史记录与卡住的prepared迁移");
 		mapping(string:int) counts = ([]);
 		mapping(string:int) weights = ([]);
+		multiset(string) s1_workers = (<>);
+		int s1_group_count;
 		int largest_affinity_weight;
 		int heat_shape_valid = 1;
 		string known_static_affinity = "";
 		foreach((array)status["placements"],mapping one){
 			string owner = (string)one["worker_id"];
+			if(has_prefix((string)one["affinity"],"illusion_s1:")){
+				s1_group_count++;
+				s1_workers[owner] = 1;
+			}
 			if(has_value(worker_ids,owner)){
 				counts[owner]++;
 				weights[owner] += (int)one["weight"];
@@ -320,6 +348,10 @@ int main()
 				valid = 0;
 		check("约2693个房间按目录权重分布到3个worker",
 			valid,"冷启动目录未覆盖所有worker或地图目录缺失");
+		check("S1四个章节亲和组在冷启动时实际使用多个worker",
+			s1_group_count==4 && sizeof(s1_workers)>=2,
+			sprintf("groups=%d workers=%O",s1_group_count,
+				indices(s1_workers)));
 		array(int) worker_weights = values(weights);
 		int lightest_worker_weight = sizeof(worker_weights) ?
 			worker_weights[0] : 0;

@@ -3,6 +3,8 @@
 #ifndef XIAND_PET_PERSISTENCE_PIKE
 #define XIAND_PET_PERSISTENCE_PIKE
 
+private mapping(string:string) pet_cache_file_signatures = ([]);
+
 private int valid_pet_userid(string value)
 {
 	if(!value || sizeof(value)<2 || sizeof(value)>64 ||
@@ -485,14 +487,32 @@ private int valid_pet_record(mapping record,string account_id)
 	return 1;
 }
 
+private string pet_file_signature(string path)
+{
+	object stat;
+	if(path=="")
+		return "";
+	stat=file_stat(path);
+	if(!stat || !stat->isreg || stat->size<=0)
+		return "";
+	// 每次保存都以唯一临时文件 rename 到正式路径，inode 与
+	// 纳秒时间能让其他 Worker 立即识别新版本，不依赖秒级 mtime。
+	return stat->dev+":"+stat->ino+":"+stat->size+":"+
+		stat->mtime+":"+stat->mtime_nsec;
+}
+
 private void cache_pet_record_unlocked(string account_id,mapping record)
 {
 	if(!pet_cache[account_id] && sizeof(pet_cache)>=PET_CACHE_MAX){
 		array(string) account_ids = indices(pet_cache);
-		if(sizeof(account_ids))
+		if(sizeof(account_ids)){
+			m_delete(pet_cache_file_signatures,account_ids[0]);
 			m_delete(pet_cache,account_ids[0]);
+		}
 	}
 	pet_cache[account_id] = copy_value(record);
+	pet_cache_file_signatures[account_id] =
+		pet_file_signature(pet_file_path(account_id));
 }
 
 private mapping(string:mixed)|zero decode_pet_file(string path,
@@ -514,6 +534,7 @@ private mapping(string:mixed)|zero decode_pet_file(string path,
 	if(!decoded || !valid_pet_record((mapping)decoded,account_id))
 		return 0;
 	decoded["persisted"] = 1;
+	decoded["persisted_revision"] = (int)decoded["revision"];
 	return decoded;
 }
 
@@ -522,6 +543,12 @@ private mapping(string:mixed)|zero load_pet_record_unlocked(
 {
 	string path = pet_file_path(account_id);
 	mapping(string:mixed)|zero record;
+	string current_signature=pet_file_signature(path);
+	if(pet_cache[account_id] &&
+	   (string)pet_cache_file_signatures[account_id]!=current_signature){
+		m_delete(pet_cache,account_id);
+		m_delete(pet_cache_file_signatures,account_id);
+	}
 	if(pet_cache[account_id])
 		return copy_value(pet_cache[account_id]);
 	record = decode_pet_file(path,account_id);
@@ -554,16 +581,52 @@ private void prune_pet_reward_sessions(mapping record)
 	}
 }
 
+private mapping(string:object)|zero acquire_pet_file_lock(string account_id)
+{
+	string path=pet_file_path(account_id);
+	object file;
+	object file_key;
+	mixed lock_error;
+	if(path=="")
+		return 0;
+	Stdio.mkdirhier(dirname(path));
+	file=Stdio.File();
+	if(!file->open(path+".lock","wca"))
+		return 0;
+	lock_error=catch{ file_key=file->lock(); };
+	if(lock_error || !file_key){
+		file->close();
+		return 0;
+	}
+	return (["file":file,"key":file_key]);
+}
+
+private void release_pet_file_lock(mapping(string:object)|zero lock_data)
+{
+	if(!lock_data)
+		return;
+	if(lock_data["key"])
+		destruct(lock_data["key"]);
+	if(lock_data["file"])
+		lock_data["file"]->close();
+}
+
 private int save_pet_record_unlocked(mapping(string:mixed) record)
 {
 	string account_id = (string)record["account_id"];
 	string path = pet_file_path(account_id);
 	string dir = dirname(path);
-	string temp_path = path+".tmp";
-	string backup_temp = path+".bak.tmp";
+	string temporary_suffix = ".tmp."+
+		String.string2hex(Crypto.Random.random_string(8));
+	string temp_path = path+temporary_suffix;
+	string backup_temp = path+".bak"+temporary_suffix;
 	string encoded;
 	mapping disk_record;
+	mapping current_record;
+	mapping(string:object)|zero file_lock;
+	int expected_revision=(int)(record["persisted_revision"] || 0);
 	int live_size;
+	int revision_conflict;
 	int ok = 0;
 	mixed err;
 	if(path=="")
@@ -575,6 +638,7 @@ private int save_pet_record_unlocked(mapping(string:mixed) record)
 	}
 	disk_record = copy_value(record);
 	m_delete(disk_record,"persisted");
+	m_delete(disk_record,"persisted_revision");
 	m_delete(disk_record,"migration_pending");
 	disk_record["version"] = PET_RECORD_VERSION;
 	disk_record["updated_at"] = time();
@@ -583,13 +647,28 @@ private int save_pet_record_unlocked(mapping(string:mixed) record)
 	encoded = Standards.JSON.encode(disk_record);
 	mkdir(DATA_ROOT+"accounts");
 	mkdir(dir);
+	file_lock=acquire_pet_file_lock(account_id);
+	if(!file_lock){
+		werror("[PETD][SAVE_LOCK_FAILED] account=%s revision=%d\n",
+			account_id,(int)record["revision"]);
+		return 0;
+	}
 	err = catch{
 		rm(temp_path);
 		rm(backup_temp);
-		if(Stdio.write_file(temp_path,encoded)>0 &&
+		live_size = Stdio.file_size(path);
+		if(live_size>0){
+			current_record=decode_pet_file(path,account_id);
+			if(current_record &&
+			   (int)current_record["revision"]!=expected_revision)
+				revision_conflict=1;
+		}
+		else if(expected_revision!=0)
+			revision_conflict=1;
+		if(!revision_conflict &&
+		   Stdio.write_file(temp_path,encoded)>0 &&
 		   Stdio.file_size(temp_path)==sizeof(encoded)){
-			live_size = Stdio.file_size(path);
-			if(live_size>0 && decode_pet_file(path,account_id)){
+			if(live_size>0 && current_record){
 				Stdio.cp(path,backup_temp);
 				if(Stdio.file_size(backup_temp)==live_size &&
 				   mv(backup_temp,path+".bak") && mv(temp_path,path))
@@ -599,14 +678,33 @@ private int save_pet_record_unlocked(mapping(string:mixed) record)
 				ok = Stdio.file_size(path)==sizeof(encoded);
 		}
 	};
+	release_pet_file_lock(file_lock);
+	if(revision_conflict){
+		m_delete(pet_cache,account_id);
+		m_delete(pet_cache_file_signatures,account_id);
+		werror("[PETD][SAVE_REVISION_CONFLICT] account=%s expected=%d current=%d proposed=%d\n",
+			account_id,expected_revision,
+			current_record ? (int)current_record["revision"] : -1,
+			(int)record["revision"]);
+	}
 	if(err)
-		werror("[PETD] 账号万灵谱保存异常: %s\n",describe_error(err));
+		werror("[PETD][SAVE_EXCEPTION] account=%s revision=%d error=%s\n",
+			account_id,(int)record["revision"],describe_error(err));
 	if(!ok){
 		rm(temp_path);
 		rm(backup_temp);
+		werror("[PETD][SAVE_FAILED] account=%s revision=%d pending=%d rewarded=%d pets=%d gear=%d weekly=%d pity=%d\n",
+			account_id,(int)record["revision"],
+			sizeof((mapping)record["pending_rift_rewards"]),
+			sizeof((mapping)record["rewarded_sessions"]),
+			sizeof((array)record["pets"]),
+			sizeof((array)record["gear_inventory"]),
+			(int)record["weekly"]["rift_wins"],
+			(int)record["rift_pity"]);
 		return 0;
 	}
 	record["persisted"] = 1;
+	record["persisted_revision"] = (int)record["revision"];
 	m_delete(record,"migration_pending");
 	record["updated_at"] = disk_record["updated_at"];
 	record["created_at"] = disk_record["created_at"];
@@ -734,6 +832,7 @@ void invalidate_worker_account_cache(string account_id)
 		return;
 	object key = pet_lock->lock();
 	m_delete(pet_cache,account_id);
+	m_delete(pet_cache_file_signatures,account_id);
 	destruct(key);
 }
 
@@ -743,7 +842,42 @@ void drop_test_pet_cache(string account_id)
 		return;
 	object key = pet_lock->lock();
 	m_delete(pet_cache,account_id);
+	m_delete(pet_cache_file_signatures,account_id);
 	destruct(key);
+}
+
+mapping(string:int) test_pet_revision_conflict_guard(string account_id)
+{
+	mapping(string:int) result=(["first_saved":0,"stale_rejected":0,
+		"spirit_mark":-1,"spirit_dew":-1,"revision":-1]);
+	mapping(string:mixed)|zero first;
+	mapping(string:mixed)|zero stale;
+	mapping(string:mixed)|zero final_record;
+	object key;
+	if(search(account_id,"testunit")==-1 || !valid_pet_userid(account_id) ||
+	   Stdio.file_size(pet_file_path(account_id))>0)
+		return result;
+	key=pet_lock->lock();
+	first=load_pet_record_unlocked(account_id);
+	if(first){
+		stale=copy_value(first);
+		add_pet_material_unlocked(first,"spirit_mark",1);
+		first["revision"]=(int)first["revision"]+1;
+		result["first_saved"]=save_pet_record_unlocked(first);
+		if(result["first_saved"] && stale){
+			add_pet_material_unlocked(stale,"spirit_dew",1);
+			stale["revision"]=(int)stale["revision"]+1;
+			result["stale_rejected"]=!save_pet_record_unlocked(stale);
+			final_record=load_pet_record_unlocked(account_id);
+		}
+	}
+	if(final_record){
+		result["spirit_mark"]=(int)final_record["materials"]["spirit_mark"];
+		result["spirit_dew"]=(int)final_record["materials"]["spirit_dew"];
+		result["revision"]=(int)final_record["revision"];
+	}
+	destruct(key);
+	return result;
 }
 
 void remove_test_pet_data(string account_id)
@@ -754,6 +888,7 @@ void remove_test_pet_data(string account_id)
 	path = pet_file_path(account_id);
 	object key = pet_lock->lock();
 	m_delete(pet_cache,account_id);
+	m_delete(pet_cache_file_signatures,account_id);
 	foreach(indices(rift_sessions),string team_id){
 		mapping session = rift_sessions[team_id];
 		int remove_session = 0;
@@ -784,6 +919,7 @@ void remove_test_pet_data(string account_id)
 	rm(path+".tmp");
 	rm(path+".bak");
 	rm(path+".bak.tmp");
+	rm(path+".lock");
 	destruct(key);
 }
 

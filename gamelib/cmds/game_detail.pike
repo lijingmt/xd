@@ -18,6 +18,7 @@ int main(string|zero arg)
 	s += "[配置快捷键:my_toolbar]\n";
 	s += "[图片开关:pic_switch_list]\n";
 	s += "[手动存档:save_game]\n";
+	s += "[个人挑战难度:personal_difficulty]\n";
 	s += "[意见反馈:feedback]\n";
 	if(PROFESSIONVIPD->is_supported_profession(me->query_profeId()))
 		s += "[职业助手:profession_assistant]\n";

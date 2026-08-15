@@ -1512,8 +1512,11 @@ void test_rift_reward_at_weekly_cap()
 	mapping record = Standards.JSON.decode(
 		Stdio.read_file(pet_file(account_id)));
 	record["weekly"]["rift_wins"] = 1000;
+	record["pets"][0]["variants"] = ({"原生","异色01","异色02",
+		"异色03","异色04","异色05","异色06","异色07","异色08",
+		"异色09","异色10","异色11"});
 	record["pending_rift_rewards"][session_id] = ([
-		"boss_species":"kui",
+		"boss_species":"dangkang",
 		"won_at":time(),
 		"expires_at":time()+3600,
 		"participants":({account_id}),
@@ -1522,7 +1525,7 @@ void test_rift_reward_at_weekly_cap()
 	Stdio.write_file(pet_file(account_id),Standards.JSON.encode(record));
 	PETD->drop_test_pet_cache(account_id);
 	mapping before = PETD->query_pet_state(player);
-	mapping claim = PETD->claim_rift_reward(player,9999,9999);
+	mapping claim = PETD->claim_rift_reward(player,9999,0);
 	mapping after = PETD->query_pet_state(player);
 	mapping duplicate = PETD->claim_rift_reward(player,9999,9999);
 	mapping rift_state = PETD->query_rift_state(player);
@@ -1531,9 +1534,37 @@ void test_rift_reward_at_weekly_cap()
 		(int)after["weekly"]["rift_wins"]==1000 &&
 		(int)after["materials"]["spirit_mark"]==
 			(int)before["materials"]["spirit_mark"]+5 &&
+		(int)after["materials"]["cosmetic_dust"]==
+			(int)before["materials"]["cosmetic_dust"]+10 &&
+		(int)claim["cosmetic"]==2 &&
 		!after["pending_rift_rewards"][session_id] &&
 		after["rewarded_sessions"][session_id] && !rift_state["ok"],
-		"1000胜继续加一导致保存失败、重复发奖或待领取入口未释放");
+		"1000胜、满外观栏补偿、重复发奖或待领取入口清理错误");
+	string persistence_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_pet_mod/persistence.pike") || "";
+	check("万灵账号存档使用跨Worker文件锁与唯一临时文件",
+		search(persistence_source,"file->lock()")!=-1 &&
+		search(persistence_source,
+			"String.string2hex(Crypto.Random.random_string(8))")!=-1 &&
+		search(persistence_source,"persisted_revision")!=-1 &&
+		search(persistence_source,"SAVE_REVISION_CONFLICT")!=-1 &&
+		search(persistence_source,"stat->mtime_nsec")!=-1 &&
+		search(persistence_source,"stat->ino")!=-1 &&
+		search(persistence_source,
+			"string temp_path = path+\".tmp\";")==-1,
+		"多Worker仍可能争用固定.tmp、使用旧缓存或覆盖新revision");
+	string revision_account="__testunit_pet_revision_fence__";
+	PETD->remove_test_pet_data(revision_account);
+	mapping revision_guard=PETD->test_pet_revision_conflict_guard(
+		revision_account);
+	check("旧Worker缓存不能覆盖新版万灵账号档案",
+		(int)revision_guard["first_saved"]==1 &&
+		(int)revision_guard["stale_rejected"]==1 &&
+		(int)revision_guard["spirit_mark"]==1 &&
+		(int)revision_guard["spirit_dew"]==0 &&
+		(int)revision_guard["revision"]==1,
+		sprintf("revision guard=%O",revision_guard));
+	PETD->remove_test_pet_data(revision_account);
 }
 
 void test_duel(object challenger,object target)

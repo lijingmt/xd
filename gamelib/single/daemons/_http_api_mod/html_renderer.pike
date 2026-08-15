@@ -1184,6 +1184,8 @@ mapping query_player_state(object player)
         result["autofight"] = autofight;
         result["autofight_time_left"] = autofight_time_left;
         result["autofight_daily_limit"] = autofight_daily_limit;
+		result["personal_difficulty"] =
+			PERSONAL_DIFFICULTYD->query_status(player);
 
         // 生命值 HP (xiand 使用 life 而不是 jing)
         int hp = 0, hp_max = 0;

@@ -2,8 +2,10 @@
   "version": 1,
   "current_id": "S1",
   "display_name": "新月幻境·S1",
-  "duration_days": 90,
-  "entitlement_cost_suiyu": 500,
+  "duration_days": 30,
+  "entitlement_cost_suiyu": 0,
+  "extra_character_slot_cost_suiyu": 100,
+  "multi_character_unlock_cost_suiyu": 500,
   "entry_room": "/gamelib/d/illusion_s1/moon_gate.pike",
   "return_room": "/gamelib/d/congxianzhen/congxianzhenguangchang",
   "route_challenges": {

@@ -1006,12 +1006,21 @@ mapping(string:mixed) claim_rift_reward(object player,
 					(string)session["boss_species"]);
 				if(pet_index>=0){
 					array variants = record["pets"][pet_index]["variants"];
-					if(search(variants,"月华异色")==-1)
-						record["pets"][pet_index]["variants"] += ({"月华异色"});
+					if(search(variants,"月华异色")==-1 &&
+					   sizeof(variants)<12){
+						record["pets"][pet_index]["variants"] +=
+							({"月华异色"});
+						cosmetic = 1;
+					}
+					else{
+						add_pet_material_unlocked(record,"cosmetic_dust",10);
+						cosmetic = 2;
+					}
 				}
-				else
+				else{
 					add_pet_material_unlocked(record,"cosmetic_dust",10);
-				cosmetic = 1;
+					cosmetic = 2;
+				}
 			}
 			record["rewarded_sessions"][(string)session["id"]] = time();
 			cleanup_completed_rift_reward_unlocked(record,
@@ -1025,8 +1034,12 @@ mapping(string:mixed) claim_rift_reward(object player,
 				if(runtime_session)
 					mark_rift_account_claimed_unlocked(session,account_id);
 			}
-			else
+			else{
+				werror("[PETD][RIFT_CLAIM_RETRY] account=%s session=%s character=%s revision=%d\n",
+					account_id,(string)session["id"],
+					(string)player->query_name(),(int)record["revision"]);
 				result["message"] = "奖励保存失败，本次仍可重试领取。";
+			}
 		}
 	}
 	destruct(key);

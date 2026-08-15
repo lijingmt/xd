@@ -82,8 +82,10 @@ int main(string|zero arg)
 	if(mappingp(result["pet_acquisition"]) &&
 	   sizeof((mapping)result["pet_acquisition"]))
 		s += (string)result["pet_acquisition"]["message"]+"\n";
-	if((int)result["cosmetic"])
+	if((int)result["cosmetic"]==1)
 		s += "极稀有月华异色已经记录；它只改变外观，不增加属性。\n";
+	else if((int)result["cosmetic"]==2)
+		s += "月华异色已经收录或外观栏已满，本次自动补偿10份月华尘。\n";
 	s += "[查看裂隙:wanling_rift]|[返回今日修行:daily_cultivation]|[返回游戏:look]\n";
 	write(s);
 	return 1;

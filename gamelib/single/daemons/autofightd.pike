@@ -1245,8 +1245,9 @@ string query_vip_label(int vip_level)
 
 int query_daily_seconds_for(object me)
 {
-	return AUTOFIGHT_DAILY_SECONDS+
+	int base_seconds=AUTOFIGHT_DAILY_SECONDS+
 		query_vip_level(me)*AUTOFIGHT_VIP_BONUS_SECONDS;
+	return PERSONAL_DIFFICULTYD->scale_afk_daily_seconds(me,base_seconds);
 }
 
 int can_upgrade_daily_time(object me)
@@ -1257,14 +1258,27 @@ int can_upgrade_daily_time(object me)
 string query_quota_exhausted_message(object me)
 {
 	int vip_level;
-	int daily_hours;
+	int daily_seconds;
+	int next_seconds;
+	string daily_desc;
+	string next_desc;
 	vip_level = query_vip_level(me);
-	daily_hours = query_daily_seconds_for(me)/3600;
+	daily_seconds = query_daily_seconds_for(me);
+	daily_desc = (daily_seconds/3600)+"小时"+
+		((daily_seconds%3600)/60)+"分钟";
 	if(vip_level < AUTOFIGHT_MAX_VIP_LEVEL)
-		return sprintf("今天的%d小时自动挂机时间已经用完；升级至%s可将每日额度提高到%d小时",
-			daily_hours,query_vip_label(vip_level+1),daily_hours+2);
-	return sprintf("今天的%d小时自动挂机时间已经用完；你已是%s，当前为最高额度，请明日登录后再使用",
-		daily_hours,query_vip_label(vip_level));
+	{
+		next_seconds=PERSONAL_DIFFICULTYD->scale_afk_daily_seconds(me,
+			AUTOFIGHT_DAILY_SECONDS+
+			(vip_level+1)*AUTOFIGHT_VIP_BONUS_SECONDS);
+		next_desc=(next_seconds/3600)+"小时"+
+			((next_seconds%3600)/60)+"分钟";
+		return "今天的"+daily_desc+"自动挂机时间已经用完；升级至"+
+			query_vip_label(vip_level+1)+"可将当前难度每日额度提高到"+
+			next_desc;
+	}
+	return "今天的"+daily_desc+"自动挂机时间已经用完；你已是"+
+		query_vip_label(vip_level)+"，当前难度为最高额度，请明日登录后再使用";
 }
 
 int is_quota_exhausted_reason(object me,string reason)
@@ -2451,6 +2465,29 @@ private int has_auto_sell_protected_filename(object item)
 	return 0;
 }
 
+// 六系套装的完整标记、部分损坏标记与只剩模板路径的旧实例都必须
+// 失败关闭。自动清包宁可多保留一件，也不能因为某个字段损坏而误删。
+int is_auto_sell_protected_set_equipment(object item)
+{
+	string path;
+	if(!item)
+		return 0;
+	path=(file_name(item)/"#")[0];
+	if(search(path,"69xinyue")!=-1)
+		return 1;
+	if((string)(item["/item_newmoon/resonance/profession"] || "")!="" ||
+	   (string)(item["/item_newmoon/resonance/collection/id"] || "")!="" ||
+	   (string)(item["/item_newmoon/resonance/theme"] || "")!="")
+		return 1;
+	if(functionp(item->query_newmoon_resonance_profession) &&
+	   (string)item->query_newmoon_resonance_profession()!="")
+		return 1;
+	if(functionp(item->query_newmoon_collection_id) &&
+	   (string)item->query_newmoon_collection_id()!="")
+		return 1;
+	return 0;
+}
+
 string query_auto_sell_reject_reason(object me,object item)
 {
 	string mode;
@@ -2469,10 +2506,7 @@ string query_auto_sell_reject_reason(object me,object item)
 	// 六系套装在首次穿戴前仍未绑定，且可拥有1～7条随机词缀。
 	// 旧清包规则不能凭“未绑定/低稀有度”把它当成普通装备处理。
 	// 套装只允许进入独立的套装管理流程，并经过重复件预览确认。
-	if(functionp(item->query_newmoon_resonance_profession) &&
-	   (string)item->query_newmoon_resonance_profession()!="" &&
-	   functionp(item->query_newmoon_collection_id) &&
-	   (string)item->query_newmoon_collection_id()!="")
+	if(is_auto_sell_protected_set_equipment(item))
 		return "set_equipment";
 	if(item->query_item_task() == 1)
 		return "task_item";

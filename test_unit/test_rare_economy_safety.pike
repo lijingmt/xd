@@ -87,6 +87,18 @@ int main()
 		search(items,"original_item_level>0 ? original_item_level")!=-1 &&
 		search(items,"target_item_level!=orginal_level")!=-1,
 		"不同等级仍可能复用同一动态装备源码并串换攻防属性");
+	object items_daemon=(object)(ROOT+
+		"/gamelib/single/daemons/itemsd.pike");
+	object valid_equipment=clone(ROOT+
+		"/gamelib/clone/item/weapon/25bailudao/25bailudao");
+	check("动态装备掉落前拒绝缺失等级接口的旧文件",
+		!items_compile && items_daemon && valid_equipment &&
+		items_daemon->dynamic_equipment_level_api_valid(valid_equipment)==1 &&
+		items_daemon->dynamic_equipment_level_api_valid(items_daemon)==0 &&
+		search(items,"[ITEMSD][DYNAMIC_EQUIPMENT_REJECT]")!=-1,
+		"坏动态装备仍可进入 NPC 死亡掉落心跳");
+	if(valid_equipment)
+		destruct(valid_equipment);
 	object player=create_shop_test_player();
 	object shelf_daemon=(object)(ROOT+
 		"/lowlib/mudlib/single/specstored.pike");

@@ -70,6 +70,8 @@ void test_runtime_compile()
 	test_start("守护进程与相关命令运行时编译");
 	array(string) paths = ({
 		"/gamelib/single/daemons/autofightd.pike",
+		"/gamelib/single/daemons/personal_difficultyd.pike",
+		"/gamelib/cmds/personal_difficulty.pike",
 		"/gamelib/cmds/autofight.pike",
 		"/gamelib/cmds/autofightclose.pike",
 		"/lowlib/wapmud2/cmds/set_autoSkills.pike",
@@ -116,6 +118,81 @@ void test_runtime_compile()
 	else
 		test_fail("自动挂机文件编译失败或重复定义AUTOFIGHTD: "+
 			error_desc);
+}
+
+void test_personal_difficulty_afk_and_shared_world()
+{
+	test_start("八档个人难度同比缩短VIP挂机且不参与地图Worker路由");
+	object player=create_runtime_player(
+		"__testunit_autofight_difficulty__");
+	object target_player=create_runtime_player(
+		"__testunit_autofight_difficulty_target__");
+	object npc=clone(ROOT+
+		"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object daemon=(object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
+	object difficulty=(object)(ROOT+
+		"/gamelib/single/daemons/personal_difficultyd.pike");
+	string worker_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike") || "";
+	string rpc_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike") || "";
+	string cluster_source=Stdio.read_file(ROOT+
+		"/scripts/map_worker_cluster.sh") || "";
+	string error_desc="";
+	int valid=0;
+	mixed err=catch{
+		array(mapping(string:mixed)) catalog=difficulty->query_catalog();
+		array(int) expected_caps=({24,16,14,12,10,8,6,4});
+		valid=sizeof(catalog)==8;
+		for(int level=0;level<sizeof(catalog);level++)
+			valid=valid &&
+				(int)catalog[level]["afk_cap_hours"]==expected_caps[level] &&
+				(level==0 || (int)catalog[level]["afk_cap_hours"]<
+					(int)catalog[level-1]["afk_cap_hours"]);
+		set_active_vip(player,8);
+		daemon->initialize_player(player);
+		valid=valid && daemon->query_daily_seconds_for(player)==24*3600;
+		player["/plus/personal_difficulty/unlocked"]=7;
+		player["/plus/personal_difficulty/current"]=1;
+		daemon->sync_daily_limit(player);
+		valid=valid && daemon->query_daily_seconds_for(player)==16*3600 &&
+			daemon->query_time_left(player)==16*3600;
+		player["/plus/personal_difficulty/current"]=7;
+		daemon->sync_daily_limit(player);
+		valid=valid && daemon->query_daily_seconds_for(player)==4*3600 &&
+			daemon->query_time_left(player)==4*3600;
+		set_active_vip(player,0);
+		player["/plus/personal_difficulty/current"]=1;
+		daemon->sync_daily_limit(player);
+		valid=valid && daemon->query_daily_seconds_for(player)==5*3600+20*60;
+		// 基础档完全等于旧公式；问道只在PVE降低本人输出、提高本人承伤。
+		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==950 &&
+			difficulty->scale_pve_damage(npc,player,1000)==1100 &&
+			difficulty->scale_pve_damage(player,target_player,1000)==1000;
+		// 基础档445已超出六套总权重444；天劫压缩随机区间后可进入
+		// 稀有池，证明提升只作用个人套装掉落而不复制另一套属性公式。
+		valid=valid && !sizeof(ITEMSD->
+			query_newmoon_collection_for_difficulty_roll(300,445,0)) &&
+			sizeof(ITEMSD->query_newmoon_collection_for_difficulty_roll(
+				300,445,7))>0;
+		valid=valid && search(worker_source,"PERSONAL_DIFFICULTYD")==-1 &&
+			search(worker_source,"personal_difficulty")==-1 &&
+			search(rpc_source,"PERSONAL_DIFFICULTYD")==-1 &&
+			search(rpc_source,"personal_difficulty")==-1 &&
+			search(cluster_source,"personal_difficulty")==-1;
+	};
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("个人难度额度、PVE边界、掉落或同世界约束错误: "+
+			error_desc);
+	destroy_runtime_player(player);
+	destroy_runtime_player(target_player);
+	if(npc)
+		destruct(npc);
 }
 
 void test_defaults_and_switch()
@@ -697,6 +774,9 @@ void test_auto_sell_protection_rules()
 		"/gamelib/clone/item/baoshi/psqingtongshi");
 	object set_item = clone(ROOT+
 		"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
+	object partial_set_item = clone(ROOT+
+		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+	array(object) collection_set_items=({});
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
@@ -711,6 +791,22 @@ void test_auto_sell_protection_rules()
 		set_item->set_item_rareLevel(1);
 		valid = daemon->query_auto_sell_reject_reason(player,set_item) ==
 			"set_equipment";
+		partial_set_item->move(player);
+		partial_set_item["/item_newmoon/resonance/collection/id"]="starshine";
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,partial_set_item)==
+			"set_equipment";
+		foreach(ITEMSD->query_newmoon_collection_catalog(),mapping collection){
+			object collection_item=clone(ROOT+
+				"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
+			collection_set_items+=({collection_item});
+			collection_item->move(player);
+			collection_item->set_item_rareLevel(1);
+			valid=valid && collection_item->set_newmoon_collection(
+				(string)collection["id"]) &&
+				daemon->query_auto_sell_reject_reason(player,collection_item)==
+				"set_equipment";
+		}
 		item->set_item_rareLevel(7);
 		valid = valid &&
 			daemon->query_auto_sell_reject_reason(player,item) == "";
@@ -780,6 +876,11 @@ void test_auto_sell_protection_rules()
 		test_fail("自动出售保护规则错误: "+error_desc);
 	if(gem)
 		destruct(gem);
+	if(partial_set_item)
+		destruct(partial_set_item);
+	foreach(collection_set_items,object collection_item)
+		if(collection_item)
+			destruct(collection_item);
 	destroy_runtime_player(player);
 }
 
@@ -3289,6 +3390,7 @@ int main()
 	test_zhenyue_context_skill_selection();
 	test_tianxiang_context_skill_selection();
 	test_vip_daily_limits();
+	test_personal_difficulty_afk_and_shared_world();
 	test_vip_quota_exhausted_guidance();
 	test_vip_labels_and_plan();
 	test_vip_auto_sell_tiers();

@@ -95,7 +95,10 @@ int scale_newmoon_collection_base(int value)
 {
 	if(value<=0 || query_newmoon_resonance_profession()=="")
 		return value;
-	return value*query_newmoon_collection_quality_percent()/100;
+	// 套装本体是极稀有长期追求物。只把这件装备自身的白板攻防
+	// 提高到旧模板的200%，再叠加六套既有品质系数；普通装备、
+	// 随机词缀、强化值与2/4/6/8/10件奖励公式都不经过这里。
+	return value*2*query_newmoon_collection_quality_percent()/100;
 }
 
 int set_newmoon_collection(string collection_id)
@@ -544,7 +547,9 @@ int query_newmoon_resonance_value(string attribute)
 		return 0;
 	base_value=max(0,min(20,(int)this_object()[
 		NEWMOON_RESONANCE_ROOT+"/"+attribute]));
-	return base_value*query_newmoon_resonance_percent()/100;
+	// 这五项是每件装备自己的职业契合属性，不是分阶套装奖励。
+	// 旧实例仍保存原模板值，在读取时统一翻倍，无需迁移玩家档案。
+	return base_value*2*query_newmoon_resonance_percent()/100;
 }
 
 string query_newmoon_resonance_bonus_text()
@@ -553,19 +558,19 @@ string query_newmoon_resonance_bonus_text()
 	int active=query_newmoon_resonance_active();
 	int value;
 	value=active ? query_newmoon_resonance_value("str") :
-		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/str"];
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/str"]*2;
 	if(value>0) bonuses+=({"力量+"+(string)value});
 	value=active ? query_newmoon_resonance_value("dex") :
-		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/dex"];
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/dex"]*2;
 	if(value>0) bonuses+=({"敏捷+"+(string)value});
 	value=active ? query_newmoon_resonance_value("think") :
-		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/think"];
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/think"]*2;
 	if(value>0) bonuses+=({"智力+"+(string)value});
 	value=active ? query_newmoon_resonance_value("life") :
-		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/life"];
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/life"]*2;
 	if(value>0) bonuses+=({"生命+"+(string)(value*10)});
 	value=active ? query_newmoon_resonance_value("mofa") :
-		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/mofa"];
+		(int)this_object()[NEWMOON_RESONANCE_ROOT+"/mofa"]*2;
 	if(value>0) bonuses+=({"法力+"+(string)(value*10)});
 	return bonuses*"、";
 }

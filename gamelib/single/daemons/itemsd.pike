@@ -410,6 +410,18 @@ mapping(string:mixed) query_newmoon_collection_for_roll(int npclevel,int roll)
 	return ([]);
 }
 
+mapping(string:mixed) query_newmoon_collection_for_difficulty_roll(
+	int npclevel,int roll,int difficulty_level)
+{
+	int percent=PERSONAL_DIFFICULTYD->
+		query_set_drop_percent_for_level(difficulty_level);
+	int adjusted_roll;
+	if(percent<100)
+		percent=100;
+	adjusted_roll=max(1,(roll*100+percent-1)/percent);
+	return query_newmoon_collection_for_roll(npclevel,adjusted_roll);
+}
+
 string query_newmoon_collection_id_for_roll(int npclevel,int roll)
 {
 	mapping collection=query_newmoon_collection_for_roll(npclevel,roll);
@@ -498,7 +510,8 @@ private int ReadFile_boss_items(string filename)
 }
 
 //外部接口，由fight_die()调用，为装备掉落的的接口
-object get_item(int npclevel,int playerlevel,int playerluck)
+object get_item(int npclevel,int playerlevel,int playerluck,
+	void|int personal_difficulty_level)
 {
 	string item_rawname=""; //白装备名称,包含了一个路径。如weapon/1taomujian
 	array(string) itemsallow=({}); //等级范围类允许物品列表
@@ -528,8 +541,9 @@ object get_item(int npclevel,int playerlevel,int playerluck)
 		if(itemlevel==0)
 			return 0;
 		int newmoon_roll=random(query_newmoon_equipment_drop_denominator())+1;
-		mapping newmoon_collection=query_newmoon_collection_for_roll(
-			npclevel,newmoon_roll);
+		mapping newmoon_collection=
+			query_newmoon_collection_for_difficulty_roll(npclevel,
+				newmoon_roll,personal_difficulty_level);
 		if(sizeof(newmoon_collection)){
 			item_rawname=newmoon_item_list[random(sizeof(newmoon_item_list))];
 			itemlevel=69;
@@ -1193,6 +1207,16 @@ string get_item_name_prefix(int level, void|object ob){
 // 核心，重点：本方法是扩展后的方法，可以生成73级以上的装备，计算差额随机的方式 浮动各个数据，其中73级内的是在系统内固定写死的，73以上的则自动生成
 // 核心重点： orginal_level为73级以前的原始装备等级，target_item_level则为目标生成的高于73级以上的装备，用差额来计算浮动数字
 //如果想回到原来的文件，在本文件目录下面存了一个备份的itemsd.pike 可以直接拷贝，本动态装备只涉及到本文件，没有修改其他部分，请放心替换
+// 生产映射目录可能残留由旧版本或中断写入生成的不完整装备源码。
+// clone() 成功不代表它一定继承了完整装备接口；掉落心跳必须先验证，
+// 否则一次坏文件就会在 NPC 死亡结算中触发 Attempt to call NULL。
+int dynamic_equipment_level_api_valid(object item)
+{
+	return item &&
+		functionp(item->query_item_canLevel) &&
+		functionp(item->set_item_canLevel);
+}
+
 private object get_attributes_item(string orgitem,int num,
 	int|void orginal_level,int|void target_item_level,void|object item_ob,
 	void|mapping newmoon_collection)
@@ -1293,8 +1317,17 @@ private object get_attributes_item(string orgitem,int num,
 			mixed err = catch{
 				rtn_ob=clone(ITEM_PATH+item_name);
 			};
-			if(err)
+			if(err){
+				werror("[ITEMSD][DYNAMIC_EQUIPMENT_CLONE_FAILED] path=%O error=%s\n",
+					item_name,describe_error(err));
 				rtn_ob=0;
+			}
+			if(rtn_ob && !dynamic_equipment_level_api_valid(rtn_ob)){
+				werror("[ITEMSD][DYNAMIC_EQUIPMENT_REJECT] path=%O "
+					"reason=missing_level_api\n",item_name);
+				destruct(rtn_ob);
+				return 0;
+			}
 			// 生产映射目录可能残留旧版本生成的-1模板。保留原文件供
 			// 老装备按原数据加载，但普通新掉落实例必须恢复真实等级。
 			if(rtn_ob && !flag_no_level && target_item_level>0 &&

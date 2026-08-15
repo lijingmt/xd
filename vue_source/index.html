@@ -488,22 +488,25 @@
 							<small>沿用现有世界、共享仓库与账号服务</small>
 						</button>
 						<button type="button"
-								class="illusion-realm-option"
-								:class="{ selected: characterForm.realm_type === 'illusion' }"
-								@click="characterForm.realm_type = 'illusion'"
-								:disabled="!illusionEntitled || !illusionRealmStatus.creation_open">
-							<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
-							<small v-if="illusionEntitled && illusionRealmStatus.creation_open">
-								独立起步，完成七章后携套装随原档案回归
+									class="illusion-realm-option"
+									:class="{ selected: characterForm.realm_type === 'illusion' }"
+									@click="characterForm.realm_type = 'illusion'"
+									:disabled="!illusionEntitled || !illusionRealmStatus.creation_open || illusionCharacterCapacityReached">
+								<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
+								<small v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached">
+									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }}；进入已有角色的“幻境区”可选择100碎玉加1格，或补足累计500碎玉解锁多人物
+								</small>
+								<small v-else-if="illusionEntitled && illusionRealmStatus.creation_open">
+									首名免费；完成七章后携十件套装随原档案回归
 							</small>
 							<small v-else-if="!illusionEntitled">
-								未解锁永久资格；请先进入现有人物，从“幻境区”购买
+								未激活永久资格；请先进入现有人物，从“幻境区”免费激活
 							</small>
 							<small v-else>当前阶段：{{ illusionRealmStatus.phase_name }}</small>
 						</button>
 					</div>
 					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
-						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；期间不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
+						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；本期不开放家园，也不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
 					</p>
                     <label class="character-name-field">
                         <span>人物姓名</span>

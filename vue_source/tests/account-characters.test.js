@@ -71,6 +71,9 @@ client.applyAccountData({
   shared_recharge_available: 1,
   shared_recharge_balance: 12345,
   illusion_entitled: 1,
+  illusion_character_slots: 1,
+  illusion_multi_character_unlocked: 0,
+  illusion_expansion_spent_suiyu: 0,
   illusion_realm: {
     ok: true,
     illusion_id: 'S1',
@@ -79,7 +82,10 @@ client.applyAccountData({
     phase_name: '进行中',
     creation_open: true
   },
-  characters: [{ id: 'xd01legacy', profession_id: 'jianxian' }]
+  characters: [{
+    id: 'xd01legacy', profession_id: 'jianxian', realm_type: 'illusion',
+    illusion_id: 'S1', illusion_state: 'active'
+  }]
 });
 assert.strictEqual(client.accountId, 'xd01legacy');
 assert.strictEqual(client.accountCharacters.length, 1);
@@ -88,6 +94,16 @@ assert.strictEqual(client.accountSharedRechargeBalance, 12345);
 assert.strictEqual(client.illusionEntitled, true);
 assert.strictEqual(client.illusionRealmStatus.illusion_id, 'S1');
 assert.strictEqual(client.illusionRealmStatus.creation_open, true);
+assert.strictEqual(client.illusionCharacterSlots, 1);
+assert.strictEqual(client.illusionMultiCharacterUnlocked, false);
+assert.strictEqual(client.illusionExpansionSpentSuiyu, 0);
+client.currentIllusionCharacterCount =
+  componentOptions.computed.currentIllusionCharacterCount.call(client);
+assert.strictEqual(client.currentIllusionCharacterCount, 1);
+assert.strictEqual(
+  componentOptions.computed.illusionCharacterCapacityReached.call(client),
+  true
+);
 // sessionStorage 不再用于会话存储
 // 使用 window.name 替代
 
@@ -152,6 +168,10 @@ assert(indexSource.includes('同职业可重复创建'));
 assert(indexSource.includes("characterForm.realm_type === 'illusion'"));
 assert(indexSource.includes('新月幻境·S1'));
 assert(indexSource.includes('期满原档案回归'));
+assert(indexSource.includes('从“幻境区”免费激活'));
+assert(indexSource.includes('100碎玉加1格'));
+assert(indexSource.includes('累计500碎玉解锁多人物'));
+assert(indexSource.includes('本期不开放家园'));
 assert(!indexSource.includes(':disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"'));
 assert(cssSource.includes('.character-modal'));
 assert(cssSource.includes('.character-wallet'));

@@ -19,7 +19,10 @@ inherit LOW_DAEMON;
 #define ILLUSION_STATE_VERSION 1
 #define ILLUSION_PROGRESS_ROOT "/plus/illusion_realm"
 #define ILLUSION_PAYMENT_ROOT "/plus/illusion_entitlement_purchase"
+#define ILLUSION_EXPANSION_PAYMENT_ROOT "/plus/illusion_character_expansion_purchase"
 #define ILLUSION_LOG ROOT "/log/illusion_realm.log"
+#define ILLUSION_AUTOMATION_INTERVAL 10
+#define ILLUSION_MAX_DURATION_SECONDS (366*86400)
 
 private Thread.Mutex runtime_lock = Thread.Mutex();
 private mapping(string:mixed) illusion_config = ([]);
@@ -27,6 +30,8 @@ private mapping(string:mixed) runtime_cache = ([]);
 private string runtime_source_cache = "";
 private int config_valid;
 private int runtime_valid = 1;
+private int last_closed_reconcile_revision = -1;
+private int closed_reconcile_until;
 
 private int valid_nonnegative(mapping one,string key,int maximum)
 {
@@ -168,6 +173,10 @@ private int valid_config(mapping candidate)
 	   !valid_nonnegative(candidate,"duration_days",366) ||
 	   (int)candidate["duration_days"]<30 ||
 	   !valid_nonnegative(candidate,"entitlement_cost_suiyu",1000000) ||
+	   !valid_nonnegative(candidate,"extra_character_slot_cost_suiyu",1000000) ||
+	   (int)candidate["extra_character_slot_cost_suiyu"]!=100 ||
+	   !valid_nonnegative(candidate,"multi_character_unlock_cost_suiyu",1000000) ||
+	   (int)candidate["multi_character_unlock_cost_suiyu"]!=500 ||
 	   !valid_room_path((string)candidate["entry_room"]) ||
 	   !has_prefix((string)candidate["entry_room"],room_prefix) ||
 	   Stdio.file_size(ROOT+(string)candidate["entry_room"])<=0 ||
@@ -426,15 +435,19 @@ mapping(string:mixed) query_public_status()
 		"duration_days":(int)illusion_config["duration_days"],
 		"entitlement_cost_suiyu":
 			(int)illusion_config["entitlement_cost_suiyu"],
+		"extra_character_slot_cost_suiyu":
+			(int)illusion_config["extra_character_slot_cost_suiyu"],
+		"multi_character_unlock_cost_suiyu":
+			(int)illusion_config["multi_character_unlock_cost_suiyu"],
 		"creation_open":phase=="active",
 		"entitlement_open":phase=="registration" || phase=="active",
 		"entry_room":(string)(illusion_config["entry_room"] || ""),
 		"return_room":(string)(illusion_config["return_room"] || ""),
 		"rules":({
-			"资格按注册账号永久生效，今后每一期均可创建一名新幻境人物。",
+			"资格按注册账号永久生效；每期首名免费，100碎玉永久加1格，累计500碎玉永久解锁多人物。",
 			(string)illusion_config["current_id"]+
 				"人物使用唯一原档案；回归永恒服时不复制人物或背包。",
-			"幻境期间不接入共享仓库、共享玉石、拍卖与跨世界交易。",
+			"幻境期间不开放家园，也不接入共享仓库、共享玉石、拍卖与跨世界交易。",
 			"任务套装会随人物原档案回归永恒服。",
 		}),
 	]);
@@ -571,6 +584,85 @@ private string transition_digest(string action,mapping state)
 	return lower_case(String.string2hex(hash->digest()));
 }
 
+private string end_time_digest(mapping state,int ends_at)
+{
+	object hash = Crypto.SHA256();
+	hash->update((string)state["current_id"]+"|end_time|"+
+		(string)(int)state["revision"]+"|"+(string)ends_at);
+	return lower_case(String.string2hex(hash->digest()));
+}
+
+private int valid_end_time_change(mapping state,string phase,int ends_at)
+{
+	return mappingp(state) && phase=="active" &&
+		ends_at>(int)state["starts_at"] &&
+		ends_at-(int)state["starts_at"]<=ILLUSION_MAX_DURATION_SECONDS;
+}
+
+int query_end_time_valid_for_test(mapping state,string phase,int ends_at)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return -1;
+	return valid_end_time_change(state,phase,ends_at);
+}
+
+mapping(string:mixed) preview_end_time(int ends_at)
+{
+	mapping state = load_runtime_state();
+	string phase = sizeof(state) ? effective_phase(state) : "disabled";
+	int allowed = config_valid && runtime_valid &&
+		valid_end_time_change(state,phase,ends_at);
+	return (["ok":allowed,"ends_at":ends_at,
+		"confirmation":allowed ? end_time_digest(state,ends_at) : ""]);
+}
+
+mapping(string:mixed) apply_end_time(int ends_at,string confirmation,
+	string operator_id)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"结束时间修改失败。"]);
+	mapping state;
+	array audit;
+	int old_ends_at;
+	if(!config_valid || !runtime_valid || !operator_id || operator_id=="")
+		return result;
+	if(!acquire_control_lock()){
+		result["message"] = "另一名管理员正在调整幻境配置。";
+		return result;
+	}
+	{
+		object key = runtime_lock->lock();
+		runtime_source_cache = "__reload__";
+		destruct(key);
+	}
+	state = load_runtime_state();
+	if(!valid_end_time_change(state,effective_phase(state),ends_at) ||
+	   confirmation!=end_time_digest(state,ends_at))
+		result["message"] = "结束时间预览已过期，或当前周期已经进入结算。";
+	else{
+		old_ends_at = (int)state["ends_at"];
+		state["ends_at"] = ends_at;
+		state["revision"] = (int)state["revision"]+1;
+		audit = state["audit"];
+		audit += ({(["at":time(),"operator":operator_id,
+			"action":"set_end_time","from":old_ends_at,"to":ends_at,
+			"revision":(int)state["revision"]])});
+		if(sizeof(audit)>2000)
+			audit = audit[sizeof(audit)-2000..];
+		state["audit"] = audit;
+		if(save_runtime_state(state))
+			result = (["ok":1,
+				"message":ends_at<=time() ?
+					"结束时间已更新，正在自动结算并关闭本期。" :
+					"结束时间已更新。",
+				"status":query_public_status()]);
+	}
+	release_control_lock();
+	if((int)result["ok"] && ends_at<=time())
+		call_out(run_lifecycle_automation_once,0);
+	return result;
+}
+
 mapping(string:mixed) preview_lifecycle_transition(string action)
 {
 	mapping state = load_runtime_state();
@@ -661,6 +753,153 @@ mapping(string:mixed) apply_lifecycle_transition(string action,
 	}
 	release_control_lock();
 	return result;
+}
+
+private string automatic_action(mapping state,int now_time)
+{
+	string phase = (string)state["phase"];
+	if(phase=="active" && (int)state["ends_at"]>0 &&
+	   now_time>=(int)state["ends_at"])
+		return "auto_settle";
+	if(phase=="settling")
+		return "auto_close";
+	return "";
+}
+
+string query_automatic_action_for_test(mapping state,int now_time)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !mappingp(state))
+		return "";
+	return automatic_action(state,now_time);
+}
+
+private mapping(string:mixed) apply_automatic_transition()
+{
+	mapping(string:mixed) result = (["ok":0,"action":""]);
+	mapping state;
+	string action;
+	string from_phase;
+	string to_phase;
+	int now_time = time();
+	array audit;
+	if(!config_valid || !runtime_valid || !acquire_control_lock())
+		return result;
+	{
+		object key = runtime_lock->lock();
+		runtime_source_cache = "__reload__";
+		destruct(key);
+	}
+	state = load_runtime_state();
+	action = automatic_action(state,now_time);
+	if(action==""){
+		release_control_lock();
+		return result;
+	}
+	from_phase = (string)state["phase"];
+	if(action=="auto_settle"){
+		state["phase"] = "settling";
+		to_phase = "settling";
+	}
+	else if(action=="auto_close"){
+		state["phase"] = "closed";
+		to_phase = "closed";
+	}
+	state["revision"] = (int)state["revision"]+1;
+	audit = state["audit"];
+	audit += ({(["at":now_time,"operator":"system",
+		"action":action,"from":from_phase,"to":to_phase,
+		"revision":(int)state["revision"]])});
+	if(sizeof(audit)>2000)
+		audit = audit[sizeof(audit)-2000..];
+	state["audit"] = audit;
+	if(save_runtime_state(state)){
+		Stdio.append_file(ILLUSION_LOG,sprintf(
+			"%d|lifecycle|action=%s|cycle=%s|phase=%s|revision=%d\n",
+			now_time,action,(string)state["current_id"],
+			(string)state["phase"],(int)state["revision"]));
+		result = (["ok":1,"action":action,
+			"status":query_public_status()]);
+	}
+	release_control_lock();
+	return result;
+}
+
+private mapping(string:int) reconcile_local_expired_players()
+{
+	mapping status = query_public_status();
+	array(object) list = users(1);
+	int active;
+	int settled;
+	int failed;
+	for(int index=0;index<sizeof(list);index++){
+		mapping realm;
+		mapping result;
+		if(!list[index])
+			continue;
+		realm = query_realm_for_player(list[index]);
+		if(!(int)realm["ok"] ||
+		   (string)realm["realm_type"]!="illusion" ||
+		   (string)realm["illusion_state"]!="active")
+			continue;
+		if((string)realm["illusion_id"]==
+		   (string)status["illusion_id"] &&
+		   (string)status["phase"]=="active")
+			continue;
+		active++;
+		result = settle_player(list[index]);
+		if((int)result["ok"])
+			settled++;
+		else{
+			failed++;
+			werror("[ILLUSION_REALM] 在线人物自动回归失败 user=%s message=%s\n",
+				(string)list[index]->query_name(),
+				(string)result["message"]);
+		}
+	}
+	return (["active":active,"settled":settled,"failed":failed]);
+}
+
+void run_lifecycle_automation_once()
+{
+	mapping transition;
+	mapping reconciliation;
+	for(int attempt=0;attempt<4;attempt++){
+		transition = apply_automatic_transition();
+		if(!(int)transition["ok"])
+			break;
+		if((string)transition["action"]=="auto_settle" ||
+		   (string)transition["action"]=="auto_close")
+			reconciliation = reconcile_local_expired_players();
+	}
+	{
+		mapping status = query_public_status();
+		if((string)status["phase"]=="settling")
+			reconcile_local_expired_players();
+		else if((string)status["phase"]=="closed"){
+			// A handoff accepted just before close can arrive after this Worker's
+			// first scan. Keep a bounded reconciliation window rather than scanning
+			// every online player forever while the realm remains closed.
+			if(last_closed_reconcile_revision!=(int)status["revision"]){
+				last_closed_reconcile_revision = (int)status["revision"];
+				closed_reconcile_until = time()+180;
+			}
+			if(time()<=closed_reconcile_until){
+				reconciliation = reconcile_local_expired_players();
+				if((int)reconciliation["failed"])
+					closed_reconcile_until = max(closed_reconcile_until,
+						time()+60);
+			}
+		}
+	}
+}
+
+private void lifecycle_automation_tick()
+{
+	mixed err = catch{ run_lifecycle_automation_once(); };
+	if(err)
+		werror("[ILLUSION_REALM] 自动生命周期异常: %s\n",
+			describe_error(err));
+	call_out(lifecycle_automation_tick,ILLUSION_AUTOMATION_INTERVAL);
 }
 
 private mapping(string:mixed) query_realm_for_player(object player)
@@ -1141,20 +1380,15 @@ mapping(string:mixed) purchase_entitlement(object player)
 	int before_wallet;
 	int before_physical;
 	string request_id;
-	object account_key;
 	if(!player || !(int)status["ok"] || !(int)status["entitlement_open"])
 		return (["ok":0,"message":"当前未开放幻境资格购买。"]) ;
 	account_id = (string)player->query_account_owner();
-	account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
-		account_id)->lock();
 	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id);
 	if(!(int)account_data["ok"]){
-		destruct(account_key);
 		return (["ok":0,
-			"message":"账号索引暂不可验证，本次未扣除碎玉。"]);
+			"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
 	}
 	if((int)account_data["illusion_entitled"]){
-		destruct(account_key);
 		return (["ok":1,"already":1,
 			"message":"账号已永久解锁幻境人物资格。"]) ;
 	}
@@ -1163,7 +1397,6 @@ mapping(string:mixed) purchase_entitlement(object player)
 	before_physical = YUSHID->query_physical_all_num(player);
 	if(mappingp(player[ILLUSION_PAYMENT_ROOT]) &&
 	   sizeof((mapping)player[ILLUSION_PAYMENT_ROOT])){
-		destruct(account_key);
 		return (["ok":0,
 			"message":"上一笔幻境资格购买仍在恢复，请重新登录后再试。"]);
 	}
@@ -1183,13 +1416,11 @@ mapping(string:mixed) purchase_entitlement(object player)
 	]);
 	if(!player->save_with_result()){
 		player[ILLUSION_PAYMENT_ROOT] = ([]);
-		destruct(account_key);
 		return (["ok":0,"message":"购买凭据保存失败，本次未扣除碎玉。"]) ;
 	}
 	if(cost>0 && !YUSHID->pay_yushi(player,cost)){
 		player[ILLUSION_PAYMENT_ROOT] = ([]);
 		player->save_with_result();
-		destruct(account_key);
 		return (["ok":0,"message":"碎玉不足或扣款失败，未解锁资格。"]) ;
 	}
 	player[ILLUSION_PAYMENT_ROOT]["phase"] = "charged";
@@ -1200,7 +1431,6 @@ mapping(string:mixed) purchase_entitlement(object player)
 			player[ILLUSION_PAYMENT_ROOT] = ([]);
 			player->save_with_result();
 		}
-		destruct(account_key);
 		return (["ok":0,"message":refunded ?
 			"扣款存档失败，碎玉已原路退回。" :
 			"扣款存档与退款异常，请立即联系管理员。"]);
@@ -1214,7 +1444,6 @@ mapping(string:mixed) purchase_entitlement(object player)
 			player[ILLUSION_PAYMENT_ROOT] = ([]);
 			player->save_with_result();
 		}
-		destruct(account_key);
 		return (["ok":0,"message":refunded ?
 			"资格写入失败，碎玉已原路退回。" :
 			"资格写入及退款异常，请立即联系管理员。"]) ;
@@ -1229,7 +1458,6 @@ mapping(string:mixed) purchase_entitlement(object player)
 			player[ILLUSION_PAYMENT_ROOT] = ([]);
 			player->save_with_result();
 		}
-		destruct(account_key);
 		return (["ok":refunded,"already":refunded,
 			"message":refunded ?
 			"账号已永久解锁；本次重复扣款已原路退回。" :
@@ -1241,11 +1469,119 @@ mapping(string:mixed) purchase_entitlement(object player)
 	player->save_with_result();
 	player[ILLUSION_PAYMENT_ROOT] = ([]);
 	int cleanup_saved = player->save_with_result();
-	destruct(account_key);
 	Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement|account=%s|character=%s|cost=%d|request=%s|cleanup=%d\n",
 		time(),account_id,(string)player->query_name(),cost,request_id,
 		cleanup_saved));
-	return (["ok":1,"already":0,"message":"已永久解锁幻境人物资格；今后每一期均可创建一名新人物。"]);
+	return (["ok":1,"already":0,"message":"已免费永久激活幻境人物资格；每期首名人物免费，额外栏位可按需永久扩充。"]) ;
+}
+
+mapping(string:mixed) purchase_character_expansion(object player,string option)
+{
+	mapping status = query_public_status();
+	mapping account_data;
+	mapping grant;
+	mapping entitlement;
+	string account_id;
+	string request_id;
+	int spent;
+	int cost;
+	int before_wallet;
+	int before_physical;
+	if(!player || !(int)status["ok"] || !(int)status["entitlement_open"])
+		return (["ok":0,"message":"当前未开放幻境人物栏位扩充。"]) ;
+	if(search(({"one","all"}),option)==-1)
+		return (["ok":0,"message":"请选择增加1格或解锁多人物。"]) ;
+	account_id = (string)player->query_account_owner();
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id);
+	if(!(int)account_data["ok"])
+		return (["ok":0,
+			"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
+	if(!(int)account_data["illusion_entitled"])
+		return (["ok":0,"message":"请先免费激活幻境人物资格。"]) ;
+	if((int)account_data["illusion_multi_character_unlocked"])
+		return (["ok":1,"already":1,
+			"message":"账号已永久解锁幻境多人物，无需再次付费。"]) ;
+	spent = (int)account_data["illusion_expansion_spent_suiyu"];
+	cost = option=="one" ?
+		(int)status["extra_character_slot_cost_suiyu"] :
+		(int)status["multi_character_unlock_cost_suiyu"]-spent;
+	if(spent<0 || spent>=500 || spent%100!=0 || cost<=0 || cost>500)
+		return (["ok":0,
+			"message":"幻境栏位累计抵扣状态异常，本次未扣款。"]) ;
+	if((mappingp(player[ILLUSION_PAYMENT_ROOT]) &&
+	   sizeof((mapping)player[ILLUSION_PAYMENT_ROOT])) ||
+	   (mappingp(player[ILLUSION_EXPANSION_PAYMENT_ROOT]) &&
+	   sizeof((mapping)player[ILLUSION_EXPANSION_PAYMENT_ROOT])))
+		return (["ok":0,
+			"message":"上一笔幻境交易仍在恢复，请重新登录后再试。"]) ;
+	before_wallet = ACCOUNT_WALLETD->query_balance(player);
+	before_physical = YUSHID->query_physical_all_num(player);
+	{
+		object request_hash = Crypto.SHA256();
+		request_hash->update(account_id+"|"+(string)player->query_name()+"|"+
+			option+"|"+(string)time()+"|"+String.string2hex(
+				Crypto.Random.random_string(16)));
+		request_id = lower_case(String.string2hex(request_hash->digest()));
+	}
+	player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([
+		"version":1,"phase":"prepared","request_id":request_id,
+		"account_id":account_id,
+		"illusion_id":(string)illusion_config["current_id"],
+		"option":option,"cost":cost,"before_wallet":before_wallet,
+		"before_physical":before_physical,"created_at":time(),
+	]);
+	if(!player->save_with_result()){
+		player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+		return (["ok":0,"message":"扩容凭据保存失败，本次未扣除碎玉。"]) ;
+	}
+	if(!YUSHID->pay_yushi(player,cost)){
+		player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+		player->save_with_result();
+		return (["ok":0,"message":"碎玉不足或扣款失败，幻境栏位未改变。"]) ;
+	}
+	player[ILLUSION_EXPANSION_PAYMENT_ROOT]["phase"] = "charged";
+	if(!player->save_with_result()){
+		int refunded = YUSHID->rollback_yushi_payment(player,before_wallet,
+			before_physical,"illusion_expansion_charge_save_failed");
+		if(refunded){
+			player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+			player->save_with_result();
+		}
+		return (["ok":0,"message":refunded ?
+			"扣款存档失败，碎玉已原路退回。" :
+			"扣款存档与退款异常，请立即联系管理员。"]) ;
+	}
+	grant = ACCOUNT_CHARACTERD->grant_illusion_character_expansion(
+		account_id,option,request_id,cost);
+	if(!(int)grant["ok"] ||
+	   ((int)grant["already"] && !(int)grant["same_request"])){
+		int refunded = YUSHID->rollback_yushi_payment(player,before_wallet,
+			before_physical,"illusion_expansion_failed");
+		if(refunded){
+			player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+			player->save_with_result();
+		}
+		return (["ok":0,"message":refunded ?
+			"栏位状态已变化，本次碎玉已原路退回。" :
+			"栏位写入及退款异常，请立即联系管理员。"]) ;
+	}
+	entitlement = mappingp(grant["entitlement"]) ?
+		(mapping)grant["entitlement"] : ([]);
+	player[ILLUSION_EXPANSION_PAYMENT_ROOT]["phase"] = "committed";
+	player->save_with_result();
+	player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+	int cleanup_saved = player->save_with_result();
+	Stdio.append_file(ILLUSION_LOG,sprintf("%d|character_expansion|account=%s|character=%s|option=%s|cost=%d|spent=%d|slots=%d|multi=%d|request=%s|cleanup=%d\n",
+		time(),account_id,(string)player->query_name(),option,cost,
+		(int)entitlement["expansion_spent_suiyu"],
+		(int)entitlement["character_slots"],
+		(int)entitlement["multi_character_unlocked"],request_id,
+		cleanup_saved));
+	return (["ok":1,"already":0,
+		"message":(string)grant["message"]+" 本次支付"+cost+
+			"碎玉，累计已计入"+
+			(int)entitlement["expansion_spent_suiyu"]+"碎玉。",
+		"entitlement":copy_value(entitlement)]);
 }
 
 private void reconcile_entitlement_purchase(object player)
@@ -1301,6 +1637,67 @@ private void reconcile_entitlement_purchase(object player)
 	}
 	else
 		werror("[ILLUSION_REALM] 资格购买崩溃退款仍需重试: %s\n",
+			(string)player->query_name());
+}
+
+private void reconcile_character_expansion_purchase(object player)
+{
+	mapping payment;
+	mapping account_data;
+	mapping entitlement;
+	array requests;
+	int refunded;
+	if(!player)
+		return;
+	payment = player[ILLUSION_EXPANSION_PAYMENT_ROOT];
+	if(!mappingp(payment) || !sizeof(payment))
+		return;
+	if((int)payment["version"]!=1 ||
+	   (string)payment["account_id"]!=(string)player->query_account_owner() ||
+	   search(({"prepared","charged","committed"}),
+		(string)payment["phase"])==-1 ||
+	   search(({"one","all"}),(string)payment["option"])==-1 ||
+	   !valid_sha256_hex((string)payment["request_id"]) ||
+	   !valid_identifier((string)payment["illusion_id"]) ||
+	   (int)payment["cost"]<=0 || (int)payment["cost"]>500 ||
+	   (int)payment["cost"]%100!=0 ||
+	   (int)payment["created_at"]<=0 ||
+	   (int)payment["created_at"]>time()+300 ||
+	   (int)payment["before_wallet"]<0 ||
+	   (int)payment["before_wallet"]>1000000000000 ||
+	   (int)payment["before_physical"]<0){
+		werror("[ILLUSION_REALM] 无效扩容恢复凭据，已失败关闭: %s\n",
+			(string)player->query_name());
+		return;
+	}
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(
+		(string)player->query_account_owner());
+	if(!(int)account_data["ok"]){
+		werror("[ILLUSION_REALM] 扩容恢复等待账号索引修复: %s\n",
+			(string)player->query_name());
+		return;
+	}
+	entitlement = mappingp(account_data["illusion_entitlement"]) ?
+		(mapping)account_data["illusion_entitlement"] : ([]);
+	requests = arrayp(entitlement["expansion_requests"]) ?
+		(array)entitlement["expansion_requests"] : ({});
+	if(search(requests,(string)payment["request_id"])!=-1){
+		player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+		player->save_with_result();
+		return;
+	}
+	refunded = YUSHID->rollback_yushi_payment(player,
+		(int)payment["before_wallet"],(int)payment["before_physical"],
+		"illusion_expansion_crash_recovery");
+	if(refunded){
+		player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
+		player->save_with_result();
+		Stdio.append_file(ILLUSION_LOG,sprintf("%d|character_expansion_recovery|account=%s|character=%s|result=refunded\n",
+			time(),(string)payment["account_id"],
+			(string)player->query_name()));
+	}
+	else
+		werror("[ILLUSION_REALM] 栏位扩容崩溃退款仍需重试: %s\n",
 			(string)player->query_name());
 }
 
@@ -1367,7 +1764,8 @@ private string settlement_receipt(object player,mapping realm)
 	return lower_case(String.string2hex(hash->digest()));
 }
 
-mapping(string:mixed) settle_player(object player)
+/** Caller owns the account runtime mutex for the entire receipt/index change. */
+private mapping(string:mixed) settle_player_locked(object player)
 {
 	mapping realm = query_realm_for_player(player);
 	mapping public_status = query_public_status();
@@ -1413,28 +1811,55 @@ mapping(string:mixed) settle_player(object player)
 		"receipt":receipt]);
 }
 
-void reconcile_player_login(object player)
+mapping(string:mixed) settle_player(object player)
+{
+	object account_key;
+	mapping result;
+	if(!player || !functionp(player->query_name))
+		return (["ok":0,"message":"幻境人物对象无效。"]);
+	account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+		(string)player->query_name())->lock();
+	result = settle_player_locked(player);
+	destruct(account_key);
+	return result;
+}
+
+int reconcile_player_login(object player,void|int account_lock_held)
 {
 	mapping realm;
 	mapping status;
+	mapping result;
 	string current_path;
+	object account_key;
+	int ready = 1;
 	if(!player)
-		return;
+		return 0;
+	if(!account_lock_held)
+		account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+			(string)player->query_name())->lock();
 	reconcile_entitlement_purchase(player);
+	reconcile_character_expansion_purchase(player);
 	realm = query_realm_for_player(player);
+	if((int)realm["security_blocked"])
+		ready = 0;
 	status = query_public_status();
 	current_path = normalized_destination_path(environment(player));
-	if((string)realm["realm_type"]=="illusion" &&
+	if(ready && (string)realm["realm_type"]=="illusion" &&
 	   (string)realm["illusion_state"]=="active"){
 		if((string)realm["illusion_id"]!=
 		   (string)status["illusion_id"]){
 			if(search((array)status["closed_ids"],
-			   (string)realm["illusion_id"])!=-1)
-				settle_player(player);
-			else
+			   (string)realm["illusion_id"])!=-1){
+				result = settle_player_locked(player);
+				if(!(int)result["ok"])
+					ready = 0;
+			}
+			else{
 				werror("[ILLUSION_REALM] 未归档的旧幻境人物被冻结: %s %s\n",
 					(string)player->query_name(),
 					(string)realm["illusion_id"]);
+				ready = 0;
+			}
 		}
 		else if((string)status["phase"]=="active"){
 			prepare_new_character(player);
@@ -1444,11 +1869,17 @@ void reconcile_player_login(object player)
 				record_room_visit(player,environment(player));
 		}
 		else if((string)status["phase"]=="settling" ||
-		   (string)status["phase"]=="closed")
-			settle_player(player);
+		   (string)status["phase"]=="closed"){
+			result = settle_player_locked(player);
+			if(!(int)result["ok"])
+				ready = 0;
+		}
 	}
-	else if(is_illusion_room_path((string)player->last_pos))
+	else if(ready && is_illusion_room_path((string)player->last_pos))
 		player->last_pos = (string)illusion_config["return_room"];
+	if(account_key)
+		destruct(account_key);
+	return ready;
 }
 
 // 兼容旧方士调用；方士现已免费开放，与幻境资格无关。
@@ -1462,4 +1893,5 @@ protected void create()
 {
 	reload_config();
 	load_runtime_state();
+	call_out(lifecycle_automation_tick,2);
 }

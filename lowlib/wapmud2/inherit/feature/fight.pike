@@ -644,6 +644,8 @@ int apply_nonstacking_dot(object target,string name,int damage,int duration,
 	int current_time;
 	if(!target)
 		return 0;
+	damage=PERSONAL_DIFFICULTYD->scale_pve_damage(
+		this_object(),target,damage);
 	current_name = (string)target->query_debuff("dot",0);
 	current_damage = (int)target->query_debuff("dot",1);
 	current_time = (int)target->query_debuff("dot",2);
@@ -2230,6 +2232,7 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			damage = target_life_max*2/100;
 		if(damage<1)
 			damage = 1;
+		damage=PERSONAL_DIFFICULTYD->scale_pve_damage(caster,target,damage);
 		if(target->query_buff("buff",0)=="absorb"){
 			int shield = (int)target->query_buff("buff",1);
 			int absorbed = shield>=damage ? damage : shield;
@@ -2888,7 +2891,8 @@ void perform(string name,void|int flag){
 							enemy->is("player"),enemy->is("npc") && enemy->_boss);
 
 						//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
-						int attack_fact = fact_mofa_a;
+						int attack_fact = PERSONAL_DIFFICULTYD->
+							scale_pve_damage(this_object(),enemy,fact_mofa_a);
 						string absorb_desc = "";
 						if(enemy->query_buff("buff",0)=="absorb"){
 							if((int)enemy->query_buff("buff",1) >= attack_fact){
@@ -3538,7 +3542,9 @@ void boss_perform(string name){
 									target_mofa_a,mofa_defend,mofachuantou_add);
 
 								//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
-								int	attack_fact = fact_mofa_a;
+								int attack_fact = PERSONAL_DIFFICULTYD->
+									scale_pve_damage(this_object(),enemys[i],
+										fact_mofa_a);
 
 								// 跨区管理员测试账号一击必杀。
 								if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){
@@ -3650,7 +3656,8 @@ void boss_perform(string name){
 					mofa_defend,mofachuantou_add);
 
 				//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
-				int	attack_fact = fact_mofa_a;
+				int attack_fact = PERSONAL_DIFFICULTYD->
+					scale_pve_damage(this_object(),enemy,fact_mofa_a);
 
 				// 跨区管理员测试账号一击必杀。
 				if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){
@@ -4133,7 +4140,8 @@ private void attack(int skill_add,int skill_add_per,string type,
 				attack_a=random(5);
 
 			//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
-			attack_fact = attack_a;
+			attack_fact = PERSONAL_DIFFICULTYD->scale_pve_damage(
+				this_object(),enemy,attack_a);
 
 			// 跨区管理员测试账号一击必杀。
 			if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){

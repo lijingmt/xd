@@ -84,6 +84,15 @@ Core invariants:
 - heat observations improve placement on the next safe cold start rather than
   moving a hot room arbitrarily while players are inside it.
 
+Illusion realms use the entire worker pool; they are not statically split into
+“four eternal plus four seasonal” workers. S1 keeps the shared Moon Gate camp
+in one `hub` affinity and places its three connected field chapters in stable
+`silver`, `ruins`, and `depths` affinities. A large population exploring
+different chapters can therefore use multiple processes, while everyone in one
+exact room still converges on its sole owner. Dungeons continue to use
+server-owned team/instance keys, so one team instance is never split. This
+physical placement does not weaken the `illusion:S1` logical boundary.
+
 Changing the worker count changes the candidate set and currently requires a
 safe quiesce, save, and restart. Online hot-add is not implemented. One extremely
 hot room is still owned by one worker; adding processes cannot split that room
@@ -153,7 +162,7 @@ Existing logical zones remain active. They govern identity, visibility, combat,
 events, rankings, and selected economic rules, while multiple logical zones may
 share one physical worker pool.
 
-This supports a two-layer seasonal model:
+Illusion realms use the same two-layer model:
 
 - physical layer: realms share the Coordinator, Gateway, and worker pool for
   better utilization;

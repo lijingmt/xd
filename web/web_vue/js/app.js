@@ -209,6 +209,9 @@ createApp({
             accountSharedRechargeBalance: 0,
             accountSharedRechargeAvailable: true,
 			illusionEntitled: false,
+			illusionCharacterSlots: 1,
+			illusionMultiCharacterUnlocked: false,
+			illusionExpansionSpentSuiyu: 0,
 			illusionRealmStatus: {
 				ok: false,
 				illusion_id: 'S1',
@@ -1617,6 +1620,9 @@ createApp({
             this.accountSharedRechargeBalance = 0;
             this.accountSharedRechargeAvailable = true;
 			this.illusionEntitled = false;
+			this.illusionCharacterSlots = 1;
+			this.illusionMultiCharacterUnlocked = false;
+			this.illusionExpansionSpentSuiyu = 0;
 			this.illusionRealmStatus = {
 				ok: false, illusion_id: 'S1', display_name: '新月幻境·S1',
 				phase: 'disabled', phase_name: '不可用', creation_open: false,
@@ -1703,6 +1709,14 @@ createApp({
             this.accountSharedRechargeAvailable =
                 data.shared_recharge_available !== 0;
 			this.illusionEntitled = !!data.illusion_entitled;
+			this.illusionCharacterSlots = Math.max(
+				1, Number(data.illusion_character_slots || 1)
+			);
+			this.illusionMultiCharacterUnlocked =
+				!!data.illusion_multi_character_unlocked;
+			this.illusionExpansionSpentSuiyu = Math.max(
+				0, Number(data.illusion_expansion_spent_suiyu || 0)
+			);
 			if (data.illusion_realm && typeof data.illusion_realm === 'object') {
 				this.illusionRealmStatus = Object.assign({},
 					this.illusionRealmStatus, data.illusion_realm);
@@ -5343,8 +5357,21 @@ createApp({
         }
     },
 
-    computed: {
-        hasRecentAoeReport() {
+	computed: {
+		currentIllusionCharacterCount() {
+			const illusionId = String(this.illusionRealmStatus?.illusion_id || '');
+			if (!illusionId) return 0;
+			return this.accountCharacters.filter(character =>
+				String(character?.illusion_id || '') === illusionId
+			).length;
+		},
+
+		illusionCharacterCapacityReached() {
+			return !this.illusionMultiCharacterUnlocked &&
+				this.currentIllusionCharacterCount >= this.illusionCharacterSlots;
+		},
+
+		hasRecentAoeReport() {
             return Array.isArray(this.battleAoeReport?.targets) &&
                 this.battleAoeReport.targets.length > 0;
         },

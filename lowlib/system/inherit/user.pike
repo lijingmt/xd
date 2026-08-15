@@ -158,6 +158,7 @@ void receive_message(string newclass, string msg){
 }
 int setup(string arg){
 	object account_characterd;
+	object seasonal_chard;
 	object account_storaged;
 	object account_walletd;
 	object yushid;
@@ -166,6 +167,7 @@ int setup(string arg){
 	object account_runtime_key;
 	object http_api_daemon;
 	int http_login_pending = 0;
+	int map_worker_arrival = 0;
 	int account_login_ready = 1;
 	if(functionp(this_object()->query_account_owner)){
 		account_characterd = (object)(ROOT+
@@ -181,9 +183,19 @@ int setup(string arg){
 		   functionp(account_characterd->query_account_runtime_mutex))
 			account_runtime_key = account_characterd->
 				query_account_runtime_mutex(name)->lock();
+		if(functionp(this_object()->query_pending_worker_arrival))
+			map_worker_arrival = this_object()->query_pending_worker_arrival();
+		seasonal_chard = (object)(ROOT+
+			"/gamelib/single/daemons/seasonal_chard.pike");
+		// 赛季回归必须先于共享仓库/钱包恢复。跨Worker到达只是地图迁移，
+		// 由目标节点的自动结算器处理，不能重复执行完整登录迁移。
+		if(!map_worker_arrival && seasonal_chard && functionp(
+		   seasonal_chard->reconcile_player_login))
+			account_login_ready = seasonal_chard->
+				reconcile_player_login(this_object(),1);
 		account_storaged = (object)(ROOT+
 			"/gamelib/single/daemons/account_storaged.pike");
-		if(account_storaged && functionp(
+		if(account_login_ready && account_storaged && functionp(
 		   account_storaged->reconcile_player_login))
 			account_login_ready = account_storaged->
 				reconcile_player_login(this_object());

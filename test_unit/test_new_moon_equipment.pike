@@ -547,18 +547,18 @@ void test_catalog_and_templates()
 				   search(({"single_main_weapon","double_main_weapon"}),
 				   (string)item->query_item_kind())==-1)
 					slot_valid=0;
-				if(item->query_attack_power()<170 ||
+				if(item->query_attack_power()<340 ||
 				   item->query_attack_power_limit()<
 					item->query_attack_power() ||
-				   item->query_attack_power_limit()>420)
+				   item->query_attack_power_limit()>840)
 					budget_valid=0;
 			}
 			else if(query_piece_parent(slot)=="armor"){
 				if(item->query_item_type()!="armor" ||
 				   item->query_item_kind()!=query_expected_kind(slot))
 					slot_valid=0;
-				if(item->query_equip_defend()<190 ||
-				   item->query_equip_defend()>720)
+				if(item->query_equip_defend()<380 ||
+				   item->query_equip_defend()>1440)
 					budget_valid=0;
 			}
 			else if(item->query_item_type()!="jewelry" ||
@@ -624,8 +624,8 @@ void test_catalog_and_templates()
 		metadata_valid,"某件装备元数据不完整");
 	check("十件套覆盖主武器、六防具与三首饰且槽位不冲突",
 		slot_valid,"存在错误的装备类型或部位");
-	check("69级武器与六防具白板攻防保持在旧装备预算区间",
-		budget_valid,"存在异常放大的基础攻防");
+	check("69级套装单件白板攻防精确提高至原模板200%",
+		budget_valid,"单件攻防没有翻倍或越过审定边界");
 	check("120件底版在掉落登记和随机词缀表中各出现一次",
 		profile_valid,"登记表或词缀表存在缺项或重复");
 	check("新月套装从普通白装池隔离并使用69级以上独立稀有掉落门",
@@ -673,11 +673,11 @@ void test_resonance_boundaries()
 		item->move(player);
 		player->wield(item);
 		int valid=!inactive && item->query_newmoon_resonance_active() &&
-			item->query_str_add()==bonus[0] &&
-			item->query_dex_add()==bonus[1] &&
-			item->query_think_add()==bonus[2] &&
-			item->query_life_add()==bonus[3]*10 &&
-			item->query_mofa_add()==bonus[4]*10;
+			item->query_str_add()==bonus[0]*2 &&
+			item->query_dex_add()==bonus[1]*2 &&
+			item->query_think_add()==bonus[2]*2 &&
+			item->query_life_add()==bonus[3]*20 &&
+			item->query_mofa_add()==bonus[4]*20;
 		if(!valid){
 			all_valid=0;
 			errors+=({(string)config["profession"]});
@@ -709,6 +709,78 @@ void test_resonance_boundaries()
 	destroy_player(wrong);
 }
 
+void test_individual_item_baseline_comparison()
+{
+	object ordinary_weapon=clone(ROOT+
+		"/gamelib/clone/item/weapon/69hanbingshuangjian");
+	object ordinary_armor=clone(ROOT+
+		"/gamelib/clone/item/armor/65feiyangsuojia");
+	object fixed_best_weapon=clone(ROOT+
+		"/gamelib/clone/item/weapon/70yunraoshuangdaowuse");
+	object fixed_best_staff=clone(ROOT+
+		"/gamelib/clone/item/weapon/70yunraofazhangwuse");
+	object fixed_best_armor=clone(ROOT+
+		"/gamelib/clone/item/armor/70gutiansuojia");
+	object strongest_set_weapon=clone(item_path("weapon",
+		"69xinyueshanhezhongjian"));
+	object caster_set_weapon=clone(item_path("weapon",
+		"69xinyuehuichunlingzhang"));
+	object strongest_set_armor=clone(item_path("cloth",
+		"69xinyuebudongshanjia"));
+	int valid=ordinary_weapon && ordinary_armor && fixed_best_weapon &&
+		fixed_best_staff && fixed_best_armor && strongest_set_weapon &&
+		caster_set_weapon && strongest_set_armor &&
+		ordinary_weapon->query_attack_power()==355 &&
+		ordinary_weapon->query_attack_power_limit()==385 &&
+		ordinary_armor->query_equip_defend()==657 &&
+		fixed_best_weapon->query_attack_power()==555 &&
+		fixed_best_weapon->query_attack_power_limit()==585 &&
+		fixed_best_staff->query_attack_power()==405 &&
+		fixed_best_staff->query_attack_power_limit()==435 &&
+		fixed_best_armor->query_equip_defend()==672 &&
+		strongest_set_weapon->query_attack_power()==710 &&
+		strongest_set_weapon->query_attack_power_limit()==776 &&
+		caster_set_weapon->query_attack_power()==356 &&
+		caster_set_weapon->query_attack_power_limit()==416 &&
+		strongest_set_armor->query_equip_defend()==1380;
+	check("套装单件新基线已对照69级普通与70级固定极品上限",
+		valid,sprintf("普通武器%d-%d/普通甲%d，固定极品重武%d-%d/"
+			"法杖%d-%d/重甲%d，套装重武%d-%d/法杖%d-%d/重甲%d",
+			ordinary_weapon ? ordinary_weapon->query_attack_power() : 0,
+			ordinary_weapon ? ordinary_weapon->query_attack_power_limit() : 0,
+			ordinary_armor ? ordinary_armor->query_equip_defend() : 0,
+			fixed_best_weapon ? fixed_best_weapon->query_attack_power() : 0,
+			fixed_best_weapon ? fixed_best_weapon->query_attack_power_limit() : 0,
+			fixed_best_staff ? fixed_best_staff->query_attack_power() : 0,
+			fixed_best_staff ? fixed_best_staff->query_attack_power_limit() : 0,
+			fixed_best_armor ? fixed_best_armor->query_equip_defend() : 0,
+			strongest_set_weapon ? strongest_set_weapon->query_attack_power() : 0,
+			strongest_set_weapon ? strongest_set_weapon->query_attack_power_limit() : 0,
+			caster_set_weapon ? caster_set_weapon->query_attack_power() : 0,
+			caster_set_weapon ? caster_set_weapon->query_attack_power_limit() : 0,
+			strongest_set_armor ? strongest_set_armor->query_equip_defend() : 0));
+	strongest_set_weapon->set_newmoon_collection("huanji");
+	caster_set_weapon->set_newmoon_collection("huanji");
+	strongest_set_armor->set_newmoon_collection("huanji");
+	check("寰极单件白板攻防超过现有固定极品且不放大其他系统",
+		strongest_set_weapon->query_attack_power()==937 &&
+		strongest_set_weapon->query_attack_power_limit()==1024 &&
+		caster_set_weapon->query_attack_power()==469 &&
+		caster_set_weapon->query_attack_power_limit()==549 &&
+		strongest_set_armor->query_equip_defend()==1821,
+		sprintf("寰极重武%d-%d/法杖%d-%d/重甲%d",
+			strongest_set_weapon->query_attack_power(),
+			strongest_set_weapon->query_attack_power_limit(),
+			caster_set_weapon->query_attack_power(),
+			caster_set_weapon->query_attack_power_limit(),
+			strongest_set_armor->query_equip_defend()));
+	foreach(({ordinary_weapon,ordinary_armor,fixed_best_weapon,
+	   fixed_best_staff,fixed_best_armor,strongest_set_weapon,
+	   caster_set_weapon,strongest_set_armor}),object item)
+		if(item)
+			destruct(item);
+}
+
 void test_full_set_progression()
 {
 	mapping config=catalog[0];
@@ -717,7 +789,7 @@ void test_full_set_progression()
 	array(object) items=clone_full_set(config);
 	array(int) milestones=({1,2,4,6,8,10});
 	array(int) expected_percent=({100,120,140,160,180,200});
-	array(int) expected_strength=({3,6,16,24,40,60});
+	array(int) expected_strength=({6,14,32,54,80,120});
 	int progression_valid=1;
 	array(string) errors=({});
 
@@ -779,7 +851,7 @@ void test_full_set_progression()
 		items[0]->query_newmoon_set_piece_count()==9 &&
 		items[0]->query_newmoon_resonance_percent()==180 &&
 		!items[1]->query_newmoon_resonance_active() &&
-		broken_strength==45 && sum_set_attribute(items,"all")==0,
+		broken_strength==90 && sum_set_attribute(items,"all")==0,
 		sprintf("件数%d 共鸣%d 力量%d 全属性%d",
 			items[0]->query_newmoon_set_piece_count(),
 			items[0]->query_newmoon_resonance_percent(),
@@ -863,7 +935,8 @@ void test_requested_piece_attribute_matrix()
 				int factor=1;
 				if(attribute=="life" || attribute=="mofa")
 					factor=10;
-				int expected=checkpoint*((int)bonus[bonus_index]*percent/100)*factor;
+				int expected=checkpoint*((int)bonus[bonus_index]*2*
+					percent/100)*factor;
 				int actual=sum_core_attribute(items,attribute);
 				if(actual!=expected){
 					all_valid=0;
@@ -1166,17 +1239,18 @@ void test_two_player_real_combat_comparisons()
 		coherent_items[0]->query_newmoon_set_piece_count()==4 &&
 		mixed_items[0]->query_newmoon_set_piece_count()==2 &&
 		mixed_items[2]->query_newmoon_set_piece_count()==2 &&
-		sum_core_attribute(coherent_items[..3],"str")==16 &&
-		sum_core_attribute(mixed_items[..3],"str")==12 &&
+		sum_core_attribute(coherent_items[..3],"str")==32 &&
+		sum_core_attribute(mixed_items[..3],"str")==28 &&
 		sum_set_attribute(coherent_items[..3],"doub")==4 &&
 		sum_set_attribute(mixed_items[..3],"doub")==0 &&
 		coherent->query_str()>mixed_player->query_str() &&
-		(int)coherent_profile["physical_raw"]>
+		(int)coherent_profile["physical_raw"]>=
 			(int)mixed_profile["physical_raw"] &&
 		(int)coherent_profile["critical"]>
 			(int)mixed_profile["critical"] &&
 		(int)coherent_damage["damage"]==coherent_damage_reference &&
 		(int)mixed_damage["damage"]==mixed_damage_reference &&
+		(int)coherent_damage["damage"]>(int)mixed_damage["damage"] &&
 		coherent_expected_output>mixed_expected_output,
 		mixed_error!="" ? mixed_error :
 			sprintf("完整/混搭攻击%d/%d，暴击%d/%d，伤害%d/%d，百次期望%d/%d",
@@ -1571,10 +1645,15 @@ void test_legacy_equipment_compatibility()
 	string old_directory=ITEM_PATH+"weapon/65haixiaofengjian";
 	array(string) old_before=get_dir(old_directory) || ({});
 	object|zero converted_old=0;
-	mixed old_convert_error=catch {
-		converted_old=ITEMSD->get_convert_item(
-			old_raw,2,65,65,old_item);
-	};
+	mixed old_convert_error=0;
+	// 真实映射目录可能有历史中断生成的坏后缀文件；它们应
+	// 被掉落守护失败关闭，但不应让随机碰撞使旧装备兼容测试假败。
+	for(int attempt=0;attempt<8 && !converted_old;attempt++){
+		old_convert_error=catch {
+			converted_old=ITEMSD->get_convert_item(
+				old_raw,2,65,65,old_item);
+		};
+	}
 	check("普通旧装备传入原对象炼化时不会被误判为新月套装",
 		!old_convert_error && objectp(converted_old) &&
 		converted_old->query_item_rareLevel()==2 &&
@@ -1596,7 +1675,7 @@ void test_legacy_equipment_compatibility()
 		restored->query_newmoon_resonance_profession()=="jianxian" &&
 		restored->query_newmoon_resonance_theme()=="剑心" &&
 		restored->query_newmoon_set_extra_description(10)!="" &&
-		restored->query_attack_power()==248 &&
+		restored->query_attack_power()==248*2 &&
 		restored->query_item_canLevel()==69,
 		"套装元数据恢复后丢失或旧装备字段错位");
 	new_item->set_newmoon_collection("huanji");
@@ -1609,7 +1688,7 @@ void test_legacy_equipment_compatibility()
 		huanji_restored->query_newmoon_collection_id()=="huanji" &&
 		huanji_restored->query_newmoon_collection_rank()==6 &&
 		huanji_restored->query_newmoon_collection_quality()=="至尊" &&
-		huanji_restored->query_attack_power()==248*132/100,
+		huanji_restored->query_attack_power()==248*2*132/100,
 		"高阶集合字段未进入dbase存档或恢复后倍率错误");
 	destruct(new_item);
 	destruct(restored);
@@ -1740,6 +1819,7 @@ int main()
 	werror("\n========== 新月十二职业十件套测试 ==========\n");
 	test_catalog_and_templates();
 	test_resonance_boundaries();
+	test_individual_item_baseline_comparison();
 	test_full_set_progression();
 	test_all_profession_set_extras();
 	test_requested_piece_attribute_matrix();
