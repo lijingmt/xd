@@ -79,6 +79,7 @@ string query_reason_label(string reason)
 		"unknown_slot":"未知装备位",
 		"occupied":"装备位已有物品",
 		"invested":"强化、融合、镶嵌或稀有装备受保护",
+		"set_protected":"套装共鸣受保护",
 		"not_stronger":"评分未严格超过现有装备",
 		"wear_failed":"穿戴失败",
 		"replace_failed":"替换失败并已恢复旧装备",
@@ -239,6 +240,85 @@ int query_item_score(object item)
 	return score;
 }
 
+int is_newmoon_set_equipment(object item)
+{
+	return item && item->is("equip") &&
+		functionp(item->query_newmoon_resonance_profession) &&
+		(string)item->query_newmoon_resonance_profession()!="" &&
+		functionp(item->query_newmoon_collection_id) &&
+		(string)item->query_newmoon_collection_id()!="";
+}
+
+string query_newmoon_set_key(object item)
+{
+	if(!is_newmoon_set_equipment(item))
+		return "";
+	return (string)item->query_newmoon_collection_id()+"|"+
+		(string)item->query_newmoon_resonance_profession()+"|"+
+		(string)item->query_newmoon_resonance_theme();
+}
+
+private string select_preferred_set_group(mapping groups)
+{
+	string best_key="";
+	int best_count=-1;
+	int best_rank=-1;
+	int best_score=-1;
+	foreach(sort(indices(groups)),string key){
+		mapping one=groups[key];
+		int count=sizeof((mapping)one["slots"]);
+		int rank=(int)one["rank"];
+		int score=(int)one["score"];
+		if(count>best_count ||
+		   (count==best_count && rank>best_rank) ||
+		   (count==best_count && rank==best_rank && score>best_score)){
+			best_key=key;
+			best_count=count;
+			best_rank=rank;
+			best_score=score;
+		}
+	}
+	return best_key;
+}
+
+string query_preferred_set_key(object player)
+{
+	mapping equipped_groups=([]);
+	mapping inventory_groups=([]);
+	if(!player)
+		return "";
+	foreach(all_inventory(player),object item){
+		string key;
+		string slot;
+		mapping target;
+		if(!is_newmoon_set_equipment(item) ||
+		   (string)item->query_newmoon_resonance_profession()!=
+		   (string)player->query_profeId())
+			continue;
+		key=query_newmoon_set_key(item);
+		slot=(string)item->query_item_kind();
+		if(key=="" || slot=="")
+			continue;
+		if(item->equiped)
+			target=equipped_groups;
+		else{
+			if(query_equip_reject_reason(player,item)!="")
+				continue;
+			target=inventory_groups;
+		}
+		if(!mappingp(target[key]))
+			target[key]=(["slots":([]),"rank":
+				(int)item->query_newmoon_collection_rank(),"score":0]);
+		target[key]["slots"][slot]=1;
+		target[key]["score"]=(int)target[key]["score"]+
+			query_item_score(item);
+	}
+	// 已穿套装优先，避免补空位时混入另一系列并拆散未来共鸣。
+	if(sizeof(equipped_groups))
+		return select_preferred_set_group(equipped_groups);
+	return select_preferred_set_group(inventory_groups);
+}
+
 void add_rejected(mapping result,string reason)
 {
 	mapping rejected = result["rejected"];
@@ -247,10 +327,19 @@ void add_rejected(mapping result,string reason)
 	rejected[reason]++;
 }
 
-object|zero query_better_item(object|zero current,object candidate)
+object|zero query_better_item(object|zero current,object candidate,
+	void|string preferred_set_key)
 {
 	if(!current)
 		return candidate;
+	if(preferred_set_key && preferred_set_key!=""){
+		int current_preferred=
+			query_newmoon_set_key(current)==preferred_set_key;
+		int candidate_preferred=
+			query_newmoon_set_key(candidate)==preferred_set_key;
+		if(current_preferred!=candidate_preferred)
+			return candidate_preferred ? candidate : current;
+	}
 	if(query_item_score(candidate) > query_item_score(current))
 		return candidate;
 	return current;
@@ -280,10 +369,10 @@ int wear_selected_item(object player,object item,mapping result)
 	return 0;
 }
 
-mapping auto_equip_player(object player)
+mapping auto_equip_player(object player,void|int prefer_set)
 {
 	mapping result = ([
-		"mode":"fill",
+		"mode":prefer_set ? "set" : "fill",
 		"equipped":({}),
 		"replaced":({}),
 		"slots":({}),
@@ -299,10 +388,14 @@ mapping auto_equip_player(object player)
 	int has_double = 0;
 	int has_main = 0;
 	int has_other = 0;
+	string preferred_set_key="";
 
 	if(!player)
 		return result;
 	inventory = all_inventory(player);
+	if(prefer_set)
+		preferred_set_key=query_preferred_set_key(player);
+	result["preferred_set_key"]=preferred_set_key;
 
 	foreach(inventory,object item){
 		string slot;
@@ -344,11 +437,14 @@ mapping auto_equip_player(object player)
 				continue;
 			}
 			if(slot == "double_main_weapon")
-				best_double = query_better_item(best_double,item);
+				best_double = query_better_item(best_double,item,
+					preferred_set_key);
 			else if(slot == "single_main_weapon")
-				best_main = query_better_item(best_main,item);
+				best_main = query_better_item(best_main,item,
+					preferred_set_key);
 			else if(slot == "single_other_weapon")
-				best_other = query_better_item(best_other,item);
+				best_other = query_better_item(best_other,item,
+					preferred_set_key);
 			else
 				add_rejected(result,"unknown_slot");
 			continue;
@@ -358,15 +454,17 @@ mapping auto_equip_player(object player)
 			add_rejected(result,"occupied");
 			continue;
 		}
-		best_armor[slot] = query_better_item(best_armor[slot],item);
+		best_armor[slot] = query_better_item(best_armor[slot],item,
+			preferred_set_key);
 	}
 
 	if(!has_double && !has_main && !has_other){
-		object|zero first_weapon = best_main;
-		if(best_double &&
-		   (!first_weapon ||
-		    query_item_score(best_double) > query_item_score(first_weapon)))
-			first_weapon = best_double;
+		// 主手与双手武器也必须服从套装优先级，不能在最后一步又被
+		// 一把高面板普通双手武器覆盖掉已选中的同系列套装武器。
+		object|zero first_weapon=best_main;
+		if(best_double)
+			first_weapon=query_better_item(first_weapon,best_double,
+				preferred_set_key);
 		if(first_weapon){
 			wear_selected_item(player,first_weapon,result);
 			if(first_weapon->query_item_kind() == "double_main_weapon")
@@ -429,14 +527,14 @@ int replace_selected_item(object player,object current,object candidate,
 	return 0;
 }
 
-mapping auto_replace_player(object player)
+mapping auto_replace_player(object player,void|int allow_break_set)
 {
 	// 先沿用原有安全逻辑补齐空槽，再只比较仍有候选的同槽装备。
 	mapping result = auto_equip_player(player);
 	mapping best = ([]);
 	mapping protected_slots = ([]);
 	array(object) inventory;
-	result["mode"] = "smart";
+	result["mode"] = allow_break_set ? "breakset" : "smart";
 	if(!player)
 		return result;
 	inventory = all_inventory(player);
@@ -455,7 +553,15 @@ mapping auto_replace_player(object player)
 			add_rejected(result,reason);
 			continue;
 		}
-		if(is_invested_equipment(current)){
+		if(is_newmoon_set_equipment(current) && !allow_break_set){
+			if(!protected_slots[slot]){
+				protected_slots[slot] = 1;
+				add_rejected(result,"set_protected");
+			}
+			continue;
+		}
+		if(is_invested_equipment(current) &&
+		   !(allow_break_set && is_newmoon_set_equipment(current))){
 			if(!protected_slots[slot]){
 				protected_slots[slot] = 1;
 				add_rejected(result,"invested");
@@ -485,7 +591,9 @@ string render_result(mapping result)
 	array(object) equipped = result["equipped"];
 	array(mapping) replaced = result["replaced"] || ({});
 	mapping rejected = result["rejected"];
-	int smart = (string)result["mode"] == "smart";
+	string mode=(string)result["mode"];
+	int smart = mode == "smart" || mode == "breakset";
+	int set_mode = mode == "set";
 
 	if(sizeof(equipped)){
 		s += "已为你穿戴：\n";
@@ -526,14 +634,30 @@ string render_result(mapping result)
 		s += "。\n";
 	}
 	if(smart){
-		s += "\n提示：只替换同槽且评分严格更高的普通装备；"+
-			"强化、融合、镶嵌、稀有装备需手动确认。\n";
+		if(mode=="breakset")
+			s += "\n提示：你已明确允许拆散套装；仍只替换同槽且评分严格"+
+				"更高的装备，其他养成装备继续受保护。\n";
+		else
+			s += "\n提示：只替换同槽且评分严格更高的普通装备；"+
+				"套装共鸣及其他养成装备不会被拆散。\n";
 		s += "[仅补空位:auto_equip fill]\n";
+	}
+	else if(set_mode){
+		if((string)result["preferred_set_key"]!="")
+			s += "\n提示：已优先补齐当前已穿套装；未穿套装时优先选择"+
+				"可组成最多不同部位的一组。现有装备不会被替换。\n";
+		else
+			s += "\n提示：没有找到本职业可穿套装，已按普通评分补空位。\n";
+		s += "[智能替换更强装备:auto_equip smart]\n";
 	}
 	else{
 		s += "\n提示：当前模式只补空位，不会顶掉现有装备。\n";
-		s += "[智能替换更强装备:auto_equip smart]\n";
+		s += "[套装优先补空位:auto_equip set]|"+
+			"[智能替换更强装备:auto_equip smart]\n";
 	}
+	if(mode=="smart")
+		s += "[允许拆散套装（需确认）:auto_equip breakset]\n";
+	s += "[套装管理:set_equipment_cleanup]\n";
 	s += "[查看装备:inventory]\n";
 	s += "[返回游戏:look]\n";
 	return s;
@@ -546,8 +670,20 @@ int main(string|zero arg)
 
 	if(!player)
 		return 0;
+	if(arg=="breakset"){
+		player->write_view(WAP_VIEWD["/emote"],0,0,
+			"【允许拆散套装】\n此操作可能让2/4/6/8/10件共鸣失效。"+
+			"只有确实希望按单件评分替换时才继续。\n\n"+
+			"[确认允许拆套:auto_equip breakset_confirm]|"+
+			"[取消:auto_equip]\n");
+		return 1;
+	}
 	if(arg == "smart")
 		result = auto_replace_player(player);
+	else if(arg=="breakset_confirm")
+		result=auto_replace_player(player,1);
+	else if(arg=="set")
+		result=auto_equip_player(player,1);
 	else
 		result = auto_equip_player(player);
 	if(arg != "silent"){

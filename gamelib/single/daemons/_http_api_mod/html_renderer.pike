@@ -797,6 +797,7 @@ string format_html_command_input(string cmd, string txd, string userid)
             "style='padding:4px 8px;border:1px solid %s;border-radius:4px;background:%s;color:%s;'>" +
             "<option value=''>请选择分类</option>" +
             "<option value='all'>全部</option>" +
+			"<option value='set'>套装</option>" +
             "<option value='equipment'>装备</option>" +
             "<option value='medicine'>药品</option>" +
             "<option value='book'>书籍</option>" +

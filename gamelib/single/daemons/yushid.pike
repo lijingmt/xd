@@ -597,7 +597,14 @@ int give_yushi(object player,int num)
 			}
 			yushi_new->amount=chunk;
 			created+=({yushi_new});
-			yushi_new->move_player((string)player->query_name());
+			// 多 Worker 切换或同名对象重载期间，find_player(name) 可能
+			// 暂时指向另一份对象。退款/补发必须落到调用方持有的精确
+			// 玩家对象；只有全局在线对象身份一致时才沿用自动合堆。
+			if(find_player((string)player->query_name())==player)
+				yushi_new->move_player((string)player->query_name());
+			else if(yushi_new->move(player)!=1 ||
+			        environment(yushi_new)!=player)
+				break;
 			level_amount-=chunk;
 		}
 		if(level_amount>0)

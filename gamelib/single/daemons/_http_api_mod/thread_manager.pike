@@ -67,7 +67,7 @@ constant CORE_COMMANDS = ({
     "zlj_sell", "zlj_sell_confirm",
 
     // ========== 物品转移（多人交互风险）==========
-    "get", "take",  // 从地上拾取（可能有竞争）
+    "get", "get_all_equipment", "take",  // 从地上拾取（可能有竞争）
     "drop", "put",  // 丢弃/放置（可能被他人拾取）
     "give", "offer",  // 给予他人
     "duanwu_throw", "duanwu_throw_cof",  // 投放粽子（他人可捡）

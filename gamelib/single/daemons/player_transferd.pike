@@ -13,8 +13,22 @@ inherit LOW_DAEMON;
 #define TRANSFER_LOG ROOT "/log/player_transfer.log"
 
 private mapping(string:mapping(string:mixed)) gift_offers=([]);
+private mapping(string:mapping(string:mixed)) batch_gift_offers=([]);
 private mapping(string:mapping(string:mixed)) trade_offers=([]);
 private Thread.Mutex transfer_offer_lock=Thread.Mutex();
+private string ephemeral_runtime_nonce="";
+
+/** Process-local identity used to invalidate serialized UI selections on reload. */
+string query_ephemeral_runtime_nonce()
+{
+	object key=transfer_offer_lock->lock();
+	if(ephemeral_runtime_nonce=="")
+		ephemeral_runtime_nonce=String.string2hex(
+			Crypto.Random.random_string(16));
+	string value=ephemeral_runtime_nonce;
+	destruct(key);
+	return value;
+}
 
 private mapping(string:mixed) result(int ok,string code,string message)
 {
@@ -169,6 +183,161 @@ private int transferable(object item,int gift,object first,object second)
 	   ((int)first->query_level()<=8 || (int)second->query_level()<=8))
 		return 0;
 	return 1;
+}
+
+int can_batch_gift_item(object sender,object recipient,object item)
+{
+	return same_local_room(sender,recipient) &&
+		item && environment(item)==sender &&
+		transferable(item,1,sender,recipient);
+}
+
+mapping(string:mixed) create_batch_gift_offer(object sender,
+	object recipient,array(object) requested_items)
+{
+	object offer_key;
+	array(object) items=({});
+	string token;
+	if(!same_local_room(sender,recipient))
+		return result(0,"not_local","赠送双方必须在同一房间");
+	if(!arrayp(requested_items) || !sizeof(requested_items) ||
+	   sizeof(requested_items)>20)
+		return result(0,"invalid_items","每次请选择1至20件物品");
+	foreach(requested_items,object item){
+		if(search(items,item)!=-1 ||
+		   !can_batch_gift_item(sender,recipient,item))
+			return result(0,"invalid_item","赠送清单已经变化，请重新选择");
+		items+=({item});
+	}
+	offer_key=transfer_offer_lock->lock();
+	prune_offers(batch_gift_offers);
+	token=new_transaction_id("batch_gift_offer",sender,recipient);
+	batch_gift_offers[token]=(["sender":sender,"recipient":recipient,
+		"items":items,"expires_at":time()+120]);
+	destruct(offer_key);
+	return (["ok":1,"code":"offered","message":"批量赠送请求已创建",
+		"token":token,"count":sizeof(items)]);
+}
+
+private mapping consume_batch_gift_offer(string token,object sender,
+	object recipient)
+{
+	object offer_key;
+	mapping offer;
+	if(!token || token=="")
+		return ([]);
+	offer_key=transfer_offer_lock->lock();
+	prune_offers(batch_gift_offers);
+	offer=batch_gift_offers[token];
+	m_delete(batch_gift_offers,token);
+	if(!mappingp(offer) || offer["sender"]!=sender ||
+	   offer["recipient"]!=recipient)
+		offer=([]);
+	destruct(offer_key);
+	return offer;
+}
+
+int cancel_batch_gift_offer(string token,object sender,object recipient)
+{
+	object offer_key;
+	mapping offer;
+	if(!token || token=="")
+		return 0;
+	offer_key=transfer_offer_lock->lock();
+	prune_offers(batch_gift_offers);
+	offer=batch_gift_offers[token];
+	if(!mappingp(offer) || offer["sender"]!=sender ||
+	   offer["recipient"]!=recipient){
+		destruct(offer_key);
+		return 0;
+	}
+	m_delete(batch_gift_offers,token);
+	destruct(offer_key);
+	return 1;
+}
+
+private int rollback_batch_gift(object recipient,object sender,
+	array(mapping(string:mixed)) delivered)
+{
+	int ok=1;
+	for(int index=sizeof(delivered)-1;index>=0;index--){
+		mapping one=delivered[index];
+		if(!restore_delivered_item(recipient,sender,one["item"],
+		   (string)one["name"],(string)one["path"],(int)one["amount"],
+		   (int)one["combine"]))
+			ok=0;
+	}
+	return ok;
+}
+
+mapping(string:mixed) execute_batch_gift(object recipient,object sender,
+	string offer_token)
+{
+	mapping offer;
+	object lock_key;
+	array(object) items;
+	array(mapping(string:mixed)) delivered=({});
+	string transaction_id;
+	if(!same_local_room(recipient,sender))
+		return result(0,"not_local","赠送双方必须在同一房间");
+	offer=consume_batch_gift_offer(offer_token,sender,recipient);
+	if(!sizeof(offer) || !arrayp(offer["items"]))
+		return result(0,"offer_expired","批量赠送请求已失效，请重新发起");
+	items=(array(object))offer["items"];
+	lock_key=try_counterparty_lock(recipient,sender);
+	if(ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+	   (string)recipient->query_name())!=
+	   ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+	   (string)sender->query_name()) && !lock_key)
+		return result(0,"counterparty_busy","对方正在执行其他操作，请稍后重试");
+	if(!same_local_room(recipient,sender)){
+		if(lock_key) destruct(lock_key);
+		return result(0,"not_local","批量赠送请求已经失效");
+	}
+	foreach(items,object item)
+		if(!can_batch_gift_item(sender,recipient,item)){
+			if(lock_key) destruct(lock_key);
+			return result(0,"invalid_item","赠送清单已经变化，请重新选择");
+		}
+	transaction_id=new_transaction_id("batch_gift",sender,recipient);
+	foreach(items,object item){
+		string name=(string)item->query_name();
+		string path=(file_name(item)/"#")[0];
+		int combine=(int)item->is("combine_item");
+		int amount=combine ? (int)item->amount : 1;
+		if(recipient->if_over_load(item) ||
+		   !move_to_recipient(item,recipient,amount)){
+			int rollback_ok=rollback_batch_gift(recipient,sender,delivered);
+			audit(transaction_id,"batch_gift","delivery_failed",sender,
+				recipient,"rollback="+rollback_ok);
+			if(lock_key) destruct(lock_key);
+			return result(0,"delivery_failed",
+				"接收者背包空间不足或物品转移失败，已整体退回");
+		}
+		delivered+=({(["item":item,"name":name,"path":path,
+			"amount":amount,"combine":combine])});
+	}
+	if(!save_player(sender)){
+		int rollback_ok=rollback_batch_gift(recipient,sender,delivered);
+		audit(transaction_id,"batch_gift","source_save_failed",sender,
+			recipient,"count="+sizeof(delivered)+" rollback="+rollback_ok);
+		if(lock_key) destruct(lock_key);
+		return result(0,"source_save_failed","赠送保存失败，全部物品已退回");
+	}
+	if(!save_player(recipient)){
+		int rollback_ok=rollback_batch_gift(recipient,sender,delivered);
+		int restored=rollback_ok && save_player(sender);
+		audit(transaction_id,"batch_gift","target_save_failed",sender,
+			recipient,"count="+sizeof(delivered)+" rollback="+rollback_ok+
+			" restored="+restored);
+		if(lock_key) destruct(lock_key);
+		return result(0,"target_save_failed","赠送保存失败，全部物品已退回");
+	}
+	audit(transaction_id,"batch_gift","committed",sender,recipient,
+		"count="+sizeof(delivered));
+	if(lock_key) destruct(lock_key);
+	return (["ok":1,"code":"committed","message":"批量赠送成功",
+		"count":sizeof(delivered),"transaction_id":transaction_id]);
 }
 
 mapping(string:mixed) create_gift_offer(object sender,object recipient,

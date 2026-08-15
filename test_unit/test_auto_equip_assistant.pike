@@ -15,6 +15,19 @@ mapping(string:int) test_results = ([
 	"failed":0,
 ]);
 
+void cleanup_player_files(string name)
+{
+	string path;
+	if(!name || !has_prefix(name,"__testunit_auto_") ||
+	   !has_suffix(name,"__"))
+		return;
+	path=DATA_ROOT+"u/"+name[sizeof(name)-2..]+"/"+name+".o";
+	rm(path);
+	rm(path+".tmp");
+	rm(path+".bak");
+	rm(path+".bak.tmp");
+}
+
 void test_start(string name)
 {
 	test_results["total"]++;
@@ -36,6 +49,9 @@ void test_fail(string reason)
 object create_runtime_player(string player_name,string race_name,
 	string profession_name,int player_level)
 {
+	// 新月套装首次穿戴会立即保存绑定；重启回归必须清掉精确的
+	// TestUnit 夹具，不能把上一轮的背包装进这一轮。
+	cleanup_player_files(player_name);
 	object player = clone(GAMELIB_USER);
 	if(!player)
 		return 0;
@@ -73,11 +89,14 @@ array(object) give_starter_equipment(object player)
 
 void destroy_runtime_player(object|zero player)
 {
+	string name;
 	if(!player)
 		return;
+	name=(string)player->query_name();
 	foreach(all_inventory(player),object item)
 		destruct(item);
 	destruct(player);
+	cleanup_player_files(name);
 }
 
 object load_assistant()
@@ -407,6 +426,84 @@ void test_empty_inventory()
 	destroy_runtime_player(player);
 }
 
+void test_set_aware_fill_and_replace_guard()
+{
+	test_start("套装优先补位并默认保护现有共鸣不被智能替换");
+	object assistant=load_assistant();
+	object player=create_runtime_player(
+		"__testunit_auto_set__","human","jianxian",200);
+	object worn_weapon=clone(ROOT+
+		"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
+	object matching_head=clone(ROOT+
+		"/gamelib/clone/item/armor/69xinyuejianxinguan/69xinyuejianxinguan");
+	object competing_head=clone(ROOT+
+		"/gamelib/clone/item/armor/69xinyuejianxinguan/69xinyuejianxinguan");
+	object replacement;
+	object weapon_player;
+	object preferred_weapon;
+	object high_score_double;
+	string error_desc="";
+	int valid=0;
+	mapping filled=([]);
+	mapping guarded=([]);
+	mixed err=catch{
+		competing_head->set_newmoon_collection("huanji");
+		competing_head->set_equip_defend(50000);
+		worn_weapon->move(player);
+		matching_head->move(player);
+		competing_head->move(player);
+		player->wield(worn_weapon);
+		filled=assistant->auto_equip_player(player,1);
+		valid=matching_head->equiped && !competing_head->equiped &&
+			(string)filled["mode"]=="set" &&
+			(string)filled["preferred_set_key"]==
+			assistant->query_newmoon_set_key(worn_weapon);
+
+		// 同部位更高面板也不能在普通 smart 模式拆掉已穿套装。
+		replacement=clone(ROOT+
+			"/gamelib/clone/item/armor/69xinyuejianxinguan/69xinyuejianxinguan");
+		replacement->set_newmoon_collection("huanji");
+		replacement->set_equip_defend(100000);
+		replacement->move(player);
+		guarded=assistant->auto_replace_player(player);
+		valid=valid && matching_head->equiped && !replacement->equiped &&
+			(int)guarded["rejected"]["set_protected"]>=1;
+
+		// 无已穿装备时，套装主手应压过高面板普通双手武器；否则
+		// armor 已按套装选中，最后的武器分支却会拆散整组选择。
+		weapon_player=create_runtime_player(
+			"__testunit_auto_set_weapon__","human","jianxian",200);
+		preferred_weapon=clone(ROOT+
+			"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
+		high_score_double=clone(ROOT+
+			"/gamelib/clone/item/weapon/33zherijujian/33zherijujian");
+		high_score_double->set_attack_power(100000);
+		high_score_double->set_attack_power_limit(100000);
+		preferred_weapon->move(weapon_player);
+		high_score_double->move(weapon_player);
+		mapping weapon_fill=assistant->auto_equip_player(weapon_player,1);
+		valid=valid && preferred_weapon->equiped &&
+			!high_score_double->equiped &&
+			(string)weapon_fill["preferred_set_key"]==
+			assistant->query_newmoon_set_key(preferred_weapon);
+	};
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail(sprintf("套装优先或防拆保护失败: %s worn=%d match=%d "
+			"compete=%d replacement=%d mode=%O preferred=%O expected=%O "
+			"set_protected=%d",error_desc,worn_weapon->equiped,
+			matching_head->equiped,competing_head->equiped,
+			replacement->equiped,filled["mode"],
+			filled["preferred_set_key"],
+			assistant->query_newmoon_set_key(worn_weapon),
+			(int)guarded["rejected"]["set_protected"]));
+	destroy_runtime_player(player);
+	destroy_runtime_player(weapon_player);
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -425,6 +522,7 @@ int main()
 	test_smart_investment_and_broken_protection();
 	test_two_hand_weapon_conflict();
 	test_empty_inventory();
+	test_set_aware_fill_and_replace_guard();
 	print_summary();
 	return test_results["failed"];
 }

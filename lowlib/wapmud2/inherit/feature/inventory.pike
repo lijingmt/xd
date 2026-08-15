@@ -283,7 +283,24 @@ protected private string have_something(function filter_func,string look,string 
 }
 
 string have_item(){
-	return have_something(lambda(object ob){return ob->is("item");},"item","items","这里有","物品");
+	string out=have_something(lambda(object ob){return ob->is("item");},
+		"item","items","这里有","物品");
+	object viewer=this_player();
+	if(viewer && query_room_equipment_count(viewer)>0)
+		out+="[一键捡起本房装备:get_all_equipment]\n";
+	return out;
+}
+
+int query_room_equipment_count(object viewer)
+{
+	int count=0;
+	if(!viewer)
+		return 0;
+	foreach(all_inventory(this_object(),viewer),object item)
+		if(item && item->is("item") && !item->is("npc") &&
+		   item->is("equip"))
+			count++;
+	return count;
 }
 string have_character(){
 	return have_npc()+"\n"+have_player();
@@ -311,14 +328,14 @@ string view_inventory_batch_sell_entry(){
 // 写操作。分类浏览器按物品数量分页，旧JSP与Vue共用同一组命令。
 array(string) query_inventory_browser_categories()
 {
-	return ({"all","equipment","medicine","book","material",
+	return ({"all","set","equipment","medicine","book","material",
 		"jade","box","quest","other"});
 }
 
 mapping(string:string) query_inventory_browser_category_labels()
 {
 	return ([
-		"all":"全部","equipment":"装备","medicine":"药品",
+		"all":"全部","set":"套装","equipment":"装备","medicine":"药品",
 		"book":"书籍","material":"材料","jade":"玉石",
 		"box":"宝箱","quest":"任务","other":"其他",
 	]);
@@ -340,6 +357,17 @@ private int inventory_browser_is_equipment(object item)
 		"decorate","jewelry"}),item_type)!=-1;
 }
 
+// 套装必须先于普通装备分类。新月六系套装在首次穿戴前仍可交易且
+// 尚未绑定，不能依赖绑定、稀有度或文件名推断其身份。
+int inventory_browser_is_set_equipment(object item)
+{
+	return item && inventory_browser_is_equipment(item) &&
+		functionp(item->query_newmoon_resonance_profession) &&
+		(string)item->query_newmoon_resonance_profession()!="" &&
+		functionp(item->query_newmoon_collection_id) &&
+		(string)item->query_newmoon_collection_id()!="";
+}
+
 string query_inventory_browser_category(object item)
 {
 	string item_type;
@@ -350,6 +378,8 @@ string query_inventory_browser_category(object item)
 	item_path=(file_name(item)/"#")[0];
 	if(item->query_item_task())
 		return "quest";
+	if(inventory_browser_is_set_equipment(item))
+		return "set";
 	if(inventory_browser_is_equipment(item))
 		return "equipment";
 	if(item_type=="yushi")
@@ -482,7 +512,8 @@ mapping(string:mixed) query_inventory_browser_snapshot(string category,
 		if(!inventory_browser_item_matches(item,needle))
 			continue;
 		matched_physical++;
-		if(item_category=="equipment" && !item["equiped"])
+		if((item_category=="equipment" || item_category=="set") &&
+		   !item["equiped"])
 			group_id=query_inventory_equipment_group_id(item);
 		if(group_id!="" && has_index(group_positions,group_id)){
 			int group_position=group_positions[group_id];
@@ -680,7 +711,8 @@ string view_inventory_browser(void|string requested_category,
 		result+="[下一页:inventory_filter page "+(page+1)+"] "+
 			"[尾页:inventory_filter page "+page_count+"]";
 	result+="\n跳转页码：[inventory_filter jump ...]\n"+
-		"[一键穿装:auto_equip]|"+view_inventory_batch_sell_entry()+
+		"[一键穿装:auto_equip]|[套装管理:set_equipment_cleanup]|"+
+		view_inventory_batch_sell_entry()+
 		"[一键安全销毁非装备:cleanup_non_equipment]\n"+
 		"[返回装备背包:inventory]|"+
 		"[返回道具背包:inventory_daoju]|[返回游戏:look]\n";

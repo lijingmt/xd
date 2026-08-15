@@ -695,6 +695,8 @@ void test_auto_sell_protection_rules()
 		"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 	object gem = clone(ROOT+
 		"/gamelib/clone/item/baoshi/psqingtongshi");
+	object set_item = clone(ROOT+
+		"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
 	string error_desc = "";
 	int valid = 0;
 	mixed err = catch {
@@ -705,8 +707,13 @@ void test_auto_sell_protection_rules()
 		player["/plus/autofight_auto_sell_mode"] = "huanhua";
 		player["/plus/autofight_sell_level_gap"] = 0;
 		item->move(player);
+		set_item->move(player);
+		set_item->set_item_rareLevel(1);
+		valid = daemon->query_auto_sell_reject_reason(player,set_item) ==
+			"set_equipment";
 		item->set_item_rareLevel(7);
-		valid = daemon->query_auto_sell_reject_reason(player,item) == "";
+		valid = valid &&
+			daemon->query_auto_sell_reject_reason(player,item) == "";
 
 		item->set_item_rareLevel(8);
 		valid = valid &&

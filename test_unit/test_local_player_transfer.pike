@@ -130,6 +130,43 @@ int main()
 			(int)sender->query_account()==9500 &&
 			(int)receiver->query_account()==10500,
 			(string)trade["message"]);
+		object batch_weapon=clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		object batch_armor=clone(ROOT+
+			"/gamelib/clone/item/armor/2caoxie/2caoxie");
+		batch_weapon->move(sender);
+		batch_armor->move(sender);
+		mapping batch_offer=PLAYER_TRANSFERD->create_batch_gift_offer(
+			sender,receiver,({batch_weapon,batch_armor}));
+		mapping batch=PLAYER_TRANSFERD->execute_batch_gift(receiver,sender,
+			(string)batch_offer["token"]);
+		mapping repeated_batch=PLAYER_TRANSFERD->execute_batch_gift(
+			receiver,sender,(string)batch_offer["token"]);
+		check("批量赠送一次确认原子转移多件并保存双方",
+			(int)batch_offer["ok"] && (int)batch["ok"] &&
+			(int)batch["count"]==2 && environment(batch_weapon)==receiver &&
+			environment(batch_armor)==receiver && !(int)repeated_batch["ok"],
+			sprintf("offer=%O batch=%O repeated=%O",
+				batch_offer,batch,repeated_batch));
+		object stale_batch_weapon=clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		object stale_batch_armor=clone(ROOT+
+			"/gamelib/clone/item/armor/2caoxie/2caoxie");
+		stale_batch_weapon->move(sender);
+		stale_batch_armor->move(sender);
+		mapping stale_batch_offer=PLAYER_TRANSFERD->create_batch_gift_offer(
+			sender,receiver,({stale_batch_weapon,stale_batch_armor}));
+		destruct(stale_batch_weapon);
+		object replacement_weapon=clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		replacement_weapon->move(sender);
+		mapping stale_batch=PLAYER_TRANSFERD->execute_batch_gift(
+			receiver,sender,(string)stale_batch_offer["token"]);
+		check("批量赠送任一对象变化都会整体拒绝且不转移其余物品",
+			(int)stale_batch_offer["ok"] && !(int)stale_batch["ok"] &&
+			environment(stale_batch_armor)==sender &&
+			environment(replacement_weapon)==sender,
+			sprintf("offer=%O result=%O",stale_batch_offer,stale_batch));
 		discard_player(sender);
 		discard_player(receiver);
 		sender=restore_player(sender_id);
@@ -137,6 +174,8 @@ int main()
 		check("重载唯一档案后物品与银两仍严格守恒",
 			sender && receiver && item_amount(sender,"suiyu")==7 &&
 			item_amount(receiver,"suiyu")==0 &&
+			item_amount(receiver,"1taomujian")==1 &&
+			item_amount(receiver,"2caoxie")==1 &&
 			(int)sender->query_account()==9500 &&
 			(int)receiver->query_account()==10500,
 			"交易提交未同时持久化两份档案");
@@ -166,6 +205,19 @@ int main()
 			(string)stale["message"]);
 		string transfer_source=Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/player_transferd.pike") || "";
+		string batch_command_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/batch_gift.pike") || "";
+		string runtime_nonce=PLAYER_TRANSFERD->query_ephemeral_runtime_nonce();
+		check("进程临时标识稳定且可使重启或跨 Worker 选择安全失效",
+			runtime_nonce!="" && runtime_nonce==
+				PLAYER_TRANSFERD->query_ephemeral_runtime_nonce(),
+			"临时标识为空或同一进程内发生变化");
+		check("批量选择状态不把活对象写进可序列化玩家临时档案",
+			search(batch_command_source,
+				"sender[\"/tmp/batch_gift/items\"]=selected_refs")!=-1 &&
+			search(batch_command_source,
+				"sender[\"/tmp/batch_gift/items\"]=selected;")==-1,
+			"批量选择仍可能持久化对象引用");
 		check("一次性确认凭证在并发点击下原子消费",
 			search(transfer_source,
 				"transfer_offer_lock->lock()")!=-1 &&
@@ -181,6 +233,8 @@ int main()
 			"/gamelib/cmds/sendother_daoju.pike",
 			"/gamelib/cmds/sendother_daoju_to.pike",
 			"/gamelib/cmds/sendother_ok.pike",
+			"/gamelib/cmds/batch_gift.pike",
+			"/gamelib/cmds/batch_gift_ok.pike",
 		});
 		int compiled=1;
 		foreach(compile_paths,string path){

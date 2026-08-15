@@ -152,6 +152,7 @@ string personal_storage_batch_token(string mode,string category,
 private string category_links(string mode)
 {
 	return "[全部:personal_storage_filter "+mode+" category all] "+
+		"[套装:personal_storage_filter "+mode+" category set] "+
 		"[装备:personal_storage_filter "+mode+" category equip] "+
 		"[技能书:personal_storage_filter "+mode+" category book] "+
 		"[材料:personal_storage_filter "+mode+" category material] "+

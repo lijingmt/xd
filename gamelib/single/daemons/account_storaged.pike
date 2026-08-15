@@ -14,6 +14,8 @@ inherit LOW_DAEMON;
 #define ACCOUNT_STORAGE_VERSION 1
 #define ACCOUNT_STORAGE_BASE_CAPACITY 20
 #define ACCOUNT_STORAGE_MAX_CAPACITY 500
+#define ACCOUNT_STORAGE_EXPAND_SIZE 20
+#define ACCOUNT_STORAGE_EXPAND_PRICE 20
 #define ACCOUNT_STORAGE_MAX_PENDING 32
 #define ACCOUNT_STORAGE_MAX_FILE_SIZE (8*1024*1024)
 
@@ -77,7 +79,7 @@ private int valid_relative_item_path(string path)
 
 int valid_storage_filter_category(string category)
 {
-	return has_value(({"all","equip","book","material",
+	return has_value(({"all","set","equip","book","material",
 		"consumable","other"}),category);
 }
 
@@ -89,6 +91,8 @@ private string storage_data_category(array data)
 		return "other";
 	path = (string)data[3];
 	root = sizeof(path/"/") ? (path/"/")[0] : path;
+	if(search(path,"69xinyue")!=-1)
+		return "set";
 	if(has_value(({"weapon","armor","decorate","jewelry"}),root))
 		return "equip";
 	if(root=="book" || root=="peifang")
@@ -747,6 +751,97 @@ mapping(string:mixed) query_storage(object player)
 			"revision":(int)record["revision"],
 			"persisted":(int)record["persisted"],
 		]);
+	}
+	destruct(storage_key);
+	return result;
+}
+
+int query_capacity_expand_size()
+{
+	return ACCOUNT_STORAGE_EXPAND_SIZE;
+}
+
+int query_capacity_expand_price(int current_capacity)
+{
+	if(current_capacity<ACCOUNT_STORAGE_BASE_CAPACITY ||
+	   current_capacity>=ACCOUNT_STORAGE_MAX_CAPACITY ||
+	   current_capacity%ACCOUNT_STORAGE_EXPAND_SIZE!=0)
+		return 0;
+	return ACCOUNT_STORAGE_EXPAND_PRICE;
+}
+
+int query_capacity_max()
+{
+	return ACCOUNT_STORAGE_MAX_CAPACITY;
+}
+
+// 扩容写入账号级共享仓库文件，所有职业立即共享。expected_capacity
+// 是页面版本闩锁，重复点击或旧页面都不能重复扣费。
+mapping(string:mixed) purchase_capacity(object player,int expected_capacity,
+	void|string test_failpoint)
+{
+	mapping(string:mixed) result=(["ok":0,
+		"message":"账号共享仓库扩容失败。"]);
+	string account_id=resolve_player_account(player);
+	mapping(string:mixed)|zero record;
+	object storage_key;
+	int price;
+	int old_capacity;
+	int old_revision;
+	int before_wallet;
+	int before_physical;
+	if(account_id=="" || expected_capacity<ACCOUNT_STORAGE_BASE_CAPACITY)
+		return result;
+	storage_key=account_storage_lock->lock();
+	record=load_ready_record_unlocked(account_id);
+	if(!record)
+		result["message"]="共享仓库数据异常，已停止扣费。";
+	else if((int)record["capacity"]!=expected_capacity)
+		result["message"]="共享仓库容量已经变化，请刷新后重试。";
+	else if((int)record["capacity"]>=ACCOUNT_STORAGE_MAX_CAPACITY)
+		result["message"]="共享仓库已经达到最大容量。";
+	else{
+		old_capacity=(int)record["capacity"];
+		old_revision=(int)record["revision"];
+		price=query_capacity_expand_price(old_capacity);
+		before_wallet=ACCOUNT_WALLETD->query_balance(player);
+		before_physical=YUSHID->query_physical_all_num(player);
+		if(price<=0)
+			result["message"]="当前容量档位不能继续扩充。";
+		else if(!YUSHID->pay_yushi(player,price))
+			result["message"]="玉石不足，无法扩充共享仓库。";
+		else{
+			record["capacity"]=min(ACCOUNT_STORAGE_MAX_CAPACITY,
+				old_capacity+ACCOUNT_STORAGE_EXPAND_SIZE);
+			record["revision"]=old_revision+1;
+			int saved=test_failpoint=="before_storage_save" ? 0 :
+				save_record_unlocked(record);
+			if(!saved){
+				record["capacity"]=old_capacity;
+				record["revision"]=old_revision;
+				int refunded=YUSHID->rollback_yushi_payment(player,
+					before_wallet,before_physical,
+					"account_storage_expand_rollback");
+				if(functionp(player->save_with_result))
+					player->save_with_result();
+				result["message"]=refunded ?
+					"共享仓库保存失败，玉石已原路退回。" :
+					"共享仓库保存失败且退款待人工核对，请联系管理员。";
+			}
+			else{
+				if(functionp(player->save_with_result))
+					player->save_with_result();
+				Stdio.append_file(ROOT+"/log/account_storage.log",
+					MUD_TIMESD->get_mysql_timedesc()+" account="+account_id+
+					" character="+(string)player->query_name()+
+					" direction=expand capacity="+old_capacity+"->"+
+					(string)record["capacity"]+" cost="+price+
+					" result=committed\n");
+				result=(["ok":1,"message":"共享仓库扩容成功。",
+					"old_capacity":old_capacity,
+					"capacity":(int)record["capacity"],"cost":price]);
+			}
+		}
 	}
 	destruct(storage_key);
 	return result;
