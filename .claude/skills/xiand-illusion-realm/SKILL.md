@@ -1,6 +1,6 @@
 ---
 name: xiand-illusion-realm
-description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
+description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
 ---
 
 # Xiand Illusion Realm
@@ -38,7 +38,7 @@ when their surfaces are touched.
 - archived closed states: `data_xiand/illusion_realm/history/`
 - derived leaderboard snapshots: `data_xiand/illusion_realm/rankings/<ID>/`
 - lifecycle/progress/reward/payment recovery: `gamelib/single/daemons/seasonal_chard.pike`
-- entitlement and realm identity: `gamelib/single/daemons/account_characterd.pike`
+- cycle-keyed entitlement and realm identity: `gamelib/single/daemons/account_characterd.pike`
 - logical interaction group: `_logical_zone_mod/policy.pike`
 - map affinity: `MAP_WORKERD->query_affinity_key()` plus the static rooms under
   `gamelib/d/illusion_<id>/`
@@ -74,8 +74,9 @@ For S1:
    load, seven chapters award exactly ten pieces, and both route arrays contain
    exactly three unique challenges.
 2. Run `mgr_illusion_realm`, preview `open_registration`, then confirm.
-3. Let players activate the permanent account entitlement for free. S1 keeps a
-   configured zero price while retaining idempotent account-index auditing.
+3. Let players permanently activate the S1-specific account entitlement for
+   free. S1 keeps a configured zero price while retaining idempotent
+   account-index auditing. A later cycle must have its own entitlement.
 4. Preview `start`, confirm, and verify `ends_at-starts_at=30*86400`.
 5. Let natural expiry enter automatic return settlement. To end early, preview
    and confirm a new `ends_at`; do not create a second manual settlement path.
@@ -172,10 +173,10 @@ timestamps/progress when saving fails.
 
 ## Payment and settlement safety
 
-Permanent entitlement activation uses a player-saved two-phase credential around
-the optional configured jade payment and account-index grant. S1 is free, but the
-recovery path must remain correct if a later explicitly reviewed cycle sets a
-nonzero price. On login:
+Per-cycle permanent entitlement activation uses a player-saved two-phase
+credential around the optional configured jade payment and account-index grant.
+S1 is free, but the recovery path must remain correct if a later explicitly
+reviewed cycle sets a nonzero price. On login:
 
 - if entitlement exists with the same request ID, clear the stale credential
   without refunding;
@@ -191,8 +192,10 @@ account index. Repeated settlement with the same valid lowercase SHA-256 receipt
 must return `already=1`. Failed routing after settlement must leave a safe return
 position for the next login; it must never recreate inventory.
 
-Keep permanent entitlement separate from paid character capacity. The first
-character is free in every cycle. Store 100-jade extra slots and the cumulative
+Keep each cycle entitlement separate from paid character capacity. Legacy
+global entitlements are S1-only and must never unlock S2. The first character
+is free after entitlement activation in that cycle. Store 100-jade extra slots
+and the cumulative
 500-jade multi-character unlock under `season_expansions[illusion_id]`; never
 let S1 capacity leak into S2. Continue mirroring S1 into the legacy top-level
 fields so rollback binaries retain already-paid S1 capacity. Use bounded

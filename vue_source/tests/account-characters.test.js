@@ -178,8 +178,8 @@ assert(indexSource.includes("characterForm.realm_type === 'illusion'"));
 assert(indexSource.includes('新月幻境·S1'));
 assert(indexSource.includes('期满原档案回归'));
 assert(indexSource.includes('@click="activateIllusionEntitlement"'));
-assert(indexSource.includes('免费激活幻境资格'));
-assert(indexSource.includes('可在下方直接免费激活'));
+assert(indexSource.includes("免费激活' + (illusionRealmStatus.illusion_id || 'S1') + '人物资格"));
+assert(indexSource.includes('未来赛季需分别激活'));
 assert(!indexSource.includes('请先进入现有人物，从“幻境区”免费激活'));
 assert(indexSource.includes('100碎玉增加本期1格'));
 assert(indexSource.includes('补足本期累计500碎玉解锁多人物'));
@@ -236,7 +236,7 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 				entitlement_cost_suiyu: 0
 			},
 			characters: [],
-			activation: { message: '账号已永久解锁幻境人物资格。' }
+			activation: { message: '账号已永久解锁S1人物资格。' }
 		};
 	};
 	await activationClient.activateIllusionEntitlement();
@@ -249,6 +249,7 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 	assert.strictEqual(activationClient.characterForm.name_cn, '保留姓名');
 	assert.strictEqual(activationClient.characterForm.avatar_id, 'h_male2');
 	assert(activationClient.illusionActivationMessage.includes('永久解锁'));
+	assert(activationClient.illusionActivationMessage.includes('S1人物资格'));
 	assert.strictEqual(activationClient.illusionActivating, false);
 
 	const paidActivationClient = Object.assign(

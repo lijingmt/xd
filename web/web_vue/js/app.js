@@ -1890,7 +1890,7 @@ createApp({
 				);
 				this.applyAccountData(data);
 				this.illusionActivationMessage = data.activation?.message ||
-					'幻境资格已永久激活';
+					`${this.illusionRealmStatus.illusion_id || 'S1'}人物资格已永久激活`;
 				if (this.illusionRealmStatus.creation_open &&
 					!this.illusionCharacterCapacityReached) {
 					this.characterForm.realm_type = 'illusion';

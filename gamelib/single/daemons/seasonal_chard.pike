@@ -2268,17 +2268,20 @@ mapping(string:mixed) purchase_entitlement(object player)
 	int before_wallet;
 	int before_physical;
 	string request_id;
+	string success_message;
 	if(!player || !(int)status["ok"] || !(int)status["entitlement_open"])
 		return (["ok":0,"message":"当前未开放幻境资格购买。"]) ;
 	account_id = (string)player->query_account_owner();
-	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id);
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id,
+		(string)status["illusion_id"]);
 	if(!(int)account_data["ok"]){
 		return (["ok":0,
 			"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
 	}
 	if((int)account_data["illusion_entitled"]){
 		return (["ok":1,"already":1,
-			"message":"账号已永久解锁幻境人物资格。"]) ;
+			"message":"账号已永久解锁"+
+				(string)status["illusion_id"]+"人物资格。"]) ;
 	}
 	cost = (int)status["entitlement_cost_suiyu"];
 	before_wallet = ACCOUNT_WALLETD->query_balance(player);
@@ -2324,7 +2327,7 @@ mapping(string:mixed) purchase_entitlement(object player)
 			"扣款存档与退款异常，请立即联系管理员。"]);
 	}
 	grant = ACCOUNT_CHARACTERD->grant_illusion_entitlement(account_id,
-		"jade",request_id);
+		"jade",request_id,(string)status["illusion_id"]);
 	if(!(int)grant["ok"]){
 		int refunded = cost<=0 || YUSHID->rollback_yushi_payment(player,
 			before_wallet,before_physical,"illusion_entitlement_failed");
@@ -2348,7 +2351,8 @@ mapping(string:mixed) purchase_entitlement(object player)
 		}
 		return (["ok":refunded,"already":refunded,
 			"message":refunded ?
-			"账号已永久解锁；本次重复扣款已原路退回。" :
+			"账号已永久解锁"+(string)status["illusion_id"]+
+				"人物资格；本次重复扣款已原路退回。" :
 			"检测到重复扣款但退款仍需重试，请重新登录或联系管理员。"]) ;
 	}
 	// 资格索引已经持久化。这里即使清理凭据失败，登录恢复也只会
@@ -2357,10 +2361,17 @@ mapping(string:mixed) purchase_entitlement(object player)
 	player->save_with_result();
 	player[ILLUSION_PAYMENT_ROOT] = ([]);
 	int cleanup_saved = player->save_with_result();
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement|account=%s|character=%s|cost=%d|request=%s|cleanup=%d\n",
-		time(),account_id,(string)player->query_name(),cost,request_id,
+	Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement|illusion=%s|account=%s|character=%s|cost=%d|request=%s|cleanup=%d\n",
+		time(),(string)status["illusion_id"],account_id,
+		(string)player->query_name(),cost,request_id,
 		cleanup_saved));
-	return (["ok":1,"already":0,"message":"已免费永久激活幻境人物资格；每期首名人物免费，额外栏位按当期需要扩充。"]) ;
+	if(cost>0)
+		success_message = "已支付"+(string)cost+"碎玉并永久激活"+
+			(string)status["illusion_id"]+"人物资格；额外栏位仅对本期生效。";
+	else
+		success_message = "已免费永久激活"+(string)status["illusion_id"]+
+			"人物资格；本期首名人物免费，额外栏位仅对本期生效。";
+	return (["ok":1,"already":0,"message":success_message]) ;
 }
 
 /**
@@ -2384,7 +2395,7 @@ mapping(string:mixed) activate_free_account_entitlement(string requested_id)
 		"|"+String.string2hex(Crypto.Random.random_string(16)));
 	request_id = lower_case(String.string2hex(request_hash->digest()));
 	return ACCOUNT_CHARACTERD->grant_illusion_entitlement(requested_id,
-		"account_center",request_id);
+		"account_center",request_id,(string)status["illusion_id"]);
 }
 
 mapping(string:mixed) purchase_character_expansion(object player,string option)
@@ -2410,7 +2421,8 @@ mapping(string:mixed) purchase_character_expansion(object player,string option)
 		return (["ok":0,
 			"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
 	if(!(int)account_data["illusion_entitled"])
-		return (["ok":0,"message":"请先免费激活幻境人物资格。"]) ;
+		return (["ok":0,"message":"请先免费激活"+
+			(string)status["illusion_id"]+"人物资格。"]) ;
 	if((int)account_data["illusion_multi_character_unlocked"])
 		return (["ok":1,"already":1,
 			"message":"本期已解锁幻境多人物，无需再次付费。"]) ;
@@ -2532,8 +2544,8 @@ private void reconcile_entitlement_purchase(object player)
 		return;
 	}
 	if((int)account_data["illusion_entitled"] &&
-	   mappingp(account_data["illusion_entitlement"]) &&
-	   (string)account_data["illusion_entitlement"]["request_id"]==
+	   mappingp(account_data["illusion_entitlement_cycle"]) &&
+	   (string)account_data["illusion_entitlement_cycle"]["request_id"]==
 		(string)payment["request_id"]){
 		player[ILLUSION_PAYMENT_ROOT] = ([]);
 		player->save_with_result();
@@ -2545,8 +2557,9 @@ private void reconcile_entitlement_purchase(object player)
 	if(refunded){
 		player[ILLUSION_PAYMENT_ROOT] = ([]);
 		player->save_with_result();
-		Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement_recovery|account=%s|character=%s|result=refunded\n",
-			time(),(string)payment["account_id"],
+		Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement_recovery|illusion=%s|account=%s|character=%s|result=refunded\n",
+			time(),(string)payment["illusion_id"],
+			(string)payment["account_id"],
 			(string)player->query_name()));
 	}
 	else

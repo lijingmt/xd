@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786807057375">
-    <link rel="stylesheet" href="css/app.css?v=v1786807057375">
-    <link rel="stylesheet" href="css/realm.css?v=v1786807057375">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786808560176">
+    <link rel="stylesheet" href="css/app.css?v=v1786808560176">
+    <link rel="stylesheet" href="css/realm.css?v=v1786808560176">
 </head>
 <body>
     <div id="app">
@@ -500,21 +500,21 @@
 									首名免费；完成七章后携十件套装随原档案回归
 							</small>
 							<small v-else-if="!illusionEntitled">
-								未激活永久资格；可在下方直接免费激活
+								未激活{{ illusionRealmStatus.illusion_id || 'S1' }}永久人物资格；可在下方直接免费激活
 							</small>
 							<small v-else>当前阶段：{{ illusionRealmStatus.phase_name }}</small>
 						</button>
 					</div>
 					<div class="illusion-activation-card" v-if="!illusionEntitled">
 						<div>
-							<strong>永久幻境资格</strong>
-							<small>资格属于当前注册账号；激活免费，人物开放时间仍以本期状态为准。</small>
+							<strong>{{ illusionRealmStatus.illusion_id || 'S1' }} 永久人物资格</strong>
+							<small>资格属于当前注册账号且仅对本赛季永久有效；未来赛季需分别激活。</small>
 						</div>
 						<button type="button"
 								class="btn btn-primary"
 								@click="activateIllusionEntitlement"
 								:disabled="illusionActivating || !illusionRealmStatus.ok || Number(illusionRealmStatus.entitlement_cost_suiyu || 0) !== 0">
-							{{ illusionActivating ? '激活中...' : '免费激活幻境资格' }}
+							{{ illusionActivating ? '激活中...' : '免费激活' + (illusionRealmStatus.illusion_id || 'S1') + '人物资格' }}
 						</button>
 					</div>
 					<p class="illusion-activation-success"
@@ -1956,19 +1956,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786807057375"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786807057375"></script>
-    <script src="vendor/howler.core.min.js?v=v1786807057375"></script>
-    <script src="vendor/driver.iife.js?v=v1786807057375"></script>
-    <script src="../includes/game-number-format.js?v=v1786807057375" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786808560176"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786808560176"></script>
+    <script src="vendor/howler.core.min.js?v=v1786808560176"></script>
+    <script src="vendor/driver.iife.js?v=v1786808560176"></script>
+    <script src="../includes/game-number-format.js?v=v1786808560176" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786807057375';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786808560176';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786807057375"></script>
+    <script src="js/app.js?v=v1786808560176"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786807057375"></script>
+    <script src="../includes/translate.js?v=v1786808560176"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

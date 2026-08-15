@@ -187,12 +187,14 @@ int main()
 				"purchase_entitlement(object player)")!=-1 &&
 			search(season_source,"purchase_entitlement(object player,\n")==-1,
 			"Web购买可能在已持有的账号锁上再次加锁");
-		check("S1资格免费激活且玩家界面不再显示付费购买",
-			search(player_command_source,"资格当前免费永久激活")!=-1 &&
+		check("S1资格免费激活且玩家界面明确按赛季区分",
+			search(player_command_source,"人物资格当前免费永久激活")!=-1 &&
+			search(player_command_source,"仅限本赛季")!=-1 &&
 			search(player_command_source,"[免费激活:illusion_realm activate]")!=-1 &&
 			search(player_command_source,"100碎玉增加本期1格")!=-1 &&
 			search(player_command_source,"补足本期累计500碎玉")!=-1 &&
-			search(account_source,"season_expansions")!=-1,
+			search(account_source,"season_expansions")!=-1 &&
+			search(account_source,"season_entitlements")!=-1,
 			"免费配置仍被显示为0碎玉购买或付费门槛");
 		string account_api_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/account_characters.pike") || "";
@@ -371,17 +373,41 @@ int main()
 		mapping center_activation_again = SEASONALD->
 			activate_free_account_entitlement(center_account_id);
 		mapping center_account = ACCOUNT_CHARACTERD->
-			query_account_characters(center_account_id);
-		check("人物中心可在筹备期免费永久激活且重复点击幂等",
+			query_account_characters(center_account_id,"S1");
+		mapping center_account_s2_before = ACCOUNT_CHARACTERD->
+			query_account_characters(center_account_id,"S2");
+		check("人物中心可免费永久激活S1且重复点击幂等",
 			(int)center_activation["ok"] &&
 			!(int)center_activation["already"] &&
 			(int)center_activation_again["ok"] &&
 			(int)center_activation_again["already"] &&
 			(int)center_account["illusion_entitled"] &&
-			(string)center_account["illusion_entitlement"]["source"]==
-				"account_center",
+			(string)center_account["illusion_entitlement_cycle"]["source"]==
+				"account_center" &&
+			search((string)center_activation["message"],"S1人物资格")!=-1,
 			sprintf("first=%O second=%O account=%O",
 				center_activation,center_activation_again,center_account));
+		check("S1永久资格不会自动穿透到S2",
+			!(int)center_account_s2_before["illusion_entitled"] &&
+			(string)center_account_s2_before["illusion_entitlement_id"]=="S2",
+			sprintf("s2=%O",center_account_s2_before));
+		mapping center_s2_grant = ACCOUNT_CHARACTERD->
+			grant_illusion_entitlement(center_account_id,"test","e"*64,"S2");
+		mapping center_account_s1_after = ACCOUNT_CHARACTERD->
+			query_account_characters(center_account_id,"S1");
+		mapping center_account_s2_after = ACCOUNT_CHARACTERD->
+			query_account_characters(center_account_id,"S2");
+		check("S1与S2资格可分别永久记录且互不覆盖",
+			(int)center_s2_grant["ok"] &&
+			!(int)center_s2_grant["already"] &&
+			(int)center_account_s1_after["illusion_entitled"] &&
+			(int)center_account_s2_after["illusion_entitled"] &&
+			(string)center_account_s1_after[
+				"illusion_entitlement_cycle"]["source"]=="account_center" &&
+			(string)center_account_s2_after[
+				"illusion_entitlement_cycle"]["source"]=="test",
+			sprintf("grant=%O s1=%O s2=%O",center_s2_grant,
+				center_account_s1_after,center_account_s2_after));
 		mapping denied = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","jianxian","","","","illusion","S1");
 		check("未永久解锁账号不能伪造S1人物创建",
@@ -407,10 +433,10 @@ int main()
 
 		string entitlement_request = "c"*64;
 		mapping entitlement = ACCOUNT_CHARACTERD->grant_illusion_entitlement(
-			account_id,"test",entitlement_request);
+			account_id,"test",entitlement_request,"S1");
 		mapping entitlement_again = ACCOUNT_CHARACTERD->
-			grant_illusion_entitlement(account_id,"test",entitlement_request);
-		check("永久资格幂等写入账号索引",
+			grant_illusion_entitlement(account_id,"test",entitlement_request,"S1");
+		check("S1永久资格幂等写入账号索引",
 			(int)entitlement["ok"] && !(int)entitlement["already"] &&
 			(int)entitlement_again["ok"] &&
 			(int)entitlement_again["already"] &&
@@ -657,24 +683,37 @@ int main()
 
 		mapping s2_before = ACCOUNT_CHARACTERD->query_account_characters(
 			account_id,"S2");
-		mapping s2_slot = ACCOUNT_CHARACTERD->
+		mapping s2_slot_before_entitlement = ACCOUNT_CHARACTERD->
 			grant_illusion_character_expansion(account_id,"S2","one",
 				"2"*64,100);
+		mapping s2_entitlement = ACCOUNT_CHARACTERD->
+			grant_illusion_entitlement(account_id,"test","3"*64,"S2");
+		mapping s2_slot = ACCOUNT_CHARACTERD->
+			grant_illusion_character_expansion(account_id,"S2","one",
+				"4"*64,100);
 		mapping s1_after_s2 = ACCOUNT_CHARACTERD->query_account_characters(
 			account_id,"S1");
 		mapping s2_after = ACCOUNT_CHARACTERD->query_account_characters(
 			account_id,"S2");
-		check("新赛季恢复首名免费且付费栏位按赛季严格隔离",
+		check("新赛季需独立激活资格且付费栏位按赛季严格隔离",
+			!(int)s2_before["illusion_entitled"] &&
 			(int)s2_before["illusion_character_slots"]==1 &&
 			!(int)s2_before["illusion_multi_character_unlocked"] &&
 			(int)s2_before["illusion_expansion_spent_suiyu"]==0 &&
+			!(int)s2_slot_before_entitlement["ok"] &&
+			search((string)s2_slot_before_entitlement["message"],
+				"尚未激活S2")!=-1 &&
+			(int)s2_entitlement["ok"] &&
+			!(int)s2_entitlement["already"] &&
 			(int)s2_slot["ok"] &&
+			(int)s2_after["illusion_entitled"] &&
 			(int)s2_after["illusion_character_slots"]==2 &&
 			(int)s2_after["illusion_expansion_spent_suiyu"]==100 &&
 			(int)s1_after_s2["illusion_character_slots"]==6 &&
 			(int)s1_after_s2["illusion_multi_character_unlocked"] &&
 			(int)s1_after_s2["illusion_expansion_spent_suiyu"]==500,
-			sprintf("before=%O grant=%O s1=%O s2=%O",s2_before,
+			sprintf("before=%O denied=%O entitlement=%O grant=%O s1=%O s2=%O",
+				s2_before,s2_slot_before_entitlement,s2_entitlement,
 				s2_slot,s1_after_s2,s2_after));
 
 		mapping realm = ACCOUNT_CHARACTERD->query_character_realm(child_id);

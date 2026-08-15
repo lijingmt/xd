@@ -135,10 +135,10 @@ int main(string|zero arg)
 	if(sizeof(parts)>=1 && parts[0]=="activate"){
 		if(sizeof(parts)<2 || parts[1]!="confirm"){
 			write(((int)status["entitlement_cost_suiyu"]>0 ?
-				"永久解锁幻境人物资格需要"+
+				"永久解锁"+(string)status["illusion_id"]+"人物资格需要"+
 				(string)(int)status["entitlement_cost_suiyu"]+"枚碎玉。" :
-				"幻境人物资格当前免费永久激活。")+
-				"资格属于注册账号；每期首名人物免费，额外栏位仅对当期生效。\n"+
+				(string)status["illusion_id"]+"人物资格当前免费永久激活。")+
+				"资格属于注册账号且仅限本赛季；本期首名人物免费，额外栏位仅对本期生效。\n"+
 				"[确认永久激活:illusion_realm activate confirm]\n"+
 				"[取消:illusion_realm]\n");
 			return 1;
@@ -164,7 +164,8 @@ int main(string|zero arg)
 			return 1;
 		}
 		if(!(int)expansion_account["illusion_entitled"]){
-			write("请先免费激活幻境人物资格。\n"+
+			write("请先免费激活"+(string)status["illusion_id"]+
+				"人物资格。\n"+
 				"[免费激活:illusion_realm activate]|"+
 				"[返回幻境区:illusion_realm]\n");
 			return 1;
@@ -233,7 +234,7 @@ int main(string|zero arg)
 	account_data = ACCOUNT_CHARACTERD->query_account_characters(
 		(string)me->query_account_owner(),(string)status["illusion_id"]);
 	if((int)account_data["illusion_entitled"]){
-		s += "永久资格：已解锁\n";
+		s += (string)status["illusion_id"]+"永久人物资格：已解锁\n";
 		if((int)account_data["illusion_multi_character_unlocked"])
 			s += "人物栏位：本期已解锁多人物（账号总上限30）\n";
 		else
@@ -244,9 +245,11 @@ int main(string|zero arg)
 				"/500碎玉　[选择扩充方式:illusion_realm expand]\n";
 	}
 	else if((int)status["entitlement_open"])
-		s += "永久资格：未解锁　[免费激活:illusion_realm activate]\n";
+		s += (string)status["illusion_id"]+
+			"永久人物资格：未解锁　[免费激活:illusion_realm activate]\n";
 	else
-		s += "永久资格：当前未开放激活\n";
+		s += (string)status["illusion_id"]+
+			"永久人物资格：当前未开放激活\n";
 	if(SEASONALD->is_active_illusion_character(me)){
 		mapping progress = SEASONALD->query_player_progress(me);
 		if((int)progress["ok"])

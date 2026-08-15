@@ -139,7 +139,7 @@ int main(string|zero arg)
 		(string)status["phase"]+"）　修订："+
 		(string)(int)status["revision"]+"\n";
 	s += "周期："+(string)(int)status["duration_days"]+
-		"天　永久资格价格："+
+		"天　"+(string)status["illusion_id"]+"永久人物资格价格："+
 		(string)(int)status["entitlement_cost_suiyu"]+"碎玉\n";
 	s += "配置编号固定："+(string)status["illusion_id"]+"\n";
 	s += "开始时间："+time_text((int)status["starts_at"])+
@@ -150,7 +150,8 @@ int main(string|zero arg)
 		"，已回归 "+(string)(int)population["returned"]+
 		"，索引异常 "+(string)(int)population["corrupt_indexes"]+"\n";
 	if((string)status["phase"]=="draft")
-		s += "[开放永久资格登记:mgr_illusion_realm preview open_registration]\n";
+		s += "[开放"+(string)status["illusion_id"]+
+			"永久人物资格登记:mgr_illusion_realm preview open_registration]\n";
 	else if((string)status["phase"]=="registration")
 		s += "[正式开启"+(string)status["illusion_id"]+"并开始"+
 			(string)(int)status["duration_days"]+

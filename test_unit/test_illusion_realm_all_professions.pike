@@ -302,7 +302,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		}
 
 		mapping entitlement = ACCOUNT_CHARACTERD->grant_illusion_entitlement(
-			account_id,"test","a"*64);
+			account_id,"test","a"*64,"S1");
 		mapping created = SEASONALD->create_illusion_character_for_test(
 			account_id,race_id,profession_id,"","","");
 		string character_id = mappingp(created["character"]) ?

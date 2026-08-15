@@ -516,6 +516,56 @@ private mapping(string:mixed) illusion_expansion_state(mapping entitlement,
 	return default_illusion_expansion_state();
 }
 
+private int valid_illusion_season_entitlement(mixed raw)
+{
+	mapping entitlement;
+	if(!mappingp(raw))
+		return 0;
+	entitlement = raw;
+	if((int)entitlement["unlocked"]!=1 ||
+	   (int)entitlement["unlocked_at"]<=0 ||
+	   search(({"jade","admin","legacy","test","account_center"}),
+		(string)entitlement["source"])==-1)
+		return 0;
+	if(entitlement["request_id"] &&
+	   !valid_sha256_hex((string)entitlement["request_id"]))
+		return 0;
+	return 1;
+}
+
+/**
+ * Return the permanent qualification for one exact cycle. Legacy accounts
+ * created before cycle-keyed qualifications are treated as S1 only; they do
+ * not silently inherit S2 or any later cycle.
+ */
+private mapping(string:mixed) illusion_entitlement_for_cycle(
+	mapping entitlement,string illusion_id)
+{
+	mapping season_entitlements;
+	string legacy_cycle_id;
+	if(!mappingp(entitlement) || !valid_illusion_id(illusion_id))
+		return ([]);
+	season_entitlements = mappingp(entitlement["season_entitlements"]) ?
+		(mapping)entitlement["season_entitlements"] : ([]);
+	if(mappingp(season_entitlements[illusion_id]) &&
+	   valid_illusion_season_entitlement(
+		(mapping)season_entitlements[illusion_id]))
+		return copy_value((mapping)season_entitlements[illusion_id]);
+	legacy_cycle_id = (string)(entitlement["legacy_cycle_id"] || "S1");
+	if(legacy_cycle_id==illusion_id &&
+	   valid_illusion_season_entitlement(entitlement)){
+		mapping legacy = ([
+			"unlocked":1,
+			"unlocked_at":(int)entitlement["unlocked_at"],
+			"source":(string)entitlement["source"],
+		]);
+		if(entitlement["request_id"])
+			legacy["request_id"] = (string)entitlement["request_id"];
+		return legacy;
+	}
+	return ([]);
+}
+
 private int valid_illusion_entitlement(mixed raw)
 {
 	mapping entitlement;
@@ -532,6 +582,9 @@ private int valid_illusion_entitlement(mixed raw)
 		return 0;
 	if(entitlement["request_id"] &&
 	   !valid_sha256_hex((string)entitlement["request_id"]))
+		return 0;
+	if(entitlement["legacy_cycle_id"] &&
+	   !valid_illusion_id((string)entitlement["legacy_cycle_id"]))
 		return 0;
 	if(!valid_illusion_expansion_state(([
 		"character_slots":(int)(entitlement["character_slots"] || 1),
@@ -558,6 +611,21 @@ private int valid_illusion_entitlement(mixed raw)
 			if(!stringp(raw_id) || !valid_illusion_id(illusion_id) ||
 			   !mappingp(expansions[illusion_id]) ||
 			   !valid_illusion_expansion_state(expansions[illusion_id]))
+				return 0;
+		}
+	}
+	if(has_index(entitlement,"season_entitlements")){
+		mapping season_entitlements;
+		if(!mappingp(entitlement["season_entitlements"]))
+			return 0;
+		season_entitlements = entitlement["season_entitlements"];
+		if(sizeof(season_entitlements)>256)
+			return 0;
+		foreach(indices(season_entitlements),mixed raw_id){
+			string illusion_id = (string)raw_id;
+			if(!stringp(raw_id) || !valid_illusion_id(illusion_id) ||
+			   !valid_illusion_season_entitlement(
+				season_entitlements[illusion_id]))
 				return 0;
 		}
 	}
@@ -1034,6 +1102,8 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			(string)illusion_id : "S1";
 		mapping expansion = illusion_expansion_state(entitlement,
 			expansion_id);
+		mapping cycle_entitlement = illusion_entitlement_for_cycle(
+			entitlement,expansion_id);
 		foreach((array)record["characters"],mapping entry)
 			summaries += ({profile_summary_unlocked(account_id,entry)});
 		result = ([
@@ -1043,9 +1113,10 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			"characters":summaries,
 			"limit":ACCOUNT_CHARACTER_LIMIT,
 			"legacy_only":(int)record["legacy_only"],
-			"illusion_entitled":sizeof(entitlement) &&
-				(int)entitlement["unlocked"]==1,
+			"illusion_entitled":sizeof(cycle_entitlement)>0,
 			"illusion_entitlement":copy_value(entitlement),
+			"illusion_entitlement_cycle":copy_value(cycle_entitlement),
+			"illusion_entitlement_id":expansion_id,
 			"illusion_expansion_id":expansion_id,
 			"illusion_character_slots":(int)expansion["character_slots"],
 			"illusion_multi_character_unlocked":
@@ -1179,14 +1250,20 @@ mapping(string:mixed) query_illusion_population(string illusion_id)
 }
 
 mapping(string:mixed) grant_illusion_entitlement(string requested_id,
-	string source,void|string request_id)
+	string source,void|string request_id,void|string requested_illusion_id)
 {
 	mapping(string:mixed) result = (["ok":0,
 		"message":"幻境资格写入失败。"]);
 	string account_id = query_account_id_for_character(requested_id);
+	string illusion_id = (string)(requested_illusion_id || "S1");
 	mapping(string:mixed)|zero record;
+	mapping entitlement;
+	mapping season_entitlements;
+	mapping cycle_entitlement;
+	mapping legacy_entitlement;
+	string legacy_cycle_id;
 	object key;
-	if(!valid_userid(account_id) ||
+	if(!valid_userid(account_id) || !valid_illusion_id(illusion_id) ||
 	   search(({"jade","admin","legacy","test","account_center"}),source)==-1 ||
 	   (request_id && !valid_sha256_hex((string)request_id)))
 		return result;
@@ -1194,27 +1271,55 @@ mapping(string:mixed) grant_illusion_entitlement(string requested_id,
 	// 资格可能由另一个Worker刚写入；持有网关账号锁时仍需绕过本地旧缓存。
 	record = load_record_unlocked(account_id,1);
 	if(record){
-		if(mappingp(record["illusion_entitlement"]) &&
-		   (int)record["illusion_entitlement"]["unlocked"]==1)
+		entitlement = mappingp(record["illusion_entitlement"]) ?
+			(mapping)record["illusion_entitlement"] : ([]);
+		cycle_entitlement = illusion_entitlement_for_cycle(entitlement,
+			illusion_id);
+		if(sizeof(cycle_entitlement))
 			result = (["ok":1,"already":1,
-				"message":"账号已永久解锁幻境人物资格。",
-				"account_id":account_id,
-				"entitlement":copy_value(record["illusion_entitlement"])]);
+				"message":"账号已永久解锁"+illusion_id+"人物资格。",
+				"account_id":account_id,"illusion_id":illusion_id,
+				"cycle_entitlement":copy_value(cycle_entitlement),
+				"entitlement":copy_value(entitlement)]);
 		else{
-			record["illusion_entitlement"] = ([
+			if(!sizeof(entitlement)){
+				entitlement = ([
+					"unlocked":1,"unlocked_at":time(),"source":source,
+					"legacy_cycle_id":illusion_id,
+					"character_slots":1,"multi_character_unlocked":0,
+					"expansion_spent_suiyu":0,"expansion_requests":({}),
+					"season_expansions":([]),"season_entitlements":([]),
+				]);
+				if(request_id)
+					entitlement["request_id"] = request_id;
+			}
+			season_entitlements = mappingp(entitlement["season_entitlements"]) ?
+				copy_value((mapping)entitlement["season_entitlements"]) : ([]);
+			// Preserve a pre-cycle-keyed qualification as one explicit cycle
+			// before adding a later cycle to the same account container.
+			legacy_cycle_id = (string)(
+				entitlement["legacy_cycle_id"] || "S1");
+			legacy_entitlement = illusion_entitlement_for_cycle(entitlement,
+				legacy_cycle_id);
+			if(sizeof(legacy_entitlement) &&
+			   !mappingp(season_entitlements[legacy_cycle_id]))
+				season_entitlements[legacy_cycle_id] =
+					copy_value(legacy_entitlement);
+			cycle_entitlement = ([
 				"unlocked":1,"unlocked_at":time(),"source":source,
-				"character_slots":1,"multi_character_unlocked":0,
-				"expansion_spent_suiyu":0,"expansion_requests":({}),
-				"season_expansions":([]),
 			]);
 			if(request_id)
-				record["illusion_entitlement"]["request_id"] = request_id;
+				cycle_entitlement["request_id"] = request_id;
+			season_entitlements[illusion_id] =
+				copy_value(cycle_entitlement);
+			entitlement["season_entitlements"] = season_entitlements;
+			record["illusion_entitlement"] = entitlement;
 			if(save_record_unlocked(record))
 				result = (["ok":1,"already":0,
-					"message":"账号已永久解锁幻境人物资格。",
-					"account_id":account_id,
-					"entitlement":copy_value(
-						record["illusion_entitlement"])]);
+					"message":"账号已永久解锁"+illusion_id+"人物资格。",
+					"account_id":account_id,"illusion_id":illusion_id,
+					"cycle_entitlement":copy_value(cycle_entitlement),
+					"entitlement":copy_value(entitlement)]);
 		}
 	}
 	destruct(key);
@@ -1223,8 +1328,8 @@ mapping(string:mixed) grant_illusion_entitlement(string requested_id,
 
 /**
  * Atomically grant one paid character-slot expansion or the cumulative
- * multi-character unlock for one specific season. The permanent entitlement
- * is account-wide, but paid slots never leak into a later season. Request ids
+ * multi-character unlock for one specific season. Qualification and paid
+ * slots are both cycle-keyed and never leak into a later season. Request ids
  * make crash recovery and cross-Worker retries idempotent.
  */
 mapping(string:mixed) grant_illusion_character_expansion(string requested_id,
@@ -1248,8 +1353,9 @@ mapping(string:mixed) grant_illusion_character_expansion(string requested_id,
 	key = account_character_lock->lock();
 	record = load_record_unlocked(account_id,1);
 	if(!record || !mappingp(record["illusion_entitlement"]) ||
-	   (int)record["illusion_entitlement"]["unlocked"]!=1){
-		result["message"] = "账号尚未激活幻境人物资格。";
+	   !sizeof(illusion_entitlement_for_cycle(
+		(mapping)record["illusion_entitlement"],illusion_id))){
+		result["message"] = "账号尚未激活"+illusion_id+"人物资格。";
 		destruct(key);
 		return result;
 	}
@@ -1791,8 +1897,10 @@ mapping(string:mixed) create_character(string requested_id,
 	else{
 		if(realm_type=="illusion"){
 			if(!mappingp(record["illusion_entitlement"]) ||
-			   (int)record["illusion_entitlement"]["unlocked"]!=1){
-				result["message"] = "账号尚未永久解锁幻境人物资格。";
+			   !sizeof(illusion_entitlement_for_cycle(
+				(mapping)record["illusion_entitlement"],illusion_id))){
+				result["message"] = "账号尚未永久解锁"+
+					illusion_id+"人物资格。";
 				destruct(key);
 				return result;
 			}
