@@ -381,6 +381,7 @@ int main()
 		   string boss_name){
 			object boss = clone(ROOT+
 				"/gamelib/clone/npc/illusion_s1/"+boss_name+".pike");
+			boss->move(battle_room);
 			SEASONALD->record_npc_kill(child,boss,1);
 			destruct(boss);
 		}

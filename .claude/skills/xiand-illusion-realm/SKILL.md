@@ -46,7 +46,9 @@ when their surfaces are touched.
   repository build script
 - player/admin commands: `gamelib/cmds/illusion_realm.pike` and
   `gamelib/cmds/mgr_illusion_realm.pike`
-- focused regression: `test_unit/test_illusion_realm.pike`
+- focused lifecycle regression: `test_unit/test_illusion_realm.pike`
+- mandatory all-profession journey regression:
+  `test_unit/test_illusion_realm_all_professions.pike`
 
 Do not commit runtime JSON, account indexes, player saves, logs, Worker state, or
 other generated data.
@@ -194,7 +196,16 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
 
 ## Required validation
 
-1. Add focused TestUnit coverage for config, all rooms, stable multi-affinity
+1. Keep a 12-profession end-to-end matrix for 剑仙、羽士、诛仙、狂妖、巫妖、
+   影鬼、方士、镇越、天象、灵医、无相、太极. Give every profession a fresh
+   account and ordinary empty character archive; use the real `choice_profe`
+   bootstrap, enter a real cycle room, complete all configured chapter targets
+   through room-visit and NPC-kill recording, claim exactly ten profession
+   pieces, remove starter gear, invoke real one-click set equip, save/restore,
+   then settle the same archive to 永恒服 and restore again. Distribute the
+   matrix evenly across 寻星、破阵、同心. Never replace this with direct full
+   progress injection or a one-profession smoke test.
+2. Add focused TestUnit coverage for config, all rooms, stable multi-affinity
    grouping and catalog weights,
    entitlement denial/grant, interrupted-payment refund, multiple characters
    per cycle within the existing account/profession limits,
@@ -203,15 +214,19 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    automatic expiry/close without automatic start, login-hook ordering,
    end-time boundaries, same-archive settlement, idempotent return, same-room
    convergence, cross-chapter handoff, and team-instance convergence.
-2. Run Vue tests and `./scripts/build/build_vue_frontend.sh` for account-center
+3. Require illusion kill credit to come only from a cycle NPC in the player's
+   exact room. Persist first room visits immediately and checkpoint kill progress
+   at chapter thresholds, bosses, route completion, and bounded kill intervals;
+   roll progress back if a checkpoint save fails.
+4. Run Vue tests and `./scripts/build/build_vue_frontend.sh` for account-center
    changes. Require the real SSR/playability test, not source-string checks alone.
-3. Run `./restart-local-workers.sh --workers 3`. Require the complete TestUnit
-   suite to report zero failures and the final topology to be active with three
-   healthy Workers.
-4. Probe public and coordinator health and inspect new logs for Pike compilation,
+5. Run `./scripts/restart_map_workers_with_testunit.sh 3`. Require the complete
+   TestUnit suite to report zero failures and the final topology to be active
+   with three healthy Workers.
+6. Probe public and coordinator health and inspect new logs for Pike compilation,
    storage, transaction, routing, or runtime exceptions.
-5. Review old JSP/bookmark/TXD paths. Eternal creation without `realm_type` must
+7. Review old JSP/bookmark/TXD paths. Eternal creation without `realm_type` must
    retain its old behavior; the client cannot choose an unauthorized ID.
-6. Review the exact staged diff. Exclude player/runtime data and unrelated dirty
+8. Review the exact staged diff. Exclude player/runtime data and unrelated dirty
    files. Keep large staged rollout work on its feature branch until explicitly
    approved for main.

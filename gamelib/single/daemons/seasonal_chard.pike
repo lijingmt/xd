@@ -1059,10 +1059,35 @@ private int progress_visit_count(mapping progress)
 		sizeof((mapping)progress["visited"]) : 0;
 }
 
+private int is_test_illusion_player(object player)
+{
+	return getenv("XIAND_RUN_TESTUNIT")=="1" && player &&
+		functionp(player->query_name) &&
+		has_prefix((string)player->query_name(),"xd99testunitillusion");
+}
+
+private int is_illusion_progress_checkpoint(mapping progress,
+	int boss_kill,int route_mark_added,int previous_team_kills)
+{
+	int kills = (int)progress["kills"];
+	if(boss_kill || route_mark_added || kills%25==0)
+		return 1;
+	foreach((array)illusion_config["chapters"],mapping chapter)
+		if(kills==(int)chapter["kills"])
+			return 1;
+	if(previous_team_kills<
+	   (int)illusion_config["route_challenges"]["companion_team_kills"] &&
+	   (int)progress["team_kills"]>=
+	   (int)illusion_config["route_challenges"]["companion_team_kills"])
+		return 1;
+	return 0;
+}
+
 void record_room_visit(object player,object room)
 {
 	string path;
 	mapping progress;
+	mapping old_progress;
 	mapping visited;
 	if(!is_active_illusion_character(player) || !room)
 		return;
@@ -1071,39 +1096,70 @@ void record_room_visit(object player,object room)
 		return;
 	progress = player_progress(player,1);
 	visited = mappingp(progress["visited"]) ? progress["visited"] : ([]);
+	if((int)visited[path])
+		return;
+	old_progress = copy_value(progress);
 	visited[path] = 1;
 	progress["visited"] = visited;
+	if(!player->save_with_result()){
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		werror("[ILLUSION_REALM] 首次到访进度存档失败并已回滚: %s %s\n",
+			(string)player->query_name(),path);
+	}
 }
 
 void record_npc_kill(object player,object npc,void|int team_count)
 {
 	mapping progress;
+	mapping old_progress;
 	mapping marks;
 	object env;
 	string npc_path;
+	string npc_prefix;
+	int boss_kill;
+	int route_mark_added;
+	int previous_team_kills;
 	if(!is_active_illusion_character(player) || !npc)
 		return;
 	env = environment(player);
-	if(!env || !is_illusion_room_path(normalized_destination_path(env)))
+	npc_path = normalized_destination_path(npc);
+	npc_prefix = "/gamelib/clone/npc/illusion_"+
+		lower_case((string)illusion_config["current_id"])+"/";
+	if(!env || environment(npc)!=env ||
+	   !is_illusion_room_path(normalized_destination_path(env)) ||
+	   !has_prefix(npc_path,npc_prefix) || !has_suffix(npc_path,".pike"))
 		return;
 	progress = player_progress(player,1);
+	old_progress = copy_value(progress);
+	previous_team_kills = (int)progress["team_kills"];
+	boss_kill = (int)npc->_boss>0;
 	progress["kills"] = (int)progress["kills"]+1;
 	if((int)(team_count || 0)>1)
 		progress["team_kills"] = (int)progress["team_kills"]+1;
-	if((int)npc->_boss>0)
+	if(boss_kill)
 		progress["boss_kills"] = (int)progress["boss_kills"]+1;
 	// 破阵路线要求真正击败三名不同守关首领，重复刷同一名不计新印。
 	if((string)progress["path"]=="hunter"){
-		npc_path = normalized_destination_path(npc);
 		foreach((array)illusion_config["route_challenges"]["hunter_bosses"],
 		   mapping boss)
 			if((string)boss["path"]==npc_path){
 				marks = mappingp(progress["route_marks"]) ?
 					progress["route_marks"] : ([]);
-				marks[(string)boss["id"]] = 1;
+				if(!(int)marks[(string)boss["id"]]){
+					marks[(string)boss["id"]] = 1;
+					route_mark_added = 1;
+				}
 				progress["route_marks"] = marks;
 				break;
 			}
+	}
+	if(is_illusion_progress_checkpoint(progress,boss_kill,
+	   route_mark_added,previous_team_kills) && !player->save_with_result()){
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		werror("[ILLUSION_REALM] 击杀进度检查点存档失败并已回滚: %s kills=%d\n",
+			(string)player->query_name(),(int)progress["kills"]);
 	}
 }
 
@@ -1115,11 +1171,13 @@ private string path_name(string path)
 	return "未选择";
 }
 
-mapping(string:mixed) choose_player_path(object player,string path)
+private mapping(string:mixed) choose_player_path_internal(object player,
+	string path,int test_bypass_phase)
 {
 	mapping progress;
 	if(!is_active_illusion_character(player) ||
-	   (string)query_public_status()["phase"]!="active" ||
+	   (!test_bypass_phase &&
+	    (string)query_public_status()["phase"]!="active") ||
 	   search(({"pioneer","hunter","companion"}),path)==-1)
 		return (["ok":0,"message":"幻境路线无效。"]) ;
 	progress = player_progress(player,1);
@@ -1133,6 +1191,18 @@ mapping(string:mixed) choose_player_path(object player,string path)
 	}
 	return (["ok":1,"message":"已选择“"+path_name(path)+
 		"”路线，本期不可更改。"]);
+}
+
+mapping(string:mixed) choose_player_path(object player,string path)
+{
+	return choose_player_path_internal(player,path,0);
+}
+
+mapping(string:mixed) choose_player_path_for_test(object player,string path)
+{
+	if(!is_test_illusion_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]) ;
+	return choose_player_path_internal(player,path,1);
 }
 
 private int route_final_ready(mapping progress)
@@ -1224,8 +1294,7 @@ mapping(string:mixed) discover_route_secret(object player)
 
 mapping(string:mixed) discover_route_secret_for_test(object player)
 {
-	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !player ||
-	   search((string)player->query_name(),"testunit")==-1)
+	if(!is_test_illusion_player(player))
 		return (["ok":0,"message":"测试入口不可用。"]);
 	return discover_route_secret_internal(player,1);
 }
@@ -1364,8 +1433,7 @@ mapping(string:mixed) claim_chapter_reward(object player,int chapter_number)
 mapping(string:mixed) claim_chapter_reward_for_test(object player,
 	int chapter_number)
 {
-	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !player ||
-	   search((string)player->query_name(),"testunit")==-1)
+	if(!is_test_illusion_player(player))
 		return (["ok":0,"message":"测试入口不可用。"]) ;
 	return claim_chapter_reward_internal(player,chapter_number,1);
 }
@@ -1701,13 +1769,15 @@ private void reconcile_character_expansion_purchase(object player)
 			(string)player->query_name());
 }
 
-mapping(string:mixed) create_illusion_character(string account_id,
+private mapping(string:mixed) create_illusion_character_internal(
+	string account_id,
 	string race_id,string profession_id,string name_cn,string sex,
-	string avatar_id)
+	string avatar_id,int test_bypass_phase)
 {
 	mapping status = query_public_status();
 	mapping result;
-	if(!(int)status["ok"] || !(int)status["creation_open"])
+	if(!config_valid || (!test_bypass_phase &&
+	   (!(int)status["ok"] || !(int)status["creation_open"])))
 		return (["ok":0,"message":(string)status["display_name"]+
 			"当前不能创建人物。"]) ;
 	result = ACCOUNT_CHARACTERD->create_character(account_id,race_id,
@@ -1722,6 +1792,25 @@ mapping(string:mixed) create_illusion_character(string account_id,
 			(string)result["character"]["id"]));
 	}
 	return result;
+}
+
+mapping(string:mixed) create_illusion_character(string account_id,
+	string race_id,string profession_id,string name_cn,string sex,
+	string avatar_id)
+{
+	return create_illusion_character_internal(account_id,race_id,
+		profession_id,name_cn,sex,avatar_id,0);
+}
+
+mapping(string:mixed) create_illusion_character_for_test(string account_id,
+	string race_id,string profession_id,string name_cn,string sex,
+	string avatar_id)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !account_id ||
+	   !has_prefix(account_id,"xd99testunitillusion"))
+		return (["ok":0,"message":"测试入口不可用。"]) ;
+	return create_illusion_character_internal(account_id,race_id,
+		profession_id,name_cn,sex,avatar_id,1);
 }
 
 void prepare_new_character(object player)
@@ -1765,7 +1854,8 @@ private string settlement_receipt(object player,mapping realm)
 }
 
 /** Caller owns the account runtime mutex for the entire receipt/index change. */
-private mapping(string:mixed) settle_player_locked(object player)
+private mapping(string:mixed) settle_player_locked(object player,
+	void|int test_bypass_phase)
 {
 	mapping realm = query_realm_for_player(player);
 	mapping public_status = query_public_status();
@@ -1782,7 +1872,7 @@ private mapping(string:mixed) settle_player_locked(object player)
 		(string)public_status["illusion_id"];
 	prior_cycle_closed = search((array)public_status["closed_ids"],
 		(string)realm["illusion_id"])!=-1;
-	if(!prior_cycle_closed && (!current_cycle ||
+	if(!test_bypass_phase && !prior_cycle_closed && (!current_cycle ||
 	   ((string)public_status["phase"]!="settling" &&
 	    (string)public_status["phase"]!="closed")))
 		return (["ok":0,"message":(string)realm["illusion_id"]+
@@ -1820,6 +1910,19 @@ mapping(string:mixed) settle_player(object player)
 	account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
 		(string)player->query_name())->lock();
 	result = settle_player_locked(player);
+	destruct(account_key);
+	return result;
+}
+
+mapping(string:mixed) settle_player_for_test(object player)
+{
+	object account_key;
+	mapping result;
+	if(!is_test_illusion_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]) ;
+	account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+		(string)player->query_name())->lock();
+	result = settle_player_locked(player,1);
 	destruct(account_key);
 	return result;
 }
