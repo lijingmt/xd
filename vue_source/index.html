@@ -494,17 +494,32 @@
 									:disabled="!illusionEntitled || !illusionRealmStatus.creation_open || illusionCharacterCapacityReached">
 								<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
 								<small v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached">
-									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }}；进入已有角色的“幻境区”可选择100碎玉加1格，或补足累计500碎玉解锁多人物
+									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }}；进入已有角色的“幻境区”可选择100碎玉增加本期1格，或补足本期累计500碎玉解锁多人物
 								</small>
 								<small v-else-if="illusionEntitled && illusionRealmStatus.creation_open">
 									首名免费；完成七章后携十件套装随原档案回归
 							</small>
 							<small v-else-if="!illusionEntitled">
-								未激活永久资格；请先进入现有人物，从“幻境区”免费激活
+								未激活永久资格；可在下方直接免费激活
 							</small>
 							<small v-else>当前阶段：{{ illusionRealmStatus.phase_name }}</small>
 						</button>
 					</div>
+					<div class="illusion-activation-card" v-if="!illusionEntitled">
+						<div>
+							<strong>永久幻境资格</strong>
+							<small>资格属于当前注册账号；激活免费，人物开放时间仍以本期状态为准。</small>
+						</div>
+						<button type="button"
+								class="btn btn-primary"
+								@click="activateIllusionEntitlement"
+								:disabled="illusionActivating || !illusionRealmStatus.ok || Number(illusionRealmStatus.entitlement_cost_suiyu || 0) !== 0">
+							{{ illusionActivating ? '激活中...' : '免费激活幻境资格' }}
+						</button>
+					</div>
+					<p class="illusion-activation-success"
+						v-if="illusionActivationMessage"
+						role="status">{{ illusionActivationMessage }}</p>
 					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
 						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；本期不开放家园，也不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
 					</p>

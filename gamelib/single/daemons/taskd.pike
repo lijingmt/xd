@@ -618,6 +618,10 @@ string query_growth_task_profession_name(string profession_id)
 			return "天象";
 		case "lingyi":
 			return "灵医";
+		case "wuxiang":
+			return "无相";
+		case "taiji":
+			return "太极";
 	}
 	return "未知职业";
 }

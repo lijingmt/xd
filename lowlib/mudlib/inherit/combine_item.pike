@@ -32,8 +32,9 @@ int move_player(string name){
 		return 0;
 	//if(this_object()->is_combine_item()){
 	if(this_object()->is("combine_item")){
-		if(this_object()->amount > max_count)
-			this_object()->amount = max_count;
+		// 历史代码会把超过旧堆叠上限的数量直接截断。旧存档、仓库
+		// 或批量制造都可能合法带回更大的组，移动时必须守恒；即使
+		// 暂时不能完全并入现有组，也保留余量为独立对象。
 		array(object) items=all_inventory(player);
 		int add_amount = this_object()->amount;
 		if(!sizeof(items)){

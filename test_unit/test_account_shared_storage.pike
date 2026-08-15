@@ -261,6 +261,69 @@ int main()
 		if(restored_gear)
 			destruct(restored_gear);
 
+		object vip_gear = clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		vip_gear->set_toVip(1);
+		vip_gear->move(child_player);
+		object personal_browser = (object)(ROOT+
+			"/gamelib/cmds/personal_storage.pike");
+		array vip_rows = personal_browser->query_backpack_rows(
+			child_player,"equip","");
+		int vip_visible = 0;
+		foreach(vip_rows,mapping vip_row)
+			if(vip_row["object"]==vip_gear)
+				vip_visible = 1;
+		object vip_consumable = clone(ROOT+
+			"/gamelib/clone/item/food/jinchuangyao");
+		vip_consumable->set_toVip(1);
+		vip_consumable->move(child_player);
+		array vip_all_rows = personal_browser->query_backpack_rows(
+			child_player,"all","");
+		int vip_consumable_visible = 0;
+		foreach(vip_all_rows,mapping vip_row)
+			if(vip_row["object"]==vip_consumable)
+				vip_consumable_visible = 1;
+		int vip_consumable_stored = !child_player->packaged(
+			vip_consumable,20);
+		int vip_stored = !child_player->packaged(vip_gear,20);
+		destruct(vip_gear);
+		mapping vip_personal = ACCOUNT_STORAGED->query_storage(child_player);
+		string vip_item_id = "";
+		array vip_item_data = ({});
+		foreach((array)vip_personal["personal_items"],array personal_item)
+			if(sizeof(personal_item)>11 &&
+			   (string)personal_item[3]=="weapon/1taomujian/1taomujian" &&
+			   (int)personal_item[11]==1){
+				vip_item_id = (string)personal_item[7];
+				vip_item_data = copy_value(personal_item);
+				break;
+			}
+		mapping vip_to_shared = ACCOUNT_STORAGED->transfer_to_shared(
+			child_player,vip_item_id);
+		mapping vip_to_root = ACCOUNT_STORAGED->transfer_to_personal(
+			root_player,vip_item_id);
+		object restored_vip = root_player->repackaged_by_storage_id(
+			vip_item_id);
+		check("会员绑定装备可经共享仓库在同账号人物间流转且不洗白",
+			vip_visible && !vip_consumable_visible &&
+			!vip_consumable_stored && environment(vip_consumable)==child_player &&
+			vip_stored && sizeof(vip_item_data)==12 &&
+			vip_to_shared["ok"] && vip_to_root["ok"] &&
+			objectp(restored_vip) && restored_vip->query_toVip()==1 &&
+			restored_vip->query_item_canTrade()==1,
+			sprintf("visible=%d stored=%d row=%O in=%O out=%O restored=%O vip=%d",
+				vip_visible,vip_stored,vip_item_data,vip_to_shared,vip_to_root,
+				restored_vip,restored_vip ? restored_vip->query_toVip() : -1));
+		check("会员绑定装备仍禁止同账号直接赠送以保持跨账号强绑定边界",
+			objectp(restored_vip) && restored_vip->query_toVip()==1 &&
+			!PLAYER_TRANSFERD->can_batch_gift_item(
+				root_player,child_player,restored_vip),
+			"会员标记可能被共享仓库存取洗掉或直接赠送绕过");
+		if(restored_vip)
+			destruct(restored_vip);
+		if(vip_consumable)
+			destruct(vip_consumable);
+
 		object newmoon_gear = clone(ROOT+
 			"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
 		newmoon_gear->move(child_player);

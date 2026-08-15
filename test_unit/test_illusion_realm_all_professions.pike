@@ -58,6 +58,21 @@ string player_file(string userid)
 	return DATA_ROOT+"u/"+userid[sizeof(userid)-2..]+"/"+userid+".o";
 }
 
+void cleanup_ranking_snapshot(string userid)
+{
+	string directory;
+	string path;
+	if(!userid || search(userid,"testunitillusion")==-1)
+		return;
+	directory = DATA_ROOT+"illusion_realm/rankings/S1";
+	path = directory+"/"+userid+".json";
+	rm(path);
+	foreach(get_dir(directory) || ({}),string filename)
+		if(has_prefix(filename,userid+".json.") &&
+		   has_suffix(filename,".tmp"))
+			rm(directory+"/"+filename);
+}
+
 void cleanup_player(string userid)
 {
 	if(!userid || search(userid,"testunitillusion")==-1)
@@ -74,8 +89,10 @@ void cleanup_account(string account_id,array(string) character_ids)
 	ACCOUNT_STORAGED->remove_test_storage(account_id);
 	ACCOUNT_WALLETD->remove_test_wallet(account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
-	foreach(character_ids,string character_id)
+	foreach(character_ids,string character_id){
+		cleanup_ranking_snapshot(character_id);
 		cleanup_player(character_id);
+	}
 	cleanup_player(account_id);
 }
 
@@ -413,6 +430,13 @@ void run_profession_journey(int index,mapping(string:string) profession)
 int main()
 {
 	werror("\n========== S1十二职业从零到十件套端到端测试 ==========\n");
+	int profession_names_complete = 1;
+	foreach(professions,mapping profession)
+		if(TASKD->query_growth_task_profession_name(
+		   (string)profession["profession"])!=(string)profession["name"])
+			profession_names_complete = 0;
+	check("十二职业榜单名称完整且无相太极不显示未知职业",
+		profession_names_complete,"职业中文名目录不完整");
 	object unauthorized = clone(GAMELIB_USER);
 	unauthorized->set_name("xd99testunitother");
 	mapping denied_create = SEASONALD->create_illusion_character_for_test(

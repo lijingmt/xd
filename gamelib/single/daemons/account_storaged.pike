@@ -205,7 +205,7 @@ private string personal_newmoon_binding_owner(array data)
 private int valid_personal_data(array data)
 {
 	if(!arrayp(data) || sizeof(data)<7 ||
-	   sizeof(data)>11 ||
+	   sizeof(data)>12 ||
 	   !stringp(data[0]) || !stringp(data[1]) ||
 	   !stringp(data[2]) || !stringp(data[3]) ||
 	   !valid_relative_item_path((string)data[3]))
@@ -249,7 +249,10 @@ private int valid_personal_data(array data)
 		return 0;
 	if(sizeof(data)>10 &&
 	   (!mappingp(data[10]) ||
-	    !valid_newmoon_collection_snapshot(data[10])))
+	    (sizeof(data[10]) &&
+	     !valid_newmoon_collection_snapshot(data[10]))))
+		return 0;
+	if(sizeof(data)>11 && (!intp(data[11]) || (int)data[11]!=1))
 		return 0;
 	return 1;
 }

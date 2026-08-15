@@ -69,7 +69,7 @@ int main()
 		existing->move(player);
 		mapping delivery=SHOP_BATCHD->deliver(player,
 			"teyao/fenfanglu",100,0);
-		check("一次买100件会补满旧堆并按堆叠上限拆分",
+		check("一次买100件会补入旧堆且按当前堆叠上限完整交付",
 			delivery["ok"] && item_amount(player,"fenfanglu")==125 &&
 			stacks_valid(player,"fenfanglu"),
 			sprintf("delivery=%O amount=%d",delivery,
@@ -87,17 +87,23 @@ int main()
 			!SHOP_BATCHD->deliver(player,"teyao/fenfanglu",101,0)["ok"],
 			"越界路径或超上限订单被接受");
 
+		// 丹药上限已提升，不能再用芬芳露伪造“仅余5格”的场景。
+		// 铜矿石仍采用通用30上限，继续验证满包订单的原子拒绝。
+		object capacity_item=clone(ROOT+
+			"/gamelib/clone/item/material/tongkuangshi");
+		capacity_item->amount=25;
+		capacity_item->move(player);
 		while(sizeof(all_inventory(player))<player->query_beibao_size()){
 			object filler=clone(ROOT+"/gamelib/clone/item/book/lingzhen");
 			filler->move(player);
 		}
-		int before=item_amount(player,"fenfanglu");
+		int before=item_amount(player,"tongkuangshi");
 		mapping rejected=SHOP_BATCHD->deliver(player,
-			"teyao/fenfanglu",6,0);
+			"material/tongkuangshi",6,0);
 		check("满背包仅剩5个合并空位时整单6个原子拒绝",
-			!rejected["ok"] && item_amount(player,"fenfanglu")==before,
+			!rejected["ok"] && item_amount(player,"tongkuangshi")==before,
 			sprintf("rejected=%O before=%d after=%d",rejected,before,
-				item_amount(player,"fenfanglu")));
+				item_amount(player,"tongkuangshi")));
 
 		int stock_before=BROADCASTD->query_num("qianlichuanyinfu");
 		int reserve_count=stock_before>=2 ? 2 : 0;

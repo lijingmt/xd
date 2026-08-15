@@ -45,11 +45,188 @@ private mapping(int:array(string)) vicenpc_flush_time = ([]);//以刷新时间�
 // ...
 //  ])
 private int flush_count = 0;
+private int worker_refresh_started;
+private int worker_assignment_generation;
+private mapping(string:int) worker_initialized = ([]);
+
+private int worker_mode()
+{
+	return MAP_WORKERD->query_node_role()=="worker";
+}
+
+private int gateway_mode()
+{
+	return MAP_WORKERD->query_node_role()=="gateway";
+}
+
+private int stable_room_slot(string name,int slot,int room_count)
+{
+	object hash;
+	string digest;
+	int value;
+	if(room_count<1)
+		return -1;
+	hash = Crypto.SHA256();
+	hash->update("vice_npc|"+name+"|"+(string)slot);
+	digest = String.string2hex(hash->digest());
+	if(sizeof(digest)>=7)
+		sscanf(digest[0..6],"%x",value);
+	return value%room_count;
+}
+
+private int count_room_vicenpc(object room_ob,string name)
+{
+	int count;
+	string source_path = VICENPC_PATH+name;
+	if(!room_ob)
+		return 0;
+	foreach(all_inventory(room_ob),object one){
+		string path = one ? file_name(one) : "";
+		if(path==source_path || has_prefix(path,source_path+"#"))
+			count++;
+	}
+	return count;
+}
+
+private int spawn_worker_vicenpc(string name,string room)
+{
+	object room_ob;
+	object npc;
+	mixed err;
+	if(!vicenpcMap[name] || room=="" || search(room,"..")!=-1 ||
+	   !MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+		return 0;
+	err = catch { room_ob=(object)(ROOM_PATH+room); };
+	if(err || !room_ob)
+		return 0;
+	err = catch{
+		npc = clone(VICENPC_PATH+name);
+		if(npc)
+			npc->move(room_ob);
+	};
+	if(err || !npc || environment(npc)!=room_ob){
+		if(npc)
+			destruct(npc);
+		return 0;
+	}
+	return 1;
+}
+
+private void reconcile_worker_vicenpc(string name)
+{
+	vicenpc one = vicenpcMap[name];
+	array(string) rooms;
+	mapping(string:int) desired = ([]);
+	int missing;
+	int desired_total;
+	int existing_total;
+	int spawned;
+	if(!one){
+		vicenpcNeed[name] = 0;
+		return;
+	}
+	rooms = ROOMLEVELD->query_rooms(one->mLevel_min,one->mLevel_max);
+	if(!sizeof(rooms)){
+		vicenpcNeed[name] = 0;
+		werror("[VICEFLUSHD][WORKER] no eligible rooms for %s\n",name);
+		return;
+	}
+	for(int slot=0;slot<one->nums;slot++){
+		int index = stable_room_slot(name,slot,sizeof(rooms));
+		string room = index>=0 ? rooms[index] : "";
+		if(room!="" &&
+		   MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+			desired[room] = (int)desired[room]+1;
+	}
+	foreach(indices(desired),string room){
+		object room_ob;
+		mixed err = catch { room_ob=(object)(ROOM_PATH+room); };
+		int existing = !err && room_ob ? count_room_vicenpc(room_ob,name) : 0;
+		int need = max(0,(int)desired[room]-existing);
+		desired_total += (int)desired[room];
+		existing_total += existing;
+		for(int index=0;index<need;index++)
+			if(spawn_worker_vicenpc(name,room))
+				spawned++;
+			else
+				missing++;
+	}
+	vicenpcNeed[name] = missing;
+	worker_initialized[name] = 1;
+	if(spawned || missing)
+		werror("[VICEFLUSHD][WORKER] generation=%d npc=%s desired=%d existing=%d spawned=%d missing=%d\n",
+			MAP_WORKERD->query_local_assignment_generation(),name,
+			desired_total,existing_total,spawned,missing);
+}
+
+private int refresh_worker_generation()
+{
+	int generation = MAP_WORKERD->query_local_assignment_generation();
+	if(generation<1 || generation==worker_assignment_generation)
+		return 0;
+	worker_assignment_generation = generation;
+	worker_initialized = ([]);
+	return 1;
+}
+
+private void reconcile_all_worker_vicenpc()
+{
+	foreach(indices(vicenpcMap),string name)
+		reconcile_worker_vicenpc(name);
+	werror("[VICEFLUSHD][WORKER] generation=%d reconciled_npcs=%d\n",
+		MAP_WORKERD->query_local_assignment_generation(),sizeof(vicenpcMap));
+}
+
+private void fill_worker_vicenpc_need(string name)
+{
+	int need = (int)vicenpcNeed[name];
+	array(string) rooms;
+	mapping(string:int) desired = ([]);
+	if(need<1)
+		return;
+	rooms = ROOMLEVELD->query_rooms(vicenpcMap[name]->mLevel_min,
+		vicenpcMap[name]->mLevel_max);
+	if(!sizeof(rooms))
+		return;
+	for(int slot=0;slot<vicenpcMap[name]->nums;slot++){
+		int index = stable_room_slot(name,slot,sizeof(rooms));
+		string room = index>=0 ? rooms[index] : "";
+		if(room!="" &&
+		   MAP_WORKERD->local_worker_owns_room("/gamelib/d/"+room))
+			desired[room] = (int)desired[room]+1;
+	}
+	foreach(indices(desired),string room){
+		object room_ob;
+		mixed err = catch { room_ob=(object)(ROOM_PATH+room); };
+		int existing = !err && room_ob ? count_room_vicenpc(room_ob,name) : 0;
+		int room_missing = max(0,(int)desired[room]-existing);
+		for(int index=0;index<room_missing && vicenpcNeed[name]>0;index++)
+			if(spawn_worker_vicenpc(name,room))
+				vicenpcNeed[name]--;
+	}
+}
+
+void start_worker_refresh()
+{
+	if(!worker_mode() || worker_refresh_started)
+		return;
+	if(!MAP_WORKERD->local_affinity_assignments_ready()){
+		call_out(start_worker_refresh,2);
+		return;
+	}
+	worker_refresh_started = 1;
+	if(refresh_worker_generation())
+		reconcile_all_worker_vicenpc();
+	call_out(flush_vicenpc,FLUSH_TIME);
+}
 
 protected void create()
 {
 	load_csv();
-	flush_vicenpc();
+	if(worker_mode())
+		call_out(start_worker_refresh,2);
+	else if(!gateway_mode())
+		flush_vicenpc();
 //	call_out(flush_vicenpc,FLUSH_TIME);
 }
 
@@ -58,6 +235,7 @@ void load_csv()
 	vicenpcMap = ([]);
 	vicenpcNeed = ([]);
 	vicenpc_flush_time = ([]);
+	worker_initialized = ([]);
 	string vicenpcData = Stdio.read_file(VICENPC_CSV);
 	array(string) lines = vicenpcData/"\r\n";
 	if(lines && sizeof(lines)){
@@ -94,6 +272,23 @@ void flush_vicenpc()
 {
 	flush_count += 15; //刷新时间是15的倍数
 	string now=ctime(time());
+	if(worker_mode()){
+		if(refresh_worker_generation())
+			reconcile_all_worker_vicenpc();
+		foreach(indices(vicenpc_flush_time),int worker_time)
+			if(flush_count%worker_time==0)
+				foreach(vicenpc_flush_time[worker_time],string name)
+					if(!worker_initialized[name])
+						reconcile_worker_vicenpc(name);
+					else
+						fill_worker_vicenpc_need(name);
+		if(flush_count>=MAX_TIME)
+			flush_count = 0;
+		call_out(flush_vicenpc,FLUSH_TIME);
+		return;
+	}
+	if(gateway_mode())
+		return;
 	foreach(indices(vicenpc_flush_time),int time){
 		if(flush_count%time == 0){
 		//到刷新时间了
@@ -138,8 +333,21 @@ void flush_vicenpc()
 //怪物被挖了后要设置待刷新怪物的数量
 void set_flush_num(string name)
 {
+	if(gateway_mode() || !vicenpcMap[name])
+		return;
 	if(!vicenpcNeed[name])
 		vicenpcNeed[name] = 1;
 	else
 		vicenpcNeed[name]++;
+}
+
+mapping(string:mixed) query_worker_contract_for_test(string name)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !vicenpcMap[name])
+		return (["ok":0]);
+	return (["ok":1,"name_cn":vicenpcMap[name]->name_cn,
+		"nums":vicenpcMap[name]->nums,
+		"min_level":vicenpcMap[name]->mLevel_min,
+		"max_level":vicenpcMap[name]->mLevel_max,
+		"stable_slot":stable_room_slot(name,0,97)]);
 }

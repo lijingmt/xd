@@ -28,4 +28,6 @@ protected int danyao_max_level = 0;
 void set_danyao_max_level(int a){danyao_max_level=a;}
 int query_danyao_max_level(){return danyao_max_level;}
 
-private string initer=((set_item_type("danyao")),"");
+// 单炉仍由百工系统限制为100颗；9999只控制同名丹药的背包堆叠，
+// 避免百颗成品经过旧仓库重建后回落到通用30上限。
+private string initer=((set_item_type("danyao")),(max_count=9999),"");

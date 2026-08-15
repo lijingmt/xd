@@ -30,6 +30,10 @@ string state_packaged(int user_p_level)
 }
 int packaged(object ob, int user_p_level){
 	array item_data;
+	// 只给会员绑定装备开放同注册账号流转。会员消耗品、材料和
+	// 其他特殊道具继续保持旧边界，不能借共享仓库扩大使用范围。
+	if(!ob || (ob->query_toVip() && !ob->is("equip")))
+		return 1;
 	if(packaged_items==0)
 		packaged_items = ({});
 	if(sizeof(packaged_items)>=user_p_level)
@@ -80,6 +84,20 @@ int packaged(object ob, int user_p_level){
 					item_data += ({copy_value(collection_snapshot)});
 			}
 		}
+	}
+	// 会员绑定装备仍禁止赠送和交易，但允许经注册账号共享仓库在
+	// 同账号人物间流转。第12列保存不可洗白的会员绑定标记；中间
+	// 使用既有快照占位，保持前11列旧档格式向前兼容。
+	if(ob->query_toVip()){
+		if(sizeof(item_data)<8)
+			item_data += ({""});
+		if(sizeof(item_data)<9)
+			item_data += ({empty_storage_gem_snapshot()});
+		if(sizeof(item_data)<10)
+			item_data += ({([])});
+		if(sizeof(item_data)<11)
+			item_data += ({([])});
+		item_data += ({1});
 	}
 	packaged_items += ({item_data});
 	//加入存入仓库的Log
@@ -155,6 +173,7 @@ object repackaged(string name){
 							return 0;
 						}
 						if(sizeof(stored)>10 && mappingp(stored[10]) &&
+						   sizeof(stored[10]) &&
 						   (!functionp(
 						      ob->restore_newmoon_storage_collection_snapshot) ||
 						    !ob->restore_newmoon_storage_collection_snapshot(
@@ -164,6 +183,8 @@ object repackaged(string name){
 						}
 					}
 				}
+				if(sizeof(stored)>11 && (int)stored[11]==1)
+					ob->set_toVip(1);
 				packaged_items[i]=packaged_items[0];
 				packaged_items = packaged_items[1..sizeof(packaged_items)-1];
 				//加入取出仓库的Log

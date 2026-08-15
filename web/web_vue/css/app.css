@@ -1487,9 +1487,46 @@ body {
 	font-size: 12px;
 }
 
+.illusion-activation-card {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 0 12px;
+	padding: 12px;
+	border: 1px solid rgba(108, 78, 217, 0.34);
+	border-radius: 12px;
+	background: rgba(108, 78, 217, 0.08);
+}
+
+.illusion-activation-card strong,
+.illusion-activation-card small {
+	display: block;
+}
+
+.illusion-activation-card small {
+	margin-top: 4px;
+	color: var(--text-secondary);
+}
+
+.illusion-activation-card .btn {
+	flex: 0 0 auto;
+}
+
+.illusion-activation-success {
+	margin: 0 0 12px;
+	color: var(--success);
+	font-size: 13px;
+}
+
 @media (max-width: 520px) {
 	.character-realm-choice {
 		grid-template-columns: 1fr;
+	}
+
+	.illusion-activation-card {
+		align-items: stretch;
+		flex-direction: column;
 	}
 }
 

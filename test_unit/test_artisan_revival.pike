@@ -98,6 +98,7 @@ void test_runtime_compile()
 		"/gamelib/single/daemons/roomLeveld.pike",
 		"/gamelib/single/daemons/kuangd.pike",
 		"/gamelib/single/daemons/caoyaod.pike",
+		"/gamelib/single/daemons/viceflushd.pike",
 		"/gamelib/clone/item/peifang/duanzao/p_lyuzhijiang",
 		"/gamelib/clone/item/peifang/duanzao/p_lningchenlu",
 		"/lowlib/mudlib/inherit/feature/readed.pike",
@@ -458,6 +459,51 @@ void test_medicine_batch_transaction()
 		ARTISAND->query_material_count(player,"muhudie")==0 &&
 		player->vice_skills["liandan"][0]==4,
 		(string)made["message"]);
+	string medicine_path = item ? (file_name(item)/"#")[0] : "";
+	string medicine_name = item ? (string)item->query_name() : "";
+	if(item){
+		item->amount = 100;
+		item->max_count = 100;
+	}
+	int stored = item && !player->packaged(item,player->query_cangku_size());
+	if(item)
+		destruct(item);
+	object|zero existing = medicine_path!="" ? clone(medicine_path) : 0;
+	if(existing){
+		existing->amount = 25;
+		existing->move(player);
+	}
+	object|zero restored = stored ? player->repackaged(medicine_name) : 0;
+	if(restored)
+		restored->move_player((string)player->query_name());
+	int medicine_total = 0;
+	int medicine_stack_limit = 0;
+	foreach(all_inventory(player),object one){
+		if(one && one->query_name()==medicine_name){
+			medicine_total += (int)one->amount;
+			medicine_stack_limit = max(medicine_stack_limit,
+				(int)one->max_count);
+		}
+	}
+	check("百颗丹药经角色仓库存取后与旧组叠加且数量守恒",
+		stored && medicine_total==125 && medicine_stack_limit==9999 &&
+		!sizeof(player->packaged_items),
+		sprintf("stored=%d total=%d max=%d rows=%d",stored,
+			medicine_total,medicine_stack_limit,sizeof(player->packaged_items)));
+	object overflow_player = create_player(
+		"__testunit_artisan_stack_guard__",20);
+	object overflow = clone(ROOT+
+		"/gamelib/clone/item/material/tongkuangshi");
+	overflow->amount = 100;
+	overflow->max_count = 30;
+	overflow->move_player((string)overflow_player->query_name());
+	check("通用复数物品移动不再把合法大组静默截成30",
+		objectp(overflow) && environment(overflow)==overflow_player &&
+		(int)overflow->amount==100,
+		sprintf("amount=%d env=%O",(int)overflow->amount,
+			environment(overflow)));
+	destroy_player(overflow_player);
+	cleanup_player_files("__testunit_artisan_stack_guard__");
 	destroy_player(player);
 	cleanup_player_files(userid);
 }
@@ -476,6 +522,10 @@ void test_wiring_and_safety_guards()
 		"/gamelib/single/daemons/kuangd.pike");
 	string caoyao_source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/caoyaod.pike");
+	string viceflush_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/viceflushd.pike");
+	string master_source = Stdio.read_file(ROOT+
+		"/lowlib/system/master.pike");
 	array(string) rooms = ROOMLEVELD->query_rooms(10,20);
 	array(string) rooms_again = ROOMLEVELD->query_rooms(10,20);
 	check("基础手艺取消二选二限制且非法技能不会扣款",
@@ -511,6 +561,22 @@ void test_wiring_and_safety_guards()
 		search(caoyao_source,"if(refresh_worker_generation())")!=-1 &&
 		search(caoyao_source,"call_out(flush_caoyao,FLUSH_TIME)")!=-1,
 		"资源可能在assignment前刷新、跨owner加载房间或每个worker重复全量生成");
+	mapping lingtu = VICEFLUSHD->query_worker_contract_for_test("lingtu");
+	mapping lingmao = VICEFLUSHD->query_worker_contract_for_test("lingmao");
+	check("灵兔灵猫刷新守护进入地图worker并按稳定房间归属补齐",
+		viceflush_source && master_source &&
+		search(master_source,"\"viceflushd.pike\"")!=-1 &&
+		search(viceflush_source,"local_affinity_assignments_ready")!=-1 &&
+		search(viceflush_source,"local_worker_owns_room")!=-1 &&
+		search(viceflush_source,"stable_room_slot")!=-1 &&
+		search(viceflush_source,"reconcile_all_worker_vicenpc")!=-1 &&
+		(int)lingtu["ok"] && (int)lingtu["nums"]==8 &&
+		(int)lingtu["min_level"]==10 && (int)lingtu["max_level"]==100 &&
+		(int)lingmao["ok"] && (int)lingmao["nums"]==5 &&
+		(int)lingmao["min_level"]==141 && (int)lingmao["max_level"]==200 &&
+		(int)lingtu["stable_slot"]>=0 &&
+		(int)lingtu["stable_slot"]<97,
+		sprintf("lingtu=%O lingmao=%O",lingtu,lingmao));
 }
 
 int main()

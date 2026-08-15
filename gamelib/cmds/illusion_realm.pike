@@ -36,6 +36,12 @@ private string progress_view(object me,mapping progress)
 		s += "[破阵·重狩猎:illusion_realm path hunter] ";
 		s += "[同心·重协作:illusion_realm path companion]\n";
 	}
+	s += "论剑荣誉："+(string)(int)progress["pvp_honor"]+
+		"　胜场："+(string)(int)progress["pvp_wins"]+"\n";
+	if(arrayp(progress["ranking_titles"]) &&
+	   sizeof((array)progress["ranking_titles"]))
+		s += "最新幻境荣誉："+
+			(string)((array)progress["ranking_titles"])[-1]+"\n";
 	foreach((array)progress["chapters"];int index;mapping chapter){
 		string mark = (int)chapter["claimed"] ? "已领取" :
 			((int)chapter["ready"] ? "可领取" : "进行中");
@@ -54,6 +60,51 @@ private string progress_view(object me,mapping progress)
 	return s;
 }
 
+private string ranking_menu(mapping status)
+{
+	int starts_at = (int)status["starts_at"];
+	int current_week = starts_at>0 ?
+		min(60,max(1,1+(time()-starts_at)/(7*86400))) : 1;
+	string period = "week:"+(string)current_week;
+	string s = "【"+(string)status["illusion_id"]+"幻境排行榜】\n";
+	array(mapping(string:string)) boards = ({
+		(["id":"journey","name":"征途"]),(["id":"level","name":"境界"]),
+		(["id":"experience","name":"经验"]),(["id":"pk","name":"论剑"]),
+		(["id":"set","name":"套装"]),(["id":"speed","name":"极速"]),
+	});
+	foreach(boards,mapping board){
+		s += "["+(string)board["name"]+"总榜:illusion_realm rank "+
+			(string)board["id"]+" overall] ";
+		s += "[本周:illusion_realm rank "+(string)board["id"]+" "+
+			period+"]\n";
+	}
+	s += "\n周榜结束后前十可领取荣誉称号；总榜在本期结束后结算。\n";
+	s += "同注册账号切磋不计分；同一对手每日仅前三次按100/50/20递减；等级碾压不计分。\n";
+	s += "称号仅用于展示收藏，不增加永久战斗属性。\n";
+	s += "[返回幻境区:illusion_realm]\n";
+	return s;
+}
+
+private string ranking_view(mapping status,string board,string period)
+{
+	mapping result = SEASONALD->query_illusion_leaderboard(
+		(string)status["illusion_id"],board,period,20);
+	string s;
+	if(!(int)result["ok"])
+		return (string)result["message"]+"\n[返回排行榜:illusion_realm rank]\n";
+	s = "【"+(string)result["board_name"]+"·"+
+		(period=="overall" ? "总榜" : "第"+period[5..]+"周")+"】\n";
+	if(!sizeof((array)result["rows"]))
+		s += "尚无符合条件的榜单记录。\n";
+	foreach((array)result["rows"],mapping row)
+		s += (string)(int)row["rank"]+". "+(string)row["name_cn"]+
+			"（"+(string)row["profession_name"]+"） "+
+			(string)row["score_text"]+"\n";
+	s += "\n[领取本榜前十荣誉:illusion_realm rank claim "+board+" "+
+		period+"]\n[返回排行榜:illusion_realm rank]\n";
+	return s;
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -65,13 +116,29 @@ int main(string|zero arg)
 		write("人物会话不存在。\n");
 		return 1;
 	}
+	if(sizeof(parts)>=1 && parts[0]=="rank"){
+		if(sizeof(parts)>=4 && parts[1]=="claim"){
+			mapping reward = SEASONALD->claim_illusion_ranking_reward(
+				me,parts[2],parts[3]);
+			write((string)reward["message"]+
+				"\n[返回排行榜:illusion_realm rank]\n");
+			return 1;
+		}
+		if(sizeof(parts)>=2){
+			string period = sizeof(parts)>=3 ? parts[2] : "overall";
+			write(ranking_view(status,parts[1],period));
+			return 1;
+		}
+		write(ranking_menu(status));
+		return 1;
+	}
 	if(sizeof(parts)>=1 && parts[0]=="activate"){
 		if(sizeof(parts)<2 || parts[1]!="confirm"){
 			write(((int)status["entitlement_cost_suiyu"]>0 ?
 				"永久解锁幻境人物资格需要"+
 				(string)(int)status["entitlement_cost_suiyu"]+"枚碎玉。" :
 				"幻境人物资格当前免费永久激活。")+
-				"资格属于注册账号；每期首名人物免费，额外栏位可永久扩充。\n"+
+				"资格属于注册账号；每期首名人物免费，额外栏位仅对当期生效。\n"+
 				"[确认永久激活:illusion_realm activate confirm]\n"+
 				"[取消:illusion_realm]\n");
 			return 1;
@@ -85,7 +152,8 @@ int main(string|zero arg)
 	}
 	if(sizeof(parts)>=1 && parts[0]=="expand"){
 		mapping expansion_account = ACCOUNT_CHARACTERD->
-			query_account_characters((string)me->query_account_owner());
+			query_account_characters((string)me->query_account_owner(),
+				(string)status["illusion_id"]);
 		int spent = (int)expansion_account[
 			"illusion_expansion_spent_suiyu"];
 		int slots = (int)(expansion_account["illusion_character_slots"] || 1);
@@ -102,17 +170,17 @@ int main(string|zero arg)
 			return 1;
 		}
 		if((int)expansion_account["illusion_multi_character_unlocked"]){
-			write("账号已永久解锁幻境多人物；只受账号总计30个人物与隐藏职业数量限制。\n"+
+			write("本期已解锁幻境多人物；只受账号总计30个人物与隐藏职业数量限制。\n"+
 				"[返回幻境区:illusion_realm]\n");
 			return 1;
 		}
 		if(sizeof(parts)<2 || search(({"one","all"}),parts[1])==-1){
-			write("【幻境人物栏位】\n当前永久栏位："+(string)slots+
+			write("【幻境人物栏位】\n当前赛季栏位："+(string)slots+
 				"个　累计已计入："+(string)spent+"碎玉\n"+
-				"[100碎玉永久加1格:illusion_realm expand one]|"+
+				"[100碎玉增加本期1格:illusion_realm expand one]|"+
 				"[补"+(string)remaining+
-				"碎玉永久解锁多人物:illusion_realm expand all]\n"+
-				"也可补足累计500碎玉永久解锁多人物；此前逐格扩充的花费全额抵扣。\n"+
+				"碎玉解锁本期多人物:illusion_realm expand all]\n"+
+				"也可补足本期累计500碎玉解锁多人物；本期此前逐格扩充的花费全额抵扣。\n"+
 				"[返回幻境区:illusion_realm]\n");
 			return 1;
 		}
@@ -120,9 +188,9 @@ int main(string|zero arg)
 		int cost = option=="one" ? 100 : remaining;
 		if(sizeof(parts)<3 || parts[2]!="confirm"){
 			write((option=="one" ?
-				"确认支付100碎玉，永久增加1个幻境人物栏位？" :
+				"确认支付100碎玉，增加1个本期幻境人物栏位？" :
 				"确认补足"+(string)cost+
-				"碎玉，永久解锁幻境多人物？")+"\n"+
+				"碎玉，解锁本期幻境多人物？")+"\n"+
 				"[确认支付:illusion_realm expand "+option+" confirm]|"+
 				"[取消:illusion_realm expand]\n");
 			return 1;
@@ -163,13 +231,13 @@ int main(string|zero arg)
 	if(!(int)status["ok"])
 		s += "配置或运行状态校验失败，功能已安全关闭。\n";
 	account_data = ACCOUNT_CHARACTERD->query_account_characters(
-		(string)me->query_account_owner());
+		(string)me->query_account_owner(),(string)status["illusion_id"]);
 	if((int)account_data["illusion_entitled"]){
 		s += "永久资格：已解锁\n";
 		if((int)account_data["illusion_multi_character_unlocked"])
-			s += "人物栏位：已永久解锁多人物（账号总上限30）\n";
+			s += "人物栏位：本期已解锁多人物（账号总上限30）\n";
 		else
-			s += "人物栏位：永久"+
+			s += "人物栏位：本期"+
 				(string)(int)(account_data["illusion_character_slots"] || 1)+
 				"格　累计"+
 				(string)(int)account_data["illusion_expansion_spent_suiyu"]+
@@ -193,6 +261,7 @@ int main(string|zero arg)
 			(string)status["display_name"]+"”创建本期人物。\n";
 	s += "\n【回归规则】人物始终只有一份原档案；已领取套装随原档案回归，不复制背包。\n";
 	s += "【家园规则】幻境人物本期不开放家园；回归永恒服后恢复普通家园玩法。\n";
+	s += "[幻境排行榜:illusion_realm rank]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	return 1;

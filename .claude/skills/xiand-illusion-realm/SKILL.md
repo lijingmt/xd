@@ -1,6 +1,6 @@
 ---
 name: xiand-illusion-realm
-description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, permanent account entitlement, illusion character creation, route chapters, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
+description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
 ---
 
 # Xiand Illusion Realm
@@ -36,6 +36,7 @@ when their surfaces are touched.
 - tracked cycle config: `gamelib/etc/illusion_realm.json`
 - shared runtime phase/audit: `data_xiand/illusion_realm/runtime.json`
 - archived closed states: `data_xiand/illusion_realm/history/`
+- derived leaderboard snapshots: `data_xiand/illusion_realm/rankings/<ID>/`
 - lifecycle/progress/reward/payment recovery: `gamelib/single/daemons/seasonal_chard.pike`
 - entitlement and realm identity: `gamelib/single/daemons/account_characterd.pike`
 - logical interaction group: `_logical_zone_mod/policy.pike`
@@ -189,6 +190,47 @@ Settlement saves the return position and inventory receipt before changing the
 account index. Repeated settlement with the same valid lowercase SHA-256 receipt
 must return `already=1`. Failed routing after settlement must leave a safe return
 position for the next login; it must never recreate inventory.
+
+Keep permanent entitlement separate from paid character capacity. The first
+character is free in every cycle. Store 100-jade extra slots and the cumulative
+500-jade multi-character unlock under `season_expansions[illusion_id]`; never
+let S1 capacity leak into S2. Continue mirroring S1 into the legacy top-level
+fields so rollback binaries retain already-paid S1 capacity. Use bounded
+request-ID lists and the player-saved two-phase expansion credential for
+cross-Worker retry and refund.
+
+## Ranking safety
+
+Derive the six boards (journey, level, experience, duel honor, set, speed) from
+small atomic JSON snapshots under the ranking directory. Never scan every full
+player `.o` when a player opens a board. Treat the player `.o` as authoritative;
+the JSON contains only bounded display/progress fields and may be regenerated
+at login or a saved checkpoint. Normalize every missing legacy numeric field to
+an explicit integer before JSON encoding—Pike's undefined integer can otherwise
+become JSON `null`. Reject corrupt or truncated snapshots instead of displaying
+a partial ranking, cap scans and output, cache briefly, and remove all TestUnit
+snapshots during test cleanup.
+
+Record duel honor only after an existing same-race duel win path has completed.
+Keep the hook inside `catch`, never modify combat formulas, give zero points for
+the same registered account or excessive level advantage, and apply per-opponent
+100/50/20 daily decay. Reset this limit at Beijing midnight. Save the unique
+player archive before publishing its snapshot. Ranking titles are idempotent,
+bounded, display-only, and must never add combat attributes.
+
+## Adjacent compatibility checks
+
+Only allow `query_toVip()` equipment—not VIP consumables or materials—to pass
+through personal plus account shared storage, and persist an explicit binding
+marker so reconstruction cannot wash it clean. Keep gift, trade, and auction
+binding checks unchanged. For batch alchemy, distinguish craft count from stack
+capacity: a furnace remains capped at 100 while medicine stacks may hold 9999;
+never truncate a legal combine count during move or storage restore.
+
+In active Worker mode, eagerly load `viceflushd.pike` on Workers, never on the
+gateway, wait for affinity assignments, and use stable slots plus
+`local_worker_owns_room()` so artisan elite totals exist exactly once across the
+cluster. Validate the live aggregate totals for 灵兔 and 灵猫 after restart.
 
 The account center and all entitlement/settlement/creation mutations must read
 the latest shared account index from disk. Hot movement/group checks may use the

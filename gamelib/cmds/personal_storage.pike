@@ -90,7 +90,8 @@ array(mapping(string:mixed)) query_backpack_rows(object player,
 		object item = items[i];
 		string path;
 		string item_category;
-		if(!item || !item->is("item") || item->query_toVip() ||
+		if(!item || !item->is("item") ||
+		   (item->query_toVip() && !item->is("equip")) ||
 		   !item->query_item_canStorage() || item->equiped)
 			continue;
 		if(functionp(item->query_item_task) && item->query_item_task())

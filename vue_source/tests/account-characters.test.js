@@ -177,9 +177,12 @@ assert(indexSource.includes('同职业可重复创建'));
 assert(indexSource.includes("characterForm.realm_type === 'illusion'"));
 assert(indexSource.includes('新月幻境·S1'));
 assert(indexSource.includes('期满原档案回归'));
-assert(indexSource.includes('从“幻境区”免费激活'));
-assert(indexSource.includes('100碎玉加1格'));
-assert(indexSource.includes('累计500碎玉解锁多人物'));
+assert(indexSource.includes('@click="activateIllusionEntitlement"'));
+assert(indexSource.includes('免费激活幻境资格'));
+assert(indexSource.includes('可在下方直接免费激活'));
+assert(!indexSource.includes('请先进入现有人物，从“幻境区”免费激活'));
+assert(indexSource.includes('100碎玉增加本期1格'));
+assert(indexSource.includes('补足本期累计500碎玉解锁多人物'));
 assert(indexSource.includes('本期不开放家园'));
 assert(!indexSource.includes(':disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"'));
 assert(cssSource.includes('.character-modal'));
@@ -191,6 +194,7 @@ assert(cssSource.includes('.character-card.illusion'));
 assert(cssSource.includes('.character-realm-choice'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
+assert(appSource.includes("'/api/account/illusion/activate'"));
 assert(appSource.includes('realm_type: this.characterForm.realm_type'));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
@@ -204,6 +208,65 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 // sessionStorage 不再用于 txd 恢复
 
 (async () => {
+	const activationClient = Object.assign(
+		componentOptions.data(), componentOptions.methods
+	);
+	activationClient.accountToken = '9'.repeat(64);
+	activationClient.characterCreateOpen = true;
+	activationClient.characterForm.name_cn = '保留姓名';
+	activationClient.characterForm.avatar_id = 'h_male2';
+	activationClient.illusionRealmStatus = {
+		ok: true,
+		illusion_id: 'S1',
+		creation_open: true,
+		entitlement_cost_suiyu: 0
+	};
+	let activationBody = null;
+	activationClient.postAccountApi = async (path, body) => {
+		assert.strictEqual(path, '/api/account/illusion/activate');
+		activationBody = body;
+		return {
+			account_id: 'xd01activation',
+			illusion_entitled: 1,
+			illusion_character_slots: 1,
+			illusion_realm: {
+				ok: true,
+				illusion_id: 'S1',
+				creation_open: true,
+				entitlement_cost_suiyu: 0
+			},
+			characters: [],
+			activation: { message: '账号已永久解锁幻境人物资格。' }
+		};
+	};
+	await activationClient.activateIllusionEntitlement();
+	// component methods execute inside a VM context; compare scalar fields so
+	// the assertion does not depend on cross-realm object prototypes.
+	assert.strictEqual(Object.keys(activationBody).length, 1);
+	assert.strictEqual(activationBody.token, '9'.repeat(64));
+	assert.strictEqual(activationClient.illusionEntitled, true);
+	assert.strictEqual(activationClient.characterForm.realm_type, 'illusion');
+	assert.strictEqual(activationClient.characterForm.name_cn, '保留姓名');
+	assert.strictEqual(activationClient.characterForm.avatar_id, 'h_male2');
+	assert(activationClient.illusionActivationMessage.includes('永久解锁'));
+	assert.strictEqual(activationClient.illusionActivating, false);
+
+	const paidActivationClient = Object.assign(
+		componentOptions.data(), componentOptions.methods
+	);
+	paidActivationClient.accountToken = '8'.repeat(64);
+	paidActivationClient.illusionRealmStatus = {
+		ok: true,
+		entitlement_cost_suiyu: 10
+	};
+	let paidActivationCalled = false;
+	paidActivationClient.postAccountApi = async () => {
+		paidActivationCalled = true;
+	};
+	await paidActivationClient.activateIllusionEntitlement();
+	assert.strictEqual(paidActivationCalled, false);
+	assert(paidActivationClient.characterError.includes('不能在人物中心免费激活'));
+
   const firstTxd = client.encodeTxd('xd01firsthero', 'test88');
   const secondTxd = client.encodeTxd('xd01secondhero', 'test88');
   client.txd = firstTxd;

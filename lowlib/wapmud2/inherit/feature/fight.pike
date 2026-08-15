@@ -22,6 +22,22 @@
 private int tmp_heart_beat;
 private int in_combat;
 private mapping items;
+
+// 幻境论剑只旁路记录荣誉，不参与伤害、命中或死亡公式。保存失败时
+// 排行榜守护会按零分处理，绝不能阻断原有决斗收尾。
+private void record_illusion_duel_victory(object winner,object loser)
+{
+	if(!winner || !loser)
+		return;
+	mixed err = catch{
+		mapping result = SEASONALD->record_pvp_victory(winner,loser);
+		if((int)result["points"]>0)
+			tell_object(winner,(string)result["message"]+"\n");
+	};
+	if(err)
+		werror("[ILLUSION_RANKING] 决斗荣誉旁路记录失败，不影响战斗结算: %O\n",
+			err);
+}
 //影射取种族职业类型表
 protected mapping(string:int) profe_fight=([
 		"jianxian":0,
@@ -2968,6 +2984,7 @@ void perform(string name,void|int flag){
 								enemy->set_life(1);
 								tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 								tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
+								record_illusion_duel_victory(this_object(),enemy);
 								enemy->_clean_fight();
 								_clean_fight();
 								enemy=0;
@@ -3718,6 +3735,7 @@ void boss_perform(string name){
 						enemy->set_life(1);
 						tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 						tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
+						record_illusion_duel_victory(this_object(),enemy);
 						enemy->_clean_fight();
 						_clean_fight();
 						enemy=0;
@@ -4236,6 +4254,7 @@ private void attack(int skill_add,int skill_add_per,string type,
 					enemy->set_life(1);
 					tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 					tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
+					record_illusion_duel_victory(this_object(),enemy);
 					enemy->_clean_fight();
 					_clean_fight();
 				}
@@ -4287,6 +4306,7 @@ private void heart_beat_action(){
 			enemy->set_life(1);
 			tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 			tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
+			record_illusion_duel_victory(this_object(),enemy);
 			enemy->_clean_fight();
 			_clean_fight();
 			enemy=0;

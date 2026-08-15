@@ -192,6 +192,8 @@ createApp({
             characterCreateOpen: false,
             characterLoading: false,
             characterCreating: false,
+			illusionActivating: false,
+			illusionActivationMessage: '',
             characterError: '',
             accountToken: '',
             accountId: '',
@@ -1629,6 +1631,8 @@ createApp({
 				entitlement_open: false, entitlement_cost_suiyu: 0
 			};
             this.characterCreateOpen = false;
+			this.illusionActivating = false;
+			this.illusionActivationMessage = '';
             this.characterError = '';
         },
 
@@ -1863,9 +1867,46 @@ createApp({
             this.characterForm.name_cn = '';
             this.characterForm.sex = 'male';
             this.characterForm.avatar_id = '';
+			this.illusionActivationMessage = '';
             this.characterError = '';
             this.characterCreateOpen = true;
         },
+
+		async activateIllusionEntitlement() {
+			if (this.illusionActivating || this.illusionEntitled ||
+				!this.accountToken) return;
+			if (!this.illusionRealmStatus.ok ||
+				Number(this.illusionRealmStatus.entitlement_cost_suiyu || 0) !== 0) {
+				this.characterError = '当前幻境资格不能在人物中心免费激活';
+				return;
+			}
+			this.illusionActivating = true;
+			this.illusionActivationMessage = '';
+			this.characterError = '';
+			try {
+				const data = await this.postAccountApi(
+					'/api/account/illusion/activate',
+					{ token: this.accountToken }
+				);
+				this.applyAccountData(data);
+				this.illusionActivationMessage = data.activation?.message ||
+					'幻境资格已永久激活';
+				if (this.illusionRealmStatus.creation_open &&
+					!this.illusionCharacterCapacityReached) {
+					this.characterForm.realm_type = 'illusion';
+				}
+			} catch (error) {
+				this.characterError = error.message || '幻境资格激活失败';
+				if (error.status === 401) {
+					this.clearAccountSession();
+					this.showCharacterSelect = false;
+					this.showLogin = true;
+					this.loginError = '账号会话已过期，请重新登录';
+				}
+			} finally {
+				this.illusionActivating = false;
+			}
+		},
 
         chooseNewProfession(option) {
             const previousAvatar = this.characterForm.avatar_id;

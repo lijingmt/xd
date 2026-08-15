@@ -216,6 +216,10 @@ int restore()
 					   (int)ob->query_yushi_rarelevel()>=1 &&
 					   (int)ob->query_yushi_rarelevel()<=5)
 						ob->max_count=9999;
+					// 丹药旧档案可能持久化了通用30上限。炼丹现在允许
+					// 百颗成品，恢复时统一升级堆叠容量且不改变实际数量。
+					if(functionp(ob->query_danyao_kind))
+						ob->max_count=9999;
 					ob->move(this_object());
 				}
 			};

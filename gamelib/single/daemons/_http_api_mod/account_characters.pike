@@ -117,9 +117,14 @@ private void attach_account_wallet_status(mapping result,string account_id)
 		(int)wallet["balance"] : 0;
 }
 
-private void attach_illusion_realm_status(mapping result)
+private mapping query_account_characters_with_illusion_status(
+	string account_id)
 {
-	result["illusion_realm"] = SEASONALD->query_public_status();
+	mapping status = SEASONALD->query_public_status();
+	mapping result = ACCOUNT_CHARACTERD->query_account_characters(
+		account_id,(string)(status["illusion_id"] || "S1"));
+	result["illusion_realm"] = status;
+	return result;
 }
 
 mapping query_account_session_status()
@@ -184,13 +189,12 @@ void handle_api_account_login(Protocols.HTTP.Server.Request req)
 		send_account_auth_error(req,client_ip);
 		return;
 	}
-	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id);
+	account_data = query_account_characters_with_illusion_status(account_id);
 	if(!account_data["ok"]){
 		send_json(req,(["error":"账号人物档案不可用"]),409);
 		return;
 	}
 	attach_account_wallet_status(account_data,account_id);
-	attach_illusion_realm_status(account_data);
 	token = create_account_session(account_id);
 	if(token==""){
 		send_json(req,(["error":"账号会话繁忙，请稍后再试"]),503);
@@ -216,14 +220,49 @@ void handle_api_account_characters(Protocols.HTTP.Server.Request req)
 		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
 		return;
 	}
-	result = ACCOUNT_CHARACTERD->query_account_characters(account_id);
+	result = query_account_characters_with_illusion_status(account_id);
 	if(!result["ok"]){
 		send_json(req,(["error":result["message"] ||
 			"账号人物档案不可用"]),409);
 		return;
 	}
 	attach_account_wallet_status(result,account_id);
-	attach_illusion_realm_status(result);
+	result["expires_in"] = ACCOUNT_SESSION_TTL;
+	send_json(req,result);
+}
+
+void handle_api_account_illusion_activate(
+	Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	mapping activation;
+	mapping result;
+	string token;
+	string account_id;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST激活幻境资格"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = (string)(params["token"] || "");
+	account_id = query_account_session(token);
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	activation = SEASONALD->activate_free_account_entitlement(account_id);
+	if(!(int)activation["ok"]){
+		send_json(req,(["error":activation["message"] ||
+			"幻境资格激活失败"]),409);
+		return;
+	}
+	result = query_account_characters_with_illusion_status(account_id);
+	if(!(int)result["ok"]){
+		send_json(req,(["error":"资格已激活，但账号人物档案刷新失败"]),409);
+		return;
+	}
+	attach_account_wallet_status(result,account_id);
+	result["activation"] = activation;
 	result["expires_in"] = ACCOUNT_SESSION_TTL;
 	send_json(req,result);
 }

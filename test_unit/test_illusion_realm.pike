@@ -35,6 +35,18 @@ void cleanup_player(string userid)
 	rm(path+".bak.tmp");
 }
 
+void cleanup_ranking_snapshot(string userid)
+{
+	if(!userid || search(userid,"testunitillusion")==-1)
+		return;
+	string path = DATA_ROOT+"illusion_realm/rankings/S1/"+userid+".json";
+	rm(path);
+	foreach(get_dir(dirname(path)) || ({}),string filename)
+		if(has_prefix(filename,userid+".json.") &&
+		   has_suffix(filename,".tmp"))
+			rm(dirname(path)+"/"+filename);
+}
+
 object create_root(string account_id)
 {
 	object player = clone(GAMELIB_USER);
@@ -78,18 +90,22 @@ int all_newmoon_bound_to(object player,string account_id)
 int main()
 {
 	string account_id = "xd99testunitillusion";
+	string center_account_id = "xd98testunitillusioncenter";
 	string child_id = "";
 	string second_id = "";
 	string third_id = "";
 	object|zero root = 0;
+	object|zero center_root = 0;
 	object|zero child = 0;
 	object|zero restored = 0;
 	array(string) cleanup_ids = ({account_id});
 	werror("\n========== 新月幻境·S1测试 ==========\n");
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(center_account_id);
 	ACCOUNT_WALLETD->remove_test_wallet(account_id);
 	ACCOUNT_STORAGED->remove_test_storage(account_id);
 	cleanup_player(account_id);
+	cleanup_player(center_account_id);
 	mixed err = catch{
 		mapping public_status = SEASONALD->query_public_status();
 		check("首期稳定编号与展示名固定为S1",
@@ -143,6 +159,8 @@ int main()
 			"/gamelib/single/daemons/seasonal_chard.pike") || "";
 		string player_command_source = Stdio.read_file(ROOT+
 			"/gamelib/cmds/illusion_realm.pike") || "";
+		string account_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/account_characterd.pike") || "";
 		string command_hook_source = Stdio.read_file(ROOT+
 			"/lowlib/system/inherit/feature/cmds.pike") || "";
 		check("在线自动结算获取账号锁且登录路径复用已持有锁",
@@ -172,9 +190,25 @@ int main()
 		check("S1资格免费激活且玩家界面不再显示付费购买",
 			search(player_command_source,"资格当前免费永久激活")!=-1 &&
 			search(player_command_source,"[免费激活:illusion_realm activate]")!=-1 &&
-			search(player_command_source,"100碎玉永久加1格")!=-1 &&
-			search(player_command_source,"补足累计500碎玉")!=-1,
+			search(player_command_source,"100碎玉增加本期1格")!=-1 &&
+			search(player_command_source,"补足本期累计500碎玉")!=-1 &&
+			search(account_source,"season_expansions")!=-1,
 			"免费配置仍被显示为0碎玉购买或付费门槛");
+		string account_api_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/_http_api_mod/account_characters.pike") || "";
+		string http_api_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/http_api_daemon.pike") || "";
+		check("人物中心免费激活只接受POST账号令牌且付费配置失败关闭",
+			search(account_api_source,
+				"handle_api_account_illusion_activate")!=-1 &&
+			search(account_api_source,"req->request_type!=\"POST\"")!=-1 &&
+			search(account_api_source,
+				"account_id = query_account_session(token)")!=-1 &&
+			search(http_api_source,
+				"case \"/api/account/illusion/activate\"")!=-1 &&
+			search(season_source,
+				"status[\"entitlement_cost_suiyu\"]!=0")!=-1,
+			"账号中心入口可能绕过认证、使用GET或误处理付费资格");
 		check("关闭后保留有界窗口接住最后一批跨worker到达",
 			search(season_source,"closed_reconcile_until = time()+180")!=-1 &&
 			search(season_source,"time()<=closed_reconcile_until")!=-1 &&
@@ -259,8 +293,95 @@ int main()
 		check("玩家与管理员幻境命令均可在真实MUD环境加载",
 			!command_error && player_command!=0 && manager_command!=0,
 			command_error ? describe_error(command_error) : "命令对象为空");
+		string fight_source = Stdio.read_file(ROOT+
+			"/lowlib/wapmud2/inherit/feature/fight.pike") || "";
+		check("四条真实决斗胜利路径均旁路记录幻境论剑且不改伤害公式",
+			sizeof(fight_source/
+				"record_illusion_duel_victory(this_object(),enemy);")-1==4 &&
+			search(fight_source,
+				"SEASONALD->record_pvp_victory(winner,loser)")!=-1,
+			"决斗死亡分支存在漏记或重复记分");
+		check("排行榜命令提供六榜、领奖入口与防刷规则说明",
+			search(player_command_source,"征途")!=-1 &&
+			search(player_command_source,"experience")!=-1 &&
+			search(player_command_source,"论剑")!=-1 &&
+			search(player_command_source,"新月套装")!=-1 &&
+			search(player_command_source,"极速")!=-1 &&
+			search(player_command_source,"rank claim")!=-1 &&
+			search(player_command_source,"100/50/20")!=-1,
+			"排行榜入口、类别或防刷告知不完整");
+		check("排行榜只扫描轻量原子快照而不遍历完整人物档案",
+			search(season_source,"ILLUSION_RANKING_DIR")!=-1 &&
+			search(season_source,"persist_ranking_snapshot")!=-1 &&
+			search(season_source,"query_ranking_snapshots")!=-1 &&
+			search(season_source,"compact_ranking_int")!=-1 &&
+			search(season_source,
+				"query_illusion_ranking_candidates")==-1 &&
+			search(account_source,
+				"query_illusion_ranking_candidates")==-1,
+			"查榜仍可能同步读取大体积user .o、或旧档缺字段写成null");
+		check("论剑荣誉执行同账号、重复对手和等级碾压三层防刷",
+			SEASONALD->query_pvp_honor_points_for_test(100,100,0,0)==100 &&
+			SEASONALD->query_pvp_honor_points_for_test(100,100,0,1)==50 &&
+			SEASONALD->query_pvp_honor_points_for_test(100,100,0,2)==20 &&
+			SEASONALD->query_pvp_honor_points_for_test(100,100,0,3)==0 &&
+			SEASONALD->query_pvp_honor_points_for_test(100,100,1,0)==0 &&
+			SEASONALD->query_pvp_honor_points_for_test(130,100,0,0)==0 &&
+			SEASONALD->query_pvp_honor_points_for_test(80,100,0,0)==140,
+			"论剑积分递减、同账号或等级差边界错误");
+		check("论剑日防刷在北京时间零点而非早八点重置",
+			SEASONALD->query_ranking_beijing_day_for_test(57599)==0 &&
+			SEASONALD->query_ranking_beijing_day_for_test(57600)==1,
+			"论剑重复对手次数仍可能使用UTC日界线");
+		mapping rank_profile = ([
+			"id":"xd99testunitillusionrank","level":88,
+			"illusion_state":"active","experience":999,
+			"illusion_progress":([
+				"joined_at":100,"kills":50,"boss_kills":2,
+				"team_kills":4,"visited":(["a":1,"b":1,"c":1]),
+				"claims":(["c1":100,"c2":200]),
+				"route_marks":(["r1":1,"r2":1,"r3":1]),
+				"ranking_level":88,"ranking_experience_start":100,
+				"ranking_experience_latest":900,"set_parts":5,
+				"completed_at":500,
+				"ranking_weeks":(["1":([
+					"experience_start":100,"experience_latest":450,
+					"level":80,
+				])]),
+			]),
+		]);
+		mapping journey_score = SEASONALD->query_ranking_score_for_test(
+			"journey",rank_profile,"overall","S1");
+		mapping experience_score = SEASONALD->query_ranking_score_for_test(
+			"experience",rank_profile,"week:1","S1");
+		mapping speed_score = SEASONALD->query_ranking_score_for_test(
+			"speed",rank_profile,"overall","S1");
+		check("征途、周经验与速通榜使用赛季冻结快照而非永恒服当前值",
+			(int)journey_score["eligible"] &&
+			(int)journey_score["score"]==23350 &&
+			(int)experience_score["score"]==350 &&
+			(int)speed_score["score"]==400,
+			sprintf("journey=%O exp=%O speed=%O",journey_score,
+				experience_score,speed_score));
 
 		root = create_root(account_id);
+		center_root = create_root(center_account_id);
+		mapping center_activation = SEASONALD->
+			activate_free_account_entitlement(center_account_id);
+		mapping center_activation_again = SEASONALD->
+			activate_free_account_entitlement(center_account_id);
+		mapping center_account = ACCOUNT_CHARACTERD->
+			query_account_characters(center_account_id);
+		check("人物中心可在筹备期免费永久激活且重复点击幂等",
+			(int)center_activation["ok"] &&
+			!(int)center_activation["already"] &&
+			(int)center_activation_again["ok"] &&
+			(int)center_activation_again["already"] &&
+			(int)center_account["illusion_entitled"] &&
+			(string)center_account["illusion_entitlement"]["source"]==
+				"account_center",
+			sprintf("first=%O second=%O account=%O",
+				center_activation,center_activation_again,center_account));
 		mapping denied = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","jianxian","","","","illusion","S1");
 		check("未永久解锁账号不能伪造S1人物创建",
@@ -427,23 +548,23 @@ int main()
 		child->save_with_result();
 		mapping second_blocked = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","yushi","","","","illusion","S1");
-		check("每期首名免费但第二名必须先扩充永久栏位",
+		check("每期首名免费但第二名必须先扩充当期栏位",
 			!(int)second_blocked["ok"] &&
 			search((string)second_blocked["message"],"栏位已用完")!=-1,
 			sprintf("second=%O",second_blocked));
 		string one_slot_request = "e"*64;
 		mapping one_slot = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"one",
+			grant_illusion_character_expansion(account_id,"S1","one",
 				one_slot_request,100);
 		mapping one_slot_again = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"one",
+			grant_illusion_character_expansion(account_id,"S1","one",
 				one_slot_request,100);
-		check("100碎玉永久加1格且同请求重试不会重复累计",
+		check("100碎玉增加S1一格且同请求重试不会重复累计",
 			(int)one_slot["ok"] && !(int)one_slot["already"] &&
 			(int)one_slot_again["ok"] && (int)one_slot_again["already"] &&
 			(int)one_slot_again["same_request"] &&
-			(int)one_slot["entitlement"]["character_slots"]==2 &&
-			(int)one_slot["entitlement"]["expansion_spent_suiyu"]==100,
+			(int)one_slot["expansion"]["character_slots"]==2 &&
+			(int)one_slot["expansion"]["expansion_spent_suiyu"]==100,
 			sprintf("first=%O again=%O",one_slot,one_slot_again));
 		int expansion_matched_before = YUSHID->query_physical_all_num(root);
 		root["/plus/illusion_character_expansion_purchase"] = ([
@@ -505,21 +626,22 @@ int main()
 		mapping third_blocked = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","zhuxian","","","","illusion","S1");
 		mapping wrong_remaining = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"all","f"*64,500);
+			grant_illusion_character_expansion(account_id,"S1","all",
+				"f"*64,500);
 		string all_slot_request = "f"*64;
 		mapping all_slots = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"all",
+			grant_illusion_character_expansion(account_id,"S1","all",
 				all_slot_request,400);
 		mapping all_slots_again = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"all",
+			grant_illusion_character_expansion(account_id,"S1","all",
 				all_slot_request,400);
-		check("此前100碎玉全额抵扣且只需补400永久解锁多人物",
+		check("S1此前100碎玉全额抵扣且只需补400解锁本期多人物",
 			!(int)third_blocked["ok"] && !(int)wrong_remaining["ok"] &&
 			(int)wrong_remaining["expected_cost_suiyu"]==400 &&
 			(int)all_slots["ok"] && !(int)all_slots["already"] &&
 			(int)all_slots_again["ok"] && (int)all_slots_again["same_request"] &&
-			(int)all_slots["entitlement"]["multi_character_unlocked"]==1 &&
-			(int)all_slots["entitlement"]["expansion_spent_suiyu"]==500,
+			(int)all_slots["expansion"]["multi_character_unlocked"]==1 &&
+			(int)all_slots["expansion"]["expansion_spent_suiyu"]==500,
 			sprintf("blocked=%O wrong=%O all=%O again=%O",third_blocked,
 				wrong_remaining,all_slots,all_slots_again));
 		mapping third_created = ACCOUNT_CHARACTERD->create_character(account_id,
@@ -528,10 +650,32 @@ int main()
 			third_id = (string)third_created["character"]["id"];
 			cleanup_ids += ({third_id});
 		}
-		check("永久多人物解锁后仍由账号30人物总上限约束",
+		check("S1多人物解锁后仍由账号30人物总上限约束",
 			(int)third_created["ok"] && third_id!="" &&
 			(int)ACCOUNT_CHARACTERD->query_character_limit()==30,
 			sprintf("third=%O",third_created));
+
+		mapping s2_before = ACCOUNT_CHARACTERD->query_account_characters(
+			account_id,"S2");
+		mapping s2_slot = ACCOUNT_CHARACTERD->
+			grant_illusion_character_expansion(account_id,"S2","one",
+				"2"*64,100);
+		mapping s1_after_s2 = ACCOUNT_CHARACTERD->query_account_characters(
+			account_id,"S1");
+		mapping s2_after = ACCOUNT_CHARACTERD->query_account_characters(
+			account_id,"S2");
+		check("新赛季恢复首名免费且付费栏位按赛季严格隔离",
+			(int)s2_before["illusion_character_slots"]==1 &&
+			!(int)s2_before["illusion_multi_character_unlocked"] &&
+			(int)s2_before["illusion_expansion_spent_suiyu"]==0 &&
+			(int)s2_slot["ok"] &&
+			(int)s2_after["illusion_character_slots"]==2 &&
+			(int)s2_after["illusion_expansion_spent_suiyu"]==100 &&
+			(int)s1_after_s2["illusion_character_slots"]==6 &&
+			(int)s1_after_s2["illusion_multi_character_unlocked"] &&
+			(int)s1_after_s2["illusion_expansion_spent_suiyu"]==500,
+			sprintf("before=%O grant=%O s1=%O s2=%O",s2_before,
+				s2_slot,s1_after_s2,s2_after));
 
 		mapping realm = ACCOUNT_CHARACTERD->query_character_realm(child_id);
 		check("S1身份由账号索引判定并形成独立互动组",
@@ -625,6 +769,40 @@ int main()
 			count_newmoon_items(child)==10,
 			sprintf("claims=%d items=%d duplicate=%O",claims_ok,
 				count_newmoon_items(child),duplicate_claim));
+		mapping live_set_board = SEASONALD->query_illusion_leaderboard(
+			"S1","set","overall",20);
+		mapping child_set_row = ([]);
+		if((int)live_set_board["ok"])
+			foreach((array)live_set_board["rows"],mapping row)
+				if((string)row["character_id"]==child_id){
+					child_set_row = row;
+					break;
+				}
+		check("轻量原子快照可派生S1套装榜且不暴露注册账号标识",
+			(int)live_set_board["ok"] && sizeof(child_set_row) &&
+			(int)child_set_row["score"]==10 &&
+			!has_index(child_set_row,"account_id"),
+			sprintf("board=%O child=%O",live_set_board,child_set_row));
+		hunter_progress["season_starts_at"] = time()-8*86400;
+		if(!mappingp(hunter_progress["ranking_weeks"]))
+			hunter_progress["ranking_weeks"] = ([]);
+		hunter_progress["ranking_weeks"]["1"] = ([
+			"set_parts":10,"level":69,"completed_at":time()-7*86400,
+			"experience_start":0,"experience_latest":1,
+		]);
+		child->save_with_result();
+		mapping weekly_title = SEASONALD->claim_illusion_ranking_reward(
+			child,"set","week:1");
+		mapping weekly_title_again = SEASONALD->
+			claim_illusion_ranking_reward(child,"set","week:1");
+		check("已结束周榜前十荣誉领取持久化且重复领取幂等",
+			(int)weekly_title["ok"] && (int)weekly_title["rank"]>=1 &&
+			(int)weekly_title["rank"]<=10 &&
+			search((string)weekly_title["title"],"S1·周1")!=-1 &&
+			(int)weekly_title_again["ok"] &&
+			(int)weekly_title_again["already"] &&
+			sizeof((array)hunter_progress["ranking_titles"])==1,
+			sprintf("first=%O again=%O",weekly_title,weekly_title_again));
 
 		object receipt_hash = Crypto.SHA256();
 		receipt_hash->update("S1-test-receipt");
@@ -661,6 +839,7 @@ int main()
 		check("S1完整测试没有运行异常",0,
 			describe_error(err)+" "+describe_backtrace(err));
 	if(root) destruct(root);
+	if(center_root) destruct(center_root);
 	if(child) destruct(child);
 	if(restored) destruct(restored);
 	array(string) known = ACCOUNT_CHARACTERD->query_character_ids(account_id);
@@ -671,6 +850,10 @@ int main()
 	ACCOUNT_STORAGED->remove_test_storage(account_id);
 	ACCOUNT_WALLETD->remove_test_wallet(account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
+	ACCOUNT_CHARACTERD->remove_test_account(center_account_id);
+	cleanup_player(center_account_id);
+	foreach(cleanup_ids,string character_id)
+		cleanup_ranking_snapshot(character_id);
 	foreach(cleanup_ids,string character_id)
 		cleanup_player(character_id);
 	werror("新月幻境·S1：总计%d，通过%d，失败%d\n",
