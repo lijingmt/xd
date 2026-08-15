@@ -283,7 +283,24 @@ protected private string have_something(function filter_func,string look,string 
 }
 
 string have_item(){
-	return have_something(lambda(object ob){return ob->is("item");},"item","items","这里有","物品");
+	string out=have_something(lambda(object ob){return ob->is("item");},
+		"item","items","这里有","物品");
+	object viewer=this_player();
+	if(viewer && query_room_equipment_count(viewer)>0)
+		out+="[一键捡起本房装备:get_all_equipment]\n";
+	return out;
+}
+
+int query_room_equipment_count(object viewer)
+{
+	int count=0;
+	if(!viewer)
+		return 0;
+	foreach(all_inventory(this_object(),viewer),object item)
+		if(item && item->is("item") && !item->is("npc") &&
+		   item->is("equip"))
+			count++;
+	return count;
 }
 string have_character(){
 	return have_npc()+"\n"+have_player();
