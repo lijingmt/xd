@@ -1536,6 +1536,8 @@ int main()
 				"pike_gateway_player_transfer_target") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_lock_user_pair(userid,account_id") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"\"batch_gift_ok\"") &&
 			source_has("/gamelib/cmds/sendother_ok.pike",
 				"PLAYER_TRANSFERD->execute_gift") &&
 			source_has("/gamelib/cmds/trade.pike",

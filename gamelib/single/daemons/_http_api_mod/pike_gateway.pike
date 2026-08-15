@@ -472,7 +472,8 @@ private mapping(string:string) pike_gateway_player_transfer_target(
 		return ([]);
 	verb=lower_case(parts[0]);
 	if(!has_value(({"trade","trade_daoju","sendother","sendother_to",
-	   "sendother_daoju","sendother_daoju_to","sendother_ok"}),verb))
+	   "sendother_daoju","sendother_daoju_to","sendother_ok",
+	   "batch_gift_ok"}),verb))
 		return ([]);
 	target_userid=String.trim_all_whites(parts[1]);
 	if(!pike_gateway_valid_userid(target_userid) ||
@@ -653,6 +654,12 @@ mapping test_pike_gateway_parse_snapshot(mapping snapshot)
 		"token":pike_gateway_extract_account_token(params),
 		"command":pike_gateway_extract_command(params),
 	]);
+}
+
+mapping test_pike_gateway_player_transfer_target(string command,
+	string actor_userid)
+{
+	return pike_gateway_player_transfer_target(command,actor_userid);
 }
 
 int test_pike_gateway_userid(string userid)

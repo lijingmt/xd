@@ -1536,7 +1536,8 @@ string query_links(void|int count)
 		out += "[对话:ask "+this_object()->query_name()+" "+count+"] ";
 		out += "[决斗:fight "+this_object()->query_name()+" "+count+" 0]\n";
 		out += "[交易:trade "+this_object()->query_name()+"] ";
-		out += "[赠送:sendother "+this_object()->query_name()+"]\n";
+		out += "[赠送:sendother "+this_object()->query_name()+"] ";
+		out += "[批量赠送:batch_gift "+this_object()->query_name()+"]\n";
 		out += "[加为好友:qqlist "+this_object()->query_name()+"]\n";
 		if(this_object()->query_term()==""||this_object()->query_term()=="noterm")
 			out += "[组队邀请:term_assist "+this_object()->query_name()+"]\n";

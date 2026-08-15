@@ -188,6 +188,19 @@ int main()
 			!httpd->test_pike_gateway_auction("buy 1"),
 			"普通命令被全局串行或拍卖跨worker并发");
 
+		mapping batch_transfer=
+			httpd->test_pike_gateway_player_transfer_target(
+				"batch_gift_ok xd01sender "+("a"*64)+" yes",
+				"xd01receiver");
+		mapping batch_offer_only=
+			httpd->test_pike_gateway_player_transfer_target(
+				"batch_gift offer xd01sender","xd01receiver");
+		check("批量赠送最终确认进入网关双账号锁且选择页不误加锁",
+			(string)batch_transfer["userid"]=="xd01sender" &&
+			(string)batch_transfer["account_id"]!="" &&
+			!sizeof(batch_offer_only),
+			"批量确认可能与迁移/双档案写并发，或只读选择页被误判");
+
 		check("单Worker舱壁覆盖失联、满载、开路与半开探针",
 			httpd->test_pike_gateway_missing_counter_is_zero() &&
 			httpd->test_pike_gateway_worker_bulkhead(0,1,0,8,0,0,100) &&

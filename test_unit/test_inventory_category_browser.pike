@@ -67,11 +67,14 @@ void populate_inventory(object player)
 		"/gamelib/clone/item/baoshi/slqingtongshi");
 	object book=clone(ROOT+
 		"/gamelib/clone/item/peifang/duanzao/p_moxie");
+	object set_item=clone(ROOT+
+		"/gamelib/clone/item/weapon/69xinyuetianfengjian/69xinyuetianfengjian");
 	jade->move(player);
 	box->move(player);
 	material->move(player);
 	book->set_item_task(1);
 	book->move(player);
+	set_item->move(player);
 }
 
 void test_categories_and_paging(object player)
@@ -79,9 +82,10 @@ void test_categories_and_paging(object player)
 	mapping medicine=player->query_inventory_browser_snapshot("medicine","");
 	string first_page=player->view_inventory_browser("medicine",1,"");
 	string last_page=player->view_inventory_browser("medicine",99,"");
-	check("服务端统一分类覆盖药品、装备、玉石、宝箱、材料和任务",
+	check("服务端统一分类覆盖套装、药品、装备、玉石、宝箱、材料和任务",
 		(int)medicine["counts"]["medicine"]==65 &&
 		(int)medicine["counts"]["equipment"]==3 &&
+		(int)medicine["counts"]["set"]==1 &&
 		(int)medicine["counts"]["jade"]==1 &&
 		(int)medicine["counts"]["box"]==1 &&
 		(int)medicine["counts"]["material"]==1 &&
@@ -100,7 +104,9 @@ void test_categories_and_paging(object player)
 		search(first_page,"[inventory_filter search ...]")!=-1 &&
 		search(first_page,"[inventory_filter jump ...]")!=-1 &&
 		search(first_page,"[inventory_filter category ...]")!=-1 &&
-		search(first_page,":inventory_filter category equipment]")==-1,
+		search(first_page,":inventory_filter category equipment]")==-1 &&
+		search(player->view_inventory_browser("set",1,""),
+			"当前筛选：套装(1)")!=-1,
 		first_page);
 }
 
@@ -120,7 +126,7 @@ void test_equipment_display_groups(object player)
 		player->view_inventory_equipment_group(grouped_id,1) : "";
 	check("完整状态相同的装备只合并展示而不合并对象",
 		(int)equipment["matched_physical"]==3 && sizeof(entries)==2 &&
-		grouped && sizeof(all_inventory(player))==72 &&
+		grouped && sizeof(all_inventory(player))==73 &&
 		search(rendered,"×2")!=-1 &&
 		search(rendered,"[伪造:drop all]")==-1 &&
 		search(rendered,"（伪造：drop all）")!=-1,
@@ -158,6 +164,7 @@ void test_search_and_legacy_rendering(object player)
 		search(rendered,"submitCmdInput")!=-1 &&
 		search(dropdown,"<select")!=-1 &&
 		search(dropdown,"inventory_filter category")!=-1 &&
+		search(dropdown,"value='set'>套装")!=-1 &&
 		vue_index && search(vue_index,"mud-category-select")!=-1 &&
 		search(vue_index,"submitCmdSelect(segment.cmd, $event)")!=-1 &&
 		vue_app && search(vue_app,"submitCmdSelect(cmdName, event)")!=-1 &&
@@ -166,11 +173,14 @@ void test_search_and_legacy_rendering(object player)
 		search(view_source,"筛选物品：[inventory_filter category ...]")!=-1 &&
 		search(view_source,"$(player->view_inventory_browser())")==-1 &&
 		search(player->view_inventory_browser("all",1,""),
-			"[返回装备背包:inventory]")!=-1,
+			"[返回装备背包:inventory]")!=-1 &&
+		search(player->view_inventory_browser("all",1,""),
+			"[套装管理:set_equipment_cleanup]")!=-1,
 		rendered+"\n---\n"+dropdown);
 	mixed err=catch {
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/inventory_filter.pike");
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/inventory_legacy.pike");
+		compile_file(ROOT+"/gamelib/cmds/set_equipment_cleanup.pike");
 	};
 	check("分类背包命令可由真实Pike运行时编译",!err,
 		err ? describe_error(err) : "");

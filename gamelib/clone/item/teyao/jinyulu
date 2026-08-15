@@ -5,10 +5,10 @@ protected void create(){
 	name=object_name(this_object());
 	name_cn="金玉露";
 	unit="瓶";
-	desc="该药可以使得某技能熟练度提高10%\n";
+	desc="该药可以使得某技能熟练度提高20%；达到100%后立即升级，无需再打怪突破。\n";
 	set_danyao_kind("te_skill");
 	set_danyao_type("skill_improve");
-	set_effect_value(10);
+	set_effect_value(20);
 	set_danyao_timedelay(0);
 	set_item_canDrop(1);
 	set_item_canGet(1);

@@ -70,6 +70,7 @@ int main(string|zero arg)
 		result["personal_capacity"]+"，账号共享仓库 "+
 		result["used"]+"/"+result["capacity"]+"\n\n";
 	s += "提示：同名装备保留各自属性；批量操作一次最多处理本页8件。\n\n";
+	s += "[扩充账号共享仓库:account_storage_expand]\n\n";
 
 	if(mode=="menu"){
 		s += "请选择要做的事：\n";
@@ -89,6 +90,7 @@ int main(string|zero arg)
 			end_index = sizeof(personal)-1;
 		s += "§y放入共享§r（当前角色仓库 → 账号共享仓库）\n";
 		s += "筛选：[全部:account_storage_filter put category all] "+
+			"[套装:account_storage_filter put category set] "+
 			"[装备:account_storage_filter put category equip] "+
 			"[技能书:account_storage_filter put category book] "+
 			"[材料:account_storage_filter put category material] "+
@@ -145,6 +147,7 @@ int main(string|zero arg)
 			end_index = sizeof(shared)-1;
 		s += "§y取给当前角色§r（账号共享仓库 → 当前角色仓库）\n";
 		s += "筛选：[全部:account_storage_filter take category all] "+
+			"[套装:account_storage_filter take category set] "+
 			"[装备:account_storage_filter take category equip] "+
 			"[技能书:account_storage_filter take category book] "+
 			"[材料:account_storage_filter take category material] "+

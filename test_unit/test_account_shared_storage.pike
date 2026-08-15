@@ -107,6 +107,37 @@ int main()
 			count_personal_id(root_player,item_id)==1,
 			"旧人物仓库被迁移或唯一ID没有持久化");
 
+		object expand_yushi=clone(ROOT+
+			"/gamelib/clone/item/yushi/suiyu");
+		expand_yushi->amount=25;
+		expand_yushi->move(root_player);
+		mapping expanded=ACCOUNT_STORAGED->purchase_capacity(root_player,20);
+		int yushi_after_expand=YUSHID->query_physical_all_num(root_player);
+		mapping stale_expand=ACCOUNT_STORAGED->purchase_capacity(root_player,20);
+		mapping expanded_state=ACCOUNT_STORAGED->query_storage(root_player);
+		check("共享仓库20格可按账号永久扩容且旧页面不能重复扣费",
+			expanded["ok"] && (int)expanded_state["capacity"]==40 &&
+			yushi_after_expand==5 && !stale_expand["ok"] &&
+			YUSHID->query_physical_all_num(root_player)==5,
+			sprintf("expanded=%O stale=%O state=%O",
+				expanded,stale_expand,expanded_state));
+		object rollback_yushi=clone(ROOT+
+			"/gamelib/clone/item/yushi/suiyu");
+		rollback_yushi->amount=20;
+		rollback_yushi->move(root_player);
+		int before_failed_expand=YUSHID->query_physical_all_num(root_player);
+		mapping failed_expand=ACCOUNT_STORAGED->purchase_capacity(
+			root_player,40,"before_storage_save");
+		mapping after_failed_expand=ACCOUNT_STORAGED->query_storage(root_player);
+		check("共享仓库扩容落盘失败会原路退玉且不改变容量",
+			!failed_expand["ok"] &&
+			(int)after_failed_expand["capacity"]==40 &&
+			YUSHID->query_physical_all_num(root_player)==before_failed_expand,
+			sprintf("failed=%O state=%O jade=%d/%d",failed_expand,
+				after_failed_expand,
+				YUSHID->query_physical_all_num(root_player),
+				before_failed_expand));
+
 		// 同一随机ID即使出现在其他存档字段，也不能冒充个人仓库所有权。
 		root_player->desc = "事务恢复干扰值"+item_id;
 		mapping interrupted_in = ACCOUNT_STORAGED->transfer_to_shared(
@@ -293,6 +324,8 @@ int main()
 			child_player,starshine_item_id);
 		ACCOUNT_STORAGED->drop_test_cache(account_id);
 		mapping starshine_shared=ACCOUNT_STORAGED->query_storage(root_player);
+		array starshine_filtered=ACCOUNT_STORAGED->query_filtered_storage_items(
+			(array)starshine_shared["items"],"take","set","");
 		int starshine_shared_snapshot=0;
 		foreach((array)starshine_shared["items"],mapping shared_item)
 			if((string)shared_item["id"]==starshine_item_id &&
@@ -317,6 +350,9 @@ int main()
 			restored_starshine->query_newmoon_collection_id()=="starshine" &&
 			restored_starshine->query_newmoon_collection_rank()==2,
 			"绑定或集合快照在角色/共享仓库往返中丢失");
+		check("共享仓库套装筛选与普通装备分开",
+			sizeof(starshine_filtered)==1,
+			sprintf("set filtered=%d",sizeof(starshine_filtered)));
 		if(restored_starshine)
 			destruct(restored_starshine);
 
@@ -640,6 +676,7 @@ int main()
 			"/gamelib/cmds/account_storage_withdraw.pike",
 			"/gamelib/cmds/account_storage_batch.pike",
 			"/gamelib/cmds/account_storage_filter.pike",
+			"/gamelib/cmds/account_storage_expand.pike",
 			"/gamelib/cmds/personal_storage.pike",
 			"/gamelib/cmds/personal_storage_move.pike",
 			"/gamelib/cmds/personal_storage_batch.pike",

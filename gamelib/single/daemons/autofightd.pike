@@ -2466,6 +2466,14 @@ string query_auto_sell_reject_reason(object me,object item)
 		return "disabled";
 	if(item->equiped)
 		return "equipped";
+	// 六系套装在首次穿戴前仍未绑定，且可拥有1～7条随机词缀。
+	// 旧清包规则不能凭“未绑定/低稀有度”把它当成普通装备处理。
+	// 套装只允许进入独立的套装管理流程，并经过重复件预览确认。
+	if(functionp(item->query_newmoon_resonance_profession) &&
+	   (string)item->query_newmoon_resonance_profession()!="" &&
+	   functionp(item->query_newmoon_collection_id) &&
+	   (string)item->query_newmoon_collection_id()!="")
+		return "set_equipment";
 	if(item->query_item_task() == 1)
 		return "task_item";
 	if(item->query_item_canTrade() != 1)
