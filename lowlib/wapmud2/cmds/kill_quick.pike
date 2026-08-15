@@ -1,10 +1,21 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 
 int main(string arg)
 {
 	object me = this_player();
 	string s = "";
+	if(!me)
+		return 0;
+	if(!environment(me)){
+		write("你当前不在有效地图中，请重新进入游戏。\n");
+		return 1;
+	}
+	if(!arg || arg==""){
+		me->write_view(WAP_VIEWD["/emote"],0,0,"你要攻击什么东西？\n");
+		return 1;
+	}
 	/////////////////////////////////////////////////////////////////////////
 	//每次需要隔1秒，不能连续刷
 	if(me["/tmp/qkill"]==0)
@@ -111,6 +122,13 @@ int main(string arg)
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你要攻击什么东西？\n");
 		return 1;
 	}
+	// 快速攻击只模拟 PVE。玩家 PK 必须进入真实战斗链，不能绕过
+	// PK、队伍、跨 Worker 归属以及技能结算规则。
+	if(!ob->is("npc")){
+		me->write_view(WAP_VIEWD["/emote"],0,0,
+			"快速攻击只能用于怪物；玩家对战请使用杀戮。\n");
+		return 1;
+	}
 	if(functionp(ob->can_be_attacked) && !ob->can_be_attacked(me)){
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,
 			"你不能攻击自己的召唤灵兽或同阵营灵兽！\n");
@@ -134,6 +152,16 @@ int main(string arg)
 				return 1;
 			}
 		}
+		if(me->get_cur_life()<=0){
+			me->write_view(WAP_VIEWD["/emote"],0,0,
+				"你当前生命不足，无法开始战斗，请先休息恢复。\n");
+			return 1;
+		}
+		if(ob->get_cur_life()<=0 || ob->query_life_max()<=0){
+			me->write_view(WAP_VIEWD["/emote"],0,0,
+				"这个目标已经倒下，请刷新场景后再试。\n");
+			return 1;
+		}
 		if(ob->is("npc")&&ob->_boss){
 			string stmp2 ="boss级别的怪物，无法实行快速攻击。";
 			s +="<div style=\"color:Orange\">"+stmp2+"</div>\n";//name_cn=query_rare_level()+name_cn;</p>\n";
@@ -145,7 +173,10 @@ int main(string arg)
 		//if(ob->is("npc")&&ob->_meritocrat)
 		//	add_jl = 3;//精英耗费更多精力快速战斗
 		int add_jl = me->query_level()/10;
-		int rdc = random(add_jl)+1;//根据等级加大装备消耗
+		int rdc_bound = add_jl;
+		if(rdc_bound<1)
+			rdc_bound = 1;
+		int rdc = random(rdc_bound)+1;//根据等级加大装备消耗
 		me->enemy=ob;
 		//npc战斗系列标示，供fight _die调用
 		ob->flush_targets(me,1); //初始仇恨值为1
@@ -159,6 +190,18 @@ int main(string arg)
 		//怪物的
 		int ob_attack = ob->query_base_damage();
 		int ob_defend = ob->query_defend_power();
+		int ob_level = ob->query_level();
+		// random() 的上界必须为正；正常属性的既有公式与随机区间不变。
+		if(me_attack<1)
+			me_attack = 1;
+		if(me_defend<1)
+			me_defend = 1;
+		if(ob_attack<1)
+			ob_attack = 1;
+		if(ob_defend<1)
+			ob_defend = 1;
+		if(ob_level<1)
+			ob_level = 1;
 		//战斗开始，直到双方任何一方生命为0结束
 		while(me->get_cur_life()>0&&ob->get_cur_life()>0){
 			if(szx<1000){
@@ -176,20 +219,29 @@ int main(string arg)
 			if(dmg_ob<=0)
 				dmg_ob = 1;
 			ob->set_life(ob->get_cur_life()-dmg_ob);
-			int dmg_me = tmp_ob_atk + random(ob->level) - tmp_me_def;	
+			int dmg_me = tmp_ob_atk + random(ob_level) - tmp_me_def;
 			if(dmg_me<=0)
-				dmg_me = random(ob->level);
+				dmg_me = random(ob_level);
 			me->set_life(me->get_cur_life()-dmg_me);
 		}
 		//得到结果，调用双方的fight _die
 		if(me->get_cur_life()<=0){ //玩家死亡
 			s += "战斗失败！\n";	
-			ob->life=this_object()->life_max;//怪物回满血
+			ob->set_life(ob->query_life_max());//怪物回满血
 			ob->who_fight_npc = "";//首次攻击者
 			ob->term_who_fight_npc = "";//首次攻击者队伍标示          
 			ob->reset_targets(); //重置仇恨列表
 			ob->enemy=0;
 			me->fight_die();
+			// 跨 Worker 复活会由网关用目标端安全页面替换源端响应。
+			// 在唯一玩家档案中暂存一次结果，让目标 Worker 输出结果页。
+			mapping redirect = MAP_WORKERD->query_local_move_redirect(
+				me->query_name());
+			if(MAP_WORKERD->query_node_role()=="worker" &&
+			   (int)redirect["ok"] &&
+			   functionp(me->stage_worker_quick_battle_notice))
+				me->stage_worker_quick_battle_notice(
+					"【快速战斗】战斗失败！你已回到复活点，请先休息恢复生命。\n");
 			me->enemy=0;
 		}
 		else if(ob->get_cur_life()<=0){ //怪物死亡

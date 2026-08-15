@@ -170,6 +170,25 @@ mapping worker_summon_handoff=([]);
 // Ordinary combat DOT/curse and room-bound shields are deliberately excluded;
 // player-heartbeat skill effects which survive a normal room move are included.
 mapping worker_status_effect_handoff=([]);
+// A quick-battle defeat can move the player to a different Worker before the
+// original HTTP response is delivered. Carry one bounded result notice in the
+// canonical player archive so the destination can render a valid result page.
+string worker_quick_battle_notice="";
+
+int stage_worker_quick_battle_notice(string notice)
+{
+	if(!notice || notice=="" || sizeof(notice)>512)
+		return 0;
+	worker_quick_battle_notice=notice;
+	return 1;
+}
+
+string consume_worker_quick_battle_notice()
+{
+	string notice=worker_quick_battle_notice || "";
+	worker_quick_battle_notice="";
+	return notice;
+}
 // Legacy paid meditation progress must survive both worker moves and restarts.
 mapping(string:mixed) auto_learn_runtime=([]);
 mapping(string:mixed) query_auto_learn_runtime()
@@ -374,13 +393,18 @@ int complete_static_worker_arrival(string room_path)
 	int moved;
 	mixed move_err;
 	if(MAP_WORKERD->query_node_role()!="worker" ||
-	   !current_room || !current_room->is("menu") ||
+	   (current_room && !current_room->is("menu")) ||
 	   !(int)arrival["ok"] ||
-	   (string)arrival["room_path"]!=room_path)
+	   !MAP_WORKERD->static_room_locations_match(
+		(string)arrival["room_path"],room_path))
 		return 0;
 	move_err = catch { moved = ::move(ROOT+room_path); };
 	if(move_err || !moved)
 		return 0;
+	// setup() historically enters the login menu before the exact arrival is
+	// consumed.  Even though the move guard suppresses that bootstrap path,
+	// clear any stale redirect left by an older process/version before ACK.
+	MAP_WORKERD->clear_local_move_redirect(query_name());
 	return 1;
 }
 
@@ -397,7 +421,8 @@ int complete_same_worker_static_redirect(string room_path)
 	mixed move_err;
 	if(MAP_WORKERD->query_node_role()!="worker" ||
 	   !(int)redirect["ok"] || room_path=="" ||
-	   (string)redirect["target_room_path"]!=room_path)
+	   !MAP_WORKERD->static_room_locations_match(
+		(string)redirect["target_room_path"],room_path))
 		return 0;
 	move_err = catch { moved = ::move(ROOT+room_path); };
 	if(move_err || !moved)

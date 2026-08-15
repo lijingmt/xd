@@ -268,6 +268,12 @@ int main()
 			"POST","/api?txd=token",
 			(["content-type":"application/x-www-form-urlencoded"]),
 			"userid=xd01hero&cmd=east&cmd=west");
+		mapping safe_quick = httpd->test_pike_gateway_safe_view_request(
+			"GET","/api/json?txd=token&cmd=kill_quick",
+			(["content-type":""]),"","quick_battle_result");
+		mapping safe_invalid = httpd->test_pike_gateway_safe_view_request(
+			"GET","/api/json?txd=token&cmd=trade",
+			(["content-type":""]),"","trade target");
 		mapping safe_json_body = Standards.JSON.decode(
 			(string)safe_json["body"]);
 		mapping unsupported_view =
@@ -280,6 +286,9 @@ int main()
 			safe_json_body["userid"]=="xd01hero" &&
 			safe_json_body["cmd"]=="look" &&
 			safe_form["body"]=="userid=xd01hero&cmd=look" &&
+			safe_quick["path"]==
+				"/api/json?txd=token&cmd=quick_battle_result" &&
+			safe_invalid["path"]=="/api/json?txd=token&cmd=look" &&
 			!sizeof(unsupported_view) &&
 			source_has(gateway,
 				"pike_gateway_deliver_background_arrival(userid,") &&

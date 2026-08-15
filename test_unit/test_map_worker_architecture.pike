@@ -149,6 +149,21 @@ int main()
 				"illusion_s1:frontier",
 			"S1仍可能整区挤在一个worker，或同房间映射不稳定");
 
+		check("跨Worker静态房间校验兼容Pike后缀且不放宽到其他房间",
+			daemon->canonical_static_room_location(
+				"/gamelib/d/illusion_s1/fog_forest.pike")==
+					"/gamelib/d/illusion_s1/fog_forest" &&
+			daemon->static_room_locations_match(
+				"/gamelib/d/illusion_s1/fog_forest",
+				"/gamelib/d/illusion_s1/fog_forest.pike") &&
+			!daemon->static_room_locations_match(
+				"/gamelib/d/illusion_s1/fog_forest",
+				"/gamelib/d/illusion_s1/mirror_lake.pike") &&
+			!daemon->static_room_locations_match(
+				"/gamelib/d/illusion_s1/fog_forest#2",
+				"/gamelib/d/illusion_s1/fog_forest.pike"),
+			"合法无后缀路径会误判到达失败，或动态/不同房间被错误视为同一owner");
+
 		check("传统幻境静态入口与克隆房按同一队伍实例汇聚唯一worker",
 			daemon->query_affinity_key(
 				"/gamelib/d/fb_runtime/ingress.pike",
@@ -1358,12 +1373,16 @@ int main()
 				"player->remove();") &&
 			source_has("/gamelib/single/daemons/http_api_daemon.pike",
 				"complete_map_worker_arrival") &&
-			source_has("/gamelib/clone/user.pike",
-				"complete_static_worker_arrival") &&
+				source_has("/gamelib/clone/user.pike",
+					"complete_static_worker_arrival") &&
+				source_has("/gamelib/clone/user.pike",
+					"(current_room && !current_room->is(\"menu\"))") &&
+				source_has("/gamelib/single/daemons/http_api_daemon.pike",
+					"if(!room || room->is(\"menu\"))") &&
 			source_has("/gamelib/clone/user.pike",
 				"if(worker_move_guard==2)") &&
 				source_has("/gamelib/single/daemons/map_workerd.pike",
-					"Suppress a saved old last_pos") &&
+					"setup() first tries to enter the login menu") &&
 				source_has("/gamelib/single/daemons/map_workerd.pike",
 					"pending_arrival = normalize_room_location") &&
 				source_has("/gamelib/single/daemons/map_workerd.pike",
@@ -1485,6 +1504,54 @@ int main()
 			source_has("/test_unit/test_pike_gateway.pike",
 				"test_completed_public_arrival_clears_background_retry"),
 			"后台移动可能永久滞留旧worker、依赖标签页刷新或恢复共享账号旧缓存");
+
+		check("新人物在虚空阶段保留网关签名session亲和性并参与首次进图",
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"local_player_route_affinities") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"accept_local_player_route_affinity") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"query_local_player_route_affinity(userid)") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"New characters begin in LOW_VOID_OB") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"accept_local_player_route_affinity") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
+				"query_local_player_route_affinity(userid)") &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"m_delete(local_player_route_affinities,userid)"),
+			"首次建角可能停在虚空、live-lease无亲和性并触发worker隔离");
+		check("HTTP人物入口使用私有session域并显式进入真实登录菜单",
+			daemon->query_affinity_key("/gamelib/d/init",
+				"xd99sessiontest")==
+				daemon->query_player_session_affinity("xd99sessiontest") &&
+			has_prefix(daemon->query_player_session_affinity(
+				"xd99sessiontest"),"session:") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"ensure_http_player_routed_room") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"/gamelib/d/init") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"target_affinity!=routed_affinity") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"query_player_session_affinity(userid)"),
+			"HTTP恢复人物仍可能停在LOW_VOID，或入口菜单跨进程形成共享状态");
+		mapping arrival_bootstrap = ([
+			"ok":1,"epoch":7,
+			"room_path":"/gamelib/d/illusion_s1/moon_gate.pike",
+		]);
+		check("目标Worker恢复档案时不会把setup临时入口误记成反向迁移",
+			daemon->test_arrival_bootstrap_move_guard(arrival_bootstrap,7,
+				"/gamelib/d/init",0,0)==2 &&
+			daemon->test_arrival_bootstrap_move_guard(arrival_bootstrap,7,
+				"/gamelib/d/init",1,1)==2 &&
+			daemon->test_arrival_bootstrap_move_guard(arrival_bootstrap,7,
+				"/gamelib/d/illusion_s1/moon_gate.pike",0,0)==0 &&
+			daemon->test_arrival_bootstrap_move_guard(arrival_bootstrap,8,
+				"/gamelib/d/init",0,0)==0 &&
+			source_has("/gamelib/clone/user.pike",
+				"clear_local_move_redirect(query_name())"),
+			"S1到达后可能残留返回登录入口的redirect，下一次请求把人物弹回入口");
 
 		check("传送费用、目标与队伍身份均由服务端权威校验",
 			source_has("/gamelib/cmds/transfer_to.pike",

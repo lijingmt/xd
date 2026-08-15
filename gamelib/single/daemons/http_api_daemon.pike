@@ -401,6 +401,48 @@ string execute_internal_command(object player, string cmd)
 }
 
 /**
+ * HTTP players do not pass through socket exec(), so a freshly restored
+ * object must explicitly enter its signed route. Session leases use the
+ * private login menu; established static-map leases may restore only an exact
+ * same-affinity last_pos. Dynamic or mismatched routes fail closed.
+ */
+private int ensure_http_player_routed_room(object player)
+{
+	object target_room;
+	string userid;
+	string routed_affinity;
+	string target_path;
+	string target_affinity;
+	int moved;
+	mixed err;
+	if(!player)
+		return 0;
+	if(MAP_WORKERD->query_player_affinity(player)!="")
+		return 1;
+	userid = (string)player->query_name();
+	routed_affinity = MAP_WORKERD->query_local_player_route_affinity(userid);
+	if(MAP_WORKERD->query_node_role()!="worker" ||
+	   has_prefix(routed_affinity,"session:"))
+		target_path = "/gamelib/d/init";
+	else{
+		target_path = (string)(player->last_pos || "");
+		if(!has_prefix(target_path,"/gamelib/d/") ||
+		   search(target_path,"..")!=-1 || search(target_path,"#")!=-1)
+			return 0;
+		target_affinity = MAP_WORKERD->query_affinity_key(target_path);
+		if(routed_affinity=="" || target_affinity!=routed_affinity)
+			return 0;
+	}
+	err = catch { target_room=(object)(ROOT+target_path); };
+	if(err || !target_room)
+		return 0;
+	http_werror("[HTTP_ROUTE_RESTORE] userid=%s affinity=%s target=%s\n",
+		userid,routed_affinity!="" ? routed_affinity : "standalone",target_path);
+	err = catch { moved=player->move(target_room); };
+	return !err && moved && environment(player)==target_room;
+}
+
+/**
  * 获取目标对象信息
  */
 string get_target_info(object player, string target_name)
@@ -563,7 +605,11 @@ private mapping complete_map_worker_arrival(object player,string userid)
         return (["handled":0]);
     room = environment(player);
     affinity = room ? MAP_WORKERD->query_player_affinity(player) : "";
-    if(room && room->is("menu")){
+    // A background handoff restores the sole target object directly from its
+    // archive, so it legitimately has no environment yet. The player method
+    // still requires the exact installed userid/epoch/room capability and
+    // rejects every object that is already in a real world room.
+    if(!room || room->is("menu")){
         if(!functionp(player->complete_static_worker_arrival) ||
            !player->complete_static_worker_arrival(
                 (string)arrival["room_path"])){
@@ -693,6 +739,8 @@ string execute_command_sync(string userid, string password, string cmd)
             mapping arrival = complete_map_worker_arrival(player,userid);
             if((int)arrival["handled"])
                 return (string)arrival["output"];
+            if(!ensure_http_player_routed_room(player))
+                return "{\"error\":\"登录入口路由失败，请重试\"}";
             if(functionp(player->consume_worker_summon_handoff) &&
                !player->consume_worker_summon_handoff())
                 return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
@@ -735,6 +783,9 @@ string execute_command_sync(string userid, string password, string cmd)
         if((int)arrival["handled"])
             return (string)arrival["output"];
 
+        if(!ensure_http_player_routed_room(player))
+            return "{\"error\":\"登录入口路由失败，请重试\"}";
+
         if(functionp(player->consume_worker_summon_handoff) &&
            !player->consume_worker_summon_handoff())
             return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
@@ -746,7 +797,10 @@ string execute_command_sync(string userid, string password, string cmd)
     clear_http_api_login_pending(userid);
 
     if(err) {
-        http_werror(" execute_command_sync error\n");
+        // Keep credentials out of logs, but retain the Pike source location;
+        // a generic line made first-login failures impossible to diagnose.
+        http_werror(" execute_command_sync error: %s\n",
+            replace(describe_error(err),({"\r","\n"}),({" "," "})));
         return "{\"error\":\"命令执行失败\"}";
     }
 }

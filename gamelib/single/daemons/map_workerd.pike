@@ -98,6 +98,9 @@ private mapping(string:string) local_affinity_owners = ([]);
 private mapping(string:mapping(string:mixed)) pending_player_moves = ([]);
 private mapping(string:int) local_player_epochs = ([]);
 private mapping(string:string) local_player_account_owners = ([]);
+// A freshly created player has not entered /gamelib/d yet. Keep the exact
+// coordinator-signed session affinity until a real room becomes authoritative.
+private mapping(string:string) local_player_route_affinities = ([]);
 private int local_shutdown_save_fence_expires_at;
 private mapping(string:mapping(string:mixed)) local_player_arrivals = ([]);
 private mapping(string:string) local_account_cache_tokens = ([]);
@@ -1118,6 +1121,30 @@ private string normalize_room_location(string room_path)
 	return path;
 }
 
+/**
+ * Return one comparison-only identity for a reconstructable static room.
+ *
+ * Legacy commands commonly address `/gamelib/d/foo/bar`, while a loaded Pike
+ * object reports `/gamelib/d/foo/bar.pike`.  Both names resolve to the same
+ * room.  Handoff capabilities keep their original spelling for replay, but
+ * every post-arrival ownership check must compare this canonical identity or
+ * a successful restore is misdiagnosed as a missing target copy.
+ */
+string canonical_static_room_location(string room_path)
+{
+	string path = normalize_room_location(room_path);
+	if(path!="" && has_suffix(path,".pike"))
+		path = path[..sizeof(path)-6];
+	return path;
+}
+
+int static_room_locations_match(string left,string right)
+{
+	string canonical_left = canonical_static_room_location(left);
+	string canonical_right = canonical_static_room_location(right);
+	return canonical_left!="" && canonical_left==canonical_right;
+}
+
 private string normalize_endpoint(string endpoint)
 {
 	endpoint = String.trim_all_whites(endpoint || "");
@@ -1145,6 +1172,15 @@ private int stable_hash_value(string source)
 	if(sizeof(digest)>=7)
 		sscanf(digest[0..6],"%x",value);
 	return value;
+}
+
+/** Login menus are private per-player routing domains, not shared world maps. */
+string query_player_session_affinity(string userid)
+{
+	userid = normalize_userid(userid);
+	if(userid=="")
+		return "";
+	return "session:"+lower_case(stable_digest(userid))[0..23];
 }
 
 private string strip_room_root(string room_path)
@@ -1203,6 +1239,14 @@ string query_affinity_key(string room_path,void|string instance_key)
 	block = normalize_token(parts[0],64);
 	if(block=="")
 		return "";
+	// The entrance has no NPCs, loot or player interaction. Keeping it on the
+	// signed session owner lets a newly restored HTTP player render the real
+	// creation/login menu before its first world-room handoff.
+	if(block=="init"){
+		string session_userid = normalize_userid(instance_key || "");
+		return session_userid!="" ?
+			query_player_session_affinity(session_userid) : "init";
+	}
 	if(block=="illusion_s1")
 		return illusion_s1_affinity(parts);
 	// 传统 FBD 幻境的实际目录并不以 fb_ 命名。统一折叠到虚拟
@@ -1245,6 +1289,12 @@ private int room_matches_affinity(string room_path,string affinity)
 	if(room_affinity=="" || normalized_affinity=="")
 		return 0;
 	if(room_affinity==normalized_affinity)
+		return 1;
+	// A menu arrival is isolated by the signed player session rather than one
+	// shared room owner, so its userid cannot be reconstructed from room_path.
+	if(strip_room_root(room_path)=="init" &&
+	   has_prefix(normalized_affinity,"session:") &&
+	   sizeof(normalized_affinity)==32)
 		return 1;
 	if((!has_prefix(room_affinity,"fb_") &&
 	   !has_suffix(room_affinity,"_fb")) ||
@@ -1418,6 +1468,7 @@ void clear_local_player_epoch(string userid)
 	key = local_route_lock->lock();
 	m_delete(local_player_epochs,userid);
 	m_delete(local_player_account_owners,userid);
+	m_delete(local_player_route_affinities,userid);
 	m_delete(local_player_arrivals,userid);
 	destruct(key);
 }
@@ -1449,6 +1500,48 @@ string query_local_player_account_owner(string userid)
 		return "";
 	key = local_route_lock->lock();
 	result = local_player_account_owners[userid] || "";
+	destruct(key);
+	return result;
+}
+
+/**
+ * Preserve the coordinator capability used before a player has a real map
+ * room. The public request header is accepted only after gateway
+ * authentication, and only when this worker owns both the exact epoch and
+ * affinity assignment. It is therefore not a client-controlled location.
+ */
+mapping(string:mixed) accept_local_player_route_affinity(string userid,
+	int epoch,string affinity)
+{
+	object key;
+	string owner;
+	userid = normalize_userid(userid);
+	affinity = normalize_token(affinity,MAP_WORKER_MAX_AFFINITY);
+	if(node_role!="worker" || userid=="" || epoch<1 || affinity=="")
+		return (["ok":0,"code":"invalid_local_route_affinity"]);
+	key = local_route_lock->lock();
+	owner = local_affinity_owners[affinity] || "";
+	if(local_player_epochs[userid]!=epoch || owner!=local_worker_id){
+		destruct(key);
+		return (["ok":0,"code":"stale_local_route_affinity"]);
+	}
+	local_player_route_affinities[userid] = affinity;
+	destruct(key);
+	return (["ok":1,"affinity":affinity]);
+}
+
+string query_local_player_route_affinity(string userid)
+{
+	object key;
+	string result;
+	userid = normalize_userid(userid);
+	if(userid=="")
+		return "";
+	key = local_route_lock->lock();
+	result = local_player_route_affinities[userid] || "";
+	if(result!="" && (local_player_epochs[userid]<1 ||
+	   (local_affinity_owners[result] || "")!=local_worker_id))
+		result = "";
 	destruct(key);
 	return result;
 }
@@ -2733,6 +2826,8 @@ private string player_instance_hint(object player,object room,string room_path)
 	string fb_name = FBD->query_fb_name_by_room_path(normalized);
 	string fb_id = "";
 	string term = "";
+	if(block=="init" && functionp(player->query_name))
+		return (string)player->query_name();
 	// Keep the server-owned home identity hint for recovery metadata. The
 	// affinity function deliberately collapses every home to the single
 	// "home" consistency domain owned by HOMED's persistence worker.
@@ -2785,6 +2880,32 @@ string query_player_affinity(object player)
 		player_instance_hint(player,room,file_name(room)));
 }
 
+/**
+ * A target worker restores a player by calling setup() before it consumes the
+ * coordinator arrival capability.  Legacy setup() temporarily moves every
+ * restored player to /gamelib/d/init.  While the player still has no room (or
+ * is in that private menu), that bootstrap move is not a real player choice
+ * and must not create a reverse handoff away from the committed destination.
+ */
+private int arrival_bootstrap_move_guard(mapping arrival,int epoch,
+	string target_room_path,int has_current_room,int current_is_menu)
+{
+	if(!mappingp(arrival) || !(int)arrival["ok"] ||
+	   (int)arrival["epoch"]!=epoch)
+		return 0;
+	if(static_room_locations_match((string)arrival["room_path"],
+	   target_room_path))
+		return 0;
+	return (!has_current_room || current_is_menu) ? 2 : 0;
+}
+
+int test_arrival_bootstrap_move_guard(mapping arrival,int epoch,
+	string target_room_path,int has_current_room,int current_is_menu)
+{
+	return arrival_bootstrap_move_guard(arrival,epoch,target_room_path,
+		has_current_room,current_is_menu);
+}
+
 /** Dynamic overflow rooms may only be cloned by their static map owner. */
 int local_worker_owns_room(string room_path,void|string instance_key)
 {
@@ -2821,8 +2942,6 @@ int guard_local_player_move(object player,mixed destination)
 	if(node_role!="worker" || !player)
 		return 0;
 	current_room = environment(player);
-	if(!current_room)
-		return 0;
 	if(objectp(destination))
 		destination_path = file_name((object)destination);
 	else if(stringp(destination))
@@ -2831,8 +2950,13 @@ int guard_local_player_move(object player,mixed destination)
 		return 0;
 	userid = normalize_userid((string)player->query_name());
 	target_room_path = normalize_room_location(destination_path);
-	current_affinity = query_affinity_key(file_name(current_room),
-		player_instance_hint(player,current_room,file_name(current_room)));
+	if(current_room)
+		current_affinity = query_affinity_key(file_name(current_room),
+			player_instance_hint(player,current_room,file_name(current_room)));
+	// New characters begin in LOW_VOID_OB, outside /gamelib/d. Their signed
+	// session affinity must still take part in the first cross-room decision.
+	if(current_affinity=="")
+		current_affinity = query_local_player_route_affinity(userid);
 	target_affinity = query_affinity_key(destination_path,
 		player_instance_hint(player,objectp(destination) ?
 		(object)destination : 0,destination_path));
@@ -2840,16 +2964,17 @@ int guard_local_player_move(object player,mixed destination)
 	   current_affinity==target_affinity)
 		return 0;
 	key = local_route_lock->lock();
-	// The target worker may enter exactly one coordinator-fenced static room
-	// from the login menu. Suppress a saved old last_pos instead of generating
-	// a reverse redirect before complete_map_worker_arrival lands the player.
-	if(current_room->is("menu") && mappingp(local_player_arrivals[userid]) &&
-	   (int)local_player_arrivals[userid]["epoch"]==
-	   local_player_epochs[userid]){
-		int exact_arrival = target_room_path!="" &&
-			(string)local_player_arrivals[userid]["room_path"]==target_room_path;
+	// setup() first tries to enter the login menu even when a committed arrival
+	// is already waiting. Suppress that bootstrap move both before an
+	// environment exists and from the private menu; otherwise it leaves a stale
+	// reverse redirect which ejects the player on their next HTTP request.
+	int arrival_guard = arrival_bootstrap_move_guard(
+		local_player_arrivals[userid],local_player_epochs[userid],
+		target_room_path,current_room ? 1 : 0,
+		current_room && current_room->is("menu"));
+	if(arrival_guard){
 		destruct(key);
-		return exact_arrival ? 0 : 2;
+		return arrival_guard;
 	}
 	owner = local_affinity_owners[target_affinity] || "";
 	if(owner==local_worker_id){
@@ -4184,7 +4309,8 @@ mapping(string:mixed) retire_abandoned_player_arrival(string userid,
 	if(!mappingp(lease) || (string)lease["state"]!="active" ||
 	   (string)lease["worker_id"]!=worker_id ||
 	   (int)lease["epoch"]!=epoch ||
-	   normalize_room_location((string)lease["arrival_room_path"])!=room_path){
+	   !static_room_locations_match(
+		(string)lease["arrival_room_path"],room_path)){
 		destruct(key);
 		return (["ok":0,"code":"stale_abandoned_arrival"]);
 	}

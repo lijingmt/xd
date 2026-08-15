@@ -36,6 +36,19 @@ game_command()
 		"$API_BASE/api/json"
 }
 
+assert_world_response()
+{
+	local response_name="$1"
+	local response_value="$2"
+	jq -e '.error == null and (.lines | length) > 0' \
+		<<<"$response_value" >/dev/null ||
+		fail "$response_name did not return playable content"
+	jq -e 'any(.lines[].segments[]?;
+		.type=="button" and .label=="进入游戏") | not' \
+		<<<"$response_value" >/dev/null ||
+		fail "$response_name bounced back to the game entrance"
+}
+
 stop_started_autofight()
 {
 	if [ "$STARTED_AUTOFIGHT" -eq 1 ] && [ -n "$TXD" ]; then
@@ -76,19 +89,30 @@ select_body=$(jq -cn --arg token "$token" --arg character_id "$CHARACTER_ID" \
 selected_json=$(json_post '/api/account/characters/select' "$select_body")
 TXD=$(jq -r '.txd // empty' <<<"$selected_json")
 [ -n "$TXD" ] || fail "character selection did not return txd"
+bootstrap_command=$(jq -r '.bootstrap_command // empty' <<<"$selected_json")
+if [ -z "$bootstrap_command" ]; then
+	bootstrap_command='init'
+fi
 
-entrance_json=$(game_command 'init')
+entrance_json=$(game_command "$bootstrap_command")
 TXD=$(jq -r '.txd // empty' <<<"$entrance_json")
 enter_command=$(jq -r \
 	'[.lines[].segments[]? |
 	 select(.type=="button" and .label=="进入游戏") | .cmd][0] // empty' \
 	<<<"$entrance_json")
-[ -n "$enter_command" ] || fail "the real 进入游戏 button is missing"
-
-entered_json=$(game_command "$enter_command")
-TXD=$(jq -r '.txd // empty' <<<"$entered_json")
-jq -e '.error == null and (.lines | length) > 0' \
-	<<<"$entered_json" >/dev/null || fail "clicking 进入游戏 did not render a room"
+if [ -n "$enter_command" ]; then
+	entered_json=$(game_command "$enter_command")
+	TXD=$(jq -r '.txd // empty' <<<"$entered_json")
+	entry_path="clicked"
+else
+	# Re-running the smoke test while this exact character object is already
+	# online legitimately returns the world view directly. It must still pass
+	# every playability assertion, but is reported separately so cold-start CI
+	# can prove that the real entrance button was clicked.
+	entered_json="$entrance_json"
+	entry_path="already-world"
+fi
+assert_world_response entered_json "$entered_json"
 
 look_json=$(game_command 'look')
 TXD=$(jq -r '.txd // empty' <<<"$look_json")
@@ -101,9 +125,7 @@ TXD=$(jq -r '.txd // empty' <<<"$skills_json")
 
 for response_name in look_json myhp_json inventory_json skills_json; do
 	response_value="${!response_name}"
-	jq -e '.error == null and (.lines | length) > 0' \
-		<<<"$response_value" >/dev/null ||
-		fail "$response_name did not return playable content"
+	assert_world_response "$response_name" "$response_value"
 done
 
 status_json=$(curl -fsS --max-time 15 --get \
@@ -154,4 +176,4 @@ if [ "$REQUIRE_BATTLE" -eq 1 ] && [ "$battle_seen" -ne 1 ]; then
 fi
 
 stop_started_autofight
-echo "[player-entry-smoke] PASS character=$CHARACTER_ID button=clicked room=ok status=ok inventory=ok equipment=ok skills=ok autofight=ok view_seen=$view_seen battle_seen=$battle_seen"
+echo "[player-entry-smoke] PASS character=$CHARACTER_ID entry=$entry_path room=ok status=ok inventory=ok equipment=ok skills=ok autofight=ok view_seen=$view_seen battle_seen=$battle_seen"

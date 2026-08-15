@@ -322,6 +322,10 @@ private int map_worker_gateway_request_authorized(
             routed_user,routed_epoch,account_owner);
         if(!(int)epoch_result["ok"])
             return 0;
+        epoch_result = MAP_WORKERD->accept_local_player_route_affinity(
+            routed_user,routed_epoch,routed_affinity);
+        if(!(int)epoch_result["ok"])
+            return 0;
         arrival_room = String.trim_all_whites(
             req->request_headers["x-xiand-arrival-room"] || "");
         if(arrival_room!=""){
@@ -336,7 +340,12 @@ private int map_worker_gateway_request_authorized(
 
 private string map_worker_player_affinity(object player)
 {
-    return MAP_WORKERD->query_player_affinity(player);
+    string affinity = MAP_WORKERD->query_player_affinity(player);
+    string userid;
+    if(affinity!="" || !player || !functionp(player->query_name))
+        return affinity;
+    userid = (string)player->query_name();
+    return MAP_WORKERD->query_local_player_route_affinity(userid);
 }
 
 /** Include epoch-owned living objects even when they have no CONND entry. */
@@ -587,7 +596,8 @@ private void handle_map_worker_local_arrival(
                 MAP_WORKERD->query_local_player_arrival(userid);
             if((int)pending_arrival["ok"] &&
                (int)pending_arrival["epoch"]==epoch &&
-               (string)pending_arrival["room_path"]==room_path)
+               MAP_WORKERD->static_room_locations_match(
+                    (string)pending_arrival["room_path"],room_path))
                 MAP_WORKERD->clear_local_player_arrival(userid);
             send_json(req,(["ok":1,"replayed":1,"userid":userid,
                 "epoch":epoch,"room_path":room_path,
@@ -663,8 +673,13 @@ private void handle_map_worker_local_arrival(
     arrival_result = complete_map_worker_arrival(player,userid);
     player = get_player_from_connection(userid,0);
     if(!(int)arrival_result["handled"] || !player || !environment(player) ||
-       file_name(environment(player))-ROOT!=room_path ||
+       !MAP_WORKERD->static_room_locations_match(
+            file_name(environment(player))-ROOT,room_path) ||
        (int)MAP_WORKERD->query_local_player_arrival(userid)["ok"]){
+        werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=proof epoch=%d "+
+            "expected=%s actual=%s\n",userid,epoch,room_path,
+            player && environment(player) ?
+                file_name(environment(player))-ROOT : "");
         discard_map_worker_internal_arrival(userid,player);
         send_json(req,(["ok":0,"code":"arrival_materialize_failed"]),500);
         return;

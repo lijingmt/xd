@@ -926,6 +926,83 @@ int is_active_illusion_character(object player)
 		(string)realm["illusion_state"]=="active";
 }
 
+/**
+ * Return the current season's safe public grinding route.  Seasonal route
+ * selection lives beside the season map contract so the generic AFK daemon
+ * never guesses an Eternal-world destination for an isolated character.
+ */
+mapping(string:mixed) query_autofight_route(object player)
+{
+	string illusion_id;
+	string path;
+	string name;
+	int level;
+	int target_level;
+	if(!player || !is_active_illusion_character(player))
+		return ([]);
+	illusion_id = (string)illusion_config["current_id"];
+	level = player->query_level();
+	if(illusion_id!="S1")
+		return ([]);
+	if(level<10){
+		path = "illusion_s1/silver_path";
+		name = "银痕初猎";
+		target_level = 8;
+	}
+	else if(level<20){
+		path = "illusion_s1/fog_forest";
+		name = "雾林寻星";
+		target_level = 18;
+	}
+	else if(level<30){
+		path = "illusion_s1/mirror_lake";
+		name = "镜湖逆潮";
+		target_level = 28;
+	}
+	else if(level<40){
+		path = "illusion_s1/broken_observatory";
+		name = "折星破阵";
+		target_level = 38;
+	}
+	else if(level<50){
+		path = "illusion_s1/echo_ruins";
+		name = "古城回声";
+		target_level = 45;
+	}
+	else{
+		path = "illusion_s1/abyss_garden";
+		name = "深渊同辉";
+		target_level = 58;
+	}
+	return ([
+		"max":69,
+		"level":target_level,
+		"name":name,
+		"path":path,
+		"paths":({path}),
+		"target_min":target_level,
+		"target_max":target_level,
+		"disable_overflow":1,
+		"illusion_id":illusion_id,
+	]);
+}
+
+/** Return qge74hye's relative path for the current season's safe bedroom. */
+string query_autofight_rest_room(object player)
+{
+	string room;
+	string prefix = "/gamelib/d/";
+	if(!player || !is_active_illusion_character(player))
+		return "";
+	room = (string)(illusion_config["entry_room"] || "");
+	if(!has_prefix(room,prefix))
+		return "";
+	room = room[sizeof(prefix)..];
+	if(has_suffix(room,".pike"))
+		room = room[..sizeof(room)-6];
+	return room;
+}
+
 // 登录落点修复必须与世界身份使用同一份账号索引判断。否则一个仍在
 // 幻境中的人物若保存了已删除的S1房间，通用修复会把他送往永恒主城，
 // 随后又被跨世界守卫拒绝，最终表现为登录后卡住。
@@ -1008,11 +1085,19 @@ int query_move_policy_for_test(mapping realm,string target,string phase)
 int guard_player_move(object player,mixed destination)
 {
 	string target;
+	string current;
 	mapping realm;
 	int policy;
 	if(!player || player["/tmp/illusion_move_bypass"])
 		return 0;
 	target = normalized_destination_path(destination);
+	current = normalized_destination_path(environment(player));
+	// The per-session entrance is outside both Eternal and S1 worlds. Only a
+	// freshly restored object that is not yet in /gamelib/d may enter it; an
+	// active character cannot use this exception to escape a real world room.
+	if(target=="/gamelib/d/init" &&
+	   !has_prefix(current,"/gamelib/d/"))
+		return 0;
 	realm = query_realm_for_player(player);
 	policy = move_policy(realm,target,(string)query_public_status()["phase"]);
 	if(policy==1){

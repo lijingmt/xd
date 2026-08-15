@@ -3310,6 +3310,10 @@ mapping(string:mixed) query_training_route(object me)
 	int level;
 	if(!me)
 		return ([]);
+	// 幻境人物只能使用本期路线。未知的新赛季宁可留在当前地图巡游，
+	// 也不能回退到永恒服练级表并反复触发跨世界拒绝。
+	if(SEASONALD->is_active_illusion_character(me))
+		return SEASONALD->query_autofight_route(me);
 	level = me->query_level();
 	race = me->query_raceId();
 	if(level>=ENDGAME_MAP_MIN_LEVEL){
@@ -3680,7 +3684,8 @@ int move_to_training_route(object me,mapping(string:mixed) route)
 	if(path=="")
 		return 0;
 	if((int)route["all_full"]==1 &&
-	   (int)route["recovering_overflow"]!=1)
+	   (int)route["recovering_overflow"]!=1 &&
+	   (int)route["disable_overflow"]!=1)
 		room=query_or_create_overflow_room(me,route);
 	if(!room){
 		me->command("qge74hye "+path);
@@ -3767,8 +3772,12 @@ int can_auto_leave_current_room(object me)
 
 string query_rest_room(object me)
 {
+	string seasonal_room;
 	if(!me)
 		return "";
+	seasonal_room = SEASONALD->query_autofight_rest_room(me);
+	if(seasonal_room!="")
+		return seasonal_room;
 	if(me->query_raceId()=="monst")
 		return "jinaodao/yuhuacunguangchang";
 	return "congxianzhen/congxianzhenguangchang";
@@ -3916,6 +3925,15 @@ mapping(string:int) query_target_level_window(object me)
 	if(!me)
 		return (["minimum":1,"maximum":1]);
 	me_level = me->query_level();
+	if(SEASONALD->is_active_illusion_character(me)){
+		route = SEASONALD->query_autofight_route(me);
+		if((int)route["target_min"]>0 &&
+		   (int)route["target_max"]>0)
+			return ([
+				"minimum":(int)route["target_min"],
+				"maximum":(int)route["target_max"],
+			]);
+	}
 	maximum_level = me_level+2;
 	minimum_level = 1;
 	if(query_smart_route_enabled(me)){

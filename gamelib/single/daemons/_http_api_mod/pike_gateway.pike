@@ -351,24 +351,27 @@ private string pike_gateway_extract_command(mapping params)
 }
 
 /** Replace every client command with one non-mutating destination view. */
-private string pike_gateway_safe_view_fields(string encoded)
+private string pike_gateway_safe_view_fields(string encoded,
+	void|string safe_command)
 {
 	array(string) fields = (encoded || "")/"&";
 	array(string) result = ({});
 	int command_seen;
+	if(safe_command!="quick_battle_result")
+		safe_command="look";
 	foreach(fields,string field){
 		array(string) pair = field/"=";
 		string key = sizeof(pair) ? lower_case(url_decode(pair[0])) : "";
 		if(key=="cmd"){
 			if(!command_seen)
-				result += ({pair[0]+"=look"});
+				result += ({pair[0]+"="+safe_command});
 			command_seen = 1;
 		}
 		else if(field!="")
 			result += ({field});
 	}
 	if(!command_seen)
-		result += ({"cmd=look"});
+		result += ({"cmd="+safe_command});
 	return result*"&";
 }
 
@@ -378,13 +381,15 @@ private string pike_gateway_safe_view_fields(string encoded)
  * keep the original response and let the next ordinary refresh catch up.
  */
 private mapping(string:mixed) pike_gateway_safe_view_request(string method,
-	string path,mapping headers,string body)
+	string path,mapping headers,string body,void|string safe_command)
 {
 	int query_at = search(path || "","?");
 	string path_only = query_at==-1 ? path : path[..query_at-1];
 	string query = query_at==-1 ? "" : path[query_at+1..];
 	string safe_body = body || "";
 	string content_type = lower_case((string)(headers["content-type"] || ""));
+	if(safe_command!="quick_battle_result")
+		safe_command="look";
 	if(!has_value(({"/api","/api/html","/api/json"}),path_only))
 		return ([]);
 	if(safe_body!=""){
@@ -396,17 +401,18 @@ private mapping(string:mixed) pike_gateway_safe_view_request(string method,
 			if(decode_err || !mappingp(decoded))
 				return ([]);
 			mapping safe_json = copy_value((mapping)decoded);
-			safe_json["cmd"] = "look";
+			safe_json["cmd"] = safe_command;
 			safe_body = Standards.JSON.encode(safe_json);
 		}
 		else if(search(content_type,"x-www-form-urlencoded")!=-1)
-			safe_body = pike_gateway_safe_view_fields(safe_body);
+			safe_body = pike_gateway_safe_view_fields(safe_body,safe_command);
 		else
 			return ([]);
 	}
 	return ([
 		"method":method,
-		"path":path_only+"?"+pike_gateway_safe_view_fields(query),
+		"path":path_only+"?"+
+			pike_gateway_safe_view_fields(query,safe_command),
 		"headers":headers,
 		"body":safe_body,
 	]);
@@ -689,9 +695,10 @@ mapping test_pike_gateway_migration_plan(string source_worker,
 }
 
 mapping test_pike_gateway_safe_view_request(string method,string path,
-	mapping headers,string body)
+	mapping headers,string body,void|string safe_command)
 {
-	return pike_gateway_safe_view_request(method,path,headers,body);
+	return pike_gateway_safe_view_request(method,path,headers,body,
+		safe_command);
 }
 
 int test_pike_gateway_arrival_proof(mapping proof,string userid,int epoch,
@@ -1958,7 +1965,8 @@ private void pike_gateway_recover_local_players()
 				(string)route["worker_id"] &&
 				(int)copy["epoch"]==(int)route["epoch"] &&
 				(string)copy["affinity"]==(string)route["affinity"] &&
-				(string)copy["room_path"]==arrival_room;
+				MAP_WORKERD->static_room_locations_match(
+					(string)copy["room_path"],arrival_room);
 		}
 		mapping resolved;
 		if(exact_arrival)
@@ -2094,7 +2102,7 @@ private void pike_gateway_reconcile_recovered_worker(string worker_id)
 
 private mapping pike_gateway_lease_for_new_user(string userid)
 {
-	string affinity = "session:"+pike_gateway_digest(userid)[0..23];
+	string affinity = MAP_WORKERD->query_player_session_affinity(userid);
 	mapping placement = pike_gateway_assign_affinity(affinity,1,0);
 	mapping lease;
 	if(!(int)placement["ok"])
@@ -2325,7 +2333,8 @@ private void pike_gateway_acknowledge_arrival(string userid,string worker_id,
 	if(!(int)local_route["ok"] ||
 	   (int)local_route["lease_epoch"]!=epoch ||
 	   (string)local_route["affinity"]!=affinity ||
-	   (string)local_route["room_path"]!=arrival_room)
+	   !MAP_WORKERD->static_room_locations_match(
+		(string)local_route["room_path"],arrival_room))
 		error("worker arrival confirmation failed\n");
 	mapping acknowledged = MAP_WORKERD->acknowledge_player_arrival(userid,
 		worker_id,epoch,affinity);
@@ -2824,9 +2833,12 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 								error("post-command arrival remains pending\n");
 						}
 						if((int)plan["replace"]){
+							string safe_command =
+								pike_gateway_command_verb(game_command)==
+								"kill_quick" ? "quick_battle_result" : "look";
 							mapping view_request =
 								pike_gateway_safe_view_request(method,path,
-									headers,body);
+									headers,body,safe_command);
 							if(sizeof(view_request))
 								proxied = pike_gateway_proxy(worker_id,
 									(string)view_request["method"],
@@ -3541,7 +3553,9 @@ private void pike_gateway_deliver_background_arrival(string userid,
 			account_id,worker_id),
 	]));
 	if(!(int)result["ok"])
-		error("background arrival failed\n");
+		error("background arrival failed: "+
+			pike_gateway_log_field((string)(result["code"] || "unknown"),64)+
+			"\n");
 	confirmed = pike_gateway_confirmed_route(userid,worker_id,epoch);
 	if((string)confirmed["arrival_room"]!=room_path ||
 	   (string)result["affinity"]!=(string)confirmed["affinity"])

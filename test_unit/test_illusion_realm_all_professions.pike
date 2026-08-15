@@ -202,6 +202,95 @@ mapping(string:mixed) equip_full_set(object player)
 	return auto_equip->auto_equip_player(player,1);
 }
 
+/**
+ * Run one bounded, representative player-life loop through the real command
+ * and daemon entry points.  The twelve-profession matrix below remains the
+ * exhaustive progression check; doing this once keeps every restart fast
+ * while guarding the parts that chapter counters alone cannot exercise.
+ */
+mapping(string:mixed) run_representative_survival_loop(object player)
+{
+	object|zero original_player = this_player();
+	object|zero medicine = 0;
+	object|zero enemy = 0;
+	mapping result = (["ok":0]);
+	mixed err = catch{
+		mapping chosen = SPIRIT_COMPANIOND->choose_spirit_companion(
+			player,"qingyuanli");
+		mapping carried = SPIRIT_COMPANIOND->set_pet_battle_source(
+			player,"personal");
+		mapping interacted = SPIRIT_COMPANIOND->
+			interact_spirit_companion(player);
+
+		int moved = move_for_test(player,
+			"/gamelib/d/illusion_s1/silver_path.pike");
+		set_this_player(player);
+		player["/plus/autofight_smart_route"] = 1;
+		AUTOFIGHTD->initialize_player(player);
+		AUTOFIGHTD->start_autofight(player);
+		((object)(ROOT+"/lowlib/wapmud2/cmds/flushview.pike"))->main(0);
+		enemy = player->query_enemy();
+		mapping route = AUTOFIGHTD->query_training_route(player);
+		SPIRIT_COMPANIOND->reset_spirit_companion_combat_state(player);
+		mapping assisted = enemy ? SPIRIT_COMPANIOND->
+			perform_spirit_companion_combat_assist(player,enemy) : ([]);
+		int fighting = player->query_in_combat() && enemy &&
+			enemy->is("npc") && environment(enemy)==environment(player);
+		AUTOFIGHTD->stop_autofight(player);
+		player->_clean_fight();
+		if(enemy)
+			enemy->_clean_fight();
+
+		medicine = clone(ROOT+
+			"/gamelib/clone/item/food/xinshouhongyao");
+		medicine->move(player);
+		player->set_life(1);
+		int eaten = medicine->eat();
+		int life_after = player->query_life();
+		mapping equipped = ((object)(ROOT+
+			"/gamelib/cmds/auto_equip.pike"))->
+			auto_equip_player(player,1);
+		mapping inventory = player->query_inventory_browser_snapshot(
+			"equipment","");
+		mapping pet_state = SPIRIT_COMPANIOND->
+			query_spirit_companion_state(player);
+
+		result = ([
+			"ok":(int)chosen["ok"] && (int)carried["ok"] &&
+				(int)interacted["ok"] && moved && fighting &&
+				(string)route["path"]=="illusion_s1/silver_path" &&
+				(int)route["disable_overflow"]==1 &&
+				(int)assisted["ok"] && eaten==1 && life_after>1 &&
+				life_after<=player->query_life_max() &&
+				(int)inventory["matched_physical"]>=4 &&
+				SPIRIT_COMPANIOND->query_pet_battle_source(player)==
+					"personal" &&
+				sizeof((array)pet_state["pets"])==1,
+			"chosen":chosen,"carried":carried,
+			"interacted":interacted,"route":route,
+			"fighting":fighting,"assisted":assisted,
+			"eaten":eaten,"life_after":life_after,
+			"equipped":equipped,
+			"inventory_count":inventory["matched_physical"],
+		]);
+	};
+	AUTOFIGHTD->stop_autofight(player);
+	if(player->query_in_combat())
+		player->_clean_fight();
+	if(enemy && enemy->query_in_combat())
+		enemy->_clean_fight();
+	if(medicine && environment(medicine))
+		destruct(medicine);
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		return (["ok":0,"error":describe_error(err)+" "+
+			describe_backtrace(err)]);
+	return result;
+}
+
 mapping(string:mixed) record_task_progress(object player,string route)
 {
 	int room_index;
@@ -340,9 +429,15 @@ void run_profession_journey(int index,mapping(string:string) profession)
 				"/gamelib/d/illusion_s1/moon_gate.pike" &&
 			(string)player->relife==
 				"/gamelib/d/illusion_s1/moon_gate.pike",
-			sprintf("bootstrap=%d entered=%d route=%O level=%d last=%s relife=%s",
+				sprintf("bootstrap=%d entered=%d route=%O level=%d last=%s relife=%s",
 				bootstrapped,entered,chosen,(int)player->query_level(),
 				(string)player->last_pos,(string)player->relife));
+
+		if(index==0){
+			mapping survival = run_representative_survival_loop(player);
+			check("代表人物真实完成挂机开战、灵伴协战、吃药和背包穿装",
+				(int)survival["ok"],sprintf("survival=%O",survival));
+		}
 
 		object remote_npc = clone(ROOT+
 			"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");

@@ -87,6 +87,24 @@ int all_newmoon_bound_to(object player,string account_id)
 	return count==10;
 }
 
+int bootstrap_character(object player,string race_id,string profession_id)
+{
+	object login_room = (object)(ROOT+"/gamelib/d/init");
+	object|zero original_player = this_player();
+	int result;
+	mixed err = catch{
+		set_this_player(player);
+		result = login_room->choice_profe(race_id+"/"+profession_id);
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	return !err && result &&
+		(string)player->query_raceId()==race_id &&
+		(string)player->query_profeId()==profession_id;
+}
+
 int main()
 {
 	string account_id = "xd99testunitillusion";
@@ -94,6 +112,7 @@ int main()
 	string child_id = "";
 	string second_id = "";
 	string third_id = "";
+	string fourth_id = "";
 	object|zero root = 0;
 	object|zero center_root = 0;
 	object|zero child = 0;
@@ -221,6 +240,12 @@ int main()
 			search(command_hook_source,
 				"is_active_illusion_character(this_object())")!=-1,
 			"仅限制地图移动会让远程家园商店命令跨世界搬运资产");
+		check("S1登录入口例外只允许尚未进入真实世界的恢复对象",
+			search(season_source,
+				"target==\"/gamelib/d/init\"")!=-1 &&
+			search(season_source,
+				"!has_prefix(current,\"/gamelib/d/\")")!=-1,
+			"登录入口可能仍被赛季边界拦截，或可被在线人物用于越界");
 		mapping same_cycle_rollover = SEASONALD->preview_cycle_rollover();
 		check("S1未关闭且配置编号未变化时拒绝误换期",
 			!(int)same_cycle_rollover["ok"] &&
@@ -491,21 +516,47 @@ int main()
 		child->set_project("gamelib");
 		child->restore();
 		child->name_cn = "S1新月行者";
-		child->set_raceId("human");
-		child->set_profeId("jianxian");
-		child->setup_player("human","jianxian");
+		int first_bootstrapped = bootstrap_character(child,"human","jianxian");
 		child->level = 69;
 		child->set_att_by_level();
 		SEASONALD->prepare_new_character(child);
 		child->last_pos = "/gamelib/d/illusion_s1/silver_path.pike";
 		SEASONALD->prepare_new_character(child);
-		check("S1重新登录保留合法上次位置而首次越界位置回到营地",
-			(string)child->last_pos==
+		check("S1首个人物走真实职业初始化并保留合法上次位置",
+			first_bootstrapped && (string)child->last_pos==
 				"/gamelib/d/illusion_s1/silver_path.pike" &&
 			(string)child->relife==
 			"/gamelib/d/illusion_s1/moon_gate.pike",
 			sprintf("last=%s relife=%s",(string)child->last_pos,
 				(string)child->relife));
+		mapping(string:string) expected_afk_routes = ([
+			"1":"illusion_s1/silver_path|8",
+			"10":"illusion_s1/fog_forest|18",
+			"20":"illusion_s1/mirror_lake|28",
+			"30":"illusion_s1/broken_observatory|38",
+			"40":"illusion_s1/echo_ruins|45",
+			"50":"illusion_s1/abyss_garden|58",
+			"69":"illusion_s1/abyss_garden|58",
+		]);
+		int s1_afk_routes_ok = 1;
+		foreach(indices(expected_afk_routes),string level_text){
+			child->level = (int)level_text;
+			mapping route = AUTOFIGHTD->query_training_route(child);
+			mapping window = AUTOFIGHTD->query_target_level_window(child);
+			array(string) expected = expected_afk_routes[level_text]/"|";
+			if((string)route["path"]!=expected[0] ||
+			   (int)route["level"]!=(int)expected[1] ||
+			   (int)route["disable_overflow"]!=1 ||
+			   (int)window["minimum"]!=(int)expected[1] ||
+			   (int)window["maximum"]!=(int)expected[1])
+				s1_afk_routes_ok = 0;
+		}
+		check("S1自动挂机按等级留在本期地图且不会创建隔离分流房",
+			s1_afk_routes_ok &&
+			AUTOFIGHTD->query_rest_room(child)=="illusion_s1/moon_gate",
+			"S1挂机路线、攻击等级或休息营地仍可能落入永恒服");
+		child->level = 69;
+		child->set_att_by_level();
 		child->last_pos =
 			"/gamelib/d/illusion_s1/removed_room.pike";
 		child->relife =
@@ -642,13 +693,15 @@ int main()
 		second_player->set_project("gamelib");
 		second_player->restore();
 		second_player->name_cn = "S1御使行者";
-		second_player->set_raceId("human");
-		second_player->set_profeId("yushi");
-		second_player->setup_player("human","yushi");
+		int second_bootstrapped = bootstrap_character(second_player,
+			"human","yushi");
 		second_player->level = 69;
 		second_player->set_att_by_level();
-		second_player->save_with_result();
+		int second_saved = second_player->save_with_result();
 		destruct(second_player);
+		check("S1第二个人物扩栏后走真实职业初始化并可独立保存",
+			second_bootstrapped && second_saved,
+			sprintf("bootstrap=%d saved=%d",second_bootstrapped,second_saved));
 		mapping third_blocked = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","zhuxian","","","","illusion","S1");
 		mapping wrong_remaining = ACCOUNT_CHARACTERD->
@@ -680,6 +733,54 @@ int main()
 			(int)third_created["ok"] && third_id!="" &&
 			(int)ACCOUNT_CHARACTERD->query_character_limit()==30,
 			sprintf("third=%O",third_created));
+		int third_bootstrapped;
+		int third_saved;
+		if(third_id!=""){
+			object third_player = clone(GAMELIB_USER);
+			third_player->set_name(third_id);
+			third_player->set_project("gamelib");
+			third_player->restore();
+			third_player->name_cn = "S1诛仙行者";
+			third_bootstrapped = bootstrap_character(third_player,
+				"human","zhuxian");
+			third_saved = third_player->save_with_result();
+			destruct(third_player);
+		}
+
+		mapping fourth_created = ACCOUNT_CHARACTERD->create_character(account_id,
+			"monst","kuangyao","","","","illusion","S1");
+		if((int)fourth_created["ok"]){
+			fourth_id = (string)fourth_created["character"]["id"];
+			cleanup_ids += ({fourth_id});
+		}
+		int fourth_bootstrapped;
+		int fourth_saved;
+		if(fourth_id!=""){
+			object fourth_player = clone(GAMELIB_USER);
+			fourth_player->set_name(fourth_id);
+			fourth_player->set_project("gamelib");
+			int fourth_restored = fourth_player->restore();
+			fourth_player->name_cn = "S1狂妖行者";
+			fourth_bootstrapped = fourth_restored &&
+				bootstrap_character(fourth_player,"monst","kuangyao");
+			fourth_saved = fourth_bootstrapped &&
+				fourth_player->save_with_result();
+			destruct(fourth_player);
+		}
+		check("S1第一至第四个人物均为唯一档案并完成真实职业初始化",
+			third_bootstrapped && third_saved &&
+			(int)fourth_created["ok"] && fourth_id!="" &&
+			fourth_id!=child_id && fourth_id!=second_id &&
+			fourth_id!=third_id && fourth_bootstrapped && fourth_saved &&
+			Stdio.file_size(player_file(child_id))>0 &&
+			Stdio.file_size(player_file(second_id))>0 &&
+			Stdio.file_size(player_file(third_id))>0 &&
+			Stdio.file_size(player_file(fourth_id))>0,
+			sprintf("ids=%O bootstrap=%O saved=%O fourth=%O",
+				({child_id,second_id,third_id,fourth_id}),
+				({first_bootstrapped,second_bootstrapped,
+					third_bootstrapped,fourth_bootstrapped}),
+				({second_saved,third_saved,fourth_saved}),fourth_created));
 
 		mapping s2_before = ACCOUNT_CHARACTERD->query_account_characters(
 			account_id,"S2");
