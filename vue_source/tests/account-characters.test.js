@@ -116,16 +116,25 @@ assert.strictEqual(client.characterForm.profession_id, 'jianxian');
 assert.strictEqual(client.characterForm.sex, 'male');
 assert.strictEqual(client.avatarChoicesFor('human', 'jianxian', 'male').length, 11);
 assert.strictEqual(client.avatarChoicesFor('human', 'jianxian', 'female').length, 12);
+client.characterForm.name_cn = '已命名人物';
+client.characterForm.avatar_id = 'h_male3';
 client.chooseNewProfession(
   client.professionOptions.find(option => option.profession_id === 'fangshi')
 );
 assert.strictEqual(client.characterForm.race_id, 'third');
 assert.strictEqual(client.characterForm.profession_id, 'fangshi');
+assert.strictEqual(client.characterForm.name_cn, '已命名人物');
+assert.strictEqual(client.characterForm.avatar_id, 'h_male3');
 assert.strictEqual(client.avatarChoicesFor('third', 'zhenyue', 'male')[0], 'zhenyue_male');
 assert.strictEqual(client.avatarChoicesFor('monst', 'kuangyao', 'female').length, 11);
 client.chooseCharacterSex('female');
 assert.strictEqual(client.characterForm.sex, 'female');
-assert.strictEqual(client.characterForm.avatar_id, '');
+assert.strictEqual(client.characterForm.avatar_id, 'h_female3');
+client.chooseNewProfession(
+  client.professionOptions.find(option => option.profession_id === 'kuangyao')
+);
+assert.strictEqual(client.characterForm.name_cn, '已命名人物');
+assert.strictEqual(client.characterForm.avatar_id, 'm_female1');
 
 client.currentCharacterId = 'xd01legacy';
 client.maybePromptCharacterProfile({

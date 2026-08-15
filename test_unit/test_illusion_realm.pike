@@ -128,6 +128,8 @@ int main()
 			"结束时间边界校验错误");
 		string login_source = Stdio.read_file(ROOT+
 			"/lowlib/system/inherit/user.pike") || "";
+		string entrance_source = Stdio.read_file(ROOT+
+			"/gamelib/d/init") || "";
 		int season_login_pos = search(login_source,
 			"seasonal_chard->reconcile_player_login");
 		int storage_login_pos = search(login_source,
@@ -150,6 +152,12 @@ int main()
 			search(login_source,
 				"reconcile_player_login(this_object(),1)")!=-1,
 			"结算可能与共享仓库写并发，或登录路径重复获取非递归账号锁");
+		check("登录启动命令不再重复执行赛季对账",
+			search(entrance_source,
+				"SEASONALD->reconcile_player_login")==-1 &&
+			search(login_source,
+				"seasonal_chard->\n\t\t\t\treconcile_player_login(this_object())")==-1,
+			"setup已在账号锁内对账，start或setup仍存在第二次无标记调用");
 		check("玩家回归入口只提示自动流程且不会重复获取账号锁",
 			search(player_command_source,"SEASONALD->settle_player(me)")==-1 &&
 			search(player_command_source,"系统自动安全回归")!=-1,

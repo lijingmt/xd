@@ -1230,9 +1230,6 @@ int start(string arg){
 	//统计系统
 	COUNTD->count_login_time(me->name);
 	me->run_login_migrations_once();
-	// 在校验历史last_pos及执行普通地图移动前完成幻境身份对账。
-	// 到期人物会在这里以原档案回归，进行中人物则固定到S1地图。
-	SEASONALD->reconcile_player_login(me);
 	//赠送系统，临时变量标示
 	if(me["/plus/sendrecd"])
 		me["/plus/sendrecd"] = 0;

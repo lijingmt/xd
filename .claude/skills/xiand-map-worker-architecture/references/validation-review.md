@@ -55,8 +55,21 @@ scripts/map_worker_cluster.sh health
 ```
 
 5. Test HTTP behavior and compatibility in the actual configured mode.
-6. Inspect all relevant logs after the test timestamps.
-7. Repeat after every fix. Do not reuse an earlier green result after source changes.
+6. Supply local smoke credentials only through environment variables and run:
+
+```bash
+XIAND_SMOKE_USER='...' XIAND_SMOKE_PASSWORD='...' \
+  scripts/test_local_player_entry_smoke.sh
+```
+
+This must execute the real rendered `进入游戏` button, then validate room view,
+status, inventory, equipment, skills, battle status, and server autofight. With a
+disposable character already in a monster room, add
+`XIAND_SMOKE_REQUIRE_BATTLE=1`. Never store credentials in the script or Git.
+When a supported browser is available, also perform the visible click; otherwise
+record that the deterministic API-button smoke is browser-independent coverage.
+7. Inspect all relevant logs after the test timestamps.
+8. Repeat after every fix. Do not reuse an earlier green result after source changes.
 
 ## Test matrix
 

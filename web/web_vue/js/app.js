@@ -1868,9 +1868,17 @@ createApp({
         },
 
         chooseNewProfession(option) {
+            const previousAvatar = this.characterForm.avatar_id;
             this.characterForm.race_id = option.race_id;
             this.characterForm.profession_id = option.profession_id;
-            this.characterForm.avatar_id = '';
+            const choices = this.avatarChoicesFor(
+                option.race_id,
+                option.profession_id,
+                this.characterForm.sex
+            );
+            if (previousAvatar && !choices.includes(previousAvatar)) {
+                this.characterForm.avatar_id = choices[0] || '';
+            }
             this.characterError = '';
         },
 
@@ -1879,8 +1887,20 @@ createApp({
             const form = profileMode ? this.characterProfileForm : this.characterForm;
             if (profileMode && !form.needs_sex && form.sex !== sex) return;
             if (form.sex !== sex) {
+                const previousAvatar = form.avatar_id;
                 form.sex = sex;
-                form.avatar_id = '';
+                const choices = this.avatarChoicesFor(
+                    form.race_id,
+                    form.profession_id,
+                    sex
+                );
+                if (previousAvatar) {
+                    const translatedAvatar = previousAvatar
+                        .replace('_male', '_' + sex)
+                        .replace('_female', '_' + sex);
+                    form.avatar_id = choices.includes(translatedAvatar)
+                        ? translatedAvatar : (choices[0] || '');
+                }
             }
         },
 

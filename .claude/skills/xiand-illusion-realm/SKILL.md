@@ -225,8 +225,18 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    with three healthy Workers.
 6. Probe public and coordinator health and inspect new logs for Pike compilation,
    storage, transaction, routing, or runtime exceptions.
-7. Review old JSP/bookmark/TXD paths. Eternal creation without `realm_type` must
+7. Run `scripts/test_local_player_entry_smoke.sh` with credentials supplied only
+   through `XIAND_SMOKE_USER`, `XIAND_SMOKE_PASSWORD`, and optionally
+   `XIAND_SMOKE_CHARACTER`. It must obtain the real account session, select the
+   character, find and execute the rendered `进入游戏` button command, then
+   verify room view, `myhp`, inventory, skills, status, equipment, battle status,
+   and start/stop the server autofight loop. For a disposable character already
+   placed in a monster map, set `XIAND_SMOKE_REQUIRE_BATTLE=1` and require a real
+   battle. Never commit smoke credentials. If a supported browser is available,
+   also click the visible button there; otherwise report API-button coverage as
+   browser-independent rather than claiming a visual browser run.
+8. Review old JSP/bookmark/TXD paths. Eternal creation without `realm_type` must
    retain its old behavior; the client cannot choose an unauthorized ID.
-8. Review the exact staged diff. Exclude player/runtime data and unrelated dirty
+9. Review the exact staged diff. Exclude player/runtime data and unrelated dirty
    files. Keep large staged rollout work on its feature branch until explicitly
    approved for main.
