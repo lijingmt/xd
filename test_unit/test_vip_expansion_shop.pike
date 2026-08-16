@@ -86,6 +86,8 @@ int main()
 	object player=create_player();
 	object confirm=(object)(ROOT+
 		"/gamelib/cmds/vip_myzone_off_confirm.pike");
+	object free_confirm=(object)(ROOT+
+		"/gamelib/cmds/vip_myzone_free_confirm.pike");
 	object upgrade_command=(object)(ROOT+
 		"/gamelib/cmds/vip_service_upgrade_list.pike");
 	object tips_command=(object)(ROOT+
@@ -167,6 +169,8 @@ int main()
 		set_this_player(player);
 		string detail_source=Stdio.read_file(ROOT+
 			"/gamelib/cmds/vip_myzone_off_detail.pike") || "";
+		string free_detail_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/vip_myzone_free_detail.pike") || "";
 		check("新旧界面特卖详情提供快捷数量和具名批量表单",
 			search(detail_source,"({1,5,10,20,50,100})")!=-1 &&
 			search(detail_source,"quick<=quick_max")!=-1 &&
@@ -174,6 +178,26 @@ int main()
 			search(detail_source,
 				"[submit 确定购买:vip_myzone_off_confirm")!=-1,
 			"特卖详情仍只能单件点击");
+		check("会员免费宝石和药水详情也提供安全批量领取",
+			search(free_detail_source,"({1,5,10,20,50,100})")!=-1 &&
+			search(free_detail_source,
+				"VIPD->query_free_good_remaining")!=-1 &&
+			search(free_detail_source,"[int no:...]")!=-1 &&
+			search(free_detail_source,
+				"[submit 确定领取:vip_myzone_free_confirm")!=-1,
+			"免费目录仍只能逐个领取或没有按服务端剩余额度展示");
+
+		free_confirm->main("yushi/binglanyushi 4 10");
+		free_confirm->main("teyao/yanmingdan 4 5");
+		check("冰蓝玉石与会员药水可以整批领取并保存为会员物品",
+			vip_item_amount(player,"binglanyushi")==10 &&
+			vip_item_amount(player,"yanmingdan")==5,
+			"免费宝石或药水批量数量不正确");
+		free_confirm->main("yushi/binglanyushi 4 40");
+		free_confirm->main("yushi/binglanyushi 4 no=0");
+		check("伪造批量参数不能突破当前VIP随身免费额度",
+			vip_item_amount(player,"binglanyushi")==10,
+			"免费物品批量领取绕过了会员随身上限");
 
 		give_suiyu(player,4000);
 		int before_yushi=YUSHID->query_all_num(player);

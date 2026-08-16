@@ -32,7 +32,29 @@ int main(string|zero arg)
 		s += goods->query_desc()+"\n";
 		s += "--------\n";
 		s += "需要："+VIPD->get_vip_name(lv)+"\n";
-		s += "[确定领取:vip_myzone_free_confirm " + goods_name + " "+ lv +"]\n";
+		if(goods->is("combine_item")){
+			int remaining=VIPD->query_free_good_remaining(me,goods,lv);
+			int capacity=SHOP_BATCHD->query_capacity(me,goods,1);
+			int quick_max=min(remaining,capacity);
+			quick_max=min(quick_max,SHOP_BATCHD->query_hard_max());
+			s += "本次可批量领取，随身剩余额度："+remaining+"个。\n";
+			if(quick_max>0){
+				foreach(({1,5,10,20,50,100}),int quick)
+					if(quick<=quick_max)
+						s += "[领"+quick+"个:vip_myzone_free_confirm "+
+							goods_name+" "+lv+" "+quick+"] ";
+				if(search(({1,5,10,20,50,100}),quick_max)==-1)
+					s += "[领取剩余额度"+quick_max+"个:"+
+						"vip_myzone_free_confirm "+goods_name+" "+lv+
+						" "+quick_max+"]";
+				s += "\n";
+			}
+			s += "自定义数量：[int no:...]\n";
+			s += "[submit 确定领取:vip_myzone_free_confirm "+goods_name+
+				" "+lv+" ...]\n";
+		}
+		else
+			s += "[确定领取:vip_myzone_free_confirm " + goods_name + " "+ lv +"]\n";
 	}
 	else
 		s += "这东西好像已经被领光了，改天再来吧！\n";

@@ -506,6 +506,19 @@ int if_can_get_freely(object player,object goods,int lv)
 		return 3;
 	return re;
 }
+
+// 免费会员物品也按实际堆叠总数计算剩余额度，供批量领取在写背包前
+// 一次性校验。上限继续沿用各VIP等级既有 query_max_yao() 规则。
+int query_free_good_remaining(object player,object goods,int lv)
+{
+	int maximum;
+	int remaining;
+	if(!player || !goods || query_active_vip_level(player)<lv)
+		return 0;
+	maximum=(int)player->query_max_yao();
+	remaining=maximum-query_off_good_inventory_amount(player,goods);
+	return remaining>0 ? remaining : 0;
+}
 /*
    方法描述：不能领取的说明信息
    变量：state 领取结果
