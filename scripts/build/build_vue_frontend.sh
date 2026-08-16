@@ -143,6 +143,17 @@ for volume in 01 02 03 04 05 06 07 08 09; do
         fail "deployed S1 story atlas is stale: volume_$volume.png"
 done
 
+for chapter_number in $(seq 1 81); do
+    chapter=$(printf '%03d' "$chapter_number")
+    [[ -s "$STORY_SOURCE_DIR/chapters/chapter_$chapter.png" ]] ||
+        fail "missing S1 chapter source illustration: chapter_$chapter.png"
+    [[ -s "$STORY_OUTPUT_DIR/chapters/chapter_$chapter.png" ]] ||
+        fail "missing deployed S1 chapter illustration: chapter_$chapter.png"
+    cmp -s "$STORY_SOURCE_DIR/chapters/chapter_$chapter.png" \
+        "$STORY_OUTPUT_DIR/chapters/chapter_$chapter.png" ||
+        fail "deployed S1 chapter illustration is stale: chapter_$chapter.png"
+done
+
 grep -Eq '^COPY[[:space:]]+web[[:space:]]+/usr/local/tomcat/webapps/ROOT' \
     "$ROOT_DIR/docker/Dockerfile.all" ||
     fail "Dockerfile.all does not copy built web assets into Tomcat"

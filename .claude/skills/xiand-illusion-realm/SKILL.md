@@ -35,7 +35,8 @@ when their surfaces are touched.
 
 - tracked cycle config: `gamelib/etc/illusion_realm.json`
 - tracked S1 story: `gamelib/etc/illusion_s1_story.json`
-- tracked nine-volume storyboard atlases: `images/illusion_s1/story/`
+- tracked nine-volume storyboard atlases and 81 chapter illustrations:
+  `images/illusion_s1/story/`
 - shared runtime phase/audit: `data_xiand/illusion_realm/runtime.json`
 - archived closed states: `data_xiand/illusion_realm/history/`
 - derived leaderboard snapshots: `data_xiand/illusion_realm/rankings/<ID>/`
@@ -126,11 +127,30 @@ Keep gameplay content data-driven:
   path agree;
 - keep story prose in the separate tracked story JSON and require its immutable
   ID/title/premise to match the cycle config before flattening it at startup;
-- use one original square 3x3 atlas per volume. Only emit
-  `[storyimg 1..9:/xd/images/illusion_s1/story/volume_NN.png]`; the JSON API,
-  Vue and every legacy HTML filter must reject traversal or an out-of-range cell;
+- keep one original square 3x3 atlas per volume for the volume index and one
+  independently rendered `chapters/chapter_NNN.png` for each chapter. Chapter
+  prose emits only `[storypic 1..81:/xd/images/illusion_s1/story/chapters/chapter_NNN.png]`;
+  the JSON API, Vue, every legacy HTML filter, build script, and Docker image
+  must reject traversal, mismatched chapter/path pairs, and out-of-range IDs;
 - require chapter reward counts to sum to exactly ten;
 - fail closed if config or runtime state is malformed.
+
+Keep S1 progression self-contained without changing Eternal-world formulas:
+
+- derive chapter minimum level as `min(story_level_cap, chapter ordinal)`;
+- after an ordered claim, top up only the missing experience required to reach
+  the next chapter level, preserving all experience already earned from combat;
+- cap S1 story growth at the configured level 69 equipment baseline;
+- align the six training tiers to levels 1/10/20/30/40/50 and every key boss to
+  its chapter level, capped at 69;
+- include level, total/current experience, life, and mana in the same claim
+  rollback as progress and cloned rewards. Never leave a level-up behind after
+  a failed save;
+- suppress the Newbie tutorial's automatic reward hook only while applying the
+  transactional story level-up. A tutorial reward is outside the chapter
+  rollback boundary and must remain manually claimable after the chapter saves;
+- never change global experience, damage, monster, VIP, or profession formulas
+  to make a cycle test pass.
 
 S1 routes are intentionally different without changing combat formulas:
 
@@ -262,12 +282,16 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
 1. Keep a 12-profession end-to-end matrix for 剑仙、羽士、诛仙、狂妖、巫妖、
    影鬼、方士、镇越、天象、灵医、无相、太极. Give every profession a fresh
    account and ordinary empty character archive; use the real `choice_profe`
-   bootstrap, enter a real cycle room, complete all configured chapter targets
+   bootstrap, enter a real cycle room, defeat a real level-appropriate S1 NPC
+   through the production `kill_quick` combat loop, complete all configured chapter targets
    through room-visit and NPC-kill recording, claim exactly ten profession
    pieces, remove starter gear, invoke real one-click set equip, save/restore,
    then settle the same archive to 永恒服 and restore again. Distribute the
-   matrix evenly across 寻星、破阵、同心. Never replace this with direct full
-   progress injection or a one-profession smoke test.
+   matrix evenly across 寻星、破阵、同心. Every chapter must start only after
+   the character naturally reached its configured minimum level, and every
+   character must finish at level 69. Never write `player->level` in the test,
+   directly inject full progress, replace combat with a kill counter, or rely on
+   a one-profession smoke test.
 2. Add focused TestUnit coverage for config, all rooms, stable multi-affinity
    grouping and catalog weights,
    entitlement denial/grant, interrupted-payment refund, multiple characters
@@ -284,6 +308,8 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    roll progress back if a checkpoint save fails.
 4. Run Vue tests and `./scripts/build/build_vue_frontend.sh` for account-center
    changes. Require the real SSR/playability test, not source-string checks alone.
+   Verify all 81 source illustrations are unique, byte-identical to their web
+   copies, and return HTTP 200 for representative early/middle/final chapters.
 5. Run `./scripts/restart_map_workers_with_testunit.sh 3`. Require the complete
    TestUnit suite to report zero failures and the final topology to be active
    with three healthy Workers.

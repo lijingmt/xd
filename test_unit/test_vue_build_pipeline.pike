@@ -276,6 +276,7 @@ void test_deployed_frontend_artifacts()
 	string dist_vue = Stdio.read_file(
 		ROOT+"/vue_source/dist/vendor/vue.global.prod.js");
 	int story_atlases_valid = 1;
+	int story_chapters_valid = 1;
 	for(int volume=1;volume<=9;volume++){
 		string filename = sprintf("volume_%02d.png",volume);
 		string source_path = ROOT+"/images/illusion_s1/story/"+filename;
@@ -283,6 +284,16 @@ void test_deployed_frontend_artifacts()
 		if(Stdio.file_size(source_path)<1024*1024 ||
 		   Stdio.read_file(source_path)!=Stdio.read_file(deployed_path))
 			story_atlases_valid = 0;
+	}
+	for(int chapter=1;chapter<=81;chapter++){
+		string filename = sprintf("chapter_%03d.png",chapter);
+		string source_path = ROOT+
+			"/images/illusion_s1/story/chapters/"+filename;
+		string deployed_path = ROOT+
+			"/web/images/illusion_s1/story/chapters/"+filename;
+		if(Stdio.file_size(source_path)<200000 ||
+		   Stdio.read_file(source_path)!=Stdio.read_file(deployed_path))
+			story_chapters_valid = 0;
 	}
 
 	if(source_js && web_js && dist_js &&
@@ -295,7 +306,8 @@ void test_deployed_frontend_artifacts()
 	   search(web_index,"playerLevelAuraClass()")==-1 &&
 	   search(dist_index,"playerLevelAuraClass()")==-1 &&
 	   search(web_index,"vendor/vue.global.prod.js?v=v")!=-1 &&
-	   search(web_index,"js/app.js?v=v")!=-1 && story_atlases_valid)
+	   search(web_index,"js/app.js?v=v")!=-1 && story_atlases_valid &&
+	   story_chapters_valid)
 		test_pass();
 	else
 		test_fail("Vue正式/历史产物缺失、过期或仍含白屏回归代码");

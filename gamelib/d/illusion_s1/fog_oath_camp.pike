@@ -2,7 +2,7 @@
 #include <gamelib/include/gamelib.h>
 inherit WAP_ROOM;
 string room_race="third";
-protected int room_level=24;
+protected int room_level=18;
 protected void create(){
 	name=object_name(this_object());
 	name_cn="雾林半药营";

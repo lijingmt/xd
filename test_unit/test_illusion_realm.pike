@@ -143,11 +143,16 @@ int main()
 		array story_chapters = ({});
 		multiset(string) story_titles = (<>);
 		multiset(string) story_atlases = (<>);
+		multiset(string) story_images = (<>);
 		int story_rewards;
 		int story_text_valid = 1;
+		int story_chapter_number;
+		int story_chapter_images_valid = 1;
 		foreach(story_volumes,mapping volume){
 			story_atlases[(string)volume["atlas"]] = 1;
 			foreach((array)volume["chapters"],mapping chapter){
+				string chapter_image;
+				story_chapter_number++;
 				story_chapters += ({chapter});
 				story_titles[(string)chapter["title"]] = 1;
 				story_rewards += (int)chapter["reward_count"];
@@ -156,6 +161,13 @@ int main()
 				   (int)chapter["active_days"]<1 ||
 				   (int)chapter["active_days"]>7)
 					story_text_valid = 0;
+				chapter_image = sprintf(
+					"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
+					story_chapter_number);
+				story_images[chapter_image] = 1;
+				if(Stdio.file_size(ROOT+"/images/"+
+				   chapter_image[sizeof("/xd/images/")..])<200000)
+					story_chapter_images_valid = 0;
 			}
 		}
 		int story_images_valid = sizeof(story_atlases)==9;
@@ -174,6 +186,10 @@ int main()
 				sizeof(story_titles),story_rewards));
 		check("九卷原创3x3故事图集完整且每卷不是占位小图",
 			story_images_valid,sprintf("atlases=%O",story_atlases));
+		check("八十一章各有唯一且非占位的独立AI剧情插画",
+			story_chapter_images_valid && sizeof(story_images)==81,
+			sprintf("images=%d valid=%d",sizeof(story_images),
+				story_chapter_images_valid));
 		check("故事配置未写入现有游戏动漫小说品牌名",
 			search(story_json_source,"暗黑")==-1 &&
 			search(story_json_source,"暴雪")==-1 &&
@@ -306,8 +322,10 @@ int main()
 			"创建页扩容可能绕过账号令牌、重复扣款或缺少中断恢复");
 		mapping story_segment = HTTP_APID->parse_bracket_content(
 			"storyimg 5:/xd/images/illusion_s1/story/volume_01.png","","");
+		mapping chapter_story_segment = HTTP_APID->parse_bracket_content(
+			"storypic 81:/xd/images/illusion_s1/story/chapters/chapter_081.png","","");
 		mapping bad_story_segment = HTTP_APID->parse_bracket_content(
-			"storyimg 10:/xd/images/illusion_s1/story/../secret.png","","");
+			"storypic 81:/xd/images/illusion_s1/story/chapters/chapter_080.png","","");
 		string html_renderer_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/html_renderer.pike") || "";
 		string html6_source = Stdio.read_file(ROOT+
@@ -318,20 +336,27 @@ int main()
 			"/lowlib/system/filter/html5.pike") || "";
 		string html6_compat_source = Stdio.read_file(ROOT+
 			"/lowlib/system/filter/html6 copy.pike") || "";
-		check("故事图集只接受固定目录的1至9格并拒绝路径穿越",
+		check("章节插画和旧图集均严格绑定编号并拒绝错配路径",
 			(string)story_segment["type"]=="story-image" &&
 			(int)story_segment["cell"]==5 &&
 			(string)story_segment["src"]==
 				"/images/illusion_s1/story/volume_01.png" &&
+			(string)chapter_story_segment["type"]=="story-image" &&
+			(int)chapter_story_segment["full"]==1 &&
+			(int)chapter_story_segment["chapter"]==81 &&
+			(string)chapter_story_segment["src"]==
+				"/images/illusion_s1/story/chapters/chapter_081.png" &&
 			(string)bad_story_segment["type"]!="story-image",
-			sprintf("valid=%O invalid=%O",story_segment,bad_story_segment));
-		check("Vue、旧JSP明暗主题、兼容副本与旧HTML5都能显示同一剧情图格",
+			sprintf("atlas=%O chapter=%O invalid=%O",story_segment,
+				chapter_story_segment,bad_story_segment));
+		check("Vue、旧JSP明暗主题、兼容副本与旧HTML5都能显示独立章节插画",
 			search(html_renderer_source,"storyimg %d")!=-1 &&
+			search(html_renderer_source,"storypic %d")!=-1 &&
 			search(html_renderer_source,"background-size:300%% 300%%")!=-1 &&
-			search(html6_source,"storyimg %d")!=-1 &&
-			search(html6_dark_source,"storyimg %d")!=-1 &&
-			search(html5_source,"storyimg %d")!=-1 &&
-			search(html6_compat_source,"storyimg %d")!=-1,
+			search(html6_source,"storypic %d")!=-1 &&
+			search(html6_dark_source,"storypic %d")!=-1 &&
+			search(html5_source,"storypic %d")!=-1 &&
+			search(html6_compat_source,"storypic %d")!=-1,
 			"某个旧界面仍会把剧情图片误渲染成命令按钮");
 		check("关闭后保留有界窗口接住最后一批跨worker到达",
 			search(season_source,"closed_reconcile_until = time()+180")!=-1 &&
@@ -777,14 +802,56 @@ int main()
 			"/gamelib/d/illusion_s1/moon_gate.pike",
 			sprintf("last=%s relife=%s",(string)child->last_pos,
 				(string)child->relife));
+		mapping fresh_story_progress = SEASONALD->query_player_progress(child);
+		mapping fresh_first_chapter = (mapping)((array)
+			fresh_story_progress["chapters"])[0];
+		mapping fresh_last_chapter = (mapping)((array)
+			fresh_story_progress["chapters"])[80];
+		check("章节运行态返回独立插画、精确怪名地点和本章增量计数",
+			(string)fresh_first_chapter["image"]==
+				"/xd/images/illusion_s1/story/chapters/chapter_001.png" &&
+			(string)fresh_last_chapter["image"]==
+				"/xd/images/illusion_s1/story/chapters/chapter_081.png" &&
+			(string)fresh_first_chapter["hunt_name"]=="逐光月灵" &&
+			(string)fresh_first_chapter["hunt_location"]=="月露原" &&
+			(int)fresh_first_chapter["chapter_kills"]>0 &&
+			(int)fresh_first_chapter["chapter_kills_done"]==0 &&
+			(string)fresh_first_chapter["target_kind"]=="hunt" &&
+			(string)fresh_first_chapter["target_room"]==
+				"/gamelib/d/illusion_s1/moon_dew_field.pike",
+			sprintf("first=%O last=%O",fresh_first_chapter,
+				fresh_last_chapter));
+		object chapter_gate = (object)(ROOT+
+			"/gamelib/d/illusion_s1/moon_gate.pike");
+		child["/tmp/illusion_move_bypass"] = 1;
+		child->move(chapter_gate);
+		child->m_delete_foruser("/tmp/illusion_move_bypass");
+		mapping future_travel = SEASONALD->travel_to_chapter_target(child,2);
+		child->set_autofight("enable");
+		mapping afk_travel = SEASONALD->travel_to_chapter_target(child,1);
+		child->set_autofight("disable");
+		mapping chapter_travel = SEASONALD->travel_to_chapter_target(child,1);
+		mapping chapter_travel_again = SEASONALD->travel_to_chapter_target(
+			child,1);
+		check("章节直达拒绝越章和挂机中移动并通过普通move安全到目标房",
+			!(int)future_travel["ok"] && !(int)afk_travel["ok"] &&
+			(int)chapter_travel["ok"] &&
+			MAP_WORKERD->static_room_locations_match(
+				file_name(environment(child)),
+				"/gamelib/d/illusion_s1/moon_dew_field.pike") &&
+			(int)chapter_travel_again["ok"] &&
+			(int)chapter_travel_again["already"],
+			sprintf("future=%O afk=%O travel=%O again=%O room=%s",
+				future_travel,afk_travel,chapter_travel,
+				chapter_travel_again,file_name(environment(child))));
 		mapping(string:string) expected_afk_routes = ([
-			"1":"illusion_s1/moon_dew_field|8",
-			"10":"illusion_s1/mist_bamboo_glen|18",
-			"20":"illusion_s1/mirror_sandbar|28",
-			"30":"illusion_s1/broken_star_court|38",
-			"40":"illusion_s1/echo_battlement|45",
-			"50":"illusion_s1/abyss_flower_sea|58",
-			"69":"illusion_s1/abyss_flower_sea|58",
+			"1":"illusion_s1/moon_dew_field|1",
+			"10":"illusion_s1/mist_bamboo_glen|10",
+			"20":"illusion_s1/mirror_sandbar|20",
+			"30":"illusion_s1/broken_star_court|30",
+			"40":"illusion_s1/echo_battlement|40",
+			"50":"illusion_s1/abyss_flower_sea|50",
+			"69":"illusion_s1/abyss_flower_sea|50",
 		]);
 		int s1_afk_routes_ok = 1;
 		foreach(indices(expected_afk_routes),string level_text){

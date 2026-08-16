@@ -211,9 +211,11 @@ async function main() {
             type: 'line',
             segments: [{
                 type: 'story-image',
-                src: '/images/illusion_s1/story/volume_09.png',
-                alt: '新月长生劫终章插画',
-                cell: 5
+                src: '/images/illusion_s1/story/chapters/chapter_081.png',
+                alt: '新月长生劫第81章插画',
+                cell: 0,
+                full: 1,
+                chapter: 81
             }]
         }]
     });
@@ -226,9 +228,9 @@ async function main() {
     assert(gameRendered.includes('equipment-panel-avatar'), 'equipment panel player aura must render');
     assert(gameRendered.includes('equipment-level-7'), 'level-200 equipment aura must render');
     assert(gameRendered.includes('equipment-rarity-7'), 'rarest equipment aura must render');
-    assert(gameRendered.includes('illusion-story-frame'), 'story atlas cell must render in the real game output');
-    assert(gameRendered.includes('background-position:50% 50%'), 'story atlas must crop the requested center cell');
-    assert(gameRendered.includes('新月长生劫终章插画'), 'story image must keep an accessible description');
+    assert(gameRendered.includes('illusion-story-frame-full'), 'full chapter artwork must render in the real game output');
+    assert(gameRendered.includes('background-size:cover'), 'independent chapter artwork must render without atlas cropping');
+    assert(gameRendered.includes('新月长生劫第81章插画'), 'story image must keep a chapter-specific accessible description');
 
     console.log(
         `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +

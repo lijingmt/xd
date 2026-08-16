@@ -3493,6 +3493,13 @@ createApp({
 		},
 
 		getStoryImageStyle(segment) {
+			if (segment?.full) {
+				return {
+					backgroundImage: `url("${this.getImageUrl(segment?.src || '')}")`,
+					backgroundPosition: 'center center',
+					backgroundSize: 'cover'
+				};
+			}
 			const cell = Math.max(1, Math.min(9, Number(segment?.cell) || 1));
 			const column = (cell - 1) % 3;
 			const row = Math.floor((cell - 1) / 3);

@@ -140,12 +140,14 @@ for (const relativePath of legacyFiles) {
 }
 log('✓ vue_source/dist', 'green');
 
-// 8. 同步S1九卷剧情图集到本地Tomcat使用的 web/images。
+// 8. 同步S1九卷母版与81张独立章节插画到本地Tomcat的 web/images。
 // Docker仍从同一份根目录 images/ 打包；这里保证非Docker本地环境与
 // 生产镜像看到完全相同的静态资源。
-log('\n8. Illusion story atlases:', 'yellow');
+log('\n8. Illusion story artwork:', 'yellow');
 const storySourceDir = path.join(__dirname, '..', 'images', 'illusion_s1', 'story');
 const storyOutputDir = path.join(__dirname, '..', 'web', 'images', 'illusion_s1', 'story');
+const storyChapterSourceDir = path.join(storySourceDir, 'chapters');
+const storyChapterOutputDir = path.join(storyOutputDir, 'chapters');
 const storyFiles = fs.existsSync(storySourceDir)
   ? fs.readdirSync(storySourceDir).filter((name) => /^volume_0[1-9]\.png$/.test(name)).sort()
   : [];
@@ -160,8 +162,28 @@ for (const filename of storyFiles) {
     throw new Error(`story atlas is unexpectedly small: ${sourcePath}`);
   }
   fs.copyFileSync(sourcePath, destinationPath);
-  log(`✓ ${filename}`, 'green');
+	log(`✓ ${filename}`, 'green');
 }
+const storyChapterFiles = fs.existsSync(storyChapterSourceDir)
+  ? fs.readdirSync(storyChapterSourceDir).filter((name) => /^chapter_0(?:[0-7][0-9]|8[01])\.png$/.test(name)).sort()
+  : [];
+if (storyChapterFiles.length !== 81) {
+  throw new Error(`expected exactly 81 S1 chapter illustrations, found ${storyChapterFiles.length}`);
+}
+fs.mkdirSync(storyChapterOutputDir, { recursive: true });
+for (let chapter = 1; chapter <= 81; chapter += 1) {
+  const filename = `chapter_${String(chapter).padStart(3, '0')}.png`;
+  if (storyChapterFiles[chapter - 1] !== filename) {
+    throw new Error(`missing sequential S1 chapter illustration: ${filename}`);
+  }
+  const sourcePath = path.join(storyChapterSourceDir, filename);
+  const destinationPath = path.join(storyChapterOutputDir, filename);
+  if (fs.statSync(sourcePath).size < 200 * 1024) {
+    throw new Error(`chapter illustration is unexpectedly small: ${sourcePath}`);
+  }
+  fs.copyFileSync(sourcePath, destinationPath);
+}
+log('✓ chapter_001.png ... chapter_081.png', 'green');
 
 // 完成
 log('\n✓ 构建完成!', 'green');

@@ -1124,11 +1124,17 @@
                                              class="mud-inline-image"
                                              :alt="segment.alt || '图片'"
 						     onerror="this.style.display='none'">
-						<div v-else-if="segment.type === 'story-image'"
-						     class="illusion-story-frame"
-						     role="img"
-						     :aria-label="segment.alt || '新月长生劫剧情插画'"
-						     :style="getStoryImageStyle(segment)" />
+						<figure v-else-if="segment.type === 'story-image'"
+						        class="illusion-story-card">
+							<div class="illusion-story-frame"
+							     :class="{ 'illusion-story-frame-full': segment.full }"
+							     role="img"
+							     :aria-label="segment.alt || '新月长生劫剧情插画'"
+							     :style="getStoryImageStyle(segment)"></div>
+							<figcaption class="illusion-story-caption">
+								{{ segment.alt || '新月长生劫剧情插画' }}
+							</figcaption>
+						</figure>
                                         <!-- 按钮 -->
                                         <a v-else-if="segment.type === 'button'"
                                            :href="htmlMode ? getDirectUrl(segment.cmd) : '#'"

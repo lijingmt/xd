@@ -159,6 +159,7 @@ string filter(zero|string s)
 		}
 		string type,name,cmd,acmd,href;
 		int story_cell;
+		int story_chapter;
 		string buf;
 		string max_size,fvalue;
 		if(sscanf(s,"[%s]",buf)){
@@ -225,6 +226,12 @@ string filter(zero|string s)
 				};
 				cmd=replace(cmd," ","+");
 				out+="<img src=\""+url+"?_filter="+type+"&_cmd="+cmd+"\" alt=\""+name+"\">";
+			}
+			else if(sscanf(buf,"storypic %d:%s",story_chapter,href)==2 &&
+			   story_chapter>=1 && story_chapter<=81 &&
+			   href==sprintf("/xd/images/illusion_s1/story/chapters/chapter_%03d.png",story_chapter)){
+				out+=sprintf("<figure style='width:100%%;max-width:544px;margin:12px auto'><img src='%s' alt='新月长生劫第%d章插画' loading='lazy' style='display:block;width:100%%;height:auto;aspect-ratio:1/1;object-fit:cover;border:2px solid #9360d8;border-radius:16px;background:#171125'><figcaption style='text-align:center;margin-top:6px;color:#6f4aa8'>第%d章剧情插画</figcaption></figure>",
+					href,story_chapter,story_chapter);
 			}
 			else if(sscanf(buf,"storyimg %d:%s",story_cell,href)==2 &&
 			   story_cell>=1 && story_cell<=9 &&

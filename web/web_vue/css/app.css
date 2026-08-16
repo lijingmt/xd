@@ -11728,13 +11728,20 @@ body {
         font-size: 20px;
     }
 }
-.illusion-story-frame {
+.illusion-story-card {
 	display: block;
 	width: min(100%, 34rem);
-	aspect-ratio: 1 / 1;
 	margin: 0.75rem auto 1rem;
+}
+
+.illusion-story-frame {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	margin: 0;
 	background-repeat: no-repeat;
 	background-size: 300% 300%;
+	background-color: #171125;
 	border: 2px solid rgba(147, 94, 255, 0.72);
 	border-radius: 16px;
 	box-shadow: 0 12px 30px rgba(31, 21, 52, 0.28),
@@ -11742,8 +11749,27 @@ body {
 	overflow: hidden;
 }
 
+.illusion-story-frame-full {
+	background-size: cover;
+	background-position: center center;
+}
+
+.illusion-story-caption {
+	display: block;
+	margin-top: 0.45rem;
+	color: #6f4aa8;
+	font-size: 0.82rem;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-align: center;
+}
+
 .dark-mode .illusion-story-frame {
 	border-color: rgba(202, 174, 255, 0.82);
 	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52),
 		0 0 28px rgba(157, 112, 255, 0.26);
+}
+
+.dark-mode .illusion-story-caption {
+	color: #d8c5f2;
 }

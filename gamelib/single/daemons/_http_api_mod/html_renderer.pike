@@ -359,12 +359,20 @@ string parse_mud_content_to_html(string response, string txd, string userid)
                     else {
                         int pos = search(content, ":");
                         if(pos > 0) {
-                            string label = content[0..pos-1];
-                            string action_cmd = content[pos+1..];
+							string label = content[0..pos-1];
+							string action_cmd = content[pos+1..];
 							int story_cell;
+							int story_chapter;
 
-							// 新月长生劫图集：旧JSP直接按3x3格裁切，和Vue一致。
-							if(sscanf(label,"storyimg %d",story_cell)==1 &&
+							if(sscanf(label,"storypic %d",story_chapter)==1 &&
+							   label=="storypic "+(string)story_chapter &&
+							   story_chapter>=1 && story_chapter<=81 &&
+							   action_cmd==sprintf("/xd/images/illusion_s1/story/chapters/chapter_%03d.png",story_chapter)){
+								html += sprintf("<figure style='width:100%%;max-width:544px;margin:12px auto'><img src='%s' alt='新月长生劫第%d章插画' loading='lazy' decoding='async' style='display:block;width:100%%;height:auto;aspect-ratio:1/1;object-fit:cover;border:2px solid #9360d8;border-radius:16px;background:#171125'><figcaption style='text-align:center;margin-top:6px;color:#6f4aa8'>第%d章剧情插画</figcaption></figure>",
+									action_cmd,story_chapter,story_chapter);
+							}
+							// 新月长生劫旧图集仍保留兼容，旧存量输出可继续显示。
+							else if(sscanf(label,"storyimg %d",story_cell)==1 &&
 							   story_cell>=1 && story_cell<=9 &&
 							   has_prefix(action_cmd,
 								"/xd/images/illusion_s1/story/volume_") &&
@@ -947,11 +955,26 @@ mapping parse_response_to_json(string response, string userid)
                     string content = part[1..<1];
                     int pos = search(content, ":");
                     if(pos > 0) {
-                        string label = content[0..pos-1];
-                        string action_cmd = content[pos+1..];
+						string label = content[0..pos-1];
+						string action_cmd = content[pos+1..];
 						int story_cell;
+						int story_chapter;
 
-						if(sscanf(label,"storyimg %d",story_cell)==1 &&
+						if(sscanf(label,"storypic %d",story_chapter)==1 &&
+						   label=="storypic "+(string)story_chapter &&
+						   story_chapter>=1 && story_chapter<=81 &&
+						   action_cmd==sprintf("/xd/images/illusion_s1/story/chapters/chapter_%03d.png",story_chapter)){
+							string story_href = action_cmd;
+							if(sscanf(story_href,"/%*s/images/%s",string story_rest)==2)
+								story_href = "/images/"+story_rest;
+							mapping img = ([
+								"type":"story-image","src":story_href,
+								"alt":"新月长生劫第"+(string)story_chapter+"章插画",
+								"cell":0,"full":1,"chapter":story_chapter,
+							]);
+							result["images"] += ({img});
+						}
+						else if(sscanf(label,"storyimg %d",story_cell)==1 &&
 						   story_cell>=1 && story_cell<=9 &&
 						   has_prefix(action_cmd,
 							"/xd/images/illusion_s1/story/volume_") &&

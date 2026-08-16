@@ -88,11 +88,18 @@ assert(buildSource.includes("'images', 'illusion_s1', 'story'"));
 assert(buildSource.includes("'web', 'images', 'illusion_s1', 'story'"));
 assert(buildSource.includes("/^volume_0[1-9]\\.png$/"));
 assert(buildSource.includes('storyFiles.length !== 9'));
+assert(buildSource.includes('storyChapterFiles.length !== 81'));
 for (let volume = 1; volume <= 9; volume += 1) {
   const filename = `volume_${String(volume).padStart(2, '0')}.png`;
   const sourcePath = path.join(rootDir, 'images', 'illusion_s1', 'story', filename);
   assert(fs.existsSync(sourcePath), `missing S1 story source atlas: ${filename}`);
   assert(fs.statSync(sourcePath).size > 1024 * 1024, `S1 story atlas is too small: ${filename}`);
+}
+for (let chapter = 1; chapter <= 81; chapter += 1) {
+  const filename = `chapter_${String(chapter).padStart(3, '0')}.png`;
+  const sourcePath = path.join(rootDir, 'images', 'illusion_s1', 'story', 'chapters', filename);
+  assert(fs.existsSync(sourcePath), `missing S1 chapter illustration: ${filename}`);
+  assert(fs.statSync(sourcePath).size > 200 * 1024, `S1 chapter illustration is too small: ${filename}`);
 }
 
 assert(indexSource.includes('<div class="auth-form">'));

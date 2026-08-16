@@ -2316,6 +2316,25 @@ mapping parse_bracket_content(string content, string txd, string userid)
 			label = content[0..pos-1];
 			action_cmd = content[pos+1..];
 			int story_cell;
+			int story_chapter;
+
+			// 八十一章各自使用独立的AI插画。章节号必须与文件名完全
+			// 一致，客户端不能借图片协议读取任意静态文件。
+			if(sscanf(label,"storypic %d",story_chapter)==1 &&
+			   label=="storypic "+(string)story_chapter &&
+			   story_chapter>=1 && story_chapter<=81 &&
+			   action_cmd==sprintf(
+				"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
+				story_chapter)){
+				string story_path = action_cmd;
+				if(sscanf(story_path,"/%*s/images/%s",string story_rest)==2)
+					story_path = "/images/"+story_rest;
+				return ([
+					"type":"story-image","src":story_path,
+					"alt":"新月长生劫第"+(string)story_chapter+"章插画",
+					"cell":0,"full":1,"chapter":story_chapter,
+				]);
+			}
 
 			// 九卷故事图使用一张严格3x3图集。服务端只接受固定
 			// 项目路径与1..9格号，Vue按格裁切，避免81张大图拖慢镜像。

@@ -104,6 +104,16 @@ private int valid_room_path(string path)
 
 private int valid_chapter(mapping chapter,string illusion_id)
 {
+	int chapter_number;
+	string expected_image;
+	if(!mappingp(chapter) || !stringp(chapter["id"]) ||
+	   sscanf((string)chapter["id"],illusion_id+"-C%d",chapter_number)!=1 ||
+	   (string)chapter["id"]!=illusion_id+"-C"+(string)chapter_number ||
+	   chapter_number<1 || chapter_number>81)
+		return 0;
+	expected_image = sprintf(
+		"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
+		chapter_number);
 	return mappingp(chapter) && stringp(chapter["id"]) &&
 		has_prefix((string)chapter["id"],illusion_id+"-C") &&
 		stringp(chapter["volume_title"]) &&
@@ -128,6 +138,10 @@ private int valid_chapter(mapping chapter,string illusion_id)
 			"/xd/images/illusion_s1/story/") &&
 		Stdio.file_size(ROOT+"/images/"+
 			((string)chapter["atlas"])[sizeof("/xd/images/")..])>0 &&
+		stringp(chapter["image"]) &&
+		(string)chapter["image"]==expected_image &&
+		Stdio.file_size(ROOT+"/images/"+
+			((string)chapter["image"])[sizeof("/xd/images/")..])>200000 &&
 		(!has_index(chapter,"story_event") ||
 			(stringp(chapter["story_event"]) &&
 			 valid_route_mark_id((string)chapter["story_event"]))) &&
@@ -145,6 +159,7 @@ private int valid_story_events(mapping candidate,string illusion_id)
 {
 	array events;
 	multiset(string) ids = (<>);
+	int story_level_cap = (int)candidate["story_level_cap"];
 	string room_prefix = "/gamelib/d/illusion_"+
 		lower_case(illusion_id)+"/";
 	string npc_prefix = "/gamelib/clone/npc/illusion_"+
@@ -178,9 +193,19 @@ private int valid_story_events(mapping candidate,string illusion_id)
 				return 0;
 		}
 		else{
+			string room = (string)event["room"];
+			string monster = (string)event["monster"];
+			int event_level = (int)event["level"];
+			if(!intp(event["level"]) ||
+			   event_level!=min(story_level_cap,chapter))
+				return 0;
 			if(!has_prefix(path,npc_prefix) || !has_suffix(path,".pike") ||
 			   search(path,"..")!=-1 || search(path,"#")!=-1 ||
 			   Stdio.file_size(ROOT+path)<=0)
+				return 0;
+			if(!valid_room_path(room) || !has_prefix(room,room_prefix) ||
+			   Stdio.file_size(ROOT+room)<=0 || sizeof(monster)<2 ||
+			   sizeof(monster)>48)
 				return 0;
 			foreach(path;int index;int one)
 				if(!((one>='a' && one<='z') ||
@@ -227,10 +252,14 @@ private mapping(string:mixed) load_story_config(mapping candidate)
 			return ([]);
 		foreach(volume_chapters;int cell_index;mapping source_chapter){
 			mapping chapter = copy_value(source_chapter);
+			int chapter_number = volume_index*9+cell_index+1;
 			chapter["volume_title"] = (string)volume["title"];
 			chapter["volume_number"] = volume_index+1;
 			chapter["atlas"] = (string)volume["atlas"];
 			chapter["image_cell"] = cell_index+1;
+			chapter["image"] = sprintf(
+				"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
+				chapter_number);
 			chapters += ({chapter});
 		}
 	}
@@ -308,6 +337,8 @@ private int valid_config(mapping candidate)
 	   sizeof((string)candidate["display_name"])<2 ||
 	   !valid_nonnegative(candidate,"duration_days",366) ||
 	   (int)candidate["duration_days"]<30 ||
+	   !valid_nonnegative(candidate,"story_level_cap",300) ||
+	   (int)candidate["story_level_cap"]<1 ||
 	   !valid_nonnegative(candidate,"entitlement_cost_suiyu",1000000) ||
 	   !valid_nonnegative(candidate,"extra_character_slot_cost_suiyu",1000000) ||
 	   (int)candidate["extra_character_slot_cost_suiyu"]!=100 ||
@@ -1095,7 +1126,7 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/starlight_slope",
 		});
 		name = "银痕初猎";
-		target_level = 8;
+		target_level = 1;
 	}
 	else if(level<20){
 		paths = ({
@@ -1104,7 +1135,7 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/moonshadow_wood",
 		});
 		name = "雾林寻星";
-		target_level = 18;
+		target_level = 10;
 	}
 	else if(level<30){
 		paths = ({
@@ -1113,7 +1144,7 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/moonwave_shoal",
 		});
 		name = "镜湖逆潮";
-		target_level = 28;
+		target_level = 20;
 	}
 	else if(level<40){
 		paths = ({
@@ -1122,7 +1153,7 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/observatory_outfield",
 		});
 		name = "折星破阵";
-		target_level = 38;
+		target_level = 30;
 	}
 	else if(level<50){
 		paths = ({
@@ -1131,7 +1162,7 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/stardust_lane",
 		});
 		name = "古城回声";
-		target_level = 45;
+		target_level = 40;
 	}
 	else{
 		paths = ({
@@ -1140,7 +1171,7 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/starfall_garden",
 		});
 		name = "深渊同辉";
-		target_level = 58;
+		target_level = 50;
 	}
 	path = paths[0];
 	return ([
@@ -1886,11 +1917,190 @@ private mapping(string:int) chapter_requirements(int index)
 	int total = sizeof((array)illusion_config["chapters"]);
 	int ordinal = index+1;
 	return ([
-		"min_level":max(1,ordinal*69/total),
+		"min_level":min((int)illusion_config["story_level_cap"],ordinal),
 		"kills":max(1,ordinal*750/total),
 		"boss_kills":ordinal*10/total,
 		"visits":max(1,ordinal*36/total),
 	]);
+}
+
+/**
+ * S1 is a one-month story realm, not a copy of Eternal-world levelling.
+ * Completing each ordered chapter tops the character up to the next story
+ * level, capped at the equipment baseline.  Existing monster experience is
+ * preserved, so active grinding reduces the top-up rather than being lost.
+ */
+private mapping(string:int) grant_chapter_story_growth(object player,
+	int chapter_number)
+{
+	int before_level;
+	int target_level;
+	int added_exp;
+	int guard;
+	int growth_ok = 1;
+	mixed old_newbie_auto_disable;
+	mixed growth_error;
+	if(!player || chapter_number<1)
+		return (["ok":0]);
+	before_level = (int)player->query_level();
+	target_level = min((int)illusion_config["story_level_cap"],
+		chapter_number+1);
+	old_newbie_auto_disable =
+		player["/tmp/newbie_tutorial/disable_auto"];
+	player["/tmp/newbie_tutorial/disable_auto"] = 1;
+	growth_error = catch{
+		while((int)player->query_level()<target_level && guard<70){
+			int need_exp = (int)player->query_levelUp_need_exp();
+			int missing_exp = need_exp-(int)player->current_exp;
+			int level_before = (int)player->query_level();
+			if(missing_exp<0)
+				missing_exp = 0;
+			player->exp += missing_exp;
+			player->current_exp += missing_exp;
+			// 新手教程发奖不属于章节领取事务。这里暂时禁止升级钩子
+			// 自动领奖，避免章节最终存档失败时留下无法回滚的额外物品。
+			player->query_if_levelup();
+			added_exp += missing_exp;
+			guard++;
+			if((int)player->query_level()<=level_before){
+				growth_ok = 0;
+				break;
+			}
+		}
+	};
+	if(old_newbie_auto_disable)
+		player["/tmp/newbie_tutorial/disable_auto"] =
+			old_newbie_auto_disable;
+	else
+		player->m_delete_foruser("/tmp/newbie_tutorial/disable_auto");
+	if(growth_error)
+		growth_ok = 0;
+	return (["ok":growth_ok &&
+		(int)player->query_level()>=target_level,
+		"before_level":before_level,
+		"after_level":(int)player->query_level(),
+		"added_exp":added_exp]);
+}
+
+// 章节狩猎提示使用与S1挂机路线相同的六档怪物。这里只描述目标，
+// 不改变怪物属性、掉落、刷新或自动战斗算法。
+private mapping(string:mixed) story_hunt_target_for_level(int level)
+{
+	if(level<10)
+		return (["kind":"hunt","name":"逐光月灵","location":"月露原",
+			"room":"/gamelib/d/illusion_s1/moon_dew_field.pike"]);
+	if(level<20)
+		return (["kind":"hunt","name":"雾纹月狼","location":"雾竹坳",
+			"room":"/gamelib/d/illusion_s1/mist_bamboo_glen.pike"]);
+	if(level<30)
+		return (["kind":"hunt","name":"镜丝月蛛","location":"镜沙洲",
+			"room":"/gamelib/d/illusion_s1/mirror_sandbar.pike"]);
+	if(level<40)
+		return (["kind":"hunt","name":"折星石卫","location":"星仪石林",
+			"room":"/gamelib/d/illusion_s1/astral_stonewood.pike"]);
+	if(level<50)
+		return (["kind":"hunt","name":"古城星魇","location":"古城广场",
+			"room":"/gamelib/d/illusion_s1/old_city_square.pike"]);
+	return (["kind":"hunt","name":"渊花异兽","location":"深月谷",
+		"room":"/gamelib/d/illusion_s1/deepmoon_valley.pike"]);
+}
+
+// 三十六处探索门槛必须给玩家一个真正尚未到过的下一站，而不是
+// 反复把人送回同一猎场。数组顺序也是剧情推荐游览顺序。
+private array(mapping(string:string)) story_exploration_targets()
+{
+	return ({
+		(["location":"S1月门营地","room":"/gamelib/d/illusion_s1/moon_gate.pike"]),
+		(["location":"月露原","room":"/gamelib/d/illusion_s1/moon_dew_field.pike"]),
+		(["location":"银苇岸","room":"/gamelib/d/illusion_s1/silver_reed_bank.pike"]),
+		(["location":"星辉坡","room":"/gamelib/d/illusion_s1/starlight_slope.pike"]),
+		(["location":"银痕小径","room":"/gamelib/d/illusion_s1/silver_path.pike"]),
+		(["location":"雾语林","room":"/gamelib/d/illusion_s1/fog_forest.pike"]),
+		(["location":"雾竹坳","room":"/gamelib/d/illusion_s1/mist_bamboo_glen.pike"]),
+		(["location":"云松谷","room":"/gamelib/d/illusion_s1/cloud_pine_hollow.pike"]),
+		(["location":"月影林","room":"/gamelib/d/illusion_s1/moonshadow_wood.pike"]),
+		(["location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike"]),
+		(["location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike"]),
+		(["location":"镜沙洲","room":"/gamelib/d/illusion_s1/mirror_sandbar.pike"]),
+		(["location":"琉水岸","room":"/gamelib/d/illusion_s1/glasswater_bank.pike"]),
+		(["location":"月潮滩","room":"/gamelib/d/illusion_s1/moonwave_shoal.pike"]),
+		(["location":"折星台","room":"/gamelib/d/illusion_s1/broken_observatory.pike"]),
+		(["location":"碎星庭","room":"/gamelib/d/illusion_s1/broken_star_court.pike"]),
+		(["location":"星仪石林","room":"/gamelib/d/illusion_s1/astral_stonewood.pike"]),
+		(["location":"观星外台","room":"/gamelib/d/illusion_s1/observatory_outfield.pike"]),
+		(["location":"回声古城","room":"/gamelib/d/illusion_s1/echo_ruins.pike"]),
+		(["location":"回音城垣","room":"/gamelib/d/illusion_s1/echo_battlement.pike"]),
+		(["location":"古城广场","room":"/gamelib/d/illusion_s1/old_city_square.pike"]),
+		(["location":"星尘巷","room":"/gamelib/d/illusion_s1/stardust_lane.pike"]),
+		(["location":"渊花庭","room":"/gamelib/d/illusion_s1/abyss_garden.pike"]),
+		(["location":"渊花海","room":"/gamelib/d/illusion_s1/abyss_flower_sea.pike"]),
+		(["location":"深月谷","room":"/gamelib/d/illusion_s1/deepmoon_valley.pike"]),
+		(["location":"坠星园","room":"/gamelib/d/illusion_s1/starfall_garden.pike"]),
+		(["location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike"]),
+		(["location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike"]),
+		(["location":"西牛万法集","room":"/gamelib/d/illusion_s1/xiniu_scripture_market.pike"]),
+		(["location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike"]),
+		(["location":"北俱不老荒原","room":"/gamelib/d/illusion_s1/beiju_longlife_waste.pike"]),
+		(["location":"北俱断誓坡","room":"/gamelib/d/illusion_s1/beiju_broken_oath.pike"]),
+		(["location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike"]),
+		(["location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike"]),
+		(["location":"东胜朝生港","room":"/gamelib/d/illusion_s1/dongsheng_morning_port.pike"]),
+		(["location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike"]),
+	});
+}
+
+private string story_event_target_room(mapping event)
+{
+	if((string)(event["kind"] || "")=="echo")
+		return (string)(event["path"] || "");
+	return (string)(event["room"] || "");
+}
+
+private mapping(string:mixed) chapter_next_target(mapping progress,
+	mapping chapter,mapping requirements,mapping story_definition,
+	int story_ready,int player_level)
+{
+	mapping target;
+	if(sizeof(story_definition) && !story_ready){
+		string event_room = story_event_target_room(story_definition);
+		target = ([
+			"kind":(string)story_definition["kind"]=="boss" ?
+				"story_boss" : "story_echo",
+			"name":(string)story_definition["kind"]=="boss" ?
+				(string)story_definition["monster"] :
+				(string)story_definition["title"],
+			"location":(string)story_definition["location"],
+			"room":event_room,
+		]);
+		return target;
+	}
+	if((int)progress["kills"]<(int)requirements["kills"] ||
+	   player_level<(int)requirements["min_level"])
+		return story_hunt_target_for_level((int)requirements["min_level"]);
+	if((int)progress["boss_kills"]<(int)requirements["boss_kills"])
+		return (["kind":"boss","name":"断桥镇星使","location":"断星桥",
+			"room":"/gamelib/d/illusion_s1/star_bridge.pike"]);
+	if(progress_visit_count(progress)<(int)requirements["visits"]){
+		mapping visited = mappingp(progress["visited"]) ?
+			(mapping)progress["visited"] : ([]);
+		foreach(story_exploration_targets(),mapping candidate)
+			if(!(int)visited[(string)candidate["room"]])
+				return (["kind":"explore","name":"探索"+
+					(string)candidate["location"],
+					"location":(string)candidate["location"],
+					"room":(string)candidate["room"]]);
+	}
+	if(story_active_day_count(progress)<(int)chapter["active_days"])
+		return (["kind":"wait","name":"等待下一个北京时间修行日",
+			"location":"S1月门营地","room":""]);
+	if((int)chapter["path_required"] && (string)progress["path"]=="")
+		return (["kind":"choice","name":"完成三途择印",
+			"location":"折星台","room":""]);
+	if((int)chapter["route_final_required"] && !route_final_ready(progress))
+		return (["kind":"route","name":"完成本期三途终章",
+			"location":"按所选命途推进","room":""]);
+	return (["kind":"ready","name":"本章目标已经完成",
+		"location":"","room":""]);
 }
 
 private int chapter_story_event_ready(mapping progress,mapping chapter)
@@ -1906,7 +2116,11 @@ private mapping chapter_status(object player,mapping progress,
 {
 	mapping claims = mappingp(progress["claims"]) ? progress["claims"] : ([]);
 	mapping requirements = chapter_requirements(index);
+	mapping previous_requirements = index>0 ? chapter_requirements(index-1) :
+		(["min_level":0,"kills":0,"boss_kills":0,"visits":0]);
 	mapping story_definition = ([]);
+	mapping hunt_target;
+	mapping target;
 	int previous_claimed = index==0 ||
 		(int)claims[(string)((array)illusion_config["chapters"])[index-1]["id"]];
 	int story_ready = chapter_story_event_ready(progress,chapter);
@@ -1929,6 +2143,9 @@ private mapping chapter_status(object player,mapping progress,
 	if((int)chapter["route_final_required"] &&
 	   !route_final_ready(progress))
 		base_ready = 0;
+	target = chapter_next_target(progress,chapter,requirements,
+		story_definition,story_ready,(int)player->query_level());
+	hunt_target = story_hunt_target_for_level((int)requirements["min_level"]);
 	return ([
 		"id":(string)chapter["id"],
 		"volume_title":(string)chapter["volume_title"],
@@ -1939,16 +2156,48 @@ private mapping chapter_status(object player,mapping progress,
 		"outro":(string)chapter["outro"],
 		"atlas":(string)chapter["atlas"],
 		"image_cell":(int)chapter["image_cell"],
+		"image":(string)chapter["image"],
 		"active_days":(int)chapter["active_days"],
 		"min_level":(int)requirements["min_level"],
 		"kills":(int)requirements["kills"],
 		"boss_kills":(int)requirements["boss_kills"],
 		"visits":(int)requirements["visits"],
+		"chapter_kills":max(0,(int)requirements["kills"]-
+			(int)previous_requirements["kills"]),
+		"chapter_kills_done":min(max(0,(int)progress["kills"]-
+			(int)previous_requirements["kills"]),
+			max(0,(int)requirements["kills"]-
+				(int)previous_requirements["kills"])),
+		"chapter_boss_kills":max(0,(int)requirements["boss_kills"]-
+			(int)previous_requirements["boss_kills"]),
+		"chapter_boss_kills_done":min(max(0,(int)progress["boss_kills"]-
+			(int)previous_requirements["boss_kills"]),
+			max(0,(int)requirements["boss_kills"]-
+				(int)previous_requirements["boss_kills"])),
+		"chapter_visits":max(0,(int)requirements["visits"]-
+			(int)previous_requirements["visits"]),
+		"chapter_visits_done":min(max(0,progress_visit_count(progress)-
+			(int)previous_requirements["visits"]),
+			max(0,(int)requirements["visits"]-
+				(int)previous_requirements["visits"])),
+		"hunt_name":(string)hunt_target["name"],
+		"hunt_location":(string)hunt_target["location"],
+		"hunt_room":(string)hunt_target["room"],
+		"boss_name":sizeof(story_definition) &&
+			(string)story_definition["kind"]=="boss" ?
+			(string)story_definition["monster"] : "断桥镇星使",
+		"boss_location":sizeof(story_definition) &&
+			(string)story_definition["kind"]=="boss" ?
+			(string)story_definition["location"] : "断星桥",
 		"story_event":(string)(chapter["story_event"] || ""),
 		"story_event_title":(string)(story_definition["title"] || ""),
 		"story_event_location":(string)(story_definition["location"] || ""),
 		"story_event_kind":(string)(story_definition["kind"] || ""),
 		"story_ready":story_ready,
+		"target_kind":(string)target["kind"],
+		"target_name":(string)target["name"],
+		"target_location":(string)target["location"],
+		"target_room":(string)target["room"],
 		"reward_count":(int)chapter["reward_count"],
 		"claimed":(int)claims[(string)chapter["id"]],
 		"ready":base_ready && previous_claimed,
@@ -2006,6 +2255,12 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 	array(string) names = ({});
 	int reward_start;
 	string profession_id;
+	int old_level;
+	int old_exp;
+	int old_current_exp;
+	int old_life;
+	int old_mofa;
+	mapping(string:int) growth;
 	if(!player || !is_active_illusion_character(player) ||
 	   (!test_bypass_phase &&
 	    (string)query_public_status()["phase"]!="active"))
@@ -2016,6 +2271,11 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		return (["ok":0,"message":"章节编号无效。"]) ;
 	progress = player_progress(player,1);
 	old_progress = copy_value(progress);
+	old_level = (int)player->query_level();
+	old_exp = (int)player->exp;
+	old_current_exp = (int)player->current_exp;
+	old_life = (int)player->get_cur_life();
+	old_mofa = (int)player->get_cur_mofa();
 	chapter = ((array)illusion_config["chapters"])[chapter_number-1];
 	status = chapter_status(player,progress,chapter,chapter_number-1);
 	if((int)status["claimed"])
@@ -2059,26 +2319,51 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		(int)chapter["reward_count"]);
 	if(chapter_number==sizeof((array)illusion_config["chapters"]))
 		claim_week["completed_at"] = time();
+	growth = grant_chapter_story_growth(player,chapter_number);
+	if(!(int)growth["ok"]){
+		foreach(granted,object item)
+			if(item) destruct(item);
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		player->level = old_level;
+		player->exp = old_exp;
+		player->current_exp = old_current_exp;
+		player->set_att_by_level();
+		player->set_life(min(old_life,(int)player->query_life_max()));
+		player->set_mofa(min(old_mofa,(int)player->query_mofa_max()));
+		return (["ok":0,"message":"章节悟境结算失败，奖励与人物等级均未改变。"]) ;
+	}
 	update_ranking_snapshot(player,progress);
 	if(!player->save_with_result()){
 		foreach(granted,object item)
 			if(item) destruct(item);
 		player[ILLUSION_PROGRESS_ROOT+"/"+
 			(string)illusion_config["current_id"]] = old_progress;
+		player->level = old_level;
+		player->exp = old_exp;
+		player->current_exp = old_current_exp;
+		player->set_att_by_level();
+		player->set_life(min(old_life,(int)player->query_life_max()));
+		player->set_mofa(min(old_mofa,(int)player->query_mofa_max()));
 		return (["ok":0,"message":"人物存档失败，奖励与领取状态已回滚。"]) ;
 	}
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|items=%d\n",
+	Stdio.append_file(ILLUSION_LOG,sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|items=%d|level_before=%d|level_after=%d|story_exp=%d\n",
 		time(),(string)illusion_config["current_id"],
-		(string)player->query_name(),(string)chapter["id"],sizeof(granted)));
+		(string)player->query_name(),(string)chapter["id"],sizeof(granted),
+		(int)growth["before_level"],(int)growth["after_level"],
+		(int)growth["added_exp"]));
 	if(!persist_ranking_snapshot(player,progress,
 	   (string)illusion_config["current_id"]))
 		werror("[ILLUSION_RANKING] 章节快照待后续补写: %s\n",
 			(string)player->query_name());
 	invalidate_ranking_cache((string)illusion_config["current_id"]);
 	return (["ok":1,"message":"【"+(string)chapter["title"]+
-		"·过关】\n[storyimg "+(string)(int)chapter["image_cell"]+":"+
-		(string)chapter["atlas"]+"]\n"+(string)chapter["outro"]+
-		(sizeof(names) ? "\n获得："+(names*"、") : ""),"items":names]);
+		"·过关】\n[storypic "+(string)chapter_number+":"+
+		(string)chapter["image"]+"]\n"+(string)chapter["outro"]+
+		((int)growth["after_level"]>(int)growth["before_level"] ?
+		 "\n章回悟境：等级提升至 "+(string)growth["after_level"]+" 级。" : "")+
+		(sizeof(names) ? "\n获得："+(names*"、") : ""),"items":names,
+		"growth":growth]);
 }
 
 mapping(string:mixed) claim_chapter_reward(object player,int chapter_number)
@@ -3353,15 +3638,66 @@ void prepare_new_character(object player)
 
 private int route_player(object player,string room_path)
 {
-	object room;
 	int moved;
-	mixed err = catch{ room=(object)(ROOT+room_path); };
-	if(err || !room)
+	mixed err;
+	if(!player || !valid_room_path(room_path) ||
+	   Stdio.file_size(ROOT+room_path)<=0)
 		return 0;
 	player["/tmp/illusion_move_bypass"] = 1;
-	err = catch{ moved=player->move(room); };
+	// 传字符串让user::move先做Worker亲和性判断。若先在来源Worker
+	// object-cast目标房间，会错误加载另一Worker拥有的房间与NPC。
+	err = catch{ moved=player->move(ROOT+room_path); };
 	player->m_delete_foruser("/tmp/illusion_move_bypass");
 	return !err && moved;
+}
+
+mapping(string:mixed) travel_to_chapter_target(object player,
+	int chapter_number)
+{
+	mapping progress;
+	mapping chapter;
+	string target_room;
+	string location;
+	string target_name;
+	string current_room;
+	int current_number;
+	int moved;
+	if(!player || !is_active_illusion_character(player) ||
+	   (string)query_public_status()["phase"]!="active")
+		return (["ok":0,"message":"只有本期幻境人物可以使用章节直达。"]);
+	progress = query_player_progress(player);
+	if(!(int)progress["ok"] || !arrayp(progress["chapters"]))
+		return (["ok":0,"message":"章节进度暂不可验证，本次没有移动人物。"]);
+	current_number = (int)progress["chapter_claimed"]+1;
+	if(chapter_number!=current_number || chapter_number<1 ||
+	   chapter_number>sizeof((array)progress["chapters"]))
+		return (["ok":0,"message":"只能直达当前正在进行的章节，不能越章或借旧章节传送。"]);
+	chapter = ((array)progress["chapters"])[chapter_number-1];
+	target_room = (string)chapter["target_room"];
+	location = (string)chapter["target_location"];
+	target_name = (string)chapter["target_name"];
+	if(target_room=="" || !is_illusion_room_path(target_room) ||
+	   !valid_room_path(target_room) || Stdio.file_size(ROOT+target_room)<=0)
+		return (["ok":0,"message":"当前目标需要先完成等待、择印或命途条件，暂时没有可直达地点。"]);
+	if(functionp(player->query_in_combat) && player->query_in_combat())
+		return (["ok":0,"message":"战斗中不能使用章节直达，请先结束当前战斗。"]);
+	if(functionp(player->query_autofight) &&
+	   (string)player->query_autofight()=="enable")
+		return (["ok":0,"message":"自动挂机运行中，请先停止挂机再前往章节目标。"]);
+	current_room = normalized_destination_path(environment(player));
+	if(current_room==target_room)
+		return (["ok":1,"already":1,"message":"你已经位于"+location+
+			"。当前目标："+target_name+"。"]);
+	moved = route_player(player,target_room);
+	if(!moved)
+		return (["ok":0,"message":"前往"+location+
+			"失败，人物仍停留在原地，请稍后重试。"]);
+	Stdio.append_file(ILLUSION_LOG,sprintf(
+		"%d|chapter_travel|illusion=%s|user=%s|chapter=%d|room=%s\n",
+		time(),(string)illusion_config["current_id"],
+		(string)player->query_name(),chapter_number,target_room));
+	return (["ok":1,"message":"正在前往"+location+"。当前目标："+
+		target_name+"；传送不会代替击杀、探索或剧情结算。"]);
 }
 
 private string settlement_receipt(object player,mapping realm)

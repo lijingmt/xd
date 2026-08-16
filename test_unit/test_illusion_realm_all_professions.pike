@@ -75,6 +75,26 @@ array(string) hunter_bosses = ({
 
 mapping(string:mapping(string:mixed)) story_events = ([]);
 
+int validate_s1_training_levels()
+{
+	mapping(string:int) expected = ([
+		"moon_wisp":1,"fog_wolf":10,"mirror_spider":20,
+		"ruin_guard":30,"star_wraith":40,"abyss_beast":50,
+	]);
+	foreach(indices(expected),string filename){
+		object|zero npc = 0;
+		mixed err = catch{ npc=clone(ROOT+
+			"/gamelib/clone/npc/illusion_s1/"+filename+".pike"); };
+		if(err || !npc || (int)npc->query_level()!=(int)expected[filename]){
+			if(npc)
+				destruct(npc);
+			return 0;
+		}
+		destruct(npc);
+	}
+	return 1;
+}
+
 int load_story_events()
 {
 	string source = Stdio.read_file(ROOT+
@@ -84,12 +104,25 @@ int load_story_events()
 	if(err || !mappingp(decoded) || !arrayp(decoded["story_events"]))
 		return 0;
 	int locations_complete = 1;
+	int boss_levels_match = 1;
+	int story_level_cap = (int)decoded["story_level_cap"];
 	foreach((array)decoded["story_events"],mapping event){
 		story_events[(string)event["id"]] = event;
 		if(sizeof((string)event["location"])<2)
 			locations_complete = 0;
+		if((string)event["kind"]=="boss"){
+			object|zero boss = 0;
+			mixed boss_error = catch{ boss=clone(ROOT+(string)event["path"]); };
+			int expected_level = min(story_level_cap,(int)event["chapter"]);
+			if(boss_error || !boss || (int)event["level"]!=expected_level ||
+			   (int)boss->query_level()!=expected_level)
+				boss_levels_match = 0;
+			if(boss)
+				destruct(boss);
+		}
 	}
-	return sizeof(story_events)==25 && locations_complete;
+	return story_level_cap==69 && sizeof(story_events)==25 &&
+		locations_complete && boss_levels_match;
 }
 
 void check(string name,int valid,string reason)
@@ -230,6 +263,101 @@ int bootstrap_character(object player,string race_id,string profession_id)
 	return !err && result &&
 		(string)player->query_raceId()==race_id &&
 		(string)player->query_profeId()==profession_id;
+}
+
+/** Every profession must be able to win its first real S1 quick battle. */
+mapping(string:mixed) run_first_s1_quick_battle(object player)
+{
+	object|zero original_player = this_player();
+	object|zero target = 0;
+	object|zero battle_room = 0;
+	object command = (object)(ROOT+
+		"/lowlib/wapmud2/cmds/kill_quick.pike");
+	string response = "";
+	int exp_before = (int)player->query_exp();
+	int kills_before = (int)SEASONALD->query_player_progress(player)["kills"];
+	int exp_after;
+	int kills_after;
+	int life_after;
+	int command_result;
+	int target_present;
+	int room_peaceful;
+	int target_life_before;
+	int target_life_after = -1;
+	int target_attack;
+	int target_defense;
+	int player_attack;
+	int player_defense;
+	mixed err = catch{
+		battle_room = clone(ROOT+
+			"/gamelib/d/illusion_s1/moon_dew_field.pike");
+		player["/tmp/illusion_move_bypass"] = 1;
+		player->move(battle_room);
+		player->m_delete_foruser("/tmp/illusion_move_bypass");
+		target = clone(ROOT+
+			"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
+		target->set_name("__testunit_s1_first_wisp__");
+		target->move(environment(player));
+		player->_clean_fight();
+		player->set_life(player->query_life_max());
+		player->set_mofa(player->query_mofa_max());
+		player->set_jingli(100);
+		player->m_delete_foruser("/tmp/qkill");
+		target_present = present(target->query_name(),battle_room,0,player)==
+			target;
+		room_peaceful = battle_room->is("peaceful");
+		target_life_before = (int)target->get_cur_life();
+		target_attack = (int)target->query_base_damage();
+		target_defense = (int)target->query_defend_power();
+		player_attack = (int)player->query_base_damage()+
+			(int)player->query_equip_damage("base_attack_main")+
+			(int)player->query_equip_damage("base_attack_other");
+		player_defense = (int)player->query_defend_power();
+		set_this_player(player);
+		command_result = command->main(target->query_name()+" 0");
+		mapping output = player->query_spliter();
+		response = mappingp(output) ? (string)(output["text"] || "") : "";
+		exp_after = (int)player->query_exp();
+		kills_after = (int)SEASONALD->query_player_progress(player)["kills"];
+		life_after = (int)player->get_cur_life();
+		if(target)
+			target_life_after = (int)target->get_cur_life();
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	move_for_test(player,"/gamelib/d/illusion_s1/moon_dew_field.pike");
+	if(battle_room){
+		foreach(all_inventory(battle_room),object item)
+			if(item) destruct(item);
+		destruct(battle_room);
+	}
+	if(err)
+		return (["ok":0,"error":describe_error(err)+" "+
+			describe_backtrace(err)]);
+	// TestUnit角色不是在线连接，NPC死亡后的find_player归属查询不会
+	// 发经验；命令完整跑到目标析构且人物存活，才代表真实战斗胜利。
+	// 任务计数及经验奖励入口由同文件后续十二职业旅程分别验证。
+	return ([
+		"ok":command_result==1 && target_present && !room_peaceful &&
+			life_after>0 && target_life_after==-1,
+		"response":response,
+		"command_result":command_result,
+		"target_present":target_present,
+		"room_peaceful":room_peaceful,
+		"life":life_after,
+		"target_life_before":target_life_before,
+		"target_life_after":target_life_after,
+		"target_attack":target_attack,
+		"target_defense":target_defense,
+		"player_attack":player_attack,
+		"player_defense":player_defense,
+		"exp_before":exp_before,
+		"exp_after":exp_after,
+		"kills_before":kills_before,
+		"kills_after":kills_after,
+	]);
 }
 
 void remove_equipped_items(object player)
@@ -390,8 +518,14 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			destruct(normal_npc);
 			return result;
 		}
-		player->level = (int)chapter["min_level"];
-		player->set_att_by_level();
+		if((int)player->query_level()<(int)chapter["min_level"]){
+			result = (["ok":0,"message":sprintf(
+				"第%d章开始前等级未由此前章节自然推进: level=%d need=%d",
+				chapter_index+1,(int)player->query_level(),
+				(int)chapter["min_level"])]);
+			destruct(normal_npc);
+			return result;
+		}
 
 		progress = SEASONALD->query_player_progress(player);
 		while((int)progress["visits"]<(int)chapter["visits"] &&
@@ -493,9 +627,15 @@ mapping(string:mixed) record_task_progress(object player,string route)
 		}
 		mapping claim = SEASONALD->claim_chapter_reward_for_test(
 			player,chapter_index+1);
-		if(!(int)claim["ok"] || (int)claim["already"]){
+		int expected_level = min(69,chapter_index+2);
+		if(!(int)claim["ok"] || (int)claim["already"] ||
+		   (int)player->query_level()!=expected_level ||
+		   !mappingp(claim["growth"]) ||
+		   (int)claim["growth"]["after_level"]!=expected_level){
 			result = (["ok":0,"message":sprintf(
-				"第%d章领取失败: %O",chapter_index+1,claim)]);
+				"第%d章领取或章回悟境失败: level=%d expected=%d claim=%O",
+				chapter_index+1,(int)player->query_level(),expected_level,
+				claim)]);
 			destruct(normal_npc);
 			return result;
 		}
@@ -573,7 +713,13 @@ void run_profession_journey(int index,mapping(string:string) profession)
 				"/gamelib/d/illusion_s1/moon_gate.pike",
 				sprintf("bootstrap=%d entered=%d route=%O level=%d last=%s relife=%s",
 				bootstrapped,entered,chosen,(int)player->query_level(),
-				(string)player->last_pos,(string)player->relife));
+					(string)player->last_pos,(string)player->relife));
+
+		mapping first_battle = run_first_s1_quick_battle(player);
+		check(profession_name+"一级空档可真实击败S1首只逐光月灵",
+			(int)first_battle["ok"],sprintf("battle=%O",first_battle));
+		if(index==6)
+			player["/plus/newbie_tutorial/step"] = 17;
 
 		if(index==0){
 			mapping survival = run_representative_survival_loop(player);
@@ -594,6 +740,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		mapping task = record_task_progress(player,route);
 		check(profession_name+"逐级完成三路线之一的全部八十一章任务",
 			(int)task["ok"] && (int)task["claims"]==81 &&
+			(int)player->query_level()==69 &&
 			(int)task["progress"]["kills"]==751 &&
 			(int)task["progress"]["boss_kills"]>=10 &&
 			(int)task["progress"]["visits"]>=36 &&
@@ -603,6 +750,11 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["event_gates_tested"]==25 &&
 			(string)task["progress"]["path"]==route,
 			sprintf("route=%s task=%O",route,task));
+		if(index==6)
+			check("章节升级事务不会越界触发方士新手奖励",
+				(int)player["/plus/newbie_tutorial/step"]==17,
+				sprintf("tutorial_step=%d",
+					(int)player["/plus/newbie_tutorial/step"]));
 		check(profession_name+"八十一章准确获得本职业十件账号绑定套装",
 			validate_newmoon_items(player,account_id,profession_id),
 			sprintf("items=%d",sizeof(query_newmoon_items(player))));
@@ -673,6 +825,8 @@ int main()
 	werror("\n========== S1十二职业从零到十件套端到端测试 ==========\n");
 	check("八十一章的二十五个关键故事事件及中文地点配置完整",
 		load_story_events(),sprintf("events=%d",sizeof(story_events)));
+	check("S1六档猎场与九名剧情首领严格贴合人物成长等级",
+		validate_s1_training_levels(),"S1怪物等级与章回成长仍有断层");
 	int profession_names_complete = 1;
 	foreach(professions,mapping profession)
 		if(TASKD->query_growth_task_profession_name(
