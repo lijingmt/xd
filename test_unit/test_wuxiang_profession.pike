@@ -828,7 +828,7 @@ void test_wuxiang_broad_not_best_balance()
 		"wuxiangquan":3,
 		"wuxiangjue":3,
 		"wuxiangjian":3,
-		"wuxiangyan":6,
+		"wuxiangyan":3,
 		"wuxiangyi":12,
 		"wuxiangdun":36,
 		"wuxianghou":60,

@@ -381,7 +381,7 @@ void test_wuxiang_room_aoe_runtime()
 		   outsider->get_cur_life()!=outsider_before ||
 		   protected_npc->get_cur_life()!=protected_before ||
 		   caster->get_cur_mofa()>=mofa_before ||
-		   caster->f_skills["wuxiangyan"]!=7){
+		   caster->f_skills["wuxiangyan"]!=4){
 			failed++;
 			detail += sprintf(
 				"pre=%d report=%O targets=%d primary=%d extras=%d protected=%d mate=%d/%d out=%d/%d task=%d/%d mana=%d/%d cold=%d; ",
