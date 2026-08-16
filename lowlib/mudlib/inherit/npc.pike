@@ -51,6 +51,12 @@ int _recovery;//怪物回血设置
 read_write(_recovery);
 int feed_time;//喂养时间
 
+// 动态怪历史上会把玩家物防倍率同时乘到怪物力量，力量又直接参与
+// 怪物物防，导致物理职业承担一层法系没有的玩家属性反向缩放。
+// 这里只记录动态缩放本身；怪物生命、攻击和实际力量仍保持旧值。
+private int dynamic_npc_physical_defense_scale = 1000;
+private int dynamic_npc_physical_defense_enabled = 0;
+
 //在城战中分类npc liaocheng于07/07/27添加                                                           
 string _type = "";
 void set_npc_type(string s){
@@ -68,6 +74,8 @@ int query_feed_time(){
 }
 
 void setup_npc(){
+	dynamic_npc_physical_defense_scale = 1000;
+	dynamic_npc_physical_defense_enabled = 0;
 	if(this_object()->query_raceId()=="human"&&this_object()->query_profeId()=="humanlike"){
 		kind_cn = "人类";
 		unit = "位";
@@ -298,6 +306,8 @@ void npc_level_define(){
 	}
 }
 void setup_npc_dongtai(object player){
+	dynamic_npc_physical_defense_scale = 1000;
+	dynamic_npc_physical_defense_enabled = 1;
 	if(this_object()->query_raceId()=="human"&&this_object()->query_profeId()=="humanlike"){
 		kind_cn = "人类";
 		unit = "位";
@@ -386,6 +396,41 @@ int query_dynamic_npc_life_scale(int npc_level,int player_defense){
 	transition_level = npc_level-100;
 	transition_ratio = (float)transition_level/(float)22;
 	return (int)(pow((float)target_multiplier,transition_ratio)*1000);
+}
+
+int query_dynamic_npc_physical_defense_enabled(){
+	return dynamic_npc_physical_defense_enabled;
+}
+
+int query_dynamic_npc_physical_defense_scale_applied(){
+	return dynamic_npc_physical_defense_scale;
+}
+
+// 只归一化由动态怪倍率放大的力量物防。装备、基础防御、Buff 与
+// 诅咒仍按原数值结算，因此不会绕过装备系统或改变控制技能效果。
+int query_player_facing_physical_defense(){
+	int current_defense;
+	int strength_defense;
+	int normalized_strength_defense;
+	int strength_multiplier = 1;
+	string profession;
+	if(!dynamic_npc_physical_defense_enabled || _boss ||
+	   dynamic_npc_physical_defense_scale<=1000)
+		return this_object()->query_defend_power();
+	profession = this_object()->query_profeId();
+	if(profession=="beast" || profession=="bird" ||
+	   profession=="fish" || profession=="amphibian" ||
+	   profession=="bugs" || profession=="dog")
+		strength_multiplier = 2;
+	current_defense = this_object()->query_defend_power();
+	strength_defense = _str*strength_multiplier;
+	normalized_strength_defense = _str*1000/
+		dynamic_npc_physical_defense_scale*strength_multiplier;
+	current_defense = current_defense-strength_defense+
+		normalized_strength_defense;
+	if(current_defense<0)
+		current_defense = 0;
+	return current_defense;
 }
 
 //该方法自动根据npc类型和等级，生成该Npc基本属性值,给动态地图使用
@@ -557,6 +602,7 @@ void npc_level_define_dongtai(object player){
 			player_defense = player->query_defend_power();
 		int defense_scale = query_dynamic_npc_defense_scale(
 			_npcLevel,player_defense);
+		dynamic_npc_physical_defense_scale = defense_scale;
 		int life_scale = query_dynamic_npc_life_scale(
 			_npcLevel,player_defense);
 		int life_strength = _str*life_scale/1000;

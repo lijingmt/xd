@@ -189,7 +189,7 @@ int main(string arg)
 		int me_defend = me->query_defend_power();
 		//怪物的
 		int ob_attack = ob->query_base_damage();
-		int ob_defend = ob->query_defend_power();
+		int ob_defend = me->query_effective_physical_defense(me,ob);
 		int ob_level = ob->query_level();
 		// random() 的上界必须为正；正常属性的既有公式与随机区间不变。
 		if(me_attack<1)

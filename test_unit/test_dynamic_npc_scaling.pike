@@ -6,6 +6,21 @@
 
 mapping(string:int) test_results = (["total":0,"passed":0,"failed":0]);
 
+array(mapping(string:string)) physical_professions = ({
+	(["race":"human","profession":"jianxian"]),
+	(["race":"human","profession":"yushi"]),
+	(["race":"human","profession":"zhuxian"]),
+	(["race":"monst","profession":"kuangyao"]),
+	(["race":"monst","profession":"wuyao"]),
+	(["race":"monst","profession":"yinggui"]),
+	(["race":"third","profession":"fangshi"]),
+	(["race":"third","profession":"zhenyue"]),
+	(["race":"third","profession":"tianxiang"]),
+	(["race":"third","profession":"lingyi"]),
+	(["race":"third","profession":"wuxiang"]),
+	(["race":"third","profession":"taiji"]),
+});
+
 void check(string name,int valid,string reason)
 {
 	test_results["total"]++;
@@ -28,6 +43,20 @@ object make_dynamic_npc(int level,int boss,int meritocrat)
 	npc->_boss = boss;
 	npc->_meritocrat = meritocrat;
 	return npc;
+}
+
+object make_physical_test_player(string name,string race,string profession,
+	int defense)
+{
+	object player = clone(GAMELIB_USER);
+	if(!player)
+		return 0;
+	player->set_name(name);
+	player->set_raceId(race);
+	player->set_profeId(profession);
+	player->setup_player(race,profession);
+	player->set_base_defend(defense);
+	return player;
 }
 
 void test_scale_boundaries()
@@ -191,6 +220,137 @@ void test_runtime_stats_and_boss_multipliers()
 		destruct(player);
 }
 
+void test_all_professions_share_dynamic_physical_defense_rule()
+{
+	array(int) levels = ({70,100,101,120,150});
+	int valid = 1;
+	string reason = "";
+	int player_index = 0;
+	foreach(physical_professions,mapping(string:string) profile){
+		object player = make_physical_test_player(
+			"__testunit_dynamic_physical_"+player_index+"__",
+			profile["race"],profile["profession"],100000);
+		if(!player){
+			valid = 0;
+			reason = "无法创建职业 "+profile["profession"];
+			break;
+		}
+		foreach(levels,int level){
+			object baseline_player = make_physical_test_player(
+				"__testunit_dynamic_baseline_"+player_index+"_"+level+"__",
+				"human","jianxian",1);
+			object baseline = make_dynamic_npc(level,0,0);
+			object scaled = make_dynamic_npc(level,0,0);
+			int expected = 0;
+			int actual = 0;
+			int effective = 0;
+			int scale = 0;
+			if(!baseline_player || !baseline || !scaled){
+				valid = 0;
+				reason = "动态怪测试对象创建失败";
+			}
+			else{
+				// 基准玩家不携带职业力量，确保动态倍率精确为1。
+				baseline_player->set_profeId("");
+				baseline->setup_npc_dongtai(baseline_player);
+				scaled->setup_npc_dongtai(player);
+				expected = baseline->query_defend_power();
+				actual = scaled->query_defend_power();
+				effective = player->query_effective_physical_defense(
+					player,scaled);
+				scale = scaled->
+					query_dynamic_npc_physical_defense_scale_applied();
+				if(abs(effective-expected)>2 || effective>actual ||
+				   (level<=100 && (scale!=1000 || effective!=actual)) ||
+				   (level>100 && (scale<=1000 || actual<=effective))){
+					valid = 0;
+					reason = sprintf(
+						"%s Lv%d scale=%d base=%d actual=%d effective=%d",
+						profile["profession"],level,scale,expected,
+						actual,effective);
+				}
+			}
+			if(baseline_player)
+				destruct(baseline_player);
+			if(baseline)
+				destruct(baseline);
+			if(scaled)
+				destruct(scaled);
+			if(!valid)
+				break;
+		}
+		destruct(player);
+		if(!valid)
+			break;
+		player_index++;
+	}
+	check("十二职业在70/100/101/120/150级共用动态物防归一规则",
+		valid,reason);
+}
+
+void test_fixed_boss_pvp_and_npc_combat_unchanged()
+{
+	object attacker = make_physical_test_player(
+		"__testunit_dynamic_boundary_attacker__","third","zhenyue",100000);
+	object target_player = make_physical_test_player(
+		"__testunit_dynamic_boundary_target__","human","jianxian",50000);
+	object fixed_npc = make_dynamic_npc(150,0,0);
+	object dynamic_boss = make_dynamic_npc(150,1,0);
+	object dynamic_npc = make_dynamic_npc(150,0,0);
+	object npc_attacker = make_dynamic_npc(150,0,0);
+	int valid = !!attacker && !!target_player && !!fixed_npc &&
+		!!dynamic_boss && !!dynamic_npc && !!npc_attacker;
+	if(valid){
+		int effective_before;
+		int effective_after;
+		fixed_npc->setup_npc();
+		dynamic_boss->setup_npc_dongtai(attacker);
+		dynamic_npc->setup_npc_dongtai(attacker);
+		npc_attacker->setup_npc();
+		effective_before = attacker->query_effective_physical_defense(
+			attacker,dynamic_npc);
+		dynamic_npc->set_base_str(500);
+		dynamic_npc->set_base_defend(777);
+		dynamic_npc->set_buff("buff",0,"defend");
+		dynamic_npc->set_buff("buff",1,333);
+		effective_after = attacker->query_effective_physical_defense(
+			attacker,dynamic_npc);
+		valid = attacker->query_effective_physical_defense(
+			attacker,target_player)==target_player->query_defend_power() &&
+			attacker->query_effective_physical_defense(
+				attacker,fixed_npc)==fixed_npc->query_defend_power() &&
+			attacker->query_effective_physical_defense(
+				attacker,dynamic_boss)==dynamic_boss->query_defend_power() &&
+			attacker->query_effective_physical_defense(
+				npc_attacker,dynamic_npc)==dynamic_npc->query_defend_power() &&
+			effective_after< dynamic_npc->query_defend_power() &&
+			effective_after==effective_before+500*2+777+333;
+	}
+	check("固定怪、Boss、PvP与NPC互殴保持原物防",
+		valid,"非动态玩家PvE边界发生变化");
+	if(attacker) destruct(attacker);
+	if(target_player) destruct(target_player);
+	if(fixed_npc) destruct(fixed_npc);
+	if(dynamic_boss) destruct(dynamic_boss);
+	if(dynamic_npc) destruct(dynamic_npc);
+	if(npc_attacker) destruct(npc_attacker);
+}
+
+void test_all_physical_entry_points_use_unified_defense()
+{
+	string fight = Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/inherit/feature/fight.pike") || "";
+	string quick = Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/cmds/kill_quick.pike") || "";
+	int helper_uses = sizeof(fight/"query_effective_physical_defense(")-1;
+	int valid = helper_uses>=4 &&
+		search(fight,"query_effective_physical_defense(attacker,target)")!=-1 &&
+		search(fight,"query_effective_physical_defense(\n\t\t\t\tthis_object(),enemy)")!=-1 &&
+		search(quick,"me->query_effective_physical_defense(me,ob)")!=-1;
+	check("普攻、物理技能、快速结算、召唤物与旧速战统一入口",
+		valid,sprintf("fight helper uses=%d",helper_uses));
+}
+
 int main()
 {
 	werror("\n=== 动态怪等级断层回归 ===\n");
@@ -198,6 +358,9 @@ int main()
 	test_no_level_101_cliff();
 	test_life_scale_transition();
 	test_runtime_stats_and_boss_multipliers();
+	test_all_professions_share_dynamic_physical_defense_rule();
+	test_fixed_boss_pvp_and_npc_combat_unchanged();
+	test_all_physical_entry_points_use_unified_defense();
 	werror("动态怪断层测试: %d通过/%d失败\n",
 		test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

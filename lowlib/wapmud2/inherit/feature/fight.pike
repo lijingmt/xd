@@ -145,6 +145,34 @@ int query_balanced_physical_damage(int raw_attack,int defend_power,
 	return result;
 }
 
+// 玩家及其战斗召唤物攻击动态怪时，去掉“玩家自身物防反向放大怪物
+// 物防”的历史耦合。固定怪、Boss、NPC互殴和PvP继续使用真实
+// query_defend_power()，所有职业共用同一入口，避免普攻/技能/速战分叉。
+int query_effective_physical_defense(object attacker,object target)
+{
+	int result;
+	int player_originated = 0;
+	object owner;
+	if(!target)
+		return 0;
+	result = target->query_defend_power();
+	if(!attacker || !target->is("npc") ||
+	   !functionp(target->query_player_facing_physical_defense))
+		return result<0 ? 0 : result;
+	if(attacker->is("player"))
+		player_originated = 1;
+	else{
+		owner = SUMMOND->query_combat_credit_owner(attacker);
+		if(owner && owner!=attacker && owner->is("player"))
+			player_originated = 1;
+	}
+	if(player_originated)
+		result = target->query_player_facing_physical_defense();
+	if(result<0)
+		result = 0;
+	return result;
+}
+
 int query_balanced_magic_damage(int raw_attack,int magic_defend,
 	int penetration)
 {
@@ -1056,7 +1084,8 @@ mapping query_pk_fast_damage_profile(object attacker,object target,
 	int critical_chance;
 
 	physical_damage = query_balanced_physical_damage(
-		attacker_profile["physical_raw"],target->query_defend_power(),
+		attacker_profile["physical_raw"],
+		query_effective_physical_defense(attacker,target),
 		attacker_profile["physical_penetration"]);
 	magic_defend = (int)target->query_equip_add("huoyan_defend");
 	current_defend = (int)target->query_equip_add("bingshuang_defend");
@@ -1075,7 +1104,7 @@ mapping query_pk_fast_damage_profile(object attacker,object target,
 	if(attacker_profile["summon_attack_raw"]>0)
 		summon_damage = query_balanced_physical_damage(
 			attacker_profile["summon_attack_raw"],
-			target->query_defend_power(),0);
+			query_effective_physical_defense(attacker,target),0);
 
 	if(attacker_profile["magic_enabled"] &&
 	   magic_damage>physical_damage){
@@ -4101,7 +4130,8 @@ private void attack(int skill_add,int skill_add_per,string type,
 					enemy->query_equip_add("renxing"));
 			}
 			////////////////加上被攻击者防御计算得到最终物理伤害值attack_a/////////////////////
-			defend = enemy->query_defend_power();
+			defend = query_effective_physical_defense(
+				this_object(),enemy);
 			//物理穿透作为有上限的无视防御伤害，由统一公式结算。
 			int wulichuantou_add=this_object()->query_equip_add("wulichuantou_add");
 			int wulichuantou_damage = query_balanced_penetration_damage(
