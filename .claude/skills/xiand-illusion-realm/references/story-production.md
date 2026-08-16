@@ -14,11 +14,16 @@ Define these inputs before editing runtime code:
 - nine volumes with nine ordered chapters each;
 - one five-beat emotional arc per chapter: situation, conflict, choice, reversal,
   and forward hook;
+- five authored opening paragraphs and three authored completion paragraphs per
+  chapter, with scene, action, dialogue, interior response, consequence, and a
+  concrete hook into the next chapter;
 - exact task target for every chapter: room visit, ordinary hunt, named boss,
   route milestone, or explicit story event;
 - reward schedule whose total and binding rules are known before implementation;
 - level curve, monster tier, route gates, and deliberate progression bottlenecks;
 - one unique chapter illustration per chapter and one 3x3 overview atlas per volume.
+- one ten-question post-campaign comprehension quiz whose score grants only
+  display-oriented story recognition, plus an optional perfect-score epilogue.
 
 Use the 9x9 structure as a pacing scaffold, not as permission to pad chapters.
 Each volume must change the world state or the player's understanding. Each chapter
@@ -42,7 +47,16 @@ Require this story schema:
   "illusion_id": "S2",
   "story_title": "original title",
   "story_premise": "original premise",
-  "version": 1,
+  "version": 2,
+  "quiz_intro": "three authored lines introducing the final reflection",
+  "quiz_epilogue": "five authored paragraphs unlocked only by a perfect score",
+  "quiz": [{
+    "id": "S2-Q1",
+    "question": "one concrete question about a witnessed story fact",
+    "options": ["four", "unique", "plausible", "choices"],
+    "answer": 2,
+    "explanation": "why the answer matters to the campaign theme"
+  }],
   "volumes": [{
     "id": "S2-V1",
     "title": "volume title",
@@ -50,8 +64,8 @@ Require this story schema:
     "chapters": [{
       "id": "S2-C1",
       "title": "chapter title",
-      "intro": "the setup and conflict",
-      "outro": "the result and next hook",
+      "intro": "five newline-separated authored paragraphs",
+      "outro": "three newline-separated authored paragraphs",
       "active_days": 1,
       "reward_count": 0
     }]
@@ -68,7 +82,11 @@ Validate before coding:
 
 - exactly 9 volumes, 81 sequential IDs, and 81 unique nonempty titles;
 - no missing or duplicate chapter number;
-- intro and outro are substantive and the ending of chapter N leads into N+1;
+- every intro has exactly five substantive authored paragraphs and every outro
+  exactly three; each paragraph must advance scene, character, choice, or
+  consequence, and the ending of chapter N must lead into N+1;
+- exactly ten sequential quiz IDs, four unique options per question, one valid
+  answer, and an explanation tied to a story fact actually shown in the prose;
 - reward counts total the designed amount and do not accidentally award twice;
 - every task room and NPC file exists and belongs to the new cycle tree;
 - every named boss maps to one event and one canonical NPC path;
@@ -77,11 +95,13 @@ Validate before coding:
 
 ## 3. Turn prose into a playable chapter
 
-Render every open chapter as exactly five readable narrative lines. In S1 this is
-done by `expanded_chapter_intro()` in
-`gamelib/single/daemons/seasonal_chard.pike`: volume theme, three chapter beats,
-and a forward hook. Keep the prose source authoritative and derive runtime display
-text deterministically; do not persist generated display prose in player saves.
+Render every open chapter as exactly five authored narrative paragraphs and every
+claimed chapter with exactly three authored completion paragraphs. Preserve the
+line breaks from the tracked story JSON in
+`gamelib/single/daemons/seasonal_chard.pike`; never replace authored prose with
+generic runtime filler such as a repeated volume theme or templated hook. Keep the
+prose source authoritative and never persist duplicate display prose in player
+saves.
 
 Give the player one primary action, `illusion_realm next`, that:
 
@@ -112,6 +132,20 @@ monster formulas to make a story test pass.
 Make recording idempotent. A duplicate request, repeated boss death callback,
 reconnect, Worker handoff, or restart must not create duplicate progress or rewards.
 Checkpoint thresholds and bosses; roll back progress if the required save fails.
+
+After all 81 ordered claims, unlock exactly ten story-comprehension questions.
+Serve one question at a time and construct the public mapping from only `id`,
+question text, and four options; the private answer key must never cross the daemon
+boundary before submission. Persist the current question, submitted choices, score,
+attempt count, last score, and best score on the same unique player archive after
+every answer. Reject stale or repeated question numbers without advancing. Starting
+an already-active attempt must resume it rather than reset or increment it. A failed
+save must roll back the answer.
+
+Prefer non-economic story rewards: score-tier display titles and a perfect-score
+epilogue. Unlimited retries are safe only when they cannot mint items, currency,
+combat attributes, leaderboard score, or repeatable economic value. A lower retry
+score must never overwrite the player's best score or remove an unlocked epilogue.
 
 ## 4. Produce original chapter artwork
 
@@ -197,6 +231,10 @@ Add focused TestUnit coverage before running a server:
 - all 81 source images exist, exceed the placeholder threshold, have unique digests,
   and equal their deployed copies;
 - all runtime chapter intros have exactly five substantive lines;
+- all runtime completion texts have exactly three substantive authored lines;
+- ten-question configuration validation, pre-completion lock, no answer leakage,
+  one-at-a-time progression, stale/replay rejection, save rollback, score-tier
+  boundaries, retry best-score retention, and perfect epilogue persistence;
 - future chapter/event attempts fail before the previous chapter is claimed;
 - zero-XP ordinary and boss kills still advance through the real NPC death hook;
 - wrong NPC, wrong room, wrong realm, duplicate callback, and nonparticipant do not;
@@ -214,7 +252,9 @@ require 12 x 81 = 972 ordered chapter traversals. For each profession:
 4. satisfy every room, kill, boss, route, and story event in order;
 5. claim the exact designed rewards and equip the full cycle set;
 6. save, destroy/reload the object, and verify progress/equipment;
-7. settle the same archive to 永恒服 and reload again.
+7. for at least one representative profession, complete all ten questions and
+   verify the score/title/epilogue after destroy/reload;
+8. settle the same archive to 永恒服 and reload again.
 
 Distribute professions across every route. Never make the test pass by directly
 writing level, injecting complete progress, calling only the daemon instead of the
@@ -250,6 +290,8 @@ Do not call a cycle story finished until all of these are true:
 - 81 ordered chapters form one coherent original story and every chapter is playable;
 - 81 reviewed independent illustrations and 9 atlases are present and deployable;
 - one primary next action can carry a new player through the entire campaign;
+- the post-campaign ten-question reflection is private-answer, idempotent,
+  restart-safe, non-farmable, and rewards comprehension by score;
 - all facts are recorded at authoritative boundaries, including zero-XP kills;
 - Vue, old JSP themes, bookmarks, phone, tablet, and desktop all remain usable;
 - all professions finish, equip, persist, reload, and settle through real flows;

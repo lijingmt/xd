@@ -538,16 +538,25 @@ mapping(string:mixed) record_task_progress(object player,string route)
 	mapping progress = SEASONALD->query_player_progress(player);
 	array chapters = (array)progress["chapters"];
 	int narrative_chapters;
+	int narrative_outros;
 	foreach(chapters,mapping story_chapter){
 		array(string) story_lines = (string)story_chapter["intro"]/"\n";
+		array(string) outro_lines = (string)story_chapter["outro"]/"\n";
 		int valid_lines = sizeof(story_lines)==5;
+		int valid_outro_lines = sizeof(outro_lines)==3;
 		foreach(story_lines,string story_line)
-			if(sizeof(String.trim_all_whites(story_line))<12)
+			if(sizeof(String.trim_all_whites(story_line))<24)
 				valid_lines = 0;
+		foreach(outro_lines,string story_line)
+			if(sizeof(String.trim_all_whites(story_line))<24)
+				valid_outro_lines = 0;
 		if(valid_lines)
 			narrative_chapters++;
+		if(valid_outro_lines)
+			narrative_outros++;
 	}
 	result["narrative_chapters"] = narrative_chapters;
+	result["narrative_outros"] = narrative_outros;
 	if(!move_for_test(player,
 	   "/gamelib/d/illusion_s1/true_name_hall.pike")){
 		destruct(normal_npc);
@@ -718,6 +727,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 	object|zero root = 0;
 	object|zero player = 0;
 	object|zero restored = 0;
+	int quiz_completed;
 	mixed err;
 
 	cleanup_account(account_id,cleanup_ids);
@@ -806,6 +816,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		check(profession_name+"逐级完成三路线之一的全部八十一章任务",
 			(int)task["ok"] && (int)task["claims"]==81 &&
 			(int)task["narrative_chapters"]==81 &&
+			(int)task["narrative_outros"]==81 &&
 			(int)player->query_level()==69 &&
 			(int)task["progress"]["kills"]==751 &&
 			(int)task["progress"]["boss_kills"]>=10 &&
@@ -826,6 +837,26 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		check(profession_name+"八十一章准确获得本职业十件账号绑定套装",
 			validate_newmoon_items(player,account_id,profession_id),
 			sprintf("items=%d",sizeof(query_newmoon_items(player))));
+		if(index==0){
+			mapping story_config = Standards.JSON.decode(Stdio.read_file(ROOT+
+				"/gamelib/etc/illusion_s1_story.json"));
+			mapping quiz_started = SEASONALD->
+				start_story_quiz_for_test(player);
+			quiz_completed = (int)quiz_started["ok"] &&
+				!has_index((mapping)quiz_started["question"],"answer");
+			for(int question=1;question<=10;question++){
+				mapping answer = SEASONALD->answer_story_quiz_for_test(
+					player,question,(int)((array)story_config["quiz"])
+						[question-1]["answer"]);
+				if(!(int)answer["ok"] || !(int)answer["correct"])
+					quiz_completed = 0;
+			}
+			mapping quiz_result = SEASONALD->query_story_quiz(player);
+			check("代表人物完成八十一章后可答完十问并获得满分阅历",
+				quiz_completed && (int)quiz_result["best_score"]==10 &&
+				(string)quiz_result["best_title"]=="人间见证者" &&
+				(int)quiz_result["perfect"],sprintf("quiz=%O",quiz_result));
+		}
 
 		mapping equipped = equip_full_set(player);
 		mapping active_skill = NEWMOON_SET_SKILLD->query_active_set_skill(player);
@@ -854,6 +885,16 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			sprintf("saved=%d restored=%d equipped=%d skill=%O",saved,
 				restored_ok,count_equipped_newmoon_items(restored),
 				restored_skill));
+		if(index==0){
+			mapping restored_quiz = SEASONALD->query_story_quiz(restored);
+			check("重启式存档重载后十问最高分、称号与满分后记不丢失",
+				quiz_completed && (int)restored_quiz["ok"] &&
+				(int)restored_quiz["best_score"]==10 &&
+				(string)restored_quiz["best_title"]=="人间见证者" &&
+				(int)restored_quiz["perfect"] &&
+				sizeof((string)restored_quiz["epilogue"])>100,
+				sprintf("quiz=%O",restored_quiz));
+		}
 
 		mapping settled = SEASONALD->settle_player_for_test(restored);
 		mapping returned_realm = ACCOUNT_CHARACTERD->
@@ -912,14 +953,24 @@ int main()
 		unauthorized);
 	mapping denied_claim = SEASONALD->claim_chapter_reward_for_test(
 		unauthorized,1);
+	mapping denied_quiz_start = SEASONALD->
+		start_story_quiz_for_test(unauthorized);
+	mapping denied_quiz_answer = SEASONALD->
+		answer_story_quiz_for_test(unauthorized,1,1);
+	int denied_quiz_save_failure = SEASONALD->
+		force_next_story_quiz_save_failure_for_test(unauthorized);
 	mapping denied_settle = SEASONALD->settle_player_for_test(unauthorized);
-	check("测试专用建角、路线、奖励与结算入口对普通账号全部失败关闭",
+	check("测试专用建角、路线、奖励、十问与结算入口对普通账号全部失败关闭",
 		!(int)denied_create["ok"] && !(int)denied_route["ok"] &&
 		!(int)denied_secret["ok"] && !(int)denied_claim["ok"] &&
+		!(int)denied_quiz_start["ok"] &&
+		!(int)denied_quiz_answer["ok"] &&
+		!denied_quiz_save_failure &&
 		!(int)denied_settle["ok"],
-		sprintf("create=%O route=%O secret=%O claim=%O settle=%O",
+		sprintf("create=%O route=%O secret=%O claim=%O quiz=%O/%O/%d settle=%O",
 			denied_create,denied_route,denied_secret,denied_claim,
-			denied_settle));
+			denied_quiz_start,denied_quiz_answer,
+			denied_quiz_save_failure,denied_settle));
 	destruct(unauthorized);
 	for(int index=0;index<sizeof(professions);index++)
 		run_profession_journey(index,professions[index]);

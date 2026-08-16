@@ -145,8 +145,11 @@ int main()
 		multiset(string) story_atlases = (<>);
 		multiset(string) story_images = (<>);
 		multiset(string) story_image_digests = (<>);
+		multiset(string) story_intros = (<>);
+		multiset(string) story_outros = (<>);
 		int story_rewards;
 		int story_text_valid = 1;
+		int story_novel_structure_valid = 1;
 		int story_chapter_number;
 		int story_chapter_images_valid = 1;
 		foreach(story_volumes,mapping volume){
@@ -158,12 +161,26 @@ int main()
 				story_chapter_number++;
 				story_chapters += ({chapter});
 				story_titles[(string)chapter["title"]] = 1;
+				story_intros[(string)chapter["intro"]] = 1;
+				story_outros[(string)chapter["outro"]] = 1;
 				story_rewards += (int)chapter["reward_count"];
+				array(string) intro_lines = (string)chapter["intro"]/"\n";
+				array(string) outro_lines = (string)chapter["outro"]/"\n";
 				if(sizeof((string)chapter["intro"])<20 ||
 				   sizeof((string)chapter["outro"])<20 ||
 				   (int)chapter["active_days"]<1 ||
 				   (int)chapter["active_days"]>7)
 					story_text_valid = 0;
+				if(sizeof(intro_lines)!=5 || sizeof(outro_lines)!=3 ||
+				   sizeof((string)chapter["intro"])<180 ||
+				   sizeof((string)chapter["outro"])<96)
+					story_novel_structure_valid = 0;
+				foreach(intro_lines,string line)
+					if(sizeof(String.trim_all_whites(line))<24)
+						story_novel_structure_valid = 0;
+				foreach(outro_lines,string line)
+					if(sizeof(String.trim_all_whites(line))<24)
+						story_novel_structure_valid = 0;
 				chapter_image = sprintf(
 					"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
 					story_chapter_number);
@@ -188,12 +205,47 @@ int main()
 				atlas[sizeof("/xd/images/")..])<1024*1024)
 				story_images_valid = 0;
 		check("原创长篇故事固定为九卷八十一章、活跃日元数据与十件奖励",
+			(int)story_config["version"]==2 &&
 			sizeof(story_volumes)==9 && sizeof(story_chapters)==81 &&
 			sizeof(story_titles)==81 && story_rewards==10 &&
 			story_text_valid && (int)story_chapters[-1]["active_days"]==7,
 			sprintf("volumes=%d chapters=%d titles=%d rewards=%d",
 				sizeof(story_volumes),sizeof(story_chapters),
 				sizeof(story_titles),story_rewards));
+		check("八十一章均为人工五段章前正文与三段过关回响且互不重复",
+			story_novel_structure_valid && sizeof(story_intros)==81 &&
+			sizeof(story_outros)==81 &&
+			search(story_json_source,"【行旅推进】")==-1 &&
+			search(story_json_source,"【本章悬念】")==-1,
+			sprintf("structure=%d intros=%d outros=%d",
+				story_novel_structure_valid,sizeof(story_intros),
+				sizeof(story_outros)));
+		array story_quiz = (array)story_config["quiz"];
+		int story_quiz_valid = sizeof(story_quiz)==10;
+		foreach(story_quiz;int quiz_index;mapping question){
+			multiset(string) options = (<>);
+			if((string)question["id"]!="S1-Q"+(string)(quiz_index+1) ||
+			   !arrayp(question["options"]) ||
+			   sizeof((array)question["options"])!=4 ||
+			   (int)question["answer"]<1 || (int)question["answer"]>4 ||
+			   sizeof((string)question["question"])<12 ||
+			   sizeof((string)question["explanation"])<12)
+				story_quiz_valid = 0;
+			foreach((array)question["options"],string option)
+				options[option] = 1;
+			if(sizeof(options)!=4)
+				story_quiz_valid = 0;
+		}
+		check("终章十问题库、四项选择、答案与满分后记配置完整",
+			story_quiz_valid &&
+			sizeof((string)story_config["quiz_intro"]/"\n")==3 &&
+			sizeof((string)story_config["quiz_epilogue"] / "\n")==5 &&
+			SEASONALD->query_story_quiz_title_for_test(0)=="初闻长生" &&
+			SEASONALD->query_story_quiz_title_for_test(5)=="记得来路" &&
+			SEASONALD->query_story_quiz_title_for_test(7)=="四洲知卷" &&
+			SEASONALD->query_story_quiz_title_for_test(9)=="月下解卷" &&
+			SEASONALD->query_story_quiz_title_for_test(10)=="人间见证者",
+			sprintf("quiz=%d valid=%d",sizeof(story_quiz),story_quiz_valid));
 		check("九卷原创3x3故事图集完整且每卷不是占位小图",
 			story_images_valid,sprintf("atlases=%O",story_atlases));
 		check("八十一章各有唯一且非占位的独立AI剧情插画",
@@ -301,6 +353,17 @@ int main()
 			search(season_source,"本轮打怪已经完成，自动挂机已暂停")!=-1 &&
 			search(season_source,"等待下一个北京时间修行日")==-1,
 			"章节仍需玩家手工找地图、找挂机入口、找领取按钮或等待跨日");
+		check("终章十问有开始、逐题提交、重试和满分后记入口且题面不返回答案",
+			search(player_command_source,"parts[0]==\"quiz\"")!=-1 &&
+			search(player_command_source,
+				"illusion_realm quiz answer ")!=-1 &&
+			search(player_command_source,
+				"[重新挑战十问:illusion_realm quiz start]")!=-1 &&
+			search(player_command_source,"满分后记·山门雪霁")!=-1 &&
+			search(season_source,"public_story_quiz_question")!=-1 &&
+			search(season_source,
+				"\"options\":copy_value((array)question[\"options\"])")!=-1,
+			"长生十问命令链不完整或公开题面可能携带服务端答案");
 		check("幻境资格购买不重复获取非递归账号锁",
 			search(player_command_source,
 				"purchase_entitlement(me)")!=-1 &&
@@ -872,6 +935,8 @@ int main()
 			fresh_story_progress["chapters"])[0];
 		mapping fresh_last_chapter = (mapping)((array)
 			fresh_story_progress["chapters"])[80];
+		mapping locked_quiz = SEASONALD->query_story_quiz(child);
+		mapping locked_quiz_start = SEASONALD->start_story_quiz_for_test(child);
 		int five_line_story_chapters;
 		foreach((array)fresh_story_progress["chapters"],mapping story_chapter){
 			array(string) story_lines = (string)story_chapter["intro"]/"\n";
@@ -899,6 +964,10 @@ int main()
 		check("八十一章运行态均展开为五段厚叙事且没有空白短行",
 			five_line_story_chapters==81,
 			sprintf("five_line_chapters=%d",five_line_story_chapters));
+		check("未完成八十一章不能越权开启长生十问",
+			(int)locked_quiz["ok"] && !(int)locked_quiz["unlocked"] &&
+			!(int)locked_quiz_start["ok"],
+			sprintf("query=%O start=%O",locked_quiz,locked_quiz_start));
 		object chapter_gate = (object)(ROOT+
 			"/gamelib/d/illusion_s1/moon_gate.pike");
 		child["/tmp/illusion_move_bypass"] = 1;
@@ -1414,6 +1483,85 @@ int main()
 			count_newmoon_items(child)==10,
 			sprintf("claims=%d items=%d duplicate=%O",claims_ok,
 				count_newmoon_items(child),duplicate_claim));
+		int quiz_start_failure_armed = SEASONALD->
+			force_next_story_quiz_save_failure_for_test(child);
+		mapping quiz_failed_start = SEASONALD->
+			start_story_quiz_for_test(child);
+		mapping quiz_after_failed_start = SEASONALD->query_story_quiz(child);
+		check("十问开始写盘失败会回滚且不误增挑战次数",
+			quiz_start_failure_armed && !(int)quiz_failed_start["ok"] &&
+			(string)quiz_after_failed_start["status"]=="ready" &&
+			(int)quiz_after_failed_start["attempts"]==0,
+			sprintf("failed=%O after=%O",quiz_failed_start,
+				quiz_after_failed_start));
+		mapping quiz_started = SEASONALD->start_story_quiz_for_test(child);
+		mapping quiz_started_again = SEASONALD->
+			start_story_quiz_for_test(child);
+		mapping quiz_first_question = (mapping)quiz_started["question"];
+		int quiz_answer_private = !has_index(quiz_first_question,"answer") &&
+			!has_index(quiz_first_question,"explanation");
+		int quiz_answer_failure_armed = SEASONALD->
+			force_next_story_quiz_save_failure_for_test(child);
+		mapping quiz_failed_answer = SEASONALD->answer_story_quiz_for_test(
+			child,1,(int)((array)story_config["quiz"])[0]["answer"]);
+		mapping quiz_after_failed_answer = SEASONALD->query_story_quiz(child);
+		check("十问答题写盘失败会回滚且同一题可以安全重提",
+			quiz_answer_failure_armed && !(int)quiz_failed_answer["ok"] &&
+			(string)quiz_after_failed_answer["status"]=="active" &&
+			(int)((mapping)quiz_after_failed_answer["question"])["number"]==1 &&
+			(int)quiz_after_failed_answer["current_score"]==0,
+			sprintf("failed=%O after=%O",quiz_failed_answer,
+				quiz_after_failed_answer));
+		mapping quiz_first_answer = SEASONALD->answer_story_quiz_for_test(
+			child,1,(int)((array)story_config["quiz"])[0]["answer"]);
+		mapping quiz_replayed = SEASONALD->answer_story_quiz_for_test(
+			child,1,(int)((array)story_config["quiz"])[0]["answer"]);
+		int quiz_perfect_answers_ok = (int)quiz_first_answer["ok"] &&
+			(int)quiz_first_answer["correct"] && !(int)quiz_replayed["ok"];
+		for(int question=2;question<=10;question++){
+			mapping answered = SEASONALD->answer_story_quiz_for_test(
+				child,question,(int)((array)story_config["quiz"])
+					[question-1]["answer"]);
+			if(!(int)answered["ok"] || !(int)answered["correct"])
+				quiz_perfect_answers_ok = 0;
+		}
+		mapping quiz_perfect = SEASONALD->query_story_quiz(child);
+		check("十问题面不泄露答案、重复题号不推进且满分解锁后记",
+			(int)quiz_started["ok"] &&
+			(string)quiz_started["status"]=="active" &&
+			(int)quiz_started["attempts"]==1 &&
+			(int)quiz_started_again["already"] &&
+			(int)quiz_started_again["attempts"]==1 &&
+			quiz_answer_private && quiz_perfect_answers_ok &&
+			(string)quiz_perfect["status"]=="completed" &&
+			(int)quiz_perfect["last_score"]==10 &&
+			(int)quiz_perfect["best_score"]==10 &&
+			(string)quiz_perfect["best_title"]=="人间见证者" &&
+			(int)quiz_perfect["perfect"] &&
+			sizeof((string)quiz_perfect["epilogue"])>100,
+			sprintf("start=%O again=%O replay=%O perfect=%O",
+				quiz_started,quiz_started_again,quiz_replayed,quiz_perfect));
+		mapping quiz_retry = SEASONALD->start_story_quiz_for_test(child);
+		int quiz_retry_ok = (int)quiz_retry["ok"] &&
+			(int)quiz_retry["attempts"]==2 &&
+			(string)quiz_retry["best_title"]=="人间见证者";
+		for(int question=1;question<=10;question++){
+			int answer = (int)((array)story_config["quiz"])
+				[question-1]["answer"];
+			mapping answered = SEASONALD->answer_story_quiz_for_test(
+				child,question,answer%4+1);
+			if(!(int)answered["ok"] || (int)answered["correct"])
+				quiz_retry_ok = 0;
+		}
+		mapping quiz_after_retry = SEASONALD->query_story_quiz(child);
+		check("十问可重试但低分不覆盖最高分或重复发放数值奖励",
+			quiz_retry_ok && (int)quiz_after_retry["attempts"]==2 &&
+			(int)quiz_after_retry["last_score"]==0 &&
+			(int)quiz_after_retry["best_score"]==10 &&
+			(string)quiz_after_retry["best_title"]=="人间见证者" &&
+			count_newmoon_items(child)==10,
+			sprintf("retry=%O after=%O items=%d",quiz_retry,
+				quiz_after_retry,count_newmoon_items(child)));
 		mapping live_set_board = SEASONALD->query_illusion_leaderboard(
 			"S1","set","overall",20);
 		mapping child_set_row = ([]);
@@ -1428,6 +1576,9 @@ int main()
 			(int)child_set_row["score"]==10 &&
 			!has_index(child_set_row,"account_id"),
 			sprintf("board=%O child=%O",live_set_board,child_set_row));
+		// 十问故障注入会用深拷贝恢复整个历程；后续测试必须重新取得
+		// 人物档案里的现行 mapping，不能继续修改回滚前的旧引用。
+		hunter_progress = child["/plus/illusion_realm/S1"];
 		hunter_progress["season_starts_at"] = time()-8*86400;
 		if(!mappingp(hunter_progress["ranking_weeks"]))
 			hunter_progress["ranking_weeks"] = ([]);

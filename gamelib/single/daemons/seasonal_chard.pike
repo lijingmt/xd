@@ -38,18 +38,8 @@ private int runtime_valid = 1;
 private int last_closed_reconcile_revision = -1;
 private int closed_reconcile_until;
 private mapping(string:mapping(string:mixed)) ranking_cache = ([]);
-
-private array(string) story_volume_themes = ({
-	"南瞻的雪、名榜与寿契把同一个问题推到你面前：凡人究竟该怎样面对有限的一生。",
-	"雾林把嘲笑放大，也把陌生人之间最微小的善意照得格外清楚。",
-	"万法集把功法、师承和名字都标上价码，逼你判断什么能够买卖、什么绝不能出让。",
-	"倒月镜湖让被遮住的旧事重新浮出水面，师徒、故人与背叛开始拥有第二种解释。",
-	"北俱冰原以遗忘换取不老，你必须在没有昨日的世界里守住仍值得记住的人。",
-	"断星城把兄弟推到彼此的刀锋前，真正的信任不再靠誓言，而靠真相之后的再次选择。",
-	"东胜朝生港让每一天都像新生，也让你看见永远年轻未必等于真正活过。",
-	"月宫把四洲的代价收进同一座炉，你一路追逐的长生方终于显出隐藏的毒。",
-	"归真之路要求每个人亲自承担选择，最后的答案不再属于英雄一人，而属于仍愿回头的众生。",
-});
+// 仅供 TestUnit 注入一次十问存档失败，不对游戏命令或 HTTP API 暴露。
+private mapping(string:int) story_quiz_test_save_failures = ([]);
 
 private mapping(string:string) ranking_names = ([
 	"journey":"幻境征途榜","level":"境界榜","experience":"经验榜",
@@ -114,41 +104,41 @@ private int valid_room_path(string path)
 	return 1;
 }
 
-/**
- * 把每章原有的密集段落展开为五段可阅读叙事。原文的三层动作完整保留，
- * 再补入本卷命题和本章悬念；PC 宽屏不再挤成一条长句，手机也能按
- * 呼吸点逐行阅读。
- */
-private string expanded_chapter_intro(mapping chapter,int volume_number,
-	int chapter_number)
+/** 保留作者人工编排的章回段落，只清理段首段尾空白。 */
+private string normalize_novel_section(string source)
 {
-	string source = replace((string)chapter["intro"],"\n"," ");
-	array(string) sentences = ({});
 	array(string) lines;
-	string merged;
-	int i;
-	foreach(source/"。",string sentence){
-		sentence = String.trim_all_whites(sentence);
-		if(sentence!="")
-			sentences += ({sentence+"。"});
+	lines = ({});
+	foreach(source/"\n",string line){
+		line = String.trim_all_whites(line);
+		if(line!="")
+			lines += ({line});
 	}
-	if(!sizeof(sentences))
-		sentences = ({source});
-	while(sizeof(sentences)<3)
-		sentences += ({"月纹没有给出捷径，只把这一步选择如实记下。"});
-	if(sizeof(sentences)>3){
-		merged = "";
-		for(i=2;i<sizeof(sentences);i++)
-			merged += sentences[i];
-		sentences = ({sentences[0],sentences[1],merged});
-	}
-	lines = ({
-		"【行旅推进】"+story_volume_themes[volume_number-1],
-		sentences[0],sentences[1],sentences[2],
-		"【本章悬念】第"+(string)chapter_number+"章「"+
-			(string)chapter["title"]+"」不是一段旁观往事；你的战斗、探索与选择，都会写进长生劫最后的答案。",
-	});
 	return lines*"\n";
+}
+
+/** 章前五段、过关三段；每段必须有足够的场景与人物细节。 */
+private int valid_novel_section(mixed value,int expected_lines,
+	int minimum_line_size,int minimum_total_size)
+{
+	array(string) lines;
+	int total_size;
+	if(!stringp(value))
+		return 0;
+	lines = ({});
+	foreach(((string)value)/"\n",string line){
+		line = String.trim_all_whites(line);
+		if(line!="")
+			lines += ({line});
+	}
+	if(sizeof(lines)!=expected_lines)
+		return 0;
+	foreach(lines,string line){
+		if(sizeof(line)<minimum_line_size)
+			return 0;
+		total_size += sizeof(line);
+	}
+	return total_size>=minimum_total_size;
 }
 
 private int valid_chapter(mapping chapter,string illusion_id)
@@ -170,9 +160,9 @@ private int valid_chapter(mapping chapter,string illusion_id)
 		sizeof((string)chapter["volume_title"])<=96 &&
 		stringp(chapter["title"]) && sizeof((string)chapter["title"])>0 &&
 		sizeof((string)chapter["title"])<=64 &&
-		stringp(chapter["intro"]) && sizeof((string)chapter["intro"])>=20 &&
+		valid_novel_section(chapter["intro"],5,24,180) &&
 		sizeof((string)chapter["intro"])<=4096 &&
-		stringp(chapter["outro"]) && sizeof((string)chapter["outro"])>=20 &&
+		valid_novel_section(chapter["outro"],3,24,96) &&
 		sizeof((string)chapter["outro"])<=4096 &&
 		valid_nonnegative(chapter,"active_days",30) &&
 		(int)chapter["active_days"]>=1 &&
@@ -202,6 +192,53 @@ private int valid_chapter(mapping chapter,string illusion_id)
 			(intp(chapter["route_final_required"]) &&
 			 ((int)chapter["route_final_required"]==0 ||
 			  (int)chapter["route_final_required"]==1)));
+}
+
+/**
+ * 十问答案只保存在服务端配置；公开查询会重新组装题面，绝不把 answer
+ * 字段下发给命令层或 HTTP 客户端。
+ */
+private int valid_story_quiz(mapping decoded,string illusion_id)
+{
+	array quiz;
+	multiset(string) ids = (<>);
+	if(!valid_novel_section(decoded["quiz_intro"],3,20,90) ||
+	   !valid_novel_section(decoded["quiz_epilogue"],5,24,180) ||
+	   !arrayp(decoded["quiz"]))
+		return 0;
+	quiz = (array)decoded["quiz"];
+	if(sizeof(quiz)!=10)
+		return 0;
+	foreach(quiz;int index;mapping question){
+		string id = (string)question["id"];
+		array options;
+		multiset(string) option_values = (<>);
+		if(id!=illusion_id+"-Q"+(string)(index+1) || ids[id] ||
+		   !stringp(question["question"]) ||
+		   sizeof((string)question["question"])<12 ||
+		   sizeof((string)question["question"])>256 ||
+		   !arrayp(question["options"]) ||
+		   !intp(question["answer"]) ||
+		   (int)question["answer"]<1 || (int)question["answer"]>4 ||
+		   !stringp(question["explanation"]) ||
+		   sizeof((string)question["explanation"])<12 ||
+		   sizeof((string)question["explanation"])>512)
+			return 0;
+		options = (array)question["options"];
+		if(sizeof(options)!=4)
+			return 0;
+		foreach(options,mixed option){
+			string value;
+			if(!stringp(option))
+				return 0;
+			value = String.trim_all_whites((string)option);
+			if(sizeof(value)<2 || sizeof(value)>128 || option_values[value])
+				return 0;
+			option_values[value] = 1;
+		}
+		ids[id] = 1;
+	}
+	return 1;
 }
 
 private int valid_story_events(mapping candidate,string illusion_id)
@@ -281,10 +318,11 @@ private mapping(string:mixed) load_story_config(mapping candidate)
 		return ([]);
 	source = Stdio.read_file(ILLUSION_STORY_CONFIG);
 	err = catch{ decoded=Standards.JSON.decode(source); };
-	if(err || !mappingp(decoded) || (int)decoded["version"]!=1 ||
+	if(err || !mappingp(decoded) || (int)decoded["version"]!=2 ||
 	   (string)decoded["illusion_id"]!=(string)candidate["current_id"] ||
 	   (string)decoded["story_title"]!=(string)candidate["story_title"] ||
 	   (string)decoded["story_premise"]!=(string)candidate["story_premise"] ||
+	   !valid_story_quiz((mapping)decoded,(string)candidate["current_id"]) ||
 	   !arrayp(decoded["volumes"]) ||
 	   sizeof((array)decoded["volumes"])!=9)
 		return ([]);
@@ -309,8 +347,10 @@ private mapping(string:mixed) load_story_config(mapping candidate)
 			chapter["image"] = sprintf(
 				"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
 				chapter_number);
-			chapter["intro"] = expanded_chapter_intro(chapter,
-				volume_index+1,chapter_number);
+			chapter["intro"] = normalize_novel_section(
+				(string)chapter["intro"]);
+			chapter["outro"] = normalize_novel_section(
+				(string)chapter["outro"]);
 			chapters += ({chapter});
 		}
 	}
@@ -318,6 +358,11 @@ private mapping(string:mixed) load_story_config(mapping candidate)
 		return ([]);
 	candidate = copy_value(candidate);
 	candidate["chapters"] = chapters;
+	candidate["story_quiz"] = copy_value((array)decoded["quiz"]);
+	candidate["quiz_intro"] = normalize_novel_section(
+		(string)decoded["quiz_intro"]);
+	candidate["quiz_epilogue"] = normalize_novel_section(
+		(string)decoded["quiz_epilogue"]);
 	return candidate;
 }
 
@@ -1584,6 +1629,28 @@ private int is_test_illusion_player(object player)
 		has_prefix((string)player->query_name(),"xd99testunitillusion");
 }
 
+/** TestUnit 用的一次性故障注入，验证十问写盘失败时状态完整回滚。 */
+int force_next_story_quiz_save_failure_for_test(object player)
+{
+	string player_name;
+	if(!is_test_illusion_player(player))
+		return 0;
+	player_name = (string)player->query_name();
+	story_quiz_test_save_failures[player_name] = 1;
+	return 1;
+}
+
+private int save_story_quiz_player(object player)
+{
+	string player_name = (string)player->query_name();
+	if(is_test_illusion_player(player) &&
+	   (int)story_quiz_test_save_failures[player_name]>0){
+		m_delete(story_quiz_test_save_failures,player_name);
+		return 0;
+	}
+	return player->save_with_result();
+}
+
 private int is_illusion_progress_checkpoint(mapping progress,
 	int boss_kill,int route_mark_added,int previous_team_kills,
 	int activity_day_added,int story_event_added)
@@ -2272,14 +2339,292 @@ private mapping(string:mixed) chapter_progress_guide(object player,
 		"\n[▶ 下一步：继续本章:illusion_realm next]\n"]);
 }
 
+private int story_all_chapters_claimed(mapping progress)
+{
+	mapping claims = mappingp(progress["claims"]) ?
+		(mapping)progress["claims"] : ([]);
+	foreach((array)illusion_config["chapters"],mapping chapter)
+		if((int)claims[(string)chapter["id"]]<=0)
+			return 0;
+	return sizeof((array)illusion_config["chapters"])==81;
+}
+
+/** 分数奖励均为展示称号，不改变战斗或经济数值。 */
+private string story_quiz_title(int score)
+{
+	if(score>=10)
+		return "人间见证者";
+	if(score>=9)
+		return "月下解卷";
+	if(score>=7)
+		return "四洲知卷";
+	if(score>=5)
+		return "记得来路";
+	return "初闻长生";
+}
+
+string query_story_quiz_title_for_test(int score)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || score<0 || score>10)
+		return "";
+	return story_quiz_title(score);
+}
+
+private int valid_story_quiz_progress(mixed raw)
+{
+	mapping state;
+	array choices;
+	string status;
+	if(!mappingp(raw))
+		return 0;
+	state = (mapping)raw;
+	if(sizeof(state)>16 || (int)state["version"]!=1 ||
+	   !intp(state["attempts"]) || (int)state["attempts"]<1 ||
+	   (int)state["attempts"]>100000 ||
+	   !intp(state["current"]) || (int)state["current"]<0 ||
+	   (int)state["current"]>10 ||
+	   !intp(state["score"]) || (int)state["score"]<0 ||
+	   (int)state["score"]>10 ||
+	   !intp(state["last_score"]) || (int)state["last_score"]<0 ||
+	   (int)state["last_score"]>10 ||
+	   !intp(state["best_score"]) || (int)state["best_score"]<0 ||
+	   (int)state["best_score"]>10 ||
+	   !intp(state["started_at"]) || (int)state["started_at"]<1 ||
+	   !intp(state["completed_at"]) || (int)state["completed_at"]<0 ||
+	   !stringp(state["status"]) || !arrayp(state["choices"]))
+		return 0;
+	status = (string)state["status"];
+	choices = (array)state["choices"];
+	if(search(({"active","completed"}),status)==-1 ||
+	   sizeof(choices)!=(int)state["current"] || sizeof(choices)>10 ||
+	   (int)state["score"]>sizeof(choices) ||
+	   (status=="active" && (int)state["current"]>=10) ||
+	   (status=="completed" && (int)state["current"]!=10) ||
+	   (status=="completed" &&
+	    (int)state["best_score"]<(int)state["last_score"]) ||
+	   (status=="completed" && (int)state["completed_at"]<1) ||
+	   (status=="active" && (int)state["completed_at"]!=0))
+		return 0;
+	foreach(choices,mixed choice)
+		if(!intp(choice) || (int)choice<1 || (int)choice>4)
+			return 0;
+	return 1;
+}
+
+private mapping(string:mixed) public_story_quiz_question(int index)
+{
+	array quiz = (array)illusion_config["story_quiz"];
+	mapping question;
+	if(index<0 || index>=sizeof(quiz))
+		return ([]);
+	question = (mapping)quiz[index];
+	return ([
+		"id":(string)question["id"],
+		"number":index+1,
+		"total":sizeof(quiz),
+		"question":(string)question["question"],
+		"options":copy_value((array)question["options"]),
+	]);
+}
+
+private mapping(string:mixed) story_quiz_public_view(mapping progress)
+{
+	mapping result = ([
+		"ok":1,"unlocked":story_all_chapters_claimed(progress),
+		"intro":(string)illusion_config["quiz_intro"],
+		"status":"locked","attempts":0,"best_score":0,
+		"best_title":"","last_score":0,"question":([]),
+		"perfect":0,"epilogue":"",
+	]);
+	mixed raw = progress["story_quiz"];
+	if(!(int)result["unlocked"]){
+		result["message"] = "完成九卷八十一章后，长生十问才会开启。";
+		return result;
+	}
+	result["status"] = "ready";
+	result["message"] = "长生十问已经开启，可随时开始或重新挑战。";
+	if(!raw)
+		return result;
+	if(!valid_story_quiz_progress(raw))
+		return (["ok":0,"unlocked":1,"message":
+			"长生十问存档校验失败，已停止写入以保护原档案。"]);
+	mapping state = (mapping)raw;
+	result["status"] = (string)state["status"];
+	result["attempts"] = (int)state["attempts"];
+	result["best_score"] = (int)state["best_score"];
+	result["last_score"] = (int)state["last_score"];
+	if((string)state["status"]=="completed" || (int)state["attempts"]>1)
+		result["best_title"] = story_quiz_title((int)state["best_score"]);
+	if((string)state["status"]=="active"){
+		result["question"] = public_story_quiz_question(
+			(int)state["current"]);
+		result["current_score"] = (int)state["score"];
+		result["message"] = "长生十问正在作答。";
+	}
+	else
+		result["message"] = "本轮十问已经完成，可重新挑战刷新最高分。";
+	if((int)state["best_score"]==10){
+		result["perfect"] = 1;
+		result["epilogue"] = (string)illusion_config["quiz_epilogue"];
+	}
+	return result;
+}
+
+mapping(string:mixed) query_story_quiz(object player)
+{
+	if(!player || !is_active_illusion_character(player))
+		return (["ok":0,"message":"当前人物不是"+
+			(string)illusion_config["current_id"]+"幻境人物。"]);
+	return story_quiz_public_view(player_progress(player,1));
+}
+
+private mapping(string:mixed) start_story_quiz_internal(object player,
+	int test_bypass_phase)
+{
+	mapping progress;
+	mapping old_progress;
+	mapping old_state = ([]);
+	int attempts;
+	int best_score;
+	if(!player || !is_active_illusion_character(player) ||
+	   (!test_bypass_phase &&
+	    (string)query_public_status()["phase"]!="active"))
+		return (["ok":0,"message":"当前不能开始长生十问。"]);
+	progress = player_progress(player,1);
+	if(!story_all_chapters_claimed(progress))
+		return (["ok":0,"message":"请先完成九卷八十一章。"]);
+	if(progress["story_quiz"]){
+		if(!valid_story_quiz_progress(progress["story_quiz"]))
+			return (["ok":0,"message":
+				"长生十问存档校验失败，已停止写入以保护原档案。"]);
+		old_state = (mapping)progress["story_quiz"];
+		if((string)old_state["status"]=="active"){
+			mapping active = story_quiz_public_view(progress);
+			active["already"] = 1;
+			active["message"] = "长生十问已经开始，已恢复到当前题目。";
+			return active;
+		}
+		attempts = (int)old_state["attempts"];
+		best_score = (int)old_state["best_score"];
+	}
+	old_progress = copy_value(progress);
+	progress["story_quiz"] = ([
+		"version":1,"status":"active","attempts":attempts+1,
+		"current":0,"score":0,
+		"last_score":sizeof(old_state) ? (int)old_state["last_score"] : 0,
+		"best_score":best_score,"choices":({}),
+		"started_at":time(),"completed_at":0,
+	]);
+	if(!save_story_quiz_player(player)){
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		return (["ok":0,"message":"人物存档失败，本次十问未开始。"]);
+	}
+	Stdio.append_file(ILLUSION_LOG,sprintf(
+		"%d|story_quiz_start|illusion=%s|user=%s|attempt=%d\n",
+		time(),(string)illusion_config["current_id"],
+		(string)player->query_name(),attempts+1));
+	mapping result = story_quiz_public_view(progress);
+	result["message"] = "长生十问开始。每题提交后立即锁定，本轮不能返回改答。";
+	return result;
+}
+
+mapping(string:mixed) start_story_quiz(object player)
+{
+	return start_story_quiz_internal(player,0);
+}
+
+mapping(string:mixed) start_story_quiz_for_test(object player)
+{
+	if(!is_test_illusion_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]);
+	return start_story_quiz_internal(player,1);
+}
+
+private mapping(string:mixed) answer_story_quiz_internal(object player,
+	int question_number,int choice,int test_bypass_phase)
+{
+	mapping progress;
+	mapping old_progress;
+	mapping state;
+	mapping question;
+	mapping result;
+	int correct;
+	int completed;
+	if(!player || !is_active_illusion_character(player) ||
+	   (!test_bypass_phase &&
+	    (string)query_public_status()["phase"]!="active"))
+		return (["ok":0,"message":"当前不能提交长生十问。"]);
+	progress = player_progress(player,1);
+	if(!story_all_chapters_claimed(progress) ||
+	   !valid_story_quiz_progress(progress["story_quiz"]))
+		return (["ok":0,"message":"长生十问尚未开始或存档不可验证。"]);
+	state = (mapping)progress["story_quiz"];
+	if((string)state["status"]!="active")
+		return (["ok":0,"message":"本轮十问已经结束，请重新开始。"]);
+	if(question_number!=(int)state["current"]+1)
+		return (["ok":0,"message":
+			"题号已过期或重复提交，当前进度未改变。"]);
+	if(choice<1 || choice>4)
+		return (["ok":0,"message":"请选择一至四中的一个答案。"]);
+	question = (mapping)((array)illusion_config["story_quiz"])
+		[question_number-1];
+	correct = choice==(int)question["answer"];
+	old_progress = copy_value(progress);
+	state["choices"] = (array)state["choices"]+({choice});
+	state["current"] = (int)state["current"]+1;
+	if(correct)
+		state["score"] = (int)state["score"]+1;
+	if((int)state["current"]==10){
+		completed = 1;
+		state["status"] = "completed";
+		state["last_score"] = (int)state["score"];
+		state["best_score"] = max((int)state["best_score"],
+			(int)state["score"]);
+		state["completed_at"] = time();
+	}
+	if(!save_story_quiz_player(player)){
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		return (["ok":0,"message":"人物存档失败，本题未计入，可重新提交。"]);
+	}
+	Stdio.append_file(ILLUSION_LOG,sprintf(
+		"%d|story_quiz_answer|illusion=%s|user=%s|question=%d|choice=%d|correct=%d|score=%d|completed=%d\n",
+		time(),(string)illusion_config["current_id"],
+		(string)player->query_name(),question_number,choice,correct,
+		(int)state["score"],completed));
+	result = story_quiz_public_view(progress);
+	result["correct"] = correct;
+	result["explanation"] = (string)question["explanation"];
+	result["answered_number"] = question_number;
+	result["message"] = correct ? "回答正确。" : "这一题没有答对。";
+	return result;
+}
+
+mapping(string:mixed) answer_story_quiz(object player,int question_number,
+	int choice)
+{
+	return answer_story_quiz_internal(player,question_number,choice,0);
+}
+
+mapping(string:mixed) answer_story_quiz_for_test(object player,
+	int question_number,int choice)
+{
+	if(!is_test_illusion_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]);
+	return answer_story_quiz_internal(player,question_number,choice,1);
+}
+
 mapping(string:mixed) query_player_progress(object player)
 {
 	mapping progress;
+	mapping quiz_view;
 	array chapter_rows = ({});
 	if(!player || !is_active_illusion_character(player))
 		return (["ok":0,"message":"当前人物不是"+
 			(string)illusion_config["current_id"]+"幻境人物。"]) ;
 	progress = player_progress(player,1);
+	quiz_view = story_quiz_public_view(progress);
 	foreach((array)illusion_config["chapters"];int index;mapping chapter)
 		chapter_rows += ({chapter_status(player,progress,chapter,index)});
 	return ([
@@ -2297,6 +2642,10 @@ mapping(string:mixed) query_player_progress(object player)
 			sizeof((mapping)progress["claims"]) : 0,
 		"story_title":(string)illusion_config["story_title"],
 		"story_premise":(string)illusion_config["story_premise"],
+		"quiz_unlocked":(int)quiz_view["unlocked"],
+		"quiz_status":(string)quiz_view["status"],
+		"quiz_best_score":(int)quiz_view["best_score"],
+		"quiz_best_title":(string)quiz_view["best_title"],
 		"route_mark_count":mappingp(progress["route_marks"]) ?
 			sizeof((mapping)progress["route_marks"]) : 0,
 		"path":(string)progress["path"],

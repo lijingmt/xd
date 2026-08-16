@@ -133,8 +133,14 @@ private string progress_view(object me,mapping progress)
 			s += "本章过关额外获得本职业新月套装"+
 				(string)(int)current["reward_count"]+"件。\n";
 	}
-	else
+	else{
 		s += "\n八十一章已经全部完成；完整故事与十件套装均已写入本人物原档案。\n";
+		s += "[开启长生十问:illusion_realm quiz]\n";
+		if((string)progress["quiz_best_title"]!="")
+			s += "幻境阅历："+(string)progress["quiz_best_title"]+
+				"（最高 "+(string)(int)progress["quiz_best_score"]+
+				"/10）\n";
+	}
 	s += "[查看九卷故事目录:illusion_realm story]\n";
 	return s;
 }
@@ -212,8 +218,65 @@ private string story_index_view(mapping progress)
 			(string)completed+"/9\n";
 	}
 	s += "\n章节必须按顺序完成；满足本章等级、战斗、探索与剧情条件后即可立即推进。\n";
+	if((int)progress["chapter_claimed"]==81)
+		s += "[长生十问·检验你是否记得这一路:illusion_realm quiz]\n";
 	s += "[返回当前历程:illusion_realm]\n";
 	return s;
+}
+
+private string story_quiz_view(mapping quiz)
+{
+	string s = "【新月长生劫·长生十问】\n";
+	if(!(int)quiz["ok"])
+		return s+(string)quiz["message"]+
+			"\n[返回九卷故事:illusion_realm story]|[返回游戏:look]\n";
+	if(!(int)quiz["unlocked"])
+		return s+(string)quiz["message"]+
+			"\n[返回当前历程:illusion_realm]|[返回游戏:look]\n";
+	s += (string)quiz["intro"]+"\n";
+	if((int)quiz["attempts"]>0)
+		s += "挑战次数："+(string)(int)quiz["attempts"]+
+			"　最高分："+(string)(int)quiz["best_score"]+"/10"+
+			((string)quiz["best_title"]!="" ? "　幻境阅历："+
+			 (string)quiz["best_title"] : "")+"\n";
+	if((string)quiz["status"]=="active"){
+		mapping question = (mapping)quiz["question"];
+		array options = (array)question["options"];
+		int number = (int)question["number"];
+		s += "\n【第"+(string)number+"/10问】\n"+
+			(string)question["question"]+"\n";
+		foreach(options;int index;string option)
+			s += "["+(string)(index+1)+". "+option+
+				":illusion_realm quiz answer "+(string)number+" "+
+				(string)(index+1)+"]\n";
+		s += "\n每题提交后立即写入原人物档案，本轮不能返回改答。\n";
+	}
+	else if((string)quiz["status"]=="completed"){
+		s += "\n本轮得分："+(string)(int)quiz["last_score"]+
+			"/10\n获得幻境阅历称号：【"+
+			(string)quiz["best_title"]+"】\n";
+		if((int)quiz["perfect"])
+			s += "\n【满分后记·山门雪霁】\n"+
+				(string)quiz["epilogue"]+"\n";
+		s += "[重新挑战十问:illusion_realm quiz start]\n";
+	}
+	else{
+		s += "\n【阅历奖励】0—4分：初闻长生；5—6分：记得来路；"+
+			"7—8分：四洲知卷；9分：月下解卷；10分：人间见证者。\n";
+		s += "称号只用于剧情阅历展示，不增加战斗属性；满分另解锁山门后记。\n";
+		s += "[开始长生十问:illusion_realm quiz start]\n";
+	}
+	s += "[返回九卷故事:illusion_realm story]|[返回游戏:look]\n";
+	return s;
+}
+
+private string story_quiz_answer_view(mapping result)
+{
+	string s = (string)result["message"];
+	if(has_index(result,"correct"))
+		s += "\n"+((int)result["correct"] ? "§g【答对】§r " :
+			"§c【答错】§r ")+(string)result["explanation"]+"\n";
+	return s+"\n"+story_quiz_view(result);
 }
 
 private string guided_follow_up(mapping progress,int after_travel)
@@ -224,6 +287,7 @@ private string guided_follow_up(mapping progress,int after_travel)
 	string kind;
 	if(chapter_number>sizeof(chapters))
 		return "\n【全部完成】八十一章已经通关，可在故事目录重温全部剧情。\n"+
+			"[开启长生十问:illusion_realm quiz]|"+
 			"[查看九卷故事目录:illusion_realm story]\n";
 	chapter = (mapping)chapters[chapter_number-1];
 	kind = (string)chapter["target_kind"];
@@ -373,6 +437,21 @@ int main(string|zero arg)
 	}
 	if(sizeof(parts)>=1 && parts[0]=="next"){
 		write(guided_next_step(me));
+		return 1;
+	}
+	if(sizeof(parts)>=1 && parts[0]=="quiz"){
+		if(sizeof(parts)>=4 && parts[1]=="answer"){
+			mapping answered = SEASONALD->answer_story_quiz(
+				me,(int)parts[2],(int)parts[3]);
+			write(story_quiz_answer_view(answered));
+			return 1;
+		}
+		if(sizeof(parts)>=2 && parts[1]=="start"){
+			mapping started = SEASONALD->start_story_quiz(me);
+			write(story_quiz_view(started));
+			return 1;
+		}
+		write(story_quiz_view(SEASONALD->query_story_quiz(me)));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="rank"){

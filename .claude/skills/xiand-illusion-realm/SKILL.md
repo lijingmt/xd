@@ -132,6 +132,14 @@ Keep gameplay content data-driven:
   path agree;
 - keep story prose in the separate tracked story JSON and require its immutable
   ID/title/premise to match the cycle config before flattening it at startup;
+- require five authored opening paragraphs and three authored completion
+  paragraphs per chapter; preserve their line breaks at runtime and reject
+  generic filler or a malformed chapter instead of silently repairing it;
+- after all 81 ordered claims, expose the cycle's ten-question comprehension
+  quiz one question at a time. Keep answer keys daemon-private, save each answer
+  on the unique character archive, reject stale/replayed submissions, retain the
+  best score across retries, and use non-economic titles plus a perfect-score
+  epilogue so the quiz cannot become a farming loop;
 - keep one original square 3x3 atlas per volume for the volume index and one
   independently rendered `chapters/chapter_NNN.png` for each chapter. Chapter
   prose emits only `[storypic 1..81:/xd/images/illusion_s1/story/chapters/chapter_NNN.png]`;
