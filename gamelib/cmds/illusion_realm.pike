@@ -9,6 +9,28 @@ private string time_text(int value)
 	return text[0..sizeof(text)-2];
 }
 
+private string chapter_next_label(mapping chapter)
+{
+	string kind = (string)chapter["target_kind"];
+	string name = (string)chapter["target_name"];
+	string location = (string)chapter["target_location"];
+	if((int)chapter["ready"] || kind=="ready")
+		return "领取本章并继续";
+	if(kind=="choice")
+		return "选择三途命途";
+	if(kind=="route")
+		return "查看命途终章指引";
+	if(location!="")
+		return "前往"+location+"·"+name;
+	return name!="" ? name : "继续本章";
+}
+
+private string chapter_next_link(mapping chapter)
+{
+	return "[▶ 下一步："+chapter_next_label(chapter)+
+		":illusion_realm next]\n";
+}
+
 private string chapter_task_view(mapping progress,mapping chapter,
 	int chapter_number)
 {
@@ -41,14 +63,12 @@ private string chapter_task_view(mapping progress,mapping chapter,
 			"　地点："+(string)chapter["story_event_location"]+
 			((string)chapter["story_event_kind"]=="boss" ?
 			 "（击败剧情首领）" : "（阅读当地残响）")+"\n";
-	s += "下一步："+(string)chapter["target_name"];
+	s += "\n§y【只做这一步】§r "+(string)chapter["target_name"];
 	if((string)chapter["target_location"]!="")
 		s += "　地点："+(string)chapter["target_location"];
 	s += "\n";
-	if((string)chapter["target_room"]!="")
-		s += "[立即前往本章目标:illusion_realm story travel "+
-			(string)chapter_number+"]\n";
-	else if((string)chapter["target_kind"]=="choice")
+	s += chapter_next_link(chapter);
+	if((string)chapter["target_kind"]=="choice")
 		s += "请返回当前历程完成三途择印。\n";
 	else if((string)chapter["target_kind"]=="route")
 		s += "请按已经选择的命途完成终章条件。\n";
@@ -111,9 +131,6 @@ private string progress_view(object me,mapping progress)
 		if((int)current["reward_count"]>0)
 			s += "本章过关额外获得本职业新月套装"+
 				(string)(int)current["reward_count"]+"件。\n";
-		if((int)current["ready"])
-			s += "[完成本章并阅读回响:illusion_realm claim "+
-				(string)current_number+"]\n";
 	}
 	else
 		s += "\n八十一章已经全部完成；完整故事与十件套装均已写入本人物原档案。\n";
@@ -172,9 +189,6 @@ private string story_chapter_view(mapping progress,int chapter_number)
 		s += "\n【过关回响】\n"+(string)chapter["outro"]+"\n";
 	else{
 		s += chapter_task_view(progress,chapter,chapter_number);
-		if((int)chapter["ready"])
-			s += "[完成本章并阅读回响:illusion_realm claim "+
-				(string)chapter_number+"]\n";
 	}
 	s += "[返回本卷:illusion_realm story volume "+
 		(string)(int)chapter["volume_number"]+"]|[返回当前历程:illusion_realm]\n";
@@ -200,6 +214,105 @@ private string story_index_view(mapping progress)
 	s += "\n章节必须按顺序完成；满足本章等级、战斗、探索与剧情条件后即可立即推进。\n";
 	s += "[返回当前历程:illusion_realm]\n";
 	return s;
+}
+
+private string guided_follow_up(mapping progress,int after_travel)
+{
+	int chapter_number = (int)progress["chapter_claimed"]+1;
+	array chapters = (array)progress["chapters"];
+	mapping chapter;
+	string kind;
+	if(chapter_number>sizeof(chapters))
+		return "\n【全部完成】八十一章已经通关，可在故事目录重温全部剧情。\n"+
+			"[查看九卷故事目录:illusion_realm story]\n";
+	chapter = (mapping)chapters[chapter_number-1];
+	kind = (string)chapter["target_kind"];
+	if(after_travel &&
+	   search(({"hunt","boss","story_boss"}),kind)!=-1)
+		return "\n【下一步】目标已经在当前区域。\n"+
+			"[▶ 下一步：开始自动打怪:autofight start]\n"+
+			"[查看本章进度:illusion_realm]\n";
+	return "\n【下一步】"+(string)chapter["target_name"]+
+		((string)chapter["target_location"]!="" ? "　地点："+
+			(string)chapter["target_location"] : "")+"\n"+
+		chapter_next_link(chapter);
+}
+
+private string guided_route_help(object me,mapping progress)
+{
+	string path = (string)progress["path"];
+	mapping step = SEASONALD->query_route_step(me);
+	string direct = (int)step["done"] ?
+		"[▶ 下一步：领取本章并继续:illusion_realm next]\n" :
+		((string)step["action"]=="team" ?
+		 "[▶ 下一步：打开队伍并开始协作:team]\n" :
+		 "[▶ 下一步：前往"+(string)step["location"]+"·"+
+			(string)step["name"]+":illusion_realm route next]\n");
+	if(path=="pioneer")
+		return "【寻星终章·按顺序做】\n"+
+			"1. 倒月镜湖点击观察倒月。\n"+
+			"2. 隐月环坑点击勘察星核。\n"+
+			"3. 新月祭坛点击合印归真。\n"+
+			"当前完成："+(string)(int)progress["route_mark_count"]+"/"+
+			(string)(int)progress["route_target"]+"\n"+
+			direct+"[返回当前章节:illusion_realm]\n";
+	if(path=="hunter")
+		return "【破阵终章·按顺序打】\n"+
+			"依次击败断星桥的断桥镇星使、隐月环坑的月庭巡将、"+
+			"新月祭坛的S1归真月主。\n"+
+			"当前完成："+(string)(int)progress["route_mark_count"]+"/"+
+			(string)(int)progress["route_target"]+"\n"+
+			direct+"[返回当前章节:illusion_realm]\n";
+	return "【同心终章·只做一件事】\n"+
+		"和队友待在同一房间打怪，累计同队击杀"+
+		(string)(int)progress["route_target"]+"只。当前："+
+		(string)(int)progress["team_kills"]+"/"+
+		(string)(int)progress["route_target"]+"\n"+
+		direct+"[开始自动打怪:autofight start]|"+
+		"[返回当前章节:illusion_realm]\n";
+}
+
+private string guided_next_step(object me)
+{
+	mapping progress = SEASONALD->query_player_progress(me);
+	array chapters;
+	mapping chapter;
+	mapping result;
+	int chapter_number;
+	string kind;
+	if(!(int)progress["ok"])
+		return (string)progress["message"]+"\n[返回游戏:look]\n";
+	chapters = (array)progress["chapters"];
+	chapter_number = (int)progress["chapter_claimed"]+1;
+	if(chapter_number>sizeof(chapters))
+		return guided_follow_up(progress,0);
+	chapter = (mapping)chapters[chapter_number-1];
+	kind = (string)chapter["target_kind"];
+	if((int)chapter["ready"] || kind=="ready"){
+		result = SEASONALD->claim_chapter_reward(me,chapter_number);
+		progress = SEASONALD->query_player_progress(me);
+		return (string)result["message"]+
+			((int)result["ok"] ? guided_follow_up(progress,0) :
+			 "\n[重新查看本章:illusion_realm]\n");
+	}
+	if(kind=="choice")
+		return progress_view(me,progress);
+	if(kind=="route")
+		return guided_route_help(me,progress);
+	if(functionp(me->query_autofight) &&
+	   (string)me->query_autofight()=="enable")
+		AUTOFIGHTD->stop_autofight(me);
+	result = SEASONALD->travel_to_chapter_target(me,chapter_number);
+	if(!(int)result["ok"])
+		return (string)result["message"]+"\n[重新查看本章:illusion_realm]\n";
+	if(kind=="story_echo" && (int)result["already"]){
+		mapping witnessed = SEASONALD->discover_story_event(me);
+		progress = SEASONALD->query_player_progress(me);
+		return "【剧情步骤完成】"+(string)witnessed["message"]+
+			guided_follow_up(progress,0);
+	}
+	progress = SEASONALD->query_player_progress(me);
+	return (string)result["message"]+guided_follow_up(progress,1);
 }
 
 private string ranking_menu(mapping status)
@@ -258,6 +371,10 @@ int main(string|zero arg)
 		write("人物会话不存在。\n");
 		return 1;
 	}
+	if(sizeof(parts)>=1 && parts[0]=="next"){
+		write(guided_next_step(me));
+		return 1;
+	}
 	if(sizeof(parts)>=1 && parts[0]=="rank"){
 		if(sizeof(parts)>=4 && parts[1]=="claim"){
 			mapping reward = SEASONALD->claim_illusion_ranking_reward(
@@ -283,7 +400,8 @@ int main(string|zero arg)
 		if(sizeof(parts)>=3 && parts[1]=="travel"){
 			mapping travel = SEASONALD->travel_to_chapter_target(
 				me,(int)parts[2]);
-			write((string)travel["message"]+"\n[查看当前章节:illusion_realm]\n");
+			write((string)travel["message"]+
+				"\n[▶ 下一步：继续本章:illusion_realm next]\n");
 		}
 		else if(sizeof(parts)>=3 && parts[1]=="chapter")
 			write(story_chapter_view(progress,(int)parts[2]));
@@ -363,28 +481,48 @@ int main(string|zero arg)
 			"[返回幻境区:illusion_realm]\n");
 		return 1;
 	}
+	if(sizeof(parts)>=2 && parts[0]=="route" && parts[1]=="next"){
+		if(functionp(me->query_autofight) &&
+		   (string)me->query_autofight()=="enable")
+			AUTOFIGHTD->stop_autofight(me);
+		mapping result = SEASONALD->travel_to_route_target(me);
+		string follow = "\n[重新查看终章指引:illusion_realm next]\n";
+		if((int)result["ok"] && (int)result["done"])
+			follow = "\n[▶ 下一步：领取本章并继续:illusion_realm next]\n";
+		else if((int)result["ok"] && (string)result["action"]=="explore")
+			follow = "\n[▶ 下一步：取得当前月印:illusion_realm explore]\n";
+		else if((int)result["ok"] && (string)result["action"]=="hunt")
+			follow = "\n[▶ 下一步：开始自动打怪:autofight start]\n";
+		else if((int)result["ok"] && (string)result["action"]=="team")
+			follow = "\n[▶ 下一步：打开队伍:team]|"+
+				"[开始自动打怪:autofight start]\n";
+		write((string)result["message"]+follow);
+		return 1;
+	}
 	if(sizeof(parts)>=2 && parts[0]=="path"){
 		mapping result = SEASONALD->choose_player_path(me,parts[1]);
-		write((string)result["message"]+"\n[返回"+
-			(string)status["illusion_id"]+"历程:illusion_realm]\n");
+		write((string)result["message"]+
+			"\n[▶ 下一步：继续本章:illusion_realm next]\n");
 		return 1;
 	}
 	if(sizeof(parts)>=2 && parts[0]=="claim"){
 		mapping result = SEASONALD->claim_chapter_reward(me,(int)parts[1]);
-		write((string)result["message"]+"\n[返回"+
-			(string)status["illusion_id"]+"历程:illusion_realm]\n");
+		mapping progress = SEASONALD->query_player_progress(me);
+		write((string)result["message"]+
+			((int)result["ok"] ? guided_follow_up(progress,0) :
+			 "\n[返回当前章节:illusion_realm]\n"));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="explore"){
 		mapping result = SEASONALD->discover_route_secret(me);
-		write((string)result["message"]+"\n[返回"+
-			(string)status["illusion_id"]+"历程:illusion_realm]\n");
+		write((string)result["message"]+
+			"\n[▶ 下一步：继续本章:illusion_realm next]\n");
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="witness"){
 		mapping result = SEASONALD->discover_story_event(me);
-		write((string)result["message"]+"\n[返回"+
-			(string)status["illusion_id"]+"历程:illusion_realm]\n");
+		write((string)result["message"]+
+			"\n[▶ 下一步：继续本章:illusion_realm next]\n");
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="return"){

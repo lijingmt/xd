@@ -133,6 +133,10 @@ Keep gameplay content data-driven:
   prose emits only `[storypic 1..81:/xd/images/illusion_s1/story/chapters/chapter_NNN.png]`;
   the JSON API, Vue, every legacy HTML filter, build script, and Docker image
   must reject traversal, mismatched chapter/path pairs, and out-of-range IDs;
+- keep one primary `illusion_realm next` action on every open chapter. It must
+  route only to the current allowlisted target, offer autofight after arrival,
+  show per-kill chapter progress, claim only a ready ordered chapter, and lead
+  directly into the next chapter. Legacy explicit commands remain compatible;
 - require chapter reward counts to sum to exactly ten;
 - fail closed if config or runtime state is malformed.
 

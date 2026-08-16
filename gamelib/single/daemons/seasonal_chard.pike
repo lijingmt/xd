@@ -1552,6 +1552,9 @@ private int is_illusion_progress_checkpoint(mapping progress,
 	return 0;
 }
 
+private mapping(string:mixed) chapter_progress_guide(object player,
+	mapping progress);
+
 void record_room_visit(object player,object room)
 {
 	string path;
@@ -1608,6 +1611,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	int route_mark_added;
 	int activity_day_added;
 	int story_event_added;
+	int checkpoint;
 	int previous_team_kills;
 	mapping story_event = ([]);
 	string story_message = "";
@@ -1663,9 +1667,10 @@ void record_npc_kill(object player,object npc,void|int team_count)
 			}
 	}
 	update_ranking_snapshot(player,progress);
-	if(is_illusion_progress_checkpoint(progress,boss_kill,
+	checkpoint = is_illusion_progress_checkpoint(progress,boss_kill,
 	   route_mark_added,previous_team_kills,activity_day_added,
-	   story_event_added)){
+	   story_event_added);
+	if(checkpoint){
 		if(!player->save_with_result()){
 			player[ILLUSION_PROGRESS_ROOT+"/"+
 				(string)illusion_config["current_id"]] = old_progress;
@@ -1680,6 +1685,16 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		if(story_message!="")
 			tell_object(player,"§p【剧情推进】§r"+story_message+"\n");
 	}
+	mapping guide = chapter_progress_guide(player,progress);
+	if(checkpoint && (string)guide["kind"]!="hunt" &&
+	   functionp(player->query_autofight) &&
+	   (string)player->query_autofight()=="enable"){
+		AUTOFIGHTD->stop_autofight(player);
+		tell_object(player,"§y【章节助手】§r 本轮打怪已经完成，自动挂机已暂停。\n");
+	}
+	if((string)guide["message"]!="" &&
+	   ((string)guide["kind"]=="hunt" || checkpoint))
+		tell_object(player,(string)guide["message"]);
 	invalidate_ranking_cache((string)illusion_config["current_id"]);
 }
 
@@ -2174,6 +2189,36 @@ private mapping chapter_status(object player,mapping progress,
 		"claimed":(int)claims[(string)chapter["id"]],
 		"ready":base_ready && previous_claimed,
 	]);
+}
+
+private mapping(string:mixed) chapter_progress_guide(object player,
+	mapping progress)
+{
+	mapping claims = mappingp(progress["claims"]) ?
+		(mapping)progress["claims"] : ([]);
+	array chapters = (array)illusion_config["chapters"];
+	int index = sizeof(claims);
+	mapping chapter;
+	string kind;
+	if(index<0 || index>=sizeof(chapters))
+		return (["kind":"","message":""]);
+	chapter = chapter_status(player,progress,(mapping)chapters[index],index);
+	kind = (string)chapter["target_kind"];
+	if((int)chapter["ready"] || kind=="ready")
+		return (["kind":"ready","message":"§y【第"+(string)(index+1)+
+			"章目标完成】§r\n[▶ 下一步：领取本章并继续:illusion_realm next]\n"]);
+	if(kind=="hunt")
+		return (["kind":kind,"message":"§c【第"+(string)(index+1)+
+			"章狩猎】§r "+(string)chapter["hunt_name"]+" "+
+			(string)(int)chapter["chapter_kills_done"]+"/"+
+			(string)(int)chapter["chapter_kills"]+"（还差"+
+			(string)max(0,(int)chapter["chapter_kills"]-
+				(int)chapter["chapter_kills_done"])+"只）\n"]);
+	return (["kind":kind,"message":"§y【战斗步骤完成】§r 下一步："+
+		(string)chapter["target_name"]+
+		((string)chapter["target_location"]!="" ? "　地点："+
+			(string)chapter["target_location"] : "")+
+		"\n[▶ 下一步：继续本章:illusion_realm next]\n"]);
 }
 
 mapping(string:mixed) query_player_progress(object player)
@@ -3621,6 +3666,104 @@ private int route_player(object player,string room_path)
 	err = catch{ moved=player->move(ROOT+room_path); };
 	player->m_delete_foruser("/tmp/illusion_move_bypass");
 	return !err && moved;
+}
+
+private mapping(string:mixed) current_route_step(mapping progress)
+{
+	string path = (string)progress["path"];
+	mapping marks = mappingp(progress["route_marks"]) ?
+		(mapping)progress["route_marks"] : ([]);
+	array(mapping(string:string)) targets = ({});
+	if(path=="pioneer")
+		targets = ({
+			(["id":"mirror_moon","name":"观察倒月并取得水镜月印",
+				"location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike",
+				"action":"explore"]),
+			(["id":"hidden_core","name":"勘察星核并取得隐月星核",
+				"location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike",
+				"action":"explore"]),
+			(["id":"returning_mark","name":"合印归真并取得归真月印",
+				"location":"新月祭坛","room":"/gamelib/d/illusion_s1/newmoon_altar.pike",
+				"action":"explore"]),
+		});
+	else if(path=="hunter")
+		targets = ({
+			(["id":"broken_star","name":"击败断桥镇星使",
+				"location":"断星桥","room":"/gamelib/d/illusion_s1/star_bridge.pike",
+				"action":"hunt"]),
+			(["id":"moon_guard","name":"击败月庭巡将",
+				"location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike",
+				"action":"hunt"]),
+			(["id":"newmoon_lord","name":"击败S1归真月主",
+				"location":"新月祭坛","room":"/gamelib/d/illusion_s1/newmoon_altar.pike",
+				"action":"hunt"]),
+		});
+	else if(path=="companion"){
+		if((int)progress["team_kills"]<route_target(path))
+			return (["ok":1,"done":0,"id":"companion_team",
+				"name":"与队友同房累计击杀"+(string)route_target(path)+"只怪物",
+				"location":"任意S1公共猎场","room":"","action":"team"]);
+		return (["ok":1,"done":1]);
+	}
+	else
+		return (["ok":0,"message":"尚未选择有效命途。"]);
+	foreach(targets,mapping target)
+		if(!(int)marks[(string)target["id"]]){
+			mapping result = copy_value(target);
+			result["ok"] = 1;
+			result["done"] = 0;
+			return result;
+		}
+	return (["ok":1,"done":1]);
+}
+
+mapping(string:mixed) query_route_step(object player)
+{
+	if(!player || !is_active_illusion_character(player))
+		return (["ok":0,"message":"当前人物不是本期幻境人物。"]);
+	return current_route_step(player_progress(player,1));
+}
+
+mapping(string:mixed) travel_to_route_target(object player)
+{
+	mapping step;
+	string room_path;
+	string current_room;
+	int moved;
+	if(!player || !is_active_illusion_character(player) ||
+	   (string)query_public_status()["phase"]!="active")
+		return (["ok":0,"message":"当前不能使用命途终章直达。"]);
+	step = current_route_step(player_progress(player,1));
+	if(!(int)step["ok"] || (int)step["done"])
+		return (["ok":(int)step["ok"],"done":(int)step["done"],
+			"message":(int)step["done"] ? "命途终章目标已经全部完成。" :
+				(string)step["message"]]);
+	if((string)step["action"]=="team")
+		return step+(["message":"请先组队，并与队友在同一S1猎场打怪。"]);
+	room_path = (string)step["room"];
+	if(!is_illusion_room_path(room_path) || !valid_room_path(room_path) ||
+	   Stdio.file_size(ROOT+room_path)<=0)
+		return (["ok":0,"message":"命途目标地图校验失败，本次没有移动人物。"]);
+	if(functionp(player->query_in_combat) && player->query_in_combat())
+		return (["ok":0,"message":"战斗中不能切换命途目标，请结束战斗后重试。"]);
+	if(functionp(player->query_autofight) &&
+	   (string)player->query_autofight()=="enable")
+		return (["ok":0,"message":"自动挂机仍在运行，请先停止后重试。"]);
+	current_room = normalized_destination_path(environment(player));
+	if(current_room==room_path)
+		return step+(["already":1,"message":"你已经位于"+
+			(string)step["location"]+"。下一步："+(string)step["name"]+"。"]);
+	moved = route_player(player,room_path);
+	if(!moved)
+		return (["ok":0,"message":"前往"+(string)step["location"]+
+			"失败，人物仍停留在原地。"]);
+	Stdio.append_file(ILLUSION_LOG,sprintf(
+		"%d|route_travel|illusion=%s|user=%s|route=%s|target=%s|room=%s\n",
+		time(),(string)illusion_config["current_id"],
+		(string)player->query_name(),(string)player_progress(player,1)["path"],
+		(string)step["id"],room_path));
+	return step+(["message":"已经到达"+(string)step["location"]+
+		"。下一步："+(string)step["name"]+"。"]);
 }
 
 mapping(string:mixed) travel_to_chapter_target(object player,

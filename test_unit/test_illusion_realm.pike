@@ -286,6 +286,19 @@ int main()
 			search(player_command_source,"SEASONALD->settle_player(me)")==-1 &&
 			search(player_command_source,"系统自动安全回归")!=-1,
 			"HTTP命令已持有账号锁时手工回归可能触发递归锁异常");
+		check("八十一章统一使用傻瓜式下一步、直达打怪和战后进度提示",
+			search(player_command_source,"parts[0]==\"next\"")!=-1 &&
+			search(player_command_source,
+				"▶ 下一步：开始自动打怪:autofight start")!=-1 &&
+			search(player_command_source,"chapter_next_link(chapter)")!=-1 &&
+			search(player_command_source,"guided_route_help(me,progress)")!=-1 &&
+			search(player_command_source,"illusion_realm route next")!=-1 &&
+			search(season_source,"travel_to_route_target")!=-1 &&
+			search(season_source,"章目标完成")!=-1 &&
+			search(season_source,"章狩猎")!=-1 &&
+			search(season_source,"本轮打怪已经完成，自动挂机已暂停")!=-1 &&
+			search(season_source,"等待下一个北京时间修行日")==-1,
+			"章节仍需玩家手工找地图、找挂机入口、找领取按钮或等待跨日");
 		check("幻境资格购买不重复获取非递归账号锁",
 			search(player_command_source,
 				"purchase_entitlement(me)")!=-1 &&
@@ -929,6 +942,18 @@ int main()
 			"story_events":story_event_marks,"path":"hunter",
 			"route_marks":([]),"claims":([]),
 		]);
+		mapping hunter_first_step = SEASONALD->query_route_step(child);
+		mapping hunter_first_travel =
+			SEASONALD->travel_to_route_target(child);
+		check("破阵傻瓜引导从当前未完成首领开始并直达断星桥",
+			(int)hunter_first_step["ok"] &&
+			(string)hunter_first_step["id"]=="broken_star" &&
+			(string)hunter_first_step["room"]==
+				"/gamelib/d/illusion_s1/star_bridge.pike" &&
+			(int)hunter_first_travel["ok"] &&
+			(string)hunter_first_travel["action"]=="hunt",
+			sprintf("step=%O travel=%O",hunter_first_step,
+				hunter_first_travel));
 		object battle_room = (object)(ROOT+
 			"/gamelib/d/illusion_s1/star_bridge.pike");
 		child["/tmp/illusion_move_bypass"] = 1;
@@ -944,12 +969,24 @@ int main()
 		}
 		mapping hunter_progress =
 			child["/plus/illusion_realm/S1"];
+		mapping hunter_done_step = SEASONALD->query_route_step(child);
 		check("破阵路线按真实NPC文件识别三名不同首领",
 			mappingp(hunter_progress["route_marks"]) &&
-			sizeof((mapping)hunter_progress["route_marks"])==3,
+			sizeof((mapping)hunter_progress["route_marks"])==3 &&
+			(int)hunter_done_step["done"],
 			sprintf("marks=%O",hunter_progress["route_marks"]));
 		hunter_progress["path"] = "pioneer";
 		hunter_progress["route_marks"] = ([]);
+		mapping pioneer_first_step = SEASONALD->query_route_step(child);
+		mapping pioneer_first_travel =
+			SEASONALD->travel_to_route_target(child);
+		check("寻星傻瓜引导从首枚月印开始并直达倒月镜湖",
+			(int)pioneer_first_step["ok"] &&
+			(string)pioneer_first_step["id"]=="mirror_moon" &&
+			(int)pioneer_first_travel["ok"] &&
+			(string)pioneer_first_travel["action"]=="explore",
+			sprintf("step=%O travel=%O",pioneer_first_step,
+				pioneer_first_travel));
 		mapping last_secret = ([]);
 		foreach(({"mirror_lake","hidden_crater","newmoon_altar"}),
 		   string room_name){
@@ -969,7 +1006,20 @@ int main()
 			(int)duplicate_secret["already"],
 			sprintf("last=%O duplicate=%O marks=%O",last_secret,
 				duplicate_secret,hunter_progress["route_marks"]));
+		hunter_progress["path"] = "companion";
+		hunter_progress["team_kills"] = 0;
+		mapping companion_step = SEASONALD->query_route_step(child);
+		mapping companion_travel = SEASONALD->travel_to_route_target(child);
+		check("同心傻瓜引导不乱传送且直接进入组队协作步骤",
+			(int)companion_step["ok"] &&
+			(string)companion_step["action"]=="team" &&
+			(string)companion_step["room"]=="" &&
+			(int)companion_travel["ok"] &&
+			(string)companion_travel["action"]=="team",
+			sprintf("step=%O travel=%O",companion_step,
+				companion_travel));
 		hunter_progress["path"] = "hunter";
+		hunter_progress["team_kills"] = 50;
 		hunter_progress["route_marks"] = ([
 			"broken_star":1,"moon_guard":1,"newmoon_lord":1,
 		]);
