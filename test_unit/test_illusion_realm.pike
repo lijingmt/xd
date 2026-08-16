@@ -265,6 +265,8 @@ int main()
 			"/gamelib/single/daemons/seasonal_chard.pike") || "";
 		string player_command_source = Stdio.read_file(ROOT+
 			"/gamelib/cmds/illusion_realm.pike") || "";
+		string travel_command_source = Stdio.read_file(ROOT+
+			"/gamelib/cmds/qge74hye.pike") || "";
 		string account_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/account_characterd.pike") || "";
 		string command_hook_source = Stdio.read_file(ROOT+
@@ -392,6 +394,20 @@ int main()
 			search(html5_source,"storypic %d")!=-1 &&
 			search(html6_compat_source,"storypic %d")!=-1,
 			"某个旧界面仍会把剧情图片误渲染成命令按钮");
+		check("旧JSP四套过滤器均限制章节图宽高且不裁切手机画面",
+			search(html6_source,"max-height:72vh")!=-1 &&
+			search(html6_source,"max-height:72svh")!=-1 &&
+			search(html6_source,"object-fit:contain")!=-1 &&
+			search(html6_dark_source,"max-height:72vh")!=-1 &&
+			search(html6_dark_source,"max-height:72svh")!=-1 &&
+			search(html6_dark_source,"object-fit:contain")!=-1 &&
+			search(html5_source,"max-height:72vh")!=-1 &&
+			search(html5_source,"max-height:72svh")!=-1 &&
+			search(html5_source,"object-fit:contain")!=-1 &&
+			search(html6_compat_source,"max-height:72vh")!=-1 &&
+			search(html6_compat_source,"max-height:72svh")!=-1 &&
+			search(html6_compat_source,"object-fit:contain")!=-1,
+			"旧书签在横屏手机或iPad分屏仍可能显示超尺寸剧情图");
 		check("当前任务、章节回看与过关剧情统一使用旧客户端兼容图片协议",
 			(string)compatible_chapter_segment["type"]=="image" &&
 			(string)compatible_chapter_segment["src"]==
@@ -417,6 +433,12 @@ int main()
 			search(season_source,
 				"!has_prefix(current,\"/gamelib/d/\")")!=-1,
 			"登录入口可能仍被赛季边界拦截，或可被在线人物用于越界");
+		check("幻境人物越界失败页保留返回游戏入口",
+			search(season_source,
+				"幻境人物暂不能离开新月幻境")!=-1 &&
+			search(travel_command_source,
+				"目的地暂时无法到达。\\n[返回游戏:look]\\n")!=-1,
+			"越界被拦截后玩家可能卡在无操作的失败页");
 		mapping same_cycle_rollover = SEASONALD->preview_cycle_rollover();
 		check("S1未关闭且配置编号未变化时拒绝误换期",
 			!(int)same_cycle_rollover["ok"] &&
@@ -850,6 +872,16 @@ int main()
 			fresh_story_progress["chapters"])[0];
 		mapping fresh_last_chapter = (mapping)((array)
 			fresh_story_progress["chapters"])[80];
+		int five_line_story_chapters;
+		foreach((array)fresh_story_progress["chapters"],mapping story_chapter){
+			array(string) story_lines = (string)story_chapter["intro"]/"\n";
+			int valid_lines = sizeof(story_lines)==5;
+			foreach(story_lines,string story_line)
+				if(sizeof(String.trim_all_whites(story_line))<12)
+					valid_lines = 0;
+			if(valid_lines)
+				five_line_story_chapters++;
+		}
 		check("章节运行态返回独立插画、精确怪名地点和本章增量计数",
 			(string)fresh_first_chapter["image"]==
 				"/xd/images/illusion_s1/story/chapters/chapter_001.png" &&
@@ -864,6 +896,9 @@ int main()
 				"/gamelib/d/illusion_s1/moon_dew_field.pike",
 			sprintf("first=%O last=%O",fresh_first_chapter,
 				fresh_last_chapter));
+		check("八十一章运行态均展开为五段厚叙事且没有空白短行",
+			five_line_story_chapters==81,
+			sprintf("five_line_chapters=%d",five_line_story_chapters));
 		object chapter_gate = (object)(ROOT+
 			"/gamelib/d/illusion_s1/moon_gate.pike");
 		child["/tmp/illusion_move_bypass"] = 1;

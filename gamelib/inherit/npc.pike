@@ -49,6 +49,21 @@ int query_team_shared_drop_difficulty(mapping map_term,string owner_name)
 	return found ? lowest : 0;
 }
 
+/**
+ * 记录已经通过死亡归属校验的击杀进度。
+ *
+ * 任务进度属于“击杀事实”，不能依赖最终经验是否大于零。高等级人物
+ * 击杀低等级剧情首领、或人物达到当前等级上限时，经验可以合法为零，
+ * 但幻境章节与个人难度挑战仍必须各记录一次。
+ */
+void record_eligible_kill_progress(object player,void|int team_count)
+{
+	if(!player)
+		return;
+	SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
+	PERSONAL_DIFFICULTYD->record_npc_kill(player,this_object());
+}
+
 /** 单人和组队共用同一套打怪经验发放与提示。 */
 int grant_kill_experience(object player,int base_exp,void|int team_count,
 	void|int team_pool_percent)
@@ -97,12 +112,6 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 		" 点经验。\n";
 	if(sizeof(bonus_tips))
 		message += "（"+bonus_tips+"）\n";
-	// 只在经验真正发放后记录一次幻境击杀；单人、队伍共用此入口，
-	// 不触碰任何伤害、经验或掉落公式。
-	if(actual_exp>0)
-		SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
-	if(actual_exp>0)
-		PERSONAL_DIFFICULTYD->record_npc_kill(player,this_object());
 	player->query_if_levelup();
 	if(player->query_levelFlag())
 		message += "你的等级提升到了 "+(string)player->query_level()+" 级！\n";
@@ -335,6 +344,7 @@ void fight_die()
 							PETD->record_pet_pve_kill(termer,this_object());
 							SPIRIT_COMPANIOND->record_spirit_companion_combat_xp(
 								termer,this_object());
+							record_eligible_kill_progress(termer,t_count);
 
 							//根据玩家等级获得计算后的应得经验值
 							//如果玩家等级大于该npc等级的获得计算
@@ -850,6 +860,7 @@ void fight_die_single(object env)
 		PETD->record_pet_pve_kill(first,this_object());
 		SPIRIT_COMPANIOND->record_spirit_companion_combat_xp(
 			first,this_object());
+		record_eligible_kill_progress(first,1);
 		//不是团队杀死怪物，是个人杀死/////////////////////////
 		int npclevel = this_object()->query_level();//npc等级
 		int melevel = first->query_level();//player等级

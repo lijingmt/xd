@@ -473,6 +473,62 @@ mapping(string:mixed) run_representative_survival_loop(object player)
 	return result;
 }
 
+/** 复现高等级人物击杀低等级剧情首领时经验为零的线上任务故障。 */
+mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
+{
+	mapping original_progress = copy_value(
+		(mapping)player["/plus/illusion_realm/S1"]);
+	mapping claims = ([]);
+	mapping visited = ([]);
+	object|zero boss = 0;
+	int original_level = (int)player->query_level();
+	int zero_exp;
+	mapping progress;
+	mapping chapter;
+	int restored;
+	for(int chapter_number=1;chapter_number<=8;chapter_number++)
+		claims["S1-C"+(string)chapter_number] = time();
+	foreach(visit_rooms[..3],string room_path)
+		visited[room_path] = 1;
+	player["/plus/illusion_realm/S1"] = ([
+		"version":1,"joined_at":time(),"kills":82,"boss_kills":0,
+		"team_kills":0,"visited":visited,
+		"active_days":(["testunit":time()]),"story_events":([]),
+		"path":"pioneer","route_marks":([]),"claims":claims,
+	]);
+	player->level = 69;
+	player->set_att_by_level();
+	if(!move_for_test(player,
+	   "/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike")){
+		player["/plus/illusion_realm/S1"] = original_progress;
+		player->level = original_level;
+		player->set_att_by_level();
+		return (["ok":0,"message":"无法进入南瞻生死祠"]);
+	}
+	boss = clone(ROOT+
+		"/gamelib/clone/npc/illusion_s1/life_collector.pike");
+	boss->move(environment(player));
+	// 等级差超过10时旧公式的经验合法为0；死亡归属入口仍必须推进任务。
+	zero_exp = boss->grant_kill_experience(player,0);
+	boss->record_eligible_kill_progress(player,1);
+	progress = SEASONALD->query_player_progress(player);
+	chapter = (mapping)((array)progress["chapters"])[8];
+	int valid = zero_exp==0 &&
+		(int)player->query_level()-(int)boss->query_level()>=10 &&
+		(int)progress["kills"]==83 && (int)progress["boss_kills"]==1 &&
+		(int)chapter["chapter_boss_kills_done"]==1 &&
+		(int)chapter["story_ready"] && (int)chapter["ready"];
+	destruct(boss);
+	boss = 0;
+	player["/plus/illusion_realm/S1"] = original_progress;
+	player->level = original_level;
+	player->set_att_by_level();
+	restored = player->save_with_result();
+	move_for_test(player,"/gamelib/d/illusion_s1/moon_dew_field.pike");
+	return (["ok":valid && restored,"zero_exp":zero_exp,
+		"progress":progress,"chapter":chapter,"restored":restored]);
+}
+
 mapping(string:mixed) record_task_progress(object player,string route)
 {
 	int room_index;
@@ -481,6 +537,17 @@ mapping(string:mixed) record_task_progress(object player,string route)
 	mapping result = (["ok":1,"claims":0,"event_gates_tested":0]);
 	mapping progress = SEASONALD->query_player_progress(player);
 	array chapters = (array)progress["chapters"];
+	int narrative_chapters;
+	foreach(chapters,mapping story_chapter){
+		array(string) story_lines = (string)story_chapter["intro"]/"\n";
+		int valid_lines = sizeof(story_lines)==5;
+		foreach(story_lines,string story_line)
+			if(sizeof(String.trim_all_whites(story_line))<12)
+				valid_lines = 0;
+		if(valid_lines)
+			narrative_chapters++;
+	}
+	result["narrative_chapters"] = narrative_chapters;
 	if(!move_for_test(player,
 	   "/gamelib/d/illusion_s1/true_name_hall.pike")){
 		destruct(normal_npc);
@@ -603,7 +670,7 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			else{
 				object story_boss = clone(ROOT+(string)event["path"]);
 				story_boss->move(environment(player));
-				SEASONALD->record_npc_kill(player,story_boss,
+				story_boss->record_eligible_kill_progress(player,
 					route=="companion" ? 2 : 1);
 				destruct(story_boss);
 			}
@@ -718,6 +785,11 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			mapping survival = run_representative_survival_loop(player);
 			check("代表人物真实完成挂机开战、灵伴协战、吃药和背包穿装",
 				(int)survival["ok"],sprintf("survival=%O",survival));
+			mapping zero_exp_boss =
+				run_zero_exp_story_boss_regression(player);
+			check("高等级零经验击杀南瞻司寿使仍推进第九章并可领取",
+				(int)zero_exp_boss["ok"],
+				sprintf("regression=%O",zero_exp_boss));
 		}
 
 		object remote_npc = clone(ROOT+
@@ -733,6 +805,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		mapping task = record_task_progress(player,route);
 		check(profession_name+"逐级完成三路线之一的全部八十一章任务",
 			(int)task["ok"] && (int)task["claims"]==81 &&
+			(int)task["narrative_chapters"]==81 &&
 			(int)player->query_level()==69 &&
 			(int)task["progress"]["kills"]==751 &&
 			(int)task["progress"]["boss_kills"]>=10 &&

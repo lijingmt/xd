@@ -43,7 +43,7 @@ int main(string path)
 	int moved;
 	mixed move_err = catch { moved = me->move(path); };
 	if(move_err || !moved){
-		write("目的地暂时无法到达。\n");
+		write("目的地暂时无法到达。\n[返回游戏:look]\n");
 		return 1;
 	}
 	if(was_in_home)

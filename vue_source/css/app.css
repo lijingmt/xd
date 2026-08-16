@@ -3760,7 +3760,7 @@ body {
 /* S1 章节使用通用 imgurl 协议以兼容旧 Vue/JSP，但仍按剧情大图展示。 */
 .mud-inline-image[src*="/illusion_s1/story/chapters/"] {
     display: block;
-    width: min(100%, 34rem);
+    width: min(100%, 34rem, 72vh);
     max-width: 100%;
     height: auto;
     max-height: none;
@@ -11746,8 +11746,18 @@ body {
 }
 .illusion-story-card {
 	display: block;
-	width: min(100%, 34rem);
+	width: min(100%, 34rem, 72vh);
+	max-width: 100%;
 	margin: 0.75rem auto 1rem;
+}
+
+/* 横屏手机和分屏 iPad 以短边为准，剧情图绝不超出当前可视窗口。 */
+@supports (height: 1svh) {
+	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
+	.illusion-story-card {
+		width: min(100%, 34rem, 72svh);
+		max-width: 100%;
+	}
 }
 
 .illusion-story-frame {

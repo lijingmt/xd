@@ -39,6 +39,18 @@ private int last_closed_reconcile_revision = -1;
 private int closed_reconcile_until;
 private mapping(string:mapping(string:mixed)) ranking_cache = ([]);
 
+private array(string) story_volume_themes = ({
+	"南瞻的雪、名榜与寿契把同一个问题推到你面前：凡人究竟该怎样面对有限的一生。",
+	"雾林把嘲笑放大，也把陌生人之间最微小的善意照得格外清楚。",
+	"万法集把功法、师承和名字都标上价码，逼你判断什么能够买卖、什么绝不能出让。",
+	"倒月镜湖让被遮住的旧事重新浮出水面，师徒、故人与背叛开始拥有第二种解释。",
+	"北俱冰原以遗忘换取不老，你必须在没有昨日的世界里守住仍值得记住的人。",
+	"断星城把兄弟推到彼此的刀锋前，真正的信任不再靠誓言，而靠真相之后的再次选择。",
+	"东胜朝生港让每一天都像新生，也让你看见永远年轻未必等于真正活过。",
+	"月宫把四洲的代价收进同一座炉，你一路追逐的长生方终于显出隐藏的毒。",
+	"归真之路要求每个人亲自承担选择，最后的答案不再属于英雄一人，而属于仍愿回头的众生。",
+});
+
 private mapping(string:string) ranking_names = ([
 	"journey":"幻境征途榜","level":"境界榜","experience":"经验榜",
 	"pk":"论剑榜","set":"新月套装榜","speed":"极速榜",
@@ -100,6 +112,43 @@ private int valid_room_path(string path)
 		return 0;
 	}
 	return 1;
+}
+
+/**
+ * 把每章原有的密集段落展开为五段可阅读叙事。原文的三层动作完整保留，
+ * 再补入本卷命题和本章悬念；PC 宽屏不再挤成一条长句，手机也能按
+ * 呼吸点逐行阅读。
+ */
+private string expanded_chapter_intro(mapping chapter,int volume_number,
+	int chapter_number)
+{
+	string source = replace((string)chapter["intro"],"\n"," ");
+	array(string) sentences = ({});
+	array(string) lines;
+	string merged;
+	int i;
+	foreach(source/"。",string sentence){
+		sentence = String.trim_all_whites(sentence);
+		if(sentence!="")
+			sentences += ({sentence+"。"});
+	}
+	if(!sizeof(sentences))
+		sentences = ({source});
+	while(sizeof(sentences)<3)
+		sentences += ({"月纹没有给出捷径，只把这一步选择如实记下。"});
+	if(sizeof(sentences)>3){
+		merged = "";
+		for(i=2;i<sizeof(sentences);i++)
+			merged += sentences[i];
+		sentences = ({sentences[0],sentences[1],merged});
+	}
+	lines = ({
+		"【行旅推进】"+story_volume_themes[volume_number-1],
+		sentences[0],sentences[1],sentences[2],
+		"【本章悬念】第"+(string)chapter_number+"章「"+
+			(string)chapter["title"]+"」不是一段旁观往事；你的战斗、探索与选择，都会写进长生劫最后的答案。",
+	});
+	return lines*"\n";
 }
 
 private int valid_chapter(mapping chapter,string illusion_id)
@@ -260,6 +309,8 @@ private mapping(string:mixed) load_story_config(mapping candidate)
 			chapter["image"] = sprintf(
 				"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
 				chapter_number);
+			chapter["intro"] = expanded_chapter_intro(chapter,
+				volume_index+1,chapter_number);
 			chapters += ({chapter});
 		}
 	}

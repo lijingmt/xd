@@ -1,6 +1,6 @@
 ---
 name: xiand-illusion-realm
-description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
+description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, 81-chapter seasonal stories, chapter task authoring, original AI chapter artwork, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
 ---
 
 # Xiand Illusion Realm
@@ -30,6 +30,10 @@ invariant.
 Also apply the Pike coding/review, TestUnit, Xiand development validation,
 map-Worker, API transaction-lock, Vue playability, and English Git commit skills
 when their surfaces are touched.
+
+Before creating or revising an 81-chapter campaign, its task chain, or its
+artwork, read [references/story-production.md](references/story-production.md)
+completely and follow its production gates in order.
 
 ## Locate each layer
 

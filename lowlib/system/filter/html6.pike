@@ -427,7 +427,11 @@ string filter(zero|string s)
 			else if(sscanf(buf,"imgurl %s:%s",name,href)==2){
 				
 				//add for cmd=+num
-				out+="<img src=\""+href+"\" alt=\""+name+"\">";
+				if(has_prefix(href,
+				   "/xd/images/illusion_s1/story/chapters/"))
+					out+="<img src=\""+href+"\" alt=\"新月长生劫剧情插画\" loading=\"lazy\" style=\"display:block;width:100%;max-width:544px;max-height:72vh;max-height:72svh;height:auto;object-fit:contain;margin:12px auto;border-radius:16px\">";
+				else
+					out+="<img src=\""+href+"\" alt=\""+name+"\">";
 			}
 			else if(sscanf(buf,"miniimg %s:%s",name,href)==2){
 				

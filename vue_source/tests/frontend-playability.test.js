@@ -8,6 +8,7 @@ const { renderToString } = require('@vue/server-renderer');
 const sourceDir = path.resolve(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(sourceDir, 'index.html'), 'utf8');
 const appSource = fs.readFileSync(path.join(sourceDir, 'js/app.js'), 'utf8');
+const cssSource = fs.readFileSync(path.join(sourceDir, 'css/app.css'), 'utf8');
 
 function extractAppTemplate(html) {
     const rootMarker = '<div id="app">';
@@ -250,6 +251,12 @@ async function main() {
     assert(gameRendered.includes('新月长生劫第3章插画'), 'early subchapter artwork must keep its chapter-specific accessible description');
     assert(gameRendered.includes('新月长生劫第81章插画'), 'story image must keep a chapter-specific accessible description');
     assert(gameRendered.includes('chapter_009.png'), 'standard image segments must render chapter artwork for cached legacy Vue clients');
+	assert(cssSource.includes('width: min(100%, 34rem, 72svh)'),
+		'story artwork must be constrained by both container width and viewport height');
+	assert(cssSource.includes('width: min(100%, 34rem, 72vh)'),
+		'story artwork must keep a viewport-height fallback for older iOS browsers');
+	assert(cssSource.includes('@supports (height: 1svh)'),
+		'story artwork must keep a safe fallback while adapting phones, tablets and PC windows');
 
     console.log(
         `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +
