@@ -227,6 +227,13 @@ async function main() {
                 full: 1,
                 chapter: 81
             }]
+        }, {
+            type: 'line',
+            segments: [{
+                type: 'image',
+                src: '/images/illusion_s1/story/chapters/chapter_009.png',
+                alt: '新月长生劫第9章插画'
+            }]
         }]
     });
     assert(gameRendered.length > 5000, 'game render must produce a non-trivial page');
@@ -242,6 +249,7 @@ async function main() {
     assert(gameRendered.includes('background-size:cover'), 'independent chapter artwork must render without atlas cropping');
     assert(gameRendered.includes('新月长生劫第3章插画'), 'early subchapter artwork must keep its chapter-specific accessible description');
     assert(gameRendered.includes('新月长生劫第81章插画'), 'story image must keep a chapter-specific accessible description');
+    assert(gameRendered.includes('chapter_009.png'), 'standard image segments must render chapter artwork for cached legacy Vue clients');
 
     console.log(
         `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +

@@ -352,6 +352,8 @@ int main()
 			"storypic 3:/xd/images/illusion_s1/story/chapters/chapter_003.png","","");
 		mapping bad_story_segment = HTTP_APID->parse_bracket_content(
 			"storypic 81:/xd/images/illusion_s1/story/chapters/chapter_080.png","","");
+		mapping compatible_chapter_segment = HTTP_APID->parse_bracket_content(
+			"imgurl picture:/xd/images/illusion_s1/story/chapters/chapter_009.png","","");
 		string html_renderer_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/html_renderer.pike") || "";
 		string html6_source = Stdio.read_file(ROOT+
@@ -390,6 +392,15 @@ int main()
 			search(html5_source,"storypic %d")!=-1 &&
 			search(html6_compat_source,"storypic %d")!=-1,
 			"某个旧界面仍会把剧情图片误渲染成命令按钮");
+		check("当前任务、章节回看与过关剧情统一使用旧客户端兼容图片协议",
+			(string)compatible_chapter_segment["type"]=="image" &&
+			(string)compatible_chapter_segment["src"]==
+				"/images/illusion_s1/story/chapters/chapter_009.png" &&
+			search(player_command_source,"[imgurl picture:")!=-1 &&
+			search(season_source,"[imgurl picture:")!=-1 &&
+			search(player_command_source,"[storypic ")==-1 &&
+			search(season_source,"[storypic ")==-1,
+			sprintf("segment=%O",compatible_chapter_segment));
 		check("关闭后保留有界窗口接住最后一批跨worker到达",
 			search(season_source,"closed_reconcile_until = time()+180")!=-1 &&
 			search(season_source,"time()<=closed_reconcile_until")!=-1 &&
@@ -1279,12 +1290,53 @@ int main()
 				"active")==4,
 			"损坏索引被错误当作普通永恒人物");
 		mapping storage = ACCOUNT_STORAGED->query_storage(child);
-		check("S1人物不能导入共享仓库、共享玉石或共享宠物",
-			!(int)storage["ok"] && ACCOUNT_WALLETD->query_balance(child)==0 &&
+		check("S1人物不能导入共享仓库或共享宠物",
+			!(int)storage["ok"] &&
 			SPIRIT_COMPANIOND->query_pet_battle_source(child)=="personal",
-			sprintf("storage=%O wallet=%d source=%s",storage,
-				ACCOUNT_WALLETD->query_balance(child),
+			sprintf("storage=%O source=%s",storage,
 				SPIRIT_COMPANIOND->query_pet_battle_source(child)));
+
+		mapping vip_wallet_credit = ACCOUNT_WALLETD->credit_recharge_once(
+			root,480,"testunitadmin",
+			ACCOUNT_WALLETD->new_recharge_request_id());
+		object vip_app_command = (object)(ROOT+
+			"/gamelib/cmds/vip_service_app_confirm.pike");
+		object|zero vip_original_player = this_player();
+		mixed vip_err = catch{
+			set_this_player(child);
+			vip_app_command->main("1");
+		};
+		if(vip_original_player)
+			set_this_player(vip_original_player);
+		else
+			set_this_player(this_object());
+		int vip_payment_saved = child->save_with_result();
+		int vip_payment_finalized = YUSHID->
+			complete_wallet_payment_player_save(child);
+		if(vip_payment_finalized)
+			vip_payment_saved = child->save_with_result() &&
+				vip_payment_saved;
+		mapping vip_wallet_after = ACCOUNT_WALLETD->query_account_wallet(
+			account_id);
+		check("S1账号充值余额全场通用且可直接开通VIP",
+			(int)vip_wallet_credit["ok"] && !vip_err &&
+			(int)child->query_vip_flag()==1 &&
+			(int)child->query_vip_end_time()>time() && vip_payment_saved &&
+			vip_payment_finalized &&
+			ACCOUNT_WALLETD->query_balance(child)==4700 &&
+			YUSHID->query_all_num(child)>=4700 &&
+			(int)vip_wallet_after["balance"]==4700 &&
+			!sizeof((mapping)(child[
+				"/plus/yushi_wallet_payment"] || ([]))),
+			sprintf("credit=%O err=%O vip=%d end=%d saved=%d "
+				"finalized=%d balance=%d all=%d wallet=%O",
+				vip_wallet_credit,vip_err,
+				(int)child->query_vip_flag(),
+				(int)child->query_vip_end_time(),vip_payment_saved,
+				vip_payment_finalized,
+				ACCOUNT_WALLETD->query_balance(child),
+				YUSHID->query_all_num(child),
+				vip_wallet_after));
 
 		mapping progress = SEASONALD->query_player_progress(child);
 		check("三路线与八十一章目标在满条件时按顺序可领取",

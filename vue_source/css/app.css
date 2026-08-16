@@ -3757,6 +3757,22 @@ body {
     border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
+/* S1 章节使用通用 imgurl 协议以兼容旧 Vue/JSP，但仍按剧情大图展示。 */
+.mud-inline-image[src*="/illusion_s1/story/chapters/"] {
+    display: block;
+    width: min(100%, 34rem);
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    margin: 12px auto;
+    border: 2px solid rgba(147, 94, 255, 0.72);
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(31, 21, 52, 0.28),
+        0 0 24px rgba(163, 123, 255, 0.18);
+}
+
 /* 地图图片 */
 .mud-inline-image[src*="/map/"] {
     max-width: 100%;

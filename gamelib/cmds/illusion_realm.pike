@@ -124,8 +124,9 @@ private string progress_view(object me,mapping progress)
 		s += "\n"+(string)current["volume_title"]+"\n";
 		s += "【第"+(string)current_number+"章·"+
 			(string)current["title"]+"】"+mark+"\n";
-		s += "[storypic "+(string)current_number+":"+
-			(string)current["image"]+"]\n";
+		// 使用所有新旧客户端都已支持的通用图片转译协议。旧版 Vue
+		// 不认识 story-image segment，会把整张章节图静默丢弃。
+		s += "[imgurl picture:"+(string)current["image"]+"]\n";
 		s += (string)current["intro"]+"\n";
 		s += chapter_task_view(progress,current,current_number);
 		if((int)current["reward_count"]>0)
@@ -182,8 +183,7 @@ private string story_chapter_view(mapping progress,int chapter_number)
 	s = (string)chapter["volume_title"]+"\n";
 	s += "【第"+(string)chapter_number+"章·"+
 		(string)chapter["title"]+"】\n";
-	s += "[storypic "+(string)chapter_number+":"+
-		(string)chapter["image"]+"]\n";
+	s += "[imgurl picture:"+(string)chapter["image"]+"]\n";
 	s += (string)chapter["intro"]+"\n";
 	if((int)chapter["claimed"])
 		s += "\n【过关回响】\n"+(string)chapter["outro"]+"\n";

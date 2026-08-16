@@ -2375,8 +2375,8 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 			(string)player->query_name());
 	invalidate_ranking_cache((string)illusion_config["current_id"]);
 	return (["ok":1,"message":"【"+(string)chapter["title"]+
-		"·过关】\n[storypic "+(string)chapter_number+":"+
-		(string)chapter["image"]+"]\n"+(string)chapter["outro"]+
+		"·过关】\n[imgurl picture:"+(string)chapter["image"]+"]\n"+
+		(string)chapter["outro"]+
 		((int)growth["after_level"]>(int)growth["before_level"] ?
 		 "\n章回悟境：等级提升至 "+(string)growth["after_level"]+" 级。" : "")+
 		(sizeof(names) ? "\n获得："+(names*"、") : ""),"items":names,

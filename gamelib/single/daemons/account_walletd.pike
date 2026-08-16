@@ -568,8 +568,6 @@ int query_total_recharge_fee_for_account(string account_id)
 
 int query_balance(object player)
 {
-	if(SEASONALD->shared_account_assets_blocked(player))
-		return 0;
 	mapping status = query_wallet(player);
 	return status["ok"] ? (int)status["balance"] : 0;
 }
@@ -817,8 +815,6 @@ mapping(string:mixed) credit_referral_reward_once(object player,
 
 int debit_recharge(object player,int amount,string reason)
 {
-	if(SEASONALD->shared_account_assets_blocked(player))
-		return 0;
 	string account_id = resolve_player_account(player);
 	string character_id;
 	mapping(string:mixed)|zero record;
@@ -852,8 +848,6 @@ int debit_recharge(object player,int amount,string reason)
 mapping(string:mixed) debit_recharge_once(object player,int amount,
 	string reason,string request_id)
 {
-	if(SEASONALD->shared_account_assets_blocked(player))
-		return (["ok":0,"message":"幻境人物不能使用永恒服共享充值余额"]);
 	string account_id = resolve_player_account(player);
 	string character_id;
 	mapping(string:mixed)|zero record;
