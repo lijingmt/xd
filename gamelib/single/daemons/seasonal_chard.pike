@@ -1888,30 +1888,6 @@ mapping(string:mixed) discover_story_event_for_test(object player)
 	return discover_story_event_internal(player,1);
 }
 
-mapping(string:mixed) ensure_story_active_days_for_test(object player,
-	int target_days)
-{
-	mapping progress;
-	mapping old_progress;
-	int joined_at;
-	if(!is_test_illusion_player(player) || target_days<1 || target_days>7)
-		return (["ok":0,"message":"测试入口不可用。"]);
-	progress = player_progress(player,1);
-	old_progress = copy_value(progress);
-	joined_at = (int)progress["joined_at"];
-	if(joined_at<=0)
-		joined_at = time();
-	for(int offset=0;offset<target_days;offset++)
-		record_story_activity_day(progress,joined_at+offset*86400);
-	if(story_active_day_count(progress)<target_days ||
-	   !player->save_with_result()){
-		player[ILLUSION_PROGRESS_ROOT+"/"+
-			(string)illusion_config["current_id"]] = old_progress;
-		return (["ok":0,"message":"测试修行日保存失败。"]);
-	}
-	return (["ok":1,"active_days":story_active_day_count(progress)]);
-}
-
 private mapping(string:int) chapter_requirements(int index)
 {
 	int total = sizeof((array)illusion_config["chapters"]);
@@ -2090,9 +2066,6 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 					"location":(string)candidate["location"],
 					"room":(string)candidate["room"]]);
 	}
-	if(story_active_day_count(progress)<(int)chapter["active_days"])
-		return (["kind":"wait","name":"等待下一个北京时间修行日",
-			"location":"S1月门营地","room":""]);
 	if((int)chapter["path_required"] && (string)progress["path"]=="")
 		return (["kind":"choice","name":"完成三途择印",
 			"location":"折星台","room":""]);
@@ -2136,7 +2109,6 @@ private mapping chapter_status(object player,mapping progress,
 		(int)progress["kills"]>=(int)requirements["kills"] &&
 		(int)progress["boss_kills"]>=(int)requirements["boss_kills"] &&
 		progress_visit_count(progress)>=(int)requirements["visits"] &&
-		story_active_day_count(progress)>=(int)chapter["active_days"] &&
 		story_ready;
 	if((int)chapter["path_required"] && (string)progress["path"]=="")
 		base_ready = 0;

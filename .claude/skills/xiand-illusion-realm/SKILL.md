@@ -74,8 +74,9 @@ it manually while processes are running.
 For S1:
 
 1. Verify `current_id` is exactly `S1`, duration is 30 days, entry/return rooms
-   load, nine volumes contain exactly 81 ordered chapters, the 7-day gate and
-   25 key story events are intact, all nine atlases load, chapter rewards total
+   load, nine volumes contain exactly 81 ordered chapters, active-day data is
+   analytics-only and never gates progression, 25 key story events are intact,
+   all nine atlases load, chapter rewards total
    exactly ten pieces, and both route arrays contain exactly three challenges.
 2. Run `mgr_illusion_realm`, preview `open_registration`, then confirm.
 3. Let players permanently activate the S1-specific account entitlement for
@@ -122,8 +123,8 @@ Keep gameplay content data-driven:
   exist before enabling the daemon;
 - require chapter IDs to be the ordered `<ID>-C1...Cn` sequence;
 - for S1 require exactly nine volumes of nine chapters, 81 unique chapter
-  titles, active-day gates from 1 through 7, and exactly 25 configured story
-  events whose chapter, kind, Chinese location label and canonical room/NPC
+  titles, active-day metadata from 1 through 7 for analytics only, and exactly
+  25 configured story events whose chapter, kind, Chinese location label and canonical room/NPC
   path agree;
 - keep story prose in the separate tracked story JSON and require its immutable
   ID/title/premise to match the cycle config before flattening it at startup;
@@ -296,8 +297,9 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    grouping and catalog weights,
    entitlement denial/grant, interrupted-payment refund, multiple characters
    per cycle within the existing account/profession limits,
-   all three route gates, 81 ordered claims across seven distinct Beijing
-   activity days, 25 exact room/NPC story events, exactly ten bound rewards,
+   all three route gates, 81 ordered claims in one real activity day without
+   injecting future dates, 25 exact room/NPC story events, exactly ten bound
+   rewards,
    duplicate-claim denial, movement/isolation, malformed-index failure closure,
    automatic expiry/close without automatic start, login-hook ordering,
    end-time boundaries, same-archive settlement, idempotent return, same-room

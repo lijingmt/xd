@@ -494,6 +494,8 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			future_event)]);
 	}
 	result["future_event_blocked"] = 1;
+	progress = SEASONALD->query_player_progress(player);
+	result["activity_days_before"] = (int)progress["active_days"];
 
 	// 破阵路线的三个终局印必须来自三个不同真实首领，不允许用
 	// 后续剧情首领数量替代。
@@ -509,15 +511,6 @@ mapping(string:mixed) record_task_progress(object player,string route)
 
 	for(int chapter_index=0;chapter_index<sizeof(chapters);chapter_index++){
 		mapping chapter = (mapping)chapters[chapter_index];
-		mapping active_days = SEASONALD->ensure_story_active_days_for_test(
-			player,(int)chapter["active_days"]);
-		if(!(int)active_days["ok"]){
-			result = (["ok":0,"message":sprintf(
-				"第%d章跨日修行准备失败: %O",chapter_index+1,
-				active_days)]);
-			destruct(normal_npc);
-			return result;
-		}
 		if((int)player->query_level()<(int)chapter["min_level"]){
 			result = (["ok":0,"message":sprintf(
 				"第%d章开始前等级未由此前章节自然推进: level=%d need=%d",
@@ -744,7 +737,9 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["progress"]["kills"]==751 &&
 			(int)task["progress"]["boss_kills"]>=10 &&
 			(int)task["progress"]["visits"]>=36 &&
-			(int)task["progress"]["active_days"]==7 &&
+			(int)task["progress"]["active_days"]==
+				(int)task["activity_days_before"] &&
+			(int)task["progress"]["active_days"]<=1 &&
 			(int)task["progress"]["story_event_count"]==25 &&
 			(int)task["future_event_blocked"]==1 &&
 			(int)task["event_gates_tested"]==25 &&

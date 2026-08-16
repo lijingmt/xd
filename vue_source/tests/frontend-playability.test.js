@@ -211,6 +211,16 @@ async function main() {
             type: 'line',
             segments: [{
                 type: 'story-image',
+                src: '/images/illusion_s1/story/chapters/chapter_003.png',
+                alt: '新月长生劫第3章插画',
+                cell: 0,
+                full: 1,
+                chapter: 3
+            }]
+        }, {
+            type: 'line',
+            segments: [{
+                type: 'story-image',
                 src: '/images/illusion_s1/story/chapters/chapter_081.png',
                 alt: '新月长生劫第81章插画',
                 cell: 0,
@@ -230,6 +240,7 @@ async function main() {
     assert(gameRendered.includes('equipment-rarity-7'), 'rarest equipment aura must render');
     assert(gameRendered.includes('illusion-story-frame-full'), 'full chapter artwork must render in the real game output');
     assert(gameRendered.includes('background-size:cover'), 'independent chapter artwork must render without atlas cropping');
+    assert(gameRendered.includes('新月长生劫第3章插画'), 'early subchapter artwork must keep its chapter-specific accessible description');
     assert(gameRendered.includes('新月长生劫第81章插画'), 'story image must keep a chapter-specific accessible description');
 
     console.log(

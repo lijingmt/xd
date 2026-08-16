@@ -19,8 +19,7 @@ private string chapter_task_view(mapping progress,mapping chapter,
 	int bosses_done = (int)chapter["chapter_boss_kills_done"];
 	int visits = (int)chapter["chapter_visits"];
 	int visits_done = (int)chapter["chapter_visits_done"];
-	s += "修行日："+(string)(int)progress["active_days"]+"/"+
-		(string)(int)chapter["active_days"]+"　等级：Lv"+
+	s += "等级：Lv"+
 		(string)(int)progress["level"]+"/Lv"+
 		(string)(int)chapter["min_level"]+"\n";
 	if(kills>0)
@@ -49,8 +48,6 @@ private string chapter_task_view(mapping progress,mapping chapter,
 	if((string)chapter["target_room"]!="")
 		s += "[立即前往本章目标:illusion_realm story travel "+
 			(string)chapter_number+"]\n";
-	else if((string)chapter["target_kind"]=="wait")
-		s += "修行日按北京时间自然累计，不能用传送或重复登录跳过。\n";
 	else if((string)chapter["target_kind"]=="choice")
 		s += "请返回当前历程完成三途择印。\n";
 	else if((string)chapter["target_kind"]=="route")
@@ -70,8 +67,7 @@ private string progress_view(object me,mapping progress)
 		"　首领："+(string)(int)progress["boss_kills"]+
 		"　同队击杀："+(string)(int)progress["team_kills"]+"\n";
 	s += "故事历程："+(string)(int)progress["chapter_claimed"]+"/"+
-		(string)(int)progress["chapter_total"]+"章　修行日："+
-		(string)(int)progress["active_days"]+"/7　剧情印记："+
+		(string)(int)progress["chapter_total"]+"章　剧情印记："+
 		(string)(int)progress["story_event_count"]+"\n";
 	if((string)progress["path"]=="pioneer")
 		s += "寻星终章：隐藏月印 "+
@@ -201,7 +197,7 @@ private string story_index_view(mapping progress)
 			":illusion_realm story volume "+(string)volume+"] "+
 			(string)completed+"/9\n";
 	}
-	s += "\n最快也需七个不同北京时间修行日；章节必须按顺序完成，不能跳章。\n";
+	s += "\n章节必须按顺序完成；满足本章等级、战斗、探索与剧情条件后即可立即推进。\n";
 	s += "[返回当前历程:illusion_realm]\n";
 	return s;
 }

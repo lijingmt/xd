@@ -144,6 +144,7 @@ int main()
 		multiset(string) story_titles = (<>);
 		multiset(string) story_atlases = (<>);
 		multiset(string) story_images = (<>);
+		multiset(string) story_image_digests = (<>);
 		int story_rewards;
 		int story_text_valid = 1;
 		int story_chapter_number;
@@ -152,6 +153,8 @@ int main()
 			story_atlases[(string)volume["atlas"]] = 1;
 			foreach((array)volume["chapters"],mapping chapter){
 				string chapter_image;
+				string chapter_source;
+				object chapter_hash;
 				story_chapter_number++;
 				story_chapters += ({chapter});
 				story_titles[(string)chapter["title"]] = 1;
@@ -165,9 +168,16 @@ int main()
 					"/xd/images/illusion_s1/story/chapters/chapter_%03d.png",
 					story_chapter_number);
 				story_images[chapter_image] = 1;
-				if(Stdio.file_size(ROOT+"/images/"+
-				   chapter_image[sizeof("/xd/images/")..])<200000)
+				chapter_source = Stdio.read_file(ROOT+"/images/"+
+					chapter_image[sizeof("/xd/images/")..]);
+				if(!chapter_source || sizeof(chapter_source)<200000)
 					story_chapter_images_valid = 0;
+				else{
+					chapter_hash = Crypto.SHA256();
+					chapter_hash->update(chapter_source);
+					story_image_digests[lower_case(String.string2hex(
+						chapter_hash->digest()))] = 1;
+				}
 			}
 		}
 		int story_images_valid = sizeof(story_atlases)==9;
@@ -177,7 +187,7 @@ int main()
 			   Stdio.file_size(ROOT+"/images/"+
 				atlas[sizeof("/xd/images/")..])<1024*1024)
 				story_images_valid = 0;
-		check("原创长篇故事固定为九卷八十一章、七日门槛与十件奖励",
+		check("原创长篇故事固定为九卷八十一章、活跃日元数据与十件奖励",
 			sizeof(story_volumes)==9 && sizeof(story_chapters)==81 &&
 			sizeof(story_titles)==81 && story_rewards==10 &&
 			story_text_valid && (int)story_chapters[-1]["active_days"]==7,
@@ -187,9 +197,10 @@ int main()
 		check("九卷原创3x3故事图集完整且每卷不是占位小图",
 			story_images_valid,sprintf("atlases=%O",story_atlases));
 		check("八十一章各有唯一且非占位的独立AI剧情插画",
-			story_chapter_images_valid && sizeof(story_images)==81,
-			sprintf("images=%d valid=%d",sizeof(story_images),
-				story_chapter_images_valid));
+			story_chapter_images_valid && sizeof(story_images)==81 &&
+			sizeof(story_image_digests)==81,
+			sprintf("images=%d digests=%d valid=%d",sizeof(story_images),
+				sizeof(story_image_digests),story_chapter_images_valid));
 		check("故事配置未写入现有游戏动漫小说品牌名",
 			search(story_json_source,"暗黑")==-1 &&
 			search(story_json_source,"暴雪")==-1 &&
@@ -324,6 +335,8 @@ int main()
 			"storyimg 5:/xd/images/illusion_s1/story/volume_01.png","","");
 		mapping chapter_story_segment = HTTP_APID->parse_bracket_content(
 			"storypic 81:/xd/images/illusion_s1/story/chapters/chapter_081.png","","");
+		mapping chapter_three_segment = HTTP_APID->parse_bracket_content(
+			"storypic 3:/xd/images/illusion_s1/story/chapters/chapter_003.png","","");
 		mapping bad_story_segment = HTTP_APID->parse_bracket_content(
 			"storypic 81:/xd/images/illusion_s1/story/chapters/chapter_080.png","","");
 		string html_renderer_source = Stdio.read_file(ROOT+
@@ -346,9 +359,15 @@ int main()
 			(int)chapter_story_segment["chapter"]==81 &&
 			(string)chapter_story_segment["src"]==
 				"/images/illusion_s1/story/chapters/chapter_081.png" &&
+			(string)chapter_three_segment["type"]=="story-image" &&
+			(int)chapter_three_segment["full"]==1 &&
+			(int)chapter_three_segment["chapter"]==3 &&
+			(string)chapter_three_segment["src"]==
+				"/images/illusion_s1/story/chapters/chapter_003.png" &&
 			(string)bad_story_segment["type"]!="story-image",
-			sprintf("atlas=%O chapter=%O invalid=%O",story_segment,
-				chapter_story_segment,bad_story_segment));
+			sprintf("atlas=%O chapter3=%O chapter81=%O invalid=%O",
+				story_segment,chapter_three_segment,chapter_story_segment,
+				bad_story_segment));
 		check("Vue、旧JSP明暗主题、兼容副本与旧HTML5都能显示独立章节插画",
 			search(html_renderer_source,"storyimg %d")!=-1 &&
 			search(html_renderer_source,"storypic %d")!=-1 &&
@@ -1221,7 +1240,6 @@ int main()
 		check("三路线与八十一章目标在满条件时按顺序可领取",
 			(int)progress["ok"] &&
 			sizeof((array)progress["chapters"])==81 &&
-			(int)progress["active_days"]>=7 &&
 			(int)progress["story_event_count"]==25 &&
 			(int)progress["chapters"][0]["ready"] &&
 			(string)progress["path"]=="hunter" &&
