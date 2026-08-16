@@ -127,7 +127,7 @@ int main()
 			daemon->query_affinity_key("../../etc/passwd","")=="",
 			"静态房间被拆分、实例未分片或路径穿越未拒绝");
 
-		check("S1公共营地固定且野外章节可分散到多个worker",
+		check("S1公共营地、剧情章节与三组中立猎场可分散到多个worker",
 			daemon->query_affinity_key(
 				"/gamelib/d/illusion_s1/moon_gate.pike","")==
 				"illusion_s1:hub" &&
@@ -144,6 +144,15 @@ int main()
 			daemon->query_affinity_key(
 				"/gamelib/d/illusion_s1/newmoon_altar.pike","")==
 				"illusion_s1:depths" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/moon_dew_field.pike","")==
+				"illusion_s1:hunt_a" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/silver_reed_bank.pike","")==
+				"illusion_s1:hunt_b" &&
+			daemon->query_affinity_key(
+				"/gamelib/d/illusion_s1/starlight_slope.pike","")==
+				"illusion_s1:hunt_c" &&
 			daemon->query_affinity_key(
 				"/gamelib/d/illusion_s1/future_room.pike","")==
 				"illusion_s1:frontier",
@@ -335,6 +344,7 @@ int main()
 		mapping(string:int) counts = ([]);
 		mapping(string:int) weights = ([]);
 		multiset(string) s1_workers = (<>);
+		multiset(string) s1_hunt_workers = (<>);
 		int s1_group_count;
 		int largest_affinity_weight;
 		int heat_shape_valid = 1;
@@ -345,6 +355,9 @@ int main()
 				s1_group_count++;
 				s1_workers[owner] = 1;
 			}
+			if(has_prefix((string)one["affinity"],
+			   "illusion_s1:hunt_"))
+				s1_hunt_workers[owner] = 1;
 			if(has_value(worker_ids,owner)){
 				counts[owner]++;
 				weights[owner] += (int)one["weight"];
@@ -363,10 +376,13 @@ int main()
 				valid = 0;
 		check("约2693个房间按目录权重分布到3个worker",
 			valid,"冷启动目录未覆盖所有worker或地图目录缺失");
-		check("S1四个章节亲和组在冷启动时实际使用多个worker",
-			s1_group_count==4 && sizeof(s1_workers)>=2,
+		check("S1七个剧情与猎场亲和组在冷启动时实际使用多个worker",
+			s1_group_count==7 && sizeof(s1_workers)>=3,
 			sprintf("groups=%d workers=%O",s1_group_count,
 				indices(s1_workers)));
+		check("S1三组公共猎场在三节点冷启动时强制互不共置",
+			sizeof(s1_hunt_workers)==3,
+			sprintf("hunt_workers=%O",indices(s1_hunt_workers)));
 		array(int) worker_weights = values(weights);
 		int lightest_worker_weight = sizeof(worker_weights) ?
 			worker_weights[0] : 0;

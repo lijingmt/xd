@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** S1 十二职业从零建角、完成七章、领取穿戴十件套并安全回归。 */
+/** S1 十二职业从零建角、完成八十一章、领取穿戴十件套并安全回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -24,6 +24,21 @@ array(mapping(string:string)) professions = ({
 array(string) routes = ({"pioneer","hunter","companion"});
 
 array(string) visit_rooms = ({
+	"/gamelib/d/illusion_s1/moon_gate.pike",
+	"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike",
+	"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike",
+	"/gamelib/d/illusion_s1/fog_oath_camp.pike",
+	"/gamelib/d/illusion_s1/xiniu_scripture_market.pike",
+	"/gamelib/d/illusion_s1/xiniu_empty_temple.pike",
+	"/gamelib/d/illusion_s1/mirror_depths.pike",
+	"/gamelib/d/illusion_s1/beiju_longlife_waste.pike",
+	"/gamelib/d/illusion_s1/beiju_broken_oath.pike",
+	"/gamelib/d/illusion_s1/beiju_frozen_palace.pike",
+	"/gamelib/d/illusion_s1/frozen_judgment_hall.pike",
+	"/gamelib/d/illusion_s1/dongsheng_morning_port.pike",
+	"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike",
+	"/gamelib/d/illusion_s1/moon_immortality_furnace.pike",
+	"/gamelib/d/illusion_s1/true_name_hall.pike",
 	"/gamelib/d/illusion_s1/mirror_lake.pike",
 	"/gamelib/d/illusion_s1/hidden_crater.pike",
 	"/gamelib/d/illusion_s1/newmoon_altar.pike",
@@ -34,11 +49,48 @@ array(string) visit_rooms = ({
 	"/gamelib/d/illusion_s1/star_bridge.pike",
 	"/gamelib/d/illusion_s1/abyss_garden.pike",
 	"/gamelib/d/illusion_s1/moon_palace.pike",
+	"/gamelib/d/illusion_s1/moon_dew_field.pike",
+	"/gamelib/d/illusion_s1/silver_reed_bank.pike",
+	"/gamelib/d/illusion_s1/starlight_slope.pike",
+	"/gamelib/d/illusion_s1/mist_bamboo_glen.pike",
+	"/gamelib/d/illusion_s1/cloud_pine_hollow.pike",
+	"/gamelib/d/illusion_s1/moonshadow_wood.pike",
+	"/gamelib/d/illusion_s1/mirror_sandbar.pike",
+	"/gamelib/d/illusion_s1/glasswater_bank.pike",
+	"/gamelib/d/illusion_s1/moonwave_shoal.pike",
+	"/gamelib/d/illusion_s1/broken_star_court.pike",
+	"/gamelib/d/illusion_s1/astral_stonewood.pike",
+	"/gamelib/d/illusion_s1/observatory_outfield.pike",
+	"/gamelib/d/illusion_s1/echo_battlement.pike",
+	"/gamelib/d/illusion_s1/old_city_square.pike",
+	"/gamelib/d/illusion_s1/stardust_lane.pike",
+	"/gamelib/d/illusion_s1/abyss_flower_sea.pike",
+	"/gamelib/d/illusion_s1/deepmoon_valley.pike",
+	"/gamelib/d/illusion_s1/starfall_garden.pike",
 });
 
 array(string) hunter_bosses = ({
 	"star_keeper","moon_general","newmoon_lord",
 });
+
+mapping(string:mapping(string:mixed)) story_events = ([]);
+
+int load_story_events()
+{
+	string source = Stdio.read_file(ROOT+
+		"/gamelib/etc/illusion_realm.json") || "";
+	mixed decoded;
+	mixed err = catch{ decoded=Standards.JSON.decode(source); };
+	if(err || !mappingp(decoded) || !arrayp(decoded["story_events"]))
+		return 0;
+	int locations_complete = 1;
+	foreach((array)decoded["story_events"],mapping event){
+		story_events[(string)event["id"]] = event;
+		if(sizeof((string)event["location"])<2)
+			locations_complete = 0;
+	}
+	return sizeof(story_events)==25 && locations_complete;
+}
 
 void check(string name,int valid,string reason)
 {
@@ -223,7 +275,7 @@ mapping(string:mixed) run_representative_survival_loop(object player)
 			interact_spirit_companion(player);
 
 		int moved = move_for_test(player,
-			"/gamelib/d/illusion_s1/silver_path.pike");
+			"/gamelib/d/illusion_s1/moon_dew_field.pike");
 		set_this_player(player);
 		player["/plus/autofight_smart_route"] = 1;
 		AUTOFIGHTD->initialize_player(player);
@@ -258,7 +310,9 @@ mapping(string:mixed) run_representative_survival_loop(object player)
 		result = ([
 			"ok":(int)chosen["ok"] && (int)carried["ok"] &&
 				(int)interacted["ok"] && moved && fighting &&
-				(string)route["path"]=="illusion_s1/silver_path" &&
+				(string)route["path"]=="illusion_s1/moon_dew_field" &&
+				sizeof((array)route["paths"])==3 &&
+				(int)route["total_capacity"]>=50 &&
 				(int)route["disable_overflow"]==1 &&
 				(int)assisted["ok"] && eaten==1 && life_after>1 &&
 				life_after<=player->query_life_max() &&
@@ -296,12 +350,46 @@ mapping(string:mixed) record_task_progress(object player,string route)
 	int room_index;
 	object normal_npc = clone(ROOT+
 		"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
-	mapping result = (["ok":1,"claims":0]);
+	mapping result = (["ok":1,"claims":0,"event_gates_tested":0]);
 	mapping progress = SEASONALD->query_player_progress(player);
 	array chapters = (array)progress["chapters"];
+	if(!move_for_test(player,
+	   "/gamelib/d/illusion_s1/true_name_hall.pike")){
+		destruct(normal_npc);
+		return (["ok":0,"message":"未来剧情房间移动测试失败"]);
+	}
+	mapping future_event = SEASONALD->discover_story_event_for_test(player);
+	if((int)future_event["ok"]){
+		destruct(normal_npc);
+		return (["ok":0,"message":sprintf(
+			"未完成前置章节却提前触发第七十七章事件: %O",
+			future_event)]);
+	}
+	result["future_event_blocked"] = 1;
+
+	// 破阵路线的三个终局印必须来自三个不同真实首领，不允许用
+	// 后续剧情首领数量替代。
+	if(route=="hunter")
+		foreach(hunter_bosses,string hunter_boss_name){
+			object hunter_boss = clone(ROOT+
+				"/gamelib/clone/npc/illusion_s1/"+
+				hunter_boss_name+".pike");
+			hunter_boss->move(environment(player));
+			SEASONALD->record_npc_kill(player,hunter_boss,1);
+			destruct(hunter_boss);
+		}
 
 	for(int chapter_index=0;chapter_index<sizeof(chapters);chapter_index++){
 		mapping chapter = (mapping)chapters[chapter_index];
+		mapping active_days = SEASONALD->ensure_story_active_days_for_test(
+			player,(int)chapter["active_days"]);
+		if(!(int)active_days["ok"]){
+			result = (["ok":0,"message":sprintf(
+				"第%d章跨日修行准备失败: %O",chapter_index+1,
+				active_days)]);
+			destruct(normal_npc);
+			return result;
+		}
 		player->level = (int)chapter["min_level"];
 		player->set_att_by_level();
 
@@ -322,10 +410,9 @@ mapping(string:mixed) record_task_progress(object player,string route)
 
 		mapping raw = player["/plus/illusion_realm/S1"];
 		while((int)raw["boss_kills"]<(int)chapter["boss_kills"]){
-			int boss_index = min((int)raw["boss_kills"],2);
 			object boss = clone(ROOT+
 				"/gamelib/clone/npc/illusion_s1/"+
-				hunter_bosses[boss_index]+".pike");
+				hunter_bosses[0]+".pike");
 			boss->move(environment(player));
 			SEASONALD->record_npc_kill(player,boss,
 				route=="companion" ? 2 : 1);
@@ -338,6 +425,61 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			SEASONALD->record_npc_kill(player,normal_npc,
 				route=="companion" ? 2 : 1);
 			raw = player["/plus/illusion_realm/S1"];
+		}
+
+		string story_event_id = (string)chapter["story_event"];
+		if(story_event_id!=""){
+			mapping before_event = SEASONALD->query_player_progress(player);
+			mapping pending_chapter =
+				((array)before_event["chapters"])[chapter_index];
+			if((int)pending_chapter["story_ready"]){
+				result = (["ok":0,"message":sprintf(
+					"第%d章关键事件在到达指定地点前已被越权触发: %O",
+					chapter_index+1,pending_chapter)]);
+				destruct(normal_npc);
+				return result;
+			}
+			result["event_gates_tested"] =
+				(int)result["event_gates_tested"]+1;
+			mapping event = story_events[story_event_id];
+			if(!mappingp(event)){
+				result = (["ok":0,"message":"故事事件配置缺失: "+
+					story_event_id]);
+				destruct(normal_npc);
+				return result;
+			}
+			if((string)pending_chapter["story_event_location"]!=
+			   (string)event["location"]){
+				result = (["ok":0,"message":sprintf(
+					"第%d章地点引导与事件配置不一致: chapter=%O event=%O",
+					chapter_index+1,pending_chapter,event)]);
+				destruct(normal_npc);
+				return result;
+			}
+			if((string)event["kind"]=="echo"){
+				if(!move_for_test(player,(string)event["path"])){
+					result = (["ok":0,"message":"故事残响房间移动失败: "+
+						(string)event["path"]]);
+					destruct(normal_npc);
+					return result;
+				}
+				mapping witnessed = SEASONALD->
+					discover_story_event_for_test(player);
+				if(!(int)witnessed["ok"] || (int)witnessed["already"]){
+					result = (["ok":0,"message":sprintf(
+						"第%d章故事残响失败: %O",chapter_index+1,
+						witnessed)]);
+					destruct(normal_npc);
+					return result;
+				}
+			}
+			else{
+				object story_boss = clone(ROOT+(string)event["path"]);
+				story_boss->move(environment(player));
+				SEASONALD->record_npc_kill(player,story_boss,
+					route=="companion" ? 2 : 1);
+				destruct(story_boss);
+			}
 		}
 
 		progress = SEASONALD->query_player_progress(player);
@@ -450,14 +592,18 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			sprintf("before=%d after=%d",before_remote,after_remote));
 
 		mapping task = record_task_progress(player,route);
-		check(profession_name+"逐级完成三路线之一的全部七章任务",
-			(int)task["ok"] && (int)task["claims"]==7 &&
-			(int)task["progress"]["kills"]==600 &&
-			(int)task["progress"]["boss_kills"]==8 &&
-			(int)task["progress"]["visits"]>=10 &&
+		check(profession_name+"逐级完成三路线之一的全部八十一章任务",
+			(int)task["ok"] && (int)task["claims"]==81 &&
+			(int)task["progress"]["kills"]==751 &&
+			(int)task["progress"]["boss_kills"]>=10 &&
+			(int)task["progress"]["visits"]>=36 &&
+			(int)task["progress"]["active_days"]==7 &&
+			(int)task["progress"]["story_event_count"]==25 &&
+			(int)task["future_event_blocked"]==1 &&
+			(int)task["event_gates_tested"]==25 &&
 			(string)task["progress"]["path"]==route,
 			sprintf("route=%s task=%O",route,task));
-		check(profession_name+"七章准确获得本职业十件账号绑定套装",
+		check(profession_name+"八十一章准确获得本职业十件账号绑定套装",
 			validate_newmoon_items(player,account_id,profession_id),
 			sprintf("items=%d",sizeof(query_newmoon_items(player))));
 
@@ -525,6 +671,8 @@ void run_profession_journey(int index,mapping(string:string) profession)
 int main()
 {
 	werror("\n========== S1十二职业从零到十件套端到端测试 ==========\n");
+	check("八十一章的二十五个关键故事事件及中文地点配置完整",
+		load_story_events(),sprintf("events=%d",sizeof(story_events)));
 	int profession_names_complete = 1;
 	foreach(professions,mapping profession)
 		if(TASKD->query_growth_task_profession_name(

@@ -194,6 +194,9 @@ createApp({
             characterCreating: false,
 			illusionActivating: false,
 			illusionActivationMessage: '',
+			illusionExpanding: false,
+			illusionExpansionMessage: '',
+			illusionExpansionPendingRequest: null,
             characterError: '',
             accountToken: '',
             accountId: '',
@@ -1633,6 +1636,9 @@ createApp({
             this.characterCreateOpen = false;
 			this.illusionActivating = false;
 			this.illusionActivationMessage = '';
+			this.illusionExpanding = false;
+			this.illusionExpansionMessage = '';
+			this.illusionExpansionPendingRequest = null;
             this.characterError = '';
         },
 
@@ -1868,6 +1874,7 @@ createApp({
             this.characterForm.sex = 'male';
             this.characterForm.avatar_id = '';
 			this.illusionActivationMessage = '';
+			this.illusionExpansionMessage = '';
             this.characterError = '';
             this.characterCreateOpen = true;
         },
@@ -1905,6 +1912,87 @@ createApp({
 				}
 			} finally {
 				this.illusionActivating = false;
+			}
+		},
+
+		async createIllusionExpansionRequestId(option) {
+			let entropy = '';
+			if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+				const randomBytes = new Uint8Array(32);
+				window.crypto.getRandomValues(randomBytes);
+				entropy = Array.from(randomBytes)
+					.map(value => value.toString(16).padStart(2, '0')).join('');
+			} else {
+				entropy = `${Date.now()}|${Math.random()}|${Math.random()}`;
+			}
+			return sha256([
+				this.accountId,
+				this.illusionRealmStatus.illusion_id || 'S1',
+				option,
+				entropy
+			].join('|'));
+		},
+
+		async expandIllusionCapacity(option) {
+			if (this.illusionExpanding || !this.accountToken ||
+				!['one', 'all'].includes(option)) return;
+			if (!this.illusionEntitled || !this.illusionRealmStatus.creation_open) {
+				this.characterError = '当前不能扩充幻境人物栏位';
+				return;
+			}
+			const cost = option === 'one'
+				? this.illusionExpansionSingleCost
+				: this.illusionExpansionRemainingCost;
+			if (!this.accountSharedRechargeAvailable || cost <= 0 ||
+				this.accountSharedRechargeBalance < cost) {
+				this.characterError = `账号共享充值余额不足，需要${cost}碎玉；也可进入已有永恒人物的“幻境区”使用背包玉石扩充`;
+				return;
+			}
+			const actionText = option === 'one'
+				? `支付${cost}碎玉增加1个人物栏位`
+				: `支付${cost}碎玉解锁本期多人物`;
+			if (!window.confirm(`${actionText}？\n本次只扣账号共享充值余额，不会动人物背包玉石。`)) {
+				return;
+			}
+			const requestKey = `${this.illusionRealmStatus.illusion_id || 'S1'}:${option}`;
+			if (!this.illusionExpansionPendingRequest ||
+				this.illusionExpansionPendingRequest.key !== requestKey) {
+				this.illusionExpansionPendingRequest = {
+					key: requestKey,
+					requestId: await this.createIllusionExpansionRequestId(option)
+				};
+			}
+			this.illusionExpanding = true;
+			this.illusionExpansionMessage = '';
+			this.characterError = '';
+			try {
+				const data = await this.postAccountApi(
+					'/api/account/illusion/expand',
+					{
+						token: this.accountToken,
+						option,
+						request_id: this.illusionExpansionPendingRequest.requestId
+					}
+				);
+				this.applyAccountData(data);
+				this.illusionExpansionMessage = data.expansion?.message ||
+					'幻境人物栏位扩充成功，可以继续选择职业';
+				this.illusionExpansionPendingRequest = null;
+				if (this.illusionRealmStatus.creation_open &&
+					!this.illusionCharacterCapacityReached) {
+					this.characterForm.realm_type = 'illusion';
+				}
+			} catch (error) {
+				this.characterError = (error.message || '幻境人物栏位扩充失败') +
+					'；再次点击会沿用同一请求安全重试';
+				if (error.status === 401) {
+					this.clearAccountSession();
+					this.showCharacterSelect = false;
+					this.showLogin = true;
+					this.loginError = '账号会话已过期，请重新登录';
+				}
+			} finally {
+				this.illusionExpanding = false;
 			}
 		},
 
@@ -3383,7 +3471,7 @@ createApp({
         },
 
         // 获取图片的完整URL
-        getImageUrl(imagePath) {
+		getImageUrl(imagePath) {
             // imagePath 格式: /images/user/0_100.gif 或 /xd/images/...
             // 使用与当前页面相同的协议和主机名
             const protocol = window.location.protocol;
@@ -3401,8 +3489,18 @@ createApp({
                     baseUrl = protocol + '//' + hostname + ':8080';
                 }
             }
-            return baseUrl + imagePath;
-        },
+			return baseUrl + imagePath;
+		},
+
+		getStoryImageStyle(segment) {
+			const cell = Math.max(1, Math.min(9, Number(segment?.cell) || 1));
+			const column = (cell - 1) % 3;
+			const row = Math.floor((cell - 1) / 3);
+			return {
+				backgroundImage: `url("${this.getImageUrl(segment?.src || '')}")`,
+				backgroundPosition: `${column * 50}% ${row * 50}%`
+			};
+		},
 
         handlePlayerAvatarError() {
             this.playerAvatarFailed = true;
@@ -5430,6 +5528,19 @@ createApp({
 		illusionCharacterCapacityReached() {
 			return !this.illusionMultiCharacterUnlocked &&
 				this.currentIllusionCharacterCount >= this.illusionCharacterSlots;
+		},
+
+		illusionExpansionSingleCost() {
+			return Math.max(1, Number(
+				this.illusionRealmStatus?.extra_character_slot_cost_suiyu || 100
+			));
+		},
+
+		illusionExpansionRemainingCost() {
+			const fullCost = Math.max(1, Number(
+				this.illusionRealmStatus?.multi_character_unlock_cost_suiyu || 500
+			));
+			return Math.max(0, fullCost - this.illusionExpansionSpentSuiyu);
 		},
 
 		hasRecentAoeReport() {

@@ -9,6 +9,7 @@ protected void create(){
 	desc="林雾会随击杀方向流动，独行者与队伍看到的是同一片真实树林。\n";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/silver_path.pike";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/mirror_lake.pike";
+	exits["north"]=ROOT "/gamelib/d/illusion_s1/fog_oath_camp.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fog_wolf.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fog_wolf.pike"}));
 }

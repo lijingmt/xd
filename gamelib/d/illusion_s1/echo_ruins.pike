@@ -9,6 +9,7 @@ protected void create(){
 	desc="城墙会复述上一场战斗的余音，却不会复制任何一件已经归属玩家的装备。\n";
 	exits["north"]=ROOT "/gamelib/d/illusion_s1/broken_observatory.pike";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/star_bridge.pike";
+	exits["west"]=ROOT "/gamelib/d/illusion_s1/beiju_longlife_waste.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/star_wraith.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/star_wraith.pike"}));
 }

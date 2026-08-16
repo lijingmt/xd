@@ -361,9 +361,22 @@ string parse_mud_content_to_html(string response, string txd, string userid)
                         if(pos > 0) {
                             string label = content[0..pos-1];
                             string action_cmd = content[pos+1..];
+							int story_cell;
 
+							// 新月长生劫图集：旧JSP直接按3x3格裁切，和Vue一致。
+							if(sscanf(label,"storyimg %d",story_cell)==1 &&
+							   story_cell>=1 && story_cell<=9 &&
+							   has_prefix(action_cmd,
+								"/xd/images/illusion_s1/story/volume_") &&
+							   has_suffix(action_cmd,".png") &&
+							   search(action_cmd,"..")==-1){
+								int story_column = (story_cell-1)%3;
+								int story_row = (story_cell-1)/3;
+								html += sprintf("<div role='img' aria-label='新月长生劫剧情插画' style=\"width:100%%;max-width:544px;aspect-ratio:1/1;margin:12px auto;background-image:url('%s');background-size:300%% 300%%;background-position:%d%% %d%%;background-repeat:no-repeat;border:2px solid #9360d8;border-radius:16px\"></div>",
+									action_cmd,story_column*50,story_row*50);
+							}
                             // 图片链接 [miniimg minipicture:/xd/images/xxx.gif]
-                            if(search(content, "miniimg ") == 0) {
+                            else if(search(content, "miniimg ") == 0) {
                                 int colon_pos = search(content[8..], ":");
                                 if(colon_pos >= 0) {
                                     string img_name = content[8..8+colon_pos-1];
@@ -936,9 +949,25 @@ mapping parse_response_to_json(string response, string userid)
                     if(pos > 0) {
                         string label = content[0..pos-1];
                         string action_cmd = content[pos+1..];
+						int story_cell;
 
+						if(sscanf(label,"storyimg %d",story_cell)==1 &&
+						   story_cell>=1 && story_cell<=9 &&
+						   has_prefix(action_cmd,
+							"/xd/images/illusion_s1/story/volume_") &&
+						   has_suffix(action_cmd,".png") &&
+						   search(action_cmd,"..")==-1){
+							string story_href = action_cmd;
+							if(sscanf(story_href,"/%*s/images/%s",string story_rest)==2)
+								story_href = "/images/"+story_rest;
+							mapping img = ([
+								"type":"story-image","src":story_href,
+								"alt":"新月长生劫剧情插画","cell":story_cell,
+							]);
+							result["images"] += ({img});
+						}
                         // 图片链接 [miniimg minipicture:/xd/images/xxx.gif]
-                        if(search(content, "miniimg ") == 0) {
+                        else if(search(content, "miniimg ") == 0) {
                             int colon_pos = search(content[8..], ":");
                             if(colon_pos >= 0) {
                                 string img_name = content[8..8+colon_pos-1];

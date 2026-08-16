@@ -3356,8 +3356,15 @@ array(string) query_training_route_paths(object me)
 	return copy_value(paths);
 }
 
-private int query_training_room_capacity(object me)
+private int query_training_room_capacity(object me,
+	void|mapping(string:mixed) route)
 {
+	int configured_capacity;
+	if(route){
+		configured_capacity=(int)route["capacity"];
+		if(configured_capacity>=1 && configured_capacity<=32)
+			return configured_capacity;
+	}
 	if(me && me->query_level()>=70 &&
 	   me->query_level()<ENDGAME_MAP_MIN_LEVEL)
 		return AUTOFIGHT_DYNAMIC_ROOM_CAPACITY;
@@ -3416,7 +3423,7 @@ mapping(string:mixed) query_balanced_training_route(object me,
 	occupancy=query_public_training_occupancy();
 	current=query_current_room_path(me);
 	env=environment(me);
-	capacity=query_training_room_capacity(me);
+	capacity=query_training_room_capacity(me,route);
 	offset=query_stable_training_offset(me,sizeof(paths));
 	for(int i=0;i<sizeof(paths);i++){
 		string candidate=paths[(offset+i)%sizeof(paths)];

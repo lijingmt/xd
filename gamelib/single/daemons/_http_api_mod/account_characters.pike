@@ -121,6 +121,9 @@ private mapping query_account_characters_with_illusion_status(
 	string account_id)
 {
 	mapping status = SEASONALD->query_public_status();
+	// 人物中心支付不依赖在线人物。若上次在钱包扣款与栏位落盘之间
+	// 退出，先完成幂等恢复，再把可创建数量返回给页面。
+	SEASONALD->reconcile_account_character_expansions(account_id);
 	mapping result = ACCOUNT_CHARACTERD->query_account_characters(
 		account_id,(string)(status["illusion_id"] || "S1"));
 	result["illusion_realm"] = status;
@@ -263,6 +266,48 @@ void handle_api_account_illusion_activate(
 	}
 	attach_account_wallet_status(result,account_id);
 	result["activation"] = activation;
+	result["expires_in"] = ACCOUNT_SESSION_TTL;
+	send_json(req,result);
+}
+
+void handle_api_account_illusion_expand(
+	Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	mapping expansion;
+	mapping result;
+	string token;
+	string account_id;
+	string option;
+	string request_id;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST扩充幻境人物栏位"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = (string)(params["token"] || "");
+	account_id = query_account_session(token);
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	option = (string)(params["option"] || "");
+	request_id = lower_case(String.trim_all_whites(
+		(string)(params["request_id"] || "")));
+	expansion = SEASONALD->purchase_account_character_expansion(
+		account_id,option,request_id);
+	if(!(int)expansion["ok"]){
+		send_json(req,(["error":expansion["message"] ||
+			"幻境人物栏位扩充失败"]),409);
+		return;
+	}
+	result = query_account_characters_with_illusion_status(account_id);
+	if(!(int)result["ok"]){
+		send_json(req,(["error":"栏位已扩充，但账号人物档案刷新失败"]),409);
+		return;
+	}
+	attach_account_wallet_status(result,account_id);
+	result["expansion"] = expansion;
 	result["expires_in"] = ACCOUNT_SESSION_TTL;
 	send_json(req,result);
 }

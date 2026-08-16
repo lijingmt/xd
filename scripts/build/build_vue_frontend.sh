@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE_DIR="$ROOT_DIR/vue_source"
 OUTPUT_DIR="$ROOT_DIR/web/web_vue"
 LEGACY_OUTPUT_DIR="$SOURCE_DIR/dist"
+STORY_SOURCE_DIR="$ROOT_DIR/images/illusion_s1/story"
+STORY_OUTPUT_DIR="$ROOT_DIR/web/images/illusion_s1/story"
 
 log()
 {
@@ -129,6 +131,16 @@ for output_dir in "$OUTPUT_DIR" "$LEGACY_OUTPUT_DIR"; do
         fail "manifest scope is not deployment-relative: $output_dir"
     grep -q '"src": "favicon.ico"' "$output_dir/manifest.json" ||
         fail "manifest icon does not reference favicon: $output_dir"
+done
+
+for volume in 01 02 03 04 05 06 07 08 09; do
+    [[ -s "$STORY_SOURCE_DIR/volume_$volume.png" ]] ||
+        fail "missing S1 story source atlas: volume_$volume.png"
+    [[ -s "$STORY_OUTPUT_DIR/volume_$volume.png" ]] ||
+        fail "missing deployed S1 story atlas: volume_$volume.png"
+    cmp -s "$STORY_SOURCE_DIR/volume_$volume.png" \
+        "$STORY_OUTPUT_DIR/volume_$volume.png" ||
+        fail "deployed S1 story atlas is stale: volume_$volume.png"
 done
 
 grep -Eq '^COPY[[:space:]]+web[[:space:]]+/usr/local/tomcat/webapps/ROOT' \

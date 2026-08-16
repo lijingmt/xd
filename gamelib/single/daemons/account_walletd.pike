@@ -914,6 +914,179 @@ mapping(string:mixed) debit_recharge_once(object player,int amount,
 		"balance":balance,"message":""]);
 }
 
+/**
+ * 人物中心没有在线人物对象，只允许从注册账号共享充值余额扣款。
+ * character_id 固定为 account_id，不能借此消费任何人物背包玉石。
+ * request_id 与普通人物扣款共用同一份幂等收据和余额锁。
+ */
+mapping(string:mixed) debit_account_recharge_once(string account_id,
+	int amount,string reason,string request_id)
+{
+	mapping(string:mixed)|zero record;
+	mapping receipt;
+	object key;
+	account_id = String.trim_all_whites(account_id || "");
+	if(!valid_wallet_userid(account_id) || amount<=0 ||
+	   !valid_wallet_txid(request_id) ||
+	   !valid_wallet_text(reason || "",128))
+		return (["ok":0,"message":"账号共享充值扣款参数无效"]);
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"共享充值钱包数据异常"]);
+	}
+	receipt = record["debit_requests"][request_id];
+	if(receipt){
+		int matched = receipt["character_id"]==account_id &&
+			(int)receipt["amount"]==amount && receipt["reason"]==reason;
+		mapping result = ([
+			"ok":matched,
+			"duplicate":matched,
+			"amount":matched ? amount : 0,
+			"balance":(int)record["balance"],
+			"message":matched ? "" : "共享充值扣款请求编号冲突",
+		]);
+		destruct(key);
+		return result;
+	}
+	if(sizeof((mapping)record["debit_requests"])>=
+	   ACCOUNT_WALLET_MAX_DEBIT_REQUESTS){
+		destruct(key);
+		return (["ok":0,"message":"账号待确认扣款过多，请稍后重试"]);
+	}
+	if((int)record["balance"]<amount){
+		destruct(key);
+		return (["ok":0,"message":"账号共享充值余额不足"]);
+	}
+	record["balance"] = (int)record["balance"]-amount;
+	record["revision"] = (int)record["revision"]+1;
+	record["debit_requests"][request_id] = ([
+		"character_id":account_id,
+		"amount":amount,
+		"reason":reason,
+		"created_at":time(),
+	]);
+	append_transaction(record,"spend",account_id,amount,0,"system",
+		reason,request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return (["ok":0,"message":"共享充值钱包保存失败，本次未扣款"]);
+	}
+	int balance = (int)record["balance"];
+	destruct(key);
+	log_wallet(account_id,account_id,"account_spend_once",amount,balance,
+		"system");
+	return (["ok":1,"duplicate":0,"amount":amount,
+		"balance":balance,"message":""]);
+}
+
+int rollback_account_debit_recharge_once(string account_id,
+	string request_id,string reason)
+{
+	mapping(string:mixed)|zero record;
+	mapping receipt;
+	object key;
+	account_id = String.trim_all_whites(account_id || "");
+	if(!valid_wallet_userid(account_id) ||
+	   !valid_wallet_txid(request_id) ||
+	   !valid_wallet_text(reason || "",128))
+		return 0;
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return 0;
+	}
+	receipt = record["debit_requests"][request_id];
+	if(!receipt){
+		destruct(key);
+		return 1;
+	}
+	if(receipt["character_id"]!=account_id ||
+	   (int)record["balance"]>ACCOUNT_WALLET_MAX_BALANCE-
+	   (int)receipt["amount"]){
+		destruct(key);
+		return 0;
+	}
+	int amount = (int)receipt["amount"];
+	record["balance"] = (int)record["balance"]+amount;
+	record["revision"] = (int)record["revision"]+1;
+	m_delete(record["debit_requests"],request_id);
+	append_transaction(record,"refund",account_id,amount,0,"system",
+		reason,request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return 0;
+	}
+	int balance = (int)record["balance"];
+	destruct(key);
+	log_wallet(account_id,account_id,"account_rollback_once",amount,balance,
+		"system");
+	return 1;
+}
+
+int forget_account_debit_recharge_once(string account_id,string request_id)
+{
+	mapping(string:mixed)|zero record;
+	mapping receipt;
+	object key;
+	account_id = String.trim_all_whites(account_id || "");
+	if(!valid_wallet_userid(account_id) || !valid_wallet_txid(request_id))
+		return 0;
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return 0;
+	}
+	receipt = record["debit_requests"][request_id];
+	if(!receipt){
+		destruct(key);
+		return 1;
+	}
+	if(receipt["character_id"]!=account_id){
+		destruct(key);
+		return 0;
+	}
+	m_delete(record["debit_requests"],request_id);
+	if(!save_wallet_unlocked(record)){
+		destruct(key);
+		return 0;
+	}
+	destruct(key);
+	return 1;
+}
+
+array(mapping(string:mixed)) query_account_debit_requests(
+	string account_id,string reason_prefix)
+{
+	array(mapping(string:mixed)) result = ({});
+	mapping(string:mixed)|zero record;
+	object key;
+	account_id = String.trim_all_whites(account_id || "");
+	if(!valid_wallet_userid(account_id) ||
+	   !valid_wallet_text(reason_prefix || "",128) ||
+	   reason_prefix=="")
+		return result;
+	key = account_wallet_lock->lock();
+	record = load_wallet_unlocked(account_id);
+	if(record){
+		foreach(indices((mapping)record["debit_requests"]),
+		   string request_id){
+			mapping receipt = record["debit_requests"][request_id];
+			if(!mappingp(receipt) || receipt["character_id"]!=account_id ||
+			   !has_prefix((string)(receipt["reason"] || ""),reason_prefix))
+				continue;
+			mapping copy = copy_value(receipt);
+			copy["request_id"] = request_id;
+			result += ({copy});
+		}
+	}
+	destruct(key);
+	return result;
+}
+
 int rollback_debit_recharge_once(object player,string request_id,
 	string reason)
 {

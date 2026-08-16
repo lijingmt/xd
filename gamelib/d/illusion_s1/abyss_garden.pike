@@ -9,6 +9,7 @@ protected void create(){
 	desc="深渊并不黑暗，月花在每次战斗结束后重新开放。\n";
 	exits["north"]=ROOT "/gamelib/d/illusion_s1/star_bridge.pike";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/moon_palace.pike";
+	exits["west"]=ROOT "/gamelib/d/illusion_s1/dongsheng_morning_port.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike"}));
 }

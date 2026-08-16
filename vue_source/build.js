@@ -140,6 +140,29 @@ for (const relativePath of legacyFiles) {
 }
 log('✓ vue_source/dist', 'green');
 
+// 8. 同步S1九卷剧情图集到本地Tomcat使用的 web/images。
+// Docker仍从同一份根目录 images/ 打包；这里保证非Docker本地环境与
+// 生产镜像看到完全相同的静态资源。
+log('\n8. Illusion story atlases:', 'yellow');
+const storySourceDir = path.join(__dirname, '..', 'images', 'illusion_s1', 'story');
+const storyOutputDir = path.join(__dirname, '..', 'web', 'images', 'illusion_s1', 'story');
+const storyFiles = fs.existsSync(storySourceDir)
+  ? fs.readdirSync(storySourceDir).filter((name) => /^volume_0[1-9]\.png$/.test(name)).sort()
+  : [];
+if (storyFiles.length !== 9) {
+  throw new Error(`expected exactly 9 S1 story atlases, found ${storyFiles.length}`);
+}
+fs.mkdirSync(storyOutputDir, { recursive: true });
+for (const filename of storyFiles) {
+  const sourcePath = path.join(storySourceDir, filename);
+  const destinationPath = path.join(storyOutputDir, filename);
+  if (fs.statSync(sourcePath).size < 1024 * 1024) {
+    throw new Error(`story atlas is unexpectedly small: ${sourcePath}`);
+  }
+  fs.copyFileSync(sourcePath, destinationPath);
+  log(`✓ ${filename}`, 'green');
+}
+
 // 完成
 log('\n✓ 构建完成!', 'green');
 log(`输出目录: ${distDir}`, 'blue');

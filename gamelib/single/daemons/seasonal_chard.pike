@@ -12,6 +12,7 @@
 inherit LOW_DAEMON;
 
 #define ILLUSION_CONFIG ROOT "/gamelib/etc/illusion_realm.json"
+#define ILLUSION_STORY_CONFIG ROOT "/gamelib/etc/illusion_s1_story.json"
 #define ILLUSION_STATE_DIR DATA_ROOT "illusion_realm"
 #define ILLUSION_STATE_FILE ILLUSION_STATE_DIR "/runtime.json"
 #define ILLUSION_CONTROL_LOCK ILLUSION_STATE_DIR "/control.lock"
@@ -22,6 +23,7 @@ inherit LOW_DAEMON;
 #define ILLUSION_PAYMENT_ROOT "/plus/illusion_entitlement_purchase"
 #define ILLUSION_EXPANSION_PAYMENT_ROOT "/plus/illusion_character_expansion_purchase"
 #define ILLUSION_LOG ROOT "/log/illusion_realm.log"
+#define ILLUSION_ACCOUNT_EXPANSION_REASON "illusion_character_expansion:"
 #define ILLUSION_AUTOMATION_INTERVAL 10
 #define ILLUSION_MAX_DURATION_SECONDS (366*86400)
 #define ILLUSION_RANKING_WEEK_SECONDS (7*86400)
@@ -104,14 +106,139 @@ private int valid_chapter(mapping chapter,string illusion_id)
 {
 	return mappingp(chapter) && stringp(chapter["id"]) &&
 		has_prefix((string)chapter["id"],illusion_id+"-C") &&
+		stringp(chapter["volume_title"]) &&
+		sizeof((string)chapter["volume_title"])>=2 &&
+		sizeof((string)chapter["volume_title"])<=96 &&
 		stringp(chapter["title"]) && sizeof((string)chapter["title"])>0 &&
-		stringp(chapter["description"]) &&
-		valid_nonnegative(chapter,"min_level",1000) &&
-		valid_nonnegative(chapter,"kills",1000000) &&
-		valid_nonnegative(chapter,"boss_kills",100000) &&
-		valid_nonnegative(chapter,"visits",1000) &&
+		sizeof((string)chapter["title"])<=64 &&
+		stringp(chapter["intro"]) && sizeof((string)chapter["intro"])>=20 &&
+		sizeof((string)chapter["intro"])<=4096 &&
+		stringp(chapter["outro"]) && sizeof((string)chapter["outro"])>=20 &&
+		sizeof((string)chapter["outro"])<=4096 &&
+		valid_nonnegative(chapter,"active_days",30) &&
+		(int)chapter["active_days"]>=1 &&
 		valid_nonnegative(chapter,"reward_count",10) &&
-		(int)chapter["reward_count"]>0;
+		(int)chapter["reward_count"]<=2 &&
+		valid_nonnegative(chapter,"volume_number",9) &&
+		(int)chapter["volume_number"]>=1 &&
+		valid_nonnegative(chapter,"image_cell",9) &&
+		(int)chapter["image_cell"]>=1 &&
+		stringp(chapter["atlas"]) &&
+		has_prefix((string)chapter["atlas"],
+			"/xd/images/illusion_s1/story/") &&
+		Stdio.file_size(ROOT+"/images/"+
+			((string)chapter["atlas"])[sizeof("/xd/images/")..])>0 &&
+		(!has_index(chapter,"story_event") ||
+			(stringp(chapter["story_event"]) &&
+			 valid_route_mark_id((string)chapter["story_event"]))) &&
+		(!has_index(chapter,"path_required") ||
+			(intp(chapter["path_required"]) &&
+			 ((int)chapter["path_required"]==0 ||
+			  (int)chapter["path_required"]==1))) &&
+		(!has_index(chapter,"route_final_required") ||
+			(intp(chapter["route_final_required"]) &&
+			 ((int)chapter["route_final_required"]==0 ||
+			  (int)chapter["route_final_required"]==1)));
+}
+
+private int valid_story_events(mapping candidate,string illusion_id)
+{
+	array events;
+	multiset(string) ids = (<>);
+	string room_prefix = "/gamelib/d/illusion_"+
+		lower_case(illusion_id)+"/";
+	string npc_prefix = "/gamelib/clone/npc/illusion_"+
+		lower_case(illusion_id)+"/";
+	if(!arrayp(candidate["story_events"]))
+		return 0;
+	events = candidate["story_events"];
+	if(sizeof(events)<9 || sizeof(events)>128)
+		return 0;
+	foreach(events,mapping event){
+		string id = (string)event["id"];
+		string kind = (string)event["kind"];
+		string path = (string)event["path"];
+		int chapter = (int)event["chapter"];
+		if(!valid_route_mark_id(id) || ids[id] ||
+		   search(({"echo","boss"}),kind)==-1 ||
+		   chapter<1 || chapter>81 ||
+		   !stringp(event["title"]) ||
+		   sizeof((string)event["title"])<2 ||
+		   sizeof((string)event["title"])>96 ||
+		   !stringp(event["location"]) ||
+		   sizeof((string)event["location"])<2 ||
+		   sizeof((string)event["location"])>48 ||
+		   !stringp(event["message"]) ||
+		   sizeof((string)event["message"])<2 ||
+		   sizeof((string)event["message"])>1024)
+			return 0;
+		if(kind=="echo"){
+			if(!valid_room_path(path) || !has_prefix(path,room_prefix) ||
+			   Stdio.file_size(ROOT+path)<=0)
+				return 0;
+		}
+		else{
+			if(!has_prefix(path,npc_prefix) || !has_suffix(path,".pike") ||
+			   search(path,"..")!=-1 || search(path,"#")!=-1 ||
+			   Stdio.file_size(ROOT+path)<=0)
+				return 0;
+			foreach(path;int index;int one)
+				if(!((one>='a' && one<='z') ||
+				   (one>='A' && one<='Z') ||
+				   (one>='0' && one<='9') || one=='/' || one=='_' ||
+				   one=='-' || one=='.'))
+					return 0;
+		}
+		ids[id] = 1;
+	}
+	return 1;
+}
+
+private mapping(string:mixed) load_story_config(mapping candidate)
+{
+	string source;
+	mixed decoded;
+	mixed err;
+	array chapters = ({});
+	if((string)candidate["story_file"]!=
+	   "/gamelib/etc/illusion_s1_story.json" ||
+	   Stdio.file_size(ILLUSION_STORY_CONFIG)<=0 ||
+	   Stdio.file_size(ILLUSION_STORY_CONFIG)>1024*1024)
+		return ([]);
+	source = Stdio.read_file(ILLUSION_STORY_CONFIG);
+	err = catch{ decoded=Standards.JSON.decode(source); };
+	if(err || !mappingp(decoded) || (int)decoded["version"]!=1 ||
+	   (string)decoded["illusion_id"]!=(string)candidate["current_id"] ||
+	   (string)decoded["story_title"]!=(string)candidate["story_title"] ||
+	   (string)decoded["story_premise"]!=(string)candidate["story_premise"] ||
+	   !arrayp(decoded["volumes"]) ||
+	   sizeof((array)decoded["volumes"])!=9)
+		return ([]);
+	foreach((array)decoded["volumes"];int volume_index;mapping volume){
+		array volume_chapters;
+		if((string)volume["id"]!=(string)candidate["current_id"]+
+		   "-V"+(string)(volume_index+1) ||
+		   !stringp(volume["title"]) ||
+		   !stringp(volume["atlas"]) ||
+		   !arrayp(volume["chapters"]))
+			return ([]);
+		volume_chapters = volume["chapters"];
+		if(sizeof(volume_chapters)!=9)
+			return ([]);
+		foreach(volume_chapters;int cell_index;mapping source_chapter){
+			mapping chapter = copy_value(source_chapter);
+			chapter["volume_title"] = (string)volume["title"];
+			chapter["volume_number"] = volume_index+1;
+			chapter["atlas"] = (string)volume["atlas"];
+			chapter["image_cell"] = cell_index+1;
+			chapters += ({chapter});
+		}
+	}
+	if(sizeof(chapters)!=81)
+		return ([]);
+	candidate = copy_value(candidate);
+	candidate["chapters"] = chapters;
+	return candidate;
 }
 
 private int valid_route_challenges(mapping routes,string illusion_id)
@@ -193,15 +320,29 @@ private int valid_config(mapping candidate)
 	   has_prefix((string)candidate["return_room"],room_prefix) ||
 	   Stdio.file_size(ROOT+(string)candidate["return_room"])<=0 ||
 	   !valid_route_challenges(candidate["route_challenges"],illusion_id) ||
+	   !valid_story_events(candidate,illusion_id) ||
 	   !arrayp(candidate["chapters"]))
 		return 0;
 	chapters = candidate["chapters"];
-	if(sizeof(chapters)<1 || sizeof(chapters)>20)
+	if(sizeof(chapters)!=81)
 		return 0;
 	foreach(chapters;int index;mapping chapter){
+		string story_event;
+		int matched_event;
 		if(!valid_chapter(chapter,illusion_id) ||
 		   (string)chapter["id"]!=illusion_id+"-C"+(string)(index+1))
 			return 0;
+		story_event = (string)(chapter["story_event"] || "");
+		if(story_event!=""){
+			foreach((array)candidate["story_events"],mapping event)
+				if((string)event["id"]==story_event &&
+				   (int)event["chapter"]==index+1){
+					matched_event = 1;
+					break;
+				}
+			if(!matched_event)
+				return 0;
+		}
 		rewards += (int)chapter["reward_count"];
 	}
 	// 每期终章正好发完一个职业的十件新月底版套装。
@@ -214,7 +355,7 @@ int reload_config()
 	mixed decoded = 0;
 	mixed err;
 	if(Stdio.file_size(ILLUSION_CONFIG)<=0 ||
-	   Stdio.file_size(ILLUSION_CONFIG)>128*1024){
+	   Stdio.file_size(ILLUSION_CONFIG)>256*1024){
 		config_valid = 0;
 		illusion_config = ([]);
 		werror("[ILLUSION_REALM] 配置缺失或过大，功能已安全关闭。\n");
@@ -222,6 +363,8 @@ int reload_config()
 	}
 	source = Stdio.read_file(ILLUSION_CONFIG);
 	err = catch{ decoded=Standards.JSON.decode(source); };
+	if(!err && mappingp(decoded))
+		decoded = load_story_config((mapping)decoded);
 	if(err || !mappingp(decoded) || !valid_config((mapping)decoded)){
 		config_valid = 0;
 		illusion_config = ([]);
@@ -936,6 +1079,7 @@ mapping(string:mixed) query_autofight_route(object player)
 	string illusion_id;
 	string path;
 	string name;
+	array(string) paths;
 	int level;
 	int target_level;
 	if(!player || !is_active_illusion_character(player))
@@ -945,41 +1089,68 @@ mapping(string:mixed) query_autofight_route(object player)
 	if(illusion_id!="S1")
 		return ([]);
 	if(level<10){
-		path = "illusion_s1/silver_path";
+		paths = ({
+			"illusion_s1/moon_dew_field",
+			"illusion_s1/silver_reed_bank",
+			"illusion_s1/starlight_slope",
+		});
 		name = "银痕初猎";
 		target_level = 8;
 	}
 	else if(level<20){
-		path = "illusion_s1/fog_forest";
+		paths = ({
+			"illusion_s1/mist_bamboo_glen",
+			"illusion_s1/cloud_pine_hollow",
+			"illusion_s1/moonshadow_wood",
+		});
 		name = "雾林寻星";
 		target_level = 18;
 	}
 	else if(level<30){
-		path = "illusion_s1/mirror_lake";
+		paths = ({
+			"illusion_s1/mirror_sandbar",
+			"illusion_s1/glasswater_bank",
+			"illusion_s1/moonwave_shoal",
+		});
 		name = "镜湖逆潮";
 		target_level = 28;
 	}
 	else if(level<40){
-		path = "illusion_s1/broken_observatory";
+		paths = ({
+			"illusion_s1/broken_star_court",
+			"illusion_s1/astral_stonewood",
+			"illusion_s1/observatory_outfield",
+		});
 		name = "折星破阵";
 		target_level = 38;
 	}
 	else if(level<50){
-		path = "illusion_s1/echo_ruins";
+		paths = ({
+			"illusion_s1/echo_battlement",
+			"illusion_s1/old_city_square",
+			"illusion_s1/stardust_lane",
+		});
 		name = "古城回声";
 		target_level = 45;
 	}
 	else{
-		path = "illusion_s1/abyss_garden";
+		paths = ({
+			"illusion_s1/abyss_flower_sea",
+			"illusion_s1/deepmoon_valley",
+			"illusion_s1/starfall_garden",
+		});
 		name = "深渊同辉";
 		target_level = 58;
 	}
+	path = paths[0];
 	return ([
 		"max":69,
 		"level":target_level,
 		"name":name,
 		"path":path,
-		"paths":({path}),
+		"paths":paths,
+		"capacity":18,
+		"total_capacity":sizeof(paths)*18,
 		"target_min":target_level,
 		"target_max":target_level,
 		"disable_overflow":1,
@@ -1143,6 +1314,7 @@ private mapping player_progress_for_id(object player,string illusion_id,
 		progress = ([
 			"version":1,"joined_at":time(),"kills":0,"boss_kills":0,
 			"team_kills":0,"visited":([]),"path":"","route_marks":([]),
+			"active_days":([]),"story_events":([]),
 			"claims":([]),"season_starts_at":starts_at,
 			"ranking_weeks":([]),"ranking_titles":({}),
 			"ranking_reward_claims":([]),"pvp_honor":0,"pvp_wins":0,
@@ -1179,7 +1351,8 @@ private mapping ranking_week_state(mapping progress,int timestamp,
 	if(!sizeof(state) && create_if_missing){
 		state = ([
 			"kills":0,"boss_kills":0,"team_kills":0,"visits":0,
-			"route_marks":0,"chapter_claims":0,"set_parts":0,
+			"route_marks":0,"story_events":0,"active_days":0,
+			"chapter_claims":0,"set_parts":0,
 			"pvp_honor":0,"pvp_wins":0,"level":0,
 			"experience_start":-1,"experience_latest":0,
 			"completed_at":0,
@@ -1250,6 +1423,78 @@ private int progress_visit_count(mapping progress)
 		sizeof((mapping)progress["visited"]) : 0;
 }
 
+private int story_beijing_day_index(int timestamp)
+{
+	return (timestamp+8*3600)/86400;
+}
+
+private int story_active_day_count(mapping progress)
+{
+	return mappingp(progress["active_days"]) ?
+		sizeof((mapping)progress["active_days"]) : 0;
+}
+
+private int story_event_count(mapping progress)
+{
+	return mappingp(progress["story_events"]) ?
+		sizeof((mapping)progress["story_events"]) : 0;
+}
+
+private int record_story_activity_day(mapping progress,int timestamp)
+{
+	mapping days = mappingp(progress["active_days"]) ?
+		(mapping)progress["active_days"] : ([]);
+	string day_key = (string)story_beijing_day_index(timestamp);
+	if((int)days[day_key])
+		return 0;
+	if(sizeof(days)>=64)
+		return 0;
+	days[day_key] = timestamp;
+	progress["active_days"] = days;
+	mapping week = ranking_week_state(progress,timestamp,1);
+	week["active_days"] = (int)week["active_days"]+1;
+	return 1;
+}
+
+private int story_event_unlocked(mapping progress,mapping event)
+{
+	int chapter_number = (int)event["chapter"];
+	mapping claims = mappingp(progress["claims"]) ?
+		(mapping)progress["claims"] : ([]);
+	if(chapter_number<=1)
+		return 1;
+	return (int)claims[(string)((array)illusion_config["chapters"])
+		[chapter_number-2]["id"]]>0;
+}
+
+private mapping(string:mixed) find_story_event(string kind,string path,
+	mapping progress)
+{
+	mapping collected = mappingp(progress["story_events"]) ?
+		(mapping)progress["story_events"] : ([]);
+	foreach((array)illusion_config["story_events"],mapping event)
+		if((string)event["kind"]==kind &&
+		   (string)event["path"]==path &&
+		   !(int)collected[(string)event["id"]] &&
+		   story_event_unlocked(progress,event))
+			return event;
+	return ([]);
+}
+
+private int record_story_event(mapping progress,mapping event,int timestamp)
+{
+	mapping collected = mappingp(progress["story_events"]) ?
+		(mapping)progress["story_events"] : ([]);
+	string event_id = (string)event["id"];
+	if(event_id=="" || (int)collected[event_id] || sizeof(collected)>=128)
+		return 0;
+	collected[event_id] = timestamp;
+	progress["story_events"] = collected;
+	mapping week = ranking_week_state(progress,timestamp,1);
+	week["story_events"] = (int)week["story_events"]+1;
+	return 1;
+}
+
 private int is_test_illusion_player(object player)
 {
 	return getenv("XIAND_RUN_TESTUNIT")=="1" && player &&
@@ -1258,10 +1503,12 @@ private int is_test_illusion_player(object player)
 }
 
 private int is_illusion_progress_checkpoint(mapping progress,
-	int boss_kill,int route_mark_added,int previous_team_kills)
+	int boss_kill,int route_mark_added,int previous_team_kills,
+	int activity_day_added,int story_event_added)
 {
 	int kills = (int)progress["kills"];
-	if(boss_kill || route_mark_added || kills%25==0)
+	if(boss_kill || route_mark_added || activity_day_added ||
+	   story_event_added || kills%25==0)
 		return 1;
 	foreach((array)illusion_config["chapters"],mapping chapter)
 		if(kills==(int)chapter["kills"])
@@ -1280,25 +1527,33 @@ void record_room_visit(object player,object room)
 	mapping progress;
 	mapping old_progress;
 	mapping visited;
+	int visit_added;
+	int activity_day_added;
 	if(!is_active_illusion_character(player) || !room)
 		return;
 	path = normalized_destination_path(room);
 	if(!is_illusion_room_path(path))
 		return;
 	progress = player_progress(player,1);
-	visited = mappingp(progress["visited"]) ? progress["visited"] : ([]);
-	if((int)visited[path])
-		return;
 	old_progress = copy_value(progress);
-	visited[path] = 1;
-	progress["visited"] = visited;
-	mapping visit_week = ranking_week_state(progress,time(),1);
-	visit_week["visits"] = (int)visit_week["visits"]+1;
+	activity_day_added = record_story_activity_day(progress,time());
+	visited = mappingp(progress["visited"]) ? progress["visited"] : ([]);
+	if(!(int)visited[path]){
+		visited[path] = 1;
+		progress["visited"] = visited;
+		visit_added = 1;
+	}
+	if(!visit_added && !activity_day_added)
+		return;
+	if(visit_added){
+		mapping visit_week = ranking_week_state(progress,time(),1);
+		visit_week["visits"] = (int)visit_week["visits"]+1;
+	}
 	update_ranking_snapshot(player,progress);
 	if(!player->save_with_result()){
 		player[ILLUSION_PROGRESS_ROOT+"/"+
 			(string)illusion_config["current_id"]] = old_progress;
-		werror("[ILLUSION_REALM] 首次到访进度存档失败并已回滚: %s %s\n",
+		werror("[ILLUSION_REALM] 到访或修行日进度存档失败并已回滚: %s %s\n",
 			(string)player->query_name(),path);
 	}
 	else{
@@ -1320,7 +1575,11 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	string npc_prefix;
 	int boss_kill;
 	int route_mark_added;
+	int activity_day_added;
+	int story_event_added;
 	int previous_team_kills;
+	mapping story_event = ([]);
+	string story_message = "";
 	if(!is_active_illusion_character(player) || !npc)
 		return;
 	env = environment(player);
@@ -1333,6 +1592,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		return;
 	progress = player_progress(player,1);
 	old_progress = copy_value(progress);
+	activity_day_added = record_story_activity_day(progress,time());
 	previous_team_kills = (int)progress["team_kills"];
 	boss_kill = (int)npc->_boss>0;
 	progress["kills"] = (int)progress["kills"]+1;
@@ -1346,6 +1606,14 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		kill_week["team_kills"] = (int)kill_week["team_kills"]+1;
 	if(boss_kill)
 		kill_week["boss_kills"] = (int)kill_week["boss_kills"]+1;
+	if(boss_kill){
+		story_event = find_story_event("boss",npc_path,progress);
+		if(sizeof(story_event) &&
+		   record_story_event(progress,story_event,time())){
+			story_event_added = 1;
+			story_message = (string)story_event["message"];
+		}
+	}
 	// 破阵路线要求真正击败三名不同守关首领，重复刷同一名不计新印。
 	if((string)progress["path"]=="hunter"){
 		foreach((array)illusion_config["route_challenges"]["hunter_bosses"],
@@ -1365,7 +1633,8 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	}
 	update_ranking_snapshot(player,progress);
 	if(is_illusion_progress_checkpoint(progress,boss_kill,
-	   route_mark_added,previous_team_kills)){
+	   route_mark_added,previous_team_kills,activity_day_added,
+	   story_event_added)){
 		if(!player->save_with_result()){
 			player[ILLUSION_PROGRESS_ROOT+"/"+
 				(string)illusion_config["current_id"]] = old_progress;
@@ -1377,6 +1646,8 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		   (string)illusion_config["current_id"]))
 			werror("[ILLUSION_RANKING] 击杀快照待后续补写: %s\n",
 				(string)player->query_name());
+		if(story_message!="")
+			tell_object(player,"§p【剧情推进】§r"+story_message+"\n");
 	}
 	invalidate_ranking_cache((string)illusion_config["current_id"]);
 }
@@ -1528,29 +1799,156 @@ mapping(string:mixed) discover_route_secret_for_test(object player)
 	return discover_route_secret_internal(player,1);
 }
 
+private mapping(string:mixed) discover_story_event_internal(object player,
+	int test_bypass_phase)
+{
+	mapping progress;
+	mapping old_progress;
+	mapping event;
+	string room_path;
+	if(!player || !is_active_illusion_character(player) ||
+	   (!test_bypass_phase &&
+	    (string)query_public_status()["phase"]!="active"))
+		return (["ok":0,"message":"当前不能推进幻境故事。"]);
+	progress = player_progress(player,1);
+	room_path = normalized_destination_path(environment(player));
+	event = find_story_event("echo",room_path,progress);
+	if(!sizeof(event)){
+		mapping collected = mappingp(progress["story_events"]) ?
+			(mapping)progress["story_events"] : ([]);
+		foreach((array)illusion_config["story_events"],mapping candidate)
+			if((string)candidate["kind"]=="echo" &&
+			   (string)candidate["path"]==room_path &&
+			   (int)collected[(string)candidate["id"]])
+				return (["ok":1,"already":1,
+					"message":"这里已经读过的故事残响仍留在你的历程中。"]);
+		return (["ok":0,
+			"message":"这里的故事残响尚未轮到当前章节，或前一章尚未完成。"]);
+	}
+	old_progress = copy_value(progress);
+	record_story_activity_day(progress,time());
+	if(!record_story_event(progress,event,time()))
+		return (["ok":0,"message":"故事残响状态异常，本次没有改变进度。"]);
+	update_ranking_snapshot(player,progress);
+	if(!player->save_with_result()){
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		return (["ok":0,"message":"故事进度保存失败，请稍后重试。"]);
+	}
+	if(!persist_ranking_snapshot(player,progress,
+	   (string)illusion_config["current_id"]))
+		werror("[ILLUSION_RANKING] 故事残响快照待后续补写: %s\n",
+			(string)player->query_name());
+	invalidate_ranking_cache((string)illusion_config["current_id"]);
+	return (["ok":1,"already":0,"event_id":(string)event["id"],
+		"title":(string)event["title"],
+		"message":(string)event["message"]]);
+}
+
+mapping(string:mixed) discover_story_event(object player)
+{
+	return discover_story_event_internal(player,0);
+}
+
+mapping(string:mixed) discover_story_event_for_test(object player)
+{
+	if(!is_test_illusion_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]);
+	return discover_story_event_internal(player,1);
+}
+
+mapping(string:mixed) ensure_story_active_days_for_test(object player,
+	int target_days)
+{
+	mapping progress;
+	mapping old_progress;
+	int joined_at;
+	if(!is_test_illusion_player(player) || target_days<1 || target_days>7)
+		return (["ok":0,"message":"测试入口不可用。"]);
+	progress = player_progress(player,1);
+	old_progress = copy_value(progress);
+	joined_at = (int)progress["joined_at"];
+	if(joined_at<=0)
+		joined_at = time();
+	for(int offset=0;offset<target_days;offset++)
+		record_story_activity_day(progress,joined_at+offset*86400);
+	if(story_active_day_count(progress)<target_days ||
+	   !player->save_with_result()){
+		player[ILLUSION_PROGRESS_ROOT+"/"+
+			(string)illusion_config["current_id"]] = old_progress;
+		return (["ok":0,"message":"测试修行日保存失败。"]);
+	}
+	return (["ok":1,"active_days":story_active_day_count(progress)]);
+}
+
+private mapping(string:int) chapter_requirements(int index)
+{
+	int total = sizeof((array)illusion_config["chapters"]);
+	int ordinal = index+1;
+	return ([
+		"min_level":max(1,ordinal*69/total),
+		"kills":max(1,ordinal*750/total),
+		"boss_kills":ordinal*10/total,
+		"visits":max(1,ordinal*36/total),
+	]);
+}
+
+private int chapter_story_event_ready(mapping progress,mapping chapter)
+{
+	string event_id = (string)(chapter["story_event"] || "");
+	mapping events = mappingp(progress["story_events"]) ?
+		(mapping)progress["story_events"] : ([]);
+	return event_id=="" || (int)events[event_id]>0;
+}
+
 private mapping chapter_status(object player,mapping progress,
 	mapping chapter,int index)
 {
 	mapping claims = mappingp(progress["claims"]) ? progress["claims"] : ([]);
+	mapping requirements = chapter_requirements(index);
+	mapping story_definition = ([]);
 	int previous_claimed = index==0 ||
 		(int)claims[(string)((array)illusion_config["chapters"])[index-1]["id"]];
-	int base_ready = (int)player->query_level()>=(int)chapter["min_level"] &&
-		(int)progress["kills"]>=(int)chapter["kills"] &&
-		(int)progress["boss_kills"]>=(int)chapter["boss_kills"] &&
-		progress_visit_count(progress)>=(int)chapter["visits"];
-	if(index>=2 && (string)progress["path"]=="")
+	int story_ready = chapter_story_event_ready(progress,chapter);
+	if((string)(chapter["story_event"] || "")!="")
+		foreach((array)illusion_config["story_events"],mapping candidate)
+			if((string)candidate["id"]==
+			   (string)chapter["story_event"]){
+				story_definition = candidate;
+				break;
+			}
+	int base_ready =
+		(int)player->query_level()>=(int)requirements["min_level"] &&
+		(int)progress["kills"]>=(int)requirements["kills"] &&
+		(int)progress["boss_kills"]>=(int)requirements["boss_kills"] &&
+		progress_visit_count(progress)>=(int)requirements["visits"] &&
+		story_active_day_count(progress)>=(int)chapter["active_days"] &&
+		story_ready;
+	if((int)chapter["path_required"] && (string)progress["path"]=="")
 		base_ready = 0;
-	if(index==sizeof((array)illusion_config["chapters"])-1 &&
+	if((int)chapter["route_final_required"] &&
 	   !route_final_ready(progress))
 		base_ready = 0;
 	return ([
 		"id":(string)chapter["id"],
+		"volume_title":(string)chapter["volume_title"],
+		"volume_number":(int)chapter["volume_number"],
 		"title":(string)chapter["title"],
-		"description":(string)chapter["description"],
-		"min_level":(int)chapter["min_level"],
-		"kills":(int)chapter["kills"],
-		"boss_kills":(int)chapter["boss_kills"],
-		"visits":(int)chapter["visits"],
+		"description":(string)chapter["intro"],
+		"intro":(string)chapter["intro"],
+		"outro":(string)chapter["outro"],
+		"atlas":(string)chapter["atlas"],
+		"image_cell":(int)chapter["image_cell"],
+		"active_days":(int)chapter["active_days"],
+		"min_level":(int)requirements["min_level"],
+		"kills":(int)requirements["kills"],
+		"boss_kills":(int)requirements["boss_kills"],
+		"visits":(int)requirements["visits"],
+		"story_event":(string)(chapter["story_event"] || ""),
+		"story_event_title":(string)(story_definition["title"] || ""),
+		"story_event_location":(string)(story_definition["location"] || ""),
+		"story_event_kind":(string)(story_definition["kind"] || ""),
+		"story_ready":story_ready,
 		"reward_count":(int)chapter["reward_count"],
 		"claimed":(int)claims[(string)chapter["id"]],
 		"ready":base_ready && previous_claimed,
@@ -1575,6 +1973,13 @@ mapping(string:mixed) query_player_progress(object player)
 		"boss_kills":(int)progress["boss_kills"],
 		"team_kills":(int)progress["team_kills"],
 		"visits":progress_visit_count(progress),
+		"active_days":story_active_day_count(progress),
+		"story_event_count":story_event_count(progress),
+		"chapter_total":sizeof((array)illusion_config["chapters"]),
+		"chapter_claimed":mappingp(progress["claims"]) ?
+			sizeof((mapping)progress["claims"]) : 0,
+		"story_title":(string)illusion_config["story_title"],
+		"story_premise":(string)illusion_config["story_premise"],
 		"route_mark_count":mappingp(progress["route_marks"]) ?
 			sizeof((mapping)progress["route_marks"]) : 0,
 		"path":(string)progress["path"],
@@ -1618,12 +2023,14 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 	if(!(int)status["ready"])
 		return (["ok":0,"message":"章节目标尚未完成，或前一章尚未领取。"]) ;
 	profession_id = (string)player->query_profeId();
-	templates = ITEMSD->query_newmoon_base_templates_for_profession(
-		profession_id);
-	if(sizeof(templates)!=10)
-		return (["ok":0,"message":"本职业"+
-			(string)illusion_config["current_id"]+
-			"套装模板校验失败，未发放奖励。"]) ;
+	if((int)chapter["reward_count"]>0){
+		templates = ITEMSD->query_newmoon_base_templates_for_profession(
+			profession_id);
+		if(sizeof(templates)!=10)
+			return (["ok":0,"message":"本职业"+
+				(string)illusion_config["current_id"]+
+				"套装模板校验失败，未发放奖励。"]) ;
+	}
 	for(int index=0;index<chapter_number-1;index++)
 		reward_start += (int)((array)illusion_config["chapters"])[index]["reward_count"];
 	for(int offset=0;offset<(int)chapter["reward_count"];offset++){
@@ -1668,7 +2075,10 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		werror("[ILLUSION_RANKING] 章节快照待后续补写: %s\n",
 			(string)player->query_name());
 	invalidate_ranking_cache((string)illusion_config["current_id"]);
-	return (["ok":1,"message":"领取成功："+(names*"、"),"items":names]);
+	return (["ok":1,"message":"【"+(string)chapter["title"]+
+		"·过关】\n[storyimg "+(string)(int)chapter["image_cell"]+":"+
+		(string)chapter["atlas"]+"]\n"+(string)chapter["outro"]+
+		(sizeof(names) ? "\n获得："+(names*"、") : ""),"items":names]);
 }
 
 mapping(string:mixed) claim_chapter_reward(object player,int chapter_number)
@@ -1714,6 +2124,7 @@ private string ranking_progress_validation_error(mapping progress)
 	array(string) nonnegative_fields = ({
 		"joined_at","season_starts_at","kills","boss_kills","team_kills",
 		"visited_count","claims_count","route_marks_count",
+		"active_days_count","story_events_count",
 		"pvp_honor","pvp_wins","ranking_level",
 		"ranking_experience_latest","set_parts","completed_at",
 	});
@@ -1729,7 +2140,8 @@ private string ranking_progress_validation_error(mapping progress)
 	    (int)progress["ranking_experience_start"] < -1 ||
 	    (int)progress["ranking_experience_start"] > 2000000000))
 		return "field:ranking_experience_start";
-	foreach(({({"visited",4096}),({"claims",64}),({"route_marks",64}),
+	foreach(({({"visited",4096}),({"claims",128}),({"route_marks",64}),
+		({"active_days",64}),({"story_events",128}),
 		({"pvp_opponents",512}),({"ranking_reward_claims",400})}),
 	   array spec)
 		if(has_index(progress,(string)spec[0]) &&
@@ -1796,6 +2208,8 @@ private mapping compact_ranking_progress(mapping progress)
 			sizeof((mapping)progress["claims"]) : 0,
 		"route_marks_count":mappingp(progress["route_marks"]) ?
 			sizeof((mapping)progress["route_marks"]) : 0,
+		"active_days_count":story_active_day_count(progress),
+		"story_events_count":story_event_count(progress),
 		"pvp_honor":compact_ranking_int(progress,"pvp_honor",0),
 		"pvp_wins":compact_ranking_int(progress,"pvp_wins",0),
 		"ranking_level":compact_ranking_int(progress,"ranking_level",0),
@@ -1986,6 +2400,12 @@ private mapping(string:mixed) ranking_score_for_profile(string board,
 				(int)progress["route_marks_count"] :
 				(mappingp(progress["route_marks"]) ?
 				sizeof((mapping)progress["route_marks"]) : 0))*1000+
+				(has_index(progress,"story_events_count") ?
+					(int)progress["story_events_count"] :
+					story_event_count(progress))*500+
+				(has_index(progress,"active_days_count") ?
+					(int)progress["active_days_count"] :
+					story_active_day_count(progress))*250+
 				(int)progress["boss_kills"]*100+
 				(has_index(progress,"visited_count") ?
 				(int)progress["visited_count"] :
@@ -1994,6 +2414,8 @@ private mapping(string:mixed) ranking_score_for_profile(string board,
 		else
 			score = (int)source["chapter_claims"]*10000+
 				(int)source["route_marks"]*1000+
+				(int)source["story_events"]*500+
+				(int)source["active_days"]*250+
 				(int)source["boss_kills"]*100+
 				(int)source["visits"]*20+
 				(int)source["team_kills"]*10+(int)source["kills"];
@@ -2481,6 +2903,150 @@ mapping(string:mixed) activate_free_account_entitlement(string requested_id)
 	request_id = lower_case(String.string2hex(request_hash->digest()));
 	return ACCOUNT_CHARACTERD->grant_illusion_entitlement(requested_id,
 		"account_center",request_id,(string)status["illusion_id"]);
+}
+
+private string account_expansion_reason(string illusion_id,string option)
+{
+	return ILLUSION_ACCOUNT_EXPANSION_REASON+illusion_id+":"+option;
+}
+
+/**
+ * 人物中心扩容只消费账号共享充值余额。钱包扣款收据和账号栏位请求号
+ * 使用同一 request_id；任何一步退出后，下次登录人物中心都会完成栏位
+ * 写入或原路退款，不能形成扣款成功但栏位丢失的悬挂状态。
+ */
+mapping(string:mixed) reconcile_account_character_expansions(
+	string requested_id)
+{
+	string account_id = ACCOUNT_CHARACTERD->
+		query_account_id_for_character(requested_id);
+	array(mapping(string:mixed)) receipts;
+	mapping(string:mixed) summary = (["ok":1,"recovered":0,
+		"refunded":0,"pending":0]);
+	if(!account_id || account_id=="")
+		return (["ok":0,"recovered":0,"refunded":0,"pending":0]);
+	receipts = ACCOUNT_WALLETD->query_account_debit_requests(account_id,
+		ILLUSION_ACCOUNT_EXPANSION_REASON);
+	foreach(receipts,mapping receipt){
+		string request_id = (string)(receipt["request_id"] || "");
+		string reason = (string)(receipt["reason"] || "");
+		string illusion_id = "";
+		string option = "";
+		int amount = (int)receipt["amount"];
+		mapping grant = ([]);
+		int parsed = sscanf(reason,ILLUSION_ACCOUNT_EXPANSION_REASON+"%s:%s",
+			illusion_id,option);
+		if(parsed==2 && valid_identifier(illusion_id) &&
+		   search(({"one","all"}),option)!=-1 &&
+		   valid_sha256_hex(request_id) && amount>0 && amount<=500 &&
+		   amount%100==0)
+			grant = ACCOUNT_CHARACTERD->grant_illusion_character_expansion(
+				account_id,illusion_id,option,request_id,amount);
+		if((int)grant["ok"] &&
+		   (!(int)grant["already"] || (int)grant["same_request"])){
+			if(ACCOUNT_WALLETD->forget_account_debit_recharge_once(
+			   account_id,request_id)){
+				summary["recovered"] = (int)summary["recovered"]+1;
+				Stdio.append_file(ILLUSION_LOG,sprintf("%d|account_character_expansion_recovery|account=%s|illusion=%s|option=%s|cost=%d|request=%s|result=committed\n",
+					time(),account_id,illusion_id,option,amount,request_id));
+			}
+			else{
+				summary["ok"] = 0;
+				summary["pending"] = (int)summary["pending"]+1;
+				werror("[ILLUSION_REALM] 人物中心扩容收据清理等待重试: %s %s\n",
+					account_id,request_id);
+			}
+		}
+		else if(ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
+		   account_id,request_id,"illusion_account_expansion_recovery")){
+			summary["refunded"] = (int)summary["refunded"]+1;
+			Stdio.append_file(ILLUSION_LOG,sprintf("%d|account_character_expansion_recovery|account=%s|illusion=%s|option=%s|cost=%d|request=%s|result=refunded\n",
+				time(),account_id,illusion_id,option,amount,request_id));
+		}
+		else{
+			summary["ok"] = 0;
+			summary["pending"] = (int)summary["pending"]+1;
+			werror("[ILLUSION_REALM] 人物中心扩容恢复及退款等待重试: %s %s\n",
+				account_id,request_id);
+		}
+	}
+	return summary;
+}
+
+mapping(string:mixed) purchase_account_character_expansion(
+	string requested_id,string option,string request_id)
+{
+	mapping status = query_public_status();
+	string account_id = ACCOUNT_CHARACTERD->
+		query_account_id_for_character(requested_id);
+	mapping account_data;
+	mapping debit;
+	mapping grant;
+	mapping expansion;
+	array requests;
+	string reason;
+	int spent;
+	int cost;
+	int cleanup_ok;
+	if(!account_id || account_id=="" || !(int)status["ok"] ||
+	   !(int)status["entitlement_open"])
+		return (["ok":0,"message":"当前未开放幻境人物栏位扩充。"]) ;
+	if(search(({"one","all"}),option)==-1 ||
+	   !valid_sha256_hex(request_id))
+		return (["ok":0,"message":"幻境栏位扩充请求无效。"]) ;
+	reconcile_account_character_expansions(account_id);
+	account_data = ACCOUNT_CHARACTERD->query_account_characters(account_id,
+		(string)status["illusion_id"]);
+	if(!(int)account_data["ok"])
+		return (["ok":0,"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
+	if(!(int)account_data["illusion_entitled"])
+		return (["ok":0,"message":"请先免费激活"+
+			(string)status["illusion_id"]+"人物资格。"]) ;
+	requests = arrayp(account_data["illusion_expansion_requests"]) ?
+		(array)account_data["illusion_expansion_requests"] : ({});
+	if(search(requests,request_id)!=-1)
+		return (["ok":1,"already":1,
+			"message":"本次栏位扩充已经完成，请继续创建人物。"]) ;
+	if((int)account_data["illusion_multi_character_unlocked"])
+		return (["ok":1,"already":1,
+			"message":"本期已解锁幻境多人物，无需再次付费。"]) ;
+	spent = (int)account_data["illusion_expansion_spent_suiyu"];
+	cost = option=="one" ?
+		(int)status["extra_character_slot_cost_suiyu"] :
+		(int)status["multi_character_unlock_cost_suiyu"]-spent;
+	if(spent<0 || spent>=500 || spent%100!=0 || cost<=0 || cost>500)
+		return (["ok":0,"message":"幻境栏位累计抵扣状态异常，本次未扣款。"]) ;
+	reason = account_expansion_reason((string)status["illusion_id"],option);
+	debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
+		reason,request_id);
+	if(!(int)debit["ok"])
+		return (["ok":0,"message":(string)(debit["message"] ||
+			"账号共享充值余额扣款失败。")+
+			" 人物中心不会消费任何人物背包玉石。"]) ;
+	grant = ACCOUNT_CHARACTERD->grant_illusion_character_expansion(
+		account_id,(string)status["illusion_id"],option,request_id,cost);
+	if(!(int)grant["ok"] ||
+	   ((int)grant["already"] && !(int)grant["same_request"])){
+		int refunded = ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
+			account_id,request_id,"illusion_account_expansion_failed");
+		return (["ok":0,"message":refunded ?
+			"栏位状态已变化，本次共享余额已原路退回。" :
+			"栏位写入及退款异常，请立即联系管理员。"]) ;
+	}
+	expansion = mappingp(grant["expansion"]) ?
+		(mapping)grant["expansion"] : ([]);
+	cleanup_ok = ACCOUNT_WALLETD->forget_account_debit_recharge_once(
+		account_id,request_id);
+	Stdio.append_file(ILLUSION_LOG,sprintf("%d|account_character_expansion|account=%s|option=%s|cost=%d|spent=%d|slots=%d|multi=%d|request=%s|cleanup=%d\n",
+		time(),account_id,option,cost,
+		(int)expansion["expansion_spent_suiyu"],
+		(int)expansion["character_slots"],
+		(int)expansion["multi_character_unlocked"],request_id,cleanup_ok));
+	return (["ok":1,"already":(int)debit["duplicate"],
+		"message":(string)grant["message"]+" 已从账号共享充值余额支付"+
+			cost+"碎玉，可直接继续创建职业。",
+		"cleanup_pending":!cleanup_ok,
+		"entitlement":copy_value(expansion)]);
 }
 
 mapping(string:mixed) purchase_character_expansion(object player,string option)

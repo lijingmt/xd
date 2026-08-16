@@ -68,6 +68,8 @@ void test_shared_build_script_contract()
 	if(source &&
 	   search(source,"npm test")!=-1 &&
 	   search(source,"npm run build")!=-1 &&
+	   search(source,"STORY_SOURCE_DIR")!=-1 &&
+	   search(source,"STORY_OUTPUT_DIR")!=-1 &&
 	   search(source,"css/realm.css")!=-1 &&
 	   search(source,"vendor/vue.global.prod.js")!=-1 &&
 	   search(source,"cmp -s")!=-1 &&
@@ -273,6 +275,15 @@ void test_deployed_frontend_artifacts()
 		ROOT+"/web/web_vue/vendor/vue.global.prod.js");
 	string dist_vue = Stdio.read_file(
 		ROOT+"/vue_source/dist/vendor/vue.global.prod.js");
+	int story_atlases_valid = 1;
+	for(int volume=1;volume<=9;volume++){
+		string filename = sprintf("volume_%02d.png",volume);
+		string source_path = ROOT+"/images/illusion_s1/story/"+filename;
+		string deployed_path = ROOT+"/web/images/illusion_s1/story/"+filename;
+		if(Stdio.file_size(source_path)<1024*1024 ||
+		   Stdio.read_file(source_path)!=Stdio.read_file(deployed_path))
+			story_atlases_valid = 0;
+	}
 
 	if(source_js && web_js && dist_js &&
 	   web_index && dist_index && web_vue && dist_vue &&
@@ -284,7 +295,7 @@ void test_deployed_frontend_artifacts()
 	   search(web_index,"playerLevelAuraClass()")==-1 &&
 	   search(dist_index,"playerLevelAuraClass()")==-1 &&
 	   search(web_index,"vendor/vue.global.prod.js?v=v")!=-1 &&
-	   search(web_index,"js/app.js?v=v")!=-1)
+	   search(web_index,"js/app.js?v=v")!=-1 && story_atlases_valid)
 		test_pass();
 	else
 		test_fail("Vue正式/历史产物缺失、过期或仍含白屏回归代码");

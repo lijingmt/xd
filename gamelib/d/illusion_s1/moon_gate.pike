@@ -8,6 +8,7 @@ protected void create(){
 	name_cn="S1月门营地";
 	desc="新月悬在天幕正中，三条尚未被书写的命途从月门下延伸。这里是新月幻境·S1唯一安全营地。\n";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/silver_path.pike";
+	exits["north"]=ROOT "/gamelib/d/illusion_s1/nanzhan_mortal_city.pike";
 }
 int is_peaceful(){ return 1; }
 int is_bedroom(){ return 1; }

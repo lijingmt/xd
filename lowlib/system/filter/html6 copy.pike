@@ -375,6 +375,7 @@ string filter(string s)
 			break;
 		}
 		string type,name,cmd,acmd,href;
+		int story_cell;
 		string buf;
 		string max_size,fvalue;
 		if(sscanf(s,"[%s]",buf)){
@@ -441,6 +442,15 @@ string filter(string s)
 				};
 				cmd=replace(cmd," ","+");
 				out+="<img src=\""+url+"?_filter="+type+"&_cmd="+cmd+"\" alt=\""+name+"\">";
+			}
+			else if(sscanf(buf,"storyimg %d:%s",story_cell,href)==2 &&
+			   story_cell>=1 && story_cell<=9 &&
+			   has_prefix(href,"/xd/images/illusion_s1/story/volume_") &&
+			   has_suffix(href,".png") && search(href,"..")==-1){
+				int story_column = (story_cell-1)%3;
+				int story_row = (story_cell-1)/3;
+				out+=sprintf("<div role='img' aria-label='新月长生劫剧情插画' style=\"width:100%%;max-width:544px;aspect-ratio:1/1;margin:12px auto;background-image:url('%s');background-size:300%% 300%%;background-position:%d%% %d%%;background-repeat:no-repeat;border:2px solid #9360d8;border-radius:16px\"></div>",
+					href,story_column*50,story_row*50);
 			}
 			else if(sscanf(buf,"imgurl %s:%s",name,href)==2){
 				

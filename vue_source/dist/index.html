@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786808560176">
-    <link rel="stylesheet" href="css/app.css?v=v1786808560176">
-    <link rel="stylesheet" href="css/realm.css?v=v1786808560176">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786847428023">
+    <link rel="stylesheet" href="css/app.css?v=v1786847428023">
+    <link rel="stylesheet" href="css/realm.css?v=v1786847428023">
 </head>
 <body>
     <div id="app">
@@ -494,10 +494,10 @@
 									:disabled="!illusionEntitled || !illusionRealmStatus.creation_open || illusionCharacterCapacityReached">
 								<strong>{{ illusionRealmStatus.display_name || '新月幻境·S1' }}</strong>
 								<small v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached">
-									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }}；进入已有角色的“幻境区”可选择100碎玉增加本期1格，或补足本期累计500碎玉解锁多人物
+									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }} 已满；可在下方直接付费扩充后继续创建
 								</small>
 								<small v-else-if="illusionEntitled && illusionRealmStatus.creation_open">
-									首名免费；完成七章后携十件套装随原档案回归
+									首名免费；八十一章主线可获十件新月套装，赛季结束时原档案自动回归永恒服
 							</small>
 							<small v-else-if="!illusionEntitled">
 								未激活{{ illusionRealmStatus.illusion_id || 'S1' }}永久人物资格；可在下方直接免费激活
@@ -520,6 +520,34 @@
 					<p class="illusion-activation-success"
 						v-if="illusionActivationMessage"
 						role="status">{{ illusionActivationMessage }}</p>
+					<div class="illusion-expansion-card"
+						v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached && !illusionMultiCharacterUnlocked">
+						<div class="illusion-expansion-copy">
+							<strong>继续创建 {{ illusionRealmStatus.illusion_id || 'S1' }} 人物</strong>
+							<small>当前 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }} 格；直接使用上方账号共享充值余额支付，不会消费任何人物背包玉石。</small>
+						</div>
+						<div class="illusion-expansion-actions">
+							<button type="button"
+								class="btn btn-primary"
+								@click="expandIllusionCapacity('one')"
+								:disabled="illusionExpanding || !accountSharedRechargeAvailable || accountSharedRechargeBalance < illusionExpansionSingleCost">
+								{{ illusionExpanding ? '处理中...' : illusionExpansionSingleCost + '碎玉增加1格' }}
+							</button>
+							<button type="button"
+								class="btn btn-secondary illusion-expansion-all-btn"
+								@click="expandIllusionCapacity('all')"
+								:disabled="illusionExpanding || !accountSharedRechargeAvailable || accountSharedRechargeBalance < illusionExpansionRemainingCost">
+								补{{ illusionExpansionRemainingCost }}碎玉解锁本期多人物
+							</button>
+						</div>
+						<small class="illusion-expansion-fallback"
+							v-if="!accountSharedRechargeAvailable || accountSharedRechargeBalance < illusionExpansionSingleCost">
+							共享余额不足时，仍可进入已有永恒人物的“幻境区”，使用该人物背包玉石扩充。
+						</small>
+					</div>
+					<p class="illusion-activation-success"
+						v-if="illusionExpansionMessage"
+						role="status">{{ illusionExpansionMessage }}</p>
 					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
 						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；本期不开放家园，也不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
 					</p>
@@ -1091,11 +1119,16 @@
                                         <!-- 文本段落 -->
                                         <span v-if="segment.type === 'text'" class="mud-text" v-html="renderTextParts(segment.parts)"></span>
                                         <!-- 图片 [imgurl picture:/images/...] -->
-                                        <img v-else-if="segment.type === 'image'"
+						<img v-else-if="segment.type === 'image'"
                                              :src="getImageUrl(segment.src)"
                                              class="mud-inline-image"
                                              :alt="segment.alt || '图片'"
-                                             onerror="this.style.display='none'">
+						     onerror="this.style.display='none'">
+						<div v-else-if="segment.type === 'story-image'"
+						     class="illusion-story-frame"
+						     role="img"
+						     :aria-label="segment.alt || '新月长生劫剧情插画'"
+						     :style="getStoryImageStyle(segment)" />
                                         <!-- 按钮 -->
                                         <a v-else-if="segment.type === 'button'"
                                            :href="htmlMode ? getDirectUrl(segment.cmd) : '#'"
@@ -1956,19 +1989,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786808560176"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786808560176"></script>
-    <script src="vendor/howler.core.min.js?v=v1786808560176"></script>
-    <script src="vendor/driver.iife.js?v=v1786808560176"></script>
-    <script src="../includes/game-number-format.js?v=v1786808560176" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786847428023"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786847428023"></script>
+    <script src="vendor/howler.core.min.js?v=v1786847428023"></script>
+    <script src="vendor/driver.iife.js?v=v1786847428023"></script>
+    <script src="../includes/game-number-format.js?v=v1786847428023" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786808560176';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786847428023';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786808560176"></script>
+    <script src="js/app.js?v=v1786847428023"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786808560176"></script>
+    <script src="../includes/translate.js?v=v1786847428023"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

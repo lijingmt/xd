@@ -119,6 +119,46 @@ async function main() {
     assert(loginRendered.includes('auth-modal'), 'initial render must contain the login UI');
     assert(loginRendered.includes('登录游戏'), 'initial render must expose the login action');
 
+	const illusionCreatorRendered = await renderScenario(componentOptions, template, {
+		showLogin: false,
+		showCharacterSelect: true,
+		characterCreateOpen: true,
+		accountToken: 'a'.repeat(64),
+		accountSharedRechargeBalance: 500,
+		accountSharedRechargeAvailable: true,
+		illusionEntitled: true,
+		illusionCharacterSlots: 1,
+		illusionMultiCharacterUnlocked: false,
+		illusionExpansionSpentSuiyu: 0,
+		illusionRealmStatus: {
+			ok: true, illusion_id: 'S1', display_name: '新月幻境·S1',
+			phase: 'active', phase_name: '进行中', creation_open: true,
+			extra_character_slot_cost_suiyu: 100,
+			multi_character_unlock_cost_suiyu: 500
+		},
+		accountCharacters: [{
+			id: 'xd01illusion', name_cn: '新月行者', level: 10,
+			realm_type: 'illusion', illusion_id: 'S1',
+			profession_id: 'jianxian', race_name: '人族', profession_name: '剑仙'
+		}]
+	});
+	assert(
+		illusionCreatorRendered.includes('illusion-expansion-card'),
+		'full S1 creator must render the direct paid expansion card'
+	);
+	assert(
+		illusionCreatorRendered.includes('100碎玉增加1格'),
+		'creator must expose the direct single-slot purchase'
+	);
+	assert(
+		illusionCreatorRendered.includes('补500碎玉解锁本期多人物'),
+		'creator must expose the cumulative multi-character purchase'
+	);
+	assert(
+		illusionCreatorRendered.includes('illusion-expansion-all-btn'),
+		'cumulative purchase must render with its high-contrast button style hook'
+	);
+
     const gameRendered = await renderScenario(componentOptions, template, {
         showLogin: false,
         playerStats: {
@@ -167,7 +207,15 @@ async function main() {
             },
             candidates: { armor_head: [] }
         },
-        mudLines: [{ type: 'text', segments: [] }]
+        mudLines: [{
+            type: 'line',
+            segments: [{
+                type: 'story-image',
+                src: '/images/illusion_s1/story/volume_09.png',
+                alt: '新月长生劫终章插画',
+                cell: 5
+            }]
+        }]
     });
     assert(gameRendered.length > 5000, 'game render must produce a non-trivial page');
     assert(gameRendered.includes('game-header'), 'game render must contain the player header');
@@ -178,6 +226,9 @@ async function main() {
     assert(gameRendered.includes('equipment-panel-avatar'), 'equipment panel player aura must render');
     assert(gameRendered.includes('equipment-level-7'), 'level-200 equipment aura must render');
     assert(gameRendered.includes('equipment-rarity-7'), 'rarest equipment aura must render');
+    assert(gameRendered.includes('illusion-story-frame'), 'story atlas cell must render in the real game output');
+    assert(gameRendered.includes('background-position:50% 50%'), 'story atlas must crop the requested center cell');
+    assert(gameRendered.includes('新月长生劫终章插画'), 'story image must keep an accessible description');
 
     console.log(
         `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +

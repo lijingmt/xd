@@ -247,13 +247,17 @@ void test_pressure_refresh_policy(object player)
 		(int)three["refresh_seconds"]==75 && (int)three["budget"]==2 &&
 		(int)four["refresh_seconds"]==60 && (int)four["budget"]==3 &&
 		(int)overflow["enabled"] &&
-		(int)slots["normal_slots"]>0,
+		(int)slots["normal_slots"]>0 &&
+		(int)slots["training_capacity"]==0 &&
+		(int)slots["pressure_check_seconds"]==15,
 		sprintf("one=%O two=%O three=%O four=%O overflow=%O slots=%O",
 			one,two,three,four,overflow,slots));
 	check("压力补位排除Boss精英任务召唤且不扩容槽位",
 		source && search(source,"ob->_boss || ob->_tasknpc || ob->_meritocrat")!=-1 &&
 		search(source,"functionp(ob->query_summon_type)")!=-1 &&
-		search(source,"if(!one || sizeof(one)<5 || one[1]")!=-1,
+		search(source,"if(!one || sizeof(one)<5 || one[1]")!=-1 &&
+		search(source,"if(slots>32)")!=-1 &&
+		search(source,"if(capacity>slots)")!=-1,
 		"普通怪分类或原槽位上限守卫缺失");
 	destroy_test_room(room,player);
 }

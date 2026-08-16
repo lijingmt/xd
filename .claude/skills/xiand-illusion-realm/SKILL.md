@@ -34,6 +34,8 @@ when their surfaces are touched.
 ## Locate each layer
 
 - tracked cycle config: `gamelib/etc/illusion_realm.json`
+- tracked S1 story: `gamelib/etc/illusion_s1_story.json`
+- tracked nine-volume storyboard atlases: `images/illusion_s1/story/`
 - shared runtime phase/audit: `data_xiand/illusion_realm/runtime.json`
 - archived closed states: `data_xiand/illusion_realm/history/`
 - derived leaderboard snapshots: `data_xiand/illusion_realm/rankings/<ID>/`
@@ -71,8 +73,9 @@ it manually while processes are running.
 For S1:
 
 1. Verify `current_id` is exactly `S1`, duration is 30 days, entry/return rooms
-   load, seven chapters award exactly ten pieces, and both route arrays contain
-   exactly three unique challenges.
+   load, nine volumes contain exactly 81 ordered chapters, the 7-day gate and
+   25 key story events are intact, all nine atlases load, chapter rewards total
+   exactly ten pieces, and both route arrays contain exactly three challenges.
 2. Run `mgr_illusion_realm`, preview `open_registration`, then confirm.
 3. Let players permanently activate the S1-specific account entitlement for
    free. S1 keeps a configured zero price while retaining idempotent
@@ -117,6 +120,15 @@ Keep gameplay content data-driven:
   `illusion_<lowercase-id>` directories, and require every configured file to
   exist before enabling the daemon;
 - require chapter IDs to be the ordered `<ID>-C1...Cn` sequence;
+- for S1 require exactly nine volumes of nine chapters, 81 unique chapter
+  titles, active-day gates from 1 through 7, and exactly 25 configured story
+  events whose chapter, kind, Chinese location label and canonical room/NPC
+  path agree;
+- keep story prose in the separate tracked story JSON and require its immutable
+  ID/title/premise to match the cycle config before flattening it at startup;
+- use one original square 3x3 atlas per volume. Only emit
+  `[storyimg 1..9:/xd/images/illusion_s1/story/volume_NN.png]`; the JSON API,
+  Vue and every legacy HTML filter must reject traversal or an out-of-range cell;
 - require chapter reward counts to sum to exactly ten;
 - fail closed if config or runtime state is malformed.
 
@@ -130,12 +142,18 @@ Keep route choice immutable within a cycle. Reward claims must be ordered,
 account-bound, save-before-success, idempotent, and rollback all newly cloned
 items plus progress on failure.
 
+Expose current/required values and the configured Chinese location for the next
+story event. This is guidance only: do not add a teleport that bypasses room
+movement, boss ownership, previous-chapter gates, or map-worker routing. Test a
+future echo before its previous chapter and require it to fail closed.
+
 ## Isolation rules
 
 Assign all active characters from one illusion ID to `illusion:<ID>`. Do not
 equate that logical group with a physical process. For S1, preserve the stable
-affinities `illusion_s1:hub`, `illusion_s1:silver`, `illusion_s1:ruins`, and
-`illusion_s1:depths`; unknown future rooms fail safely into
+affinities `illusion_s1:hub`, `illusion_s1:silver`, `illusion_s1:ruins`,
+`illusion_s1:depths`, `illusion_s1:hunt_a`, `illusion_s1:hunt_b`, and
+`illusion_s1:hunt_c`; unknown future rooms fail safely into
 `illusion_s1:frontier` until deliberately classified. Keep the common camp in
 `hub`, connected field chapters in separate groups, and every exact shared room
 on exactly one owner Worker. Use the common worker pool rather than reserving a
@@ -254,7 +272,8 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    grouping and catalog weights,
    entitlement denial/grant, interrupted-payment refund, multiple characters
    per cycle within the existing account/profession limits,
-   all three route gates, seven ordered claims, exactly ten bound rewards,
+   all three route gates, 81 ordered claims across seven distinct Beijing
+   activity days, 25 exact room/NPC story events, exactly ten bound rewards,
    duplicate-claim denial, movement/isolation, malformed-index failure closure,
    automatic expiry/close without automatic start, login-hook ordering,
    end-time boundaries, same-archive settlement, idempotent return, same-room

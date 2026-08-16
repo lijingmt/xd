@@ -9,7 +9,12 @@ protected void create(){
 	desc="湖中倒月比天上的新月更圆，镜蛛沿着倒影编织出错误的道路。\n";
 	exits["north"]=ROOT "/gamelib/d/illusion_s1/fog_forest.pike";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/broken_observatory.pike";
+	exits["south"]=ROOT "/gamelib/d/illusion_s1/xiniu_scripture_market.pike";
+	exits["west"]=ROOT "/gamelib/d/illusion_s1/mirror_depths.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/mirror_spider.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/mirror_spider.pike"}));
 }
-string query_links(){ return "[观察倒月:illusion_realm explore]\n"; }
+string query_links(){
+	return "[观察倒月:illusion_realm explore]\n"+
+		"[聆听镜湖故人残响:illusion_realm witness]\n";
+}

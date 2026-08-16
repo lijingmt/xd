@@ -936,6 +936,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/account/illusion/activate":
                 handle_api_account_illusion_activate(req);
                 break;
+            case "/api/account/illusion/expand":
+                handle_api_account_illusion_expand(req);
+                break;
             case "/api/account/characters/create":
                 handle_api_account_character_create(req);
                 break;
@@ -2307,13 +2310,33 @@ mapping parse_bracket_content(string content, string txd, string userid)
             "txd": txd
         ]));
     }
-    else {
-        int pos = search(content, ":");
-        if(pos > 0) {
-            label = content[0..pos-1];
-            action_cmd = content[pos+1..];
+	else {
+		int pos = search(content, ":");
+		if(pos > 0) {
+			label = content[0..pos-1];
+			action_cmd = content[pos+1..];
+			int story_cell;
 
-            // 图片链接 [imgurl xxx:/images/...] 或 [miniimg xxx:/xd/images/...]
+			// 九卷故事图使用一张严格3x3图集。服务端只接受固定
+			// 项目路径与1..9格号，Vue按格裁切，避免81张大图拖慢镜像。
+			if(sscanf(label,"storyimg %d",story_cell)==1 &&
+			   label=="storyimg "+(string)story_cell &&
+			   story_cell>=1 && story_cell<=9 &&
+			   has_prefix(action_cmd,
+				"/xd/images/illusion_s1/story/volume_") &&
+			   has_suffix(action_cmd,".png") &&
+			   search(action_cmd,"..")==-1){
+				string story_path = action_cmd;
+				if(sscanf(story_path,"/%*s/images/%s",string story_rest)==2)
+					story_path = "/images/"+story_rest;
+				return ([
+					"type":"story-image","src":story_path,
+					"alt":"新月长生劫第"+(string)story_cell+"幕",
+					"cell":story_cell,
+				]);
+			}
+
+			// 图片链接 [imgurl xxx:/images/...] 或 [miniimg xxx:/xd/images/...]
             // 支持任意第二部分，如: imgurl picture, imgurl loading, miniimg minipicture 等
             int is_imgurl = (search(label, "imgurl ") == 0);
             int is_miniimg = (search(label, "miniimg ") == 0);

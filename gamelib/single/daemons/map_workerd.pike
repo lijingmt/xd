@@ -62,12 +62,29 @@ private mapping(string:int) affinity_room_weights = ([]);
 private mapping(string:int) affinity_heat_scores = ([]);
 private mapping(string:string) illusion_s1_room_groups = ([
 	"moon_gate":"hub",
+	"nanzhan_mortal_city":"hub",
+	"nanzhan_life_death_temple":"silver",
 	"silver_path":"silver","fog_forest":"silver",
-	"mirror_lake":"silver",
+	"fog_oath_camp":"silver","mirror_lake":"silver",
+	"xiniu_scripture_market":"silver",
 	"broken_observatory":"ruins","echo_ruins":"ruins",
-	"star_bridge":"ruins",
+	"xiniu_empty_temple":"ruins","mirror_depths":"ruins",
+	"star_bridge":"ruins","beiju_longlife_waste":"ruins",
+	"beiju_broken_oath":"ruins",
 	"abyss_garden":"depths","moon_palace":"depths",
+	"beiju_frozen_palace":"depths","frozen_judgment_hall":"depths",
+	"dongsheng_morning_port":"depths","dongsheng_fusang_altar":"depths",
+	"moon_immortality_furnace":"depths","true_name_hall":"depths",
 	"newmoon_altar":"depths","hidden_crater":"depths",
+	"moon_dew_field":"hunt_a","mist_bamboo_glen":"hunt_a",
+	"mirror_sandbar":"hunt_a","broken_star_court":"hunt_a",
+	"echo_battlement":"hunt_a","abyss_flower_sea":"hunt_a",
+	"silver_reed_bank":"hunt_b","cloud_pine_hollow":"hunt_b",
+	"glasswater_bank":"hunt_b","astral_stonewood":"hunt_b",
+	"old_city_square":"hunt_b","deepmoon_valley":"hunt_b",
+	"starlight_slope":"hunt_c","moonshadow_wood":"hunt_c",
+	"moonwave_shoal":"hunt_c","observatory_outfield":"hunt_c",
+	"stardust_lane":"hunt_c","starfall_garden":"hunt_c",
 ]);
 private multiset(string) catalog_rebalance_pending = (<>);
 private int placement_generation;
@@ -3219,11 +3236,49 @@ private int assigned_catalog_weight_unlocked(string worker_id,
 	return assigned;
 }
 
+private int is_illusion_s1_hunt_affinity(string affinity)
+{
+	return affinity=="illusion_s1:hunt_a" ||
+		affinity=="illusion_s1:hunt_b" ||
+		affinity=="illusion_s1:hunt_c";
+}
+
+// 三组公共猎场承载同一等级段的50人挂机池。健康节点达到3个时让
+// 三组互相反亲和，避免稳定散列后的两组玩家再次挤到一个Pike进程。
+// 节点不足时返回空集合，继续使用原有负载与rendezvous选择。
+private multiset(string) query_s1_hunt_avoided_workers_unlocked(
+	string affinity,int now)
+{
+	multiset(string) avoided = (<>);
+	int healthy_workers;
+	if(!is_illusion_s1_hunt_affinity(affinity))
+		return avoided;
+	foreach(values(worker_nodes),mapping node)
+		if(worker_alive_unlocked(node,now))
+			healthy_workers++;
+	if(healthy_workers<3)
+		return avoided;
+	foreach(indices(affinity_assignments),string other_affinity){
+		mapping placement;
+		string worker_id;
+		if(other_affinity==affinity ||
+		   !is_illusion_s1_hunt_affinity(other_affinity))
+			continue;
+		placement=affinity_assignments[other_affinity];
+		worker_id=(string)placement["worker_id"];
+		if(worker_alive_unlocked(worker_nodes[worker_id],now))
+			avoided[worker_id]=1;
+	}
+	return avoided;
+}
+
 /** Strict least-loaded bin packing for a proven-cold catalog rebuild. */
 private string choose_catalog_worker_unlocked(string affinity,int weight,
 	int now)
 {
 	string best = "";
+	multiset(string) avoided_workers =
+		query_s1_hunt_avoided_workers_unlocked(affinity,now);
 	int best_cost;
 	int best_hash;
 	foreach(sort(indices(worker_nodes)),string worker_id){
@@ -3233,6 +3288,8 @@ private string choose_catalog_worker_unlocked(string affinity,int weight,
 		int cost;
 		int rendezvous_hash;
 		if(!worker_alive_unlocked(node,now))
+			continue;
+		if(avoided_workers[worker_id])
 			continue;
 		capacity = max(1,(int)node["capacity"]);
 		assigned = assigned_catalog_weight_unlocked(worker_id,affinity)+
@@ -3254,6 +3311,8 @@ private string choose_catalog_worker_unlocked(string affinity,int weight,
 private string choose_worker_unlocked(string affinity,int weight,int now)
 {
 	string best = "";
+	multiset(string) avoided_workers =
+		query_s1_hunt_avoided_workers_unlocked(affinity,now);
 	int best_hash;
 	int best_denominator;
 	foreach(sort(indices(worker_nodes)),string worker_id){
@@ -3263,6 +3322,8 @@ private string choose_worker_unlocked(string affinity,int weight,int now)
 		int denominator;
 		int rendezvous_hash;
 		if(!worker_alive_unlocked(node,now))
+			continue;
+		if(avoided_workers[worker_id])
 			continue;
 		capacity = max(1,(int)node["capacity"]);
 		assigned = assigned_weight_unlocked(worker_id,affinity)+max(1,weight);

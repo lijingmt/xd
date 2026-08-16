@@ -30,6 +30,12 @@ int is_room(){
 //override item类的函数，用来动态调整npc的等级
 int dongtai_npc_start_level=70;
 private int last_autofight_pressure_check;
+private int autofight_training_capacity;
+private int autofight_training_slots;
+private int autofight_initial_population;
+private int autofight_pressure_refresh_seconds;
+private int autofight_pressure_budget;
+private int autofight_pressure_check_seconds=15;
 
 private int is_autofight_normal_spawn(object ob)
 {
@@ -85,6 +91,53 @@ void add_items(array(string|program) _items){
 	}
 }
 
+// 公共中立猎场可以显式声明挂机容量与普通怪槽位。默认房间不调用
+// 此接口，因此原有地图的刷怪数量、刷新节奏和掉落经济完全不变。
+void configure_autofight_training_population(string npc_path,int slots,
+	int capacity,int refresh_seconds,int budget,int check_seconds)
+{
+	program npc_program;
+	int npc_flush_seconds;
+	int initial_population;
+	if(!npc_path || npc_path=="" || slots<1 || capacity<1)
+		return;
+	if(slots>32)
+		slots=32;
+	if(capacity>slots)
+		capacity=slots;
+	if(refresh_seconds<3)
+		refresh_seconds=3;
+	if(budget<1)
+		budget=1;
+	if(budget>slots)
+		budget=slots;
+	if(check_seconds<1)
+		check_seconds=1;
+	autofight_training_capacity=capacity;
+	autofight_training_slots=slots;
+	autofight_pressure_refresh_seconds=refresh_seconds;
+	autofight_pressure_budget=budget;
+	autofight_pressure_check_seconds=check_seconds;
+	initial_population=min(4,slots);
+	autofight_initial_population=initial_population;
+	for(int i=0;i<initial_population;i++)
+		add_items(({npc_path}));
+	if(sizeof(items)<1)
+		return;
+	npc_program=items[sizeof(items)-1][0];
+	npc_flush_seconds=max(300,(int)items[sizeof(items)-1][2]);
+	// 潜在槽位不在房间加载时创建对象；挂机压力到来后按人数补齐。
+	// 五分钟的普通重置兜底仍保留，避免接口异常造成永久空槽。
+	for(int i=initial_population;i<slots;i++)
+		items+=({({npc_program,0,npc_flush_seconds,
+			time()-refresh_seconds,1})});
+}
+
+int query_autofight_training_capacity()
+{
+	return autofight_training_capacity;
+}
+
 // 只对自动挂机指定练级房开放：人数越多，原有普通怪槽位越快补齐。
 // 不增加房间原始槽位总量，也不加速 Boss、精英、任务或召唤单位。
 mapping query_autofight_pressure_policy(int active_players,
@@ -93,6 +146,19 @@ mapping query_autofight_pressure_policy(int active_players,
 	int enabled=1;
 	int refresh_seconds=90;
 	int budget=1;
+	if(autofight_training_capacity>0){
+		int target_population=active_players+2;
+		if(target_population<autofight_initial_population)
+			target_population=autofight_initial_population;
+		if(target_population>autofight_training_slots)
+			target_population=autofight_training_slots;
+		return ([
+			"enabled":active_players>0,
+			"refresh_seconds":autofight_pressure_refresh_seconds,
+			"budget":autofight_pressure_budget,
+			"target_population":target_population,
+		]);
+	}
 	if(active_players<2 && !overflow_room)
 		enabled=0;
 	if(active_players>=3){
@@ -112,7 +178,8 @@ mapping query_autofight_pressure_policy(int active_players,
 
 int query_autofight_pressure_check_ready()
 {
-	return time()-last_autofight_pressure_check>=15;
+	return time()-last_autofight_pressure_check>=
+		autofight_pressure_check_seconds;
 }
 
 int refresh_autofight_normal_npcs(object me,int active_players,
@@ -121,6 +188,8 @@ int refresh_autofight_normal_npcs(object me,int active_players,
 	mapping policy;
 	int refresh_seconds;
 	int budget;
+	int target_population;
+	int alive_normal;
 	int spawned=0;
 	if(!me || this_object()->is("peaceful"))
 		return 0;
@@ -132,6 +201,17 @@ int refresh_autofight_normal_npcs(object me,int active_players,
 	last_autofight_pressure_check=time();
 	refresh_seconds=(int)policy["refresh_seconds"];
 	budget=(int)policy["budget"];
+	target_population=(int)policy["target_population"];
+	if(target_population>0){
+		for(int i=0;i<sizeof(items);i++){
+			array one=items[i];
+			if(one && sizeof(one)>=5 && (int)one[4] && one[1])
+				alive_normal++;
+		}
+		if(alive_normal>=target_population)
+			return 0;
+		budget=min(budget,target_population-alive_normal);
+	}
 	for(int i=0;i<sizeof(items) && spawned<budget;i++){
 		array one=items[i];
 		object ob;
@@ -187,6 +267,12 @@ mapping query_autofight_spawn_status()
 		"normal_slots":normal_slots,
 		"alive_normal":alive_normal,
 		"last_pressure_check":last_autofight_pressure_check,
+		"training_capacity":autofight_training_capacity,
+		"training_slots":autofight_training_slots,
+		"initial_population":autofight_initial_population,
+		"pressure_refresh_seconds":autofight_pressure_refresh_seconds,
+		"pressure_budget":autofight_pressure_budget,
+		"pressure_check_seconds":autofight_pressure_check_seconds,
 	]);
 }
 /*

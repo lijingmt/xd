@@ -12,12 +12,18 @@ private string time_text(int value)
 private string progress_view(object me,mapping progress)
 {
 	string s = "";
+	mapping current = ([]);
+	int current_number;
 	s += "路线："+(string)progress["path_name"]+"　等级："+
 		(string)(int)progress["level"]+"\n";
 	s += "探索："+(string)(int)progress["visits"]+
 		"处　击杀："+(string)(int)progress["kills"]+
 		"　首领："+(string)(int)progress["boss_kills"]+
 		"　同队击杀："+(string)(int)progress["team_kills"]+"\n";
+	s += "故事历程："+(string)(int)progress["chapter_claimed"]+"/"+
+		(string)(int)progress["chapter_total"]+"章　修行日："+
+		(string)(int)progress["active_days"]+"/7　剧情印记："+
+		(string)(int)progress["story_event_count"]+"\n";
 	if((string)progress["path"]=="pioneer")
 		s += "寻星终章：隐藏月印 "+
 			(string)(int)progress["route_mark_count"]+"/"+
@@ -31,7 +37,7 @@ private string progress_view(object me,mapping progress)
 			(string)(int)progress["team_kills"]+"/"+
 			(string)(int)progress["route_target"]+"\n";
 	if((string)progress["path"]==""){
-		s += "【三途择印】第三章前选择一次，本期不可更改：\n";
+		s += "【三途择印】第二十三章前选择一次，本期不可更改：\n";
 		s += "[寻星·重探索:illusion_realm path pioneer] ";
 		s += "[破阵·重狩猎:illusion_realm path hunter] ";
 		s += "[同心·重协作:illusion_realm path companion]\n";
@@ -42,21 +48,146 @@ private string progress_view(object me,mapping progress)
 	   sizeof((array)progress["ranking_titles"]))
 		s += "最新幻境荣誉："+
 			(string)((array)progress["ranking_titles"])[-1]+"\n";
-	foreach((array)progress["chapters"];int index;mapping chapter){
-		string mark = (int)chapter["claimed"] ? "已领取" :
-			((int)chapter["ready"] ? "可领取" : "进行中");
-		s += "\n【"+(string)chapter["title"]+"】"+mark+"\n";
-		s += (string)chapter["description"]+"\n";
-		s += "目标：Lv"+(string)(int)chapter["min_level"]+
-			" / 击杀"+(string)(int)chapter["kills"]+
-			" / 首领"+(string)(int)chapter["boss_kills"]+
-			" / 探索"+(string)(int)chapter["visits"]+
-			"；奖励本职业新月套装"+
-			(string)(int)chapter["reward_count"]+"件\n";
-		if((int)chapter["ready"] && !(int)chapter["claimed"])
-			s += "[领取本章奖励:illusion_realm claim "+
-				(string)(index+1)+"]\n";
+	foreach((array)progress["chapters"];int index;mapping chapter)
+		if(!(int)chapter["claimed"]){
+			current = chapter;
+			current_number = index+1;
+			break;
+		}
+	if(sizeof(current)){
+		string mark = (int)current["ready"] ? "可完成" : "进行中";
+		s += "\n"+(string)current["volume_title"]+"\n";
+		s += "【第"+(string)current_number+"章·"+
+			(string)current["title"]+"】"+mark+"\n";
+		s += "[storyimg "+(string)(int)current["image_cell"]+":"+
+			(string)current["atlas"]+"]\n";
+		s += (string)current["intro"]+"\n";
+		s += "目标：修行"+(string)(int)progress["active_days"]+"/"+
+			(string)(int)current["active_days"]+"日 / Lv"+
+			(string)(int)progress["level"]+"/"+
+			(string)(int)current["min_level"]+" / 击杀"+
+			(string)(int)progress["kills"]+"/"+
+			(string)(int)current["kills"]+" / 首领"+
+			(string)(int)progress["boss_kills"]+"/"+
+			(string)(int)current["boss_kills"]+" / 探索"+
+			(string)(int)progress["visits"]+"/"+
+			(string)(int)current["visits"];
+		if((string)current["story_event"]!="" &&
+		   !(int)current["story_ready"]){
+			s += " / 关键剧情【"+
+				(string)current["story_event_title"]+"】（地点："+
+				(string)current["story_event_location"]+"）尚未触发";
+			if((string)current["story_event_kind"]=="echo")
+				s += "（到剧情地点阅读残响）";
+			else if((string)current["story_event_kind"]=="boss")
+				s += "（击败本章剧情首领）";
+		}
+		s += "\n";
+		if((int)current["reward_count"]>0)
+			s += "本章过关额外获得本职业新月套装"+
+				(string)(int)current["reward_count"]+"件。\n";
+		if((int)current["ready"])
+			s += "[完成本章并阅读回响:illusion_realm claim "+
+				(string)current_number+"]\n";
 	}
+	else
+		s += "\n八十一章已经全部完成；完整故事与十件套装均已写入本人物原档案。\n";
+	s += "[查看九卷故事目录:illusion_realm story]\n";
+	return s;
+}
+
+private string story_volume_view(mapping progress,int volume_number)
+{
+	string s;
+	int start;
+	array chapters = (array)progress["chapters"];
+	if(volume_number<1 || volume_number>9)
+		return "故事卷号无效。\n[返回故事目录:illusion_realm story]\n";
+	start = (volume_number-1)*9;
+	s = "【"+(string)chapters[start]["volume_title"]+"】\n";
+	for(int offset=0;offset<9;offset++){
+		mapping chapter = chapters[start+offset];
+		int chapter_number = start+offset+1;
+		string mark = (int)chapter["claimed"] ? "已完成" :
+			((int)chapter["ready"] ? "可完成" :
+			 (chapter_number==(int)progress["chapter_claimed"]+1 ?
+			  "进行中" : "未开启"));
+		s += "[第"+(string)chapter_number+"章·"+
+			(string)chapter["title"]+":illusion_realm story chapter "+
+			(string)chapter_number+"]　"+mark+"\n";
+	}
+	s += "[上一卷:illusion_realm story volume "+
+		(string)max(1,volume_number-1)+"]|[下一卷:illusion_realm story volume "+
+		(string)min(9,volume_number+1)+"]\n";
+	s += "[返回故事目录:illusion_realm story]\n";
+	return s;
+}
+
+private string story_chapter_view(mapping progress,int chapter_number)
+{
+	array chapters = (array)progress["chapters"];
+	mapping chapter;
+	string s;
+	int available = (int)progress["chapter_claimed"]+1;
+	if(chapter_number<1 || chapter_number>sizeof(chapters))
+		return "故事章号无效。\n[返回故事目录:illusion_realm story]\n";
+	chapter = chapters[chapter_number-1];
+	if(chapter_number>available)
+		return "后续故事尚未开启，请先完成第"+(string)available+
+			"章。\n[返回当前历程:illusion_realm]\n";
+	s = (string)chapter["volume_title"]+"\n";
+	s += "【第"+(string)chapter_number+"章·"+
+		(string)chapter["title"]+"】\n";
+	s += "[storyimg "+(string)(int)chapter["image_cell"]+":"+
+		(string)chapter["atlas"]+"]\n";
+	s += (string)chapter["intro"]+"\n";
+	if((int)chapter["claimed"])
+		s += "\n【过关回响】\n"+(string)chapter["outro"]+"\n";
+	else{
+		s += "\n目标：修行"+(string)(int)progress["active_days"]+"/"+
+			(string)(int)chapter["active_days"]+"日 / Lv"+
+			(string)(int)progress["level"]+"/"+
+			(string)(int)chapter["min_level"]+" / 击杀"+
+			(string)(int)progress["kills"]+"/"+
+			(string)(int)chapter["kills"]+" / 首领"+
+			(string)(int)progress["boss_kills"]+"/"+
+			(string)(int)chapter["boss_kills"]+" / 探索"+
+			(string)(int)progress["visits"]+"/"+
+			(string)(int)chapter["visits"]+"\n";
+		if((string)chapter["story_event"]!="" &&
+		   !(int)chapter["story_ready"])
+			s += "关键剧情：【"+
+				(string)chapter["story_event_title"]+"】（地点："+
+				(string)chapter["story_event_location"]+"）"+
+				((string)chapter["story_event_kind"]=="boss" ?
+				 "，请击败本章剧情首领。\n" :
+				 "，请到剧情地点阅读残响。\n");
+		if((int)chapter["ready"])
+			s += "[完成本章并阅读回响:illusion_realm claim "+
+				(string)chapter_number+"]\n";
+	}
+	s += "[返回本卷:illusion_realm story volume "+
+		(string)(int)chapter["volume_number"]+"]|[返回当前历程:illusion_realm]\n";
+	return s;
+}
+
+private string story_index_view(mapping progress)
+{
+	string s = "【"+(string)progress["story_title"]+"·九卷八十一章】\n";
+	array chapters = (array)progress["chapters"];
+	s += (string)progress["story_premise"]+"\n";
+	for(int volume=1;volume<=9;volume++){
+		int completed;
+		int start = (volume-1)*9;
+		for(int offset=0;offset<9;offset++)
+			if((int)chapters[start+offset]["claimed"])
+				completed++;
+		s += "["+(string)chapters[start]["volume_title"]+
+			":illusion_realm story volume "+(string)volume+"] "+
+			(string)completed+"/9\n";
+	}
+	s += "\n最快也需七个不同北京时间修行日；章节必须按顺序完成，不能跳章。\n";
+	s += "[返回当前历程:illusion_realm]\n";
 	return s;
 }
 
@@ -130,6 +261,20 @@ int main(string|zero arg)
 			return 1;
 		}
 		write(ranking_menu(status));
+		return 1;
+	}
+	if(sizeof(parts)>=1 && parts[0]=="story"){
+		mapping progress = SEASONALD->query_player_progress(me);
+		if(!(int)progress["ok"]){
+			write((string)progress["message"]+"\n[返回游戏:look]\n");
+			return 1;
+		}
+		if(sizeof(parts)>=3 && parts[1]=="chapter")
+			write(story_chapter_view(progress,(int)parts[2]));
+		else if(sizeof(parts)>=3 && parts[1]=="volume")
+			write(story_volume_view(progress,(int)parts[2]));
+		else
+			write(story_index_view(progress));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="activate"){
@@ -216,6 +361,12 @@ int main(string|zero arg)
 	}
 	if(sizeof(parts)>=1 && parts[0]=="explore"){
 		mapping result = SEASONALD->discover_route_secret(me);
+		write((string)result["message"]+"\n[返回"+
+			(string)status["illusion_id"]+"历程:illusion_realm]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=1 && parts[0]=="witness"){
+		mapping result = SEASONALD->discover_story_event(me);
 		write((string)result["message"]+"\n[返回"+
 			(string)status["illusion_id"]+"历程:illusion_realm]\n");
 		return 1;

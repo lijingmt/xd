@@ -122,6 +122,7 @@ int main()
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(center_account_id);
 	ACCOUNT_WALLETD->remove_test_wallet(account_id);
+	ACCOUNT_WALLETD->remove_test_wallet(center_account_id);
 	ACCOUNT_STORAGED->remove_test_storage(account_id);
 	cleanup_player(account_id);
 	cleanup_player(center_account_id);
@@ -135,6 +136,65 @@ int main()
 			(int)public_status["extra_character_slot_cost_suiyu"]==100 &&
 			(int)public_status["multi_character_unlock_cost_suiyu"]==500,
 			sprintf("status=%O",public_status));
+		string story_json_source = Stdio.read_file(ROOT+
+			"/gamelib/etc/illusion_s1_story.json") || "";
+		mapping story_config = Standards.JSON.decode(story_json_source);
+		array story_volumes = (array)story_config["volumes"];
+		array story_chapters = ({});
+		multiset(string) story_titles = (<>);
+		multiset(string) story_atlases = (<>);
+		int story_rewards;
+		int story_text_valid = 1;
+		foreach(story_volumes,mapping volume){
+			story_atlases[(string)volume["atlas"]] = 1;
+			foreach((array)volume["chapters"],mapping chapter){
+				story_chapters += ({chapter});
+				story_titles[(string)chapter["title"]] = 1;
+				story_rewards += (int)chapter["reward_count"];
+				if(sizeof((string)chapter["intro"])<20 ||
+				   sizeof((string)chapter["outro"])<20 ||
+				   (int)chapter["active_days"]<1 ||
+				   (int)chapter["active_days"]>7)
+					story_text_valid = 0;
+			}
+		}
+		int story_images_valid = sizeof(story_atlases)==9;
+		foreach(indices(story_atlases),string atlas)
+			if(!has_prefix(atlas,"/xd/images/illusion_s1/story/volume_") ||
+			   !has_suffix(atlas,".png") ||
+			   Stdio.file_size(ROOT+"/images/"+
+				atlas[sizeof("/xd/images/")..])<1024*1024)
+				story_images_valid = 0;
+		check("原创长篇故事固定为九卷八十一章、七日门槛与十件奖励",
+			sizeof(story_volumes)==9 && sizeof(story_chapters)==81 &&
+			sizeof(story_titles)==81 && story_rewards==10 &&
+			story_text_valid && (int)story_chapters[-1]["active_days"]==7,
+			sprintf("volumes=%d chapters=%d titles=%d rewards=%d",
+				sizeof(story_volumes),sizeof(story_chapters),
+				sizeof(story_titles),story_rewards));
+		check("九卷原创3x3故事图集完整且每卷不是占位小图",
+			story_images_valid,sprintf("atlases=%O",story_atlases));
+		check("故事配置未写入现有游戏动漫小说品牌名",
+			search(story_json_source,"暗黑")==-1 &&
+			search(story_json_source,"暴雪")==-1 &&
+			search(story_json_source,"金庸")==-1 &&
+			search(story_json_source,"西游记")==-1 &&
+			search(story_json_source,"火影")==-1 &&
+			search(story_json_source,"海贼")==-1 &&
+			search(story_json_source,"原神")==-1 &&
+			search(story_json_source,"大反派")==-1,
+			"原创故事中出现了需要重新审核的现有品牌或作品名");
+		string character_center_source = Stdio.read_file(ROOT+
+			"/vue_source/index.html") || "";
+		string observatory_source = Stdio.read_file(ROOT+
+			"/gamelib/d/illusion_s1/broken_observatory.pike") || "";
+		check("人物中心和地图引导均使用八十一章正式进度",
+			search(character_center_source,"八十一章主线可获十件新月套装")!=-1 &&
+			search(character_center_source,"赛季结束时原档案自动回归永恒服")!=-1 &&
+			search(character_center_source,"完成七章")==-1 &&
+			search(observatory_source,"第二十三章前必须作出选择")!=-1 &&
+			search(observatory_source,"第三章前必须作出选择")==-1,
+			"旧七章或第三章提示仍会误导玩家");
 		mapping lifecycle_state = ([
 			"phase":"active","starts_at":1000,"ends_at":2000,
 		]);
@@ -230,6 +290,49 @@ int main()
 			search(season_source,
 				"status[\"entitlement_cost_suiyu\"]!=0")!=-1,
 			"账号中心入口可能绕过认证、使用GET或误处理付费资格");
+		check("人物创建入口扩容使用POST账号令牌与独立幂等请求号",
+			search(account_api_source,
+				"handle_api_account_illusion_expand")!=-1 &&
+			search(account_api_source,
+				"purchase_account_character_expansion")!=-1 &&
+			search(account_api_source,
+				"params[\"request_id\"]")!=-1 &&
+			search(http_api_source,
+				"case \"/api/account/illusion/expand\"")!=-1 &&
+			search(season_source,
+				"debit_account_recharge_once")!=-1 &&
+			search(season_source,
+				"reconcile_account_character_expansions")!=-1,
+			"创建页扩容可能绕过账号令牌、重复扣款或缺少中断恢复");
+		mapping story_segment = HTTP_APID->parse_bracket_content(
+			"storyimg 5:/xd/images/illusion_s1/story/volume_01.png","","");
+		mapping bad_story_segment = HTTP_APID->parse_bracket_content(
+			"storyimg 10:/xd/images/illusion_s1/story/../secret.png","","");
+		string html_renderer_source = Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/_http_api_mod/html_renderer.pike") || "";
+		string html6_source = Stdio.read_file(ROOT+
+			"/lowlib/system/filter/html6.pike") || "";
+		string html6_dark_source = Stdio.read_file(ROOT+
+			"/lowlib/system/filter/html6_dark.pike") || "";
+		string html5_source = Stdio.read_file(ROOT+
+			"/lowlib/system/filter/html5.pike") || "";
+		string html6_compat_source = Stdio.read_file(ROOT+
+			"/lowlib/system/filter/html6 copy.pike") || "";
+		check("故事图集只接受固定目录的1至9格并拒绝路径穿越",
+			(string)story_segment["type"]=="story-image" &&
+			(int)story_segment["cell"]==5 &&
+			(string)story_segment["src"]==
+				"/images/illusion_s1/story/volume_01.png" &&
+			(string)bad_story_segment["type"]!="story-image",
+			sprintf("valid=%O invalid=%O",story_segment,bad_story_segment));
+		check("Vue、旧JSP明暗主题、兼容副本与旧HTML5都能显示同一剧情图格",
+			search(html_renderer_source,"storyimg %d")!=-1 &&
+			search(html_renderer_source,"background-size:300%% 300%%")!=-1 &&
+			search(html6_source,"storyimg %d")!=-1 &&
+			search(html6_dark_source,"storyimg %d")!=-1 &&
+			search(html5_source,"storyimg %d")!=-1 &&
+			search(html6_compat_source,"storyimg %d")!=-1,
+			"某个旧界面仍会把剧情图片误渲染成命令按钮");
 		check("关闭后保留有界窗口接住最后一批跨worker到达",
 			search(season_source,"closed_reconcile_until = time()+180")!=-1 &&
 			search(season_source,"time()<=closed_reconcile_until")!=-1 &&
@@ -254,34 +357,97 @@ int main()
 
 		array(string) room_paths = ({
 			"/gamelib/d/illusion_s1/moon_gate.pike",
+			"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike",
+			"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike",
 			"/gamelib/d/illusion_s1/silver_path.pike",
 			"/gamelib/d/illusion_s1/fog_forest.pike",
+			"/gamelib/d/illusion_s1/fog_oath_camp.pike",
 			"/gamelib/d/illusion_s1/mirror_lake.pike",
+			"/gamelib/d/illusion_s1/xiniu_scripture_market.pike",
 			"/gamelib/d/illusion_s1/broken_observatory.pike",
 			"/gamelib/d/illusion_s1/echo_ruins.pike",
+			"/gamelib/d/illusion_s1/xiniu_empty_temple.pike",
+			"/gamelib/d/illusion_s1/mirror_depths.pike",
 			"/gamelib/d/illusion_s1/star_bridge.pike",
+			"/gamelib/d/illusion_s1/beiju_longlife_waste.pike",
+			"/gamelib/d/illusion_s1/beiju_broken_oath.pike",
 			"/gamelib/d/illusion_s1/abyss_garden.pike",
 			"/gamelib/d/illusion_s1/moon_palace.pike",
+			"/gamelib/d/illusion_s1/beiju_frozen_palace.pike",
+			"/gamelib/d/illusion_s1/frozen_judgment_hall.pike",
+			"/gamelib/d/illusion_s1/dongsheng_morning_port.pike",
+			"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike",
+			"/gamelib/d/illusion_s1/moon_immortality_furnace.pike",
+			"/gamelib/d/illusion_s1/true_name_hall.pike",
 			"/gamelib/d/illusion_s1/newmoon_altar.pike",
 			"/gamelib/d/illusion_s1/hidden_crater.pike",
 		});
+		array(string) neutral_room_paths = ({
+			"/gamelib/d/illusion_s1/moon_dew_field.pike",
+			"/gamelib/d/illusion_s1/silver_reed_bank.pike",
+			"/gamelib/d/illusion_s1/starlight_slope.pike",
+			"/gamelib/d/illusion_s1/mist_bamboo_glen.pike",
+			"/gamelib/d/illusion_s1/cloud_pine_hollow.pike",
+			"/gamelib/d/illusion_s1/moonshadow_wood.pike",
+			"/gamelib/d/illusion_s1/mirror_sandbar.pike",
+			"/gamelib/d/illusion_s1/glasswater_bank.pike",
+			"/gamelib/d/illusion_s1/moonwave_shoal.pike",
+			"/gamelib/d/illusion_s1/broken_star_court.pike",
+			"/gamelib/d/illusion_s1/astral_stonewood.pike",
+			"/gamelib/d/illusion_s1/observatory_outfield.pike",
+			"/gamelib/d/illusion_s1/echo_battlement.pike",
+			"/gamelib/d/illusion_s1/old_city_square.pike",
+			"/gamelib/d/illusion_s1/stardust_lane.pike",
+			"/gamelib/d/illusion_s1/abyss_flower_sea.pike",
+			"/gamelib/d/illusion_s1/deepmoon_valley.pike",
+			"/gamelib/d/illusion_s1/starfall_garden.pike",
+		});
+		array(string) story_room_paths = room_paths+({});
+		room_paths += neutral_room_paths;
 		int rooms_compile = 1;
 		mapping(string:int) affinities = ([]);
 		foreach(room_paths,string room_path){
-			object room;
-			mixed room_err = catch{ room=(object)(ROOT+room_path); };
+			program room_program;
+			mixed room_err = catch{
+				room_program=(program)(ROOT+room_path);
+			};
 			string one_affinity = MAP_WORKERD->query_affinity_key(room_path);
-			if(room_err || !room || one_affinity=="")
+			if(room_err || !room_program || one_affinity=="")
 				rooms_compile = 0;
 			affinities[one_affinity]++;
 		}
-		check("S1地图全部可加载并按四个稳定章节使用多worker",
-			rooms_compile && sizeof(affinities)==4 &&
-			(int)affinities["illusion_s1:hub"]==1 &&
-			(int)affinities["illusion_s1:silver"]==3 &&
-			(int)affinities["illusion_s1:ruins"]==3 &&
-			(int)affinities["illusion_s1:depths"]==4,
+		check("S1剧情与中立猎场全部可编译并按七组使用多worker",
+			rooms_compile && sizeof(affinities)==7 &&
+			(int)affinities["illusion_s1:hub"]==2 &&
+			(int)affinities["illusion_s1:silver"]==6 &&
+			(int)affinities["illusion_s1:ruins"]==7 &&
+			(int)affinities["illusion_s1:depths"]==10 &&
+			(int)affinities["illusion_s1:hunt_a"]==6 &&
+			(int)affinities["illusion_s1:hunt_b"]==6 &&
+			(int)affinities["illusion_s1:hunt_c"]==6,
 			sprintf("地图编译失败或affinity分组错误：%O",affinities));
+		mapping(string:int) story_reached = ([]);
+		array(string) story_queue = ({story_room_paths[0]});
+		while(sizeof(story_queue)){
+			string current_room = story_queue[0];
+			story_queue = story_queue[1..];
+			if((int)story_reached[current_room])
+				continue;
+			story_reached[current_room] = 1;
+			object current_room_object = (object)(ROOT+current_room);
+			foreach(values((mapping)current_room_object->exits),mixed raw_exit){
+				string next_room = (string)raw_exit;
+				if(has_prefix(next_room,ROOT))
+					next_room = next_room[sizeof(ROOT)..];
+				if(search(story_room_paths,next_room)!=-1 &&
+				   !(int)story_reached[next_room])
+					story_queue += ({next_room});
+			}
+		}
+		check("二十五个主线地点均能从新月门真实步行抵达",
+			sizeof(story_room_paths)==25 && sizeof(story_reached)==25,
+			sprintf("reachable=%d/%d missing=%O",sizeof(story_reached),
+				sizeof(story_room_paths),story_room_paths-indices(story_reached)));
 		mapping hub_weight = MAP_WORKERD->query_affinity_weight_info(
 			"illusion_s1:hub");
 		mapping silver_weight = MAP_WORKERD->query_affinity_weight_info(
@@ -290,24 +456,79 @@ int main()
 			"illusion_s1:ruins");
 		mapping depths_weight = MAP_WORKERD->query_affinity_weight_info(
 			"illusion_s1:depths");
-		check("S1四个亲和组进入冷启动目录并使用真实房间权重",
-			(int)hub_weight["ok"] && (int)hub_weight["static_weight"]==1 &&
+		mapping hunt_a_weight = MAP_WORKERD->query_affinity_weight_info(
+			"illusion_s1:hunt_a");
+		mapping hunt_b_weight = MAP_WORKERD->query_affinity_weight_info(
+			"illusion_s1:hunt_b");
+		mapping hunt_c_weight = MAP_WORKERD->query_affinity_weight_info(
+			"illusion_s1:hunt_c");
+		check("S1七个亲和组进入冷启动目录并使用真实房间权重",
+			(int)hub_weight["ok"] && (int)hub_weight["static_weight"]==2 &&
 			(int)silver_weight["ok"] &&
-				(int)silver_weight["static_weight"]==3 &&
+				(int)silver_weight["static_weight"]==6 &&
 			(int)ruins_weight["ok"] &&
-				(int)ruins_weight["static_weight"]==3 &&
+				(int)ruins_weight["static_weight"]==7 &&
 			(int)depths_weight["ok"] &&
-				(int)depths_weight["static_weight"]==4,
-			sprintf("hub=%O silver=%O ruins=%O depths=%O",
-				hub_weight,silver_weight,ruins_weight,depths_weight));
+				(int)depths_weight["static_weight"]==10 &&
+			(int)hunt_a_weight["static_weight"]==6 &&
+			(int)hunt_b_weight["static_weight"]==6 &&
+			(int)hunt_c_weight["static_weight"]==6,
+			sprintf("hub=%O silver=%O ruins=%O depths=%O a=%O b=%O c=%O",
+				hub_weight,silver_weight,ruins_weight,depths_weight,
+				hunt_a_weight,hunt_b_weight,hunt_c_weight));
+		int neutral_population_ok = 1;
+		object pressure_player = clone(GAMELIB_USER);
+		pressure_player->set_name("xd99testunitillusionpressure");
+		pressure_player->set_project("gamelib");
+		pressure_player->set_raceId("human");
+		pressure_player->set_profeId("jianxian");
+		pressure_player->setup_player("human","jianxian");
+		foreach(({neutral_room_paths[0],neutral_room_paths[1],
+		   neutral_room_paths[2]}),string neutral_path){
+			object neutral_room = (object)(ROOT+neutral_path);
+			mapping spawn_status = neutral_room->query_autofight_spawn_status();
+			mapping idle_pressure = neutral_room->
+				query_autofight_pressure_policy(1,0);
+			mapping pressure = neutral_room->query_autofight_pressure_policy(18,0);
+			int pressure_spawned = neutral_room->
+				refresh_autofight_normal_npcs(pressure_player,18,0);
+			mapping filled_status = neutral_room->query_autofight_spawn_status();
+			if((int)spawn_status["normal_slots"]!=20 ||
+			   (int)spawn_status["alive_normal"]!=4 ||
+			   (int)spawn_status["training_capacity"]!=18 ||
+			   (int)spawn_status["training_slots"]!=20 ||
+			   (int)spawn_status["initial_population"]!=4 ||
+			   (int)spawn_status["pressure_check_seconds"]!=3 ||
+			   (int)idle_pressure["target_population"]!=4 ||
+			   !(int)pressure["enabled"] ||
+			   (int)pressure["refresh_seconds"]!=5 ||
+			   (int)pressure["budget"]!=20 ||
+			   (int)pressure["target_population"]!=20 ||
+			   pressure_spawned!=16 ||
+			   (int)filled_status["alive_normal"]!=20)
+				neutral_population_ok = 0;
+		}
+		check("中立猎场按4只起步、玩家数加2补到20只且容量18人",
+			neutral_population_ok,
+			"中立猎场容量、普通怪槽位或补位上限未按配置生效");
+		destruct(pressure_player);
 		check("S1同房间路由确定且不同章节不会错误合并",
-			MAP_WORKERD->query_affinity_key(room_paths[1])==
+			MAP_WORKERD->query_affinity_key(
+				"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike")==
 				MAP_WORKERD->query_affinity_key(
-					ROOT+room_paths[1]+"#987") &&
-			MAP_WORKERD->query_affinity_key(room_paths[1])!=
-				MAP_WORKERD->query_affinity_key(room_paths[4]) &&
-			MAP_WORKERD->query_affinity_key(room_paths[4])!=
-				MAP_WORKERD->query_affinity_key(room_paths[7]),
+					ROOT+"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike#987") &&
+			MAP_WORKERD->query_affinity_key(
+				"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike")!=
+				MAP_WORKERD->query_affinity_key(
+					"/gamelib/d/illusion_s1/fog_forest.pike") &&
+			MAP_WORKERD->query_affinity_key(
+				"/gamelib/d/illusion_s1/fog_forest.pike")!=
+				MAP_WORKERD->query_affinity_key(
+					"/gamelib/d/illusion_s1/echo_ruins.pike") &&
+			MAP_WORKERD->query_affinity_key(
+				"/gamelib/d/illusion_s1/echo_ruins.pike")!=
+				MAP_WORKERD->query_affinity_key(
+					"/gamelib/d/illusion_s1/true_name_hall.pike"),
 			"相同共享房间可能分裂，或各野外章节仍挤在同一worker");
 		object player_command;
 		object manager_command;
@@ -412,6 +633,33 @@ int main()
 			search((string)center_activation["message"],"S1人物资格")!=-1,
 			sprintf("first=%O second=%O account=%O",
 				center_activation,center_activation_again,center_account));
+		mapping center_wallet_credit = ACCOUNT_WALLETD->credit_recharge_once(
+			center_root,10,"testunitadmin",
+			ACCOUNT_WALLETD->new_recharge_request_id());
+		string center_recovery_request = "9"*64;
+		mapping center_pending_debit = ACCOUNT_WALLETD->
+			debit_account_recharge_once(center_account_id,100,
+				"illusion_character_expansion:S1:one",
+				center_recovery_request);
+		mapping center_recovery = SEASONALD->
+			reconcile_account_character_expansions(center_account_id);
+		mapping center_after_recovery = ACCOUNT_CHARACTERD->
+			query_account_characters(center_account_id,"S1");
+		mapping center_wallet_after = ACCOUNT_WALLETD->
+			query_account_wallet(center_account_id);
+		check("人物中心扣款后中断可自动补写S1栏位并清理幂等收据",
+			(int)center_wallet_credit["ok"] &&
+			(int)center_pending_debit["ok"] &&
+			(int)center_recovery["ok"] &&
+			(int)center_recovery["recovered"]==1 &&
+			(int)center_after_recovery["illusion_character_slots"]==2 &&
+			(int)center_after_recovery[
+				"illusion_expansion_spent_suiyu"]==100 &&
+			(int)center_wallet_after["balance"]==0 &&
+			sizeof((mapping)center_wallet_after["debit_requests"])==0,
+			sprintf("credit=%O debit=%O recovery=%O account=%O wallet=%O",
+				center_wallet_credit,center_pending_debit,center_recovery,
+				center_after_recovery,center_wallet_after));
 		check("S1永久资格不会自动穿透到S2",
 			!(int)center_account_s2_before["illusion_entitled"] &&
 			(string)center_account_s2_before["illusion_entitlement_id"]=="S2",
@@ -530,13 +778,13 @@ int main()
 			sprintf("last=%s relife=%s",(string)child->last_pos,
 				(string)child->relife));
 		mapping(string:string) expected_afk_routes = ([
-			"1":"illusion_s1/silver_path|8",
-			"10":"illusion_s1/fog_forest|18",
-			"20":"illusion_s1/mirror_lake|28",
-			"30":"illusion_s1/broken_observatory|38",
-			"40":"illusion_s1/echo_ruins|45",
-			"50":"illusion_s1/abyss_garden|58",
-			"69":"illusion_s1/abyss_garden|58",
+			"1":"illusion_s1/moon_dew_field|8",
+			"10":"illusion_s1/mist_bamboo_glen|18",
+			"20":"illusion_s1/mirror_sandbar|28",
+			"30":"illusion_s1/broken_star_court|38",
+			"40":"illusion_s1/echo_battlement|45",
+			"50":"illusion_s1/abyss_flower_sea|58",
+			"69":"illusion_s1/abyss_flower_sea|58",
 		]);
 		int s1_afk_routes_ok = 1;
 		foreach(indices(expected_afk_routes),string level_text){
@@ -544,14 +792,22 @@ int main()
 			mapping route = AUTOFIGHTD->query_training_route(child);
 			mapping window = AUTOFIGHTD->query_target_level_window(child);
 			array(string) expected = expected_afk_routes[level_text]/"|";
+			array(string) route_paths = (array(string))route["paths"];
+			multiset(string) route_affinities = (<>);
+			foreach(route_paths,string route_path)
+				route_affinities[MAP_WORKERD->query_affinity_key(
+					"/gamelib/d/"+route_path+".pike")] = 1;
 			if((string)route["path"]!=expected[0] ||
 			   (int)route["level"]!=(int)expected[1] ||
+			   sizeof(route_paths)!=3 || sizeof(route_affinities)!=3 ||
+			   (int)route["capacity"]!=18 ||
+			   (int)route["total_capacity"]<50 ||
 			   (int)route["disable_overflow"]!=1 ||
 			   (int)window["minimum"]!=(int)expected[1] ||
 			   (int)window["maximum"]!=(int)expected[1])
 				s1_afk_routes_ok = 0;
 		}
-		check("S1自动挂机按等级留在本期地图且不会创建隔离分流房",
+		check("S1挂机每级三张中立图可容纳50人且不创建隔离分流房",
 			s1_afk_routes_ok &&
 			AUTOFIGHTD->query_rest_room(child)=="illusion_s1/moon_gate",
 			"S1挂机路线、攻击等级或休息营地仍可能落入永恒服");
@@ -571,11 +827,20 @@ int main()
 			sprintf("last=%s relife=%s",(string)child->last_pos,
 				(string)child->relife));
 		mapping visited = ([]);
-		for(int index=0;index<10;index++)
+		for(int index=0;index<36;index++)
 			visited["/gamelib/d/illusion_s1/test_"+(string)index+".pike"] = 1;
+		mapping active_days = ([]);
+		for(int day=0;day<7;day++)
+			active_days[(string)(20000+day)] = time()+day*86400;
+		mapping story_event_marks = ([]);
+		mapping story_source = Standards.JSON.decode(Stdio.read_file(ROOT+
+			"/gamelib/etc/illusion_realm.json"));
+		foreach((array)story_source["story_events"],mapping story_event)
+			story_event_marks[(string)story_event["id"]] = time();
 		child["/plus/illusion_realm/S1"] = ([
-			"version":1,"joined_at":time(),"kills":650,"boss_kills":8,
-			"team_kills":50,"visited":visited,"path":"hunter",
+			"version":1,"joined_at":time(),"kills":750,"boss_kills":10,
+			"team_kills":50,"visited":visited,"active_days":active_days,
+			"story_events":story_event_marks,"path":"hunter",
 			"route_marks":([]),"claims":([]),
 		]);
 		object battle_room = (object)(ROOT+
@@ -629,20 +894,30 @@ int main()
 			!(int)second_blocked["ok"] &&
 			search((string)second_blocked["message"],"栏位已用完")!=-1,
 			sprintf("second=%O",second_blocked));
+		mapping expansion_wallet_credit = ACCOUNT_WALLETD->credit_recharge_once(
+			root,50,"testunitadmin",
+			ACCOUNT_WALLETD->new_recharge_request_id());
 		string one_slot_request = "e"*64;
-		mapping one_slot = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"S1","one",
-				one_slot_request,100);
-		mapping one_slot_again = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"S1","one",
-				one_slot_request,100);
-		check("100碎玉增加S1一格且同请求重试不会重复累计",
+		mapping one_slot = SEASONALD->purchase_account_character_expansion(
+			account_id,"one",one_slot_request);
+		mapping one_slot_again = SEASONALD->
+			purchase_account_character_expansion(account_id,"one",
+				one_slot_request);
+		mapping one_slot_account = ACCOUNT_CHARACTERD->
+			query_account_characters(account_id,"S1");
+		mapping one_slot_wallet = ACCOUNT_WALLETD->query_account_wallet(
+			account_id);
+		check("创建职业入口支付100碎玉增加S1一格且重试不重复扣款",
+			(int)expansion_wallet_credit["ok"] &&
 			(int)one_slot["ok"] && !(int)one_slot["already"] &&
 			(int)one_slot_again["ok"] && (int)one_slot_again["already"] &&
-			(int)one_slot_again["same_request"] &&
-			(int)one_slot["expansion"]["character_slots"]==2 &&
-			(int)one_slot["expansion"]["expansion_spent_suiyu"]==100,
-			sprintf("first=%O again=%O",one_slot,one_slot_again));
+			(int)one_slot_account["illusion_character_slots"]==2 &&
+			(int)one_slot_account["illusion_expansion_spent_suiyu"]==100 &&
+			(int)one_slot_wallet["balance"]==400 &&
+			sizeof((mapping)one_slot_wallet["debit_requests"])==0,
+			sprintf("credit=%O first=%O again=%O account=%O wallet=%O",
+				expansion_wallet_credit,one_slot,one_slot_again,
+				one_slot_account,one_slot_wallet));
 		int expansion_matched_before = YUSHID->query_physical_all_num(root);
 		root["/plus/illusion_character_expansion_purchase"] = ([
 			"version":1,"phase":"charged","request_id":one_slot_request,
@@ -708,21 +983,27 @@ int main()
 			grant_illusion_character_expansion(account_id,"S1","all",
 				"f"*64,500);
 		string all_slot_request = "f"*64;
-		mapping all_slots = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"S1","all",
-				all_slot_request,400);
-		mapping all_slots_again = ACCOUNT_CHARACTERD->
-			grant_illusion_character_expansion(account_id,"S1","all",
-				all_slot_request,400);
+		mapping all_slots = SEASONALD->purchase_account_character_expansion(
+			account_id,"all",all_slot_request);
+		mapping all_slots_again = SEASONALD->
+			purchase_account_character_expansion(account_id,"all",
+				all_slot_request);
+		mapping all_slots_account = ACCOUNT_CHARACTERD->
+			query_account_characters(account_id,"S1");
+		mapping all_slots_wallet = ACCOUNT_WALLETD->query_account_wallet(
+			account_id);
 		check("S1此前100碎玉全额抵扣且只需补400解锁本期多人物",
 			!(int)third_blocked["ok"] && !(int)wrong_remaining["ok"] &&
 			(int)wrong_remaining["expected_cost_suiyu"]==400 &&
 			(int)all_slots["ok"] && !(int)all_slots["already"] &&
-			(int)all_slots_again["ok"] && (int)all_slots_again["same_request"] &&
-			(int)all_slots["expansion"]["multi_character_unlocked"]==1 &&
-			(int)all_slots["expansion"]["expansion_spent_suiyu"]==500,
-			sprintf("blocked=%O wrong=%O all=%O again=%O",third_blocked,
-				wrong_remaining,all_slots,all_slots_again));
+			(int)all_slots_again["ok"] && (int)all_slots_again["already"] &&
+			(int)all_slots_account["illusion_multi_character_unlocked"]==1 &&
+			(int)all_slots_account["illusion_expansion_spent_suiyu"]==500 &&
+			(int)all_slots_wallet["balance"]==0 &&
+			sizeof((mapping)all_slots_wallet["debit_requests"])==0,
+			sprintf("blocked=%O wrong=%O all=%O again=%O account=%O wallet=%O",
+				third_blocked,wrong_remaining,all_slots,all_slots_again,
+				all_slots_account,all_slots_wallet));
 		mapping third_created = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","zhuxian","","","","illusion","S1");
 		if((int)third_created["ok"]){
@@ -870,9 +1151,11 @@ int main()
 				SPIRIT_COMPANIOND->query_pet_battle_source(child)));
 
 		mapping progress = SEASONALD->query_player_progress(child);
-		check("三路线与七章目标在满条件时按顺序可领取",
+		check("三路线与八十一章目标在满条件时按顺序可领取",
 			(int)progress["ok"] &&
-			sizeof((array)progress["chapters"])==7 &&
+			sizeof((array)progress["chapters"])==81 &&
+			(int)progress["active_days"]>=7 &&
+			(int)progress["story_event_count"]==25 &&
 			(int)progress["chapters"][0]["ready"] &&
 			(string)progress["path"]=="hunter" &&
 			(int)progress["route_mark_count"]==3 &&
@@ -893,7 +1176,7 @@ int main()
 			sprintf("progress=%O",progress));
 
 		int claims_ok = 1;
-		for(int chapter=1;chapter<=7;chapter++){
+		for(int chapter=1;chapter<=81;chapter++){
 			mapping claim = SEASONALD->claim_chapter_reward_for_test(
 				child,chapter);
 			if(!(int)claim["ok"] || (int)claim["already"])
@@ -901,8 +1184,8 @@ int main()
 		}
 		int before_duplicate = count_newmoon_items(child);
 		mapping duplicate_claim = SEASONALD->claim_chapter_reward_for_test(
-			child,7);
-		check("七章正好发十件账号绑定套装且重复领取不会克隆",
+			child,81);
+		check("八十一章正好发十件账号绑定套装且重复领取不会克隆",
 			claims_ok && before_duplicate==10 &&
 			all_newmoon_bound_to(child,account_id) &&
 			(int)duplicate_claim["ok"] && (int)duplicate_claim["already"] &&
@@ -989,6 +1272,7 @@ int main()
 			cleanup_ids += ({character_id});
 	ACCOUNT_STORAGED->remove_test_storage(account_id);
 	ACCOUNT_WALLETD->remove_test_wallet(account_id);
+	ACCOUNT_WALLETD->remove_test_wallet(center_account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(center_account_id);
 	cleanup_player(center_account_id);

@@ -84,6 +84,16 @@ assert(!indexSource.includes('user-scalable=no'));
 assert(!indexSource.includes('maximum-scale=1.0'));
 assert(indexSource.includes('viewport-fit=cover'));
 assert(indexSource.includes('class="modal auth-modal"'));
+assert(buildSource.includes("'images', 'illusion_s1', 'story'"));
+assert(buildSource.includes("'web', 'images', 'illusion_s1', 'story'"));
+assert(buildSource.includes("/^volume_0[1-9]\\.png$/"));
+assert(buildSource.includes('storyFiles.length !== 9'));
+for (let volume = 1; volume <= 9; volume += 1) {
+  const filename = `volume_${String(volume).padStart(2, '0')}.png`;
+  const sourcePath = path.join(rootDir, 'images', 'illusion_s1', 'story', filename);
+  assert(fs.existsSync(sourcePath), `missing S1 story source atlas: ${filename}`);
+  assert(fs.statSync(sourcePath).size > 1024 * 1024, `S1 story atlas is too small: ${filename}`);
+}
 
 assert(indexSource.includes('<div class="auth-form">'));
 assert(indexSource.includes('@click="doLogin"'));

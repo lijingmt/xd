@@ -181,8 +181,13 @@ assert(indexSource.includes('@click="activateIllusionEntitlement"'));
 assert(indexSource.includes("免费激活' + (illusionRealmStatus.illusion_id || 'S1') + '人物资格"));
 assert(indexSource.includes('未来赛季需分别激活'));
 assert(!indexSource.includes('请先进入现有人物，从“幻境区”免费激活'));
-assert(indexSource.includes('100碎玉增加本期1格'));
-assert(indexSource.includes('补足本期累计500碎玉解锁多人物'));
+assert(indexSource.includes('直接付费扩充后继续创建'));
+assert(indexSource.includes('碎玉增加1格'));
+assert(indexSource.includes('碎玉解锁本期多人物'));
+assert(indexSource.includes('btn btn-secondary illusion-expansion-all-btn'));
+assert(indexSource.includes("@click=\"expandIllusionCapacity('one')\""));
+assert(indexSource.includes("@click=\"expandIllusionCapacity('all')\""));
+assert(indexSource.includes('不会消费任何人物背包玉石'));
 assert(indexSource.includes('本期不开放家园'));
 assert(!indexSource.includes(':disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"'));
 assert(cssSource.includes('.character-modal'));
@@ -192,9 +197,13 @@ assert(cssSource.includes('.character-avatar-grid'));
 assert(cssSource.includes('.character-profile-modal'));
 assert(cssSource.includes('.character-card.illusion'));
 assert(cssSource.includes('.character-realm-choice'));
+assert(cssSource.includes('.btn.illusion-expansion-all-btn'));
+assert(cssSource.includes('background: linear-gradient(135deg, #6d28d9, #4c1d95)'));
+assert(cssSource.includes('color: #fff'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
 assert(appSource.includes("'/api/account/illusion/activate'"));
+assert(appSource.includes("'/api/account/illusion/expand'"));
 assert(appSource.includes('realm_type: this.characterForm.realm_type'));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
@@ -267,6 +276,58 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 	await paidActivationClient.activateIllusionEntitlement();
 	assert.strictEqual(paidActivationCalled, false);
 	assert(paidActivationClient.characterError.includes('不能在人物中心免费激活'));
+
+	const expansionClient = Object.assign(
+		componentOptions.data(), componentOptions.methods
+	);
+	expansionClient.accountToken = '7'.repeat(64);
+	expansionClient.accountId = 'xd01expansion';
+	expansionClient.illusionEntitled = true;
+	expansionClient.accountSharedRechargeAvailable = true;
+	expansionClient.accountSharedRechargeBalance = 500;
+	expansionClient.illusionCharacterSlots = 1;
+	expansionClient.illusionExpansionSpentSuiyu = 0;
+	expansionClient.illusionRealmStatus = {
+		ok: true,
+		illusion_id: 'S1',
+		creation_open: true,
+		extra_character_slot_cost_suiyu: 100,
+		multi_character_unlock_cost_suiyu: 500
+	};
+	expansionClient.illusionExpansionSingleCost = 100;
+	expansionClient.illusionExpansionRemainingCost = 500;
+	expansionClient.illusionCharacterCapacityReached = false;
+	let expansionPath = '';
+	let expansionBody = null;
+	expansionClient.postAccountApi = async (path, body) => {
+		expansionPath = path;
+		expansionBody = body;
+		return {
+			account_id: 'xd01expansion',
+			shared_recharge_available: 1,
+			shared_recharge_balance: 400,
+			illusion_entitled: 1,
+			illusion_character_slots: 2,
+			illusion_multi_character_unlocked: 0,
+			illusion_expansion_spent_suiyu: 100,
+			illusion_realm: expansionClient.illusionRealmStatus,
+			characters: [{
+				id: 'xd01expansion', realm_type: 'illusion', illusion_id: 'S1'
+			}],
+			expansion: { message: '已增加1个本期幻境人物栏位。' }
+		};
+	};
+	await expansionClient.expandIllusionCapacity('one');
+	assert.strictEqual(expansionPath, '/api/account/illusion/expand');
+	assert.strictEqual(expansionBody.token, '7'.repeat(64));
+	assert.strictEqual(expansionBody.option, 'one');
+	assert(/^[0-9a-f]{64}$/.test(expansionBody.request_id));
+	assert.strictEqual(expansionClient.accountSharedRechargeBalance, 400);
+	assert.strictEqual(expansionClient.illusionCharacterSlots, 2);
+	assert.strictEqual(expansionClient.characterForm.realm_type, 'illusion');
+	assert(expansionClient.illusionExpansionMessage.includes('增加1个'));
+	assert.strictEqual(expansionClient.illusionExpansionPendingRequest, null);
+	assert.strictEqual(expansionClient.illusionExpanding, false);
 
   const firstTxd = client.encodeTxd('xd01firsthero', 'test88');
   const secondTxd = client.encodeTxd('xd01secondhero', 'test88');
