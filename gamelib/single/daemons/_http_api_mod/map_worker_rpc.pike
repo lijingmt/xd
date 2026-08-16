@@ -792,6 +792,23 @@ private void handle_map_worker_local_status(
         "save_average_ms":(int)runtime_status["save_average_ms"],
         "save_max_ms":(int)runtime_status["save_max_ms"],
         "save_failures":(int)runtime_status["save_failure_count"],
+		"rss_kb":(int)runtime_status["rss_kb"],
+		"pike_heap_bytes":(int)runtime_status["pike_heap_bytes"],
+		"cgroup_memory_bytes":(int)runtime_status["cgroup_memory_bytes"],
+		"cgroup_memory_limit_bytes":
+			(int)runtime_status["cgroup_memory_limit_bytes"],
+		"cgroup_memory_percent":
+			(int)runtime_status["cgroup_memory_percent"],
+		"gc_count":(int)runtime_status["gc_count"],
+		"gc_pressure_count":(int)runtime_status["gc_pressure_count"],
+		"gc_failure_count":(int)runtime_status["gc_failure_count"],
+		"gc_last_at":(int)runtime_status["gc_last_at"],
+		"gc_last_ms":(int)runtime_status["gc_last_ms"],
+		"gc_max_ms":(int)runtime_status["gc_max_ms"],
+		"gc_last_reclaimed_items":
+			(int)runtime_status["gc_last_reclaimed_items"],
+		"gc_last_heap_released_bytes":
+			(int)runtime_status["gc_last_heap_released_bytes"],
         "save_fence_blocks":(int)control_status["save_fence_blocks"],
         "social_outbox_pending":
             (int)control_status["social_outbox_pending"],

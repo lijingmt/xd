@@ -18,6 +18,18 @@ string ROOT;
 #define RUNTIME_CPU_SAMPLE_CYCLES 5
 #define RUNTIME_CPU_WARNING_PERCENT 70
 #define RUNTIME_BACKEND_WARNING_MS 250
+#define RUNTIME_GC_NORMAL_INTERVAL_SECONDS 900
+#define RUNTIME_GC_PRESSURE_MIN_INTERVAL_SECONDS 120
+#define RUNTIME_GC_CRITICAL_MIN_INTERVAL_SECONDS 30
+#define RUNTIME_GC_INITIAL_DELAY_SECONDS 60
+#define RUNTIME_GC_STAGGER_SLOTS 10
+#define RUNTIME_GC_STAGGER_STEP_SECONDS 2
+#define RUNTIME_GC_BUSY_DEFER_SECONDS 10
+#define RUNTIME_GC_MAX_PRESSURE_BUSY_DEFER_SECONDS 60
+#define RUNTIME_GC_RSS_PRESSURE_KB 1572864
+#define RUNTIME_GC_CGROUP_PRESSURE_PERCENT 72
+#define RUNTIME_GC_CGROUP_CRITICAL_PERCENT 86
+#define RUNTIME_GC_SLOW_WARNING_MS 250
 
 private array(object) heart_beat_cycle_objects = ({});
 private int heart_beat_cycle_position;
@@ -41,6 +53,19 @@ private int runtime_cpu_percent;
 private int runtime_cpu_max_percent;
 private int runtime_cpu_warning_streak;
 private int runtime_cpu_warning_count;
+private int runtime_gc_last_at;
+private int runtime_gc_next_at;
+private int runtime_gc_due_since;
+private int runtime_gc_count;
+private int runtime_gc_pressure_count;
+private int runtime_gc_failure_count;
+private int runtime_gc_last_reclaimed_items;
+private int runtime_gc_last_heap_released_bytes;
+private int runtime_gc_total_heap_released_bytes;
+private int runtime_gc_last_ms;
+private int runtime_gc_max_ms;
+private int runtime_gc_last_rss_before_kb;
+private int runtime_gc_last_rss_after_kb;
 private int save_count;
 private int save_failure_count;
 private int save_slow_count;
@@ -1695,6 +1720,187 @@ private void sample_runtime_cpu()
 	runtime_last_cpu_total_ms = total_cpu_ms;
 }
 
+private int read_runtime_nonnegative_integer(string path)
+{
+	string content;
+	int value;
+	mixed err = catch { content = Stdio.read_file(path); };
+	if(err || !stringp(content) || !sizeof(content) ||
+	   sscanf(String.trim(content),"%d",value)!=1 || value<0)
+		return 0;
+	return value;
+}
+
+private int query_runtime_rss_kb()
+{
+	string status;
+	mixed err = catch { status = Stdio.read_file("/proc/self/status"); };
+	if(err || !stringp(status))
+		return 0;
+	foreach(status/"\n",string line){
+		int rss_kb;
+		if(!has_prefix(line,"VmRSS:"))
+			continue;
+		line = String.trim(line[6..]);
+		if(sscanf(line,"%d",rss_kb)==1 && rss_kb>=0)
+			return rss_kb;
+	}
+	return 0;
+}
+
+private int query_runtime_pike_heap_bytes()
+{
+	mapping usage;
+	int total;
+	mixed err = catch { usage = _memory_usage(); };
+	if(err || !mappingp(usage))
+		return 0;
+	foreach(indices(usage),mixed key){
+		if(stringp(key) && has_suffix((string)key,"_bytes") &&
+		   (int)usage[key]>0)
+			total += (int)usage[key];
+	}
+	return total;
+}
+
+private mapping query_runtime_memory_snapshot()
+{
+	int cgroup_current = read_runtime_nonnegative_integer(
+		"/sys/fs/cgroup/memory.current");
+	int cgroup_limit = read_runtime_nonnegative_integer(
+		"/sys/fs/cgroup/memory.max");
+	if(!cgroup_current)
+		cgroup_current = read_runtime_nonnegative_integer(
+			"/sys/fs/cgroup/memory/memory.usage_in_bytes");
+	if(!cgroup_limit)
+		cgroup_limit = read_runtime_nonnegative_integer(
+			"/sys/fs/cgroup/memory/memory.limit_in_bytes");
+	// cgroup v1 may expose an effectively unlimited sentinel near LONG_MAX.
+	if(cgroup_limit>=1000000000000000)
+		cgroup_limit = 0;
+	return ([
+		"rss_kb":query_runtime_rss_kb(),
+		"pike_heap_bytes":query_runtime_pike_heap_bytes(),
+		"cgroup_memory_bytes":cgroup_current,
+		"cgroup_memory_limit_bytes":cgroup_limit,
+		"cgroup_memory_percent":cgroup_limit>0 ?
+			cgroup_current*100/cgroup_limit : 0,
+	]);
+}
+
+private int runtime_gc_stagger_seconds()
+{
+	int identity;
+	if(sscanf(logfile_postfix,"%d",identity)!=1){
+		foreach(logfile_postfix;int index;int character)
+			identity += character*(index+1);
+	}
+	return (identity%RUNTIME_GC_STAGGER_SLOTS)*
+		RUNTIME_GC_STAGGER_STEP_SECONDS;
+}
+
+mapping query_runtime_memory_status()
+{
+	mapping status = query_runtime_memory_snapshot();
+	status += ([
+		"gc_mode":"heartbeat_adaptive",
+		"gc_count":runtime_gc_count,
+		"gc_pressure_count":runtime_gc_pressure_count,
+		"gc_failure_count":runtime_gc_failure_count,
+		"gc_last_at":runtime_gc_last_at,
+		"gc_next_at":runtime_gc_next_at,
+		"gc_due_since":runtime_gc_due_since,
+		"gc_last_reclaimed_items":runtime_gc_last_reclaimed_items,
+		"gc_last_heap_released_bytes":runtime_gc_last_heap_released_bytes,
+		"gc_total_heap_released_bytes":runtime_gc_total_heap_released_bytes,
+		"gc_last_ms":runtime_gc_last_ms,
+		"gc_max_ms":runtime_gc_max_ms,
+		"gc_last_rss_before_kb":runtime_gc_last_rss_before_kb,
+		"gc_last_rss_after_kb":runtime_gc_last_rss_after_kb,
+		"gc_rss_pressure_kb":RUNTIME_GC_RSS_PRESSURE_KB,
+		"gc_cgroup_pressure_percent":RUNTIME_GC_CGROUP_PRESSURE_PERCENT,
+		"gc_cgroup_critical_percent":RUNTIME_GC_CGROUP_CRITICAL_PERCENT,
+	]);
+	return status;
+}
+
+private void maybe_collect_runtime_garbage()
+{
+	int now = time();
+	int stagger = runtime_gc_stagger_seconds();
+	mapping before = query_runtime_memory_snapshot();
+	int memory_percent = (int)before["cgroup_memory_percent"];
+	int pressure = (int)before["rss_kb"]>=RUNTIME_GC_RSS_PRESSURE_KB ||
+		memory_percent>=RUNTIME_GC_CGROUP_PRESSURE_PERCENT;
+	int critical = memory_percent>=RUNTIME_GC_CGROUP_CRITICAL_PERCENT;
+	int minimum_interval = critical ?
+		RUNTIME_GC_CRITICAL_MIN_INTERVAL_SECONDS :
+		RUNTIME_GC_PRESSURE_MIN_INTERVAL_SECONDS;
+
+	if(pressure){
+		if(runtime_gc_last_at>0 && now-runtime_gc_last_at<minimum_interval)
+			return;
+		if(!runtime_gc_due_since)
+			runtime_gc_due_since = now;
+		if(runtime_gc_next_at>now+stagger)
+			runtime_gc_next_at = now+stagger;
+	}
+	else if(now<runtime_gc_next_at)
+		return;
+
+	if(now<runtime_gc_next_at)
+		return;
+	if(runtime_cpu_percent>=RUNTIME_CPU_WARNING_PERCENT && !critical){
+		if(!pressure){
+			runtime_gc_due_since = 0;
+			runtime_gc_next_at = now+RUNTIME_GC_BUSY_DEFER_SECONDS;
+			return;
+		}
+		if(now-runtime_gc_due_since<
+		   RUNTIME_GC_MAX_PRESSURE_BUSY_DEFER_SECONDS){
+			runtime_gc_next_at = now+RUNTIME_GC_BUSY_DEFER_SECONDS;
+			return;
+		}
+	}
+
+	int started_at = gethrtime();
+	int reclaimed_items;
+	int heap_before = (int)before["pike_heap_bytes"];
+	mixed gc_err = catch { reclaimed_items = gc(); };
+	mapping after = query_runtime_memory_snapshot();
+	runtime_gc_last_ms = max(0,(gethrtime()-started_at)/1000);
+	if(runtime_gc_last_ms>runtime_gc_max_ms)
+		runtime_gc_max_ms = runtime_gc_last_ms;
+	runtime_gc_last_at = now;
+	runtime_gc_due_since = 0;
+	runtime_gc_next_at = now+RUNTIME_GC_NORMAL_INTERVAL_SECONDS+stagger;
+	runtime_gc_last_rss_before_kb = (int)before["rss_kb"];
+	runtime_gc_last_rss_after_kb = (int)after["rss_kb"];
+	if(gc_err){
+		runtime_gc_failure_count++;
+		runtime_gc_last_reclaimed_items = 0;
+		runtime_gc_last_heap_released_bytes = 0;
+		werror("[RUNTIME][GC] collection failed: %s\n",
+			describe_error(gc_err));
+		return;
+	}
+	runtime_gc_count++;
+	if(pressure)
+		runtime_gc_pressure_count++;
+	runtime_gc_last_reclaimed_items = max(0,reclaimed_items);
+	runtime_gc_last_heap_released_bytes = max(0,
+		heap_before-(int)after["pike_heap_bytes"]);
+	runtime_gc_total_heap_released_bytes +=
+		runtime_gc_last_heap_released_bytes;
+	if(pressure || runtime_gc_last_ms>=RUNTIME_GC_SLOW_WARNING_MS)
+		werror("[RUNTIME][GC] pressure=%d critical=%d rss=%d->%dKB "
+			"cgroup=%d%% reclaimed=%d heap_released=%dB elapsed=%dms\n",
+			pressure,critical,runtime_gc_last_rss_before_kb,
+			runtime_gc_last_rss_after_kb,memory_percent,
+			runtime_gc_last_reclaimed_items,
+			runtime_gc_last_heap_released_bytes,runtime_gc_last_ms);
+}
+
 int query_runtime_capacity_warning()
 {
 	return runtime_cpu_warning_streak>=3 ||
@@ -1705,6 +1911,7 @@ int query_runtime_capacity_warning()
 mapping query_runtime_performance()
 {
 	mapping backend_stats = ([]);
+	mapping memory_stats = query_runtime_memory_status();
 	mixed err = catch {
 		backend_stats = Pike.DefaultBackend->get_stats();
 	};
@@ -1740,7 +1947,7 @@ mapping query_runtime_performance()
 		"save_slow_count":save_slow_count,
 		"save_average_ms":save_count ? save_total_ms/save_count : 0,
 		"save_max_ms":save_max_ms,
-	]);
+	])+memory_stats;
 }
 
 private void heart_beat_slice()
@@ -1787,8 +1994,10 @@ private void heart_beat_slice()
 	heart_beat_cycle_objects = ({});
 	heart_beat_cycle_position = 0;
 	heart_beat_cycle_count++;
-	if(heart_beat_cycle_count%RUNTIME_CPU_SAMPLE_CYCLES==0)
+	if(heart_beat_cycle_count%RUNTIME_CPU_SAMPLE_CYCLES==0){
 		sample_runtime_cpu();
+		maybe_collect_runtime_garbage();
+	}
 	heart_beat_expected_at = gethrtime()+HEART_BEAT_INTERVAL_US;
 	call_out(heart_beat,2);
 }
@@ -2016,5 +2225,7 @@ protected void create(void|string _logfile_prefix)
 	add_constant("os_load",os_load);
 	//	add_constant("file_size",Stdio.file_size);
 	heart_beat_expected_at = gethrtime()+HEART_BEAT_INTERVAL_US;
+	runtime_gc_next_at = time()+RUNTIME_GC_INITIAL_DELAY_SECONDS+
+		runtime_gc_stagger_seconds();
 	call_out(heart_beat,2);
 }

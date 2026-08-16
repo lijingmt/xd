@@ -58,21 +58,22 @@ void test_container_stack_contract()
 
 void test_multi_worker_memory_contract()
 {
-	test_start("统一容器为5 Worker保留足够内存并允许受控换页");
+	test_start("统一容器为多Worker保留24G内存并允许受控换页");
 	string compose_source =
 		Stdio.read_file(ROOT+"/docker/docker-compose.yml");
 	string restart_source =
 		Stdio.read_file(ROOT+"/restart-docker.sh");
 
 	if(compose_source && restart_source &&
-	   search(compose_source,"memory: 18G")!=-1 &&
+	   search(compose_source,"memory: 24G")!=-1 &&
 	   search(compose_source,"memory: 8G")!=-1 &&
-	   search(restart_source,"--memory=18g")!=-1 &&
+	   search(restart_source,"--memory=24g")!=-1 &&
 	   search(restart_source,"--memory-swap=32g")!=-1 &&
+	   search(restart_source,"--memory=18g")==-1 &&
 	   search(restart_source,"--memory=6g")==-1)
 		test_pass();
 	else
-		test_fail("docker run与Compose未统一使用18G内存/32G含换页上限");
+		test_fail("docker run与Compose未统一使用24G内存/32G含换页上限");
 }
 
 void test_pike_stack_contract()

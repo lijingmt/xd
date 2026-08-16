@@ -64,6 +64,7 @@ void test_heartbeat_budget_and_metrics()
 {
 	string source = Stdio.read_file(ROOT+"/lowlib/efuns.pike");
 	mapping status = query_runtime_performance();
+	mapping memory = query_runtime_memory_status();
 	check("心跳按对象数和耗时预算分片且容量阈值可观测",
 		source &&
 		search(source,"HEART_BEAT_SLICE_MAX_OBJECTS 128")!=-1 &&
@@ -77,6 +78,42 @@ void test_heartbeat_budget_and_metrics()
 		(int)status["heartbeat_object_budget"]==128 &&
 		(int)status["cpu_warning_percent"]==70,
 		"心跳仍整批执行，或Backend/CPU阈值指标未接线");
+	check("Pike GC在完整心跳周期后按内存压力错峰执行",
+		source &&
+		search(source,"maybe_collect_runtime_garbage();")!=-1 &&
+		search(source,"reclaimed_items = gc();")!=-1 &&
+		search(source,"/proc/self/status")!=-1 &&
+		search(source,"/sys/fs/cgroup/memory.current")!=-1 &&
+		search(source,"RUNTIME_GC_RSS_PRESSURE_KB 1572864")!=-1 &&
+		search(source,"RUNTIME_GC_CGROUP_CRITICAL_PERCENT 86")!=-1 &&
+		search(source,"RUNTIME_GC_STAGGER_SLOTS 10")!=-1 &&
+		search(source,"add_constant(\"os_load\",os_load);") <
+			search(source,"runtime_gc_next_at = time()+") &&
+		mappingp(memory) && memory["gc_mode"]=="heartbeat_adaptive" &&
+		(int)memory["rss_kb"]>=0 &&
+		(int)memory["pike_heap_bytes"]>0 &&
+		(int)memory["gc_count"]>=0 &&
+		(int)memory["gc_failure_count"]==0,
+		"GC未接入心跳尾部、缺少Linux压力指标或运行态异常");
+}
+
+void test_worker_memory_observability_source()
+{
+	string rpc = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike");
+	string gateway = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/pike_gateway.pike");
+	string workerd = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/map_workerd.pike");
+	check("Worker逐进程内存与GC结果贯通到协调器状态",
+		rpc && gateway && workerd &&
+		search(rpc,"\"rss_kb\":(int)runtime_status")!=-1 &&
+		search(rpc,"\"gc_pressure_count\":")!=-1 &&
+		search(gateway,"\"pike_heap_bytes\":(int)local_status")!=-1 &&
+		search(gateway,"\"gc_failure_count\":")!=-1 &&
+		search(workerd,"node[\"cgroup_memory_percent\"]")!=-1 &&
+		search(workerd,"node[\"gc_last_heap_released_bytes\"]")!=-1,
+		"Worker内存指标在RPC、Gateway或协调器之间丢失");
 }
 
 void test_save_and_cache_metrics()
@@ -152,6 +189,7 @@ int main()
 		test_thread_farm_io();
 		test_parallel_command_source();
 		test_heartbeat_budget_and_metrics();
+		test_worker_memory_observability_source();
 		test_save_and_cache_metrics();
 		test_afk_scan_budget_and_auth_boundary();
 		test_hot_path_debug_logging_removed();

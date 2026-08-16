@@ -3119,6 +3119,19 @@ mapping(string:mixed) register_worker(string worker_id,string endpoint,
 		"save_average_ms":0,
 		"save_max_ms":0,
 		"save_failures":0,
+		"rss_kb":0,
+		"pike_heap_bytes":0,
+		"cgroup_memory_bytes":0,
+		"cgroup_memory_limit_bytes":0,
+		"cgroup_memory_percent":0,
+		"gc_count":0,
+		"gc_pressure_count":0,
+		"gc_failure_count":0,
+		"gc_last_at":0,
+		"gc_last_ms":0,
+		"gc_max_ms":0,
+		"gc_last_reclaimed_items":0,
+		"gc_last_heap_released_bytes":0,
 		"save_fence_blocks":0,
 		"social_outbox_pending":0,
 		"social_delivery_markers":0,
@@ -3166,6 +3179,28 @@ mapping(string:mixed) heartbeat_worker(string worker_id,int generation,
 	node["save_max_ms"] = max(0,min(3600000,(int)metrics["save_max_ms"]));
 	node["save_failures"] = max(0,min(1000000,
 		(int)metrics["save_failures"]));
+	node["rss_kb"] = max(0,min(1000000000,(int)metrics["rss_kb"]));
+	node["pike_heap_bytes"] = max(0,min(1000000000000000,
+		(int)metrics["pike_heap_bytes"]));
+	node["cgroup_memory_bytes"] = max(0,min(1000000000000000,
+		(int)metrics["cgroup_memory_bytes"]));
+	node["cgroup_memory_limit_bytes"] = max(0,min(1000000000000000,
+		(int)metrics["cgroup_memory_limit_bytes"]));
+	node["cgroup_memory_percent"] = max(0,min(10000,
+		(int)metrics["cgroup_memory_percent"]));
+	node["gc_count"] = max(0,min(1000000000,(int)metrics["gc_count"]));
+	node["gc_pressure_count"] = max(0,min(1000000000,
+		(int)metrics["gc_pressure_count"]));
+	node["gc_failure_count"] = max(0,min(1000000000,
+		(int)metrics["gc_failure_count"]));
+	node["gc_last_at"] = max(0,(int)metrics["gc_last_at"]);
+	node["gc_last_ms"] = max(0,min(3600000,(int)metrics["gc_last_ms"]));
+	node["gc_max_ms"] = max(0,min(3600000,(int)metrics["gc_max_ms"]));
+	node["gc_last_reclaimed_items"] = max(0,min(1000000000,
+		(int)metrics["gc_last_reclaimed_items"]));
+	node["gc_last_heap_released_bytes"] = max(0,
+		min(1000000000000000,
+		(int)metrics["gc_last_heap_released_bytes"]));
 	node["save_fence_blocks"] = max(0,min(100000000,
 		(int)metrics["save_fence_blocks"]));
 	node["social_outbox_pending"] = max(0,
