@@ -675,6 +675,10 @@ private mapping complete_map_worker_arrival(object player,string userid)
             "output":"{\"error\":\"跨地图到达存档失败，请重试\"}"]);
     }
     MAP_WORKERD->clear_local_player_arrival(userid);
+    // Target arrival uses inherited ::move() and therefore bypasses the
+    // ordinary user::move() visit hook. Record only after the exact arrival
+    // archive is durable and the local arrival fence has been consumed.
+    SEASONALD->record_room_visit(player,room);
     // Register only after the final arrival archive is durable. This prevents a
     // background flushview from racing the one-shot handoff capability while also
     // ensuring browser-background AFK continues on the destination worker.

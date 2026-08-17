@@ -904,11 +904,38 @@ mapping(string:mixed) record_task_progress(object player,string route)
 				continue;
 			}
 			if(kind=="explore"){
-				if(target_room=="" || !move_for_test(player,target_room))
+				mapping travel = SEASONALD->travel_to_chapter_target(
+					player,chapter_index+1);
+				mapping arrived_progress =
+					SEASONALD->query_player_progress(player);
+				mapping arrived_chapter = (mapping)((array)
+					arrived_progress["chapters"])[chapter_index];
+				if(target_room=="" || !(int)travel["ok"] ||
+				   !MAP_WORKERD->static_room_locations_match(
+					file_name(environment(player)),target_room) ||
+				   (int)arrived_chapter["chapter_visits_done"]<
+					(int)arrived_chapter["chapter_visits"])
 					return (["ok":0,"message":sprintf(
-						"第%d章探索目标配置或移动失败: %O",
-						chapter_index+1,chapter)]);
-				SEASONALD->record_room_visit(player,environment(player));
+						"第%d章章节直达未自动记录真实探索: chapter=%O travel=%O after=%O",
+						chapter_index+1,chapter,travel,arrived_chapter)]);
+				if(!(int)result["explore_retry_recovered"]){
+					mapping raw_progress = (mapping)player[
+						"/plus/illusion_realm/S1"];
+					raw_progress["chapter_visit_rooms"] = ([]);
+					mapping retry = SEASONALD->travel_to_chapter_target(
+						player,chapter_index+1);
+					mapping retry_progress =
+						SEASONALD->query_player_progress(player);
+					mapping retry_chapter = (mapping)((array)
+						retry_progress["chapters"])[chapter_index];
+					if(!(int)retry["ok"] || !(int)retry["already"] ||
+					   (int)retry_chapter["chapter_visits_done"]<
+						(int)retry_chapter["chapter_visits"])
+						return (["ok":0,"message":sprintf(
+							"第%d章已在目标房但0/1探索未能自愈: retry=%O after=%O",
+							chapter_index+1,retry,retry_chapter)]);
+					result["explore_retry_recovered"] = 1;
+				}
 				continue;
 			}
 			return (["ok":0,"message":sprintf(
@@ -1085,6 +1112,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["scoped_autofight_stopped"]==1 &&
 			(int)task["normal_autofight_started"]==1 &&
 			(int)task["normal_autofight_preserved"]==1 &&
+			(int)task["explore_retry_recovered"]==1 &&
 			(string)task["progress"]["path"]==route,
 			sprintf("route=%s task=%O",route,task));
 		if(index==6)

@@ -422,6 +422,10 @@ private string guided_follow_up(mapping progress,int after_travel)
 			"[挂机至本章狩猎完成:illusion_realm hunt]|"+
 			"[持续自动挂机:autofight start]\n"+
 			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
+	if(after_travel && kind=="explore")
+		return "\n【下一步】已经到达探索地点，请确认本次到访。\n"+
+			"[完成当前探索:illusion_realm next]|"+
+			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
 	return "\n【下一步】"+(string)chapter["target_name"]+
 		((string)chapter["target_location"]!="" ? "　地点："+
 			(string)chapter["target_location"] : "")+"\n"+

@@ -1404,7 +1404,9 @@ int main()
 				source_has("/gamelib/single/daemons/map_workerd.pike",
 					"lease[\"arrival_epoch\"] = epoch") &&
 				source_has("/gamelib/clone/user.pike",
-				"complete_same_worker_static_redirect") &&
+					"complete_same_worker_static_redirect") &&
+			source_has("/gamelib/clone/user.pike",
+				"SEASONALD->record_room_visit(this_object(),arrived_room)") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike",
 				"local_redirect_complete") &&
 			source_has("/gamelib/clone/user.pike",
@@ -1413,6 +1415,8 @@ int main()
 				"player->complete_static_worker_arrival") &&
 			source_has("/gamelib/single/daemons/http_api_daemon.pike",
 				"player->save_with_result(0,1)") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"SEASONALD->record_room_visit(player,room)") &&
 			source_has("/gamelib/clone/user.pike",
 				"consume_worker_summon_handoff(void|int worker_fenced_save)") &&
 			!source_has("/gamelib/single/daemons/http_api_daemon.pike",

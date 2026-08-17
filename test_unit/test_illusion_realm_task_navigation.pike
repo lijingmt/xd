@@ -36,6 +36,10 @@ int main()
 		search(source,"boss_challenge_link(chapter)")!=-1;
 	int retry_action = search(source,
 		"[重新查看本章:illusion_realm]|[返回游戏:look]")!=-1;
+	int explore_arrival_action = search(source,
+		"if(after_travel && kind==\"explore\")")!=-1 &&
+		search(source,
+			"[完成当前探索:illusion_realm next]")!=-1;
 	int aligned_navigation =
 		search(user_source,
 			"[物品:inventory]|[地图:map_display]|[任务:mytasks]|[队伍:my_term]")!=-1 &&
@@ -63,6 +67,9 @@ int main()
 	check("传送失败时保留重试和返回游戏入口",
 		retry_action,
 		"失败页面缺少重新查看本章或返回游戏入口");
+	check("探索章节到达后提供明确的完成探索入口",
+		explore_arrival_action,
+		"探索到达页仍只会重复传送，无法确认本次到访");
 	check("游戏尾部快捷入口保持每行四项且左侧无分组前缀",
 		aligned_navigation,
 		"快捷入口未对齐、顺序变化或重新出现分组前缀");

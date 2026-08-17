@@ -4990,9 +4990,14 @@ mapping(string:mixed) travel_to_chapter_target(object player,
 	   (string)player->query_autofight()=="enable")
 		return (["ok":0,"message":"自动挂机运行中，请先停止挂机再前往章节目标。"]);
 	current_room = normalized_destination_path(environment(player));
-	if(current_room==target_room)
+	if(current_room==target_room){
+		// 跨 Worker 落地的旧版本可能已经把人物放进目标房间，
+		// 却跳过了 user::move() 的到访回调。重复点击章节直达时
+		// 必须按当前真实房间补记，不能让探索章节永久停在 0/1。
+		record_room_visit(player,environment(player));
 		return (["ok":1,"already":1,"message":"你已经位于"+location+
 			"。当前目标："+target_name+"。"]);
+	}
 	moved = route_player(player,target_room);
 	if(!moved)
 		return (["ok":0,"message":"前往"+location+

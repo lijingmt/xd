@@ -417,6 +417,7 @@ int complete_static_worker_arrival(string room_path)
 int complete_same_worker_static_redirect(string room_path)
 {
 	mapping redirect = MAP_WORKERD->query_local_move_redirect(query_name());
+	object arrived_room;
 	int moved;
 	mixed move_err;
 	if(MAP_WORKERD->query_node_role()!="worker" ||
@@ -428,6 +429,9 @@ int complete_same_worker_static_redirect(string room_path)
 	if(move_err || !moved)
 		return 0;
 	MAP_WORKERD->clear_local_move_redirect(query_name());
+	arrived_room = environment(this_object());
+	if(arrived_room)
+		SEASONALD->record_room_visit(this_object(),arrived_room);
 	return 1;
 }
 string term;//队伍标志
