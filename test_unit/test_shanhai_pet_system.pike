@@ -158,7 +158,7 @@ void test_catalog_and_all_professions(array(object) players)
 	mapping catalog = PETD->query_pet_catalog();
 	array(string) starters = PETD->query_starter_species();
 	array(string) bosses = PETD->query_rift_boss_species();
-	int valid_catalog = sizeof(catalog)==16 && sizeof(starters)==3 &&
+	int valid_catalog = sizeof(catalog)==20 && sizeof(starters)==3 &&
 		sizeof(bosses)==5;
 	foreach(catalog;string species;mapping info)
 		valid_catalog = valid_catalog && sizeof((array)info["skill_sets"])==3 &&
@@ -166,7 +166,7 @@ void test_catalog_and_all_professions(array(object) players)
 			(string)info["name"]!="" && (string)info["origin"]!="";
 	valid_catalog = valid_catalog && (int)catalog["luanniao"]["hidden"]==1 &&
 		(string)catalog["luanniao"]["skill"]=="回生羽";
-	check("15种公开异兽、1只隐藏鸾鸟、3只初契与5只轮替首领完整",
+	check("19种公开异兽、1只隐藏鸾鸟、3只初契与5只轮替首领完整",
 		valid_catalog,"图鉴数量、文化小传或灵纹配置不完整");
 
 	object first = players[0];
@@ -1657,7 +1657,7 @@ void test_hidden_luan_owner_revive()
 		first_boss,0);
 	player["/pet_battle/source"] = "shared";
 	check("鸾鸟累计70级以上真实首领且不限玩家等级差",
-		chosen["ok"] && (int)before["catalog_total"]==15 &&
+		chosen["ok"] && (int)before["catalog_total"]==19 &&
 		!normal_drop["eligible"] && gap_counted["ok"] &&
 		gap_counted["eligible"] && !gap_counted["dropped"] &&
 		(string)gap_counted["audit_reason"]=="roll_miss" &&
@@ -1682,7 +1682,7 @@ void test_hidden_luan_owner_revive()
 		(string)guaranteed["audit_reason"]=="pity_guarantee" &&
 		sizeof(luan) && (string)luan["source"]=="hidden_world_boss_pity" &&
 		(int)collected["hidden_luan_pity"]==0 &&
-		(int)collected["catalog_total"]==16,
+		(int)collected["catalog_total"]==20,
 		"隐藏掉率无保底、生成残片而非完整宠物或收录后图鉴未解锁");
 	string collection_source = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/_pet_mod/collection.pike") || "";

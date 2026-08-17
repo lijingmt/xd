@@ -66,7 +66,7 @@ object create_test_npc(int life_max)
 
 void test_all_species_have_basic_attack()
 {
-	werror("[测试1] 16 个物种在 catalog 中都设了 basic_attack\n");
+	werror("[测试1] 20 个物种在 catalog 中都设了 basic_attack\n");
 	array(string) all_species = PETD->query_all_species();
 	int all_set = 1;
 	string missing = "";
@@ -78,7 +78,7 @@ void test_all_species_have_basic_attack()
 		}
 	}
 	check("所有物种都有 basic_attack 名称",
-		all_set && sizeof(all_species)>=16,
+		all_set && sizeof(all_species)>=20,
 		"缺失:"+missing);
 }
 
