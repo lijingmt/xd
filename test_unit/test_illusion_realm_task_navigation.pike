@@ -36,15 +36,19 @@ int main()
 		search(source,"boss_challenge_link(chapter)")!=-1;
 	int retry_action = search(source,
 		"[重新查看本章:illusion_realm]|[返回游戏:look]")!=-1;
-	int grouped_navigation =
+	int aligned_navigation =
 		search(user_source,
-			"【冒险】[物品:inventory]|[地图:map_display]|[任务:mytasks]|[队伍:my_term]")!=-1 &&
+			"[物品:inventory]|[地图:map_display]|[任务:mytasks]|[队伍:my_term]")!=-1 &&
 		search(user_source,
-			"【修行】[幻境任务:illusion_realm]|[挑战难度:personal_difficulty]|[限时玩法:timed_event]|[传送:userlist]")!=-1 &&
+			"[幻境任务:illusion_realm]|[挑战难度:personal_difficulty]|[限时玩法:timed_event]|[传送:userlist]")!=-1 &&
 		search(user_source,
-			"【伙伴】[共享宠物:pet]|[本命灵伴:spirit_companion]|[帮派:my_bang]|[江湖:my_games]")!=-1 &&
+			"[共享宠物:pet]|[本命灵伴:spirit_companion]|[帮派:my_bang]|[江湖:my_games]")!=-1 &&
 		search(user_source,
-			"【资产】[玉石:yushi_change]|[仙玉:yushi_myzone]|[会员:vip_service_list]|[设置:game_detail]")!=-1;
+			"[玉石:yushi_change]|[仙玉:yushi_myzone]|[会员:vip_service_list]|[设置:game_detail]")!=-1 &&
+		search(user_source,"【冒险】[物品:inventory]")==-1 &&
+		search(user_source,"【修行】[幻境任务:illusion_realm]")==-1 &&
+		search(user_source,"【伙伴】[共享宠物:pet]")==-1 &&
+		search(user_source,"【资产】[玉石:yushi_change]")==-1;
 
 	werror("\n========== 幻境任务传送入口回归测试 ==========\n");
 	check("传送成功后重新读取进度并按任务类型渲染下一步",
@@ -59,9 +63,9 @@ int main()
 	check("传送失败时保留重试和返回游戏入口",
 		retry_action,
 		"失败页面缺少重新查看本章或返回游戏入口");
-	check("游戏尾部快捷入口按冒险、修行、伙伴、资产每行四项分组",
-		grouped_navigation,
-		"快捷入口分组或顺序回退为混杂长行");
+	check("游戏尾部快捷入口保持每行四项且左侧无分组前缀",
+		aligned_navigation,
+		"快捷入口未对齐、顺序变化或重新出现分组前缀");
 	werror("结果: %d/%d 通过\n",results["passed"],results["total"]);
 	return results["failed"] ? 1 : 0;
 }
