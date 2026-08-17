@@ -184,7 +184,17 @@ private string chapter_task_view(mapping progress,mapping chapter,
 			((int)chapter["story_ready"] ? "1/1" : "0/1")+
 			"　地点："+(string)chapter["story_event_location"]+
 			((string)chapter["story_event_kind"]=="boss" ?
-			 "（击败剧情首领）" : "（阅读当地残响）")+"\n";
+				 "（击败剧情首领）" : "（阅读当地残响）")+"\n";
+	if((int)chapter["quest_item_required"]>0)
+		s += "剧情道具：【"+(string)chapter["quest_item_name"]+"】 "+
+			(string)(int)chapter["quest_item_count"]+"/"+
+			(string)(int)chapter["quest_item_required"]+
+			"　来源："+(string)chapter["quest_item_source_name"]+
+			"（"+(string)chapter["quest_item_drop_rate_text"]+
+			"掉率，保底进度 "+
+			(string)(int)chapter["quest_item_pity"]+"/"+
+			(string)(int)chapter["quest_item_pity_kills"]+
+			"；账号绑定且不可流转）\n";
 	s += "\n§y【只做这一步】§r "+(string)chapter["target_name"];
 	if((string)chapter["target_location"]!="")
 		s += "　地点："+(string)chapter["target_location"];

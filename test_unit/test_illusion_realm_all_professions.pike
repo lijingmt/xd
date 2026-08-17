@@ -206,6 +206,50 @@ array(object) query_newmoon_items(object player)
 	return items;
 }
 
+array(object) query_illusion_quest_items(object player)
+{
+	array(object) items = ({});
+	foreach(all_inventory(player),object item)
+		if(item && functionp(item->query_illusion_quest_item_id))
+			items += ({item});
+	return items;
+}
+
+int validate_illusion_quest_items(object player,string account_id)
+{
+	mapping(string:int) expected = ([
+		"mortal_lifespan_thread":1,
+		"fog_oath_leaf":1,
+		"nameless_bone_shard":1,
+		"mirror_heart_shard":1,
+		"beiju_memory_crystal":1,
+		"snow_verdict_seal":1,
+		"dawn_flame_seed":1,
+		"moon_furnace_life_rune":1,
+		"human_world_true_name":1,
+	]);
+	mapping(string:int) counts = ([]);
+	array(object) items = query_illusion_quest_items(player);
+	if(sizeof(items)!=9)
+		return 0;
+	foreach(items,object item){
+		string item_id = (string)item->query_illusion_quest_item_id();
+		if(!has_index(expected,item_id) ||
+		   !functionp(item->query_account_bind_owner) ||
+		   (string)item->query_account_bind_owner()!=account_id ||
+		   !functionp(item->query_bind_account_on_pickup) ||
+		   !(int)item->query_bind_account_on_pickup() ||
+		   item->query_item_canDrop()!=0 ||
+		   item->query_item_canTrade()!=0 ||
+		   item->query_item_canSend()!=0 ||
+		   item->query_item_canStorage()!=0 ||
+		   item->query_item_task()!=1 || item->query_item_save()!=1)
+			return 0;
+		counts[item_id] = (int)counts[item_id]+1;
+	}
+	return sizeof(counts)==9 && equal(counts,expected);
+}
+
 int count_equipped_newmoon_items(object player)
 {
 	int count;
@@ -494,6 +538,8 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	int ordinary_progress_valid;
 	int scoped_route_valid;
 	int scoped_stopped;
+	int scoped_gate_primed;
+	int scoped_returned;
 	int restored;
 	for(int chapter_number=1;chapter_number<=8;chapter_number++)
 		claims["S1-C"+(string)chapter_number] = time();
@@ -565,6 +611,10 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	AUTOFIGHTD->resume_autofight(player);
 	if(!mappingp(player["/tmp/illusion_chapter_autofight"]))
 		scoped_route_valid = 0;
+	progress = SEASONALD->query_player_progress(player);
+	chapter = (mapping)((array)progress["chapters"])[8];
+	scoped_gate_primed = (int)chapter["quest_item_ready"] ||
+		SEASONALD->prime_current_quest_item_pity_for_test(player);
 	for(int count=1;count<9;count++){
 		object hunt = clone(ROOT+
 			"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
@@ -577,6 +627,10 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	}
 	scoped_stopped = (string)player->query_autofight()=="disable" &&
 		!player["/tmp/illusion_chapter_autofight"];
+	scoped_returned = scoped_stopped &&
+		SEASONALD->complete_chapter_task_return_for_test(player) &&
+		(string)player["/tmp/illusion_chapter_last_return"]=="S1-C9" &&
+		!player["/tmp/illusion_chapter_return_pending"];
 	move_for_test(player,
 		"/gamelib/d/illusion_s1/starlight_slope.pike");
 	progress = SEASONALD->query_player_progress(player);
@@ -584,7 +638,8 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	int valid = zero_exp==0 &&
 		(int)player->query_level()-(int)boss->query_level()>=10 &&
 		ordinary_route_valid && ordinary_progress_valid &&
-		scoped_route_valid && scoped_stopped &&
+		scoped_route_valid && scoped_gate_primed && scoped_stopped &&
+		scoped_returned &&
 		(int)progress["kills"]==92 && (int)progress["boss_kills"]==1 &&
 		(int)chapter["chapter_kills_done"]==9 &&
 		(int)chapter["chapter_boss_kills_done"]==1 &&
@@ -594,6 +649,11 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	player["/plus/illusion_realm/S1"] = original_progress;
 	player->level = original_level;
 	player->set_att_by_level();
+	foreach(all_inventory(player),object item)
+		if(item && functionp(item->query_illusion_quest_item_id) &&
+		   (string)item->query_illusion_quest_item_id()==
+			"mortal_lifespan_thread")
+			destruct(item);
 	restored = player->save_with_result();
 	move_for_test(player,"/gamelib/d/illusion_s1/moon_dew_field.pike");
 	return (["ok":valid && restored,"zero_exp":zero_exp,
@@ -604,7 +664,9 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		"ordinary_progress_valid":ordinary_progress_valid,
 		"scoped_start":scoped_start,"scoped_route":scoped_route,
 		"scoped_route_valid":scoped_route_valid,
-		"scoped_stopped":scoped_stopped]);
+		"scoped_stopped":scoped_stopped,
+		"scoped_gate_primed":scoped_gate_primed,
+		"scoped_returned":scoped_returned]);
 }
 
 string hunt_npc_path(string hunt_name)
@@ -622,7 +684,8 @@ string hunt_npc_path(string hunt_name)
 
 mapping(string:mixed) record_task_progress(object player,string route)
 {
-	mapping result = (["ok":1,"claims":0,"event_gates_tested":0]);
+	mapping result = (["ok":1,"claims":0,"event_gates_tested":0,
+		"quest_gates_completed":0]);
 	mapping progress = SEASONALD->query_player_progress(player);
 	array chapters = (array)progress["chapters"];
 	int narrative_chapters;
@@ -800,6 +863,38 @@ mapping(string:mixed) record_task_progress(object player,string route)
 					return (["ok":0,"message":sprintf(
 						"第%d章狩猎目标配置或移动失败: %O",
 						chapter_index+1,chapter)]);
+				if((int)chapter["quest_item_required"]>0 &&
+				   !(int)chapter["quest_item_ready"] &&
+				   !(int)result["quest_gate_wrong_sources_blocked"]){
+					int count_before = (int)chapter["quest_item_count"];
+					int pity_before = (int)chapter["quest_item_pity"];
+					string wrong_gate_path = npc_path==
+						"/gamelib/clone/npc/illusion_s1/moon_wisp.pike" ?
+						"/gamelib/clone/npc/illusion_s1/abyss_beast.pike" :
+						"/gamelib/clone/npc/illusion_s1/moon_wisp.pike";
+					object wrong_gate_npc = clone(ROOT+wrong_gate_path);
+					wrong_gate_npc->move(environment(player));
+					SEASONALD->record_npc_kill(player,wrong_gate_npc,1);
+					destruct(wrong_gate_npc);
+					if(!move_for_test(player,
+					   "/gamelib/d/illusion_s1/moon_gate.pike"))
+						return (["ok":0,"message":
+							"剧情道具错误房间测试移动失败"]);
+					object misplaced_gate_npc = clone(ROOT+npc_path);
+					misplaced_gate_npc->move(environment(player));
+					SEASONALD->record_npc_kill(player,misplaced_gate_npc,1);
+					destruct(misplaced_gate_npc);
+					mapping gate_after = SEASONALD->query_player_progress(player);
+					mapping gate_chapter = (mapping)((array)
+						gate_after["chapters"])[chapter_index];
+					if((int)gate_chapter["quest_item_count"]!=count_before ||
+					   (int)gate_chapter["quest_item_pity"]!=pity_before ||
+					   !move_for_test(player,target_room))
+						return (["ok":0,"message":sprintf(
+							"错误怪物或错误房间推进剧情道具保底: %O",
+							gate_chapter)]);
+					result["quest_gate_wrong_sources_blocked"] = 1;
+				}
 				if(chapter_index==0 &&
 				   !(int)result["wrong_hunt_target_blocked"]){
 					int global_before = (int)progress["kills"];
@@ -881,6 +976,16 @@ mapping(string:mixed) record_task_progress(object player,string route)
 							"普通持续挂机启动后残留限章标记"]);
 					result["normal_autofight_started"] = 1;
 				}
+				if((int)chapter["quest_item_required"]>0 &&
+				   !(int)chapter["quest_item_ready"]){
+					if(!SEASONALD->prime_current_quest_item_pity_for_test(
+					   player))
+						return (["ok":0,"message":sprintf(
+							"第%d章剧情道具硬保底测试准备失败: %O",
+							chapter_index+1,chapter)]);
+					result["quest_gate_pities_primed"] =
+						(int)result["quest_gate_pities_primed"]+1;
+				}
 				object hunt_npc = clone(ROOT+npc_path);
 				hunt_npc->move(environment(player));
 				SEASONALD->record_npc_kill(player,hunt_npc,
@@ -952,6 +1057,18 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			return (["ok":0,"message":sprintf(
 				"第%d章真实目标完成后仍不可领取: %O",
 				chapter_index+1,progress)]);
+		if((int)chapters[chapter_index]["quest_item_required"]>0){
+			mapping gate_status = (mapping)chapters[chapter_index];
+			if(!(int)gate_status["quest_item_ready"] ||
+			   (int)gate_status["quest_item_count"]<
+				(int)gate_status["quest_item_required"] ||
+			   (int)gate_status["quest_item_pity"]!=0)
+				return (["ok":0,"message":sprintf(
+					"第%d章剧情道具未满足真实数量或掉落后保底未清零: %O",
+					chapter_index+1,gate_status)]);
+			result["quest_gates_completed"] =
+				(int)result["quest_gates_completed"]+1;
+		}
 		mapping claim = SEASONALD->claim_chapter_reward_for_test(
 			player,chapter_index+1);
 		int expected_level = min(69,chapter_index+2);
@@ -1061,6 +1178,17 @@ void run_profession_journey(int index,mapping(string:string) profession)
 				sprintf("bootstrap=%d entered=%d route=%O level=%d last=%s relife=%s",
 				bootstrapped,entered,chosen,(int)player->query_level(),
 					(string)player->last_pos,(string)player->relife));
+		if(index==0)
+			check("剧情道具万分比边界真实使用1..10000闭区间",
+				SEASONALD->query_quest_item_random_drop_for_test(
+					player,1000,1000)==1 &&
+				SEASONALD->query_quest_item_random_drop_for_test(
+					player,1000,1001)==0 &&
+				SEASONALD->query_quest_item_random_drop_for_test(
+					player,1,1)==1 &&
+				SEASONALD->query_quest_item_random_drop_for_test(
+					player,1,2)==0,
+				"10%与1/10000临界值必须准确且不能四舍五入");
 
 		mapping first_battle = run_first_s1_quick_battle(player);
 		check(profession_name+"一级空档可真实击败S1首只逐光月灵",
@@ -1105,6 +1233,9 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["progress"]["story_event_count"]==25 &&
 			(int)task["future_event_blocked"]==1 &&
 			(int)task["event_gates_tested"]==25 &&
+			(int)task["quest_gates_completed"]==9 &&
+			(int)task["quest_gate_pities_primed"]==9 &&
+			(int)task["quest_gate_wrong_sources_blocked"]==1 &&
 			(int)task["wrong_story_room_blocked"]==1 &&
 			(int)task["wrong_hunt_target_blocked"]==1 &&
 			(int)task["duplicate_death_callback_blocked"]==1 &&
@@ -1123,6 +1254,9 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		check(profession_name+"八十一章准确获得本职业十件账号绑定套装",
 			validate_newmoon_items(player,account_id,profession_id),
 			sprintf("items=%d",sizeof(query_newmoon_items(player))));
+		check(profession_name+"九卷剧情卡点掉落九件账号绑定任务道具",
+			validate_illusion_quest_items(player,account_id),
+			sprintf("quest_items=%O",query_illusion_quest_items(player)));
 		if(index==0){
 			mapping story_config = Standards.JSON.decode(Stdio.read_file(ROOT+
 				"/gamelib/etc/illusion_s1_story.json"));
@@ -1167,6 +1301,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		check(profession_name+"重启式存档重载后十件穿戴与套装技不丢失",
 			saved && restored_ok &&
 			count_equipped_newmoon_items(restored)==10 &&
+			validate_illusion_quest_items(restored,account_id) &&
 			(string)restored_skill["profession"]==profession_id,
 			sprintf("saved=%d restored=%d equipped=%d skill=%O",saved,
 				restored_ok,count_equipped_newmoon_items(restored),
@@ -1198,7 +1333,8 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(string)returned_realm["illusion_state"]=="returned" &&
 			returned_saved && returned_restored &&
 			count_equipped_newmoon_items(player)==10 &&
-			validate_newmoon_items(player,account_id,profession_id),
+			validate_newmoon_items(player,account_id,profession_id) &&
+			validate_illusion_quest_items(player,account_id),
 			sprintf("settled=%O realm=%O saved=%d restored=%d equipped=%d",
 				settled,returned_realm,returned_saved,returned_restored,
 				count_equipped_newmoon_items(player)));

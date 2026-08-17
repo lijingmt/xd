@@ -121,6 +121,13 @@ login hook must run seasonal reconciliation before shared storage/wallet
 reconciliation. On their next login, settle the unique old archive directly to
 永恒服; never route an old-cycle character into the new cycle.
 
+The runtime reader must validate `runtime.json` before using it. If it is
+missing, truncated, oversized or invalid and `runtime.json.bak` is a valid state
+for the configured cycle, atomically restore the primary from that backup and
+continue from the recovered revision. Create a fresh S1 draft only when neither
+primary nor backup exists on a genuine first install. If a backup exists but is
+also invalid, fail closed; never silently reset an active or closed cycle.
+
 ## Configuration rules
 
 Keep gameplay content data-driven:
@@ -161,6 +168,32 @@ Keep gameplay content data-driven:
   the next chapter. A generic location-only success page or repeated travel link
   after the player is already in the exploration room is a regression. Legacy
   explicit commands remain compatible;
+- place S1's long-term collection gates at the end of all nine volumes
+  (chapters 9/18/27/36/45/54/63/72/81), not as three isolated late patches.
+  Store probabilities as integer basis points over 10,000 so sub-percent rates
+  never round to zero. The reviewed S1 curve is
+  `1000/422/178/75/32/13/6/2/1` basis points, with hard pity at
+  `10/24/57/134/313/770/1667/5000/10000` eligible kills. Chapter 81 is exactly
+  1 in 10,000, not 1 percent or a floating-point approximation;
+- require the configured story event before a gate can roll. Only the exact
+  allowlisted NPC path in one of the configured canonical rooms may increment
+  pity. A wrong monster, right monster in the wrong room, pre-event kill,
+  duplicate death callback, Eternal-world kill, or another character's bound
+  item must not advance or satisfy the gate;
+- represent each gate reward as a saved physical task item bound to the exact
+  registered-account owner. Disable drop, trade, gift, auction and both storage
+  paths. Count the physical owner-matching item as authoritative, persist every
+  eligible roll, and on clone/move/save failure destruct the new item and roll
+  progress and pity back together. Previously claimed chapters stay
+  grandfathered; never push an existing character backwards;
+- keep bounded chapter autofight running after the ordinary kill quota while a
+  gate remains incomplete. Once both the kill target and gate are complete,
+  stop only the bounded chapter mode, wait for combat teardown, reset the view
+  and execute `illusion_realm` so the player returns to the task page. Never
+  stop ordinary continuous autofight. Test the 1..10000 roll boundaries through
+  the production decision helper and use an environment-gated TestUnit pity
+  primer for 12-profession journeys instead of performing hundreds of thousands
+  of disk writes;
 - require chapter reward counts to sum to exactly ten;
 - fail closed if config or runtime state is malformed.
 

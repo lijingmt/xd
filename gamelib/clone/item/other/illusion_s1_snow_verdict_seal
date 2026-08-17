@@ -1,0 +1,44 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+
+inherit WAP_ITEM;
+
+string account_bind_owner = "";
+
+protected void create()
+{
+	name = object_name(this_object());
+	name_cn = "【S1剧情】雪冤印";
+	unit = "枚";
+	picture = "linglongqiqiaoxin";
+	desc = "冻宫旧案昭雪后凝在渊花异兽血脉里的审判印记。第54章击败指定渊花异兽时有0.13%概率获得，每770次有效击杀至少获得1枚；取得1枚才可继续。物品绑定注册账号，不可丢弃、交易、赠送、拍卖或入库。\n";
+	value = 0;
+	set_item_save(1);
+	set_item_task(1);
+	set_item_canEquip(0);
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(0);
+}
+
+string query_illusion_quest_item_id(){ return "snow_verdict_seal"; }
+int query_bind_account_on_pickup(){ return 1; }
+string query_account_bind_owner(){ return account_bind_owner; }
+
+int bind_to_account(object player)
+{
+	string owner;
+	if(!player || !player->is || !player->is("player"))
+		return 0;
+	owner = functionp(player->query_account_owner) ?
+		(string)player->query_account_owner() : "";
+	if(owner=="")
+		owner = (string)player->query_name();
+	if(owner=="" ||
+	   (account_bind_owner!="" && account_bind_owner!=owner))
+		return 0;
+	account_bind_owner = owner;
+	return 1;
+}

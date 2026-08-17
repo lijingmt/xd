@@ -87,6 +87,49 @@ int all_newmoon_bound_to(object player,string account_id)
 	return count==10;
 }
 
+int grant_quest_gate_items_for_test(object player,mapping chapter)
+{
+	mapping(string:string) item_paths = ([
+		"mortal_lifespan_thread":
+			"/gamelib/clone/item/other/illusion_s1_lifespan_thread",
+		"fog_oath_leaf":
+			"/gamelib/clone/item/other/illusion_s1_fog_oath_leaf",
+		"nameless_bone_shard":
+			"/gamelib/clone/item/other/illusion_s1_nameless_bone_shard",
+		"mirror_heart_shard":
+			"/gamelib/clone/item/other/illusion_s1_mirror_heart_shard",
+		"beiju_memory_crystal":
+			"/gamelib/clone/item/other/illusion_s1_memory_crystal",
+		"snow_verdict_seal":
+			"/gamelib/clone/item/other/illusion_s1_snow_verdict_seal",
+		"dawn_flame_seed":
+			"/gamelib/clone/item/other/illusion_s1_dawn_flame_seed",
+		"moon_furnace_life_rune":
+			"/gamelib/clone/item/other/illusion_s1_life_rune",
+		"human_world_true_name":
+			"/gamelib/clone/item/other/illusion_s1_human_world_true_name",
+	]);
+	string gate_id = (string)chapter["quest_item_id"];
+	string item_path = (string)item_paths[gate_id];
+	int required = (int)chapter["quest_item_required"];
+	if(required<=0)
+		return 1;
+	if(item_path=="")
+		return 0;
+	for(int count=0;count<required;count++){
+		object|zero item = 0;
+		mixed err = catch{ item=clone(ROOT+item_path); };
+		if(err || !item || !functionp(item->bind_to_account) ||
+		   !item->bind_to_account(player) || item->move(player)!=1 ||
+		   environment(item)!=player){
+			if(item)
+				destruct(item);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int bootstrap_character(object player,string race_id,string profession_id)
 {
 	object login_room = (object)(ROOT+"/gamelib/d/init");
@@ -171,6 +214,9 @@ int main()
 		multiset(string) story_intros = (<>);
 		multiset(string) story_outros = (<>);
 		int story_rewards;
+		int story_quest_gates;
+		array(int) story_gate_rates = ({});
+		array(int) story_gate_pities = ({});
 		int story_text_valid = 1;
 		int story_novel_structure_valid = 1;
 		int story_chapter_number;
@@ -187,6 +233,13 @@ int main()
 				story_intros[(string)chapter["intro"]] = 1;
 				story_outros[(string)chapter["outro"]] = 1;
 				story_rewards += (int)chapter["reward_count"];
+				if(mappingp(chapter["quest_item_gate"])){
+					mapping gate = (mapping)chapter["quest_item_gate"];
+					story_quest_gates++;
+					story_gate_rates +=
+						({(int)gate["drop_basis_points"]});
+					story_gate_pities += ({(int)gate["pity_kills"]});
+				}
 				array(string) intro_lines = (string)chapter["intro"]/"\n";
 				array(string) outro_lines = (string)chapter["outro"]/"\n";
 				if(sizeof((string)chapter["intro"])<20 ||
@@ -243,6 +296,13 @@ int main()
 			sprintf("structure=%d intros=%d outros=%d",
 				story_novel_structure_valid,sizeof(story_intros),
 				sizeof(story_outros)));
+		check("九卷剧情卡点从10%平滑降至终章1/10000并设对应硬保底",
+			story_quest_gates==9 &&
+			equal(story_gate_rates,({1000,422,178,75,32,13,6,2,1})) &&
+			equal(story_gate_pities,
+				({10,24,57,134,313,770,1667,5000,10000})),
+			sprintf("gates=%d rates=%O pities=%O",story_quest_gates,
+				story_gate_rates,story_gate_pities));
 		array story_quiz = (array)story_config["quiz"];
 		int story_quiz_valid = sizeof(story_quiz)==10;
 		foreach(story_quiz;int quiz_index;mapping question){
@@ -300,6 +360,19 @@ int main()
 		mapping lifecycle_state = ([
 			"phase":"active","starts_at":1000,"ends_at":2000,
 		]);
+		string runtime_state_source = Standards.JSON.encode(([
+			"version":1,"current_id":"S1","phase":"active",
+			"revision":1,"starts_at":1000,"ends_at":2000,
+			"updated_at":1000,"closed_ids":({}),"audit":({}),
+		]));
+		check("幻境主运行状态损坏时选择有效备份且双损坏失败关闭",
+			SEASONALD->query_runtime_recovery_choice_for_test(
+				runtime_state_source,"{broken")=="primary" &&
+			SEASONALD->query_runtime_recovery_choice_for_test(
+				"{broken",runtime_state_source)=="backup" &&
+			SEASONALD->query_runtime_recovery_choice_for_test(
+				"{broken","{also-broken")=="invalid",
+			"runtime.json损坏后未正确选择runtime.json.bak");
 		check("只有到期的进行中赛季会自动结算并自动关闭",
 			SEASONALD->query_automatic_action_for_test(
 				lifecycle_state,1999)=="" &&
@@ -432,7 +505,10 @@ int main()
 			search(player_command_source,"100碎玉增加本期1格")!=-1 &&
 			search(player_command_source,"500碎玉一次购买本期5格")!=-1 &&
 			search(account_source,"season_expansions")!=-1 &&
-			search(account_source,"season_entitlements")!=-1,
+			search(account_source,"season_entitlements")!=-1 &&
+			search(season_source,"本期首名人物免费")==-1 &&
+			search(season_source,
+				"本期每名人物均须按栏位规则支付100碎玉")!=-1,
 			"免费配置仍被显示为0碎玉购买或付费门槛");
 		string account_api_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/account_characters.pike") || "";
@@ -1688,6 +1764,9 @@ int main()
 			raw_progress["chapter_boss_kills"] =
 				(int)chapter_status["chapter_boss_kills"];
 			raw_progress["chapter_visit_rooms"] = ([]);
+			if((int)chapter_status["quest_item_required"]>0 &&
+			   !grant_quest_gate_items_for_test(child,chapter_status))
+				claims_ok = 0;
 			progress = SEASONALD->query_player_progress(child);
 			chapter_status =
 				(mapping)((array)progress["chapters"])[chapter-1];
