@@ -107,13 +107,25 @@ Give the player one primary action, `illusion_realm next`, that:
 
 1. explains the current goal and exact Chinese location;
 2. routes only to the current allowlisted room;
-3. offers autofight after arrival when the target is combat;
+3. offers autofight after an ordinary-hunt arrival, or a two-step room-NPC list
+   followed by the canonical `kill` command after a named-boss arrival;
 4. shows current/required progress after every eligible action;
 5. claims only the current ready chapter;
 6. immediately presents the next chapter.
 
-Keep old explicit commands and JSP bookmarks compatible. A failed movement page
-must end with `[返回游戏:look]`; never strand the player on a text-only error.
+Keep old explicit commands and JSP bookmarks compatible. Expose the same
+`illusion_realm` task entry in the legacy universal footer and the Vue quick menu.
+Every arrival and failed-movement page must offer `[返回游戏:look]`; never strand
+the player on a text-only page. Never build a boss `kill` link directly from
+configuration: first enumerate the real NPC objects in the player's current room,
+then derive both the command ID and occurrence index from the matched object.
+Preserve the historical `.pike` suffix when it is the object's actual ID because
+`object_name()` removes only the clone suffix and NPC `id()` matches the complete
+basename. `present()` occurrence indexes are zero-based, so a room with one boss
+must emit `kill <actual-id> 0`; index `1` asks for a nonexistent second copy. Do
+not spawn a missing boss or duplicate combat rules: the second-step button must
+use the normal `kill` command so room presence, refresh, peace, ownership, VIP,
+and Worker-local combat checks remain authoritative.
 
 Record facts at the authoritative action boundary:
 
@@ -123,6 +135,23 @@ Record facts at the authoritative action boundary:
 - team credit only for eligible same-instance participants;
 - story choice at the confirmed choice mutation;
 - claim progress only inside the save/rollback transaction.
+
+Do not use season-wide cumulative totals to decide whether the current chapter is
+complete. Persist a versioned current-chapter ID plus independent hunt, boss, and
+exact-room visit counters. Derive the current chapter only from the contiguous
+prefix of claimed chapter IDs. Reject unknown, future, or non-contiguous claim
+keys instead of counting mapping size. When a chapter is claimed, reset the next
+chapter counters inside the same reward transaction. Enforce the order defined by
+the current chapter: canonical story event, exact tier NPC in an allowlisted hunt
+room, exact boss, exact exploration room, then choice/route gate. Earlier global
+kills and visits may remain useful for statistics but must not pre-complete a later
+chapter or inflate a ranking snapshot.
+
+Offer two explicitly different hunt modes. Normal autofight remains continuous
+and must not stop merely because an S1 chapter target is complete. “Hunt until the
+current chapter is complete” carries a validated cycle/chapter marker, stops only
+when that exact chapter leaves the hunt state, and must survive save/reload and a
+Worker handoff. Starting or stopping generic autofight clears the scoped marker.
 
 A zero-experience kill is still a real kill. High-level characters killing a
 lower-level story boss must advance the chapter even when the experience formula
@@ -211,11 +240,13 @@ Update all affected surfaces together:
 - `scripts/build/build_vue_frontend.sh`, `vue_source/build.js`, and Docker copy rules;
 - active-cycle config validation and TestUnit image checks.
 
-Keep images inside the device viewport. For chapter art use width no greater than
-`min(100%, 34rem, 72vh)` with a modern `72svh` override, `height:auto`, and
-`object-fit:contain`. Verify portrait phone, landscape phone, tablet, split view,
-and desktop. Preserve the `vh` fallback for old JSP browsers and add `loading=lazy`
-where supported. Do not crop story-critical content.
+Keep images inside the device viewport. Use a conservative base no greater than
+`min(92%, 30rem, 58vh)` with a modern `58svh` override, `height:auto`, and
+`object-fit:contain`. Tighten it further for portrait phones, landscape phones,
+tablets, and split view; a 430px phone should not exceed about `22rem/52svh`, and
+a short landscape viewport should not exceed about `22rem/46svh`. Legacy JSP
+renderers should use the same 480px/58svh ceiling. Preserve the `vh` fallback,
+add `loading=lazy` where supported, and never crop story-critical content.
 
 The tracked `images/` tree is authoritative. The build must copy byte-identical art
 to `web/images/`; Docker must package that built web tree. Never hand-edit only the
@@ -236,8 +267,12 @@ Add focused TestUnit coverage before running a server:
   one-at-a-time progression, stale/replay rejection, save rollback, score-tier
   boundaries, retry best-score retention, and perfect epilogue persistence;
 - future chapter/event attempts fail before the previous chapter is claimed;
+- malformed/non-contiguous claim maps fail closed in progress, story-event, claim,
+  and ranking paths;
 - zero-XP ordinary and boss kills still advance through the real NPC death hook;
 - wrong NPC, wrong room, wrong realm, duplicate callback, and nonparticipant do not;
+- normal continuous autofight remains active after a hunt threshold, while scoped
+  chapter autofight stops exactly once and never leaks into the generic mode;
 - a failed save rolls back progress, level top-up, items, and claim state;
 - restart/reload preserves the unique player archive and exact chapter;
 - Vue and all four legacy filters render valid art and reject forged paths;

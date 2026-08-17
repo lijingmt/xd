@@ -495,6 +495,9 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		"team_kills":0,"visited":visited,
 		"active_days":(["testunit":time()]),"story_events":([]),
 		"path":"pioneer","route_marks":([]),"claims":claims,
+		"chapter_counter_version":2,"chapter_counter_id":"S1-C9",
+		"chapter_kills":0,"chapter_boss_kills":0,
+		"chapter_visit_rooms":([]),
 	]);
 	player->level = 69;
 	player->set_att_by_level();
@@ -511,11 +514,23 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	// 等级差超过10时旧公式的经验合法为0；死亡归属入口仍必须推进任务。
 	zero_exp = boss->grant_kill_experience(player,0);
 	boss->record_eligible_kill_progress(player,1);
+	for(int count=0;count<9;count++){
+		object hunt = clone(ROOT+
+			"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
+		move_for_test(player,
+			"/gamelib/d/illusion_s1/moon_dew_field.pike");
+		hunt->move(environment(player));
+		SEASONALD->record_npc_kill(player,hunt,1);
+		destruct(hunt);
+	}
+	move_for_test(player,
+		"/gamelib/d/illusion_s1/starlight_slope.pike");
 	progress = SEASONALD->query_player_progress(player);
 	chapter = (mapping)((array)progress["chapters"])[8];
 	int valid = zero_exp==0 &&
 		(int)player->query_level()-(int)boss->query_level()>=10 &&
-		(int)progress["kills"]==83 && (int)progress["boss_kills"]==1 &&
+		(int)progress["kills"]==92 && (int)progress["boss_kills"]==1 &&
+		(int)chapter["chapter_kills_done"]==9 &&
 		(int)chapter["chapter_boss_kills_done"]==1 &&
 		(int)chapter["story_ready"] && (int)chapter["ready"];
 	destruct(boss);
@@ -529,11 +544,21 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		"progress":progress,"chapter":chapter,"restored":restored]);
 }
 
+string hunt_npc_path(string hunt_name)
+{
+	mapping(string:string) paths = ([
+		"逐光月灵":"/gamelib/clone/npc/illusion_s1/moon_wisp.pike",
+		"雾纹月狼":"/gamelib/clone/npc/illusion_s1/fog_wolf.pike",
+		"镜丝月蛛":"/gamelib/clone/npc/illusion_s1/mirror_spider.pike",
+		"折星石卫":"/gamelib/clone/npc/illusion_s1/ruin_guard.pike",
+		"古城星魇":"/gamelib/clone/npc/illusion_s1/star_wraith.pike",
+		"渊花异兽":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
+	]);
+	return (string)(paths[hunt_name] || "");
+}
+
 mapping(string:mixed) record_task_progress(object player,string route)
 {
-	int room_index;
-	object normal_npc = clone(ROOT+
-		"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
 	mapping result = (["ok":1,"claims":0,"event_gates_tested":0]);
 	mapping progress = SEASONALD->query_player_progress(player);
 	array chapters = (array)progress["chapters"];
@@ -558,23 +583,19 @@ mapping(string:mixed) record_task_progress(object player,string route)
 	result["narrative_chapters"] = narrative_chapters;
 	result["narrative_outros"] = narrative_outros;
 	if(!move_for_test(player,
-	   "/gamelib/d/illusion_s1/true_name_hall.pike")){
-		destruct(normal_npc);
+	   "/gamelib/d/illusion_s1/true_name_hall.pike"))
 		return (["ok":0,"message":"未来剧情房间移动测试失败"]);
-	}
 	mapping future_event = SEASONALD->discover_story_event_for_test(player);
-	if((int)future_event["ok"]){
-		destruct(normal_npc);
+	if((int)future_event["ok"])
 		return (["ok":0,"message":sprintf(
 			"未完成前置章节却提前触发第七十七章事件: %O",
 			future_event)]);
-	}
 	result["future_event_blocked"] = 1;
 	progress = SEASONALD->query_player_progress(player);
 	result["activity_days_before"] = (int)progress["active_days"];
 
-	// 破阵路线的三个终局印必须来自三个不同真实首领，不允许用
-	// 后续剧情首领数量替代。
+	// 三条路线先用各自真实动作完成长期里程碑；这些里程碑不会替代
+	// 任一章节的独立狩猎、首领或探索目标。
 	if(route=="hunter")
 		foreach(hunter_bosses,string hunter_boss_name){
 			object hunter_boss = clone(ROOT+
@@ -584,134 +605,295 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			SEASONALD->record_npc_kill(player,hunter_boss,1);
 			destruct(hunter_boss);
 		}
+	if(route=="pioneer")
+		foreach(({"mirror_lake","hidden_crater","newmoon_altar"}),
+		   string room_name){
+			if(!move_for_test(player,
+			   "/gamelib/d/illusion_s1/"+room_name+".pike"))
+				return (["ok":0,"message":"寻星路线房间移动失败: "+
+					room_name]);
+			mapping secret = SEASONALD->discover_route_secret_for_test(player);
+			if(!(int)secret["ok"])
+				return (["ok":0,"message":sprintf(
+					"寻星路线里程碑失败: %O",secret)]);
+		}
 
 	for(int chapter_index=0;chapter_index<sizeof(chapters);chapter_index++){
-		mapping chapter = (mapping)chapters[chapter_index];
-		if((int)player->query_level()<(int)chapter["min_level"]){
-			result = (["ok":0,"message":sprintf(
+		progress = SEASONALD->query_player_progress(player);
+		mapping chapter = (mapping)((array)progress["chapters"])
+			[chapter_index];
+		if((int)player->query_level()<(int)chapter["min_level"])
+			return (["ok":0,"message":sprintf(
 				"第%d章开始前等级未由此前章节自然推进: level=%d need=%d",
 				chapter_index+1,(int)player->query_level(),
 				(int)chapter["min_level"])]);
-			destruct(normal_npc);
-			return result;
+		if((int)chapter["ready"])
+			return (["ok":0,"message":sprintf(
+				"第%d章尚未执行本章动作却已经可领取: %O",
+				chapter_index+1,chapter)]);
+		if(chapter_index==0){
+			mapping future_claim = SEASONALD->
+				claim_chapter_reward_for_test(player,2);
+			if((int)future_claim["ok"])
+				return (["ok":0,"message":sprintf(
+					"未来章节奖励可被越序领取: %O",future_claim)]);
 		}
 
-		progress = SEASONALD->query_player_progress(player);
-		while((int)progress["visits"]<(int)chapter["visits"] &&
-		   room_index<sizeof(visit_rooms)){
-			if(!move_for_test(player,visit_rooms[room_index])){
-				result = (["ok":0,"message":"真实S1房间移动失败: "+
-					visit_rooms[room_index]]);
-				destruct(normal_npc);
-				return result;
-			}
-			if(route=="pioneer")
-				SEASONALD->discover_route_secret_for_test(player);
-			room_index++;
+		int guard;
+		while(guard++<2000){
 			progress = SEASONALD->query_player_progress(player);
-		}
-
-		mapping raw = player["/plus/illusion_realm/S1"];
-		while((int)raw["boss_kills"]<(int)chapter["boss_kills"]){
-			object boss = clone(ROOT+
-				"/gamelib/clone/npc/illusion_s1/"+
-				hunter_bosses[0]+".pike");
-			boss->move(environment(player));
-			SEASONALD->record_npc_kill(player,boss,
-				route=="companion" ? 2 : 1);
-			destruct(boss);
-			raw = player["/plus/illusion_realm/S1"];
-		}
-
-		normal_npc->move(environment(player));
-		while((int)raw["kills"]<(int)chapter["kills"]){
-			SEASONALD->record_npc_kill(player,normal_npc,
-				route=="companion" ? 2 : 1);
-			raw = player["/plus/illusion_realm/S1"];
-		}
-
-		string story_event_id = (string)chapter["story_event"];
-		if(story_event_id!=""){
-			mapping before_event = SEASONALD->query_player_progress(player);
-			mapping pending_chapter =
-				((array)before_event["chapters"])[chapter_index];
-			if((int)pending_chapter["story_ready"]){
-				result = (["ok":0,"message":sprintf(
-					"第%d章关键事件在到达指定地点前已被越权触发: %O",
-					chapter_index+1,pending_chapter)]);
-				destruct(normal_npc);
-				return result;
+			chapter = (mapping)((array)progress["chapters"])
+				[chapter_index];
+			string kind = (string)chapter["target_kind"];
+			if((int)result["scoped_autofight_started"] &&
+			   !(int)result["scoped_autofight_stopped"] && kind!="hunt"){
+				if((string)player->query_autofight()=="enable" ||
+				   player["/tmp/illusion_chapter_autofight"])
+					return (["ok":0,"message":sprintf(
+						"第%d章限章挂机达标后没有停止",chapter_index+1)]);
+				result["scoped_autofight_stopped"] = 1;
 			}
-			result["event_gates_tested"] =
-				(int)result["event_gates_tested"]+1;
-			mapping event = story_events[story_event_id];
-			if(!mappingp(event)){
-				result = (["ok":0,"message":"故事事件配置缺失: "+
-					story_event_id]);
-				destruct(normal_npc);
-				return result;
+			if((int)result["normal_autofight_started"] &&
+			   !(int)result["normal_autofight_preserved"] && kind!="hunt"){
+				if((string)player->query_autofight()!="enable" ||
+				   player["/tmp/illusion_chapter_autofight"])
+					return (["ok":0,"message":sprintf(
+						"第%d章普通持续挂机被章节完成误停",
+						chapter_index+1)]);
+				result["normal_autofight_preserved"] = 1;
+				AUTOFIGHTD->stop_autofight(player);
 			}
-			if((string)pending_chapter["story_event_location"]!=
-			   (string)event["location"]){
-				result = (["ok":0,"message":sprintf(
-					"第%d章地点引导与事件配置不一致: chapter=%O event=%O",
-					chapter_index+1,pending_chapter,event)]);
-				destruct(normal_npc);
-				return result;
-			}
-			if((string)event["kind"]=="echo"){
-				if(!move_for_test(player,(string)event["path"])){
-					result = (["ok":0,"message":"故事残响房间移动失败: "+
-						(string)event["path"]]);
-					destruct(normal_npc);
-					return result;
+			if((int)chapter["ready"])
+				break;
+			string target_room = (string)chapter["target_room"];
+			if(kind=="story_echo" || kind=="story_boss"){
+				string event_id = (string)chapter["story_event"];
+				mapping event = story_events[event_id];
+				if(!mappingp(event) || (int)chapter["story_ready"] ||
+				   (string)chapter["story_event_location"]!=
+					(string)event["location"] ||
+				   target_room!=(kind=="story_echo" ?
+					(string)event["path"] : (string)event["room"]))
+					return (["ok":0,"message":sprintf(
+						"第%d章剧情目标配置或顺序异常: %O event=%O",
+						chapter_index+1,chapter,event)]);
+				if(kind=="story_boss" &&
+				   !(int)result["wrong_story_room_blocked"]){
+					int boss_done_before =
+						(int)chapter["chapter_boss_kills_done"];
+					string wrong_story_room = target_room==
+						"/gamelib/d/illusion_s1/moon_gate.pike" ?
+						"/gamelib/d/illusion_s1/true_name_hall.pike" :
+						"/gamelib/d/illusion_s1/moon_gate.pike";
+					if(!move_for_test(player,wrong_story_room))
+						return (["ok":0,"message":
+							"剧情首领错误房间回归测试移动失败"]);
+					object wrong_room_boss = clone(ROOT+
+						(string)event["path"]);
+					wrong_room_boss->move(environment(player));
+					wrong_room_boss->record_eligible_kill_progress(player,1);
+					destruct(wrong_room_boss);
+					mapping after_wrong_story = SEASONALD->
+						query_player_progress(player);
+					mapping after_wrong_chapter = (mapping)((array)
+						after_wrong_story["chapters"])[chapter_index];
+					if((int)after_wrong_chapter["story_ready"] ||
+					   (int)after_wrong_chapter[
+						"chapter_boss_kills_done"]!=boss_done_before)
+						return (["ok":0,"message":sprintf(
+							"剧情首领在错误房间仍推进章节: %O",
+							after_wrong_chapter)]);
+					result["wrong_story_room_blocked"] = 1;
 				}
-				mapping witnessed = SEASONALD->
-					discover_story_event_for_test(player);
-				if(!(int)witnessed["ok"] || (int)witnessed["already"]){
-					result = (["ok":0,"message":sprintf(
-						"第%d章故事残响失败: %O",chapter_index+1,
-						witnessed)]);
-					destruct(normal_npc);
-					return result;
+				result["event_gates_tested"] =
+					(int)result["event_gates_tested"]+1;
+				if(!move_for_test(player,target_room))
+					return (["ok":0,"message":"剧情目标房间移动失败: "+
+						target_room]);
+				if(kind=="story_echo"){
+					mapping witnessed = SEASONALD->
+						discover_story_event_for_test(player);
+					if(!(int)witnessed["ok"] ||
+					   (int)witnessed["already"])
+						return (["ok":0,"message":sprintf(
+							"第%d章故事残响失败: %O",
+							chapter_index+1,witnessed)]);
 				}
+				else{
+					object story_boss = clone(ROOT+(string)event["path"]);
+					story_boss->move(environment(player));
+					story_boss->record_eligible_kill_progress(player,
+						route=="companion" ? 2 : 1);
+					destruct(story_boss);
+				}
+				continue;
 			}
-			else{
-				object story_boss = clone(ROOT+(string)event["path"]);
-				story_boss->move(environment(player));
-				story_boss->record_eligible_kill_progress(player,
+			if(kind=="hunt"){
+				string npc_path = hunt_npc_path(
+					(string)chapter["target_name"]);
+				if(npc_path=="" || target_room=="" ||
+				   target_room!=(string)chapter["hunt_room"] ||
+				   !move_for_test(player,target_room))
+					return (["ok":0,"message":sprintf(
+						"第%d章狩猎目标配置或移动失败: %O",
+						chapter_index+1,chapter)]);
+				if(chapter_index==0 &&
+				   !(int)result["wrong_hunt_target_blocked"]){
+					int global_before = (int)progress["kills"];
+					int hunt_before = (int)chapter["chapter_kills_done"];
+					int visits_before =
+						(int)chapter["chapter_visits_done"];
+					object wrong_npc = clone(ROOT+
+						"/gamelib/clone/npc/illusion_s1/abyss_beast.pike");
+					wrong_npc->move(environment(player));
+					SEASONALD->record_npc_kill(player,wrong_npc,1);
+					destruct(wrong_npc);
+					if(!move_for_test(player,
+					   "/gamelib/d/illusion_s1/moon_gate.pike"))
+						return (["ok":0,"message":
+							"错误狩猎房间回归测试移动失败"]);
+					object misplaced_npc = clone(ROOT+npc_path);
+					misplaced_npc->move(environment(player));
+					SEASONALD->record_npc_kill(player,misplaced_npc,1);
+					destruct(misplaced_npc);
+					mapping after_wrong_hunt = SEASONALD->
+						query_player_progress(player);
+					mapping after_wrong_hunt_chapter = (mapping)((array)
+						after_wrong_hunt["chapters"])[chapter_index];
+					if((int)after_wrong_hunt["kills"]!=global_before+2 ||
+					   (int)after_wrong_hunt_chapter[
+						"chapter_kills_done"]!=hunt_before ||
+					   (int)after_wrong_hunt_chapter[
+						"chapter_visits_done"]!=visits_before ||
+					   !move_for_test(player,target_room))
+						return (["ok":0,"message":sprintf(
+							"错误怪物、错误房间或提前探索仍推进章节: %O",
+							after_wrong_hunt_chapter)]);
+					result["wrong_hunt_target_blocked"] = 1;
+				}
+				if(chapter_index==0 &&
+				   !(int)result["duplicate_death_callback_blocked"]){
+					mapping before_duplicate = SEASONALD->
+						query_player_progress(player);
+					mapping before_duplicate_chapter = (mapping)((array)
+						before_duplicate["chapters"])[chapter_index];
+					int global_before = (int)before_duplicate["kills"];
+					int hunt_before = (int)before_duplicate_chapter[
+						"chapter_kills_done"];
+					object duplicate_npc = clone(ROOT+npc_path);
+					duplicate_npc->move(environment(player));
+					duplicate_npc->record_eligible_kill_progress(player,1);
+					duplicate_npc->record_eligible_kill_progress(player,1);
+					destruct(duplicate_npc);
+					mapping after_duplicate = SEASONALD->
+						query_player_progress(player);
+					mapping duplicate_chapter = (mapping)((array)
+						after_duplicate["chapters"])[chapter_index];
+					if((int)after_duplicate["kills"]!=global_before+1 ||
+					   (int)duplicate_chapter["chapter_kills_done"]!=
+						hunt_before+1)
+						return (["ok":0,"message":sprintf(
+							"同一NPC死亡回调重复推进章节: before=%d/%d after=%O",
+							global_before,hunt_before,after_duplicate)]);
+					result["duplicate_death_callback_blocked"] = 1;
+				}
+				if(chapter_index==0 &&
+				   !(int)result["scoped_autofight_started"]){
+					mapping started = SEASONALD->
+						start_chapter_hunt_autofight_for_test(player);
+					if(!(int)started["ok"] ||
+					   (string)player->query_autofight()!="enable" ||
+					   !mappingp(player[
+						"/tmp/illusion_chapter_autofight"]))
+						return (["ok":0,"message":sprintf(
+							"限章挂机启动失败: %O",started)]);
+					result["scoped_autofight_started"] = 1;
+				}
+				if(chapter_index==1 &&
+				   !(int)result["normal_autofight_started"]){
+					AUTOFIGHTD->start_autofight(player);
+					if((string)player->query_autofight()!="enable" ||
+					   player["/tmp/illusion_chapter_autofight"])
+						return (["ok":0,"message":
+							"普通持续挂机启动后残留限章标记"]);
+					result["normal_autofight_started"] = 1;
+				}
+				object hunt_npc = clone(ROOT+npc_path);
+				hunt_npc->move(environment(player));
+				SEASONALD->record_npc_kill(player,hunt_npc,
 					route=="companion" ? 2 : 1);
-				destruct(story_boss);
+				destruct(hunt_npc);
+				continue;
 			}
+			if(kind=="boss"){
+				if(target_room!=
+				   "/gamelib/d/illusion_s1/star_bridge.pike" ||
+				   !move_for_test(player,target_room))
+					return (["ok":0,"message":sprintf(
+						"第%d章首领目标配置或移动失败: %O",
+						chapter_index+1,chapter)]);
+				object boss = clone(ROOT+
+					"/gamelib/clone/npc/illusion_s1/star_keeper.pike");
+				boss->move(environment(player));
+				SEASONALD->record_npc_kill(player,boss,
+					route=="companion" ? 2 : 1);
+				destruct(boss);
+				continue;
+			}
+			if(kind=="explore"){
+				if(target_room=="" || !move_for_test(player,target_room))
+					return (["ok":0,"message":sprintf(
+						"第%d章探索目标配置或移动失败: %O",
+						chapter_index+1,chapter)]);
+				SEASONALD->record_room_visit(player,environment(player));
+				continue;
+			}
+			return (["ok":0,"message":sprintf(
+				"第%d章进入不可执行状态 kind=%s chapter=%O",
+				chapter_index+1,kind,chapter)]);
 		}
+		if(guard>=2000)
+			return (["ok":0,"message":sprintf(
+				"第%d章状态机超过安全步数",chapter_index+1)]);
 
 		progress = SEASONALD->query_player_progress(player);
 		chapters = (array)progress["chapters"];
-		if(!(int)chapters[chapter_index]["ready"]){
-			result = (["ok":0,"message":sprintf(
+		if(!(int)chapters[chapter_index]["ready"])
+			return (["ok":0,"message":sprintf(
 				"第%d章真实目标完成后仍不可领取: %O",
 				chapter_index+1,progress)]);
-			destruct(normal_npc);
-			return result;
-		}
 		mapping claim = SEASONALD->claim_chapter_reward_for_test(
 			player,chapter_index+1);
 		int expected_level = min(69,chapter_index+2);
 		if(!(int)claim["ok"] || (int)claim["already"] ||
 		   (int)player->query_level()!=expected_level ||
 		   !mappingp(claim["growth"]) ||
-		   (int)claim["growth"]["after_level"]!=expected_level){
-			result = (["ok":0,"message":sprintf(
+		   (int)claim["growth"]["after_level"]!=expected_level)
+			return (["ok":0,"message":sprintf(
 				"第%d章领取或章回悟境失败: level=%d expected=%d claim=%O",
 				chapter_index+1,(int)player->query_level(),expected_level,
 				claim)]);
-			destruct(normal_npc);
-			return result;
+		mapping repeat_claim = SEASONALD->claim_chapter_reward_for_test(
+			player,chapter_index+1);
+		if(!(int)repeat_claim["ok"] || !(int)repeat_claim["already"])
+			return (["ok":0,"message":sprintf(
+				"第%d章重复领取不幂等: %O",chapter_index+1,
+				repeat_claim)]);
+		if(chapter_index+1<sizeof(chapters)){
+			mapping after_claim = SEASONALD->query_player_progress(player);
+			mapping next_chapter = (mapping)((array)
+				after_claim["chapters"])[chapter_index+1];
+			if((int)next_chapter["chapter_kills_done"]!=0 ||
+			   (int)next_chapter["chapter_boss_kills_done"]!=0 ||
+			   (int)next_chapter["chapter_visits_done"]!=0 ||
+			   (int)next_chapter["ready"])
+				return (["ok":0,"message":sprintf(
+					"第%d章领取后战绩被错误带入第%d章: %O",
+					chapter_index+1,chapter_index+2,next_chapter)]);
 		}
 		result["claims"] = chapter_index+1;
 		result["items"] = sizeof(query_newmoon_items(player));
 	}
-	destruct(normal_npc);
 	result["progress"] = SEASONALD->query_player_progress(player);
 	return result;
 }
@@ -818,15 +1000,23 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["narrative_chapters"]==81 &&
 			(int)task["narrative_outros"]==81 &&
 			(int)player->query_level()==69 &&
-			(int)task["progress"]["kills"]==751 &&
+			(int)task["progress"]["kills"]>=760 &&
 			(int)task["progress"]["boss_kills"]>=10 &&
 			(int)task["progress"]["visits"]>=36 &&
+			(int)task["progress"]["visits"]<=sizeof(visit_rooms) &&
 			(int)task["progress"]["active_days"]==
 				(int)task["activity_days_before"] &&
 			(int)task["progress"]["active_days"]<=1 &&
 			(int)task["progress"]["story_event_count"]==25 &&
 			(int)task["future_event_blocked"]==1 &&
 			(int)task["event_gates_tested"]==25 &&
+			(int)task["wrong_story_room_blocked"]==1 &&
+			(int)task["wrong_hunt_target_blocked"]==1 &&
+			(int)task["duplicate_death_callback_blocked"]==1 &&
+			(int)task["scoped_autofight_started"]==1 &&
+			(int)task["scoped_autofight_stopped"]==1 &&
+			(int)task["normal_autofight_started"]==1 &&
+			(int)task["normal_autofight_preserved"]==1 &&
 			(string)task["progress"]["path"]==route,
 			sprintf("route=%s task=%O",route,task));
 		if(index==6)

@@ -247,7 +247,7 @@ string filter(zero|string s)
 				//add for cmd=+num
 				if(has_prefix(href,
 				   "/xd/images/illusion_s1/story/chapters/"))
-					out+="<img src=\""+href+"\" alt=\"新月长生劫剧情插画\" loading=\"lazy\" style=\"display:block;width:100%;max-width:544px;max-height:72vh;max-height:72svh;height:auto;object-fit:contain;margin:12px auto;border-radius:16px\">";
+					out+="<img src=\""+href+"\" alt=\"新月长生劫剧情插画\" loading=\"lazy\" style=\"display:block;width:88%;max-width:480px;max-height:58vh;max-height:58svh;height:auto;object-fit:contain;margin:12px auto;border-radius:16px\">";
 				else
 					out+="<img src=\""+href+"\" alt=\""+name+"\">";
 			}

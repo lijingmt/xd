@@ -1,6 +1,11 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit WAP_NPC;
+
+// 一个 NPC 对同一玩家只提交一次“死亡事实”。正常组队仍按不同玩家
+// 分别记账；异常重入或迟到回调不能重复推进章节/个人难度。
+private mapping(string:int) eligible_kill_progress_recorded = ([]);
+
 void log_hidden_skill_drop(object book,string owner_type,string owner_name)
 {
 	string now = "";
@@ -58,8 +63,13 @@ int query_team_shared_drop_difficulty(mapping map_term,string owner_name)
  */
 void record_eligible_kill_progress(object player,void|int team_count)
 {
-	if(!player)
+	string userid;
+	if(!player || !functionp(player->query_name))
 		return;
+	userid = (string)player->query_name();
+	if(userid=="" || (int)eligible_kill_progress_recorded[userid])
+		return;
+	eligible_kill_progress_recorded[userid] = 1;
 	SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
 	PERSONAL_DIFFICULTYD->record_npc_kill(player,this_object());
 }

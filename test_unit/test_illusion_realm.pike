@@ -136,6 +136,29 @@ int main()
 			(int)public_status["extra_character_slot_cost_suiyu"]==100 &&
 			(int)public_status["multi_character_unlock_cost_suiyu"]==500,
 			sprintf("status=%O",public_status));
+		mapping realm_config = Standards.JSON.decode(Stdio.read_file(ROOT+
+			"/gamelib/etc/illusion_realm.json"));
+		int configured_story_bosses;
+		int configured_story_bosses_valid = 1;
+		foreach((array)realm_config["story_events"],mapping story_event){
+			if((string)story_event["kind"]!="boss")
+				continue;
+			configured_story_bosses++;
+			string npc_path = (string)story_event["path"];
+			string room_source = Stdio.read_file(ROOT+
+				(string)story_event["room"]) || "";
+			array(string) npc_parts = npc_path/"/";
+			array(string) filename_parts = sizeof(npc_parts) ?
+				npc_parts[-1]/"." : ({});
+			if(sizeof(filename_parts)!=2 || filename_parts[0]=="" ||
+			   filename_parts[1]!="pike" || search(room_source,npc_path)==-1 ||
+			   npc_parts[-1]!=filename_parts[0]+".pike")
+				configured_story_bosses_valid = 0;
+		}
+		check("九名剧情首领均由目标房真实刷新并保留完整Pike文件名ID",
+			configured_story_bosses==9 && configured_story_bosses_valid,
+			sprintf("bosses=%d valid=%d",configured_story_bosses,
+				configured_story_bosses_valid));
 		string story_json_source = Stdio.read_file(ROOT+
 			"/gamelib/etc/illusion_s1_story.json") || "";
 		mapping story_config = Standards.JSON.decode(story_json_source);
@@ -317,6 +340,10 @@ int main()
 			"/gamelib/single/daemons/seasonal_chard.pike") || "";
 		string player_command_source = Stdio.read_file(ROOT+
 			"/gamelib/cmds/illusion_realm.pike") || "";
+		string user_source = Stdio.read_file(ROOT+
+			"/gamelib/clone/user.pike") || "";
+		string vue_source = Stdio.read_file(ROOT+
+			"/vue_source/index.html") || "";
 		string travel_command_source = Stdio.read_file(ROOT+
 			"/gamelib/cmds/qge74hye.pike") || "";
 		string account_source = Stdio.read_file(ROOT+
@@ -340,19 +367,46 @@ int main()
 			search(player_command_source,"SEASONALD->settle_player(me)")==-1 &&
 			search(player_command_source,"系统自动安全回归")!=-1,
 			"HTTP命令已持有账号锁时手工回归可能触发递归锁异常");
-		check("八十一章统一使用傻瓜式下一步、直达打怪和战后进度提示",
+		check("八十一章统一使用傻瓜式下一步、房间验敌和全局任务入口",
 			search(player_command_source,"parts[0]==\"next\"")!=-1 &&
 			search(player_command_source,
-				"▶ 下一步：开始自动打怪:autofight start")!=-1 &&
+				"挂机至本章狩猎完成:illusion_realm hunt")!=-1 &&
+			search(player_command_source,
+				"持续自动挂机:autofight start")!=-1 &&
+			search(player_command_source,"parts[0]==\"hunt\"")!=-1 &&
+			search(player_command_source,
+				"⚔ 查找并挑战")!=-1 &&
+			search(player_command_source,
+				"parts[0]==\"challenge\"")!=-1 &&
+			search(player_command_source,
+				"foreach(all_inventory(room,me),object npc)")!=-1 &&
+			search(player_command_source,
+				"actions += \"[⚔ 挑战\"")!=-1 &&
+			search(player_command_source,
+				"本次不会发起错误攻击")!=-1 &&
+			search(player_command_source,
+				":kill \"+combat_name+\" 1")==-1 &&
+			search(player_command_source,
+				"[返回游戏:look]|[查看本章进度:illusion_realm]")!=-1 &&
+			search(player_command_source,
+				"[重新查看本章:illusion_realm]|[返回游戏:look]")!=-1 &&
+			search(player_command_source,
+				"[重试阅读剧情:illusion_realm next]|[返回游戏:look]")!=-1 &&
+			search(player_command_source,
+				"[重试当前探索:illusion_realm explore]|[返回游戏:look]")!=-1 &&
+			search(player_command_source,"一键前往")!=-1 &&
 			search(player_command_source,"chapter_next_link(chapter)")!=-1 &&
 			search(player_command_source,"guided_route_help(me,progress)")!=-1 &&
 			search(player_command_source,"illusion_realm route next")!=-1 &&
+			search(season_source,"target_combat_name")!=-1 &&
+			search(user_source,"[幻境任务:illusion_realm]")!=-1 &&
+			search(vue_source,"sendQuickCommand('illusion_realm')")!=-1 &&
 			search(season_source,"travel_to_route_target")!=-1 &&
 			search(season_source,"章目标完成")!=-1 &&
 			search(season_source,"章狩猎")!=-1 &&
-			search(season_source,"本轮打怪已经完成，自动挂机已暂停")!=-1 &&
+			search(season_source,"普通持续挂机模式不会自动停止")!=-1 &&
 			search(season_source,"等待下一个北京时间修行日")==-1,
-			"章节仍需玩家手工找地图、找挂机入口、找领取按钮或等待跨日");
+			"章节仍需手工找地图/首领/入口/领取按钮，或等待跨日");
 		check("终章十问有开始、逐题提交、重试和满分后记入口且题面不返回答案",
 			search(player_command_source,"parts[0]==\"quiz\"")!=-1 &&
 			search(player_command_source,
@@ -457,18 +511,22 @@ int main()
 			search(html5_source,"storypic %d")!=-1 &&
 			search(html6_compat_source,"storypic %d")!=-1,
 			"某个旧界面仍会把剧情图片误渲染成命令按钮");
-		check("旧JSP四套过滤器均限制章节图宽高且不裁切手机画面",
-			search(html6_source,"max-height:72vh")!=-1 &&
-			search(html6_source,"max-height:72svh")!=-1 &&
+		check("旧JSP四套过滤器均按短边缩小章节图且不裁切手机画面",
+			search(html6_source,"width:88%;max-width:480px")!=-1 &&
+			search(html6_source,"max-height:58vh")!=-1 &&
+			search(html6_source,"max-height:58svh")!=-1 &&
 			search(html6_source,"object-fit:contain")!=-1 &&
-			search(html6_dark_source,"max-height:72vh")!=-1 &&
-			search(html6_dark_source,"max-height:72svh")!=-1 &&
+			search(html6_dark_source,"width:88%;max-width:480px")!=-1 &&
+			search(html6_dark_source,"max-height:58vh")!=-1 &&
+			search(html6_dark_source,"max-height:58svh")!=-1 &&
 			search(html6_dark_source,"object-fit:contain")!=-1 &&
-			search(html5_source,"max-height:72vh")!=-1 &&
-			search(html5_source,"max-height:72svh")!=-1 &&
+			search(html5_source,"width:88%;max-width:480px")!=-1 &&
+			search(html5_source,"max-height:58vh")!=-1 &&
+			search(html5_source,"max-height:58svh")!=-1 &&
 			search(html5_source,"object-fit:contain")!=-1 &&
-			search(html6_compat_source,"max-height:72vh")!=-1 &&
-			search(html6_compat_source,"max-height:72svh")!=-1 &&
+			search(html6_compat_source,"width:88%;max-width:480px")!=-1 &&
+			search(html6_compat_source,"max-height:58vh")!=-1 &&
+			search(html6_compat_source,"max-height:58svh")!=-1 &&
 			search(html6_compat_source,"object-fit:contain")!=-1,
 			"旧书签在横屏手机或iPad分屏仍可能显示超尺寸剧情图");
 		check("当前任务、章节回看与过关剧情统一使用旧客户端兼容图片协议",
@@ -740,7 +798,7 @@ int main()
 			"illusion_progress":([
 				"joined_at":100,"kills":50,"boss_kills":2,
 				"team_kills":4,"visited":(["a":1,"b":1,"c":1]),
-				"claims":(["c1":100,"c2":200]),
+				"claims":(["S1-C1":100,"S1-C2":200]),
 				"route_marks":(["r1":1,"r2":1,"r3":1]),
 				"ranking_level":88,"ranking_experience_start":100,
 				"ranking_experience_latest":900,"set_parts":5,
@@ -764,6 +822,16 @@ int main()
 			(int)speed_score["score"]==400,
 			sprintf("journey=%O exp=%O speed=%O",journey_score,
 				experience_score,speed_score));
+		mapping forged_rank_profile = copy_value(rank_profile);
+		forged_rank_profile["illusion_progress"]["claims"] = ([
+			"S1-C2":200,"forged-future-chapter":300,
+		]);
+		mapping forged_journey_score = SEASONALD->
+			query_ranking_score_for_test("journey",forged_rank_profile,
+				"overall","S1");
+		check("非连续或伪造章节不能抬高幻境征途排行榜",
+			!(int)forged_journey_score["eligible"],
+			sprintf("score=%O",forged_journey_score));
 
 		root = create_root(account_id);
 		center_root = create_root(center_account_id);
@@ -964,6 +1032,57 @@ int main()
 		check("八十一章运行态均展开为五段厚叙事且没有空白短行",
 			five_line_story_chapters==81,
 			sprintf("five_line_chapters=%d",five_line_story_chapters));
+		mapping fresh_story_state = copy_value(
+			(mapping)child["/plus/illusion_realm/S1"]);
+		mapping boss_probe_state = copy_value(fresh_story_state);
+		mapping boss_probe_claims = ([]);
+		for(int index=0;index<17;index++)
+			boss_probe_claims[(string)((array)
+				fresh_story_progress["chapters"])[index]["id"]] = time();
+		boss_probe_state["claims"] = boss_probe_claims;
+		boss_probe_state["kills"] = 10000;
+		boss_probe_state["boss_kills"] = 100;
+		boss_probe_state["visited"] = ([]);
+		boss_probe_state["story_events"] = ([]);
+		child["/plus/illusion_realm/S1"] = boss_probe_state;
+		mapping boss_probe_progress = SEASONALD->query_player_progress(child);
+		mapping fog_boss_chapter = (mapping)((array)
+			boss_probe_progress["chapters"])[17];
+		child["/plus/illusion_realm/S1"] = fresh_story_state;
+		mapping corrupt_claim_state = copy_value(fresh_story_state);
+		corrupt_claim_state["claims"] = (["S1-C2":time()]);
+		child["/plus/illusion_realm/S1"] = corrupt_claim_state;
+		mapping corrupt_claim_progress =
+			SEASONALD->query_player_progress(child);
+		child["/tmp/illusion_move_bypass"] = 1;
+		child->move((object)(ROOT+
+			"/gamelib/d/illusion_s1/true_name_hall.pike"));
+		child->m_delete_foruser("/tmp/illusion_move_bypass");
+		mapping corrupt_claim_echo =
+			SEASONALD->discover_story_event_for_test(child);
+		mapping forged_complete_state = copy_value(fresh_story_state);
+		mapping forged_complete_claims = ([]);
+		foreach((array)fresh_story_progress["chapters"],mapping one_chapter)
+			forged_complete_claims[(string)one_chapter["id"]] = time();
+		forged_complete_claims["forged-extra-chapter"] = time();
+		forged_complete_state["claims"] = forged_complete_claims;
+		child["/plus/illusion_realm/S1"] = forged_complete_state;
+		mapping forged_complete_quiz = SEASONALD->query_story_quiz(child);
+		child["/plus/illusion_realm/S1"] = fresh_story_state;
+		check("非连续或伪造的章节领取映射失败关闭且不能跳章",
+			!(int)corrupt_claim_progress["ok"] &&
+			!(int)corrupt_claim_echo["ok"] &&
+			!(int)forged_complete_quiz["unlocked"],
+			sprintf("progress=%O echo=%O quiz=%O",corrupt_claim_progress,
+				corrupt_claim_echo,forged_complete_quiz));
+		check("剧情首领返回服务端可信战斗ID供到达页直接挑战",
+			(string)fog_boss_chapter["target_kind"]=="story_boss" &&
+			(string)fog_boss_chapter["target_name"]=="雾誓守关者" &&
+			(string)fog_boss_chapter["target_combat_name"]==
+				"fog_trial_warden.pike" &&
+			(string)fog_boss_chapter["target_room"]==
+				"/gamelib/d/illusion_s1/fog_oath_camp.pike",
+			sprintf("chapter=%O",fog_boss_chapter));
 		check("未完成八十一章不能越权开启长生十问",
 			(int)locked_quiz["ok"] && !(int)locked_quiz["unlocked"] &&
 			!(int)locked_quiz_start["ok"],
@@ -1063,10 +1182,12 @@ int main()
 		check("破阵傻瓜引导从当前未完成首领开始并直达断星桥",
 			(int)hunter_first_step["ok"] &&
 			(string)hunter_first_step["id"]=="broken_star" &&
+			(string)hunter_first_step["combat_name"]=="star_keeper.pike" &&
 			(string)hunter_first_step["room"]==
 				"/gamelib/d/illusion_s1/star_bridge.pike" &&
 			(int)hunter_first_travel["ok"] &&
-			(string)hunter_first_travel["action"]=="hunt",
+			(string)hunter_first_travel["action"]=="hunt" &&
+			(string)hunter_first_travel["combat_name"]=="star_keeper.pike",
 			sprintf("step=%O travel=%O",hunter_first_step,
 				hunter_first_travel));
 		object battle_room = (object)(ROOT+
@@ -1074,11 +1195,35 @@ int main()
 		child["/tmp/illusion_move_bypass"] = 1;
 		child->move(battle_room);
 		child->m_delete_foruser("/tmp/illusion_move_bypass");
+		object native_star_boss = present("star_keeper.pike",battle_room,
+			0,child);
+		string native_challenge_view = ((object)(ROOT+
+			"/gamelib/cmds/illusion_realm.pike"))->
+			query_room_challenge_view_for_test(child,([
+				"target_kind":"boss",
+				"target_name":"断桥镇星使",
+				"target_combat_name":"star_keeper.pike",
+			]));
+		check("单只房间首领使用零起始序号且第1号代表不存在的第二只",
+			native_star_boss &&
+			!present("star_keeper.pike",battle_room,1,child) &&
+			search(native_challenge_view,
+				":kill star_keeper.pike 0]")!=-1 &&
+			search(native_challenge_view,
+				":kill star_keeper.pike 1]")==-1,
+			sprintf("单只首领若生成 kill id 1，会稳定得到目标不存在: %O",
+				native_challenge_view));
+		int hunter_boss_ids_valid = 1;
 		foreach(({"star_keeper","moon_general","newmoon_lord"}),
 		   string boss_name){
 			object boss = clone(ROOT+
 				"/gamelib/clone/npc/illusion_s1/"+boss_name+".pike");
+			if((string)boss->query_name()!=boss_name+".pike" ||
+			   !boss->id(boss_name+".pike"))
+				hunter_boss_ids_valid = 0;
 			boss->move(battle_room);
+			if(!present(boss_name+".pike",battle_room,0,child))
+				hunter_boss_ids_valid = 0;
 			SEASONALD->record_npc_kill(child,boss,1);
 			destruct(boss);
 		}
@@ -1086,6 +1231,7 @@ int main()
 			child["/plus/illusion_realm/S1"];
 		mapping hunter_done_step = SEASONALD->query_route_step(child);
 		check("破阵路线按真实NPC文件识别三名不同首领",
+			hunter_boss_ids_valid &&
 			mappingp(hunter_progress["route_marks"]) &&
 			sizeof((mapping)hunter_progress["route_marks"])==3 &&
 			(int)hunter_done_step["done"],
@@ -1443,11 +1589,14 @@ int main()
 				vip_wallet_after));
 
 		mapping progress = SEASONALD->query_player_progress(child);
-		check("三路线与八十一章目标在满条件时按顺序可领取",
+		check("赛季累计战绩不会把当前章节直接判定为完成",
 			(int)progress["ok"] &&
 			sizeof((array)progress["chapters"])==81 &&
 			(int)progress["story_event_count"]==25 &&
-			(int)progress["chapters"][0]["ready"] &&
+			!(int)progress["chapters"][0]["ready"] &&
+			(int)progress["kills"]>=750 &&
+			(int)progress["chapters"][0]["chapter_kills_done"]<
+				(int)progress["chapters"][0]["chapter_kills"] &&
 			(string)progress["path"]=="hunter" &&
 			(int)progress["route_mark_count"]==3 &&
 			SEASONALD->query_route_final_ready_for_test(
@@ -1468,10 +1617,45 @@ int main()
 
 		int claims_ok = 1;
 		for(int chapter=1;chapter<=81;chapter++){
+			progress = SEASONALD->query_player_progress(child);
+			mapping chapter_status =
+				(mapping)((array)progress["chapters"])[chapter-1];
+			mapping raw_progress =
+				(mapping)child["/plus/illusion_realm/S1"];
+			raw_progress["chapter_kills"] =
+				(int)chapter_status["chapter_kills"];
+			raw_progress["chapter_boss_kills"] =
+				(int)chapter_status["chapter_boss_kills"];
+			raw_progress["chapter_visit_rooms"] = ([]);
+			progress = SEASONALD->query_player_progress(child);
+			chapter_status =
+				(mapping)((array)progress["chapters"])[chapter-1];
+			if((int)chapter_status["chapter_visits"]>0){
+				string exact_room = (string)chapter_status["target_room"];
+				if((string)chapter_status["target_kind"]!="explore" ||
+				   exact_room=="")
+					claims_ok = 0;
+				else
+					raw_progress["chapter_visit_rooms"] =
+						([exact_room:1]);
+			}
+			progress = SEASONALD->query_player_progress(child);
+			chapter_status =
+				(mapping)((array)progress["chapters"])[chapter-1];
 			mapping claim = SEASONALD->claim_chapter_reward_for_test(
 				child,chapter);
-			if(!(int)claim["ok"] || (int)claim["already"])
+			if(!(int)chapter_status["ready"] || !(int)claim["ok"] ||
+			   (int)claim["already"])
 				claims_ok = 0;
+			if(chapter<81){
+				mapping after_claim = SEASONALD->query_player_progress(child);
+				mapping next_chapter =
+					(mapping)((array)after_claim["chapters"])[chapter];
+				if((int)next_chapter["chapter_kills_done"]!=0 ||
+				   (int)next_chapter["chapter_boss_kills_done"]!=0 ||
+				   (int)next_chapter["chapter_visits_done"]!=0)
+					claims_ok = 0;
+			}
 		}
 		int before_duplicate = count_newmoon_items(child);
 		mapping duplicate_claim = SEASONALD->claim_chapter_reward_for_test(

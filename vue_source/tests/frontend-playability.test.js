@@ -239,6 +239,7 @@ async function main() {
     });
     assert(gameRendered.length > 5000, 'game render must produce a non-trivial page');
     assert(gameRendered.includes('game-header'), 'game render must contain the player header');
+    assert(gameRendered.includes('幻境任务'), 'game quick menu must expose the S1 task entry everywhere');
     assert(gameRendered.includes('player-avatar-shell'), 'game render must contain the avatar action');
     assert(gameRendered.includes('pet-level-aura-4'), 'level-120 pet aura must render');
     assert(gameRendered.includes('pet-rarity-aura-4'), 'pet star/evolution rarity aura must render');
@@ -251,12 +252,17 @@ async function main() {
     assert(gameRendered.includes('新月长生劫第3章插画'), 'early subchapter artwork must keep its chapter-specific accessible description');
     assert(gameRendered.includes('新月长生劫第81章插画'), 'story image must keep a chapter-specific accessible description');
     assert(gameRendered.includes('chapter_009.png'), 'standard image segments must render chapter artwork for cached legacy Vue clients');
-	assert(cssSource.includes('width: min(100%, 34rem, 72svh)'),
+	assert(cssSource.includes('width: min(92%, 30rem, 58svh)'),
 		'story artwork must be constrained by both container width and viewport height');
-	assert(cssSource.includes('width: min(100%, 34rem, 72vh)'),
+	assert(cssSource.includes('width: min(92%, 30rem, 58vh)'),
 		'story artwork must keep a viewport-height fallback for older iOS browsers');
 	assert(cssSource.includes('@supports (height: 1svh)'),
 		'story artwork must keep a safe fallback while adapting phones, tablets and PC windows');
+	assert(cssSource.includes('width: min(88%, 22rem, 52svh)') &&
+		cssSource.includes('width: min(78%, 28rem, 56svh)') &&
+		cssSource.includes('width: min(68%, 30rem, 58svh)') &&
+		cssSource.includes('width: min(78%, 22rem, 46svh)'),
+		'story artwork must shrink independently on phones, tablets, desktops and short landscape screens');
 
     console.log(
         `Vue真实首屏渲染测试通过：${computedNames.length}个computed属性，` +

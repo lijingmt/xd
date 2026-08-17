@@ -368,7 +368,7 @@ string parse_mud_content_to_html(string response, string txd, string userid)
 							   label=="storypic "+(string)story_chapter &&
 							   story_chapter>=1 && story_chapter<=81 &&
 							   action_cmd==sprintf("/xd/images/illusion_s1/story/chapters/chapter_%03d.png",story_chapter)){
-								html += sprintf("<figure style='width:100%%;max-width:544px;margin:12px auto'><img src='%s' alt='新月长生劫第%d章插画' loading='lazy' decoding='async' style='display:block;width:100%%;height:auto;aspect-ratio:1/1;object-fit:cover;border:2px solid #9360d8;border-radius:16px;background:#171125'><figcaption style='text-align:center;margin-top:6px;color:#6f4aa8'>第%d章剧情插画</figcaption></figure>",
+								html += sprintf("<figure style='width:min(88%%,480px,58svh);max-width:100%%;margin:12px auto'><img src='%s' alt='新月长生劫第%d章插画' loading='lazy' decoding='async' style='display:block;width:100%%;height:auto;aspect-ratio:1/1;object-fit:contain;border:2px solid #9360d8;border-radius:16px;background:#171125'><figcaption style='text-align:center;margin-top:6px;color:#6f4aa8'>第%d章剧情插画</figcaption></figure>",
 									action_cmd,story_chapter,story_chapter);
 							}
 							// 新月长生劫旧图集仍保留兼容，旧存量输出可继续显示。
@@ -380,7 +380,7 @@ string parse_mud_content_to_html(string response, string txd, string userid)
 							   search(action_cmd,"..")==-1){
 								int story_column = (story_cell-1)%3;
 								int story_row = (story_cell-1)/3;
-								html += sprintf("<div role='img' aria-label='新月长生劫剧情插画' style=\"width:100%%;max-width:544px;aspect-ratio:1/1;margin:12px auto;background-image:url('%s');background-size:300%% 300%%;background-position:%d%% %d%%;background-repeat:no-repeat;border:2px solid #9360d8;border-radius:16px\"></div>",
+								html += sprintf("<div role='img' aria-label='新月长生劫剧情插画' style=\"width:min(88%%,480px,58svh);max-width:100%%;aspect-ratio:1/1;margin:12px auto;background-image:url('%s');background-size:300%% 300%%;background-position:%d%% %d%%;background-repeat:no-repeat;border:2px solid #9360d8;border-radius:16px\"></div>",
 									action_cmd,story_column*50,story_row*50);
 							}
                             // 图片链接 [miniimg minipicture:/xd/images/xxx.gif]

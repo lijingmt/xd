@@ -3760,7 +3760,7 @@ body {
 /* S1 章节使用通用 imgurl 协议以兼容旧 Vue/JSP，但仍按剧情大图展示。 */
 .mud-inline-image[src*="/illusion_s1/story/chapters/"] {
     display: block;
-    width: min(100%, 34rem, 72vh);
+    width: min(92%, 30rem, 58vh);
     max-width: 100%;
     height: auto;
     max-height: none;
@@ -11746,7 +11746,7 @@ body {
 }
 .illusion-story-card {
 	display: block;
-	width: min(100%, 34rem, 72vh);
+	width: min(92%, 30rem, 58vh);
 	max-width: 100%;
 	margin: 0.75rem auto 1rem;
 }
@@ -11755,8 +11755,43 @@ body {
 @supports (height: 1svh) {
 	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
 	.illusion-story-card {
-		width: min(100%, 34rem, 72svh);
+		width: min(92%, 30rem, 58svh);
 		max-width: 100%;
+	}
+}
+
+@media (max-width: 430px) {
+	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
+	.illusion-story-card {
+		width: min(88%, 22rem, 52svh);
+	}
+}
+
+@media (min-width: 431px) and (max-width: 767px) {
+	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
+	.illusion-story-card {
+		width: min(86%, 26rem, 54svh);
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
+	.illusion-story-card {
+		width: min(78%, 28rem, 56svh);
+	}
+}
+
+@media (min-width: 1024px) {
+	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
+	.illusion-story-card {
+		width: min(68%, 30rem, 58svh);
+	}
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+	.mud-inline-image[src*="/illusion_s1/story/chapters/"],
+	.illusion-story-card {
+		width: min(78%, 22rem, 46svh);
 	}
 }
 

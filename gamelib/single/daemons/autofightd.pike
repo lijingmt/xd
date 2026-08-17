@@ -3084,6 +3084,9 @@ void start_autofight(object me)
 	if(!me)
 		return;
 	initialize_player(me);
+	// 普通持续挂机与“只完成当前幻境狩猎”是两种明确模式。
+	// 从通用入口启动时必须清除旧的限章标记，不能完成一章后误停。
+	me->m_delete_foruser("/tmp/illusion_chapter_autofight");
 	me["/tmp/autofight_last_charge"] = time();
 	userid=normalize_server_autofight_userid((string)me->query_name());
 	if(userid!="")
@@ -3106,6 +3109,7 @@ void stop_autofight(object me)
 	string return_path;
 	if(!me)
 		return;
+	me->m_delete_foruser("/tmp/illusion_chapter_autofight");
 	cancel_server_autofight_tick(me);
 	me["/tmp/autofight_last_charge"] = 0;
 	me["/tmp/autofight_no_target_ticks"] = 0;

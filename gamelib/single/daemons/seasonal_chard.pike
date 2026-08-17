@@ -281,6 +281,7 @@ private int valid_story_events(mapping candidate,string illusion_id)
 		else{
 			string room = (string)event["room"];
 			string monster = (string)event["monster"];
+			string room_source;
 			int event_level = (int)event["level"];
 			if(!intp(event["level"]) ||
 			   event_level!=min(story_level_cap,chapter))
@@ -292,6 +293,9 @@ private int valid_story_events(mapping candidate,string illusion_id)
 			if(!valid_room_path(room) || !has_prefix(room,room_prefix) ||
 			   Stdio.file_size(ROOT+room)<=0 || sizeof(monster)<2 ||
 			   sizeof(monster)>48)
+				return 0;
+			room_source = Stdio.read_file(ROOT+room);
+			if(!room_source || search(room_source,path)==-1)
 				return 0;
 			foreach(path;int index;int one)
 				if(!((one>='a' && one<='z') ||
@@ -1436,6 +1440,9 @@ private mapping player_progress_for_id(object player,string illusion_id,
 	if(!mappingp(progress) && create_if_missing){
 		mapping public_status = query_public_status();
 		int starts_at = (int)public_status["starts_at"];
+		array chapters = (array)illusion_config["chapters"];
+		string first_chapter_id = sizeof(chapters) ?
+			(string)chapters[0]["id"] : "";
 		if(starts_at<=0 || starts_at>time())
 			starts_at = time();
 		progress = ([
@@ -1443,6 +1450,10 @@ private mapping player_progress_for_id(object player,string illusion_id,
 			"team_kills":0,"visited":([]),"path":"","route_marks":([]),
 			"active_days":([]),"story_events":([]),
 			"claims":([]),"season_starts_at":starts_at,
+			"chapter_counter_version":2,
+			"chapter_counter_id":first_chapter_id,
+			"chapter_kills":0,"chapter_boss_kills":0,
+			"chapter_visit_rooms":([]),
 			"ranking_weeks":([]),"ranking_titles":({}),
 			"ranking_reward_claims":([]),"pvp_honor":0,"pvp_wins":0,
 			"ranking_level":0,"ranking_experience_start":-1,
@@ -1651,17 +1662,44 @@ private int save_story_quiz_player(object player)
 	return player->save_with_result();
 }
 
+private int claimed_chapter_count(mapping progress)
+{
+	mapping claims = mappingp(progress["claims"]) ?
+		(mapping)progress["claims"] : ([]);
+	int count;
+	foreach((array)illusion_config["chapters"],mapping chapter){
+		if((int)claims[(string)chapter["id"]]<=0)
+			break;
+		count++;
+	}
+	return count;
+}
+
+private mapping(string:int) chapter_step_requirements(int index);
+private int ensure_current_chapter_counters(object player,mapping progress);
+private mapping(string:string) chapter_exploration_target(int index);
+private mapping(string:int) current_chapter_kill_credit(mapping progress,
+	string npc_path,string room_path);
+private int current_chapter_visit_credit(mapping progress,string room_path);
+
 private int is_illusion_progress_checkpoint(mapping progress,
 	int boss_kill,int route_mark_added,int previous_team_kills,
 	int activity_day_added,int story_event_added)
 {
 	int kills = (int)progress["kills"];
+	int chapter_index = claimed_chapter_count(progress);
 	if(boss_kill || route_mark_added || activity_day_added ||
 	   story_event_added || kills%25==0)
 		return 1;
-	foreach((array)illusion_config["chapters"],mapping chapter)
-		if(kills==(int)chapter["kills"])
+	if(chapter_index<sizeof((array)illusion_config["chapters"])){
+		mapping step = chapter_step_requirements(chapter_index);
+		if(((int)step["kills"]>0 &&
+		    (int)progress["chapter_kills"]==(int)step["kills"]) ||
+		   ((int)step["boss_kills"]>0 &&
+		    (int)progress["chapter_boss_kills"]==
+			(int)step["boss_kills"]))
 			return 1;
+	}
 	if(previous_team_kills<
 	   (int)illusion_config["route_challenges"]["companion_team_kills"] &&
 	   (int)progress["team_kills"]>=
@@ -1679,7 +1717,9 @@ void record_room_visit(object player,object room)
 	mapping progress;
 	mapping old_progress;
 	mapping visited;
+	mapping chapter_visit_rooms;
 	int visit_added;
+	int chapter_visit_added;
 	int activity_day_added;
 	if(!is_active_illusion_character(player) || !room)
 		return;
@@ -1687,15 +1727,25 @@ void record_room_visit(object player,object room)
 	if(!is_illusion_room_path(path))
 		return;
 	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress))
+		return;
 	old_progress = copy_value(progress);
 	activity_day_added = record_story_activity_day(progress,time());
+	chapter_visit_rooms = mappingp(progress["chapter_visit_rooms"]) ?
+		(mapping)progress["chapter_visit_rooms"] : ([]);
+	if(current_chapter_visit_credit(progress,path) &&
+	   !(int)chapter_visit_rooms[path]){
+		chapter_visit_rooms[path] = 1;
+		progress["chapter_visit_rooms"] = chapter_visit_rooms;
+		chapter_visit_added = 1;
+	}
 	visited = mappingp(progress["visited"]) ? progress["visited"] : ([]);
 	if(!(int)visited[path]){
 		visited[path] = 1;
 		progress["visited"] = visited;
 		visit_added = 1;
 	}
-	if(!visit_added && !activity_day_added)
+	if(!visit_added && !chapter_visit_added && !activity_day_added)
 		return;
 	if(visit_added){
 		mapping visit_week = ranking_week_state(progress,time(),1);
@@ -1724,6 +1774,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	mapping marks;
 	object env;
 	string npc_path;
+	string room_path;
 	string npc_prefix;
 	int boss_kill;
 	int route_mark_added;
@@ -1731,28 +1782,52 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	int story_event_added;
 	int checkpoint;
 	int previous_team_kills;
+	mapping task_credit;
+	mapping guide;
+	mapping task_mode;
+	int task_mode_finished;
 	mapping story_event = ([]);
 	string story_message = "";
 	if(!is_active_illusion_character(player) || !npc)
 		return;
 	env = environment(player);
 	npc_path = normalized_destination_path(npc);
+	room_path = env ? normalized_destination_path(env) : "";
 	npc_prefix = "/gamelib/clone/npc/illusion_"+
 		lower_case((string)illusion_config["current_id"])+"/";
 	if(!env || environment(npc)!=env ||
-	   !is_illusion_room_path(normalized_destination_path(env)) ||
+	   !is_illusion_room_path(room_path) ||
 	   !has_prefix(npc_path,npc_prefix) || !has_suffix(npc_path,".pike"))
 		return;
 	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress))
+		return;
+	task_mode = mappingp(player["/tmp/illusion_chapter_autofight"]) ?
+		(mapping)player["/tmp/illusion_chapter_autofight"] : ([]);
+	if(sizeof(task_mode) &&
+	   ((string)task_mode["illusion_id"]!=
+		(string)illusion_config["current_id"] ||
+	    (string)task_mode["chapter_id"]!=
+		(string)progress["chapter_counter_id"])){
+		player->m_delete_foruser("/tmp/illusion_chapter_autofight");
+		task_mode = ([]);
+	}
 	old_progress = copy_value(progress);
+	task_credit = current_chapter_kill_credit(progress,npc_path,room_path);
 	activity_day_added = record_story_activity_day(progress,time());
 	previous_team_kills = (int)progress["team_kills"];
 	boss_kill = (int)npc->_boss>0;
 	progress["kills"] = (int)progress["kills"]+1;
+	if((int)task_credit["kill"])
+		progress["chapter_kills"] =
+			(int)progress["chapter_kills"]+1;
 	if((int)(team_count || 0)>1)
 		progress["team_kills"] = (int)progress["team_kills"]+1;
 	if(boss_kill)
 		progress["boss_kills"] = (int)progress["boss_kills"]+1;
+	if((int)task_credit["boss"])
+		progress["chapter_boss_kills"] =
+			(int)progress["chapter_boss_kills"]+1;
 	mapping kill_week = ranking_week_state(progress,time(),1);
 	kill_week["kills"] = (int)kill_week["kills"]+1;
 	if((int)(team_count || 0)>1)
@@ -1762,6 +1837,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	if(boss_kill){
 		story_event = find_story_event("boss",npc_path,progress);
 		if(sizeof(story_event) &&
+		   (string)story_event["room"]==room_path &&
 		   record_story_event(progress,story_event,time())){
 			story_event_added = 1;
 			story_message = (string)story_event["message"];
@@ -1785,6 +1861,9 @@ void record_npc_kill(object player,object npc,void|int team_count)
 			}
 	}
 	update_ranking_snapshot(player,progress);
+	guide = chapter_progress_guide(player,progress);
+	task_mode_finished = sizeof(task_mode) &&
+		(string)guide["kind"]!="hunt";
 	checkpoint = is_illusion_progress_checkpoint(progress,boss_kill,
 	   route_mark_added,previous_team_kills,activity_day_added,
 	   story_event_added);
@@ -1803,12 +1882,11 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		if(story_message!="")
 			tell_object(player,"§p【剧情推进】§r"+story_message+"\n");
 	}
-	mapping guide = chapter_progress_guide(player,progress);
-	if(checkpoint && (string)guide["kind"]!="hunt" &&
+	if(checkpoint && task_mode_finished &&
 	   functionp(player->query_autofight) &&
 	   (string)player->query_autofight()=="enable"){
 		AUTOFIGHTD->stop_autofight(player);
-		tell_object(player,"§y【章节助手】§r 本轮打怪已经完成，自动挂机已暂停。\n");
+		tell_object(player,"§y【章节狩猎完成】§r 已按你的选择停止本章挂机；普通持续挂机模式不会自动停止。\n");
 	}
 	if((string)guide["message"]!="" &&
 	   ((string)guide["kind"]=="hunt" || checkpoint))
@@ -1975,6 +2053,9 @@ private mapping(string:mixed) discover_story_event_internal(object player,
 	    (string)query_public_status()["phase"]!="active"))
 		return (["ok":0,"message":"当前不能推进幻境故事。"]);
 	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress))
+		return (["ok":0,
+			"message":"当前章节记录不完整，故事残响已安全停止推进。"]);
 	room_path = normalized_destination_path(environment(player));
 	event = find_story_event("echo",room_path,progress);
 	if(!sizeof(event)){
@@ -2031,6 +2112,87 @@ private mapping(string:int) chapter_requirements(int index)
 		"boss_kills":ordinal*10/total,
 		"visits":max(1,ordinal*36/total),
 	]);
+}
+
+private mapping(string:int) chapter_step_requirements(int index)
+{
+	mapping current = chapter_requirements(index);
+	mapping previous = index>0 ? chapter_requirements(index-1) :
+		(["min_level":0,"kills":0,"boss_kills":0,"visits":0]);
+	return ([
+		"min_level":(int)current["min_level"],
+		"kills":max(0,(int)current["kills"]-(int)previous["kills"]),
+		"boss_kills":max(0,(int)current["boss_kills"]-
+			(int)previous["boss_kills"]),
+		"visits":max(0,(int)current["visits"]-(int)previous["visits"]),
+	]);
+}
+
+private int reset_current_chapter_counters(mapping progress)
+{
+	array chapters = (array)illusion_config["chapters"];
+	int index = claimed_chapter_count(progress);
+	string expected_id = index<sizeof(chapters) ?
+		(string)chapters[index]["id"] : "complete";
+	mapping step = index<sizeof(chapters) ?
+		chapter_step_requirements(index) :
+		(["kills":0,"boss_kills":0,"visits":0]);
+	mapping target = index<sizeof(chapters) ?
+		chapter_exploration_target(index) : ([]);
+	mapping visit_rooms = mappingp(progress["chapter_visit_rooms"]) ?
+		(mapping)progress["chapter_visit_rooms"] : ([]);
+	int visits_valid = sizeof(visit_rooms)<=(int)step["visits"];
+	foreach(indices(visit_rooms),string room_path)
+		if(!sizeof(target) || room_path!=(string)target["room"] ||
+		   (int)visit_rooms[room_path]!=1)
+			visits_valid = 0;
+	int valid = (int)progress["chapter_counter_version"]==2 &&
+		(string)progress["chapter_counter_id"]==expected_id &&
+		intp(progress["chapter_kills"]) &&
+		(int)progress["chapter_kills"]>=0 &&
+		(int)progress["chapter_kills"]<=(int)step["kills"] &&
+		intp(progress["chapter_boss_kills"]) &&
+		(int)progress["chapter_boss_kills"]>=0 &&
+		(int)progress["chapter_boss_kills"]<=
+			(int)step["boss_kills"] &&
+		mappingp(progress["chapter_visit_rooms"]) && visits_valid;
+	if(valid)
+		return 0;
+	progress["chapter_counter_version"] = 2;
+	progress["chapter_counter_id"] = expected_id;
+	progress["chapter_kills"] = 0;
+	progress["chapter_boss_kills"] = 0;
+	progress["chapter_visit_rooms"] = ([]);
+	return 1;
+}
+
+private int ensure_current_chapter_counters(object player,mapping progress)
+{
+	mapping old_progress;
+	if(!player || !mappingp(progress))
+		return 0;
+	if(mappingp(progress["claims"]) &&
+	   sizeof((mapping)progress["claims"])!=
+		claimed_chapter_count(progress)){
+		werror("[ILLUSION_REALM] 非连续章节领取记录已失败关闭: %s\n",
+			(string)player->query_name());
+		return 0;
+	}
+	old_progress = copy_value(progress);
+	if(!reset_current_chapter_counters(progress))
+		return 1;
+	if(player->save_with_result()){
+		Stdio.append_file(ILLUSION_LOG,sprintf(
+			"%d|chapter_counter_start|illusion=%s|user=%s|chapter=%s|kills=%d|bosses=%d\n",
+			time(),(string)illusion_config["current_id"],
+			(string)player->query_name(),
+			(string)progress["chapter_counter_id"],
+			(int)progress["kills"],(int)progress["boss_kills"]));
+		return 1;
+	}
+	player[ILLUSION_PROGRESS_ROOT+"/"+
+		(string)illusion_config["current_id"]] = old_progress;
+	return 0;
 }
 
 /**
@@ -2097,21 +2259,57 @@ private mapping(string:mixed) story_hunt_target_for_level(int level)
 {
 	if(level<10)
 		return (["kind":"hunt","name":"逐光月灵","location":"月露原",
-			"room":"/gamelib/d/illusion_s1/moon_dew_field.pike"]);
+			"room":"/gamelib/d/illusion_s1/moon_dew_field.pike",
+			"rooms":({
+				"/gamelib/d/illusion_s1/moon_dew_field.pike",
+				"/gamelib/d/illusion_s1/silver_reed_bank.pike",
+				"/gamelib/d/illusion_s1/starlight_slope.pike",
+			}),
+			"path":"/gamelib/clone/npc/illusion_s1/moon_wisp.pike"]);
 	if(level<20)
 		return (["kind":"hunt","name":"雾纹月狼","location":"雾竹坳",
-			"room":"/gamelib/d/illusion_s1/mist_bamboo_glen.pike"]);
+			"room":"/gamelib/d/illusion_s1/mist_bamboo_glen.pike",
+			"rooms":({
+				"/gamelib/d/illusion_s1/mist_bamboo_glen.pike",
+				"/gamelib/d/illusion_s1/cloud_pine_hollow.pike",
+				"/gamelib/d/illusion_s1/moonshadow_wood.pike",
+			}),
+			"path":"/gamelib/clone/npc/illusion_s1/fog_wolf.pike"]);
 	if(level<30)
 		return (["kind":"hunt","name":"镜丝月蛛","location":"镜沙洲",
-			"room":"/gamelib/d/illusion_s1/mirror_sandbar.pike"]);
+			"room":"/gamelib/d/illusion_s1/mirror_sandbar.pike",
+			"rooms":({
+				"/gamelib/d/illusion_s1/mirror_sandbar.pike",
+				"/gamelib/d/illusion_s1/glasswater_bank.pike",
+				"/gamelib/d/illusion_s1/moonwave_shoal.pike",
+			}),
+			"path":"/gamelib/clone/npc/illusion_s1/mirror_spider.pike"]);
 	if(level<40)
 		return (["kind":"hunt","name":"折星石卫","location":"星仪石林",
-			"room":"/gamelib/d/illusion_s1/astral_stonewood.pike"]);
+			"room":"/gamelib/d/illusion_s1/astral_stonewood.pike",
+			"rooms":({
+				"/gamelib/d/illusion_s1/broken_star_court.pike",
+				"/gamelib/d/illusion_s1/astral_stonewood.pike",
+				"/gamelib/d/illusion_s1/observatory_outfield.pike",
+			}),
+			"path":"/gamelib/clone/npc/illusion_s1/ruin_guard.pike"]);
 	if(level<50)
 		return (["kind":"hunt","name":"古城星魇","location":"古城广场",
-			"room":"/gamelib/d/illusion_s1/old_city_square.pike"]);
+			"room":"/gamelib/d/illusion_s1/old_city_square.pike",
+			"rooms":({
+				"/gamelib/d/illusion_s1/echo_battlement.pike",
+				"/gamelib/d/illusion_s1/old_city_square.pike",
+				"/gamelib/d/illusion_s1/stardust_lane.pike",
+			}),
+			"path":"/gamelib/clone/npc/illusion_s1/star_wraith.pike"]);
 	return (["kind":"hunt","name":"渊花异兽","location":"深月谷",
-		"room":"/gamelib/d/illusion_s1/deepmoon_valley.pike"]);
+		"room":"/gamelib/d/illusion_s1/deepmoon_valley.pike",
+		"rooms":({
+			"/gamelib/d/illusion_s1/abyss_flower_sea.pike",
+			"/gamelib/d/illusion_s1/deepmoon_valley.pike",
+			"/gamelib/d/illusion_s1/starfall_garden.pike",
+		}),
+		"path":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike"]);
 }
 
 // 三十六处探索门槛必须给玩家一个真正尚未到过的下一站，而不是
@@ -2158,6 +2356,94 @@ private array(mapping(string:string)) story_exploration_targets()
 	});
 }
 
+private mapping(string:string) chapter_exploration_target(int index)
+{
+	mapping step = chapter_step_requirements(index);
+	array(mapping(string:string)) targets = story_exploration_targets();
+	int ordinal;
+	if((int)step["visits"]<=0 || !sizeof(targets))
+		return ([]);
+	ordinal = (int)chapter_requirements(index)["visits"]-1;
+	if(ordinal<0 || ordinal>=sizeof(targets))
+		return ([]);
+	return targets[ordinal];
+}
+
+private mapping(string:int) current_chapter_kill_credit(mapping progress,
+	string npc_path,string room_path)
+{
+	array chapters = (array)illusion_config["chapters"];
+	int index = claimed_chapter_count(progress);
+	mapping credit = (["kill":0,"boss":0]);
+	mapping chapter;
+	mapping step;
+	mapping events;
+	mapping story_event = ([]);
+	mapping hunt;
+	if(index<0 || index>=sizeof(chapters))
+		return credit;
+	chapter = (mapping)chapters[index];
+	step = chapter_step_requirements(index);
+	events = mappingp(progress["story_events"]) ?
+		(mapping)progress["story_events"] : ([]);
+	if((string)(chapter["story_event"] || "")!="" &&
+	   !(int)events[(string)chapter["story_event"]])
+		foreach((array)illusion_config["story_events"],mapping candidate)
+			if((string)candidate["id"]==(string)chapter["story_event"]){
+				story_event = candidate;
+				break;
+			}
+	// 关键剧情是当前章第一道门。未完成时，其他地图的挂机或首领
+	// 都不能预存本章战斗进度。
+	if(sizeof(story_event)){
+		if((string)story_event["kind"]=="boss" &&
+		   npc_path==(string)story_event["path"] &&
+		   room_path==(string)story_event["room"] &&
+		   (int)step["boss_kills"]>0)
+			credit["boss"] = 1;
+		return credit;
+	}
+	hunt = story_hunt_target_for_level((int)step["min_level"]);
+	if((int)progress["chapter_kills"]<(int)step["kills"]){
+		if(npc_path==(string)hunt["path"] &&
+		   arrayp(hunt["rooms"]) &&
+		   search((array)hunt["rooms"],room_path)!=-1)
+			credit["kill"] = 1;
+		return credit;
+	}
+	if((int)progress["chapter_boss_kills"]<(int)step["boss_kills"] &&
+	   npc_path=="/gamelib/clone/npc/illusion_s1/star_keeper.pike" &&
+	   room_path=="/gamelib/d/illusion_s1/star_bridge.pike")
+		credit["boss"] = 1;
+	return credit;
+}
+
+private int current_chapter_visit_credit(mapping progress,string room_path)
+{
+	array chapters = (array)illusion_config["chapters"];
+	int index = claimed_chapter_count(progress);
+	mapping chapter;
+	mapping step;
+	mapping events;
+	mapping target;
+	if(index<0 || index>=sizeof(chapters))
+		return 0;
+	chapter = (mapping)chapters[index];
+	step = chapter_step_requirements(index);
+	if((int)step["visits"]<=0 ||
+	   (int)progress["chapter_kills"]<(int)step["kills"] ||
+	   (int)progress["chapter_boss_kills"]<(int)step["boss_kills"])
+		return 0;
+	if((string)(chapter["story_event"] || "")!=""){
+		events = mappingp(progress["story_events"]) ?
+			(mapping)progress["story_events"] : ([]);
+		if(!(int)events[(string)chapter["story_event"]])
+			return 0;
+	}
+	target = chapter_exploration_target(index);
+	return sizeof(target) && room_path==(string)target["room"];
+}
+
 private string story_event_target_room(mapping event)
 {
 	if((string)(event["kind"] || "")=="echo")
@@ -2165,9 +2451,19 @@ private string story_event_target_room(mapping event)
 	return (string)(event["room"] || "");
 }
 
+private string npc_command_name_from_path(string path)
+{
+	array(string) path_parts = path/"/";
+	if(!sizeof(path_parts))
+		return "";
+	// object_name() strips only a clone suffix. Historical NPC ids therefore
+	// keep the .pike suffix from basename(file_name(ob)).
+	return path_parts[-1];
+}
+
 private mapping(string:mixed) chapter_next_target(mapping progress,
 	mapping chapter,mapping requirements,mapping story_definition,
-	int story_ready,int player_level)
+	int story_ready,int player_level,int chapter_index)
 {
 	mapping target;
 	if(sizeof(story_definition) && !story_ready){
@@ -2180,6 +2476,9 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 				(string)story_definition["title"],
 			"location":(string)story_definition["location"],
 			"room":event_room,
+			"combat_name":(string)story_definition["kind"]=="boss" ?
+				npc_command_name_from_path(
+					(string)story_definition["path"]) : "",
 		]);
 		return target;
 	}
@@ -2188,16 +2487,15 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 		return story_hunt_target_for_level((int)requirements["min_level"]);
 	if((int)progress["boss_kills"]<(int)requirements["boss_kills"])
 		return (["kind":"boss","name":"断桥镇星使","location":"断星桥",
-			"room":"/gamelib/d/illusion_s1/star_bridge.pike"]);
+			"room":"/gamelib/d/illusion_s1/star_bridge.pike",
+			"combat_name":"star_keeper.pike"]);
 	if(progress_visit_count(progress)<(int)requirements["visits"]){
-		mapping visited = mappingp(progress["visited"]) ?
-			(mapping)progress["visited"] : ([]);
-		foreach(story_exploration_targets(),mapping candidate)
-			if(!(int)visited[(string)candidate["room"]])
-				return (["kind":"explore","name":"探索"+
-					(string)candidate["location"],
-					"location":(string)candidate["location"],
-					"room":(string)candidate["room"]]);
+		mapping candidate = chapter_exploration_target(chapter_index);
+		if(sizeof(candidate))
+			return (["kind":"explore","name":"探索"+
+				(string)candidate["location"],
+				"location":(string)candidate["location"],
+				"room":(string)candidate["room"]]);
 	}
 	if((int)chapter["path_required"] && (string)progress["path"]=="")
 		return (["kind":"choice","name":"完成三途择印",
@@ -2222,11 +2520,26 @@ private mapping chapter_status(object player,mapping progress,
 {
 	mapping claims = mappingp(progress["claims"]) ? progress["claims"] : ([]);
 	mapping requirements = chapter_requirements(index);
-	mapping previous_requirements = index>0 ? chapter_requirements(index-1) :
-		(["min_level":0,"kills":0,"boss_kills":0,"visits":0]);
+	mapping step_requirements = chapter_step_requirements(index);
 	mapping story_definition = ([]);
 	mapping hunt_target;
 	mapping target;
+	mapping task_progress = copy_value(progress);
+	mapping chapter_visit_rooms = mappingp(progress["chapter_visit_rooms"]) ?
+		(mapping)progress["chapter_visit_rooms"] : ([]);
+	int current_index = claimed_chapter_count(progress);
+	int is_current = index==current_index;
+	int claimed = (int)claims[(string)chapter["id"]]>0;
+	int chapter_kills_done = claimed ? (int)step_requirements["kills"] :
+		(is_current ? min((int)progress["chapter_kills"],
+			(int)step_requirements["kills"]) : 0);
+	int chapter_boss_kills_done = claimed ?
+		(int)step_requirements["boss_kills"] :
+		(is_current ? min((int)progress["chapter_boss_kills"],
+			(int)step_requirements["boss_kills"]) : 0);
+	int chapter_visits_done = claimed ? (int)step_requirements["visits"] :
+		(is_current ? min(sizeof(chapter_visit_rooms),
+			(int)step_requirements["visits"]) : 0);
 	int previous_claimed = index==0 ||
 		(int)claims[(string)((array)illusion_config["chapters"])[index-1]["id"]];
 	int story_ready = chapter_story_event_ready(progress,chapter);
@@ -2237,19 +2550,22 @@ private mapping chapter_status(object player,mapping progress,
 				story_definition = candidate;
 				break;
 			}
-	int base_ready =
+	task_progress["kills"] = chapter_kills_done;
+	task_progress["boss_kills"] = chapter_boss_kills_done;
+	task_progress["visited"] = chapter_visit_rooms;
+	int base_ready = is_current &&
 		(int)player->query_level()>=(int)requirements["min_level"] &&
-		(int)progress["kills"]>=(int)requirements["kills"] &&
-		(int)progress["boss_kills"]>=(int)requirements["boss_kills"] &&
-		progress_visit_count(progress)>=(int)requirements["visits"] &&
+		chapter_kills_done>=(int)step_requirements["kills"] &&
+		chapter_boss_kills_done>=(int)step_requirements["boss_kills"] &&
+		chapter_visits_done>=(int)step_requirements["visits"] &&
 		story_ready;
 	if((int)chapter["path_required"] && (string)progress["path"]=="")
 		base_ready = 0;
 	if((int)chapter["route_final_required"] &&
 	   !route_final_ready(progress))
 		base_ready = 0;
-	target = chapter_next_target(progress,chapter,requirements,
-		story_definition,story_ready,(int)player->query_level());
+	target = chapter_next_target(task_progress,chapter,step_requirements,
+		story_definition,story_ready,(int)player->query_level(),index);
 	hunt_target = story_hunt_target_for_level((int)requirements["min_level"]);
 	return ([
 		"id":(string)chapter["id"],
@@ -2267,24 +2583,12 @@ private mapping chapter_status(object player,mapping progress,
 		"kills":(int)requirements["kills"],
 		"boss_kills":(int)requirements["boss_kills"],
 		"visits":(int)requirements["visits"],
-		"chapter_kills":max(0,(int)requirements["kills"]-
-			(int)previous_requirements["kills"]),
-		"chapter_kills_done":min(max(0,(int)progress["kills"]-
-			(int)previous_requirements["kills"]),
-			max(0,(int)requirements["kills"]-
-				(int)previous_requirements["kills"])),
-		"chapter_boss_kills":max(0,(int)requirements["boss_kills"]-
-			(int)previous_requirements["boss_kills"]),
-		"chapter_boss_kills_done":min(max(0,(int)progress["boss_kills"]-
-			(int)previous_requirements["boss_kills"]),
-			max(0,(int)requirements["boss_kills"]-
-				(int)previous_requirements["boss_kills"])),
-		"chapter_visits":max(0,(int)requirements["visits"]-
-			(int)previous_requirements["visits"]),
-		"chapter_visits_done":min(max(0,progress_visit_count(progress)-
-			(int)previous_requirements["visits"]),
-			max(0,(int)requirements["visits"]-
-				(int)previous_requirements["visits"])),
+		"chapter_kills":(int)step_requirements["kills"],
+		"chapter_kills_done":chapter_kills_done,
+		"chapter_boss_kills":(int)step_requirements["boss_kills"],
+		"chapter_boss_kills_done":chapter_boss_kills_done,
+		"chapter_visits":(int)step_requirements["visits"],
+		"chapter_visits_done":chapter_visits_done,
 		"hunt_name":(string)hunt_target["name"],
 		"hunt_location":(string)hunt_target["location"],
 		"hunt_room":(string)hunt_target["room"],
@@ -2303,6 +2607,7 @@ private mapping chapter_status(object player,mapping progress,
 		"target_name":(string)target["name"],
 		"target_location":(string)target["location"],
 		"target_room":(string)target["room"],
+		"target_combat_name":(string)(target["combat_name"] || ""),
 		"reward_count":(int)chapter["reward_count"],
 		"claimed":(int)claims[(string)chapter["id"]],
 		"ready":base_ready && previous_claimed,
@@ -2315,7 +2620,7 @@ private mapping(string:mixed) chapter_progress_guide(object player,
 	mapping claims = mappingp(progress["claims"]) ?
 		(mapping)progress["claims"] : ([]);
 	array chapters = (array)illusion_config["chapters"];
-	int index = sizeof(claims);
+	int index = claimed_chapter_count(progress);
 	mapping chapter;
 	string kind;
 	if(index<0 || index>=sizeof(chapters))
@@ -2343,10 +2648,9 @@ private int story_all_chapters_claimed(mapping progress)
 {
 	mapping claims = mappingp(progress["claims"]) ?
 		(mapping)progress["claims"] : ([]);
-	foreach((array)illusion_config["chapters"],mapping chapter)
-		if((int)claims[(string)chapter["id"]]<=0)
-			return 0;
-	return sizeof((array)illusion_config["chapters"])==81;
+	array chapters = (array)illusion_config["chapters"];
+	return sizeof(chapters)==81 && sizeof(claims)==sizeof(chapters) &&
+		claimed_chapter_count(progress)==sizeof(chapters);
 }
 
 /** 分数奖励均为展示称号，不改变战斗或经济数值。 */
@@ -2624,6 +2928,8 @@ mapping(string:mixed) query_player_progress(object player)
 		return (["ok":0,"message":"当前人物不是"+
 			(string)illusion_config["current_id"]+"幻境人物。"]) ;
 	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress))
+		return (["ok":0,"message":"当前章节独立计数初始化失败，请稍后重试。"]) ;
 	quiz_view = story_quiz_public_view(progress);
 	foreach((array)illusion_config["chapters"];int index;mapping chapter)
 		chapter_rows += ({chapter_status(player,progress,chapter,index)});
@@ -2638,8 +2944,7 @@ mapping(string:mixed) query_player_progress(object player)
 		"active_days":story_active_day_count(progress),
 		"story_event_count":story_event_count(progress),
 		"chapter_total":sizeof((array)illusion_config["chapters"]),
-		"chapter_claimed":mappingp(progress["claims"]) ?
-			sizeof((mapping)progress["claims"]) : 0,
+		"chapter_claimed":claimed_chapter_count(progress),
 		"story_title":(string)illusion_config["story_title"],
 		"story_premise":(string)illusion_config["story_premise"],
 		"quiz_unlocked":(int)quiz_view["unlocked"],
@@ -2658,6 +2963,61 @@ mapping(string:mixed) query_player_progress(object player)
 			copy_value((array)progress["ranking_titles"]) : ({}),
 		"chapters":chapter_rows,
 	]);
+}
+
+private mapping(string:mixed) start_chapter_hunt_autofight_internal(
+	object player,int test_bypass_phase)
+{
+	mapping progress;
+	mapping chapter;
+	array chapters;
+	int chapter_number;
+	string reason;
+	string current_room;
+	if(!player || !is_active_illusion_character(player) ||
+	   (!test_bypass_phase &&
+	    (string)query_public_status()["phase"]!="active"))
+		return (["ok":0,"message":"当前不能启动幻境章节挂机。"]) ;
+	progress = query_player_progress(player);
+	if(!(int)progress["ok"] || !arrayp(progress["chapters"]))
+		return (["ok":0,"message":"当前章节进度暂不可验证。"]) ;
+	chapters = (array)progress["chapters"];
+	chapter_number = (int)progress["chapter_claimed"]+1;
+	if(chapter_number<1 || chapter_number>sizeof(chapters))
+		return (["ok":0,"message":"八十一章已经全部完成。"]) ;
+	chapter = (mapping)chapters[chapter_number-1];
+	if((string)chapter["target_kind"]!="hunt")
+		return (["ok":0,"message":"当前步骤不是狩猎小怪，未启动挂机。"]) ;
+	current_room = normalized_destination_path(environment(player));
+	if(current_room!=(string)chapter["target_room"])
+		return (["ok":0,"message":"请先点击“下一步”到达本章狩猎地点。"]) ;
+	reason = AUTOFIGHTD->query_start_block_reason(player);
+	if(reason!=""){
+		AUTOFIGHTD->stop_autofight(player);
+		return (["ok":0,"message":"无法启动本章挂机："+reason]);
+	}
+	AUTOFIGHTD->start_autofight(player);
+	player["/tmp/illusion_chapter_autofight"] = ([
+		"illusion_id":(string)illusion_config["current_id"],
+		"chapter_id":(string)chapter["id"],
+		"target_name":(string)chapter["target_name"],
+		"started_at":time(),
+	]);
+	return (["ok":1,"message":"已启动“挂机至本章狩猎完成”：只计算"+
+		(string)chapter["target_name"]+"，数量达标后自动停止；不会改变普通持续挂机设置。",
+		"chapter_id":(string)chapter["id"]]);
+}
+
+mapping(string:mixed) start_chapter_hunt_autofight(object player)
+{
+	return start_chapter_hunt_autofight_internal(player,0);
+}
+
+mapping(string:mixed) start_chapter_hunt_autofight_for_test(object player)
+{
+	if(!is_test_illusion_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]) ;
+	return start_chapter_hunt_autofight_internal(player,1);
 }
 
 private mapping(string:mixed) claim_chapter_reward_internal(object player,
@@ -2687,6 +3047,8 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 	   chapter_number>sizeof((array)illusion_config["chapters"]))
 		return (["ok":0,"message":"章节编号无效。"]) ;
 	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress))
+		return (["ok":0,"message":"当前章节独立计数初始化失败，请稍后重试。"]) ;
 	old_progress = copy_value(progress);
 	old_level = (int)player->query_level();
 	old_exp = (int)player->exp;
@@ -2730,6 +3092,7 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 	if(!mappingp(progress["claims"]))
 		progress["claims"] = ([]);
 	progress["claims"][(string)chapter["id"]] = time();
+	reset_current_chapter_counters(progress);
 	mapping claim_week = ranking_week_state(progress,time(),1);
 	claim_week["chapter_claims"] = (int)claim_week["chapter_claims"]+1;
 	claim_week["set_parts"] = min(10,(int)claim_week["set_parts"]+
@@ -2837,6 +3200,10 @@ private string ranking_progress_validation_error(mapping progress)
 		   (!intp(progress[field]) || (int)progress[field]<0 ||
 		    (int)progress[field]>2000000000))
 			return "field:"+field;
+	if(has_index(progress,"claims_count") &&
+	   (int)progress["claims_count"]>
+	   sizeof((array)illusion_config["chapters"]))
+		return "field:claims_count_range";
 	if(has_index(progress,"ranking_experience_start") &&
 	   (!intp(progress["ranking_experience_start"]) ||
 	    (int)progress["ranking_experience_start"] < -1 ||
@@ -2906,8 +3273,9 @@ private mapping compact_ranking_progress(mapping progress)
 		"boss_kills":compact_ranking_int(progress,"boss_kills",0),
 		"team_kills":compact_ranking_int(progress,"team_kills",0),
 		"visited_count":progress_visit_count(progress),
-		"claims_count":mappingp(progress["claims"]) ?
-			sizeof((mapping)progress["claims"]) : 0,
+		// 只有从第一章开始连续领取的章节才是真实进度；未知键和越章键
+		// 不能进入轻量快照并抬高排行榜分数。
+		"claims_count":claimed_chapter_count(progress),
 		"route_marks_count":mappingp(progress["route_marks"]) ?
 			sizeof((mapping)progress["route_marks"]) : 0,
 		"active_days_count":story_active_day_count(progress),
@@ -3083,6 +3451,10 @@ private mapping(string:mixed) ranking_score_for_profile(string board,
 	   !ranking_names[board] ||
 	   !valid_ranking_period(period))
 		return (["eligible":0]);
+	if(mappingp(progress["claims"]) &&
+	   sizeof((mapping)progress["claims"])!=
+	   claimed_chapter_count(progress))
+		return (["eligible":0]);
 	if(period!="overall"){
 		sscanf(period,"week:%d",week_number);
 		mapping weeks = mappingp(progress["ranking_weeks"]) ?
@@ -3097,7 +3469,7 @@ private mapping(string:mixed) ranking_score_for_profile(string board,
 			score = (has_index(progress,"claims_count") ?
 				(int)progress["claims_count"] :
 				(mappingp(progress["claims"]) ?
-				sizeof((mapping)progress["claims"]) : 0))*10000+
+					claimed_chapter_count(progress) : 0))*10000+
 				(has_index(progress,"route_marks_count") ?
 				(int)progress["route_marks_count"] :
 				(mappingp(progress["route_marks"]) ?
@@ -4033,6 +4405,11 @@ void prepare_new_character(object player)
 	   (string)realm["illusion_id"]!=(string)illusion_config["current_id"])
 		return;
 	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress)){
+		werror("[ILLUSION_REALM] 当前章节独立计数初始化失败: %s\n",
+			(string)player->query_name());
+		return;
+	}
 	old_progress = copy_value(progress);
 	needs_initial_snapshot = !has_index(progress,"ranking_experience_start") ||
 		(int)progress["ranking_experience_start"]<0;
@@ -4090,13 +4467,13 @@ private mapping(string:mixed) current_route_step(mapping progress)
 		targets = ({
 			(["id":"broken_star","name":"击败断桥镇星使",
 				"location":"断星桥","room":"/gamelib/d/illusion_s1/star_bridge.pike",
-				"action":"hunt"]),
+				"action":"hunt","combat_name":"star_keeper.pike"]),
 			(["id":"moon_guard","name":"击败月庭巡将",
 				"location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike",
-				"action":"hunt"]),
+				"action":"hunt","combat_name":"moon_general.pike"]),
 			(["id":"newmoon_lord","name":"击败S1归真月主",
 				"location":"新月祭坛","room":"/gamelib/d/illusion_s1/newmoon_altar.pike",
-				"action":"hunt"]),
+				"action":"hunt","combat_name":"newmoon_lord.pike"]),
 		});
 	else if(path=="companion"){
 		if((int)progress["team_kills"]<route_target(path))

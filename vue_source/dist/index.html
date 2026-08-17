@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786911929462">
-    <link rel="stylesheet" href="css/app.css?v=v1786911929462">
-    <link rel="stylesheet" href="css/realm.css?v=v1786911929462">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786928860806">
+    <link rel="stylesheet" href="css/app.css?v=v1786928860806">
+    <link rel="stylesheet" href="css/realm.css?v=v1786928860806">
 </head>
 <body>
     <div id="app">
@@ -1922,6 +1922,7 @@
                         </button>
                         <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
                         <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('illusion_realm')"><span>🌙</span>幻境任务</button>
                         <button class="quick-tool-btn"
                                 :class="{ active: playerStats?.timed_event?.active }"
                                 @click="sendQuickCommand('timed_event')">
@@ -1995,19 +1996,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786911929462"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786911929462"></script>
-    <script src="vendor/howler.core.min.js?v=v1786911929462"></script>
-    <script src="vendor/driver.iife.js?v=v1786911929462"></script>
-    <script src="../includes/game-number-format.js?v=v1786911929462" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786928860806"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786928860806"></script>
+    <script src="vendor/howler.core.min.js?v=v1786928860806"></script>
+    <script src="vendor/driver.iife.js?v=v1786928860806"></script>
+    <script src="../includes/game-number-format.js?v=v1786928860806" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786911929462';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786928860806';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786911929462"></script>
+    <script src="js/app.js?v=v1786928860806"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786911929462"></script>
+    <script src="../includes/translate.js?v=v1786928860806"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

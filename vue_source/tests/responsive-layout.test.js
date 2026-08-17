@@ -118,6 +118,18 @@ for (const invariant of [
   assert(responsiveCss.includes(invariant), `missing responsive invariant: ${invariant}`);
 }
 
+for (const storyInvariant of [
+  'width: min(92%, 30rem, 58svh)',
+  'width: min(88%, 22rem, 52svh)',
+  'width: min(86%, 26rem, 54svh)',
+  'width: min(78%, 28rem, 56svh)',
+  'width: min(68%, 30rem, 58svh)',
+  'width: min(78%, 22rem, 46svh)'
+]) {
+  assert(responsiveCss.includes(storyInvariant),
+    `missing responsive S1 story artwork invariant: ${storyInvariant}`);
+}
+
 const coreResponsiveCss = responsiveCss.slice(
   0,
   responsiveCss.indexOf('Viewport tier 1/6:')

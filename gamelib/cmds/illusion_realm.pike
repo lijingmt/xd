@@ -21,7 +21,7 @@ private string chapter_next_label(mapping chapter)
 	if(kind=="route")
 		return "查看命途终章指引";
 	if(location!="")
-		return "前往"+location+"·"+name;
+		return "一键前往"+location+"·"+name;
 	return name!="" ? name : "继续本章";
 }
 
@@ -29,6 +29,128 @@ private string chapter_next_link(mapping chapter)
 {
 	return "[▶ 下一步："+chapter_next_label(chapter)+
 		":illusion_realm next]\n";
+}
+
+private string boss_challenge_link(mapping target)
+{
+	string kind = (string)(target["target_kind"] || target["action"] || "");
+	string display_name = (string)(target["target_name"] ||
+		target["name"] || "任务首领");
+	string scope = has_index(target,"target_kind") ? "chapter" : "route";
+	if(search(({"boss","story_boss","hunt"}),kind)==-1 ||
+	   (string)(target["target_combat_name"] ||
+		target["combat_name"] || "")=="")
+		return "";
+	// 不从配置直接拼 kill。先在玩家当前房间枚举真实 NPC，第二步再用
+	// 该对象的实际 id 与零起始序号挑战，避免单只首领被误写成第 2 只。
+	return "[⚔ 查找并挑战"+display_name+":illusion_realm challenge "+
+		scope+"]\n";
+}
+
+private mapping current_challenge_target(object me,string scope)
+{
+	mapping progress;
+	mapping target;
+	array chapters;
+	int chapter_number;
+	string kind;
+	if(scope=="route"){
+		target = SEASONALD->query_route_step(me);
+		if(!(int)target["ok"] || (int)target["done"] ||
+		   (string)target["action"]!="hunt")
+			return (["ok":0,
+				"message":"当前破阵终章没有可挑战的首领。"]);
+		return target+(["ok":1,"target_kind":"route_boss",
+			"target_name":(string)target["name"],
+			"target_combat_name":(string)target["combat_name"]]);
+	}
+	progress = SEASONALD->query_player_progress(me);
+	if(!(int)progress["ok"])
+		return (["ok":0,"message":(string)progress["message"]]);
+	chapters = (array)progress["chapters"];
+	chapter_number = (int)progress["chapter_claimed"]+1;
+	if(chapter_number<1 || chapter_number>sizeof(chapters))
+		return (["ok":0,"message":"八十一章已经全部完成。"]);
+	target = (mapping)chapters[chapter_number-1];
+	kind = (string)target["target_kind"];
+	if(search(({"boss","story_boss"}),kind)==-1)
+		return (["ok":0,"message":"当前章节目标不是首领战。"]);
+	return target+(["ok":1]);
+}
+
+private int safe_combat_id(string value)
+{
+	return value!="" && search(value," ")==-1 &&
+		search(value,"\t")==-1 && search(value,"\n")==-1 &&
+		search(value,"]")==-1 && search(value,":")==-1;
+}
+
+private int npc_matches_challenge(object npc,mapping target)
+{
+	string expected_id = (string)(target["target_combat_name"] ||
+		target["combat_name"] || "");
+	string expected_name = (string)(target["target_name"] ||
+		target["name"] || "");
+	if(expected_id!="" && functionp(npc->id) && npc->id(expected_id))
+		return 1;
+	return expected_name!="" && functionp(npc->query_name_cn) &&
+		(string)npc->query_name_cn()==expected_name;
+}
+
+private string room_challenge_view(object me,mapping target)
+{
+	object room = environment(me);
+	mapping(string:int) name_count = ([]);
+	string listed = "";
+	string actions = "";
+	int npc_count;
+	int match_count;
+	if(!room)
+		return "你处于虚空中，无法查找任务首领。\n"+
+			"[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
+	foreach(all_inventory(room,me),object npc){
+		string combat_id;
+		string display_name;
+		int count;
+		int matched;
+		if(!npc || !npc->is("npc") || !functionp(npc->query_name))
+			continue;
+		combat_id = (string)npc->query_name();
+		if(!safe_combat_id(combat_id))
+			continue;
+		count = (int)name_count[combat_id];
+		name_count[combat_id] = count+1;
+		display_name = functionp(npc->query_name_cn) ?
+			(string)npc->query_name_cn() : combat_id;
+		matched = npc_matches_challenge(npc,target);
+		npc_count++;
+		listed += (matched ? "§y【任务首领】§r " : "· ")+
+			display_name+"\n";
+		if(matched){
+			match_count++;
+			actions += "[⚔ 挑战"+display_name+":kill "+combat_id+" "+
+				(string)count+"]\n";
+		}
+	}
+	string s = "【当前房间 NPC】\n";
+	s += npc_count ? listed : "当前房间没有 NPC。\n";
+	if(match_count)
+		s += "\n已从房间真实对象确认任务首领；请选择挑战：\n"+
+			actions;
+	else
+		s += "\n没有发现当前任务首领。它可能刚被其他玩家击败，"+
+			"请等待刷新后重查；本次不会发起错误攻击。\n"+
+			"[重新查找首领:illusion_realm challenge "+
+			((string)target["target_kind"]=="route_boss" ?
+			 "route" : "chapter")+"]\n";
+	return s+"[查看完整场景:look]|[返回幻境任务:illusion_realm]\n";
+}
+
+string query_room_challenge_view_for_test(object me,mapping target)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return "";
+	return room_challenge_view(me,target);
 }
 
 private string chapter_task_view(mapping progress,mapping chapter,
@@ -291,15 +413,19 @@ private string guided_follow_up(mapping progress,int after_travel)
 			"[查看九卷故事目录:illusion_realm story]\n";
 	chapter = (mapping)chapters[chapter_number-1];
 	kind = (string)chapter["target_kind"];
-	if(after_travel &&
-	   search(({"hunt","boss","story_boss"}),kind)!=-1)
+	if(after_travel && search(({"boss","story_boss"}),kind)!=-1)
+		return "\n【下一步】首领已经在当前区域，先确认房间 NPC，再进入正式战斗。\n"+
+			boss_challenge_link(chapter)+
+			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
+	if(after_travel && kind=="hunt")
 		return "\n【下一步】目标已经在当前区域。\n"+
-			"[▶ 下一步：开始自动打怪:autofight start]\n"+
-			"[查看本章进度:illusion_realm]\n";
+			"[挂机至本章狩猎完成:illusion_realm hunt]|"+
+			"[持续自动挂机:autofight start]\n"+
+			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
 	return "\n【下一步】"+(string)chapter["target_name"]+
 		((string)chapter["target_location"]!="" ? "　地点："+
 			(string)chapter["target_location"] : "")+"\n"+
-		chapter_next_link(chapter);
+		chapter_next_link(chapter)+"[返回游戏:look]\n";
 }
 
 private string guided_route_help(object me,mapping progress)
@@ -357,7 +483,7 @@ private string guided_next_step(object me)
 		progress = SEASONALD->query_player_progress(me);
 		return (string)result["message"]+
 			((int)result["ok"] ? guided_follow_up(progress,0) :
-			 "\n[重新查看本章:illusion_realm]\n");
+			 "\n[重新查看本章:illusion_realm]|[返回游戏:look]\n");
 	}
 	if(kind=="choice")
 		return progress_view(me,progress);
@@ -368,10 +494,14 @@ private string guided_next_step(object me)
 		AUTOFIGHTD->stop_autofight(me);
 	result = SEASONALD->travel_to_chapter_target(me,chapter_number);
 	if(!(int)result["ok"])
-		return (string)result["message"]+"\n[重新查看本章:illusion_realm]\n";
+		return (string)result["message"]+
+			"\n[重新查看本章:illusion_realm]|[返回游戏:look]\n";
 	if(kind=="story_echo" && (int)result["already"]){
 		mapping witnessed = SEASONALD->discover_story_event(me);
 		progress = SEASONALD->query_player_progress(me);
+		if(!(int)witnessed["ok"])
+			return (string)witnessed["message"]+
+				"\n[重试阅读剧情:illusion_realm next]|[返回游戏:look]\n";
 		return "【剧情步骤完成】"+(string)witnessed["message"]+
 			guided_follow_up(progress,0);
 	}
@@ -435,8 +565,27 @@ int main(string|zero arg)
 		write("人物会话不存在。\n");
 		return 1;
 	}
+	if(sizeof(parts)>=1 && parts[0]=="challenge"){
+		string scope = sizeof(parts)>=2 && parts[1]=="route" ?
+			"route" : "chapter";
+		mapping target = current_challenge_target(me,scope);
+		if(!(int)target["ok"])
+			write((string)target["message"]+
+				"\n[返回幻境任务:illusion_realm]|[返回游戏:look]\n");
+		else
+			write(room_challenge_view(me,target));
+		return 1;
+	}
 	if(sizeof(parts)>=1 && parts[0]=="next"){
 		write(guided_next_step(me));
+		return 1;
+	}
+	if(sizeof(parts)>=1 && parts[0]=="hunt"){
+		mapping result = SEASONALD->start_chapter_hunt_autofight(me);
+		write((string)result["message"]+
+			((int)result["ok"] ?
+			 "\n[查看挂机状态:autofight]|[查看本章进度:illusion_realm]\n" :
+			 "\n[▶ 下一步：前往任务地点:illusion_realm next]|[返回游戏:look]\n"));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="quiz"){
@@ -480,7 +629,9 @@ int main(string|zero arg)
 			mapping travel = SEASONALD->travel_to_chapter_target(
 				me,(int)parts[2]);
 			write((string)travel["message"]+
-				"\n[▶ 下一步：继续本章:illusion_realm next]\n");
+				((int)travel["ok"] ?
+				 "\n[▶ 下一步：继续本章:illusion_realm next]|[返回游戏:look]\n" :
+				 "\n[重新查看本章:illusion_realm]|[返回游戏:look]\n"));
 		}
 		else if(sizeof(parts)>=3 && parts[1]=="chapter")
 			write(story_chapter_view(progress,(int)parts[2]));
@@ -565,13 +716,15 @@ int main(string|zero arg)
 		   (string)me->query_autofight()=="enable")
 			AUTOFIGHTD->stop_autofight(me);
 		mapping result = SEASONALD->travel_to_route_target(me);
-		string follow = "\n[重新查看终章指引:illusion_realm next]\n";
+		string follow = "\n[重新查看终章指引:illusion_realm next]|"+
+			"[返回游戏:look]\n";
 		if((int)result["ok"] && (int)result["done"])
 			follow = "\n[▶ 下一步：领取本章并继续:illusion_realm next]\n";
 		else if((int)result["ok"] && (string)result["action"]=="explore")
 			follow = "\n[▶ 下一步：取得当前月印:illusion_realm explore]\n";
 		else if((int)result["ok"] && (string)result["action"]=="hunt")
-			follow = "\n[▶ 下一步：开始自动打怪:autofight start]\n";
+			follow = "\n"+boss_challenge_link(result)+
+				"[返回游戏:look]|[重新查看终章指引:illusion_realm next]\n";
 		else if((int)result["ok"] && (string)result["action"]=="team")
 			follow = "\n[▶ 下一步：打开队伍:team]|"+
 				"[开始自动打怪:autofight start]\n";
@@ -581,7 +734,9 @@ int main(string|zero arg)
 	if(sizeof(parts)>=2 && parts[0]=="path"){
 		mapping result = SEASONALD->choose_player_path(me,parts[1]);
 		write((string)result["message"]+
-			"\n[▶ 下一步：继续本章:illusion_realm next]\n");
+			((int)result["ok"] ?
+			 "\n[▶ 下一步：继续本章:illusion_realm next]|[返回游戏:look]\n" :
+			 "\n[重新选择命途:illusion_realm]|[返回游戏:look]\n"));
 		return 1;
 	}
 	if(sizeof(parts)>=2 && parts[0]=="claim"){
@@ -589,19 +744,23 @@ int main(string|zero arg)
 		mapping progress = SEASONALD->query_player_progress(me);
 		write((string)result["message"]+
 			((int)result["ok"] ? guided_follow_up(progress,0) :
-			 "\n[返回当前章节:illusion_realm]\n"));
+			 "\n[返回当前章节:illusion_realm]|[返回游戏:look]\n"));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="explore"){
 		mapping result = SEASONALD->discover_route_secret(me);
 		write((string)result["message"]+
-			"\n[▶ 下一步：继续本章:illusion_realm next]\n");
+			((int)result["ok"] ?
+			 "\n[▶ 下一步：继续本章:illusion_realm next]|[返回游戏:look]\n" :
+			 "\n[重试当前探索:illusion_realm explore]|[返回游戏:look]\n"));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="witness"){
 		mapping result = SEASONALD->discover_story_event(me);
 		write((string)result["message"]+
-			"\n[▶ 下一步：继续本章:illusion_realm next]\n");
+			((int)result["ok"] ?
+			 "\n[▶ 下一步：继续本章:illusion_realm next]|[返回游戏:look]\n" :
+			 "\n[重试阅读剧情:illusion_realm witness]|[返回游戏:look]\n"));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="return"){

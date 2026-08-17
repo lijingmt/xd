@@ -1922,6 +1922,7 @@
                         </button>
                         <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
                         <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('illusion_realm')"><span>🌙</span>幻境任务</button>
                         <button class="quick-tool-btn"
                                 :class="{ active: playerStats?.timed_event?.active }"
                                 @click="sendQuickCommand('timed_event')">
