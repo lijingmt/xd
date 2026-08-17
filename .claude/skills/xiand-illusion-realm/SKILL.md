@@ -186,10 +186,11 @@ Keep gameplay content data-driven:
 - place S1's long-term collection gates at the end of all nine volumes
   (chapters 9/18/27/36/45/54/63/72/81), not as three isolated late patches.
   Store probabilities as integer basis points over 10,000 so sub-percent rates
-  never round to zero. The reviewed S1 curve is
-  `1000/422/178/75/32/13/6/2/1` basis points, with hard pity at
-  `10/24/57/134/313/770/1667/5000/10000` eligible kills. Chapter 81 is exactly
-  1 in 10,000, not 1 percent or a floating-point approximation;
+  never round to zero. The reviewed one-month S1 curve is
+  `1500/800/400/200/100/50/25/15/10` basis points, with hard pity at
+  `7/13/25/50/100/200/400/667/1000` eligible kills. Chapter 81 remains rare at
+  1 in 1,000; the old 10,000-kill pity was removed because it broke the final
+  volume's climax and could not be completed reliably inside one season;
 - require the configured story event before a gate can roll. Only the exact
   allowlisted NPC path in one of the configured canonical rooms may increment
   pity. A wrong monster, right monster in the wrong room, pre-event kill,
@@ -238,6 +239,42 @@ S1 routes are intentionally different without changing combat formulas:
 Keep route choice immutable within a cycle. Reward claims must be ordered,
 account-bound, save-before-success, idempotent, and rollback all newly cloned
 items plus progress on failure.
+
+## Build optional S1 depth without a second game
+
+S1 revision 3 keeps all optional depth under the existing
+`/plus/illusion_realm/S1/newmoon_journey` mapping. Do not create a second user
+file, a per-Worker event save, or a parallel quest daemon with independent
+ownership.
+
+- `encounter` stores at most one active deterministic moonlight encounter.
+  New characters receive the first trigger after 18 authoritative S1 kills;
+  revision-2 characters that already passed that point receive one on their
+  next eligible kill. Completion schedules the next trigger 40 kills later and
+  the cycle ends after 12 encounters. Only the exact configured NPC path in the
+  exact canonical room can advance its 3-kill objective;
+- `echo` is the post-chapter-81 Moon Eclipse Corridor. It derives the current
+  week from the original season start, rotates one of three three-boss paths,
+  and records each completed week once. A restart, repeated death callback, or
+  cross-Worker retry must not repeat a stage or its community contribution;
+- `community_points` is authoritative in the same character journey mapping
+  and mirrored into the existing compact ranking snapshot only after the
+  character save succeeds. The cross-Worker total is derived from validated
+  snapshots and fails closed on corruption or truncation; never maintain a
+  mutable per-Worker global counter;
+- journey resonance is derived read-only from the active S1 moon-memory
+  companion, owned journey secrets/memories, and
+  `NEWMOON_SET_SKILLD->query_active_set_skill(player)`. It may change labels,
+  narrative, and small community contribution bonuses. It must never enter
+  damage, defense, PVP, personal difficulty, drop weight, VIP, or profession
+  formulas;
+- random encounters, the corridor, and the community goal are optional depth.
+  They must not block chapter readiness, the ten-question epilogue, settlement,
+  or Eternal Echo access. They stop creating new progress after S1 closes;
+- all new state must accept revision-2 journey mappings with missing keys by
+  normalizing a copied value. A read-only status query must not mutate the
+  player record. The normalized state becomes durable only through an existing
+  locked, rollback-capable mutation.
 
 ## Preserve exploration credit across movement boundaries
 
@@ -475,3 +512,10 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
     preserve ordinary task credit, and carry no `illusion_chapter_autofight`
     marker. A green seasonal matrix alone is insufficient proof that ordinary
     characters remain unaffected.
+14. For journey revision 3, require a dedicated restart-backed TestUnit path
+    that removes all three new keys from a valid revision-2 record, confirms
+    copy-only normalization, triggers a real encounter, rejects the right NPC
+    in the wrong room, rolls back an injected save failure, rejects a repeated
+    death callback, completes all three weekly corridor bosses, and aggregates
+    the saved contribution through a compact ranking snapshot. Also assert that
+    every configured event target is physically spawned by its canonical room.

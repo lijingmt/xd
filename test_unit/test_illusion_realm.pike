@@ -296,11 +296,11 @@ int main()
 			sprintf("structure=%d intros=%d outros=%d",
 				story_novel_structure_valid,sizeof(story_intros),
 				sizeof(story_outros)));
-		check("九卷剧情卡点从10%平滑降至终章1/10000并设对应硬保底",
+		check("九卷剧情卡点从15%平滑降至终章1/1000并设单月可达硬保底",
 			story_quest_gates==9 &&
-			equal(story_gate_rates,({1000,422,178,75,32,13,6,2,1})) &&
+			equal(story_gate_rates,({1500,800,400,200,100,50,25,15,10})) &&
 			equal(story_gate_pities,
-				({10,24,57,134,313,770,1667,5000,10000})),
+				({7,13,25,50,100,200,400,667,1000})),
 			sprintf("gates=%d rates=%O pities=%O",story_quest_gates,
 				story_gate_rates,story_gate_pities));
 		array story_quiz = (array)story_config["quiz"];

@@ -221,8 +221,8 @@
               "/gamelib/d/illusion_s1/starlight_slope.pike"
             ],
             "required": 1,
-            "drop_basis_points": 1000,
-            "pity_kills": 10
+            "drop_basis_points": 1500,
+            "pity_kills": 7
           }
         }
       ]
@@ -319,8 +319,8 @@
               "/gamelib/d/illusion_s1/moonshadow_wood.pike"
             ],
             "required": 1,
-            "drop_basis_points": 422,
-            "pity_kills": 24
+            "drop_basis_points": 800,
+            "pity_kills": 13
           }
         }
       ]
@@ -419,8 +419,8 @@
               "/gamelib/d/illusion_s1/moonwave_shoal.pike"
             ],
             "required": 1,
-            "drop_basis_points": 178,
-            "pity_kills": 57
+            "drop_basis_points": 400,
+            "pity_kills": 25
           }
         }
       ]
@@ -517,8 +517,8 @@
               "/gamelib/d/illusion_s1/observatory_outfield.pike"
             ],
             "required": 1,
-            "drop_basis_points": 75,
-            "pity_kills": 134
+            "drop_basis_points": 200,
+            "pity_kills": 50
           }
         }
       ]
@@ -616,8 +616,8 @@
               "/gamelib/d/illusion_s1/stardust_lane.pike"
             ],
             "required": 1,
-            "drop_basis_points": 32,
-            "pity_kills": 313
+            "drop_basis_points": 100,
+            "pity_kills": 100
           }
         }
       ]
@@ -715,8 +715,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 13,
-            "pity_kills": 770
+            "drop_basis_points": 50,
+            "pity_kills": 200
           }
         }
       ]
@@ -815,8 +815,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 6,
-            "pity_kills": 1667
+            "drop_basis_points": 25,
+            "pity_kills": 400
           }
         }
       ]
@@ -915,8 +915,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 2,
-            "pity_kills": 5000
+            "drop_basis_points": 15,
+            "pity_kills": 667
           }
         }
       ]
@@ -1014,8 +1014,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 1,
-            "pity_kills": 10000
+            "drop_basis_points": 10,
+            "pity_kills": 1000
           }
         }
       ]

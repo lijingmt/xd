@@ -26,6 +26,7 @@ void cleanup()
 	player=0;
 	string path=user_file();
 	rm(path); rm(path+".bak"); rm(path+".tmp"); rm(path+".bak.tmp");
+	rm(DATA_ROOT+"illusion_realm/rankings/S1/"+userid+".json");
 }
 
 object create_player()
@@ -47,7 +48,7 @@ object create_player()
 	one["/plus/illusion_realm/S1"] = ([
 		"version":1,"content_id":"S1","claims":([]),
 		"story_events":(["life_collector":time()]),
-		"quest_item_pity":(["mortal_lifespan_thread":9]),
+		"quest_item_pity":(["mortal_lifespan_thread":6]),
 	]);
 	one->save_with_result();
 	player=one;
@@ -75,7 +76,10 @@ int main()
 		check("升级配置严格包含九支线、九秘术、五月忆兽",
 			(int)status["ok"] && (int)status["quests"]==9 &&
 			(int)status["secrets"]==9 && (int)status["species"]==5 &&
-			sizeof((array)config["companion_memories"])==9,
+			(int)status["feature_revision"]==3 &&
+			sizeof((array)config["companion_memories"])==9 &&
+			sizeof((array)config["wander_events"])==3 &&
+			sizeof((array)config["echo_rotations"])==3,
 			sprintf("status=%O",status));
 
 		int deterministic=1;
@@ -181,7 +185,7 @@ int main()
 				one,progress,chapter9);
 			check("确定性凭证满足卷末门槛但保留原实体数量与保底进度",
 			(int)gate["ready"] && (int)gate["substitute_ready"] &&
-				(int)gate["count"]==0 && (int)gate["pity"]==9,
+				(int)gate["count"]==0 && (int)gate["pity"]==6,
 				sprintf("gate=%O",gate));
 
 			mapping forged=copy_value(journey);
@@ -292,6 +296,105 @@ int main()
 				all_acts_ok && all_completed && sizeof(final_quests)==9,
 				sprintf("all_acts_ok=%d final_quests=%O",all_acts_ok,
 					final_quests));
+
+			mapping before_overlay=copy_value((mapping)one[
+				"/plus/illusion_realm/S1"]);
+			mapping legacy_journey=copy_value((mapping)before_overlay[
+				"newmoon_journey"]);
+			m_delete(legacy_journey,"encounter");
+			m_delete(legacy_journey,"echo");
+			m_delete(legacy_journey,"community_points");
+			before_overlay["newmoon_journey"]=legacy_journey;
+			one["/plus/illusion_realm/S1"]=before_overlay;
+			mapping legacy_view=daemon->query_journey_for_test(one);
+			check("revision-2旧S1档案缺少新增字段时只读归一且仍可继续",
+				(int)legacy_view["ok"] && mappingp(legacy_view["encounter"]) &&
+				mappingp(legacy_view["echo"]) &&
+				(int)((mapping)legacy_view["resonance"])["tier"]>=0,
+				sprintf("legacy_view=%O",legacy_view));
+
+			mapping overlay_progress=(mapping)one["/plus/illusion_realm/S1"];
+			overlay_progress["kills"]=18;
+			one["/plus/illusion_realm/S1"]=overlay_progress;
+			mapping expected_event=(mapping)((array)config["wander_events"])[0];
+			move_for_test(one,(string)expected_event["room"]);
+			object activation_probe=clone(ROOT+(string)expected_event["target_path"]);
+			activation_probe->move(environment(one));
+			mapping activated=daemon->record_npc_kill_for_test(one,activation_probe);
+			destruct(activation_probe);
+			mapping encounter_view=daemon->query_journey_for_test(one);
+			mapping encounter=(mapping)encounter_view["encounter"];
+			mapping active_event=(mapping)encounter["active"];
+			int encounter_ok=(int)activated["activated"] &&
+				(string)active_event["id"]==(string)expected_event["id"];
+			move_for_test(one,"/gamelib/d/illusion_s1/moon_dew_field.pike");
+			object wrong_room_target=clone(ROOT+(string)active_event["target_path"]);
+			wrong_room_target->move(environment(one));
+			mapping wrong_room_credit=daemon->record_npc_kill_for_test(one,
+				wrong_room_target);
+			destruct(wrong_room_target);
+			encounter_ok=encounter_ok && !(int)wrong_room_credit["credited"] &&
+				move_for_test(one,(string)active_event["room"]);
+			for(int event_kill=0;event_kill<3;event_kill++){
+				object event_target=clone(ROOT+(string)active_event["target_path"]);
+				event_target->move(environment(one));
+				if(event_kill==0){
+					int failure_primed=daemon->force_next_save_failure_for_test(one);
+					mapping failed_credit=daemon->record_npc_kill_for_test(one,
+						event_target);
+					mapping after_failure=daemon->query_journey_for_test(one);
+					encounter_ok=encounter_ok && failure_primed &&
+						!(int)failed_credit["ok"] &&
+						(int)((mapping)after_failure["encounter"])["kills"]==0;
+				}
+				mapping credit=daemon->record_npc_kill_for_test(one,event_target);
+				encounter_ok=encounter_ok && (int)credit["credited"];
+				if(event_kill==0){
+					mapping duplicate=daemon->record_npc_kill_for_test(one,
+						event_target);
+					encounter_ok=encounter_ok && !(int)duplicate["credited"] &&
+						(int)duplicate["duplicate"];
+				}
+				destruct(event_target);
+			}
+			encounter_view=daemon->query_journey_for_test(one);
+			encounter=(mapping)encounter_view["encounter"];
+			check("月下偶遇按真实击杀触发、三杀完成、定距续期且不阻塞主线",
+				encounter_ok && (int)encounter["completed"]==1 &&
+				!sizeof((mapping)encounter["active"]) &&
+				(int)encounter["remaining_kills"]==40 &&
+				(int)((mapping)encounter_view["community"])["target"]==5000,
+				sprintf("activated=%O encounter=%O",activated,encounter));
+
+			mapping echo=(mapping)encounter_view["echo"];
+			int echo_ok=(int)echo["available"] && !(int)echo["completed"];
+			for(int echo_stage=0;echo_stage<3;echo_stage++){
+				mapping target=(mapping)echo["target"];
+				echo_ok=echo_ok && sizeof(target)>0 &&
+					move_for_test(one,(string)target["room"]);
+				object echo_boss=clone(ROOT+(string)target["target_path"]);
+				echo_boss->move(environment(one));
+				mapping echo_credit=daemon->record_npc_kill_for_test(one,echo_boss);
+				echo_ok=echo_ok && (int)echo_credit["credited"];
+				destruct(echo_boss);
+				echo=(mapping)daemon->query_journey_for_test(one)["echo"];
+			}
+			mapping overlay_state=(mapping)((mapping)one[
+				"/plus/illusion_realm/S1"])["newmoon_journey"];
+			check("八十一章后月蚀回廊每周轮换三场且重复读取不能重发贡献",
+				echo_ok && (int)echo["completed"] && (int)echo["stage"]==3 &&
+				(int)overlay_state["community_points"]==102,
+				sprintf("echo=%O state=%O",echo,overlay_state));
+
+			int snapshot_published=SEASONALD->
+				publish_journey_snapshot_for_test(one);
+			mapping community=SEASONALD->query_community_progress("S1");
+			check("同心筑月通过跨Worker排行快照聚合且无第二份人物档案",
+				snapshot_published && (int)community["ok"] &&
+				(int)community["points"]>=(int)overlay_state["community_points"] &&
+				search(daemon_source,"newmoon_journey")!=-1 &&
+				search(daemon_source,"NEWMOON_SET_SKILLD->query_active_set_skill")!=-1,
+				sprintf("community=%O",community));
 
 		check("新系统不污染普通技能、共享宠物或本命灵伴存储",
 			search(daemon_source,"player->set_skill")==-1 &&

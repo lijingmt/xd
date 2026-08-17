@@ -20,6 +20,13 @@ inherit LOW_DAEMON;
 private mapping(string:mixed) journey_config = ([]);
 private int config_valid;
 private Thread.Mutex journey_lock = Thread.Mutex();
+private mapping(string:int) journey_test_save_failures = ([]);
+
+private int is_test_journey_player(object player)
+{
+	return getenv("XIAND_RUN_TESTUNIT")=="1" && player &&
+		has_prefix((string)player->query_name(),"__testunit_");
+}
 
 private int valid_slug(string value)
 {
@@ -96,6 +103,32 @@ private mapping quest_config(string id)
 	return find_by_id((array)(journey_config["side_quests"] || ({})),id);
 }
 
+private mapping encounter_config(string id)
+{
+	return find_by_id((array)(journey_config["wander_events"] || ({})),id);
+}
+
+private int valid_event_target(mapping one,int with_id)
+{
+	string room_source;
+	string target_file;
+	string target_id;
+	if(!mappingp(one) || !valid_room((string)one["room"]) ||
+	   !valid_target_path((string)one["target_path"]))
+		return 0;
+	room_source = Stdio.read_file(ROOT+(string)one["room"]) || "";
+	target_file = ((string)one["target_path"]/"/")[-1];
+	target_id = has_suffix(target_file,".pike") ?
+		target_file[..sizeof(target_file)-6] : target_file;
+	return sizeof(one)<=12 &&
+		(!with_id || valid_slug((string)one["id"])) &&
+		stringp(one["location"]) && sizeof((string)one["location"])>=2 &&
+		search(room_source,target_id)!=-1 &&
+		stringp(one["target_name"]) &&
+		sizeof((string)one["target_name"])>=2 &&
+		sizeof((string)one["target_name"])<=32;
+}
+
 private int valid_config(mapping candidate)
 {
 	mapping(string:int) quest_ids = ([]);
@@ -111,23 +144,46 @@ private int valid_config(mapping candidate)
 	array species;
 	array memories;
 	array choices;
+	array encounters;
+	array rotations;
+	mapping rules;
+	mapping community;
 	if(!mappingp(candidate) || sizeof(candidate)>16 ||
 	   (int)candidate["version"]!=1 ||
 	   (string)candidate["illusion_id"]!="S1" ||
-	   (int)candidate["feature_revision"]!=2 ||
+	   (int)candidate["feature_revision"]!=3 ||
 	   !arrayp(candidate["side_quests"]) ||
 	   !arrayp(candidate["secrets"]) ||
 	   !arrayp(candidate["companion_species"]) ||
 	   !arrayp(candidate["companion_memories"]) ||
-	   !arrayp(candidate["memory_choices"]))
+	   !arrayp(candidate["memory_choices"]) ||
+	   !mappingp(candidate["encounter_rules"]) ||
+	   !arrayp(candidate["wander_events"]) ||
+	   !arrayp(candidate["echo_rotations"]) ||
+	   !mappingp(candidate["community_goal"]))
 		return 0;
 	quests = (array)candidate["side_quests"];
 	secrets = (array)candidate["secrets"];
 	species = (array)candidate["companion_species"];
 	memories = (array)candidate["companion_memories"];
 	choices = (array)candidate["memory_choices"];
+	encounters = (array)candidate["wander_events"];
+	rotations = (array)candidate["echo_rotations"];
+	rules = (mapping)candidate["encounter_rules"];
+	community = (mapping)candidate["community_goal"];
 	if(sizeof(quests)!=9 || sizeof(secrets)!=9 || sizeof(species)!=5 ||
-	   sizeof(memories)!=9 || sizeof(choices)!=4)
+	   sizeof(memories)!=9 || sizeof(choices)!=4 ||
+	   sizeof(encounters)!=3 || sizeof(rotations)!=3 ||
+	   sizeof(rules)>5 || (int)rules["first_trigger_kills"]<1 ||
+	   (int)rules["first_trigger_kills"]>1000 ||
+	   (int)rules["interval_kills"]<10 ||
+	   (int)rules["interval_kills"]>1000 ||
+	   (int)rules["max_completions"]<1 ||
+	   (int)rules["max_completions"]>24 || sizeof(community)>6 ||
+	   !stringp(community["title"]) ||
+	   (int)community["target"]<100 || (int)community["target"]>1000000 ||
+	   !arrayp(community["milestones"]) ||
+	   sizeof((array)community["milestones"])!=3)
 		return 0;
 	foreach(secrets,mapping one){
 		string id = (string)one["id"];
@@ -193,6 +249,45 @@ private int valid_config(mapping candidate)
 		choice_ids[id] = 1;
 		choice_traits[trait] = 1;
 	}
+	mapping(string:int) encounter_ids = ([]);
+	foreach(encounters,mapping one){
+		string id = (string)one["id"];
+		if(!valid_event_target(one,1) || encounter_ids[id] ||
+		   !stringp(one["title"]) || !stringp(one["text"]) ||
+		   sizeof((string)one["text"])<20 ||
+		   (int)one["unlock_claimed"]<0 ||
+		   (int)one["unlock_claimed"]>72 ||
+		   (int)one["required_kills"]<1 ||
+		   (int)one["required_kills"]>5 ||
+		   (int)one["community_points"]<1 ||
+		   (int)one["community_points"]>100)
+			return 0;
+		encounter_ids[id] = 1;
+	}
+	mapping(string:int) rotation_ids = ([]);
+	foreach(rotations,mapping rotation){
+		string id = (string)rotation["id"];
+		array stages = arrayp(rotation["stages"]) ?
+			(array)rotation["stages"] : ({});
+		if(!valid_slug(id) || rotation_ids[id] ||
+		   !stringp(rotation["title"]) || sizeof(stages)!=3)
+			return 0;
+		foreach(stages,mapping stage)
+			if(!valid_event_target(stage,0))
+				return 0;
+		rotation_ids[id] = 1;
+	}
+	int last_milestone;
+	foreach((array)community["milestones"],mapping milestone){
+		if(!mappingp(milestone) || sizeof(milestone)>4 ||
+		   (int)milestone["points"]<=last_milestone ||
+		   (int)milestone["points"]>(int)community["target"] ||
+		   !stringp(milestone["name"]) || !stringp(milestone["text"]))
+			return 0;
+		last_milestone = (int)milestone["points"];
+	}
+	if(last_milestone!=(int)community["target"])
+		return 0;
 	return 1;
 }
 
@@ -266,6 +361,14 @@ mapping(string:mixed) query_catalog_for_test()
 	if(getenv("XIAND_RUN_TESTUNIT")!="1")
 		return ([]);
 	return copy_value(journey_config);
+}
+
+int force_next_save_failure_for_test(object player)
+{
+	if(!is_test_journey_player(player))
+		return 0;
+	journey_test_save_failures[(string)player->query_name()] = 1;
+	return 1;
 }
 
 /**
@@ -357,8 +460,11 @@ private string owner_account(object player)
 	return account!="" ? account : (string)player->query_name();
 }
 
-private mapping default_state(object player)
+private mapping default_state(object player,void|mapping progress)
 {
+	int first_trigger = mappingp(journey_config["encounter_rules"]) ?
+		(int)((mapping)journey_config["encounter_rules"])[
+			"first_trigger_kills"] : 18;
 	return ([
 		"version":1,"illusion_id":"S1",
 		"owner_id":(string)player->query_name(),
@@ -368,7 +474,37 @@ private mapping default_state(object player)
 		"companion":(["pets":([]),"active_id":"",
 			"memories":([]),"traits":(["courage":0,"care":0,
 				"curiosity":0,"freedom":0])]),
+		"encounter":(["active_id":"","kills":0,"completed":0,
+			"next_at":first_trigger,
+			"activated_at":0,"last_completed_at":0]),
+		"echo":(["week":0,"rotation":"","stage":0,
+			"completed_weeks":([]),"last_completed_at":0]),
+		"community_points":0,
 	]);
+}
+
+private mapping normalized_state(object player,mapping state,mapping progress)
+{
+	mapping normalized;
+	mapping defaults;
+	if(!mappingp(state))
+		return default_state(player,progress);
+	normalized = copy_value(state);
+	defaults = default_state(player,progress);
+	foreach(({"encounter","echo"}),string key)
+		if(!mappingp(normalized[key])){
+			normalized[key] = copy_value((mapping)defaults[key]);
+			// Existing revision-2 characters receive an encounter on their
+			// next eligible kill instead of starting a second long counter.
+			if(key=="encounter" && mappingp(progress) &&
+			   (int)progress["kills"]>=(int)((mapping)defaults[
+				"encounter"])["next_at"])
+				((mapping)normalized[key])["next_at"] =
+					(int)progress["kills"];
+		}
+	if(!has_index(normalized,"community_points"))
+		normalized["community_points"] = 0;
+	return normalized;
 }
 
 private int valid_timestamp(mixed value)
@@ -385,6 +521,9 @@ private int valid_state(object player,mapping state)
 	mapping pets;
 	mapping memories;
 	mapping traits;
+	mapping encounter;
+	mapping echo;
+	mapping completed_weeks;
 	int trait_total;
 	if(!mappingp(state) || sizeof(state)>12 ||
 	   (int)state["version"]!=1 || (string)state["illusion_id"]!="S1" ||
@@ -392,12 +531,17 @@ private int valid_state(object player,mapping state)
 	   (string)state["registration_account"]!=owner_account(player) ||
 	   !mappingp(state["side_quests"]) || !mappingp(state["secrets"]) ||
 	   !mappingp(state["gate_substitutions"]) ||
-	   !mappingp(state["companion"]))
+	   !mappingp(state["companion"]) || !mappingp(state["encounter"]) ||
+	   !mappingp(state["echo"]) || !intp(state["community_points"]) ||
+	   (int)state["community_points"]<0 ||
+	   (int)state["community_points"]>2000000000)
 		return 0;
 	quests = (mapping)state["side_quests"];
 	secrets = (mapping)state["secrets"];
 	substitutions = (mapping)state["gate_substitutions"];
 	companion = (mapping)state["companion"];
+	encounter = (mapping)state["encounter"];
+	echo = (mapping)state["echo"];
 	if(sizeof(quests)>9 || sizeof(secrets)>9 || sizeof(substitutions)>9 ||
 	   sizeof(companion)>8 || !mappingp(companion["pets"]) ||
 	   !mappingp(companion["memories"]) || !mappingp(companion["traits"]))
@@ -495,15 +639,54 @@ private int valid_state(object player,mapping state)
 	}
 	if(trait_total!=sizeof(memories))
 		return 0;
+	if(sizeof(encounter)>8 || !stringp(encounter["active_id"]) ||
+	   ((string)encounter["active_id"]!="" &&
+	    !sizeof(encounter_config((string)encounter["active_id"]))) ||
+	   !intp(encounter["kills"]) || (int)encounter["kills"]<0 ||
+	   (int)encounter["kills"]>5 || !intp(encounter["completed"]) ||
+	   (int)encounter["completed"]<0 || (int)encounter["completed"]>24 ||
+	   !intp(encounter["next_at"]) || (int)encounter["next_at"]<1 ||
+	   (int)encounter["next_at"]>2000000000 ||
+	   !valid_timestamp(encounter["activated_at"]) ||
+	   !valid_timestamp(encounter["last_completed_at"]) ||
+	   ((string)encounter["active_id"]=="" &&
+	    ((int)encounter["kills"]!=0 || (int)encounter["activated_at"]!=0)) ||
+	   ((string)encounter["active_id"]!="" &&
+	    ((int)encounter["activated_at"]<=0 ||
+	     (int)encounter["kills"]>=(int)encounter_config(
+		(string)encounter["active_id"])["required_kills"])))
+		return 0;
+	completed_weeks = mappingp(echo["completed_weeks"]) ?
+		(mapping)echo["completed_weeks"] : ([]);
+	if(sizeof(echo)>8 || !intp(echo["week"]) || (int)echo["week"]<0 ||
+	   (int)echo["week"]>60 || !stringp(echo["rotation"]) ||
+	   ((string)echo["rotation"]!="" &&
+	    !sizeof(find_by_id((array)journey_config["echo_rotations"],
+		(string)echo["rotation"]))) || !intp(echo["stage"]) ||
+	   (int)echo["stage"]<0 || (int)echo["stage"]>3 ||
+	   !mappingp(echo["completed_weeks"]) || sizeof(completed_weeks)>60 ||
+	   !valid_timestamp(echo["last_completed_at"]))
+		return 0;
+	foreach(completed_weeks;mixed week;mixed completed_at){
+		int number;
+		if(!stringp(week) || sscanf((string)week,"%d",number)!=1 ||
+		   number<1 || number>60 || (string)week!=(string)number ||
+		   !valid_timestamp(completed_at) || (int)completed_at<=0)
+			return 0;
+	}
+	if(((int)echo["week"]==0) != ((string)echo["rotation"]=="") ||
+	   ((int)echo["week"]==0 && (int)echo["stage"]!=0) ||
+	   ((int)echo["stage"]==3 &&
+	    !(int)completed_weeks[(string)(int)echo["week"]]))
+		return 0;
 	return 1;
 }
 
 private mapping state_for(object player,mapping progress)
 {
 	mapping state = progress[JOURNEY_KEY];
-	if(!mappingp(state))
-		return default_state(player);
-	return valid_state(player,state) ? state : ([]);
+	mapping normalized = normalized_state(player,state,progress);
+	return valid_state(player,normalized) ? normalized : ([]);
 }
 
 private mapping current_quest(mapping progress,mapping state)
@@ -585,7 +768,84 @@ private mapping public_companion(mapping state)
 	return companion;
 }
 
-mapping(string:mixed) query_journey(object player)
+private int current_echo_week(mapping progress)
+{
+	int starts_at = (int)progress["season_starts_at"];
+	if(starts_at<=0)
+		starts_at = (int)progress["joined_at"];
+	if(starts_at<=0 || time()<starts_at)
+		return 1;
+	return min(60,max(1,(time()-starts_at)/(7*86400)+1));
+}
+
+private mapping public_encounter(mapping progress,mapping state,string mode)
+{
+	mapping encounter = copy_value((mapping)state["encounter"]);
+	mapping rules = (mapping)journey_config["encounter_rules"];
+	mapping active = encounter_config((string)encounter["active_id"]);
+	int maximum = (int)rules["max_completions"];
+	encounter["available"] = mode=="season";
+	encounter["max_completions"] = maximum;
+	encounter["remaining_kills"] = max(0,(int)encounter["next_at"]-
+		(int)progress["kills"]);
+	if(sizeof(active)){
+		encounter["active"] = copy_value(active);
+		encounter["required_kills"] = (int)active["required_kills"];
+		encounter["ready"] = (int)encounter["kills"]>=
+			(int)active["required_kills"];
+	}
+	else
+		encounter["active"] = ([]);
+	encounter["finished"] = (int)encounter["completed"]>=maximum;
+	return encounter;
+}
+
+private mapping public_echo(mapping progress,mapping state,string mode)
+{
+	mapping echo = copy_value((mapping)state["echo"]);
+	array rotations = (array)journey_config["echo_rotations"];
+	int week = current_echo_week(progress);
+	mapping rotation = (mapping)rotations[(week-1)%sizeof(rotations)];
+	mapping completed = (mapping)echo["completed_weeks"];
+	int stage = ((int)echo["week"]==week &&
+		(string)echo["rotation"]==(string)rotation["id"]) ?
+		(int)echo["stage"] : 0;
+	echo["available"] = mode=="season" && claimed_chapter_count(progress)>=81;
+	echo["week"] = week;
+	echo["rotation"] = (string)rotation["id"];
+	echo["title"] = (string)rotation["title"];
+	echo["stage"] = stage;
+	echo["completed"] = (int)completed[(string)week]>0;
+	if(!(int)echo["completed"] && stage<3)
+		echo["target"] = copy_value((mapping)((array)rotation["stages"])[stage]);
+	else
+		echo["target"] = ([]);
+	return echo;
+}
+
+private mapping public_resonance(object player,mapping state)
+{
+	mapping companion = (mapping)state["companion"];
+	mapping active_set = NEWMOON_SET_SKILLD->query_active_set_skill(player);
+	int secrets = sizeof((mapping)state["secrets"]);
+	int memories = sizeof((mapping)companion["memories"]);
+	int has_companion = (string)companion["active_id"]!="";
+	int tier;
+	if(has_companion && secrets>=3)
+		tier = 1;
+	if(has_companion && secrets>=6 && sizeof(active_set))
+		tier = 2;
+	if(has_companion && secrets>=9 && memories>=9 && sizeof(active_set))
+		tier = 3;
+	return (["tier":tier,"name":({"尚未共鸣","同行初鸣",
+		"三途共振","人间满月"})[tier],"secret_count":secrets,
+		"memory_count":memories,"has_companion":has_companion,
+		"full_set":sizeof(active_set)>0,
+		"set_name":sizeof(active_set) ? (string)active_set["name_cn"] : ""]);
+}
+
+private mapping(string:mixed) query_journey_internal(object player,
+	int test_bypass_context)
 {
 	mapping progress_view;
 	mapping progress;
@@ -593,7 +853,9 @@ mapping(string:mixed) query_journey(object player)
 	array quest_rows = ({});
 	if(!config_valid || !player)
 		return (["ok":0,"message":"新月回响配置未通过安全校验。"]) ;
-	progress_view = SEASONALD->query_player_progress(player);
+	progress_view = test_bypass_context && is_test_journey_player(player) ?
+		(["ok":1,"mode":"season","illusion_id":"S1"]) :
+		SEASONALD->query_player_progress(player);
 	if(!(int)progress_view["ok"] ||
 	   (string)progress_view["illusion_id"]!="S1")
 		return (["ok":0,"message":"当前人物没有可进行的S1新月回响。"]) ;
@@ -621,7 +883,25 @@ mapping(string:mixed) query_journey(object player)
 		"secrets":copy_value((mapping)state["secrets"]),
 		"secret_catalog":copy_value((array)journey_config["secrets"]),
 		"gate_substitutions":copy_value((mapping)state["gate_substitutions"]),
-		"companion":public_companion(state)]);
+		"companion":public_companion(state),
+		"encounter":public_encounter(progress,state,
+			(string)progress_view["mode"]),
+		"echo":public_echo(progress,state,(string)progress_view["mode"]),
+		"resonance":public_resonance(player,state),
+		"community":SEASONALD->query_community_progress("S1")+
+			copy_value((mapping)journey_config["community_goal"])]);
+}
+
+mapping(string:mixed) query_journey(object player)
+{
+	return query_journey_internal(player,0);
+}
+
+mapping(string:mixed) query_journey_for_test(object player)
+{
+	if(!is_test_journey_player(player))
+		return (["ok":0,"message":"测试入口不可用。"]);
+	return query_journey_internal(player,1);
 }
 
 private mapping save_state(object player,mapping old_all,mapping all_progress,
@@ -629,10 +909,24 @@ private mapping save_state(object player,mapping old_all,mapping all_progress,
 {
 	mixed err;
 	int saved;
+	int published;
+	int old_community_points;
+	mapping old_progress = mappingp(old_all["S1"]) ?
+		(mapping)old_all["S1"] : ([]);
+	mapping old_state = mappingp(old_progress[JOURNEY_KEY]) ?
+		(mapping)old_progress[JOURNEY_KEY] : ([]);
+	old_community_points = (int)old_state["community_points"];
+	progress["community_points"] = (int)state["community_points"];
 	progress[JOURNEY_KEY] = state;
 	all_progress["S1"] = progress;
 	player[PROGRESS_ROOT] = all_progress;
-	err = catch{ saved=player->save_with_result(); };
+	if(is_test_journey_player(player) &&
+	   (int)journey_test_save_failures[(string)player->query_name()]>0){
+		m_delete(journey_test_save_failures,(string)player->query_name());
+		saved = 0;
+	}
+	else
+		err = catch{ saved=player->save_with_result(); };
 	if(err || !saved){
 		player[PROGRESS_ROOT] = old_all;
 		return (["ok":0,"message":"人物档案保存失败，本次新月回响操作已完整回滚。"]) ;
@@ -643,6 +937,13 @@ private mapping save_state(object player,mapping old_all,mapping all_progress,
 	catch{ Stdio.append_file(JOURNEY_LOG,sprintf(
 		"%d|%s|user=%s|account=%s\n",time(),action,
 		(string)player->query_name(),owner_account(player))); };
+	if(!is_test_journey_player(player) &&
+	   old_community_points!=(int)state["community_points"])
+		catch{ published=SEASONALD->publish_journey_snapshot(player); };
+	if(!published && !is_test_journey_player(player) &&
+	   old_community_points!=(int)state["community_points"])
+		werror("[ILLUSION_JOURNEY] 衍生排行快照待后续补写: %s action=%s\n",
+			(string)player->query_name(),action);
 	return (["ok":1]);
 }
 
@@ -690,7 +991,48 @@ mapping(string:mixed) start_current_quest_hunt(object player)
 		"”的本幕目标；达到数量后自动停止并返回支线页。"]);
 }
 
-mapping(string:mixed) record_npc_kill(object player,object npc)
+private mapping next_encounter(mapping progress,mapping state)
+{
+	array eligible = ({});
+	mapping encounter = (mapping)state["encounter"];
+	foreach((array)journey_config["wander_events"],mapping event)
+		if(claimed_chapter_count(progress)>=(int)event["unlock_claimed"])
+			eligible += ({event});
+	if(!sizeof(eligible))
+		return ([]);
+	return (mapping)eligible[((int)progress["kills"]+
+		(int)encounter["completed"])%sizeof(eligible)];
+}
+
+mapping(string:mixed) travel_to_active_encounter(object player)
+{
+	mapping view = query_journey(player);
+	mapping encounter = mappingp(view["encounter"]) ?
+		(mapping)view["encounter"] : ([]);
+	mapping active = mappingp(encounter["active"]) ?
+		(mapping)encounter["active"] : ([]);
+	if(!(int)view["ok"] || !(int)encounter["available"] || !sizeof(active))
+		return (["ok":0,"message":"当前没有可前往的新月偶遇战。"]);
+	return SEASONALD->travel_to_s1_feature_room(player,(string)active["room"],
+		"journey:encounter:"+(string)active["id"]);
+}
+
+mapping(string:mixed) travel_to_echo_target(object player)
+{
+	mapping view = query_journey(player);
+	mapping echo = mappingp(view["echo"]) ? (mapping)view["echo"] : ([]);
+	mapping target = mappingp(echo["target"]) ?
+		(mapping)echo["target"] : ([]);
+	if(!(int)view["ok"] || !(int)echo["available"] ||
+	   (int)echo["completed"] || !sizeof(target))
+		return (["ok":0,"message":"当前没有可前往的月蚀回廊目标。"]);
+	return SEASONALD->travel_to_s1_feature_room(player,(string)target["room"],
+		"journey:echo:"+(string)echo["rotation"]+":"+
+		(string)((int)echo["stage"]+1));
+}
+
+private mapping(string:mixed) record_npc_kill_internal(object player,object npc,
+	int test_bypass_active)
 {
 	object key;
 	mapping old_all;
@@ -698,75 +1040,194 @@ mapping(string:mixed) record_npc_kill(object player,object npc)
 	mapping progress;
 	mapping state;
 	mapping quest;
-	mapping quest_states;
-	mapping one;
-	mapping act;
+	mapping quest_states = ([]);
+	mapping one = ([]);
+	mapping act = ([]);
 	mapping events;
 	mapping saved;
 	mapping task_mode;
+	mapping encounter;
+	mapping active_event;
+	mapping echo;
+	mapping rotation;
+	mapping echo_target;
+	mapping progress_view;
 	string npc_path;
+	string room_path;
+	string message = "";
+	string action = "journey_kill";
 	int act_index;
 	int kills;
 	int required;
-	int complete;
+	int sidequest_complete;
+	int sidequest_credited;
+	int encounter_credited;
+	int encounter_activated;
+	int echo_credited;
+	int changed;
+	int live;
 	if(!player || !npc || !config_valid || !environment(player) ||
 	   environment(npc)!=environment(player))
 		return (["ok":0,"credited":0]);
+	string credit_marker = "/tmp/illusion_journey_credit/"+
+		(string)player->query_name();
+	if((int)npc[credit_marker])
+		return (["ok":1,"credited":0,"duplicate":1]);
 	npc_path = normalized_object_path(npc);
+	room_path = normalized_object_path(environment(player));
+	progress_view = SEASONALD->query_player_progress(player);
+	live = test_bypass_active && is_test_journey_player(player) ? 1 :
+		((int)progress_view["ok"] &&
+		(string)progress_view["illusion_id"]=="S1" &&
+		(string)progress_view["mode"]=="season");
 	key = journey_lock->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
 		(mapping)all_progress["S1"] : ([]);
 	state = sizeof(progress) ? state_for(player,progress) : ([]);
-	quest = sizeof(state) ? current_quest(progress,state) : ([]);
-	if(!sizeof(state) || !sizeof(quest)){
+	if(!sizeof(state)){
 		destruct(key);
 		return (["ok":0,"credited":0]);
 	}
-	quest_states = (mapping)state["side_quests"];
-	one = mappingp(quest_states[(string)quest["id"]]) ?
-		copy_value((mapping)quest_states[(string)quest["id"]]) :
-		(["act":0,"act_kills":0,"started_at":time()]);
-	act_index = (int)one["act"];
-	act = (mapping)((array)quest["acts"])[act_index];
-	required = (int)act["required_kills"];
-	if(npc_path!=(string)act["target_path"] ||
-	   !MAP_WORKERD->static_room_locations_match(
-		file_name(environment(player)),(string)act["room"])){
-		destruct(key);
-		return (["ok":1,"credited":0]);
-	}
+	quest = current_quest(progress,state);
 	events = mappingp(progress["story_events"]) ?
 		(mapping)progress["story_events"] : ([]);
-	if(act_index==3 && !(int)events[(string)quest["final_event"]]){
+	if(sizeof(quest)){
+		quest_states = (mapping)state["side_quests"];
+		one = mappingp(quest_states[(string)quest["id"]]) ?
+			copy_value((mapping)quest_states[(string)quest["id"]]) :
+			(["act":0,"act_kills":0,"started_at":time()]);
+		act_index = (int)one["act"];
+		act = (mapping)((array)quest["acts"])[act_index];
+		required = (int)act["required_kills"];
+		if(npc_path==(string)act["target_path"] &&
+		   MAP_WORKERD->static_room_locations_match(room_path,
+			(string)act["room"]) &&
+		   (act_index<3 || (int)events[(string)quest["final_event"]])){
+			kills = min(required,(int)one["act_kills"]);
+			if(act_index==3)
+				kills = required;
+			else if(kills<required)
+				kills++;
+			if(kills>(int)one["act_kills"]){
+				one["act_kills"] = kills;
+				one["updated_at"] = time();
+				quest_states[(string)quest["id"]] = one;
+				state["side_quests"] = quest_states;
+				sidequest_credited = changed = 1;
+				sidequest_complete = kills>=required;
+				action = "sidequest_kill:"+(string)quest["id"]+":"+
+					(string)(act_index+1)+":"+(string)kills;
+				message = "§p【新月支线】§r "+
+					(string)act["target_name"]+" "+(string)kills+"/"+
+					(string)required+(sidequest_complete ?
+					"，本幕战斗目标已经完成。" : "。");
+			}
+		}
+	}
+
+	encounter = copy_value((mapping)state["encounter"]);
+	if(live && (int)encounter["completed"]<
+	   (int)((mapping)journey_config["encounter_rules"])["max_completions"]){
+		active_event = encounter_config((string)encounter["active_id"]);
+		if(sizeof(active_event) &&
+		   npc_path==(string)active_event["target_path"] &&
+		   MAP_WORKERD->static_room_locations_match(room_path,
+			(string)active_event["room"]) &&
+		   (int)encounter["kills"]<(int)active_event["required_kills"]){
+			encounter["kills"] = (int)encounter["kills"]+1;
+			encounter_credited = changed = 1;
+			if((int)encounter["kills"]>=(int)active_event["required_kills"]){
+				int points = (int)active_event["community_points"]+
+					(int)public_resonance(player,state)["tier"]*2;
+				encounter["completed"] = (int)encounter["completed"]+1;
+				encounter["last_completed_at"] = time();
+				encounter["next_at"] = (int)progress["kills"]+
+					(int)((mapping)journey_config["encounter_rules"])[
+						"interval_kills"];
+				encounter["active_id"] = "";
+				encounter["kills"] = 0;
+				encounter["activated_at"] = 0;
+				state["community_points"] =
+					(int)state["community_points"]+points;
+				message += (message!="" ? "\n" : "")+
+					"§y【月下偶遇完成】§r "+(string)active_event["title"]+
+					"，为全服同心筑月贡献 "+(string)points+" 点。";
+			}
+			else
+				message += (message!="" ? "\n" : "")+
+					"§y【月下偶遇】§r "+(string)active_event["target_name"]+
+					" "+(string)(int)encounter["kills"]+"/"+
+					(string)(int)active_event["required_kills"]+"。";
+		}
+		else if(!sizeof(active_event) &&
+		   (int)progress["kills"]>=(int)encounter["next_at"]){
+			active_event = next_encounter(progress,state);
+			if(sizeof(active_event)){
+				encounter["active_id"] = (string)active_event["id"];
+				encounter["kills"] = 0;
+				encounter["activated_at"] = time();
+				encounter_activated = changed = 1;
+				message += (message!="" ? "\n" : "")+
+					"§y【月下偶遇】§r "+(string)active_event["title"]+
+					"已经出现，可从新月支线页一键前往。";
+			}
+		}
+		state["encounter"] = encounter;
+	}
+
+	if(live && claimed_chapter_count(progress)>=81){
+		int week = current_echo_week(progress);
+		array rotations = (array)journey_config["echo_rotations"];
+		rotation = (mapping)rotations[(week-1)%sizeof(rotations)];
+		echo = copy_value((mapping)state["echo"]);
+		if((int)echo["week"]!=week ||
+		   (string)echo["rotation"]!=(string)rotation["id"]){
+			echo["week"] = week;
+			echo["rotation"] = (string)rotation["id"];
+			echo["stage"] = 0;
+		}
+		if(!(int)((mapping)echo["completed_weeks"])[(string)week] &&
+		   (int)echo["stage"]<3){
+			echo_target = (mapping)((array)rotation["stages"])[
+				(int)echo["stage"]];
+			if(npc_path==(string)echo_target["target_path"] &&
+			   MAP_WORKERD->static_room_locations_match(room_path,
+				(string)echo_target["room"])){
+				echo["stage"] = (int)echo["stage"]+1;
+				state["community_points"] =
+					(int)state["community_points"]+30;
+				echo_credited = changed = 1;
+				message += (message!="" ? "\n" : "")+
+					"§p【月蚀回廊】§r 击败"+
+					(string)echo_target["target_name"]+"，本周 "+
+					(string)(int)echo["stage"]+"/3，为同心筑月贡献30点。";
+				if((int)echo["stage"]>=3){
+					((mapping)echo["completed_weeks"])[(string)week] = time();
+					echo["last_completed_at"] = time();
+					message += "\n§g本周回廊三战已经完成；下周会轮换另一组旧敌。§r";
+				}
+			}
+		}
+		state["echo"] = echo;
+	}
+
+	if(!changed){
 		destruct(key);
 		return (["ok":1,"credited":0]);
 	}
-	kills = min(required,(int)one["act_kills"]);
-	if(act_index==3)
-		kills = required;
-	else if(kills<required)
-		kills++;
-	else{
-		destruct(key);
-		return (["ok":1,"credited":0,"complete":1,
-			"kills":kills,"required":required]);
-	}
-	one["act_kills"] = kills;
-	one["updated_at"] = time();
-	quest_states[(string)quest["id"]] = one;
-	state["side_quests"] = quest_states;
-	saved = save_state(player,old_all,all_progress,progress,state,
-		"sidequest_kill:"+(string)quest["id"]+":"+
-		(string)(act_index+1)+":"+(string)kills);
+	saved = save_state(player,old_all,all_progress,progress,state,action+
+		(encounter_credited ? ":encounter" : "")+
+		(echo_credited ? ":echo" : "")+
+		(encounter_activated ? ":activated" : ""));
 	destruct(key);
 	if(!(int)saved["ok"])
 		return saved+(["credited":0]);
-	complete = kills>=required;
+	npc[credit_marker] = 1;
 	task_mode = mappingp(player["/tmp/illusion_journey_autofight"]) ?
 		(mapping)player["/tmp/illusion_journey_autofight"] : ([]);
-	if(complete && (string)task_mode["quest_id"]==(string)quest["id"] &&
+	if(sidequest_complete && (string)task_mode["quest_id"]==(string)quest["id"] &&
 	   (int)task_mode["act"]==act_index){
 		AUTOFIGHTD->stop_autofight(player);
 		player->m_delete_foruser("/tmp/illusion_journey_autofight");
@@ -777,10 +1238,22 @@ mapping(string:mixed) record_npc_kill(object player,object npc)
 			"[记录战果并进入下一幕:illusion_journey advance]|"+
 			"[返回游戏:look]\n");
 	}
-	return (["ok":1,"credited":1,"complete":complete,"kills":kills,
-		"required":required,"message":"§p【新月支线】§r "+
-		(string)act["target_name"]+" "+(string)kills+"/"+
-		(string)required+(complete ? "，本幕战斗目标已经完成。" : "。")]);
+	return (["ok":1,"credited":sidequest_credited || encounter_credited ||
+		echo_credited,"activated":encounter_activated,
+		"complete":sidequest_complete,"kills":kills,
+		"required":required,"message":message]);
+}
+
+mapping(string:mixed) record_npc_kill(object player,object npc)
+{
+	return record_npc_kill_internal(player,npc,0);
+}
+
+mapping(string:mixed) record_npc_kill_for_test(object player,object npc)
+{
+	if(!is_test_journey_player(player))
+		return (["ok":0,"credited":0,"message":"测试入口不可用。"]);
+	return record_npc_kill_internal(player,npc,1);
 }
 
 mapping(string:mixed) advance_current_quest(object player)

@@ -85,6 +85,53 @@ private string room_challenge_view(object me,mapping current)
 	return s+"[查看支线进度:illusion_journey quests]|[返回游戏:look]\n";
 }
 
+private string target_challenge_view(object me,mapping target,string heading,
+	string back_command)
+{
+	object room = environment(me);
+	mapping(string:int) name_count = ([]);
+	string listed = "";
+	string actions = "";
+	int npc_count;
+	int match_count;
+	if(!room || !sizeof(target))
+		return "当前战斗目标不可验证。\n[返回:"+back_command+"]|[返回游戏:look]\n";
+	if(!MAP_WORKERD->static_room_locations_match(file_name(room),
+	   (string)target["room"]))
+		return "请先一键前往【"+(string)target["location"]+"】。\n"+
+			"[返回:"+back_command+"]|[返回游戏:look]\n";
+	foreach(all_inventory(room,me),object npc){
+		string combat_id;
+		string display_name;
+		int count;
+		int matched;
+		if(!npc || !npc->is("npc") || !functionp(npc->query_name))
+			continue;
+		combat_id = (string)npc->query_name();
+		if(!safe_combat_id(combat_id))
+			continue;
+		count = (int)name_count[combat_id];
+		name_count[combat_id] = count+1;
+		display_name = functionp(npc->query_name_cn) ?
+			(string)npc->query_name_cn() : combat_id;
+		matched = normalized_object_path(npc)==(string)target["target_path"];
+		npc_count++;
+		listed += (matched ? "§y【任务目标】§r " : "· ")+display_name+"\n";
+		if(matched){
+			match_count++;
+			actions += "[⚔ 挑战"+display_name+":kill "+combat_id+" "+
+				(string)count+"]\n";
+		}
+	}
+	string s = "【"+heading+"·当前战场】\n";
+	s += npc_count ? listed : "当前房间没有NPC。\n";
+	if(match_count)
+		s += "\n已从房间真实对象确认目标：\n"+actions;
+	else
+		s += "\n目标可能刚被其他玩家击败，请等待刷新；本次不会攻击错误对象。\n";
+	return s+"[刷新目标:"+back_command+"]|[返回游戏:look]\n";
+}
+
 private string quest_view(mapping view)
 {
 	string s = "【新月支线·九卷秘迹】\n";
@@ -119,8 +166,11 @@ private string quest_view(mapping view)
 		s += "\n九卷新月支线已经全部完成。\n";
 	else
 		s += "\n当前卷支线已经完成；推进主线到下一卷后继续开放。\n";
-	return s+"[月忆兽:illusion_journey pet]|"+
-		"[行旅秘术:illusion_journey secrets]\n"+
+	return s+"[月下偶遇:illusion_journey encounter]|"+
+		"[月蚀回廊:illusion_journey echo]|"+
+		"[同心筑月:illusion_journey community]\n"+
+		"[月忆兽:illusion_journey pet]|[行旅秘术:illusion_journey secrets]|"+
+		"[旅途共鸣:illusion_journey resonance]\n"+
 		"[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
 }
 
@@ -193,6 +243,97 @@ private string companion_view(mapping view)
 		"[返回游戏:look]\n";
 }
 
+private string encounter_view(mapping view)
+{
+	mapping encounter = (mapping)view["encounter"];
+	mapping active = mappingp(encounter["active"]) ?
+		(mapping)encounter["active"] : ([]);
+	string s = "【新月回响·月下偶遇】\n";
+	s += "偶遇是可选的真实战斗，不阻塞八十一章主线，也不消耗玉石。\n";
+	s += "本期完成："+(string)(int)encounter["completed"]+"/"+
+		(string)(int)encounter["max_completions"]+"\n";
+	if(!(int)encounter["available"])
+		s += "当前不在进行中的S1幻境，偶遇不会继续刷新。\n";
+	else if((int)encounter["finished"])
+		s += "本期十二场月下偶遇已经全部完成。\n";
+	else if(sizeof(active)){
+		s += "\n【"+(string)active["title"]+"】\n"+
+			(string)active["text"]+"\n"+
+			"目标："+(string)active["target_name"]+" "+
+			(string)(int)encounter["kills"]+"/"+
+			(string)(int)active["required_kills"]+"　地点："+
+			(string)active["location"]+"\n"+
+			"[▶ 一键前往偶遇战场:illusion_journey encounter travel]|"+
+			"[⚔ 查找并挑战目标:illusion_journey encounter challenge]\n";
+	}
+	else
+		s += "继续参与S1真实战斗即可遇见下一场事件；约还需 "+
+			(string)(int)encounter["remaining_kills"]+" 次击杀。\n";
+	return s+"[同心筑月:illusion_journey community]|"+
+		"[返回九卷支线:illusion_journey quests]|[返回游戏:look]\n";
+}
+
+private string echo_view(mapping view)
+{
+	mapping echo = (mapping)view["echo"];
+	mapping target = mappingp(echo["target"]) ? (mapping)echo["target"] : ([]);
+	string s = "【新月回响·月蚀回廊】\n";
+	s += "八十一章后开放；每周轮换三名旧敌，以真实战斗重读本期故事。\n";
+	if(!(int)echo["available"])
+		s += "尚未开放：需要处于进行中的S1并完成八十一章。\n";
+	else{
+		s += "第"+(string)(int)echo["week"]+"周·"+(string)echo["title"]+
+			"　进度 "+(string)(int)echo["stage"]+"/3\n";
+		if((int)echo["completed"])
+			s += "本周回廊已经完成，下周自动轮换。\n";
+		else if(sizeof(target))
+			s += "当前目标："+(string)target["target_name"]+"　地点："+
+				(string)target["location"]+"\n"+
+				"[▶ 一键前往回廊目标:illusion_journey echo travel]|"+
+				"[⚔ 查找并挑战目标:illusion_journey echo challenge]\n";
+	}
+	return s+"[同心筑月:illusion_journey community]|"+
+		"[返回九卷支线:illusion_journey quests]|[返回游戏:look]\n";
+}
+
+private string community_view(mapping view)
+{
+	mapping community = (mapping)view["community"];
+	int points = min((int)community["target"],(int)community["points"]);
+	string s = "【新月回响·"+(string)community["title"]+"】\n";
+	if(!(int)community["ok"])
+		s += "跨Worker历程快照暂未完整校验，本页拒绝猜测不完整总数。\n";
+	else
+		s += "全服进度："+(string)points+"/"+
+			(string)(int)community["target"]+"　同行者："+
+			(string)(int)community["contributors"]+"人\n";
+	foreach((array)community["milestones"],mapping milestone)
+		s += ((int)community["points"]>=(int)milestone["points"] ?
+			"§g【已完成】§r " : "【未完成】")+
+			(string)milestone["name"]+" "+
+			(string)(int)milestone["points"]+"点\n"+
+			(string)milestone["text"]+"\n";
+	s += "\n贡献来自月下偶遇与月蚀回廊，只解锁共同叙事，不改变个人伤害、掉率或排行榜。\n";
+	return s+"[月下偶遇:illusion_journey encounter]|"+
+		"[月蚀回廊:illusion_journey echo]|[返回游戏:look]\n";
+}
+
+private string resonance_view(mapping view)
+{
+	mapping resonance = (mapping)view["resonance"];
+	string s = "【新月回响·旅途共鸣】\n";
+	s += "当前层级："+(string)resonance["name"]+"\n";
+	s += ((int)resonance["has_companion"] ? "§g已携月忆兽§r" : "尚未选择月忆兽")+
+		"　秘术"+(string)(int)resonance["secret_count"]+"/9　月忆"+
+		(string)(int)resonance["memory_count"]+"/9\n";
+	s += ((int)resonance["full_set"] ? "§g已穿齐十件新月套装§r "+
+		(string)resonance["set_name"] : "尚未穿齐同职业十件新月套装")+"\n";
+	s += "同行初鸣需要月忆兽与3秘术；三途共振再需6秘术与十件套；人间满月需九秘术、九月忆与十件套。\n";
+	s += "共鸣只改变行旅称谓与同心筑月贡献，不进入职业战斗公式。\n";
+	return s+"[月忆兽:illusion_journey pet]|[行旅秘术:illusion_journey secrets]|"+
+		"[返回游戏:look]\n";
+}
+
 int main(string|zero arg)
 {
 	object me = this_player();
@@ -242,6 +383,40 @@ int main(string|zero arg)
 			"[返回幻境任务:illusion_realm]|[返回游戏:look]\n");
 		return 1;
 	}
+	if(sizeof(parts)>=2 && parts[0]=="encounter" && parts[1]=="travel"){
+		result = ILLUSION_JOURNEYD->travel_to_active_encounter(me);
+		write((string)result["message"]+"\n"+
+			((int)result["ok"] ?
+			 "[⚔ 查找并挑战目标:illusion_journey encounter challenge]|" : "")+
+			"[返回月下偶遇:illusion_journey encounter]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="encounter" && parts[1]=="challenge"){
+		mapping encounter = (mapping)view["encounter"];
+		mapping target = mappingp(encounter["active"]) ?
+			(mapping)encounter["active"] : ([]);
+		write(sizeof(target) ? target_challenge_view(me,target,"月下偶遇",
+			"illusion_journey encounter") :
+			"当前没有可挑战的月下偶遇目标。\n[返回月下偶遇:illusion_journey encounter]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="echo" && parts[1]=="travel"){
+		result = ILLUSION_JOURNEYD->travel_to_echo_target(me);
+		write((string)result["message"]+"\n"+
+			((int)result["ok"] ?
+			 "[⚔ 查找并挑战目标:illusion_journey echo challenge]|" : "")+
+			"[返回月蚀回廊:illusion_journey echo]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="echo" && parts[1]=="challenge"){
+		mapping echo = (mapping)view["echo"];
+		mapping target = mappingp(echo["target"]) ?
+			(mapping)echo["target"] : ([]);
+		write(sizeof(target) ? target_challenge_view(me,target,"月蚀回廊",
+			"illusion_journey echo") :
+			"当前没有可挑战的月蚀回廊目标。\n[返回月蚀回廊:illusion_journey echo]|[返回游戏:look]\n");
+		return 1;
+	}
 	if(sizeof(parts)>=2 && parts[0]=="use"){
 		result = ILLUSION_JOURNEYD->use_secret(me,parts[1]);
 		write((string)result["message"]+"\n[返回行旅秘术:illusion_journey secrets]|"+
@@ -271,6 +446,14 @@ int main(string|zero arg)
 		write(secret_view(view));
 	else if(sizeof(parts) && parts[0]=="pet")
 		write(companion_view(view));
+	else if(sizeof(parts) && parts[0]=="encounter")
+		write(encounter_view(view));
+	else if(sizeof(parts) && parts[0]=="echo")
+		write(echo_view(view));
+	else if(sizeof(parts) && parts[0]=="community")
+		write(community_view(view));
+	else if(sizeof(parts) && parts[0]=="resonance")
+		write(resonance_view(view));
 	else
 		write(quest_view(view));
 	return 1;

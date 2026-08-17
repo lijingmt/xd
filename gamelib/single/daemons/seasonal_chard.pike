@@ -494,39 +494,39 @@ private int valid_config(mapping candidate)
 		8:(["event":"life_collector","id":"mortal_lifespan_thread",
 			"item":"/gamelib/clone/item/other/illusion_s1_lifespan_thread",
 			"source":"/gamelib/clone/npc/illusion_s1/moon_wisp.pike",
-			"rate":1000,"pity":10]),
+			"rate":1500,"pity":7]),
 		17:(["event":"fog_trial_warden","id":"fog_oath_leaf",
 			"item":"/gamelib/clone/item/other/illusion_s1_fog_oath_leaf",
 			"source":"/gamelib/clone/npc/illusion_s1/fog_wolf.pike",
-			"rate":422,"pity":24]),
+			"rate":800,"pity":13]),
 		26:(["event":"empty_sutra_abbot","id":"nameless_bone_shard",
 			"item":"/gamelib/clone/item/other/illusion_s1_nameless_bone_shard",
 			"source":"/gamelib/clone/npc/illusion_s1/mirror_spider.pike",
-			"rate":178,"pity":57]),
+			"rate":400,"pity":25]),
 		35:(["event":"mirror_weaver","id":"mirror_heart_shard",
 			"item":"/gamelib/clone/item/other/illusion_s1_mirror_heart_shard",
 			"source":"/gamelib/clone/npc/illusion_s1/ruin_guard.pike",
-			"rate":75,"pity":134]),
+			"rate":200,"pity":50]),
 		44:(["event":"frozen_age_king","id":"beiju_memory_crystal",
 			"item":"/gamelib/clone/item/other/illusion_s1_memory_crystal",
 			"source":"/gamelib/clone/npc/illusion_s1/star_wraith.pike",
-			"rate":32,"pity":313]),
+			"rate":100,"pity":100]),
 		53:(["event":"frost_inquisitor","id":"snow_verdict_seal",
 			"item":"/gamelib/clone/item/other/illusion_s1_snow_verdict_seal",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":13,"pity":770]),
+			"rate":50,"pity":200]),
 		62:(["event":"dongsheng_fusang_flame","id":"dawn_flame_seed",
 			"item":"/gamelib/clone/item/other/illusion_s1_dawn_flame_seed",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":6,"pity":1667]),
+			"rate":25,"pity":400]),
 		71:(["event":"eclipse_priest","id":"moon_furnace_life_rune",
 			"item":"/gamelib/clone/item/other/illusion_s1_life_rune",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":2,"pity":5000]),
+			"rate":15,"pity":667]),
 		80:(["event":"newmoon_lord_truth","id":"human_world_true_name",
 			"item":"/gamelib/clone/item/other/illusion_s1_human_world_true_name",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":1,"pity":10000]),
+			"rate":10,"pity":1000]),
 	]);
 	if(!mappingp(candidate) || (int)candidate["version"]!=1 ||
 	   !valid_identifier((string)candidate["current_id"]) ||
@@ -2240,7 +2240,7 @@ int query_quest_item_random_drop_for_test(object player,
 /**
  * 将测试人物当前剧情道具置于下一次有效击杀触发硬保底的位置。
  * 只在XIAND_RUN_TESTUNIT且固定测试账号前缀下开放，避免端到端测试
- * 为验证1/10000边界进行数十万次磁盘写入。
+ * 为验证万分比边界进行大量磁盘写入。
  */
 int prime_current_quest_item_pity_for_test(object player)
 {
@@ -2678,8 +2678,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	if(journey_err)
 		werror("[ILLUSION_JOURNEY] 支线击杀记账异常: user=%s npc=%s error=%s\n",
 			(string)player->query_name(),npc_path,describe_error(journey_err));
-	else if((int)journey_result["credited"] &&
-		(string)journey_result["message"]!="")
+	else if((string)journey_result["message"]!="")
 		tell_object(player,(string)journey_result["message"]+"\n");
 	if((int)context["ranking_enabled"])
 		invalidate_ranking_cache(illusion_id);
@@ -4169,6 +4168,7 @@ private string ranking_progress_validation_error(mapping progress)
 		"active_days_count","story_events_count",
 		"pvp_honor","pvp_wins","ranking_level",
 		"ranking_experience_latest","set_parts","completed_at",
+		"community_points",
 	});
 	if(!mappingp(progress) || sizeof(progress)>80)
 		return "root";
@@ -4266,6 +4266,8 @@ private mapping compact_ranking_progress(mapping progress)
 			compact_ranking_int(progress,"ranking_experience_latest",0),
 		"set_parts":compact_ranking_int(progress,"set_parts",0),
 		"completed_at":compact_ranking_int(progress,"completed_at",0),
+		"community_points":compact_ranking_int(progress,
+			"community_points",0),
 		"ranking_weeks":mappingp(progress["ranking_weeks"]) ?
 			copy_value((mapping)progress["ranking_weeks"]) : ([]),
 	]);
@@ -4410,6 +4412,84 @@ private mapping(string:mixed) query_ranking_snapshots(string illusion_id)
 	result["characters"] = candidates;
 	result["ok"] = !(int)result["corrupt"] &&
 		!(int)result["truncated"];
+	return result;
+}
+
+/**
+ * Journey subfeatures commit inside the same player .o file, then publish a
+ * derived compact snapshot.  A snapshot failure never rolls back a durable
+ * character save; the next successful checkpoint repairs the derived view.
+ */
+private int publish_journey_snapshot_internal(object player,int test_bypass)
+{
+	mapping context = story_context(player);
+	mapping progress;
+	string illusion_id;
+	if(!player)
+		return 0;
+	if(test_bypass && getenv("XIAND_RUN_TESTUNIT")=="1" &&
+	   has_prefix((string)player->query_name(),"__testunit_")){
+		mapping all_progress = mappingp(player[ILLUSION_PROGRESS_ROOT]) ?
+			(mapping)player[ILLUSION_PROGRESS_ROOT] : ([]);
+		illusion_id = "S1";
+		progress = mappingp(all_progress[illusion_id]) ?
+			copy_value((mapping)all_progress[illusion_id]) : ([]);
+	}
+	else{
+		if(!sizeof(context) || !(int)context["ranking_enabled"])
+			return 0;
+		illusion_id = (string)context["illusion_id"];
+		progress = copy_value(player_progress(player,0));
+	}
+	if(!sizeof(progress) || !valid_ranking_progress(progress))
+		return 0;
+	update_ranking_snapshot(player,progress);
+	if(!persist_ranking_snapshot(player,progress,illusion_id))
+		return 0;
+	invalidate_ranking_cache(illusion_id);
+	return 1;
+}
+
+int publish_journey_snapshot(object player)
+{
+	return publish_journey_snapshot_internal(player,0);
+}
+
+int publish_journey_snapshot_for_test(object player)
+{
+	return publish_journey_snapshot_internal(player,1);
+}
+
+mapping(string:mixed) query_community_progress(string illusion_id)
+{
+	string cache_key = illusion_id+"|community|overall";
+	mapping cached = ranking_cache[cache_key];
+	mapping snapshots;
+	int total;
+	int contributors;
+	if(!valid_identifier(illusion_id))
+		return (["ok":0,"points":0,"contributors":0]);
+	if(mappingp(cached) && time()-(int)cached["created_at"]<=
+	   ILLUSION_RANKING_CACHE_TTL)
+		return copy_value((mapping)cached["result"]);
+	snapshots = query_ranking_snapshots(illusion_id);
+	if(!(int)snapshots["ok"])
+		return (["ok":0,"points":0,"contributors":0,
+			"corrupt":(int)snapshots["corrupt"],
+			"truncated":(int)snapshots["truncated"]]);
+	foreach((array)snapshots["characters"],mapping profile){
+		mapping progress = mappingp(profile["illusion_progress"]) ?
+			(mapping)profile["illusion_progress"] : ([]);
+		int points = (int)progress["community_points"];
+		if(points<=0)
+			continue;
+		total += points;
+		contributors++;
+	}
+	mapping result = (["ok":1,"illusion_id":illusion_id,
+		"points":total,"contributors":contributors,"generated_at":time()]);
+	ranking_cache[cache_key] = (["created_at":time(),
+		"result":copy_value(result)]);
 	return result;
 }
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "illusion_id": "S1",
-  "feature_revision": 2,
+  "feature_revision": 3,
   "display_name": "新月支线·九卷秘迹",
   "side_quests": [
     {
@@ -133,6 +133,69 @@
     {"volume":8,"title":"无痛诱惑","rescue":"","text":"祝无晷许诺让它永不受伤，代价是忘记你。"},
     {"volume":9,"title":"归还名字","rescue":"","text":"旅途尽头，你承认名字不是所有权，它也可以自由选择去留。"}
   ],
+  "encounter_rules": {
+    "first_trigger_kills": 18,
+    "interval_kills": 40,
+    "max_completions": 12
+  },
+  "wander_events": [
+    {
+      "id":"ink_debt_patrol","title":"墨债巡夜","unlock_claimed":9,
+      "text":"尘城旧账忽然在月光下自行翻页，三只无名墨魇正把凡人的姓名抄进寿契。它不是主线卡点，却是你能够亲手阻止的一场小灾。",
+      "location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike",
+      "target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇",
+      "required_kills":3,"community_points":10
+    },
+    {
+      "id":"mirror_rescue_patrol","title":"镜湖救影","unlock_claimed":27,
+      "text":"倒月镜湖吞住了三道不肯忘记故人的倒影。击碎沉月镜妖，才能让这些记忆在天亮前回到主人身边。",
+      "location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike",
+      "target_path":"/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike","target_name":"沉月镜妖",
+      "required_kills":3,"community_points":10
+    },
+    {
+      "id":"lamp_truth_patrol","title":"炉灯辨伪","unlock_claimed":63,
+      "text":"月炉边同时亮起四盏灯，其中一盏正在伪造新的长生方。击败第四影灯奴，把真火与假影重新分开。",
+      "location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike",
+      "target_path":"/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike","target_name":"第四影灯奴",
+      "required_kills":3,"community_points":10
+    }
+  ],
+  "echo_rotations": [
+    {
+      "id":"mortal_names","title":"人间有名",
+      "stages":[
+        {"location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","target_path":"/gamelib/clone/npc/illusion_s1/life_collector.pike","target_name":"南瞻司寿使"},
+        {"location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","target_path":"/gamelib/clone/npc/illusion_s1/empty_sutra_abbot.pike","target_name":"西牛空经尊者"},
+        {"location":"新月归真台","room":"/gamelib/d/illusion_s1/newmoon_altar.pike","target_path":"/gamelib/clone/npc/illusion_s1/newmoon_lord.pike","target_name":"S1归真月主"}
+      ]
+    },
+    {
+      "id":"oaths_and_mirrors","title":"誓与真影",
+      "stages":[
+        {"location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","target_path":"/gamelib/clone/npc/illusion_s1/fog_trial_warden.pike","target_name":"雾誓守关者"},
+        {"location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","target_path":"/gamelib/clone/npc/illusion_s1/mirror_weaver.pike","target_name":"沉月镜主"},
+        {"location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","target_path":"/gamelib/clone/npc/illusion_s1/eclipse_priest.pike","target_name":"无影司炉者"}
+      ]
+    },
+    {
+      "id":"finite_life","title":"有限长生",
+      "stages":[
+        {"location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","target_path":"/gamelib/clone/npc/illusion_s1/frozen_age_king.pike","target_name":"北俱冻龄王"},
+        {"location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/frost_inquisitor.pike","target_name":"冻宫雪审使"},
+        {"location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","target_path":"/gamelib/clone/npc/illusion_s1/sunrise_guardian.pike","target_name":"东胜朝生君"}
+      ]
+    }
+  ],
+  "community_goal": {
+    "title":"同心筑月",
+    "target":5000,
+    "milestones":[
+      {"points":500,"name":"尘城点灯","text":"四洲驿站开始公开失踪者姓名。"},
+      {"points":2000,"name":"镜湖还影","text":"倒月镜湖归还被扣留的共同记忆。"},
+      {"points":5000,"name":"人间满月","text":"全服共同补全本期新月人间名册。"}
+    ]
+  },
   "memory_choices": [
     {"id":"courage","name":"一起面对","trait":"courage"},
     {"id":"care","name":"先照顾受伤者","trait":"care"},

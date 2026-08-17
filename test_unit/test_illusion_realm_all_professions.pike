@@ -1228,14 +1228,14 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		if(index==0)
 			check("剧情道具万分比边界真实使用1..10000闭区间",
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,1000,1000)==1 &&
+					player,1500,1500)==1 &&
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,1000,1001)==0 &&
+					player,1500,1501)==0 &&
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,1,1)==1 &&
+					player,10,10)==1 &&
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,1,2)==0,
-				"10%与1/10000临界值必须准确且不能四舍五入");
+					player,10,11)==0,
+					"15%与1/1000临界值必须准确且不能四舍五入");
 
 		mapping first_battle = run_first_s1_quick_battle(player);
 		check(profession_name+"一级空档可真实击败S1首只逐光月灵",

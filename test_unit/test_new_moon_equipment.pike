@@ -1651,7 +1651,7 @@ void test_legacy_equipment_compatibility()
 	for(int attempt=0;attempt<8 && !converted_old;attempt++){
 		old_convert_error=catch {
 			converted_old=ITEMSD->get_convert_item(
-				old_raw,2,65,65,old_item);
+				old_raw,2,65,66,old_item);
 		};
 	}
 	check("普通旧装备传入原对象炼化时不会被误判为新月套装",
