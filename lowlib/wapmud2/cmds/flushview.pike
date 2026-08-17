@@ -59,7 +59,7 @@ private int continue_auto_rest(object me)
 	if(current!=rest_room){
 		AUTOFIGHTD->record_route(me,rest_room);
 		me->command("qge74hye "+rest_room);
-		AUTOFIGHTD->start_autofight(me);
+		AUTOFIGHTD->resume_autofight(me);
 		return 1;
 	}
 	if(me->get_cur_life()<me->query_life_max() ||
@@ -73,7 +73,7 @@ private int continue_auto_rest(object me)
 	if(AUTOFIGHTD->query_smart_route_enabled(me) && route_path!=""){
 		AUTOFIGHTD->record_route(me,route_path);
 		AUTOFIGHTD->move_to_training_route(me,route);
-		AUTOFIGHTD->start_autofight(me);
+		AUTOFIGHTD->resume_autofight(me);
 		return 1;
 	}
 	me->command("look");
@@ -333,7 +333,7 @@ int main(string|zero arg)
 		write("挂机助手正在寻找"+(string)route["name"]+
 			"（约"+(int)route["level"]+"级怪）。\n");
 		AUTOFIGHTD->move_to_training_route(me,route);
-		AUTOFIGHTD->start_autofight(me);
+		AUTOFIGHTD->resume_autofight(me);
 		return 1;
 	}
 	direction = AUTOFIGHTD->query_safe_exit(me);

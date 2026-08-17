@@ -1162,8 +1162,9 @@ int main()
 		int s1_afk_routes_ok = 1;
 		foreach(indices(expected_afk_routes),string level_text){
 			child->level = (int)level_text;
-			mapping route = AUTOFIGHTD->query_training_route(child);
-			mapping window = AUTOFIGHTD->query_target_level_window(child);
+			// 这里验证无章节目标时的S1基础练级路由；当前章节优先行为
+			// 由十二职业真实挂机回归单独覆盖，不能互相遮蔽预期。
+			mapping route = SEASONALD->query_autofight_route(child);
 			array(string) expected = expected_afk_routes[level_text]/"|";
 			array(string) route_paths = (array(string))route["paths"];
 			multiset(string) route_affinities = (<>);
@@ -1176,8 +1177,8 @@ int main()
 			   (int)route["capacity"]!=18 ||
 			   (int)route["total_capacity"]<50 ||
 			   (int)route["disable_overflow"]!=1 ||
-			   (int)window["minimum"]!=(int)expected[1] ||
-			   (int)window["maximum"]!=(int)expected[1])
+			   (int)route["target_min"]!=(int)expected[1] ||
+			   (int)route["target_max"]!=(int)expected[1])
 				s1_afk_routes_ok = 0;
 		}
 		check("S1挂机每级三张中立图可容纳50人且不创建隔离分流房",

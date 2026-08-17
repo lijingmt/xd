@@ -485,6 +485,15 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	int zero_exp;
 	mapping progress;
 	mapping chapter;
+	mapping ordinary_route;
+	mapping ordinary_window;
+	mapping scoped_start;
+	mapping scoped_route;
+	object|zero ordinary_target = 0;
+	int ordinary_route_valid;
+	int ordinary_progress_valid;
+	int scoped_route_valid;
+	int scoped_stopped;
 	int restored;
 	for(int chapter_number=1;chapter_number<=8;chapter_number++)
 		claims["S1-C"+(string)chapter_number] = time();
@@ -514,21 +523,68 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	// 等级差超过10时旧公式的经验合法为0；死亡归属入口仍必须推进任务。
 	zero_exp = boss->grant_kill_experience(player,0);
 	boss->record_eligible_kill_progress(player,1);
-	for(int count=0;count<9;count++){
+	move_for_test(player,
+		"/gamelib/d/illusion_s1/moon_dew_field.pike");
+	// 真实回归：人物已经69级，但第九章仍要求1级逐光月灵。普通挂机
+	// 必须优先当前章节而非把人物送去50级练级区，且不能达标自停。
+	object|zero ordinary_hunt = clone(ROOT+
+		"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
+	ordinary_hunt->move(environment(player));
+	AUTOFIGHTD->start_autofight(player);
+	ordinary_route = AUTOFIGHTD->query_training_route(player);
+	ordinary_window = AUTOFIGHTD->query_target_level_window(player);
+	ordinary_target = AUTOFIGHTD->query_target(player);
+	ordinary_route_valid =
+		(string)ordinary_route["path"]==
+			"illusion_s1/moon_dew_field" &&
+		(int)ordinary_route["chapter_target"]==1 &&
+		(int)ordinary_route["level"]==1 &&
+		(int)ordinary_window["minimum"]==1 &&
+		(int)ordinary_window["maximum"]==1 &&
+		ordinary_target &&
+		(string)ordinary_target->query_name_cn()=="逐光月灵";
+	ordinary_hunt->record_eligible_kill_progress(player,1);
+	progress = SEASONALD->query_player_progress(player);
+	chapter = (mapping)((array)progress["chapters"])[8];
+	ordinary_progress_valid =
+		(int)chapter["chapter_kills_done"]==1 &&
+		(string)player->query_autofight()=="enable" &&
+		!player["/tmp/illusion_chapter_autofight"];
+	AUTOFIGHTD->stop_autofight(player);
+	destruct(ordinary_hunt);
+	ordinary_hunt = 0;
+
+	// 章节专用挂机与普通挂机共用同一目标路线，但内部续跑必须保留
+	// 限章标记；第9只确认死亡后精准停止，前8只不能提前停止。
+	scoped_start = SEASONALD->start_chapter_hunt_autofight_for_test(player);
+	scoped_route = AUTOFIGHTD->query_training_route(player);
+	scoped_route_valid = (int)scoped_start["ok"] &&
+		(string)scoped_route["path"]=="illusion_s1/moon_dew_field" &&
+		(int)scoped_route["chapter_target"]==1 &&
+		mappingp(player["/tmp/illusion_chapter_autofight"]);
+	AUTOFIGHTD->resume_autofight(player);
+	if(!mappingp(player["/tmp/illusion_chapter_autofight"]))
+		scoped_route_valid = 0;
+	for(int count=1;count<9;count++){
 		object hunt = clone(ROOT+
 			"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
-		move_for_test(player,
-			"/gamelib/d/illusion_s1/moon_dew_field.pike");
 		hunt->move(environment(player));
-		SEASONALD->record_npc_kill(player,hunt,1);
+		hunt->record_eligible_kill_progress(player,1);
 		destruct(hunt);
+		if(count<8 && ((string)player->query_autofight()!="enable" ||
+		   !mappingp(player["/tmp/illusion_chapter_autofight"])))
+			scoped_route_valid = 0;
 	}
+	scoped_stopped = (string)player->query_autofight()=="disable" &&
+		!player["/tmp/illusion_chapter_autofight"];
 	move_for_test(player,
 		"/gamelib/d/illusion_s1/starlight_slope.pike");
 	progress = SEASONALD->query_player_progress(player);
 	chapter = (mapping)((array)progress["chapters"])[8];
 	int valid = zero_exp==0 &&
 		(int)player->query_level()-(int)boss->query_level()>=10 &&
+		ordinary_route_valid && ordinary_progress_valid &&
+		scoped_route_valid && scoped_stopped &&
 		(int)progress["kills"]==92 && (int)progress["boss_kills"]==1 &&
 		(int)chapter["chapter_kills_done"]==9 &&
 		(int)chapter["chapter_boss_kills_done"]==1 &&
@@ -541,7 +597,14 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	restored = player->save_with_result();
 	move_for_test(player,"/gamelib/d/illusion_s1/moon_dew_field.pike");
 	return (["ok":valid && restored,"zero_exp":zero_exp,
-		"progress":progress,"chapter":chapter,"restored":restored]);
+		"progress":progress,"chapter":chapter,"restored":restored,
+		"ordinary_route":ordinary_route,
+		"ordinary_window":ordinary_window,
+		"ordinary_route_valid":ordinary_route_valid,
+		"ordinary_progress_valid":ordinary_progress_valid,
+		"scoped_start":scoped_start,"scoped_route":scoped_route,
+		"scoped_route_valid":scoped_route_valid,
+		"scoped_stopped":scoped_stopped]);
 }
 
 string hunt_npc_path(string hunt_name)

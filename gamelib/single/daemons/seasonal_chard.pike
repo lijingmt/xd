@@ -2097,6 +2097,10 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	checkpoint = is_illusion_progress_checkpoint(progress,boss_kill,
 	   route_mark_added,previous_team_kills,activity_day_added,
 	   story_event_added);
+	// 章节目标数量很小，逐只保存才能保证重启或跨 Worker 前已经显示的
+	// 进度不会回退；普通练级击杀仍沿用原有稀疏检查点，不增加写盘压力。
+	if((int)task_credit["kill"] || (int)task_credit["boss"])
+		checkpoint = 1;
 	if(checkpoint){
 		if(!player->save_with_result()){
 			player[ILLUSION_PROGRESS_ROOT+"/"+
@@ -2557,6 +2561,101 @@ private mapping(string:mixed) story_hunt_target_for_level(mapping progress,
 			"/gamelib/d/illusion_s1/starfall_garden.pike",
 		}),
 		"path":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike"]);
+}
+
+/**
+ * 当前章节真实狩猎路线。普通持续挂机和“仅完成本章”共用目标房间与
+ * 怪物等级；后者只额外携带停止标记，不能维护第二套寻路规则。
+ */
+mapping(string:mixed) query_current_chapter_autofight_route(object player)
+{
+	mapping context;
+	mapping progress;
+	mapping config;
+	mapping chapter;
+	mapping step;
+	mapping events;
+	mapping hunt;
+	array chapters;
+	array(string) paths = ({});
+	string room_prefix = "/gamelib/d/";
+	int index;
+	int target_level;
+	if(!player)
+		return ([]);
+	context = story_context(player);
+	if(!sizeof(context) || (string)context["illusion_id"]!="S1")
+		return ([]);
+	config = (mapping)context["config"];
+	if((string)context["mode"]=="echo" &&
+	   !is_content_room_path(config,
+		normalized_destination_path(environment(player))))
+		return ([]);
+	progress = player_progress(player,1);
+	if(!ensure_current_chapter_counters(player,progress))
+		return ([]);
+	chapters = (array)(config["chapters"] || ({}));
+	index = claimed_chapter_count(progress);
+	if(index<0 || index>=sizeof(chapters))
+		return ([]);
+	chapter = (mapping)chapters[index];
+	step = chapter_step_requirements(progress,index);
+	if((int)step["kills"]<=0 ||
+	   (int)progress["chapter_kills"]>=(int)step["kills"])
+		return ([]);
+	if((string)(chapter["story_event"] || "")!=""){
+		events = mappingp(progress["story_events"]) ?
+			(mapping)progress["story_events"] : ([]);
+		if(!(int)events[(string)chapter["story_event"]])
+			return ([]);
+	}
+	hunt = story_hunt_target_for_level(progress,(int)step["min_level"]);
+	foreach((array)(hunt["rooms"] || ({})),string room){
+		string path = room;
+		if(!has_prefix(path,room_prefix) || !has_suffix(path,".pike"))
+			return ([]);
+		path = path[sizeof(room_prefix)..sizeof(path)-6];
+		paths += ({path});
+	}
+	if(!sizeof(paths))
+		return ([]);
+	switch((string)hunt["path"]){
+	case "/gamelib/clone/npc/illusion_s1/moon_wisp.pike":
+		target_level = 1;
+		break;
+	case "/gamelib/clone/npc/illusion_s1/fog_wolf.pike":
+		target_level = 10;
+		break;
+	case "/gamelib/clone/npc/illusion_s1/mirror_spider.pike":
+		target_level = 20;
+		break;
+	case "/gamelib/clone/npc/illusion_s1/ruin_guard.pike":
+		target_level = 30;
+		break;
+	case "/gamelib/clone/npc/illusion_s1/star_wraith.pike":
+		target_level = 40;
+		break;
+	case "/gamelib/clone/npc/illusion_s1/abyss_beast.pike":
+		target_level = 50;
+		break;
+	default:
+		return ([]);
+	}
+	return ([
+		"max":69,
+		"level":target_level,
+		"name":"第"+(string)(index+1)+"章·"+(string)hunt["name"],
+		"path":paths[0],
+		"paths":paths,
+		"capacity":18,
+		"total_capacity":sizeof(paths)*18,
+		"target_min":target_level,
+		"target_max":target_level,
+		"disable_overflow":1,
+		"illusion_id":"S1",
+		"chapter_id":(string)chapter["id"],
+		"chapter_target":1,
+	]);
 }
 
 // 三十六处探索门槛必须给玩家一个真正尚未到过的下一站，而不是

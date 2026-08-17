@@ -3078,7 +3078,7 @@ mapping(string:mixed) perform_auto_store_non_equipment(object me)
 	return result;
 }
 
-void start_autofight(object me)
+private void activate_autofight(object me,int preserve_chapter_mode)
 {
 	string userid;
 	if(!me)
@@ -3086,7 +3086,8 @@ void start_autofight(object me)
 	initialize_player(me);
 	// 普通持续挂机与“只完成当前幻境狩猎”是两种明确模式。
 	// 从通用入口启动时必须清除旧的限章标记，不能完成一章后误停。
-	me->m_delete_foruser("/tmp/illusion_chapter_autofight");
+	if(!preserve_chapter_mode)
+		me->m_delete_foruser("/tmp/illusion_chapter_autofight");
 	me["/tmp/autofight_last_charge"] = time();
 	userid=normalize_server_autofight_userid((string)me->query_name());
 	if(userid!="")
@@ -3101,6 +3102,20 @@ void start_autofight(object me)
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
 	ensure_server_autofight_tick(me);
+}
+
+void start_autofight(object me)
+{
+	activate_autofight(me,0);
+}
+
+/**
+ * 自动休息、章节换图后的内部续跑不能清掉“仅完成本章”标记。
+ * 玩家主动点击普通挂机仍走 start_autofight()，保持原有显式切换语义。
+ */
+void resume_autofight(object me)
+{
+	activate_autofight(me,1);
 }
 
 void stop_autofight(object me)
@@ -3314,6 +3329,12 @@ mapping(string:mixed) query_training_route(object me)
 	int level;
 	if(!me)
 		return ([]);
+	// 当前章节尚有狩猎目标时，普通挂机与限章挂机都先完成真实任务。
+	// 两者只在达标后是否停止上有区别，不能让高等级人物被同级练级
+	// 路线带离低级章节猎场，造成“总击杀增加、章节计数为零”。
+	route = SEASONALD->query_current_chapter_autofight_route(me);
+	if(route && sizeof(route))
+		return route;
 	// 幻境人物只能使用本期路线。未知的新赛季宁可留在当前地图巡游，
 	// 也不能回退到永恒服练级表并反复触发跨世界拒绝。
 	if(SEASONALD->is_active_illusion_character(me))
@@ -3936,20 +3957,20 @@ mapping(string:int) query_target_level_window(object me)
 	if(!me)
 		return (["minimum":1,"maximum":1]);
 	me_level = me->query_level();
-	if(SEASONALD->is_active_illusion_character(me)){
-		route = SEASONALD->query_autofight_route(me);
-		if((int)route["target_min"]>0 &&
-		   (int)route["target_max"]>0)
-			return ([
-				"minimum":(int)route["target_min"],
-				"maximum":(int)route["target_max"],
-			]);
-	}
+	// 必须复用最终训练路线：当前章节可能要求高等级人物回头击杀
+	// 低级剧情怪。该规则同时覆盖进行中的赛季人物和赛季结束后的
+	// 永恒回响；直接查询基础路线会把正确目标挡在等级窗外。
+	route = query_training_route(me);
+	if((string)route["illusion_id"]!="" &&
+	   (int)route["target_min"]>0 && (int)route["target_max"]>0)
+		return ([
+			"minimum":(int)route["target_min"],
+			"maximum":(int)route["target_max"],
+		]);
 	maximum_level = me_level+2;
 	minimum_level = 1;
 	if(query_smart_route_enabled(me)){
 		maximum_level = me_level;
-		route = query_training_route(me);
 		route_level = (int)route["level"];
 		// 59级的固定路线位于60级怪区。只接受推荐路线恰好高1级的
 		// 边界，不把智能挂机普遍放宽成可随意越级攻击。
@@ -4311,6 +4332,10 @@ string query_safe_exit(object me)
 	// 自动换到相邻地图，避免默认设置下永久等待刷新。
 	if(!me || (!query_roam_enabled(me) &&
 	   !query_smart_route_enabled(me)))
+		return "";
+	// 章节狩猎只能在该目标允许的房间池内换图。通用相邻巡游可能把
+	// 玩家带进没有目标怪的过道，交给章节平衡路线在冷却后直达下一房。
+	if(sizeof(SEASONALD->query_current_chapter_autofight_route(me)))
 		return "";
 	if((int)me["/tmp/autofight_no_target_ticks"] <
 	   AUTOFIGHT_ROAM_NO_TARGET_TICKS)
