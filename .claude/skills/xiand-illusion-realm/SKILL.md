@@ -43,6 +43,7 @@ completely and follow its production gates in order.
   `images/illusion_s1/story/`
 - shared runtime phase/audit: `data_xiand/illusion_realm/runtime.json`
 - archived closed states: `data_xiand/illusion_realm/history/`
+- validated merged content snapshots: `data_xiand/illusion_realm/content/<ID>.json`
 - derived leaderboard snapshots: `data_xiand/illusion_realm/rankings/<ID>/`
 - lifecycle/progress/reward/payment recovery: `gamelib/single/daemons/seasonal_chard.pike`
 - cycle-keyed entitlement and realm identity: `gamelib/single/daemons/account_characterd.pike`
@@ -57,6 +58,9 @@ completely and follow its production gates in order.
 - focused lifecycle regression: `test_unit/test_illusion_realm.pike`
 - mandatory all-profession journey regression:
   `test_unit/test_illusion_realm_all_professions.pike`
+- post-teleport action regression:
+  `test_unit/test_illusion_realm_task_navigation.pike`
+- personal difficulty matrix: `test_unit/test_personal_difficulty.pike`
 
 Do not commit runtime JSON, account indexes, player saves, logs, Worker state, or
 other generated data.
@@ -83,9 +87,12 @@ For S1:
    all nine atlases load, chapter rewards total
    exactly ten pieces, and both route arrays contain exactly three challenges.
 2. Run `mgr_illusion_realm`, preview `open_registration`, then confirm.
-3. Let players permanently activate the S1-specific account entitlement for
-   free. S1 keeps a configured zero price while retaining idempotent
-   account-index auditing. A later cycle must have its own entitlement.
+3. Let players activate the S1-specific account entitlement for free. It is
+   cycle-keyed: S1 entitlement must not unlock S2. Keep the configured zero
+   entitlement price while retaining idempotent account-index auditing.
+   Character capacity is separate and is never free: each seasonal character
+   slot costs 100 jade, or five slots cost 500 jade. Existing early S1
+   characters are grandfathered without retroactive charges or deletion.
 4. Preview `start`, confirm, and verify `ends_at-starts_at=30*86400`.
 5. Let natural expiry enter automatic return settlement. To end early, preview
    and confirm a new `ends_at`; do not create a second manual settlement path.
@@ -146,9 +153,12 @@ Keep gameplay content data-driven:
   the JSON API, Vue, every legacy HTML filter, build script, and Docker image
   must reject traversal, mismatched chapter/path pairs, and out-of-range IDs;
 - keep one primary `illusion_realm next` action on every open chapter. It must
-  route only to the current allowlisted target, offer autofight after arrival,
-  show per-kill chapter progress, claim only a ready ordered chapter, and lead
-  directly into the next chapter. Legacy explicit commands remain compatible;
+  route only to the current allowlisted target, reload progress after successful
+  movement, render a bounded-hunt autofight action for hunt objectives, render a
+  direct boss action for boss objectives, always render return-to-game, show
+  per-kill chapter progress, claim only a ready ordered chapter, and lead
+  directly into the next chapter. A generic location-only success page is a
+  regression. Legacy explicit commands remain compatible;
 - require chapter reward counts to sum to exactly ten;
 - fail closed if config or runtime state is malformed.
 
@@ -248,14 +258,30 @@ must return `already=1`. Failed routing after settlement must leave a safe retur
 position for the next login; it must never recreate inventory.
 
 Keep each cycle entitlement separate from paid character capacity. Legacy
-global entitlements are S1-only and must never unlock S2. The first character
-is free after entitlement activation in that cycle. Store 100-jade extra slots
-and the cumulative
-500-jade multi-character unlock under `season_expansions[illusion_id]`; never
-let S1 capacity leak into S2. Continue mirroring S1 into the legacy top-level
-fields so rollback binaries retain already-paid S1 capacity. Use bounded
-request-ID lists and the player-saved two-phase expansion credential for
-cross-Worker retry and refund.
+global entitlements are S1-only and must never unlock S2. Entitlement activation
+does not grant a free character: every seasonal character consumes one paid
+slot. Store exact 100-jade single-slot and 500-jade five-slot purchases under
+`season_expansions[illusion_id]`; never let S1 capacity leak into S2. Preserve
+existing early characters without retroactive debit. Continue writing a
+legacy-shaped, conservative S1 top-level mirror solely so rollback binaries
+retain paid capacity, while the versioned per-cycle record remains authoritative.
+Use bounded request-ID lists and the player-saved two-phase expansion credential
+for cross-Worker retry and refund.
+
+## Preserve closed content as Eternal Echoes
+
+At startup, validate and atomically archive the merged config/story snapshot
+for every published ID under `data_xiand/illusion_realm/content/`. Closed content
+must remain addressable by its original ID after a later config is deployed.
+Returned Eternal characters may enter a closed echo, traverse its maps, read the
+81 chapters, and view frozen rankings. They must not enter an active cycle or
+reset progress, claims, quiz rewards, set receipts, or ranking data. Ranking
+publication stops for a closed echo; old snapshots are display-only.
+
+The archive is runtime persistence and must not be committed. A future S2 still
+requires deliberately authored and validated config, story, rooms, NPCs,
+artwork, drop tables, and TestUnit updates; never silently relabel or clone S1
+as new content.
 
 ## Ranking safety
 
@@ -317,7 +343,9 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    injecting future dates, 25 exact room/NPC story events, exactly ten bound
    rewards,
    duplicate-claim denial, movement/isolation, malformed-index failure closure,
-   automatic expiry/close without automatic start, login-hook ordering,
+   automatic expiry/close without automatic start, immutable content archival,
+   active-world Eternal denial, closed-world Eternal Echo entry/exit, frozen
+   rankings and one-time reward state, login-hook ordering,
    end-time boundaries, same-archive settlement, idempotent return, same-room
    convergence, cross-chapter handoff, and team-instance convergence.
 3. Require illusion kill credit to come only from a cycle NPC in the player's
@@ -348,3 +376,11 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
 9. Review the exact staged diff. Exclude player/runtime data and unrelated dirty
    files. Keep large staged rollout work on its feature branch until explicitly
    approved for main.
+10. Run the post-teleport navigation regression. A successful hunt travel must
+    expose `illusion_realm hunt`; a successful boss travel must expose the
+    canonical direct challenge action; every success page must expose return to
+    game, and failed movement must expose neither action.
+11. Run all eight personal tiers for all twelve professions in Eternal and S1.
+    Require monotonic PVE risk/reward, unchanged PVP, isolated unlock state,
+    deterministic drop-weight checks, and source guards proving difficulty never
+    enters Worker affinity, logical-zone identity, or instance routing.

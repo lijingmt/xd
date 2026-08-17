@@ -926,6 +926,9 @@ void run_profession_journey(int index,mapping(string:string) profession)
 
 		mapping entitlement = ACCOUNT_CHARACTERD->grant_illusion_entitlement(
 			account_id,"test","a"*64,"S1");
+		int slot_jade = YUSHID->give_yushi(root,100);
+		mapping slot_purchase = SEASONALD->purchase_character_expansion(
+			root,"one");
 		mapping created = SEASONALD->create_illusion_character_for_test(
 			account_id,race_id,profession_id,"","","");
 		string character_id = mappingp(created["character"]) ?
@@ -933,12 +936,14 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		if(character_id!="")
 			cleanup_ids += ({character_id});
 		check(profession_name+"从真实账号资格创建S1唯一人物档案",
-			(int)entitlement["ok"] && (int)created["ok"] &&
+			(int)entitlement["ok"] && slot_jade &&
+			(int)slot_purchase["ok"] && (int)created["ok"] &&
 			character_id!="" &&
 			(string)created["bootstrap_command"]==
 				"choice_profe "+race_id+"/"+profession_id &&
 			Stdio.file_size(player_file(character_id))>0,
-			sprintf("entitlement=%O created=%O",entitlement,created));
+			sprintf("entitlement=%O slot=%O created=%O",entitlement,
+				slot_purchase,created));
 
 		player = clone(GAMELIB_USER);
 		player->set_name(character_id);

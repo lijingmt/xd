@@ -183,7 +183,7 @@ assert(indexSource.includes('未来赛季需分别激活'));
 assert(!indexSource.includes('请先进入现有人物，从“幻境区”免费激活'));
 assert(indexSource.includes('直接付费扩充后继续创建'));
 assert(indexSource.includes('碎玉增加1格'));
-assert(indexSource.includes('碎玉解锁本期多人物'));
+assert(indexSource.includes('碎玉一次购买5格'));
 assert(indexSource.includes('btn btn-secondary illusion-expansion-all-btn'));
 assert(indexSource.includes("@click=\"expandIllusionCapacity('one')\""));
 assert(indexSource.includes("@click=\"expandIllusionCapacity('all')\""));
@@ -237,7 +237,7 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 		return {
 			account_id: 'xd01activation',
 			illusion_entitled: 1,
-			illusion_character_slots: 1,
+			illusion_character_slots: 0,
 			illusion_realm: {
 				ok: true,
 				illusion_id: 'S1',

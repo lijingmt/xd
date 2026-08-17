@@ -152,8 +152,8 @@ async function main() {
 		'creator must expose the direct single-slot purchase'
 	);
 	assert(
-		illusionCreatorRendered.includes('补500碎玉解锁本期多人物'),
-		'creator must expose the cumulative multi-character purchase'
+		illusionCreatorRendered.includes('500碎玉一次购买5格'),
+		'creator must expose the fixed five-slot purchase'
 	);
 	assert(
 		illusionCreatorRendered.includes('illusion-expansion-all-btn'),

@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786928860806">
-    <link rel="stylesheet" href="css/app.css?v=v1786928860806">
-    <link rel="stylesheet" href="css/realm.css?v=v1786928860806">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1786954725709">
+    <link rel="stylesheet" href="css/app.css?v=v1786954725709">
+    <link rel="stylesheet" href="css/realm.css?v=v1786954725709">
 </head>
 <body>
     <div id="app">
@@ -497,7 +497,7 @@
 									本期栏位 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }} 已满；可在下方直接付费扩充后继续创建
 								</small>
 								<small v-else-if="illusionEntitled && illusionRealmStatus.creation_open">
-									首名免费；八十一章主线可获十件新月套装，赛季结束时原档案自动回归永恒服
+									每个人物栏位100碎玉；八十一章主线可获十件新月套装，赛季结束时原档案自动回归永恒服
 							</small>
 							<small v-else-if="!illusionEntitled">
 								未激活{{ illusionRealmStatus.illusion_id || 'S1' }}永久人物资格；可在下方直接免费激活
@@ -521,7 +521,7 @@
 						v-if="illusionActivationMessage"
 						role="status">{{ illusionActivationMessage }}</p>
 					<div class="illusion-expansion-card"
-						v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached && !illusionMultiCharacterUnlocked">
+					v-if="illusionEntitled && illusionRealmStatus.creation_open && illusionCharacterCapacityReached">
 						<div class="illusion-expansion-copy">
 							<strong>继续创建 {{ illusionRealmStatus.illusion_id || 'S1' }} 人物</strong>
 							<small>当前 {{ currentIllusionCharacterCount }}/{{ illusionCharacterSlots }} 格；直接使用上方账号共享充值余额支付，不会消费任何人物背包玉石。</small>
@@ -537,7 +537,7 @@
 								class="btn btn-secondary illusion-expansion-all-btn"
 								@click="expandIllusionCapacity('all')"
 								:disabled="illusionExpanding || !accountSharedRechargeAvailable || accountSharedRechargeBalance < illusionExpansionRemainingCost">
-								补{{ illusionExpansionRemainingCost }}碎玉解锁本期多人物
+								{{ illusionExpansionRemainingCost }}碎玉一次购买5格
 							</button>
 						</div>
 						<small class="illusion-expansion-fallback"
@@ -755,6 +755,13 @@
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
                         <span class="header-level-chip" v-if="playerStats">Lv.{{ playerStats.level }}</span>
                         <span class="header-profession-chip" v-if="playerStats?.profe">{{ playerStats.profe }}</span>
+                        <button type="button"
+                                class="header-difficulty-chip"
+                                v-if="playerStats?.personal_difficulty?.current?.name"
+                                @click="sendQuickCommand('personal_difficulty')"
+                                :title="'个人挑战难度：' + playerStats.personal_difficulty.current.name + '；点击查看或切换'">
+                            {{ playerStats.personal_difficulty.current.name }}
+                        </button>
                         <span class="server-info">{{ areaName }}</span>
                         <button type="button"
                                 class="autofight-status-text"
@@ -1923,6 +1930,7 @@
                         <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
                         <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('illusion_realm')"><span>🌙</span>幻境任务</button>
+                        <button class="quick-tool-btn" @click="sendQuickCommand('personal_difficulty')"><span>🔥</span>挑战难度</button>
                         <button class="quick-tool-btn"
                                 :class="{ active: playerStats?.timed_event?.active }"
                                 @click="sendQuickCommand('timed_event')">
@@ -1996,19 +2004,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786928860806"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786928860806"></script>
-    <script src="vendor/howler.core.min.js?v=v1786928860806"></script>
-    <script src="vendor/driver.iife.js?v=v1786928860806"></script>
-    <script src="../includes/game-number-format.js?v=v1786928860806" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1786954725709"></script>
+    <script src="vendor/canvas-confetti.js?v=v1786954725709"></script>
+    <script src="vendor/howler.core.min.js?v=v1786954725709"></script>
+    <script src="vendor/driver.iife.js?v=v1786954725709"></script>
+    <script src="../includes/game-number-format.js?v=v1786954725709" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786928860806';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786954725709';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786928860806"></script>
+    <script src="js/app.js?v=v1786954725709"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786928860806"></script>
+    <script src="../includes/translate.js?v=v1786954725709"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

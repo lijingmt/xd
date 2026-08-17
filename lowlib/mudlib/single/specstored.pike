@@ -11,6 +11,7 @@ private mapping(string:mapping(string:mixed)) player_offers=([]);
 private int offer_nonce;
 #define SPEC_OFFER_TTL 600
 #define SPEC_OFFER_PLAYER_LIMIT 4096
+#define SPEC_EQUIPMENT_SUIYU_FEE 10
 
 private string normalized_offer_userid(object player)
 {
@@ -23,11 +24,12 @@ private string normalized_offer_userid(object player)
 	return userid;
 }
 
-private string create_offer_token(string userid,string item_name,int fee)
+private string create_offer_token(string userid,string item_name,int fee,
+	string currency)
 {
 	object hash=Crypto.SHA256();
 	offer_nonce++;
-	hash->update(userid+"|"+item_name+"|"+fee+"|"+time()+"|"+
+	hash->update(userid+"|"+item_name+"|"+fee+"|"+currency+"|"+time()+"|"+
 		offer_nonce+"|"+random(0x7fffffff));
 	return String.string2hex(hash->digest());
 }
@@ -67,13 +69,15 @@ private void begin_player_offer_refresh(object player)
 	player_offers[userid]=(["created":time(),"consumed":0,"items":([])]);
 }
 
-private string register_offer(object player,string item_name,int fee)
+private string register_offer(object player,string item_name,int fee,
+	string currency)
 {
 	string userid=normalized_offer_userid(player);
 	mapping(string:mixed) shelf;
 	mapping items;
 	string token;
-	if(userid=="" || item_name=="" || fee<0 || fee>1000000)
+	if(userid=="" || item_name=="" || fee<0 || fee>1000000 ||
+	   search(({"money","suiyu"}),currency)==-1)
 		return "";
 	shelf=player_offers[userid];
 	if(!shelf || time()-(int)shelf["created"]>SPEC_OFFER_TTL){
@@ -81,12 +85,14 @@ private string register_offer(object player,string item_name,int fee)
 		shelf=player_offers[userid];
 	}
 	items=shelf["items"];
-	token=create_offer_token(userid,item_name,fee);
-	items[token]=(["name":item_name,"fee":fee,"reserved":0]);
+	token=create_offer_token(userid,item_name,fee,currency);
+	items[token]=(["name":item_name,"fee":fee,"currency":currency,
+		"reserved":0]);
 	return token;
 }
 
-private string register_selected_offer_link(object player,string link)
+private string register_selected_offer_link(object player,string link,
+	string currency)
 {
 	string prefix;
 	string item_name;
@@ -96,7 +102,7 @@ private string register_selected_offer_link(object player,string link)
 	if(!link || sscanf(link,"%s:buy_detail_spec %s %d]",prefix,
 	   item_name,fee)!=3)
 		return link;
-	token=register_offer(player,item_name,fee);
+	token=register_offer(player,item_name,fee,currency);
 	if(token=="")
 		return "";
 	old_command="buy_detail_spec "+item_name+" "+fee+"]";
@@ -119,7 +125,8 @@ mapping(string:mixed) query_player_offer(object player,string item_name,
 		return ([]);
 	offer=((mapping)shelf["items"])[token];
 	if(!offer || (string)offer["name"]!=item_name ||
-	   (int)offer["reserved"])
+	   (int)offer["reserved"] ||
+	   search(({"money","suiyu"}),(string)offer["currency"])==-1)
 		return ([]);
 	return copy_value(offer);
 }
@@ -167,7 +174,18 @@ string issue_test_offer(object player,string item_name,int fee)
 	   search(userid,"testunit")==-1)
 		return "";
 	begin_player_offer_refresh(player);
-	return register_offer(player,item_name,fee);
+	return register_offer(player,item_name,fee,"money");
+}
+
+string issue_test_offer_with_currency(object player,string item_name,int fee,
+	string currency)
+{
+	string userid=normalized_offer_userid(player);
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   search(userid,"testunit")==-1)
+		return "";
+	begin_player_offer_refresh(player);
+	return register_offer(player,item_name,fee,currency);
 }
 
 //游戏中商店买卖守护进程
@@ -226,9 +244,9 @@ private string query_random_goods_normal(int store_level,object me)
 			string generated_name=file_name(obt);
 			string real_name=generated_name-(ROOT+"/gamelib/clone/item/");
 			real_name=(real_name/"#")[0];
-			int fee=random(1000000);
+			int fee=SPEC_EQUIPMENT_SUIYU_FEE;
 			result="["+(string)obt->query_name_cn()+"("+
-				MUD_MONEYD->query_store_money_cn(fee)+
+				(string)fee+"碎玉"+
 				"):buy_detail_spec "+real_name+" "+fee+"]";
 		}
 	};
@@ -279,7 +297,7 @@ string random_list(int|void type){
 		if(t !=""){
 			array(string) arr = t/"\n";
 			string selected=register_selected_offer_link(player,
-				arr[random(sizeof(arr))]);
+				arr[random(sizeof(arr))],"money");
 			if(selected!="")
 				ret += selected+"\n";
 		}		
@@ -300,7 +318,7 @@ string random_list(int|void type){
 			}
 			if(t !=""){
 				string selected=register_selected_offer_link(player,
-					t);
+					t,"suiyu");
 				if(selected!="")
 					ret += selected+"\n";
 			}		

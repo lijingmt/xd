@@ -17,6 +17,7 @@ private void show_status(object player,string notice)
 	string out="【个人挑战难度】\n";
 	if(notice && notice!="")
 		out+=notice+"\n\n";
+	out+="进度归属："+(string)status["scope_name"]+"（与其他世界独立）\n";
 	out+="当前："+(string)current["name"]+"；已解锁至："+
 		(string)catalog[(int)status["unlocked_level"]]["name"]+"\n";
 	out+="规则：所有难度仍在同一地图、同一房间和同一Worker相遇；只调整你本人对NPC的攻防风险、个人掉落和挂机额度，PVP不变。\n";
@@ -27,11 +28,17 @@ private void show_status(object player,string notice)
 		format_time(AUTOFIGHTD->query_daily_seconds_for(player))+"；今日剩余："+
 		format_time(AUTOFIGHTD->query_time_left(player))+"。\n\n";
 	if(!(int)progress["maxed"]){
-		out+="下一破界试炼【"+(string)progress["next_name"]+"】：等级 "+
-			(int)progress["level"]+"/"+(int)progress["min_level"]+"，合格击杀 "+
-			(int)progress["kills"]+"/"+(int)progress["kills_required"]+
-			"，首领 "+(int)progress["bosses"]+"/"+
-			(int)progress["bosses_required"]+"。\n";
+		if((string)progress["mode"]=="chapters")
+			out+="下一破界试炼【"+(string)progress["next_name"]+
+				"】：按顺序完成本期章回 "+(int)progress["chapters"]+"/"+
+				(int)progress["chapters_required"]+"。\n";
+		else
+			out+="下一破界试炼【"+(string)progress["next_name"]+"】：等级 "+
+				(int)progress["level"]+"/"+(int)progress["min_level"]+
+				"，合格击杀 "+(int)progress["kills"]+"/"+
+				(int)progress["kills_required"]+"，首领 "+
+				(int)progress["bosses"]+"/"+
+				(int)progress["bosses_required"]+"。\n";
 		if((int)progress["complete"])
 			out+="[完成破界并永久解锁:personal_difficulty unlock]\n";
 	}
@@ -45,6 +52,9 @@ private void show_status(object player,string notice)
 			out+=prefix+"["+(string)tier["name"]+"：挂机上限"+
 				(int)tier["afk_cap_hours"]+"小时:personal_difficulty switch "+
 				level+"]\n";
+		else if((string)status["scope"]!="eternal")
+			out+=(string)tier["name"]+"（完成本期第"+(level*9)+
+				"章后解锁）\n";
 		else
 			out+=(string)tier["name"]+"（Lv"+(int)tier["min_level"]+
 				"破界后解锁）\n";

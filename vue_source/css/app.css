@@ -1553,7 +1553,7 @@ body {
 	min-height: 42px;
 }
 
-/* “补足500碎玉”是整期解锁操作；使用独立高对比配色，避免浅色卡片上的白字不可读。 */
+/* “500碎玉购买5格”是批量栏位操作；使用独立高对比配色，避免浅色卡片上的白字不可读。 */
 .illusion-expansion-actions .btn.illusion-expansion-all-btn {
 	border: 1px solid #4c1d95;
 	background: linear-gradient(135deg, #6d28d9, #4c1d95);
@@ -11281,6 +11281,7 @@ body {
 
 .header-level-chip,
 .header-profession-chip,
+.header-difficulty-chip,
 .player-info-line .server-info,
 .player-info-line .autofight-status-text {
     flex: 0 0 auto;
@@ -11297,6 +11298,16 @@ body {
 
 .header-level-chip { color: #ffe4a3; font-weight: 800; }
 .header-profession-chip { color: #d9f5ff; }
+.header-difficulty-chip {
+    color: #ffe1a3;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+.header-difficulty-chip:focus-visible {
+    outline: 2px solid #fff1bd;
+    outline-offset: 2px;
+}
 .player-info-line .autofight-status-text { margin-left: auto; }
 
 .player-stats {
@@ -11356,6 +11367,7 @@ body {
     .header-btn { width: 34px; }
     .header-btn { height: 34px; }
     .header-profession-chip { display: none; }
+    .header-difficulty-chip { padding-right: 4px; padding-left: 4px; }
     .player-info-line .player-name-cn { max-width: 36%; font-size: 10px; }
     .player-info-line .server-info { display: none; }
     .player-info-line .autofight-status-text { max-width: 61px; overflow: hidden; text-overflow: ellipsis; }
@@ -11403,6 +11415,7 @@ body {
     .player-info-line .player-name-cn { max-width: 220px; font-size: 14px; }
     .header-level-chip,
     .header-profession-chip,
+    .header-difficulty-chip,
     .player-info-line .server-info,
     .player-info-line .autofight-status-text { font-size: 10px; }
     .stat-label,

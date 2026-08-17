@@ -214,7 +214,7 @@ createApp({
             accountSharedRechargeBalance: 0,
             accountSharedRechargeAvailable: true,
 			illusionEntitled: false,
-			illusionCharacterSlots: 1,
+			illusionCharacterSlots: 0,
 			illusionMultiCharacterUnlocked: false,
 			illusionExpansionSpentSuiyu: 0,
 			illusionRealmStatus: {
@@ -1625,7 +1625,7 @@ createApp({
             this.accountSharedRechargeBalance = 0;
             this.accountSharedRechargeAvailable = true;
 			this.illusionEntitled = false;
-			this.illusionCharacterSlots = 1;
+			this.illusionCharacterSlots = 0;
 			this.illusionMultiCharacterUnlocked = false;
 			this.illusionExpansionSpentSuiyu = 0;
 			this.illusionRealmStatus = {
@@ -1720,7 +1720,7 @@ createApp({
                 data.shared_recharge_available !== 0;
 			this.illusionEntitled = !!data.illusion_entitled;
 			this.illusionCharacterSlots = Math.max(
-				1, Number(data.illusion_character_slots || 1)
+				0, Number(data.illusion_character_slots || 0)
 			);
 			this.illusionMultiCharacterUnlocked =
 				!!data.illusion_multi_character_unlocked;
@@ -1950,7 +1950,7 @@ createApp({
 			}
 			const actionText = option === 'one'
 				? `支付${cost}碎玉增加1个人物栏位`
-				: `支付${cost}碎玉解锁本期多人物`;
+				: `支付${cost}碎玉一次购买5个人物栏位`;
 			if (!window.confirm(`${actionText}？\n本次只扣账号共享充值余额，不会动人物背包玉石。`)) {
 				return;
 			}
@@ -5533,8 +5533,8 @@ createApp({
 		},
 
 		illusionCharacterCapacityReached() {
-			return !this.illusionMultiCharacterUnlocked &&
-				this.currentIllusionCharacterCount >= this.illusionCharacterSlots;
+			return this.currentIllusionCharacterCount >=
+				this.illusionCharacterSlots;
 		},
 
 		illusionExpansionSingleCost() {
@@ -5547,7 +5547,7 @@ createApp({
 			const fullCost = Math.max(1, Number(
 				this.illusionRealmStatus?.multi_character_unlock_cost_suiyu || 500
 			));
-			return Math.max(0, fullCost - this.illusionExpansionSpentSuiyu);
+			return fullCost;
 		},
 
 		hasRecentAoeReport() {

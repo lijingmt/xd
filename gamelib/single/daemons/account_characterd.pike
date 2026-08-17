@@ -24,6 +24,7 @@ inherit LOW_DAEMON;
 #define TAIJI_DONATION_UNLOCK_FEE 10000
 #define ILLUSION_EXTRA_SLOT_COST 100
 #define ILLUSION_MULTI_UNLOCK_COST 500
+#define ILLUSION_MAX_CHARACTER_SLOTS ACCOUNT_CHARACTER_LIMIT
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
@@ -444,12 +445,12 @@ private int valid_sha256_hex(string value)
 private mapping(string:mixed) default_illusion_expansion_state()
 {
 	return ([
-		"character_slots":1,"multi_character_unlocked":0,
+		"version":2,"character_slots":0,"multi_character_unlocked":0,
 		"expansion_spent_suiyu":0,"expansion_requests":({}),
 	]);
 }
 
-private int valid_illusion_expansion_state(mapping state)
+private int valid_legacy_illusion_expansion_state(mapping state)
 {
 	int expansion_spent;
 	int character_slots;
@@ -483,14 +484,58 @@ private int valid_illusion_expansion_state(mapping state)
 	return 1;
 }
 
+private int valid_illusion_expansion_state(mapping state)
+{
+	int expansion_spent;
+	int character_slots;
+	int migrated;
+	array expansion_requests;
+	if(!mappingp(state) || (int)state["version"]!=2)
+		return 0;
+	expansion_spent=(int)(state["expansion_spent_suiyu"] || 0);
+	character_slots=(int)(state["character_slots"] || 0);
+	migrated=(int)(state["migrated_from_legacy"] || 0);
+	expansion_requests=arrayp(state["expansion_requests"]) ?
+		(array)state["expansion_requests"] : ({});
+	if(expansion_spent<0 ||
+	   expansion_spent>ILLUSION_MAX_CHARACTER_SLOTS*ILLUSION_EXTRA_SLOT_COST ||
+	   expansion_spent%ILLUSION_EXTRA_SLOT_COST!=0 ||
+	   character_slots<0 || character_slots>ILLUSION_MAX_CHARACTER_SLOTS ||
+	   (migrated!=0 && migrated!=1) ||
+	   (!migrated &&
+	    character_slots!=expansion_spent/ILLUSION_EXTRA_SLOT_COST) ||
+	   (migrated &&
+	    character_slots<expansion_spent/ILLUSION_EXTRA_SLOT_COST) ||
+	   (int)(state["multi_character_unlocked"] || 0)!=0 ||
+	   sizeof(expansion_requests)>64 ||
+	   (expansion_spent>0 && (int)state["expansion_updated_at"]<=0))
+		return 0;
+	multiset(string) seen_requests=(<>);
+	foreach(expansion_requests,mixed raw_request){
+		string one_request=(string)raw_request;
+		if(!valid_sha256_hex(one_request) || seen_requests[one_request])
+			return 0;
+		seen_requests[one_request]=1;
+	}
+	return 1;
+}
+
+int validate_illusion_expansion_state_for_test(mapping state)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return valid_illusion_expansion_state(state);
+}
+
 /**
  * S1 shipped with expansion fields directly on the permanent entitlement.
  * Keep reading those fields as S1, while all new writes are keyed by season.
  */
 private mapping(string:mixed) illusion_expansion_state(mapping entitlement,
-	string illusion_id)
+	string illusion_id,int existing_count)
 {
 	mapping expansions;
+	mapping raw;
 	if(!mappingp(entitlement) || !valid_illusion_id(illusion_id))
 		return default_illusion_expansion_state();
 	expansions = mappingp(entitlement["season_expansions"]) ?
@@ -498,6 +543,8 @@ private mapping(string:mixed) illusion_expansion_state(mapping entitlement,
 	if(mappingp(expansions[illusion_id]) &&
 	   valid_illusion_expansion_state((mapping)expansions[illusion_id]))
 		return copy_value((mapping)expansions[illusion_id]);
+	if(mappingp(expansions[illusion_id]))
+		raw=(mapping)expansions[illusion_id];
 	if(illusion_id=="S1"){
 		mapping legacy = ([
 			"character_slots":(int)(entitlement["character_slots"] || 1),
@@ -510,8 +557,24 @@ private mapping(string:mixed) illusion_expansion_state(mapping entitlement,
 			"expansion_updated_at":
 				(int)(entitlement["expansion_updated_at"] || 0),
 		]);
-		if(valid_illusion_expansion_state(legacy))
-			return legacy;
+		if(!mappingp(raw))
+			raw=legacy;
+	}
+	if(mappingp(raw) && valid_legacy_illusion_expansion_state(raw)){
+		int spent=(int)(raw["expansion_spent_suiyu"] || 0);
+		int paid_slots=spent/ILLUSION_EXTRA_SLOT_COST;
+		int grandfathered=existing_count>0 ? 1 : 0;
+		return ([
+			"version":2,
+			"character_slots":min(ILLUSION_MAX_CHARACTER_SLOTS,
+				max(existing_count,grandfathered+paid_slots)),
+			"multi_character_unlocked":0,
+			"expansion_spent_suiyu":spent,
+			"expansion_requests":arrayp(raw["expansion_requests"]) ?
+				copy_value((array)raw["expansion_requests"]) : ({}),
+			"expansion_updated_at":(int)(raw["expansion_updated_at"] || 0),
+			"migrated_from_legacy":1,
+		]);
 	}
 	return default_illusion_expansion_state();
 }
@@ -586,7 +649,7 @@ private int valid_illusion_entitlement(mixed raw)
 	if(entitlement["legacy_cycle_id"] &&
 	   !valid_illusion_id((string)entitlement["legacy_cycle_id"]))
 		return 0;
-	if(!valid_illusion_expansion_state(([
+	if(!valid_legacy_illusion_expansion_state(([
 		"character_slots":(int)(entitlement["character_slots"] || 1),
 		"multi_character_unlocked":
 			(int)(entitlement["multi_character_unlocked"] || 0),
@@ -610,7 +673,9 @@ private int valid_illusion_entitlement(mixed raw)
 			string illusion_id = (string)raw_id;
 			if(!stringp(raw_id) || !valid_illusion_id(illusion_id) ||
 			   !mappingp(expansions[illusion_id]) ||
-			   !valid_illusion_expansion_state(expansions[illusion_id]))
+			   (!valid_illusion_expansion_state(expansions[illusion_id]) &&
+			    !valid_legacy_illusion_expansion_state(
+				(mapping)expansions[illusion_id])))
 				return 0;
 		}
 	}
@@ -1100,8 +1165,12 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			(mapping)record["illusion_entitlement"] : ([]);
 		string expansion_id = valid_illusion_id((string)illusion_id) ?
 			(string)illusion_id : "S1";
+		int existing_illusion_count=0;
+		foreach((array)record["characters"],mapping existing_entry)
+			if((string)existing_entry["illusion_id"]==expansion_id)
+				existing_illusion_count++;
 		mapping expansion = illusion_expansion_state(entitlement,
-			expansion_id);
+			expansion_id,existing_illusion_count);
 		mapping cycle_entitlement = illusion_entitlement_for_cycle(
 			entitlement,expansion_id);
 		foreach((array)record["characters"],mapping entry)
@@ -1129,8 +1198,7 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			"illusion_multi_unlock_cost_suiyu":ILLUSION_MULTI_UNLOCK_COST,
 		]);
 		result["illusion_expansion_remaining_suiyu"] =
-			ILLUSION_MULTI_UNLOCK_COST-
-			(int)result["illusion_expansion_spent_suiyu"];
+			ILLUSION_MULTI_UNLOCK_COST;
 	}
 	destruct(key);
 	if((int)result["ok"]==1){
@@ -1345,6 +1413,8 @@ mapping(string:mixed) grant_illusion_character_expansion(string requested_id,
 	array requests;
 	int spent;
 	int expected;
+	int existing_count;
+	int added_slots;
 	object key;
 	if(!valid_userid(account_id) || !valid_illusion_id(illusion_id) ||
 	   search(({"one","all"}),option)==-1 ||
@@ -1360,9 +1430,13 @@ mapping(string:mixed) grant_illusion_character_expansion(string requested_id,
 		return result;
 	}
 	entitlement = record["illusion_entitlement"];
+	foreach((array)record["characters"],mapping existing_entry)
+		if((string)existing_entry["illusion_id"]==illusion_id)
+			existing_count++;
 	expansions = mappingp(entitlement["season_expansions"]) ?
 		copy_value((mapping)entitlement["season_expansions"]) : ([]);
-	expansion = illusion_expansion_state(entitlement,illusion_id);
+	expansion = illusion_expansion_state(entitlement,illusion_id,
+		existing_count);
 	requests = arrayp(expansion["expansion_requests"]) ?
 		(array)expansion["expansion_requests"] : ({});
 	if(search(requests,request_id)!=-1){
@@ -1374,63 +1448,56 @@ mapping(string:mixed) grant_illusion_character_expansion(string requested_id,
 		destruct(key);
 		return result;
 	}
-	if((int)expansion["multi_character_unlocked"]==1){
-		result = (["ok":1,"already":1,"same_request":0,
-			"message":"本期已解锁幻境多人物。",
-			"account_id":account_id,"illusion_id":illusion_id,
-			"entitlement":copy_value(entitlement),
-			"expansion":copy_value(expansion)]);
-		destruct(key);
-		return result;
-	}
 	spent = (int)(expansion["expansion_spent_suiyu"] || 0);
-	expected = option=="one" ? ILLUSION_EXTRA_SLOT_COST :
-		ILLUSION_MULTI_UNLOCK_COST-spent;
-	if(spent<0 || spent>=ILLUSION_MULTI_UNLOCK_COST ||
-	   spent%ILLUSION_EXTRA_SLOT_COST!=0 || paid_amount!=expected){
-		result["message"] = "幻境人物栏位价格或累计抵扣状态已变化。";
+	added_slots=option=="one" ? 1 :
+		ILLUSION_MULTI_UNLOCK_COST/ILLUSION_EXTRA_SLOT_COST;
+	expected=added_slots*ILLUSION_EXTRA_SLOT_COST;
+	if(spent<0 || spent%ILLUSION_EXTRA_SLOT_COST!=0 ||
+	   paid_amount!=expected){
+		result["message"] = "幻境人物栏位价格状态已变化。";
 		result["expected_cost_suiyu"] = expected;
 		destruct(key);
 		return result;
 	}
-	spent += paid_amount;
-	if(spent>ILLUSION_MULTI_UNLOCK_COST){
-		result["message"] = "幻境人物栏位累计金额超出安全上限。";
+	if((int)expansion["character_slots"]+added_slots>
+	   ILLUSION_MAX_CHARACTER_SLOTS){
+		result["message"] = "购买后会超过账号30个人物总上限，本次未扣费。";
 		destruct(key);
 		return result;
 	}
+	spent += paid_amount;
 	expansion["expansion_spent_suiyu"] = spent;
 	expansion["expansion_updated_at"] = time();
 	expansion["expansion_requests"] = requests+({request_id});
-	if(spent==ILLUSION_MULTI_UNLOCK_COST){
-		expansion["multi_character_unlocked"] = 1;
-		expansion["character_slots"] = 6;
-	}
-	else{
-		expansion["multi_character_unlocked"] = 0;
-		expansion["character_slots"] =
-			1+spent/ILLUSION_EXTRA_SLOT_COST;
-	}
+	expansion["version"] = 2;
+	expansion["multi_character_unlocked"] = 0;
+	expansion["character_slots"] =
+		(int)expansion["character_slots"]+added_slots;
 	expansions[illusion_id] = copy_value(expansion);
 	entitlement["season_expansions"] = expansions;
-	// Mirror S1 into the original fields so an emergency rollback to the
-	// pre-season-keyed binary does not hide paid S1 capacity.
+	// Mirror S1 into the original legacy schema so an emergency rollback to a
+	// pre-season-keyed binary can still start.  That schema inherently means
+	// “one free + at most five paid slots”; exact v2 capacity remains solely in
+	// season_expansions and may exceed what an old binary can represent.
 	if(illusion_id=="S1"){
-		entitlement["expansion_spent_suiyu"] = spent;
+		int legacy_spent=min(spent,ILLUSION_MULTI_UNLOCK_COST);
+		array legacy_requests=(array)expansion["expansion_requests"];
+		if(sizeof(legacy_requests)>5)
+			legacy_requests=legacy_requests[sizeof(legacy_requests)-5..];
+		entitlement["expansion_spent_suiyu"] = legacy_spent;
 		entitlement["expansion_updated_at"] =
 			(int)expansion["expansion_updated_at"];
 		entitlement["expansion_requests"] =
-			copy_value((array)expansion["expansion_requests"]);
+			copy_value(legacy_requests);
 		entitlement["multi_character_unlocked"] =
-			(int)expansion["multi_character_unlocked"];
+			legacy_spent==ILLUSION_MULTI_UNLOCK_COST;
 		entitlement["character_slots"] =
-			(int)expansion["character_slots"];
+			1+legacy_spent/ILLUSION_EXTRA_SLOT_COST;
 	}
 	if(save_record_unlocked(record))
 		result = (["ok":1,"already":0,"same_request":0,
-			"message":spent==ILLUSION_MULTI_UNLOCK_COST ?
-				"已解锁本期幻境多人物。" :
-				"已增加1个本期幻境人物栏位。",
+			"message":"已增加"+(string)added_slots+
+				"个本期幻境人物栏位。",
 			"account_id":account_id,"illusion_id":illusion_id,
 			"charged_suiyu":paid_amount,
 			"entitlement":copy_value(entitlement),
@@ -1904,22 +1971,19 @@ mapping(string:mixed) create_character(string requested_id,
 				destruct(key);
 				return result;
 			}
-			mapping entitlement = record["illusion_entitlement"];
-			mapping expansion = illusion_expansion_state(entitlement,
-				illusion_id);
-			int multi_unlocked =
-				(int)(expansion["multi_character_unlocked"] || 0);
-			int illusion_capacity = multi_unlocked ? ACCOUNT_CHARACTER_LIMIT :
-				(int)(expansion["character_slots"] || 1);
 			int illusion_count = 0;
 			foreach((array)record["characters"],mapping existing_entry)
 				if((string)existing_entry["illusion_id"]==illusion_id)
 					illusion_count++;
-			if(illusion_capacity<1 || illusion_capacity>ACCOUNT_CHARACTER_LIMIT ||
+			mapping entitlement = record["illusion_entitlement"];
+			mapping expansion = illusion_expansion_state(entitlement,
+				illusion_id,illusion_count);
+			int illusion_capacity=(int)expansion["character_slots"];
+			if(illusion_capacity<0 || illusion_capacity>ACCOUNT_CHARACTER_LIMIT ||
 			   illusion_count>=illusion_capacity){
 				result["message"] = "本期幻境人物栏位已用完（"+
 					illusion_count+"/"+illusion_capacity+
-					"）；可在‘幻境区’用100碎玉增加本期1格，或补足本期累计500碎玉解锁多人物。";
+					"）；每个赛季人物都需要100碎玉栏位，也可一次购买5格。";
 				destruct(key);
 				return result;
 			}

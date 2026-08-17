@@ -42,6 +42,10 @@ int main()
 		"/gamelib/single/daemons/itemsd.pike");
 	string shelf = Stdio.read_file(ROOT+
 		"/lowlib/mudlib/single/specstored.pike");
+	string buy = Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/cmds/buy_goods_spec.pike");
+	string detail = Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/cmds/buy_detail_spec.pike");
 	mixed shop_compile = catch {
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/list_spec.pike");
 	};
@@ -87,6 +91,20 @@ int main()
 		search(items,"original_item_level>0 ? original_item_level")!=-1 &&
 		search(items,"target_item_level!=orginal_level")!=-1,
 		"不同等级仍可能复用同一动态装备源码并串换攻防属性");
+	check("动态装备报价固定10碎玉且货币写入玩家专属凭证",
+		shelf && search(shelf,"SPEC_EQUIPMENT_SUIYU_FEE 10")!=-1 &&
+		search(shelf,"t,\"suiyu\")")!=-1 &&
+		search(shelf,"\"currency\":currency")!=-1 &&
+		detail && search(detail,"currency==\"suiyu\"")!=-1,
+		"装备报价仍可能使用金币或详情页显示错误货币");
+	check("碎玉装备发放失败使用钱包与实体玉快照原路回滚",
+		buy && search(buy,"ACCOUNT_WALLETD->query_balance(me)")!=-1 &&
+		search(buy,"YUSHID->query_physical_all_num(me)")!=-1 &&
+		search(buy,"rollback_yushi_payment(me,")!=-1 &&
+		search(buy,"delivery_saved=me->save_with_result()")!=-1 &&
+		search(buy,"spec_shop_equipment_delivery_failed")!=-1 &&
+		search(buy,"spec_shop_jade.log")!=-1,
+		"高价值装备交易缺少扣款快照、原路退款或审计日志");
 	object items_daemon=(object)(ROOT+
 		"/gamelib/single/daemons/itemsd.pike");
 	object valid_equipment=clone(ROOT+
@@ -115,14 +133,60 @@ int main()
 	check("101级玩家能刷出带词缀初始模板且不可低级穿戴",
 		!generated_err && candidate!="" && parsed==3 && generated &&
 		generated->query_item_canLevel()==101 &&
-		search(item_name,"weapon/1")!=-1,
+		search(item_name,"weapon/1")!=-1 && fee==10 &&
+		search(candidate,"10碎玉")!=-1,
 		"初始装备仍不上架，或高级属性错误保留了1级穿戴门槛");
 	if(generated)
 		destruct(generated);
+	object buy_command=(object)(ROOT+
+		"/lowlib/wapmud2/cmds/buy_goods_spec.pike");
+	object detail_command=(object)(ROOT+
+		"/lowlib/wapmud2/cmds/buy_detail_spec.pike");
+	object|zero original_player=this_player();
+	int jade_before;
+	int jade_after;
+	int equipment_before;
+	int equipment_after;
+	int money_before=(int)player->query_account();
+	string token;
+	string detail_view="";
+	YUSHID->give_yushi(player,20);
+	jade_before=YUSHID->query_all_num(player);
+	equipment_before=sizeof(all_inventory(player));
+	set_this_player(player);
+	token=shelf_daemon->issue_test_offer_with_currency(player,
+		"weapon/1taomujian/1taomujian",10,"suiyu");
+	detail_command->main("weapon/1taomujian/1taomujian 0 "+token);
+	detail_view=(string)(player->query_spliter()["text"] || "");
+	buy_command->main("weapon/1taomujian/1taomujian 0 "+token);
+	jade_after=YUSHID->query_all_num(player);
+	equipment_after=sizeof(all_inventory(player));
+	buy_command->main("weapon/1taomujian/1taomujian 999999 "+token);
+	check("真实碎玉装备购买忽略伪造显示价、扣10碎玉且防重放",
+		sizeof(token)==64 && search(detail_view,"10碎玉")!=-1 &&
+		jade_before-jade_after==10 &&
+		equipment_after==equipment_before+1 &&
+		YUSHID->query_all_num(player)==jade_after &&
+		sizeof(all_inventory(player))==equipment_after &&
+		player->query_account()==money_before,
+		sprintf("token=%d jade=%d->%d items=%d->%d money=%d->%d",
+			sizeof(token),jade_before,jade_after,equipment_before,
+			equipment_after,money_before,(int)player->query_account()));
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
 	foreach(all_inventory(player),object item)
 		if(item)
 			destruct(item);
 	destruct(player);
+	{
+		string userid="xd99testunitmysterygear";
+		string path=DATA_ROOT+"u/"+userid[sizeof(userid)-2..]+"/"+userid+".o";
+		rm(path);
+		rm(path+".bak");
+		rm(path+".tmp");
+	}
 	werror("稀有经济：总计%d，通过%d，失败%d\n",
 		test_results["total"],test_results["passed"],test_results["failed"]);
 	return test_results["failed"]==0 ? 0 : 1;

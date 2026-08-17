@@ -48,7 +48,9 @@ int main(string|zero arg)
 		if(ob->query_item_type()!="book")
 			s+=ob->query_content? ob->query_content():"";
 		s+=ob->query_desc();
-		s+="确定花费："+MUD_MONEYD->query_store_money_cn(fee)+"?\n";
+		string currency=(string)(offer["currency"] || "money");
+		s+="确定花费："+(currency=="suiyu" ? (string)fee+"碎玉" :
+			MUD_MONEYD->query_store_money_cn(fee))+"?\n";
 		s+="[确定购买:buy_goods_spec "+name+" "+fee+" "+
 			offer_token+"]\n";
 		if(can_bulk_buy(ob)){

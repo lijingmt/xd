@@ -430,7 +430,7 @@ int main()
 			search(player_command_source,"仅限本赛季")!=-1 &&
 			search(player_command_source,"[免费激活:illusion_realm activate]")!=-1 &&
 			search(player_command_source,"100碎玉增加本期1格")!=-1 &&
-			search(player_command_source,"补足本期累计500碎玉")!=-1 &&
+			search(player_command_source,"500碎玉一次购买本期5格")!=-1 &&
 			search(account_source,"season_expansions")!=-1 &&
 			search(account_source,"season_entitlements")!=-1,
 			"免费配置仍被显示为0碎玉购买或付费门槛");
@@ -741,6 +741,21 @@ int main()
 				MAP_WORKERD->query_affinity_key(
 					"/gamelib/d/illusion_s1/true_name_hall.pike"),
 			"相同共享房间可能分裂，或各野外章节仍挤在同一worker");
+		string content_archive_source=Stdio.read_file(DATA_ROOT+
+			"illusion_realm/content/S1.json") || "";
+		mixed content_archive=([]);
+		mixed content_archive_error=catch{
+			content_archive=Standards.JSON.decode(content_archive_source);
+		};
+		check("S1完整81章内容启动时原子归档供赛季结束后永恒回响复用",
+			!content_archive_error && mappingp(content_archive) &&
+			(string)content_archive["current_id"]=="S1" &&
+			sizeof((array)content_archive["chapters"])==81 &&
+			sizeof((array)content_archive["story_quiz"])==10 &&
+			(string)content_archive["entry_room"]==
+				"/gamelib/d/illusion_s1/moon_gate.pike",
+			sprintf("size=%d error=%s",sizeof(content_archive_source),
+				content_archive_error ? describe_error(content_archive_error) : ""));
 		object player_command;
 		object manager_command;
 		mixed command_error = catch{
@@ -837,6 +852,22 @@ int main()
 		center_root = create_root(center_account_id);
 		mapping center_activation = SEASONALD->
 			activate_free_account_entitlement(center_account_id);
+		check("新版幻境栏位记录精确绑定已支付金额并拒绝静默缩水",
+			ACCOUNT_CHARACTERD->validate_illusion_expansion_state_for_test(([
+				"version":2,"character_slots":5,
+				"multi_character_unlocked":0,
+				"expansion_spent_suiyu":500,
+				"expansion_updated_at":time(),
+				"expansion_requests":({}),
+			])) &&
+			!ACCOUNT_CHARACTERD->validate_illusion_expansion_state_for_test(([
+				"version":2,"character_slots":1,
+				"multi_character_unlocked":0,
+				"expansion_spent_suiyu":500,
+				"expansion_updated_at":time(),
+				"expansion_requests":({}),
+			])),
+			"新版栏位结构仍可能接受少于已支付金额的容量");
 		mapping center_activation_again = SEASONALD->
 			activate_free_account_entitlement(center_account_id);
 		mapping center_account = ACCOUNT_CHARACTERD->
@@ -873,7 +904,7 @@ int main()
 			(int)center_pending_debit["ok"] &&
 			(int)center_recovery["ok"] &&
 			(int)center_recovery["recovered"]==1 &&
-			(int)center_after_recovery["illusion_character_slots"]==2 &&
+			(int)center_after_recovery["illusion_character_slots"]==1 &&
 			(int)center_after_recovery[
 				"illusion_expansion_spent_suiyu"]==100 &&
 			(int)center_wallet_after["balance"]==0 &&
@@ -968,6 +999,15 @@ int main()
 			YUSHID->query_physical_all_num(root)==duplicate_before &&
 			!sizeof((mapping)root["/plus/illusion_entitlement_purchase"]),
 			"并发或管理员解锁后的第二笔扣款未退回");
+		mapping first_slot = SEASONALD->purchase_character_expansion(
+			root,"one");
+		mapping first_slot_account = ACCOUNT_CHARACTERD->
+			query_account_characters(account_id,"S1");
+		check("S1首个人物也必须真实支付100碎玉购买当期栏位",
+			(int)first_slot["ok"] &&
+			(int)first_slot_account["illusion_character_slots"]==1 &&
+			(int)first_slot_account["illusion_expansion_spent_suiyu"]==100,
+			sprintf("purchase=%O account=%O",first_slot,first_slot_account));
 
 		mapping created = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","jianxian","","","","illusion","S1");
@@ -1287,12 +1327,12 @@ int main()
 		child->save_with_result();
 		mapping second_blocked = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","yushi","","","","illusion","S1");
-		check("每期首名免费但第二名必须先扩充当期栏位",
+		check("每期每个人物都占一个已付费当期栏位",
 			!(int)second_blocked["ok"] &&
 			search((string)second_blocked["message"],"栏位已用完")!=-1,
 			sprintf("second=%O",second_blocked));
 		mapping expansion_wallet_credit = ACCOUNT_WALLETD->credit_recharge_once(
-			root,50,"testunitadmin",
+			root,60,"testunitadmin",
 			ACCOUNT_WALLETD->new_recharge_request_id());
 		string one_slot_request = "e"*64;
 		mapping one_slot = SEASONALD->purchase_account_character_expansion(
@@ -1309,8 +1349,8 @@ int main()
 			(int)one_slot["ok"] && !(int)one_slot["already"] &&
 			(int)one_slot_again["ok"] && (int)one_slot_again["already"] &&
 			(int)one_slot_account["illusion_character_slots"]==2 &&
-			(int)one_slot_account["illusion_expansion_spent_suiyu"]==100 &&
-			(int)one_slot_wallet["balance"]==400 &&
+			(int)one_slot_account["illusion_expansion_spent_suiyu"]==200 &&
+			(int)one_slot_wallet["balance"]==500 &&
 			sizeof((mapping)one_slot_wallet["debit_requests"])==0,
 			sprintf("credit=%O first=%O again=%O account=%O wallet=%O",
 				expansion_wallet_credit,one_slot,one_slot_again,
@@ -1378,7 +1418,7 @@ int main()
 			"human","zhuxian","","","","illusion","S1");
 		mapping wrong_remaining = ACCOUNT_CHARACTERD->
 			grant_illusion_character_expansion(account_id,"S1","all",
-				"f"*64,500);
+				"2"*64,400);
 		string all_slot_request = "f"*64;
 		mapping all_slots = SEASONALD->purchase_account_character_expansion(
 			account_id,"all",all_slot_request);
@@ -1389,13 +1429,14 @@ int main()
 			query_account_characters(account_id,"S1");
 		mapping all_slots_wallet = ACCOUNT_WALLETD->query_account_wallet(
 			account_id);
-		check("S1此前100碎玉全额抵扣且只需补400解锁本期多人物",
+		check("S1五格套包固定支付500碎玉且不会变成无限人物",
 			!(int)third_blocked["ok"] && !(int)wrong_remaining["ok"] &&
-			(int)wrong_remaining["expected_cost_suiyu"]==400 &&
+			(int)wrong_remaining["expected_cost_suiyu"]==500 &&
 			(int)all_slots["ok"] && !(int)all_slots["already"] &&
 			(int)all_slots_again["ok"] && (int)all_slots_again["already"] &&
-			(int)all_slots_account["illusion_multi_character_unlocked"]==1 &&
-			(int)all_slots_account["illusion_expansion_spent_suiyu"]==500 &&
+			!(int)all_slots_account["illusion_multi_character_unlocked"] &&
+			(int)all_slots_account["illusion_character_slots"]==7 &&
+			(int)all_slots_account["illusion_expansion_spent_suiyu"]==700 &&
 			(int)all_slots_wallet["balance"]==0 &&
 			sizeof((mapping)all_slots_wallet["debit_requests"])==0,
 			sprintf("blocked=%O wrong=%O all=%O again=%O account=%O wallet=%O",
@@ -1476,7 +1517,7 @@ int main()
 			account_id,"S2");
 		check("新赛季需独立激活资格且付费栏位按赛季严格隔离",
 			!(int)s2_before["illusion_entitled"] &&
-			(int)s2_before["illusion_character_slots"]==1 &&
+			(int)s2_before["illusion_character_slots"]==0 &&
 			!(int)s2_before["illusion_multi_character_unlocked"] &&
 			(int)s2_before["illusion_expansion_spent_suiyu"]==0 &&
 			!(int)s2_slot_before_entitlement["ok"] &&
@@ -1486,11 +1527,11 @@ int main()
 			!(int)s2_entitlement["already"] &&
 			(int)s2_slot["ok"] &&
 			(int)s2_after["illusion_entitled"] &&
-			(int)s2_after["illusion_character_slots"]==2 &&
+			(int)s2_after["illusion_character_slots"]==1 &&
 			(int)s2_after["illusion_expansion_spent_suiyu"]==100 &&
-			(int)s1_after_s2["illusion_character_slots"]==6 &&
-			(int)s1_after_s2["illusion_multi_character_unlocked"] &&
-			(int)s1_after_s2["illusion_expansion_spent_suiyu"]==500,
+			(int)s1_after_s2["illusion_character_slots"]==7 &&
+			!(int)s1_after_s2["illusion_multi_character_unlocked"] &&
+			(int)s1_after_s2["illusion_expansion_spent_suiyu"]==700,
 			sprintf("before=%O denied=%O entitlement=%O grant=%O s1=%O s2=%O",
 				s2_before,s2_slot_before_entitlement,s2_entitlement,
 				s2_slot,s1_after_s2,s2_after));
@@ -1516,6 +1557,25 @@ int main()
 			SEASONALD->query_move_policy_for_test(active_realm,
 				"/gamelib/d/illusion_s1/silver_path.pike","settling")==1,
 			"移动边界或结算冻结策略不符合预期");
+		mapping eternal_realm = ([
+			"realm_type":"eternal","illusion_state":"",
+			"illusion_id":"",
+		]);
+		check("永恒人物仅在S1关闭后进入同一批归档地图且不按难度分区",
+			SEASONALD->query_move_policy_for_test(eternal_realm,
+				"/gamelib/d/illusion_s1/moon_gate.pike","active")==3 &&
+			SEASONALD->query_move_policy_for_test(eternal_realm,
+				"/gamelib/d/illusion_s1/moon_gate.pike","closed")==0 &&
+			SEASONALD->query_move_policy_for_test(active_realm,
+				"/gamelib/d/illusion_s1/moon_gate.pike","closed")==1,
+			"活动期、关闭期或待结算人物的地图边界错误");
+		check("永恒回响界面保留进入退出、任务进度并冻结旧赛季排行榜",
+			search(player_command_source,"echo enter")!=-1 &&
+			search(player_command_source,"echo leave")!=-1 &&
+			search(player_command_source,"赛季榜已经冻结")!=-1 &&
+			search(season_source,"\"ranking_enabled\":0")!=-1 &&
+			search(season_source,"content_configs")!=-1,
+			"关闭赛季可能丢失入口、进度或继续污染排行榜");
 		check("S1家园房间路径始终按跨世界移动拒绝",
 			SEASONALD->query_move_policy_for_test(active_realm,
 				"/gamelib/d/home/template/main","active")==2 &&

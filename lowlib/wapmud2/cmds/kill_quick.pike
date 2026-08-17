@@ -218,10 +218,12 @@ int main(string arg)
 			int dmg_ob = tmp_me_atk - tmp_ob_def;
 			if(dmg_ob<=0)
 				dmg_ob = 1;
+			dmg_ob=PERSONAL_DIFFICULTYD->scale_pve_damage(me,ob,dmg_ob);
 			ob->set_life(ob->get_cur_life()-dmg_ob);
 			int dmg_me = tmp_ob_atk + random(ob_level) - tmp_me_def;
 			if(dmg_me<=0)
 				dmg_me = random(ob_level);
+			dmg_me=PERSONAL_DIFFICULTYD->scale_pve_damage(ob,me,dmg_me);
 			me->set_life(me->get_cur_life()-dmg_me);
 		}
 		//得到结果，调用双方的fight _die

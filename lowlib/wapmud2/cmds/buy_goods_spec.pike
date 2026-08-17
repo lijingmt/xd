@@ -1,5 +1,6 @@
 #include <command.h>
 #include <wapmud2/include/wapmud2.h>
+#include <gamelib/include/gamelib.h>
 #define MAX_BULK_BUY_COUNT 999
 
 private int can_bulk_buy(object item)
@@ -116,6 +117,16 @@ private int parse_count(string|zero value)
 	return count;
 }
 
+private void audit_suiyu_trade(object player,string item_name,int fee,
+	string result,string offer_token)
+{
+	Stdio.append_file(ROOT+"/log/spec_shop_jade.log",sprintf(
+		"%s user=%s item=%s fee=%d result=%s token=%s\n",
+		ctime(time())[..sizeof(ctime(time()))-2],
+		player ? (string)player->query_name() : "",item_name,fee,result,
+		sizeof(offer_token)>=12 ? offer_token[..11] : offer_token));
+}
+
 int main(string|zero arg)
 {
 	string s = "";
@@ -149,6 +160,15 @@ int main(string|zero arg)
 			return 1;
 		}
 		int fee=(int)offer["fee"];
+		string currency=(string)offer["currency"];
+		// supplied_fee只为旧书签参数兼容；真实价格和货币均来自服务端
+		// token绑定报价，故意忽略客户端篡改值而不是拿它参与扣费。
+		if(search(({"money","suiyu"}),currency)==-1){
+			MUD_SPEC_STORED->release_player_offer(me,offer_token);
+			write("货架报价校验失败，本次没有扣款，请重新刷新货架。\n"+
+				"[返回:list_spec]\n[返回游戏:look]\n");
+			return 1;
+		}
 		mixed clone_err=catch{
 			ob=clone(ROOT+"/gamelib/clone/item/"+name);
 		};
@@ -161,6 +181,13 @@ int main(string|zero arg)
 		if(count>1 && !can_bulk_buy(ob)){
 			MUD_SPEC_STORED->release_player_offer(me,offer_token);
 			s = "只有药品、食物和饮水可以批量购买；本商品仍需单件购买。\n";
+			destruct(ob);
+			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
+			return 1;
+		}
+		if(currency=="suiyu" && (count!=1 || ob->is("combine_item"))){
+			MUD_SPEC_STORED->release_player_offer(me,offer_token);
+			s = "碎玉装备报价仅允许单件购买，请重新刷新神秘货架。\n";
 			destruct(ob);
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 			return 1;
@@ -178,16 +205,28 @@ int main(string|zero arg)
 			return 1;
 		}
 
-		int need_money=fee*count;
-		if(me->pay_money(need_money)==0){
+		int need_amount=fee*count;
+		int before_wallet=currency=="suiyu" ?
+			ACCOUNT_WALLETD->query_balance(me) : 0;
+		int before_physical=currency=="suiyu" ?
+			YUSHID->query_physical_all_num(me) : 0;
+		int paid=currency=="suiyu" ?
+			YUSHID->pay_yushi(me,need_amount) : me->pay_money(need_amount);
+		if(!paid){
 			MUD_SPEC_STORED->release_player_offer(me,offer_token);
-			s += "你身上的钱不够支付费用，请返回。\n";
+			s += currency=="suiyu" ?
+				"你的碎玉不足，无法购买这件装备。\n" :
+				"你身上的钱不够支付费用，请返回。\n";
+			if(currency=="suiyu")
+				audit_suiyu_trade(me,item_name,need_amount,"insufficient",
+					offer_token);
 			destruct(ob);
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,s);
 		}
 		else{
 			int before=inventory_amount(me,item_name,vip_owner);
 			int delivered=0;
+			int delivery_saved=1;
 			mixed move_err=catch{
 				if(stackable){
 					delivered=deliver_combine_items(me,
@@ -199,7 +238,9 @@ int main(string|zero arg)
 				}
 			};
 			int added=inventory_amount(me,item_name,vip_owner)-before;
-			if(move_err || !delivered || added!=count){
+			if(!move_err && delivered && added==count && currency=="suiyu")
+				delivery_saved=me->save_with_result();
+			if(move_err || !delivered || added!=count || !delivery_saved){
 				int removed=0;
 				if(added>0 && !stackable && ob && environment(ob)==me){
 					ob->remove();
@@ -209,18 +250,34 @@ int main(string|zero arg)
 					removed=remove_inventory_amount(me,item_name,
 						vip_owner,added);
 				int kept=added-removed;
-				int refund=need_money-fee*kept;
-				if(refund>0)
-					me->add_account(refund);
+				int refund=need_amount-fee*kept;
+				int refunded=1;
+				if(refund>0){
+					if(currency=="suiyu")
+						refunded=YUSHID->rollback_yushi_payment(me,
+							before_wallet,before_physical,
+							"spec_shop_equipment_delivery_failed");
+					else
+						me->add_account(refund);
+				}
+				if(currency=="suiyu" && refunded)
+					refunded=me->save_with_result();
 				if(kept>0)
 					MUD_SPEC_STORED->consume_player_offer(me,offer_token);
 				else
 					MUD_SPEC_STORED->release_player_offer(me,offer_token);
 				if(ob)
 					destruct(ob);
+				if(currency=="suiyu")
+					audit_suiyu_trade(me,item_name,need_amount,
+						kept>0 ? "delivery_failed_item_kept" :
+						(refunded ? "delivery_failed_refunded" :
+						 "delivery_failed_refund_error"),offer_token);
 				if(kept>0)
 					s += "批量发放中断，仅按背包中实际保留的"+
 						kept+"件计费，其余费用已退回。\n";
+				else if(!refunded)
+					s += "物品发放和碎玉退款异常，请立即联系管理员。\n";
 				else
 					s += "物品发放失败，费用已全部退回，请稍后重试。\n";
 			}
@@ -235,23 +292,43 @@ int main(string|zero arg)
 					removed=remove_inventory_amount(me,item_name,
 						vip_owner,added);
 				int kept=added-removed;
-				int refund=need_money-fee*kept;
-				if(refund>0)
-					me->add_account(refund);
+				int refund=need_amount-fee*kept;
+				int refunded=1;
+				if(refund>0){
+					if(currency=="suiyu")
+						refunded=YUSHID->rollback_yushi_payment(me,
+							before_wallet,before_physical,
+							"spec_shop_offer_consume_failed");
+					else
+						me->add_account(refund);
+				}
+				if(currency=="suiyu" && refunded)
+					refunded=me->save_with_result();
+				if(currency=="suiyu")
+					audit_suiyu_trade(me,item_name,need_amount,
+						kept>0 ? "consume_failed_item_kept" :
+						(refunded ? "consume_failed_refunded" :
+						 "consume_failed_refund_error"),offer_token);
 				if(kept>0)
 					s += "货架状态已变化，仅按未能回收的"+
 						kept+"件计费，其余费用已退回。\n";
+				else if(!refunded)
+					s += "货架状态变化且碎玉退款异常，请立即联系管理员。\n";
 				else
 					s += "货架状态已经变化，物品已回收且费用已退回。\n";
 			}
 			else{
 				s += "交易成功！\n你花费"+
-					MUD_MONEYD->query_store_money_cn(need_money)+"\n";
+					(currency=="suiyu" ? (string)need_amount+"碎玉" :
+					 MUD_MONEYD->query_store_money_cn(need_amount))+"\n";
 				s += "得到了物品 "+count+"个"+item_name_cn+"！\n";
 				string now=ctime(time());
 				string tmp=now[0..sizeof(now)-2]+":"+me->name_cn+
 					"("+me->name+")\n"+s;
 				Stdio.append_file(ROOT+"/log/buy.log",tmp+"\n");
+				if(currency=="suiyu")
+					audit_suiyu_trade(me,item_name,need_amount,"success",
+						offer_token);
 			}
 			s+="[返回游戏:look]\n";
 			write(s);
