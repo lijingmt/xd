@@ -1,6 +1,6 @@
 ---
 name: xiand-illusion-realm
-description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, 81-chapter seasonal stories, chapter task authoring, exploration stuck at 0/1, cross-Worker chapter arrivals, original AI chapter artwork, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
+description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, 81-chapter seasonal stories, chapter task authoring, deterministic volume side quests, 行旅秘术, S1月忆兽, exploration stuck at 0/1, cross-Worker chapter arrivals, original AI chapter artwork, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
 ---
 
 # Xiand Illusion Realm
@@ -35,10 +35,17 @@ Before creating or revising an 81-chapter campaign, its task chain, or its
 artwork, read [references/story-production.md](references/story-production.md)
 completely and follow its production gates in order.
 
+Before adding or revising deterministic volume side quests, story-gate
+substitutes, journey secrets, or cycle companions, read
+[references/journey-pet-production.md](references/journey-pet-production.md)
+completely. Treat that overlay as one owner-bound extension of the existing
+campaign, not as a second skill, pet, wallet, or combat system.
+
 ## Locate each layer
 
 - tracked cycle config: `gamelib/etc/illusion_realm.json`
 - tracked S1 story: `gamelib/etc/illusion_s1_story.json`
+- tracked S1 journey overlay: `gamelib/etc/illusion_s1_journey.json`
 - tracked nine-volume storyboard atlases and 81 chapter illustrations:
   `images/illusion_s1/story/`
 - shared runtime phase/audit: `data_xiand/illusion_realm/runtime.json`
@@ -46,6 +53,8 @@ completely and follow its production gates in order.
 - validated merged content snapshots: `data_xiand/illusion_realm/content/<ID>.json`
 - derived leaderboard snapshots: `data_xiand/illusion_realm/rankings/<ID>/`
 - lifecycle/progress/reward/payment recovery: `gamelib/single/daemons/seasonal_chard.pike`
+- S1 deterministic side quests, journey secrets, and moon-memory collection:
+  `gamelib/single/daemons/illusion_journeyd.pike`
 - cycle-keyed entitlement and realm identity: `gamelib/single/daemons/account_characterd.pike`
 - logical interaction group: `_logical_zone_mod/policy.pike`
 - map affinity: `MAP_WORKERD->query_affinity_key()` plus the static rooms under
@@ -55,12 +64,14 @@ completely and follow its production gates in order.
   repository build script
 - player/admin commands: `gamelib/cmds/illusion_realm.pike` and
   `gamelib/cmds/mgr_illusion_realm.pike`
+- journey command: `gamelib/cmds/illusion_journey.pike`
 - focused lifecycle regression: `test_unit/test_illusion_realm.pike`
 - mandatory all-profession journey regression:
   `test_unit/test_illusion_realm_all_professions.pike`
 - post-teleport action regression:
   `test_unit/test_illusion_realm_task_navigation.pike`
 - personal difficulty matrix: `test_unit/test_personal_difficulty.pike`
+- journey overlay regression: `test_unit/test_illusion_journey.pike`
 
 Do not commit runtime JSON, account indexes, player saves, logs, Worker state, or
 other generated data.

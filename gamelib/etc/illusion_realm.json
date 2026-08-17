@@ -21,7 +21,7 @@
     "hunter_bosses": [
       {"path":"/gamelib/clone/npc/illusion_s1/star_keeper.pike","id":"broken_star"},
       {"path":"/gamelib/clone/npc/illusion_s1/moon_general.pike","id":"moon_guard"},
-      {"path":"/gamelib/clone/npc/illusion_s1/newmoon_lord.pike","id":"newmoon_lord"}
+      {"path":"/gamelib/clone/npc/illusion_s1/eclipse_priest.pike","id":"eclipse_priest"}
     ],
     "companion_team_kills": 50
   },

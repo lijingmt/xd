@@ -70,7 +70,7 @@ array(string) visit_rooms = ({
 });
 
 array(string) hunter_bosses = ({
-	"star_keeper","moon_general","newmoon_lord",
+	"star_keeper","moon_general","eclipse_priest",
 });
 
 mapping(string:mapping(string:mixed)) story_events = ([]);

@@ -2106,13 +2106,21 @@ private mapping(string:mixed) quest_item_gate_status(object player,
 	int pity_limit = (int)(gate["pity_kills"] || 0);
 	int pity = gate_id!="" ? (int)pities[gate_id] : 0;
 	int count;
+	int substitute_ready;
 	if(!sizeof(gate))
 		return (["required":0,"count":0,"ready":1,"pity":0]);
 	pity = max(0,min(max(0,pity_limit-1),pity));
 	count = player_quest_item_count(player,gate);
+	// 新月回响只提供确定性剧情凭证，不伪造或复制实体道具。旧物品、
+	// 原保底和已刷进度逐字保留；结构或所有者异常时忽略替代凭证，
+	// 失败关闭到原掉落路径。
+	if(player && gate_id!="")
+		substitute_ready = ILLUSION_JOURNEYD->
+			query_gate_substitution_ready(player,gate_id);
 	return copy_value(gate)+([
 		"count":count,
-		"ready":count>=(int)gate["required"],
+		"ready":count>=(int)gate["required"] || substitute_ready,
+		"substitute_ready":substitute_ready,
 		"pity":pity,
 		"pity_remaining":max(0,pity_limit-pity),
 		"drop_rate_text":quest_item_drop_rate_text(
@@ -2147,6 +2155,14 @@ private mapping(string:mixed) current_quest_item_gate_for_kill(
 	   search((array)gate["source_rooms"],room_path)==-1)
 		return ([]);
 	return gate;
+}
+
+mapping(string:mixed) query_quest_item_gate_status_for_test(object player,
+	mapping progress,mapping chapter)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return ([]);
+	return quest_item_gate_status(player,progress,chapter);
 }
 
 private string quest_item_drop_rate_text(int basis_points)
@@ -2655,7 +2671,9 @@ private int route_final_ready(mapping progress)
 	}
 	if(path=="hunter"){
 		foreach((array)routes["hunter_bosses"],mapping boss)
-			if(!(int)marks[(string)boss["id"]])
+			if(!(int)marks[(string)boss["id"]] &&
+			   !((string)boss["id"]=="eclipse_priest" &&
+			     (int)marks["newmoon_lord"]))
 				return 0;
 		return 1;
 	}
@@ -3457,6 +3475,7 @@ private mapping chapter_status(object player,mapping progress,
 		"quest_item_count":(int)quest_gate["count"],
 		"quest_item_required":(int)quest_gate["required"],
 		"quest_item_ready":(int)quest_gate["ready"],
+		"quest_item_substitute_ready":(int)quest_gate["substitute_ready"],
 		"quest_item_drop_basis_points":
 			(int)quest_gate["drop_basis_points"],
 		"quest_item_drop_rate_text":
@@ -5397,9 +5416,9 @@ private mapping(string:mixed) current_route_step(mapping progress)
 			(["id":"moon_guard","name":"击败月庭巡将",
 				"location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike",
 				"action":"hunt","combat_name":"moon_general.pike"]),
-			(["id":"newmoon_lord","name":"击败S1归真月主",
-				"location":"新月祭坛","room":"/gamelib/d/illusion_s1/newmoon_altar.pike",
-				"action":"hunt","combat_name":"newmoon_lord.pike"]),
+			(["id":"eclipse_priest","name":"击败无影司炉者",
+				"location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike",
+				"action":"hunt","combat_name":"eclipse_priest.pike"]),
 		});
 	else if(path=="companion"){
 		if((int)progress["team_kills"]<route_target(progress,path))
@@ -5412,7 +5431,9 @@ private mapping(string:mixed) current_route_step(mapping progress)
 	else
 		return (["ok":0,"message":"尚未选择有效命途。"]);
 	foreach(targets,mapping target)
-		if(!(int)marks[(string)target["id"]]){
+		if(!(int)marks[(string)target["id"]] &&
+		   !((string)target["id"]=="eclipse_priest" &&
+		     (int)marks["newmoon_lord"])){
 			mapping result = copy_value(target);
 			result["ok"] = 1;
 			result["done"] = 0;
@@ -5472,6 +5493,42 @@ mapping(string:mixed) travel_to_route_target(object player)
 		(string)step["id"],room_path));
 	return step+(["message":"已经到达"+(string)step["location"]+
 		"。下一步："+(string)step["name"]+"。"]);
+}
+
+/**
+ * 数据驱动S1支线共用的安全传送入口。只接受当前内容配置内的静态房间，
+ * 并复用 user::move() 的 Worker 亲和、租约和跨进程 handoff。
+ */
+mapping(string:mixed) travel_to_s1_feature_room(object player,
+	string room_path,string feature_id)
+{
+	mapping context=story_context(player);
+	mapping config;
+	string current_room;
+	if(!player || !sizeof(context) ||
+	   (string)context["illusion_id"]!="S1")
+		return (["ok":0,"message":"当前人物不能进入S1秘迹。"]) ;
+	config=(mapping)context["config"];
+	if(!feature_id || sizeof(feature_id)>96 || search(feature_id,"\n")!=-1 ||
+	   !is_content_room_path(config,room_path) || !valid_room_path(room_path) ||
+	   Stdio.file_size(ROOT+room_path)<=0)
+		return (["ok":0,"message":"秘迹目标校验失败，人物没有移动。"]) ;
+	if(functionp(player->query_in_combat) && player->query_in_combat())
+		return (["ok":0,"message":"战斗中不能切换秘迹地点，请先结束战斗。"]) ;
+	if(functionp(player->query_autofight) &&
+	   (string)player->query_autofight()=="enable")
+		AUTOFIGHTD->stop_autofight(player);
+	current_room=normalized_destination_path(environment(player));
+	if(current_room==room_path){
+		record_room_visit(player,environment(player));
+		return (["ok":1,"already":1,"message":"你已经位于秘迹目标地点。"]) ;
+	}
+	if(!route_player(player,room_path))
+		return (["ok":0,"message":"前往秘迹失败，人物仍停留在原地。"]) ;
+	Stdio.append_file(ILLUSION_LOG,sprintf(
+		"%d|feature_travel|illusion=S1|user=%s|feature=%s|room=%s\n",
+		time(),(string)player->query_name(),feature_id,room_path));
+	return (["ok":1,"message":"已经前往秘迹目标地点；到达不会自动完成观察或领取。"]) ;
 }
 
 mapping(string:mixed) travel_to_chapter_target(object player,

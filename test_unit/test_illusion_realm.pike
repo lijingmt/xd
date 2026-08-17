@@ -1345,7 +1345,7 @@ int main()
 			sprintf("单只首领若生成 kill id 1，会稳定得到目标不存在: %O",
 				native_challenge_view));
 		int hunter_boss_ids_valid = 1;
-		foreach(({"star_keeper","moon_general","newmoon_lord"}),
+		foreach(({"star_keeper","moon_general","eclipse_priest"}),
 		   string boss_name){
 			object boss = clone(ROOT+
 				"/gamelib/clone/npc/illusion_s1/"+boss_name+".pike");

@@ -223,12 +223,17 @@ private string chapter_task_view(object me,mapping progress,mapping chapter,
 		s += "剧情道具：【"+(string)chapter["quest_item_name"]+"】 "+
 			(string)(int)chapter["quest_item_count"]+"/"+
 			(string)(int)chapter["quest_item_required"]+
-			"　来源："+(string)chapter["quest_item_source_name"]+
+			((int)chapter["quest_item_substitute_ready"] ?
+			 "　§g秘迹凭证已满足§r" :
+			 "　来源："+(string)chapter["quest_item_source_name"]+
 			"（"+(string)chapter["quest_item_drop_rate_text"]+
 			"掉率，保底进度 "+
 			(string)(int)chapter["quest_item_pity"]+"/"+
 			(string)(int)chapter["quest_item_pity_kills"]+
-			"；账号绑定且不可流转）\n";
+			"；账号绑定且不可流转）")+"\n";
+	if((int)chapter["quest_item_required"]>0 &&
+	   !(int)chapter["quest_item_ready"])
+		s += "[完成本卷四幕秘迹·确定取得剧情凭证:illusion_journey]\n";
 	s += "\n§y【只做这一步】§r "+(string)chapter["target_name"];
 	if((string)chapter["target_location"]!="")
 		s += "　地点："+(string)chapter["target_location"];
@@ -321,6 +326,7 @@ private string progress_view(object me,mapping progress)
 				"/10）\n";
 	}
 	s += "[查看九卷故事目录:illusion_realm story]\n";
+	s += "[新月回响·九卷秘迹与月忆兽:illusion_journey]\n";
 	return s;
 }
 
@@ -502,7 +508,7 @@ private string guided_route_help(object me,mapping progress)
 	if(path=="hunter")
 		return "【破阵终章·按顺序打】\n"+
 			"依次击败断星桥的断桥镇星使、隐月环坑的月庭巡将、"+
-			"新月祭坛的S1归真月主。\n"+
+			"长生月炉的无影司炉者。终章归真月主只在第81章正式挑战。\n"+
 			"当前完成："+(string)(int)progress["route_mark_count"]+"/"+
 			(string)(int)progress["route_target"]+"\n"+
 			direct+"[返回当前章节:illusion_realm]\n";

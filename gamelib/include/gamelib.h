@@ -114,6 +114,8 @@
 #define PROFESSIONVIPD ((object)(ROOT "/gamelib/single/daemons/professionvipd.pike"))
 //幻境区周期人物系统（宏名为历史兼容保留）
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
+//S1新月回响：确定性秘迹、行旅秘术与月忆兽；只写人物唯一幻境子档案
+#define ILLUSION_JOURNEYD ((object)(ROOT "/gamelib/single/daemons/illusion_journeyd.pike"))
 //自动挂机系统
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
 //个人挑战难度：同图同Worker，只调整本人PVE风险、套装掉落与挂机额度
