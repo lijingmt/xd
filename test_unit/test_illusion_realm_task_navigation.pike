@@ -46,6 +46,7 @@ int main()
 		search(source,"chapter_target_in_current_room(me,chapter)")!=-1 &&
 		search(source,
 			"arrival_actions = chapter_arrival_actions(chapter)")!=-1 &&
+		search(source,"string arrival_actions = \"\";")!=-1 &&
 		search(source,"query_chapter_task_view_for_test")!=-1;
 	int quest_item_gate_action =
 		search(source,"剧情道具：【")!=-1 &&
@@ -57,8 +58,15 @@ int main()
 	int chapter_hunt_return_action =
 		search(daemon_source,"return_completed_chapter_task_view")!=-1 &&
 		search(daemon_source,"player->command(\"illusion_realm\")")!=-1 &&
+		search(daemon_source,"disengage_completed_chapter_hunt")!=-1 &&
+		search(daemon_source,
+			"publish_server_autofight_final_view")!=-1 &&
 		search(daemon_source,
 			"/tmp/illusion_chapter_return_pending")!=-1;
+	int completed_chapter_claim_action =
+		search(source,"private string chapter_claim_link(int chapter_number)")!=-1 &&
+		search(source,"章并进入下一章:illusion_realm claim ")!=-1 &&
+		search(daemon_source,"章并进入下一章:illusion_realm claim ")!=-1;
 	int aligned_navigation =
 		search(user_source,
 			"[物品:inventory]|[地图:map_display]|[任务:mytasks]|[队伍:my_term]")!=-1 &&
@@ -91,13 +99,16 @@ int main()
 		"探索到达页仍只会重复传送，无法确认本次到访");
 	check("已在章节目标房时直接显示操作而不要求重复点击下一步",
 		current_room_action,
-		"当前历程没有复用目标房间的狩猎、首领或探索操作入口");
+		"当前历程没有安全区分未到达时的一键前往与到达后的任务动作");
 	check("概率剧情道具显示来源、掉率、保底与账号绑定规则",
 		quest_item_gate_action,
 		"剧情道具卡点没有向玩家解释掉落与保底进度");
 	check("任务挂机达标脱战后自动回到幻境任务界面",
 		chapter_hunt_return_action,
 		"限章挂机只停止但没有安排脱战后的任务页回跳");
+	check("本章完成页使用章节号绑定的明确领取按钮",
+		completed_chapter_claim_action,
+		"完成态仍只依赖通用next，旧界面可能不显示或领取错误章节");
 	check("游戏尾部快捷入口保持每行四项且左侧无分组前缀",
 		aligned_navigation,
 		"快捷入口未对齐、顺序变化或重新出现分组前缀");

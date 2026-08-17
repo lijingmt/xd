@@ -10,4 +10,5 @@ protected void create(){
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/mirror_lake.pike";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/echo_ruins.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/ruin_guard.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike",ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike",ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike"}));
 }

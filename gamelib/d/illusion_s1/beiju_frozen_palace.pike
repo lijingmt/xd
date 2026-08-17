@@ -10,5 +10,7 @@ protected void create(){
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/beiju_broken_oath.pike";
 	exits["north"]=ROOT "/gamelib/d/illusion_s1/frozen_judgment_hall.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/frozen_age_king.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike",ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike",ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike"}));
 }
 string query_links(){ return "[读取冻龄名册:illusion_realm witness]\n"; }

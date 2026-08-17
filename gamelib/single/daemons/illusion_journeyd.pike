@@ -49,6 +49,28 @@ private int valid_room(string value)
 		search(value,"#")==-1 && Stdio.file_size(ROOT+value)>0;
 }
 
+private int valid_target_path(string value)
+{
+	return value &&
+		has_prefix(value,"/gamelib/clone/npc/illusion_s1/") &&
+		has_suffix(value,".pike") && search(value,"..")==-1 &&
+		search(value,"#")==-1 && Stdio.file_size(ROOT+value)>0;
+}
+
+private string normalized_object_path(mixed value)
+{
+	string path = "";
+	if(objectp(value))
+		path = file_name(value);
+	else if(stringp(value))
+		path = (string)value;
+	if(has_prefix(path,ROOT))
+		path = path[sizeof(ROOT)..];
+	if(search(path,"#")!=-1)
+		path = (path/"#")[0];
+	return path;
+}
+
 private mapping find_by_id(array rows,string id)
 {
 	if(!arrayp(rows) || !valid_slug(id))
@@ -92,7 +114,7 @@ private int valid_config(mapping candidate)
 	if(!mappingp(candidate) || sizeof(candidate)>16 ||
 	   (int)candidate["version"]!=1 ||
 	   (string)candidate["illusion_id"]!="S1" ||
-	   (int)candidate["feature_revision"]!=1 ||
+	   (int)candidate["feature_revision"]!=2 ||
 	   !arrayp(candidate["side_quests"]) ||
 	   !arrayp(candidate["secrets"]) ||
 	   !arrayp(candidate["companion_species"]) ||
@@ -138,10 +160,17 @@ private int valid_config(mapping candidate)
 		   event_ids[(string)one["final_event"]] ||
 		   !arrayp(one["acts"]) || sizeof(acts)!=4)
 			return 0;
-		foreach(acts,mapping act)
+		foreach(acts;int act_index;mapping act)
 			if(!valid_room((string)act["room"]) ||
 			   !stringp(act["title"]) || !stringp(act["location"]) ||
-			   !stringp(act["text"]))
+			   !stringp(act["text"]) ||
+			   !valid_target_path((string)act["target_path"]) ||
+			   !stringp(act["target_name"]) ||
+			   sizeof((string)act["target_name"])<2 ||
+			   sizeof((string)act["target_name"])>32 ||
+			   (int)act["required_kills"]<1 ||
+			   (int)act["required_kills"]>5 ||
+			   (act_index==3 && (int)act["required_kills"]!=1))
 				return 0;
 		quest_ids[id] = 1;
 		gate_ids[gate_id] = 1;
@@ -299,14 +328,22 @@ private mapping raw_progress(object player)
 {
 	mapping all_progress;
 	mapping progress;
+	string content_id;
 	if(!player)
 		return ([]);
 	all_progress = player[PROGRESS_ROOT];
 	if(!mappingp(all_progress))
 		return ([]);
 	progress = all_progress["S1"];
-	if(!mappingp(progress) || (string)progress["content_id"]!="S1")
+	if(!mappingp(progress))
 		return ([]);
+	content_id = (string)(progress["content_id"] || "");
+	// S1首批人物档案早于content_id字段。映射键本身已经是S1，缺失
+	// 字段可安全补齐；显式写成其它内容编号仍失败关闭，避免串档。
+	if(content_id!="" && content_id!="S1")
+		return ([]);
+	if(content_id=="")
+		progress["content_id"] = "S1";
 	return progress;
 }
 
@@ -369,10 +406,14 @@ private int valid_state(object player,mapping state)
 		mapping quest;
 		mapping one;
 		if(!stringp(id) || !sizeof(quest_config((string)id)) ||
-		   !mappingp(value) || sizeof((mapping)value)>5 ||
+		   !mappingp(value) || sizeof((mapping)value)>6 ||
 		   !intp(((mapping)value)["act"]) ||
 		   (int)((mapping)value)["act"]<0 ||
 		   (int)((mapping)value)["act"]>4 ||
+		   (has_index((mapping)value,"act_kills") &&
+		    (!intp(((mapping)value)["act_kills"]) ||
+		     (int)((mapping)value)["act_kills"]<0 ||
+		     (int)((mapping)value)["act_kills"]>5)) ||
 		   (has_index((mapping)value,"started_at") &&
 		    !valid_timestamp(((mapping)value)["started_at"])) ||
 		   (has_index((mapping)value,"updated_at") &&
@@ -385,6 +426,7 @@ private int valid_state(object player,mapping state)
 		if(((int)one["act"]==4) !=
 		   (has_index(one,"completed_at") &&
 		    (int)one["completed_at"]>0) ||
+		   ((int)one["act"]==4 && (int)one["act_kills"]!=0) ||
 		   ((int)one["act"]==4 &&
 		    ((int)secrets[(string)quest["secret_id"]]<=0 ||
 		     (int)substitutions[(string)quest["gate_id"]]<=0)))
@@ -497,8 +539,14 @@ private mapping current_quest_view(mapping progress,mapping state)
 	acts = (array)quest["acts"];
 	events = mappingp(progress["story_events"]) ?
 		(mapping)progress["story_events"] : ([]);
+	int required_kills = (int)((mapping)acts[act_index])["required_kills"];
+	int act_kills = min(required_kills,(int)one["act_kills"]);
+	if(act_index==3 && (int)events[(string)quest["final_event"]]>0)
+		act_kills = required_kills;
 	return copy_value(quest)+(["act":act_index,"act_total":4,
 		"current_act":copy_value((mapping)acts[act_index]),
+		"act_kills":act_kills,"required_kills":required_kills,
+		"act_ready":act_kills>=required_kills,
 		"final_event_ready":(int)events[(string)quest["final_event"]]>0]);
 }
 
@@ -612,6 +660,129 @@ mapping(string:mixed) travel_to_current_quest(object player)
 		"journey:"+(string)quest["id"]+":"+(string)(int)quest["act"]);
 }
 
+mapping(string:mixed) start_current_quest_hunt(object player)
+{
+	mapping view = query_journey(player);
+	mapping quest = mappingp(view["current_quest"]) ?
+		(mapping)view["current_quest"] : ([]);
+	mapping act = mappingp(quest["current_act"]) ?
+		(mapping)quest["current_act"] : ([]);
+	if(!(int)view["ok"] || !sizeof(quest) || !sizeof(act))
+		return (["ok":0,"message":"当前没有可执行的新月支线战斗。"]);
+	if((int)quest["act_ready"])
+		return (["ok":0,"message":"本幕战斗目标已经完成，请记录战果并继续下一幕。"]);
+	if((int)quest["act"]==3)
+		return (["ok":0,"message":"这是卷末支线收束；请按幻境主线挑战本卷首领，胜利后再回来记录战果。"]);
+	if(!environment(player) ||
+	   !MAP_WORKERD->static_room_locations_match(file_name(environment(player)),
+		(string)act["room"]))
+		return (["ok":0,"message":"请先一键前往【"+
+			(string)act["location"]+"】，再开启本幕支线挂机。"]);
+	player["/tmp/illusion_journey_autofight"] = ([
+		"illusion_id":"S1","quest_id":(string)quest["id"],
+		"act":(int)quest["act"],"target_path":(string)act["target_path"],
+		"target_room":(string)act["room"],
+		"target_kills":(int)quest["required_kills"],"created_at":time(),
+	]);
+	AUTOFIGHTD->start_journey_autofight(player);
+	return (["ok":1,"message":"§g【新月支线挂机】§r 已开启：只在【"+
+		(string)act["location"]+"】完成“"+(string)act["target_name"]+
+		"”的本幕目标；达到数量后自动停止并返回支线页。"]);
+}
+
+mapping(string:mixed) record_npc_kill(object player,object npc)
+{
+	object key;
+	mapping old_all;
+	mapping all_progress;
+	mapping progress;
+	mapping state;
+	mapping quest;
+	mapping quest_states;
+	mapping one;
+	mapping act;
+	mapping events;
+	mapping saved;
+	mapping task_mode;
+	string npc_path;
+	int act_index;
+	int kills;
+	int required;
+	int complete;
+	if(!player || !npc || !config_valid || !environment(player) ||
+	   environment(npc)!=environment(player))
+		return (["ok":0,"credited":0]);
+	npc_path = normalized_object_path(npc);
+	key = journey_lock->lock();
+	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
+	all_progress = copy_value(old_all);
+	progress = mappingp(all_progress["S1"]) ?
+		(mapping)all_progress["S1"] : ([]);
+	state = sizeof(progress) ? state_for(player,progress) : ([]);
+	quest = sizeof(state) ? current_quest(progress,state) : ([]);
+	if(!sizeof(state) || !sizeof(quest)){
+		destruct(key);
+		return (["ok":0,"credited":0]);
+	}
+	quest_states = (mapping)state["side_quests"];
+	one = mappingp(quest_states[(string)quest["id"]]) ?
+		copy_value((mapping)quest_states[(string)quest["id"]]) :
+		(["act":0,"act_kills":0,"started_at":time()]);
+	act_index = (int)one["act"];
+	act = (mapping)((array)quest["acts"])[act_index];
+	required = (int)act["required_kills"];
+	if(npc_path!=(string)act["target_path"] ||
+	   !MAP_WORKERD->static_room_locations_match(
+		file_name(environment(player)),(string)act["room"])){
+		destruct(key);
+		return (["ok":1,"credited":0]);
+	}
+	events = mappingp(progress["story_events"]) ?
+		(mapping)progress["story_events"] : ([]);
+	if(act_index==3 && !(int)events[(string)quest["final_event"]]){
+		destruct(key);
+		return (["ok":1,"credited":0]);
+	}
+	kills = min(required,(int)one["act_kills"]);
+	if(act_index==3)
+		kills = required;
+	else if(kills<required)
+		kills++;
+	else{
+		destruct(key);
+		return (["ok":1,"credited":0,"complete":1,
+			"kills":kills,"required":required]);
+	}
+	one["act_kills"] = kills;
+	one["updated_at"] = time();
+	quest_states[(string)quest["id"]] = one;
+	state["side_quests"] = quest_states;
+	saved = save_state(player,old_all,all_progress,progress,state,
+		"sidequest_kill:"+(string)quest["id"]+":"+
+		(string)(act_index+1)+":"+(string)kills);
+	destruct(key);
+	if(!(int)saved["ok"])
+		return saved+(["credited":0]);
+	complete = kills>=required;
+	task_mode = mappingp(player["/tmp/illusion_journey_autofight"]) ?
+		(mapping)player["/tmp/illusion_journey_autofight"] : ([]);
+	if(complete && (string)task_mode["quest_id"]==(string)quest["id"] &&
+	   (int)task_mode["act"]==act_index){
+		AUTOFIGHTD->stop_autofight(player);
+		player->m_delete_foruser("/tmp/illusion_journey_autofight");
+		AUTOFIGHTD->publish_server_autofight_final_view(player,
+			"§y【新月支线战斗完成】§r 已停止本幕挂机。\n"+
+			"目标："+(string)act["target_name"]+" "+(string)kills+"/"+
+			(string)required+"\n"+
+			"[记录战果并进入下一幕:illusion_journey advance]|"+
+			"[返回游戏:look]\n");
+	}
+	return (["ok":1,"credited":1,"complete":complete,"kills":kills,
+		"required":required,"message":"§p【新月支线】§r "+
+		(string)act["target_name"]+" "+(string)kills+"/"+
+		(string)required+(complete ? "，本幕战斗目标已经完成。" : "。")]);
+}
+
 mapping(string:mixed) advance_current_quest(object player)
 {
 	object key;
@@ -654,6 +825,14 @@ mapping(string:mixed) advance_current_quest(object player)
 		return (["ok":0,"message":"请先前往【"+(string)act["location"]+
 			"】完成“"+(string)act["title"]+"”。"]);
 	}
+	if(act_index<3 &&
+	   (int)one["act_kills"]<(int)act["required_kills"]){
+		destruct(key);
+		return (["ok":0,"message":"本幕是新月支线战斗任务；请击败【"+
+			(string)act["target_name"]+"】 "+
+			(string)(int)one["act_kills"]+"/"+
+			(string)(int)act["required_kills"]+" 后再记录战果。"]);
+	}
 	if(act_index==3){
 		events = mappingp(progress["story_events"]) ?
 			(mapping)progress["story_events"] : ([]);
@@ -663,6 +842,7 @@ mapping(string:mixed) advance_current_quest(object player)
 		}
 	}
 	one["act"] = act_index+1;
+	one["act_kills"] = 0;
 	one["updated_at"] = time();
 	if(act_index==3){
 		one["completed_at"] = time();
@@ -676,12 +856,13 @@ mapping(string:mixed) advance_current_quest(object player)
 	destruct(key);
 	if(!(int)saved["ok"])
 		return saved;
+	player->m_delete_foruser("/tmp/illusion_journey_autofight");
 	return (["ok":1,"completed":act_index==3,
-		"message":"【"+(string)act["title"]+"】\n"+(string)act["text"]+
+		"message":"【新月支线·"+(string)act["title"]+"】\n"+(string)act["text"]+
 			(act_index==3 ? "\n支线完成：获得行旅秘术【"+
 			 (string)secret_config((string)quest["secret_id"])["name"]+
 			 "】；本卷剧情凭证已确定写入，不再强制依赖随机掉落。" :
-			 "\n这一幕已经记录，可以继续下一步。")]);
+			 "\n本幕支线战果已经记录，可以继续下一幕。")]);
 }
 
 private string new_pet_id(object player,string species_id)

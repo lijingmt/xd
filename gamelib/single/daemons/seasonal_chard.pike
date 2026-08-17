@@ -1836,7 +1836,8 @@ private mapping player_progress_for_id(object player,string illusion_id,
 		all_progress[illusion_id] = progress;
 		player[ILLUSION_PROGRESS_ROOT] = all_progress;
 	}
-	else if(mappingp(progress) && (string)progress["content_id"]=="")
+	else if(mappingp(progress) &&
+	   (string)(progress["content_id"] || "")=="")
 		progress["content_id"]=illusion_id;
 	return mappingp(progress) ? progress : ([]);
 }
@@ -2321,6 +2322,51 @@ private int is_illusion_progress_checkpoint(mapping progress,
 private mapping(string:mixed) chapter_progress_guide(object player,
 	mapping progress);
 
+/**
+ * 限章挂机完成时，只脱离当前S1房间中的普通NPC战斗。
+ *
+ * 群攻或同房间多怪会让玩家在最后一只任务怪结算后继续锁定另一只怪，
+ * 导致任务页回跳一直等待。若仇恨表混入玩家、召唤物、其它世界NPC或
+ * 跨房对象则失败关闭，绝不借任务完成强制中止PVP或其它战斗。
+ */
+private int disengage_completed_chapter_hunt(object player,
+	string illusion_id)
+{
+	array targets;
+	string npc_prefix;
+	object room;
+	if(!player || illusion_id=="" || !functionp(player->get_all_targets) ||
+	   !functionp(player->_clean_fight))
+		return 0;
+	room = environment(player);
+	if(!room)
+		return 0;
+	targets = player->get_all_targets() || ({});
+	npc_prefix = "/gamelib/clone/npc/illusion_"+
+		lower_case(illusion_id)+"/";
+	foreach(targets,object target){
+		string target_path;
+		if(!target || !objectp(target) || !functionp(target->is) ||
+		   !target->is("npc") || environment(target)!=room)
+			return 0;
+		target_path = normalized_destination_path(target);
+		if(!has_prefix(target_path,npc_prefix))
+			return 0;
+	}
+	foreach(targets,object target){
+		mixed remaining;
+		target->clean_targets(player);
+		remaining = target->get_all_targets();
+		if(functionp(target->query_in_combat) &&
+		   target->query_in_combat() &&
+		   (!arrayp(remaining) || !sizeof((array)remaining)))
+			target->_clean_fight();
+	}
+	if(functionp(player->query_in_combat) && player->query_in_combat())
+		player->_clean_fight();
+	return 1;
+}
+
 private int return_completed_chapter_task_view(object player,
 	string illusion_id,string chapter_id,int retry)
 {
@@ -2454,8 +2500,10 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	int task_mode_finished;
 	mapping story_event = ([]);
 	mapping quest_drop = ([]);
+	mapping journey_result = ([]);
 	object|zero quest_item = 0;
 	string story_message = "";
+	mixed journey_err;
 	context=story_context(player);
 	if(!sizeof(context) || !npc)
 		return;
@@ -2545,8 +2593,14 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		quest_item = (object)quest_drop["item"];
 	update_ranking_snapshot(player,progress);
 	guide = chapter_progress_guide(player,progress);
-	task_mode_finished = sizeof(task_mode) &&
-		(string)guide["kind"]!="hunt";
+	if(sizeof(task_mode) &&
+	   (string)task_mode["completion_kind"]=="chapter_kills")
+		task_mode_finished =
+			(int)progress["chapter_kills"]>=
+			(int)task_mode["target_kills"];
+	else
+		task_mode_finished = sizeof(task_mode) &&
+			(string)guide["kind"]!="hunt";
 	checkpoint = is_illusion_progress_checkpoint(progress,boss_kill,
 	   route_mark_added,previous_team_kills,activity_day_added,
 	   story_event_added);
@@ -2599,18 +2653,34 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	   functionp(player->query_autofight) &&
 	   (string)player->query_autofight()=="enable"){
 		AUTOFIGHTD->stop_autofight(player);
+		disengage_completed_chapter_hunt(player,illusion_id);
 		tell_object(player,"§y【章节狩猎完成】§r 已按你的选择停止本章挂机；普通持续挂机模式不会自动停止。\n");
 		player["/tmp/illusion_chapter_return_pending"] = ([
 			"illusion_id":illusion_id,
 			"chapter_id":(string)task_mode["chapter_id"],
 			"created_at":time(),
 		]);
+		AUTOFIGHTD->publish_server_autofight_final_view(player,
+			"§y【章节狩猎完成】§r 已停止本章挂机。\n"+
+			(string)guide["message"]+
+			"[▶ 返回幻境任务并继续:illusion_realm]|[返回游戏:look]\n");
 		call_out(return_completed_chapter_task_view,0,player,illusion_id,
 			(string)task_mode["chapter_id"],0);
 	}
 	if((string)guide["message"]!="" &&
 	   ((string)guide["kind"]=="hunt" || checkpoint))
 		tell_object(player,(string)guide["message"]);
+	// 九卷秘迹是明确标注的S1支线。主线击杀事务先完成，再把同一次
+	// 真实NPC死亡交给支线计数；支线异常不得打断经验、掉落或主线结算。
+	journey_err = catch{
+		journey_result = ILLUSION_JOURNEYD->record_npc_kill(player,npc);
+	};
+	if(journey_err)
+		werror("[ILLUSION_JOURNEY] 支线击杀记账异常: user=%s npc=%s error=%s\n",
+			(string)player->query_name(),npc_path,describe_error(journey_err));
+	else if((int)journey_result["credited"] &&
+		(string)journey_result["message"]!="")
+		tell_object(player,(string)journey_result["message"]+"\n");
 	if((int)context["ranking_enabled"])
 		invalidate_ranking_cache(illusion_id);
 }
@@ -3512,7 +3582,9 @@ private mapping(string:mixed) chapter_progress_guide(object player,
 	kind = (string)chapter["target_kind"];
 	if((int)chapter["ready"] || kind=="ready")
 		return (["kind":"ready","message":"§y【第"+(string)(index+1)+
-			"章目标完成】§r\n[▶ 下一步：领取本章并继续:illusion_realm next]\n"]);
+			"章目标完成】§r\n[立即领取第"+(string)(index+1)+
+			"章并进入下一章:illusion_realm claim "+
+			(string)(index+1)+"]\n"]);
 	if(kind=="hunt" && (int)chapter["quest_item_required"]>0 &&
 	   !(int)chapter["quest_item_ready"])
 		return (["kind":kind,"message":"§p【剧情道具卡点】§r 击败"+
@@ -3870,6 +3942,7 @@ private mapping(string:mixed) start_chapter_hunt_autofight_internal(
 	int chapter_number;
 	string reason;
 	string current_room;
+	string completion_kind;
 	mapping context=story_context(player);
 	if(!player || !sizeof(context))
 		return (["ok":0,"message":"当前不能启动幻境章节挂机。"]) ;
@@ -3893,10 +3966,14 @@ private mapping(string:mixed) start_chapter_hunt_autofight_internal(
 	}
 	AUTOFIGHTD->start_autofight(player);
 	player->m_delete_foruser("/tmp/illusion_chapter_return_pending");
+	completion_kind = (int)chapter["chapter_kills_done"]<
+		(int)chapter["chapter_kills"] ? "chapter_kills" : "quest_item";
 	player["/tmp/illusion_chapter_autofight"] = ([
 		"illusion_id":(string)progress["illusion_id"],
 		"chapter_id":(string)chapter["id"],
 		"target_name":(string)chapter["target_name"],
+		"completion_kind":completion_kind,
+		"target_kills":(int)chapter["chapter_kills"],
 		"started_at":time(),
 	]);
 	return (["ok":1,"message":"已启动“挂机至本章狩猎完成”：只计算"+

@@ -9,5 +9,6 @@ protected void create(){
 	desc="功法、师承和来世都被摆上高台竞价。最穷的弟子跪在最下面，却未必比买走秘典的人离大道更远。\n";
 	exits["north"]=ROOT "/gamelib/d/illusion_s1/mirror_lake.pike";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/xiniu_empty_temple.pike";
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike",ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike",ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike"}));
 }
 string query_links(){ return "[查看万法价目:illusion_realm witness]\n"; }

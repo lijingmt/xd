@@ -1208,6 +1208,18 @@ int main()
 		child["/tmp/illusion_move_bypass"] = 1;
 		child->move(chapter_gate);
 		child->m_delete_foruser("/tmp/illusion_move_bypass");
+		mapping departed_hunt_progress =
+			SEASONALD->query_player_progress(child);
+		mapping departed_hunt_chapter = (mapping)((array)
+			departed_hunt_progress["chapters"])[0];
+		string departed_hunt_view = ((object)(ROOT+
+			"/gamelib/cmds/illusion_realm.pike"))->
+			query_chapter_task_view_for_test(child,departed_hunt_progress,
+				departed_hunt_chapter,1);
+		check("人物不在小怪目标房时当前章节显示一键前往按钮",
+			search(departed_hunt_view,
+				"[▶ 下一步：一键前往月露原·逐光月灵:illusion_realm next]")!=-1,
+			sprintf("view=%O",departed_hunt_view));
 		mapping future_travel = SEASONALD->travel_to_chapter_target(child,2);
 		child->set_autofight("enable");
 		mapping afk_travel = SEASONALD->travel_to_chapter_target(child,1);
@@ -1767,6 +1779,8 @@ int main()
 			sprintf("progress=%O",progress));
 
 		int claims_ok = 1;
+		int ready_claim_view_ok = 0;
+		int ready_claim_segment_ok = 0;
 		for(int chapter=1;chapter<=81;chapter++){
 			progress = SEASONALD->query_player_progress(child);
 			mapping chapter_status =
@@ -1796,6 +1810,21 @@ int main()
 			progress = SEASONALD->query_player_progress(child);
 			chapter_status =
 				(mapping)((array)progress["chapters"])[chapter-1];
+			if(chapter==38){
+				string ready_view = ((object)(ROOT+
+					"/gamelib/cmds/illusion_realm.pike"))->
+					query_chapter_task_view_for_test(child,progress,
+						chapter_status,chapter);
+				mapping ready_segment = HTTP_APID->parse_bracket_content(
+					"立即领取第38章并进入下一章:illusion_realm claim 38",
+					"testunit","__testunit_illusion_ready__");
+				ready_claim_view_ok = search(ready_view,
+					"[立即领取第38章并进入下一章:illusion_realm claim 38]")!=-1;
+				ready_claim_segment_ok = mappingp(ready_segment) &&
+					(string)ready_segment["type"]=="button" &&
+					(string)ready_segment["label"]==
+						"立即领取第38章并进入下一章";
+			}
 			mapping claim = SEASONALD->claim_chapter_reward_for_test(
 				child,chapter);
 			if(!(int)chapter_status["ready"] || !(int)claim["ok"] ||
@@ -1811,6 +1840,10 @@ int main()
 					claims_ok = 0;
 			}
 		}
+		check("C38完成态在原始输出与HTTP/Vue协议中均呈现直接领取按钮",
+			ready_claim_view_ok && ready_claim_segment_ok,
+			sprintf("view=%d segment=%d",ready_claim_view_ok,
+				ready_claim_segment_ok));
 		int before_duplicate = count_newmoon_items(child);
 		mapping duplicate_claim = SEASONALD->claim_chapter_reward_for_test(
 			child,81);

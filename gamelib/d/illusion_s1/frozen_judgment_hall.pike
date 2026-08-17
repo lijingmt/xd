@@ -9,4 +9,5 @@ protected void create(){
 	desc="被篡改的逐徒旧案刻满天幕。只有把绝笔、宗印、冰墙名册与镜湖残图同时带到这里，真相才不会再由胜者单独书写。\n";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/beiju_frozen_palace.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/frost_inquisitor.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike",ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike",ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike"}));
 }

@@ -11,5 +11,6 @@ protected void create(){
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/hidden_crater.pike";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/moon_immortality_furnace.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/newmoon_lord.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike",ROOT "/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike",ROOT "/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike"}));
 }
 string query_links(){ return "[合印归真:illusion_realm explore]\n"; }

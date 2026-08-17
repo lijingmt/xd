@@ -9,5 +9,6 @@ protected void create(){
 	desc="殿中长生经一字皆无，纸面却留着八十一处被刮去姓名的凹痕。月光照过时，它们像剑路一样重新相连。\n";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/xiniu_scripture_market.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/empty_sutra_abbot.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike",ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike",ROOT "/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike"}));
 }
 string query_links(){ return "[研读空白长生经:illusion_realm witness]\n"; }

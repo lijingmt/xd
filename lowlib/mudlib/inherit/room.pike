@@ -48,7 +48,7 @@ private int is_autofight_normal_spawn(object ob)
 		return 0;
 	npc_type=ob->query_npc_type();
 	if(npc_type=="city_keeper" || npc_type=="city_guarder" ||
-	   npc_type=="city_lord")
+	   npc_type=="city_lord" || npc_type=="illusion_sidequest")
 		return 0;
 	return 1;
 }

@@ -9,4 +9,5 @@ protected void create(){
 	desc="湖底每一块碎镜都保存着一个本可发生的结局。镜主以遗憾为丝，专门把最舍不得醒的人留在这里。\n";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/mirror_lake.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/mirror_weaver.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike",ROOT "/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike",ROOT "/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike"}));
 }

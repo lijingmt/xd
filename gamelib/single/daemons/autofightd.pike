@@ -477,6 +477,25 @@ mapping(string:mixed) query_server_autofight_view(object me)
 	return copy_value(snapshot);
 }
 
+/**
+ * 发布一次由服务端后台事件产生的最终挂机画面。
+ *
+ * 章节最后一只怪可能死在战斗心跳中，而不是浏览器正在等待的命令里。
+ * stop_autofight() 会结束前端轮询；若仍保留上一帧，玩家就会一直看到
+ * “交战中”。这里生成更高 sequence 的 inactive 快照，让关闭挂机前的
+ * 最后一次只读拉取可靠拿到完成页。只保存展示文本，不执行世界写操作。
+ */
+void publish_server_autofight_final_view(object me,string output)
+{
+	string userid;
+	if(!me || !functionp(me->query_name) || !output || output=="")
+		return;
+	userid = normalize_server_autofight_userid((string)me->query_name());
+	if(userid=="")
+		return;
+	record_server_autofight_view(userid,output,0,0);
+}
+
 string query_server_autofight_view_generation()
 {
 	return server_autofight_view_generation;
@@ -3086,8 +3105,10 @@ private void activate_autofight(object me,int preserve_chapter_mode)
 	initialize_player(me);
 	// 普通持续挂机与“只完成当前幻境狩猎”是两种明确模式。
 	// 从通用入口启动时必须清除旧的限章标记，不能完成一章后误停。
-	if(!preserve_chapter_mode)
+	if(!preserve_chapter_mode){
 		me->m_delete_foruser("/tmp/illusion_chapter_autofight");
+		me->m_delete_foruser("/tmp/illusion_journey_autofight");
+	}
 	me["/tmp/autofight_last_charge"] = time();
 	userid=normalize_server_autofight_userid((string)me->query_name());
 	if(userid!="")
@@ -3109,6 +3130,15 @@ void start_autofight(object me)
 	activate_autofight(me,0);
 }
 
+/** 支线守护进程先写入精确目标，再通过此入口无竞态启动限定挂机。 */
+void start_journey_autofight(object me)
+{
+	if(!me)
+		return;
+	me->m_delete_foruser("/tmp/illusion_chapter_autofight");
+	activate_autofight(me,1);
+}
+
 /**
  * 自动休息、章节换图后的内部续跑不能清掉“仅完成本章”标记。
  * 玩家主动点击普通挂机仍走 start_autofight()，保持原有显式切换语义。
@@ -3125,6 +3155,7 @@ void stop_autofight(object me)
 	if(!me)
 		return;
 	me->m_delete_foruser("/tmp/illusion_chapter_autofight");
+	me->m_delete_foruser("/tmp/illusion_journey_autofight");
 	cancel_server_autofight_tick(me);
 	me["/tmp/autofight_last_charge"] = 0;
 	me["/tmp/autofight_no_target_ticks"] = 0;
@@ -3880,7 +3911,8 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 	object env;
 	string current;
 	string destination;
-	if(!me || !query_smart_route_enabled(me) ||
+	if(!me || mappingp(me["/tmp/illusion_journey_autofight"]) ||
+	   !query_smart_route_enabled(me) ||
 	   !can_auto_leave_current_room(me) || !query_route_ready(me))
 		return 0;
 	route = query_training_route(me);
@@ -4055,6 +4087,32 @@ private int is_valid_target(object me, object ob)
 	return 1;
 }
 
+private string normalized_autofight_object_path(object value)
+{
+	string path = value ? file_name(value) : "";
+	if(has_prefix(path,ROOT))
+		path = path[sizeof(ROOT)..];
+	if(search(path,"#")!=-1)
+		path = (path/"#")[0];
+	return path;
+}
+
+private int is_journey_autofight_target(object me,object ob)
+{
+	mapping mode;
+	object env;
+	if(!me || !ob || !is_visible_autofight_monster(me,ob))
+		return 0;
+	mode = mappingp(me["/tmp/illusion_journey_autofight"]) ?
+		(mapping)me["/tmp/illusion_journey_autofight"] : ([]);
+	env = environment(me);
+	return sizeof(mode) && env && environment(ob)==env &&
+		(string)mode["illusion_id"]=="S1" &&
+		normalized_autofight_object_path(ob)==(string)mode["target_path"] &&
+		MAP_WORKERD->static_room_locations_match(file_name(env),
+			(string)mode["target_room"]);
+}
+
 object|zero query_target(object me)
 {
 	mapping snapshot = query_target_snapshot(me);
@@ -4085,6 +4143,14 @@ mapping query_target_snapshot(object me)
 	maybe_refresh_training_room_npcs(me,env);
 	all = all_inventory(env);
 	total = sizeof(all);
+	// 支线挂机只认服务端配置的真实NPC文件和目标房间。优先扫描这一个
+	// 目标，允许高等级人物补做低卷支线，也不会被同房更高等级怪抢走。
+	if(mappingp(me["/tmp/illusion_journey_autofight"]))
+		foreach(all,object journey_target)
+			if(is_journey_autofight_target(me,journey_target))
+				return (["target":journey_target,"visible":1,
+					"scanned":total,"total":total,"deferred":0,
+					"cycle_complete":1]);
 	room_identity = file_name(env);
 	if((string)me["/tmp/autofight_scan_cursor_room"]!=room_identity){
 		me["/tmp/autofight_scan_cursor"] = 0;
@@ -4330,7 +4396,8 @@ string query_safe_exit(object me)
 	string room_prefix;
 	// 区域巡游是手动模式；智能寻路也应在推荐练级区空图时
 	// 自动换到相邻地图，避免默认设置下永久等待刷新。
-	if(!me || (!query_roam_enabled(me) &&
+	if(!me || mappingp(me["/tmp/illusion_journey_autofight"]) ||
+	   (!query_roam_enabled(me) &&
 	   !query_smart_route_enabled(me)))
 		return "";
 	// 章节狩猎只能在该目标允许的房间池内换图。通用相邻巡游可能把

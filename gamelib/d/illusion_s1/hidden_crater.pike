@@ -9,5 +9,6 @@ protected void create(){
 	desc="第十道月痕藏在祭台背后。愿意探索的人，终会发现直线之外的答案。\n";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/newmoon_altar.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/moon_general.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike",ROOT "/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike",ROOT "/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike"}));
 }
 string query_links(){ return "[勘察环坑星核:illusion_realm explore]\n"; }

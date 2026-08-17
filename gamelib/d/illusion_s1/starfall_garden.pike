@@ -9,4 +9,5 @@ protected void create(){
 	desc="坠落星辉照亮石径，这是所有幻境行者共享的中立深渊猎场。\n";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/abyss_garden.pike";
 	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike",20,18,5,20,3);
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike"}));
 }

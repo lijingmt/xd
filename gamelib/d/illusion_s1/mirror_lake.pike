@@ -13,6 +13,8 @@ protected void create(){
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/mirror_depths.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/mirror_spider.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/mirror_spider.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike",ROOT "/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike",ROOT "/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike",ROOT "/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike",ROOT "/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike"}));
 }
 string query_links(){
 	return "[观察倒月:illusion_realm explore]\n"+

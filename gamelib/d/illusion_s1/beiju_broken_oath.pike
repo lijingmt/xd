@@ -9,5 +9,6 @@ protected void create(){
 	desc="半条红巾冻在雪坡上。有人并非忘了兄弟才背盟，恰恰因为还记得另一个至亲，才在两份情义之间走错一步。\n";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/beiju_longlife_waste.pike";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/beiju_frozen_palace.pike";
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike"}));
 }
 string query_links(){ return "[拾起红巾留别:illusion_realm witness]\n"; }

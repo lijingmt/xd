@@ -12,4 +12,5 @@ protected void create(){
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/beiju_longlife_waste.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/star_wraith.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/star_wraith.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike",ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike",ROOT "/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike"}));
 }

@@ -9,5 +9,6 @@ protected void create(){
 	desc="名榜、利市与姻缘灯挤在同一条长街上。人们忙着为短暂一生争取更多，却很少有人停下来问生死究竟是什么。\n";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/moon_gate.pike";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike";
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike"}));
 }
 string query_links(){ return "[阅读月诏残响:illusion_realm witness]\n"; }

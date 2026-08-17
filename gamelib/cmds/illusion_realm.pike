@@ -31,6 +31,13 @@ private string chapter_next_link(mapping chapter)
 		":illusion_realm next]\n";
 }
 
+private string chapter_claim_link(int chapter_number)
+{
+	return "[立即领取第"+(string)chapter_number+
+		"章并进入下一章:illusion_realm claim "+
+		(string)chapter_number+"]\n";
+}
+
 private string boss_challenge_link(mapping target)
 {
 	string kind = (string)(target["target_kind"] || target["action"] || "");
@@ -190,7 +197,7 @@ private string chapter_task_view(object me,mapping progress,mapping chapter,
 	int chapter_number)
 {
 	string s = "\n【本章任务】\n";
-	string arrival_actions;
+	string arrival_actions = "";
 	int kills = (int)chapter["chapter_kills"];
 	int kills_done = (int)chapter["chapter_kills_done"];
 	int bosses = (int)chapter["chapter_boss_kills"];
@@ -224,7 +231,7 @@ private string chapter_task_view(object me,mapping progress,mapping chapter,
 			(string)(int)chapter["quest_item_count"]+"/"+
 			(string)(int)chapter["quest_item_required"]+
 			((int)chapter["quest_item_substitute_ready"] ?
-			 "　§g秘迹凭证已满足§r" :
+			 "　§g新月支线凭证已满足§r" :
 			 "　来源："+(string)chapter["quest_item_source_name"]+
 			"（"+(string)chapter["quest_item_drop_rate_text"]+
 			"掉率，保底进度 "+
@@ -233,17 +240,23 @@ private string chapter_task_view(object me,mapping progress,mapping chapter,
 			"；账号绑定且不可流转）")+"\n";
 	if((int)chapter["quest_item_required"]>0 &&
 	   !(int)chapter["quest_item_ready"])
-		s += "[完成本卷四幕秘迹·确定取得剧情凭证:illusion_journey]\n";
+		s += "[新月支线·完成本卷四幕战斗并取得剧情凭证:illusion_journey]\n";
 	s += "\n§y【只做这一步】§r "+(string)chapter["target_name"];
 	if((string)chapter["target_location"]!="")
 		s += "　地点："+(string)chapter["target_location"];
 	s += "\n";
-	if(chapter_target_in_current_room(me,chapter))
-		arrival_actions = chapter_arrival_actions(chapter);
-	if(arrival_actions!="")
-		s += arrival_actions;
-	else
-		s += chapter_next_link(chapter);
+	if((int)chapter["ready"] ||
+	   (string)chapter["target_kind"]=="ready")
+		s += "§g【本章任务已全部完成】§r\n"+
+			chapter_claim_link(chapter_number);
+	else{
+		if(chapter_target_in_current_room(me,chapter))
+			arrival_actions = chapter_arrival_actions(chapter);
+		if(arrival_actions!="")
+			s += arrival_actions;
+		else
+			s += chapter_next_link(chapter);
+	}
 	if((string)chapter["target_kind"]=="choice")
 		s += "请返回当前历程完成三途择印。\n";
 	else if((string)chapter["target_kind"]=="route")
@@ -326,7 +339,7 @@ private string progress_view(object me,mapping progress)
 				"/10）\n";
 	}
 	s += "[查看九卷故事目录:illusion_realm story]\n";
-	s += "[新月回响·九卷秘迹与月忆兽:illusion_journey]\n";
+	s += "[新月支线·九卷秘迹与月忆兽:illusion_journey]\n";
 	return s;
 }
 
@@ -469,7 +482,7 @@ private string guided_follow_up(object me,mapping progress,int after_travel)
 	int chapter_number = (int)progress["chapter_claimed"]+1;
 	array chapters = (array)progress["chapters"];
 	mapping chapter;
-	string arrival_actions;
+	string arrival_actions = "";
 	if(chapter_number>sizeof(chapters))
 		return "\n【全部完成】八十一章已经通关，可在故事目录重温全部剧情。\n"+
 			"[开启长生十问:illusion_realm quiz]|"+

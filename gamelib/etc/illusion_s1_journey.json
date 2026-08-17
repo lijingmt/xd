@@ -1,18 +1,18 @@
 {
   "version": 1,
   "illusion_id": "S1",
-  "feature_revision": 1,
-  "display_name": "新月回响",
+  "feature_revision": 2,
+  "display_name": "新月支线·九卷秘迹",
   "side_quests": [
     {
       "id": "ink_without_name", "volume": 1, "unlock_claimed": 0,
       "title": "墨下无名", "secret_id": "hidden_name_trace",
       "gate_id": "mortal_lifespan_thread", "final_event": "life_collector",
       "acts": [
-        {"title":"残墨","location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike","text":"你在被刮空的户籍边缘找回三笔没有烧尽的墨。"},
-        {"title":"绝笔","location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","text":"无名绝笔证明，有人宁愿匿名，也不愿寿数被写成价码。"},
-        {"title":"月下复字","location":"月露原","room":"/gamelib/d/illusion_s1/moon_dew_field.pike","text":"月露令残墨重新显形，你辨认出第一位被夺走寿数的凡人。"},
-        {"title":"还名","location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","text":"司寿使败退后，你把姓名写回绝笔，也替众生寿留下确定的见证。"}
+        {"title":"残墨","location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike","text":"你在被刮空的户籍边缘找回三笔没有烧尽的墨。","target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇","required_kills":3},
+        {"title":"绝笔","location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","text":"无名绝笔证明，有人宁愿匿名，也不愿寿数被写成价码。","target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇","required_kills":4},
+        {"title":"月下复字","location":"月露原","room":"/gamelib/d/illusion_s1/moon_dew_field.pike","text":"月露令残墨重新显形，你辨认出第一位被夺走寿数的凡人。","target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇","required_kills":5},
+        {"title":"还名","location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","text":"司寿使败退后，你把姓名写回绝笔，也替众生寿留下确定的见证。","target_path":"/gamelib/clone/npc/illusion_s1/life_collector.pike","target_name":"南瞻司寿使","required_kills":1}
       ]
     },
     {
@@ -20,10 +20,10 @@
       "title": "半碗之后", "secret_id": "fog_oath_hearing",
       "gate_id": "fog_oath_leaf", "final_event": "fog_trial_warden",
       "acts": [
-        {"title":"失踪者的半句话","location":"雾语林","room":"/gamelib/d/illusion_s1/fog_forest.pike","text":"雾里两道声音讲述同一场失踪，却各自漏掉半句誓言。"},
-        {"title":"半碗药","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","text":"药碗底部刻着另一半药方，也刻着不能由一人独活的约定。"},
-        {"title":"倒影作证","location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike","text":"倒月同时映出两个版本；不同的不是承诺，而是谁替谁承担了代价。"},
-        {"title":"雾尽见路","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","text":"守关幻象散去，两段证词终于合成完整的雾誓。"}
+        {"title":"失踪者的半句话","location":"雾语林","room":"/gamelib/d/illusion_s1/fog_forest.pike","text":"雾里两道声音讲述同一场失踪，却各自漏掉半句誓言。","target_path":"/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike","target_name":"雾誓残影","required_kills":3},
+        {"title":"半碗药","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","text":"药碗底部刻着另一半药方，也刻着不能由一人独活的约定。","target_path":"/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike","target_name":"雾誓残影","required_kills":4},
+        {"title":"倒影作证","location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike","text":"倒月同时映出两个版本；不同的不是承诺，而是谁替谁承担了代价。","target_path":"/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike","target_name":"雾誓残影","required_kills":5},
+        {"title":"雾尽见路","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","text":"守关幻象散去，两段证词终于合成完整的雾誓。","target_path":"/gamelib/clone/npc/illusion_s1/fog_trial_warden.pike","target_name":"雾誓守关者","required_kills":1}
       ]
     },
     {
@@ -31,10 +31,10 @@
       "title": "不标价的经", "secret_id": "borrow_blank_page",
       "gate_id": "nameless_bone_shard", "final_event": "empty_sutra_abbot",
       "acts": [
-        {"title":"价目背面","location":"西牛万法集","room":"/gamelib/d/illusion_s1/xiniu_scripture_market.pike","text":"每种功法都有价码，只有一页写着：不可出售。"},
-        {"title":"无字机关","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","text":"你以问、拒、还、记四个动作，让空经第一次回应贫寒弟子。"},
-        {"title":"折星校文","location":"折星台","room":"/gamelib/d/illusion_s1/broken_observatory.pike","text":"断裂星轨补全了经页缺口：真正的道不能先把自己标价。"},
-        {"title":"归还经页","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","text":"空经尊者化灰后，你把无名骨片嵌回经脊，留下确定凭证。"}
+        {"title":"价目背面","location":"西牛万法集","room":"/gamelib/d/illusion_s1/xiniu_scripture_market.pike","text":"每种功法都有价码，只有一页写着：不可出售。","target_path":"/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike","target_name":"无价经傀","required_kills":3},
+        {"title":"无字机关","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","text":"你以问、拒、还、记四个动作，让空经第一次回应贫寒弟子。","target_path":"/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike","target_name":"无价经傀","required_kills":4},
+        {"title":"折星校文","location":"折星台","room":"/gamelib/d/illusion_s1/broken_observatory.pike","text":"断裂星轨补全了经页缺口：真正的道不能先把自己标价。","target_path":"/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike","target_name":"无价经傀","required_kills":5},
+        {"title":"归还经页","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","text":"空经尊者化灰后，你把无名骨片嵌回经脊，留下确定凭证。","target_path":"/gamelib/clone/npc/illusion_s1/empty_sutra_abbot.pike","target_name":"西牛空经尊者","required_kills":1}
       ]
     },
     {
@@ -42,10 +42,10 @@
       "title": "水下第七年", "secret_id": "ask_truth_in_water",
       "gate_id": "mirror_heart_shard", "final_event": "mirror_weaver",
       "acts": [
-        {"title":"故人倒影","location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike","text":"商清晏的倒影比本人迟了一步，像有七年仍被困在水下。"},
-        {"title":"三段旧梦","location":"镜沙洲","room":"/gamelib/d/illusion_s1/mirror_sandbar.pike","text":"真相、愿望与伪造的圆满同时出现，你没有选择最甜的一段。"},
-        {"title":"沉月证据","location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","text":"镜底藏着她当年无法开口的证据，也藏着逐徒局的第一道裂缝。"},
-        {"title":"照水问真","location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","text":"镜主破碎后，心片不再制造完美旧梦，只记录真实发生过的七年。"}
+        {"title":"故人倒影","location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike","text":"商清晏的倒影比本人迟了一步，像有七年仍被困在水下。","target_path":"/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike","target_name":"沉月镜妖","required_kills":3},
+        {"title":"三段旧梦","location":"镜沙洲","room":"/gamelib/d/illusion_s1/mirror_sandbar.pike","text":"真相、愿望与伪造的圆满同时出现，你没有选择最甜的一段。","target_path":"/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike","target_name":"沉月镜妖","required_kills":4},
+        {"title":"沉月证据","location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","text":"镜底藏着她当年无法开口的证据，也藏着逐徒局的第一道裂缝。","target_path":"/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike","target_name":"沉月镜妖","required_kills":5},
+        {"title":"照水问真","location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","text":"镜主破碎后，心片不再制造完美旧梦，只记录真实发生过的七年。","target_path":"/gamelib/clone/npc/illusion_s1/mirror_weaver.pike","target_name":"沉月镜主","required_kills":1}
       ]
     },
     {
@@ -53,10 +53,10 @@
       "title": "借你一个昨日", "secret_id": "keep_yesterday_frost",
       "gate_id": "beiju_memory_crystal", "final_event": "frozen_age_king",
       "acts": [
-        {"title":"没有昨日的人","location":"北俱不老荒原","room":"/gamelib/d/illusion_s1/beiju_longlife_waste.pike","text":"不老者记得活了千年，却想不起任何一个值得庆祝的昨日。"},
-        {"title":"红巾气味","location":"北俱断誓坡","room":"/gamelib/d/illusion_s1/beiju_broken_oath.pike","text":"半条红巾留住药草、风雪与血的气味，拼回一个被遗忘的人。"},
-        {"title":"冰墙名册","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","text":"冰墙上最早的逃亡者名字，证明遗忘从来不是长生的恩赐。"},
-        {"title":"替你记得","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","text":"冻龄王败亡后，你把复原的昨日封进忆晶，交还它原来的主人。"}
+        {"title":"没有昨日的人","location":"北俱不老荒原","room":"/gamelib/d/illusion_s1/beiju_longlife_waste.pike","text":"不老者记得活了千年，却想不起任何一个值得庆祝的昨日。","target_path":"/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike","target_name":"忘日冰魇","required_kills":3},
+        {"title":"红巾气味","location":"北俱断誓坡","room":"/gamelib/d/illusion_s1/beiju_broken_oath.pike","text":"半条红巾留住药草、风雪与血的气味，拼回一个被遗忘的人。","target_path":"/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike","target_name":"忘日冰魇","required_kills":4},
+        {"title":"冰墙名册","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","text":"冰墙上最早的逃亡者名字，证明遗忘从来不是长生的恩赐。","target_path":"/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike","target_name":"忘日冰魇","required_kills":5},
+        {"title":"替你记得","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","text":"冻龄王败亡后，你把复原的昨日封进忆晶，交还它原来的主人。","target_path":"/gamelib/clone/npc/illusion_s1/frozen_age_king.pike","target_name":"北俱冻龄王","required_kills":1}
       ]
     },
     {
@@ -64,10 +64,10 @@
       "title": "冰墙证词", "secret_id": "witness_on_snow",
       "gate_id": "snow_verdict_seal", "final_event": "frost_inquisitor",
       "acts": [
-        {"title":"旧逃亡录","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","text":"晏孤峤的名字不是罪证，而是第一份活着离开月炉的证词。"},
-        {"title":"逐徒令裂口","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","text":"逐徒令最后一掌偏了三分，裂口方向证明它原本是在保护你。"},
-        {"title":"回声城证人","location":"回声古城","room":"/gamelib/d/illusion_s1/echo_ruins.pike","text":"古城回声保存了月炉追兵的口令，证据链终于闭合。"},
-        {"title":"雪上共证","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","text":"雪审使败退，四份证据在天幕上同时显形，师徒旧案得以洗清。"}
+        {"title":"旧逃亡录","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","text":"晏孤峤的名字不是罪证，而是第一份活着离开月炉的证词。","target_path":"/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike","target_name":"伪证雪卫","required_kills":3},
+        {"title":"逐徒令裂口","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","text":"逐徒令最后一掌偏了三分，裂口方向证明它原本是在保护你。","target_path":"/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike","target_name":"伪证雪卫","required_kills":4},
+        {"title":"回声城证人","location":"回声古城","room":"/gamelib/d/illusion_s1/echo_ruins.pike","text":"古城回声保存了月炉追兵的口令，证据链终于闭合。","target_path":"/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike","target_name":"伪证雪卫","required_kills":5},
+        {"title":"雪上共证","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","text":"雪审使败退，四份证据在天幕上同时显形，师徒旧案得以洗清。","target_path":"/gamelib/clone/npc/illusion_s1/frost_inquisitor.pike","target_name":"冻宫雪审使","required_kills":1}
       ]
     },
     {
@@ -75,10 +75,10 @@
       "title": "只活一日的信", "secret_id": "promise_in_one_day",
       "gate_id": "dawn_flame_seed", "final_event": "dongsheng_fusang_flame",
       "acts": [
-        {"title":"晨信","location":"东胜朝生港","room":"/gamelib/d/illusion_s1/dongsheng_morning_port.pike","text":"朝生者在清晨写信，明知黄昏前仍会认真赴约。"},
-        {"title":"午诺","location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","text":"午时的承诺不是保证永远，而是保证今天不会逃走。"},
-        {"title":"暮归","location":"坠星园","room":"/gamelib/d/illusion_s1/starfall_garden.pike","text":"你在暮色前把信送回，短暂的一日因此拥有完整开端与结尾。"},
-        {"title":"一日成约","location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","text":"扶桑火照亮信纸：有限从来不是敷衍活着的理由。"}
+        {"title":"晨信","location":"东胜朝生港","room":"/gamelib/d/illusion_s1/dongsheng_morning_port.pike","text":"朝生者在清晨写信，明知黄昏前仍会认真赴约。","target_path":"/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike","target_name":"朝暮信魇","required_kills":3},
+        {"title":"午诺","location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","text":"午时的承诺不是保证永远，而是保证今天不会逃走。","target_path":"/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike","target_name":"朝暮信魇","required_kills":4},
+        {"title":"暮归","location":"坠星园","room":"/gamelib/d/illusion_s1/starfall_garden.pike","text":"你在暮色前把信送回，短暂的一日因此拥有完整开端与结尾。","target_path":"/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike","target_name":"朝暮信魇","required_kills":5},
+        {"title":"一日成约","location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","text":"扶桑火照亮信纸：有限从来不是敷衍活着的理由。","target_path":"/gamelib/clone/npc/illusion_s1/sunrise_guardian.pike","target_name":"东胜朝生君","required_kills":1}
       ]
     },
     {
@@ -86,10 +86,10 @@
       "title": "灯下第四种影", "secret_id": "discern_lamp_shadow",
       "gate_id": "moon_furnace_life_rune", "final_event": "eclipse_priest",
       "acts": [
-        {"title":"残方纸纹","location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","text":"四张残方纸纹不同，说明至少一张不是来自月炉。"},
-        {"title":"名殿灯痕","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","text":"第四种影子不属于你们任何一人，它始终跟着祝无晷的灯。"},
-        {"title":"隐月星核","location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike","text":"星核记下残方的真正书写次序，亲见、转述与伪造被逐一分开。"},
-        {"title":"灯影辨伪","location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","text":"司炉者败退后，命符显示所谓长生方从一开始就是养成药引的骗局。"}
+        {"title":"残方纸纹","location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","text":"四张残方纸纹不同，说明至少一张不是来自月炉。","target_path":"/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike","target_name":"第四影灯奴","required_kills":3},
+        {"title":"名殿灯痕","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","text":"第四种影子不属于你们任何一人，它始终跟着祝无晷的灯。","target_path":"/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike","target_name":"第四影灯奴","required_kills":4},
+        {"title":"隐月星核","location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike","text":"星核记下残方的真正书写次序，亲见、转述与伪造被逐一分开。","target_path":"/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike","target_name":"第四影灯奴","required_kills":5},
+        {"title":"灯影辨伪","location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","text":"司炉者败退后，命符显示所谓长生方从一开始就是养成药引的骗局。","target_path":"/gamelib/clone/npc/illusion_s1/eclipse_priest.pike","target_name":"无影司炉者","required_kills":1}
       ]
     },
     {
@@ -97,10 +97,10 @@
       "title": "人间名册", "secret_id": "return_all_names",
       "gate_id": "human_world_true_name", "final_event": "newmoon_lord_truth",
       "acts": [
-        {"title":"众生还名","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","text":"你从八卷见证中选出九个被牺牲的名字，逐一念回人间。"},
-        {"title":"月主空名","location":"新月归真台","room":"/gamelib/d/illusion_s1/newmoon_altar.pike","text":"月主拥有无数称号，却没有一个愿意承担代价的真名。"},
-        {"title":"来路有灯","location":"S1月门营地","room":"/gamelib/d/illusion_s1/moon_gate.pike","text":"营地九盏灯依次亮起，每一盏都对应你没有忘记的人。"},
-        {"title":"人间值得","location":"新月归真台","room":"/gamelib/d/illusion_s1/newmoon_altar.pike","text":"月主空壳碎裂，你没有得到不死，却替众生保住了有名字的一生。"}
+        {"title":"众生还名","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","text":"你从八卷见证中选出九个被牺牲的名字，逐一念回人间。","target_path":"/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike","target_name":"空名月侍","required_kills":3},
+        {"title":"月主空名","location":"新月归真台","room":"/gamelib/d/illusion_s1/newmoon_altar.pike","text":"月主拥有无数称号，却没有一个愿意承担代价的真名。","target_path":"/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike","target_name":"空名月侍","required_kills":4},
+        {"title":"来路有灯","location":"无垢月宫","room":"/gamelib/d/illusion_s1/moon_palace.pike","text":"月宫九盏引路灯依次亮起，每一盏都对应你没有忘记的人。","target_path":"/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike","target_name":"空名月侍","required_kills":5},
+        {"title":"人间值得","location":"新月归真台","room":"/gamelib/d/illusion_s1/newmoon_altar.pike","text":"月主空壳碎裂，你没有得到不死，却替众生保住了有名字的一生。","target_path":"/gamelib/clone/npc/illusion_s1/newmoon_lord.pike","target_name":"S1归真月主","required_kills":1}
       ]
     }
   ],

@@ -9,5 +9,6 @@ protected void create(){
 	desc="城中人晨生、午壮、暮老、夜逝，却仍认真相爱、守城和告别。有限的一日被他们活得比千年不老更完整。\n";
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/abyss_garden.pike";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike";
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike",ROOT "/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike"}));
 }
 string query_links(){ return "[聆听朝生之誓:illusion_realm witness]\n"; }

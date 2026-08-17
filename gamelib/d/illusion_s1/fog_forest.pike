@@ -12,4 +12,5 @@ protected void create(){
 	exits["north"]=ROOT "/gamelib/d/illusion_s1/fog_oath_camp.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fog_wolf.pike"}));
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fog_wolf.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike",ROOT "/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike",ROOT "/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike"}));
 }

@@ -10,4 +10,5 @@ protected void create(){
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/abyss_garden.pike";
 	exits["south"]=ROOT "/gamelib/d/illusion_s1/newmoon_altar.pike";
 	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/moon_general.pike"}));
+	add_items(({ROOT "/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike",ROOT "/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike",ROOT "/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike"}));
 }

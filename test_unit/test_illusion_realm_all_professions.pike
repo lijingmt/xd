@@ -534,12 +534,16 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	mapping scoped_start;
 	mapping scoped_route;
 	object|zero ordinary_target = 0;
+	object|zero extra_hunt = 0;
+	mapping final_view;
 	int ordinary_route_valid;
 	int ordinary_progress_valid;
 	int scoped_route_valid;
 	int scoped_stopped;
 	int scoped_gate_primed;
 	int scoped_returned;
+	int scoped_combat_cleared;
+	int scoped_final_view;
 	int restored;
 	for(int chapter_number=1;chapter_number<=8;chapter_number++)
 		claims["S1-C"+(string)chapter_number] = time();
@@ -607,7 +611,11 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	scoped_route_valid = (int)scoped_start["ok"] &&
 		(string)scoped_route["path"]=="illusion_s1/moon_dew_field" &&
 		(int)scoped_route["chapter_target"]==1 &&
-		mappingp(player["/tmp/illusion_chapter_autofight"]);
+		mappingp(player["/tmp/illusion_chapter_autofight"]) &&
+		(string)player["/tmp/illusion_chapter_autofight"]
+			["completion_kind"]=="chapter_kills" &&
+		(int)player["/tmp/illusion_chapter_autofight"]
+			["target_kills"]==9;
 	AUTOFIGHTD->resume_autofight(player);
 	if(!mappingp(player["/tmp/illusion_chapter_autofight"]))
 		scoped_route_valid = 0;
@@ -619,6 +627,15 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		object hunt = clone(ROOT+
 			"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
 		hunt->move(environment(player));
+		// 线上复现：最后一只任务怪结算时，群攻仇恨表仍有另一只
+		// 同房间任务怪。限章挂机必须安全脱战并发布最终画面。
+		if(count==8){
+			extra_hunt = clone(ROOT+
+				"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
+			extra_hunt->move(environment(player));
+			player->_fight(extra_hunt);
+			extra_hunt->_fight(player);
+		}
 		hunt->record_eligible_kill_progress(player,1);
 		destruct(hunt);
 		if(count<8 && ((string)player->query_autofight()!="enable" ||
@@ -627,6 +644,12 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	}
 	scoped_stopped = (string)player->query_autofight()=="disable" &&
 		!player["/tmp/illusion_chapter_autofight"];
+	scoped_combat_cleared = !player->query_in_combat() && extra_hunt &&
+		!extra_hunt->query_in_combat();
+	final_view = AUTOFIGHTD->query_server_autofight_view(player);
+	scoped_final_view = !(int)final_view["active"] &&
+		search((string)final_view["output"],"章节狩猎完成")!=-1 &&
+		search((string)final_view["output"],"illusion_realm")!=-1;
 	scoped_returned = scoped_stopped &&
 		SEASONALD->complete_chapter_task_return_for_test(player) &&
 		(string)player["/tmp/illusion_chapter_last_return"]=="S1-C9" &&
@@ -639,13 +662,16 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		(int)player->query_level()-(int)boss->query_level()>=10 &&
 		ordinary_route_valid && ordinary_progress_valid &&
 		scoped_route_valid && scoped_gate_primed && scoped_stopped &&
-		scoped_returned &&
+		scoped_combat_cleared && scoped_final_view && scoped_returned &&
 		(int)progress["kills"]==92 && (int)progress["boss_kills"]==1 &&
 		(int)chapter["chapter_kills_done"]==9 &&
 		(int)chapter["chapter_boss_kills_done"]==1 &&
 		(int)chapter["story_ready"] && (int)chapter["ready"];
 	destruct(boss);
 	boss = 0;
+	if(extra_hunt)
+		destruct(extra_hunt);
+	extra_hunt = 0;
 	player["/plus/illusion_realm/S1"] = original_progress;
 	player->level = original_level;
 	player->set_att_by_level();
@@ -666,6 +692,8 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		"scoped_route_valid":scoped_route_valid,
 		"scoped_stopped":scoped_stopped,
 		"scoped_gate_primed":scoped_gate_primed,
+		"scoped_combat_cleared":scoped_combat_cleared,
+		"scoped_final_view":scoped_final_view,
 		"scoped_returned":scoped_returned]);
 }
 
@@ -1162,6 +1190,25 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			sizeof(query_newmoon_items(player))==0,
 			sprintf("restore=%d level=%d items=%d",empty_restored,
 				(int)player->query_level(),sizeof(query_newmoon_items(player))));
+		if(index==0){
+			mapping legacy_progress=(mapping)player[
+				"/plus/illusion_realm/S1"];
+			m_delete(legacy_progress,"content_id");
+			mapping legacy_main=SEASONALD->query_player_progress(player);
+			mapping legacy_journey=ILLUSION_JOURNEYD->query_journey(player);
+			check("S1首批无content_id真实人物可补齐并进入新月回响",
+				(int)legacy_main["ok"] && (int)legacy_journey["ok"] &&
+				(string)legacy_progress["content_id"]=="S1",
+				sprintf("main=%O journey=%O progress=%O",legacy_main,
+					legacy_journey,legacy_progress));
+			legacy_progress["content_id"]="S2";
+			mapping conflict_journey=ILLUSION_JOURNEYD->query_journey(player);
+			check("S1真实人物显式冲突内容编号仍失败关闭",
+				!(int)conflict_journey["ok"] &&
+				(string)legacy_progress["content_id"]=="S2",
+				sprintf("conflict=%O",conflict_journey));
+			legacy_progress["content_id"]="S1";
+		}
 
 		int bootstrapped = bootstrap_character(player,race_id,profession_id);
 		SEASONALD->prepare_new_character(player);

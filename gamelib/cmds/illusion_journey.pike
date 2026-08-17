@@ -7,15 +7,95 @@ private string stage_name(int stage)
 		"四洲照影","人间月灵"})[max(0,min(5,stage))];
 }
 
+private int safe_combat_id(string value)
+{
+	return value!="" && search(value," ")==-1 &&
+		search(value,"\t")==-1 && search(value,"\n")==-1 &&
+		search(value,"]")==-1 && search(value,":")==-1;
+}
+
+private string normalized_object_path(object value)
+{
+	string path = value ? file_name(value) : "";
+	if(has_prefix(path,ROOT))
+		path = path[sizeof(ROOT)..];
+	if(search(path,"#")!=-1)
+		path = (path/"#")[0];
+	return path;
+}
+
+private string sidequest_battle_actions(mapping current)
+{
+	if((int)current["act_ready"])
+		return "[记录战果并进入下一幕:illusion_journey advance]\n";
+	if((int)current["act"]==3)
+		return "[返回幻境主线挑战卷末首领:illusion_realm]|"+
+			"[刷新支线进度:illusion_journey quests]\n";
+	return "[⚔ 查找并挑战支线目标:illusion_journey challenge]|"+
+		"[支线挂机至本幕完成:illusion_journey hunt]\n";
+}
+
+private string room_challenge_view(object me,mapping current)
+{
+	object room = environment(me);
+	mapping act = mappingp(current["current_act"]) ?
+		(mapping)current["current_act"] : ([]);
+	mapping(string:int) name_count = ([]);
+	string listed = "";
+	string actions = "";
+	int npc_count;
+	int match_count;
+	if(!room || !sizeof(act))
+		return "当前支线战场不可验证。\n[返回新月支线:illusion_journey quests]|[返回游戏:look]\n";
+	if(!MAP_WORKERD->static_room_locations_match(file_name(room),
+	   (string)act["room"]))
+		return "请先前往【"+(string)act["location"]+"】。\n"+
+			"[一键前往支线战场:illusion_journey travel]|"+
+			"[返回游戏:look]\n";
+	foreach(all_inventory(room,me),object npc){
+		string combat_id;
+		string display_name;
+		int count;
+		int matched;
+		if(!npc || !npc->is("npc") || !functionp(npc->query_name))
+			continue;
+		combat_id = (string)npc->query_name();
+		if(!safe_combat_id(combat_id))
+			continue;
+		count = (int)name_count[combat_id];
+		name_count[combat_id] = count+1;
+		display_name = functionp(npc->query_name_cn) ?
+			(string)npc->query_name_cn() : combat_id;
+		matched = normalized_object_path(npc)==(string)act["target_path"];
+		npc_count++;
+		listed += (matched ? "§y【支线目标】§r " : "· ")+display_name+"\n";
+		if(matched){
+			match_count++;
+			actions += "[⚔ 挑战"+display_name+":kill "+combat_id+" "+
+				(string)count+"]\n";
+		}
+	}
+	string s = "【新月支线·当前战场】\n";
+	s += npc_count ? listed : "当前房间没有NPC。\n";
+	if(match_count)
+		s += "\n已从房间真实对象确认支线目标：\n"+actions;
+	else
+		s += "\n支线目标可能刚被其他玩家击败，请等待刷新；本次不会攻击错误对象。\n"+
+			"[重新查找:illusion_journey challenge]\n";
+	return s+"[查看支线进度:illusion_journey quests]|[返回游戏:look]\n";
+}
+
 private string quest_view(mapping view)
 {
-	string s = "【新月回响·九卷秘迹】\n";
+	string s = "【新月支线·九卷秘迹】\n";
+	s += "这是可选支线，不会替代八十一章主线；每幕需要完成真实战斗，"+
+		"卷末复用本卷主线首领战。\n";
 	mapping current = mappingp(view["current_quest"]) ?
 		(mapping)view["current_quest"] : ([]);
 	foreach((array)view["quests"],mapping quest){
 		string mark = (int)quest["completed"] ? "已完成" :
 			((int)quest["unlocked"] ? "进行中" : "未开启");
-		s += "第"+(string)(int)quest["volume"]+"卷·"+
+		s += "第"+(string)(int)quest["volume"]+"卷支线·"+
 			(string)quest["title"]+"　"+mark;
 		if((int)quest["unlocked"] && !(int)quest["completed"])
 			s += "（"+(string)(int)quest["act"]+"/4幕）";
@@ -23,19 +103,22 @@ private string quest_view(mapping view)
 	}
 	if(sizeof(current)){
 		mapping act = (mapping)current["current_act"];
-		s += "\n【当前秘迹·"+(string)current["title"]+"】\n";
+		s += "\n【当前支线任务·"+(string)current["title"]+"】\n";
 		s += "第"+(string)((int)current["act"]+1)+"/4幕·"+
 			(string)act["title"]+"\n"+(string)act["text"]+"\n";
+		s += "战斗目标："+(string)act["target_name"]+" "+
+			(string)(int)current["act_kills"]+"/"+
+			(string)(int)current["required_kills"]+"只\n";
 		s += "地点："+(string)act["location"]+"\n";
 		if((int)current["act"]==3 && !(int)current["final_event_ready"])
-			s += "收束条件：先完成本卷主线关键剧情。\n";
-		s += "[▶ 一键前往当前秘迹:illusion_journey travel]|"+
-			"[观察并记录这一幕:illusion_journey advance]\n";
+			s += "收束条件：先完成本卷主线关键剧情并击败卷末首领。\n";
+		s += "[▶ 一键前往支线战场:illusion_journey travel]|"+
+			"[返回游戏:look]\n"+sidequest_battle_actions(current);
 	}
 	else if((int)view["chapter_claimed"]>=81)
-		s += "\n九卷秘迹已经全部完成。\n";
+		s += "\n九卷新月支线已经全部完成。\n";
 	else
-		s += "\n当前卷秘迹已经完成；推进主线到下一卷后继续开放。\n";
+		s += "\n当前卷支线已经完成；推进主线到下一卷后继续开放。\n";
 	return s+"[月忆兽:illusion_journey pet]|"+
 		"[行旅秘术:illusion_journey secrets]\n"+
 		"[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
@@ -127,15 +210,35 @@ int main(string|zero arg)
 	}
 	if(sizeof(parts) && parts[0]=="travel"){
 		result = ILLUSION_JOURNEYD->travel_to_current_quest(me);
+		view = ILLUSION_JOURNEYD->query_journey(me);
+		write((string)result["message"]+"\n"+
+			((int)result["ok"] && mappingp(view["current_quest"]) ?
+			 sidequest_battle_actions((mapping)view["current_quest"]) :
+			 "[重试前往:illusion_journey travel]\n")+
+			"[返回新月支线:illusion_journey quests]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts) && parts[0]=="challenge"){
+		mapping current = mappingp(view["current_quest"]) ?
+			(mapping)view["current_quest"] : ([]);
+		if(!sizeof(current) || (int)current["act_ready"] ||
+		   (int)current["act"]==3)
+			write("当前没有可从支线页直接挑战的普通目标。\n"+
+				"[返回新月支线:illusion_journey quests]|[返回游戏:look]\n");
+		else
+			write(room_challenge_view(me,current));
+		return 1;
+	}
+	if(sizeof(parts) && parts[0]=="hunt"){
+		result = ILLUSION_JOURNEYD->start_current_quest_hunt(me);
 		write((string)result["message"]+
-			((int)result["ok"] ? "\n[观察并记录这一幕:illusion_journey advance]" :
-			 "\n[重试前往:illusion_journey travel]")+
-			"|[返回秘迹:illusion_journey quests]|[返回游戏:look]\n");
+			((int)result["ok"] ? "\n[查看挂机状态:autofight]|" : "\n")+
+			"[返回新月支线:illusion_journey quests]|[返回游戏:look]\n");
 		return 1;
 	}
 	if(sizeof(parts) && parts[0]=="advance"){
 		result = ILLUSION_JOURNEYD->advance_current_quest(me);
-		write((string)result["message"]+"\n[继续九卷秘迹:illusion_journey quests]|"+
+		write((string)result["message"]+"\n[继续新月支线:illusion_journey quests]|"+
 			"[返回幻境任务:illusion_realm]|[返回游戏:look]\n");
 		return 1;
 	}

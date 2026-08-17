@@ -85,6 +85,11 @@ int main()
 				(int)quest["unlock_claimed"]==index*9 &&
 				sizeof((array)quest["acts"])==4 &&
 				!gates[(string)quest["gate_id"]];
+			foreach((array)quest["acts"];int act_index;mapping act)
+				deterministic=deterministic &&
+					Stdio.file_size(ROOT+(string)act["target_path"])>0 &&
+					(int)act["required_kills"]==
+						(({3,4,5,1}))[act_index];
 			gates[(string)quest["gate_id"]]=1;
 		}
 		string daemon_source=Stdio.read_file(ROOT+
@@ -114,16 +119,56 @@ int main()
 		object one=create_player();
 		mapping first=(mapping)((array)config["side_quests"])[0];
 		int acts_ok=1;
-		foreach((array)first["acts"],mapping act){
-			acts_ok=acts_ok && move_for_test(one,(string)act["room"]);
-			mapping advanced=daemon->advance_current_quest(one);
-			acts_ok=acts_ok && (int)advanced["ok"];
-		}
+		int hunt_started;
+		int hunt_stopped;
+		mapping hunt_result=([]);
+		foreach((array)first["acts"];int act_index;mapping act){
+			acts_ok=move_for_test(one,(string)act["room"]) && acts_ok;
+			if(act_index<3){
+				mapping early=daemon->advance_current_quest(one);
+				acts_ok=acts_ok && !(int)early["ok"];
+				if(act_index==0){
+					one["/tmp/illusion_journey_autofight"] = ([
+						"illusion_id":"S1",
+						"quest_id":(string)first["id"],"act":0,
+						"target_path":(string)act["target_path"],
+						"target_room":(string)act["room"],
+						"target_kills":(int)act["required_kills"],
+						"created_at":time(),
+					]);
+					AUTOFIGHTD->start_journey_autofight(one);
+					hunt_result=(["ok":1,"mode":"test_fixture"]);
+					hunt_started=
+						(string)one->query_autofight()=="enable" &&
+						mappingp(one["/tmp/illusion_journey_autofight"]);
+				}
+				for(int kill_index=0;
+				    kill_index<(int)act["required_kills"];kill_index++){
+					object target=clone(ROOT+(string)act["target_path"]);
+					target->move(environment(one));
+					mapping credited=daemon->record_npc_kill(one,target);
+					acts_ok=acts_ok && (int)credited["credited"] &&
+						(int)credited["kills"]==kill_index+1;
+					destruct(target);
+				}
+				if(act_index==0)
+					hunt_stopped=(string)one->query_autofight()=="disable" &&
+						!mappingp(one["/tmp/illusion_journey_autofight"]);
+			}
+				mapping advanced=daemon->advance_current_quest(one);
+				acts_ok=acts_ok && (int)advanced["ok"];
+			}
+			check("支线限定挂机可启动且完成后自动停止",
+				hunt_started && hunt_stopped,
+				sprintf("start=%d stop=%d result=%O autofight=%s marker=%O",
+					hunt_started,hunt_stopped,hunt_result,
+					(string)one->query_autofight(),
+					one["/tmp/illusion_journey_autofight"]));
 		mapping progress=(mapping)one["/plus/illusion_realm/S1"];
 		mapping journey=(mapping)progress["newmoon_journey"];
 		mapping qstate=(mapping)((mapping)journey["side_quests"])[
 			"ink_without_name"];
-		check("第一卷四幕按真实房间推进并一次性写入秘术与剧情凭证",
+		check("第一卷前三幕真实击杀、卷末首领事件后才写入秘术与剧情凭证",
 			acts_ok && (int)qstate["act"]==4 &&
 			(int)((mapping)journey["secrets"])["hidden_name_trace"]>0 &&
 			(int)((mapping)journey["gate_substitutions"])[
@@ -191,8 +236,62 @@ int main()
 					"mortal_lifespan_thread"]>0 &&
 				sizeof((mapping)restored_companion["memories"])==1 &&
 				(int)((mapping)restored_companion["traits"])["care"]==1,
-				sprintf("saved=%d restored=%d journey=%O",saved,restored,
-					restored_journey));
+					sprintf("saved=%d restored=%d journey=%O",saved,restored,
+						restored_journey));
+
+			mapping all_progress=copy_value(restored_progress);
+			mapping all_claims=mappingp(all_progress["claims"]) ?
+				(mapping)all_progress["claims"] : ([]);
+			mapping all_events=mappingp(all_progress["story_events"]) ?
+				(mapping)all_progress["story_events"] : ([]);
+			for(int chapter=1;chapter<=81;chapter++)
+				all_claims["S1-C"+(string)chapter]=time();
+			foreach((array)config["side_quests"],mapping quest)
+				all_events[(string)quest["final_event"]]=time();
+			all_progress["claims"]=all_claims;
+			all_progress["story_events"]=all_events;
+			one["/plus/illusion_realm/S1"]=all_progress;
+			int all_acts_ok=one->save_with_result();
+			foreach((array)config["side_quests"];int quest_index;mapping quest){
+				if(quest_index==0)
+					continue;
+				foreach((array)quest["acts"];int act_index;mapping act){
+					all_acts_ok=move_for_test(one,(string)act["room"]) &&
+						all_acts_ok;
+					if(act_index<3)
+						for(int kill_index=0;
+						    kill_index<(int)act["required_kills"];
+						    kill_index++){
+							object target=clone(ROOT+(string)act["target_path"]);
+							target->move(environment(one));
+							mapping credited=daemon->record_npc_kill(one,target);
+							all_acts_ok=all_acts_ok &&
+								(int)credited["credited"] &&
+								(int)credited["kills"]==kill_index+1;
+							destruct(target);
+						}
+					mapping advanced=daemon->advance_current_quest(one);
+					all_acts_ok=all_acts_ok && (int)advanced["ok"];
+				}
+			}
+			mapping final_progress=mappingp(one[
+				"/plus/illusion_realm/S1"]) ?
+				(mapping)one["/plus/illusion_realm/S1"] : ([]);
+			mapping final_journey=mappingp(final_progress[
+				"newmoon_journey"]) ?
+				(mapping)final_progress["newmoon_journey"] : ([]);
+			mapping final_quests=mappingp(final_journey["side_quests"]) ?
+				(mapping)final_journey["side_quests"] : ([]);
+			int all_completed=1;
+			foreach((array)config["side_quests"],mapping quest)
+				all_completed=all_completed &&
+					mappingp(final_quests[(string)quest["id"]]) &&
+					(int)((mapping)final_quests[
+						(string)quest["id"]])["act"]==4;
+			check("九卷三十六幕均可按3/4/5只支线怪与真实卷末首领顺序通关",
+				all_acts_ok && all_completed && sizeof(final_quests)==9,
+				sprintf("all_acts_ok=%d final_quests=%O",all_acts_ok,
+					final_quests));
 
 		check("新系统不污染普通技能、共享宠物或本命灵伴存储",
 			search(daemon_source,"player->set_skill")==-1 &&
@@ -219,6 +318,10 @@ int main()
 
 		string thread_source=Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/thread_manager.pike") || "";
+		string command_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/illusion_journey.pike") || "";
+		string seasonal_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/seasonal_chard.pike") || "";
 		mixed compile_err=catch{
 			compile_file(ROOT+"/gamelib/cmds/illusion_journey.pike");
 		};
@@ -226,6 +329,25 @@ int main()
 			search(thread_source,"\"illusion_journey\"")!=-1 &&
 			!compile_err,
 			compile_err ? describe_error(compile_err) : "核心队列缺失");
+		check("九卷内容明确标注新月支线且不再用到场点击代替战斗",
+			search(command_source,"【新月支线·九卷秘迹】")!=-1 &&
+			search(command_source,"【当前支线任务·")!=-1 &&
+			search(command_source,"观察并记录这一幕")==-1 &&
+			search(command_source,"支线挂机至本幕完成")!=-1,
+			"支线标签、战斗入口或旧观察按钮仍有遗漏");
+		check("S1真实NPC死亡只在主线安全结算后转交支线记账",
+			search(seasonal_source,
+				"ILLUSION_JOURNEYD->record_npc_kill(player,npc)")!=-1 &&
+			search(seasonal_source,"journey_err = catch")!=-1,
+			"支线击杀未接入权威NPC死亡回调或未隔离异常");
+		string autofight_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/autofightd.pike") || "";
+		check("支线挂机按精确NPC与房间优先选怪且禁止普通寻路离场",
+			search(autofight_source,"is_journey_autofight_target")!=-1 &&
+			search(autofight_source,
+				"mappingp(me[\"/tmp/illusion_journey_autofight\"])")!=-1 &&
+			search(autofight_source,"target_room")!=-1,
+			"支线限定挂机可能误选普通怪或离开目标房间");
 	};
 	check("新月回响完整测试未发生运行异常",!err,
 		err ? describe_error(err)+" "+describe_backtrace(err) : "");
