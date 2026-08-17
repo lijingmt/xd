@@ -1,6 +1,6 @@
 ---
 name: xiand-illusion-realm
-description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, 81-chapter seasonal stories, chapter task authoring, original AI chapter artwork, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
+description: Maintain, audit, configure, test, or extend Xiand's monthly 幻境区 cycle system. Use for 新月幻境, S1 or later cycle IDs, 81-chapter seasonal stories, chapter task authoring, exploration stuck at 0/1, cross-Worker chapter arrivals, original AI chapter artwork, cycle-keyed permanent account entitlement, per-cycle character slots, illusion character creation, route chapters, rankings and duel honor, cycle-only maps and rewards, logical-zone or map-Worker isolation, shared-asset restrictions, lifecycle administration, end-of-cycle return to 永恒服, rollover, anti-cloning guarantees, or related Vue/JSP compatibility in /usr/local/games/xiand.
 ---
 
 # Xiand Illusion Realm
@@ -155,10 +155,12 @@ Keep gameplay content data-driven:
 - keep one primary `illusion_realm next` action on every open chapter. It must
   route only to the current allowlisted target, reload progress after successful
   movement, render a bounded-hunt autofight action for hunt objectives, render a
-  direct boss action for boss objectives, always render return-to-game, show
-  per-kill chapter progress, claim only a ready ordered chapter, and lead
-  directly into the next chapter. A generic location-only success page is a
-  regression. Legacy explicit commands remain compatible;
+  direct boss action for boss objectives, render an explicit “完成当前探索”
+  action for exploration objectives, always render return-to-game, show per-kill
+  chapter progress, claim only a ready ordered chapter, and lead directly into
+  the next chapter. A generic location-only success page or repeated travel link
+  after the player is already in the exploration room is a regression. Legacy
+  explicit commands remain compatible;
 - require chapter reward counts to sum to exactly ten;
 - fail closed if config or runtime state is malformed.
 
@@ -188,6 +190,32 @@ S1 routes are intentionally different without changing combat formulas:
 Keep route choice immutable within a cycle. Reward claims must be ordered,
 account-bound, save-before-success, idempotent, and rollback all newly cloned
 items plus progress on failure.
+
+## Preserve exploration credit across movement boundaries
+
+Record a chapter visit only after the character has really reached the exact
+canonical target room and all earlier chapter gates are complete. Preserve every
+movement path that bypasses ordinary `user::move()`:
+
+- ordinary same-process movement records through `user::move()` after `::move()`;
+- a committed cross-Worker static arrival records in
+  `complete_map_worker_arrival()` only after its exact arrival archive is durable
+  and the local arrival fence has been consumed;
+- a same-Worker static redirect records after its inherited move succeeds and
+  the redirect is cleared;
+- `travel_to_chapter_target()` must idempotently recover an older/stuck character
+  who is already in the exact target room while `chapter_visit_rooms` is still
+  empty. Do not require leaving and re-entering the map.
+
+Never credit before a movement or handoff commit. If visit persistence fails,
+roll back only the visit mutation, keep the proven room arrival, and let the next
+current-room action retry safely. Do not duplicate chapter rewards, ranking visits,
+or story events.
+
+Keep this hook inert for Eternal characters. `record_room_visit()` must return
+without mutation when `story_context(player)` is empty. Never change `TASKD`,
+generic autofight routing, profession combat formulas, or ordinary-world quest
+progress to repair an illusion chapter.
 
 Expose current/required values and the configured Chinese location for the next
 story event. This is guidance only: do not add a teleport that bypasses room
@@ -356,7 +384,7 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    changes. Require the real SSR/playability test, not source-string checks alone.
    Verify all 81 source illustrations are unique, byte-identical to their web
    copies, and return HTTP 200 for representative early/middle/final chapters.
-5. Run `./scripts/restart_map_workers_with_testunit.sh 3`. Require the complete
+5. Run `./restart-local-workers.sh --workers 3`. Require the complete
    TestUnit suite to report zero failures and the final topology to be active
    with three healthy Workers.
 6. Probe public and coordinator health and inspect new logs for Pike compilation,
@@ -384,3 +412,18 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
     Require monotonic PVE risk/reward, unchanged PVP, isolated unlock state,
     deterministic drop-weight checks, and source guards proving difficulty never
     enters Worker affinity, logical-zone identity, or instance routing.
+12. Do not let TestUnit hide an exploration defect by moving a player and then
+    calling `record_room_visit()` manually. In the twelve-profession 81-chapter
+    matrix, use production `travel_to_chapter_target()` for every exploration.
+    For at least one exploration per profession, clear only the current chapter's
+    visit map after a successful arrival and call the same production travel
+    action again; require the exact current-room retry to restore 1/1 without
+    adding another global visit or reward. Keep source/runtime contracts for both
+    cross-Worker arrival and same-Worker redirect visit hooks.
+13. After any illusion task or movement fix, rerun Eternal-world regressions:
+    `test_autofight_system.pike`, `test_autofight_capacity_pagination.pike`,
+    `test_level_growth_tasks.pike`, `test_task_guide.pike`, and the dedicated
+    profession suites. Require generic autofight to start, attack, route, rest,
+    preserve ordinary task credit, and carry no `illusion_chapter_autofight`
+    marker. A green seasonal matrix alone is insufficient proof that ordinary
+    characters remain unaffected.
