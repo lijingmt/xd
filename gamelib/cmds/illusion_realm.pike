@@ -47,6 +47,39 @@ private string boss_challenge_link(mapping target)
 		scope+"]\n";
 }
 
+private int chapter_target_in_current_room(object me,mapping chapter)
+{
+	object room;
+	string target_room;
+	if(!me || !mappingp(chapter))
+		return 0;
+	room = environment(me);
+	target_room = (string)(chapter["target_room"] || "");
+	if(!room || target_room=="")
+		return 0;
+	return (int)MAP_WORKERD->static_room_locations_match(
+		file_name(room),target_room);
+}
+
+private string chapter_arrival_actions(mapping chapter)
+{
+	string kind = (string)chapter["target_kind"];
+	if(search(({"boss","story_boss"}),kind)!=-1)
+		return "\n【下一步】首领已经在当前区域，先确认房间 NPC，再进入正式战斗。\n"+
+			boss_challenge_link(chapter)+
+			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
+	if(kind=="hunt")
+		return "\n【下一步】目标已经在当前区域。\n"+
+			"[挂机至本章狩猎完成:illusion_realm hunt]|"+
+			"[持续自动挂机:autofight start]\n"+
+			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
+	if(kind=="explore")
+		return "\n【下一步】已经到达探索地点，请确认本次到访。\n"+
+			"[完成当前探索:illusion_realm next]|"+
+			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
+	return "";
+}
+
 private mapping current_challenge_target(object me,string scope)
 {
 	mapping progress;
@@ -153,10 +186,11 @@ string query_room_challenge_view_for_test(object me,mapping target)
 	return room_challenge_view(me,target);
 }
 
-private string chapter_task_view(mapping progress,mapping chapter,
+private string chapter_task_view(object me,mapping progress,mapping chapter,
 	int chapter_number)
 {
 	string s = "\n【本章任务】\n";
+	string arrival_actions;
 	int kills = (int)chapter["chapter_kills"];
 	int kills_done = (int)chapter["chapter_kills_done"];
 	int bosses = (int)chapter["chapter_boss_kills"];
@@ -199,12 +233,25 @@ private string chapter_task_view(mapping progress,mapping chapter,
 	if((string)chapter["target_location"]!="")
 		s += "　地点："+(string)chapter["target_location"];
 	s += "\n";
-	s += chapter_next_link(chapter);
+	if(chapter_target_in_current_room(me,chapter))
+		arrival_actions = chapter_arrival_actions(chapter);
+	if(arrival_actions!="")
+		s += arrival_actions;
+	else
+		s += chapter_next_link(chapter);
 	if((string)chapter["target_kind"]=="choice")
 		s += "请返回当前历程完成三途择印。\n";
 	else if((string)chapter["target_kind"]=="route")
 		s += "请按已经选择的命途完成终章条件。\n";
 	return s;
+}
+
+string query_chapter_task_view_for_test(object me,mapping progress,
+	mapping chapter,int chapter_number)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return "";
+	return chapter_task_view(me,progress,chapter,chapter_number);
 }
 
 private string progress_view(object me,mapping progress)
@@ -260,7 +307,7 @@ private string progress_view(object me,mapping progress)
 		// 不认识 story-image segment，会把整张章节图静默丢弃。
 		s += "[imgurl picture:"+(string)current["image"]+"]\n";
 		s += (string)current["intro"]+"\n";
-		s += chapter_task_view(progress,current,current_number);
+		s += chapter_task_view(me,progress,current,current_number);
 		if((int)current["reward_count"]>0)
 			s += "本章过关额外获得本职业新月套装"+
 				(string)(int)current["reward_count"]+"件。\n";
@@ -306,7 +353,7 @@ private string story_volume_view(mapping progress,int volume_number)
 	return s;
 }
 
-private string story_chapter_view(mapping progress,int chapter_number)
+private string story_chapter_view(object me,mapping progress,int chapter_number)
 {
 	array chapters = (array)progress["chapters"];
 	mapping chapter;
@@ -326,7 +373,7 @@ private string story_chapter_view(mapping progress,int chapter_number)
 	if((int)chapter["claimed"])
 		s += "\n【过关回响】\n"+(string)chapter["outro"]+"\n";
 	else{
-		s += chapter_task_view(progress,chapter,chapter_number);
+		s += chapter_task_view(me,progress,chapter,chapter_number);
 	}
 	s += "[返回本卷:illusion_realm story volume "+
 		(string)(int)chapter["volume_number"]+"]|[返回当前历程:illusion_realm]\n";
@@ -411,31 +458,23 @@ private string story_quiz_answer_view(mapping result)
 	return s+"\n"+story_quiz_view(result);
 }
 
-private string guided_follow_up(mapping progress,int after_travel)
+private string guided_follow_up(object me,mapping progress,int after_travel)
 {
 	int chapter_number = (int)progress["chapter_claimed"]+1;
 	array chapters = (array)progress["chapters"];
 	mapping chapter;
-	string kind;
+	string arrival_actions;
 	if(chapter_number>sizeof(chapters))
 		return "\n【全部完成】八十一章已经通关，可在故事目录重温全部剧情。\n"+
 			"[开启长生十问:illusion_realm quiz]|"+
 			"[查看九卷故事目录:illusion_realm story]\n";
 	chapter = (mapping)chapters[chapter_number-1];
-	kind = (string)chapter["target_kind"];
-	if(after_travel && search(({"boss","story_boss"}),kind)!=-1)
-		return "\n【下一步】首领已经在当前区域，先确认房间 NPC，再进入正式战斗。\n"+
-			boss_challenge_link(chapter)+
-			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
-	if(after_travel && kind=="hunt")
-		return "\n【下一步】目标已经在当前区域。\n"+
-			"[挂机至本章狩猎完成:illusion_realm hunt]|"+
-			"[持续自动挂机:autofight start]\n"+
-			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
-	if(after_travel && kind=="explore")
-		return "\n【下一步】已经到达探索地点，请确认本次到访。\n"+
-			"[完成当前探索:illusion_realm next]|"+
-			"[返回游戏:look]|[查看本章进度:illusion_realm]\n";
+	if(!after_travel && chapter_target_in_current_room(me,chapter))
+		after_travel = 1;
+	if(after_travel)
+		arrival_actions = chapter_arrival_actions(chapter);
+	if(arrival_actions!="")
+		return arrival_actions;
 	return "\n【下一步】"+(string)chapter["target_name"]+
 		((string)chapter["target_location"]!="" ? "　地点："+
 			(string)chapter["target_location"] : "")+"\n"+
@@ -489,14 +528,14 @@ private string guided_next_step(object me)
 	chapters = (array)progress["chapters"];
 	chapter_number = (int)progress["chapter_claimed"]+1;
 	if(chapter_number>sizeof(chapters))
-		return guided_follow_up(progress,0);
+		return guided_follow_up(me,progress,0);
 	chapter = (mapping)chapters[chapter_number-1];
 	kind = (string)chapter["target_kind"];
 	if((int)chapter["ready"] || kind=="ready"){
 		result = SEASONALD->claim_chapter_reward(me,chapter_number);
 		progress = SEASONALD->query_player_progress(me);
 		return (string)result["message"]+
-			((int)result["ok"] ? guided_follow_up(progress,0) :
+			((int)result["ok"] ? guided_follow_up(me,progress,0) :
 			 "\n[重新查看本章:illusion_realm]|[返回游戏:look]\n");
 	}
 	if(kind=="choice")
@@ -517,10 +556,10 @@ private string guided_next_step(object me)
 			return (string)witnessed["message"]+
 				"\n[重试阅读剧情:illusion_realm next]|[返回游戏:look]\n";
 		return "【剧情步骤完成】"+(string)witnessed["message"]+
-			guided_follow_up(progress,0);
+			guided_follow_up(me,progress,0);
 	}
 	progress = SEASONALD->query_player_progress(me);
-	return (string)result["message"]+guided_follow_up(progress,1);
+	return (string)result["message"]+guided_follow_up(me,progress,1);
 }
 
 private string ranking_menu(mapping status)
@@ -662,14 +701,14 @@ int main(string|zero arg)
 			if((int)travel["ok"]){
 				progress=SEASONALD->query_player_progress(me);
 				write((string)travel["message"]+
-					guided_follow_up(progress,1));
+					guided_follow_up(me,progress,1));
 			}
 			else
 				write((string)travel["message"]+
 					"\n[重新查看本章:illusion_realm]|[返回游戏:look]\n");
 		}
 		else if(sizeof(parts)>=3 && parts[1]=="chapter")
-			write(story_chapter_view(progress,(int)parts[2]));
+			write(story_chapter_view(me,progress,(int)parts[2]));
 		else if(sizeof(parts)>=3 && parts[1]=="volume")
 			write(story_volume_view(progress,(int)parts[2]));
 		else
@@ -771,7 +810,7 @@ int main(string|zero arg)
 		mapping result = SEASONALD->claim_chapter_reward(me,(int)parts[1]);
 		mapping progress = SEASONALD->query_player_progress(me);
 		write((string)result["message"]+
-			((int)result["ok"] ? guided_follow_up(progress,0) :
+			((int)result["ok"] ? guided_follow_up(me,progress,0) :
 			 "\n[返回当前章节:illusion_realm]|[返回游戏:look]\n"));
 		return 1;
 	}

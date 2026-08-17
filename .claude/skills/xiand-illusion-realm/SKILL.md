@@ -165,9 +165,13 @@ Keep gameplay content data-driven:
   direct boss action for boss objectives, render an explicit “完成当前探索”
   action for exploration objectives, always render return-to-game, show per-kill
   chapter progress, claim only a ready ordered chapter, and lead directly into
-  the next chapter. A generic location-only success page or repeated travel link
-  after the player is already in the exploration room is a regression. Legacy
-  explicit commands remain compatible;
+  the next chapter. The current-progress page, chapter detail and post-claim
+  follow-up must detect when the player is already in the exact canonical target
+  room and immediately render the hunt, boss or exploration action; requiring a
+  second “下一步” click only to reveal that action is a regression. A generic
+  location-only success page or repeated travel link after the player is already
+  in the exploration room is also a regression. Legacy explicit commands remain
+  compatible;
 - place S1's long-term collection gates at the end of all nine volumes
   (chapters 9/18/27/36/45/54/63/72/81), not as three isolated late patches.
   Store probabilities as integer basis points over 10,000 so sub-percent rates

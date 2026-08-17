@@ -1215,6 +1215,14 @@ int main()
 		mapping chapter_travel = SEASONALD->travel_to_chapter_target(child,1);
 		mapping chapter_travel_again = SEASONALD->travel_to_chapter_target(
 			child,1);
+		mapping arrived_hunt_progress =
+			SEASONALD->query_player_progress(child);
+		mapping arrived_hunt_chapter = (mapping)((array)
+			arrived_hunt_progress["chapters"])[0];
+		string arrived_hunt_view = ((object)(ROOT+
+			"/gamelib/cmds/illusion_realm.pike"))->
+			query_chapter_task_view_for_test(child,arrived_hunt_progress,
+				arrived_hunt_chapter,1);
 		check("章节直达拒绝越章和挂机中移动并通过普通move安全到目标房",
 			!(int)future_travel["ok"] && !(int)afk_travel["ok"] &&
 			(int)chapter_travel["ok"] &&
@@ -1226,6 +1234,12 @@ int main()
 			sprintf("future=%O afk=%O travel=%O again=%O room=%s",
 				future_travel,afk_travel,chapter_travel,
 				chapter_travel_again,file_name(environment(child))));
+		check("人物已在小怪目标房时当前历程直接显示任务挂机入口",
+			search(arrived_hunt_view,
+				"[挂机至本章狩猎完成:illusion_realm hunt]")!=-1 &&
+			search(arrived_hunt_view,
+				"[▶ 下一步：一键前往")==-1,
+			sprintf("view=%O",arrived_hunt_view));
 		mapping(string:string) expected_afk_routes = ([
 			"1":"illusion_s1/moon_dew_field|1",
 			"10":"illusion_s1/mist_bamboo_glen|10",
