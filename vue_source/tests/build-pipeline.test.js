@@ -100,6 +100,15 @@ for (let chapter = 1; chapter <= 81; chapter += 1) {
   const sourcePath = path.join(rootDir, 'images', 'illusion_s1', 'story', 'chapters', filename);
   assert(fs.existsSync(sourcePath), `missing S1 chapter illustration: ${filename}`);
   assert(fs.statSync(sourcePath).size > 200 * 1024, `S1 chapter illustration is too small: ${filename}`);
+  const png = fs.readFileSync(sourcePath);
+  assert(
+    png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+    `S1 chapter illustration is not PNG: ${filename}`
+  );
+  assert(
+    png.readUInt32BE(16) === 418 && png.readUInt32BE(20) === 418,
+    `S1 chapter illustration must be exactly 418x418: ${filename}`
+  );
 }
 
 assert(indexSource.includes('<div class="auth-form">'));

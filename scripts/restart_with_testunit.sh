@@ -6,7 +6,10 @@ HOST="${XIAND_HOST:-127.0.0.1}"
 PORT="${XIAND_PORT:-13800}"
 HTTP_PORT="${XIAND_HTTP_PORT:-8888}"
 SCREEN_NAME="${XIAND_SCREEN_NAME:-xiand-$PORT}"
-TIMEOUT_SECONDS="${XIAND_RESTART_TIMEOUT:-180}"
+# The complete suite now covers every profession, S1, equipment, workers and
+# persistence.  Keep enough headroom for slower CI/prod disks instead of
+# turning a late successful run into a false timeout.
+TIMEOUT_SECONDS="${XIAND_RESTART_TIMEOUT:-600}"
 GAME_LOG="$ROOT_DIR/log/stderr.$PORT"
 ERROR_LOG="$ROOT_DIR/log/error.$PORT"
 RUNTIME_LOG="$ROOT_DIR/log/restart.$PORT.log"
@@ -133,11 +136,13 @@ prepare_environment()
 		fail "Pike binary is not executable: ${PIKE_BIN:-not found}"
 	fi
 	if [[ ! "$PIKE_STACK_DEPTH" =~ ^[0-9]+$ ||
-	      ! "$PIKE_THREAD_STACK" =~ ^[0-9]+$ ]]; then
-		fail "Pike stack settings must be positive integers"
+	      ! "$PIKE_THREAD_STACK" =~ ^[0-9]+$ ||
+	      ! "$TIMEOUT_SECONDS" =~ ^[0-9]+$ ]]; then
+		fail "restart timeout and Pike stack settings must be positive integers"
 	fi
-	if (( PIKE_STACK_DEPTH <= 0 || PIKE_THREAD_STACK <= 0 )); then
-		fail "Pike stack settings must be positive integers"
+	if (( PIKE_STACK_DEPTH <= 0 || PIKE_THREAD_STACK <= 0 ||
+	      TIMEOUT_SECONDS <= 0 )); then
+		fail "restart timeout and Pike stack settings must be positive integers"
 	fi
 	if ! command -v screen >/dev/null 2>&1; then
 		fail "screen command is required"
