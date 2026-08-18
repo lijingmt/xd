@@ -71,6 +71,9 @@ int main()
 	array(int) incoming=({100,108,118,130,145,162,182,205});
 	array(int) drop=({100,112,125,140,160,185,215,250});
 	array(int) afk=({24,16,14,12,10,8,6,4});
+	array(int) required_kills=({0,20000,50000,100000,180000,280000,
+		400000,600000});
+	array(int) required_bosses=({0,50,120,250,450,700,1000,1500});
 	object difficulty=(object)(ROOT+
 		"/gamelib/single/daemons/personal_difficultyd.pike");
 	object npc=clone(ROOT+
@@ -83,6 +86,8 @@ int main()
 		int catalog_ok=sizeof(catalog)==8;
 		for(int tier=0;tier<8;tier++)
 			catalog_ok=catalog_ok &&
+				(int)catalog[tier]["kills"]==required_kills[tier] &&
+				(int)catalog[tier]["bosses"]==required_bosses[tier] &&
 				(int)catalog[tier]["outgoing_percent"]==outgoing[tier] &&
 				(int)catalog[tier]["incoming_percent"]==incoming[tier] &&
 				(int)catalog[tier]["set_drop_percent"]==drop[tier] &&
@@ -90,8 +95,42 @@ int main()
 				(tier==0 || (outgoing[tier]<outgoing[tier-1] &&
 				 incoming[tier]>incoming[tier-1] &&
 				 drop[tier]>drop[tier-1] && afk[tier]<afk[tier-1]));
-		check("八档倍率、挂机上限与风险收益严格单调",catalog_ok,
+		check("七阶累计163万击杀和4070首领且风险收益严格单调",catalog_ok,
 			sprintf("catalog=%O",catalog));
+
+		object unlock_player=create_player(
+			"__testunit_personal_difficulty_unlock__","human","jianxian");
+		players+=({unlock_player});
+		difficulty->set_scope_for_test(unlock_player,"eternal");
+		unlock_player["/plus/personal_difficulty/progress"]=([]);
+		mapping empty_progress=difficulty->query_unlock_progress(unlock_player);
+		unlock_player["/plus/personal_difficulty/progress"]=(
+			["kills":19999,"bosses":49]);
+		npc->_npcLevel=250;
+		npc->_boss=1;
+		difficulty->record_npc_kill(unlock_player,npc);
+		mapping completed_progress=difficulty->query_unlock_progress(
+			unlock_player);
+		mapping claimed=difficulty->claim_next_tier(unlock_player);
+		difficulty->record_npc_kill(unlock_player,npc);
+		mapping blocked_progress=difficulty->query_unlock_progress(unlock_player);
+		unlock_player["/plus/personal_difficulty/current"]=1;
+		unlock_player["/plus/personal_difficulty/progress"]=(
+			["kills":49999,"bosses":119]);
+		difficulty->record_npc_kill(unlock_player,npc);
+		mapping next_progress=difficulty->query_unlock_progress(unlock_player);
+		check("长期门槛逐级结算且未切到最高难度不会偷跑下一阶",
+			(int)empty_progress["kills_required"]==20000 &&
+			(int)empty_progress["bosses_required"]==50 &&
+			(int)completed_progress["complete"] && (int)claimed["ok"] &&
+			(int)blocked_progress["kills"]==0 &&
+			(int)blocked_progress["bosses"]==0 &&
+			(int)next_progress["complete"] &&
+			(int)next_progress["kills"]==50000 &&
+			(int)next_progress["bosses"]==120,
+			sprintf("empty=%O completed=%O claimed=%O blocked=%O next=%O",
+				empty_progress,completed_progress,claimed,blocked_progress,
+				next_progress));
 
 		object scope_player=create_player(
 			"__testunit_personal_difficulty_scope__","human","jianxian");

@@ -35,10 +35,10 @@ private void show_status(object player,string notice)
 		else
 			out+="下一破界试炼【"+(string)progress["next_name"]+"】：等级 "+
 				(int)progress["level"]+"/"+(int)progress["min_level"]+
-				"，合格击杀 "+(int)progress["kills"]+"/"+
-				(int)progress["kills_required"]+"，首领 "+
-				(int)progress["bosses"]+"/"+
-				(int)progress["bosses_required"]+"。\n";
+				"，合格击杀 "+format_game_number((int)progress["kills"])+
+				"/"+format_game_number((int)progress["kills_required"])+
+				"，首领 "+format_game_number((int)progress["bosses"])+
+				"/"+format_game_number((int)progress["bosses_required"])+"。\n";
 		if((int)progress["complete"])
 			out+="[完成破界并永久解锁:personal_difficulty unlock]\n";
 	}
@@ -57,7 +57,8 @@ private void show_status(object player,string notice)
 				"章后解锁）\n";
 		else
 			out+=(string)tier["name"]+"（Lv"+(int)tier["min_level"]+
-				"破界后解锁）\n";
+				"＋"+format_game_number((int)tier["kills"])+"次合格击杀＋"+
+				format_game_number((int)tier["bosses"])+"首领）\n";
 	}
 	out+="\n[挂机设置:autofight open]|[返回设置:game_detail]|[返回游戏:look]\n";
 	write(out);
