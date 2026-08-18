@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 夫诸、青耕、帝江、朏朏四只公开共享宠物的真实链路回归。 */
+/** 七只扩展共享宠物的图鉴、兑换、存档、PVE/PVP真实链路回归。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -7,6 +7,10 @@
 mapping(string:int) test_results = (["total":0,"passed":0,"failed":0]);
 string test_account = "xd99testunitpetexpand";
 object|zero test_player = 0;
+array(string) expanded_species = ({
+	"fuzhu","qinggeng","dijiang","feifei",
+	"yuehenli","wudenghe","shuangjingmo",
+});
 
 void check(string name,int valid,string reason)
 {
@@ -91,8 +95,11 @@ void test_catalog_contract()
 		"qinggeng":(["name":"青耕","family":"木","role":"疗愈"]),
 		"dijiang":(["name":"帝江","family":"风","role":"迅捷"]),
 		"feifei":(["name":"朏朏","family":"灵","role":"灵息"]),
+		"yuehenli":(["name":"月痕狸","family":"灵","role":"迅捷"]),
+		"wudenghe":(["name":"雾灯鹤","family":"风","role":"疗愈"]),
+		"shuangjingmo":(["name":"霜镜貘","family":"水","role":"守护"]),
 	]);
-	int valid = sizeof(catalog)==20;
+	int valid = sizeof(catalog)==23;
 	foreach(expected;string species;mapping wanted){
 		mapping info = catalog[species] || ([]);
 		valid = valid && (string)info["name"]==(string)wanted["name"] &&
@@ -105,13 +112,16 @@ void test_catalog_contract()
 		foreach((array)info["skill_sets"],array skills)
 			valid = valid && sizeof(skills)==3;
 	}
-	check("四只新宠是公开稳定兑换且三套灵纹资料完整",valid,
+	check("七只扩展宠物是公开稳定兑换且三套灵纹资料完整",valid,
 		"图鉴数量、名称、定位、公开兑换或灵纹资料不完整");
 	check("水木灵归阴、风归阳并复用既有融合规则",
 		PETD->query_pet_species_polarity("fuzhu")=="yin" &&
 		PETD->query_pet_species_polarity("qinggeng")=="yin" &&
 		PETD->query_pet_species_polarity("feifei")=="yin" &&
-		PETD->query_pet_species_polarity("dijiang")=="yang",
+		PETD->query_pet_species_polarity("dijiang")=="yang" &&
+		PETD->query_pet_species_polarity("yuehenli")=="yin" &&
+		PETD->query_pet_species_polarity("wudenghe")=="yang" &&
+		PETD->query_pet_species_polarity("shuangjingmo")=="yin",
 		"新增族系没有落入已有阴阳规则");
 }
 
@@ -126,23 +136,33 @@ void test_existing_combat_formulas()
 		"dijiang",100000,100000,100000,100000);
 	mapping feifei = PETD->query_pet_assist_profile(
 		"feifei",100000,100000,100000,100000);
+	mapping yuehenli = PETD->query_pet_assist_profile(
+		"yuehenli",100000,100000,100000,100000);
+	mapping wudenghe = PETD->query_pet_assist_profile(
+		"wudenghe",100000,100000,100000,100000);
+	mapping shuangjingmo = PETD->query_pet_assist_profile(
+		"shuangjingmo",100000,100000,100000,100000);
 	check("四种定位分别进入守护、疗愈、迅捷、灵息原有结算分支",
 		(string)fuzhu["type"]=="heal" && (int)fuzhu["amount"]>0 &&
 		(string)qinggeng["type"]=="heal" && (int)qinggeng["amount"]>0 &&
 		(string)dijiang["type"]=="damage" && (int)dijiang["amount"]>0 &&
-		(string)feifei["type"]=="mofa" && (int)feifei["amount"]>0,
+		(string)feifei["type"]=="mofa" && (int)feifei["amount"]>0 &&
+		(string)yuehenli["type"]=="damage" && (int)yuehenli["amount"]>0 &&
+		(string)wudenghe["type"]=="heal" && (int)wudenghe["amount"]>0 &&
+		(string)shuangjingmo["type"]=="heal" &&
+		(int)shuangjingmo["amount"]>0,
 		"新增宠物误入新公式或协战收益为零");
 	int pvp_valid = 1;
-	foreach(({"fuzhu","qinggeng","dijiang","feifei"}),string species){
+	foreach(expanded_species,string species){
 		mapping profile = PETD->query_pet_pvp_assist_profile(
 			species,100000,100000,100000,100000);
 		pvp_valid = pvp_valid && (int)profile["amount"]>0 &&
 			(int)profile["max_uses"]==2 &&
 			(int)profile["charge_required"]>0;
 	}
-	check("四只新宠沿用PVP充能与每场两次上限",pvp_valid,
+	check("七只扩展宠物沿用PVP充能与每场两次上限",pvp_valid,
 		"新增宠物绕过PVP充能、次数限制或没有有效结算");
-	mapping duel = PETD->test_simulate_pet_match("dijiang","fuzhu");
+	mapping duel = PETD->test_simulate_pet_match("yuehenli","shuangjingmo");
 	check("新增阴阳宠可进入原有三局两胜论道",
 		sizeof((array)duel["bouts"])==3 &&
 		(int)duel["left_wins"]+(int)duel["right_wins"]+
@@ -160,9 +180,9 @@ void test_exchange_persistence_and_active_pet()
 	}
 	mapping starter = PETD->choose_starter_pet(test_player,"dangkang");
 	int funded = PETD->test_add_pet_material(
-		test_player,"spirit_mark",120);
+		test_player,"spirit_mark",210);
 	int acquired = starter["ok"] && funded;
-	foreach(({"fuzhu","qinggeng","dijiang","feifei"}),string species){
+	foreach(expanded_species,string species){
 		mapping exchanged = PETD->exchange_pet(test_player,species);
 		acquired = acquired && (int)exchanged["ok"] &&
 			(string)exchanged["pet"]["species"]==species &&
@@ -170,9 +190,9 @@ void test_exchange_persistence_and_active_pet()
 			is_hex_pet_id((string)exchanged["pet"]["id"]);
 	}
 	mapping state = PETD->query_pet_state(test_player);
-	check("120枚灵印按每只30枚稳定兑换四只且产生不可预测唯一ID",
+	check("210枚灵印按每只30枚稳定兑换七只且产生不可预测唯一ID",
 		acquired && (int)state["materials"]["spirit_mark"]==0 &&
-		(int)state["collection_count"]==5,
+		(int)state["collection_count"]==8,
 		"真实兑换、扣费、来源、唯一ID或收藏数量不正确");
 
 	PETD->test_add_pet_material(test_player,"spirit_mark",30);
@@ -189,25 +209,25 @@ void test_exchange_persistence_and_active_pet()
 		"失败兑换扣除了灵印或错误增加收藏");
 
 	int all_active = 1;
-	foreach(({"fuzhu","qinggeng","dijiang","feifei"}),string species){
+	foreach(expanded_species,string species){
 		mapping pet = find_species(after_reject,species);
 		mapping activated = PETD->set_active_pet(test_player,(string)pet["id"]);
 		all_active = all_active && (int)activated["ok"] &&
 			(string)test_player["/tmp/wanling/species"]==species;
 	}
-	check("四只新宠均可轮换为共享协战宠并同步战斗运行态",all_active,
+	check("七只扩展宠物均可轮换为共享协战宠并同步战斗运行态",all_active,
 		"至少一只宠物无法出战或运行态没有同步");
 
 	PETD->drop_test_pet_cache(test_account);
 	mapping restored = PETD->query_pet_state(test_player);
-	int persisted = (int)restored["collection_count"]==5;
-	foreach(({"fuzhu","qinggeng","dijiang","feifei"}),string species){
+	int persisted = (int)restored["collection_count"]==8;
+	foreach(expanded_species,string species){
 		mapping pet = find_species(restored,species);
 		persisted = persisted && sizeof(pet)>0 &&
 			(string)pet["source"]=="spirit_exchange" &&
 			is_hex_pet_id((string)pet["id"]);
 	}
-	check("清空守护进程缓存后四只宠物仍从唯一账号档案完整恢复",persisted,
+	check("清空守护进程缓存后七只宠物仍从唯一账号档案完整恢复",persisted,
 		"新增宠物只留在内存或重载后字段损坏");
 }
 

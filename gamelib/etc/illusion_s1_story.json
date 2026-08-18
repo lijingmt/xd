@@ -5,6 +5,20 @@
   "story_premise": "月主因南瞻众生未解生死、却终日追逐名利情而降下长生月诏。一个被逐出师门的无籍客，将在八十一章、九卷四洲的旅途中查明长生背后的代价。",
   "quiz_intro": "月主已碎，真名殿却留下十道不能用刀剑斩开的门。\n每道门都问你一件亲历的往事；记住细节，才算真正记住那些人。\n十问可重新挑战，最高分将化作你的幻境阅历称号；满分者还能读到一页未入正卷的山门后记。",
   "quiz_epilogue": "山门外的雪已停了。晏孤峤蹲在旧石阶旁，笨拙地把两截木牌拼在一起，却怎么也不肯承认是在等你。\n骆燃川在小炉上温了两碗酒，又偷偷多摆一碗。他说第三碗是给风的，商清晏听完只把朝生花放在那碗旁边。\n你把新刻好的名字放回山门名册，没有排在首席，也没有写下尊号，只在后面添了一行：来去自愿。\n夜深后，你问晏孤峤：“若再来一次，那一掌还打吗？”他沉默很久，说：“打。但会先告诉你，为师也会怕。”\n你们都笑了。长生方没有留在世上，可那一夜的灯火、酒气和人声很长，长到足以让后来者相信：有限的一生，也能有不肯被岁月拿走的东西。",
+  "route_epilogues": {
+    "pioneer": {
+      "title": "寻月·微光成卷",
+      "text": "归真殿倒塌后的第一个清晨，你没有追逐散落的寿光，而是蹲在瓦砾间，把每一片写有姓名的残纸按笔迹与年份重新排好。\n商清晏陪你走遍四洲，将无人认领的名字送回旧宅、渡口与荒坟。有人早已不在，仍有人因一笔熟悉的折钩认出失散半生的亲人。\n晏孤峤把山门旧藏全部搬到月下，嘴上说是清理废纸，手却替你补好了第一卷被雪水泡烂的见证。他终于学会，保护一个人不能先夺走对方知情的权利。\n你没有建立新的尊号，只在尘城开了一间彻夜亮灯的小屋，允许任何人来查自己的姓名为何被改、承诺由谁转述、代价由谁承担。\n后来人们把那里叫作见微馆。新月仍会残缺，但每一处微光都有出处；你的寻月之路没有找到不死，却让被忽略的人重新成为故事的主语。"
+    },
+    "hunter": {
+      "title": "逐影·刀止于人",
+      "text": "月主碎裂时，你本可以追上最后一缕逃逸的无影火，却在刀锋落下前听见火中混着许多被迫服从的名字。你收刀，让他们先从仇人的影子里走出来。\n骆燃川把背盟那日的刀横放在你面前，没有求原谅，只逐条说清自己做过什么、害过谁、准备怎样偿还。你没有拥抱他，也没有赶他走，而是让他从第一件能补救的小事做起。\n此后你们共同巡行四洲，追捕仍在贩卖寿契的人。每次出刀前先公开罪证，每次胜利后让受害者决定如何处置，破阵不再等于由最强者替所有人选择。\n商清晏为这支队伍写下第一条规矩：刀可以比谎言更快，却不能比真相先到。晏孤峤看完沉默许久，在末尾添上“包括师父”。\n你仍是逐影者，却不再被影子牵着走。真正的强大不是斩尽所有敌人，而是有能力结束战斗时，仍记得刀为何而举、又该在谁面前停下。"
+    },
+    "companion": {
+      "title": "同行·万家有灯",
+      "text": "四洲寿数归还后，最先亮起来的不是王宫，而是雾林那座只剩半碗药的小营地。你把月炉残砖垒成灶台，让每个活着回来的人先喝一口热汤。\n朝生者只活一日，冻龄者记不起昨日，镜湖旧人仍会因真相疼痛；你没有许诺治好所有遗憾，只把愿意同行与选择离开的人都写进同一张路簿。\n月忆兽沿长桌逐个嗅过众人的手，墨尾找回名字，雾角听全誓言，霜签保存昨日。没有哪只灵兽替主人作战，它们只是让每段关系不再轻易被抹去。\n骆燃川负责添柴，商清晏把最后一朵朝生花分给孩童，晏孤峤端着空碗站了很久，终于低声问自己是否也能坐下。你向旁边挪出一个位置，没有替过去免罪，也没有拒绝今天开始改变。\n多年后，人们不记得谁在终战打出最高伤害，却记得那夜每个人都有座位。同行之路没有把众生熔成同一种人，而是让彼此不同的人仍愿意留一盏灯。"
+    }
+  },
   "quiz": [
     {
       "id": "S1-Q1",
@@ -221,8 +235,8 @@
               "/gamelib/d/illusion_s1/starlight_slope.pike"
             ],
             "required": 1,
-            "drop_basis_points": 1500,
-            "pity_kills": 7
+            "drop_basis_points": 2000,
+            "pity_kills": 5
           }
         }
       ]
@@ -319,8 +333,8 @@
               "/gamelib/d/illusion_s1/moonshadow_wood.pike"
             ],
             "required": 1,
-            "drop_basis_points": 800,
-            "pity_kills": 13
+            "drop_basis_points": 1500,
+            "pity_kills": 7
           }
         }
       ]
@@ -419,8 +433,8 @@
               "/gamelib/d/illusion_s1/moonwave_shoal.pike"
             ],
             "required": 1,
-            "drop_basis_points": 400,
-            "pity_kills": 25
+            "drop_basis_points": 1000,
+            "pity_kills": 10
           }
         }
       ]
@@ -517,8 +531,8 @@
               "/gamelib/d/illusion_s1/observatory_outfield.pike"
             ],
             "required": 1,
-            "drop_basis_points": 200,
-            "pity_kills": 50
+            "drop_basis_points": 800,
+            "pity_kills": 13
           }
         }
       ]
@@ -616,8 +630,8 @@
               "/gamelib/d/illusion_s1/stardust_lane.pike"
             ],
             "required": 1,
-            "drop_basis_points": 100,
-            "pity_kills": 100
+            "drop_basis_points": 600,
+            "pity_kills": 17
           }
         }
       ]
@@ -715,8 +729,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 50,
-            "pity_kills": 200
+            "drop_basis_points": 500,
+            "pity_kills": 20
           }
         }
       ]
@@ -815,8 +829,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 25,
-            "pity_kills": 400
+            "drop_basis_points": 400,
+            "pity_kills": 25
           }
         }
       ]
@@ -915,8 +929,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 15,
-            "pity_kills": 667
+            "drop_basis_points": 300,
+            "pity_kills": 34
           }
         }
       ]
@@ -1014,8 +1028,8 @@
               "/gamelib/d/illusion_s1/starfall_garden.pike"
             ],
             "required": 1,
-            "drop_basis_points": 10,
-            "pity_kills": 1000
+            "drop_basis_points": 200,
+            "pity_kills": 50
           }
         }
       ]

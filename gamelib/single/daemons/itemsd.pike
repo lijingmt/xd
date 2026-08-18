@@ -99,6 +99,7 @@ private mapping(int:array(string)) item_list = ([]);
 // 生成器复用，但绝不能混进对应等级的普通白装池。
 private array(string) newmoon_item_list = ({});
 private mapping(string:array(string)) newmoon_profession_templates = ([]);
+private mapping(string:array(string)) newmoon_focus_templates = ([]);
 private int enabled_newmoon_collection_count = 6;
 private int newmoon_drop_denominator = 300000;
 private array(mapping(string:mixed)) newmoon_collection_catalog = ({
@@ -394,6 +395,45 @@ array(string) query_newmoon_base_templates_for_profession(string profession_id)
 	return result;
 }
 
+/**
+ * 八十一章后的掉落定向只缩小一次已经合法命中的新月模板池。
+ * 它不改变掉率、品质权重、词缀数量，也不会在组队掉落中替全队指定
+ * 某一人的职业。结果按职业与槽位缓存，避免稀有掉落时重复克隆。
+ */
+array(string) query_newmoon_drop_templates_for_player(object player)
+{
+	string focus;
+	string profession;
+	string cache_key;
+	array(string) profession_templates;
+	array(string) focused = ({});
+	if(!player)
+		return newmoon_item_list+({});
+	focus = ILLUSION_JOURNEYD->query_newmoon_drop_focus(player);
+	profession = functionp(player->query_profeId) ?
+		(string)player->query_profeId() : "";
+	if(focus=="all" || profession=="")
+		return newmoon_item_list+({});
+	cache_key = profession+"|"+focus;
+	if(arrayp(newmoon_focus_templates[cache_key]) &&
+	   sizeof(newmoon_focus_templates[cache_key])==1)
+		return newmoon_focus_templates[cache_key]+({});
+	profession_templates = query_newmoon_base_templates_for_profession(
+		profession);
+	foreach(profession_templates,string item_name){
+		object item;
+		mixed err = catch{ item=clone(ITEM_PATH+item_name); };
+		if(!err && item && functionp(item->query_item_kind) &&
+		   (string)item->query_item_kind()==focus)
+			focused += ({item_name});
+		if(item)
+			destruct(item);
+	}
+	if(sizeof(focused)==1)
+		newmoon_focus_templates[cache_key] = focused+({});
+	return sizeof(focused)==1 ? focused : newmoon_item_list+({});
+}
+
 mapping(string:mixed) query_newmoon_collection_for_roll(int npclevel,int roll)
 {
 	int cursor=0;
@@ -511,7 +551,7 @@ private int ReadFile_boss_items(string filename)
 
 //外部接口，由fight_die()调用，为装备掉落的的接口
 object get_item(int npclevel,int playerlevel,int playerluck,
-	void|int personal_difficulty_level)
+	void|int personal_difficulty_level,void|object focus_player)
 {
 	string item_rawname=""; //白装备名称,包含了一个路径。如weapon/1taomujian
 	array(string) itemsallow=({}); //等级范围类允许物品列表
@@ -545,7 +585,9 @@ object get_item(int npclevel,int playerlevel,int playerluck,
 			query_newmoon_collection_for_difficulty_roll(npclevel,
 				newmoon_roll,personal_difficulty_level);
 		if(sizeof(newmoon_collection)){
-			item_rawname=newmoon_item_list[random(sizeof(newmoon_item_list))];
+			array(string) drop_templates=
+				query_newmoon_drop_templates_for_player(focus_player);
+			item_rawname=drop_templates[random(sizeof(drop_templates))];
 			itemlevel=69;
 		}
 		else{

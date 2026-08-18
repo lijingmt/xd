@@ -203,6 +203,8 @@ int query_set_drop_percent_for_level(int level)
 int scale_pve_damage(object attacker,object target,int damage)
 {
 	object credit_owner;
+	mapping pact;
+	int scaled;
 	if(damage<=0 || !attacker || !target ||
 	   !functionp(attacker->is) || !functionp(target->is))
 		return damage;
@@ -210,10 +212,22 @@ int scale_pve_damage(object attacker,object target,int damage)
 	if(attacker->is("npc") && functionp(SUMMOND->query_combat_credit_owner))
 		credit_owner=SUMMOND->query_combat_credit_owner(attacker) || attacker;
 	if(credit_owner && functionp(credit_owner->is) &&
-	   credit_owner->is("player") && target->is("npc"))
-		return max(1,damage*query_outgoing_percent(credit_owner)/100);
-	if(attacker->is("npc") && target->is("player"))
-		return max(1,damage*query_incoming_percent(target)/100);
+	   credit_owner->is("player") && target->is("npc")){
+		scaled = max(1,damage*query_outgoing_percent(credit_owner)/100);
+		if(query_scope(credit_owner)=="S1"){
+			pact = ILLUSION_JOURNEYD->query_pact_combat_modifiers(credit_owner);
+			scaled = max(1,scaled*(int)pact["outgoing_percent"]/100);
+		}
+		return scaled;
+	}
+	if(attacker->is("npc") && target->is("player")){
+		scaled = max(1,damage*query_incoming_percent(target)/100);
+		if(query_scope(target)=="S1"){
+			pact = ILLUSION_JOURNEYD->query_pact_combat_modifiers(target);
+			scaled = max(1,scaled*(int)pact["incoming_percent"]/100);
+		}
+		return scaled;
+	}
 	// 玩家互斗、召唤物PVP与NPC互斗全部保持原公式。
 	return damage;
 }

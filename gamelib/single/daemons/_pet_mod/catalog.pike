@@ -204,6 +204,36 @@ private mapping(string:mapping(string:mixed)) shanhai_catalog = ([
 			({"回生羽","瑞羽守契","长空归心"}),
 		}),
 	]),
+	"yuehenli":([
+		"name":"月痕狸","icon":"🐈‍⬛","family":"灵","role":"迅捷",
+		"origin":"新月行旅中诞生的原创灵兽，尾端月痕会在危险来临前倒映出最短生路。",
+		"skill":"月痕先照","basic_attack":"踏影爪","boss":0,"exchange":1,
+		"skill_sets":({
+			({"月痕先照","断名寻踪","归路留辉"}),
+			({"月痕先照","镜湖轻步","残月伏影"}),
+			({"月痕先照","人间引路","夜行无声"}),
+		}),
+	]),
+	"wudenghe":([
+		"name":"雾灯鹤","icon":"🪽","family":"风","role":"疗愈",
+		"origin":"新月行旅中诞生的原创灵禽，双翼如雾灯，能替迷路者守住呼吸与方向。",
+		"skill":"雾灯回息","basic_attack":"清羽拂","boss":0,"exchange":1,
+		"skill_sets":({
+			({"雾灯回息","半药同分","清羽守誓"}),
+			({"雾灯回息","风中听路","双翼归航"}),
+			({"雾灯回息","朝暮护心","长雾散灯"}),
+		}),
+	]),
+	"shuangjingmo":([
+		"name":"霜镜貘","icon":"🦣","family":"水","role":"守护",
+		"origin":"新月行旅中诞生的原创异兽，背负霜镜，只保存真实发生过而非完美的梦。",
+		"skill":"霜镜守真","basic_attack":"镜背撞","boss":0,"exchange":1,
+		"skill_sets":({
+			({"霜镜守真","昨日留霜","冰墙共证"}),
+			({"霜镜守真","照水辨伪","寒梦归档"}),
+			({"霜镜守真","众生还名","厚背承伤"}),
+		}),
+	]),
 ]);
 
 private array(string) starter_species = ({

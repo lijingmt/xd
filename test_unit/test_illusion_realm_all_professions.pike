@@ -823,6 +823,14 @@ mapping(string:mixed) record_task_progress(object player,string route)
 			if(kind=="story_echo" || kind=="story_boss"){
 				string event_id = (string)chapter["story_event"];
 				mapping event = story_events[event_id];
+				if((int)chapter["quest_item_required"]>0){
+					if(!(int)chapter["quest_item_ready"])
+						return (["ok":0,"message":sprintf(
+							"第%d章在卷末信物完成前提前进入剧情高潮: %O",
+							chapter_index+1,chapter)]);
+					result["quest_gates_before_story"] =
+						(int)result["quest_gates_before_story"]+1;
+				}
 				if(!mappingp(event) || (int)chapter["story_ready"] ||
 				   (string)chapter["story_event_location"]!=
 					(string)event["location"] ||
@@ -1228,14 +1236,14 @@ void run_profession_journey(int index,mapping(string:string) profession)
 		if(index==0)
 			check("剧情道具万分比边界真实使用1..10000闭区间",
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,1500,1500)==1 &&
+					player,2000,2000)==1 &&
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,1500,1501)==0 &&
+					player,2000,2001)==0 &&
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,10,10)==1 &&
+					player,200,200)==1 &&
 				SEASONALD->query_quest_item_random_drop_for_test(
-					player,10,11)==0,
-					"15%与1/1000临界值必须准确且不能四舍五入");
+					player,200,201)==0,
+					"20%与2%临界值必须准确且不能四舍五入");
 
 		mapping first_battle = run_first_s1_quick_battle(player);
 		check(profession_name+"一级空档可真实击败S1首只逐光月灵",
@@ -1281,6 +1289,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["future_event_blocked"]==1 &&
 			(int)task["event_gates_tested"]==25 &&
 			(int)task["quest_gates_completed"]==9 &&
+			(int)task["quest_gates_before_story"]==9 &&
 			(int)task["quest_gate_pities_primed"]==9 &&
 			(int)task["quest_gate_wrong_sources_blocked"]==1 &&
 			(int)task["wrong_story_room_blocked"]==1 &&
@@ -1293,6 +1302,20 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["explore_retry_recovered"]==1 &&
 			(string)task["progress"]["path"]==route,
 			sprintf("route=%s task=%O",route,task));
+		mapping route_ending = SEASONALD->query_story_quiz(player);
+		mapping expected_route_titles = ([
+			"pioneer":"寻月·微光成卷",
+			"hunter":"逐影·刀止于人",
+			"companion":"同行·万家有灯",
+		]);
+		check(profession_name+"完成正史后只看到自己命途的原创终幕",
+			(int)route_ending["unlocked"] &&
+			mappingp(route_ending["route_epilogue"]) &&
+			(string)((mapping)route_ending["route_epilogue"])["title"]==
+				(string)expected_route_titles[route] &&
+			sizeof(((string)((mapping)route_ending[
+				"route_epilogue"])["text"])/"\n")==5,
+			sprintf("route=%s ending=%O",route,route_ending));
 		if(index==6)
 			check("章节升级事务不会越界触发方士新手奖励",
 				(int)player["/plus/newbie_tutorial/step"]==17,

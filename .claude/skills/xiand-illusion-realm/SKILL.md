@@ -72,6 +72,7 @@ campaign, not as a second skill, pet, wallet, or combat system.
   `test_unit/test_illusion_realm_task_navigation.pike`
 - personal difficulty matrix: `test_unit/test_personal_difficulty.pike`
 - journey overlay regression: `test_unit/test_illusion_journey.pike`
+- journey AAA Rev4 regression: `test_unit/test_illusion_journey_aaa.pike`
 
 Do not commit runtime JSON, account indexes, player saves, logs, Worker state, or
 other generated data.
@@ -186,14 +187,18 @@ Keep gameplay content data-driven:
 - place S1's long-term collection gates at the end of all nine volumes
   (chapters 9/18/27/36/45/54/63/72/81), not as three isolated late patches.
   Store probabilities as integer basis points over 10,000 so sub-percent rates
-  never round to zero. The reviewed one-month S1 curve is
-  `1500/800/400/200/100/50/25/15/10` basis points, with hard pity at
-  `7/13/25/50/100/200/400/667/1000` eligible kills. Chapter 81 remains rare at
-  1 in 1,000; the old 10,000-kill pity was removed because it broke the final
-  volume's climax and could not be completed reliably inside one season;
-- require the configured story event before a gate can roll. Only the exact
+  never round to zero. Resolve the gate before the volume-ending story boss so
+  the climax ends the volume instead of sending the player back to a normal
+  hunting field. The reviewed one-month S1 curve is
+  `2000/1500/1000/800/600/500/400/300/200` basis points, with hard pity at
+  `5/7/10/13/17/20/25/34/50` eligible kills. The final volume is rare enough
+  to feel deliberate but cannot require hundreds or thousands of post-climax
+  kills. Previously completed story events remain valid and must not be rolled
+  back; an older character missing only the gate may safely finish the gate and
+  claim;
+- only the exact
   allowlisted NPC path in one of the configured canonical rooms may increment
-  pity. A wrong monster, right monster in the wrong room, pre-event kill,
+  pity. A wrong monster, right monster in the wrong room,
   duplicate death callback, Eternal-world kill, or another character's bound
   item must not advance or satisfy the gate;
 - represent each gate reward as a saved physical task item bound to the exact
@@ -242,7 +247,7 @@ items plus progress on failure.
 
 ## Build optional S1 depth without a second game
 
-S1 revision 3 keeps all optional depth under the existing
+S1 revision 4 keeps all optional depth under the existing
 `/plus/illusion_realm/S1/newmoon_journey` mapping. Do not create a second user
 file, a per-Worker event save, or a parallel quest daemon with independent
 ownership.
@@ -275,6 +280,27 @@ ownership.
   normalizing a copied value. A read-only status query must not mutate the
   player record. The normalized state becomes durable only through an existing
   locked, rollback-capable mutation.
+- `signature_trials` contains exactly nine volume-specific three-stage trials:
+  an in-room ritual, an exact room/NPC hunt, and a volume boss. Each stage is
+  ordered, owner-bound, duplicate-kill safe, and optional for main-story claim,
+  quiz and settlement;
+- `route_arc` contains exactly six intermediate stages for each immutable
+  pioneer/hunter/companion choice. It must never require a future story boss or
+  leak finale information before the canonical main chapter. Keep one canonical
+  chapter-81 outcome, then expose only the selected route's five-paragraph
+  epilogue; a perfect quiz may add one shared true afterword. Do not fork
+  settlement state, inventories or maps to represent narrative endings;
+- `pacts` opens slots only after chapters 18/45/72. Every positive outgoing
+  modifier carries positive incoming risk. Clamp total output to 85%–115% and
+  incoming damage to 85%–120%, apply only to S1 PVE after personal difficulty,
+  validate any hot-path cache before reuse, and keep PVP exactly unchanged;
+- `loot_focus` opens only after all 81 ordered claims and may select one of the
+  ten canonical equipment kinds. It narrows only an already successful newmoon
+  collection roll to one template for the player's profession. Never change
+  collection probability, quality, affixes or team-shared drops;
+- expanding Eternal shared-pet species must reuse the one account pet archive,
+  existing exchange and PVE/PVP formulas. An active S1 character still cannot
+  import or mutate shared pets; its moon-memory companion remains narrative.
 
 ## Preserve exploration credit across movement boundaries
 
@@ -512,10 +538,21 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
     preserve ordinary task credit, and carry no `illusion_chapter_autofight`
     marker. A green seasonal matrix alone is insufficient proof that ordinary
     characters remain unaffected.
-14. For journey revision 3, require a dedicated restart-backed TestUnit path
-    that removes all three new keys from a valid revision-2 record, confirms
+14. For journey revision 4, preserve the dedicated restart-backed legacy path
+    that removes the three revision-3 keys from a valid revision-2 record and
+    also receives safe revision-4 defaults, confirms
     copy-only normalization, triggers a real encounter, rejects the right NPC
     in the wrong room, rolls back an injected save failure, rejects a repeated
     death callback, completes all three weekly corridor bosses, and aggregates
     the saved contribution through a compact ranking snapshot. Also assert that
     every configured event target is physically spawned by its canonical room.
+15. Require `test_illusion_journey_aaa.pike` to complete all nine signature
+    trials (27 ordered stages), all three six-stage route arcs, three pact slots,
+    all ten profession/slot loot-focus selections, a save/reload, injected save
+    failures for pact and loot selection, malformed route failure closure,
+    bounded-cache recomputation, PVE application, and PVP zero influence.
+16. The twelve-profession 81-chapter matrix must observe each of the nine bound
+    gate items before entering its corresponding story boss, finish all gates
+    within the configured 5–50 hard-pity curve, and complete the terminal boss
+    as the final dramatic action before claim. A source-string assertion alone
+    is not sufficient.

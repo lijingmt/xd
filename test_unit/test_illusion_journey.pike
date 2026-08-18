@@ -73,13 +73,16 @@ int main()
 	mixed err=catch{
 		mapping status=daemon->query_config_status();
 		config=daemon->query_catalog_for_test();
-		check("升级配置严格包含九支线、九秘术、五月忆兽",
+		check("Rev4配置包含九支线、九试炼、三命途、六契印与五月忆兽",
 			(int)status["ok"] && (int)status["quests"]==9 &&
 			(int)status["secrets"]==9 && (int)status["species"]==5 &&
-			(int)status["feature_revision"]==3 &&
+			(int)status["feature_revision"]==4 &&
 			sizeof((array)config["companion_memories"])==9 &&
 			sizeof((array)config["wander_events"])==3 &&
-			sizeof((array)config["echo_rotations"])==3,
+			sizeof((array)config["echo_rotations"])==3 &&
+			sizeof((array)config["signature_trials"])==9 &&
+			sizeof((mapping)config["route_arcs"])==3 &&
+			sizeof((array)config["pact_catalog"])==6,
 			sprintf("status=%O",status));
 
 		int deterministic=1;
@@ -185,7 +188,7 @@ int main()
 				one,progress,chapter9);
 			check("确定性凭证满足卷末门槛但保留原实体数量与保底进度",
 			(int)gate["ready"] && (int)gate["substitute_ready"] &&
-				(int)gate["count"]==0 && (int)gate["pity"]==6,
+				(int)gate["count"]==0 && (int)gate["pity"]==4,
 				sprintf("gate=%O",gate));
 
 			mapping forged=copy_value(journey);

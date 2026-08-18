@@ -1078,7 +1078,7 @@ void fight_die_single(object env)
 		//end of evan added 2008-04-24
 		object ob = ITEMSD->get_item(this_object()->query_level(),
 			first->query_level(),first->query_lunck()+pro_add,
-			PERSONAL_DIFFICULTYD->query_current_level(first));
+			PERSONAL_DIFFICULTYD->query_current_level(first),first);
 		//掉落特殊物品
 		object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
 		//掉落宝石 caijie 080807

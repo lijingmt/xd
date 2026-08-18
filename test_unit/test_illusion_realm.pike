@@ -130,6 +130,22 @@ int grant_quest_gate_items_for_test(object player,mapping chapter)
 	return 1;
 }
 
+int valid_route_epilogue_catalog(mapping story_config)
+{
+	mapping epilogues = mappingp(story_config["route_epilogues"]) ?
+		(mapping)story_config["route_epilogues"] : ([]);
+	if(sizeof(epilogues)!=3)
+		return 0;
+	foreach(({"pioneer","hunter","companion"}),string route){
+		mapping epilogue = mappingp(epilogues[route]) ?
+			(mapping)epilogues[route] : ([]);
+		if(sizeof(((string)epilogue["text"])/"\n")!=5 ||
+		   sizeof((string)epilogue["title"])<2)
+			return 0;
+	}
+	return 1;
+}
+
 int bootstrap_character(object player,string race_id,string profession_id)
 {
 	object login_room = (object)(ROOT+"/gamelib/d/init");
@@ -296,14 +312,17 @@ int main()
 			sprintf("structure=%d intros=%d outros=%d",
 				story_novel_structure_valid,sizeof(story_intros),
 				sizeof(story_outros)));
-		check("九卷剧情卡点从15%平滑降至终章1/1000并设单月可达硬保底",
+		check("九卷剧情卡点从20%平滑降至终章2%且硬保底不超过50只",
 			story_quest_gates==9 &&
-			equal(story_gate_rates,({1500,800,400,200,100,50,25,15,10})) &&
+			equal(story_gate_rates,({2000,1500,1000,800,600,500,400,300,200})) &&
 			equal(story_gate_pities,
-				({7,13,25,50,100,200,400,667,1000})),
+				({5,7,10,13,17,20,25,34,50})),
 			sprintf("gates=%d rates=%O pities=%O",story_quest_gates,
 				story_gate_rates,story_gate_pities));
 		array story_quiz = (array)story_config["quiz"];
+		check("三条命途各有五段原创终幕且不改变统一正史结局",
+			valid_route_epilogue_catalog(story_config),
+			sprintf("epilogues=%O",story_config["route_epilogues"]));
 		int story_quiz_valid = sizeof(story_quiz)==10;
 		foreach(story_quiz;int quiz_index;mapping question){
 			multiset(string) options = (<>);
@@ -1162,6 +1181,11 @@ int main()
 		boss_probe_state["story_events"] = ([]);
 		child["/plus/illusion_realm/S1"] = boss_probe_state;
 		mapping boss_probe_progress = SEASONALD->query_player_progress(child);
+		mapping fog_gate_chapter = (mapping)((array)
+			boss_probe_progress["chapters"])[17];
+		int boss_probe_gate_ready = grant_quest_gate_items_for_test(
+			child,fog_gate_chapter);
+		boss_probe_progress = SEASONALD->query_player_progress(child);
 		mapping fog_boss_chapter = (mapping)((array)
 			boss_probe_progress["chapters"])[17];
 		child["/plus/illusion_realm/S1"] = fresh_story_state;
@@ -1192,6 +1216,7 @@ int main()
 			sprintf("progress=%O echo=%O quiz=%O",corrupt_claim_progress,
 				corrupt_claim_echo,forged_complete_quiz));
 		check("剧情首领返回服务端可信战斗ID供到达页直接挑战",
+			boss_probe_gate_ready &&
 			(string)fog_boss_chapter["target_kind"]=="story_boss" &&
 			(string)fog_boss_chapter["target_name"]=="雾誓守关者" &&
 			(string)fog_boss_chapter["target_combat_name"]==

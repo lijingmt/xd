@@ -168,7 +168,10 @@ private string quest_view(mapping view)
 		s += "\n当前卷支线已经完成；推进主线到下一卷后继续开放。\n";
 	return s+"[月下偶遇:illusion_journey encounter]|"+
 		"[月蚀回廊:illusion_journey echo]|"+
+		"[九卷卷印试炼:illusion_journey signatures]|"+
+		"[命途历练:illusion_journey route]|"+
 		"[同心筑月:illusion_journey community]\n"+
+		"[月相契印:illusion_journey pacts]|[套装定向:illusion_journey loot]|"+
 		"[月忆兽:illusion_journey pet]|[行旅秘术:illusion_journey secrets]|"+
 		"[旅途共鸣:illusion_journey resonance]\n"+
 		"[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
@@ -270,6 +273,7 @@ private string encounter_view(mapping view)
 		s += "继续参与S1真实战斗即可遇见下一场事件；约还需 "+
 			(string)(int)encounter["remaining_kills"]+" 次击杀。\n";
 	return s+"[同心筑月:illusion_journey community]|"+
+		"[套装定向:illusion_journey loot]|"+
 		"[返回九卷支线:illusion_journey quests]|[返回游戏:look]\n";
 }
 
@@ -293,6 +297,127 @@ private string echo_view(mapping view)
 				"[⚔ 查找并挑战目标:illusion_journey echo challenge]\n";
 	}
 	return s+"[同心筑月:illusion_journey community]|"+
+		"[套装定向:illusion_journey loot]|"+
+		"[返回九卷支线:illusion_journey quests]|[返回游戏:look]\n";
+}
+
+private string signature_view(mapping view)
+{
+	mapping signatures = (mapping)view["signatures"];
+	mapping current = mappingp(signatures["current"]) ?
+		(mapping)signatures["current"] : ([]);
+	string s = "【新月回响·九卷卷印试炼】\n";
+	s += "每卷一套三阶段标志试炼：场景仪式、主题追猎、卷主再战。"+
+		"这是可选补完，不阻塞八十一章主线与赛季结算。\n";
+	s += "已完成："+(string)(int)signatures["completed"]+"/9\n";
+	foreach((array)signatures["rows"],mapping row)
+		s += ((int)row["completed"] ? "§g【已完成】§r " :
+			((int)row["unlocked"] ? "§y【进行中】§r " : "【未开放】"))+
+			"第"+(string)(int)row["volume"]+"卷·"+(string)row["title"]+
+			"　"+(string)row["mechanic"]+"\n";
+	if(sizeof(current)){
+		mapping stage = (mapping)current["current_stage"];
+		s += "\n【当前试炼·"+(string)current["title"]+"】\n"+
+			"第"+(string)((int)current["stage"]+1)+"/3阶段·"+
+			(string)stage["title"]+"\n"+(string)stage["text"]+"\n"+
+			"地点："+(string)stage["location"]+"\n";
+		if((string)stage["kind"]=="ritual")
+			s += "[▶ 一键前往仪式地点:illusion_journey signatures travel]|"+
+				"[完成场景仪式:illusion_journey signatures ritual]\n";
+		else
+			s += "目标："+(string)stage["target_name"]+" "+
+				(string)(int)current["kills"]+"/"+
+				(string)(int)current["required_kills"]+"\n"+
+				"[▶ 一键前往试炼战场:illusion_journey signatures travel]|"+
+				"[⚔ 查找并挑战目标:illusion_journey signatures challenge]|"+
+				"[挂机至本阶段完成:illusion_journey signatures hunt]\n";
+	}
+	else if((int)view["chapter_claimed"]>=81)
+		s += "\n九卷卷印试炼已经全部完成。\n";
+	else
+		s += "\n完成当前卷九章后开放下一套卷印试炼。\n";
+	return s+"[命途历练:illusion_journey route]|"+
+		"[月相契印:illusion_journey pacts]|[返回九卷支线:illusion_journey quests]|"+
+		"[返回游戏:look]\n";
+}
+
+private string route_arc_view(mapping view)
+{
+	mapping route = (mapping)view["route_arc"];
+	mapping current = mappingp(route["current"]) ?
+		(mapping)route["current"] : ([]);
+	string s = "【新月回响·命途历练】\n";
+	if(!(int)route["available"])
+		s += "选择寻月、逐影或同行命途后开放专属历练。\n";
+	else{
+		s += (string)route["title"]+"\n"+(string)route["description"]+"\n"+
+			"进度："+(string)(int)route["stage"]+"/6\n";
+		if((int)route["path_mismatch"])
+			s += "§r命途档案与角色选择不一致，已冻结覆盖写入。§r\n";
+		else if((int)route["completed"])
+			s += "六段命途篇章已经全部完成。\n";
+		else if(sizeof(current)){
+			s += "\n【当前段·"+(string)current["title"]+"】\n"+
+				"目标："+(string)current["target_name"]+" "+
+				(string)(int)current["kills"]+"/"+
+				(string)(int)current["required_kills"]+"　地点："+
+				(string)current["location"]+"\n";
+			if(!(int)current["unlocked"])
+				s += "推进主线至第"+
+					(string)(int)current["unlock_claimed"]+"章后开放。\n";
+			else
+				s += "[▶ 一键前往命途目标:illusion_journey route travel]|"+
+					"[⚔ 查找并挑战目标:illusion_journey route challenge]|"+
+					"[挂机至本段完成:illusion_journey route hunt]\n";
+		}
+	}
+	return s+"[九卷卷印试炼:illusion_journey signatures]|"+
+		"[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
+}
+
+private string pact_view(mapping view)
+{
+	mapping pacts = (mapping)view["pacts"];
+	string s = "【新月回响·月相契印】\n";
+	s += "契印槽："+(string)sizeof((array)pacts["active"])+"/"+
+		(string)(int)pacts["slots"]+"　S1 PVE输出："+
+		(string)(int)pacts["outgoing_percent"]+"%　承伤："+
+		(string)(int)pacts["incoming_percent"]+"%\n";
+	s += "第18、45、72章各开放一槽；所有增益都伴随风险。PVP、永恒服、"+
+		"地图分配与掉率完全不受影响。\n\n";
+	foreach((array)pacts["catalog"],mapping pact){
+		s += ((int)pact["active"] ? "§g【已装配】§r " : "【未装配】")+
+			(string)pact["name"]+"　输出"+
+			((int)pact["outgoing_delta"]>=0 ? "+" : "")+
+			(string)(int)pact["outgoing_delta"]+"%　承伤"+
+			((int)pact["incoming_delta"]>=0 ? "+" : "")+
+			(string)(int)pact["incoming_delta"]+"%\n"+
+			(string)pact["description"]+"\n"+
+			"["+((int)pact["active"] ? "卸下" : "装配")+
+			(string)pact["name"]+":illusion_journey pacts toggle "+
+			(string)pact["id"]+"]\n";
+	}
+	return s+"[九卷卷印试炼:illusion_journey signatures]|"+
+		"[返回九卷支线:illusion_journey quests]|[返回游戏:look]\n";
+}
+
+private string loot_focus_view(mapping view)
+{
+	mapping focus = (mapping)view["loot_focus"];
+	string s = "【新月回响·套装定向】\n";
+	if(!(int)focus["available"])
+		s += "完成S1八十一章后开放。\n";
+	else{
+		s += "当前定向："+(string)focus["name"]+"\n";
+		s += "定向只在一次合法命中新月套装时，把模板缩小到本职业指定部位；"+
+			"不提高掉率、品质或词缀，也不影响组队公共掉落。\n";
+		s += "[取消定向:illusion_journey loot all]\n";
+		foreach((array)focus["catalog"],mapping row)
+			s += ((int)row["active"] ? "§g【当前】§r " : "")+
+				"[定向"+(string)row["name"]+":illusion_journey loot "+
+				(string)row["id"]+"]\n";
+	}
+	return s+"[月蚀回廊:illusion_journey echo]|"+
 		"[返回九卷支线:illusion_journey quests]|[返回游戏:look]\n";
 }
 
@@ -313,7 +438,7 @@ private string community_view(mapping view)
 			(string)milestone["name"]+" "+
 			(string)(int)milestone["points"]+"点\n"+
 			(string)milestone["text"]+"\n";
-	s += "\n贡献来自月下偶遇与月蚀回廊，只解锁共同叙事，不改变个人伤害、掉率或排行榜。\n";
+	s += "\n贡献来自月下偶遇、月蚀回廊、卷印试炼与命途历练；只解锁共同叙事，不改变个人伤害、掉率或排行榜。\n";
 	return s+"[月下偶遇:illusion_journey encounter]|"+
 		"[月蚀回廊:illusion_journey echo]|[返回游戏:look]\n";
 }
@@ -417,6 +542,69 @@ int main(string|zero arg)
 			"当前没有可挑战的月蚀回廊目标。\n[返回月蚀回廊:illusion_journey echo]|[返回游戏:look]\n");
 		return 1;
 	}
+	if(sizeof(parts)>=2 && parts[0]=="signatures" && parts[1]=="travel"){
+		result = ILLUSION_JOURNEYD->travel_to_signature_target(me);
+		write((string)result["message"]+"\n"+
+			"[继续卷印试炼:illusion_journey signatures]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="signatures" && parts[1]=="ritual"){
+		result = ILLUSION_JOURNEYD->perform_signature_ritual(me);
+		write((string)result["message"]+"\n"+
+			"[继续卷印试炼:illusion_journey signatures]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="signatures" && parts[1]=="hunt"){
+		result = ILLUSION_JOURNEYD->start_signature_hunt(me);
+		write((string)result["message"]+"\n"+
+			"[继续卷印试炼:illusion_journey signatures]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="signatures" && parts[1]=="challenge"){
+		mapping signatures = (mapping)view["signatures"];
+		mapping current = mappingp(signatures["current"]) ?
+			(mapping)signatures["current"] : ([]);
+		mapping target = mappingp(current["current_stage"]) ?
+			(mapping)current["current_stage"] : ([]);
+		write(sizeof(target) && (string)target["kind"]!="ritual" ?
+			target_challenge_view(me,target,"卷印试炼",
+				"illusion_journey signatures") :
+			"当前没有可挑战的卷印目标。\n[返回卷印试炼:illusion_journey signatures]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="route" && parts[1]=="travel"){
+		result = ILLUSION_JOURNEYD->travel_to_route_arc_target(me);
+		write((string)result["message"]+"\n"+
+			"[继续命途历练:illusion_journey route]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="route" && parts[1]=="hunt"){
+		result = ILLUSION_JOURNEYD->start_route_arc_hunt(me);
+		write((string)result["message"]+"\n"+
+			"[继续命途历练:illusion_journey route]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="route" && parts[1]=="challenge"){
+		mapping route = (mapping)view["route_arc"];
+		mapping target = mappingp(route["current"]) ?
+			(mapping)route["current"] : ([]);
+		write(sizeof(target) && (int)target["unlocked"] ?
+			target_challenge_view(me,target,"命途历练","illusion_journey route") :
+			"当前没有可挑战的命途目标。\n[返回命途历练:illusion_journey route]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=3 && parts[0]=="pacts" && parts[1]=="toggle"){
+		result = ILLUSION_JOURNEYD->toggle_pact(me,parts[2]);
+		write((string)result["message"]+"\n"+
+			"[返回月相契印:illusion_journey pacts]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(sizeof(parts)>=2 && parts[0]=="loot"){
+		result = ILLUSION_JOURNEYD->set_loot_focus(me,parts[1]);
+		write((string)result["message"]+"\n"+
+			"[返回套装定向:illusion_journey loot]|[返回游戏:look]\n");
+		return 1;
+	}
 	if(sizeof(parts)>=2 && parts[0]=="use"){
 		result = ILLUSION_JOURNEYD->use_secret(me,parts[1]);
 		write((string)result["message"]+"\n[返回行旅秘术:illusion_journey secrets]|"+
@@ -450,6 +638,14 @@ int main(string|zero arg)
 		write(encounter_view(view));
 	else if(sizeof(parts) && parts[0]=="echo")
 		write(echo_view(view));
+	else if(sizeof(parts) && parts[0]=="signatures")
+		write(signature_view(view));
+	else if(sizeof(parts) && parts[0]=="route")
+		write(route_arc_view(view));
+	else if(sizeof(parts) && parts[0]=="pacts")
+		write(pact_view(view));
+	else if(sizeof(parts) && parts[0]=="loot")
+		write(loot_focus_view(view));
 	else if(sizeof(parts) && parts[0]=="community")
 		write(community_view(view));
 	else if(sizeof(parts) && parts[0]=="resonance")

@@ -432,6 +432,12 @@ private string story_quiz_view(mapping quiz)
 		return s+(string)quiz["message"]+
 			"\n[返回当前历程:illusion_realm]|[返回游戏:look]\n";
 	s += (string)quiz["intro"]+"\n";
+	if(mappingp(quiz["route_epilogue"]) &&
+	   sizeof((mapping)quiz["route_epilogue"])){
+		mapping route_epilogue = (mapping)quiz["route_epilogue"];
+		s += "\n【命途终幕·"+(string)route_epilogue["title"]+"】\n"+
+			(string)route_epilogue["text"]+"\n";
+	}
 	if((int)quiz["attempts"]>0)
 		s += "挑战次数："+(string)(int)quiz["attempts"]+
 			"　最高分："+(string)(int)quiz["best_score"]+"/10"+

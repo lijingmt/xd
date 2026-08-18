@@ -259,11 +259,25 @@ private int valid_chapter(mapping chapter,string illusion_id)
 private int valid_story_quiz(mapping decoded,string illusion_id)
 {
 	array quiz;
+	mapping route_epilogues;
 	multiset(string) ids = (<>);
 	if(!valid_novel_section(decoded["quiz_intro"],3,20,90) ||
 	   !valid_novel_section(decoded["quiz_epilogue"],5,24,180) ||
+	   !mappingp(decoded["route_epilogues"]) ||
 	   !arrayp(decoded["quiz"]))
 		return 0;
+	route_epilogues = (mapping)decoded["route_epilogues"];
+	if(sizeof(route_epilogues)!=3)
+		return 0;
+	foreach(({"pioneer","hunter","companion"}),string path){
+		mapping epilogue = mappingp(route_epilogues[path]) ?
+			(mapping)route_epilogues[path] : ([]);
+		if(sizeof(epilogue)!=2 || !stringp(epilogue["title"]) ||
+		   sizeof((string)epilogue["title"])<2 ||
+		   sizeof((string)epilogue["title"])>96 ||
+		   !valid_novel_section(epilogue["text"],5,24,180))
+			return 0;
+	}
 	quiz = (array)decoded["quiz"];
 	if(sizeof(quiz)!=10)
 		return 0;
@@ -425,6 +439,16 @@ private mapping(string:mixed) load_story_config(mapping candidate)
 		(string)decoded["quiz_intro"]);
 	candidate["quiz_epilogue"] = normalize_novel_section(
 		(string)decoded["quiz_epilogue"]);
+	candidate["route_epilogues"] = ([]);
+	foreach(({"pioneer","hunter","companion"}),string path){
+		mapping source_epilogue = (mapping)((mapping)
+			decoded["route_epilogues"])[path];
+		((mapping)candidate["route_epilogues"])[path] = ([
+			"title":(string)source_epilogue["title"],
+			"text":normalize_novel_section(
+				(string)source_epilogue["text"]),
+		]);
+	}
 	return candidate;
 }
 
@@ -494,39 +518,39 @@ private int valid_config(mapping candidate)
 		8:(["event":"life_collector","id":"mortal_lifespan_thread",
 			"item":"/gamelib/clone/item/other/illusion_s1_lifespan_thread",
 			"source":"/gamelib/clone/npc/illusion_s1/moon_wisp.pike",
-			"rate":1500,"pity":7]),
+			"rate":2000,"pity":5]),
 		17:(["event":"fog_trial_warden","id":"fog_oath_leaf",
 			"item":"/gamelib/clone/item/other/illusion_s1_fog_oath_leaf",
 			"source":"/gamelib/clone/npc/illusion_s1/fog_wolf.pike",
-			"rate":800,"pity":13]),
+			"rate":1500,"pity":7]),
 		26:(["event":"empty_sutra_abbot","id":"nameless_bone_shard",
 			"item":"/gamelib/clone/item/other/illusion_s1_nameless_bone_shard",
 			"source":"/gamelib/clone/npc/illusion_s1/mirror_spider.pike",
-			"rate":400,"pity":25]),
+			"rate":1000,"pity":10]),
 		35:(["event":"mirror_weaver","id":"mirror_heart_shard",
 			"item":"/gamelib/clone/item/other/illusion_s1_mirror_heart_shard",
 			"source":"/gamelib/clone/npc/illusion_s1/ruin_guard.pike",
-			"rate":200,"pity":50]),
+			"rate":800,"pity":13]),
 		44:(["event":"frozen_age_king","id":"beiju_memory_crystal",
 			"item":"/gamelib/clone/item/other/illusion_s1_memory_crystal",
 			"source":"/gamelib/clone/npc/illusion_s1/star_wraith.pike",
-			"rate":100,"pity":100]),
+			"rate":600,"pity":17]),
 		53:(["event":"frost_inquisitor","id":"snow_verdict_seal",
 			"item":"/gamelib/clone/item/other/illusion_s1_snow_verdict_seal",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":50,"pity":200]),
+			"rate":500,"pity":20]),
 		62:(["event":"dongsheng_fusang_flame","id":"dawn_flame_seed",
 			"item":"/gamelib/clone/item/other/illusion_s1_dawn_flame_seed",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":25,"pity":400]),
+			"rate":400,"pity":25]),
 		71:(["event":"eclipse_priest","id":"moon_furnace_life_rune",
 			"item":"/gamelib/clone/item/other/illusion_s1_life_rune",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":15,"pity":667]),
+			"rate":300,"pity":34]),
 		80:(["event":"newmoon_lord_truth","id":"human_world_true_name",
 			"item":"/gamelib/clone/item/other/illusion_s1_human_world_true_name",
 			"source":"/gamelib/clone/npc/illusion_s1/abyss_beast.pike",
-			"rate":10,"pity":1000]),
+			"rate":200,"pity":50]),
 	]);
 	if(!mappingp(candidate) || (int)candidate["version"]!=1 ||
 	   !valid_identifier((string)candidate["current_id"]) ||
@@ -2136,18 +2160,11 @@ private mapping(string:mixed) current_quest_item_gate_for_kill(
 	array chapters = (array)(config["chapters"] || ({}));
 	int index = claimed_chapter_count(progress);
 	mapping chapter;
-	mapping events;
 	mapping gate;
-	string event_id;
 	if(index<0 || index>=sizeof(chapters))
 		return ([]);
 	chapter = (mapping)chapters[index];
 	if(!mappingp(chapter["quest_item_gate"]))
-		return ([]);
-	event_id = (string)(chapter["story_event"] || "");
-	events = mappingp(progress["story_events"]) ?
-		(mapping)progress["story_events"] : ([]);
-	if(event_id!="" && !(int)events[event_id])
 		return ([]);
 	gate = quest_item_gate_status(player,progress,chapter);
 	if((int)gate["ready"] ||
@@ -3390,6 +3407,16 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 	mapping target;
 	mapping quest_gate = mappingp(progress["chapter_quest_item_gate"]) ?
 		(mapping)progress["chapter_quest_item_gate"] : ([]);
+	// 卷末信物是进入首领剧情前的准备，不应在高潮战结束后再把玩家
+	// 赶回普通猎场。旧档案已经完成剧情但尚缺信物时仍会落到此分支，
+	// 因而可以安全补齐并继续领取，不需要回滚任何既有剧情标记。
+	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"])
+		return ([
+			"kind":"hunt","name":(string)quest_gate["source_name"],
+			"location":(string)quest_gate["source_location"],
+			"room":(string)quest_gate["source_room"],
+			"combat_name":"",
+		]);
 	if(sizeof(story_definition) && !story_ready){
 		string event_room = story_event_target_room(story_definition);
 		target = ([
@@ -3406,13 +3433,6 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 		]);
 		return target;
 	}
-	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"])
-		return ([
-			"kind":"hunt","name":(string)quest_gate["source_name"],
-			"location":(string)quest_gate["source_location"],
-			"room":(string)quest_gate["source_room"],
-			"combat_name":"",
-		]);
 	if((int)progress["kills"]<(int)requirements["kills"] ||
 	   player_level<(int)requirements["min_level"])
 		return story_hunt_target_for_level(progress,
@@ -3706,7 +3726,7 @@ private mapping(string:mixed) story_quiz_public_view(mapping progress)
 		"intro":(string)config["quiz_intro"],
 		"status":"locked","attempts":0,"best_score":0,
 		"best_title":"","last_score":0,"question":([]),
-		"perfect":0,"epilogue":"",
+		"perfect":0,"epilogue":"","route_epilogue":([]),
 	]);
 	mixed raw = progress["story_quiz"];
 	if(!(int)result["unlocked"]){
@@ -3715,6 +3735,13 @@ private mapping(string:mixed) story_quiz_public_view(mapping progress)
 	}
 	result["status"] = "ready";
 	result["message"] = "长生十问已经开启，可随时开始或重新挑战。";
+	mapping route_epilogues = mappingp(config["route_epilogues"]) ?
+		(mapping)config["route_epilogues"] : ([]);
+	mapping route_epilogue = mappingp(route_epilogues[
+		(string)progress["path"]]) ?
+		(mapping)route_epilogues[(string)progress["path"]] : ([]);
+	if(sizeof(route_epilogue))
+		result["route_epilogue"] = copy_value(route_epilogue);
 	if(!raw)
 		return result;
 	if(!valid_story_quiz_progress(raw))

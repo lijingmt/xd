@@ -149,13 +149,15 @@ int main()
 				shelf_money-player->query_account(),
 				sizeof(all_inventory(player))-shelf_inventory));
 
+		int hidden_amount_before=amount_of(player,"xiaohuandan");
 		int before_money=player->query_account();
 		ordinary->main("food/xiaohuandan 5");
 		check("普通商店拒绝绕过当前房间货架购买隐藏药品",
-			amount_of(player,"xiaohuandan")==0 &&
+			amount_of(player,"xiaohuandan")==hidden_amount_before &&
 			player->query_account()==before_money,
-			sprintf("amount=%d money=%d",amount_of(player,"xiaohuandan"),
-				player->query_account()));
+			sprintf("amount=%d/%d money=%d/%d",
+				amount_of(player,"xiaohuandan"),hidden_amount_before,
+				player->query_account(),before_money));
 
 		string ordinary_detail_source=Stdio.read_file(ROOT+
 			"/lowlib/wapmud2/cmds/buy_detail.pike");

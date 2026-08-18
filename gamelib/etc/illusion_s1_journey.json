@@ -1,7 +1,7 @@
 {
   "version": 1,
   "illusion_id": "S1",
-  "feature_revision": 3,
+  "feature_revision": 4,
   "display_name": "新月支线·九卷秘迹",
   "side_quests": [
     {
@@ -186,6 +186,145 @@
         {"location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","target_path":"/gamelib/clone/npc/illusion_s1/sunrise_guardian.pike","target_name":"东胜朝生君"}
       ]
     }
+  ],
+  "signature_trials": [
+    {
+      "id":"names_under_moon","volume":1,"unlock_claimed":9,
+      "title":"月下还名阵","mechanic":"辨认真名、截断寿契、再战司寿使",
+      "stages":[
+        {"kind":"ritual","title":"照见残名","text":"在月露中按原笔画写回被刮去的姓名。","location":"月露原","room":"/gamelib/d/illusion_s1/moon_dew_field.pike"},
+        {"kind":"hunt","title":"截断寿契","text":"击碎正在续写寿契的墨魇。","location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike","target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇","required_kills":3},
+        {"kind":"boss","title":"司寿断线","text":"让司寿使亲眼看见凡人的名字不再是价码。","location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","target_path":"/gamelib/clone/npc/illusion_s1/life_collector.pike","target_name":"南瞻司寿使","required_kills":1}
+      ]
+    },
+    {
+      "id":"oath_in_fog","volume":2,"unlock_claimed":18,
+      "title":"雾誓双声阵","mechanic":"校准两段证词、击破伪声、再战守关者",
+      "stages":[
+        {"kind":"ritual","title":"合上半句","text":"把药碗两侧的誓言拼成完整一句。","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike"},
+        {"kind":"hunt","title":"分辨伪声","text":"只击破与真实誓言节拍不同的残影。","location":"雾语林","room":"/gamelib/d/illusion_s1/fog_forest.pike","target_path":"/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike","target_name":"雾誓残影","required_kills":3},
+        {"kind":"boss","title":"雾尽见路","text":"令守关者同时听见承诺与代价。","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","target_path":"/gamelib/clone/npc/illusion_s1/fog_trial_warden.pike","target_name":"雾誓守关者","required_kills":1}
+      ]
+    },
+    {
+      "id":"sutra_without_price_trial","volume":3,"unlock_claimed":27,
+      "title":"无价空经阵","mechanic":"拒绝标价、清理经傀、再战空经尊者",
+      "stages":[
+        {"kind":"ritual","title":"空页立誓","text":"在空经上写下“道不先把自己标价”。","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike"},
+        {"kind":"hunt","title":"撕去价签","text":"击破替真理开价的无价经傀。","location":"西牛万法集","room":"/gamelib/d/illusion_s1/xiniu_scripture_market.pike","target_path":"/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike","target_name":"无价经傀","required_kills":3},
+        {"kind":"boss","title":"经页归人","text":"让空经尊者回答贫寒者是否也配问道。","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","target_path":"/gamelib/clone/npc/illusion_s1/empty_sutra_abbot.pike","target_name":"西牛空经尊者","required_kills":1}
+      ]
+    },
+    {
+      "id":"mirror_seventh_year","volume":4,"unlock_claimed":36,
+      "title":"镜湖七年阵","mechanic":"拒绝完美旧梦、击穿倒影、再战沉月镜主",
+      "stages":[
+        {"kind":"ritual","title":"承认遗憾","text":"面对没有被美化的七年，亲口承认迟到与误解。","location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike"},
+        {"kind":"hunt","title":"破除甜梦","text":"击碎诱你停在圆满假象里的镜妖。","location":"镜沙洲","room":"/gamelib/d/illusion_s1/mirror_sandbar.pike","target_path":"/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike","target_name":"沉月镜妖","required_kills":3},
+        {"kind":"boss","title":"照水问真","text":"令镜主只保留真实发生过的裂纹。","location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","target_path":"/gamelib/clone/npc/illusion_s1/mirror_weaver.pike","target_name":"沉月镜主","required_kills":1}
+      ]
+    },
+    {
+      "id":"borrowed_yesterday_trial","volume":5,"unlock_claimed":45,
+      "title":"昨日留霜阵","mechanic":"找回气味、唤醒昨日、再战冻龄王",
+      "stages":[
+        {"kind":"ritual","title":"闻见红巾","text":"以药草、风雪与血的气味唤回一个具体的昨日。","location":"北俱断誓坡","room":"/gamelib/d/illusion_s1/beiju_broken_oath.pike"},
+        {"kind":"hunt","title":"驱散忘日","text":"击破吞食昨日的冰魇。","location":"北俱不老荒原","room":"/gamelib/d/illusion_s1/beiju_longlife_waste.pike","target_path":"/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike","target_name":"忘日冰魇","required_kills":3},
+        {"kind":"boss","title":"替你记得","text":"让冻龄王面对永生却没有昨日的代价。","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","target_path":"/gamelib/clone/npc/illusion_s1/frozen_age_king.pike","target_name":"北俱冻龄王","required_kills":1}
+      ]
+    },
+    {
+      "id":"testimony_in_snow","volume":6,"unlock_claimed":54,
+      "title":"雪上共证阵","mechanic":"复原逐徒令、清除伪证、再战雪审使",
+      "stages":[
+        {"kind":"ritual","title":"校准掌痕","text":"按裂口方向复原那一掌最后偏开的三分。","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike"},
+        {"kind":"hunt","title":"清除伪证","text":"击败试图改写证词顺序的雪卫。","location":"回声古城","room":"/gamelib/d/illusion_s1/echo_ruins.pike","target_path":"/gamelib/clone/npc/illusion_s1/false_testimony_guard.pike","target_name":"伪证雪卫","required_kills":3},
+        {"kind":"boss","title":"四证同现","text":"迫使雪审使在四份互相印证的证据前撤回旧案。","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/frost_inquisitor.pike","target_name":"冻宫雪审使","required_kills":1}
+      ]
+    },
+    {
+      "id":"one_day_home_trial","volume":7,"unlock_claimed":63,
+      "title":"朝暮一日阵","mechanic":"兑现当日承诺、护送晨信、再战朝生君",
+      "stages":[
+        {"kind":"ritual","title":"约定今日","text":"不许诺永远，只写下今天绝不逃走的一件事。","location":"东胜朝生港","room":"/gamelib/d/illusion_s1/dongsheng_morning_port.pike"},
+        {"kind":"hunt","title":"晨信抵暮","text":"击破想让信件永远到不了黄昏的朝暮信魇。","location":"坠星园","room":"/gamelib/d/illusion_s1/starfall_garden.pike","target_path":"/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike","target_name":"朝暮信魇","required_kills":3},
+        {"kind":"boss","title":"有限成约","text":"让朝生君承认短暂的一日也能拥有完整意义。","location":"东胜扶桑坛","room":"/gamelib/d/illusion_s1/dongsheng_fusang_altar.pike","target_path":"/gamelib/clone/npc/illusion_s1/sunrise_guardian.pike","target_name":"东胜朝生君","required_kills":1}
+      ]
+    },
+    {
+      "id":"fourth_shadow_trial","volume":8,"unlock_claimed":72,
+      "title":"灯下辨伪阵","mechanic":"校验书写次序、击灭伪影、再战司炉者",
+      "stages":[
+        {"kind":"ritual","title":"排定残方","text":"按纸纹、墨龄与火痕重新排列四张长生残方。","location":"隐月环坑","room":"/gamelib/d/illusion_s1/hidden_crater.pike"},
+        {"kind":"hunt","title":"熄灭第四影","text":"击破始终跟随祝无晷灯火的第四种影子。","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike","target_name":"第四影灯奴","required_kills":3},
+        {"kind":"boss","title":"命符显真","text":"令司炉者无法再把活人写成长生药引。","location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","target_path":"/gamelib/clone/npc/illusion_s1/eclipse_priest.pike","target_name":"无影司炉者","required_kills":1}
+      ]
+    },
+    {
+      "id":"ledger_of_names_trial","volume":9,"unlock_claimed":81,
+      "title":"人间名册阵","mechanic":"点亮九灯、击退空名月侍、终战归真月主",
+      "stages":[
+        {"kind":"ritual","title":"九灯还名","text":"以九卷见证逐盏点亮归真台上的人间引路灯。","location":"无垢月宫","room":"/gamelib/d/illusion_s1/moon_palace.pike"},
+        {"kind":"hunt","title":"驱散空名","text":"击退只剩称号却不愿承担代价的月侍。","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike","target_name":"空名月侍","required_kills":3},
+        {"kind":"boss","title":"人间值得","text":"与归真月主再战一次，用完整名册为本期故事封卷。","location":"新月归真台","room":"/gamelib/d/illusion_s1/newmoon_altar.pike","target_path":"/gamelib/clone/npc/illusion_s1/newmoon_lord.pike","target_name":"S1归真月主","required_kills":1}
+      ]
+    }
+  ],
+  "route_arcs": {
+    "pioneer": {
+      "title":"寻月者·见微知著","description":"从被忽略的小证据里还原真相。",
+      "stages":[
+        {"unlock_claimed":9,"title":"残墨寻名","location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike","target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇","required_kills":2},
+        {"unlock_claimed":18,"title":"雾中校词","location":"雾语林","room":"/gamelib/d/illusion_s1/fog_forest.pike","target_path":"/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike","target_name":"雾誓残影","required_kills":2},
+        {"unlock_claimed":27,"title":"空页辨价","location":"西牛万法集","room":"/gamelib/d/illusion_s1/xiniu_scripture_market.pike","target_path":"/gamelib/clone/npc/illusion_s1/unpriced_sutra_puppet.pike","target_name":"无价经傀","required_kills":2},
+        {"unlock_claimed":45,"title":"冰墙寻字","location":"北俱冻龄宫","room":"/gamelib/d/illusion_s1/beiju_frozen_palace.pike","target_path":"/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike","target_name":"忘日冰魇","required_kills":2},
+        {"unlock_claimed":63,"title":"暮信追迹","location":"坠星园","room":"/gamelib/d/illusion_s1/starfall_garden.pike","target_path":"/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike","target_name":"朝暮信魇","required_kills":2},
+        {"unlock_claimed":72,"title":"灯影定序","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/fourth_shadow_lamp_servant.pike","target_name":"第四影灯奴","required_kills":2}
+      ]
+    },
+    "hunter": {
+      "title":"逐影者·破局追凶","description":"沿九卷主谋留下的战痕逐层追击。",
+      "stages":[
+        {"unlock_claimed":9,"title":"断寿线","location":"南瞻生死祠","room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","target_path":"/gamelib/clone/npc/illusion_s1/life_collector.pike","target_name":"南瞻司寿使","required_kills":1},
+        {"unlock_claimed":18,"title":"破雾门","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","target_path":"/gamelib/clone/npc/illusion_s1/fog_trial_warden.pike","target_name":"雾誓守关者","required_kills":1},
+        {"unlock_claimed":27,"title":"碎空经","location":"西牛空经殿","room":"/gamelib/d/illusion_s1/xiniu_empty_temple.pike","target_path":"/gamelib/clone/npc/illusion_s1/empty_sutra_abbot.pike","target_name":"西牛空经尊者","required_kills":1},
+        {"unlock_claimed":36,"title":"斩镜主","location":"镜湖沉月渊","room":"/gamelib/d/illusion_s1/mirror_depths.pike","target_path":"/gamelib/clone/npc/illusion_s1/mirror_weaver.pike","target_name":"沉月镜主","required_kills":1},
+        {"unlock_claimed":54,"title":"雪审对决","location":"冻宫雪审殿","room":"/gamelib/d/illusion_s1/frozen_judgment_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/frost_inquisitor.pike","target_name":"冻宫雪审使","required_kills":1},
+        {"unlock_claimed":72,"title":"直面司炉","location":"长生月炉","room":"/gamelib/d/illusion_s1/moon_immortality_furnace.pike","target_path":"/gamelib/clone/npc/illusion_s1/eclipse_priest.pike","target_name":"无影司炉者","required_kills":1}
+      ]
+    },
+    "companion": {
+      "title":"同行者·众生同路","description":"保护月忆、故人与共同承担者。",
+      "stages":[
+        {"unlock_claimed":9,"title":"护住姓名","location":"南瞻尘城","room":"/gamelib/d/illusion_s1/nanzhan_mortal_city.pike","target_path":"/gamelib/clone/npc/illusion_s1/nameless_ink_wraith.pike","target_name":"无名墨魇","required_kills":3},
+        {"unlock_claimed":18,"title":"守住半药","location":"雾林半药营","room":"/gamelib/d/illusion_s1/fog_oath_camp.pike","target_path":"/gamelib/clone/npc/illusion_s1/fog_oath_echo.pike","target_name":"雾誓残影","required_kills":3},
+        {"unlock_claimed":36,"title":"救回倒影","location":"倒月镜湖","room":"/gamelib/d/illusion_s1/mirror_lake.pike","target_path":"/gamelib/clone/npc/illusion_s1/drowned_mirror_demon.pike","target_name":"沉月镜妖","required_kills":3},
+        {"unlock_claimed":45,"title":"保存昨日","location":"北俱不老荒原","room":"/gamelib/d/illusion_s1/beiju_longlife_waste.pike","target_path":"/gamelib/clone/npc/illusion_s1/forgotten_day_ice_wraith.pike","target_name":"忘日冰魇","required_kills":3},
+        {"unlock_claimed":63,"title":"送信至暮","location":"坠星园","room":"/gamelib/d/illusion_s1/starfall_garden.pike","target_path":"/gamelib/clone/npc/illusion_s1/one_day_letter_wraith.pike","target_name":"朝暮信魇","required_kills":3},
+        {"unlock_claimed":72,"title":"守住真名","location":"归真名殿","room":"/gamelib/d/illusion_s1/true_name_hall.pike","target_path":"/gamelib/clone/npc/illusion_s1/nameless_moon_attendant.pike","target_name":"空名月侍","required_kills":3}
+      ]
+    }
+  },
+  "pact_slots": [18,45,72],
+  "pact_catalog": [
+    {"id":"dawn_edge","name":"朝锋契","description":"以更高承伤换取更快破局。","outgoing_delta":5,"incoming_delta":8},
+    {"id":"mortal_guard","name":"人间守契","description":"降低输出，换取更稳定的生存。","outgoing_delta":-3,"incoming_delta":-7},
+    {"id":"mirror_truth","name":"照真契","description":"拒绝完美幻象，以风险换取锋芒。","outgoing_delta":3,"incoming_delta":5},
+    {"id":"frost_memory","name":"留霜契","description":"放慢攻势，让昨日替你挡下一部分伤害。","outgoing_delta":-2,"incoming_delta":-5},
+    {"id":"oath_burning","name":"燃誓契","description":"承诺越重，攻守波动越明显。","outgoing_delta":4,"incoming_delta":6},
+    {"id":"returning_name","name":"归名契","description":"小幅收束攻势，并稳住承伤。","outgoing_delta":-1,"incoming_delta":-3}
+  ],
+  "loot_focus_catalog": [
+    {"id":"single_main_weapon","name":"主手武器"},
+    {"id":"armor_head","name":"头部"},
+    {"id":"armor_cloth","name":"胸部"},
+    {"id":"armor_waste","name":"腕部"},
+    {"id":"armor_hand","name":"手部"},
+    {"id":"armor_thou","name":"腿部"},
+    {"id":"armor_shoes","name":"脚部"},
+    {"id":"jewelry_ring","name":"戒指"},
+    {"id":"jewelry_neck","name":"项链"},
+    {"id":"jewelry_bangle","name":"手环"}
   ],
   "community_goal": {
     "title":"同心筑月",
