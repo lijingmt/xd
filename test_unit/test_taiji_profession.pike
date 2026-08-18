@@ -424,7 +424,7 @@ void test_account_character_limit_supports_taiji()
 	string src = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/account_characterd.pike");
 	int valid =
-		search(src,"\"third\":({\"fangshi\",\"zhenyue\",\"tianxiang\",\"lingyi\",\"wuxiang\",\"taiji\"})")!=-1;
+		search(src,"\"third\":({\"fangshi\",\"zhenyue\",\"tianxiang\",\"lingyi\",\"wuxiang\",\"taiji\"")!=-1;
 	if(valid) test_pass();
 	else test_fail("valid_professions[third] 未含 taiji");
 }

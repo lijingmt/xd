@@ -277,6 +277,9 @@ string render_guide(object player)
 		result += query_wuxiang_growth_guide(player);
 	else if(player->query_profeId()=="taiji")
 		result += query_taiji_growth_guide(player);
+	else if(player->query_profeId()=="zhaoming")
+		result += "照命传承不进入技能书商店；完成本人S1八十一章并达到120级后，按顺序完成七卷四十九难逐卷领悟。\n"+
+			"[查看幻境主线:illusion_realm]|[查看四十九难:illusion_hidden]|[查看技能:myskills]\n";
 	else
 		result += "[购买本职业技能书:buy_items book "+
 			player->query_profeId()+"]|[查看技能:myskills]\n";
@@ -316,6 +319,13 @@ string render_tutorial(object player)
 
 	if(!player)
 		return "无法读取人物状态。\n";
+	if(player->query_profeId()=="zhaoming")
+		return "【照命·归来者指引】\n"+
+			"你已用五个不同S1职业完成八十一章并达到120级，无需重复普通新手课程。\n"+
+			"照命本人仍须完成S1九卷八十一章；达到120级后，七卷四十九难才会开启。\n"+
+			"四十九难的狩猎、探索与首领都按真实行动记账，不能点击跳过。\n"+
+			"[查看幻境主线:illusion_realm]|[查看四十九难:illusion_hidden]\n"+
+			"[照命成长路线:newbie_guide roadmap]|[返回游戏:look]\n";
 	state = NEWBIED->query_step_state(player);
 	if(state["complete"]){
 		result += "【新手引导·已毕业】\n";
@@ -435,7 +445,14 @@ string query_profession_roadmap(string profession)
 			result += "太极·生生不息：致命伤自动复活，恢复 30% 生命，5 分钟冷却（PVP 可触发）。\n";
 			result += "太极·复阴：主动复活同房同队鬼魂队友，独立 5 分钟冷却。\n";
 			result += "[太极技能书:buy_items book taiji]|[查看技能:myskills]|[队伍:my_term]|[复活队友:taiji_fuyin]\n";
-			break;}
+			break;
+		case "zhaoming":
+			result += "照命：S1限定隐藏职业，以五个不同职业完整通关且达到120级的账号历程解锁。\n";
+			result += "照命诀为入门心法；照命本人完成八十一章并达到120级后，依次通过七卷四十九难。\n";
+			result += "每卷七难都要求真实狩猎、探索与首领战；卷末领悟专属传承，十个里程碑取得账号绑定寰极十件套。\n";
+			result += "[S1幻境主线:illusion_realm]|[七卷四十九难:illusion_hidden]|[查看技能:myskills]\n";
+			break;
+	}
 	return result;
 }
 
@@ -449,8 +466,11 @@ string render_roadmap(object player)
 	profession = player->query_profeId();
 	result += "【"+player->query_profe_cn(profession)+"·从入门到高阶】\n";
 	result += query_profession_roadmap(profession);
-	result += "[本职业技能书:buy_items book "+profession+
-		"]|[查看技能:myskills]\n\n";
+	if(profession=="zhaoming")
+		result += "[七卷四十九难:illusion_hidden]|[查看技能:myskills]\n\n";
+	else
+		result += "[本职业技能书:buy_items book "+profession+
+			"]|[查看技能:myskills]\n\n";
 
 	result += "【任务成长】\n";
 	result += "每一级领取职业历练；20级起留意职业挂件任务，53级完成本职业多段传承。"+

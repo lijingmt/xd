@@ -52,17 +52,22 @@ vm.runInNewContext(appSource, sandbox, { filename: 'app.js' });
 assert(componentOptions, 'Vue component should register');
 const client = Object.assign(componentOptions.data(), componentOptions.methods);
 
-assert.strictEqual(client.professionOptions.length, 12);
+assert.strictEqual(client.professionOptions.length, 13);
 assert.deepStrictEqual(
   [...new Set(client.professionOptions.map(option => option.profession_id))].length,
-  12
+  13
 );
 assert(client.professionOptions.some(option => option.profession_id === 'fangshi'));
 assert(client.professionOptions.some(option => option.profession_id === 'lingyi'));
 assert(client.professionOptions.some(option => option.profession_id === 'wuxiang'));
 assert(client.professionOptions.some(option => option.profession_id === 'taiji'));
+assert(client.professionOptions.some(option => option.profession_id === 'zhaoming'));
 assert.strictEqual(client.wuxiangUnlocked, false);
 assert.strictEqual(client.taijiUnlocked, false);
+assert.strictEqual(client.zhaomingUnlocked, false);
+assert.strictEqual(client.s1HiddenProfession.completed_count, 0);
+assert(!componentOptions.computed.visibleProfessionOptions.call(client)
+  .some(option => option.profession_id === 'zhaoming'));
 
 client.applyAccountData({
   token: 'a'.repeat(64),
@@ -74,6 +79,14 @@ client.applyAccountData({
   illusion_character_slots: 1,
   illusion_multi_character_unlocked: 0,
   illusion_expansion_spent_suiyu: 0,
+  zhaoming_unlocked: 1,
+  s1_hidden_profession: {
+    unlocked: true,
+    completed_count: 5,
+    required_count: 5,
+    required_level: 120,
+    message: '已满足照命创建条件。'
+  },
   illusion_realm: {
     ok: true,
     illusion_id: 'S1',
@@ -97,6 +110,17 @@ assert.strictEqual(client.illusionRealmStatus.creation_open, true);
 assert.strictEqual(client.illusionCharacterSlots, 1);
 assert.strictEqual(client.illusionMultiCharacterUnlocked, false);
 assert.strictEqual(client.illusionExpansionSpentSuiyu, 0);
+assert.strictEqual(client.zhaomingUnlocked, true);
+assert.strictEqual(client.s1HiddenProfession.completed_count, 5);
+assert(!componentOptions.computed.visibleProfessionOptions.call(client)
+  .some(option => option.profession_id === 'zhaoming'));
+client.characterForm.realm_type = 'illusion';
+assert(componentOptions.computed.visibleProfessionOptions.call(client)
+  .some(option => option.profession_id === 'zhaoming'));
+client.zhaomingUnlocked = false;
+assert(!componentOptions.computed.visibleProfessionOptions.call(client)
+  .some(option => option.profession_id === 'zhaoming'));
+client.zhaomingUnlocked = true;
 client.currentIllusionCharacterCount =
   componentOptions.computed.currentIllusionCharacterCount.call(client);
 assert.strictEqual(client.currentIllusionCharacterCount, 1);

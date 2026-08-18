@@ -2470,6 +2470,14 @@ void record_room_visit(object player,object room)
 		progress["visited"] = visited;
 		visit_added = 1;
 	}
+	// 照命四十九难使用同一次真实到访，但持久化在人物唯一幻境子档案。
+	// 它的异常不能打断主线到访、排行榜或普通移动。
+	mixed hidden_visit_err = catch{
+		ILLUSION_HIDDEN_PROFESSIOND->record_room_visit(player,room);
+	};
+	if(hidden_visit_err)
+		werror("[ILLUSION_HIDDEN] 到访记账异常: user=%s room=%s error=%s\n",
+			(string)player->query_name(),path,describe_error(hidden_visit_err));
 	if(!visit_added && !chapter_visit_added && !activity_day_added)
 		return;
 	if(visit_added){
@@ -2697,6 +2705,16 @@ void record_npc_kill(object player,object npc,void|int team_count)
 			(string)player->query_name(),npc_path,describe_error(journey_err));
 	else if((string)journey_result["message"]!="")
 		tell_object(player,(string)journey_result["message"]+"\n");
+	mixed hidden_kill_err = catch{
+		mapping hidden_result = ILLUSION_HIDDEN_PROFESSIOND->
+			record_npc_kill(player,npc);
+		if((string)(hidden_result["message"] || "")!="")
+			tell_object(player,(string)hidden_result["message"]+"\n");
+	};
+	if(hidden_kill_err)
+		werror("[ILLUSION_HIDDEN] 击杀记账异常: user=%s npc=%s error=%s\n",
+			(string)player->query_name(),npc_path,
+			describe_error(hidden_kill_err));
 	if((int)context["ranking_enabled"])
 		invalidate_ranking_cache(illusion_id);
 }
@@ -4129,6 +4147,13 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		player->set_mofa(min(old_mofa,(int)player->query_mofa_max()));
 		return (["ok":0,"message":"人物存档失败，奖励与领取状态已回滚。"]) ;
 	}
+	if(chapter_number==sizeof((array)config["chapters"])){
+		mapping completion = ACCOUNT_CHARACTERD->
+			record_illusion_story_completion(player,illusion_id);
+		if(!(int)completion["ok"])
+			werror("[ILLUSION_HIDDEN] 八十一章已完成，账号凭证待登录补写: %s %s\n",
+				(string)player->query_name(),(string)completion["message"]);
+	}
 	Stdio.append_file(ILLUSION_LOG,sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|items=%d|level_before=%d|level_after=%d|story_exp=%d\n",
 		time(),illusion_id,
 		(string)player->query_name(),(string)chapter["id"],sizeof(granted),
@@ -5499,6 +5524,14 @@ void prepare_new_character(object player)
 	   (string)illusion_config["current_id"]))
 		werror("[ILLUSION_RANKING] 登录快照待后续补写: %s\n",
 			(string)player->query_name());
+	if(story_all_chapters_claimed(progress)){
+		mapping completion = ACCOUNT_CHARACTERD->
+			record_illusion_story_completion(player,
+				(string)illusion_config["current_id"]);
+		if(!(int)completion["ok"])
+			werror("[ILLUSION_HIDDEN] 登录补写职业完成凭证失败: %s %s\n",
+				(string)player->query_name(),(string)completion["message"]);
+	}
 	if(!is_illusion_room_path((string)player->last_pos))
 		player->last_pos = (string)illusion_config["entry_room"];
 	if(!is_illusion_room_path((string)player->relife))

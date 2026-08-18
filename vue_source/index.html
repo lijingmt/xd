@@ -551,6 +551,9 @@
 					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
 						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；本期不开放家园，也不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
 					</p>
+					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
+						照命解锁：{{ s1HiddenProfession.completed_count || 0 }}/{{ s1HiddenProfession.required_count || 5 }} 个不同赛季职业已完成八十一章并达到 {{ s1HiddenProfession.required_level || 120 }} 级。达标后职业按钮自动出现。
+					</p>
                     <label class="character-name-field">
                         <span>人物姓名</span>
                         <input v-model.trim="characterForm.name_cn"

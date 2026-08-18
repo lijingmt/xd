@@ -191,6 +191,12 @@ void set_att_by_level(){
 		this_object()->set_dex(6+(int)(level_now*0.7));
 		this_object()->set_think(14+(int)(level_now*2.5));
 	}
+	if(this_object()->query_profeId()=="zhaoming"){//照命 - S1五职业通关隐藏职业
+		// 比普通均衡职业略强，但低于太极的三系成长；额外强度来自49难专属成长。
+		this_object()->set_str(11+(int)(level_now*1.8));
+		this_object()->set_dex(11+(int)(level_now*1.8));
+		this_object()->set_think(11+(int)(level_now*1.8));
+	}
 	if(this_object()->query_profeId()=="wuxiang"){//无相 - 隐藏全职业，三系对称成长
 		// 85% 专精均值：力量/敏捷/智力三系对称，每级 +1.5；保留 8 点起步
 		this_object()->set_str(8+(int)(level_now*1.5));

@@ -373,6 +373,19 @@ int query_newmoon_equipment_template_count()
  */
 array(string) query_newmoon_base_templates_for_profession(string profession_id)
 {
+	if(profession_id=="zhaoming")
+		return ({
+			"weapon/69xinyuezhaomingjian/69xinyuezhaomingjian",
+			"armor/69xinyuezhaomingguan/69xinyuezhaomingguan",
+			"armor/69xinyuezhaomingyi/69xinyuezhaomingyi",
+			"armor/69xinyuezhaomingshou/69xinyuezhaomingshou",
+			"armor/69xinyuezhaomingwan/69xinyuezhaomingwan",
+			"armor/69xinyuezhaomingku/69xinyuezhaomingku",
+			"armor/69xinyuezhaominglv/69xinyuezhaominglv",
+			"jewelry/69xinyuezhaomingjie/69xinyuezhaomingjie",
+			"jewelry/69xinyuezhaomingshuo/69xinyuezhaomingshuo",
+			"jewelry/69xinyuezhaomingpei/69xinyuezhaomingpei",
+		});
 	array(string) cached = newmoon_profession_templates[profession_id];
 	array(string) result = ({});
 	if(arrayp(cached) && sizeof(cached)==10)

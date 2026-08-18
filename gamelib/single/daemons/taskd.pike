@@ -590,6 +590,7 @@ int is_growth_task_profession(string profession_id)
 		case "lingyi":
 		case "wuxiang":
 		case "taiji":
+		case "zhaoming":
 			return 1;
 	}
 	return 0;
@@ -622,6 +623,8 @@ string query_growth_task_profession_name(string profession_id)
 			return "无相";
 		case "taiji":
 			return "太极";
+		case "zhaoming":
+			return "照命";
 	}
 	return "未知职业";
 }
@@ -649,6 +652,8 @@ string query_growth_task_base_name(string profession_id)
 			return "星轨推演";
 		case "lingyi":
 			return "百草济世";
+		case "zhaoming":
+			return "照命问劫";
 	}
 	return "职业历练";
 }
@@ -700,6 +705,8 @@ string query_growth_task_flavor(string profession_id)
 			return "观测同阶敌手的抗性，以不同法术积蓄并引爆星痕。";
 		case "lingyi":
 			return "观察同阶战局中的伤势，以智能治疗、净化与药契维持生机。";
+		case "zhaoming":
+			return "以五条幻境来路照见命数，在同阶实战中磨合攻、守与济世三途。";
 	}
 	return "击败同阶敌人，完成本级职业历练。";
 }

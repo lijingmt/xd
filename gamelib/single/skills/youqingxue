@@ -1,0 +1,4 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){ name=object_name(this_object()); name_cn="【命】有情血"; picture="zhaomingjue_logo"; desc="不老有情卷传承，拒绝以遗忘换取不死"; s_type="zhudong"; s_skill_type="phy"; s_delayTime=7; performs_attack=([1:50,2:108,3:202,4:298,5:428]); performs_cast=([1:10,2:17,3:26,4:37,5:52]); performs_level_limit=([1:1,2:25,3:50,4:80,5:110]); performs_desc=([1:"造成约50点物理伤害",2:"造成约108点物理伤害",3:"造成约202点物理伤害",4:"造成约298点物理伤害",5:"造成约428点物理伤害"]); skill_type+=({"zhaoming"}); }

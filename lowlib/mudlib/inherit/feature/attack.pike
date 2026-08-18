@@ -14,6 +14,7 @@ protected mapping(string:int) m_profe = ([
 	"lingyi" : 17,
 	"wuxiang" : 18,
 	"taiji" : 19,
+	"zhaoming" : 20,
 	"humanlike" : 8,
 	"beast" : 9,
 	"bird" : 10,
@@ -80,6 +81,9 @@ float query_phy_dodge(){
 				result = (((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 19://太极
+				result = (((float)attribute/50)+(float)equip_add)*0.75;
+			break;
+			case 20://照命
 				result = (((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
@@ -159,6 +163,9 @@ float query_phy_hitte(){
 			case 19://太极
 				result = (float)attribute+(float)equip_add+10;
 			break;
+			case 20://照命
+				result = (float)attribute+(float)equip_add+10;
+			break;
 			case 8://人形 包括人类和妖魔
 				result = (float)attribute+(float)equip_add;
 			break;
@@ -234,6 +241,9 @@ float query_phy_baoji(){
 				result = (5.00+((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 19://太极
+				result = (5.00+((float)attribute/50)+(float)equip_add)*0.75;
+			break;
+			case 20://照命
 				result = (5.00+((float)attribute/50)+(float)equip_add)*0.75;
 			break;
 			case 8://人形 包括人类和妖魔
@@ -315,6 +325,9 @@ int query_base_damage(){
 			break;
 			case 19://太极
 				result = str/2+dex/2;  // 同公式，由更高属性保持约 30% 优势
+			break;
+			case 20://照命
+				result = str/2+dex/2;  // 均衡物理基线，专属强度来自四十九难传承
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str;
@@ -508,6 +521,9 @@ int query_defend_power(){
 			break;
 			case 19://太极
 				result = str*2+equip_add;  // 同公式，由更高属性保持约 30% 优势
+			break;
+			case 20://照命
+				result = str*2+equip_add;  // 均衡职业物防
 			break;
 			case 8://人形 包括人类和妖魔
 				result = str+equip_add;

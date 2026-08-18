@@ -3366,6 +3366,11 @@ mapping(string:mixed) query_training_route(object me)
 	route = SEASONALD->query_current_chapter_autofight_route(me);
 	if(route && sizeof(route))
 		return route;
+	// 照命四十九难只在玩家主动选择“挂机至本难完成”后接管路线；
+	// 普通持续挂机和原十二职业完全不受影响。
+	route = ILLUSION_HIDDEN_PROFESSIOND->query_autofight_route(me);
+	if(route && sizeof(route))
+		return route;
 	// 幻境人物只能使用本期路线。未知的新赛季宁可留在当前地图巡游，
 	// 也不能回退到永恒服练级表并反复触发跨世界拒绝。
 	if(SEASONALD->is_active_illusion_character(me))

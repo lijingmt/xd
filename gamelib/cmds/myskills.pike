@@ -8,10 +8,13 @@ int main(string|zero arg)
 	NEWBIED->record_action(this_player(),"skills");
 	if(this_player()->home_path&&this_player()->home_path!="")
 		s += "[传送回家:home_return "+this_player()->home_path+"]\n";
-	// 技能页始终给出当前职业的购书入口，不再依赖玩家
-	// 正好站在职业导师所在地图。buy_items 会再次以存档职业校验。
-	s += "[购买本职业技能书:buy_items book "+
-		this_player()->query_profeId()+"]\n";
+	// 照命传承只来自真实四十九难，不能显示一个实际为空的职业书店；
+	// 其他职业仍由 buy_items 以存档职业做第二次服务端校验。
+	if(this_player()->query_profeId()=="zhaoming")
+		s += "[照命专属·七卷四十九难:illusion_hidden]\n";
+	else
+		s += "[购买本职业技能书:buy_items book "+
+			this_player()->query_profeId()+"]\n";
 	s += this_player()->view_skills();
 	if(this_player()->query_profeId()=="fangshi"){
 		s += "[召唤灵兽:summon]\n";

@@ -25,11 +25,26 @@ string read_picture_name(string source,string fallback)
 		return fallback;
 	foreach(source/"\n",string line){
 		string picture;
+		string marker;
+		string tail;
+		int start;
+		int finish;
 		line = String.trim_all_whites(line);
 		if(sscanf(line,"picture=\"%s\";",picture)==1)
 			return picture;
 		if(sscanf(line,"picture = \"%s\";",picture)==1)
 			return picture;
+		// 兼容合法的紧凑装备模板：picture 可能和 name_cn 等赋值
+		// 位于同一行，不能因此把实际已有图片误报为缺失。
+		marker = search(line,"picture=\"")!=-1 ? "picture=\"" :
+			(search(line,"picture = \"")!=-1 ? "picture = \"" : "");
+		if(marker!=""){
+			start = search(line,marker);
+			tail = line[start+sizeof(marker)..];
+			finish = search(tail,"\"");
+			if(finish>0)
+				return tail[..finish-1];
+		}
 	}
 	return fallback;
 }

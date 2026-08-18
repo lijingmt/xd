@@ -1,0 +1,4 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){ name=object_name(this_object()); name_cn="【命】命痕剑"; picture="zhaomingjue_logo"; desc="照雪问名卷传承，以剑痕追索被抹去的名字"; s_type="zhudong"; s_skill_type="phy"; s_delayTime=3; performs_attack=([1:22,2:52,3:104,4:158,5:235]); performs_cast=([1:5,2:9,3:14,4:20,5:28]); performs_level_limit=([1:1,2:25,3:50,4:80,5:110]); performs_desc=([1:"造成约22点物理伤害",2:"造成约52点物理伤害",3:"造成约104点物理伤害",4:"造成约158点物理伤害",5:"造成约235点物理伤害"]); skill_type+=({"zhaoming"}); }

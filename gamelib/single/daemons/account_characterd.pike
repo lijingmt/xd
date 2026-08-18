@@ -25,6 +25,9 @@ inherit LOW_DAEMON;
 #define ILLUSION_EXTRA_SLOT_COST 100
 #define ILLUSION_MULTI_UNLOCK_COST 500
 #define ILLUSION_MAX_CHARACTER_SLOTS ACCOUNT_CHARACTER_LIMIT
+#define S1_HIDDEN_PROFESSION "zhaoming"
+#define S1_HIDDEN_REQUIRED_PROFESSIONS 5
+#define S1_HIDDEN_REQUIRED_LEVEL 120
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
@@ -39,7 +42,8 @@ private mapping(string:mapping(string:mixed)) recent_forced_logouts = ([]);
 private mapping(string:array(string)) valid_professions = ([
 	"human":({"jianxian","yushi","zhuxian"}),
 	"monst":({"kuangyao","wuyao","yinggui"}),
-	"third":({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji"}),
+	"third":({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji",
+		"zhaoming"}),
 ]);
 
 private mapping(string:string) race_names = ([
@@ -61,6 +65,7 @@ private mapping(string:string) profession_names = ([
 	"lingyi":"灵医",
 	"wuxiang":"无相",
 	"taiji":"太极",
+	"zhaoming":"照命",
 ]);
 
 int query_character_limit()
@@ -118,8 +123,90 @@ mapping(string:mixed) query_profession_selection_permission(
 	string requested_id,string profession_id)
 {
 	mapping(string:mixed) data = query_account_characters(requested_id);
+	if(profession_id==S1_HIDDEN_PROFESSION){
+		mapping current = ([]);
+		foreach((array)(data["characters"] || ({})),mapping summary)
+			if((string)summary["id"]==requested_id){
+				current = summary;
+				break;
+			}
+		if(!sizeof(current) ||
+		   (string)current["realm_type"]!="illusion" ||
+		   (string)current["illusion_state"]!="active")
+			return (["ok":1,"limited":1,"allowed":0,
+				"message":"【照命·幻境限定】只能为当期幻境人物选择该职业。"]) ;
+		// API 建角时已把服务端批准的职业写进账号索引。不能把一个
+		// 已付费创建为其它职业的待初始化栏位，用旧 JSP 命令改成照命。
+		if((string)current["profession_id"]!=S1_HIDDEN_PROFESSION)
+			return (["ok":1,"limited":1,"allowed":0,
+				"message":"【照命·创建校验】请从人物中心选择照命并创建专属栏位。"]) ;
+		mapping hidden = query_s1_hidden_unlock_from_summary(data,
+			(string)current["illusion_id"]);
+		if(!(int)hidden["unlocked"])
+			return (["ok":1,"limited":1,"allowed":0,
+				"message":(string)hidden["message"]]);
+		foreach((array)data["characters"],mapping summary)
+			if((string)summary["id"]!=requested_id &&
+			   (string)summary["profession_id"]==S1_HIDDEN_PROFESSION &&
+			   (string)summary["illusion_id"]==(string)current["illusion_id"])
+				return (["ok":1,"limited":1,"allowed":0,
+					"message":"【照命·人物上限】同一账号每期幻境只能创建一个照命。"]) ;
+	}
 	return query_profession_limit_from_summary(data,profession_id,
 		requested_id);
+}
+
+/**
+ * S1 隐藏职业资格只认同一账号、同一期幻境的真实 81 章完成凭证。
+ * 同职业重复人物只计一次；完成故事后仍需把该人物练到 120 级。
+ */
+mapping(string:mixed) query_s1_hidden_unlock_from_summary(
+	mapping(string:mixed) data,string illusion_id)
+{
+	multiset(string) completed = (<>);
+	array(string) completed_names = ({});
+	array(string) level_pending = ({});
+	if(!data || (int)data["ok"]!=1 || !arrayp(data["characters"]) ||
+	   illusion_id!="S1")
+		return (["ok":0,"unlocked":0,"completed_count":0,
+			"required_count":S1_HIDDEN_REQUIRED_PROFESSIONS,
+			"required_level":S1_HIDDEN_REQUIRED_LEVEL,
+			"message":"【照命·资格不可验证】账号幻境历程暂时无法核验。"]) ;
+	foreach((array)data["characters"],mapping summary){
+		string profession_id = (string)summary["profession_id"];
+		if((string)summary["illusion_id"]!=illusion_id ||
+		   (string)summary["realm_type"]!="illusion" ||
+		   (string)summary["illusion_state"]!="active" ||
+		   !profession_names[profession_id] ||
+		   profession_id==S1_HIDDEN_PROFESSION ||
+		   (int)summary["illusion_story_completed_at"]<=0 ||
+		   (int)summary["illusion_story_completion_version"]!=1 ||
+		   (string)summary["illusion_story_completed_profession"]!=
+			profession_id || completed[profession_id])
+			continue;
+		if((int)summary["level"]<S1_HIDDEN_REQUIRED_LEVEL){
+			level_pending += ({(profession_names[profession_id] ||
+				profession_id)+"（"+(string)(int)summary["level"]+"/"+
+				(string)S1_HIDDEN_REQUIRED_LEVEL+"）"});
+			continue;
+		}
+		completed[profession_id] = 1;
+		completed_names += ({profession_names[profession_id] || profession_id});
+	}
+	int count = sizeof(completed_names);
+	int unlocked = count>=S1_HIDDEN_REQUIRED_PROFESSIONS;
+	string message = unlocked ?
+		"【照命·已解锁】本期已有"+(string)count+
+		"个不同职业完成八十一章并达到120级。" :
+		"【照命·未解锁】同一账号须在本期用5个不同职业各自完成八十一章并达到120级；当前"+
+		(string)count+"/"+(string)S1_HIDDEN_REQUIRED_PROFESSIONS+
+		(sizeof(level_pending) ? "，已通关但等级不足："+
+			(level_pending*"、") : "")+"。";
+	return (["ok":1,"unlocked":unlocked,"completed_count":count,
+		"required_count":S1_HIDDEN_REQUIRED_PROFESSIONS,
+		"required_level":S1_HIDDEN_REQUIRED_LEVEL,
+		"completed_professions":completed_names,
+		"level_pending":level_pending,"message":message]);
 }
 
 // 无相解锁判定：账号下 10 个基础职业均至少有一个角色达到 120 级。
@@ -941,6 +1028,22 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 		   (!valid_illusion_id(illusion_id) || (int)one["settled_at"]<=0 ||
 		    !valid_sha256_hex((string)one["settlement_receipt"])))
 			return 0;
+		if((int)one["illusion_story_completed_at"]>0){
+			string completed_profession = (string)
+				one["illusion_story_completed_profession"];
+			if(!valid_illusion_id(illusion_id) ||
+			   !valid_profession_pair(desired_race,completed_profession) ||
+			   completed_profession==S1_HIDDEN_PROFESSION ||
+			   completed_profession!=desired_profession ||
+			   (int)one["illusion_story_completion_version"]!=1 ||
+			   (int)one["illusion_story_completed_level"]<1 ||
+			   (int)one["illusion_story_completed_level"]>MAX_LEVEL)
+				return 0;
+		}
+		else if((string)(one["illusion_story_completed_profession"] || "")!="" ||
+			(int)one["illusion_story_completion_version"]!=0 ||
+			(int)one["illusion_story_completed_level"]!=0)
+			return 0;
 		seen[character_id] = 1;
 		seen_slots[slot] = 1;
 	}
@@ -1137,6 +1240,14 @@ private mapping(string:mixed) profile_summary_unlocked(
 		"illusion_state":(string)(entry["illusion_state"] || ""),
 		"illusion_joined_at":(int)entry["illusion_joined_at"],
 		"settled_at":(int)entry["settled_at"],
+		"illusion_story_completed_at":
+			(int)entry["illusion_story_completed_at"],
+		"illusion_story_completion_version":
+			(int)entry["illusion_story_completion_version"],
+		"illusion_story_completed_profession":(string)
+			(entry["illusion_story_completed_profession"] || ""),
+		"illusion_story_completed_level":
+			(int)entry["illusion_story_completed_level"],
 	]);
 }
 
@@ -1215,6 +1326,11 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			total_recharge_fee>=WUXIANG_DONATION_UNLOCK_FEE;
 		result["taiji_unlock_by_donation"] =
 			total_recharge_fee>=TAIJI_DONATION_UNLOCK_FEE;
+		mapping s1_hidden = query_s1_hidden_unlock_from_summary(result,
+			valid_illusion_id((string)illusion_id) ?
+			(string)illusion_id : "S1");
+		result["s1_hidden_profession"] = s1_hidden;
+		result["zhaoming_unlocked"] = (int)s1_hidden["unlocked"];
 	}
 	return result;
 }
@@ -1587,6 +1703,85 @@ int account_owns_character(string account_id,string character_id)
 }
 
 /**
+ * 把人物真实完成 S1 八十一章的事实原子写入账号索引。这里只盖完成章，
+ * 解锁时仍读取人物当前等级，避免完成故事后靠旧快照永久冻结等级状态。
+ */
+mapping(string:mixed) record_illusion_story_completion(object player,
+	string illusion_id)
+{
+	mapping(string:mixed) result = (["ok":0,"already":0,
+		"message":"幻境职业完成凭证保存失败。"]) ;
+	string character_id;
+	string account_id;
+	string profession_id;
+	int completed_level;
+	int test_bypass;
+	mapping(string:mixed)|zero record;
+	object key;
+	if(!player || illusion_id!="S1" ||
+	   !functionp(player->query_name) ||
+	   !functionp(player->query_profeId) ||
+	   !functionp(player->query_level))
+		return result;
+	character_id = (string)player->query_name();
+	account_id = functionp(player->query_account_owner) ?
+		(string)player->query_account_owner() : character_id;
+	profession_id = (string)player->query_profeId();
+	completed_level = (int)player->query_level();
+	if(!valid_userid(account_id) || !valid_userid(character_id) ||
+	   profession_id==S1_HIDDEN_PROFESSION || completed_level<1)
+		return result;
+	test_bypass=getenv("XIAND_RUN_TESTUNIT")=="1" &&
+		has_prefix(character_id,"xd99testunitzhgate") &&
+		(int)player["/tmp/zhaoming_story_completion_test_ready"];
+	if(!test_bypass){
+		mapping story=SEASONALD->query_player_progress(player);
+		if(!(int)story["ok"] || (int)story["chapter_claimed"]<81){
+			result["message"] = "人物尚未真实领取完S1八十一章奖励。";
+			return result;
+		}
+	}
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id,1);
+	if(record){
+		foreach((array)record["characters"],mapping entry){
+			if((string)entry["id"]!=character_id)
+				continue;
+			if((string)entry["illusion_id"]!=illusion_id ||
+			   (string)entry["illusion_state"]!="active" ||
+			   (string)entry["desired_profession"]!=profession_id){
+				result["message"] = "人物世界、职业与完成凭证不一致。";
+				break;
+			}
+			if((int)entry["illusion_story_completed_at"]>0){
+				if((string)entry["illusion_story_completed_profession"]==
+				   profession_id)
+					result = (["ok":1,"already":1,
+						"message":"该人物的幻境职业完成凭证已经存在。"]) ;
+				else
+					result["message"] = "已有完成凭证与当前职业不一致。";
+				break;
+			}
+			entry["illusion_story_completion_version"] = 1;
+			entry["illusion_story_completed_at"] = time();
+			entry["illusion_story_completed_profession"] = profession_id;
+			entry["illusion_story_completed_level"] = completed_level;
+			if(save_record_unlocked(record))
+				result = (["ok":1,"already":0,
+					"message":"本期幻境职业完成凭证已保存。"]) ;
+			break;
+		}
+	}
+	destruct(key);
+	if((int)result["ok"] && !(int)result["already"])
+		Stdio.append_file(ROOT+"/log/illusion_hidden_profession.log",
+			sprintf("%d|story_completion|illusion=%s|account=%s|character=%s|profession=%s|level=%d\n",
+				time(),illusion_id,account_id,character_id,profession_id,
+				completed_level));
+	return result;
+}
+
+/**
  * 为账号下指定人物签发一个可跨浏览器使用的长期直达书签。
  *
  * 磁盘只保存随机令牌摘要，以及令牌与当前账号密码共同生成的证明；既不
@@ -1899,6 +2094,10 @@ mapping(string:mixed) create_character(string requested_id,
 		result["message"] = "阵营与职业组合无效。";
 		return result;
 	}
+	if(profession_id==S1_HIDDEN_PROFESSION && realm_type!="illusion"){
+		result["message"] = "【照命·幻境限定】该职业只能在当期幻境中创建。";
+		return result;
+	}
 	if(profile_requested){
 		if(profile_name=="" || profile_sex=="" || profile_avatar==""){
 			result["message"] = "请完整选择人物姓名、性别和头像。";
@@ -1949,6 +2148,15 @@ mapping(string:mixed) create_character(string requested_id,
 			hidden_unlock_fee = (int)tj_data["donation_total"];
 		}
 	}
+	if(profession_id==S1_HIDDEN_PROFESSION && account_id!=""){
+		mapping hidden_data = query_account_characters(account_id,illusion_id);
+		mapping hidden_status = query_s1_hidden_unlock_from_summary(
+			hidden_data,illusion_id);
+		if(!(int)hidden_status["unlocked"]){
+			result["message"] = (string)hidden_status["message"];
+			return result;
+		}
+	}
 	if(!valid_userid(account_id)){
 		result["message"] = "账号无效。";
 		return result;
@@ -1984,6 +2192,29 @@ mapping(string:mixed) create_character(string requested_id,
 				result["message"] = "本期幻境人物栏位已用完（"+
 					illusion_count+"/"+illusion_capacity+
 					"）；每个赛季人物都需要100碎玉栏位，也可一次购买5格。";
+				destruct(key);
+				return result;
+			}
+		}
+		if(profession_id==S1_HIDDEN_PROFESSION){
+			array hidden_summaries = ({});
+			int hidden_count = 0;
+			foreach((array)record["characters"],mapping existing_entry){
+				mapping one_summary = profile_summary_unlocked(account_id,
+					existing_entry);
+				hidden_summaries += ({one_summary});
+				if((string)one_summary["profession_id"]==
+				   S1_HIDDEN_PROFESSION &&
+				   (string)one_summary["illusion_id"]==illusion_id)
+					hidden_count++;
+			}
+			mapping locked_hidden = query_s1_hidden_unlock_from_summary(([
+				"ok":1,"characters":hidden_summaries,
+			]),illusion_id);
+			if(!(int)locked_hidden["unlocked"] || hidden_count>0){
+				result["message"] = hidden_count>0 ?
+					"【照命·人物上限】同一账号每期幻境只能创建一个照命。" :
+					(string)locked_hidden["message"];
 				destruct(key);
 				return result;
 			}

@@ -287,7 +287,7 @@ int is_newmoon_supported_profession(string profession)
 	return search(({
 		"jianxian","yushi","zhuxian","kuangyao","wuyao",
 		"yinggui","fangshi","zhenyue","tianxiang","lingyi",
-		"wuxiang","taiji",
+		"wuxiang","taiji","zhaoming",
 	}),profession)!=-1;
 }
 
@@ -363,6 +363,11 @@ void set_newmoon_full_set_bonuses(string profession)
 		set_newmoon_set_bonus(6,"defend",1);
 		set_newmoon_set_bonus(8,"rase_life_add",1);
 		set_newmoon_set_bonus(10,"rase_mofa_add",1);
+	}
+	else if(profession=="zhaoming"){
+		set_newmoon_set_bonus(6,"doub",2);
+		set_newmoon_set_bonus(8,"rase_life_add",2);
+		set_newmoon_set_bonus(10,"all",2);
 	}
 }
 

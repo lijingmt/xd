@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1786954725709">
-    <link rel="stylesheet" href="css/app.css?v=v1786954725709">
-    <link rel="stylesheet" href="css/realm.css?v=v1786954725709">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787080884819">
+    <link rel="stylesheet" href="css/app.css?v=v1787080884819">
+    <link rel="stylesheet" href="css/realm.css?v=v1787080884819">
 </head>
 <body>
     <div id="app">
@@ -550,6 +550,9 @@
 						role="status">{{ illusionExpansionMessage }}</p>
 					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
 						{{ illusionRealmStatus.illusion_id || 'S1' }}人物始终只有一份存档；本期不开放家园，也不接入永恒服共享仓库、共享宠物、共享玉石与拍卖，结算不复制背包。
+					</p>
+					<p class="illusion-realm-rule" v-if="characterForm.realm_type === 'illusion'">
+						照命解锁：{{ s1HiddenProfession.completed_count || 0 }}/{{ s1HiddenProfession.required_count || 5 }} 个不同赛季职业已完成八十一章并达到 {{ s1HiddenProfession.required_level || 120 }} 级。达标后职业按钮自动出现。
 					</p>
                     <label class="character-name-field">
                         <span>人物姓名</span>
@@ -2004,19 +2007,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1786954725709"></script>
-    <script src="vendor/canvas-confetti.js?v=v1786954725709"></script>
-    <script src="vendor/howler.core.min.js?v=v1786954725709"></script>
-    <script src="vendor/driver.iife.js?v=v1786954725709"></script>
-    <script src="../includes/game-number-format.js?v=v1786954725709" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787080884819"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787080884819"></script>
+    <script src="vendor/howler.core.min.js?v=v1787080884819"></script>
+    <script src="vendor/driver.iife.js?v=v1787080884819"></script>
+    <script src="../includes/game-number-format.js?v=v1787080884819" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1786954725709';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787080884819';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1786954725709"></script>
+    <script src="js/app.js?v=v1787080884819"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1786954725709"></script>
+    <script src="../includes/translate.js?v=v1787080884819"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

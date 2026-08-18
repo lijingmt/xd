@@ -1,0 +1,4 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){ name=object_name(this_object()); name_cn="【命】还命火"; picture="zhaomingjue_logo"; desc="雪审还名卷传承，把被夺走的昨日化作命火"; s_type="zhudong"; s_skill_type="huo_mofa_attack"; s_delayTime=7; performs_attack=([1:56,2:120,3:224,4:330,5:474]); performs_cast=([1:11,2:19,3:29,4:41,5:57]); performs_level_limit=([1:1,2:25,3:50,4:80,5:110]); performs_desc=([1:"造成约56点法术伤害",2:"造成约120点法术伤害",3:"造成约224点法术伤害",4:"造成约330点法术伤害",5:"造成约474点法术伤害"]); skill_type+=({"zhaoming"}); }

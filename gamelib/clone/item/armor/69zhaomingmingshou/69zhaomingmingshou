@@ -1,0 +1,11 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_ARMOR;
+protected void create(){
+	name=object_name(this_object()); name_cn="【寰极·照命】执命手"; unit="双"; picture="55zhanhunshoutao";
+	desc="照命四十九难专属至尊套装；账号绑定，只能由真实试炼获得。\n";
+	item_cur_dura=2400; item_dura=2400; set_item_type("armor"); set_item_kind("armor_hand");
+	set_item_canEquip(1); set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1);
+	set_equip_defend(535); set_item_canLevel(69); set_item_profeLimit("zhaoming");
+	set_newmoon_resonance("zhaoming","照命","五命同辉",4,4,4,4,4,"all",2,"all_mofa_defend",5); set_newmoon_collection("huanji");
+}

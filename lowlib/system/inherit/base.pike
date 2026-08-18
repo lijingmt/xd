@@ -140,6 +140,9 @@ string query_name_cn(void|int true_name){
 			if(this_object()["query_profeId"] &&
 			   this_object()->query_profeId()=="taiji")
 				return "无名太极";
+			if(this_object()["query_profeId"] &&
+			   this_object()->query_profeId()=="zhaoming")
+				return "无名照命者";
 			return "无名方士";
 		}
 		else

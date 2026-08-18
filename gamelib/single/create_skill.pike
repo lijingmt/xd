@@ -222,7 +222,8 @@ templates["技能等级描述fun_foot"]="}\n";
 				"天象":"tianxiang",
 				"灵医":"lingyi",
 				"无相":"wuxiang",
-				"太极":"taiji"
+				"太极":"taiji",
+				"照命":"zhaoming"
 			]);
 			for(int j=0;j<sizeof(arr);j++){
 				writeFile+=replace(templates["技能职业学习限制"],"$1",(string)m[arr[j]]);

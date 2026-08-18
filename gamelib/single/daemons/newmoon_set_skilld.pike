@@ -16,6 +16,7 @@ private mapping(string:mapping(string:string)) skill_catalog=([
 	"lingyi":(["skill":"newmoon_lingyi","name_cn":"【套装】长生月华"]),
 	"wuxiang":(["skill":"newmoon_wuxiang","name_cn":"【套装】混元月变"]),
 	"taiji":(["skill":"newmoon_taiji","name_cn":"【套装】两仪归一"]),
+	"zhaoming":(["skill":"newmoon_zhaoming","name_cn":"【套装】五命同辉"]),
 ]);
 
 private mapping(int:string) rank_names=([

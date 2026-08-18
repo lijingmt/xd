@@ -24,6 +24,8 @@ string query_race_tag(string race_id,void|string profession_id)
 			return "【无】";
 		if(profession_id=="taiji")
 			return "【极】";
+		if(profession_id=="zhaoming")
+			return "【命】";
 		return "【方】";
 	}
 	return "【仙】";

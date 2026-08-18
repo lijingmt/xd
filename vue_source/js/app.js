@@ -229,6 +229,14 @@ createApp({
 			},
             wuxiangUnlocked: false,
             taijiUnlocked: false,
+            zhaomingUnlocked: false,
+            s1HiddenProfession: {
+                unlocked: false,
+                completed_count: 0,
+                required_count: 5,
+                required_level: 120,
+                message: ''
+            },
             characterForm: {
 				realm_type: 'eternal',
                 race_id: '',
@@ -263,7 +271,8 @@ createApp({
                 { race_id: 'third', profession_id: 'tianxiang', name: '天象', race: '中立', icon: '🌠', desc: '星痕法术，元素爆发' },
                 { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' },
                 { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位；10职业均达120级，或共享账号累计捐赠3000元解锁' },
-                { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转；10职+无相均达200级，或共享账号累计捐赠10000元解锁' }
+                { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转；10职+无相均达200级，或共享账号累计捐赠10000元解锁' },
+                { race_id: 'third', profession_id: 'zhaoming', name: '照命', race: '中立', icon: '🌙', desc: '【S1隐藏】同账号5个不同赛季职业各自完成81章并达到120级' }
             ],
             isLoggingIn: false,
             isRegistering: false,
@@ -433,7 +442,14 @@ createApp({
         'playerStats.hp'(newVal, oldVal) { this.flashBattleStat('playerHp', newVal, oldVal); },
         'battlePlayerFull.mana'(newVal, oldVal) { this.flashBattleStat('playerMana', newVal, oldVal); },
         'playerStats.mana'(newVal, oldVal) { this.flashBattleStat('playerMana', newVal, oldVal); },
-        'battleEnemy.hp'(newVal, oldVal) { this.flashBattleStat('enemyHp', newVal, oldVal); }
+        'battleEnemy.hp'(newVal, oldVal) { this.flashBattleStat('enemyHp', newVal, oldVal); },
+        'characterForm.realm_type'(newValue) {
+            if (newValue !== 'illusion' && this.characterForm.profession_id === 'zhaoming') {
+                this.characterForm.race_id = '';
+                this.characterForm.profession_id = '';
+                this.characterForm.avatar_id = '';
+            }
+        }
     },
 
     methods: {
@@ -1733,6 +1749,11 @@ createApp({
 			}
             this.wuxiangUnlocked = !!data.wuxiang_unlocked;
             this.taijiUnlocked = !!data.taiji_unlocked;
+            this.zhaomingUnlocked = !!data.zhaoming_unlocked;
+            if (data.s1_hidden_profession && typeof data.s1_hidden_profession === 'object') {
+                this.s1HiddenProfession = Object.assign({},
+                    this.s1HiddenProfession, data.s1_hidden_profession);
+            }
             if (data.token) {
                 this.accountToken = data.token;
             }
@@ -5562,6 +5583,10 @@ createApp({
                     return false;
                 }
                 if (option.profession_id === 'taiji' && !this.taijiUnlocked) {
+                    return false;
+                }
+                if (option.profession_id === 'zhaoming' &&
+                    (!this.zhaomingUnlocked || this.characterForm.realm_type !== 'illusion')) {
                     return false;
                 }
                 return true;

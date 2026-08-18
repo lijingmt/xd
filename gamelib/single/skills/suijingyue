@@ -1,0 +1,4 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){ name=object_name(this_object()); name_cn="【命】碎镜月"; picture="zhaomingjue_logo"; desc="碎镜照心卷传承，让每一面破镜映出同一记剑光"; s_type="zhudong"; s_skill_type="phy"; s_delayTime=5; performs_attack=([1:42,2:92,3:174,4:258,5:372]); performs_cast=([1:9,2:15,3:23,4:33,5:46]); performs_level_limit=([1:1,2:25,3:50,4:80,5:110]); performs_desc=([1:"造成约42点物理伤害",2:"造成约92点物理伤害",3:"造成约174点物理伤害",4:"造成约258点物理伤害",5:"造成约372点物理伤害"]); skill_type+=({"zhaoming"}); }

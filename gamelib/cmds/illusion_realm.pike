@@ -340,6 +340,8 @@ private string progress_view(object me,mapping progress)
 	}
 	s += "[查看九卷故事目录:illusion_realm story]\n";
 	s += "[新月支线·九卷秘迹与月忆兽:illusion_journey]\n";
+	if(me && (string)me->query_profeId()=="zhaoming")
+		s += "[照命专属·七卷四十九难:illusion_hidden]\n";
 	return s;
 }
 

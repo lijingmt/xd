@@ -1,0 +1,4 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){ name=object_name(this_object()); name_cn="【命】人定人间"; picture="zhaomingjue_logo"; desc="人间定命卷最终传承，不求不死，只求此生由自己落笔"; s_type="zhudong"; s_skill_type="phy"; s_delayTime=9; performs_attack=([1:68,2:146,3:270,4:396,5:566]); performs_cast=([1:13,2:22,3:33,4:47,5:65]); performs_level_limit=([1:1,2:25,3:50,4:80,5:110]); performs_desc=([1:"造成约68点物理伤害",2:"造成约146点物理伤害",3:"造成约270点物理伤害",4:"造成约396点物理伤害",5:"造成约566点物理伤害"]); skill_type+=({"zhaoming"}); }

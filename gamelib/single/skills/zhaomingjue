@@ -1,0 +1,36 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+
+inherit WAP_SKILL;
+
+protected void create()
+{
+	name=object_name(this_object());
+	name_cn="【命】照命诀";
+	picture="zhaomingjue_logo";
+	desc="新月幻境隐藏职业的入门心诀，以五条职业来路照见敌我命数，稳定发挥三系属性";
+	s_type="zhudong";
+	s_skill_type="phy";
+	s_delayTime=4;
+	performs_attack[1]=14;
+	performs_attack[2]=35;
+	performs_attack[3]=73;
+	performs_attack[4]=111;
+	performs_attack[5]=169;
+	performs_cast[1]=3;
+	performs_cast[2]=7;
+	performs_cast[3]=11;
+	performs_cast[4]=16;
+	performs_cast[5]=22;
+	skill_type+=({"zhaoming"});
+	performs_level_limit[1]=1;
+	performs_level_limit[2]=21;
+	performs_level_limit[3]=41;
+	performs_level_limit[4]=61;
+	performs_level_limit[5]=81;
+	performs_desc[1]="造成约14点物理伤害，消耗法力3点";
+	performs_desc[2]="造成约35点物理伤害，消耗法力7点";
+	performs_desc[3]="造成约73点物理伤害，消耗法力11点";
+	performs_desc[4]="造成约111点物理伤害，消耗法力16点";
+	performs_desc[5]="造成约169点物理伤害，消耗法力22点";
+}

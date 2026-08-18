@@ -151,6 +151,18 @@ void setup_player(string rid, string pid){
 			this_object()->set_think(14);
 			this_object()->set_lunck(0);
 		}
+		else if(pid&&pid=="zhaoming"){
+			// S1 隐藏职业“照命”：五条职业历程汇于一身，但不覆盖
+			// 既有十二职业的核心数值公式。以均衡攻防和较高生存为特色。
+			kind_cn = "中立";
+			unit = "位";
+			this_object()->set_life(145);
+			this_object()->set_mofa(115);
+			this_object()->set_str(11);
+			this_object()->set_dex(11);
+			this_object()->set_think(11);
+			this_object()->set_lunck(0);
+		}
 		else if(pid&&pid=="wuxiang"){
 			// 无相：隐藏全职业。85% 专精均值，三系对称成长；解锁条件见 gamelib/d/init。
 			// 「无相心法」被动让最高属性的一半继续贡献其他属性，但不参与装备/技能前置。

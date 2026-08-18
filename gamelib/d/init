@@ -488,6 +488,30 @@ string query_taiji_missing_for(object me){
 	return missing*"、";
 }
 
+mapping(string:mixed) query_zhaoming_status_for(object me)
+{
+	if(!me || !functionp(me->query_name))
+		return (["ok":0,"unlocked":0,
+			"message":"【照命·资格不可验证】当前人物不可用。"]) ;
+	mapping realm = ACCOUNT_CHARACTERD->query_character_realm(
+		(string)me->query_name());
+	if(!(int)realm["ok"] || (string)realm["realm_type"]!="illusion" ||
+	   (string)realm["illusion_state"]!="active")
+		return (["ok":1,"unlocked":0,
+			"message":"【照命·幻境限定】只能为当期幻境人物选择该职业。"]) ;
+	mapping account_data = ACCOUNT_CHARACTERD->query_account_characters(
+		(string)me->query_name(),(string)realm["illusion_id"]);
+	if(!mappingp(account_data["s1_hidden_profession"]))
+		return (["ok":0,"unlocked":0,
+			"message":"【照命·资格不可验证】账号幻境历程暂时无法核验。"]) ;
+	return (mapping)account_data["s1_hidden_profession"];
+}
+
+int query_zhaoming_unlocked_for(object me)
+{
+	return (int)query_zhaoming_status_for(me)["unlocked"];
+}
+
 int choice_race(string arg){
 	object me = this_player();
 	string s = "";
@@ -559,6 +583,10 @@ int choice_race(string arg){
 				s += "[太极:choice_profe third/taiji]\n";
 				s += "（成长达标或累计捐赠10000元解锁）生死轮转，可复活自己和队友\n";
 			}
+			if(query_zhaoming_unlocked_for(me)){
+				s += "[照命:choice_profe third/zhaoming]\n";
+				s += "（S1限定）同账号5个不同赛季职业各自完成八十一章并达到120级后解锁\n";
+			}
 		}
 		s += "[更换阵营:choice_race]\n";
 	}
@@ -590,7 +618,7 @@ int choice_profe(string arg){
 		//初始化新角色职业值
 		array(string) arr = arg/"/";
 		// 无相始终在候选池里：未解锁时下面会拦截并给出具体缺口。
-		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji"});
+		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji","zhaoming"});
 		mapping(string:array(string)) valid_professions = ([
 			"human":({"jianxian","yushi","zhuxian"}),
 			"monst":({"kuangyao","wuyao","yinggui"}),
@@ -616,6 +644,12 @@ int choice_profe(string arg){
 			write("【太极·未解锁】需要账号下 10 职业与无相均达到 200 级，或共享账号累计捐赠达到10000元。\n");
 			write("当前缺口："+missing+"\n");
 			write("提示：把账号下对应职业的角色练到 200 级即可推进进度。\n");
+			write("[返回阵营选择:choice_race]\n");
+			return 1;
+		}
+		if((string)arr[1]=="zhaoming" && !query_zhaoming_unlocked_for(me)){
+			mapping hidden_status = query_zhaoming_status_for(me);
+			write((string)hidden_status["message"]+"\n");
 			write("[返回阵营选择:choice_race]\n");
 			return 1;
 		}
@@ -786,6 +820,16 @@ int choice_profe(string arg){
 			s += "太极是生死轮转的化身，可被动复活自己，亦可主动复活同房队友；\n";
 			s += "比无相综合实力再强 30%，心法加成 65%。\n";
 			s += "从 1 级开始正常成长；后续技能通过教师与掉落获取。\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="zhaoming"){
+			me->setup_player("third",u_p);
+			if(me->skills["zhaomingjue"]==0)
+				me->skills["zhaomingjue"]=({1,0});
+			s += "好，你以五段完整幻境人生照见命数，成为S1隐藏职业【照命】。\n";
+			s += "照命只属于本期幻境；七卷四十九难会逐步开启职业传承与专属套装。\n";
 			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";
@@ -1000,6 +1044,10 @@ int start(string arg){
 				desc += "[太极:choice_profe third/taiji]\n";
 				desc += "（成长达标或累计捐赠10000元解锁）生死轮转\n";
 			}
+			if(query_zhaoming_unlocked_for(me)){
+				desc += "[照命:choice_profe third/zhaoming]\n";
+				desc += "（S1限定）五个不同赛季职业完整通关并达到120级后解锁\n";
+			}
 		}
 		else{
 			desc += "角色尚未选择阵营，请先完成阵营选择。\n";
@@ -1030,6 +1078,8 @@ int start(string arg){
 		me->skills["wuxiangquan"]=({1,0});
 	if(me->query_profeId()=="taiji" && !me->skills["taijiquan"])
 		me->skills["taijiquan"]=({1,0});
+	if(me->query_profeId()=="zhaoming" && !me->skills["zhaomingjue"])
+		me->skills["zhaomingjue"]=({1,0});
 
 	//领取标识的初始化
         if(!me->get_gift)                                                                                         
