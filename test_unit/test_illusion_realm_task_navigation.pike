@@ -61,6 +61,12 @@ int main()
 		search(daemon_source,
 			"private mapping(string:string) chapter_experience_identity")!=-1 &&
 		search(daemon_source,"chapter_experience_beat(chapter_index")!=-1;
+	int chapter_route_rhythm =
+		search(daemon_source,
+			"private mapping(string:mixed) chapter_hunt_target")!=-1 &&
+		search(daemon_source,"chapter_route_rhythm_version")!=-1 &&
+		search(daemon_source,"({\"trace\",\"evidence\",\"counter\"})")!=-1 &&
+		search(source,"追迹段落 ")!=-1;
 	int current_room_action =
 		search(source,"chapter_target_in_current_room(me,chapter)")!=-1 &&
 		search(source,
@@ -163,6 +169,9 @@ int main()
 	check("普通章节显示九幕身份并在真实击杀检查点发送三幕反馈",
 		chapter_experience_feedback,
 		"普通章节仍只有数量变化，没有起势、转折与收束反馈");
+	check("三类章节把真实狩猎拆成一键可跟随的三段猎场",
+		chapter_route_rhythm,
+		"追迹、搜证与反猎仍只更换文案，没有实际换房节奏");
 	check("已在章节目标房时直接显示操作而不要求重复点击下一步",
 		current_room_action,
 		"当前历程没有安全区分未到达时的一键前往与到达后的任务动作");

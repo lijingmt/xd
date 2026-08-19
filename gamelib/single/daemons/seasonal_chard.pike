@@ -1881,6 +1881,7 @@ private mapping player_progress_for_id(object player,string illusion_id,
 			"quest_item_pity":([]),
 			"claims":([]),"season_starts_at":starts_at,
 			"chapter_counter_version":2,
+			"chapter_route_rhythm_version":1,
 			"chapter_counter_id":first_chapter_id,
 			"chapter_started_at":time(),
 			"chapter_kills":0,"chapter_boss_kills":0,
@@ -3367,6 +3368,90 @@ private mapping(string:mixed) story_hunt_target_for_level(mapping progress,
 }
 
 /**
+ * 六档猎场中每档都有三个实际刷怪房。这里仅把章节既有击杀目标编排成
+ * 可自动跟随的三段路线，不改怪物属性、击杀数量、经验、掉落或职业公式。
+ *
+ * 老人物当前章继续使用原有自由猎场；领取下一章时才写入版本开关，避免
+ * 部署瞬间让正在挂机的人突然换房。新人物从第一章直接获得完整节奏。
+ */
+private string hunt_room_location(string room,string fallback)
+{
+	mapping(string:string) names = ([
+		"/gamelib/d/illusion_s1/moon_dew_field.pike":"月露原",
+		"/gamelib/d/illusion_s1/silver_reed_bank.pike":"银苇岸",
+		"/gamelib/d/illusion_s1/starlight_slope.pike":"星辉坡",
+		"/gamelib/d/illusion_s1/mist_bamboo_glen.pike":"雾竹坳",
+		"/gamelib/d/illusion_s1/cloud_pine_hollow.pike":"云松谷",
+		"/gamelib/d/illusion_s1/moonshadow_wood.pike":"月影林",
+		"/gamelib/d/illusion_s1/mirror_sandbar.pike":"镜沙洲",
+		"/gamelib/d/illusion_s1/glasswater_bank.pike":"琉水岸",
+		"/gamelib/d/illusion_s1/moonwave_shoal.pike":"月潮滩",
+		"/gamelib/d/illusion_s1/broken_star_court.pike":"碎星庭",
+		"/gamelib/d/illusion_s1/astral_stonewood.pike":"星仪石林",
+		"/gamelib/d/illusion_s1/observatory_outfield.pike":"观星外台",
+		"/gamelib/d/illusion_s1/echo_battlement.pike":"回音城垣",
+		"/gamelib/d/illusion_s1/old_city_square.pike":"古城广场",
+		"/gamelib/d/illusion_s1/stardust_lane.pike":"星尘巷",
+		"/gamelib/d/illusion_s1/abyss_flower_sea.pike":"渊花海",
+		"/gamelib/d/illusion_s1/deepmoon_valley.pike":"深月谷",
+		"/gamelib/d/illusion_s1/starfall_garden.pike":"坠星园",
+	]);
+	return (string)(names[room] || fallback);
+}
+
+private mapping(string:mixed) chapter_hunt_target(mapping progress,
+	int index,int level)
+{
+	mapping target = copy_value(story_hunt_target_for_level(progress,level));
+	mapping identity = chapter_experience_identity(index);
+	mapping step = chapter_step_requirements(progress,index);
+	array rooms = (array)(target["rooms"] || ({}));
+	int selected;
+	int stage;
+	int structured;
+	int required = max(1,(int)step["kills"]);
+	if((int)progress["chapter_route_rhythm_version"]<1 ||
+	   sizeof(rooms)!=3)
+		return target;
+	structured = search(({"trace","evidence","counter"}),
+		(string)identity["id"])!=-1;
+	if(structured){
+		stage = min(2,(int)progress["chapter_kills"]*3/required);
+		selected = (stage+index/9)%3;
+		// 当前段优先进入指定猎场；另外两房保留为人满溢出节点。
+		// 因此单人体验会真实换场，多人同时推进时仍有54人容量，
+		// 不会为了叙事节奏把五十名挂机玩家挤回一个房间。
+		target["rooms"] = ({rooms[selected],rooms[(selected+1)%3],
+			rooms[(selected+2)%3]});
+		target["rhythm_mode"] = "trail";
+		target["rhythm_stage"] = stage+1;
+		target["rhythm_stages"] = 3;
+	}
+	else{
+		selected = (index+index/9)%3;
+		target["rhythm_mode"] = "free";
+		target["rhythm_stage"] = 1;
+		target["rhythm_stages"] = 1;
+	}
+	target["room"] = rooms[selected];
+	target["location"] = hunt_room_location(rooms[selected],
+		(string)target["location"]);
+	return target;
+}
+
+private mapping(string:mixed) quest_gate_hunt_target(mapping gate)
+{
+	return ([
+		"kind":"hunt","name":(string)gate["source_name"],
+		"location":(string)gate["source_location"],
+		"room":(string)gate["source_room"],
+		"rooms":copy_value((array)(gate["source_rooms"] || ({}))),
+		"path":(string)gate["source_path"],
+		"rhythm_mode":"gate","rhythm_stage":1,"rhythm_stages":1,
+	]);
+}
+
+/**
  * 当前章节真实狩猎路线。普通持续挂机和“仅完成本章”共用目标房间与
  * 怪物等级；后者只额外携带停止标记，不能维护第二套寻路规则。
  */
@@ -3408,11 +3493,11 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 	    (int)progress["chapter_kills"]>=(int)step["kills"]) &&
 	   ((int)quest_gate["required"]<=0 || (int)quest_gate["ready"]))
 		return ([]);
-	hunt = story_hunt_target_for_level(progress,(int)step["min_level"]);
 	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"] &&
-	   ((string)quest_gate["source_path"]!=(string)hunt["path"] ||
-	    (string)quest_gate["source_room"]!=(string)hunt["room"]))
-		return ([]);
+	   (int)progress["chapter_kills"]>=(int)step["kills"])
+		hunt = quest_gate_hunt_target(quest_gate);
+	else
+		hunt = chapter_hunt_target(progress,index,(int)step["min_level"]);
 	foreach((array)(hunt["rooms"] || ({})),string room){
 		string path = room;
 		if(!has_prefix(path,room_prefix) || !has_suffix(path,".pike"))
@@ -3549,7 +3634,7 @@ private mapping(string:int) current_chapter_kill_credit(object player,
 				story_event = candidate;
 				break;
 			}
-	hunt = story_hunt_target_for_level(progress,(int)step["min_level"]);
+	hunt = chapter_hunt_target(progress,index,(int)step["min_level"]);
 	// 每章先完成自己的狩猎铺垫。卷末信物和剧情首领不能让限章挂机
 	// 把“刷信物”误当成“本章击杀”，也不能在高潮后再赶回普通猎场。
 	if((int)progress["chapter_kills"]<(int)step["kills"]){
@@ -3643,15 +3728,13 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 	// 精准停止。随后准备卷末信物，最后才进入剧情首领高潮。
 	if((int)progress["kills"]<(int)requirements["kills"] ||
 	   player_level<(int)requirements["min_level"])
-		return story_hunt_target_for_level(progress,
+		return chapter_hunt_target(progress,chapter_index,
 			(int)requirements["min_level"]);
-	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"])
-		return ([
-			"kind":"hunt","name":(string)quest_gate["source_name"],
-			"location":(string)quest_gate["source_location"],
-			"room":(string)quest_gate["source_room"],
-			"combat_name":"",
-		]);
+	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"]){
+		target = quest_gate_hunt_target(quest_gate);
+		target["combat_name"] = "";
+		return target;
+	}
 	if(sizeof(story_definition) && !story_ready){
 		string event_room = story_event_target_room(story_definition);
 		target = ([
@@ -3753,8 +3836,12 @@ private mapping chapter_status(object player,mapping progress,
 		base_ready = 0;
 	target = chapter_next_target(task_progress,chapter,step_requirements,
 		story_definition,story_ready,(int)player->query_level(),index);
-	hunt_target = story_hunt_target_for_level(progress,
+	hunt_target = chapter_hunt_target(progress,index,
 		(int)requirements["min_level"]);
+	if((string)target["kind"]=="hunt" &&
+	   (int)quest_gate["required"]>0 && !(int)quest_gate["ready"] &&
+	   chapter_kills_done>=(int)step_requirements["kills"])
+		hunt_target = target;
 	return ([
 		"id":(string)chapter["id"],
 		"volume_title":(string)chapter["volume_title"],
@@ -3783,6 +3870,9 @@ private mapping chapter_status(object player,mapping progress,
 		"hunt_name":(string)hunt_target["name"],
 		"hunt_location":(string)hunt_target["location"],
 		"hunt_room":(string)hunt_target["room"],
+		"hunt_rhythm_mode":(string)(hunt_target["rhythm_mode"] || "legacy"),
+		"hunt_rhythm_stage":(int)(hunt_target["rhythm_stage"] || 1),
+		"hunt_rhythm_stages":(int)(hunt_target["rhythm_stages"] || 1),
 		"boss_name":sizeof(story_definition) &&
 			(string)story_definition["kind"]=="boss" ?
 			(string)story_definition["monster"] : "断桥镇星使",
@@ -3855,7 +3945,10 @@ private mapping(string:mixed) chapter_progress_guide(object player,
 			(string)(int)chapter["chapter_kills_done"]+"/"+
 			(string)(int)chapter["chapter_kills"]+"（还差"+
 			(string)max(0,(int)chapter["chapter_kills"]-
-				(int)chapter["chapter_kills_done"])+"只）\n"]);
+				(int)chapter["chapter_kills_done"])+"只）"+
+			((string)chapter["hunt_rhythm_mode"]=="trail" ?
+			 "　当前追迹 "+(string)(int)chapter["hunt_rhythm_stage"]+"/"+
+			 (string)(int)chapter["hunt_rhythm_stages"] : "")+"\n"]);
 	return (["kind":kind,"message":"§y【战斗步骤完成】§r 下一步："+
 		(string)chapter["target_name"]+
 		((string)chapter["target_location"]!="" ? "　地点："+
@@ -4344,6 +4437,9 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		progress["difficulty_chapters"] = ([]);
 	((mapping)progress["difficulty_chapters"])[(string)chapter["id"]] =
 		mastery_difficulty;
+	// 已在本章途中的旧人物不会被热更新强制换房；领取成功后，下一章
+	// 才启用三段猎场节奏。该字段与奖励在同一人物原子存档中提交。
+	progress["chapter_route_rhythm_version"] = 1;
 	reset_current_chapter_counters(progress);
 	// 下一章从本章领取提交时开始计时。它只写观测字段，不能影响任何
 	// 游戏结算；人物保存失败时 old_progress 会连同该字段整体回滚。

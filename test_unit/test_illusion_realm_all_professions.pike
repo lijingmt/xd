@@ -772,6 +772,7 @@ mapping(string:mixed) record_task_progress(object player,string route)
 		}
 
 	for(int chapter_index=0;chapter_index<sizeof(chapters);chapter_index++){
+		mapping(string:int) chapter_trail_rooms = ([]);
 		progress = SEASONALD->query_player_progress(player);
 		mapping chapter = (mapping)((array)progress["chapters"])
 			[chapter_index];
@@ -890,6 +891,8 @@ mapping(string:mixed) record_task_progress(object player,string route)
 				continue;
 			}
 				if(kind=="hunt"){
+					if((string)chapter["hunt_rhythm_mode"]=="trail")
+						chapter_trail_rooms[target_room] = 1;
 					string npc_path = hunt_npc_path(
 						(string)chapter["target_name"]);
 				if(npc_path=="" || target_room=="" ||
@@ -1067,6 +1070,19 @@ mapping(string:mixed) record_task_progress(object player,string route)
 				}
 				if((int)chapter["quest_item_required"]>0 &&
 				   !(int)chapter["quest_item_ready"]){
+					mapping gate_route = SEASONALD->
+						query_current_chapter_autofight_route(player);
+					array gate_paths = (array)(gate_route["paths"] || ({}));
+					string gate_target_path = target_room[sizeof("/gamelib/d/")..
+						sizeof(target_room)-6];
+					if(!(int)gate_route["quest_item_target"] ||
+					   search(gate_paths,gate_target_path)==-1 ||
+					   (int)gate_route["total_capacity"]<50)
+						return (["ok":0,"message":sprintf(
+							"第%d章信物挂机路线缺失、错房或容量回退: %O",
+							chapter_index+1,gate_route)]);
+					result["quest_gate_autofight_routes"] =
+						(int)result["quest_gate_autofight_routes"]+1;
 					if(!SEASONALD->prime_current_quest_item_pity_for_test(
 					   player))
 						return (["ok":0,"message":sprintf(
@@ -1139,6 +1155,14 @@ mapping(string:mixed) record_task_progress(object player,string route)
 		if(guard>=2000)
 			return (["ok":0,"message":sprintf(
 				"第%d章状态机超过安全步数",chapter_index+1)]);
+		if(search(({"trace","evidence","counter"}),
+		   (string)chapter["experience_id"])!=-1){
+			if(sizeof(chapter_trail_rooms)!=3)
+				return (["ok":0,"message":sprintf(
+					"第%d章三段猎场没有逐段真实完成: %O chapter=%O",
+					chapter_index+1,chapter_trail_rooms,chapter)]);
+			result["trail_chapters"] = (int)result["trail_chapters"]+1;
+		}
 
 		progress = SEASONALD->query_player_progress(player);
 		chapters = (array)progress["chapters"];
@@ -1330,6 +1354,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["ok"] && (int)task["claims"]==81 &&
 			(int)task["narrative_chapters"]==81 &&
 			(int)task["narrative_outros"]==81 &&
+			(int)task["trail_chapters"]==27 &&
 			(int)player->query_level()==69 &&
 			(int)task["progress"]["kills"]>=760 &&
 			(int)task["progress"]["boss_kills"]>=10 &&
@@ -1342,6 +1367,7 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["future_event_blocked"]==1 &&
 			(int)task["event_gates_tested"]==25 &&
 			(int)task["quest_gates_completed"]==9 &&
+				(int)task["quest_gate_autofight_routes"]==9 &&
 				(int)task["quest_gates_before_story"]==9 &&
 				(int)task["quest_gate_pities_primed"]==9 &&
 				(int)task["quest_gate_early_story_blocked"]==1 &&

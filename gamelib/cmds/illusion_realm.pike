@@ -214,7 +214,10 @@ private string chapter_task_view(object me,mapping progress,mapping chapter,
 		s += "狩猎："+(string)chapter["hunt_name"]+" "+
 			(string)kills_done+"/"+(string)kills+"只（还差"+
 			(string)max(0,kills-kills_done)+"只）　地点："+
-			(string)chapter["hunt_location"]+"\n";
+			(string)chapter["hunt_location"]+
+			((string)chapter["hunt_rhythm_mode"]=="trail" ?
+			 "　追迹段落 "+(string)(int)chapter["hunt_rhythm_stage"]+"/"+
+			 (string)(int)chapter["hunt_rhythm_stages"] : "")+"\n";
 	if(bosses>0)
 		s += "首领："+(string)chapter["boss_name"]+" "+
 			(string)bosses_done+"/"+(string)bosses+"只（还差"+
