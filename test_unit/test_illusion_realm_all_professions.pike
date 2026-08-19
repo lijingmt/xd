@@ -544,6 +544,7 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	int scoped_returned;
 	int scoped_combat_cleared;
 	int scoped_final_view;
+	int overflow_scoped_start_valid;
 	int restored;
 	for(int chapter_number=1;chapter_number<=8;chapter_number++)
 		claims["S1-C"+(string)chapter_number] = time();
@@ -555,11 +556,26 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		"active_days":(["testunit":time()]),"story_events":([]),
 		"path":"pioneer","route_marks":([]),"claims":claims,
 		"chapter_counter_version":2,"chapter_counter_id":"S1-C9",
+		"chapter_route_rhythm_version":1,
 		"chapter_kills":0,"chapter_boss_kills":0,
 		"chapter_visit_rooms":([]),
 	]);
 	player->level = 69;
 	player->set_att_by_level();
+	// 章节分流会把同一任务的玩家送入第二、第三猎场。任务页和限章
+	// 挂机必须接受整个服务端房间集合，不能把合法溢出节点误判为错图。
+	move_for_test(player,
+		"/gamelib/d/illusion_s1/silver_reed_bank.pike");
+	progress = SEASONALD->query_player_progress(player);
+	chapter = (mapping)((array)progress["chapters"])[8];
+	mapping overflow_start = SEASONALD->
+		start_chapter_hunt_autofight_for_test(player);
+	overflow_scoped_start_valid = (int)overflow_start["ok"] &&
+		arrayp(chapter["target_rooms"]) &&
+		search((array)chapter["target_rooms"],
+			"/gamelib/d/illusion_s1/silver_reed_bank.pike")!=-1 &&
+		mappingp(player["/tmp/illusion_chapter_autofight"]);
+	AUTOFIGHTD->stop_autofight(player);
 	move_for_test(player,
 		"/gamelib/d/illusion_s1/moon_dew_field.pike");
 	// 真实回归：人物已经69级，但第九章仍要求1级逐光月灵。普通挂机
@@ -659,6 +675,7 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	int valid = boss_room_ready && boss && zero_exp==0 &&
 		(int)player->query_level()-(int)boss->query_level()>=10 &&
 		ordinary_route_valid && ordinary_progress_valid &&
+		overflow_scoped_start_valid &&
 		scoped_route_valid && scoped_gate_primed && scoped_stopped &&
 		scoped_combat_cleared && scoped_final_view && scoped_returned &&
 		(int)progress["kills"]==92 && (int)progress["boss_kills"]==1 &&
@@ -687,6 +704,7 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		"ordinary_window":ordinary_window,
 		"ordinary_route_valid":ordinary_route_valid,
 		"ordinary_progress_valid":ordinary_progress_valid,
+		"overflow_scoped_start_valid":overflow_scoped_start_valid,
 		"scoped_start":scoped_start,"scoped_route":scoped_route,
 		"scoped_route_valid":scoped_route_valid,
 		"scoped_stopped":scoped_stopped,

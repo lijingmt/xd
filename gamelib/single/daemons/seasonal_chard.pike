@@ -3870,6 +3870,8 @@ private mapping chapter_status(object player,mapping progress,
 		"hunt_name":(string)hunt_target["name"],
 		"hunt_location":(string)hunt_target["location"],
 		"hunt_room":(string)hunt_target["room"],
+		"hunt_rooms":arrayp(hunt_target["rooms"]) ?
+			copy_value((array)hunt_target["rooms"]) : ({}),
 		"hunt_rhythm_mode":(string)(hunt_target["rhythm_mode"] || "legacy"),
 		"hunt_rhythm_stage":(int)(hunt_target["rhythm_stage"] || 1),
 		"hunt_rhythm_stages":(int)(hunt_target["rhythm_stages"] || 1),
@@ -3903,6 +3905,8 @@ private mapping chapter_status(object player,mapping progress,
 		"target_name":(string)target["name"],
 		"target_location":(string)target["location"],
 		"target_room":(string)target["room"],
+		"target_rooms":arrayp(target["rooms"]) ?
+			copy_value((array)target["rooms"]) : ({}),
 		"target_combat_name":(string)(target["combat_name"] || ""),
 		"reward_count":(int)chapter["reward_count"],
 		"claimed":(int)claims[(string)chapter["id"]],
@@ -4297,6 +4301,8 @@ private mapping(string:mixed) start_chapter_hunt_autofight_internal(
 	string reason;
 	string current_room;
 	string completion_kind;
+	array(string) target_rooms = ({});
+	int in_target_room;
 	mapping context=story_context(player);
 	if(!player || !sizeof(context))
 		return (["ok":0,"message":"当前不能启动幻境章节挂机。"]) ;
@@ -4311,7 +4317,16 @@ private mapping(string:mixed) start_chapter_hunt_autofight_internal(
 	if((string)chapter["target_kind"]!="hunt")
 		return (["ok":0,"message":"当前步骤不是狩猎小怪，未启动挂机。"]) ;
 	current_room = normalized_destination_path(environment(player));
-	if(current_room!=(string)chapter["target_room"])
+	if(arrayp(chapter["target_rooms"]))
+		target_rooms = (array(string))chapter["target_rooms"];
+	if(!sizeof(target_rooms) && (string)chapter["target_room"]!="")
+		target_rooms = ({(string)chapter["target_room"]});
+	foreach(target_rooms,string target_room)
+		if(MAP_WORKERD->static_room_locations_match(current_room,target_room)){
+			in_target_room = 1;
+			break;
+		}
+	if(!in_target_room)
 		return (["ok":0,"message":"请先点击“下一步”到达本章狩猎地点。"]) ;
 	reason = AUTOFIGHTD->query_start_block_reason(player);
 	if(reason!=""){

@@ -69,6 +69,9 @@ int main()
 		search(source,"追迹段落 ")!=-1;
 	int current_room_action =
 		search(source,"chapter_target_in_current_room(me,chapter)")!=-1 &&
+		search(source,"chapter[\"target_rooms\"]")!=-1 &&
+		search(source,"foreach(target_rooms,string target_room)")!=-1 &&
+		search(daemon_source,"\"target_rooms\":arrayp(target[\"rooms\"])")!=-1 &&
 		search(source,
 			"arrival_actions = chapter_arrival_actions(chapter)")!=-1 &&
 		search(source,"string arrival_actions = \"\";")!=-1 &&
@@ -172,9 +175,9 @@ int main()
 	check("三类章节把真实狩猎拆成一键可跟随的三段猎场",
 		chapter_route_rhythm,
 		"追迹、搜证与反猎仍只更换文案，没有实际换房节奏");
-	check("已在章节目标房时直接显示操作而不要求重复点击下一步",
+	check("已在章节主房或合法溢出房时直接显示操作而不要求重复传送",
 		current_room_action,
-		"当前历程没有安全区分未到达时的一键前往与到达后的任务动作");
+		"任务页没有用服务端目标房集合识别合法溢出猎场");
 	check("概率剧情道具显示来源、掉率、保底与账号绑定规则",
 		quest_item_gate_action,
 		"剧情道具卡点没有向玩家解释掉落与保底进度");

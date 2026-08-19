@@ -57,15 +57,21 @@ private string boss_challenge_link(mapping target)
 private int chapter_target_in_current_room(object me,mapping chapter)
 {
 	object room;
-	string target_room;
+	array(string) target_rooms = ({});
 	if(!me || !mappingp(chapter))
 		return 0;
 	room = environment(me);
-	target_room = (string)(chapter["target_room"] || "");
-	if(!room || target_room=="")
+	if(arrayp(chapter["target_rooms"]))
+		target_rooms = (array(string))chapter["target_rooms"];
+	if(!sizeof(target_rooms) && (string)(chapter["target_room"] || "")!="")
+		target_rooms = ({(string)chapter["target_room"]});
+	if(!room || !sizeof(target_rooms))
 		return 0;
-	return (int)MAP_WORKERD->static_room_locations_match(
-		file_name(room),target_room);
+	foreach(target_rooms,string target_room)
+		if(MAP_WORKERD->static_room_locations_match(
+		   file_name(room),target_room))
+			return 1;
+	return 0;
 }
 
 private string chapter_arrival_actions(mapping chapter)
