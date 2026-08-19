@@ -11,7 +11,7 @@
 
 @media (min-width: 960px) and (pointer: fine) {
     :root[data-client-layout="pc"] {
-        --pc-sidebar-width: 264px;
+        --pc-sidebar-width: 292px;
         --pc-page-gap: 20px;
         --pc-page-edge: 22px;
         --pc-header-height: 94px;
@@ -228,55 +228,293 @@
         max-height: calc(100vh - 132px);
     }
 
-    /* Persistent desktop helper + left navigation rail. */
-    html[data-client-layout="pc"] .pc-desktop-bar {
+    /* PC command deck: a real game navigation console rather than a stretched
+       mobile bottom bar. It is isolated to pc.html by this stylesheet. */
+    html[data-client-layout="pc"] .pc-command-deck {
         position: fixed;
         z-index: 2050;
         top: var(--pc-page-edge);
+        bottom: var(--pc-page-edge);
         left: var(--pc-page-edge);
         display: grid;
         width: var(--pc-sidebar-width);
-        min-height: 78px;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 5px 10px;
-        padding: 12px 13px;
-        border: 1px solid var(--ux-line);
-        border-radius: 16px;
-        background: color-mix(in srgb, var(--ux-surface-strong) 95%, transparent);
-        color: var(--ux-ink);
-        box-shadow: var(--ux-shadow);
-        backdrop-filter: blur(18px);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        overflow: hidden;
+        border: 1px solid rgba(128, 157, 184, 0.32);
+        border-radius: 20px;
+        background:
+            linear-gradient(180deg, rgba(12, 24, 40, 0.985), rgba(7, 14, 27, 0.985)),
+            var(--ux-surface-strong);
+        color: #edf5ff;
+        box-shadow: 0 28px 70px rgba(1, 6, 15, 0.42), inset 0 1px rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(24px) saturate(1.25);
     }
 
-    html[data-client-layout="pc"] .pc-desktop-bar div {
+    html[data-client-layout="pc"] .pc-command-brand {
         display: flex;
+        min-height: 74px;
+        align-items: center;
+        gap: 11px;
+        padding: 13px 15px;
+        border-bottom: 1px solid rgba(139, 169, 199, 0.2);
+        background:
+            radial-gradient(circle at 18% 10%, rgba(103, 198, 255, 0.18), transparent 58%),
+            linear-gradient(110deg, rgba(30, 56, 82, 0.42), transparent);
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand-mark {
+        display: grid;
+        width: 43px;
+        height: 43px;
+        flex: 0 0 43px;
+        place-items: center;
+        border: 1px solid rgba(255, 217, 128, 0.62);
+        border-radius: 13px;
+        background: linear-gradient(145deg, #7f6028, #282850 64%, #163a50);
+        color: #fff0b4;
+        box-shadow: 0 0 22px rgba(255, 210, 102, 0.18), inset 0 1px rgba(255, 255, 255, 0.2);
+        font: 800 21px/1 "Noto Serif SC", "Songti SC", serif;
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand > span:nth-child(2) {
+        display: grid;
         min-width: 0;
-        flex-direction: column;
+        flex: 1;
+        gap: 2px;
     }
 
-    html[data-client-layout="pc"] .pc-desktop-bar strong {
-        font-size: 14px;
+    html[data-client-layout="pc"] .pc-command-brand strong {
+        color: #fff3c7;
+        font: 800 18px/1.1 "Noto Serif SC", "Songti SC", serif;
+        letter-spacing: 0.08em;
     }
 
-    html[data-client-layout="pc"] .pc-desktop-bar span,
-    html[data-client-layout="pc"] .pc-desktop-bar p {
-        color: var(--ux-ink-muted);
+    html[data-client-layout="pc"] .pc-command-brand small {
+        color: #88a5bd;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand > i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #7e8795;
+        box-shadow: 0 0 0 4px rgba(126, 135, 149, 0.1);
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand > i.online {
+        background: #64e4a0;
+        box-shadow: 0 0 14px #64e4a0, 0 0 0 4px rgba(100, 228, 160, 0.12);
+    }
+
+    html[data-client-layout="pc"] .pc-command-core {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        padding: 10px 10px 9px;
+        border-bottom: 1px solid rgba(139, 169, 199, 0.16);
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button,
+    html[data-client-layout="pc"] .pc-command-grid button {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        border: 1px solid rgba(132, 163, 193, 0.23);
+        background: linear-gradient(160deg, rgba(31, 52, 76, 0.82), rgba(14, 27, 45, 0.92));
+        color: #dce8f5;
+        cursor: pointer;
+        transition: border-color 150ms ease, background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button {
+        min-height: 62px;
+        justify-items: center;
+        gap: 1px;
+        padding: 7px 3px 5px;
+        border-radius: 11px;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button > span {
+        color: #a9dff5;
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core b,
+    html[data-client-layout="pc"] .pc-command-grid b,
+    html[data-client-layout="pc"] .pc-command-footer b {
+        overflow: hidden;
+        font-size: 11px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core small {
+        display: none;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button.active,
+    html[data-client-layout="pc"] .pc-command-grid button.active {
+        border-color: rgba(103, 205, 255, 0.76);
+        background: linear-gradient(160deg, rgba(38, 104, 141, 0.9), rgba(21, 48, 78, 0.94));
+        box-shadow: 0 0 20px rgba(68, 180, 240, 0.18), inset 0 1px rgba(255, 255, 255, 0.12);
+        color: #fff;
+    }
+
+    html[data-client-layout="pc"] .pc-command-scroll {
+        min-height: 0;
+        padding: 4px 8px 12px 10px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-color: rgba(119, 160, 188, 0.46) transparent;
+        scrollbar-width: thin;
+    }
+
+    html[data-client-layout="pc"] .pc-command-group {
+        padding: 9px 0 2px;
+    }
+
+    html[data-client-layout="pc"] .pc-command-group + .pc-command-group {
+        border-top: 1px solid rgba(139, 169, 199, 0.12);
+    }
+
+    html[data-client-layout="pc"] .pc-command-group h3 {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin: 0 3px 7px;
+        color: #c5d7e7;
         font-size: 10px;
+        letter-spacing: 0.15em;
     }
 
-    html[data-client-layout="pc"] .pc-desktop-bar p {
-        grid-column: 1 / -1;
-        margin: 0;
-        line-height: 1.55;
+    html[data-client-layout="pc"] .pc-command-group h3 small {
+        color: #627f96;
+        font-size: 8px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
     }
 
-    html[data-client-layout="pc"] .pc-desktop-bar button {
-        min-height: 34px;
-        padding: 5px 9px;
-        border: 1px solid var(--ux-line);
-        border-radius: 9px;
-        background: var(--ux-surface-muted);
-        color: var(--ux-ink);
+    html[data-client-layout="pc"] .pc-command-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button {
+        min-height: 50px;
+        grid-template-columns: 29px minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        column-gap: 7px;
+        align-content: center;
+        padding: 6px 7px;
+        border-radius: 10px;
+        text-align: left;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button > span {
+        grid-row: 1 / 3;
+        align-self: center;
+        color: #a9dff5;
+        font-size: 20px;
+        line-height: 1;
+        text-align: center;
+        filter: saturate(0.82);
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button small,
+    html[data-client-layout="pc"] .pc-command-footer small {
+        overflow: hidden;
+        color: #7992a7;
+        font-size: 8px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button:hover,
+    html[data-client-layout="pc"] .pc-command-grid button:focus-visible,
+    html[data-client-layout="pc"] .pc-command-core button:hover,
+    html[data-client-layout="pc"] .pc-command-core button:focus-visible {
+        border-color: rgba(117, 202, 234, 0.66);
+        background: linear-gradient(160deg, rgba(35, 73, 99, 0.94), rgba(18, 39, 63, 0.96));
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22), 0 0 16px rgba(76, 179, 224, 0.12);
+        transform: translateY(-1px);
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button.alert::before {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #ffcf64;
+        box-shadow: 0 0 10px #ffcf64;
+        content: "";
+    }
+
+    html[data-client-layout="pc"] .pc-command-deck button:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+        filter: grayscale(0.7);
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 42px;
+        gap: 7px;
+        padding: 10px;
+        border-top: 1px solid rgba(139, 169, 199, 0.18);
+        background: rgba(3, 10, 20, 0.5);
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child {
+        display: grid;
+        min-height: 48px;
+        grid-template-columns: 32px minmax(0, 1fr);
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border: 1px solid rgba(90, 211, 154, 0.38);
+        border-radius: 11px;
+        background: linear-gradient(140deg, rgba(24, 90, 67, 0.82), rgba(13, 45, 51, 0.9));
+        color: #dffff0;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child > span:first-child {
+        color: #79edac;
+        font-size: 19px;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child > span:last-child {
+        display: grid;
+        min-width: 0;
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child.active {
+        border-color: rgba(255, 144, 124, 0.65);
+        background: linear-gradient(140deg, rgba(113, 44, 51, 0.86), rgba(63, 28, 45, 0.94));
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child.active > span:first-child {
+        color: #ff9e8c;
+    }
+
+    html[data-client-layout="pc"] .pc-command-mobile {
+        min-height: 48px;
+        border: 1px solid rgba(132, 163, 193, 0.24);
+        border-radius: 11px;
+        background: rgba(22, 38, 59, 0.88);
+        color: #a9bfd2;
+        font-size: 20px;
         cursor: pointer;
     }
 

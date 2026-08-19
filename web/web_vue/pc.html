@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1787174930553">
-    <link rel="stylesheet" href="css/app.css?v=v1787174930553">
-    <link rel="stylesheet" href="css/realm.css?v=v1787174930553">
-    <link rel="stylesheet" href="css/pc.css?v=v1787174930553">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787176586402">
+    <link rel="stylesheet" href="css/app.css?v=v1787176586402">
+    <link rel="stylesheet" href="css/realm.css?v=v1787176586402">
+    <link rel="stylesheet" href="css/pc.css?v=v1787176586402">
 </head>
 <body>
     <div id="app">
@@ -975,16 +975,119 @@
                 </div>
             </header>
 
-            <section v-if="clientLayout === 'pc'"
-                     class="pc-desktop-bar"
-                     aria-label="桌面版操作提示">
-                <div>
-                    <strong>仙道桌面版</strong>
-                    <span>鼠标精确操作 · 键盘快速导航</span>
+            <aside v-if="clientLayout === 'pc'"
+                   class="pc-command-deck"
+                   aria-label="桌面版游戏功能">
+                <header class="pc-command-brand">
+                    <span class="pc-command-brand-mark" aria-hidden="true">仙</span>
+                    <span>
+                        <strong>仙道</strong>
+                        <small>山海行旅控制台</small>
+                    </span>
+                    <i :class="{ online: txd }" :title="txd ? '世界连接正常' : '尚未进入世界'"></i>
+                </header>
+
+                <nav class="pc-command-core" aria-label="人物核心功能">
+                    <button type="button"
+                            data-pc-key="1"
+                            :class="{ active: isQuickActionActive('look') }"
+                            @click="sendQuickCommand('look')">
+                        <span aria-hidden="true">⌂</span><b>场景</b><small>观察当前区域</small>
+                    </button>
+                    <button type="button"
+                            data-pc-key="2"
+                            :class="{ active: isQuickActionActive('myhp') }"
+                            @click="sendQuickCommand('myhp')">
+                        <span aria-hidden="true">♡</span><b>人物</b><small>属性与状态</small>
+                    </button>
+                    <button type="button"
+                            data-pc-key="3"
+                            data-tour="inventory"
+                            :class="{ active: isQuickActionActive('inventory') }"
+                            @click="sendQuickCommand('inventory')">
+                        <span aria-hidden="true">▣</span><b>行囊</b><small>物品与套装</small>
+                    </button>
+                    <button type="button"
+                            data-pc-key="4"
+                            data-tour="skills"
+                            :class="{ active: isQuickActionActive('myskills') }"
+                            @click="sendQuickCommand('myskills')">
+                        <span aria-hidden="true">◇</span><b>技能</b><small>招式与熟练度</small>
+                    </button>
+                </nav>
+
+                <div class="pc-command-scroll">
+                    <section class="pc-command-group" aria-labelledby="pc-nav-adventure">
+                        <h3 id="pc-nav-adventure"><span>冒险</span><small>山海探索</small></h3>
+                        <div class="pc-command-grid">
+                            <button type="button" data-pc-key="M" @click="openDesktopWorldMap" :disabled="!desktopScene">
+                                <span aria-hidden="true">🧭</span><b>世界地图</b><small>全部房间网络</small>
+                            </button>
+                            <button type="button" data-pc-key="T" data-tour="quests" @click="sendQuickCommand('mytasks')">
+                                <span aria-hidden="true">📜</span><b>任务</b><small>主线与支线</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('daily')" :class="{ alert: playerStats?.daily_goal?.claimable }">
+                                <span aria-hidden="true">{{ playerStats?.daily_goal?.claimable ? '🎁' : '☀' }}</span><b>{{ playerStats?.daily_goal?.claimable ? '每日可领' : '每日修行' }}</b><small>今日成长目标</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('illusion_realm')">
+                                <span aria-hidden="true">🌙</span><b>幻境任务</b><small>赛季历程</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('personal_difficulty')">
+                                <span aria-hidden="true">🔥</span><b>挑战难度</b><small>个人世界层级</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('timed_event')" :class="{ alert: playerStats?.timed_event?.active }">
+                                <span aria-hidden="true">⚖</span><b>限时玩法</b><small>集结与活动</small>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="pc-command-group" aria-labelledby="pc-nav-social">
+                        <h3 id="pc-nav-social"><span>同伴</span><small>队伍与灵伴</small></h3>
+                        <div class="pc-command-grid">
+                            <button type="button" @click="sendQuickCommand('my_term')"><span aria-hidden="true">👥</span><b>队伍</b><small>组队与协作</small></button>
+                            <button type="button" @click="sendQuickCommand('pet')"><span aria-hidden="true">🐾</span><b>共享宠物</b><small>账号共同培养</small></button>
+                            <button type="button" @click="sendQuickCommand('spirit_companion')"><span aria-hidden="true">✦</span><b>本命灵伴</b><small>人物独立伙伴</small></button>
+                            <button type="button" @click="sendQuickCommand('my_bang')"><span aria-hidden="true">🏰</span><b>帮派</b><small>宗门与成员</small></button>
+                            <button type="button" @click="sendQuickCommand('my_games')"><span aria-hidden="true">🌊</span><b>江湖</b><small>世界玩法</small></button>
+                            <button type="button" @click="sendQuickCommand('userlist')"><span aria-hidden="true">🌀</span><b>传送</b><small>好友与地点</small></button>
+                        </div>
+                    </section>
+
+                    <section class="pc-command-group" aria-labelledby="pc-nav-assets">
+                        <h3 id="pc-nav-assets"><span>资源</span><small>仓储与仙资</small></h3>
+                        <div class="pc-command-grid">
+                            <button type="button" data-tour="warehouse" @click="sendQuickCommand('go_warehouse')"><span aria-hidden="true">🧰</span><b>仓库</b><small>人物与共享仓储</small></button>
+                            <button type="button" @click="sendQuickCommand('yushi_change')"><span aria-hidden="true">💎</span><b>玉石</b><small>拆分与合成</small></button>
+                            <button type="button" @click="sendQuickCommand('yushi_myzone')"><span aria-hidden="true">🪙</span><b>仙玉</b><small>资产与兑换</small></button>
+                            <button type="button" @click="sendQuickCommand('vip_service_list')"><span aria-hidden="true">👑</span><b>会员</b><small>权益与时间</small></button>
+                        </div>
+                    </section>
+
+                    <section class="pc-command-group" aria-labelledby="pc-nav-system">
+                        <h3 id="pc-nav-system"><span>修行</span><small>辅助与设置</small></h3>
+                        <div class="pc-command-grid">
+                            <button v-if="playerStats?.profession_assistant?.supported" type="button" @click="sendQuickCommand('profession_assistant')">
+                                <span aria-hidden="true">{{ playerStats.profe === '方士' ? '🔮' : (playerStats.profe === '天象' ? '✦' : (playerStats.profe === '灵医' ? '✚' : '🛡')) }}</span><b>职业助手</b><small>本职专属功能</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('autofight open')"><span aria-hidden="true">🛠</span><b>挂机设置</b><small>策略与药品</small></button>
+                            <button type="button" @click="sendQuickCommand('game_detail')"><span aria-hidden="true">⚙</span><b>游戏设置</b><small>表现与偏好</small></button>
+                            <button type="button" @click="refreshFrame"><span aria-hidden="true">↻</span><b>同步画面</b><small>重新读取状态</small></button>
+                        </div>
+                    </section>
                 </div>
-                <p><kbd>1–4</kbd> 场景/状态/物品/技能　<kbd>M</kbd> 地图　<kbd>T</kbd> 任务　<kbd>A</kbd> 挂机</p>
-                <button type="button" @click="switchClientLayout('mobile')">切换手机版</button>
-            </section>
+
+                <footer class="pc-command-footer">
+                    <button type="button"
+                            data-pc-key="A"
+                            data-tour="autofight"
+                            :class="{ active: playerStats && playerStats.autofight }"
+                            @click="toggleAutofight">
+                        <span aria-hidden="true">{{ playerStats && playerStats.autofight ? '■' : '▶' }}</span>
+                        <span><b>{{ playerStats && playerStats.autofight ? '停止挂机' : '开始挂机' }}</b><small>A 键快速切换</small></span>
+                    </button>
+                    <button type="button" class="pc-command-mobile" @click="switchClientLayout('mobile')" title="切换手机版">▯</button>
+                </footer>
+            </aside>
 
             <div ref="uiToastStage" class="ui-toast-stage">
                 <div v-if="uiToast"
@@ -2126,7 +2229,8 @@
             </div>
 
             <!-- 快捷命令栏 -->
-            <footer class="quick-actions"
+            <footer v-if="clientLayout !== 'pc'"
+                    class="quick-actions"
                     :class="{ collapsed: quickActionsCollapsed }"
                     aria-label="快捷导航">
                 <div class="quick-more-panel"
@@ -2232,19 +2336,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1787174930553"></script>
-    <script src="vendor/canvas-confetti.js?v=v1787174930553"></script>
-    <script src="vendor/howler.core.min.js?v=v1787174930553"></script>
-    <script src="vendor/driver.iife.js?v=v1787174930553"></script>
-    <script src="../includes/game-number-format.js?v=v1787174930553" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787176586402"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787176586402"></script>
+    <script src="vendor/howler.core.min.js?v=v1787176586402"></script>
+    <script src="vendor/driver.iife.js?v=v1787176586402"></script>
+    <script src="../includes/game-number-format.js?v=v1787176586402" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787174930553';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787176586402';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1787174930553"></script>
+    <script src="js/app.js?v=v1787176586402"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1787174930553"></script>
+    <script src="../includes/translate.js?v=v1787176586402"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

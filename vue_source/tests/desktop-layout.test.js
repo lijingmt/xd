@@ -23,7 +23,9 @@ const terrainAtlasAsset = path.join(rootDir, 'images', 'visual_map',
 assert(!index.includes('href="css/pc.css'),
     'mobile index must not load isolated desktop CSS');
 assert(index.includes("v-if=\"clientLayout === 'pc'\""));
-assert(index.includes('class="pc-desktop-bar"'));
+assert(index.includes('class="pc-command-deck"'));
+assert(index.includes('class="pc-command-grid"'));
+assert(index.includes("sendQuickCommand('go_warehouse')"));
 assert(index.includes('class="desktop-rpg-shell"'));
 assert(index.includes('class="desktop-scene-stage"'));
 assert(index.includes('class="desktop-nearby-map"'));

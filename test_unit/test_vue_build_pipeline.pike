@@ -105,7 +105,7 @@ void test_vue_source_contract()
 	   search(build_source,"'VUE_LICENSE.txt'")!=-1 &&
 	   search(build_source,"legacyDistDir")!=-1 &&
 	   search(index_source,"manifest.json")!=-1 &&
-	   search(index_source,"pc-desktop-bar")!=-1 &&
+	   search(index_source,"pc-command-deck")!=-1 &&
 	   search(index_source,"desktop-rpg-shell")!=-1 &&
 	   search(index_source,"desktop-nearby-map")!=-1 &&
 	   search(index_source,"desktopWorldCanvas")!=-1 &&

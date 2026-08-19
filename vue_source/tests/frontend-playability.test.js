@@ -149,8 +149,9 @@ async function main() {
             segments: [{ type: 'text', parts: [{ type: 'text', content: '桌面场景可玩输出' }] }]
         }]
     });
-    assert(pcRendered.includes('pc-desktop-bar'), 'PC render must contain desktop controls');
-    assert(pcRendered.includes('仙道桌面版'), 'PC render must identify the isolated desktop client');
+    assert(pcRendered.includes('pc-command-deck'), 'PC render must contain desktop controls');
+    assert(pcRendered.includes('山海行旅控制台'), 'PC render must expose the game-style command deck');
+    assert(pcRendered.includes('仓库'), 'PC command deck must expose warehouse access');
     assert(pcRendered.includes('data-pc-key="1"'), 'PC render must expose keyboard shortcut hints');
     assert(pcRendered.includes('切换手机版'), 'PC render must provide a safe mobile return path');
     assert(pcRendered.includes('桌面场景可玩输出'), 'PC render must keep real MUD output playable');
