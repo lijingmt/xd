@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1787162559632">
-    <link rel="stylesheet" href="css/app.css?v=v1787162559632">
-    <link rel="stylesheet" href="css/realm.css?v=v1787162559632">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787166920503">
+    <link rel="stylesheet" href="css/app.css?v=v1787166920503">
+    <link rel="stylesheet" href="css/realm.css?v=v1787166920503">
 </head>
 <body>
     <div id="app">
@@ -1125,13 +1125,175 @@
             <main class="game-frame-container"
                   :class="{
                       'battle-dock-active': useJsonMode && (isInBattle || hasRecentAoeReport) && !battleFullscreen && (!battleDockCollapsed || hasRecentAoeReport),
-                      'battle-dock-collapsed': useJsonMode && isInBattle && !hasRecentAoeReport && !battleFullscreen && battleDockCollapsed
+                      'battle-dock-collapsed': useJsonMode && isInBattle && !hasRecentAoeReport && !battleFullscreen && battleDockCollapsed,
+                      'desktop-visual-game-active': clientLayout === 'pc' && desktopScene
                   }">
+                <!-- PC 可视化房间：只表现服务器已确认的当前房间、出口和实体。 -->
+                <section v-if="clientLayout === 'pc' && desktopScene"
+                         class="desktop-rpg-shell"
+                         aria-label="仙道实时可视化地图">
+                    <header class="desktop-scene-header desktop-scene-hud">
+                        <div class="desktop-scene-title">
+                            <small>当前区域</small>
+                            <h2>{{ desktopScene.roomName }}</h2>
+                            <p>{{ desktopScene.description || '灵气在山海之间流动，四方道路通往相邻仙境。' }}</p>
+                        </div>
+                        <div class="desktop-scene-status">
+                            <span :class="{ syncing: desktopSceneSyncing }">
+                                <i></i>{{ desktopSceneSyncing ? '同步中' : '实时同步' }}
+                            </span>
+                            <span>怪物 {{ desktopScene.entities.filter(item => item.kind === 'monster').length }}</span>
+                            <span>玩家 {{ desktopScene.entities.filter(item => item.kind === 'player').length + 1 }}</span>
+                        </div>
+                        <div class="desktop-scene-tools">
+                            <button type="button"
+                                    :class="{ active: desktopWorldMapOpen }"
+                                    @click="desktopWorldMapOpen = !desktopWorldMapOpen">
+                                🧭 区域图
+                            </button>
+                            <button type="button"
+                                    :class="{ active: playerStats && playerStats.autofight }"
+                                    @click="toggleAutofight">
+                                {{ playerStats && playerStats.autofight ? '■ 停止挂机' : '▶ 自动挂机' }}
+                            </button>
+                            <button type="button"
+                                    :class="{ active: desktopTextPanelOpen }"
+                                    @click="desktopTextPanelOpen = !desktopTextPanelOpen">
+                                📜 江湖记录
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="desktop-scene-stage"
+                         :style="getDesktopSceneStyle()"
+                         @click="handleDesktopGroundClick">
+                        <div class="desktop-scene-vignette" aria-hidden="true"></div>
+                        <div class="desktop-scene-instruction desktop-scene-hud">
+                            点击空地移动 · 点击怪物或玩家互动 · 点击光门前往相邻房间
+                        </div>
+
+                        <button v-for="exit in desktopScene.exits"
+                                :key="exit.cmd"
+                                type="button"
+                                class="desktop-exit-portal desktop-scene-hud"
+                                :style="getDesktopExitStyle(exit)"
+                                :disabled="desktopSceneMoving || mudLoading"
+                                @click.stop="moveDesktopScene(exit)">
+                            <span class="desktop-exit-rune" aria-hidden="true"></span>
+                            <strong>{{ exit.direction }}</strong>
+                            <small>{{ exit.destination }}</small>
+                        </button>
+
+                        <button v-for="(entity, entityIndex) in desktopScene.entities"
+                                :key="entity.id"
+                                type="button"
+                                class="desktop-scene-actor"
+                                :class="[
+                                    'desktop-actor-' + entity.kind,
+                                    { selected: desktopSceneSelected && desktopSceneSelected.id === entity.id }
+                                ]"
+                                :style="getDesktopEntityStyle(entity, entityIndex)"
+                                @click.stop="inspectDesktopEntity(entity)">
+                            <span class="desktop-actor-shadow" aria-hidden="true"></span>
+                            <span class="desktop-actor-portrait">
+                                <img v-if="entity.image"
+                                     :src="getImageUrl(entity.image)"
+                                     :alt="entity.name"
+                                     onerror="this.style.display='none'">
+                                <b v-else aria-hidden="true">{{ entity.kind === 'monster' ? '兽' : '侠' }}</b>
+                            </span>
+                            <span class="desktop-actor-name">
+                                {{ entity.name }}
+                                <em v-if="entity.kind === 'monster'">可交战</em>
+                            </span>
+                        </button>
+
+                        <div class="desktop-scene-actor desktop-player-actor"
+                             :class="[{ moving: desktopSceneMoving }, playerLevelAuraClass]"
+                             :style="getDesktopPlayerStyle()"
+                             aria-label="当前人物">
+                            <span class="desktop-actor-shadow" aria-hidden="true"></span>
+                            <span class="desktop-player-aura" aria-hidden="true"></span>
+                            <span class="desktop-actor-portrait">
+                                <img v-if="playerAvatarUrl && !playerAvatarFailed"
+                                     :src="playerAvatarUrl"
+                                     :alt="playerStats?.name_cn || '当前人物'"
+                                     @error="handlePlayerAvatarError">
+                                <b v-else>{{ playerAvatarFallback }}</b>
+                            </span>
+                            <span class="desktop-actor-name">
+                                {{ playerStats?.name_cn || playerAvatarFallback }}
+                                <em>Lv.{{ playerStats?.level || 1 }}</em>
+                            </span>
+                        </div>
+
+                        <aside v-if="desktopWorldMapOpen"
+                               class="desktop-world-map desktop-scene-hud"
+                               @click.stop>
+                            <div class="desktop-world-map-title">
+                                <span>区域路线</span>
+                                <small>点击相邻房间即可前往</small>
+                            </div>
+                            <div class="desktop-world-map-canvas">
+                                <div class="desktop-world-current">
+                                    <i></i><strong>{{ desktopScene.roomName }}</strong>
+                                </div>
+                                <button v-for="exit in desktopScene.exits"
+                                        :key="'map-' + exit.cmd"
+                                        type="button"
+                                        class="desktop-world-node"
+                                        :data-direction="exit.direction"
+                                        :disabled="desktopSceneMoving || mudLoading"
+                                        @click="moveDesktopScene(exit)">
+                                    <b>{{ exit.direction }}</b>
+                                    <span>{{ exit.destination }}</span>
+                                </button>
+                            </div>
+                        </aside>
+
+                        <aside v-if="desktopSceneSelected"
+                               class="desktop-target-panel desktop-scene-hud"
+                               @click.stop>
+                            <button type="button"
+                                    class="desktop-target-close"
+                                    aria-label="关闭互动面板"
+                                    @click="desktopSceneSelected = null; desktopSceneActions = []">×</button>
+                            <div class="desktop-target-heading">
+                                <span>{{ desktopSceneSelected.kind === 'monster' ? '遭遇目标' : '同场玩家' }}</span>
+                                <strong>{{ desktopSceneSelected.name }}</strong>
+                            </div>
+                            <div v-if="mudLoading" class="desktop-target-loading">正在取得目标状态…</div>
+                            <div v-else-if="desktopSceneActions.length" class="desktop-target-actions">
+                                <button v-for="action in desktopSceneActions"
+                                        :key="action.cmd"
+                                        type="button"
+                                        @click="runDesktopSceneAction(action)">
+                                    {{ action.label }}
+                                </button>
+                            </div>
+                            <button v-else
+                                    type="button"
+                                    class="desktop-target-refresh"
+                                    @click="inspectDesktopEntity(desktopSceneSelected)">
+                                查看可用操作
+                            </button>
+                        </aside>
+
+                        <div v-if="desktopSceneMoving" class="desktop-scene-transition" aria-live="polite">
+                            <span></span>正在前往相邻仙境…
+                        </div>
+                    </div>
+                </section>
+
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
                      class="mud-output-container"
                      data-tour="game-output"
-                     :class="{ 'dark-mode': theme === 'dark' }"
+                     :class="{
+                         'dark-mode': theme === 'dark',
+                         'desktop-scene-console': clientLayout === 'pc' && desktopScene,
+                         'desktop-scene-console-open': desktopTextPanelOpen
+                     }"
                      :aria-busy="mudLoading ? 'true' : 'false'">
                     <div class="mud-parent"
                          :class="{ 'smooth-output-loading': smoothOutputLoading }"
@@ -2030,19 +2192,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1787162559632"></script>
-    <script src="vendor/canvas-confetti.js?v=v1787162559632"></script>
-    <script src="vendor/howler.core.min.js?v=v1787162559632"></script>
-    <script src="vendor/driver.iife.js?v=v1787162559632"></script>
-    <script src="../includes/game-number-format.js?v=v1787162559632" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787166920503"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787166920503"></script>
+    <script src="vendor/howler.core.min.js?v=v1787166920503"></script>
+    <script src="vendor/driver.iife.js?v=v1787166920503"></script>
+    <script src="../includes/game-number-format.js?v=v1787166920503" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787162559632';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787166920503';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1787162559632"></script>
+    <script src="js/app.js?v=v1787166920503"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1787162559632"></script>
+    <script src="../includes/translate.js?v=v1787166920503"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

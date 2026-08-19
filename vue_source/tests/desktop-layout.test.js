@@ -15,11 +15,17 @@ const serve = read(sourceDir, 'serve.js');
 const selector = read(rootDir, 'web', 'pc.jsp');
 const buildShell = read(rootDir, 'scripts', 'build', 'build_vue_frontend.sh');
 const packageJson = JSON.parse(read(sourceDir, 'package.json'));
+const visualMapAsset = path.join(rootDir, 'images', 'visual_map',
+    'red-cloud-terrace-v1.webp');
 
 assert(!index.includes('href="css/pc.css'),
     'mobile index must not load isolated desktop CSS');
 assert(index.includes("v-if=\"clientLayout === 'pc'\""));
 assert(index.includes('class="pc-desktop-bar"'));
+assert(index.includes('class="desktop-rpg-shell"'));
+assert(index.includes('class="desktop-scene-stage"'));
+assert(index.includes('moveDesktopScene(exit)'));
+assert(index.includes('inspectDesktopEntity(entity)'));
 for (const key of ['1', '2', '3', '4', '5', 'M', 'T', 'A']) {
     assert(index.includes(`data-pc-key="${key}"`), `missing desktop shortcut hint ${key}`);
 }
@@ -31,6 +37,13 @@ assert(app.includes("['input', 'textarea', 'select'].includes(tagName)"));
 assert(app.includes("window.addEventListener('keydown', this.desktopKeydownHandler)"));
 assert(app.includes("window.removeEventListener('keydown', this.desktopKeydownHandler)"));
 assert(app.includes('switchClientLayout(layout)'));
+assert(app.includes('extractDesktopRoom(lines)'));
+assert(app.includes('captureDesktopVisualState(lines'));
+assert(app.includes('startDesktopSceneSync()'));
+assert(app.includes("cmd: 'look'"));
+assert(fs.existsSync(visualMapAsset), 'generated visual map asset is missing');
+assert(fs.statSync(visualMapAsset).size < 700 * 1024,
+    'visual map background must stay web-sized');
 
 for (const contract of [
     ':root[data-client-layout="pc"]',
@@ -49,15 +62,24 @@ assert(!/^\s*\.game-header\s*\{/m.test(pcCss),
     'desktop rules must remain scoped and never target the mobile header globally');
 assert(!/^\s*\.quick-actions\s*\{/m.test(pcCss),
     'desktop rules must remain scoped and never target mobile navigation globally');
+for (const contract of [
+    '.desktop-rpg-shell', '.desktop-scene-stage', '.desktop-exit-portal',
+    '.desktop-scene-actor', '.desktop-world-map', '.desktop-target-panel',
+    '.desktop-scene-console'
+]) {
+    assert(pcCss.includes(contract), `missing visual RPG contract: ${contract}`);
+}
 
 assert(build.includes('function processPcHTML(content)'));
 assert(build.includes("path.join(distDir, 'pc.html')"));
 assert(build.includes("path.join(distDir, 'css', 'pc.css')"));
+assert(build.includes("'red-cloud-terrace-v1.webp'"));
 assert(serve.includes("if (pathname === '/pc.html')"));
 assert(serve.includes('function createPcEntry(content)'));
 assert(buildShell.includes('"pc.html"'));
 assert(buildShell.includes('"css/pc.css"'));
 assert(buildShell.includes('mobile index unexpectedly loads desktop CSS'));
+assert(buildShell.includes('VISUAL_MAP_OUTPUT'));
 
 assert(selector.includes("selectUI('desktop')"));
 assert(selector.includes("savedUI === 'desktop'"));
@@ -127,5 +149,79 @@ keyboardContext.clientLayout = 'mobile';
 componentOptions.methods.handleDesktopKeydown.call(keyboardContext, keyEvent('Digit2'));
 assert.deepStrictEqual(commands, ['look', 'map_display', 'mytasks'],
     'typing, browser combinations and the mobile client must never trigger PC shortcuts');
+
+const methods = componentOptions.methods;
+const sceneContext = {
+    desktopScene: null,
+    desktopSceneSelected: null,
+    desktopSceneActions: [],
+    clientLayout: 'pc'
+};
+for (const methodName of [
+    'desktopPlainText', 'desktopLineText', 'parseDesktopExit',
+    'extractDesktopRoom', 'extractDesktopContextActions',
+    'findDesktopDirectEntityAction', 'captureDesktopVisualState'
+]) {
+    sceneContext[methodName] = (...args) => methods[methodName].call(sceneContext, ...args);
+}
+const roomLines = [
+    { type: 'line', segments: [{ type: 'text', parts: [{ content: '赤灵云台' }] }] },
+    { type: 'line', segments: [
+        { type: 'text', parts: [{ content: '这里有' }] },
+        { type: 'image', src: '/images/bird_male.gif' },
+        { type: 'button', label: '赤鳞蛟龙(200)', cmd: 'c_monster', visual_kind: 'monster' }
+    ] },
+    { type: 'line', segments: [
+        { type: 'text', parts: [{ content: '你遇到了' }] },
+        { type: 'image', src: '/images/user/hero.gif' },
+        { type: 'button', label: '月下行者', cmd: 'c_player', visual_kind: 'player' }
+    ] },
+    { type: 'line', segments: [
+        { type: 'text', parts: [{ content: '这里有' }] },
+        { type: 'image', src: '/images/item/ore.gif' },
+        { type: 'button', label: '赤灵矿石(20)', cmd: 'c_item', visual_kind: 'item' }
+    ] },
+    { type: 'line', segments: [{ type: 'text', parts: [{ content: '请选择你的行走方向：' }] }] },
+    { type: 'line', segments: [
+        { type: 'button', label: '西←：赤灵溪流', cmd: 'c_west' },
+        { type: 'button', label: '东→：赤灵细径', cmd: 'c_east' }
+    ] }
+];
+const room = sceneContext.extractDesktopRoom(roomLines);
+assert.strictEqual(room.roomName, '赤灵云台');
+assert.strictEqual(
+    JSON.stringify(room.exits.map(exit => [exit.direction, exit.destination])),
+    JSON.stringify([['西', '赤灵溪流'], ['东', '赤灵细径']])
+);
+assert.strictEqual(room.entities.length, 2);
+assert.strictEqual(room.entities[0].kind, 'monster');
+assert.strictEqual(room.entities[0].level, 200);
+assert.strictEqual(room.entities[1].kind, 'player');
+assert.strictEqual(sceneContext.captureDesktopVisualState(roomLines), true);
+assert.strictEqual(sceneContext.desktopScene.roomName, '赤灵云台');
+
+const detailLines = [{ type: 'line', segments: [
+    { type: 'text', parts: [{ content: '赤鳞蛟龙盘踞于此。' }] },
+    { type: 'button', label: '普通战斗', cmd: 'c_kill' },
+    { type: 'button', label: '快速战斗', cmd: 'c_quick' },
+    { type: 'button', label: '状态', cmd: 'c_status' }
+] }];
+sceneContext.desktopSceneSelected = room.entities[0];
+assert.strictEqual(sceneContext.captureDesktopVisualState(detailLines), false);
+assert.strictEqual(
+    JSON.stringify(sceneContext.desktopSceneActions.map(action => action.label)),
+    JSON.stringify(['普通战斗', '快速战斗'])
+);
+assert.strictEqual(sceneContext.desktopScene.roomName, '赤灵云台',
+    'detail pages must preserve the last authoritative room snapshot');
+const listLines = [{ type: 'line', segments: [
+    { type: 'button', label: '蓬莱水妖(200)', cmd: 'c_npc_1' },
+    { type: 'button', label: '赤鳞蛟龙(200)', cmd: 'c_npc_2' }
+] }];
+assert.strictEqual(
+    sceneContext.findDesktopDirectEntityAction(room.entities[0], listLines)?.cmd,
+    'c_npc_2',
+    'one visual click must resolve the exact target from the legacy room list'
+);
 
 console.log('Isolated PC layout tests passed.');

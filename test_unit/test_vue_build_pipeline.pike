@@ -70,6 +70,8 @@ void test_shared_build_script_contract()
 	   search(source,"npm run build")!=-1 &&
 	   search(source,"STORY_SOURCE_DIR")!=-1 &&
 	   search(source,"STORY_OUTPUT_DIR")!=-1 &&
+	   search(source,"VISUAL_MAP_SOURCE")!=-1 &&
+	   search(source,"VISUAL_MAP_OUTPUT")!=-1 &&
 	   search(source,"css/realm.css")!=-1 &&
 	   search(source,"vendor/vue.global.prod.js")!=-1 &&
 	   search(source,"cmp -s")!=-1 &&
@@ -93,12 +95,15 @@ void test_vue_source_contract()
 	   search(build_source,"css', 'app.css")!=-1 &&
 	   search(build_source,"css', 'pc.css")!=-1 &&
 	   search(build_source,"css', 'realm.css")!=-1 &&
+	   search(build_source,"red-cloud-terrace-v1.webp")!=-1 &&
 	   search(build_source,"js', 'app.js")!=-1 &&
 	   search(build_source,"'vue.global.prod.js'")!=-1 &&
 	   search(build_source,"'VUE_LICENSE.txt'")!=-1 &&
 	   search(build_source,"legacyDistDir")!=-1 &&
 	   search(index_source,"manifest.json")!=-1 &&
 	   search(index_source,"pc-desktop-bar")!=-1 &&
+	   search(index_source,"desktop-rpg-shell")!=-1 &&
+	   search(index_source,"moveDesktopScene(exit)")!=-1 &&
 	   search(index_source,"data-pc-key=\"1\"")!=-1 &&
 	   search(pc_css_source,"data-client-layout=\"pc\"")!=-1 &&
 	   search(index_source,"css/realm.css?v=BUILD_VERSION")!=-1 &&
@@ -236,6 +241,30 @@ void test_frontend_playability_gate()
 		test_fail("真实渲染、computed误调用扫描或白屏回归断言缺失");
 }
 
+void test_visual_scene_metadata_contract()
+{
+	test_start("PC实时地图只接收安全实体分类而不泄露原始命令");
+	mapping npc = HTTP_APID->parse_bracket_content(
+		"赤鳞蛟龙(200):char_npc chilinjiaolong 1","txd","visual_test");
+	mapping player = HTTP_APID->parse_bracket_content(
+		"月下行者:char xd01visual","txd","visual_test");
+	mapping item = HTTP_APID->parse_bracket_content(
+		"赤灵矿石:item chilingshi 1","txd","visual_test");
+	mapping menu = HTTP_APID->parse_bracket_content(
+		"状态:myhp","txd","visual_test");
+
+	if(npc && player && item && menu &&
+	   npc["visual_kind"]=="monster" &&
+	   player["visual_kind"]=="player" &&
+	   item["visual_kind"]=="item" &&
+	   !menu["visual_kind"] &&
+	   has_prefix((string)npc["cmd"],"c_") &&
+	   !npc["command"] && !npc["action_cmd"])
+		test_pass();
+	else
+		test_fail("实体分类缺失、普通菜单被误分类或原始命令泄露");
+}
+
 void test_high_realm_contrast_contract()
 {
 	test_start("离三界高阶装备在新旧界面均使用高对比颜色");
@@ -283,6 +312,7 @@ void test_deployed_frontend_artifacts()
 		ROOT+"/vue_source/dist/vendor/vue.global.prod.js");
 	int story_atlases_valid = 1;
 	int story_chapters_valid = 1;
+	int visual_map_valid = 0;
 	for(int volume=1;volume<=9;volume++){
 		string filename = sprintf("volume_%02d.png",volume);
 		string source_path = ROOT+"/images/illusion_s1/story/"+filename;
@@ -301,6 +331,15 @@ void test_deployed_frontend_artifacts()
 		   Stdio.read_file(source_path)!=Stdio.read_file(deployed_path))
 			story_chapters_valid = 0;
 	}
+	string visual_map_source = ROOT+
+		"/images/visual_map/red-cloud-terrace-v1.webp";
+	string visual_map_deployed = ROOT+
+		"/web/images/visual_map/red-cloud-terrace-v1.webp";
+	if(Stdio.file_size(visual_map_source)>=100000 &&
+	   Stdio.file_size(visual_map_source)<=700000 &&
+	   Stdio.read_file(visual_map_source)==
+		Stdio.read_file(visual_map_deployed))
+		visual_map_valid = 1;
 
 	if(source_js && web_js && dist_js &&
 	   web_index && dist_index && web_vue && dist_vue &&
@@ -313,7 +352,7 @@ void test_deployed_frontend_artifacts()
 	   search(dist_index,"playerLevelAuraClass()")==-1 &&
 	   search(web_index,"vendor/vue.global.prod.js?v=v")!=-1 &&
 	   search(web_index,"js/app.js?v=v")!=-1 && story_atlases_valid &&
-	   story_chapters_valid)
+	   story_chapters_valid && visual_map_valid)
 		test_pass();
 	else
 		test_fail("Vue正式/历史产物缺失、过期或仍含白屏回归代码");
@@ -339,6 +378,7 @@ int main()
 	test_docker_copy_contract();
 	test_game_number_format_contract();
 	test_frontend_playability_gate();
+	test_visual_scene_metadata_contract();
 	test_high_realm_contrast_contract();
 	test_deployed_frontend_artifacts();
 	print_summary();

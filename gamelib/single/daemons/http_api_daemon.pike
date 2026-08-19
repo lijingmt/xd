@@ -2187,6 +2187,18 @@ mapping parse_text_segment(string text)
 /**
  * 解析方括号内容 [label:command] 等
  */
+string query_visual_action_kind(string action_cmd)
+{
+	string cmd = String.trim_all_whites(action_cmd || "");
+	if(cmd=="chars npc" || has_prefix(cmd,"char_npc "))
+		return "monster";
+	if(cmd=="chars player" || has_prefix(cmd,"char "))
+		return "player";
+	if(cmd=="items" || has_prefix(cmd,"item "))
+		return "item";
+	return "";
+}
+
 mapping parse_bracket_content(string content, string txd, string userid)
 {
     string var_name, default_val, width, type, label, action_cmd;
@@ -2396,12 +2408,18 @@ mapping parse_bracket_content(string content, string txd, string userid)
                 string hidden_cmd = hide_command(userid, action_cmd);
                 string css_class = get_button_css_class(label);
                 string processed_label = process_color_codes(label);
-                return ([
+                string visual_kind = query_visual_action_kind(action_cmd);
+                mapping result = ([
                     "type": "button",
                     "label": processed_label,
                     "cmd": hidden_cmd,
                     "class": css_class
                 ]);
+				// 只暴露表现层所需的语义分类，绝不把原始MUD命令或
+				// 房间对象路径发送给浏览器。
+				if(visual_kind!="")
+					result["visual_kind"] = visual_kind;
+				return result;
             }
         }
     }

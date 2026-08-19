@@ -201,6 +201,26 @@ for (let chapter = 1; chapter <= 81; chapter += 1) {
 }
 log('✓ chapter_001.png ... chapter_081.png', 'green');
 
+// 9. 同步PC实时地图首张原创场景。它与S1剧情图一样从根目录
+// images/ 进入Docker，同时复制到本地Tomcat的 web/images/。
+log('\n9. Visual map artwork:', 'yellow');
+const visualMapSource = path.join(
+  __dirname, '..', 'images', 'visual_map', 'red-cloud-terrace-v1.webp'
+);
+const visualMapOutput = path.join(
+  __dirname, '..', 'web', 'images', 'visual_map', 'red-cloud-terrace-v1.webp'
+);
+if (!fs.existsSync(visualMapSource)) {
+  throw new Error(`visual map source not found: ${visualMapSource}`);
+}
+const visualMapSize = fs.statSync(visualMapSource).size;
+if (visualMapSize < 100 * 1024 || visualMapSize > 700 * 1024) {
+  throw new Error(`visual map source is not web-sized: ${visualMapSize} bytes`);
+}
+fs.mkdirSync(path.dirname(visualMapOutput), { recursive: true });
+fs.copyFileSync(visualMapSource, visualMapOutput);
+log('✓ red-cloud-terrace-v1.webp', 'green');
+
 // 完成
 log('\n✓ 构建完成!', 'green');
 log(`输出目录: ${distDir}`, 'blue');

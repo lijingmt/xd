@@ -7,6 +7,8 @@ OUTPUT_DIR="$ROOT_DIR/web/web_vue"
 LEGACY_OUTPUT_DIR="$SOURCE_DIR/dist"
 STORY_SOURCE_DIR="$ROOT_DIR/images/illusion_s1/story"
 STORY_OUTPUT_DIR="$ROOT_DIR/web/images/illusion_s1/story"
+VISUAL_MAP_SOURCE="$ROOT_DIR/images/visual_map/red-cloud-terrace-v1.webp"
+VISUAL_MAP_OUTPUT="$ROOT_DIR/web/images/visual_map/red-cloud-terrace-v1.webp"
 
 log()
 {
@@ -166,6 +168,13 @@ for chapter_number in $(seq 1 81); do
         "$STORY_OUTPUT_DIR/chapters/chapter_$chapter.png" ||
         fail "deployed S1 chapter illustration is stale: chapter_$chapter.png"
 done
+
+[[ -s "$VISUAL_MAP_SOURCE" ]] ||
+    fail "missing PC visual map source"
+[[ -s "$VISUAL_MAP_OUTPUT" ]] ||
+    fail "missing deployed PC visual map artwork"
+cmp -s "$VISUAL_MAP_SOURCE" "$VISUAL_MAP_OUTPUT" ||
+    fail "deployed PC visual map artwork is stale"
 
 grep -Eq '^COPY[[:space:]]+web[[:space:]]+/usr/local/tomcat/webapps/ROOT' \
     "$ROOT_DIR/docker/Dockerfile.all" ||

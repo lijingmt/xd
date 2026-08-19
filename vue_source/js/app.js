@@ -188,6 +188,17 @@ createApp({
             clientLayout: window.location &&
                 /\/pc\.html$/.test(window.location.pathname || '') ? 'pc' : 'mobile',
             desktopKeydownHandler: null,
+            // PC 可视化场景只重排服务器已经返回的房间、出口和人物。
+            // 它不保存第二份世界状态，也不在浏览器内判定移动或战斗结果。
+            desktopScene: null,
+            desktopSceneSelected: null,
+            desktopSceneActions: [],
+            desktopSceneMoving: false,
+            desktopSceneSyncing: false,
+            desktopSceneSyncTimer: null,
+            desktopWorldMapOpen: true,
+            desktopTextPanelOpen: false,
+            desktopPlayerPosition: { x: 50, y: 72 },
             showLogin: true,
             headerMenuOpen: false,
             showRegister: false,
@@ -430,6 +441,9 @@ createApp({
     watch: {
         // 监听 mudLines 变化，更新后重新翻译并滚动到顶部
         mudLines() {
+            if (this.clientLayout === 'pc') {
+                this.captureDesktopVisualState(this.mudLines);
+            }
             this.$nextTick(() => {
                 this.reapplyTranslation();
                 // 每次更新后滚动到顶部
@@ -1664,6 +1678,12 @@ createApp({
 
         invalidateCharacterSessionRequests() {
             this.characterSessionEpoch += 1;
+            this.stopDesktopSceneSync();
+            this.desktopScene = null;
+            this.desktopSceneSelected = null;
+            this.desktopSceneActions = [];
+            this.desktopSceneMoving = false;
+            this.desktopPlayerPosition = { x: 50, y: 72 };
             this.autofightTickInFlight = false;
             this.autofightViewSequence = 0;
             this.autofightViewGeneration = '';
@@ -3316,6 +3336,7 @@ createApp({
 
                 // 处理邀请链接占位符 - 动态生成URL
                 this.processInviteLinkPlaceholder();
+                return data;
             } catch (e) {
                 if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.error('JSON命令执行失败:', e);
@@ -3863,6 +3884,316 @@ createApp({
             this.sendQuickCommand(commands[event.code]);
         },
 
+        desktopPlainText(value) {
+            return String(value || '')
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+
+        desktopLineText(line, includeButtons = true) {
+            if (!line || !Array.isArray(line.segments)) return '';
+            return this.desktopPlainText(line.segments.map(segment => {
+                if (segment.type === 'text' && Array.isArray(segment.parts)) {
+                    return segment.parts.map(part => part.content || '').join('');
+                }
+                if (includeButtons && segment.type === 'button') {
+                    return segment.label || '';
+                }
+                return '';
+            }).join(''));
+        },
+
+        parseDesktopExit(segment) {
+            if (!segment || segment.type !== 'button' || !segment.cmd) return null;
+            const label = this.desktopPlainText(segment.label);
+            const match = label.match(/^(东北|西北|东南|西南|东|西|南|北|上|下|进入|离开)[↑↓←→]?\s*[：:\-]\s*(.+)$/);
+            if (!match) return null;
+            return {
+                direction: match[1],
+                destination: match[2].trim() || '相邻区域',
+                label,
+                cmd: segment.cmd
+            };
+        },
+
+        extractDesktopRoom(lines) {
+            if (!Array.isArray(lines) || !lines.length) return null;
+            const exits = [];
+            let directionCue = -1;
+            const entityCues = [];
+            lines.forEach((line, lineIndex) => {
+                const text = this.desktopLineText(line, false);
+                if (text.includes('请选择你的行走方向')) directionCue = lineIndex;
+                if (text.startsWith('这里有')) {
+                    entityCues.push({ index: lineIndex, fallbackKind: 'monster' });
+                } else if (text.startsWith('你遇到了')) {
+                    entityCues.push({ index: lineIndex, fallbackKind: 'player' });
+                }
+                for (const segment of line?.segments || []) {
+                    const exit = this.parseDesktopExit(segment);
+                    if (exit && !exits.some(item => item.cmd === exit.cmd)) exits.push(exit);
+                }
+            });
+            // 只有服务器明确返回了房间方向提示或真实出口，才更新场景快照。
+            // 人物详情、背包等页面不能覆盖最后一个可玩的房间。
+            if (directionCue < 0 && !exits.length) return null;
+
+            const cueIndex = directionCue >= 0 ? directionCue :
+                (entityCues.length ? entityCues[0].index : lines.length);
+            let roomName = '';
+            for (let index = 0; index < cueIndex; index += 1) {
+                const text = this.desktopLineText(lines[index], false);
+                if (!text || /^[-—=_]+$/.test(text) || text.startsWith('你来到')) continue;
+                roomName = text.replace(/^你来到了?/, '').trim();
+                break;
+            }
+            if (!roomName) roomName = this.desktopScene?.roomName || '未知仙境';
+
+            const entities = [];
+            for (const cue of entityCues) {
+                let pendingImage = '';
+                for (const segment of lines[cue.index]?.segments || []) {
+                    if (segment.type === 'image') {
+                        pendingImage = segment.src || '';
+                        continue;
+                    }
+                    if (segment.type !== 'button' || !segment.cmd) continue;
+                    const name = this.desktopPlainText(segment.label);
+                    if (!name || this.parseDesktopExit(segment)) continue;
+                    const levelMatch = name.match(/[（(](\d+)[）)]\s*$/);
+					if (segment.visual_kind &&
+						segment.visual_kind !== 'monster' &&
+						segment.visual_kind !== 'player') {
+						pendingImage = '';
+						continue;
+					}
+					const kind = segment.visual_kind === 'monster' ||
+						segment.visual_kind === 'player'
+						? segment.visual_kind
+						: (cue.fallbackKind === 'player' ? 'player' :
+							(levelMatch ? 'monster' : ''));
+					// 旧Backend没有visual_kind时，只把带明确等级的“这里有”
+					// 条目当怪物，避免把房间掉落物误画成敌人。
+					if (!kind) {
+						pendingImage = '';
+						continue;
+					}
+                    entities.push({
+                        id: `${segment.cmd}:${entities.length}`,
+                        name,
+                        level: levelMatch ? Number(levelMatch[1]) : 0,
+						kind,
+                        image: pendingImage,
+                        cmd: segment.cmd
+                    });
+                    pendingImage = '';
+                }
+            }
+
+            const description = [];
+            const firstEntityCue = entityCues.length ? entityCues[0].index : -1;
+            const descriptionEnd = Math.max(firstEntityCue, directionCue);
+            for (let index = 0; index < descriptionEnd; index += 1) {
+                const text = this.desktopLineText(lines[index], false);
+                if (!text || text === roomName || text.startsWith('这里有') ||
+					text.startsWith('你遇到了') ||
+                    text.includes('请选择你的行走方向')) continue;
+                description.push(text);
+            }
+            return {
+                roomName,
+                description: description.slice(0, 2).join(' '),
+                exits,
+                entities,
+                background: '/images/visual_map/red-cloud-terrace-v1.webp',
+                updatedAt: Date.now()
+            };
+        },
+
+        extractDesktopContextActions(lines) {
+            const actions = [];
+            const ignored = /^(刷新|状态|技能|物品|地图|任务|队伍|排行榜|打开聊天|关闭聊天|自动打怪|自动挂机|停止自动挂机|共享宠物|本命灵伴|帮派|江湖|玉石|仙玉|会员|设置|首页)$/;
+            for (const line of lines || []) {
+                for (const segment of line?.segments || []) {
+                    if (segment.type !== 'button' || !segment.cmd) continue;
+                    const label = this.desktopPlainText(segment.label);
+                    if (!label || ignored.test(label) || this.parseDesktopExit(segment)) continue;
+                    if (!actions.some(action => action.cmd === segment.cmd)) {
+                        actions.push({ label, cmd: segment.cmd });
+                    }
+                }
+            }
+            return actions.slice(0, 10);
+        },
+
+        findDesktopDirectEntityAction(entity, lines) {
+            const targetName = this.desktopPlainText(entity?.name);
+            if (!targetName) return null;
+            return this.extractDesktopContextActions(lines).find(action =>
+                this.desktopPlainText(action.label) === targetName
+            ) || null;
+        },
+
+        captureDesktopVisualState(lines, preserveInteraction = false) {
+            if (this.clientLayout !== 'pc') return false;
+            const room = this.extractDesktopRoom(lines);
+            if (room) {
+                this.desktopScene = room;
+                if (!preserveInteraction) this.desktopSceneActions = [];
+                return true;
+            }
+            if (this.desktopSceneSelected) {
+                this.desktopSceneActions = this.extractDesktopContextActions(lines);
+            }
+            return false;
+        },
+
+        desktopExitAnchor(direction) {
+            const value = String(direction || '');
+            if (value === '东') return { x: 91, y: 54 };
+            if (value === '西') return { x: 9, y: 54 };
+            if (value === '南') return { x: 50, y: 88 };
+            if (value === '北') return { x: 50, y: 17 };
+            if (value === '东北') return { x: 82, y: 22 };
+            if (value === '西北') return { x: 18, y: 22 };
+            if (value === '东南') return { x: 82, y: 82 };
+            if (value === '西南') return { x: 18, y: 82 };
+            if (value === '上') return { x: 63, y: 18 };
+            if (value === '下') return { x: 37, y: 86 };
+            return { x: 50, y: 20 };
+        },
+
+        getDesktopExitStyle(exit) {
+            const anchor = this.desktopExitAnchor(exit?.direction);
+            return { left: `${anchor.x}%`, top: `${anchor.y}%` };
+        },
+
+        getDesktopEntityStyle(entity, index) {
+            const anchors = [
+                [30, 48], [68, 45], [43, 36], [58, 62], [78, 66],
+                [21, 65], [51, 50], [37, 70], [66, 31], [83, 42]
+            ];
+            const anchor = anchors[index % anchors.length];
+            return { left: `${anchor[0]}%`, top: `${anchor[1]}%` };
+        },
+
+        getDesktopPlayerStyle() {
+            return {
+                left: `${this.desktopPlayerPosition.x}%`,
+                top: `${this.desktopPlayerPosition.y}%`
+            };
+        },
+
+        getDesktopSceneStyle() {
+            const source = this.desktopScene?.background ||
+                '/images/visual_map/red-cloud-terrace-v1.webp';
+            return { backgroundImage: `url("${this.getImageUrl(source)}")` };
+        },
+
+        handleDesktopGroundClick(event) {
+            if (this.desktopSceneMoving || !event?.currentTarget) return;
+            if (event.target?.closest?.('.desktop-scene-actor, .desktop-exit-portal, .desktop-scene-hud')) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = Math.max(12, Math.min(88, (event.clientX - rect.left) / rect.width * 100));
+            const y = Math.max(26, Math.min(82, (event.clientY - rect.top) / rect.height * 100));
+            this.desktopPlayerPosition = { x, y };
+            this.desktopSceneSelected = null;
+            this.desktopSceneActions = [];
+        },
+
+        async moveDesktopScene(exit) {
+            if (!exit?.cmd || this.desktopSceneMoving || this.mudLoading) return;
+            const previousRoomName = this.desktopScene?.roomName || '';
+            const destination = this.desktopExitAnchor(exit.direction);
+            this.desktopSceneMoving = true;
+            this.desktopSceneSelected = null;
+            this.desktopSceneActions = [];
+            this.desktopPlayerPosition = destination;
+            if (!this.prefersReducedMotion()) {
+                await new Promise(resolve => setTimeout(resolve, 360));
+            }
+            await this.sendJsonCommand(exit.cmd);
+            const opposite = {
+                东: { x: 16, y: 58 }, 西: { x: 84, y: 58 },
+                南: { x: 50, y: 28 }, 北: { x: 50, y: 78 },
+                东北: { x: 22, y: 72 }, 西北: { x: 78, y: 72 },
+                东南: { x: 22, y: 34 }, 西南: { x: 78, y: 34 },
+                上: { x: 48, y: 76 }, 下: { x: 52, y: 30 }
+            };
+            this.desktopPlayerPosition = this.desktopScene?.roomName !== previousRoomName
+                ? (opposite[exit.direction] || { x: 50, y: 72 })
+                : { x: 50, y: 72 };
+            this.desktopSceneMoving = false;
+        },
+
+        async inspectDesktopEntity(entity) {
+            if (!entity?.cmd || this.desktopSceneMoving || this.mudLoading) return;
+            this.desktopSceneSelected = entity;
+            this.desktopSceneActions = [];
+            const firstResponse = await this.sendJsonCommand(entity.cmd);
+			// 多个同类目标时，旧房间输出会先进入“本房目标列表”。
+			// PC场景自动精确选择刚才点击的同名目标，让一次鼠标点击
+			// 直接到达观察/战斗操作；仍只调用服务器原有隐藏命令。
+			const directAction = this.findDesktopDirectEntityAction(
+				entity, firstResponse?.lines || []
+			);
+			if (directAction && directAction.cmd !== entity.cmd) {
+				this.desktopSceneActions = [];
+				await this.sendJsonCommand(directAction.cmd);
+			}
+        },
+
+        async runDesktopSceneAction(action) {
+            if (!action?.cmd || this.mudLoading) return;
+            await this.sendJsonCommand(action.cmd);
+        },
+
+        startDesktopSceneSync() {
+            this.stopDesktopSceneSync();
+            if (this.clientLayout !== 'pc') return;
+            this.desktopSceneSyncTimer = setInterval(() => {
+                this.syncDesktopScene();
+            }, 4000);
+        },
+
+        stopDesktopSceneSync() {
+            if (this.desktopSceneSyncTimer) {
+                clearInterval(this.desktopSceneSyncTimer);
+                this.desktopSceneSyncTimer = null;
+            }
+            this.desktopSceneSyncing = false;
+        },
+
+        async syncDesktopScene() {
+            if (this.clientLayout !== 'pc' || !this.txd || this.desktopSceneSyncing ||
+                this.desktopSceneMoving || this.mudLoading || this.isInBattle ||
+                this.playerStats?.autofight || document.hidden) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
+            this.desktopSceneSyncing = true;
+            try {
+                const params = new URLSearchParams({ txd: requestTxd, cmd: 'look' });
+                const response = await fetch(`${this.apiBase}/api/json?${params.toString()}`);
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return;
+                }
+                if (!response.ok || data.error) return;
+                if (data.txd) this.txd = data.txd;
+                this.captureDesktopVisualState(data.lines || [], true);
+            } catch (error) {
+                console.warn('[PC场景] 静默同步失败:', error);
+            } finally {
+                if (this.isCharacterSessionCurrent(requestEpoch)) {
+                    this.desktopSceneSyncing = false;
+                }
+            }
+        },
+
         // 切换头部菜单
         toggleHeaderMenu() {
             this.headerMenuOpen = !this.headerMenuOpen;
@@ -4000,6 +4331,7 @@ createApp({
         startStatsUpdate() {
             this.stopStatsUpdate();
             this.fetchPlayerStats();
+            this.startDesktopSceneSync();
             // 挂机画面已携带完整人物状态，避免同一玩家再发重复/status。
             this.statsInterval = setInterval(() => {
                 if (!this.playerStats?.autofight) {
@@ -4010,6 +4342,7 @@ createApp({
 
         // 停止定时更新
         stopStatsUpdate() {
+            this.stopDesktopSceneSync();
             if (this.statsInterval) {
                 clearInterval(this.statsInterval);
                 this.statsInterval = null;
@@ -5713,6 +6046,7 @@ createApp({
     },
 
     beforeUnmount() {
+        this.stopDesktopSceneSync();
         if (this.registerReturnTimer) {
             clearTimeout(this.registerReturnTimer);
             this.registerReturnTimer = null;

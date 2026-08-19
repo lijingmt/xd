@@ -130,6 +130,20 @@ async function main() {
             mana: 2000, mana_max: 2000, energy: 100, autofight: 0,
             profession_assistant: { style_class: 'profession-style-fangshi' }
         },
+        desktopScene: {
+            roomName: '赤灵云台',
+            description: '月色照亮通往相邻仙境的石阶。',
+            background: '/images/visual_map/red-cloud-terrace-v1.webp',
+            updatedAt: Date.now(),
+            exits: [
+                { direction: '西', destination: '赤灵溪流', cmd: 'c_west' },
+                { direction: '东', destination: '赤灵细径', cmd: 'c_east' }
+            ],
+            entities: [{
+                id: 'monster-1', name: '赤鳞蛟龙(200)', level: 200,
+                kind: 'monster', image: '/images/bird_male.gif', cmd: 'c_monster'
+            }]
+        },
         mudLines: [{
             type: 'line',
             segments: [{ type: 'text', parts: [{ type: 'text', content: '桌面场景可玩输出' }] }]
@@ -140,6 +154,12 @@ async function main() {
     assert(pcRendered.includes('data-pc-key="1"'), 'PC render must expose keyboard shortcut hints');
     assert(pcRendered.includes('切换手机版'), 'PC render must provide a safe mobile return path');
     assert(pcRendered.includes('桌面场景可玩输出'), 'PC render must keep real MUD output playable');
+    assert(pcRendered.includes('desktop-rpg-shell'), 'PC render must contain the visual RPG scene');
+    assert(pcRendered.includes('赤灵云台'), 'visual RPG scene must render the authoritative room');
+    assert(pcRendered.includes('赤灵溪流'), 'visual RPG scene must render adjacent rooms');
+    assert(pcRendered.includes('赤鳞蛟龙(200)'), 'visual RPG scene must render room monsters');
+    assert(pcRendered.includes('red-cloud-terrace-v1.webp'),
+        'visual RPG scene must render the original generated background');
     assert(pcCssSource.includes('html[data-client-layout="pc"] .quick-actions'));
     assert(pcCssSource.includes('@media (min-width: 960px) and (pointer: fine)'));
 
