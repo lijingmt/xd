@@ -13,6 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createManifest } = require('./manifest');
+const { writeWorldMap } = require('../scripts/build/generate_world_map');
 
 // 颜色输出
 const colors = {
@@ -83,6 +84,18 @@ log('\n3. JS:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'js'), { recursive: true });
 copyFile(path.join(__dirname, 'js', 'app.js'), path.join(distDir, 'js', 'app.js'));
 
+// 3.1 从真实房间源码生成完整世界拓扑。客户端只读取房间名称、区域、
+// 地貌、坐标和连接关系；移动仍必须使用当前房间返回的隐藏命令。
+log('\n3.1 World map graph:', 'yellow');
+const worldMapSource = path.join(__dirname, 'data', 'world-map.json');
+const worldMap = writeWorldMap(
+  path.join(__dirname, '..', 'gamelib', 'd'),
+  worldMapSource
+);
+fs.mkdirSync(path.join(distDir, 'data'), { recursive: true });
+fs.copyFileSync(worldMapSource, path.join(distDir, 'data', 'world-map.json'));
+log(`✓ ${worldMap.roomCount} rooms / ${worldMap.edgeCount} links / ${worldMap.regionCount} regions`, 'green');
+
 // 4. 复制锁定版本的浏览器运行库和许可证（生产环境不依赖公共CDN）
 log('\n4. Vendored runtime:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'vendor'), { recursive: true });
@@ -136,6 +149,7 @@ const legacyFiles = [
   path.join('css', 'realm.css'),
   path.join('css', 'pc.css'),
   path.join('js', 'app.js'),
+  path.join('data', 'world-map.json'),
   path.join('vendor', 'vue.global.prod.js'),
   path.join('vendor', 'VUE_LICENSE.txt'),
   path.join('vendor', 'canvas-confetti.js'),
@@ -220,6 +234,22 @@ if (visualMapSize < 100 * 1024 || visualMapSize > 700 * 1024) {
 fs.mkdirSync(path.dirname(visualMapOutput), { recursive: true });
 fs.copyFileSync(visualMapSource, visualMapOutput);
 log('✓ red-cloud-terrace-v1.webp', 'green');
+
+const terrainAtlasSource = path.join(
+  __dirname, '..', 'images', 'visual_map', 'world-terrain-atlas-v1.webp'
+);
+const terrainAtlasOutput = path.join(
+  __dirname, '..', 'web', 'images', 'visual_map', 'world-terrain-atlas-v1.webp'
+);
+if (!fs.existsSync(terrainAtlasSource)) {
+  throw new Error(`terrain atlas source not found: ${terrainAtlasSource}`);
+}
+const terrainAtlasSize = fs.statSync(terrainAtlasSource).size;
+if (terrainAtlasSize < 200 * 1024 || terrainAtlasSize > 900 * 1024) {
+  throw new Error(`terrain atlas is not web-sized: ${terrainAtlasSize} bytes`);
+}
+fs.copyFileSync(terrainAtlasSource, terrainAtlasOutput);
+log('✓ world-terrain-atlas-v1.webp', 'green');
 
 // 完成
 log('\n✓ 构建完成!', 'green');

@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1787166920503">
-    <link rel="stylesheet" href="css/app.css?v=v1787166920503">
-    <link rel="stylesheet" href="css/realm.css?v=v1787166920503">
-    <link rel="stylesheet" href="css/pc.css?v=v1787166920503">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787174930553">
+    <link rel="stylesheet" href="css/app.css?v=v1787174930553">
+    <link rel="stylesheet" href="css/realm.css?v=v1787174930553">
+    <link rel="stylesheet" href="css/pc.css?v=v1787174930553">
 </head>
 <body>
     <div id="app">
@@ -1149,8 +1149,8 @@
                         <div class="desktop-scene-tools">
                             <button type="button"
                                     :class="{ active: desktopWorldMapOpen }"
-                                    @click="desktopWorldMapOpen = !desktopWorldMapOpen">
-                                🧭 区域图
+                                    @click="desktopWorldMapOpen ? closeDesktopWorldMap() : openDesktopWorldMap()">
+                                🧭 世界地图
                             </button>
                             <button type="button"
                                     :class="{ active: playerStats && playerStats.autofight }"
@@ -1166,24 +1166,33 @@
                     </header>
 
                     <div class="desktop-scene-stage"
-                         :style="getDesktopSceneStyle()"
                          @click="handleDesktopGroundClick">
+                        <div class="desktop-nearby-map" aria-label="当前房间及相邻房间地图">
+                            <button v-for="tile in desktopNearbyTiles()"
+                                    :key="tile.key"
+                                    type="button"
+                                    class="desktop-terrain-tile"
+                                    :class="{
+                                        'desktop-terrain-current': tile.current,
+                                        'desktop-terrain-exit': tile.available && !tile.current,
+                                        'desktop-terrain-fog': !tile.available
+                                    }"
+                                    :style="getDesktopNearbyTileStyle(tile)"
+                                    :disabled="!tile.exit || desktopSceneMoving || mudLoading"
+                                    @click.stop="tile.exit && moveDesktopScene(tile.exit)">
+                                <span v-if="tile.available" class="desktop-terrain-label">
+                                    <b v-if="tile.exit">{{ tile.exit.direction }}</b>
+                                    <strong>{{ tile.name }}</strong>
+                                    <small v-if="tile.current">当前位置 · 怪物与玩家在此活动</small>
+                                    <small v-else>点击沿道路进入</small>
+                                </span>
+                                <span v-else class="desktop-terrain-shroud" aria-hidden="true"></span>
+                            </button>
+                        </div>
                         <div class="desktop-scene-vignette" aria-hidden="true"></div>
                         <div class="desktop-scene-instruction desktop-scene-hud">
-                            点击空地移动 · 点击怪物或玩家互动 · 点击光门前往相邻房间
+                            九宫地块即真实房间 · 点击相邻地块移动 · 点击怪物或玩家互动
                         </div>
-
-                        <button v-for="exit in desktopScene.exits"
-                                :key="exit.cmd"
-                                type="button"
-                                class="desktop-exit-portal desktop-scene-hud"
-                                :style="getDesktopExitStyle(exit)"
-                                :disabled="desktopSceneMoving || mudLoading"
-                                @click.stop="moveDesktopScene(exit)">
-                            <span class="desktop-exit-rune" aria-hidden="true"></span>
-                            <strong>{{ exit.direction }}</strong>
-                            <small>{{ exit.destination }}</small>
-                        </button>
 
                         <button v-for="(entity, entityIndex) in desktopScene.entities"
                                 :key="entity.id"
@@ -1229,27 +1238,57 @@
                         </div>
 
                         <aside v-if="desktopWorldMapOpen"
-                               class="desktop-world-map desktop-scene-hud"
+                               class="desktop-world-map-overlay desktop-scene-hud"
                                @click.stop>
-                            <div class="desktop-world-map-title">
-                                <span>区域路线</span>
-                                <small>点击相邻房间即可前往</small>
-                            </div>
-                            <div class="desktop-world-map-canvas">
-                                <div class="desktop-world-current">
-                                    <i></i><strong>{{ desktopScene.roomName }}</strong>
+                            <header class="desktop-world-map-header">
+                                <div>
+                                    <small>仙道完整世界网络</small>
+                                    <strong>山海万境图</strong>
+                                    <span v-if="desktopWorldGraph">
+                                        {{ desktopWorldGraph.regionCount }} 个区域 ·
+                                        {{ desktopWorldGraph.roomCount }} 个房间 ·
+                                        {{ desktopWorldGraph.edgeCount }} 条道路
+                                    </span>
                                 </div>
-                                <button v-for="exit in desktopScene.exits"
-                                        :key="'map-' + exit.cmd"
-                                        type="button"
-                                        class="desktop-world-node"
-                                        :data-direction="exit.direction"
-                                        :disabled="desktopSceneMoving || mudLoading"
-                                        @click="moveDesktopScene(exit)">
-                                    <b>{{ exit.direction }}</b>
-                                    <span>{{ exit.destination }}</span>
-                                </button>
+                                <nav>
+                                    <button type="button" @click="focusDesktopWorldMap">◎ 定位我</button>
+                                    <button type="button" @click="fitDesktopWorldMap">⊙ 纵览全图</button>
+                                    <button type="button" @click="closeDesktopWorldMap">× 返回附近</button>
+                                </nav>
+                            </header>
+                            <div v-if="desktopWorldGraphLoading" class="desktop-world-map-message">
+                                正在编织全部房间与道路…
                             </div>
+                            <div v-else-if="desktopWorldGraphError && !desktopWorldGraph"
+                                 class="desktop-world-map-message desktop-world-map-error">
+                                {{ desktopWorldGraphError }}
+                            </div>
+                            <template v-else>
+                                <canvas ref="desktopWorldCanvas"
+                                        class="desktop-world-map-canvas"
+                                        aria-label="可缩放拖拽的仙道完整世界地图"
+                                        @wheel.prevent="handleDesktopWorldWheel"
+                                        @pointerdown="handleDesktopWorldPointerDown"
+                                        @pointermove="handleDesktopWorldPointerMove"
+                                        @pointerup="handleDesktopWorldPointerUp"
+                                        @pointercancel="handleDesktopWorldPointerUp"></canvas>
+                                <div class="desktop-world-map-help">
+                                    鼠标拖拽移动 · 滚轮缩放 · 金色方框是当前位置 · 蓝线连接跨区域道路
+                                </div>
+                                <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
+                                    <small>{{ desktopWorldSelectedNode.region }}</small>
+                                    <strong>{{ desktopWorldSelectedNode.name }}</strong>
+                                    <span>Lv.{{ desktopWorldSelectedNode.level || '动态' }} · {{ desktopWorldSelectedNode.biome }}</span>
+                                    <button v-if="desktopWorldSelectedExit()"
+                                            type="button"
+                                            @click="moveToDesktopWorldSelection">
+                                        沿当前道路进入
+                                    </button>
+                                    <em v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id">
+                                        远方地点仅供查看，需逐房间行走抵达
+                                    </em>
+                                </aside>
+                            </template>
                         </aside>
 
                         <aside v-if="desktopSceneSelected"
@@ -2193,19 +2232,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1787166920503"></script>
-    <script src="vendor/canvas-confetti.js?v=v1787166920503"></script>
-    <script src="vendor/howler.core.min.js?v=v1787166920503"></script>
-    <script src="vendor/driver.iife.js?v=v1787166920503"></script>
-    <script src="../includes/game-number-format.js?v=v1787166920503" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787174930553"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787174930553"></script>
+    <script src="vendor/howler.core.min.js?v=v1787174930553"></script>
+    <script src="vendor/driver.iife.js?v=v1787174930553"></script>
+    <script src="../includes/game-number-format.js?v=v1787174930553" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787166920503';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787174930553';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1787166920503"></script>
+    <script src="js/app.js?v=v1787174930553"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1787166920503"></script>
+    <script src="../includes/translate.js?v=v1787174930553"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

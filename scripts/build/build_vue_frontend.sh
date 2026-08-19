@@ -9,6 +9,9 @@ STORY_SOURCE_DIR="$ROOT_DIR/images/illusion_s1/story"
 STORY_OUTPUT_DIR="$ROOT_DIR/web/images/illusion_s1/story"
 VISUAL_MAP_SOURCE="$ROOT_DIR/images/visual_map/red-cloud-terrace-v1.webp"
 VISUAL_MAP_OUTPUT="$ROOT_DIR/web/images/visual_map/red-cloud-terrace-v1.webp"
+TERRAIN_ATLAS_SOURCE="$ROOT_DIR/images/visual_map/world-terrain-atlas-v1.webp"
+TERRAIN_ATLAS_OUTPUT="$ROOT_DIR/web/images/visual_map/world-terrain-atlas-v1.webp"
+WORLD_MAP_SOURCE="$SOURCE_DIR/data/world-map.json"
 
 log()
 {
@@ -61,6 +64,7 @@ required_files=(
     "css/pc.css"
     "css/realm.css"
     "js/app.js"
+    "data/world-map.json"
     "vendor/vue.global.prod.js"
     "vendor/VUE_LICENSE.txt"
     "vendor/canvas-confetti.js"
@@ -175,6 +179,27 @@ done
     fail "missing deployed PC visual map artwork"
 cmp -s "$VISUAL_MAP_SOURCE" "$VISUAL_MAP_OUTPUT" ||
     fail "deployed PC visual map artwork is stale"
+
+[[ -s "$TERRAIN_ATLAS_SOURCE" ]] ||
+    fail "missing PC terrain atlas source"
+[[ -s "$TERRAIN_ATLAS_OUTPUT" ]] ||
+    fail "missing deployed PC terrain atlas"
+cmp -s "$TERRAIN_ATLAS_SOURCE" "$TERRAIN_ATLAS_OUTPUT" ||
+    fail "deployed PC terrain atlas is stale"
+
+for output_dir in "$OUTPUT_DIR" "$LEGACY_OUTPUT_DIR"; do
+    cmp -s "$WORLD_MAP_SOURCE" "$output_dir/data/world-map.json" ||
+        fail "built world-map.json is stale: $output_dir"
+done
+node - "$WORLD_MAP_SOURCE" <<'NODE'
+const fs = require('fs');
+const graph = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+if (graph.schema !== 1 || graph.roomCount < 2500 ||
+    graph.edgeCount < 2400 || graph.regionCount < 60 ||
+    !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+  throw new Error('generated world graph is incomplete');
+}
+NODE
 
 grep -Eq '^COPY[[:space:]]+web[[:space:]]+/usr/local/tomcat/webapps/ROOT' \
     "$ROOT_DIR/docker/Dockerfile.all" ||

@@ -1778,9 +1778,40 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
         send_json(req,(["error":"命令队列繁忙，请稍后重试"]),503);
 }
 
+string query_visual_room_id(object|zero player)
+{
+    object|zero room;
+    string room_path;
+    string marker = "/gamelib/d/";
+    int marker_pos;
+    int clone_pos;
+    if(!player)
+        return "";
+    room = environment(player);
+    if(!room)
+        return "";
+    // file_name() is the canonical room path used by the Worker handoff code.
+    // object_name() may describe the runtime object instead of its source file,
+    // which made otherwise valid Worker rooms fail the /gamelib/d/ check.
+    room_path = file_name(room) || "";
+    marker_pos = search(room_path,marker);
+    if(marker_pos==-1)
+        return "";
+    room_path = room_path[marker_pos+sizeof(marker)..];
+    clone_pos = search(room_path,"#");
+    if(clone_pos!=-1)
+        room_path = room_path[..clone_pos-1];
+    if(has_suffix(room_path,".pike"))
+        room_path = room_path[..sizeof(room_path)-6];
+    if(room_path=="" || search(room_path,"..")!=-1 ||
+       search(room_path,":")!=-1)
+        return "";
+    return room_path;
+}
+
 string build_command_json_response_job(string response,string new_txd,
     string auth_userid,string cmd,array(mapping) newbie_completions,
-    mapping refresh_snapshot)
+    mapping refresh_snapshot,string room_id)
 {
     array(mapping) lines = parse_mud_to_json(response, new_txd, auth_userid);
     string copy_data;
@@ -1818,6 +1849,8 @@ string build_command_json_response_job(string response,string new_txd,
     }
     if(mappingp(refresh_snapshot) && sizeof(refresh_snapshot)>0)
         json_result->refresh = refresh_snapshot;
+    if(room_id!="")
+        json_result->room_id = room_id;
     return Standards.JSON.encode(json_result);
 }
 
@@ -1831,8 +1864,14 @@ void finish_handle_api_json(string response,
     mapping refresh_snapshot = ([]);
     string stored_password;
     string new_txd;
+    string room_id = "";
 
     command_response = String.trim_all_whites(response || "");
+    // Worker 内部转发请求不一定持有原始 HTTP 虚拟连接，但人物对象仍在
+    // 当前 Worker。用全局在线对象兜底，确保精确房间 ID 不会在网关链路中
+    // 因连接归属不同而丢失；这里只读取 environment，不改变人物状态。
+    if(!response_player)
+        response_player = find_player(auth_userid);
     // 调度/运行时异常不能伪装成普通MUD文字。返回HTTP错误后，选角页会
     // 保留已创建人物并允许重试，而不是带着半初始化界面进入游戏。
     if(has_prefix(command_response,"错误:") ||
@@ -1842,6 +1881,7 @@ void finish_handle_api_json(string response,
         return;
     }
     if(response_player) {
+        room_id = query_visual_room_id(response_player);
         newbie_completions =
             NEWBIED->consume_completion_notices(response_player);
         if(query_command_name(cmd)=="flushview")
@@ -1855,7 +1895,7 @@ void finish_handle_api_json(string response,
 
     if(!send_json_builder_async(req,build_command_json_response_job,({
         response,new_txd,auth_userid,cmd,newbie_completions,
-        refresh_snapshot
+        refresh_snapshot,room_id
     }),200))
         send_json(req,(["error":"响应线程池繁忙，请稍后重试"]),503);
 }

@@ -72,6 +72,8 @@ void test_shared_build_script_contract()
 	   search(source,"STORY_OUTPUT_DIR")!=-1 &&
 	   search(source,"VISUAL_MAP_SOURCE")!=-1 &&
 	   search(source,"VISUAL_MAP_OUTPUT")!=-1 &&
+	   search(source,"TERRAIN_ATLAS_SOURCE")!=-1 &&
+	   search(source,"WORLD_MAP_SOURCE")!=-1 &&
 	   search(source,"css/realm.css")!=-1 &&
 	   search(source,"vendor/vue.global.prod.js")!=-1 &&
 	   search(source,"cmp -s")!=-1 &&
@@ -96,6 +98,8 @@ void test_vue_source_contract()
 	   search(build_source,"css', 'pc.css")!=-1 &&
 	   search(build_source,"css', 'realm.css")!=-1 &&
 	   search(build_source,"red-cloud-terrace-v1.webp")!=-1 &&
+	   search(build_source,"world-terrain-atlas-v1.webp")!=-1 &&
+	   search(build_source,"world-map.json")!=-1 &&
 	   search(build_source,"js', 'app.js")!=-1 &&
 	   search(build_source,"'vue.global.prod.js'")!=-1 &&
 	   search(build_source,"'VUE_LICENSE.txt'")!=-1 &&
@@ -103,7 +107,9 @@ void test_vue_source_contract()
 	   search(index_source,"manifest.json")!=-1 &&
 	   search(index_source,"pc-desktop-bar")!=-1 &&
 	   search(index_source,"desktop-rpg-shell")!=-1 &&
-	   search(index_source,"moveDesktopScene(exit)")!=-1 &&
+	   search(index_source,"desktop-nearby-map")!=-1 &&
+	   search(index_source,"desktopWorldCanvas")!=-1 &&
+	   search(index_source,"moveDesktopScene(tile.exit)")!=-1 &&
 	   search(index_source,"data-pc-key=\"1\"")!=-1 &&
 	   search(pc_css_source,"data-client-layout=\"pc\"")!=-1 &&
 	   search(index_source,"css/realm.css?v=BUILD_VERSION")!=-1 &&
@@ -113,6 +119,39 @@ void test_vue_source_contract()
 		test_pass();
 	else
 		test_fail("Vue源码复制或入口引用契约不完整");
+}
+
+void test_world_map_graph_contract()
+{
+	test_start("全部房间生成可缩放世界拓扑且移动仍受相邻出口约束");
+	string generator_source = Stdio.read_file(
+		ROOT+"/scripts/build/generate_world_map.js");
+	string test_source = Stdio.read_file(
+		ROOT+"/vue_source/tests/world-map.test.js");
+	string graph_source = Stdio.read_file(
+		ROOT+"/vue_source/data/world-map.json");
+	string web_graph = Stdio.read_file(
+		ROOT+"/web/web_vue/data/world-map.json");
+	string dist_graph = Stdio.read_file(
+		ROOT+"/vue_source/dist/data/world-map.json");
+	string app_source = Stdio.read_file(
+		ROOT+"/vue_source/js/app.js");
+
+	if(generator_source && test_source && graph_source &&
+	   web_graph && dist_graph && app_source &&
+	   sizeof(graph_source)>500000 &&
+	   graph_source==web_graph && graph_source==dist_graph &&
+	   search(graph_source,"\"roomCount\":")!=-1 &&
+	   search(graph_source,"\"regionCount\":")!=-1 &&
+	   search(graph_source,"\"id\":\"illusion_s1/moon_gate\"")!=-1 &&
+	   search(generator_source,"inherit\\s+WAP_ROOM")!=-1 &&
+	   search(test_source,"the complete world must include")!=-1 &&
+	   search(app_source,"loadDesktopWorldGraph()")!=-1 &&
+	   search(app_source,"renderDesktopWorldMap()")!=-1 &&
+	   search(app_source,"desktopWorldSelectedExit()")!=-1)
+		test_pass();
+	else
+		test_fail("世界拓扑缺失、产物不同步或允许绕过相邻出口");
 }
 
 void test_manifest_contract()
@@ -244,6 +283,8 @@ void test_frontend_playability_gate()
 void test_visual_scene_metadata_contract()
 {
 	test_start("PC实时地图只接收安全实体分类而不泄露原始命令");
+	string daemon_source = Stdio.read_file(
+		ROOT+"/gamelib/single/daemons/http_api_daemon.pike");
 	mapping npc = HTTP_APID->parse_bracket_content(
 		"赤鳞蛟龙(200):char_npc chilinjiaolong 1","txd","visual_test");
 	mapping player = HTTP_APID->parse_bracket_content(
@@ -253,12 +294,16 @@ void test_visual_scene_metadata_contract()
 	mapping menu = HTTP_APID->parse_bracket_content(
 		"状态:myhp","txd","visual_test");
 
-	if(npc && player && item && menu &&
+	if(daemon_source && npc && player && item && menu &&
 	   npc["visual_kind"]=="monster" &&
 	   player["visual_kind"]=="player" &&
 	   item["visual_kind"]=="item" &&
 	   !menu["visual_kind"] &&
 	   has_prefix((string)npc["cmd"],"c_") &&
+	   HTTP_APID->query_visual_room_id(0)=="" &&
+	   search(daemon_source,"room_path = file_name(room)")!=-1 &&
+	   search(daemon_source,"response_player = find_player(auth_userid)")!=-1 &&
+	   search(daemon_source,"json_result->room_id = room_id")!=-1 &&
 	   !npc["command"] && !npc["action_cmd"])
 		test_pass();
 	else
@@ -313,6 +358,7 @@ void test_deployed_frontend_artifacts()
 	int story_atlases_valid = 1;
 	int story_chapters_valid = 1;
 	int visual_map_valid = 0;
+	int terrain_atlas_valid = 0;
 	for(int volume=1;volume<=9;volume++){
 		string filename = sprintf("volume_%02d.png",volume);
 		string source_path = ROOT+"/images/illusion_s1/story/"+filename;
@@ -340,6 +386,15 @@ void test_deployed_frontend_artifacts()
 	   Stdio.read_file(visual_map_source)==
 		Stdio.read_file(visual_map_deployed))
 		visual_map_valid = 1;
+	string terrain_atlas_source = ROOT+
+		"/images/visual_map/world-terrain-atlas-v1.webp";
+	string terrain_atlas_deployed = ROOT+
+		"/web/images/visual_map/world-terrain-atlas-v1.webp";
+	if(Stdio.file_size(terrain_atlas_source)>=200000 &&
+	   Stdio.file_size(terrain_atlas_source)<=900000 &&
+	   Stdio.read_file(terrain_atlas_source)==
+		Stdio.read_file(terrain_atlas_deployed))
+		terrain_atlas_valid = 1;
 
 	if(source_js && web_js && dist_js &&
 	   web_index && dist_index && web_vue && dist_vue &&
@@ -352,7 +407,7 @@ void test_deployed_frontend_artifacts()
 	   search(dist_index,"playerLevelAuraClass()")==-1 &&
 	   search(web_index,"vendor/vue.global.prod.js?v=v")!=-1 &&
 	   search(web_index,"js/app.js?v=v")!=-1 && story_atlases_valid &&
-	   story_chapters_valid && visual_map_valid)
+	   story_chapters_valid && visual_map_valid && terrain_atlas_valid)
 		test_pass();
 	else
 		test_fail("Vue正式/历史产物缺失、过期或仍含白屏回归代码");
@@ -379,6 +434,7 @@ int main()
 	test_game_number_format_contract();
 	test_frontend_playability_gate();
 	test_visual_scene_metadata_contract();
+	test_world_map_graph_contract();
 	test_high_realm_contrast_contract();
 	test_deployed_frontend_artifacts();
 	print_summary();

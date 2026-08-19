@@ -17,6 +17,8 @@ const buildShell = read(rootDir, 'scripts', 'build', 'build_vue_frontend.sh');
 const packageJson = JSON.parse(read(sourceDir, 'package.json'));
 const visualMapAsset = path.join(rootDir, 'images', 'visual_map',
     'red-cloud-terrace-v1.webp');
+const terrainAtlasAsset = path.join(rootDir, 'images', 'visual_map',
+    'world-terrain-atlas-v1.webp');
 
 assert(!index.includes('href="css/pc.css'),
     'mobile index must not load isolated desktop CSS');
@@ -24,7 +26,10 @@ assert(index.includes("v-if=\"clientLayout === 'pc'\""));
 assert(index.includes('class="pc-desktop-bar"'));
 assert(index.includes('class="desktop-rpg-shell"'));
 assert(index.includes('class="desktop-scene-stage"'));
-assert(index.includes('moveDesktopScene(exit)'));
+assert(index.includes('class="desktop-nearby-map"'));
+assert(index.includes('class="desktop-terrain-tile"'));
+assert(index.includes('ref="desktopWorldCanvas"'));
+assert(index.includes('moveDesktopScene(tile.exit)'));
 assert(index.includes('inspectDesktopEntity(entity)'));
 for (const key of ['1', '2', '3', '4', '5', 'M', 'T', 'A']) {
     assert(index.includes(`data-pc-key="${key}"`), `missing desktop shortcut hint ${key}`);
@@ -40,10 +45,16 @@ assert(app.includes('switchClientLayout(layout)'));
 assert(app.includes('extractDesktopRoom(lines)'));
 assert(app.includes('captureDesktopVisualState(lines'));
 assert(app.includes('startDesktopSceneSync()'));
+assert(app.includes('loadDesktopWorldGraph()'));
+assert(app.includes('renderDesktopWorldMap()'));
+assert(app.includes("new URL('data/world-map.json', window.location.href)"));
 assert(app.includes("cmd: 'look'"));
 assert(fs.existsSync(visualMapAsset), 'generated visual map asset is missing');
 assert(fs.statSync(visualMapAsset).size < 700 * 1024,
     'visual map background must stay web-sized');
+assert(fs.existsSync(terrainAtlasAsset), 'generated terrain atlas is missing');
+assert(fs.statSync(terrainAtlasAsset).size < 900 * 1024,
+    'terrain atlas must stay web-sized');
 
 for (const contract of [
     ':root[data-client-layout="pc"]',
@@ -63,8 +74,9 @@ assert(!/^\s*\.game-header\s*\{/m.test(pcCss),
 assert(!/^\s*\.quick-actions\s*\{/m.test(pcCss),
     'desktop rules must remain scoped and never target mobile navigation globally');
 for (const contract of [
-    '.desktop-rpg-shell', '.desktop-scene-stage', '.desktop-exit-portal',
-    '.desktop-scene-actor', '.desktop-world-map', '.desktop-target-panel',
+    '.desktop-rpg-shell', '.desktop-scene-stage', '.desktop-nearby-map',
+    '.desktop-terrain-tile', '.desktop-scene-actor', '.desktop-world-map-overlay',
+    'canvas.desktop-world-map-canvas', '.desktop-target-panel',
     '.desktop-scene-console'
 ]) {
     assert(pcCss.includes(contract), `missing visual RPG contract: ${contract}`);
@@ -74,12 +86,16 @@ assert(build.includes('function processPcHTML(content)'));
 assert(build.includes("path.join(distDir, 'pc.html')"));
 assert(build.includes("path.join(distDir, 'css', 'pc.css')"));
 assert(build.includes("'red-cloud-terrace-v1.webp'"));
+assert(build.includes("'world-terrain-atlas-v1.webp'"));
+assert(build.includes("'world-map.json'"));
 assert(serve.includes("if (pathname === '/pc.html')"));
 assert(serve.includes('function createPcEntry(content)'));
 assert(buildShell.includes('"pc.html"'));
 assert(buildShell.includes('"css/pc.css"'));
 assert(buildShell.includes('mobile index unexpectedly loads desktop CSS'));
 assert(buildShell.includes('VISUAL_MAP_OUTPUT'));
+assert(buildShell.includes('TERRAIN_ATLAS_OUTPUT'));
+assert(buildShell.includes('WORLD_MAP_SOURCE'));
 
 assert(selector.includes("selectUI('desktop')"));
 assert(selector.includes("savedUI === 'desktop'"));
@@ -155,12 +171,20 @@ const sceneContext = {
     desktopScene: null,
     desktopSceneSelected: null,
     desktopSceneActions: [],
+    desktopWorldNode: null,
+    desktopWorldNodeIndex: null,
+    desktopWorldNameIndex: null,
+    desktopServerRoomId: '',
     clientLayout: 'pc'
 };
 for (const methodName of [
     'desktopPlainText', 'desktopLineText', 'parseDesktopExit',
     'extractDesktopRoom', 'extractDesktopContextActions',
-    'findDesktopDirectEntityAction', 'captureDesktopVisualState'
+    'findDesktopDirectEntityAction', 'captureDesktopVisualState',
+    'normalizeDesktopRoomName', 'desktopDirectionKey',
+    'resolveDesktopWorldNode', 'desktopNearbyTiles',
+    'desktopTerrainCell', 'getDesktopTerrainTileStyle',
+    'getDesktopNearbyTileStyle'
 ]) {
     sceneContext[methodName] = (...args) => methods[methodName].call(sceneContext, ...args);
 }
@@ -199,6 +223,33 @@ assert.strictEqual(room.entities[0].level, 200);
 assert.strictEqual(room.entities[1].kind, 'player');
 assert.strictEqual(sceneContext.captureDesktopVisualState(roomLines), true);
 assert.strictEqual(sceneContext.desktopScene.roomName, '赤灵云台');
+
+const graphNodes = [
+    {
+        id: 'test/cloud', name: '赤灵云台', region: 'test', biome: 'mountain',
+        exits: [{ direction: 'east', target: 'test/path' }]
+    },
+    {
+        id: 'test/path', name: '赤灵细径', region: 'test', biome: 'forest',
+        exits: [{ direction: 'west', target: 'test/cloud' }]
+    }
+];
+sceneContext.desktopWorldNodeIndex = new Map(graphNodes.map(node => [node.id, node]));
+sceneContext.desktopWorldNameIndex = new Map([
+    ['赤灵云台', [graphNodes[0]]], ['赤灵细径', [graphNodes[1]]]
+]);
+assert.strictEqual(sceneContext.resolveDesktopWorldNode(room)?.id, 'test/cloud');
+sceneContext.desktopServerRoomId = 'test/path';
+assert.strictEqual(sceneContext.resolveDesktopWorldNode(room)?.id, 'test/path',
+    'server room id must disambiguate duplicate display names exactly');
+sceneContext.desktopServerRoomId = '';
+sceneContext.resolveDesktopWorldNode(room);
+sceneContext.desktopScene = room;
+const nearbyTiles = sceneContext.desktopNearbyTiles();
+assert.strictEqual(nearbyTiles.length, 9);
+assert.strictEqual(nearbyTiles.find(tile => tile.current).name, '赤灵云台');
+assert.strictEqual(nearbyTiles.find(tile => tile.exit?.direction === '东').node.id, 'test/path');
+assert.strictEqual(nearbyTiles.find(tile => tile.exit?.direction === '东').biome, 'forest');
 
 const detailLines = [{ type: 'line', segments: [
     { type: 'text', parts: [{ content: '赤鳞蛟龙盘踞于此。' }] },

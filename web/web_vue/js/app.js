@@ -196,9 +196,22 @@ createApp({
             desktopSceneMoving: false,
             desktopSceneSyncing: false,
             desktopSceneSyncTimer: null,
-            desktopWorldMapOpen: true,
+            desktopWorldMapOpen: false,
+            desktopWorldGraph: null,
+            desktopWorldNode: null,
+            desktopWorldNodeIndex: null,
+            desktopWorldNameIndex: null,
+            desktopWorldGraphLoading: false,
+            desktopWorldGraphError: '',
+            desktopWorldSelectedNode: null,
+            desktopServerRoomId: '',
+            desktopWorldMapTransform: { x: 0, y: 0, scale: 1 },
+            desktopWorldMapDrag: null,
+            desktopWorldMapHitAreas: [],
+            desktopWorldMapResizeHandler: null,
+            desktopTerrainAtlas: null,
             desktopTextPanelOpen: false,
-            desktopPlayerPosition: { x: 50, y: 72 },
+            desktopPlayerPosition: { x: 50, y: 58 },
             showLogin: true,
             headerMenuOpen: false,
             showRegister: false,
@@ -1683,7 +1696,9 @@ createApp({
             this.desktopSceneSelected = null;
             this.desktopSceneActions = [];
             this.desktopSceneMoving = false;
-            this.desktopPlayerPosition = { x: 50, y: 72 };
+            this.desktopServerRoomId = '';
+            this.desktopWorldNode = null;
+            this.desktopPlayerPosition = { x: 50, y: 58 };
             this.autofightTickInFlight = false;
             this.autofightViewSequence = 0;
             this.autofightViewGeneration = '';
@@ -3308,6 +3323,9 @@ createApp({
                     }
                 }
                 // 更新MUD输出；只在背包/任务/技能等列表页启用平滑重排。
+                if (this.clientLayout === 'pc' && data.room_id) {
+                    this.desktopServerRoomId = String(data.room_id).replace(/\.pike$/, '');
+                }
                 this.prepareMudOutputAnimation(cmd);
                 this.mudLines = data.lines || [];
                 console.log('[sendJsonCommand] mudLines数量:', this.mudLines.length);
@@ -4041,6 +4059,7 @@ createApp({
             const room = this.extractDesktopRoom(lines);
             if (room) {
                 this.desktopScene = room;
+                this.resolveDesktopWorldNode(room);
                 if (!preserveInteraction) this.desktopSceneActions = [];
                 return true;
             }
@@ -4048,6 +4067,466 @@ createApp({
                 this.desktopSceneActions = this.extractDesktopContextActions(lines);
             }
             return false;
+        },
+
+        normalizeDesktopRoomName(value) {
+            return this.desktopPlainText(value)
+                .replace(/[（(](?:妖魔占领|人类占领|高级区|低级区|安全区)[）)]/g, '')
+                .replace(/\s+/g, '')
+                .trim();
+        },
+
+        desktopDirectionKey(direction) {
+            const directions = {
+                东: 'east', 西: 'west', 南: 'south', 北: 'north',
+                东北: 'northeast', 西北: 'northwest',
+                东南: 'southeast', 西南: 'southwest',
+                上: 'up', 下: 'down', 进入: 'enter', 离开: 'out'
+            };
+            return directions[String(direction || '')] || String(direction || '').toLowerCase();
+        },
+
+        async loadDesktopWorldGraph() {
+            if (this.clientLayout !== 'pc' || this.desktopWorldGraph ||
+                this.desktopWorldGraphLoading) return;
+            this.desktopWorldGraphLoading = true;
+            this.desktopWorldGraphError = '';
+            try {
+                const graphUrl = new URL('data/world-map.json', window.location.href).toString();
+                const response = await fetch(graphUrl, { cache: 'no-cache' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const graph = await response.json();
+                if (graph?.schema !== 1 || !Array.isArray(graph.nodes) ||
+                    !Array.isArray(graph.edges) || graph.nodes.length < 2500) {
+                    throw new Error('world graph is incomplete');
+                }
+                const nodeIndex = new Map();
+                const nameIndex = new Map();
+                for (const node of graph.nodes) {
+                    nodeIndex.set(node.id, node);
+                    const name = this.normalizeDesktopRoomName(node.name);
+                    if (!nameIndex.has(name)) nameIndex.set(name, []);
+                    nameIndex.get(name).push(node);
+                }
+                this.desktopWorldGraph = markClientRaw(graph);
+                this.desktopWorldNodeIndex = markClientRaw(nodeIndex);
+                this.desktopWorldNameIndex = markClientRaw(nameIndex);
+                this.prepareDesktopTerrainAtlas();
+                this.resolveDesktopWorldNode(this.desktopScene);
+            } catch (error) {
+                this.desktopWorldGraphError = '世界地图加载失败，房间操作仍可正常使用';
+                console.error('desktop world graph load failed', error);
+            } finally {
+                this.desktopWorldGraphLoading = false;
+            }
+        },
+
+        prepareDesktopTerrainAtlas() {
+            if (this.desktopTerrainAtlas || typeof Image === 'undefined') return;
+            const atlas = new Image();
+            atlas.decoding = 'async';
+            atlas.onload = () => {
+                this.desktopTerrainAtlas = markClientRaw(atlas);
+                this.renderDesktopWorldMap();
+            };
+            atlas.onerror = () => {
+                this.desktopWorldGraphError = '地貌图集加载失败，已使用简化地图';
+            };
+            atlas.src = this.getImageUrl('/images/visual_map/world-terrain-atlas-v1.webp');
+        },
+
+        resolveDesktopWorldNode(scene = this.desktopScene) {
+            if (!scene || !this.desktopWorldNameIndex || !this.desktopWorldNodeIndex) return null;
+            const exactNode = this.desktopServerRoomId
+                ? this.desktopWorldNodeIndex.get(this.desktopServerRoomId)
+                : null;
+            if (exactNode) {
+                this.desktopWorldNode = exactNode;
+                if (this.desktopWorldMapOpen) {
+                    this.$nextTick(() => this.focusDesktopWorldMap());
+                }
+                return exactNode;
+            }
+            const normalizedName = this.normalizeDesktopRoomName(scene.roomName);
+            const candidates = this.desktopWorldNameIndex.get(normalizedName) || [];
+            if (!candidates.length) {
+                this.desktopWorldNode = null;
+                return null;
+            }
+            const liveExits = Array.isArray(scene.exits) ? scene.exits : [];
+            let bestNode = candidates[0];
+            let bestScore = -1;
+            for (const candidate of candidates) {
+                let score = 0;
+                for (const liveExit of liveExits) {
+                    const direction = this.desktopDirectionKey(liveExit.direction);
+                    const expectedName = this.normalizeDesktopRoomName(liveExit.destination);
+                    const graphExit = (candidate.exits || []).find(exit => {
+                        if (exit.direction !== direction) return false;
+                        const target = this.desktopWorldNodeIndex.get(exit.target);
+                        return target && this.normalizeDesktopRoomName(target.name) === expectedName;
+                    });
+                    if (graphExit) score += 5;
+                    else if ((candidate.exits || []).some(exit => exit.direction === direction)) score += 1;
+                }
+                if (this.desktopWorldNode?.region === candidate.region) score += 2;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestNode = candidate;
+                }
+            }
+            this.desktopWorldNode = bestNode;
+            if (this.desktopWorldMapOpen) {
+                this.$nextTick(() => this.focusDesktopWorldMap());
+            }
+            return bestNode;
+        },
+
+        desktopTerrainCell(biome) {
+            const cells = {
+                plains: [0, 0], forest: [1, 0], mountain: [2, 0],
+                snow: [0, 1], desert: [1, 1], marsh: [2, 1],
+                coast: [0, 2], city: [1, 2], abyss: [2, 2]
+            };
+            return cells[biome] || cells.plains;
+        },
+
+        getDesktopTerrainTileStyle(biome) {
+            const cell = this.desktopTerrainCell(biome);
+            return {
+                backgroundImage: 'url(' + this.getImageUrl('/images/visual_map/world-terrain-atlas-v1.webp') + ')',
+                backgroundPosition: (cell[0] * 50) + '% ' + (cell[1] * 50) + '%'
+            };
+        },
+
+        desktopNearbyTiles() {
+            const positions = {
+                east: [2, 1], west: [0, 1], south: [1, 2], north: [1, 0],
+                northeast: [2, 0], northwest: [0, 0],
+                southeast: [2, 2], southwest: [0, 2],
+                up: [2, 0], down: [0, 2], enter: [2, 2], out: [0, 0]
+            };
+            const currentBiome = this.desktopWorldNode?.biome || 'plains';
+            const tiles = [];
+            for (let row = 0; row < 3; row += 1) {
+                for (let column = 0; column < 3; column += 1) {
+                    tiles.push({
+                        key: 'fog-' + column + '-' + row,
+                        column,
+                        row,
+                        name: '',
+                        biome: currentBiome,
+                        available: false,
+                        current: false,
+                        exit: null
+                    });
+                }
+            }
+            const current = tiles.find(tile => tile.column === 1 && tile.row === 1);
+            Object.assign(current, {
+                key: 'current',
+                name: this.desktopScene?.roomName || '当前位置',
+                biome: currentBiome,
+                available: true,
+                current: true
+            });
+            for (const exit of this.desktopScene?.exits || []) {
+                const direction = this.desktopDirectionKey(exit.direction);
+                const point = positions[direction];
+                if (!point) continue;
+                const tile = tiles.find(item => item.column === point[0] && item.row === point[1]);
+                const graphExit = (this.desktopWorldNode?.exits || []).find(item => item.direction === direction);
+                const target = graphExit ? this.desktopWorldNodeIndex?.get(graphExit.target) : null;
+                Object.assign(tile, {
+                    key: exit.cmd,
+                    name: exit.destination,
+                    biome: target?.biome || currentBiome,
+                    available: true,
+                    current: false,
+                    exit,
+                    node: target || null
+                });
+            }
+            return tiles;
+        },
+
+        getDesktopNearbyTileStyle(tile) {
+            return {
+                ...this.getDesktopTerrainTileStyle(tile?.biome),
+                left: ((tile?.column || 0) * 100 / 3) + '%',
+                top: ((tile?.row || 0) * 100 / 3) + '%'
+            };
+        },
+
+        openDesktopWorldMap() {
+            this.desktopWorldMapOpen = true;
+            this.desktopWorldSelectedNode = this.desktopWorldNode;
+            this.$nextTick(() => this.focusDesktopWorldMap());
+        },
+
+        closeDesktopWorldMap() {
+            this.desktopWorldMapOpen = false;
+            this.desktopWorldMapDrag = null;
+        },
+
+        desktopWorldCanvasSize() {
+            const canvas = this.$refs?.desktopWorldCanvas;
+            if (!canvas) return null;
+            const rect = canvas.getBoundingClientRect();
+            if (!rect.width || !rect.height) return null;
+            const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+            const width = Math.round(rect.width * dpr);
+            const height = Math.round(rect.height * dpr);
+            if (canvas.width !== width || canvas.height !== height) {
+                canvas.width = width;
+                canvas.height = height;
+            }
+            return { canvas, width: rect.width, height: rect.height, dpr, rect };
+        },
+
+        drawDesktopWorldTile(context, node, size) {
+            const atlas = this.desktopTerrainAtlas;
+            if (!atlas?.naturalWidth || !atlas?.naturalHeight) {
+                const colors = {
+                    plains: '#628f55', forest: '#235b43', mountain: '#69737c',
+                    snow: '#b8d5e5', desert: '#a9793f', marsh: '#507d70',
+                    coast: '#3184a0', city: '#9a7256', abyss: '#55417b'
+                };
+                context.fillStyle = colors[node.biome] || colors.plains;
+                context.fillRect(node.x - size / 2, node.y - size / 2, size, size);
+                return;
+            }
+            const cell = this.desktopTerrainCell(node.biome);
+            const sourceWidth = atlas.naturalWidth / 3;
+            const sourceHeight = atlas.naturalHeight / 3;
+            context.drawImage(
+                atlas,
+                cell[0] * sourceWidth,
+                cell[1] * sourceHeight,
+                sourceWidth,
+                sourceHeight,
+                node.x - size / 2,
+                node.y - size / 2,
+                size,
+                size
+            );
+        },
+
+        renderDesktopWorldMap() {
+            if (!this.desktopWorldMapOpen || !this.desktopWorldGraph) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const { canvas, width, height, dpr } = sizing;
+            const context = canvas.getContext('2d');
+            if (!context) return;
+            context.setTransform(dpr, 0, 0, dpr, 0, 0);
+            context.clearRect(0, 0, width, height);
+            const backdrop = context.createLinearGradient(0, 0, width, height);
+            backdrop.addColorStop(0, '#081b28');
+            backdrop.addColorStop(0.48, '#153948');
+            backdrop.addColorStop(1, '#071321');
+            context.fillStyle = backdrop;
+            context.fillRect(0, 0, width, height);
+
+            const transform = this.desktopWorldMapTransform;
+            const scale = transform.scale;
+            const worldLeft = -transform.x / scale;
+            const worldTop = -transform.y / scale;
+            const worldRight = worldLeft + width / scale;
+            const worldBottom = worldTop + height / scale;
+            const margin = 180 / scale;
+            const nodeIndex = this.desktopWorldNodeIndex;
+            const visibleNodes = [];
+
+            context.save();
+            context.translate(transform.x, transform.y);
+            context.scale(scale, scale);
+
+            for (const region of this.desktopWorldGraph.regions) {
+                if (region.x + region.width < worldLeft - margin || region.x > worldRight + margin ||
+                    region.y + region.height < worldTop - margin || region.y > worldBottom + margin) continue;
+                context.fillStyle = 'rgba(20, 42, 48, 0.34)';
+                context.strokeStyle = 'rgba(190, 220, 194, 0.22)';
+                context.lineWidth = Math.max(1, 2 / scale);
+                context.fillRect(region.x, region.y, region.width, region.height);
+                context.strokeRect(region.x, region.y, region.width, region.height);
+                context.fillStyle = 'rgba(235, 230, 188, 0.9)';
+                context.font = '700 ' + Math.max(18, 24 / Math.max(scale, 0.3)) + 'px serif';
+                context.fillText(region.label, region.x + 24, region.y + 38);
+            }
+
+            context.lineCap = 'round';
+            for (const edge of this.desktopWorldGraph.edges) {
+                const from = nodeIndex.get(edge.from);
+                const to = nodeIndex.get(edge.to);
+                if (!from || !to) continue;
+                if (Math.max(from.x, to.x) < worldLeft - margin || Math.min(from.x, to.x) > worldRight + margin ||
+                    Math.max(from.y, to.y) < worldTop - margin || Math.min(from.y, to.y) > worldBottom + margin) continue;
+                context.beginPath();
+                context.moveTo(from.x, from.y);
+                context.lineTo(to.x, to.y);
+                context.strokeStyle = from.region === to.region
+                    ? 'rgba(235, 222, 170, 0.48)'
+                    : 'rgba(123, 209, 241, 0.72)';
+                context.lineWidth = Math.max(1.5, 1.4 / Math.max(scale, 0.025));
+                context.stroke();
+            }
+
+            const tileSize = 76;
+            for (const node of this.desktopWorldGraph.nodes) {
+                if (node.x < worldLeft - tileSize || node.x > worldRight + tileSize ||
+                    node.y < worldTop - tileSize || node.y > worldBottom + tileSize) continue;
+                visibleNodes.push(node);
+                if (scale < 0.16) {
+                    context.beginPath();
+                    context.arc(node.x, node.y, 3.4 / scale, 0, Math.PI * 2);
+                    context.fillStyle = node.id === this.desktopWorldNode?.id ? '#ffd86e' : '#91bcb0';
+                    context.fill();
+                    continue;
+                }
+                this.drawDesktopWorldTile(context, node, tileSize);
+                context.strokeStyle = node.id === this.desktopWorldNode?.id
+                    ? '#ffe27d'
+                    : 'rgba(232, 235, 211, 0.46)';
+                context.lineWidth = node.id === this.desktopWorldNode?.id ? 7 : 2;
+                context.strokeRect(node.x - tileSize / 2, node.y - tileSize / 2, tileSize, tileSize);
+                if (scale >= 0.5) {
+                    context.fillStyle = 'rgba(4, 10, 17, 0.82)';
+                    context.fillRect(node.x - 43, node.y + 20, 86, 24);
+                    context.fillStyle = node.id === this.desktopWorldNode?.id ? '#ffe69a' : '#f2f4df';
+                    context.font = '700 13px sans-serif';
+                    context.textAlign = 'center';
+                    context.fillText(String(node.name || '').slice(0, 8), node.x, node.y + 37);
+                }
+            }
+            context.restore();
+            context.textAlign = 'start';
+            this.desktopWorldMapHitAreas = visibleNodes;
+        },
+
+        focusDesktopWorldMap() {
+            if (!this.desktopWorldMapOpen || !this.desktopWorldGraph) return;
+            this.$nextTick(() => {
+                const sizing = this.desktopWorldCanvasSize();
+                if (!sizing) return;
+                const node = this.desktopWorldNode || this.desktopWorldGraph.nodes[0];
+                const scale = 0.82;
+                this.desktopWorldMapTransform = {
+                    x: sizing.width / 2 - node.x * scale,
+                    y: sizing.height / 2 - node.y * scale,
+                    scale
+                };
+                this.desktopWorldSelectedNode = node;
+                this.renderDesktopWorldMap();
+            });
+        },
+
+        fitDesktopWorldMap() {
+            if (!this.desktopWorldMapOpen || !this.desktopWorldGraph) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const bounds = this.desktopWorldGraph.bounds;
+            const scale = Math.max(0.025, Math.min(
+                (sizing.width - 60) / bounds.width,
+                (sizing.height - 60) / bounds.height,
+                0.5
+            ));
+            this.desktopWorldMapTransform = {
+                x: (sizing.width - bounds.width * scale) / 2,
+                y: (sizing.height - bounds.height * scale) / 2,
+                scale
+            };
+            this.desktopWorldSelectedNode = null;
+            this.renderDesktopWorldMap();
+        },
+
+        handleDesktopWorldWheel(event) {
+            if (!this.desktopWorldGraph) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const pointX = event.clientX - sizing.rect.left;
+            const pointY = event.clientY - sizing.rect.top;
+            const old = this.desktopWorldMapTransform;
+            const factor = event.deltaY < 0 ? 1.14 : 0.88;
+            const nextScale = Math.max(0.025, Math.min(2.2, old.scale * factor));
+            const worldX = (pointX - old.x) / old.scale;
+            const worldY = (pointY - old.y) / old.scale;
+            this.desktopWorldMapTransform = {
+                x: pointX - worldX * nextScale,
+                y: pointY - worldY * nextScale,
+                scale: nextScale
+            };
+            this.renderDesktopWorldMap();
+        },
+
+        handleDesktopWorldPointerDown(event) {
+            if (event.button !== 0) return;
+            event.currentTarget?.setPointerCapture?.(event.pointerId);
+            this.desktopWorldMapDrag = {
+                pointerId: event.pointerId,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                moved: false
+            };
+        },
+
+        handleDesktopWorldPointerMove(event) {
+            const drag = this.desktopWorldMapDrag;
+            if (!drag || drag.pointerId !== event.pointerId) return;
+            const dx = event.clientX - drag.clientX;
+            const dy = event.clientY - drag.clientY;
+            if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+            drag.clientX = event.clientX;
+            drag.clientY = event.clientY;
+            this.desktopWorldMapTransform = {
+                ...this.desktopWorldMapTransform,
+                x: this.desktopWorldMapTransform.x + dx,
+                y: this.desktopWorldMapTransform.y + dy
+            };
+            this.renderDesktopWorldMap();
+        },
+
+        handleDesktopWorldPointerUp(event) {
+            const drag = this.desktopWorldMapDrag;
+            if (!drag || drag.pointerId !== event.pointerId) return;
+            event.currentTarget?.releasePointerCapture?.(event.pointerId);
+            this.desktopWorldMapDrag = null;
+            if (drag.moved) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const transform = this.desktopWorldMapTransform;
+            const worldX = (event.clientX - sizing.rect.left - transform.x) / transform.scale;
+            const worldY = (event.clientY - sizing.rect.top - transform.y) / transform.scale;
+            let nearest = null;
+            let nearestDistance = Infinity;
+            for (const node of this.desktopWorldMapHitAreas) {
+                const distance = Math.hypot(node.x - worldX, node.y - worldY);
+                if (distance < nearestDistance) {
+                    nearest = node;
+                    nearestDistance = distance;
+                }
+            }
+            if (!nearest || nearestDistance > 58 / Math.max(transform.scale, 0.2)) return;
+            this.desktopWorldSelectedNode = nearest;
+            this.renderDesktopWorldMap();
+        },
+
+        desktopWorldSelectedExit() {
+            const selected = this.desktopWorldSelectedNode;
+            if (!selected || !this.desktopWorldNode) return null;
+            const graphExit = (this.desktopWorldNode.exits || []).find(exit => exit.target === selected.id);
+            if (!graphExit) return null;
+            return (this.desktopScene?.exits || []).find(exit =>
+                this.desktopDirectionKey(exit.direction) === graphExit.direction
+            ) || null;
+        },
+
+        moveToDesktopWorldSelection() {
+            const exit = this.desktopWorldSelectedExit();
+            if (exit) {
+                this.closeDesktopWorldMap();
+                this.moveDesktopScene(exit);
+            }
         },
 
         desktopExitAnchor(direction) {
@@ -4072,8 +4551,8 @@ createApp({
 
         getDesktopEntityStyle(entity, index) {
             const anchors = [
-                [30, 48], [68, 45], [43, 36], [58, 62], [78, 66],
-                [21, 65], [51, 50], [37, 70], [66, 31], [83, 42]
+                [43, 50], [57, 49], [48, 43], [54, 58], [61, 55],
+                [39, 58], [50, 52], [45, 61], [58, 42], [62, 47]
             ];
             const anchor = anchors[index % anchors.length];
             return { left: `${anchor[0]}%`, top: `${anchor[1]}%` };
@@ -4096,8 +4575,8 @@ createApp({
             if (this.desktopSceneMoving || !event?.currentTarget) return;
             if (event.target?.closest?.('.desktop-scene-actor, .desktop-exit-portal, .desktop-scene-hud')) return;
             const rect = event.currentTarget.getBoundingClientRect();
-            const x = Math.max(12, Math.min(88, (event.clientX - rect.left) / rect.width * 100));
-            const y = Math.max(26, Math.min(82, (event.clientY - rect.top) / rect.height * 100));
+            const x = Math.max(37, Math.min(63, (event.clientX - rect.left) / rect.width * 100));
+            const y = Math.max(39, Math.min(63, (event.clientY - rect.top) / rect.height * 100));
             this.desktopPlayerPosition = { x, y };
             this.desktopSceneSelected = null;
             this.desktopSceneActions = [];
@@ -4116,15 +4595,15 @@ createApp({
             }
             await this.sendJsonCommand(exit.cmd);
             const opposite = {
-                东: { x: 16, y: 58 }, 西: { x: 84, y: 58 },
-                南: { x: 50, y: 28 }, 北: { x: 50, y: 78 },
-                东北: { x: 22, y: 72 }, 西北: { x: 78, y: 72 },
-                东南: { x: 22, y: 34 }, 西南: { x: 78, y: 34 },
-                上: { x: 48, y: 76 }, 下: { x: 52, y: 30 }
+                东: { x: 40, y: 53 }, 西: { x: 60, y: 53 },
+                南: { x: 50, y: 41 }, 北: { x: 50, y: 63 },
+                东北: { x: 41, y: 62 }, 西北: { x: 59, y: 62 },
+                东南: { x: 41, y: 42 }, 西南: { x: 59, y: 42 },
+                上: { x: 48, y: 61 }, 下: { x: 52, y: 42 }
             };
             this.desktopPlayerPosition = this.desktopScene?.roomName !== previousRoomName
-                ? (opposite[exit.direction] || { x: 50, y: 72 })
-                : { x: 50, y: 72 };
+                ? (opposite[exit.direction] || { x: 50, y: 58 })
+                : { x: 50, y: 58 };
             this.desktopSceneMoving = false;
         },
 
@@ -6047,6 +6526,10 @@ createApp({
 
     beforeUnmount() {
         this.stopDesktopSceneSync();
+        if (this.desktopWorldMapResizeHandler) {
+            window.removeEventListener('resize', this.desktopWorldMapResizeHandler);
+            this.desktopWorldMapResizeHandler = null;
+        }
         if (this.registerReturnTimer) {
             clearTimeout(this.registerReturnTimer);
             this.registerReturnTimer = null;
@@ -6101,6 +6584,11 @@ createApp({
         });
 
         this.apiBase = this.detectApiBase();
+        if (this.clientLayout === 'pc') {
+            this.loadDesktopWorldGraph();
+            this.desktopWorldMapResizeHandler = () => this.renderDesktopWorldMap();
+            window.addEventListener('resize', this.desktopWorldMapResizeHandler);
+        }
         const modeText = this.useJsonMode ? 'JSON模式 (无iframe)' : 'iframe模式';
         console.log(`Vue游戏客户端已启动 (${modeText})`);
 

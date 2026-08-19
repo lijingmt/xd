@@ -158,8 +158,39 @@ async function main() {
     assert(pcRendered.includes('赤灵云台'), 'visual RPG scene must render the authoritative room');
     assert(pcRendered.includes('赤灵溪流'), 'visual RPG scene must render adjacent rooms');
     assert(pcRendered.includes('赤鳞蛟龙(200)'), 'visual RPG scene must render room monsters');
-    assert(pcRendered.includes('red-cloud-terrace-v1.webp'),
-        'visual RPG scene must render the original generated background');
+    assert(pcRendered.includes('world-terrain-atlas-v1.webp'),
+        'visual RPG scene must render stitched terrain-map cells');
+    assert((pcRendered.match(/desktop-terrain-tile/g) || []).length >= 9,
+        'visual RPG scene must render a complete nearby 3x3 room mosaic');
+
+    const worldNode = {
+        id: 'test/cloud', name: '赤灵云台', region: '赤灵山脉',
+        biome: 'mountain', level: 200, x: 300, y: 220,
+        exits: [{ direction: 'east', target: 'test/path' }]
+    };
+    const worldMapRendered = await renderScenario(componentOptions, template, {
+        showLogin: false,
+        clientLayout: 'pc',
+        txd: 'test-session',
+        playerStats: { name_cn: '桌面测试玩家', level: 120, autofight: 0 },
+        desktopScene: {
+            roomName: '赤灵云台', description: '群山道路彼此连通。',
+            exits: [{ direction: '东', destination: '赤灵细径', cmd: 'c_east' }],
+            entities: []
+        },
+        desktopWorldMapOpen: true,
+        desktopWorldGraph: {
+            schema: 1, roomCount: 2677, edgeCount: 2611, regionCount: 75,
+            nodes: [worldNode], edges: [], regions: [], bounds: { width: 1000, height: 800 }
+        },
+        desktopWorldNode: worldNode,
+        desktopWorldSelectedNode: worldNode
+    });
+    assert(worldMapRendered.includes('山海万境图'), 'full world map must render its world-scale title');
+    assert(worldMapRendered.includes('2677'), 'full world map must expose the real room count');
+    assert(worldMapRendered.includes('desktop-world-map-canvas'),
+        'full world map must expose the pan-and-zoom canvas');
+    assert(worldMapRendered.includes('纵览全图'), 'full world map must expose overview controls');
     assert(pcCssSource.includes('html[data-client-layout="pc"] .quick-actions'));
     assert(pcCssSource.includes('@media (min-width: 960px) and (pointer: fine)'));
 
