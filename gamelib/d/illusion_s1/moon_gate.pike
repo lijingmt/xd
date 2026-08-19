@@ -14,6 +14,7 @@ int is_peaceful(){ return 1; }
 int is_bedroom(){ return 1; }
 string query_links(){
 	return "[查看S1历程:illusion_realm]\n"+
+		"[八十一章后·归真修行:illusion_realm cultivate]\n"+
 		"[设置复活点:set_relife /gamelib/d/illusion_s1/moon_gate.pike]\n"+
 		"[休息:sleep]\n";
 }

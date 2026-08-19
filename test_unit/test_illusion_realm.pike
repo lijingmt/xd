@@ -178,6 +178,95 @@ void test_login_reconcile_exception_releases_lock(object player)
 		destruct(released_key);
 }
 
+void test_post_story_dynamic_training(object player,mapping fresh_state,
+	mapping fresh_progress)
+{
+	mapping locked = SEASONALD->query_post_story_training_status(player);
+	int bypass_blocked = SEASONALD->guard_player_move(player,
+		ROOT+"/gamelib/d/illusion_s1/returning_moon_steps");
+	mapping completed_state = copy_value(fresh_state);
+	mapping claims = ([]);
+	foreach((array)fresh_progress["chapters"],mapping chapter)
+		claims[(string)chapter["id"]] = time();
+	completed_state["claims"] = claims;
+	player["/plus/illusion_realm/S1"] = completed_state;
+	player->level = 69;
+	player->set_att_by_level();
+	mapping status_69 = SEASONALD->query_post_story_training_status(player);
+	int completed_allowed = !SEASONALD->guard_player_move(player,
+		ROOT+"/gamelib/d/illusion_s1/returning_moon_steps");
+	mapping route_69 = SEASONALD->query_autofight_route(player);
+	array(string) paths = (array(string))route_69["paths"];
+	int rooms_valid = sizeof(paths)==3;
+	multiset(string) affinities = (<>);
+	foreach(paths,string path){
+		string room_file = "/gamelib/d/"+path+".pike";
+		object room = (object)(ROOT+room_file);
+		affinities[MAP_WORKERD->query_affinity_key(room_file)] = 1;
+		if(!room || Stdio.file_size(ROOT+room_file)<=0 ||
+		   !functionp(room->query_autofight_training_capacity) ||
+		   (int)room->query_autofight_training_capacity()!=18)
+			rooms_valid = 0;
+	}
+	check("八十一章前拒绝归真修行，通关后开放三张54人动态猎场",
+		!(int)locked["unlocked"] && bypass_blocked && completed_allowed &&
+		(int)status_69["unlocked"] &&
+		(int)status_69["target_level"]==999 &&
+		(int)route_69["post_story_training"] &&
+		(int)route_69["max"]==999 && (int)route_69["level"]==69 &&
+		(int)route_69["target_min"]==69 &&
+		(int)route_69["target_max"]==71 &&
+		(int)route_69["total_capacity"]==54 &&
+		(int)route_69["disable_overflow"]==1 && rooms_valid &&
+		sizeof(affinities)==3,
+		sprintf("locked=%O status=%O route=%O rooms=%d affinities=%O",
+			locked,status_69,route_69,rooms_valid,indices(affinities)));
+	object npc = clone(ROOT+
+		"/gamelib/clone/npc/illusion_s1/returning_moon_wraith.pike");
+	int growth_ok = npc!=0;
+	int growth_steps;
+	while(npc && player->query_level()<120 && growth_steps<60){
+		int before_level = (int)player->query_level();
+		player->current_exp = (int)player->query_levelUp_need_exp()-1;
+		npc->_npcLevel = before_level;
+		npc->setup_npc_dongtai(player);
+		npc->grant_kill_experience(player,1);
+		if((int)player->query_level()!=before_level+1){
+			growth_ok = 0;
+			break;
+		}
+		growth_steps++;
+	}
+	mapping status_120 = SEASONALD->query_post_story_training_status(player);
+	mapping route_120 = SEASONALD->query_autofight_route(player);
+	check("归真动态怪沿用正式经验升级链从69级自然到120且路线不停",
+		growth_ok && growth_steps==51 && (int)player->query_level()==120 &&
+		(int)status_120["hidden_milestone"] &&
+		!(int)status_120["complete"] &&
+		(int)route_120["post_story_training"] &&
+		(int)route_120["level"]==120 &&
+		npc->query_dynamic_npc_physical_defense_enabled() &&
+		npc->query_life_max()>0,
+		sprintf("steps=%d level=%d status=%O route=%O",growth_steps,
+			(int)player->query_level(),status_120,route_120));
+	player->level = 999;
+	player->set_att_by_level();
+	mapping status_999 = SEASONALD->query_post_story_training_status(player);
+	mapping route_999 = SEASONALD->query_autofight_route(player);
+	check("120只是照命里程碑，归真动态路线持续到999级",
+		(int)status_999["complete"] &&
+		(int)route_999["post_story_training"] &&
+		(int)route_999["level"]==999 &&
+		(int)route_999["target_min"]==999 &&
+		(int)route_999["target_max"]==999,
+		sprintf("status=%O route=%O",status_999,route_999));
+	if(npc)
+		destruct(npc);
+	player["/plus/illusion_realm/S1"] = fresh_state;
+	player->level = 69;
+	player->set_att_by_level();
+}
+
 int main()
 {
 	string account_id = "xd99testunitillusion";
@@ -741,6 +830,9 @@ int main()
 			"/gamelib/d/illusion_s1/abyss_flower_sea.pike",
 			"/gamelib/d/illusion_s1/deepmoon_valley.pike",
 			"/gamelib/d/illusion_s1/starfall_garden.pike",
+			"/gamelib/d/illusion_s1/returning_moon_steps.pike",
+			"/gamelib/d/illusion_s1/returning_star_pass.pike",
+			"/gamelib/d/illusion_s1/returning_heart_terrace.pike",
 		});
 		array(string) story_room_paths = room_paths+({});
 		room_paths += neutral_room_paths;
@@ -762,9 +854,9 @@ int main()
 			(int)affinities["illusion_s1:silver"]==6 &&
 			(int)affinities["illusion_s1:ruins"]==7 &&
 			(int)affinities["illusion_s1:depths"]==10 &&
-			(int)affinities["illusion_s1:hunt_a"]==6 &&
-			(int)affinities["illusion_s1:hunt_b"]==6 &&
-			(int)affinities["illusion_s1:hunt_c"]==6,
+			(int)affinities["illusion_s1:hunt_a"]==7 &&
+			(int)affinities["illusion_s1:hunt_b"]==7 &&
+			(int)affinities["illusion_s1:hunt_c"]==7,
 			sprintf("地图编译失败或affinity分组错误：%O",affinities));
 		mapping(string:int) story_reached = ([]);
 		array(string) story_queue = ({story_room_paths[0]});
@@ -810,9 +902,9 @@ int main()
 				(int)ruins_weight["static_weight"]==7 &&
 			(int)depths_weight["ok"] &&
 				(int)depths_weight["static_weight"]==10 &&
-			(int)hunt_a_weight["static_weight"]==6 &&
-			(int)hunt_b_weight["static_weight"]==6 &&
-			(int)hunt_c_weight["static_weight"]==6,
+			(int)hunt_a_weight["static_weight"]==7 &&
+			(int)hunt_b_weight["static_weight"]==7 &&
+			(int)hunt_c_weight["static_weight"]==7,
 			sprintf("hub=%O silver=%O ruins=%O depths=%O a=%O b=%O c=%O",
 				hub_weight,silver_weight,ruins_weight,depths_weight,
 				hunt_a_weight,hunt_b_weight,hunt_c_weight));
@@ -1352,8 +1444,8 @@ int main()
 			s1_afk_routes_ok &&
 			AUTOFIGHTD->query_rest_room(child)=="illusion_s1/moon_gate",
 			"S1挂机路线、攻击等级或休息营地仍可能落入永恒服");
-		child->level = 69;
-		child->set_att_by_level();
+		test_post_story_dynamic_training(child,fresh_story_state,
+			fresh_story_progress);
 		child->last_pos =
 			"/gamelib/d/illusion_s1/removed_room.pike";
 		child->relife =

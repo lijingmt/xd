@@ -85,6 +85,11 @@ private mapping(string:string) illusion_s1_room_groups = ([
 	"starlight_slope":"hunt_c","moonshadow_wood":"hunt_c",
 	"moonwave_shoal":"hunt_c","observatory_outfield":"hunt_c",
 	"stardust_lane":"hunt_c","starfall_garden":"hunt_c",
+	// 八十一章后的三张归真猎场复用已验证的三组公共猎场亲和性。
+	// 因此三房继续强制分散到健康 Worker，而不会新增一套调度算法。
+	"returning_moon_steps":"hunt_a",
+	"returning_star_pass":"hunt_b",
+	"returning_heart_terrace":"hunt_c",
 ]);
 private multiset(string) catalog_rebalance_pending = (<>);
 private int placement_generation;

@@ -1595,6 +1595,51 @@ mapping(string:mixed) query_story_access(object player)
 		"echoes":query_eternal_echoes()]);
 }
 
+/**
+ * S1 八十一章结束后的自然成长入口。
+ *
+ * 120 级只是照命资格里程碑，不是这里的等级上限。赛季进行中与赛季
+ * 关闭后的永恒回响共用同一份人物进度和动态猎场；本接口只证明访问
+ * 资格，不修改等级、经验、VIP 上限或任何战斗公式。
+ */
+mapping(string:mixed) query_post_story_training_status(object player)
+{
+	mapping context;
+	mapping config;
+	mapping progress;
+	int claimed;
+	int total;
+	int level;
+	if(!player)
+		return (["ok":0,"unlocked":0,
+			"message":"归真修行人物不存在。"]) ;
+	context = story_context(player);
+	if(!sizeof(context) || (string)context["illusion_id"]!="S1" ||
+	   search(({"season","echo"}),(string)context["mode"])==-1)
+		return (["ok":1,"unlocked":0,
+			"message":"请先进入S1幻境或已经开放的S1永恒回响。"]) ;
+	config = (mapping)context["config"];
+	progress = player_progress(player,0);
+	if(!sizeof(progress))
+		return (["ok":1,"unlocked":0,
+			"message":"请先开始S1九卷八十一章历程。"]) ;
+	total = sizeof((array)(config["chapters"] || ({})));
+	claimed = claimed_chapter_count(progress);
+	level = (int)player->query_level();
+	if(total<1 || claimed!=total)
+		return (["ok":1,"unlocked":0,"chapter_claimed":claimed,
+			"chapter_total":total,"level":level,"target_level":999,
+			"message":"完成九卷八十一章后开启归真修行。"]) ;
+	return (["ok":1,"unlocked":1,"mode":(string)context["mode"],
+		"chapter_claimed":claimed,"chapter_total":total,
+		"level":level,"target_level":999,"max_level":999,
+		"hidden_milestone":level>=120,
+		"complete":level>=999,
+		"remaining_levels":max(0,999-level),
+		"message":level>=999 ? "归真修行已经达到999级。" :
+			"归真修行已开启，可在动态同级猎场继续成长至999级。"]) ;
+}
+
 private mapping(string:mixed) config_for_progress(mapping progress)
 {
 	string illusion_id=(string)(progress["content_id"] || "");
@@ -1614,6 +1659,7 @@ private mapping(string:mixed) config_for_progress(mapping progress)
 mapping(string:mixed) query_autofight_route(object player)
 {
 	mapping context=story_context(player);
+	mapping post_story;
 	string illusion_id;
 	string path;
 	string name;
@@ -1630,6 +1676,29 @@ mapping(string:mixed) query_autofight_route(object player)
 	level = player->query_level();
 	if(illusion_id!="S1")
 		return ([]);
+	post_story = query_post_story_training_status(player);
+	if((int)post_story["unlocked"]){
+		target_level = min(999,max(69,level));
+		paths = ({
+			"illusion_s1/returning_moon_steps",
+			"illusion_s1/returning_star_pass",
+			"illusion_s1/returning_heart_terrace",
+		});
+		return ([
+			"max":999,
+			"level":target_level,
+			"name":"归真修行",
+			"path":paths[0],
+			"paths":paths,
+			"capacity":18,
+			"total_capacity":sizeof(paths)*18,
+			"target_min":target_level,
+			"target_max":min(999,target_level+2),
+			"disable_overflow":1,
+			"illusion_id":illusion_id,
+			"post_story_training":1,
+		]);
+	}
 	if(level<10){
 		paths = ({
 			"illusion_s1/moon_dew_field",
@@ -1777,6 +1846,20 @@ private int is_illusion_room_path(string path)
 	return is_content_room_path(illusion_config,path);
 }
 
+// 归真猎场仍属于S1世界，因此通用跨世界守卫本身无法区分“已通关”
+// 与“尚未通关”。入口命令会做资格检查，这里再封住手工构造旧移动
+// 命令的旁路；赛季关闭后的永恒回响沿用同一份八十一章进度判定。
+private int is_post_story_training_room_path(string path)
+{
+	if(has_suffix(path,".pike"))
+		path = path[..sizeof(path)-6];
+	return search(({
+		"/gamelib/d/illusion_s1/returning_moon_steps",
+		"/gamelib/d/illusion_s1/returning_star_pass",
+		"/gamelib/d/illusion_s1/returning_heart_terrace",
+	}),path)!=-1;
+}
+
 // 返回0表示允许；非0分别表示阶段冻结、幻境人物越界、永恒人物闯入。
 // 守卫与TestUnit共用这一纯策略，避免测试为改变生命周期去写运行状态。
 private int move_policy(mapping realm,string target,string phase)
@@ -1827,6 +1910,11 @@ int guard_player_move(object player,mixed destination)
 		return 0;
 	realm = query_realm_for_player(player);
 	policy = move_policy(realm,target,(string)query_public_status()["phase"]);
+	if(!policy && is_post_story_training_room_path(target) &&
+	   !(int)query_post_story_training_status(player)["unlocked"]){
+		tell_object(player,"完成S1九卷八十一章后，才可进入归真修行猎场。\n");
+		return 1;
+	}
 	if(policy==1){
 		tell_object(player,(string)illusion_config["display_name"]+
 			"已进入回归结算，请使用“幻境区”完成安全回归。\n");

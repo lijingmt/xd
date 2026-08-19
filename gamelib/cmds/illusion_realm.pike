@@ -343,12 +343,26 @@ private string progress_view(object me,mapping progress)
 				(string)(int)current["reward_count"]+"件。\n";
 	}
 	else{
+		mapping training = SEASONALD->query_post_story_training_status(me);
 		s += "\n八十一章已经全部完成；完整故事与十件套装均已写入本人物原档案。\n";
 		s += "[开启长生十问:illusion_realm quiz]\n";
 		if((string)progress["quiz_best_title"]!="")
 			s += "幻境阅历："+(string)progress["quiz_best_title"]+
 				"（最高 "+(string)(int)progress["quiz_best_score"]+
 				"/10）\n";
+		if((int)training["unlocked"]){
+			s += "\n【归真修行】动态同级猎场 Lv"+
+				(string)(int)training["level"]+"/999\n";
+			if((int)training["hidden_milestone"])
+				s += "已达到照命资格的120级里程碑；归真修行仍可继续至999级。\n";
+			else
+				s += "达到120级可计入照命资格；路线不会在120级停止。\n";
+			if((int)training["complete"])
+				s += "当前已经达到归真修行最高里程碑。\n";
+			else
+				s += "经验、VIP等级上限与掉落均沿用正式战斗规则。\n"+
+					"[一键前往归真修行并挂机:illusion_realm cultivate]\n";
+		}
 	}
 	s += "[查看九卷故事目录:illusion_realm story]\n";
 	s += "[新月支线·九卷秘迹与月忆兽:illusion_journey]\n";
@@ -546,10 +560,14 @@ private string guided_follow_up(object me,mapping progress,int after_travel)
 	array chapters = (array)progress["chapters"];
 	mapping chapter;
 	string arrival_actions = "";
-	if(chapter_number>sizeof(chapters))
+	if(chapter_number>sizeof(chapters)){
+		mapping training = SEASONALD->query_post_story_training_status(me);
 		return "\n【全部完成】八十一章已经通关，可在故事目录重温全部剧情。\n"+
 			"[开启长生十问:illusion_realm quiz]|"+
-			"[查看九卷故事目录:illusion_realm story]\n";
+			"[查看九卷故事目录:illusion_realm story]\n"+
+			((int)training["unlocked"] && !(int)training["complete"] ?
+			 "[下一步·归真修行至999级:illusion_realm cultivate]\n" : "");
+	}
 	chapter = (mapping)chapters[chapter_number-1];
 	if(!after_travel && chapter_target_in_current_room(me,chapter))
 		after_travel = 1;
@@ -764,6 +782,51 @@ int main(string|zero arg)
 			((int)result["ok"] ?
 			 "\n[查看挂机状态:autofight]|[查看本章进度:illusion_realm]\n" :
 			 "\n[▶ 下一步：前往任务地点:illusion_realm next]|[返回游戏:look]\n"));
+		return 1;
+	}
+	if(sizeof(parts)>=1 && parts[0]=="cultivate"){
+		mapping training = SEASONALD->query_post_story_training_status(me);
+		mapping route;
+		if(!(int)training["ok"] || !(int)training["unlocked"]){
+			write((string)training["message"]+
+				"\n[返回幻境任务:illusion_realm]|[返回游戏:look]\n");
+			return 1;
+		}
+		if((int)training["complete"]){
+			write("归真修行已经达到999级。\n"+
+				"[返回幻境任务:illusion_realm]|[返回游戏:look]\n");
+			return 1;
+		}
+		if((string)training["mode"]=="echo"){
+			mapping access = SEASONALD->query_story_access(me);
+			if(!(int)access["in_content_room"]){
+				mapping entered = SEASONALD->enter_eternal_echo(me,"S1");
+				if(!(int)entered["ok"]){
+					write((string)entered["message"]+
+						"\n[重试:illusion_realm cultivate]|[返回游戏:look]\n");
+					return 1;
+				}
+			}
+		}
+		string reason = AUTOFIGHTD->query_start_block_reason(me);
+		if(reason!=""){
+			AUTOFIGHTD->stop_autofight(me);
+			write("无法启动归真修行："+reason+
+				"\n[重试:illusion_realm cultivate]|[返回游戏:look]\n");
+			return 1;
+		}
+		route = AUTOFIGHTD->query_balanced_training_route(me);
+		if(!sizeof(route) || !(int)route["post_story_training"]){
+			write("归真路线暂不可验证，本次没有启动挂机或移动人物。\n"+
+				"[重试:illusion_realm cultivate]|[返回游戏:look]\n");
+			return 1;
+		}
+		AUTOFIGHTD->start_autofight(me);
+		int moved = AUTOFIGHTD->move_to_training_route(me,route);
+		write("归真修行已启动：动态怪会沿用现有正式战斗、经验与掉落规则。"+
+			(moved ? "\n已前往当前较空闲的归真猎场。" :
+			 "\n正在安全寻路，下一次挂机心跳会继续前往归真猎场。")+
+			"\n[查看挂机状态:autofight]|[返回幻境任务:illusion_realm]\n");
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="quiz"){
