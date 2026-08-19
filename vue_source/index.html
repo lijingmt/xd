@@ -954,6 +954,12 @@
                                 <span class="menu-icon">🔄</span>
                                 <span>返回选择</span>
                             </button>
+                            <button type="button"
+                                    class="menu-item"
+                                    @click="switchClientLayout(clientLayout === 'pc' ? 'mobile' : 'pc'); headerMenuOpen = false;">
+                                <span class="menu-icon">{{ clientLayout === 'pc' ? '📱' : '🖥️' }}</span>
+                                <span>{{ clientLayout === 'pc' ? '切换手机版' : '切换电脑版' }}</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="copyBookmarkUrl(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔗</span>
@@ -967,6 +973,17 @@
                     </div>
                 </div>
             </header>
+
+            <section v-if="clientLayout === 'pc'"
+                     class="pc-desktop-bar"
+                     aria-label="桌面版操作提示">
+                <div>
+                    <strong>仙道桌面版</strong>
+                    <span>鼠标精确操作 · 键盘快速导航</span>
+                </div>
+                <p><kbd>1–4</kbd> 场景/状态/物品/技能　<kbd>M</kbd> 地图　<kbd>T</kbd> 任务　<kbd>A</kbd> 挂机</p>
+                <button type="button" @click="switchClientLayout('mobile')">切换手机版</button>
+            </section>
 
             <div ref="uiToastStage" class="ui-toast-stage">
                 <div v-if="uiToast"
@@ -1930,8 +1947,8 @@
                             <span>{{ playerStats?.daily_goal?.claimable ? '🎁' : '📅' }}</span>
                             {{ playerStats?.daily_goal?.claimable ? '每日可领' : '每日修行' }}
                         </button>
-                        <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
-                        <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn" data-pc-key="M" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
+                        <button class="quick-tool-btn" data-pc-key="T" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('illusion_realm')"><span>🌙</span>幻境任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('personal_difficulty')"><span>🔥</span>挑战难度</button>
                         <button class="quick-tool-btn"
@@ -1957,6 +1974,7 @@
                         </button>
                         <button class="quick-tool-btn"
                                 data-tour="autofight"
+                                data-pc-key="A"
                                 :class="{ active: playerStats && playerStats.autofight }"
                                 @click="toggleAutofight">
                             <span>{{ playerStats && playerStats.autofight ? '⏹️' : '▶️' }}</span>
@@ -1967,6 +1985,7 @@
                 </div>
                 <nav class="quick-primary-nav" aria-label="主要功能">
                     <button class="quick-nav-btn"
+                            data-pc-key="1"
                             data-tour="scene"
                             :class="{ active: isQuickActionActive('look') }"
                             @click="sendQuickCommand('look')">
@@ -1974,12 +1993,14 @@
                         <span>场景</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-pc-key="2"
                             :class="{ active: isQuickActionActive('myhp') }"
                             @click="sendQuickCommand('myhp')">
                         <span class="quick-nav-icon" aria-hidden="true">♡</span>
                         <span>状态</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-pc-key="3"
                             data-tour="inventory"
                             :class="{ active: isQuickActionActive('inventory') }"
                             @click="sendQuickCommand('inventory')">
@@ -1987,6 +2008,7 @@
                         <span>物品</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-pc-key="4"
                             data-tour="skills"
                             :class="{ active: isQuickActionActive('myskills') }"
                             @click="sendQuickCommand('myskills')">
@@ -1994,6 +2016,7 @@
                         <span>技能</span>
                     </button>
                     <button class="quick-nav-btn quick-more-btn"
+                            data-pc-key="5"
                             data-tour="more-actions"
                             :class="{ active: !quickActionsCollapsed }"
                             @click="toggleQuickActions"

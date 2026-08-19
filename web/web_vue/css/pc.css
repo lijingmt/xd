@@ -1,0 +1,530 @@
+/*
+ * Xiand isolated desktop client.
+ *
+ * This file is injected only into pc.html. The mobile index.html never loads
+ * it, so desktop layout experiments cannot change touch sizing or phone flow.
+ */
+
+.pc-desktop-bar {
+    display: none;
+}
+
+@media (min-width: 960px) and (pointer: fine) {
+    :root[data-client-layout="pc"] {
+        --pc-sidebar-width: 264px;
+        --pc-page-gap: 20px;
+        --pc-page-edge: 22px;
+        --pc-header-height: 94px;
+        --pc-content-max: 1120px;
+        --ui-shell-width: 100%;
+        --ui-reading-max: 980px;
+        --ui-content-gutter: 30px;
+        --ui-header-reserve: 118px;
+        --ui-more-columns: 2;
+        --ui-battle-max: 340px;
+        --quick-nav-height: auto;
+        --quick-tool-height: 43px;
+        --quick-label-size: 12px;
+        --quick-tool-icon-size: 17px;
+        color-scheme: light dark;
+    }
+
+    html[data-client-layout="pc"] {
+        min-width: 960px;
+        overflow-x: auto;
+        scroll-padding-top: 126px;
+        scroll-padding-bottom: 24px;
+    }
+
+    html[data-client-layout="pc"] body {
+        min-width: 960px;
+        padding: 0;
+        background:
+            radial-gradient(circle at 78% 5%, rgba(96, 165, 250, 0.13), transparent 28rem),
+            radial-gradient(circle at 4% 94%, rgba(168, 85, 247, 0.11), transparent 31rem),
+            var(--bg-main);
+    }
+
+    html[data-client-layout="pc"] #app {
+        width: 100%;
+        max-width: none;
+        min-height: 100vh;
+        margin: 0;
+        padding: var(--pc-page-edge) var(--pc-page-edge) 36px
+            calc(var(--pc-sidebar-width) + var(--pc-page-edge) * 2);
+        overflow: visible;
+    }
+
+    /* Desktop login becomes a true wide-screen form, not a stretched phone card. */
+    html[data-client-layout="pc"] .auth-overlay {
+        padding: 32px;
+        background:
+            linear-gradient(120deg, rgba(16, 24, 40, 0.8), rgba(35, 24, 58, 0.76)),
+            var(--bg-main);
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) {
+        display: grid;
+        width: min(920px, calc(100vw - 80px));
+        max-width: 920px;
+        grid-template-columns: minmax(270px, 0.82fr) minmax(390px, 1.18fr);
+        grid-template-areas:
+            "brand form"
+            "features form"
+            "message form"
+            "actions form";
+        align-items: start;
+        gap: 16px 42px;
+        padding: 42px 48px;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-brand {
+        grid-area: brand;
+        align-self: end;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-feature-row {
+        grid-area: features;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-form {
+        grid-area: form;
+        padding: 24px;
+        border: 1px solid var(--ux-line);
+        border-radius: 18px;
+        background: var(--ux-surface-muted);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-message {
+        grid-area: message;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-secondary-actions {
+        grid-area: actions;
+        align-self: start;
+    }
+
+    html[data-client-layout="pc"] .register-modal,
+    html[data-client-layout="pc"] .character-modal {
+        width: min(1100px, calc(100vw - 80px));
+        max-width: 1100px;
+    }
+
+    html[data-client-layout="pc"] .character-list,
+    html[data-client-layout="pc"] .character-avatar-grid,
+    html[data-client-layout="pc"] .profession-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    /* Top status is a centered desktop command header. */
+    html[data-client-layout="pc"] .game-header,
+    html[data-client-layout="pc"] .game-header.has-header-pet,
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) {
+        position: sticky;
+        z-index: 2200;
+        top: 14px;
+        display: grid;
+        width: min(100%, var(--pc-content-max));
+        min-height: var(--pc-header-height);
+        grid-template-columns: 62px 94px 32px minmax(0, 1fr) 54px;
+        align-items: center;
+        gap: 12px;
+        margin: 0 auto 18px;
+        padding: 12px 16px;
+        border: 1px solid color-mix(in srgb, var(--ux-line) 84%, transparent);
+        border-radius: 18px;
+        box-shadow: 0 18px 48px rgba(17, 24, 39, 0.16);
+        backdrop-filter: blur(22px) saturate(1.2);
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) {
+        grid-template-columns: 62px 32px minmax(0, 1fr) 54px;
+    }
+
+    html[data-client-layout="pc"] .player-avatar-shell {
+        grid-column: 1;
+        width: 58px;
+        height: 58px;
+        flex-basis: 58px;
+    }
+
+    html[data-client-layout="pc"] .header-pet-slots {
+        grid-column: 2;
+        width: 92px;
+        gap: 8px;
+    }
+
+    html[data-client-layout="pc"] .header-pet-slots .header-pet-companion {
+        width: 42px;
+        max-width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+    }
+
+    html[data-client-layout="pc"] .header-pet-slots .header-pet-icon {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+        font-size: 22px;
+    }
+
+    html[data-client-layout="pc"] .header-collapse-btn {
+        grid-column: 3;
+        display: grid;
+    }
+
+    html[data-client-layout="pc"] .player-info {
+        grid-column: 4;
+        gap: 7px;
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .header-collapse-btn {
+        grid-column: 2;
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .player-info {
+        grid-column: 3;
+    }
+
+    html[data-client-layout="pc"] .header-actions,
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .header-actions {
+        grid-column: 5;
+        width: 48px;
+        flex-basis: 48px;
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .header-actions {
+        grid-column: 4;
+    }
+
+    html[data-client-layout="pc"] .player-info-line {
+        gap: 8px;
+        font-size: 13px;
+    }
+
+    html[data-client-layout="pc"] .player-name-cn {
+        max-width: 180px;
+        font-size: 15px;
+    }
+
+    html[data-client-layout="pc"] .player-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(110px, 1fr)) auto;
+        gap: 8px;
+    }
+
+    html[data-client-layout="pc"] .stat-bar {
+        grid-template-columns: auto minmax(42px, 1fr) auto;
+    }
+
+    html[data-client-layout="pc"] .stat-value {
+        display: block;
+        max-width: 72px;
+    }
+
+    html[data-client-layout="pc"] .header-dropdown-menu {
+        width: 310px;
+        max-height: calc(100vh - 132px);
+    }
+
+    /* Persistent desktop helper + left navigation rail. */
+    html[data-client-layout="pc"] .pc-desktop-bar {
+        position: fixed;
+        z-index: 2050;
+        top: var(--pc-page-edge);
+        left: var(--pc-page-edge);
+        display: grid;
+        width: var(--pc-sidebar-width);
+        min-height: 78px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 5px 10px;
+        padding: 12px 13px;
+        border: 1px solid var(--ux-line);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--ux-surface-strong) 95%, transparent);
+        color: var(--ux-ink);
+        box-shadow: var(--ux-shadow);
+        backdrop-filter: blur(18px);
+    }
+
+    html[data-client-layout="pc"] .pc-desktop-bar div {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+    }
+
+    html[data-client-layout="pc"] .pc-desktop-bar strong {
+        font-size: 14px;
+    }
+
+    html[data-client-layout="pc"] .pc-desktop-bar span,
+    html[data-client-layout="pc"] .pc-desktop-bar p {
+        color: var(--ux-ink-muted);
+        font-size: 10px;
+    }
+
+    html[data-client-layout="pc"] .pc-desktop-bar p {
+        grid-column: 1 / -1;
+        margin: 0;
+        line-height: 1.55;
+    }
+
+    html[data-client-layout="pc"] .pc-desktop-bar button {
+        min-height: 34px;
+        padding: 5px 9px;
+        border: 1px solid var(--ux-line);
+        border-radius: 9px;
+        background: var(--ux-surface-muted);
+        color: var(--ux-ink);
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] kbd,
+    html[data-client-layout="pc"] [data-pc-key]::after {
+        min-width: 18px;
+        padding: 1px 5px;
+        border: 1px solid color-mix(in srgb, var(--ux-line) 88%, white 12%);
+        border-radius: 5px;
+        background: var(--ux-surface-strong);
+        color: var(--ux-ink-muted);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+        font: 700 10px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .quick-actions,
+    html[data-client-layout="pc"] [data-theme="classic"] .quick-actions,
+    html[data-client-layout="pc"] [data-theme="dark"] .quick-actions,
+    html[data-client-layout="pc"] [data-theme="light"] .quick-actions {
+        position: fixed;
+        z-index: 1900;
+        top: 116px;
+        right: auto;
+        bottom: var(--pc-page-edge);
+        left: var(--pc-page-edge);
+        display: flex;
+        width: var(--pc-sidebar-width);
+        max-width: var(--pc-sidebar-width);
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+        overflow: hidden;
+        border: 1px solid var(--ux-line);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--ux-surface-strong) 96%, transparent);
+        box-shadow: var(--ux-shadow);
+        transform: none;
+        backdrop-filter: blur(18px);
+    }
+
+    html[data-client-layout="pc"] .quick-primary-nav {
+        order: 1;
+        display: grid;
+        width: 100%;
+        min-height: 0;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 5px;
+    }
+
+    html[data-client-layout="pc"] .quick-nav-btn {
+        min-height: 54px;
+        height: 54px;
+        padding: 5px 2px;
+        border: 1px solid var(--ux-line);
+        background: var(--ux-surface-muted);
+        font-size: 10px;
+    }
+
+    html[data-client-layout="pc"] .quick-nav-btn.active::before {
+        top: -1px;
+        width: 30px;
+        height: 3px;
+    }
+
+    html[data-client-layout="pc"] .quick-more-panel {
+        position: static;
+        order: 2;
+        display: flex !important;
+        min-height: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        padding: 9px;
+        overflow: hidden;
+        border-radius: 12px;
+        box-shadow: none;
+    }
+
+    html[data-client-layout="pc"] .quick-more-heading {
+        margin-bottom: 7px;
+    }
+
+    html[data-client-layout="pc"] .quick-panel-close {
+        display: none;
+    }
+
+    html[data-client-layout="pc"] .quick-more-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding-right: 2px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    html[data-client-layout="pc"] .quick-tool-btn {
+        position: relative;
+        min-height: 43px;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 7px 22px 7px 8px;
+        text-align: left;
+    }
+
+    html[data-client-layout="pc"] [data-pc-key]::after {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        content: attr(data-pc-key);
+    }
+
+    /* The MUD output is a desktop reading canvas with mouse-sized controls. */
+    html[data-client-layout="pc"] .game-frame-container {
+        width: min(100%, var(--pc-content-max));
+        min-height: calc(100vh - 148px);
+        margin: 0 auto;
+        overflow: visible;
+        border: 1px solid var(--ux-line);
+        border-radius: 20px;
+        background: var(--ux-surface-strong);
+        box-shadow: 0 24px 70px rgba(17, 24, 39, 0.13);
+    }
+
+    html[data-client-layout="pc"] .mud-output-container,
+    html[data-client-layout="pc"] .mud-output-container.dark-mode {
+        min-height: calc(100vh - 150px);
+        border-radius: 20px;
+    }
+
+    html[data-client-layout="pc"] .mud-child {
+        width: 100%;
+        max-width: var(--ui-reading-max);
+        margin: 0 auto;
+        padding: 28px var(--ui-content-gutter) 56px;
+        font-size: max(15px, var(--mud-font-size));
+        line-height: 1.72;
+    }
+
+    html[data-client-layout="pc"] .mud-line {
+        margin-bottom: 3px;
+    }
+
+    html[data-client-layout="pc"] .mud-btn,
+    html[data-client-layout="pc"] .mud-url,
+    html[data-client-layout="pc"] .mud-confirm-btn,
+    html[data-client-layout="pc"] .mud-form-submit-btn {
+        min-height: 34px;
+        margin: 3px 5px 3px 0;
+        padding: 6px 11px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+
+    html[data-client-layout="pc"] .mud-input {
+        min-height: 36px;
+        padding: 6px 10px;
+    }
+
+    html[data-client-layout="pc"] .mud-inline-image {
+        max-width: min(100%, 260px);
+        max-height: 340px;
+    }
+
+    html[data-client-layout="pc"] .illusion-story-card {
+        width: min(72%, 34rem, 64vh);
+    }
+
+    html[data-client-layout="pc"] button:hover,
+    html[data-client-layout="pc"] .mud-btn:hover,
+    html[data-client-layout="pc"] .mud-url:hover {
+        border-color: color-mix(in srgb, var(--ux-accent) 52%, var(--ux-line));
+        box-shadow: 0 7px 18px rgba(35, 44, 77, 0.14);
+        transform: translateY(-1px);
+    }
+
+    html[data-client-layout="pc"] button:focus-visible,
+    html[data-client-layout="pc"] a:focus-visible,
+    html[data-client-layout="pc"] input:focus-visible,
+    html[data-client-layout="pc"] select:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--ux-accent) 72%, white 28%);
+        outline-offset: 2px;
+    }
+
+    html[data-client-layout="pc"] .ui-toast-stage {
+        top: 132px;
+        left: calc(var(--pc-sidebar-width) + (100vw - var(--pc-sidebar-width)) / 2);
+    }
+
+    html[data-client-layout="pc"] .pet-level-up-stage {
+        top: 196px;
+        left: calc(var(--pc-sidebar-width) + (100vw - var(--pc-sidebar-width)) / 2);
+    }
+
+    html[data-client-layout="pc"] .modal,
+    html[data-client-layout="pc"] .chat-room,
+    html[data-client-layout="pc"] .invite-modal,
+    html[data-client-layout="pc"] .equipment-panel {
+        max-width: min(1100px, calc(100vw - 80px));
+        max-height: calc(100vh - 64px);
+    }
+
+    html[data-client-layout="pc"] .chat-room {
+        width: min(880px, calc(100vw - 80px));
+        height: min(760px, calc(100vh - 64px));
+    }
+
+    /* Laptop battle stays as a bottom dock; wide monitors gain a right inspector. */
+    html[data-client-layout="pc"] .battle-panel.mini-mode {
+        right: 28px;
+        bottom: 24px;
+        left: auto;
+        top: auto;
+        width: min(680px, calc(100vw - var(--pc-sidebar-width) - 80px));
+        max-width: 680px;
+        max-height: 310px;
+    }
+
+    html[data-client-layout="pc"] .battle-panel.fullscreen-mode {
+        z-index: 9000;
+    }
+}
+
+@media (min-width: 1440px) and (pointer: fine) {
+    :root[data-client-layout="pc"] {
+        --pc-sidebar-width: 278px;
+        --pc-content-max: 1060px;
+    }
+
+    html[data-client-layout="pc"] .battle-panel.mini-mode {
+        top: 132px;
+        right: 22px;
+        bottom: auto;
+        width: 330px;
+        max-width: 330px;
+        max-height: calc(100vh - 154px);
+    }
+
+    html[data-client-layout="pc"] .game-frame-container.battle-dock-active {
+        width: min(100%, calc(100vw - var(--pc-sidebar-width) - 420px));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-client-layout="pc"] button,
+    html[data-client-layout="pc"] .mud-btn,
+    html[data-client-layout="pc"] .mud-url {
+        transition: none !important;
+    }
+}

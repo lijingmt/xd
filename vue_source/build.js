@@ -51,18 +51,32 @@ function processHTML(content) {
   return content.replace(/\?v=BUILD_VERSION/g, `?v=${version}`);
 }
 
+// PC入口与手机版共用同一份Vue模板，只注入桌面标识和隔离样式。
+// 这样业务功能不会分叉，index.html也不会加载任何PC专属CSS。
+function processPcHTML(content) {
+  return processHTML(content
+    .replace('<html lang="zh-CN">', '<html lang="zh-CN" data-client-layout="pc">')
+    .replace('<title>仙道</title>', '<title>仙道 · 桌面版</title>')
+    .replace(
+      '<link rel="stylesheet" href="css/realm.css?v=BUILD_VERSION">',
+      '<link rel="stylesheet" href="css/realm.css?v=BUILD_VERSION">\n    <link rel="stylesheet" href="css/pc.css?v=BUILD_VERSION">'
+    ));
+}
+
 // 构建步骤
 log('开始构建...', 'blue');
 
 // 1. 复制HTML
 log('\n1. HTML:', 'yellow');
 copyFile(path.join(__dirname, 'index.html'), path.join(distDir, 'index.html'), processHTML);
+copyFile(path.join(__dirname, 'index.html'), path.join(distDir, 'pc.html'), processPcHTML);
 
 // 2. 复制并处理CSS
 log('\n2. CSS:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'css'), { recursive: true });
 copyFile(path.join(__dirname, 'css', 'app.css'), path.join(distDir, 'css', 'app.css'));
 copyFile(path.join(__dirname, 'css', 'realm.css'), path.join(distDir, 'css', 'realm.css'));
+copyFile(path.join(__dirname, 'css', 'pc.css'), path.join(distDir, 'css', 'pc.css'));
 
 // 3. 复制JS
 log('\n3. JS:', 'yellow');
@@ -115,10 +129,12 @@ log('✓ manifest.json', 'green');
 log('\n7. Legacy dist:', 'yellow');
 const legacyFiles = [
   'index.html',
+  'pc.html',
   'manifest.json',
   'favicon.ico',
   path.join('css', 'app.css'),
   path.join('css', 'realm.css'),
+  path.join('css', 'pc.css'),
   path.join('js', 'app.js'),
   path.join('vendor', 'vue.global.prod.js'),
   path.join('vendor', 'VUE_LICENSE.txt'),

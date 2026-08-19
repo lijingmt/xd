@@ -9,6 +9,7 @@ const sourceDir = path.resolve(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(sourceDir, 'index.html'), 'utf8');
 const appSource = fs.readFileSync(path.join(sourceDir, 'js/app.js'), 'utf8');
 const cssSource = fs.readFileSync(path.join(sourceDir, 'css/app.css'), 'utf8');
+const pcCssSource = fs.readFileSync(path.join(sourceDir, 'css/pc.css'), 'utf8');
 
 function extractAppTemplate(html) {
     const rootMarker = '<div id="app">';
@@ -119,6 +120,28 @@ async function main() {
     assert(loginRendered.length > 1000, 'login render must produce a non-trivial page');
     assert(loginRendered.includes('auth-modal'), 'initial render must contain the login UI');
     assert(loginRendered.includes('登录游戏'), 'initial render must expose the login action');
+
+    const pcRendered = await renderScenario(componentOptions, template, {
+        showLogin: false,
+        clientLayout: 'pc',
+        txd: 'test-session',
+        playerStats: {
+            name_cn: '桌面测试玩家', level: 120, hp: 5000, hp_max: 5000,
+            mana: 2000, mana_max: 2000, energy: 100, autofight: 0,
+            profession_assistant: { style_class: 'profession-style-fangshi' }
+        },
+        mudLines: [{
+            type: 'line',
+            segments: [{ type: 'text', parts: [{ type: 'text', content: '桌面场景可玩输出' }] }]
+        }]
+    });
+    assert(pcRendered.includes('pc-desktop-bar'), 'PC render must contain desktop controls');
+    assert(pcRendered.includes('仙道桌面版'), 'PC render must identify the isolated desktop client');
+    assert(pcRendered.includes('data-pc-key="1"'), 'PC render must expose keyboard shortcut hints');
+    assert(pcRendered.includes('切换手机版'), 'PC render must provide a safe mobile return path');
+    assert(pcRendered.includes('桌面场景可玩输出'), 'PC render must keep real MUD output playable');
+    assert(pcCssSource.includes('html[data-client-layout="pc"] .quick-actions'));
+    assert(pcCssSource.includes('@media (min-width: 960px) and (pointer: fine)'));
 
 	const illusionCreatorRendered = await renderScenario(componentOptions, template, {
 		showLogin: false,

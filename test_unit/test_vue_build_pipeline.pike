@@ -86,15 +86,21 @@ void test_vue_source_contract()
 		Stdio.read_file(ROOT+"/vue_source/build.js");
 	string index_source =
 		Stdio.read_file(ROOT+"/vue_source/index.html");
+	string pc_css_source =
+		Stdio.read_file(ROOT+"/vue_source/css/pc.css");
 
-	if(build_source && index_source &&
+	if(build_source && index_source && pc_css_source &&
 	   search(build_source,"css', 'app.css")!=-1 &&
+	   search(build_source,"css', 'pc.css")!=-1 &&
 	   search(build_source,"css', 'realm.css")!=-1 &&
 	   search(build_source,"js', 'app.js")!=-1 &&
 	   search(build_source,"'vue.global.prod.js'")!=-1 &&
 	   search(build_source,"'VUE_LICENSE.txt'")!=-1 &&
 	   search(build_source,"legacyDistDir")!=-1 &&
 	   search(index_source,"manifest.json")!=-1 &&
+	   search(index_source,"pc-desktop-bar")!=-1 &&
+	   search(index_source,"data-pc-key=\"1\"")!=-1 &&
+	   search(pc_css_source,"data-client-layout=\"pc\"")!=-1 &&
 	   search(index_source,"css/realm.css?v=BUILD_VERSION")!=-1 &&
 	   search(index_source,
 		"vendor/vue.global.prod.js?v=BUILD_VERSION")!=-1 &&

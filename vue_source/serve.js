@@ -63,6 +63,16 @@ function isWithinRoot(root, target) {
   return target === root || target.startsWith(root + path.sep);
 }
 
+function createPcEntry(content) {
+  return content
+    .replace('<html lang="zh-CN">', '<html lang="zh-CN" data-client-layout="pc">')
+    .replace('<title>仙道</title>', '<title>仙道 · 桌面版</title>')
+    .replace(
+      '<link rel="stylesheet" href="css/realm.css?v=BUILD_VERSION">',
+      '<link rel="stylesheet" href="css/realm.css?v=BUILD_VERSION">\n    <link rel="stylesheet" href="css/pc.css?v=BUILD_VERSION">'
+    );
+}
+
 // 创建服务器
 const server = http.createServer((req, res) => {
   // 处理API代理
@@ -102,6 +112,17 @@ const server = http.createServer((req, res) => {
     const body = JSON.stringify(createManifest(DEV_BUILD_VERSION), null, 2) + '\n';
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(req.method === 'HEAD' ? undefined : body);
+    return;
+  }
+
+  if (pathname === '/pc.html') {
+    const source = fs.readFileSync(path.join(STATIC_ROOT, 'index.html'), 'utf8');
+    const body = createPcEntry(source).replace(/BUILD_VERSION/g, DEV_BUILD_VERSION);
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache'
     });
     res.end(req.method === 'HEAD' ? undefined : body);

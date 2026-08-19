@@ -54,7 +54,9 @@ log "building Vue frontend"
 
 required_files=(
     "index.html"
+    "pc.html"
     "css/app.css"
+    "css/pc.css"
     "css/realm.css"
     "js/app.js"
     "vendor/vue.global.prod.js"
@@ -80,6 +82,8 @@ for output_dir in "$OUTPUT_DIR" "$LEGACY_OUTPUT_DIR"; do
 
     cmp -s "$SOURCE_DIR/css/app.css" "$output_dir/css/app.css" ||
         fail "built app.css is stale: $output_dir"
+    cmp -s "$SOURCE_DIR/css/pc.css" "$output_dir/css/pc.css" ||
+        fail "built pc.css is stale: $output_dir"
     cmp -s "$SOURCE_DIR/css/realm.css" "$output_dir/css/realm.css" ||
         fail "built realm.css is stale: $output_dir"
     cmp -s "$SOURCE_DIR/js/app.js" "$output_dir/js/app.js" ||
@@ -125,6 +129,15 @@ for output_dir in "$OUTPUT_DIR" "$LEGACY_OUTPUT_DIR"; do
     fi
     grep -q 'manifest.json' "$output_dir/index.html" ||
         fail "built index does not reference manifest.json: $output_dir"
+    if grep -q 'css/pc.css' "$output_dir/index.html"; then
+        fail "mobile index unexpectedly loads desktop CSS: $output_dir"
+    fi
+    grep -q 'data-client-layout="pc"' "$output_dir/pc.html" ||
+        fail "built pc entry lacks desktop identity: $output_dir"
+    grep -q 'css/pc.css' "$output_dir/pc.html" ||
+        fail "built pc entry does not reference pc.css: $output_dir"
+    grep -q 'js/app.js' "$output_dir/pc.html" ||
+        fail "built pc entry does not share app.js: $output_dir"
     grep -q '"start_url": "./"' "$output_dir/manifest.json" ||
         fail "manifest start_url is not deployment-relative: $output_dir"
     grep -q '"scope": "./"' "$output_dir/manifest.json" ||

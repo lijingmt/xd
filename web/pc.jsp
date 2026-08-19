@@ -299,8 +299,14 @@
             <div class="ui-cards">
                 <div class="ui-card new-ui" onclick="selectUI('new')">
                     <div class="ui-card-icon">🚀</div>
-                    <div class="ui-card-title">新版界面</div>
-                    <div class="ui-card-desc">现代化 Vue 界面</div>
+                    <div class="ui-card-title">手机版 Vue</div>
+                    <div class="ui-card-desc">为手机触控优化</div>
+                </div>
+
+                <div class="ui-card desktop-ui" onclick="selectUI('desktop')">
+                    <div class="ui-card-icon">🖥️</div>
+                    <div class="ui-card-title">电脑版 Vue</div>
+                    <div class="ui-card-desc">宽屏布局、鼠标与键盘快捷键</div>
                 </div>
 
                 <div class="ui-card old-ui" onclick="selectUI('old')">
@@ -438,6 +444,9 @@ if(p_pswd == null)
                 if (savedUI === 'new') {
                     window.location.href = 'web_vue/index.html';
                     return true;
+                } else if (savedUI === 'desktop') {
+                    window.location.href = 'web_vue/pc.html';
+                    return true;
                 } else if (savedUI === 'old') {
                     document.getElementById('uiSelection').style.display = 'none';
                     document.getElementById('oldLoginForm').style.display = 'block';
@@ -453,15 +462,16 @@ if(p_pswd == null)
     function selectUI(ui) {
         var remember = document.getElementById('rememberChoice').checked;
 
-        if (ui === 'new') {
+        if (ui === 'new' || ui === 'desktop') {
             if (remember) {
-                localStorage.setItem('mud_ui_choice', 'new');
+                localStorage.setItem('mud_ui_choice', ui);
                 localStorage.setItem('mud_ui_choice_time', String(Date.now()));
             } else {
                 localStorage.removeItem('mud_ui_choice');
                 localStorage.removeItem('mud_ui_choice_time');
             }
-            window.location.href = 'web_vue/index.html';
+            window.location.href = ui === 'desktop' ?
+                'web_vue/pc.html' : 'web_vue/index.html';
         } else if (ui === 'old') {
             if (remember) {
                 localStorage.setItem('mud_ui_choice', 'old');

@@ -184,6 +184,10 @@ function createGameSoundSpriteDataUri() {
 createApp({
     data() {
         return {
+            // pc.html 是独立桌面入口；index.html 始终保持手机/通用布局。
+            clientLayout: window.location &&
+                /\/pc\.html$/.test(window.location.pathname || '') ? 'pc' : 'mobile',
+            desktopKeydownHandler: null,
             showLogin: true,
             headerMenuOpen: false,
             showRegister: false,
@@ -3818,6 +3822,47 @@ createApp({
             }
         },
 
+        // 在手机与独立PC入口之间切换，完整保留登录参数和人物书签。
+        switchClientLayout(layout) {
+            const target = layout === 'pc' ? 'pc.html' : 'index.html';
+            const url = new URL(window.location.href);
+            url.pathname = url.pathname.replace(/[^/]*$/, target);
+            window.location.href = url.toString();
+        },
+
+        // 桌面版专属键盘导航。输入框、选择器、弹窗和组合键期间绝不
+        // 截获按键，避免聊天、数量输入或浏览器快捷键被误触发。
+        handleDesktopKeydown(event) {
+            if (this.clientLayout !== 'pc' || !this.txd || event.defaultPrevented ||
+                event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+            const target = event.target;
+            const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
+            if (target?.isContentEditable || ['input', 'textarea', 'select'].includes(tagName)) return;
+            if (this.showLogin || this.showRegister || this.showCharacterSelect ||
+                this.showChatRoom || this.inviteModalOpen || this.showEquipmentPanel) return;
+            const commands = {
+                Digit1: 'look',
+                Digit2: 'myhp',
+                Digit3: 'inventory',
+                Digit4: 'myskills',
+                KeyM: 'map_display',
+                KeyT: 'mytasks'
+            };
+            if (event.code === 'Digit5') {
+                event.preventDefault();
+                this.toggleQuickActions();
+                return;
+            }
+            if (event.code === 'KeyA') {
+                event.preventDefault();
+                this.toggleAutofight();
+                return;
+            }
+            if (!commands[event.code]) return;
+            event.preventDefault();
+            this.sendQuickCommand(commands[event.code]);
+        },
+
         // 切换头部菜单
         toggleHeaderMenu() {
             this.headerMenuOpen = !this.headerMenuOpen;
@@ -5689,6 +5734,10 @@ createApp({
             );
             this.autoAnimateReadyHandler = null;
         }
+        if (this.desktopKeydownHandler) {
+            window.removeEventListener('keydown', this.desktopKeydownHandler);
+            this.desktopKeydownHandler = null;
+        }
         this.confettiInstance?.reset?.();
         this.confettiInstance = null;
         this.confettiCanvas?.remove?.();
@@ -5837,6 +5886,12 @@ createApp({
         // 恢复快捷菜单折叠状态
         const savedQuickActionsCollapsed = localStorage.getItem('quickActionsCollapsed');
         this.quickActionsCollapsed = savedQuickActionsCollapsed !== '0';
+        if (this.clientLayout === 'pc') {
+            this.quickActionsCollapsed = false;
+            this.headerCollapsed = false;
+            this.desktopKeydownHandler = event => this.handleDesktopKeydown(event);
+            window.addEventListener('keydown', this.desktopKeydownHandler);
+        }
 
         console.log('API地址:', this.apiBase);
 
