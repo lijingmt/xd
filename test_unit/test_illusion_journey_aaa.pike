@@ -127,6 +127,28 @@ int main()
 				"companion"]["stages"])==6,
 			sprintf("keys=%O",indices(config)));
 
+		mapping(string:int) experience_counts = ([]);
+		int experience_ok = 1;
+		for(int chapter_number=1;chapter_number<=81;chapter_number++){
+			mapping experience = SEASONALD->
+				query_chapter_experience_for_test(chapter_number);
+			string experience_id = (string)experience["id"];
+			experience_ok = experience_ok && experience_id!="" &&
+				sizeof((string)experience["title"])>=4 &&
+				sizeof((string)experience["hint"])>=8 &&
+				sizeof((string)experience["opening"])>=8 &&
+				sizeof((string)experience["middle"])>=8 &&
+				sizeof((string)experience["closing"])>=8;
+			experience_counts[experience_id] =
+				(int)experience_counts[experience_id]+1;
+		}
+		foreach(indices(experience_counts),string experience_id)
+			experience_ok = experience_ok &&
+				(int)experience_counts[experience_id]==9;
+		check("八十一章覆盖九种节奏且每种各九章、三幕反馈完整",
+			experience_ok && sizeof(experience_counts)==9,
+			sprintf("counts=%O",experience_counts));
+
 		object pioneer=create_player("pioneer","pioneer");
 		int trials_ok=1;
 		foreach((array)config["signature_trials"],mapping trial){

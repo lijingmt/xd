@@ -207,6 +207,9 @@ private string chapter_task_view(object me,mapping progress,mapping chapter,
 	s += "等级：Lv"+
 		(string)(int)progress["level"]+"/Lv"+
 		(string)(int)chapter["min_level"]+"\n";
+	if((string)chapter["experience_title"]!="")
+		s += "关卡节奏：§b"+(string)chapter["experience_title"]+
+			"§r　"+(string)chapter["experience_hint"]+"\n";
 	if(kills>0)
 		s += "狩猎："+(string)chapter["hunt_name"]+" "+
 			(string)kills_done+"/"+(string)kills+"只（还差"+
@@ -340,9 +343,52 @@ private string progress_view(object me,mapping progress)
 	}
 	s += "[查看九卷故事目录:illusion_realm story]\n";
 	s += "[新月支线·九卷秘迹与月忆兽:illusion_journey]\n";
+	s += "[任务自检与智能恢复:illusion_realm diagnose]\n";
 	if(me && (string)me->query_profeId()=="zhaoming")
 		s += "[照命专属·七卷四十九难:illusion_hidden]\n";
 	return s;
+}
+
+private string task_diagnostic_view(object me)
+{
+	mapping progress = SEASONALD->query_player_progress(me);
+	array chapters;
+	mapping chapter;
+	int chapter_number;
+	int in_target;
+	int autofight;
+	string kind;
+	string s = "【幻境任务自检】\n";
+	if(!(int)progress["ok"])
+		return s+"人物进度暂不可验证："+(string)progress["message"]+
+			"\n本次没有重置、跳章或改写任何档案。\n"+
+			"[重试自检:illusion_realm diagnose]|[返回游戏:look]\n";
+	chapters = (array)progress["chapters"];
+	chapter_number = (int)progress["chapter_claimed"]+1;
+	if(chapter_number>sizeof(chapters))
+		return s+"八十一章已经全部完成，人物档案可验证。\n"+
+			"[查看九卷故事:illusion_realm story]|"+
+			"[开启长生十问:illusion_realm quiz]|[返回游戏:look]\n";
+	chapter = (mapping)chapters[chapter_number-1];
+	kind = (string)chapter["target_kind"];
+	in_target = chapter_target_in_current_room(me,chapter);
+	autofight = functionp(me->query_autofight) &&
+		(string)me->query_autofight()=="enable";
+	s += "档案：可验证　章节："+(string)chapter_number+"/81\n";
+	s += "当前："+(string)chapter["title"]+"　目标："+
+		(string)chapter["target_name"]+"\n";
+	s += "状态："+(in_target ? "已到目标区域" : "尚未到目标区域")+
+		"　挂机："+(autofight ? "运行中" : "已停止")+"\n";
+	s += "诊断码：S1-C"+(string)chapter_number+"/"+kind+
+		"/room="+(string)in_target+"/afk="+(string)autofight+"\n";
+	if((int)chapter["ready"] || kind=="ready")
+		s += "结论：本章已经完成，可以安全领取并进入下一章。\n"+
+			chapter_claim_link(chapter_number);
+	else
+		s += "结论：进度结构正常；智能继续会按当前状态传送、阅读剧情、"+
+			"启动限章挂机或列出真实首领。\n"+
+			"[▶ 智能继续当前任务:illusion_realm next]\n";
+	return s+"[返回当前历程:illusion_realm]|[返回游戏:look]\n";
 }
 
 private string story_volume_view(mapping progress,int volume_number)
@@ -576,7 +622,10 @@ private string guided_next_step(object me)
 	if(!(int)result["ok"])
 		return (string)result["message"]+
 			"\n[重新查看本章:illusion_realm]|[返回游戏:look]\n";
-	if(kind=="story_echo" && (int)result["already"]){
+	// “下一步”是任务主操作：到达后立刻执行安全的本地步骤，避免
+	// 玩家在传送、阅读、挂机和查找首领之间反复点两次。正式攻击
+	// 仍必须从当前房间的真实 NPC 列表选择，不能由配置直接拼 kill。
+	if(kind=="story_echo"){
 		mapping witnessed = SEASONALD->discover_story_event(me);
 		progress = SEASONALD->query_player_progress(me);
 		if(!(int)witnessed["ok"])
@@ -584,6 +633,25 @@ private string guided_next_step(object me)
 				"\n[重试阅读剧情:illusion_realm next]|[返回游戏:look]\n";
 		return "【剧情步骤完成】"+(string)witnessed["message"]+
 			guided_follow_up(me,progress,0);
+	}
+	if(kind=="hunt"){
+		mapping started = SEASONALD->start_chapter_hunt_autofight(me);
+		progress = SEASONALD->query_player_progress(me);
+		return (string)result["message"]+"\n"+
+			(string)started["message"]+
+			((int)started["ok"] ?
+			 "\n[查看挂机状态:autofight]|[查看本章进度:illusion_realm]\n" :
+			 guided_follow_up(me,progress,1));
+	}
+	if(search(({"boss","story_boss"}),kind)!=-1){
+		mapping target = current_challenge_target(me,"chapter");
+		if(!(int)target["ok"])
+			return (string)result["message"]+"\n"+
+				(string)target["message"]+
+				"\n[重新查找任务首领:illusion_realm challenge chapter]|"+
+				"[返回游戏:look]\n";
+		return (string)result["message"]+"\n"+
+			room_challenge_view(me,target);
 	}
 	progress = SEASONALD->query_player_progress(me);
 	return (string)result["message"]+guided_follow_up(me,progress,1);
@@ -671,6 +739,10 @@ int main(string|zero arg)
 				"\n[返回幻境任务:illusion_realm]|[返回游戏:look]\n");
 		else
 			write(room_challenge_view(me,target));
+		return 1;
+	}
+	if(sizeof(parts)>=1 && parts[0]=="diagnose"){
+		write(task_diagnostic_view(me));
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="next"){

@@ -2610,11 +2610,13 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	mapping guide;
 	mapping task_mode;
 	int task_mode_finished;
+	int chapter_index;
 	mapping story_event = ([]);
 	mapping quest_drop = ([]);
 	mapping journey_result = ([]);
 	object|zero quest_item = 0;
 	string story_message = "";
+	string experience_beat = "";
 	mixed journey_err;
 	context=story_context(player);
 	if(!sizeof(context) || !npc)
@@ -2633,6 +2635,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	progress = player_progress(player,1);
 	if(!ensure_current_chapter_counters(player,progress))
 		return;
+	chapter_index = claimed_chapter_count(progress);
 	task_mode = mappingp(player["/tmp/illusion_chapter_autofight"]) ?
 		(mapping)player["/tmp/illusion_chapter_autofight"] : ([]);
 	if(sizeof(task_mode) &&
@@ -2737,6 +2740,15 @@ void record_npc_kill(object player,object npc,void|int team_count)
 				(string)player->query_name());
 		if(story_message!="")
 			tell_object(player,"§p【剧情推进】§r"+story_message+"\n");
+		if((int)task_credit["kill"]){
+			mapping chapter_step = chapter_step_requirements(progress,
+				chapter_index);
+			experience_beat = chapter_experience_beat(chapter_index,
+				(int)progress["chapter_kills"],
+				(int)chapter_step["kills"]);
+			if(experience_beat!="")
+				tell_object(player,experience_beat+"\n");
+		}
 		if((int)quest_drop["attempted"]){
 			mapping gate = (mapping)quest_drop["gate"];
 			int count = (int)quest_drop["count"];
@@ -3056,6 +3068,97 @@ private mapping(string:int) chapter_requirements(mapping progress,int index)
 		"boss_kills":ordinal*10/total,
 		"visits":max(1,ordinal*36/total),
 	]);
+}
+
+/**
+ * 九幕循环不是额外数值层，而是把普通狩猎拆成有起、承、转、合的
+ * 叙事战斗节奏。它只提供可复现的目标说明和阶段反馈，不改变任何
+ * 职业公式、怪物属性、掉落概率或已有章节进度。
+ */
+private mapping(string:string) chapter_experience_identity(int index)
+{
+	switch(index%9){
+	case 0:
+		return (["id":"trace","title":"追迹·循月痕",
+			"hint":"从第一处异常追到幕后线索，战斗进度分三幕回响。",
+			"opening":"第一道月痕已经显形，真正的猎物仍藏在前方。",
+			"middle":"零散足迹连成完整方向，伏线开始指向同一个名字。",
+			"closing":"最后一道伪痕被斩断，本章线索已经完整。"]);
+	case 1:
+		return (["id":"breakout","title":"突围·破月阵",
+			"hint":"逐层撕开包围，阶段反馈会标出阵势何时松动。",
+			"opening":"外圈阵脚被逼退，包围第一次露出缺口。",
+			"middle":"敌阵首尾不能相顾，退路已经从刀光中打开。",
+			"closing":"最后一重月阵崩散，前路重新属于活着的人。"]);
+	case 2:
+		return (["id":"evidence","title":"搜证·辨真伪",
+			"hint":"在敌人携带的残片中还原证词，而非只累计数字。",
+			"opening":"第一枚残片落地，旧案出现了与名册不同的说法。",
+			"middle":"两份证词互相印证，被涂去的真相逐渐复原。",
+			"closing":"证据链已经闭合，再无人能用一句传言将它抹去。"]);
+	case 3:
+		return (["id":"escort","title":"守诺·护同行",
+			"hint":"守住同行者留下的承诺，推进时会回响彼此的选择。",
+			"opening":"第一轮追兵被挡下，身后的人终于敢继续前行。",
+			"middle":"最危险的路段已经穿过，承诺没有被恐惧截断。",
+			"closing":"所有同行者抵达约定之处，这一次没有人被留下。"]);
+	case 4:
+		return (["id":"counter","title":"反猎·照伏影",
+			"hint":"识破埋伏并反向追索操纵者，三幕反馈标记局势逆转。",
+			"opening":"伏兵提前现身，猎人与猎物的身份开始交换。",
+			"middle":"暗处的号令暴露，所有伏线都在向源头收紧。",
+			"closing":"最后一名伏影倒下，布阵者再无处隐藏。"]);
+	case 5:
+		return (["id":"endure","title":"守望·渡险关",
+			"hint":"在持续压力下稳住阵脚，每一幕都确认险关状态。",
+			"opening":"险关开始震动，但你的立足之处仍未后退半步。",
+			"middle":"最猛烈的一轮已经过去，守势终于转为反攻。",
+			"closing":"险关重归平静，你守住了故事继续发生的地方。"]);
+	case 6:
+		return (["id":"choice","title":"抉择·留人证",
+			"hint":"清除逼迫众生沉默的阻力，让本章选择留下见证。",
+			"opening":"第一个人放下恐惧，愿意说出亲眼见过的事。",
+			"middle":"越来越多声音汇成证言，选择不再只由强者书写。",
+			"closing":"本章见证已经留下，任何结局都不能假装它未发生。"]);
+	case 7:
+		return (["id":"reversal","title":"逆局·夺先机",
+			"hint":"在卷末前夺回主动权，为信物与首领战清出道路。",
+			"opening":"先机从敌人手中被夺回，卷末布局出现裂缝。",
+			"middle":"关键通路已经控制，真正的守关者被迫现身。",
+			"closing":"卷末战场已经肃清，信物与首领试炼近在眼前。"]);
+	default:
+		return (["id":"finale","title":"卷末·问长生",
+			"hint":"完成狩猎、取得本卷信物，再迎战拥有独立机制的卷主。",
+			"opening":"卷末第一声战鼓响起，散落的因果开始回收。",
+			"middle":"通往卷主的道路已经过半，信物正在回应你的选择。",
+			"closing":"卷末狩猎完成；下一步是信物验证与正式首领战。"]);
+	}
+}
+
+private string chapter_experience_beat(int index,int done,int required)
+{
+	mapping identity;
+	if(required<=0 || done<=0 || done>required)
+		return "";
+	identity = chapter_experience_identity(index);
+	if(done==1)
+		return "§b【"+(string)identity["title"]+"·起势】§r "+
+			(string)identity["opening"];
+	if(required>2 && done==(required+1)/2)
+		return "§p【"+(string)identity["title"]+"·转折】§r "+
+			(string)identity["middle"];
+	if(done==required)
+		return "§y【"+(string)identity["title"]+"·收束】§r "+
+			(string)identity["closing"];
+	return "";
+}
+
+mapping(string:string) query_chapter_experience_for_test(int chapter_number)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   chapter_number<1 || chapter_number>81)
+		return ([]);
+	return chapter_experience_identity(chapter_number-1);
 }
 
 private mapping(string:int) chapter_step_requirements(mapping progress,
@@ -3600,6 +3703,7 @@ private mapping chapter_status(object player,mapping progress,
 	mapping requirements = chapter_requirements(progress,index);
 	mapping step_requirements = chapter_step_requirements(progress,index);
 	mapping story_definition = ([]);
+	mapping experience = chapter_experience_identity(index);
 	mapping hunt_target;
 	mapping target;
 	mapping task_progress = copy_value(progress);
@@ -3653,6 +3757,9 @@ private mapping chapter_status(object player,mapping progress,
 		"volume_title":(string)chapter["volume_title"],
 		"volume_number":(int)chapter["volume_number"],
 		"title":(string)chapter["title"],
+		"experience_id":(string)experience["id"],
+		"experience_title":(string)experience["title"],
+		"experience_hint":(string)experience["hint"],
 		"description":(string)chapter["intro"],
 		"intro":(string)chapter["intro"],
 		"outro":(string)chapter["outro"],

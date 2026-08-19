@@ -44,6 +44,23 @@ int main()
 		"private string chapter_arrival_actions(mapping chapter)")!=-1 &&
 		search(source,
 			"[完成当前探索:illusion_realm next]")!=-1;
+	int smart_single_click_flow =
+		search(source,"if(kind==\"story_echo\"){")!=-1 &&
+		search(source,
+			"mapping started = SEASONALD->start_chapter_hunt_autofight(me);")!=-1 &&
+		search(source,
+			"mapping target = current_challenge_target(me,\"chapter\");")!=-1 &&
+		search(source,"kind==\"story_echo\" && (int)result[\"already\"]")==-1;
+	int player_task_diagnostic =
+		search(source,"private string task_diagnostic_view(object me)")!=-1 &&
+		search(source,"诊断码：S1-C")!=-1 &&
+		search(source,"[▶ 智能继续当前任务:illusion_realm next]")!=-1 &&
+		search(source,"parts[0]==\"diagnose\"")!=-1;
+	int chapter_experience_feedback =
+		search(source,"关卡节奏：§b")!=-1 &&
+		search(daemon_source,
+			"private mapping(string:string) chapter_experience_identity")!=-1 &&
+		search(daemon_source,"chapter_experience_beat(chapter_index")!=-1;
 	int current_room_action =
 		search(source,"chapter_target_in_current_room(me,chapter)")!=-1 &&
 		search(source,
@@ -130,6 +147,15 @@ int main()
 	check("探索章节到达后提供明确的完成探索入口",
 		explore_arrival_action,
 		"探索到达页仍只会重复传送，无法确认本次到访");
+	check("智能下一步一次完成传送后阅读、限章挂机或真实首领列举",
+		smart_single_click_flow,
+		"下一步仍要求玩家到达后重复点击，或绕过真实NPC直接攻击");
+	check("任务页提供只读诊断码与不重置进度的智能恢复入口",
+		player_task_diagnostic,
+		"玩家卡点仍无法自证当前章节、目标房间和挂机状态");
+	check("普通章节显示九幕身份并在真实击杀检查点发送三幕反馈",
+		chapter_experience_feedback,
+		"普通章节仍只有数量变化，没有起势、转折与收束反馈");
 	check("已在章节目标房时直接显示操作而不要求重复点击下一步",
 		current_room_action,
 		"当前历程没有安全区分未到达时的一键前往与到达后的任务动作");
