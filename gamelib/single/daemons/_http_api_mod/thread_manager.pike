@@ -27,7 +27,8 @@ constant CORE_COMMANDS = ({
     "zhaohuan", "zhaohuan_cfm", "summon",  // 召唤（涉及NPC和共享状态）
     "growth_task", "task_guide",  // 职业历练与任务引导传送
 	"autofight", "autofightclose",  // 自动战斗
-	"illusion_journey",  // S1支线传送、秘术与月忆兽写入人物唯一档案
+	"illusion_realm", "illusion_journey", "illusion_hidden",
+	"illusion_boss",  // S1主线/支线/隐藏试炼/首领应对均触碰世界或人物状态
 	"profession_assistant",  // 职业助手会改写配置、召唤物与仙玉
 	"flushview",  // 挂机循环会改写敌人/房间共享状态
 	"npc_kill", "kill_filter", "kill_quick",

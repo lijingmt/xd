@@ -255,6 +255,49 @@ int main()
 	check("十件奖励里程碑固定为5至45每五难加终章49",
 		reward_count==10,"reward_count="+(string)reward_count);
 
+	// 用真实玩家、真实NPC对象验证死亡回调边界：跨房对象不能记账，
+	// 同一具NPC即使底层重复通知也只能推进一次。
+	object credit_player=clone(GAMELIB_USER);
+	credit_player->set_name("__testunit_zhaoming_credit__");
+	credit_player->set_password("testunit88");
+	credit_player->set_project("gamelib");
+	credit_player->set_userip("testunit");
+	credit_player->set_account_owner("__testunit_zhaoming_credit__");
+	credit_player->name_cn="照命记账测试";
+	credit_player->set_raceId("third");
+	credit_player->set_profeId("zhaoming");
+	credit_player->setup_player("third","zhaoming");
+	credit_player->level=120;
+	credit_player->set_att_by_level();
+	credit_player["/tmp/zhaoming_test_ready"]=1;
+	mapping credit_task=ILLUSION_HIDDEN_PROFESSIOND->
+		query_trial_definition_for_test(1);
+	object credit_room=(object)(ROOT+(string)credit_task["target_room"]);
+	object wrong_room=clone(WAP_ROOM);
+	object credit_npc=clone(ROOT+(string)credit_task["target_path"]);
+	credit_player["/tmp/illusion_move_bypass"]=1;
+	credit_player->move(credit_room);
+	credit_player->m_delete_foruser("/tmp/illusion_move_bypass");
+	credit_npc->move(wrong_room);
+	mapping cross_room_credit=ILLUSION_HIDDEN_PROFESSIOND->
+		record_npc_kill(credit_player,credit_npc);
+	credit_npc->move(credit_room);
+	mapping first_credit=ILLUSION_HIDDEN_PROFESSIOND->
+		record_npc_kill(credit_player,credit_npc);
+	mapping repeated_credit=ILLUSION_HIDDEN_PROFESSIOND->
+		record_npc_kill(credit_player,credit_npc);
+	mapping credit_progress=ILLUSION_HIDDEN_PROFESSIOND->
+		query_progress(credit_player);
+	check("四十九难只记同房真实NPC且同一死亡回调最多一次",
+		!sizeof(cross_room_credit) && (int)first_credit["ok"] &&
+		(int)repeated_credit["duplicate"] &&
+		(int)credit_progress["done"]==1,
+		sprintf("cross=%O first=%O repeated=%O progress=%O",
+			cross_room_credit,first_credit,repeated_credit,credit_progress));
+	if(credit_npc) destruct(credit_npc);
+	if(wrong_room) destruct(wrong_room);
+	cleanup_player(credit_player,"__testunit_zhaoming_credit__");
+
 	array(string) base_templates=ITEMSD->
 		query_newmoon_base_templates_for_profession("zhaoming");
 	check("照命八十一章底版恰好十件且不进入随机池",
@@ -304,6 +347,18 @@ int main()
 		}
 	check("四十九难可严格顺序结算且重复领取失败关闭",
 		claims_ok && (int)finished["completed"],sprintf("progress=%O",finished));
+	mapping valid_finished_state=copy_value((mapping)player[
+		"/plus/illusion_realm/S1/zhaoming_trials"]);
+	mapping finished_state=copy_value(valid_finished_state);
+	((mapping)finished_state["claims"])["25"]=0;
+	player["/plus/illusion_realm/S1/zhaoming_trials"]=finished_state;
+	mapping corrupted_finished=ILLUSION_HIDDEN_PROFESSIOND->
+		query_progress(player);
+	check("缺失中间领取凭证的伪完成档案失败关闭",
+		!(int)corrupted_finished["ok"] &&
+		!(int)corrupted_finished["completed"],
+		sprintf("progress=%O",corrupted_finished));
+	player["/plus/illusion_realm/S1/zhaoming_trials"]=valid_finished_state;
 	check("四十九难只发十件寰极账号绑定照命套装",
 		set_count==10 && bound_count==10,
 		sprintf("set=%d bound=%d",set_count,bound_count));
@@ -355,6 +410,18 @@ int main()
 		mixed err=catch{ compile_file(ROOT+file); };
 		check("编译"+file,!err,err ? describe_error(err) : "");
 	}
+	string hidden_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/illusion_hidden_professiond.pike") || "";
+	check("账号归属与主线查询异常不会写入或打断照命页面",
+		search(hidden_source,"realm_err=catch")!=-1 &&
+		search(hidden_source,"story_err=catch")!=-1 &&
+		search(hidden_source,"!mappingp(realm)")!=-1 &&
+		search(hidden_source,"!mappingp(story)")!=-1,
+		"照命资格链缺少失败关闭边界");
+	check("四十九难奖励存档提交后的审计日志异常不会穿透页面",
+		search(hidden_source,"log_err=catch")!=-1 &&
+		search(hidden_source,"试炼已提交但审计日志写入异常")!=-1,
+		"试炼提交后仍可被附加日志异常打成空页");
 	werror("S1照命隐藏职业: %d/%d passed\n",result["passed"],result["total"]);
 	return result["failed"] ? 1 : 0;
 }

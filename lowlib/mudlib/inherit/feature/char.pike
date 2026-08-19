@@ -2443,7 +2443,11 @@ private int prepare_newmoon_item_for_equip(object item)
 }
 
 int wield(object weapon){
-	object ob=present(weapon,this_object());
+	// 由守护进程、测试或跨 Worker 到达回放代为穿装时，线程里的
+	// this_player() 不一定已经切到装备所有者。可见性查看者必须显式使用
+	// 当前人物，否则物品明明在背包里，present() 仍可能返回空并导致整套
+	// 装备无声穿戴失败。普通网页命令的行为保持不变。
+	object ob=present(weapon,this_object(),0,this_object());
 	//必须是可装载的物品is_equip()
 	if(ob&&ob->is("equip")){
 		if(functionp(ob->query_catchup_equipment) &&
@@ -2525,7 +2529,7 @@ int wear(object armor)
 	//item_kind=decorate_manteau 饰物中的披风
 	//item_kind=decorate_thing   饰物中的挂件
 	//item_kind=decorate_tool    饰物中的携带物
-	object ob=present(armor,this_object());
+	object ob=present(armor,this_object(),0,this_object());
 	if(ob&&ob->is("equip")){
 		if(functionp(ob->query_catchup_equipment) &&
 		   ob->query_catchup_equipment() &&

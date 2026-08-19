@@ -27,6 +27,8 @@ int main()
 		"/gamelib/single/daemons/seasonal_chard.pike") || "";
 	string user_source = Stdio.read_file(ROOT+
 		"/gamelib/clone/user.pike") || "";
+	string account_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/account_characterd.pike") || "";
 	int travel_branch = search(source,
 		"progress=SEASONALD->query_player_progress(me);\n"+
 				"\t\t\t\twrite((string)travel[\"message\"]+\n"+
@@ -67,6 +69,37 @@ int main()
 		search(source,"private string chapter_claim_link(int chapter_number)")!=-1 &&
 		search(source,"章并进入下一章:illusion_realm claim ")!=-1 &&
 		search(daemon_source,"章并进入下一章:illusion_realm claim ")!=-1;
+	int final_completion_is_post_commit_safe =
+		search(daemon_source,"completion_err=catch")!=-1 &&
+		search(daemon_source,"!mappingp(completion)")!=-1 &&
+		search(daemon_source,"invalid completion result")!=-1 &&
+		sizeof(daemon_source/"completion_err=catch")>=3 &&
+		search(account_source,"story_completion_log_err=catch")!=-1 &&
+		search(account_source,
+			"story_completion_log_err || !appended")!=-1;
+	int audit_log_is_post_commit_safe =
+		search(daemon_source,
+			"private int safe_append_illusion_log(string line)")!=-1 &&
+		search(daemon_source,"time()-illusion_log_error_at>=60")!=-1 &&
+		sizeof(daemon_source/"Stdio.append_file(ILLUSION_LOG")==2 &&
+		sizeof(daemon_source/"safe_append_illusion_log(sprintf(")>=21;
+	int visit_start=search(daemon_source,
+		"void record_room_visit(object player,object room)");
+	int visit_end=visit_start>=0 ? search(daemon_source,
+		"void record_npc_kill(object player,object npc",visit_start) : -1;
+	string visit_source=visit_start>=0 && visit_end>visit_start ?
+		daemon_source[visit_start..visit_end-1] : "";
+	int hidden_visit_after_story_commit=
+		search(visit_source,"if(!player->save_with_result())")!=-1 &&
+		search(visit_source,
+			"ILLUSION_HIDDEN_PROFESSIOND->record_room_visit(player,room)")>
+		search(visit_source,"if(!player->save_with_result())") &&
+		search(visit_source,
+			"否则会把已在内存回滚的主线到访重新写进磁盘。\n\t\t\treturn;")!=-1;
+	int automatic_transition_lock_safe=
+		search(daemon_source,"transition_err=catch{")!=-1 &&
+		search(daemon_source,
+			"release_control_lock();\n\tif(transition_err)\n\t\terror(\"automatic illusion transition failed after lock release")!=-1;
 	int aligned_navigation =
 		search(user_source,
 			"[物品:inventory]|[地图:map_display]|[任务:mytasks]|[队伍:my_term]")!=-1 &&
@@ -109,6 +142,18 @@ int main()
 	check("本章完成页使用章节号绑定的明确领取按钮",
 		completed_chapter_claim_action,
 		"完成态仍只依赖通用next，旧界面可能不显示或领取错误章节");
+	check("终章人物存档及登录补写后的账号凭证/日志异常不会穿透",
+		final_completion_is_post_commit_safe,
+		"账号完成凭证仍可在主存档成功后造成空页或登录循环");
+	check("S1全部审计写入统一隔离日志故障",
+		audit_log_is_post_commit_safe,
+		"仍有主操作提交后直接写日志的空页/重试风险");
+	check("照命到访整档保存只在S1主线到访提交成功后执行",
+		hidden_visit_after_story_commit,
+		"隐藏支线保存可能提前持久化随后回滚的主线到访");
+	check("自动赛季切换异常先释放跨Worker控制锁再重试",
+		automatic_transition_lock_safe,
+		"生命周期异常可能把所有节点阻塞在遗留文件锁上");
 	check("游戏尾部快捷入口保持每行四项且左侧无分组前缀",
 		aligned_navigation,
 		"快捷入口未对齐、顺序变化或重新出现分组前缀");

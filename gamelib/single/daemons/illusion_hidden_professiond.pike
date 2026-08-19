@@ -66,11 +66,19 @@ private int route_player(object player,string room_path)
 
 private int eligible_player(object player)
 {
+	mapping realm=([]);
+	mixed realm_err;
 	if(!player || !functionp(player->query_profeId) ||
 	   (string)player->query_profeId()!="zhaoming")
 		return 0;
-	mapping realm=ACCOUNT_CHARACTERD->query_character_realm(
-		(string)player->query_name());
+	// 账号索引异常时失败关闭到“不可进入”，不要让四十九难页面抛错或
+	// 把未知归属误当成S1；人物唯一档案完全不写入。
+	realm_err=catch{
+		realm=ACCOUNT_CHARACTERD->query_character_realm(
+			(string)player->query_name());
+	};
+	if(realm_err || !mappingp(realm))
+		return 0;
 	return (int)realm["ok"] && (string)realm["realm_type"]=="illusion" &&
 		(string)realm["illusion_id"]=="S1" &&
 		(string)realm["illusion_state"]=="active";
@@ -87,11 +95,37 @@ private int valid_state(mixed raw)
 {
 	if(!mappingp(raw)) return 0;
 	mapping state=(mapping)raw;
-	return (int)state["version"]==1 && (int)state["trial"]>=1 &&
+	mapping claims;
+	int trial;
+	if(sizeof(state)>10 || (int)state["version"]!=1 ||
+	   !intp(state["trial"]) || !intp(state["kills"]) ||
+	   !intp(state["visited"]) || !intp(state["boss_kills"]) ||
+	   !intp(state["started_at"]) || !intp(state["completed_at"]) ||
+	   !mappingp(state["claims"]))
+		return 0;
+	trial=(int)state["trial"];
+	claims=(mapping)state["claims"];
+	if((int)state["version"]==1 && trial>=1 &&
 		(int)state["trial"]<=50 && (int)state["kills"]>=0 &&
 		(int)state["kills"]<=1000 && (int)state["visited"]>=0 &&
 		(int)state["visited"]<=1 && (int)state["boss_kills"]>=0 &&
-		(int)state["boss_kills"]<=1 && mappingp(state["claims"]);
+		(int)state["boss_kills"]<=1 && (int)state["started_at"]>0 &&
+		(int)state["started_at"]<=2000000000 &&
+		(int)state["completed_at"]>=0 &&
+		(int)state["completed_at"]<=2000000000 &&
+		sizeof(claims)==trial-1 &&
+		((trial==50) == ((int)state["completed_at"]>0)) &&
+		(trial<50 || (!(int)state["kills"] && !(int)state["visited"] &&
+		 !(int)state["boss_kills"])))
+		for(int claimed=1;claimed<trial;claimed++){
+			mixed timestamp=claims[(string)claimed];
+			if(!intp(timestamp) || (int)timestamp<=0 ||
+			   (int)timestamp>2000000000)
+				return 0;
+		}
+	else
+		return 0;
+	return 1;
 }
 
 private mapping player_state(object player,int create_if_missing)
@@ -143,13 +177,17 @@ private int reward_index(int trial)
 
 private mapping prerequisite(object player)
 {
+	mapping story=([]);
+	mixed story_err;
 	if(getenv("XIAND_RUN_TESTUNIT")=="1" && player &&
 	   has_prefix((string)player->query_name(),"__testunit_zhaoming") &&
 	   (int)player["/tmp/zhaoming_test_ready"])
 		return (["ok":1,"message":""]);
 	if(!eligible_player(player))
 		return (["ok":0,"message":"只有本期S1照命人物可以进行四十九难。"]) ;
-	mapping story=SEASONALD->query_player_progress(player);
+	story_err=catch{ story=SEASONALD->query_player_progress(player); };
+	if(story_err || !mappingp(story))
+		return (["ok":0,"message":"S1主线进度暂不可验证，本次不会写入四十九难档案。"]) ;
 	if(!(int)story["ok"] || (int)story["chapter_claimed"]<81)
 		return (["ok":0,"message":"请先由照命本人完成S1九卷八十一章。"]) ;
 	if((int)player->query_level()<120)
@@ -193,11 +231,17 @@ private void notify_ready(object player,int trial,string target_name)
 mapping(string:mixed) record_npc_kill(object player,object npc)
 {
 	mapping view=query_progress(player);
+	object player_room=player ? environment(player) : 0;
 	if(!(int)view["ok"] || (int)view["completed"] || (int)view["ready"] ||
-	   search(({"hunt","boss"}),(string)view["kind"])==-1 || !npc)
+	   search(({"hunt","boss"}),(string)view["kind"])==-1 || !npc ||
+	   !player_room || environment(npc)!=player_room)
 		return ([]);
+	string credit_marker="/tmp/zhaoming_trial_credit/"+
+		(string)player->query_name();
+	if((int)npc[credit_marker])
+		return (["ok":1,"duplicate":1]);
 	string npc_path=normalized_path(npc);
-	string room_path=normalized_path(environment(player));
+	string room_path=normalized_path(player_room);
 	if(npc_path!=(string)view["target_path"] ||
 	   ((string)view["kind"]=="boss" &&
 	    room_path!=(string)view["target_room"]))
@@ -215,6 +259,9 @@ mapping(string:mixed) record_npc_kill(object player,object npc)
 		player[STATE_PATH]=old_state;
 		return (["ok":0,"message":"照命试炼进度保存失败，本次击杀未计入。"]) ;
 	}
+	// 只有人物唯一档案成功提交后才封印本次死亡回调；存档失败仍允许
+	// 这具 NPC 的权威死亡链重试，成功后则绝不重复推进。
+	npc[credit_marker]=1;
 	mapping after=query_progress(player);
 	if((int)after["ready"]){
 		notify_ready(player,(int)view["trial"],(string)view["target_name"]);
@@ -230,7 +277,8 @@ mapping(string:mixed) record_room_visit(object player,object room)
 {
 	mapping view=query_progress(player);
 	if(!(int)view["ok"] || (int)view["completed"] || (int)view["ready"] ||
-	   (string)view["kind"]!="visit" || !room ||
+	   (string)view["kind"]!="visit" || !room || !player ||
+	   environment(player)!=room ||
 	   normalized_path(room)!=(string)view["target_room"])
 		return ([]);
 	mapping state=player_state(player,0);
@@ -281,9 +329,18 @@ mapping(string:mixed) claim(object player)
 		player->skills=old_skills;
 		return (["ok":0,"message":"人物存档失败，试炼与奖励均未结算，可重试。"]) ;
 	}
-	Stdio.append_file(TRIAL_LOG,sprintf("%d|trial_claim|user=%s|trial=%d|reward=%s\n",
-		time(),(string)player->query_name(),(int)view["trial"],
-		reward ? (string)reward->query_name() : ""));
+	// 到这里人物唯一档案已经成功提交；审计文件是附加记录，
+	// 不能因磁盘瞬时异常让玩家收到空页并误以为奖励未结算。
+	mixed log_err=catch{
+		Stdio.append_file(TRIAL_LOG,sprintf(
+			"%d|trial_claim|user=%s|trial=%d|reward=%s\n",
+			time(),(string)player->query_name(),(int)view["trial"],
+			reward ? (string)reward->query_name() : ""));
+	};
+	if(log_err)
+		werror("[ILLUSION_HIDDEN] 试炼已提交但审计日志写入异常: user=%s trial=%d error=%s\n",
+			(string)player->query_name(),(int)view["trial"],
+			describe_error(log_err));
 	return (["ok":1,"message":"第"+(string)(int)view["trial"]+"难已结算。"+
 		(reward ? "获得："+(string)reward->query_name_cn()+"。" : "")+
 		(skill_name!="" ? "领悟照命传承【"+skill_name+"】。" : ""),

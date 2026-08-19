@@ -1773,11 +1773,23 @@ mapping(string:mixed) record_illusion_story_completion(object player,
 		}
 	}
 	destruct(key);
-	if((int)result["ok"] && !(int)result["already"])
-		Stdio.append_file(ROOT+"/log/illusion_hidden_profession.log",
-			sprintf("%d|story_completion|illusion=%s|account=%s|character=%s|profession=%s|level=%d\n",
-				time(),illusion_id,account_id,character_id,profession_id,
-				completed_level));
+	if((int)result["ok"] && !(int)result["already"]){
+		int appended;
+		mixed story_completion_log_err=catch{
+			appended=Stdio.append_file(
+				ROOT+"/log/illusion_hidden_profession.log",
+				sprintf("%d|story_completion|illusion=%s|account=%s|character=%s|profession=%s|level=%d\n",
+					time(),illusion_id,account_id,character_id,profession_id,
+					completed_level));
+		};
+		// 账号索引已成功提交，审计文件只是附加证据；绝不能因目录只读
+		// 或轮转竞争把成功结果翻成异常并阻断终章页面/下次登录。
+		if(story_completion_log_err || !appended)
+			werror("[ILLUSION_HIDDEN] 职业完成凭证已提交但审计日志写入失败: character=%s error=%s\n",
+				character_id,story_completion_log_err ?
+				describe_error(story_completion_log_err) :
+				"append returned false");
+	}
 	return result;
 }
 

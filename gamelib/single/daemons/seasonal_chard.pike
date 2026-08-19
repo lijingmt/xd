@@ -39,9 +39,34 @@ private int config_valid;
 private int runtime_valid = 1;
 private int last_closed_reconcile_revision = -1;
 private int closed_reconcile_until;
+private mapping(string:int) realm_error_log_times=([]);
+private mapping(string:int) gate_substitution_error_log_times=([]);
+private int illusion_log_error_at;
 private mapping(string:mapping(string:mixed)) ranking_cache = ([]);
 // 仅供 TestUnit 注入一次十问存档失败，不对游戏命令或 HTTP API 暴露。
 private mapping(string:int) story_quiz_test_save_failures = ([]);
+
+/**
+ * 审计日志是人物唯一档案之外的附加证据。任何日志目录只读、轮转竞争
+ * 或磁盘瞬时异常都不能把已经提交的创建、奖励、传送、购买或结算误报
+ * 成失败，否则客户端重试可能造成重复操作。所有 S1 审计统一走这里。
+ */
+private int safe_append_illusion_log(string line)
+{
+	int appended;
+	mixed err=catch{ appended=Stdio.append_file(ILLUSION_LOG,line); };
+	if(err || !appended){
+		// 任务道具掉落会在多人挂机时高频审计。磁盘持续故障时
+		// 每次击杀都 werror 反而会造成日志风暴，因此全局每分钟最多告警一次。
+		if(time()-illusion_log_error_at>=60){
+			illusion_log_error_at=time();
+			werror("[ILLUSION_REALM] 审计日志写入失败，主操作结果保持不变: error=%s\n",
+				err ? describe_error(err) : "append returned false");
+		}
+		return 0;
+	}
+	return 1;
+}
 
 private mapping(string:string) ranking_names = ([
 	"journey":"幻境征途榜","level":"境界榜","experience":"经验榜",
@@ -1328,45 +1353,52 @@ private mapping(string:mixed) apply_automatic_transition()
 	string to_phase;
 	int now_time = time();
 	array audit;
+	mixed transition_err;
 	if(!config_valid || !runtime_valid || !acquire_control_lock())
 		return result;
-	{
-		object key = runtime_lock->lock();
-		runtime_source_cache = "__reload__";
-		destruct(key);
-	}
-	state = load_runtime_state();
-	action = automatic_action(state,now_time);
-	if(action==""){
-		release_control_lock();
-		return result;
-	}
-	from_phase = (string)state["phase"];
-	if(action=="auto_settle"){
-		state["phase"] = "settling";
-		to_phase = "settling";
-	}
-	else if(action=="auto_close"){
-		state["phase"] = "closed";
-		to_phase = "closed";
-	}
-	state["revision"] = (int)state["revision"]+1;
-	audit = state["audit"];
-	audit += ({(["at":now_time,"operator":"system",
-		"action":action,"from":from_phase,"to":to_phase,
-		"revision":(int)state["revision"]])});
-	if(sizeof(audit)>2000)
-		audit = audit[sizeof(audit)-2000..];
-	state["audit"] = audit;
-	if(save_runtime_state(state)){
-		Stdio.append_file(ILLUSION_LOG,sprintf(
-			"%d|lifecycle|action=%s|cycle=%s|phase=%s|revision=%d\n",
-			now_time,action,(string)state["current_id"],
-			(string)state["phase"],(int)state["revision"]));
-		result = (["ok":1,"action":action,
-			"status":query_public_status()]);
-	}
+	transition_err=catch{
+		{
+			object key = runtime_lock->lock();
+			runtime_source_cache = "__reload__";
+			destruct(key);
+		}
+		state = load_runtime_state();
+		action = automatic_action(state,now_time);
+		if(action!=""){
+			from_phase = (string)state["phase"];
+			if(action=="auto_settle"){
+				state["phase"] = "settling";
+				to_phase = "settling";
+			}
+			else if(action=="auto_close"){
+				state["phase"] = "closed";
+				to_phase = "closed";
+			}
+			state["revision"] = (int)state["revision"]+1;
+			audit = state["audit"];
+			audit += ({(["at":now_time,"operator":"system",
+				"action":action,"from":from_phase,"to":to_phase,
+				"revision":(int)state["revision"]])});
+			if(sizeof(audit)>2000)
+				audit = audit[sizeof(audit)-2000..];
+			state["audit"] = audit;
+			if(save_runtime_state(state)){
+				safe_append_illusion_log(sprintf(
+					"%d|lifecycle|action=%s|cycle=%s|phase=%s|revision=%d\n",
+					now_time,action,(string)state["current_id"],
+					(string)state["phase"],(int)state["revision"]));
+				result = (["ok":1,"action":action,
+					"status":query_public_status()]);
+			}
+		}
+	};
+	// 控制锁是目录锁，不会像 Thread.Mutex key 一样随栈自动释放。
+	// 无论读取、编码、保存还是状态查询在哪一步抛错，都先解锁，再让
+	// 外层调度记录异常并在下一轮立即重试。
 	release_control_lock();
+	if(transition_err)
+		error("automatic illusion transition failed after lock release: %s",
+			describe_error(transition_err));
 	return result;
 }
 
@@ -1448,12 +1480,42 @@ private void lifecycle_automation_tick()
 	call_out(lifecycle_automation_tick,ILLUSION_AUTOMATION_INTERVAL);
 }
 
+private mapping(string:mixed) query_realm_for_user_id(string userid)
+{
+	mapping realm=([]);
+	mixed err;
+	// 建角/头像旧流程在人物对象已经存在、ID尚未落定时会传空串；
+	// ACCOUNT_CHARACTERD 对这种合法临时态返回普通未索引人物。不要把它
+	// 与账号索引损坏混为一谈，否则创建页会被跨世界移动守卫冻结。
+	err=catch{
+		if(getenv("XIAND_RUN_TESTUNIT")=="1" &&
+		   userid=="xd99testunitrealmthrow")
+			error("forced realm lookup exception for routing test\n");
+		realm=ACCOUNT_CHARACTERD->query_character_realm(userid);
+	};
+	if(err || !mappingp(realm)){
+		// 账号索引是世界隔离的权威来源。异常时失败关闭，不能把未知人物
+		// 猜成永恒服，也不能让结算自动化把“未处理”统计成成功。
+		if(sizeof(realm_error_log_times)>=4096 &&
+		   !has_index(realm_error_log_times,userid))
+			realm_error_log_times=([]);
+		if(time()-(int)realm_error_log_times[userid]>=60){
+			realm_error_log_times[userid]=time();
+			werror("[ILLUSION_REALM] 世界归属读取异常，已阻止跨世界操作: user=%s error=%s\n",
+				userid,err ? describe_error(err) : "invalid realm result");
+		}
+		return (["ok":0,"security_blocked":1,"realm_type":"unknown",
+			"message":"世界归属暂不可验证，请稍后重试。"]) ;
+	}
+	return realm;
+}
+
 private mapping(string:mixed) query_realm_for_player(object player)
 {
 	if(!player || !functionp(player->query_name))
-		return (["ok":0,"realm_type":"eternal"]);
-	return ACCOUNT_CHARACTERD->query_character_realm(
-		(string)player->query_name());
+		return (["ok":0,"security_blocked":1,"realm_type":"unknown",
+			"message":"人物对象无效，世界归属不可验证。"]) ;
+	return query_realm_for_user_id((string)player->query_name());
 }
 
 int is_active_illusion_character(object player)
@@ -1709,8 +1771,10 @@ string query_login_fallback_room(object player)
 
 string query_character_group(string user_id)
 {
-	mapping realm = ACCOUNT_CHARACTERD->query_character_realm(user_id);
-	if((int)realm["security_blocked"])
+	// 这是 Worker 路由热路径。账号索引异常必须收敛为人物专属隔离组，
+	// 不能把异常抛给逻辑区策略，也不能猜回永恒服共享组。
+	mapping realm = query_realm_for_user_id(user_id);
+	if(!(int)realm["ok"] && (int)realm["security_blocked"])
 		return "realm-unavailable:"+user_id;
 	if((int)realm["ok"] && (string)realm["realm_type"]=="illusion" &&
 	   (string)realm["illusion_state"]=="active")
@@ -2132,6 +2196,7 @@ private mapping(string:mixed) quest_item_gate_status(object player,
 	int pity = gate_id!="" ? (int)pities[gate_id] : 0;
 	int count;
 	int substitute_ready;
+	mixed substitution_err;
 	if(!sizeof(gate))
 		return (["required":0,"count":0,"ready":1,"pity":0]);
 	pity = max(0,min(max(0,pity_limit-1),pity));
@@ -2139,9 +2204,29 @@ private mapping(string:mixed) quest_item_gate_status(object player,
 	// 新月回响只提供确定性剧情凭证，不伪造或复制实体道具。旧物品、
 	// 原保底和已刷进度逐字保留；结构或所有者异常时忽略替代凭证，
 	// 失败关闭到原掉落路径。
-	if(player && gate_id!="")
-		substitute_ready = ILLUSION_JOURNEYD->
-			query_gate_substitution_ready(player,gate_id);
+	if(player && gate_id!=""){
+		substitution_err = catch{
+			substitute_ready = ILLUSION_JOURNEYD->
+				query_gate_substitution_ready(player,gate_id);
+		};
+		if(substitution_err){
+			string user_id = functionp(player->query_name) ?
+				(string)player->query_name() : "";
+			string error_key = user_id+":"+gate_id;
+			substitute_ready = 0;
+			// 任务页、挂机路由和每次击杀都会读取凭证。依赖守护
+			// 持续异常时按人物+信物限频，避免多人挂机写爆日志；
+			// 缓存也必须有界，不让恶意或损坏档案撑大 Worker 内存。
+			if(sizeof(gate_substitution_error_log_times)>=4096 &&
+			   !has_index(gate_substitution_error_log_times,error_key))
+				gate_substitution_error_log_times=([]);
+			if(time()-(int)gate_substitution_error_log_times[error_key]>=60){
+				gate_substitution_error_log_times[error_key]=time();
+				werror("[ILLUSION_GATE] 支线替代凭证查询异常，已回退实体道具: user=%s gate=%s error=%s\n",
+					user_id,gate_id,describe_error(substitution_err));
+			}
+		}
+	}
 	return copy_value(gate)+([
 		"count":count,
 		"ready":count>=(int)gate["required"] || substitute_ready,
@@ -2304,8 +2389,8 @@ private mapping(string:int) chapter_step_requirements(mapping progress,
 	int index);
 private mapping(string:string) chapter_exploration_target(mapping progress,
 	int index);
-private mapping(string:int) current_chapter_kill_credit(mapping progress,
-	string npc_path,string room_path);
+private mapping(string:int) current_chapter_kill_credit(object player,
+	mapping progress,string npc_path,string room_path);
 private int current_chapter_visit_credit(object player,mapping progress,
 	string room_path);
 
@@ -2470,28 +2555,21 @@ void record_room_visit(object player,object room)
 		progress["visited"] = visited;
 		visit_added = 1;
 	}
-	// 照命四十九难使用同一次真实到访，但持久化在人物唯一幻境子档案。
-	// 它的异常不能打断主线到访、排行榜或普通移动。
-	mixed hidden_visit_err = catch{
-		ILLUSION_HIDDEN_PROFESSIOND->record_room_visit(player,room);
-	};
-	if(hidden_visit_err)
-		werror("[ILLUSION_HIDDEN] 到访记账异常: user=%s room=%s error=%s\n",
-			(string)player->query_name(),path,describe_error(hidden_visit_err));
-	if(!visit_added && !chapter_visit_added && !activity_day_added)
-		return;
-	if(visit_added){
-		mapping visit_week = ranking_week_state(progress,time(),1);
-		visit_week["visits"] = (int)visit_week["visits"]+1;
-	}
-	update_ranking_snapshot(player,progress);
-	if(!player->save_with_result()){
-		player[ILLUSION_PROGRESS_ROOT+"/"+
-			illusion_id] = old_progress;
-		werror("[ILLUSION_REALM] 到访或修行日进度存档失败并已回滚: %s %s\n",
-			(string)player->query_name(),path);
-	}
-	else{
+	if(visit_added || chapter_visit_added || activity_day_added){
+		if(visit_added){
+			mapping visit_week = ranking_week_state(progress,time(),1);
+			visit_week["visits"] = (int)visit_week["visits"]+1;
+		}
+		update_ranking_snapshot(player,progress);
+		if(!player->save_with_result()){
+			player[ILLUSION_PROGRESS_ROOT+"/"+
+				illusion_id] = old_progress;
+			werror("[ILLUSION_REALM] 到访或修行日进度存档失败并已回滚: %s %s\n",
+				(string)player->query_name(),path);
+			// 隐藏支线的保存会写整个人物档案。主线失败时不能继续，
+			// 否则会把已在内存回滚的主线到访重新写进磁盘。
+			return;
+		}
 		if((int)context["ranking_enabled"] &&
 		   !persist_ranking_snapshot(player,progress,illusion_id))
 			werror("[ILLUSION_RANKING] 首次到访快照待后续补写: %s\n",
@@ -2499,6 +2577,15 @@ void record_room_visit(object player,object room)
 		if((int)context["ranking_enabled"])
 			invalidate_ranking_cache(illusion_id);
 	}
+	// 照命四十九难使用同一次真实到访，但它会独立保存整个人物档案，
+	// 因此必须位于主线成功提交之后。若本次主线没有新变化则可直接记账。
+	// 它的异常仍不能打断已提交的主线、排行榜或普通移动。
+	mixed hidden_visit_err = catch{
+		ILLUSION_HIDDEN_PROFESSIOND->record_room_visit(player,room);
+	};
+	if(hidden_visit_err)
+		werror("[ILLUSION_HIDDEN] 到访记账异常: user=%s room=%s error=%s\n",
+			(string)player->query_name(),path,describe_error(hidden_visit_err));
 }
 
 void record_npc_kill(object player,object npc,void|int team_count)
@@ -2557,7 +2644,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		task_mode = ([]);
 	}
 	old_progress = copy_value(progress);
-	task_credit = current_chapter_kill_credit(progress,npc_path,room_path);
+	task_credit = current_chapter_kill_credit(player,progress,npc_path,room_path);
 	activity_day_added = record_story_activity_day(progress,time());
 	previous_team_kills = (int)progress["team_kills"];
 	boss_kill = (int)npc->_boss>0;
@@ -2578,7 +2665,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 		kill_week["team_kills"] = (int)kill_week["team_kills"]+1;
 	if(boss_kill)
 		kill_week["boss_kills"] = (int)kill_week["boss_kills"]+1;
-	if(boss_kill){
+	if(boss_kill && (int)task_credit["story"]){
 		story_event = find_story_event("boss",npc_path,progress);
 		if(sizeof(story_event) &&
 		   (string)story_event["room"]==room_path &&
@@ -2665,7 +2752,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 					(string)gate["name"]+"】；保底进度 "+
 					(string)(int)quest_drop["pity"]+"/"+
 					(string)(int)gate["pity_kills"]+"。\n");
-			Stdio.append_file(ILLUSION_LOG,sprintf(
+			safe_append_illusion_log(sprintf(
 				"%d|quest_item_roll|illusion=%s|user=%s|gate=%s|roll=%d|rate_bp=%d|drop=%d|forced=%d|count=%d|required=%d|pity=%d\n",
 				time(),illusion_id,(string)player->query_name(),
 				(string)gate["id"],(int)quest_drop["roll"],
@@ -2882,7 +2969,12 @@ private mapping(string:mixed) discover_story_event_internal(object player,
 	mapping progress;
 	mapping old_progress;
 	mapping event;
+	mapping chapter;
+	mapping step;
+	mapping requirements;
+	mapping quest_gate;
 	string room_path;
+	int chapter_index;
 	if(!player || !sizeof(context))
 		return (["ok":0,"message":"当前不能推进幻境故事。"]);
 	config=(mapping)context["config"];
@@ -2905,6 +2997,19 @@ private mapping(string:mixed) discover_story_event_internal(object player,
 		return (["ok":0,
 			"message":"这里的故事残响尚未轮到当前章节，或前一章尚未完成。"]);
 	}
+	chapter_index=claimed_chapter_count(progress);
+	if(chapter_index<0 || chapter_index>=sizeof((array)config["chapters"]))
+		return (["ok":0,"message":"当前章节边界异常，本次没有推进剧情。"]) ;
+	chapter=(mapping)((array)config["chapters"])[chapter_index];
+	step=chapter_step_requirements(progress,chapter_index);
+	requirements=chapter_requirements(progress,chapter_index);
+	quest_gate=quest_item_gate_status(player,progress,chapter);
+	if((string)(chapter["story_event"] || "")!=(string)event["id"] ||
+	   (int)player->query_level()<(int)requirements["min_level"] ||
+	   (int)progress["chapter_kills"]<(int)step["kills"] ||
+	   ((int)quest_gate["required"]>0 && !(int)quest_gate["ready"]))
+		return (["ok":0,
+			"message":"请先完成本章狩猎与卷末信物，再阅读这段关键剧情。"]) ;
 	old_progress = copy_value(progress);
 	record_story_activity_day(progress,time());
 	if(!record_story_event(progress,event,time()))
@@ -3023,7 +3128,7 @@ private int ensure_current_chapter_counters(object player,mapping progress)
 	if(!reset_current_chapter_counters(progress))
 		return 1;
 	if(player->save_with_result()){
-		Stdio.append_file(ILLUSION_LOG,sprintf(
+		safe_append_illusion_log(sprintf(
 			"%d|chapter_counter_start|illusion=%s|user=%s|chapter=%s|kills=%d|bosses=%d\n",
 			time(),(string)progress["content_id"],
 			(string)player->query_name(),
@@ -3166,7 +3271,6 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 	mapping config;
 	mapping chapter;
 	mapping step;
-	mapping events;
 	mapping hunt;
 	mapping quest_gate;
 	array chapters;
@@ -3193,12 +3297,6 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 		return ([]);
 	chapter = (mapping)chapters[index];
 	step = chapter_step_requirements(progress,index);
-	if((string)(chapter["story_event"] || "")!=""){
-		events = mappingp(progress["story_events"]) ?
-			(mapping)progress["story_events"] : ([]);
-		if(!(int)events[(string)chapter["story_event"]])
-			return ([]);
-	}
 	quest_gate = quest_item_gate_status(player,progress,chapter);
 	if(((int)step["kills"]<=0 ||
 	    (int)progress["chapter_kills"]>=(int)step["kills"]) &&
@@ -3319,18 +3417,19 @@ private mapping(string:string) chapter_exploration_target(mapping progress,
 	return targets[ordinal];
 }
 
-private mapping(string:int) current_chapter_kill_credit(mapping progress,
-	string npc_path,string room_path)
+private mapping(string:int) current_chapter_kill_credit(object player,
+	mapping progress,string npc_path,string room_path)
 {
 	mapping config=config_for_progress(progress);
 	array chapters = (array)(config["chapters"] || ({}));
 	int index = claimed_chapter_count(progress);
-	mapping credit = (["kill":0,"boss":0]);
+	mapping credit = (["kill":0,"boss":0,"story":0]);
 	mapping chapter;
 	mapping step;
 	mapping events;
 	mapping story_event = ([]);
 	mapping hunt;
+	mapping quest_gate;
 	if(index<0 || index>=sizeof(chapters))
 		return credit;
 	chapter = (mapping)chapters[index];
@@ -3344,22 +3443,31 @@ private mapping(string:int) current_chapter_kill_credit(mapping progress,
 				story_event = candidate;
 				break;
 			}
-	// 关键剧情是当前章第一道门。未完成时，其他地图的挂机或首领
-	// 都不能预存本章战斗进度。
-	if(sizeof(story_event)){
-		if((string)story_event["kind"]=="boss" &&
-		   npc_path==(string)story_event["path"] &&
-		   room_path==(string)story_event["room"] &&
-		   (int)step["boss_kills"]>0)
-			credit["boss"] = 1;
-		return credit;
-	}
 	hunt = story_hunt_target_for_level(progress,(int)step["min_level"]);
+	// 每章先完成自己的狩猎铺垫。卷末信物和剧情首领不能让限章挂机
+	// 把“刷信物”误当成“本章击杀”，也不能在高潮后再赶回普通猎场。
 	if((int)progress["chapter_kills"]<(int)step["kills"]){
 		if(npc_path==(string)hunt["path"] &&
 		   arrayp(hunt["rooms"]) &&
 		   search((array)hunt["rooms"],room_path)!=-1)
 			credit["kill"] = 1;
+		return credit;
+	}
+	quest_gate = quest_item_gate_status(player,progress,chapter);
+	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"])
+		return credit;
+	// 服务端记账边界也验证顺序：即使玩家绕过任务页直达正确房间，
+	// 未完成狩猎/信物时击杀卷末首领也不能提前写剧情或章节Boss进度。
+	if(sizeof(story_event)){
+		if((string)story_event["kind"]=="boss" &&
+		   npc_path==(string)story_event["path"] &&
+		   room_path==(string)story_event["room"]){
+			credit["story"] = 1;
+			// 剧情首领即使落在累计 Boss 曲线的零增量章，也必须能
+			// 推进剧情；只有本章确实要求新增 Boss 时才增加章节计数。
+			if((int)step["boss_kills"]>0)
+				credit["boss"] = 1;
+		}
 		return credit;
 	}
 	if((int)progress["chapter_boss_kills"]<(int)step["boss_kills"] &&
@@ -3425,9 +3533,12 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 	mapping target;
 	mapping quest_gate = mappingp(progress["chapter_quest_item_gate"]) ?
 		(mapping)progress["chapter_quest_item_gate"] : ([]);
-	// 卷末信物是进入首领剧情前的准备，不应在高潮战结束后再把玩家
-	// 赶回普通猎场。旧档案已经完成剧情但尚缺信物时仍会落到此分支，
-	// 因而可以安全补齐并继续领取，不需要回滚任何既有剧情标记。
+	// 普通狩猎是本章铺垫；先完成它，限章挂机才能以 chapter_kills
+	// 精准停止。随后准备卷末信物，最后才进入剧情首领高潮。
+	if((int)progress["kills"]<(int)requirements["kills"] ||
+	   player_level<(int)requirements["min_level"])
+		return story_hunt_target_for_level(progress,
+			(int)requirements["min_level"]);
 	if((int)quest_gate["required"]>0 && !(int)quest_gate["ready"])
 		return ([
 			"kind":"hunt","name":(string)quest_gate["source_name"],
@@ -3451,10 +3562,6 @@ private mapping(string:mixed) chapter_next_target(mapping progress,
 		]);
 		return target;
 	}
-	if((int)progress["kills"]<(int)requirements["kills"] ||
-	   player_level<(int)requirements["min_level"])
-		return story_hunt_target_for_level(progress,
-			(int)requirements["min_level"]);
 	if((int)progress["boss_kills"]<(int)requirements["boss_kills"])
 		return (["kind":"boss","name":"断桥镇星使","location":"断星桥",
 			"room":"/gamelib/d/illusion_s1/star_bridge.pike",
@@ -3834,7 +3941,7 @@ private mapping(string:mixed) start_story_quiz_internal(object player,
 		restore_mapping_snapshot(progress,old_progress);
 		return (["ok":0,"message":"人物存档失败，本次十问未开始。"]);
 	}
-	Stdio.append_file(ILLUSION_LOG,sprintf(
+	safe_append_illusion_log(sprintf(
 		"%d|story_quiz_start|illusion=%s|user=%s|attempt=%d\n",
 		time(),(string)progress["content_id"],
 		(string)player->query_name(),attempts+1));
@@ -3900,7 +4007,7 @@ private mapping(string:mixed) answer_story_quiz_internal(object player,
 		restore_mapping_snapshot(progress,old_progress);
 		return (["ok":0,"message":"人物存档失败，本题未计入，可重新提交。"]);
 	}
-	Stdio.append_file(ILLUSION_LOG,sprintf(
+	safe_append_illusion_log(sprintf(
 		"%d|story_quiz_answer|illusion=%s|user=%s|question=%d|choice=%d|correct=%d|score=%d|completed=%d\n",
 		time(),(string)progress["content_id"],
 		(string)player->query_name(),question_number,choice,correct,
@@ -4148,13 +4255,22 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		return (["ok":0,"message":"人物存档失败，奖励与领取状态已回滚。"]) ;
 	}
 	if(chapter_number==sizeof((array)config["chapters"])){
-		mapping completion = ACCOUNT_CHARACTERD->
-			record_illusion_story_completion(player,illusion_id);
-		if(!(int)completion["ok"])
+		mapping completion=([]);
+		mixed completion_err=catch{
+			completion=ACCOUNT_CHARACTERD->
+				record_illusion_story_completion(player,illusion_id);
+		};
+		// 章节奖励和人物唯一档案在上方已经原子保存。账号索引
+		// 是可在下次登录补写的派生凭证；它的异常不能穿透成空页，
+		// 更不能让玩家误以为终章失败而重复点击。
+		if(completion_err || !mappingp(completion) ||
+		   !(int)completion["ok"])
 			werror("[ILLUSION_HIDDEN] 八十一章已完成，账号凭证待登录补写: %s %s\n",
-				(string)player->query_name(),(string)completion["message"]);
+				(string)player->query_name(),completion_err ?
+				describe_error(completion_err) :
+				(string)(completion["message"] || "invalid completion result"));
 	}
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|items=%d|level_before=%d|level_after=%d|story_exp=%d\n",
+	safe_append_illusion_log(sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|items=%d|level_before=%d|level_after=%d|story_exp=%d\n",
 		time(),illusion_id,
 		(string)player->query_name(),(string)chapter["id"],sizeof(granted),
 		(int)growth["before_level"],(int)growth["after_level"],
@@ -4846,7 +4962,7 @@ mapping(string:mixed) record_pvp_victory(object winner,object loser)
 		werror("[ILLUSION_RANKING] 论剑快照待后续补写: %s\n",
 			(string)winner->query_name());
 	invalidate_ranking_cache((string)illusion_config["current_id"]);
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|pvp_honor|illusion=%s|winner=%s|loser=%s|points=%d|repeat=%d\n",
+	safe_append_illusion_log(sprintf("%d|pvp_honor|illusion=%s|winner=%s|loser=%s|points=%d|repeat=%d\n",
 		time(),(string)illusion_config["current_id"],
 		(string)winner->query_name(),(string)loser->query_name(),points,
 		prior_wins));
@@ -4919,7 +5035,7 @@ mapping(string:mixed) claim_illusion_ranking_reward(object player,
 		player[ILLUSION_PROGRESS_ROOT+"/"+illusion_id] = old_progress;
 		return (["ok":0,"message":"排行榜荣誉保存失败，本次仍可重试。"]);
 	}
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|ranking_reward|illusion=%s|user=%s|board=%s|period=%s|rank=%d\n",
+	safe_append_illusion_log(sprintf("%d|ranking_reward|illusion=%s|user=%s|board=%s|period=%s|rank=%d\n",
 		time(),illusion_id,(string)player->query_name(),board,period,rank));
 	return (["ok":1,"rank":rank,"title":title,
 		"message":"已获得幻境荣誉称号："+title+"（仅展示收藏，不增加战斗属性）。"]);
@@ -5051,7 +5167,7 @@ mapping(string:mixed) purchase_entitlement(object player)
 	player->save_with_result();
 	player[ILLUSION_PAYMENT_ROOT] = ([]);
 	int cleanup_saved = player->save_with_result();
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement|illusion=%s|account=%s|character=%s|cost=%d|request=%s|cleanup=%d\n",
+	safe_append_illusion_log(sprintf("%d|entitlement|illusion=%s|account=%s|character=%s|cost=%d|request=%s|cleanup=%d\n",
 		time(),(string)status["illusion_id"],account_id,
 		(string)player->query_name(),cost,request_id,
 		cleanup_saved));
@@ -5130,7 +5246,7 @@ mapping(string:mixed) reconcile_account_character_expansions(
 			if(ACCOUNT_WALLETD->forget_account_debit_recharge_once(
 			   account_id,request_id)){
 				summary["recovered"] = (int)summary["recovered"]+1;
-				Stdio.append_file(ILLUSION_LOG,sprintf("%d|account_character_expansion_recovery|account=%s|illusion=%s|option=%s|cost=%d|request=%s|result=committed\n",
+				safe_append_illusion_log(sprintf("%d|account_character_expansion_recovery|account=%s|illusion=%s|option=%s|cost=%d|request=%s|result=committed\n",
 					time(),account_id,illusion_id,option,amount,request_id));
 			}
 			else{
@@ -5143,7 +5259,7 @@ mapping(string:mixed) reconcile_account_character_expansions(
 		else if(ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
 		   account_id,request_id,"illusion_account_expansion_recovery")){
 			summary["refunded"] = (int)summary["refunded"]+1;
-			Stdio.append_file(ILLUSION_LOG,sprintf("%d|account_character_expansion_recovery|account=%s|illusion=%s|option=%s|cost=%d|request=%s|result=refunded\n",
+			safe_append_illusion_log(sprintf("%d|account_character_expansion_recovery|account=%s|illusion=%s|option=%s|cost=%d|request=%s|result=refunded\n",
 				time(),account_id,illusion_id,option,amount,request_id));
 		}
 		else{
@@ -5215,7 +5331,7 @@ mapping(string:mixed) purchase_account_character_expansion(
 		(mapping)grant["expansion"] : ([]);
 	cleanup_ok = ACCOUNT_WALLETD->forget_account_debit_recharge_once(
 		account_id,request_id);
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|account_character_expansion|account=%s|option=%s|cost=%d|spent=%d|slots=%d|multi=%d|request=%s|cleanup=%d\n",
+	safe_append_illusion_log(sprintf("%d|account_character_expansion|account=%s|option=%s|cost=%d|spent=%d|slots=%d|multi=%d|request=%s|cleanup=%d\n",
 		time(),account_id,option,cost,
 		(int)expansion["expansion_spent_suiyu"],
 		(int)expansion["character_slots"],
@@ -5320,7 +5436,7 @@ mapping(string:mixed) purchase_character_expansion(object player,string option)
 	player->save_with_result();
 	player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
 	int cleanup_saved = player->save_with_result();
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|character_expansion|account=%s|character=%s|option=%s|cost=%d|spent=%d|slots=%d|multi=%d|request=%s|cleanup=%d\n",
+	safe_append_illusion_log(sprintf("%d|character_expansion|account=%s|character=%s|option=%s|cost=%d|spent=%d|slots=%d|multi=%d|request=%s|cleanup=%d\n",
 		time(),account_id,(string)player->query_name(),option,cost,
 		(int)entitlement["expansion_spent_suiyu"],
 		(int)entitlement["character_slots"],
@@ -5381,7 +5497,7 @@ private void reconcile_entitlement_purchase(object player)
 	if(refunded){
 		player[ILLUSION_PAYMENT_ROOT] = ([]);
 		player->save_with_result();
-		Stdio.append_file(ILLUSION_LOG,sprintf("%d|entitlement_recovery|illusion=%s|account=%s|character=%s|result=refunded\n",
+		safe_append_illusion_log(sprintf("%d|entitlement_recovery|illusion=%s|account=%s|character=%s|result=refunded\n",
 			time(),(string)payment["illusion_id"],
 			(string)payment["account_id"],
 			(string)player->query_name()));
@@ -5441,7 +5557,7 @@ private void reconcile_character_expansion_purchase(object player)
 	if(refunded){
 		player[ILLUSION_EXPANSION_PAYMENT_ROOT] = ([]);
 		player->save_with_result();
-		Stdio.append_file(ILLUSION_LOG,sprintf("%d|character_expansion_recovery|account=%s|character=%s|result=refunded\n",
+		safe_append_illusion_log(sprintf("%d|character_expansion_recovery|account=%s|character=%s|result=refunded\n",
 			time(),(string)payment["account_id"],
 			(string)player->query_name()));
 	}
@@ -5468,7 +5584,7 @@ private mapping(string:mixed) create_illusion_character_internal(
 		result["realm_type"] = "illusion";
 		result["illusion_id"] = (string)illusion_config["current_id"];
 		result["message"] = (string)status["display_name"]+"人物创建成功。";
-		Stdio.append_file(ILLUSION_LOG,sprintf("%d|create|illusion=%s|account=%s|character=%s\n",
+		safe_append_illusion_log(sprintf("%d|create|illusion=%s|account=%s|character=%s\n",
 			time(),(string)illusion_config["current_id"],account_id,
 			(string)result["character"]["id"]));
 	}
@@ -5525,12 +5641,19 @@ void prepare_new_character(object player)
 		werror("[ILLUSION_RANKING] 登录快照待后续补写: %s\n",
 			(string)player->query_name());
 	if(story_all_chapters_claimed(progress)){
-		mapping completion = ACCOUNT_CHARACTERD->
-			record_illusion_story_completion(player,
-				(string)illusion_config["current_id"]);
-		if(!(int)completion["ok"])
+		mapping completion=([]);
+		mixed completion_err=catch{
+			completion=ACCOUNT_CHARACTERD->
+				record_illusion_story_completion(player,
+					(string)illusion_config["current_id"]);
+		};
+		// 完成凭证是登录时的派生补写，不能把人物主档已可玩的登录流程
+		// 变成失败。下次登录会再次幂等补写。
+		if(completion_err || !mappingp(completion) || !(int)completion["ok"])
 			werror("[ILLUSION_HIDDEN] 登录补写职业完成凭证失败: %s %s\n",
-				(string)player->query_name(),(string)completion["message"]);
+				(string)player->query_name(),completion_err ?
+				describe_error(completion_err) :
+				(string)(completion["message"] || "invalid completion result"));
 	}
 	if(!is_illusion_room_path((string)player->last_pos))
 		player->last_pos = (string)illusion_config["entry_room"];
@@ -5580,7 +5703,7 @@ mapping(string:mixed) enter_eternal_echo(object player,string illusion_id)
 		return (["ok":0,"message":"进入回响失败，人物仍停留在原地。"]);
 	}
 	record_room_visit(player,environment(player));
-	Stdio.append_file(ILLUSION_LOG,sprintf(
+	safe_append_illusion_log(sprintf(
 		"%d|echo_enter|illusion=%s|user=%s\n",time(),illusion_id,
 		(string)player->query_name()));
 	return (["ok":1,"illusion_id":illusion_id,
@@ -5703,7 +5826,7 @@ mapping(string:mixed) travel_to_route_target(object player)
 	if(!moved)
 		return (["ok":0,"message":"前往"+(string)step["location"]+
 			"失败，人物仍停留在原地。"]);
-	Stdio.append_file(ILLUSION_LOG,sprintf(
+	safe_append_illusion_log(sprintf(
 		"%d|route_travel|illusion=%s|user=%s|route=%s|target=%s|room=%s\n",
 		time(),illusion_id,
 		(string)player->query_name(),(string)player_progress(player,1)["path"],
@@ -5742,7 +5865,7 @@ mapping(string:mixed) travel_to_s1_feature_room(object player,
 	}
 	if(!route_player(player,room_path))
 		return (["ok":0,"message":"前往秘迹失败，人物仍停留在原地。"]) ;
-	Stdio.append_file(ILLUSION_LOG,sprintf(
+	safe_append_illusion_log(sprintf(
 		"%d|feature_travel|illusion=S1|user=%s|feature=%s|room=%s\n",
 		time(),(string)player->query_name(),feature_id,room_path));
 	return (["ok":1,"message":"已经前往秘迹目标地点；到达不会自动完成观察或领取。"]) ;
@@ -5798,7 +5921,7 @@ mapping(string:mixed) travel_to_chapter_target(object player,
 	if(!moved)
 		return (["ok":0,"message":"前往"+location+
 			"失败，人物仍停留在原地，请稍后重试。"]);
-	Stdio.append_file(ILLUSION_LOG,sprintf(
+	safe_append_illusion_log(sprintf(
 		"%d|chapter_travel|illusion=%s|user=%s|chapter=%d|room=%s\n",
 		time(),illusion_id,
 		(string)player->query_name(),chapter_number,target_room));
@@ -5833,7 +5956,17 @@ private mapping(string:mixed) settle_player_locked(object player,
 	mapping settlement_config;
 	int current_cycle;
 	int prior_cycle_closed;
-	if(!player || (string)realm["realm_type"]!="illusion" ||
+	array(string) post_commit_warnings=({});
+	if(!player)
+		return (["ok":0,"message":"幻境人物对象无效，未执行回归。"]) ;
+	if(getenv("XIAND_RUN_TESTUNIT")=="1" &&
+	   is_test_illusion_player(player) &&
+	   (int)player["/tmp/illusion_settle_throw_for_test"])
+		error("forced settlement exception for lock safety test\n");
+	if(!(int)realm["ok"] || (int)realm["security_blocked"])
+		return (["ok":0,"message":(string)(realm["message"] ||
+			"世界归属暂不可验证，未执行回归。")]);
+	if((string)realm["realm_type"]!="illusion" ||
 	   (string)realm["illusion_state"]!="active")
 		return (["ok":1,"already":1,"message":"当前人物无需回归。"]) ;
 	current_cycle = (string)realm["illusion_id"]==
@@ -5865,43 +5998,115 @@ private mapping(string:mixed) settle_player_locked(object player,
 		(string)player->query_name(),(string)realm["illusion_id"],receipt);
 	if(!(int)result["ok"])
 		return result;
-	// 账号索引已原子切回永恒服；立即刷新会话缓存，防止本次会话后续
-	// 战斗仍误用刚结束幻境的个人难度。
-	PERSONAL_DIFFICULTYD->refresh_player_scope(player);
+	// 从这里起账号索引已经原子提交，任何会话刷新、补存档、传送或
+	// 审计日志异常都不能把“已成功回归”误报成失败并诱导玩家重复操作。
+	mixed post_err=catch{
+		if(getenv("XIAND_RUN_TESTUNIT")=="1" &&
+		   is_test_illusion_player(player) &&
+		   (int)player["/tmp/illusion_settle_post_commit_throw_for_test"])
+			error("forced post-commit refresh exception for test\n");
+		PERSONAL_DIFFICULTYD->refresh_player_scope(player);
+	};
+	if(post_err){
+		post_commit_warnings+=({"difficulty_scope"});
+		// 下次战斗查询会依据已经提交的账号索引重新证明作用域。
+		player->m_delete_foruser("/tmp/personal_difficulty_scope");
+	}
 	progress["returned_at"] = time();
-	player->save_with_result();
-	route_player(player,return_room);
-	Stdio.append_file(ILLUSION_LOG,sprintf("%d|settle|illusion=%s|account=%s|character=%s|receipt=%s\n",
-		time(),(string)realm["illusion_id"],(string)realm["account_id"],
-		(string)player->query_name(),receipt));
+	int post_saved;
+	post_err=catch{ post_saved=player->save_with_result(); };
+	if(post_err || !post_saved)
+		post_commit_warnings+=({"returned_at_save"});
+	int post_routed;
+	post_err=catch{ post_routed=route_player(player,return_room); };
+	if(post_err || !post_routed)
+		post_commit_warnings+=({"live_route"});
+	post_err=catch{
+		safe_append_illusion_log(sprintf(
+			"%d|settle|illusion=%s|account=%s|character=%s|receipt=%s|warnings=%s\n",
+			time(),(string)realm["illusion_id"],(string)realm["account_id"],
+			(string)player->query_name(),receipt,post_commit_warnings*","));
+	};
+	if(post_err)
+		werror("[ILLUSION_REALM] 回归已提交但审计日志补写失败: user=%s error=%s\n",
+			(string)player->query_name(),describe_error(post_err));
 	return (["ok":1,"message":(string)realm["illusion_id"]+
-		"人物与可携装备已随唯一原档案安全回归永恒服。",
-		"receipt":receipt]);
+		"人物与可携装备已随唯一原档案安全回归永恒服。"+
+		(sizeof(post_commit_warnings) ?
+		 " 部分当前会话画面将在刷新或下次登录后补齐。" : ""),
+		"receipt":receipt,"post_commit_degraded":
+			sizeof(post_commit_warnings)>0,
+		"post_commit_warnings":post_commit_warnings]);
+}
+
+/** 将底层存档/索引异常收敛为可重试结果，禁止异常穿透登录或自动结算。 */
+private mapping(string:mixed) settle_player_locked_safely(object player,
+	void|int test_bypass_phase)
+{
+	mapping result=([]);
+	mixed settle_err=catch{
+		result=settle_player_locked(player,test_bypass_phase);
+	};
+	if(settle_err || !mappingp(result)){
+		// ACCOUNT_CHARACTERD 是回归是否提交的权威来源。若底层在原子
+		// 提交之后才抛异常，不能误报失败并诱导重复结算；反查已经是
+		// returned 的唯一原档案时，明确返回“成功但当前会话待刷新”。
+		mapping authoritative=([]);
+		mixed authoritative_err=catch{
+			authoritative=query_realm_for_player(player);
+		};
+		if(!authoritative_err && mappingp(authoritative) &&
+		   (int)authoritative["ok"] &&
+		   (string)authoritative["realm_type"]=="eternal" &&
+		   (string)authoritative["illusion_state"]=="returned"){
+			return (["ok":1,"already":1,"post_commit_degraded":1,
+				"post_commit_warnings":({"authoritative_recheck"}),
+				"message":"回归已经由账号索引确认完成；当前画面将在刷新或下次登录后补齐。"]) ;
+		}
+		werror("[ILLUSION_REALM] 回归结算异常，下次重试将重查权威索引: user=%s error=%s\n",
+			player && functionp(player->query_name) ?
+			(string)player->query_name() : "",
+			settle_err ? describe_error(settle_err) : "invalid result");
+		return (["ok":0,"message":"回归结算暂时异常，人物档案与账号锁均已安全释放，请稍后重试。"]) ;
+	}
+	return result;
 }
 
 mapping(string:mixed) settle_player(object player)
 {
 	object account_key;
-	mapping result;
+	mapping result=([]);
+	mixed lock_err;
 	if(!player || !functionp(player->query_name))
 		return (["ok":0,"message":"幻境人物对象无效。"]);
-	account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
-		(string)player->query_name())->lock();
-	result = settle_player_locked(player);
-	destruct(account_key);
+	lock_err=catch{
+		account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+			(string)player->query_name())->lock();
+		result = settle_player_locked_safely(player);
+	};
+	if(account_key)
+		destruct(account_key);
+	if(lock_err)
+		return (["ok":0,"message":"回归账号锁暂不可用，请稍后重试。"]) ;
 	return result;
 }
 
 mapping(string:mixed) settle_player_for_test(object player)
 {
 	object account_key;
-	mapping result;
+	mapping result=([]);
+	mixed lock_err;
 	if(!is_test_illusion_player(player))
 		return (["ok":0,"message":"测试入口不可用。"]) ;
-	account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
-		(string)player->query_name())->lock();
-	result = settle_player_locked(player,1);
-	destruct(account_key);
+	lock_err=catch{
+		account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+			(string)player->query_name())->lock();
+		result = settle_player_locked_safely(player,1);
+	};
+	if(account_key)
+		destruct(account_key);
+	if(lock_err)
+		return (["ok":0,"message":"回归账号锁暂不可用，请稍后重试。"]) ;
 	return result;
 }
 
@@ -5913,62 +6118,75 @@ int reconcile_player_login(object player,void|int account_lock_held)
 	string current_path;
 	object account_key;
 	int ready = 1;
+	mixed reconcile_err;
 	if(!player)
 		return 0;
-	if(!account_lock_held)
-		account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
-			(string)player->query_name())->lock();
-	reconcile_entitlement_purchase(player);
-	reconcile_character_expansion_purchase(player);
-	realm = query_realm_for_player(player);
-	if((int)realm["security_blocked"])
-		ready = 0;
-	status = query_public_status();
-	current_path = normalized_destination_path(environment(player));
-	if(ready && (string)realm["realm_type"]=="illusion" &&
-	   (string)realm["illusion_state"]=="active"){
-		if((string)realm["illusion_id"]!=
-		   (string)status["illusion_id"]){
-			if(search((array)status["closed_ids"],
-			   (string)realm["illusion_id"])!=-1){
-				result = settle_player_locked(player);
+	reconcile_err=catch{
+		if(!account_lock_held)
+			account_key = ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+				(string)player->query_name())->lock();
+		if(getenv("XIAND_RUN_TESTUNIT")=="1" &&
+		   has_prefix((string)player->query_name(),"xd99testunit") &&
+		   (int)player["/tmp/illusion_reconcile_throw_for_test"])
+			error("forced login reconciliation exception for lock test\n");
+		reconcile_entitlement_purchase(player);
+		reconcile_character_expansion_purchase(player);
+		realm = query_realm_for_player(player);
+		if((int)realm["security_blocked"])
+			ready = 0;
+		status = query_public_status();
+		current_path = normalized_destination_path(environment(player));
+		if(ready && (string)realm["realm_type"]=="illusion" &&
+		   (string)realm["illusion_state"]=="active"){
+			if((string)realm["illusion_id"]!=
+			   (string)status["illusion_id"]){
+				if(search((array)status["closed_ids"],
+				   (string)realm["illusion_id"])!=-1){
+					result = settle_player_locked_safely(player);
+					if(!(int)result["ok"])
+						ready = 0;
+				}
+				else{
+					werror("[ILLUSION_REALM] 未归档的旧幻境人物被冻结: %s %s\n",
+						(string)player->query_name(),
+						(string)realm["illusion_id"]);
+					ready = 0;
+				}
+			}
+			else if((string)status["phase"]=="active"){
+				prepare_new_character(player);
+				// 真登录稍后仍会按 last_pos 进入房间；这里不能抢先把合法
+				// 的上次位置覆盖为营地。跨Worker到达本身不重复登录流程。
+				if(is_illusion_room_path(current_path))
+					record_room_visit(player,environment(player));
+			}
+			else if((string)status["phase"]=="settling" ||
+			   (string)status["phase"]=="closed"){
+				result = settle_player_locked_safely(player);
 				if(!(int)result["ok"])
 					ready = 0;
 			}
-			else{
-				werror("[ILLUSION_REALM] 未归档的旧幻境人物被冻结: %s %s\n",
-					(string)player->query_name(),
-					(string)realm["illusion_id"]);
-				ready = 0;
+		}
+		else if(ready){
+			string saved_content_id=content_id_for_room_path(
+				normalized_destination_path((string)player->last_pos));
+			if(saved_content_id!="" && !content_cycle_closed(saved_content_id)){
+				mapping saved_config=content_config_for_id(saved_content_id);
+				player->last_pos=(string)(saved_config["return_room"] ||
+					illusion_config["return_room"]);
 			}
 		}
-		else if((string)status["phase"]=="active"){
-			prepare_new_character(player);
-			// 真登录稍后仍会按 last_pos 进入房间；这里不能抢先把合法
-			// 的上次位置覆盖为营地。跨Worker到达本身不重复登录流程。
-			if(is_illusion_room_path(current_path))
-				record_room_visit(player,environment(player));
-		}
-		else if((string)status["phase"]=="settling" ||
-		   (string)status["phase"]=="closed"){
-			result = settle_player_locked(player);
-			if(!(int)result["ok"])
-				ready = 0;
-		}
-	}
-	else if(ready){
-		string saved_content_id=content_id_for_room_path(
-			normalized_destination_path((string)player->last_pos));
-		if(saved_content_id!="" && !content_cycle_closed(saved_content_id)){
-			mapping saved_config=content_config_for_id(saved_content_id);
-			player->last_pos=(string)(saved_config["return_room"] ||
-				illusion_config["return_room"]);
-		}
-	}
-	if(ready)
-		PERSONAL_DIFFICULTYD->refresh_player_scope(player);
+		if(ready)
+			PERSONAL_DIFFICULTYD->refresh_player_scope(player);
+	};
 	if(account_key)
 		destruct(account_key);
+	if(reconcile_err){
+		werror("[ILLUSION_REALM] 登录恢复异常，账号锁已释放并等待重试: user=%s error=%s\n",
+			functionp(player->query_name) ? (string)player->query_name() : "",
+			describe_error(reconcile_err));
+		return 0;
+	}
 	return ready;
 }
 

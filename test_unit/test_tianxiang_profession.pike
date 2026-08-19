@@ -243,6 +243,10 @@ void test_real_star_rotation_and_unlearned_gate()
 	test_start("三种真实法术积蓄三星、星落引爆且未学技能不可伪造");
 	object caster = create_player("__testunit_tianxiang_rotation__","tianxiang",80);
 	object target = create_player("__testunit_tianxiang_target__","fangshi",80);
+	// 本用例验证星痕生成/消费与星落实效，不验证闪避随机。生成技已有
+	// 合法未命中重试，但星落命中即消费全部星痕，无法无损重试；固定
+	// 靶人闪避可避免把一次合法随机闪避误报为职业逻辑回归。
+	target->set_base_dodge(-1000000);
 	object room = clone(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	array(string) generators = ({"xingmang","hanchen","liuxing"});
 	int failed = 0;
@@ -286,8 +290,18 @@ void test_real_star_rotation_and_unlearned_gate()
 		int mofa_before = caster->get_cur_mofa();
 		target_life_before_burst = life_before;
 		caster_mofa_before_burst = mofa_before;
-		caster->timeCold = 0;
-		caster->perform("xingluo",1);
+		// 战斗命中率依法封顶99%，固定低闪避仍有1%合法未命中。
+		// 星落未命中也会消耗星痕，测试重试前补回三星，避免随机数
+		// 把星痕消费与爆发伤害回归误报为失败。
+		for(int attempt=0;attempt<20 &&
+		    target->get_cur_life()>=life_before;attempt++){
+			if(caster->query_tianxiang_star_marks()<3)
+				caster->add_tianxiang_star_marks(
+					3-caster->query_tianxiang_star_marks());
+			caster->timeCold = 0;
+			caster->f_skills["xingluo"] = 0;
+			caster->perform("xingluo",1);
+		}
 		target_life_after_burst = target->get_cur_life();
 		caster_mofa_after_burst = caster->get_cur_mofa();
 		marks_after_burst = caster->query_tianxiang_star_marks();

@@ -164,6 +164,20 @@ int bootstrap_character(object player,string race_id,string profession_id)
 		(string)player->query_profeId()==profession_id;
 }
 
+void test_login_reconcile_exception_releases_lock(object player)
+{
+	player["/tmp/illusion_reconcile_throw_for_test"] = 1;
+	int reconcile_exception=SEASONALD->reconcile_player_login(player);
+	player->m_delete_foruser("/tmp/illusion_reconcile_throw_for_test");
+	object released_key=ACCOUNT_CHARACTERD->query_account_runtime_mutex(
+		(string)player->query_name())->trylock();
+	check("登录恢复内部异常失败关闭且账号运行锁必释放",
+		!reconcile_exception && released_key!=0,
+		sprintf("result=%d lock=%O",reconcile_exception,released_key));
+	if(released_key)
+		destruct(released_key);
+}
+
 int main()
 {
 	string account_id = "xd99testunitillusion";
@@ -443,9 +457,9 @@ int main()
 		string command_hook_source = Stdio.read_file(ROOT+
 			"/lowlib/system/inherit/feature/cmds.pike") || "";
 		check("在线自动结算获取账号锁且登录路径复用已持有锁",
+			search(season_source,"query_account_runtime_mutex(")!=-1 &&
 			search(season_source,
-				"query_account_runtime_mutex(\n\t\t(string)player->query_name())->lock()")!=-1 &&
-			search(season_source,"settle_player_locked(player)")!=-1 &&
+				"settle_player_locked_safely(player)")!=-1 &&
 			search(login_source,
 				"reconcile_player_login(this_object(),1)")!=-1,
 			"结算可能与共享仓库写并发，或登录路径重复获取非递归账号锁");
@@ -638,6 +652,13 @@ int main()
 			search(season_source,"time()<=closed_reconcile_until")!=-1 &&
 			search(season_source,"time()+60")!=-1,
 			"结算关闭竞态可能漏掉已接受但稍后才到达目标worker的人物");
+		check("世界归属异常集中失败关闭且结算不会误报已经回归",
+			search(season_source,"realm_error_log_times")!=-1 &&
+			search(season_source,"err=catch{")!=-1 &&
+			search(season_source,"\"realm_type\":\"unknown\"")!=-1 &&
+			search(season_source,
+				"if(!(int)realm[\"ok\"] || (int)realm[\"security_blocked\"])")!=-1,
+			"账号索引异常仍可能被猜成永恒服或被结算自动化计为成功");
 		check("赛季家园在统一命令层拦截且旧书签不能绕过",
 			search(command_hook_source,"search(verb,\"home_\")==0")!=-1 &&
 			search(command_hook_source,
@@ -945,6 +966,7 @@ int main()
 
 		root = create_root(account_id);
 		center_root = create_root(center_account_id);
+		test_login_reconcile_exception_releases_lock(root);
 		mapping center_activation = SEASONALD->
 			activate_free_account_entitlement(center_account_id);
 		check("新版幻境栏位记录精确绑定已支付金额并拒绝静默缩水",
@@ -1177,6 +1199,11 @@ int main()
 		boss_probe_state["claims"] = boss_probe_claims;
 		boss_probe_state["kills"] = 10000;
 		boss_probe_state["boss_kills"] = 100;
+		boss_probe_state["chapter_counter_version"] = 2;
+		boss_probe_state["chapter_counter_id"] = "S1-C18";
+		boss_probe_state["chapter_kills"] = 9;
+		boss_probe_state["chapter_boss_kills"] = 0;
+		boss_probe_state["chapter_visit_rooms"] = ([]);
 		boss_probe_state["visited"] = ([]);
 		boss_probe_state["story_events"] = ([]);
 		child["/plus/illusion_realm/S1"] = boss_probe_state;
@@ -1670,8 +1697,14 @@ int main()
 			(string)realm["illusion_id"]=="S1" &&
 			SEASONALD->query_character_group(child_id)=="illusion:S1" &&
 			LOGICALZONED->query_user_group(child_id)=="illusion:S1",
-			sprintf("realm=%O group=%s",realm,
+				sprintf("realm=%O group=%s",realm,
 				LOGICALZONED->query_user_group(child_id)));
+		check("账号索引瞬时异常不会穿透Worker路由且按人物失败隔离",
+			SEASONALD->query_character_group("xd99testunitrealmthrow")==
+				"realm-unavailable:xd99testunitrealmthrow" &&
+			LOGICALZONED->query_user_group("xd99testunitrealmthrow")==
+				"realm-unavailable:xd99testunitrealmthrow",
+			"异常索引被错误放进永恒共享组或直接抛出");
 		mapping active_realm = ([
 			"realm_type":"illusion","illusion_state":"active",
 			"illusion_id":"S1",

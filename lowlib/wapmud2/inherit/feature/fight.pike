@@ -4506,6 +4506,10 @@ private void heart_beat_action(){
 	//		surrender(arg);
 	//	}
 	else{
+		// S1九卷首领的预警/应对只在已验证的同房S1 PVE中运行。
+		// daemon异常必须失败关闭且不能中断历史攻击心跳。
+		if(this_object()->_boss && this_object()->is("npc"))
+			catch{ ILLUSION_BOSSD->tick(this_object(),action_enemy); };
 		//boss技能攻击，liaocheng于07/6/18添加
 		if(this_object()->_boss){
 			foreach(indices(this_object()->boss_skills),string time_str){

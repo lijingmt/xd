@@ -2,6 +2,43 @@
 #include <wapmud2/include/wapmud2.h>
 #include <gamelib/include/gamelib.h>
 
+// 快速战斗在当前 Worker 内同步推演；必须有硬上限，否则极端高血
+// 低伤组合可以用单个 HTTP 请求占住进程数十万乃至数亿轮。
+// 上限以内不改任何原公式；未决出胜负时不发放击杀奖励。
+// 4096轮在真实Pike进程中可占用单个Worker约7秒，仍足以形成并发DoS。
+// 正常快速战斗通常在几十轮内结束；512只收紧病态僵局的同步预算。
+#define QUICK_BATTLE_MAX_ROUNDS 512
+
+/**
+ * S1 的部分房间怪由逻辑区刷新器托管：它们能出现在玩家的可见列表中，
+ * 但旧 present(id) 在刷新交界点可能无法用字符串 id 再次命中对象。
+ * 兜底只扫描当前房间、只接受玩家实际可见且内部名称完全相同的对象，
+ * 后续仍会执行 NPC、阵营、和平房和生命状态等全部原有校验。
+ */
+private object|zero query_visible_quick_target(object player,string name,
+	int count)
+{
+	object room=environment(player);
+	object|zero target;
+	if(!room || name=="" || count<0)
+		return 0;
+	target=present(name,room,count,player);
+	if(target)
+		return target;
+	foreach(all_inventory(room,player),object candidate){
+		// 仍要求对象主动承认这个 id；绝不能借兜底攻击故意隐藏
+		// id 的剧情 NPC、召唤物或其他不可由名字选中的对象。
+		if(!functionp(candidate->query_name) ||
+		   !functionp(candidate->id) || !candidate->id(name) ||
+		   (string)candidate->query_name()!=name)
+			continue;
+		if(count==0)
+			return candidate;
+		count--;
+	}
+	return 0;
+}
+
 int main(string arg)
 {
 	object me = this_player();
@@ -117,7 +154,7 @@ int main(string arg)
 	int count;
 	int flag = 1;
 	sscanf(arg,"%s %d",name,count);
-	object ob=present(name,environment(this_player()),count,this_player());
+	object ob=query_visible_quick_target(me,name,count);
 	if(!ob){
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你要攻击什么东西？\n");
 		return 1;
@@ -203,7 +240,10 @@ int main(string arg)
 		if(ob_level<1)
 			ob_level = 1;
 		//战斗开始，直到双方任何一方生命为0结束
-		while(me->get_cur_life()>0&&ob->get_cur_life()>0){
+		int quick_battle_rounds;
+		while(me->get_cur_life()>0 && ob->get_cur_life()>0 &&
+		   quick_battle_rounds<QUICK_BATTLE_MAX_ROUNDS){
+			quick_battle_rounds++;
 			if(szx<1000){
 				me->set_jingli(me->query_jingli()-10-add_jl-rdc);
 				if(me->query_jingli()<=0)
@@ -226,9 +266,23 @@ int main(string arg)
 			dmg_me=PERSONAL_DIFFICULTYD->scale_pve_damage(ob,me,dmg_me);
 			me->set_life(me->get_cur_life()-dmg_me);
 		}
+		int unresolved=me->get_cur_life()>0 && ob->get_cur_life()>0;
 		//得到结果，调用双方的fight _die
-		if(me->get_cur_life()<=0){ //玩家死亡
-			s += "战斗失败！\n";	
+		if(unresolved){
+			// 不猜测超长战斗的胜负，也不让已经进行的模拟落入
+			// 普通心跳重复结算。怪物恢复、双方脱离临时仇恨；
+			// 玩家已承受的生命/精力/耐久消耗不回滚，避免变成免费试伤。
+			s += "【快速战斗】双方在"+
+				(string)QUICK_BATTLE_MAX_ROUNDS+
+				"轮内未分胜负，已安全中止。请提升属性或使用普通战斗。\n";
+			ob->set_life(ob->query_life_max());
+			ob->reset_targets();
+			ob->enemy=0;
+			ob->_clean_fight();
+			me->enemy=0;
+		}
+		else if(me->get_cur_life()<=0){ //玩家死亡
+			s += "【快速战斗】战斗失败！\n";
 			ob->set_life(ob->query_life_max());//怪物回满血
 			ob->who_fight_npc = "";//首次攻击者
 			ob->term_who_fight_npc = "";//首次攻击者队伍标示          
@@ -247,7 +301,7 @@ int main(string arg)
 			me->enemy=0;
 		}
 		else if(ob->get_cur_life()<=0){ //怪物死亡
-			s += "战斗胜利！\n";	
+			s += "【快速战斗】战斗胜利！\n";
 			ob->fight_die();
 			if(ob){
 				ob->reset_targets(); //重置仇恨列表
@@ -273,10 +327,14 @@ int main(string arg)
 			s += "精力 "+me->query_jingli()+"\n"; 
 			s+="──────────\n";
 		}
-		if(me->query_jingli()>10)
+		if(!unresolved && me->query_jingli()>10)
 			s += "[继续:kill_quick "+arg+"]\n";
 		s += "[返回:look]\n";
-		write(s);
+		// 快速战斗必须生成独立结果视图。直接 write() 会把奖励异步输出、
+		// 房间刷新或跨 Worker 到达页混在同一个响应里；同名怪较多时，
+		// 玩家会只看到 westeastnorth 与怪物列表，误以为点击无效。
+		// 使用既有 emote 视图保存完整战果，同时保留继续和返回按钮。
+		me->write_view(WAP_VIEWD["/emote"],0,0,s);
 		return 1;
 	}
 	this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你要攻击什么？\n");

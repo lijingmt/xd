@@ -63,6 +63,8 @@ int query_team_shared_drop_difficulty(mapping map_term,string owner_name)
  */
 void record_eligible_kill_progress(object player,void|int team_count)
 {
+	mixed seasonal_err;
+	mixed difficulty_err;
 	string userid;
 	if(!player || !functionp(player->query_name))
 		return;
@@ -70,8 +72,22 @@ void record_eligible_kill_progress(object player,void|int team_count)
 	if(userid=="" || (int)eligible_kill_progress_recorded[userid])
 		return;
 	eligible_kill_progress_recorded[userid] = 1;
-	SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
-	PERSONAL_DIFFICULTYD->record_npc_kill(player,this_object());
+	// 赛季与个人难度都是附加进度，任一模块异常都不能中断另一模块，
+	// 更不能阻断后续经验、掉落和NPC死亡清理。
+	seasonal_err = catch{
+		SEASONALD->record_npc_kill(player,this_object(),team_count || 0);
+	};
+	if(seasonal_err)
+		werror("[NPC_KILL_PROGRESS] 赛季击杀记账异常: user=%s npc=%s error=%s\n",
+			userid,(string)this_object()->query_name(),
+			describe_error(seasonal_err));
+	difficulty_err = catch{
+		PERSONAL_DIFFICULTYD->record_npc_kill(player,this_object());
+	};
+	if(difficulty_err)
+		werror("[NPC_KILL_PROGRESS] 难度击杀记账异常: user=%s npc=%s error=%s\n",
+			userid,(string)this_object()->query_name(),
+			describe_error(difficulty_err));
 }
 
 /** 单人和组队共用同一套打怪经验发放与提示。 */

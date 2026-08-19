@@ -560,19 +560,6 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	]);
 	player->level = 69;
 	player->set_att_by_level();
-	if(!move_for_test(player,
-	   "/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike")){
-		player["/plus/illusion_realm/S1"] = original_progress;
-		player->level = original_level;
-		player->set_att_by_level();
-		return (["ok":0,"message":"无法进入南瞻生死祠"]);
-	}
-	boss = clone(ROOT+
-		"/gamelib/clone/npc/illusion_s1/life_collector.pike");
-	boss->move(environment(player));
-	// 等级差超过10时旧公式的经验合法为0；死亡归属入口仍必须推进任务。
-	zero_exp = boss->grant_kill_experience(player,0);
-	boss->record_eligible_kill_progress(player,1);
 	move_for_test(player,
 		"/gamelib/d/illusion_s1/moon_dew_field.pike");
 	// 真实回归：人物已经69级，但第九章仍要求1级逐光月灵。普通挂机
@@ -654,11 +641,22 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		SEASONALD->complete_chapter_task_return_for_test(player) &&
 		(string)player["/tmp/illusion_chapter_last_return"]=="S1-C9" &&
 		!player["/tmp/illusion_chapter_return_pending"];
+	// 第九章先完成普通狩猎和卷末信物，再挑战剧情首领。仍用高等级
+	// 人物验证合法零经验不会吞掉死亡归属和剧情任务记账。
+	int boss_room_ready = move_for_test(player,
+		"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike");
+	if(boss_room_ready){
+		boss = clone(ROOT+
+			"/gamelib/clone/npc/illusion_s1/life_collector.pike");
+		boss->move(environment(player));
+		zero_exp = boss->grant_kill_experience(player,0);
+		boss->record_eligible_kill_progress(player,1);
+	}
 	move_for_test(player,
 		"/gamelib/d/illusion_s1/starlight_slope.pike");
 	progress = SEASONALD->query_player_progress(player);
 	chapter = (mapping)((array)progress["chapters"])[8];
-	int valid = zero_exp==0 &&
+	int valid = boss_room_ready && boss && zero_exp==0 &&
 		(int)player->query_level()-(int)boss->query_level()>=10 &&
 		ordinary_route_valid && ordinary_progress_valid &&
 		scoped_route_valid && scoped_gate_primed && scoped_stopped &&
@@ -667,7 +665,8 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		(int)chapter["chapter_kills_done"]==9 &&
 		(int)chapter["chapter_boss_kills_done"]==1 &&
 		(int)chapter["story_ready"] && (int)chapter["ready"];
-	destruct(boss);
+	if(boss)
+		destruct(boss);
 	boss = 0;
 	if(extra_hunt)
 		destruct(extra_hunt);
@@ -890,15 +889,69 @@ mapping(string:mixed) record_task_progress(object player,string route)
 				}
 				continue;
 			}
-			if(kind=="hunt"){
-				string npc_path = hunt_npc_path(
-					(string)chapter["target_name"]);
+				if(kind=="hunt"){
+					string npc_path = hunt_npc_path(
+						(string)chapter["target_name"]);
 				if(npc_path=="" || target_room=="" ||
 				   target_room!=(string)chapter["hunt_room"] ||
 				   !move_for_test(player,target_room))
-					return (["ok":0,"message":sprintf(
-						"第%d章狩猎目标配置或移动失败: %O",
-						chapter_index+1,chapter)]);
+						return (["ok":0,"message":sprintf(
+							"第%d章狩猎目标配置或移动失败: %O",
+							chapter_index+1,chapter)]);
+					if((string)chapter["story_event"]!="" &&
+					   !(int)result["early_story_echo_blocked"]){
+						mapping early_echo=story_events[
+							(string)chapter["story_event"]];
+						if(mappingp(early_echo) &&
+						   (string)early_echo["kind"]=="echo"){
+							if(!move_for_test(player,(string)early_echo["path"]))
+								return (["ok":0,"message":
+									"故事残响越序测试移动失败"]);
+							mapping early_read=SEASONALD->
+								discover_story_event_for_test(player);
+							mapping after_early_read=SEASONALD->
+								query_player_progress(player);
+							mapping early_read_chapter=(mapping)((array)
+								after_early_read["chapters"])[chapter_index];
+							if((int)early_read["ok"] ||
+							   (int)early_read_chapter["story_ready"] ||
+							   !move_for_test(player,target_room))
+								return (["ok":0,"message":sprintf(
+									"未完成本章狩猎仍可越序阅读关键剧情: %O %O",
+									early_read,early_read_chapter)]);
+							result["early_story_echo_blocked"]=1;
+						}
+					}
+					if((int)chapter["quest_item_required"]>0 &&
+				   !(int)chapter["quest_item_ready"] &&
+				   !(int)result["quest_gate_early_story_blocked"]){
+					mapping early_event=story_events[
+						(string)chapter["story_event"]];
+					if(mappingp(early_event) &&
+					   (string)early_event["kind"]=="boss"){
+						int boss_before=(int)chapter[
+							"chapter_boss_kills_done"];
+						if(!move_for_test(player,(string)early_event["room"]))
+							return (["ok":0,"message":
+								"卷末首领越序测试移动失败"]);
+						object early_boss=clone(ROOT+
+							(string)early_event["path"]);
+						early_boss->move(environment(player));
+						SEASONALD->record_npc_kill(player,early_boss,1);
+						destruct(early_boss);
+						mapping after_early=SEASONALD->
+							query_player_progress(player);
+						mapping early_chapter=(mapping)((array)
+							after_early["chapters"])[chapter_index];
+						if((int)early_chapter["story_ready"] ||
+						   (int)early_chapter["chapter_boss_kills_done"]!=
+							boss_before || !move_for_test(player,target_room))
+							return (["ok":0,"message":sprintf(
+								"未完成狩猎/信物仍可越序击杀卷末首领: %O",
+								early_chapter)]);
+						result["quest_gate_early_story_blocked"]=1;
+					}
+				}
 				if((int)chapter["quest_item_required"]>0 &&
 				   !(int)chapter["quest_item_ready"] &&
 				   !(int)result["quest_gate_wrong_sources_blocked"]){
@@ -1289,10 +1342,12 @@ void run_profession_journey(int index,mapping(string:string) profession)
 			(int)task["future_event_blocked"]==1 &&
 			(int)task["event_gates_tested"]==25 &&
 			(int)task["quest_gates_completed"]==9 &&
-			(int)task["quest_gates_before_story"]==9 &&
-			(int)task["quest_gate_pities_primed"]==9 &&
-			(int)task["quest_gate_wrong_sources_blocked"]==1 &&
-			(int)task["wrong_story_room_blocked"]==1 &&
+				(int)task["quest_gates_before_story"]==9 &&
+				(int)task["quest_gate_pities_primed"]==9 &&
+				(int)task["quest_gate_early_story_blocked"]==1 &&
+				(int)task["quest_gate_wrong_sources_blocked"]==1 &&
+				(int)task["early_story_echo_blocked"]==1 &&
+				(int)task["wrong_story_room_blocked"]==1 &&
 			(int)task["wrong_hunt_target_blocked"]==1 &&
 			(int)task["duplicate_death_callback_blocked"]==1 &&
 			(int)task["scoped_autofight_started"]==1 &&
@@ -1387,7 +1442,45 @@ void run_profession_journey(int index,mapping(string:string) profession)
 				sprintf("quiz=%O",restored_quiz));
 		}
 
+		if(index==0){
+			restored["/tmp/illusion_settle_throw_for_test"] = 1;
+			mapping thrown_settle=SEASONALD->settle_player_for_test(restored);
+			restored->m_delete_foruser(
+				"/tmp/illusion_settle_throw_for_test");
+			object released_key=ACCOUNT_CHARACTERD->
+				query_account_runtime_mutex(character_id)->trylock();
+			check("回归内部异常转为可重试失败且同账号运行锁必释放",
+				!(int)thrown_settle["ok"] && released_key!=0,
+				sprintf("result=%O lock=%O",thrown_settle,released_key));
+			if(released_key)
+				destruct(released_key);
+		}
+		if(index==0)
+			restored["/tmp/illusion_settle_post_commit_throw_for_test"] = 1;
 		mapping settled = SEASONALD->settle_player_for_test(restored);
+		restored->m_delete_foruser(
+			"/tmp/illusion_settle_post_commit_throw_for_test");
+		if(index==0)
+			check("账号索引提交后的会话异常仍明确回归成功且标记降级",
+				(int)settled["ok"] &&
+				(int)settled["post_commit_degraded"] &&
+				search((array)settled["post_commit_warnings"],
+					"difficulty_scope")!=-1,
+				sprintf("settled=%O",settled));
+		if(index==0){
+			restored["/tmp/illusion_settle_throw_for_test"] = 1;
+			mapping authoritative_retry=SEASONALD->
+				settle_player_for_test(restored);
+			restored->m_delete_foruser(
+				"/tmp/illusion_settle_throw_for_test");
+			check("结算异常边界反查已回归索引时不误报可重复失败",
+				(int)authoritative_retry["ok"] &&
+				(int)authoritative_retry["already"] &&
+				(int)authoritative_retry["post_commit_degraded"] &&
+				search((array)authoritative_retry["post_commit_warnings"],
+					"authoritative_recheck")!=-1,
+				sprintf("result=%O",authoritative_retry));
+		}
 		mapping returned_realm = ACCOUNT_CHARACTERD->
 			query_character_realm(character_id);
 		int returned_saved = restored->save_with_result();

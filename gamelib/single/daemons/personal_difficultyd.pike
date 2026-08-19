@@ -7,6 +7,9 @@ inherit LOW_DAEMON;
 #define DIFFICULTY_MAX_LEVEL 7
 #define DIFFICULTY_SWITCH_COOLDOWN 60
 #define DIFFICULTY_SCOPE_CACHE "/tmp/personal_difficulty_scope"
+#define DIFFICULTY_SCOPE_UNAVAILABLE "__unavailable"
+#define DIFFICULTY_SCOPE_RETRY_AT "/tmp/personal_difficulty_scope_retry_at"
+#define DIFFICULTY_SCOPE_RETRY_SECONDS 60
 
 // 基础模式逐项保持线上公式。七档挑战只通过统一边界应用增量倍率，
 // 任何非法或旧存档值都会失败关闭到基础模式。
@@ -50,6 +53,11 @@ private int valid_scope_id(string value)
 	return 1;
 }
 
+private int valid_cached_scope(string value)
+{
+	return value==DIFFICULTY_SCOPE_UNAVAILABLE || valid_scope_id(value);
+}
+
 private int bounded_level(int level)
 {
 	return level>=0 && level<=DIFFICULTY_MAX_LEVEL ? level : 0;
@@ -73,17 +81,39 @@ array(mapping(string:mixed)) query_catalog()
  */
 string refresh_player_scope(object player)
 {
-	string scope="eternal";
+	string scope=DIFFICULTY_SCOPE_UNAVAILABLE;
+	mapping realm=([]);
+	mixed realm_err;
 	if(!player || !functionp(player->query_name))
-		return scope;
-	mapping realm=ACCOUNT_CHARACTERD->query_character_realm(
-		(string)player->query_name());
-	if((int)realm["ok"] && !(int)realm["security_blocked"] &&
+		return "eternal";
+	// 世界归属是难度的附加作用域。账号索引瞬时异常或旧返回类型不能
+	// 顺着普攻、技能、掉落与挂机额度查询进入核心链；失败时只把本次
+	// 会话缓存为独立中性作用域，赛季隔离仍由 SEASONALD 独立校验。
+	realm_err=catch{
+		realm=ACCOUNT_CHARACTERD->query_character_realm(
+			(string)player->query_name());
+	};
+	if(realm_err || !mappingp(realm)){
+		werror("[PERSONAL_DIFFICULTY] 世界归属读取异常，难度回退基础作用域: user=%s error=%s\n",
+			(string)player->query_name(),realm_err ?
+			describe_error(realm_err) : "invalid realm result");
+		// 不得伪装成永恒服，否则 S1 人物可能读取或累计永恒难度进度。
+		// 独立中性作用域没有解锁记录，所有数值自然回到基础档。
+		realm=([]);
+	}
+	// 只接受账号索引明确证明的两个世界。ok=0、security_blocked、
+	// 未知类型、非active幻境或非法周期编号都保持中性，绝不猜成永恒服。
+	else if((int)realm["ok"] && !(int)realm["security_blocked"] &&
+	   (string)realm["realm_type"]=="eternal")
+		scope="eternal";
+	else if((int)realm["ok"] && !(int)realm["security_blocked"] &&
 	   (string)realm["realm_type"]=="illusion" &&
 	   (string)realm["illusion_state"]=="active" &&
 	   valid_scope_id((string)realm["illusion_id"]))
 		scope=(string)realm["illusion_id"];
 	player[DIFFICULTY_SCOPE_CACHE]=scope;
+	player[DIFFICULTY_SCOPE_RETRY_AT]=
+		scope==DIFFICULTY_SCOPE_UNAVAILABLE ? time() : 0;
 	return scope;
 }
 
@@ -93,12 +123,20 @@ private string query_scope(object player)
 	if(!player)
 		return "eternal";
 	cached=(string)(player[DIFFICULTY_SCOPE_CACHE] || "");
-	return valid_scope_id(cached) ? cached : refresh_player_scope(player);
+	// 临时故障不能把玩家永久钉在中性档；每分钟至多重查一次账号索引，
+	// 避免战斗热路径反复访问共享档案或刷日志。
+	if(cached==DIFFICULTY_SCOPE_UNAVAILABLE &&
+	   time()-(int)player[DIFFICULTY_SCOPE_RETRY_AT]>=
+		DIFFICULTY_SCOPE_RETRY_SECONDS)
+		return refresh_player_scope(player);
+	return valid_cached_scope(cached) ? cached : refresh_player_scope(player);
 }
 
 string query_scope_name(object player)
 {
 	string scope=query_scope(player);
+	if(scope==DIFFICULTY_SCOPE_UNAVAILABLE)
+		return "世界归属校验中";
 	return scope=="eternal" ? "永恒服" : scope+"幻境";
 }
 
@@ -200,6 +238,29 @@ int query_set_drop_percent_for_level(int level)
 	return (int)difficulty_catalog[bounded_level(level)]["set_drop_percent"];
 }
 
+/**
+ * 契印是 S1 的可选附加系统，任何旧档、坏档或守护进程异常都必须回到
+ * 中性倍率，不能中断全服共用的物理/法术伤害主链。正常合法值逐字传回，
+ * 因而不改变既有难度或契印数值。
+ */
+private mapping(string:int) safe_pact_combat_modifiers(object player)
+{
+	mapping result=([]);
+	mixed err=catch{
+		result=ILLUSION_JOURNEYD->query_pact_combat_modifiers(player);
+	};
+	if(err || !mappingp(result) ||
+	   !intp(result["outgoing_percent"]) ||
+	   !intp(result["incoming_percent"]) ||
+	   (int)result["outgoing_percent"]<85 ||
+	   (int)result["outgoing_percent"]>115 ||
+	   (int)result["incoming_percent"]<85 ||
+	   (int)result["incoming_percent"]>120)
+		return (["outgoing_percent":100,"incoming_percent":100]);
+	return (["outgoing_percent":(int)result["outgoing_percent"],
+		"incoming_percent":(int)result["incoming_percent"]]);
+}
+
 int scale_pve_damage(object attacker,object target,int damage)
 {
 	object credit_owner;
@@ -215,7 +276,7 @@ int scale_pve_damage(object attacker,object target,int damage)
 	   credit_owner->is("player") && target->is("npc")){
 		scaled = max(1,damage*query_outgoing_percent(credit_owner)/100);
 		if(query_scope(credit_owner)=="S1"){
-			pact = ILLUSION_JOURNEYD->query_pact_combat_modifiers(credit_owner);
+			pact = safe_pact_combat_modifiers(credit_owner);
 			scaled = max(1,scaled*(int)pact["outgoing_percent"]/100);
 		}
 		return scaled;
@@ -223,7 +284,7 @@ int scale_pve_damage(object attacker,object target,int damage)
 	if(attacker->is("npc") && target->is("player")){
 		scaled = max(1,damage*query_incoming_percent(target)/100);
 		if(query_scope(target)=="S1"){
-			pact = ILLUSION_JOURNEYD->query_pact_combat_modifiers(target);
+			pact = safe_pact_combat_modifiers(target);
 			scaled = max(1,scaled*(int)pact["incoming_percent"]/100);
 		}
 		return scaled;
@@ -249,10 +310,15 @@ private mapping(string:int) query_progress_mapping(object player)
 
 mapping(string:mixed) query_unlock_progress(object player)
 {
+	string scope=query_scope(player);
+	if(scope==DIFFICULTY_SCOPE_UNAVAILABLE)
+		return (["complete":0,"maxed":0,"unavailable":1,
+			"scope":scope,"scope_name":"世界归属校验中",
+			"mode":"unavailable","next_level":-1,
+			"message":"世界归属暂不可验证，难度进度保持原样，请稍后重试。"]);
 	int unlocked=query_unlocked_level(player);
 	int next=unlocked+1;
 	mapping progress=query_progress_mapping(player);
-	string scope=query_scope(player);
 	if(next>DIFFICULTY_MAX_LEVEL)
 		return (["complete":1,"maxed":1,"next_level":-1,
 			"scope":scope,"scope_name":query_scope_name(player),
@@ -314,7 +380,11 @@ mapping(string:mixed) claim_next_tier(object player)
 	mapping old_progress;
 	int old_unlocked;
 	string root;
-	if(!player || (int)progress["maxed"])
+	if(!player)
+		return (["ok":0,"message":"当前人物无效，不能解锁难度。"]) ;
+	if((int)progress["unavailable"])
+		return (["ok":0,"message":(string)progress["message"]]);
+	if((int)progress["maxed"])
 		return (["ok":0,"message":"你已经解锁全部个人挑战难度。"]);
 	if(!(int)progress["complete"])
 		return (["ok":0,"message":"破界试炼尚未完成。"]);
@@ -359,13 +429,18 @@ mapping(string:mixed) switch_tier(object player,int target_level)
 	string root;
 	if(!player || target_level<0 || target_level>DIFFICULTY_MAX_LEVEL)
 		return (["ok":0,"message":"无效的挑战难度。"]);
+	if(query_scope(player)==DIFFICULTY_SCOPE_UNAVAILABLE)
+		return (["ok":0,"message":"世界归属暂不可验证，原难度保持不变，请稍后重试。"]) ;
 	if(target_level>query_unlocked_level(player))
 		return (["ok":0,"message":"该难度尚未通过破界试炼解锁。"]);
 	old_level=query_current_level(player);
 	if(old_level==target_level)
 		return (["ok":1,"already":1,"level":old_level,
 			"message":"当前已经是【"+query_current_name(player)+"】难度。"]);
-	if(player->in_combat)
+	// in_combat 是战斗继承层的私有字段；跨对象直读在不同编译路径下
+	// 可能得到未定义值。只使用公开查询接口，确保所有职业真实交战时
+	// 都不能切换倍率、掉率和挂机上限。
+	if(functionp(player->query_in_combat) && player->query_in_combat())
 		return (["ok":0,"message":"战斗中不能切换个人挑战难度。"]);
 	if(functionp(player->query_autofight) &&
 	   player->query_autofight()=="enable")

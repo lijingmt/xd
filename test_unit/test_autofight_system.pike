@@ -144,6 +144,10 @@ void test_personal_difficulty_afk_and_shared_world()
 	mixed err=catch{
 		array(mapping(string:mixed)) catalog=difficulty->query_catalog();
 		array(int) expected_caps=({24,16,14,12,10,8,6,4});
+		// 纯内存测试人物没有账号索引；显式声明为永恒服，不能依赖
+		// “未知账号被猜成永恒服”这一条生产环境必须禁止的旧行为。
+		difficulty->set_scope_for_test(player,"eternal");
+		difficulty->set_scope_for_test(target_player,"eternal");
 		valid=sizeof(catalog)==8;
 		for(int level=0;level<sizeof(catalog);level++)
 			valid=valid &&

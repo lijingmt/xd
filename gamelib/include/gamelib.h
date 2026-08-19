@@ -116,6 +116,7 @@
 #define SEASONALD ((object)(ROOT "/gamelib/single/daemons/seasonal_chard.pike"))
 //S1新月回响：确定性秘迹、行旅秘术与月忆兽；只写人物唯一幻境子档案
 #define ILLUSION_JOURNEYD ((object)(ROOT "/gamelib/single/daemons/illusion_journeyd.pike"))
+#define ILLUSION_BOSSD ((object)(ROOT "/gamelib/single/daemons/illusion_bossd.pike"))
 //S1隐藏职业“照命”：七卷四十九难，进度只写人物唯一幻境子档案
 #define ILLUSION_HIDDEN_PROFESSIOND ((object)(ROOT "/gamelib/single/daemons/illusion_hidden_professiond.pike"))
 //自动挂机系统

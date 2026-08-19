@@ -157,6 +157,33 @@ int main()
 
 		object hunter=create_player("hunter","hunter");
 		object companion=create_player("companion","companion");
+		mapping legacy_modifiers;
+		mixed legacy_modifier_err=catch{
+			legacy_modifiers=ILLUSION_JOURNEYD->
+				query_pact_combat_modifiers(hunter);
+		};
+		check("Rev4前无契印字段的S1人物战斗保持中性且不会中断",
+			!legacy_modifier_err && mappingp(legacy_modifiers) &&
+			(int)legacy_modifiers["outgoing_percent"]==100 &&
+			(int)legacy_modifiers["incoming_percent"]==100,
+			legacy_modifier_err ? describe_error(legacy_modifier_err) :
+			 sprintf("modifiers=%O",legacy_modifiers));
+		object legacy_npc=clone(ROOT+
+			"/gamelib/clone/npc/illusion_s1/abyss_beast.pike");
+		int legacy_outgoing;
+		int legacy_incoming;
+		mixed legacy_damage_err=catch{
+			legacy_outgoing=PERSONAL_DIFFICULTYD->scale_pve_damage(
+				hunter,legacy_npc,10000);
+			legacy_incoming=PERSONAL_DIFFICULTYD->scale_pve_damage(
+				legacy_npc,hunter,10000);
+		};
+		check("旧档在真实双向PVE伤害入口保持可战斗且不改变基础值",
+			!legacy_damage_err && legacy_outgoing==10000 &&
+			legacy_incoming==10000,
+			legacy_damage_err ? describe_error(legacy_damage_err) :
+			 sprintf("out=%d in=%d",legacy_outgoing,legacy_incoming));
+		destruct(legacy_npc);
 		int hunter_ok=complete_route(hunter);
 		int companion_ok=complete_route(companion);
 		check("逐影与同行命途各六段均可独立完成",

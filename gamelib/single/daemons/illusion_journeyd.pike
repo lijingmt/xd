@@ -17,11 +17,28 @@ inherit LOW_DAEMON;
 #define JOURNEY_KEY "newmoon_journey"
 #define JOURNEY_LOG ROOT "/log/illusion_journey.log"
 #define PACT_COMBAT_CACHE "/tmp/illusion_journey_pact_combat"
+#define JOURNEY_LOCK_STRIPES 32
 
 private mapping(string:mixed) journey_config = ([]);
 private int config_valid;
-private Thread.Mutex journey_lock = Thread.Mutex();
+private array(object) journey_locks = ({});
 private mapping(string:int) journey_test_save_failures = ([]);
+
+/**
+ * 同一人物的历程写入必须严格串行；不同人物不应因为一次慢存档
+ * 互相阻塞。固定分片避免按玩家永久增长锁表，也让每个 Worker 的
+ * 内存占用保持有界。跨 Worker 的同人物唯一性仍由网关租约保证。
+ */
+private object journey_lock_for(object player)
+{
+	string identity = "_invalid_player";
+	int bucket;
+	if(player && functionp(player->query_name))
+		identity = (string)player->query_name();
+	foreach(identity;int index;int one)
+		bucket = (bucket*33+one)%JOURNEY_LOCK_STRIPES;
+	return journey_locks[bucket];
+}
 
 private int is_test_journey_player(object player)
 {
@@ -511,9 +528,10 @@ int force_next_save_failure_for_test(object player)
 
 /**
  * Main-story gate validation deliberately lives here rather than trusting a
- * single saved flag.  A deterministic substitute is valid only when the
- * owner-bound journey record, the matching four-act quest, its secret, and
- * the authoritative volume-end story event all agree.
+ * single saved flag. A deterministic substitute is valid only when the
+ * owner-bound journey record proves the matching quest's three investigation
+ * acts and the corresponding substitution timestamp agree. The fourth act
+ * remains the post-boss epilogue and secret reward.
  */
 int query_gate_substitution_ready(object player,string gate_id)
 {
@@ -521,7 +539,6 @@ int query_gate_substitution_ready(object player,string gate_id)
 	mapping state;
 	mapping quest;
 	mapping quest_state;
-	mapping events;
 	mixed substituted_at;
 	if(!config_valid || !player || !valid_slug(gate_id))
 		return 0;
@@ -539,17 +556,13 @@ int query_gate_substitution_ready(object player,string gate_id)
 	quest_state = mappingp(((mapping)state["side_quests"])[
 		(string)quest["id"]]) ? (mapping)((mapping)state["side_quests"])[
 		(string)quest["id"]] : ([]);
-	events = mappingp(progress["story_events"]) ?
-		(mapping)progress["story_events"] : ([]);
 	substituted_at = ((mapping)state["gate_substitutions"])[gate_id];
-	return (int)quest_state["act"]==4 &&
-		valid_timestamp(quest_state["completed_at"]) &&
-		(int)quest_state["completed_at"]>0 &&
+	// 前三幕调查是卷末随机信物的确定性替代路径；第四幕
+	// 则是主线 Boss 后的剧情收束和秘术奖励。若等到 Boss 之后才给
+	// 替代凭证，主线“先信物、后 Boss”会形成永远无法首次使用的循环依赖。
+	return (int)quest_state["act"]>=3 &&
 		valid_timestamp(substituted_at) && (int)substituted_at>0 &&
-		valid_timestamp(((mapping)state["secrets"])[
-			(string)quest["secret_id"]]) &&
-		(int)((mapping)state["secrets"])[(string)quest["secret_id"]]>0 &&
-		(int)events[(string)quest["final_event"]]>0;
+		(int)quest_state["act"]<=4;
 }
 
 private int claimed_chapter_count(mapping progress)
@@ -650,6 +663,23 @@ private mapping normalized_state(object player,mapping state,mapping progress)
 		}
 	if(!has_index(normalized,"community_points"))
 		normalized["community_points"] = 0;
+	// Rev4 早期档案可能已做完支线前三幕，但旧逻辑要到
+	// Boss 后才写替代凭证。act==3 本身已由三次真实战果存档证明，
+	// 因此可以确定性补齐；显式损坏的其他字段仍由 valid_state 失败关闭。
+	if(mappingp(normalized["side_quests"]) &&
+	   mappingp(normalized["gate_substitutions"]))
+		foreach((mapping)normalized["side_quests"];mixed quest_id;mixed raw){
+			mapping quest = stringp(quest_id) ?
+				quest_config((string)quest_id) : ([]);
+			mapping one = mappingp(raw) ? (mapping)raw : ([]);
+			string gate_id = (string)(quest["gate_id"] || "");
+			if(sizeof(quest) && (int)one["act"]>=3 && gate_id!="" &&
+			   !(int)((mapping)normalized["gate_substitutions"])[gate_id])
+				((mapping)normalized["gate_substitutions"])[gate_id] =
+					valid_timestamp(one["updated_at"]) &&
+					(int)one["updated_at"]>0 ?
+					(int)one["updated_at"] : time();
+		}
 	return normalized;
 }
 
@@ -730,9 +760,10 @@ private int valid_state(object player,mapping state)
 		   (has_index(one,"completed_at") &&
 		    (int)one["completed_at"]>0) ||
 		   ((int)one["act"]==4 && (int)one["act_kills"]!=0) ||
+		   (((int)one["act"]>=3) !=
+		    ((int)substitutions[(string)quest["gate_id"]]>0)) ||
 		   ((int)one["act"]==4 &&
-		    ((int)secrets[(string)quest["secret_id"]]<=0 ||
-		     (int)substitutions[(string)quest["gate_id"]]<=0)))
+		    (int)secrets[(string)quest["secret_id"]]<=0))
 			return 0;
 	}
 	foreach(secrets;mixed id;mixed value){
@@ -760,7 +791,7 @@ private int valid_state(object player,mapping state)
 		if(!sizeof(linked_quest) || !valid_timestamp(value) ||
 		   (int)value<=0 ||
 		   !mappingp(quests[(string)linked_quest["id"]]) ||
-		   (int)((mapping)quests[(string)linked_quest["id"]])["act"]!=4)
+		   (int)((mapping)quests[(string)linked_quest["id"]])["act"]<3)
 			return 0;
 	}
 	pets = (mapping)companion["pets"];
@@ -1158,7 +1189,12 @@ private int pact_slot_count(mapping progress)
 
 private mapping pact_modifiers(mapping state)
 {
-	mapping pacts = (mapping)state["pacts"];
+	// Rev4 上线前已经存在的 S1 人物没有 pacts 字段。战斗心跳会直接
+	// 调用只读倍率查询，不能依赖玩家先打开一次“新月回响”页面完成
+	// 内存规范化；缺字段或坏类型必须安全回到中性倍率，绝不能让普通
+	// 攻击因强制类型转换中断。
+	mapping pacts = mappingp(state["pacts"]) ?
+		(mapping)state["pacts"] : ([]);
 	array active = arrayp(pacts["active"]) ? (array)pacts["active"] : ({});
 	int outgoing = 100;
 	int incoming = 100;
@@ -1234,6 +1270,10 @@ mapping(string:int) query_pact_combat_modifiers(object player)
 	progress = raw_progress(player);
 	state = sizeof(progress) && mappingp(progress[JOURNEY_KEY]) ?
 		(mapping)progress[JOURNEY_KEY] : ([]);
+	// 老 S1 档案尚未生成契印子结构时保持 100%/100%。这里只读、
+	// 不迁移也不保存，避免战斗心跳变成隐式写盘入口。
+	if(!mappingp(state["pacts"]))
+		return (["outgoing_percent":100,"incoming_percent":100]);
 	pacts = mappingp(state["pacts"]) ? (mapping)state["pacts"] : ([]);
 	active = arrayp(pacts["active"]) ? (array)pacts["active"] : ({});
 	if((string)state["owner_id"]!=(string)player->query_name() ||
@@ -1265,15 +1305,23 @@ mapping(string:int) query_pact_combat_modifiers(object player)
 private mapping(string:mixed) query_journey_internal(object player,
 	int test_bypass_context)
 {
-	mapping progress_view;
+	mapping progress_view=([]);
 	mapping progress;
 	mapping state;
+	mapping community=([]);
 	array quest_rows = ({});
+	mixed progress_err;
+	mixed community_err;
 	if(!config_valid || !player)
 		return (["ok":0,"message":"新月回响配置未通过安全校验。"]) ;
-	progress_view = test_bypass_context && is_test_journey_player(player) ?
-		(["ok":1,"mode":"season","illusion_id":"S1"]) :
-		SEASONALD->query_player_progress(player);
+	if(test_bypass_context && is_test_journey_player(player))
+		progress_view=(["ok":1,"mode":"season","illusion_id":"S1"]);
+	else
+		progress_err=catch{
+			progress_view=SEASONALD->query_player_progress(player);
+		};
+	if(progress_err || !mappingp(progress_view))
+		return (["ok":0,"message":"S1主线进度暂不可验证；本次不会写入新月支线档案。"]) ;
 	if(!(int)progress_view["ok"] ||
 	   (string)progress_view["illusion_id"]!="S1")
 		return (["ok":0,"message":"当前人物没有可进行的S1新月回响。"]) ;
@@ -1294,6 +1342,13 @@ private mapping(string:mixed) query_journey_internal(object player,
 			"unlocked":claimed_chapter_count(progress)>=
 				(int)quest["unlock_claimed"]])});
 	}
+	// 全服共鸣是衍生只读面板。跨 Worker 快照暂不可用时只拒绝猜测
+	// 总数，不能让个人支线、宠物、契印与任务页面整体变成空响应。
+	community_err=catch{
+		community=SEASONALD->query_community_progress("S1");
+	};
+	if(community_err || !mappingp(community))
+		community=(["ok":0,"points":0,"contributors":0]);
 	return (["ok":1,"mode":(string)progress_view["mode"],
 		"illusion_id":"S1","display_name":(string)journey_config["display_name"],
 		"chapter_claimed":claimed_chapter_count(progress),
@@ -1313,7 +1368,7 @@ private mapping(string:mixed) query_journey_internal(object player,
 		"loot_focus":public_loot_focus(progress,state,
 			(string)progress_view["mode"]),
 		"resonance":public_resonance(player,state),
-		"community":SEASONALD->query_community_progress("S1")+
+		"community":community+
 			copy_value((mapping)journey_config["community_goal"])]);
 }
 
@@ -1549,7 +1604,7 @@ mapping(string:mixed) perform_signature_ritual(object player)
 	mapping saved;
 	if(!player || !config_valid)
 		return (["ok":0,"message":"卷印试炼暂不可用。"]);
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -1598,7 +1653,7 @@ mapping(string:mixed) toggle_pact(object player,string pact_id)
 	int slots;
 	if(!sizeof(pact_config(pact_id)))
 		return (["ok":0,"message":"月相契印不存在。"]);
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -1647,7 +1702,7 @@ mapping(string:mixed) set_loot_focus(object player,string kind)
 	mapping saved;
 	if(kind!="all" && !sizeof(loot_focus_config(kind)))
 		return (["ok":0,"message":"定向部位不存在。"]);
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -1733,7 +1788,14 @@ private mapping(string:mixed) record_npc_kill_internal(object player,object npc,
 		((int)progress_view["ok"] &&
 		(string)progress_view["illusion_id"]=="S1" &&
 		(string)progress_view["mode"]=="season");
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
+	// 快速路径的标记检查发生在加锁前；并发线程可能同时通过。
+	// 获得同人物锁后必须再次验证，保证同一具 NPC 的同一次死亡
+	// 最多推进一次支线、命途、偶遇和回廊进度。
+	if((int)npc[credit_marker]){
+		destruct(key);
+		return (["ok":1,"credited":0,"duplicate":1]);
+	}
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -1958,10 +2020,11 @@ private mapping(string:mixed) record_npc_kill_internal(object player,object npc,
 		(signature_credited ? ":signature" : "")+
 		(route_credited ? ":route" : "")+
 		(encounter_activated ? ":activated" : ""));
+	if((int)saved["ok"])
+		npc[credit_marker] = 1;
 	destruct(key);
 	if(!(int)saved["ok"])
 		return saved+(["credited":0]);
-	npc[credit_marker] = 1;
 	task_mode = mappingp(player["/tmp/illusion_journey_autofight"]) ?
 		(mapping)player["/tmp/illusion_journey_autofight"] : ([]);
 	if(sidequest_complete && (string)task_mode["quest_id"]==(string)quest["id"] &&
@@ -2024,7 +2087,7 @@ mapping(string:mixed) advance_current_quest(object player)
 	int act_index;
 	if(!player || !config_valid)
 		return (["ok":0,"message":"新月回响暂不可用。"]) ;
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -2069,10 +2132,18 @@ mapping(string:mixed) advance_current_quest(object player)
 	one["act"] = act_index+1;
 	one["act_kills"] = 0;
 	one["updated_at"] = time();
+	if(act_index==2)
+		((mapping)state["gate_substitutions"])[
+			(string)quest["gate_id"]] = time();
 	if(act_index==3){
 		one["completed_at"] = time();
 		((mapping)state["secrets"])[(string)quest["secret_id"]] = time();
-		((mapping)state["gate_substitutions"])[(string)quest["gate_id"]] = time();
+		// 旧档案兼容：即使前三幕来自旧版，卷末收束也会
+		// 把已经取得的确定性凭证正式存回唯一人物档案。
+		if(!(int)((mapping)state["gate_substitutions"])[
+		   (string)quest["gate_id"]])
+			((mapping)state["gate_substitutions"])[
+				(string)quest["gate_id"]] = time();
 	}
 	quest_states[(string)quest["id"]] = one;
 	state["side_quests"] = quest_states;
@@ -2086,8 +2157,10 @@ mapping(string:mixed) advance_current_quest(object player)
 		"message":"【新月支线·"+(string)act["title"]+"】\n"+(string)act["text"]+
 			(act_index==3 ? "\n支线完成：获得行旅秘术【"+
 			 (string)secret_config((string)quest["secret_id"])["name"]+
-			 "】；本卷剧情凭证已确定写入，不再强制依赖随机掉落。" :
-			 "\n本幕支线战果已经记录，可以继续下一幕。")]);
+			 "】；卷末故事已经完整收束。" :
+			 (act_index==2 ?
+			 "\n前三幕调查已经闭环：卷末确定性信物凭证已写入。现在可直接继续本卷主线，不必等待随机信物。" :
+			 "\n本幕支线战果已经记录，可以继续下一幕。"))]);
 }
 
 private string new_pet_id(object player,string species_id)
@@ -2123,7 +2196,7 @@ mapping(string:mixed) choose_starter_companion(object player,string species_id)
 	mapping saved;
 	if(search(({"ink_tail","fog_horn","mirror_fin"}),species_id)==-1)
 		return (["ok":0,"message":"首只月忆兽只能从墨尾、雾角、镜鳍中选择。"]) ;
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -2161,7 +2234,7 @@ mapping(string:mixed) choose_active_companion(object player,string species_id)
 	mapping state;
 	mapping companion;
 	mapping saved;
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -2199,7 +2272,7 @@ mapping(string:mixed) claim_companion_memory(object player,string choice_id)
 	int volume;
 	if(!sizeof(choice))
 		return (["ok":0,"message":"月忆选择无效，本次没有写入档案。"]) ;
-	key = journey_lock->lock();
+	key = journey_lock_for(player)->lock();
 	old_all = copy_value((mapping)(player[PROGRESS_ROOT] || ([])));
 	all_progress = copy_value(old_all);
 	progress = mappingp(all_progress["S1"]) ?
@@ -2296,5 +2369,7 @@ mapping(string:mixed) use_secret(object player,string secret_id)
 
 protected void create()
 {
+	for(int index=0;index<JOURNEY_LOCK_STRIPES;index++)
+		journey_locks += ({Thread.Mutex()});
 	reload_config();
 }

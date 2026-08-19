@@ -163,6 +163,31 @@ int main()
 			sprintf("s1=%d eternal=%d before=%O after=%O",s1_level,
 				eternal_level,before_chapters,after_chapters));
 
+		object combat_switch_player=create_player(
+			"__testunit_personal_difficulty_combat_switch__",
+			"human","jianxian");
+		players+=({combat_switch_player});
+		difficulty->set_scope_for_test(combat_switch_player,"eternal");
+		combat_switch_player["/plus/personal_difficulty/unlocked"]=1;
+		combat_switch_player["/plus/personal_difficulty/current"]=0;
+		object safe_room=(object)(ROOT+
+			"/gamelib/d/congxianzhen/congxianzhenguangchang");
+		object combat_npc=clone(ROOT+
+			"/gamelib/clone/npc/mihuandao/9youdangelang.pike");
+		combat_switch_player->move(safe_room);
+		combat_npc->move(safe_room);
+		int fight_started=combat_switch_player->_fight(combat_npc);
+		mapping combat_switch=difficulty->switch_tier(combat_switch_player,1);
+		check("真实交战状态通过公开接口拒绝切换个人难度",
+			fight_started && combat_switch_player->query_in_combat() &&
+			!(int)combat_switch["ok"] &&
+			search((string)combat_switch["message"],"战斗中")!=-1,
+			sprintf("started=%d in_combat=%d result=%O",fight_started,
+				combat_switch_player->query_in_combat(),combat_switch));
+		combat_switch_player->_clean_fight();
+		combat_npc->_clean_fight();
+		destruct(combat_npc);
+
 		int professions_ok=1;
 		foreach(professions;int index;mapping profession){
 			object player=create_player(sprintf(
@@ -214,6 +239,39 @@ int main()
 			search(worker,"personal_difficulty")==-1 &&
 			search(rpc,"personal_difficulty")==-1,
 			"Worker路由不应读取个人难度");
+		string difficulty_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/personal_difficultyd.pike") || "";
+		check("账号世界归属读取异常不会中断战斗掉落或挂机主链",
+			search(difficulty_source,"realm_err=catch")!=-1 &&
+			search(difficulty_source,"!mappingp(realm)")!=-1 &&
+			search(difficulty_source,"DIFFICULTY_SCOPE_UNAVAILABLE")!=-1 &&
+			search(difficulty_source,
+				"string scope=DIFFICULTY_SCOPE_UNAVAILABLE")!=-1 &&
+			search(difficulty_source,
+				"(string)realm[\"realm_type\"]==\"eternal\"")!=-1 &&
+			search(difficulty_source,
+				"(string)realm[\"illusion_state\"]==\"active\"")!=-1 &&
+			search(difficulty_source,
+				"player[DIFFICULTY_SCOPE_CACHE]=scope")!=-1,
+			"个人难度异常作用域缺少中性隔离或可能误写永恒进度");
+		object unavailable=create_player(
+			"__testunit_personal_difficulty_scope_unavailable__",
+			"human","jianxian");
+		unavailable["/tmp/personal_difficulty_scope"]="__unavailable";
+		unavailable["/tmp/personal_difficulty_scope_retry_at"]=time();
+		mapping unavailable_status=PERSONAL_DIFFICULTYD->query_status(unavailable);
+		mapping unavailable_claim=PERSONAL_DIFFICULTYD->claim_next_tier(unavailable);
+		mapping unavailable_switch=PERSONAL_DIFFICULTYD->switch_tier(unavailable,0);
+		check("世界归属暂不可用时难度页只读拒绝且不制造伪作用域进度",
+			(string)unavailable_status["scope"]=="__unavailable" &&
+			(string)unavailable_status["progress"]["mode"]=="unavailable" &&
+			!(int)unavailable_claim["ok"] &&
+			!(int)unavailable_switch["ok"] &&
+			!mappingp(unavailable[
+				"/plus/personal_difficulty/scopes/__unavailable/progress"]),
+			sprintf("status=%O claim=%O switch=%O",unavailable_status,
+				unavailable_claim,unavailable_switch));
+		cleanup_player(unavailable);
 	};
 	check("个人难度完整测试未发生运行异常",!err,
 		err ? describe_error(err)+" "+describe_backtrace(err) : "");

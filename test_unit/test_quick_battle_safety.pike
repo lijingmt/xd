@@ -158,6 +158,124 @@ void test_dead_npc_rejected()
 	cleanup(room);
 }
 
+void test_s1_abyss_victory_result_is_not_room_dump()
+{
+	object room = clone(ROOT+"/gamelib/d/illusion_s1/abyss_garden.pike");
+	object player = create_player("__testunit_quick_abyss__");
+	object|zero npc = 0;
+	object command = (object)(ROOT+"/lowlib/wapmud2/cmds/kill_quick.pike");
+	object|zero original_player = this_player();
+	string response = "";
+	string error_desc = "";
+	string target_name = "";
+	int same_name_count;
+	int exact_name_count;
+	int target_accepts_own_id;
+	int direct_present_found;
+	mixed err = catch {
+		player->level = 69;
+		player->set_att_by_level();
+		player->flush_life();
+		player->set_jingli(100);
+		player["/tmp/illusion_move_bypass"]=1;
+		player->move(room);
+		player->m_delete_foruser("/tmp/illusion_move_bypass");
+		if(environment(player)!=room)
+			error("测试人物未能进入渊花庭\n");
+		// 只选择房间正常刷新、且对该玩家真实可见的 S1 怪。另行 clone
+		// 的测试怪没有逻辑区归属，本就应该被隔离层隐藏，不能拿来冒充
+		// 浏览器实际点击的目标。
+		foreach(all_inventory(room,player),object current){
+			if(current->is("npc") && current->query_name_cn()=="渊花异兽"){
+				if(!npc)
+					npc=current;
+				same_name_count++;
+			}
+		}
+		if(!npc)
+			error("渊花庭没有生成玩家可见的渊花异兽\n");
+		target_name=(string)(npc->query_name() || "");
+		target_accepts_own_id=target_name!="" && npc->id(target_name);
+		foreach(all_inventory(room,player),object current)
+			if(functionp(current->query_name) &&
+			   (string)current->query_name()==target_name)
+				exact_name_count++;
+		direct_present_found=!!present(target_name,room,0,player);
+		npc->set_base_life(1);
+		npc->set_base_str(1);
+		npc->flush_life();
+		player->m_delete_foruser("/tmp/qkill");
+		set_this_player(player);
+		command->main(target_name+" 0");
+		response = (string)player->query_spliter()["text"];
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc = describe_error(err);
+	check("渊花庭同名怪快速攻击返回明确战果而非裸房间快照",
+		!err && same_name_count>=2 &&
+		(search(response,"战斗胜利")!=-1 ||
+		 search(response,"战斗失败")!=-1) &&
+		search(response,"[返回:look]")!=-1 &&
+		search(response,"westeastnorth")==-1,
+		error_desc+sprintf(" target_name=%O same_name_count=%d exact=%d "+
+			"self_id=%d direct_present=%d response=%O",target_name,
+			same_name_count,exact_name_count,target_accepts_own_id,
+			direct_present_found,response));
+	cleanup(player);
+	cleanup(room);
+}
+
+void test_extreme_stalemate_is_bounded()
+{
+	object room=clone(WAP_ROOM);
+	object player=create_player("__testunit_quick_bounded__");
+	object npc=clone(ROOT+"/gamelib/clone/npc/mihuandao/9youdangelang");
+	object command=(object)(ROOT+"/lowlib/wapmud2/cmds/kill_quick.pike");
+	object|zero original_player=this_player();
+	string response="";
+	string error_desc="";
+	int npc_max;
+	int elapsed_ms;
+	mixed err=catch{
+		player->set_base_life(1000000000);
+		player->flush_life();
+		player->move(room);
+		npc->set_base_life(1000000000);
+		npc->set_base_str(1);
+		npc->flush_life();
+		npc->move(room);
+		npc_max=npc->query_life_max();
+		player->m_delete_foruser("/tmp/qkill");
+		set_this_player(player);
+		int started_ms=(System.Time()->usec_full)/1000;
+		command->main(npc->query_name()+" 0");
+		elapsed_ms=(System.Time()->usec_full)/1000-started_ms;
+		response=(string)player->query_spliter()["text"];
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc=describe_error(err);
+	check("极端高血低伤快速战斗有界且不伪造击杀",
+		!err && npc && npc->get_cur_life()==npc_max &&
+		!player->enemy && !npc->enemy &&
+		search(response,"512轮内未分胜负")!=-1 &&
+		elapsed_ms<3000 &&
+		search(response,"[继续:kill_quick")==-1,
+		error_desc+sprintf(" npc=%d/%d player=%d elapsed_ms=%d response=%O",
+			npc ? npc->get_cur_life() : -1,npc_max,
+			player ? player->get_cur_life() : -1,elapsed_ms,response));
+	cleanup(player);
+	cleanup(npc);
+	cleanup(room);
+}
+
 void test_source_contract()
 {
 	string quick = Stdio.read_file(ROOT+
@@ -198,6 +316,8 @@ int main()
 	test_low_level_loss_and_revival();
 	test_player_target_rejected();
 	test_dead_npc_rejected();
+	test_s1_abyss_victory_result_is_not_room_dump();
+	test_extreme_stalemate_is_bounded();
 	test_notice_is_one_shot();
 	test_source_contract();
 	werror("快速攻击安全测试：失败 %d\n",failures);

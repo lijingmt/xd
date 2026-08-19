@@ -47,7 +47,7 @@ object create_player()
 	one->set_term("noterm");
 	one["/plus/illusion_realm/S1"] = ([
 		"version":1,"content_id":"S1","claims":([]),
-		"story_events":(["life_collector":time()]),
+		"story_events":([]),
 		"quest_item_pity":(["mortal_lifespan_thread":6]),
 	]);
 	one->save_with_result();
@@ -128,6 +128,7 @@ int main()
 		int acts_ok=1;
 		int hunt_started;
 		int hunt_stopped;
+		int preboss_substitution_ready;
 		mapping hunt_result=([]);
 		foreach((array)first["acts"];int act_index;mapping act){
 			acts_ok=move_for_test(one,(string)act["room"]) && acts_ok;
@@ -164,6 +165,26 @@ int main()
 			}
 				mapping advanced=daemon->advance_current_quest(one);
 				acts_ok=acts_ok && (int)advanced["ok"];
+				if(act_index==2){
+					mapping before_boss_progress=(mapping)one[
+						"/plus/illusion_realm/S1"];
+					mapping chapter9=(mapping)((array)((mapping)
+						((array)story["volumes"])[0])["chapters"])[8];
+					mapping before_boss_gate=SEASONALD->
+						query_quest_item_gate_status_for_test(one,
+							before_boss_progress,chapter9);
+					preboss_substitution_ready=(int)before_boss_gate["ready"] &&
+						(int)before_boss_gate["substitute_ready"] &&
+						!(int)((mapping)before_boss_progress[
+							"story_events"])["life_collector"];
+				}
+				if(act_index==2){
+					mapping before_final=(mapping)one[
+						"/plus/illusion_realm/S1"];
+					((mapping)before_final["story_events"])[
+						"life_collector"] = time();
+					acts_ok=one->save_with_result() && acts_ok;
+				}
 			}
 			check("支线限定挂机可启动且完成后自动停止",
 				hunt_started && hunt_stopped,
@@ -175,8 +196,9 @@ int main()
 		mapping journey=(mapping)progress["newmoon_journey"];
 		mapping qstate=(mapping)((mapping)journey["side_quests"])[
 			"ink_without_name"];
-		check("第一卷前三幕真实击杀、卷末首领事件后才写入秘术与剧情凭证",
-			acts_ok && (int)qstate["act"]==4 &&
+		check("第一卷前三幕先给确定性信物凭证，卷末首领后再给秘术",
+			acts_ok && preboss_substitution_ready &&
+			(int)qstate["act"]==4 &&
 			(int)((mapping)journey["secrets"])["hidden_name_trace"]>0 &&
 			(int)((mapping)journey["gate_substitutions"])[
 				"mortal_lifespan_thread"]>0,
@@ -428,6 +450,10 @@ int main()
 			"/gamelib/cmds/illusion_journey.pike") || "";
 		string seasonal_source=Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/seasonal_chard.pike") || "";
+		string npc_source=Stdio.read_file(ROOT+
+			"/gamelib/inherit/npc.pike") || "";
+		string items_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/itemsd.pike") || "";
 		mixed compile_err=catch{
 			compile_file(ROOT+"/gamelib/cmds/illusion_journey.pike");
 		};
@@ -446,6 +472,39 @@ int main()
 				"ILLUSION_JOURNEYD->record_npc_kill(player,npc)")!=-1 &&
 			search(seasonal_source,"journey_err = catch")!=-1,
 			"支线击杀未接入权威NPC死亡回调或未隔离异常");
+		check("NPC死亡的赛季与难度附加记账彼此隔离且不阻断基础奖励",
+			search(npc_source,"seasonal_err = catch")!=-1 &&
+			search(npc_source,"difficulty_err = catch")!=-1 &&
+			search(npc_source,"[NPC_KILL_PROGRESS]")!=-1,
+			"附加进度异常仍可能中断经验、掉落或另一模块");
+		check("套装定向与支线替代凭证异常均安全回退原始掉落路径",
+			search(items_source,"focus_err = catch")!=-1 &&
+			search(items_source,"focus = \"all\"")!=-1 &&
+			search(seasonal_source,"substitution_err = catch")!=-1 &&
+			search(seasonal_source,"substitute_ready = 0")!=-1 &&
+			search(seasonal_source,
+				"gate_substitution_error_log_times")!=-1 &&
+			search(seasonal_source,"sizeof(gate_substitution_error_log_times)>=4096")!=-1,
+			"可选支线状态仍可能破坏合法掉落或形成无界日志风暴");
+		check("支线主页面与跨Worker共鸣读取异常彼此隔离",
+			search(daemon_source,"progress_err=catch")!=-1 &&
+			search(daemon_source,"community_err=catch")!=-1 &&
+			search(daemon_source,
+				"community=([\"ok\":0,\"points\":0,\"contributors\":0])")!=-1,
+			"主线或全服快照异常仍可能让新月支线页面空响应");
+		check("S1历程写入按人物有界分片且不再全服串行",
+			search(daemon_source,"#define JOURNEY_LOCK_STRIPES 32")!=-1 &&
+			search(daemon_source,"private object journey_lock_for(object player)")!=-1 &&
+			search(daemon_source,"journey_lock_for(player)->lock()")!=-1 &&
+			search(daemon_source,"journey_lock->lock()")==-1 &&
+			search(daemon_source,
+				"for(int index=0;index<JOURNEY_LOCK_STRIPES;index++)")!=-1,
+			"不同玩家仍共用全局历程锁，或分片锁初始化缺失");
+		check("同一NPC死亡标记在人物锁内二次校验并随成功存档提交",
+			sizeof(daemon_source/"if((int)npc[credit_marker])")==3 &&
+			search(daemon_source,
+				"if((int)saved[\"ok\"])\n\t\tnpc[credit_marker] = 1;\n\tdestruct(key);")!=-1,
+			"并发死亡回调仍可能在释放人物锁后重复推进S1历程");
 		string autofight_source=Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/autofightd.pike") || "";
 		check("支线挂机按精确NPC与房间优先选怪且禁止普通寻路离场",

@@ -415,6 +415,7 @@ array(string) query_newmoon_base_templates_for_profession(string profession_id)
  */
 array(string) query_newmoon_drop_templates_for_player(object player)
 {
+	mixed focus_err;
 	string focus;
 	string profession;
 	string cache_key;
@@ -422,7 +423,18 @@ array(string) query_newmoon_drop_templates_for_player(object player)
 	array(string) focused = ({});
 	if(!player)
 		return newmoon_item_list+({});
-	focus = ILLUSION_JOURNEYD->query_newmoon_drop_focus(player);
+	// 掉落定向是可选体验；支线旧档或模块异常时必须退回完整模板池，
+	// 不能让一次已经命中的合法装备掉落中断NPC死亡结算。
+	focus_err = catch{
+		focus = ILLUSION_JOURNEYD->query_newmoon_drop_focus(player);
+	};
+	if(focus_err || !stringp(focus) || focus==""){
+		if(focus_err)
+			werror("[NEWMOON_DROP] 套装定向查询异常，已使用公共池: user=%s error=%s\n",
+				functionp(player->query_name) ? (string)player->query_name() : "",
+				describe_error(focus_err));
+		focus = "all";
+	}
 	profession = functionp(player->query_profeId) ?
 		(string)player->query_profeId() : "";
 	if(focus=="all" || profession=="")
