@@ -4506,9 +4506,14 @@ private void heart_beat_action(){
 	//		surrender(arg);
 	//	}
 	else{
-		// S1九卷首领的预警/应对只在已验证的同房S1 PVE中运行。
+		// S1普通怪与九卷首领的预警/应对只在已验证的同房S1 PVE中运行。
+		// 普通怪使用显式opt-in接口，不能设置_boss，否则会误入Boss倍率、
+		// 掉落和离场规则。
 		// daemon异常必须失败关闭且不能中断历史攻击心跳。
-		if(this_object()->_boss && this_object()->is("npc"))
+		if(this_object()->is("npc") &&
+		   (this_object()->_boss ||
+		    (functionp(this_object()->query_illusion_combat_mechanic) &&
+		     this_object()->query_illusion_combat_mechanic())))
 			catch{ ILLUSION_BOSSD->tick(this_object(),action_enemy); };
 		//boss技能攻击，liaocheng于07/6/18添加
 		if(this_object()->_boss){

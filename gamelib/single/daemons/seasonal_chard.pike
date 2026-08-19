@@ -26,7 +26,7 @@ inherit LOW_DAEMON;
 #define ILLUSION_LOG ROOT "/log/illusion_realm.log"
 #define ILLUSION_ACCOUNT_EXPANSION_REASON "illusion_character_expansion:"
 #define ILLUSION_AUTOMATION_INTERVAL 10
-#define ILLUSION_MAX_DURATION_SECONDS (366*86400)
+#define ILLUSION_SETTLING_GRACE_SECONDS 30
 #define ILLUSION_RANKING_WEEK_SECONDS (7*86400)
 #define ILLUSION_RANKING_CACHE_TTL 30
 
@@ -581,8 +581,12 @@ private int valid_config(mapping candidate)
 	   !valid_identifier((string)candidate["current_id"]) ||
 	   !stringp(candidate["display_name"]) ||
 	   sizeof((string)candidate["display_name"])<2 ||
+	   (has_index(candidate,"manual_close_only") &&
+	    (!intp(candidate["manual_close_only"]) ||
+	     (int)candidate["manual_close_only"]!=1)) ||
 	   !valid_nonnegative(candidate,"duration_days",366) ||
-	   (int)candidate["duration_days"]<30 ||
+	   ((int)candidate["manual_close_only"]!=1 &&
+	    (int)candidate["duration_days"]<30) ||
 	   !valid_nonnegative(candidate,"story_level_cap",300) ||
 	   (int)candidate["story_level_cap"]<1 ||
 	   !valid_nonnegative(candidate,"entitlement_cost_suiyu",1000000) ||
@@ -773,9 +777,11 @@ private int valid_runtime_state_for_id(mapping state,string expected_id)
 	if(search(({"draft","registration","active","settling","closed"}),
 	   phase)==-1 || sizeof((array)state["audit"])>2000)
 		return 0;
+	// S1 采用管理员显式关闭：active 的 ends_at 必须允许为 0。
+	// 旧运行状态中已经写入的未来结束时间继续作为历史字段读取，
+	// 但不再能驱动阶段变化，避免内容打磨期间意外自动结算。
 	if((phase=="active" || phase=="settling" || phase=="closed") &&
-	   ((int)state["starts_at"]<=0 ||
-	    (int)state["ends_at"]<=(int)state["starts_at"]))
+	   ((int)state["starts_at"]<=0 || (int)state["ends_at"]<0))
 		return 0;
 	return 1;
 }
@@ -970,11 +976,7 @@ private int save_runtime_state(mapping state)
 
 private string effective_phase(mapping state)
 {
-	string phase = (string)(state["phase"] || "disabled");
-	if(phase=="active" && (int)state["ends_at"]>0 &&
-	   time()>=(int)state["ends_at"])
-		return "settling";
-	return phase;
+	return (string)(state["phase"] || "disabled");
 }
 
 private string phase_name(string phase)
@@ -1000,7 +1002,12 @@ mapping(string:mixed) query_public_status()
 		"phase_name":phase_name(phase),
 		"revision":(int)state["revision"],
 		"starts_at":(int)state["starts_at"],
-		"ends_at":(int)state["ends_at"],
+		// 进行中赛季没有自动结束日期。settling/closed 才公开管理员
+		// 发起关闭的时间，避免旧 ends_at 让玩家误以为仍会自动到期。
+		"ends_at":phase=="settling" || phase=="closed" ?
+			(int)state["ends_at"] : 0,
+		"manual_close_only":(int)illusion_config["manual_close_only"]==1,
+		"season_open":phase=="active",
 		"closed_ids":arrayp(state["closed_ids"]) ?
 			((array)state["closed_ids"])+({}) : ({}),
 		"duration_days":(int)illusion_config["duration_days"],
@@ -1155,19 +1162,10 @@ private string transition_digest(string action,mapping state)
 	return lower_case(String.string2hex(hash->digest()));
 }
 
-private string end_time_digest(mapping state,int ends_at)
-{
-	object hash = Crypto.SHA256();
-	hash->update((string)state["current_id"]+"|end_time|"+
-		(string)(int)state["revision"]+"|"+(string)ends_at);
-	return lower_case(String.string2hex(hash->digest()));
-}
-
 private int valid_end_time_change(mapping state,string phase,int ends_at)
 {
-	return mappingp(state) && phase=="active" &&
-		ends_at>(int)state["starts_at"] &&
-		ends_at-(int)state["starts_at"]<=ILLUSION_MAX_DURATION_SECONDS;
+	// 保留旧接口供旧管理页安全失败；S1 不再允许用日期触发关闭。
+	return 0;
 }
 
 int query_end_time_valid_for_test(mapping state,string phase,int ends_at)
@@ -1179,74 +1177,45 @@ int query_end_time_valid_for_test(mapping state,string phase,int ends_at)
 
 mapping(string:mixed) preview_end_time(int ends_at)
 {
-	mapping state = load_runtime_state();
-	string phase = sizeof(state) ? effective_phase(state) : "disabled";
-	int allowed = config_valid && runtime_valid &&
-		valid_end_time_change(state,phase,ends_at);
-	return (["ok":allowed,"ends_at":ends_at,
-		"confirmation":allowed ? end_time_digest(state,ends_at) : ""]);
+	return (["ok":0,"ends_at":ends_at,"confirmation":"",
+		"message":"当前幻境仅由管理员关闭开关触发结算，不使用结束日期。"]);
 }
 
 mapping(string:mixed) apply_end_time(int ends_at,string confirmation,
 	string operator_id)
 {
-	mapping(string:mixed) result = (["ok":0,
-		"message":"结束时间修改失败。"]);
-	mapping state;
-	array audit;
-	int old_ends_at;
-	if(!config_valid || !runtime_valid || !operator_id || operator_id=="")
-		return result;
-	if(!acquire_control_lock()){
-		result["message"] = "另一名管理员正在调整幻境配置。";
-		return result;
+	return (["ok":0,
+		"message":"当前幻境仅由管理员关闭开关触发结算，不使用结束日期。"]);
+}
+
+private string manual_action_expected_phase(string action)
+{
+	switch(action){
+	case "open_registration":
+		return "draft";
+	case "start":
+		return "registration";
+	case "settle":
+		return "active";
 	}
-	{
-		object key = runtime_lock->lock();
-		runtime_source_cache = "__reload__";
-		destruct(key);
-	}
-	state = load_runtime_state();
-	if(!valid_end_time_change(state,effective_phase(state),ends_at) ||
-	   confirmation!=end_time_digest(state,ends_at))
-		result["message"] = "结束时间预览已过期，或当前周期已经进入结算。";
-	else{
-		old_ends_at = (int)state["ends_at"];
-		state["ends_at"] = ends_at;
-		state["revision"] = (int)state["revision"]+1;
-		audit = state["audit"];
-		audit += ({(["at":time(),"operator":operator_id,
-			"action":"set_end_time","from":old_ends_at,"to":ends_at,
-			"revision":(int)state["revision"]])});
-		if(sizeof(audit)>2000)
-			audit = audit[sizeof(audit)-2000..];
-		state["audit"] = audit;
-		if(save_runtime_state(state))
-			result = (["ok":1,
-				"message":ends_at<=time() ?
-					"结束时间已更新，正在自动结算并关闭本期。" :
-					"结束时间已更新。",
-				"status":query_public_status()]);
-	}
-	release_control_lock();
-	if((int)result["ok"] && ends_at<=time())
-		call_out(run_lifecycle_automation_once,0);
-	return result;
+	return "";
+}
+
+int query_manual_action_allowed_for_test(string action,string phase)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return manual_action_expected_phase(action)==phase;
 }
 
 mapping(string:mixed) preview_lifecycle_transition(string action)
 {
 	mapping state = load_runtime_state();
 	string phase = sizeof(state) ? effective_phase(state) : "disabled";
-	string expected = ([
-		"open_registration":"draft",
-		"start":"registration",
-		"settle":"active",
-		"close":"settling",
-	])[action];
+	string expected = manual_action_expected_phase(action);
 	int allowed = config_valid && runtime_valid && expected && phase==expected;
-	// 自然到期会把 active 视为 settling。预览摘要必须使用相同的
-	// 有效阶段，否则管理员刚拿到的 close 确认码会在执行时失效。
+	// 预览和执行必须使用同一有效阶段，否则管理员刚拿到的确认码
+	// 会在执行时失效。
 	if(sizeof(state) && phase!=(string)state["phase"])
 		state["phase"] = phase;
 	return ([
@@ -1267,8 +1236,9 @@ mapping(string:mixed) apply_lifecycle_transition(string action,
 	mapping state;
 	string phase;
 	string next_phase;
+	string expected_phase=manual_action_expected_phase(action);
 	if(!config_valid || !runtime_valid || !operator_id || operator_id=="" ||
-	   search(({"open_registration","start","settle","close"}),action)==-1)
+	   expected_phase=="")
 		return result;
 	if(!acquire_control_lock()){
 		result["message"] = "另一名管理员正在调整幻境配置。";
@@ -1291,21 +1261,17 @@ mapping(string:mixed) apply_lifecycle_transition(string action,
 			"open_registration":"registration",
 			"start":"active",
 			"settle":"settling",
-			"close":"closed",
 		])[action];
-		if((phase=="draft" && action!="open_registration") ||
-		   (phase=="registration" && action!="start") ||
-		   (phase=="active" && action!="settle") ||
-		   (phase=="settling" && action!="close") ||
-		   phase=="closed")
+		if(phase!=expected_phase)
 			result["message"] = "当前阶段不允许执行该操作。";
 		else{
 			if(action=="start"){
 				int starts_at = time();
 				state["starts_at"] = starts_at;
-				state["ends_at"] = starts_at+
-					(int)illusion_config["duration_days"]*86400;
+				state["ends_at"] = 0;
 			}
+			else if(action=="settle")
+				state["ends_at"] = time();
 			state["phase"] = next_phase;
 			state["revision"] = (int)state["revision"]+1;
 			array audit = state["audit"];
@@ -1323,16 +1289,18 @@ mapping(string:mixed) apply_lifecycle_transition(string action,
 		}
 	}
 	release_control_lock();
+	// 管理员关闭后立即让本 Worker 进入在线人物回归扫描；其他 Worker
+	// 最迟在固定心跳内加入。真正 closed 仍由宽限窗口后的自动阶段完成。
+	if((int)result["ok"] && action=="settle")
+		call_out(run_lifecycle_automation_once,0);
 	return result;
 }
 
 private string automatic_action(mapping state,int now_time)
 {
 	string phase = (string)state["phase"];
-	if(phase=="active" && (int)state["ends_at"]>0 &&
-	   now_time>=(int)state["ends_at"])
-		return "auto_settle";
-	if(phase=="settling")
+	if(phase=="settling" &&
+	   now_time>=(int)state["updated_at"]+ILLUSION_SETTLING_GRACE_SECONDS)
 		return "auto_close";
 	return "";
 }
@@ -1914,6 +1882,7 @@ private mapping player_progress_for_id(object player,string illusion_id,
 			"claims":([]),"season_starts_at":starts_at,
 			"chapter_counter_version":2,
 			"chapter_counter_id":first_chapter_id,
+			"chapter_started_at":time(),
 			"chapter_kills":0,"chapter_boss_kills":0,
 			"chapter_visit_rooms":([]),
 			"ranking_weeks":([]),"ranking_titles":({}),
@@ -2153,6 +2122,29 @@ private int claimed_chapter_count(mapping progress)
 		count++;
 	}
 	return count;
+}
+
+/**
+ * 章回墙钟耗时用于定位真实流失点，不参与奖励、排行或解锁。新档使用
+ * 独立起点；旧档没有该字段时，以前一章领取时间（首章用加入时间）
+ * 安全补算，因此无需批量迁移人物档案。
+ */
+private int current_chapter_started_at(mapping progress,int chapter_number)
+{
+	int started=(int)progress["chapter_started_at"];
+	if(started>0)
+		return started;
+	if(chapter_number>1){
+		mapping config=config_for_progress(progress);
+		array chapters=(array)(config["chapters"] || ({}));
+		mapping claims=mappingp(progress["claims"]) ?
+			(mapping)progress["claims"] : ([]);
+		if(chapter_number-2<sizeof(chapters))
+			started=(int)claims[(string)chapters[chapter_number-2]["id"]];
+	}
+	if(started<=0)
+		started=(int)progress["joined_at"];
+	return started>0 ? started : time();
 }
 
 private string quest_item_account_owner(object player)
@@ -2611,6 +2603,7 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	mapping task_mode;
 	int task_mode_finished;
 	int chapter_index;
+	int mastery_level;
 	mapping story_event = ([]);
 	mapping quest_drop = ([]);
 	mapping journey_result = ([]);
@@ -2662,6 +2655,15 @@ void record_npc_kill(object player,object npc,void|int team_count)
 	if((int)task_credit["boss"])
 		progress["chapter_boss_kills"] =
 			(int)progress["chapter_boss_kills"]+1;
+	// 难度精通记录真实任务击杀发生时的最低档，而不是领奖时的档位。
+	// 玩家先用低难度打完再临时切高难度，不能伪造本章高难度完成。
+	if((int)task_credit["kill"] || (int)task_credit["boss"]){
+		mastery_level = PERSONAL_DIFFICULTYD->query_current_level(player);
+		if(!intp(progress["chapter_mastery_difficulty"]) ||
+		   (int)progress["chapter_mastery_difficulty"]<0 ||
+		   mastery_level<(int)progress["chapter_mastery_difficulty"])
+			progress["chapter_mastery_difficulty"] = mastery_level;
+	}
 	mapping kill_week = ranking_week_state(progress,time(),1);
 	kill_week["kills"] = (int)kill_week["kills"]+1;
 	if((int)(team_count || 0)>1)
@@ -3212,6 +3214,7 @@ private int reset_current_chapter_counters(mapping progress)
 	progress["chapter_kills"] = 0;
 	progress["chapter_boss_kills"] = 0;
 	progress["chapter_visit_rooms"] = ([]);
+	progress["chapter_mastery_difficulty"] = -1;
 	return 1;
 }
 
@@ -4271,6 +4274,10 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 	int old_current_exp;
 	int old_life;
 	int old_mofa;
+	int claimed_at;
+	int chapter_started;
+	int chapter_elapsed;
+	int mastery_difficulty;
 	mapping(string:int) growth;
 	if(!player || !sizeof(context))
 		return (["ok":0,"message":"当前不能领取"+
@@ -4295,6 +4302,11 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 		return (["ok":1,"already":1,"message":"该章节奖励已经领取。"]) ;
 	if(!(int)status["ready"])
 		return (["ok":0,"message":"章节目标尚未完成，或前一章尚未领取。"]) ;
+	claimed_at=time();
+	chapter_started=current_chapter_started_at(progress,chapter_number);
+	chapter_elapsed=max(0,claimed_at-chapter_started);
+	mastery_difficulty=intp(progress["chapter_mastery_difficulty"]) ?
+		(int)progress["chapter_mastery_difficulty"] : -1;
 	profession_id = (string)player->query_profeId();
 	if((int)chapter["reward_count"]>0){
 		templates = ITEMSD->query_newmoon_base_templates_for_profession(
@@ -4325,14 +4337,23 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 	}
 	if(!mappingp(progress["claims"]))
 		progress["claims"] = ([]);
-	progress["claims"][(string)chapter["id"]] = time();
+	progress["claims"][(string)chapter["id"]] = claimed_at;
+	// 每个 S1 难度必须在当前最高档亲自完成九个新章回。记录与
+	// 章节奖励共用同一次人物原子保存，失败时 old_progress 会整体回滚。
+	if(!mappingp(progress["difficulty_chapters"]))
+		progress["difficulty_chapters"] = ([]);
+	((mapping)progress["difficulty_chapters"])[(string)chapter["id"]] =
+		mastery_difficulty;
 	reset_current_chapter_counters(progress);
-	mapping claim_week = ranking_week_state(progress,time(),1);
+	// 下一章从本章领取提交时开始计时。它只写观测字段，不能影响任何
+	// 游戏结算；人物保存失败时 old_progress 会连同该字段整体回滚。
+	progress["chapter_started_at"] = claimed_at;
+	mapping claim_week = ranking_week_state(progress,claimed_at,1);
 	claim_week["chapter_claims"] = (int)claim_week["chapter_claims"]+1;
 	claim_week["set_parts"] = min(10,(int)claim_week["set_parts"]+
 		(int)chapter["reward_count"]);
 	if(chapter_number==sizeof((array)config["chapters"]))
-		claim_week["completed_at"] = time();
+		claim_week["completed_at"] = claimed_at;
 	growth = grant_chapter_story_growth(player,progress,chapter_number);
 	if(!(int)growth["ok"]){
 		foreach(granted,object item)
@@ -4377,9 +4398,10 @@ private mapping(string:mixed) claim_chapter_reward_internal(object player,
 				describe_error(completion_err) :
 				(string)(completion["message"] || "invalid completion result"));
 	}
-	safe_append_illusion_log(sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|items=%d|level_before=%d|level_after=%d|story_exp=%d\n",
-		time(),illusion_id,
-		(string)player->query_name(),(string)chapter["id"],sizeof(granted),
+	safe_append_illusion_log(sprintf("%d|claim|illusion=%s|user=%s|chapter=%s|chapter_number=%d|elapsed_seconds=%d|mastery_difficulty=%d|items=%d|level_before=%d|level_after=%d|story_exp=%d\n",
+		claimed_at,illusion_id,
+		(string)player->query_name(),(string)chapter["id"],chapter_number,
+		chapter_elapsed,mastery_difficulty,sizeof(granted),
 		(int)growth["before_level"],(int)growth["after_level"],
 		(int)growth["added_exp"]));
 	if((int)context["ranking_enabled"] &&

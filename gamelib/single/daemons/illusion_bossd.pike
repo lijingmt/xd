@@ -1,8 +1,8 @@
 /**
- * S1 九卷首领机制。
+ * S1 九卷战斗机制。
  *
  * 机制只在真实同房 S1 PVE 心跳中运行。永久进度仍由 seasonal_chard /
- * illusion_journeyd 保存；这里仅保存 Boss 本场战斗的临时预警与应对，
+ * illusion_journeyd 保存；这里仅保存 NPC 本场战斗的临时预警与应对，
  * 不修改永恒服公式、PVP、快速战斗或人物技能。
  */
 
@@ -14,6 +14,50 @@ inherit LOW_DAEMON;
 #define BOSS_PENDING "/tmp/illusion_s1_boss_pending"
 
 private mapping(string:mapping(string:mixed)) profiles = ([
+	// 六类常规猎物只在较长战斗里低频触发。数值显著低于卷末首领，
+	// 无人值守时也不会完成最后一击，既增加辨识度又不破坏挂机流程。
+	"/gamelib/clone/npc/illusion_s1/moon_wisp.pike":([
+		"id":"chasing_moon","name":"逐月回身","rank":"regular","action":"shade",
+		"action_name":"踏入月影","cadence":12,"kind":"mana",
+		"power_bp":120,"telegraph":"逐光月灵骤然折返，月芒正沿着你的影子追来。",
+		"success":"你侧身踏入旧影，追来的月芒从肩畔掠过。",
+		"failure":"月芒追上脚步，震散了少许仙力。",
+	]),
+	"/gamelib/clone/npc/illusion_s1/fog_wolf.pike":([
+		"id":"fog_pounce","name":"雾狼扑月","rank":"regular","action":"brace",
+		"action_name":"稳住下盘","cadence":13,"kind":"life",
+		"power_bp":140,"telegraph":"雾纹月狼伏低身形，雾气中只剩一双逼近的眼睛。",
+		"success":"你稳住下盘，在狼影扑至的一瞬错开锋芒。",
+		"failure":"狼影从雾中扑出，在你身上留下一道浅伤。",
+	]),
+	"/gamelib/clone/npc/illusion_s1/mirror_spider.pike":([
+		"id":"mirror_web","name":"镜丝缚影","rank":"regular","action":"break",
+		"action_name":"震碎镜丝","cadence":14,"kind":"life_mana",
+		"power_bp":120,"telegraph":"镜丝月蛛把细丝钉入倒影，蛛网正从镜面两侧合拢。",
+		"success":"你以真气震碎倒影，尚未闭合的镜丝随之断裂。",
+		"failure":"镜丝同时勒住气血与神识，留下短暂刺痛。",
+	]),
+	"/gamelib/clone/npc/illusion_s1/ruin_guard.pike":([
+		"id":"broken_star_guard","name":"折星归垒","rank":"regular","action":"flank",
+		"action_name":"绕击星核","cadence":14,"kind":"heal",
+		"power_bp":160,"telegraph":"折星石卫收拢碎甲，正要把散落星屑重新压回核心。",
+		"success":"你绕至石卫侧后击中星核，未让碎甲重新闭合。",
+		"failure":"星屑归垒，石卫借机修补了少许裂痕。",
+	]),
+	"/gamelib/clone/npc/illusion_s1/star_wraith.pike":([
+		"id":"old_city_loop","name":"旧城回梦","rank":"regular","action":"wake",
+		"action_name":"唤醒本心","cadence":15,"kind":"mana",
+		"power_bp":180,"telegraph":"古城星魇摊开一段温暖旧梦，试图让你忘记此行目的。",
+		"success":"你念出此行所求，旧梦像尘封窗纸般破开。",
+		"failure":"你在旧梦中迟疑片刻，仙力随回忆悄然流散。",
+	]),
+	"/gamelib/clone/npc/illusion_s1/abyss_beast.pike":([
+		"id":"abyss_bloom","name":"渊花噬月","rank":"regular","action":"pierce",
+		"action_name":"刺穿花心","cadence":15,"kind":"life",
+		"power_bp":180,"telegraph":"渊花异兽背上的月花骤然盛开，花心正凝聚一道幽光。",
+		"success":"你抢先刺穿花心，幽光在成形前散入深渊。",
+		"failure":"幽光擦过护体真气，灼去了一缕生机。",
+	]),
 	"/gamelib/clone/npc/illusion_s1/life_collector.pike":([
 		"id":"life_threads","name":"众生寿线","action":"cut",
 		"action_name":"斩断寿线","cadence":8,"kind":"life",
@@ -201,7 +245,8 @@ private void resolve_pending(object boss,object player,mapping profile,
 		(string)profile["failure"]+
 		(life_loss ? "（生命 -"+(string)life_loss+"）" : "")+
 		(mana_loss ? "（仙力 -"+(string)mana_loss+"）" : "")+
-		(healed ? "（首领恢复 "+(string)healed+"）" : "")+"\n");
+		(healed ? "（"+((string)profile["rank"]=="regular" ?
+			"敌人" : "首领")+"恢复 "+(string)healed+"）" : "")+"\n");
 }
 
 void tick(object boss,object player)
@@ -211,6 +256,7 @@ void tick(object boss,object player)
 	object pending_player;
 	int tick;
 	int cadence;
+	int minimum_tick;
 	if(!sizeof(profile))
 		return;
 	tick=(int)boss->timeCount;
@@ -249,7 +295,8 @@ void tick(object boss,object player)
 	// 临时切到宠物、召唤物或无效对象。只有创建新预警时，才要求
 	// 本拍 action_enemy 是合法的同房 S1 玩家。
 	cadence=(int)profile["cadence"];
-	if(tick<2 || cadence<6 || tick%cadence!=2)
+	minimum_tick=(string)profile["rank"]=="regular" ? cadence+2 : 2;
+	if(tick<minimum_tick || cadence<6 || tick%cadence!=2)
 		return;
 	// 账号世界索引不进入每个Boss攻击心跳的热路径；只有真正到达
 	// 预警节拍时才验证S1身份。机制频率和安全边界不变，索引读取量
@@ -263,7 +310,9 @@ void tick(object boss,object player)
 		"nonce":nonce,"created_tick":tick,
 		"resolve_tick":tick+2,"answer":"",
 	]);
-	tell_object(player,"§y【首领预警·"+(string)profile["name"]+"】§r "+
+	string warning=(string)profile["rank"]=="regular" ?
+		"战斗预警" : "首领预警";
+	tell_object(player,"§y【"+warning+"·"+(string)profile["name"]+"】§r "+
 		(string)profile["telegraph"]+"\n"+
 		"[立即"+(string)profile["action_name"]+":illusion_boss answer "+
 		(string)profile["id"]+" "+(string)profile["action"]+" "+nonce+"]\n");
@@ -275,10 +324,10 @@ mapping(string:mixed) answer(object player,string profile_id,string action,
 	object room;
 	int target_pending_found;
 	if(!player || profile_id=="" || action=="" || nonce=="")
-		return (["ok":0,"message":"首领应对参数不完整，本次未产生任何效果。"]);
+		return (["ok":0,"message":"战斗应对参数不完整，本次未产生任何效果。"]);
 	room=environment(player);
 	if(!room)
-		return (["ok":0,"message":"当前场景无效，不能进行首领应对。"]);
+		return (["ok":0,"message":"当前场景无效，不能进行战斗应对。"]);
 	foreach(all_inventory(room,player),object boss){
 		mapping profile=profile_for(boss);
 		mapping pending=mappingp(boss[BOSS_PENDING]) ?
@@ -299,7 +348,7 @@ mapping(string:mixed) answer(object player,string profile_id,string action,
 			continue;
 		if(!valid_s1_target(boss,player) ||
 		   (int)pending["resolve_tick"]<(int)boss->timeCount)
-			return (["ok":0,"message":"这次首领预警已经失效，请等待下一次真实预警。"]);
+			return (["ok":0,"message":"这次战斗预警已经失效，请等待下一次真实预警。"]);
 		if(action!=(string)profile["action"])
 			return (["ok":0,"message":"这不是当前机制的正确应对，本次没有提前结算。"]);
 		pending["answer"]=action;
@@ -308,8 +357,8 @@ mapping(string:mixed) answer(object player,string profile_id,string action,
 			(string)profile["action_name"]+"】，下一战斗节拍将按真实应对结算。"]);
 	}
 	if(target_pending_found)
-		return (["ok":0,"message":"这次首领预警已经失效，请等待下一次真实预警。"]);
-	return (["ok":0,"message":"当前房间没有与你交战且正在预警的S1首领。"]);
+		return (["ok":0,"message":"这次战斗预警已经失效，请等待下一次真实预警。"]);
+	return (["ok":0,"message":"当前房间没有与你交战且正在预警的S1敌人。"]);
 }
 
 array(mapping(string:mixed)) query_catalog_for_test()

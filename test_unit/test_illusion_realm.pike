@@ -204,7 +204,8 @@ int main()
 		check("首期稳定编号与展示名固定为S1",
 			(string)public_status["illusion_id"]=="S1" &&
 			(string)public_status["display_name"]=="新月幻境·S1" &&
-			(int)public_status["duration_days"]==30 &&
+			(int)public_status["duration_days"]==0 &&
+			(int)public_status["manual_close_only"]==1 &&
 			(int)public_status["entitlement_cost_suiyu"]==0 &&
 			(int)public_status["extra_character_slot_cost_suiyu"]==100 &&
 			(int)public_status["multi_character_unlock_cost_suiyu"]==500,
@@ -392,6 +393,7 @@ int main()
 			"旧七章或第三章提示仍会误导玩家");
 		mapping lifecycle_state = ([
 			"phase":"active","starts_at":1000,"ends_at":2000,
+			"updated_at":1000,
 		]);
 		string runtime_state_source = Standards.JSON.encode(([
 			"version":1,"current_id":"S1","phase":"active",
@@ -406,29 +408,40 @@ int main()
 			SEASONALD->query_runtime_recovery_choice_for_test(
 				"{broken","{also-broken")=="invalid",
 			"runtime.json损坏后未正确选择runtime.json.bak");
-		check("只有到期的进行中赛季会自动结算并自动关闭",
+		check("进行中赛季不按日期结束且管理员关闭后保留跨Worker结算窗口",
 			SEASONALD->query_automatic_action_for_test(
 				lifecycle_state,1999)=="" &&
 			SEASONALD->query_automatic_action_for_test(
-				lifecycle_state,2000)=="auto_settle" &&
+				lifecycle_state,999999)=="" &&
 			SEASONALD->query_automatic_action_for_test(
-				(["phase":"settling"]),2000)=="auto_close" &&
+				(["phase":"settling","updated_at":2000]),2029)=="" &&
 			SEASONALD->query_automatic_action_for_test(
-				(["phase":"closed"]),2000)=="" &&
+				(["phase":"settling","updated_at":2000]),2030)=="auto_close" &&
 			SEASONALD->query_automatic_action_for_test(
-				(["phase":"registration","starts_at":1000,
-					"ends_at":2000]),2000)=="",
-			"自动开启或关闭后自动续期没有保持禁用");
-		check("管理员可缩短或延长当前结束时间但不能改到开始之前",
+				(["phase":"closed","updated_at":2000]),2030)=="",
+			"日期仍能误触发结算，或关闭宽限窗口不正确");
+		check("管理员只能开启或发起结算且旧close链接不能跳过宽限窗口",
+			SEASONALD->query_manual_action_allowed_for_test(
+				"open_registration","draft") &&
+			SEASONALD->query_manual_action_allowed_for_test(
+				"start","registration") &&
+			SEASONALD->query_manual_action_allowed_for_test(
+				"settle","active") &&
+			!SEASONALD->query_manual_action_allowed_for_test(
+				"close","settling") &&
+			!SEASONALD->query_manual_action_allowed_for_test(
+				"settle","settling"),
+			"旧管理员书签仍可在30秒跨Worker扫描完成前强制closed");
+		check("旧日期结束接口全面失败关闭且不能绕过管理员开关",
 			SEASONALD->query_end_time_valid_for_test(
-				lifecycle_state,"active",1500)==1 &&
+				lifecycle_state,"active",1500)==0 &&
 			SEASONALD->query_end_time_valid_for_test(
 				lifecycle_state,"active",1000)==0 &&
 			SEASONALD->query_end_time_valid_for_test(
 				lifecycle_state,"closed",1500)==0 &&
 			SEASONALD->query_end_time_valid_for_test(
 				lifecycle_state,"active",1000+367*86400)==0,
-			"结束时间边界校验错误");
+			"旧接口仍能修改结束日期");
 		string login_source = Stdio.read_file(ROOT+
 			"/lowlib/system/inherit/user.pike") || "";
 		string entrance_source = Stdio.read_file(ROOT+

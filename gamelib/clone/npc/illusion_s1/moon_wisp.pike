@@ -1,6 +1,7 @@
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
 inherit GAMELIB_NPC;
+int query_illusion_combat_mechanic(){ return 1; }
 protected void create(){
 	name=object_name(this_object()); name_cn="逐光月灵";
 	desc="一团会追逐脚步的微弱月光。\n";

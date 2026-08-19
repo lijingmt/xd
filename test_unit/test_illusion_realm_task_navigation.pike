@@ -100,6 +100,13 @@ int main()
 		search(daemon_source,"time()-illusion_log_error_at>=60")!=-1 &&
 		sizeof(daemon_source/"Stdio.append_file(ILLUSION_LOG")==2 &&
 		sizeof(daemon_source/"safe_append_illusion_log(sprintf(")>=21;
+	int chapter_balance_telemetry =
+		search(daemon_source,
+			"private int current_chapter_started_at")!=-1 &&
+		search(daemon_source,
+			"progress[\"chapter_started_at\"] = claimed_at")!=-1 &&
+		search(daemon_source,
+			"chapter_number=%d|elapsed_seconds=%d|mastery_difficulty=%d")!=-1;
 	int visit_start=search(daemon_source,
 		"void record_room_visit(object player,object room)");
 	int visit_end=visit_start>=0 ? search(daemon_source,
@@ -174,6 +181,9 @@ int main()
 	check("S1全部审计写入统一隔离日志故障",
 		audit_log_is_post_commit_safe,
 		"仍有主操作提交后直接写日志的空页/重试风险");
+	check("章节领取审计记录耗时和真实难度且不参与奖励计算",
+		chapter_balance_telemetry,
+		"无法按章定位流失点，或仍需凭主观调整任务与难度");
 	check("照命到访整档保存只在S1主线到访提交成功后执行",
 		hidden_visit_after_story_commit,
 		"隐藏支线保存可能提前持久化随后回滚的主线到访");

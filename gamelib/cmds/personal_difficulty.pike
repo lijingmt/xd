@@ -28,10 +28,13 @@ private void show_status(object player,string notice)
 		format_time(AUTOFIGHTD->query_daily_seconds_for(player))+"；今日剩余："+
 		format_time(AUTOFIGHTD->query_time_left(player))+"。\n\n";
 	if(!(int)progress["maxed"]){
-		if((string)progress["mode"]=="chapters")
+		if((string)progress["mode"]=="season_mastery")
 			out+="下一破界试炼【"+(string)progress["next_name"]+
-				"】：按顺序完成本期章回 "+(int)progress["chapters"]+"/"+
-				(int)progress["chapters_required"]+"。\n";
+				"】：必须在当前最高【"+(string)progress["mastery_name"]+
+				"】难度亲自完成新章回 "+
+				(int)progress["mastery_chapters"]+"/"+
+				(int)progress["mastery_required"]+
+				"（本期总进度 "+(int)progress["chapters"]+"/81）。\n";
 		else
 			out+="下一破界试炼【"+(string)progress["next_name"]+"】：等级 "+
 				(int)progress["level"]+"/"+(int)progress["min_level"]+
@@ -53,8 +56,7 @@ private void show_status(object player,string notice)
 				(int)tier["afk_cap_hours"]+"小时:personal_difficulty switch "+
 				level+"]\n";
 		else if((string)status["scope"]!="eternal")
-			out+=(string)tier["name"]+"（完成本期第"+(level*9)+
-				"章后解锁）\n";
+			out+=(string)tier["name"]+"（在上一档难度完成9个新章回后解锁）\n";
 		else
 			out+=(string)tier["name"]+"（Lv"+(int)tier["min_level"]+
 				"＋"+format_game_number((int)tier["kills"])+"次合格击杀＋"+

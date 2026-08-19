@@ -930,14 +930,18 @@ int main(string|zero arg)
 		return 1;
 	}
 	if(sizeof(parts)>=1 && parts[0]=="return"){
-		write("幻境到期后由系统自动安全回归，无需重复点击；保存失败会自动重试。\n"+
+		write("管理员关闭本期后由系统自动安全回归，无需重复点击；保存失败会自动重试。\n"+
 			"[返回幻境区:illusion_realm]\n");
 		return 1;
 	}
 	s += "【"+(string)status["display_name"]+"】\n";
 	s += "阶段："+(string)status["phase_name"]+"\n";
 	s += "开始："+time_text((int)status["starts_at"])+"\n";
-	s += "回归结算："+time_text((int)status["ends_at"])+"\n";
+	if((string)status["phase"]=="active")
+		s += "本期持续开放，只有管理员关闭后才开始回归结算。\n";
+	else if((string)status["phase"]=="settling" ||
+	   (string)status["phase"]=="closed")
+		s += "管理员关闭："+time_text((int)status["ends_at"])+"\n";
 	if(!(int)status["ok"])
 		s += "配置或运行状态校验失败，功能已安全关闭。\n";
 	account_data = ACCOUNT_CHARACTERD->query_account_characters(

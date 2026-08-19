@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** S1九卷首领预警、应对、失误边界与非S1隔离。 */
+/** S1六类普通怪与九卷首领预警、应对、失误边界及非S1隔离。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -52,17 +52,53 @@ int main()
 {
 	array catalog=ILLUSION_BOSSD->query_catalog_for_test();
 	mapping(string:int) ids=([]);
-	int catalog_ok=sizeof(catalog)==9;
+	mapping(string:int) ordinary_paths=([
+		"/gamelib/clone/npc/illusion_s1/moon_wisp.pike":1,
+		"/gamelib/clone/npc/illusion_s1/fog_wolf.pike":1,
+		"/gamelib/clone/npc/illusion_s1/mirror_spider.pike":1,
+		"/gamelib/clone/npc/illusion_s1/ruin_guard.pike":1,
+		"/gamelib/clone/npc/illusion_s1/star_wraith.pike":1,
+		"/gamelib/clone/npc/illusion_s1/abyss_beast.pike":1,
+	]);
+	int regular_count;
+	int boss_count;
+	int regular_opt_in=1;
+	int catalog_ok=sizeof(catalog)==15;
 	foreach(catalog,mapping row){
+		int regular=(string)row["rank"]=="regular";
 		catalog_ok=catalog_ok && (string)row["id"]!="" &&
 			!ids[(string)row["id"]] && (int)row["cadence"]>=6 &&
 			(int)row["power_bp"]>=100 && (int)row["power_bp"]<=700 &&
 			has_prefix((string)row["path"],
-				"/gamelib/clone/npc/illusion_s1/");
+				"/gamelib/clone/npc/illusion_s1/") &&
+			(regular ? ordinary_paths[(string)row["path"]] : 1);
+		if(regular){
+			regular_count++;
+			object probe=clone(ROOT+(string)row["path"]);
+			if(!probe ||
+			   !functionp(probe->query_illusion_combat_mechanic) ||
+			   !probe->query_illusion_combat_mechanic() ||
+			   (int)probe->_boss)
+				regular_opt_in=0;
+			if(probe)
+				destruct(probe);
+		}
+		else
+			boss_count++;
 		ids[(string)row["id"]]=1;
 	}
-	check("九卷首领各有唯一机制且伤害/回能边界保守",catalog_ok,
+	catalog_ok=catalog_ok && regular_count==6 && boss_count==9;
+	check("六类普通怪和九卷首领各有唯一机制且数值边界保守",catalog_ok,
 		sprintf("catalog=%O",catalog));
+	string fight_source=Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/inherit/feature/fight.pike") || "";
+	check("六类普通怪由真实战斗心跳显式接入且不会伪装成Boss",
+		regular_opt_in &&
+		search(fight_source,
+			"functionp(this_object()->query_illusion_combat_mechanic)")!=-1 &&
+		search(fight_source,
+			"ILLUSION_BOSSD->tick(this_object(),action_enemy)")!=-1,
+		"普通怪机制仍只在测试直调生效，或错误启用了Boss核心规则");
 	string boss_source=Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/illusion_bossd.pike") || "";
 	string command_source=Stdio.read_file(ROOT+
@@ -73,6 +109,41 @@ int main()
 		search(command_source,"answer_err=catch")!=-1 &&
 		search(command_source,"!mappingp(result)")!=-1,
 		"首领资格仍可能把赛季进度异常抛给战斗或命令入口");
+
+	// 普通怪机制使用同一套真实同房、S1、nonce安全边界，但节拍更慢、
+	// 数值更低。模拟挂机玩家不点击应对，确认它只形成温和损耗且不致死。
+	object regular_player=create_player("regular_player");
+	object regular_room=(object)(ROOT+
+		"/gamelib/d/illusion_s1/moon_dew_field.pike");
+	object regular_enemy=clone(ROOT+
+		"/gamelib/clone/npc/illusion_s1/moon_wisp.pike");
+	int regular_moved=move_for_test(regular_player,regular_room) &&
+		move_for_test(regular_enemy,regular_room);
+	regular_enemy->timeCount=2;
+	ILLUSION_BOSSD->tick(regular_enemy,regular_player);
+	int regular_early_empty=!sizeof(ILLUSION_BOSSD->
+		query_pending_for_test(regular_enemy));
+	regular_enemy->timeCount=14;
+	ILLUSION_BOSSD->tick(regular_enemy,regular_player);
+	mapping regular_pending=ILLUSION_BOSSD->
+		query_pending_for_test(regular_enemy);
+	int regular_mana_before=regular_player->get_cur_mofa();
+	regular_enemy->timeCount=16;
+	ILLUSION_BOSSD->tick(regular_enemy,regular_player);
+	int regular_mana_lost=regular_mana_before-
+		regular_player->get_cur_mofa();
+	check("普通怪长战斗会触发低频机制且挂机失误只温和扣减仙力",
+		regular_moved && regular_early_empty &&
+		(string)regular_pending["profile"]==
+			"chasing_moon" && regular_mana_lost>0 &&
+		regular_mana_lost<=regular_player->query_mofa_max()*2/100 &&
+		!sizeof(ILLUSION_BOSSD->query_pending_for_test(regular_enemy)),
+		sprintf("pending=%O mana_lost=%d max=%d",regular_pending,
+			regular_mana_lost,regular_player->query_mofa_max()));
+	if(regular_enemy)
+		destruct(regular_enemy);
+	if(regular_player)
+		destruct(regular_player);
 
 	object player=create_player();
 	object room=(object)(ROOT+"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike");
@@ -261,7 +332,7 @@ int main()
 		destruct(boss);
 	if(player)
 		destruct(player);
-	werror("S1首领机制：%d/%d通过\n",(int)results["passed"],
+	werror("S1战斗机制：%d/%d通过\n",(int)results["passed"],
 		(int)results["total"]);
 	return (int)results["failed"] ? 1 : 0;
 }

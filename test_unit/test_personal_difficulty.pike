@@ -149,19 +149,41 @@ int main()
 		scope_player["/plus/personal_difficulty/scopes/S1/unlocked"]=0;
 		scope_player["/plus/personal_difficulty/scopes/S1/current"]=0;
 		mapping claims=([]);
-		for(int chapter=1;chapter<=9;chapter++)
+		mapping difficulty_chapters=([]);
+		for(int chapter=1;chapter<=18;chapter++){
 			claims["S1-C"+(string)chapter]=time();
+			difficulty_chapters["S1-C"+(string)chapter]=0;
+		}
 		scope_player["/plus/illusion_realm/S1"]=(
 			["content_id":"S1","claims":claims]);
-		mapping after_chapters=difficulty->query_unlock_progress(scope_player);
-		check("永恒与S1难度存档互不泄漏且S1按九章解锁下一档",
+		mapping legacy_mastery=difficulty->query_unlock_progress(scope_player);
+		((mapping)scope_player["/plus/illusion_realm/S1"])
+			["difficulty_chapters"]=difficulty_chapters;
+		mapping first_mastery=difficulty->query_unlock_progress(scope_player);
+		mapping first_claim=difficulty->claim_next_tier(scope_player);
+		mapping no_chain=difficulty->query_unlock_progress(scope_player);
+		scope_player["/plus/personal_difficulty/scopes/S1/current"]=1;
+		for(int chapter=10;chapter<=18;chapter++)
+			difficulty_chapters["S1-C"+(string)chapter]=1;
+		mapping second_mastery=difficulty->query_unlock_progress(scope_player);
+		scope_player["/plus/personal_difficulty/scopes/S1/current"]=0;
+		mapping lower_block=difficulty->claim_next_tier(scope_player);
+		scope_player["/plus/personal_difficulty/scopes/S1/current"]=1;
+		mapping second_claim=difficulty->claim_next_tier(scope_player);
+		check("永恒与S1存档隔离且每档必须在当前最高难度完成九个新章回",
 			s1_level==6 && eternal_level==2 &&
 			(string)before_chapters["scope"]=="S1" &&
-			(int)after_chapters["complete"] &&
-			(int)after_chapters["chapters"]==9 &&
-			(int)after_chapters["chapters_required"]==9,
-			sprintf("s1=%d eternal=%d before=%O after=%O",s1_level,
-				eternal_level,before_chapters,after_chapters));
+			(int)legacy_mastery["complete"] &&
+			(int)legacy_mastery["mastery_chapters"]==9 &&
+			(int)first_mastery["complete"] &&
+			(int)first_mastery["mastery_chapters"]==18 &&
+			(int)first_claim["ok"] && !(int)no_chain["complete"] &&
+			(int)no_chain["mastery_chapters"]==0 &&
+			(int)second_mastery["complete"] &&
+			!(int)lower_block["ok"] && (int)second_claim["ok"],
+			sprintf("s1=%d eternal=%d legacy=%O first=%O claim=%O no_chain=%O second=%O lower=%O second_claim=%O",
+				s1_level,eternal_level,legacy_mastery,first_mastery,
+				first_claim,no_chain,second_mastery,lower_block,second_claim));
 
 		object combat_switch_player=create_player(
 			"__testunit_personal_difficulty_combat_switch__",
@@ -196,6 +218,7 @@ int main()
 			players+=({player});
 			difficulty->set_scope_for_test(player,"eternal");
 			player["/plus/personal_difficulty/unlocked"]=7;
+			player["/plus/personal_difficulty/scopes/S1/unlocked"]=7;
 			for(int tier=0;tier<8;tier++){
 				player["/plus/personal_difficulty/current"]=tier;
 				professions_ok=professions_ok &&
@@ -204,10 +227,20 @@ int main()
 					difficulty->scale_pve_damage(npc,player,10000)==
 						10000*incoming[tier]/100 &&
 					difficulty->scale_pve_damage(player,pvp_target,10000)==
-						10000;
+						10000 && difficulty->query_afk_cap_hours(player)==afk[tier];
+				difficulty->set_scope_for_test(player,"S1");
+				player["/plus/personal_difficulty/scopes/S1/current"]=tier;
+				professions_ok=professions_ok &&
+					difficulty->scale_pve_damage(player,npc,10000)==
+						10000*outgoing[tier]/100 &&
+					difficulty->scale_pve_damage(npc,player,10000)==
+						10000*incoming[tier]/100 &&
+					difficulty->scale_pve_damage(player,pvp_target,10000)==
+						10000 && difficulty->query_afk_cap_hours(player)==afk[tier];
+				difficulty->set_scope_for_test(player,"eternal");
 			}
 		}
-		check("十二职业逐档PVE输出承伤一致且PVP公式完全不变",
+		check("十二职业在永恒与S1逐档PVE、挂机一致且PVP公式完全不变",
 			professions_ok,"某职业或某难度的统一战斗边界不一致");
 
 		int denominator=ITEMSD->query_newmoon_equipment_drop_denominator();

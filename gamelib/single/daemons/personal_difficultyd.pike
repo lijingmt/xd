@@ -165,6 +165,36 @@ private int claimed_season_chapters(object player,string scope)
 	return claimed;
 }
 
+private int claimed_season_mastery_chapters(object player,string scope,
+	int difficulty_level)
+{
+	mapping progress;
+	mapping claims;
+	mapping mastery;
+	int claimed;
+	if(!player || scope=="eternal")
+		return 0;
+	progress=player["/plus/illusion_realm/"+scope];
+	claims=mappingp(progress) && mappingp(progress["claims"]) ?
+		(mapping)progress["claims"] : ([]);
+	mastery=mappingp(progress) && mappingp(progress["difficulty_chapters"]) ?
+		(mapping)progress["difficulty_chapters"] : ([]);
+	// 上线前已完成章回的旧档没有逐章难度证据。只为基础档补认最多
+	// 九章，让其可以解锁问道一次；绝不据此连续补开后续六档。
+	if(!sizeof(mastery) && difficulty_level==0)
+		return min(9,claimed_season_chapters(player,scope));
+	for(int chapter=1;chapter<=81;chapter++){
+		string chapter_id=scope+"-C"+(string)chapter;
+		if(!(int)claims[chapter_id])
+			break;
+		if(has_index(mastery,chapter_id) &&
+		   intp(mastery[chapter_id]) &&
+		   (int)mastery[chapter_id]==difficulty_level)
+			claimed++;
+	}
+	return claimed;
+}
+
 int set_scope_for_test(object player,string scope)
 {
 	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !player ||
@@ -329,12 +359,16 @@ mapping(string:mixed) query_unlock_progress(object player)
 		(int)player->query_level() : 0;
 	if(scope!="eternal"){
 		int chapters=claimed_season_chapters(player,scope);
-		int required=next*9;
+		int mastery_chapters=claimed_season_mastery_chapters(player,scope,
+			unlocked);
 		return ([
-			"complete":chapters>=required,"maxed":0,
+			"complete":mastery_chapters>=9,"maxed":0,
 			"scope":scope,"scope_name":query_scope_name(player),
-			"mode":"chapters","next_level":next,"next_name":tier["name"],
-			"chapters":chapters,"chapters_required":required,
+			"mode":"season_mastery","next_level":next,
+			"next_name":tier["name"],"chapters":chapters,
+			"mastery_level":unlocked,
+			"mastery_name":difficulty_catalog[unlocked]["name"],
+			"mastery_chapters":mastery_chapters,"mastery_required":9,
 		]);
 	}
 	return ([
@@ -386,6 +420,8 @@ mapping(string:mixed) claim_next_tier(object player)
 		return (["ok":0,"message":(string)progress["message"]]);
 	if((int)progress["maxed"])
 		return (["ok":0,"message":"你已经解锁全部个人挑战难度。"]);
+	if(query_current_level(player)!=query_unlocked_level(player))
+		return (["ok":0,"message":"请先切回当前已解锁的最高难度，再完成并领取破界试炼。"]);
 	if(!(int)progress["complete"])
 		return (["ok":0,"message":"破界试炼尚未完成。"]);
 	old_unlocked=query_unlocked_level(player);
