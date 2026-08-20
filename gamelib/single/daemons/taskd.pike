@@ -107,6 +107,10 @@ private mapping(string:string) taskGuideFindRoom = ([
 	"毒蛇之眼":"plxianjing/xianzhenplxianjing",
 	"水妖之泪":"plxianjing/xianzhenplxianjing",
 ]);
+// 任务副本只允许服务端白名单中的固定入口，不能把 CSV 文本直接当命令。
+private mapping(int:mapping(string:string)) taskGuideDungeon = ([
+	385:(["id":"wuxianghundun","name":"混沌秘境·混沌兽王"]),
+]);
 
 protected void create() 
 {
@@ -1035,6 +1039,8 @@ int queryTaskHasGuide(int taskid)
 	task my_task = taskMap[taskid];
 	if(!my_task)
 		return 0;
+	if(mappingp(taskGuideDungeon[taskid]))
+		return 1;
 	if(my_task->roomToDoTask &&
 	   my_task->roomToDoTask!="" &&
 	   my_task->roomToDoTask!="null")
@@ -1061,6 +1067,16 @@ mapping queryTaskGuideTarget(object player,int taskid)
 	   !mappingp(player["/taskd/Cont"]) ||
 	   !player["/taskd/Cont"][taskid])
 		return result;
+	if(mappingp(taskGuideDungeon[taskid])){
+		mapping(string:string) dungeon = taskGuideDungeon[taskid];
+		if(isComplete(player,taskid))
+			return result;
+		return ([
+			"dungeon":dungeon["id"],
+			"target":dungeon["name"],
+			"taskid":taskid,
+		]);
+	}
 
 	if(my_task->kind=="kill"){
 		foreach(my_task->kill_order,string each_target){
@@ -1107,6 +1123,9 @@ string queryTaskGuideLink(object player,int taskid)
 	mapping target = queryTaskGuideTarget(player,taskid);
 	if(!sizeof(target))
 		return "";
+	if(target["dungeon"])
+		return "[任务引导·进入"+target["target"]+
+			":task_guide "+taskid+"]\n";
 	return "[任务引导·飞往"+target["target"]+
 		":task_guide "+taskid+"]\n";
 }

@@ -7,8 +7,10 @@ int main(string|zero arg)
 	object env;
 	object room;
 	mapping target = ([]);
+	mapping entrance = ([]);
 	string npcname = "";
 	string room_path = "";
+	string dungeon_id = "";
 	int taskid = 0;
 	int accept_result = 0;
 	string s = "";
@@ -85,6 +87,19 @@ int main(string|zero arg)
 		s += "[返回任务列表:mytasks]\n";
 		s += "[返回游戏:look]\n";
 		write(s);
+		return 1;
+	}
+	if(target["dungeon"]){
+		dungeon_id = (string)target["dungeon"];
+		entrance = FBD->query_safe_fb_entrance(dungeon_id);
+		if(!mappingp(entrance) || !sizeof(entrance)){
+			s += "任务副本入口尚未就绪，请稍后再试。\n";
+			s += "[返回任务列表:mytasks]\n[返回游戏:look]\n";
+			write(s);
+			return 1;
+		}
+		tell_object(me,"任务引导：正在进入"+target["target"]+"。\n");
+		me->command("fb_entry "+dungeon_id+" 0 0");
 		return 1;
 	}
 	room_path = target["path"];

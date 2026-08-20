@@ -1,6 +1,8 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 #define FB_WORKER_INGRESS "/gamelib/d/fb_runtime/ingress.pike"
+#define WUXIANG_CHAOS_FB "wuxianghundun"
+#define WUXIANG_CHAOS_TASK 385
 //arg = room_name room_num flag
 //flag = 0 表示此时玩家在副本外
 //     = 1 表示此时玩家在副本内
@@ -20,6 +22,28 @@ private int route_player_to_fb_ingress(object player,string fb_id)
 	return !move_err && moved;
 }
 
+private string query_special_entry_denial(object player,string fb_name)
+{
+	object env;
+	mapping target;
+	if(fb_name!=WUXIANG_CHAOS_FB)
+		return "";
+	if(!player || player->query_profeId()!="wuxiang")
+		return "只有领取万象归一任务的无相人物才能进入混沌秘境。";
+	if(player->query_level()<100)
+		return "混沌秘境需要无相达到100级。";
+	if(player->in_combat)
+		return "战斗中不能进入混沌秘境，请先结束当前战斗。";
+	env=environment(player);
+	if(env && env->query_room_type()=="fb")
+		return "你已经位于其他幻境，请先正常离开。";
+	target=TASKD->queryTaskGuideTarget(player,WUXIANG_CHAOS_TASK);
+	if(!mappingp(target) ||
+	   (string)target["dungeon"]!=WUXIANG_CHAOS_FB)
+		return "请先向无相先生领取【无】万象归一任务；已经击败兽王时请返回复命。";
+	return "";
+}
+
 int main(string|zero arg)
 {
 	string s = "";
@@ -27,6 +51,8 @@ int main(string|zero arg)
 	string room_name = "";
 	int room_num = 0;
 	int flag = 0;
+	int personal_instance = 0;
+	string special_denial = "";
 	//desc+="[进入【幻境】冥府:fb_entry mingfu 0 0]\n";
 	if(!arg || sscanf(arg,"%s %d %d",room_name,room_num,flag)!=3 ||
 	   room_num<0 || (flag!=0 && flag!=1) ||
@@ -34,9 +60,16 @@ int main(string|zero arg)
 		write("幻境入口参数无效，请从地图入口重新进入。\n[返回:look]\n");
 		return 1;
 	}
-	string team_id = me->query_term();
-	if(team_id == "" || team_id == "noterm" ||
-	   !TERMD->query_termId(team_id)){
+	personal_instance = room_name==WUXIANG_CHAOS_FB;
+	special_denial = query_special_entry_denial(me,room_name);
+	if(special_denial!=""){
+		write(special_denial+"\n[返回:look]\n");
+		return 1;
+	}
+	string team_id = personal_instance ? me->query_name() : me->query_term();
+	if(!personal_instance && (team_id == "" || team_id == "noterm" ||
+	   !TERMD->query_termId(team_id))){
+
 		if(flag == 0){
 			s += "只有队伍才能进入\n";
 			s += "[返回:look]\n";

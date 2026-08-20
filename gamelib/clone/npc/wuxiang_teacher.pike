@@ -33,10 +33,17 @@ string query_words(){
 
 string query_npc_links(void|int count){
 	object me = this_player();
+	mapping target;
+	string s;
 	if(!me)
 		return ::query_npc_links(count);
-	if(me->query_profeId()=="wuxiang")
-		return ::query_npc_links(count)+
-			"[学习无相技能:buy_items book wuxiang]\n";
-	return ::query_npc_links(count);
+	s = ::query_npc_links(count);
+	if(me->query_profeId()=="wuxiang"){
+		s += "[学习无相技能:buy_items book wuxiang]\n";
+		target = TASKD->queryTaskGuideTarget(me,385);
+		if(mappingp(target) &&
+		   (string)target["dungeon"]=="wuxianghundun")
+			s += "[进入混沌秘境:fb_entry wuxianghundun 0 0]\n";
+	}
+	return s;
 }

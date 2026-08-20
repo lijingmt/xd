@@ -363,16 +363,126 @@ void test_initial_equipment_granted()
 
 void test_wanxiangguiyi_task_grants_ultimate()
 {
-	test_start("万象归一任务存在并奖励终极技能书");
+	test_start("万象归一任务、混沌秘境、兽王与终极技能书完整接线");
 	string csv = Stdio.read_file(ROOT+"/gamelib/data/task/task_list.csv");
-	int valid = csv &&
+	string fb_csv = Stdio.read_file(ROOT+"/gamelib/data/fb.csv");
+	int valid = csv && fb_csv &&
 		search(csv,"万象归一")!=-1 &&
+		search(csv,"混沌兽王:1")!=-1 &&
 		search(csv,"wuxiang_teacher")!=-1 &&
-		search(csv,"book/wanxiangguiyi")!=-1;
+		search(csv,"book/wanxiangguiyi")!=-1 &&
+		search(fb_csv,"wuxianghundun,wuxiang_hundun/hundunmijing.pike")!=-1 &&
+		Stdio.file_size(ROOT+
+			"/gamelib/d/wuxiang_hundun/hundunmijing.pike")>0 &&
+		Stdio.file_size(ROOT+
+			"/gamelib/clone/npc/wuxiang_hundun/hundunshouwang.pike")>0;
 	if(valid)
 		test_pass();
 	else
 		test_fail("万象归一任务未正确配置");
+}
+
+void test_wanxiangguiyi_real_dungeon_workflow()
+{
+	test_start("真实流程：领取任务→个人秘境→兽王死亡记账→复命得书");
+	object player=create_runtime_player("__testunit_wuxiang_chaos__");
+	object teacher=clone(ROOT+"/gamelib/clone/npc/wuxiang_teacher.pike");
+	object entry_command=(object)(ROOT+"/gamelib/cmds/fb_entry.pike");
+	object guide_command=(object)(ROOT+"/gamelib/cmds/task_guide.pike");
+	object leave_command=(object)(ROOT+"/gamelib/cmds/fb_leave.pike");
+	object start_room=(object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object|zero original_player=this_player();
+	object|zero dungeon_room=0;
+	object|zero boss=0;
+	string error_desc="";
+	int blocked_before_accept=0;
+	int accepted=0;
+	int entered=0;
+	int combat_started=0;
+	int credited=0;
+	int rewarded=0;
+	int blocked_after_kill=0;
+	mixed err=catch {
+		player->level=100;
+		player->set_att_by_level();
+		player->flush_life();
+		player["/taskd/done"]=([]);
+		player["/taskd/done"][384]=1;
+		player->move(start_room);
+		teacher->move(start_room);
+		set_this_player(player);
+		entry_command->main("wuxianghundun 0 0");
+		blocked_before_accept=environment(player)==start_room &&
+			(string)(player->fb_id || "")=="";
+		guide_command->main("accept "+teacher->query_name()+" 385");
+		accepted=mappingp(player["/taskd/Cont"]) &&
+			mappingp(player["/taskd/Cont"][385]);
+		mapping guide=TASKD->queryTaskGuideTarget(player,385);
+		dungeon_room=environment(player);
+		if(dungeon_room){
+			foreach(all_inventory(dungeon_room),object candidate)
+				if(candidate && candidate->is("npc") &&
+				   candidate->query_name_cn()=="混沌兽王"){
+					boss=candidate;
+					break;
+				}
+		}
+		entered=mappingp(guide) &&
+			(string)guide["dungeon"]=="wuxianghundun" &&
+			dungeon_room && dungeon_room->is_wuxiang_chaos_room() &&
+			boss && boss->query_level()==100 &&
+			(string)player->fb_id==player->query_name()+"/wuxianghundun";
+		if(boss){
+			combat_started=boss->_fight(player) && player->_fight(boss);
+			entered=entered && combat_started;
+			boss->set_life(0);
+			boss->fight_die();
+			boss=0;
+		}
+		credited=TASKD->isComplete(player,385)==1 &&
+			!sizeof(TASKD->queryTaskGuideTarget(player,385));
+		// 真实战斗会在下一次战斗心跳清理胜者状态；测试同步结算时显式
+		// 模拟该心跳，之后再验证正常离场和任务完成后的防重入。
+		player->_clean_fight();
+		leave_command->main("wuxianghundun");
+		string award=TASKD->getTaskAward(player,385);
+		int cleared=TASKD->clearTask(player,385);
+		int found_book=0;
+		foreach(all_inventory(player),object item)
+			if(item && functionp(item->query_name) &&
+			   search((string)item->query_name(),"wanxiangguiyi")!=-1){
+				found_book=1;
+				break;
+			}
+		rewarded=cleared && found_book &&
+			search(award,"万象归一")!=-1 &&
+			(int)player["/taskd/done"][385]==1;
+		entry_command->main("wuxianghundun 0 0");
+		blocked_after_kill=environment(player)==start_room &&
+			(string)(player->fb_id || "")=="";
+	};
+	if(original_player)
+		set_this_player(original_player);
+	else
+		set_this_player(this_object());
+	if(err)
+		error_desc=describe_error(err)+" "+describe_backtrace(err);
+	if(!err && blocked_before_accept && accepted && entered && credited &&
+	   rewarded && blocked_after_kill)
+		test_pass();
+	else
+		test_fail(sprintf("前置=%d 领取=%d 进入=%d 战斗=%d 记账=%d 奖励=%d 重入=%d: %s",
+			blocked_before_accept,accepted,entered,combat_started,credited,rewarded,
+			blocked_after_kill,error_desc));
+	if(player && player->fb_id)
+		FBD->detach_fb_member(player);
+	FBD->flush_fb_map();
+	if(boss)
+		destruct(boss);
+	if(teacher)
+		destruct(teacher);
+	destroy_runtime_player(player);
 }
 
 void test_level20_task_award_item()
@@ -897,6 +1007,7 @@ int main()
 	test_task_and_newbie_recognize_wuxiang();
 	test_initial_equipment_granted();
 	test_wanxiangguiyi_task_grants_ultimate();
+	test_wanxiangguiyi_real_dungeon_workflow();
 	test_level20_task_award_item();
 	test_static_audit_zero_misses();
 	test_unlock_missing_lists_specifics();

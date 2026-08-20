@@ -30,6 +30,7 @@ private mapping(string:string) fb_display_name = ([
 	"hunfeizhijing_m":"魂飞之井（妖）","posanzhidi_m":"魄散之眼（妖）",
 	"huyaodong":"狐妖洞","youanzhaoze":"幽暗沼泽",
 	"yunshuixianjing":"云水仙境","yunraotiangong":"云绕天宫",
+	"wuxianghundun":"无相·混沌秘境",
 ]);
 
 //副本id:([玩家1id:1，玩家2id:1...])，此mapping记录了当前在副本中的玩家id
@@ -67,10 +68,14 @@ void load_csv()
 	fb_room = ([]);
 	fb_room_name = ([]);
 	string fbData = Stdio.read_file(FUBEN_CSV);
-	array(string) lines = fbData/"\r\n";
+	// 同时兼容历史 CRLF 和新配置的 LF，避免新增最后一行被并入上一行。
+	array(string) lines = fbData/"\n";
 	if(lines && sizeof(lines)){
 		lines = lines-({""});
-		foreach(lines,string eachline){
+		foreach(lines,string rawline){
+			string eachline = replace(rawline,"\r","");
+			if(eachline=="")
+				continue;
 			array(string) columns = eachline/",";
 			if(sizeof(columns) == 3){
 				string fb_name = columns[0];
