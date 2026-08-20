@@ -56,11 +56,17 @@ void test_heartbeat_enemy_snapshot_contract()
 {
 	string source=Stdio.read_file(ROOT+
 		"/lowlib/wapmud2/inherit/feature/fight.pike");
+	string compact=replace(source || "","\t","");
+	compact=replace(compact," ","");
 	check("战斗心跳不再直接索引可异步清空的 enemy->name",
 		source && search(source,"object action_enemy=enemy;")!=-1 &&
 		search(source,"present(action_enemy,environment(this_object())")!=-1 &&
 		search(source,"present(enemy->name,environment(this_object())")==-1,
 		"目标存在性检查仍直接读取全局 enemy 字段");
+	check("死亡回调前先清空全局目标且回调后不再访问攻击者成员",
+		sizeof(compact/("objectdefeated_enemy=enemy;\n"+
+			"enemy=0;\ndefeated_enemy->fight_die();"))-1==4,
+		"仍有死亡路径在 fight_die 回调之后写入全局 enemy");
 }
 
 int main()

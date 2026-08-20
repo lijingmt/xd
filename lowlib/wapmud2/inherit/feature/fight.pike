@@ -3019,8 +3019,11 @@ void perform(string name,void|int flag){
 								enemy=0;
 							}
 							else{
-								enemy->fight_die();
+								// 死亡回调可能析构攻击者；先切断全局目标，
+								// 回调返回后不再访问 this_object() 的成员。
+								object defeated_enemy=enemy;
 								enemy=0;
+								defeated_enemy->fight_die();
 							}
 							return;
 						}
@@ -3770,8 +3773,9 @@ void boss_perform(string name){
 						enemy=0;
 					}
 					else{
-						enemy->fight_die();
+						object defeated_enemy=enemy;
 						enemy=0;
+						defeated_enemy->fight_die();
 					}
 					return;
 				}
@@ -4288,8 +4292,12 @@ private void attack(int skill_add,int skill_add_per,string type,
 					enemy->_clean_fight();
 					_clean_fight();
 				}
-				else
-					enemy->fight_die();
+				else{
+					object defeated_enemy=enemy;
+					enemy=0;
+					defeated_enemy->fight_die();
+					return;
+				}
 				enemy=0;
 				return;
 			}
@@ -4342,8 +4350,9 @@ private void heart_beat_action(){
 			enemy=0;
 		}
 		else{
-			enemy->fight_die();
+			object defeated_enemy=enemy;
 			enemy = 0;
+			defeated_enemy->fight_die();
 		}
 		return;
 	}
