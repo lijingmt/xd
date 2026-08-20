@@ -173,6 +173,12 @@ int main()
 			httpd->test_pike_gateway_registration("login_regnew bad")=="",
 			"并发注册可能绕过人物锁、丢失账号大小写或误解析旧逻辑区前缀");
 
+		check("账号登录的可选本地响应在sizeof检查前初始化",
+			source_has(gateway,"mapping proxied = ([]);") &&
+			source_has(gateway,"if(!sizeof(proxied))") &&
+			source_has(gateway,"/api/account/characters/delete"),
+			"普通账号登录可能对未初始化mapping调用sizeof并返回503");
+
 		check("旧JSP失效令牌在离线或迁移后只恢复当前画面",
 			source_has(rpc,"stale_command_token_route") &&
 			source_has(rpc,"\"command\":\"look\",\"recovered\":1") &&

@@ -2669,7 +2669,11 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 	string command_kind = "general";
 	mapping admin_target = ([]);
 	mapping player_transfer_target = ([]);
-	mapping proxied;
+	// Most account endpoints proxy immediately, while character deletion may
+	// first return a local guard response.  Keep the optional response as an
+	// actual empty mapping: sizeof(UNDEFINED) raises in Pike before login can
+	// ever reach the primary worker.
+	mapping proxied = ([]);
 	object user_key;
 	object auction_key;
 	object team_mutation_key;
