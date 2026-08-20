@@ -20,6 +20,7 @@ inherit LOW_DAEMON;
 #define ACCOUNT_FORCED_LOGOUT_TTL 600
 #define ACCOUNT_CHARACTER_BOOKMARK_LIMIT 64
 #define ACCOUNT_CHARACTER_BOOKMARK_PER_CHARACTER_LIMIT 8
+#define DELETED_CHARACTER_DIR DATA_ROOT "deleted_characters"
 #define WUXIANG_DONATION_UNLOCK_FEE 3000
 #define TAIJI_DONATION_UNLOCK_FEE 10000
 #define ILLUSION_EXTRA_SLOT_COST 100
@@ -28,6 +29,10 @@ inherit LOW_DAEMON;
 #define S1_HIDDEN_PROFESSION "zhaoming"
 #define S1_HIDDEN_REQUIRED_PROFESSIONS 5
 #define S1_HIDDEN_REQUIRED_LEVEL 120
+#define HIDDEN_PROFESSION_MAX_CHARACTERS 10
+#define HIDDEN_PROFESSION_SLOT_BASE_COST 5000
+#define HIDDEN_PROFESSION_SLOT_COST_STEP 5000
+#define HIDDEN_PROFESSION_EXPANSION_REASON "profession_slot_expansion:"
 
 private Thread.Mutex account_character_lock = Thread.Mutex();
 private mapping(string:mapping(string:mixed)) account_cache = ([]);
@@ -84,6 +89,51 @@ int query_profession_account_limit(string profession_id)
 	return 0;
 }
 
+int query_profession_absolute_limit(string profession_id)
+{
+	return query_profession_account_limit(profession_id)>0 ?
+		HIDDEN_PROFESSION_MAX_CHARACTERS : 0;
+}
+
+private int profession_expansion_expected_spent(int extra_slots)
+{
+	if(extra_slots<=0)
+		return 0;
+	return HIDDEN_PROFESSION_SLOT_BASE_COST*extra_slots+
+		HIDDEN_PROFESSION_SLOT_COST_STEP*extra_slots*(extra_slots-1)/2;
+}
+
+private mapping(string:mixed) profession_limit_state_from_record(
+	mapping(string:mixed) record,string profession_id,void|int count)
+{
+	int base_limit = query_profession_account_limit(profession_id);
+	int extra_slots = 0;
+	int current_limit;
+	int next_cost;
+	mapping expansions = mappingp(record["profession_slot_expansions"]) ?
+		(mapping)record["profession_slot_expansions"] : ([]);
+	mapping expansion = mappingp(expansions[profession_id]) ?
+		(mapping)expansions[profession_id] : ([]);
+	if(base_limit<=0)
+		return (["limited":0,"count":count,"base_limit":0,
+			"current_limit":0,"purchased_limit":0,"max_limit":0,
+			"extra_slots":0,"spent_suiyu":0,"next_cost_suiyu":0,
+			"can_expand":0]);
+	extra_slots = (int)(expansion["extra_slots"] || 0);
+	current_limit = min(HIDDEN_PROFESSION_MAX_CHARACTERS,
+		base_limit+extra_slots);
+	next_cost = current_limit<HIDDEN_PROFESSION_MAX_CHARACTERS ?
+		HIDDEN_PROFESSION_SLOT_BASE_COST+
+		HIDDEN_PROFESSION_SLOT_COST_STEP*extra_slots : 0;
+	return (["limited":1,"count":count,"base_limit":base_limit,
+		"current_limit":current_limit,"purchased_limit":current_limit,
+		"max_limit":HIDDEN_PROFESSION_MAX_CHARACTERS,
+		"extra_slots":extra_slots,
+		"spent_suiyu":profession_expansion_expected_spent(extra_slots),
+		"next_cost_suiyu":next_cost,
+		"can_expand":current_limit<HIDDEN_PROFESSION_MAX_CHARACTERS]);
+}
+
 int query_hidden_profession_donation_threshold(string profession_id)
 {
 	if(profession_id=="wuxiang")
@@ -111,12 +161,18 @@ mapping(string:mixed) query_profession_limit_from_summary(
 		if((string)summary["profession_id"]==profession_id)
 			count++;
 	}
+	if(mappingp(data["hidden_profession_limits"]) &&
+	   mappingp(data["hidden_profession_limits"][profession_id]))
+		limit = (int)data["hidden_profession_limits"]
+			[profession_id]["current_limit"];
 	string profession_name = profession_names[profession_id] || profession_id;
 	return (["ok":1,"limited":1,"allowed":count<limit,
 		"count":count,"limit":limit,
+		"max_limit":HIDDEN_PROFESSION_MAX_CHARACTERS,
 		"message":count<limit ? "" : "【"+profession_name+
-			"·人物上限】同一注册账号最多创建"+limit+"个"+
-			profession_name+"。"]);
+			"·人物上限】当前可创建上限为"+limit+"个（最高"+
+			HIDDEN_PROFESSION_MAX_CHARACTERS+
+			"个），可在人物中心购买下一格。"]);
 }
 
 mapping(string:mixed) query_profession_selection_permission(
@@ -525,6 +581,54 @@ private int valid_sha256_hex(string value)
 		if((one>='0' && one<='9') || (one>='a' && one<='f'))
 			continue;
 		return 0;
+	}
+	return 1;
+}
+
+private int valid_profession_slot_expansions(mixed raw)
+{
+	mapping expansions;
+	if(!raw)
+		return 1;
+	if(!mappingp(raw))
+		return 0;
+	expansions = raw;
+	if(sizeof(expansions)>2)
+		return 0;
+	foreach(indices(expansions),mixed raw_profession_id){
+		string profession_id;
+		mapping expansion;
+		array requests;
+		multiset(string) seen_requests = (<>);
+		int extra_slots;
+		int maximum_extra;
+		if(!stringp(raw_profession_id))
+			return 0;
+		profession_id = (string)raw_profession_id;
+		if(query_profession_account_limit(profession_id)<=0 ||
+		   !mappingp(expansions[profession_id]))
+			return 0;
+		expansion = expansions[profession_id];
+		extra_slots = (int)expansion["extra_slots"];
+		maximum_extra = HIDDEN_PROFESSION_MAX_CHARACTERS-
+			query_profession_account_limit(profession_id);
+		requests = arrayp(expansion["requests"]) ?
+			(array)expansion["requests"] : ({});
+		if(extra_slots<=0 || extra_slots>maximum_extra ||
+		   sizeof(requests)!=extra_slots ||
+		   (int)expansion["spent_suiyu"]!=
+			profession_expansion_expected_spent(extra_slots) ||
+		   (int)expansion["updated_at"]<=0)
+			return 0;
+		foreach(requests,mixed raw_request){
+			string request_id;
+			if(!stringp(raw_request))
+				return 0;
+			request_id = (string)raw_request;
+			if(!valid_sha256_hex(request_id) || seen_requests[request_id])
+				return 0;
+			seen_requests[request_id] = 1;
+		}
 	}
 	return 1;
 }
@@ -1014,7 +1118,9 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 	   !arrayp(record["characters"]) ||
 	   (has_index(record,"revision") &&
 	    (!intp(record["revision"]) || (int)record["revision"]<0)) ||
-	   !valid_illusion_entitlement(record["illusion_entitlement"]))
+	   !valid_illusion_entitlement(record["illusion_entitlement"]) ||
+	   !valid_profession_slot_expansions(
+		record["profession_slot_expansions"]))
 		return 0;
 	characters = record["characters"];
 	if(sizeof(characters)<1 || sizeof(characters)>ACCOUNT_CHARACTER_LIMIT)
@@ -1361,6 +1467,17 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			entitlement,expansion_id);
 		foreach((array)record["characters"],mapping entry)
 			summaries += ({profile_summary_unlocked(account_id,entry)});
+		mapping hidden_profession_limits = ([]);
+		foreach(({"wuxiang","taiji"}),string hidden_profession_id){
+			int hidden_profession_count = 0;
+			foreach(summaries,mapping one_summary)
+				if((string)one_summary["profession_id"]==
+				   hidden_profession_id)
+					hidden_profession_count++;
+			hidden_profession_limits[hidden_profession_id] =
+				profession_limit_state_from_record(record,
+					hidden_profession_id,hidden_profession_count);
+		}
 		result = ([
 			"ok":1,
 			"message":"",
@@ -1380,6 +1497,8 @@ mapping(string:mixed) query_account_characters(string requested_id,
 				(int)expansion["expansion_spent_suiyu"],
 			"illusion_expansion_requests":
 				copy_value((array)(expansion["expansion_requests"] || ({}))),
+			"hidden_profession_limits":
+				copy_value(hidden_profession_limits),
 			"illusion_extra_slot_cost_suiyu":ILLUSION_EXTRA_SLOT_COST,
 			"illusion_multi_unlock_cost_suiyu":ILLUSION_MULTI_UNLOCK_COST,
 		]);
@@ -1408,6 +1527,233 @@ mapping(string:mixed) query_account_characters(string requested_id,
 		result["zhaoming_unlocked"] = (int)s1_hidden["unlocked"];
 	}
 	return result;
+}
+
+/**
+ * Persist one paid hidden-profession slot.  The request id is stored in the
+ * account index before the wallet receipt is discarded, so a retry after a
+ * process exit can only complete the same slot once.
+ */
+mapping(string:mixed) grant_profession_slot_expansion(string requested_id,
+	string profession_id,string request_id,int paid_amount)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"职业人物上限写入失败。"]) ;
+	string account_id = query_account_id_for_character(requested_id);
+	mapping(string:mixed)|zero record;
+	mapping expansions;
+	mapping expansion;
+	mapping state;
+	array requests;
+	int count;
+	int expected_cost;
+	object key;
+	if(!valid_userid(account_id) ||
+	   query_profession_account_limit(profession_id)<=0 ||
+	   !valid_sha256_hex(request_id) || paid_amount<=0)
+		return result;
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id,1);
+	if(!record){
+		destruct(key);
+		return result;
+	}
+	expansions = mappingp(record["profession_slot_expansions"]) ?
+		copy_value((mapping)record["profession_slot_expansions"]) : ([]);
+	expansion = mappingp(expansions[profession_id]) ?
+		copy_value((mapping)expansions[profession_id]) : ([]);
+	requests = arrayp(expansion["requests"]) ?
+		(array)expansion["requests"] : ({});
+	state = profession_limit_state_from_record(record,profession_id);
+	if(search(requests,request_id)!=-1){
+		result = (["ok":1,"already":1,"same_request":1,
+			"message":"本次职业人物上限已经扩充。",
+			"account_id":account_id,"profession_id":profession_id,
+			"state":copy_value(state)]);
+		destruct(key);
+		return result;
+	}
+	foreach((array)record["characters"],mapping existing_entry){
+		mapping summary = profile_summary_unlocked(account_id,existing_entry);
+		if((string)summary["profession_id"]==profession_id)
+			count++;
+	}
+	state = profession_limit_state_from_record(record,profession_id,count);
+	expected_cost = (int)state["next_cost_suiyu"];
+	if(!(int)state["can_expand"]){
+		result["message"] = "该职业已经达到10个人物的绝对上限。";
+		destruct(key);
+		return result;
+	}
+	if(count<(int)state["current_limit"]){
+		result["message"] = "当前职业上限尚未用满，本次不会扣费。";
+		destruct(key);
+		return result;
+	}
+	if(paid_amount!=expected_cost){
+		result["message"] = "职业人物上限价格已经变化，本次不会扣费。";
+		result["expected_cost_suiyu"] = expected_cost;
+		destruct(key);
+		return result;
+	}
+	int extra_slots = (int)state["extra_slots"]+1;
+	expansion = ([
+		"extra_slots":extra_slots,
+		"spent_suiyu":profession_expansion_expected_spent(extra_slots),
+		"requests":requests+({request_id}),
+		"updated_at":time(),
+	]);
+	expansions[profession_id] = expansion;
+	record["profession_slot_expansions"] = expansions;
+	if(save_record_unlocked(record)){
+		state = profession_limit_state_from_record(record,profession_id,count);
+		result = (["ok":1,"already":0,"same_request":0,
+			"message":"职业人物上限已提升至"+
+				(int)state["current_limit"]+"个（最高10个）。",
+			"account_id":account_id,"profession_id":profession_id,
+			"charged_suiyu":paid_amount,"state":copy_value(state)]);
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) reconcile_profession_slot_expansions(
+	string requested_id)
+{
+	string account_id = query_account_id_for_character(requested_id);
+	mapping(string:mixed) summary = (["ok":1,"recovered":0,
+		"refunded":0,"pending":0]);
+	array(mapping(string:mixed)) receipts;
+	if(!valid_userid(account_id))
+		return (["ok":0,"recovered":0,"refunded":0,"pending":0]);
+	receipts = ACCOUNT_WALLETD->query_account_debit_requests(account_id,
+		HIDDEN_PROFESSION_EXPANSION_REASON);
+	foreach(receipts,mapping receipt){
+		string reason = (string)(receipt["reason"] || "");
+		string profession_id = "";
+		string request_id = (string)(receipt["request_id"] || "");
+		int amount = (int)receipt["amount"];
+		mapping grant = ([]);
+		if(sscanf(reason,HIDDEN_PROFESSION_EXPANSION_REASON+"%s",
+		   profession_id)==1 &&
+		   query_profession_account_limit(profession_id)>0 &&
+		   valid_sha256_hex(request_id) && amount>=5000 && amount<=40000 &&
+		   amount%5000==0)
+			grant = grant_profession_slot_expansion(account_id,
+				profession_id,request_id,amount);
+		if((int)grant["ok"] &&
+		   (!(int)grant["already"] || (int)grant["same_request"])){
+			if(ACCOUNT_WALLETD->forget_account_debit_recharge_once(
+			   account_id,request_id))
+				summary["recovered"] = (int)summary["recovered"]+1;
+			else{
+				summary["ok"] = 0;
+				summary["pending"] = (int)summary["pending"]+1;
+			}
+		}
+		else if(ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
+		   account_id,request_id,"profession_slot_expansion_recovery"))
+			summary["refunded"] = (int)summary["refunded"]+1;
+		else{
+			summary["ok"] = 0;
+			summary["pending"] = (int)summary["pending"]+1;
+		}
+	}
+	return summary;
+}
+
+private mapping(string:mixed) query_profession_slot_expansion_request(
+	string account_id,string profession_id,string request_id)
+{
+	mapping(string:mixed) result = (["processed":0]);
+	mapping(string:mixed)|zero record;
+	object key = account_character_lock->lock();
+	record = load_record_unlocked(account_id,1);
+	if(record){
+		mapping expansions = mappingp(record["profession_slot_expansions"]) ?
+			(mapping)record["profession_slot_expansions"] : ([]);
+		mapping expansion = mappingp(expansions[profession_id]) ?
+			(mapping)expansions[profession_id] : ([]);
+		array requests = arrayp(expansion["requests"]) ?
+			(array)expansion["requests"] : ({});
+		if(search(requests,request_id)!=-1){
+			int count = 0;
+			foreach((array)record["characters"],mapping existing_entry){
+				mapping summary = profile_summary_unlocked(account_id,
+					existing_entry);
+				if((string)summary["profession_id"]==profession_id)
+					count++;
+			}
+			result = (["processed":1,
+				"state":profession_limit_state_from_record(record,
+					profession_id,count)]);
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+mapping(string:mixed) purchase_profession_slot_expansion(
+	string requested_id,string profession_id,string request_id)
+{
+	string account_id = query_account_id_for_character(requested_id);
+	mapping account_data;
+	mapping state;
+	mapping debit;
+	mapping grant;
+	mapping processed;
+	string reason;
+	int cost;
+	int cleanup_ok;
+	if(!valid_userid(account_id) ||
+	   query_profession_account_limit(profession_id)<=0 ||
+	   !valid_sha256_hex(request_id))
+		return (["ok":0,"message":"职业人物上限扩充请求无效。"]) ;
+	reconcile_profession_slot_expansions(account_id);
+	processed = query_profession_slot_expansion_request(account_id,
+		profession_id,request_id);
+	if((int)processed["processed"])
+		return (["ok":1,"already":1,
+			"message":"本次职业人物上限已经扩充，请继续创建人物。",
+			"profession_id":profession_id,
+			"state":copy_value((mapping)processed["state"])]);
+	account_data = query_account_characters(account_id);
+	if(!(int)account_data["ok"] ||
+	   !mappingp(account_data["hidden_profession_limits"]) ||
+	   !mappingp(account_data["hidden_profession_limits"][profession_id]))
+		return (["ok":0,
+			"message":"账号职业人物上限暂不可验证，本次未扣费。"]) ;
+	state = account_data["hidden_profession_limits"][profession_id];
+	if(!(int)state["can_expand"])
+		return (["ok":0,"message":"该职业已经达到10个人物的绝对上限。"]) ;
+	if((int)state["count"]<(int)state["current_limit"])
+		return (["ok":0,"message":"当前职业上限尚未用满，无需购买。"]) ;
+	cost = (int)state["next_cost_suiyu"];
+	if(cost<5000 || cost>40000 || cost%5000!=0)
+		return (["ok":0,"message":"职业人物上限价格异常，本次未扣费。"]) ;
+	reason = HIDDEN_PROFESSION_EXPANSION_REASON+profession_id;
+	debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
+		reason,request_id);
+	if(!(int)debit["ok"])
+		return (["ok":0,"message":(string)(debit["message"] ||
+			"账号共享充值余额扣款失败。")]);
+	grant = grant_profession_slot_expansion(account_id,profession_id,
+		request_id,cost);
+	if(!(int)grant["ok"] ||
+	   ((int)grant["already"] && !(int)grant["same_request"])){
+		int refunded = ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
+			account_id,request_id,"profession_slot_expansion_failed");
+		return (["ok":0,"message":refunded ?
+			"职业上限状态已经变化，本次共享余额已原路退回。" :
+			"职业上限写入及退款异常，请立即联系管理员。"]) ;
+	}
+	cleanup_ok = ACCOUNT_WALLETD->forget_account_debit_recharge_once(
+		account_id,request_id);
+	return (["ok":1,"already":(int)debit["duplicate"],
+		"message":(string)grant["message"]+" 已支付"+cost+"碎玉。",
+		"cleanup_pending":!cleanup_ok,"charged_suiyu":cost,
+		"profession_id":profession_id,
+		"state":copy_value((mapping)grant["state"])]);
 }
 
 mapping(string:mixed) query_character_realm(string character_id)
@@ -1775,6 +2121,242 @@ int account_owns_character(string account_id,string character_id)
 	}
 	destruct(key);
 	return found;
+}
+
+private string deleted_character_archive_dir(string account_id,
+	string receipt_hash)
+{
+	if(!valid_userid(account_id) || !valid_sha256_hex(receipt_hash))
+		return "";
+	return DELETED_CHARACTER_DIR+"/"+
+		account_id[sizeof(account_id)-2..]+"/"+account_id+"/"+receipt_hash;
+}
+
+private int write_deleted_character_manifest(string archive_dir,
+	mapping manifest)
+{
+	string path = archive_dir+"/manifest.json";
+	string temporary = path+".tmp";
+	string encoded = Standards.JSON.encode(manifest);
+	if(archive_dir=="" || !mappingp(manifest) || sizeof(encoded)>64*1024)
+		return 0;
+	Stdio.mkdirhier(archive_dir);
+	chmod(archive_dir,0700);
+	rm(temporary);
+	if(Stdio.write_file(temporary,encoded)!=sizeof(encoded) ||
+	   Stdio.file_size(temporary)!=sizeof(encoded) || !mv(temporary,path)){
+		rm(temporary);
+		return 0;
+	}
+	chmod(path,0600);
+	return 1;
+}
+
+private int character_is_locally_online(string account_id,
+	string character_id)
+{
+	int online = find_player(character_id) ? 1 : 0;
+	object state_key;
+	if(online)
+		return 1;
+	state_key = account_online_state_lock->lock();
+	foreach(account_online_players[account_id] || ({}),object player)
+		if(objectp(player) && functionp(player->query_name) &&
+		   (string)player->query_name()==character_id){
+			online = 1;
+			break;
+		}
+	destruct(state_key);
+	return online;
+}
+
+/**
+ * Remove a non-default, offline character from the active account index while
+ * moving its physical save files into a restricted recovery archive.  No
+ * player data is unlinked; an administrator can restore the receipt manually.
+ */
+mapping(string:mixed) retire_account_character(string account_id,
+	string character_id,string receipt_hash)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"人物安全归档失败，原人物保持不变。"]) ;
+	mapping(string:mixed)|zero record;
+	mapping target_entry = ([]);
+	array(mapping(string:string)) moved_files = ({});
+	array(mapping(string:mixed)) kept_characters = ({});
+	array(mapping(string:mixed)) kept_bookmarks = ({});
+	string archive_dir;
+	string manifest_path;
+	string source_path;
+	int target_slot;
+	mapping existing_manifest = ([]);
+	mapping manifest = ([]);
+	int resumable_manifest;
+	int resuming_after_move;
+	object key;
+	if(!valid_userid(account_id) || !valid_userid(character_id) ||
+	   !valid_sha256_hex(receipt_hash))
+		return result;
+	if(character_id==account_id){
+		result["message"] = "注册账号的默认人物不能删除。";
+		return result;
+	}
+	archive_dir = deleted_character_archive_dir(account_id,receipt_hash);
+	manifest_path = archive_dir+"/manifest.json";
+	if(Stdio.file_size(manifest_path)>0){
+		mixed decode_error = catch {
+			existing_manifest = Standards.JSON.decode(
+				Stdio.read_file(manifest_path));
+		};
+		if(!decode_error && mappingp(existing_manifest) &&
+		   (string)existing_manifest["account_id"]==account_id &&
+		   (string)existing_manifest["character_id"]==character_id &&
+		   (string)existing_manifest["receipt_hash"]==receipt_hash &&
+		   (string)existing_manifest["state"]=="archived")
+			return (["ok":1,"already":1,
+				"message":"该人物已经安全归档。",
+				"character_id":character_id,"receipt_hash":receipt_hash]);
+		resumable_manifest = !decode_error && mappingp(existing_manifest) &&
+			(string)existing_manifest["account_id"]==account_id &&
+			(string)existing_manifest["character_id"]==character_id &&
+			(string)existing_manifest["receipt_hash"]==receipt_hash;
+		if(!resumable_manifest)
+			return result;
+	}
+	key = account_character_lock->lock();
+	record = load_record_unlocked(account_id,1);
+	if(!record){
+		destruct(key);
+		return result;
+	}
+	foreach((array)record["characters"],mapping entry){
+		if((string)entry["id"]==character_id){
+			target_entry = copy_value(entry);
+			target_slot = (int)entry["slot"];
+			continue;
+		}
+		mapping kept_entry = copy_value(entry);
+		kept_entry["slot"] = sizeof(kept_characters)+1;
+		kept_characters += ({kept_entry});
+	}
+	if(!sizeof(target_entry)){
+		// 索引已提交、最终manifest刚好遇到进程中断时，
+		// 同一回执可以从受限归档中证明已完成，不让玩家
+		// 陷入“人物已没了但接口一直失败”的不确定状态。
+		if(resumable_manifest &&
+		   Stdio.file_size(archive_dir+"/profile.o")>0){
+			existing_manifest["state"] = "archived";
+			existing_manifest["archived_at"] =
+				(int)(existing_manifest["archived_at"] || time());
+			existing_manifest["recovered_after_interruption"] = 1;
+			write_deleted_character_manifest(archive_dir,
+				existing_manifest);
+			result = (["ok":1,"already":1,
+				"message":"该人物已经安全归档。",
+				"character_id":character_id,
+				"receipt_hash":receipt_hash,"refund_suiyu":0]);
+			destruct(key);
+			return result;
+		}
+		result["message"] = "人物不属于当前账号或已经删除。";
+		destruct(key);
+		return result;
+	}
+	if(character_is_locally_online(account_id,character_id)){
+		result["message"] = "人物仍然在线，请先退出该人物后再删除。";
+		destruct(key);
+		return result;
+	}
+	source_path = user_file_path(character_id);
+	if(resumable_manifest){
+		// 进程可能在主档已mv、账号索引尚未提交时
+		// 中断。只有“原主档已消失+归档主档完整”才
+		// 继续同一回执；任何双份或缺失状态都留给管理员。
+		if(Stdio.file_size(source_path)<0 &&
+		   Stdio.file_size(archive_dir+"/profile.o")>0){
+			manifest = copy_value(existing_manifest);
+			resuming_after_move = 1;
+		}
+		else{
+			result["message"] = "上次安全归档未完成，原人物仍保留；请联系管理员检查回执。";
+			destruct(key);
+			return result;
+		}
+	}
+	else if(Stdio.file_size(source_path)<=0){
+		result["message"] = "人物物理存档不可用，已拒绝删除。";
+		destruct(key);
+		return result;
+	}
+	if(!resuming_after_move){
+		manifest = ([
+			"version":1,"state":"pending","account_id":account_id,
+			"character_id":character_id,"receipt_hash":receipt_hash,
+			"requested_at":time(),"original_slot":target_slot,
+			"entry":copy_value(target_entry),
+		]);
+		if(!write_deleted_character_manifest(archive_dir,manifest)){
+			destruct(key);
+			return result;
+		}
+	}
+	foreach(({"",".bak",".tmp",".bak.tmp"}),string suffix){
+		string one_source = source_path+suffix;
+		string archive_name = suffix=="" ? "profile.o" :
+			"profile.o"+suffix;
+		string one_target = archive_dir+"/"+archive_name;
+		if(Stdio.file_size(one_target)>=0){
+			if(Stdio.file_size(one_source)>=0){
+				result["message"] = "安全归档发现冲突副本，已停止并保留现状。";
+				destruct(key);
+				return result;
+			}
+			continue;
+		}
+		if(Stdio.file_size(one_source)<0)
+			continue;
+		if(!mv(one_source,one_target)){
+			for(int rollback_index=sizeof(moved_files)-1;
+				rollback_index>=0;rollback_index--)
+				mv(moved_files[rollback_index]["target"],
+					moved_files[rollback_index]["source"]);
+			manifest["state"] = "move_failed";
+			write_deleted_character_manifest(archive_dir,manifest);
+			destruct(key);
+			return result;
+		}
+		moved_files += ({(["source":one_source,"target":one_target])});
+	}
+	foreach(normalized_character_bookmarks(record),mapping bookmark)
+		if((string)bookmark["character_id"]!=character_id)
+			kept_bookmarks += ({bookmark});
+	record["characters"] = kept_characters;
+	record["character_bookmarks"] = kept_bookmarks;
+	if(!save_record_unlocked(record)){
+		for(int rollback_index=sizeof(moved_files)-1;
+			rollback_index>=0;rollback_index--)
+			mv(moved_files[rollback_index]["target"],
+				moved_files[rollback_index]["source"]);
+		manifest["state"] = "index_save_failed";
+		write_deleted_character_manifest(archive_dir,manifest);
+		destruct(key);
+		return result;
+	}
+	manifest["state"] = "archived";
+	manifest["archived_at"] = time();
+	manifest["active_characters_after"] = sizeof(kept_characters);
+	if(resuming_after_move)
+		manifest["resumed_after_interruption"] = 1;
+	if(!write_deleted_character_manifest(archive_dir,manifest))
+		werror("[ACCOUNT_CHARACTERD][DELETE_MANIFEST_FINALIZE_FAILED] account=%s character=%s receipt=%s\n",
+			account_id,character_id,receipt_hash);
+	result = (["ok":1,"already":0,
+		"message":"人物已移入安全归档；账号人物栏位已经释放。",
+		"character_id":character_id,"receipt_hash":receipt_hash,
+		"freed_slot":target_slot,"active_characters":sizeof(kept_characters),
+		"refund_suiyu":0]);
+	destruct(key);
+	return result;
 }
 
 /**
@@ -2306,7 +2888,10 @@ mapping(string:mixed) create_character(string requested_id,
 				return result;
 			}
 		}
-		int profession_limit = query_profession_account_limit(profession_id);
+		mapping profession_limit_state =
+			profession_limit_state_from_record(record,profession_id);
+		int profession_limit =
+			(int)profession_limit_state["current_limit"];
 		int profession_count = 0;
 		if(profession_limit>0){
 			foreach((array)record["characters"],mapping existing_entry){
@@ -2320,8 +2905,10 @@ mapping(string:mixed) create_character(string requested_id,
 			string profession_name = profession_names[profession_id] ||
 				profession_id;
 			result["message"] = "【"+profession_name+
-				"·人物上限】同一注册账号最多创建"+
-				profession_limit+"个"+profession_name+"。";
+				"·人物上限】已创建"+profession_count+"个，当前可创建上限"+
+				profession_limit+"个（最高"+
+				HIDDEN_PROFESSION_MAX_CHARACTERS+
+				"个）；请先在人物中心购买下一格。";
 			destruct(key);
 			return result;
 		}
@@ -3041,7 +3628,7 @@ void invalidate_worker_account_cache(string account_id)
 void drop_test_account_cache(string account_id)
 {
 	object key;
-	if(search(account_id,"testunit")==-1)
+	if(search(account_id,"testunit")==-1 || !valid_userid(account_id))
 		return;
 	key = account_character_lock->lock();
 	m_delete(account_cache,account_id);
@@ -3085,7 +3672,7 @@ mapping(string:mixed) test_account_revision_conflict_guard(string account_id)
 void set_test_online_limit(string account_id,int limit)
 {
 	object key;
-	if(search(account_id,"testunit")==-1)
+	if(search(account_id,"testunit")==-1 || !valid_userid(account_id))
 		return;
 	key = account_online_state_lock->lock();
 	if(limit>=1 && limit<=ACCOUNT_CHARACTER_LIMIT)
@@ -3104,8 +3691,10 @@ void remove_test_account(string account_id)
 	object key;
 	object state_key;
 	object table_key;
-	if(search(account_id,"testunit")==-1)
+	if(search(account_id,"testunit")==-1 || !valid_userid(account_id))
 		return;
+	Stdio.recursive_rm(DELETED_CHARACTER_DIR+"/"+
+		account_id[sizeof(account_id)-2..]+"/"+account_id);
 	key = account_character_lock->lock();
 	path = account_file_path(account_id);
 	file_base = (path/"/")[-1];

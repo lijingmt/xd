@@ -937,12 +937,18 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/account/characters":
                 handle_api_account_characters(req);
                 break;
+			case "/api/account/characters/delete":
+				handle_api_account_character_delete(req);
+				break;
             case "/api/account/illusion/activate":
                 handle_api_account_illusion_activate(req);
                 break;
             case "/api/account/illusion/expand":
                 handle_api_account_illusion_expand(req);
                 break;
+			case "/api/account/profession/expand":
+				handle_api_account_profession_expand(req);
+				break;
             case "/api/account/characters/create":
                 handle_api_account_character_create(req);
                 break;

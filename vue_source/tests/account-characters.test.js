@@ -5,6 +5,7 @@ const vm = require('vm');
 
 let componentOptions = null;
 const sessionValues = new Map();
+let promptAnswers = [];
 const sandbox = {
   Vue: {
     createApp(options) {
@@ -17,6 +18,7 @@ const sandbox = {
     location: { protocol: 'https:', hostname: 'game.example.com', href: 'https://game.example.com/' },
     history: { replaceState() {} },
     confirm() { return true; },
+    prompt() { return promptAnswers.length ? promptAnswers.shift() : null; },
     matchMedia() { return { matches: false }; }
   },
   document: { documentElement: { setAttribute() {} } },
@@ -65,6 +67,8 @@ assert(client.professionOptions.some(option => option.profession_id === 'zhaomin
 assert.strictEqual(client.wuxiangUnlocked, false);
 assert.strictEqual(client.taijiUnlocked, false);
 assert.strictEqual(client.zhaomingUnlocked, false);
+assert.strictEqual(client.hiddenProfessionLimits.wuxiang.current_limit, 3);
+assert.strictEqual(client.hiddenProfessionLimits.taiji.current_limit, 2);
 assert.strictEqual(client.s1HiddenProfession.completed_count, 0);
 assert(!componentOptions.computed.visibleProfessionOptions.call(client)
   .some(option => option.profession_id === 'zhaoming'));
@@ -79,6 +83,18 @@ client.applyAccountData({
   illusion_character_slots: 1,
   illusion_multi_character_unlocked: 0,
   illusion_expansion_spent_suiyu: 0,
+	hidden_profession_limits: {
+		wuxiang: {
+			limited: 1, count: 3, base_limit: 3, current_limit: 4,
+			purchased_limit: 4, max_limit: 10, extra_slots: 1,
+			spent_suiyu: 5000, next_cost_suiyu: 10000, can_expand: 1
+		},
+		taiji: {
+			limited: 1, count: 2, base_limit: 2, current_limit: 2,
+			purchased_limit: 2, max_limit: 10, extra_slots: 0,
+			spent_suiyu: 0, next_cost_suiyu: 5000, can_expand: 1
+		}
+	},
   zhaoming_unlocked: 1,
   s1_hidden_profession: {
     unlocked: true,
@@ -110,6 +126,15 @@ assert.strictEqual(client.illusionRealmStatus.creation_open, true);
 assert.strictEqual(client.illusionCharacterSlots, 1);
 assert.strictEqual(client.illusionMultiCharacterUnlocked, false);
 assert.strictEqual(client.illusionExpansionSpentSuiyu, 0);
+assert.strictEqual(client.hiddenProfessionLimits.wuxiang.count, 3);
+assert.strictEqual(client.hiddenProfessionLimits.wuxiang.purchased_limit, 4);
+assert.strictEqual(client.hiddenProfessionLimits.wuxiang.max_limit, 10);
+client.characterForm.profession_id = 'wuxiang';
+assert.strictEqual(
+	componentOptions.computed.selectedHiddenProfessionLimit.call(client)
+		.current_limit,
+	4
+);
 assert.strictEqual(client.zhaomingUnlocked, true);
 assert.strictEqual(client.s1HiddenProfession.completed_count, 5);
 assert(!componentOptions.computed.visibleProfessionOptions.call(client)
@@ -213,6 +238,12 @@ assert(indexSource.includes('btn btn-secondary illusion-expansion-all-btn'));
 assert(indexSource.includes("@click=\"expandIllusionCapacity('one')\""));
 assert(indexSource.includes("@click=\"expandIllusionCapacity('all')\""));
 assert(indexSource.includes('不会消费任何人物背包玉石'));
+assert(indexSource.includes('当前已购上限'));
+assert(indexSource.includes('最高 {{ selectedHiddenProfessionLimit.max_limit }} 个'));
+assert(indexSource.includes('@click="expandHiddenProfessionLimit(characterForm.profession_id)"'));
+assert(indexSource.includes('@click.stop="deleteAccountCharacter(character)"'));
+assert(indexSource.includes('v-if="!character.is_default"'));
+assert(indexSource.includes('characterDeletionMessage'));
 assert(indexSource.includes('本期不开放家园'));
 assert(!indexSource.includes(':disabled="accountCharacters.some(character => character.profession_id === option.profession_id)"'));
 assert(cssSource.includes('.character-modal'));
@@ -225,10 +256,14 @@ assert(cssSource.includes('.character-realm-choice'));
 assert(cssSource.includes('.btn.illusion-expansion-all-btn'));
 assert(cssSource.includes('background: linear-gradient(135deg, #6d28d9, #4c1d95)'));
 assert(cssSource.includes('color: #fff'));
+assert(cssSource.includes('.character-delete-btn'));
+assert(cssSource.includes('.character-deletion-success'));
 assert(appSource.includes("'/api/account/login'"));
 assert(appSource.includes("postAccountApi('/api/account/characters'"));
 assert(appSource.includes("'/api/account/illusion/activate'"));
 assert(appSource.includes("'/api/account/illusion/expand'"));
+assert(appSource.includes("'/api/account/profession/expand'"));
+assert(appSource.includes("'/api/account/characters/delete'"));
 assert(appSource.includes('realm_type: this.characterForm.realm_type'));
 assert(!appSource.includes("'/api/account/characters?'"));
 assert(appSource.includes("'/api/account/characters/select'"));
@@ -352,6 +387,98 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 	assert(expansionClient.illusionExpansionMessage.includes('增加1个'));
 	assert.strictEqual(expansionClient.illusionExpansionPendingRequest, null);
 	assert.strictEqual(expansionClient.illusionExpanding, false);
+
+	const professionClient = Object.assign(
+		componentOptions.data(), componentOptions.methods
+	);
+	professionClient.accountToken = '6'.repeat(64);
+	professionClient.accountId = 'xd01profession';
+	professionClient.accountSharedRechargeAvailable = true;
+	professionClient.accountSharedRechargeBalance = 5000;
+	professionClient.hiddenProfessionLimits = {
+		wuxiang: {
+			limited: 1, count: 3, base_limit: 3, current_limit: 3,
+			purchased_limit: 3, max_limit: 10, extra_slots: 0,
+			next_cost_suiyu: 5000, can_expand: 1
+		}
+	};
+	let professionPath = '';
+	let professionBody = null;
+	professionClient.postAccountApi = async (path, body) => {
+		professionPath = path;
+		professionBody = body;
+		return {
+			account_id: 'xd01profession',
+			shared_recharge_available: 1,
+			shared_recharge_balance: 0,
+			hidden_profession_limits: {
+				wuxiang: {
+					limited: 1, count: 3, base_limit: 3, current_limit: 4,
+					purchased_limit: 4, max_limit: 10, extra_slots: 1,
+					next_cost_suiyu: 10000, can_expand: 1
+				}
+			},
+			characters: [],
+			profession_expansion: {
+				message: '职业人物上限已提升至4个（最高10个）。'
+			}
+		};
+	};
+	await professionClient.expandHiddenProfessionLimit('wuxiang');
+	assert.strictEqual(professionPath, '/api/account/profession/expand');
+	assert.strictEqual(professionBody.token, '6'.repeat(64));
+	assert.strictEqual(professionBody.profession_id, 'wuxiang');
+	assert(/^[0-9a-f]{64}$/.test(professionBody.request_id));
+	assert.strictEqual(
+		professionClient.hiddenProfessionLimits.wuxiang.purchased_limit, 4
+	);
+	assert.strictEqual(
+		professionClient.hiddenProfessionLimits.wuxiang.next_cost_suiyu, 10000
+	);
+	assert.strictEqual(professionClient.accountSharedRechargeBalance, 0);
+	assert.strictEqual(professionClient.professionExpansionPendingRequest, null);
+	assert(professionClient.professionExpansionMessage.includes('最高10个'));
+
+	const deletionClient = Object.assign(
+		componentOptions.data(), componentOptions.methods
+	);
+	deletionClient.accountToken = '5'.repeat(64);
+	deletionClient.accountId = 'xd01deleteaccount';
+	deletionClient.currentCharacterId = 'xd01deleteaccount';
+	deletionClient.accountCharacters = [
+		{ id: 'xd01deleteaccount', is_default: 1, name_cn: '默认人物' },
+		{ id: 'xd01deletechild', is_default: 0, name_cn: '待归档人物',
+		  available: 1, slot: 2 }
+	];
+	promptAnswers = ['account-secret', 'xd01deletechild'];
+	let deletionPath = '';
+	let deletionBody = null;
+	deletionClient.postAccountApi = async (path, body) => {
+		deletionPath = path;
+		deletionBody = body;
+		return {
+			account_id: 'xd01deleteaccount',
+			characters: [{
+				id: 'xd01deleteaccount', is_default: 1, slot: 1
+			}],
+			character_deletion: {
+				message: '人物已移入安全归档；账号人物栏位已经释放。'
+			}
+		};
+	};
+	await deletionClient.deleteAccountCharacter(
+		deletionClient.accountCharacters[1]
+	);
+	assert.strictEqual(deletionPath, '/api/account/characters/delete');
+	assert.strictEqual(deletionBody.token, '5'.repeat(64));
+	assert.strictEqual(deletionBody.character_id, 'xd01deletechild');
+	assert.strictEqual(deletionBody.confirm_character_id, 'xd01deletechild');
+	assert.strictEqual(deletionBody.account_password, 'account-secret');
+	assert(/^[0-9a-f]{64}$/.test(deletionBody.request_id));
+	assert.strictEqual(deletionClient.accountCharacters.length, 1);
+	assert(deletionClient.characterDeletionMessage.includes('安全归档'));
+	assert.strictEqual(deletionClient.characterDeletionPendingRequest, null);
+	assert.strictEqual(deletionClient.characterDeletingId, '');
 
   const firstTxd = client.encodeTxd('xd01firsthero', 'test88');
   const secondTxd = client.encodeTxd('xd01secondhero', 'test88');

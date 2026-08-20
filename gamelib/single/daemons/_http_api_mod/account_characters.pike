@@ -124,10 +124,54 @@ private mapping query_account_characters_with_illusion_status(
 	// 人物中心支付不依赖在线人物。若上次在钱包扣款与栏位落盘之间
 	// 退出，先完成幂等恢复，再把可创建数量返回给页面。
 	SEASONALD->reconcile_account_character_expansions(account_id);
+	ACCOUNT_CHARACTERD->reconcile_profession_slot_expansions(account_id);
 	mapping result = ACCOUNT_CHARACTERD->query_account_characters(
 		account_id,(string)(status["illusion_id"] || "S1"));
 	result["illusion_realm"] = status;
 	return result;
+}
+
+void handle_api_account_profession_expand(
+	Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	mapping expansion;
+	mapping result;
+	string token;
+	string account_id;
+	string profession_id;
+	string request_id;
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST扩充职业人物上限"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = (string)(params["token"] || "");
+	account_id = query_account_session(token);
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	profession_id = (string)(params["profession_id"] || "");
+	request_id = lower_case(String.trim_all_whites(
+		(string)(params["request_id"] || "")));
+	expansion = ACCOUNT_CHARACTERD->purchase_profession_slot_expansion(
+		account_id,profession_id,request_id);
+	if(!(int)expansion["ok"]){
+		send_json(req,(["error":expansion["message"] ||
+			"职业人物上限扩充失败"]),409);
+		return;
+	}
+	result = query_account_characters_with_illusion_status(account_id);
+	if(!(int)result["ok"]){
+		send_json(req,(["error":
+			"职业上限已扩充，但账号人物档案刷新失败"]),409);
+		return;
+	}
+	attach_account_wallet_status(result,account_id);
+	result["profession_expansion"] = expansion;
+	result["expires_in"] = ACCOUNT_SESSION_TTL;
+	send_json(req,result);
 }
 
 mapping query_account_session_status()
@@ -232,6 +276,112 @@ void handle_api_account_characters(Protocols.HTTP.Server.Request req)
 	attach_account_wallet_status(result,account_id);
 	result["expires_in"] = ACCOUNT_SESSION_TTL;
 	send_json(req,result);
+}
+
+void handle_api_account_character_delete(
+	Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	mapping account_data;
+	mapping retired;
+	mapping refreshed;
+	mapping target = ([]);
+	mapping seasonal_status;
+	string token;
+	string account_id;
+	string character_id;
+	string confirmed_id;
+	string account_password;
+	string stored_password;
+	string request_id;
+	string client_ip = normalize_http_client_ip(
+		req->remote_addr || "unknown");
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST安全归档人物"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = lower_case(String.trim_all_whites(
+		(string)(params["token"] || "")));
+	account_id = query_account_session(token);
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	character_id = String.trim_all_whites(
+		(string)(params["character_id"] || ""));
+	confirmed_id = String.trim_all_whites(
+		(string)(params["confirm_character_id"] || ""));
+	account_password = (string)(params["account_password"] || "");
+	request_id = lower_case(String.trim_all_whites(
+		(string)(params["request_id"] || "")));
+	if(character_id=="" || confirmed_id!=character_id){
+		send_json(req,(["error":"请完整输入要删除的人物ID进行二次确认"]),400);
+		return;
+	}
+	if(character_id==account_id){
+		send_json(req,(["error":"注册账号的默认人物不能删除"]),409);
+		return;
+	}
+	if(check_login_rate_limit(client_ip)){
+		send_json(req,(["error":"认证尝试过于频繁，请稍后再试"]),429);
+		return;
+	}
+	stored_password = get_user_password(account_id);
+	if(!stored_password || stored_password=="" ||
+	   account_password!=stored_password){
+		send_account_auth_error(req,client_ip);
+		return;
+	}
+	account_data = query_account_characters_with_illusion_status(account_id);
+	if(!(int)account_data["ok"] || !arrayp(account_data["characters"])){
+		send_json(req,(["error":"账号人物档案不可用"]),409);
+		return;
+	}
+	foreach((array)account_data["characters"],mapping one)
+		if((string)one["id"]==character_id){
+			target = one;
+			break;
+		}
+	if(!sizeof(target)){
+		// 网络可能在索引已提交、成功响应尚未到达时
+		// 中断。只允许同一回执去受限归档验证已完成；
+		// 其他账号或不同回执仍然失败关闭。
+		retired = ACCOUNT_CHARACTERD->retire_account_character(account_id,
+			character_id,request_id);
+		if(!(int)retired["ok"]){
+			send_json(req,(["error":
+				"人物不属于当前账号或已经归档"]),403);
+			return;
+		}
+	}
+	seasonal_status = mappingp(account_data["illusion_realm"]) ?
+		(mapping)account_data["illusion_realm"] : ([]);
+	if(sizeof(target) && (string)target["realm_type"]=="illusion" &&
+	   has_value(({"settling","closed"}),
+		(string)seasonal_status["phase"])){
+		send_json(req,(["error":"该幻境人物正在回归结算，暂不能删除"]),409);
+		return;
+	}
+	if(!sizeof(retired))
+		retired = ACCOUNT_CHARACTERD->retire_account_character(account_id,
+			character_id,request_id);
+	if(!(int)retired["ok"]){
+		send_json(req,(["error":retired["message"] ||
+			"人物安全归档失败"]),409);
+		return;
+	}
+	refreshed = query_account_characters_with_illusion_status(account_id);
+	if(!(int)refreshed["ok"]){
+		send_json(req,(["error":
+			"人物已安全归档，但账号列表刷新失败；请重新登录"]),409);
+		return;
+	}
+	reset_login_failures(client_ip);
+	attach_account_wallet_status(refreshed,account_id);
+	refreshed["character_deletion"] = retired;
+	refreshed["expires_in"] = ACCOUNT_SESSION_TTL;
+	send_json(req,refreshed);
 }
 
 void handle_api_account_illusion_activate(

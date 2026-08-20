@@ -652,6 +652,29 @@ private int pike_gateway_account_path(string path)
 	return has_prefix(path,"/api/account/");
 }
 
+/**
+ * Character retirement is irreversible from the player's point of view, so a
+ * stale or partial cluster snapshot must fail closed.  The primary worker's
+ * find_player() only sees its own process; the coordinator is the only place
+ * that can prove the character is offline across every worker.
+ */
+private mapping pike_gateway_character_delete_guard(string userid)
+{
+	mapping snapshot;
+	if(!pike_gateway_valid_userid(userid))
+		return pike_gateway_busy_response(
+			"人物ID格式不正确，已拒绝删除",400);
+	snapshot = query_pike_gateway_online_users();
+	if(!(int)snapshot["ok"] || !arrayp(snapshot["users"]))
+		return pike_gateway_busy_response(
+			"跨Worker在线状态暂不可验证，已拒绝删除",503);
+	foreach((array)snapshot["users"],mixed raw)
+		if(mappingp(raw) && (string)((mapping)raw)["userid"]==userid)
+			return pike_gateway_busy_response(
+				"人物仍然在线，请先退出该人物后再删除",409);
+	return ([]);
+}
+
 private int pike_gateway_response_header_allowed(string name)
 {
 	name = lower_case(name || "");
@@ -2671,9 +2694,17 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 		if(pike_gateway_account_path((string)snapshot["path_only"])){
 			token_account = pike_gateway_resolve_account_token(account_token);
 			if(userid!=""){
-				account_id = pike_gateway_resolve_account(userid);
-				if(token_account!="" && token_account!=account_id)
-					error("account token owner mismatch\n");
+				// 删除成功的响应可能在网络中断丢失，此时
+				// 人物已不在活动索引。重试必须仍按已认证的
+				// token账号上锁，再由主Worker用归档回执验证。
+				if((string)snapshot["path_only"]==
+				   "/api/account/characters/delete" && token_account!="")
+					account_id = token_account;
+				else{
+					account_id = pike_gateway_resolve_account(userid);
+					if(token_account!="" && token_account!=account_id)
+						error("account token owner mismatch\n");
+				}
 				user_key = pike_gateway_user_mutex(userid,account_id)->lock();
 			}
 			else if(token_account!=""){
@@ -2686,8 +2717,12 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 				account_id = "";
 			}
 			pike_gateway_ensure_routing_ready();
-			proxied = pike_gateway_proxy(pike_gateway_primary,method,path,
-				headers,body,"",0,"",account_id,"account");
+			if((string)snapshot["path_only"]==
+			   "/api/account/characters/delete")
+				proxied = pike_gateway_character_delete_guard(userid);
+			if(!sizeof(proxied))
+				proxied = pike_gateway_proxy(pike_gateway_primary,method,path,
+					headers,body,"",0,"",account_id,"account");
 			pike_gateway_observe_account_response(
 				(string)snapshot["path_only"],account_token,proxied);
 		}

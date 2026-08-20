@@ -192,11 +192,17 @@ createApp({
             characterCreateOpen: false,
             characterLoading: false,
             characterCreating: false,
+			characterDeletingId: '',
+			characterDeletionMessage: '',
+			characterDeletionPendingRequest: null,
 			illusionActivating: false,
 			illusionActivationMessage: '',
 			illusionExpanding: false,
 			illusionExpansionMessage: '',
 			illusionExpansionPendingRequest: null,
+			professionExpanding: false,
+			professionExpansionMessage: '',
+			professionExpansionPendingRequest: null,
             characterError: '',
             accountToken: '',
             accountId: '',
@@ -230,6 +236,18 @@ createApp({
             wuxiangUnlocked: false,
             taijiUnlocked: false,
             zhaomingUnlocked: false,
+			hiddenProfessionLimits: {
+				wuxiang: {
+					limited: 1, count: 0, base_limit: 3, current_limit: 3,
+					purchased_limit: 3, max_limit: 10, extra_slots: 0,
+					next_cost_suiyu: 5000, can_expand: 1
+				},
+				taiji: {
+					limited: 1, count: 0, base_limit: 2, current_limit: 2,
+					purchased_limit: 2, max_limit: 10, extra_slots: 0,
+					next_cost_suiyu: 5000, can_expand: 1
+				}
+			},
             s1HiddenProfession: {
                 unlocked: false,
                 completed_count: 0,
@@ -1650,11 +1668,29 @@ createApp({
 				entitlement_open: false, entitlement_cost_suiyu: 0
 			};
             this.characterCreateOpen = false;
+			this.characterDeletingId = '';
+			this.characterDeletionMessage = '';
+			this.characterDeletionPendingRequest = null;
 			this.illusionActivating = false;
 			this.illusionActivationMessage = '';
 			this.illusionExpanding = false;
 			this.illusionExpansionMessage = '';
 			this.illusionExpansionPendingRequest = null;
+			this.professionExpanding = false;
+			this.professionExpansionMessage = '';
+			this.professionExpansionPendingRequest = null;
+			this.hiddenProfessionLimits = {
+				wuxiang: {
+					limited: 1, count: 0, base_limit: 3, current_limit: 3,
+					purchased_limit: 3, max_limit: 10, extra_slots: 0,
+					next_cost_suiyu: 5000, can_expand: 1
+				},
+				taiji: {
+					limited: 1, count: 0, base_limit: 2, current_limit: 2,
+					purchased_limit: 2, max_limit: 10, extra_slots: 0,
+					next_cost_suiyu: 5000, can_expand: 1
+				}
+			};
             this.characterError = '';
         },
 
@@ -1750,6 +1786,11 @@ createApp({
             this.wuxiangUnlocked = !!data.wuxiang_unlocked;
             this.taijiUnlocked = !!data.taiji_unlocked;
             this.zhaomingUnlocked = !!data.zhaoming_unlocked;
+			if (data.hidden_profession_limits &&
+				typeof data.hidden_profession_limits === 'object') {
+				this.hiddenProfessionLimits = Object.assign({},
+					this.hiddenProfessionLimits, data.hidden_profession_limits);
+			}
             if (data.s1_hidden_profession && typeof data.s1_hidden_profession === 'object') {
                 this.s1HiddenProfession = Object.assign({},
                     this.s1HiddenProfession, data.s1_hidden_profession);
@@ -1883,6 +1924,91 @@ createApp({
             }
         },
 
+		async createCharacterDeletionRequestId(characterId) {
+			let entropy = '';
+			if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+				const randomBytes = new Uint8Array(32);
+				window.crypto.getRandomValues(randomBytes);
+				entropy = Array.from(randomBytes)
+					.map(value => value.toString(16).padStart(2, '0')).join('');
+			} else {
+				entropy = `${Date.now()}|${Math.random()}|${Math.random()}`;
+			}
+			return sha256([
+				this.accountId, characterId, 'character-retirement', entropy
+			].join('|'));
+		},
+
+		async deleteAccountCharacter(character) {
+			if (!character || !character.id || !this.accountToken ||
+				this.characterDeletingId || this.characterLoading) return;
+			if (character.is_default || character.id === this.accountId) {
+				this.characterError = '注册账号的默认人物不能删除';
+				return;
+			}
+			if (character.id === this.currentCharacterId) {
+				this.characterError = '请先退出当前人物，再从账号人物中心删除';
+				return;
+			}
+			const accountPassword = window.prompt(
+				`删除「${character.name_cn || character.id}」需要重新验证。\n请输入注册账号密码：`
+			);
+			if (accountPassword === null) return;
+			if (!accountPassword) {
+				this.characterError = '账号密码不能为空';
+				return;
+			}
+			const confirmedId = window.prompt(
+				`请完整输入人物ID「${character.id}」进行最后确认：`
+			);
+			if (confirmedId === null) return;
+			if (String(confirmedId).trim() !== character.id) {
+				this.characterError = '人物ID不匹配，本次没有删除任何档案';
+				return;
+			}
+			if (!window.confirm(
+				`最后确认：将「${character.name_cn || character.id}」移入管理员可恢复的安全归档？\n将立即释放人物栏位，但已购买的赛季栏位和职业上限不退款。`
+			)) return;
+			if (!this.characterDeletionPendingRequest ||
+				this.characterDeletionPendingRequest.characterId !== character.id) {
+				this.characterDeletionPendingRequest = {
+					characterId: character.id,
+					requestId: await this.createCharacterDeletionRequestId(character.id)
+				};
+			}
+			this.characterDeletingId = character.id;
+			this.characterDeletionMessage = '';
+			this.characterError = '';
+			try {
+				const data = await this.postAccountApi(
+					'/api/account/characters/delete',
+					{
+						token: this.accountToken,
+						character_id: character.id,
+						confirm_character_id: character.id,
+						account_password: accountPassword,
+						request_id: this.characterDeletionPendingRequest.requestId
+					}
+				);
+				this.applyAccountData(data);
+				this.characterDeletionMessage =
+					data.character_deletion?.message ||
+					'人物已移入安全归档，栏位已释放';
+				this.characterDeletionPendingRequest = null;
+			} catch (error) {
+				this.characterError = (error.message || '人物安全归档失败') +
+					'；如是网络中断，再次确认会沿用同一回执安全重试';
+				if (error.status === 401) {
+					this.clearAccountSession();
+					this.showCharacterSelect = false;
+					this.showLogin = true;
+					this.loginError = '账号认证失败，请重新登录';
+				}
+			} finally {
+				this.characterDeletingId = '';
+			}
+		},
+
         openCharacterCreator() {
             if (this.accountCharacters.length >= this.accountCharacterLimit) {
                 this.characterError = `人物档案已达到${this.accountCharacterLimit}个上限`;
@@ -1896,6 +2022,7 @@ createApp({
             this.characterForm.avatar_id = '';
 			this.illusionActivationMessage = '';
 			this.illusionExpansionMessage = '';
+			this.professionExpansionMessage = '';
             this.characterError = '';
             this.characterCreateOpen = true;
         },
@@ -2014,6 +2141,89 @@ createApp({
 				}
 			} finally {
 				this.illusionExpanding = false;
+			}
+		},
+
+		async createProfessionExpansionRequestId(professionId) {
+			let entropy = '';
+			if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+				const randomBytes = new Uint8Array(32);
+				window.crypto.getRandomValues(randomBytes);
+				entropy = Array.from(randomBytes)
+					.map(value => value.toString(16).padStart(2, '0')).join('');
+			} else {
+				entropy = `${Date.now()}|${Math.random()}|${Math.random()}`;
+			}
+			return sha256([
+				this.accountId, professionId, 'profession-slot', entropy
+			].join('|'));
+		},
+
+		async expandHiddenProfessionLimit(professionId) {
+			if (this.professionExpanding || !this.accountToken ||
+				!['wuxiang', 'taiji'].includes(professionId)) return;
+			const state = this.hiddenProfessionLimits?.[professionId];
+			if (!state || Number(state.can_expand || 0) !== 1) {
+				this.characterError = '该职业已经达到10个人物的绝对上限';
+				return;
+			}
+			const count = Number(state.count || 0);
+			const currentLimit = Number(state.current_limit || 0);
+			const maxLimit = Number(state.max_limit || 10);
+			const nextCost = Number(state.next_cost_suiyu || 0);
+			if (count < currentLimit) {
+				this.characterError = `该职业已创建${count}个，当前上限${currentLimit}个，尚无需扩充`;
+				return;
+			}
+			if (nextCost <= 0 || currentLimit >= maxLimit) {
+				this.characterError = `该职业已经达到${maxLimit}个人物上限`;
+				return;
+			}
+			if (!this.accountSharedRechargeAvailable ||
+				this.accountSharedRechargeBalance < nextCost) {
+				this.characterError = `账号共享充值余额不足，需要${nextCost}碎玉`;
+				return;
+			}
+			const professionName = professionId === 'wuxiang' ? '无相' : '太极';
+			if (!window.confirm(
+				`支付${nextCost}碎玉，将${professionName}可创建上限从${currentLimit}个提升到${currentLimit + 1}个？\n最高上限为${maxLimit}个，已支付的扩充不退款。`
+			)) return;
+			const requestKey = `${professionId}:${currentLimit + 1}`;
+			if (!this.professionExpansionPendingRequest ||
+				this.professionExpansionPendingRequest.key !== requestKey) {
+				this.professionExpansionPendingRequest = {
+					key: requestKey,
+					requestId: await this.createProfessionExpansionRequestId(professionId)
+				};
+			}
+			this.professionExpanding = true;
+			this.professionExpansionMessage = '';
+			this.characterError = '';
+			try {
+				const data = await this.postAccountApi(
+					'/api/account/profession/expand',
+					{
+						token: this.accountToken,
+						profession_id: professionId,
+						request_id: this.professionExpansionPendingRequest.requestId
+					}
+				);
+				this.applyAccountData(data);
+				this.professionExpansionMessage =
+					data.profession_expansion?.message ||
+					`${professionName}人物上限扩充成功`;
+				this.professionExpansionPendingRequest = null;
+			} catch (error) {
+				this.characterError = (error.message || '职业人物上限扩充失败') +
+					'；再次点击会沿用同一请求安全重试';
+				if (error.status === 401) {
+					this.clearAccountSession();
+					this.showCharacterSelect = false;
+					this.showLogin = true;
+					this.loginError = '账号会话已过期，请重新登录';
+				}
+			} finally {
+				this.professionExpanding = false;
 			}
 		},
 
@@ -5569,6 +5779,12 @@ createApp({
 				this.illusionRealmStatus?.multi_character_unlock_cost_suiyu || 500
 			));
 			return fullCost;
+		},
+
+		selectedHiddenProfessionLimit() {
+			const professionId = String(this.characterForm?.profession_id || '');
+			const state = this.hiddenProfessionLimits?.[professionId];
+			return state && Number(state.limited || 0) === 1 ? state : null;
 		},
 
 		hasRecentAoeReport() {

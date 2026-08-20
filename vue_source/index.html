@@ -417,6 +417,9 @@
                         {{ formatGameNumber(accountSharedRechargeBalance) }} 碎玉
                     </em>
                 </div>
+				<p class="character-deletion-success"
+					v-if="characterDeletionMessage"
+					role="status">{{ characterDeletionMessage }}</p>
 
                 <div class="character-grid" v-if="!characterCreateOpen">
                     <div v-for="character in accountCharacters"
@@ -460,6 +463,15 @@
                                     :disabled="characterLoading"
                                     aria-label="撤销本角色全部直达书签"
                                     title="使本角色以前保存和分享的直达书签全部失效">撤</button>
+							<button type="button"
+									v-if="!character.is_default"
+									class="character-bookmark-btn character-delete-btn"
+									@click.stop="deleteAccountCharacter(character)"
+									:disabled="characterLoading || !!characterDeletingId || character.available === 0 || character.id === currentCharacterId"
+									:aria-label="'删除人物 ' + character.name_cn"
+									:title="character.id === currentCharacterId ? '请先退出当前人物' : '验证密码与人物ID后移入可恢复归档'">
+								{{ characterDeletingId === character.id ? '归档中' : '删' }}
+							</button>
                         </div>
                     </div>
                     <button type="button"
@@ -587,6 +599,30 @@
                             </em>
                         </button>
                     </div>
+					<div class="profession-limit-card"
+						v-if="selectedHiddenProfessionLimit">
+						<div class="profession-limit-copy">
+							<strong>{{ characterForm.profession_id === 'wuxiang' ? '无相' : '太极' }}人物额度</strong>
+							<span>已创建 {{ selectedHiddenProfessionLimit.count }} 个 · 当前已购上限 {{ selectedHiddenProfessionLimit.purchased_limit }} 个 · 最高 {{ selectedHiddenProfessionLimit.max_limit }} 个</span>
+							<small v-if="selectedHiddenProfessionLimit.count < selectedHiddenProfessionLimit.current_limit">
+								当前还可创建 {{ selectedHiddenProfessionLimit.current_limit - selectedHiddenProfessionLimit.count }} 个，无需扩充。
+							</small>
+							<small v-else-if="selectedHiddenProfessionLimit.can_expand">
+								当前额度已用满；本次支付 {{ selectedHiddenProfessionLimit.next_cost_suiyu }} 碎玉后，上限提升至 {{ selectedHiddenProfessionLimit.current_limit + 1 }} 个。
+							</small>
+							<small v-else>已经达到该职业 10 个人物的绝对上限。</small>
+						</div>
+						<button type="button"
+							class="btn btn-primary profession-limit-buy"
+							v-if="selectedHiddenProfessionLimit.count >= selectedHiddenProfessionLimit.current_limit && selectedHiddenProfessionLimit.can_expand"
+							@click="expandHiddenProfessionLimit(characterForm.profession_id)"
+							:disabled="professionExpanding || !accountSharedRechargeAvailable || accountSharedRechargeBalance < selectedHiddenProfessionLimit.next_cost_suiyu">
+							{{ professionExpanding ? '处理中...' : selectedHiddenProfessionLimit.next_cost_suiyu + '碎玉购买上限 ' + (selectedHiddenProfessionLimit.current_limit + 1) }}
+						</button>
+					</div>
+					<p class="illusion-activation-success"
+						v-if="professionExpansionMessage"
+						role="status">{{ professionExpansionMessage }}</p>
                     <div class="character-avatar-section" v-if="characterForm.profession_id">
                         <strong>选择头像</strong>
                         <div class="character-avatar-grid">
@@ -610,7 +646,7 @@
                         <button type="button"
                                 class="btn btn-primary"
                                 @click="createAccountCharacter"
-                                :disabled="characterCreating || !characterForm.profession_id || !characterForm.name_cn.trim() || !characterForm.avatar_id">
+								:disabled="characterCreating || !characterForm.profession_id || !characterForm.name_cn.trim() || !characterForm.avatar_id || (selectedHiddenProfessionLimit && selectedHiddenProfessionLimit.count >= selectedHiddenProfessionLimit.current_limit)">
 							{{ characterCreating ? '创建中...' : (characterForm.realm_type === 'illusion' ? '创建' + (illusionRealmStatus.illusion_id || 'S1') + '人物并进入' : '创建并进入') }}
                         </button>
                     </div>

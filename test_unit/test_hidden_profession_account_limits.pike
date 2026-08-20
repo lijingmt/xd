@@ -39,6 +39,8 @@ object create_account_root(string account_id)
 	player->set_name(account_id);
 	player->set_password("testunit88");
 	player->set_project("gamelib");
+	player->set_userip("testunit-hidden-limit");
+	player->set_account_owner(account_id);
 	player->name_cn = "隐藏职业限量测试";
 	player->set_raceId("human");
 	player->set_profeId("jianxian");
@@ -87,6 +89,7 @@ int main()
 	object original_player = this_player();
 	werror("\n========== 隐藏职业账号数量上限测试 ==========\n");
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
+	ACCOUNT_WALLETD->remove_test_wallet(account_id);
 	cleanup_player(account_id);
 	mixed err = catch{
 		root = create_account_root(account_id);
@@ -129,10 +132,48 @@ int main()
 			query_profession_selection_permission(account_id,"wuxiang");
 		check("同一注册账号允许三个无相并拒绝第四个及旧入口绕过",
 			three_wuxiang && !fourth_wuxiang["ok"] &&
-			search((string)fourth_wuxiang["message"],"最多创建3个")!=-1 &&
+			search((string)fourth_wuxiang["message"],"当前可创建上限3个")!=-1 &&
 			!wuxiang_selection["allowed"] &&
-			(int)wuxiang_selection["count"]==3,
+			(int)wuxiang_selection["count"]==3 &&
+			(int)wuxiang_selection["limit"]==3 &&
+			(int)wuxiang_selection["max_limit"]==10,
 			"无相上限未在账号锁或choice_profe共用校验中生效");
+
+		mapping credited = ACCOUNT_WALLETD->credit_recharge_once(root,500,
+			"testunitadmin",ACCOUNT_WALLETD->new_recharge_request_id());
+		string expansion_request = "7"*64;
+		mapping expanded = ACCOUNT_CHARACTERD->
+			purchase_profession_slot_expansion(account_id,"wuxiang",
+				expansion_request);
+		mapping expanded_again = ACCOUNT_CHARACTERD->
+			purchase_profession_slot_expansion(account_id,"wuxiang",
+				expansion_request);
+		mapping expanded_summary = ACCOUNT_CHARACTERD->
+			query_account_characters(account_id);
+		mapping expanded_state =
+			expanded_summary["hidden_profession_limits"]["wuxiang"];
+		mapping fourth_after_purchase = create_and_finish(account_id,
+			"third","wuxiang",created_ids);
+		if(arrayp(fourth_after_purchase["created_ids"])){
+			created_ids = (array(string))fourth_after_purchase["created_ids"];
+			wuxiang_ids += ({created_ids[-1]});
+		}
+		mapping expanded_wallet = ACCOUNT_WALLETD->query_account_wallet(
+			account_id);
+		check("购买第一格明确把无相上限从3提高到4且幂等不重复扣款",
+			(int)credited["ok"] && (int)expanded["ok"] &&
+			!(int)expanded["already"] && (int)expanded_again["ok"] &&
+			(int)expanded_again["already"] &&
+			(int)expanded_state["count"]==3 &&
+			(int)expanded_state["purchased_limit"]==4 &&
+			(int)expanded_state["max_limit"]==10 &&
+			(int)expanded_state["next_cost_suiyu"]==10000 &&
+			(int)fourth_after_purchase["ok"] &&
+			(int)expanded_wallet["balance"]==0 &&
+			sizeof((mapping)expanded_wallet["debit_requests"])==0,
+			sprintf("credit=%O expanded=%O again=%O state=%O fourth=%O wallet=%O",
+				credited,expanded,expanded_again,expanded_state,
+				fourth_after_purchase,expanded_wallet));
 
 		int two_taiji = 1;
 		for(int index=0;index<2;index++){
@@ -148,7 +189,7 @@ int main()
 			query_profession_selection_permission(account_id,"taiji");
 		check("当前太极职业承载无极限量：允许两个并拒绝第三个",
 			two_taiji && !third_taiji["ok"] &&
-			search((string)third_taiji["message"],"最多创建2个")!=-1 &&
+			search((string)third_taiji["message"],"当前可创建上限2个")!=-1 &&
 			!taiji_selection["allowed"] &&
 			(int)taiji_selection["count"]==2 &&
 			ACCOUNT_CHARACTERD->query_profession_account_limit("taiji")==2,
@@ -161,7 +202,8 @@ int main()
 		check("普通职业不受新增限制且当前待初始化人物不会重复计数",
 			ordinary["allowed"] && !ordinary["limited"] &&
 			existing_wuxiang["allowed"] &&
-			(int)existing_wuxiang["count"]==2,
+			(int)existing_wuxiang["count"]==3 &&
+			(int)existing_wuxiang["limit"]==4,
 			"普通职业被误限或排除当前人物的边界错误");
 	};
 	if(original_player)
@@ -175,6 +217,7 @@ int main()
 		destruct(root);
 	array(string) all_ids = ACCOUNT_CHARACTERD->query_character_ids(account_id);
 	ACCOUNT_CHARACTERD->remove_test_account(account_id);
+	ACCOUNT_WALLETD->remove_test_wallet(account_id);
 	foreach(all_ids,string character_id)
 		cleanup_player(character_id);
 	cleanup_player(account_id);

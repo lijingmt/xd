@@ -1374,7 +1374,7 @@ body {
 }
 
 .character-card-wrap > .character-card {
-    padding-right: 78px;
+    padding-right: 116px;
 }
 
 .character-bookmark-actions {
@@ -1405,6 +1405,22 @@ body {
 
 .character-bookmark-revoke-btn {
     color: var(--text-muted);
+}
+
+.character-delete-btn {
+	min-width: 36px;
+	color: var(--danger);
+}
+
+.character-deletion-success {
+	margin: 0;
+	padding: 9px 12px;
+	border: 1px solid rgba(72, 187, 120, 0.35);
+	border-radius: 10px;
+	background: rgba(72, 187, 120, 0.1);
+	color: var(--success);
+	font-size: var(--font-xs);
+	line-height: 1.5;
 }
 
 .character-bookmark-btn:hover:not(:disabled),
@@ -1830,6 +1846,53 @@ body {
     color: var(--text-tertiary);
     font-size: 10px;
     font-style: normal;
+}
+
+.profession-limit-card {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	margin-top: 10px;
+	padding: 12px;
+	border: 1px solid rgba(180, 83, 9, 0.4);
+	border-radius: var(--radius-md);
+	background: linear-gradient(145deg,
+		rgba(251, 191, 36, 0.12), rgba(190, 24, 93, 0.07));
+}
+
+.profession-limit-copy strong,
+.profession-limit-copy span,
+.profession-limit-copy small {
+	display: block;
+}
+
+.profession-limit-copy span {
+	margin-top: 3px;
+	color: var(--text-primary);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.profession-limit-copy small {
+	margin-top: 4px;
+	color: var(--text-secondary);
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.profession-limit-buy {
+	min-width: 168px;
+}
+
+@media (max-width: 520px) {
+	.profession-limit-card {
+		grid-template-columns: 1fr;
+	}
+
+	.profession-limit-buy {
+		width: 100%;
+	}
 }
 
 .character-create-actions {
