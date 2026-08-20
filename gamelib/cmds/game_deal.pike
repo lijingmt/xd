@@ -157,7 +157,7 @@ int main(string|zero arg)
 		s += "[实时在线用户查询管理:game_deal manager_user_online not not not]\n";
 		s += "[禁言用户列表:game_deal unchat_user_list not not not]\n";
 		s += "[封号用户列表:game_deal unlogin_user_list not not not]\n";
-		s += "[历史用户查询管理:game_deal manager_user_history not not not]\n";
+		s += "[历史/离线用户查询管理:mgr_usr_data]\n";
 		//s += "[关闭游戏:game_deal downgame not not not]\n";
 	}
 	else{
@@ -166,7 +166,7 @@ int main(string|zero arg)
 			s += "[实时在线用户查询管理:game_deal manager_user_online not not not]\n";
 			s += "[禁言用户列表:game_deal unchat_user_list not not not]\n";
 			s += "[封号用户列表:game_deal unlogin_user_list not not not]\n";
-			s += "[历史用户查询管理:game_deal manager_user_history not not not]\n";
+			s += "[历史/离线用户查询管理:mgr_usr_data]\n";
 		}
 		else{
 			if(MAP_WORKERD->query_node_role()=="worker" &&
@@ -496,9 +496,10 @@ int main(string|zero arg)
 				break;
 				case "manager_user_history":
 				{
-					s += "(历史用户查询管理，尚未实现，需调用数据库)\n";	
-					s += "输入要查找的用户中文名\n";
-					s += "输入要查找的用户id\n";
+					s += "历史与离线人物按完整人物ID读取真实存档；"+
+						"多Worker模式会自动使用安全汇总入口。\n";
+					s += "输入要查找的人物ID\n";
+					s += "[string:mgr_usr_data ...]\n";
 					s += "[查看实时在线列表:game_deal manager_user_online not not not]\n";
 					s += "[查看禁言列表:game_deal unchat_user_list not not not]\n";
 					s += "[查看封号列表:game_deal unlogin_user_list not not not]\n";

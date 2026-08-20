@@ -588,7 +588,7 @@ private string guided_route_help(object me,mapping progress)
 	string direct = (int)step["done"] ?
 		"[▶ 下一步：领取本章并继续:illusion_realm next]\n" :
 		((string)step["action"]=="team" ?
-		 "[▶ 下一步：打开队伍并开始协作:team]\n" :
+		 "[▶ 下一步：打开队伍并开始协作:my_term]\n" :
 		 "[▶ 下一步：前往"+(string)step["location"]+"·"+
 			(string)step["name"]+":illusion_realm route next]\n");
 	if(path=="pioneer")
@@ -997,7 +997,7 @@ int main(string|zero arg)
 			follow = "\n"+boss_challenge_link(result)+
 				"[返回游戏:look]|[重新查看终章指引:illusion_realm next]\n";
 		else if((int)result["ok"] && (string)result["action"]=="team")
-			follow = "\n[▶ 下一步：打开队伍:team]|"+
+			follow = "\n[▶ 下一步：打开队伍:my_term]|"+
 				"[开始自动打怪:autofight start]\n";
 		write((string)result["message"]+follow);
 		return 1;

@@ -11,4 +11,12 @@ protected void create(){
 	exits["south"]=ROOT "/gamelib/d/jinaodao/fenghouzhen";
 	exits["west"]=ROOT "/gamelib/d/jinaodao/tianjuezhen";
 	exits["north"]=ROOT "/gamelib/d/jinaodao/diliezhen";
+	// 2026-08 的等级适配保留了十阵高阶怪，却误删了低阶任务链
+	// 唯一来源。只在阵眼恢复一组原任务怪，避免十个房间全部加倍生成。
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/sanxian10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/daoshi10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/xiuzhenshi10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/lishi10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/luopojianxian10"}));
+	add_items(({ROOT "/gamelib/clone/npc/jinaodao/bingsizhuxian10"}));
 }

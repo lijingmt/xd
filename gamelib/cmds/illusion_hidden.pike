@@ -44,7 +44,7 @@ private string progress_view(object me,mapping progress,string notice)
 			"\n[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
 	if((int)progress["completed"])
 		return s+"七卷四十九难已经全部完成。五段人生不是借来的力量，而是你亲自走过的来路。\n"+
-			"[查看技能:myskills]|[查看装备:myweapon]|[返回游戏:look]\n";
+		"[查看技能:myskills]|[查看装备:mytools]|[返回游戏:look]\n";
 	int trial=(int)progress["trial"];
 	int done=(int)progress["done"];
 	int required=(int)progress["required"];

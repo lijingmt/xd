@@ -13,7 +13,7 @@ int main(string|zero arg)
 	string arg_tail = "";
 	if(!arg || sscanf(arg,"%d %s tn=%s fe=%d",fg,to_game,to_user,ante_fee)!=4 ||
 	   (fg!=0 && fg!=1) || to_game!="qp0" || ante_fee<=0 || ante_fee>100){
-		write("兑换参数无效。\n[返回:fee_exchange_to_list]\n[返回游戏:look]\n");
+		write("兑换参数无效。\n[返回:fee_exchange_list]\n[返回游戏:look]\n");
 		return 1;
 	}
 	sscanf(arg,"%d %s",fg,arg_tail);
@@ -77,7 +77,7 @@ int main(string|zero arg)
 					s += "兑换失败！无法完成这笔交易\n";
 				}
 			}
-			s += "[返回:fee_exchange_to_list]\n";
+			s += "[返回:fee_exchange_list]\n";
 			s += "[返回游戏:look]\n";
 			write(s);
 			return 1;

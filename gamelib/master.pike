@@ -20,7 +20,7 @@ protected void create()
 #"$(player->drain_catch_tell())
 **客服专线**
 010-58699548（早9点到晚6点）
-[游戏帮助:gamehelp 0]
+[游戏帮助:newbie_guide overview]
 [url 在线客服:http://221.130.176.175/xiand0/help.jsp]
 [url 游戏首页:http://221.130.176.175/xiand0/index.jsp]
 ");

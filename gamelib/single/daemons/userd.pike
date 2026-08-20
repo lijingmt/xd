@@ -356,10 +356,48 @@ mapping(string:mixed) recycle_no_level_equipment(object player,
 void do_remove(object me)
 {
 }
+
+// 摄魂术、狂化曾被错误标为无属性被动：技能已写入旧档，力量却没有
+// 落盘。按人物真实已学等级补足到技能定义值；使用“只升不降”保证重登
+// 幂等，也不覆盖管理员或其他历史来源留下的更高被动力量。
+int migrate_legacy_strength_passives(object me)
+{
+	array(string) skill_names = ({"shihunshu","kuanghua"});
+	int expected = 0;
+	if(!me || !me->skills)
+		return 0;
+	foreach(skill_names,string skill_name){
+		mixed learned = me->skills[skill_name];
+		object|zero skill_ob = 0;
+		mixed load_err;
+		int level;
+		int value;
+		if(!arrayp(learned) || !sizeof((array)learned))
+			continue;
+		level = (int)((array)learned)[0];
+		if(level<1)
+			continue;
+		load_err = catch {
+			skill_ob = (object)(ROOT+"/gamelib/single/skills/"+skill_name);
+		};
+		if(load_err || !skill_ob ||
+		   !functionp(skill_ob->query_performs_attack))
+			continue;
+		value = (int)skill_ob->query_performs_attack(level);
+		if(value>expected)
+			expected = value;
+	}
+	if(expected<=0 || me->query_base_str()>=expected)
+		return 0;
+	me->set_base_str(expected);
+	return 1;
+}
+
 void do_login(object me)
 {
 	int migrated_newmoon;
 	int migrated_skill_ids;
+	int migrated_strength_passive;
 	check_daily(me);
 	// 七阶太古技能正式改用 huanji 前缀。旧档只迁移键名，完整保留
 	// 等级、熟练度、冷却、快捷栏和自动挂机优先级。
@@ -369,6 +407,12 @@ void do_login(object me)
 		werror("[ANCIENT_SKILL] id migration save failed user=%s count=%d\n",
 			me && functionp(me->query_name) ? (string)me->query_name() :
 				"unknown",migrated_skill_ids);
+	migrated_strength_passive=migrate_legacy_strength_passives(me);
+	if(migrated_strength_passive &&
+	   (!functionp(me->save_with_result) || !me->save_with_result()))
+		werror("[PASSIVE_SKILL] strength migration save failed user=%s\n",
+			me && functionp(me->query_name) ? (string)me->query_name() :
+				"unknown");
 	// Deployment compatibility: only New Moon pieces already equipped before
 	// the binding release are migrated. Unused backpack/warehouse drops remain
 	// freely tradable until their first real use.

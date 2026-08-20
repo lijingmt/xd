@@ -9,7 +9,7 @@ protected void create(){
 	s_skill_type="buff";
 	s_delayTime=3;
 	s_lasttime=600;
-	s_curse_type="0";
+	s_curse_type="str";
 	performs_attack[1]=8;
 	performs_attack[2]=11;
 	performs_attack[3]=14;
