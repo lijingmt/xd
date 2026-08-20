@@ -138,6 +138,8 @@ Background moves caused by timers are polled and settled by the coordinator, not
 
 Never use the original public gameplay request as the arrival transport. A movement command has already completed its costs, cooldowns, and other durable effects on the source worker. Materialize every committed cross-worker arrival through the authenticated, idempotent `local_arrival` RPC and its exact userid/epoch/affinity/room proof. If the client needs an immediate destination page, issue only a shape-compatible `look` refresh for `/api`, `/api/html`, or `/api/json`; collapse duplicate `cmd` fields in query/form/JSON input and never replay the original direction, trade, gift, auction, item, or admin command. Unsupported response shapes keep the already completed source response and catch up on the next ordinary refresh.
 
+`local_arrival` still needs the legacy `gamelib/master` once so restored users have the complete WAP view registry. Keep that master as one strong, process-lifetime reference inside the HTTP daemon, serialize its first lazy construction with a mutex, and share the same helper with registration. Never construct `gamelib/master` in a request-local variable: when the local reference expires, the next arrival repeats `_create()`, recompiles/scans daemons, and can add several seconds to every cross-Worker transition. The release gate must prove that two consecutive authenticated looks reuse the master (no extra `Loading daemons` occurrence) and that the second request stays on the fast path.
+
 ## Persistence and anti-clone fences
 
 There is one player data location. In Docker, host `/usr/local/games/allxd/<GAME_AREA>/data_xiand` mounts to `/app/xiand/data_xiand`. Every process sees the same archive tree; no process receives its own copy.

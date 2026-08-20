@@ -1380,36 +1380,10 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                             http_werror(" Creating new user...\n");
                             http_werror(" ROOT=%s\n", ROOT);
 
-                            program u;
-                            object m;
-
-                            // 尝试加载 master.pike（如果失败则忽略）
-                            http_werror(" Step 1: Loading master.pike...\n");
-                            mixed master_err = catch {
-                                m = (object)(ROOT + "/gamelib/master.pike");
-                                http_werror(" master.pike loaded: %O\n", m);
-                                if(m) http_werror(" master.pike functions: %O\n", indices(m));
-                            };
-                            if(master_err) {
-                                http_werror(" master.pike load ERROR: %s\n", describe_error(master_err));
-                            }
-
-                            http_werror(" Step 2: Getting user program...\n");
-                            if(m && functionp(m->connect)) {
-                                http_werror(" Found master->connect function\n");
-                                u = m->connect();
-                                http_werror(" Using master.pike->connect(): %O\n", u);
-                            }
-                            if(!u) {
-                                http_werror(" No master->connect, loading user.pike directly...\n");
-                                mixed user_prog_err = catch {
-                                    u = (program)(ROOT + "/gamelib/clone/user.pike");
-                                    http_werror(" Using user.pike: %O\n", u);
-                                };
-                                if(user_prog_err) {
-                                    http_werror(" user.pike load ERROR: %s\n", describe_error(user_prog_err));
-                                }
-                            }
+                            // 注册与跨 Worker 落地共用同一个常驻
+                            // gamelib/master，避免每次创建人物都重新扫描
+                            // 守护进程并重复初始化视图。
+                            program u = map_worker_user_program();
 
                             if(!u) {
                                 http_werror(" FATAL: Cannot load user program!\n");

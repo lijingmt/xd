@@ -784,6 +784,19 @@ int main()
 			source_has(game_master,"gamelib/single/skills"),
 			"第二层master会绕过启动边界，复制家园/拍卖定时器并阻塞首次look");
 
+		mapping master_cache = httpd->test_map_worker_game_master_cache();
+		check("跨Worker落地与注册共用单个常驿gamelib master",
+			(int)master_cache["ok"] &&
+			(int)master_cache["after"]==
+				max(1,(int)master_cache["before"]) &&
+			source_has(rpc,"private object map_worker_cached_game_master") &&
+			source_has(rpc,"user_program = map_worker_user_program()") &&
+			source_has(daemon,"program u = map_worker_user_program()") &&
+			!source_has(rpc,
+				"master=(object)(ROOT+\"/gamelib/master.pike\")"),
+			sprintf("master cache=%O; 落地可能每次重载守护进程",
+				master_cache));
+
 		check("公网监听前并行预热每个worker地图索引且恢复节点再次预热",
 			source_has(gateway,"pike_gateway_prewarm_all_workers") &&
 			source_has(gateway,"pike_gateway_prewarm_worker") &&

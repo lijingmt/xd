@@ -1,5 +1,57 @@
 /** Internal loopback RPC for map-worker coordination and local handoff. */
 
+/*
+ * gamelib/master installs the legacy WAP views needed by restored players,
+ * but constructing it also performs the bounded daemon bootstrap in
+ * gamelib/master::_create().  A local variable made every handoff construct
+ * it again after the request returned, turning a map transition into several
+ * seconds of repeated compilation and daemon scanning.  Keep exactly one
+ * master object alive for the lifetime of this HTTP daemon and serialize the
+ * first construction when two arrivals race after startup.
+ */
+private object map_worker_cached_game_master;
+private Thread.Mutex map_worker_game_master_lock = Thread.Mutex();
+private int map_worker_game_master_loads;
+
+private program map_worker_user_program()
+{
+    program result;
+    object key = map_worker_game_master_lock->lock();
+    if(!map_worker_cached_game_master){
+        mixed load_error = catch {
+            map_worker_cached_game_master =
+                (object)(ROOT+"/gamelib/master.pike");
+        };
+        if(load_error)
+            map_worker_cached_game_master = 0;
+        else if(map_worker_cached_game_master)
+            map_worker_game_master_loads++;
+    }
+    if(map_worker_cached_game_master &&
+       functionp(map_worker_cached_game_master->connect))
+        result = map_worker_cached_game_master->connect();
+    destruct(key);
+    if(!result)
+        result = (program)(ROOT+"/gamelib/clone/user.pike");
+    return result;
+}
+
+mapping(string:mixed) test_map_worker_game_master_cache()
+{
+    mapping(string:mixed) result = (["ok":0,"before":-1,"after":-1]);
+    if(getenv("XIAND_RUN_TESTUNIT")!="1")
+        return result;
+    result["before"] = map_worker_game_master_loads;
+    program first = map_worker_user_program();
+    object master_after_first = map_worker_cached_game_master;
+    program second = map_worker_user_program();
+    result["after"] = map_worker_game_master_loads;
+    result["ok"] = first && second && first==second && master_after_first &&
+        master_after_first==map_worker_cached_game_master &&
+        (int)result["after"]==max(1,(int)result["before"]);
+    return result;
+}
+
 private int map_worker_rpc_authorized(Protocols.HTTP.Server.Request req)
 {
     string configured = getenv("XIAND_WORKER_TOKEN") || "";
@@ -563,7 +615,6 @@ private void handle_map_worker_local_arrival(
         (string)(params["account_cache_token"] || "")));
     int epoch = (int)params["epoch"];
     object player;
-    object master;
     program user_program;
     string password;
     int setup_ok;
@@ -571,7 +622,6 @@ private void handle_map_worker_local_arrival(
     mapping result;
     mapping arrival_result;
     mixed setup_err;
-    mixed load_err;
     if(MAP_WORKERD->query_node_role()!="worker" ||
        !MAP_WORKERD->local_control_lease_valid() ||
        userid=="" || account_owner=="" || epoch<1 || room_path=="" ||
@@ -644,11 +694,7 @@ private void handle_map_worker_local_arrival(
         return;
     }
     password = get_user_password(userid);
-    load_err = catch { master=(object)(ROOT+"/gamelib/master.pike"); };
-    if(!load_err && master && functionp(master->connect))
-        user_program = master->connect();
-    if(!user_program)
-        user_program = (program)(ROOT+"/gamelib/clone/user.pike");
+    user_program = map_worker_user_program();
     if(password!="" && user_program){
         player = user_program();
         player->set_name(userid);
