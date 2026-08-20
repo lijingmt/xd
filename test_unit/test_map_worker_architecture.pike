@@ -863,6 +863,21 @@ int main()
 				"SKIP disabled node role"),
 			"内部RPC可能外露、抢占现网端口或多节点重复跑TestUnit");
 
+		check("TestUnit清档仅命中保留测试命名空间",
+			((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
+				query_testunit_archive_filename_for_test(
+					"__testunit_demo__.o") &&
+			((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
+				query_testunit_archive_filename_for_test(
+					"xd01testunitdemo.o.bak.tmp") &&
+			!((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
+				query_testunit_archive_filename_for_test(
+					"xd01player_testunit_demo.o") &&
+			!((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
+				query_testunit_archive_filename_for_test(
+					"xd01testunitdemo.json"),
+			"普通玩家名或非人物档案仍可能被测试清理误删");
+
 		check("worker只预启动归属安全daemon，shadow不接流量且active需隔离机确认",
 			source_has("/lowlib/system/master.pike",
 				"Map-worker node skipping eager daemon") &&

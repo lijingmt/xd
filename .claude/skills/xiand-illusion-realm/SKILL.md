@@ -92,6 +92,11 @@ offline characters settle on their next real login. The shared runtime file uses
 a revision, bounded audit list, temp file, backup, and atomic rename. Never edit
 it manually while processes are running.
 
+Before previewing or confirming a rollover, verify the old cycle's canonical
+content archive still loads and matches its cycle ID. Both gates must fail closed
+when it is missing; restore the archive before creating a new cycle so offline
+characters can still settle against their original rules.
+
 For S1:
 
 1. Verify `current_id` is exactly `S1`, `manual_close_only=1`,

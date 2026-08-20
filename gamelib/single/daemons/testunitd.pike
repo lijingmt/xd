@@ -14,10 +14,28 @@ mapping tests_status = ([]);
 private int testunit_archive_filename(string filename)
 {
 	string lower = lower_case(filename || "");
-	if(search(lower,"testunit")==-1)
+	string stem = "";
+	foreach(({".o.bak.tmp",".o.bak",".o.tmp",".o"}),string suffix)
+		if(has_suffix(lower,suffix)){
+			stem = lower[..sizeof(lower)-sizeof(suffix)-1];
+			break;
+		}
+	if(stem=="")
 		return 0;
-	return has_suffix(lower,".o") || has_suffix(lower,".o.bak") ||
-		has_suffix(lower,".o.tmp") || has_suffix(lower,".o.bak.tmp");
+	if(has_prefix(stem,"__testunit_"))
+		return 1;
+	// 普通名字中间包含 testunit 绝不能成为删除条件。带逻辑区前缀的
+	// TestUnit 账号统一使用 xdNNtestunit... 这一保留命名空间。
+	return sizeof(stem)>=12 && has_prefix(stem,"xd") &&
+		stem[2]>='0' && stem[2]<='9' && stem[3]>='0' && stem[3]<='9' &&
+		has_prefix(stem[4..],"testunit");
+}
+
+int query_testunit_archive_filename_for_test(string filename)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return testunit_archive_filename(filename);
 }
 
 private int cleanup_testunit_player_archives()
