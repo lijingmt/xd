@@ -845,8 +845,8 @@ private int valid_state(object player,mapping state)
 	   !intp(encounter["kills"]) || (int)encounter["kills"]<0 ||
 	   (int)encounter["kills"]>5 || !intp(encounter["completed"]) ||
 	   (int)encounter["completed"]<0 || (int)encounter["completed"]>24 ||
-	   !intp(encounter["next_at"]) || (int)encounter["next_at"]<1 ||
-	   (int)encounter["next_at"]>2000000000 ||
+	   !valid_timestamp(encounter["next_at"]) ||
+	   (int)encounter["next_at"]<1 ||
 	   !valid_timestamp(encounter["activated_at"]) ||
 	   !valid_timestamp(encounter["last_completed_at"]) ||
 	   ((string)encounter["active_id"]=="" &&

@@ -107,11 +107,13 @@ int main()
 			search(daemon_source,"drop_basis_points")==-1 &&
 				search(daemon_source,"wallet")==-1,
 			"秘迹出现重复凭证、随机门槛或付费捷径");
-		check("新月行旅时间戳可跨2033并在2100边界失败关闭",
+		check("新月行旅与随机遭遇时间戳可跨2033并在2100边界失败关闭",
 			daemon->query_timestamp_valid_for_test(2000000001) &&
 			daemon->query_timestamp_valid_for_test(4102444800) &&
-			!daemon->query_timestamp_valid_for_test(4102444801),
-			"仍使用20亿秒上限或未来时间戳没有上界");
+			!daemon->query_timestamp_valid_for_test(4102444801) &&
+			search(daemon_source,
+				"!valid_timestamp(encounter[\"next_at\"])")!=-1,
+			"普通字段或随机遭遇调度仍使用20亿秒上限，或未来时间戳没有上界");
 
 			mapping story=(mapping)Standards.JSON.decode(Stdio.read_file(ROOT+
 				"/gamelib/etc/illusion_s1_story.json"));
