@@ -1111,6 +1111,20 @@ int main()
 		check("非连续或伪造章节不能抬高幻境征途排行榜",
 			!(int)forged_journey_score["eligible"],
 			sprintf("score=%O",forged_journey_score));
+		forged_rank_profile = copy_value(
+			(mapping)rank_profile["illusion_progress"]);
+		forged_rank_profile["ranking_weeks"]["1"]["completed_at"] =
+			4102444800;
+		check("周榜嵌套完成时间可跨2033并接受2100边界",
+			SEASONALD->query_ranking_progress_valid_for_test(
+				forged_rank_profile),
+			"周榜嵌套快照仍使用20亿秒时间上限");
+		forged_rank_profile["ranking_weeks"]["1"]["completed_at"] =
+			4102444801;
+		check("周榜嵌套完成时间在2100年后失败关闭",
+			!SEASONALD->query_ranking_progress_valid_for_test(
+				forged_rank_profile),
+			"周榜嵌套快照没有验证完成时间上界");
 
 		root = create_root(account_id);
 		center_root = create_root(center_account_id);

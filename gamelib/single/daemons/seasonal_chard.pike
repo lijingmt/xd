@@ -4718,6 +4718,33 @@ private int valid_ranking_period(string period)
 		 period=="week:"+(string)week);
 }
 
+private string ranking_week_validation_error(mapping state)
+{
+	array(string) nonnegative_fields = ({
+		"kills","boss_kills","team_kills","visits","route_marks",
+		"story_events","active_days","chapter_claims","set_parts",
+		"pvp_honor","pvp_wins","level","experience_latest",
+	});
+	if(!mappingp(state) || sizeof(state)>24)
+		return "root";
+	foreach(nonnegative_fields,string field)
+		if(has_index(state,field) &&
+		   (!intp(state[field]) || (int)state[field]<0 ||
+		    (int)state[field]>2000000000))
+			return "field:"+field;
+	if(has_index(state,"experience_start") &&
+	   (!intp(state["experience_start"]) ||
+	    (int)state["experience_start"] < -1 ||
+	    (int)state["experience_start"] > 2000000000))
+		return "field:experience_start";
+	if(has_index(state,"completed_at") &&
+	   (!intp(state["completed_at"]) ||
+	    (int)state["completed_at"]<0 ||
+	    (int)state["completed_at"]>ILLUSION_TIMESTAMP_MAX))
+		return "timestamp:completed_at";
+	return "";
+}
+
 private string ranking_progress_validation_error(mapping progress)
 {
 	array(string) nonnegative_fields = ({
@@ -4773,7 +4800,7 @@ private string ranking_progress_validation_error(mapping progress)
 			if(!stringp(week_key) ||
 			   sscanf((string)week_key,"%d",week)!=1 || week<1 || week>60 ||
 			   (string)week_key!=(string)week || !mappingp(weeks[week_key]) ||
-			   sizeof((mapping)weeks[week_key])>24)
+			   ranking_week_validation_error((mapping)weeks[week_key])!="")
 				return "ranking_weeks:key_or_state";
 		}
 	}
@@ -5453,6 +5480,13 @@ int query_timestamp_valid_for_test(mixed value)
 		return 0;
 	return intp(value) && (int)value>=0 &&
 		(int)value<=ILLUSION_TIMESTAMP_MAX;
+}
+
+int query_ranking_progress_valid_for_test(mapping progress)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return valid_ranking_progress(progress);
 }
 
 int query_pvp_honor_points_for_test(int winner_level,int loser_level,
