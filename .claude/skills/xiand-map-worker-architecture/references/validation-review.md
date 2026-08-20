@@ -65,7 +65,9 @@ XIAND_SMOKE_USER='...' XIAND_SMOKE_PASSWORD='...' \
 This must execute the real rendered `进入游戏` button, then validate room view,
 status, inventory, equipment, skills, battle status, and server autofight. With a
 disposable character already in a monster room, add
-`XIAND_SMOKE_REQUIRE_BATTLE=1`. Never store credentials in the script or Git.
+`XIAND_SMOKE_REQUIRE_BATTLE=1`. A PASS must include `view_seen=1`; merely
+starting autofight or observing combat without a server refresh frame is a test
+failure. Never store credentials in the script or Git.
 When a supported browser is available, also perform the visible click; otherwise
 record that the deterministic API-button smoke is browser-independent coverage.
 7. Inspect all relevant logs after the test timestamps.

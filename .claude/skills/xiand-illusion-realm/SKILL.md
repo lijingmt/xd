@@ -512,7 +512,9 @@ Worker-local cache and rely on the gateway account-cache token during handoff.
    `XIAND_SMOKE_CHARACTER`. It must obtain the real account session, select the
    character, find and execute the rendered `进入游戏` button command, then
    verify room view, `myhp`, inventory, skills, status, equipment, battle status,
-   and start/stop the server autofight loop. For a disposable character already
+   and start/stop the server autofight loop. Require `view_seen=1`; an enabled
+   toggle or active battle without an actual server refresh frame is not a PASS.
+   For a disposable character already
    placed in a monster map, set `XIAND_SMOKE_REQUIRE_BATTLE=1` and require a real
    battle. Never commit smoke credentials. If a supported browser is available,
    also click the visible button there; otherwise report API-button coverage as

@@ -171,6 +171,9 @@ for ((attempt=0;attempt<WAIT_SECONDS;attempt++)); do
 	sleep 1
 done
 
+if [ "$view_seen" -ne 1 ]; then
+	fail "server-side autofight produced no refresh frame"
+fi
 if [ "$REQUIRE_BATTLE" -eq 1 ] && [ "$battle_seen" -ne 1 ]; then
 	fail "no real battle was observed; place the smoke character in a monster map"
 fi
