@@ -15,6 +15,7 @@ gamelib/clone/item/**/*.o
 **/*_c_*
 # gamelib/data/  # removed to track data files
 data_xiand/u/
+data_xiand/accounts/
 data_xiand/new_users/
 data_xiand/feedback/
 data_xiand/backup-*/
