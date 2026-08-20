@@ -15,7 +15,8 @@ private int testunit_archive_filename(string filename)
 {
 	string lower = lower_case(filename || "");
 	string stem = "";
-	foreach(({".o.bak.tmp",".o.bak",".o.tmp",".o"}),string suffix)
+	foreach(({".o.recover.tmp",".o.bak.tmp",".o.bak",".o.tmp",".o"}),
+	   string suffix)
 		if(has_suffix(lower,suffix)){
 			stem = lower[..sizeof(lower)-sizeof(suffix)-1];
 			break;

@@ -870,6 +870,9 @@ int main()
 			((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
 				query_testunit_archive_filename_for_test(
 					"xd01testunitdemo.o.bak.tmp") &&
+			((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
+				query_testunit_archive_filename_for_test(
+					"xd01testunitdemo.o.recover.tmp") &&
 			!((object)(ROOT+"/gamelib/single/daemons/testunitd.pike"))->
 				query_testunit_archive_filename_for_test(
 					"xd01player_testunit_demo.o") &&
