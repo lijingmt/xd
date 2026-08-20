@@ -1112,6 +1112,20 @@ private mapping(string:mixed) read_runtime_for_rollover()
 	return decoded;
 }
 
+private int rollover_content_available(string illusion_id)
+{
+	mapping config = content_config_for_id(illusion_id);
+	return valid_identifier(illusion_id) && sizeof(config) &&
+		(string)config["current_id"]==illusion_id;
+}
+
+int query_rollover_content_available_for_test(string illusion_id)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return rollover_content_available(illusion_id);
+}
+
 private string rollover_digest(mapping old_state,string new_id)
 {
 	object hash = Crypto.SHA256();
@@ -1130,16 +1144,18 @@ mapping(string:mixed) preview_cycle_rollover()
 		ACCOUNT_CHARACTERD->query_illusion_population(old_id) : ([]);
 	int allowed = config_valid && sizeof(old_state) &&
 		(string)old_state["phase"]=="closed" && old_id!=new_id &&
-		(int)population["ok"];
+		(int)population["ok"] && rollover_content_available(old_id);
 	return ([
 		"ok":allowed,"old_id":old_id,"new_id":new_id,
 		"confirmation":allowed ? rollover_digest(old_state,new_id) : "",
 		"population":population,
 		"message":allowed ?
 			"旧周期已关闭，可以建立新周期草稿。" :
+			(!rollover_content_available(old_id) && old_id!="" ?
+				"旧周期内容归档缺失，恢复归档后才能换期。" :
 			(!(int)population["ok"] && sizeof(old_state) ?
-			 "账号索引审计未通过，修复异常索引后才能换期。" :
-			 "只有旧周期关闭且配置已换成新编号后才能换期。"),
+				 "账号索引审计未通过，修复异常索引后才能换期。" :
+				 "只有旧周期关闭且配置已换成新编号后才能换期。")),
 	]);
 }
 
@@ -1165,6 +1181,8 @@ mapping(string:mixed) apply_cycle_rollover(string confirmation,
 		result["message"] = "旧周期尚未关闭，或新配置编号没有变化。";
 	else if(confirmation!=rollover_digest(old_state,new_id))
 		result["message"] = "换期预览已过期，请重新确认。";
+	else if(!rollover_content_available(old_id))
+		result["message"] = "旧周期内容归档缺失，已拒绝换期。";
 	else{
 		population = ACCOUNT_CHARACTERD->query_illusion_population(old_id);
 		if(!(int)population["ok"]){

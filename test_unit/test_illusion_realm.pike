@@ -1010,6 +1010,12 @@ int main()
 			SEASONALD->query_content_revision_saved_for_test(
 				content_archive_source),
 			"canonical内容存在但不可变修订快照缺失或被覆盖");
+		check("换期前必须保留可验证的旧周期内容归档",
+			SEASONALD->query_rollover_content_available_for_test("S1") &&
+			!SEASONALD->query_rollover_content_available_for_test("S999") &&
+			search(season_source,
+				"else if(!rollover_content_available(old_id))")!=-1,
+			"预览或确认换期可能在旧内容归档缺失时继续执行");
 		check("S1内容修订使用跨进程稳定的规范JSON摘要",
 			search(Stdio.read_file(ROOT+
 				"/gamelib/single/daemons/seasonal_chard.pike") || "",
