@@ -12,7 +12,7 @@
 inherit LOW_DAEMON;
 
 #define ACCOUNT_CHARACTER_DIR DATA_ROOT "accounts"
-#define ACCOUNT_CHARACTER_VERSION 1
+#define ACCOUNT_CHARACTER_VERSION 2
 #define ACCOUNT_CHARACTER_LIMIT 30
 #define ACCOUNT_ONLINE_CONFIG ROOT "/gamelib/etc/account_characters.conf"
 #define ACCOUNT_ONLINE_SAFE_DEFAULT 1
@@ -904,6 +904,38 @@ private string account_file_path(string account_id)
 		account_id[sizeof(account_id)-2..]+"/"+account_id+".json";
 }
 
+private mapping(string:object)|zero acquire_account_file_lock(
+	string account_id)
+{
+	string path=account_file_path(account_id);
+	object file;
+	object file_key;
+	mixed lock_error;
+	if(path=="")
+		return 0;
+	Stdio.mkdirhier(dirname(path));
+	file=Stdio.File();
+	if(!file->open(path+".lock","wca"))
+		return 0;
+	lock_error=catch{ file_key=file->lock(); };
+	if(lock_error || !file_key){
+		file->close();
+		return 0;
+	}
+	return (["file":file,"key":file_key]);
+}
+
+private void release_account_file_lock(
+	mapping(string:object)|zero lock_data)
+{
+	if(!lock_data)
+		return;
+	if(lock_data["key"])
+		destruct(lock_data["key"]);
+	if(lock_data["file"])
+		lock_data["file"]->close();
+}
+
 private string read_saved_string(string content,string field)
 {
 	string prefix = field+" \"";
@@ -957,6 +989,8 @@ private mapping(string:mixed) synthesize_legacy_record(string account_id)
 {
 	return ([
 		"version":ACCOUNT_CHARACTER_VERSION,
+		"revision":0,
+		"persisted_revision":0,
 		"account_id":account_id,
 		"created_at":0,
 		"updated_at":0,
@@ -978,6 +1012,8 @@ private int valid_record(mapping(string:mixed) record,string account_id)
 	multiset(int) seen_slots = (<>);
 	if(!mappingp(record) || record["account_id"]!=account_id ||
 	   !arrayp(record["characters"]) ||
+	   (has_index(record,"revision") &&
+	    (!intp(record["revision"]) || (int)record["revision"]<0)) ||
 	   !valid_illusion_entitlement(record["illusion_entitlement"]))
 		return 0;
 	characters = record["characters"];
@@ -1080,6 +1116,9 @@ private mapping(string:mixed)|zero load_persisted_record_unlocked(
 	if(!record)
 		record = decode_record_file(path+".bak",account_id);
 	if(record){
+		if(!intp(record["revision"]) || (int)record["revision"]<0)
+			record["revision"] = 0;
+		record["persisted_revision"] = (int)record["revision"];
 		record["legacy_only"] = 0;
 		account_cache[account_id] = copy_value(record);
 		return copy_value(record);
@@ -1112,32 +1151,55 @@ private int save_record_unlocked(mapping(string:mixed) record)
 	string dir;
 	string temp_path;
 	string backup_temp;
+	string temporary_suffix;
 	string encoded;
+	mapping(string:mixed) disk_record;
+	mapping(string:mixed)|zero current_record;
+	mapping(string:object)|zero file_lock;
+	int expected_revision = (int)(record["persisted_revision"] || 0);
 	int live_size;
 	int backup_size;
-	int live_valid;
+	int revision_conflict;
 	int ok = 0;
 	mixed err;
 	if(!valid_record(record,account_id) || path=="")
 		return 0;
 	dir = dirname(path);
-	temp_path = path+".tmp";
-	backup_temp = path+".bak.tmp";
-	record["version"] = ACCOUNT_CHARACTER_VERSION;
-	record["updated_at"] = time();
-	record["legacy_only"] = 0;
-	encoded = Standards.JSON.encode(record);
+	temporary_suffix = ".tmp."+
+		String.string2hex(Crypto.Random.random_string(8));
+	temp_path = path+temporary_suffix;
+	backup_temp = path+".bak"+temporary_suffix;
+	disk_record = copy_value(record);
+	m_delete(disk_record,"persisted_revision");
+	m_delete(disk_record,"legacy_only");
+	disk_record["version"] = ACCOUNT_CHARACTER_VERSION;
+	disk_record["revision"] = expected_revision+1;
+	disk_record["updated_at"] = time();
+	encoded = Standards.JSON.encode(disk_record);
 	mkdir(ACCOUNT_CHARACTER_DIR);
 	mkdir(dir);
+	file_lock = acquire_account_file_lock(account_id);
+	if(!file_lock){
+		werror("[ACCOUNT_CHARACTERD][SAVE_LOCK_FAILED] account=%s revision=%d\n",
+			account_id,expected_revision);
+		return 0;
+	}
 	err = catch{
 		rm(temp_path);
 		rm(backup_temp);
-		if(Stdio.write_file(temp_path,encoded)>0 &&
+		live_size = Stdio.file_size(path);
+		if(live_size>0)
+			current_record = decode_record_file(path,account_id);
+		if(!current_record)
+			current_record = decode_record_file(path+".bak",account_id);
+		if(current_record &&
+		   (int)(current_record["revision"] || 0)!=expected_revision)
+			revision_conflict = 1;
+		else if(!current_record && expected_revision!=0)
+			revision_conflict = 1;
+		if(!revision_conflict && Stdio.write_file(temp_path,encoded)>0 &&
 		   Stdio.file_size(temp_path)==sizeof(encoded)){
-			live_size = Stdio.file_size(path);
-			live_valid = live_size>0 &&
-				decode_record_file(path,account_id) ? 1 : 0;
-			if(live_valid){
+			if(live_size>0 && decode_record_file(path,account_id)){
 				Stdio.cp(path,backup_temp);
 				backup_size = Stdio.file_size(backup_temp);
 				if(backup_size==live_size &&
@@ -1149,14 +1211,27 @@ private int save_record_unlocked(mapping(string:mixed) record)
 				ok = Stdio.file_size(path)==sizeof(encoded);
 		}
 	};
+	release_account_file_lock(file_lock);
+	if(revision_conflict){
+		m_delete(account_cache,account_id);
+		werror("[ACCOUNT_CHARACTERD][SAVE_REVISION_CONFLICT] account=%s expected=%d current=%d proposed=%d\n",
+			account_id,expected_revision,
+			current_record ? (int)(current_record["revision"] || 0) : -1,
+			(int)disk_record["revision"]);
+	}
 	if(err)
-		werror("[ACCOUNT_CHARACTERD] 账号索引保存异常: %s\n",
-			describe_error(err));
+		werror("[ACCOUNT_CHARACTERD][SAVE_EXCEPTION] account=%s revision=%d error=%s\n",
+			account_id,(int)disk_record["revision"],describe_error(err));
 	if(!ok){
 		rm(temp_path);
 		rm(backup_temp);
 		return 0;
 	}
+	record["version"] = ACCOUNT_CHARACTER_VERSION;
+	record["revision"] = (int)disk_record["revision"];
+	record["persisted_revision"] = (int)disk_record["revision"];
+	record["updated_at"] = (int)disk_record["updated_at"];
+	record["legacy_only"] = 0;
 	account_cache[account_id] = copy_value(record);
 	return 1;
 }
@@ -2973,6 +3048,39 @@ void drop_test_account_cache(string account_id)
 	destruct(key);
 }
 
+// 只供 TestUnit 模拟两个 Worker 同时持有同一账号旧快照。
+mapping(string:mixed) test_account_revision_conflict_guard(string account_id)
+{
+	mapping(string:mixed) result = ([
+		"first_saved":0,"stale_rejected":0,"marker":"","revision":-1,
+	]);
+	mapping(string:mixed)|zero first;
+	mapping(string:mixed)|zero stale;
+	mapping(string:mixed)|zero final_record;
+	object key;
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   search(account_id,"testunit")==-1)
+		return result;
+	key = account_character_lock->lock();
+	first = load_persisted_record_unlocked(account_id,1);
+	if(first){
+		stale = copy_value(first);
+		first["test_revision_marker"] = "first";
+		result["first_saved"] = save_record_unlocked(first);
+		if((int)result["first_saved"] && stale){
+			stale["test_revision_marker"] = "stale";
+			result["stale_rejected"] = !save_record_unlocked(stale);
+			final_record = load_persisted_record_unlocked(account_id,1);
+		}
+	}
+	if(final_record){
+		result["marker"] = (string)final_record["test_revision_marker"];
+		result["revision"] = (int)final_record["revision"];
+	}
+	destruct(key);
+	return result;
+}
+
 //只供TestUnit验证配置在单开/多开之间切换，不对游戏命令或HTTP开放。
 void set_test_online_limit(string account_id,int limit)
 {
@@ -2991,6 +3099,7 @@ void set_test_online_limit(string account_id,int limit)
 void remove_test_account(string account_id)
 {
 	string path;
+	string file_base;
 	mapping(string:mixed)|zero record;
 	object key;
 	object state_key;
@@ -2999,6 +3108,7 @@ void remove_test_account(string account_id)
 		return;
 	key = account_character_lock->lock();
 	path = account_file_path(account_id);
+	file_base = (path/"/")[-1];
 	record = load_persisted_record_unlocked(account_id);
 	if(record){
 		foreach((array)record["characters"],mapping entry){
@@ -3021,6 +3131,11 @@ void remove_test_account(string account_id)
 	rm(path+".tmp");
 	rm(path+".bak");
 	rm(path+".bak.tmp");
+	rm(path+".lock");
+	foreach(get_dir(dirname(path)) || ({}),string filename)
+		if(has_prefix(filename,file_base+".tmp.") ||
+		   has_prefix(filename,file_base+".bak.tmp."))
+			rm(dirname(path)+"/"+filename);
 	m_delete(account_cache,account_id);
 	destruct(key);
 	state_key = account_online_state_lock->lock();

@@ -350,14 +350,24 @@ private string pike_gateway_extract_command(mapping params)
 	return String.trim_all_whites((string)params["cmd"]);
 }
 
-/** Replace every client command with one non-mutating destination view. */
+/**
+ * Replace the completed source command with a tightly allowlisted destination
+ * command. `illusion_arrived` is the sole bounded mutating continuation: it
+ * validates the current chapter and exact room before doing anything.
+ */
+private int pike_gateway_safe_destination_command(string command)
+{
+	return has_value(({"look","quick_battle_result","illusion_arrived"}),
+		command || "");
+}
+
 private string pike_gateway_safe_view_fields(string encoded,
 	void|string safe_command)
 {
 	array(string) fields = (encoded || "")/"&";
 	array(string) result = ({});
 	int command_seen;
-	if(safe_command!="quick_battle_result")
+	if(!pike_gateway_safe_destination_command((string)safe_command))
 		safe_command="look";
 	foreach(fields,string field){
 		array(string) pair = field/"=";
@@ -376,7 +386,7 @@ private string pike_gateway_safe_view_fields(string encoded,
 }
 
 /**
- * Build a shape-compatible destination refresh without replaying the command
+ * Build a shape-compatible destination request without replaying the command
  * which already completed on the source worker. Unsupported request bodies
  * keep the original response and let the next ordinary refresh catch up.
  */
@@ -388,7 +398,7 @@ private mapping(string:mixed) pike_gateway_safe_view_request(string method,
 	string query = query_at==-1 ? "" : path[query_at+1..];
 	string safe_body = body || "";
 	string content_type = lower_case((string)(headers["content-type"] || ""));
-	if(safe_command!="quick_battle_result")
+	if(!pike_gateway_safe_destination_command((string)safe_command))
 		safe_command="look";
 	if(!has_value(({"/api","/api/html","/api/json"}),path_only))
 		return ([]);
@@ -425,6 +435,16 @@ private string pike_gateway_command_verb(string command)
 	if(space!=-1)
 		normalized = normalized[0..space-1];
 	return lower_case(normalized);
+}
+
+private string pike_gateway_destination_view_command(string command)
+{
+	string normalized = String.trim_all_whites(command || "");
+	if(pike_gateway_command_verb(normalized)=="kill_quick")
+		return "quick_battle_result";
+	if(normalized=="illusion_realm next")
+		return "illusion_arrived";
+	return "look";
 }
 
 /** Serialize creation of the one canonical archive even before login exists. */
@@ -699,6 +719,11 @@ mapping test_pike_gateway_safe_view_request(string method,string path,
 {
 	return pike_gateway_safe_view_request(method,path,headers,body,
 		safe_command);
+}
+
+string test_pike_gateway_destination_view_command(string command)
+{
+	return pike_gateway_destination_view_command(command);
 }
 
 int test_pike_gateway_arrival_proof(mapping proof,string userid,int epoch,
@@ -2834,8 +2859,7 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 						}
 						if((int)plan["replace"]){
 							string safe_command =
-								pike_gateway_command_verb(game_command)==
-								"kill_quick" ? "quick_battle_result" : "look";
+								pike_gateway_destination_view_command(game_command);
 							mapping view_request =
 								pike_gateway_safe_view_request(method,path,
 									headers,body,safe_command);

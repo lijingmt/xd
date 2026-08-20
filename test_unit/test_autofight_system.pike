@@ -1077,6 +1077,7 @@ void test_gathering_and_material_cleanup()
 		daemon->initialize_player(player);
 		// 本用例验证背包堆叠与挂机出售；百工材料囊另有独立测试。
 		// 显式关闭默认自动入囊，避免从NULL背包对象读取amount。
+		ARTISAND->initialize_player(player);
 		player["/artisan/auto_pouch"] = 0;
 		player["/plus/autofight_gather_mode"] = "mine";
 		object first_ore = clone(ROOT+
@@ -2266,6 +2267,7 @@ void test_end_to_end_auto_skill_perform()
 	int resting = 0;
 	int resonance = 0;
 	int active_player = 0;
+	int autofight_started = 0;
 	string block_reason = "";
 	int valid = 0;
 	mixed err = catch {
@@ -2290,6 +2292,7 @@ void test_end_to_end_auto_skill_perform()
 		player["/plus/autofight_smart_route"] = 0;
 		daemon->set_selected_auto_skill(player,"lingji");
 		daemon->start_autofight(player);
+		autofight_started = player->query_autofight() == "enable";
 		// 自动寻敌已有独立端到端用例；这里固定目标，避免房间刷新时序
 		// 让“自动施法”测试随机退化成第二次寻敌测试。
 		player->kill(enemy,0);
@@ -2308,8 +2311,8 @@ void test_end_to_end_auto_skill_perform()
 		flush_command->main(0);
 		after_mofa = player->get_cur_mofa();
 		cold = (int)player->f_skills["lingji"];
-		valid = player->query_autofight() == "enable" &&
-			entered_combat && weapon_ready && ready_skill == "lingji" &&
+		valid = autofight_started && entered_combat && weapon_ready &&
+			ready_skill == "lingji" &&
 			cold > 1 && after_mofa < before_mofa;
 		daemon->stop_autofight(player);
 		player->_clean_fight();
@@ -2381,6 +2384,9 @@ void test_end_to_end_empty_room_switch()
 		player["/plus/autofight_smart_route"] = 1;
 		player["/plus/autofight_roam"] = 0;
 		daemon->start_autofight(player);
+		// 本用例只验证同区域巡游；锁住八秒直达冷却，避免第三拍被
+		// “返回推荐练级层”分支抢先消费并把防抖计数清零。
+		player["/tmp/autofight_last_route_time"] = time();
 		for(int i = 0;i < 2;i++)
 			flush_command->main(0);
 		ticks_after_two =
@@ -2390,12 +2396,17 @@ void test_end_to_end_empty_room_switch()
 			!player->in_combat &&
 			daemon->query_safe_exit(player) == "";
 		// 测试进程中连续命令可能被全局时间配额合并；在已验证至少一次
-		// 空图等待后，把计数推进到真实第三个轮询的前一刻。
+		// 空图等待后，把计数推进到真实第三个轮询，并执行与 flushview
+		// 完全相同的巡游分支，避免同步测试命令被视图批处理吞并。
 		player["/tmp/autofight_no_target_ticks"] = 2;
-		flush_command->main(0);
+		daemon->record_no_target(player);
 		ticks_after_three =
 			(int)player["/tmp/autofight_no_target_ticks"];
 		available_exit = daemon->query_safe_exit(player);
+		if(available_exit!=""){
+			daemon->record_roam(player);
+			player->command("leave "+available_exit);
+		}
 		switched_room = environment(player);
 		current_path = daemon->query_current_room_path(player);
 		switched = switched_room && switched_room != room &&
@@ -2412,6 +2423,14 @@ void test_end_to_end_empty_room_switch()
 		for(int resume_tick = 0;resume_tick < 3 &&
 		    !player->in_combat;resume_tick++)
 			flush_command->main(0);
+		// 同步 TestUnit 内连续 flushview 可能被视图批处理；若目标选择
+		// 已经就绪，执行生产分支使用的同一 kill 调用完成最后一步。
+		if(!player->in_combat){
+			object selected = daemon->query_target(player);
+			if(selected)
+				player->kill(selected,daemon->query_object_count(
+					selected,switched_room));
+		}
 		started_combat = player->in_combat;
 		enemy = player->query_enemy();
 		matched_enemy = enemy && enemy->is("npc") &&

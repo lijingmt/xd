@@ -412,6 +412,14 @@ int main()
 	}
 	string hidden_source=Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/illusion_hidden_professiond.pike") || "";
+	check("照命试炼时间戳可跨2033并在2100边界失败关闭",
+		ILLUSION_HIDDEN_PROFESSIOND->query_timestamp_valid_for_test(
+			2000000001) &&
+		ILLUSION_HIDDEN_PROFESSIOND->query_timestamp_valid_for_test(
+			4102444800) &&
+		!ILLUSION_HIDDEN_PROFESSIOND->query_timestamp_valid_for_test(
+			4102444801),
+		"仍使用20亿秒上限或未来时间戳没有上界");
 	check("账号归属与主线查询异常不会写入或打断照命页面",
 		search(hidden_source,"realm_err=catch")!=-1 &&
 		search(hidden_source,"story_err=catch")!=-1 &&

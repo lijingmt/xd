@@ -271,6 +271,9 @@ int main()
 		mapping safe_quick = httpd->test_pike_gateway_safe_view_request(
 			"GET","/api/json?txd=token&cmd=kill_quick",
 			(["content-type":""]),"","quick_battle_result");
+		mapping safe_illusion = httpd->test_pike_gateway_safe_view_request(
+			"GET","/api/html?txd=token&cmd=illusion_realm+next",
+			(["content-type":""]),"","illusion_arrived");
 		mapping safe_invalid = httpd->test_pike_gateway_safe_view_request(
 			"GET","/api/json?txd=token&cmd=trade",
 			(["content-type":""]),"","trade target");
@@ -288,6 +291,8 @@ int main()
 			safe_form["body"]=="userid=xd01hero&cmd=look" &&
 			safe_quick["path"]==
 				"/api/json?txd=token&cmd=quick_battle_result" &&
+			safe_illusion["path"]==
+				"/api/html?txd=token&cmd=illusion_arrived" &&
 			safe_invalid["path"]=="/api/json?txd=token&cmd=look" &&
 			!sizeof(unsupported_view) &&
 			source_has(gateway,
@@ -295,6 +300,16 @@ int main()
 			source_has(gateway,"\"\",account_id,\"view\"") &&
 			!source_has((string)safe_json["body"],"trade target"),
 			"目标页可能重复执行方向、交易或其他已经完成的命令");
+
+		check("幻境下一步跨Worker后只在目标节点续跑当前章",
+			httpd->test_pike_gateway_destination_view_command(
+				"illusion_realm next")=="illusion_arrived" &&
+			httpd->test_pike_gateway_destination_view_command(
+				"kill_quick enemy 0")=="quick_battle_result" &&
+			httpd->test_pike_gateway_destination_view_command(
+				"north")=="look" &&
+			source_has(gateway,"pike_gateway_destination_view_command(game_command)"),
+			"任务移动仍只返回look，或其他命令可借到达续跑被重放");
 
 		mapping arrival_proof = (["ok":1,"userid":"xd01hero",
 			"epoch":7,"affinity":"wugongdong",

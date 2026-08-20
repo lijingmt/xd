@@ -976,7 +976,17 @@ int main()
 			(string)content_archive["entry_room"]==
 				"/gamelib/d/illusion_s1/moon_gate.pike",
 			sprintf("size=%d error=%s",sizeof(content_archive_source),
-				content_archive_error ? describe_error(content_archive_error) : ""));
+			content_archive_error ? describe_error(content_archive_error) : ""));
+		check("S1内容同时按SHA-256保存不可变修订快照",
+			mappingp(content_archive) &&
+			SEASONALD->query_content_revision_saved_for_test(
+				content_archive_source),
+			"canonical内容存在但不可变修订快照缺失或被覆盖");
+		check("S1内容修订使用跨进程稳定的规范JSON摘要",
+			search(Stdio.read_file(ROOT+
+				"/gamelib/single/daemons/seasonal_chard.pike") || "",
+				"Standards.JSON.encode(config,Standards.JSON.CANONICAL)")!=-1,
+			"普通mapping编码会让相同内容在不同Worker产生伪修订");
 		object player_command;
 		object manager_command;
 		mixed command_error = catch{
@@ -1045,6 +1055,11 @@ int main()
 				])]),
 			]),
 		]);
+		check("幻境榜单时间戳可跨2033并在2100边界失败关闭",
+			SEASONALD->query_timestamp_valid_for_test(2000000001) &&
+			SEASONALD->query_timestamp_valid_for_test(4102444800) &&
+			!SEASONALD->query_timestamp_valid_for_test(4102444801),
+			"榜单快照仍使用20亿秒上限或未来时间戳没有上界");
 		mapping journey_score = SEASONALD->query_ranking_score_for_test(
 			"journey",rank_profile,"overall","S1");
 		mapping experience_score = SEASONALD->query_ranking_score_for_test(

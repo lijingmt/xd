@@ -615,6 +615,68 @@ private string guided_route_help(object me,mapping progress)
 		"[返回当前章节:illusion_realm]\n";
 }
 
+private string resume_chapter_after_arrival(object me,mapping progress,
+	mapping chapter,int chapter_number)
+{
+	string kind = (string)chapter["target_kind"];
+	if(!chapter_target_in_current_room(me,chapter))
+		return "【幻境到达校验】人物尚未到达当前任务地点，本次没有执行任务动作。\n"+
+			"[重新查看本章:illusion_realm]|[返回游戏:look]\n";
+	if(kind=="story_echo"){
+		mapping witnessed = SEASONALD->discover_story_event(me);
+		progress = SEASONALD->query_player_progress(me);
+		if(!(int)witnessed["ok"])
+			return (string)witnessed["message"]+
+				"\n[重试阅读剧情:illusion_realm next]|[返回游戏:look]\n";
+		return "【剧情步骤完成】"+(string)witnessed["message"]+
+			guided_follow_up(me,progress,0);
+	}
+	if(kind=="hunt"){
+		mapping started = SEASONALD->start_chapter_hunt_autofight(me);
+		progress = SEASONALD->query_player_progress(me);
+		return (string)started["message"]+
+			((int)started["ok"] ?
+			 "\n[查看挂机状态:autofight]|[查看本章进度:illusion_realm]\n" :
+			 guided_follow_up(me,progress,1));
+	}
+	if(search(({"boss","story_boss"}),kind)!=-1){
+		mapping target = current_challenge_target(me,"chapter");
+		if(!(int)target["ok"])
+			return (string)target["message"]+
+				"\n[重新查找任务首领:illusion_realm challenge chapter]|"+
+				"[返回游戏:look]\n";
+		return room_challenge_view(me,target);
+	}
+	return guided_follow_up(me,progress,1);
+}
+
+// 跨 Worker 到达后只执行“目标节点续跑”，绝不重放来源节点的移动。
+// 同一命令重复到达也只会继续当前章，且必须先通过真实房间校验。
+string query_arrival_resume_view(object me)
+{
+	mapping progress;
+	array chapters;
+	mapping chapter;
+	int chapter_number;
+	if(!me)
+		return "人物会话不存在。\n";
+	progress = SEASONALD->query_player_progress(me);
+	if(!(int)progress["ok"])
+		return (string)progress["message"]+"\n[返回游戏:look]\n";
+	chapters = (array)progress["chapters"];
+	chapter_number = (int)progress["chapter_claimed"]+1;
+	if(chapter_number<1 || chapter_number>sizeof(chapters))
+		return progress_view(me,progress);
+	chapter = (mapping)chapters[chapter_number-1];
+	if((int)chapter["ready"] || (string)chapter["target_kind"]=="ready")
+		return progress_view(me,progress);
+	if((string)chapter["target_kind"]=="choice")
+		return progress_view(me,progress);
+	if((string)chapter["target_kind"]=="route")
+		return guided_route_help(me,progress);
+	return resume_chapter_after_arrival(me,progress,chapter,chapter_number);
+}
+
 private string guided_next_step(object me)
 {
 	mapping progress = SEASONALD->query_player_progress(me);
@@ -649,39 +711,10 @@ private string guided_next_step(object me)
 	if(!(int)result["ok"])
 		return (string)result["message"]+
 			"\n[重新查看本章:illusion_realm]|[返回游戏:look]\n";
-	// “下一步”是任务主操作：到达后立刻执行安全的本地步骤，避免
-	// 玩家在传送、阅读、挂机和查找首领之间反复点两次。正式攻击
-	// 仍必须从当前房间的真实 NPC 列表选择，不能由配置直接拼 kill。
-	if(kind=="story_echo"){
-		mapping witnessed = SEASONALD->discover_story_event(me);
-		progress = SEASONALD->query_player_progress(me);
-		if(!(int)witnessed["ok"])
-			return (string)witnessed["message"]+
-				"\n[重试阅读剧情:illusion_realm next]|[返回游戏:look]\n";
-		return "【剧情步骤完成】"+(string)witnessed["message"]+
-			guided_follow_up(me,progress,0);
-	}
-	if(kind=="hunt"){
-		mapping started = SEASONALD->start_chapter_hunt_autofight(me);
-		progress = SEASONALD->query_player_progress(me);
-		return (string)result["message"]+"\n"+
-			(string)started["message"]+
-			((int)started["ok"] ?
-			 "\n[查看挂机状态:autofight]|[查看本章进度:illusion_realm]\n" :
-			 guided_follow_up(me,progress,1));
-	}
-	if(search(({"boss","story_boss"}),kind)!=-1){
-		mapping target = current_challenge_target(me,"chapter");
-		if(!(int)target["ok"])
-			return (string)result["message"]+"\n"+
-				(string)target["message"]+
-				"\n[重新查找任务首领:illusion_realm challenge chapter]|"+
-				"[返回游戏:look]\n";
-		return (string)result["message"]+"\n"+
-			room_challenge_view(me,target);
-	}
-	progress = SEASONALD->query_player_progress(me);
-	return (string)result["message"]+guided_follow_up(me,progress,1);
+	// 同 Worker 直接执行；跨 Worker 时来源对象尚未真正到达，这一返回
+	// 会被网关的 illusion_arrived 目标命令替换。
+	return (string)result["message"]+"\n"+
+		resume_chapter_after_arrival(me,progress,chapter,chapter_number);
 }
 
 private string ranking_menu(mapping status)

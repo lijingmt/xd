@@ -18,6 +18,7 @@ inherit LOW_DAEMON;
 #define ILLUSION_CONTROL_LOCK ILLUSION_STATE_DIR "/control.lock"
 #define ILLUSION_HISTORY_DIR ILLUSION_STATE_DIR "/history"
 #define ILLUSION_CONTENT_DIR ILLUSION_STATE_DIR "/content"
+#define ILLUSION_CONTENT_REVISION_DIR ILLUSION_CONTENT_DIR "/revisions"
 #define ILLUSION_RANKING_DIR ILLUSION_STATE_DIR "/rankings"
 #define ILLUSION_STATE_VERSION 1
 #define ILLUSION_PROGRESS_ROOT "/plus/illusion_realm"
@@ -29,6 +30,7 @@ inherit LOW_DAEMON;
 #define ILLUSION_SETTLING_GRACE_SECONDS 30
 #define ILLUSION_RANKING_WEEK_SECONDS (7*86400)
 #define ILLUSION_RANKING_CACHE_TTL 30
+#define ILLUSION_TIMESTAMP_MAX 4102444800
 
 private Thread.Mutex runtime_lock = Thread.Mutex();
 private mapping(string:mixed) illusion_config = ([]);
@@ -648,6 +650,40 @@ private int valid_config(mapping candidate)
 		quest_item_gate_count==sizeof(expected_quest_gates);
 }
 
+private string content_archive_digest(string encoded)
+{
+	object hash = Crypto.SHA256();
+	hash->update(encoded || "");
+	return lower_case(String.string2hex(hash->digest()));
+}
+
+private int save_content_revision(string illusion_id,string encoded)
+{
+	string digest = content_archive_digest(encoded);
+	string directory = ILLUSION_CONTENT_REVISION_DIR+"/"+illusion_id;
+	string target = directory+"/"+digest+".json";
+	string temp;
+	int ok;
+	if(!valid_identifier(illusion_id) || !valid_sha256_hex(digest))
+		return 0;
+	Stdio.mkdirhier(directory);
+	if(Stdio.file_size(target)>0)
+		return Stdio.file_size(target)==sizeof(encoded) &&
+			Stdio.read_file(target)==encoded;
+	temp=target+"."+String.string2hex(Crypto.Random.random_string(8))+".tmp";
+	rm(temp);
+	mixed err=catch{
+		ok=Stdio.write_file(temp,encoded)==sizeof(encoded) &&
+			Stdio.file_size(temp)==sizeof(encoded) && mv(temp,target) &&
+			Stdio.file_size(target)==sizeof(encoded);
+	};
+	if(err || !ok){
+		rm(temp);
+		return 0;
+	}
+	return 1;
+}
+
 private int save_content_archive(mapping config)
 {
 	string illusion_id=(string)config["current_id"];
@@ -660,7 +696,11 @@ private int save_content_archive(mapping config)
 	mkdir(ILLUSION_STATE_DIR);
 	mkdir(ILLUSION_CONTENT_DIR);
 	target=ILLUSION_CONTENT_DIR+"/"+illusion_id+".json";
-	encoded=Standards.JSON.encode(config);
+	// 普通 mapping 编码顺序随进程哈希种子变化；必须使用规范 JSON，
+	// 否则同一份内容会被不同 Worker 误记成多个修订。
+	encoded=Standards.JSON.encode(config,Standards.JSON.CANONICAL);
+	if(!save_content_revision(illusion_id,encoded))
+		return 0;
 	if(Stdio.file_size(target)==sizeof(encoded) &&
 	   Stdio.read_file(target)==encoded)
 		return 1;
@@ -676,6 +716,28 @@ private int save_content_archive(mapping config)
 		return 0;
 	}
 	return 1;
+}
+
+string query_content_revision_path_for_test(string encoded)
+{
+	string illusion_id;
+	mixed decoded;
+	mixed err;
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" || !encoded)
+		return "";
+	err=catch{ decoded=Standards.JSON.decode(encoded); };
+	if(err || !mappingp(decoded) || !valid_config((mapping)decoded))
+		return "";
+	illusion_id=(string)decoded["current_id"];
+	return ILLUSION_CONTENT_REVISION_DIR+"/"+illusion_id+"/"+
+		content_archive_digest(encoded)+".json";
+}
+
+int query_content_revision_saved_for_test(string encoded)
+{
+	string path = query_content_revision_path_for_test(encoded);
+	return path!="" && Stdio.file_size(path)==sizeof(encoded) &&
+		Stdio.read_file(path)==encoded;
 }
 
 private void load_content_archives()
@@ -4659,12 +4721,15 @@ private int valid_ranking_period(string period)
 private string ranking_progress_validation_error(mapping progress)
 {
 	array(string) nonnegative_fields = ({
-		"joined_at","season_starts_at","kills","boss_kills","team_kills",
+		"kills","boss_kills","team_kills",
 		"visited_count","claims_count","route_marks_count",
 		"active_days_count","story_events_count",
 		"pvp_honor","pvp_wins","ranking_level",
-		"ranking_experience_latest","set_parts","completed_at",
+		"ranking_experience_latest","set_parts",
 		"community_points",
+	});
+	array(string) timestamp_fields = ({
+		"joined_at","season_starts_at","completed_at",
 	});
 	if(!mappingp(progress) || sizeof(progress)>80)
 		return "root";
@@ -4673,6 +4738,11 @@ private string ranking_progress_validation_error(mapping progress)
 		   (!intp(progress[field]) || (int)progress[field]<0 ||
 		    (int)progress[field]>2000000000))
 			return "field:"+field;
+	foreach(timestamp_fields,string field)
+		if(has_index(progress,field) &&
+		   (!intp(progress[field]) || (int)progress[field]<0 ||
+		    (int)progress[field]>ILLUSION_TIMESTAMP_MAX))
+			return "timestamp:"+field;
 	if(has_index(progress,"claims_count") &&
 	   (int)progress["claims_count"]>
 	   sizeof((array)illusion_config["chapters"]))
@@ -5094,7 +5164,7 @@ private mapping(string:mixed) ranking_score_for_profile(string board,
 			score = claimed_set_parts(progress);
 		completed_at = period=="overall" ? (int)progress["completed_at"] :
 			(int)source["completed_at"];
-		tie = completed_at>0 ? 2000000000-completed_at :
+		tie = completed_at>0 ? ILLUSION_TIMESTAMP_MAX-completed_at :
 			(int)progress["ranking_level"];
 		break;
 	case "speed":
@@ -5375,6 +5445,14 @@ mapping(string:mixed) query_ranking_score_for_test(string board,
 	if(getenv("XIAND_RUN_TESTUNIT")!="1")
 		return (["eligible":0]);
 	return ranking_score_for_profile(board,profile,period,illusion_id);
+}
+
+int query_timestamp_valid_for_test(mixed value)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return intp(value) && (int)value>=0 &&
+		(int)value<=ILLUSION_TIMESTAMP_MAX;
 }
 
 int query_pvp_honor_points_for_test(int winner_level,int loser_level,

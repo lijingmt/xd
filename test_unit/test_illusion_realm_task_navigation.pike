@@ -146,6 +146,17 @@ int main()
 		search(user_source,"【修行】[幻境任务:illusion_realm]")==-1 &&
 		search(user_source,"【伙伴】[共享宠物:pet]")==-1 &&
 		search(user_source,"【资产】[玉石:yushi_change]")==-1;
+	string arrival_source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/illusion_arrived.pike") || "";
+	int cross_worker_arrival_resume =
+		search(source,"string query_arrival_resume_view(object me)")!=-1 &&
+		search(source,"resume_chapter_after_arrival(me,progress,chapter,")!=-1 &&
+		search(source,"if(!chapter_target_in_current_room(me,chapter))")!=-1 &&
+		search(arrival_source,"query_arrival_resume_view(me)")!=-1 &&
+		search(arrival_source,"travel_to_chapter_target")==-1;
+	mixed arrival_compile_error = catch{
+		compile_file(ROOT+"/gamelib/cmds/illusion_arrived.pike");
+	};
 
 	werror("\n========== 幻境任务传送入口回归测试 ==========\n");
 	check("传送成功后重新读取进度并按任务类型渲染下一步",
@@ -205,6 +216,9 @@ int main()
 	check("游戏尾部快捷入口保持每行四项且左侧无分组前缀",
 		aligned_navigation,
 		"快捷入口未对齐、顺序变化或重新出现分组前缀");
+	check("跨Worker到达命令验证真实房间并续跑而不重放移动",
+		cross_worker_arrival_resume && !arrival_compile_error,
+		"目标节点缺少幂等续跑命令、房间校验或仍重放原传送");
 	werror("结果: %d/%d 通过\n",results["passed"],results["total"]);
 	return results["failed"] ? 1 : 0;
 }

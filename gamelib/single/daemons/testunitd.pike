@@ -11,6 +11,35 @@ inherit LOW_DAEMON;
 
 mapping tests_status = ([]);
 
+private int testunit_archive_filename(string filename)
+{
+	string lower = lower_case(filename || "");
+	if(search(lower,"testunit")==-1)
+		return 0;
+	return has_suffix(lower,".o") || has_suffix(lower,".o.bak") ||
+		has_suffix(lower,".o.tmp") || has_suffix(lower,".o.bak.tmp");
+}
+
+private int cleanup_testunit_player_archives()
+{
+	string user_root = DATA_ROOT+"u";
+	int removed;
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	foreach(get_dir(user_root) || ({}),string bucket){
+		string directory = user_root+"/"+bucket;
+		if(Stdio.file_size(directory)!=-2)
+			continue;
+		foreach(get_dir(directory) || ({}),string filename){
+			string path = directory+"/"+filename;
+			if(testunit_archive_filename(filename) &&
+			   Stdio.file_size(path)>=0 && rm(path))
+				removed++;
+		}
+	}
+	return removed;
+}
+
 void run_all_tests()
 {
 	string test_dir = ROOT + "/test_unit";
@@ -40,6 +69,8 @@ void run_all_tests()
 	}
 
 	werror("[TESTUNITD] START discovered=%d\n", sizeof(test_files));
+	werror("[TESTUNITD] CLEANUP phase=start removed=%d\n",
+		cleanup_testunit_player_archives());
 
 	foreach(test_files, string test_file){
 		string test_path = test_dir + "/" + test_file;
@@ -86,6 +117,12 @@ void run_all_tests()
 	werror("╚════════════════════════════════════════════════════════════╝\n");
 	werror("[TESTUNITD] COMPLETE passed=%d failed=%d skipped=%d\n\n",
 		total_passed, total_failed, total_skipped);
+	mixed cleanup_gc_error = catch{ gc(); };
+	if(cleanup_gc_error)
+		werror("[TESTUNITD] CLEANUP gc_error=%s\n",
+			describe_error(cleanup_gc_error));
+	werror("[TESTUNITD] CLEANUP phase=end removed=%d\n",
+		cleanup_testunit_player_archives());
 
 	tests_status["last_run"] = time();
 	tests_status["total_passed"] = total_passed;

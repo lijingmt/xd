@@ -5,6 +5,7 @@ inherit LOW_DAEMON;
 
 #define STATE_PATH "/plus/illusion_realm/S1/zhaoming_trials"
 #define TRIAL_LOG ROOT "/log/illusion_hidden_profession.log"
+#define ILLUSION_TIMESTAMP_MAX 4102444800
 
 private array(mapping(string:mixed)) volumes = ({
 	(["title":"照雪问名","hunt_name":"逐光月灵","hunt_path":"/gamelib/clone/npc/illusion_s1/moon_wisp.pike","hunt_room":"/gamelib/d/illusion_s1/moon_dew_field.pike","hunt_rooms":({"/gamelib/d/illusion_s1/moon_dew_field.pike","/gamelib/d/illusion_s1/silver_reed_bank.pike","/gamelib/d/illusion_s1/starlight_slope.pike"}),"visit_name":"南瞻生死祠","visit_room":"/gamelib/d/illusion_s1/nanzhan_life_death_temple.pike","boss_name":"南瞻司寿使","boss_path":"/gamelib/clone/npc/illusion_s1/life_collector.pike"]),
@@ -110,9 +111,9 @@ private int valid_state(mixed raw)
 		(int)state["kills"]<=1000 && (int)state["visited"]>=0 &&
 		(int)state["visited"]<=1 && (int)state["boss_kills"]>=0 &&
 		(int)state["boss_kills"]<=1 && (int)state["started_at"]>0 &&
-		(int)state["started_at"]<=2000000000 &&
+		(int)state["started_at"]<=ILLUSION_TIMESTAMP_MAX &&
 		(int)state["completed_at"]>=0 &&
-		(int)state["completed_at"]<=2000000000 &&
+		(int)state["completed_at"]<=ILLUSION_TIMESTAMP_MAX &&
 		sizeof(claims)==trial-1 &&
 		((trial==50) == ((int)state["completed_at"]>0)) &&
 		(trial<50 || (!(int)state["kills"] && !(int)state["visited"] &&
@@ -120,7 +121,7 @@ private int valid_state(mixed raw)
 		for(int claimed=1;claimed<trial;claimed++){
 			mixed timestamp=claims[(string)claimed];
 			if(!intp(timestamp) || (int)timestamp<=0 ||
-			   (int)timestamp>2000000000)
+			   (int)timestamp>ILLUSION_TIMESTAMP_MAX)
 				return 0;
 		}
 	else
@@ -409,6 +410,14 @@ mapping(string:mixed) query_trial_definition_for_test(int trial)
 {
 	if(getenv("XIAND_RUN_TESTUNIT")!="1") return ([]);
 	return definition(trial)+(["reward_index":reward_index(trial)]);
+}
+
+int query_timestamp_valid_for_test(mixed value)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return intp(value) && (int)value>=0 &&
+		(int)value<=ILLUSION_TIMESTAMP_MAX;
 }
 
 int complete_current_target_for_test(object player)

@@ -11,6 +11,8 @@
 
 inherit LOW_DAEMON;
 
+#define ILLUSION_TIMESTAMP_MAX 4102444800
+
 #define JOURNEY_CONFIG ROOT "/gamelib/etc/illusion_s1_journey.json"
 #define STORY_CONFIG ROOT "/gamelib/etc/illusion_s1_story.json"
 #define PROGRESS_ROOT "/plus/illusion_realm"
@@ -685,7 +687,15 @@ private mapping normalized_state(object player,mapping state,mapping progress)
 
 private int valid_timestamp(mixed value)
 {
-	return intp(value) && (int)value>=0 && (int)value<=2000000000;
+	return intp(value) && (int)value>=0 &&
+		(int)value<=ILLUSION_TIMESTAMP_MAX;
+}
+
+int query_timestamp_valid_for_test(mixed value)
+{
+	if(getenv("XIAND_RUN_TESTUNIT")!="1")
+		return 0;
+	return valid_timestamp(value);
 }
 
 private int valid_state(object player,mapping state)

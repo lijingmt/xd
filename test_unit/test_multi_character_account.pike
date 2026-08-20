@@ -122,6 +122,22 @@ int main()
 			created["character"]["profile_complete"],
 			"创建后仍留下无名、无头像或资料不完整状态");
 
+		mapping legacy_index = (mapping)Standards.JSON.decode(
+			Stdio.read_file(account_file(account_id)));
+		m_delete(legacy_index,"revision");
+		legacy_index["version"] = 1;
+		Stdio.write_file(account_file(account_id),
+			Standards.JSON.encode(legacy_index));
+		ACCOUNT_CHARACTERD->drop_test_account_cache(account_id);
+		mapping revision_guard = ACCOUNT_CHARACTERD->
+			test_account_revision_conflict_guard(account_id);
+		check("旧版无revision索引可升级且跨Worker旧快照不会覆盖",
+			(int)revision_guard["first_saved"]==1 &&
+			(int)revision_guard["stale_rejected"]==1 &&
+			(string)revision_guard["marker"]=="first" &&
+			(int)revision_guard["revision"]==1,
+			sprintf("revision guard=%O",revision_guard));
+
 		mapping after = ACCOUNT_CHARACTERD->
 			query_account_characters(account_id);
 		check("默认旧人物与新人物同时出现在账号列表",

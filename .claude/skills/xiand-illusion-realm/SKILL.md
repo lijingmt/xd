@@ -83,17 +83,19 @@ Use the monotonic phases only:
 
 `draft -> registration -> active -> settling -> closed`
 
-Manual registration/start/end-time/rollover mutations must use the admin preview
-followed by its SHA-256 confirmation. Once `ends_at` is reached, every node runs
-the same idempotent automation and persists `active -> settling -> closed` under
-the interprocess lock. It settles local online characters before and after close;
+Manual registration/start/close/rollover mutations must use the admin preview
+followed by its SHA-256 confirmation. S1 has no natural expiry: `active` remains
+active until an administrator previews and confirms `settle`. Every node then
+runs the same idempotent automation and persists `active -> settling -> closed`
+under the interprocess lock. It settles local online characters before and after close;
 offline characters settle on their next real login. The shared runtime file uses
 a revision, bounded audit list, temp file, backup, and atomic rename. Never edit
 it manually while processes are running.
 
 For S1:
 
-1. Verify `current_id` is exactly `S1`, duration is 30 days, entry/return rooms
+1. Verify `current_id` is exactly `S1`, `manual_close_only=1`,
+   `duration_days=0`, entry/return rooms
    load, nine volumes contain exactly 81 ordered chapters, active-day data is
    analytics-only and never gates progression, 25 key story events are intact,
    all nine atlases load, chapter rewards total
@@ -105,11 +107,11 @@ For S1:
    Character capacity is separate and is never free: each seasonal character
    slot costs 100 jade, or five slots cost 500 jade. Existing early S1
    characters are grandfathered without retroactive charges or deletion.
-4. Preview `start`, confirm, and verify `ends_at-starts_at=30*86400`.
-5. Let natural expiry enter automatic return settlement. To end early, preview
-   and confirm a new `ends_at`; do not create a second manual settlement path.
+4. Preview `start`, confirm, and verify S1 remains active without an end time.
+5. To close the cycle, preview `settle`, verify the population and cycle ID,
+   then confirm. Keep the 30-second idempotent settlement grace window.
 6. Confirm players retain the same character ID and `.o` archive after return.
-7. Confirm the system reaches `closed` automatically and retains the runtime
+7. Confirm the system reaches `closed` after the confirmed close and retains the runtime
    audit/history.
 
 Never auto-open, auto-repeat, or clone the previous cycle after `closed`. The
