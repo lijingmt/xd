@@ -270,8 +270,8 @@ int main()
 
 		mapping wallet = ACCOUNT_WALLETD->query_wallet(root_player);
 		array transactions = wallet["transactions"];
-		check("充值和两个职业消费均有持久化审计流水",
-			wallet["ok"] && wallet["revision"]==3 &&
+		check("充值、两个职业消费和凭据清理均有持久化修订",
+			wallet["ok"] && wallet["revision"]==5 &&
 			sizeof(transactions)==3 &&
 			sizeof((mapping)wallet["debit_requests"])==0 &&
 			transactions[0]["type"]=="recharge" &&
@@ -341,6 +341,24 @@ int main()
 			debit_successes==1 && refunded &&
 			ACCOUNT_WALLETD->query_balance(root_player)==377,
 			"并发消费发生超扣、双扣或回滚失败");
+
+		mapping before_revision_guard = ACCOUNT_WALLETD->query_wallet(
+			root_player);
+		mapping revision_guard = ACCOUNT_WALLETD->
+			test_wallet_revision_conflict_guard(account_id);
+		mapping after_revision_guard = ACCOUNT_WALLETD->query_wallet(
+			root_player);
+		check("跨Worker共享钱包旧快照受文件锁和修订号CAS保护",
+			revision_guard["first_saved"] &&
+			revision_guard["stale_rejected"] &&
+			revision_guard["marker"]=="first" &&
+			(int)revision_guard["revision"]==
+				(int)before_revision_guard["revision"]+1 &&
+			after_revision_guard["balance"]==377 &&
+			search(Stdio.read_file(wallet_path) || "",
+				"persisted_revision")==-1,
+			sprintf("before=%O guard=%O after=%O",
+				before_revision_guard,revision_guard,after_revision_guard));
 
 		valid_wallet = Stdio.read_file(wallet_path) || "";
 		Stdio.write_file(wallet_path,"{broken-wallet");

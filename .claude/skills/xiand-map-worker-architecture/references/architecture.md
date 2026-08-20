@@ -163,7 +163,7 @@ Before any worker save, require one of:
 
 If a worker loses control, it fences player activity and blocks ordinary saves. Recovery discards stale in-memory copies without saving them. Lease expiry alone never proves an old process stopped; retain expired leases as ownership tombstones until full inventory reconciliation.
 
-Account wallet/storage/character/pet caches are process-local views of shared files. The gateway supplies an account cache token; a worker invalidates these caches when the token changes. Preserve the account-level lock identity so shared-account professions cannot write concurrently on different workers.
+Account wallet/storage/character/pet caches are process-local views of shared files. The gateway supplies an account cache token; a worker invalidates these caches when the token changes. Preserve the account-level lock identity so shared-account professions cannot write concurrently on different workers. Gateway serialization is not the only authority boundary: administrator-side writes and background work may run in another process. Every shared account character-index or recharge-wallet mutation therefore also needs an OS file lock, a persisted revision compare-and-swap, and request-unique temporary files. On a revision conflict, invalidate the local cache and fail the mutation so a retry reloads the winning generation; never overwrite the newer balance or registry snapshot.
 
 ## Cross-worker and global features
 

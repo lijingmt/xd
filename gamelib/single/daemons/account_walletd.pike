@@ -95,12 +95,45 @@ private string wallet_file_path(string account_id)
 		account_id+".wallet.json";
 }
 
+private mapping(string:object)|zero acquire_wallet_file_lock(
+	string account_id)
+{
+	string path=wallet_file_path(account_id);
+	object file;
+	object file_key;
+	mixed lock_error;
+	if(path=="")
+		return 0;
+	Stdio.mkdirhier(dirname(path));
+	file=Stdio.File();
+	if(!file->open(path+".lock","wca"))
+		return 0;
+	lock_error=catch{ file_key=file->lock(); };
+	if(lock_error || !file_key){
+		file->close();
+		return 0;
+	}
+	return (["file":file,"key":file_key]);
+}
+
+private void release_wallet_file_lock(
+	mapping(string:object)|zero lock_data)
+{
+	if(!lock_data)
+		return;
+	if(lock_data["key"])
+		destruct(lock_data["key"]);
+	if(lock_data["file"])
+		lock_data["file"]->close();
+}
+
 private mapping(string:mixed) empty_wallet(string account_id)
 {
 	return ([
 		"version":ACCOUNT_WALLET_VERSION,
 		"account_id":account_id,
 		"revision":0,
+		"persisted_revision":0,
 		"balance":0,
 		"total_recharge_fee":0,
 		"created_at":0,
@@ -256,6 +289,7 @@ private mapping(string:mixed)|zero decode_wallet_file(string path,
 	if(err || !mappingp(decoded) ||
 	   !valid_wallet_record((mapping)decoded,account_id))
 		return 0;
+	decoded["persisted_revision"] = (int)decoded["revision"];
 	decoded["persisted"] = 1;
 	return decoded;
 }
@@ -282,17 +316,30 @@ private int save_wallet_unlocked(mapping(string:mixed) record)
 {
 	string account_id = (string)record["account_id"];
 	string path = wallet_file_path(account_id);
-	string temp_path = path+".tmp";
-	string backup_temp = path+".bak.tmp";
+	string temporary_suffix;
+	string temp_path;
+	string backup_temp;
 	mapping disk_record;
+	mapping(string:mixed)|zero current_record;
+	mapping(string:object)|zero file_lock;
 	string encoded;
+	int expected_revision = (int)(record["persisted_revision"] || 0);
 	int live_size;
+	int backup_size;
+	int revision_conflict;
 	int ok = 0;
 	mixed err;
 	if(path=="" || !valid_wallet_record(record,account_id))
 		return 0;
+	if((int)record["revision"]!=expected_revision+1)
+		return 0;
+	temporary_suffix = ".tmp."+
+		String.string2hex(Crypto.Random.random_string(8));
+	temp_path = path+temporary_suffix;
+	backup_temp = path+".bak"+temporary_suffix;
 	disk_record = copy_value(record);
 	m_delete(disk_record,"persisted");
+	m_delete(disk_record,"persisted_revision");
 	disk_record["version"] = ACCOUNT_WALLET_VERSION;
 	disk_record["updated_at"] = time();
 	if((int)disk_record["created_at"]<=0)
@@ -300,15 +347,29 @@ private int save_wallet_unlocked(mapping(string:mixed) record)
 	encoded = Standards.JSON.encode(disk_record);
 	mkdir(DATA_ROOT+"accounts");
 	mkdir(dirname(path));
+	file_lock = acquire_wallet_file_lock(account_id);
+	if(!file_lock){
+		werror("[ACCOUNT_WALLETD][SAVE_LOCK_FAILED] account=%s revision=%d\n",
+			account_id,expected_revision);
+		return 0;
+	}
 	err = catch{
 		rm(temp_path);
 		rm(backup_temp);
-		if(Stdio.write_file(temp_path,encoded)>0 &&
+		live_size = Stdio.file_size(path);
+		if(live_size>0)
+			current_record = decode_wallet_file(path,account_id);
+		if((live_size>0 && !current_record) ||
+		   (current_record &&
+		    (int)(current_record["revision"] || 0)!=expected_revision) ||
+		   (!current_record && expected_revision!=0))
+			revision_conflict = 1;
+		if(!revision_conflict && Stdio.write_file(temp_path,encoded)>0 &&
 		   Stdio.file_size(temp_path)==sizeof(encoded)){
-			live_size = Stdio.file_size(path);
-			if(live_size>0 && decode_wallet_file(path,account_id)){
+			if(live_size>0 && current_record){
 				Stdio.cp(path,backup_temp);
-				if(Stdio.file_size(backup_temp)==live_size &&
+				backup_size = Stdio.file_size(backup_temp);
+				if(backup_size==live_size &&
 				   mv(backup_temp,path+".bak") &&
 				   mv(temp_path,path))
 					ok = Stdio.file_size(path)==sizeof(encoded);
@@ -317,15 +378,24 @@ private int save_wallet_unlocked(mapping(string:mixed) record)
 				ok = Stdio.file_size(path)==sizeof(encoded);
 		}
 	};
+	release_wallet_file_lock(file_lock);
+	if(revision_conflict){
+		m_delete(account_wallet_cache,account_id);
+		werror("[ACCOUNT_WALLETD][SAVE_REVISION_CONFLICT] account=%s expected=%d current=%d proposed=%d\n",
+			account_id,expected_revision,
+			current_record ? (int)(current_record["revision"] || 0) : -1,
+			(int)disk_record["revision"]);
+	}
 	if(err)
-		werror("[ACCOUNT_WALLETD] 共享充值钱包保存异常: %s\n",
-			describe_error(err));
+		werror("[ACCOUNT_WALLETD][SAVE_EXCEPTION] account=%s revision=%d error=%s\n",
+			account_id,(int)disk_record["revision"],describe_error(err));
 	if(!ok){
 		rm(temp_path);
 		rm(backup_temp);
 		return 0;
 	}
 	record["persisted"] = 1;
+	record["persisted_revision"] = (int)disk_record["revision"];
 	record["created_at"] = disk_record["created_at"];
 	record["updated_at"] = disk_record["updated_at"];
 	cache_wallet_unlocked(account_id,record);
@@ -1044,6 +1114,7 @@ int forget_account_debit_recharge_once(string account_id,string request_id)
 		return 0;
 	}
 	m_delete(record["debit_requests"],request_id);
+	record["revision"] = (int)record["revision"]+1;
 	if(!save_wallet_unlocked(record)){
 		destruct(key);
 		return 0;
@@ -1145,6 +1216,7 @@ int forget_debit_recharge_once(object player,string request_id)
 		return 1;
 	}
 	m_delete(record["debit_requests"],request_id);
+	record["revision"] = (int)record["revision"]+1;
 	if(!save_wallet_unlocked(record)){
 		destruct(key);
 		return 0;
@@ -1214,18 +1286,65 @@ void drop_test_cache(string account_id)
 	destruct(key);
 }
 
+// 只供 TestUnit 模拟两个 Worker 同时持有同一钱包旧快照。
+mapping(string:mixed) test_wallet_revision_conflict_guard(string account_id)
+{
+	mapping(string:mixed) result = ([
+		"first_saved":0,"stale_rejected":0,"marker":"","revision":-1,
+	]);
+	mapping(string:mixed)|zero first;
+	mapping(string:mixed)|zero stale;
+	mapping(string:mixed)|zero final_record;
+	object key;
+	string path;
+	if(getenv("XIAND_RUN_TESTUNIT")!="1" ||
+	   search(account_id,"testunit")==-1)
+		return result;
+	path = wallet_file_path(account_id);
+	key = account_wallet_lock->lock();
+	first = decode_wallet_file(path,account_id);
+	if(first){
+		stale = copy_value(first);
+		first["revision"] = (int)first["revision"]+1;
+		first["test_revision_marker"] = "first";
+		result["first_saved"] = save_wallet_unlocked(first);
+		if((int)result["first_saved"] && stale){
+			stale["revision"] = (int)stale["revision"]+1;
+			stale["test_revision_marker"] = "stale";
+			result["stale_rejected"] = !save_wallet_unlocked(stale);
+			final_record = decode_wallet_file(path,account_id);
+		}
+	}
+	if(final_record){
+		result["marker"] = (string)final_record["test_revision_marker"];
+		result["revision"] = (int)final_record["revision"];
+		cache_wallet_unlocked(account_id,final_record);
+	}
+	destruct(key);
+	return result;
+}
+
 void remove_test_wallet(string account_id)
 {
 	string path;
+	string directory;
+	string filename;
 	object key;
 	if(search(account_id,"testunit")==-1)
 		return;
 	path = wallet_file_path(account_id);
+	directory = dirname(path);
+	filename = basename(path);
 	key = account_wallet_lock->lock();
 	rm(path);
 	rm(path+".tmp");
 	rm(path+".bak");
 	rm(path+".bak.tmp");
+	rm(path+".lock");
+	foreach(get_dir(directory) || ({}),string one)
+		if(has_prefix(one,filename+".tmp.") ||
+		   has_prefix(one,filename+".bak.tmp."))
+			rm(directory+"/"+one);
 	m_delete(account_wallet_cache,account_id);
 	m_delete(account_legacy_fee_cache,account_id);
 	destruct(key);

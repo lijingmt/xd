@@ -1319,6 +1319,18 @@ int main()
 			source_has("/test_unit/test_pike_gateway.pike",
 				"test_account_cache_capability_changes_only_when_worker_changes"),
 			"不同worker可能用旧缓存覆盖共享装备或充值余额");
+		check("共享充值钱包以文件锁和修订号CAS阻断跨进程旧快照覆盖",
+			source_has("/gamelib/single/daemons/account_walletd.pike",
+				"acquire_wallet_file_lock") &&
+			source_has("/gamelib/single/daemons/account_walletd.pike",
+				"file->lock()") &&
+			source_has("/gamelib/single/daemons/account_walletd.pike",
+				"SAVE_REVISION_CONFLICT") &&
+			source_has("/gamelib/single/daemons/account_walletd.pike",
+				"persisted_revision") &&
+			source_has("/test_unit/test_account_recharge_wallet.pike",
+				"test_wallet_revision_conflict_guard"),
+			"管理员充值与玩家消费并发时可能丢失最新钱包余额");
 		check("共享钱包命令后提交仍处于账号锁与请求完成栅栏内",
 			source_has("/gamelib/single/daemons/yushid.pike",
 				"finalize_wallet_payment_after_worker_request") &&
