@@ -5633,8 +5633,8 @@ mapping(string:mixed) purchase_entitlement(object player)
 		success_message = "已支付"+(string)cost+"碎玉并永久激活"+
 			(string)status["illusion_id"]+"人物资格；额外栏位仅对本期生效。";
 	else
-		success_message = "已免费永久激活"+(string)status["illusion_id"]+
-			"人物资格；本期每名人物均须按栏位规则支付100碎玉。";
+		success_message = "已登记"+(string)status["illusion_id"]+
+			"赛季资格；登记不扣费，本期每名人物均须按栏位规则支付100碎玉。";
 	return (["ok":1,"already":0,"message":success_message]) ;
 }
 

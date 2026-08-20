@@ -163,7 +163,8 @@ void test_item_sync_contract()
 				hidden_count++;
 	}
 	if(source &&
-	   search(source,"local commands=(\"docker\" \"rsync\")")!=-1 &&
+	   search(source,
+		   "local commands=(\"docker\" \"rsync\" \"python3\")")!=-1 &&
 	   search(source,
 		   "rsync -a \"$source_item_dir/\" \"$shared_item_dir/\"")!=-1 &&
 	   search(source,
@@ -728,6 +729,30 @@ void test_room_catalog_deploy_contract()
 		test_fail("新地图目录未增量同步、会覆盖线上值或更新不具原子性");
 }
 
+void test_runtime_game_config_deploy_contract()
+{
+	test_start("部署预检、原子同步并验证宿主挂载的S1运行配置");
+	string source = Stdio.read_file(ROOT+"/restart-docker.sh");
+	if(source &&
+	   search(source,"RUNTIME_GAME_CONFIG_FILES=(")!=-1 &&
+	   search(source,"illusion_realm.json")!=-1 &&
+	   search(source,"illusion_s1_story.json")!=-1 &&
+	   search(source,"illusion_s1_journey.json")!=-1 &&
+	   search(source,"validate_runtime_game_configs()")!=-1 &&
+	   search(source,"preflight_runtime_game_configs()")!=-1 &&
+	   search(source,"sync_runtime_game_configs()")!=-1 &&
+	   search(source,"mktemp \"$target_etc_dir/.${config_name}.XXXXXX\"")!=-1 &&
+	   search(source,"mv -f \"$temporary\" \"$target_path\"")!=-1 &&
+	   search(source,"verify_runtime_game_configs_in_container()")!=-1 &&
+	   search(source,"/app/xiand/gamelib/etc/$config_name")!=-1 &&
+	   search(source,"preflight_runtime_game_configs\n")!=-1 &&
+	   search(source,"sync_runtime_game_configs \"$etc_dir\"")!=-1 &&
+	   search(source,"verify_runtime_game_configs_in_container \"xiand-${GAME_AREA}\"")!=-1)
+		test_pass();
+	else
+		test_fail("旧宿主etc可能继续遮住镜像S1配置，或同步缺少预检/原子校验");
+}
+
 void print_summary()
 {
 	werror("\n========================================\n");
@@ -752,6 +777,7 @@ int main()
 	test_local_restart_stack_contract();
 	test_real_healthcheck_and_runtime_contracts();
 	test_room_catalog_deploy_contract();
+	test_runtime_game_config_deploy_contract();
 	test_worker_docker_start_chain_contract();
 	test_local_worker_restart_chain_contract();
 	test_testunit_and_include_isolation_contract();

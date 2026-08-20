@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1787080884819">
-    <link rel="stylesheet" href="css/app.css?v=v1787080884819">
-    <link rel="stylesheet" href="css/realm.css?v=v1787080884819">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787227750204">
+    <link rel="stylesheet" href="css/app.css?v=v1787227750204">
+    <link rel="stylesheet" href="css/realm.css?v=v1787227750204">
 </head>
 <body>
     <div id="app">
@@ -500,21 +500,21 @@
 									每个人物栏位100碎玉；八十一章主线可获十件新月套装，赛季结束时原档案自动回归永恒服
 							</small>
 							<small v-else-if="!illusionEntitled">
-								未激活{{ illusionRealmStatus.illusion_id || 'S1' }}永久人物资格；可在下方直接免费激活
+								尚未登记{{ illusionRealmStatus.illusion_id || 'S1' }}赛季资格；登记不扣费，创建每个人物须购买100碎玉栏位
 							</small>
 							<small v-else>当前阶段：{{ illusionRealmStatus.phase_name }}</small>
 						</button>
 					</div>
 					<div class="illusion-activation-card" v-if="!illusionEntitled">
 						<div>
-							<strong>{{ illusionRealmStatus.illusion_id || 'S1' }} 永久人物资格</strong>
-							<small>资格属于当前注册账号且仅对本赛季永久有效；未来赛季需分别激活。</small>
+							<strong>{{ illusionRealmStatus.illusion_id || 'S1' }} 赛季资格登记</strong>
+							<small>登记本身不扣费；创建首个及后续每个人物都需购买100碎玉栏位，500碎玉可购买5格。资格仅对本赛季有效。</small>
 						</div>
 						<button type="button"
 								class="btn btn-primary"
 								@click="activateIllusionEntitlement"
 								:disabled="illusionActivating || !illusionRealmStatus.ok || Number(illusionRealmStatus.entitlement_cost_suiyu || 0) !== 0">
-							{{ illusionActivating ? '激活中...' : '免费激活' + (illusionRealmStatus.illusion_id || 'S1') + '人物资格' }}
+							{{ illusionActivating ? '登记中...' : '登记' + (illusionRealmStatus.illusion_id || 'S1') + '赛季资格（人物栏位另付费）' }}
 						</button>
 					</div>
 					<p class="illusion-activation-success"
@@ -2007,19 +2007,19 @@
         </template>
     </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1787080884819"></script>
-    <script src="vendor/canvas-confetti.js?v=v1787080884819"></script>
-    <script src="vendor/howler.core.min.js?v=v1787080884819"></script>
-    <script src="vendor/driver.iife.js?v=v1787080884819"></script>
-    <script src="../includes/game-number-format.js?v=v1787080884819" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787227750204"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787227750204"></script>
+    <script src="vendor/howler.core.min.js?v=v1787227750204"></script>
+    <script src="vendor/driver.iife.js?v=v1787227750204"></script>
+    <script src="../includes/game-number-format.js?v=v1787227750204" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787080884819';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787227750204';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1787080884819"></script>
+    <script src="js/app.js?v=v1787227750204"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1787080884819"></script>
+    <script src="../includes/translate.js?v=v1787227750204"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

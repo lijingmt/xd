@@ -924,9 +924,9 @@ int main(string|zero arg)
 			write(((int)status["entitlement_cost_suiyu"]>0 ?
 				"永久解锁"+(string)status["illusion_id"]+"人物资格需要"+
 				(string)(int)status["entitlement_cost_suiyu"]+"枚碎玉。" :
-				(string)status["illusion_id"]+"人物资格当前免费永久激活。")+
-				"资格属于注册账号且仅限本赛季；每个本期人物都需要100碎玉栏位。\n"+
-				"[确认永久激活:illusion_realm activate confirm]\n"+
+				(string)status["illusion_id"]+"赛季资格登记本身不扣费。")+
+				"资格属于注册账号且仅限本赛季；创建首个及后续每个人物都需要100碎玉栏位，500碎玉可购买5格。\n"+
+				"[确认登记赛季资格:illusion_realm activate confirm]\n"+
 				"[取消:illusion_realm]\n");
 			return 1;
 		}
@@ -950,9 +950,9 @@ int main(string|zero arg)
 			return 1;
 		}
 		if(!(int)expansion_account["illusion_entitled"]){
-			write("请先免费激活"+(string)status["illusion_id"]+
-				"人物资格。\n"+
-				"[免费激活:illusion_realm activate]|"+
+			write("请先登记"+(string)status["illusion_id"]+
+				"赛季资格；登记不扣费，人物栏位另行付费。\n"+
+				"[登记赛季资格:illusion_realm activate]|"+
 				"[返回幻境区:illusion_realm]\n");
 			return 1;
 		}
@@ -1061,7 +1061,7 @@ int main(string|zero arg)
 	}
 	else if((int)status["entitlement_open"])
 		s += (string)status["illusion_id"]+
-			"永久人物资格：未解锁　[免费激活:illusion_realm activate]\n";
+			"赛季资格：未登记　[登记资格（人物栏位另付费）:illusion_realm activate]\n";
 	else
 		s += (string)status["illusion_id"]+
 			"永久人物资格：当前未开放激活\n";

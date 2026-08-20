@@ -661,10 +661,10 @@ int main()
 				"purchase_entitlement(object player)")!=-1 &&
 			search(season_source,"purchase_entitlement(object player,\n")==-1,
 			"Web购买可能在已持有的账号锁上再次加锁");
-		check("S1资格免费激活且玩家界面明确按赛季区分",
-			search(player_command_source,"人物资格当前免费永久激活")!=-1 &&
+		check("S1资格登记与付费人物栏位在玩家界面明确区分",
+			search(player_command_source,"赛季资格登记本身不扣费")!=-1 &&
 			search(player_command_source,"仅限本赛季")!=-1 &&
-			search(player_command_source,"[免费激活:illusion_realm activate]")!=-1 &&
+			search(player_command_source,"[登记赛季资格:illusion_realm activate]")!=-1 &&
 			search(player_command_source,"100碎玉增加本期1格")!=-1 &&
 			search(player_command_source,"500碎玉一次购买本期5格")!=-1 &&
 			search(account_source,"season_expansions")!=-1 &&
@@ -672,7 +672,7 @@ int main()
 			search(season_source,"本期首名人物免费")==-1 &&
 			search(season_source,
 				"本期每名人物均须按栏位规则支付100碎玉")!=-1,
-			"免费配置仍被显示为0碎玉购买或付费门槛");
+			"资格登记与人物栏位收费仍可能被玩家混淆");
 		string account_api_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/account_characters.pike") || "";
 		string http_api_source = Stdio.read_file(ROOT+
@@ -1159,7 +1159,7 @@ int main()
 			query_account_characters(center_account_id,"S1");
 		mapping center_account_s2_before = ACCOUNT_CHARACTERD->
 			query_account_characters(center_account_id,"S2");
-		check("人物中心可免费永久激活S1且重复点击幂等",
+		check("人物中心可无扣费登记S1赛季资格且重复点击幂等",
 			(int)center_activation["ok"] &&
 			!(int)center_activation["already"] &&
 			(int)center_activation_again["ok"] &&

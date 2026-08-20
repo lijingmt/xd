@@ -1905,7 +1905,7 @@ createApp({
 				!this.accountToken) return;
 			if (!this.illusionRealmStatus.ok ||
 				Number(this.illusionRealmStatus.entitlement_cost_suiyu || 0) !== 0) {
-				this.characterError = '当前幻境资格不能在人物中心免费激活';
+				this.characterError = '当前幻境资格不能在人物中心直接登记';
 				return;
 			}
 			this.illusionActivating = true;
@@ -1918,7 +1918,7 @@ createApp({
 				);
 				this.applyAccountData(data);
 				this.illusionActivationMessage = data.activation?.message ||
-					`${this.illusionRealmStatus.illusion_id || 'S1'}人物资格已永久激活`;
+					`${this.illusionRealmStatus.illusion_id || 'S1'}赛季资格已登记；创建每个人物仍需购买100碎玉栏位`;
 				if (this.illusionRealmStatus.creation_open &&
 					!this.illusionCharacterCapacityReached) {
 					this.characterForm.realm_type = 'illusion';

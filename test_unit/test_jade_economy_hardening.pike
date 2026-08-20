@@ -188,6 +188,24 @@ void test_server_authority_markers()
 		"跨区领取记录仍可能先于本区玉石扣除");
 }
 
+void test_monster_jade_box_drops_are_disabled()
+{
+	string items=Stdio.read_file(ROOT+"/gamelib/single/daemons/itemsd.pike");
+	string worlddrop=Stdio.read_file(ROOT+
+		"/gamelib/data/worlddrop_item.list");
+	check("挂机和怪物世界池禁止掉落所有可开玉宝箱",
+		ITEMSD->can_monster_drop_box("baoxiang/jingjinbaoxiang")==0 &&
+		ITEMSD->can_monster_drop_box("baoxiang/chr_bx_7")==0 &&
+		ITEMSD->can_monster_drop_box("other/kaibanglingpai")==1 &&
+		items && search(items,"if(!can_monster_drop_box(item_name))")!=-1 &&
+		search(items,"object get_spec_item_for_holiday(void|int level)")!=-1 &&
+		search(items,"常驻挂机环境下禁止怪物投放所有")!=-1 &&
+		worlddrop &&
+		search(worlddrop,"baoxiang/chr_bx_1|0")!=-1 &&
+		search(worlddrop,"baoxiang/chr_bx_7|0")!=-1,
+		"世界池、节日入口或未来误配仍可能让怪物掉落开玉宝箱");
+}
+
 void test_home_infancy_authoritative_purchase()
 {
 	object player=create_player("xd99testunithomeinfancy");
@@ -262,6 +280,7 @@ int main()
 	test_all_changed_entries_compile();
 	test_negative_removal_and_exact_grant();
 	test_server_authority_markers();
+	test_monster_jade_box_drops_are_disabled();
 	test_home_infancy_authoritative_purchase();
 	test_raw_tampering_does_not_grant();
 	werror("经济收口测试：总计%d，通过%d，失败%d\n",

@@ -156,6 +156,15 @@ LOGICAL_ZONE_SEED_DIR="${XIAND_LOGICAL_ZONE_SEED_DIR:-$PROJECT_ROOT/deploy/logic
 SELECTED_DOCKER_IMAGE=""
 MAP_WORKER_SAFE_STOP_CONFIRMED=0
 
+# These files are version-controlled gameplay definitions. The Docker bind
+# mount for gamelib/etc hides the copies baked into the image, so every
+# deployment must refresh the host-side copies without touching runtime state.
+RUNTIME_GAME_CONFIG_FILES=(
+    "illusion_realm.json"
+    "illusion_s1_story.json"
+    "illusion_s1_journey.json"
+)
+
 # 十一职业隐藏大神传承：部署时同时校验秘籍、技能主体和掉落池。
 # 无相的 3 本隐藏书（归墟/混元/无极）在账号解锁该职业后才生效，仍走同一池子。
 HIDDEN_MYTHIC_SKILL_IDS=(
@@ -287,6 +296,134 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+validate_runtime_game_configs() {
+    local source_etc_dir="$PROJECT_ROOT/gamelib/etc"
+    local config_name
+    local config_path
+
+    for config_name in "${RUNTIME_GAME_CONFIG_FILES[@]}"; do
+        config_path="$source_etc_dir/$config_name"
+        if [ -L "$config_path" ] || [ ! -f "$config_path" ] || \
+           [ ! -r "$config_path" ] || [ ! -s "$config_path" ]; then
+            print_error "S1运行配置缺失、不可读或类型不安全：$config_path"
+            return 1
+        fi
+        if [ "$(wc -c < "$config_path")" -gt 2097152 ]; then
+            print_error "S1运行配置超过2 MiB安全上限：$config_path"
+            return 1
+        fi
+    done
+
+    if ! python3 - "$source_etc_dir" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+names = (
+    "illusion_realm.json",
+    "illusion_s1_story.json",
+    "illusion_s1_journey.json",
+)
+documents = {}
+for name in names:
+    with (root / name).open("r", encoding="utf-8") as stream:
+        value = json.load(stream)
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} root must be an object")
+    documents[name] = value
+
+realm = documents["illusion_realm.json"]
+story = documents["illusion_s1_story.json"]
+journey = documents["illusion_s1_journey.json"]
+season_id = realm.get("current_id")
+if realm.get("version") != 1 or not isinstance(season_id, str) or not season_id:
+    raise ValueError("illusion_realm.json version/current_id is invalid")
+if realm.get("story_file") != "/gamelib/etc/illusion_s1_story.json":
+    raise ValueError("illusion_realm.json story_file is not the deployed S1 story")
+if story.get("version") != 2 or story.get("illusion_id") != season_id:
+    raise ValueError("S1 story version or illusion_id does not match current_id")
+if journey.get("version") != 1 or journey.get("illusion_id") != season_id:
+    raise ValueError("S1 journey version or illusion_id does not match current_id")
+if not isinstance(story.get("volumes"), list) or len(story["volumes"]) != 9:
+    raise ValueError("S1 story must contain exactly nine volumes")
+if realm.get("extra_character_slot_cost_suiyu") != 100:
+    raise ValueError("S1 per-character slot price must remain 100 suiyu")
+if realm.get("multi_character_unlock_cost_suiyu") != 500:
+    raise ValueError("S1 five-slot bundle price must remain 500 suiyu")
+PY
+    then
+        print_error "S1运行配置JSON、赛季编号或交叉引用校验失败"
+        return 1
+    fi
+
+    return 0
+}
+
+preflight_runtime_game_configs() {
+    local target_etc_dir="/usr/local/games/allxd/${GAME_AREA}/etc"
+    local config_name
+    local target_path
+
+    validate_runtime_game_configs || return 1
+    if [ -L "$target_etc_dir" ] || \
+       { [ -e "$target_etc_dir" ] && [ ! -d "$target_etc_dir" ]; }; then
+        print_error "宿主etc挂载路径不安全，旧容器保持运行：$target_etc_dir"
+        return 1
+    fi
+    for config_name in "${RUNTIME_GAME_CONFIG_FILES[@]}"; do
+        target_path="$target_etc_dir/$config_name"
+        if [ -L "$target_path" ] || \
+           { [ -e "$target_path" ] && [ ! -f "$target_path" ]; }; then
+            print_error "宿主S1配置目标类型不安全，旧容器保持运行：$target_path"
+            return 1
+        fi
+    done
+    print_success "S1运行配置预检通过：Git源文件完整且赛季编号一致"
+}
+
+sync_runtime_game_configs() {
+    local target_etc_dir="$1"
+    local source_etc_dir="$PROJECT_ROOT/gamelib/etc"
+    local config_name
+    local source_path
+    local target_path
+    local temporary
+
+    validate_runtime_game_configs || return 1
+    if [ -L "$target_etc_dir" ] || \
+       { [ -e "$target_etc_dir" ] && [ ! -d "$target_etc_dir" ]; }; then
+        print_error "宿主etc挂载路径不安全：$target_etc_dir"
+        return 1
+    fi
+    mkdir -p "$target_etc_dir" || return 1
+
+    for config_name in "${RUNTIME_GAME_CONFIG_FILES[@]}"; do
+        source_path="$source_etc_dir/$config_name"
+        target_path="$target_etc_dir/$config_name"
+        if [ -L "$target_path" ] || \
+           { [ -e "$target_path" ] && [ ! -f "$target_path" ]; }; then
+            print_error "宿主S1配置目标类型不安全：$target_path"
+            return 1
+        fi
+        temporary="$(mktemp "$target_etc_dir/.${config_name}.XXXXXX")" || return 1
+        if ! cp "$source_path" "$temporary" || \
+           ! chmod 0644 "$temporary" || \
+           ! cmp -s "$source_path" "$temporary"; then
+            rm -f "$temporary"
+            print_error "S1运行配置写入或校验失败：$config_name"
+            return 1
+        fi
+        if ! mv -f "$temporary" "$target_path"; then
+            rm -f "$temporary"
+            print_error "S1运行配置原子替换失败：$target_path"
+            return 1
+        fi
+        print_info "已同步S1运行配置：$config_name"
+    done
+    print_success "S1运行配置已同步到宿主机：$target_etc_dir"
 }
 
 preflight_map_worker_deploy_config() {
@@ -479,7 +616,7 @@ verify_map_worker_runtime_in_container() {
 
 # 函数：检查必要的命令
 check_commands() {
-    local commands=("docker" "rsync")
+    local commands=("docker" "rsync" "python3")
     for cmd in "${commands[@]}"; do
         if ! command -v $cmd &> /dev/null; then
             print_error "$cmd 命令未找到，请先安装"
@@ -585,6 +722,33 @@ verify_logical_zone_runtime_in_container() {
         exit 1
     fi
     print_success "容器逻辑区代码与持久化配置挂载校验通过"
+}
+
+verify_runtime_game_configs_in_container() {
+    local container_name="$1"
+    local source_etc_dir="$PROJECT_ROOT/gamelib/etc"
+    local config_name
+    local expected_checksum
+    local actual_checksum
+
+    for config_name in "${RUNTIME_GAME_CONFIG_FILES[@]}"; do
+        expected_checksum="$(python3 - "$source_etc_dir/$config_name" <<'PY'
+import hashlib
+import pathlib
+import sys
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+        actual_checksum="$(docker exec "$container_name" sha256sum \
+            "/app/xiand/gamelib/etc/$config_name" 2>/dev/null | \
+            awk '{print $1}')"
+        if [ -z "$actual_checksum" ] || \
+           [ "$actual_checksum" != "$expected_checksum" ]; then
+            print_error "容器S1配置与Git源不一致：$config_name"
+            return 1
+        fi
+    done
+    print_success "容器S1配置与Git源校验一致"
 }
 
 # 函数：同步镜像外置的游戏物品目录
@@ -1203,6 +1367,13 @@ prepare_data_directories() {
             done
         fi
 
+        # gamelib/etc 是宿主持久卷。无论是否为首次部署，都必须刷新这些
+        # 版本控制的S1定义，否则旧宿主目录会遮住镜像中的新赛季配置。
+        if ! sync_runtime_game_configs "$etc_dir"; then
+            print_error "S1运行配置同步失败，停止部署"
+            exit 1
+        fi
+
 		# 容器直接挂载此目录；在线修改 .conf 后 MUD 会在 5 秒内热加载。
 		prepare_logical_zone_directory \
 			"$source_etc_dir/logical_zones" "$etc_dir/logical_zones"
@@ -1278,6 +1449,7 @@ main() {
     # 检查必要命令
     check_commands
     preflight_map_worker_deploy_config
+    preflight_runtime_game_configs
     if [ "$FORCE_ACTIVE" = "1" ] && {
        [ "$XIAND_MAP_WORKER_ENABLED" != "1" ] ||
        [ "$XIAND_MAP_WORKER_TRAFFIC_MODE" != "active" ]; }; then
@@ -1390,6 +1562,7 @@ main() {
     fi
 
     verify_logical_zone_runtime_in_container "xiand-${GAME_AREA}"
+    verify_runtime_game_configs_in_container "xiand-${GAME_AREA}"
     verify_map_worker_runtime_in_container "xiand-${GAME_AREA}"
 
     print_info "[7/7] 更新Vue前端分区配置..."

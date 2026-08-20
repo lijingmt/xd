@@ -208,6 +208,42 @@ void test_safe_dungeon_fly_catalog()
 	destroy_player(player);
 }
 
+void test_flight_fee_progression()
+{
+	test_start("飞行金币按等级平滑增长且70级会员折扣明确");
+	object player=create_player(
+		"__testunit_flight_fee__",1,"human","jianxian");
+	array(int) levels=({0,9,10,19,20,49,50,69,70,99,100,149,
+		150,199,200,999});
+	array(int) fees=({100,100,1000,1000,2000,2000,5000,5000,
+		20000,20000,50000,50000,100000,100000,200000,200000});
+	array(int) vip70=({20000,15000,10000,7500,5000,5000,5000,5000,
+		5000});
+	int valid=1;
+	string error_desc="";
+	mixed err=catch {
+		for(int index=0;index<sizeof(levels);index++){
+			player->level=levels[index];
+			player->set_vip_flag(0);
+			if(MAPD->query_player_fly_fee(player)!=fees[index])
+				valid=0;
+		}
+		player->level=70;
+		for(int vip=0;vip<=8;vip++){
+			player->set_vip_flag(vip);
+			if(MAPD->query_player_fly_fee(player)!=vip70[vip])
+				valid=0;
+		}
+	};
+	if(err)
+		error_desc=describe_error(err);
+	if(!err && valid)
+		test_pass();
+	else
+		test_fail("等级边界、70级费用或VIP折扣错误: "+error_desc);
+	destroy_player(player);
+}
+
 void test_team_instance_identity()
 {
 	test_start("同队入口共享同一 BOSS 实例且不同队严格隔离");
@@ -509,6 +545,7 @@ int main()
 	test_fixed_year_beast_levels_after_high_level_entry();
 	test_map_filter_and_legacy_redirect();
 	test_safe_dungeon_fly_catalog();
+	test_flight_fee_progression();
 	test_emergency_leave_and_move_cleanup();
 	test_summons_do_not_block_autofight();
 	test_relogin_and_ui_safety_wiring();

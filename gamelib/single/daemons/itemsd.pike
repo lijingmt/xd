@@ -814,6 +814,13 @@ object get_ancient_skill_book(int npclevel)
 	return clone(ITEM_PATH+item_name);
 }
 //外部接口，由fight_die()调用，为世界掉落装备的的接口
+int can_monster_drop_box(string item_name)
+{
+	if(!item_name || item_name=="")
+		return 0;
+	return search(item_name,"baoxiang/")!=0;
+}
+
 object get_worlddrop_item(int npclevel,int playerlevel)
 {
 	object ret_item;     //最后返回的装备
@@ -830,6 +837,12 @@ object get_worlddrop_item(int npclevel,int playerlevel)
 	array(string) column = item_tmp/"|";
 	string item_name = column[1];//物品存放位置
 	int item_rate = (int)column[2];//掉率
+	// 怪物/挂机世界掉落永久禁止产出任何宝箱。旧世界池中的圣诞
+	// 宝箱和未来误配的精金宝箱都能间接产出玉石，不能依赖把权重
+	// 写成0（下方历史算法使用 <=，0仍有一次命中）。充值赠送和
+	// 管理员发放走独立、可审计的入口，不受这里影响。
+	if(!can_monster_drop_box(item_name))
+		return 0;
 	if(random(1000)<=item_rate)
 	{
 		//werror("========= 【debug】i am going to clone item！======\n");
@@ -1043,7 +1056,10 @@ string query_dubo_items(int level,void|int fg)
 //由lizhangyang于07/12/20依据07年圣诞活动细节修改
 object get_spec_item_for_holiday(void|int level)
 {
-	//return 0;//关闭活动
+	// 节日宝箱会间接开出碎玉。常驻挂机环境下禁止怪物投放所有
+	// 此类箱子；节日若要重开，必须新增有期限且可审计的活动入口。
+	return 0;
+	/*
 	object ob_rtn;
 	int ran = 10;
 	//非节日，改为万分之一
@@ -1067,6 +1083,7 @@ object get_spec_item_for_holiday(void|int level)
 		}
 	}
 	return 0;
+	*/
 	/*
 	int ran = 10;
 	if(random(10000) <= ran){
