@@ -270,7 +270,7 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 				entitlement_cost_suiyu: 0
 			},
 			characters: [],
-			activation: { message: '账号已永久解锁S1人物资格。' }
+			activation: { message: '账号已登记S1赛季资格。' }
 		};
 	};
 	await activationClient.activateIllusionEntitlement();
@@ -282,7 +282,7 @@ assert(appSource.includes('response.status === 409 && data.forced_logout'));
 	assert.strictEqual(activationClient.characterForm.realm_type, 'illusion');
 	assert.strictEqual(activationClient.characterForm.name_cn, '保留姓名');
 	assert.strictEqual(activationClient.characterForm.avatar_id, 'h_male2');
-	assert(activationClient.illusionActivationMessage.includes('S1人物资格'));
+	assert(activationClient.illusionActivationMessage.includes('S1赛季资格'));
 	assert.strictEqual(activationClient.illusionActivating, false);
 
 	const paidActivationClient = Object.assign(

@@ -5544,8 +5544,8 @@ mapping(string:mixed) purchase_entitlement(object player)
 	}
 	if((int)account_data["illusion_entitled"]){
 		return (["ok":1,"already":1,
-			"message":"账号已永久解锁"+
-				(string)status["illusion_id"]+"人物资格。"]) ;
+			"message":"账号已登记"+
+				(string)status["illusion_id"]+"赛季资格。"]) ;
 	}
 	cost = (int)status["entitlement_cost_suiyu"];
 	before_wallet = ACCOUNT_WALLETD->query_balance(player);
@@ -5615,8 +5615,8 @@ mapping(string:mixed) purchase_entitlement(object player)
 		}
 		return (["ok":refunded,"already":refunded,
 			"message":refunded ?
-			"账号已永久解锁"+(string)status["illusion_id"]+
-				"人物资格；本次重复扣款已原路退回。" :
+			"账号已登记"+(string)status["illusion_id"]+
+				"赛季资格；本次重复扣款已原路退回。" :
 			"检测到重复扣款但退款仍需重试，请重新登录或联系管理员。"]) ;
 	}
 	// 资格索引已经持久化。这里即使清理凭据失败，登录恢复也只会
@@ -5630,8 +5630,8 @@ mapping(string:mixed) purchase_entitlement(object player)
 		(string)player->query_name(),cost,request_id,
 		cleanup_saved));
 	if(cost>0)
-		success_message = "已支付"+(string)cost+"碎玉并永久激活"+
-			(string)status["illusion_id"]+"人物资格；额外栏位仅对本期生效。";
+		success_message = "已支付"+(string)cost+"碎玉并登记"+
+			(string)status["illusion_id"]+"赛季资格；人物栏位仅对本期生效。";
 	else
 		success_message = "已登记"+(string)status["illusion_id"]+
 			"赛季资格；登记不扣费，本期每名人物均须按栏位规则支付100碎玉。";
@@ -5756,8 +5756,9 @@ mapping(string:mixed) purchase_account_character_expansion(
 	if(!(int)account_data["ok"])
 		return (["ok":0,"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
 	if(!(int)account_data["illusion_entitled"])
-		return (["ok":0,"message":"请先免费激活"+
-			(string)status["illusion_id"]+"人物资格。"]) ;
+		return (["ok":0,"message":"请先登记"+
+			(string)status["illusion_id"]+
+			"赛季资格；登记不扣费，每个人物栏位100碎玉。"]) ;
 	requests = arrayp(account_data["illusion_expansion_requests"]) ?
 		(array)account_data["illusion_expansion_requests"] : ({});
 	if(search(requests,request_id)!=-1)
@@ -5823,8 +5824,9 @@ mapping(string:mixed) purchase_character_expansion(object player,string option)
 		return (["ok":0,
 			"message":"账号索引暂不可验证，本次未扣除碎玉。"]) ;
 	if(!(int)account_data["illusion_entitled"])
-		return (["ok":0,"message":"请先免费激活"+
-			(string)status["illusion_id"]+"人物资格。"]) ;
+		return (["ok":0,"message":"请先登记"+
+			(string)status["illusion_id"]+
+			"赛季资格；登记不扣费，每个人物栏位100碎玉。"]) ;
 	cost = option=="one" ?
 		(int)status["extra_character_slot_cost_suiyu"] :
 		(int)status["multi_character_unlock_cost_suiyu"];

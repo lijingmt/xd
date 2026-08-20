@@ -1536,7 +1536,7 @@ mapping(string:mixed) grant_illusion_entitlement(string requested_id,
 			illusion_id);
 		if(sizeof(cycle_entitlement))
 			result = (["ok":1,"already":1,
-				"message":"账号已永久解锁"+illusion_id+"人物资格。",
+				"message":"账号已登记"+illusion_id+"赛季资格。",
 				"account_id":account_id,"illusion_id":illusion_id,
 				"cycle_entitlement":copy_value(cycle_entitlement),
 				"entitlement":copy_value(entitlement)]);
@@ -1575,7 +1575,7 @@ mapping(string:mixed) grant_illusion_entitlement(string requested_id,
 			record["illusion_entitlement"] = entitlement;
 			if(save_record_unlocked(record))
 				result = (["ok":1,"already":0,
-					"message":"账号已永久解锁"+illusion_id+"人物资格。",
+					"message":"账号已登记"+illusion_id+"赛季资格。",
 					"account_id":account_id,"illusion_id":illusion_id,
 					"cycle_entitlement":copy_value(cycle_entitlement),
 					"entitlement":copy_value(entitlement)]);
@@ -2261,8 +2261,8 @@ mapping(string:mixed) create_character(string requested_id,
 			if(!mappingp(record["illusion_entitlement"]) ||
 			   !sizeof(illusion_entitlement_for_cycle(
 				(mapping)record["illusion_entitlement"],illusion_id))){
-				result["message"] = "账号尚未永久解锁"+
-					illusion_id+"人物资格。";
+				result["message"] = "账号尚未登记"+
+					illusion_id+"赛季资格。";
 				destruct(key);
 				return result;
 			}

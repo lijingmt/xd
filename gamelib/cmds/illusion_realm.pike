@@ -922,7 +922,7 @@ int main(string|zero arg)
 	if(sizeof(parts)>=1 && parts[0]=="activate"){
 		if(sizeof(parts)<2 || parts[1]!="confirm"){
 			write(((int)status["entitlement_cost_suiyu"]>0 ?
-				"永久解锁"+(string)status["illusion_id"]+"人物资格需要"+
+				"登记"+(string)status["illusion_id"]+"赛季资格需要"+
 				(string)(int)status["entitlement_cost_suiyu"]+"枚碎玉。" :
 				(string)status["illusion_id"]+"赛季资格登记本身不扣费。")+
 				"资格属于注册账号且仅限本赛季；创建首个及后续每个人物都需要100碎玉栏位，500碎玉可购买5格。\n"+
@@ -1052,7 +1052,7 @@ int main(string|zero arg)
 	account_data = ACCOUNT_CHARACTERD->query_account_characters(
 		(string)me->query_account_owner(),(string)status["illusion_id"]);
 	if((int)account_data["illusion_entitled"]){
-		s += (string)status["illusion_id"]+"永久人物资格：已解锁\n";
+		s += (string)status["illusion_id"]+"赛季资格：已登记\n";
 		s += "人物栏位：本期"+
 			(string)(int)account_data["illusion_character_slots"]+
 			"格　累计支付"+
@@ -1064,7 +1064,7 @@ int main(string|zero arg)
 			"赛季资格：未登记　[登记资格（人物栏位另付费）:illusion_realm activate]\n";
 	else
 		s += (string)status["illusion_id"]+
-			"永久人物资格：当前未开放激活\n";
+			"赛季资格：当前未开放登记\n";
 	if((int)story_access["ok"]){
 		mapping progress = SEASONALD->query_player_progress(me);
 			if((string)story_access["mode"]=="echo"){

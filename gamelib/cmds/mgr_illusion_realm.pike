@@ -84,8 +84,9 @@ int main(string|zero arg)
 		(string)status["phase"]+"）　修订："+
 		(string)(int)status["revision"]+"\n";
 	s += "运行方式：管理员保持开启，显式关闭后才结算　"+
-		(string)status["illusion_id"]+"永久人物资格价格："+
-		(string)(int)status["entitlement_cost_suiyu"]+"碎玉\n";
+		(string)status["illusion_id"]+"赛季资格登记费用："+
+		(string)(int)status["entitlement_cost_suiyu"]+
+		"碎玉　人物栏位：每名100碎玉，5格500碎玉\n";
 	s += "配置编号固定："+(string)status["illusion_id"]+"\n";
 	s += "开始时间："+time_text((int)status["starts_at"])+"\n";
 	if((string)status["phase"]=="settling" ||
@@ -98,7 +99,7 @@ int main(string|zero arg)
 		"，索引异常 "+(string)(int)population["corrupt_indexes"]+"\n";
 	if((string)status["phase"]=="draft")
 		s += "[开放"+(string)status["illusion_id"]+
-			"永久人物资格登记:mgr_illusion_realm preview open_registration]\n";
+			"赛季资格登记（人物栏位另付费）:mgr_illusion_realm preview open_registration]\n";
 	else if((string)status["phase"]=="registration")
 		s += "[正式开启"+(string)status["illusion_id"]+
 			"（持续到管理员关闭）:mgr_illusion_realm preview start]\n";

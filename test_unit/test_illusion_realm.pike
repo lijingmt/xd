@@ -295,6 +295,17 @@ mapping(string:mixed) verify_arrival_resume_flow(object child,
 	return result;
 }
 
+int manager_fee_wording_valid()
+{
+	string source = Stdio.read_file(ROOT+
+		"/gamelib/cmds/mgr_illusion_realm.pike") || "";
+	return search(source,"赛季资格登记费用")!=-1 &&
+		search(source,"人物栏位：每名100碎玉，5格500碎玉")!=-1 &&
+		search(source,"赛季资格登记（人物栏位另付费）")!=-1 &&
+		search(source,"永久人物资格价格")==-1 &&
+		search(source,"永久人物资格登记")==-1;
+}
+
 int main()
 {
 	string account_id = "xd99testunitillusion";
@@ -673,11 +684,14 @@ int main()
 			search(season_source,
 				"本期每名人物均须按栏位规则支付100碎玉")!=-1,
 			"资格登记与人物栏位收费仍可能被玩家混淆");
+		check("S1管理页明确区分资格登记费用与人物栏位费用",
+			manager_fee_wording_valid(),
+			"管理员页仍可能把资格登记误写成人物永久免费");
 		string account_api_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/account_characters.pike") || "";
 		string http_api_source = Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/http_api_daemon.pike") || "";
-		check("人物中心免费激活只接受POST账号令牌且付费配置失败关闭",
+		check("人物中心无扣费登记只接受POST账号令牌且付费配置失败关闭",
 			search(account_api_source,
 				"handle_api_account_illusion_activate")!=-1 &&
 			search(account_api_source,"req->request_type!=\"POST\"")!=-1 &&
@@ -1167,7 +1181,7 @@ int main()
 			(int)center_account["illusion_entitled"] &&
 			(string)center_account["illusion_entitlement_cycle"]["source"]==
 				"account_center" &&
-			search((string)center_activation["message"],"S1人物资格")!=-1,
+			search((string)center_activation["message"],"S1赛季资格")!=-1,
 			sprintf("first=%O second=%O account=%O",
 				center_activation,center_activation_again,center_account));
 		mapping center_wallet_credit = ACCOUNT_WALLETD->credit_recharge_once(
@@ -1207,7 +1221,7 @@ int main()
 			query_account_characters(center_account_id,"S1");
 		mapping center_account_s2_after = ACCOUNT_CHARACTERD->
 			query_account_characters(center_account_id,"S2");
-		check("S1与S2资格可分别永久记录且互不覆盖",
+		check("S1与S2赛季资格可分别记录且互不覆盖",
 			(int)center_s2_grant["ok"] &&
 			!(int)center_s2_grant["already"] &&
 			(int)center_account_s1_after["illusion_entitled"] &&
@@ -1220,9 +1234,9 @@ int main()
 				center_account_s1_after,center_account_s2_after));
 		mapping denied = ACCOUNT_CHARACTERD->create_character(account_id,
 			"human","jianxian","","","","illusion","S1");
-		check("未永久解锁账号不能伪造S1人物创建",
+		check("未登记赛季资格的账号不能伪造S1人物创建",
 			!(int)denied["ok"] &&
-			search((string)denied["message"],"尚未永久解锁")!=-1,
+			search((string)denied["message"],"尚未登记S1赛季资格")!=-1,
 			sprintf("denied=%O",denied));
 
 		YUSHID->give_yushi(root,1000);
