@@ -16,9 +16,12 @@ gamelib/clone/item/**/*.o
 # gamelib/data/  # removed to track data files
 data_xiand/u/
 data_xiand/accounts/
+data_xiand/illusion_realm/
+data_xiand/map_workers/
 data_xiand/new_users/
 data_xiand/feedback/
 data_xiand/backup-*/
+data_xiand/regname.profile.lock
 gamelib/clone/convert_count.txt
 data_xiand/topten.s
 gamelib/data/topten.s
