@@ -267,6 +267,34 @@ void test_post_story_dynamic_training(object player,mapping fresh_state,
 	player->set_att_by_level();
 }
 
+mapping(string:mixed) verify_arrival_resume_flow(object child,
+	object chapter_gate)
+{
+	mapping(string:mixed) result = ([]);
+	object illusion_command = (object)(ROOT+
+		"/gamelib/cmds/illusion_realm.pike");
+	result["arrived_view"] = illusion_command->
+		query_arrival_resume_view(child);
+	result["started"] = child->query_autofight()=="enable" &&
+		mappingp(child["/tmp/illusion_chapter_autofight"]) &&
+		(string)child["/tmp/illusion_chapter_autofight"]["chapter_id"]==
+			"S1-C1";
+	AUTOFIGHTD->stop_autofight(child);
+	child->m_delete_foruser("/tmp/illusion_chapter_autofight");
+	child["/tmp/illusion_move_bypass"] = 1;
+	child->move(chapter_gate);
+	child->m_delete_foruser("/tmp/illusion_move_bypass");
+	result["departed_view"] = illusion_command->
+		query_arrival_resume_view(child);
+	result["idle"] = child->query_autofight()!="enable" &&
+		!mappingp(child["/tmp/illusion_chapter_autofight"]);
+	child["/tmp/illusion_move_bypass"] = 1;
+	child->move((object)(ROOT+
+		"/gamelib/d/illusion_s1/moon_dew_field.pike"));
+	child->m_delete_foruser("/tmp/illusion_move_bypass");
+	return result;
+}
+
 int main()
 {
 	string account_id = "xd99testunitillusion";
@@ -1424,6 +1452,15 @@ int main()
 			search(arrived_hunt_view,
 				"[▶ 下一步：一键前往")==-1,
 			sprintf("view=%O",arrived_hunt_view));
+		arrived_hunt_progress = verify_arrival_resume_flow(child,chapter_gate);
+		check("跨Worker到达续跑只在真实目标房启动本章限量挂机",
+			(int)arrived_hunt_progress["started"] &&
+			(int)arrived_hunt_progress["idle"] &&
+			search((string)arrived_hunt_progress["arrived_view"],
+				"已启动“挂机至本章狩猎完成”")!=-1 &&
+			search((string)arrived_hunt_progress["departed_view"],
+				"人物尚未到达当前任务地点")!=-1,
+			sprintf("arrival_flow=%O",arrived_hunt_progress));
 		mapping(string:string) expected_afk_routes = ([
 			"1":"illusion_s1/moon_dew_field|1",
 			"10":"illusion_s1/mist_bamboo_glen|10",
