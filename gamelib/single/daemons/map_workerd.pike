@@ -16,6 +16,12 @@ constant MAP_WORKER_HEARTBEAT_TTL = 20;
 constant MAP_WORKER_PLAYER_LEASE_TTL = 45;
 constant MAP_WORKER_HANDOFF_TTL = 60;
 constant MAP_WORKER_ENVELOPE_TTL = 86400;
+// Committed, aborted and expired handoffs only serve short-window idempotent
+// replay and the online-snapshot ownership proof. Retaining them for a full
+// day lets an ordinary cross-worker roam rate saturate
+// MAP_WORKER_MAX_HANDOFFS and permanently reject every later movement with
+// handoff_limit until a restart.
+constant MAP_WORKER_HANDOFF_RETENTION_TTL = 600;
 constant MAP_WORKER_MAX_NODES = 32;
 constant MAP_WORKER_MAX_NODE_ID = 48;
 constant MAP_WORKER_MAX_ENDPOINT = 160;
@@ -2529,7 +2535,8 @@ mapping(string:mixed) stage_local_social_event(string kind,string source_user,
 	target_user = normalize_userid(target_user);
 	if(node_role!="worker" || !local_control_lease_valid() || kind=="" ||
 	   !has_value(({"private_tell","world_broadcast","channel_chat",
-		"team_invite","team_snapshot","team_chat","team_notice"}),kind) ||
+		"team_invite","team_snapshot","team_chat","team_notice",
+		"team_exp"}),kind) ||
 	   source_user=="" || !valid_payload(payload) ||
 	   (has_value(({"private_tell","team_invite"}),kind) &&
 	    target_user==""))
@@ -3739,6 +3746,7 @@ mapping(string:mixed) renew_player_leases_batch(string worker_id,
 	int now = time();
 	int renewed;
 	int frozen;
+	int stale;
 	worker_id = normalize_worker_id(worker_id);
 	if(worker_id=="" || generation<1 || !arrayp(entries) ||
 	   !sizeof(entries) || sizeof(entries)>128)
@@ -3770,20 +3778,29 @@ mapping(string:mixed) renew_player_leases_batch(string worker_id,
 			"epoch":epoch])});
 	}
 	lease_key = player_lease_lock->lock();
-	// Validate the complete page first so a partial renewal cannot disguise a
-	// stale copy later in the same authenticated worker inventory.
+	// Partition the authenticated page instead of failing on the first
+	// mismatch: one lease that legitimately committed a handoff, expired or
+	// logged out between the gateway's capability re-fetch and this lock must
+	// not void the renewal of every other background autofight player and
+	// isolate a healthy worker. An entirely stale page still fails closed,
+	// and the gateway only treats a stale-dominated page as worker evidence.
+	array(mapping(string:mixed)) renewable = ({});
 	foreach(normalized,mapping entry){
 		mapping lease = player_leases[(string)entry["userid"]];
-		if(!mappingp(lease) || (string)lease["worker_id"]!=worker_id ||
-		   (int)lease["epoch"]!=(int)entry["epoch"] ||
-		   (string)lease["affinity"]!=(string)entry["affinity"] ||
-		   !has_value(({"active","frozen"}),(string)lease["state"])){
-			destruct(lease_key);
-			return (["ok":0,"code":"stale_lease",
-				"userid":entry["userid"]]);
-		}
+		if(mappingp(lease) && (string)lease["worker_id"]==worker_id &&
+		   (int)lease["epoch"]==(int)entry["epoch"] &&
+		   (string)lease["affinity"]==(string)entry["affinity"] &&
+		   has_value(({"active","frozen"}),(string)lease["state"]))
+			renewable += ({entry});
+		else
+			stale++;
 	}
-	foreach(normalized,mapping entry){
+	if(stale==sizeof(normalized)){
+		destruct(lease_key);
+		return (["ok":0,"code":"stale_lease",
+			"userid":normalized[0]["userid"]]);
+	}
+	foreach(renewable,mapping entry){
 		mapping lease = player_leases[(string)entry["userid"]];
 		if((string)lease["state"]=="active"){
 			lease["expires_at"] = now+MAP_WORKER_PLAYER_LEASE_TTL;
@@ -3796,7 +3813,7 @@ mapping(string:mixed) renew_player_leases_batch(string worker_id,
 	destruct(lease_key);
 	schedule_control_persist();
 	return (["ok":1,"renewed":renewed,"verified_frozen":frozen,
-		"count":sizeof(normalized)]);
+		"count":sizeof(renewable),"stale":stale]);
 }
 
 /**
@@ -5009,7 +5026,8 @@ private void cleanup_expired_state()
 		}
 		else if((string)handoff["state"]!="prepared" &&
 		        (int)(handoff["committed_at"] || handoff["aborted_at"] ||
-		        handoff["expires_at"])+MAP_WORKER_ENVELOPE_TTL<now){
+		        handoff["expires_at"])+
+		        MAP_WORKER_HANDOFF_RETENTION_TTL<now){
 			m_delete(handoffs,request_id);
 			changed = 1;
 		}
@@ -5051,6 +5069,31 @@ private void cleanup_expired_state()
 	if(changed)
 		schedule_control_persist();
 	call_out(cleanup_expired_state,10);
+}
+
+/** TestUnit-only entry so handoff-retention reaping has a behavioral check. */
+void test_run_cleanup_expired_state()
+{
+	cleanup_expired_state();
+}
+
+/** TestUnit-only: age terminal handoff records past the retention window. */
+int test_backdate_terminal_handoffs(int seconds)
+{
+	object lease_key = player_lease_lock->lock();
+	int aged;
+	foreach(values(handoffs),mapping handoff){
+		if((string)handoff["state"]=="prepared")
+			continue;
+		foreach(({"committed_at","aborted_at"}),string field){
+			if((int)handoff[field]>0){
+				handoff[field]=(int)handoff[field]-seconds;
+				aged++;
+			}
+		}
+	}
+	destruct(lease_key);
+	return aged;
 }
 
 mapping(string:mixed) query_status()

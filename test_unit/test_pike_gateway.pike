@@ -129,6 +129,21 @@ int main()
 			sizeof(user_ref)==12 && user_ref!="xd01hero",
 			"畸形路径仍可伪造日志行，或运行日志暴露人物ID");
 
+		check("续租少数stale属正常churn且stale占多数才记worker故障",
+			!httpd->test_lease_renewal_stale_dominates(29,1,30) &&
+			!httpd->test_lease_renewal_stale_dominates(1,0,1) &&
+			!httpd->test_lease_renewal_stale_dominates(3,1,4) &&
+			httpd->test_lease_renewal_stale_dominates(0,1,1) &&
+			httpd->test_lease_renewal_stale_dominates(2,2,4) &&
+			httpd->test_lease_renewal_stale_dominates(0,0,1),
+			"单个租约正常迁移/下线会让健康worker整批续租被拒并遭误隔离");
+		check("无内部标记的运行时错误追加有界回溯便于定位登录崩溃",
+			source_has(gateway,
+				"[PIKE_GATEWAY][REQUEST_TRACE]") &&
+			source_has(gateway,
+				"pike_gateway_lease_renewal_stale_dominates"),
+			"登录sizeof崩溃只有消息没有回溯，或续租判定仍为全有全无");
+
 		string recovery_error = httpd->test_pike_gateway_request_error_field(
 			"map worker recovery is in progress\n");
 		check("恢复期请求误报在路由恢复时可被精确识别并清除",

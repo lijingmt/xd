@@ -3028,6 +3028,14 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			pike_gateway_log_field((string)snapshot["path_only"],160),
 			pike_gateway_user_log_ref(userid),
 			pike_gateway_log_field(describe_error(request_err),256));
+		// Internal error() markers end with a newline; a bare Pike runtime
+		// message (for example an unguarded sizeof) carries no marker, so log
+		// one bounded backtrace excerpt to pinpoint its source next time.
+		if(!has_suffix(describe_error(request_err),"\n"))
+			werror("[PIKE_GATEWAY][REQUEST_TRACE] path=%s trace=%s\n",
+				pike_gateway_log_field((string)snapshot["path_only"],160),
+				pike_gateway_log_field(
+					describe_backtrace(request_err),480));
 		return pike_gateway_busy_response("地图服务暂时繁忙，请稍后重试");
 	}
 	object key = pike_gateway_state_lock->lock();
@@ -3410,6 +3418,27 @@ private void pike_gateway_publish_online_snapshot()
 		pike_gateway_note_online_snapshot(0,0,0,"publish_failed");
 }
 
+// A healthy worker legitimately churns individual leases between the
+// capability re-fetch and the batch lock: handoff commits advance the epoch,
+// logouts release ownership, expiry creates tombstones. Minority churn must
+// not void the renewal of every other background autofight player and
+// isolate a healthy worker; only a stale-dominated page is worker evidence.
+private int pike_gateway_lease_renewal_stale_dominates(int renewed_count,
+	int stale_count,int verified_count)
+{
+	int total = renewed_count+stale_count;
+	if(total<=0)
+		return verified_count>0;
+	return stale_count*4>total;
+}
+
+int test_lease_renewal_stale_dominates(int renewed_count,int stale_count,
+	int verified_count)
+{
+	return pike_gateway_lease_renewal_stale_dominates(renewed_count,
+		stale_count,verified_count);
+}
+
 private void pike_gateway_renew_live_player_leases(string worker_id,
 	int generation)
 {
@@ -3481,7 +3510,9 @@ private void pike_gateway_renew_live_player_leases(string worker_id,
 				mapping renewed = MAP_WORKERD->renew_player_leases_batch(
 					worker_id,generation,verified);
 				if(!(int)renewed["ok"] ||
-				   (int)renewed["count"]!=sizeof(verified))
+				   pike_gateway_lease_renewal_stale_dominates(
+					(int)renewed["count"],(int)renewed["stale"],
+					sizeof(verified)))
 					error("live lease renewal rejected\n");
 			}
 		};

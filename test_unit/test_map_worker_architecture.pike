@@ -493,6 +493,20 @@ int main()
 				"test_live_player_leases_renew_after_generation_ack_before_control"),
 			"后台挂机无浏览器请求时租约可能过期，或错误owner被静默续租");
 
+		string churn_user = userid+"churn";
+		mapping churn_lease = daemon->acquire_player_lease(churn_user,
+			source_worker,source_affinity,0);
+		mapping churn_batch = daemon->renew_player_leases_batch(source_worker,
+			(int)registrations[member_array(source_worker,worker_ids)]["generation"],
+			({(["userid":userid,"epoch":(int)lease["epoch"],
+				"affinity":source_affinity]),
+			  (["userid":churn_user,"epoch":(int)churn_lease["epoch"]+1,
+				"affinity":source_affinity])}));
+		check("单个租约正常迁移不连坐整批续租且全stale仍失败关闭",
+			churn_batch["ok"] && (int)churn_batch["renewed"]==1 &&
+			(int)churn_batch["count"]==1 && (int)churn_batch["stale"]==1,
+			"并发迁移/下线让健康worker整批续租被拒并遭误隔离");
+
 		int source_index = member_array(source_worker,worker_ids);
 		string premature_worker = worker_ids[(source_index+1)%sizeof(worker_ids)];
 		mapping rebound = daemon->rebind_player_lease(userid,source_worker,
@@ -686,6 +700,20 @@ int main()
 			replayed["ok"] &&
 			replayed["replayed"],
 			"迁移可能出现双活、旧epoch复用或重试失败");
+
+		int handoffs_before = (int)daemon->query_status()["handoffs"];
+		int aged_records = daemon->test_backdate_terminal_handoffs(660);
+		daemon->test_run_cleanup_expired_state();
+		int handoffs_after = (int)daemon->query_status()["handoffs"];
+		mapping aged_proof = daemon->query_committed_handoff_proof(userid,
+			source_worker,(int)lease["epoch"],target_worker,
+			(int)lease["epoch"]+1);
+		check("终态迁移记录按短保留期回收避免handoff表饱和",
+			aged_records>0 && handoffs_after<handoffs_before &&
+			!aged_proof["ok"] &&
+			source_has("/gamelib/single/daemons/map_workerd.pike",
+				"MAP_WORKER_HANDOFF_RETENTION_TTL"),
+			"一天保留期让正常跨图流量填满4096上限并永久拒绝后续迁移");
 
 		string retry_user = userid+"retry";
 		string retry_request = request_id+"retry";
