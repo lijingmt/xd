@@ -1,0 +1,21 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_DANYAO;
+protected void create(){
+	name=object_name(this_object());
+	name_cn="【特】回春丹";
+	desc="立即按百分比回复生命与法力上限各35%\n";
+	desc+="受每日特药食用次数限制\n";
+	unit="颗";
+	picture=name;
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(1);
+	set_item_canSend(1);
+	set_item_canStorage(1);
+	set_danyao_kind("te_recover");
+	set_danyao_type("recover");
+	set_effect_value(35);
+	set_danyao_timedelay(60);
+	set_item_level(1);
+}

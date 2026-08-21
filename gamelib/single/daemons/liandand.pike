@@ -335,6 +335,63 @@ int eat_danyao(object player,object yao)
 			return 1;
 		}
 	}
+	//百分比回复丹：按上限百分比立即回复生命与法力，计入每日特药限额。
+	else if(kind == "te_recover"){
+		int percent = (int)effect_value;
+		if(percent<1 || percent>100)
+			return 0;
+		if(!player["/plus/daily/teyao_map"])
+			player["/plus/daily/teyao_map"] = ([]);
+		if(!player["/plus/daily/teyao_map"][kind])
+			player["/plus/daily/teyao_map"][kind] = 1;
+		else if(player["/plus/daily/teyao_map"][kind]>=player->query_max_yao())
+			return 2;
+		else
+			player["/plus/daily/teyao_map"][kind]++;
+		int life_target = player->get_cur_life()+
+			player->query_life_max()*percent/100;
+		int mofa_target = player->get_cur_mofa()+
+			player->query_mofa_max()*percent/100;
+		int life_cap = player->query_life_max();
+		int mofa_cap = player->query_mofa_max();
+		player->set_life(life_target>life_cap ? life_cap : life_target);
+		player->set_mofa(mofa_target>mofa_cap ? mofa_cap : mofa_target);
+		return 1;
+	}
+	//百分比上限丹：按食用时上限的百分比折算为定额增益，分别写入
+	// life_max(te_defend槽)或mofa_max(attri_defend槽)，计入每日限额。
+	else if(kind == "te_maxpct"){
+		int percent = (int)effect_value;
+		int flat_value;
+		if(percent<1 || percent>50 ||
+		   (type!="life_max" && type!="mofa_max"))
+			return 0;
+		if(!player["/plus/daily/teyao_map"])
+			player["/plus/daily/teyao_map"] = ([]);
+		if(!player["/plus/daily/teyao_map"][kind])
+			player["/plus/daily/teyao_map"][kind] = 1;
+		else if(player["/plus/daily/teyao_map"][kind]>=player->query_max_yao())
+			return 2;
+		else
+			player["/plus/daily/teyao_map"][kind]++;
+		if(type=="life_max"){
+			flat_value = player->query_life_max()*percent/100;
+			player->set_buff("te_defend",0,"life_max");
+			player->set_buff("te_defend",1,flat_value);
+			player->set_buff("te_defend",2,timedelay/60);
+			player["/teyao/te_defend"] =
+				({"life_max",flat_value,timedelay/60,name_cn});
+		}
+		else{
+			flat_value = player->query_mofa_max()*percent/100;
+			player->set_buff("attri_defend",0,"mofa_max");
+			player->set_buff("attri_defend",1,flat_value);
+			player->set_buff("attri_defend",2,timedelay/60);
+			player["/teyao/attri_defend"] =
+				({"mofa_max",flat_value,timedelay/60,name_cn});
+		}
+		return 1;
+	}
 	//特殊药品食用，由liaocheng于07/11/21添加
 	else if(kind == "te_exp" || kind == "te_honer" || kind == "te_luck" || kind == "te_attack" || kind == "te_vice" || kind == "te_defend" || kind == "te_base"){
 		// 当前无zhongqiuyuebing目录，所有特药都计入每日限制

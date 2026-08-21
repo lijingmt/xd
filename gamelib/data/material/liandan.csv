@@ -93,3 +93,6 @@
 93,attri_attack,【灵】天风怒,liandan/ltianfengnu,50,220,lminghundan:【灵】冥魂丹:1|lzhongxianzui:【灵仙】众仙醉:1|fenghuangdan:凤凰丹:10|rongxianju:绣线菊:20|zilianhua:紫莲花:20|tianerongcao:天鹅绒草:30
 94,attri_supply,【灵】玉芷浆,liandan/lyuzhijiang,50,220,ldahuihundan:【灵】大回魂丹:1|dahuihundan:大回魂丹:5|fenghuangdan:凤凰丹:10|guangyulan:广玉兰:20|zilianhua:紫莲花:20|xianhecao:仙鹤草:30
 95,attri_supply,【灵】凝晨露,liandan/lningchenlu,50,220,jiutianxianlu:九天仙露:5|ljiutianxianlu:【灵】九天仙露:1|fenghuangdan:凤凰丹:10|guangyulan:广玉兰:20|zilianhua:紫莲花:20|xianhecao:仙鹤草:30
+96,attri_base,回春丹,teyao/huichundan,1,120,muhudie:木蝴蝶:8|fenghuangdan:凤凰丹:2
+97,attri_base,培元丹,teyao/peiyundan,1,160,muhudie:木蝴蝶:10|fenghuangdan:凤凰丹:3
+98,attri_base,凝神丹,teyao/ningshendan,1,160,muhudie:木蝴蝶:10|guangyulan:广玉兰:5

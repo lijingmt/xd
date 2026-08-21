@@ -650,9 +650,11 @@ private int query_specialty_luck(object player,string skill_name)
 	skill = player->vice_skills[skill_name];
 	if(!arrayp(skill) || !sizeof(skill))
 		return 0;
-	bonus = 5+(int)skill[0]/20;
-	if(bonus>20)
-		bonus = 20;
+	// 大师专精的幸运上限从20提到50：高熟练锻造者显著更易触发
+	// 顶层品质，但非专精玩家保持原始概率。
+	bonus = 5+(int)skill[0]/10;
+	if(bonus>50)
+		bonus = 50;
 	return bonus;
 }
 

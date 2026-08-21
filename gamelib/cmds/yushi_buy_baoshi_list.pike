@@ -34,7 +34,8 @@ int main(string|zero arg)
 	{
 		s +="我这里的货太抢手，压箱底的都卖光了，改天再来吧！\n";
 	}
-	s += "\n[返回:yushi_myzone.pike]\n";
+	s += "\n[宝石合成（三颗朴素换一颗闪亮）:baoshi_combine]\n";
+	s += "[返回:yushi_myzone.pike]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
