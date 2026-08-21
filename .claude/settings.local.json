@@ -26,7 +26,9 @@
       "Bash(./restart-docker.sh:*)",
       "Bash(docker exec:*)",
       "Bash(find:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(mkdir -p /Users/jingli/.claude/skills/auto-browser-login-form)",
+      "Read(//Users/jingli/.claude/skills/**)"
     ]
   }
 }
