@@ -313,9 +313,184 @@ int give_vip_to(object player,int level)
 	}
 	player->set_vip_end_time(endTime);
 	player->add_vip_history(endTime,level);
+	record_account_vip(player,level,endTime);
 	if(PROFESSIONVIPD->is_supported_profession(player->query_profeId()))
 		PROFESSIONVIPD->record_membership_state(player);
 	return endTime;
+}
+
+// ===== 账号级会员镜像：同一注册账号的全部人物共享最高档有效会员 =====
+// 购买/续费写账号记录；登录对账把账号最高档同步到人物存档。读取路径
+// 仍是人物自己的 vip 标志，热路径零额外开销。
+
+private string normalize_vip_account_id(string account_id)
+{
+	account_id = lower_case(String.trim_all_whites(account_id || ""));
+	if(sizeof(account_id)<2 || sizeof(account_id)>64)
+		return "";
+	for(int i=0;i<sizeof(account_id);i++){
+		int one = account_id[i];
+		if((one>='a' && one<='z') || (one>='0' && one<='9'))
+			continue;
+		return "";
+	}
+	return account_id;
+}
+
+private string vip_account_file_path(string account_id)
+{
+	account_id = normalize_vip_account_id(account_id);
+	if(account_id=="")
+		return "";
+	return DATA_ROOT+"accounts/"+account_id[sizeof(account_id)-2..]+
+		"/"+account_id+".vip.json";
+}
+
+private mapping(string:mixed)|zero load_vip_account_record(string path)
+{
+	string raw;
+	mapping(string:mixed) record;
+	if(path=="" || !file_stat(path) || file_stat(path)->size>4096)
+		return 0;
+	raw = Stdio.read_file(path);
+	if(!raw || raw=="")
+		return 0;
+	mixed err=catch{
+		record = Standards.JSON.decode(raw);
+	};
+	if(err || !mappingp(record) || (int)record["version"]!=1 ||
+	   normalize_vip_account_id((string)record["account_id"])=="" ||
+	   !intp(record["level"]) || (int)record["level"]<0 ||
+	   (int)record["level"]>VIP_MAX_LEVEL ||
+	   !intp(record["end_time"]) || (int)record["end_time"]<0 ||
+	   !intp(record["revision"]) || (int)record["revision"]<0)
+		return 0;
+	return record;
+}
+
+private mapping(string:object)|zero acquire_vip_account_lock(string path)
+{
+	object file;
+	object file_key;
+	mixed lock_error;
+	if(path=="")
+		return 0;
+	Stdio.mkdirhier(dirname(path));
+	file = Stdio.File();
+	if(!file->open(path+".lock","wca"))
+		return 0;
+	lock_error = catch{ file_key=file->lock(); };
+	if(lock_error || !file_key){
+		file->close();
+		return 0;
+	}
+	return (["file":file,"key":file_key]);
+}
+
+private void release_vip_account_lock(
+	mapping(string:object)|zero lock_data)
+{
+	if(!lock_data)
+		return;
+	if(lock_data["key"])
+		destruct(lock_data["key"]);
+	if(lock_data["file"])
+		lock_data["file"]->close();
+}
+
+private int persist_vip_account_record(string path,
+	mapping(string:mixed) record)
+{
+	string temp_path = path+".tmp."+time()+"."+random(1000000);
+	mixed err=catch{
+		Stdio.write_file(temp_path,Standards.JSON.encode(record));
+	};
+	if(err)
+		return 0;
+	err=catch{ mv(temp_path,path); };
+	if(err){
+		rm(temp_path);
+		return 0;
+	}
+	return 1;
+}
+
+/** 购买/续费后记录账号最高档会员；跨Worker用文件锁串行化。 */
+int record_account_vip(object player,int level,int end_time)
+{
+	string account_id;
+	string path;
+	mapping(string:object)|zero lock_data;
+	mapping(string:mixed) record;
+	int changed = 0;
+	if(!player || !functionp(player->query_account_owner) ||
+	   level<1 || level>VIP_MAX_LEVEL || end_time<=time())
+		return 0;
+	account_id = (string)player->query_account_owner();
+	if(account_id=="" && functionp(player->query_name))
+		account_id = (string)player->query_name();
+	path = vip_account_file_path(account_id);
+	if(path=="")
+		return 0;
+	lock_data = acquire_vip_account_lock(path);
+	if(!lock_data)
+		return 0;
+	record = load_vip_account_record(path);
+	if(!record)
+		record = (["version":1,"account_id":
+			normalize_vip_account_id(account_id),"revision":0,
+			"level":0,"end_time":0,"updated_at":0]);
+	if(level>(int)record["level"] ||
+	   (level==(int)record["level"] && end_time>(int)record["end_time"])){
+		record["level"] = level;
+		record["end_time"] = end_time;
+		record["revision"] = (int)record["revision"]+1;
+		record["updated_at"] = time();
+		changed = persist_vip_account_record(path,record);
+	}
+	release_vip_account_lock(lock_data);
+	return changed;
+}
+
+/** 登录对账：账号最高档有效会员同步到本人物；人物自身更高时回写账号。 */
+int reconcile_account_vip(object player)
+{
+	string account_id;
+	string path;
+	mapping(string:mixed)|zero record;
+	int level;
+	int end_time;
+	int my_level;
+	int my_end;
+	if(!player || !functionp(player->query_account_owner) ||
+	   !functionp(player->set_vip_flag))
+		return 0;
+	account_id = (string)player->query_account_owner();
+	if(account_id=="" && functionp(player->query_name))
+		account_id = (string)player->query_name();
+	path = vip_account_file_path(account_id);
+	if(path=="")
+		return 0;
+	record = load_vip_account_record(path);
+	my_level = (int)player->query_vip_flag();
+	my_end = (int)player->query_vip_end_time();
+	if(!record){
+		if(my_level>=1 && my_end>time())
+			return record_account_vip(player,my_level,my_end);
+		return 0;
+	}
+	level = (int)record["level"];
+	end_time = (int)record["end_time"];
+	if(level<1 || end_time<=time())
+		return 0;
+	if(level>my_level || (level==my_level && end_time>my_end)){
+		player->set_vip_flag(level);
+		player->set_vip_end_time(end_time);
+		return 1;
+	}
+	if(my_level>level && my_end>time())
+		return record_account_vip(player,my_level,my_end);
+	return 0;
 }
 
 /*
@@ -450,6 +625,26 @@ string display_free_goods(string sub,int lv)
 		}
 	}
 	return re;
+}
+/*
+方法描述：得到某会员等级某分类的全部免费物品路径（一键领取用）
+ */
+array(string) query_free_goods_paths(int lv,string sub)
+{
+	array(string) result = ({});
+	array(string) tmp_good_list = vip_free_list[lv];
+	string sub_tmp = sub;
+	if(!arrayp(tmp_good_list))
+		return result;
+	if(sub=="baoshi")
+		sub_tmp="yushi";
+	for(int i=0;i<sizeof(tmp_good_list);i++)
+	{
+		array(string) tmp = tmp_good_list[i]/"/";
+		if(tmp && tmp[0]==sub_tmp)
+			result += ({tmp_good_list[i]});
+	}
+	return result;
 }
 /*
 方法描述：得到vip打折货物列表

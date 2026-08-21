@@ -233,6 +233,11 @@ int setup(string arg){
 		return 0;
 	}
 	first_login=login_time=update_time=reconnect_time=last_activity_time=time();
+	// 同一注册账号的会员资格在登录时对账到本人物（账号最高档共享）。
+	catch{
+		((object)(ROOT "/gamelib/single/daemons/vipd.pike"))->
+			reconcile_account_vip(this_object());
+	};
     set_heart_beat(1);
     set_living_name(name);
     enable_commands();

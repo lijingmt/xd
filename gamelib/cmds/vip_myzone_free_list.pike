@@ -24,6 +24,7 @@ int main(string|zero arg)
 		}
 		s += "\n--------\n";
 		s += VIPD->display_free_goods(type,level);
+		s += "[一键领取本类全部:vip_myzone_free_all "+type+"]\n";
 	}
 	s += "\n[返回:vip_myzone]\n";
 	s += "[返回游戏:look]\n";
