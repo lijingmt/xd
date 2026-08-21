@@ -744,8 +744,14 @@ void test_vip_auto_sell_tiers()
 
 		set_active_vip(player,4);
 		player["/plus/autofight_auto_sell_mode"] = "huanhua";
+		player["/plus/autofight_cleanup_trigger"] = 90;
+		valid = valid &&
+			daemon->query_auto_sell_trigger_percent(player) == 90 &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 90;
+		player["/plus/autofight_cleanup_trigger"] = 0;
 		valid = valid &&
 			daemon->query_auto_sell_trigger_percent(player) == 70 &&
+			daemon->query_auto_cleanup_trigger_percent(player) == 70 &&
 			daemon->query_auto_sell_enabled(player) == 1 &&
 			daemon->query_auto_sell_mode_requirement("huanhua") == 4 &&
 			daemon->query_auto_sell_quality_limit("huanhua") == 7 &&
