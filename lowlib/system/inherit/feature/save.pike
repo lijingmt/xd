@@ -228,6 +228,13 @@ int restore()
 				atomic_save_log("inventory restore skipped index="+i);
 		}
 		inventory=0;
+		if(functionp(this_object()->normalize_bulk_item_stacks)){
+			mixed bulk_normalize_err=catch{
+				this_object()->normalize_bulk_item_stacks();
+			};
+			if(bulk_normalize_err)
+				atomic_save_log("bulk item stack normalization skipped");
+		}
 		if(functionp(this_object()->normalize_paid_yushi_stacks)){
 			mixed normalize_err=catch{
 				this_object()->normalize_paid_yushi_stacks();

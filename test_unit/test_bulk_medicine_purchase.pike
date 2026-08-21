@@ -196,9 +196,8 @@ int main()
 		special->main("water/changqingshui 0 "+offer_token+" no=999");
 		check("随机商店忽略伪造价格、一次发999份且已消费货架不能重放",
 			amount_of(player,"changqingshui")==special_amount_before+999 &&
-			stack_count_of(player,"changqingshui")==
-				(special_amount_before+999+29)/30 &&
-			max_stack_amount_of(player,"changqingshui")<=30 &&
+			stack_count_of(player,"changqingshui")==1 &&
+			max_stack_amount_of(player,"changqingshui")<=9999 &&
 			player->query_account()==before_special-123*999 &&
 			player->query_account()==after_special,
 			sprintf("amount=%d stacks=%d max=%d cost=%d",
@@ -214,7 +213,7 @@ int main()
 			player,"book/lingzhen",100);
 		special->main("book/lingzhen 0 "+offer_token+" 5");
 		special->main("book/lingzhen 0 "+offer_token);
-		check("非堆叠技能书拒绝批量且不会误消费单件报价",
+		check("技能书虽可堆叠但神秘货架仍保持单件报价边界",
 			player->query_account()==protected_money-100 &&
 			amount_of(player,"lingzhen")==protected_books+1,
 			sprintf("cost=%d book=%d",
@@ -245,8 +244,11 @@ int main()
 			sprintf("money=%d amount=%d",player->query_account(),
 				amount_of(player,"jinchuangyao")-insufficient_before));
 
-		// 背包全满时，现有药堆只能容纳不足30份；大单必须在
+		// 背包全满时，现有药堆只保留1个空位；大单必须在
 		// 扣款前整单拒绝，并释放报价，之后仍可用同一报价买入1份。
+		foreach(all_inventory(player),object existing)
+			if(existing && existing->query_name()=="changqingshui")
+				existing->amount=9998;
 		while(sizeof(all_inventory(player))<player->query_beibao_size()){
 			object filler=clone(ROOT+"/gamelib/clone/item/book/lingzhen");
 			filler->move(player);

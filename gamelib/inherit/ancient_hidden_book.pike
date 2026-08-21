@@ -68,6 +68,8 @@ string query_name_cn()
 string query_short()
 {
 	string suffix=status ? "<"+status+">" : "";
+	if(amount>1)
+		return "("+amount+")"+unit+query_name_cn()+suffix;
 	return "一"+unit+query_name_cn()+suffix;
 }
 

@@ -12,6 +12,7 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_ROAM_NO_TARGET_TICKS 3
 #define AUTOFIGHT_ROAM_BACKTRACK_TICKS 6
 #define AUTOFIGHT_LOOT_RETRY_SECONDS 10
+#define AUTOFIGHT_LOOT_BATCH_MAX 32
 #define AUTOFIGHT_CONFIG_VERSION 9
 #define AUTOFIGHT_SKILL_QUEUE_SIZE 3
 #define AUTOFIGHT_SMART_SKILL_REFRESH_SECONDS 30
@@ -1127,7 +1128,8 @@ private void reset_scan_state(object me)
 		return;
 	foreach(({"/tmp/autofight_scan_cursor",
 		"/tmp/autofight_gather_scan_cursor",
-		"/tmp/autofight_loot_scan_cursor"}),string key){
+		"/tmp/autofight_loot_scan_cursor",
+		"/tmp/autofight_loot_batch_scan_cursor"}),string key){
 		me[key] = 0;
 		me[key+"_room"] = "";
 	}
@@ -2371,8 +2373,18 @@ int query_auto_sell_enabled(object me)
 int query_auto_sell_trigger_percent(object me)
 {
 	int vip_level = query_vip_level(me);
-	if(vip_level >= 4)
+	int trigger;
+	if(vip_level >= 4){
+		// 玩家在挂机设置里选择并看到的是同一条背包触发线。VIP4选了
+		// 80/90而装备仍按70出售，玩家看到的就是“设置不生效”。
+		if(me){
+			initialize_player(me);
+			trigger = (int)me["/plus/autofight_cleanup_trigger"];
+		}
+		if(trigger == 70 || trigger == 80 || trigger == 90)
+			return trigger;
 		return 70;
+	}
 	if(vip_level == 3)
 		return 80;
 	if(vip_level == 2)
@@ -4304,6 +4316,49 @@ object|zero query_loot_item(object me)
 			return ob;
 	}
 	return 0;
+}
+
+// 每次脱战刷新批量拾取一组可见掉落，再进入下一场战斗。所有物品仍
+// 逐件经过 get 命令的逻辑区、账号绑定、团队保护和背包容量校验；
+// 这里只减少“捡一件就开怪”造成的房间掉落长期积压。
+mapping(string:int) perform_loot_batch(object me)
+{
+	mapping(string:int) result=(["picked":0,"failed":0,"full":0,
+		"scanned":0]);
+	object env;
+	array(object) snapshot;
+	if(!me || !query_loot_enabled(me))
+		return result;
+	env=environment(me);
+	if(!env)
+		return result;
+	snapshot=query_bounded_scan_slice(me,all_inventory(env,me),
+		"/tmp/autofight_loot_batch_scan_cursor");
+	foreach(snapshot,object item){
+		int count;
+		if((int)result["picked"]+(int)result["failed"]>=
+		   AUTOFIGHT_LOOT_BATCH_MAX)
+			break;
+		result["scanned"]=(int)result["scanned"]+1;
+		if(!can_loot_item(me,item) ||
+		   query_loot_temporarily_suppressed(me,item))
+			continue;
+		if(me->if_over_load(item)){
+			result["full"]=1;
+			break;
+		}
+		count=query_object_count(item,env);
+		me->command("get "+item->query_name()+" "+count);
+		if(item && environment(item)==env){
+			record_failed_loot(me,item);
+			result["failed"]=(int)result["failed"]+1;
+		}
+		else
+			result["picked"]=(int)result["picked"]+1;
+	}
+	if(!(int)result["failed"])
+		clear_failed_loot(me);
+	return result;
 }
 
 private int is_matching_recovery_item(object me,object item,string kind)

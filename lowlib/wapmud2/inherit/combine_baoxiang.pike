@@ -5,7 +5,7 @@
 // 精金宝箱、宝石袋和月饼礼盒的历史存档及开启语义。
 inherit WAP_COMBINE_ITEM;
 
-private string initer=((set_item_type("box")),"");
+private string initer=((set_item_type("box")),(max_count=9999),"");
 
 string query_inventory_links(void|int count)
 {

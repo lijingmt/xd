@@ -48,6 +48,9 @@ void populate_inventory(object player)
 {
 	for(int i=0;i<65;i++){
 		object food=clone(ROOT+"/gamelib/clone/item/food/ganliang");
+		// 玩家显式标记不同的物品不能被堆叠洗掉标记；同时保留
+		// 65个独立对象，用来验证分类背包的真实三页导航。
+		food->item_playerDesc="pagination-"+i;
 		food->move(player);
 	}
 	object first=clone(ROOT+

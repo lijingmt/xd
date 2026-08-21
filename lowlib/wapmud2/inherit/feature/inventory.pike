@@ -60,36 +60,40 @@ int if_over_easy_load(){
 
 //判断加上参数中的ob之后，物品数目是否达到上限
 int if_over_load(object ob){
-	int rst=0;
+	int free_slots;
+	int remaining;
+	int stack_max;
 	array(object) items=all_inventory(this_object());
 	int count_max = query_beibao_size();//用户背包的实际容量（包括扩充后的）
+	if(!ob)
+		return 1;
 	if(ob->is("combine_item")){
-		int count = sizeof(items);
-		if(count>=count_max){
-			foreach(items, object tmp){
-				if(ob->query_name()==tmp->query_name()){
-					if((ob->amount+tmp->amount)>ob->max_count){
-						rst = 1;
-						continue;
-					}
-					else{
-						rst = 0;
-						break;
-					}
-				}
-				else
-					rst = 1;
-			}
+		remaining=(int)ob->amount;
+		if(remaining<1)
+			remaining=1;
+		stack_max=(int)ob->max_count;
+		if(stack_max<1)
+			stack_max=1;
+		foreach(items,object tmp){
+			if(!tmp || !tmp->is("combine_item") ||
+			   !functionp(tmp->query_combine_identity) ||
+			   !functionp(ob->query_combine_identity) ||
+			   tmp->query_combine_identity()!=ob->query_combine_identity())
+				continue;
+			int existing_max=(int)tmp->max_count;
+			if(existing_max<stack_max)
+				existing_max=stack_max;
+			if((int)tmp->amount<existing_max)
+				remaining-=existing_max-(int)tmp->amount;
+			if(remaining<=0)
+				return 0;
 		}
+		free_slots=count_max-sizeof(items);
+		if(free_slots<0)
+			free_slots=0;
+		return (remaining+stack_max-1)/stack_max>free_slots;
 	}
-	else{
-		if(items&&sizeof(items)){
-			int count = sizeof(items);
-			if(count>=count_max)
-				rst = 1;
-		}
-	}
-	return rst;
+	return sizeof(items)>=count_max;
 }
 //查询用户背包的容量 added by caijie 08/10/08
 int query_beibao_size()
@@ -544,6 +548,16 @@ private string query_inventory_browser_item_label(object item,int group_count)
 {
 	string label=sanitize_inventory_browser_label(
 		(string)item->query_short());
+	if((string)item->query_item_type()=="book"){
+		string recipe_kind=(string)item->query_peifang_kind();
+		mapping(string:string) recipe_labels=([
+			"caifeng":"裁缝","duanzao":"锻造",
+			"liandan":"炼丹","zhijia":"制甲",
+		]);
+		if(recipe_labels[recipe_kind])
+			label+="("+recipe_labels[recipe_kind]+"熟练度"+
+				(int)item->viceskill_level+")";
+	}
 	if(inventory_browser_is_equipment(item)){
 		int item_level=(int)item->query_item_canLevel();
 		if(item["equiped"])
@@ -633,6 +647,9 @@ string view_inventory_browser(void|string requested_category,
 	int start;
 	int end;
 	string result="【背包筛选】\n";
+	// 登录中的老人物也可能尚未经过新版恢复逻辑；打开任意分类时
+	// 即按守恒规则整理一次，避免“同书几十格”继续挤满背包。
+	normalize_bulk_item_stacks();
 	mapping(string:string) labels=query_inventory_browser_category_labels();
 	if(category=="" || !valid_inventory_browser_category(category)){
 		category=(string)(this_object()[
@@ -713,6 +730,7 @@ string view_inventory_browser(void|string requested_category,
 	result+="\n跳转页码：[inventory_filter jump ...]\n"+
 		"[一键穿装:auto_equip]|[套装管理:set_equipment_cleanup]|"+
 		view_inventory_batch_sell_entry()+
+		"[清理已学重复书卷:cleanup_redundant_books]|"+
 		"[一键安全销毁非装备:cleanup_non_equipment]\n"+
 		"[返回装备背包:inventory]|"+
 		"[返回道具背包:inventory_daoju]|[返回游戏:look]\n";
@@ -854,10 +872,71 @@ int normalize_paid_yushi_stacks(){
 	}
 	return removed_groups;
 }
+
+// 老档案中的技能书、配方、药水、宝石、宝箱和制造材料往往各占一格。
+// 新基类不会自动重跑 move_player，因此在恢复/查看时按严格堆叠身份
+// 守恒整理。只处理明确声明高堆叠上限的安全类型，任务物品不参与。
+int normalize_bulk_item_stacks()
+{
+	mapping(string:array(object)) groups=([]);
+	mapping(string:int) invalid=([]);
+	int removed_groups=0;
+	foreach(all_inventory(this_object()),object item){
+		string key;
+		int limit;
+		if(!item || !item->is("combine_item") ||
+		   !functionp(item->query_bulk_stack_limit) ||
+		   !functionp(item->query_combine_identity))
+			continue;
+		if(functionp(item->query_item_task) &&
+		   (int)item->query_item_task()==1)
+			continue;
+		limit=(int)item->query_bulk_stack_limit();
+		if(limit<=30)
+			continue;
+		// 已被标记为读完却因历史异常残留的书，保持原样供审计，
+		// 不能把异常状态并入正常书堆。
+		if((string)item->query_item_type()=="book" &&
+		   (int)item->read_flag!=1)
+			continue;
+		key=(string)item->query_combine_identity();
+		if((int)item->amount<0 || (int)item->amount>limit)
+			invalid[key]=1;
+		if(!groups[key])
+			groups[key]=({});
+		groups[key]+=({item});
+	}
+	foreach(sort(indices(groups)),string key){
+		array(object) stacks=groups[key];
+		int total=0;
+		int limit;
+		if(invalid[key] || !sizeof(stacks))
+			continue;
+		limit=(int)stacks[0]->query_bulk_stack_limit();
+		for(int i=0;i<sizeof(stacks);i++)
+			total+=(int)stacks[i]->amount;
+		if(total<0 || total>limit*sizeof(stacks))
+			continue;
+		for(int i=0;i<sizeof(stacks);i++){
+			stacks[i]->max_count=limit;
+			if(total>0){
+				int one=total>limit ? limit : total;
+				stacks[i]->amount=one;
+				total-=one;
+			}
+			else{
+				stacks[i]->remove();
+				removed_groups++;
+			}
+		}
+	}
+	return removed_groups;
+}
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
 		cmd="inv";
+	normalize_bulk_item_stacks();
 	normalize_christmas_box_stacks();
 	normalize_paid_yushi_stacks();
 	string s="";

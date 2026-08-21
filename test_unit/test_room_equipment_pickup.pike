@@ -45,6 +45,8 @@ int main()
 	object room=clone(ROOT+"/gamelib/d/congxianzhen/suishizilu");
 	object command=(object)(ROOT+"/gamelib/cmds/get_all_equipment.pike");
 	object get_command=(object)(ROOT+"/gamelib/cmds/get.pike");
+	object autofightd=(object)(ROOT+
+		"/gamelib/single/daemons/autofightd.pike");
 	object own;
 	object same_team;
 	object other_team;
@@ -93,6 +95,21 @@ int main()
 	check("普通材料不会被房间装备批量拾取",
 		!err && environment(material)==room,
 		sprintf("result=%O env=%O",picked,environment(material)));
+	for(int i=0;i<4;i++){
+		object food=clone(ROOT+"/gamelib/clone/item/food/ganliang");
+		food->item_whoCanGet="1";
+		food->item_TimewhoCanGet=1;
+		food->move(room);
+	}
+	autofightd->initialize_player(player);
+	mapping(string:int) auto_picked=autofightd->perform_loot_batch(player);
+	check("自动挂机单轮批量捡完多组普通掉落且不碰保护装备",
+		(int)auto_picked["picked"]==5 &&
+		environment(other_team)==room &&
+		!sizeof(filter(all_inventory(room,player),lambda(object item){
+			return item && item!=other_team && item->is("item");
+		})),sprintf("result=%O room=%O",auto_picked,
+			all_inventory(room,player)));
 	compile_error=catch{
 		compile_file(ROOT+"/gamelib/cmds/get_all_equipment.pike");
 	};

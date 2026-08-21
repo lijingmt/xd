@@ -87,11 +87,11 @@ int main()
 			!SHOP_BATCHD->deliver(player,"teyao/fenfanglu",101,0)["ok"],
 			"越界路径或超上限订单被接受");
 
-		// 丹药上限已提升，不能再用芬芳露伪造“仅余5格”的场景。
-		// 铜矿石仍采用通用30上限，继续验证满包订单的原子拒绝。
+		// 丹药和制造材料上限都已提升为9999；把铜矿石填到9994，
+		// 继续验证满包且仅余5个合并空位时的原子拒绝。
 		object capacity_item=clone(ROOT+
 			"/gamelib/clone/item/material/tongkuangshi");
-		capacity_item->amount=25;
+		capacity_item->amount=9994;
 		capacity_item->move(player);
 		while(sizeof(all_inventory(player))<player->query_beibao_size()){
 			object filler=clone(ROOT+"/gamelib/clone/item/book/lingzhen");

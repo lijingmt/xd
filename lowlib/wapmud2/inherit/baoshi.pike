@@ -6,7 +6,7 @@ inherit WAP_F_VIEW_PICTURE;
 inherit WAP_F_VIEW_LINKS;
 inherit WAP_F_VIEW_VALUE;
 
-private string initer=((set_item_type("baoshi")),"");
+private string initer=((set_item_type("baoshi")),(max_count=9999),"");
 
 //瀹濈煶棰滆壊
 private string color = "";

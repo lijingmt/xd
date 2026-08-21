@@ -85,13 +85,13 @@ int main(string|zero arg)
 	object me;
 	object env;
 	object|zero target;
-	object|zero item;
 	object|zero source;
 	mapping route;
 	mapping sell_result;
 	mapping material_sell_result;
 	mapping storage_result;
 	mapping destroy_result;
+	mapping loot_result;
 	mapping level_window;
 	mapping profession_result;
 	mapping target_snapshot;
@@ -290,20 +290,15 @@ int main(string|zero arg)
 			me->command("viceskill_gather "+source->query_name()+" "+count);
 		return 1;
 	}
-	item = AUTOFIGHTD->query_loot_item(me);
-	if(item){
-		count = AUTOFIGHTD->query_object_count(item,env);
-		me->command("get "+item->query_name()+" "+count);
-		// 拾取命令可能因背包状态、并发拾取或物品自身规则失败。
-		// 失败物若仍留在原房间，短期跳过它并继续寻敌，避免每秒
-		// 重试同一件掉落直至其消失；成功拾取后同一轮即可继续战斗。
-		if(item && environment(item)==env){
-			AUTOFIGHTD->record_failed_loot(me,item);
-			write("该掉落暂时无法拾取，挂机助手会跳过并继续战斗，稍后自动重试。\n");
-		}
-		else
-			AUTOFIGHTD->clear_failed_loot(me);
-	}
+	loot_result=AUTOFIGHTD->perform_loot_batch(me);
+	if((int)loot_result["picked"]>0)
+		write("挂机助手本轮已自动拾取"+
+			(int)loot_result["picked"]+"组掉落。\n");
+	if((int)loot_result["failed"]>0)
+		write("有"+(int)loot_result["failed"]+
+			"组掉落暂时无法拾取，已跳过并继续战斗。\n");
+	if((int)loot_result["full"])
+		write("背包容量不足，剩余掉落将在整理后继续拾取。\n");
 	target_snapshot = AUTOFIGHTD->query_target_snapshot(me);
 	target = target_snapshot["target"];
 	visible_monsters = (int)target_snapshot["visible"];
