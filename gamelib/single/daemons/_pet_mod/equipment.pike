@@ -417,6 +417,88 @@ mapping(string:mixed) dismantle_pet_gear(object player,string gear_id)
 	return result;
 }
 
+/** 一键分解全部未穿戴的低品质灵宠装备（quality<=max_quality）。 */
+mapping(string:mixed) dismantle_pet_gear_batch(object player,
+	int max_quality)
+{
+	mapping result = (["ok":0,"message":"没有可分解的宠物装备。"]);
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	array(mapping) removed = ({});
+	int refund_total = 0;
+	if(account_id=="")
+		return (["ok":0,"message":"账号校验未通过，不能分解。"]);
+	if(max_quality<1 || max_quality>3)
+		return (["ok":0,"message":"一键分解只支持凡品、良品或珍品档。"]);
+	if(player->query_in_combat && player->query_in_combat())
+		return (["ok":0,"message":"交战中不能分解灵宠装备。"]);
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"万灵谱档案读取失败，不能分解。"]);
+	}
+	if(record){
+		foreach((array)record["gear_inventory"],mapping gear){
+			// 穿戴态由宠物equipment引用表达（原始记录无equipped_by
+			// 字段）；必须走统一助手，否则会移除仍被穿戴的装备并使
+			// 存档校验拒绝保存。
+			if((int)gear["quality"]>max_quality ||
+			   query_pet_gear_equipped_by_unlocked(record,
+					(string)gear["id"])!="")
+				continue;
+			removed += ({gear});
+			refund_total += (int)gear["quality"]*2;
+		}
+		if(!sizeof(removed)){
+			int total=sizeof((array)(record["gear_inventory"] || ({})));
+			result=(["ok":0,"message":"没有可分解的宠物装备（低品质闲置0件/共"+
+				total+"件）。"]);
+		}
+		if(sizeof(removed)){
+			record["gear_inventory"] -= removed;
+			add_pet_material_unlocked(record,"spirit_mark",refund_total);
+			record["revision"] = (int)record["revision"]+1;
+			if(save_pet_record_unlocked(record))
+				result = (["ok":1,"message":"已分解"+
+					sizeof(removed)+"件低品质灵宠装备，共返还"+
+					refund_total+"枚灵印。"]);
+		}
+	}
+	destruct(key);
+	return result;
+}
+
+/** TestUnit-only：按指定品质注入一件未穿戴灵宠装备。 */
+mapping(string:mixed) test_forge_pet_gear_quality(object player,
+	string slot,int quality)
+{
+	mapping result = (["ok":0,"message":"测试装备注入失败。"]);
+	string account_id = resolve_pet_account(player);
+	mapping(string:mixed)|zero record;
+	object key;
+	if(search(account_id,"testunit")==-1 ||
+	   !pet_gear_slots[slot] || quality<1 || quality>4)
+		return result;
+	key = pet_lock->lock();
+	record = load_pet_record_unlocked(account_id);
+	if(record && sizeof((array)record["gear_inventory"])<
+	   PET_GEAR_INVENTORY_MAX){
+		mapping gear = make_pet_gear_unlocked(record,slot,quality,1,
+			"testunit");
+		if(sizeof(gear)){
+			record["gear_inventory"] += ({gear});
+			record["revision"] = (int)record["revision"]+1;
+			if(save_pet_record_unlocked(record))
+				result = (["ok":1,"message":"已注入测试装备。",
+					"gear":copy_value(gear)]);
+		}
+	}
+	destruct(key);
+	return result;
+}
+
 private mapping(string:mixed) query_imprint_skill_candidate(object player,
 	string skill_name)
 {

@@ -1077,6 +1077,43 @@ void test_pet_equipment_and_skill_imprint()
 		sizeof((array)after_dismantle["gear_inventory"])==3,
 		"凝炼未扣材料、分解未返还或装备栏数量不守恒");
 
+	// 一键分解：注入已知品质的闲置件，验证只清低品质并按件返还。
+	mapping low_a = PETD->test_forge_pet_gear_quality(player,
+		"beast_armor",1);
+	mapping low_b = PETD->test_forge_pet_gear_quality(player,
+		"spirit_charm",2);
+	mapping high_c = PETD->test_forge_pet_gear_quality(player,
+		"spirit_core",3);
+	int marks_before_batch =
+		(int)PETD->query_pet_state(player)["materials"]["spirit_mark"];
+	mapping batch_result = PETD->dismantle_pet_gear_batch(player,2);
+	mapping after_batch = PETD->query_pet_state(player);
+	// 剩余4件=3件仍被穿戴的初始装备+1件注入的珍品；穿戴件的保留
+	// 由精确计数证明（穿戴态由宠物equipment引用表达）。
+	int kept_quality3=0;
+	foreach((array)after_batch["gear_inventory"],mapping gear)
+		if((int)gear["quality"]==3 &&
+		   (string)(gear["source"] || "")=="testunit")
+			kept_quality3++;
+	check("一键分解仅清理低品质闲置灵宠装备并按件返还灵印",
+		low_a["ok"] && low_b["ok"] && high_c["ok"] &&
+		(int)batch_result["ok"] &&
+		sizeof((array)after_batch["gear_inventory"])==4 &&
+		kept_quality3==1 &&
+		(int)after_batch["materials"]["spirit_mark"]==
+			marks_before_batch+1*2+2*2,
+		sprintf("low=%d,%d high=%d result=%s remaining=%d kept3=%d marks=%d",
+			(int)low_a["ok"],(int)low_b["ok"],(int)high_c["ok"],
+			(string)batch_result["message"],
+			sizeof((array)after_batch["gear_inventory"]),kept_quality3,
+			(int)after_batch["materials"]["spirit_mark"]));
+
+	// 清掉注入的珍品件，恢复后续断言的装备栏基线。
+	foreach((array)copy_value((array)after_batch["gear_inventory"]),
+		mapping gear)
+		if((string)gear["source"]=="testunit")
+			PETD->dismantle_pet_gear(player,(string)gear["id"]);
+
 	PETD->drop_test_pet_cache(player->query_account_owner());
 	mapping restored = PETD->query_pet_state(player);
 	check("V4装备、派生属性与空拓印状态重载后完整一致",

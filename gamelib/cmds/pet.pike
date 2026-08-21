@@ -186,6 +186,8 @@ private string render_pet_gear(mapping gear_state,string pet_id)
 	s += "[凝炼兽铠:pet gearforge "+pet_id+" beast_armor] "+
 		"[凝炼灵饰:pet gearforge "+pet_id+" spirit_charm] "+
 		"[凝炼灵核:pet gearforge "+pet_id+" spirit_core]\n";
+	s += "[一键分解凡品:pet gearbatchdismantle "+pet_id+" 1]|"+
+		"[一键分解凡品良品:pet gearbatchdismantle "+pet_id+" 2]\n";
 	s += "[学习主人技能:pet skill "+pet_id+"]|[返回宠物:pet detail "+
 		(string)pet["species"]+"]|[返回万灵谱:pet]\n";
 	return s;
@@ -680,6 +682,14 @@ int main(string|zero arg)
 		message = (string)PETD->forge_pet_gear(me,parts[2])["message"];
 	else if(parts[0]=="geardismantle" && sizeof(parts)>=3)
 		message = (string)PETD->dismantle_pet_gear(me,parts[2])["message"];
+	else if(parts[0]=="gearbatchdismantle" && sizeof(parts)>=3){
+		int max_quality;
+		if(sscanf(parts[2],"%d",max_quality)!=1)
+			message = "一键分解品质档无效。";
+		else
+			message = (string)PETD->dismantle_pet_gear_batch(me,
+				max_quality)["message"];
+	}
 	else if(parts[0]=="imprint" && sizeof(parts)>=3)
 		message = (string)PETD->imprint_pet_skill(me,parts[1],parts[2])["message"];
 	else if(parts[0]=="forget" && sizeof(parts)>=2)
@@ -714,8 +724,8 @@ int main(string|zero arg)
 		write("[查看灵纹符获取:daily_cultivation]|"+
 			"[组队挑战万灵裂隙:wanling_rift]|"+
 			"[查看独立材料栏:pet materials]\n");
-	if(search(({"gearequip","gearunequip","gearforge","geardismantle"}),
-	   parts[0])!=-1 && sizeof(parts)>=2){
+	if(search(({"gearequip","gearunequip","gearforge","geardismantle",
+	   "gearbatchdismantle"}),parts[0])!=-1 && sizeof(parts)>=2){
 		write("[继续整理灵宠装备:pet gear "+parts[1]+"]|"+
 			"[返回万灵谱:pet]|[返回游戏:look]\n");
 		return 1;
