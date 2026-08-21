@@ -36,7 +36,7 @@ transient_output="$($ROOT_DIR/scripts/stop_old_map_worker_cluster.sh \
 	echo "old transient stop was not retried exactly once" >&2
 	exit 1
 }
-[[ "$transient_output" == *"自动重新执行一次安全存档证明"* ]] || {
+[[ "$transient_output" == *"协调器处于瞬态"* ]] || {
 	echo "old transient stop retry was not explained" >&2
 	exit 1
 }

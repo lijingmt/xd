@@ -1002,11 +1002,13 @@ int main()
 			source_has("/restart-docker.sh",
 				"stop_old_map_worker_cluster.sh") &&
 			source_has("/scripts/stop_old_map_worker_cluster.sh",
-				"for attempt in 1 2") &&
+				"RETRY_DEADLINE_SECONDS") &&
 			source_has("/scripts/stop_old_map_worker_cluster.sh",
 				"gateway_not_quiescent") &&
 			source_has("/scripts/stop_old_map_worker_cluster.sh",
-				"Traceback") &&
+				"gateway_recovery_busy") &&
+			source_has("/scripts/stop_old_map_worker_cluster.sh",
+				"safe_to_wait_counters") &&
 			source_has("/scripts/stop_old_map_worker_cluster.sh",
 				"exit \"$stop_status\"") &&
 			source_has("/tools/map_workers/test_old_container_stop_retry.sh",

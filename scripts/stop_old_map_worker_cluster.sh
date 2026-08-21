@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# 旧容器安全停机证明：协调器处于瞬态（排水未静/恢复中/Worker 刚失联）
+# 且 uncertain/pending_reconcile/background_arrivals 全为零时，按退避
+# 重试最多约 5 分钟——这些状态会自行收敛，重试把"整轮部署中止、人工
+# 反复重跑"变成"慢一点但一次成功"。任何真实存档风险仍然立即失败
+# 关闭，绝不放松屏障。
+
 if [[ $# -ne 2 || -z "$1" || -z "$2" ]]; then
 	echo "usage: $0 CONTAINER_NAME AREA_NAME" >&2
 	exit 2
@@ -8,9 +14,58 @@ fi
 
 container_name="$1"
 area_name="$2"
-for attempt in 1 2; do
+
+RETRY_DEADLINE_SECONDS="${XIAND_OLD_CLUSTER_STOP_TIMEOUT:-300}"
+
+transient_barrier_code()
+{
+	printf '%s' "$1" | grep -Eq \
+		'"code": ?"gateway_not_quiescent"' ||
+	printf '%s' "$1" | grep -Eq \
+		'"code": ?"gateway_recovery_busy"' ||
+	printf '%s' "$1" | grep -Eq \
+		'"code": ?"failed_worker_still_reachable"'
+}
+
+counter_value()
+{
+	local key="$1"
+	printf '%s' "$stop_output" | \
+		grep -oE "\"$key\": ?[0-9]+" | tail -1 | grep -oE '[0-9]+$'
+}
+
+safe_to_wait_counters()
+{
+	local key value
+	for key in uncertain_requests pending_reconcile_users \
+		background_arrivals; do
+		value="$(counter_value "$key")" || true
+		[[ "$value" == "0" ]] || return 1
+	done
+	return 0
+}
+
+report_blocking_counters()
+{
+	local key value
+	echo "[ERROR] 安全停机屏障未通过，阻塞计数器：" >&2
+	for key in uncertain_requests pending_reconcile_users \
+		background_arrivals maintenance_operations \
+		active_requests pending_requests; do
+		value="$(counter_value "$key")" || true
+		echo "  $key=${value:-unknown}" >&2
+	done
+}
+
+deadline=$((SECONDS + RETRY_DEADLINE_SECONDS))
+attempt=0
+settle_seconds=5
+while (( SECONDS < deadline )); do
+	attempt=$((attempt + 1))
 	stop_output=""
 	stop_status=0
+	# 必须在 else 分支里取 $?：无 else 的 if 复合语句在条件失败时
+	# 整体返回 0，而 && 复合又会触发 set -e。
 	if stop_output="$(docker exec \
 		-e XIAND_MAP_WORKER_LAUNCHER=background \
 		-e XIAND_MAP_WORKER_AREA_NAME="$area_name" \
@@ -21,19 +76,17 @@ for attempt in 1 2; do
 	else
 		stop_status=$?
 	fi
-	compact_output="$(printf '%s' "$stop_output" | tr -d '[:space:]')"
-	if (( attempt == 1 )) &&
-	   [[ "$compact_output" == *'"code":"gateway_not_quiescent"'* ]] &&
-	   [[ "$compact_output" == *'"uncertain_requests":0'* ]] &&
-	   [[ "$compact_output" == *'"pending_reconcile_users":0'* ]] &&
-	   [[ "$compact_output" == *'"background_arrivals":0'* ]] &&
-	   [[ "$stop_output" == *"Traceback"* ]]; then
-		echo "[INFO] 旧版停机脚本遇到瞬时409，自动重新执行一次安全存档证明..." >&2
-		sleep 1
+	if transient_barrier_code "$stop_output" &&
+	   safe_to_wait_counters; then
+		echo "[INFO] 协调器处于瞬态（第${attempt}次），${settle_seconds}秒后重试安全停机证明..." >&2
+		sleep "$settle_seconds"
+		(( settle_seconds < 30 )) && settle_seconds=$((settle_seconds + 5))
 		continue
 	fi
+	report_blocking_counters
 	[[ -z "$stop_output" ]] || printf '%s\n' "$stop_output" >&2
 	exit "$stop_status"
 done
 
+echo "[ERROR] 安全停机证明在 ${RETRY_DEADLINE_SECONDS} 秒内未完成；为保护未存档 Worker 拒绝继续，请稍后重跑部署。" >&2
 exit 1

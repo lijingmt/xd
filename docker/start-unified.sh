@@ -248,10 +248,24 @@ start_shadow_authority()
 
 start_active_authority()
 {
-	if start_cluster && wait_for_http_health; then
-		write_runtime_mode active
-		return 0
-	fi
+	# 拓扑首次拉起常因端口预热或健康探针抖动而未就绪；先安全停机
+	# （仍走存档屏障）再整轮重试，避免一次抖动就把整个部署打回
+	# legacy-fallback 并迫使运维反复重跑。
+	local attempt
+	local max_attempts="${XIAND_ACTIVE_START_ATTEMPTS:-3}"
+	local drain_seconds="${XIAND_ACTIVE_START_RETRY_WAIT:-20}"
+	for attempt in $(seq 1 "$max_attempts"); do
+		if start_cluster && wait_for_http_health; then
+			(( attempt > 1 )) && log "active topology healthy after retry $attempt"
+			write_runtime_mode active
+			return 0
+		fi
+		if (( attempt < max_attempts )); then
+			log "active topology not healthy (attempt $attempt/$max_attempts); safely draining before retry"
+			stop_cluster_safely active || true
+			sleep "$drain_seconds"
+		fi
+	done
 	log "active worker startup failed; opening the persistent fallback circuit"
 	fallback_to_legacy active
 }

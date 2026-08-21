@@ -88,6 +88,7 @@ fallback_to_legacy shadow
 
 (
 	CALLS=""
+	XIAND_ACTIVE_START_RETRY_WAIT=0
 	start_cluster()
 	{
 		record_call cluster
@@ -103,7 +104,7 @@ fallback_to_legacy shadow
 		record_call "fallback:$1"
 	}
 	start_active_authority
-	[[ "$CALLS" == "cluster fallback:active" ]] || {
+	[[ "$CALLS" == "cluster stop cluster stop cluster fallback:active" ]] || {
 		echo "active process startup failure did not open fallback circuit: $CALLS" >&2
 		exit 1
 	}
@@ -111,6 +112,7 @@ fallback_to_legacy shadow
 
 (
 	CALLS=""
+	XIAND_ACTIVE_START_RETRY_WAIT=0
 	start_cluster()
 	{
 		record_call cluster
@@ -126,8 +128,45 @@ fallback_to_legacy shadow
 		record_call "fallback:$1"
 	}
 	start_active_authority
-	[[ "$CALLS" == "cluster health fallback:active" ]] || {
+	[[ "$CALLS" == "cluster health stop cluster health stop cluster health fallback:active" ]] || {
 		echo "active startup failure did not open fallback circuit: $CALLS" >&2
+		exit 1
+	}
+)
+
+# 拓扑首轮未就绪但第二轮转健康时：安全排水一次后应发布 active，
+# 而不是把整个部署打回 legacy-fallback。
+(
+	CALLS=""
+	XIAND_ACTIVE_START_RETRY_WAIT=0
+	health_attempts=0
+	start_cluster()
+	{
+		record_call cluster
+		return 0
+	}
+	wait_for_http_health()
+	{
+		record_call health
+		health_attempts=$((health_attempts + 1))
+		(( health_attempts >= 2 ))
+	}
+	stop_cluster_safely()
+	{
+		record_call drain
+		return 0
+	}
+	write_runtime_mode()
+	{
+		record_call "mode:$1"
+	}
+	fallback_to_legacy()
+	{
+		record_call "fallback:$1"
+	}
+	start_active_authority
+	[[ "$CALLS" == "cluster health drain cluster health mode:active" ]] || {
+		echo "healthy-after-retry active startup did not publish active mode: $CALLS" >&2
 		exit 1
 	}
 )

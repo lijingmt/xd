@@ -238,10 +238,41 @@ stop_after_testunit_if_requested()
 	stop_screen
 }
 
+# 单机重启最常见的残留：上一轮本地 Worker 拓扑还在跑，协调器占着
+# 公共 8888 端口，导致单机启动的端口预检失败、需要人工反复重跑。
+# 这里先走与 restart-local-workers 相同的安全停机屏障再起单机。
+# 注意：screen -ls 即使有会话也返回 1，在 pipefail 下不能直接接管道。
+stop_local_worker_topology()
+{
+	local cluster_script="$ROOT_DIR/scripts/map_worker_cluster.sh"
+	local screen_list
+	local candidate
+	local topology_found=0
+	if [[ ! -x "$cluster_script" ]]; then
+		return 0
+	fi
+	for candidate in "$ROOT_DIR"/log/map-workers/*/topology.json; do
+		if [[ -f "$candidate" ]]; then
+			topology_found=1
+			break
+		fi
+	done
+	screen_list="$(screen -ls 2>/dev/null || true)"
+	if (( topology_found == 0 )) &&
+	   [[ ! "$screen_list" =~ \.xiand-[^[:space:]]+-coordinator ]]; then
+		return 0
+	fi
+	log "stopping the previous local worker topology, if present"
+	if ! XIAND_MAP_WORKER_FAILOVER_SHUTDOWN=1 "$cluster_script" stop; then
+		fail "local worker topology could not prove a safe shutdown"
+	fi
+}
+
 main()
 {
 	cd "$ROOT_DIR"
 	prepare_environment
+	stop_local_worker_topology
 	if ! graceful_shutdown; then
 		fail "in-game shutdown did not confirm all player saves; server was left running"
 	fi
