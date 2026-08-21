@@ -297,16 +297,19 @@ void fight_die()
 		//获得团队内存mapping指针
 		mapping(string:array) map_term = ([]);
 		map_term = (mapping)TERMD->query_term_m(term_who);
-		//如果队伍已经解散，直接返回，给玩家个提示，下面的流程就不走了
-		if(map_term&&sizeof(map_term))
-		{
-			if(logical_drop_owner=="")
-				logical_drop_owner = indices(map_term)[0];
-		}
-		else{
-			//fight_die_single();//团队突然解散，谁也不给	
+		// 完成击杀的玩家已退队/被移出该队，或队伍在战斗中解散成空队
+		// 时，不能沿用队伍分配让真实击杀者颗粒无收；按单人击杀结算
+		// 经验、任务与宠物进度，未参与击杀的旧队友也不再分经验。
+		object credited_killer = enemy && enemy->is &&
+			enemy->is("player") ? enemy : 0;
+		if(!map_term || !sizeof(map_term) ||
+		   (credited_killer &&
+		    !map_term[(string)credited_killer->query_name()])){
+			fight_die_single(env,credited_killer);
 			return;
 		}
+		if(logical_drop_owner=="")
+			logical_drop_owner = indices(map_term)[0];
 		//是团队杀死怪物,按照公式分配金钱，经验，物品/////////////////////////
 
 		//先团队公告，杀死了某怪物
@@ -354,8 +357,10 @@ void fight_die()
 				int fact_exp = exp_gain/t_count;
 				if(fact_exp<=0)
 					fact_exp = 1;
+				array(string) remote_members = ({});
 				foreach(indices(map_term),string uid){
 					int flag = 0;
+					int share_ok = 0;
 					object termer = find_player(uid);
 					int last_exp = 0;
 					if(termer){
@@ -364,6 +369,9 @@ void fight_die()
 						   environment(termer)->query_name() &&
 						   can_receive_logical_reward(logical_drop_owner,termer))
 							flag = 1;
+						share_ok = flag ||
+							can_receive_logical_reward(
+								logical_drop_owner,termer);
 						if(flag){
 							PETD->record_pet_hunt_kill(termer,this_object());
 							PETD->record_pet_combat_xp(termer,this_object());
@@ -371,7 +379,11 @@ void fight_die()
 							SPIRIT_COMPANIOND->record_spirit_companion_combat_xp(
 								termer,this_object());
 							record_eligible_kill_progress(termer,t_count);
-
+						}
+						// 组队经验按全份额分享给仍在队成员（含跨房间同
+						// Worker）；经验池只按同房参战人数放大，任务、宠物
+						// 等击杀进度仍限同房参战者。
+						if(share_ok){
 							//根据玩家等级获得计算后的应得经验值
 							//如果玩家等级大于该npc等级的获得计算
 							int diff = termer->query_level() - npclevel;
@@ -427,17 +439,34 @@ void fight_die()
 							if(exp_gain>0)
 								grant_kill_experience(termer,exp_gain,
 									t_count,team_pool_percent);
-							/*	
+							/*
 							termer->exp += last_exp;
 							termer->current_exp += last_exp;
 							string strt = "得到了 "+last_exp+" 点经验。\n";
 							termer->query_if_levelup();
 							if(termer->query_levelFlag())
-								strt += "你的等级提升到了 "+termer->query_level()+" 级！\n";	
+								strt += "你的等级提升到了 "+termer->query_level()+" 级！\n";
 							tell_object(termer,strt);
-							*/	
+							*/
 						}
 					}
+					else
+						remote_members += ({uid});
+				}
+				if(sizeof(remote_members) &&
+				   MAP_WORKERD->query_node_role()=="worker"){
+					// 击杀Worker进程内看不见的异地队友（find_player为
+					// 空）经社交事件管线送达其所在Worker，由接收侧按其
+					// 真实等级折算同等份额入账；离线或已离队则自然落空。
+					string exp_source = map_term[logical_drop_owner] ?
+						logical_drop_owner : indices(map_term)[0];
+					MAP_WORKERD->stage_local_social_event("team_exp",
+						exp_source,"",([
+							"team_id":term_who,
+							"fact_exp":fact_exp,
+							"npc_level":npclevel,
+							"targets":remote_members,
+						]));
 				}
 			}
 		}
@@ -771,7 +800,11 @@ void fight_die()
 			object ob = ITEMSD->get_item(this_object()->query_level(),0,
 				pro_add,shared_difficulty);
 			//掉落特殊物品
-			object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), 0, pro_add);
+			object ob_spec = ITEMSD->get_spec_item(
+				this_object()->query_level(), 0, pro_add,
+				PERSONAL_DIFFICULTYD->
+					query_rare_drop_percent_for_level(
+						shared_difficulty));
 			//掉落宝石 added by caijie 080807
 			object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),1);
 			//节日特殊掉落
@@ -857,10 +890,11 @@ void fight_die()
 			this_object()->remove();
 	}
 	else
-		fight_die_single(env);//非团队杀死怪的处理接口	
+		fight_die_single(env,enemy && enemy->is &&
+			enemy->is("player") ? enemy : 0);//非团队杀死怪的处理接口
 }
 //个人杀死怪的判断接口
-void fight_die_single(object env)
+void fight_die_single(object env,void|object credited_killer)
 {
 	int npcflag = 0;
 	if(enemy&&!enemy->is("npc")){
@@ -877,6 +911,14 @@ void fight_die_single(object env)
 		if(this_object()->if_in_targets(first))
 			flag = 1;
 	//必须是首先攻击者
+	// 队伍中途解散或击杀者已退出该队时按单人补结算：优先记在真实
+	// 完成击杀的玩家名下；其已脱战时才回退到历史上的首攻者规则。
+	object killer = credited_killer && credited_killer->is &&
+		credited_killer->is("player") ? credited_killer : 0;
+	if(killer && this_object()->if_in_targets(killer)){
+		first = killer;
+		flag = 1;
+	}
 
 	if(flag&&npcflag){
 		TASKD->if_in_killTask(first,this_object()->query_name_cn(),
@@ -1096,7 +1138,10 @@ void fight_die_single(object env)
 			first->query_level(),first->query_lunck()+pro_add,
 			PERSONAL_DIFFICULTYD->query_current_level(first),first);
 		//掉落特殊物品
-		object ob_spec = ITEMSD->get_spec_item(this_object()->query_level(), first->query_level(), first->query_lunck()+pro_add);
+		object ob_spec = ITEMSD->get_spec_item(
+			this_object()->query_level(), first->query_level(),
+			first->query_lunck()+pro_add,
+			PERSONAL_DIFFICULTYD->query_rare_drop_percent(first));
 		//掉落宝石 caijie 080807
 		object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),first->query_level());
 		//十职业大神传承，只由70级以上怪物极低概率掉落

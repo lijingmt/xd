@@ -18,6 +18,7 @@
 #define TERM_INVITE_TIMEOUT 120
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define MAPWORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
+#define VIPD ((object)(ROOT "/gamelib/single/daemons/vipd"))
 inherit LOW_DAEMON;
 
 // 组队经验先提高全队共享池，再按同房合法队员数分配。
@@ -1188,6 +1189,76 @@ void term_tell(string tid,string msg){
 					]));
 		}
 	}
+}
+
+// 跨Worker组队经验：击杀发生在队员所属Worker之外时，由接收侧对本地
+// 在线且仍在队的成员按其真实等级折算并发放份额。经验池已在击杀侧按
+// 同房人数算好，这里只做等级差、上限校验与加成入账，不重复记录任务、
+// 宠物等击杀进度（那是同房参战者的权益）。
+mapping apply_distributed_team_exp(string tid,int fact_exp,int npc_level,
+	string source_user,array(string) targets)
+{
+	int granted = 0;
+	if(!valid_distributed_team_token(tid,96) ||
+	   !valid_distributed_team_token(source_user,64) ||
+	   fact_exp<1 || fact_exp>1000000 || npc_level<1 || npc_level>10000 ||
+	   !arrayp(targets) || !sizeof(targets) || sizeof(targets)>TERM_NUM)
+		return (["ok":0,"code":"invalid_team_exp"]);
+	if(!termMain[tid] || !termMain[tid][source_user]){
+		if(local_worker_has_team_player(tid))
+			return (["ok":0,"code":"team_snapshot_missing"]);
+		return (["ok":1,"ignored":1,"code":"no_local_team_member",
+			"team_id":tid]);
+	}
+	foreach(targets,string uid){
+		object termer;
+		int last_exp;
+		int buff_percent;
+		mapping(string:int) reward;
+		int player_level_limit;
+		if(!valid_distributed_team_token(uid,64))
+			continue;
+		termer = find_player(uid);
+		if(!termer || (string)termer->query_name()!=uid ||
+		   (string)termer->query_term()!=tid ||
+		   !LOGICALZONED->can_user_action("team",source_user,uid))
+			continue;
+		int diff = termer->query_level()-npc_level;
+		if(diff>=0){
+			if(diff>=10)
+				diff = 10;
+			last_exp = fact_exp-fact_exp*diff/10;
+		}
+		else{
+			int diff1 = npc_level-termer->query_level();
+			if(diff1<=3)
+				last_exp = fact_exp;
+			else if(diff1<=4)
+				last_exp = fact_exp*7/10;
+			else if(diff1<=5)
+				last_exp = fact_exp*4/10;
+			else if(diff1<=6)
+				last_exp = fact_exp/10;
+			else
+				last_exp = random(10)+1;
+		}
+		player_level_limit = VIPD->query_player_level_limit(termer);
+		if((int)termer->query_level()>=player_level_limit){
+			tell_object(termer,"你已达到当前等级上限"+player_level_limit+
+				"级，本次组队分享经验为0。\n");
+			continue;
+		}
+		if(last_exp<=0)
+			continue;
+		buff_percent = (int)termer->query_buff("te_exp",1)+
+			(int)termer->query_buff("attri_exp",1);
+		reward = termer->add_kill_exp_with_bonus(last_exp,buff_percent,2);
+		termer->query_if_levelup();
+		tell_object(termer,"队友在异地击杀了怪物，你分享到 "+
+			format_game_number((int)reward["actual_exp"])+" 点经验。\n");
+		granted++;
+	}
+	return (["ok":1,"team_id":tid,"granted":granted]);
 }
 
 mapping apply_distributed_team_notice(string tid,string msg,string source_user)

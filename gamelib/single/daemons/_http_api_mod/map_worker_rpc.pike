@@ -1351,6 +1351,12 @@ private mapping map_worker_apply_team_event(mapping event,string kind)
             result = TERMD->apply_distributed_team_notice(
                 (string)payload["team_id"],(string)payload["message"],
                 source_user);
+        else if(kind=="team_exp")
+            result = TERMD->apply_distributed_team_exp(
+                (string)payload["team_id"],(int)payload["fact_exp"],
+                (int)payload["npc_level"],source_user,
+                arrayp(payload["targets"]) ?
+                    (array(string))payload["targets"] : ({}));
         else
             result = (["ok":0,"code":"unknown_team_event"]);
     };
