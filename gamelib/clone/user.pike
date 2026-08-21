@@ -23,6 +23,35 @@ string query_account_owner()
 }
 
 private int login_migrations_done;
+private int registration_bootstrap;
+private int worker_retirement_started;
+
+/**
+ * Registration creates an unsaved character under the gateway's exclusive
+ * creation lock.  Its temporary setup object has no playable lease and must
+ * not inherit a stale route left by an earlier deleted/retried character.
+ */
+void set_registration_bootstrap(int enabled)
+{
+	registration_bootstrap = enabled ? 1 : 0;
+}
+
+int query_registration_bootstrap()
+{
+	return registration_bootstrap;
+}
+
+/** Stop callbacks before a saved/stale worker copy is destructed. */
+void prepare_worker_retirement()
+{
+	worker_retirement_started=1;
+	set_heart_beat(0);
+}
+
+int query_worker_retirement_started()
+{
+	return worker_retirement_started;
+}
 
 /** A fenced target-worker restore is a move, not a fresh account login. */
 int query_pending_worker_arrival()
@@ -55,6 +84,9 @@ int setup(string password)
 	// A failed/slow map move must never fall through into destructive login work.
 	int pending_worker_arrival = query_pending_worker_arrival();
 	int ready=::setup(password);
+	// setup() has completed its initial move.  Clear before the HTTP daemon
+	// performs the first atomic save so this transient capability never persists.
+	registration_bootstrap=0;
 	// Existing characters already have a profession after restore. Brand-new
 	// characters run the same hook from d/init after choosing a profession.
 	if(ready && query_profeId() && !pending_worker_arrival)
@@ -116,8 +148,8 @@ int move(mixed dest)
 	// completes durable costs/cooldowns on the sole source object. The gateway
 	// then saves and retires it before loading the target copy. Dynamic clone
 	// rooms have no reconstructable path yet and therefore fail closed.
-	int worker_move_guard = MAP_WORKERD->guard_local_player_move(
-		this_object(),dest);
+	int worker_move_guard = registration_bootstrap ? 0 :
+		MAP_WORKERD->guard_local_player_move(this_object(),dest);
 	if(worker_move_guard==2)
 		return 1;
 	if(worker_move_guard==3){
@@ -1159,6 +1191,7 @@ void save(void|int autosave){
 }
 /** Drop an isolated stale copy without executing any persistence hook. */
 void discard_stale_worker_copy(){
+	prepare_worker_retirement();
 	catch { AUTOFIGHTD->cancel_server_autofight_tick(this_object()); };
 	detach_auto_learn_worker_runtime();
 	catch { SUMMOND->player_logout(query_name()); };
@@ -1198,6 +1231,7 @@ void detach_worker_follow_links(){
  * online on the destination worker.
  */
 void retire_worker_copy_after_save(){
+	prepare_worker_retirement();
 	catch { AUTOFIGHTD->cancel_server_autofight_tick(this_object()); };
 	detach_auto_learn_worker_runtime();
 	catch { SUMMOND->player_logout(query_name()); };

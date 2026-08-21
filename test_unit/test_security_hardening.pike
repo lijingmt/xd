@@ -280,11 +280,15 @@ void test_health_and_deployment_secrets()
 		"/gamelib/single/daemons/auctiond.pike");
 	string ranking = Stdio.read_file(ROOT+
 		"/gamelib/single/daemons/paihangd.pike");
+	object rankingd = (object)(ROOT+
+		"/gamelib/single/daemons/paihangd.pike");
+	array(mapping(string:mixed)) old_ranking = ({(["id":"old"])});
+	array(mapping(string:mixed)) empty_ranking = ({});
 	object httpd = (object)(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
 	int valid = daemon && accounts && dockerfile && docker_startup &&
 		dockerignore && restart &&
-		auction && ranking &&
+		auction && ranking && rankingd &&
 		httpd &&
 		httpd->normalize_http_client_ip("127.0.0.1:54321")=="127.0.0.1" &&
 		httpd->normalize_http_client_ip("[::1]:54321")=="::1" &&
@@ -300,7 +304,18 @@ void test_health_and_deployment_secrets()
 		search(restart,"-e MYSQL_PASSWORD=\"$MYSQL_PASSWORD\"")==-1 &&
 		search(restart,"--log-opt max-size=50m")!=-1 &&
 		search(auction,"getenv(\"MYSQL_PASSWORD\") || \"\"")!=-1 &&
-		search(ranking,"getenv(\"MYSQL_PASSWORD\") || \"\"")!=-1;
+		search(ranking,"getenv(\"MYSQL_PASSWORD\") || \"\"")!=-1 &&
+		search(ranking,"private Thread.Mutex database_lock")!=-1 &&
+		search(ranking,"for(int attempt=0;attempt<2;attempt++)")!=-1 &&
+		search(ranking,"rows = db->query(query_sql)")!=-1 &&
+		search(ranking,"db = 0;")!=-1 &&
+		search(ranking,"if((int)refreshed[\"ok\"])")!=-1 &&
+		search(ranking,
+			"select distinct id,name_cn,home_bi from xd_daily_user")!=-1 &&
+		rankingd->test_preserve_ranking_snapshot(
+			0,old_ranking,empty_ranking)==old_ranking &&
+		sizeof(rankingd->test_preserve_ranking_snapshot(
+			1,old_ranking,empty_ranking))==0;
 	check("详细健康指标受保护且数据库口令无源码默认值",valid,
 		"健康指标或部署凭证仍有暴露面");
 }

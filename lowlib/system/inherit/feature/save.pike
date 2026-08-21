@@ -187,6 +187,7 @@ int restore()
 			string final_path=pikenv_path(filename);
 			// Use catch to handle missing items gracefully
 			mixed err = catch {
+				normalize_item_source_file(final_path);
 				object ob=clone(final_path);
 				if(ob){
 					if(inventory_data&&i<sizeof(inventory_data)){

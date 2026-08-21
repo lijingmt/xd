@@ -628,6 +628,45 @@ int main()
 			prepared_source_filter<duplicate_online_filter,
 			"目标Worker排序在源Worker之前时，正常handoff仍可能被误判为重复owner");
 
+		mapping committed_route = (["ok":1,"state":"active",
+			"worker_id":"w03","epoch":8]);
+		mapping committed_proof = (["ok":1,"state":"committed",
+			"source_worker":"w02","source_epoch":7,
+			"target_worker":"w03","target_epoch":8,"committed_at":100]);
+		check("committed迁移只排除带完整到达凭证的精确旧源owner",
+			httpd->test_pike_gateway_online_row_is_committed_source(
+				(["epoch":7]),committed_route,"w02",99,committed_proof) &&
+			!httpd->test_pike_gateway_online_row_is_committed_source(
+				(["epoch":6]),committed_route,"w02",99,committed_proof) &&
+			!httpd->test_pike_gateway_online_row_is_committed_source(
+				(["epoch":7]),committed_route,"w04",99,committed_proof) &&
+			!httpd->test_pike_gateway_online_row_is_committed_source(
+				(["epoch":7]),committed_route,"w02",101,committed_proof) &&
+			!httpd->test_pike_gateway_online_row_is_committed_source(
+				(["epoch":7]),committed_route+(["epoch":9]),"w02",99,
+				committed_proof) &&
+			source_has(map_worker_daemon,"query_committed_handoff_proof") &&
+			source_has(rpc,"int captured_at = time()") &&
+			source_has(rpc,"\"captured_at\":captured_at") &&
+			source_has(gateway,
+				"fresh_at[worker_id] = (int)result[\"captured_at\"]"),
+			"已释放源节点可能在目标落地窗口被误判，或错误副本被迁移例外掩盖");
+		int committed_source_filter=search(gateway,
+			"if(pike_gateway_online_row_is_committed_source(row,route,worker_id,");
+		check("committed旧源owner在重复与route校验前排除",
+			committed_source_filter>prepared_source_filter &&
+			committed_source_filter<duplicate_online_filter,
+			"合法提交窗口仍会触发全量归属恢复或重复在线误报");
+		check("全量归属恢复期间的旧租约页不会隔离健康Worker",
+			httpd->test_pike_gateway_recovery_supersedes_monitor(8,9,0) &&
+			httpd->test_pike_gateway_recovery_supersedes_monitor(8,8,1) &&
+			!httpd->test_pike_gateway_recovery_supersedes_monitor(8,8,0) &&
+			source_has(gateway,"pike_gateway_recovery_in_progress++") &&
+			source_has(gateway,"pike_gateway_recovery_in_progress--") &&
+			source_has(gateway,
+				"!pike_gateway_recovery_supersedes_monitor(observed_recovery_serial)"),
+			"恢复前采集的lease页可能把正常Worker误判失联并中断挂机");
+
 		check("全体在线行只在身份复核后原子替换且快照并行发布",
 			source_has(gateway,
 				"pike_gateway_online_rows_by_worker = fresh_rows") &&

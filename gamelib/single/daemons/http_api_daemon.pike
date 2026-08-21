@@ -1426,6 +1426,8 @@ void handle_api_html(Protocols.HTTP.Server.Request req)
                                         }
 
                                         http_werror(" Step 5: Calling setup()...\n");
+										if(functionp(me->set_registration_bootstrap))
+											me->set_registration_bootstrap(1);
                                         mixed setup_err = catch {
                                             if(me->setup(pswd)) {
                                                 // 注册成功

@@ -106,6 +106,8 @@ private string pike_gateway_last_online_snapshot_error = "not_published";
 private int pike_gateway_online_snapshot_recovery_pending;
 private int pike_gateway_online_snapshot_recoveries;
 private int pike_gateway_online_snapshot_recovery_failures;
+private int pike_gateway_recovery_serial;
+private int pike_gateway_recovery_in_progress;
 private int pike_gateway_prewarm_completed_at;
 private int pike_gateway_prewarm_max_ms;
 private int pike_gateway_last_handoff_at;
@@ -815,6 +817,36 @@ int test_pike_gateway_online_row_is_prepared_source(mapping row,
 	return pike_gateway_online_row_is_prepared_source(row,route,worker_id);
 }
 
+/**
+ * A committed handoff releases and saves the exact source owner before the
+ * coordinator advances the lease.  Until the target acknowledges its signed
+ * arrival room, one independently captured online pass can still contain that
+ * released source row.  Omit only a snapshot captured no later than the exact
+ * committed source worker/epoch; later observations or any field mismatch stay
+ * fail-closed and retain the normal ownership recovery path.
+ */
+private int pike_gateway_online_row_is_committed_source(mapping row,
+	mapping route,string worker_id,int captured_at,mapping proof)
+{
+	return (int)route["ok"] && (string)route["state"]=="active" &&
+		(string)route["worker_id"]!=worker_id &&
+		(int)route["epoch"]==(int)row["epoch"]+1 &&
+		(int)proof["ok"] && (string)proof["state"]=="committed" &&
+		(string)proof["source_worker"]==worker_id &&
+		(int)proof["source_epoch"]==(int)row["epoch"] &&
+		(string)proof["target_worker"]==(string)route["worker_id"] &&
+		(int)proof["target_epoch"]==(int)route["epoch"] &&
+		captured_at>0 && (int)proof["committed_at"]>0 &&
+		captured_at<=(int)proof["committed_at"];
+}
+
+int test_pike_gateway_online_row_is_committed_source(mapping row,
+	mapping route,string worker_id,int captured_at,mapping proof)
+{
+	return pike_gateway_online_row_is_committed_source(row,route,worker_id,
+		captured_at,proof);
+}
+
 int test_pike_gateway_missing_counter_is_zero()
 {
 	return pike_gateway_counter_value(([]),"w99")==0;
@@ -992,6 +1024,7 @@ mapping query_pike_gateway_online_users()
 		foreach(worker_users,mixed raw){
 			mapping row;
 			mapping route;
+			mapping committed_proof = ([]);
 			string userid;
 			if(!mappingp(raw))
 				return (["ok":0,"code":"invalid_online_row"]);
@@ -1004,6 +1037,15 @@ mapping query_pike_gateway_online_users()
 					"userid":userid]);
 			route = MAP_WORKERD->query_player_route(userid);
 			if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))
+				continue;
+			if((int)route["ok"] && (string)route["state"]=="active" &&
+			   ((string)route["worker_id"]!=worker_id ||
+			    (int)route["epoch"]!=(int)row["epoch"]))
+				committed_proof = MAP_WORKERD->query_committed_handoff_proof(
+					userid,worker_id,(int)row["epoch"],
+					(string)route["worker_id"],(int)route["epoch"]);
+			if(pike_gateway_online_row_is_committed_source(row,route,worker_id,
+			   rows_at,committed_proof))
 				continue;
 			if(by_user[userid])
 				return (["ok":0,"code":"duplicate_online_owner",
@@ -1925,7 +1967,7 @@ private mapping pike_gateway_prune_reconciled_tombstones(
 	return result;
 }
 
-private void pike_gateway_recover_local_players()
+private void pike_gateway_recover_local_players_impl()
 {
 	mapping(string:array(mapping(string:mixed))) inventoried = ([]);
 	mapping(string:mapping(string:mixed)) recovered = ([]);
@@ -2087,6 +2129,41 @@ private void pike_gateway_recover_local_players()
 	pike_gateway_pending_reconcile_users = (<>);
 	pike_gateway_background_arrivals = ([]);
 	destruct(state_key);
+}
+
+/**
+ * Publish an odd/even recovery generation around every full inventory pass.
+ * Monitor jobs are intentionally parallel and may have captured a pre-recovery
+ * lease page; their late stale result must not isolate a healthy worker.
+ */
+private void pike_gateway_recover_local_players()
+{
+	object key = pike_gateway_state_lock->lock();
+	pike_gateway_recovery_serial++;
+	pike_gateway_recovery_in_progress++;
+	destruct(key);
+	mixed recovery_err = catch { pike_gateway_recover_local_players_impl(); };
+	key = pike_gateway_state_lock->lock();
+	pike_gateway_recovery_in_progress--;
+	pike_gateway_recovery_serial++;
+	destruct(key);
+	if(recovery_err)
+		error(describe_error(recovery_err));
+}
+
+private int pike_gateway_recovery_supersedes_monitor(int observed_serial)
+{
+	object key = pike_gateway_state_lock->lock();
+	int superseded = pike_gateway_recovery_in_progress>0 ||
+		pike_gateway_recovery_serial!=observed_serial;
+	destruct(key);
+	return superseded;
+}
+
+int test_pike_gateway_recovery_supersedes_monitor(int observed_serial,
+	int current_serial,int in_progress)
+{
+	return in_progress>0 || observed_serial!=current_serial;
 }
 
 private void pike_gateway_reconcile_recovered_worker(string worker_id)
@@ -3144,8 +3221,10 @@ private mapping pike_gateway_collect_online_worker(string worker_id)
 	mapping result = pike_gateway_worker_rpc(worker_id,
 		"local_online_users",([]));
 	string incarnation = (string)(result["incarnation"] || "");
+	int captured_at = (int)result["captured_at"];
 	if(!(int)result["ok"] || (string)result["worker_id"]!=worker_id ||
 	   sizeof(incarnation)!=64 || !arrayp(result["users"]) ||
+	   captured_at<time()-15 || captured_at>time()+5 ||
 	   sizeof((array)result["users"])>PIKE_GATEWAY_MAX_RECONCILE_USERS)
 		error("worker online snapshot rejected\n");
 	return result;
@@ -3192,10 +3271,9 @@ private mapping pike_gateway_refresh_online_rows()
 		   !arrayp(result["users"]))
 			return (["ok":0,"code":"online_worker_identity_changed"]);
 		fresh_rows[worker_id] = copy_value((array)result["users"]);
+		fresh_at[worker_id] = (int)result["captured_at"];
 	}
 	int snapshot_at = time();
-	foreach(worker_ids,string worker_id)
-		fresh_at[worker_id] = snapshot_at;
 	state_key = pike_gateway_state_lock->lock();
 	foreach(worker_ids,string worker_id){
 		if(!pike_gateway_worker_reachable[worker_id] ||
@@ -3427,6 +3505,9 @@ private void pike_gateway_monitor_worker(string worker_id)
 {
 	mapping metrics;
 	mapping heartbeat;
+	object monitor_state_key = pike_gateway_state_lock->lock();
+	int observed_recovery_serial = pike_gateway_recovery_serial;
+	destruct(monitor_state_key);
 	int generation = pike_gateway_worker_generation(worker_id);
 	mixed monitor_err = catch {
 		metrics = pike_gateway_collect_worker_metrics(worker_id);
@@ -3494,7 +3575,8 @@ private void pike_gateway_monitor_worker(string worker_id)
 	// with the old generation. Do not let its late error mark the new worker
 	// generation unreachable.
 	if(monitor_err && pike_gateway_monitor_generation_current(generation,
-	   pike_gateway_worker_generation(worker_id))){
+	   pike_gateway_worker_generation(worker_id)) &&
+	   !pike_gateway_recovery_supersedes_monitor(observed_recovery_serial)){
 		pike_gateway_note_monitor_failure(worker_id,
 			describe_error(monitor_err));
 	}

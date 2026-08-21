@@ -2371,6 +2371,11 @@ int query_tianxiang_star_bonus_percent(object target,int marks){
 }
 
 void perform(string name,void|int flag){
+	object active_actor=this_object();
+	if(!active_actor ||
+	   (functionp(active_actor->query_worker_retirement_started) &&
+	    active_actor->query_worker_retirement_started()))
+		return;
 	//怪死亡判断......
 	if(!enemy || environment(this_object())!=environment(enemy) ||
 	   enemy->get_cur_life()<=0){
@@ -3086,9 +3091,14 @@ void perform(string name,void|int flag){
 					int h = (int)(myhitte-difflevel*5);
 					if(h<30)
 						h=30;
-					if(random(100)<h){
-						//命中啦 ~
-						if(this_object()->weapon_type=="double_main")
+						if(random(100)<h){
+							//命中啦 ~
+							active_actor=this_object();
+							if(!active_actor ||
+							   (functionp(active_actor->query_worker_retirement_started) &&
+							    active_actor->query_worker_retirement_started()))
+								return;
+							if(this_object()->weapon_type=="double_main")
 							attack(s_phy_damage,s_weapon_add,"double_main",s_name_cn,
 								f_cur_skill->query_name(),skill_level);
 						else if(this_object()->weapon_type=="single_main"||this_object()->weapon_type=="both")
@@ -3974,6 +3984,11 @@ void boss_perform(string name){
 //战斗核心算法,普通攻击或者施放物理攻击技能时调用的接口
 private void attack(int skill_add,int skill_add_per,string type,
 	string skill_name_cn,void|string name_skill,void|int rare_skill_level){
+	object active_actor=this_object();
+	if(!active_actor ||
+	   (functionp(active_actor->query_worker_retirement_started) &&
+	    active_actor->query_worker_retirement_started()))
+		return;
 	if(enemy==0){
 		return;
 	}
@@ -4328,6 +4343,11 @@ private void attack(int skill_add,int skill_add_per,string type,
 	}
 }
 private void heart_beat_action(){
+	object active_actor=this_object();
+	if(!active_actor ||
+	   (functionp(active_actor->query_worker_retirement_started) &&
+	    active_actor->query_worker_retirement_started()))
+		return;
 	// 配置热分区后必须在死亡结算和任何伤害前切断跨区旧目标。
 	if(enemy && !LOGICALZONED->can_action("combat",this_object(),enemy)){
 		if(this_object()->if_in_targets(enemy))

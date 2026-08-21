@@ -424,6 +424,32 @@ int write_file(string file,string data,void|int overwrite)
 	}
 }
 */
+/* 旧版跨进程直接写文件曾留下少量“完整生成模板只缺最后一个 }”的
+ * 装备源码。只修复特征完整、括号恰好少一个、且末尾仍是完整语句的
+ * 标准生成装备，绝不猜测或补写普通 Pike 源码。 */
+private string repair_truncated_generated_item_source(string source)
+{
+	int end=sizeof(source)-1;
+	int opens;
+	int closes;
+	while(end>=0 && (source[end]==' ' || source[end]=='\t' ||
+		source[end]=='\r' || source[end]=='\n'))
+		end--;
+	if(end<0 || source[end]!=';' || search(source,"\0")!=-1 ||
+	   !has_prefix(source,"#include <globals.h>") ||
+	   search(source,"inherit WAP_")==-1 ||
+	   search(source,"protected void create(){")==-1 ||
+	   search(source,"name=object_name(this_object());")==-1)
+		return source;
+	for(int i=0;i<=end;i++){
+		if(source[i]=='{') opens++;
+		else if(source[i]=='}') closes++;
+	}
+	if(opens!=closes+1)
+		return source;
+	return source[..end]+"\n}\n";
+}
+
 private string normalize_generated_item_source(string data)
 {
 	string source=data || "";
@@ -433,7 +459,7 @@ private string normalize_generated_item_source(string data)
 	if(has_prefix(source,"void create(){"))
 		source="protected "+source;
 	source=replace(source,"\nvoid create(){","\nprotected void create(){");
-	return source;
+	return repair_truncated_generated_item_source(source);
 }
 
 #define ITEM_SOURCE_CHECK_CACHE_LIMIT 16384
@@ -565,15 +591,25 @@ private void normalize_existing_item_source(string file)
 		return;
 	if(search(head,"protected protected void create()")!=-1 ||
 	   has_prefix(head,"void create(){") ||
-	   search(head,"\nvoid create(){")!=-1){
+	   search(head,"\nvoid create(){")!=-1 ||
+	   (search(head,"inherit WAP_")!=-1 &&
+	    search(head,"protected void create(){")!=-1 &&
+	    search(head,"name=object_name(this_object());")!=-1)){
 		source=Stdio.read_file(file) || "";
 		normalized=normalize_generated_item_source(source);
-		if(source=="" || normalized==source ||
-		   !write_item_file(file,normalized,1))
+		if(source=="" ||
+		   (normalized!=source && !write_item_file(file,normalized,1)))
 			repaired=0;
 	}
 	if(repaired)
 		remember_checked_item_source(file);
+}
+
+/* Explicit preflight for restore paths which may be compiled by the driver
+ * before their following clone expression resolves through this efun set. */
+void normalize_item_source_file(string file)
+{
+	normalize_existing_item_source(file);
 }
 void cat(string file)
 {

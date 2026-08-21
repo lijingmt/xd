@@ -209,6 +209,16 @@ int main()
 			!source_has("/gamelib/clone/user.pike",
 				"snapshot[\"team_guard\"]"),
 			"地图切换会再次执行回收迁移、清掉装备，或复制战斗态Buff");
+		check("新人物注册初始化不受已删除人物残留地图租约干扰",
+			source_has("/gamelib/clone/user.pike",
+				"void set_registration_bootstrap(int enabled)") &&
+			source_has("/gamelib/clone/user.pike",
+				"int worker_move_guard = registration_bootstrap ? 0 :") &&
+			source_has("/gamelib/clone/user.pike",
+				"registration_bootstrap=0;") &&
+			source_has("/gamelib/single/daemons/http_api_daemon.pike",
+				"me->set_registration_bootstrap(1);"),
+			"新人物setup仍可能被旧租约重定向，或临时注册能力被保存");
 
 		mapping restored_validation = daemon->validate_control_plane_snapshot(([
 			"version":1,
@@ -646,6 +656,12 @@ int main()
 		daemon->set_worker_draining(target_worker,0);
 		committed = daemon->commit_handoff(request_id,target_worker);
 		mapping route_after = daemon->query_player_route(userid);
+		mapping committed_proof = daemon->query_committed_handoff_proof(
+			userid,source_worker,(int)lease["epoch"],target_worker,
+			(int)lease["epoch"]+1);
+		mapping wrong_committed_proof = daemon->query_committed_handoff_proof(
+			userid,source_worker,(int)lease["epoch"]-1,target_worker,
+			(int)lease["epoch"]+1);
 		mapping replayed = daemon->commit_handoff(request_id,target_worker);
 		mapping wrong_arrival_ack = daemon->acknowledge_player_arrival(userid,
 			target_worker,(int)lease["epoch"]+1,source_affinity);
@@ -658,6 +674,13 @@ int main()
 			(int)route_after["epoch"]==(int)lease["epoch"]+1 &&
 			route_after["state"]=="active" &&
 			route_after["arrival_room_path"]==target_room_path &&
+			committed_proof["ok"] &&
+			committed_proof["source_worker"]==source_worker &&
+			(int)committed_proof["source_epoch"]==(int)lease["epoch"] &&
+			committed_proof["target_worker"]==target_worker &&
+			(int)committed_proof["target_epoch"]==(int)lease["epoch"]+1 &&
+			(int)committed_proof["committed_at"]>0 &&
+			!wrong_committed_proof["ok"] &&
 			wrong_arrival_ack["code"]=="arrival_fence_failed" &&
 			arrival_ack["ok"] && !route_arrived["arrival_room_path"] &&
 			replayed["ok"] &&

@@ -4090,6 +4090,55 @@ mapping(string:mixed) query_player_route(string userid)
 	return lease;
 }
 
+/**
+ * Prove that one captured source row predates the exact durable handoff which
+ * owns the current target lease.  The gateway uses this only to distinguish a
+ * stale observation from a fresh split owner; no capability is issued here.
+ */
+mapping(string:mixed) query_committed_handoff_proof(string userid,
+	string source_worker,int source_epoch,string target_worker,int target_epoch)
+{
+	object key;
+	mapping lease;
+	mapping proof = ([]);
+	userid = normalize_userid(userid);
+	source_worker = normalize_worker_id(source_worker);
+	target_worker = normalize_worker_id(target_worker);
+	if(userid=="" || source_worker=="" || target_worker=="" ||
+	   source_worker==target_worker || source_epoch<1 ||
+	   target_epoch!=source_epoch+1)
+		return (["ok":0,"code":"invalid_handoff_proof"]);
+	key = player_lease_lock->lock();
+	lease = player_leases[userid];
+	if(mappingp(lease) && (string)lease["state"]=="active" &&
+	   (string)lease["worker_id"]==target_worker &&
+	   (int)lease["epoch"]==target_epoch &&
+	   (int)lease["expires_at"]>=time()){
+		foreach(indices(handoffs),string request_id){
+			mapping handoff = handoffs[request_id];
+			if((string)handoff["userid"]==userid &&
+			   (string)handoff["state"]=="committed" &&
+			   (string)handoff["source_worker"]==source_worker &&
+			   (int)handoff["source_epoch"]==source_epoch &&
+			   (string)handoff["target_worker"]==target_worker &&
+			   (int)handoff["target_epoch"]==target_epoch &&
+			   (int)handoff["committed_at"]>0){
+				proof = (["ok":1,"state":"committed",
+					"source_worker":source_worker,
+					"source_epoch":source_epoch,
+					"target_worker":target_worker,
+					"target_epoch":target_epoch,
+					"committed_at":(int)handoff["committed_at"]]);
+				break;
+			}
+		}
+	}
+	destruct(key);
+	if(!sizeof(proof))
+		return (["ok":0,"code":"handoff_proof_missing"]);
+	return proof;
+}
+
 mapping(string:mixed) acknowledge_player_arrival(string userid,
 	string worker_id,int epoch,string affinity)
 {

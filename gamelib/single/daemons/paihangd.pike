@@ -31,8 +31,9 @@ mapping allTypeDesc = ([
 array(string) all_type = ({"mark","account","all_fee","home_bi","home_yu","honerpt","lunhuipt"});
 mapping(string:array(mapping(string:mixed))) all_info=([]);
 private int last_database_warning;
+private Thread.Mutex database_lock = Thread.Mutex();
 
-private int ensure_database()
+private int ensure_database_unlocked()
 {
 	if(db)
 		return 1;
@@ -55,6 +56,42 @@ private int ensure_database()
 		return 0;
 	}
 	return 1;
+}
+
+private int ensure_database()
+{
+	object key = database_lock->lock();
+	int ready = ensure_database_unlocked();
+	destruct(key);
+	return ready;
+}
+
+/** Serialize one SELECT and reconnect once when MySQL dropped an idle link. */
+private mapping(string:mixed) execute_database_query(string query_sql)
+{
+	object key = database_lock->lock();
+	for(int attempt=0;attempt<2;attempt++){
+		mixed rows;
+		mixed query_err;
+		if(!ensure_database_unlocked())
+			continue;
+		query_err = catch { rows = db->query(query_sql); };
+		if(!query_err && arrayp(rows)){
+			destruct(key);
+			return (["ok":1,"rows":rows,"retried":attempt]);
+		}
+		// Sql.Sql objects can remain truthy after their connection has died.
+		// Drop the stale handle before the single bounded reconnect attempt.
+		db = 0;
+	}
+	destruct(key);
+	return (["ok":0,"rows":({})]);
+}
+
+array(mapping(string:mixed)) test_preserve_ranking_snapshot(int query_ok,
+	array(mapping(string:mixed)) current,array(mapping(string:mixed)) fresh)
+{
+	return query_ok ? fresh : current;
 }
 
 private array(mapping(string:mixed)) filter_toplist_for_zone(
@@ -102,13 +139,11 @@ protected void create()
 	//由此获得距离现在还有多少时间更新
 	int need_time_mark = update_time_mark - time();
 	//	need_time_mark = 40; //测试用
-	if(db) {
-		for(int i=0;i<sizeof(all_type);i++)
-		{
-			string type = all_type[i];
-			if(type&&sizeof(type))
-				call_out(update_toplist,need_time_mark,type,0);
-		}
+	for(int i=0;i<sizeof(all_type);i++)
+	{
+		string type = all_type[i];
+		if(type&&sizeof(type))
+			call_out(update_toplist,need_time_mark,type,0);
 	}
 	
 
@@ -126,13 +161,11 @@ protected void create()
 	int update_time_fee = mktime(0,59,23,now_mday,now_mon,now_year);
 	int need_time_fee = update_time_fee - time();
 
-	// 只有在 MySQL 可用时才设置定时任务
-	if(db) {
-		call_out(update_mark_toplist,need_time_mark);
-		call_out(update_account_toplist,need_time_account);
-		call_out(update_home_yushi_toplist,need_time_home_yushi);
-		call_out(update_home_money_toplist,need_time_home_money);
-	}
+	// 即使启动瞬间 MySQL 不可用也保留定时器；执行时会进行一次有界重连。
+	call_out(update_mark_toplist,need_time_mark);
+	call_out(update_account_toplist,need_time_account);
+	call_out(update_home_yushi_toplist,need_time_home_yushi);
+	call_out(update_home_money_toplist,need_time_home_money);
 
 }
 //外部调用接口
@@ -153,17 +186,18 @@ void update_toplist(string type,int fg)
 {
 	if(search(all_type,type)==-1)
 		return;
-	all_info[type] = flush_toplist(type);
+	mapping refreshed = load_toplist(type);
+	if((int)refreshed["ok"])
+		all_info[type] = (array(mapping(string:mixed)))refreshed["rows"];
 	if(!fg)
 		call_out(update_toplist,UPDATE_TIME,type,0);
 	return;
 }
 //更新排行的操作
-array(mapping(string:mixed)) flush_toplist(string type)
+private mapping(string:mixed) load_toplist(string type)
 {
-	array(mapping(string:mixed)) result = ({});
-	if(search(all_type,type)==-1 || !ensure_database())
-		return result;
+	if(search(all_type,type)==-1)
+		return (["ok":0,"rows":({})]);
 	mapping(string:int) limit_time = localtime(time()-3600*24*TOP_DAY);
 	int limit_mday = limit_time["mday"];
 	string day = limit_mday+"";
@@ -180,33 +214,41 @@ array(mapping(string:mixed)) flush_toplist(string type)
 
 	//db=Sql.Sql(dbSql,optionsMap);
 	string time_limit = limit_year+"-" + mon + "-" + day;
-	string querySql = "select distinct(id),name_cn,level,bangid,raceId,profeId,mark,all_fee,lunhuipt from xd_daily_user A,(select id as bid,max(day_login_time) max_time from xd_daily_user where day_login_time >'"+time_limit+"' group by id) B where A.area='"+GAME_NAME_S+"' and A.day_login_time >'"+ time_limit +"' and A.name_cn !=\"\" and A.id=B.bid and A.day_login_time = B.max_time  order by abs("+type+") desc limit "+TOP_NUM+";";
-	//werror("====== "+ querySql+" =======\n");
-	mixed catchResult = catch {
-		//if(!db)
-		//	db=Sql.Sql(dbSql,optionsMap);
-		//result = db->query(querySql);
-	};
-	if(catchResult)
-	{
+	string querySql = "select distinct(id),name_cn,level,bangid,raceId,"+
+		"profeId,mark,all_fee,account,home_bi,home_yu,honerpt,lunhuipt "+
+		"from xd_daily_user A,(select id as bid,max(day_login_time) max_time "+
+		"from xd_daily_user where day_login_time >'"+time_limit+"' group by id) B "+
+		"where A.area='"+GAME_NAME_S+"' and A.day_login_time >'"+time_limit+
+		"' and A.name_cn !=\"\" and A.id=B.bid and "+
+		"A.day_login_time=B.max_time order by abs("+type+") desc limit "+
+		TOP_NUM+";";
+	mapping refreshed = execute_database_query(querySql);
+	if(!(int)refreshed["ok"]){
 		string now=ctime(time());
 		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_toplist failed\n");
-		return ({});
 	}
-	return result;
+	return refreshed;
+}
+
+array(mapping(string:mixed)) flush_toplist(string type)
+{
+	mapping refreshed = load_toplist(type);
+	return (int)refreshed["ok"] ?
+		(array(mapping(string:mixed)))refreshed["rows"] : ({});
 }
 
 //更新综合实力排行榜
 void update_mark_toplist(int fg)
 {
-	mark_toplist = flush_mark_toplist();
+	mapping refreshed = load_mark_toplist();
+	if((int)refreshed["ok"])
+		mark_toplist = (array(mapping(string:mixed)))refreshed["rows"];
 	if(!fg)
 		call_out(update_mark_toplist,UPDATE_TIME);
 	return;
 }
-array(mapping(string:mixed)) flush_mark_toplist()
+private mapping(string:mixed) load_mark_toplist()
 {
-	array(mapping(string:mixed)) result = ({});
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
@@ -224,36 +266,36 @@ array(mapping(string:mixed)) flush_mark_toplist()
 	string time_limit = now_year+"-"+mon;
 	
 	string querySql = "select distinct id,name_cn,level,bangid,raceId,profeId,mark from xd_daily_user where area='"+GAME_NAME_S+"' and day_login_time like '"+time_limit+"%'and name_cn != \"\" order by mark desc limit 50;";
-	mixed catchResult = catch {  
-		result = db->query(querySql);
-	};
-	if(catchResult)
-	{
+	mapping refreshed = execute_database_query(querySql);
+	if(!(int)refreshed["ok"]){
 		string now=ctime(time());
 		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_mark_toplist failed\n");
-		return ({});
 	}
-	//db操作结束
-	return result;
+	return refreshed;
+}
+
+array(mapping(string:mixed)) flush_mark_toplist()
+{
+	mapping refreshed = load_mark_toplist();
+	return (int)refreshed["ok"] ?
+		(array(mapping(string:mixed)))refreshed["rows"] : ({});
 }
 
 //更新金钱排行榜
 array(mapping(string:mixed)) account_toplist = ({});
 void update_account_toplist(int fg)
 {
-	account_toplist = flush_account_toplist();
+	mapping refreshed = load_account_toplist();
+	if((int)refreshed["ok"])
+		account_toplist = (array(mapping(string:mixed)))refreshed["rows"];
 	if(!fg)
 		call_out(update_account_toplist,UPDATE_TIME);
 	return;
 }
 
 //金钱排行查询
-array(mapping(string:mixed)) flush_account_toplist()
+private mapping(string:mixed) load_account_toplist()
 {
-	array(mapping(string:mixed)) result = ({});
-	if(!ensure_database())
-		return result;
-
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
@@ -270,18 +312,19 @@ array(mapping(string:mixed)) flush_account_toplist()
 	
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct id,name_cn,level,bangid,raceId,profeId,account from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by account desc limit 50;";
-	mixed catchResult = catch {  
-		result = db->query(querySql);
-		//werror("----"+querySql+"----\n");
-	};
-	if(catchResult)
-	{
+	mapping refreshed = execute_database_query(querySql);
+	if(!(int)refreshed["ok"]){
 		string now=ctime(time());
 		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_account_toplist failed\n");
-		return ({});
 	}
-	//db操作结束
-	return result;
+	return refreshed;
+}
+
+array(mapping(string:mixed)) flush_account_toplist()
+{
+	mapping refreshed = load_account_toplist();
+	return (int)refreshed["ok"] ?
+		(array(mapping(string:mixed)))refreshed["rows"] : ({});
 }
 
 //外部获得排行的接口
@@ -303,19 +346,17 @@ array(mapping(string:mixed)) query_account_toplist(void|string viewer_id)
 array(mapping(string:mixed)) home_yushi_toplist = ({});
 void update_home_yushi_toplist(int fg)
 {
-	home_yushi_toplist = flush_home_yushi_toplist();
+	mapping refreshed = load_home_yushi_toplist();
+	if((int)refreshed["ok"])
+		home_yushi_toplist = (array(mapping(string:mixed)))refreshed["rows"];
 	if(!fg)
 		call_out(update_home_yushi_toplist,UPDATE_TIME);
 	return;
 }
 
-//私家小店销量（玉石）排行查询
-array(mapping(string:mixed)) flush_home_yushi_toplist()
+//私家小店销量（金币）排行查询
+private mapping(string:mixed) load_home_yushi_toplist()
 {
-	array(mapping(string:mixed)) result = ({});
-	if(!ensure_database())
-		return result;
-
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
@@ -332,36 +373,35 @@ array(mapping(string:mixed)) flush_home_yushi_toplist()
 	
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct id,name_cn,home_yu from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by home_yu desc limit 50;";
-	mixed catchResult = catch {  
-		result = db->query(querySql);
-		//werror("----"+querySql+"----\n");
-	};
-	if(catchResult)
-	{
+	mapping refreshed = execute_database_query(querySql);
+	if(!(int)refreshed["ok"]){
 		string now=ctime(time());
 		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_home_yushi_toplist failed\n");
-		return ({});
 	}
-	//db操作结束
-	return result;
+	return refreshed;
+}
+
+array(mapping(string:mixed)) flush_home_yushi_toplist()
+{
+	mapping refreshed = load_home_yushi_toplist();
+	return (int)refreshed["ok"] ?
+		(array(mapping(string:mixed)))refreshed["rows"] : ({});
 }
 //更新私家小店销量（黄金）排行榜
 array(mapping(string:mixed)) home_money_toplist = ({});
 void update_home_money_toplist(int fg)
 {
-	home_money_toplist = flush_home_money_toplist();
+	mapping refreshed = load_home_money_toplist();
+	if((int)refreshed["ok"])
+		home_money_toplist = (array(mapping(string:mixed)))refreshed["rows"];
 	if(!fg)
 		call_out(update_home_money_toplist,UPDATE_TIME);
 	return;
 }
 
 //私家小店销量（玉石）排行查询
-array(mapping(string:mixed)) flush_home_money_toplist()
+private mapping(string:mixed) load_home_money_toplist()
 {
-	array(mapping(string:mixed)) result = ({});
-	if(!ensure_database())
-		return result;
-
 	//localtime()返回的时间格式参见pike文档，需要做一些调整才能用于sql查询	
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
@@ -377,19 +417,20 @@ array(mapping(string:mixed)) flush_home_money_toplist()
 	int now_year = now_time["year"]+1900;
 	
 	string time_limit = now_year+"-"+mon+"-"+day;
-	string querySql = "select distinct id,name_cn,home_yu from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by home_bi desc limit 50;";
-	mixed catchResult = catch {  
-		result = db->query(querySql);
-		//werror("----"+querySql+"----\n");
-	};
-	if(catchResult)
-	{
+	string querySql = "select distinct id,name_cn,home_bi from xd_daily_user where area='"+ GAME_NAME_S +"' and day_login_time like '"+time_limit+"%' and name_cn != \"\" order by home_bi desc limit 50;";
+	mapping refreshed = execute_database_query(querySql);
+	if(!(int)refreshed["ok"]){
 		string now=ctime(time());
 		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_home_money_toplist failed\n");
-		return ({});
 	}
-	//db操作结束
-	return result;
+	return refreshed;
+}
+
+array(mapping(string:mixed)) flush_home_money_toplist()
+{
+	mapping refreshed = load_home_money_toplist();
+	return (int)refreshed["ok"] ?
+		(array(mapping(string:mixed)))refreshed["rows"] : ({});
 }
 //家园私家小店销量排行（玉石交易）的外部接口 caijie 08/11/18
 array(mapping(string:mixed)) query_home_yushi_toplist(void|string viewer_id)
@@ -420,18 +461,16 @@ array(mapping(string:mixed)) query_fee_toplist()
 //更新捐赠排行榜
 void update_fee_toplist(int fg)
 {
-	fee_toplist = flush_fee_toplist();
+	mapping refreshed = load_fee_toplist();
+	if((int)refreshed["ok"])
+		fee_toplist = (array(mapping(string:mixed)))refreshed["rows"];
 	if(!fg)
 		call_out(update_fee_toplist,UPDATE_TIME);
 	return;
 }
 //捐赠排行查询
-array(mapping(string:mixed)) flush_fee_toplist()
+private mapping(string:mixed) load_fee_toplist()
 {
-	array(mapping(string:mixed)) result = ({});
-	if(!ensure_database())
-		return result;
-
 	mapping(string:int) now_time = localtime(time());
 	int now_mday = now_time["mday"];
 	string day = now_mday+"";
@@ -447,22 +486,18 @@ array(mapping(string:mixed)) flush_fee_toplist()
 	
 	string time_limit = now_year+"-"+mon+"-"+day;
 	string querySql = "select distinct(user_id),SUM(amount) from wap_szx where game_id = '"+ GAME_NAME_S+"' group by user_id order by SUM(amount) desc limit 100;";
-	mixed catchResult = catch {  
-		result = db->query(querySql);
-		//werror("----"+querySql+"----\n");
-	};
-	if(catchResult)
-	{
+	mapping refreshed = execute_database_query(querySql);
+	if(!(int)refreshed["ok"]){
 		string now=ctime(time());
 		Stdio.append_file(ROOT+"/log/paihang_err.log",now[0..sizeof(now)-2]+": query_fee_toplist failed\n");
-		return ({});
 	}
-	if(!result || !sizeof(result))
-		return ({});
+	if(!(int)refreshed["ok"] || !sizeof((array)refreshed["rows"]))
+		return refreshed;
 	//db操作结束
 	//通过uid得到中文名,得到最后的返回值
 	array(mapping(string:mixed)) result_to_return = ({});
 	int j = 0;
+	array result = (array)refreshed["rows"];
 	for(int i=0;i<sizeof(result);i++){
 		string user_id = result[i]["user_id"];
 		object user = find_player(user_id);
@@ -489,5 +524,12 @@ array(mapping(string:mixed)) flush_fee_toplist()
 				break;
 		}
 	}
-	return result_to_return;
+	return (["ok":1,"rows":result_to_return]);
+}
+
+array(mapping(string:mixed)) flush_fee_toplist()
+{
+	mapping refreshed = load_fee_toplist();
+	return (int)refreshed["ok"] ?
+		(array(mapping(string:mixed)))refreshed["rows"] : ({});
 }

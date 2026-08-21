@@ -139,6 +139,49 @@ void test_item_publish_runtime()
 	if(new_object)
 		destruct(new_object);
 	rm(new_path);
+
+	string restore_path=ROOT+
+		"/gamelib/clone/item/.test_runtime_restore_preflight";
+	string restore_source="void create(){\n"+
+		"\tint restore_value=31;\n}\n";
+	rm(restore_path);
+	Stdio.write_file(restore_path,restore_source);
+	normalize_item_source_file(restore_path);
+	saved=Stdio.read_file(restore_path) || "";
+	object restored_item;
+	mixed restore_err=catch { restored_item=(object)restore_path; };
+	check("人物背包恢复在driver加载旧装备前显式规范create",
+		!restore_err && restored_item &&
+		search(saved,"protected void create(){")!=-1 &&
+		search(saved,"\nvoid create(){")==-1,
+		sprintf("恢复预检失败 err=%O object=%d source=%O",
+			restore_err,!!restored_item,saved));
+	if(restored_item)
+		destruct(restored_item);
+	rm(restore_path);
+
+	string truncated_path=ROOT+
+		"/gamelib/clone/item/.test_runtime_truncated_generated";
+	string truncated_source="#include <globals.h>\n"+
+		"#include <gamelib/include/gamelib.h>\n"+
+		"inherit WAP_ARMOR;\n"+
+		"protected void create(){\n"+
+		"\tname=object_name(this_object());\n"+
+		"\tname_cn=\"测试旧装备\";\n";
+	rm(truncated_path);
+	Stdio.write_file(truncated_path,truncated_source);
+	normalize_item_source_file(truncated_path);
+	saved=Stdio.read_file(truncated_path) || "";
+	object truncated_item;
+	mixed truncated_err=catch { truncated_item=(object)truncated_path; };
+	check("历史生成装备恰好缺失末尾大括号时惰性保守修复",
+		!truncated_err && truncated_item && has_suffix(saved,"}\n") &&
+		sizeof(saved)>sizeof(truncated_source),
+		sprintf("截断装备修复失败 err=%O object=%d source=%O",
+			truncated_err,!!truncated_item,saved));
+	if(truncated_item)
+		destruct(truncated_item);
+	rm(truncated_path);
 }
 
 int main()
@@ -152,11 +195,18 @@ int main()
 	string mapd = Stdio.read_file(ROOT+"/gamelib/single/daemons/mapd.pike") || "";
 	string store = Stdio.read_file(ROOT+
 		"/lowlib/mudlib/single/specstored.pike") || "";
+	string save_feature = Stdio.read_file(ROOT+
+		"/lowlib/system/inherit/feature/save.pike") || "";
 	mixed get_compile_err = catch {
 		compile_file(ROOT+"/gamelib/cmds/get.pike");
 	};
 	mixed vendue_compile_err = catch {
 		compile_file(ROOT+"/gamelib/cmds/vendue_cancel.pike");
+	};
+	object|zero fly_command;
+	mixed fly_compile_err = catch {
+		fly_command=(object)(ROOT+
+			"/gamelib/cmds/home_function_fly_show_target.pike");
 	};
 	array(string) create_sources = ({
 		"/lowlib/conn.pike",
@@ -185,8 +235,12 @@ int main()
 		"多Worker仍可能同时截断同一装备源码");
 	check("历史生成装备按首次加载惰性修复且检查缓存有界",
 		search(efuns,"normalize_existing_item_source(path)")!=-1 &&
+		search(efuns,"void normalize_item_source_file(string file)")!=-1 &&
 		search(efuns,"ITEM_SOURCE_CHECK_CACHE_LIMIT 16384")!=-1 &&
-		search(efuns,"write_item_file(file,normalized,1)")!=-1,
+		search(efuns,"write_item_file(file,normalized,1)")!=-1 &&
+		search(save_feature,"normalize_item_source_file(final_path);")!=-1 &&
+		search(save_feature,"object ob=clone(final_path);")>
+			search(save_feature,"normalize_item_source_file(final_path);"),
 		"重启仍可能全量扫描百万物品，或每次克隆都重复读取源码");
 	check("所有装备与技能生成入口在写盘前统一规范create",
 		search(efuns,"normalize_generated_item_source")!=-1 &&
@@ -212,6 +266,19 @@ int main()
 	check("生产历史报错的拾取与取消拍卖命令保持可编译",
 		!get_compile_err && !vendue_compile_err,
 		"get或vendue_cancel再次出现Cpp/对象加载失败");
+	string valid_fly_target=ROOT+"/gamelib/d/congxianzhen/xiaomuwu";
+	check("家园飞行命令可编译且只接受静态地图树内目的地",
+		!fly_compile_err && fly_command &&
+		fly_command->normalize_home_fly_target(valid_fly_target)==
+			valid_fly_target &&
+		fly_command->home_fly_target_command_arg(valid_fly_target)==
+			"congxianzhen/xiaomuwu" &&
+		fly_command->normalize_home_fly_target(
+			ROOT+"/gamelib/d/../single/daemons/homed.pike")=="" &&
+		fly_command->normalize_home_fly_target(
+			ROOT+"/gamelib/d/congxianzhen/xiaomuwu#7")=="" &&
+		fly_command->normalize_home_fly_target("/tmp/not-a-map")=="",
+		sprintf("飞行命令编译或路径白名单失败 err=%O",fly_compile_err));
 
 	test_item_publish_runtime();
 	werror("运行加固：总计%d，通过%d，失败%d\n",

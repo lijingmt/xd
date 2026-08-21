@@ -71,6 +71,17 @@ void test_heartbeat_enemy_snapshot_contract()
 
 int main()
 {
+	string user_source=Stdio.read_file(ROOT+"/gamelib/clone/user.pike") || "";
+	string fight_source=Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/inherit/feature/fight.pike") || "";
+	check("跨Worker退休人物先停心跳且所有战斗入口拒绝继续结算",
+		search(user_source,"void prepare_worker_retirement()")!=-1 &&
+		search(user_source,"worker_retirement_started=1;")!=-1 &&
+		search(user_source,"set_heart_beat(0);")!=-1 &&
+		search(user_source,"prepare_worker_retirement();")<
+			search(user_source,"destruct(this_object());") &&
+		search(fight_source,"query_worker_retirement_started")!=-1,
+		"源人物析构时心跳仍可能继续施放技能或访问已析构对象");
 	werror("\n========== 战斗运行保护测试 ==========\n");
 	test_summon_repeated_focus();
 	test_heartbeat_enemy_snapshot_contract();

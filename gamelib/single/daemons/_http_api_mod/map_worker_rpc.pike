@@ -1129,10 +1129,12 @@ private void handle_map_worker_local_account_refresh(
 private void handle_map_worker_local_online_users(
     Protocols.HTTP.Server.Request req)
 {
+	int captured_at = time();
+	array(mapping(string:mixed)) rows = map_worker_local_online_rows();
     send_json(req,(["ok":1,"worker_id":
         MAP_WORKERD->query_local_worker_id(),"incarnation":
-        MAP_WORKERD->query_local_process_incarnation(),"users":
-        map_worker_local_online_rows()]));
+        MAP_WORKERD->query_local_process_incarnation(),
+		"captured_at":captured_at,"users":rows]));
 }
 
 private int map_worker_social_friend(object player,string userid)
