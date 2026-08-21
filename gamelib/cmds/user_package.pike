@@ -59,6 +59,7 @@ int main(string|zero arg)
 	}
 	else
 		s += "现在你暂时不能进行该操作，请返回。\n";
+	s+="[账号共享仓库:account_storage]|[仓库中心:storage]\n";
 	s+="[返回武阁:look]\n";
 	write(s);
 	return 1;

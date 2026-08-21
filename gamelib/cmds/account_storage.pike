@@ -75,7 +75,8 @@ int main(string|zero arg)
 	if(mode=="menu"){
 		s += "请选择要做的事：\n";
 		s += "[放入共享：角色仓库 → 账号共享:account_storage put 0]\n";
-		s += "[取给角色：账号共享 → 角色仓库:account_storage take 0]\n\n";
+		s += "[取给角色：账号共享 → 角色仓库:account_storage take 0]\n";
+		s += "[背包直接存入角色仓库:user_package]|[仓库中心:storage]\n\n";
 	}
 	else if(mode=="put"){
 		personal = ACCOUNT_STORAGED->query_filtered_storage_items(

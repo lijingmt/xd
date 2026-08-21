@@ -47,6 +47,7 @@ int main()
 	object go_command = (object)(ROOT+"/gamelib/cmds/go_warehouse.pike");
 	object store_command = (object)(ROOT+"/gamelib/cmds/user_package.pike");
 	object take_command = (object)(ROOT+"/gamelib/cmds/user_repackage.pike");
+	object hub_command = (object)(ROOT+"/gamelib/cmds/storage.pike");
 	array(array(string)) routes = ({
 		({"human","jianxian","kunlunshan/wuge"}),
 		({"monst","kuangyao","jinaodao/wuge"}),
@@ -165,6 +166,20 @@ int main()
 			!sizeof(player->packaged_items) &&
 			same_name_count==2,
 			"取回后仓库或背包状态错误");
+		// 统一仓库中心：一页呈现两套仓库并可直达。
+		object hub_player=create_player("__testunit_storage_hub__",
+			"human","jianxian");
+		players+=({hub_player});
+		set_this_player(hub_player);
+		hub_player->move(ROOT+
+			"/gamelib/d/congxianzhen/congxianzhenguangchang");
+		hub_command->main("");
+		object hub_room_ob=(object)(ROOT+
+			"/gamelib/d/kunlunshan/wuge");
+		string hub_room=hub_room_ob->query_links();
+		check("仓库中心一页呈现并联动角色与共享仓库入口",
+			search(hub_room,"统一入口:storage")!=-1,
+			"仓库中心或武阁入口缺失");
 	};
 	if(err)
 		error_desc = describe_error(err);

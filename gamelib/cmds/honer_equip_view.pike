@@ -22,6 +22,7 @@ int main(string|zero arg)
 	if(catalog_race == "")
 		s += "哪里跑来的妖孽，如此猖狂~~\n";
 	else{
+		s += "[顶级荣誉装备（按等级定制）:honer_buy_top]\n";
 		if(catalog_race == "human"){
 			if(type == "weapon"){
 				s += "武器|[布衣:honer_equip_view buyi]|[轻甲:honer_equip_view qingjia]|[重铠:honer_equip_view zhongkai]|[饰品:honer_equip_view decorate]|[特殊:honer_equip_view spec]\n";

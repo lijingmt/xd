@@ -104,6 +104,26 @@ int main()
 		sender->move(room);
 		receiver->move(room);
 		give_suiyu(sender,7);
+		// 太古传承等拾取绑定物：同账号放行、跨账号仍拒绝。
+		object alt=create_player("xd99transfer_sameacct","同账号小号");
+		alt->set_account_owner(sender_id);
+		alt->move(room);
+		object bound=clone(ROOT+
+			"/gamelib/clone/item/book/taigushanyin");
+		bound->move(sender);
+		bound->bind_to_account(sender);
+		int same_account_ok=PLAYER_TRANSFERD->
+			can_batch_gift_item(sender,alt,bound);
+		int cross_account_ok=PLAYER_TRANSFERD->
+			can_batch_gift_item(sender,receiver,bound);
+		check("账号绑定传承物同账号可转移且跨账号仍禁止",
+			same_account_ok && !cross_account_ok,
+			sprintf("same=%d cross=%d",same_account_ok,
+				cross_account_ok));
+		if(bound)
+			destruct(bound);
+		discard_player(alt);
+		cleanup_player("xd99transfer_sameacct");
 		mapping gift_offer=PLAYER_TRANSFERD->create_gift_offer(sender,receiver,
 			"suiyu",0);
 		mapping gift=PLAYER_TRANSFERD->execute_gift(receiver,sender,

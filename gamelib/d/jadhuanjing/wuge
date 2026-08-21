@@ -35,6 +35,7 @@ string query_links(){
 	object player=this_player();
 	string tmp="";
 	if(player->can_use_room_race(room_race)){
+		tmp+="§g【仓库中心】§r[统一入口:storage]\n";
 		tmp+="当前角色仓库：[背包存入:user_package]|"+
 			"[取到背包:user_repackage]|"+
 			"[扩充容量:user_package_buy_list]\n";

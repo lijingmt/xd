@@ -19,6 +19,14 @@ private object|zero query_recipient(object sender,string userid)
 		PLAYER_TRANSFERD->same_local_room(sender,recipient) ? recipient : 0;
 }
 
+private int valid_gift_filter(object sender,string category)
+{
+	if(category=="" || category=="all")
+		return 1;
+	return functionp(sender->valid_inventory_browser_category) &&
+		sender->valid_inventory_browser_category(category);
+}
+
 private object|zero query_inventory_runtime_ref(object owner,string item_ref)
 {
 	if(!owner || !item_ref || item_ref=="")
@@ -65,12 +73,20 @@ private string render_page(object sender,object recipient,int page)
 {
 	array(object) selected=query_selected(sender,
 		(string)recipient->query_name());
+	string category=(string)sender["/tmp/batch_gift/category"];
+	mapping(string:string) labels=
+		sender->query_inventory_browser_category_labels();
+	if(!valid_gift_filter(sender,category))
+		category="";
 	array(mapping(string:mixed)) rows=({});
 	mapping(string:int) name_counts=([]);
 	foreach(all_inventory(sender),object item){
 		string name;
 		int index;
 		if(!item || item->query_toVip())
+			continue;
+		if(category!="" && category!="all" &&
+		   (string)sender->query_inventory_browser_category(item)!=category)
 			continue;
 		name=(string)item->query_name();
 		index=(int)name_counts[name];
@@ -87,6 +103,18 @@ private string render_page(object sender,object recipient,int page)
 	string out="【批量赠送】\n接收者："+
 		(string)recipient->query_name_cn()+"；已选择"+sizeof(selected)+
 		"/"+BATCH_GIFT_MAX_ITEMS+"件。\n";
+	out+="筛选：";
+	foreach(({"all","equipment","medicine","book","material","jade",
+		"box","other"}),string one){
+		if(one!="all")
+			out+="|";
+		if(one==category || (category=="" && one=="all"))
+			out+=(string)labels[one];
+		else
+			out+="["+(string)labels[one]+":batch_gift filter "+
+				(string)recipient->query_name()+" "+one+"]";
+	}
+	out+="\n";
 	if(!sizeof(rows))
 		out+="当前没有可赠送物品。\n";
 	for(int position=start;position<end;position++){
@@ -132,6 +160,19 @@ int main(string|zero arg)
 		object recipient=query_recipient(sender,recipient_id);
 		write(recipient ? render_page(sender,recipient,page) :
 			"接收者已不在同一房间。\n[返回游戏:look]\n");
+		return 1;
+	}
+	if(sscanf(arg,"filter %s %s",recipient_id,item_name)==2){
+		object recipient=query_recipient(sender,recipient_id);
+		if(item_name=="all" || item_name=="" ||
+		   sender->valid_inventory_browser_category(item_name)){
+			sender["/tmp/batch_gift/category"]=
+				item_name=="all" ? "" : item_name;
+			write(recipient ? render_page(sender,recipient,0) :
+				"接收者已不在同一房间。\n[返回游戏:look]\n");
+		}
+		else
+			write("筛选分类无效。\n[返回游戏:look]\n");
 		return 1;
 	}
 	if(sscanf(arg,"clear %s",recipient_id)==1){

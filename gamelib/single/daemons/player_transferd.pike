@@ -167,6 +167,23 @@ private int restore_delivered_item(object recipient,object source,object item,
 	return 1;
 }
 
+// 太古传承等拾取即绑定物：同一注册账号的人物之间允许直接转移，
+// 跨账号仍按原绑定禁止。绑定归属以物品上的账号绑定标记为准。
+private int same_account_bound_transfer(object item,object recipient)
+{
+	string bound_account;
+	string recipient_account;
+	if(!item || !functionp(item->query_bind_account_on_pickup) ||
+	   !(int)item->query_bind_account_on_pickup() ||
+	   !functionp(item->query_account_bind_owner) || !recipient)
+		return 0;
+	bound_account=(string)item->query_account_bind_owner();
+	recipient_account=functionp(recipient->query_account_owner) ?
+		(string)recipient->query_account_owner() : "";
+	return bound_account!="" && recipient_account!="" &&
+		bound_account==recipient_account;
+}
+
 private int transferable(object item,int gift,object first,object second)
 {
 	if(!item || item->query_toVip() || item->equiped)
@@ -175,9 +192,11 @@ private int transferable(object item,int gift,object first,object second)
 	// marker is the authoritative defense against tampered or stale instances.
 	if(ITEMSD->newmoon_item_cross_account_blocked(item))
 		return 0;
-	if(gift && (int)item->query_item_canSend()!=1)
+	if(gift && (int)item->query_item_canSend()!=1 &&
+	   !same_account_bound_transfer(item,second))
 		return 0;
-	if(!gift && (int)item->query_item_canTrade()!=1)
+	if(!gift && (int)item->query_item_canTrade()!=1 &&
+	   !same_account_bound_transfer(item,second))
 		return 0;
 	if(item->query_item_type()=="yushi" &&
 	   ((int)first->query_level()<=8 || (int)second->query_level()<=8))
