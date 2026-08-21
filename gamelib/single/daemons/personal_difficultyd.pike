@@ -13,31 +13,41 @@ inherit LOW_DAEMON;
 
 // 基础模式逐项保持线上公式。七档挑战只通过统一边界应用增量倍率，
 // 任何非法或旧存档值都会失败关闭到基础模式。
+// exp_percent / rare_drop_percent：更高难度换更高打怪经验与稀有掉率；
+// 与承伤、输出惩罚和挂机时长共同构成风险回报曲线。
 private array(mapping(string:mixed)) difficulty_catalog=({
 	(["id":"base","name":"基础","min_level":1,"kills":0,"bosses":0,
 		"outgoing_percent":100,"incoming_percent":100,
-		"set_drop_percent":100,"afk_cap_hours":24]),
+		"set_drop_percent":100,"afk_cap_hours":24,
+		"exp_percent":100,"rare_drop_percent":100]),
 	(["id":"wendao","name":"问道","min_level":70,"kills":20000,"bosses":50,
 		"outgoing_percent":95,"incoming_percent":108,
-		"set_drop_percent":112,"afk_cap_hours":16]),
+		"set_drop_percent":112,"afk_cap_hours":16,
+		"exp_percent":106,"rare_drop_percent":115]),
 	(["id":"ningzhen","name":"凝真","min_level":100,"kills":50000,"bosses":120,
 		"outgoing_percent":90,"incoming_percent":118,
-		"set_drop_percent":125,"afk_cap_hours":14]),
+		"set_drop_percent":125,"afk_cap_hours":14,
+		"exp_percent":112,"rare_drop_percent":132]),
 	(["id":"pojing","name":"破境","min_level":130,"kills":100000,"bosses":250,
 		"outgoing_percent":85,"incoming_percent":130,
-		"set_drop_percent":140,"afk_cap_hours":12]),
+		"set_drop_percent":140,"afk_cap_hours":12,
+		"exp_percent":120,"rare_drop_percent":150]),
 	(["id":"tongxuan","name":"通玄","min_level":160,"kills":180000,"bosses":450,
 		"outgoing_percent":80,"incoming_percent":145,
-		"set_drop_percent":160,"afk_cap_hours":10]),
+		"set_drop_percent":160,"afk_cap_hours":10,
+		"exp_percent":130,"rare_drop_percent":172]),
 	(["id":"dengxian","name":"登仙","min_level":190,"kills":280000,"bosses":700,
 		"outgoing_percent":75,"incoming_percent":162,
-		"set_drop_percent":185,"afk_cap_hours":8]),
+		"set_drop_percent":185,"afk_cap_hours":8,
+		"exp_percent":142,"rare_drop_percent":196]),
 	(["id":"lingxiao","name":"凌霄","min_level":220,"kills":400000,"bosses":1000,
 		"outgoing_percent":70,"incoming_percent":182,
-		"set_drop_percent":215,"afk_cap_hours":6]),
+		"set_drop_percent":215,"afk_cap_hours":6,
+		"exp_percent":156,"rare_drop_percent":224]),
 	(["id":"tianjie","name":"天劫","min_level":250,"kills":600000,"bosses":1500,
 		"outgoing_percent":65,"incoming_percent":205,
-		"set_drop_percent":250,"afk_cap_hours":4]),
+		"set_drop_percent":250,"afk_cap_hours":4,
+		"exp_percent":172,"rare_drop_percent":256]),
 });
 
 private int valid_scope_id(string value)
@@ -266,6 +276,24 @@ int query_set_drop_percent(object player)
 int query_set_drop_percent_for_level(int level)
 {
 	return (int)difficulty_catalog[bounded_level(level)]["set_drop_percent"];
+}
+
+int query_exp_percent(object player)
+{
+	return (int)difficulty_catalog[query_current_level(player)]
+		["exp_percent"];
+}
+
+int query_rare_drop_percent(object player)
+{
+	return (int)difficulty_catalog[query_current_level(player)]
+		["rare_drop_percent"];
+}
+
+int query_rare_drop_percent_for_level(int level)
+{
+	return (int)difficulty_catalog[bounded_level(level)]
+		["rare_drop_percent"];
 }
 
 /**

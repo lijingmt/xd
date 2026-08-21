@@ -878,7 +878,9 @@ private int get_spec_item_level(int level)
 	}
 }
 //外部接口，用于掉落特殊物品，
-object get_spec_item(int npclevel,int playerlevel,int playerluck)
+//rare_drop_percent：击杀者个人难度档的稀有掉率倍率（100为中性）。
+object get_spec_item(int npclevel,int playerlevel,int playerluck,
+	void|int rare_drop_percent)
 {
 	string spec_item_name=""; //特殊物品名称
 	array(string) spec_itemsallow=({}); //等级范围类允许特殊物品列表
@@ -891,6 +893,8 @@ object get_spec_item(int npclevel,int playerlevel,int playerluck)
 	//int got_it = 100000;
 	int got_it = 1000;
 	int itemlevel=get_spec_item_level(npclevel); //调用了获得物品等级的接口
+	if(rare_drop_percent<100 || rare_drop_percent>400)
+		rare_drop_percent = 100;
 	if(npclevel > 0){
 		int tmp = (int)npclevel/10;
 		if(tmp == 0)
@@ -912,7 +916,7 @@ object get_spec_item(int npclevel,int playerlevel,int playerluck)
 			}
 		}
 	}
-	if((random(100000)+1)<=got_it) {
+	if((random(100000)+1)<=got_it*rare_drop_percent/100) {
 		//werror("------spec_item_level="+itemlevel+"----\n");
 		if(itemlevel==0||itemlevel==1) //没有一级的特殊物品
 			return 0;
@@ -1017,6 +1021,26 @@ object dubo_item(int itemlevel,string item,int playerluck)
 	}
 	else	
 		return 0;
+}
+
+/** 荣誉兑换等系统：按等级取某类可装备白装模板路径（weapon/armor/decorate）。 */
+string query_equip_template_path(int level,string prefix)
+{
+	array(string) candidates;
+	array(string) matched=({});
+	if(search(({"weapon","armor","decorate"}),prefix)==-1)
+		return "";
+	if(level>73)
+		level=73;
+	if(level<1)
+		level=1;
+	candidates=item_list[level];
+	if(!arrayp(candidates))
+		return "";
+	foreach(candidates,string path)
+		if(has_prefix(path,prefix+"/"))
+			matched+=({path});
+	return sizeof(matched) ? matched[random(sizeof(matched))] : "";
 }
 
 //外部接口，由赌博的房间调用

@@ -71,6 +71,8 @@ int main()
 	array(int) incoming=({100,108,118,130,145,162,182,205});
 	array(int) drop=({100,112,125,140,160,185,215,250});
 	array(int) afk=({24,16,14,12,10,8,6,4});
+	array(int) exp_percent=({100,106,112,120,130,142,156,172});
+	array(int) rare_drop=({100,115,132,150,172,196,224,256});
 	array(int) required_kills=({0,20000,50000,100000,180000,280000,
 		400000,600000});
 	array(int) required_bosses=({0,50,120,250,450,700,1000,1500});
@@ -92,9 +94,14 @@ int main()
 				(int)catalog[tier]["incoming_percent"]==incoming[tier] &&
 				(int)catalog[tier]["set_drop_percent"]==drop[tier] &&
 				(int)catalog[tier]["afk_cap_hours"]==afk[tier] &&
+				(int)catalog[tier]["exp_percent"]==exp_percent[tier] &&
+				(int)catalog[tier]["rare_drop_percent"]==
+					rare_drop[tier] &&
 				(tier==0 || (outgoing[tier]<outgoing[tier-1] &&
 				 incoming[tier]>incoming[tier-1] &&
-				 drop[tier]>drop[tier-1] && afk[tier]<afk[tier-1]));
+				 drop[tier]>drop[tier-1] && afk[tier]<afk[tier-1] &&
+				 exp_percent[tier]>exp_percent[tier-1] &&
+				 rare_drop[tier]>rare_drop[tier-1]));
 		check("七阶累计163万击杀和4070首领且风险收益严格单调",catalog_ok,
 			sprintf("catalog=%O",catalog));
 
@@ -268,6 +275,18 @@ int main()
 			sizeof(fight/"scale_pve_damage")-1>=5 &&
 			sizeof(quick/"scale_pve_damage")-1==2,
 			"存在绕过统一伤害边界的主要战斗路径");
+		string level_source=Stdio.read_file(ROOT+
+			"/lowlib/mudlib/inherit/feature/level.pike") || "";
+		string items_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/itemsd.pike") || "";
+		string npc_source=Stdio.read_file(ROOT+
+			"/gamelib/inherit/npc.pike") || "";
+		check("打怪经验与稀有掉率真实接入难度回报曲线",
+			search(level_source,"query_exp_percent")!=-1 &&
+			search(items_source,"rare_drop_percent")!=-1 &&
+			search(npc_source,"query_rare_drop_percent_for_level")!=-1 &&
+			search(npc_source,"query_rare_drop_percent(first)")!=-1,
+			"经验或稀有掉率未挂在统一入口，高难度无回报");
 		check("难度不进入地图与RPC路由，所有档位仍在同房间见面",
 			search(worker,"personal_difficulty")==-1 &&
 			search(rpc,"personal_difficulty")==-1,

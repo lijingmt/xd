@@ -8,6 +8,20 @@ private string format_time(int seconds)
 	return hours+"小时"+minutes+"分钟";
 }
 
+private string tier_label(int level,mapping tier)
+{
+	string name=(string)tier["name"];
+	if(level>=7)
+		return "§6"+name+"§r";
+	if(level>=6)
+		return "§m"+name+"§r";
+	if(level>=4)
+		return "§b"+name+"§r";
+	if(level>=2)
+		return "§g"+name+"§r";
+	return name;
+}
+
 private void show_status(object player,string notice)
 {
 	mapping status=PERSONAL_DIFFICULTYD->query_status(player);
@@ -18,12 +32,16 @@ private void show_status(object player,string notice)
 	if(notice && notice!="")
 		out+=notice+"\n\n";
 	out+="进度归属："+(string)status["scope_name"]+"（与其他世界独立）\n";
-	out+="当前："+(string)current["name"]+"；已解锁至："+
-		(string)catalog[(int)status["unlocked_level"]]["name"]+"\n";
+	out+="当前："+tier_label((int)status["current_level"],current)+
+		"；已解锁至："+
+		tier_label((int)status["unlocked_level"],
+			catalog[(int)status["unlocked_level"]])+"\n";
 	out+="规则：所有难度仍在同一地图、同一房间和同一Worker相遇；只调整你本人对NPC的攻防风险、个人掉落和挂机额度，PVP不变。\n";
 	out+="PVE伤害：造成"+(int)current["outgoing_percent"]+"％；承受"+
-		(int)current["incoming_percent"]+"％；套装稀有池"+
-		(int)current["set_drop_percent"]+"％。\n";
+		(int)current["incoming_percent"]+"％；打怪经验"+
+		(int)current["exp_percent"]+"％；套装稀有池"+
+		(int)current["set_drop_percent"]+"％；稀有掉率"+
+		(int)current["rare_drop_percent"]+"％。\n";
 	out+="当前VIP难度挂机额度："+
 		format_time(AUTOFIGHTD->query_daily_seconds_for(player))+"；今日剩余："+
 		format_time(AUTOFIGHTD->query_time_left(player))+"。\n\n";
@@ -50,15 +68,18 @@ private void show_status(object player,string notice)
 	out+="\n切换难度（只能在主城/幻境入口、脱战且停止挂机后操作）：\n";
 	for(int level=0;level<sizeof(catalog);level++){
 		mapping tier=catalog[level];
+		string label=tier_label(level,tier);
 		string prefix=level==(int)status["current_level"] ? "✓ " : "";
 		if(level<=(int)status["unlocked_level"])
-			out+=prefix+"["+(string)tier["name"]+"：挂机上限"+
+			out+=prefix+"["+label+"：经验"+
+				(int)tier["exp_percent"]+"％ 稀有"+
+				(int)tier["rare_drop_percent"]+"％ 挂机上限"+
 				(int)tier["afk_cap_hours"]+"小时:personal_difficulty switch "+
 				level+"]\n";
 		else if((string)status["scope"]!="eternal")
-			out+=(string)tier["name"]+"（在上一档难度完成9个新章回后解锁）\n";
+			out+=label+"（在上一档难度完成9个新章回后解锁）\n";
 		else
-			out+=(string)tier["name"]+"（Lv"+(int)tier["min_level"]+
+			out+=label+"（Lv"+(int)tier["min_level"]+
 				"＋"+format_game_number((int)tier["kills"])+"次合格击杀＋"+
 				format_game_number((int)tier["bosses"])+"首领）\n";
 	}

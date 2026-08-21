@@ -445,11 +445,22 @@ int add_exp_with_bonus(int base_exp)
 mapping(string:int) add_kill_exp_with_bonus(int base_exp,int buff_percent,
 	int event_bonus_multiplier)
 {
+	// 个人难度档位的经验回报：异常或旧档一律回到100%中性倍率。
+	int difficulty_exp_percent = 100;
+	mixed difficulty_err = catch{
+		difficulty_exp_percent = PERSONAL_DIFFICULTYD->
+			query_exp_percent(this_object());
+	};
+	if(difficulty_err || difficulty_exp_percent<100 ||
+	   difficulty_exp_percent>200)
+		difficulty_exp_percent = 100;
+	base_exp = base_exp*difficulty_exp_percent/100;
 	mapping(string:int) reward = calculate_kill_exp_reward(base_exp,
 		buff_percent,event_bonus_multiplier,query_donation_exp_multiplier());
 	int actual_exp = add_exp_with_bonus(reward["stacked_exp"]);
 	reward["actual_exp"] = actual_exp;
 	reward["interface_bonus"] = actual_exp-reward["stacked_exp"];
+	reward["difficulty_exp_percent"] = difficulty_exp_percent;
 	return reward;
 }
 

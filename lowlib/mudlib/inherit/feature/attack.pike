@@ -309,10 +309,10 @@ int query_base_damage(){
 				result = dex;
 			break;
 			case 7://方士
-				result = str/8+dex/10;  // 方士自身攻击较弱，主要靠召唤物
+				result = str/5+dex/10;  // 方士仍以召唤物为主，堆力量不再是无效投入
 			break;
 			case 15://镇越
-				result = str/3;  // 生存优先，基础输出低于纯物理爆发职业
+				result = str/2;  // 山岳之力：力量收益对齐物理系，仍无敏捷成分
 			break;
 			case 16://天象
 				result = str/10;  // 法系职业的普通攻击仅作保底
