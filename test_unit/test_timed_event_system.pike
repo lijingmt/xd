@@ -73,6 +73,33 @@ void test_worker_ingress_recovery_rooms()
 		"活动入口不能重建或迁移中断后没有恢复动作");
 }
 
+void test_ingress_rooms_are_event_world()
+{
+	object daemon = (object)(ROOT+
+		"/gamelib/single/daemons/timed_eventd.pike");
+	object tianheng = (object)(ROOT+
+		"/gamelib/d/timed_event/tianheng_ingress.pike");
+	object jiuyao = (object)(ROOT+
+		"/gamelib/d/timed_event/jiuyao_ingress.pike");
+	object entrance = (object)(ROOT+"/gamelib/d/init");
+	object stale = create_player("__testunit_stale_ingress__");
+	string http_api_source = Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/http_api_daemon.pike") || "";
+	stale->set_raceId("human");
+	stale->last_pos = "/gamelib/d/timed_event/tianheng_ingress.pike";
+	int repaired = entrance->repair_invalid_login_positions(stale);
+	check("通道房属于活动世界且残留通道last_pos登录时被修复",
+		daemon && daemon->is_event_room(tianheng) &&
+		daemon->is_event_room(jiuyao) && repaired==1 &&
+		stale->last_pos==
+			"/gamelib/d/congxianzhen/congxianzhenguangchang",
+		"大厅下线的玩家重登仍会被送回已死亡的活动地图");
+	check("HTTP直连路由对无活动会话的残留活动位置改送登录菜单",
+		search(http_api_source,"stale_event_last_pos")!=-1 &&
+		search(http_api_source,"query_user_has_active_session")!=-1,
+		"静态租约玩家绕过init修复被直接送回活动世界或登录失败");
+}
+
 void test_invalid_login_positions_fall_back_to_main_city()
 {
 	object entrance = (object)(ROOT+"/gamelib/d/init");
@@ -442,6 +469,7 @@ int main()
 	werror("\n========== 每日限时原创玩法测试 ==========\n");
 	test_runtime_compile();
 	test_worker_ingress_recovery_rooms();
+	test_ingress_rooms_are_event_world();
 	test_invalid_login_positions_fall_back_to_main_city();
 	test_worker_single_writer_and_reward_ack_contract();
 	test_schedule_and_timezone();

@@ -9,7 +9,8 @@ int main(string arg)
 	object ob=present(name,this_player(),count);
 	if(ob){
 		if(ob->read_flag==1){
-			this_player()->pop_view();
+			// 学习结果直接压在当前页（如筛选卷轴页）之上：这里的
+			// 返回应回到玩家刚在用的界面，而不是弹掉它退到更早的页面。
 			int tmp = 0;
 			tmp = ob->read();
 			switch(tmp){

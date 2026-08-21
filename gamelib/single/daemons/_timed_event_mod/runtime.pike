@@ -475,6 +475,13 @@ private void return_player_from_event(object player,mapping participant)
 	player->set_mofa(player->query_mofa_max());
 }
 
+/** 外部登录流程查询：该玩家当前是否仍有进行中的活动会话。 */
+int query_user_has_active_session(string user_id)
+{
+	refresh_readonly_event_snapshot();
+	return query_session_for_user_id(user_id,1)!=0;
+}
+
 int restore_player(object player)
 {
 	mapping session;

@@ -421,13 +421,20 @@ private int ensure_http_player_routed_room(object player)
 		return 1;
 	userid = (string)player->query_name();
 	routed_affinity = MAP_WORKERD->query_local_player_route_affinity(userid);
+	target_path = (string)(player->last_pos || "");
+	// 活动已结束却仍把last_pos留在活动世界（大厅或克隆房）的人物，
+	// 不能被恢复进已死亡的活动地图，也不能直接判死登录；统一送回
+	// 登录菜单重新路由。仍在进行中的活动会话仍按原路接回。
+	int stale_event_last_pos =
+		has_prefix(target_path,"/gamelib/d/timed_event/") &&
+		!TIMED_EVENTD->query_user_has_active_session(userid);
 	if(MAP_WORKERD->query_node_role()!="worker" ||
-	   has_prefix(routed_affinity,"session:"))
+	   has_prefix(routed_affinity,"session:") ||
+	   stale_event_last_pos || search(target_path,"#")!=-1)
 		target_path = "/gamelib/d/init";
 	else{
-		target_path = (string)(player->last_pos || "");
 		if(!has_prefix(target_path,"/gamelib/d/") ||
-		   search(target_path,"..")!=-1 || search(target_path,"#")!=-1)
+		   search(target_path,"..")!=-1)
 			return 0;
 		target_affinity = MAP_WORKERD->query_affinity_key(target_path);
 		if(routed_affinity=="" || target_affinity!=routed_affinity)

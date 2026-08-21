@@ -115,6 +115,10 @@ mapping query_view_page_snapshot_status()
 	]);
 }
 void push_view(function f,mixed...args){
+	// 脚本连点（如连续读书）不允许无限加深视图栈；截断保留最近的
+	// 32层，正常玩家导航远达不到该深度。
+	if(sizeof(viewstack)>=32)
+		viewstack=viewstack[..30];
 	viewstack=({({f,args})})+viewstack;
 }
 void pop_view(){
