@@ -170,7 +170,12 @@ void test_personal_difficulty_afk_and_shared_world()
 		player["/plus/personal_difficulty/current"]=1;
 		daemon->sync_daily_limit(player);
 		valid=valid && daemon->query_daily_seconds_for(player)==5*3600+20*60;
-		// 新曲线：问道档输出100%、承伤100%（正常怪物攻防起步）。
+		// 新曲线：问道输出100%+承伤100%（正常），基础输出1000%+承伤10%。
+		player["/plus/personal_difficulty/unlocked"]=1;
+		player["/plus/personal_difficulty/current"]=0;
+		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==10000 &&
+			difficulty->scale_pve_damage(npc,player,1000)==100;
+		player["/plus/personal_difficulty/current"]=1;
 		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==1000 &&
 			difficulty->scale_pve_damage(npc,player,1000)==1000 &&
 			difficulty->scale_pve_damage(player,target_player,1000)==1000;
