@@ -68,6 +68,7 @@ int main()
 	int login_purge_ok=0;
 	int shared_purged=0;
 	int shared_purge_ok=0;
+	int wash_floor_ok=0;
 	int life_full=0;
 	int life_default=0;
 	int removed_ok=0;
@@ -151,6 +152,35 @@ int main()
 		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
 		if(legit)
 			destruct(legit);
+		// 洗炼保底：资源型重掷必须在顶部区间取样。base=1/target=280
+		// 时保底rate≥196×2.7≈529，任意一条已掷属性都不应低于500。
+		{
+			int wash_worst=2147483647;
+			mapping(string:int) wash_caps=ITEMSD->
+				query_base_attribute_caps(
+				"weapon/1duanmugun/1duanmugun");
+			for(int wash_i=0;wash_i<25;wash_i++){
+				object washed=ITEMSD->get_convert_item(
+					"weapon/1duanmugun/1duanmugun",3,1,280);
+				int one_max=0;
+				if(washed){
+					foreach(sort(indices(wash_caps)),string attr){
+						mixed reader=washed["query_"+attr];
+						if(functionp(reader)){
+							int v=(int)call_function(reader);
+							if(v>one_max)
+								one_max=v;
+						}
+					}
+					destruct(washed);
+				}
+				else
+					one_max=0;
+				if(one_max<wash_worst)
+					wash_worst=one_max;
+			}
+			wash_floor_ok=wash_worst>=500;
+		}
 		// 仓库彻底回收：伪造异常装备文件（爆炸级2600/千级999999），
 		// 验证文件分类、存入拒绝、取出回收、角色仓库登录清洗与
 		// 共享仓库过滤五条防线。
@@ -252,13 +282,20 @@ int main()
 	check("共享仓库过滤：异常条目被删除、正常条目保留",
 		!err && shared_purge_ok,
 		sprintf("purged=%d",shared_purged));
-	// 怪物默认血量：无配置文件时按原血量5%出生。
+	check("洗炼保底：重掷属性不低于顶部区间下限(500)",
+		!err && wash_floor_ok,
+		"洗炼出现远低于掉落水平的属性");
+	// 怪物默认血量：无配置文件时按原血量2%出生。
 	Stdio.write_file(DATA_ROOT+"balance_transition.json",
 		Standards.JSON.encode((["life_percent":100,
 			"attack_percent":100,"version":1])));
 	object npc_full=clone(ROOT+"/gamelib/clone/npc/kunlunshan/qinyuan1");
 	npc_full->setup_npc();
 	life_full=npc_full->get_cur_life();
+	// 副本怪走同一setup路径，也必须吃全局过渡系数。
+	object fb_full=clone(ROOT+"/gamelib/clone/npc/bawangbao/shihushou50");
+	int fb_life_full=fb_full->get_cur_life();
+	destruct(fb_full);
 	rm(DATA_ROOT+"balance_transition.json");
 	object npc_default=clone(ROOT+
 		"/gamelib/clone/npc/kunlunshan/qinyuan1");
@@ -269,6 +306,13 @@ int main()
 	check("怪物默认血量：无配置文件时为原血量的2%",
 		life_full>0 && life_default==life_full*2/100,
 		sprintf("full=%d default=%d",life_full,life_default));
+	object fb_default=clone(ROOT+
+		"/gamelib/clone/npc/bawangbao/shihushou50");
+	int fb_life_default=fb_default->get_cur_life();
+	destruct(fb_default);
+	check("副本怪同样应用全局血量过渡系数",
+		fb_life_full>0 && fb_life_default==fb_life_full*2/100,
+		sprintf("full=%d default=%d",fb_life_full,fb_life_default));
 	// 怪物联动：守护进程默认与热调边界。
 	rm(DATA_ROOT+"balance_transition.json");
 	object balance=(object)(ROOT+

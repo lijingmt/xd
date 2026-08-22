@@ -1350,7 +1350,7 @@ private void clamp_low_tier_instance(object item,string orgitem)
 
 private object get_attributes_item(string orgitem,int num,
 	int|void orginal_level,int|void target_item_level,void|object item_ob,
-	void|mapping newmoon_collection)
+	void|mapping newmoon_collection,void|int reroll_floor)
 {
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
@@ -1378,11 +1378,23 @@ private object get_attributes_item(string orgitem,int num,
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
 		else{
-			if(orginal_level<=65)
-				difference=random(difference);//原始装备小于65的话，增长率保持线性增长
+			if(orginal_level<=65){
+				// 洗炼保底：资源型重掷只在[70%,100%]区间取样，杜绝
+				// “越洗越差”；怪物掉落仍保持原始均匀分布。
+				if(reroll_floor)
+					difference=difference*7/10+
+						random(difference*3/10+1);
+				else
+					difference=random(difference);//原始装备小于65的话，增长率保持线性增长
+			}
 			else{
-				difference=random(difference+difference);//随机增长率，最大可以达到差额的增长率
-			}		
+				// 洗炼保底：高阶底版重掷落在[140%,200%]区间。
+				if(reroll_floor)
+					difference=difference*7/5+
+						random(difference*3/5+1);
+				else
+					difference=random(difference+difference);//随机增长率，最大可以达到差额的增长率
+			}
 		}
 		rate=((float)(orginal_level+difference))/(float)orginal_level;//增加武器属性的增长率
 		if(rate==0) rate=1.01;
@@ -1424,9 +1436,20 @@ private object get_attributes_item(string orgitem,int num,
 				   value>limit*500)
 					value=limit*500;
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
-				postfix[postfix_map[attri_name]]=char_value[value];//根据属性修改文件后缀
-				if(char_value[value]==0){
-					postfix[postfix_map[attri_name]]=95;//如果不在字母表，则用_替代 95代表 下划线 _
+				// 大数值(≥62)不在字母表：把数值本身编进后缀，保证
+				// 数值→文件名一一对应。旧版统一替换成'_'会让不同
+				// 数值碰撞成同一文件，重掷复用旧文件时高属性被悄悄
+				// 换成低属性（越洗越差的根源）。字母表字符不含'_'
+				// 和','，旧文件名不会被新编码误命中。
+				if(char_value[value]>0)
+					postfix[postfix_map[attri_name]]=
+						char_value[value];//根据属性修改文件后缀
+				else{
+					int slot_pos=postfix_map[attri_name];
+					string before=slot_pos>0 ?
+						postfix[0..slot_pos-1] : "";
+					postfix=before+sprintf("_%d,",value)+
+						postfix[slot_pos+1..];
 				}
 				//werror("=========char_value[value] "+char_value[value]+" value"+value+"\n");
 				attri_allow-=({attri});
@@ -1990,8 +2013,9 @@ object get_ronglian_item(int itemlevel,int playerluck)
 object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level, void|object item_ob)
 {
 	mapping newmoon_collection=query_newmoon_collection_for_item(item_ob);
+	// 炼化/兑换都是玩家消耗资源的重掷，走保底区间。
 	object ret_item = get_attributes_item(item_rawname,num,orginal_level,
-		item_level,item_ob,newmoon_collection);//生成目标itemlevel大于70级的装备
+		item_level,item_ob,newmoon_collection,1);//生成目标itemlevel大于70级的装备
 	return ret_item;
 }
 
