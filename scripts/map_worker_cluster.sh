@@ -96,7 +96,12 @@ acquire_orchestrator_lock()
 		if [[ -f "$ORCHESTRATOR_LOCK_DIR/pid" ]]; then
 			IFS= read -r owner_pid < "$ORCHESTRATOR_LOCK_DIR/pid" || true
 		fi
-		if [[ "$owner_pid" =~ ^[0-9]+$ ]] && kill -0 "$owner_pid" 2>/dev/null; then
+		# 容器重启后PID命名空间变化，旧PID可能被无关进程复用。
+		# 只有PID存活且锁文件在5分钟内才视为真正的并发操作。
+		local lock_age=0
+		lock_age=$(( $(date +%s) - $(stat -c %Y "$ORCHESTRATOR_LOCK_DIR/pid" 2>/dev/null || echo 0) ))
+		if [[ "$owner_pid" =~ ^[0-9]+$ ]] && kill -0 "$owner_pid" 2>/dev/null && \
+		   (( lock_age < 300 )); then
 			fail "another map-worker apply/stop/recovery is running (pid $owner_pid)"
 		fi
 		rm -f -- "$ORCHESTRATOR_LOCK_DIR/pid" || true
