@@ -267,17 +267,10 @@ int main(string|zero arg)
 			//werror("=============218item "+item->query_item_canLevel()+"\n");
 			object|zero new_item = 0;
 			if(ret_flag != 3){
-				if(orginal_item){//如果超过70级以上物品熔炼，则获得原物品等级，以及目前装备的等级，100级装备，熔炼出100级的装备
-					// 堵漏：低阶底版（<65级模板）重掷一律按底版档位生成。
-					// 随机商店会把基础白装按买家等级动态生成，若炼化再按
-					// 其虚高等级重掷，(底版+差额)/底版 的除法会把1~5点的
-					// 基础属性放大到百万级。73级模板与大师65+升阶不受影响。
-					int base_tier=orginal_item->query_item_canLevel();
-					int reroll_target=item->query_item_canLevel();
-					if(base_tier<65 && reroll_target>base_tier)
-						reroll_target=base_tier;
-					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,base_tier,reroll_target,item);
-				}
+				if(orginal_item)//如果超过70级以上物品熔炼，则获得原物品等级，以及目前装备的等级，100级装备，熔炼出100级的装备
+					// 数值防爆由 itemsd 第二层防御兜底（低阶底版单条属性
+					// 上限=约束表上限×500），重掷必须保持装备当前等级。
+					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,orginal_item->query_item_canLevel(),item->query_item_canLevel(),item);
 				else{
 					//有时候上面的clone装备出现问题，再尝试一次即可
 					s += "今天时运不加，装备和时辰相冲，所以转化失败！请模数10下，再尝试一次\n";
