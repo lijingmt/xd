@@ -2273,6 +2273,22 @@ int main()
 		cleanup_ranking_snapshot(character_id);
 	foreach(cleanup_ids,string character_id)
 		cleanup_player(character_id);
+	{
+		int tier6_dynamic_ok=1;
+		foreach(({
+			"/gamelib/d/illusion_s1/abyss_flower_sea.pike",
+			"/gamelib/d/illusion_s1/deepmoon_valley.pike",
+			"/gamelib/d/illusion_s1/starfall_garden.pike",
+		}),string room_path){
+			string room_source=Stdio.read_file(ROOT+room_path) || "";
+			if(search(room_source,"dongtai_npc_start_level=51;")==-1 ||
+			   search(room_source,"32,28,5,24,3")==-1)
+				tier6_dynamic_ok=0;
+		}
+		check("六档猎场50档在51级起开启动态同级怪",
+			tier6_dynamic_ok,
+			"55级后只能刷固定50级怪，等级与经验断层回归");
+	}
 	werror("新月幻境·S1：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
 	return results["failed"]==0 ? 0 : 1;

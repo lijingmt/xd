@@ -8,5 +8,8 @@ protected void create(){
 	name_cn="深月谷";
 	desc="谷底承接最深的月色，这是所有幻境行者共享的中立深渊猎场。\n";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/abyss_garden.pike";
-	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike",20,18,5,20,3);
+	// 50档是最后一档静态猎场；51级起开启动态同级怪，填补55-69的
+	// 等级与经验断层，文件名不变以保住章节击杀判定。
+	dongtai_npc_start_level=51;
+	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike",32,28,5,24,3);
 }
