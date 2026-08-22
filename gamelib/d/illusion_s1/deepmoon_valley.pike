@@ -11,5 +11,5 @@ protected void create(){
 	// 50档是最后一档静态猎场；51级起开启动态同级怪，填补55-69的
 	// 等级与经验断层，文件名不变以保住章节击杀判定。
 	dongtai_npc_start_level=51;
-	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike",32,28,5,24,3);
+	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/abyss_beast.pike",48,40,5,36,3);
 }

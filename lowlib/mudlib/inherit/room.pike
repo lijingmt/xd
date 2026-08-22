@@ -101,8 +101,9 @@ void configure_autofight_training_population(string npc_path,int slots,
 	int initial_population;
 	if(!npc_path || npc_path=="" || slots<1 || capacity<1)
 		return;
-	if(slots>32)
-		slots=32;
+	// 上限64：赛季猎场单人/少量玩家也要有足够怪量；默认地图不受影响。
+	if(slots>64)
+		slots=64;
 	if(capacity>slots)
 		capacity=slots;
 	if(refresh_seconds<3)

@@ -967,22 +967,22 @@ int main()
 			int pressure_spawned = neutral_room->
 				refresh_autofight_normal_npcs(pressure_player,18,0);
 			mapping filled_status = neutral_room->query_autofight_spawn_status();
-			if((int)spawn_status["normal_slots"]!=20 ||
+			if((int)spawn_status["normal_slots"]!=48 ||
 			   (int)spawn_status["alive_normal"]!=4 ||
-			   (int)spawn_status["training_capacity"]!=18 ||
-			   (int)spawn_status["training_slots"]!=20 ||
+			   (int)spawn_status["training_capacity"]!=40 ||
+			   (int)spawn_status["training_slots"]!=48 ||
 			   (int)spawn_status["initial_population"]!=4 ||
 			   (int)spawn_status["pressure_check_seconds"]!=3 ||
 			   (int)idle_pressure["target_population"]!=4 ||
 			   !(int)pressure["enabled"] ||
 			   (int)pressure["refresh_seconds"]!=5 ||
-			   (int)pressure["budget"]!=20 ||
+			   (int)pressure["budget"]!=36 ||
 			   (int)pressure["target_population"]!=20 ||
 			   pressure_spawned!=16 ||
 			   (int)filled_status["alive_normal"]!=20)
 				neutral_population_ok = 0;
 		}
-		check("中立猎场按4只起步、玩家数加2补到20只且容量18人",
+		check("中立猎场按4只起步、玩家数加2补到20只且容量40人",
 			neutral_population_ok,
 			"中立猎场容量、普通怪槽位或补位上限未按配置生效");
 		destruct(pressure_player);
@@ -2275,19 +2275,43 @@ int main()
 		cleanup_player(character_id);
 	{
 		int tier6_dynamic_ok=1;
+		int hunt_capacity_ok=1;
 		foreach(({
+			"/gamelib/d/illusion_s1/moon_dew_field.pike",
+			"/gamelib/d/illusion_s1/silver_reed_bank.pike",
+			"/gamelib/d/illusion_s1/starlight_slope.pike",
+			"/gamelib/d/illusion_s1/mist_bamboo_glen.pike",
+			"/gamelib/d/illusion_s1/cloud_pine_hollow.pike",
+			"/gamelib/d/illusion_s1/moonshadow_wood.pike",
+			"/gamelib/d/illusion_s1/mirror_sandbar.pike",
+			"/gamelib/d/illusion_s1/glasswater_bank.pike",
+			"/gamelib/d/illusion_s1/moonwave_shoal.pike",
+			"/gamelib/d/illusion_s1/broken_star_court.pike",
+			"/gamelib/d/illusion_s1/astral_stonewood.pike",
+			"/gamelib/d/illusion_s1/observatory_outfield.pike",
+			"/gamelib/d/illusion_s1/echo_battlement.pike",
+			"/gamelib/d/illusion_s1/old_city_square.pike",
+			"/gamelib/d/illusion_s1/stardust_lane.pike",
 			"/gamelib/d/illusion_s1/abyss_flower_sea.pike",
 			"/gamelib/d/illusion_s1/deepmoon_valley.pike",
 			"/gamelib/d/illusion_s1/starfall_garden.pike",
 		}),string room_path){
 			string room_source=Stdio.read_file(ROOT+room_path) || "";
-			if(search(room_source,"dongtai_npc_start_level=51;")==-1 ||
-			   search(room_source,"32,28,5,24,3")==-1)
+			if(search(room_source,"48,40,5,36,3")==-1)
+				hunt_capacity_ok=0;
+			if(search(room_path,"abyss_flower_sea")==-1 &&
+			   search(room_path,"deepmoon_valley")==-1 &&
+			   search(room_path,"starfall_garden")==-1)
+				continue;
+			if(search(room_source,"dongtai_npc_start_level=51;")==-1)
 				tier6_dynamic_ok=0;
 		}
 		check("六档猎场50档在51级起开启动态同级怪",
 			tier6_dynamic_ok,
 			"55级后只能刷固定50级怪，等级与经验断层回归");
+		check("十八间幻境猎场容量提升到48槽40活怪",
+			hunt_capacity_ok,
+			"猎场怪量不足，单人挂机无怪可打");
 	}
 	werror("新月幻境·S1：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);

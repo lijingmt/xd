@@ -8,5 +8,5 @@ protected void create(){
 	name_cn="银苇岸";
 	desc="银色芦苇随月风起伏，这是所有幻境行者共享的中立初猎场。\n";
 	exits["west"]=ROOT "/gamelib/d/illusion_s1/silver_path.pike";
-	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/moon_wisp.pike",20,18,5,20,3);
+	configure_autofight_training_population(ROOT "/gamelib/clone/npc/illusion_s1/moon_wisp.pike",48,40,5,36,3);
 }

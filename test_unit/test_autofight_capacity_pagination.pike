@@ -256,7 +256,7 @@ void test_pressure_refresh_policy(object player)
 		source && search(source,"ob->_boss || ob->_tasknpc || ob->_meritocrat")!=-1 &&
 		search(source,"functionp(ob->query_summon_type)")!=-1 &&
 		search(source,"if(!one || sizeof(one)<5 || one[1]")!=-1 &&
-		search(source,"if(slots>32)")!=-1 &&
+		search(source,"if(slots>64)")!=-1 &&
 		search(source,"if(capacity>slots)")!=-1,
 		"普通怪分类或原槽位上限守卫缺失");
 	destroy_test_room(room,player);
