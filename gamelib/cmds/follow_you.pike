@@ -2,6 +2,14 @@
 #include <wapmud2/include/wapmud2.h>
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 //此指令用于跟随同队的人
+//跨阵营队友已经在同一队伍中并肩作战，跟随不应再被阵营分区拦下。
+private int same_term(object me,object ob)
+{
+	string my_term=(string)me->query_term();
+	return my_term!="" && my_term!="noterm" &&
+		(string)ob->query_term()==my_term;
+}
+
 int main(string|zero arg)
 {
 	string name=arg;
@@ -13,7 +21,8 @@ int main(string|zero arg)
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你跟随的目标不存在！\n");
 		return 1;
 	}
-	else if(!LOGICALZONED->can_interact(this_player(),ob)){
+	else if(!same_term(this_player(),ob) &&
+		!LOGICALZONED->can_interact(this_player(),ob)){
 		this_player()->write_view(WAP_VIEWD["/emote"],0,0,
 			"逻辑分区隔离中，无法跟随该玩家。\n");
 		return 1;
