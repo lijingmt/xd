@@ -345,6 +345,13 @@ int scale_pve_damage(object attacker,object target,int damage)
 			pact = safe_pact_combat_modifiers(target);
 			scaled = max(1,scaled*(int)pact["incoming_percent"]/100);
 		}
+		// 平衡过渡期：怪物对玩家的最终伤害再乘全局攻击系数。
+		mixed transition_err=catch{
+			scaled=max(1,scaled*BALANCE_TRANSITIOND->
+				query_attack_percent()/100);
+		};
+		if(transition_err)
+			werror("[BALANCE_TRANSITION] attack scale failed\n");
 		return scaled;
 	}
 	// 玩家互斗、召唤物PVP与NPC互斗全部保持原公式。

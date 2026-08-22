@@ -2,6 +2,8 @@
 #define PRE_LIST_SIZE 5        //页面上显示"这里有xx、xx、xxx等物品"时，"等"前面的物品数目
 #define PETD ((object)(ROOT "/gamelib/single/daemons/petd.pike"))
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
+#define ITEMSD ((object)(ROOT "/gamelib/single/daemons/itemsd.pike"))
+#define YUSHID ((object)(ROOT "/gamelib/single/daemons/yushid"))
 #define INVENTORY_BROWSER_PAGE_SIZE 30
 #define INVENTORY_BROWSER_SEARCH_MAX 96
 #define INVENTORY_BROWSER_SCAN_LIMIT 4096
@@ -931,6 +933,66 @@ int normalize_bulk_item_stacks()
 		}
 	}
 	return removed_groups;
+}
+
+// 第三层防御（回收矫正）：随机商店的低阶底版曾被按虚高等级炼化，
+// 单条属性可达百万级。登录恢复时把超出底版约束表500倍的属性钳回
+// 合法上限；每件矫正补偿100碎玉、单账号封顶1000且只补一次，全程
+// 审计留痕供后续核对。
+int normalize_exploded_equipment()
+{
+	int corrected_items=0;
+	object me=this_object();
+	foreach(all_inventory(me),object item){
+		string base;
+		int tier;
+		mapping(string:int) caps;
+		if(!item || !functionp(item->query_item_rareLevel) ||
+		   (int)item->query_item_rareLevel()<1)
+			continue;
+		base=ITEMSD->query_convert_item_rawname(item);
+		if(base=="")
+			continue;
+		tier=ITEMSD->query_base_template_tier(base);
+		if(tier<1 || tier>=65)
+			continue;
+		caps=ITEMSD->query_base_attribute_caps(base);
+		int item_touched=0;
+		foreach(sort(indices(caps)),string attr){
+			mixed reader=item["query_"+attr];
+			mixed writer=item["set_"+attr];
+			int value;
+			if(!functionp(reader) || !functionp(writer))
+				continue;
+			value=(int)call_function(reader);
+			if(value>caps[attr]){
+				call_function(writer,caps[attr]);
+				item_touched++;
+				mixed log_err=catch{
+					Stdio.append_file(ROOT+
+						"/log/exploded_gear_recall.log",
+						ctime(time())[0..sizeof(ctime(time()))-2]+
+						" user="+me->query_name()+" base="+base+
+						" attr="+attr+" "+value+"->"+caps[attr]+"\n");
+				};
+			}
+		}
+		if(item_touched)
+			corrected_items++;
+	}
+	if(corrected_items>0){
+		int compensation=corrected_items*100;
+		if(compensation>1000)
+			compensation=1000;
+		if(!(int)me["/plus/exploded_gear_compensated"]){
+			me["/plus/exploded_gear_compensated"]=1;
+			YUSHID->give_yushi(me,compensation);
+			tell_object(me,"【平衡回收】检测到"+corrected_items+
+				"件属性异常的历史装备，已自动矫正为合法数值。"+
+				"补偿碎玉×"+compensation+"已发放（每个账号仅一次）。\n");
+		}
+	}
+	return corrected_items;
 }
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){

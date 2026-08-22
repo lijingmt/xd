@@ -123,6 +123,8 @@
 #define AUTOFIGHTD ((object)(ROOT "/gamelib/single/daemons/autofightd.pike"))
 //个人挑战难度：同图同Worker，只调整本人PVE风险、套装掉落与挂机额度
 #define PERSONAL_DIFFICULTYD ((object)(ROOT "/gamelib/single/daemons/personal_difficultyd.pike"))
+//平衡过渡期全局怪物强度：回收爆炸装后可在线热调，异常回退100
+#define BALANCE_TRANSITIOND ((object)(ROOT "/gamelib/single/daemons/balance_transitiond.pike"))
 //新月六阶十件套技能：只从当前真实穿戴重建，不另建玩家或Worker存储
 #define NEWMOON_SET_SKILLD ((object)(ROOT "/gamelib/single/daemons/newmoon_set_skilld.pike"))
 //召唤系统

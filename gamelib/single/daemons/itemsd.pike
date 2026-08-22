@@ -1325,10 +1325,33 @@ int dynamic_equipment_level_api_valid(object item)
 		functionp(item->set_item_canLevel);
 }
 
+// 第二层防御（复用路径）：把低阶底版实例的每条属性钳回约束表上限
+// 的500倍。既用于复用旧生成文件，也供回收矫正复用。
+private void clamp_low_tier_instance(object item,string orgitem)
+{
+	array(string) entries=item_attributes[orgitem];
+	foreach(entries || ({}),string entry){
+		array(string) pair=entry/":";
+		int limit;
+		mixed reader;
+		mixed writer;
+		int value;
+		if(sizeof(pair)>=3 && sscanf(pair[2],"%d",limit)==1 && limit>0){
+			reader=item["query_"+pair[0]];
+			writer=item["set_"+pair[0]];
+			if(functionp(reader) && functionp(writer)){
+				value=(int)call_function(reader);
+				if(value>limit*500)
+					call_function(writer,limit*500);
+			}
+		}
+	}
+}
+
 private object get_attributes_item(string orgitem,int num,
 	int|void orginal_level,int|void target_item_level,void|object item_ob,
 	void|mapping newmoon_collection)
-{	
+{
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
 	int size; //该物品允许可能出现的属性的个数
@@ -1393,6 +1416,13 @@ private object get_attributes_item(string orgitem,int num,
 				//werror("---------value="+value+"-----------\n");
 				if(rate>1)
 					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
+				// 第二层防御：低阶底版的单条属性绝对值不超过其约束表
+				// 上限的500倍——高于一切合法生成路径（含随机商店按顶级
+				// 玩家等级动态生成），任何调用方传入失控目标等级都会被
+				// 就地钳制，从源头掐灭百万级数值。
+				if(orginal_level && orginal_level<65 &&
+				   value>limit*500)
+					value=limit*500;
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				postfix[postfix_map[attri_name]]=char_value[value];//根据属性修改文件后缀
 				if(char_value[value]==0){
@@ -1430,6 +1460,11 @@ private object get_attributes_item(string orgitem,int num,
 					item_name,describe_error(err));
 				rtn_ob=0;
 			}
+			// 第二层防御（复用路径）：低阶底版的已生成文件可能来自
+			// 历史失控生成；复用时对实例属性做同样的上限钳制，防止
+			// 同名旧文件复活百万数值。
+			if(rtn_ob && orginal_level && orginal_level<65)
+				clamp_low_tier_instance(rtn_ob,orgitem);
 			if(rtn_ob && !dynamic_equipment_level_api_valid(rtn_ob)){
 				werror("[ITEMSD][DYNAMIC_EQUIPMENT_REJECT] path=%O "
 					"reason=missing_level_api\n",item_name);
@@ -1480,15 +1515,23 @@ private object get_attributes_item(string orgitem,int num,
 				orgfilelines-=({""});
 				orgfilelines-=({"}"});//先把源文件的最后一个括号去掉
 				array(string)  writetmplines=writetmp/"\n";//把临时的这个变成数组，这个数组最后一位是右括号}
+				// writetmp 追加行的数值已经是最终值（roll阶段乘过rate并
+				// 过上限钳制）。历史bug让这些行再落入模板行缩放逻辑被二
+				// 次相乘，rate平方正是百万级属性的根源；必须整体跳过。
+				int appended_from=sizeof(orgfilelines);
 				orgfilelines+=writetmplines;//最后再把两个数组加一起
 				int sizelines=sizeof(orgfilelines);
-				
+
 				//if(orgfilelines[sizelines-1])
 					//orgfilelines[sizelines-1]=writetmp; //在这里追加新文件的附加属性
 
 				array(string) aocao_color=({"yellow","red","blue"});//随机凹槽的颜色
 				//写回到文件
 				for(int k=0; k<sizelines; k++) {
+					if(k>=appended_from){
+						writeback+=orgfilelines[k]+"\n";
+						continue;
+					}
 					//werror("============821writeback+=orgfilelines[k] "+orgfilelines[k]+" index:"+search(orgfilelines[k],"set_attack_power_limit")+"\n");
 					// 读取原有文件的防御值和攻击值以及攻击最大值，重置
 					if(rate>1 && search(orgfilelines[k],"set_item_canLevel")!=-1){
@@ -1994,11 +2037,49 @@ string get_itemname_on_level(int level)
 	string item_name = "";
 	int itemlevel=get_item_level(level); //调用了获得物品等级的接口
 	array(string) itemsallow=({}); //等级范围类允许物品列表
-	itemsallow=item_list[itemlevel]; 
+	itemsallow=item_list[itemlevel];
 	if(itemsallow && sizeof(itemsallow)){
 		item_name=itemsallow[random(sizeof(itemsallow))]; //在这里获得了白色物品的名字
 	}
 	return item_name;
+}
+
+/** 回收矫正用：底版路径的模板档位（文件名前缀数字，如1duanmugun=1）。 */
+int query_base_template_tier(string base_path)
+{
+	string basename;
+	string digits="";
+	int tier;
+	array(string) parts=base_path/"/";
+	if(!sizeof(parts))
+		return 0;
+	basename=parts[sizeof(parts)-1];
+	for(int i=0;i<sizeof(basename);i++){
+		int one=basename[i];
+		if(one<'0' || one>'9')
+			break;
+		digits+=basename[i..i];
+	}
+	tier=(int)digits;
+	if(tier<0 || tier>1000)
+		return 0;
+	return tier;
+}
+
+/** 回收矫正用：底版每条属性的合法上限（约束表上限×500，高于一切
+ 合法生成路径）。返回 属性名:上限 映射。 */
+mapping(string:int) query_base_attribute_caps(string base_path)
+{
+	mapping(string:int) caps=([]);
+	array(string) entries=item_attributes[base_path];
+	foreach(entries || ({}),string entry){
+		array(string) pair=entry/":";
+		int limit;
+		if(sizeof(pair)>=3 && sscanf(pair[2],"%d",limit)==1 &&
+		   limit>0)
+			caps[pair[0]]=limit*500;
+	}
+	return caps;
 }
 
 

@@ -235,6 +235,14 @@ int restore()
 			if(bulk_normalize_err)
 				atomic_save_log("bulk item stack normalization skipped");
 		}
+		// 第三层防御：历史爆炸装在登录恢复时钳回合法数值并发补偿。
+		if(functionp(this_object()->normalize_exploded_equipment)){
+			mixed exploded_normalize_err=catch{
+				this_object()->normalize_exploded_equipment();
+			};
+			if(exploded_normalize_err)
+				atomic_save_log("exploded equipment normalization skipped");
+		}
 		if(functionp(this_object()->normalize_paid_yushi_stacks)){
 			mixed normalize_err=catch{
 				this_object()->normalize_paid_yushi_stacks();

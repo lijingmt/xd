@@ -1,5 +1,24 @@
 #include <globals.h>
 #include <mudlib/include/mudlib.h>
+// 平衡过渡期全局怪物强度（低层文件不能依赖gamelib.h，按fight.pike
+// 先例使用本地define）。
+#define BALANCE_TRANSITIOND ((object)(ROOT "/gamelib/single/daemons/balance_transitiond.pike"))
+
+// 平衡过渡期：怪物出生生命乘全局系数；守护进程异常时保持100，
+// 绝不放大怪物强度。
+private int transition_scaled_life(int raw_life)
+{
+	int percent=100;
+	if(raw_life<=0)
+		return raw_life;
+	mixed err=catch{
+		percent=BALANCE_TRANSITIOND->query_life_percent();
+	};
+	if(err || percent<10 || percent>200)
+		percent=100;
+	return raw_life*percent/100;
+}
+
 inherit LOW_BASE;
 inherit LOW_F_DBASE;
 inherit LOW_F_CMDS;
@@ -303,6 +322,7 @@ void npc_level_define(){
 			life=life_max=_costom_npc_life;
 		if(_costom_npc_mofa!=0)
 			mofa=mofa_max=_costom_npc_mofa;
+		life=life_max=transition_scaled_life(life);
 	}
 }
 void setup_npc_dongtai(object player){
@@ -632,6 +652,7 @@ void npc_level_define_dongtai(object player){
 			life=life_max=_costom_npc_life;
 		if(_costom_npc_mofa!=0)
 			mofa=mofa_max=_costom_npc_mofa;
+		life=life_max=transition_scaled_life(life);
 	}
 }
 int is_npc(){
