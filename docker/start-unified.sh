@@ -106,10 +106,8 @@ PY
 wait_for_http_health()
 {
 	# 无预编译冷启时，协调器网关要等全部 Worker 编译完成才监听；
-	# 健康窗口固定 5 分钟（300 秒），覆盖 10-16 Worker 冷启。
-	local timeout="${XIAND_ACTIVE_START_HEALTH_TIMEOUT:-300}"
-	log "waiting up to ${timeout}s for the HTTP health endpoint"
-	local deadline=$((SECONDS + timeout))
+	# 健康窗口固定 10 分钟（600 秒），彻底覆盖大拓扑冷启。
+	local timeout="${XIAND_ACTIVE_START_HEALTH_TIMEOUT:-600}"
 	log "waiting up to ${timeout}s for the HTTP health endpoint"
 	local deadline=$((SECONDS + timeout))
 	while (( SECONDS < deadline )); do

@@ -567,8 +567,8 @@ recover_historical_map_worker_fallback() {
 
 verify_map_worker_runtime_in_container() {
     local container_name="$1"
-    # 模式验证窗口固定 5 分钟，与容器内健康窗口对齐，消除冷启误报。
-    local verify_timeout="${XIAND_MODE_VERIFY_TIMEOUT:-300}"
+    # 模式验证窗口固定 10 分钟，与容器内健康窗口对齐。
+    local verify_timeout="${XIAND_MODE_VERIFY_TIMEOUT:-600}"
     local deadline=$((SECONDS + verify_timeout))
     local runtime_mode=""
     while (( SECONDS < deadline )); do
