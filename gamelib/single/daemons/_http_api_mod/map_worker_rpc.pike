@@ -1383,8 +1383,8 @@ private mapping map_worker_apply_social_event(mapping event)
         return map_worker_apply_world_broadcast(event);
     if(kind=="channel_chat")
         return map_worker_apply_channel_chat(event);
-    if(has_value(({"team_invite","team_snapshot","team_chat","team_notice"}),
-        kind))
+    if(has_value(({"team_invite","team_snapshot","team_chat","team_notice",
+        "team_exp"}),kind))
         return map_worker_apply_team_event(event,kind);
     return (["ok":0,"code":"unknown_social_event"]);
 }

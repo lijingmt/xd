@@ -65,6 +65,21 @@ int main()
 			daemon->query_local_social_event_ttl("team_chat")==300 &&
 			daemon->query_local_social_event_ttl("channel_chat")==300,
 			"队伍快照可能在节点维护期间过期，或普通聊天无限堆积");
+		{
+			string rpc_source=Stdio.read_file(ROOT+
+				"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike") ||
+				"";
+			int dispatch_at=search(rpc_source,
+				"\"team_invite\",\"team_snapshot\"");
+			string dispatch_window=dispatch_at>=0 ?
+				rpc_source[dispatch_at..dispatch_at+159] : "";
+			check("worker接收分发覆盖网关队伍同步全部分类(含team_exp)",
+				search(dispatch_window,"\"team_exp\"")!=-1 &&
+				source_has("/gamelib/single/daemons/_http_api_mod/"+
+					"pike_gateway.pike",
+					"\"team_notice\",\n\t\t\"team_exp\""),
+				"接收端白名单缺team_exp会让跨Worker队伍经验重试耗尽后丢失");
+		}
 		mapping account_save_capability = ([
 			"state":"running","kind":"account",
 			"account_owner":"xd98accountowner",
