@@ -593,7 +593,7 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 		(int)ordinary_route["chapter_target"]==1 &&
 		(int)ordinary_route["level"]==1 &&
 		(int)ordinary_window["minimum"]==1 &&
-		(int)ordinary_window["maximum"]==1 &&
+		(int)ordinary_window["maximum"]==3 &&
 		ordinary_target &&
 		(string)ordinary_target->query_name_cn()=="逐光月灵";
 	ordinary_hunt->record_eligible_kill_progress(player,1);

@@ -1826,10 +1826,12 @@ private mapping(string:mixed) record_npc_kill_internal(object player,object npc,
 		act_index = (int)one["act"];
 		act = (mapping)((array)quest["acts"])[act_index];
 		required = (int)act["required_kills"];
+		// 第四幕不再以主线story_event为前置门槛：首领击杀本身就是
+		// 事实，支线只需匹配路径和房间即可计数；主线是否已完成记录
+		// 不应阻断支线战斗目标的推进。
 		if(npc_path==(string)act["target_path"] &&
 		   MAP_WORKERD->static_room_locations_match(room_path,
-			(string)act["room"]) &&
-		   (act_index<3 || (int)events[(string)quest["final_event"]])){
+			(string)act["room"])){
 			kills = min(required,(int)one["act_kills"]);
 			if(act_index==3)
 				kills = required;

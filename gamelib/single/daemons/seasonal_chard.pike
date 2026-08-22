@@ -1843,7 +1843,7 @@ mapping(string:mixed) query_autofight_route(object player)
 		"capacity":18,
 		"total_capacity":sizeof(paths)*18,
 		"target_min":target_level,
-		"target_max":target_level,
+		"target_max":min(999,target_level+2),
 		"disable_overflow":1,
 		"illusion_id":illusion_id,
 	]);
@@ -3708,7 +3708,7 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 		"capacity":18,
 		"total_capacity":sizeof(paths)*18,
 		"target_min":target_level,
-		"target_max":target_level,
+		"target_max":min(999,target_level+2),
 		"disable_overflow":1,
 		"illusion_id":"S1",
 		"chapter_id":(string)chapter["id"],

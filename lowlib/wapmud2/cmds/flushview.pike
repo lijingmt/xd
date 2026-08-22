@@ -144,9 +144,18 @@ int main(string|zero arg)
 				return 1;
 			}
 		}
-		if(AUTOFIGHTD->should_recover_mana(me) &&
-		   use_recovery_item(me,"mana"))
-			return 1;
+		if(AUTOFIGHTD->should_recover_mana(me)){
+			if(use_recovery_item(me,"mana"))
+				return 1;
+			// 法力低且无药时与生命同样回退到脱战休息，
+			// 不能在复活点发呆等法力慢慢回。
+			if(me->get_cur_mofa()*100<=
+			   me->query_mofa_max()*AUTOFIGHTD->query_mana_percent(me) &&
+			   AUTOFIGHTD->begin_auto_rest(me)){
+				me->command("escape");
+				return 1;
+			}
+		}
 		profession_notice = PROFESSIONVIPD->query_monitor_notice(me);
 		if(profession_notice != "")
 			write(profession_notice+"\n");
