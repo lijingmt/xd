@@ -53,6 +53,15 @@ int main()
 	string worst_attr="";
 	int generated_capped=0;
 	int conversion_clamped=0;
+	int overpowered_level=0;
+	int no_downgrade_clamp=0;
+	int ceiling_removed=0;
+	int ceiling_kept_legit=0;
+	int ceiling_jade_unchanged=0;
+	int jade_ceiling_before=0;
+	int jade_ceiling_after=0;
+	int life_full=0;
+	int life_default=0;
 	int removed_ok=0;
 	int compensation_once=0;
 	int corrected=0;
@@ -65,6 +74,8 @@ int main()
 		// 第二层：低阶底版按超高目标等级生成，单条属性必须被钳制。
 		object overpowered=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,400);
+		overpowered_level=overpowered ?
+			(int)overpowered->query_item_canLevel() : 0;
 		mapping(string:int) query_ceilings=([
 			"str_add":2*500,"dex_add":2*500,"think_add":2*500,
 			"attack_add":5*500,"weapon_attack_add":2*500,
@@ -81,14 +92,16 @@ int main()
 			}
 		}
 		generated_capped=overpowered && worst==0;
+		// 第一层契约：重掷必须保持装备当前等级（400级洗出400级），
+		// 且数值仍被第二层钳制；不允许再出现降级到底版档位的钳制。
+		conversion_clamped=overpowered &&
+			overpowered_level==400 && worst==0;
 		if(overpowered)
 			destruct(overpowered);
-		// 第一层：炼化命令对低阶底版按底版档位重掷（源码契约）。
 		string convert_source=Stdio.read_file(ROOT+
 			"/gamelib/cmds/convert_equip_confirm.pike") || "";
-		conversion_clamped=search(convert_source,
-			"if(base_tier<65 && reroll_target>base_tier)")!=-1 &&
-			search(convert_source,"reroll_target=base_tier;")!=-1;
+		no_downgrade_clamp=search(convert_source,
+			"reroll_target=base_tier")== -1;
 		// 第三层：登录回收——构造爆炸装，矫正后应被直接销毁。
 		object exploded=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
@@ -110,6 +123,26 @@ int main()
 			objectp(normal);
 		if(normal)
 			destruct(normal);
+		// 千级上限报警回收：超上限10倍的装备直接销毁、不补碎玉；
+		// 钳制线内的合法极值装备（上限×500）必须保留。
+		object extreme=ITEMSD->get_convert_item(
+			"weapon/1duanmugun/1duanmugun",3,1,1);
+		extreme->set_attack_add(999999);
+		extreme->move(player);
+		object legit=ITEMSD->get_convert_item(
+			"weapon/1duanmugun/1duanmugun",3,1,1);
+		legit->set_attack_add(2500);
+		legit->move(player);
+		jade_ceiling_before=YUSHID->query_all_num(player);
+		player->recall_abnormal_ceiling_gear();
+		jade_ceiling_after=YUSHID->query_all_num(player);
+		ceiling_removed=!objectp(extreme);
+		ceiling_kept_legit=objectp(legit) &&
+			player->normalize_exploded_equipment()==0 &&
+			objectp(legit);
+		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
+		if(legit)
+			destruct(legit);
 	};
 	if(err)
 		error_desc=describe_error(err);
@@ -117,9 +150,10 @@ int main()
 		!err && generated_capped,
 		error_desc!="" ? error_desc :
 			sprintf("worst=%s=%d",worst_attr,worst));
-	check("第一层：炼化对低阶底版按底版档位重掷",
-		!err && conversion_clamped,
-		"炼化钳制缺失");
+	check("第一层：洗炼重掷保持装备当前等级",
+		!err && conversion_clamped && no_downgrade_clamp,
+		sprintf("level=%d downgrade_clamp=%d",overpowered_level,
+			no_downgrade_clamp));
 	check("第三层：登录回收直接销毁爆炸装备",
 		!err && removed_ok,
 		error_desc!="" ? error_desc :
@@ -128,6 +162,32 @@ int main()
 		!err && compensation_once,
 		sprintf("second=%d jade %d→%d→%d",second_pass,
 			jade_before,jade_after_first,jade_after_second));
+	check("千级上限：超上限10倍的装备被直接回收",
+		!err && ceiling_removed,
+		"异常装备未被回收");
+	check("千级上限：合法极值装备（上限×500）不被误删",
+		!err && ceiling_kept_legit,
+		"合法装备被误删");
+	check("千级上限：回收不发放碎玉",
+		!err && ceiling_jade_unchanged,
+		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));
+	// 怪物默认血量：无配置文件时按原血量5%出生。
+	Stdio.write_file(DATA_ROOT+"balance_transition.json",
+		Standards.JSON.encode((["life_percent":100,
+			"attack_percent":100,"version":1])));
+	object npc_full=clone(ROOT+"/gamelib/clone/npc/kunlunshan/qinyuan1");
+	npc_full->setup_npc();
+	life_full=npc_full->get_cur_life();
+	rm(DATA_ROOT+"balance_transition.json");
+	object npc_default=clone(ROOT+
+		"/gamelib/clone/npc/kunlunshan/qinyuan1");
+	npc_default->setup_npc();
+	life_default=npc_default->get_cur_life();
+	destruct(npc_full);
+	destruct(npc_default);
+	check("怪物默认血量：无配置文件时为原血量的5%",
+		life_full>0 && life_default==life_full*5/100,
+		sprintf("full=%d default=%d",life_full,life_default));
 	// 怪物联动：守护进程默认与热调边界。
 	rm(DATA_ROOT+"balance_transition.json");
 	object balance=(object)(ROOT+

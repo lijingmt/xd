@@ -243,6 +243,15 @@ int restore()
 			if(exploded_normalize_err)
 				atomic_save_log("exploded equipment normalization skipped");
 		}
+		// 千级上限报警线：超出任何合法生成路径10倍的装备直接回收并
+		// 写报警日志，用于及时发现新的属性漏洞。
+		if(functionp(this_object()->recall_abnormal_ceiling_gear)){
+			mixed abnormal_recall_err=catch{
+				this_object()->recall_abnormal_ceiling_gear();
+			};
+			if(abnormal_recall_err)
+				atomic_save_log("abnormal ceiling gear recall skipped");
+		}
 		if(functionp(this_object()->normalize_paid_yushi_stacks)){
 			mixed normalize_err=catch{
 				this_object()->normalize_paid_yushi_stacks();

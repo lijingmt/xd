@@ -1002,6 +1002,85 @@ int normalize_exploded_equipment()
 	}
 	return removed_items;
 }
+
+// 千级上限报警回收：按现有约束数据，1000级合法单条属性峰值≈
+// 上限×500（低阶底版钳制线，穿透53→2.65万）。超过该峰值10倍
+// （上限×5000）的装备不可能来自任何合法生成路径，登录时直接回收
+// 并打报警日志，便于追查新漏洞。回收不补碎玉，防止被刷。
+int recall_abnormal_ceiling_gear()
+{
+	int removed_items=0;
+	object me=this_object();
+	// 约束表全局最大上限53，无法解析底版的装备用固定绝对报警线。
+	int absolute_line=265000;
+	array(object) abnormal=({});
+	foreach(all_inventory(me),object item){
+		string base;
+		mapping(string:int) caps=([]);
+		int is_abnormal=0;
+		if(!item || !functionp(item->query_item_rareLevel))
+			continue;
+		base=ITEMSD->query_convert_item_rawname(item);
+		if(base!="")
+			caps=ITEMSD->query_base_attribute_caps(base);
+		foreach(sort(indices(caps)),string attr){
+			mixed reader=item["query_"+attr];
+			int value;
+			if(!functionp(reader))
+				continue;
+			value=(int)call_function(reader);
+			// 报警线=底版约束上限×5000（=千级合法峰值×10）。
+			if(value>caps[attr]*10){
+				is_abnormal=1;
+				break;
+			}
+		}
+		if(!is_abnormal){
+			// 无底版可解析的装备只盯攻击/防御族属性的绝对线。
+			foreach(({"attack_add","defend_add","weapon_attack_add",
+				"spec_mofa_attack_add","wulichuantou_add",
+				"mofachuantou_add","huo_mofa_attack_add",
+				"feng_mofa_attack_add","bing_mofa_attack_add",
+				"du_mofa_attack_add","attack_huoyan_add",
+				"attack_fengren_add","attack_dusu_add",
+				"attack_bingshuang_add","huoyan_defend_add",
+				"fengren_defend_add","dusu_defend_add",
+				"bingshuang_defend_add","all_mofa_defend_add"}),
+				string attr){
+				mixed reader=item["query_"+attr];
+				int value;
+				if(!functionp(reader))
+					continue;
+				value=(int)call_function(reader);
+				if(value>absolute_line){
+					is_abnormal=1;
+					break;
+				}
+			}
+		}
+		if(is_abnormal)
+			abnormal+=({item});
+	}
+	foreach(abnormal,object item){
+		string base=ITEMSD->query_convert_item_rawname(item);
+		mixed log_err=catch{
+			Stdio.append_file(ROOT+
+				"/log/abnormal_gear_alarm.log",
+				ctime(time())[0..sizeof(ctime(time()))-2]+
+				" user="+me->query_name()+" item="+
+				item->query_name()+" base="+base+
+				" action=recall_ceiling\n");
+		};
+		if(item->equiped && functionp(me->remove_equipment))
+			catch{ me->remove_equipment(item); };
+		destruct(item);
+		removed_items++;
+	}
+	if(removed_items>0)
+		tell_object(me,"【异常装备】检测到"+removed_items+
+			"件属性超出千级上限10倍的异常装备，已直接回收。\n");
+	return removed_items;
+}
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){
 	if(cmd==0)
