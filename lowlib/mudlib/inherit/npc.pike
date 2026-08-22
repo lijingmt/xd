@@ -2,21 +2,47 @@
 #include <mudlib/include/mudlib.h>
 // 平衡过渡期全局怪物强度（低层文件不能依赖gamelib.h，按fight.pike
 // 先例使用本地define）。
-#define BALANCE_TRANSITIOND ((object)(ROOT "/gamelib/single/daemons/balance_transitiond.pike"))
+// 平衡过渡期：怪物出生生命乘全局系数。Worker 不预加载守护进程，
+// 因此直接读 JSON 配置文件（30 秒 TTL 缓存），无文件时默认 5%。
+private int transition_life_cache=0;
+private int transition_life_cached_at;
+private int transition_life_file_mtime;
 
-// 平衡过渡期：怪物出生生命乘全局系数；守护进程异常时保持100，
-// 绝不放大怪物强度。
+private int transition_query_life_percent()
+{
+	int now=time();
+	int mtime;
+	Stdio.Stat stat=file_stat(ROOT+"/data_xiand/balance_transition.json");
+	mtime=stat ? (int)stat->mtime : 0;
+	if(transition_life_cached_at && now-transition_life_cached_at<30 &&
+	   mtime==transition_life_file_mtime)
+		return transition_life_cache;
+	transition_life_cached_at=now;
+	transition_life_file_mtime=mtime;
+	transition_life_cache=100;
+	if(mtime){
+		mixed err=catch{
+			mapping record=Standards.JSON.decode(
+				Stdio.read_file(ROOT+
+					"/data_xiand/balance_transition.json"));
+			if(mappingp(record))
+				transition_life_cache=(int)record["life_percent"];
+		};
+		if(err)
+			transition_life_cache=100;
+	}
+	else
+		transition_life_cache=5;
+	if(transition_life_cache<10 || transition_life_cache>200)
+		transition_life_cache=100;
+	return transition_life_cache;
+}
+
 private int transition_scaled_life(int raw_life)
 {
-	int percent=100;
 	if(raw_life<=0)
 		return raw_life;
-	mixed err=catch{
-		percent=BALANCE_TRANSITIOND->query_life_percent();
-	};
-	if(err || percent<10 || percent>200)
-		percent=100;
-	return raw_life*percent/100;
+	return raw_life*transition_query_life_percent()/100;
 }
 
 inherit LOW_BASE;

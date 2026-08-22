@@ -344,10 +344,19 @@ int scale_pve_damage(object attacker,object target,int damage)
 			pact = safe_pact_combat_modifiers(target);
 			scaled = max(1,scaled*(int)pact["incoming_percent"]/100);
 		}
-		// 平衡过渡期：怪物对玩家的最终伤害再乘全局攻击系数。
+		// 平衡过渡期：直接读JSON（Worker不预加载守护进程）。
 		mixed transition_err=catch{
-			scaled=max(1,scaled*BALANCE_TRANSITIOND->
-				query_attack_percent()/100);
+			string raw=Stdio.read_file(ROOT+
+				"/data_xiand/balance_transition.json");
+			int attack_percent=100;
+			if(raw && sizeof(raw)){
+				mapping record=Standards.JSON.decode(raw);
+				if(mappingp(record)){
+					attack_percent=(int)record["attack_percent"];
+				}
+			}
+			if(attack_percent>=10 && attack_percent<=200)
+				scaled=max(1,scaled*attack_percent/100);
 		};
 		if(transition_err)
 			werror("[BALANCE_TRANSITION] attack scale failed\n");
