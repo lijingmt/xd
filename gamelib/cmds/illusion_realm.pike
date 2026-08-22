@@ -189,7 +189,8 @@ private string room_challenge_view(object me,mapping target)
 			"[重新查找首领:illusion_realm challenge "+
 			((string)target["target_kind"]=="route_boss" ?
 			 "route" : "chapter")+"]\n";
-	return s+"[查看完整场景:look]|[返回幻境任务:illusion_realm]\n";
+	return s+"[查看完整场景:look]|[幻境补给:illusion_supply]|"+
+		"[返回幻境任务:illusion_realm]\n";
 }
 
 string query_room_challenge_view_for_test(object me,mapping target)
@@ -411,7 +412,8 @@ private string task_diagnostic_view(object me)
 		s += "结论：进度结构正常；智能继续会按当前状态传送、阅读剧情、"+
 			"启动限章挂机或列出真实首领。\n"+
 			"[▶ 智能继续当前任务:illusion_realm next]\n";
-	return s+"[返回当前历程:illusion_realm]|[返回游戏:look]\n";
+	return s+"[返回当前历程:illusion_realm]|[幻境补给:illusion_supply]|"+
+		"[返回游戏:look]\n";
 }
 
 private string story_volume_view(mapping progress,int volume_number)

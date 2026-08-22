@@ -2312,6 +2312,29 @@ int main()
 		check("十八间幻境猎场容量提升到48槽40活怪",
 			hunt_capacity_ok,
 			"猎场怪量不足，单人挂机无怪可打");
+		string supply_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/illusion_supply.pike") || "";
+		string realm_source2=Stdio.read_file(ROOT+
+			"/gamelib/cmds/illusion_realm.pike") || "";
+		check("幻境补给提供红蓝药与一键修理且任务页有入口",
+			search(supply_source,"xinshoulanyao")!=-1 &&
+			search(supply_source,"xinshouhongyao")!=-1 &&
+			search(supply_source,"repair")!=-1 &&
+			search(realm_source2,"[幻境补给:illusion_supply]")!=-1,
+			"幻境缺少药品补给或修理入口");
+		string spec_list=Stdio.read_file(ROOT+
+			"/gamelib/data/specItems.list") || "";
+		check("中立职业技能书进入怪物掉落表",
+			search(spec_list,"book/taijijian")!=-1 &&
+			search(spec_list,"book/wuxiangquan")!=-1 &&
+			search(spec_list,"book/lingyichu")!=-1 &&
+			search(spec_list,"book/zhenyuezhenshen")!=-1,
+			"中立职业打怪无法掉落技能书");
+		string follow_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/follow_you.pike") || "";
+		check("同队跨阵营可互相跟随",
+			search(follow_source,"same_term(this_player(),ob)")!=-1,
+			"跨阵营队友无法跟随");
 	}
 	werror("新月幻境·S1：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
