@@ -567,7 +567,14 @@ recover_historical_map_worker_fallback() {
 
 verify_map_worker_runtime_in_container() {
     local container_name="$1"
-    local deadline=$((SECONDS + 240))
+    # 模式验证窗口与容器内健康窗口同源缩放：10 Worker 无预编译冷启
+    # 需要 5 分钟级，固定 240 秒会在收敛中途误判失败。
+    local verify_timeout="${XIAND_MODE_VERIFY_TIMEOUT:-0}"
+    if (( verify_timeout < 1 )); then
+        verify_timeout=$(( XIAND_MAP_WORKER_COUNT * 30 + 120 ))
+        (( verify_timeout < 240 )) && verify_timeout=240
+    fi
+    local deadline=$((SECONDS + verify_timeout))
     local runtime_mode=""
     while (( SECONDS < deadline )); do
         if ! docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null | grep -q true; then
