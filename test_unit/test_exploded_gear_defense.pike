@@ -185,8 +185,8 @@ int main()
 	life_default=npc_default->get_cur_life();
 	destruct(npc_full);
 	destruct(npc_default);
-	check("怪物默认血量：无配置文件时为原血量的5%",
-		life_full>0 && life_default==life_full*5/100,
+	check("怪物默认血量：无配置文件时为原血量的2%",
+		life_full>0 && life_default==life_full*2/100,
 		sprintf("full=%d default=%d",life_full,life_default));
 	// 怪物联动：守护进程默认与热调边界。
 	rm(DATA_ROOT+"balance_transition.json");

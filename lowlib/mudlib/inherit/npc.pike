@@ -3,7 +3,7 @@
 // 平衡过渡期全局怪物强度（低层文件不能依赖gamelib.h，按fight.pike
 // 先例使用本地define）。
 // 平衡过渡期：怪物出生生命乘全局系数。Worker 不预加载守护进程，
-// 因此直接读 JSON 配置文件（30 秒 TTL 缓存），无文件时默认 5%。
+// 因此直接读 JSON 配置文件（30 秒 TTL 缓存），无文件时默认 2%。
 private int transition_life_cache=0;
 private int transition_life_cached_at;
 private int transition_life_file_mtime;
@@ -32,7 +32,7 @@ private int transition_query_life_percent()
 			transition_life_cache=100;
 	}
 	else
-		transition_life_cache=5;
+		transition_life_cache=2;
 	if(transition_life_cache<1 || transition_life_cache>200)
 		transition_life_cache=100;
 	return transition_life_cache;
