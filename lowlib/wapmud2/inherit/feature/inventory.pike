@@ -936,17 +936,19 @@ int normalize_bulk_item_stacks()
 }
 
 // 第三层防御（回收矫正）：随机商店的低阶底版曾被按虚高等级炼化，
-// 单条属性可达百万级。登录恢复时把超出底版约束表500倍的属性钳回
-// 合法上限；每件矫正补偿100碎玉、单账号封顶1000且只补一次，全程
-// 审计留痕供后续核对。
+// 爆炸装回收：低阶底版出现远超约束表上限的属性即判定为历史bug
+// 产物，直接从背包移除该装备（已发过碎玉补偿）。审计日志留痕。
 int normalize_exploded_equipment()
 {
-	int corrected_items=0;
+	int removed_items=0;
 	object me=this_object();
+	// 收集要删的装备再统一删，避免边遍历边删。
+	array(object) explosive=({});
 	foreach(all_inventory(me),object item){
 		string base;
 		int tier;
 		mapping(string:int) caps;
+		int is_explosive=0;
 		if(!item || !functionp(item->query_item_rareLevel) ||
 		   (int)item->query_item_rareLevel()<1)
 			continue;
@@ -957,42 +959,48 @@ int normalize_exploded_equipment()
 		if(tier<1 || tier>=65)
 			continue;
 		caps=ITEMSD->query_base_attribute_caps(base);
-		int item_touched=0;
 		foreach(sort(indices(caps)),string attr){
 			mixed reader=item["query_"+attr];
-			mixed writer=item["set_"+attr];
 			int value;
-			if(!functionp(reader) || !functionp(writer))
+			if(!functionp(reader))
 				continue;
 			value=(int)call_function(reader);
 			if(value>caps[attr]){
-				call_function(writer,caps[attr]);
-				item_touched++;
-				mixed log_err=catch{
-					Stdio.append_file(ROOT+
-						"/log/exploded_gear_recall.log",
-						ctime(time())[0..sizeof(ctime(time()))-2]+
-						" user="+me->query_name()+" base="+base+
-						" attr="+attr+" "+value+"->"+caps[attr]+"\n");
-				};
+				is_explosive=1;
+				break;
 			}
 		}
-		if(item_touched)
-			corrected_items++;
+		if(is_explosive)
+			explosive+=({item});
 	}
-	if(corrected_items>0){
-		int compensation=corrected_items*100;
+	foreach(explosive,object item){
+		string base=ITEMSD->query_convert_item_rawname(item);
+		mixed log_err=catch{
+			Stdio.append_file(ROOT+
+				"/log/exploded_gear_recall.log",
+				ctime(time())[0..sizeof(ctime(time()))-2]+
+				" user="+me->query_name()+" base="+base+
+				" action=removed\n");
+		};
+		// 已穿装备先卸下再删，防止装备栏悬空引用。
+		if(item->equiped && functionp(me->remove_equipment))
+			catch{ me->remove_equipment(item); };
+		destruct(item);
+		removed_items++;
+	}
+	if(removed_items>0){
+		// 每件补100碎玉、单号封顶1000，每账号仅补一次（防重复）。
+		int compensation=removed_items*100;
 		if(compensation>1000)
 			compensation=1000;
 		if(!(int)me["/plus/exploded_gear_compensated"]){
 			me["/plus/exploded_gear_compensated"]=1;
 			YUSHID->give_yushi(me,compensation);
-			tell_object(me,"【平衡回收】检测到"+corrected_items+
-				"件属性异常的历史装备，已自动矫正为合法数值。"+
-				"补偿碎玉×"+compensation+"已发放（每个账号仅一次）。\n");
 		}
+		tell_object(me,"【平衡回收】检测到"+removed_items+
+			"件属性异常的历史装备，已回收并补偿碎玉。相关问题请联系客服。\n");
 	}
-	return corrected_items;
+	return removed_items;
 }
 //查看随身物品-道具
 string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showPrice){

@@ -1,5 +1,5 @@
 #!/usr/bin/env pike
-/** 爆炸装三层防御回归：生成上限、炼化钳制、登录矫正与补偿。 */
+/** 爆炸装三层防御回归：生成上限、炼化钳制、登录直接回收+一次性补偿。 */
 
 #include <globals.h>
 #include <gamelib/include/gamelib.h>
@@ -53,19 +53,18 @@ int main()
 	string worst_attr="";
 	int generated_capped=0;
 	int conversion_clamped=0;
-	int restore_corrected=0;
-	int compensation_paid=0;
+	int removed_ok=0;
 	int compensation_once=0;
 	int corrected=0;
-	int after=0;
-	int str_after=0;
-	int jade_mid=0;
+	int second_pass=0;
+	int jade_before=0;
+	int jade_after_first=0;
+	int jade_after_second=0;
 	mixed err=catch{
 		set_this_player(player);
 		// 第二层：低阶底版按超高目标等级生成，单条属性必须被钳制。
 		object overpowered=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,400);
-		// 查询端设计：life/mofa 的 query 会把存储值乘10，其余原样。
 		mapping(string:int) query_ceilings=([
 			"str_add":2*500,"dex_add":2*500,"think_add":2*500,
 			"attack_add":5*500,"weapon_attack_add":2*500,
@@ -90,25 +89,27 @@ int main()
 		conversion_clamped=search(convert_source,
 			"if(base_tier<65 && reroll_target>base_tier)")!=-1 &&
 			search(convert_source,"reroll_target=base_tier;")!=-1;
-		// 第三层：登录矫正——手工构造一件爆炸装再触发矫正。
+		// 第三层：登录回收——构造爆炸装，矫正后应被直接销毁。
 		object exploded=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
 		exploded->set_attack_add(999999);
 		exploded->move(player);
-		int jade_before=YUSHID->query_all_num(player);
+		jade_before=YUSHID->query_all_num(player);
 		corrected=player->normalize_exploded_equipment();
-		after=(int)call_function(exploded["query_attack_add"]);
-		restore_corrected=corrected>=1 && after<=5*500;
-		compensation_paid=(int)player["/plus/exploded_gear_compensated"]==1 &&
-			YUSHID->query_all_num(player)>jade_before;
-		// 幂等：第二次矫正继续钳数值但不再发补偿。
-		exploded->set_str_add(888888);
-		jade_mid=YUSHID->query_all_num(player);
-		player->normalize_exploded_equipment();
-		str_after=(int)call_function(exploded["query_str_add"]);
-		compensation_once=str_after<=2*500 &&
-			YUSHID->query_all_num(player)==jade_mid;
-		destruct(exploded);
+		removed_ok=corrected>=1 && !objectp(exploded);
+		jade_after_first=YUSHID->query_all_num(player);
+		// 幂等：第二次矫正无装备可删，返回0且不再发补偿。
+		object normal=ITEMSD->get_convert_item(
+			"weapon/1duanmugun/1duanmugun",1,1,1);
+		normal->move(player);
+		second_pass=player->normalize_exploded_equipment();
+		jade_after_second=YUSHID->query_all_num(player);
+		compensation_once=second_pass==0 &&
+			jade_after_first>jade_before &&
+			jade_after_second==jade_after_first &&
+			objectp(normal);
+		if(normal)
+			destruct(normal);
 	};
 	if(err)
 		error_desc=describe_error(err);
@@ -119,15 +120,14 @@ int main()
 	check("第一层：炼化对低阶底版按底版档位重掷",
 		!err && conversion_clamped,
 		"炼化钳制缺失");
-	check("第三层：登录矫正爆炸属性并发放补偿",
-		!err && restore_corrected && compensation_paid,
+	check("第三层：登录回收直接销毁爆炸装备",
+		!err && removed_ok,
 		error_desc!="" ? error_desc :
-			sprintf("corrected=%d after=%d paid=%d",
-				corrected,after,compensation_paid));
-	check("矫正幂等：再次矫正钳数值但不重复发补偿",
+			sprintf("corrected=%d",corrected));
+	check("补偿一次性发放：首回收到碎玉，二次不再发",
 		!err && compensation_once,
-		sprintf("str_after=%d jade %d->%d",str_after,jade_mid,
-			YUSHID->query_all_num(player)));
+		sprintf("second=%d jade %d→%d→%d",second_pass,
+			jade_before,jade_after_first,jade_after_second));
 	// 怪物联动：守护进程默认与热调边界。
 	rm(DATA_ROOT+"balance_transition.json");
 	object balance=(object)(ROOT+
@@ -144,8 +144,6 @@ int main()
 		(int)after_tune["attack_percent"]==80,
 		sprintf("fresh=%O tuned=%O bad=%O after=%O",
 			fresh,tuned,bad,after_tune));
-	// 不用rm收尾：同进程守护进程有30秒TTL缓存，显式回置100/100
-	// 才能让同一轮后续测试立刻拿到中性系数。
 	balance->set_percents(100,100,"testunit-cleanup");
 	if(original)
 		set_this_player(original);
