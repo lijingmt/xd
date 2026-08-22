@@ -62,7 +62,11 @@ int query_need_exp(){
 	}
 	else if(b_level>=69 && b_level<99){
 		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*100;
-	}else if(b_level>=99){//大于100级则三次方的指数曲线
+	}else if(b_level>=200){//200到1000级追加四次方增长项，升级曲线显著变陡
+		rst = t_level*t_level*100*2*(int)(t_level/8.5)+
+			t_level*t_level*t_level*50+
+			t_level*t_level*t_level*t_level/2;
+	}else if(b_level>=99){//100到199级保持三次方曲线
 		rst = t_level*t_level*100*2*(int)(t_level/8.5)+t_level*t_level*t_level*50;
 	}
 	return rst;
@@ -446,13 +450,14 @@ mapping(string:int) add_kill_exp_with_bonus(int base_exp,int buff_percent,
 	int event_bonus_multiplier)
 {
 	// 个人难度档位的经验回报：异常或旧档一律回到100%中性倍率。
+	// 上限20000%覆盖天劫档12800%并留余量。
 	int difficulty_exp_percent = 100;
 	mixed difficulty_err = catch{
 		difficulty_exp_percent = PERSONAL_DIFFICULTYD->
 			query_exp_percent(this_object());
 	};
 	if(difficulty_err || difficulty_exp_percent<100 ||
-	   difficulty_exp_percent>200)
+	   difficulty_exp_percent>20000)
 		difficulty_exp_percent = 100;
 	base_exp = base_exp*difficulty_exp_percent/100;
 	mapping(string:int) reward = calculate_kill_exp_reward(base_exp,

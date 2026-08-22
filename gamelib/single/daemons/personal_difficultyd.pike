@@ -11,43 +11,43 @@ inherit LOW_DAEMON;
 #define DIFFICULTY_SCOPE_RETRY_AT "/tmp/personal_difficulty_scope_retry_at"
 #define DIFFICULTY_SCOPE_RETRY_SECONDS 60
 
-// 基础模式逐项保持线上公式。七档挑战只通过统一边界应用增量倍率，
-// 任何非法或旧存档值都会失败关闭到基础模式。
-// exp_percent / rare_drop_percent：更高难度换更高打怪经验与稀有掉率；
-// 与承伤、输出惩罚和挂机时长共同构成风险回报曲线。
+// 回收变态装备后的平衡重建：基础档怪物强度降到10%（承伤10%），
+// 其他档在基础之上每档翻倍（20/40/80/160/320/640/1280）。经验和
+// 稀有掉率与风险严格同步翻倍，输出全档保持100%（挑战纯粹来自
+// 承伤风险）。玩家从基础档重新出发，随合法装备成型逐档攀升。
 private array(mapping(string:mixed)) difficulty_catalog=({
 	(["id":"base","name":"基础","min_level":1,"kills":0,"bosses":0,
-		"outgoing_percent":100,"incoming_percent":100,
+		"outgoing_percent":100,"incoming_percent":10,
 		"set_drop_percent":100,"afk_cap_hours":24,
 		"exp_percent":100,"rare_drop_percent":100]),
 	(["id":"wendao","name":"问道","min_level":70,"kills":20000,"bosses":50,
-		"outgoing_percent":95,"incoming_percent":108,
-		"set_drop_percent":112,"afk_cap_hours":16,
-		"exp_percent":106,"rare_drop_percent":115]),
+		"outgoing_percent":100,"incoming_percent":20,
+		"set_drop_percent":200,"afk_cap_hours":16,
+		"exp_percent":200,"rare_drop_percent":200]),
 	(["id":"ningzhen","name":"凝真","min_level":100,"kills":50000,"bosses":120,
-		"outgoing_percent":90,"incoming_percent":118,
-		"set_drop_percent":125,"afk_cap_hours":14,
-		"exp_percent":112,"rare_drop_percent":132]),
+		"outgoing_percent":100,"incoming_percent":40,
+		"set_drop_percent":400,"afk_cap_hours":14,
+		"exp_percent":400,"rare_drop_percent":400]),
 	(["id":"pojing","name":"破境","min_level":130,"kills":100000,"bosses":250,
-		"outgoing_percent":85,"incoming_percent":130,
-		"set_drop_percent":140,"afk_cap_hours":12,
-		"exp_percent":120,"rare_drop_percent":150]),
+		"outgoing_percent":100,"incoming_percent":80,
+		"set_drop_percent":800,"afk_cap_hours":12,
+		"exp_percent":800,"rare_drop_percent":800]),
 	(["id":"tongxuan","name":"通玄","min_level":160,"kills":180000,"bosses":450,
-		"outgoing_percent":80,"incoming_percent":145,
-		"set_drop_percent":160,"afk_cap_hours":10,
-		"exp_percent":130,"rare_drop_percent":172]),
+		"outgoing_percent":100,"incoming_percent":160,
+		"set_drop_percent":1600,"afk_cap_hours":10,
+		"exp_percent":1600,"rare_drop_percent":1600]),
 	(["id":"dengxian","name":"登仙","min_level":190,"kills":280000,"bosses":700,
-		"outgoing_percent":75,"incoming_percent":162,
-		"set_drop_percent":185,"afk_cap_hours":8,
-		"exp_percent":142,"rare_drop_percent":196]),
+		"outgoing_percent":100,"incoming_percent":320,
+		"set_drop_percent":3200,"afk_cap_hours":8,
+		"exp_percent":3200,"rare_drop_percent":3200]),
 	(["id":"lingxiao","name":"凌霄","min_level":220,"kills":400000,"bosses":1000,
-		"outgoing_percent":70,"incoming_percent":182,
-		"set_drop_percent":215,"afk_cap_hours":6,
-		"exp_percent":156,"rare_drop_percent":224]),
+		"outgoing_percent":100,"incoming_percent":640,
+		"set_drop_percent":6400,"afk_cap_hours":6,
+		"exp_percent":6400,"rare_drop_percent":6400]),
 	(["id":"tianjie","name":"天劫","min_level":250,"kills":600000,"bosses":1500,
-		"outgoing_percent":65,"incoming_percent":205,
-		"set_drop_percent":250,"afk_cap_hours":4,
-		"exp_percent":172,"rare_drop_percent":256]),
+		"outgoing_percent":100,"incoming_percent":1280,
+		"set_drop_percent":12800,"afk_cap_hours":4,
+		"exp_percent":12800,"rare_drop_percent":12800]),
 });
 
 private int valid_scope_id(string value)

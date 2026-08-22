@@ -152,13 +152,23 @@ int query_active_vip_level(object player)
 	return level;
 }
 
-//普通玩家120级封顶；每提高一级有效VIP，等级上限增加20级。
+//普通玩家120级封顶；VIP1-3每级+20；VIP4起大幅突破至999。
 int query_vip_level_limit(int vip_level)
 {
 	if(vip_level<0)
 		vip_level = 0;
 	if(vip_level>VIP_MAX_LEVEL)
 		vip_level = VIP_MAX_LEVEL;
+	if(vip_level>=8)
+		return 999;
+	if(vip_level==7)
+		return 900;
+	if(vip_level==6)
+		return 800;
+	if(vip_level==5)
+		return 600;
+	if(vip_level==4)
+		return 300;
 	return NORMAL_MAX_LEVEL+vip_level*VIP_LEVEL_LIMIT_STEP;
 }
 

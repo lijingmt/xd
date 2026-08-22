@@ -104,7 +104,7 @@ int main()
 			VIPD->get_vip_cost(4)==100 && VIPD->get_vip_off(1)==9 &&
 			VIPD->get_vip_off(4)==5 &&
 			VIPD->query_vip_level_limit(1)==140 &&
-			VIPD->query_vip_level_limit(4)==200 &&
+			VIPD->query_vip_level_limit(4)==300 &&
 			autofightd->query_daily_seconds_for(player)==16*3600,
 			"旧四档权益被新增档位改写");
 		string upgrade_source=Stdio.read_file(ROOT+
@@ -133,8 +133,8 @@ int main()
 			VIPD->get_vip_name(8)=="仙尊会员" &&
 			VIPD->get_vip_cost(5)==150 && VIPD->get_vip_cost(6)==200 &&
 			VIPD->get_vip_cost(7)==250 && VIPD->get_vip_cost(8)==300 &&
-			VIPD->query_vip_level_limit(5)==220 &&
-			VIPD->query_vip_level_limit(8)==280 &&
+			VIPD->query_vip_level_limit(5)==600 &&
+			VIPD->query_vip_level_limit(8)==999 &&
 			autofightd->query_daily_seconds_for(player)==24*3600 &&
 			player->query_max_yao()==45,
 			"新增价格、等级、挂机或药品上限不一致");

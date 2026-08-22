@@ -177,6 +177,9 @@ void test_s1_abyss_victory_result_is_not_room_dump()
 		player->set_att_by_level();
 		player->flush_life();
 		player->set_jingli(100);
+		// 基础档承伤10%会让战斗拖满轮次；该测试验证的是战果
+		// 格式而非平衡，直接大幅提升攻击确保速胜出明确结果。
+		player->_str = player->_str*100;
 		player["/tmp/illusion_move_bypass"]=1;
 		player->move(room);
 		player->m_delete_foruser("/tmp/illusion_move_bypass");

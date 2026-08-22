@@ -200,9 +200,10 @@ int main()
 			legacy_incoming=PERSONAL_DIFFICULTYD->scale_pve_damage(
 				legacy_npc,hunter,10000);
 		};
-		check("旧档在真实双向PVE伤害入口保持可战斗且不改变基础值",
+		// 基础档承伤现为10%（平衡重建后），测试期望同步更新。
+		check("旧档在真实双向PVE伤害入口保持可战斗且基础输出不变",
 			!legacy_damage_err && legacy_outgoing==10000 &&
-			legacy_incoming==10000,
+			legacy_incoming==1000,
 			legacy_damage_err ? describe_error(legacy_damage_err) :
 			 sprintf("out=%d in=%d",legacy_outgoing,legacy_incoming));
 		destruct(legacy_npc);
@@ -267,8 +268,9 @@ int main()
 			npc,pioneer,10000);
 		int pvp_damage=PERSONAL_DIFFICULTYD->scale_pve_damage(
 			pioneer,pvp,10000);
+		// 基础档承伤10% × 契印106% = 10.6%总倍率。
 		check("契印只作用S1 PVE且玩家互斗保持零影响",
-			outgoing==10500 && incoming==10600 && pvp_damage==10000,
+			outgoing==10500 && incoming==1060 && pvp_damage==10000,
 			sprintf("out=%d in=%d pvp=%d",outgoing,incoming,pvp_damage));
 		destruct(npc);
 

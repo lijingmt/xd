@@ -170,9 +170,9 @@ void test_personal_difficulty_afk_and_shared_world()
 		player["/plus/personal_difficulty/current"]=1;
 		daemon->sync_daily_limit(player);
 		valid=valid && daemon->query_daily_seconds_for(player)==5*3600+20*60;
-		// 基础档完全等于旧公式；问道只在PVE降低本人输出、提高本人承伤。
-		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==950 &&
-			difficulty->scale_pve_damage(npc,player,1000)==1080 &&
+		// 新曲线：问道档输出100%、承伤20%。
+		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==1000 &&
+			difficulty->scale_pve_damage(npc,player,1000)==200 &&
 			difficulty->scale_pve_damage(player,target_player,1000)==1000;
 		// 基础档445已超出六套总权重444；天劫压缩随机区间后可进入
 		// 稀有池，证明提升只作用个人套装掉落而不复制另一套属性公式。

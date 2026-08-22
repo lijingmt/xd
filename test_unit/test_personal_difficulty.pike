@@ -67,12 +67,12 @@ int main()
 		(["id":"wuxiang","race":"human"]),
 		(["id":"taiji","race":"human"]),
 	});
-	array(int) outgoing=({100,95,90,85,80,75,70,65});
-	array(int) incoming=({100,108,118,130,145,162,182,205});
-	array(int) drop=({100,112,125,140,160,185,215,250});
+	array(int) outgoing=({100,100,100,100,100,100,100,100});
+	array(int) incoming=({10,20,40,80,160,320,640,1280});
+	array(int) drop=({100,200,400,800,1600,3200,6400,12800});
 	array(int) afk=({24,16,14,12,10,8,6,4});
-	array(int) exp_percent=({100,106,112,120,130,142,156,172});
-	array(int) rare_drop=({100,115,132,150,172,196,224,256});
+	array(int) exp_percent=({100,200,400,800,1600,3200,6400,12800});
+	array(int) rare_drop=({100,200,400,800,1600,3200,6400,12800});
 	array(int) required_kills=({0,20000,50000,100000,180000,280000,
 		400000,600000});
 	array(int) required_bosses=({0,50,120,250,450,700,1000,1500});
@@ -97,8 +97,7 @@ int main()
 				(int)catalog[tier]["exp_percent"]==exp_percent[tier] &&
 				(int)catalog[tier]["rare_drop_percent"]==
 					rare_drop[tier] &&
-				(tier==0 || (outgoing[tier]<outgoing[tier-1] &&
-				 incoming[tier]>incoming[tier-1] &&
+				(tier==0 || (incoming[tier]>incoming[tier-1] &&
 				 drop[tier]>drop[tier-1] && afk[tier]<afk[tier-1] &&
 				 exp_percent[tier]>exp_percent[tier-1] &&
 				 rare_drop[tier]>rare_drop[tier-1]));
