@@ -7,6 +7,7 @@ private int same_term(object me,object ob)
 {
 	string my_term=(string)me->query_term();
 	return my_term!="" && my_term!="noterm" &&
+		functionp(ob->query_term) &&
 		(string)ob->query_term()==my_term;
 }
 

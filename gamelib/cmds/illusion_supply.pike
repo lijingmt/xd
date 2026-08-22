@@ -78,7 +78,7 @@ int main(string|zero arg)
 			write("你的装备都完好无损。\n[返回:illusion_supply]\n");
 			return 1;
 		}
-		if(me->pay_money(fee)!=0){
+		if(me->pay_money(fee)==0){
 			write("你身上的钱不够支付修理费用（需要"+
 				MUD_MONEYD->query_store_money_cn(fee)+"）。\n"+
 				"[返回:illusion_supply]\n");
@@ -97,7 +97,7 @@ int main(string|zero arg)
 	   (action=="red" || action=="blue") &&
 	   (count==10 || count==50)){
 		int cost=count*POTION_PRICE;
-		if(me->pay_money(cost)!=0){
+		if(me->pay_money(cost)==0){
 			write("你身上的钱不够（需要"+
 				MUD_MONEYD->query_store_money_cn(cost)+"）。\n"+
 				"[返回:illusion_supply]\n");

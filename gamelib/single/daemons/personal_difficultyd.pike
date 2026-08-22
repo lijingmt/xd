@@ -126,7 +126,7 @@ string refresh_player_scope(object player)
 	return scope;
 }
 
-private string query_scope(object player)
+string query_scope(object player)
 {
 	string cached;
 	if(!player)

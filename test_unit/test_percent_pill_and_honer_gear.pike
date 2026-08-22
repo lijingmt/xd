@@ -64,6 +64,11 @@ int main()
 	int max_boosted=0;
 	int exchanged=0;
 	int insufficient_refused=0;
+	int supply_buy_ok=0;
+	int supply_repair_ok=0;
+	int supply_money_before=0;
+	int supply_money_after_buy=0;
+	int supply_potion_seen=0;
 	mixed err=catch{
 		set_this_player(player);
 		// 回春丹：半血半蓝食用，回复各35%上限（不超上限）。
@@ -112,16 +117,51 @@ int main()
 		object room=(object)(ROOT+
 			"/gamelib/d/congxianzhen/xianyuange");
 		player->move(room);
-		player->honerpt=1000000;
+		player->honerpt=3000000;
 		object command=(object)(ROOT+
 			"/gamelib/cmds/honer_buy_top.pike");
 		command->main("weapon");
-		exchanged=(int)player->honerpt<1000000 &&
+		exchanged=(int)player->honerpt<3000000 &&
 			(int)player->honerpt>=0 && count_honer_items(player)>=1;
 		player->honerpt=0;
 		command->main("armor");
 		insufficient_refused=(int)player->honerpt==0 &&
 			count_honer_items(player)>=1;
+		// 幻境补给行为链：伪造S1归属后，买红药真实扣费到账，
+		// 修理恢复已穿装备耐久并扣费（pay_money 0=失败 1=成功）。
+		player["/tmp/personal_difficulty_scope"]="S1";
+		player->add_money(100000);
+		object supply=(object)(ROOT+
+			"/gamelib/cmds/illusion_supply.pike");
+		int money_before=(int)player->query_account();
+		supply->main("red 10");
+		int money_after_buy=(int)player->query_account();
+		int potion_amount=0;
+		foreach(all_inventory(player),object one)
+			if(one && (string)one->query_name()=="xinshouhongyao")
+				potion_amount+=(int)one->amount;
+		supply_money_before=money_before;
+		supply_money_after_buy=money_after_buy;
+		supply_potion_seen=potion_amount;
+		supply_buy_ok=money_after_buy==money_before-200 &&
+			potion_amount>=10;
+		object|zero worn=0;
+		object club=clone(ITEM_PATH+"weapon/1duanmugun/1duanmugun");
+		club->move(player);
+		player->wield(club);
+		foreach(all_inventory(player),object worn_check)
+			if(worn_check && worn_check->equiped){
+				worn=worn_check;
+				break;
+			}
+		if(worn){
+			int dura_full=(int)worn->item_dura;
+			worn->item_cur_dura=dura_full/2;
+			int money_before_repair=(int)player->query_account();
+			supply->main("repair");
+			supply_repair_ok=(int)worn->item_cur_dura==dura_full &&
+				(int)player->query_account()<money_before_repair;
+		}
 	};
 	if(err)
 		error_desc=describe_error(err);
@@ -147,6 +187,14 @@ int main()
 	check("荣誉不足时拒绝兑换且不发放装备",
 		!err && insufficient_refused,
 		"荣誉不足仍被兑换");
+	check("幻境补给购买红药真实扣费且药品到账",
+		!err && supply_buy_ok,
+		sprintf("money %d→%d potion=%d",
+			supply_money_before,supply_money_after_buy,
+			supply_potion_seen));
+	check("幻境补给修理恢复耐久并真实扣费",
+		!err && supply_repair_ok,
+		"修理未恢复耐久或未扣费");
 	if(original)
 		set_this_player(original);
 	else
