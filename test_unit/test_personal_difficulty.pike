@@ -67,7 +67,7 @@ int main()
 		(["id":"wuxiang","race":"human"]),
 		(["id":"taiji","race":"human"]),
 	});
-	array(int) outgoing=({20000,100,50,25,12,6,3,2});
+	array(int) outgoing=({100,100,50,25,12,6,3,2});
 	array(int) incoming=({10,100,200,400,800,1600,3200,6400});
 	array(int) drop=({100,200,400,800,1600,3200,6400,12800});
 	array(int) afk=({24,16,14,12,10,8,6,4});

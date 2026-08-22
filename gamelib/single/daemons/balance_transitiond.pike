@@ -47,11 +47,10 @@ private void refresh_cache()
 		cached_life_percent=0;
 	if(cached_attack_percent<10 || cached_attack_percent>200)
 		cached_attack_percent=0;
-	// 无持久配置或数值非法时一律回到100：测试环境与未启用过渡的
-	// 区服保持原始强度；生产过渡由管理员显式下达
-	// mgr_balance_transition 50 70 回收过渡。
+	// 无持久配置时使用过渡默认：怪物生命降到5%（回收后的重建期），
+	// 攻击保持100%。管理员可用 mgr_balance_transition 随时调整。
 	if(!cached_life_percent)
-		cached_life_percent=100;
+		cached_life_percent=mtime ? 100 : 5;
 	if(!cached_attack_percent)
 		cached_attack_percent=100;
 }

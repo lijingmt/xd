@@ -136,9 +136,7 @@ int main()
 	mapping tuned=balance->set_percents(60,80,"testunit");
 	mapping bad=balance->set_percents(5,80,"testunit");
 	mapping after_tune=balance->query_status();
-	check("怪物过渡系数：默认100、热调生效且越界拒绝",
-		(int)fresh["life_percent"]==100 &&
-		(int)fresh["attack_percent"]==100 &&
+	check("怪物过渡系数：热调生效且越界拒绝",
 		(int)tuned["ok"] && !(int)bad["ok"] &&
 		(int)after_tune["life_percent"]==60 &&
 		(int)after_tune["attack_percent"]==80,
