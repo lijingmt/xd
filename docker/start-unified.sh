@@ -106,16 +106,10 @@ PY
 wait_for_http_health()
 {
 	# 无预编译冷启时，协调器网关要等全部 Worker 编译完成才监听；
-	# 健康窗口必须随 Worker 数放大（每 Worker 30 秒、至少 120 秒），
-	# 否则窗口在编译中途到期，排水还会清掉编译进度，永远差一点。
-	local timeout="${XIAND_ACTIVE_START_HEALTH_TIMEOUT:-0}"
-	local configured_workers
-	if (( timeout < 1 )); then
-		configured_workers="$(config_value worker_count 2>/dev/null || echo 3)"
-		[[ "$configured_workers" =~ ^[0-9]+$ ]] || configured_workers=3
-		timeout=$(( configured_workers * 30 ))
-		(( timeout < 120 )) && timeout=120
-	fi
+	# 健康窗口固定 5 分钟（300 秒），覆盖 10-16 Worker 冷启。
+	local timeout="${XIAND_ACTIVE_START_HEALTH_TIMEOUT:-300}"
+	log "waiting up to ${timeout}s for the HTTP health endpoint"
+	local deadline=$((SECONDS + timeout))
 	log "waiting up to ${timeout}s for the HTTP health endpoint"
 	local deadline=$((SECONDS + timeout))
 	while (( SECONDS < deadline )); do
