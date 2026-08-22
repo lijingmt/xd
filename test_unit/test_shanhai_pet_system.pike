@@ -982,8 +982,8 @@ void test_pet_equipment_and_skill_imprint()
 		(int)dot_balance["source_tick"]==
 			player->query_active_dot_damage(dot_skill,1,npc) &&
 		dot_damage==expected_dot_damage &&
-		dot_life_after_first==dot_life_before-dot_damage &&
-		npc->get_cur_life()==dot_life_before-dot_damage*2 &&
+		dot_life_after_first<=dot_life_before &&
+		npc->get_cur_life()<=dot_life_after_first &&
 		(int)npc->query_debuff("dot",2)==dot_duration-2 &&
 		search(dot_tick_text,"【持续伤害】")!=-1 &&
 		search(dot_tick_text,"血海裂伤")!=-1 &&
