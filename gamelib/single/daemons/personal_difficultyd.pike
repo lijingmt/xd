@@ -16,7 +16,7 @@ inherit LOW_DAEMON;
 // 之后每档怪血翻倍（输出减半）+承伤翻倍。经验掉率同步。
 private array(mapping(string:mixed)) difficulty_catalog=({
 	(["id":"base","name":"基础","min_level":1,"kills":0,"bosses":0,
-		"outgoing_percent":100,"incoming_percent":10,
+		"outgoing_percent":100,"incoming_percent":1,
 		"set_drop_percent":100,"afk_cap_hours":24,
 		"exp_percent":100,"rare_drop_percent":100]),
 	(["id":"wendao","name":"问道","min_level":70,"kills":20000,"bosses":50,

@@ -68,7 +68,8 @@ private void show_status(object player,string notice)
 	out+="\n切换难度（只能在主城/幻境入口、脱战且停止挂机后操作）：\n";
 	for(int level=0;level<sizeof(catalog);level++){
 		mapping tier=catalog[level];
-		string label=tier_label(level,tier);
+		// 按钮文本不加色码，防止 § 字符干扰部分客户端的链接解析。
+		string label=(string)tier["name"];
 		string prefix=level==(int)status["current_level"] ? "✓ " : "";
 		if(level<=(int)status["unlocked_level"])
 			out+=prefix+"["+label+"：经验"+
@@ -76,12 +77,9 @@ private void show_status(object player,string notice)
 				(int)tier["rare_drop_percent"]+"％ 挂机上限"+
 				(int)tier["afk_cap_hours"]+"小时:personal_difficulty switch "+
 				level+"]\n";
-		else if((string)status["scope"]!="eternal")
-			out+=label+"（在上一档难度完成9个新章回后解锁）\n";
 		else
-			out+=label+"（Lv"+(int)tier["min_level"]+
-				"＋"+format_game_number((int)tier["kills"])+"次合格击杀＋"+
-				format_game_number((int)tier["bosses"])+"首领）\n";
+			out+=tier_label(level,tier)+"（LV"+
+				(int)tier["min_level"]+"解锁）\n";
 	}
 	out+="\n[挂机设置:autofight open]|[返回设置:game_detail]|[返回游戏:look]\n";
 	write(out);

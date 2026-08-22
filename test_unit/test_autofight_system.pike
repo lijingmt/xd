@@ -174,7 +174,7 @@ void test_personal_difficulty_afk_and_shared_world()
 		player["/plus/personal_difficulty/unlocked"]=1;
 		player["/plus/personal_difficulty/current"]=0;
 		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==1000 &&
-			difficulty->scale_pve_damage(npc,player,1000)==100;
+			difficulty->scale_pve_damage(npc,player,1000)==10;
 		player["/plus/personal_difficulty/current"]=1;
 		valid=valid && difficulty->scale_pve_damage(player,npc,1000)==1000 &&
 			difficulty->scale_pve_damage(npc,player,1000)==1000 &&
