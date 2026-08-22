@@ -664,6 +664,68 @@ private int ensure_personal_ids_unlocked(object player,
 	return 1;
 }
 
+/** 彻底回收过滤器：把共享仓库 items/pending 中的异常装备条目删除
+ 并留痕，返回删除数量。调用方必须持有仓库锁并负责落盘。 */
+private int filter_abnormal_shared_items(mapping record,string account_id)
+{
+	array shared_kept=({});
+	array pending_kept=({});
+	int purged=0;
+	string now_ab=ctime(time());
+	foreach((array)record["items"],mapping shared_entry){
+		array data=shared_entry && mappingp(shared_entry) ?
+			(array)shared_entry["data"] : 0;
+		string path=data && sizeof(data)>=4 ?
+			(string)data[3] : 0;
+		int abnormal_class=path ?
+			ITEMSD->query_abnormal_gear_class_by_file(path) : 0;
+		if(abnormal_class>0){
+			Stdio.append_file(ROOT+"/log/"+
+				(abnormal_class==2 ?
+				"abnormal_gear_alarm.log" :
+				"exploded_gear_recall.log"),
+				now_ab[0..sizeof(now_ab)-2]+" account="+account_id+
+				" path="+path+
+				" action=shared_warehouse_login_recall\n");
+			purged++;
+			continue;
+		}
+		shared_kept+=({shared_entry});
+	}
+	foreach((array)record["pending"],mapping pending_entry){
+		array data=pending_entry && mappingp(pending_entry) &&
+			mappingp(pending_entry["item"]) ?
+			(array)pending_entry["item"]["data"] : 0;
+		string path=data && sizeof(data)>=4 ?
+			(string)data[3] : 0;
+		int abnormal_class=path ?
+			ITEMSD->query_abnormal_gear_class_by_file(path) : 0;
+		if(abnormal_class>0){
+			Stdio.append_file(ROOT+"/log/"+
+				(abnormal_class==2 ?
+				"abnormal_gear_alarm.log" :
+				"exploded_gear_recall.log"),
+				now_ab[0..sizeof(now_ab)-2]+" account="+account_id+
+				" path="+path+
+				" action=shared_warehouse_pending_recall\n");
+			purged++;
+			continue;
+		}
+		pending_kept+=({pending_entry});
+	}
+	if(purged){
+		record["items"]=shared_kept;
+		record["pending"]=pending_kept;
+	}
+	return purged;
+}
+
+/** TestUnit钩子：只跑共享仓库异常过滤，不落盘。 */
+int test_filter_abnormal_shared_items(mapping record,string account_id)
+{
+	return filter_abnormal_shared_items(record,account_id);
+}
+
 /**
  * 角色登录时检查旧个人存档备份是否复活了已经转入共享仓库的ID。
  * 账号共享仓库是该ID的权威所有者，发现重复时只删除角色仓库影子并立即
@@ -692,6 +754,13 @@ int reconcile_player_login(object player)
 	}
 	foreach((array)record["items"],mapping item)
 		shared_ids[(string)item["id"]] = 1;
+	// 彻底回收：共享仓库中的历史异常装备按物品文件分类后直接删除，
+	// 与角色仓库登录清洗一起堵住“躲仓库”的漏洞。被删条目的id仍
+	// 保留在shared_ids中，使角色仓库里的同id影子副本一并清除。
+	if(filter_abnormal_shared_items(record,account_id)>0){
+		record["revision"]=(int)record["revision"]+1;
+		save_record_unlocked(record);
+	}
 	original = copy_value(player->packaged_items);
 	for(int i=0;i<sizeof(original);i++){
 		string item_id = personal_item_id(original[i]);

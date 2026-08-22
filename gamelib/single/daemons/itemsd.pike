@@ -2082,6 +2082,89 @@ mapping(string:int) query_base_attribute_caps(string base_path)
 	return caps;
 }
 
+private array(string) abnormal_gear_attack_defense_attrs=({
+	"attack_add","defend_add","weapon_attack_add","spec_mofa_attack_add",
+	"wulichuantou_add","mofachuantou_add","huo_mofa_attack_add",
+	"feng_mofa_attack_add","bing_mofa_attack_add","du_mofa_attack_add",
+	"attack_huoyan_add","attack_fengren_add","attack_dusu_add",
+	"attack_bingshuang_add","huoyan_defend_add","fengren_defend_add",
+	"dusu_defend_add","bingshuang_defend_add","all_mofa_defend_add",
+});
+
+/** 异常装备统一分类：0=正常；1=历史爆炸装（低阶底版单条属性超过
+ 约束表上限500倍）；2=超出千级合法峰值10倍的上限装（含无法解析
+ 底版但攻防族属性超过265000绝对线的装备）。随身登录回收、仓库
+ 回收必须共用本分类，防止阈值漂移。 */
+int query_abnormal_gear_class(object item)
+{
+	string base;
+	mapping(string:int) caps;
+	int tier;
+	int over_cap=0;
+	if(!item || !functionp(item->query_item_rareLevel))
+		return 0;
+	base=query_convert_item_rawname(item);
+	if(base!=""){
+		caps=query_base_attribute_caps(base);
+		tier=query_base_template_tier(base);
+		foreach(sort(indices(caps)),string attr){
+			mixed reader=item["query_"+attr];
+			int value;
+			if(!functionp(reader))
+				continue;
+			value=(int)call_function(reader);
+			if(value>caps[attr]*10)
+				return 2;
+			if(value>caps[attr])
+				over_cap=1;
+		}
+		if(over_cap && tier>=1 && tier<65)
+			return 1;
+		return 0;
+	}
+	foreach(abnormal_gear_attack_defense_attrs,string attr){
+		mixed reader=item["query_"+attr];
+		int value;
+		if(!functionp(reader))
+			continue;
+		value=(int)call_function(reader);
+		if(value>265000)
+			return 2;
+	}
+	return 0;
+}
+
+/** 仓库条目只保存物品文件路径；按文件克隆后走同一分类。
+ 生成后的装备文件不再改写，结果按路径缓存，避免每次登录重复克隆。
+ 返回0=正常，1/2同 query_abnormal_gear_class。 */
+private mapping(string:int) abnormal_gear_file_cache=([]);
+
+int query_abnormal_gear_class_by_file(void|string relative)
+{
+	object item;
+	mixed err;
+	array(string) tmp;
+	int result;
+	if(!relative || relative=="")
+		return 0;
+	tmp=relative/"item/";
+	if(sizeof(tmp)==2)
+		relative=tmp[1];
+	if(zero_type(abnormal_gear_file_cache[relative])==0)
+		return abnormal_gear_file_cache[relative];
+	err=catch{ item=clone(ITEM_PATH+relative); };
+	if(err || !item){
+		if(item)
+			destruct(item);
+		abnormal_gear_file_cache[relative]=0;
+		return 0;
+	}
+	result=query_abnormal_gear_class(item);
+	destruct(item);
+	abnormal_gear_file_cache[relative]=result;
+	return result;
+}
+
 
 //判断物品是否是意见装备（武器、护甲、饰品等，即可以装备在身上的物品）
 int can_equip(object ob)

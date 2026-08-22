@@ -60,6 +60,14 @@ int main()
 	int ceiling_jade_unchanged=0;
 	int jade_ceiling_before=0;
 	int jade_ceiling_after=0;
+	object|zero got_item=0;
+	int file_class_ok=0;
+	int deposit_refused=0;
+	int withdraw_recalled=0;
+	int warehouse_purged=0;
+	int login_purge_ok=0;
+	int shared_purged=0;
+	int shared_purge_ok=0;
 	int life_full=0;
 	int life_default=0;
 	int removed_ok=0;
@@ -143,6 +151,63 @@ int main()
 		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
 		if(legit)
 			destruct(legit);
+		// 仓库彻底回收：伪造异常装备文件（爆炸级2600/千级999999），
+		// 验证文件分类、存入拒绝、取出回收、角色仓库登录清洗与
+		// 共享仓库过滤五条防线。
+		string forge_dir=ROOT+
+			"/gamelib/clone/item/weapon/1duanmugun/";
+		string forge_base=Stdio.read_file(forge_dir+"1duanmugun") ||
+			"";
+		string forge_boom=forge_base[0..sizeof(forge_base)-3]+
+			"set_attack_add(2600);\n}\n";
+		string forge_ceiling=forge_base[0..sizeof(forge_base)-3]+
+			"set_attack_add(999999);\n}\n";
+		Stdio.write_file(forge_dir+"zztestunitboom2600",forge_boom);
+		Stdio.write_file(forge_dir+"zztestunitboom999999",
+			forge_ceiling);
+		file_class_ok=
+			ITEMSD->query_abnormal_gear_class_by_file(
+				"weapon/1duanmugun/zztestunitboom2600")==1 &&
+			ITEMSD->query_abnormal_gear_class_by_file(
+				"weapon/1duanmugun/zztestunitboom999999")==2 &&
+			ITEMSD->query_abnormal_gear_class_by_file(
+				"weapon/1duanmugun/1duanmugun")==0;
+		object bad=clone(ITEM_PATH+"weapon/1duanmugun/1duanmugun");
+		bad->set_attack_add(2600);
+		player->packaged_items=({});
+		deposit_refused=player->packaged(bad,100)!=0 &&
+			sizeof(player->packaged_items)==0;
+		destruct(bad);
+		player->packaged_items=({({"zzboom","异常测试装备","短木棍",
+			"weapon/1duanmugun/zztestunitboom2600",0,0,0})});
+		got_item=player->repackaged("zzboom");
+		withdraw_recalled=!got_item &&
+			sizeof(player->packaged_items)==0;
+		player->packaged_items=({({"zzboom2","异常测试装备","短木棍",
+			"weapon/1duanmugun/zztestunitboom999999",0,0,0}),
+			({"zzok","正常装备","短木棍",
+			"weapon/1duanmugun/1duanmugun",0,0,0})});
+		warehouse_purged=player->recall_abnormal_warehouse_gear();
+		login_purge_ok=warehouse_purged==1 &&
+			sizeof(player->packaged_items)==1 &&
+			(string)player->packaged_items[0][0]=="zzok";
+		player->packaged_items=({});
+		mapping shared_record=(["items":({
+			(["id":"ab","data":({"zzshared","异常装备","短木棍",
+				"weapon/1duanmugun/zztestunitboom2600",0,0,0,
+				"ab"})]),
+			(["id":"cd","data":({"zzsharedok","正常装备","短木棍",
+				"weapon/1duanmugun/1duanmugun",0,0,0,
+				"cd"})]),
+		}),"pending":({})]);
+		shared_purged=ACCOUNT_STORAGED->
+			test_filter_abnormal_shared_items(
+			shared_record,"testunitaccount");
+		shared_purge_ok=shared_purged==1 &&
+			sizeof((array)shared_record["items"])==1 &&
+			(string)((array)shared_record["items"])[0]["id"]=="cd";
+		rm(forge_dir+"zztestunitboom2600");
+		rm(forge_dir+"zztestunitboom999999");
 	};
 	if(err)
 		error_desc=describe_error(err);
@@ -171,6 +236,22 @@ int main()
 	check("千级上限：回收不发放碎玉",
 		!err && ceiling_jade_unchanged,
 		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));
+	check("仓库分类：文件级判定爆炸/千级/正常三档",
+		!err && file_class_ok,
+		"按物品文件克隆分类失败");
+	check("仓库存入：异常装备被拒绝入库",
+		!err && deposit_refused,
+		"异常装备混入了角色仓库");
+	check("仓库取出：取出异常装备时直接回收",
+		!err && withdraw_recalled,
+		sprintf("got=%d remain=%d",!!got_item,
+			sizeof(player->packaged_items || ({}))));
+	check("仓库登录清洗：只删异常条目并保留正常装备",
+		!err && login_purge_ok,
+		sprintf("purged=%d",warehouse_purged));
+	check("共享仓库过滤：异常条目被删除、正常条目保留",
+		!err && shared_purge_ok,
+		sprintf("purged=%d",shared_purged));
 	// 怪物默认血量：无配置文件时按原血量5%出生。
 	Stdio.write_file(DATA_ROOT+"balance_transition.json",
 		Standards.JSON.encode((["life_percent":100,

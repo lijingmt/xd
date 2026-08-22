@@ -252,6 +252,15 @@ int restore()
 			if(abnormal_recall_err)
 				atomic_save_log("abnormal ceiling gear recall skipped");
 		}
+		// 彻底回收：角色仓库（packaged_items）里的历史异常装备同样
+		// 不能幸免，登录恢复时按物品文件分类后直接删除。
+		if(functionp(this_object()->recall_abnormal_warehouse_gear)){
+			mixed warehouse_recall_err=catch{
+				this_object()->recall_abnormal_warehouse_gear();
+			};
+			if(warehouse_recall_err)
+				atomic_save_log("abnormal warehouse gear recall skipped");
+		}
 		if(functionp(this_object()->normalize_paid_yushi_stacks)){
 			mixed normalize_err=catch{
 				this_object()->normalize_paid_yushi_stacks();

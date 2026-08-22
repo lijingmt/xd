@@ -34,6 +34,17 @@ int packaged(object ob, int user_p_level){
 	// 其他特殊道具继续保持旧边界，不能借共享仓库扩大使用范围。
 	if(!ob || (ob->query_toVip() && !ob->is("equip")))
 		return 1;
+	// 异常装备禁止入库：漏洞产物不能躲进仓库逃避登录回收。
+	if(ITEMSD->query_abnormal_gear_class(ob)>0){
+		string now0=ctime(time());
+		ASYNC_IOD->append_log(ROOT+"/log/abnormal_gear_alarm.log",
+			now0[0..sizeof(now0)-2]+" user="+
+			this_object()->query_name()+" item="+ob->query_name()+
+			" action=warehouse_deposit_refused\n");
+		tell_object(this_object(),
+			"【异常装备】该装备属性异常，已拒绝存入仓库。\n");
+		return 1;
+	}
 	if(packaged_items==0)
 		packaged_items = ({});
 	if(sizeof(packaged_items)>=user_p_level)
@@ -141,6 +152,26 @@ object repackaged(string name){
 				ob=new (ITEM_PATH+returnString);
 			};
 			if(!err && ob){
+				// 取出即回收：仓库里的历史异常装备不能借取出回到背包。
+				int abnormal_class=ITEMSD->query_abnormal_gear_class(ob);
+				if(abnormal_class>0){
+					string now_ab=ctime(time());
+					ASYNC_IOD->append_log(ROOT+
+						(abnormal_class==2 ?
+						"/log/abnormal_gear_alarm.log" :
+						"/log/exploded_gear_recall.log"),
+						now_ab[0..sizeof(now_ab)-2]+" user="+
+						this_object()->query_name()+
+						" item="+ob->query_name()+
+						" action=warehouse_withdraw_recall\n");
+					destruct(ob);
+					packaged_items[i]=packaged_items[0];
+					packaged_items=packaged_items[1..
+						sizeof(packaged_items)-1];
+					tell_object(this_object(),
+						"【异常装备】取出时检测到属性异常装备，已直接回收。\n");
+					return 0;
+				}
 				array stored = packaged_items[i];
 				//取出复数物品
 				if(ob->is("combine_item"))
@@ -223,4 +254,40 @@ object repackaged_by_storage_id(string item_id)
 		return repackaged(item_name);
 	}
 	return 0;
+}
+
+/** 登录清洗角色仓库：仓库条目按其物品文件重新克隆分类，异常装备
+ 直接从仓库删除并留痕。与共享仓库登录清洗一起构成"彻底回收"。 */
+int recall_abnormal_warehouse_gear()
+{
+	object me=this_object();
+	int removed=0;
+	array kept=({});
+	if(!arrayp(packaged_items))
+		return 0;
+	foreach(packaged_items,array entry){
+		string path=entry && sizeof(entry)>=4 ?
+			(string)entry[3] : 0;
+		int abnormal_class=path ?
+			ITEMSD->query_abnormal_gear_class_by_file(path) : 0;
+		if(abnormal_class>0){
+			string now_ab=ctime(time());
+			ASYNC_IOD->append_log(ROOT+
+				(abnormal_class==2 ?
+				"/log/abnormal_gear_alarm.log" :
+				"/log/exploded_gear_recall.log"),
+				now_ab[0..sizeof(now_ab)-2]+" user="+
+				me->query_name()+" path="+path+
+				" action=warehouse_login_recall\n");
+			removed++;
+			continue;
+		}
+		kept+=({entry});
+	}
+	if(removed){
+		packaged_items=kept;
+		tell_object(me,"【异常装备】检测到"+removed+
+			"件仓库中的异常装备，已直接回收。\n");
+	}
+	return removed;
 }
