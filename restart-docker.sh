@@ -567,8 +567,8 @@ recover_historical_map_worker_fallback() {
 
 verify_map_worker_runtime_in_container() {
     local container_name="$1"
-    # 模式验证窗口固定 10 分钟，与容器内健康窗口对齐。
-    local verify_timeout="${XIAND_MODE_VERIFY_TIMEOUT:-600}"
+    # 模式验证窗口固定 40 分钟，覆盖容器内 1200 秒健康窗口加安全重试。
+    local verify_timeout="${XIAND_MODE_VERIFY_TIMEOUT:-2400}"
     local deadline=$((SECONDS + verify_timeout))
     local runtime_mode=""
     while (( SECONDS < deadline )); do
@@ -611,7 +611,7 @@ verify_map_worker_runtime_in_container() {
         esac
         sleep 2
     done
-    print_error "240秒内未完成worker/旧主进程运行验证"
+    print_error "${verify_timeout}秒内未完成worker/旧主进程运行验证"
     docker logs --tail 120 "$container_name" 2>/dev/null || true
     return 1
 }
