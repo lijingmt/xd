@@ -514,6 +514,8 @@ string term_create(string user){
 				t_m[user] = t_a;
 				termMain[tid] = t_m;
 				termCreatedAt[tid] = time();
+				//创建新队同样先剥离旧队籍，防止一人双队。
+				strip_previous_team_membership(player,tid);
 				//该创建者加上队伍id
 				player->set_term(tid);
 				//初始化新队伍的聊天内存
@@ -841,6 +843,44 @@ string query_termPower(string tid,string uid){
 }
 //队伍增加队员,被动调用，在玩家接受组队邀请时调用
 //private protected mapping(string:mapping(string:array)) termMain=([]);
+// 唯一队籍守卫：加入/创建新队前，把 uid 从旧队花名册移除。否则
+// 同一人可能同时出现在两支队伍，形成“A+B一队、B+C一队”的分裂态。
+// 旧队清空则解散；旧队长离队则转让给首位留队成员。
+private void strip_previous_team_membership(object player,string new_tid)
+{
+	string previous_tid;
+	string uid;
+	int was_leader;
+	if(!player || !functionp(player->query_term))
+		return;
+	uid=(string)player->query_name();
+	previous_tid=(string)player->query_term();
+	if(!previous_tid || previous_tid=="noterm" || previous_tid==new_tid ||
+	   !termMain[previous_tid] || !termMain[previous_tid][uid])
+		return;
+	was_leader=sizeof(termMain[previous_tid][uid])>1 &&
+		termMain[previous_tid][uid][1]=="leader";
+	m_delete(termMain[previous_tid],uid);
+	if(!sizeof(termMain[previous_tid])){
+		publish_distributed_team_snapshot(previous_tid,uid,1);
+		m_delete(termMain,previous_tid);
+		m_delete(termCreatedAt,previous_tid);
+		if(termChat[previous_tid])
+			m_delete(termChat,previous_tid);
+		if(termItems[previous_tid])
+			m_delete(termItems,previous_tid);
+		return;
+	}
+	if(was_leader){
+		string heir=indices(termMain[previous_tid])[0];
+		if(termMain[previous_tid][heir] &&
+		   sizeof(termMain[previous_tid][heir])>1)
+			termMain[previous_tid][heir][1]="leader";
+	}
+	publish_distributed_team_snapshot(previous_tid,uid);
+	term_tell(previous_tid,player->query_name_cn()+"加入了其他队伍\n");
+}
+
 int add_termer(string tid, string uid, string uname){
 	if(tid&&sizeof(tid)&&uid&&sizeof(uid)&&uname&&sizeof(uname)){
 		if(termMain[tid]&&sizeof(termMain[tid])){
@@ -853,6 +893,7 @@ int add_termer(string tid, string uid, string uname){
 			else{
 				object player = find_player(uid);
 				if(player){
+					strip_previous_team_membership(player,tid);
 					array t_a = ({});
 					t_a += ({player->query_name_cn()});//队员中文名称
 					t_a += ({"termer"});//队员权限，

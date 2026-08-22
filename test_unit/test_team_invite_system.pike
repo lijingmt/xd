@@ -187,6 +187,45 @@ void test_http_core_and_command_contracts()
 	test_result(valid,"核心命令路由或邀请/接受/离队接线不完整");
 }
 
+void test_unique_membership_on_join()
+{
+	test_start("加入或创建新队会剥离旧队籍，杜绝一人双队分裂");
+	object a = create_test_player(
+		"__testunit_split_a__","human","jianxian");
+	object b = create_test_player(
+		"__testunit_split_b__","monst","kuangyao");
+	object c = create_test_player(
+		"__testunit_split_c__","third","fangshi");
+	int valid = !!a && !!b && !!c;
+	if(valid){
+		string t1=TERMD->term_create(a->query_name());
+		TERMD->add_termer(t1,b->query_name(),b->query_name_cn());
+		// 分裂根源场景：B 在 T1 时又自建 T2 并拉 C 入队。
+		string t2=TERMD->term_create(b->query_name());
+		TERMD->add_termer(t2,c->query_name(),c->query_name_cn());
+		// B 再加入 T1：守卫应把 B 从 T2 移除并把队长转给 C。
+		TERMD->add_termer(t1,b->query_name(),b->query_name_cn());
+		valid=sizeof(t1)>1 && sizeof(t2)>1 &&
+			sizeof(TERMD->query_term_m(t1))==2 &&
+			sizeof(TERMD->query_term_m(t2))==1 &&
+			b->query_term()==t1 &&
+			TERMD->get_term_power(t2,c->query_name())=="leader";
+		// 单人旧队在新队加入后应被整体解散。
+		string t3=TERMD->term_create(c->query_name());
+		TERMD->add_termer(t1,c->query_name(),c->query_name_cn());
+		valid=valid && sizeof(t3)>1 &&
+			TERMD->query_termId(t3)==0 &&
+			TERMD->query_termId(t2)==0 &&
+			sizeof(TERMD->query_term_m(t1))==3;
+		if(sizeof(t1)>1)
+			TERMD->destory_term(t1,a->query_name());
+	}
+	test_result(valid,"旧队未剥离、队长未转让或空队未解散");
+	destroy_test_player(a);
+	destroy_test_player(b);
+	destroy_test_player(c);
+}
+
 int main()
 {
 	werror("\n========== Vue/HTTP组队邀请测试 ==========\n");
@@ -194,6 +233,7 @@ int main()
 	test_first_team_creation_workflow();
 	test_command_invite_accept_workflow();
 	test_http_core_and_command_contracts();
+	test_unique_membership_on_join();
 	werror("\n组队邀请测试完成！总计: %d, 通过: %d, 失败: %d\n",
 		test_results["total"],test_results["passed"],
 		test_results["failed"]);
