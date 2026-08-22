@@ -663,6 +663,55 @@ string render_result(mapping result)
 	return s;
 }
 
+mapping auto_unequip_player(object player)
+{
+	mapping result = (["removed":({}),"failed":0,"mode":"off"]);
+	if(!player)
+		return result;
+	if(player->in_combat)
+		return result+(["in_combat":1]);
+	foreach(all_inventory(player),object item){
+		if(!item || !item->equiped)
+			continue;
+		if(is_weapon_type((string)item->query_item_type())){
+			if(player->unwield(item)){
+				result["removed"] += ({item});
+				continue;
+			}
+		}
+		else if(player->unwear(item)){
+			result["removed"] += ({item});
+			continue;
+		}
+		result["failed"]++;
+	}
+	return result;
+}
+
+private string render_unequip_result(mapping result)
+{
+	array(object) removed=(array)result["removed"];
+	string s = "【一键脱装】\n";
+	if((int)result["in_combat"]){
+		s += "战斗中不能批量脱装，请先脱离战斗。\n";
+		return s+"[返回游戏:look]\n";
+	}
+	if(!sizeof(removed)){
+		s += "你身上没有穿戴装备。\n";
+		return s+"[一键穿装:auto_equip]\n[返回游戏:look]\n";
+	}
+	foreach(removed,object item)
+		s += "· 已脱下："+(string)item->query_name_cn()+"\n";
+	s += "共脱下"+sizeof(removed)+"件装备。\n";
+	if((int)result["failed"]>0)
+		s += "有"+(int)result["failed"]+"件装备未能脱下。\n";
+	s += "\n提示：脱装后可用一键穿装重新搭配。\n";
+	s += "[一键穿装:auto_equip]|[套装优先补空位:auto_equip set]|"+
+		"[智能替换更强装备:auto_equip smart]\n";
+	s += "[返回游戏:look]\n";
+	return s;
+}
+
 int main(string|zero arg)
 {
 	object player = this_player();
@@ -670,6 +719,13 @@ int main(string|zero arg)
 
 	if(!player)
 		return 0;
+	if(arg=="off"){
+		result = auto_unequip_player(player);
+		NEWBIED->record_action(player,"auto_equip");
+		player->write_view(WAP_VIEWD["/emote"],0,0,
+			render_unequip_result(result));
+		return 1;
+	}
 	if(arg=="breakset"){
 		player->write_view(WAP_VIEWD["/emote"],0,0,
 			"【允许拆散套装】\n此操作可能让2/4/6/8/10件共鸣失效。"+

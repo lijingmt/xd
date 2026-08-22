@@ -512,6 +512,36 @@ void print_summary()
 	werror("========================================\n");
 }
 
+void test_one_click_unequip()
+{
+	test_start("一键脱装可卸下全部穿戴装备");
+	object assistant = load_assistant();
+	object player = create_runtime_player(
+		"__testunit_auto_off__","human","jianxian",20);
+	int valid = !!player && !!assistant;
+	if(valid){
+		array(object) items = give_starter_equipment(player);
+		assistant->auto_equip_player(player);
+		int worn_before = 0;
+		foreach(items,object item)
+			if(item && item->equiped)
+				worn_before++;
+		mapping off = assistant->auto_unequip_player(player);
+		int worn_after = 0;
+		foreach(all_inventory(player),object item)
+			if(item && item->equiped)
+				worn_after++;
+		valid = worn_before>0 && worn_after==0 &&
+			sizeof((array)off["removed"])==worn_before;
+	}
+	if(player)
+		destroy_runtime_player(player);
+	if(valid)
+		test_pass();
+	else
+		test_fail("穿戴或脱装数量不一致");
+}
+
 int main()
 {
 	test_ui_and_creation_wiring();
@@ -523,6 +553,7 @@ int main()
 	test_two_hand_weapon_conflict();
 	test_empty_inventory();
 	test_set_aware_fill_and_replace_guard();
+	test_one_click_unequip();
 	print_summary();
 	return test_results["failed"];
 }

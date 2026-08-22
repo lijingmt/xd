@@ -730,7 +730,8 @@ string view_inventory_browser(void|string requested_category,
 		result+="[下一页:inventory_filter page "+(page+1)+"] "+
 			"[尾页:inventory_filter page "+page_count+"]";
 	result+="\n跳转页码：[inventory_filter jump ...]\n"+
-		"[一键穿装:auto_equip]|[套装管理:set_equipment_cleanup]|"+
+		"[一键穿装:auto_equip]|[一键脱装:auto_equip off]|"+
+		"[套装管理:set_equipment_cleanup]|"+
 		view_inventory_batch_sell_entry()+
 		"[清理已学重复书卷:cleanup_redundant_books]|"+
 		"[一键安全销毁非装备:cleanup_non_equipment]\n"+
