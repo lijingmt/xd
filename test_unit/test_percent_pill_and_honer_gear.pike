@@ -108,15 +108,17 @@ int main()
 				life_max_before*15/100 &&
 			player->query_mofa_max()==mofa_max_before+
 				mofa_max_before*15/100;
-		// 顶级荣誉装备：仙元阁内人类玩家兑换武器。
+		// 顶级荣誉装备：仙元阁内人类玩家兑换【仙】固定套装。
 		object room=(object)(ROOT+
 			"/gamelib/d/congxianzhen/xianyuange");
 		player->move(room);
-		player->honerpt=3000;
+		player->honerpt=1000000;
 		object command=(object)(ROOT+
 			"/gamelib/cmds/honer_buy_top.pike");
 		command->main("weapon");
-		exchanged=(int)player->honerpt==0 && count_honer_items(player)>=1;
+		exchanged=(int)player->honerpt<1000000 &&
+			(int)player->honerpt>=0 && count_honer_items(player)>=1;
+		player->honerpt=0;
 		command->main("armor");
 		insufficient_refused=(int)player->honerpt==0 &&
 			count_honer_items(player)>=1;
@@ -137,7 +139,7 @@ int main()
 		error_desc!="" ? error_desc :
 			sprintf("life_max=%d mofa_max=%d",
 				player->query_life_max(),player->query_mofa_max()));
-	check("顶级荣誉装备按等级兑换并扣除荣誉",
+	check("顶级荣誉装备按部位发放【仙】/【妖】固定套装并扣费",
 		!err && exchanged,
 		error_desc!="" ? error_desc :
 			sprintf("honerpt=%d honer_items=%d",
