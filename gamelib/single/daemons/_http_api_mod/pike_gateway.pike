@@ -2593,11 +2593,22 @@ private mixed pike_gateway_reconcile(string userid,string source_worker,
 		error("cannot read source team snapshot\n");
 	}
 	if(mappingp(team_state["snapshot"])){
-		mapping team_applied = pike_gateway_worker_rpc(target_worker,
-			"local_team_apply",(["snapshot":team_state["snapshot"]]));
+		mapping team_applied=([]);
+		// 队员本地请求仍在执行属瞬态拒绝；短暂等待重试安装，避免
+		// 整个跨Worker迁移被中止重跑、玩家看到请求失败。
+		for(int team_attempt=0;team_attempt<3;team_attempt++){
+			team_applied = pike_gateway_worker_rpc(target_worker,
+				"local_team_apply",(["snapshot":team_state["snapshot"]]));
+			if((int)team_applied["ok"] ||
+			   (string)team_applied["code"]!="team_member_request_running")
+				break;
+			sleep(0.5);
+		}
 		if(!(int)team_applied["ok"]){
 			MAP_WORKERD->abort_handoff(request_id,source_worker);
-			error("cannot install target team snapshot\n");
+			error("cannot install target team snapshot: code="+
+				pike_gateway_log_field((string)(team_applied["code"] ||
+					"unknown"),64)+"\n");
 		}
 	}
 	mapping released = pike_gateway_worker_rpc(source_worker,"local_release",([

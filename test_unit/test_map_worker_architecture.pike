@@ -682,7 +682,13 @@ int main()
 		mapping arrival_ack = daemon->acknowledge_player_arrival(userid,
 			target_worker,(int)lease["epoch"]+1,target_affinity);
 		mapping route_arrived = daemon->query_player_route(userid);
-		check("迁移commit原子切换worker和epoch且重试幂等",
+				check("跨Worker迁移的目标队伍快照安装对瞬态拒绝有界重试",
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"team_member_request_running") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
+				"cannot install target team snapshot: code="),
+			"瞬态队员请求仍会中止整个迁移并让玩家看到请求失败");
+check("迁移commit原子切换worker和epoch且重试幂等",
 			unavailable_commit["code"]=="target_unavailable" &&
 			committed["ok"] && route_after["worker_id"]==target_worker &&
 			(int)route_after["epoch"]==(int)lease["epoch"]+1 &&

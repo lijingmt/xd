@@ -65,18 +65,23 @@ int main()
 		// 第二层：低阶底版按超高目标等级生成，单条属性必须被钳制。
 		object overpowered=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,400);
-		foreach(({"str_add","dex_add","think_add","attack_add",
-			"weapon_attack_add","life_add","mofa_add"}),string attr){
+		// 查询端设计：life/mofa 的 query 会把存储值乘10，其余原样。
+		mapping(string:int) query_ceilings=([
+			"str_add":2*500,"dex_add":2*500,"think_add":2*500,
+			"attack_add":5*500,"weapon_attack_add":2*500,
+			"life_add":2*500*10,"mofa_add":4*500*10,
+		]);
+		foreach(indices(query_ceilings),string attr){
 			mixed reader=overpowered ? overpowered["query_"+attr] : 0;
 			if(functionp(reader)){
 				int value=(int)call_function(reader);
-				if(value>worst){
+				if(value>query_ceilings[attr]){
 					worst=value;
 					worst_attr=attr;
 				}
 			}
 		}
-		generated_capped=overpowered && worst>0 && worst<=5*500;
+		generated_capped=overpowered && worst==0;
 		if(overpowered)
 			destruct(overpowered);
 		// 第一层：炼化命令对低阶底版按底版档位重掷（源码契约）。
