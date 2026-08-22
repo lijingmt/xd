@@ -239,7 +239,10 @@ void test_source_contract()
 			"\"team_exp\"")!=-1 &&
 		search(Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike") ||
-			"","apply_distributed_team_exp")!=-1,
+			"","apply_distributed_team_exp")!=-1 &&
+		search(Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/_http_api_mod/pike_gateway.pike") ||
+			"","\"team_exp\"")!=-1,
 		"跨Worker队友分享经验缺失任一环节都不会送达");
 	check("队伍界面为队友渲染静态房间传送入口",
 		search(Stdio.read_file(ROOT+"/gamelib/cmds/my_term.pike") || "",

@@ -4024,7 +4024,8 @@ private void pike_gateway_deliver_social_event(mapping event)
 		}
 		return;
 	}
-	if(has_value(({"team_snapshot","team_chat","team_notice"}),kind)){
+	if(has_value(({"team_snapshot","team_chat","team_notice",
+		"team_exp"}),kind)){
 		foreach(sort(indices(pike_gateway_worker_ports)),string worker_id){
 			if(worker_id==source_worker)
 				continue;
