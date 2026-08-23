@@ -51,6 +51,16 @@ private string join_event(object player,string event_id)
 	if(MAP_WORKERD->query_node_role()=="worker" &&
 	   !event_scheduler_started)
 		probe_event_owner();
+	// 多Worker拓扑诊断：报名落到非归属Worker、归属探测长时间未就绪
+	// 或路由失败，都会表现为“活动卡死”。留痕每次报名的节点上下文，
+	// 供生产日志定位归属/路由断点。
+	werror("[TIMED_EVENT_JOIN] user=%s event=%s role=%s owner=%d "
+		"scheduler=%d ingress_owner=%d\n",
+		(string)player->query_name(),event_id,
+		MAP_WORKERD->query_node_role(),
+		local_timed_event_owner()?1:0,event_scheduler_started?1:0,
+		MAP_WORKERD->local_worker_owns_room(
+			timed_event_ingress_path())?1:0);
 	existing = query_session_for_user_id(player->query_name(),1);
 	if(existing){
 		mapping participant = existing["participants"][player->query_name()];

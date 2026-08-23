@@ -348,7 +348,10 @@ void npc_level_define(){
 			life=life_max=_costom_npc_life;
 		if(_costom_npc_mofa!=0)
 			mofa=mofa_max=_costom_npc_mofa;
-		life=life_max=transition_scaled_life(life);
+		// Boss级首领是设计化的强度锚点（限时活动/团队挑战/剧情高潮），
+		// 不吃全局过渡缩放，保持原设计血量。
+		if(!_boss)
+			life=life_max=transition_scaled_life(life);
 	}
 }
 void setup_npc_dongtai(object player){
@@ -679,7 +682,10 @@ void npc_level_define_dongtai(object player){
 			life=life_max=_costom_npc_life;
 		if(_costom_npc_mofa!=0)
 			mofa=mofa_max=_costom_npc_mofa;
-		life=life_max=transition_scaled_life(life);
+		// Boss级首领是设计化的强度锚点（限时活动/团队挑战/剧情高潮），
+		// 不吃全局过渡缩放，保持原设计血量。
+		if(!_boss)
+			life=life_max=transition_scaled_life(life);
 	}
 }
 int is_npc(){

@@ -967,6 +967,9 @@ object get_spec_item(int npclevel,int playerlevel,int playerluck,
 			}
 		}
 	}
+	// 掉落经济随击杀速度缩放：宝石/技能书/材料等特殊掉落与装备
+	// 同源下调，否则怪血2%时代每分钟产出放大数十倍，经济崩溃。
+	got_it=scale_drop_probability(got_it);
 	if((random(100000)+1)<=got_it*rare_drop_percent/100) {
 		//werror("------spec_item_level="+itemlevel+"----\n");
 		if(itemlevel==0||itemlevel==1) //没有一级的特殊物品
