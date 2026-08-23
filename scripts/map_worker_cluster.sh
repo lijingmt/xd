@@ -776,6 +776,8 @@ graceful_node_stop()
 	local node_id="$3"
 	if runtime_process_running "$node_id" &&
 	   ! port_is_listening "$mud_port"; then
+		# 端口已关、进程尚在＝节点正处于退出收尾（保存落盘/析构），
+		# 属于会自行收敛的瞬态；由外层停机证明脚本按退避重试。
 		log "cannot prove a safe save for $node_id: process is alive but MUD port is down"
 		return 1
 	fi
@@ -785,7 +787,9 @@ graceful_node_stop()
 			printf 'shutdown_safe\r\n'
 			sleep 2
 		) | nc -w 3 127.0.0.1 "$mud_port" >/dev/null 2>&1 || true
-		local deadline=$((SECONDS + 30))
+		# 十 Worker 部署在存档栅栏高峰期需要更久才能证明安全退出；
+		# 30秒会让首轮部署误判失败、被迫人工重跑。
+		local deadline=$((SECONDS + 120))
 		while (( SECONDS < deadline )); do
 			port_is_listening "$mud_port" || break
 			sleep 1
