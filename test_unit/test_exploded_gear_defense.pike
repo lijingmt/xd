@@ -86,9 +86,9 @@ int main()
 		overpowered_level=overpowered ?
 			(int)overpowered->query_item_canLevel() : 0;
 		mapping(string:int) query_ceilings=([
-			"str_add":2*500,"dex_add":2*500,"think_add":2*500,
-			"attack_add":5*500,"weapon_attack_add":2*500,
-			"life_add":2*500*10,"mofa_add":4*500*10,
+			"str_add":2*5000,"dex_add":2*5000,"think_add":2*5000,
+			"attack_add":5*5000,"weapon_attack_add":2*5000,
+			"life_add":2*5000*10,"mofa_add":4*5000*10,
 		]);
 		foreach(indices(query_ceilings),string attr){
 			mixed reader=overpowered ? overpowered["query_"+attr] : 0;
@@ -136,11 +136,11 @@ int main()
 		// 钳制线内的合法极值装备（上限×500）必须保留。
 		object extreme=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
-		extreme->set_attack_add(999999);
+		extreme->set_attack_add(9999999);
 		extreme->move(player);
 		object legit=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
-		legit->set_attack_add(2500);
+		legit->set_attack_add(25000);
 		legit->move(player);
 		jade_ceiling_before=YUSHID->query_all_num(player);
 		player->recall_abnormal_ceiling_gear();
@@ -189,27 +189,27 @@ int main()
 		string forge_base=Stdio.read_file(forge_dir+"1duanmugun") ||
 			"";
 		string forge_boom=forge_base[0..sizeof(forge_base)-3]+
-			"set_attack_add(2600);\n}\n";
+			"set_attack_add(26000);\n}\n";
 		string forge_ceiling=forge_base[0..sizeof(forge_base)-3]+
 			"set_attack_add(999999);\n}\n";
-		Stdio.write_file(forge_dir+"zztestunitboom2600",forge_boom);
+		Stdio.write_file(forge_dir+"zztestunitboom26000",forge_boom);
 		Stdio.write_file(forge_dir+"zztestunitboom999999",
 			forge_ceiling);
 		file_class_ok=
 			ITEMSD->query_abnormal_gear_class_by_file(
-				"weapon/1duanmugun/zztestunitboom2600")==1 &&
+				"weapon/1duanmugun/zztestunitboom26000")==1 &&
 			ITEMSD->query_abnormal_gear_class_by_file(
 				"weapon/1duanmugun/zztestunitboom999999")==2 &&
 			ITEMSD->query_abnormal_gear_class_by_file(
 				"weapon/1duanmugun/1duanmugun")==0;
 		object bad=clone(ITEM_PATH+"weapon/1duanmugun/1duanmugun");
-		bad->set_attack_add(2600);
+		bad->set_attack_add(26000);
 		player->packaged_items=({});
 		deposit_refused=player->packaged(bad,100)!=0 &&
 			sizeof(player->packaged_items)==0;
 		destruct(bad);
 		player->packaged_items=({({"zzboom","异常测试装备","短木棍",
-			"weapon/1duanmugun/zztestunitboom2600",0,0,0})});
+			"weapon/1duanmugun/zztestunitboom26000",0,0,0})});
 		got_item=player->repackaged("zzboom");
 		withdraw_recalled=!got_item &&
 			sizeof(player->packaged_items)==0;
@@ -224,7 +224,7 @@ int main()
 		player->packaged_items=({});
 		mapping shared_record=(["items":({
 			(["id":"ab","data":({"zzshared","异常装备","短木棍",
-				"weapon/1duanmugun/zztestunitboom2600",0,0,0,
+				"weapon/1duanmugun/zztestunitboom26000",0,0,0,
 				"ab"})]),
 			(["id":"cd","data":({"zzsharedok","正常装备","短木棍",
 				"weapon/1duanmugun/1duanmugun",0,0,0,
@@ -236,7 +236,7 @@ int main()
 		shared_purge_ok=shared_purged==1 &&
 			sizeof((array)shared_record["items"])==1 &&
 			(string)((array)shared_record["items"])[0]["id"]=="cd";
-		rm(forge_dir+"zztestunitboom2600");
+		rm(forge_dir+"zztestunitboom26000");
 		rm(forge_dir+"zztestunitboom999999");
 	};
 	if(err)
