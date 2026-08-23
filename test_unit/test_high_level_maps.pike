@@ -70,10 +70,10 @@ void test_level_cap_runtime()
 		2:160,
 		3:180,
 		4:300,
-		5:600,
-		6:800,
-		7:900,
-		8:999,
+		5:300,
+		6:300,
+		7:300,
+		8:300,
 	]);
 	mixed err = catch {
 		player = create_player(
