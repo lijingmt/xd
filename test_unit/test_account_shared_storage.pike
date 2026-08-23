@@ -635,7 +635,14 @@ int main()
 			root_mutex==child_mutex,
 			"HTTP线程仍按人物ID并发执行");
 		check("账号同时在线上限从配置热读取且当前默认在线上限",
-			ACCOUNT_CHARACTERD->query_max_online_characters()==20,
+			ACCOUNT_CHARACTERD->query_max_online_characters()==60 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(19)==100 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(20)==100 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(21)==200 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(25)==600 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(29)==1000 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(30)==1000 &&
+			ACCOUNT_CHARACTERD->query_online_expansion_cost(59)==1000,
 			"account_characters.conf没有生效");
 		object root_key = root_mutex->lock();
 		int root_login = ACCOUNT_CHARACTERD->

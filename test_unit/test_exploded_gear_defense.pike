@@ -86,9 +86,9 @@ int main()
 		overpowered_level=overpowered ?
 			(int)overpowered->query_item_canLevel() : 0;
 		mapping(string:int) query_ceilings=([
-			"str_add":2*5000,"dex_add":2*5000,"think_add":2*5000,
-			"attack_add":5*5000,"weapon_attack_add":2*5000,
-			"life_add":2*5000*10,"mofa_add":4*5000*10,
+			"str_add":2*32500,"dex_add":2*32500,"think_add":2*32500,
+			"attack_add":5*32500,"weapon_attack_add":2*32500,
+			"life_add":20*32500,"mofa_add":40*32500,
 		]);
 		foreach(indices(query_ceilings),string attr){
 			mixed reader=overpowered ? overpowered["query_"+attr] : 0;
@@ -189,27 +189,27 @@ int main()
 		string forge_base=Stdio.read_file(forge_dir+"1duanmugun") ||
 			"";
 		string forge_boom=forge_base[0..sizeof(forge_base)-3]+
-			"set_attack_add(26000);\n}\n";
+			"set_attack_add(600000);\n}\n";
 		string forge_ceiling=forge_base[0..sizeof(forge_base)-3]+
-			"set_attack_add(999999);\n}\n";
-		Stdio.write_file(forge_dir+"zztestunitboom26000",forge_boom);
+			"set_attack_add(9999999);\n}\n";
+		Stdio.write_file(forge_dir+"zztestunitboom600000",forge_boom);
 		Stdio.write_file(forge_dir+"zztestunitboom999999",
 			forge_ceiling);
 		file_class_ok=
 			ITEMSD->query_abnormal_gear_class_by_file(
-				"weapon/1duanmugun/zztestunitboom26000")==1 &&
+				"weapon/1duanmugun/zztestunitboom600000")==1 &&
 			ITEMSD->query_abnormal_gear_class_by_file(
 				"weapon/1duanmugun/zztestunitboom999999")==2 &&
 			ITEMSD->query_abnormal_gear_class_by_file(
 				"weapon/1duanmugun/1duanmugun")==0;
 		object bad=clone(ITEM_PATH+"weapon/1duanmugun/1duanmugun");
-		bad->set_attack_add(26000);
+		bad->set_attack_add(600000);
 		player->packaged_items=({});
 		deposit_refused=player->packaged(bad,100)!=0 &&
 			sizeof(player->packaged_items)==0;
 		destruct(bad);
 		player->packaged_items=({({"zzboom","异常测试装备","短木棍",
-			"weapon/1duanmugun/zztestunitboom26000",0,0,0})});
+			"weapon/1duanmugun/zztestunitboom600000",0,0,0})});
 		got_item=player->repackaged("zzboom");
 		withdraw_recalled=!got_item &&
 			sizeof(player->packaged_items)==0;
@@ -224,7 +224,7 @@ int main()
 		player->packaged_items=({});
 		mapping shared_record=(["items":({
 			(["id":"ab","data":({"zzshared","异常装备","短木棍",
-				"weapon/1duanmugun/zztestunitboom26000",0,0,0,
+				"weapon/1duanmugun/zztestunitboom600000",0,0,0,
 				"ab"})]),
 			(["id":"cd","data":({"zzsharedok","正常装备","短木棍",
 				"weapon/1duanmugun/1duanmugun",0,0,0,
@@ -236,7 +236,7 @@ int main()
 		shared_purge_ok=shared_purged==1 &&
 			sizeof((array)shared_record["items"])==1 &&
 			(string)((array)shared_record["items"])[0]["id"]=="cd";
-		rm(forge_dir+"zztestunitboom26000");
+		rm(forge_dir+"zztestunitboom600000");
 		rm(forge_dir+"zztestunitboom999999");
 	};
 	if(err)

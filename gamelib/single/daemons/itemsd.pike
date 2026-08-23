@@ -1321,8 +1321,8 @@ private void clamp_low_tier_instance(object item,string orgitem)
 			writer=item["set_"+pair[0]];
 			if(functionp(reader) && functionp(writer)){
 				value=(int)call_function(reader);
-				if(value>limit*5000)
-					call_function(writer,limit*5000);
+				if(value>limit*100000)
+					call_function(writer,limit*100000);
 			}
 		}
 	}
@@ -1408,22 +1408,18 @@ private object get_attributes_item(string orgitem,int num,
 				//werror("---------value="+value+"-----------\n");
 				if(rate>1)
 					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
-				// 数值整备：碰撞修复后新装备回到诚实公式（几百点），
-				// 与玩家手中旧装备（几千~几万）断层。按目标等级整体
-				// 放大新生成属性，恢复到旧装备的量级。
-				if(target_item_level>=200)
-					value*=20;
-				else if(target_item_level>=100)
-					value*=12;
-				else if(target_item_level>=50)
-					value*=6;
+				// 数值整备：连续放大（value×等级/25），避免台阶断层；
+				// 73级以内（含S1基线）不放大，S1自平衡不受影响。
+				if(target_item_level>73)
+					value=value*target_item_level/25;
 				// 第二层防御：低阶底版的单条属性绝对值不超过其约束表
-				// 上限的5000倍（数值整备后合法量级）——高于一切合法生成路径（含随机商店按顶级
+				// 上限随等级线性增长——高于一切合法生成路径的绝对值，
+				// 仍从源头掐灭百万级失控数值。高于一切合法生成路径（含随机商店按顶级
 				// 玩家等级动态生成），任何调用方传入失控目标等级都会被
 				// 就地钳制，从源头掐灭百万级数值。
 				if(orginal_level && orginal_level<65 &&
-				   value>limit*5000)
-					value=limit*5000;
+				   value>limit*(500+target_item_level*80))
+					value=limit*(500+target_item_level*80);
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				// 大数值(≥62)不在字母表：把数值本身编进后缀，保证
 				// 数值→文件名一一对应。旧版统一替换成'_'会让不同
@@ -2090,7 +2086,7 @@ mapping(string:int) query_base_attribute_caps(string base_path)
 		int limit;
 		if(sizeof(pair)>=3 && sscanf(pair[2],"%d",limit)==1 &&
 		   limit>0)
-			caps[pair[0]]=limit*5000;
+			caps[pair[0]]=limit*100000;
 	}
 	return caps;
 }

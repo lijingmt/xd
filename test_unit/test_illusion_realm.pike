@@ -1744,7 +1744,7 @@ int main()
 			second_id!=child_id &&
 			(string)second_realm["realm_type"]=="illusion" &&
 			(string)second_realm["illusion_id"]=="S1" &&
-			(int)ACCOUNT_CHARACTERD->query_character_limit()==30,
+			(int)ACCOUNT_CHARACTERD->query_character_limit()==60,
 			sprintf("second=%O realm=%O",second_created,second_realm));
 		object second_player = clone(GAMELIB_USER);
 		second_player->set_name(second_id);
@@ -1796,7 +1796,7 @@ int main()
 		}
 		check("S1多人物解锁后仍由账号30人物总上限约束",
 			(int)third_created["ok"] && third_id!="" &&
-			(int)ACCOUNT_CHARACTERD->query_character_limit()==30,
+			(int)ACCOUNT_CHARACTERD->query_character_limit()==60,
 			sprintf("third=%O",third_created));
 		int third_bootstrapped;
 		int third_saved;

@@ -13,7 +13,7 @@ inherit LOW_DAEMON;
 
 #define ACCOUNT_CHARACTER_DIR DATA_ROOT "accounts"
 #define ACCOUNT_CHARACTER_VERSION 2
-#define ACCOUNT_CHARACTER_LIMIT 30
+#define ACCOUNT_CHARACTER_LIMIT 60
 #define ACCOUNT_ONLINE_CONFIG ROOT "/gamelib/etc/account_characters.conf"
 #define ACCOUNT_ONLINE_SAFE_DEFAULT 1
 #define ACCOUNT_ONLINE_CONFIG_CHECK_INTERVAL 15
@@ -452,7 +452,92 @@ private int query_account_online_limit(string account_id)
 	destruct(key);
 	if(test_limit>0)
 		return test_limit;
+	return query_account_online_capacity(account_id);
+}
+
+/** 在线扩容价格：基础20人；扩到第21人100碎玉，之后每多一人
+ 递增100（200/300/400…），扩到第30人时为1000，30以上每格1000。 */
+int query_online_expansion_cost(int current_capacity)
+{
+	if(current_capacity<0)
+		current_capacity = 0;
+	if(current_capacity<20)
+		return 100;
+	if(current_capacity<30)
+		return (current_capacity-19)*100;
+	return 1000;
+}
+
+/** 账号实际在线上限：已购容量优先，未购买时用配置基线。 */
+int query_account_online_capacity(string account_id)
+{
+	mapping(string:mixed)|zero record;
+	int capacity;
+	if(!valid_userid(account_id))
+		return query_max_online_characters();
+	record = load_persisted_record_unlocked(account_id);
+	capacity = record ? (int)record["online_capacity"] : 0;
+	if(capacity>0 && capacity<=ACCOUNT_CHARACTER_LIMIT)
+		return capacity;
 	return query_max_online_characters();
+}
+
+/** 付费扩充同账号同时在线人数：扣款成功后容量+1并原子落盘，
+ 失败全额回退。价格按扩容前容量分档（30以内100，以上1000碎玉）。 */
+mapping(string:mixed) purchase_online_capacity_expansion(
+	string account_id,string request_id)
+{
+	mapping(string:mixed) record;
+	mapping debit;
+	object key;
+	int current;
+	int cost;
+	int saved;
+	if(!valid_userid(account_id) || !valid_sha256_hex(request_id))
+		return (["ok":0,"message":"在线扩容请求无效。"]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"账号索引暂不可用，本次未扣款。"]);
+	}
+	current = (int)record["online_capacity"]>0 ?
+		(int)record["online_capacity"] : query_max_online_characters();
+	if(current>=ACCOUNT_CHARACTER_LIMIT){
+		destruct(key);
+		return (["ok":0,"already":1,
+			"message":"在线上限已达账号人物总数上限，不能再扩充。"]);
+	}
+	cost = query_online_expansion_cost(current);
+	destruct(key);
+	debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
+		"在线人物上限扩容",request_id);
+	if(!(int)debit["ok"])
+		return (["ok":0,"message":(string)(debit["message"] ||
+			"账号共享余额扣款失败。")]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id,1);
+	current = record && (int)record["online_capacity"]>0 ?
+		(int)record["online_capacity"] : query_max_online_characters();
+	if(!record || current>=ACCOUNT_CHARACTER_LIMIT){
+		destruct(key);
+		ACCOUNT_WALLETD->forget_account_debit_recharge_once(
+			account_id,request_id);
+		return (["ok":0,"already":1,
+			"message":"在线上限已满，本次扣款已撤销。"]);
+	}
+	record["online_capacity"] = current+1;
+	record["revision"] = (int)record["revision"]+1;
+	saved = save_record_unlocked(record);
+	destruct(key);
+	if(!saved){
+		ACCOUNT_WALLETD->forget_account_debit_recharge_once(
+			account_id,request_id);
+		return (["ok":0,"message":"扩容保存失败，本次扣款已撤销。"]);
+	}
+	return (["ok":1,"capacity":current+1,"cost":cost,
+		"message":"在线人物上限已扩充到"+(current+1)+
+			"人（本次"+cost+"碎玉）。"]);
 }
 
 /** 立即按当前配置清理所有已登记账号的超额人物，返回成功退出数量。 */
@@ -3236,7 +3321,8 @@ private int disconnect_online_character(object player,string incoming_id)
 		if(functionp(player->receive))
 			player->receive(incoming_id=="配置上限" ?
 				"\n账号同时在线上限已调整，当前人物已保存并安全退出。\n" :
-				"\n同一人物重新登录或账号在线人数已满，当前人物已安全退出。\n");
+				"\n同一人物重新登录或账号在线人数已满，当前人物已安全退出。\n"+
+				"如需更多同时在线人物，可用[online_expand]付费扩充在线上限。\n");
 	};
 	http_api = find_object(ROOT+
 		"/gamelib/single/daemons/http_api_daemon.pike");
