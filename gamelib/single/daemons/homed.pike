@@ -183,6 +183,44 @@ private int home_persistence_owner()
 		ROOT+"/gamelib/d/home/worker_owner_probe");
 }
 
+/** 家园是否已登记（只读，不在本节点物化任何房间）。跨节点访问
+ 依据它区分“家园在别的节点”和“没有这个家园”。 */
+int query_home_registered(string masterId)
+{
+	return homeDetail[masterId] && !homeTransitioning[masterId] ? 1 : 0;
+}
+
+/** 跨节点进园时由入口命令先把门牌号写进 inhome_pos，移动重定向与
+ 到达侧据此物化真实家园；previous_master 保留旧家园的成员清理。 */
+int move_user_to_home(object player,object room,void|string previous_master)
+{
+	object old_room;
+	string old_master = "";
+	string target_master;
+	int moved;
+	mixed move_err;
+	if(!player || !room || !room->query_masterId)
+		return 0;
+	if(previous_master==0){
+		old_room = environment(player);
+		if(old_room && old_room->query_room_type &&
+		   old_room->query_room_type()=="home" && old_room->query_masterId)
+			old_master = (string)old_room->query_masterId();
+		if(old_master=="" && player->query_inhome_pos)
+			old_master = (string)player->query_inhome_pos();
+		previous_master = old_master;
+	}
+	target_master = (string)room->query_masterId();
+	move_err = catch { moved = player->move(room); };
+	if(move_err || !moved || environment(player)!=room)
+		return 0;
+	if(previous_master!="" && previous_master!=target_master)
+		remove_user_from_home(previous_master,(string)player->query_name());
+	player->set_inhome_pos(target_master);
+	add_user((string)player->query_name(),player);
+	return 1;
+}
+
 protected void create(){
 	werror("============== HOMED start  ===============\n");
 	init_level();
@@ -778,32 +816,6 @@ void clear_user(object player)
  * dynamic instance which belongs to another process; that failure must leave
  * the player's old home marker and membership untouched.
  */
-int move_user_to_home(object player,object room)
-{
-	object old_room;
-	string old_master = "";
-	string target_master;
-	int moved;
-	mixed move_err;
-	if(!player || !room || !room->query_masterId)
-		return 0;
-	old_room = environment(player);
-	if(old_room && old_room->query_room_type &&
-	   old_room->query_room_type()=="home" && old_room->query_masterId)
-		old_master = (string)old_room->query_masterId();
-	if(old_master=="" && player->query_inhome_pos)
-		old_master = (string)player->query_inhome_pos();
-	target_master = (string)room->query_masterId();
-	move_err = catch { moved = player->move(room); };
-	if(move_err || !moved || environment(player)!=room)
-		return 0;
-	if(old_master!="" && old_master!=target_master)
-		remove_user_from_home(old_master,(string)player->query_name());
-	player->set_inhome_pos(target_master);
-	add_user((string)player->query_name(),player);
-	return 1;
-}
-
 //判断某个home中是否没有在线的玩家
 private int clear_stale_home_users(string masterId)
 {
@@ -864,6 +876,11 @@ object query_home_by_masterId(string masterId)
 	if(viewer && viewer->is && viewer->is("player") &&
 	   !LOGICALZONED->can_user_action("home",
 	   (string)viewer->query_name(),masterId))
+		return 0;
+	// 家园房间只允许归属Worker物化：非归属节点克隆出的房间没有
+	// 运行态对象（犬只、货架、庄稼），访客会看到假空房并可能改写
+	// 错误节点的家园状态。跨节点访问由入口命令走标准移动重定向。
+	if(!home_persistence_owner())
 		return 0;
 	if (homeDetail[masterId] && !homeTransitioning[masterId]) //变卖提交期间禁止新访客进入
 	{
@@ -933,6 +950,9 @@ object query_room_by_masterId(string masterId,string room_name)
 	if(viewer && viewer->is && viewer->is("player") &&
 	   !LOGICALZONED->can_user_action("home",
 	   (string)viewer->query_name(),masterId))
+		return 0;
+	// 同 query_home_by_masterId：非归属Worker不得物化家园房间。
+	if(!home_persistence_owner())
 		return 0;
 	if (homeDetail[masterId] && !homeTransitioning[masterId]) //变卖期间不再返回已失效房间
 	{

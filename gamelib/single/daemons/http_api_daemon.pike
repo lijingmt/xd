@@ -646,6 +646,29 @@ private mapping complete_map_worker_arrival(object player,string userid)
         return (["handled":1,
             "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
     }
+    // 家园跨节点到达：静态模板房只是中转落点，真实目的地是本归属
+    // Worker按门牌号(inhome_pos)物化的家园房间（含犬只/货架等运行
+    // 态对象）。仅当到达亲和就是该门牌时才改道，普通跨图到达不受
+    // 遗留 inhome_pos 影响。
+    if(affinity!="" && functionp(player->query_inhome_pos) &&
+       affinity==(string)player->query_inhome_pos() &&
+       (!room || !functionp(room->query_masterId) ||
+        (string)room->query_masterId()!=affinity)){
+        object home_room = HOMED->query_room_by_masterId(affinity,"main");
+        if(!home_room || !HOMED->move_user_to_home(player,home_room)){
+            werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=home_room epoch=%d\n",
+                userid,(int)arrival["epoch"]);
+            remove_virtual_connection(userid);
+            MAP_WORKERD->clear_local_player_arrival(userid);
+            if(functionp(player->discard_stale_worker_copy))
+                player->discard_stale_worker_copy();
+            else
+                destruct(player);
+            return (["handled":1,
+                "output":"{\"error\":\"跨地图到达校验失败，请重试\"}"]);
+        }
+        room = environment(player);
+    }
     if(functionp(player->consume_worker_summon_handoff) &&
        !player->consume_worker_summon_handoff(1)){
         werror("[MAP_WORKER][ARRIVAL_FAILED] userid=%s stage=summon_save epoch=%d\n",
