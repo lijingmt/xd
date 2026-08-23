@@ -62,6 +62,8 @@ private void show_status(object player,string notice)
 				"/"+format_game_number((int)progress["bosses_required"])+"。\n";
 		if((int)progress["complete"])
 			out+="[完成破界并永久解锁:personal_difficulty unlock]\n";
+		if((int)progress["bosses_required"]>0)
+			out+=PERSONAL_DIFFICULTYD->query_boss_guidance(player);
 	}
 	else
 		out+="你已完成全部七重破界试炼。\n";

@@ -49,6 +49,58 @@ private array(mapping(string:mixed)) difficulty_catalog=({
 		"exp_percent":12800,"rare_drop_percent":12800]),
 });
 
+// 首领指引目录：永恒服中可稳定找到的首领级(_boss)NPC 及其位置。
+// 计数规则：首领必须在永恒服击杀，且等级不低于人物等级-10；
+// 普通挂机猎场不刷首领，必须按此目录前往首领所在地图。
+private array(mapping(string:mixed)) boss_registry=({
+	(["name":"残忍年兽","level":100,"location":"新年副本·破三之地"]),
+	(["name":"万象妖皇","level":110,"location":"从贤镇·万象林"]),
+	(["name":"归墟魔君","level":120,"location":"金鳌岛·归墟境"]),
+	(["name":"霸王至尊","level":150,"location":"霸王堡·王者圣殿"]),
+	(["name":"广成子","level":400,"location":"十二仙景·九仙山"]),
+	(["name":"惧留孙","level":400,"location":"十二仙景·夹龙山"]),
+	(["name":"道行天尊","level":400,"location":"十二仙景·金庭山"]),
+	(["name":"灵宝大法师","level":400,"location":"十二仙景·崆峒山"]),
+	(["name":"慈航道人","level":400,"location":"十二仙景·普陀山"]),
+	(["name":"赤精子","level":400,"location":"十二仙景·太华山"]),
+	(["name":"文殊广法天尊","level":400,"location":"十二仙景·五龙山"]),
+	(["name":"黄龙真人","level":400,"location":"十二仙景·二仙山"]),
+	(["name":"赵公明","level":400,"location":"金鳌岛·玉化村广场"]),
+	(["name":"王天君","level":400,"location":"金鳌岛·十君殿"]),
+	(["name":"福寿仙翁","level":400,"location":"昆仑山·玉虚宫"]),
+	(["name":"太乙真人","level":400,"location":"昆仑山·玉虚宫后亭"]),
+	(["name":"姬旦","level":400,"location":"牧野·会仙驿站"]),
+	(["name":"董天君","level":400,"location":"牧野·栖贤驿站"]),
+	(["name":"南海龙王","level":400,"location":"南海·南海龙宫"]),
+	(["name":"南海王妃","level":400,"location":"南海·得宝偏厅"]),
+	(["name":"龙须虎","level":400,"location":"北海·北海龙宫"]),
+	(["name":"道德真君","level":400,"location":"从贤镇·从贤镇广场"]),
+	(["name":"原始天尊","level":999,"location":"昆仑山·玉虚宫"]),
+	(["name":"通天教主","level":999,"location":"金鳌岛·碧游宫"]),
+});
+
+/** 首领指引：按人物等级过滤出当前可计数的首领与位置。 */
+string query_boss_guidance(object player)
+{
+	array(mapping(string:mixed)) eligible=({});
+	string out;
+	int min_level;
+	if(!player || !functionp(player->query_level))
+		return "";
+	min_level=max(1,(int)player->query_level()-10);
+	foreach(boss_registry,mapping(string:mixed) one)
+		if((int)one["level"]>=min_level)
+			eligible+=({one});
+	if(!sizeof(eligible))
+		return "";
+	out="首领指引（普通挂机猎场不刷首领；只计永恒服中等级不低于"+
+		"你人物等级-10的首领）：\n";
+	foreach(eligible,mapping(string:mixed) one)
+		out+="· "+(string)one["name"]+"（Lv"+(int)one["level"]+
+			"）"+(string)one["location"]+"\n";
+	return out;
+}
+
 private int valid_scope_id(string value)
 {
 	if(value=="eternal")

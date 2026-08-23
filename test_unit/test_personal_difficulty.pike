@@ -323,6 +323,23 @@ int main()
 			sprintf("status=%O claim=%O switch=%O",unavailable_status,
 				unavailable_claim,unavailable_switch));
 		cleanup_player(unavailable);
+		object guide_player=create_player(
+			"__testunit_personal_difficulty_guide__","human","jianxian");
+		guide_player->level=200;
+		string guide=PERSONAL_DIFFICULTYD->query_boss_guidance(
+			guide_player);
+		guide_player->level=40;
+		string guide_low=PERSONAL_DIFFICULTYD->query_boss_guidance(
+			guide_player);
+		cleanup_player(guide_player);
+		check("首领指引按等级过滤并标注位置与规则",
+			search(guide,"广成子")!=-1 &&
+			search(guide,"十二仙景·九仙山")!=-1 &&
+			search(guide,"普通挂机猎场不刷首领")!=-1 &&
+			search(guide,"残忍年兽")==-1 &&
+			search(guide_low,"残忍年兽")!=-1,
+			sprintf("guide200=%d字 guide40=%d字",sizeof(guide),
+				sizeof(guide_low)));
 	};
 	check("个人难度完整测试未发生运行异常",!err,
 		err ? describe_error(err)+" "+describe_backtrace(err) : "");
