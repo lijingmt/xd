@@ -159,14 +159,15 @@ int query_vip_level_limit(int vip_level)
 		vip_level = 0;
 	if(vip_level>VIP_MAX_LEVEL)
 		vip_level = VIP_MAX_LEVEL;
+	// 当前版本等级封顶300。
 	if(vip_level>=8)
-		return 999;
+		return 300;
 	if(vip_level==7)
-		return 900;
+		return 300;
 	if(vip_level==6)
-		return 800;
+		return 300;
 	if(vip_level==5)
-		return 600;
+		return 300;
 	if(vip_level==4)
 		return 300;
 	return NORMAL_MAX_LEVEL+vip_level*VIP_LEVEL_LIMIT_STEP;

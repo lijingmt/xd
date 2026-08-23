@@ -1843,7 +1843,9 @@ mapping(string:mixed) query_autofight_route(object player)
 		"capacity":18,
 		"total_capacity":sizeof(paths)*18,
 		"target_min":target_level,
-		"target_max":min(999,target_level+2),
+		// 50档猎场自51级起刷动态同级怪：窗口上限跟人物等级走，
+		// 否则高等级人物在动态怪房里无怪可打。
+		"target_max":min(999,max(target_level+2,level+2)),
 		"disable_overflow":1,
 		"illusion_id":illusion_id,
 	]);
@@ -3692,6 +3694,7 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 		target_level = 40;
 		break;
 	case "/gamelib/clone/npc/illusion_s1/abyss_beast.pike":
+		// 深渊三房刷动态同级怪，章节狩猎窗口同样要跟人物等级走。
 		target_level = 50;
 		break;
 	default:
@@ -3708,7 +3711,7 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 		"capacity":18,
 		"total_capacity":sizeof(paths)*18,
 		"target_min":target_level,
-		"target_max":min(999,target_level+2),
+		"target_max":target_level==50 ? 999 : min(999,target_level+2),
 		"disable_overflow":1,
 		"illusion_id":"S1",
 		"chapter_id":(string)chapter["id"],
