@@ -617,9 +617,10 @@ private int scale_drop_probability(int pro)
 	int percent=drop_economy_kill_speed_percent();
 	if(percent>=100)
 		return pro;
-	// 下限0.5%（500/十万），保证高级怪仍偶有装备产出。
+	// 下限0.5%（500/十万），且只降不升：原始掉率低于下限的稀有掉落
+	// 保持原值，绝不能借缩放抬升。
 	int scaled=pro*percent/100;
-	if(scaled<500)
+	if(scaled<500 && pro>500)
 		scaled=500;
 	return scaled;
 }

@@ -702,12 +702,15 @@ private int dynamic_npc_base_dex;
 float query_phy_dodge(){
 	int scaled_dex;
 	float result;
+	mixed err;
 	if(dynamic_npc_base_dex<=0)
 		return ::query_phy_dodge();
 	scaled_dex = _dex;
 	_dex = dynamic_npc_base_dex;
-	result = ::query_phy_dodge();
+	err = catch { result = ::query_phy_dodge(); };
 	_dex = scaled_dex;
+	if(err)
+		error(err);
 	return result;
 }
 //重载char.pike中的性别描述和性别称谓
