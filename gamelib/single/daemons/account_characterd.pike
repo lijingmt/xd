@@ -446,10 +446,10 @@ int query_max_online_characters()
 
 private int query_account_online_limit(string account_id)
 {
-	int test_limit;
-	object key = account_online_state_lock->lock();
-	test_limit = test_online_limit_overrides[account_id];
-	destruct(key);
+	// 调用方（登录准备/在线清退）可能已持有 online_state 锁，
+	// 这里绝不能再拿同一把非递归锁（曾造成登录自死锁回归）；
+	// 覆盖表只被TestUnit写入，无锁读取可接受。
+	int test_limit = test_online_limit_overrides[account_id];
 	if(test_limit>0)
 		return test_limit;
 	return query_account_online_capacity(account_id);
