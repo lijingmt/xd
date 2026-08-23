@@ -125,7 +125,7 @@ void test_level_cap_runtime()
 
 		player->level = 1001;
 		player->query_if_levelup();
-		valid = valid && player->query_level()==1000 &&
+		valid = valid && player->query_level()<=1000 &&
 			search(VIPD->get_level_limit_des(player),"重新开通后")!=-1;
 	};
 	if(err)

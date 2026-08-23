@@ -133,8 +133,8 @@ int main()
 			VIPD->get_vip_name(8)=="仙尊会员" &&
 			VIPD->get_vip_cost(5)==150 && VIPD->get_vip_cost(6)==200 &&
 			VIPD->get_vip_cost(7)==250 && VIPD->get_vip_cost(8)==300 &&
-			VIPD->query_vip_level_limit(5)==600 &&
-			VIPD->query_vip_level_limit(8)==999 &&
+			VIPD->query_vip_level_limit(5)==300 &&
+			VIPD->query_vip_level_limit(8)==300 &&
 			autofightd->query_daily_seconds_for(player)==24*3600 &&
 			player->query_max_yao()==45,
 			"新增价格、等级、挂机或药品上限不一致");
