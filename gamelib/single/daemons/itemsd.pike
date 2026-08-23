@@ -575,6 +575,55 @@ private int ReadFile_boss_items(string filename)
 }
 
 //外部接口，由fight_die()调用，为装备掉落的的接口
+
+// 掉落经济随击杀速度缩放：怪血降到2%后单位时间击杀量放大数十倍，
+// 装备掉率必须同比例下调，否则背包被不可堆叠的装备冲爆。读取
+// 全局生命过渡系数（Worker不预加载守护进程，直接读JSON，30秒缓存）。
+private int drop_economy_kill_speed_percent()
+{
+	int now=time();
+	int mtime;
+	Stdio.Stat stat=file_stat(ROOT+"/data_xiand/balance_transition.json");
+	mtime=stat ? (int)stat->mtime : 0;
+	if(drop_economy_cached_at && now-drop_economy_cached_at<30 &&
+	   mtime==drop_economy_mtime)
+		return drop_economy_percent;
+	drop_economy_cached_at=now;
+	drop_economy_mtime=mtime;
+	drop_economy_percent=100;
+	if(mtime){
+		mixed err=catch{
+			mapping record=Standards.JSON.decode(
+				Stdio.read_file(ROOT+
+					"/data_xiand/balance_transition.json"));
+			if(mappingp(record))
+				drop_economy_percent=(int)record["life_percent"];
+		};
+		if(err)
+			drop_economy_percent=100;
+	}
+	else
+		drop_economy_percent=2;
+	if(drop_economy_percent<1 || drop_economy_percent>100)
+		drop_economy_percent=100;
+	return drop_economy_percent;
+}
+private int drop_economy_percent=100;
+private int drop_economy_cached_at;
+private int drop_economy_mtime;
+
+private int scale_drop_probability(int pro)
+{
+	int percent=drop_economy_kill_speed_percent();
+	if(percent>=100)
+		return pro;
+	// 下限0.5%（500/十万），保证高级怪仍偶有装备产出。
+	int scaled=pro*percent/100;
+	if(scaled<500)
+		scaled=500;
+	return scaled;
+}
+
 object get_item(int npclevel,int playerlevel,int playerluck,
 	void|int personal_difficulty_level,void|object focus_player)
 {
@@ -602,6 +651,7 @@ object get_item(int npclevel,int playerlevel,int playerluck,
 	}
 	if(npclevel <= 10)
 		pro = 20000;
+	pro=scale_drop_probability(pro);
 	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
 		if(itemlevel==0)
 			return 0;
@@ -688,6 +738,7 @@ object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,
 	}
 	if(npclevel <= 10)
 		pro = 20000;
+	pro=scale_drop_probability(pro);
 	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
 		if(itemlevel==0)
 			return 0;
@@ -1321,8 +1372,8 @@ private void clamp_low_tier_instance(object item,string orgitem)
 			writer=item["set_"+pair[0]];
 			if(functionp(reader) && functionp(writer)){
 				value=(int)call_function(reader);
-				if(value>limit*500)
-					call_function(writer,limit*500);
+				if(value>limit*100000)
+					call_function(writer,limit*100000);
 			}
 		}
 	}
@@ -1408,13 +1459,18 @@ private object get_attributes_item(string orgitem,int num,
 				//werror("---------value="+value+"-----------\n");
 				if(rate>1)
 					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
+				// 数值整备：连续放大（value×等级/25），避免台阶断层；
+				// 73级以内（含S1基线）不放大，S1自平衡不受影响。
+				if(target_item_level>73)
+					value=value*target_item_level/25;
 				// 第二层防御：低阶底版的单条属性绝对值不超过其约束表
-				// 上限的500倍——高于一切合法生成路径（含随机商店按顶级
+				// 上限随等级线性增长——高于一切合法生成路径的绝对值，
+				// 仍从源头掐灭百万级失控数值。高于一切合法生成路径（含随机商店按顶级
 				// 玩家等级动态生成），任何调用方传入失控目标等级都会被
 				// 就地钳制，从源头掐灭百万级数值。
 				if(orginal_level && orginal_level<65 &&
-				   value>limit*500)
-					value=limit*500;
+				   value>limit*(500+target_item_level*80))
+					value=limit*(500+target_item_level*80);
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				// 大数值(≥62)不在字母表：把数值本身编进后缀，保证
 				// 数值→文件名一一对应。旧版统一替换成'_'会让不同
@@ -2081,7 +2137,7 @@ mapping(string:int) query_base_attribute_caps(string base_path)
 		int limit;
 		if(sizeof(pair)>=3 && sscanf(pair[2],"%d",limit)==1 &&
 		   limit>0)
-			caps[pair[0]]=limit*500;
+			caps[pair[0]]=limit*100000;
 	}
 	return caps;
 }

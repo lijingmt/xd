@@ -653,6 +653,7 @@ void npc_level_define_dongtai(object player){
 			_npcLevel,player_defense);
 		int life_strength = _str*life_scale/1000;
 		_str = _str*defense_scale/1000;
+		dynamic_npc_base_dex = _dex;
 		_dex = _dex*defense_scale/1000;//敏捷
 		_think = _think*defense_scale/1000;//智力
 		_lunck = defense_scale/100;//幸运
@@ -686,6 +687,22 @@ int is_npc(){
 }
 int query_level(){
 	return _npcLevel==0?1:_npcLevel;
+}
+// 动态防御缩放只应作用于怪物攻防强度；敏捷被放大数倍会把闪避
+// 直接推到75%上限，玩家“99%命中却打不中”。闪避始终按未缩放的
+// 敏捷计算。
+private int dynamic_npc_base_dex;
+
+float query_phy_dodge(){
+	int scaled_dex;
+	float result;
+	if(dynamic_npc_base_dex<=0)
+		return ::query_phy_dodge();
+	scaled_dex = _dex;
+	_dex = dynamic_npc_base_dex;
+	result = ::query_phy_dodge();
+	_dex = scaled_dex;
+	return result;
 }
 //重载char.pike中的性别描述和性别称谓
 	string query_pronoun(void|object looker){
