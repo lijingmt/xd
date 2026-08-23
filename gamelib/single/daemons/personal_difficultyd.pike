@@ -13,7 +13,7 @@ inherit LOW_DAEMON;
 
 // 回收变态装备后的平衡重建：基础档怪物血量等效10%（输出1000%=
 // 怪死快10倍）、承伤10%；问道恢复正常（输出100%+承伤100%）；
-// 之后每档怪血翻倍（输出减半）+承伤翻倍。经验掉率同步。
+// 之后每档怪血翻倍（输出减半）；承伤改每档递增50，避免高档被秒。
 private array(mapping(string:mixed)) difficulty_catalog=({
 	(["id":"base","name":"基础","min_level":1,"kills":0,"bosses":0,
 		"outgoing_percent":100,"incoming_percent":1,
@@ -24,27 +24,27 @@ private array(mapping(string:mixed)) difficulty_catalog=({
 		"set_drop_percent":200,"afk_cap_hours":16,
 		"exp_percent":200,"rare_drop_percent":200]),
 	(["id":"ningzhen","name":"凝真","min_level":100,"kills":50000,"bosses":120,
-		"outgoing_percent":50,"incoming_percent":200,
+		"outgoing_percent":50,"incoming_percent":150,
 		"set_drop_percent":400,"afk_cap_hours":14,
 		"exp_percent":400,"rare_drop_percent":400]),
 	(["id":"pojing","name":"破境","min_level":130,"kills":100000,"bosses":250,
-		"outgoing_percent":25,"incoming_percent":400,
+		"outgoing_percent":25,"incoming_percent":200,
 		"set_drop_percent":800,"afk_cap_hours":12,
 		"exp_percent":800,"rare_drop_percent":800]),
 	(["id":"tongxuan","name":"通玄","min_level":160,"kills":180000,"bosses":450,
-		"outgoing_percent":12,"incoming_percent":800,
+		"outgoing_percent":12,"incoming_percent":250,
 		"set_drop_percent":1600,"afk_cap_hours":10,
 		"exp_percent":1600,"rare_drop_percent":1600]),
 	(["id":"dengxian","name":"登仙","min_level":190,"kills":280000,"bosses":700,
-		"outgoing_percent":6,"incoming_percent":1600,
+		"outgoing_percent":6,"incoming_percent":300,
 		"set_drop_percent":3200,"afk_cap_hours":8,
 		"exp_percent":3200,"rare_drop_percent":3200]),
 	(["id":"lingxiao","name":"凌霄","min_level":220,"kills":400000,"bosses":1000,
-		"outgoing_percent":3,"incoming_percent":3200,
+		"outgoing_percent":3,"incoming_percent":350,
 		"set_drop_percent":6400,"afk_cap_hours":6,
 		"exp_percent":6400,"rare_drop_percent":6400]),
 	(["id":"tianjie","name":"天劫","min_level":250,"kills":600000,"bosses":1500,
-		"outgoing_percent":2,"incoming_percent":6400,
+		"outgoing_percent":2,"incoming_percent":400,
 		"set_drop_percent":12800,"afk_cap_hours":4,
 		"exp_percent":12800,"rare_drop_percent":12800]),
 });

@@ -509,7 +509,10 @@ int query_newmoon_set_extra_value(string attribute)
 		   tier_path+"/attribute"]==attribute)
 			value+=(int)this_object()[tier_path+"/value"];
 	}
-	return max(0,min(40,value));
+	// 数值整备：分阶词条保持模板精确传递（幸运/抗性等utility词条
+	// 不做件数保底），仅上限从40放宽到2000；核心属性的强化由
+	// query_newmoon_resonance_value 的×100系数承担。
+	return max(0,min(2000,value));
 }
 
 string query_newmoon_set_extra_description(int tier)
@@ -553,8 +556,10 @@ int query_newmoon_resonance_value(string attribute)
 	base_value=max(0,min(20,(int)this_object()[
 		NEWMOON_RESONANCE_ROOT+"/"+attribute]));
 	// 这五项是每件装备自己的职业契合属性，不是分阶套装奖励。
-	// 旧实例仍保存原模板值，在读取时统一翻倍，无需迁移玩家档案。
-	return base_value*2*query_newmoon_resonance_percent()/100;
+	// 旧实例仍保存原模板值，在读取时统一折算，无需迁移玩家档案。
+	// 数值整备：系数×2→×100，让套装回到与新装备（几千/条）同量级，
+	// 不再是鸡肋属性；百分比类套装词条不参与该放大。
+	return base_value*100*query_newmoon_resonance_percent()/100;
 }
 
 string query_newmoon_resonance_bonus_text()

@@ -35,6 +35,15 @@ private string join_event(object player,string event_id)
 	window = query_event_window(event_id,time());
 	if((string)window["phase"]!="signup")
 		return "当前不在集结时段，战斗开始后不能中途加入。\n[返回:timed_event]\n";
+	// 多Worker拓扑诊断：报名全路径留痕（含被路由到别的节点的情况），
+	// 生产日志据此定位“活动卡死”的归属/路由断点。
+	werror("[TIMED_EVENT_JOIN] user=%s event=%s role=%s owner=%d "
+		"scheduler=%d ingress_owner=%d\n",
+		(string)player->query_name(),event_id,
+		MAP_WORKERD->query_node_role(),
+		local_timed_event_owner()?1:0,event_scheduler_started?1:0,
+		MAP_WORKERD->local_worker_owns_room(
+			timed_event_ingress_path())?1:0);
 	if(player->query_level()<(int)config["minimum_level"])
 		return "需要达到"+(string)config["minimum_level"]+"级才能参加。\n[返回:timed_event]\n";
 	if(player->query_in_combat())

@@ -673,11 +673,11 @@ void test_resonance_boundaries()
 		item->move(player);
 		player->wield(item);
 		int valid=!inactive && item->query_newmoon_resonance_active() &&
-			item->query_str_add()==bonus[0]*2 &&
-			item->query_dex_add()==bonus[1]*2 &&
-			item->query_think_add()==bonus[2]*2 &&
-			item->query_life_add()==bonus[3]*20 &&
-			item->query_mofa_add()==bonus[4]*20;
+			item->query_str_add()==bonus[0]*100 &&
+			item->query_dex_add()==bonus[1]*100 &&
+			item->query_think_add()==bonus[2]*100 &&
+			item->query_life_add()==bonus[3]*1000 &&
+			item->query_mofa_add()==bonus[4]*1000;
 		if(!valid){
 			all_valid=0;
 			errors+=({(string)config["profession"]});
@@ -789,7 +789,7 @@ void test_full_set_progression()
 	array(object) items=clone_full_set(config);
 	array(int) milestones=({1,2,4,6,8,10});
 	array(int) expected_percent=({100,120,140,160,180,200});
-	array(int) expected_strength=({6,14,32,54,80,120});
+	array(int) expected_strength=({300,720,1680,2880,4320,6000});
 	int progression_valid=1;
 	array(string) errors=({});
 
@@ -851,7 +851,7 @@ void test_full_set_progression()
 		items[0]->query_newmoon_set_piece_count()==9 &&
 		items[0]->query_newmoon_resonance_percent()==180 &&
 		!items[1]->query_newmoon_resonance_active() &&
-		broken_strength==90 && sum_set_attribute(items,"all")==0,
+		broken_strength==4860 && sum_set_attribute(items,"all")==0,
 		sprintf("件数%d 共鸣%d 力量%d 全属性%d",
 			items[0]->query_newmoon_set_piece_count(),
 			items[0]->query_newmoon_resonance_percent(),
@@ -935,7 +935,7 @@ void test_requested_piece_attribute_matrix()
 				int factor=1;
 				if(attribute=="life" || attribute=="mofa")
 					factor=10;
-				int expected=checkpoint*((int)bonus[bonus_index]*2*
+				int expected=checkpoint*((int)bonus[bonus_index]*100*
 					percent/100)*factor;
 				int actual=sum_core_attribute(items,attribute);
 				if(actual!=expected){
@@ -1239,8 +1239,8 @@ void test_two_player_real_combat_comparisons()
 		coherent_items[0]->query_newmoon_set_piece_count()==4 &&
 		mixed_items[0]->query_newmoon_set_piece_count()==2 &&
 		mixed_items[2]->query_newmoon_set_piece_count()==2 &&
-		sum_core_attribute(coherent_items[..3],"str")==32 &&
-		sum_core_attribute(mixed_items[..3],"str")==28 &&
+		sum_core_attribute(coherent_items[..3],"str")==1680 &&
+		sum_core_attribute(mixed_items[..3],"str")==1440 &&
 		sum_set_attribute(coherent_items[..3],"doub")==4 &&
 		sum_set_attribute(mixed_items[..3],"doub")==0 &&
 		coherent->query_str()>mixed_player->query_str() &&
@@ -1253,7 +1253,9 @@ void test_two_player_real_combat_comparisons()
 		(int)coherent_damage["damage"]>(int)mixed_damage["damage"] &&
 		coherent_expected_output>mixed_expected_output,
 		mixed_error!="" ? mixed_error :
-			sprintf("完整/混搭攻击%d/%d，暴击%d/%d，伤害%d/%d，百次期望%d/%d",
+			sprintf("件str%d/%d 攻击%d/%d，暴击%d/%d，伤害%d/%d，百次期望%d/%d",
+				sum_core_attribute(coherent_items[..3],"str"),
+				sum_core_attribute(mixed_items[..3],"str"),
 				(int)coherent_profile["physical_raw"],
 				(int)mixed_profile["physical_raw"],
 				(int)coherent_profile["critical"],

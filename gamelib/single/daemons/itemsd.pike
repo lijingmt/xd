@@ -575,6 +575,56 @@ private int ReadFile_boss_items(string filename)
 }
 
 //外部接口，由fight_die()调用，为装备掉落的的接口
+
+// 掉落经济随击杀速度缩放：怪血降到2%后单位时间击杀量放大数十倍，
+// 装备掉率必须同比例下调，否则背包被不可堆叠的装备冲爆。读取
+// 全局生命过渡系数（Worker不预加载守护进程，直接读JSON，30秒缓存）。
+private int drop_economy_kill_speed_percent()
+{
+	int now=time();
+	int mtime;
+	Stdio.Stat stat=file_stat(ROOT+"/data_xiand/balance_transition.json");
+	mtime=stat ? (int)stat->mtime : 0;
+	if(drop_economy_cached_at && now-drop_economy_cached_at<30 &&
+	   mtime==drop_economy_mtime)
+		return drop_economy_percent;
+	drop_economy_cached_at=now;
+	drop_economy_mtime=mtime;
+	drop_economy_percent=100;
+	if(mtime){
+		mixed err=catch{
+			mapping record=Standards.JSON.decode(
+				Stdio.read_file(ROOT+
+					"/data_xiand/balance_transition.json"));
+			if(mappingp(record))
+				drop_economy_percent=(int)record["life_percent"];
+		};
+		if(err)
+			drop_economy_percent=100;
+	}
+	else
+		drop_economy_percent=2;
+	if(drop_economy_percent<1 || drop_economy_percent>100)
+		drop_economy_percent=100;
+	return drop_economy_percent;
+}
+private int drop_economy_percent=100;
+private int drop_economy_cached_at;
+private int drop_economy_mtime;
+
+private int scale_drop_probability(int pro)
+{
+	int percent=drop_economy_kill_speed_percent();
+	if(percent>=100)
+		return pro;
+	// 下限0.5%（500/十万），且只降不升：原始掉率低于下限的稀有掉落
+	// 保持原值，绝不能借缩放抬升。
+	int scaled=pro*percent/100;
+	if(scaled<500 && pro>500)
+		scaled=500;
+	return scaled;
+}
+
 object get_item(int npclevel,int playerlevel,int playerluck,
 	void|int personal_difficulty_level,void|object focus_player)
 {
@@ -602,6 +652,7 @@ object get_item(int npclevel,int playerlevel,int playerluck,
 	}
 	if(npclevel <= 10)
 		pro = 20000;
+	pro=scale_drop_probability(pro);
 	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
 		if(itemlevel==0)
 			return 0;
@@ -688,6 +739,7 @@ object get_item_from_rawname(int npclevel,int playerlevel,int playerluck,
 	}
 	if(npclevel <= 10)
 		pro = 20000;
+	pro=scale_drop_probability(pro);
 	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
 		if(itemlevel==0)
 			return 0;
@@ -916,6 +968,9 @@ object get_spec_item(int npclevel,int playerlevel,int playerluck,
 			}
 		}
 	}
+	// 掉落经济随击杀速度缩放：宝石/技能书/材料等特殊掉落与装备
+	// 同源下调，否则怪血2%时代每分钟产出放大数十倍，经济崩溃。
+	got_it=scale_drop_probability(got_it);
 	if((random(100000)+1)<=got_it*rare_drop_percent/100) {
 		//werror("------spec_item_level="+itemlevel+"----\n");
 		if(itemlevel==0||itemlevel==1) //没有一级的特殊物品
