@@ -1651,6 +1651,12 @@ private object get_attributes_item(string orgitem,int num,
 						sscanf(orgfilelines[k],"%sset_attack_power(%d);",nothing,attack_power);
 						if(attack_power){
 							attack_power=(int)(attack_power*rate);
+							// 数值整备：武器基础攻击也走等级连续放大
+							// （与属性词条同源×level/25），否则高级怪
+							// 防御线性增长会让玩家攻击停滞。
+							if(target_item_level>73)
+								attack_power=attack_power*
+									target_item_level/25;
 							writeback+="    set_attack_power("+attack_power+");\n";
 						}
 						else{
@@ -1663,6 +1669,10 @@ private object get_attributes_item(string orgitem,int num,
 						sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,set_attack_power_limit);
 						if(set_attack_power_limit){
 							set_attack_power_limit=(int)(set_attack_power_limit*rate);
+							if(target_item_level>73)
+								set_attack_power_limit=
+									set_attack_power_limit*
+									target_item_level/25;
 							writeback+="    set_attack_power_limit("+set_attack_power_limit+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";

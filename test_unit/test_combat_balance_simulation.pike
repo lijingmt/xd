@@ -72,8 +72,11 @@ mapping simulate(int plevel,int mlevel,int boss,int difficulty_tier)
 	p_base_dmg=total_str/6;
 	p_defend=total_str*3;
 	p_life=total_str*10;
-	// 装备攻击: 69级武器 attack_power≈205 + 动态生成词条≈50×3.5=175 → 380
-	int equip_atk=380;
+	// 装备攻击: 69级武器≈205×rate≈718 + 词条≈175 = 893
+	// >73级额外×level/25连续放大
+	int equip_atk=893;
+	if(plevel>73)
+		equip_atk=equip_atk*plevel/25;
 	int total_atk=p_base_dmg+equip_atk;
 
 	// 怪物
