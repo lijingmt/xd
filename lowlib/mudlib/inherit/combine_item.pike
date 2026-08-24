@@ -81,8 +81,11 @@ int is_combine_item()
 	return 1;
 }
 
-// 堆叠身份必须比历史的“名称+VIP”更严格。路径、账号绑定、玩家标记、
-// 掉落逻辑区及特殊来源不同的对象永不合并，防止堆叠洗掉归属或状态。
+// 堆叠身份必须比历史的"名称+VIP"更严格。路径、账号绑定、玩家标记
+// 及特殊来源不同的对象永不合并，防止堆叠洗掉归属或状态。
+// 掉落逻辑区(zone)不参与堆叠身份：同一材料被不同玩家击杀掉落后
+// 逻辑区归属不同，但拾取者是同一人——zone差异导致同名物品
+// 永远不合并，是"不自动叠加"的根源。zone只在跨区交易时校验。
 string query_combine_identity()
 {
 	string source=(file_name(this_object())/"#")[0];
@@ -96,7 +99,6 @@ string query_combine_identity()
 	if(functionp(this_object()->query_item_from))
 		item_from=(string)this_object()->query_item_from();
 	return source+"|vip="+vip_owner+"|account="+account_owner+
-		"|zone="+(string)item_logical_zone_owner+
 		"|status="+(string)status+"|from="+item_from+
 		"|mark="+(string)item_playerDesc;
 }
