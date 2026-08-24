@@ -319,8 +319,33 @@ mapping apply_distributed_team_snapshot(mapping snapshot)
 		members[userid] = ({(string)row[0],(string)row[1],
 			(string)row[2],(int)row[3]});
 	}
-	if(sizeof(members) && leaders!=1)
-		return (["ok":0,"code":"invalid_team_leader"]);
+	if(sizeof(members) && leaders!=1){
+		// 应用侧自愈：历史有害快照（0/多队长）已序列化在投递箱里，
+		// 只会拒绽数字到7天TTL。接收端就地修复——多队长降级、
+		// 零队长补位——让风暴立即收敛而不是等过期。
+		string first_member="";
+		leaders=0;
+		foreach(sort(indices(members)),string userid){
+			array row;
+			if(first_member=="")
+				first_member=userid;
+			row=(array)members[userid];
+			if(sizeof(row)>1 && (string)row[1]=="leader"){
+				if(leaders)
+					row[1]="termer";
+				else
+					leaders=1;
+				members[userid]=row;
+			}
+		}
+		if(!leaders && first_member!=""){
+			array row=(array)members[first_member];
+			while(sizeof(row)<4)
+				row+=({"",0});
+			row[1]="leader";
+			members[first_member]=row;
+		}
+	}
 	if(sizeof(members)){
 		string anchor = "";
 		foreach(indices(members),string userid)
