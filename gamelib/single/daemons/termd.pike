@@ -218,6 +218,31 @@ mapping query_distributed_team_snapshot(string tid)
 	mapping members = mappingp(termMain[tid]) ?
 		copy_value(termMain[tid]) : ([]);
 	array chat = arrayp(termChat[tid]) ? copy_value(termChat[tid]) : ({});
+	// 队长唯一性自愈：0个或多个队长的快照会被所有Worker以
+	// invalid_team_leader拒绝并按7天TTL无限重试（曾造成318条
+	// 拒绝风暴）。发布/读取前强制把首位成员设为唯一队长。
+	int leader_seen;
+	string first_member;
+	foreach(sort(indices(members)),string uid){
+		array row;
+		if(first_member=="")
+			first_member=uid;
+		row=(array)members[uid];
+		if(sizeof(row)>1 && (string)row[1]=="leader"){
+			if(leader_seen)
+				row[1]="termer";
+			else
+				leader_seen=1;
+			members[uid]=row;
+		}
+	}
+	if(!leader_seen && first_member!=""){
+		array row=(array)members[first_member];
+		while(sizeof(row)<4)
+			row+=({"",0});
+		row[1]="leader";
+		members[first_member]=row;
+	}
 	return (["team_id":tid,"revision":termRevisions[tid],
 		"writer":termRevisionWriters[tid] || "",
 		"members":members,"chat":chat,
@@ -873,12 +898,42 @@ private void strip_previous_team_membership(object player,string new_tid)
 	}
 	if(was_leader){
 		string heir=indices(termMain[previous_tid])[0];
-		if(termMain[previous_tid][heir] &&
-		   sizeof(termMain[previous_tid][heir])>1)
-			termMain[previous_tid][heir][1]="leader";
+		array heir_row;
+		if(!termMain[previous_tid][heir])
+			termMain[previous_tid][heir]=({"","termer","",0});
+		heir_row=(array)termMain[previous_tid][heir];
+		while(sizeof(heir_row)<4)
+			heir_row+=({"",0});
+		heir_row[1]="leader";
+		termMain[previous_tid][heir]=heir_row;
 	}
 	publish_distributed_team_snapshot(previous_tid,uid);
 	term_tell(previous_tid,player->query_name_cn()+"加入了其他队伍\n");
+}
+
+/** TestUnit钩子：制造零队长/多队长的损坏态供快照自愈回归。 */
+void destory_term_snapshot_leader_for_test(string tid)
+{
+	if(!termMain[tid])
+		return;
+	foreach(indices(termMain[tid]),string uid){
+		array row=(array)termMain[tid][uid];
+		if(sizeof(row)>1 && (string)row[1]=="leader"){
+			row[1]="termer";
+			termMain[tid][uid]=row;
+		}
+	}
+}
+
+void set_term_leader_for_test(string tid,string uid)
+{
+	array row;
+	if(!termMain[tid] || !termMain[tid][uid])
+		return;
+	row=(array)termMain[tid][uid];
+	if(sizeof(row)>1)
+		row[1]="leader";
+	termMain[tid][uid]=row;
 }
 
 int add_termer(string tid, string uid, string uname){
