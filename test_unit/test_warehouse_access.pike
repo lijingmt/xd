@@ -136,12 +136,12 @@ int main()
 			search(batch_ui,"重复或过期操作已拦截")!=-1,
 			"批量入口、八件上限或防重复令牌缺失");
 
-		check("新旧人物都至少拥有免费20格仓库",
-			player->query_cangku_size()==20,
+		check("新旧人物都至少拥有免费40格仓库",
+			player->query_cangku_size()==40,
 			"容量="+player->query_cangku_size());
 		player->package_expand = (["cangku":([10:2])]);
 		check("扩容仓库使用映射数据并正确计算容量",
-			player->query_cangku_size()==40,
+			player->query_cangku_size()==60,
 			"扩容后容量="+player->query_cangku_size());
 
 		object vip_book = clone(ROOT+"/gamelib/clone/item/book/lingzhen");

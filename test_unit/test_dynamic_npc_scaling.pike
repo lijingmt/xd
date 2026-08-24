@@ -73,6 +73,12 @@ void test_scale_boundaries()
 			int previous = npc->query_dynamic_npc_defense_scale(98,defense);
 			if(target<1)
 				target = 1;
+			// 数值整备：防御^0.3倍率封顶5倍，防止套装强化后属性爆炸。
+			if(target>5)
+				target = 5;
+			// 数值整备：防御^0.3倍率封顶5倍（套装强化后防爆炸）。
+			if(target>5)
+				target = 5;
 			if(previous!=1000)
 				valid = 0;
 			for(int level=99;level<=122;level++){
@@ -103,6 +109,8 @@ void test_no_level_101_cliff()
 	int scale_101 = 0;
 	int scale_120 = 0;
 	int target_multiplier = (int)pow(defense,0.3);
+	if(target_multiplier>5)
+		target_multiplier = 5;
 	int target = target_multiplier*1000;
 	int expected_101 = (int)(pow((float)target_multiplier,0.05)*1000);
 	if(npc){
@@ -131,6 +139,8 @@ void test_life_scale_transition()
 			int previous = npc->query_dynamic_npc_life_scale(100,defense);
 			if(target<1)
 				target = 1;
+			if(target>5)
+				target = 5;
 			if(previous!=1000)
 				valid = 0;
 			for(int level=101;level<=124;level++){
@@ -191,8 +201,8 @@ void test_runtime_stats_and_boss_multipliers()
 		valid = level_101->get_cur_life()<
 			level_100->get_cur_life()*2 &&
 			scaled_120->get_cur_life()==expected_life_120 &&
-			scaled_120->get_cur_life()<base_120->get_cur_life()*7 &&
-			scaled_122->get_cur_life()==base_122->get_cur_life()*7 &&
+			scaled_120->get_cur_life()<base_120->get_cur_life()*6 &&
+			scaled_122->get_cur_life()==base_122->get_cur_life()*5 &&
 			elite_120->get_cur_life()==
 			scaled_120->get_cur_life()*3 &&
 			boss_120->get_cur_life()==
