@@ -643,18 +643,7 @@ int query_mofachuantou_add(){ return mofachuantou_add;}
 void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 
 private int dodgechuantou_add=0;//闪避穿透按千分点保存，10点等于1%
-// 新月套装按件数提供闪避穿透（件数×400千分点=件数×40%）：
-// 怪物闪避修复后仍有基础闪避，套装必须自带穿透保证物理命中。
-int query_newmoon_dodge_penetration()
-{
-	if(!query_newmoon_resonance_active())
-		return 0;
-	return query_newmoon_set_piece_count()*400;
-}
-int query_dodgechuantou_add(){
-	return dodgechiantou_legacy()+query_newmoon_dodge_penetration();
-}
-private int dodgechiantou_legacy(){ return dodgechuantou_add;}
+int query_dodgechuantou_add(){ return dodgechuantou_add;}
 void set_dodgechuantou_add(int a){ dodgechuantou_add=a;}
 
 //新属性0121//////////////////////////////////
@@ -1210,7 +1199,7 @@ string query_content(){
 	if(ob->all_mofa_defend_add) r+="全法术抗性增加 "+ob->all_mofa_defend_add+"点\n";
 	if(ob->wulichuantou_add) r+="全物理穿透 "+ob->wulichuantou_add+"点\n";
 	if(ob->mofachuantou_add) r+="全法术穿透 "+ob->mofachuantou_add+"点\n";
-	if(ob->dodgechuantou_add) r+="闪避穿透 "+
+	if(ob->query_dodgechuantou_add()) r+="闪避穿透 "+
 		sprintf("%0.2f",(float)ob->dodgechuantou_add/10.0)+"%\n";
 
 	//宝石
