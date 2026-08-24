@@ -1558,6 +1558,12 @@ private object get_attributes_item(string orgitem,int num,
 					rtn_ob->set_item_profeLimit("tianxiang");
 				if(profs && sizeof(profs) > 0 && search(profs, "lingyi") == -1)
 					rtn_ob->set_item_profeLimit("lingyi");
+				// 太极与无相同为中立职业，白名单缺太极导致太极只能穿
+				// 新月套装，其他动态装备全部不可穿。
+				if(profs && sizeof(profs) > 0 && search(profs, "wuxiang") == -1)
+					rtn_ob->set_item_profeLimit("wuxiang");
+				if(profs && sizeof(profs) > 0 && search(profs, "taiji") == -1)
+					rtn_ob->set_item_profeLimit("taiji");
 			}
 			return (rtn_ob);
 		}

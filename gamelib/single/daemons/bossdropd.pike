@@ -497,6 +497,10 @@ string get_org_converted_level(string orgitem,int boss_level){
 							rtn_ob->set_item_profeLimit("tianxiang");
 						if(profs && sizeof(profs) > 0 && search(profs, "lingyi") == -1)
 							rtn_ob->set_item_profeLimit("lingyi");
+						if(profs && sizeof(profs) > 0 && search(profs, "wuxiang") == -1)
+							rtn_ob->set_item_profeLimit("wuxiang");
+						if(profs && sizeof(profs) > 0 && search(profs, "taiji") == -1)
+							rtn_ob->set_item_profeLimit("taiji");
 					}
 				}
 				//werror("$$$$$$$$$$$$$$$$创建新物品结束$$$$$$$$$$$$$$$$$$$$\n");
