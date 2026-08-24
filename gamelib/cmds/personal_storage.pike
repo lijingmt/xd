@@ -6,7 +6,7 @@
 
 int valid_personal_storage_category(string category)
 {
-	return has_value(({"all","equip","book","material",
+	return has_value(({"all","set","equip","book","material",
 		"consumable","other"}),category);
 }
 
@@ -99,6 +99,12 @@ array(mapping(string:mixed)) query_backpack_rows(object player,
 		path = backpack_item_path(item);
 		item_category = item->is("equip") ? "equip" :
 			personal_storage_category_for_path(path);
+		if(item->is("equip") &&
+		   functionp(item->query_newmoon_resonance_profession) &&
+		   (string)item->query_newmoon_resonance_profession()!="" &&
+		   functionp(item->query_newmoon_collection_id) &&
+		   (string)item->query_newmoon_collection_id()!="")
+			item_category = "set";
 		if((category!="all" && category!=item_category) ||
 		   !text_matches(keyword,(string)item->query_name(),
 			(string)item->query_name_cn(),(string)item->query_short(),path))
@@ -128,6 +134,8 @@ array(mapping(string:mixed)) query_personal_rows(object player,
 		   sizeof((string)data[7])!=64)
 			continue;
 		item_category = personal_storage_category_for_path((string)data[3]);
+		if(item_category=="equip" && search((string)data[3],"69xinyue")!=-1)
+			item_category = "set";
 		if((category!="all" && category!=item_category) ||
 		   !text_matches(keyword,(string)data[0],(string)data[1],
 			(string)data[2],(string)data[3]))
