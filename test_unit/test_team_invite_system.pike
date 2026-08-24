@@ -187,6 +187,48 @@ void test_http_core_and_command_contracts()
 	test_result(valid,"核心命令路由或邀请/接受/离队接线不完整");
 }
 
+void test_leader_invariant_self_heal()
+{
+	test_start("零队长/多队长快照自愈为唯一队长");
+	object a = create_test_player(
+		"__testunit_leader_fix_a__","human","jianxian");
+	object b = create_test_player(
+		"__testunit_leader_fix_b__","monst","kuangyao");
+	int valid = !!a && !!b;
+	if(valid){
+		string tid=TERMD->term_create(a->query_name());
+		TERMD->add_termer(tid,b->query_name(),b->query_name_cn());
+		// 模拟损坏态：清空队长标记制造零队长快照，再制造多队长。
+		TERMD->destory_term_snapshot_leader_for_test(tid);
+		TERMD->set_term_leader_for_test(tid,a->query_name());
+		TERMD->set_term_leader_for_test(tid,b->query_name());
+		mapping snapshot=TERMD->query_distributed_team_snapshot(tid);
+		mapping members=(mapping)snapshot["members"];
+		int leaders=0;
+		foreach(indices(members),string uid){
+			array row=(array)members[uid];
+			if(sizeof(row)>1 && (string)row[1]=="leader")
+				leaders++;
+		}
+		valid=sizeof(tid)>1 && sizeof(members)==2 && leaders==1;
+		if(sizeof(tid)>1){
+			// 测试钩子已把首位设为队长，直接以队长身份解散。
+			string leader_uid="";
+			foreach(sort(indices(members)),string uid){
+				array row=(array)members[uid];
+				if(sizeof(row)>1 && (string)row[1]=="leader"){
+					leader_uid=uid;
+					break;
+				}
+			}
+			TERMD->destory_term(tid,leader_uid);
+		}
+	}
+	test_result(valid,"零队长或多队长快照未自愈");
+	destroy_test_player(a);
+	destroy_test_player(b);
+}
+
 void test_unique_membership_on_join()
 {
 	test_start("加入或创建新队会剥离旧队籍，杜绝一人双队分裂");
@@ -233,6 +275,7 @@ int main()
 	test_first_team_creation_workflow();
 	test_command_invite_accept_workflow();
 	test_http_core_and_command_contracts();
+	test_leader_invariant_self_heal();
 	test_unique_membership_on_join();
 	werror("\n组队邀请测试完成！总计: %d, 通过: %d, 失败: %d\n",
 		test_results["total"],test_results["passed"],
