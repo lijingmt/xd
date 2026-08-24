@@ -104,7 +104,7 @@ private string render_page(object sender,object recipient,int page)
 		(string)recipient->query_name_cn()+"；已选择"+sizeof(selected)+
 		"/"+BATCH_GIFT_MAX_ITEMS+"件。\n";
 	out+="筛选：";
-	foreach(({"all","equipment","medicine","book","material","jade",
+	foreach(({"all","set","equipment","medicine","book","material","jade",
 		"box","other"}),string one){
 		if(one!="all")
 			out+="|";

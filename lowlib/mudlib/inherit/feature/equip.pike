@@ -1199,7 +1199,7 @@ string query_content(){
 	if(ob->all_mofa_defend_add) r+="全法术抗性增加 "+ob->all_mofa_defend_add+"点\n";
 	if(ob->wulichuantou_add) r+="全物理穿透 "+ob->wulichuantou_add+"点\n";
 	if(ob->mofachuantou_add) r+="全法术穿透 "+ob->mofachuantou_add+"点\n";
-	if(ob->dodgechuantou_add) r+="闪避穿透 "+
+	if(ob->query_dodgechuantou_add()) r+="闪避穿透 "+
 		sprintf("%0.2f",(float)ob->dodgechuantou_add/10.0)+"%\n";
 
 	//宝石

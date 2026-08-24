@@ -435,7 +435,7 @@ int profile_attribute_supported(string attribute)
 		"attack_bingshuang_add","attack_fengren_add",
 		"attack_dusu_add","attack_spec_add","huoyan_defend_add",
 		"bingshuang_defend_add","fengren_defend_add",
-		"dusu_defend_add","all_mofa_defend_add",
+		"dusu_defend_add","all_mofa_defend_add","dodgechuantou_add",
 	}),attribute)!=-1;
 }
 
@@ -971,6 +971,48 @@ void test_requested_piece_attribute_matrix()
 	}
 	check("十二职业穿1/2/3/4/10件时全部15类属性精确符合预期",
 		all_valid,errors*";");
+}
+
+void test_dodge_penetration_affix_roll()
+{
+	werror("\n[新月闪避穿透行为测试]\n");
+	mapping config=catalog[0];
+	string weapon_path=item_path("weapon",(string)config["pieces"]["weapon"]);
+	object player=create_player("__testunit_newmoon_pen__",
+		"human","jianxian");
+	int seen=0;
+	int max_value=0;
+	int min_value=999999;
+	for(int i=0;i<50;i++){
+		object item=clone(weapon_path);
+		if(!item)
+			break;
+		// 用公开生成接口走完整词缀池（底版需完整路径）
+		object generated=ITEMSD->get_convert_item(
+			"weapon/"+(string)config["pieces"]["weapon"]+"/"+
+			(string)config["pieces"]["weapon"],
+			3,69,69,item);
+		if(!generated){
+			destruct(item);
+			continue;
+		}
+		int pen=(int)generated->query_dodgechuantou_add();
+		if(pen>0){
+			seen++;
+			if(pen>max_value)
+				max_value=pen;
+			if(pen<min_value)
+				min_value=pen;
+		}
+		if(generated!=item)
+			destruct(generated);
+	}
+	int valid = player!=0 && seen>0 && max_value<=35 && min_value>=14;
+	werror("  50件中"+seen+"件出闪避穿透，值域"+min_value+"-"+max_value+"\n");
+	check("新月底版词条池随机roll出闪避穿透且值在15-30范围(容差1.01倍)",
+		valid,
+		sprintf("seen=%d min=%d max=%d",seen,min_value,max_value));
+	destroy_player(player);
 }
 
 void test_set_identity_and_duplicate_boundaries()
@@ -1825,6 +1867,7 @@ int main()
 	test_full_set_progression();
 	test_all_profession_set_extras();
 	test_requested_piece_attribute_matrix();
+	test_dodge_penetration_affix_roll();
 	test_set_identity_and_duplicate_boundaries();
 	test_two_player_real_combat_comparisons();
 	test_high_level_dynamic_generation();

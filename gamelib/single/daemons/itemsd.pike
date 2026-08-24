@@ -1558,6 +1558,12 @@ private object get_attributes_item(string orgitem,int num,
 					rtn_ob->set_item_profeLimit("tianxiang");
 				if(profs && sizeof(profs) > 0 && search(profs, "lingyi") == -1)
 					rtn_ob->set_item_profeLimit("lingyi");
+				// 太极与无相同为中立职业，白名单缺太极导致太极只能穿
+				// 新月套装，其他动态装备全部不可穿。
+				if(profs && sizeof(profs) > 0 && search(profs, "wuxiang") == -1)
+					rtn_ob->set_item_profeLimit("wuxiang");
+				if(profs && sizeof(profs) > 0 && search(profs, "taiji") == -1)
+					rtn_ob->set_item_profeLimit("taiji");
 			}
 			return (rtn_ob);
 		}
@@ -1645,6 +1651,12 @@ private object get_attributes_item(string orgitem,int num,
 						sscanf(orgfilelines[k],"%sset_attack_power(%d);",nothing,attack_power);
 						if(attack_power){
 							attack_power=(int)(attack_power*rate);
+							// 数值整备：武器基础攻击也走等级连续放大
+							// （与属性词条同源×level/25），否则高级怪
+							// 防御线性增长会让玩家攻击停滞。
+							if(target_item_level>73)
+								attack_power=attack_power*
+									target_item_level/25;
 							writeback+="    set_attack_power("+attack_power+");\n";
 						}
 						else{
@@ -1657,6 +1669,10 @@ private object get_attributes_item(string orgitem,int num,
 						sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,set_attack_power_limit);
 						if(set_attack_power_limit){
 							set_attack_power_limit=(int)(set_attack_power_limit*rate);
+							if(target_item_level>73)
+								set_attack_power_limit=
+									set_attack_power_limit*
+									target_item_level/25;
 							writeback+="    set_attack_power_limit("+set_attack_power_limit+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
@@ -2165,21 +2181,30 @@ int query_abnormal_gear_class(object item)
 	mapping(string:int) caps;
 	int tier;
 	int over_cap=0;
+	int item_level;
 	if(!item || !functionp(item->query_item_rareLevel))
 		return 0;
 	base=query_convert_item_rawname(item);
 	if(base!=""){
 		caps=query_base_attribute_caps(base);
 		tier=query_base_template_tier(base);
+		// 回收线与生成钳制同公式（limit×(500+等级×80)）：新装合法
+		// 值永不越线，旧爆炸装（如2.3万力量 vs 合法8千）全部落网。
+		item_level=functionp(item->query_item_canLevel) ?
+			max(0,(int)item->query_item_canLevel()) : 0;
 		foreach(sort(indices(caps)),string attr){
 			mixed reader=item["query_"+attr];
 			int value;
+			int cap;
 			if(!functionp(reader))
 				continue;
 			value=(int)call_function(reader);
-			if(value>caps[attr]*10)
+			cap=(caps[attr]/100000)*(500+item_level*80);
+			if(cap<caps[attr]/100000*500)
+				cap=caps[attr]/100000*500;
+			if(value>cap*10)
 				return 2;
-			if(value>caps[attr])
+			if(value>cap)
 				over_cap=1;
 		}
 		if(over_cap && tier>=1 && tier<65)
