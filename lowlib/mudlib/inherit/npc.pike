@@ -416,6 +416,10 @@ int query_dynamic_npc_defense_scale(int npc_level,int player_defense){
 	target_multiplier = (int)pow(player_defense,0.3);
 	if(target_multiplier<1)
 		target_multiplier = 1;
+	// 套装强化后玩家防御可达数万，防御^0.3 会把动态怪血量推到数百万
+	// （15万→750万）。倍率封顶5倍：高防玩家的怪更耐打但不失控。
+	if(target_multiplier>5)
+		target_multiplier = 5;
 	target_scale = target_multiplier*1000;
 	if(npc_level>=120)
 		return target_scale;
@@ -439,6 +443,10 @@ int query_dynamic_npc_life_scale(int npc_level,int player_defense){
 	target_multiplier = (int)pow(player_defense,0.3);
 	if(target_multiplier<1)
 		target_multiplier = 1;
+	// 套装强化后玩家防御可达数万，防御^0.3 会把动态怪血量推到数百万
+	// （15万→750万）。倍率封顶5倍：高防玩家的怪更耐打但不失控。
+	if(target_multiplier>5)
+		target_multiplier = 5;
 	target_scale = target_multiplier*1000;
 	if(npc_level>=122)
 		return target_scale;

@@ -797,19 +797,27 @@ void fight_die()
 			
 			int shared_difficulty=query_team_shared_drop_difficulty(
 				map_term,logical_drop_owner);
-			object ob = ITEMSD->get_item(this_object()->query_level(),0,
+			// S1世界自成掉落体系（章节/套装/秘迹），永恒服的卷轴、
+			// 图纸、宝石等杂物掉落只污染赛季背包，全部过滤。
+			object s1_scope_player = find_player(term_who);
+			int s1_drop_scope = objectp(s1_scope_player) &&
+				PERSONAL_DIFFICULTYD->query_scope(s1_scope_player)=="S1";
+			object ob = s1_drop_scope ? 0 : ITEMSD->get_item(
+				this_object()->query_level(),0,
 				pro_add,shared_difficulty);
 			//掉落特殊物品
-			object ob_spec = ITEMSD->get_spec_item(
+			object ob_spec = s1_drop_scope ? 0 : ITEMSD->get_spec_item(
 				this_object()->query_level(), 0, pro_add,
 				PERSONAL_DIFFICULTYD->
 					query_rare_drop_percent_for_level(
 						shared_difficulty));
 			//掉落宝石 added by caijie 080807
-			object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),1);
+			object ob_shi = s1_drop_scope ? 0 :
+				ITEMSD->get_worlddrop_item(this_object()->query_level(),1);
 			//节日特殊掉落
 			//由liaocheng于07/09/24添加
-			object ob_holiday_spec = ITEMSD->get_spec_item_for_holiday(this_object()->query_level());
+			object ob_holiday_spec = s1_drop_scope ? 0 :
+				ITEMSD->get_spec_item_for_holiday(this_object()->query_level());
 			if(ob && environment(this_object())){
 				//加入掉装保护属性字段
 				//这里需要将团队拾取标示加上

@@ -123,9 +123,11 @@ int query_cangku_size()
 {
 	object me = this_object();
 	int pac_size = me->packageLevel;//藏宝箱的初始容量
-	// 老人物与多人物空档案缺失该字段时，仍应拥有免费的20格仓库。
-	if(pac_size<20){
-		pac_size = 20;
+	// 老人物与多人物空档案缺失该字段时仍有免费基础仓库；玩家反馈
+	// 20格太小且部分号拿不到扩格道具，免费基础提升到40格，付费扩格
+	// 道具继续在其上叠加。
+	if(pac_size<40){
+		pac_size = 40;
 		me->packageLevel = pac_size;
 	}
 	if(!me->package_expand||!me->package_expand["cangku"]){
