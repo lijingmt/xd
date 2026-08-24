@@ -435,7 +435,7 @@ int profile_attribute_supported(string attribute)
 		"attack_bingshuang_add","attack_fengren_add",
 		"attack_dusu_add","attack_spec_add","huoyan_defend_add",
 		"bingshuang_defend_add","fengren_defend_add",
-		"dusu_defend_add","all_mofa_defend_add",
+		"dusu_defend_add","all_mofa_defend_add","dodgechuantou_add",
 	}),attribute)!=-1;
 }
 
