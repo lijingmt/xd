@@ -1463,10 +1463,10 @@ private object get_attributes_item(string orgitem,int num,
 				//werror("---------value="+value+"-----------\n");
 				if(rate>1)
 					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
-				// 数值整备：连续放大（value×等级/25），避免台阶断层；
-				// 73级以内（含S1基线）不放大，S1自平衡不受影响。
-				if(target_item_level>73)
-					value=value*target_item_level/25;
+				// 数值整备：rate已含等级缩放((底版+差额)/底版×门槛)，
+				// 不再叠加×level/25。此前双重放大曾使一条词条
+				// 达到46870，十件套总攻击几十万，一击秒杀999Boss。
+				// 73级以内S1自平衡不受影响。
 				// 第二层防御：低阶底版的单条属性绝对值不超过其约束表
 				// 上限随等级线性增长——高于一切合法生成路径的绝对值，
 				// 仍从源头掐灭百万级失控数值。高于一切合法生成路径（含随机商店按顶级
@@ -1650,13 +1650,10 @@ private object get_attributes_item(string orgitem,int num,
 						string nothing;
 						sscanf(orgfilelines[k],"%sset_attack_power(%d);",nothing,attack_power);
 						if(attack_power){
+							// rate已含等级缩放(底版+差额)/底版×门槛，
+							// 不得再叠加×level/25（曾造成双重放大
+							// 使玩家一击3300万秒杀999级Boss）。
 							attack_power=(int)(attack_power*rate);
-							// 数值整备：武器基础攻击也走等级连续放大
-							// （与属性词条同源×level/25），否则高级怪
-							// 防御线性增长会让玩家攻击停滞。
-							if(target_item_level>73)
-								attack_power=attack_power*
-									target_item_level/25;
 							writeback+="    set_attack_power("+attack_power+");\n";
 						}
 						else{
@@ -1669,10 +1666,6 @@ private object get_attributes_item(string orgitem,int num,
 						sscanf(orgfilelines[k],"%sset_attack_power_limit(%d);",nothing,set_attack_power_limit);
 						if(set_attack_power_limit){
 							set_attack_power_limit=(int)(set_attack_power_limit*rate);
-							if(target_item_level>73)
-								set_attack_power_limit=
-									set_attack_power_limit*
-									target_item_level/25;
 							writeback+="    set_attack_power_limit("+set_attack_power_limit+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";

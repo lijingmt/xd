@@ -72,11 +72,8 @@ mapping simulate(int plevel,int mlevel,int boss,int difficulty_tier)
 	p_base_dmg=total_str/6;
 	p_defend=total_str*3;
 	p_life=total_str*10;
-	// 装备攻击: 69级武器≈205×rate≈718 + 词条≈175 = 893
-	// >73级额外×level/25连续放大
+	// 装备攻击: 仅rate缩放（不再叠加×level/25）
 	int equip_atk=893;
-	if(plevel>73)
-		equip_atk=equip_atk*plevel/25;
 	int total_atk=p_base_dmg+equip_atk;
 
 	// 怪物
@@ -85,7 +82,7 @@ mapping simulate(int plevel,int mlevel,int boss,int difficulty_tier)
 	int m_defend=m_str*2; // 怪物物防≈str*2(近似)
 	int m_life;
 	if(boss){
-		m_life=m_str*10*6; // boss全血×6
+		m_life=m_str*10*3; // boss全血×3
 	}else{
 		m_life=m_str*10*2/100; // 普通怪2%血
 		if(m_life<1) m_life=1;

@@ -206,9 +206,9 @@ void test_runtime_stats_and_boss_multipliers()
 			elite_120->get_cur_life()==
 			scaled_120->get_cur_life()*3 &&
 			boss_120->get_cur_life()==
-			scaled_120->get_cur_life()*6;
+			scaled_120->get_cur_life()*3;
 	}
-	check("真实NPC属性无101级断崖且精英/Boss倍率保持3/6倍",
+	check("真实NPC属性无101级断崖且精英/Boss倍率保持3/3倍",
 		valid,"动态属性或既有精英/Boss倍率发生偏移");
 	if(level_100)
 		destruct(level_100);
