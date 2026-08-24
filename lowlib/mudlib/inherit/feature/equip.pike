@@ -643,7 +643,18 @@ int query_mofachuantou_add(){ return mofachuantou_add;}
 void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 
 private int dodgechuantou_add=0;//闪避穿透按千分点保存，10点等于1%
-int query_dodgechuantou_add(){ return dodgechuantou_add;}
+// 新月套装按件数提供闪避穿透（件数×400千分点=件数×40%）：
+// 怪物闪避修复后仍有基础闪避，套装必须自带穿透保证物理命中。
+int query_newmoon_dodge_penetration()
+{
+	if(!query_newmoon_resonance_active())
+		return 0;
+	return query_newmoon_set_piece_count()*400;
+}
+int query_dodgechuantou_add(){
+	return dodgechiantou_legacy()+query_newmoon_dodge_penetration();
+}
+private int dodgechiantou_legacy(){ return dodgechuantou_add;}
 void set_dodgechuantou_add(int a){ dodgechuantou_add=a;}
 
 //新属性0121//////////////////////////////////
