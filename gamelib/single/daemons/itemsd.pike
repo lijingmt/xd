@@ -2286,6 +2286,51 @@ int query_abnormal_gear_class(object item)
  返回0=正常，1/2同 query_abnormal_gear_class。 */
 private mapping(string:int) abnormal_gear_file_cache=([]);
 
+/** 回收替换：生成一件同底版、同等级、同品质但数值正常的装备。
+ 在 inventory.pike 的登录矫正里调用——旧装备由调用方销毁。 */
+object generate_normal_replacement(object old_item)
+{
+	string base;
+	int item_level;
+	int quality;
+	object replacement;
+	mixed err;
+	if(!old_item || !functionp(old_item->query_item_rareLevel))
+		return 0;
+	base=query_convert_item_rawname(old_item);
+	if(base=="")
+		return 0;
+	item_level=functionp(old_item->query_item_canLevel) ?
+		max(1,(int)old_item->query_item_canLevel()) : 1;
+	quality=max(1,(int)old_item->query_item_rareLevel());
+	err=catch{
+		replacement=get_convert_item(base,quality,73,item_level,old_item);
+	};
+	if(err || !replacement)
+		return 0;
+	// 保留凹槽宝石和VIP标记
+	if(functionp(old_item->query_if_aocao) &&
+	   old_item->query_if_aocao("all") &&
+	   functionp(replacement->set_aocao_max)){
+		foreach(({"red","blue","yellow"}),string color){
+			if(old_item->query_aocao(color)){
+				replacement->set_aocao_max(color,
+					(int)old_item->query_aocao(color));
+				if(old_item->query_baoshi(color)){
+					foreach(old_item->query_baoshi(color),object gem){
+						if(gem)
+							replacement->set_baoshi(color,gem);
+					}
+				}
+			}
+		}
+	}
+	if(functionp(old_item->query_toVip) && old_item->query_toVip() &&
+	   functionp(replacement->set_toVip))
+		replacement->set_toVip(1);
+	return replacement;
+}
+
 int query_abnormal_gear_class_by_file(void|string relative)
 {
 	object item;

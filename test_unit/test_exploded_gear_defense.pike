@@ -145,8 +145,18 @@ int main()
 		jade_ceiling_before=YUSHID->query_all_num(player);
 		player->recall_abnormal_ceiling_gear();
 		jade_ceiling_after=YUSHID->query_all_num(player);
-		// 钳回不销毁：验证攻击值被降到合法上限以下
-		ceiling_removed=!objectp(extreme);
+		// 持久化替换验证：旧装备被移除，新装备已进入背包，
+		// 且新装备的攻击值在合法范围内。
+		int replacement_seen=0;
+		foreach(all_inventory(player),object inv){
+			if(inv && functionp(inv->query_attack_add) &&
+			   (int)inv->query_attack_add()>0 &&
+			   (int)inv->query_attack_add()<=5*400*4){
+				replacement_seen=1;
+				break;
+			}
+		}
+		ceiling_removed=!objectp(extreme) && replacement_seen;
 		ceiling_kept_legit=objectp(legit) &&
 			player->normalize_exploded_equipment()==0 &&
 			objectp(legit);

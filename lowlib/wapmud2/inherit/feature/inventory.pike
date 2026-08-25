@@ -1021,72 +1021,23 @@ int recall_abnormal_ceiling_gear()
 	}
 	foreach(abnormal,object item){
 		string base=ITEMSD->query_convert_item_rawname(item);
-		int item_level=functionp(item->query_item_canLevel) ?
-			max(1,(int)item->query_item_canLevel()) : 1;
-		mapping(string:int) caps=base!="" ?
-			ITEMSD->query_base_attribute_caps(base) : ([]);
 		mixed log_err=catch{
 			Stdio.append_file(ROOT+
 				"/log/abnormal_gear_alarm.log",
 				ctime(time())[0..sizeof(ctime(time()))-2]+
 				" user="+me->query_name()+" item="+
 				item->query_name()+" base="+base+
-				" action=replace_with_persisted\n");
+				" action=recall_ceiling\n");
 		};
-		// 数值矫正：走洗炼的持久化流程——用同一底版、同一等级、
-		// 同一品质重新生成一件数值正常的装备文件，替换旧装备。
-		// get_convert_item 会写新文件到磁盘，数值持久生效。
-		int quality=functionp(item->query_item_rareLevel) ?
-			max(1,(int)item->query_item_rareLevel()) : 3;
-		object replacement=0;
-		if(base!=""){
-			mixed gen_err=catch{
-				replacement=ITEMSD->get_convert_item(
-					base,quality,73,item_level,item);
-			};
-			if(gen_err || !replacement)
-				replacement=0;
-		}
-		if(replacement){
-			// 保留凹槽和宝石
-			if(functionp(item->query_if_aocao) &&
-			   item->query_if_aocao("all") &&
-			   functionp(replacement->set_aocao_max)){
-				foreach(({"red","blue","yellow"}),string color){
-					if(item->query_aocao(color)){
-						replacement->set_aocao_max(color,
-							(int)item->query_aocao(color));
-						if(item->query_baoshi(color)){
-							foreach(item->query_baoshi(color),
-								object gem){
-								if(gem)
-									replacement->set_baoshi(color,gem);
-							}
-						}
-					}
-				}
-			}
-			if(functionp(item->query_toVip) && item->query_toVip())
-				replacement->set_toVip(1);
-			if(functionp(item->set_item_from))
-				replacement->set_item_from("honer");
-			// 替换：新装备进包，旧装备移除
-			if(item->equiped && functionp(me->remove_equipment))
-				catch{ me->remove_equipment(item); };
-			replacement->move(me);
-			if(environment(replacement)==me){
-				destruct(item);
-				removed_items++;
-			}
-			else{
-				destruct(replacement);
-				// 背包满，退化为碎玉补偿
-				destruct(item);
-				removed_items++;
-			}
+		// 持久化替换：生成正常数值的同款装备替换旧装备
+		object replacement=ITEMSD->generate_normal_replacement(item);
+		if(replacement && replacement->move(me)==1){
+			destruct(item);
+			removed_items++;
 		}
 		else{
-			// 无法生成替代品时只能销毁+碎玉
+			if(replacement)
+				destruct(replacement);
 			if(item->equiped && functionp(me->remove_equipment))
 				catch{ me->remove_equipment(item); };
 			destruct(item);
@@ -1095,7 +1046,7 @@ int recall_abnormal_ceiling_gear()
 	}
 	if(removed_items>0)
 		tell_object(me,"【数值矫正】检测到"+removed_items+
-			"件属性异常的装备，已替换为数值正常的同款装备。相关问题请联系客服。\n");
+			"件属性异常的装备，已替换为数值正常的同款。\n");
 	return removed_items;
 }
 //查看随身物品-道具
