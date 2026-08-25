@@ -163,34 +163,34 @@ int main()
 		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
 		if(legit)
 			destruct(legit);
-		// 洗炼保底：资源型重掷在底版10(最低限制)的rate下仍应
-		// 产生有意义的最小值(roll(1)×50=50)。
+		// 洗炼保底：资源型重掷走[70%,100%]差额采样，底版25@280级
+		// 最低rate=(25+178)/25×2.7≈21.9。任何被rate放大的单条属性
+		// 都不得低于底版1点×最低rate(≈21)。逐条检查而非只看三条
+		// 里的最大值，避免随机全掷出底数1时的偶发误报。
 		{
-			int wash_worst=2147483647;
+			int wash_min=2147483647;
 			mapping(string:int) wash_caps=ITEMSD->
 				query_base_attribute_caps(
 				"weapon/1duanmugun/1duanmugun");
 			for(int wash_i=0;wash_i<25;wash_i++){
 				object washed=ITEMSD->get_convert_item(
 					"weapon/1duanmugun/1duanmugun",3,1,280);
-				int one_max=0;
 				if(washed){
 					foreach(sort(indices(wash_caps)),string attr){
+						if(search(({"hitte_add","doub_add",
+						   "dodge_add"}),attr)!=-1)
+							continue;
 						mixed reader=washed["query_"+attr];
 						if(functionp(reader)){
 							int v=(int)call_function(reader);
-							if(v>one_max)
-								one_max=v;
+							if(v>0 && v<wash_min)
+								wash_min=v;
 						}
 					}
 					destruct(washed);
 				}
-				else
-					one_max=0;
-				if(one_max<wash_worst)
-					wash_worst=one_max;
 			}
-			wash_floor_ok=wash_worst>=40;
+			wash_floor_ok=wash_min>=20 && wash_min<2147483647;
 		}
 		// 仓库彻底回收：伪造异常装备文件（爆炸级2600/千级999999），
 		// 验证文件分类、存入拒绝、取出回收、角色仓库登录清洗与
@@ -293,9 +293,9 @@ int main()
 	check("共享仓库过滤：异常条目被删除、正常条目保留",
 		!err && shared_purge_ok,
 		sprintf("purged=%d",shared_purged));
-	check("洗炼保底：重掷属性不低于顶部区间下限(500)",
+	check("洗炼保底：每条重掷属性不低于底版下限×最低增长率",
 		!err && wash_floor_ok,
-		"洗炼出现远低于掉落水平的属性");
+		"洗炼出现低于底版1点×最低rate(约21)的属性");
 	// 怪物默认血量：无配置文件时按原血量2%出生。
 	Stdio.write_file(DATA_ROOT+"balance_transition.json",
 		Standards.JSON.encode((["life_percent":100,

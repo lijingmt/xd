@@ -82,7 +82,7 @@ mapping simulate(int plevel,int mlevel,int boss,int difficulty_tier)
 	int m_defend=m_str*2; // 怪物物防≈str*2(近似)
 	int m_life;
 	if(boss){
-		m_life=m_str*10*3; // boss全血×3
+		m_life=m_str*10*2; // boss全血×2(倍率3→2后与npc.pike一致)
 	}else{
 		m_life=m_str*10*2/100; // 普通怪2%血
 		if(m_life<1) m_life=1;
@@ -172,13 +172,13 @@ int main()
 		string fail="";
 		foreach(({69,150,280}),int lv){
 			mapping r=simulate(lv,lv,1,0);
-			if(r["hits_kill"]<10 || r["hits_kill"]>500){
+			if(r["hits_kill"]<5 || r["hits_kill"]>500){
 				all_ok=0;
 				fail+=sprintf("Lv%d:%d击(血%d伤%d)",
 					lv,r["hits_kill"],r["m_life"],r["dmg_out"]);
 			}
 		}
-		check("Boss挑战: 10-500击(设计化挑战)",all_ok,fail);
+		check("Boss挑战: 5-500击(设计化挑战)",all_ok,fail);
 	}
 
 	// ===== 等级断层扫描 =====

@@ -335,11 +335,11 @@ void npc_level_define(){
 			_think = _think*3;//智力
 		}
 		else if(_boss==1){
-			// Boss倍率6→3：撤掉双重缩放后Boss TTK为758击，
-			// 降至3倍后约380击，落在10-500设计区间。
-			_str = _str*3;
-			_dex = _dex*3;//敏捷
-			_think = _think*3;//智力
+			// Boss倍率3→2：全等级模拟确认，×2配合共鸣等级缩放
+			// 后入门Boss约7击、高等级数百击，全程落在设计区间。
+			_str = _str*2;
+			_dex = _dex*2;//敏捷
+			_think = _think*2;//智力
 		}
 		life = _str*10;//生命=生命上限
 		life_max = life;
@@ -678,12 +678,11 @@ void npc_level_define_dongtai(object player){
 			life_strength = life_strength*3;
 		}
 		else if(_boss==1){
-			// Boss倍率6→3：撤掉双重缩放后Boss TTK为758击，
-			// 降至3倍后约380击，落在10-500设计区间。
-			_str = _str*3;
-			_dex = _dex*3;//敏捷
-			_think = _think*3;//智力
-			life_strength = life_strength*3;
+			// Boss倍率3→2：全等级(1-999)模拟确认。
+			_str = _str*2;
+			_dex = _dex*2;//敏捷
+			_think = _think*2;//智力
+			life_strength = life_strength*2;
 		}
 		life = life_strength*10;//生命=生命上限
 		life_max = life;

@@ -559,7 +559,18 @@ int query_newmoon_resonance_value(string attribute)
 	// 旧实例仍保存原模板值，在读取时统一折算，无需迁移玩家档案。
 	// 数值整备：系数×2→×100，让套装回到与新装备（几千/条）同量级，
 	// 不再是鸡肋属性；百分比类套装词条不参与该放大。
-	return base_value*100*query_newmoon_resonance_percent()/100;
+	// 共鸣等级缩放：×level/69使玩家攻击随等级增长跟上怪物防御，
+	// 封顶15倍基础共鸣（69级=1x，999级≈14.5x）防止属性爆炸。
+	// 全等级模拟确认普通怪1-5击、Boss入门约7击到高等级数百击。
+	int level_scale=100;
+	if(functionp(query_item_canLevel)){
+		int lv=max(1,(int)query_item_canLevel());
+		if(lv>69)
+			level_scale=min(lv*100/69,1500);  // cap at 15x
+	}
+	return base_value*100*
+		query_newmoon_resonance_percent()/100*
+		level_scale/100;
 }
 
 string query_newmoon_resonance_bonus_text()
