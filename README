@@ -58,3 +58,25 @@ With the release of Pike 9.0, we plan to adapt and enhance this codebase to fit 
 
 ### Native Deployment
 **Run directly with Pike 9 on Linux:** [Native Setup Guide](./doc/NATIVE_SETUP.md) | [Pike 9 原生部署指南](./doc/NATIVE_SETUP.md)
+
+---
+
+## Major Architecture Update (August 2026) / 重大架构更新
+
+We've evolved from a single-process engine to a **horizontally scalable multi-worker architecture**. The game world is now distributed across multiple Pike processes, each owning a subset of rooms. Players transparently move between workers as they traverse the world — with zero changes to client URLs, TXD tokens, or legacy JSP/Vue behavior.
+
+引擎已从单进程架构演进为**多Worker水平扩展架构**。游戏世界分布在多个Pike进程中，每个Worker拥有一部分房间。玩家在游戏世界中移动时透明地跨Worker迁移——客户端URL、TXD令牌、旧JSP/Vue行为零变化。
+
+### Key capabilities / 核心能力
+
+- **Process isolation**: each worker is a full Pike process with its own memory and event loop
+- **Affinity-based placement**: rooms in the same consistency domain always live in the same worker
+- **Lease-based anti-cloning**: `(worker_id, lease_epoch)` fence guarantees one live copy per character
+- **Cross-worker social features**: durable team snapshots, private chat, world broadcast, team experience
+- **Graceful failover**: automatic fallback to legacy single-process mode if workers can't start
+- **Seasonal content isolation**: dedicated affinities for seasonal maps with atomic world transitions
+- **Full compatibility**: every public URL, bookmark, and legacy interface continues to work unchanged
+
+### Documentation / 详细文档
+
+📖 **[Multi-Worker Map Architecture (Full Details)](./docs/map-worker-architecture.md)** — comprehensive technical documentation covering topology, routing, placement, movement, persistence, social features, failure recovery, deployment, and testing.
