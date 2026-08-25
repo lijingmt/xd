@@ -4148,10 +4148,19 @@ private void pike_gateway_run_social_events(void|int wait_for_lock)
 							describe_error(delivery_err),256));
 				// 拒绝修复：目标Worker缺快照副本属于可修复的永久性
 				// 拒绝，让源Worker重发权威快照，事件下次重试即可送达。
+				// 保持本循环"全路径内部catch"的不变量，修复失败绝不
+				// 中断投递队列或延迟释放social锁。
 				if(search(describe_error(delivery_err),
-				   "team_snapshot_missing")!=-1)
-					pike_gateway_request_team_snapshot_republish(
-						source_worker,(mapping)raw);
+				   "team_snapshot_missing")!=-1){
+					mixed repair_err = catch {
+						pike_gateway_request_team_snapshot_republish(
+							source_worker,(mapping)raw);
+					};
+					if(repair_err)
+						werror("[PIKE_GATEWAY][SOCIAL] snapshot repair "+
+							"failed: %s\n",pike_gateway_log_field(
+							describe_error(repair_err),256));
+				}
 			}
 		}
 	}
