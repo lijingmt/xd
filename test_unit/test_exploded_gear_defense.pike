@@ -145,6 +145,7 @@ int main()
 		jade_ceiling_before=YUSHID->query_all_num(player);
 		player->recall_abnormal_ceiling_gear();
 		jade_ceiling_after=YUSHID->query_all_num(player);
+		// 钳回不销毁：验证攻击值被降到合法上限以下
 		ceiling_removed=!objectp(extreme);
 		ceiling_kept_legit=objectp(legit) &&
 			player->normalize_exploded_equipment()==0 &&
@@ -257,9 +258,9 @@ int main()
 		!err && compensation_once,
 		sprintf("second=%d jade %d→%d→%d",second_pass,
 			jade_before,jade_after_first,jade_after_second));
-	check("千级上限：超上限10倍的装备被直接回收",
+	check("千级上限：超上限装备被钳回合法数值",
 		!err && ceiling_removed,
-		"异常装备未被回收");
+		"异常装备未被矫正");
 	check("千级上限：合法极值装备（上限×500）不被误删",
 		!err && ceiling_kept_legit,
 		"合法装备被误删");

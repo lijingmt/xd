@@ -1522,8 +1522,8 @@ private object get_attributes_item(string orgitem,int num,
 				// 玩家等级动态生成），任何调用方传入失控目标等级都会被
 				// 就地钳制，从源头掐灭百万级数值。
 				if(orginal_level && orginal_level<65 &&
-				   value>limit*(500+target_item_level*80))
-					value=limit*(500+target_item_level*80);
+				   value>limit*target_item_level*4)
+					value=limit*target_item_level*4;
 				// 洗炼保值：新掷值不低于被洗装备的同属性原值，
 				// 但保值上限=当前公式合法最大值（limit×rate）。
 				// 仅在rate>1.05（有实际等级差）时启用，同级洗炼
@@ -2257,7 +2257,7 @@ int query_abnormal_gear_class(object item)
 			if(!functionp(reader))
 				continue;
 			value=(int)call_function(reader);
-			cap=(caps[attr]/100000)*(500+item_level*80);
+			cap=(caps[attr]/100000)*item_level*4;
 			if(cap<caps[attr]/100000*500)
 				cap=caps[attr]/100000*500;
 			if(value>cap*10)
