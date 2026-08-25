@@ -1454,6 +1454,12 @@ private object get_attributes_item(string orgitem,int num,
 		target_item_level = this_player()->query_level();
 	}
 	if(target_item_level&&orginal_level){
+		// 底版最低10：底版1在289级洗炼时rate=289/1×3.0=867倍，
+		// 单条属性可达3.4万（玩家反馈"上万加成"）。底版10在289级
+		// rate=62倍，属性≤2460，是正常量级。掉落系统本身就不会
+		// 在高级怪身上用底版1，这里只是把洗炼拉到同一标准。
+		if(reroll_floor && orginal_level<10)
+			orginal_level=10;
 		int difference=target_item_level-orginal_level;//生成目标装备等级和原始装备的等级之差
 		if(difference<0) difference=0;
 		else{

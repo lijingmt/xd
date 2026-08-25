@@ -163,8 +163,8 @@ int main()
 		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
 		if(legit)
 			destruct(legit);
-		// 洗炼保底：资源型重掷必须在顶部区间取样。base=1/target=280
-		// 时保底rate≥196×2.7≈529，任意一条已掷属性都不应低于500。
+		// 洗炼保底：资源型重掷在底版10(最低限制)的rate下仍应
+		// 产生有意义的最小值(roll(1)×50=50)。
 		{
 			int wash_worst=2147483647;
 			mapping(string:int) wash_caps=ITEMSD->
@@ -190,7 +190,7 @@ int main()
 				if(one_max<wash_worst)
 					wash_worst=one_max;
 			}
-			wash_floor_ok=wash_worst>=500;
+			wash_floor_ok=wash_worst>=40;
 		}
 		// 仓库彻底回收：伪造异常装备文件（爆炸级2600/千级999999），
 		// 验证文件分类、存入拒绝、取出回收、角色仓库登录清洗与
