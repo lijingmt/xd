@@ -299,11 +299,16 @@ int query_afk_cap_hours(object player)
 int scale_afk_daily_seconds(object player,int base_seconds)
 {
 	int cap_hours;
+	int tier_seconds;
 	if(base_seconds<=0)
 		return 0;
 	cap_hours=query_afk_cap_hours(player);
-	// 以VIP8的24小时为100%同比缩放，低VIP不会因切难度获得额度。
-	return base_seconds*cap_hours/24;
+	tier_seconds=cap_hours*3600;
+	// 挂机额度 = min(VIP额度, 难度上限)。VIP8基础20小时，
+	// 不会因切难度获得超出该难度的额度；低VIP也不会被放大。
+	if(base_seconds>tier_seconds)
+		return tier_seconds;
+	return base_seconds;
 }
 
 int query_outgoing_percent(object player)

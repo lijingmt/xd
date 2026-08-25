@@ -5,7 +5,7 @@ inherit LOW_DAEMON;
 
 #define ASYNC_IOD ((object)(ROOT "/gamelib/single/daemons/async_iod.pike"))
 
-#define AUTOFIGHT_DAILY_SECONDS (8*60*60)
+#define AUTOFIGHT_DAILY_SECONDS (4*60*60)
 #define AUTOFIGHT_VIP_BONUS_SECONDS (2*60*60)
 #define AUTOFIGHT_MAX_VIP_LEVEL 8
 #define AUTOFIGHT_ROUTE_COOLDOWN 8

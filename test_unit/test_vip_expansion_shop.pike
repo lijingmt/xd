@@ -105,7 +105,7 @@ int main()
 			VIPD->get_vip_off(4)==5 &&
 			VIPD->query_vip_level_limit(1)==140 &&
 			VIPD->query_vip_level_limit(4)==300 &&
-			autofightd->query_daily_seconds_for(player)==16*3600,
+			autofightd->query_daily_seconds_for(player)==12*3600,
 			"旧四档权益被新增档位改写");
 		string upgrade_source=Stdio.read_file(ROOT+
 			"/gamelib/cmds/vip_service_upgrade_list.pike") || "";
@@ -135,7 +135,7 @@ int main()
 			VIPD->get_vip_cost(7)==250 && VIPD->get_vip_cost(8)==300 &&
 			VIPD->query_vip_level_limit(5)==300 &&
 			VIPD->query_vip_level_limit(8)==300 &&
-			autofightd->query_daily_seconds_for(player)==24*3600 &&
+			autofightd->query_daily_seconds_for(player)==20*3600 &&
 			player->query_max_yao()==45,
 			"新增价格、等级、挂机或药品上限不一致");
 		string vip8_state=VIPD->get_vip_state_des(player);
