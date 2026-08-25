@@ -1390,6 +1390,27 @@ private object get_attributes_item(string orgitem,int num,
 	int|void orginal_level,int|void target_item_level,void|object item_ob,
 	void|mapping newmoon_collection,void|int reroll_floor)
 {
+	// 洗炼保值：重掷结果不低于被洗装备的现有同属性值。
+	// 旧装备可能生成于含×level/25的时代（数值较高），撤掉该缩放后
+	// 重掷会跌至1/10。洗炼必须"只更好不更差"——对每条新掷属性，
+	// 如果原装备有同名属性且新值低于原值，取原值。
+	mapping(string:int) reroll_minimums=([]);
+	if(reroll_floor && item_ob &&
+	   functionp(item_ob->query_item_rareLevel)){
+		array(string) entries=item_attributes[orgitem];
+		foreach(entries || ({}),string entry){
+			array(string) pair=entry/":";
+			int cap_value;
+			if(sizeof(pair)>=3 && sscanf(pair[2],"%d",cap_value)==1){
+				mixed reader=item_ob["query_"+pair[0]];
+				if(functionp(reader)){
+					int cur=(int)call_function(reader);
+					if(cur>0)
+						reroll_minimums[pair[0]]=cur;
+				}
+			}
+		}
+	}
 	//werror("=============711 num:"+num+"\n");
 	int count; //物品要生成的附加属性的个数
 	int size; //该物品允许可能出现的属性的个数
@@ -1483,6 +1504,10 @@ private object get_attributes_item(string orgitem,int num,
 				if(orginal_level && orginal_level<65 &&
 				   value>limit*(500+target_item_level*80))
 					value=limit*(500+target_item_level*80);
+				// 洗炼保值：新掷值不低于被洗装备的同属性原值。
+				if(reroll_floor && reroll_minimums[attri_name] &&
+				   value<reroll_minimums[attri_name])
+					value=reroll_minimums[attri_name];
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				// 大数值(≥62)不在字母表：把数值本身编进后缀，保证
 				// 数值→文件名一一对应。旧版统一替换成'_'会让不同
