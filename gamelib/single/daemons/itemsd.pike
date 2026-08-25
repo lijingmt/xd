@@ -1436,6 +1436,7 @@ private object get_attributes_item(string orgitem,int num,
 	int size; //该物品允许可能出现的属性的个数
 	int base,limit,value; //属性的取值范围和最后的确定取值
 	int exist_flag=0; //是否已存在的标记
+	int regenerate=0; //同名残留文件与本次请求不一致时改走重新生成
 	string attri_name=""; //属性名称
 	string item_name=""; //完整的物品名称
 	string attri=""; //属性名:n:m 字符串
@@ -1611,6 +1612,17 @@ private object get_attributes_item(string orgitem,int num,
 			if(rtn_ob && !flag_no_level && target_item_level>0 &&
 			   rtn_ob->query_item_canLevel()<0)
 				rtn_ob->set_item_canLevel(target_item_level);
+			// 复用一致性：同名残留文件可能来自旧编码/旧规则时代（如
+			// 属性值注入文件名之前），其稀有度或等级会与本次请求不符，
+			// 曾让炼化回归偶发失败。不一致则销毁实例并覆盖重生成。
+			if(rtn_ob && ((int)rtn_ob->query_item_rareLevel()!=count ||
+			   (target_item_level>0 && !flag_no_level &&
+			    (int)rtn_ob->query_item_canLevel()!=
+			    	target_item_level))){
+				destruct(rtn_ob);
+				rtn_ob=0;
+				regenerate=1;
+			}
 			// 即使装备已存在，也要检查并添加中立玩家职业
 			if(rtn_ob) {
 				if(mappingp(newmoon_collection) && sizeof(newmoon_collection) &&
@@ -1639,7 +1651,8 @@ private object get_attributes_item(string orgitem,int num,
 			}
 			return (rtn_ob);
 		}
-		else{ //如果不存在，则要做很多麻烦的事情
+		// 如果不存在（或残留文件已判定不一致），则要做很多麻烦的事情
+		if(regenerate || !Stdio.exist(ITEM_PATH+item_name)){
 			//生成新的物品文件数据
 			//werror("============writetmp:\n"+writetmp+"\n");
 			string|zero item_pinyin_name=0;//获得装备的原始拼音名字，为了设置图片
