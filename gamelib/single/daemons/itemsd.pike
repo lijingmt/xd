@@ -1506,10 +1506,12 @@ private object get_attributes_item(string orgitem,int num,
 					value=limit*(500+target_item_level*80);
 				// 洗炼保值：新掷值不低于被洗装备的同属性原值，
 				// 但保值上限=当前公式合法最大值（limit×rate）。
+				// 仅在rate>1.05（有实际等级差）时启用，同级洗炼
+				// 不保值——新月套装的同级洗炼要允许正常重掷。
 				// 旧装备在×level/25时代可能存有远超当前公式产出
-				// 的数值（如673万法力），全额保值等于永久保留
-				// 失控数据。超过合法最大值的部分不保值。
-				if(reroll_floor && reroll_minimums[attri_name] &&
+				// 的数值（如673万法力），超过合法最大值不保值。
+				if(reroll_floor && rate>1.05 &&
+				   reroll_minimums[attri_name] &&
 				   value<reroll_minimums[attri_name]){
 					int legal_max=(int)(limit*rate);
 					if(legal_max<limit)
