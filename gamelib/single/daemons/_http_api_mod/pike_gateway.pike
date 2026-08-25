@@ -57,6 +57,9 @@ private mapping(string:int) pike_gateway_worker_request_active = ([]);
 private mapping(string:int) pike_gateway_worker_request_peak = ([]);
 private mapping(string:int) pike_gateway_worker_request_completed = ([]);
 private mapping(string:int) pike_gateway_worker_request_failed = ([]);
+// team_snapshot_missing拒绝后的按队快照重发冷却，防止修复本身变成
+// 新的重试风暴。只在social锁内读写。
+private mapping(string:int) pike_gateway_social_republish_at = ([]);
 private mapping(string:int) pike_gateway_worker_request_rejected = ([]);
 private mapping(string:int) pike_gateway_worker_consecutive_failures = ([]);
 private mapping(string:int) pike_gateway_worker_circuit_until = ([]);
@@ -4063,6 +4066,41 @@ private void pike_gateway_deliver_social_event(mapping event)
 	error("unsupported social event\n");
 }
 
+/** Repair a permanent team_snapshot_missing rejection by asking the source
+ *  worker to re-stage the authoritative snapshot.  The re-staged snapshot
+ *  supersedes older ones for the same team in the durable outbox, so the
+ *  deferred event converges on its next retry instead of burning its whole
+ *  TTL.  A per-team cooldown keeps the repair itself from becoming a storm.
+ *  Must be called with pike_gateway_social_lock held. */
+private void pike_gateway_request_team_snapshot_republish(string source_worker,
+    mapping event)
+{
+    string kind = stringp(event["kind"]) ? (string)event["kind"] : "";
+    mapping payload = mappingp(event["payload"]) ?
+        (mapping)event["payload"] : ([]);
+    string team_id = String.trim_all_whites(
+        stringp(payload["team_id"]) ? (string)payload["team_id"] : "");
+    int now = time();
+    mixed repair_err;
+    mapping republished;
+    if(team_id=="" || kind=="team_snapshot" ||
+       !pike_gateway_worker_is_reachable(source_worker))
+        return;
+    if((int)(pike_gateway_social_republish_at[team_id] || 0)+60>now)
+        return;
+    pike_gateway_social_republish_at[team_id] = now;
+    repair_err = catch {
+        republished = pike_gateway_worker_rpc(source_worker,
+            "local_team_snapshot_republish",(["team_id":team_id]));
+    };
+    if(repair_err || !mappingp(republished))
+        return;
+    if((int)republished["ok"])
+        werror("[PIKE_GATEWAY][SOCIAL] republished team snapshot "+
+            "source=%s team=%s\n",source_worker,
+            pike_gateway_log_field(team_id,96));
+}
+
 /** Drain only outside public account locks; worker delivery is idempotent. */
 private void pike_gateway_run_social_events(void|int wait_for_lock)
 {
@@ -4108,6 +4146,12 @@ private void pike_gateway_run_social_events(void|int wait_for_lock)
 							(int)deferred["retry_count"] : 0,
 						pike_gateway_log_field(
 							describe_error(delivery_err),256));
+				// 拒绝修复：目标Worker缺快照副本属于可修复的永久性
+				// 拒绝，让源Worker重发权威快照，事件下次重试即可送达。
+				if(search(describe_error(delivery_err),
+				   "team_snapshot_missing")!=-1)
+					pike_gateway_request_team_snapshot_republish(
+						source_worker,(mapping)raw);
 			}
 		}
 	}

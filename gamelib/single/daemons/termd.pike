@@ -396,6 +396,36 @@ mapping query_distributed_team_snapshot_for_user(string userid)
 	return (["ok":1,"snapshot":query_distributed_team_snapshot(tid)]);
 }
 
+// 拒绝修复：目标Worker本地有队员但缺快照副本（Worker重启丢内存
+// termMain后无成员变动触发重发）时，每次team_exp/chat投递都会被
+// team_snapshot_missing拒绝并按各自TTL重试到丢弃（曾占生产日志68%）。
+// 网关收到该拒绝码后回调源Worker按当前权威成员重发快照；stage侧
+// 同队快照互相取代，outbox有界。队伍已解散则not_found，事件按
+// 自身TTL有限次重试后过期，不会无限放大。
+mapping republish_distributed_team_snapshot(string tid)
+{
+	string leader = "";
+	mapping members;
+	if(!valid_distributed_team_token(tid,96) || !termMain[tid] ||
+	   !sizeof(termMain[tid]))
+		return (["ok":0,"code":"team_not_found"]);
+	// 读取路径自带0/多队长自愈，重发不会放大坏快照。
+	members = (mapping)query_distributed_team_snapshot(tid)["members"];
+	foreach(indices(members || ([])),string uid){
+		array row = members[uid];
+		if(sizeof(row)>1 && (string)row[1]=="leader"){
+			leader = uid;
+			break;
+		}
+	}
+	if(leader=="")
+		return (["ok":0,"code":"team_leader_missing"]);
+	if(MAPWORKERD->query_node_role()!="worker")
+		return (["ok":0,"code":"not_worker"]);
+	publish_distributed_team_snapshot(tid,leader);
+	return (["ok":1,"team_id":tid,"leader":leader]);
+}
+
 int create_term_invite(string inviter_uid,string target_uid)
 {
 	object inviter;

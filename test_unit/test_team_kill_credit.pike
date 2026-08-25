@@ -254,6 +254,47 @@ void test_source_contract()
 		"队伍页缺少跨Worker安全的队友传送入口");
 }
 
+void test_team_snapshot_republish_repair()
+{
+	object leader=create_test_player("__testunit_repub_leader__");
+	object member=create_test_player("__testunit_repub_member__");
+	string tid="";
+	mapping found=([]);
+	mapping missing=([]);
+	string rpc_source="";
+	string gateway_source="";
+	mixed err=catch{
+		tid=(string)TERMD->term_create(leader->query_name());
+		TERMD->add_termer(tid,member->query_name(),
+			member->query_name_cn());
+		// 单进程测试无worker角色：能走到not_worker即证明队伍与队长
+		// 查找全部命中，真实worker上该路径会重发权威快照。
+		found=TERMD->republish_distributed_team_snapshot(tid);
+		missing=TERMD->republish_distributed_team_snapshot(
+			"bogus"+(string)time());
+	};
+	rpc_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/map_worker_rpc.pike") ||
+		"";
+	gateway_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/_http_api_mod/pike_gateway.pike") || "";
+	check("快照缺失拒绝触发源Worker重发权威快照(含冷却)",
+		!err && (string)found["code"]=="not_worker" &&
+		(string)missing["code"]=="team_not_found" &&
+		search(rpc_source,"local_team_snapshot_republish")!=-1 &&
+		search(rpc_source,"republish_distributed_team_snapshot")!=-1 &&
+		search(gateway_source,
+			"pike_gateway_request_team_snapshot_republish")!=-1 &&
+		search(gateway_source,"team_snapshot_missing")!=-1 &&
+		search(gateway_source,"local_team_snapshot_republish")!=-1 &&
+		search(gateway_source,"pike_gateway_social_republish_at")!=-1,
+		err ? describe_error(err) :
+			sprintf("found=%O missing=%O",found,missing));
+	cleanup_team(tid,leader ? leader->query_name() : "");
+	destroy_test_player(leader);
+	destroy_test_player(member);
+}
+
 int main()
 {
 	werror("\n========== 组队击杀归属测试 ==========\n");
@@ -262,6 +303,7 @@ int main()
 	test_disbanded_team_still_credits_killer();
 	test_cross_room_member_shares_exp();
 	test_distributed_team_exp_apply();
+	test_team_snapshot_republish_repair();
 	werror("组队击杀归属：总计%d，通过%d，失败%d\n",results["total"],
 		results["passed"],results["failed"]);
 	return results["failed"] ? 1 : 0;

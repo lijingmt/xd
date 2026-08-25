@@ -1748,6 +1748,13 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
         send_json(req,result,(int)result["ok"] ? 200 : 409);
         return;
     }
+    if(action=="local_team_snapshot_republish"){
+        result = TERMD->republish_distributed_team_snapshot(
+            String.trim_all_whites(
+                (string)(params["team_id"] || "")));
+        send_json(req,result,(int)result["ok"] ? 200 : 404);
+        return;
+    }
     if(action=="local_team_apply"){
         mapping team_snapshot = mappingp(params["snapshot"]) ?
             (mapping)params["snapshot"] : ([]);
