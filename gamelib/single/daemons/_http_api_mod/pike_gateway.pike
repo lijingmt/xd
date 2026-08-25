@@ -2589,8 +2589,12 @@ private mixed pike_gateway_reconcile(string userid,string source_worker,
 	mapping team_state = pike_gateway_worker_rpc(source_worker,
 		"local_team_snapshot",(["userid":userid]));
 	if(!(int)team_state["ok"]){
-		MAP_WORKERD->abort_handoff(request_id,source_worker);
-		error("cannot read source team snapshot\n");
+		// 队伍快照是可选附属：读取失败不中止整个跨Worker迁移，
+		 // 否则无队伍玩家也会在重试循环里永远失败（5890条风暴根源）。
+		// 玩家不在队伍时快照本身就是空，跳过安装继续释放。
+		werror("[PIKE_GATEWAY][TEAM_SNAPSHOT_SKIP] userid=%s source=%s\n",
+			pike_gateway_log_field(userid,64),
+			pike_gateway_log_field(source_worker,32));
 	}
 	if(mappingp(team_state["snapshot"])){
 		mapping team_applied=([]);
