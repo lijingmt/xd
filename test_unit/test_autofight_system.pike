@@ -156,7 +156,7 @@ void test_personal_difficulty_afk_and_shared_world()
 					(int)catalog[level-1]["afk_cap_hours"]);
 		set_active_vip(player,8);
 		daemon->initialize_player(player);
-		valid=valid && daemon->query_daily_seconds_for(player)==24*3600;
+		valid=valid && daemon->query_daily_seconds_for(player)==20*3600;
 		player["/plus/personal_difficulty/unlocked"]=7;
 		player["/plus/personal_difficulty/current"]=1;
 		daemon->sync_daily_limit(player);
@@ -169,7 +169,7 @@ void test_personal_difficulty_afk_and_shared_world()
 		set_active_vip(player,0);
 		player["/plus/personal_difficulty/current"]=1;
 		daemon->sync_daily_limit(player);
-		valid=valid && daemon->query_daily_seconds_for(player)==5*3600+20*60;
+		valid=valid && daemon->query_daily_seconds_for(player)==4*3600;
 		// 新曲线：问道输出100%+承伤100%（正常），基础输出1000%+承伤10%。
 		player["/plus/personal_difficulty/unlocked"]=1;
 		player["/plus/personal_difficulty/current"]=0;
@@ -214,8 +214,8 @@ void test_defaults_and_switch()
 	int valid = 0;
 	mixed err = catch {
 		daemon->initialize_player(player);
-		valid = daemon->query_daily_seconds() == 8*60*60 &&
-			daemon->query_time_left(player) == 8*60*60 &&
+		valid = daemon->query_daily_seconds() == 4*60*60 &&
+			daemon->query_time_left(player) == 4*60*60 &&
 			daemon->query_hp_percent(player) == 70 &&
 			daemon->query_mana_percent(player) == 50 &&
 			daemon->query_loot_enabled(player) == 1 &&
@@ -579,29 +579,29 @@ void test_vip_daily_limits()
 		daemon->initialize_player(normal_player);
 		normal_player["/plus/autofight_time_left"] = 7*60*60;
 		set_active_vip(normal_player,1);
-		valid = daemon->query_daily_seconds_for(normal_player) == 10*60*60 &&
-			daemon->query_time_left(normal_player) == 9*60*60;
+		valid = daemon->query_daily_seconds_for(normal_player) == 6*60*60 &&
+			daemon->query_time_left(normal_player) == 6*60*60;
 		set_active_vip(normal_player,4);
 		valid = valid &&
-			daemon->query_daily_seconds_for(normal_player) == 16*60*60 &&
-			daemon->query_time_left(normal_player) == 15*60*60;
+			daemon->query_daily_seconds_for(normal_player) == 12*60*60 &&
+			daemon->query_time_left(normal_player) == 12*60*60;
 		set_active_vip(normal_player,8);
 		valid = valid &&
-			daemon->query_daily_seconds_for(normal_player) == 24*60*60 &&
-			daemon->query_time_left(normal_player) == 23*60*60;
+			daemon->query_daily_seconds_for(normal_player) == 20*60*60 &&
+			daemon->query_time_left(normal_player) == 20*60*60;
 		set_active_vip(normal_player,0);
 		valid = valid &&
-			daemon->query_daily_seconds_for(normal_player) == 8*60*60 &&
-			daemon->query_time_left(normal_player) == 7*60*60;
+			daemon->query_daily_seconds_for(normal_player) == 4*60*60 &&
+			daemon->query_time_left(normal_player) == 4*60*60;
 
 		set_active_vip(vip_player,4);
 		daemon->initialize_player(vip_player);
 		valid = valid &&
-			daemon->query_time_left(vip_player) == 16*60*60;
+			daemon->query_time_left(vip_player) == 12*60*60;
 		vip_player["/plus/autofight_time_left"] = 1;
 		daemon->reset_daily_time(vip_player);
 		valid = valid &&
-			daemon->query_time_left(vip_player) == 16*60*60;
+			daemon->query_time_left(vip_player) == 12*60*60;
 	};
 	if(err)
 		error_desc = describe_error(err);
@@ -654,12 +654,12 @@ void test_vip_quota_exhausted_guidance()
 				normal_player,normal_message) == 1 &&
 			daemon->is_quota_exhausted_reason(
 				normal_player,"死亡或灵魂状态不能开启自动挂机") == 0 &&
-			search(normal_message,"今天的8小时") != -1 &&
+			search(normal_message,"今天的4小时") != -1 &&
 			search(normal_message,"VIP1（水晶会员）") != -1 &&
-			search(normal_message,"10小时") != -1 &&
-			search(vip4_message,"今天的16小时") != -1 &&
+			search(normal_message,"6小时") != -1 &&
+			search(vip4_message,"今天的12小时") != -1 &&
 			search(vip4_message,"升级至VIP5（星耀会员）") != -1 &&
-			search(vip8_message,"今天的24小时") != -1 &&
+			search(vip8_message,"今天的20小时") != -1 &&
 			search(vip8_message,"VIP8（仙尊会员）") != -1 &&
 			search(vip8_message,"最高额度") != -1 &&
 			search(vip8_message,"升级至") == -1 &&

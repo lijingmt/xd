@@ -652,15 +652,18 @@ object get_item(int npclevel,int playerlevel,int playerluck,
 	}
 	if(npclevel <= 10)
 		pro = 20000;
+	// 新月套装稀有掉落不受掉落经济缩放：它已有1/30万独立门限，
+	// 缩放后(×2%)等于1/1500万，事实上彻底停止掉落。
+	int newmoon_roll=random(query_newmoon_equipment_drop_denominator())+1;
+	mapping newmoon_collection=
+		query_newmoon_collection_for_difficulty_roll(npclevel,
+			newmoon_roll,personal_difficulty_level);
+	int newmoon_hit=sizeof(newmoon_collection)>0;
 	pro=scale_drop_probability(pro);
-	if((random(100000)+1)<=pro){ //获得白物品的概率xxxxxxxxxxx
-		if(itemlevel==0)
+	if(newmoon_hit || (random(100000)+1)<=pro){
+		if(itemlevel==0 && !newmoon_hit)
 			return 0;
-		int newmoon_roll=random(query_newmoon_equipment_drop_denominator())+1;
-		mapping newmoon_collection=
-			query_newmoon_collection_for_difficulty_roll(npclevel,
-				newmoon_roll,personal_difficulty_level);
-		if(sizeof(newmoon_collection)){
+		if(newmoon_hit){
 			array(string) drop_templates=
 				query_newmoon_drop_templates_for_player(focus_player);
 			item_rawname=drop_templates[random(sizeof(drop_templates))];
@@ -1461,7 +1464,12 @@ private object get_attributes_item(string orgitem,int num,
 					limit = base;
 				value=base>=limit?limit:(base+random(limit-base+1)); //得到附加属性的确值
 				//werror("---------value="+value+"-----------\n");
-				if(rate>1)
+				// 百分比属性（命中/暴击/闪避）不做rate放大：它们是
+				// 百分比而非原始值，放大到几百等于500%命中/暴击，
+				// 完全破坏战斗判定。保持在约束表范围内。
+				if(rate>1 &&
+				   search(({"hitte_add","doub_add","dodge_add"}),
+				   	attri_name)==-1)
 					value=(int)(value*rate);//按照等级差来设定目标生成装备的数值加成，差值100等级，则提升一倍
 				// 数值整备：rate已含等级缩放((底版+差额)/底版×门槛)，
 				// 不再叠加×level/25。此前双重放大曾使一条词条
