@@ -522,6 +522,42 @@ int main()
 			(int)churn_batch["count"]==1 && (int)churn_batch["stale"]==1,
 			"并发迁移/下线让健康worker整批续租被拒并遭误隔离");
 
+		// 滞留副本退役：错过的local_release会让一个worker长期上报
+		// 已搬走的玩家(旧epoch)，租约页stale占比居高不下被反复隔离
+		// （生产w03）。续租批必须带裁决返回stale清单，他属主才可退役。
+		string linger_owner = worker_ids[
+			(member_array(source_worker,worker_ids)+1)%sizeof(worker_ids)];
+		string linger_user = userid+"linger";
+		mapping linger_lease = daemon->acquire_player_lease(linger_user,
+			source_worker,source_affinity,0);
+		mapping linger_batch = daemon->renew_player_leases_batch(
+			linger_owner,
+			(int)registrations[member_array(linger_owner,worker_ids)][
+				"generation"],
+			({(["userid":linger_user,"epoch":(int)linger_lease["epoch"],
+				"affinity":source_affinity])}));
+		array linger_stale = arrayp(linger_batch["stale_entries"]) ?
+			(array)linger_batch["stale_entries"] : ({});
+		array bad_stale = arrayp(batch_bad["stale_entries"]) ?
+			(array)batch_bad["stale_entries"] : ({});
+		check("他属主滞留副本带裁决进入退役清单且同属主不误判",
+			linger_batch["code"]=="stale_lease" &&
+			sizeof(linger_stale)==1 &&
+			(string)linger_stale[0]["userid"]==linger_user &&
+			(int)linger_stale[0]["epoch"]==(int)linger_lease["epoch"] &&
+			(string)linger_stale[0]["verdict"]=="other_owner" &&
+			sizeof(bad_stale)==1 &&
+			(string)bad_stale[0]["verdict"]=="" &&
+			source_has("/gamelib/single/daemons/_http_api_mod/"+
+				"map_worker_rpc.pike",
+				"handle_map_worker_local_retire_stale_players") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/"+
+				"map_worker_rpc.pike","local_retire_stale_players") &&
+			source_has("/gamelib/single/daemons/_http_api_mod/"+
+				"pike_gateway.pike",
+				"pike_gateway_retire_stale_local_players"),
+			"错过的交接release让worker被反复隔离且永远无法自愈");
+
 		int source_index = member_array(source_worker,worker_ids);
 		string premature_worker = worker_ids[(source_index+1)%sizeof(worker_ids)];
 		mapping rebound = daemon->rebind_player_lease(userid,source_worker,

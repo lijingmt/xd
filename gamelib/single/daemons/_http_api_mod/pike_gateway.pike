@@ -3457,6 +3457,32 @@ int test_lease_renewal_stale_dominates(int renewed_count,int stale_count,
 		stale_count,verified_count);
 }
 
+/** Ask a worker to retire stale local copies the coordinator proved moved
+ *  to another worker (a handoff whose local_release never arrived).  This
+ *  lets a stale-dominated lease page converge instead of isolating the
+ *  worker again every monitor cycle.  Bounded by the renewal page size,
+ *  fully caught, and logged only when something was actually retired. */
+private void pike_gateway_retire_stale_local_players(string worker_id,
+	array entries)
+{
+	mapping retired;
+	mixed retire_err;
+	if(!arrayp(entries) || !sizeof(entries) ||
+	   !pike_gateway_worker_is_reachable(worker_id))
+		return;
+	retire_err = catch {
+		retired = pike_gateway_worker_rpc(worker_id,
+			"local_retire_stale_players",(["entries":entries]));
+	};
+	if(retire_err || !mappingp(retired))
+		return;
+	if((int)retired["retired"]>0 || (int)retired["orphaned"]>0)
+		werror("[PIKE_GATEWAY][LEASE_REPAIR] worker=%s retired=%d "+
+			"orphaned=%d skipped=%d\n",worker_id,
+			(int)retired["retired"],(int)retired["orphaned"],
+			(int)retired["skipped"]);
+}
+
 private void pike_gateway_renew_live_player_leases(string worker_id,
 	int generation)
 {
@@ -3527,6 +3553,11 @@ private void pike_gateway_renew_live_player_leases(string worker_id,
 			if(sizeof(verified)){
 				mapping renewed = MAP_WORKERD->renew_player_leases_batch(
 					worker_id,generation,verified);
+				// 修复先于报错：先让该Worker退役已被证明搬到别处的
+				// 滞留副本，再判定本轮是否仍拒绝，隔离才能收敛。
+				pike_gateway_retire_stale_local_players(worker_id,
+					arrayp(renewed["stale_entries"]) ?
+						(array)renewed["stale_entries"] : ({}));
 				if(!(int)renewed["ok"] ||
 				   pike_gateway_lease_renewal_stale_dominates(
 					(int)renewed["count"],(int)renewed["stale"],

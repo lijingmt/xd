@@ -3785,6 +3785,7 @@ mapping(string:mixed) renew_player_leases_batch(string worker_id,
 	// isolate a healthy worker. An entirely stale page still fails closed,
 	// and the gateway only treats a stale-dominated page as worker evidence.
 	array(mapping(string:mixed)) renewable = ({});
+	array(mapping(string:mixed)) stale_entries = ({});
 	foreach(normalized,mapping entry){
 		mapping lease = player_leases[(string)entry["userid"]];
 		if(mappingp(lease) && (string)lease["worker_id"]==worker_id &&
@@ -3792,13 +3793,26 @@ mapping(string:mixed) renew_player_leases_batch(string worker_id,
 		   (string)lease["affinity"]==(string)entry["affinity"] &&
 		   has_value(({"active","frozen"}),(string)lease["state"]))
 			renewable += ({entry});
-		else
+		else{
+			// 带裁决的stale清单：仅当协调器租约明确active/frozen在
+			// 另一Worker上（交接已提交、新属主存在）时判定other_owner，
+			// 允许网关要求该Worker退役滞留副本；无租约/已过期的
+			// 情况所有权不明，维持fail-closed只计数不发退役。
+			string verdict = "";
+			if(mappingp(lease) &&
+			   (string)lease["worker_id"]!=worker_id &&
+			   has_value(({"active","frozen"}),(string)lease["state"]))
+				verdict = "other_owner";
+			stale_entries += ({(["userid":(string)entry["userid"],
+				"epoch":(int)entry["epoch"],"verdict":verdict])});
 			stale++;
+		}
 	}
 	if(stale==sizeof(normalized)){
 		destruct(lease_key);
 		return (["ok":0,"code":"stale_lease",
-			"userid":normalized[0]["userid"]]);
+			"userid":normalized[0]["userid"],
+			"stale_entries":stale_entries]);
 	}
 	foreach(renewable,mapping entry){
 		mapping lease = player_leases[(string)entry["userid"]];
@@ -3813,7 +3827,8 @@ mapping(string:mixed) renew_player_leases_batch(string worker_id,
 	destruct(lease_key);
 	schedule_control_persist();
 	return (["ok":1,"renewed":renewed,"verified_frozen":frozen,
-		"count":sizeof(renewable),"stale":stale]);
+		"count":sizeof(renewable),"stale":stale,
+		"stale_entries":stale_entries]);
 }
 
 /**

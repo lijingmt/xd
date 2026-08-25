@@ -1489,6 +1489,79 @@ private void handle_map_worker_local_discard(
     send_json(req,(["ok":1,"discarded":1,"replayed":!player]));
 }
 
+/** Retire stale local copies whose lease the coordinator proved moved to
+ *  another worker.  A handoff that committed at the coordinator but whose
+ *  local_release never arrived leaves a live-looking player object reporting
+ *  a superseded epoch; such copies dominate lease-renewal pages, get the
+ *  worker isolated again and again, and starve social fan-out for everyone.
+ *  Only definitive other-owner evidence retires anything; every ambiguous
+ *  state (running request, pending arrival/redirect, combat, epoch drift)
+ *  stays fail-closed and is merely skipped. */
+private void handle_map_worker_local_retire_stale_players(
+    Protocols.HTTP.Server.Request req,mapping params)
+{
+    array raw_entries = arrayp(params["entries"]) ?
+        (array)params["entries"] : ({});
+    int retired = 0;
+    int orphaned = 0;
+    int skipped = 0;
+    if(MAP_WORKERD->query_node_role()!="worker" ||
+       !MAP_WORKERD->local_control_lease_valid() ||
+       sizeof(raw_entries)>128){
+        send_json(req,(["ok":0,"code":"retire_stale_rejected"]),409);
+        return;
+    }
+    foreach(raw_entries,mixed raw){
+        string userid;
+        int epoch;
+        object player;
+        if(!mappingp(raw)){
+            skipped++;
+            continue;
+        }
+        userid = String.trim_all_whites((string)raw["userid"] || "");
+        epoch = (int)raw["epoch"];
+        if((string)raw["verdict"]!="other_owner" || userid=="" ||
+           sizeof(userid)>64 || epoch<1){
+            skipped++;
+            continue;
+        }
+        if(MAP_WORKERD->query_local_player_epoch(userid)!=epoch ||
+           MAP_WORKERD->local_user_request_running(userid) ||
+           (int)MAP_WORKERD->query_local_player_arrival(userid)["ok"] ||
+           (int)MAP_WORKERD->query_local_move_redirect(userid)["ok"]){
+            skipped++;
+            continue;
+        }
+        player = get_player_from_connection(userid,0);
+        if(!player)
+            player = find_player(userid);
+        if(!player){
+            // Epoch row without an object: nothing can act on it, safe to drop.
+            MAP_WORKERD->clear_local_player_epoch(userid);
+            orphaned++;
+            continue;
+        }
+        if((int)player->in_combat ||
+           (string)player->query_name()!=userid){
+            skipped++;
+            continue;
+        }
+        if(functionp(player->detach_worker_follow_links))
+            player->detach_worker_follow_links();
+        remove_virtual_connection(userid);
+        MAP_WORKERD->clear_local_move_redirect(userid);
+        MAP_WORKERD->clear_local_player_epoch(userid);
+        if(functionp(player->retire_worker_copy_after_save))
+            player->retire_worker_copy_after_save();
+        else
+            destruct(player);
+        retired++;
+    }
+    send_json(req,(["ok":1,"retired":retired,"orphaned":orphaned,
+        "skipped":skipped]));
+}
+
 private void handle_map_worker_local_epoch(
     Protocols.HTTP.Server.Request req,mapping params)
 {
@@ -1753,6 +1826,10 @@ void handle_map_worker_rpc(Protocols.HTTP.Server.Request req)
             String.trim_all_whites(
                 (string)(params["team_id"] || "")));
         send_json(req,result,(int)result["ok"] ? 200 : 404);
+        return;
+    }
+    if(action=="local_retire_stale_players"){
+        handle_map_worker_local_retire_stale_players(req,params);
         return;
     }
     if(action=="local_team_apply"){
