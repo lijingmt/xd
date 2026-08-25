@@ -1,10 +1,9 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-// 顶级荣誉装备：按阵营发放70级【仙】/【妖】固定属性套装部件，
-// 价格与常规荣誉目录一致（取装备自带need_honer），不再随机生成
-// 动态装备。扣费、发放与存档同事务。
-
 #define HONER ROOT "/gamelib/clone/item/honer/"
+// 顶级荣誉装备：按玩家当前等级动态生成一件定制品质装备。
+// 低于70级发放固定【仙】/【妖】套装部件；70级以上用动态
+// 装备生成器按人物等级实时生成，属性随等级增长。
 
 private mapping(string:array(string)) fixed_top_cache=([]);
 
@@ -71,6 +70,28 @@ string query_honer_name(string race_id)
 	return "荣誉值";
 }
 
+// 动态装备兑换价格：等级越高越贵，品质固定5阶。
+private int query_dynamic_cost(int player_level)
+{
+	// 70级≈100万（与固定套装对齐），每高10级+50万
+	return 1000000+(player_level-70)*50000;
+}
+
+private string query_dynamic_template(string catalog_race,string slot,
+	int player_level)
+{
+	string prefix;
+	if(catalog_race=="human")
+		prefix=slot;
+	else if(catalog_race=="monst")
+		prefix=slot;
+	else
+		return "";
+	if(search(({"weapon","armor","decorate"}),prefix)==-1)
+		return "";
+	return ITEMSD->query_equip_template_path(player_level,prefix);
+}
+
 int main(string|zero arg)
 {
 	object me=this_player();
@@ -78,9 +99,11 @@ int main(string|zero arg)
 	string slot=arg ? arg : "";
 	object env;
 	string catalog_race;
-	array(string) candidates;
 	object item;
 	int need_honer;
+	int player_level;
+	int use_dynamic;
+	string template_path;
 	if(!me)
 		return 1;
 	env=environment(me);
@@ -90,11 +113,21 @@ int main(string|zero arg)
 		write("这里没有适合你的荣誉兑换。\n[返回游戏:look]\n");
 		return 1;
 	}
+	player_level=(int)me->query_level();
+	use_dynamic=player_level>70;
 	if(slot==""){
-		out="【顶级荣誉装备】按部位随机发放一件70级"+
-			(catalog_race=="human" ? "【仙】仙魄" : "【妖】妖魂")+
-			"固定属性套装部件。\n";
-		out+="价格与常规荣誉目录相同（以兑换时标示为准）。\n";
+		out="【顶级荣誉装备】";
+		if(use_dynamic){
+			int cost=query_dynamic_cost(player_level);
+			out+="按人物等级"+player_level+"动态生成一件5阶品质装备。\n";
+			out+="价格："+cost+"（等级越高越贵）。\n";
+		}
+		else{
+			out+="按部位随机发放一件70级"+
+				(catalog_race=="human" ? "【仙】仙魄" : "【妖】妖魂")+
+				"固定属性套装部件。\n";
+			out+="价格与常规荣誉目录相同（以兑换时标示为准）。\n";
+		}
 		out+="[兑换武器:honer_buy_top weapon]|[兑换防具:honer_buy_top armor]|"+
 			"[兑换饰品:honer_buy_top decorate]\n";
 		out+="[返回游戏:look]\n";
@@ -109,29 +142,54 @@ int main(string|zero arg)
 		write("战斗中不能兑换荣誉装备。\n[返回游戏:look]\n");
 		return 1;
 	}
-	candidates=query_fixed_top_paths(catalog_race,slot);
-	if(!sizeof(candidates)){
-		write("暂无可兑换的固定套装部件，请稍后再试。\n"+
-			"[返回游戏:look]\n");
-		return 1;
+	if(use_dynamic){
+		template_path=query_dynamic_template(catalog_race,slot,
+			player_level);
+		if(template_path==""){
+			write("暂无可兑换的动态装备模板，请稍后再试。\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		need_honer=query_dynamic_cost(player_level);
+		if((int)me->honerpt<need_honer){
+			write("你的"+query_honer_name((string)me->query_raceId())+
+				"不足"+need_honer+"。\n[返回:honer_buy_top]\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		item=ITEMSD->get_convert_item(template_path,5,73,player_level);
+		if(!item){
+			write("装备生成失败，本次没有扣费。\n[返回游戏:look]\n");
+			return 1;
+		}
+		if(functionp(item->set_item_from))
+			item->set_item_from("honer");
 	}
-	mixed load_err=catch{
-		item=clone(HONER+candidates[random(sizeof(candidates))]);
-	};
-	if(load_err || !item || (string)item->query_item_from()!="honer" ||
-	   (int)item->query_need_honer()<=0){
-		if(item)
+	else{
+		array(string) candidates=query_fixed_top_paths(catalog_race,slot);
+		if(!sizeof(candidates)){
+			write("暂无可兑换的固定套装部件，请稍后再试。\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		mixed load_err=catch{
+			item=clone(HONER+candidates[random(sizeof(candidates))]);
+		};
+		if(load_err || !item || (string)item->query_item_from()!="honer" ||
+		   (int)item->query_need_honer()<=0){
+			if(item)
+				destruct(item);
+			write("装备生成失败，本次没有扣费。\n[返回游戏:look]\n");
+			return 1;
+		}
+		need_honer=(int)item->query_need_honer();
+		if((int)me->honerpt<need_honer){
 			destruct(item);
-		write("装备生成失败，本次没有扣费。\n[返回游戏:look]\n");
-		return 1;
-	}
-	need_honer=(int)item->query_need_honer();
-	if((int)me->honerpt<need_honer){
-		destruct(item);
-		write("你的"+query_honer_name((string)me->query_raceId())+
-			"不足"+need_honer+"。\n[返回:honer_buy_top]\n"+
-			"[返回游戏:look]\n");
-		return 1;
+			write("你的"+query_honer_name((string)me->query_raceId())+
+				"不足"+need_honer+"。\n[返回:honer_buy_top]\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
 	}
 	item->move(me);
 	if(!item || environment(item)!=me){

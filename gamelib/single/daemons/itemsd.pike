@@ -1081,6 +1081,26 @@ object dubo_item(int itemlevel,string item,int playerluck)
 		return 0;
 }
 
+/** 动态装备兑换等系统：按等级取某类可装备白装模板路径。 */
+string query_equip_template_path(int level,string prefix)
+{
+	array(string) candidates;
+	array(string) matched=({});
+	if(search(({"weapon","armor","decorate"}),prefix)==-1)
+		return "";
+	if(level>73)
+		level=73;
+	if(level<1)
+		level=1;
+	candidates=item_list[level];
+	if(!arrayp(candidates))
+		return "";
+	foreach(candidates,string path)
+		if(has_prefix(path,prefix+"/"))
+			matched+=({path});
+	return sizeof(matched) ? matched[random(sizeof(matched))] : "";
+}
+
 //外部接口，由赌博的房间调用
 //参数fg由liaocheng于07/11/26添加，用于判断是付费赌博还是一般赌博，付费赌博将会出现宝石和魔线
 string query_dubo_items(int level,void|int fg)
