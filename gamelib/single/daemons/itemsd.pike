@@ -1504,10 +1504,20 @@ private object get_attributes_item(string orgitem,int num,
 				if(orginal_level && orginal_level<65 &&
 				   value>limit*(500+target_item_level*80))
 					value=limit*(500+target_item_level*80);
-				// 洗炼保值：新掷值不低于被洗装备的同属性原值。
+				// 洗炼保值：新掷值不低于被洗装备的同属性原值，
+				// 但保值上限=当前公式合法最大值（limit×rate）。
+				// 旧装备在×level/25时代可能存有远超当前公式产出
+				// 的数值（如673万法力），全额保值等于永久保留
+				// 失控数据。超过合法最大值的部分不保值。
 				if(reroll_floor && reroll_minimums[attri_name] &&
-				   value<reroll_minimums[attri_name])
+				   value<reroll_minimums[attri_name]){
+					int legal_max=(int)(limit*rate);
+					if(legal_max<limit)
+						legal_max=limit;
 					value=reroll_minimums[attri_name];
+					if(value>legal_max)
+						value=legal_max;
+				}
 				writetmp+="    set_"+attri_name+"("+value+");\n"; //设置新物品的附加属性
 				// 大数值(≥62)不在字母表：把数值本身编进后缀，保证
 				// 数值→文件名一一对应。旧版统一替换成'_'会让不同
