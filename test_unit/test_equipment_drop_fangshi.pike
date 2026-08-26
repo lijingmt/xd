@@ -70,7 +70,7 @@ void test_itemsd_fangshi_logic() {
 	}
 
 	// 检查逻辑是否在写入文件之前执行
-	if(search(content, "write_item_file(ITEM_PATH+item_name,writeback)") == -1) {
+	if(search(content, "write_item_file(ITEM_PATH+item_name,") == -1) {
 		test_fail("itemsd.pike 中没有找到 write_item_file 调用");
 		return;
 	}

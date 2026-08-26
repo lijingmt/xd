@@ -244,8 +244,8 @@ int main()
 		"重启仍可能全量扫描百万物品，或每次克隆都重复读取源码");
 	check("所有装备与技能生成入口在写盘前统一规范create",
 		search(efuns,"normalize_generated_item_source")!=-1 &&
-		search(items,"write_item_file(ITEM_PATH+item_name,writeback)")!=-1 &&
-		search(boss,"write_item_file(ITEM_PATH+item_name,writeback)")!=-1 &&
+		search(items,"write_item_file(ITEM_PATH+item_name,")!=-1 &&
+		search(boss,"write_item_file(ITEM_PATH+item_name,")!=-1 &&
 		search(skill,"templates[\"head\"]=\"protected void create(){")!=-1,
 		"仍有生成入口会制造公开或重复protected的create函数");
 	check("核心继承链create修饰符恰好保留一个protected",

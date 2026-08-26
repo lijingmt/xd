@@ -1602,10 +1602,13 @@ private object get_attributes_item(string orgitem,int num,
 			if(rtn_ob && orginal_level && orginal_level<65)
 				clamp_low_tier_instance(rtn_ob,orgitem);
 			if(rtn_ob && !dynamic_equipment_level_api_valid(rtn_ob)){
+				// 缺等级API的旧文件同样走覆盖重生成而不是直接
+				// 返回0：随机掷中这类文件曾让生成接口偶发返回空。
 				werror("[ITEMSD][DYNAMIC_EQUIPMENT_REJECT] path=%O "
 					"reason=missing_level_api\n",item_name);
 				destruct(rtn_ob);
-				return 0;
+				rtn_ob=0;
+				regenerate=1;
 			}
 			// 生产映射目录可能残留旧版本生成的-1模板。保留原文件供
 			// 老装备按原数据加载，但普通新掉落实例必须恢复真实等级。
@@ -1613,12 +1616,20 @@ private object get_attributes_item(string orgitem,int num,
 			   rtn_ob->query_item_canLevel()<0)
 				rtn_ob->set_item_canLevel(target_item_level);
 			// 复用一致性：同名残留文件可能来自旧编码/旧规则时代（如
-			// 属性值注入文件名之前），其稀有度或等级会与本次请求不符，
-			// 曾让炼化回归偶发失败。不一致则销毁实例并覆盖重生成。
+			// 属性值注入文件名之前、法力按×10存进变量的年代），其
+			// 稀有度、等级或数值会与本次请求不符，曾让炼化回归偶发
+			// 失败。任何一项不一致都销毁实例并覆盖重生成。
 			if(rtn_ob && ((int)rtn_ob->query_item_rareLevel()!=count ||
 			   (target_item_level>0 && !flag_no_level &&
 			    (int)rtn_ob->query_item_canLevel()!=
-			    	target_item_level))){
+			    	target_item_level) ||
+			   query_abnormal_gear_class(rtn_ob)>=1)){
+				werror("[ITEMSD][REUSE_STALE] path=%O rare=%d/%d "+
+					"level=%d/%d class=%d\n",item_name,
+					(int)rtn_ob->query_item_rareLevel(),count,
+					(int)rtn_ob->query_item_canLevel(),
+					target_item_level,
+					query_abnormal_gear_class(rtn_ob));
 				destruct(rtn_ob);
 				rtn_ob=0;
 				regenerate=1;
@@ -2004,18 +2015,27 @@ private object get_attributes_item(string orgitem,int num,
 							writeback[last_brace..];
 				}
 
-				int write_flag=write_item_file(ITEM_PATH+item_name,writeback);
+				// regenerate路径必须真正覆盖同名残留文件：write_item_file
+				// 默认写保护（已存在即原样保留），不传overwrite会把旧
+				// 内容留在盘上导致后续编译/克隆失败。
+				int write_flag=write_item_file(ITEM_PATH+item_name,
+					writeback,regenerate);
 
 				//从写回的文件中clone一个该物品返回
 				if(Stdio.exist(ITEM_PATH+item_name)&&write_flag==1){
 					string new_item_path = ITEM_PATH+item_name;
+					// 覆盖重生成必须先按键清掉旧程序缓存再编译：
+					// compile_file命中旧缓存时克隆到的仍是覆盖前
+					// 内容（旧值文件的根源）。
+					if(regenerate)
+						m_delete(master()->programs,new_item_path);
 					program p = compile_file(new_item_path);
 					//加入到当前进程的master中的programs中
 					if(p){
 						foreach(indices(master()->programs),string s){
 							if(master()->programs[s]==p){//如果存在，去掉旧的
 								//werror("****该新物品已经在影射中=["+new_item_path+"]****\n");
-								m_delete(master()->programs,p);
+								m_delete(master()->programs,s);
 							}
 						}
 						//将新生成对象加入master的总对象影射中
