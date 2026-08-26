@@ -207,6 +207,8 @@ createApp({
             desktopServerRoomId: '',
             desktopWorldMapTransform: { x: 0, y: 0, scale: 1 },
             desktopWorldMapDrag: null,
+            desktopWorldPlayers: [],
+            desktopWorldPlayersTimer: null,
             // 多机型地图手势：单指拖动=平移，双指捏合=缩放。
             desktopWorldMapPointers: {},
             desktopWorldMapPinch: null,
@@ -3536,8 +3538,18 @@ createApp({
                     }
                 }
                 // 更新MUD输出；只在背包/任务/技能等列表页启用平滑重排。
-                if (this.clientLayout === 'pc' && data.room_id) {
+                // room_id在两种布局都捕获：手机版世界地图的定位框与
+                // 银两飞行计费都依赖它（此前仅PC捕获导致飞行无反应）。
+                if (data.room_id) {
                     this.desktopServerRoomId = String(data.room_id).replace(/\.pike$/, '');
+                    if (this.clientLayout !== 'pc' && this.desktopWorldNodeIndex &&
+                        this.desktopWorldMapOpen) {
+                        const node = this.desktopWorldNodeIndex.get(this.desktopServerRoomId);
+                        if (node) {
+                            this.desktopWorldNode = node;
+                            this.focusDesktopWorldMap();
+                        }
+                    }
                 }
                 this.prepareMudOutputAnimation(cmd);
                 this.mudLines = data.lines || [];
@@ -4474,6 +4486,7 @@ createApp({
 
         openDesktopWorldMap() {
             this.desktopWorldMapOpen = true;
+            this.scheduleDesktopWorldPlayers();
             this.desktopWorldSelectedNode = this.desktopWorldNode;
             this.loadDesktopWorldGraph();
             if (!this.desktopWorldMapResizeHandler) {
@@ -4486,6 +4499,7 @@ createApp({
         closeDesktopWorldMap() {
             this.desktopWorldMapOpen = false;
             this.desktopWorldMapDrag = null;
+            this.stopDesktopWorldPlayers();
         },
 
         desktopWorldCanvasSize() {
@@ -4619,6 +4633,58 @@ createApp({
                 }
             }
             context.restore();
+
+            // 玩家分布标注：把在线玩家按房间ID聚合到节点上，画成
+            // 头像圆点+名字（缩太小只画计数徽标），金色实心是自己。
+            if (this.desktopWorldPlayers.length && this.desktopWorldNodeIndex) {
+                const byRoom = new Map();
+                for (const p of this.desktopWorldPlayers) {
+                    if (!byRoom.has(p.roomId)) byRoom.set(p.roomId, []);
+                    byRoom.get(p.roomId).push(p);
+                }
+                context.save();
+                context.translate(transform.x, transform.y);
+                context.scale(scale, scale);
+                context.textAlign = 'center';
+                for (const [roomId, players] of byRoom) {
+                    const node = this.desktopWorldNodeIndex.get(roomId);
+                    if (!node || node.x < worldLeft - margin || node.x > worldRight + margin ||
+                        node.y < worldTop - margin || node.y > worldBottom + margin) continue;
+                    const self = players.find(p => p.name === this.playerStats?.name_cn);
+                    if (scale < 0.3) {
+                        // 远焦：每个节点一枚计数徽标。
+                        context.beginPath();
+                        context.arc(node.x + 30, node.y - 30, 14 / Math.max(scale, 0.08), 0, Math.PI * 2);
+                        context.fillStyle = 'rgba(94, 158, 217, 0.92)';
+                        context.fill();
+                        context.fillStyle = '#fff';
+                        context.font = '700 ' + (16 / Math.max(scale, 0.08)) + 'px sans-serif';
+                        context.fillText(String(players.length), node.x + 30, node.y - 24);
+                        continue;
+                    }
+                    players.slice(0, 4).forEach((p, i) => {
+                        const px = node.x - 26 + i * 18;
+                        const py = node.y - 44;
+                        context.beginPath();
+                        context.arc(px, py, 9, 0, Math.PI * 2);
+                        context.fillStyle = p === self ? '#ffd86e' : '#7ec3f0';
+                        context.fill();
+                        context.lineWidth = 2;
+                        context.strokeStyle = 'rgba(8, 20, 32, 0.9)';
+                        context.stroke();
+                        context.fillStyle = '#eaf6ff';
+                        context.font = '700 12px sans-serif';
+                        context.fillText(String(p.name || '').slice(0, 6), px, py - 14);
+                    });
+                    if (players.length > 4) {
+                        context.fillStyle = 'rgba(230, 240, 250, 0.9)';
+                        context.font = '700 12px sans-serif';
+                        context.fillText('+' + (players.length - 4), node.x + 48, node.y - 44);
+                    }
+                }
+                context.restore();
+            }
+
             context.textAlign = 'start';
             this.desktopWorldMapHitAreas = visibleNodes;
         },
@@ -4789,10 +4855,60 @@ createApp({
             ) || null;
         },
 
+        async refreshDesktopWorldPlayers() {
+            if (!this.desktopWorldMapOpen || !this.txd) return;
+            try {
+                const params = new URLSearchParams({ txd: this.txd, cmd: 'map_players' });
+                const response = await fetch(`${this.apiBase}/api/json?${params.toString()}`);
+                if (!response.ok) return;
+                const data = await response.json().catch(() => ({}));
+                const lines = data.lines || [];
+                let payload = '';
+                for (const line of lines) {
+                    const text = String(line.text || line.full || '');
+                    if (text.startsWith('MAPPLAYERS|')) {
+                        payload = text.slice('MAPPLAYERS|'.length);
+                        break;
+                    }
+                }
+                if (payload === 'syncing' || !payload) {
+                    this.desktopWorldPlayers = [];
+                    return;
+                }
+                const players = [];
+                for (const entry of payload.split(',')) {
+                    const at = entry.lastIndexOf('@');
+                    if (at <= 0) continue;
+                    players.push({ name: entry.slice(0, at), roomId: entry.slice(at + 1) });
+                }
+                this.desktopWorldPlayers = players;
+                this.renderDesktopWorldMap();
+            } catch (e) { /* 下轮重试 */ }
+        },
+
+        scheduleDesktopWorldPlayers() {
+            this.stopDesktopWorldPlayers();
+            this.desktopWorldPlayersTimer = setInterval(() => {
+                this.refreshDesktopWorldPlayers();
+            }, 10000);
+            this.refreshDesktopWorldPlayers();
+        },
+
+        stopDesktopWorldPlayers() {
+            if (this.desktopWorldPlayersTimer) {
+                clearInterval(this.desktopWorldPlayersTimer);
+                this.desktopWorldPlayersTimer = null;
+            }
+        },
+
         flyCostForNode(node) {
             // 与服务端fly_to_room同一距离分档：2500/8000世界单位。
+            // 当前节点未知时（首帧尚未收到look）按中档预估，服务端
+            // 权威计费多退少补体现在确认弹窗文案里。
             const current = this.desktopWorldNode;
-            if (!this.desktopWorldGraph || !node || !current) return 0;
+            if (!this.desktopWorldGraph || !node) return 0;
+            if (node.id === current?.id) return 0;
+            if (!current) return 1500;
             const distance = Math.hypot(node.x - current.x, node.y - current.y);
             if (distance < 2500) return 500;
             if (distance < 8000) return 1500;
@@ -4801,10 +4917,9 @@ createApp({
 
         flyToDesktopWorldNode() {
             const node = this.desktopWorldSelectedNode;
-            if (!node) return;
-            const cost = this.flyCostForNode(node);
-            if (!cost) return;
-            if (!window.confirm(`飞往「${node.name}」需要${cost}银两，现在起飞？`)) return;
+            if (!node || node.id === this.desktopWorldNode?.id) return;
+            const cost = this.flyCostForNode(node) || 1500;
+            if (!window.confirm(`飞往「${node.name}」约需${cost}银两（以实际航程结算），现在起飞？`)) return;
             this.closeDesktopWorldMap();
             this.sendQuickCommand(`fly_to_room ${node.id}`);
         },

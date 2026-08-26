@@ -1792,7 +1792,7 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
 
 string build_command_json_response_job(string response,string new_txd,
     string auth_userid,string cmd,array(mapping) newbie_completions,
-    mapping refresh_snapshot)
+    mapping refresh_snapshot,string room_id)
 {
     array(mapping) lines = parse_mud_to_json(response, new_txd, auth_userid);
     string copy_data;
@@ -1821,6 +1821,10 @@ string build_command_json_response_job(string response,string new_txd,
         "txd": new_txd,
         "timestamp": time()
     ]);
+    // 当前房间ID：世界地图定位框与银两飞行计费都依赖它。pc版前端
+    // 早已按data.room_id读取，服务端此前从未发送（飞行无反应的根因）。
+    if(room_id && sizeof(room_id))
+        json_result->room_id=room_id;
 
     if(copy_data && sizeof(copy_data) > 0 && copy_type) {
         json_result->copy = (["type":copy_type, "data":copy_data]);
@@ -1853,12 +1857,22 @@ void finish_handle_api_json(string response,
         send_json(req,(["error":"游戏命令执行失败，请重试；若持续出现请联系管理员。"]),500);
         return;
     }
+    string command_room_id="";
     if(response_player) {
         newbie_completions =
             NEWBIED->consume_completion_notices(response_player);
         if(query_command_name(cmd)=="flushview")
             refresh_snapshot = query_autofight_refresh_snapshot(
                 response_player);
+        {
+            object room_env=environment(response_player);
+            if(room_env){
+                string room_path=file_name(room_env)-ROOT;
+                if(has_prefix(room_path,"/gamelib/d/"))
+                    command_room_id=room_path[
+                        sizeof("/gamelib/d/")..];
+            }
+        }
     }
 
     // TXD 格式与生成逻辑保持不变；只把纯文本解析和JSON编码放到线程池。
@@ -1867,7 +1881,7 @@ void finish_handle_api_json(string response,
 
     if(!send_json_builder_async(req,build_command_json_response_job,({
         response,new_txd,auth_userid,cmd,newbie_completions,
-        refresh_snapshot
+        refresh_snapshot,command_room_id
     }),200))
         send_json(req,(["error":"响应线程池繁忙，请稍后重试"]),503);
 }
