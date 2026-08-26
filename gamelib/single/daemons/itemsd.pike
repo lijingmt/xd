@@ -1619,7 +1619,15 @@ private object get_attributes_item(string orgitem,int num,
 			// 属性值注入文件名之前、法力按×10存进变量的年代），其
 			// 稀有度、等级或数值会与本次请求不符，曾让炼化回归偶发
 			// 失败。任何一项不一致都销毁实例并覆盖重生成。
-			if(rtn_ob && ((int)rtn_ob->query_item_rareLevel()!=count ||
+			// 本生成器产物稀有度只可能是1-7；锻造/兑换等系统写的
+			// 定制文件（稀有度11+或带item_from标记）不属于本生成
+			// 器，跳过校验，防止被通用重写破坏其定制内容。
+			int foreign_sourced=rtn_ob &&
+				((int)rtn_ob->query_item_rareLevel()>7 ||
+				 (functionp(rtn_ob->query_item_from) &&
+				  (string)rtn_ob->query_item_from()!=""));
+			if(rtn_ob && !foreign_sourced &&
+			   ((int)rtn_ob->query_item_rareLevel()!=count ||
 			   (target_item_level>0 && !flag_no_level &&
 			    (int)rtn_ob->query_item_canLevel()!=
 			    	target_item_level) ||
@@ -2306,6 +2314,22 @@ int query_abnormal_gear_class(object item)
 	int item_level;
 	if(!item || !functionp(item->query_item_rareLevel))
 		return 0;
+	// 定制产物（锻造/兑换/百工等，稀有度11+或带item_from标记，
+	// 属性由各自系统公式决定，不受掉落约束表包络约束）只保留
+	// 千级绝对线兜底，不参与真实包络的爆炸装判定，防止登录回收
+	// 误换定制装备。
+	if((int)item->query_item_rareLevel()>7 ||
+	   (functionp(item->query_item_from) &&
+	    (string)item->query_item_from()!="")){
+		foreach(abnormal_gear_attack_defense_attrs,string attr){
+			mixed reader=item["query_"+attr];
+			if(!functionp(reader))
+				continue;
+			if((int)call_function(reader)>265000)
+				return 2;
+		}
+		return 0;
+	}
 	base=query_convert_item_rawname(item);
 	if(base!=""){
 		caps=query_base_attribute_caps(base);

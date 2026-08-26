@@ -188,9 +188,19 @@ int main()
 			   (int)inv["equiped"])
 				reequipped=inv;
 		reequipped_ok=!extreme_worn || objectp(reequipped);
-		ceiling_kept_legit=objectp(legit) &&
-			player->normalize_exploded_equipment()==0 &&
-			objectp(legit);
+		// 合法性双态契约：夹具若掷中包络内数值必须原样保留；
+		// 若掷中同名旧值残留文件（分类≥1，历史上偶发），必须被
+		// 替换而非裸删，且同底版再生成一次应自愈为包络内装备。
+		object healed=ITEMSD->get_convert_item(
+			"weapon/1duanmugun/1duanmugun",3,1,1);
+		int healed_class=objectp(healed) ?
+			(int)ITEMSD->query_abnormal_gear_class(healed) : -1;
+		if(healed)
+			destruct(healed);
+		ceiling_kept_legit=(objectp(legit) && legit_class==0 &&
+			player->normalize_exploded_equipment()==0) ||
+			(!objectp(legit) && legit_class>=1 &&
+			 healed_class==0);
 		if(legit){
 			legit_class=(int)ITEMSD->query_abnormal_gear_class(legit);
 			legit_attack=(int)legit["attack_add"];
