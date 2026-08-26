@@ -346,17 +346,12 @@ mapping apply_distributed_team_snapshot(mapping snapshot)
 			members[first_member]=row;
 		}
 	}
-	if(sizeof(members)){
-		string anchor = "";
-		foreach(indices(members),string userid)
-			if((string)members[userid][1]=="leader"){
-				anchor = userid;
-				break;
-			}
-		foreach(indices(members),string userid)
-			if(!LOGICALZONED->can_user_action("team",anchor,userid))
-				return (["ok":0,"code":"cross_zone_team_snapshot"]);
-	}
+	// 安装期不再按逻辑组整张拒绝快照：成员组别可在入队后变化
+	// （如该号激活幻境S1、账号索引读取被安全熔断时得到专属隔离组），
+	// 快照来自源Worker的权威状态，一名成员组别异常就让全队每次
+	// 跨Worker移动的快照安装失败，玩家请求持续被拒（曾单日132条）。
+	// 区划隔离由每个团队动作执行点的can_user_action("team",...)
+	// 独立把守，副本照实安装不会放大任何跨区能力。
 	foreach(raw_chat,mixed raw_line){
 		if(!stringp(raw_line) || sizeof((string)raw_line)>2048)
 			return (["ok":0,"code":"invalid_team_chat_snapshot"]);

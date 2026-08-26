@@ -79,6 +79,14 @@ int main()
 					"pike_gateway.pike",
 					"\"team_notice\",\n\t\t\"team_exp\""),
 				"接收端白名单缺team_exp会让跨Worker队伍经验重试耗尽后丢失");
+			check("队伍快照安装不再因单成员组别异常整张拒绝",
+				!source_has("/gamelib/single/daemons/termd.pike",
+					"cross_zone_team_snapshot") &&
+				source_has("/gamelib/single/daemons/termd.pike",
+					"can_user_action(\"team\",inviter_uid,target_uid)") &&
+				source_has("/gamelib/single/daemons/termd.pike",
+					"can_user_action(\"team\",source_user,uid)"),
+				"入队后激活幻境/索引熔断的成员曾让全队跨Worker移动持续失败");
 		}
 		mapping account_save_capability = ([
 			"state":"running","kind":"account",
