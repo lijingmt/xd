@@ -13,6 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createManifest } = require('./manifest');
+const { writeWorldMap } = require('../scripts/build/generate_world_map');
 
 // 颜色输出
 const colors = {
@@ -69,6 +70,18 @@ log('\n3. JS:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'js'), { recursive: true });
 copyFile(path.join(__dirname, 'js', 'app.js'), path.join(distDir, 'js', 'app.js'));
 
+// 3.1 从真实房间源码生成完整世界拓扑。客户端只读取房间名称、区域、
+// 地貌、坐标和连接关系；移动仍必须使用当前房间返回的隐藏命令。
+log('\n3.1 World map graph:', 'yellow');
+const worldMapSource = path.join(__dirname, 'data', 'world-map.json');
+const worldMap = writeWorldMap(
+  path.join(__dirname, '..', 'gamelib', 'd'),
+  worldMapSource
+);
+fs.mkdirSync(path.join(distDir, 'data'), { recursive: true });
+fs.copyFileSync(worldMapSource, path.join(distDir, 'data', 'world-map.json'));
+log(`✓ ${worldMap.roomCount} rooms / ${worldMap.edgeCount} links / ${worldMap.regionCount} regions`, 'green');
+
 // 4. 复制锁定版本的浏览器运行库和许可证（生产环境不依赖公共CDN）
 log('\n4. Vendored runtime:', 'yellow');
 fs.mkdirSync(path.join(distDir, 'vendor'), { recursive: true });
@@ -120,6 +133,7 @@ const legacyFiles = [
   path.join('css', 'app.css'),
   path.join('css', 'realm.css'),
   path.join('js', 'app.js'),
+  path.join('data', 'world-map.json'),
   path.join('vendor', 'vue.global.prod.js'),
   path.join('vendor', 'VUE_LICENSE.txt'),
   path.join('vendor', 'canvas-confetti.js'),
@@ -184,6 +198,20 @@ for (let chapter = 1; chapter <= 81; chapter += 1) {
   fs.copyFileSync(sourcePath, destinationPath);
 }
 log('✓ chapter_001.png ... chapter_081.png', 'green');
+
+// 8.1 同步世界地图地形图集到web输出，与幻境插画同一落位规则。
+const visualMapSourceDir = path.join(__dirname, '..', 'images', 'visual_map');
+const visualMapOutputDir = path.join(__dirname, '..', 'web', 'images', 'visual_map');
+const visualMapFiles = ['red-cloud-terrace-v1.webp', 'world-terrain-atlas-v1.webp'];
+fs.mkdirSync(visualMapOutputDir, { recursive: true });
+for (const filename of visualMapFiles) {
+  const sourcePath = path.join(visualMapSourceDir, filename);
+  if (!fs.existsSync(sourcePath) || fs.statSync(sourcePath).size < 100 * 1024) {
+    throw new Error(`world map artwork is missing or unexpectedly small: ${sourcePath}`);
+  }
+  fs.copyFileSync(sourcePath, path.join(visualMapOutputDir, filename));
+  log(`✓ ${filename}`, 'green');
+}
 
 // 完成
 log('\n✓ 构建完成!', 'green');

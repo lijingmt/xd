@@ -158,4 +158,37 @@ grep -Eq '^COPY[[:space:]]+web[[:space:]]+/usr/local/tomcat/webapps/ROOT' \
     "$ROOT_DIR/docker/Dockerfile.all" ||
     fail "Dockerfile.all does not copy built web assets into Tomcat"
 
+VISUAL_MAP_SOURCE="$ROOT_DIR/images/visual_map/red-cloud-terrace-v1.webp"
+VISUAL_MAP_OUTPUT="$ROOT_DIR/web/images/visual_map/red-cloud-terrace-v1.webp"
+TERRAIN_ATLAS_SOURCE="$ROOT_DIR/images/visual_map/world-terrain-atlas-v1.webp"
+TERRAIN_ATLAS_OUTPUT="$ROOT_DIR/web/images/visual_map/world-terrain-atlas-v1.webp"
+for artwork_var in VISUAL_MAP TERRAIN_ATLAS; do
+    source_path="${artwork_var}_SOURCE"
+    output_path="${artwork_var}_OUTPUT"
+    [[ -s "${!source_path}" ]] ||
+        fail "missing world map artwork source: $artwork_var"
+    [[ -s "${!output_path}" ]] ||
+        fail "missing deployed world map artwork: $artwork_var"
+    cmp -s "${!source_path}" "${!output_path}" ||
+        fail "deployed world map artwork is stale: $artwork_var"
+done
+
+WORLD_MAP_SOURCE="$SOURCE_DIR/data/world-map.json"
+for output_dir in "$OUTPUT_DIR" "$LEGACY_OUTPUT_DIR"; do
+    [[ -s "$output_dir/data/world-map.json" ]] ||
+        fail "missing built world-map.json: $output_dir"
+    cmp -s "$WORLD_MAP_SOURCE" "$output_dir/data/world-map.json" ||
+        fail "built world-map.json is stale: $output_dir"
+done
+node - "$WORLD_MAP_SOURCE" <<'NODE'
+const fs = require('fs');
+const graph = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+if (graph.schema !== 1 || !Array.isArray(graph.nodes) ||
+    graph.nodes.length < 2500 || !Array.isArray(graph.edges) ||
+    !Array.isArray(graph.regions)) {
+    console.error('world map graph failed the production contract');
+    process.exit(1);
+}
+NODE
+
 log "verified build artifacts in $OUTPUT_DIR"

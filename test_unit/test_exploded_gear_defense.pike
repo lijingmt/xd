@@ -61,6 +61,9 @@ int main()
 	int jade_ceiling_before=0;
 	int jade_ceiling_after=0;
 	int legacy_class=0;
+	int legit_class=-1;
+	int legit_attack=-1;
+	array(string) legit_diag=({});
 	int intlegal_class=0;
 	int envelope_legacy_flagged=0;
 	int envelope_legal_kept=0;
@@ -146,6 +149,20 @@ int main()
 			"weapon/1duanmugun/1duanmugun",3,1,1);
 		legit->set_attack_add(12);
 		legit->move(player);
+		legit_class=(int)ITEMSD->query_abnormal_gear_class(legit);
+		legit_attack=(int)legit["attack_add"];
+		if(legit_class>=1){
+			mapping(string:int) diag_caps=ITEMSD->
+				query_base_attribute_caps(
+				"weapon/1duanmugun/1duanmugun");
+			foreach(sort(indices(diag_caps)),string diag_attr){
+				mixed diag_raw=legit[diag_attr];
+				if(intp(diag_raw) && diag_raw>0)
+					legit_diag+=({diag_attr+"="+diag_raw+
+						"(limit"+diag_caps[diag_attr]/100000+
+						")"});
+			}
+		}
 		jade_ceiling_before=YUSHID->query_all_num(player);
 		player->recall_abnormal_ceiling_gear();
 		jade_ceiling_after=YUSHID->query_all_num(player);
@@ -163,6 +180,10 @@ int main()
 		ceiling_kept_legit=objectp(legit) &&
 			player->normalize_exploded_equipment()==0 &&
 			objectp(legit);
+		if(legit){
+			legit_class=(int)ITEMSD->query_abnormal_gear_class(legit);
+			legit_attack=(int)legit["attack_add"];
+		}
 		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
 		if(legit)
 			destruct(legit);
@@ -306,7 +327,8 @@ int main()
 		"异常装备未被矫正");
 	check("千级上限：包络内合法装备不被误删",
 		!err && ceiling_kept_legit,
-		"合法装备被误删");
+		sprintf("合法装备被误删 class=%d attack=%d attrs=%s",
+			legit_class,legit_attack,legit_diag*","));
 	check("千级上限：回收不发放碎玉",
 		!err && ceiling_jade_unchanged,
 		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));

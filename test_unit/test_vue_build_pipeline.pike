@@ -70,6 +70,10 @@ void test_shared_build_script_contract()
 	   search(source,"npm run build")!=-1 &&
 	   search(source,"STORY_SOURCE_DIR")!=-1 &&
 	   search(source,"STORY_OUTPUT_DIR")!=-1 &&
+	   search(source,"VISUAL_MAP_SOURCE")!=-1 &&
+	   search(source,"VISUAL_MAP_OUTPUT")!=-1 &&
+	   search(source,"TERRAIN_ATLAS_SOURCE")!=-1 &&
+	   search(source,"WORLD_MAP_SOURCE")!=-1 &&
 	   search(source,"css/realm.css")!=-1 &&
 	   search(source,"vendor/vue.global.prod.js")!=-1 &&
 	   search(source,"cmp -s")!=-1 &&
@@ -91,6 +95,9 @@ void test_vue_source_contract()
 	   search(build_source,"css', 'app.css")!=-1 &&
 	   search(build_source,"css', 'realm.css")!=-1 &&
 	   search(build_source,"js', 'app.js")!=-1 &&
+	   search(build_source,"red-cloud-terrace-v1.webp")!=-1 &&
+	   search(build_source,"world-terrain-atlas-v1.webp")!=-1 &&
+	   search(build_source,"world-map.json")!=-1 &&
 	   search(build_source,"'vue.global.prod.js'")!=-1 &&
 	   search(build_source,"'VUE_LICENSE.txt'")!=-1 &&
 	   search(build_source,"legacyDistDir")!=-1 &&
@@ -102,6 +109,34 @@ void test_vue_source_contract()
 		test_pass();
 	else
 		test_fail("Vue源码复制或入口引用契约不完整");
+}
+
+void test_world_map_graph_contract()
+{
+	test_start("全部房间生成世界拓扑且三个产物目录保持同源");
+	string generator_source = Stdio.read_file(
+		ROOT+"/scripts/build/generate_world_map.js");
+	string test_source = Stdio.read_file(
+		ROOT+"/vue_source/tests/world-map.test.js");
+	string graph_source = Stdio.read_file(
+		ROOT+"/vue_source/data/world-map.json");
+	string web_graph = Stdio.read_file(
+		ROOT+"/web/web_vue/data/world-map.json");
+	string dist_graph = Stdio.read_file(
+		ROOT+"/vue_source/dist/data/world-map.json");
+
+	if(generator_source && test_source && graph_source &&
+	   web_graph && dist_graph &&
+	   sizeof(graph_source)>500000 &&
+	   graph_source==web_graph && graph_source==dist_graph &&
+	   search(graph_source,"\"roomCount\":")!=-1 &&
+	   search(graph_source,"\"regionCount\":")!=-1 &&
+	   search(graph_source,"\"id\":\"illusion_s1/moon_gate\"")!=-1 &&
+	   search(generator_source,"inherit\\s+WAP_ROOM")!=-1 &&
+	   search(test_source,"the complete world must include")!=-1)
+		test_pass();
+	else
+		test_fail("世界拓扑缺失或产物目录不同步");
 }
 
 void test_manifest_contract()
@@ -328,6 +363,7 @@ int main()
 	test_rebuild_entry_contract();
 	test_shared_build_script_contract();
 	test_vue_source_contract();
+	test_world_map_graph_contract();
 	test_manifest_contract();
 	test_auto_browser_login_contract();
 	test_docker_copy_contract();
