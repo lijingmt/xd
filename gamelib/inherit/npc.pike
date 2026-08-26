@@ -1295,9 +1295,16 @@ string query_words(){
 string query_npc_links(void|int count)
 {
 	string out="";
+	// 赛季激活角色只活动在幻境内容里，阵营是永恒服概念：同阵营
+	// 幻象怪必须可战（S1巫妖打10级妖魔训练怪曾无杀戮入口）。
+	// 剧情NPC被击杀只会按flushtime刷新，剧情推进走命令不受影响；
+	// 永恒服的同阵营保护保持不变。
+	int seasonal_fightable=this_player() &&
+		has_prefix((string)SEASONALD->query_character_group(
+			this_player()->query_name()),"illusion:");
 	if(this_object()->query_raceId()=="human"){
 		//该npc是人类阵营
-		if(this_player()->query_raceId()=="human")
+		if(this_player()->query_raceId()=="human" && !seasonal_fightable)
 			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 		else{
 			// 中立方士可以与两边NPC交谈，也保留主动战斗选择。
@@ -1321,7 +1328,7 @@ string query_npc_links(void|int count)
 	}
 	else if(this_object()->query_raceId()=="monst"){
 		//该npc是妖魔阵营
-		if(this_player()->query_raceId()=="monst")
+		if(this_player()->query_raceId()=="monst" && !seasonal_fightable)
 			out += "[对话:ask_npc "+this_object()->query_name()+" "+count+"]\n";
 		else{
 			// 中立方士可以与两边NPC交谈，也保留主动战斗选择。

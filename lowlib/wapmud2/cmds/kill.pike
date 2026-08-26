@@ -194,6 +194,14 @@ int main(string arg)
 		//方士是中立阵营，可以攻击任何阵营
 		else if(this_player()->query_raceId()=="third" && ob->is("npc"))
 			flag = 1;
+		//赛季激活角色在幻境里打同阵营怪：阵营是永恒服概念，
+		//不适用于幻境PVE；剧情NPC被击杀只按flushtime刷新。
+		else if(ob->is("npc") &&
+		   has_prefix((string)((object)(ROOT+
+		   "/gamelib/single/daemons/seasonal_chard.pike"))->
+		   query_character_group(this_player()->query_name()),
+		   "illusion:"))
+			flag = 1;
 		else{
 			this_player()->write_view(WAP_VIEWD["/emote"],0,0,"你不能攻击那个目标！\n");
 			return 1;

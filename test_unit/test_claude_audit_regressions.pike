@@ -982,6 +982,93 @@ void test_other_runtime_regressions()
 		"免死仍被计作真实挂机死亡");
 }
 
+void test_shuiyu_cap_never_unequips()
+{
+	object player = clone(GAMELIB_USER);
+	player->set_name("__testunit_shuiyu_cap__");
+	player->name_cn = "黄水玉封顶测试";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId("human");
+	player->set_profeId("jianxian");
+	player->setup_player("human","jianxian");
+	player->level = 120;
+	player->set_att_by_level();
+	object armor_a = clone(ROOT+
+		"/gamelib/clone/item/armor/2cubumao/2cubumao");
+	object armor_b = clone(ROOT+
+		"/gamelib/clone/item/armor/2caoxie/2caoxie");
+	int still_equipped=0;
+	int defend_queried=0;
+	mixed err = catch {
+		armor_a->set_aocao_max("yellow",3);
+		armor_b->set_aocao_max("yellow",3);
+		for(int i=0;i<3;i++){
+			object gem_a=clone(ROOT+
+				"/gamelib/clone/item/baoshi/pshuangshuiyu");
+			object gem_b=clone(ROOT+
+				"/gamelib/clone/item/baoshi/slhuangshuiyu");
+			armor_a->set_baoshi("yellow",gem_a);
+			armor_b->set_baoshi("yellow",gem_b);
+		}
+		armor_a->move(player);
+		armor_b->move(player);
+		player->wear(armor_a);
+		player->wear(armor_b);
+		defend_queried=(int)player->query_defend_power();
+		still_equipped=(int)armor_a->equiped &&
+			(int)armor_b->equiped;
+	};
+	check("黄水玉超额只截断加成不再自动脱装",
+		!err && still_equipped && defend_queried>=0,
+		err ? describe_error(err) :
+			sprintf("a=%d b=%d",(int)armor_a->equiped,
+				(int)armor_b->equiped));
+	if(armor_a)
+		destruct(armor_a);
+	if(armor_b)
+		destruct(armor_b);
+	destruct(player);
+}
+
+void test_same_camp_kill_gates()
+{
+	object player = clone(GAMELIB_USER);
+	player->set_name("__testunit_samecamp__");
+	player->name_cn = "同阵营测试";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId("monst");
+	player->set_profeId("wuyao");
+	player->setup_player("monst","wuyao");
+	player->level = 12;
+	player->set_att_by_level();
+	object npc = clone(ROOT+
+		"/gamelib/clone/npc/illusion_s1/fog_wolf.pike");
+	string links="";
+	string kill_source="";
+	string npc_source="";
+	mixed err = catch {
+		set_this_player(player);
+		npc->setup_npc();
+		links=(string)npc->query_npc_links(1);
+	};
+	kill_source=Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/cmds/kill.pike") || "";
+	npc_source=Stdio.read_file(ROOT+
+		"/gamelib/inherit/npc.pike") || "";
+	check("永恒服同阵营仍无杀戮且赛季放行接线完整",
+		!err && search(links,"杀戮")==-1 &&
+		search(npc_source,"seasonal_fightable")!=-1 &&
+		search(npc_source,"illusion:")!=-1 &&
+		search(kill_source,"不适用于幻境PVE")!=-1,
+		err ? describe_error(err) : sprintf("links=%O",links));
+	set_this_player(this_object());
+	if(npc)
+		destruct(npc);
+	destruct(player);
+}
+
 void test_prelogin_command_guards()
 {
 	object original_player = this_player();
@@ -1039,6 +1126,8 @@ int main()
 		test_jinaodao_monster_level_integrity();
 		test_timed_event_daily_entry_contract();
 		test_other_runtime_regressions();
+		test_shuiyu_cap_never_unequips();
+		test_same_camp_kill_gates();
 		test_prelogin_command_guards();
 		test_distributed_channel_chat_contract();
 	};

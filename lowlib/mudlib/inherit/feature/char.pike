@@ -2018,18 +2018,16 @@ int query_equip_add(string arg){
 					int baoshi_power = 0;
 					if(ob->query_if_aocao("all")&&ob->query_baoshi("all")){
 						foreach(ob->query_baoshi("all"),object tmp){
-						//对黄水玉系列宝石做处理，即每个玩家所穿戴的装备中，镶嵌的黄水玉系列宝石最多只能有4个，当黄水玉系列宝石的总数超过4个的时候就自动脱下该镶嵌有黄水玉的装备
+						//黄水玉系列宝石全局最多4颗生效（2008年设计）。
+						//原实现在属性查询里直接unwear超额装备，挂机每
+						//次战斗结算都会把穿戴脱掉一大半；改为只截断
+						//超额宝石的加成，装备保持穿戴不动。
 							if(tmp->query_name()=="pshuangshuiyu"||tmp->query_name()=="slhuangshuiyu"||tmp->query_name()=="jinghuangshuiyu"){
 								shuiyu_num ++;
+								if(shuiyu_num>4)
+									continue;
 							}
-							if(shuiyu_num>4){
-								//黄水玉数量超过4颗，脱掉，并扣除该装备所增加的防御力
-								power -= ob->query_equip_defend();
-								this_player()->unwear(ob);
-								baoshi_power = 0;
-							}
-							else
-								 baoshi_power+=tmp->query_defend_add();
+							baoshi_power+=tmp->query_defend_add();
 						}
 					}
 					power+=baoshi_power;
