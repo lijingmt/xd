@@ -4093,7 +4093,9 @@ private int is_valid_target(object me, object ob)
 		return 0;
 	me_race = me->query_raceId();
 	npc_race = ob->query_raceId();
-	if(me_race != "third" && me_race == npc_race)
+	if(me_race != "third" && me_race == npc_race &&
+	   !has_prefix((string)SEASONALD->query_character_group(
+			(string)me->query_name()),"illusion:"))
 		return 0;
 	npc_level = ob->query_level();
 	level_window = query_target_level_window(me);

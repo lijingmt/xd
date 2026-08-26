@@ -1057,11 +1057,15 @@ void test_same_camp_kill_gates()
 		"/lowlib/wapmud2/cmds/kill.pike") || "";
 	npc_source=Stdio.read_file(ROOT+
 		"/gamelib/inherit/npc.pike") || "";
+	string autofight_source=Stdio.read_file(ROOT+
+		"/gamelib/single/daemons/autofightd.pike") || "";
 	check("永恒服同阵营仍无杀戮且赛季放行接线完整",
 		!err && search(links,"杀戮")==-1 &&
 		search(npc_source,"seasonal_fightable")!=-1 &&
 		search(npc_source,"illusion:")!=-1 &&
-		search(kill_source,"不适用于幻境PVE")!=-1,
+		search(kill_source,"不适用于幻境PVE")!=-1 &&
+		search(autofight_source,
+			"query_character_group")!=-1,
 		err ? describe_error(err) : sprintf("links=%O",links));
 	set_this_player(this_object());
 	if(npc)
