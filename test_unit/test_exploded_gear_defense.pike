@@ -63,6 +63,8 @@ int main()
 	int legacy_class=0;
 	int legit_class=-1;
 	int legit_attack=-1;
+	int extreme_worn=0;
+	int reequipped_ok=0;
 	array(string) legit_diag=({});
 	int intlegal_class=0;
 	int envelope_legacy_flagged=0;
@@ -149,6 +151,9 @@ int main()
 			"weapon/1duanmugun/1duanmugun",3,1,1);
 		legit->set_attack_add(12);
 		legit->move(player);
+		// 回收前穿上爆炸件：替换件必须自动穿回原槽位，玩家不能
+		// 在回收后面对满地脱下的装备（休息/战斗循环被打断）。
+		extreme_worn=(int)player->wield(extreme);
 		legit_class=(int)ITEMSD->query_abnormal_gear_class(legit);
 		legit_attack=(int)legit["attack_add"];
 		if(legit_class>=1){
@@ -177,6 +182,12 @@ int main()
 			}
 		}
 		ceiling_removed=!objectp(extreme) && replacement_seen;
+		object|zero reequipped=0;
+		foreach(all_inventory(player),object inv)
+			if(inv && inv!=legit && functionp(inv->query_item_rareLevel) &&
+			   (int)inv["equiped"])
+				reequipped=inv;
+		reequipped_ok=!extreme_worn || objectp(reequipped);
 		ceiling_kept_legit=objectp(legit) &&
 			player->normalize_exploded_equipment()==0 &&
 			objectp(legit);
@@ -329,6 +340,9 @@ int main()
 		!err && ceiling_kept_legit,
 		sprintf("合法装备被误删 class=%d attack=%d attrs=%s",
 			legit_class,legit_attack,legit_diag*","));
+	check("回收替换件自动穿回原槽位",
+		!err && reequipped_ok && ceiling_removed,
+		sprintf("worn=%d replaced=%d",reequipped_ok,ceiling_removed));
 	check("千级上限：回收不发放碎玉",
 		!err && ceiling_jade_unchanged,
 		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));

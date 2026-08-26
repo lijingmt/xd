@@ -37,8 +37,9 @@ private int has_socketed_gem(object item)
 	return 0;
 }
 
-// 套装清理只接收未绑定、未养成的可交易掉落重复件。旧清包的品质
-// 配置不能放宽这里的硬保护；任何状态不明的老物品都失败关闭。
+// 套装清理接收未绑定的可交易掉落重复件（含升级/洗炼过的）。
+// 旧清包的品质配置不能放宽这里的硬保护；任何状态不明的老物品
+// 都失败关闭。
 string query_set_cleanup_reject_reason(object player,object item)
 {
 	string source;
@@ -62,9 +63,9 @@ string query_set_cleanup_reject_reason(object player,object item)
 		return "player_marked";
 	if((string)item->query_item_from()!="")
 		return "special_source";
-	if(functionp(item->query_convert_count) &&
-	   (int)item->query_convert_count()>0)
-		return "converted";
+	// 升级/洗炼过的套装件（convert_count>0）允许清理：玩家升级后
+	// 的重复件无处可去（原"converted"一刀切拒绝），绑定/任务/唯一
+	// 等硬保护已在前面拦截，这里只做显式选中的销毁。
 	if(has_socketed_gem(item))
 		return "socketed";
 	source=(file_name(item)/"#")[0];

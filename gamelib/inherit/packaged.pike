@@ -42,7 +42,8 @@ int packaged(object ob, int user_p_level){
 			this_object()->query_name()+" item="+ob->query_name()+
 			" action=warehouse_deposit_refused\n");
 		tell_object(this_object(),
-			"【异常装备】该装备属性异常，已拒绝存入仓库。\n");
+			"【异常装备】该装备属性异常，已拒绝存入仓库。\n"+
+			"重新登录后会自动替换为数值正常的同款装备，届时即可存入。\n");
 		return 1;
 	}
 	if(packaged_items==0)

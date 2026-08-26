@@ -74,6 +74,16 @@ int main()
 		search(candidates,bound)==-1 &&
 		search(candidates,other_collection)==-1,
 		"绑定或跨系列装备进入了候选");
+	// 升级/洗炼过的套装重复件允许清理：原converted一刀切让升级后的
+	// 重复件无处可去。
+	object converted=new_weapon(player,150);
+	converted->set_convert_count(1);
+	string converted_reject=command->query_set_cleanup_reject_reason(
+		player,converted);
+	check("升级/洗炼过的套装重复件不再被清理拒绝",
+		converted_reject=="",
+		sprintf("reason=%O",converted_reject));
+	destruct(converted);
 	array(string) preview_refs=command->query_set_cleanup_runtime_refs(
 		candidates);
 	array(object) resolved_refs=command->resolve_set_cleanup_runtime_refs(

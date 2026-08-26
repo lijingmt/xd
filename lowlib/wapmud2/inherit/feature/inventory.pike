@@ -1032,12 +1032,29 @@ int recall_abnormal_ceiling_gear()
 				item->query_name()+" base="+base+
 				" action=recall_abnormal\n");
 		};
-		// 已穿装备先卸下再替换，防止装备栏悬空引用。
-		if(item->equiped && functionp(me->remove_equipment))
+		// 已穿装备先卸下再替换，防止装备栏悬空引用；替换成功后
+		// 自动穿回原槽位——玩家回收后战力骤降已经够意外，不能再
+		// 让他们面对一地脱下来的装备（休息/战斗循环被打断）。
+		int was_equipped=(int)item->equiped;
+		string item_kind=functionp(item->query_item_kind) ?
+			(string)item->query_item_kind() : "";
+		if(was_equipped && functionp(me->remove_equipment))
 			catch{ me->remove_equipment(item); };
 		// 持久化替换：生成正常数值的同款装备替换旧装备
 		object replacement=ITEMSD->generate_normal_replacement(item);
 		if(replacement && replacement->move(me)==1){
+			if(was_equipped && has_suffix(item_kind,"weapon")){
+				if(!catch{ me->wield(replacement); })
+					tell_object(me,"【数值矫正】"+
+						(string)replacement->query_name_cn()+
+						"已替换并重新装备。\n");
+			}
+			else if(was_equipped){
+				if(!catch{ me->wear(replacement); })
+					tell_object(me,"【数值矫正】"+
+						(string)replacement->query_name_cn()+
+						"已替换并重新装备。\n");
+			}
 			destruct(item);
 			removed_items++;
 		}
