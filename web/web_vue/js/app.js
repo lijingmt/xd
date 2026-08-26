@@ -4789,6 +4789,26 @@ createApp({
             ) || null;
         },
 
+        flyCostForNode(node) {
+            // 与服务端fly_to_room同一距离分档：2500/8000世界单位。
+            const current = this.desktopWorldNode;
+            if (!this.desktopWorldGraph || !node || !current) return 0;
+            const distance = Math.hypot(node.x - current.x, node.y - current.y);
+            if (distance < 2500) return 500;
+            if (distance < 8000) return 1500;
+            return 3000;
+        },
+
+        flyToDesktopWorldNode() {
+            const node = this.desktopWorldSelectedNode;
+            if (!node) return;
+            const cost = this.flyCostForNode(node);
+            if (!cost) return;
+            if (!window.confirm(`飞往「${node.name}」需要${cost}银两，现在起飞？`)) return;
+            this.closeDesktopWorldMap();
+            this.sendQuickCommand(`fly_to_room ${node.id}`);
+        },
+
         moveToDesktopWorldSelection() {
             const exit = this.desktopWorldSelectedExit();
             if (exit) {

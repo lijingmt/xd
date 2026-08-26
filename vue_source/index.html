@@ -1411,7 +1411,7 @@
                                         @pointerup="handleDesktopWorldPointerUp"
                                         @pointercancel="handleDesktopWorldPointerUp"></canvas>
                                 <div class="desktop-world-map-help">
-                                    鼠标拖拽移动 · 滚轮缩放 · 金色方框是当前位置 · 蓝线连接跨区域道路
+                                    鼠标拖拽移动 · 滚轮缩放 · 点选节点可银两飞行 · 金色方框是当前位置
                                 </div>
                                 <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
                                     <small>{{ desktopWorldSelectedNode.region }}</small>
@@ -1422,8 +1422,13 @@
                                             @click="moveToDesktopWorldSelection">
                                         沿当前道路进入
                                     </button>
-                                    <em v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id">
-                                        远方地点仅供查看，需逐房间行走抵达
+                                    <button v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id"
+                                            type="button"
+                                            @click="flyToDesktopWorldNode">
+                                        ✈ 银两飞行 ({{ flyCostForNode(desktopWorldSelectedNode) }}银)
+                                    </button>
+                                    <em v-else>
+                                        当前位置
                                     </em>
                                 </aside>
                             </template>
@@ -2407,7 +2412,7 @@
                                         @pointerup="handleDesktopWorldPointerUp"
                                         @pointercancel="handleDesktopWorldPointerUp"></canvas>
                                 <div class="desktop-world-map-help">
-                                    单指拖动 · 双指捏合缩放 · 点选房间节点查看 · 蓝线连接跨区域道路
+                                    单指拖动 · 双指捏合缩放 · 点选节点可银两飞行 · 蓝线连接跨区域道路
                                 </div>
                                 <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
                                     <small>{{ desktopWorldSelectedNode.region }}</small>
@@ -2418,8 +2423,13 @@
                                             @click="moveToDesktopWorldSelection">
                                         沿当前道路进入
                                     </button>
-                                    <em v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id">
-                                        远方地点仅供查看，需逐房间行走抵达
+                                    <button v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id"
+                                            type="button"
+                                            @click="flyToDesktopWorldNode">
+                                        ✈ 银两飞行 ({{ flyCostForNode(desktopWorldSelectedNode) }}银)
+                                    </button>
+                                    <em v-else>
+                                        当前位置
                                     </em>
                                 </aside>
                             </template>

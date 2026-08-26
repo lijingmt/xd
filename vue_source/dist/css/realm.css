@@ -286,3 +286,18 @@ button.btn.btn-outline-chaofan:hover {
     font-size: 10px;
     font-style: normal;
 }
+
+/* ===== 世界地图仙境氛围底：云海+霞光 ===== */
+.desktop-world-map-overlay {
+    background:
+        radial-gradient(1200px 500px at 20% -8%, rgba(126, 196, 255, 0.20), transparent 60%),
+        radial-gradient(900px 420px at 85% 8%, rgba(255, 214, 156, 0.16), transparent 55%),
+        radial-gradient(1400px 700px at 50% 115%, rgba(94, 168, 148, 0.18), transparent 60%),
+        linear-gradient(180deg, #0a1d2e 0%, #081723 55%, #0a1a24 100%);
+}
+.desktop-world-map-overlay .desktop-world-map-canvas {
+    background:
+        radial-gradient(1000px 460px at 30% 0%, rgba(157, 220, 255, 0.10), transparent 60%),
+        radial-gradient(820px 400px at 88% 12%, rgba(255, 226, 176, 0.08), transparent 55%),
+        transparent;
+}

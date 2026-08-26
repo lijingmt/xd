@@ -1134,6 +1134,41 @@ void test_teleport_list_tier_sort()
 	destruct(player);
 }
 
+void test_fly_to_room_command()
+{
+	object cmd=(object)(ROOT+"/gamelib/cmds/fly_to_room.pike");
+	string source=Stdio.read_file(ROOT+
+		"/gamelib/cmds/fly_to_room.pike") || "";
+	object player=clone(GAMELIB_USER);
+	player->set_name("__testunit_fly__");
+	player->name_cn="飞行测试";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId("human");
+	player->set_profeId("jianxian");
+	player->setup_player("human","jianxian");
+	player->level=120;
+	player->set_att_by_level();
+	int compiled=objectp(cmd);
+	// 费用分档：近/中/远三档均为正数，非法坐标返回0。
+	int near_cost=(int)cmd->query_fly_cost(player,
+		"kunlunshan/fengshentai","kunlunshan/fenxianlu");
+	int bad_cost=(int)cmd->query_fly_cost(player,
+		"kunlunshan/yuxugong","no/such/room");
+	// 命令入口接线：战斗禁飞、路径拒绝、幻境拒绝、静态qge74hye复用。
+	int wired=compiled &&
+		search(source,"战斗中不能起飞")!=-1 &&
+		search(source,"幻境采用独立地图")!=-1 &&
+		search(source,"qge74hye ")!=-1 &&
+		search(source,"save_with_result")!=-1 &&
+		search(source,"飞行已退款")!=-1 &&
+		search(source,"room_level")!=-1;
+	check("世界地图付费飞行命令可编译且闸门/计费接线完整",
+		wired && near_cost>0 && bad_cost==0,
+		sprintf("compiled=%d near=%d bad=%d",compiled,near_cost,bad_cost));
+	destruct(player);
+}
+
 void test_prelogin_command_guards()
 {
 	object original_player = this_player();
@@ -1195,6 +1230,7 @@ int main()
 		test_generated_gear_covers_new_professions();
 		test_teleport_list_tier_sort();
 		test_same_camp_kill_gates();
+		test_fly_to_room_command();
 		test_prelogin_command_guards();
 		test_distributed_channel_chat_contract();
 	};
