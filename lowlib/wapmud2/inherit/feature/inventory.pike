@@ -1016,7 +1016,10 @@ int recall_abnormal_ceiling_gear()
 	object me=this_object();
 	array(object) abnormal=({});
 	foreach(all_inventory(me),object item){
-		if(ITEMSD->query_abnormal_gear_class(item)==2)
+		// class 2为千级失控；class 1自真实包络收紧后覆盖旧双重
+		// 缩放时代(×level/25)的存量装备（tier≥65底版原整档豁免）。
+		// 两类统一走持久化替换，不再只盯千级。
+		if(ITEMSD->query_abnormal_gear_class(item)>=1)
 			abnormal+=({item});
 	}
 	foreach(abnormal,object item){
@@ -1027,8 +1030,11 @@ int recall_abnormal_ceiling_gear()
 				ctime(time())[0..sizeof(ctime(time()))-2]+
 				" user="+me->query_name()+" item="+
 				item->query_name()+" base="+base+
-				" action=recall_ceiling\n");
+				" action=recall_abnormal\n");
 		};
+		// 已穿装备先卸下再替换，防止装备栏悬空引用。
+		if(item->equiped && functionp(me->remove_equipment))
+			catch{ me->remove_equipment(item); };
 		// 持久化替换：生成正常数值的同款装备替换旧装备
 		object replacement=ITEMSD->generate_normal_replacement(item);
 		if(replacement && replacement->move(me)==1){
@@ -1038,8 +1044,6 @@ int recall_abnormal_ceiling_gear()
 		else{
 			if(replacement)
 				destruct(replacement);
-			if(item->equiped && functionp(me->remove_equipment))
-				catch{ me->remove_equipment(item); };
 			destruct(item);
 			removed_items++;
 		}

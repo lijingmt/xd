@@ -2253,12 +2253,36 @@ private array(string) abnormal_gear_attack_defense_attrs=({
  约束表上限500倍）；2=超出千级合法峰值10倍的上限装（含无法解析
  底版但攻防族属性超过265000绝对线的装备）。随身登录回收、仓库
  回收必须共用本分类，防止阈值漂移。 */
+/** 单条属性的当前真实生成包络：掉落/洗炼/兑换任何路径可达到的最大值。
+ T≤65底版（掉落均匀差与洗炼[70%,100%]均不超过目标级）：(L/T)×rate_add(L)。
+ T>65底版（掉落最大2倍差、洗炼[140%,200%]）：(T+2(L-T))/T×rate_add(L)。
+ 百分比属性（命中/暴击/闪避）不参与rate放大：包络=约束表limit。
+ 无等级旧装备按历史最高目标73级估算。 */
+private int query_gear_line_ceiling(string attr,int limit,int tier,
+	int item_level)
+{
+	float rate;
+	if(limit<1 || tier<1)
+		return 0;
+	if(search(({"hitte_add","doub_add","dodge_add"}),attr)!=-1)
+		return limit;
+	if(item_level<1)
+		item_level=73;
+	rate=(float)item_level/(float)tier;
+	if(tier>65 && item_level>tier)
+		rate=((float)tier+(float)(item_level-tier)*2.0)/
+			(float)tier;
+	rate*=get_item_rate_add(item_level);
+	return (int)((float)limit*rate);
+}
+
 int query_abnormal_gear_class(object item)
 {
 	string base;
 	mapping(string:int) caps;
 	int tier;
 	int over_cap=0;
+	int over_envelope=0;
 	int item_level;
 	if(!item || !functionp(item->query_item_rareLevel))
 		return 0;
@@ -2271,12 +2295,16 @@ int query_abnormal_gear_class(object item)
 		item_level=functionp(item->query_item_canLevel) ?
 			max(0,(int)item->query_item_canLevel()) : 0;
 		foreach(sort(indices(caps)),string attr){
-			mixed reader=item["query_"+attr];
+			mixed raw=item[attr];
 			int value;
 			int cap;
-			if(!functionp(reader))
+			int ceiling;
+			// 读裸变量而非query_ getter：life/mofa的getter×10、
+			// 新月职业契合的getter叠加共鸣，都会把合法装备误判
+			// 成异常。未掷出的属性变量缺省为0。
+			if(!intp(raw))
 				continue;
-			value=(int)call_function(reader);
+			value=raw;
 			cap=(caps[attr]/100000)*item_level*4;
 			if(cap<caps[attr]/100000*500)
 				cap=caps[attr]/100000*500;
@@ -2284,7 +2312,18 @@ int query_abnormal_gear_class(object item)
 				return 2;
 			if(value>cap)
 				over_cap=1;
+			// 真实包络收紧：旧双重缩放时代(×level/25)的存量装备
+			// （如天仙境280级力量12260、闪避穿透301）数值约为包络
+			// 的10-150倍，却远低于松回收线，tier≥65底版更是整档
+			// 豁免。超包络3倍即判爆炸装，登录时按既有机制替换为
+			// 同款正常数据装备；3倍余量覆盖生成钳制与保底边界。
+			ceiling=query_gear_line_ceiling(attr,caps[attr]/100000,
+				tier,item_level)*3;
+			if(ceiling>0 && value>ceiling)
+				over_envelope=1;
 		}
+		if(over_envelope)
+			return 1;
 		if(over_cap && tier>=1 && tier<65)
 			return 1;
 		return 0;

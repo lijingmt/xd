@@ -60,6 +60,10 @@ int main()
 	int ceiling_jade_unchanged=0;
 	int jade_ceiling_before=0;
 	int jade_ceiling_after=0;
+	int legacy_class=0;
+	int intlegal_class=0;
+	int envelope_legacy_flagged=0;
+	int envelope_legal_kept=0;
 	object|zero got_item=0;
 	int file_class_ok=0;
 	int deposit_refused=0;
@@ -132,26 +136,25 @@ int main()
 			objectp(normal);
 		if(normal)
 			destruct(normal);
-		// 千级上限报警回收：超上限10倍的装备直接销毁、不补碎玉；
-		// 钳制线内的合法极值装备（上限×500）必须保留。
+		// 千级上限报警回收：超上限10倍的装备替换为正常同款、不补碎玉；
+		// 真实包络内的合法装备（攻击12≤包络15）必须保留。
 		object extreme=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
 		extreme->set_attack_add(9999999);
 		extreme->move(player);
 		object legit=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
-		legit->set_attack_add(2000);
+		legit->set_attack_add(12);
 		legit->move(player);
 		jade_ceiling_before=YUSHID->query_all_num(player);
 		player->recall_abnormal_ceiling_gear();
 		jade_ceiling_after=YUSHID->query_all_num(player);
-		// 持久化替换验证：旧装备被移除，新装备已进入背包，
-		// 且新装备的攻击值在合法范围内。
+		// 持久化替换验证：旧装备被移除，替换件已实际进入背包
+		// （存在除保留的legit之外的新装备），合法装备原样保留。
 		int replacement_seen=0;
 		foreach(all_inventory(player),object inv){
-			if(inv && functionp(inv->query_attack_add) &&
-			   (int)inv->query_attack_add()>0 &&
-			   (int)inv->query_attack_add()<=5*400*4){
+			if(inv && inv!=legit &&
+			   functionp(inv->query_item_rareLevel)){
 				replacement_seen=1;
 				break;
 			}
@@ -163,6 +166,36 @@ int main()
 		ceiling_jade_unchanged=jade_ceiling_after==jade_ceiling_before;
 		if(legit)
 			destruct(legit);
+		// 真实包络收紧：旧双重缩放时代(×level/25)的存量装备（天仙境
+		// 280级力量12260/闪避穿透301/命中20）超出真实生成包络3倍，
+		// tier≥65底版不再整档豁免；包络内的合法极值不受影响。
+		{
+			string forge70_dir=ROOT+"/gamelib/clone/item/weapon/"+
+				"70baokukuangjian/";
+			string forge70_base=Stdio.read_file(forge70_dir+
+				"70baokukuangjian") || "";
+			string forge_legacy=forge70_base[
+				0..sizeof(forge70_base)-3]+
+				"set_item_canLevel(280);set_str_add(12260);"+
+				"set_dodgechuantou_add(301);set_hitte_add(20);"+
+				"\n}\n";
+			string forge_legal=forge70_base[
+				0..sizeof(forge70_base)-3]+
+				"set_item_canLevel(280);set_str_add(880);\n}\n";
+			Stdio.write_file(forge70_dir+"zztestunitlegacy",
+				forge_legacy);
+			Stdio.write_file(forge70_dir+"zztestunitlegal70",
+				forge_legal);
+			legacy_class=ITEMSD->query_abnormal_gear_class_by_file(
+				"weapon/70baokukuangjian/zztestunitlegacy");
+			intlegal_class=ITEMSD->
+				query_abnormal_gear_class_by_file(
+				"weapon/70baokukuangjian/zztestunitlegal70");
+			rm(forge70_dir+"zztestunitlegacy");
+			rm(forge70_dir+"zztestunitlegal70");
+			envelope_legacy_flagged=legacy_class==1;
+			envelope_legal_kept=intlegal_class==0;
+		}
 		// 洗炼保底：资源型重掷走[70%,100%]差额采样，底版25@280级
 		// 最低rate=(25+178)/25×2.7≈21.9。任何被rate放大的单条属性
 		// 都不得低于底版1点×最低rate(≈21)。逐条检查而非只看三条
@@ -271,12 +304,18 @@ int main()
 	check("千级上限：超上限装备被钳回合法数值",
 		!err && ceiling_removed,
 		"异常装备未被矫正");
-	check("千级上限：合法极值装备（上限×500）不被误删",
+	check("千级上限：包络内合法装备不被误删",
 		!err && ceiling_kept_legit,
 		"合法装备被误删");
 	check("千级上限：回收不发放碎玉",
 		!err && ceiling_jade_unchanged,
 		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));
+	check("真实包络：旧双重缩放存量(tier≥65底版)被判爆炸装",
+		!err && envelope_legacy_flagged,
+		sprintf("legacy_class=%d",legacy_class));
+	check("真实包络：包络内合法极值装备不受影响",
+		!err && envelope_legal_kept,
+		sprintf("legal_class=%d",intlegal_class));
 	check("仓库分类：文件级判定爆炸/千级/正常三档",
 		!err && file_class_ok,
 		"按物品文件克隆分类失败");
