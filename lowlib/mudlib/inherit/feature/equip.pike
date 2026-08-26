@@ -995,6 +995,15 @@ array(string) query_item_profeLimit(){
 	if(sizeof(item_profeLimit) &&
 	   search(item_profeLimit,"wuxiang")==-1)
 		item_profeLimit += ({"wuxiang"});
+	// 太极与照命同批进入自动白名单：查询侧统一补齐，任何带职业
+	// 限制的装备（含全部历史存量文件）即时可穿可显示，玩家曾反馈
+	// 所有装备都没有太极和照命。
+	if(sizeof(item_profeLimit) &&
+	   search(item_profeLimit,"taiji")==-1)
+		item_profeLimit += ({"taiji"});
+	if(sizeof(item_profeLimit) &&
+	   search(item_profeLimit,"zhaoming")==-1)
+		item_profeLimit += ({"zhaoming"});
 	return item_profeLimit;
 }
 

@@ -1069,6 +1069,44 @@ void test_same_camp_kill_gates()
 	destruct(player);
 }
 
+void test_generated_gear_covers_new_professions()
+{
+	// 太极/照命/无相必须能穿普通动态装备：复用与写盘两条路径都要
+	// 把这批职业补进白名单（玩家反馈所有装备都没有太极和照命）。
+	object|zero staff=0;
+	mixed err=catch{
+		staff=ITEMSD->get_convert_item(
+			"weapon/69xinyuetianfengjian/69xinyuetianfengjian",
+			2,69,120);
+	};
+	int all_covered=0;
+	string prof_detail="unrestricted";
+	if(!err && objectp(staff)){
+		mixed raw_profs=staff->query_item_profeLimit();
+		if(!arrayp(raw_profs) || !sizeof(raw_profs)){
+			// 无职业限制=全职业可穿，视为通过。
+			all_covered=1;
+		}
+		else{
+			array(string) profs=(array)raw_profs;
+			all_covered=1;
+			prof_detail=profs*",";
+			foreach(({"fangshi","zhenyue","tianxiang","lingyi",
+			   "wuxiang","taiji","zhaoming"}),string need)
+				if(search(profs,need)==-1){
+					all_covered=0;
+					prof_detail+=" 缺"+need;
+				}
+		}
+	}
+	check("生成的职业限制装备补齐全部分流职业",
+		!err && all_covered,
+		err ? describe_error(err) :
+			(staff ? prof_detail : "生成失败"));
+	if(staff)
+		destruct(staff);
+}
+
 void test_teleport_list_tier_sort()
 {
 	object player = clone(GAMELIB_USER);
@@ -1150,6 +1188,7 @@ int main()
 		test_timed_event_daily_entry_contract();
 		test_other_runtime_regressions();
 		test_shuiyu_cap_never_unequips();
+		test_generated_gear_covers_new_professions();
 		test_teleport_list_tier_sort();
 		test_same_camp_kill_gates();
 		test_prelogin_command_guards();
