@@ -1408,7 +1408,8 @@ private void clamp_low_tier_instance(object item,string orgitem)
 
 private object get_attributes_item(string orgitem,int num,
 	int|void orginal_level,int|void target_item_level,void|object item_ob,
-	void|mapping newmoon_collection,void|int reroll_floor)
+	void|mapping newmoon_collection,void|int reroll_floor,
+	void|array(string) reroll_affix_set)
 {
 	// 洗炼保值：重掷结果不低于被洗装备的现有同属性值。
 	// 旧装备可能生成于含×level/25的时代（数值较高），撤掉该缩放后
@@ -1494,11 +1495,27 @@ private object get_attributes_item(string orgitem,int num,
 
 	size=sizeof(attri_allow);
 	count=size<num?size:num;
+	// 指定词条集（回收替换用）：按旧装备实际携带的词条类型重掷，
+	// 数值仍走完整的rate/钳制/保值链，只换数值不换词条。
+	array(string) forced_picks=({});
+	if(arrayp(reroll_affix_set) && sizeof(reroll_affix_set)){
+		foreach(reroll_affix_set,string wanted){
+			foreach(attri_allow || ({}),string candidate)
+				if(candidate==wanted ||
+				   has_prefix(candidate,wanted+":")){
+					forced_picks+=({candidate});
+					break;
+				}
+		}
+	}
+	if(sizeof(forced_picks))
+		count=sizeof(forced_picks);
 	writetmp="    set_item_rareLevel("+count+");\n"; //设置新物品的稀有等级
 
 	if(attri_allow&&size) {
 		for(int i=1;i<=count;i++) {
-			attri=attri_allow[random(size)];
+			attri=(sizeof(forced_picks)>=i) ?
+				forced_picks[i-1] : attri_allow[random(size)];
 
 			if(attri&&sizeof(attri)) {
 				//werror("------------attri="+attri+"---------\n");
@@ -2156,12 +2173,14 @@ object get_ronglian_item(int itemlevel,int playerluck)
 
 //炼化物品（用玉石转化装备属性）调用的接口
 //这个接口也是获得num属性指定装备的接口
-object get_convert_item(string item_rawname,int num,int|void orginal_level,int|void item_level, void|object item_ob)
+object get_convert_item(string item_rawname,int num,int|void orginal_level,
+	int|void item_level, void|object item_ob,
+	void|array(string) reroll_affix_set)
 {
 	mapping newmoon_collection=query_newmoon_collection_for_item(item_ob);
 	// 炼化/兑换都是玩家消耗资源的重掷，走保底区间。
 	object ret_item = get_attributes_item(item_rawname,num,orginal_level,
-		item_level,item_ob,newmoon_collection,1);//生成目标itemlevel大于70级的装备
+		item_level,item_ob,newmoon_collection,1,reroll_affix_set);//生成目标itemlevel大于70级的装备
 	return ret_item;
 }
 
@@ -2382,6 +2401,7 @@ object generate_normal_replacement(object old_item)
 	int quality;
 	object replacement;
 	mixed err;
+	array(string)|zero affix_set=({});
 	if(!old_item || !functionp(old_item->query_item_rareLevel))
 		return 0;
 	base=query_convert_item_rawname(old_item);
@@ -2390,8 +2410,21 @@ object generate_normal_replacement(object old_item)
 	item_level=functionp(old_item->query_item_canLevel) ?
 		max(1,(int)old_item->query_item_canLevel()) : 1;
 	quality=max(1,(int)old_item->query_item_rareLevel());
+	// 同款同词条：回收替换按旧装备实际携带的词条类型重掷数值，
+	// 不再随机换词条（玩家的穿透等词条曾随替换随机消失）。
+	{
+		mapping(string:int) old_caps=query_base_attribute_caps(base);
+		foreach(sort(indices(old_caps)),string attr){
+			mixed raw=old_item[attr];
+			if(intp(raw) && raw>0)
+				affix_set+=({attr});
+		}
+	}
+	if(!sizeof(affix_set))
+		affix_set=0;
 	err=catch{
-		replacement=get_convert_item(base,quality,73,item_level,old_item);
+		replacement=get_convert_item(base,quality,73,item_level,
+			old_item,affix_set);
 	};
 	if(err || !replacement)
 		return 0;

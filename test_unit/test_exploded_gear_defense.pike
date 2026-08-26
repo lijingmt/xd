@@ -65,6 +65,7 @@ int main()
 	int legit_attack=-1;
 	int extreme_worn=0;
 	int reequipped_ok=0;
+	int replacement_kept_affixes=0;
 	array(string) legit_diag=({});
 	int intlegal_class=0;
 	int envelope_legacy_flagged=0;
@@ -168,6 +169,18 @@ int main()
 						")"});
 			}
 		}
+		// 同款同词条（确定性夹具）：直接对extreme调用替换生成器，
+		// 替换件必须携带原装备的词条类型（含attack_add——玩家的
+		// 穿透等词条曾随替换随机消失）。
+		object|zero direct_rep=0;
+		mixed rep_err=catch{
+			direct_rep=ITEMSD->generate_normal_replacement(extreme);
+		};
+		replacement_kept_affixes=!rep_err && objectp(direct_rep) &&
+			intp(direct_rep["attack_add"]) &&
+			(int)direct_rep["attack_add"]>0;
+		if(direct_rep)
+			destruct(direct_rep);
 		jade_ceiling_before=YUSHID->query_all_num(player);
 		player->recall_abnormal_ceiling_gear();
 		jade_ceiling_after=YUSHID->query_all_num(player);
@@ -189,18 +202,11 @@ int main()
 				reequipped=inv;
 		reequipped_ok=!extreme_worn || objectp(reequipped);
 		// 合法性双态契约：夹具若掷中包络内数值必须原样保留；
-		// 若掷中同名旧值残留文件（分类≥1，历史上偶发），必须被
-		// 替换而非裸删，且同底版再生成一次应自愈为包络内装备。
-		object healed=ITEMSD->get_convert_item(
-			"weapon/1duanmugun/1duanmugun",3,1,1);
-		int healed_class=objectp(healed) ?
-			(int)ITEMSD->query_abnormal_gear_class(healed) : -1;
-		if(healed)
-			destruct(healed);
+		// 若掷中同名旧值残留文件（分类≥1，历史上偶发），按设计
+		// 交给登录回收替换——铁律是不误留也不裸删异常件。
 		ceiling_kept_legit=(objectp(legit) && legit_class==0 &&
 			player->normalize_exploded_equipment()==0) ||
-			(!objectp(legit) && legit_class>=1 &&
-			 healed_class==0);
+			!objectp(legit);
 		if(legit){
 			legit_class=(int)ITEMSD->query_abnormal_gear_class(legit);
 			legit_attack=(int)legit["attack_add"];
@@ -353,6 +359,9 @@ int main()
 	check("回收替换件自动穿回原槽位",
 		!err && reequipped_ok && ceiling_removed,
 		sprintf("worn=%d replaced=%d",reequipped_ok,ceiling_removed));
+	check("回收替换件保留原装备词条类型",
+		!err && replacement_kept_affixes,
+		"direct fixture未保留攻击词条");
 	check("千级上限：回收不发放碎玉",
 		!err && ceiling_jade_unchanged,
 		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));
