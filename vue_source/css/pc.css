@@ -1,0 +1,1591 @@
+/*
+ * Xiand isolated desktop client.
+ *
+ * This file is injected only into pc.html. The mobile index.html never loads
+ * it, so desktop layout experiments cannot change touch sizing or phone flow.
+ */
+
+.pc-desktop-bar {
+    display: none;
+}
+
+@media (min-width: 960px) and (pointer: fine) {
+    :root[data-client-layout="pc"] {
+        --pc-sidebar-width: 292px;
+        --pc-page-gap: 20px;
+        --pc-page-edge: 22px;
+        --pc-header-height: 94px;
+        --pc-content-max: 1120px;
+        --ui-shell-width: 100%;
+        --ui-reading-max: 980px;
+        --ui-content-gutter: 30px;
+        --ui-header-reserve: 118px;
+        --ui-more-columns: 2;
+        --ui-battle-max: 340px;
+        --quick-nav-height: auto;
+        --quick-tool-height: 43px;
+        --quick-label-size: 12px;
+        --quick-tool-icon-size: 17px;
+        color-scheme: light dark;
+    }
+
+    html[data-client-layout="pc"] {
+        min-width: 960px;
+        overflow-x: auto;
+        scroll-padding-top: 126px;
+        scroll-padding-bottom: 24px;
+    }
+
+    html[data-client-layout="pc"] body {
+        min-width: 960px;
+        padding: 0;
+        background:
+            radial-gradient(circle at 78% 5%, rgba(96, 165, 250, 0.13), transparent 28rem),
+            radial-gradient(circle at 4% 94%, rgba(168, 85, 247, 0.11), transparent 31rem),
+            var(--bg-main);
+    }
+
+    html[data-client-layout="pc"] #app {
+        width: 100%;
+        max-width: none;
+        min-height: 100vh;
+        margin: 0;
+        padding: var(--pc-page-edge) var(--pc-page-edge) 36px
+            calc(var(--pc-sidebar-width) + var(--pc-page-edge) * 2);
+        overflow: visible;
+    }
+
+    /* Desktop login becomes a true wide-screen form, not a stretched phone card. */
+    html[data-client-layout="pc"] .auth-overlay {
+        padding: 32px;
+        background:
+            linear-gradient(120deg, rgba(16, 24, 40, 0.8), rgba(35, 24, 58, 0.76)),
+            var(--bg-main);
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) {
+        display: grid;
+        width: min(920px, calc(100vw - 80px));
+        max-width: 920px;
+        grid-template-columns: minmax(270px, 0.82fr) minmax(390px, 1.18fr);
+        grid-template-areas:
+            "brand form"
+            "features form"
+            "message form"
+            "actions form";
+        align-items: start;
+        gap: 16px 42px;
+        padding: 42px 48px;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-brand {
+        grid-area: brand;
+        align-self: end;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-feature-row {
+        grid-area: features;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-form {
+        grid-area: form;
+        padding: 24px;
+        border: 1px solid var(--ux-line);
+        border-radius: 18px;
+        background: var(--ux-surface-muted);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-message {
+        grid-area: message;
+    }
+
+    html[data-client-layout="pc"] .auth-modal:not(.register-modal) .auth-secondary-actions {
+        grid-area: actions;
+        align-self: start;
+    }
+
+    html[data-client-layout="pc"] .register-modal,
+    html[data-client-layout="pc"] .character-modal {
+        width: min(1100px, calc(100vw - 80px));
+        max-width: 1100px;
+    }
+
+    html[data-client-layout="pc"] .character-list,
+    html[data-client-layout="pc"] .character-avatar-grid,
+    html[data-client-layout="pc"] .profession-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    /* Top status is a centered desktop command header. */
+    html[data-client-layout="pc"] .game-header,
+    html[data-client-layout="pc"] .game-header.has-header-pet,
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) {
+        position: sticky;
+        z-index: 2200;
+        top: 14px;
+        display: grid;
+        width: min(100%, var(--pc-content-max));
+        min-height: var(--pc-header-height);
+        grid-template-columns: 62px 94px 32px minmax(0, 1fr) 54px;
+        align-items: center;
+        gap: 12px;
+        margin: 0 auto 18px;
+        padding: 12px 16px;
+        border: 1px solid color-mix(in srgb, var(--ux-line) 84%, transparent);
+        border-radius: 18px;
+        box-shadow: 0 18px 48px rgba(17, 24, 39, 0.16);
+        backdrop-filter: blur(22px) saturate(1.2);
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) {
+        grid-template-columns: 62px 32px minmax(0, 1fr) 54px;
+    }
+
+    html[data-client-layout="pc"] .player-avatar-shell {
+        grid-column: 1;
+        width: 58px;
+        height: 58px;
+        flex-basis: 58px;
+    }
+
+    html[data-client-layout="pc"] .header-pet-slots {
+        grid-column: 2;
+        width: 92px;
+        gap: 8px;
+    }
+
+    html[data-client-layout="pc"] .header-pet-slots .header-pet-companion {
+        width: 42px;
+        max-width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+    }
+
+    html[data-client-layout="pc"] .header-pet-slots .header-pet-icon {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+        font-size: 22px;
+    }
+
+    html[data-client-layout="pc"] .header-collapse-btn {
+        grid-column: 3;
+        display: grid;
+    }
+
+    html[data-client-layout="pc"] .player-info {
+        grid-column: 4;
+        gap: 7px;
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .header-collapse-btn {
+        grid-column: 2;
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .player-info {
+        grid-column: 3;
+    }
+
+    html[data-client-layout="pc"] .header-actions,
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .header-actions {
+        grid-column: 5;
+        width: 48px;
+        flex-basis: 48px;
+    }
+
+    html[data-client-layout="pc"] .game-header:not(.has-header-pet) .header-actions {
+        grid-column: 4;
+    }
+
+    html[data-client-layout="pc"] .player-info-line {
+        gap: 8px;
+        font-size: 13px;
+    }
+
+    html[data-client-layout="pc"] .player-name-cn {
+        max-width: 180px;
+        font-size: 15px;
+    }
+
+    html[data-client-layout="pc"] .player-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(110px, 1fr)) auto;
+        gap: 8px;
+    }
+
+    html[data-client-layout="pc"] .stat-bar {
+        grid-template-columns: auto minmax(42px, 1fr) auto;
+    }
+
+    html[data-client-layout="pc"] .stat-value {
+        display: block;
+        max-width: 72px;
+    }
+
+    html[data-client-layout="pc"] .header-dropdown-menu {
+        width: 310px;
+        max-height: calc(100vh - 132px);
+    }
+
+    /* PC command deck: a real game navigation console rather than a stretched
+       mobile bottom bar. It is isolated to pc.html by this stylesheet. */
+    html[data-client-layout="pc"] .pc-command-deck {
+        position: fixed;
+        z-index: 2050;
+        top: var(--pc-page-edge);
+        bottom: var(--pc-page-edge);
+        left: var(--pc-page-edge);
+        display: grid;
+        width: var(--pc-sidebar-width);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        overflow: hidden;
+        border: 1px solid rgba(128, 157, 184, 0.32);
+        border-radius: 20px;
+        background:
+            linear-gradient(180deg, rgba(12, 24, 40, 0.985), rgba(7, 14, 27, 0.985)),
+            var(--ux-surface-strong);
+        color: #edf5ff;
+        box-shadow: 0 28px 70px rgba(1, 6, 15, 0.42), inset 0 1px rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(24px) saturate(1.25);
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand {
+        display: flex;
+        min-height: 74px;
+        align-items: center;
+        gap: 11px;
+        padding: 13px 15px;
+        border-bottom: 1px solid rgba(139, 169, 199, 0.2);
+        background:
+            radial-gradient(circle at 18% 10%, rgba(103, 198, 255, 0.18), transparent 58%),
+            linear-gradient(110deg, rgba(30, 56, 82, 0.42), transparent);
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand-mark {
+        display: grid;
+        width: 43px;
+        height: 43px;
+        flex: 0 0 43px;
+        place-items: center;
+        border: 1px solid rgba(255, 217, 128, 0.62);
+        border-radius: 13px;
+        background: linear-gradient(145deg, #7f6028, #282850 64%, #163a50);
+        color: #fff0b4;
+        box-shadow: 0 0 22px rgba(255, 210, 102, 0.18), inset 0 1px rgba(255, 255, 255, 0.2);
+        font: 800 21px/1 "Noto Serif SC", "Songti SC", serif;
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand > span:nth-child(2) {
+        display: grid;
+        min-width: 0;
+        flex: 1;
+        gap: 2px;
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand strong {
+        color: #fff3c7;
+        font: 800 18px/1.1 "Noto Serif SC", "Songti SC", serif;
+        letter-spacing: 0.08em;
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand small {
+        color: #88a5bd;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand > i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #7e8795;
+        box-shadow: 0 0 0 4px rgba(126, 135, 149, 0.1);
+    }
+
+    html[data-client-layout="pc"] .pc-command-brand > i.online {
+        background: #64e4a0;
+        box-shadow: 0 0 14px #64e4a0, 0 0 0 4px rgba(100, 228, 160, 0.12);
+    }
+
+    html[data-client-layout="pc"] .pc-command-core {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        padding: 10px 10px 9px;
+        border-bottom: 1px solid rgba(139, 169, 199, 0.16);
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button,
+    html[data-client-layout="pc"] .pc-command-grid button {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        border: 1px solid rgba(132, 163, 193, 0.23);
+        background: linear-gradient(160deg, rgba(31, 52, 76, 0.82), rgba(14, 27, 45, 0.92));
+        color: #dce8f5;
+        cursor: pointer;
+        transition: border-color 150ms ease, background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button {
+        min-height: 62px;
+        justify-items: center;
+        gap: 1px;
+        padding: 7px 3px 5px;
+        border-radius: 11px;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button > span {
+        color: #a9dff5;
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core b,
+    html[data-client-layout="pc"] .pc-command-grid b,
+    html[data-client-layout="pc"] .pc-command-footer b {
+        overflow: hidden;
+        font-size: 11px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core small {
+        display: none;
+    }
+
+    html[data-client-layout="pc"] .pc-command-core button.active,
+    html[data-client-layout="pc"] .pc-command-grid button.active {
+        border-color: rgba(103, 205, 255, 0.76);
+        background: linear-gradient(160deg, rgba(38, 104, 141, 0.9), rgba(21, 48, 78, 0.94));
+        box-shadow: 0 0 20px rgba(68, 180, 240, 0.18), inset 0 1px rgba(255, 255, 255, 0.12);
+        color: #fff;
+    }
+
+    html[data-client-layout="pc"] .pc-command-scroll {
+        min-height: 0;
+        padding: 4px 8px 12px 10px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-color: rgba(119, 160, 188, 0.46) transparent;
+        scrollbar-width: thin;
+    }
+
+    html[data-client-layout="pc"] .pc-command-group {
+        padding: 9px 0 2px;
+    }
+
+    html[data-client-layout="pc"] .pc-command-group + .pc-command-group {
+        border-top: 1px solid rgba(139, 169, 199, 0.12);
+    }
+
+    html[data-client-layout="pc"] .pc-command-group h3 {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin: 0 3px 7px;
+        color: #c5d7e7;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+    }
+
+    html[data-client-layout="pc"] .pc-command-group h3 small {
+        color: #627f96;
+        font-size: 8px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button {
+        min-height: 50px;
+        grid-template-columns: 29px minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        column-gap: 7px;
+        align-content: center;
+        padding: 6px 7px;
+        border-radius: 10px;
+        text-align: left;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button > span {
+        grid-row: 1 / 3;
+        align-self: center;
+        color: #a9dff5;
+        font-size: 20px;
+        line-height: 1;
+        text-align: center;
+        filter: saturate(0.82);
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button small,
+    html[data-client-layout="pc"] .pc-command-footer small {
+        overflow: hidden;
+        color: #7992a7;
+        font-size: 8px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button:hover,
+    html[data-client-layout="pc"] .pc-command-grid button:focus-visible,
+    html[data-client-layout="pc"] .pc-command-core button:hover,
+    html[data-client-layout="pc"] .pc-command-core button:focus-visible {
+        border-color: rgba(117, 202, 234, 0.66);
+        background: linear-gradient(160deg, rgba(35, 73, 99, 0.94), rgba(18, 39, 63, 0.96));
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22), 0 0 16px rgba(76, 179, 224, 0.12);
+        transform: translateY(-1px);
+    }
+
+    html[data-client-layout="pc"] .pc-command-grid button.alert::before {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #ffcf64;
+        box-shadow: 0 0 10px #ffcf64;
+        content: "";
+    }
+
+    html[data-client-layout="pc"] .pc-command-deck button:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+        filter: grayscale(0.7);
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 42px;
+        gap: 7px;
+        padding: 10px;
+        border-top: 1px solid rgba(139, 169, 199, 0.18);
+        background: rgba(3, 10, 20, 0.5);
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child {
+        display: grid;
+        min-height: 48px;
+        grid-template-columns: 32px minmax(0, 1fr);
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border: 1px solid rgba(90, 211, 154, 0.38);
+        border-radius: 11px;
+        background: linear-gradient(140deg, rgba(24, 90, 67, 0.82), rgba(13, 45, 51, 0.9));
+        color: #dffff0;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child > span:first-child {
+        color: #79edac;
+        font-size: 19px;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child > span:last-child {
+        display: grid;
+        min-width: 0;
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child.active {
+        border-color: rgba(255, 144, 124, 0.65);
+        background: linear-gradient(140deg, rgba(113, 44, 51, 0.86), rgba(63, 28, 45, 0.94));
+    }
+
+    html[data-client-layout="pc"] .pc-command-footer > button:first-child.active > span:first-child {
+        color: #ff9e8c;
+    }
+
+    html[data-client-layout="pc"] .pc-command-mobile {
+        min-height: 48px;
+        border: 1px solid rgba(132, 163, 193, 0.24);
+        border-radius: 11px;
+        background: rgba(22, 38, 59, 0.88);
+        color: #a9bfd2;
+        font-size: 20px;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] kbd,
+    html[data-client-layout="pc"] [data-pc-key]::after {
+        min-width: 18px;
+        padding: 1px 5px;
+        border: 1px solid color-mix(in srgb, var(--ux-line) 88%, white 12%);
+        border-radius: 5px;
+        background: var(--ux-surface-strong);
+        color: var(--ux-ink-muted);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+        font: 700 10px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .quick-actions,
+    html[data-client-layout="pc"] [data-theme="classic"] .quick-actions,
+    html[data-client-layout="pc"] [data-theme="dark"] .quick-actions,
+    html[data-client-layout="pc"] [data-theme="light"] .quick-actions {
+        position: fixed;
+        z-index: 1900;
+        top: 116px;
+        right: auto;
+        bottom: var(--pc-page-edge);
+        left: var(--pc-page-edge);
+        display: flex;
+        width: var(--pc-sidebar-width);
+        max-width: var(--pc-sidebar-width);
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+        overflow: hidden;
+        border: 1px solid var(--ux-line);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--ux-surface-strong) 96%, transparent);
+        box-shadow: var(--ux-shadow);
+        transform: none;
+        backdrop-filter: blur(18px);
+    }
+
+    html[data-client-layout="pc"] .quick-primary-nav {
+        order: 1;
+        display: grid;
+        width: 100%;
+        min-height: 0;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 5px;
+    }
+
+    html[data-client-layout="pc"] .quick-nav-btn {
+        min-height: 54px;
+        height: 54px;
+        padding: 5px 2px;
+        border: 1px solid var(--ux-line);
+        background: var(--ux-surface-muted);
+        font-size: 10px;
+    }
+
+    html[data-client-layout="pc"] .quick-nav-btn.active::before {
+        top: -1px;
+        width: 30px;
+        height: 3px;
+    }
+
+    html[data-client-layout="pc"] .quick-more-panel {
+        position: static;
+        order: 2;
+        display: flex !important;
+        min-height: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        padding: 9px;
+        overflow: hidden;
+        border-radius: 12px;
+        box-shadow: none;
+    }
+
+    html[data-client-layout="pc"] .quick-more-heading {
+        margin-bottom: 7px;
+    }
+
+    html[data-client-layout="pc"] .quick-panel-close {
+        display: none;
+    }
+
+    html[data-client-layout="pc"] .quick-more-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding-right: 2px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    html[data-client-layout="pc"] .quick-tool-btn {
+        position: relative;
+        min-height: 43px;
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 6px;
+        padding: 7px 22px 7px 8px;
+        text-align: left;
+    }
+
+    html[data-client-layout="pc"] [data-pc-key]::after {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        content: attr(data-pc-key);
+    }
+
+    /* The MUD output is a desktop reading canvas with mouse-sized controls. */
+    html[data-client-layout="pc"] .game-frame-container {
+        width: min(100%, var(--pc-content-max));
+        min-height: calc(100vh - 148px);
+        margin: 0 auto;
+        overflow: visible;
+        border: 1px solid var(--ux-line);
+        border-radius: 20px;
+        background: var(--ux-surface-strong);
+        box-shadow: 0 24px 70px rgba(17, 24, 39, 0.13);
+    }
+
+    html[data-client-layout="pc"] .mud-output-container,
+    html[data-client-layout="pc"] .mud-output-container.dark-mode {
+        min-height: calc(100vh - 150px);
+        border-radius: 20px;
+    }
+
+    html[data-client-layout="pc"] .mud-child {
+        width: 100%;
+        max-width: var(--ui-reading-max);
+        margin: 0 auto;
+        padding: 28px var(--ui-content-gutter) 56px;
+        font-size: max(15px, var(--mud-font-size));
+        line-height: 1.72;
+    }
+
+    html[data-client-layout="pc"] .mud-line {
+        margin-bottom: 3px;
+    }
+
+    html[data-client-layout="pc"] .mud-btn,
+    html[data-client-layout="pc"] .mud-url,
+    html[data-client-layout="pc"] .mud-confirm-btn,
+    html[data-client-layout="pc"] .mud-form-submit-btn {
+        min-height: 34px;
+        margin: 3px 5px 3px 0;
+        padding: 6px 11px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+
+    html[data-client-layout="pc"] .mud-input {
+        min-height: 36px;
+        padding: 6px 10px;
+    }
+
+    html[data-client-layout="pc"] .mud-inline-image {
+        max-width: min(100%, 260px);
+        max-height: 340px;
+    }
+
+    html[data-client-layout="pc"] .illusion-story-card {
+        width: min(72%, 34rem, 64vh);
+    }
+
+    html[data-client-layout="pc"] button:hover,
+    html[data-client-layout="pc"] .mud-btn:hover,
+    html[data-client-layout="pc"] .mud-url:hover {
+        border-color: color-mix(in srgb, var(--ux-accent) 52%, var(--ux-line));
+        box-shadow: 0 7px 18px rgba(35, 44, 77, 0.14);
+        transform: translateY(-1px);
+    }
+
+    html[data-client-layout="pc"] button:focus-visible,
+    html[data-client-layout="pc"] a:focus-visible,
+    html[data-client-layout="pc"] input:focus-visible,
+    html[data-client-layout="pc"] select:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--ux-accent) 72%, white 28%);
+        outline-offset: 2px;
+    }
+
+    html[data-client-layout="pc"] .ui-toast-stage {
+        top: 132px;
+        left: calc(var(--pc-sidebar-width) + (100vw - var(--pc-sidebar-width)) / 2);
+    }
+
+    html[data-client-layout="pc"] .pet-level-up-stage {
+        top: 196px;
+        left: calc(var(--pc-sidebar-width) + (100vw - var(--pc-sidebar-width)) / 2);
+    }
+
+    html[data-client-layout="pc"] .modal,
+    html[data-client-layout="pc"] .chat-room,
+    html[data-client-layout="pc"] .invite-modal,
+    html[data-client-layout="pc"] .equipment-panel {
+        max-width: min(1100px, calc(100vw - 80px));
+        max-height: calc(100vh - 64px);
+    }
+
+    html[data-client-layout="pc"] .chat-room {
+        width: min(880px, calc(100vw - 80px));
+        height: min(760px, calc(100vh - 64px));
+    }
+
+    /* Real-time visual room. The server remains authoritative; this layer only
+       turns its room output, hidden commands and status into a PC game scene. */
+    html[data-client-layout="pc"] .game-frame-container.desktop-visual-game-active {
+        width: min(100%, 1240px);
+        padding: 10px;
+        overflow: hidden;
+        border-color: rgba(111, 142, 190, 0.5);
+        background: #080d19;
+        box-shadow: 0 28px 90px rgba(3, 7, 18, 0.42);
+    }
+
+    html[data-client-layout="pc"] .desktop-rpg-shell {
+        display: grid;
+        gap: 9px;
+        color: #edf4ff;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-header {
+        display: grid;
+        min-height: 74px;
+        grid-template-columns: minmax(250px, 1fr) auto auto;
+        align-items: center;
+        gap: 18px;
+        padding: 10px 14px;
+        border: 1px solid rgba(123, 151, 201, 0.3);
+        border-radius: 15px;
+        background:
+            linear-gradient(110deg, rgba(17, 29, 54, 0.98), rgba(20, 15, 42, 0.96));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-title {
+        min-width: 0;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-title small {
+        color: #87a8d5;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-title h2 {
+        margin: 1px 0 0;
+        overflow: hidden;
+        color: #fff5cf;
+        font: 800 21px/1.15 "Noto Serif SC", "Songti SC", serif;
+        text-overflow: ellipsis;
+        text-shadow: 0 0 20px rgba(255, 207, 100, 0.28);
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-title p {
+        max-width: 560px;
+        margin: 4px 0 0;
+        overflow: hidden;
+        color: #aebbd0;
+        font-size: 11px;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #b9c9df;
+        font-size: 11px;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-status span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 8px;
+        border: 1px solid rgba(125, 151, 190, 0.26);
+        border-radius: 999px;
+        background: rgba(7, 14, 29, 0.46);
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-status i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #5ee8a4;
+        box-shadow: 0 0 9px #5ee8a4;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-status .syncing i {
+        animation: desktop-scene-pulse 0.8s ease-in-out infinite alternate;
+        background: #7cc8ff;
+        box-shadow: 0 0 10px #7cc8ff;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-tools {
+        display: flex;
+        gap: 7px;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-tools button {
+        min-height: 34px;
+        padding: 6px 10px;
+        border: 1px solid rgba(139, 166, 208, 0.34);
+        border-radius: 9px;
+        background: rgba(16, 29, 52, 0.78);
+        color: #c9d7eb;
+        font-size: 11px;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-tools button.active {
+        border-color: rgba(117, 210, 255, 0.76);
+        background: rgba(31, 89, 127, 0.74);
+        color: #fff;
+        box-shadow: 0 0 18px rgba(80, 184, 255, 0.18);
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-stage {
+        position: relative;
+        width: 100%;
+        min-height: 520px;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border: 1px solid rgba(139, 166, 210, 0.42);
+        border-radius: 17px;
+        background-color: #07111c;
+        box-shadow:
+            inset 0 0 80px rgba(0, 0, 0, 0.34),
+            0 16px 46px rgba(0, 0, 0, 0.24);
+        cursor: crosshair;
+        user-select: none;
+    }
+
+    /* The nearby view is a true 3x3 room mosaic. Every visible terrain cell
+       represents either the authoritative current room or a real adjacent exit. */
+    html[data-client-layout="pc"] .desktop-nearby-map {
+        position: absolute;
+        z-index: 0;
+        inset: 0;
+        overflow: hidden;
+        background: #07131b;
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-tile {
+        position: absolute;
+        width: calc(33.3334% + 2px);
+        height: calc(33.3334% + 2px);
+        margin: -1px;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background-color: #172a2b;
+        background-repeat: no-repeat;
+        background-size: 300% 300%;
+        box-shadow: inset 0 0 34px rgba(1, 5, 8, 0.26);
+        color: #fff;
+        opacity: 1;
+        cursor: default;
+        transition: filter 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-tile:disabled {
+        opacity: 1;
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-exit {
+        z-index: 2;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-exit:hover,
+    html[data-client-layout="pc"] .desktop-terrain-exit:focus-visible {
+        z-index: 4;
+        filter: saturate(1.16) brightness(1.1);
+        box-shadow:
+            inset 0 0 0 3px rgba(150, 225, 255, 0.88),
+            inset 0 0 46px rgba(52, 166, 222, 0.16),
+            0 0 34px rgba(71, 183, 232, 0.45);
+        transform: scale(1.025);
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-current {
+        z-index: 3;
+        box-shadow:
+            inset 0 0 0 3px rgba(255, 222, 124, 0.88),
+            inset 0 0 58px rgba(255, 205, 93, 0.13),
+            0 0 42px rgba(255, 210, 102, 0.3);
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-fog {
+        filter: saturate(0.4) brightness(0.3);
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-fog::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background:
+            radial-gradient(circle at center, rgba(19, 40, 43, 0.15), rgba(3, 8, 13, 0.78)),
+            repeating-linear-gradient(135deg, rgba(152, 190, 188, 0.04) 0 3px, transparent 3px 15px);
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-label {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        display: grid;
+        justify-items: start;
+        gap: 1px;
+        padding: 7px 10px;
+        border: 1px solid rgba(223, 235, 226, 0.32);
+        border-radius: 10px;
+        background: linear-gradient(90deg, rgba(4, 12, 16, 0.88), rgba(5, 16, 21, 0.57));
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        text-align: left;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+        backdrop-filter: blur(6px);
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-label b {
+        color: #8ee3ff;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-label strong {
+        max-width: 100%;
+        overflow: hidden;
+        color: #fff7da;
+        font: 800 13px/1.2 "Noto Serif SC", "Songti SC", serif;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .desktop-terrain-label small {
+        color: #c4d8db;
+        font-size: 8px;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-vignette {
+        position: absolute;
+        z-index: 1;
+        inset: 0;
+        pointer-events: none;
+        background:
+            linear-gradient(180deg, rgba(2, 5, 14, 0.24), transparent 24%, transparent 76%, rgba(2, 5, 14, 0.33)),
+            radial-gradient(circle at center, transparent 52%, rgba(3, 7, 17, 0.32) 100%);
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-instruction {
+        position: absolute;
+        z-index: 18;
+        bottom: 12px;
+        left: 50%;
+        padding: 6px 13px;
+        border: 1px solid rgba(170, 197, 234, 0.28);
+        border-radius: 999px;
+        background: rgba(5, 10, 22, 0.72);
+        color: #c5d4e9;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        pointer-events: none;
+        transform: translateX(-50%);
+        backdrop-filter: blur(8px);
+    }
+
+    html[data-client-layout="pc"] .desktop-exit-portal {
+        position: absolute;
+        z-index: 8;
+        display: grid;
+        min-width: 92px;
+        max-width: 150px;
+        place-items: center;
+        gap: 1px;
+        padding: 10px 11px;
+        border: 1px solid rgba(127, 213, 255, 0.64);
+        border-radius: 12px;
+        background: rgba(5, 19, 39, 0.7);
+        color: #e6f7ff;
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+        backdrop-filter: blur(7px);
+    }
+
+    html[data-client-layout="pc"] .desktop-exit-portal:hover {
+        border-color: #b7efff;
+        box-shadow: 0 0 28px rgba(90, 201, 255, 0.46);
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+
+    html[data-client-layout="pc"] .desktop-exit-rune {
+        position: absolute;
+        z-index: -1;
+        width: 72px;
+        height: 72px;
+        border: 2px solid rgba(117, 221, 255, 0.62);
+        border-radius: 50%;
+        box-shadow:
+            0 0 22px rgba(100, 204, 255, 0.62),
+            inset 0 0 18px rgba(108, 215, 255, 0.28);
+        animation: desktop-portal-orbit 5s linear infinite;
+    }
+
+    html[data-client-layout="pc"] .desktop-exit-portal strong {
+        font-size: 13px;
+    }
+
+    html[data-client-layout="pc"] .desktop-exit-portal small {
+        max-width: 124px;
+        overflow: hidden;
+        color: #b5dff5;
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-actor {
+        position: absolute;
+        z-index: 10;
+        display: grid;
+        width: 88px;
+        place-items: center;
+        gap: 3px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+        transition: left 360ms ease, top 360ms ease, filter 160ms ease, transform 160ms ease;
+    }
+
+    html[data-client-layout="pc"] button.desktop-scene-actor:hover,
+    html[data-client-layout="pc"] button.desktop-scene-actor.selected {
+        filter: brightness(1.16);
+        transform: translate(-50%, -50%) scale(1.08);
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-shadow {
+        position: absolute;
+        z-index: -1;
+        top: 47px;
+        width: 53px;
+        height: 15px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.42);
+        filter: blur(4px);
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-portrait {
+        display: grid;
+        width: 56px;
+        height: 56px;
+        place-items: center;
+        overflow: hidden;
+        border: 2px solid rgba(196, 215, 240, 0.72);
+        border-radius: 50% 50% 43% 43%;
+        background: radial-gradient(circle at 50% 28%, #7283a3, #172138 72%);
+        box-shadow: 0 7px 16px rgba(0, 0, 0, 0.44);
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-monster .desktop-actor-portrait {
+        border-color: rgba(255, 126, 119, 0.9);
+        box-shadow: 0 0 18px rgba(238, 67, 69, 0.42), 0 8px 16px rgba(0, 0, 0, 0.46);
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-player .desktop-actor-portrait {
+        border-color: rgba(98, 229, 190, 0.88);
+        box-shadow: 0 0 18px rgba(50, 205, 155, 0.3), 0 8px 16px rgba(0, 0, 0, 0.46);
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-portrait img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        image-rendering: auto;
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-portrait b {
+        font: 800 23px/1 "Noto Serif SC", serif;
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-name {
+        display: grid;
+        max-width: 116px;
+        justify-items: center;
+        padding: 3px 7px;
+        border: 1px solid rgba(194, 212, 239, 0.22);
+        border-radius: 7px;
+        background: rgba(5, 9, 18, 0.78);
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.25;
+        text-shadow: 0 1px 3px #000;
+        white-space: nowrap;
+        backdrop-filter: blur(5px);
+    }
+
+    html[data-client-layout="pc"] .desktop-actor-name em {
+        color: #8fdcff;
+        font-size: 8px;
+        font-style: normal;
+        font-weight: 700;
+    }
+
+    html[data-client-layout="pc"] .desktop-player-actor {
+        z-index: 15;
+        pointer-events: none;
+    }
+
+    html[data-client-layout="pc"] .desktop-player-actor .desktop-actor-portrait {
+        border-color: #ffe08a;
+        box-shadow: 0 0 26px rgba(255, 213, 105, 0.62), 0 9px 18px rgba(0, 0, 0, 0.5);
+    }
+
+    html[data-client-layout="pc"] .desktop-player-aura {
+        position: absolute;
+        z-index: -1;
+        top: 23px;
+        width: 75px;
+        height: 75px;
+        border: 1px solid rgba(255, 225, 145, 0.68);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 221, 112, 0.22), transparent 68%);
+        box-shadow: 0 0 30px rgba(255, 204, 73, 0.28);
+        transform: translateY(-50%);
+    }
+
+    html[data-client-layout="pc"] .desktop-player-actor.moving .desktop-actor-portrait {
+        animation: desktop-player-step 0.36s ease-in-out infinite alternate;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map {
+        position: absolute;
+        z-index: 24;
+        top: 16px;
+        left: 16px;
+        width: 248px;
+        padding: 11px;
+        border: 1px solid rgba(171, 199, 235, 0.4);
+        border-radius: 13px;
+        background: rgba(5, 11, 24, 0.82);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
+        backdrop-filter: blur(12px);
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-title span {
+        color: #f4e6b9;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-title small {
+        color: #8fa5c2;
+        font-size: 8px;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-canvas {
+        position: relative;
+        height: 170px;
+        overflow: hidden;
+        border: 1px solid rgba(105, 135, 179, 0.26);
+        border-radius: 10px;
+        background:
+            radial-gradient(circle at center, rgba(56, 102, 151, 0.22), transparent 45%),
+            linear-gradient(rgba(92, 126, 171, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(92, 126, 171, 0.08) 1px, transparent 1px),
+            rgba(4, 10, 22, 0.62);
+        background-size: auto, 24px 24px, 24px 24px, auto;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-current,
+    html[data-client-layout="pc"] .desktop-world-node {
+        position: absolute;
+        z-index: 2;
+        display: grid;
+        width: 92px;
+        min-height: 42px;
+        place-items: center;
+        padding: 4px 6px;
+        border: 1px solid rgba(135, 180, 225, 0.56);
+        border-radius: 9px;
+        background: rgba(16, 35, 61, 0.93);
+        color: #eaf4ff;
+        font-size: 9px;
+        text-align: center;
+        transform: translate(-50%, -50%);
+    }
+
+    html[data-client-layout="pc"] .desktop-world-current {
+        top: 50%;
+        left: 50%;
+        border-color: rgba(255, 213, 104, 0.72);
+        background: rgba(68, 48, 20, 0.9);
+        color: #fff0be;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-current i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #ffe080;
+        box-shadow: 0 0 10px #ffd867;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node {
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="东"] { top: 50%; left: 79%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="西"] { top: 50%; left: 21%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="南"] { top: 82%; left: 50%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="北"] { top: 18%; left: 50%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="东北"] { top: 20%; left: 78%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="西北"] { top: 20%; left: 22%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="东南"] { top: 80%; left: 78%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="西南"] { top: 80%; left: 22%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="上"] { top: 18%; left: 70%; }
+    html[data-client-layout="pc"] .desktop-world-node[data-direction="下"] { top: 82%; left: 30%; }
+
+    html[data-client-layout="pc"] .desktop-world-node b {
+        color: #8edfff;
+        font-size: 9px;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node span {
+        max-width: 78px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Full topology map: one canvas renders every real room and connection.
+       Canvas avoids thousands of DOM nodes and keeps pan/zoom responsive. */
+    html[data-client-layout="pc"] .desktop-world-map-overlay {
+        position: absolute;
+        z-index: 36;
+        inset: 12px;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        overflow: hidden;
+        border: 1px solid rgba(202, 222, 205, 0.52);
+        border-radius: 16px;
+        background: #081723;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header {
+        z-index: 2;
+        display: flex;
+        min-height: 70px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 10px 14px 10px 18px;
+        border-bottom: 1px solid rgba(177, 205, 195, 0.25);
+        background:
+            linear-gradient(110deg, rgba(17, 39, 47, 0.98), rgba(17, 26, 45, 0.98));
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header > div {
+        display: grid;
+        gap: 1px;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header small {
+        color: #8fb8b7;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header strong {
+        color: #fff0bd;
+        font: 800 20px/1.15 "Noto Serif SC", "Songti SC", serif;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header span {
+        color: #a9c1c5;
+        font-size: 9px;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header nav {
+        display: flex;
+        gap: 7px;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-header button,
+    html[data-client-layout="pc"] .desktop-world-node-inspector button {
+        min-height: 34px;
+        padding: 6px 10px;
+        border: 1px solid rgba(151, 200, 204, 0.42);
+        border-radius: 8px;
+        background: rgba(17, 52, 62, 0.84);
+        color: #e5f5ee;
+        font-size: 10px;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] canvas.desktop-world-map-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        border: 0;
+        border-radius: 0;
+        background: #081723;
+        cursor: grab;
+        touch-action: none;
+    }
+
+    html[data-client-layout="pc"] canvas.desktop-world-map-canvas:active {
+        cursor: grabbing;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-message {
+        display: grid;
+        place-items: center;
+        color: #d6e9e2;
+        font: 700 15px/1.5 "Noto Serif SC", serif;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-error {
+        color: #ffb5ac;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-map-help {
+        position: absolute;
+        right: 18px;
+        bottom: 14px;
+        padding: 6px 10px;
+        border: 1px solid rgba(184, 210, 201, 0.24);
+        border-radius: 999px;
+        background: rgba(4, 13, 19, 0.76);
+        color: #a9c8c4;
+        font-size: 9px;
+        pointer-events: none;
+        backdrop-filter: blur(7px);
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node-inspector {
+        position: absolute;
+        z-index: 3;
+        bottom: 16px;
+        left: 18px;
+        display: grid;
+        min-width: 230px;
+        max-width: 320px;
+        gap: 3px;
+        padding: 12px 14px;
+        border: 1px solid rgba(231, 210, 151, 0.48);
+        border-radius: 12px;
+        background: rgba(6, 18, 23, 0.88);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+        backdrop-filter: blur(10px);
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node-inspector small {
+        color: #83c7d4;
+        font-size: 8px;
+        letter-spacing: 0.12em;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node-inspector strong {
+        color: #fff0bd;
+        font: 800 16px/1.3 "Noto Serif SC", serif;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node-inspector span,
+    html[data-client-layout="pc"] .desktop-world-node-inspector em {
+        color: #b7cac8;
+        font-size: 9px;
+        font-style: normal;
+    }
+
+    html[data-client-layout="pc"] .desktop-world-node-inspector button {
+        margin-top: 6px;
+        border-color: rgba(248, 207, 107, 0.62);
+        background: linear-gradient(180deg, #835f29, #503819);
+        color: #fff2c5;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-panel {
+        position: absolute;
+        z-index: 26;
+        right: 16px;
+        bottom: 16px;
+        width: min(320px, 34%);
+        padding: 14px;
+        border: 1px solid rgba(223, 176, 94, 0.56);
+        border-radius: 14px;
+        background: rgba(15, 15, 27, 0.9);
+        box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(13px);
+    }
+
+    html[data-client-layout="pc"] .desktop-target-close {
+        position: absolute;
+        top: 6px;
+        right: 7px;
+        width: 26px;
+        min-height: 26px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #93a5bd;
+        font-size: 20px;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-heading {
+        display: grid;
+        gap: 2px;
+        margin-bottom: 10px;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-heading span {
+        color: #d4af70;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-heading strong {
+        color: #fff3d3;
+        font: 800 17px/1.25 "Noto Serif SC", serif;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-actions button,
+    html[data-client-layout="pc"] .desktop-target-refresh {
+        min-height: 34px;
+        padding: 6px 8px;
+        border: 1px solid rgba(217, 177, 102, 0.44);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(88, 58, 30, 0.9), rgba(51, 34, 25, 0.94));
+        color: #f8e7be;
+        font-size: 11px;
+        cursor: pointer;
+    }
+
+    html[data-client-layout="pc"] .desktop-target-loading {
+        padding: 12px;
+        color: #b8c6da;
+        font-size: 11px;
+        text-align: center;
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-transition {
+        position: absolute;
+        z-index: 40;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: radial-gradient(circle at center, rgba(24, 44, 74, 0.48), rgba(2, 5, 13, 0.76));
+        color: #e8f5ff;
+        font: 800 16px/1.2 "Noto Serif SC", serif;
+        pointer-events: none;
+        backdrop-filter: blur(2px);
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-transition span {
+        width: 22px;
+        height: 22px;
+        border: 2px solid rgba(150, 220, 255, 0.25);
+        border-top-color: #9ee8ff;
+        border-radius: 50%;
+        animation: desktop-portal-orbit 0.8s linear infinite;
+    }
+
+    html[data-client-layout="pc"] .mud-output-container.desktop-scene-console {
+        min-height: 0;
+        max-height: 176px;
+        margin-top: 9px;
+        overflow-y: auto;
+        border: 1px solid rgba(104, 132, 174, 0.34);
+        border-radius: 13px;
+        background: #0b1120;
+        color: #d9e4f4;
+        transition: max-height 180ms ease;
+    }
+
+    html[data-client-layout="pc"] .mud-output-container.desktop-scene-console-open {
+        max-height: min(54vh, 620px);
+    }
+
+    html[data-client-layout="pc"] .desktop-scene-console .mud-child {
+        max-width: none;
+        padding: 16px 20px 28px;
+        font-size: 12px;
+        line-height: 1.55;
+    }
+
+    @keyframes desktop-portal-orbit {
+        to { transform: rotate(360deg); }
+    }
+
+    @keyframes desktop-player-step {
+        from { transform: translateY(0); }
+        to { transform: translateY(-5px); }
+    }
+
+    @keyframes desktop-scene-pulse {
+        to { opacity: 0.42; transform: scale(0.72); }
+    }
+
+    /* Laptop battle stays as a bottom dock; wide monitors gain a right inspector. */
+    html[data-client-layout="pc"] .battle-panel.mini-mode {
+        right: 28px;
+        bottom: 24px;
+        left: auto;
+        top: auto;
+        width: min(680px, calc(100vw - var(--pc-sidebar-width) - 80px));
+        max-width: 680px;
+        max-height: 310px;
+    }
+
+    html[data-client-layout="pc"] .battle-panel.fullscreen-mode {
+        z-index: 9000;
+    }
+}
+
+@media (min-width: 1440px) and (pointer: fine) {
+    :root[data-client-layout="pc"] {
+        --pc-sidebar-width: 278px;
+        --pc-content-max: 1060px;
+    }
+
+    html[data-client-layout="pc"] .battle-panel.mini-mode {
+        top: 132px;
+        right: 22px;
+        bottom: auto;
+        width: 330px;
+        max-width: 330px;
+        max-height: calc(100vh - 154px);
+    }
+
+    html[data-client-layout="pc"] .game-frame-container.battle-dock-active {
+        width: min(100%, calc(100vw - var(--pc-sidebar-width) - 420px));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-client-layout="pc"] button,
+    html[data-client-layout="pc"] .mud-btn,
+    html[data-client-layout="pc"] .mud-url {
+        transition: none !important;
+    }
+}

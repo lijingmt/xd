@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1787355948173">
-    <link rel="stylesheet" href="css/app.css?v=v1787355948173">
-    <link rel="stylesheet" href="css/realm.css?v=v1787355948173">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787781725583">
+    <link rel="stylesheet" href="css/app.css?v=v1787781725583">
+    <link rel="stylesheet" href="css/realm.css?v=v1787781725583">
 </head>
 <body>
     <div id="app">
@@ -990,6 +990,12 @@
                                 <span class="menu-icon">🔄</span>
                                 <span>返回选择</span>
                             </button>
+                            <button type="button"
+                                    class="menu-item"
+                                    @click="switchClientLayout(clientLayout === 'pc' ? 'mobile' : 'pc'); headerMenuOpen = false;">
+                                <span class="menu-icon">{{ clientLayout === 'pc' ? '📱' : '🖥️' }}</span>
+                                <span>{{ clientLayout === 'pc' ? '切换手机版' : '切换电脑版' }}</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="copyBookmarkUrl(); headerMenuOpen = false;">
                                 <span class="menu-icon">🔗</span>
@@ -1003,6 +1009,120 @@
                     </div>
                 </div>
             </header>
+
+            <aside v-if="clientLayout === 'pc'"
+                   class="pc-command-deck"
+                   aria-label="桌面版游戏功能">
+                <header class="pc-command-brand">
+                    <span class="pc-command-brand-mark" aria-hidden="true">仙</span>
+                    <span>
+                        <strong>仙道</strong>
+                        <small>山海行旅控制台</small>
+                    </span>
+                    <i :class="{ online: txd }" :title="txd ? '世界连接正常' : '尚未进入世界'"></i>
+                </header>
+
+                <nav class="pc-command-core" aria-label="人物核心功能">
+                    <button type="button"
+                            data-pc-key="1"
+                            :class="{ active: isQuickActionActive('look') }"
+                            @click="sendQuickCommand('look')">
+                        <span aria-hidden="true">⌂</span><b>场景</b><small>观察当前区域</small>
+                    </button>
+                    <button type="button"
+                            data-pc-key="2"
+                            :class="{ active: isQuickActionActive('myhp') }"
+                            @click="sendQuickCommand('myhp')">
+                        <span aria-hidden="true">♡</span><b>人物</b><small>属性与状态</small>
+                    </button>
+                    <button type="button"
+                            data-pc-key="3"
+                            data-tour="inventory"
+                            :class="{ active: isQuickActionActive('inventory') }"
+                            @click="sendQuickCommand('inventory')">
+                        <span aria-hidden="true">▣</span><b>行囊</b><small>物品与套装</small>
+                    </button>
+                    <button type="button"
+                            data-pc-key="4"
+                            data-tour="skills"
+                            :class="{ active: isQuickActionActive('myskills') }"
+                            @click="sendQuickCommand('myskills')">
+                        <span aria-hidden="true">◇</span><b>技能</b><small>招式与熟练度</small>
+                    </button>
+                </nav>
+
+                <div class="pc-command-scroll">
+                    <section class="pc-command-group" aria-labelledby="pc-nav-adventure">
+                        <h3 id="pc-nav-adventure"><span>冒险</span><small>山海探索</small></h3>
+                        <div class="pc-command-grid">
+                            <button type="button" data-pc-key="M" @click="openDesktopWorldMap" :disabled="!desktopScene">
+                                <span aria-hidden="true">🧭</span><b>世界地图</b><small>全部房间网络</small>
+                            </button>
+                            <button type="button" data-pc-key="T" data-tour="quests" @click="sendQuickCommand('mytasks')">
+                                <span aria-hidden="true">📜</span><b>任务</b><small>主线与支线</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('daily')" :class="{ alert: playerStats?.daily_goal?.claimable }">
+                                <span aria-hidden="true">{{ playerStats?.daily_goal?.claimable ? '🎁' : '☀' }}</span><b>{{ playerStats?.daily_goal?.claimable ? '每日可领' : '每日修行' }}</b><small>今日成长目标</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('illusion_realm')">
+                                <span aria-hidden="true">🌙</span><b>幻境任务</b><small>赛季历程</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('personal_difficulty')">
+                                <span aria-hidden="true">🔥</span><b>挑战难度</b><small>个人世界层级</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('timed_event')" :class="{ alert: playerStats?.timed_event?.active }">
+                                <span aria-hidden="true">⚖</span><b>限时玩法</b><small>集结与活动</small>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="pc-command-group" aria-labelledby="pc-nav-social">
+                        <h3 id="pc-nav-social"><span>同伴</span><small>队伍与灵伴</small></h3>
+                        <div class="pc-command-grid">
+                            <button type="button" @click="sendQuickCommand('my_term')"><span aria-hidden="true">👥</span><b>队伍</b><small>组队与协作</small></button>
+                            <button type="button" @click="sendQuickCommand('pet')"><span aria-hidden="true">🐾</span><b>共享宠物</b><small>账号共同培养</small></button>
+                            <button type="button" @click="sendQuickCommand('spirit_companion')"><span aria-hidden="true">✦</span><b>本命灵伴</b><small>人物独立伙伴</small></button>
+                            <button type="button" @click="sendQuickCommand('my_bang')"><span aria-hidden="true">🏰</span><b>帮派</b><small>宗门与成员</small></button>
+                            <button type="button" @click="sendQuickCommand('my_games')"><span aria-hidden="true">🌊</span><b>江湖</b><small>世界玩法</small></button>
+                            <button type="button" @click="sendQuickCommand('userlist')"><span aria-hidden="true">🌀</span><b>传送</b><small>好友与地点</small></button>
+                        </div>
+                    </section>
+
+                    <section class="pc-command-group" aria-labelledby="pc-nav-assets">
+                        <h3 id="pc-nav-assets"><span>资源</span><small>仓储与仙资</small></h3>
+                        <div class="pc-command-grid">
+                            <button type="button" data-tour="warehouse" @click="sendQuickCommand('go_warehouse')"><span aria-hidden="true">🧰</span><b>仓库</b><small>人物与共享仓储</small></button>
+                            <button type="button" @click="sendQuickCommand('yushi_change')"><span aria-hidden="true">💎</span><b>玉石</b><small>拆分与合成</small></button>
+                            <button type="button" @click="sendQuickCommand('yushi_myzone')"><span aria-hidden="true">🪙</span><b>仙玉</b><small>资产与兑换</small></button>
+                            <button type="button" @click="sendQuickCommand('vip_service_list')"><span aria-hidden="true">👑</span><b>会员</b><small>权益与时间</small></button>
+                        </div>
+                    </section>
+
+                    <section class="pc-command-group" aria-labelledby="pc-nav-system">
+                        <h3 id="pc-nav-system"><span>修行</span><small>辅助与设置</small></h3>
+                        <div class="pc-command-grid">
+                            <button v-if="playerStats?.profession_assistant?.supported" type="button" @click="sendQuickCommand('profession_assistant')">
+                                <span aria-hidden="true">{{ playerStats.profe === '方士' ? '🔮' : (playerStats.profe === '天象' ? '✦' : (playerStats.profe === '灵医' ? '✚' : '🛡')) }}</span><b>职业助手</b><small>本职专属功能</small>
+                            </button>
+                            <button type="button" @click="sendQuickCommand('autofight open')"><span aria-hidden="true">🛠</span><b>挂机设置</b><small>策略与药品</small></button>
+                            <button type="button" @click="sendQuickCommand('game_detail')"><span aria-hidden="true">⚙</span><b>游戏设置</b><small>表现与偏好</small></button>
+                            <button type="button" @click="refreshFrame"><span aria-hidden="true">↻</span><b>同步画面</b><small>重新读取状态</small></button>
+                        </div>
+                    </section>
+                </div>
+
+                <footer class="pc-command-footer">
+                    <button type="button"
+                            data-pc-key="A"
+                            data-tour="autofight"
+                            :class="{ active: playerStats && playerStats.autofight }"
+                            @click="toggleAutofight">
+                        <span aria-hidden="true">{{ playerStats && playerStats.autofight ? '■' : '▶' }}</span>
+                        <span><b>{{ playerStats && playerStats.autofight ? '停止挂机' : '开始挂机' }}</b><small>A 键快速切换</small></span>
+                    </button>
+                    <button type="button" class="pc-command-mobile" @click="switchClientLayout('mobile')" title="切换手机版">▯</button>
+                </footer>
+            </aside>
 
             <div ref="uiToastStage" class="ui-toast-stage">
                 <div v-if="uiToast"
@@ -1144,13 +1264,214 @@
             <main class="game-frame-container"
                   :class="{
                       'battle-dock-active': useJsonMode && (isInBattle || hasRecentAoeReport) && !battleFullscreen && (!battleDockCollapsed || hasRecentAoeReport),
-                      'battle-dock-collapsed': useJsonMode && isInBattle && !hasRecentAoeReport && !battleFullscreen && battleDockCollapsed
+                      'battle-dock-collapsed': useJsonMode && isInBattle && !hasRecentAoeReport && !battleFullscreen && battleDockCollapsed,
+                      'desktop-visual-game-active': clientLayout === 'pc' && desktopScene
                   }">
+                <!-- PC 可视化房间：只表现服务器已确认的当前房间、出口和实体。 -->
+                <section v-if="clientLayout === 'pc' && desktopScene"
+                         class="desktop-rpg-shell"
+                         aria-label="仙道实时可视化地图">
+                    <header class="desktop-scene-header desktop-scene-hud">
+                        <div class="desktop-scene-title">
+                            <small>当前区域</small>
+                            <h2>{{ desktopScene.roomName }}</h2>
+                            <p>{{ desktopScene.description || '灵气在山海之间流动，四方道路通往相邻仙境。' }}</p>
+                        </div>
+                        <div class="desktop-scene-status">
+                            <span :class="{ syncing: desktopSceneSyncing }">
+                                <i></i>{{ desktopSceneSyncing ? '同步中' : '实时同步' }}
+                            </span>
+                            <span>怪物 {{ desktopScene.entities.filter(item => item.kind === 'monster').length }}</span>
+                            <span>玩家 {{ desktopScene.entities.filter(item => item.kind === 'player').length + 1 }}</span>
+                        </div>
+                        <div class="desktop-scene-tools">
+                            <button type="button"
+                                    :class="{ active: desktopWorldMapOpen }"
+                                    @click="desktopWorldMapOpen ? closeDesktopWorldMap() : openDesktopWorldMap()">
+                                🧭 世界地图
+                            </button>
+                            <button type="button"
+                                    :class="{ active: playerStats && playerStats.autofight }"
+                                    @click="toggleAutofight">
+                                {{ playerStats && playerStats.autofight ? '■ 停止挂机' : '▶ 自动挂机' }}
+                            </button>
+                            <button type="button"
+                                    :class="{ active: desktopTextPanelOpen }"
+                                    @click="desktopTextPanelOpen = !desktopTextPanelOpen">
+                                📜 江湖记录
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="desktop-scene-stage"
+                         @click="handleDesktopGroundClick">
+                        <div class="desktop-nearby-map" aria-label="当前房间及相邻房间地图">
+                            <button v-for="tile in desktopNearbyTiles()"
+                                    :key="tile.key"
+                                    type="button"
+                                    class="desktop-terrain-tile"
+                                    :class="{
+                                        'desktop-terrain-current': tile.current,
+                                        'desktop-terrain-exit': tile.available && !tile.current,
+                                        'desktop-terrain-fog': !tile.available
+                                    }"
+                                    :style="getDesktopNearbyTileStyle(tile)"
+                                    :disabled="!tile.exit || desktopSceneMoving || mudLoading"
+                                    @click.stop="tile.exit && moveDesktopScene(tile.exit)">
+                                <span v-if="tile.available" class="desktop-terrain-label">
+                                    <b v-if="tile.exit">{{ tile.exit.direction }}</b>
+                                    <strong>{{ tile.name }}</strong>
+                                    <small v-if="tile.current">当前位置 · 怪物与玩家在此活动</small>
+                                    <small v-else>点击沿道路进入</small>
+                                </span>
+                                <span v-else class="desktop-terrain-shroud" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <div class="desktop-scene-vignette" aria-hidden="true"></div>
+                        <div class="desktop-scene-instruction desktop-scene-hud">
+                            九宫地块即真实房间 · 点击相邻地块移动 · 点击怪物或玩家互动
+                        </div>
+
+                        <button v-for="(entity, entityIndex) in desktopScene.entities"
+                                :key="entity.id"
+                                type="button"
+                                class="desktop-scene-actor"
+                                :class="[
+                                    'desktop-actor-' + entity.kind,
+                                    { selected: desktopSceneSelected && desktopSceneSelected.id === entity.id }
+                                ]"
+                                :style="getDesktopEntityStyle(entity, entityIndex)"
+                                @click.stop="inspectDesktopEntity(entity)">
+                            <span class="desktop-actor-shadow" aria-hidden="true"></span>
+                            <span class="desktop-actor-portrait">
+                                <img v-if="entity.image"
+                                     :src="getImageUrl(entity.image)"
+                                     :alt="entity.name"
+                                     onerror="this.style.display='none'">
+                                <b v-else aria-hidden="true">{{ entity.kind === 'monster' ? '兽' : '侠' }}</b>
+                            </span>
+                            <span class="desktop-actor-name">
+                                {{ entity.name }}
+                                <em v-if="entity.kind === 'monster'">可交战</em>
+                            </span>
+                        </button>
+
+                        <div class="desktop-scene-actor desktop-player-actor"
+                             :class="[{ moving: desktopSceneMoving }, playerLevelAuraClass]"
+                             :style="getDesktopPlayerStyle()"
+                             aria-label="当前人物">
+                            <span class="desktop-actor-shadow" aria-hidden="true"></span>
+                            <span class="desktop-player-aura" aria-hidden="true"></span>
+                            <span class="desktop-actor-portrait">
+                                <img v-if="playerAvatarUrl && !playerAvatarFailed"
+                                     :src="playerAvatarUrl"
+                                     :alt="playerStats?.name_cn || '当前人物'"
+                                     @error="handlePlayerAvatarError">
+                                <b v-else>{{ playerAvatarFallback }}</b>
+                            </span>
+                            <span class="desktop-actor-name">
+                                {{ playerStats?.name_cn || playerAvatarFallback }}
+                                <em>Lv.{{ playerStats?.level || 1 }}</em>
+                            </span>
+                        </div>
+
+                        <aside v-if="desktopWorldMapOpen && clientLayout === 'pc'"
+                               class="desktop-world-map-overlay desktop-scene-hud"
+                               @click.stop>
+                            <header class="desktop-world-map-header">
+                                <div>
+                                    <small>仙道完整世界网络</small>
+                                    <strong>山海万境图</strong>
+                                    <span v-if="desktopWorldGraph">
+                                        {{ desktopWorldGraph.regionCount }} 个区域 ·
+                                        {{ desktopWorldGraph.roomCount }} 个房间 ·
+                                        {{ desktopWorldGraph.edgeCount }} 条道路
+                                    </span>
+                                </div>
+                                <nav>
+                                    <button type="button" @click="focusDesktopWorldMap">◎ 定位我</button>
+                                    <button type="button" @click="fitDesktopWorldMap">⊙ 纵览全图</button>
+                                    <button type="button" @click="closeDesktopWorldMap">× 返回附近</button>
+                                </nav>
+                            </header>
+                            <div v-if="desktopWorldGraphLoading" class="desktop-world-map-message">
+                                正在编织全部房间与道路…
+                            </div>
+                            <div v-else-if="desktopWorldGraphError && !desktopWorldGraph"
+                                 class="desktop-world-map-message desktop-world-map-error">
+                                {{ desktopWorldGraphError }}
+                            </div>
+                            <template v-else>
+                                <canvas ref="desktopWorldCanvas"
+                                        class="desktop-world-map-canvas"
+                                        aria-label="可缩放拖拽的仙道完整世界地图"
+                                        @wheel.prevent="handleDesktopWorldWheel"
+                                        @pointerdown="handleDesktopWorldPointerDown"
+                                        @pointermove="handleDesktopWorldPointerMove"
+                                        @pointerup="handleDesktopWorldPointerUp"
+                                        @pointercancel="handleDesktopWorldPointerUp"></canvas>
+                                <div class="desktop-world-map-help">
+                                    鼠标拖拽移动 · 滚轮缩放 · 金色方框是当前位置 · 蓝线连接跨区域道路
+                                </div>
+                                <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
+                                    <small>{{ desktopWorldSelectedNode.region }}</small>
+                                    <strong>{{ desktopWorldSelectedNode.name }}</strong>
+                                    <span>Lv.{{ desktopWorldSelectedNode.level || '动态' }} · {{ desktopWorldSelectedNode.biome }}</span>
+                                    <button v-if="desktopWorldSelectedExit()"
+                                            type="button"
+                                            @click="moveToDesktopWorldSelection">
+                                        沿当前道路进入
+                                    </button>
+                                    <em v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id">
+                                        远方地点仅供查看，需逐房间行走抵达
+                                    </em>
+                                </aside>
+                            </template>
+                        </aside>
+
+                        <aside v-if="desktopSceneSelected"
+                               class="desktop-target-panel desktop-scene-hud"
+                               @click.stop>
+                            <button type="button"
+                                    class="desktop-target-close"
+                                    aria-label="关闭互动面板"
+                                    @click="desktopSceneSelected = null; desktopSceneActions = []">×</button>
+                            <div class="desktop-target-heading">
+                                <span>{{ desktopSceneSelected.kind === 'monster' ? '遭遇目标' : '同场玩家' }}</span>
+                                <strong>{{ desktopSceneSelected.name }}</strong>
+                            </div>
+                            <div v-if="mudLoading" class="desktop-target-loading">正在取得目标状态…</div>
+                            <div v-else-if="desktopSceneActions.length" class="desktop-target-actions">
+                                <button v-for="action in desktopSceneActions"
+                                        :key="action.cmd"
+                                        type="button"
+                                        @click="runDesktopSceneAction(action)">
+                                    {{ action.label }}
+                                </button>
+                            </div>
+                            <button v-else
+                                    type="button"
+                                    class="desktop-target-refresh"
+                                    @click="inspectDesktopEntity(desktopSceneSelected)">
+                                查看可用操作
+                            </button>
+                        </aside>
+
+                        <div v-if="desktopSceneMoving" class="desktop-scene-transition" aria-live="polite">
+                            <span></span>正在前往相邻仙境…
+                        </div>
+                    </div>
+                </section>
+
                 <!-- JSON模式: Vue直接渲染MUD输出 -->
                 <div v-if="useJsonMode"
                      class="mud-output-container"
                      data-tour="game-output"
-                     :class="{ 'dark-mode': theme === 'dark' }"
+                     :class="{
+                         'dark-mode': theme === 'dark',
+                         'desktop-scene-console': clientLayout === 'pc' && desktopScene,
+                         'desktop-scene-console-open': desktopTextPanelOpen
+                     }"
                      :aria-busy="mudLoading ? 'true' : 'false'">
                     <div class="mud-parent"
                          :class="{ 'smooth-output-loading': smoothOutputLoading }"
@@ -1943,7 +2264,8 @@
             </div>
 
             <!-- 快捷命令栏 -->
-            <footer class="quick-actions"
+            <footer v-if="clientLayout !== 'pc'"
+                    class="quick-actions"
                     :class="{ collapsed: quickActionsCollapsed }"
                     aria-label="快捷导航">
                 <div class="quick-more-panel"
@@ -1966,8 +2288,9 @@
                             <span>{{ playerStats?.daily_goal?.claimable ? '🎁' : '📅' }}</span>
                             {{ playerStats?.daily_goal?.claimable ? '每日可领' : '每日修行' }}
                         </button>
-                        <button class="quick-tool-btn" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
-                        <button class="quick-tool-btn" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
+                        <button class="quick-tool-btn" data-pc-key="M" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
+                        <button class="quick-tool-btn" @click="openDesktopWorldMap"><span>🧭</span>世界地图</button>
+                        <button class="quick-tool-btn" data-pc-key="T" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('illusion_realm')"><span>🌙</span>幻境任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('personal_difficulty')"><span>🔥</span>挑战难度</button>
                         <button class="quick-tool-btn"
@@ -1993,6 +2316,7 @@
                         </button>
                         <button class="quick-tool-btn"
                                 data-tour="autofight"
+                                data-pc-key="A"
                                 :class="{ active: playerStats && playerStats.autofight }"
                                 @click="toggleAutofight">
                             <span>{{ playerStats && playerStats.autofight ? '⏹️' : '▶️' }}</span>
@@ -2003,6 +2327,7 @@
                 </div>
                 <nav class="quick-primary-nav" aria-label="主要功能">
                     <button class="quick-nav-btn"
+                            data-pc-key="1"
                             data-tour="scene"
                             :class="{ active: isQuickActionActive('look') }"
                             @click="sendQuickCommand('look')">
@@ -2010,12 +2335,14 @@
                         <span>场景</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-pc-key="2"
                             :class="{ active: isQuickActionActive('myhp') }"
                             @click="sendQuickCommand('myhp')">
                         <span class="quick-nav-icon" aria-hidden="true">♡</span>
                         <span>状态</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-pc-key="3"
                             data-tour="inventory"
                             :class="{ active: isQuickActionActive('inventory') }"
                             @click="sendQuickCommand('inventory')">
@@ -2023,6 +2350,7 @@
                         <span>物品</span>
                     </button>
                     <button class="quick-nav-btn"
+                            data-pc-key="4"
                             data-tour="skills"
                             :class="{ active: isQuickActionActive('myskills') }"
                             @click="sendQuickCommand('myskills')">
@@ -2030,6 +2358,7 @@
                         <span>技能</span>
                     </button>
                     <button class="quick-nav-btn quick-more-btn"
+                            data-pc-key="5"
                             data-tour="more-actions"
                             :class="{ active: !quickActionsCollapsed }"
                             @click="toggleQuickActions"
@@ -2041,21 +2370,75 @@
                 </nav>
             </footer>
         </template>
-    </div>
+    
+        <aside v-if="desktopWorldMapOpen && clientLayout !== 'pc'"
+                               class="desktop-world-map-overlay desktop-scene-hud"
+                               @click.stop>
+                            <header class="desktop-world-map-header">
+                                <div>
+                                    <small>仙道完整世界网络</small>
+                                    <strong>山海万境图</strong>
+                                    <span v-if="desktopWorldGraph">
+                                        {{ desktopWorldGraph.regionCount }} 个区域 ·
+                                        {{ desktopWorldGraph.roomCount }} 个房间 ·
+                                        {{ desktopWorldGraph.edgeCount }} 条道路
+                                    </span>
+                                </div>
+                                <nav>
+                                    <button type="button" @click="focusDesktopWorldMap">◎ 定位我</button>
+                                    <button type="button" @click="fitDesktopWorldMap">⊙ 纵览全图</button>
+                                    <button type="button" @click="closeDesktopWorldMap">× 返回附近</button>
+                                </nav>
+                            </header>
+                            <div v-if="desktopWorldGraphLoading" class="desktop-world-map-message">
+                                正在编织全部房间与道路…
+                            </div>
+                            <div v-else-if="desktopWorldGraphError && !desktopWorldGraph"
+                                 class="desktop-world-map-message desktop-world-map-error">
+                                {{ desktopWorldGraphError }}
+                            </div>
+                            <template v-else>
+                                <canvas ref="desktopWorldCanvas"
+                                        class="desktop-world-map-canvas"
+                                        aria-label="可缩放拖拽的仙道完整世界地图"
+                                        @wheel.prevent="handleDesktopWorldWheel"
+                                        @pointerdown="handleDesktopWorldPointerDown"
+                                        @pointermove="handleDesktopWorldPointerMove"
+                                        @pointerup="handleDesktopWorldPointerUp"
+                                        @pointercancel="handleDesktopWorldPointerUp"></canvas>
+                                <div class="desktop-world-map-help">
+                                    单指拖动 · 双指捏合缩放 · 点选房间节点查看 · 蓝线连接跨区域道路
+                                </div>
+                                <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
+                                    <small>{{ desktopWorldSelectedNode.region }}</small>
+                                    <strong>{{ desktopWorldSelectedNode.name }}</strong>
+                                    <span>Lv.{{ desktopWorldSelectedNode.level || '动态' }} · {{ desktopWorldSelectedNode.biome }}</span>
+                                    <button v-if="desktopWorldSelectedExit()"
+                                            type="button"
+                                            @click="moveToDesktopWorldSelection">
+                                        沿当前道路进入
+                                    </button>
+                                    <em v-else-if="desktopWorldSelectedNode.id !== desktopWorldNode?.id">
+                                        远方地点仅供查看，需逐房间行走抵达
+                                    </em>
+                                </aside>
+                            </template>
+                        </aside>
+</div>
 
-    <script src="vendor/vue.global.prod.js?v=v1787355948173"></script>
-    <script src="vendor/canvas-confetti.js?v=v1787355948173"></script>
-    <script src="vendor/howler.core.min.js?v=v1787355948173"></script>
-    <script src="vendor/driver.iife.js?v=v1787355948173"></script>
-    <script src="../includes/game-number-format.js?v=v1787355948173" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787781725583"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787781725583"></script>
+    <script src="vendor/howler.core.min.js?v=v1787781725583"></script>
+    <script src="vendor/driver.iife.js?v=v1787781725583"></script>
+    <script src="../includes/game-number-format.js?v=v1787781725583" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787355948173';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787781725583';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1787355948173"></script>
+    <script src="js/app.js?v=v1787781725583"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1787355948173"></script>
+    <script src="../includes/translate.js?v=v1787781725583"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

@@ -158,3 +158,131 @@ button.btn.btn-outline-chaofan:hover {
   box-shadow: 0 0 25px rgba(255, 215, 0, 1) !important;
   transform: scale(1.08) !important;
 }
+
+/* ===== 世界地图浮层（手机/Pad共用；PC端由pc.css的scoped规则接管） ===== */
+.desktop-world-map-overlay.desktop-scene-hud {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    background: #081723;
+}
+@media (min-width: 600px) {
+    .desktop-world-map-overlay.desktop-scene-hud {
+        inset: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        border: 1px solid rgba(202, 222, 205, 0.52);
+        border-radius: 16px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+    }
+}
+.desktop-world-map-overlay .desktop-world-map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(177, 205, 195, 0.25);
+    background: linear-gradient(110deg, rgba(17, 39, 47, 0.98), rgba(17, 26, 45, 0.98));
+}
+.desktop-world-map-overlay .desktop-world-map-header > div {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+.desktop-world-map-overlay .desktop-world-map-header small {
+    color: #8fb8b7;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+}
+.desktop-world-map-overlay .desktop-world-map-header strong {
+    color: #fff0bd;
+    font: 800 16px/1.2 "Noto Serif SC", "Songti SC", serif;
+}
+.desktop-world-map-overlay .desktop-world-map-header span {
+    color: #7fa3a2;
+    font-size: 10px;
+}
+.desktop-world-map-overlay .desktop-world-map-header nav {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.desktop-world-map-overlay .desktop-world-map-header nav button {
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid rgba(143, 184, 183, 0.4);
+    border-radius: 9px;
+    background: rgba(15, 34, 46, 0.9);
+    color: #d9ece7;
+    font-size: 12px;
+}
+.desktop-world-map-overlay .desktop-world-map-message,
+.desktop-world-map-overlay .desktop-world-map-message.desktop-world-map-error {
+    place-self: center;
+    padding: 18px;
+    color: #bfe0da;
+    text-align: center;
+    font-size: 13px;
+}
+.desktop-world-map-overlay .desktop-world-map-canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    display: block;
+}
+.desktop-world-map-overlay .desktop-world-map-help {
+    position: absolute;
+    left: 10px;
+    bottom: 8px;
+    z-index: 2;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: rgba(8, 23, 35, 0.78);
+    color: #8fb8b7;
+    font-size: 10px;
+    pointer-events: none;
+}
+.desktop-world-map-overlay .desktop-world-node-inspector {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    z-index: 2;
+    display: grid;
+    max-width: min(240px, 62vw);
+    gap: 3px;
+    padding: 10px 12px;
+    border: 1px solid rgba(202, 222, 205, 0.4);
+    border-radius: 12px;
+    background: rgba(10, 26, 38, 0.94);
+}
+.desktop-world-map-overlay .desktop-world-node-inspector small {
+    color: #8fb8b7;
+    font-size: 10px;
+}
+.desktop-world-map-overlay .desktop-world-node-inspector strong {
+    color: #fff0bd;
+    font-size: 14px;
+}
+.desktop-world-map-overlay .desktop-world-node-inspector span {
+    color: #7fa3a2;
+    font-size: 11px;
+}
+.desktop-world-map-overlay .desktop-world-node-inspector button {
+    margin-top: 4px;
+    min-height: 34px;
+    border: 1px solid rgba(143, 184, 183, 0.5);
+    border-radius: 9px;
+    background: rgba(24, 57, 66, 0.95);
+    color: #e6f4ee;
+    font-size: 12px;
+}
+.desktop-world-map-overlay .desktop-world-node-inspector em {
+    color: #6f9490;
+    font-size: 10px;
+    font-style: normal;
+}

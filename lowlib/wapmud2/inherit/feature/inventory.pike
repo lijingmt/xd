@@ -1044,7 +1044,18 @@ int recall_abnormal_ceiling_gear()
 		object replacement=ITEMSD->generate_normal_replacement(item);
 		if(replacement && replacement->move(me)==1){
 			if(was_equipped && has_suffix(item_kind,"weapon")){
-				if(!catch{ me->wield(replacement); })
+				int wielded=0;
+				mixed wield_err=catch{ wielded=(int)me->wield(replacement); };
+				if(wield_err)
+					werror("[RECALL_REEQUIP] wield_throw user=%s kind=%s\n",
+						(string)me->query_name(),item_kind);
+				else if(!wielded)
+					werror("[RECALL_REEQUIP] wield_denied user=%s kind=%s dura=%d level=%d canLevel=%d\n",
+						(string)me->query_name(),item_kind,
+						(int)replacement->item_cur_dura,
+						(int)me->query_level(),
+						(int)replacement->query_item_canLevel());
+				else
 					tell_object(me,"【数值矫正】"+
 						(string)replacement->query_name_cn()+
 						"已替换并重新装备。\n");

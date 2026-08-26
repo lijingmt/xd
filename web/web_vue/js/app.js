@@ -184,6 +184,37 @@ function createGameSoundSpriteDataUri() {
 createApp({
     data() {
         return {
+            // pc.html 是独立桌面入口；index.html 始终保持手机/通用布局。
+            clientLayout: window.location &&
+                /\/pc\.html$/.test(window.location.pathname || '') ? 'pc' : 'mobile',
+            desktopKeydownHandler: null,
+            // PC 可视化场景只重排服务器已经返回的房间、出口和人物。
+            // 它不保存第二份世界状态，也不在浏览器内判定移动或战斗结果。
+            desktopScene: null,
+            desktopSceneSelected: null,
+            desktopSceneActions: [],
+            desktopSceneMoving: false,
+            desktopSceneSyncing: false,
+            desktopSceneSyncTimer: null,
+            desktopWorldMapOpen: false,
+            desktopWorldGraph: null,
+            desktopWorldNode: null,
+            desktopWorldNodeIndex: null,
+            desktopWorldNameIndex: null,
+            desktopWorldGraphLoading: false,
+            desktopWorldGraphError: '',
+            desktopWorldSelectedNode: null,
+            desktopServerRoomId: '',
+            desktopWorldMapTransform: { x: 0, y: 0, scale: 1 },
+            desktopWorldMapDrag: null,
+            // 多机型地图手势：单指拖动=平移，双指捏合=缩放。
+            desktopWorldMapPointers: {},
+            desktopWorldMapPinch: null,
+            desktopWorldMapHitAreas: [],
+            desktopWorldMapResizeHandler: null,
+            desktopTerrainAtlas: null,
+            desktopTextPanelOpen: false,
+            desktopPlayerPosition: { x: 50, y: 58 },
             showLogin: true,
             headerMenuOpen: false,
             showRegister: false,
@@ -444,6 +475,9 @@ createApp({
     watch: {
         // 监听 mudLines 变化，更新后重新翻译并滚动到顶部
         mudLines() {
+            if (this.clientLayout === 'pc') {
+                this.captureDesktopVisualState(this.mudLines);
+            }
             this.$nextTick(() => {
                 this.reapplyTranslation();
                 // 每次更新后滚动到顶部
@@ -1696,6 +1730,14 @@ createApp({
 
         invalidateCharacterSessionRequests() {
             this.characterSessionEpoch += 1;
+            this.stopDesktopSceneSync();
+            this.desktopScene = null;
+            this.desktopSceneSelected = null;
+            this.desktopSceneActions = [];
+            this.desktopSceneMoving = false;
+            this.desktopServerRoomId = '';
+            this.desktopWorldNode = null;
+            this.desktopPlayerPosition = { x: 50, y: 58 };
             this.autofightTickInFlight = false;
             this.autofightViewSequence = 0;
             this.autofightViewGeneration = '';
@@ -3494,6 +3536,9 @@ createApp({
                     }
                 }
                 // 更新MUD输出；只在背包/任务/技能等列表页启用平滑重排。
+                if (this.clientLayout === 'pc' && data.room_id) {
+                    this.desktopServerRoomId = String(data.room_id).replace(/\.pike$/, '');
+                }
                 this.prepareMudOutputAnimation(cmd);
                 this.mudLines = data.lines || [];
                 console.log('[sendJsonCommand] mudLines数量:', this.mudLines.length);
@@ -3522,6 +3567,7 @@ createApp({
 
                 // 处理邀请链接占位符 - 动态生成URL
                 this.processInviteLinkPlaceholder();
+                return data;
             } catch (e) {
                 if (!this.isCharacterSessionCurrent(requestEpoch)) return;
                 console.error('JSON命令执行失败:', e);
@@ -4028,6 +4074,873 @@ createApp({
             }
         },
 
+        // 在手机与独立PC入口之间切换，完整保留登录参数和人物书签。
+        switchClientLayout(layout) {
+            const target = layout === 'pc' ? 'pc.html' : 'index.html';
+            const url = new URL(window.location.href);
+            url.pathname = url.pathname.replace(/[^/]*$/, target);
+            window.location.href = url.toString();
+        },
+
+        // 桌面版专属键盘导航。输入框、选择器、弹窗和组合键期间绝不
+        // 截获按键，避免聊天、数量输入或浏览器快捷键被误触发。
+        handleDesktopKeydown(event) {
+            if (this.clientLayout !== 'pc' || !this.txd || event.defaultPrevented ||
+                event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+            const target = event.target;
+            const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
+            if (target?.isContentEditable || ['input', 'textarea', 'select'].includes(tagName)) return;
+            if (this.showLogin || this.showRegister || this.showCharacterSelect ||
+                this.showChatRoom || this.inviteModalOpen || this.showEquipmentPanel) return;
+            const commands = {
+                Digit1: 'look',
+                Digit2: 'myhp',
+                Digit3: 'inventory',
+                Digit4: 'myskills',
+                KeyM: 'map_display',
+                KeyT: 'mytasks'
+            };
+            if (event.code === 'Digit5') {
+                event.preventDefault();
+                this.toggleQuickActions();
+                return;
+            }
+            if (event.code === 'KeyA') {
+                event.preventDefault();
+                this.toggleAutofight();
+                return;
+            }
+            if (!commands[event.code]) return;
+            event.preventDefault();
+            this.sendQuickCommand(commands[event.code]);
+        },
+
+        desktopPlainText(value) {
+            return String(value || '')
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+
+        desktopLineText(line, includeButtons = true) {
+            if (!line || !Array.isArray(line.segments)) return '';
+            return this.desktopPlainText(line.segments.map(segment => {
+                if (segment.type === 'text' && Array.isArray(segment.parts)) {
+                    return segment.parts.map(part => part.content || '').join('');
+                }
+                if (includeButtons && segment.type === 'button') {
+                    return segment.label || '';
+                }
+                return '';
+            }).join(''));
+        },
+
+        parseDesktopExit(segment) {
+            if (!segment || segment.type !== 'button' || !segment.cmd) return null;
+            const label = this.desktopPlainText(segment.label);
+            const match = label.match(/^(东北|西北|东南|西南|东|西|南|北|上|下|进入|离开)[↑↓←→]?\s*[：:\-]\s*(.+)$/);
+            if (!match) return null;
+            return {
+                direction: match[1],
+                destination: match[2].trim() || '相邻区域',
+                label,
+                cmd: segment.cmd
+            };
+        },
+
+        extractDesktopRoom(lines) {
+            if (!Array.isArray(lines) || !lines.length) return null;
+            const exits = [];
+            let directionCue = -1;
+            const entityCues = [];
+            lines.forEach((line, lineIndex) => {
+                const text = this.desktopLineText(line, false);
+                if (text.includes('请选择你的行走方向')) directionCue = lineIndex;
+                if (text.startsWith('这里有')) {
+                    entityCues.push({ index: lineIndex, fallbackKind: 'monster' });
+                } else if (text.startsWith('你遇到了')) {
+                    entityCues.push({ index: lineIndex, fallbackKind: 'player' });
+                }
+                for (const segment of line?.segments || []) {
+                    const exit = this.parseDesktopExit(segment);
+                    if (exit && !exits.some(item => item.cmd === exit.cmd)) exits.push(exit);
+                }
+            });
+            // 只有服务器明确返回了房间方向提示或真实出口，才更新场景快照。
+            // 人物详情、背包等页面不能覆盖最后一个可玩的房间。
+            if (directionCue < 0 && !exits.length) return null;
+
+            const cueIndex = directionCue >= 0 ? directionCue :
+                (entityCues.length ? entityCues[0].index : lines.length);
+            let roomName = '';
+            for (let index = 0; index < cueIndex; index += 1) {
+                const text = this.desktopLineText(lines[index], false);
+                if (!text || /^[-—=_]+$/.test(text) || text.startsWith('你来到')) continue;
+                roomName = text.replace(/^你来到了?/, '').trim();
+                break;
+            }
+            if (!roomName) roomName = this.desktopScene?.roomName || '未知仙境';
+
+            const entities = [];
+            for (const cue of entityCues) {
+                let pendingImage = '';
+                for (const segment of lines[cue.index]?.segments || []) {
+                    if (segment.type === 'image') {
+                        pendingImage = segment.src || '';
+                        continue;
+                    }
+                    if (segment.type !== 'button' || !segment.cmd) continue;
+                    const name = this.desktopPlainText(segment.label);
+                    if (!name || this.parseDesktopExit(segment)) continue;
+                    const levelMatch = name.match(/[（(](\d+)[）)]\s*$/);
+					if (segment.visual_kind &&
+						segment.visual_kind !== 'monster' &&
+						segment.visual_kind !== 'player') {
+						pendingImage = '';
+						continue;
+					}
+					const kind = segment.visual_kind === 'monster' ||
+						segment.visual_kind === 'player'
+						? segment.visual_kind
+						: (cue.fallbackKind === 'player' ? 'player' :
+							(levelMatch ? 'monster' : ''));
+					// 旧Backend没有visual_kind时，只把带明确等级的“这里有”
+					// 条目当怪物，避免把房间掉落物误画成敌人。
+					if (!kind) {
+						pendingImage = '';
+						continue;
+					}
+                    entities.push({
+                        id: `${segment.cmd}:${entities.length}`,
+                        name,
+                        level: levelMatch ? Number(levelMatch[1]) : 0,
+						kind,
+                        image: pendingImage,
+                        cmd: segment.cmd
+                    });
+                    pendingImage = '';
+                }
+            }
+
+            const description = [];
+            const firstEntityCue = entityCues.length ? entityCues[0].index : -1;
+            const descriptionEnd = Math.max(firstEntityCue, directionCue);
+            for (let index = 0; index < descriptionEnd; index += 1) {
+                const text = this.desktopLineText(lines[index], false);
+                if (!text || text === roomName || text.startsWith('这里有') ||
+					text.startsWith('你遇到了') ||
+                    text.includes('请选择你的行走方向')) continue;
+                description.push(text);
+            }
+            return {
+                roomName,
+                description: description.slice(0, 2).join(' '),
+                exits,
+                entities,
+                background: '/images/visual_map/red-cloud-terrace-v1.webp',
+                updatedAt: Date.now()
+            };
+        },
+
+        extractDesktopContextActions(lines) {
+            const actions = [];
+            const ignored = /^(刷新|状态|技能|物品|地图|任务|队伍|排行榜|打开聊天|关闭聊天|自动打怪|自动挂机|停止自动挂机|共享宠物|本命灵伴|帮派|江湖|玉石|仙玉|会员|设置|首页)$/;
+            for (const line of lines || []) {
+                for (const segment of line?.segments || []) {
+                    if (segment.type !== 'button' || !segment.cmd) continue;
+                    const label = this.desktopPlainText(segment.label);
+                    if (!label || ignored.test(label) || this.parseDesktopExit(segment)) continue;
+                    if (!actions.some(action => action.cmd === segment.cmd)) {
+                        actions.push({ label, cmd: segment.cmd });
+                    }
+                }
+            }
+            return actions.slice(0, 10);
+        },
+
+        findDesktopDirectEntityAction(entity, lines) {
+            const targetName = this.desktopPlainText(entity?.name);
+            if (!targetName) return null;
+            return this.extractDesktopContextActions(lines).find(action =>
+                this.desktopPlainText(action.label) === targetName
+            ) || null;
+        },
+
+        captureDesktopVisualState(lines, preserveInteraction = false) {
+            if (this.clientLayout !== 'pc') return false;
+            const room = this.extractDesktopRoom(lines);
+            if (room) {
+                this.desktopScene = room;
+                this.resolveDesktopWorldNode(room);
+                if (!preserveInteraction) this.desktopSceneActions = [];
+                return true;
+            }
+            if (this.desktopSceneSelected) {
+                this.desktopSceneActions = this.extractDesktopContextActions(lines);
+            }
+            return false;
+        },
+
+        normalizeDesktopRoomName(value) {
+            return this.desktopPlainText(value)
+                .replace(/[（(](?:妖魔占领|人类占领|高级区|低级区|安全区)[）)]/g, '')
+                .replace(/\s+/g, '')
+                .trim();
+        },
+
+        desktopDirectionKey(direction) {
+            const directions = {
+                东: 'east', 西: 'west', 南: 'south', 北: 'north',
+                东北: 'northeast', 西北: 'northwest',
+                东南: 'southeast', 西南: 'southwest',
+                上: 'up', 下: 'down', 进入: 'enter', 离开: 'out'
+            };
+            return directions[String(direction || '')] || String(direction || '').toLowerCase();
+        },
+
+        async loadDesktopWorldGraph() {
+            // 手机/Pad与PC共用同一份世界拓扑：地图浮层打开即加载。
+            if ((this.clientLayout !== 'pc' && !this.desktopWorldMapOpen) ||
+                this.desktopWorldGraph || this.desktopWorldGraphLoading) return;
+            this.desktopWorldGraphLoading = true;
+            this.desktopWorldGraphError = '';
+            try {
+                const graphUrl = new URL('data/world-map.json', window.location.href).toString();
+                const response = await fetch(graphUrl, { cache: 'no-cache' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const graph = await response.json();
+                if (graph?.schema !== 1 || !Array.isArray(graph.nodes) ||
+                    !Array.isArray(graph.edges) || graph.nodes.length < 2500) {
+                    throw new Error('world graph is incomplete');
+                }
+                const nodeIndex = new Map();
+                const nameIndex = new Map();
+                for (const node of graph.nodes) {
+                    nodeIndex.set(node.id, node);
+                    const name = this.normalizeDesktopRoomName(node.name);
+                    if (!nameIndex.has(name)) nameIndex.set(name, []);
+                    nameIndex.get(name).push(node);
+                }
+                this.desktopWorldGraph = markClientRaw(graph);
+                this.desktopWorldNodeIndex = markClientRaw(nodeIndex);
+                this.desktopWorldNameIndex = markClientRaw(nameIndex);
+                this.prepareDesktopTerrainAtlas();
+                this.resolveDesktopWorldNode(this.desktopScene);
+            } catch (error) {
+                this.desktopWorldGraphError = '世界地图加载失败，房间操作仍可正常使用';
+                console.error('desktop world graph load failed', error);
+            } finally {
+                this.desktopWorldGraphLoading = false;
+            }
+        },
+
+        prepareDesktopTerrainAtlas() {
+            if (this.desktopTerrainAtlas || typeof Image === 'undefined') return;
+            const atlas = new Image();
+            atlas.decoding = 'async';
+            atlas.onload = () => {
+                this.desktopTerrainAtlas = markClientRaw(atlas);
+                this.renderDesktopWorldMap();
+            };
+            atlas.onerror = () => {
+                this.desktopWorldGraphError = '地貌图集加载失败，已使用简化地图';
+            };
+            atlas.src = this.getImageUrl('/images/visual_map/world-terrain-atlas-v1.webp');
+        },
+
+        resolveDesktopWorldNode(scene = this.desktopScene) {
+            if (!scene || !this.desktopWorldNameIndex || !this.desktopWorldNodeIndex) return null;
+            const exactNode = this.desktopServerRoomId
+                ? this.desktopWorldNodeIndex.get(this.desktopServerRoomId)
+                : null;
+            if (exactNode) {
+                this.desktopWorldNode = exactNode;
+                if (this.desktopWorldMapOpen) {
+                    this.$nextTick(() => this.focusDesktopWorldMap());
+                }
+                return exactNode;
+            }
+            const normalizedName = this.normalizeDesktopRoomName(scene.roomName);
+            const candidates = this.desktopWorldNameIndex.get(normalizedName) || [];
+            if (!candidates.length) {
+                this.desktopWorldNode = null;
+                return null;
+            }
+            const liveExits = Array.isArray(scene.exits) ? scene.exits : [];
+            let bestNode = candidates[0];
+            let bestScore = -1;
+            for (const candidate of candidates) {
+                let score = 0;
+                for (const liveExit of liveExits) {
+                    const direction = this.desktopDirectionKey(liveExit.direction);
+                    const expectedName = this.normalizeDesktopRoomName(liveExit.destination);
+                    const graphExit = (candidate.exits || []).find(exit => {
+                        if (exit.direction !== direction) return false;
+                        const target = this.desktopWorldNodeIndex.get(exit.target);
+                        return target && this.normalizeDesktopRoomName(target.name) === expectedName;
+                    });
+                    if (graphExit) score += 5;
+                    else if ((candidate.exits || []).some(exit => exit.direction === direction)) score += 1;
+                }
+                if (this.desktopWorldNode?.region === candidate.region) score += 2;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestNode = candidate;
+                }
+            }
+            this.desktopWorldNode = bestNode;
+            if (this.desktopWorldMapOpen) {
+                this.$nextTick(() => this.focusDesktopWorldMap());
+            }
+            return bestNode;
+        },
+
+        desktopTerrainCell(biome) {
+            const cells = {
+                plains: [0, 0], forest: [1, 0], mountain: [2, 0],
+                snow: [0, 1], desert: [1, 1], marsh: [2, 1],
+                coast: [0, 2], city: [1, 2], abyss: [2, 2]
+            };
+            return cells[biome] || cells.plains;
+        },
+
+        getDesktopTerrainTileStyle(biome) {
+            const cell = this.desktopTerrainCell(biome);
+            return {
+                backgroundImage: 'url(' + this.getImageUrl('/images/visual_map/world-terrain-atlas-v1.webp') + ')',
+                backgroundPosition: (cell[0] * 50) + '% ' + (cell[1] * 50) + '%'
+            };
+        },
+
+        desktopNearbyTiles() {
+            const positions = {
+                east: [2, 1], west: [0, 1], south: [1, 2], north: [1, 0],
+                northeast: [2, 0], northwest: [0, 0],
+                southeast: [2, 2], southwest: [0, 2],
+                up: [2, 0], down: [0, 2], enter: [2, 2], out: [0, 0]
+            };
+            const currentBiome = this.desktopWorldNode?.biome || 'plains';
+            const tiles = [];
+            for (let row = 0; row < 3; row += 1) {
+                for (let column = 0; column < 3; column += 1) {
+                    tiles.push({
+                        key: 'fog-' + column + '-' + row,
+                        column,
+                        row,
+                        name: '',
+                        biome: currentBiome,
+                        available: false,
+                        current: false,
+                        exit: null
+                    });
+                }
+            }
+            const current = tiles.find(tile => tile.column === 1 && tile.row === 1);
+            Object.assign(current, {
+                key: 'current',
+                name: this.desktopScene?.roomName || '当前位置',
+                biome: currentBiome,
+                available: true,
+                current: true
+            });
+            for (const exit of this.desktopScene?.exits || []) {
+                const direction = this.desktopDirectionKey(exit.direction);
+                const point = positions[direction];
+                if (!point) continue;
+                const tile = tiles.find(item => item.column === point[0] && item.row === point[1]);
+                const graphExit = (this.desktopWorldNode?.exits || []).find(item => item.direction === direction);
+                const target = graphExit ? this.desktopWorldNodeIndex?.get(graphExit.target) : null;
+                Object.assign(tile, {
+                    key: exit.cmd,
+                    name: exit.destination,
+                    biome: target?.biome || currentBiome,
+                    available: true,
+                    current: false,
+                    exit,
+                    node: target || null
+                });
+            }
+            return tiles;
+        },
+
+        getDesktopNearbyTileStyle(tile) {
+            return {
+                ...this.getDesktopTerrainTileStyle(tile?.biome),
+                left: ((tile?.column || 0) * 100 / 3) + '%',
+                top: ((tile?.row || 0) * 100 / 3) + '%'
+            };
+        },
+
+        openDesktopWorldMap() {
+            this.desktopWorldMapOpen = true;
+            this.desktopWorldSelectedNode = this.desktopWorldNode;
+            this.loadDesktopWorldGraph();
+            if (!this.desktopWorldMapResizeHandler) {
+                this.desktopWorldMapResizeHandler = () => this.renderDesktopWorldMap();
+                window.addEventListener('resize', this.desktopWorldMapResizeHandler);
+            }
+            this.$nextTick(() => this.focusDesktopWorldMap());
+        },
+
+        closeDesktopWorldMap() {
+            this.desktopWorldMapOpen = false;
+            this.desktopWorldMapDrag = null;
+        },
+
+        desktopWorldCanvasSize() {
+            const canvas = this.$refs?.desktopWorldCanvas;
+            if (!canvas) return null;
+            const rect = canvas.getBoundingClientRect();
+            if (!rect.width || !rect.height) return null;
+            const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+            const width = Math.round(rect.width * dpr);
+            const height = Math.round(rect.height * dpr);
+            if (canvas.width !== width || canvas.height !== height) {
+                canvas.width = width;
+                canvas.height = height;
+            }
+            return { canvas, width: rect.width, height: rect.height, dpr, rect };
+        },
+
+        drawDesktopWorldTile(context, node, size) {
+            const atlas = this.desktopTerrainAtlas;
+            if (!atlas?.naturalWidth || !atlas?.naturalHeight) {
+                const colors = {
+                    plains: '#628f55', forest: '#235b43', mountain: '#69737c',
+                    snow: '#b8d5e5', desert: '#a9793f', marsh: '#507d70',
+                    coast: '#3184a0', city: '#9a7256', abyss: '#55417b'
+                };
+                context.fillStyle = colors[node.biome] || colors.plains;
+                context.fillRect(node.x - size / 2, node.y - size / 2, size, size);
+                return;
+            }
+            const cell = this.desktopTerrainCell(node.biome);
+            const sourceWidth = atlas.naturalWidth / 3;
+            const sourceHeight = atlas.naturalHeight / 3;
+            context.drawImage(
+                atlas,
+                cell[0] * sourceWidth,
+                cell[1] * sourceHeight,
+                sourceWidth,
+                sourceHeight,
+                node.x - size / 2,
+                node.y - size / 2,
+                size,
+                size
+            );
+        },
+
+        renderDesktopWorldMap() {
+            if (!this.desktopWorldMapOpen || !this.desktopWorldGraph) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const { canvas, width, height, dpr } = sizing;
+            const context = canvas.getContext('2d');
+            if (!context) return;
+            context.setTransform(dpr, 0, 0, dpr, 0, 0);
+            context.clearRect(0, 0, width, height);
+            const backdrop = context.createLinearGradient(0, 0, width, height);
+            backdrop.addColorStop(0, '#081b28');
+            backdrop.addColorStop(0.48, '#153948');
+            backdrop.addColorStop(1, '#071321');
+            context.fillStyle = backdrop;
+            context.fillRect(0, 0, width, height);
+
+            const transform = this.desktopWorldMapTransform;
+            const scale = transform.scale;
+            const worldLeft = -transform.x / scale;
+            const worldTop = -transform.y / scale;
+            const worldRight = worldLeft + width / scale;
+            const worldBottom = worldTop + height / scale;
+            const margin = 180 / scale;
+            const nodeIndex = this.desktopWorldNodeIndex;
+            const visibleNodes = [];
+
+            context.save();
+            context.translate(transform.x, transform.y);
+            context.scale(scale, scale);
+
+            for (const region of this.desktopWorldGraph.regions) {
+                if (region.x + region.width < worldLeft - margin || region.x > worldRight + margin ||
+                    region.y + region.height < worldTop - margin || region.y > worldBottom + margin) continue;
+                context.fillStyle = 'rgba(20, 42, 48, 0.34)';
+                context.strokeStyle = 'rgba(190, 220, 194, 0.22)';
+                context.lineWidth = Math.max(1, 2 / scale);
+                context.fillRect(region.x, region.y, region.width, region.height);
+                context.strokeRect(region.x, region.y, region.width, region.height);
+                context.fillStyle = 'rgba(235, 230, 188, 0.9)';
+                context.font = '700 ' + Math.max(18, 24 / Math.max(scale, 0.3)) + 'px serif';
+                context.fillText(region.label, region.x + 24, region.y + 38);
+            }
+
+            context.lineCap = 'round';
+            for (const edge of this.desktopWorldGraph.edges) {
+                const from = nodeIndex.get(edge.from);
+                const to = nodeIndex.get(edge.to);
+                if (!from || !to) continue;
+                if (Math.max(from.x, to.x) < worldLeft - margin || Math.min(from.x, to.x) > worldRight + margin ||
+                    Math.max(from.y, to.y) < worldTop - margin || Math.min(from.y, to.y) > worldBottom + margin) continue;
+                context.beginPath();
+                context.moveTo(from.x, from.y);
+                context.lineTo(to.x, to.y);
+                context.strokeStyle = from.region === to.region
+                    ? 'rgba(235, 222, 170, 0.48)'
+                    : 'rgba(123, 209, 241, 0.72)';
+                context.lineWidth = Math.max(1.5, 1.4 / Math.max(scale, 0.025));
+                context.stroke();
+            }
+
+            const tileSize = 76;
+            for (const node of this.desktopWorldGraph.nodes) {
+                if (node.x < worldLeft - tileSize || node.x > worldRight + tileSize ||
+                    node.y < worldTop - tileSize || node.y > worldBottom + tileSize) continue;
+                visibleNodes.push(node);
+                if (scale < 0.16) {
+                    context.beginPath();
+                    context.arc(node.x, node.y, 3.4 / scale, 0, Math.PI * 2);
+                    context.fillStyle = node.id === this.desktopWorldNode?.id ? '#ffd86e' : '#91bcb0';
+                    context.fill();
+                    continue;
+                }
+                this.drawDesktopWorldTile(context, node, tileSize);
+                context.strokeStyle = node.id === this.desktopWorldNode?.id
+                    ? '#ffe27d'
+                    : 'rgba(232, 235, 211, 0.46)';
+                context.lineWidth = node.id === this.desktopWorldNode?.id ? 7 : 2;
+                context.strokeRect(node.x - tileSize / 2, node.y - tileSize / 2, tileSize, tileSize);
+                if (scale >= 0.5) {
+                    context.fillStyle = 'rgba(4, 10, 17, 0.82)';
+                    context.fillRect(node.x - 43, node.y + 20, 86, 24);
+                    context.fillStyle = node.id === this.desktopWorldNode?.id ? '#ffe69a' : '#f2f4df';
+                    context.font = '700 13px sans-serif';
+                    context.textAlign = 'center';
+                    context.fillText(String(node.name || '').slice(0, 8), node.x, node.y + 37);
+                }
+            }
+            context.restore();
+            context.textAlign = 'start';
+            this.desktopWorldMapHitAreas = visibleNodes;
+        },
+
+        focusDesktopWorldMap() {
+            if (!this.desktopWorldMapOpen || !this.desktopWorldGraph) return;
+            this.$nextTick(() => {
+                const sizing = this.desktopWorldCanvasSize();
+                if (!sizing) return;
+                const node = this.desktopWorldNode || this.desktopWorldGraph.nodes[0];
+                const scale = 0.82;
+                this.desktopWorldMapTransform = {
+                    x: sizing.width / 2 - node.x * scale,
+                    y: sizing.height / 2 - node.y * scale,
+                    scale
+                };
+                this.desktopWorldSelectedNode = node;
+                this.renderDesktopWorldMap();
+            });
+        },
+
+        fitDesktopWorldMap() {
+            if (!this.desktopWorldMapOpen || !this.desktopWorldGraph) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const bounds = this.desktopWorldGraph.bounds;
+            const scale = Math.max(0.025, Math.min(
+                (sizing.width - 60) / bounds.width,
+                (sizing.height - 60) / bounds.height,
+                0.5
+            ));
+            this.desktopWorldMapTransform = {
+                x: (sizing.width - bounds.width * scale) / 2,
+                y: (sizing.height - bounds.height * scale) / 2,
+                scale
+            };
+            this.desktopWorldSelectedNode = null;
+            this.renderDesktopWorldMap();
+        },
+
+        handleDesktopWorldWheel(event) {
+            if (!this.desktopWorldGraph) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const pointX = event.clientX - sizing.rect.left;
+            const pointY = event.clientY - sizing.rect.top;
+            const old = this.desktopWorldMapTransform;
+            const factor = event.deltaY < 0 ? 1.14 : 0.88;
+            const nextScale = Math.max(0.025, Math.min(2.2, old.scale * factor));
+            const worldX = (pointX - old.x) / old.scale;
+            const worldY = (pointY - old.y) / old.scale;
+            this.desktopWorldMapTransform = {
+                x: pointX - worldX * nextScale,
+                y: pointY - worldY * nextScale,
+                scale: nextScale
+            };
+            this.renderDesktopWorldMap();
+        },
+
+        handleDesktopWorldPointerDown(event) {
+            if (event.button !== undefined && event.button !== 0) return;
+            event.currentTarget?.setPointerCapture?.(event.pointerId);
+            this.desktopWorldMapPointers = {
+                ...this.desktopWorldMapPointers,
+                [event.pointerId]: { clientX: event.clientX, clientY: event.clientY }
+            };
+            const ids = Object.keys(this.desktopWorldMapPointers);
+            if (ids.length === 2) {
+                const [a, b] = ids.map(id => this.desktopWorldMapPointers[id]);
+                const sizing = this.desktopWorldCanvasSize();
+                if (sizing) {
+                    this.desktopWorldMapPinch = {
+                        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+                        midX: (a.clientX + b.clientX) / 2 - sizing.rect.left,
+                        midY: (a.clientY + b.clientY) / 2 - sizing.rect.top,
+                        transform: { ...this.desktopWorldMapTransform }
+                    };
+                }
+                this.desktopWorldMapDrag = null;
+                return;
+            }
+            this.desktopWorldMapDrag = {
+                pointerId: event.pointerId,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                moved: false
+            };
+        },
+
+        handleDesktopWorldPointerMove(event) {
+            if (!this.desktopWorldMapPointers[event.pointerId]) return;
+            this.desktopWorldMapPointers = {
+                ...this.desktopWorldMapPointers,
+                [event.pointerId]: { clientX: event.clientX, clientY: event.clientY }
+            };
+            const ids = Object.keys(this.desktopWorldMapPointers);
+            if (ids.length >= 2 && this.desktopWorldMapPinch) {
+                const [a, b] = ids.slice(0, 2).map(id => this.desktopWorldMapPointers[id]);
+                const pinch = this.desktopWorldMapPinch;
+                const base = pinch.transform;
+                const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+                if (pinch.distance > 0 && distance > 0) {
+                    const factor = distance / pinch.distance;
+                    const nextScale = Math.max(0.025, Math.min(2.2, base.scale * factor));
+                    const worldX = (pinch.midX - base.x) / base.scale;
+                    const worldY = (pinch.midY - base.y) / base.scale;
+                    this.desktopWorldMapTransform = {
+                        x: pinch.midX - worldX * nextScale,
+                        y: pinch.midY - worldY * nextScale,
+                        scale: nextScale
+                    };
+                    this.renderDesktopWorldMap();
+                }
+                return;
+            }
+            const drag = this.desktopWorldMapDrag;
+            if (!drag || drag.pointerId !== event.pointerId) return;
+            const dx = event.clientX - drag.clientX;
+            const dy = event.clientY - drag.clientY;
+            if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+            drag.clientX = event.clientX;
+            drag.clientY = event.clientY;
+            this.desktopWorldMapTransform = {
+                ...this.desktopWorldMapTransform,
+                x: this.desktopWorldMapTransform.x + dx,
+                y: this.desktopWorldMapTransform.y + dy
+            };
+            this.renderDesktopWorldMap();
+        },
+
+        handleDesktopWorldPointerUp(event) {
+            delete this.desktopWorldMapPointers[event.pointerId];
+            this.desktopWorldMapPointers = { ...this.desktopWorldMapPointers };
+            if (Object.keys(this.desktopWorldMapPointers).length < 2)
+                this.desktopWorldMapPinch = null;
+            const drag = this.desktopWorldMapDrag;
+            if (!drag || drag.pointerId !== event.pointerId) return;
+            event.currentTarget?.releasePointerCapture?.(event.pointerId);
+            this.desktopWorldMapDrag = null;
+            if (Object.keys(this.desktopWorldMapPointers).length > 0) return;
+            if (drag.moved) return;
+            const sizing = this.desktopWorldCanvasSize();
+            if (!sizing) return;
+            const transform = this.desktopWorldMapTransform;
+            const worldX = (event.clientX - sizing.rect.left - transform.x) / transform.scale;
+            const worldY = (event.clientY - sizing.rect.top - transform.y) / transform.scale;
+            let nearest = null;
+            let nearestDistance = Infinity;
+            for (const node of this.desktopWorldMapHitAreas) {
+                const distance = Math.hypot(node.x - worldX, node.y - worldY);
+                if (distance < nearestDistance) {
+                    nearest = node;
+                    nearestDistance = distance;
+                }
+            }
+            if (!nearest || nearestDistance > 58 / Math.max(transform.scale, 0.2)) return;
+            this.desktopWorldSelectedNode = nearest;
+            this.renderDesktopWorldMap();
+        },
+
+        desktopWorldSelectedExit() {
+            const selected = this.desktopWorldSelectedNode;
+            if (!selected || !this.desktopWorldNode) return null;
+            const graphExit = (this.desktopWorldNode.exits || []).find(exit => exit.target === selected.id);
+            if (!graphExit) return null;
+            return (this.desktopScene?.exits || []).find(exit =>
+                this.desktopDirectionKey(exit.direction) === graphExit.direction
+            ) || null;
+        },
+
+        moveToDesktopWorldSelection() {
+            const exit = this.desktopWorldSelectedExit();
+            if (exit) {
+                this.closeDesktopWorldMap();
+                this.moveDesktopScene(exit);
+            }
+        },
+
+        desktopExitAnchor(direction) {
+            const value = String(direction || '');
+            if (value === '东') return { x: 91, y: 54 };
+            if (value === '西') return { x: 9, y: 54 };
+            if (value === '南') return { x: 50, y: 88 };
+            if (value === '北') return { x: 50, y: 17 };
+            if (value === '东北') return { x: 82, y: 22 };
+            if (value === '西北') return { x: 18, y: 22 };
+            if (value === '东南') return { x: 82, y: 82 };
+            if (value === '西南') return { x: 18, y: 82 };
+            if (value === '上') return { x: 63, y: 18 };
+            if (value === '下') return { x: 37, y: 86 };
+            return { x: 50, y: 20 };
+        },
+
+        getDesktopExitStyle(exit) {
+            const anchor = this.desktopExitAnchor(exit?.direction);
+            return { left: `${anchor.x}%`, top: `${anchor.y}%` };
+        },
+
+        getDesktopEntityStyle(entity, index) {
+            const anchors = [
+                [43, 50], [57, 49], [48, 43], [54, 58], [61, 55],
+                [39, 58], [50, 52], [45, 61], [58, 42], [62, 47]
+            ];
+            const anchor = anchors[index % anchors.length];
+            return { left: `${anchor[0]}%`, top: `${anchor[1]}%` };
+        },
+
+        getDesktopPlayerStyle() {
+            return {
+                left: `${this.desktopPlayerPosition.x}%`,
+                top: `${this.desktopPlayerPosition.y}%`
+            };
+        },
+
+        getDesktopSceneStyle() {
+            const source = this.desktopScene?.background ||
+                '/images/visual_map/red-cloud-terrace-v1.webp';
+            return { backgroundImage: `url("${this.getImageUrl(source)}")` };
+        },
+
+        handleDesktopGroundClick(event) {
+            if (this.desktopSceneMoving || !event?.currentTarget) return;
+            if (event.target?.closest?.('.desktop-scene-actor, .desktop-exit-portal, .desktop-scene-hud')) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = Math.max(37, Math.min(63, (event.clientX - rect.left) / rect.width * 100));
+            const y = Math.max(39, Math.min(63, (event.clientY - rect.top) / rect.height * 100));
+            this.desktopPlayerPosition = { x, y };
+            this.desktopSceneSelected = null;
+            this.desktopSceneActions = [];
+        },
+
+        async moveDesktopScene(exit) {
+            if (!exit?.cmd || this.desktopSceneMoving || this.mudLoading) return;
+            const previousRoomName = this.desktopScene?.roomName || '';
+            const destination = this.desktopExitAnchor(exit.direction);
+            this.desktopSceneMoving = true;
+            this.desktopSceneSelected = null;
+            this.desktopSceneActions = [];
+            this.desktopPlayerPosition = destination;
+            if (!this.prefersReducedMotion()) {
+                await new Promise(resolve => setTimeout(resolve, 360));
+            }
+            await this.sendJsonCommand(exit.cmd);
+            const opposite = {
+                东: { x: 40, y: 53 }, 西: { x: 60, y: 53 },
+                南: { x: 50, y: 41 }, 北: { x: 50, y: 63 },
+                东北: { x: 41, y: 62 }, 西北: { x: 59, y: 62 },
+                东南: { x: 41, y: 42 }, 西南: { x: 59, y: 42 },
+                上: { x: 48, y: 61 }, 下: { x: 52, y: 42 }
+            };
+            this.desktopPlayerPosition = this.desktopScene?.roomName !== previousRoomName
+                ? (opposite[exit.direction] || { x: 50, y: 58 })
+                : { x: 50, y: 58 };
+            this.desktopSceneMoving = false;
+        },
+
+        async inspectDesktopEntity(entity) {
+            if (!entity?.cmd || this.desktopSceneMoving || this.mudLoading) return;
+            this.desktopSceneSelected = entity;
+            this.desktopSceneActions = [];
+            const firstResponse = await this.sendJsonCommand(entity.cmd);
+			// 多个同类目标时，旧房间输出会先进入“本房目标列表”。
+			// PC场景自动精确选择刚才点击的同名目标，让一次鼠标点击
+			// 直接到达观察/战斗操作；仍只调用服务器原有隐藏命令。
+			const directAction = this.findDesktopDirectEntityAction(
+				entity, firstResponse?.lines || []
+			);
+			if (directAction && directAction.cmd !== entity.cmd) {
+				this.desktopSceneActions = [];
+				await this.sendJsonCommand(directAction.cmd);
+			}
+        },
+
+        async runDesktopSceneAction(action) {
+            if (!action?.cmd || this.mudLoading) return;
+            await this.sendJsonCommand(action.cmd);
+        },
+
+        startDesktopSceneSync() {
+            this.stopDesktopSceneSync();
+            if (this.clientLayout !== 'pc') return;
+            this.desktopSceneSyncTimer = setInterval(() => {
+                this.syncDesktopScene();
+            }, 4000);
+        },
+
+        stopDesktopSceneSync() {
+            if (this.desktopSceneSyncTimer) {
+                clearInterval(this.desktopSceneSyncTimer);
+                this.desktopSceneSyncTimer = null;
+            }
+            this.desktopSceneSyncing = false;
+        },
+
+        async syncDesktopScene() {
+            if (this.clientLayout !== 'pc' || !this.txd || this.desktopSceneSyncing ||
+                this.desktopSceneMoving || this.mudLoading || this.isInBattle ||
+                this.playerStats?.autofight || document.hidden) return;
+            const requestEpoch = this.characterSessionEpoch;
+            const requestTxd = this.txd;
+            this.desktopSceneSyncing = true;
+            try {
+                const params = new URLSearchParams({ txd: requestTxd, cmd: 'look' });
+                const response = await fetch(`${this.apiBase}/api/json?${params.toString()}`);
+                if (!this.isCharacterSessionCurrent(requestEpoch)) return;
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 409 && data.forced_logout) {
+                    this.handleForcedCharacterLogout(data);
+                    return;
+                }
+                if (!response.ok || data.error) return;
+                if (data.txd) this.txd = data.txd;
+                this.captureDesktopVisualState(data.lines || [], true);
+            } catch (error) {
+                console.warn('[PC场景] 静默同步失败:', error);
+            } finally {
+                if (this.isCharacterSessionCurrent(requestEpoch)) {
+                    this.desktopSceneSyncing = false;
+                }
+            }
+        },
+
         // 切换头部菜单
         toggleHeaderMenu() {
             this.headerMenuOpen = !this.headerMenuOpen;
@@ -4165,6 +5078,7 @@ createApp({
         startStatsUpdate() {
             this.stopStatsUpdate();
             this.fetchPlayerStats();
+            this.startDesktopSceneSync();
             // 挂机画面已携带完整人物状态，避免同一玩家再发重复/status。
             this.statsInterval = setInterval(() => {
                 if (!this.playerStats?.autofight) {
@@ -4175,6 +5089,7 @@ createApp({
 
         // 停止定时更新
         stopStatsUpdate() {
+            this.stopDesktopSceneSync();
             if (this.statsInterval) {
                 clearInterval(this.statsInterval);
                 this.statsInterval = null;
@@ -5884,6 +6799,11 @@ createApp({
     },
 
     beforeUnmount() {
+        this.stopDesktopSceneSync();
+        if (this.desktopWorldMapResizeHandler) {
+            window.removeEventListener('resize', this.desktopWorldMapResizeHandler);
+            this.desktopWorldMapResizeHandler = null;
+        }
         if (this.registerReturnTimer) {
             clearTimeout(this.registerReturnTimer);
             this.registerReturnTimer = null;
@@ -5904,6 +6824,10 @@ createApp({
                 this.autoAnimateReadyHandler
             );
             this.autoAnimateReadyHandler = null;
+        }
+        if (this.desktopKeydownHandler) {
+            window.removeEventListener('keydown', this.desktopKeydownHandler);
+            this.desktopKeydownHandler = null;
         }
         this.confettiInstance?.reset?.();
         this.confettiInstance = null;
@@ -5934,6 +6858,11 @@ createApp({
         });
 
         this.apiBase = this.detectApiBase();
+        if (this.clientLayout === 'pc') {
+            this.loadDesktopWorldGraph();
+            this.desktopWorldMapResizeHandler = () => this.renderDesktopWorldMap();
+            window.addEventListener('resize', this.desktopWorldMapResizeHandler);
+        }
         const modeText = this.useJsonMode ? 'JSON模式 (无iframe)' : 'iframe模式';
         console.log(`Vue游戏客户端已启动 (${modeText})`);
 
@@ -6053,6 +6982,12 @@ createApp({
         // 恢复快捷菜单折叠状态
         const savedQuickActionsCollapsed = localStorage.getItem('quickActionsCollapsed');
         this.quickActionsCollapsed = savedQuickActionsCollapsed !== '0';
+        if (this.clientLayout === 'pc') {
+            this.quickActionsCollapsed = false;
+            this.headerCollapsed = false;
+            this.desktopKeydownHandler = event => this.handleDesktopKeydown(event);
+            window.addEventListener('keydown', this.desktopKeydownHandler);
+        }
 
         console.log('API地址:', this.apiBase);
 
