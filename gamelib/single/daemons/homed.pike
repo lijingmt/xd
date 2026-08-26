@@ -3635,7 +3635,8 @@ mapping(string:mixed) create_shop_listing(object player,int price_flag,
 	}
 	if(item->equiped || !item->query_item_save() ||
 	   !item->query_item_canTrade() || item->query_toVip() ||
-	   ITEMSD->newmoon_item_cross_account_blocked(item)){
+	   ITEMSD->newmoon_item_cross_account_blocked(item) ||
+	   ITEMSD->query_abnormal_gear_class(item)>=1){
 		destruct(state_key);
 		return (["ok":0,"message":"该物品已绑定或当前不可摆摊"]);
 	}

@@ -168,6 +168,29 @@ int main()
 			environment(batch_armor)==receiver && !(int)repeated_batch["ok"],
 			sprintf("offer=%O batch=%O repeated=%O",
 				batch_offer,batch,repeated_batch));
+		// 异常装备不可经赠送/交易转移：旧双重缩放存量只允许所有者
+		// 在登录时被替换为正常数据，堵住买家付款买虚高属性的诈骗。
+		object legacy_gear=clone(ROOT+
+			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
+		legacy_gear->set_attack_add(999999);
+		legacy_gear->move(sender);
+		mapping legacy_gift=PLAYER_TRANSFERD->create_gift_offer(sender,
+			receiver,legacy_gear->query_name(),0);
+		mapping legacy_trade=PLAYER_TRANSFERD->create_trade_offer(sender,
+			receiver,legacy_gear->query_name(),0,100);
+		check("异常装备禁止赠送与交易(待所有者登录矫正)",
+			!(int)legacy_gift["ok"] && !(int)legacy_trade["ok"] &&
+			environment(legacy_gear)==sender,
+			sprintf("gift=%O trade=%O",legacy_gift,legacy_trade));
+		destruct(legacy_gear);
+		string vendue_source=Stdio.read_file(ROOT+
+			"/gamelib/cmds/vendue_confirm.pike") || "";
+		string homed_source=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/homed.pike") || "";
+		check("拍卖与家园摆摊上架同样拒绝异常装备",
+			search(vendue_source,"query_abnormal_gear_class")!=-1 &&
+			search(homed_source,"query_abnormal_gear_class")!=-1,
+			"vendue_confirm或homed缺少异常装备闸门");
 		object stale_batch_weapon=clone(ROOT+
 			"/gamelib/clone/item/weapon/1taomujian/1taomujian");
 		object stale_batch_armor=clone(ROOT+

@@ -40,7 +40,8 @@ int main(string|zero arg)
 		// an item that became account-bound in between.
 		if(!ob->is("item") || ob->equiped || !ob->query_item_save() ||
 		   !ob->query_item_canTrade() || ob->query_toVip() ||
-		   ITEMSD->newmoon_item_cross_account_blocked(ob)){
+		   ITEMSD->newmoon_item_cross_account_blocked(ob) ||
+		   ITEMSD->query_abnormal_gear_class(ob)>=1){
 			write("该物品当前不可拍卖，可能已穿戴或账号绑定。\n"+
 				"[返回:vendue "+name+" "+(string)count+"]\n"+
 				"[返回游戏:look]\n");

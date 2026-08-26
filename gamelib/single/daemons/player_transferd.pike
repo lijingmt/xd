@@ -192,6 +192,11 @@ private int transferable(object item,int gift,object first,object second)
 	// marker is the authoritative defense against tampered or stale instances.
 	if(ITEMSD->newmoon_item_cross_account_blocked(item))
 		return 0;
+	// 旧双重缩放时代的异常装备只允许所有者本人在登录时被替换为
+	// 正常数据，不允许经赠送/交易转移给其他玩家（买家会 在自己
+	// 登录时被换成正常数据，形成付款买虚高属性的诈骗向量）。
+	if(ITEMSD->query_abnormal_gear_class(item)>=1)
+		return 0;
 	if(gift && (int)item->query_item_canSend()!=1 &&
 	   !same_account_bound_transfer(item,second))
 		return 0;
