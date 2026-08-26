@@ -7,6 +7,7 @@ mapping(string:string) groupList=([]);//所有分组信息
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 #define MAPWORKERD ((object)(ROOT "/gamelib/single/daemons/map_workerd.pike"))
 #define HTTPAPID ((object)(ROOT "/gamelib/single/daemons/http_api_daemon.pike"))
+#define ACCOUNT_CHARACTERD ((object)(ROOT "/gamelib/single/daemons/account_characterd.pike"))
 
 int qqlist_zone_visible(string user_id)
 {
@@ -64,9 +65,62 @@ string view_user_list(){
 		mapping status = HTTPAPID->query_map_worker_cluster_online_users();
 		if(!(int)status["ok"] || !arrayp(status["users"]))
 			return "跨 Worker 在线列表正在同步，请稍后刷新。\n";
+		array(mapping) rows=({});
 		foreach((array)status["users"],mixed raw)
 			if(mappingp(raw))
-				data += view_cluster_user_list_row((mapping)raw);
+				rows+=({(mapping)raw});
+		// 传送排序：同账户角色置顶、好友次之、其余保持快照顺序——
+		// 集合传送时不用再翻四五页找自己的号。分组内相对顺序不变。
+		multiset(string) same_account=(<>);
+		string my_account="";
+		if(functionp(this_object()->query_account_owner))
+			my_account=(string)this_object()->query_account_owner();
+		if(my_account!=""){
+			mapping mine=ACCOUNT_CHARACTERD->
+				query_account_characters(my_account);
+			if((int)mine["ok"] && arrayp(mine["characters"]))
+				foreach((array)mine["characters"],mapping entry)
+					same_account[lower_case(
+						(string)entry["id"])]=1;
+		}
+		multiset(string) friends=(<>);
+		if(arrayp(this_object()->qqlist))
+			foreach(this_object()->qqlist,array entry)
+				if(arrayp(entry) && sizeof(entry)>NAME)
+					friends[lower_case(
+						(string)entry[NAME])]=1;
+		array(mapping) tier_same=({});
+		array(mapping) tier_friend=({});
+		array(mapping) tier_rest=({});
+		foreach(rows,mapping raw){
+			string uid=lower_case(String.trim_all_whites(
+				(string)(raw["userid"] || "")));
+			if(same_account[uid])
+				tier_same+=({raw});
+			else if(friends[uid])
+				tier_friend+=({raw});
+			else
+				tier_rest+=({raw});
+		}
+		foreach(tier_same,mapping raw){
+			if(!sizeof(data))
+				data+="〖同账户角色〗\n";
+			data+=view_cluster_user_list_row(raw);
+		}
+		if(sizeof(tier_friend)){
+			if(sizeof(data))
+				data+="\n";
+			data+="〖好友〗\n";
+		}
+		foreach(tier_friend,mapping raw)
+			data+=view_cluster_user_list_row(raw);
+		if(sizeof(tier_rest)){
+			if(sizeof(data))
+				data+="\n";
+			data+="〖其他在线〗\n";
+		}
+		foreach(tier_rest,mapping raw)
+			data+=view_cluster_user_list_row(raw);
 		return data;
 	}
 	int count = sizeof(users());

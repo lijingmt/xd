@@ -1436,7 +1436,7 @@ private object get_attributes_item(string orgitem,int num,
 	int size; //该物品允许可能出现的属性的个数
 	int base,limit,value; //属性的取值范围和最后的确定取值
 	int exist_flag=0; //是否已存在的标记
-	int regenerate=0; //同名残留文件与本次请求不一致时改走重新生成
+	int regenerate=0; //同名文件稀有度与请求不符时覆盖重生成
 	string attri_name=""; //属性名称
 	string item_name=""; //完整的物品名称
 	string attri=""; //属性名:n:m 字符串
@@ -1602,10 +1602,25 @@ private object get_attributes_item(string orgitem,int num,
 			if(rtn_ob && orginal_level && orginal_level<65)
 				clamp_low_tier_instance(rtn_ob,orgitem);
 			if(rtn_ob && !dynamic_equipment_level_api_valid(rtn_ob)){
-				// 缺等级API的旧文件同样走覆盖重生成而不是直接
-				// 返回0：随机掷中这类文件曾让生成接口偶发返回空。
 				werror("[ITEMSD][DYNAMIC_EQUIPMENT_REJECT] path=%O "
 					"reason=missing_level_api\n",item_name);
+				destruct(rtn_ob);
+				return 0;
+			}
+			// 复用稀有度校验（收窄版）：同名文件与本次请求的属性条数
+			// 不符（旧编码碰撞）时覆盖重生成。本生成器产物稀有度只
+			// 可能是1-7；锻造/兑换等系统写的定制文件（稀有度11+或
+			// 带item_from标记）不属于本生成器，跳过校验。等级与数值
+			// 不做校验：×10旧存储等历史文件交给登录回收清理。
+			int foreign_sourced=rtn_ob &&
+				((int)rtn_ob->query_item_rareLevel()>7 ||
+				 (functionp(rtn_ob->query_item_from) &&
+				  (string)rtn_ob->query_item_from()!=""));
+			if(rtn_ob && !foreign_sourced &&
+			   (int)rtn_ob->query_item_rareLevel()!=count){
+				werror("[ITEMSD][REUSE_STALE] path=%O rare=%d/%d\n",
+					item_name,
+					(int)rtn_ob->query_item_rareLevel(),count);
 				destruct(rtn_ob);
 				rtn_ob=0;
 				regenerate=1;
@@ -1615,33 +1630,6 @@ private object get_attributes_item(string orgitem,int num,
 			if(rtn_ob && !flag_no_level && target_item_level>0 &&
 			   rtn_ob->query_item_canLevel()<0)
 				rtn_ob->set_item_canLevel(target_item_level);
-			// 复用一致性：同名残留文件可能来自旧编码/旧规则时代（如
-			// 属性值注入文件名之前、法力按×10存进变量的年代），其
-			// 稀有度、等级或数值会与本次请求不符，曾让炼化回归偶发
-			// 失败。任何一项不一致都销毁实例并覆盖重生成。
-			// 本生成器产物稀有度只可能是1-7；锻造/兑换等系统写的
-			// 定制文件（稀有度11+或带item_from标记）不属于本生成
-			// 器，跳过校验，防止被通用重写破坏其定制内容。
-			int foreign_sourced=rtn_ob &&
-				((int)rtn_ob->query_item_rareLevel()>7 ||
-				 (functionp(rtn_ob->query_item_from) &&
-				  (string)rtn_ob->query_item_from()!=""));
-			if(rtn_ob && !foreign_sourced &&
-			   ((int)rtn_ob->query_item_rareLevel()!=count ||
-			   (target_item_level>0 && !flag_no_level &&
-			    (int)rtn_ob->query_item_canLevel()!=
-			    	target_item_level) ||
-			   query_abnormal_gear_class(rtn_ob)>=1)){
-				werror("[ITEMSD][REUSE_STALE] path=%O rare=%d/%d "+
-					"level=%d/%d class=%d\n",item_name,
-					(int)rtn_ob->query_item_rareLevel(),count,
-					(int)rtn_ob->query_item_canLevel(),
-					target_item_level,
-					query_abnormal_gear_class(rtn_ob));
-				destruct(rtn_ob);
-				rtn_ob=0;
-				regenerate=1;
-			}
 			// 即使装备已存在，也要检查并添加中立玩家职业
 			if(rtn_ob) {
 				if(mappingp(newmoon_collection) && sizeof(newmoon_collection) &&
@@ -1670,7 +1658,7 @@ private object get_attributes_item(string orgitem,int num,
 			}
 			return (rtn_ob);
 		}
-		// 如果不存在（或残留文件已判定不一致），则要做很多麻烦的事情
+		// 如果不存在（或同名文件稀有度与请求不符），则要做很多麻烦的事情
 		if(regenerate || !Stdio.exist(ITEM_PATH+item_name)){
 			//生成新的物品文件数据
 			//werror("============writetmp:\n"+writetmp+"\n");
@@ -2023,9 +2011,6 @@ private object get_attributes_item(string orgitem,int num,
 							writeback[last_brace..];
 				}
 
-				// regenerate路径必须真正覆盖同名残留文件：write_item_file
-				// 默认写保护（已存在即原样保留），不传overwrite会把旧
-				// 内容留在盘上导致后续编译/克隆失败。
 				int write_flag=write_item_file(ITEM_PATH+item_name,
 					writeback,regenerate);
 
@@ -2033,8 +2018,7 @@ private object get_attributes_item(string orgitem,int num,
 				if(Stdio.exist(ITEM_PATH+item_name)&&write_flag==1){
 					string new_item_path = ITEM_PATH+item_name;
 					// 覆盖重生成必须先按键清掉旧程序缓存再编译：
-					// compile_file命中旧缓存时克隆到的仍是覆盖前
-					// 内容（旧值文件的根源）。
+					// compile_file命中旧缓存时克隆到覆盖前内容。
 					if(regenerate)
 						m_delete(master()->programs,new_item_path);
 					program p = compile_file(new_item_path);

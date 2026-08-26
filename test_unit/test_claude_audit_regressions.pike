@@ -1069,6 +1069,29 @@ void test_same_camp_kill_gates()
 	destruct(player);
 }
 
+void test_teleport_list_tier_sort()
+{
+	object player = clone(GAMELIB_USER);
+	player->set_name("__testunit_tp_sort__");
+	player->name_cn = "传送排序测试";
+	player->set_project("gamelib");
+	player->setup("testunit-only");
+	player->set_raceId("human");
+	player->set_profeId("jianxian");
+	player->setup_player("human","jianxian");
+	player->level = 30;
+	player->set_att_by_level();
+	string qqlist_source=Stdio.read_file(ROOT+
+		"/lowlib/wapmud2/inherit/feature/qqlist.pike") || "";
+	int wired=search(qqlist_source,"same_account[uid]")!=-1 &&
+		search(qqlist_source,"〖同账户角色〗")!=-1 &&
+		search(qqlist_source,"query_account_characters")!=-1;
+	check("传送列表按同账户/好友/其余三档排序接线完整",
+		wired,
+		"qqlist缺少三档排序或分节标记");
+	destruct(player);
+}
+
 void test_prelogin_command_guards()
 {
 	object original_player = this_player();
@@ -1127,6 +1150,7 @@ int main()
 		test_timed_event_daily_entry_contract();
 		test_other_runtime_regressions();
 		test_shuiyu_cap_never_unequips();
+		test_teleport_list_tier_sort();
 		test_same_camp_kill_gates();
 		test_prelogin_command_guards();
 		test_distributed_channel_chat_contract();
