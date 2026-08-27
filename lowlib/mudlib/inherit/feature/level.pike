@@ -213,6 +213,12 @@ void set_att_by_level(){
 		this_object()->set_dex(10+(int)(level_now*2.0));
 		this_object()->set_think(10+(int)(level_now*2.0));
 	}
+	if(this_object()->query_profeId()=="wuji"){//无极 - 太极之上终极隐藏
+		// 比太极(10+2L) 强 30%：起点 13、每级 +2.6；120 级 323（vs 太极 248）
+		this_object()->set_str(13+(int)(level_now*2.6));
+		this_object()->set_dex(13+(int)(level_now*2.6));
+		this_object()->set_think(13+(int)(level_now*2.6));
+	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());
 	this_object()->set_mofa(this_object()->query_mofa_max());
