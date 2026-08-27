@@ -237,7 +237,8 @@ string render_set_manager(object player)
 	out+="[只看套装:inventory_filter category set]|"+
 		"[套装优先穿装:auto_equip set]\n";
 	if(sizeof(candidates))
-		out+="[预览清理重复套装:set_equipment_cleanup preview]\n";
+		out+="[一键清理重复套装:set_equipment_cleanup sell]|"+
+			"[预览后清理:set_equipment_cleanup preview]\n";
 	out+="[返回分类背包:inventory_filter]|[返回游戏:look]\n";
 	return out;
 }
@@ -251,6 +252,45 @@ int main(string|zero arg)
 	if(player->query_in_combat()){
 		write("交战中不能整理套装，请脱离战斗后再试。\n"+
 			"[返回战斗:flushview]\n");
+		return 1;
+	}
+	if(arg=="sell"){
+		// 一键清理：内部完成预览+确认+执行，保持全部安全闸门。
+		// 只清理通过 reject 校验的重复件（每组保留评分最高一件），
+		// 不跳过任何安全检查。
+		candidates=query_set_cleanup_candidates(player);
+		if(!sizeof(candidates)){
+			write("没有可清理的重复套装件。\n"+
+				"[返回套装管理:set_equipment_cleanup]\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		int quick_value=0;
+		foreach(candidates,object item)
+			quick_value+=query_set_cleanup_value(item);
+		mapping quick=perform_set_cleanup(player,candidates);
+		if((int)quick["count"]<=0){
+			write("套装状态变化，本次没有清理任何物品。\n"+
+				"[返回套装管理:set_equipment_cleanup]\n");
+			return 1;
+		}
+		string quick_out="【一键套装清理】已清理"+
+			(int)quick["count"]+"件重复套装，获得"+
+			MUD_MONEYD->query_store_money_cn((int)quick["money"])+"。\n";
+		array(string) quick_names=(array)quick["names"];
+		for(int q=0;q<sizeof(quick_names) && q<15;q++)
+			quick_out+="· "+quick_names[q]+"\n";
+		if(sizeof(quick_names)>15)
+			quick_out+="……另有"+(sizeof(quick_names)-15)+"件。\n";
+		if(!player->save_with_result()){
+			write(quick_out+
+				"⚠ 存档失败，请重新登录确认银两。\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		write(quick_out+
+			"[继续清理:set_equipment_cleanup sell]|"+
+			"[套装管理:set_equipment_cleanup]\n[返回游戏:look]\n");
 		return 1;
 	}
 	if(arg=="preview"){
