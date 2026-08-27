@@ -12,7 +12,8 @@ protected void create()
 	desc="八十一章后的月光凝成石阶，归真月魇会映照来者当前境界。\n";
 	dongtai_npc_start_level=69;
 	exits["east"]=ROOT "/gamelib/d/illusion_s1/moon_gate.pike";
-	exits["west"]=ROOT "/gamelib/d/illusion_s1/returning_star_pass.pike";
+	exits["west"]=ROOT "/gamelib/d/illusion_s1/returning_void_garden.pike";
+	exits["south"]=ROOT "/gamelib/d/illusion_s1/returning_star_pass.pike";
 	configure_autofight_training_population(ROOT+
 		"/gamelib/clone/npc/illusion_s1/returning_moon_wraith.pike",
 		20,18,5,20,3);

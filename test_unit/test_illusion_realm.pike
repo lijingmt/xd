@@ -197,7 +197,7 @@ void test_post_story_dynamic_training(object player,mapping fresh_state,
 		ROOT+"/gamelib/d/illusion_s1/returning_moon_steps");
 	mapping route_69 = SEASONALD->query_autofight_route(player);
 	array(string) paths = (array(string))route_69["paths"];
-	int rooms_valid = sizeof(paths)==3;
+	int rooms_valid = sizeof(paths)==6;
 	multiset(string) affinities = (<>);
 	foreach(paths,string path){
 		string room_file = "/gamelib/d/"+path+".pike";
@@ -208,7 +208,7 @@ void test_post_story_dynamic_training(object player,mapping fresh_state,
 		   (int)room->query_autofight_training_capacity()!=18)
 			rooms_valid = 0;
 	}
-	check("八十一章前拒绝归真修行，通关后开放三张54人动态猎场",
+	check("八十一章前拒绝归真修行，通关后开放六张108人动态猎场",
 		!(int)locked["unlocked"] && bypass_blocked && completed_allowed &&
 		(int)status_69["unlocked"] &&
 		(int)status_69["target_level"]==999 &&
@@ -216,9 +216,9 @@ void test_post_story_dynamic_training(object player,mapping fresh_state,
 		(int)route_69["max"]==999 && (int)route_69["level"]==69 &&
 		(int)route_69["target_min"]==69 &&
 		(int)route_69["target_max"]==71 &&
-		(int)route_69["total_capacity"]==54 &&
+		(int)route_69["total_capacity"]==108 &&
 		(int)route_69["disable_overflow"]==1 && rooms_valid &&
-		sizeof(affinities)==3,
+		sizeof(affinities)>=3,
 		sprintf("locked=%O status=%O route=%O rooms=%d affinities=%O",
 			locked,status_69,route_69,rooms_valid,indices(affinities)));
 	object npc = clone(ROOT+

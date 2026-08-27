@@ -1763,12 +1763,22 @@ mapping(string:mixed) query_autofight_route(object player)
 			"illusion_s1/returning_moon_steps",
 			"illusion_s1/returning_star_pass",
 			"illusion_s1/returning_heart_terrace",
+			"illusion_s1/returning_dawn_pavilion",
+			"illusion_s1/returning_dust_bridge",
+			"illusion_s1/returning_void_garden",
 		});
+		// 按角色ID稳定散列分配猎场图，六图形成环线互通；
+		// 不同玩家自然分散到不同图，避免全挤一张图抢怪。
+		int path_index=0;
+		string cid=(string)player->query_name();
+		if(cid && sizeof(cid))
+			foreach(cid;int pos;int ch)
+				path_index=(path_index+ch*(pos+7))%sizeof(paths);
 		return ([
 			"max":999,
 			"level":target_level,
 			"name":"归真修行",
-			"path":paths[0],
+			"path":paths[path_index],
 			"paths":paths,
 			"capacity":18,
 			"total_capacity":sizeof(paths)*18,

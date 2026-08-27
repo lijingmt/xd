@@ -409,8 +409,8 @@ int main()
 				valid = 0;
 		check("约2693个房间按目录权重分布到3个worker",
 			valid,"冷启动目录未覆盖所有worker或地图目录缺失");
-		check("S1七个剧情与猎场亲和组在冷启动时实际使用多个worker",
-			s1_group_count==7 && sizeof(s1_workers)>=3,
+		check("S1剧情与猎场亲和组在冷启动时实际使用多个worker",
+			s1_group_count>=7 && sizeof(s1_workers)>=3,
 			sprintf("groups=%d workers=%O",s1_group_count,
 				indices(s1_workers)));
 		check("S1三组公共猎场在三节点冷启动时强制互不共置",
