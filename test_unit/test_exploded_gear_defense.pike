@@ -241,7 +241,10 @@ int main()
 				"weapon/70baokukuangjian/zztestunitlegal70");
 			rm(forge70_dir+"zztestunitlegacy");
 			rm(forge70_dir+"zztestunitlegal70");
-			envelope_legacy_flagged=legacy_class==1;
+			// 包络臂已移除：旧值装备（12260力量/穿透301/命中20）
+			// 均在limit×等级×4钳制线下，不再被判为爆炸装（回收
+			// 死循环的修复——替换件曾被反复误判回收）。
+			envelope_legacy_flagged=legacy_class==0;
 			envelope_legal_kept=intlegal_class==0;
 		}
 		// 洗炼保底：资源型重掷走[70%,100%]差额采样，底版25@280级
@@ -365,7 +368,7 @@ int main()
 	check("千级上限：回收不发放碎玉",
 		!err && ceiling_jade_unchanged,
 		sprintf("jade %d→%d",jade_ceiling_before,jade_ceiling_after));
-	check("真实包络：旧双重缩放存量(tier≥65底版)被判爆炸装",
+	check("钳制线：旧值装备不再被误判（包络已移除）",
 		!err && envelope_legacy_flagged,
 		sprintf("legacy_class=%d",legacy_class));
 	check("真实包络：包络内合法极值装备不受影响",

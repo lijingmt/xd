@@ -2354,7 +2354,6 @@ int query_abnormal_gear_class(object item)
 			mixed raw=item[attr];
 			int value;
 			int cap;
-			int ceiling;
 			// 读裸变量而非query_ getter：life/mofa的getter×10、
 			// 新月职业契合的getter叠加共鸣，都会把合法装备误判
 			// 成异常。未掷出的属性变量缺省为0。
@@ -2368,19 +2367,12 @@ int query_abnormal_gear_class(object item)
 				return 2;
 			if(value>cap)
 				over_cap=1;
-			// 真实包络收紧：旧双重缩放时代(×level/25)的存量装备
-			// （如天仙境280级力量12260、闪避穿透301）数值约为包络
-			// 的10-150倍，却远低于松回收线，tier≥65底版更是整档
-			// 豁免。超包络3倍即判爆炸装，登录时按既有机制替换为
-			// 同款正常数据装备；3倍余量覆盖生成钳制与保底边界。
-			ceiling=query_gear_line_ceiling(attr,caps[attr]/100000,
-				tier,item_level)*3;
-			if(ceiling>0 && value>ceiling)
-				over_envelope=1;
 		}
-		if(over_envelope)
-			return 1;
-		if(over_cap && tier>=1 && tier<65)
+		// 包络臂已移除：等级缩放封顶20x后，limit×等级×4钳制线
+		// 已覆盖一切合法生成路径；包络在generate_normal_replacement
+		// 的替换件上存在误判（生产日志显示回收死循环——替换件被
+		// 反复回收）。真正的百万级失控由class-2绝对线兜底。
+		if(over_cap)
 			return 1;
 		return 0;
 	}
