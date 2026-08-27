@@ -1489,7 +1489,12 @@ private object get_attributes_item(string orgitem,int num,
 
 	}
 
-	rate=rate*get_item_rate_add(target_item_level);//设置几个等级的门槛，跨过去了有加成1.1 1.3 1.5 1.7
+	rate=rate*get_item_rate_add(target_item_level);//设置几个等级门槛
+	// 等级缩放（回归）：×min(等级/25, 20)恢复玩家熟悉的300级5000+
+	// 三维；封顶20倍防999级爆炸（旧×lv/25在999级单件12万）。
+	// 73级以内S1自平衡不受影响（73级时×2.92倍，量级不变）。
+	if(target_item_level>73)
+		rate*=min((float)target_item_level/25.0,20.0);
 	//werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
 
@@ -2304,6 +2309,10 @@ private int query_gear_line_ceiling(string attr,int limit,int tier,
 		rate=((float)tier+(float)(item_level-tier)*2.0)/
 			(float)tier;
 	rate*=get_item_rate_add(item_level);
+	// 与生成端同一等级缩放：×min(等级/25, 20)，包络同步放大
+	// 才不会把恢复后的正常掉落误判为爆炸装。
+	if(item_level>73)
+		rate*=min((float)item_level/25.0,20.0);
 	return (int)((float)limit*rate);
 }
 
