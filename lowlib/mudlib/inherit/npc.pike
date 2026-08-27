@@ -335,11 +335,11 @@ void npc_level_define(){
 			_think = _think*3;//智力
 		}
 		else if(_boss==1){
-			// Boss倍率3→2：全等级模拟确认，×2配合共鸣等级缩放
-			// 后入门Boss约7击、高等级数百击，全程落在设计区间。
-			_str = _str*2;
-			_dex = _dex*2;//敏捷
-			_think = _think*2;//智力
+			// Boss倍率2→3：装备三维恢复后×2的首领被秒杀（玩家反馈
+			// 比999无级别时代还弱），恢复历史×3锚点。
+			_str = _str*3;
+			_dex = _dex*3;//敏捷
+			_think = _think*3;//智力
 		}
 		life = _str*10;//生命=生命上限
 		life_max = life;
@@ -418,10 +418,12 @@ int query_dynamic_npc_defense_scale(int npc_level,int player_defense){
 	target_multiplier = (int)pow(player_defense,0.3);
 	if(target_multiplier<1)
 		target_multiplier = 1;
-	// 套装强化后玩家防御可达数万，防御^0.3 会把动态怪血量推到数百万
-	// （15万→750万）。倍率封顶5倍：高防玩家的怪更耐打但不失控。
-	if(target_multiplier>5)
-		target_multiplier = 5;
+	// 倍率封顶经历5→25：5倍封顶是在装备被回收削弱到1/10时定的，
+	// 装备三维恢复×min(等级/25,20)后，高防玩家相对强度反超封顶前
+	// 数倍，首领被秒、怪物毫无难度。25倍贴近未封顶的999无级别
+	// 时代强度（防御15万→35倍，仍留上限防失控）。
+	if(target_multiplier>25)
+		target_multiplier = 25;
 	target_scale = target_multiplier*1000;
 	if(npc_level>=120)
 		return target_scale;
@@ -445,10 +447,10 @@ int query_dynamic_npc_life_scale(int npc_level,int player_defense){
 	target_multiplier = (int)pow(player_defense,0.3);
 	if(target_multiplier<1)
 		target_multiplier = 1;
-	// 套装强化后玩家防御可达数万，防御^0.3 会把动态怪血量推到数百万
-	// （15万→750万）。倍率封顶5倍：高防玩家的怪更耐打但不失控。
-	if(target_multiplier>5)
-		target_multiplier = 5;
+	// 与物防同源：倍率封顶5→25，恢复999无级别时代的强度锚点，
+	// 只恢复相对强度，仍保留上限防血量失控。
+	if(target_multiplier>25)
+		target_multiplier = 25;
 	target_scale = target_multiplier*1000;
 	if(npc_level>=122)
 		return target_scale;
@@ -678,11 +680,11 @@ void npc_level_define_dongtai(object player){
 			life_strength = life_strength*3;
 		}
 		else if(_boss==1){
-			// Boss倍率3→2：全等级(1-999)模拟确认。
-			_str = _str*2;
-			_dex = _dex*2;//敏捷
-			_think = _think*2;//智力
-			life_strength = life_strength*2;
+			// Boss倍率2→3：与静态路径同源，恢复999时代强度锚点。
+			_str = _str*3;
+			_dex = _dex*3;//敏捷
+			_think = _think*3;//智力
+			life_strength = life_strength*3;
 		}
 		life = life_strength*10;//生命=生命上限
 		life_max = life;
