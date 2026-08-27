@@ -630,7 +630,7 @@ void test_catalog_and_templates()
 		profile_valid,"登记表或词缀表存在缺项或重复");
 	check("新月套装从普通白装池隔离并使用69级以上独立稀有掉落门",
 		ITEMSD->query_newmoon_equipment_template_count()==120 &&
-		ITEMSD->query_newmoon_equipment_drop_denominator()==300000 &&
+		ITEMSD->query_newmoon_equipment_drop_denominator()==1000000 &&
 		ITEMSD->query_enabled_newmoon_collection_count()==6 &&
 		!ITEMSD->can_drop_newmoon_equipment(68,145) &&
 		ITEMSD->query_newmoon_collection_id_for_roll(69,145)=="newmoon" &&

@@ -54,7 +54,15 @@ string query_set_cleanup_reject_reason(object player,object item)
 		return "bound";
 	if(item->query_item_task()==1)
 		return "task_item";
-	if(item->query_item_canTrade()!=1 || item->query_item_canDrop()!=1 ||
+	// 账号绑定的新月套装件允许清理：清理只给银两不给物品，
+	// 不存在跨账号风险。绑定件的canTrade=0此前把所有
+	// 新月套装挡在清理之外（玩家反馈"套装放不下又销毁不了"）。
+	if(functionp(item->query_newmoon_account_bound) &&
+	   (int)item->query_newmoon_account_bound()==1){
+		// 绑定件跳过canTrade检查，但task/unique/player标记仍拦截
+	}
+	else if(item->query_item_canTrade()!=1 ||
+	   item->query_item_canDrop()!=1 ||
 	   item->query_item_canStorage()!=1)
 		return "restricted";
 	if(item->query_item_only()==1)

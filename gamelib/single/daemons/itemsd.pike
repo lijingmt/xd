@@ -101,7 +101,10 @@ private array(string) newmoon_item_list = ({});
 private mapping(string:array(string)) newmoon_profession_templates = ([]);
 private mapping(string:array(string)) newmoon_focus_templates = ([]);
 private int enabled_newmoon_collection_count = 6;
-private int newmoon_drop_denominator = 300000;
+// 新月套装整体掉率：1/100万。原1/30万在六图归真猎场开放后
+// 产出过载（玩家反馈"背包放不下"），提升至1/100万使十件套回到
+// 长期追求定位；六档品质内部分布权重不变。
+private int newmoon_drop_denominator = 1000000;
 private array(mapping(string:mixed)) newmoon_collection_catalog = ({
 	(["id":"newmoon","name":"新月","quality":"稀世","rank":1,
 		"min_level":69,"min_affixes":1,"weight":300]),
