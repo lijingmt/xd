@@ -4011,11 +4011,23 @@ mapping(string:int) query_target_level_window(object me)
 	// 永恒回响；直接查询基础路线会把正确目标挡在等级窗外。
 	route = query_training_route(me);
 	if((string)route["illusion_id"]!="" &&
-	   (int)route["target_min"]>0 && (int)route["target_max"]>0)
-		return ([
-			"minimum":(int)route["target_min"],
-			"maximum":(int)route["target_max"],
-		]);
+	   (int)route["target_min"]>0 && (int)route["target_max"]>0){
+		// 章节猎场窗口只在玩家确实处于该猎场（或等级接近目标）时
+		// 生效。高等级人物（>目标+15级）在其他地图挂机时，章节
+		// 窗口会把所有怪挡在外面（"可见51只但无一符合条件"），
+		// 回退到实际等级窗口让挂机继续工作；智能路由会另行把
+		// 玩家带回章节猎场完成狩猎。
+		if(me_level>(int)route["target_max"]+15 &&
+		   !is_same_area(query_current_room_path(me),
+			(string)route["path"])){
+			// 不返回章节窗口，落入下方常规计算。
+		}
+		else
+			return ([
+				"minimum":(int)route["target_min"],
+				"maximum":(int)route["target_max"],
+			]);
+	}
 	maximum_level = me_level+2;
 	minimum_level = 1;
 	if(query_smart_route_enabled(me)){
