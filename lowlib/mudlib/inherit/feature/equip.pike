@@ -287,7 +287,7 @@ int is_newmoon_supported_profession(string profession)
 	return search(({
 		"jianxian","yushi","zhuxian","kuangyao","wuyao",
 		"yinggui","fangshi","zhenyue","tianxiang","lingyi",
-		"wuxiang","taiji","zhaoming",
+		"wuxiang","taiji","zhaoming","wuji",
 	}),profession)!=-1;
 }
 

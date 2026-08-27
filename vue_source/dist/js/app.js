@@ -4866,8 +4866,10 @@ createApp({
                 let payload = '';
                 for (const line of lines) {
                     const text = String(line.text || line.full || '');
-                    if (text.startsWith('MAPPLAYERS|')) {
-                        payload = text.slice('MAPPLAYERS|'.length);
+                    // 用includes而非startsWith：MUD可能在前面加格式化代码
+                    const marker = text.indexOf('MAPPLAYERS|');
+                    if (marker >= 0) {
+                        payload = text.slice(marker + 'MAPPLAYERS|'.length).trim();
                         break;
                     }
                 }
