@@ -160,12 +160,11 @@ void test_personal_difficulty_afk_and_shared_world()
 		player["/plus/personal_difficulty/unlocked"]=7;
 		player["/plus/personal_difficulty/current"]=1;
 		daemon->sync_daily_limit(player);
-		valid=valid && daemon->query_daily_seconds_for(player)==16*3600 &&
-			daemon->query_time_left(player)==16*3600;
+		// 难度不再截断挂机时长（玩家反馈恢复纯VIP递增）
+		valid=valid && daemon->query_daily_seconds_for(player)==20*3600;
 		player["/plus/personal_difficulty/current"]=7;
 		daemon->sync_daily_limit(player);
-		valid=valid && daemon->query_daily_seconds_for(player)==4*3600 &&
-			daemon->query_time_left(player)==4*3600;
+		valid=valid && daemon->query_daily_seconds_for(player)==20*3600;
 		set_active_vip(player,0);
 		player["/plus/personal_difficulty/current"]=1;
 		daemon->sync_daily_limit(player);
