@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【极】无极剑"; picture="wujijian_logo";
+	desc="无极剑法，剑气胜太极三成";
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=3;
+	performs_attack[1]=51; performs_attack[2]=127; performs_attack[3]=262; performs_attack[4]=397; performs_attack[5]=609;
+	performs_cast[1]=5; performs_cast[2]=9; performs_cast[3]=14; performs_cast[4]=21; performs_cast[5]=30;
+	skill_type+=({"wuji"});
+	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
+	performs_desc[1]="造成约30点物理伤害，消耗法力5点"; performs_desc[2]="造成约75点物理伤害，消耗法力9点"; performs_desc[3]="造成约155点物理伤害，消耗法力14点"; performs_desc[4]="造成约235点物理伤害，消耗法力21点"; performs_desc[5]="造成约360点物理伤害，消耗法力30点";
+}

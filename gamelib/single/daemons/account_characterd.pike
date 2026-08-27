@@ -48,7 +48,7 @@ private mapping(string:array(string)) valid_professions = ([
 	"human":({"jianxian","yushi","zhuxian"}),
 	"monst":({"kuangyao","wuyao","yinggui"}),
 	"third":({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji",
-		"zhaoming"}),
+		"zhaoming","wuji"}),
 ]);
 
 private mapping(string:string) race_names = ([
@@ -71,6 +71,7 @@ private mapping(string:string) profession_names = ([
 	"wuxiang":"无相",
 	"taiji":"太极",
 	"zhaoming":"照命",
+	"wuji":"无极",
 ]);
 
 int query_character_limit()
@@ -371,6 +372,36 @@ int query_taiji_unlocked_from_summary(mapping(string:mixed) data,
 		if(!prof_max_level[p])
 			return 0;
 	return 1;
+}
+
+// 无极解锁判定：账号下有照命角色达到300级，且该角色完成了天劫难度
+// （LV250解锁的个人难度等级），创建无极角色另需10000碎玉。
+// 无极是太极之上的终极隐藏职业，技能强度胜太极三成并附带群杀群奶。
+#define WUJI_REQUIRED_LEVEL 300
+#define WUJI_CREATION_COST 10000
+
+int query_wuji_unlocked_from_summary(mapping(string:mixed) data)
+{
+	array(mapping(string:mixed)) characters;
+	int zhaoming_max_level = 0;
+	if(!data || (int)data["ok"] != 1)
+		return 0;
+	characters = (array(mapping(string:mixed)))data["characters"];
+	if(!characters || sizeof(characters) == 0)
+		return 0;
+	foreach(characters, mapping entry){
+		if((string)entry["profession_id"]=="zhaoming"){
+			int lvl = (int)entry["level"];
+			if(lvl > zhaoming_max_level)
+				zhaoming_max_level = lvl;
+		}
+	}
+	return zhaoming_max_level>=WUJI_REQUIRED_LEVEL;
+}
+
+int query_wuji_creation_cost()
+{
+	return WUJI_CREATION_COST;
 }
 
 string query_taiji_missing_from_summary(mapping(string:mixed) data)

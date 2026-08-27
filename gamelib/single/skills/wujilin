@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【极】无极灵泉"; picture="wujiyu_logo";
+	desc="无极灵泉群奶，生命之泉涌流全场队友";
+	s_type="zhudong"; s_skill_type="balanced_team_heal"; s_delayTime=4;
+	performs_mofa_attack[1]=({136,136}); performs_mofa_attack[2]=({338,338}); performs_mofa_attack[3]=({643,643}); performs_mofa_attack[4]=({1014,1014}); performs_mofa_attack[5]=({1488,1488});
+	performs_cast[1]=25; performs_cast[2]=40; performs_cast[3]=60; performs_cast[4]=85; performs_cast[5]=115;
+	skill_type+=({"wuji"});
+	performs_level_limit[1]=48; performs_level_limit[2]=51; performs_level_limit[3]=54; performs_level_limit[4]=57; performs_level_limit[5]=60;
+}

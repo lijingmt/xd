@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【神】无极·无极"; picture="wujiwuji_logo"; desc="无极终极奥义，万物归一";
+	s_type="zhudong"; s_skill_type="balanced_wuji"; s_delayTime=80;
+	performs_attack[1]=203; performs_attack[2]=507; performs_attack[3]=964; performs_attack[4]=1521; performs_attack[5]=2231;
+	performs_cast[1]=320; performs_cast[2]=380; performs_cast[3]=450; performs_cast[4]=530; performs_cast[5]=620;
+	skill_type+=({"wuji"}); skill_rare="mythic";
+	performs_level_limit[1]=80; performs_level_limit[2]=100; performs_level_limit[3]=120; performs_level_limit[4]=140; performs_level_limit[5]=160;
+	performs_desc[1]="一阶：群体回血+净化（实战冷却 80秒）"; performs_desc[2]="二阶：治疗强化"; performs_desc[3]="三阶：治疗强化"; performs_desc[4]="四阶：治疗强化"; performs_desc[5]="五阶：最大治疗";
+}

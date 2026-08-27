@@ -1004,6 +1004,10 @@ array(string) query_item_profeLimit(){
 	if(sizeof(item_profeLimit) &&
 	   search(item_profeLimit,"zhaoming")==-1)
 		item_profeLimit += ({"zhaoming"});
+	// 无极为中立终极隐藏职业，同批进白名单。
+	if(sizeof(item_profeLimit) &&
+	   search(item_profeLimit,"wuji")==-1)
+		item_profeLimit += ({"wuji"});
 	return item_profeLimit;
 }
 

@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【极】无极诀"; picture="wujijue_logo";
+	desc="无极风系法术打击，快过太极诀三成";
+	s_type="zhudong"; s_skill_type="feng_mofa_attack"; s_delayTime=3;
+	performs_mofa_attack[1]=({20,30}); performs_mofa_attack[2]=({51,71}); performs_mofa_attack[3]=({98,132}); performs_mofa_attack[4]=({162,212}); performs_mofa_attack[5]=({245,322});
+	performs_cast[1]=4; performs_cast[2]=7; performs_cast[3]=11; performs_cast[4]=16; performs_cast[5]=22;
+	skill_type+=({"wuji"});
+	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
+	performs_desc[1]="造成12至18点法术伤害，消耗法力4点"; performs_desc[2]="造成30至42点法术伤害，消耗法力7点"; performs_desc[3]="造成58至78点法术伤害，消耗法力11点"; performs_desc[4]="造成96至126点法术伤害，消耗法力16点"; performs_desc[5]="造成145至190点法术伤害，消耗法力22点";
+}
