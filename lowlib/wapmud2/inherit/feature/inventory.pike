@@ -1099,6 +1099,46 @@ string view_inventory_daoju(void|string cmd,void|int notShowMoney,void|int showP
 		return "你身上什么东西也没有。\n";
 	return  mymoney + myyushi + s;
 }
+//装备对比标记：未穿装备与同槽位已穿装备比较主属性，
+//更好的显示↑、更差的显示↓、无同槽已穿装备不标记。
+private string query_equip_compare_mark(object me,object item)
+{
+	mapping equipped;
+	object current;
+	string kind;
+	int new_val;
+	int cur_val;
+	if(!me || !item || !functionp(item->query_item_kind))
+		return "";
+	kind=(string)item->query_item_kind();
+	if(kind=="")
+		return "";
+	equipped=functionp(me->query_equip) ? (mapping)me->query_equip() : 0;
+	if(!mappingp(equipped) || !objectp(equipped[kind]))
+		return "";
+	current=(object)equipped[kind];
+	// 武器比攻击力，防具比防御力，饰品比全属性总和
+	if(functionp(item->query_attack_power) &&
+	   functionp(current->query_attack_power) &&
+	   (kind=="single_main_weapon" || kind=="double_main_weapon" ||
+	    kind=="single_other_weapon")){
+		new_val=(int)item->query_attack_power();
+		cur_val=(int)current->query_attack_power();
+	}
+	else if(functionp(item->query_equip_defend) &&
+	   functionp(current->query_equip_defend)){
+		new_val=(int)item->query_equip_defend();
+		cur_val=(int)current->query_equip_defend();
+	}
+	else
+		return "";
+	if(new_val>cur_val)
+		return "↑";
+	if(new_val<cur_val)
+		return "↓";
+	return "=";
+}
+
 //查看装备
 protected private string view_something_zhuangbei(function filter_func,string list,void|int showPrice){
 	mapping(string:int) name_count=([]);
@@ -1208,7 +1248,9 @@ protected private string view_something_daoju(function filter_func,string list,v
 				}
 				//道具-一般物品：任务物品和特殊物品等,无价格显示
 				else{
-					out_no_equip+="["+items[i]->query_short();
+					string mark=query_equip_compare_mark(this_object(),
+						items[i]);
+					out_no_equip+="["+(mark!=""?mark:"")+items[i]->query_short();
 					out_no_equip+=":"+list+" "+items[i]->query_name()+" "+name_count[items[i]->query_name()]+"]\n";
 					name_count[items[i]->query_name()]++;
 					daoju_count++;

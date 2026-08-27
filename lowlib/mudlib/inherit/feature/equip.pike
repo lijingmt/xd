@@ -1260,5 +1260,62 @@ string query_content(){
 		r+="\n";
 	}
 	r+="--------\n";
+	// 装备对比参考：同槽位已穿装备的关键属性差值。
+	{
+		object viewer=this_player();
+		object current;
+		mapping equipped;
+		string kind;
+		if(viewer && functionp(viewer->is) && viewer->is("player") &&
+		   !ob["equiped"] && functionp(ob->query_item_kind)){
+			kind=(string)ob->query_item_kind();
+			equipped=functionp(viewer->query_equip) ?
+				(mapping)viewer->query_equip() : 0;
+			current=mappingp(equipped) && objectp(equipped[kind]) ?
+				(object)equipped[kind] : 0;
+			if(current){
+				r+="〖与当前装备对比〗"+(string)current->query_name_cn()+"\n";
+				if(functionp(ob->query_attack_power)){
+					int new_atk=(int)ob->query_attack_power();
+					int cur_atk=(int)current->query_attack_power();
+					if(new_atk||cur_atk){
+						r+="攻击："+cur_atk+" → "+new_atk+
+							(new_atk>cur_atk?" (+"+(new_atk-cur_atk)+")":
+							 new_atk<cur_atk?" ("+(new_atk-cur_atk)+")":" (=)")+"\n";
+					}
+				}
+				if(functionp(ob->query_equip_defend)){
+					int new_def=(int)ob->query_equip_defend();
+					int cur_def=(int)current->query_equip_defend();
+					if(new_def||cur_def){
+						r+="防御："+cur_def+" → "+new_def+
+							(new_def>cur_def?" (+"+(new_def-cur_def)+")":
+							 new_def<cur_def?" ("+(new_def-cur_def)+")":" (=)")+"\n";
+					}
+				}
+				// 三维属性对比
+				foreach(({"str_add","dex_add","think_add"}),
+					string attr){
+					int new_v=(int)ob[attr];
+					int cur_v=(int)current[attr];
+					if(new_v||cur_v){
+						string label=attr=="str_add"?"力量":
+							attr=="dex_add"?"敏捷":"智力";
+						r+=label+"："+cur_v+" → "+new_v+
+							(new_v>cur_v?" (+"+(new_v-cur_v)+")":"")+"\n";
+					}
+				}
+				if(functionp(ob->query_life_add)){
+					int new_life=(int)ob->query_life_add();
+					int cur_life=(int)current->query_life_add();
+					if(new_life||cur_life){
+						r+="生命："+cur_life+" → "+new_life+
+							(new_life>cur_life?" (+"+(new_life-cur_life)+")":
+							 new_life<cur_life?" ("+(new_life-cur_life)+")":" (=)")+"\n";
+					}
+				}
+			}
+		}
+	}
 	return r;
 }
