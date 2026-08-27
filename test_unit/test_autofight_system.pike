@@ -2894,6 +2894,7 @@ void test_integration_wiring()
 	   search(user_source,"[停止自动挂机:autofightclose]") != -1 &&
 	   search(user_source,"autofight") != -1 &&
 	   search(daily_source,"AUTOFIGHTD->reset_daily_time(me)") != -1 &&
+	   search(daily_source,"set_autofight(\"disable\")") == -1 &&
 	   search(kill_source,"query_autofight()==\"disable\"") != -1 &&
 	   search(leave_source,"query_autofight()==\"disable\"") != -1 &&
 	   search(autofight_source,"高级清包设置") != -1 &&

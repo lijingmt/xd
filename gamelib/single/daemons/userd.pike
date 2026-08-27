@@ -508,9 +508,11 @@ void check_daily(object me)
 			me["/plus/random_award"]=50;
 
 		//自动打怪普通玩家8小时，VIP每级增加2小时，VIP8最高24小时。
+		// 每日0点只重置挂机时长额度，不再强制关闭正在进行的挂机：
+		// 额度本身就是每日上限，强制关闭只是让跨零点的在线玩家每晚
+		// 手动重开一次（玩家反馈"每晚12点还得垫一下"）。离线玩家的
+		// 挂机本来就是会话态，重登后默认关闭，不受影响。
 		AUTOFIGHTD->reset_daily_time(me);
-		if(functionp(me->set_autofight))
-			me->set_autofight("disable");
 		
 		//写入日登陆用户信息的统计，包括写入数据库和写入log 
 		//由liaocheng于07/08/13添加
