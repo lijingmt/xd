@@ -398,7 +398,7 @@ mapping(string:mixed) query_autofight_route(object player)
 	mapping task=definition((int)view["trial"]);
 	array(string) paths=({});
 	foreach((array)task["hunt_rooms"],string room)
-		paths+=({room[sizeof("/gamelib/d/")..sizeof(room)-6]});
+		paths+=({room[sizeof("/gamelib/d/")..]});
 	return (["max":120,"level":min(69,(int)player->query_level()),
 		"name":"照命第"+(string)(int)view["trial"]+"难·"+
 			(string)view["target_name"],"path":paths[0],"paths":paths,

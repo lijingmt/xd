@@ -200,7 +200,7 @@ void test_post_story_dynamic_training(object player,mapping fresh_state,
 	int rooms_valid = sizeof(paths)==6;
 	multiset(string) affinities = (<>);
 	foreach(paths,string path){
-		string room_file = "/gamelib/d/"+path+".pike";
+		string room_file = "/gamelib/d/"+path;
 		object room = (object)(ROOT+room_file);
 		affinities[MAP_WORKERD->query_affinity_key(room_file)] = 1;
 		if(!room || Stdio.file_size(ROOT+room_file)<=0 ||
@@ -1496,13 +1496,13 @@ int main()
 				"人物尚未到达当前任务地点")!=-1,
 			sprintf("arrival_flow=%O",arrived_hunt_progress));
 		mapping(string:string) expected_afk_routes = ([
-			"1":"illusion_s1/moon_dew_field|1",
-			"10":"illusion_s1/mist_bamboo_glen|10",
-			"20":"illusion_s1/mirror_sandbar|20",
-			"30":"illusion_s1/broken_star_court|30",
-			"40":"illusion_s1/echo_battlement|40",
-			"50":"illusion_s1/abyss_flower_sea|50",
-			"69":"illusion_s1/abyss_flower_sea|50",
+			"1":"illusion_s1/moon_dew_field.pike|1",
+			"10":"illusion_s1/mist_bamboo_glen.pike|10",
+			"20":"illusion_s1/mirror_sandbar.pike|20",
+			"30":"illusion_s1/broken_star_court.pike|30",
+			"40":"illusion_s1/echo_battlement.pike|40",
+			"50":"illusion_s1/abyss_flower_sea.pike|50",
+			"69":"illusion_s1/abyss_flower_sea.pike|50",
 		]);
 		int s1_afk_routes_ok = 1;
 		foreach(indices(expected_afk_routes),string level_text){
@@ -1515,7 +1515,7 @@ int main()
 			multiset(string) route_affinities = (<>);
 			foreach(route_paths,string route_path)
 				route_affinities[MAP_WORKERD->query_affinity_key(
-					"/gamelib/d/"+route_path+".pike")] = 1;
+					"/gamelib/d/"+route_path)] = 1;
 			if((string)route["path"]!=expected[0] ||
 			   (int)route["level"]!=(int)expected[1] ||
 			   sizeof(route_paths)!=3 || sizeof(route_affinities)!=3 ||
@@ -1528,7 +1528,7 @@ int main()
 		}
 		check("S1挂机每级三张中立图可容纳50人且不创建隔离分流房",
 			s1_afk_routes_ok &&
-			AUTOFIGHTD->query_rest_room(child)=="illusion_s1/moon_gate",
+			AUTOFIGHTD->query_rest_room(child)=="illusion_s1/moon_gate.pike",
 			"S1挂机路线、攻击等级或休息营地仍可能落入永恒服");
 		test_post_story_dynamic_training(child,fresh_story_state,
 			fresh_story_progress);
