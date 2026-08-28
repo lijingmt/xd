@@ -59,7 +59,7 @@ object create_combat_test_player(string name,string race,string profession)
 
 void test_catalog_and_weights()
 {
-	test_start("十职业各7个独立技能且高品阶权重严格递减");
+	test_start("十职业各8个独立技能且高品阶权重严格递减");
 	object daemon = ANCIENT_SKILLD;
 	array(string) ids = daemon->query_all_skill_ids();
 	array(int) weights = daemon->query_tier_drop_weights();
@@ -69,21 +69,23 @@ void test_catalog_and_weights()
 	foreach(ids,string id){
 		mapping config = daemon->query_skill_config(id);
 		professions[(string)config["profession"]]++;
-		if((string)config["id"]!=id || (int)config["tier"]<1 ||
-		   (int)config["tier"]>7 || daemon->query_colored_name(id)=="" ||
-		   !has_prefix(daemon->query_colored_name(id),
-			tier_colors[(int)config["tier"]-1]) ||
-		   !has_suffix(daemon->query_colored_name(id),"§r"))
+		int tier=(int)config["tier"];
+		string colored=daemon->query_colored_name(id);
+		if((string)config["id"]!=id || tier<1 || tier>8 ||
+		   colored=="" ||
+		   !has_prefix(colored,tier==8 ? "§F【神太古】" :
+			tier_colors[tier-1]) ||
+		   !has_suffix(colored,"§r"))
 			failures += ({id});
 	}
-	if(sizeof(ids)!=70 || sizeof(professions)!=10 ||
-	   sizeof(daemon->query_profession_skill_ids("jianxian"))!=7 ||
+	if(sizeof(ids)!=80 || sizeof(professions)!=10 ||
+	   sizeof(daemon->query_profession_skill_ids("jianxian"))!=8 ||
 	   sizeof(daemon->query_profession_skill_ids("not_a_profession"))!=0 ||
 	   daemon->query_profession_name("jianxian")!="剑仙")
-		failures += ({"数量不是70/10"});
+		failures += ({"数量不是80/10"});
 	foreach(indices(professions),string profession)
-		if(professions[profession]!=7)
-			failures += ({profession+"不是7个"});
+		if(professions[profession]!=8)
+			failures += ({profession+"不是8个"});
 	if(sizeof(weights)!=7)
 		failures += ({"权重档不是7档"});
 	else
@@ -133,7 +135,7 @@ void test_uppercase_color_code_rendering()
 
 void test_all_programs_compile()
 {
-	test_start("70个技能与70本技能书全部编译并具有五阶成长");
+	test_start("80个技能与80本技能书全部编译并具有五阶成长");
 	array(string) failures = ({});
 	foreach(ANCIENT_SKILLD->query_all_skill_ids(),string id){
 		object|zero book = 0;
@@ -220,7 +222,7 @@ void test_drop_probability_contract()
 		(mythic_denominator*ancient_weight);
 	int valid = items->query_hidden_skill_book_count()==37 &&
 		mythic_rate==37 && mythic_denominator==10000000 &&
-		items->query_ancient_skill_book_count()==70 &&
+		items->query_ancient_skill_book_count()==80 &&
 		items->query_ancient_skill_min_level()==90 &&
 		ancient_weight==390 && ancient_denominator==1250000000 &&
 		!items->can_drop_ancient_skill_book(89,1) &&
