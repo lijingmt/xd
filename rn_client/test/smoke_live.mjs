@@ -6,6 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import * as api from '../src/api/mudApi.js';
+import * as accountApi from '../src/api/accountApi.js';
 
 const HOST = process.env.XIAND_SMOKE_HOST || 'http://127.0.0.1:8888';
 api.setApiBase(HOST);
@@ -61,11 +62,41 @@ await check('注册临时账号成功', async () => {
   assert.ok(result.ok, `注册失败: ${result.text.slice(0, 160)}`);
 });
 
-await check('init 登录拿到 txd 与场景输出', async () => {
+/* ---- 多角色账号中心全链路 ---- */
+let accountToken = '';
+let firstCharacterId = '';
+
+await check('账号登录换取令牌', async () => {
+  accountApi.setAccountApiBase(HOST);
+  const data = await accountApi.accountLogin(`xd01${userid}`, password);
+  accountToken = data.token || '';
+  assert.ok(accountToken.length > 0, '未返回 token');
+});
+
+await check('角色列表至少包含默认人物', async () => {
+  const data = await accountApi.fetchCharacters(accountToken);
+  const list = data.characters || [];
+  assert.ok(list.length >= 1, `characters=${JSON.stringify(list).slice(0, 160)}`);
+  firstCharacterId = String(list[0].id || '');
+  assert.ok(firstCharacterId.length > 0, '默认人物缺 id');
+  const card = accountApi.characterCard(list[0]);
+  assert.ok(card.realmType === 'eternal' || card.realmType === 'illusion');
+});
+
+await check('选择默认人物进入游戏（bootstrap→init）', async () => {
+  const selected = await accountApi.selectCharacter(
+    accountToken, firstCharacterId);
+  const bootTxd = selected.txd || '';
+  assert.ok(bootTxd.length > 0, 'select 未返回 txd');
+  const data = await api.sendCommand(
+    bootTxd, selected.bootstrap_command || 'init');
+  txd = data.txd || bootTxd;
+  assert.ok((data.lines || []).length > 0, 'bootstrap 后无输出');
+});
+
+await check('直连 /api/json 登录回退路径仍可用', async () => {
   const data = await api.login(`xd01${userid}`, password);
-  txd = data.txd || '';
-  assert.ok(txd.length > 0, '未返回 txd');
-  assert.ok((data.lines || []).length > 0, 'init 无输出');
+  assert.ok((data.txd || '').length > 0, '回退路径未返回 txd');
 });
 
 await check('look 命令返回场景行', async () => {

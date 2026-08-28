@@ -6,6 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import * as api from '../src/api/mudApi.js';
+import * as accountApi from '../src/api/accountApi.js';
 import {
   flattenTextParts, linePlainText, lineHasBattleButton,
   responseHasBattleButton, buttonStyleFor, resolveImageUrl,
@@ -198,24 +199,117 @@ await check('cmd-input 命令拼接（有值/空值/无cmd）', () => {
   assert.equal(buildInputCommand({}, 'x'), '');
 });
 
+/* ---------- 多角色账号 API ---------- */
+await check('accountLogin 以 JSON POST 提交且令牌只在请求体', async () => {
+  const calls = [];
+  const impl = async (url, options) => {
+    calls.push({ url: String(url), options });
+    return {
+      ok: true, status: 200,
+      json: async () => ({
+        token: 'AT', account_id: 'xd01u', characters: [], limit: 10,
+      }),
+    };
+  };
+  accountApi.setAccountApiBase('http://mock:9');
+  const data = await accountApi.accountLogin('xd01u', 'pw', impl);
+  assert.equal(data.token, 'AT');
+  assert.ok(calls[0].url.endsWith('/api/account/login'));
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.body, '{"userid":"xd01u","password":"pw"}');
+  assert.ok(calls[0].url.indexOf('AT') === -1, '令牌不得进 URL');
+});
+
+await check('selectCharacter 返回 txd 与 bootstrap 命令', async () => {
+  const calls = [];
+  const impl = async (url, options) => {
+    calls.push({ url: String(url), options });
+    return {
+      ok: true, status: 200,
+      json: async () => ({
+        txd: 'NT', character_id: 'xd01u', bootstrap_command: 'init',
+      }),
+    };
+  };
+  const data = await accountApi.selectCharacter('AT', 'xd01u', impl);
+  assert.equal(data.txd, 'NT');
+  assert.equal(calls[0].options.body,
+    '{"token":"AT","character_id":"xd01u"}');
+});
+
+await check('characterCard 归一化服务端字段', () => {
+  const card = accountApi.characterCard({
+    id: 'xd01hero', name_cn: '李逍遥', profession_name: '剑仙',
+    race_name: '人族', level: '120', realm_type: 'illusion',
+    illusion_id: 'S1', is_default: 1,
+  });
+  assert.equal(card.name, '李逍遥');
+  assert.equal(card.level, 120);
+  assert.equal(card.realmType, 'illusion');
+  assert.equal(card.isDefault, true);
+  const empty = accountApi.characterCard(null);
+  assert.equal(empty.name, '未命名');
+  assert.equal(empty.realmType, 'eternal');
+});
+
 /* ---------- Store（zustand 单例 + 注入全局 fetch） ---------- */
-await check('store 登录成功写入 txd 与完整 userid', async () => {
+await check('store 账号登录进入角色选择（不直接落 txd）', async () => {
   api.setApiBase('http://mock:9');
-  await withGlobalFetch(mockFetch([{
-    body: { txd: 'ST1', lines: [{ type: 'line', segments: [] }] },
-  }]), async () => {
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { token: 'AT', account_id: 'xd01testu', limit: 10 } },
+    { body: { characters: [{ id: 'xd01testu', name_cn: '本命',
+      profession_name: '剑仙', level: 5, realm_type: 'eternal' }] } },
+  ]), async () => {
     const ok = await useGameStore.getState().login('xd01', 'testu', 'pw');
     assert.ok(ok);
-    assert.equal(useGameStore.getState().txd, 'ST1');
+    assert.equal(useGameStore.getState().accountToken, 'AT');
+    assert.equal(useGameStore.getState().txd, '');
+    assert.equal(useGameStore.getState().accountCharacters.length, 1);
+    assert.equal(useGameStore.getState().accountCharacters[0].name, '本命');
     assert.equal(useGameStore.getState().userid, 'xd01testu');
   });
   useGameStore.getState().logout();
 });
 
+await check('store 账号服务失败时回退单人物直登', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { status: 500, ok: false, body: { error: '账号服务异常' } },
+    { body: { txd: 'ST1', lines: [{ type: 'line', segments: [] }] } },
+  ]), async () => {
+    const ok = await useGameStore.getState().login('xd01', 'testu', 'pw');
+    assert.ok(ok);
+    assert.equal(useGameStore.getState().txd, 'ST1');
+    assert.equal(useGameStore.getState().accountToken, '');
+  });
+  useGameStore.getState().logout();
+});
+
+await check('store 选择角色用 bootstrap 命令进入游戏', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { txd: 'NT', character_id: 'xd01testu',
+      bootstrap_command: 'init' } },
+    { body: { txd: 'NT2', lines: [{ type: 'line', segments: [] }] } },
+  ]), async () => {
+    useGameStore.setState({ accountToken: 'AT', txd: '', lines: [] });
+    await useGameStore.getState().pickCharacter('xd01testu');
+    assert.equal(useGameStore.getState().txd, 'NT2');
+    assert.equal(useGameStore.getState().lines.length, 1);
+  });
+  useGameStore.getState().logout();
+});
+
 await check('store 登录失败保留错误且不落 txd', async () => {
-  await withGlobalFetch(mockFetch([{
-    status: 401, ok: false, body: { error: '用户不存在' },
-  }]), async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { status: 401, ok: false, body: { error: '用户不存在' } },
+    { status: 401, ok: false, body: { error: '用户不存在' } },
+  ]), async () => {
     const ok = await useGameStore.getState().login('xd01', 'ghost', 'pw');
     assert.equal(ok, false);
     assert.match(useGameStore.getState().error, /用户不存在/);
