@@ -60,7 +60,7 @@ protected void create()
 		int cast = 300+(level-1)*75+ancient_tier*8;
 		int base = 2300+(level-1)*(950+level*120)+ancient_tier*260;
 		// 神太古血饮是超脱七阶曲线的终阶传承：伤害再上浮50%，
-		// 配合105秒长冷却形成"一击血饮"的定位。
+		// 配合太古系75秒的直伤冷却封顶形成"一击血饮"的定位。
 		if(ancient_tier>=8)
 			base = base*3/2;
 		performs_cast[level] = cast;

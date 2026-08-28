@@ -6353,7 +6353,9 @@ createApp({
         },
 
         formatSkillAnimationName(name) {
-            const value = String(name || '').trim();
+            const value = String(name || '').trim()
+                // 太古/神太古等技能名自带§F/§3颜色码，先剥离再截断。
+                .replace(/§./g, '');
             const tagOnly = value.match(/^【([^】]+)】$/);
             return (tagOnly ? tagOnly[1] : value.replace(/^【[^】]+】/, ''))
                 .replace(/[（(](?:等级)?\d+级?.*$/, '')

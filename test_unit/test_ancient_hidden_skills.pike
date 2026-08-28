@@ -164,7 +164,7 @@ void test_all_programs_compile()
 
 void test_all_ancient_skills_strengthened()
 {
-	test_start("70个太古技能按直伤、持续、治疗护盾、控制与嘲讽全系增强");
+	test_start("80个太古技能按直伤、持续、治疗护盾、控制与嘲讽全系增强");
 	array(string) failures = ({});
 	foreach(ANCIENT_SKILLD->query_all_skill_ids(),string id){
 		object skill = (object)(ROOT+"/gamelib/single/skills/"+id);
