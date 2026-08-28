@@ -482,7 +482,7 @@ mapping(string:mixed) run_representative_survival_loop(object player)
 		result = ([
 			"ok":(int)chosen["ok"] && (int)carried["ok"] &&
 				(int)interacted["ok"] && moved && fighting &&
-				(string)route["path"]=="illusion_s1/moon_dew_field" &&
+				(string)route["path"]=="illusion_s1/moon_dew_field.pike" &&
 				sizeof((array)route["paths"])==3 &&
 				(int)route["total_capacity"]>=50 &&
 				(int)route["disable_overflow"]==1 &&
@@ -589,7 +589,7 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	ordinary_target = AUTOFIGHTD->query_target(player);
 	ordinary_route_valid =
 		(string)ordinary_route["path"]==
-			"illusion_s1/moon_dew_field" &&
+			"illusion_s1/moon_dew_field.pike" &&
 		(int)ordinary_route["chapter_target"]==1 &&
 		(int)ordinary_route["level"]==1 &&
 		(int)ordinary_window["minimum"]==1 &&
@@ -612,7 +612,7 @@ mapping(string:mixed) run_zero_exp_story_boss_regression(object player)
 	scoped_start = SEASONALD->start_chapter_hunt_autofight_for_test(player);
 	scoped_route = AUTOFIGHTD->query_training_route(player);
 	scoped_route_valid = (int)scoped_start["ok"] &&
-		(string)scoped_route["path"]=="illusion_s1/moon_dew_field" &&
+		(string)scoped_route["path"]=="illusion_s1/moon_dew_field.pike" &&
 		(int)scoped_route["chapter_target"]==1 &&
 		mappingp(player["/tmp/illusion_chapter_autofight"]) &&
 		(string)player["/tmp/illusion_chapter_autofight"]
@@ -1091,8 +1091,8 @@ mapping(string:mixed) record_task_progress(object player,string route)
 					mapping gate_route = SEASONALD->
 						query_current_chapter_autofight_route(player);
 					array gate_paths = (array)(gate_route["paths"] || ({}));
-					string gate_target_path = target_room[sizeof("/gamelib/d/")..
-						sizeof(target_room)-6];
+					string gate_target_path =
+						target_room[sizeof("/gamelib/d/")..];
 					if(!(int)gate_route["quest_item_target"] ||
 					   search(gate_paths,gate_target_path)==-1 ||
 					   (int)gate_route["total_capacity"]<50)

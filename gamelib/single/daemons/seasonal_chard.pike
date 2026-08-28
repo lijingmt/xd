@@ -1760,12 +1760,12 @@ mapping(string:mixed) query_autofight_route(object player)
 	if((int)post_story["unlocked"]){
 		target_level = min(999,max(69,level));
 		paths = ({
-			"illusion_s1/returning_moon_steps",
-			"illusion_s1/returning_star_pass",
-			"illusion_s1/returning_heart_terrace",
-			"illusion_s1/returning_dawn_pavilion",
-			"illusion_s1/returning_dust_bridge",
-			"illusion_s1/returning_void_garden",
+			"illusion_s1/returning_moon_steps.pike",
+			"illusion_s1/returning_star_pass.pike",
+			"illusion_s1/returning_heart_terrace.pike",
+			"illusion_s1/returning_dawn_pavilion.pike",
+			"illusion_s1/returning_dust_bridge.pike",
+			"illusion_s1/returning_void_garden.pike",
 		});
 		// 按角色ID稳定散列分配猎场图，六图形成环线互通；
 		// 不同玩家自然分散到不同图，避免全挤一张图抢怪。
@@ -1791,54 +1791,54 @@ mapping(string:mixed) query_autofight_route(object player)
 	}
 	if(level<10){
 		paths = ({
-			"illusion_s1/moon_dew_field",
-			"illusion_s1/silver_reed_bank",
-			"illusion_s1/starlight_slope",
+			"illusion_s1/moon_dew_field.pike",
+			"illusion_s1/silver_reed_bank.pike",
+			"illusion_s1/starlight_slope.pike",
 		});
 		name = "银痕初猎";
 		target_level = 1;
 	}
 	else if(level<20){
 		paths = ({
-			"illusion_s1/mist_bamboo_glen",
-			"illusion_s1/cloud_pine_hollow",
-			"illusion_s1/moonshadow_wood",
+			"illusion_s1/mist_bamboo_glen.pike",
+			"illusion_s1/cloud_pine_hollow.pike",
+			"illusion_s1/moonshadow_wood.pike",
 		});
 		name = "雾林寻星";
 		target_level = 10;
 	}
 	else if(level<30){
 		paths = ({
-			"illusion_s1/mirror_sandbar",
-			"illusion_s1/glasswater_bank",
-			"illusion_s1/moonwave_shoal",
+			"illusion_s1/mirror_sandbar.pike",
+			"illusion_s1/glasswater_bank.pike",
+			"illusion_s1/moonwave_shoal.pike",
 		});
 		name = "镜湖逆潮";
 		target_level = 20;
 	}
 	else if(level<40){
 		paths = ({
-			"illusion_s1/broken_star_court",
-			"illusion_s1/astral_stonewood",
-			"illusion_s1/observatory_outfield",
+			"illusion_s1/broken_star_court.pike",
+			"illusion_s1/astral_stonewood.pike",
+			"illusion_s1/observatory_outfield.pike",
 		});
 		name = "折星破阵";
 		target_level = 30;
 	}
 	else if(level<50){
 		paths = ({
-			"illusion_s1/echo_battlement",
-			"illusion_s1/old_city_square",
-			"illusion_s1/stardust_lane",
+			"illusion_s1/echo_battlement.pike",
+			"illusion_s1/old_city_square.pike",
+			"illusion_s1/stardust_lane.pike",
 		});
 		name = "古城回声";
 		target_level = 40;
 	}
 	else{
 		paths = ({
-			"illusion_s1/abyss_flower_sea",
-			"illusion_s1/deepmoon_valley",
-			"illusion_s1/starfall_garden",
+			"illusion_s1/abyss_flower_sea.pike",
+			"illusion_s1/deepmoon_valley.pike",
+			"illusion_s1/starfall_garden.pike",
 		});
 		name = "深渊同辉";
 		target_level = 50;
@@ -1878,10 +1878,10 @@ string query_autofight_rest_room(object player)
 	room = (string)(config["entry_room"] || "");
 	if(!has_prefix(room,prefix))
 		return "";
-	room = room[sizeof(prefix)..];
-	if(has_suffix(room,".pike"))
-		room = room[..sizeof(room)-6];
-	return room;
+	// 保留真实文件名（含.pike）：qge74hye 直接拼接 /gamelib/d/ 前缀
+	// 后 move，S1房间文件都带.pike后缀，剥掉后路径不存在、挂机
+	// 回营传送永远失败（玩家表现：低血不休息、原地发呆一整天）。
+	return room[sizeof(prefix)..];
 }
 
 // 登录落点修复必须与世界身份使用同一份账号索引判断。否则一个仍在
@@ -3682,7 +3682,7 @@ mapping(string:mixed) query_current_chapter_autofight_route(object player)
 		string path = room;
 		if(!has_prefix(path,room_prefix) || !has_suffix(path,".pike"))
 			return ([]);
-		path = path[sizeof(room_prefix)..sizeof(path)-6];
+		path = path[sizeof(room_prefix)..];
 		paths += ({path});
 	}
 	if(!sizeof(paths))

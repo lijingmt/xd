@@ -158,8 +158,19 @@ string handle_command(object player,string action,string value)
 		player->command("look");
 		return "";
 	}
-	if(!session)
+	if(!session){
+		// 滞留在活动房但没有活动会话（结算清理/断线/重启残留）：
+		// 直接把玩家遣返到默认落点，任何 timed_event 指令都是
+		// 一键脱困出口，不再让玩家留在无出口的活动界面里。
+		if(is_event_room(environment(player))){
+			return_player_from_event(player,([]));
+			if(functionp(player->save_with_result))
+				player->save_with_result();
+			player->command("look");
+			return "";
+		}
 		return "你当前没有参加活动。\n[返回:timed_event]\n";
+	}
 	// A stale read-only session may be used for status rendering only. All
 	// active gameplay mutations must run beside the sole event scheduler.
 	if(MAP_WORKERD->query_node_role()=="worker" &&
