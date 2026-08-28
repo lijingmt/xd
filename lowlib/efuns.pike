@@ -500,6 +500,89 @@ private string item_publish_digest(string file)
 	return lower_case(String.string2hex(hash->digest()));
 }
 
+/* ===== 神太古全服施法事件 =====
+ * 只有神太古这类超稀有传承施法才写入：频率极低，temp+mv 原子写对
+ * 多Worker安全。/api/status 读取最近事件驱动全服全屏动画。 */
+
+private mapping(string:string) color_code_strips = ([
+	"§F":"","§r":"","§g":"","§y":"","§b":"","§w":"",
+	"§3":"","§4":"","§5":"","§6":"","§7":"","§8":"","§9":"",
+	"§A":"","§B":"","§C":"","§D":"","§E":"","§R":"","§Y":"",
+]);
+
+// 用精确子串映射剥离§颜色码：多字节字面量不能下标索引，
+// 逐字节扫描又会误伤含相同连续字节的中文。
+string strip_color_codes(string value)
+{
+	return replace(value || "",color_code_strips);
+}
+
+private string shen_taigu_events_path()
+{
+	return ROOT+"/data_xiand/shen_taigu_cast_events.json";
+}
+
+void append_shen_taigu_cast_event(string caster_name,string skill_name)
+{
+	string plain_caster=strip_color_codes(caster_name || "");
+	string plain_skill=strip_color_codes(skill_name || "");
+	string temp_path=shen_taigu_events_path()+".tmp";
+	string body;
+	if(plain_caster=="" || plain_skill=="" ||
+	   sizeof(plain_caster)>60 || sizeof(plain_skill)>120)
+		return;
+	array(mapping(string:mixed)) events=query_shen_taigu_cast_events(0);
+	events+=({([
+		"id":sprintf("%s-%d-%d",plain_caster,time(),random(100000000)),
+		"event_at":time(),
+		"caster_name":plain_caster,
+		"skill_name":plain_skill,
+	])});
+	if(sizeof(events)>10)
+		events=events[sizeof(events)-10..];
+	mixed err=catch {
+		body=Standards.JSON.encode(events,Standards.JSON.HUMAN_READABLE);
+		Stdio.write_file(temp_path,body+"\n");
+		mv(temp_path,shen_taigu_events_path());
+	};
+	if(err)
+		rm(temp_path);
+}
+
+array(mapping(string:mixed)) query_shen_taigu_cast_events(int fresh_only)
+{
+	array(mapping(string:mixed)) result=({});
+	string raw;
+	mixed decoded=0;
+	raw=Stdio.read_file(shen_taigu_events_path());
+	if(!raw || !sizeof(raw))
+		return result;
+	mixed decode_err=catch { decoded=Standards.JSON.decode(raw); };
+	if(decode_err || !arrayp(decoded))
+		return result;
+	int now=time();
+	foreach((array)decoded,mixed candidate){
+		mapping event;
+		if(!mappingp(candidate))
+			continue;
+		event=(mapping)candidate;
+		if(!stringp(event["id"]) || (string)event["id"]=="" ||
+		   !intp(event["event_at"]) || (int)event["event_at"]<1 ||
+		   (int)event["event_at"]>now+1 ||
+		   (fresh_only && now-(int)event["event_at"]>120) ||
+		   !stringp(event["caster_name"]) ||
+		   !stringp(event["skill_name"]))
+			continue;
+		result+=({([
+			"id":(string)event["id"],
+			"event_at":(int)event["event_at"],
+			"caster_name":(string)event["caster_name"],
+			"skill_name":(string)event["skill_name"],
+		])});
+	}
+	return result;
+}
+
 /* mkdir() is the inter-process exclusion primitive.  The lock and temporary
  * source live beside the mounted item tree, so every Worker and physical
  * container that shares that tree observes the same publication fence. */
@@ -537,8 +620,11 @@ int write_item_file(string file,string data,void|int overwrite)
 		return 1;
 	mkdir(lock_root);
 	acquired=acquire_item_publish_lock(file,lock_path,!overwrite);
-	if(!acquired)
+	if(!acquired){
+		werror("[ITEM_PUBLISH] lock timeout: %s overwrite=%d\n",
+			file,overwrite);
 		return !overwrite && Stdio.file_size(file)>0;
+	}
 	err=catch {
 		if(!overwrite && Stdio.file_size(file)>0)
 			ok=1;
@@ -558,6 +644,9 @@ int write_item_file(string file,string data,void|int overwrite)
 	rm(lock_path);
 	if(err)
 		return 0;
+	if(!ok)
+		werror("[ITEM_PUBLISH] write failed: %s overwrite=%d\n",
+			file,overwrite);
 	return ok;
 }
 

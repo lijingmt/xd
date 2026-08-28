@@ -521,6 +521,12 @@ private void broadcast_room_skill_manifestation(object skill,object|zero target,
 		"target_name":target_name,
 		"effect_desc":effect_desc,
 	]);
+	// 神太古血饮是全服级稀有传承：额外写入跨Worker共享事件，
+	// /api/status 据此驱动所有在线客户端的全屏血月动画。
+	if(functionp(skill->query_shen_taigu_lifesteal_percent) &&
+	   (int)skill->query_shen_taigu_lifesteal_percent()>0)
+		append_shen_taigu_cast_event(caster->query_name_cn(),
+			skill->query_name_cn());
 	catch {
 		foreach(all_inventory(env),object observer){
 			if(!observer || observer==caster || observer==target ||
@@ -1694,7 +1700,7 @@ string clean_one_balanced_debuff(object target){
 
 private int is_balanced_profession_skill(object skill){
 	string profe = this_object()->query_profeId();
-	if(!skill || (profe!="wuxiang" && profe!="taiji"))
+	if(!skill || (profe!="wuxiang" && profe!="taiji" && profe!="zhaoming"))
 		return 0;
 	return search(skill->skill_type,profe)!=-1;
 }
@@ -3010,6 +3016,8 @@ void perform(string name,void|int flag){
 						//生命减取 
 						attack_fact = enemy->absorb_team_guard_damage(attack_fact);
 						int life_damage = enemy->get_cur_life()-attack_fact;
+						apply_shen_taigu_lifesteal(f_cur_skill,
+							attack_fact,enemy);
 						if(life_damage<=0){
 							//敌人死亡，则把敌人从仇恨列表中清除
 							this_object()->clean_targets(enemy);
@@ -3659,6 +3667,8 @@ void boss_perform(string name){
 								//生命减取 
 								attack_fact = enemys[i]->absorb_team_guard_damage(attack_fact);
 								int life_damage = enemys[i]->get_cur_life()-attack_fact;
+								apply_shen_taigu_lifesteal(f_cur_skill,
+									attack_fact,enemys[i]);
 								if(life_damage<=0){
 									//敌人死亡，则把敌人从仇恨列表中清除
 									this_object()->clean_targets(enemys[i]);
@@ -3769,6 +3779,8 @@ void boss_perform(string name){
 				//生命减取 
 				attack_fact = enemy->absorb_team_guard_damage(attack_fact);
 				int life_damage = enemy->get_cur_life()-attack_fact;
+				apply_shen_taigu_lifesteal(f_cur_skill,
+					attack_fact,enemy);
 				if(life_damage<=0){
 					//敌人死亡，则把敌人从仇恨列表中清除
 					this_object()->clean_targets(enemy);
@@ -3982,6 +3994,37 @@ void boss_perform(string name){
 
 
 //战斗核心算法,普通攻击或者施放物理攻击技能时调用的接口
+// 神太古血饮：按本段技能实际造成的伤害为施法者吸血回血。
+// 只认 victim 实际扣掉的血（过量伤害不放大治疗），并受自身缺失
+// 生命封顶；四个伤害落点（物理/法术/单体/群攻）统一走本入口。
+private void apply_shen_taigu_lifesteal(object|zero skill,int attack_fact,
+	object victim)
+{
+	int percent;
+	int dealt;
+	int missing;
+	int heal;
+	if(!skill || attack_fact<=0 || !victim || victim==this_object() ||
+	   !functionp(skill->query_shen_taigu_lifesteal_percent))
+		return;
+	percent=(int)skill->query_shen_taigu_lifesteal_percent();
+	if(percent<=0)
+		return;
+	dealt=min(attack_fact,(int)victim->get_cur_life());
+	if(dealt<=0)
+		return;
+	missing=(int)this_object()->query_life_max()-
+		(int)this_object()->get_cur_life();
+	if(missing<=0)
+		return;
+	heal=min(dealt*percent/100,missing);
+	if(heal<=0)
+		return;
+	this_object()->set_life((int)this_object()->get_cur_life()+heal);
+	tell_object(this_object(),"§g【神太古·血饮】§r 汲取"+
+		format_game_number(heal)+"点生命。\n");
+}
+
 private void attack(int skill_add,int skill_add_per,string type,
 	string skill_name_cn,void|string name_skill,void|int rare_skill_level){
 	object active_actor=this_object();
@@ -4295,6 +4338,9 @@ private void attack(int skill_add,int skill_add_per,string type,
 				}
 			}
 			int life_damage = enemy->get_cur_life()-attack_fact;
+			apply_shen_taigu_lifesteal(
+				name_skill ? MUD_SKILLSD[name_skill] : 0,
+				attack_fact,enemy);
 			if(life_damage<=0){
 				//敌人死亡，则把敌人从仇恨列表中清除
 				this_object()->clean_targets(enemy);

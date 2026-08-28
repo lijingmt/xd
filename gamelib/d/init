@@ -828,8 +828,12 @@ int choice_profe(string arg){
 			me->setup_player("third",u_p);
 			if(me->skills["zhaomingjue"]==0)
 				me->skills["zhaomingjue"]=({1,0});
+			if(me->skills["suijingqianying"]==0)
+				me->skills["suijingqianying"]=({1,0});
+			if(me->skills["minghuotongran"]==0)
+				me->skills["minghuotongran"]=({1,0});
 			s += "好，你以五段完整幻境人生照见命数，成为S1隐藏职业【照命】。\n";
-			s += "照命只属于本期幻境；七卷四十九难会逐步开启职业传承与专属套装。\n";
+			s += "照命只属于本期幻境；开局即有群攻【碎镜千影】与群疗【命火同燃】，七卷四十九难会逐步开启其余传承与专属套装。\n";
 			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
 				s +="[手机绑定:tieToMobile]\n";

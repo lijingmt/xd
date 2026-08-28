@@ -80,6 +80,8 @@ int main(string|zero arg)
 	object me=this_player();
 	array(string) parts=arg ? String.trim_all_whites(arg)/" " : ({});
 	if(!me){ write("人物会话不存在。\n"); return 1; }
+	// 存量照命每次进入四十九难入口都先做大成传承对账补发。
+	ILLUSION_HIDDEN_PROFESSIOND->ensure_base_skills(me);
 	if(sizeof(parts) && parts[0]=="claim"){
 		mapping result=ILLUSION_HIDDEN_PROFESSIOND->claim(me);
 		write(progress_view(me,ILLUSION_HIDDEN_PROFESSIOND->query_progress(me),
