@@ -1082,7 +1082,7 @@ string query_content(){
 		r+="【套装品质】"+ob->query_newmoon_collection_quality()+
 			"（"+(string)ob->query_newmoon_collection_rank()+"阶）\n";
 		if(ob->query_newmoon_account_bound())
-			r+="【账号绑定】同注册账号共享仓库可用；不可丢弃、赠送、交易或拍卖\n";
+			r+="【账号绑定】同注册账号共享仓库可用；不可赠送、交易或拍卖；可由本人在背包中二次确认销毁\n";
 		else
 			r+="【未绑定】可自由交易；首次穿戴、炼化或镶嵌后账号绑定\n";
 		r+=(resonance_active ? "已激活：" :

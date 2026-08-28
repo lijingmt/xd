@@ -227,7 +227,8 @@ void test_drop_contract_runtime()
 	if(!npc_source ||
 	   sizeof(npc_source/"get_hidden_skill_book")!=3 ||
 	   sizeof(npc_source/"get_ancient_skill_book")!=3 ||
-	   sizeof(npc_source/"log_hidden_skill_drop")!=6 ||
+	   // 神太古团队/单人两个新掉落点也走同一审计日志：5处原有+2处新。
+	   sizeof(npc_source/"log_hidden_skill_drop")!=8 ||
 	   search(npc_source,"/log/hidden_skill_drop.log")==-1 ||
 	   !team_drop_source ||
 	   team_hidden_call==-1 ||

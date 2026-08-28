@@ -5304,7 +5304,100 @@ body {
 .skill-wind-sweep { animation: wind-sweep-effect 0.95s ease-out forwards; }
 .skill-spirit-orbit { animation: spirit-orbit-effect 1.1s ease-out forwards; }
 .skill-ancient-awakening { animation: ancient-awakening-effect 1.8s cubic-bezier(0.16, 0.88, 0.24, 1) forwards; }
+.skill-shentaigu-bloodmoon { animation: shentaigu-bloodmoon-effect 2.4s cubic-bezier(0.16, 0.88, 0.24, 1) forwards; }
 .skill-generic-cast { animation: generic-cast-effect 0.9s ease-out forwards; }
+
+/* 神太古血饮：血月双搏动后升腾消散——全服稀有传承的独占表现。 */
+@keyframes shentaigu-bloodmoon-effect {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.12); }
+    16% { opacity: 1; transform: translate(-50%, -50%) scale(1.42); }
+    28% { transform: translate(-50%, -50%) scale(1.02); }
+    40% { transform: translate(-50%, -50%) scale(1.55); }
+    54% { transform: translate(-50%, -50%) scale(1.12); }
+    100% { opacity: 0; transform: translate(-50%, -95%) scale(2.9); }
+}
+
+.shentaigu-bloodmoon-icon {
+    display: block;
+    color: #ffd9d9;
+    font-size: 88px;
+    text-shadow: 0 0 8px #fff, 0 0 26px #ff2d55, 0 0 52px #7a0d1f;
+    filter: drop-shadow(0 0 30px rgba(255, 45, 85, 0.95));
+}
+
+/* 神太古全服全屏血月舞台：覆盖层不拦截点击，最多同屏两个。 */
+.global-shentaigu-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 2600;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 16vh;
+    gap: 12px;
+}
+
+.global-shentaigu-cast {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    animation: global-shentaigu-cast-effect 5.2s ease-out forwards;
+}
+
+.global-shentaigu-moon {
+    font-size: 120px;
+    line-height: 1;
+    text-shadow: 0 0 18px #fff, 0 0 44px #ff2d55, 0 0 96px #7a0d1f;
+    filter: drop-shadow(0 0 42px rgba(255, 45, 85, 0.95));
+    animation: global-shentaigu-moon-effect 5.2s ease-in-out forwards;
+}
+
+.global-shentaigu-banner {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+        rgba(122, 13, 31, 0) 0%,
+        rgba(122, 13, 31, 0.82) 18%,
+        rgba(40, 2, 10, 0.9) 50%,
+        rgba(122, 13, 31, 0.82) 82%,
+        rgba(122, 13, 31, 0) 100%);
+    color: #ffe3e8;
+    font-size: 17px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    text-shadow: 0 0 10px rgba(255, 45, 85, 0.9);
+}
+
+.global-shentaigu-banner strong { color: #ff4d6d; }
+.global-shentaigu-banner em { font-style: normal; opacity: 0.75; }
+.global-shentaigu-skill { color: #ffd9d9; font-weight: 700; }
+
+@keyframes global-shentaigu-moon-effect {
+    0% { opacity: 0; transform: translateY(26px) scale(0.4); }
+    12% { opacity: 1; transform: translateY(0) scale(1.08); }
+    22% { transform: translateY(0) scale(0.96); }
+    34% { transform: translateY(0) scale(1.12); }
+    48% { transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-56px) scale(1.6); }
+}
+
+@keyframes global-shentaigu-cast-effect {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    78% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@media (max-width: 480px) {
+    .global-shentaigu-moon { font-size: 84px; }
+    .global-shentaigu-banner { font-size: 14px; padding: 8px 16px; }
+}
 
 @keyframes ancient-awakening-effect {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.16) rotate(-160deg); }
@@ -11507,6 +11600,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .skill-ancient-awakening,
     .ancient-awakening-icon { animation: none !important; }
+    .skill-shentaigu-bloodmoon,
+    .shentaigu-bloodmoon-icon,
+    .global-shentaigu-cast,
+    .global-shentaigu-moon { animation: none !important; }
 }
 
 /* === 折叠头部 === */

@@ -43,7 +43,7 @@ protected void create()
 	name_cn = ANCIENT_SKILLD->query_colored_name(name);
 	unit = "本";
 	picture = canonical_name;
-	desc = "仅由90级以上怪物以极低概率掉落；拾取后账号绑定，不可丢弃、交易、赠送或入库\n";
+	desc = "仅由90级以上怪物以极低概率掉落；拾取后账号绑定，不可交易、赠送或入库；可由本人在背包中二次确认销毁\n";
 	set_item_canDrop(0);
 	set_item_canGet(1);
 	set_item_canTrade(0);

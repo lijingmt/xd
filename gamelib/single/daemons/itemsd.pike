@@ -871,6 +871,39 @@ object get_ancient_skill_book(int npclevel)
 		return 0;
 	return clone(ITEM_PATH+item_name);
 }
+
+/**
+ * 神太古血饮传承（第八阶）：只有Boss、120级以上、且击杀者本人处于
+ * 很靠后的个人难度档才会掉落。掉率独立于七阶太古池（不稀释既有概率），
+ * 随难度档小幅提升：第六档约为第七档的40%。书本身沿用太古书的拾取
+ * 账号绑定，不可交易、赠送或入库。
+ */
+object get_shen_taigu_skill_book(object npc,object player)
+{
+	int npclevel;
+	int difficulty;
+	int numerator;
+	string item_name;
+	if(!npc || !functionp(npc->query_level) || !(int)npc->_boss ||
+	   !player || !functionp(player->is) || !player->is("player"))
+		return 0;
+	npclevel=(int)npc->query_level();
+	if(npclevel<ANCIENT_SKILLD->query_shen_minimum_npc_level())
+		return 0;
+	difficulty=PERSONAL_DIFFICULTYD->query_current_level(player);
+	if(difficulty<6)
+		return 0;
+	numerator=(difficulty>=7) ?
+		ANCIENT_SKILLD->query_shen_drop_numerator() :
+		ANCIENT_SKILLD->query_shen_drop_numerator()*2/5;
+	if(random(query_ancient_skill_drop_denominator())+1>numerator)
+		return 0;
+	item_name=ANCIENT_SKILLD->query_shen_weighted_book(
+		random(ANCIENT_SKILLD->query_profession_count())+1);
+	if(item_name=="")
+		return 0;
+	return clone(ITEM_PATH+item_name);
+}
 //外部接口，由fight_die()调用，为世界掉落装备的的接口
 int can_monster_drop_box(string item_name)
 {
@@ -1501,7 +1534,10 @@ private object get_attributes_item(string orgitem,int num,
 	//werror("=========rate:"+rate+"\n");
 	string postfix="00000000000000000000000000000000000";//初始化文件后缀
 
-	size=sizeof(attri_allow);
+	// 词条约束缺失（如同名重掷链路上游返回空串）时按既有
+	// "something wrong with attri_allow"失败语义返回0，而不是
+	// 让sizeof(0)把整条炼化/制造链路炸成Pike错误。
+	size=sizeof(attri_allow || ({}));
 	count=size<num?size:num;
 	// 指定词条集（回收替换用）：按旧装备实际携带的词条类型重掷，
 	// 数值仍走完整的rate/钳制/保值链，只换数值不换词条。
@@ -1681,7 +1717,11 @@ private object get_attributes_item(string orgitem,int num,
 				if(profs && sizeof(profs) > 0 && search(profs, "taiji") == -1)
 					rtn_ob->set_item_profeLimit("taiji");
 			}
-			return (rtn_ob);
+			// REUSE_STALE 置 regenerate=1 后必须落到下方覆盖重生成，
+			// 不能在这里带着 rtn_ob=0 直接返回——那会让同名不同稀有度的
+			// 旧文件把炼化/制造整条链路静默变成失败。
+			if(rtn_ob || !regenerate)
+				return (rtn_ob);
 		}
 		// 如果不存在（或同名文件稀有度与请求不符），则要做很多麻烦的事情
 		if(regenerate || !Stdio.exist(ITEM_PATH+item_name)){
@@ -2799,4 +2839,32 @@ int newmoon_item_usable_by_player(object item,object player)
 	owner=functionp(item->query_newmoon_account_bind_owner) ?
 		(string)item->query_newmoon_account_bind_owner() : "";
 	return owner=="" || owner==player_owner;
+}
+
+/**
+ * Owner-side destroy gate for permanently bound items. Season characters
+ * cannot reach the shared warehouse, so an account-bound New Moon piece or
+ * a pickup-bound ancient hidden book otherwise has no legal way out of the
+ * 60-slot inventory. Only the immutable account owner may destruct such an
+ * item, and only through the confirm-gated drop path; every transfer guard
+ * (trade/gift/auction/storage) keeps failing closed for the same items.
+ */
+int bound_item_destroyable_by_player(object item,object player)
+{
+	string owner;
+	string item_owner;
+	if(!item || !player)
+		return 0;
+	owner=query_player_account_owner(player);
+	if(owner=="")
+		return 0;
+	if(newmoon_item_cross_account_blocked(item))
+		return newmoon_item_usable_by_player(item,player);
+	if(functionp(item->query_bind_account_on_pickup) &&
+	   (int)item->query_bind_account_on_pickup()==1){
+		item_owner=functionp(item->query_account_bind_owner) ?
+			(string)item->query_account_bind_owner() : "";
+		return item_owner=="" || item_owner==owner;
+	}
+	return 0;
 }

@@ -406,6 +406,45 @@ mapping(string:mixed) query_autofight_route(object player)
 		"target_min":1,"target_max":120]);
 }
 
+// 大成传承补发：碎镜千影(群攻)与命火同燃(群疗)属版本后加技能。
+// 新建照命在建角入口直接带上；存量照命每次打开四十九难时在此对账，
+// 幂等补齐并随人物唯一档案原子保存，失败即回滚不半写。
+private array(mapping(string:string)) base_grand_skills = ({
+	(["id":"zhaomingjue","name":"照命诀"]),
+	(["id":"suijingqianying","name":"碎镜千影"]),
+	(["id":"minghuotongran","name":"命火同燃"]),
+});
+
+int ensure_base_skills(object player)
+{
+	array(string) granted=({});
+	mapping old_skills;
+	if(!player || !functionp(player->query_profeId) ||
+	   (string)player->query_profeId()!="zhaoming" ||
+	   !functionp(player->save_with_result))
+		return 0;
+	if(!mappingp(player->skills))
+		player->skills=([]);
+	old_skills=copy_value(player->skills);
+	foreach(base_grand_skills,mapping entry){
+		if(!player->skills[(string)entry["id"]]){
+			player->skills[(string)entry["id"]]=({1,0});
+			granted+=({(string)entry["name"]});
+		}
+	}
+	if(!sizeof(granted))
+		return 0;
+	if(!player->save_with_result()){
+		player->skills=old_skills;
+		return 0;
+	}
+	if(functionp(player->query_name) &&
+	   has_prefix((string)player->query_name(),"__testunit"))
+		return sizeof(granted);
+	tell_object(player,"§g【照命·大成传承】§r 补齐："+granted*"、"+"。\n");
+	return sizeof(granted);
+}
+
 mapping(string:mixed) query_trial_definition_for_test(int trial)
 {
 	if(getenv("XIAND_RUN_TESTUNIT")!="1") return ([]);

@@ -1301,6 +1301,9 @@ mapping query_player_state(object player)
 		if(functionp(player->query_room_skill_manifestations))
 			room_skill_events = player->query_room_skill_manifestations();
 		result["room_skill_events"] = room_skill_events;
+		// 神太古全服施法事件：读共享环形文件，只携带2分钟内
+		// 的新鲜事件，客户端按ID去重后播放全屏血月动画。
+		result["global_skill_effects"] = query_shen_taigu_cast_events(1);
 
 		// 共享宠物/本命灵伴同时提供只读卡位，但旧客户端的
 		// pet_assist仍只返回当前唯一战斗位，不会渲染或结算双宠。

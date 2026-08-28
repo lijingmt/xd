@@ -524,6 +524,9 @@ void fight_die()
 			ITEMSD->get_hidden_skill_book(this_object()->query_level());
 		object ob_ancient =
 			ITEMSD->get_ancient_skill_book(this_object()->query_level());
+		//神太古血饮传承按真实击杀者的个人难度档判定，只由Boss掉落。
+		object ob_shen =
+			ITEMSD->get_shen_taigu_skill_book(this_object(),enemy);
 		if(ob_hidden&& environment(this_object())){
 			ob_hidden->item_whoCanGet = term_who;
 			ob_hidden->item_TimewhoCanGet = time();
@@ -543,6 +546,16 @@ void fight_die()
 			log_hidden_skill_drop(ob_ancient,"ancient-team",term_who);
 			call_out(ob_ancient->remove,5*60,1);
 			ob_ancient->move(environment(this_object()));
+		}
+		if(ob_shen && environment(this_object())){
+			ob_shen->item_whoCanGet = term_who;
+			ob_shen->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_shen,logical_drop_owner);
+			t_w += "§F神太古血月当空，血饮传承现世：§r"+
+				ob_shen->query_short()+" ！\n";
+			log_hidden_skill_drop(ob_shen,"shentaigu-team",term_who);
+			call_out(ob_shen->remove,5*60,1);
+			ob_shen->move(environment(this_object()));
 		}
 		if(this_object()->_boss){
 			// 团队硬 Boss 必掉试炼武勋：归墟魔君 5 个、万象妖皇 4 个；
@@ -1157,6 +1170,9 @@ void fight_die_single(object env,void|object credited_killer)
 			ITEMSD->get_hidden_skill_book(this_object()->query_level());
 		object ob_ancient =
 			ITEMSD->get_ancient_skill_book(this_object()->query_level());
+		//神太古血饮传承按真实击杀者的个人难度档判定，只由Boss掉落。
+		object ob_shen =
+			ITEMSD->get_shen_taigu_skill_book(this_object(),first);
 		//end cai 080807
 
 		//节日特殊掉落
@@ -1221,6 +1237,20 @@ void fight_die_single(object env,void|object credited_killer)
 				tell_object(who,t);
 			call_out(ob_ancient->remove,5*60,1);
 			ob_ancient->move(environment(this_object()));
+		}
+		if(ob_shen && environment(this_object())){
+			string t = "";
+			ob_shen->item_whoCanGet = first->query_name();
+			ob_shen->item_TimewhoCanGet = time();
+			bind_drop_logical_zone(ob_shen,first->query_name());
+			t += "§F神太古血月当空，血饮传承现世：§r"+
+				ob_shen->query_short()+" ！\n";
+			log_hidden_skill_drop(
+				ob_shen,"shentaigu-player",first->query_name());
+			foreach(indices(this_object()->targets),object who)
+				tell_object(who,t);
+			call_out(ob_shen->remove,5*60,1);
+			ob_shen->move(environment(this_object()));
 		}
 		if(ob_spec&& environment(this_object())){
 			//Stdio.append_file(ROOT+"/log/item_spec_drop.log",now[0..sizeof(now)-2]+":"+first->query_name_cn()+"("+first->query_name()+"):"+ob_spec->query_name_cn()+"("+ob_spec->query_name()+")\n");

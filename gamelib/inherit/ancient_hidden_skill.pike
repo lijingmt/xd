@@ -6,6 +6,15 @@ inherit WAP_SKILL;
 
 int ancient_tier = 0;
 
+// 第八阶神太古血饮：按本段实际造成的伤害百分比回复自身生命。
+// 战斗侧在 fight.pike 四个伤害落点统一结算，过量伤害不放大治疗。
+int shen_taigu_lifesteal_percent = 0;
+
+int query_shen_taigu_lifesteal_percent()
+{
+	return shen_taigu_lifesteal_percent;
+}
+
 protected void create()
 {
 	name = object_name(this_object());
@@ -17,12 +26,17 @@ protected void create()
 	ancient_tier = (int)config["tier"];
 	rare_tier = ancient_tier;
 	name_cn = ANCIENT_SKILLD->query_colored_name(name);
-	desc = "失落的"+(string)config["profession_cn"]+
+	desc = ancient_tier>=8 ?
+		"失落的"+(string)config["profession_cn"]+
+		"神太古血饮传承，高伤害并按实际伤害吸血回血；拾取后账号绑定且不可交易" :
+		"失落的"+(string)config["profession_cn"]+
 		"太古传承，拾取后账号绑定且不可交易";
 	s_type = "zhudong";
 	s_skill_type = (string)config["type"];
 	s_delayTime = 65+ancient_tier*5;
 	s_lasttime = 12;
+	if(ancient_tier>=8)
+		shen_taigu_lifesteal_percent = 50;
 	// 太古诅咒默认使用封顶后的百分比命中压制。旧固定命中减值在
 	// 高属性角色身上会先被巨量命中吞掉，再封顶为99，实际等于无效。
 	s_curse_type = "hitte_percent";
@@ -45,6 +59,10 @@ protected void create()
 	for(int level=1;level<=5;level++){
 		int cast = 300+(level-1)*75+ancient_tier*8;
 		int base = 2300+(level-1)*(950+level*120)+ancient_tier*260;
+		// 神太古血饮是超脱七阶曲线的终阶传承：伤害再上浮50%，
+		// 配合105秒长冷却形成"一击血饮"的定位。
+		if(ancient_tier>=8)
+			base = base*3/2;
 		performs_cast[level] = cast;
 		performs_level_limit[level] = 90+(level-1)*25;
 		if(s_skill_type=="phy"){
@@ -94,4 +112,10 @@ protected void create()
 				performs_mofa_attack[level][1],cast);
 		}
 	}
+	if(shen_taigu_lifesteal_percent>0)
+		for(int level=1;level<=5;level++)
+			if(sizeof(performs_desc[level]))
+				performs_desc[level]+="；血饮：按实际伤害的"+
+					(string)shen_taigu_lifesteal_percent+
+					"%回复自身生命";
 }
