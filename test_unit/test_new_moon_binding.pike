@@ -141,7 +141,8 @@ void test_raw_and_binding_core()
 	check("装备详情同时向新旧前端说明绑定与共享仓库规则",
 		search(detail,"【账号绑定】")!=-1 &&
 		search(detail,"同注册账号共享仓库可用")!=-1 &&
-		search(detail,"不可丢弃、赠送、交易或拍卖")!=-1,
+		search(detail,"不可赠送、交易或拍卖")!=-1 &&
+		search(detail,"二次确认销毁")!=-1,
 		"服务端装备详情缺少可见的绑定规则");
 	string saved=pikenv_save_object(item,1);
 	object restored=clone(newmoon_path());
