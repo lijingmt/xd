@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "仙道",
+    "slug": "xiand-client",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0d0b0e",
+    "ios": {
+      "bundleIdentifier": "com.xiand.client",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.xiand.client"
+    },
+    "web": {
+      "output": "single"
+    }
+  }
+}
