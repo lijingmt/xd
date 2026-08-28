@@ -426,6 +426,8 @@ createApp({
             battleStatusInterval: null,  // 战斗状态轮询定时器
             battleStatusLoading: false,  // 防止挂机刷新和战斗轮询请求重叠
             skillAnimations: [],  // 技能动画列表
+            globalSkillCasts: [],  // 神太古全服施法全屏动画
+            globalSkillEventHistory: {},  // 全服事件ID去重
             roomSkillEventHistory: {},  // 服务端同房施法事件ID去重
             combatEffectsEnabled: localStorage.getItem('battle_effects_enabled') !== '0',
             soundEffectsEnabled: localStorage.getItem('game_sound_enabled') === '1',
@@ -5150,6 +5152,7 @@ createApp({
             const previousLevel = Number(this.playerStats?.level);
             this.handlePetLevelChange(previousPet, data.pet_assist);
             this.syncRoomSkillManifestations(data.room_skill_events);
+            this.syncGlobalSkillEffects(data.global_skill_effects);
             this.playerStats = data;
             this.maybePromptCharacterProfile(data);
             this.syncTimedEventInvite(data.timed_event);
@@ -6390,6 +6393,8 @@ createApp({
             const value = String(text || '');
             if (!value) return null;
 
+            if (/神太古/.test(value)) return 'shentaigu';
+            if (/【命】|碎镜千影|命火同燃/.test(value)) return 'spirit';
             if (/太古|寰极/.test(value)) return 'ancient';
 
             if (/灵治|灵莲铺|万灵朝生|治疗|回春|恢复/.test(value)) return 'heal';
@@ -6465,7 +6470,52 @@ createApp({
             }
         },
 
+        /**
+         * 消费神太古全服施法事件：跨Worker共享环形文件驱动，
+         * 所有人按事件ID只播一次全屏血月动画。
+         */
+        syncGlobalSkillEffects(effects) {
+            if (!Array.isArray(effects) || effects.length === 0) return;
+            if (!this.globalSkillEventHistory) this.globalSkillEventHistory = {};
+            const seenAt = Date.now();
+            for (const [eventId, timestamp] of Object.entries(
+                this.globalSkillEventHistory
+            )) {
+                if (seenAt - Number(timestamp) > 300000) {
+                    delete this.globalSkillEventHistory[eventId];
+                }
+            }
+            const ordered = [...effects].sort((left, right) =>
+                Number(left?.event_at || 0) - Number(right?.event_at || 0)
+            );
+            for (const event of ordered) {
+                const eventId = String(event?.id || '');
+                if (!eventId || this.globalSkillEventHistory[eventId]) continue;
+                this.globalSkillEventHistory[eventId] = seenAt;
+                this.playGlobalSkillEffect(event);
+            }
+        },
+
+        playGlobalSkillEffect(event) {
+            if (!this.combatEffectsEnabled) return;
+            if (!this.globalSkillCasts) this.globalSkillCasts = [];
+            const id = 'global-cast-' + Date.now() + '-' + Math.random();
+            this.globalSkillCasts.push({
+                id,
+                caster: String(event?.caster_name || '神秘修士'),
+                skill: String(event?.skill_name || '神太古传承')
+            });
+            if (this.globalSkillCasts.length > 2) {
+                this.globalSkillCasts = this.globalSkillCasts.slice(-2);
+            }
+            setTimeout(() => {
+                this.globalSkillCasts = (this.globalSkillCasts || [])
+                    .filter(effect => effect.id !== id);
+            }, 5200);
+        },
+
         /** 添加技能动画；同一技能短时间去重并最多保留三个并行动画。 */
+
         addSkillAnimation(skillType, skillName = '', target = 'enemy') {
             if (!this.combatEffectsEnabled) return;
             if (!this.skillAnimations) this.skillAnimations = [];
@@ -6490,7 +6540,8 @@ createApp({
                 'saber': 750, 'critical': 800, 'dodge': 550, 'block': 650,
                 'poison': 1300, 'heal': 1200, 'summon': 1350, 'buff': 1100,
                 'curse': 1100, 'lightning': 900, 'fire': 1000, 'ice': 1100,
-                'wind': 950, 'spirit': 1100, 'ancient': 1800, 'generic': 900
+                'wind': 950, 'spirit': 1100, 'ancient': 1800,
+                'shentaigu': 2400, 'generic': 900
             }[skillType] || 900;
 
             setTimeout(() => {
@@ -6511,6 +6562,7 @@ createApp({
                 'lightning': 'skill-lightning-strike', 'fire': 'skill-fire-burst',
                 'ice': 'skill-ice-crystal', 'wind': 'skill-wind-sweep',
                 'spirit': 'skill-spirit-orbit', 'ancient': 'skill-ancient-awakening',
+                'shentaigu': 'skill-shentaigu-bloodmoon',
                 'generic': 'skill-generic-cast'
             };
             return classMap[skillType] || 'skill-generic-cast';
@@ -6524,7 +6576,7 @@ createApp({
                 'poison': '☠️', 'heal': '🪷', 'summon': '🌀', 'buff': '🔆',
                 'curse': '🔮', 'lightning': '⚡', 'fire': '🔥', 'ice': '❄️',
                 'wind': '🌪️', 'spirit': '☯️', 'ancient': '𖤓',
-                'generic': '✦'
+                'shentaigu': '🌑', 'generic': '✦'
             };
             return iconMap[skillType] || '✦';
         },
@@ -6542,6 +6594,7 @@ createApp({
                 'lightning': 'lightning-strike-icon', 'fire': 'fire-burst-icon',
                 'ice': 'ice-crystal-icon', 'wind': 'wind-sweep-icon',
                 'spirit': 'spirit-orbit-icon', 'ancient': 'ancient-awakening-icon',
+                'shentaigu': 'shentaigu-bloodmoon-icon',
                 'generic': 'generic-cast-icon'
             };
             return classMap[skillType] || 'generic-cast-icon';

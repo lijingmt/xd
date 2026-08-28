@@ -1163,6 +1163,23 @@
                 </button>
             </div>
 
+            <!-- 神太古全服施法：所有在线客户端按事件ID各播一次血月全屏动画。 -->
+            <div v-if="useJsonMode && combatEffectsEnabled && globalSkillCasts.length"
+                 class="global-shentaigu-stage"
+                 aria-live="polite">
+                <div v-for="cast in globalSkillCasts"
+                     :key="cast.id"
+                     class="global-shentaigu-cast">
+                    <span class="global-shentaigu-moon" aria-hidden="true">🌑</span>
+                    <div class="global-shentaigu-banner">
+                        <strong>【神太古·血饮】</strong>
+                        <span>{{ cast.caster }}</span>
+                        <em>施展了</em>
+                        <span class="global-shentaigu-skill">{{ cast.skill }}</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- 非参战旁观者也能看见同房间人物与灵宠的施法表现。 -->
             <div v-if="useJsonMode && !isInBattle && !hasRecentAoeReport && combatEffectsEnabled && skillAnimations.length"
                  class="room-skill-manifestation-stage"
