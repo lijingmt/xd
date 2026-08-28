@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1787943111276">
-    <link rel="stylesheet" href="css/app.css?v=v1787943111276">
-    <link rel="stylesheet" href="css/realm.css?v=v1787943111276">
-    <link rel="stylesheet" href="css/pc.css?v=v1787943111276">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1787952319238">
+    <link rel="stylesheet" href="css/app.css?v=v1787952319238">
+    <link rel="stylesheet" href="css/realm.css?v=v1787952319238">
+    <link rel="stylesheet" href="css/pc.css?v=v1787952319238">
 </head>
 <body>
     <div id="app">
@@ -45,6 +45,18 @@
                     <span>自由成长</span>
                     <span>随时开玩</span>
                 </div>
+                <!-- 8月28日大版本公告横幅：点击放大查看完整公告。 -->
+                <button type="button"
+                        class="patch-banner"
+                        @click="openPatchViewer"
+                        aria-label="查看8月28日更新公告">
+                    <span class="patch-banner-moon" aria-hidden="true">🌑</span>
+                    <span class="patch-banner-copy">
+                        <strong>8月28日大版本 · 神太古血月传承</strong>
+                        <small>全职业第八阶隐藏传承 / 照命群攻群疗 / 赛季背包解卡 / 施法动画</small>
+                    </span>
+                    <span class="patch-banner-cta" aria-hidden="true">点击查看 ▸</span>
+                </button>
                 <div class="auth-form">
                     <div class="form-group">
                         <label for="login-partition">分区</label>
@@ -1177,6 +1189,53 @@
                         <span>{{ cast.caster }}</span>
                         <em>施展了</em>
                         <span class="global-shentaigu-skill">{{ cast.skill }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 版本公告查看器：登录横幅点击或进入游戏后首次弹出；可放大阅读、切换历史公告并返回。 -->
+            <div v-if="patchViewerOpen"
+                 class="patch-viewer"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-label="版本更新公告">
+                <div class="patch-viewer-card">
+                    <div class="patch-viewer-head">
+                        <span class="patch-viewer-moon" aria-hidden="true">{{ selectedPatch.icon }}</span>
+                        <div class="patch-viewer-title">
+                            <h2>{{ selectedPatch.title }}</h2>
+                            <p>{{ selectedPatch.subtitle }}</p>
+                        </div>
+                        <span class="patch-viewer-date">{{ selectedPatch.date }}</span>
+                    </div>
+                    <div class="patch-viewer-body">
+                        <section v-for="(section, sectionIndex) in selectedPatch.sections"
+                                 :key="sectionIndex">
+                            <h3>{{ section.h }}</h3>
+                            <ul>
+                                <li v-for="(item, itemIndex) in section.items"
+                                    :key="itemIndex">{{ item }}</li>
+                            </ul>
+                        </section>
+                    </div>
+                    <div class="patch-history">
+                        <div class="patch-history-label">历史公告（最近{{ patchAnnouncements.length }}条）</div>
+                        <button type="button"
+                                v-for="patch in patchAnnouncements"
+                                :key="patch.version"
+                                class="patch-history-item"
+                                :class="{ active: patch.version === patchSelectedVersion }"
+                                @click="selectPatch(patch.version)">
+                            <span class="patch-history-date">{{ patch.date }}</span>
+                            <span class="patch-history-title">{{ patch.subtitle }}</span>
+                        </button>
+                    </div>
+                    <div class="patch-viewer-foot">
+                        <button type="button"
+                                class="patch-viewer-back"
+                                @click="closePatchViewer">
+                            {{ showLogin ? '返回登录' : '返回游戏' }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2454,19 +2513,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1787943111276"></script>
-    <script src="vendor/canvas-confetti.js?v=v1787943111276"></script>
-    <script src="vendor/howler.core.min.js?v=v1787943111276"></script>
-    <script src="vendor/driver.iife.js?v=v1787943111276"></script>
-    <script src="../includes/game-number-format.js?v=v1787943111276" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1787952319238"></script>
+    <script src="vendor/canvas-confetti.js?v=v1787952319238"></script>
+    <script src="vendor/howler.core.min.js?v=v1787952319238"></script>
+    <script src="vendor/driver.iife.js?v=v1787952319238"></script>
+    <script src="../includes/game-number-format.js?v=v1787952319238" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787943111276';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1787952319238';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1787943111276"></script>
+    <script src="js/app.js?v=v1787952319238"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1787943111276"></script>
+    <script src="../includes/translate.js?v=v1787952319238"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
