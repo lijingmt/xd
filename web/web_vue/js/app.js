@@ -428,6 +428,89 @@ createApp({
             skillAnimations: [],  // 技能动画列表
             globalSkillCasts: [],  // 神太古全服施法全屏动画
             globalSkillEventHistory: {},  // 全服事件ID去重
+            patchViewerOpen: false,  // 版本公告查看器
+            patchSeenVersion: '',  // 已读公告版本
+            patchSelectedVersion: '20260828',  // 当前查看的公告
+            // 版本公告数据：新版本发布时在数组头部插入一条即可。
+            patchAnnouncements: [
+                {
+                    version: '20260828',
+                    date: '8月28日',
+                    icon: '🌑',
+                    title: '仙道 · 8月28日大版本更新',
+                    subtitle: '神太古血饮传承 · 照命群攻群疗 · 赛季背包解卡 · 施法动画',
+                    sections: [
+                        { h: '一、全职业第八阶隐藏传承「神太古」', items: [
+                            '十职业各一本：神曜一剑 / 神羽天翔 / 神灭诛天 / 神狂血月 / 神幽夺命 / 神煞影啸 / 神灵虚召 / 神山镇岳 / 神辉星坠 / 神幽寒霜',
+                            '血饮效果：伤害为太古曲线1.5倍，并按实际伤害的50%吸血回血（过量不放大）',
+                            '长冷却75秒一击血饮；施放时全服血月播报（幻境与永恒服互不干扰）',
+                            '掉落：仅120级以上Boss、个人难度第六档起，第七档掉率更高；拾取绑定不可交易赠送'
+                        ]},
+                        { h: '二、照命加强：群攻与群疗', items: [
+                            '新增群攻【碎镜千影】：横扫同房间敌人，目标数随阶段2→10',
+                            '新增群疗【命火同燃】：同房同队群体治疗，五阶80→880',
+                            '新建照命即得；老角色打开四十九难入口自动补齐'
+                        ]},
+                        { h: '三、赛季背包解卡', items: [
+                            '绑定的套装与太古技能书可在背包中二次确认后摧毁',
+                            '交易/赠送/拍卖/仓库保护不变，智能清包不会误卖绑定装备'
+                        ]},
+                        { h: '四、炼化与制造修复', items: [
+                            '修复词条组合与旧装备同名时炼化/洗炼/制造静默失败的问题'
+                        ]},
+                        { h: '五、施法动画全面上线', items: [
+                            '所有技能释放向同房间玩家广播动画（20余种）',
+                            '神太古专属血月动画；修复动画标签乱码；尊重“减弱动态效果”设置'
+                        ]}
+                    ]
+                },
+                {
+                    version: '20260827',
+                    date: '8月27日',
+                    icon: '⚡',
+                    title: '仙道 · 8月27日大版本更新',
+                    subtitle: '无极职业 · 归真猎场扩容 · 装备对比 · 世界地图',
+                    sections: [
+                        { h: '一、全新终极隐藏职业「无极」', items: [
+                            '19个专属技能，含群杀（无极天雷/焰/灭）与群奶（无极雨/灵泉）',
+                            '属性比太极高30%；照命300级+10000碎玉解锁'
+                        ]},
+                        { h: '二、归真猎场大扩容', items: [
+                            '3图扩到6图环线互通，怪物容量54→108，挂机自动分散'
+                        ]},
+                        { h: '三、装备对比系统', items: [
+                            '背包列表↑↓标记，详情页显示新旧装备数据差值'
+                        ]},
+                        { h: '四、世界地图升级', items: [
+                            '银两飞行、全服玩家分布、手机平板电脑全支持'
+                        ]},
+                        { h: '五、平衡与便利性', items: [
+                            '300级装备三维恢复5000+；套装可销毁换银两；共享仓库修复等'
+                        ]}
+                    ]
+                },
+                {
+                    version: '20260826',
+                    date: '8月26日',
+                    icon: '🗺️',
+                    title: '仙道 · 8月26日大版本更新',
+                    subtitle: '山海万境 · 装备整备 · 职业开放',
+                    sections: [
+                        { h: '一、全新世界地图「山海万境图」', items: [
+                            '真实地形渲染，全服玩家分布，银两飞行直达'
+                        ]},
+                        { h: '二、装备属性大修', items: [
+                            '装备数值体系全面整备，300级掉落回归正常量级'
+                        ]},
+                        { h: '三、职业装备开放', items: [
+                            '更多职业可穿套装与高级装备'
+                        ]},
+                        { h: '四、便利性改进', items: [
+                            '传送列表排序（同账户优先）、集合传送优化等'
+                        ]}
+                    ]
+                }
+            ],
             roomSkillEventHistory: {},  // 服务端同房施法事件ID去重
             combatEffectsEnabled: localStorage.getItem('battle_effects_enabled') !== '0',
             soundEffectsEnabled: localStorage.getItem('game_sound_enabled') === '1',
@@ -5154,6 +5237,7 @@ createApp({
             this.syncRoomSkillManifestations(data.room_skill_events);
             this.syncGlobalSkillEffects(data.global_skill_effects);
             this.playerStats = data;
+            this.maybeShowPatchOnce();
             this.maybePromptCharacterProfile(data);
             this.syncTimedEventInvite(data.timed_event);
             this.syncBattleAoeReport(data.recent_aoe_report);
@@ -6516,6 +6600,34 @@ createApp({
             }, 5200);
         },
 
+        /** 8月28日版本公告：登录横幅点击或进游后首次弹出，可返回。 */
+        openPatchViewer() {
+            this.patchSelectedVersion =
+                this.patchAnnouncements[0]?.version || '20260828';
+            this.patchViewerOpen = true;
+        },
+
+        selectPatch(version) {
+            this.patchSelectedVersion = String(version || '');
+        },
+
+        closePatchViewer() {
+            this.patchViewerOpen = false;
+            try {
+                localStorage.setItem('xiandPatchSeen', '20260828');
+            } catch (e) { /* 隐私模式等场景忽略 */ }
+        },
+
+        maybeShowPatchOnce() {
+            if (this.patchViewerOpen) return;
+            let seen = '';
+            try {
+                seen = localStorage.getItem('xiandPatchSeen') || '';
+            } catch (e) { seen = ''; }
+            if (seen === '20260828') return;
+            this.patchViewerOpen = true;
+        },
+
         /** 添加技能动画；同一技能短时间去重并最多保留三个并行动画。 */
 
         addSkillAnimation(skillType, skillName = '', target = 'enemy') {
@@ -6862,6 +6974,12 @@ createApp({
     },
 
 	computed: {
+		selectedPatch() {
+			const found = this.patchAnnouncements.find(patch =>
+				patch.version === this.patchSelectedVersion);
+			return found || this.patchAnnouncements[0];
+		},
+
 		currentIllusionCharacterCount() {
 			const illusionId = String(this.illusionRealmStatus?.illusion_id || '');
 			if (!illusionId) return 0;

@@ -5325,6 +5325,148 @@ body {
     filter: drop-shadow(0 0 30px rgba(255, 45, 85, 0.95));
 }
 
+/* ===== 版本公告：登录横幅 + 放大查看器 + 历史公告 ===== */
+.patch-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 77, 109, 0.45);
+    border-radius: 12px;
+    background: linear-gradient(120deg,
+        rgba(40, 2, 10, 0.92) 0%,
+        rgba(90, 26, 42, 0.88) 55%,
+        rgba(40, 2, 10, 0.92) 100%);
+    color: #ffe3e8;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+
+.patch-banner:hover { border-color: #ff4d6d; }
+.patch-banner-moon {
+    font-size: 26px;
+    line-height: 1;
+    text-shadow: 0 0 12px #ff2d55, 0 0 30px #7a0d1f;
+}
+.patch-banner-copy { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.patch-banner-copy strong { font-size: 14px; color: #ff8598; }
+.patch-banner-copy small { font-size: 11px; opacity: 0.82; }
+.patch-banner-cta { font-size: 12px; color: #ffd9d9; white-space: nowrap; }
+
+.patch-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 3200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(8, 4, 6, 0.78);
+    backdrop-filter: blur(3px);
+}
+
+.patch-viewer-card {
+    display: flex;
+    flex-direction: column;
+    width: min(720px, 94vw);
+    max-height: 88vh;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 77, 109, 0.5);
+    background: linear-gradient(180deg,
+        rgba(40, 2, 10, 0.97) 0%,
+        rgba(24, 12, 16, 0.98) 220px,
+        rgba(16, 12, 14, 0.98) 100%);
+    box-shadow: 0 0 40px rgba(255, 45, 85, 0.35);
+    color: #f2e8ea;
+    overflow: hidden;
+}
+
+.patch-viewer-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(255, 77, 109, 0.25);
+}
+.patch-viewer-moon {
+    font-size: 40px;
+    line-height: 1;
+    text-shadow: 0 0 14px #ff2d55, 0 0 34px #7a0d1f;
+}
+.patch-viewer-title { flex: 1; }
+.patch-viewer-title h2 { margin: 0; font-size: 18px; color: #ff8598; }
+.patch-viewer-title p { margin: 2px 0 0; font-size: 12px; opacity: 0.8; }
+.patch-viewer-date { font-size: 12px; color: #ffd9d9; white-space: nowrap; }
+
+.patch-viewer-body { flex: 1; overflow-y: auto; padding: 12px 18px; }
+.patch-viewer-body h3 {
+    margin: 12px 0 6px;
+    font-size: 14px;
+    color: #ffb3c0;
+}
+.patch-viewer-body ul { margin: 0; padding-left: 18px; }
+.patch-viewer-body li { margin: 4px 0; font-size: 13px; line-height: 1.55; }
+
+.patch-history {
+    border-top: 1px solid rgba(255, 77, 109, 0.25);
+    padding: 10px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 168px;
+    overflow-y: auto;
+}
+.patch-history-label { font-size: 11px; opacity: 0.7; }
+.patch-history-item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f2e8ea;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    font-size: 12px;
+}
+.patch-history-item:hover { border-color: rgba(255, 77, 109, 0.6); }
+.patch-history-item.active {
+    border-color: #ff4d6d;
+    background: rgba(255, 45, 85, 0.16);
+}
+.patch-history-date { color: #ffd9d9; white-space: nowrap; }
+.patch-history-title { flex: 1; opacity: 0.88; }
+
+.patch-viewer-foot {
+    display: flex;
+    justify-content: center;
+    padding: 12px 18px 16px;
+    border-top: 1px solid rgba(255, 77, 109, 0.25);
+}
+.patch-viewer-back {
+    padding: 9px 34px;
+    border: 1px solid #ff4d6d;
+    border-radius: 999px;
+    background: linear-gradient(120deg, #7a0d1f, #b31730);
+    color: #ffe3e8;
+    font-size: 14px;
+    cursor: pointer;
+}
+.patch-viewer-back:hover { filter: brightness(1.15); }
+
+@media (max-width: 480px) {
+    .patch-banner-copy strong { font-size: 12px; }
+    .patch-banner-copy small { font-size: 10px; }
+    .patch-viewer-title h2 { font-size: 15px; }
+    .patch-viewer-body li { font-size: 12px; }
+    .patch-history { max-height: 120px; }
+}
+
 /* 神太古全服全屏血月舞台：覆盖层不拦截点击，最多同屏两个。 */
 .global-shentaigu-stage {
     position: fixed;
