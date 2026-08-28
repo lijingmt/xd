@@ -171,14 +171,24 @@ void test_global_broadcast_wiring()
 		string backup=Stdio.read_file(path);
 		rm(path);
 		append_shen_taigu_cast_event("§g测试施法者§r","§F【神太古】测试技能§r");
-		append_shen_taigu_cast_event("测试施法者二","测试技能二");
+		append_shen_taigu_cast_event("测试施法者二","测试技能二","S1");
 		array(mapping(string:mixed)) events=query_shen_taigu_cast_events(1);
+		array(mapping(string:mixed)) eternal=query_shen_taigu_cast_events(1,
+			"eternal");
+		array(mapping(string:mixed)) season=query_shen_taigu_cast_events(1,
+			"S1");
 		int behavioral=sizeof(events)==2 &&
 			events[0]["caster_name"]=="测试施法者" &&
 			events[0]["skill_name"]=="【神太古】测试技能" &&
 			(stringp(events[1]["id"]) && sizeof((string)events[1]["id"])>0);
+		int isolated=sizeof(eternal)==1 &&
+			eternal[0]["caster_name"]=="测试施法者" &&
+			sizeof(season)==1 && season[0]["caster_name"]=="测试施法者二" &&
+			(string)eternal[0]["scope"]=="eternal";
 		if(!behavioral)
 			failures+=({sprintf("ring=%O",events)});
+		if(!isolated)
+			failures+=({sprintf("isolated=%O/%O",eternal,season)});
 		rm(path);
 		if(backup && sizeof(backup))
 			Stdio.write_file(path,backup);
@@ -200,12 +210,14 @@ void test_global_broadcast_wiring()
 		failures*" | ");
 	check("状态接口携带全服事件且Vue全屏播放",
 		search(api,"global_skill_effects")!=-1 &&
+		search(api,"query_scope(player)")!=-1 &&
+		search(fight,"query_scope(caster)")!=-1 &&
 		search(appjs,"syncGlobalSkillEffects")!=-1 &&
 		search(appjs,"'shentaigu': 'skill-shentaigu-bloodmoon'")!=-1 &&
 		search(html,"global-shentaigu-stage")!=-1 &&
 		search(css,"shentaigu-bloodmoon-effect")!=-1 &&
 		search(css,"global-shentaigu-moon")!=-1,
-		"全服广播链路缺件");
+		"全服广播链路缺件或未做世界隔离");
 }
 
 int main()

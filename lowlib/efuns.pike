@@ -522,7 +522,8 @@ private string shen_taigu_events_path()
 	return ROOT+"/data_xiand/shen_taigu_cast_events.json";
 }
 
-void append_shen_taigu_cast_event(string caster_name,string skill_name)
+void append_shen_taigu_cast_event(string caster_name,string skill_name,
+	void|string scope)
 {
 	string plain_caster=strip_color_codes(caster_name || "");
 	string plain_skill=strip_color_codes(skill_name || "");
@@ -531,12 +532,15 @@ void append_shen_taigu_cast_event(string caster_name,string skill_name)
 	if(plain_caster=="" || plain_skill=="" ||
 	   sizeof(plain_caster)>60 || sizeof(plain_skill)>120)
 		return;
+	if(!scope || scope=="")
+		scope="eternal";
 	array(mapping(string:mixed)) events=query_shen_taigu_cast_events(0);
 	events+=({([
 		"id":sprintf("%s-%d-%d",plain_caster,time(),random(100000000)),
 		"event_at":time(),
 		"caster_name":plain_caster,
 		"skill_name":plain_skill,
+		"scope":scope,
 	])});
 	if(sizeof(events)>10)
 		events=events[sizeof(events)-10..];
@@ -549,7 +553,8 @@ void append_shen_taigu_cast_event(string caster_name,string skill_name)
 		rm(temp_path);
 }
 
-array(mapping(string:mixed)) query_shen_taigu_cast_events(int fresh_only)
+array(mapping(string:mixed)) query_shen_taigu_cast_events(int fresh_only,
+	void|string scope_filter)
 {
 	array(mapping(string:mixed)) result=({});
 	string raw;
@@ -563,9 +568,16 @@ array(mapping(string:mixed)) query_shen_taigu_cast_events(int fresh_only)
 	int now=time();
 	foreach((array)decoded,mixed candidate){
 		mapping event;
+		// 世界隔离：幻境(S1)与永恒服互不可见对方的全服施法事件；
+		// 旧事件无scope字段按永恒服处理。
+		string event_scope;
 		if(!mappingp(candidate))
 			continue;
 		event=(mapping)candidate;
+		event_scope=(stringp(event["scope"]) && (string)event["scope"]!="") ?
+			(string)event["scope"] : "eternal";
+		if(scope_filter && scope_filter!="" && event_scope!=scope_filter)
+			continue;
 		if(!stringp(event["id"]) || (string)event["id"]=="" ||
 		   !intp(event["event_at"]) || (int)event["event_at"]<1 ||
 		   (int)event["event_at"]>now+1 ||
@@ -578,6 +590,7 @@ array(mapping(string:mixed)) query_shen_taigu_cast_events(int fresh_only)
 			"event_at":(int)event["event_at"],
 			"caster_name":(string)event["caster_name"],
 			"skill_name":(string)event["skill_name"],
+			"scope":event_scope,
 		])});
 	}
 	return result;

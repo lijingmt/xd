@@ -523,10 +523,12 @@ private void broadcast_room_skill_manifestation(object skill,object|zero target,
 	]);
 	// 神太古血饮是全服级稀有传承：额外写入跨Worker共享事件，
 	// /api/status 据此驱动所有在线客户端的全屏血月动画。
+	// 事件携带施法者世界作用域，幻境与永恒服互不可见。
 	if(functionp(skill->query_shen_taigu_lifesteal_percent) &&
 	   (int)skill->query_shen_taigu_lifesteal_percent()>0)
 		append_shen_taigu_cast_event(caster->query_name_cn(),
-			skill->query_name_cn());
+			skill->query_name_cn(),
+			PERSONAL_DIFFICULTYD->query_scope(caster));
 	catch {
 		foreach(all_inventory(env),object observer){
 			if(!observer || observer==caster || observer==target ||
