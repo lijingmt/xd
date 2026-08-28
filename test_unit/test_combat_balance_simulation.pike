@@ -82,7 +82,7 @@ mapping simulate(int plevel,int mlevel,int boss,int difficulty_tier)
 	int m_defend=m_str*2; // 怪物物防≈str*2(近似)
 	int m_life;
 	if(boss){
-		m_life=m_str*10*3; // boss全血×3(倍率2→3后与npc.pike一致)
+		m_life=m_str*10*2; // boss全血×2(倍率3→2后与npc.pike一致)
 	}else{
 		m_life=m_str*10*2/100; // 普通怪2%血
 		if(m_life<1) m_life=1;
