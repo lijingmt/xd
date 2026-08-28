@@ -207,7 +207,8 @@ HIDDEN_MYTHIC_SKILL_IDS=(
 	"taijiwuji"
 )
 
-# 太古隐藏传承以服务端目录为唯一事实来源，部署脚本不维护第二份70项名单。
+# 太古隐藏传承以服务端目录为唯一事实来源，部署脚本不维护第二份名单。
+# 目录大小 = 十职业 × 8阶（七阶太古 + 第八阶神太古血饮）= 80。
 ANCIENT_SKILL_CATALOG="$PROJECT_ROOT/gamelib/single/daemons/ancient_skilld.pike"
 ANCIENT_HIDDEN_SKILL_IDS=()
 
@@ -227,8 +228,8 @@ load_ancient_hidden_skill_ids() {
         ANCIENT_HIDDEN_SKILL_IDS+=("$skill_id")
     done < <(grep -oE '"[a-z0-9]+\|[^"]+"' "$ANCIENT_SKILL_CATALOG")
 
-    if [ "${#ANCIENT_HIDDEN_SKILL_IDS[@]}" -ne 70 ]; then
-        print_error "太古隐藏传承目录应包含70个技能，实际为${#ANCIENT_HIDDEN_SKILL_IDS[@]}个"
+    if [ "${#ANCIENT_HIDDEN_SKILL_IDS[@]}" -ne 80 ]; then
+        print_error "太古隐藏传承目录应包含80个技能（十职业×8阶），实际为${#ANCIENT_HIDDEN_SKILL_IDS[@]}个"
         exit 1
     fi
     if printf '%s\n' "${ANCIENT_HIDDEN_SKILL_IDS[@]}" | sort | uniq -d | grep -q .; then
