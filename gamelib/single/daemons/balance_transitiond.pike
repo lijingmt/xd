@@ -47,10 +47,12 @@ private void refresh_cache()
 		cached_life_percent=0;
 	if(cached_attack_percent<10 || cached_attack_percent>200)
 		cached_attack_percent=0;
-	// 无持久配置时使用过渡默认：怪物生命降到5%（回收后的重建期），
-	// 攻击保持100%。管理员可用 mgr_balance_transition 随时调整。
+	// 无持久配置时默认100%（回收过渡期已结束：生产205长期没有此
+	// 文件，5%默认值让全服怪物维持纸糊血量，"首领被秒/毫无难度"
+	// 的真正根源）。过渡期需要软化时由管理员显式下达
+	// mgr_balance_transition 下发文件。
 	if(!cached_life_percent)
-		cached_life_percent=mtime ? 100 : 5;
+		cached_life_percent=100;
 	if(!cached_attack_percent)
 		cached_attack_percent=100;
 }
