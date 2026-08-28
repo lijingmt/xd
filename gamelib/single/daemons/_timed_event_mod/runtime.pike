@@ -165,6 +165,11 @@ int guard_player_move(object player,mixed destination)
 	env = environment(player);
 	if(!is_event_room(env))
 		return 0;
+	// 会话已结束/不存在却仍滞留活动房（结算清理、断线重登或重启
+	// 残留）：空间锁已无意义，放行正常移动，否则玩家会卡死在
+	// “目的地暂时无法到达”。仍在会话中的玩家保持原锁。
+	if(!query_session_for_user_id(player->query_name(),1))
+		return 0;
 	tell_object(player,"限时秘境已锁定空间，不能飞行、传送或跟随离开；可使用活动页的安全退出。\n");
 	return 1;
 }

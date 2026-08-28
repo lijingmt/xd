@@ -342,8 +342,11 @@ void test_room_teleport_guard_and_npc()
 	};
 	if(err)
 		error_desc = describe_error(err);
-	check("活动房间阻止普通飞行传送离开",
-		!err && entered==1 && escaped==0 && environment(player)==room,error_desc);
+	// 会话已结束/不存在的玩家滞留活动房必须能正常离开（防卡死）；
+	// 锁空间只对仍在会话中的参与者生效。
+	check("活动房无会话残留可正常离开（防卡死）",
+		!err && entered==1 && escaped==1 && environment(player)==normal,
+		error_desc);
 	player["/tmp/timed_event_move_bypass"] = 1;
 	player->move(normal);
 	player->m_delete_foruser("/tmp/timed_event_move_bypass");
