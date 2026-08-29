@@ -898,6 +898,35 @@ await check('skillMeta 返回完整视觉参数', () => {
     `应有24+种类型，实际${Object.keys(SKILL_TYPE_META).length}`);
 });
 
+/* ---------- 网络状态检测 ---------- */
+await check('连续3次轮询失败后标记离线，成功后恢复', async () => {
+  api.setApiBase('http://mock:9');
+  /* 3次失败 */
+  for (let i = 0; i < 3; i++) {
+    await withGlobalFetch(mockFetch([
+      { status: 500, ok: false, body: { error: '网络抖动' } },
+    ]), async () => {
+      useGameStore.setState({
+        txd: 'T1', networkOnline: true, pollFailCount: 0,
+      });
+      await useGameStore.getState().pollGameView('ios');
+    });
+  }
+  assert.equal(useGameStore.getState().networkOnline, false,
+    '3次失败后应离线');
+  /* 1次成功恢复 */
+  await withGlobalFetch(mockFetch([
+    { body: { txd: 'T2', lines: [] } },
+  ]), async () => {
+    await useGameStore.getState().pollGameView('ios');
+  });
+  assert.equal(useGameStore.getState().networkOnline, true,
+    '成功后应恢复在线');
+  assert.equal(useGameStore.getState().pollFailCount, 0,
+    '恢复后失败计数清零');
+  useGameStore.getState().logout();
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity, Modal,
   Image, StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, AppState,
+  ActivityIndicator, AppState, RefreshControl,
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
 import {
@@ -282,6 +282,13 @@ export default function GameScreen() {
         </View>
       </View>
 
+      {/* ===== 离线横幅：连续轮询失败时显示 ===== */}
+      {!store.networkOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>⚠ 网络连接中断，正在重试…</Text>
+        </View>
+      )}
+
       {/* ===== 战斗场景：左右对峙（Vue battle-mini 复刻） ===== */}
       {!!store.inBattle && !!enemy && (
         <BattleScene
@@ -335,6 +342,18 @@ export default function GameScreen() {
         initialNumToRender={20}
         updateCellsBatchingPeriod={50}
         removeClippedSubviews={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={store.busy}
+            onRefresh={() => {
+              lastPollRef.current = 0;
+              useGameStore.getState().pollGameView(
+                Platform.OS === 'web' ? 'ios' : Platform.OS);
+            }}
+            tintColor="#d4af37"
+            titleColor="#a89aa8"
+          />
+        }
         ListEmptyComponent={
           !store.busy && store.lines.length === 0
             ? <Text style={styles.emptyText}>暂无内容</Text>
@@ -655,6 +674,12 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -28, left: '50%',
     marginLeft: -12, zIndex: 10,
   },
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 6, backgroundColor: '#3d1018',
+    borderBottomWidth: 1, borderBottomColor: '#ff4d6d',
+  },
+  offlineText: { color: '#ff9aa8', fontSize: 12, letterSpacing: 1 },
   loadingBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 6,

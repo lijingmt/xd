@@ -26,6 +26,8 @@ export const useGameStore = create((set, get) => ({
   afkBusy: false,
   recovering: false,
   currentCharacterId: '',
+  networkOnline: true,
+  pollFailCount: 0,
 
   setApiBase(base) {
     api.setApiBase(base);
@@ -256,6 +258,10 @@ export const useGameStore = create((set, get) => ({
     if (!txd || recovering) return;
     try {
       const data = await api.sendCommand(txd, 'flushview', undefined, platform);
+      /* 网络恢复：清失败计数，摘掉离线横幅。 */
+      if (!get().networkOnline || get().pollFailCount > 0) {
+        set({ networkOnline: true, pollFailCount: 0 });
+      }
       set({ txd: data.txd || txd });
       const lines = Array.isArray(data.lines)
         ? filterGarbageLines(data.lines) : null;
@@ -281,6 +287,13 @@ export const useGameStore = create((set, get) => ({
         }
       }
     } catch (e) {
+      /* 连续3次轮询失败→标记离线；成功→恢复在线。 */
+      const failures = get().pollFailCount + 1;
+      if (failures >= 3 && get().networkOnline) {
+        set({ networkOnline: false, pollFailCount: failures });
+      } else {
+        set({ pollFailCount: failures });
+      }
       if (e && e.status === 401) {
         await get().recoverSession('flushview');
       }
