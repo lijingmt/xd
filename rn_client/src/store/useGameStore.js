@@ -260,10 +260,15 @@ export const useGameStore = create((set, get) => ({
       const lines = Array.isArray(data.lines) ? data.lines : null;
       if (lines) set({ lines: lines.slice(-MAX_LINES) });
       const refresh = data.refresh || {};
-      if (refresh.player) {
+      if (refresh.player && typeof refresh.player === 'object') {
+        /* pet_assist 可能是数字0（无宠物），归一化为null防React渲染"0" */
+        const player = { ...refresh.player };
+        if (player.pet_assist !== null && typeof player.pet_assist !== 'object') {
+          player.pet_assist = null;
+        }
         set({
-          status: refresh.player,
-          autofighting: !!refresh.player.autofight,
+          status: player,
+          autofighting: !!player.autofight,
         });
       }
       if (typeof refresh.in_battle !== 'undefined') {

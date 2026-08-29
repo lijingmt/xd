@@ -67,14 +67,14 @@ export default function BattleScene({ player, enemy, pet, imageBase }) {
         </View>
 
         {/* 宠物 */}
-        {pet && (
+        {!!pet && typeof pet === 'object' && (
           <View style={styles.petRow}>
             <Text style={styles.petIcon}>{pet.icon || '🐾'}</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.petName} numberOfLines={1}>
                 {pet.name || pet.name_cn || '灵宠'}
               </Text>
-              {pet.skill && (
+              {!!pet.skill && (
                 <Text style={styles.petSkill} numberOfLines={1}>
                   {pet.skill}
                 </Text>
@@ -105,7 +105,7 @@ export default function BattleScene({ player, enemy, pet, imageBase }) {
           <Text style={styles.metaText}>
             {player.profession_name || player.profession_id || ''}
           </Text>
-          {player.race && (
+          {!!player.race && (
             <Text style={styles.metaText}>{player.race}</Text>
           )}
         </View>
@@ -126,7 +126,7 @@ export default function BattleScene({ player, enemy, pet, imageBase }) {
             <Text style={[styles.nameText, styles.enemyName]} numberOfLines={1}>
               {enemy.name_cn || enemy.name || '目标识别中'}
             </Text>
-            {enemy.level !== undefined && (
+            {enemy.level !== undefined && enemy.level !== null && (
               <Text style={styles.levelText}>Lv.{enemy.level}</Text>
             )}
           </View>
@@ -138,7 +138,7 @@ export default function BattleScene({ player, enemy, pet, imageBase }) {
 
         <View style={styles.metaRow}>
           <Text style={styles.metaText}>{enemy.profe || '怪物'}</Text>
-          {enemy.race && <Text style={styles.metaText}>{enemy.race}</Text>}
+          {!!enemy.race && <Text style={styles.metaText}>{enemy.race}</Text>}
         </View>
         {(enemy.attack !== undefined || enemy.defend !== undefined) && (
           <View style={styles.metaRow}>

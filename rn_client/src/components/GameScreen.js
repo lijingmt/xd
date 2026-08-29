@@ -170,7 +170,7 @@ export default function GameScreen() {
               </Text>
             </View>
           )}
-          {status.pet_assist && (
+          {!!status.pet_assist && typeof status.pet_assist === 'object' && (
             <View style={styles.headerPetBadge}>
               <Text style={styles.headerPetIcon}>
                 {status.pet_assist.icon || '🐾'}
@@ -251,7 +251,7 @@ export default function GameScreen() {
       </View>
 
       {/* ===== 战斗场景：左右对峙（Vue battle-mini 复刻） ===== */}
-      {store.inBattle && enemy && (
+      {!!store.inBattle && !!enemy && (
         <BattleScene
           player={status}
           enemy={enemy}
@@ -271,7 +271,7 @@ export default function GameScreen() {
       )}
 
       {/* 加载条：任何命令执行期间显示在画面顶部 */}
-      {store.busy && (
+      {!!store.busy && (
         <View style={styles.loadingBar}>
           <ActivityIndicator size="small" color="#d4af37" />
           <Text style={styles.loadingText}>执行中…</Text>
@@ -311,7 +311,7 @@ export default function GameScreen() {
       />
 
       <View style={styles.commandBar}>
-        {store.busy && (
+        {!!store.busy && (
           <View style={styles.busyIndicator}>
             <ActivityIndicator size="small" color="#d4af37" />
           </View>
