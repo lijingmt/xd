@@ -111,7 +111,12 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (listRef.current && nearBottomRef.current) {
-      setTimeout(() => listRef.current.scrollToEnd({ animated: false }), 50);
+      const scrollTimer = setTimeout(() => {
+        if (listRef.current) {
+          listRef.current.scrollToEnd({ animated: false });
+        }
+      }, 50);
+      return () => clearTimeout(scrollTimer);
     }
   }, [store.lines.length]);
 
@@ -132,11 +137,11 @@ export default function GameScreen() {
       ...event,
       id: `float-${Date.now()}-${index}`,
     }));
-    setFloaters(prev => [...prev, ...batch].slice(-8));
-    const timer = setTimeout(() => {
+    setFloaters(prev => [...prev, ...batch].slice(-8]);
+    const timers = [setTimeout(() => {
       setFloaters(prev => prev.filter(f =>
         !batch.some(b => b.id === f.id)));
-    }, eventDuration(batch[0]));
+    }, eventDuration(batch[0]))];
 
     /* 技能施法动画：从新行提取技能名→类型→视觉特效 */
     for (const line of newLines.slice(0, 5)) {
@@ -152,13 +157,15 @@ export default function GameScreen() {
           name, type,
         };
         setSkillEffects(prev => [...prev, skillEffect].slice(-3));
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
           setSkillEffects(prev =>
             prev.filter(e => e.id !== skillEffect.id));
-        }, 2000);
+        }, 2000));
         break; /* 每帧最多一个技能特效 */
       }
     }
+    /* 卸载时清理所有定时器，防止setState on unmounted */
+    return () => timers.forEach(clearTimeout);
   }, [store.lines.length]);
 
   function eventDuration(event) {
