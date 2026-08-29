@@ -100,6 +100,18 @@ export async function fetchBattleStatus(txd, fetchImpl) {
     buildTxdUrl(getApiBase(), '/api/battle_status', txd), fetchImpl);
 }
 
+/**
+ * 挂机画面增量拉取：after/generation 配合服务端 sequence 去重；
+ * 有新画面时返回全量 lines 快照 + refresh{player,in_battle,enemy}，
+ * 无变化返回 unchanged=1（可能带 refresh）。
+ */
+export async function fetchAutofightView(txd, after, generation, fetchImpl) {
+  return getJson(buildTxdUrl(getApiBase(), '/api/autofight_view', txd, {
+    after: after || 0,
+    generation: generation || '',
+  }), fetchImpl);
+}
+
 export async function setAutofight(txd, action, fetchImpl) {
   const doFetch = fetchImpl || fetch;
   const response = await doFetch(`${getApiBase()}/api/autofight`, {

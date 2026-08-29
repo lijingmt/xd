@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   Image, StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
 import {
@@ -14,16 +15,13 @@ export default function GameScreen() {
   const [draft, setDraft] = useState('');
   const [inputValues, setInputValues] = useState({});
 
+  /* 挂机画面2秒一帧（服务端全量快照+增量去重），状态兜底8秒一拉。 */
   useEffect(() => {
-    const statusTimer = setInterval(() => store.refreshStatus(), 5000);
-    return () => clearInterval(statusTimer);
-  }, []);
-
-  useEffect(() => {
-    const battleTimer = setInterval(() => {
-      if (useGameStore.getState().inBattle) store.refreshBattle();
-    }, 3000);
-    return () => clearInterval(battleTimer);
+    const viewTimer = setInterval(
+      () => useGameStore.getState().pollAutofightView(), 2000);
+    const statusTimer = setInterval(
+      () => useGameStore.getState().refreshStatus(), 8000);
+    return () => { clearInterval(viewTimer); clearInterval(statusTimer); };
   }, []);
 
   useEffect(() => {
@@ -39,6 +37,12 @@ export default function GameScreen() {
   };
 
   const status = store.status || {};
+  const enemy = (store.battle && store.battle.enemy) || null;
+  const enemyPercent = enemy
+    ? Math.max(0, Math.min(100,
+        (enemy.hp / Math.max(1, enemy.hp_max)) * 100)) : 0;
+  const playerPercent = Math.max(0, Math.min(100,
+    ((status.hp || 0) / Math.max(1, status.hp_max || 1)) * 100));
 
   return (
     <KeyboardAvoidingView
@@ -58,8 +62,7 @@ export default function GameScreen() {
         <View style={styles.topRow}>
           <View style={styles.hpTrackSmall}>
             <View style={[styles.hpFillSmall, {
-              width: `${Math.max(0, Math.min(100,
-                ((status.hp || 0) / Math.max(1, status.hp_max || 1)) * 100))}%`,
+              width: `${playerPercent}%`,
             }]} />
           </View>
           <Text style={styles.hpNumbers}>
@@ -68,30 +71,48 @@ export default function GameScreen() {
           <TouchableOpacity
             style={[styles.afkButton,
               store.autofighting && styles.afkButtonOn]}
+            disabled={store.afkBusy}
             onPress={() => store.toggleAutofight()}>
-            <Text style={styles.afkText}>
-              {store.autofighting ? '◎ 挂机中·停止' : '▶ 开始挂机'}
-            </Text>
+            {store.afkBusy
+              ? <ActivityIndicator size="small" color="#c8e8c8" />
+              : <Text style={styles.afkText}>
+                  {store.autofighting ? '◎ 挂机中·点按停止' : '▶ 开始挂机'}
+                </Text>}
           </TouchableOpacity>
         </View>
       </View>
 
-      {store.inBattle && store.battle && store.battle.enemy && (
-        <View style={styles.enemyBar}>
+      {store.inBattle && enemy && (
+        <View style={styles.battleCard}>
+          <View style={styles.battleBadgeRow}>
+            <Text style={styles.battleBadge}>⚔ 战斗中</Text>
+            {store.autofighting && (
+              <Text style={styles.battleAutoTag}>挂机自动战斗</Text>
+            )}
+          </View>
           <View style={styles.enemyRow}>
             <Text style={styles.enemyName} numberOfLines={1}>
-              ⚔ {store.battle.enemy.name_cn || '敌人'}
+              {enemy.name_cn || '敌人'}
             </Text>
             <Text style={styles.enemyHp}>
-              {store.battle.enemy.hp}/{store.battle.enemy.hp_max}
+              {enemy.hp}/{enemy.hp_max} · {Math.round(enemyPercent)}%
             </Text>
           </View>
           <View style={styles.hpTrack}>
-            <View style={[styles.hpFill, {
-              width: `${Math.max(0, Math.min(100,
-                (store.battle.enemy.hp / Math.max(1, store.battle.enemy.hp_max)) * 100))}%`,
-              backgroundColor: '#c23a4a',
-            }]} />
+            <View style={[styles.hpFill, { width: `${enemyPercent}%` }]} />
+          </View>
+          <View style={styles.playerMiniRow}>
+            <Text style={styles.playerMiniName}>
+              {status.name_cn || '我'}
+            </Text>
+            <View style={[styles.hpTrackSmall, styles.playerMiniTrack]}>
+              <View style={[styles.hpFillSmall, {
+                width: `${playerPercent}%`,
+              }]} />
+            </View>
+            <Text style={styles.playerMiniHp}>
+              {(status.hp || 0)}/{status.hp_max || 0}
+            </Text>
           </View>
         </View>
       )}
@@ -230,16 +251,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#1a1016',
     borderBottomWidth: 1, borderBottomColor: '#2e2430',
   },
+  battleCard: {
+    marginHorizontal: 10, marginTop: 10, borderRadius: 14,
+    borderWidth: 1, borderColor: '#8a3548', backgroundColor: '#1c1016',
+    padding: 12, gap: 8,
+    shadowColor: '#c23a4a', shadowOpacity: 0.3,
+    shadowRadius: 10, elevation: 5,
+  },
+  battleBadgeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+  },
+  battleBadge: {
+    color: '#ff9aa8', fontSize: 12, fontWeight: '700', letterSpacing: 2,
+  },
+  battleAutoTag: {
+    color: '#9ad0a0', fontSize: 11,
+    borderWidth: 1, borderColor: '#3f6a4a', borderRadius: 5,
+    paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden',
+  },
   enemyRow: {
     flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 5,
+    justifyContent: 'space-between', gap: 10,
   },
-  enemyName: { flexShrink: 1, color: '#ff9aa8', fontSize: 14, fontWeight: '600' },
-  enemyHp: { color: '#c8a8b8', fontSize: 12 },
+  enemyName: { flexShrink: 1, color: '#ffb3c0', fontSize: 16, fontWeight: '700' },
+  enemyHp: { color: '#c8a8b8', fontSize: 13 },
   hpTrack: {
-    height: 12, borderRadius: 6, backgroundColor: '#2a1a20', overflow: 'hidden',
+    height: 14, borderRadius: 7, backgroundColor: '#2a1a20', overflow: 'hidden',
   },
-  hpFill: { height: 12, borderRadius: 6 },
+  hpFill: {
+    height: 14, borderRadius: 7, backgroundColor: '#c23a4a',
+  },
+  playerMiniRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2,
+  },
+  playerMiniName: {
+    color: '#9ab8d8', fontSize: 12, maxWidth: 90,
+  },
+  playerMiniTrack: { flex: 1 },
+  playerMiniHp: { color: '#8a9aa8', fontSize: 11, minWidth: 66, textAlign: 'right' },
   feed: { flex: 1, paddingHorizontal: 10 },
   line: {
     paddingVertical: 4, flexDirection: 'row', flexWrap: 'wrap',

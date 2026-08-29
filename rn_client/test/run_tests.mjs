@@ -564,6 +564,78 @@ await check('restoreSession 令牌过期则清会话回登录', async () => {
   setStorageBackend(null);
 });
 
+/* ---------- 挂机反馈与画面轮询 ---------- */
+await check('fetchAutofightView 携带 after/generation 增量参数', async () => {
+  const f = mockFetch([{ body: { sequence: 3, generation: 'G1', active: 1 } }]);
+  const data = await api.fetchAutofightView('T1', 2, 'G0', f);
+  assert.equal(data.sequence, 3);
+  assert.ok(f.calls[0].includes('/api/autofight_view?'));
+  assert.ok(f.calls[0].includes('after=2'));
+  assert.ok(f.calls[0].includes('generation=G0'));
+});
+
+await check('toggleAutofight 乐观翻转并在失败时回滚', async () => {
+  api.setApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { status: 500, ok: false, body: { error: '服务繁忙' } },
+  ]), async () => {
+    useGameStore.setState({ txd: 'T1', autofighting: false, afkBusy: false });
+    await useGameStore.getState().toggleAutofight();
+    assert.equal(useGameStore.getState().autofighting, false, '失败必须回滚');
+    assert.equal(useGameStore.getState().afkBusy, false);
+    assert.match(useGameStore.getState().error, /服务繁忙/);
+  });
+  useGameStore.getState().logout();
+});
+
+await check('pollAutofightView 全量替换画面并同步active/refresh', async () => {
+  api.setApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: {
+      sequence: 7, generation: 'G9', active: 1,
+      lines: [{ type: 'line', segments: [] }, { type: 'line', segments: [] }],
+      refresh: {
+        player: { hp: 80, hp_max: 100 },
+        in_battle: 1,
+        enemy: { name_cn: '妖道', hp: 30, hp_max: 60 },
+      },
+    } },
+  ]), async () => {
+    useGameStore.setState({
+      txd: 'T1', lines: [{ type: 'line', segments: [] }],
+      viewSequence: 0, viewGeneration: '',
+    });
+    await useGameStore.getState().pollAutofightView();
+    const state = useGameStore.getState();
+    assert.equal(state.lines.length, 2, '画面应为全量替换而非追加');
+    assert.equal(state.viewSequence, 7);
+    assert.equal(state.viewGeneration, 'G9');
+    assert.equal(state.autofighting, true);
+    assert.equal(state.status.hp, 80);
+    assert.equal(state.inBattle, true);
+    assert.equal(state.battle.enemy.name_cn, '妖道');
+  });
+  useGameStore.getState().logout();
+});
+
+await check('pollAutofightView unchanged+新generation 时重置序号', async () => {
+  api.setApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { unchanged: 1, sequence: 0, generation: 'G2', active: 0 } },
+  ]), async () => {
+    useGameStore.setState({
+      txd: 'T1', viewSequence: 42, viewGeneration: 'G1', lines: [],
+    });
+    await useGameStore.getState().pollAutofightView();
+    const state = useGameStore.getState();
+    assert.equal(state.viewGeneration, 'G2');
+    assert.equal(state.viewSequence, 0, '新代际应从0重新拉全量');
+    assert.equal(state.autofighting, false);
+    assert.equal(state.lines.length, 0, 'unchanged不得清空画面');
+  });
+  useGameStore.getState().logout();
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));

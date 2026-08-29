@@ -23,6 +23,9 @@ export const useGameStore = create((set, get) => ({
   accountCharacters: [],
   characterLimit: 0,
   accountUnlocks: { wuxiang: false, taiji: false, zhaoming: false },
+  afkBusy: false,
+  viewSequence: 0,
+  viewGeneration: '',
 
   setApiBase(base) {
     api.setApiBase(base);
@@ -225,17 +228,66 @@ export const useGameStore = create((set, get) => ({
   },
 
   async toggleAutofight() {
-    const { txd } = get();
-    if (!txd) return;
+    const { txd, afkBusy } = get();
+    if (!txd || afkBusy) return;
+    /* 乐观翻转：点击立刻变色换文案，失败再回滚并提示。 */
+    const previous = get().autofighting;
+    set({ autofighting: !previous, afkBusy: true, error: '' });
     try {
       const data = await api.setAutofight(txd, 'toggle');
       if (data && typeof data.autofight !== 'undefined') {
         set({ autofighting: !!data.autofight });
-      } else {
-        await get().refreshStatus();
       }
+      /* 立即拉一帧挂机画面，让战斗输出马上出现在屏幕上。 */
+      await get().pollAutofightView();
     } catch (e) {
-      set({ error: e.message });
+      set({ autofighting: previous, error: e.message });
+    } finally {
+      set({ afkBusy: false });
+    }
+  },
+
+  /** 挂机画面增量轮询：全量快照替换（与Vue同语义）。 */
+  async pollAutofightView() {
+    const { txd, viewSequence, viewGeneration } = get();
+    if (!txd) return;
+    try {
+      const data = await api.fetchAutofightView(
+        txd, viewSequence, viewGeneration);
+      if (typeof data.active !== 'undefined') {
+        set({ autofighting: !!data.active });
+      }
+      if (data.refresh) {
+        const refresh = data.refresh || {};
+        if (refresh.player) set({ status: refresh.player });
+        if (typeof refresh.in_battle !== 'undefined') {
+          set({ inBattle: !!refresh.in_battle });
+          if (refresh.enemy || !refresh.in_battle) {
+            set({ battle: refresh.in_battle
+              ? { enemy: refresh.enemy, in_battle: 1 }
+              : null });
+          }
+        }
+      }
+      if (data.unchanged) {
+        const gen = String(data.generation || '');
+        if (gen && gen !== get().viewGeneration) {
+          set({ viewGeneration: gen, viewSequence: 0 });
+        }
+        return;
+      }
+      const gen = String(data.generation || '');
+      const seq = Number(data.sequence || 0);
+      if (!gen || !Number.isFinite(seq)) return;
+      if (gen === get().viewGeneration && seq <= get().viewSequence) return;
+      const lines = Array.isArray(data.lines) ? data.lines : null;
+      set({
+        viewGeneration: gen,
+        viewSequence: seq,
+        ...(lines ? { lines: lines.slice(-MAX_LINES) } : {}),
+      });
+    } catch (e) {
+      /* 网络抖动静默，下轮重试 */
     }
   },
 

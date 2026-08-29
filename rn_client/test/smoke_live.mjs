@@ -159,6 +159,25 @@ await check('battle_status 可轮询（新号通常脱战）', async () => {
     `battle=${JSON.stringify(battle).slice(0, 160)}`);
 });
 
+await check('autofight 开启后画面轮询返回active与序号', async () => {
+  await api.setAutofight(txd, 'on');
+  /* 刚开启时首帧快照可能未生成（sequence为null），短暂等待并重试。 */
+  let view = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    view = await api.fetchAutofightView(txd, 0, '');
+    if (typeof view.sequence === 'number') break;
+  }
+  assert.equal(view.active, 1, `active=${view.active}`);
+  assert.equal(typeof view.sequence, 'number',
+    `sequence=${JSON.stringify(view.sequence)}`);
+  assert.equal(typeof view.generation, 'string');
+  await api.setAutofight(txd, 'off');
+  const off = await api.fetchAutofightView(txd, view.sequence,
+    view.generation);
+  assert.equal(off.active, 0, `关闭后active=${off.active}`);
+});
+
 await check('autofight 接口应答（off 不留挂机）', async () => {
   const data = await api.setAutofight(txd, 'off');
   assert.ok(!data.error, `error=${data.error}`);
