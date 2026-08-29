@@ -868,6 +868,36 @@ await check('getJson 15秒超时后抛出友好错误（AbortController）', asy
     'AbortError应转为友好超时提示');
 });
 
+/* ---------- 技能施法类型识别 ---------- */
+const { parseSkillType, skillMeta, SKILL_TYPE_META } =
+  await import('../src/utils/skillTypes.js');
+
+await check('parseSkillType 识别主要技能类型', () => {
+  assert.equal(parseSkillType('神太古·神曜一剑'), 'shentaigu');
+  assert.equal(parseSkillType('太古剑痕'), 'ancient');
+  assert.equal(parseSkillType('【命】碎镜千影'), 'spirit');
+  assert.equal(parseSkillType('冰河月冕'), 'ice');
+  assert.equal(parseSkillType('九霄雷法'), 'lightning');
+  assert.equal(parseSkillType('烈焰焚天'), 'fire');
+  assert.equal(parseSkillType('万剑归宗'), 'sword-qi');
+  assert.equal(parseSkillType('降龙十八掌'), 'palm');
+  assert.equal(parseSkillType('打狗棒法'), 'staff');
+  assert.equal(parseSkillType('血月狂潮'), 'fire', '含火/血月→fire');
+  assert.equal(parseSkillType('灵治疗愈'), 'heal');
+  assert.equal(parseSkillType('完全不明技能'), 'generic');
+});
+
+await check('skillMeta 返回完整视觉参数', () => {
+  const meta = skillMeta('shentaigu');
+  assert.equal(meta.icon, '🌑');
+  assert.ok(meta.color.length >= 4);
+  assert.ok(meta.duration > 1000);
+  const fallback = skillMeta('unknown_type');
+  assert.equal(fallback.icon, '✦');
+  assert.ok(Object.keys(SKILL_TYPE_META).length >= 24,
+    `应有24+种类型，实际${Object.keys(SKILL_TYPE_META).length}`);
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));

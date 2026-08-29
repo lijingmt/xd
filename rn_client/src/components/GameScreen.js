@@ -10,11 +10,14 @@ import {
   lineKey,
 } from '../utils/segments.js';
 import { parseBattleLines } from '../utils/battleFeedback.js';
+import { extractSkillName } from '../utils/battleFeedback.js';
+import { parseSkillType } from '../utils/skillTypes.js';
 import { getImageBase } from '../api/mudApi.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 import BattleScene from './BattleScene.js';
 import { SmartImage } from './GameSmartImage.js';
 import EquipmentPanel from './EquipmentPanel.js';
+import SkillEffectOverlay from './SkillEffectOverlay.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
 const QUICK_TOOLS = [
@@ -64,6 +67,7 @@ export default function GameScreen() {
   const [equipOpen, setEquipOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
+  const [skillEffects, setSkillEffects] = useState([]);
   const lastPollRef = useRef(0);
   const inBattleRef = useRef(false);
   inBattleRef.current = store.inBattle;
@@ -125,7 +129,28 @@ export default function GameScreen() {
       setFloaters(prev => prev.filter(f =>
         !batch.some(b => b.id === f.id)));
     }, eventDuration(batch[0]));
-    return () => clearTimeout(timer);
+
+    /* 技能施法动画：从新行提取技能名→类型→视觉特效 */
+    for (const line of newLines.slice(0, 5)) {
+      const text = ((line && line.segments) || [])
+        .map(s => s.type === 'text'
+          ? ((s.parts) || []).map(p => p.content || '').join('')
+          : '').join('');
+      const name = extractSkillName(text);
+      if (name) {
+        const type = parseSkillType(text) || parseSkillType(name) || 'generic';
+        const skillEffect = {
+          id: `skill-${Date.now()}-${Math.random()}`,
+          name, type,
+        };
+        setSkillEffects(prev => [...prev, skillEffect].slice(-3));
+        setTimeout(() => {
+          setSkillEffects(prev =>
+            prev.filter(e => e.id !== skillEffect.id));
+        }, 2000);
+        break; /* 每帧最多一个技能特效 */
+      }
+    }
   }, [store.lines.length]);
 
   function eventDuration(event) {
@@ -276,6 +301,9 @@ export default function GameScreen() {
           ))}
         </View>
       )}
+
+      {/* ===== 技能施法动画层 ===== */}
+      <SkillEffectOverlay effects={skillEffects} />
 
       {/* 加载条：任何命令执行期间显示在画面顶部 */}
       {!!store.busy && (
