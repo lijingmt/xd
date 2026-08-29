@@ -901,14 +901,14 @@ await check('skillMeta 返回完整视觉参数', () => {
 /* ---------- 网络状态检测 ---------- */
 await check('连续3次轮询失败后标记离线，成功后恢复', async () => {
   api.setApiBase('http://mock:9');
-  /* 3次失败 */
+  useGameStore.setState({
+    txd: 'T1', networkOnline: true, pollFailCount: 0,
+  });
+  /* 3次失败（不重置计数） */
   for (let i = 0; i < 3; i++) {
     await withGlobalFetch(mockFetch([
       { status: 500, ok: false, body: { error: '网络抖动' } },
     ]), async () => {
-      useGameStore.setState({
-        txd: 'T1', networkOnline: true, pollFailCount: 0,
-      });
       await useGameStore.getState().pollGameView('ios');
     });
   }
