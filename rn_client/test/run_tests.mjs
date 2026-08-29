@@ -186,14 +186,27 @@ await check('按钮样式归一化覆盖三类服务端 class', () => {
   assert.equal(buttonStyleFor({}).bg, '#3a2f46');
 });
 
-await check('图片地址相对路径补 apiBase', () => {
+await check('图片地址走 Tomcat 8080 而非 API 8888', () => {
   assert.equal(
-    resolveImageUrl('http://h:1/', '/images/a.png'),
-    'http://h:1/images/a.png');
+    resolveImageUrl('http://h:8080', '/images/a.png'),
+    'http://h:8080/images/a.png');
   assert.equal(
-    resolveImageUrl('http://h:1', 'https://cdn/a.png'),
+    resolveImageUrl('http://h:8080', 'https://cdn/a.png'),
     'https://cdn/a.png');
-  assert.equal(resolveImageUrl('http://h:1', ''), '');
+  assert.equal(resolveImageUrl('http://h:8080', ''), '');
+  /* apiBase 兜底：imageBase 为空时用 apiBase */
+  assert.equal(
+    resolveImageUrl('', '/images/a.png', 'http://api:8888'),
+    'http://api:8888/images/a.png');
+});
+
+await check('getImageBase 从 apiBase 推导 Tomcat 端口', async () => {
+  const { getImageBase } = await import('../src/api/mudApi.js');
+  assert.equal(getImageBase('http://192.168.1.5:8888'),
+    'http://192.168.1.5:8080');
+  assert.equal(getImageBase('http://127.0.0.1:8888'),
+    'http://127.0.0.1:8080');
+  assert.equal(getImageBase(''), 'http://127.0.0.1:8080');
 });
 
 await check('cmd-input 命令拼接（有值/空值/无cmd）', () => {

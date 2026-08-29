@@ -10,6 +10,7 @@ import {
   lineKey,
 } from '../utils/segments.js';
 import { parseBattleLines } from '../utils/battleFeedback.js';
+import { getImageBase } from '../api/mudApi.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
@@ -143,6 +144,9 @@ export default function GameScreen() {
   };
 
   const status = store.status || {};
+  const imageBase = getImageBase(store.apiBase);
+  const avatarUrl = status.avatar
+    ? `${imageBase}${status.avatar}` : '';
   const enemy = (store.battle && store.battle.enemy) || null;
   const enemyPercent = enemy ? percent(enemy.hp, enemy.hp_max) : 0;
   const expPercent = percent(status.exp, status.exp_need);
@@ -155,6 +159,16 @@ export default function GameScreen() {
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
       <View style={styles.header}>
         <View style={styles.infoRow}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }}
+              style={styles.headerAvatar} resizeMode="contain" />
+          ) : (
+            <View style={styles.headerAvatarPlaceholder}>
+              <Text style={styles.headerAvatarText}>
+                {(status.name_cn || '仙')[0]}
+              </Text>
+            </View>
+          )}
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={styles.nameCn} numberOfLines={1}>
               {status.name_cn || store.userid || '仙道'}
@@ -254,13 +268,18 @@ export default function GameScreen() {
         renderItem={({ item }) => (
           <View style={styles.line}>
             {renderSegments(item, {
-              send, inputValues, setInputValues, apiBase: store.apiBase,
+              send, inputValues, setInputValues, imageBase,
             })}
           </View>
         )}
       />
 
       <View style={styles.commandBar}>
+        {store.busy && (
+          <View style={styles.busyIndicator}>
+            <ActivityIndicator size="small" color="#d4af37" />
+          </View>
+        )}
         <TextInput
           style={styles.commandInput}
           value={draft}
@@ -270,8 +289,11 @@ export default function GameScreen() {
           placeholder="输入命令或对话…"
           placeholderTextColor="#6a5a6a"
         />
-        <TouchableOpacity style={styles.sendButton} onPress={() => send(draft)}>
-          <Text style={styles.sendText}>发送</Text>
+        <TouchableOpacity style={styles.sendButton}
+          disabled={store.busy} onPress={() => send(draft)}>
+          {store.busy
+            ? <ActivityIndicator size="small" color="#f0e6d2" />
+            : <Text style={styles.sendText}>发送</Text>}
         </TouchableOpacity>
       </View>
 
@@ -465,7 +487,7 @@ function renderSegments(line, ctx) {
       );
     }
     if (segment.type === 'image') {
-      const uri = resolveImageUrl(ctx.apiBase, segment.src);
+      const uri = resolveImageUrl(ctx.imageBase, segment.src);
       if (!uri) return null;
       return (
         <Image key={index} source={{ uri }}
@@ -484,6 +506,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#2e2430',
   },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerAvatar: {
+    width: 36, height: 36, borderRadius: 8,
+    borderWidth: 1, borderColor: '#8a6d2f',
+  },
+  headerAvatarPlaceholder: {
+    width: 36, height: 36, borderRadius: 8,
+    backgroundColor: '#2d2410', borderWidth: 1, borderColor: '#8a6d2f',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerAvatarText: { color: '#ffd700', fontSize: 16, fontWeight: '700' },
   nameCn: { color: '#f0e6d2', fontSize: 16, fontWeight: '700', flexShrink: 1 },
   levelChip: {
     backgroundColor: '#2d2410', borderWidth: 1, borderColor: '#8a6d2f',
@@ -579,9 +611,13 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     paddingHorizontal: 20, borderRadius: 11, backgroundColor: '#3a2f46',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center', minWidth: 68,
   },
   sendText: { color: '#f0e6d2', fontSize: 15, fontWeight: '600' },
+  busyIndicator: {
+    position: 'absolute', top: -28, left: '50%',
+    marginLeft: -12, zIndex: 10,
+  },
   tabBar: {
     flexDirection: 'row', backgroundColor: '#14101a',
     borderTopWidth: 1, borderTopColor: '#2e2430', paddingBottom: 2,

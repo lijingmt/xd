@@ -221,12 +221,17 @@ export function buttonStyleFor(segment) {
   return { bg: '#3a2f46', border: '#6a5a7a', color: '#f0e6d2' };
 }
 
-/** 从 url 推导完整图片地址（相对路径补 apiBase）。 */
-export function resolveImageUrl(apiBase, src) {
+/**
+ * 从 url 推导完整图片地址。
+ * 图片由 Tomcat(8080) 提供，不在 Pike API(8888)——imageBase 必须是
+ * Tomcat 的根（与 Vue getImageUrl 同逻辑），apiBase 只用于兜底。
+ */
+export function resolveImageUrl(imageBase, src, apiBase) {
   const value = String(src || '');
   if (!value) return '';
   if (/^https?:\/\//.test(value)) return value;
-  return `${String(apiBase || '').replace(/\/+$/, '')}${value}`;
+  const root = String(imageBase || apiBase || '').replace(/\/+$/, '');
+  return `${root}${value}`;
 }
 
 /**

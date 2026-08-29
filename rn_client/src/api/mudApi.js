@@ -13,6 +13,16 @@ const DEFAULT_API_BASE = 'http://127.0.0.1:8888';
 
 let currentApiBase = DEFAULT_API_BASE;
 
+/** 图片在 Tomcat(8080)，不在 Pike API(8888)——与 Vue getImageUrl 同源。 */
+export function getImageBase(apiBase) {
+  try {
+    const url = new URL(apiBase || currentApiBase);
+    return `${url.protocol}//${url.hostname}:8080`;
+  } catch (e) {
+    return 'http://127.0.0.1:8080';
+  }
+}
+
 export function setApiBase(base) {
   currentApiBase = String(base || '').replace(/\/+$/, '') || DEFAULT_API_BASE;
 }
