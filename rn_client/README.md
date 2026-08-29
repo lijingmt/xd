@@ -93,14 +93,16 @@ cd rn_client && ./scripts/run_frontend_tests.sh
 
 ## 构建管线
 
-1. **Web 版先行**：`npm run web` → `dist_web/`
+1. **Web 版**：`./scripts/build_and_deploy.sh` 或 `npm run web`
    ```bash
-   cd dist_web && python3 -m http.server 8099 --bind 0.0.0.0
    # 手机同WiFi: http://<Mac IP>:8099，服务器栏填 http://<Mac IP>:8888
    ```
-2. 原生打包（Web 验收后）：
-   - iOS：`npm run ios`（需 Xcode）
-   - Android APK：`npm run android`
+2. **iOS 原生**（需 Xcode + 模拟器）：
+   ```bash
+   npm run ios          # 自动编译并安装到 iPhone 模拟器
+   # 或 ./scripts/build_and_deploy.sh 先验Web再打iOS
+   ```
+3. **Android APK**：`npm run android`
 
 ## 服务器契约备注
 
