@@ -78,9 +78,10 @@ await check('txd URL 追加附加参数并编码', () => {
   assert.equal(url, 'http://h:1/api/autofight?txd=tx%20d1&action=toggle');
 });
 
-await check('apiBase 默认指向本地 8888，setApiBase 去尾斜杠', () => {
+await check('apiBase 默认外网域名，setApiBase 去尾斜杠', () => {
   api.setApiBase('');
-  assert.equal(api.getApiBase(), 'http://127.0.0.1:8888');
+  assert.equal(api.getApiBase(), 'https://xd01-02.wapmud.com',
+    '上线默认必须指向外网域名');
   api.setApiBase('https://xd.example.com//');
   assert.equal(api.getApiBase(), 'https://xd.example.com');
   api.setApiBase('');
@@ -200,13 +201,17 @@ await check('图片地址走 Tomcat 8080 而非 API 8888', () => {
     'http://api:8888/images/a.png');
 });
 
-await check('getImageBase 从 apiBase 推导 Tomcat 端口', async () => {
+await check('getImageBase：https同源无端口，http推导Tomcat 8080', async () => {
   const { getImageBase } = await import('../src/api/mudApi.js');
   assert.equal(getImageBase('http://192.168.1.5:8888'),
     'http://192.168.1.5:8080');
   assert.equal(getImageBase('http://127.0.0.1:8888'),
     'http://127.0.0.1:8080');
-  assert.equal(getImageBase(''), 'http://127.0.0.1:8080');
+  assert.equal(getImageBase('https://xd01-02.wapmud.com'),
+    'https://xd01-02.wapmud.com',
+    'https域名图片走同源代理，不带8080');
+  assert.equal(getImageBase(''),
+    'https://xd01-02.wapmud.com');
 });
 
 await check('cmd-input 命令拼接（有值/空值/无cmd）', () => {

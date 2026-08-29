@@ -9,14 +9,23 @@
  * 所有请求函数接受可注入的 fetchImpl 以便前端 TestUnit 离线测试。
  */
 
-const DEFAULT_API_BASE = 'http://127.0.0.1:8888';
+/* 上线默认外网域名（Cloudflare同源代理API与图片）；内网预设为
+ * 开发机，登录页可一键切换或手填任意地址并持久化。 */
+export const WAN_API_BASE = 'https://xd01-02.wapmud.com';
+export const LAN_API_BASE = 'http://192.168.1.234:8888';
+
+const DEFAULT_API_BASE = WAN_API_BASE;
 
 let currentApiBase = DEFAULT_API_BASE;
 
-/** 图片在 Tomcat(8080)，不在 Pike API(8888)——与 Vue getImageUrl 同源。 */
+/** 图片基地址：https域名走同源代理（无端口）；http直连时图片在
+ * Tomcat(8080)——与 Vue getImageUrl 同源规则。 */
 export function getImageBase(apiBase) {
   try {
     const url = new URL(apiBase || DEFAULT_API_BASE);
+    if (url.protocol === 'https:') {
+      return `${url.protocol}//${url.hostname}`;
+    }
     return `${url.protocol}//${url.hostname}:8080`;
   } catch (e) {
     return 'http://127.0.0.1:8080';

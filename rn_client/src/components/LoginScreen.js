@@ -4,6 +4,7 @@ import {
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
+import { WAN_API_BASE, LAN_API_BASE } from '../api/mudApi.js';
 
 export default function LoginScreen() {
   const {
@@ -35,13 +36,33 @@ export default function LoginScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>服务器</Text>
+        <View style={styles.serverPresetRow}>
+          <TouchableOpacity
+            style={[styles.presetChip,
+              apiBase === WAN_API_BASE && styles.presetChipActive]}
+            onPress={() => setApiBase(WAN_API_BASE)}>
+            <Text style={[styles.presetText,
+              apiBase === WAN_API_BASE && styles.presetTextActive]}>
+              🌐 外网
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.presetChip,
+              apiBase === LAN_API_BASE && styles.presetChipActive]}
+            onPress={() => setApiBase(LAN_API_BASE)}>
+            <Text style={[styles.presetText,
+              apiBase === LAN_API_BASE && styles.presetTextActive]}>
+              🏠 内网
+            </Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           style={styles.input}
           value={apiBase}
           onChangeText={setApiBase}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="http://127.0.0.1:8888"
+          placeholder="https://… 或 http://192.168.x.x:8888"
           placeholderTextColor="#6a5a6a"
         />
 
@@ -142,6 +163,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#2e2430',
   },
   partitionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  serverPresetRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  presetChip: {
+    paddingHorizontal: 14, minHeight: 32, borderRadius: 999,
+    borderWidth: 1, borderColor: '#3a2f46', backgroundColor: '#1a141c',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  presetChipActive: { borderColor: '#d4af37', backgroundColor: '#2d2410' },
+  presetText: { color: '#a89aa8', fontSize: 13 },
+  presetTextActive: { color: '#ffd700' },
   partitionChip: {
     paddingHorizontal: 16, minHeight: 36, borderRadius: 999,
     borderWidth: 1, borderColor: '#3a2f46', backgroundColor: '#1a141c',
