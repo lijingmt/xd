@@ -139,6 +139,7 @@ export default function GameScreen() {
   /* 用户主动导航后的阅读保护期：期间不拉挂机画面，防止子菜单被
    * 服务端autofight视图盖掉（挂机在服务端继续跑，不受影响）。 */
   const lastUserNavRef = useRef(0);
+  const lastBattleProbeRef = useRef(0);
   const inBattleRef = useRef(false);
   const afkRef = useRef(false);
   inBattleRef.current = store.inBattle;
@@ -176,15 +177,36 @@ export default function GameScreen() {
       const state = useGameStore.getState();
       const afk = !!state.autofighting;
       const reading = now - lastUserNavRef.current < 15000;
-      if ((fighting || afk) && !reading) {
-        const delay = fighting ? 1000 : 3000;
-        if (now - lastPollRef.current < delay) return;
+      if (reading) {
+        /* 阅读保护期：只刷数值，绝不触碰画面。 */
+        if (now - lastStatusRef.current < 5000) return;
+        lastStatusRef.current = now;
+        state.refreshStatus();
+        return;
+      }
+      if (afk) {
+        /* 挂机中：3s拉一帧挂机画面（服务端autofight视图）。 */
+        if (now - lastPollRef.current < 3000) return;
         lastPollRef.current = now;
         state.pollGameView(platform);
         return;
       }
-      /* 空闲/阅读保护期：只刷新状态数值（不触碰画面行）。 */
-      if (now - lastStatusRef.current < 5000) return;
+      if (fighting) {
+        /* 疑似战斗：先battle_status探针（不动画面），服务端确认
+         * in_battle才拉画面——防止残留inBattle标志时每秒把
+         * 房间视图盖到玩家正看的菜单上。 */
+        if (now - lastBattleProbeRef.current < 1000) return;
+        lastBattleProbeRef.current = now;
+        state.refreshBattle().then(() => {
+          if (useGameStore.getState().inBattle) {
+            lastPollRef.current = Date.now();
+            useGameStore.getState().pollGameView(platform);
+          }
+        });
+        return;
+      }
+      /* 空闲：只刷新状态数值（不触碰画面行）。 */
+      if (now - lastStatusRef.current < 10000) return;
       lastStatusRef.current = now;
       state.refreshStatus();
     }, 1000);
@@ -193,8 +215,14 @@ export default function GameScreen() {
         lastPollRef.current = 0;
         lastStatusRef.current = 0;
         const state = useGameStore.getState();
-        if (inBattleRef.current || afkRef.current) {
+        if (afkRef.current) {
           state.pollGameView(platform);
+        } else if (inBattleRef.current) {
+          state.refreshBattle().then(() => {
+            if (useGameStore.getState().inBattle) {
+              state.pollGameView(platform);
+            }
+          });
         } else {
           state.refreshStatus();
         }
