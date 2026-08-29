@@ -12,6 +12,8 @@ import {
 import { parseBattleLines } from '../utils/battleFeedback.js';
 import { getImageBase } from '../api/mudApi.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
+import BattleScene from './BattleScene.js';
+import { SmartImage } from './GameSmartImage.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
 const QUICK_TOOLS = [
@@ -160,12 +162,18 @@ export default function GameScreen() {
       <View style={styles.header}>
         <View style={styles.infoRow}>
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }}
-              style={styles.headerAvatar} resizeMode="contain" />
+            <SmartImage uri={avatarUrl} style={styles.headerAvatar} />
           ) : (
             <View style={styles.headerAvatarPlaceholder}>
               <Text style={styles.headerAvatarText}>
                 {(status.name_cn || '仙')[0]}
+              </Text>
+            </View>
+          )}
+          {status.pet_assist && (
+            <View style={styles.headerPetBadge}>
+              <Text style={styles.headerPetIcon}>
+                {status.pet_assist.icon || '🐾'}
               </Text>
             </View>
           )}
@@ -242,27 +250,15 @@ export default function GameScreen() {
         </View>
       </View>
 
-      {/* ===== 战斗卡片 ===== */}
+      {/* ===== 战斗场景：左右对峙（Vue battle-mini 复刻） ===== */}
       {store.inBattle && enemy && (
-        <View style={styles.battleCard}>
-          <View style={styles.battleBadgeRow}>
-            <Text style={styles.battleBadge}>⚔ 战斗中</Text>
-            {store.autofighting && (
-              <Text style={styles.battleAutoTag}>挂机自动战斗</Text>
-            )}
-          </View>
-          <View style={styles.enemyRow}>
-            <Text style={styles.enemyName} numberOfLines={1}>
-              {enemy.name_cn || '敌人'}
-            </Text>
-            <Text style={styles.enemyHp}>
-              {enemy.hp}/{enemy.hp_max} · {Math.round(enemyPercent)}%
-            </Text>
-          </View>
-          <View style={styles.enemyTrack}>
-            <View style={[styles.enemyFill, { width: `${enemyPercent}%` }]} />
-          </View>
-        </View>
+        <BattleScene
+          player={status}
+          enemy={enemy}
+          pet={status.pet_assist || null}
+          imageBase={imageBase}
+        />
+      )}
       )}
 
       {/* ===== 浮动战斗数字层 ===== */}
@@ -573,6 +569,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerAvatarText: { color: '#ffd700', fontSize: 16, fontWeight: '700' },
+  headerPetBadge: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#1a2418', borderWidth: 1, borderColor: '#3f8a53',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerPetIcon: { fontSize: 13 },
   nameCn: { color: '#f0e6d2', fontSize: 16, fontWeight: '700', flexShrink: 1 },
   levelChip: {
     backgroundColor: '#2d2410', borderWidth: 1, borderColor: '#8a6d2f',
