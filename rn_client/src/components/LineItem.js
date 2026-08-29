@@ -15,21 +15,26 @@ export const LineItem = memo(function LineItem({ line, ctx }) {
     </View>
   );
 }, (prev, next) => {
-  /* 精确比较：key变了才重绘，ctx的busy/imageBase变了也重绘。 */
+  /* 精确比较：key变了才重绘，ctx的busy/imageBase/fontScale变了也重绘。 */
   if (prev.ctx.busy !== next.ctx.busy) return false;
   if (prev.ctx.imageBase !== next.ctx.imageBase) return false;
   if (prev.ctx.inputValues !== next.ctx.inputValues) return false;
+  if (prev.ctx.fontScale !== next.ctx.fontScale) return false;
   return true; /* line的key由FlatList keyExtractor保证一致性 */
 });
 
 function renderSegments(line, ctx) {
   const segments = (line && line.segments) || [];
+  const fontScale = ctx.fontScale || 1;
   return segments.map((segment, index) => {
     if (!segment || !segment.type) return null;
     if (segment.type === 'text') {
       const units = flattenTextParts(segment.parts);
       return (
-        <Text key={index} style={styles.text}>
+        <Text key={index} style={[styles.text, {
+          fontSize: Math.round(15 * fontScale),
+          lineHeight: Math.round(22 * fontScale),
+        }]}>
           {units.map((unit, unitIndex) => (
             <Text
               key={unitIndex}

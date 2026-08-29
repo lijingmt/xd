@@ -3,8 +3,25 @@ import * as api from '../api/mudApi.js';
 import * as accountApi from '../api/accountApi.js';
 import { responseHasBattleButton, filterGarbageLines } from '../utils/segments.js';
 import { saveSession, loadSession, clearSession } from '../utils/sessionStore.js';
+import {
+  canOpenMoreSessions, pickDueBackgroundSessions,
+  mergeSessionSnapshot, shouldRecoverSession, PARALLEL_CHARACTER_LIMIT,
+} from '../utils/parallelAfk.js';
 
 const MAX_LINES = 400;
+const BACKGROUND_SESSION_LINES = 80;
+
+/* store 层保持零 react-native 依赖（离线 TestUnit 可加载）。
+ * 运行平台由界面层启动时注入；默认 ios（与网页版一致）。 */
+let runtimePlatform = 'ios';
+
+export function setRuntimePlatform(value) {
+  if (value) runtimePlatform = value;
+}
+
+function platformTag() {
+  return runtimePlatform;
+}
 
 export const useGameStore = create((set, get) => ({
   apiBase: api.getApiBase(),
@@ -28,17 +45,41 @@ export const useGameStore = create((set, get) => ({
   currentCharacterId: '',
   networkOnline: true,
   pollFailCount: 0,
+  /* 多角色并行挂机：charId -> {txd,lines,status,inBattle,autofighting,
+   * lastPollAt,pollInflight,failCount,afkBusy}。活动角色的画面仍是
+   * 顶层 lines/status；切走时快照回 sessions，切回时恢复。 */
+  sessions: {},
+  parallelLimit: PARALLEL_CHARACTER_LIMIT,
 
   setApiBase(base) {
     api.setApiBase(base);
     accountApi.setAccountApiBase(api.getApiBase());
     set({ apiBase: api.getApiBase() });
-    /* 服务器地址随会话持久化，手机端换网络后免重填。 */
-    const { accountToken, userid } = get();
-    if (accountToken) {
-      saveSession({ token: accountToken, userid, apiBase: api.getApiBase() })
-        .catch(() => {});
+    /* 服务器地址随会话持久化（登录前输入也记住），手机端免重填。 */
+    const { accountToken, userid, currentCharacterId, sessions } = get();
+    saveSession({
+      token: accountToken || '',
+      userid: userid || '',
+      apiBase: api.getApiBase(),
+      currentCharacterId: currentCharacterId || '',
+      characters: Object.keys(sessions || {}).reduce((acc, id) => {
+        if (sessions[id] && sessions[id].txd) acc[id] = sessions[id].txd;
+        return acc;
+      }, {}),
+    }).catch(() => {});
+  },
+
+  persistSessions() {
+    const { accountToken, userid, sessions, currentCharacterId } = get();
+    if (!accountToken) return;
+    const characters = {};
+    for (const id of Object.keys(sessions)) {
+      if (sessions[id] && sessions[id].txd) characters[id] = sessions[id].txd;
     }
+    saveSession({
+      token: accountToken, userid, apiBase: api.getApiBase(),
+      currentCharacterId, characters,
+    }).catch(() => {});
   },
 
   async restoreSession() {
@@ -48,11 +89,24 @@ export const useGameStore = create((set, get) => ({
     set({ accountToken: saved.token, userid: saved.userid });
     try {
       await get().refreshAccountCharacters();
+      /* 恢复并行挂机会话：txd 长期有效，角色快照进入后台轮询补齐。 */
+      const sessions = {};
+      for (const id of Object.keys(saved.characters || {})) {
+        sessions[id] = {
+          txd: saved.characters[id],
+          lines: [], status: null, inBattle: false, autofighting: false,
+          lastPollAt: 0, pollInflight: false, failCount: 0, afkBusy: false,
+        };
+      }
+      set({ sessions });
       return true;
     } catch (e) {
       /* 令牌过期：清会话回登录页。 */
       await clearSession().catch(() => {});
-      set({ accountToken: '', userid: '', accountCharacters: [] });
+      set({
+        accountToken: '', userid: '', accountCharacters: [],
+        sessions: {},
+      });
       return false;
     }
   },
@@ -133,25 +187,281 @@ export const useGameStore = create((set, get) => ({
     });
   },
 
+  /** 把当前活动画面快照进 sessions（切走/回仪表盘前调用）。 */
+  snapshotActiveSession() {
+    const { txd, currentCharacterId, lines, status, inBattle,
+      autofighting, battle, sessions } = get();
+    if (!txd || !currentCharacterId) return;
+    const previous = sessions[currentCharacterId] || {};
+    set({
+      sessions: {
+        ...sessions,
+        [currentCharacterId]: {
+          ...previous,
+          txd,
+          lines: (lines || []).slice(-BACKGROUND_SESSION_LINES),
+          status, inBattle, autofighting, battle,
+          lastPollAt: Date.now(),
+        },
+      },
+    });
+    get().persistSessions();
+  },
+
   async pickCharacter(characterId) {
-    const { accountToken } = get();
+    const { accountToken, sessions } = get();
     if (!accountToken || !characterId) return;
+    if (characterId !== get().currentCharacterId) {
+      if (!canOpenMoreSessions(Object.keys(sessions).length,
+          get().parallelLimit) && !sessions[characterId]) {
+        set({ error: `并行角色最多${get().parallelLimit}个，请先退出一部分` });
+        return;
+      }
+      get().snapshotActiveSession();
+    }
     set({ busy: true, error: '' });
     try {
       const selected = await accountApi.selectCharacter(
         accountToken, characterId);
       const bootstrap = selected.bootstrap_command || 'init';
       const data = await api.sendCommand(selected.txd, bootstrap);
+      const nextTxd = data.txd || selected.txd;
+      const existing = get().sessions[characterId] || {};
       set({
-        txd: data.txd || selected.txd,
+        txd: nextTxd,
         busy: false,
         lines: data.lines || [],
         currentCharacterId: characterId,
+        sessions: {
+          ...get().sessions,
+          [characterId]: {
+            ...existing,
+            txd: nextTxd,
+            lines: (data.lines || []).slice(-BACKGROUND_SESSION_LINES),
+            status: null, inBattle: false, autofighting: false,
+            lastPollAt: Date.now(), pollInflight: false,
+            failCount: 0, afkBusy: false,
+          },
+        },
       });
+      get().persistSessions();
     } catch (e) {
       set({ busy: false, error: e.message });
     }
   },
+
+  /** 切换活动角色：已有会话直接换画面并立即补一帧；没有则走完整进入。 */
+  async switchCharacter(characterId) {
+    const { currentCharacterId, sessions } = get();
+    if (!characterId || characterId === currentCharacterId) return;
+    const existing = sessions[characterId];
+    if (!existing || !existing.txd) {
+      await get().pickCharacter(characterId);
+      return;
+    }
+    get().snapshotActiveSession();
+    set({
+      currentCharacterId: characterId,
+      txd: existing.txd,
+      lines: existing.lines || [],
+      status: existing.status || null,
+      inBattle: !!existing.inBattle,
+      autofighting: !!existing.autofighting,
+      battle: existing.battle || null,
+      busy: false, error: '',
+      sessions: {
+        ...get().sessions,
+        [characterId]: { ...existing, lastPollAt: Date.now() },
+      },
+    });
+    get().pollGameView(platformTag());
+  },
+
+  /** 回角色仪表盘：保留所有会话，挂机交给服务端 tick 继续跑。 */
+  backToDashboard() {
+    get().snapshotActiveSession();
+    set({ txd: '', lines: [], status: null, battle: null,
+      inBattle: false, error: '' });
+  },
+
+  /** 确保某角色有可用 txd（后台挂机开关/后台轮询前调用）。 */
+  async ensureCharacterSession(characterId) {
+    const { accountToken, sessions } = get();
+    if (!accountToken || !characterId) return null;
+    const existing = sessions[characterId];
+    if (existing && existing.txd) return existing.txd;
+    if (!canOpenMoreSessions(Object.keys(sessions).length,
+        get().parallelLimit)) {
+      throw new Error(`并行角色最多${get().parallelLimit}个，请先退出一部分`);
+    }
+    const selected = await accountApi.selectCharacter(
+      accountToken, characterId);
+    const txd = selected.txd || '';
+    if (!txd) throw new Error('角色会话获取失败');
+    set({
+      sessions: {
+        ...get().sessions,
+        [characterId]: {
+          ...(get().sessions[characterId] || {}),
+          txd, lines: [], status: null, inBattle: false,
+          autofighting: false, lastPollAt: 0, pollInflight: false,
+          failCount: 0, afkBusy: false,
+        },
+      },
+    });
+    get().persistSessions();
+    return txd;
+  },
+
+  /** 不切换画面，直接开关某角色的挂机（并行挂机核心入口）。 */
+  async toggleCharacterAfk(characterId) {
+    if (!characterId) return;
+    const session = get().sessions[characterId];
+    if (session && session.afkBusy) return;
+    if (!session && !canOpenMoreSessions(
+        Object.keys(get().sessions).length, get().parallelLimit)) {
+      set({ error: `并行角色最多${get().parallelLimit}个，请先退出一部分` });
+      return;
+    }
+    /* 只更新已存在的会话，绝不为不存在的角色创建空会话。 */
+    const patchBusy = busy => set(state => {
+      if (!state.sessions[characterId]) return {};
+      return {
+        sessions: {
+          ...state.sessions,
+          [characterId]: {
+            ...state.sessions[characterId],
+            afkBusy: busy,
+          },
+        },
+      };
+    });
+    patchBusy(true);
+    try {
+      const txd = await get().ensureCharacterSession(characterId);
+      patchBusy(true);
+      const data = await api.setAutofight(txd, 'toggle');
+      const autofighting = data && typeof data.autofight !== 'undefined'
+        ? !!data.autofight
+        : !((get().sessions[characterId] || {}).autofighting);
+      set(state => ({
+        sessions: {
+          ...state.sessions,
+          [characterId]: {
+            ...(state.sessions[characterId] || {}),
+            autofighting,
+          },
+        },
+      }));
+      if (characterId === get().currentCharacterId) {
+        set({ autofighting });
+        get().pollGameView(platformTag());
+      }
+    } catch (e) {
+      /* 失败保留原状态；仪表盘按钮还原即可。 */
+    } finally {
+      patchBusy(false);
+    }
+  },
+
+  /** 退出某角色的并行会话：先停挂机再退出，释放并行名额。 */
+  async closeCharacterSession(characterId) {
+    const { currentCharacterId, sessions } = get();
+    if (!characterId || !sessions[characterId]) return;
+    if (characterId === currentCharacterId) {
+      get().backToDashboard();
+    }
+    const txd = sessions[characterId] && sessions[characterId].txd;
+    const rest = { ...get().sessions };
+    delete rest[characterId];
+    set({ sessions: rest });
+    get().persistSessions();
+    if (!txd) return;
+    try {
+      await api.setAutofight(txd, 'off').catch(() => {});
+      await api.sendCommand(txd, 'quit').catch(() => {});
+    } catch (e) {
+      /* 本地会话已移除；服务端按闲置规则自然回收。 */
+    }
+  },
+
+  /** 后台角色快照轮询（不推进战斗，只刷新状态）。 */
+  async pollBackgroundSession(characterId) {
+    const session = get().sessions[characterId];
+    if (!session || !session.txd || session.pollInflight) return;
+    set(state => ({
+      sessions: {
+        ...state.sessions,
+        [characterId]: { ...state.sessions[characterId],
+          pollInflight: true },
+      },
+    }));
+    try {
+      const data = await api.sendCommand(
+        session.txd, 'flushview', undefined, platformTag());
+      /* 迟到的响应：会话已被关闭/登出，直接丢弃。 */
+      if (!get().sessions[characterId]) return;
+      const updated = mergeSessionSnapshot(
+        get().sessions[characterId], data && data.refresh);
+      const lines = Array.isArray(data && data.lines)
+        ? filterGarbageLines(data.lines) : null;
+      if (lines) updated.lines = lines.slice(-BACKGROUND_SESSION_LINES);
+      if (data && data.txd && data.txd !== session.txd) updated.txd = data.txd;
+      const refresh = (data && data.refresh) || {};
+      updated.battle = refresh.in_battle && refresh.enemy
+        ? { enemy: refresh.enemy, in_battle: 1 } : null;
+      set(state => ({
+        sessions: {
+          ...state.sessions,
+          [characterId]: { ...state.sessions[characterId],
+            ...updated, pollInflight: false },
+        },
+      }));
+    } catch (e) {
+      const failed = get().sessions[characterId] || {};
+      if (!failed) return;
+      const failCount = (failed.failCount || 0) + 1;
+      set(state => ({
+        sessions: {
+          ...state.sessions,
+          [characterId]: { ...state.sessions[characterId],
+            failCount, pollInflight: false },
+        },
+      }));
+      if (shouldRecoverSession(failed) && get().accountToken) {
+        /* txd 失效：静默重选，不打断玩家。 */
+        try {
+          await accountApi.selectCharacter(
+            get().accountToken, characterId).then(selected => {
+              if (selected && selected.txd) {
+                set(state => ({
+                  sessions: {
+                    ...state.sessions,
+                    [characterId]: {
+                      ...state.sessions[characterId],
+                      txd: selected.txd, failCount: 0,
+                    },
+                  },
+                }));
+                get().persistSessions();
+              }
+            });
+        } catch (recoverErr) {
+          /* 下轮轮询再试。 */
+        }
+      }
+    }
+  },
+
+  /** 每帧调用：挑出到期的后台角色轮询（并发受 parallelAfk 约束）。 */
+  tickBackgroundPolls() {
+    const { sessions, currentCharacterId, txd } = get();
+    if (!txd && Object.keys(sessions).length === 0) return;
+    const due = pickDueBackgroundSessions(
+      sessions, currentCharacterId, Date.now());
+    for (const id of due) get().pollBackgroundSession(id);
+  },
+
 
   async createCharacter(form) {
     const { accountToken } = get();
@@ -258,6 +568,9 @@ export const useGameStore = create((set, get) => ({
     if (!txd || recovering) return;
     try {
       const data = await api.sendCommand(txd, 'flushview', undefined, platform);
+      /* 迟到的响应：请求期间玩家已切换角色/退出，丢弃这帧，
+       * 防止把旧角色的画面盖到新会话上。 */
+      if (get().txd !== txd) return;
       /* 网络恢复：清失败计数，摘掉离线横幅。 */
       if (!get().networkOnline || get().pollFailCount > 0) {
         set({ networkOnline: true, pollFailCount: 0 });
@@ -344,6 +657,7 @@ export const useGameStore = create((set, get) => ({
       battle: null, inBattle: false, autofighting: false, error: '',
       accountToken: '', accountId: '', accountCharacters: [],
       characterLimit: 0, currentCharacterId: '', recovering: false,
+      sessions: {},
     });
   },
 }));

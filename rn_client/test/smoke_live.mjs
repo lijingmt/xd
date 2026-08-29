@@ -65,6 +65,7 @@ await check('注册临时账号成功', async () => {
 /* ---- 多角色账号中心全链路 ---- */
 let accountToken = '';
 let firstCharacterId = '';
+let secondCharacterId = '';
 let lastLines = [];
 
 await check('账号登录换取令牌', async () => {
@@ -132,6 +133,7 @@ await check('创建第二个角色并出现在列表中', async () => {
   });
   const newId = created.character && created.character.id;
   assert.ok(newId, `建角响应异常: ${JSON.stringify(created).slice(0, 160)}`);
+  secondCharacterId = String(newId);
   const refreshed = await accountApi.fetchCharacters(accountToken);
   const list = refreshed.characters || [];
   assert.ok(list.some(one => String(one.id) === String(newId)),
@@ -184,6 +186,35 @@ await check('autofight 开启后 flushview 持续出新画面', async () => {
 await check('autofight 接口应答（off 不留挂机）', async () => {
   const data = await api.setAutofight(txd, 'off');
   assert.ok(!data.error, `error=${data.error}`);
+});
+
+/* ---- 并行挂机服务端契约：同账号双会话不被互踢 ---- */
+await check('并行双会话：B在线不顶掉A，双挂机各自出画面', async () => {
+  const selectedB = await accountApi.selectCharacter(
+    accountToken, secondCharacterId);
+  const bootB = await api.sendCommand(
+    selectedB.txd, selectedB.bootstrap_command || 'init');
+  const txdB = bootB.txd || selectedB.txd;
+  assert.ok(txdB.length > 0, 'B 会话未建立');
+
+  /* B 已进入，A 的旧 txd 仍应可用（并行前提）。 */
+  const viewA = await api.sendCommand(txd, 'flushview', undefined, 'ios');
+  assert.ok(viewA && !viewA.error, `A被顶下线: ${viewA && viewA.error}`);
+  const tA = viewA.txd || txd;
+
+  await api.setAutofight(tA, 'on');
+  await api.setAutofight(txdB, 'on');
+  const frameA = await api.sendCommand(tA, 'flushview', undefined, 'ios');
+  const frameB = await api.sendCommand(txdB, 'flushview', undefined, 'ios');
+  assert.ok(!frameA.error && !frameB.error, '双挂机轮询失败');
+  const playerA = frameA.refresh && frameA.refresh.player;
+  const playerB = frameB.refresh && frameB.refresh.player;
+  assert.ok(playerA && playerB, '双会话refresh缺失player');
+  assert.equal(playerA.autofight, 1, 'A挂机未生效');
+  assert.equal(playerB.autofight, 1, 'B挂机未生效');
+
+  await api.setAutofight(tA, 'off').catch(() => {});
+  await api.setAutofight(txdB, 'off').catch(() => {});
 });
 
 console.log(`\n在线冒烟：通过 ${passed}，失败 ${failed}`);

@@ -415,6 +415,132 @@ await check('store appendLines 截断到 400 行上限', () => {
   useGameStore.getState().logout();
 });
 
+await check('并行挂机：pickCharacter 注册会话并快照旧角色', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { txd: 'NT-c2', character_id: 'xd01c2',
+      bootstrap_command: 'init' } },
+    { body: { txd: 'NT-c2', lines: [{ type: 'line', segments: [] }] } },
+  ]), async () => {
+    useGameStore.setState({
+      accountToken: 'AT', txd: 'ST-c1', lines: [],
+      currentCharacterId: 'xd01c1', sessions: {},
+      status: { hp: 10, hp_max: 20 }, autofighting: true,
+    });
+    await useGameStore.getState().pickCharacter('xd01c2');
+    const state = useGameStore.getState();
+    assert.equal(state.currentCharacterId, 'xd01c2');
+    assert.equal(state.sessions['xd01c2'].txd, 'NT-c2');
+    assert.equal(state.sessions['xd01c1'].txd, 'ST-c1',
+      '旧角色会话应被快照保留');
+    assert.ok(state.sessions['xd01c1'].autofighting);
+  });
+  useGameStore.getState().logout();
+});
+
+await check('并行挂机：switchCharacter 用快照恢复并立即补帧', async () => {
+  api.setApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { txd: 'T2', lines: [], refresh: {
+      player: { hp: 90, hp_max: 100, level: 8, autofight: 1 },
+    } } },
+  ]), async () => {
+    useGameStore.setState({
+      accountToken: 'AT', txd: 'ST-c1', lines: [],
+      currentCharacterId: 'xd01c1',
+      sessions: {
+        'xd01c1': { txd: 'ST-c1', lines: [], status: null },
+        'xd01c2': {
+          txd: 'T2', lines: [{ type: 'line', segments: [] }],
+          status: { hp: 5, hp_max: 10, level: 7 },
+          inBattle: true, autofighting: false,
+        },
+      },
+    });
+    await useGameStore.getState().switchCharacter('xd01c2');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const state = useGameStore.getState();
+    assert.equal(state.txd, 'T2');
+    assert.equal(state.currentCharacterId, 'xd01c2');
+    assert.equal(state.status.level, 8, '切换后立即补帧刷新状态');
+    assert.ok(state.sessions['xd01c1'].txd === 'ST-c1');
+  });
+  useGameStore.getState().logout();
+});
+
+await check('并行挂机：后台开关挂机不动活动画面', async () => {
+  api.setApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { autofight: 1 } },
+  ]), async () => {
+    useGameStore.setState({
+      accountToken: 'AT', txd: 'ST-c1', lines: [],
+      currentCharacterId: 'xd01c1', autofighting: false,
+      sessions: {
+        'xd01c1': { txd: 'ST-c1', lines: [], status: null },
+        'xd01c2': { txd: 'T2', lines: [], status: null,
+          autofighting: false, afkBusy: false },
+      },
+    });
+    await useGameStore.getState().toggleCharacterAfk('xd01c2');
+    const state = useGameStore.getState();
+    assert.ok(state.sessions['xd01c2'].autofighting,
+      '后台角色挂机状态应更新');
+    assert.equal(state.autofighting, false,
+      '活动角色挂机状态不应被改动');
+    assert.equal(state.txd, 'ST-c1');
+  });
+  useGameStore.getState().logout();
+});
+
+await check('并行挂机：后台轮询更新快照且不占用活动画面', async () => {
+  api.setApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { txd: 'T2', lines: [{ type: 'line', segments: [] }],
+      refresh: { player: { hp: 30, hp_max: 60, level: 5 },
+        in_battle: 1 } } },
+  ]), async () => {
+    useGameStore.setState({
+      accountToken: 'AT', txd: 'ST-c1', lines: [],
+      currentCharacterId: 'xd01c1', status: null,
+      sessions: {
+        'xd01c1': { txd: 'ST-c1', lines: [], status: null },
+        'xd01c2': { txd: 'T2', lines: [], status: null,
+          lastPollAt: 0, pollInflight: false, failCount: 0 },
+      },
+    });
+    useGameStore.getState().tickBackgroundPolls();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const state = useGameStore.getState();
+    assert.equal(state.sessions['xd01c2'].status.level, 5);
+    assert.ok(state.sessions['xd01c2'].inBattle);
+    assert.ok(state.sessions['xd01c2'].lastPollAt > 0);
+    assert.equal(state.status, null, '活动画面状态不受后台轮询影响');
+    assert.equal(state.lines.length, 0, '活动画面行不受后台轮询影响');
+  });
+  useGameStore.getState().logout();
+});
+
+await check('并行挂机：满20个会话后不再开新会话', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  const sessions = {};
+  for (let i = 0; i < 20; i++) {
+    sessions[`c${i}`] = { txd: `t${i}`, lines: [], status: null };
+  }
+  await withGlobalFetch(mockFetch([]), async () => {
+    useGameStore.setState({
+      accountToken: 'AT', txd: 't0', lines: [],
+      currentCharacterId: 'c0', sessions,
+    });
+    await useGameStore.getState().toggleCharacterAfk('cNew');
+    const state = useGameStore.getState();
+    assert.ok(!state.sessions.cNew, '第21个会话不应被创建');
+  });
+  useGameStore.getState().logout();
+});
+
 /* ---------- 建角：选项门禁与头像 ---------- */
 const {
   visibleProfessions, professionsForRace, avatarChoicesFor, PROFESSION_OPTIONS,
@@ -520,7 +646,14 @@ await check('会话存取：保存/读取/清除与损坏数据兜底', async ()
   await backend._map.set('xiand.session', '{corrupt json');
   assert.equal(await loadSession(), null);
   await backend._map.set('xiand.session', JSON.stringify({ userid: 'x' }));
-  assert.equal(await loadSession(), null, '无token的会话必须拒绝恢复');
+  assert.equal(await loadSession(), null, 'token与apiBase皆空的会话必须拒绝恢复');
+  await backend._map.set('xiand.session', JSON.stringify({
+    token: '', apiBase: 'http://192.168.1.234:8888',
+  }));
+  const addressOnly = await loadSession();
+  assert.ok(addressOnly, '只存服务器地址的会话也要可恢复');
+  assert.equal(addressOnly.apiBase, 'http://192.168.1.234:8888');
+  assert.equal(addressOnly.token, '');
   setStorageBackend(null);
 });
 
@@ -801,6 +934,50 @@ await check('垃圾行过滤：纯数字单字符行被移除，正常行保留'
   assert.ok(filtered.some(l => linePlainText(l).trim() === '10'));
 });
 
+await check('捐赠引导过滤：捐赠入口移除，VIP服务/药品/玩法保留', () => {
+  const lines = [
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '感谢捐赠支持服务器运营' }] }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '充值50元获得仙缘玉' }] }] },
+    { segments: [
+      { type: 'text', parts: [{ type: 'text', content: '玉石不足？' }] },
+      { type: 'button', label: '捐赠获取仙玉', cmd: 'add_szx_fee' },
+    ] },
+    { segments: [
+      { type: 'text', parts: [{ type: 'text', content: '赞助入口：' }] },
+      { type: 'button', label: '赞助', cmd: 'add_wap_fee' },
+    ] },
+    { segments: [{ type: 'url-link', text: '捐赠说明', url: 'https://example.com/donate' }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '以上活动详情请咨询客服' }] }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '(QQ客服1811117272)' }] }] },
+    { segments: [{ type: 'text', parts: [
+      { type: 'text', content: '一、新区开放，经典最高70级' },
+    ] }] },
+    { segments: [
+      { type: 'text', parts: [{ type: 'text', content: 'VIP服务列表：' }] },
+      { type: 'button', label: '开通会员', cmd: 'vip_service_list' },
+    ] },
+    { segments: [
+      { type: 'text', parts: [{ type: 'text', content: '你购买了金创药，花费200铜钱' }] },
+      { type: 'button', label: '继续购买', cmd: 'yao_shop' },
+    ] },
+    { segments: [
+      { type: 'text', parts: [{ type: 'text', content: '你击败了妖狼，获得120经验' }] },
+      { type: 'button', label: '察看战况', cmd: '1' },
+    ] },
+  ];
+  const filtered = filterGarbageLines(lines);
+  assert.equal(filtered.length, 4, '仅保留VIP/药品/玩法/公告正文行');
+  assert.ok(filtered.every(l => !linePlainText(l).includes('捐赠')));
+  assert.ok(filtered.every(l => !linePlainText(l).includes('充值')));
+  assert.ok(filtered.every(l => !linePlainText(l).includes('客服')));
+  assert.ok(filtered.some(l => linePlainText(l).includes('新区开放')),
+    '公告玩法内容保留');
+  assert.ok(filtered.some(l => l.segments.some(s =>
+    s.type === 'button' && s.cmd === 'vip_service_list')), 'VIP服务按钮保留');
+  assert.ok(filtered.some(l => l.segments.some(s =>
+    s.type === 'button' && s.cmd === 'yao_shop')), '药品购买按钮保留');
+});
+
 /* ---------- 装备面板 ---------- */
 const { panelCards } = await import('../src/api/equipmentApi.js');
 
@@ -968,6 +1145,294 @@ await check('formatStats 输出完整且空数据返回null', () => {
 await check('computeDps 时间跨度安全', () => {
   assert.equal(computeDps(null), 0);
   assert.equal(computeDps(createStatsTracker()), 0);
+});
+
+/* ---------- 并行挂机 ---------- */
+const {
+  canOpenMoreSessions, pickDueBackgroundSessions, mergeSessionSnapshot,
+  shouldRecoverSession, sessionSummary, sessionJitterMs,
+  PARALLEL_CHARACTER_LIMIT,
+} = await import('../src/utils/parallelAfk.js');
+
+await check('并行上限：默认20，达到后不可再开', () => {
+  assert.equal(PARALLEL_CHARACTER_LIMIT, 20);
+  assert.ok(canOpenMoreSessions(0));
+  assert.ok(canOpenMoreSessions(19));
+  assert.ok(!canOpenMoreSessions(20));
+  assert.ok(!canOpenMoreSessions(25));
+  assert.ok(canOpenMoreSessions(5, 10));
+  assert.ok(!canOpenMoreSessions(10, 10));
+});
+
+await check('后台轮询挑选：到期才轮询，跳过活动角色与在途请求', () => {
+  const now = 1000000;
+  const sessions = {
+    active: { txd: 'a', lastPollAt: now },
+    fresh: { txd: 'b', lastPollAt: now },
+    due: { txd: 'c', lastPollAt: now - 60000 },
+    busy: { txd: 'd', lastPollAt: now - 60000, pollInflight: true },
+    notxd: { lastPollAt: now - 60000 },
+  };
+  const due = pickDueBackgroundSessions(sessions, 'active', now);
+  assert.ok(due.includes('due'), '到期角色应被选中');
+  assert.ok(!due.includes('active'), '活动角色不轮询');
+  assert.ok(!due.includes('fresh'), '未到期不轮询');
+  assert.ok(!due.includes('busy'), '在途请求不重复发');
+  assert.ok(!due.includes('notxd'), '无txd会话不轮询');
+});
+
+await check('后台轮询并发上限与抖动错开', () => {
+  const now = 1000000;
+  const sessions = {};
+  for (let i = 0; i < 8; i++) {
+    sessions[`c${i}`] = { txd: `t${i}`, lastPollAt: now - 60000 };
+  }
+  const due = pickDueBackgroundSessions(sessions, '', now);
+  assert.ok(due.length <= 2, '同时最多2个后台轮询');
+  const j0 = sessionJitterMs(0);
+  const j1 = sessionJitterMs(1);
+  assert.notEqual(j0, j1, '不同下标抖动不同');
+  assert.ok(j0 >= 0 && j1 >= 0);
+});
+
+await check('会话快照合并：pet_assist归一化并清零失败计数', () => {
+  const merged = mergeSessionSnapshot(
+    { failCount: 2, status: null },
+    {
+      player: { hp: 80, hp_max: 100, autofight: 1, pet_assist: 0 },
+      in_battle: 1,
+    });
+  assert.equal(merged.failCount, 0);
+  assert.ok(merged.autofighting);
+  assert.ok(merged.inBattle);
+  assert.equal(merged.status.pet_assist, null,
+    'pet_assist数字0必须归一化为null');
+  assert.ok(merged.lastPollAt > 0);
+  const untouched = mergeSessionSnapshot({ failCount: 1 }, null);
+  assert.equal(untouched.failCount, 0);
+  assert.equal(untouched.status, undefined);
+});
+
+await check('会话恢复判定与仪表盘摘要', () => {
+  assert.ok(shouldRecoverSession({ failCount: 2 }));
+  assert.ok(!shouldRecoverSession({ failCount: 1 }));
+  assert.ok(!shouldRecoverSession(null));
+  const summary = sessionSummary(
+    { status: { hp: 45, hp_max: 90, level: 33 } }, { level: 30 });
+  assert.equal(summary.hpPercent, 50);
+  assert.equal(summary.level, 33);
+  const fallback = sessionSummary(null, { level: 12 });
+  assert.equal(fallback.level, 12);
+  assert.ok(!fallback.online);
+  assert.equal(sessionSummary(
+    { status: { hp: 0, hp_max: 90 } }).hpPercent, 0);
+});
+
+/* ---------- 界面偏好 ---------- */
+const {
+  fontScaleFor, loadUiSettings, saveUiSettings, setSettingsBackend,
+  FONT_SCALE_OPTIONS, DEFAULT_UI_SETTINGS,
+} = await import('../src/utils/uiSettings.js');
+
+await check('界面偏好：字号档位与持久化往返', async () => {
+  assert.equal(FONT_SCALE_OPTIONS.length, 4);
+  assert.equal(fontScaleFor('normal'), 1);
+  assert.ok(fontScaleFor('xlarge') > fontScaleFor('large'));
+  assert.equal(fontScaleFor('bogus'), 1);
+  const mem = new Map();
+  setSettingsBackend({
+    getItem: k => mem.get(k),
+    setItem: (k, v) => mem.set(k, v),
+    removeItem: k => mem.delete(k),
+  });
+  await saveUiSettings({ fontSize: 'large', combatEffects: false });
+  const loaded = await loadUiSettings();
+  assert.equal(loaded.fontSize, 'large');
+  assert.equal(loaded.combatEffects, false);
+  mem.set('xiand.uiSettings', '{broken json');
+  const degraded = await loadUiSettings();
+  assert.equal(degraded.fontSize, DEFAULT_UI_SETTINGS.fontSize);
+  setSettingsBackend(null);
+});
+
+/* ---------- 会话持久化扩展 ---------- */
+await check('会话持久化：并行角色txd往返保留', async () => {
+  const mem = new Map();
+  setStorageBackend({
+    getItem: k => mem.get(k),
+    setItem: (k, v) => mem.set(k, v),
+    removeItem: k => mem.delete(k),
+  });
+  await saveSession({
+    token: 'tk', userid: 'xd01abc', apiBase: 'http://1.2.3.4:8888',
+    currentCharacterId: 'xd01abc',
+    characters: { 'xd01abc': 'txd-1', 'xd01zzz': 'txd-2', bad: '' },
+  });
+  const loaded = await loadSession();
+  assert.equal(loaded.characters['xd01abc'], 'txd-1');
+  assert.equal(loaded.characters['xd01zzz'], 'txd-2');
+  assert.ok(!loaded.characters.bad, '空txd不应持久化');
+  assert.equal(loaded.currentCharacterId, 'xd01abc');
+  setStorageBackend(null);
+});
+
+/* ---------- 内购 ---------- */
+const {
+  IAP_PRODUCTS, extractAppleReceipt, collectAppleCredentials,
+  verifyIapPurchase, createRechargeController,
+} = await import('../src/api/iapApi.js');
+
+await check('内购产品表：两个SKU且不硬编码价格（由StoreKit本地化）', () => {
+  assert.equal(IAP_PRODUCTS.length, 2);
+  assert.ok(IAP_PRODUCTS.some(p =>
+    p.sku === 'com.wapmud.xiandao.1000suiyu'));
+  assert.ok(IAP_PRODUCTS.some(p =>
+    p.sku === 'com.wapmud.xiandao.10000suiyu'));
+  assert.ok(IAP_PRODUCTS.every(p => p.priceYuan === undefined),
+    '不得硬编码人民币价格');
+});
+
+await check('extractAppleReceipt 兼容新旧购买对象结构', () => {
+  const legacy = extractAppleReceipt({
+    productId: 'com.wapmud.xiandao.1000suiyu',
+    transactionId: '2000000123456789',
+    transactionReceipt: 'RECEIPT_B64',
+  });
+  assert.equal(legacy.receipt, 'RECEIPT_B64');
+  assert.equal(legacy.transactionId, '2000000123456789');
+  const modern = extractAppleReceipt({
+    transaction: {
+      id: '2000000987654321',
+      productId: 'com.wapmud.xiandao.10000suiyu',
+      receipt: 'R2',
+    },
+  });
+  assert.equal(modern.receipt, 'R2');
+  assert.equal(modern.transactionId, '2000000987654321');
+  assert.equal(extractAppleReceipt(null), null);
+  assert.equal(extractAppleReceipt({ productId: 'x' }), null,
+    '缺收据/交易号返回null');
+});
+
+await check('collectAppleCredentials：新版无内嵌收据时走getReceiptDataIOS', async () => {
+  /* v15 OpenIAP：购买对象只有 productId/transactionId，收据整份另取 */
+  const iap = {
+    getReceiptDataIOS: async () => 'FULL_APP_RECEIPT_B64',
+  };
+  const credentials = await collectAppleCredentials({
+    productId: 'com.wapmud.xiandao.1000suiyu',
+    transactionId: 'T-NEW-1',
+  }, iap);
+  assert.equal(credentials.receipt, 'FULL_APP_RECEIPT_B64');
+  assert.equal(credentials.transactionId, 'T-NEW-1');
+  assert.equal(credentials.productId, 'com.wapmud.xiandao.1000suiyu');
+  /* 旧版内嵌收据优先，不触发额外调用 */
+  const legacy = await collectAppleCredentials({
+    productId: 'p', transactionId: 't', transactionReceipt: 'EMBED',
+  }, iap);
+  assert.equal(legacy.receipt, 'EMBED');
+  /* 刷新兜底：首次空→refresh→再取 */
+  let calls = 0;
+  const retryIap = {
+    getReceiptDataIOS: async () => {
+      calls += 1;
+      return calls >= 2 ? 'AFTER_REFRESH' : '';
+    },
+    requestReceiptRefreshIOS: async () => {},
+  };
+  const refreshed = await collectAppleCredentials(
+    { productId: 'p', transactionId: 't2' }, retryIap);
+  assert.equal(refreshed.receipt, 'AFTER_REFRESH');
+  /* 全都拿不到 → null */
+  assert.equal(await collectAppleCredentials(
+    { productId: 'p', transactionId: 't3' },
+    { getReceiptDataIOS: async () => '' }), null);
+});
+
+await check('verifyIapPurchase POST结构与服务端字段一致', async () => {
+  const calls = [];
+  const data = await verifyIapPurchase(
+    'http://mock:9', 'TXD1',
+    { receipt: 'RC', transactionId: 'T1',
+      productId: 'com.wapmud.xiandao.1000suiyu' },
+    async (url, options) => {
+      calls.push({ url, options });
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          status: 'success', verified: 1, balance: 1000, duplicate: 0,
+        }),
+      };
+    });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'http://mock:9/api/iap_verify');
+  assert.equal(calls[0].options.method, 'POST');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.txd, 'TXD1');
+  assert.equal(body.receipt, 'RC');
+  assert.equal(body.product_id, 'com.wapmud.xiandao.1000suiyu');
+  assert.equal(body.transaction_id, 'T1');
+  assert.equal(data.balance, 1000);
+
+  let failed;
+  try {
+    await verifyIapPurchase('http://mock:9', 'TXD1',
+      { receipt: 'RC', transactionId: 'T1', productId: 'p' },
+      async () => ({
+        ok: false, status: 400,
+        json: async () => ({ error: '收据验证失败: 无效' }),
+      }));
+  } catch (e) {
+    failed = e;
+  }
+  assert.ok(failed, '服务端错误必须抛出');
+  assert.match(failed.message, /收据验证失败/);
+});
+
+await check('充值控制器：无iap模块时安全降级，购买流程参数正确', async () => {
+  const noIap = createRechargeController(null);
+  assert.deepEqual(await noIap.fetchProducts(), []);
+  await noIap.close();
+  let err;
+  try { await noIap.purchase('sku'); } catch (e) { err = e; }
+  assert.ok(err, '无模块购买应报错');
+
+  const requested = [];
+  const mock = {
+    initConnection: async () => {},
+    fetchProducts: async args => {
+      requested.push(args);
+      return { products: [{ productId: 'com.wapmud.xiandao.1000suiyu' }] };
+    },
+    requestPurchase: async args => {
+      requested.push(args);
+    },
+    finishTransaction: async args => {
+      requested.push(args);
+    },
+    endConnection: async () => {},
+  };
+  const controller = createRechargeController(mock);
+  const products = await controller.fetchProducts();
+  assert.equal(products.length, 1,
+    'fetchProducts返回{products:[...]}也要归一化为数组');
+  await controller.purchase('com.wapmud.xiandao.1000suiyu');
+  assert.deepEqual(requested[0],
+    { skus: IAP_PRODUCTS.map(p => p.sku), type: 'inapp' });
+  assert.deepEqual(requested[1],
+    { request: { apple: { sku: 'com.wapmud.xiandao.1000suiyu' } },
+      type: 'in-app' });
+  await controller.finish({ productId: 'x' });
+  assert.equal(requested[2].isConsumable, true);
+  await controller.close();
+
+  /* 旧版getProducts兜底仍可用。 */
+  const legacy = createRechargeController({
+    initConnection: async () => {},
+    getProducts: async () => ([{ productId: 'legacy' }]),
+    endConnection: async () => {},
+  });
+  assert.equal((await legacy.fetchProducts()).length, 1);
 });
 
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);

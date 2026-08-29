@@ -29,7 +29,7 @@ export default function LoginScreen() {
           <Text style={styles.brandText}>仙</Text>
         </View>
       </View>
-      <Text style={styles.title}>仙 道</Text>
+      <Text style={styles.title}>仙道wapmud</Text>
       <Text style={styles.subtitle}>东方幻想 · 十职同行</Text>
       <Text style={styles.kicker}>原生客户端 · 挂机不占屏</Text>
 
@@ -95,7 +95,7 @@ export default function LoginScreen() {
           onPress={() => login(partition, userid.trim(), password)}>
           {busy
             ? <ActivityIndicator color="#ffe3e8" size="small" />
-            : <Text style={styles.loginText}>进入仙道</Text>}
+            : <Text style={styles.loginText}>进入仙道wapmud</Text>}
         </TouchableOpacity>
       </View>
 

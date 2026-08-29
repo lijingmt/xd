@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "仙道",
+    "name": "仙道wapmud",
     "slug": "xiand-client",
     "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0d0b0e",
     "primaryColor": "#d4af37",
-    "description": "仙道 - 东方幻想多职业MUD，原生客户端",
+    "description": "仙道wapmud - 东方幻想多职业MUD，原生客户端",
     "ios": {
       "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
-      "buildNumber": "1",
+      "buildNumber": "4",
       "config": {
         "usesNonExemptEncryption": false
       },

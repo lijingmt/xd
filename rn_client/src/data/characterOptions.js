@@ -19,8 +19,8 @@ export const PROFESSION_OPTIONS = [
   { race_id: 'third', profession_id: 'zhenyue', name: '镇越', icon: '🛡️', desc: '团队坦克，守御承伤' },
   { race_id: 'third', profession_id: 'tianxiang', name: '天象', icon: '🌠', desc: '星痕法术，元素爆发' },
   { race_id: 'third', profession_id: 'lingyi', name: '灵医', icon: '🌿', desc: '群体治疗，净化复生' },
-  { race_id: 'third', profession_id: 'wuxiang', name: '无相', icon: '🔆', desc: '【隐藏】全职业补位；10职业均达120级或累计捐赠解锁', hidden: 'wuxiang' },
-  { race_id: 'third', profession_id: 'taiji', name: '太极', icon: '☯️', desc: '【最高隐藏】生死轮转；10职+无相均达200级或累计捐赠解锁', hidden: 'taiji' },
+  { race_id: 'third', profession_id: 'wuxiang', name: '无相', icon: '🔆', desc: '【隐藏】全职业补位；十职业均达120级后解锁', hidden: 'wuxiang' },
+  { race_id: 'third', profession_id: 'taiji', name: '太极', icon: '☯️', desc: '【最高隐藏】生死轮转；十职与无相均达200级后解锁', hidden: 'taiji' },
   { race_id: 'third', profession_id: 'zhaoming', name: '照命', icon: '🌙', desc: '【S1隐藏】同账号5个不同赛季职业完成81章并达120级', hidden: 'zhaoming' },
 ];
 

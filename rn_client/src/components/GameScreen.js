@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, FlatList, TextInput, TouchableOpacity, Modal,
-  Image, StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, AppState, RefreshControl,
+  View, Text, FlatList, TouchableOpacity, Modal,
+  Image, ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, AppState, RefreshControl, Pressable, Animated,
 } from 'react-native';
-import { useGameStore } from '../store/useGameStore.js';
 import {
   lineKey,
 } from '../utils/segments.js';
@@ -14,11 +13,18 @@ import {
 } from '../utils/battleStats.js';
 import { parseSkillType } from '../utils/skillTypes.js';
 import { getImageBase } from '../api/mudApi.js';
+import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
+import {
+  loadUiSettings, saveUiSettings, FONT_SCALE_OPTIONS, fontScaleFor,
+  DEFAULT_UI_SETTINGS,
+} from '../utils/uiSettings.js';
+import { sessionSummary } from '../utils/parallelAfk.js';
 import BattleScene from './BattleScene.js';
 import { SmartImage } from './GameSmartImage.js';
 import EquipmentPanel from './EquipmentPanel.js';
 import SkillEffectOverlay from './SkillEffectOverlay.js';
+import RechargeModal from './RechargeModal.js';
 import { LineItem } from './LineItem.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
@@ -60,37 +66,134 @@ function percent(value, max) {
     ((Number(value) || 0) / Math.max(1, Number(max) || 1)) * 100));
 }
 
+/* 数值缩写（与网页版 compact 数值一致）。 */
+function fmt(value) {
+  const n = Number(value) || 0;
+  const abs = Math.abs(n);
+  if (abs >= 1e8) {
+    return `${(n / 1e8).toFixed(1).replace(/\.0$/, '')}亿`;
+  }
+  if (abs >= 1e4) {
+    return `${(n / 1e4).toFixed(1).replace(/\.0$/, '')}万`;
+  }
+  return String(Math.round(n));
+}
+
+/* 挂机呼吸点：挂机中的角色tab上绿色小圆点脉冲，一眼可见谁在自动挂机。 */
+function AfkPulseDot({ active }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!active) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 1.55, duration: 550, useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1, duration: 550, useNativeDriver: true,
+      }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [active, scale]);
+  if (!active) return null;
+  return (
+    <Animated.View style={{
+      width: 7, height: 7, borderRadius: 4,
+      backgroundColor: '#7ad08a',
+      shadowColor: '#7ad08a', shadowOpacity: 0.9,
+      shadowRadius: 4, shadowOffset: { width: 0, height: 0 },
+      transform: [{ scale }],
+    }} />
+  );
+}
+
+/* ☰ 菜单行（复刻网页版 menu-item）。 */
+function MenuRow({ icon, label, onPress, danger }) {
+  return (
+    <TouchableOpacity style={styles.menuRow} onPress={onPress}
+      activeOpacity={0.6}>
+      <Text style={styles.menuRowIcon}>{icon}</Text>
+      <Text style={[styles.menuRowLabel, !!danger && styles.menuRowDanger]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function GameScreen() {
   const store = useGameStore();
   const listRef = useRef(null);
-  const [draft, setDraft] = useState('');
   const [inputValues, setInputValues] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
   const [equipOpen, setEquipOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
   const [skillEffects, setSkillEffects] = useState([]);
   const [statsSummary, setStatsSummary] = useState(null);
   const statsRef = useRef(createStatsTracker());
   const lastPollRef = useRef(0);
+  const lastStatusRef = useRef(0);
   const inBattleRef = useRef(false);
+  const afkRef = useRef(false);
   inBattleRef.current = store.inBattle;
+  afkRef.current = store.autofighting;
 
-  /* txpike9 同款轮询策略：1s 心跳节流——战斗中1s一帧，平时3s一帧；
-   * AppState 回前台立即补一帧（iOS 切换后不卡死）。 */
+  /* 界面偏好（字号/特效）启动时恢复。 */
+  useEffect(() => {
+    let cancelled = false;
+    loadUiSettings().then(saved => {
+      if (!cancelled) setUiSettings(saved);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const updateUiSettings = patch => {
+    setUiSettings(prev => {
+      const next = { ...prev, ...patch };
+      saveUiSettings(next);
+      return next;
+    });
+  };
+
+  /* txpike9 同款轮询策略：战斗中1s一帧、挂机中3s一帧；
+   * 空闲浏览菜单时不做画面轮询（flushview会把当前页刷回房间视图，
+   * 造成“点宠物/共享宠物被重置回地图”），只慢速拉状态数值。
+   * AppState 回前台立即补一帧（iOS 切换后不卡死）。
+   * 后台并行角色的快照轮询也在同一心跳里驱动（内部自带间隔/并发约束）。 */
   useEffect(() => {
     const platform = Platform.OS === 'web' ? 'ios' : Platform.OS;
+    setRuntimePlatform(platform);
     const timer = setInterval(() => {
       const now = Date.now();
-      const delay = inBattleRef.current ? 1000 : 3000;
-      if (now - lastPollRef.current < delay) return;
-      lastPollRef.current = now;
-      useGameStore.getState().pollGameView(platform);
+      useGameStore.getState().tickBackgroundPolls();
+      const fighting = inBattleRef.current;
+      const state = useGameStore.getState();
+      const afk = !!state.autofighting;
+      if (fighting || afk) {
+        const delay = fighting ? 1000 : 3000;
+        if (now - lastPollRef.current < delay) return;
+        lastPollRef.current = now;
+        state.pollGameView(platform);
+        return;
+      }
+      /* 空闲：只刷新状态数值（不触碰画面行）。 */
+      if (now - lastStatusRef.current < 10000) return;
+      lastStatusRef.current = now;
+      state.refreshStatus();
     }, 1000);
     const appStateSub = AppState.addEventListener('change', nextState => {
       if (nextState === 'active') {
         lastPollRef.current = 0;
-        useGameStore.getState().pollGameView(platform);
+        lastStatusRef.current = 0;
+        const state = useGameStore.getState();
+        if (inBattleRef.current || afkRef.current) {
+          state.pollGameView(platform);
+        } else {
+          state.refreshStatus();
+        }
       }
     });
     return () => {
@@ -122,6 +225,8 @@ export default function GameScreen() {
 
   /* 解析新行中的战斗事件，生成浮动数字/状态标记。 */
   const prevLineCountRef = useRef(0);
+  const effectsRef = useRef(true);
+  effectsRef.current = uiSettings.combatEffects;
   useEffect(() => {
     if (store.lines.length === prevLineCountRef.current) return;
     const newLines = store.lines.slice(Math.min(
@@ -133,6 +238,7 @@ export default function GameScreen() {
     applyEvents(statsRef.current, events);
     const summary = formatStats(statsRef.current);
     if (summary) setStatsSummary(summary);
+    if (!effectsRef.current) return;
     const batch = events.slice(0, 6).map((event, index) => ({
       ...event,
       id: `float-${Date.now()}-${index}`,
@@ -177,7 +283,6 @@ export default function GameScreen() {
 
   const send = cmd => {
     if (!cmd) return;
-    setDraft('');
     setMoreOpen(false);
     store.command(cmd.trim());
   };
@@ -200,11 +305,87 @@ export default function GameScreen() {
   const enemyPercent = enemy ? percent(enemy.hp, enemy.hp_max) : 0;
   const expPercent = percent(status.exp, status.exp_need);
 
+  /* 并行角色条目：活动角色取顶层实时状态，其余取后台快照。 */
+  /* 顶部tab条目：已开会话(实时快照) + 账号下未开角色(点击即多开)。 */
+  const openSessionIds = Object.keys(store.sessions || {})
+    .filter(id => store.sessions[id] && store.sessions[id].txd);
+  const entryIds = [...openSessionIds];
+  for (const card of store.accountCharacters || []) {
+    const id = String(card.id);
+    if (!entryIds.includes(id) && card.available !== false) {
+      entryIds.push(id);
+    }
+  }
+  const sessionEntries = entryIds
+    .map(id => {
+      const card = (store.accountCharacters || [])
+        .find(c => String(c.id) === id);
+      const isActive = id === store.currentCharacterId;
+      const hasSession = openSessionIds.includes(id);
+      const summary = sessionSummary(isActive
+        ? {
+          txd: store.txd, status: store.status,
+          inBattle: store.inBattle, autofighting: store.autofighting,
+        }
+        : (store.sessions || {})[id], card);
+      return {
+        id, active: isActive, hasSession, summary,
+        name: card ? card.name : id,
+      };
+    })
+    .sort((a, b) => (a.active ? -1 : b.active ? 1 : 0));
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
+
+      {/* ===== 并行角色tab条：屏幕最顶部，账号有多角色即常驻 ===== */}
+      {((sessionEntries.length > 1) ||
+        ((store.accountCharacters || []).length > 1)) && (
+        <View style={styles.tabStrip}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingHorizontal: 12,
+              paddingVertical: 8 }}>
+            {sessionEntries.map(entry => (
+              <Pressable
+                key={entry.id}
+                style={[styles.charChip,
+                  entry.active && styles.charChipActive,
+                  !entry.active && !entry.hasSession &&
+                    styles.charChipClosed]}
+                onPress={() => {
+                  if (entry.active) return;
+                  if (entry.hasSession) store.switchCharacter(entry.id);
+                  else store.pickCharacter(entry.id);
+                }}>
+                <AfkPulseDot active={entry.summary.autofighting} />
+                <Text style={[styles.charChipName,
+                  entry.active && styles.charChipNameActive]}
+                  numberOfLines={1}>
+                  {entry.summary.inBattle ? '⚔ ' : ''}
+                  {entry.hasSession ? '' : '＋'}
+                  {entry.name}
+                </Text>
+                <Text style={[styles.charChipMeta,
+                  entry.active && styles.charChipNameActive]}>
+                  {entry.hasSession
+                    ? `Lv.${entry.summary.level}` +
+                      (entry.summary.hpPercent != null
+                        ? ` · ${entry.summary.hpPercent}%` : '')
+                    : '多开'}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable style={styles.charChipAdd}
+              onPress={() => store.backToDashboard()}>
+              <Text style={styles.charChipAddText}>＋</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      )}
+
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
       <View style={styles.header}>
         <View style={styles.infoRow}>
@@ -238,6 +419,13 @@ export default function GameScreen() {
                 </Text>
               </View>
             )}
+            {typeof status.account_suiyu === 'number' && (
+              <View style={styles.suiyuChip}>
+                <Text style={styles.suiyuText} numberOfLines={1}>
+                  💎{fmt(status.account_suiyu)}
+                </Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity
             style={[styles.afkButton,
@@ -251,8 +439,8 @@ export default function GameScreen() {
                 </Text>}
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.logoutButton} onPress={() => store.logout()}>
-            <Text style={styles.logoutText}>退出</Text>
+            style={styles.menuButton} onPress={() => setMenuOpen(true)}>
+            <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
         </View>
 
@@ -312,7 +500,6 @@ export default function GameScreen() {
           pet={status.pet_assist || null}
           imageBase={imageBase}
         />
-      )}
       )}
 
       {/* ===== 战斗统计条（战斗中常驻显示） ===== */}
@@ -410,35 +597,15 @@ export default function GameScreen() {
             ctx={{
               send, inputValues, setInputValues, imageBase,
               busy: store.busy,
+              fontScale: fontScaleFor(uiSettings.fontSize),
             }}
           />
         )}
       />
 
-      <View style={styles.commandBar}>
-        {!!store.busy && (
-          <View style={styles.busyIndicator}>
-            <ActivityIndicator size="small" color="#d4af37" />
-          </View>
-        )}
-        <TextInput
-          style={styles.commandInput}
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={() => send(draft)}
-          returnKeyType="send"
-          placeholder="输入命令或对话…"
-          placeholderTextColor="#6a5a6a"
-        />
-        <TouchableOpacity style={styles.sendButton}
-          disabled={store.busy} onPress={() => send(draft)}>
-          {store.busy
-            ? <ActivityIndicator size="small" color="#f0e6d2" />
-            : <Text style={styles.sendText}>发送</Text>}
-        </TouchableOpacity>
-      </View>
-
-      {/* ===== 底部五Tab：复刻 Vue quick-nav ===== */}
+      {/* ===== 底部五Tab：复刻 Vue quick-nav =====
+       * 自由命令输入栏已移除：原生端全部走按钮/页面内cmd-input表单，
+       * 裸文本命令在MUD里不成立（聊天走服务端下发的输入框）。 */}
       <View style={styles.tabBar}>
         {MAIN_TABS.map(tab => (
           <TouchableOpacity key={tab.cmd} style={styles.tabButton}
@@ -496,6 +663,90 @@ export default function GameScreen() {
         visible={equipOpen}
         onClose={() => setEquipOpen(false)}
       />
+
+      {/* ===== 内购充值弹窗（iOS） ===== */}
+      <RechargeModal
+        visible={rechargeOpen}
+        onClose={() => setRechargeOpen(false)}
+      />
+
+      {/* ===== 右上角菜单：复刻网页版 ☰ 下拉 ===== */}
+      <Modal visible={menuOpen} transparent animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuOverlay}
+          onPress={() => setMenuOpen(false)}>
+          <View style={styles.menuPanel}
+            onStartShouldSetResponder={() => true}>
+            <Text style={styles.menuHeader}>
+              并行挂机 {Object.keys(store.sessions || {}).length}/
+              {store.parallelLimit}
+            </Text>
+            <MenuRow icon={uiSettings.combatEffects ? '✨' : '○'}
+              label={`视觉特效：${uiSettings.combatEffects ? '开启' : '关闭'}`}
+              onPress={() => updateUiSettings({
+                combatEffects: !uiSettings.combatEffects,
+              })} />
+            <View style={styles.menuDivider} />
+            <Text style={styles.menuSectionLabel}>游戏字号</Text>
+            <View style={styles.menuFontRow}>
+              {FONT_SCALE_OPTIONS.map(option => (
+                <Pressable key={option.id}
+                  style={[styles.fontOption,
+                    uiSettings.fontSize === option.id &&
+                      styles.fontOptionActive]}
+                  onPress={() => updateUiSettings({ fontSize: option.id })}>
+                  <Text style={[styles.fontOptionText,
+                    uiSettings.fontSize === option.id &&
+                      styles.fontOptionTextActive]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.menuDivider} />
+            <MenuRow icon="🔃" label="刷新画面"
+              onPress={() => {
+                lastPollRef.current = 0;
+                useGameStore.getState().pollGameView(
+                  Platform.OS === 'web' ? 'ios' : Platform.OS);
+                setMenuOpen(false);
+              }} />
+            {!!status.profession_assistant &&
+                typeof status.profession_assistant === 'object' &&
+                !!status.profession_assistant.supported && (
+              <MenuRow icon="🧭"
+                label={`${status.profession_assistant.title || '职业'} · 职业助手`}
+                onPress={() => {
+                  setMenuOpen(false);
+                  send('profession_assistant');
+                }} />
+            )}
+            <MenuRow icon="🤝" label="邀请好友 / 查看奖励"
+              onPress={() => {
+                setMenuOpen(false);
+                send('invite');
+              }} />
+            {Platform.OS === 'ios' && (
+              <MenuRow icon="💎" label="碎玉充值（内购）"
+                onPress={() => {
+                  setMenuOpen(false);
+                  setRechargeOpen(true);
+                }} />
+            )}
+            <View style={styles.menuDivider} />
+            <MenuRow icon="👥" label="多开角色 / 切换职业"
+              onPress={() => {
+                setMenuOpen(false);
+                store.backToDashboard();
+              }} />
+            <MenuRow icon="🚪" label="退出登录" danger
+              onPress={() => {
+                setMenuOpen(false);
+                store.logout();
+              }} />
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -614,6 +865,11 @@ const styles = StyleSheet.create({
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
   },
   profChipText: { color: '#9ab8d8', fontSize: 11 },
+  suiyuChip: {
+    backgroundColor: '#10201a', borderWidth: 1, borderColor: '#3a7a5a',
+    borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
+  },
+  suiyuText: { color: '#7ad0a0', fontSize: 11, fontWeight: '700' },
   afkButton: {
     paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
     borderWidth: 1, borderColor: '#6a8a5a',
@@ -621,12 +877,74 @@ const styles = StyleSheet.create({
   },
   afkButtonOn: { backgroundColor: '#2d5243', borderColor: '#7ad08a' },
   afkText: { color: '#c8e8c8', fontSize: 12 },
-  logoutButton: {
-    paddingHorizontal: 10, minHeight: 30, borderRadius: 999,
-    borderWidth: 1, borderColor: '#5a3a46',
+  menuButton: {
+    width: 34, minHeight: 30, borderRadius: 999,
+    borderWidth: 1, borderColor: '#6a5a7a', backgroundColor: '#1a141c',
     alignItems: 'center', justifyContent: 'center',
   },
-  logoutText: { color: '#c8a8b8', fontSize: 12 },
+  menuIcon: { color: '#f0e6d2', fontSize: 15, lineHeight: 18 },
+  tabStrip: {
+    borderBottomWidth: 1, borderBottomColor: '#2e2430',
+    backgroundColor: '#12101a',
+  },
+  charChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999,
+    borderWidth: 1, borderColor: '#3a2f46', backgroundColor: '#17131c',
+  },
+  charChipActive: {
+    borderColor: '#d4af37', backgroundColor: '#2d2410',
+  },
+  charChipClosed: { opacity: 0.55 },
+  charChipName: { color: '#c8b8c8', fontSize: 12, fontWeight: '600' },
+  charChipNameActive: { color: '#ffd700' },
+  charChipMeta: { color: '#8a7a8a', fontSize: 11 },
+  charChipAdd: {
+    width: 34, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 999, borderWidth: 1, borderColor: '#6a8a5a',
+    backgroundColor: '#16241c',
+  },
+  charChipAddText: { color: '#9ad0a0', fontSize: 15 },
+  menuOverlay: {
+    flex: 1, backgroundColor: 'rgba(5,3,8,0.55)',
+    alignItems: 'flex-end',
+  },
+  menuPanel: {
+    marginTop: 64, marginRight: 12, width: 268, borderRadius: 14,
+    backgroundColor: '#17131c', borderWidth: 1, borderColor: '#3a2f46',
+    paddingVertical: 8, paddingHorizontal: 6,
+    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16,
+    elevation: 10,
+  },
+  menuHeader: {
+    color: '#d4af37', fontSize: 12, textAlign: 'center',
+    paddingVertical: 8, letterSpacing: 1,
+  },
+  menuDivider: {
+    height: 1, backgroundColor: '#2e2430', marginVertical: 6,
+    marginHorizontal: 6,
+  },
+  menuSectionLabel: {
+    color: '#8a7a8a', fontSize: 11, paddingHorizontal: 12, marginBottom: 6,
+  },
+  menuFontRow: {
+    flexDirection: 'row', gap: 6, paddingHorizontal: 10,
+    marginBottom: 6,
+  },
+  fontOption: {
+    flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8,
+    borderWidth: 1, borderColor: '#3a2f46', backgroundColor: '#12101a',
+  },
+  fontOptionActive: { borderColor: '#d4af37', backgroundColor: '#2d2410' },
+  fontOptionText: { color: '#a89aa8', fontSize: 12 },
+  fontOptionTextActive: { color: '#ffd700' },
+  menuRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 10, borderRadius: 9,
+  },
+  menuRowIcon: { fontSize: 15, width: 22, textAlign: 'center' },
+  menuRowLabel: { color: '#f0e6d2', fontSize: 14, flex: 1 },
+  menuRowDanger: { color: '#ff9aa8' },
   statRows: { gap: 4 },
   buffRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2,
@@ -700,25 +1018,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   imageFallbackText: { fontSize: 24, color: '#6a5a6a' },
-  commandBar: {
-    flexDirection: 'row', gap: 8, padding: 8,
-    borderTopWidth: 1, borderTopColor: '#2e2430', backgroundColor: '#14101a',
-  },
-  commandInput: {
-    flex: 1, backgroundColor: '#1a141c', borderRadius: 11,
-    paddingHorizontal: 13, paddingVertical: 9, minHeight: 42,
-    color: '#f0e6d2', fontSize: 15,
-    borderWidth: 1, borderColor: '#2e2430',
-  },
-  sendButton: {
-    paddingHorizontal: 20, borderRadius: 11, backgroundColor: '#3a2f46',
-    alignItems: 'center', justifyContent: 'center', minWidth: 68,
-  },
-  sendText: { color: '#f0e6d2', fontSize: 15, fontWeight: '600' },
-  busyIndicator: {
-    position: 'absolute', top: -28, left: '50%',
-    marginLeft: -12, zIndex: 10,
-  },
   statsBar: {
     flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
     justifyContent: 'center', gap: 12, paddingVertical: 5,

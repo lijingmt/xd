@@ -213,8 +213,36 @@ export function isGarbageLine(line) {
   return /^[0-9]$/.test(text);
 }
 
+/* ===== 捐赠引导屏蔽（App Store 审核）=====
+ * iOS 审核禁止绕过 IAP 的外部支付引导。只屏蔽捐赠/外部付款入口；
+ * 会员服务(VIP)、玉石兑换、药品购买等游戏内消费保持可见——
+ * 它们页面里的“[捐赠获取仙玉:add_szx_fee]”按钮行会被关键词
+ * 命中而整行消失，其余内容不受影响。 */
+const PAYMENT_TEXT_RE =
+  /捐赠|赞助|充值|打赏|支付宝|微信支付|微信转账|收款|客服代充|代充|QQ客服|咨询客服|[Qq][Qq][:：]?\s*1811117272/;
+const PAYMENT_CMD_RE =
+  /(?:^|_)(?:add(?:_wap|_big|_szx)?_fee|yushi_add_fee|chongzhi)|^szx_|^donat/i;
+const PAYMENT_URL_RE =
+  /alipay|taobao|paypal|patreon|afdian|ko-fi|donat/i;
+
+export function isPaymentGuidance(line) {
+  if (!line || !Array.isArray(line.segments)) return false;
+  if (PAYMENT_TEXT_RE.test(linePlainText(line))) return true;
+  for (const segment of line.segments) {
+    if (!segment) continue;
+    if (segment.type === 'button' &&
+        PAYMENT_CMD_RE.test(String(segment.cmd || ''))) return true;
+    if (segment.type === 'url-link') {
+      if (PAYMENT_URL_RE.test(String(segment.url || '')) ||
+          PAYMENT_TEXT_RE.test(String(segment.text || ''))) return true;
+    }
+  }
+  return false;
+}
+
 export function filterGarbageLines(lines) {
-  return (lines || []).filter(line => !isGarbageLine(line));
+  return (lines || []).filter(
+    line => !isGarbageLine(line) && !isPaymentGuidance(line));
 }
 
 /** 按钮样式归一化：服务端 class -> {bg,border,color}。 */

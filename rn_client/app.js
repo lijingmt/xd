@@ -40,7 +40,7 @@ export default function App() {
             }}>
               <Text style={{ color: '#ffd9d9', fontSize: 28, fontWeight: '700' }}>仙</Text>
             </View>
-            <Text style={{ color: '#8a7a8a', fontSize: 15 }}>仙道 · 载入中…</Text>
+            <Text style={{ color: '#8a7a8a', fontSize: 15 }}>仙道wapmud · 载入中…</Text>
           </View>
         ) : (txd ? <GameScreen />
           : (accountToken ? <CharacterScreen /> : <LoginScreen />))}
