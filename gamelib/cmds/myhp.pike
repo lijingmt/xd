@@ -88,7 +88,15 @@ int main(string|zero arg)
 	
 	s += "[返回游戏:look]\n";
 
-	NEWBIED->record_action(me,"status");
+	/* 新手教程钩子绝不能吞掉状态页输出：record_action对特定角色
+	 * （如幻境新角色奖励发放）抛错时，异常会把已拼好的整页带走，
+	 * 客户端表现为"暂无内容"。隔离异常并落日志。 */
+	mixed newbie_err = catch {
+		NEWBIED->record_action(me,"status");
+	};
+	if(newbie_err)
+		werror("[myhp] newbie record_action failed for %s: %s\n",
+			me->query_name(), describe_error(newbie_err));
 	write(s);
 	return 1;
 }
