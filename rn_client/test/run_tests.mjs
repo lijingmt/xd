@@ -255,6 +255,58 @@ await check('characterCard 归一化服务端字段', () => {
   assert.equal(empty.realmType, 'eternal');
 });
 
+/* ---------- 遗留 HTML 渲染兼容 ---------- */
+const { parseHtmlishSpans } = await import('../src/utils/segments.js');
+
+await check('真实公告样本：div颜色继承/闭合回退/标签剥离', () => {
+  const spans = parseHtmlishSpans(
+    '<div style="color:Orange">【更新提示】\n</div>一、新区开放，经典最高70级\n' +
+    '<div style="color:DarkViolet">(QQ客服1811117272)\n</div><br>',
+    '#F0E6D2');
+  const joined = spans.map(span => span.text).join('');
+  assert.ok(joined.indexOf('<') === -1 && joined.indexOf('div') === -1,
+    'HTML标签必须全部剥离');
+  assert.ok(joined.includes('【更新提示】'));
+  assert.ok(joined.includes('一、新区开放'));
+  const orange = spans.find(span => span.text.includes('【更新提示】'));
+  assert.equal(orange.color, '#FFA500');
+  const plain = spans.find(span => span.text.includes('一、新区开放'));
+  assert.equal(plain.color, '#F0E6D2', '闭合后应回退默认色');
+  const violet = spans.find(span => span.text.includes('QQ客服'));
+  assert.equal(violet.color, '#9400D3');
+  assert.ok(joined.endsWith('\n'), '<br>应产出换行');
+});
+
+await check('HTML解析：font色/嵌套栈/未知标签丢弃/十六进制色', () => {
+  const spans = parseHtmlishSpans(
+    '前<font color="red">红<b>粗</b>回红</font>后<span class="x">内容</span>' +
+    '<div style="color:#00AA00; font-size:12px">翠</div>',
+    null);
+  const joined = spans.map(span => span.text).join('');
+  assert.equal(joined, '前红粗回红后内容翠');
+  assert.equal(spans.find(s => s.text === '红').color, '#FF0000');
+  assert.equal(spans.find(s => s.text === '粗').color, '#FF0000', 'b不改色');
+  assert.equal(spans.find(s => s.text === '回红').color, '#FF0000');
+  assert.equal(spans.find(s => s.text === '后').color, null,
+    '无HTML色时沿用上下文(null=默认)');
+  assert.equal(spans.find(s => s.text === '内容').color, null,
+    '未知标签丢弃但保留内容');
+  assert.equal(spans.find(s => s.text === '翠').color, '#00AA00');
+});
+
+await check('flattenTextParts 集成：HTML色覆盖§色且§闭合恢复', () => {
+  const units = flattenTextParts([
+    { type: 'color-start', class: 'color-gold' },
+    { type: 'text', content: '金<em>斜</em>光<div style="color:Cyan">青</div>辉' },
+    { type: 'color-end' },
+  ]);
+  const joined = units.map(unit => unit.text).join('');
+  assert.equal(joined, '金斜光青辉');
+  assert.equal(units.find(u => u.text === '金').color, '#D4AF37');
+  assert.equal(units.find(u => u.text === '青').color, '#00FFFF');
+  assert.equal(units.find(u => u.text === '辉').color, '#D4AF37');
+});
+
 /* ---------- Store（zustand 单例 + 注入全局 fetch） ---------- */
 await check('store 账号登录进入角色选择（不直接落 txd）', async () => {
   api.setApiBase('http://mock:9');

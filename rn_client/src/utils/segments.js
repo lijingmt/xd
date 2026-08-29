@@ -43,6 +43,91 @@ export function isBoldClass(className) {
   return name.indexOf('bold') !== -1;
 }
 
+/* ===== 遗留 HTML 兼容 =====
+ * 大量旧公告/广播文本内嵌 <div style="color:X">、<font color>、<br>
+ * 等标记。原生端不能把标签当字面文本渲染：这里解析常见结构——
+ * 提取颜色、<br> 转换行、其余标签剥离；未识别颜色沿用上下文色。 */
+
+const HTML_COLOR_NAMES = {
+  red: '#FF0000', crimson: '#DC143C', firebrick: '#B22222',
+  maroon: '#800000', orange: '#FFA500', darkorange: '#FF8C00',
+  coral: '#FF7F50', gold: '#FFD700', yellow: '#FFFF00',
+  olive: '#808000', lime: '#00FF00', green: '#008000',
+  seagreen: '#2E8B57', teal: '#008080', cyan: '#00FFFF',
+  aqua: '#00FFFF', skyblue: '#87CEEB', blue: '#0000FF',
+  navy: '#000080', royalblue: '#4169E1', purple: '#800080',
+  darkviolet: '#9400D3', magenta: '#FF00FF', fuchsia: '#FF00FF',
+  pink: '#FFC0CB', hotpink: '#FF69B4', brown: '#A52A2A',
+  white: '#FFFFFF', silver: '#C0C0C0', gray: '#808080',
+  grey: '#808080', black: '#000000', indigo: '#4B0082',
+};
+
+const HTML_TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^<>]*?)?)\/?>/g;
+
+function htmlColorFromAttrs(attrs) {
+  if (!attrs) return null;
+  const style = attrs.match(/style\s*=\s*["']([^"']*)["']/i);
+  if (style) {
+    const color = style[1].match(/(?:^|;)\s*color\s*:\s*([^;]+)/i);
+    if (color) return htmlColorValue(color[1].trim());
+  }
+  const font = attrs.match(/color\s*=\s*["']([^"']+)["']/i);
+  if (font) return htmlColorValue(font[1].trim());
+  return null;
+}
+
+function htmlColorValue(value) {
+  if (/^#[0-9a-fA-F]{3,8}$/.test(value)) return value;
+  return HTML_COLOR_NAMES[String(value).toLowerCase()] || null;
+}
+
+/**
+ * 解析一段含内嵌 HTML 的文本为着色片段。
+ * baseColor: 外层上下文色（§ 色或默认色）；HTML 色优先于上下文色，
+ * 闭合标签弹回到上一层（栈式），<br> 产出换行。
+ */
+export function parseHtmlishSpans(text, baseColor) {
+  const spans = [];
+  /* stack: [{tag, color}] —— color 是该标签打开前的上下文色；
+   * 闭合标签按名字匹配回退，避免 </b> 误弹 <font> 的底色。 */
+  const stack = [];
+  let cursor = 0;
+  let current = baseColor || null;
+  const source = String(text == null ? '' : text);
+  HTML_TAG_RE.lastIndex = 0;
+  let match;
+  const pushText = value => {
+    if (value) spans.push({ text: value, color: current });
+  };
+  while ((match = HTML_TAG_RE.exec(source)) !== null) {
+    pushText(source.slice(cursor, match.index));
+    cursor = match.index + match[0].length;
+    const closing = match[1] === '/';
+    const tag = match[2].toLowerCase();
+    if (tag === 'br' && !closing) {
+      pushText('\n');
+      continue;
+    }
+    if (closing) {
+      for (let i = stack.length - 1; i >= 0; i -= 1) {
+        if (stack[i].tag === tag) {
+          current = stack[i].color;
+          stack.length = i;
+          break;
+        }
+      }
+      continue;
+    }
+    const color = htmlColorFromAttrs(match[3]);
+    if (color) {
+      stack.push({ tag, color: current });
+      current = color;
+    }
+  }
+  pushText(source.slice(cursor));
+  return spans;
+}
+
 /** 把 text segment 的 parts 压平为 [{text,color,bold}] 渲染单元。 */
 export function flattenTextParts(parts) {
   const units = [];
@@ -61,11 +146,15 @@ export function flattenTextParts(parts) {
       continue;
     }
     if (part.type === 'text') {
-      units.push({
-        text: String(part.content || ''),
-        color: currentColor ? colorHexForClass(currentColor) : '#F0E6D2',
-        bold: currentBold,
-      });
+      const base = currentColor ? colorHexForClass(currentColor) : null;
+      for (const span of
+          parseHtmlishSpans(part.content, base)) {
+        units.push({
+          text: span.text,
+          color: span.color || '#F0E6D2',
+          bold: currentBold,
+        });
+      }
     }
   }
   return units;
