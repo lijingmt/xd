@@ -12,6 +12,11 @@ export const IAP_PRODUCTS = [
     desc: '账号共享充值余额，全角色通用',
   },
   {
+    sku: 'com.wapmud.xiandao.3000suiyu',
+    label: '3000碎玉',
+    desc: '账号共享充值余额，全角色通用',
+  },
+  {
     sku: 'com.wapmud.xiandao.10000suiyu',
     label: '10000碎玉',
     desc: '账号共享充值余额，全角色通用',

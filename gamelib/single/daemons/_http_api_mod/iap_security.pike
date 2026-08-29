@@ -253,6 +253,8 @@ int query_iap_product_fee(string product_id)
 	switch(product_id) {
 		case "com.wapmud.xiandao.1000suiyu":
 			return 100;
+		case "com.wapmud.xiandao.3000suiyu":
+			return 300;
 		case "com.wapmud.xiandao.10000suiyu":
 			return 1000;
 	}
@@ -264,6 +266,8 @@ string query_iap_product_label(string product_id)
 	switch(product_id) {
 		case "com.wapmud.xiandao.1000suiyu":
 			return "1000碎玉";
+		case "com.wapmud.xiandao.3000suiyu":
+			return "3000碎玉";
 		case "com.wapmud.xiandao.10000suiyu":
 			return "10000碎玉";
 	}
