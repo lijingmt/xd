@@ -46,33 +46,46 @@ export default function GameScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
       <View style={styles.topBar}>
-        <Text style={styles.topName} numberOfLines={1}>
-          {status.name_cn || store.userid || '仙道'}
-        </Text>
-        {!!status.hp && (
-          <Text style={styles.topStats}>
-            HP {status.hp}/{status.hp_max}
+        <View style={styles.topRow}>
+          <Text style={styles.topName} numberOfLines={1}>
+            {status.name_cn || store.userid || '仙道'}
           </Text>
-        )}
-        <TouchableOpacity
-          style={[styles.afkButton,
-            store.autofighting && styles.afkButtonOn]}
-          onPress={() => store.toggleAutofight()}>
-          <Text style={styles.afkText}>
-            {store.autofighting ? '挂机中·停止' : '开始挂机'}
+          <TouchableOpacity
+            style={styles.logoutButton} onPress={() => store.logout()}>
+            <Text style={styles.logoutText}>退出</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.topRow}>
+          <View style={styles.hpTrackSmall}>
+            <View style={[styles.hpFillSmall, {
+              width: `${Math.max(0, Math.min(100,
+                ((status.hp || 0) / Math.max(1, status.hp_max || 1)) * 100))}%`,
+            }]} />
+          </View>
+          <Text style={styles.hpNumbers}>
+            {(status.hp || 0)}/{status.hp_max || 0}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.logoutButton} onPress={() => store.logout()}>
-          <Text style={styles.logoutText}>退出</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.afkButton,
+              store.autofighting && styles.afkButtonOn]}
+            onPress={() => store.toggleAutofight()}>
+            <Text style={styles.afkText}>
+              {store.autofighting ? '◎ 挂机中·停止' : '▶ 开始挂机'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {store.inBattle && store.battle && store.battle.enemy && (
         <View style={styles.enemyBar}>
-          <Text style={styles.enemyName} numberOfLines={1}>
-            {store.battle.enemy.name_cn || '敌人'}
-          </Text>
+          <View style={styles.enemyRow}>
+            <Text style={styles.enemyName} numberOfLines={1}>
+              ⚔ {store.battle.enemy.name_cn || '敌人'}
+            </Text>
+            <Text style={styles.enemyHp}>
+              {store.battle.enemy.hp}/{store.battle.enemy.hp_max}
+            </Text>
+          </View>
           <View style={styles.hpTrack}>
             <View style={[styles.hpFill, {
               width: `${Math.max(0, Math.min(100,
@@ -186,62 +199,79 @@ function renderSegments(line, ctx) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0d0b0e' },
   topBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingTop: 54, paddingHorizontal: 12, paddingBottom: 8,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, gap: 7,
     backgroundColor: '#14101a', borderBottomWidth: 1, borderBottomColor: '#2e2430',
   },
-  topName: { flex: 1, color: '#f0e6d2', fontSize: 15, fontWeight: '600' },
-  topStats: { color: '#a89aa8', fontSize: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  topName: { flex: 1, color: '#f0e6d2', fontSize: 16, fontWeight: '700' },
+  hpTrackSmall: {
+    flex: 1, height: 10, borderRadius: 5,
+    backgroundColor: '#2a1a20', overflow: 'hidden',
+  },
+  hpFillSmall: {
+    height: 10, borderRadius: 5,
+    backgroundColor: '#3f8a53',
+  },
+  hpNumbers: { color: '#a89aa8', fontSize: 12, minWidth: 76, textAlign: 'right' },
   afkButton: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    paddingHorizontal: 13, minHeight: 32, borderRadius: 999,
     borderWidth: 1, borderColor: '#6a8a5a',
+    alignItems: 'center', justifyContent: 'center',
   },
   afkButtonOn: { backgroundColor: '#2d5243', borderColor: '#7ad08a' },
-  afkText: { color: '#c8e8c8', fontSize: 12 },
+  afkText: { color: '#c8e8c8', fontSize: 13 },
   logoutButton: {
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+    paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
     borderWidth: 1, borderColor: '#5a3a46',
+    alignItems: 'center', justifyContent: 'center',
   },
   logoutText: { color: '#c8a8b8', fontSize: 12 },
   enemyBar: {
-    paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#1a1016',
+    paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#1a1016',
     borderBottomWidth: 1, borderBottomColor: '#2e2430',
   },
-  enemyName: { color: '#ff9aa8', fontSize: 12, marginBottom: 4 },
-  hpTrack: {
-    height: 8, borderRadius: 4, backgroundColor: '#2a1a20', overflow: 'hidden',
+  enemyRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 5,
   },
-  hpFill: { height: 8, borderRadius: 4 },
+  enemyName: { flexShrink: 1, color: '#ff9aa8', fontSize: 14, fontWeight: '600' },
+  enemyHp: { color: '#c8a8b8', fontSize: 12 },
+  hpTrack: {
+    height: 12, borderRadius: 6, backgroundColor: '#2a1a20', overflow: 'hidden',
+  },
+  hpFill: { height: 12, borderRadius: 6 },
   feed: { flex: 1, paddingHorizontal: 10 },
   line: {
     paddingVertical: 4, flexDirection: 'row', flexWrap: 'wrap',
-    alignItems: 'center', gap: 4,
+    alignItems: 'center', gap: 5,
   },
-  text: { color: '#f0e6d2', fontSize: 14, lineHeight: 20, flexShrink: 1 },
+  text: { color: '#f0e6d2', fontSize: 15, lineHeight: 22, flexShrink: 1 },
   button: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-    borderWidth: 1, marginVertical: 2,
+    paddingHorizontal: 11, minHeight: 32, borderRadius: 9,
+    borderWidth: 1, marginVertical: 3,
+    alignItems: 'center', justifyContent: 'center',
   },
-  buttonText: { fontSize: 13 },
+  buttonText: { fontSize: 14 },
   inlineInput: {
     backgroundColor: '#1a141c', borderRadius: 8, paddingHorizontal: 10,
-    paddingVertical: 5, color: '#f0e6d2', fontSize: 13,
-    borderWidth: 1, borderColor: '#3a2f46', minWidth: 120,
+    paddingVertical: 6, color: '#f0e6d2', fontSize: 14,
+    borderWidth: 1, borderColor: '#3a2f46', minWidth: 130, minHeight: 34,
   },
-  image: { width: 72, height: 72, borderRadius: 8, marginVertical: 4 },
-  error: { color: '#ff6b8a', fontSize: 11, paddingHorizontal: 12 },
+  image: { width: 76, height: 76, borderRadius: 10, marginVertical: 4 },
+  error: { color: '#ff6b8a', fontSize: 12, paddingHorizontal: 12 },
   commandBar: {
     flexDirection: 'row', gap: 8, padding: 10,
     borderTopWidth: 1, borderTopColor: '#2e2430', backgroundColor: '#14101a',
   },
   commandInput: {
-    flex: 1, backgroundColor: '#1a141c', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 9, color: '#f0e6d2', fontSize: 14,
+    flex: 1, backgroundColor: '#1a141c', borderRadius: 11,
+    paddingHorizontal: 13, paddingVertical: 10, minHeight: 46,
+    color: '#f0e6d2', fontSize: 15,
     borderWidth: 1, borderColor: '#2e2430',
   },
   sendButton: {
-    paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#3a2f46',
+    paddingHorizontal: 20, borderRadius: 11, backgroundColor: '#3a2f46',
     alignItems: 'center', justifyContent: 'center',
   },
-  sendText: { color: '#f0e6d2', fontSize: 14 },
+  sendText: { color: '#f0e6d2', fontSize: 15, fontWeight: '600' },
 });
