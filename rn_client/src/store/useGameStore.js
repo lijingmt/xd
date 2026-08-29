@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as api from '../api/mudApi.js';
 import * as accountApi from '../api/accountApi.js';
-import { responseHasBattleButton } from '../utils/segments.js';
+import { responseHasBattleButton, filterGarbageLines } from '../utils/segments.js';
 import { saveSession, loadSession, clearSession } from '../utils/sessionStore.js';
 
 const MAX_LINES = 400;
@@ -190,7 +190,7 @@ export const useGameStore = create((set, get) => ({
       set({
         txd: data.txd || txd,
         busy: false,
-        lines: (data.lines || []).slice(-MAX_LINES),
+        lines: filterGarbageLines(data.lines).slice(-MAX_LINES),
         inBattle: responseHasBattleButton(data.lines)
           ? true
           : get().inBattle,
@@ -257,7 +257,8 @@ export const useGameStore = create((set, get) => ({
     try {
       const data = await api.sendCommand(txd, 'flushview', undefined, platform);
       set({ txd: data.txd || txd });
-      const lines = Array.isArray(data.lines) ? data.lines : null;
+      const lines = Array.isArray(data.lines)
+        ? filterGarbageLines(data.lines) : null;
       if (lines) set({ lines: lines.slice(-MAX_LINES) });
       const refresh = data.refresh || {};
       if (refresh.player && typeof refresh.player === 'object') {

@@ -13,7 +13,7 @@ import {
 import {
   flattenTextParts, linePlainText, lineHasBattleButton,
   responseHasBattleButton, buttonStyleFor, resolveImageUrl,
-  buildInputCommand, colorHexForClass, lineKey,
+  buildInputCommand, colorHexForClass, lineKey, filterGarbageLines,
 } from '../src/utils/segments.js';
 import { useGameStore } from '../src/store/useGameStore.js';
 
@@ -784,6 +784,21 @@ await check('extractSkillName 提取技能名', () => {
   assert.equal(extractSkillName('你施展了【太虚剑痕】'), '太虚剑痕');
   assert.equal(extractSkillName('你施展了万剑归宗'), '万剑归宗');
   assert.equal(extractSkillName('普通攻击'), null);
+});
+
+await check('垃圾行过滤：纯数字单字符行被移除，正常行保留', () => {
+  const lines = [
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '0' }] }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '正常文本' }] }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: ' 1 ' }] }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: 'Lv.10' }] }] },
+    { segments: [{ type: 'text', parts: [{ type: 'text', content: '10' }] }] },
+  ];
+  const filtered = filterGarbageLines(lines);
+  assert.equal(filtered.length, 3, `'0'和' 1 '应被过滤，'10'是两位数保留`);
+  assert.ok(filtered.some(l => linePlainText(l).includes('正常文本')));
+  assert.ok(filtered.some(l => linePlainText(l).includes('Lv.10')));
+  assert.ok(filtered.some(l => linePlainText(l).trim() === '10'));
 });
 
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);

@@ -204,6 +204,19 @@ export function responseHasBattleButton(lines) {
   return (lines || []).some(lineHasBattleButton);
 }
 
+/**
+ * 过滤垃圾行：裸文本仅为单个数字（如"0"）的行来自服务端字段拼接
+ * 残留（如职业列表末尾的set_item_profeLimit回显），不应对玩家展示。
+ */
+export function isGarbageLine(line) {
+  const text = linePlainText(line).trim();
+  return /^[0-9]$/.test(text);
+}
+
+export function filterGarbageLines(lines) {
+  return (lines || []).filter(line => !isGarbageLine(line));
+}
+
 /** 按钮样式归一化：服务端 class -> {bg,border,color}。 */
 export function buttonStyleFor(segment) {
   const cls = String((segment && segment.class) || '');
