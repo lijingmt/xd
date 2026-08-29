@@ -53,21 +53,23 @@ export function parseBattleLine(line) {
     events.push({ kind: 'poison', target: 'player' });
   }
 
-  /* 伤害数字：先判断是否"你造成了"（玩家攻击），否则"对你造成"（受伤） */
+  /* 伤害数字：含"你施展/你造成/你紧握"→玩家打出去的；
+   * 含"对你造成/敌人对你"→玩家受的伤。两个都不含→旁观看戏，跳过。 */
   const dmg = text.match(/(\d+)点.*?伤害/);
-  if (dmg && (text.includes('你造成') || text.includes('对你造成') ||
-    text.includes('对你'))) {
+  if (dmg) {
     const value = parseInt(dmg[1], 10) || 0;
     if (value > 0) {
-      const isPlayerAttacking = text.includes('你造成') ||
-        (text.includes('你') && text.includes('对') &&
-         !text.includes('对你'));
+      const isPlayerDealing = text.includes('你造成') ||
+        text.includes('你施展') || text.includes('你紧握') ||
+        text.includes('你使用');
+      const isReceiving = text.includes('对你造成') ||
+        text.includes('敌人对你');
       const critical = /暴击|致命|会心一击/.test(text);
-      events.push({
-        kind: 'damage',
-        target: isPlayerAttacking ? 'enemy' : 'player',
-        value, critical,
-      });
+      if (isPlayerDealing) {
+        events.push({ kind: 'damage', target: 'enemy', value, critical });
+      } else if (isReceiving) {
+        events.push({ kind: 'damage', target: 'player', value, critical });
+      }
     }
   }
 
