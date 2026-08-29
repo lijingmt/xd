@@ -95,6 +95,7 @@ string normalize_http_client_ip(string address)
 #include "_http_api_mod/html_renderer.pike"
 #include "_http_api_mod/rate_limit.pike"
 #include "_http_api_mod/account_characters.pike"
+#include "_http_api_mod/iap_security.pike"
 #include "_http_api_mod/equipment_panel.pike"
 #include "_http_api_mod/pike_gateway.pike"
 #include "_http_api_mod/map_worker_rpc.pike"
@@ -1015,6 +1016,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/autofight_view":
                 handle_api_autofight_view(req);
                 break;
+            case "/api/iap_verify":
+                handle_api_iap_verify(req);
+                break;
             case "/api/async":
                 handle_api_async(req);
                 break;
@@ -1705,6 +1709,13 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
     string cmd = params["cmd"];
     if(!cmd || cmd == "") cmd = "look";
 
+    /* 原生App平台（ios/android）：JSON层屏蔽捐赠引导（仿txpike9）。
+     * 网页端 platform 为空，完整显示不受影响。 */
+    string mobile_platform = lower_case(
+        String.trim_all_whites((string)(params["platform"] || "")));
+    int filter_mobile_donation =
+        mobile_platform=="ios" || mobile_platform=="android";
+
     string client_ip = req->remote_addr || "unknown";
 
     // 认证
@@ -1778,7 +1789,7 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
             string cached_output = (string)cached_view["output"];
             if(cached_output!=""){
                 finish_handle_api_json(cached_output,req,auth_userid,
-                    auth_password,cmd);
+                    auth_password,cmd,filter_mobile_donation);
                 return;
             }
         }
@@ -1786,15 +1797,90 @@ void handle_api_json(Protocols.HTTP.Server.Request req)
 
     // 所有人物命令进入公平Backend队列；完成后并行解析纯响应。
     if(!execute_command_async(auth_userid,auth_password,actual_cmd,
-       finish_handle_api_json,req,auth_userid,auth_password,cmd))
+       finish_handle_api_json,req,auth_userid,auth_password,cmd,
+       filter_mobile_donation))
         send_json(req,(["error":"命令队列繁忙，请稍后重试"]),503);
+}
+
+/* ===== 原生App平台捐赠引导过滤（移植自txpike9，段级屏蔽）=====
+ * 只屏蔽捐赠/外部付款引导：按钮命令命中捐赠入口、文本命中捐赠或
+ * 客服联系方式时丢弃该段；同行其余内容保留。会员服务(vip_service)、
+ * 玉石兑换、药品购买等游戏内消费不受影响。网页端不传platform，
+ * 完整显示。 */
+private array(string) mobile_donation_text_keywords = ({
+    "捐赠","赞助","充值","打赏","支付宝","微信支付","微信转账",
+    "收款","客服代充","代充","QQ客服","咨询客服","Line:txai",
+});
+
+private int mobile_donation_text_hit(string text)
+{
+    if(!text || !sizeof(text)) return 0;
+    foreach(mobile_donation_text_keywords,string kw)
+        if(search(text,kw)!=-1) return 1;
+    if(search(text,"qq:1811117272")!=-1) return 1;
+    if(search(text,"QQ:1811117272")!=-1) return 1;
+    return 0;
+}
+
+private int mobile_donation_button_hit(string cmd,string label)
+{
+    if(label && sizeof(label) &&
+       (search(label,"捐赠")!=-1 || search(label,"赞助")!=-1))
+        return 1;
+    if(!cmd || !sizeof(cmd)) return 0;
+    foreach(({"add_wap_fee","add_big_fee","add_szx_fee","yushi_add_fee",
+              "add_fee","ljs_chongzhi","szx_","juanzeng","donate"}),
+            string hit)
+        if(search(cmd,hit)!=-1) return 1;
+    return 0;
+}
+
+private string mobile_segment_text(mapping seg)
+{
+    string buf = "";
+    if(!seg) return buf;
+    if(seg["type"]=="text" && seg["parts"]){
+        foreach(seg["parts"],mapping p)
+            if(mappingp(p) && p["content"]) buf += p["content"];
+    }
+    if(seg["text"]) buf += (string)seg["text"];
+    if(seg["label"]) buf += (string)seg["label"];
+    return buf;
+}
+
+array(mapping) filter_json_for_mobile_app(array(mapping) lines)
+{
+    array(mapping) result = ({});
+    foreach(lines||({}),mapping line){
+        if(!mappingp(line) || line["type"]!="line" || !line["segments"]){
+            result += ({line});
+            continue;
+        }
+        array(mapping) kept = ({});
+        foreach(line["segments"],mapping seg){
+            if(!mappingp(seg)) continue;
+            if(seg["type"]=="button" &&
+               mobile_donation_button_hit((string)(seg["cmd"]||""),
+                                          (string)(seg["label"]||"")))
+                continue;
+            if(mobile_donation_text_hit(mobile_segment_text(seg)))
+                continue;
+            kept += ({seg});
+        }
+        if(sizeof(kept))
+            result += ({(["type":"line","segments":kept])});
+    }
+    return result;
 }
 
 string build_command_json_response_job(string response,string new_txd,
     string auth_userid,string cmd,array(mapping) newbie_completions,
-    mapping refresh_snapshot,string room_id)
+    mapping refresh_snapshot,string room_id,
+    void|int filter_mobile_donation)
 {
     array(mapping) lines = parse_mud_to_json(response, new_txd, auth_userid);
+    if(filter_mobile_donation)
+        lines = filter_json_for_mobile_app(lines);
     string copy_data;
     string copy_type;
     if(search(response, "COPY_CODE:") != -1) {
@@ -1839,7 +1925,7 @@ string build_command_json_response_job(string response,string new_txd,
 
 void finish_handle_api_json(string response,
     Protocols.HTTP.Server.Request req,string auth_userid,
-    string auth_password,string cmd)
+    string auth_password,string cmd,void|int filter_mobile_donation)
 {
     string command_response;
     object response_player = get_player_from_connection(auth_userid);
@@ -1881,7 +1967,7 @@ void finish_handle_api_json(string response,
 
     if(!send_json_builder_async(req,build_command_json_response_job,({
         response,new_txd,auth_userid,cmd,newbie_completions,
-        refresh_snapshot,command_room_id
+        refresh_snapshot,command_room_id,filter_mobile_donation
     }),200))
         send_json(req,(["error":"响应线程池繁忙，请稍后重试"]),503);
 }
@@ -3015,6 +3101,252 @@ mapping execute_autofight_api_action(object player,string action)
             "自动挂机已开启：智能寻路会选择练级区，并在空图时自动前往相邻地图" :
             "自动挂机已关闭",
     ]);
+}
+
+/* ===== iOS 内购验证（移植自txpike9，账号级共享充值钱包入账）===== */
+
+/** 向Apple验证收据：先生产环境，21007再走沙盒。
+ * 共享密钥可选（消耗型内购不需要；gamelib/etc/iap_shared_secret
+ * 存在且有效时才携带password字段）。 */
+mapping verify_apple_receipt(string receipt)
+{
+    string production_url = "https://buy.itunes.apple.com/verifyReceipt";
+    string sandbox_url = "https://sandbox.itunes.apple.com/verifyReceipt";
+    string shared_secret = String.trim_all_whites(
+        Stdio.read_file(ROOT + "/gamelib/etc/iap_shared_secret") || "");
+    mapping request_data = (["receipt-data": receipt]);
+    if(sizeof(shared_secret) >= 32 &&
+       sizeof(shared_secret) <= 64)
+        request_data["password"] = shared_secret;
+    string request_body = Standards.JSON.encode(request_data);
+    mapping result = ([
+        "verified": 0, "error": "", "receipt": 0,
+        "environment": "unknown",
+    ]);
+    foreach(({production_url, sandbox_url}), string url) {
+        mixed err = catch {
+            object query = Protocols.HTTP.Query();
+            query->maxtime = 30;
+            object response = Protocols.HTTP.do_method("POST", url, 0,
+                (["Content-Type": "application/json"]), query,
+                request_body);
+            if(response && response->status == 200) {
+                mapping body = Standards.JSON.decode(response->data());
+                if(mappingp(body) && (int)body["status"] == 0) {
+                    result["verified"] = 1;
+                    result["receipt"] = body["receipt"];
+                    result["latest_receipt_info"] =
+                        body["latest_receipt_info"];
+                    result["environment"] =
+                        (url == production_url) ? "Production" : "Sandbox";
+                    werror("[IAP] Receipt verified via %s\n",
+                        result["environment"]);
+                    return result;
+                }
+                if(mappingp(body))
+                    result["error"] = get_apple_error_message(
+                        (int)(body["status"] || 0));
+                else
+                    result["error"] = "收据响应格式错误";
+            }
+            else if(response) {
+                result["error"] = "Apple验证服务HTTP "+
+                    (string)response->status;
+            }
+            else {
+                result["error"] = "Apple验证服务无响应";
+            }
+        };
+        if(err) {
+            werror("[IAP] verify exception: %s\n", describe_error(err));
+            result["error"] = "Apple验证网络异常";
+        }
+        if(result["verified"])
+            break;
+    }
+    return result;
+}
+
+string get_apple_error_message(int status)
+{
+    switch(status) {
+        case 0: return "成功";
+        case 21000: return "App Store 无法读取请求";
+        case 21002: return "请求数据格式错误";
+        case 21003: return "收据无法认证";
+        case 21004: return "共享密钥不匹配";
+        case 21005: return "收据服务器无效";
+        case 21007: return "收据来自沙盒环境";
+        case 21008: return "收据来自生产环境";
+        case 21010: return "收据无效或已过期";
+        default: return "Apple验证失败(状态码:" + status + ")";
+    }
+}
+
+/**
+ * iOS 内购验证入账：
+ * POST {txd, receipt, product_id, transaction_id} → Apple验签 →
+ * bundle/商品/取消校验 → 交易台账幂等 → 账号共享充值钱包入账。
+ * 产品：com.wapmud.xiandao.1000suiyu = 1000碎玉(¥100)。
+ */
+void handle_api_iap_verify(Protocols.HTTP.Server.Request req)
+{
+    mapping params = get_params(req);
+    string txd = url_decode((string)(params["txd"] || ""));
+    string receipt = (string)(params["receipt"] || "");
+    string product_id = (string)(params["product_id"] || "");
+    string transaction_id = (string)(params["transaction_id"] || "");
+    mapping auth;
+    string auth_userid;
+    string stored_password;
+    object player;
+    string account_id;
+    mapping verify_result;
+    mapping verified_transaction;
+    mapping grant_result;
+    int fee;
+
+    auth = decode_txd(txd);
+    if(!auth) {
+        send_json(req, (["error": "认证失败"]), 401);
+        return;
+    }
+    auth_userid = (string)auth["userid"];
+    stored_password = get_user_password(auth_userid);
+    if(!stored_password ||
+       !character_login_password_matches(auth_userid,
+          stored_password, auth["password"], "")) {
+        send_json(req, (["error": "用户认证失败"]), 401);
+        return;
+    }
+    player = get_player_from_connection(auth_userid, 1);
+    if(!player) {
+        send_json(req, (["error": "人物当前不在线，请重新进入"]), 404);
+        return;
+    }
+    account_id = (string)(player->query_account_owner() || "");
+    if(account_id == "" ||
+       !ACCOUNT_CHARACTERD->account_owns_character(
+           account_id, auth_userid)) {
+        send_json(req, (["error": "人物账号归属校验失败"]), 409);
+        return;
+    }
+    if(!receipt || receipt == "") {
+        send_json(req, (["error": "缺少收据数据"]), 400);
+        return;
+    }
+    if(is_iap_synthetic_receipt(receipt)) {
+        send_json(req, (["error": "测试收据不可用于充值"]), 400);
+        return;
+    }
+    if(!transaction_id || transaction_id == "") {
+        send_json(req, (["error": "缺少交易编号"]), 400);
+        return;
+    }
+    fee = query_iap_product_fee(product_id);
+    if(fee <= 0) {
+        send_json(req, (["error": "未知的产品ID"]), 400);
+        return;
+    }
+
+    /* 优先走 App Store Server API：iOS 18+ 经典收据不再更新，
+     * verifyReceipt 查不到新交易；按交易号直查 Apple 是权威路径。 */
+    if(mappingp(load_iap_server_api_config())) {
+        mapping tx = query_appstore_server_transaction(transaction_id);
+        if(!(int)tx["ok"]) {
+            send_json(req, ([
+                "error": "交易验证失败: " + (string)tx["error"],
+                "verified": 0,
+            ]), 400);
+            return;
+        }
+        mapping payload = tx["data"];
+        if((string)payload["transactionId"] != transaction_id ||
+           (string)payload["productId"] != product_id) {
+            send_json(req, (["error": "交易商品不匹配"]), 400);
+            return;
+        }
+        if(payload["bundleId"] &&
+           (string)payload["bundleId"] !=
+               load_iap_server_api_config()["bundle_id"]) {
+            send_json(req, (["error": "收据应用标识不匹配"]), 400);
+            return;
+        }
+        if(payload["revocationDate"]) {
+            send_json(req, (["error": "交易已撤销"]), 400);
+            return;
+        }
+        grant_result = grant_iap_transaction(player, account_id,
+            transaction_id, product_id, fee,
+            (string)tx["environment"]);
+        if(!(int)grant_result["ok"]) {
+            send_json(req, ([
+                "error": (string)(grant_result["message"] ||
+                    "充值处理失败"),
+            ]), (int)(grant_result["code"] || 500));
+            return;
+        }
+        send_json(req, ([
+            "status": "success",
+            "verified": 1,
+            "environment": tx["environment"],
+            "product_id": product_id,
+            "product_label": query_iap_product_label(product_id),
+            "duplicate": (int)grant_result["duplicate"],
+            "balance": (int)grant_result["balance"],
+            "message": (int)grant_result["duplicate"]
+                ? "本次充值已经入账" : "充值成功",
+        ]));
+        return;
+    }
+
+    verify_result = verify_apple_receipt(receipt);
+    if(!(int)verify_result["verified"]) {
+        werror("[IAP] verify failed: %s\n",
+            (string)verify_result["error"]);
+        send_json(req, ([
+            "error": "收据验证失败: " +
+                (string)(verify_result["error"] || "未知错误"),
+            "verified": 0,
+        ]), 400);
+        return;
+    }
+    if(!is_iap_verified_bundle(verify_result)) {
+        send_json(req, (["error": "收据应用标识不匹配"]), 400);
+        return;
+    }
+    verified_transaction = query_iap_verified_transaction(
+        verify_result, transaction_id);
+    if(!mappingp(verified_transaction)) {
+        send_json(req, (["error": "交易编号不在已验证收据中"]), 400);
+        return;
+    }
+    if(!is_iap_transaction_product_match(
+        verified_transaction, product_id)) {
+        send_json(req, (["error": "交易商品不匹配或交易已取消"]), 400);
+        return;
+    }
+
+    grant_result = grant_iap_transaction(player, account_id,
+        transaction_id, product_id, fee,
+        (string)verify_result["environment"]);
+    if(!(int)grant_result["ok"]) {
+        send_json(req, ([
+            "error": (string)(grant_result["message"] || "充值处理失败"),
+        ]), (int)(grant_result["code"] || 500));
+        return;
+    }
+    send_json(req, ([
+        "status": "success",
+        "verified": 1,
+        "environment": verify_result["environment"],
+        "product_id": product_id,
+        "product_label": query_iap_product_label(product_id),
+        "duplicate": (int)grant_result["duplicate"],
+        "balance": (int)grant_result["balance"],
+        "message": (int)grant_result["duplicate"]
+            ? "本次充值已经入账" : "充值成功",
+    ]));
 }
 
 void handle_api_autofight(Protocols.HTTP.Server.Request req)

@@ -1,0 +1,7 @@
+{
+  "_comment": "App Store Server API 配置模板（占位）。真实参数复制本文件为 iap_server_api.local.json（已gitignore）并填写；.p8 私钥放 gamelib/etc/iap_server_api_key.p8。两者都不会进版本库。",
+  "issuer_id": "FILL_ISSUER_ID",
+  "key_id": "FILL_KEY_ID",
+  "bundle_id": "com.wapmud.xiandao",
+  "key_file": "gamelib/etc/iap_server_api_key.p8"
+}

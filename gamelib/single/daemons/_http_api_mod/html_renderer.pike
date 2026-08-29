@@ -1215,6 +1215,13 @@ mapping query_player_state(object player)
 		result["vip_active"] = vip_level>0 ? 1 : 0;
 		result["vip_end_time"] = vip_level>0 ?
 			(int)player->query_vip_end_time() : 0;
+		/* 账号共享碎玉余额（只读热路径；原生端顶栏常驻显示）。 */
+		mixed suiyu_err = catch {
+			result["account_suiyu"] =
+				ACCOUNT_WALLETD->query_balance(player);
+		};
+		if(suiyu_err || !intp(result["account_suiyu"]))
+			result["account_suiyu"] = 0;
 		result["normal_level_limit"] = NORMAL_MAX_LEVEL;
 		result["vip_level_limit_step"] = VIP_LEVEL_LIMIT_STEP;
 		result["level_limit"] = level_limit;
