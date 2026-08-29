@@ -14,6 +14,7 @@ import { getImageBase } from '../api/mudApi.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 import BattleScene from './BattleScene.js';
 import { SmartImage } from './GameSmartImage.js';
+import EquipmentPanel from './EquipmentPanel.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
 const QUICK_TOOLS = [
@@ -38,6 +39,7 @@ const MAIN_TABS = [
   { icon: '♡', label: '状态', cmd: 'myhp' },
   { icon: '▣', label: '物品', cmd: 'inventory' },
   { icon: '◇', label: '技能', cmd: 'myskills' },
+  { icon: '⚙', label: '装备', cmd: '__equip_panel' },
 ];
 
 const PLATFORM_TAG = Platform.OS === 'web' ? 'ios' : Platform.OS;
@@ -59,6 +61,7 @@ export default function GameScreen() {
   const [draft, setDraft] = useState('');
   const [inputValues, setInputValues] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
+  const [equipOpen, setEquipOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
   const lastPollRef = useRef(0);
@@ -140,6 +143,10 @@ export default function GameScreen() {
   };
 
   const sendTab = tab => {
+    if (tab.cmd === '__equip_panel') {
+      setEquipOpen(true);
+      return;
+    }
     setActiveTab(tab.cmd);
     lastPollRef.current = 0;
     send(tab.cmd);
@@ -385,6 +392,12 @@ export default function GameScreen() {
           />
         </View>
       </Modal>
+
+      {/* ===== 装备面板 ===== */}
+      <EquipmentPanel
+        visible={equipOpen}
+        onClose={() => setEquipOpen(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

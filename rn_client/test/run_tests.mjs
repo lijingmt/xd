@@ -801,6 +801,56 @@ await check('垃圾行过滤：纯数字单字符行被移除，正常行保留'
   assert.ok(filtered.some(l => linePlainText(l).trim() === '10'));
 });
 
+/* ---------- 装备面板 ---------- */
+const { panelCards } = await import('../src/api/equipmentApi.js');
+
+await check('panelCards 归一化槽位并保留穿戴/候选信息', () => {
+  const cards = panelCards({
+    slot_order: ['single_main_weapon', 'armor_head', 'jewelry_ring'],
+    slots: {
+      single_main_weapon: { label: '主手', icon: '剑',
+        image: '/images/equipment/fallback/weapon.png' },
+      armor_head: { label: '头部', icon: '冠',
+        image: '/images/equipment/fallback/head.png' },
+      jewelry_ring: { label: '戒指', icon: '戒',
+        image: '/images/equipment/fallback/ring.png' },
+    },
+    equipped: {
+      single_main_weapon: { name_cn: '天锋剑', rare_level: 5,
+        level_requirement: 69, action_label: '卸下',
+        action_cmd: 'unwield sword 0' },
+    },
+    candidates: {
+      jewelry_ring: [
+        { name_cn: '戒A', rare_level: 3, action_label: '穿戴',
+          action_cmd: 'wear ring 0' },
+        { name_cn: '戒B', rare_level: 4, action_label: '穿戴',
+          action_cmd: 'wear ring 1' },
+      ],
+    },
+  });
+  assert.equal(cards.length, 3);
+  const weapon = cards.find(c => c.slot === 'single_main_weapon');
+  assert.equal(weapon.name, '天锋剑');
+  assert.equal(weapon.rareLevel, 5);
+  assert.equal(weapon.actionCmd, 'unwield sword 0');
+  const head = cards.find(c => c.slot === 'armor_head');
+  assert.equal(head.name, null, '空槽位name为null');
+  const ring = cards.find(c => c.slot === 'jewelry_ring');
+  assert.equal(ring.alternates.length, 2);
+  assert.equal(ring.alternates[0].name, '戒A');
+});
+
+await check('panelCards 空槽且无候选的过滤掉，空数据安全', () => {
+  const empty = panelCards({
+    slots: { armor_thou: { label: '腿' } },
+    equipped: {}, candidates: {},
+  });
+  assert.equal(empty.length, 0);
+  assert.deepEqual(panelCards(null), []);
+  assert.deepEqual(panelCards({}), []);
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));
