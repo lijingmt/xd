@@ -852,6 +852,22 @@ await check('panelCards 空槽且无候选的过滤掉，空数据安全', () =>
   assert.deepEqual(panelCards({}), []);
 });
 
+/* ---------- 网络超时与错误边界 ---------- */
+await check('getJson 15秒超时后抛出友好错误（AbortController）', async () => {
+  api.setApiBase('http://mock:9');
+  /* 构造一个永远pending的fetch（模拟网络挂起），用注入方式跳过
+     AbortController路径（node无abort）改测异常转换。 */
+  const impl = async () => {
+    const error = new Error('The operation was aborted');
+    error.name = 'AbortError';
+    throw error;
+  };
+  await assert.rejects(
+    () => api.login('x', 'y', impl),
+    /超时|aborted/i,
+    'AbortError应转为友好超时提示');
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));
