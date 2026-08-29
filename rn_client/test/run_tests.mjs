@@ -829,16 +829,17 @@ await check('panelCards 归一化槽位并保留穿戴/候选信息', () => {
       ],
     },
   });
-  assert.equal(cards.length, 3);
+  /* armor_head 无穿戴且无候选 → 被过滤 */
+  assert.equal(cards.length, 2, 'armor_head应被过滤（空槽无候选）');
   const weapon = cards.find(c => c.slot === 'single_main_weapon');
   assert.equal(weapon.name, '天锋剑');
   assert.equal(weapon.rareLevel, 5);
   assert.equal(weapon.actionCmd, 'unwield sword 0');
-  const head = cards.find(c => c.slot === 'armor_head');
-  assert.equal(head.name, null, '空槽位name为null');
   const ring = cards.find(c => c.slot === 'jewelry_ring');
   assert.equal(ring.alternates.length, 2);
   assert.equal(ring.alternates[0].name, '戒A');
+  assert.ok(!cards.some(c => c.slot === 'armor_head'),
+    '空槽无候选不应出现在卡片中');
 });
 
 await check('panelCards 空槽且无候选的过滤掉，空数据安全', () => {
