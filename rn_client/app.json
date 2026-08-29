@@ -9,7 +9,7 @@
     "primaryColor": "#d4af37",
     "description": "仙道 - 东方幻想多职业MUD，原生客户端",
     "ios": {
-      "bundleIdentifier": "com.xiand.client",
+      "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
       "buildNumber": "1",
       "config": {
