@@ -73,17 +73,17 @@ int main(string|zero arg)
 	int donation_multiplier = me->query_donation_exp_multiplier();
 	string bs_tips = "";
 	if(donation_multiplier>1)
-		bs_tips += "<font style=\"color:DARKORANGE\">经验倍速开启："+
-			(string)donation_multiplier+"倍</font>";
+		bs_tips += "§6经验倍速开启："+
+			(string)donation_multiplier+"倍§r";
 	else
-		bs_tips += "<font style=\"color:DARKORANGE\">经验倍速尚未开启</font>";
-	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠倍数作用于药品和活动加成后的打怪总经验</font>\n";
+		bs_tips += "§6经验倍速尚未开启§r";
+	bs_tips += "\n§6捐赠倍数作用于药品和活动加成后的打怪总经验§r\n";
 	//if(bs_tips&&sizeof(bs_tips)) 
 	
-	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠200元--2倍经验获得</font>\n";
-	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠400元--3倍经验获得</font>\n";
-	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠600元--4倍经验获得</font>\n";	
-	bs_tips += "\n<font style=\"color:DARKORANGE\">捐赠获取更高经验倍数(最高50倍），QQ:1811117272</font>\n";
+	bs_tips += "\n§6捐赠200元--2倍经验获得§r\n";
+	bs_tips += "\n§6捐赠400元--3倍经验获得§r\n";
+	bs_tips += "\n§6捐赠600元--4倍经验获得§r\n";	
+	bs_tips += "\n§6捐赠获取更高经验倍数(最高50倍），QQ:1811117272§r\n";
 	s += "\n"+bs_tips+"\n\n";
 	
 	s += "[返回游戏:look]\n";

@@ -1,0 +1,30 @@
+{
+  "name": "xiand-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "web": "expo export --platform web --output-dir dist_web",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "test": "node test/run_tests.mjs",
+    "test:live": "node test/run_tests.mjs && node test/smoke_live.mjs"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "^55.0.9",
+    "@react-native-async-storage/async-storage": "^1.23.1",
+    "expo": "~54.0.33",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-web": "^0.21.2",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "babel-preset-expo": "~54.0.0"
+  }
+}

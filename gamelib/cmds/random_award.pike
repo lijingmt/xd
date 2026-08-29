@@ -34,15 +34,15 @@ int main(string|zero arg){
 				//增加到一定值时，以一定概率进入天牢。
 				if(me["/tmp/wrong_rd"]<=1)
 				{
-					tell_object(me,"<font style=\"color:red; font-size:x-large;\">天空中出现一个诡异的笑脸。。。</font>\n");
+					tell_object(me,"§C天空中出现一个诡异的笑脸。。。§r\n");
 					werror("!! warning 1 !!! random_award --> wrong_rd player=["+me->name+"] wrong times=["+me["/tmp/wrong_rd"]+"]\n");
 				}
 				else if(me["/tmp/wrong_rd"]<=2){
-					tell_object(me,"<font style=\"color:red; font-size:x-large;\">周围逐渐开始变得黑暗。。。一阵阵诡异的低吼从四面八方围了过来。。。</font>\n");
+					tell_object(me,"§C周围逐渐开始变得黑暗。。。一阵阵诡异的低吼从四面八方围了过来。。。§r\n");
 					werror("!! warning 2 !!! random_award --> wrong_rd player=["+me->name+"] wrong times=["+me["/tmp/wrong_rd"]+"]\n");
 				}
 				else{
-					tell_object(me,"<font style=\"color:red; font-size:x-large;\">你两眼一黑，晕了过去。。。</font>\n");
+					tell_object(me,"§C你两眼一黑，晕了过去。。。§r\n");
 					me["/tmp/wrong_rd"] = 1; //重置次数 //这里除非下线10分钟后，再上来
 					me["/plus/random_rcd"] = 0;//完成了，置为0
 					me->unconscious();//改为晕倒一段时间

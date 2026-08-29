@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "仙道",
+    "slug": "xiand-client",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0d0b0e",
+    "primaryColor": "#d4af37",
+    "description": "仙道 - 东方幻想多职业MUD，原生客户端",
+    "ios": {
+      "bundleIdentifier": "com.xiand.client",
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent",
+        "UIRequiresFullScreen": false
+      }
+    },
+    "android": {
+      "package": "com.xiand.client",
+      "versionCode": 1,
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "assets/favicon.png"
+    },
+    "platforms": ["ios", "android", "web"],
+    "scheme": "xiand"
+  }
+}
