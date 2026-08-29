@@ -324,6 +324,16 @@ initialize_runtime()
 	if [[ ! -e "$ETC_RUNTIME_DIR/regname" ]]; then
 		cp -an "$ETC_BOOTSTRAP_DIR/." "$ETC_RUNTIME_DIR/"
 	fi
+
+	# IAP Server API credentials (not in git/image): inject into runtime
+	# etc when present; never overwrite; silently skip when seed missing.
+	local iap_seed_dir="/usr/local/games/allxd/secrets/iap"
+	local iap_file
+	for iap_file in iap_server_api.local.json iap_server_api_key.p8; do
+		if [[ -f "$iap_seed_dir/$iap_file" && ! -f "$ETC_RUNTIME_DIR/$iap_file" ]]; then
+			install -m 600 -o wapmud -g wapmud "$iap_seed_dir/$iap_file" "$ETC_RUNTIME_DIR/$iap_file"
+		fi
+	done
 	local zone_config_found=0
 	local zone_config
 	for zone_config in "$LOGICAL_ZONE_RUNTIME_DIR"/xd[0-9][0-9].conf; do
