@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
-      "buildNumber": "6",
+      "buildNumber": "7",
       "config": {
         "usesNonExemptEncryption": false
       },
