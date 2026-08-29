@@ -704,6 +704,75 @@ await check('recoverSession 账号令牌也失效时才完全登出', async () =
   });
 });
 
+/* ---------- 战斗浮动反馈 ---------- */
+const {
+  parseBattleLine, parseBattleLines, lineRawText, extractSkillName,
+} = await import('../src/utils/battleFeedback.js');
+
+function textLine(text) {
+  return { segments: [{ type: 'text',
+    parts: [{ type: 'text', content: text }] }] };
+}
+
+await check('lineRawText 拼接文本段与按钮标签', () => {
+  assert.equal(lineRawText(textLine('你造成了120点伤害')), '你造成了120点伤害');
+  assert.equal(lineRawText({
+    segments: [
+      { type: 'text', parts: [{ type: 'text', content: '前往' }] },
+      { type: 'button', label: '进入游戏', cmd: 'start' },
+    ],
+  }), '前往进入游戏');
+});
+
+await check('解析对敌伤害（含暴击标记）', () => {
+  const events = parseBattleLine(
+    textLine('你施放了【剑气斩】，对敌人造成了250点伤害，暴击！'));
+  const dmg = events.find(e => e.kind === 'damage');
+  assert.ok(dmg, '应提取伤害事件');
+  assert.equal(dmg.target, 'enemy');
+  assert.equal(dmg.value, 250);
+  assert.equal(dmg.critical, true);
+});
+
+await check('解析受到伤害（目标为player）', () => {
+  const events = parseBattleLine(
+    textLine('敌人对你造成了80点伤害'));
+  const dmg = events.find(e => e.kind === 'damage');
+  assert.ok(dmg);
+  assert.equal(dmg.target, 'player');
+  assert.equal(dmg.value, 80);
+  assert.equal(dmg.critical, false);
+});
+
+await check('解析闪避/格挡/中毒/治疗/胜利', () => {
+  assert.ok(parseBattleLine(textLine('你身法轻盈，躲过了攻击'))
+    .some(e => e.kind === 'dodge'));
+  assert.ok(parseBattleLine(textLine('你成功防御了攻击'))
+    .some(e => e.kind === 'block'));
+  assert.ok(parseBattleLine(textLine('你身中剧毒'))
+    .some(e => e.kind === 'poison'));
+  assert.ok(parseBattleLine(textLine('你恢复了150点生命'))
+    .some(e => e.kind === 'heal' && e.value === 150));
+  assert.ok(parseBattleLine(textLine('你战胜了强大的敌人！'))
+    .some(e => e.kind === 'victory'));
+});
+
+await check('parseBattleLines 批量处理并跳过纯按钮行', () => {
+  const events = parseBattleLines([
+    textLine('你造成了100点伤害'),
+    { segments: [{ type: 'button', label: '察看战况', cmd: '1' }] },
+    textLine('你恢复了50点生命'),
+  ]);
+  assert.equal(events.filter(e => e.kind === 'damage').length, 1);
+  assert.equal(events.filter(e => e.kind === 'heal').length, 1);
+});
+
+await check('extractSkillName 提取技能名', () => {
+  assert.equal(extractSkillName('你施展了【太虚剑痕】'), '太虚剑痕');
+  assert.equal(extractSkillName('你施展了万剑归宗'), '万剑归宗');
+  assert.equal(extractSkillName('普通攻击'), null);
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));

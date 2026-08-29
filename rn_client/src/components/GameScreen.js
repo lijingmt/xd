@@ -9,6 +9,7 @@ import {
   flattenTextParts, buttonStyleFor, resolveImageUrl, buildInputCommand,
   lineKey,
 } from '../utils/segments.js';
+import { parseBattleLines } from '../utils/battleFeedback.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
@@ -56,6 +57,7 @@ export default function GameScreen() {
   const [inputValues, setInputValues] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('');
+  const [floaters, setFloaters] = useState([]);
   const lastPollRef = useRef(0);
   const inBattleRef = useRef(false);
   inBattleRef.current = store.inBattle;
@@ -98,6 +100,34 @@ export default function GameScreen() {
       setTimeout(() => listRef.current.scrollToEnd({ animated: false }), 50);
     }
   }, [store.lines.length]);
+
+  /* 解析新行中的战斗事件，生成浮动数字/状态标记。 */
+  const prevLineCountRef = useRef(0);
+  useEffect(() => {
+    if (store.lines.length === prevLineCountRef.current) return;
+    const newLines = store.lines.slice(Math.min(
+      prevLineCountRef.current, store.lines.length));
+    prevLineCountRef.current = store.lines.length;
+    const events = parseBattleLines(newLines);
+    if (!events.length) return;
+    const batch = events.slice(0, 6).map((event, index) => ({
+      ...event,
+      id: `float-${Date.now()}-${index}`,
+    }));
+    setFloaters(prev => [...prev, ...batch].slice(-8));
+    const timer = setTimeout(() => {
+      setFloaters(prev => prev.filter(f =>
+        !batch.some(b => b.id === f.id)));
+    }, eventDuration(batch[0]));
+    return () => clearTimeout(timer);
+  }, [store.lines.length]);
+
+  function eventDuration(event) {
+    if (!event) return 900;
+    if (event.kind === 'victory') return 1800;
+    if (event.critical) return 1400;
+    return 900;
+  }
 
   const send = cmd => {
     if (!cmd) return;
@@ -203,6 +233,15 @@ export default function GameScreen() {
         </View>
       )}
 
+      {/* ===== 浮动战斗数字层 ===== */}
+      {floaters.length > 0 && (
+        <View style={styles.floaterLayer} pointerEvents="none">
+          {floaters.map((floater, index) => (
+            <Floater key={floater.id} event={floater} offset={index} />
+          ))}
+        </View>
+      )}
+
       {!!store.error && <Text style={styles.error}>{store.error}</Text>}
 
       <FlatList
@@ -301,6 +340,66 @@ function StatBar({ label, value, max, fill }) {
       </View>
       <Text style={styles.statValue}>{formatNumber(value)}/{formatNumber(max)}</Text>
     </View>
+  );
+}
+
+function Floater({ event, offset }) {
+  const top = 120 + offset * 34;
+  let text = '';
+  let color = '#F0E6D2';
+  let fontSize = 18;
+  switch (event.kind) {
+    case 'damage':
+      if (event.target === 'enemy') {
+        color = event.critical ? '#FFD700' : '#FF6B8A';
+        fontSize = event.critical ? 26 : 20;
+        text = `-${formatNumber(event.value)}${event.critical ? '!' : ''}`;
+      } else {
+        color = '#ff4444';
+        text = `-${formatNumber(event.value)}`;
+      }
+      break;
+    case 'heal':
+      color = '#7ad08a';
+      text = `+${formatNumber(event.value)}`;
+      break;
+    case 'dodge':
+      color = '#87CEEB';
+      text = 'MISS';
+      fontSize = 16;
+      break;
+    case 'block':
+      color = '#FFD700';
+      text = 'BLOCK';
+      fontSize = 16;
+      break;
+    case 'poison':
+      color = '#90EE90';
+      text = 'POISON';
+      fontSize = 14;
+      break;
+    case 'victory':
+      color = '#FFD700';
+      text = '✦ VICTORY';
+      fontSize = 28;
+      break;
+    case 'skill':
+      color = '#DDA0DD';
+      text = `◈ ${event.name}`;
+      fontSize = 14;
+      break;
+    default:
+      return null;
+  }
+  return (
+    <Text style={[
+      styles.floater,
+      { top, color, fontSize },
+      event.critical && styles.floaterCritical,
+      event.kind === 'victory' && styles.floaterVictory,
+    ]}>
+      {text}
+    </Text>
   );
 }
 
@@ -512,4 +611,26 @@ const styles = StyleSheet.create({
   },
   toolIcon: { fontSize: 26 },
   toolLabel: { color: '#c8b8c8', fontSize: 13 },
+  floaterLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    alignItems: 'center',
+  },
+  floater: {
+    position: 'absolute',
+    fontWeight: '700',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
+    letterSpacing: 1,
+  },
+  floaterCritical: {
+    textShadowColor: '#FFD700',
+    textShadowRadius: 12,
+  },
+  floaterVictory: {
+    textShadowColor: '#FFD700',
+    textShadowRadius: 20,
+    letterSpacing: 6,
+  },
 });
