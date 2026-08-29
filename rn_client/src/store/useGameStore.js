@@ -21,6 +21,7 @@ export const useGameStore = create((set, get) => ({
   accountId: '',
   accountCharacters: [],
   characterLimit: 0,
+  accountUnlocks: { wuxiang: false, taiji: false, zhaoming: false },
 
   setApiBase(base) {
     api.setApiBase(base);
@@ -59,13 +60,11 @@ export const useGameStore = create((set, get) => ({
         const characters = await accountApi.fetchCharacters(account.token);
         set({
           accountToken: account.token || '',
-          accountId: account.account_id || fullUserid,
-          accountCharacters: (characters.characters ||
-            account.characters || []).map(accountApi.characterCard),
-          characterLimit: Number(characters.limit || account.limit || 0),
           userid: fullUserid,
           busy: false,
         });
+        get().applyAccountData(account);
+        get().applyAccountData(characters);
         return true;
       } catch (accountError) {
         const data = await api.login(fullUserid, password);
@@ -81,6 +80,22 @@ export const useGameStore = create((set, get) => ({
       set({ busy: false, error: e.message });
       return false;
     }
+  },
+
+  applyAccountData(data) {
+    if (!data || typeof data !== 'object') return;
+    set({
+      accountId: data.account_id || get().accountId,
+      accountCharacters: Array.isArray(data.characters)
+        ? data.characters.map(accountApi.characterCard)
+        : get().accountCharacters,
+      characterLimit: Number(data.limit || get().characterLimit || 0),
+      accountUnlocks: {
+        wuxiang: !!data.wuxiang_unlocked,
+        taiji: !!data.taiji_unlocked,
+        zhaoming: !!data.zhaoming_unlocked,
+      },
+    });
   },
 
   async pickCharacter(characterId) {
@@ -102,16 +117,32 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
+  async createCharacter(form) {
+    const { accountToken } = get();
+    if (!accountToken) return false;
+    set({ busy: true, error: '' });
+    try {
+      const created = await accountApi.createCharacter(
+        accountToken, form);
+      const newId = created.character && created.character.id;
+      await get().refreshAccountCharacters();
+      if (newId) {
+        await get().pickCharacter(String(newId));
+      }
+      set({ busy: false });
+      return true;
+    } catch (e) {
+      set({ busy: false, error: e.message });
+      return false;
+    }
+  },
+
   async refreshAccountCharacters() {
     const { accountToken } = get();
     if (!accountToken) return;
     try {
       const data = await accountApi.fetchCharacters(accountToken);
-      set({
-        accountCharacters: (data.characters || [])
-          .map(accountApi.characterCard),
-        characterLimit: Number(data.limit || 0),
-      });
+      get().applyAccountData(data);
     } catch (e) {
       set({ error: e.message });
     }

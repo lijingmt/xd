@@ -65,6 +65,7 @@ await check('注册临时账号成功', async () => {
 /* ---- 多角色账号中心全链路 ---- */
 let accountToken = '';
 let firstCharacterId = '';
+let lastLines = [];
 
 await check('账号登录换取令牌', async () => {
   accountApi.setAccountApiBase(HOST);
@@ -91,12 +92,50 @@ await check('选择默认人物进入游戏（bootstrap→init）', async () => 
   const data = await api.sendCommand(
     bootTxd, selected.bootstrap_command || 'init');
   txd = data.txd || bootTxd;
-  assert.ok((data.lines || []).length > 0, 'bootstrap 后无输出');
+  lastLines = data.lines || [];
+  assert.ok(lastLines.length > 0, 'bootstrap 后无输出');
 });
 
 await check('直连 /api/json 登录回退路径仍可用', async () => {
   const data = await api.login(`xd01${userid}`, password);
   assert.ok((data.txd || '').length > 0, '回退路径未返回 txd');
+});
+
+/* ---- 建角全链路 ---- */
+await check('游戏内建角引导可纯按钮驱动完成（人类·剑仙）', async () => {
+  let lines = lastLines;
+  for (let step = 0; step < 5; step++) {
+    let next = null;
+    for (const line of lines) {
+      for (const seg of (line.segments || [])) {
+        if (!next && seg.type === 'button' &&
+            !/介绍|更换|返回/.test(seg.label || '')) {
+          next = seg.cmd;
+        }
+      }
+    }
+    if (!next) break;
+    const data = await api.sendCommand(txd, next);
+    txd = data.txd || txd;
+    lines = data.lines || [];
+  }
+  const done = JSON.stringify(lines);
+  assert.ok(/返回游戏|新手/.test(done),
+    `建角引导未走完: ${done.slice(0, 160)}`);
+});
+
+await check('创建第二个角色并出现在列表中', async () => {
+  const created = await accountApi.createCharacter(accountToken, {
+    realm_type: 'eternal', race_id: 'human',
+    profession_id: 'jianxian', name_cn: `冒烟侠${suffix}`,
+    sex: 'male', avatar_id: 'h_male1',
+  });
+  const newId = created.character && created.character.id;
+  assert.ok(newId, `建角响应异常: ${JSON.stringify(created).slice(0, 160)}`);
+  const refreshed = await accountApi.fetchCharacters(accountToken);
+  const list = refreshed.characters || [];
+  assert.ok(list.some(one => String(one.id) === String(newId)),
+    '新建角色未出现在列表');
 });
 
 await check('look 命令返回场景行', async () => {

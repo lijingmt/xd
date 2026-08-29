@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, RefreshControl,
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
+import CharacterCreateModal from './CharacterCreateModal.js';
 
 function realmLabel(card) {
   return card.realmType === 'illusion'
@@ -16,10 +17,14 @@ export default function CharacterScreen() {
     accountId, accountCharacters, characterLimit, busy, error,
     pickCharacter, refreshAccountCharacters, logout,
   } = useGameStore();
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     refreshAccountCharacters();
   }, []);
+
+  const slotsFull = characterLimit > 0 &&
+    accountCharacters.length >= characterLimit;
 
   return (
     <View style={styles.screen}>
@@ -30,12 +35,23 @@ export default function CharacterScreen() {
             账号 {accountId} · 角色 {accountCharacters.length}/{characterLimit || '∞'}
           </Text>
         </View>
+        {!slotsFull && (
+          <TouchableOpacity style={styles.addButton}
+            onPress={() => setCreateOpen(true)}>
+            <Text style={styles.addText}>＋ 新建</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.exitButton} onPress={() => logout()}>
           <Text style={styles.exitText}>退出账号</Text>
         </TouchableOpacity>
       </View>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
+
+      <CharacterCreateModal
+        visible={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
 
       <FlatList
         style={styles.list}
@@ -91,6 +107,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
     borderWidth: 1, borderColor: '#5a3a46',
   },
+  addButton: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    borderWidth: 1, borderColor: '#6a8a5a',
+  },
+  addText: { color: '#c8e8c8', fontSize: 12 },
   exitText: { color: '#c8a8b8', fontSize: 12 },
   list: { flex: 1 },
   card: {

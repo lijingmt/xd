@@ -347,6 +347,87 @@ await check('store appendLines 截断到 400 行上限', () => {
   useGameStore.getState().logout();
 });
 
+/* ---------- 建角：选项门禁与头像 ---------- */
+const {
+  visibleProfessions, professionsForRace, avatarChoicesFor, PROFESSION_OPTIONS,
+} = await import('../src/data/characterOptions.js');
+
+await check('隐藏职业按解锁与幻境门禁显示', () => {
+  const none = visibleProfessions({}, 'eternal');
+  assert.equal(none.length, 10, '未解锁时应只剩10个常规职业');
+  assert.ok(!none.some(p => p.profession_id === 'wuxiang'));
+  const unlocked = visibleProfessions(
+    { wuxiang: true, taiji: true }, 'eternal');
+  assert.ok(unlocked.some(p => p.profession_id === 'wuxiang'));
+  assert.ok(unlocked.some(p => p.profession_id === 'taiji'));
+  /* 照命即使解锁也只在幻境建角时可见 */
+  assert.ok(!unlocked.some(p => p.profession_id === 'zhaoming'));
+  const season = visibleProfessions({ zhaoming: true }, 'illusion');
+  assert.ok(season.some(p => p.profession_id === 'zhaoming'));
+});
+
+await check('种族过滤与头像ID生成与Vue一致', () => {
+  const human = professionsForRace('human', {}, 'eternal');
+  assert.equal(human.length, 3);
+  assert.deepEqual(
+    avatarChoicesFor('human', 'jianxian', 'male').slice(0, 3),
+    ['h_male1', 'h_male2', 'h_male3']);
+  assert.equal(avatarChoicesFor('human', 'jianxian', 'female').length, 12);
+  assert.equal(avatarChoicesFor('monst', 'kuangyao', 'male').length, 12);
+  assert.deepEqual(
+    avatarChoicesFor('third', 'zhenyue', 'female')[0], 'zhenyue_female');
+  assert.equal(avatarChoicesFor('', 'jianxian', 'male').length, 0);
+  assert.equal(PROFESSION_OPTIONS.length, 13);
+});
+
+/* ---------- 建角：API 与 store ---------- */
+await check('createCharacter 提交完整表单并返回新角色', async () => {
+  const calls = [];
+  const impl = async (url, options) => {
+    calls.push({ url: String(url), options });
+    return {
+      ok: true, status: 200,
+      json: async () => ({ character: { id: 'xd01new' } }),
+    };
+  };
+  const data = await accountApi.createCharacter('AT', {
+    realm_type: 'eternal', race_id: 'human',
+    profession_id: 'jianxian', name_cn: ' 新侠 ',
+    sex: 'female', avatar_id: 'h_female1',
+  }, impl);
+  assert.equal(data.character.id, 'xd01new');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.token, 'AT');
+  assert.equal(body.name_cn, '新侠', '名字需trim');
+  assert.equal(body.avatar_id, 'h_female1');
+});
+
+await check('store 建角成功后刷新列表并自动进入新角色', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { character: { id: 'xd01new' } } },
+    { body: { characters: [
+      { id: 'xd01testu', name_cn: '本命', level: 5 },
+      { id: 'xd01new', name_cn: '新侠', level: 1 },
+    ], limit: 10 } },
+    { body: { txd: 'SEL', character_id: 'xd01new',
+      bootstrap_command: 'init' } },
+    { body: { txd: 'SEL2', lines: [{ type: 'line', segments: [] }] } },
+  ]), async () => {
+    useGameStore.setState({ accountToken: 'AT', txd: '', lines: [] });
+    const ok = await useGameStore.getState().createCharacter({
+      realm_type: 'eternal', race_id: 'human',
+      profession_id: 'jianxian', name_cn: '新侠',
+      sex: 'male', avatar_id: 'h_male1',
+    });
+    assert.ok(ok);
+    assert.equal(useGameStore.getState().accountCharacters.length, 2);
+    assert.equal(useGameStore.getState().txd, 'SEL2');
+  });
+  useGameStore.getState().logout();
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));
