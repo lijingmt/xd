@@ -179,20 +179,27 @@ export const useGameStore = create((set, get) => ({
     get().applyAccountData(data);
   },
 
+  /** 主命令(按钮/tab/手动输入)：清空画面→加载→填充新内容。
+   *  挂机轮询(flushview)不走这里，保留增量追加。 */
   async command(cmd) {
     const { txd } = get();
     if (!txd || !cmd) return;
-    set({ busy: true, error: '' });
+    const startedAt = Date.now();
+    set({ busy: true, error: '', lines: [] });
     try {
       const data = await api.sendCommand(txd, cmd);
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 350) {
+        await new Promise(resolve => setTimeout(resolve, 350 - elapsed));
+      }
       set({
         txd: data.txd || txd,
         busy: false,
+        lines: (data.lines || []).slice(-MAX_LINES),
         inBattle: responseHasBattleButton(data.lines)
           ? true
           : get().inBattle,
       });
-      get().appendLines(data.lines || []);
     } catch (e) {
       set({ busy: false, error: e.message });
     }

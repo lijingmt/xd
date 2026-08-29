@@ -256,7 +256,23 @@ export default function GameScreen() {
         </View>
       )}
 
+      {/* 加载条：任何命令执行期间显示在画面顶部 */}
+      {store.busy && (
+        <View style={styles.loadingBar}>
+          <ActivityIndicator size="small" color="#d4af37" />
+          <Text style={styles.loadingText}>执行中…</Text>
+        </View>
+      )}
+
       {!!store.error && <Text style={styles.error}>{store.error}</Text>}
+
+      {/* 空态：命令清空画面后加载中给一个居中提示 */}
+      {store.busy && store.lines.length === 0 && (
+        <View style={styles.emptyLoadingWrap}>
+          <ActivityIndicator size="large" color="#d4af37" />
+          <Text style={styles.emptyLoadingText}>载入中…</Text>
+        </View>
+      )}
 
       <FlatList
         ref={listRef}
@@ -265,10 +281,16 @@ export default function GameScreen() {
         keyExtractor={lineKey}
         onScroll={handleScroll}
         scrollEventThrottle={100}
+        ListEmptyComponent={
+          !store.busy && store.lines.length === 0
+            ? <Text style={styles.emptyText}>暂无内容</Text>
+            : null
+        }
         renderItem={({ item }) => (
           <View style={styles.line}>
             {renderSegments(item, {
               send, inputValues, setInputValues, imageBase,
+              busy: store.busy,
             })}
           </View>
         )}
@@ -457,7 +479,9 @@ function renderSegments(line, ctx) {
           key={index}
           style={[styles.button, {
             backgroundColor: style.bg, borderColor: style.border,
-          }]}
+          }, ctx.busy && { opacity: 0.5 }]}
+          disabled={ctx.busy}
+          activeOpacity={0.4}
           onPress={() => ctx.send(segment.cmd)}>
           <Text style={[styles.buttonText, { color: style.color }]}>
             {segment.label}
@@ -617,6 +641,21 @@ const styles = StyleSheet.create({
   busyIndicator: {
     position: 'absolute', top: -28, left: '50%',
     marginLeft: -12, zIndex: 10,
+  },
+  loadingBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 6,
+    backgroundColor: '#1a141c', borderBottomWidth: 1,
+    borderBottomColor: '#8a6d2f',
+  },
+  loadingText: { color: '#d4af37', fontSize: 12, letterSpacing: 2 },
+  emptyLoadingWrap: {
+    position: 'absolute', top: '40%', left: 0, right: 0,
+    alignItems: 'center', gap: 10,
+  },
+  emptyLoadingText: { color: '#8a7a8a', fontSize: 14 },
+  emptyText: {
+    color: '#6a5a6a', textAlign: 'center', paddingTop: 60, fontSize: 14,
   },
   tabBar: {
     flexDirection: 'row', backgroundColor: '#14101a',
