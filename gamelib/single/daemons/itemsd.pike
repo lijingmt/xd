@@ -1980,7 +1980,7 @@ private object get_attributes_item(string orgitem,int num,
 							writeback+="    set_wulichuantou_add("+set_wulichuantou_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
-						}						
+						}
 					}
 					else if(rate>1 &&search(orgfilelines[k],"set_dodgechuantou_add")!=-1){//闪避属性扫描
 						int set_dodgechuantou_add=0;
@@ -1988,10 +1988,14 @@ private object get_attributes_item(string orgitem,int num,
 						sscanf(orgfilelines[k],"%sset_dodgechuantou_add(%d);",nothing,set_dodgechuantou_add);
 						if(set_dodgechuantou_add){
 							set_dodgechuantou_add=(int)(set_dodgechuantou_add*rate);
+							/* 同上：闪避穿透生成端封顶600千分点（60%），
+							 * 与char.pike结算侧保持一致。 */
+							if(set_dodgechuantou_add>600)
+								set_dodgechuantou_add=600;
 							writeback+="    set_dodgechuantou_add("+set_dodgechuantou_add+");\n";
 						}else{
 							writeback+=orgfilelines[k]+"\n";
-						}						
+						}
 					}
 					else if(rate>1 &&search(orgfilelines[k],"set_mofachuantou_add")!=-1){
 						int set_mofachuantou_add=0;
