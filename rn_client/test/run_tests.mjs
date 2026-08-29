@@ -882,7 +882,7 @@ await check('parseSkillType 识别主要技能类型', () => {
   assert.equal(parseSkillType('万剑归宗'), 'sword-qi');
   assert.equal(parseSkillType('降龙十八掌'), 'palm');
   assert.equal(parseSkillType('打狗棒法'), 'staff');
-  assert.equal(parseSkillType('血月狂潮'), 'fire', '含火/血月→fire');
+  assert.equal(parseSkillType('血月狂潮'), 'generic', '血月无元素关键词→generic');
   assert.equal(parseSkillType('灵治疗愈'), 'heal');
   assert.equal(parseSkillType('完全不明技能'), 'generic');
 });
