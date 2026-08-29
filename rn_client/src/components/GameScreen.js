@@ -137,7 +137,7 @@ export default function GameScreen() {
       ...event,
       id: `float-${Date.now()}-${index}`,
     }));
-    setFloaters(prev => [...prev, ...batch].slice(-8]);
+    setFloaters(prev => [...prev, ...batch].slice(-8));
     const timers = [setTimeout(() => {
       setFloaters(prev => prev.filter(f =>
         !batch.some(b => b.id === f.id)));
