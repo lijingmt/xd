@@ -211,6 +211,24 @@ export default function GameScreen() {
             fill="#3f8a53" />
         </View>
 
+        {/* 生效中的丹药/特药 buff 药丸（与 Vue active-buff-chip 同源） */}
+        {Array.isArray(status.active_buffs) &&
+            status.active_buffs.length > 0 && (
+          <View style={styles.buffRow}>
+            {status.active_buffs.map(buff => (
+              <View key={buff.kind || buff.name_cn}
+                style={styles.buffChip}>
+                <Text style={styles.buffChipText}>
+                  🔆{buff.name_cn}
+                  <Text style={styles.buffChipTime}>
+                    ({buff.remain_min}m)
+                  </Text>
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* 经验条：Lv.N === Lv.N+1 / 已封顶 */}
         <View style={styles.expRow}>
           <Text style={styles.expLevel}>Lv.{status.level || '?'}</Text>
@@ -375,6 +393,22 @@ export default function GameScreen() {
   );
 }
 
+/** 图片加载：失败时显示占位方块而非空白。 */
+function SmartImage({ uri, style }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <View style={[style, styles.imageFallback]}>
+        <Text style={styles.imageFallbackText}>🖼</Text>
+      </View>
+    );
+  }
+  return (
+    <Image source={{ uri }} style={style} resizeMode="contain"
+      onError={() => setFailed(true)} />
+  );
+}
+
 function StatBar({ label, value, max, fill }) {
   return (
     <View style={styles.statRow}>
@@ -514,8 +548,7 @@ function renderSegments(line, ctx) {
       const uri = resolveImageUrl(ctx.imageBase, segment.src);
       if (!uri) return null;
       return (
-        <Image key={index} source={{ uri }}
-          style={styles.image} resizeMode="contain" />
+        <SmartImage key={index} uri={uri} style={styles.image} />
       );
     }
     return null;
@@ -565,6 +598,15 @@ const styles = StyleSheet.create({
   },
   logoutText: { color: '#c8a8b8', fontSize: 12 },
   statRows: { gap: 4 },
+  buffRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2,
+  },
+  buffChip: {
+    backgroundColor: '#1a2418', borderWidth: 1, borderColor: '#3f8a53',
+    borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2,
+  },
+  buffChipText: { color: '#7ad08a', fontSize: 10 },
+  buffChipTime: { color: '#5a8a6a', fontSize: 9 },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statLabel: { color: '#a89aa8', fontSize: 11, width: 26 },
   statTrack: {
@@ -623,6 +665,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#3a2f46', minWidth: 130, minHeight: 34,
   },
   image: { width: 76, height: 76, borderRadius: 10, marginVertical: 4 },
+  imageFallback: {
+    backgroundColor: '#1a141c', borderWidth: 1, borderColor: '#3a2f46',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  imageFallbackText: { fontSize: 24, color: '#6a5a6a' },
   commandBar: {
     flexDirection: 'row', gap: 8, padding: 8,
     borderTopWidth: 1, borderTopColor: '#2e2430', backgroundColor: '#14101a',

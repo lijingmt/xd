@@ -184,14 +184,9 @@ export const useGameStore = create((set, get) => ({
   async command(cmd) {
     const { txd } = get();
     if (!txd || !cmd) return;
-    const startedAt = Date.now();
     set({ busy: true, error: '', lines: [] });
     try {
       const data = await api.sendCommand(txd, cmd);
-      const elapsed = Date.now() - startedAt;
-      if (elapsed < 350) {
-        await new Promise(resolve => setTimeout(resolve, 350 - elapsed));
-      }
       set({
         txd: data.txd || txd,
         busy: false,
