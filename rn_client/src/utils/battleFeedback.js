@@ -53,17 +53,15 @@ export function parseBattleLine(line) {
     events.push({ kind: 'poison', target: 'player' });
   }
 
-  /* 伤害数字：含"你施展/你造成/你紧握"→玩家打出去的；
-   * 含"对你造成/敌人对你"→玩家受的伤。两个都不含→旁观看戏，跳过。 */
+  /* 伤害数字：先看"对你造成"（受伤，优先级高），再看"你…造成/施展/
+   * 紧握/使用"（玩家输出）。两个都不含→旁观，跳过。 */
   const dmg = text.match(/(\d+)点.*?伤害/);
   if (dmg) {
     const value = parseInt(dmg[1], 10) || 0;
     if (value > 0) {
-      const isPlayerDealing = text.includes('你造成') ||
-        text.includes('你施展') || text.includes('你紧握') ||
-        text.includes('你使用');
-      const isReceiving = text.includes('对你造成') ||
-        text.includes('敌人对你');
+      const isReceiving = /对你造成|敌人对你/.test(text);
+      const isPlayerDealing = !isReceiving &&
+        (/你.{0,6}造成|你施放|你施展|你紧握|你使用/.test(text));
       const critical = /暴击|致命|会心一击/.test(text);
       if (isPlayerDealing) {
         events.push({ kind: 'damage', target: 'enemy', value, critical });
