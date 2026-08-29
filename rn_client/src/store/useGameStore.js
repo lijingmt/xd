@@ -24,6 +24,8 @@ export const useGameStore = create((set, get) => ({
   characterLimit: 0,
   accountUnlocks: { wuxiang: false, taiji: false, zhaoming: false },
   afkBusy: false,
+  recovering: false,
+  currentCharacterId: '',
 
   setApiBase(base) {
     api.setApiBase(base);
@@ -142,6 +144,7 @@ export const useGameStore = create((set, get) => ({
         txd: data.txd || selected.txd,
         busy: false,
         lines: data.lines || [],
+        currentCharacterId: characterId,
       });
     } catch (e) {
       set({ busy: false, error: e.message });
@@ -247,8 +250,8 @@ export const useGameStore = create((set, get) => ({
 
   /** 挂机画面轮询（txpike9 同款 flushview 命令通道，全量快照替换）。 */
   async pollGameView(platform) {
-    const { txd } = get();
-    if (!txd) return;
+    const { txd, recovering } = get();
+    if (!txd || recovering) return;
     try {
       const data = await api.sendCommand(txd, 'flushview', undefined, platform);
       set({ txd: data.txd || txd });
@@ -270,11 +273,46 @@ export const useGameStore = create((set, get) => ({
         }
       }
     } catch (e) {
-      /* 会话失效：干净登出，配合会话恢复两步回到现场。 */
       if (e && e.status === 401) {
-        get().logout();
+        await get().recoverSession('flushview');
       }
       /* 其余网络抖动静默，下轮重试。 */
+    }
+  },
+
+  /**
+   * 游戏会话(txd)过期但账号令牌可能仍有效：尝试重选当前角色恢复，
+   * 不必把玩家踢回登录页。只有账号令牌也失效时才完全登出。
+   */
+  async recoverSession(source) {
+    const { accountToken, currentCharacterId, recovering } = get();
+    if (recovering) return false;
+    set({ recovering: true });
+    try {
+      if (accountToken && currentCharacterId) {
+        const selected = await accountApi.selectCharacter(
+          accountToken, currentCharacterId);
+        const data = await api.sendCommand(
+          selected.txd, selected.bootstrap_command || 'init');
+        set({
+          txd: data.txd || selected.txd,
+          lines: (data.lines || []).slice(-MAX_LINES),
+          error: '',
+        });
+        return true;
+      }
+      /* 无角色信息可恢复：干净登出。 */
+      get().logout();
+      return false;
+    } catch (e) {
+      if (e && e.status === 401) {
+        get().logout();
+      } else {
+        set({ error: `会话恢复失败(${source}): ${e.message}` });
+      }
+      return false;
+    } finally {
+      set({ recovering: false });
     }
   },
 
@@ -284,7 +322,7 @@ export const useGameStore = create((set, get) => ({
       txd: '', userid: '', lines: [], status: null,
       battle: null, inBattle: false, autofighting: false, error: '',
       accountToken: '', accountId: '', accountCharacters: [],
-      characterLimit: 0,
+      characterLimit: 0, currentCharacterId: '', recovering: false,
     });
   },
 }));

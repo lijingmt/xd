@@ -160,6 +160,23 @@ export function flattenTextParts(parts) {
   return units;
 }
 
+/**
+ * 为一行生成稳定 key：裸文本哈希 + 按钮首命令。
+ * flushview 全量替换时避免 index-key 导致 FlatList 全行重渲。
+ */
+export function lineKey(line, index) {
+  const plain = linePlainText(line);
+  const firstButton = ((line && line.segments) || [])
+    .find(segment => segment && segment.type === 'button');
+  const btnPart = firstButton ? `|${firstButton.cmd || ''}` : '';
+  let hash = 5381;
+  const source = `${plain}${btnPart}`;
+  for (let i = 0; i < source.length; i++) {
+    hash = ((hash << 5) + hash + source.charCodeAt(i)) & 0x7fffffff;
+  }
+  return `${hash}-${index}`;
+}
+
 /** 一行(line)的裸文本（无颜色），用于搜索/调试。 */
 export function linePlainText(line) {
   let out = '';

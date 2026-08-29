@@ -13,7 +13,7 @@ import {
 import {
   flattenTextParts, linePlainText, lineHasBattleButton,
   responseHasBattleButton, buttonStyleFor, resolveImageUrl,
-  buildInputCommand, colorHexForClass,
+  buildInputCommand, colorHexForClass, lineKey,
 } from '../src/utils/segments.js';
 import { useGameStore } from '../src/store/useGameStore.js';
 
@@ -628,6 +628,79 @@ await check('pollGameView 会话401时干净登出', async () => {
     assert.equal(state.txd, '', '401应触发登出');
     assert.equal(state.inBattle, false);
     assert.equal(state.autofighting, false);
+  });
+});
+
+/* ---------- 会话恢复与渲染性能 ---------- */
+await check('lineKey 生成稳定key且不同内容不同key', () => {
+  const lineA = {
+    segments: [
+      { type: 'text', parts: [{ type: 'text', content: '你好世界' }] },
+    ],
+  };
+  const lineB = {
+    segments: [
+      { type: 'text', parts: [{ type: 'text', content: '再见世界' }] },
+    ],
+  };
+  const keyA = lineKey(lineA, 0);
+  const keyB = lineKey(lineB, 0);
+  assert.ok(keyA.length > 4, `key=${keyA}`);
+  assert.notEqual(keyA, keyB, '不同内容必须不同key');
+  const keyA2 = lineKey(lineA, 0);
+  assert.equal(keyA, keyA2, '相同内容相同index必须稳定');
+  /* 按钮行也要纳入key */
+  const lineBtn = {
+    segments: [
+      { type: 'button', label: '攻击', cmd: 'kill 1' },
+    ],
+  };
+  const lineBtn2 = {
+    segments: [
+      { type: 'button', label: '攻击', cmd: 'kill 2' },
+    ],
+  };
+  assert.notEqual(lineKey(lineBtn, 0), lineKey(lineBtn2, 0),
+    '不同按钮cmd必须不同key');
+});
+
+await check('pollGameView 401时尝试恢复而非硬登出', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { status: 401, ok: false, body: { error: 'TXD认证信息无效' } },
+    { body: { txd: 'NT', character_id: 'xd01testu',
+      bootstrap_command: 'init' } },
+    { body: { txd: 'NT2', lines: [{ type: 'line', segments: [] }] } },
+  ]), async () => {
+    useGameStore.setState({
+      txd: 'OLD', lines: [], inBattle: true,
+      accountToken: 'AT', currentCharacterId: 'xd01testu',
+      recovering: false,
+    });
+    await useGameStore.getState().pollGameView('ios');
+    const state = useGameStore.getState();
+    assert.equal(state.txd, 'NT2', '恢复后应获得新txd');
+    assert.equal(state.currentCharacterId, 'xd01testu');
+    assert.equal(state.inBattle, true, '战斗态保持（恢复不清战斗）');
+  });
+  useGameStore.getState().logout();
+});
+
+await check('recoverSession 账号令牌也失效时才完全登出', async () => {
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { status: 401, ok: false, body: { error: '令牌过期' } },
+  ]), async () => {
+    useGameStore.setState({
+      accountToken: 'DEAD', currentCharacterId: 'xd01x',
+      recovering: false,
+    });
+    const ok = await useGameStore.getState().recoverSession('test');
+    assert.equal(ok, false);
+    assert.equal(useGameStore.getState().accountToken, '',
+      '账号令牌也失效应完全登出');
   });
 });
 

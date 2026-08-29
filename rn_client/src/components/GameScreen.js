@@ -7,6 +7,7 @@ import {
 import { useGameStore } from '../store/useGameStore.js';
 import {
   flattenTextParts, buttonStyleFor, resolveImageUrl, buildInputCommand,
+  lineKey,
 } from '../utils/segments.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 
@@ -82,8 +83,18 @@ export default function GameScreen() {
     };
   }, []);
 
+  /* 智能滚动：只在用户已在底部附近时才跟随新行（阅读历史不被打断）。 */
+  const nearBottomRef = useRef(true);
+  const handleScroll = event => {
+    const { contentOffset, contentSize, layoutMeasurement } =
+      event.nativeEvent;
+    const distanceFromEnd =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    nearBottomRef.current = distanceFromEnd < 80;
+  };
+
   useEffect(() => {
-    if (listRef.current) {
+    if (listRef.current && nearBottomRef.current) {
       setTimeout(() => listRef.current.scrollToEnd({ animated: false }), 50);
     }
   }, [store.lines.length]);
@@ -198,7 +209,9 @@ export default function GameScreen() {
         ref={listRef}
         style={styles.feed}
         data={store.lines}
-        keyExtractor={(item, index) => String(index)}
+        keyExtractor={lineKey}
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
         renderItem={({ item }) => (
           <View style={styles.line}>
             {renderSegments(item, {
