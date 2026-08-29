@@ -108,30 +108,30 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 	reward = player->add_kill_exp_with_bonus(base_exp,buff_percent,2);
 	actual_exp = reward["actual_exp"];
 	if(reward["buff_bonus"]>0)
-		bonus_tips += "<font style=\"color:DARKORANGE\">经验药品加成：额外获得 "+
-			format_game_number(reward["buff_bonus"])+" 点经验值</font>";
+		bonus_tips += "§6经验药品加成：额外获得 "+
+			format_game_number(reward["buff_bonus"])+" 点经验值§r";
 	if(reward["event_bonus"]>0){
 		if(sizeof(bonus_tips))
-			bonus_tips += "<br>";
-		bonus_tips += "<font style=\"color:DARKORANGE\">五一节经验活动（额外增加2倍）：额外获得 "+
-			format_game_number(reward["event_bonus"])+" 点经验值</font>";
+			bonus_tips += "\n";
+		bonus_tips += "§6五一节经验活动（额外增加2倍）：额外获得 "+
+			format_game_number(reward["event_bonus"])+" 点经验值§r";
 	}
 	if(reward["donation_multiplier"]>1){
 		if(sizeof(bonus_tips))
-			bonus_tips += "<br>";
-		bonus_tips += "<font style=\"color:DARKORANGE\">捐赠经验倍速："+
+			bonus_tips += "\n";
+		bonus_tips += "§6捐赠经验倍速："+
 			(string)reward["donation_multiplier"]+
 			"倍，作用于药品和活动加成后的总经验，额外获得 "+
-			format_game_number(reward["donation_bonus"])+" 点经验值</font>";
+			format_game_number(reward["donation_bonus"])+" 点经验值§r";
 	}
 	if(reward["interface_bonus"]>0)
-		interface_tip = "<font style=\"color:GOLD\">【新界面加成+"+
-			(string)reward["interface_bonus"]+"】</font> ";
+		interface_tip = "§g【新界面加成+"+
+			(string)reward["interface_bonus"]+"】§r ";
 	if(team_count>1 && team_pool_percent>100)
-		team_tip = "<font style=\"color:MEDIUMSEAGREEN\">【组队经验池+"+
+		team_tip = "§2【组队经验池+"+
 			(string)(team_pool_percent-100)+"%】"+(string)team_count+
 			"名有效同房队员共享"+(string)team_pool_percent+
-			"%基础经验，本人份额已计入下方结果。</font>";
+			"%基础经验，本人份额已计入下方结果。§r";
 	if(sizeof(team_tip))
 		message += team_tip+"\n";
 	message += interface_tip+"你得到了 "+format_game_number(actual_exp)+

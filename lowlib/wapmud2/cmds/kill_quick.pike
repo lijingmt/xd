@@ -70,7 +70,7 @@ int main(string arg)
 	}
 	if(me->query_level()<=10){
 		string tmp ="您现在处于新手阶段，10级以下可以免费体验快速攻击功能。\n";
-		s +="<div style=\"color:Orange\">"+tmp+"</div>";//name_cn=query_rare_level()+name_cn;</p>\n";
+		s +="§6"+tmp+"§r";//name_cn=query_rare_level()+name_cn;</p>\n";
 	}
 	else{
 		if(VIP_KILL_LIMIT){
@@ -182,7 +182,7 @@ int main(string arg)
 		if(me->query_jingli()<=10){
 			if(szx<1000){ //////1000元免精力//////
 				string stmp ="精力不足，无法快速战斗，请返回。";
-				s +="<div style=\"color:Orange\">"+stmp+"</div>\n";//name_cn=query_rare_level()+name_cn;</p>\n";
+				s +="§6"+stmp+"§r\n";//name_cn=query_rare_level()+name_cn;</p>\n";
 				s += "累计捐赠1000元，解锁0精力快速攻击功能！!\n，捐赠请加qq 1811117272。\n";
 				s += "[返回:look]\n";
 				write(s);
@@ -201,7 +201,7 @@ int main(string arg)
 		}
 		if(ob->is("npc")&&ob->_boss){
 			string stmp2 ="boss级别的怪物，无法实行快速攻击。";
-			s +="<div style=\"color:Orange\">"+stmp2+"</div>\n";//name_cn=query_rare_level()+name_cn;</p>\n";
+			s +="§6"+stmp2+"§r\n";//name_cn=query_rare_level()+name_cn;</p>\n";
 			s += "[返回:look]\n";
 			write(s);
 			return 1;
@@ -311,17 +311,17 @@ int main(string arg)
 			}
 			s+="──────────\n";
 			if(me->get_cur_life()<me->life_max*3/10)
-				s += "<font style=\"color:red\">生命 "+
+				s += "§1生命 "+
 					format_game_number(me->get_cur_life())+"/"+
-					format_game_number(me->life_max)+"</font>\n";
+					format_game_number(me->life_max)+"§r\n";
 			else if(me->get_cur_life()<me->life_max*6/10)
-				s += "<font style=\"color:Orange\">生命 "+
+				s += "§6生命 "+
 					format_game_number(me->get_cur_life())+"/"+
-					format_game_number(me->life_max)+"</font>\n";
+					format_game_number(me->life_max)+"§r\n";
 			else
-				s += "<font style=\"color:Orange\">生命 "+
+				s += "§6生命 "+
 					format_game_number(me->get_cur_life())+"/"+
-					format_game_number(me->life_max)+"</font>\n";
+					format_game_number(me->life_max)+"§r\n";
 			s += "法力 "+format_game_number(me->get_cur_mofa())+"/"+
 				format_game_number(me->mofa_max)+"\n";
 			s += "精力 "+me->query_jingli()+"\n"; 

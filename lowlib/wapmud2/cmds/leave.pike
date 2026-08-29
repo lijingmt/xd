@@ -83,21 +83,21 @@ int main(string|zero arg)
 							int d1 = random(10) + 1;
 							int d2 = random(10) + 1;
 							array tmp1 = ({ 
-									"<font style=\"color:red\">"+t1+"</font>"+c1+d1,
-									""+c1+"<font style=\"color:red\">"+t1+"</font>"+d1,
-									""+c1+""+d1+"<font style=\"color:red\">"+t1+"</font>"
+									"§1"+t1+"§r"+c1+d1,
+									""+c1+"§1"+t1+"§r"+d1,
+									""+c1+""+d1+"§1"+t1+"§r"
 									});
 							array tmp2 = ({ 
-									"<font style=\"color:red\">"+t2+"</font>"+c2+d2,
-									""+c2+"<font style=\"color:red\">"+t2+"</font>"+d2,
-									""+c2+""+d2+"<font style=\"color:red\">"+t2+"</font>"
+									"§1"+t2+"§r"+c2+d2,
+									""+c2+"§1"+t2+"§r"+d2,
+									""+c2+""+d2+"§1"+t2+"§r"
 									});
 							string s1 = tmp1[random(sizeof(tmp1))]; 
 							string s2 = tmp2[random(sizeof(tmp2))];
 							me["/tmp/rd_tmp1"] = s1;
 							me["/tmp/rd_tmp2"] = s2;
 							me["/tmp/rd_tmp3"] = t3;
-							tell_object(me,"<font style=\"color:red; font-size:x-large;\">请输入两个颜色相同数字相乘的结果</font>\n");	
+							tell_object(me,"§C请输入两个颜色相同数字相乘的结果§r\n");	
 							werror("leave call /tmp/rd_tmp1=["+me["/tmp/rd_tmp1"]+"]\n");
 							werror("leave call /tmp/rd_tmp2=["+me["/tmp/rd_tmp2"]+"]\n");
 							werror("leave call /tmp/rd_tmp3=["+me["/tmp/rd_tmp3"]+"]\n");
