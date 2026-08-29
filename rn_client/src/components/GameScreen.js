@@ -136,6 +136,9 @@ export default function GameScreen() {
   const statsRef = useRef(createStatsTracker());
   const lastPollRef = useRef(0);
   const lastStatusRef = useRef(0);
+  /* 用户主动导航后的阅读保护期：期间不拉挂机画面，防止子菜单被
+   * 服务端autofight视图盖掉（挂机在服务端继续跑，不受影响）。 */
+  const lastUserNavRef = useRef(0);
   const inBattleRef = useRef(false);
   const afkRef = useRef(false);
   inBattleRef.current = store.inBattle;
@@ -172,15 +175,16 @@ export default function GameScreen() {
       const fighting = inBattleRef.current;
       const state = useGameStore.getState();
       const afk = !!state.autofighting;
-      if (fighting || afk) {
+      const reading = now - lastUserNavRef.current < 15000;
+      if ((fighting || afk) && !reading) {
         const delay = fighting ? 1000 : 3000;
         if (now - lastPollRef.current < delay) return;
         lastPollRef.current = now;
         state.pollGameView(platform);
         return;
       }
-      /* 空闲：只刷新状态数值（不触碰画面行）。 */
-      if (now - lastStatusRef.current < 10000) return;
+      /* 空闲/阅读保护期：只刷新状态数值（不触碰画面行）。 */
+      if (now - lastStatusRef.current < 5000) return;
       lastStatusRef.current = now;
       state.refreshStatus();
     }, 1000);
@@ -284,6 +288,7 @@ export default function GameScreen() {
   const send = cmd => {
     if (!cmd) return;
     setMoreOpen(false);
+    lastUserNavRef.current = Date.now();
     store.command(cmd.trim());
   };
 
