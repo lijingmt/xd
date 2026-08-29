@@ -20,7 +20,7 @@ export default function CharacterScreen() {
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
-    refreshAccountCharacters();
+    refreshAccountCharacters().catch(() => {});
   }, []);
 
   const slotsFull = characterLimit > 0 &&
@@ -61,7 +61,7 @@ export default function CharacterScreen() {
         refreshControl={
           <RefreshControl
             refreshing={busy}
-            onRefresh={() => refreshAccountCharacters()}
+            onRefresh={() => refreshAccountCharacters().catch(() => {})}
             tintColor="#a89aa8"
           />
         }

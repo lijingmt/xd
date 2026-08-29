@@ -8,6 +8,9 @@ import assert from 'node:assert/strict';
 import * as api from '../src/api/mudApi.js';
 import * as accountApi from '../src/api/accountApi.js';
 import {
+  setStorageBackend, saveSession, loadSession, clearSession,
+} from '../src/utils/sessionStore.js';
+import {
   flattenTextParts, linePlainText, lineHasBattleButton,
   responseHasBattleButton, buttonStyleFor, resolveImageUrl,
   buildInputCommand, colorHexForClass,
@@ -426,6 +429,87 @@ await check('store 建角成功后刷新列表并自动进入新角色', async (
     assert.equal(useGameStore.getState().txd, 'SEL2');
   });
   useGameStore.getState().logout();
+});
+
+/* ---------- 会话持久化 ---------- */
+function memoryBackend() {
+  const map = new Map();
+  return {
+    getItem: async key => (map.has(key) ? map.get(key) : null),
+    setItem: async (key, value) => { map.set(key, value); },
+    removeItem: async key => { map.delete(key); },
+    _map: map,
+  };
+}
+
+await check('会话存取：保存/读取/清除与损坏数据兜底', async () => {
+  const backend = memoryBackend();
+  setStorageBackend(backend);
+  await saveSession({ token: 'AT', userid: 'xd01u', apiBase: 'http://h:1' });
+  const loaded = await loadSession();
+  assert.equal(loaded.token, 'AT');
+  assert.equal(loaded.userid, 'xd01u');
+  assert.equal(loaded.apiBase, 'http://h:1');
+  await clearSession();
+  assert.equal(await loadSession(), null);
+  await backend._map.set('xiand.session', '{corrupt json');
+  assert.equal(await loadSession(), null);
+  await backend._map.set('xiand.session', JSON.stringify({ userid: 'x' }));
+  assert.equal(await loadSession(), null, '无token的会话必须拒绝恢复');
+  setStorageBackend(null);
+});
+
+await check('store 登录成功后写入持久会话', async () => {
+  const backend = memoryBackend();
+  setStorageBackend(backend);
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { token: 'AT9', account_id: 'xd01u', limit: 10 } },
+    { body: { characters: [] } },
+  ]), async () => {
+    const ok = await useGameStore.getState().login('xd01', 'u9', 'pw');
+    assert.ok(ok);
+  });
+  const raw = backend._map.get('xiand.session');
+  assert.ok(raw && raw.includes('AT9'), '登录后应写入会话');
+  setStorageBackend(null);
+  useGameStore.getState().logout();
+});
+
+await check('restoreSession 令牌有效则直达角色面板', async () => {
+  const backend = memoryBackend();
+  setStorageBackend(backend);
+  await saveSession({
+    token: 'ATR', userid: 'xd01r', apiBase: 'http://mock:9',
+  });
+  api.setApiBase('http://mock:9');
+  accountApi.setAccountApiBase('http://mock:9');
+  await withGlobalFetch(mockFetch([
+    { body: { characters: [{ id: 'xd01r', name_cn: '侠', level: 3 }] } },
+  ]), async () => {
+    const ok = await useGameStore.getState().restoreSession();
+    assert.ok(ok);
+    assert.equal(useGameStore.getState().accountToken, 'ATR');
+    assert.equal(useGameStore.getState().accountCharacters.length, 1);
+  });
+  setStorageBackend(null);
+  useGameStore.getState().logout();
+});
+
+await check('restoreSession 令牌过期则清会话回登录', async () => {
+  const backend = memoryBackend();
+  setStorageBackend(backend);
+  await saveSession({ token: 'DEAD', userid: 'xd01x', apiBase: '' });
+  await withGlobalFetch(mockFetch([
+    { status: 401, ok: false, body: { error: '令牌过期' } },
+  ]), async () => {
+    const ok = await useGameStore.getState().restoreSession();
+    assert.equal(ok, false);
+    assert.equal(useGameStore.getState().accountToken, '');
+    assert.equal(await loadSession(), null, '过期会话应被清除');
+  });
+  setStorageBackend(null);
 });
 
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);

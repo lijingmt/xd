@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as api from '../api/mudApi.js';
 import * as accountApi from '../api/accountApi.js';
 import { responseHasBattleButton } from '../utils/segments.js';
+import { saveSession, loadSession, clearSession } from '../utils/sessionStore.js';
 
 const MAX_LINES = 400;
 
@@ -27,6 +28,28 @@ export const useGameStore = create((set, get) => ({
     api.setApiBase(base);
     accountApi.setAccountApiBase(api.getApiBase());
     set({ apiBase: api.getApiBase() });
+    /* 服务器地址随会话持久化，手机端换网络后免重填。 */
+    const { accountToken, userid } = get();
+    if (accountToken) {
+      saveSession({ token: accountToken, userid, apiBase: api.getApiBase() })
+        .catch(() => {});
+    }
+  },
+
+  async restoreSession() {
+    const saved = await loadSession();
+    if (!saved) return false;
+    if (saved.apiBase) get().setApiBase(saved.apiBase);
+    set({ accountToken: saved.token, userid: saved.userid });
+    try {
+      await get().refreshAccountCharacters();
+      return true;
+    } catch (e) {
+      /* 令牌过期：清会话回登录页。 */
+      await clearSession().catch(() => {});
+      set({ accountToken: '', userid: '', accountCharacters: [] });
+      return false;
+    }
   },
 
   async loadPartitions() {
@@ -65,6 +88,13 @@ export const useGameStore = create((set, get) => ({
         });
         get().applyAccountData(account);
         get().applyAccountData(characters);
+        if (account.token) {
+          saveSession({
+            token: account.token,
+            userid: fullUserid,
+            apiBase: api.getApiBase(),
+          }).catch(() => {});
+        }
         return true;
       } catch (accountError) {
         const data = await api.login(fullUserid, password);
@@ -125,7 +155,7 @@ export const useGameStore = create((set, get) => ({
       const created = await accountApi.createCharacter(
         accountToken, form);
       const newId = created.character && created.character.id;
-      await get().refreshAccountCharacters();
+      await get().refreshAccountCharacters().catch(() => {});
       if (newId) {
         await get().pickCharacter(String(newId));
       }
@@ -137,15 +167,12 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
+  /** 失败向上抛（restoreSession 据此判定令牌过期）；界面层自行catch。 */
   async refreshAccountCharacters() {
     const { accountToken } = get();
     if (!accountToken) return;
-    try {
-      const data = await accountApi.fetchCharacters(accountToken);
-      get().applyAccountData(data);
-    } catch (e) {
-      set({ error: e.message });
-    }
+    const data = await accountApi.fetchCharacters(accountToken);
+    get().applyAccountData(data);
   },
 
   async command(cmd) {
@@ -213,6 +240,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   logout() {
+    clearSession().catch(() => {});
     set({
       txd: '', userid: '', lines: [], status: null,
       battle: null, inBattle: false, autofighting: false, error: '',
