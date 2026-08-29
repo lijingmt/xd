@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
 import {
-  flattenTextParts, buttonStyleFor, resolveImageUrl, buildInputCommand,
   lineKey,
 } from '../utils/segments.js';
 import { parseBattleLines } from '../utils/battleFeedback.js';
@@ -18,6 +17,7 @@ import BattleScene from './BattleScene.js';
 import { SmartImage } from './GameSmartImage.js';
 import EquipmentPanel from './EquipmentPanel.js';
 import SkillEffectOverlay from './SkillEffectOverlay.js';
+import { LineItem } from './LineItem.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
 const QUICK_TOOLS = [
@@ -330,18 +330,24 @@ export default function GameScreen() {
         keyExtractor={lineKey}
         onScroll={handleScroll}
         scrollEventThrottle={100}
+        windowSize={8}
+        maxToRenderPerBatch={12}
+        initialNumToRender={20}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={true}
         ListEmptyComponent={
           !store.busy && store.lines.length === 0
             ? <Text style={styles.emptyText}>暂无内容</Text>
             : null
         }
         renderItem={({ item }) => (
-          <View style={styles.line}>
-            {renderSegments(item, {
+          <LineItem
+            line={item}
+            ctx={{
               send, inputValues, setInputValues, imageBase,
               busy: store.busy,
-            })}
-          </View>
+            }}
+          />
         )}
       />
 
@@ -507,73 +513,6 @@ function formatNumber(value) {
   if (num >= 100000000) return `${(num / 100000000).toFixed(1)}亿`;
   if (num >= 10000) return `${(num / 10000).toFixed(1)}万`;
   return String(num);
-}
-
-function renderSegments(line, ctx) {
-  const segments = (line && line.segments) || [];
-  return segments.map((segment, index) => {
-    if (!segment || !segment.type) return null;
-    if (segment.type === 'text') {
-      const units = flattenTextParts(segment.parts);
-      return (
-        <Text key={index} style={styles.text}>
-          {units.map((unit, unitIndex) => (
-            <Text
-              key={unitIndex}
-              style={{ color: unit.color, fontWeight: unit.bold ? '700' : '400' }}>
-              {unit.text}
-            </Text>
-          ))}
-        </Text>
-      );
-    }
-    if (segment.type === 'button') {
-      const style = buttonStyleFor(segment);
-      return (
-        <TouchableOpacity
-          key={index}
-          style={[styles.button, {
-            backgroundColor: style.bg, borderColor: style.border,
-          }, ctx.busy && { opacity: 0.5 }]}
-          disabled={ctx.busy}
-          activeOpacity={0.4}
-          onPress={() => ctx.send(segment.cmd)}>
-          <Text style={[styles.buttonText, { color: style.color }]}>
-            {segment.label}
-          </Text>
-        </TouchableOpacity>
-      );
-    }
-    if (segment.type === 'cmd-input' || segment.type === 'input') {
-      const key = `input-${index}`;
-      const value = ctx.inputValues[key] ??
-        String(segment.default || '');
-      return (
-        <TextInput
-          key={index}
-          style={styles.inlineInput}
-          value={value}
-          onChangeText={text =>
-            ctx.setInputValues({ ...ctx.inputValues, [key]: text })}
-          onSubmitEditing={() => {
-            const cmd = buildInputCommand(segment, value);
-            if (cmd) ctx.send(cmd);
-          }}
-          placeholder={segment.name || '输入'}
-          placeholderTextColor="#6a5a6a"
-          returnKeyType="send"
-        />
-      );
-    }
-    if (segment.type === 'image') {
-      const uri = resolveImageUrl(ctx.imageBase, segment.src);
-      if (!uri) return null;
-      return (
-        <SmartImage key={index} uri={uri} style={styles.image} />
-      );
-    }
-    return null;
-  });
 }
 
 const styles = StyleSheet.create({
