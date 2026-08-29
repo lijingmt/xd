@@ -24,8 +24,6 @@ export const useGameStore = create((set, get) => ({
   characterLimit: 0,
   accountUnlocks: { wuxiang: false, taiji: false, zhaoming: false },
   afkBusy: false,
-  viewSequence: 0,
-  viewGeneration: '',
 
   setApiBase(base) {
     api.setApiBase(base);
@@ -239,7 +237,7 @@ export const useGameStore = create((set, get) => ({
         set({ autofighting: !!data.autofight });
       }
       /* 立即拉一帧挂机画面，让战斗输出马上出现在屏幕上。 */
-      await get().pollAutofightView();
+      await get().pollGameView('ios');
     } catch (e) {
       set({ autofighting: previous, error: e.message });
     } finally {
@@ -247,47 +245,36 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
-  /** 挂机画面增量轮询：全量快照替换（与Vue同语义）。 */
-  async pollAutofightView() {
-    const { txd, viewSequence, viewGeneration } = get();
+  /** 挂机画面轮询（txpike9 同款 flushview 命令通道，全量快照替换）。 */
+  async pollGameView(platform) {
+    const { txd } = get();
     if (!txd) return;
     try {
-      const data = await api.fetchAutofightView(
-        txd, viewSequence, viewGeneration);
-      if (typeof data.active !== 'undefined') {
-        set({ autofighting: !!data.active });
-      }
-      if (data.refresh) {
-        const refresh = data.refresh || {};
-        if (refresh.player) set({ status: refresh.player });
-        if (typeof refresh.in_battle !== 'undefined') {
-          set({ inBattle: !!refresh.in_battle });
-          if (refresh.enemy || !refresh.in_battle) {
-            set({ battle: refresh.in_battle
-              ? { enemy: refresh.enemy, in_battle: 1 }
-              : null });
-          }
-        }
-      }
-      if (data.unchanged) {
-        const gen = String(data.generation || '');
-        if (gen && gen !== get().viewGeneration) {
-          set({ viewGeneration: gen, viewSequence: 0 });
-        }
-        return;
-      }
-      const gen = String(data.generation || '');
-      const seq = Number(data.sequence || 0);
-      if (!gen || !Number.isFinite(seq)) return;
-      if (gen === get().viewGeneration && seq <= get().viewSequence) return;
+      const data = await api.sendCommand(txd, 'flushview', undefined, platform);
+      set({ txd: data.txd || txd });
       const lines = Array.isArray(data.lines) ? data.lines : null;
-      set({
-        viewGeneration: gen,
-        viewSequence: seq,
-        ...(lines ? { lines: lines.slice(-MAX_LINES) } : {}),
-      });
+      if (lines) set({ lines: lines.slice(-MAX_LINES) });
+      const refresh = data.refresh || {};
+      if (refresh.player) {
+        set({
+          status: refresh.player,
+          autofighting: !!refresh.player.autofight,
+        });
+      }
+      if (typeof refresh.in_battle !== 'undefined') {
+        set({ inBattle: !!refresh.in_battle });
+        if (refresh.enemy || !refresh.in_battle) {
+          set({ battle: refresh.in_battle
+            ? { enemy: refresh.enemy, in_battle: 1 }
+            : null });
+        }
+      }
     } catch (e) {
-      /* 网络抖动静默，下轮重试 */
+      /* 会话失效：干净登出，配合会话恢复两步回到现场。 */
+      if (e && e.status === 401) {
+        get().logout();
+      }
+      /* 其余网络抖动静默，下轮重试。 */
     }
   },
 

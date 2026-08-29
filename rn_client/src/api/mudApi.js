@@ -85,9 +85,12 @@ export async function login(userid, password, fetchImpl) {
   return getJson(url, fetchImpl);
 }
 
-/** 用当前 txd 执行任意游戏命令，返回新的 {txd, lines}。 */
-export async function sendCommand(txd, cmd, fetchImpl) {
-  const url = buildJsonUrl(getApiBase(), { txd, cmd });
+/** 用当前 txd 执行任意游戏命令，返回新的 {txd, lines, refresh?}。
+ * platform: txpike9 同款约定——web 导出按 ios 上报，原生传 os。 */
+export async function sendCommand(txd, cmd, fetchImpl, platform) {
+  const params = { txd, cmd };
+  if (platform) params.platform = platform;
+  const url = buildJsonUrl(getApiBase(), params);
   return getJson(url, fetchImpl);
 }
 
