@@ -389,22 +389,6 @@ export default function GameScreen() {
   );
 }
 
-/** 图片加载：失败时显示占位方块而非空白。 */
-function SmartImage({ uri, style }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <View style={[style, styles.imageFallback]}>
-        <Text style={styles.imageFallbackText}>🖼</Text>
-      </View>
-    );
-  }
-  return (
-    <Image source={{ uri }} style={style} resizeMode="contain"
-      onError={() => setFailed(true)} />
-  );
-}
-
 function StatBar({ label, value, max, fill }) {
   return (
     <View style={styles.statRow}>
