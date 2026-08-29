@@ -927,6 +927,49 @@ await check('连续3次轮询失败后标记离线，成功后恢复', async () 
   useGameStore.getState().logout();
 });
 
+/* ---------- 战斗统计 ---------- */
+const {
+  createStatsTracker, applyEvents, applyEvent,
+  computeDps, formatStats, resetStats,
+} = await import('../src/utils/battleStats.js');
+
+await check('战斗统计：累积伤害/治疗/暴击/击杀并计算DPS', () => {
+  let stats = createStatsTracker();
+  applyEvents(stats, [
+    { kind: 'damage', target: 'enemy', value: 100, critical: true },
+    { kind: 'damage', target: 'enemy', value: 50 },
+    { kind: 'damage', target: 'player', value: 30 },
+    { kind: 'heal', target: 'player', value: 20 },
+    { kind: 'dodge', target: 'player' },
+    { kind: 'victory' },
+  ]);
+  assert.equal(stats.damageDealt, 150);
+  assert.equal(stats.damageTaken, 30);
+  assert.equal(stats.healing, 20);
+  assert.equal(stats.crits, 1);
+  assert.equal(stats.kills, 1);
+  assert.ok(stats.startTime > 0);
+  assert.ok(stats.endTime >= stats.startTime);
+});
+
+await check('formatStats 输出完整且空数据返回null', () => {
+  const stats = createStatsTracker();
+  applyEvent(stats, { kind: 'damage', target: 'enemy', value: 200 });
+  const fmt = formatStats(stats);
+  assert.ok(fmt);
+  assert.equal(fmt.dealt, 200);
+  assert.ok(fmt.dps >= 0);
+  assert.equal(formatStats(createStatsTracker()), null,
+    '无任何战斗数据应返回null');
+  const reset = resetStats(stats);
+  assert.equal(reset.damageDealt, 0);
+});
+
+await check('computeDps 时间跨度安全', () => {
+  assert.equal(computeDps(null), 0);
+  assert.equal(computeDps(createStatsTracker()), 0);
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));

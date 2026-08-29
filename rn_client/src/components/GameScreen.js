@@ -8,8 +8,10 @@ import { useGameStore } from '../store/useGameStore.js';
 import {
   lineKey,
 } from '../utils/segments.js';
-import { parseBattleLines } from '../utils/battleFeedback.js';
-import { extractSkillName } from '../utils/battleFeedback.js';
+import { parseBattleLines, extractSkillName } from '../utils/battleFeedback.js';
+import {
+  createStatsTracker, applyEvents, formatStats,
+} from '../utils/battleStats.js';
 import { parseSkillType } from '../utils/skillTypes.js';
 import { getImageBase } from '../api/mudApi.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
@@ -68,6 +70,8 @@ export default function GameScreen() {
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
   const [skillEffects, setSkillEffects] = useState([]);
+  const [statsSummary, setStatsSummary] = useState(null);
+  const statsRef = useRef(createStatsTracker());
   const lastPollRef = useRef(0);
   const inBattleRef = useRef(false);
   inBattleRef.current = store.inBattle;
@@ -120,6 +124,10 @@ export default function GameScreen() {
     prevLineCountRef.current = store.lines.length;
     const events = parseBattleLines(newLines);
     if (!events.length) return;
+    /* 累积战斗统计 */
+    applyEvents(statsRef.current, events);
+    const summary = formatStats(statsRef.current);
+    if (summary) setStatsSummary(summary);
     const batch = events.slice(0, 6).map((event, index) => ({
       ...event,
       id: `float-${Date.now()}-${index}`,
@@ -298,6 +306,36 @@ export default function GameScreen() {
           imageBase={imageBase}
         />
       )}
+      )}
+
+      {/* ===== 战斗统计条（战斗中常驻显示） ===== */}
+      {!!statsSummary && (
+        <View style={styles.statsBar}>
+          <Text style={styles.statsItem}>
+            输出 <Text style={styles.statsValue}>{fmt(statsSummary.dealt)}</Text>
+          </Text>
+          <Text style={styles.statsItem}>
+            DPS <Text style={[styles.statsValue, styles.statsDps]}>
+              {fmt(statsSummary.dps)}
+            </Text>
+          </Text>
+          <Text style={styles.statsItem}>
+            承受 <Text style={[statsSummary.taken > statsSummary.dealt
+              ? styles.statsWarn : styles.statsValue]}>
+              {fmt(statsSummary.taken)}
+            </Text>
+          </Text>
+          {statsSummary.crits > 0 && (
+            <Text style={styles.statsItem}>
+              暴击 <Text style={styles.statsCrit}>{statsSummary.crits}</Text>
+            </Text>
+          )}
+          {statsSummary.kills > 0 && (
+            <Text style={styles.statsItem}>
+              击杀 <Text style={styles.statsKill}>{statsSummary.kills}</Text>
+            </Text>
+          )}
+        </View>
       )}
 
       {/* ===== 浮动战斗数字层 ===== */}
@@ -674,6 +712,18 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -28, left: '50%',
     marginLeft: -12, zIndex: 10,
   },
+  statsBar: {
+    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
+    justifyContent: 'center', gap: 12, paddingVertical: 5,
+    paddingHorizontal: 10, backgroundColor: '#14101a',
+    borderBottomWidth: 1, borderBottomColor: '#2e2430',
+  },
+  statsItem: { color: '#8a7a8a', fontSize: 11 },
+  statsValue: { color: '#f0e6d2', fontSize: 11, fontWeight: '700' },
+  statsDps: { color: '#d4af37' },
+  statsCrit: { color: '#FFD700', fontSize: 11, fontWeight: '700' },
+  statsKill: { color: '#7ad08a', fontSize: 11, fontWeight: '700' },
+  statsWarn: { color: '#ff6b6a', fontSize: 11, fontWeight: '700' },
   offlineBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 6, backgroundColor: '#3d1018',
