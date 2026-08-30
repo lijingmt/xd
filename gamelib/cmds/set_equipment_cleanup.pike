@@ -202,6 +202,51 @@ mapping(string:mixed) perform_set_cleanup(object player,
 	return result;
 }
 
+/** 挂机套装回收开关（默认关闭；独立于智能清包，套装保护不受其品质档影响）。 */
+int query_set_recycle_enabled(object player)
+{
+	if(!player)
+		return 0;
+	return (int)(player["/plus/autofight_set_recycle"] || 0) == 1;
+}
+
+mapping(string:mixed) set_recycle_enabled(object player,int enabled)
+{
+	if(!player)
+		return (["ok":0,"message":"人物无效"]);
+	player["/plus/autofight_set_recycle"] = enabled ? 1 : 0;
+	return (["ok":1,"enabled":enabled?1:0]);
+}
+
+/**
+ * 挂机自动套装回收tick：只处理"同系列+同职业+同主题+同部位"的
+ * 重复件（每组保留评分最高一件），复用手动清理的全部硬保护；
+ * 战斗中不执行（perform_set_cleanup自身也拒绝战斗态）。
+ * 返回 (["count":N,"money":M])。
+ */
+mapping(string:mixed) auto_set_recycle_tick(object player)
+{
+	mapping(string:mixed) result = (["count":0,"money":0]);
+	array(object) candidates;
+	mapping(string:mixed) done;
+	if(!query_set_recycle_enabled(player) || !player ||
+	   player->query_in_combat())
+		return result;
+	mixed err = catch {
+		candidates = query_set_cleanup_candidates(player);
+	};
+	if(err || !arrayp(candidates) || !sizeof(candidates))
+		return result;
+	err = catch {
+		done = perform_set_cleanup(player,candidates);
+	};
+	if(err || !mappingp(done))
+		return result;
+	result["count"] = (int)done["count"];
+	result["money"] = (int)done["money"];
+	return result;
+}
+
 string render_set_manager(object player)
 {
 	mapping(string:int) collections=([]);

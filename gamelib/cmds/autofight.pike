@@ -207,7 +207,12 @@ private void show_cleanup_settings(object me,string notice)
 		((int)me["/plus/autofight_sell_weapon"] == 1 ? "武器 " : "")+
 		((int)me["/plus/autofight_sell_armor"] == 1 ? "防具 " : "")+
 		((int)me["/plus/autofight_sell_accessory"] == 1 ?
-			"首饰/饰物" : "")+"\n\n";
+			"首饰/饰物" : "")+"\n";
+	out += "套装回收："+
+		(((object)(ROOT+"/gamelib/cmds/set_equipment_cleanup.pike"))
+			->query_set_recycle_enabled(me) ?
+			"已开启（挂机自动回收重复套装件，每组保留最好一件）" :
+			"未开启")+"\n\n";
 
 	out += vip_label(1)+"：装备满包触发，一次清完符合规则的普通白装。\n";
 	out += vip_label(2)+"：装备90％触发，一次清完，可选含优良装备和3级保护线。\n";
@@ -918,6 +923,25 @@ int main(string|zero arg)
 			return 1;
 		}
 		show_cleanup_lists(me,"名称规则已更新。");
+		return 1;
+	}
+	if(action == "set_recycle"){
+		object cleanup_cmd = (object)(
+			ROOT+"/gamelib/cmds/set_equipment_cleanup.pike");
+		if(value != "on" && value != "off"){
+			show_cleanup_settings(me,
+				"用法：autofight set_recycle on/off。");
+			return 1;
+		}
+		mapping toggle = cleanup_cmd->set_recycle_enabled(
+			me,value == "on");
+		if(!(int)toggle["ok"]){
+			show_cleanup_settings(me,"套装回收设置失败。");
+			return 1;
+		}
+		show_cleanup_settings(me,(int)toggle["enabled"] ?
+			"挂机套装回收已开启：挂机中自动回收重复套装件（每组保留最好一件），绑定/任务/唯一等硬保护不变。" :
+			"挂机套装回收已关闭。");
 		return 1;
 	}
 	if(action == "sell"){

@@ -80,6 +80,29 @@ private int continue_auto_rest(object me)
 	return 1;
 }
 
+/** 挂机套装回收tick的安全包装：任何异常静默（不阻断挂机循环）。 */
+mapping catch_module_set_recycle(object me)
+{
+	object cleanup_cmd;
+	mapping result;
+	mixed err;
+	if(!me)
+		return 0;
+	err = catch {
+		cleanup_cmd = (object)(
+			ROOT+"/gamelib/cmds/set_equipment_cleanup.pike");
+	};
+	if(err || !cleanup_cmd)
+		return 0;
+	result = 0;
+	err = catch {
+		result = cleanup_cmd->auto_set_recycle_tick(me);
+	};
+	if(err)
+		return 0;
+	return result;
+}
+
 int main(string|zero arg)
 {
 	object me;
@@ -264,6 +287,19 @@ int main(string|zero arg)
 				(int)destroy_result["item_count"]+"个非装备物品。\n");
 			write("[查看清理设置:autofight cleanup]\n");
 			return 1;
+		}
+	}
+	/* 挂机套装回收：独立开关，先于智能清包处理重复套装件，
+	 * 既释放背包也避免套装被普通清包误伤（套装本就受保护）。 */
+	if(me->query_autofight() == "enable"){
+		mapping set_recycle_result = catch_module_set_recycle(me);
+		if(mappingp(set_recycle_result) &&
+		   (int)set_recycle_result["count"] > 0){
+			write("【套装回收】自动回收"+(int)set_recycle_result["count"]+
+				"件重复套装，获得"+
+				MUD_MONEYD->query_store_money_cn(
+					(int)set_recycle_result["money"])+"。\n");
+			write("[查看套装管理:set_equipment_cleanup]\n");
 		}
 	}
 	if(AUTOFIGHTD->should_auto_sell(me)){

@@ -44,6 +44,7 @@ const QUICK_TOOLS = [
   { icon: '🌊', label: '江湖', cmd: 'my_games' },
   { icon: '🌀', label: '传送', cmd: 'userlist' },
   { icon: '⚙️', label: '设置', cmd: 'game_detail' },
+  { icon: '♻️', label: '挂机设置', cmd: 'autofight' },
   { icon: '👑', label: '会员', cmd: 'vip_service_list' },
 ];
 
