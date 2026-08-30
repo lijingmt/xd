@@ -24,12 +24,16 @@
       }
     },
     "android": {
-      "package": "com.xiand.client",
+      "package": "com.wapmud.xiandao",
       "versionCode": 1,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/universal_icon.png",
+        "backgroundColor": "#0d0b0e"
+      }
     },
     "web": {
       "output": "single",

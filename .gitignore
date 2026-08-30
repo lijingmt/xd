@@ -31,3 +31,8 @@ gamelib/etc/iap_server_api_key.p8
 data_xiand/iap_transaction_ledger.json*
 gamelib/etc/iap_server_api.local.json
 data_xiand/deleted_characters/
+rn_client/android/local.properties
+rn_client/android/app/release.keystore
+rn_client/android/.gradle/
+rn_client/android/app/build/
+rn_client/android/build/
