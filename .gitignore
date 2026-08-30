@@ -30,3 +30,4 @@ web/web_vue/manifest.json
 gamelib/etc/iap_server_api_key.p8
 data_xiand/iap_transaction_ledger.json*
 gamelib/etc/iap_server_api.local.json
+data_xiand/deleted_characters/
