@@ -85,3 +85,29 @@ export function characterCard(character) {
     ready: !!source.ready,
   };
 }
+
+/** 整账号删除（Apple应用内删除账号要求）：三重确认由服务端校验。 */
+export async function deleteAccount(token, accountPassword,
+  confirmAccountId, requestId, fetchImpl) {
+  const response = await postJson('/api/account/delete_account', {
+    token,
+    account_password: String(accountPassword || ''),
+    confirm_account_id: String(confirmAccountId || ''),
+    request_id: String(requestId || ''),
+  }, fetchImpl);
+  return response;
+}
+
+/** 生成64位hex删除请求编号（服务端幂等回执）。 */
+export function newDeleteRequestId() {
+  const bytes = new Uint8Array(32);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes,
+    b => b.toString(16).padStart(2, '0')).join('');
+}

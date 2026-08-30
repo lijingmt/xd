@@ -968,6 +968,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/account/characters":
                 handle_api_account_characters(req);
                 break;
+			case "/api/account/delete_account":
+				handle_api_account_delete_account(req);
+				break;
 			case "/api/account/characters/delete":
 				handle_api_account_character_delete(req);
 				break;

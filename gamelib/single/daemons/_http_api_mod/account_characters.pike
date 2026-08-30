@@ -735,6 +735,87 @@ void handle_api_account_bookmark_revoke(Protocols.HTTP.Server.Request req)
 	send_json(req,result);
 }
 
+/**
+ * 整账号删除（Apple 5.1.1(v) 应用内删除账号）。
+ * 三重确认：账号令牌 + 账号密码 + 手输账号ID；成功后清账号会话。
+ */
+void handle_api_account_delete_account(
+	Protocols.HTTP.Server.Request req)
+{
+	mapping params;
+	mapping retired;
+	string token;
+	string account_id;
+	string confirmed_id;
+	string account_password;
+	string stored_password;
+	string request_id;
+	string client_ip = normalize_http_client_ip(
+		req->remote_addr || "unknown");
+	if(req->request_type!="POST"){
+		send_json(req,(["error":"请使用POST删除账号"]),405);
+		return;
+	}
+	params = get_params(req);
+	token = lower_case(String.trim_all_whites(
+		(string)(params["token"] || "")));
+	account_id = query_account_session(token);
+	if(account_id==""){
+		send_json(req,(["error":"账号会话已过期，请重新登录"]),401);
+		return;
+	}
+	confirmed_id = String.trim_all_whites(
+		(string)(params["confirm_account_id"] || ""));
+	account_password = (string)(params["account_password"] || "");
+	request_id = lower_case(String.trim_all_whites(
+		(string)(params["request_id"] || "")));
+	if(confirmed_id!="" && confirmed_id!=account_id){
+		send_json(req,(["error":"输入的账号ID与当前账号不一致"]),400);
+		return;
+	}
+	if(confirmed_id==""){
+		send_json(req,(["error":"请完整输入账号ID进行二次确认"]),400);
+		return;
+	}
+	if(sizeof(request_id)!=64 ||
+	   sizeof(replace(request_id,
+		"0123456789abcdef"/"", ({})*16))!=0){
+		send_json(req,(["error":"删除请求编号无效"]),400);
+		return;
+	}
+	if(check_login_rate_limit(client_ip)){
+		send_json(req,(["error":"认证尝试过于频繁，请稍后再试"]),429);
+		return;
+	}
+	stored_password = get_user_password(account_id);
+	if(!stored_password || stored_password=="" ||
+	   account_password!=stored_password){
+		send_account_auth_error(req,client_ip);
+		return;
+	}
+	retired = ACCOUNT_CHARACTERD->retire_entire_account(
+		account_id,request_id);
+	if(!(int)retired["ok"]){
+		send_json(req,(["error":(string)(retired["message"] ||
+			"账号删除失败")]),409);
+		return;
+	}
+	/* 账号档案已删：清全部会话，客户端收到成功后自行登出。 */
+	object sessions_key = account_sessions_lock->lock();
+	foreach(indices(account_sessions),string one_token){
+		if((string)account_sessions[one_token]["account_id"]==
+		   account_id)
+			m_delete(account_sessions,one_token);
+	}
+	destruct(sessions_key);
+	send_json(req,([
+		"ok":1,
+		"account_deleted":1,
+		"archived_characters":(int)retired["archived"],
+		"message":"账号已删除，全部人物数据已安全归档。",
+	]));
+}
+
 void handle_api_account_logout(Protocols.HTTP.Server.Request req)
 {
 	if(req->request_type!="POST"){

@@ -20,6 +20,7 @@ import {
   DEFAULT_UI_SETTINGS,
 } from '../utils/uiSettings.js';
 import { sessionSummary } from '../utils/parallelAfk.js';
+import * as accountApi from '../api/accountApi.js';
 import BattleScene from './BattleScene.js';
 import { SmartImage } from './GameSmartImage.js';
 import EquipmentPanel from './EquipmentPanel.js';
@@ -120,6 +121,99 @@ function MenuRow({ icon, label, onPress, danger }) {
   );
 }
 
+/* 删除账号确认弹窗：输入账号ID+密码双确认，服务端归档全部人物。 */
+function DeleteAccountModal({ visible, onClose }) {
+  const accountToken = useGameStore(state => state.accountToken);
+  const userid = useGameStore(state => state.userid);
+  const logout = useGameStore(state => state.logout);
+  const [accountId, setAccountId] = useState('');
+  const [password, setPassword] = useState('');
+  const [phase, setPhase] = useState('input'); /* input|busy|done|error */
+  const [message, setMessage] = useState('');
+
+  const submit = async () => {
+    if (accountId.trim() !== userid) {
+      setPhase('error');
+      setMessage('输入的账号ID与当前登录账号不一致');
+      return;
+    }
+    setPhase('busy');
+    setMessage('');
+    try {
+      await accountApi.deleteAccount(accountToken, password,
+        accountId.trim(), accountApi.newDeleteRequestId());
+      setPhase('done');
+      setMessage('账号已删除，全部人物数据已安全归档');
+    } catch (e) {
+      setPhase('error');
+      setMessage(e.message || '删除失败，请稍后再试');
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade"
+      onRequestClose={onClose}>
+      <Pressable style={styles.menuOverlay} onPress={onClose}>
+        <View style={styles.deletePanel}
+          onStartShouldSetResponder={() => true}>
+          <Text style={styles.deleteTitle}>🗑️ 删除账号</Text>
+          <Text style={styles.deleteWarning}>
+            将永久删除账号「{userid}」及其全部人物，所有数据归档后不可
+            恢复。为防误删，请输入账号ID与密码确认。
+          </Text>
+          {phase === 'done' ? (
+            <>
+              <Text style={styles.deleteDone}>✓ {message}</Text>
+              <TouchableOpacity style={styles.deleteButton}
+                onPress={logout}>
+                <Text style={styles.deleteButtonText}>完成</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.deleteInput}
+                value={accountId}
+                onChangeText={setAccountId}
+                autoCapitalize="none" autoCorrect={false}
+                placeholder={`输入账号ID：${userid}`}
+                placeholderTextColor="#6a5a6a"
+              />
+              <TextInput
+                style={styles.deleteInput}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="输入账号密码"
+                placeholderTextColor="#6a5a6a"
+              />
+              {phase === 'error' && !!message && (
+                <Text style={styles.deleteError}>{message}</Text>
+              )}
+              <TouchableOpacity
+                style={[styles.deleteButton,
+                  (phase === 'busy' || !accountId || !password) &&
+                    styles.deleteButtonDisabled]}
+                disabled={phase === 'busy' || !accountId || !password}
+                onPress={submit}>
+                {phase === 'busy'
+                  ? <ActivityIndicator size="small" color="#ffe3e8" />
+                  : <Text style={styles.deleteButtonText}>
+                      永久删除账号
+                    </Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteCancel}
+                onPress={onClose}>
+                <Text style={styles.deleteCancelText}>取消</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function GameScreen() {
   const store = useGameStore();
   const listRef = useRef(null);
@@ -128,6 +222,7 @@ export default function GameScreen() {
   const [equipOpen, setEquipOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
@@ -714,6 +809,12 @@ export default function GameScreen() {
         onClose={() => setRechargeOpen(false)}
       />
 
+      {/* ===== 删除账号确认（Apple 5.1.1(v)） ===== */}
+      <DeleteAccountModal
+        visible={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+      />
+
       {/* ===== 右上角菜单：复刻网页版 ☰ 下拉 ===== */}
       <Modal visible={menuOpen} transparent animationType="fade"
         onRequestClose={() => setMenuOpen(false)}>
@@ -782,6 +883,11 @@ export default function GameScreen() {
               onPress={() => {
                 setMenuOpen(false);
                 store.backToDashboard();
+              }} />
+            <MenuRow icon="🗑️" label="删除账号"
+              onPress={() => {
+                setMenuOpen(false);
+                setDeleteOpen(true);
               }} />
             <MenuRow icon="🚪" label="退出登录" danger
               onPress={() => {
@@ -989,6 +1095,31 @@ const styles = StyleSheet.create({
   menuRowIcon: { fontSize: 15, width: 22, textAlign: 'center' },
   menuRowLabel: { color: '#f0e6d2', fontSize: 14, flex: 1 },
   menuRowDanger: { color: '#ff9aa8' },
+  deletePanel: {
+    marginTop: 120, marginHorizontal: 28, borderRadius: 14,
+    backgroundColor: '#17131c', borderWidth: 1, borderColor: '#5a1a2a',
+    padding: 18, gap: 12,
+  },
+  deleteTitle: { color: '#ff9aa8', fontSize: 17, fontWeight: '700',
+    textAlign: 'center' },
+  deleteWarning: { color: '#a89aa8', fontSize: 12, lineHeight: 18 },
+  deleteInput: {
+    backgroundColor: '#1a141c', borderRadius: 10, borderWidth: 1,
+    borderColor: '#3a2f46', paddingHorizontal: 12, paddingVertical: 10,
+    color: '#f0e6d2', fontSize: 14, minHeight: 42,
+  },
+  deleteButton: {
+    borderRadius: 10, borderWidth: 1, borderColor: '#ff4d6d',
+    backgroundColor: '#3d1018', paddingVertical: 12,
+    alignItems: 'center',
+  },
+  deleteButtonDisabled: { opacity: 0.5 },
+  deleteButtonText: { color: '#ffe3e8', fontSize: 14, fontWeight: '600' },
+  deleteCancel: { alignItems: 'center', paddingVertical: 6 },
+  deleteCancelText: { color: '#8a7a8a', fontSize: 13 },
+  deleteDone: { color: '#9ad0a0', fontSize: 14, textAlign: 'center',
+    lineHeight: 20 },
+  deleteError: { color: '#ff9aa8', fontSize: 12 },
   statRows: { gap: 4 },
   buffRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2,

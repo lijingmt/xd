@@ -2291,8 +2291,116 @@ private int character_is_locally_online(string account_id,
  * moving its physical save files into a restricted recovery archive.  No
  * player data is unlinked; an administrator can restore the receipt manually.
  */
+/**
+ * 整账号删除（Apple 5.1.1(v) 应用内删除账号要求）：
+ * 归档全部人物（含默认人物，凭allow_root放行一次），再删除账号
+ * 索引记录。调用方必须已完成账号令牌+密码+输入账号ID三重确认。
+ * 返回 (["ok":1,"archived":N]) 或 (["ok":0,"message":...])，
+ * 失败时已完成归档的人物保持已归档状态（安全方向：宁可多归档）。
+ */
+mapping(string:mixed) retire_entire_account(string account_id,
+	string receipt_hash)
+{
+	mapping(string:mixed) result = (["ok":0,
+		"message":"账号删除失败，账号保持不变。"]);
+	mapping(string:mixed)|zero record;
+	array(mapping(string:string)) characters;
+	int archived = 0;
+	object key;
+
+	if(!valid_userid(account_id) || !valid_sha256_hex(receipt_hash))
+		return result;
+	/* 在线人物先安全下线（保存并断开），否则retire会失败关闭。 */
+	{
+		array online = ({});
+		object state_key = account_online_state_lock->lock();
+		foreach(account_online_players[account_id] || ({}),object p)
+			if(objectp(p) && !object_in_array(online,p))
+				online += ({p});
+		destruct(state_key);
+		foreach(online,object p)
+			disconnect_online_character(p,"账号删除");
+	}
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"账号档案不存在"]);
+	}
+	characters = ({});
+	foreach((array)record["characters"],mapping entry){
+		if(mappingp(entry) && stringp(entry["id"]))
+			characters += ({entry});
+	}
+	destruct(key);
+
+	/* 先删非默认人物，最后删默认人物；任一失败立即中止，
+	 * 账号记录仍在，玩家可重试（幂等：已归档人物会被跳过）。 */
+	foreach(characters,mapping entry){
+		string cid = (string)entry["id"];
+		if(cid==account_id)
+			continue;
+		mapping one = retire_account_character(account_id,cid,
+			String.string2hex(Crypto.SHA256.hash(
+				receipt_hash+":"+cid)));
+		if(!(int)one["ok"]){
+			return (["ok":0,"message":(string)(
+				one["message"] || "人物归档失败，账号保持不变。")]);
+		}
+		archived += 1;
+	}
+	/* 默认人物不走单人物归档（记录校验要求账号至少保留一个人物，
+	 * 空记录会保存失败并回滚）：这里直接归档其物理档案并写清单，
+	 * 随后整条账号记录将被删除，无需再维护人物索引。 */
+	{
+		string root_receipt = String.string2hex(Crypto.SHA256.hash(
+			receipt_hash+":root"));
+		string root_archive = deleted_character_archive_dir(
+			account_id,root_receipt);
+		string root_source = user_file_path(account_id);
+		mapping root_manifest = ([
+			"version":1,"state":"archived",
+			"account_id":account_id,
+			"character_id":account_id,
+			"receipt_hash":root_receipt,
+			"requested_at":time(),
+			"root_character":1,
+		]);
+		if(root_archive==""){
+			return (["ok":0,
+				"message":"默认人物归档路径无效，账号保持不变。"]);
+		}
+		if(Stdio.file_size(root_source)>0){
+			if(!write_deleted_character_manifest(root_archive,
+				root_manifest)){
+				return (["ok":0,
+					"message":"默认人物归档清单写入失败，账号保持不变。"]);
+			}
+			foreach(({"",".bak",".tmp",".bak.tmp"}),string suffix){
+				string one = root_source+suffix;
+				if(Stdio.file_size(one)>0 &&
+				   !mv(one,root_archive+"/profile.o"+suffix))
+					return (["ok":0,
+						"message":"默认人物档案移动失败，账号保持不变。"]);
+			}
+			archived += 1;
+		}
+	}
+
+	/* 无条件删除账号记录：不能在此加载记录（带修复标志的加载会
+	 * 从默认人物.o重建记录并回存，导致记录复活与.o重现）。 */
+	key = account_character_lock->lock();
+	rm(account_file_path(account_id));
+	rm(account_file_path(account_id)+".bak");
+	rm(account_file_path(account_id)+".tmp");
+	m_delete(account_cache,account_id);
+	destruct(key);
+	invalidate_worker_account_cache(account_id);
+	return (["ok":1,"archived":archived]);
+}
+
 mapping(string:mixed) retire_account_character(string account_id,
-	string character_id,string receipt_hash)
+	string character_id,string receipt_hash,void|int allow_root)
 {
 	mapping(string:mixed) result = (["ok":0,
 		"message":"人物安全归档失败，原人物保持不变。"]) ;
@@ -2311,9 +2419,10 @@ mapping(string:mixed) retire_account_character(string account_id,
 	int resuming_after_move;
 	object key;
 	if(!valid_userid(account_id) || !valid_userid(character_id) ||
-	   !valid_sha256_hex(receipt_hash))
+	   !valid_sha256_hex(receipt_hash)){
 		return result;
-	if(character_id==account_id){
+	}
+	if(character_id==account_id && !allow_root){
 		result["message"] = "注册账号的默认人物不能删除。";
 		return result;
 	}

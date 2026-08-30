@@ -1464,6 +1464,41 @@ await check('注册表单校验：分区/账号/密码/确认全覆盖', () => {
     password: '1234', confirm: '4321' }), '两次输入的密码不一致');
 });
 
+/* ---------- 删除账号 ---------- */
+const { deleteAccount, newDeleteRequestId } = accountApi;
+
+await check('newDeleteRequestId 生成64位小写hex且不重复', () => {
+  const a = newDeleteRequestId();
+  const b = newDeleteRequestId();
+  assert.equal(a.length, 64);
+  assert.match(a, /^[0-9a-f]{64}$/);
+  assert.notEqual(a, b);
+});
+
+await check('deleteAccount POST 三重确认字段到 /api/account/delete_account', async () => {
+  const calls = [];
+  const impl = async (url, options) => {
+    calls.push({ url: String(url), options });
+    return { ok: true, status: 200, json: async () => ({ ok: 1, archived_characters: 2 }) };
+  };
+  const result = await deleteAccount('TK', 'pw9', 'xd01abc', 'f'.repeat(64), impl);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.endsWith('/api/account/delete_account'));
+  assert.equal(calls[0].options.method, 'POST');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.token, 'TK');
+  assert.equal(body.account_password, 'pw9');
+  assert.equal(body.confirm_account_id, 'xd01abc');
+  assert.equal(body.request_id, 'f'.repeat(64));
+  assert.equal(result.ok, 1);
+
+  await assert.rejects(() => deleteAccount('TK', 'bad', 'xd01abc',
+    'f'.repeat(64), async () => ({
+      ok: false, status: 409,
+      json: async () => ({ error: '账号删除失败' }),
+    })), /账号删除失败/);
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));
