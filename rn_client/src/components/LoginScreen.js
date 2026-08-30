@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator,
@@ -23,6 +23,22 @@ export default function LoginScreen() {
   const [regBusy, setRegBusy] = useState(false);
   const [regDone, setRegDone] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState([]);
+  /* 测试服彩蛋：连点Logo 5次解锁（3秒内），正式版玩家不可见。 */
+  const [devUnlock, setDevUnlock] = useState(false);
+  const logoTapsRef = useRef({ count: 0, first: 0 });
+  const tapLogo = () => {
+    const now = Date.now();
+    const state = logoTapsRef.current;
+    if (now - state.first > 3000) {
+      state.count = 0;
+      state.first = now;
+    }
+    state.count += 1;
+    if (state.count >= 5) {
+      state.count = 0;
+      setDevUnlock(true);
+    }
+  };
 
   const register = async () => {
     const problem = validateRegisterForm(
@@ -86,11 +102,12 @@ export default function LoginScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <View style={styles.brandGlow}>
+      <TouchableOpacity style={styles.brandGlow} activeOpacity={0.9}
+        onPress={tapLogo} disabled={devUnlock}>
         <View style={styles.brandMark}>
           <Text style={styles.brandText}>仙</Text>
         </View>
-      </View>
+      </TouchableOpacity>
       <Text style={styles.title}>仙道wapmud</Text>
       <Text style={styles.subtitle}>东方幻想 · 十职同行</Text>
       <Text style={styles.kicker}>原生客户端 · 挂机不占屏</Text>
@@ -104,28 +121,32 @@ export default function LoginScreen() {
             onPress={() => setApiBase(WAN_API_BASE)}>
             <Text style={[styles.presetText,
               apiBase === WAN_API_BASE && styles.presetTextActive]}>
-              🌐 外网
+              🌐 主服务器
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.presetChip,
-              apiBase === LAN_API_BASE && styles.presetChipActive]}
-            onPress={() => setApiBase(LAN_API_BASE)}>
-            <Text style={[styles.presetText,
-              apiBase === LAN_API_BASE && styles.presetTextActive]}>
-              🏠 内网
-            </Text>
-          </TouchableOpacity>
+          {devUnlock && (
+            <TouchableOpacity
+              style={[styles.presetChip,
+                apiBase === LAN_API_BASE && styles.presetChipActive]}
+              onPress={() => setApiBase(LAN_API_BASE)}>
+              <Text style={[styles.presetText,
+                apiBase === LAN_API_BASE && styles.presetTextActive]}>
+                🧪 测试
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <TextInput
-          style={styles.input}
-          value={apiBase}
-          onChangeText={setApiBase}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="https://… 或 http://192.168.x.x:8888"
-          placeholderTextColor="#6a5a6a"
-        />
+        {devUnlock && (
+          <TextInput
+            style={styles.input}
+            value={apiBase}
+            onChangeText={setApiBase}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="https://… 或 http://192.168.x.x:8888"
+            placeholderTextColor="#6a5a6a"
+          />
+        )}
 
         <Text style={styles.label}>分区</Text>
         <View style={styles.partitionRow}>
@@ -238,7 +259,7 @@ export default function LoginScreen() {
                     {entry.userid}
                   </Text>
                   <Text style={styles.savedMeta} numberOfLines={1}>
-                    {entry.apiBase === LAN_API_BASE ? '局域网' : '官方服'} · 一键进入
+                    {entry.apiBase === LAN_API_BASE ? '测试服' : '主服'} · 一键进入
                   </Text>
                 </View>
                 <Text style={styles.savedGo}>→</Text>
