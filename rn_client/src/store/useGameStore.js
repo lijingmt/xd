@@ -578,7 +578,11 @@ export const useGameStore = create((set, get) => ({
       set({ txd: data.txd || txd });
       const lines = Array.isArray(data.lines)
         ? filterGarbageLines(data.lines) : null;
-      if (lines) set({ lines: lines.slice(-MAX_LINES) });
+      /* 空画面不替换屏幕：刚开挂机时首个flushview可能还没有
+       * 内容（服务端首帧未生成），清屏会出现"暂无内容"闪断。 */
+      if (lines && lines.length) {
+        set({ lines: lines.slice(-MAX_LINES) });
+      }
       const refresh = data.refresh || {};
       if (refresh.player && typeof refresh.player === 'object') {
         /* pet_assist 可能是数字0（无宠物），归一化为null防React渲染"0" */
