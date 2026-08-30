@@ -4,6 +4,8 @@ import {
   StyleSheet, Modal, ScrollView,
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
+import { getImageBase } from '../api/mudApi.js';
+import { SmartImage } from './GameSmartImage.js';
 import {
   RACES, professionsForRace, avatarChoicesFor,
 } from '../data/characterOptions.js';
@@ -18,6 +20,7 @@ export default function CharacterCreateModal({ visible, onClose }) {
   const [sex, setSex] = useState('male');
   const [name, setName] = useState('');
   const [avatarId, setAvatarId] = useState('');
+  const apiBase = useGameStore(state => state.apiBase);
 
   const professions = useMemo(
     () => professionsForRace(raceId, accountUnlocks, 'eternal'),
@@ -115,16 +118,15 @@ export default function CharacterCreateModal({ visible, onClose }) {
           <>
             <Text style={styles.label}>头像</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}>
+              contentContainerStyle={styles.avatarRow}>
               {avatars.map(avatar => (
                 <TouchableOpacity key={avatar}
-                  style={[styles.chip,
-                    avatarId === avatar && styles.chipActive]}
+                  style={[styles.avatarFrame,
+                    avatarId === avatar && styles.avatarFrameActive]}
                   onPress={() => setAvatarId(avatar)}>
-                  <Text style={[styles.chipText,
-                    avatarId === avatar && styles.chipTextActive]}>
-                    {avatar}
-                  </Text>
+                  <SmartImage
+                    uri={`${getImageBase(apiBase)}/images/${avatar}.gif`}
+                    style={styles.avatarImage} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -147,6 +149,14 @@ export default function CharacterCreateModal({ visible, onClose }) {
 }
 
 const styles = StyleSheet.create({
+  avatarRow: { gap: 10, paddingVertical: 4 },
+  avatarFrame: {
+    width: 62, height: 62, borderRadius: 12, borderWidth: 1,
+    borderColor: '#3a2f46', backgroundColor: '#1a141c',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  avatarFrameActive: { borderColor: '#d4af37', backgroundColor: '#2d2410' },
+  avatarImage: { width: 52, height: 52, borderRadius: 9 },
   screen: { flex: 1, backgroundColor: '#0d0b0e' },
   container: { padding: 20, paddingTop: 64 },
   headRow: {
