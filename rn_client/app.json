@@ -44,6 +44,17 @@
       "android",
       "web"
     ],
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minifyEnabled": true,
+            "shrinkResources": true
+          }
+        }
+      ]
+    ],
     "scheme": "xiand"
   }
 }
