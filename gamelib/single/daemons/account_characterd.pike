@@ -2387,8 +2387,9 @@ mapping(string:mixed) retire_entire_account(string account_id,
 		}
 	}
 
-	/* 无条件删除账号记录：不能在此加载记录（带修复标志的加载会
-	 * 从默认人物.o重建记录并回存，导致记录复活与.o重现）。 */
+	/* 无条件删除账号级文件：不能在此加载记录（带修复标志的加载会
+	 * 从默认人物.o重建记录并回存，导致记录复活与.o重现）。钱包与
+	 * 共享仓库一并归档进root回执目录后移除（Apple要求彻底删除）。 */
 	key = account_character_lock->lock();
 	rm(account_file_path(account_id));
 	rm(account_file_path(account_id)+".bak");
@@ -2396,6 +2397,22 @@ mapping(string:mixed) retire_entire_account(string account_id,
 	m_delete(account_cache,account_id);
 	destruct(key);
 	invalidate_worker_account_cache(account_id);
+	{
+		string acct_prefix = DATA_ROOT+"accounts/"+
+			account_id[sizeof(account_id)-2..]+"/"+account_id;
+		string root_receipt2 = String.string2hex(Crypto.SHA256.hash(
+			receipt_hash+":root"));
+		string root_archive2 = deleted_character_archive_dir(
+			account_id,root_receipt2);
+		foreach(({".wallet.json",".storage.json"}),
+			string acct_suffix){
+			string one = acct_prefix+acct_suffix;
+			if(Stdio.file_size(one)>0 && root_archive2!="")
+				mv(one,root_archive2+"/account"+acct_suffix);
+			rm(one+".bak");
+			rm(one+".tmp");
+		}
+	}
 	return (["ok":1,"archived":archived]);
 }
 
